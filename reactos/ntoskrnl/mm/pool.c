@@ -14,11 +14,6 @@
 #define NDEBUG
 #include <debug.h>
 
-/* Uncomment to enable pool overruns debugging */
-//#define DEBUG_NPOOL
-//#define DEBUG_PPOOL
-
-extern PVOID MiNonPagedPoolStart;
 extern ULONG MiNonPagedPoolLength;
 extern ULONG MmTotalPagedPoolQuota;
 extern ULONG MmTotalNonPagedPoolQuota;
@@ -58,23 +53,13 @@ EiAllocatePool(POOL_TYPE PoolType,
     {
         if (KeGetCurrentIrql() > APC_LEVEL)
             KeBugCheckEx(BAD_POOL_CALLER, 0x08, KeGetCurrentIrql(), PoolType, Tag);
-#ifdef DEBUG_PPOOL
-        if (ExpIsPoolTagDebuggable(Tag))
-            Block = ExpAllocateDebugPool(PoolType, NumberOfBytes, Tag, Caller, TRUE);
-        else
-#endif
-            Block = ExAllocatePagedPoolWithTag(PoolType, NumberOfBytes, Tag);
+        Block = ExAllocatePagedPoolWithTag(PoolType, NumberOfBytes, Tag);
     }
     else
     {
         if (KeGetCurrentIrql() > DISPATCH_LEVEL)
             KeBugCheckEx(BAD_POOL_CALLER, 0x08, KeGetCurrentIrql(), PoolType, Tag);
-#ifdef DEBUG_NPOOL
-        if (ExpIsPoolTagDebuggable(Tag))
-            Block = ExpAllocateDebugPool(PoolType, NumberOfBytes, Tag, Caller, TRUE);
-        else
-#endif
-            Block = ExAllocateNonPagedPoolWithTag(PoolType, NumberOfBytes, Tag, Caller);
+        Block = ExAllocateNonPagedPoolWithTag(PoolType, NumberOfBytes, Tag, Caller);
     }
 
     if ((PoolType & MUST_SUCCEED_POOL_MASK) && !Block)
@@ -249,87 +234,37 @@ ExAllocatePoolWithQuotaTag (IN POOL_TYPE PoolType,
 VOID NTAPI
 ExFreePool(IN PVOID Block)
 {
-    ExFreePoolWithTag(Block, 0);
+    if (Block >= MmPagedPoolBase && (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
+    {
+        if (KeGetCurrentIrql() > APC_LEVEL)
+            KeBugCheckEx(BAD_POOL_CALLER, 0x09, KeGetCurrentIrql(), PagedPool, (ULONG_PTR)Block);
+        ExFreePagedPool(Block);
+    }
+    else
+    {
+        if (KeGetCurrentIrql() > DISPATCH_LEVEL)
+            KeBugCheckEx(BAD_POOL_CALLER, 0x09, KeGetCurrentIrql(), NonPagedPool, (ULONG_PTR)Block);
+        ExFreeNonPagedPool(Block);
+    }
 }
 
 /*
  * @implemented
  */
-VOID
-NTAPI
-ExFreePoolWithTag(
-    IN PVOID Block,
-    IN ULONG Tag)
+VOID NTAPI
+ExFreePoolWithTag(IN PVOID Block, IN ULONG Tag)
 {
-    /* Check for paged pool */
-    if (Block >= MmPagedPoolBase && 
-        (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
-    {
-        /* Validate tag */
-        if (Tag != 0 && Tag != EiGetPagedPoolTag(Block))
-            KeBugCheckEx(BAD_POOL_CALLER,
-                         0x0a,
-                         (ULONG_PTR)Block,
-                         EiGetPagedPoolTag(Block),
-                         Tag);
+    ULONG BlockTag;
 
-        /* Validate IRQL */
-        if (KeGetCurrentIrql() > APC_LEVEL)
-            KeBugCheckEx(BAD_POOL_CALLER,
-                         0x09,
-                         KeGetCurrentIrql(),
-                         PagedPool,
-                         (ULONG_PTR)Block);
-
-        /* Free from paged pool */
-#ifdef DEBUG_PPOOL
-        if (ExpIsPoolTagDebuggable(Tag))
-            ExpFreeDebugPool(Block, TRUE);
-        else
-#endif
-            ExFreePagedPool(Block);
-    }
-
-    /* Check for non-paged pool */
-    else if (Block >= MiNonPagedPoolStart &&
-             (char*)Block < ((char*)MiNonPagedPoolStart + MiNonPagedPoolLength))
-    {
-        /* Validate tag */
-        if (Tag != 0 && Tag != EiGetNonPagedPoolTag(Block))
-            KeBugCheckEx(BAD_POOL_CALLER,
-                         0x0a,
-                         (ULONG_PTR)Block,
-                         EiGetNonPagedPoolTag(Block),
-                         Tag);
-
-        /* Validate IRQL */
-        if (KeGetCurrentIrql() > DISPATCH_LEVEL)
-            KeBugCheckEx(BAD_POOL_CALLER,
-                         0x09,
-                         KeGetCurrentIrql(),
-                         NonPagedPool,
-                         (ULONG_PTR)Block);
-
-        /* Free from non-paged pool */
-#ifdef DEBUG_NPOOL
-        if (ExpIsPoolTagDebuggable(Tag))
-            ExpFreeDebugPool(Block, FALSE);
-        else
-#endif
-            ExFreeNonPagedPool(Block);
-    }
+    if (Block >= MmPagedPoolBase && (char*)Block < ((char*)MmPagedPoolBase + MmPagedPoolSize))
+        BlockTag = EiGetPagedPoolTag(Block);
     else
-    {
-        /* Warn only for NULL pointers */
-        if (Block == NULL)
-        {
-            DPRINT1("Warning: Trying to free a NULL pointer!\n");
-            return;
-        }
+        BlockTag = EiGetNonPagedPoolTag(Block);
 
-        /* Block was not inside any pool! */
-        KeBugCheckEx(BAD_POOL_CALLER, 0x42, (ULONG_PTR)Block, 0, 0);
-    }
+    if (BlockTag != Tag)
+        KeBugCheckEx(BAD_POOL_CALLER, 0x0a, (ULONG_PTR)Block, BlockTag, Tag);
+
+    ExFreePool(Block);
 }
 
 /*

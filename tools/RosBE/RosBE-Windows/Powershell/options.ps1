@@ -9,33 +9,20 @@
 
 $host.ui.RawUI.WindowTitle = "Options"
 
-
-if "%ROS_ARCH%" == "amd64" (
-    $options=$_ROSBE_BASEDIR\Tools\options64.exe
-    $cfgfile=$ENV:APPDATA\RosBE\rosbe-options-amd64.cmd
-else
-    $options=$_ROSBE_BASEDIR\Tools\options.exe
-    $cfgfile=$ENV:APPDATA\RosBE\rosbe-options.cmd
-)
-
 #
 # Run options.exe
 #
-
-if (Test-Path "$options") {
+if (Test-Path "$_ROSBE_BASEDIR\Tools\options.exe") {
     Push-Location "$_ROSBE_BASEDIR"
-    & "$options" | out-null
+    & "$_ROSBE_BASEDIR\Tools\options.exe" | out-null
     Pop-Location
-    if (Test-Path "$cfgfile") {
-        & "$cfgfile"
+    if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options.cmd") {
+        & "$ENV:APPDATA\RosBE\rosbe-options.cmd"
     }
 } else {
-    "ERROR: options executable was not found."
+    "ERROR: options.exe was not found."
 }
 
 if ($_ROSBE_VERSION -ne $null) {
     $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"
 }
-
-$options = $null
-$cfgfile = $null

@@ -29,7 +29,6 @@ extern BOOLEAN PnpSystemInit;
 /* DATA **********************************************************************/
 
 PDRIVER_OBJECT IopRootDriverObject;
-FAST_MUTEX IopBusTypeGuidListLock;
 PIO_BUS_TYPE_GUID_LIST IopBusTypeGuidList = NULL;
 
 #if defined (ALLOC_PRAGMA)
@@ -280,7 +279,7 @@ IopGetBusTypeGuidIndex(LPGUID BusTypeGuid)
    PVOID NewList;
 
    /* Acquire the lock */
-   ExAcquireFastMutex(&IopBusTypeGuidListLock);
+   ExAcquireFastMutex(&IopBusTypeGuidList->Lock);
 
    /* Loop all entries */
    while (i < IopBusTypeGuidList->GuidCount)
@@ -334,7 +333,7 @@ IopGetBusTypeGuidIndex(LPGUID BusTypeGuid)
    IopBusTypeGuidList->GuidCount++;
 
 Quickie:
-   ExReleaseFastMutex(&IopBusTypeGuidListLock);
+   ExReleaseFastMutex(&IopBusTypeGuidList->Lock);
    return FoundIndex;
 }
 
@@ -747,7 +746,7 @@ IopSetDeviceInstanceData(HANDLE InstanceKey,
                                    &KeyName,
                                    0,
                                    REG_RESOURCE_LIST,
-                                   DeviceNode->BootResources,
+                                   &DeviceNode->BootResources,
                                    ListSize);
          }
       }
@@ -1047,7 +1046,7 @@ IopTranslateDeviceResources(
          {
             case CmResourceTypePort:
             {
-               ULONG AddressSpace = 1; /* IO space */
+               ULONG AddressSpace = 0; /* IO space */
                if (!HalTranslateBusAddress(
                   DeviceNode->ResourceList->List[i].InterfaceType,
                   DeviceNode->ResourceList->List[i].BusNumber,
@@ -1073,7 +1072,7 @@ IopTranslateDeviceResources(
             }
             case CmResourceTypeMemory:
             {
-               ULONG AddressSpace = 0; /* Memory space */
+               ULONG AddressSpace = 1; /* Memory space */
                if (!HalTranslateBusAddress(
                   DeviceNode->ResourceList->List[i].InterfaceType,
                   DeviceNode->ResourceList->List[i].BusNumber,
@@ -2844,8 +2843,7 @@ PnpInit(VOID)
     DPRINT("PnpInit()\n");
 
     KeInitializeSpinLock(&IopDeviceTreeLock);
-	ExInitializeFastMutex(&IopBusTypeGuidListLock);
-	
+
     /* Initialize the Bus Type GUID List */
     IopBusTypeGuidList = ExAllocatePool(PagedPool, sizeof(IO_BUS_TYPE_GUID_LIST));
     if (!IopBusTypeGuidList) {

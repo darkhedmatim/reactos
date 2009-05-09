@@ -263,8 +263,7 @@ DIB_24BPP_BitBlt(PBLTINFO BltInfo)
       }
       else
       {
-         if (BltInfo->Brush)
-            Pattern = BltInfo->Brush->iSolidColor;
+         Pattern = BltInfo->Brush->iSolidColor;
       }
    }
 
@@ -406,22 +405,13 @@ DIB_24BPP_ColorFill(SURFOBJ* DestSurface, RECTL* DestRect, ULONG color)
 
 BOOLEAN
 DIB_24BPP_TransparentBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
-                         RECTL*  DestRect,  RECTL *SourceRect,
+                         RECTL*  DestRect,  POINTL  *SourcePoint,
                          XLATEOBJ *ColorTranslation, ULONG iTransColor)
 {
-  ULONG X, Y, SourceX, SourceY = 0, Source = 0, wd, Dest;
+  ULONG X, Y, SourceX, SourceY, Source, wd, Dest;
   BYTE *DestBits;
 
-  LONG DstHeight;
-  LONG DstWidth;
-  LONG SrcHeight;
-  LONG SrcWidth;
-
-  DstHeight = DestRect->bottom - DestRect->top;
-  DstWidth = DestRect->right - DestRect->left;
-  SrcHeight = SourceRect->bottom - SourceRect->top;
-  SrcWidth = SourceRect->right - SourceRect->left;
-
+  SourceY = SourcePoint->y;
   DestBits = (BYTE*)((PBYTE)DestSurf->pvScan0 +
                       (DestRect->left * 3) +
                       DestRect->top * DestSurf->lDelta);
@@ -429,23 +419,19 @@ DIB_24BPP_TransparentBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
 
   for(Y = DestRect->top; Y < DestRect->bottom; Y++)
   {
-    SourceY = SourceRect->top+(Y - DestRect->top) * SrcHeight / DstHeight;
-    for(X = DestRect->left; X < DestRect->right; X++, DestBits += 3)
+    SourceX = SourcePoint->x;
+    for(X = DestRect->left; X < DestRect->right; X++, DestBits += 3, SourceX++)
     {
-      SourceX = SourceRect->left+(X - DestRect->left) * SrcWidth / DstWidth;
-      if (SourceX >= 0 && SourceY >= 0 &&
-          SourceSurf->sizlBitmap.cx > SourceX && SourceSurf->sizlBitmap.cy > SourceY)
+      Source = DIB_GetSourceIndex(SourceSurf, SourceX, SourceY);
+      if(Source != iTransColor)
       {
-        Source = DIB_GetSourceIndex(SourceSurf, SourceX, SourceY);
-        if(Source != iTransColor)
-        {
-          Dest = XLATEOBJ_iXlate(ColorTranslation, Source) & 0xFFFFFF;
-           *(PUSHORT)(DestBits) = Dest & 0xFFFF;
-           *(DestBits + 2) = Dest >> 16;
-        }
+        Dest = XLATEOBJ_iXlate(ColorTranslation, Source) & 0xFFFFFF;
+         *(PUSHORT)(DestBits) = Dest & 0xFFFF;
+         *(DestBits + 2) = Dest >> 16;
       }
     }
 
+    SourceY++;
     DestBits = (BYTE*)((ULONG_PTR)DestBits + wd);
   }
 

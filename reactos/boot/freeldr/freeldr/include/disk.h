@@ -104,14 +104,14 @@ typedef struct _MASTER_BOOT_RECORD
 // i386 BIOS Disk Functions (i386disk.c)
 //
 ///////////////////////////////////////////////////////////////////////////////////////
-#if defined(__i386__) || defined(_M_AMD64)
+#ifdef __i386__
 
 BOOLEAN	DiskResetController(ULONG DriveNumber);
 BOOLEAN	DiskInt13ExtensionsSupported(ULONG DriveNumber);
 //VOID	DiskStopFloppyMotor(VOID);
 BOOLEAN	DiskGetExtendedDriveParameters(ULONG DriveNumber, PVOID Buffer, USHORT BufferSize);
 
-#endif // defined __i386__ || defined(_M_AMD64)
+#endif // defined __i386__
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //

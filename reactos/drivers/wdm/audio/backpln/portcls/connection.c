@@ -1,12 +1,3 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/connection.c
- * PURPOSE:         portcls physical connection registration
- * PROGRAMMER:      Johannes Anderwald
- */
-
-
 #include "private.h"
 
 
@@ -103,6 +94,8 @@ cleanup:
     return Status;
 }
 
+
+
 /*
  * @implemented
  */
@@ -114,8 +107,8 @@ PcRegisterPhysicalConnection(
     IN  PUNKNOWN ToUnknown,
     IN  ULONG ToPin)
 {
-    DPRINT("PcRegisterPhysicalConnection\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+
+    DPRINT1("PcRegisterPhysicalConnection\n");
 
     if (!DeviceObject || !FromUnknown || !ToUnknown)
         return STATUS_INVALID_PARAMETER;
@@ -134,8 +127,6 @@ PcRegisterPhysicalConnectionFromExternal(
     IN  PUNKNOWN ToUnknown,
     IN  ULONG ToPin)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     if (!DeviceObject || !FromString || !ToUnknown)
         return STATUS_INVALID_PARAMETER;
 
@@ -153,8 +144,6 @@ PcRegisterPhysicalConnectionToExternal(
     IN  PUNICODE_STRING ToString,
     IN  ULONG ToPin)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     if (!DeviceObject || !FromUnknown || !ToString)
         return STATUS_INVALID_PARAMETER;
 

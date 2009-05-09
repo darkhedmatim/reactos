@@ -139,7 +139,7 @@ SeLocateProcessImageName(IN PEPROCESS Process,
         {
             /* Set it */
             if (InterlockedCompareExchangePointer(&Process->
-                                                  SeAuditProcessCreationInfo.ImageFileName,
+                                                  SeAuditProcessCreationInfo,
                                                   AuditName,
                                                   NULL))
             {
@@ -153,26 +153,29 @@ SeLocateProcessImageName(IN PEPROCESS Process,
         if (!NT_SUCCESS(Status)) return Status;
     }
 
-    /* Get audit info again, now we have it for sure */
-    AuditName = Process->SeAuditProcessCreationInfo.ImageFileName;
-
     /* Allocate the output string */
     ImageName = ExAllocatePoolWithTag(NonPagedPool,
                                       AuditName->Name.MaximumLength +
                                       sizeof(UNICODE_STRING),
                                       TAG_SEPA);
-    if (!ImageName) return STATUS_NO_MEMORY;
+    if (ImageName)
+    {
+        /* Make a copy of it */
+        RtlCopyMemory(ImageName,
+                      &AuditName->Name,
+                      AuditName->Name.MaximumLength + sizeof(UNICODE_STRING));
 
-    /* Make a copy of it */
-    RtlCopyMemory(ImageName,
-                  &AuditName->Name,
-                  AuditName->Name.MaximumLength + sizeof(UNICODE_STRING));
+        /* Fix up the buffer */
+        ImageName->Buffer = (PWSTR)(ImageName + 1);
 
-    /* Fix up the buffer */
-    ImageName->Buffer = (PWSTR)(ImageName + 1);
-
-    /* Return it */
-    *ProcessImageName = ImageName;
+        /* Return it */
+        *ProcessImageName = ImageName;
+    }
+    else
+    {
+        /* Otherwise, fail */
+        Status = STATUS_NO_MEMORY;
+    }
 
     /* Return status */
     return Status;

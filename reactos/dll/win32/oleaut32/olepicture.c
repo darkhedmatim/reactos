@@ -81,7 +81,8 @@
 #include "urlmon.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
-#include "wine/library.h"
+
+#include "wine/wingdi16.h"
 
 #include "ungif.h"
 
@@ -458,15 +459,15 @@ static HRESULT WINAPI OLEPictureImpl_QueryInterface(
    * Compare the riid with the interface IDs implemented by this object.
    */
   if (IsEqualIID(&IID_IUnknown, riid) || IsEqualIID(&IID_IPicture, riid))
-    *ppvObject = This;
+    *ppvObject = (IPicture*)This;
   else if (IsEqualIID(&IID_IDispatch, riid))
-    *ppvObject = &This->lpvtblIDispatch;
+    *ppvObject = (IDispatch*)&(This->lpvtblIDispatch);
   else if (IsEqualIID(&IID_IPictureDisp, riid))
-    *ppvObject = &This->lpvtblIDispatch;
+    *ppvObject = (IDispatch*)&(This->lpvtblIDispatch);
   else if (IsEqualIID(&IID_IPersist, riid) || IsEqualIID(&IID_IPersistStream, riid))
-    *ppvObject = &This->lpvtblIPersistStream;
+    *ppvObject = (IPersistStream*)&(This->lpvtblIPersistStream);
   else if (IsEqualIID(&IID_IConnectionPointContainer, riid))
-    *ppvObject = &This->lpvtblIConnectionPointContainer;
+    *ppvObject = (IConnectionPointContainer*)&(This->lpvtblIConnectionPointContainer);
 
   /*
    * Check that we obtained an interface.
@@ -1063,7 +1064,7 @@ struct gifdata {
 };
 
 static int _gif_inputfunc(GifFileType *gif, GifByteType *data, int len) {
-    struct gifdata *gd = gif->UserData;
+    struct gifdata *gd = (struct gifdata*)gif->UserData;
 
     if (len+gd->curoff > gd->len) {
         ERR("Trying to read %d bytes, but only %d available.\n",len, gd->len-gd->curoff);
@@ -2010,7 +2011,7 @@ static int serializeBMP(HBITMAP hBitmap, void ** ppBuffer, unsigned int * pLengt
     *ppBuffer = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, *pLength);
 
     /* Fill the BITMAPFILEHEADER */
-    pFileHeader = *ppBuffer;
+    pFileHeader = (BITMAPFILEHEADER *)(*ppBuffer);
     pFileHeader->bfType = BITMAP_FORMAT_BMP;
     pFileHeader->bfSize = *pLength;
     pFileHeader->bfOffBits =
@@ -2885,4 +2886,4 @@ static const IClassFactoryVtbl SPCF_Vtbl = {
 };
 static IClassFactoryImpl STDPIC_CF = {&SPCF_Vtbl, 1 };
 
-void _get_STDPIC_CF(LPVOID *ppv) { *ppv = &STDPIC_CF; }
+void _get_STDPIC_CF(LPVOID *ppv) { *ppv = (LPVOID)&STDPIC_CF; }

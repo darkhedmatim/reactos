@@ -59,15 +59,6 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 /* Number of list heads to use */
 #define MI_FREE_POOL_LISTS 4
 
-#define HYPER_SPACE		                    (0xC0400000)
-
-#define MI_HYPERSPACE_PTES                  (256 - 1)
-#define MI_MAPPING_RANGE_START              (ULONG)HYPER_SPACE
-#define MI_MAPPING_RANGE_END                (MI_MAPPING_RANGE_START + \
-                                             MI_HYPERSPACE_PTES * PAGE_SIZE)
-#define MI_ZERO_PTE                         (PMMPTE)(MI_MAPPING_RANGE_END + \
-                                             PAGE_SIZE)
-
 /* Signature of free pool blocks */
 #define MM_FREE_POOL_TAG    TAG('F', 'r', 'p', 'l')
 
@@ -388,7 +379,7 @@ extern MM_MEMORY_CONSUMER MiMemoryConsumers[MC_MAXIMUM];
 
 typedef VOID
 (*PMM_ALTER_REGION_FUNC)(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID BaseAddress,
     ULONG Length,
     ULONG OldType,
@@ -412,7 +403,7 @@ typedef VOID
 NTSTATUS
 NTAPI
 MmCreateMemoryArea(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     ULONG Type,
     PVOID *BaseAddress,
     ULONG_PTR Length,
@@ -426,21 +417,21 @@ MmCreateMemoryArea(
 PMEMORY_AREA
 NTAPI
 MmLocateMemoryAreaByAddress(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID Address
 );
 
 ULONG_PTR
 NTAPI
 MmFindGapAtAddress(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID Address
 );
 
 NTSTATUS
 NTAPI
 MmFreeMemoryArea(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MemoryArea,
     PMM_FREE_PAGE_FUNC FreePage,
     PVOID FreePageContext
@@ -449,7 +440,7 @@ MmFreeMemoryArea(
 NTSTATUS
 NTAPI
 MmFreeMemoryAreaByPtr(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID BaseAddress,
     PMM_FREE_PAGE_FUNC FreePage,
     PVOID FreePageContext
@@ -457,12 +448,12 @@ MmFreeMemoryAreaByPtr(
 
 VOID
 NTAPI
-MmDumpMemoryAreas(PMMSUPPORT AddressSpace);
+MmDumpMemoryAreas(PMM_AVL_TABLE AddressSpace);
 
 PMEMORY_AREA
 NTAPI
 MmLocateMemoryAreaByRegion(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID Address,
     ULONG_PTR Length
 );
@@ -470,7 +461,7 @@ MmLocateMemoryAreaByRegion(
 PVOID
 NTAPI
 MmFindGap(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     ULONG_PTR Length,
     ULONG_PTR Granularity,
     BOOLEAN TopDown
@@ -480,7 +471,7 @@ VOID
 NTAPI
 MmReleaseMemoryAreaIfDecommitted(
     struct _EPROCESS *Process,
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID BaseAddress
 );
 
@@ -557,24 +548,6 @@ ExFreeNonPagedPool(PVOID block);
 VOID
 NTAPI
 ExFreePagedPool(IN PVOID Block);
-
-BOOLEAN
-NTAPI
-ExpIsPoolTagDebuggable(ULONG Tag);
-
-PVOID
-NTAPI
-ExpAllocateDebugPool(
-    POOL_TYPE Type,
-    ULONG Size,
-    ULONG Tag,
-    PVOID Caller,
-    BOOLEAN EndOfPage
-);
-
-VOID
-NTAPI
-ExpFreeDebugPool(PVOID Block, BOOLEAN PagedPool);
 
 VOID
 NTAPI
@@ -764,7 +737,7 @@ MmAccessFault(
 NTSTATUS
 NTAPI
 MmNotPresentFaultVirtualMemory(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     MEMORY_AREA* MemoryArea,
     PVOID Address,
     BOOLEAN Locked
@@ -773,7 +746,7 @@ MmNotPresentFaultVirtualMemory(
 NTSTATUS
 NTAPI
 MmPageOutVirtualMemory(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MemoryArea,
     PVOID Address,
     struct _MM_PAGEOP* PageOp
@@ -798,7 +771,7 @@ MmFreeVirtualMemory(
 NTSTATUS
 NTAPI
 MmProtectAnonMem(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MemoryArea,
     PVOID BaseAddress,
     ULONG Length,
@@ -809,7 +782,7 @@ MmProtectAnonMem(
 NTSTATUS
 NTAPI
 MmWritePageVirtualMemory(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MArea,
     PVOID Address,
     PMM_PAGEOP PageOp
@@ -1087,41 +1060,15 @@ MmZeroPageThreadMain(
     PVOID Context
 );
 
-/* hypermap.c *****************************************************************/
-
-extern PEPROCESS HyperProcess;
-extern KIRQL HyperIrql;
-
-PVOID
-NTAPI
-MiMapPageInHyperSpace(IN PEPROCESS Process,
-                      IN PFN_NUMBER Page,
-                      IN PKIRQL OldIrql);
-
-VOID
-NTAPI
-MiUnmapPageInHyperSpace(IN PEPROCESS Process,
-                        IN PVOID Address,
-                        IN KIRQL OldIrql);
-
-PVOID
-NTAPI
-MiMapPageToZeroInHyperSpace(IN PFN_NUMBER Page);
-
-//
-// ReactOS Compatibility Layer
-//
-PVOID
-FORCEINLINE
-MmCreateHyperspaceMapping(IN PFN_NUMBER Page)
-{
-    HyperProcess = (PEPROCESS)KeGetCurrentThread()->ApcState.Process;
-    return MiMapPageInHyperSpace(HyperProcess, Page, &HyperIrql);
-}
-
-#define MmDeleteHyperspaceMapping(x) MiUnmapPageInHyperSpace(HyperProcess, x, HyperIrql);
-
 /* i386/page.c *********************************************************/
+
+PVOID
+NTAPI
+MmCreateHyperspaceMapping(PFN_TYPE Page);
+
+PFN_TYPE
+NTAPI
+MmDeleteHyperspaceMapping(PVOID Address);
 
 NTSTATUS
 NTAPI
@@ -1408,7 +1355,7 @@ MmTrimUserMemory(
 NTSTATUS
 NTAPI
 MmAlterRegion(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PVOID BaseAddress,
     PLIST_ENTRY RegionListHead,
     PVOID StartAddress,
@@ -1476,7 +1423,7 @@ MmQuerySectionView(
 NTSTATUS
 NTAPI
 MmProtectSectionView(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MemoryArea,
     PVOID BaseAddress,
     ULONG Length,
@@ -1487,7 +1434,7 @@ MmProtectSectionView(
 NTSTATUS
 NTAPI
 MmWritePageSectionView(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MArea,
     PVOID Address,
     PMM_PAGEOP PageOp
@@ -1500,7 +1447,7 @@ MmInitSectionImplementation(VOID);
 NTSTATUS
 NTAPI
 MmNotPresentFaultSectionView(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     MEMORY_AREA* MemoryArea,
     PVOID Address,
     BOOLEAN Locked
@@ -1509,7 +1456,7 @@ MmNotPresentFaultSectionView(
 NTSTATUS
 NTAPI
 MmPageOutSectionView(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     PMEMORY_AREA MemoryArea,
     PVOID Address,
     struct _MM_PAGEOP *PageOp
@@ -1522,7 +1469,7 @@ MmCreatePhysicalMemorySection(VOID);
 NTSTATUS
 NTAPI
 MmAccessFaultSectionView(
-    PMMSUPPORT AddressSpace,
+    PMM_AVL_TABLE AddressSpace,
     MEMORY_AREA* MemoryArea,
     PVOID Address,
     BOOLEAN Locked
@@ -1626,39 +1573,39 @@ MiSyncForContextSwitch(
     IN PKTHREAD Thread
 );
 
-extern PMMSUPPORT MmKernelAddressSpace;
+extern PMM_AVL_TABLE MmKernelAddressSpace;
 
 FORCEINLINE
 VOID
-MmLockAddressSpace(PMMSUPPORT AddressSpace)
+MmLockAddressSpace(PMM_AVL_TABLE AddressSpace)
 {
-    KeAcquireGuardedMutex(&CONTAINING_RECORD(AddressSpace, EPROCESS, Vm)->AddressCreationLock);
+    KeAcquireGuardedMutex(&CONTAINING_RECORD(AddressSpace, EPROCESS, VadRoot)->AddressCreationLock);
 }
 
 FORCEINLINE
 VOID
-MmUnlockAddressSpace(PMMSUPPORT AddressSpace)
+MmUnlockAddressSpace(PMM_AVL_TABLE AddressSpace)
 {
-    KeReleaseGuardedMutex(&CONTAINING_RECORD(AddressSpace, EPROCESS, Vm)->AddressCreationLock);
+    KeReleaseGuardedMutex(&CONTAINING_RECORD(AddressSpace, EPROCESS, VadRoot)->AddressCreationLock);
 }
 
 FORCEINLINE
 PEPROCESS
-MmGetAddressSpaceOwner(IN PMMSUPPORT AddressSpace)
+MmGetAddressSpaceOwner(IN PMM_AVL_TABLE AddressSpace)
 {
     if (AddressSpace == MmKernelAddressSpace) return NULL;
-    return CONTAINING_RECORD(AddressSpace, EPROCESS, Vm);
+    return CONTAINING_RECORD(AddressSpace, EPROCESS, VadRoot);
 }
 
 FORCEINLINE
-PMMSUPPORT
+PMM_AVL_TABLE
 MmGetCurrentAddressSpace(VOID)
 {
-    return &((PEPROCESS)KeGetCurrentThread()->ApcState.Process)->Vm;
+    return &((PEPROCESS)KeGetCurrentThread()->ApcState.Process)->VadRoot;
 }
 
 FORCEINLINE
-PMMSUPPORT
+PMM_AVL_TABLE
 MmGetKernelAddressSpace(VOID)
 {
     return MmKernelAddressSpace;

@@ -6,8 +6,7 @@
 ///
 /// History: 12/02/2008 Created
 
-// These are now in sndtypes.h
-/*
+
 typedef enum
 {
     DEVICE_TYPE_NONE = 0,
@@ -19,13 +18,10 @@ typedef enum
     DEVICE_TYPE_AUX_OUT
 
 }AUDIO_DEVICE_TYPE;
-*/
-
-#include <sndtypes.h>
 
 typedef struct
 {
-    SOUND_DEVICE_TYPE DeviceType;
+    AUDIO_DEVICE_TYPE DeviceType;
     ULONG DeviceIndex;
 
     HANDLE hDevice;
@@ -39,12 +35,12 @@ typedef struct
     union
     {
         WAVEFORMATEX WaveFormatEx;
-        WAVEOUTCAPSW WaveOutCaps;
-        AUXCAPSW     AuxCaps;
-        WAVEINCAPSW WaveInCaps;
+        WAVEOUTCAPS WaveOutCaps;
+        AUXCAPS     AuxCaps;
+        WAVEINCAPS WaveInCaps;
     }u;
 
-}WDMAUD_DEVICE_INFO, *PWDMAUD_DEVICE_INFO;
+}WDMAUD_DEVICE_INFO;
 
 
 
@@ -59,11 +55,7 @@ typedef struct
 /// Return Code: STATUS_SUCCESS indicates success, otherwise appropiate error code
 /// Prequsites:  none
 
-#define IOCTL_OPEN_WDMAUD \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             0, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+#define IOCTL_OPEN_WDMAUD              CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 0, METHOD_BUFFERED);
 
 
 /// IOCTL_CLOSE_WDMAUD
@@ -76,11 +68,7 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: openend device
 
-#define IOCTL_CLOSE_WDMAUD \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             1, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS) \
+#define IOCTL_CLOSE_WDMAUD             CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 1, METHOD_BUFFERED);
 
 
 /// IOCTL_GETNUMDEVS_TYPE
@@ -94,11 +82,8 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: none
 
-#define IOCTL_GETNUMDEVS_TYPE \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             2, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+#define IOCTL_GETNUMDEVS_TYPE               CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 2, METHOD_BUFFERED);
+
 
 
 /// IOCTL_SETDEVICE_STATE
@@ -111,11 +96,7 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: opened device
 
-#define IOCTL_SETDEVICE_STATE \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             3, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+#define IOCTL_SETDEVICE_STATE               CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 3, METHOD_BUFFERED);
 
 
 /// IOCTL_GETDEVID
@@ -129,11 +110,9 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: opened device
 
-#define IOCTL_GETDEVID \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             4, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+
+#define IOCTL_GETDEVID                      CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 4, METHOD_BUFFERED);
+
 
 
 /// IOCTL_GETVOLUME
@@ -147,11 +126,8 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: opened device
 
-#define IOCTL_GETVOLUME \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             5, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+
+#define IOCTL_GETVOLUME                      CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 5, METHOD_BUFFERED);
 
 
 /// IOCTL_SETVOLUME
@@ -164,11 +140,8 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: opened device
 
-#define IOCTL_SETVOLUME \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             6, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+
+#define IOCTL_SETVOLUME                      CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 6, METHOD_BUFFERED);
 
 
 /// IOCTL_GETCAPABILTIES
@@ -181,11 +154,8 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: none
 
-#define IOCTL_GETCAPABILITIES \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             7, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+
+#define IOCTL_GETCAPABILTIES                 CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 7, METHOD_BUFFERED);
 
 
 /// IOCTL_WRITEDATA
@@ -198,11 +168,11 @@ typedef struct
 /// ReturnCode:  STATUS_SUCCESS indicates success
 /// Prequsites: opened device
 
-#define IOCTL_WRITEDATA \
-    CTL_CODE(FILE_DEVICE_SOUND, \
-             8, \
-             METHOD_BUFFERED, \
-             FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS)
+
+#define IOCTL_WRITEDATA                 CTL_CODE(FILE_DEVICE_SOUND, FILE_CREATE_TREE_CONNECTION | FILE_ANY_ACCESS, 8, METHOD_BUFFERED);
+
+
+
 
 
 #endif

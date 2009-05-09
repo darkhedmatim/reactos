@@ -735,7 +735,7 @@ static HRESULT WINAPI SMTPTransport_CommandMAIL(ISMTPTransport2 *iface, LPSTR ps
     int len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszEmailFrom);
     HRESULT hr;
 
-    TRACE("(%s)\n", debugstr_a(pszEmailFrom));
+    TRACE("(%s)\n", pszEmailFrom);
 
     if (!pszEmailFrom)
         return E_INVALIDARG;
@@ -761,7 +761,7 @@ static HRESULT WINAPI SMTPTransport_CommandRCPT(ISMTPTransport2 *iface, LPSTR ps
     int len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszEmailTo);
     HRESULT hr;
 
-    TRACE("(%s)\n", debugstr_a(pszEmailTo));
+    TRACE("(%s)\n", pszEmailTo);
 
     if (!pszEmailTo)
         return E_INVALIDARG;
@@ -836,7 +836,7 @@ static HRESULT WINAPI SMTPTransport_CommandAUTH(ISMTPTransport2 *iface,
     int len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszAuthType);
     HRESULT hr;
 
-    TRACE("(%s)\n", debugstr_a(pszAuthType));
+    TRACE("(%s)\n", pszAuthType);
 
     if (!pszAuthType)
         return E_INVALIDARG;

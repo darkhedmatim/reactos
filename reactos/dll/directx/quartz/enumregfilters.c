@@ -97,9 +97,9 @@ static HRESULT WINAPI IEnumRegFiltersImpl_QueryInterface(IEnumRegFilters * iface
     *ppv = NULL;
 
     if (IsEqualIID(riid, &IID_IUnknown))
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
     else if (IsEqualIID(riid, &IID_IEnumRegFilters))
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
 
     if (*ppv)
     {

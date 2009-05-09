@@ -1,11 +1,3 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/miniport_dmus.c
- * PURPOSE:         DirectMusic miniport
- * PROGRAMMER:      Johannes Anderwald
- */
-
 #include "private.h"
 
 typedef struct
@@ -21,7 +13,7 @@ typedef struct
 /* IUnknown methods */
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IMiniportDMus_fnQueryInterface(
     IMiniportDMus* iface,
     IN  REFIID refiid,
@@ -39,7 +31,7 @@ IMiniportDMus_fnQueryInterface(
 }
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IMiniportDMus_fnAddRef(
     IMiniportDMus* iface)
 {
@@ -49,7 +41,7 @@ IMiniportDMus_fnAddRef(
 }
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IMiniportDMust_fnRelease(
     IMiniportDMus* iface)
 {

@@ -253,8 +253,6 @@ VOID ARPReceive(
                                SenderHWAddress,
                                LAN_PROTO_ARP);
     }
-
-    Packet->Free(Packet);
 }
 
 /* EOF */

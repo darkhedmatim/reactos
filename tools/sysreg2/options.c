@@ -51,14 +51,6 @@ bool LoadSettings(const char* XmlConfig)
     if (obj)
         xmlXPathFreeObject(obj);
 
-    obj = xmlXPathEval(BAD_CAST"number(/settings/general/maxcrashes/@value)",ctxt);
-    if ((obj != NULL) && (obj->type == XPATH_NUMBER))
-    {
-        AppSettings.MaxCrashes = (int)obj->floatval;
-    }
-    if (obj)
-        xmlXPathFreeObject(obj);
-
     obj = xmlXPathEval(BAD_CAST"number(/settings/general/hdd/@size)",ctxt);
     if ((obj != NULL) && (obj->type == XPATH_NUMBER))
     {

@@ -868,26 +868,9 @@ static HRESULT WINAPI WBOleCommandTarget_QueryStatus(IOleCommandTarget *iface,
         const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT *pCmdText)
 {
     WebBrowser *This = OLECMD_THIS(iface);
-    IOleCommandTarget *cmdtrg;
-    HRESULT hres;
-
-    TRACE("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
+    FIXME("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
           pCmdText);
-
-    if(!This->doc_host.document)
-        return 0x80040104;
-
-    /* NOTE: There are probably some commands that we should handle here
-     * instead of forwarding to document object. */
-
-    hres = IUnknown_QueryInterface(This->doc_host.document, &IID_IOleCommandTarget, (void**)&cmdtrg);
-    if(FAILED(hres))
-        return hres;
-
-    hres = IOleCommandTarget_QueryStatus(cmdtrg, pguidCmdGroup, cCmds, prgCmds, pCmdText);
-    IOleCommandTarget_Release(cmdtrg);
-
-    return hres;
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI WBOleCommandTarget_Exec(IOleCommandTarget *iface,

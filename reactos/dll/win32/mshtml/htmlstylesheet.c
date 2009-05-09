@@ -147,7 +147,7 @@ static HRESULT WINAPI HTMLStyleSheetRulesCollection_Invoke(IHTMLStyleSheetRulesC
 }
 
 static HRESULT WINAPI HTMLStyleSheetRulesCollection_get_length(IHTMLStyleSheetRulesCollection *iface,
-        LONG *p)
+        long *p)
 {
     HTMLStyleSheetRulesCollection *This = HTMLSTYLERULESCOL_THIS(iface);
     PRUint32 len = 0;
@@ -167,10 +167,10 @@ static HRESULT WINAPI HTMLStyleSheetRulesCollection_get_length(IHTMLStyleSheetRu
 }
 
 static HRESULT WINAPI HTMLStyleSheetRulesCollection_item(IHTMLStyleSheetRulesCollection *iface,
-        LONG index, IHTMLStyleSheetRule **ppHTMLStyleSheetRule)
+        long index, IHTMLStyleSheetRule **ppHTMLStyleSheetRule)
 {
     HTMLStyleSheetRulesCollection *This = HTMLSTYLERULESCOL_THIS(iface);
-    FIXME("(%p)->(%d %p)\n", This, index, ppHTMLStyleSheetRule);
+    FIXME("(%p)->(%ld %p)\n", This, index, ppHTMLStyleSheetRule);
     return E_NOTIMPL;
 }
 
@@ -295,7 +295,7 @@ static HRESULT WINAPI HTMLStyleSheetsCollection_Invoke(IHTMLStyleSheetsCollectio
 }
 
 static HRESULT WINAPI HTMLStyleSheetsCollection_get_length(IHTMLStyleSheetsCollection *iface,
-        LONG *p)
+        long *p)
 {
     HTMLStyleSheetsCollection *This = HTMLSTYLESHEETSCOL_THIS(iface);
     PRUint32 len = 0;
@@ -557,33 +557,33 @@ static HRESULT WINAPI HTMLStyleSheet_get_id(IHTMLStyleSheet *iface, BSTR *p)
 }
 
 static HRESULT WINAPI HTMLStyleSheet_addImport(IHTMLStyleSheet *iface, BSTR bstrURL,
-                                               LONG lIndex, LONG *plIndex)
+                                               long lIndex, long *plIndex)
 {
     HTMLStyleSheet *This = HTMLSTYLESHEET_THIS(iface);
-    FIXME("(%p)->(%s %d %p)\n", This, debugstr_w(bstrURL), lIndex, plIndex);
+    FIXME("(%p)->(%s %ld %p)\n", This, debugstr_w(bstrURL), lIndex, plIndex);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyleSheet_addRule(IHTMLStyleSheet *iface, BSTR bstrSelector,
-                                             BSTR bstrStyle, LONG lIndex, LONG *plIndex)
+                                             BSTR bstrStyle, long lIndex, long *plIndex)
 {
     HTMLStyleSheet *This = HTMLSTYLESHEET_THIS(iface);
-    FIXME("(%p)->(%s %s %d %p)\n", This, debugstr_w(bstrSelector), debugstr_w(bstrStyle),
+    FIXME("(%p)->(%s %s %ld %p)\n", This, debugstr_w(bstrSelector), debugstr_w(bstrStyle),
           lIndex, plIndex);
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLStyleSheet_removeImport(IHTMLStyleSheet *iface, LONG lIndex)
+static HRESULT WINAPI HTMLStyleSheet_removeImport(IHTMLStyleSheet *iface, long lIndex)
 {
     HTMLStyleSheet *This = HTMLSTYLESHEET_THIS(iface);
-    FIXME("(%p)->(%d)\n", This, lIndex);
+    FIXME("(%p)->(%ld)\n", This, lIndex);
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLStyleSheet_removeRule(IHTMLStyleSheet *iface, LONG lIndex)
+static HRESULT WINAPI HTMLStyleSheet_removeRule(IHTMLStyleSheet *iface, long lIndex)
 {
     HTMLStyleSheet *This = HTMLSTYLESHEET_THIS(iface);
-    FIXME("(%p)->(%d)\n", This, lIndex);
+    FIXME("(%p)->(%ld)\n", This, lIndex);
     return E_NOTIMPL;
 }
 

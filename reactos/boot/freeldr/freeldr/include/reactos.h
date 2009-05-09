@@ -23,8 +23,6 @@
 /* Base Addres of Kernel in Physical Memory */
 #define KERNEL_BASE_PHYS 0x800000
 
-#if !defined(_M_AMD64)
-
 /* Bits to shift to convert a Virtual Address into an Offset in the Page Table */
 #define PFN_SHIFT 12
 
@@ -54,8 +52,6 @@ typedef struct _PAGE_DIRECTORY_X86
 {
     HARDWARE_PTE Pde[1024];
 } PAGE_DIRECTORY_X86, *PPAGE_DIRECTORY_X86;
-
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //

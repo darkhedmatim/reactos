@@ -87,7 +87,7 @@ VOID PrintPrompt(VOID)
 					break;
 
 				case _T('D'):
-					ConOutPrintf(_T("%s"), GetDateString());
+					PrintDate ();
 					break;
 
 				case _T('E'):
@@ -137,7 +137,12 @@ VOID PrintPrompt(VOID)
 					break;
 
 				case _T('T'):
-					ConOutPrintf(_T("%s"), GetTimeString());
+          {
+          SYSTEMTIME t;
+          GetSystemTime(&t);
+          ConOutPrintf(_T("%02d%c%02d%c%02d%c%02d\n"),t.wHour, cTimeSeparator,t.wMinute , cTimeSeparator,
+		      t.wSecond , cDecimalSeparator, t.wMilliseconds );
+          }
 					break;
 
 				case _T('V'):

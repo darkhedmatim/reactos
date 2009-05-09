@@ -306,7 +306,7 @@ IntCallWndProc
    if (Window->ti == ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->ThreadInfo)
       SameThread = TRUE;
 
-   if ((!SameThread && (Window->ti->fsHooks & HOOKID_TO_FLAG(WH_CALLWNDPROC))) ||
+   if ((!SameThread && (Window->ti->Hooks & HOOKID_TO_FLAG(WH_CALLWNDPROC))) ||
         (SameThread && ISITHOOKED(WH_CALLWNDPROC)) )
    {
       CWPSTRUCT CWP;
@@ -328,7 +328,7 @@ IntCallWndProcRet
    if (Window->ti == ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->ThreadInfo)
       SameThread = TRUE;
 
-   if ((!SameThread && (Window->ti->fsHooks & HOOKID_TO_FLAG(WH_CALLWNDPROCRET))) ||
+   if ((!SameThread && (Window->ti->Hooks & HOOKID_TO_FLAG(WH_CALLWNDPROCRET))) ||
         (SameThread && ISITHOOKED(WH_CALLWNDPROCRET)) )
    {
       CWPRETSTRUCT CWPR;
@@ -398,7 +398,7 @@ IntDispatchMessage(PMSG pMsg)
   /* send a WM_NCPAINT and WM_ERASEBKGND if the non-client area is still invalid */
      HRGN hrgn = NtGdiCreateRectRgn( 0, 0, 0, 0 );
      co_UserGetUpdateRgn( Window, hrgn, TRUE );
-     GreDeleteObject( hrgn );
+     NtGdiDeleteObject( hrgn );
   }
   return retval;
 }
@@ -1359,7 +1359,7 @@ UserPostMessage(HWND Wnd,
       IntGetCursorLocation(pti->Desktop->WindowStation,
                            &KernelModeMsg.pt);
       KeQueryTickCount(&LargeTickCount);
-      pti->timeLast = KernelModeMsg.time = MsqCalculateMessageTime(&LargeTickCount);
+      KernelModeMsg.time = MsqCalculateMessageTime(&LargeTickCount);
       MsqPostMessage(Window->MessageQueue, &KernelModeMsg,
                      NULL != MsgMemoryEntry && 0 != KernelModeMsg.lParam,
                      QS_POSTMESSAGE);

@@ -15,4 +15,3 @@ SSVN       = "%_ROSBE_BASEDIR%\sSVN.cmd" $*
 SVN        = "%_ROSBE_BASEDIR%\Tools\svn.exe" $*
 UPDATE     = "%_ROSBE_BASEDIR%\update.cmd" $*
 OPTIONS    = "%_ROSBE_BASEDIR%\options.cmd" $*
-VERSION    = "%_ROSBE_BASEDIR%\version.cmd" $*

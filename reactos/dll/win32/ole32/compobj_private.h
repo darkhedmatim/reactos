@@ -196,6 +196,9 @@ extern void* StdGlobalInterfaceTable_Construct(void);
 extern HRESULT StdGlobalInterfaceTable_GetFactory(LPVOID *ppv);
 extern void* StdGlobalInterfaceTableInstance;
 
+/* FIXME: these shouldn't be needed, except for 16-bit functions */
+extern HRESULT WINE_StringFromCLSID(const CLSID *id,LPSTR idstr);
+
 HRESULT COM_OpenKeyForCLSID(REFCLSID clsid, LPCWSTR keyname, REGSAM access, HKEY *key);
 HRESULT COM_OpenKeyForAppIdFromCLSID(REFCLSID clsid, REGSAM access, HKEY *subkey);
 HRESULT MARSHAL_GetStandardMarshalCF(LPVOID *ppv);
@@ -318,17 +321,5 @@ extern HRESULT WINAPI OLE32_DllUnregisterServer(void) DECLSPEC_HIDDEN;
 /* Exported non-interface Data Advise Holder functions */
 HRESULT DataAdviseHolder_OnConnect(IDataAdviseHolder *iface, IDataObject *pDelegate);
 void DataAdviseHolder_OnDisconnect(IDataAdviseHolder *iface);
-
-extern UINT ownerlink_clipboard_format;
-extern UINT filename_clipboard_format;
-extern UINT filenameW_clipboard_format;
-extern UINT dataobject_clipboard_format;
-extern UINT embedded_object_clipboard_format;
-extern UINT embed_source_clipboard_format;
-extern UINT custom_link_source_clipboard_format;
-extern UINT link_source_clipboard_format;
-extern UINT object_descriptor_clipboard_format;
-extern UINT link_source_descriptor_clipboard_format;
-extern UINT ole_private_data_clipboard_format;
 
 #endif /* __WINE_OLE_COMPOBJ_H */

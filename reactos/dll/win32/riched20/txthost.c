@@ -59,7 +59,7 @@ ITextHost *ME_CreateTextHost(HWND hwnd, BOOL bEmulateVersion10)
 
         editor = ME_MakeEditor((ITextHost*)texthost, bEmulateVersion10);
         editor->exStyleFlags = GetWindowLongW(hwnd, GWL_EXSTYLE);
-        editor->hWnd = hwnd; /* FIXME: Remove editor's dependence on hWnd */
+        editor->hWnd = hwnd; /* FIXME: Remove editor's dependance on hWnd */
         SetWindowLongPtrW(hwnd, 0, (LONG_PTR)editor);
     }
 
@@ -258,14 +258,14 @@ HRESULT WINAPI ITextHostImpl_TxActivate(ITextHost *iface,
                                         LONG *plOldState)
 {
     ITextHostImpl *This = (ITextHostImpl *)iface;
-    *plOldState = HandleToLong(SetActiveWindow(This->hWnd));
+    *plOldState = (LONG)SetActiveWindow(This->hWnd);
     return (*plOldState ? S_OK : E_FAIL);
 }
 
 HRESULT WINAPI ITextHostImpl_TxDeactivate(ITextHost *iface,
                                           LONG lNewState)
 {
-    HWND ret = SetActiveWindow(LongToHandle(lNewState));
+    HWND ret = SetActiveWindow((HWND)lNewState);
     return (ret ? S_OK : E_FAIL);
 }
 
@@ -323,7 +323,7 @@ HRESULT WINAPI ITextHostImpl_TxGetScrollBars(ITextHost *iface,
                                              DWORD *pdwScrollBar)
 {
     ITextHostImpl *This = (ITextHostImpl *)iface;
-    ME_TextEditor *editor = (ME_TextEditor*)GetWindowLongPtrW(This->hWnd, 0);
+    ME_TextEditor *editor = (ME_TextEditor*)GetWindowLongW(This->hWnd, 0);
     const DWORD mask = WS_VSCROLL|
                        WS_HSCROLL|
                        ES_AUTOVSCROLL|
@@ -452,6 +452,8 @@ HRESULT WINAPI ITextHostImpl_TxNotify(ITextHost *iface,
     HWND parent = GetParent(hwnd);
     UINT id = GetWindowLongW(hwnd, GWLP_ID);
 
+    /* Note: EN_MSGFILTER is documented as not being sent to TxNotify */
+
     switch (iNotify)
     {
         case EN_DROPFILES:
@@ -490,9 +492,6 @@ HRESULT WINAPI ITextHostImpl_TxNotify(ITextHost *iface,
             SendMessageW(parent, WM_COMMAND, MAKEWPARAM(id, iNotify), (LPARAM)hwnd);
             break;
 
-        case EN_MSGFILTER:
-            FIXME("EN_MSGFILTER is documented as not being sent to TxNotify\n");
-            /* fall through */
         default:
             return E_FAIL;
     }

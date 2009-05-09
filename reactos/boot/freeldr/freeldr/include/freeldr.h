@@ -84,9 +84,6 @@
 #include <arch/arm/hardware.h>
 #elif defined(_M_MIPS)
 #include <arch/mips/arcbios.h>
-#elif defined(_M_AMD64)
-#include <arch/amd64/hardware.h>
-#include <arch/amd64/machpc.h>
 #endif
 /* misc files */
 #include <keycodes.h>
@@ -114,15 +111,10 @@
 #define Ke386EraseFlags(x)     __asm__ __volatile__("pushl $0 ; popfl\n")
 #endif
 
-#ifdef _M_AMD64
-#define KeAmd64EraseFlags(x)     __asm__ __volatile__("pushq $0 ; popfq\n")
-#endif
-
 VOID BootMain(LPSTR CmdLine);
 VOID RunLoader(VOID);
 
 /* Special hack for ReactOS setup OS type */
 VOID LoadReactOSSetup(VOID);
-VOID LoadReactOSSetup2(VOID);
 
 #endif  // defined __FREELDR_H

@@ -81,8 +81,8 @@ HalpSysIntHandler:
 #if DBG
 .rept 172
     .long InvalidIRQ                    /* IRQ 36-207 */
-.endr
 #endif
+.endr
 
 SoftIntByteTable:
     .byte PASSIVE_LEVEL                 /* IRR 0 */

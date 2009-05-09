@@ -8,7 +8,6 @@
 ::                             Peter Ward <dralnix@gmail.com>
 ::
 ::
-
 @echo off
 if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
 if %_ROSBE_DEBUG% == 1 (
@@ -19,8 +18,10 @@ if %_ROSBE_DEBUG% == 1 (
 :: Set defaults to work with and override them if edited by
 :: the options utility.
 ::
+color 0A
 if not defined APPDATA set APPDATA=%USERPROFILE%
-set _ROSBE_VERSION=1.4.2
+set PATH=%SystemRoot%\system32;%SystemRoot%
+set _ROSBE_VERSION=1.4
 set _ROSBE_BASEDIR=%~dp0
 set _ROSBE_BASEDIR=%_ROSBE_BASEDIR:~0,-1%
 set _ROSBE_MODE=RosBE
@@ -52,11 +53,6 @@ if exist "%APPDATA%\RosBE\rosbe-options.cmd" (
     call "%APPDATA%\RosBE\rosbe-options.cmd"
 )
 
-:: arch specific settings.
-if exist "%APPDATA%\RosBE\rosbe-options-%1.cmd" (
-    call "%APPDATA%\RosBE\rosbe-options-%1.cmd"
-)
-
 title ReactOS Build Environment %_ROSBE_VERSION%
 
 ::
@@ -70,7 +66,7 @@ if /i "%1" == "oldmode" (
     goto :EndCommandParse
 ) else (
     cls
-    set ROS_ARCH=%1
+    set _ROSBE_ARCH=%1
     call :RosBE4
 )
 ::
@@ -123,10 +119,12 @@ goto :EOF
 
 echo *******************************************************************************
 echo *                                                                             *
-echo *                        ReactOS Build Environment %_ROSBE_VERSION%                      *
+echo *                        ReactOS Build Environment %_ROSBE_VERSION%                        *
 echo *                                                                             *
 echo *******************************************************************************
 echo.
+echo.
+ver
 
 ::
 :: Set the correct path for the build tools and set the MinGW make.

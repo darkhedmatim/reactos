@@ -289,7 +289,7 @@ const char* filename)
     IWineD3DSurfaceImpl *This = (IWineD3DSurfaceImpl *)iface;
     static char *output = NULL;
     static UINT size = 0;
-    const struct GlPixelFormatDesc *format_desc = This->resource.format_desc;
+    const StaticPixelFormatDesc *formatEntry = getFormatDescEntry(This->resource.format, NULL, NULL);
 
     if (This->pow2Width > size) {
         output = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, This->pow2Width * 3);
@@ -304,8 +304,7 @@ const char* filename)
     }
     fprintf(f, "P6\n%d %d\n255\n", This->pow2Width, This->pow2Height);
 
-    if (This->resource.format_desc->format == WINED3DFMT_P8)
-    {
+    if (This->resource.format == WINED3DFMT_P8) {
         unsigned char table[256][3];
         int i;
 
@@ -333,12 +332,12 @@ const char* filename)
     } else {
         int red_shift, green_shift, blue_shift, pix_width, alpha_shift;
 
-        pix_width = format_desc->byte_count;
+        pix_width = This->bytesPerPixel;
 
-        red_shift = get_shift(format_desc->red_mask);
-        green_shift = get_shift(format_desc->green_mask);
-        blue_shift = get_shift(format_desc->blue_mask);
-        alpha_shift = get_shift(format_desc->alpha_mask);
+        red_shift = get_shift(formatEntry->redMask);
+        green_shift = get_shift(formatEntry->greenMask);
+        blue_shift = get_shift(formatEntry->blueMask);
+        alpha_shift = get_shift(formatEntry->alphaMask);
 
         for (y = 0; y < This->pow2Height; y++) {
             const unsigned char *src = This->resource.allocatedMemory + (y * 1 * IWineD3DSurface_GetPitch(iface));
@@ -353,11 +352,11 @@ const char* filename)
                 }
                 src += 1 * pix_width;
 
-                comp = color & format_desc->red_mask;
+                comp = color & formatEntry->redMask;
                 output[3 * x + 0] = red_shift > 0 ? comp >> red_shift : comp << -red_shift;
-                comp = color & format_desc->green_mask;
+                comp = color & formatEntry->greenMask;
                 output[3 * x + 1] = green_shift > 0 ? comp >> green_shift : comp << -green_shift;
-                comp = color & format_desc->alpha_mask;
+                comp = color & formatEntry->alphaMask;
                 output[3 * x + 2] = alpha_shift > 0 ? comp >> alpha_shift : comp << -alpha_shift;
             }
             fwrite(output, 3 * This->pow2Width, 1, f);
@@ -403,9 +402,8 @@ static HRESULT WINAPI IWineGDISurfaceImpl_GetDC(IWineD3DSurface *iface, HDC *pHD
         return hr;
     }
 
-    if (This->resource.format_desc->format == WINED3DFMT_P8
-            || This->resource.format_desc->format == WINED3DFMT_A8P8)
-    {
+    if(This->resource.format == WINED3DFMT_P8 ||
+       This->resource.format == WINED3DFMT_A8P8) {
         unsigned int n;
         const PALETTEENTRY *pal = NULL;
 

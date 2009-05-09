@@ -87,21 +87,6 @@ GpStatus WINGDIPAPI GdipBitmapGetPixel(GpBitmap* bitmap, INT x, INT y,
     return NotImplemented;
 }
 
-GpStatus WINGDIPAPI GdipBitmapSetPixel(GpBitmap* bitmap, INT x, INT y,
-    ARGB color)
-{
-    static int calls;
-    TRACE("bitmap:%p, x:%d, y:%d, color:%08x\n", bitmap, x, y, color);
-
-    if(!bitmap)
-        return InvalidParameter;
-
-    if(!(calls++))
-        FIXME("not implemented\n");
-
-    return NotImplemented;
-}
-
 /* This function returns a pointer to an array of pixels that represents the
  * bitmap. The *entire* bitmap is locked according to the lock mode specified by
  * flags.  It is correct behavior that a user who calls this function with write
@@ -207,13 +192,6 @@ GpStatus WINGDIPAPI GdipBitmapLockBits(GpBitmap* bitmap, GDIPCONST GpRect* rect,
     return Ok;
 }
 
-GpStatus WINGDIPAPI GdipBitmapSetResolution(GpBitmap* bitmap, REAL xdpi, REAL ydpi)
-{
-    FIXME("(%p, %.2f, %.2f)\n", bitmap, xdpi, ydpi);
-
-    return NotImplemented;
-}
-
 GpStatus WINGDIPAPI GdipBitmapUnlockBits(GpBitmap* bitmap,
     BitmapData* lockeddata)
 {
@@ -269,14 +247,6 @@ GpStatus WINGDIPAPI GdipBitmapUnlockBits(GpBitmap* bitmap,
     bitmap->lockmode = 0;
 
     return Ok;
-}
-
-GpStatus WINGDIPAPI GdipCloneBitmapAreaI(INT x, INT y, INT width, INT height,
-    PixelFormat format, GpBitmap* srcBitmap, GpBitmap** dstBitmap)
-{
-    FIXME("(%i,%i,%i,%i,%i,%p,%p)\n", x, y, width, height, format, srcBitmap, dstBitmap);
-
-    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipCloneImage(GpImage *image, GpImage **cloneImage)
@@ -526,6 +496,12 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
     if(scan0 && !stride)
         return InvalidParameter;
 
+    /* FIXME: windows allows negative stride (reads backwards from scan0) */
+    if(stride < 0){
+        FIXME("negative stride\n");
+        return InvalidParameter;
+    }
+
     *bitmap = GdipAlloc(sizeof(GpBitmap));
     if(!*bitmap)    return OutOfMemory;
 
@@ -551,35 +527,21 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
 
     bmih->biSize            = sizeof(BITMAPINFOHEADER);
     bmih->biWidth           = width;
+    bmih->biHeight          = -height;
     /* FIXME: use the rest of the data from format */
     bmih->biBitCount        = PIXELFORMATBPP(format);
     bmih->biCompression     = BI_RGB;
     bmih->biSizeImage       = datalen;
 
-    if (scan0)
-    {
-        if (stride > 0)
-        {
-            bmih->biHeight = -height;
-            memcpy(bmih + 1, scan0, datalen);
-        }
-        else
-        {
-            bmih->biHeight = height;
-            memcpy(bmih + 1, scan0 + stride * (height - 1), datalen);
-        }
-    }
+    if(scan0)
+        memcpy(bmih + 1, scan0, datalen);
     else
-    {
-        bmih->biHeight = height;
         memset(bmih + 1, 0, datalen);
-    }
 
     if(CreateStreamOnHGlobal(buff, TRUE, &stream) != S_OK){
         ERR("could not make stream\n");
         GdipFree(*bitmap);
         GdipFree(buff);
-        *bitmap = NULL;
         return GenericError;
     }
 
@@ -589,7 +551,6 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
         IStream_Release(stream);
         GdipFree(*bitmap);
         GdipFree(buff);
-        *bitmap = NULL;
         return GenericError;
     }
 
@@ -1531,7 +1492,6 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal, GpBi
     BITMAP bm;
     GpStatus retval;
     PixelFormat format;
-    BYTE* bits;
 
     TRACE("%p %p %p\n", hbm, hpal, bitmap);
 
@@ -1572,16 +1532,8 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal, GpBi
             return InvalidParameter;
     }
 
-    if (bm.bmBits)
-        bits = (BYTE*)bm.bmBits + (bm.bmHeight - 1) * bm.bmWidthBytes;
-    else
-    {
-        FIXME("can only get image data from DIB sections\n");
-        bits = NULL;
-    }
-
-    retval = GdipCreateBitmapFromScan0(bm.bmWidth, bm.bmHeight, -bm.bmWidthBytes,
-        format, bits, bitmap);
+    retval = GdipCreateBitmapFromScan0(bm.bmWidth, bm.bmHeight, bm.bmWidthBytes,
+        format, bm.bmBits, bitmap);
 
     return retval;
 }
@@ -1662,25 +1614,4 @@ GpStatus WINGDIPAPI GdipImageForceValidation(GpImage *image)
     FIXME("%p\n", image);
 
     return Ok;
-}
-
-/*****************************************************************************
- * GdipGetImageThumbnail [GDIPLUS.@]
- */
-GpStatus WINGDIPAPI GdipGetImageThumbnail(GpImage *image, UINT width, UINT height,
-                            GpImage **ret_image, GetThumbnailImageAbort cb,
-                            VOID * cb_data)
-{
-    FIXME("(%p %u %u %p %p %p) stub\n",
-        image, width, height, ret_image, cb, cb_data);
-    return NotImplemented;
-}
-
-/*****************************************************************************
- * GdipImageRotateFlip [GDIPLUS.@]
- */
-GpStatus WINGDIPAPI GdipImageRotateFlip(GpImage *image, RotateFlipType type)
-{
-    FIXME("(%p %u) stub\n", image, type);
-    return NotImplemented;
 }

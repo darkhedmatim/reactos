@@ -65,24 +65,6 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","midimapper",0x000
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","wavemapper",0x00000000,"c:\reactos\system32\msacm32.dll"
 ;HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","wave",0x00000000,"sndblst.dll"
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","midi",0x00000000,"c:\reactos\system32\beepmidi.dll"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","msacm.msadpcm",0x00000000,"c:\reactos\system32\msadp32.acm"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","msacm.msg711",0x00000000,"c:\reactos\system32\msg711.acm"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","msacm.imaadpcm",0x00000000,"c:\reactos\system32\imaadp32.acm"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","msacm.winemp3",0x00000000,"c:\reactos\system32\winemp3.acm"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","vidc.cvid",0x00000000,"c:\reactos\system32\iccvid.dll"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","vidc.mrle",0x00000000,"c:\reactos\system32\msrle32.dll"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32","vidc.msvc",0x00000000,"c:\reactos\system32\msvidc32.dll"
-
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI32","AVIVideo",0x00000002,"mciavi32.dll"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI32","CDAudio",0x00000002,"mcicda.dll"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI32","Sequencer",0x00000002,"mciseq.dll"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI32","WaveAudio",0x00000002,"mciwave.dll"
-
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI Extensions","avi",0x00000002,"avivideo"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI Extensions","cda",0x00000002,"CDAudio"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI Extensions","mid",0x00000002,"Sequencer"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI Extensions","rmi",0x00000002,"Sequencer"
-HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\MCI Extensions","wav",0x00000002,"WaveAudio"
 
 ; Mesa OpenGL Driver
 HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\OpenGLDrivers","DefaultDriver",0x00000000,"Mesa"
@@ -130,7 +112,6 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones","IndexMapping",0x
   "2c0a",  "70",\
   "380a",  "70",\
    "438",  "85",\
-   "48f",  "85",\
    "809",  "85",\
    "816",  "85",\
   "1809",  "85",\
@@ -159,12 +140,10 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones","IndexMapping",0x
    "42d", "105",\
    "80c", "105",\
    "c0a", "105",\
-   "490", "105",\
    "407", "110",\
    "410", "110",\
    "413", "110",\
    "414", "110",\
-   "417", "110",\
    "807", "110",\
    "810", "110",\
    "814", "110",\
@@ -208,7 +187,6 @@ HKLM,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones","IndexMapping",0x
    "42b", "170",\
    "420", "185",\
    "439", "190",\
-   "445", "190",\
    "421", "205",\
    "41e", "205",\
    "42a", "205",\

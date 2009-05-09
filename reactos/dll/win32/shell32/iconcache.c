@@ -375,115 +375,51 @@ INT SIC_GetIconIndex (LPCWSTR sSourceFile, INT dwSourceIndex, DWORD dwFlags )
  */
 BOOL SIC_Initialize(void)
 {
-    HICON hSm = NULL, hLg = NULL;
-    INT cx_small, cy_small;
-    INT cx_large, cy_large;
-    HDC hDC;
-    INT bpp;
-    DWORD ilMask;
+	HICON		hSm, hLg;
+	int		cx_small, cy_small;
+	int		cx_large, cy_large;
 
-    TRACE("Entered SIC_Initialize\n");
+	cx_small = GetSystemMetrics(SM_CXSMICON);
+	cy_small = GetSystemMetrics(SM_CYSMICON);
+	cx_large = GetSystemMetrics(SM_CXICON);
+	cy_large = GetSystemMetrics(SM_CYICON);
 
-    if (sic_hdpa)
-    {
-        TRACE("Icon cache already initialized\n");
-        return TRUE;
-    }
+	TRACE("\n");
 
-    sic_hdpa = DPA_Create(16);
-    if (!sic_hdpa)
-    {
-        return FALSE;
-    }
+	if (sic_hdpa)	/* already initialized?*/
+	  return TRUE;
 
-    hDC = GetDC(NULL);
-    if (!hDC)
-    {
-        return FALSE;
-    }
+	sic_hdpa = DPA_Create(16);
 
-    bpp = GetDeviceCaps(hDC, BITSPIXEL);
-    ReleaseDC(NULL, hDC);
+	if (!sic_hdpa)
+	{
+	  return(FALSE);
+	}
 
-    if (bpp <= 4)
-        ilMask = ILC_COLOR4;
-    else if (bpp <= 8)
-        ilMask = ILC_COLOR8;
-    else if (bpp <= 16)
-        ilMask = ILC_COLOR16;
-    else if (bpp <= 24)
-        ilMask = ILC_COLOR24;
-    else if (bpp <= 32)
-        ilMask = ILC_COLOR32;
-    else
-        ilMask = ILC_COLOR;
+        ShellSmallIconList = ImageList_Create(cx_small,cy_small,ILC_COLOR32|ILC_MASK,0,0x20);
+        ShellBigIconList = ImageList_Create(cx_large,cy_large,ILC_COLOR32|ILC_MASK,0,0x20);
 
-    ilMask |= ILC_MASK;
+        ImageList_SetBkColor(ShellSmallIconList, CLR_NONE);
+        ImageList_SetBkColor(ShellBigIconList, CLR_NONE);
 
-    cx_small = GetSystemMetrics(SM_CXSMICON);
-    cy_small = GetSystemMetrics(SM_CYSMICON);
-    cx_large = GetSystemMetrics(SM_CXICON);
-    cy_large = GetSystemMetrics(SM_CYICON);
+        /* Load the document icon, which is used as the default if an icon isn't found. */
+        hSm = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(IDI_SHELL_DOCUMENT),
+                                IMAGE_ICON, cx_small, cy_small, LR_SHARED);
+        hLg = (HICON)LoadImageA(shell32_hInstance, MAKEINTRESOURCEA(IDI_SHELL_DOCUMENT),
+                                IMAGE_ICON, cx_large, cy_large, LR_SHARED);
 
-    ShellSmallIconList = ImageList_Create(cx_small,
-                                          cy_small,
-                                          ilMask,
-                                          100,
-                                          100);
-
-    ShellBigIconList = ImageList_Create(cx_large,
-                                        cy_large,
-                                        ilMask,
-                                        100,
-                                        100);
-    if (ShellSmallIconList)
-    {
-         /* Load the document icon, which is used as the default if an icon isn't found. */
-        hSm = (HICON)LoadImageW(shell32_hInstance,
-                                MAKEINTRESOURCEW(IDI_SHELL_DOCUMENT),
-                                IMAGE_ICON,
-                                cx_small,
-                                cy_small,
-                                LR_SHARED | LR_DEFAULTCOLOR);
-        if (!hSm)
+        if (!hSm || !hLg)
         {
-            ERR("Failed to load IDI_SHELL_DOCUMENT icon1!\n");
-            return FALSE;
+          FIXME("Failed to load IDI_SHELL_DOCUMENT icon!\n");
+          return FALSE;
         }
-    }
-    else
-    {
-        ERR("Failed to load ShellSmallIconList\n");
-        return FALSE;
-    }
 
-    if (ShellBigIconList)
-    {
-        hLg = (HICON)LoadImageW(shell32_hInstance,
-                                MAKEINTRESOURCEW(IDI_SHELL_DOCUMENT),
-                                IMAGE_ICON,
-                                cx_large,
-                                cy_large,
-                                LR_SHARED | LR_DEFAULTCOLOR);
-        if (!hLg)
-        {
-            ERR("Failed to load IDI_SHELL_DOCUMENT icon2!\n");
-            DestroyIcon(hSm);
-            return FALSE;
-        }
-    }
-    else
-    {
-        ERR("Failed to load ShellBigIconList\n");
-        return FALSE;
-    }
+        SIC_IconAppend (swShell32Name, IDI_SHELL_DOCUMENT-1, hSm, hLg, 0);
+        SIC_IconAppend (swShell32Name, -IDI_SHELL_DOCUMENT, hSm, hLg, 0);
 
-    SIC_IconAppend(swShell32Name, IDI_SHELL_DOCUMENT-1, hSm, hLg, 0);
-    SIC_IconAppend(swShell32Name, -IDI_SHELL_DOCUMENT, hSm, hLg, 0);
+	TRACE("hIconSmall=%p hIconBig=%p\n",ShellSmallIconList, ShellBigIconList);
 
-    TRACE("hIconSmall=%p hIconBig=%p\n",ShellSmallIconList, ShellBigIconList);
-
-    return TRUE;
+	return TRUE;
 }
 /*************************************************************************
  * SIC_Destroy

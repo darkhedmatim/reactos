@@ -34,7 +34,7 @@ VOID SendICMPComplete(
 }
 
 
-BOOLEAN PrepareICMPPacket(
+PIP_PACKET PrepareICMPPacket(
     PIP_INTERFACE Interface,
     PIP_PACKET IPPacket,
     PIP_ADDRESS Destination,
@@ -57,8 +57,6 @@ BOOLEAN PrepareICMPPacket(
 
     TI_DbgPrint(DEBUG_ICMP, ("Called. DataSize (%d).\n", DataSize));
 
-    IPInitializePacket(IPPacket, IP_ADDRESS_V4);
-
     /* No special flags */
     IPPacket->Flags = 0;
 
@@ -67,19 +65,20 @@ BOOLEAN PrepareICMPPacket(
     /* Allocate NDIS packet */
     NdisStatus = AllocatePacketWithBuffer( &NdisPacket, NULL, Size );
 
-    if( !NT_SUCCESS(NdisStatus) ) return FALSE;
+    if( !NT_SUCCESS(NdisStatus) ) return NULL;
 
     IPPacket->NdisPacket = NdisPacket;
 
     GetDataPtr( IPPacket->NdisPacket, MaxLLHeaderSize,
 		(PCHAR *)&IPPacket->Header, &IPPacket->ContigSize );
 
+    IPPacket->Data = ((PCHAR)IPPacket->Header) + IPPacket->HeaderSize;
+
     TI_DbgPrint(DEBUG_ICMP, ("Size (%d). Data at (0x%X).\n", Size, Data));
     TI_DbgPrint(DEBUG_ICMP, ("NdisPacket at (0x%X).\n", NdisPacket));
 
     IPPacket->HeaderSize = sizeof(IPv4_HEADER);
     IPPacket->TotalSize  = Size - MaxLLHeaderSize;
-    IPPacket->Data = ((PCHAR)IPPacket->Header) + IPPacket->HeaderSize;
 
     TI_DbgPrint(DEBUG_ICMP, ("Copying Address: %x -> %x\n",
 			     &IPPacket->DstAddr, Destination));
@@ -115,7 +114,7 @@ BOOLEAN PrepareICMPPacket(
 
     TI_DbgPrint(MID_TRACE,("Leaving\n"));
 
-    return TRUE;
+    return IPPacket;
 }
 
 
@@ -227,12 +226,17 @@ VOID ICMPReply(
  *     notify him of the problem
  */
 {
-    UINT DataSize;
+    UINT DataSize, PayloadSize;
     IP_PACKET NewPacket = *IPPacket;
 
     TI_DbgPrint(DEBUG_ICMP, ("Called. Type (%d)  Code (%d).\n", Type, Code));
 
     DataSize = IPPacket->TotalSize - IPPacket->HeaderSize;
+    PayloadSize = DataSize - sizeof(ICMP_HEADER);
+    if ((PayloadSize) > 576) {
+	PayloadSize = 576;
+        DataSize = PayloadSize + sizeof(ICMP_HEADER);
+    }
 
     if( !PrepareICMPPacket(Interface, &NewPacket, &IPPacket->SrcAddr,
 			   IPPacket->Data, DataSize) ) return;

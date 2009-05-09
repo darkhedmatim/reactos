@@ -53,15 +53,6 @@ _mesa_init_program(GLcontext *ctx)
 {
    GLuint i;
 
-   /*
-    * If this assertion fails, we need to increase the field
-    * size for register indexes.
-    */
-   ASSERT(ctx->Const.VertexProgram.MaxUniformComponents / 4
-          <= (1 << INST_INDEX_BITS));
-   ASSERT(ctx->Const.FragmentProgram.MaxUniformComponents / 4
-          <= (1 << INST_INDEX_BITS));
-
    ctx->Program.ErrorPos = -1;
    ctx->Program.ErrorString = _mesa_strdup("");
 

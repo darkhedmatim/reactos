@@ -126,15 +126,15 @@ HRGN        hrgnDefault = NULL;
 #if 1
 #define COPY_RECTS(dest, src, nRects) \
   do {                                \
-    PRECTL xDest = (dest);             \
-    PRECTL xSrc = (src);               \
+    PRECT xDest = (dest);             \
+    PRECT xSrc = (src);               \
     UINT xRects = (nRects);           \
     while(xRects-- > 0) {             \
       *(xDest++) = *(xSrc++);         \
     }                                 \
   } while(0)
 #else
-#define COPY_RECTS(dest, src, nRects) RtlCopyMemory(dest, src, (nRects) * sizeof(RECTL))
+#define COPY_RECTS(dest, src, nRects) RtlCopyMemory(dest, src, (nRects) * sizeof(RECT))
 #endif
 
 #define EMPTY_REGION(pReg) { \
@@ -408,11 +408,11 @@ typedef struct _ScanLineListBlock
 /*
  *   Check to see if there is enough memory in the present region.
  */
-static __inline int xmemcheck(ROSRGNDATA *reg, PRECTL *rect, PRECTL *firstrect)
+static __inline int xmemcheck(ROSRGNDATA *reg, PRECT *rect, PRECT *firstrect)
 {
     if ( (reg->rdh.nCount+1) * sizeof(RECT) >= reg->rdh.nRgnSize )
     {
-        PRECTL temp;
+        PRECT temp;
         DWORD NewSize = 2 * reg->rdh.nRgnSize;
         if (NewSize < (reg->rdh.nCount + 1) * sizeof(RECT))
         {
@@ -439,7 +439,7 @@ static __inline int xmemcheck(ROSRGNDATA *reg, PRECTL *rect, PRECTL *firstrect)
     return 1;
 }
 
-#define MEMCHECK(reg, rect, firstrect) xmemcheck(reg,&(rect),(PRECTL *)&(firstrect))
+#define MEMCHECK(reg, rect, firstrect) xmemcheck(reg,&(rect),(LPRECT *)&(firstrect))
 
 typedef void (FASTCALL *overlapProcp)(PROSRGNDATA, PRECT, PRECT, PRECT, PRECT, INT, INT);
 typedef void (FASTCALL *nonOverlapProcp)(PROSRGNDATA, PRECT, PRECT, INT, INT);
@@ -513,7 +513,7 @@ REGION_CopyRegion(
     {
         if (dst->rdh.nRgnSize < src->rdh.nCount * sizeof(RECT))
         {
-            PRECTL temp;
+            PRECT temp;
 
             temp = ExAllocatePoolWithTag(PagedPool, src->rdh.nCount * sizeof(RECT), TAG_REGION );
             if (!temp)
@@ -538,7 +538,7 @@ REGION_CopyRegion(
 static void FASTCALL
 REGION_SetExtents(ROSRGNDATA *pReg)
 {
-    RECTL *pRect, *pRectEnd, *pExtents;
+    RECT *pRect, *pRectEnd, *pExtents;
 
     if (pReg->rdh.nCount == 0)
     {
@@ -551,8 +551,8 @@ REGION_SetExtents(ROSRGNDATA *pReg)
     }
 
     pExtents = &pReg->rdh.rcBound;
-    pRect = pReg->Buffer;
-    pRectEnd = pReg->Buffer + pReg->rdh.nCount - 1;
+    pRect = (PRECT)pReg->Buffer;
+    pRectEnd = (PRECT)pReg->Buffer + pReg->rdh.nCount - 1;
 
     /*
      * Since pRect is the first rectangle in the region, it must have the
@@ -585,22 +585,22 @@ BOOL FASTCALL
 REGION_CropAndOffsetRegion(
     PROSRGNDATA rgnDst,
     PROSRGNDATA rgnSrc,
-    const RECTL *rect,
-    const POINTL *offset
+    const PRECT rect,
+    const PPOINT offset
 )
 {
     POINT pt = {0,0};
-    const POINT *off = offset;
+    PPOINT off = offset;
 
     if (!off) off = &pt;
 
     if (!rect) // just copy and offset
     {
-        PRECTL xrect;
+        PRECT xrect;
         if (rgnDst == rgnSrc)
         {
             if (off->x || off->y)
-                xrect = rgnDst->Buffer;
+                xrect = (PRECT)rgnDst->Buffer;
             else
                 return TRUE;
         }
@@ -624,10 +624,10 @@ REGION_CropAndOffsetRegion(
             {
                 for (i = 0; i < rgnDst->rdh.nCount; i++)
                 {
-                    xrect[i].left = (rgnSrc->Buffer + i)->left + off->x;
-                    xrect[i].right = (rgnSrc->Buffer + i)->right + off->x;
-                    xrect[i].top = (rgnSrc->Buffer + i)->top + off->y;
-                    xrect[i].bottom = (rgnSrc->Buffer + i)->bottom + off->y;
+                    xrect[i].left = ((PRECT)rgnSrc->Buffer + i)->left + off->x;
+                    xrect[i].right = ((PRECT)rgnSrc->Buffer + i)->right + off->x;
+                    xrect[i].top = ((PRECT)rgnSrc->Buffer + i)->top + off->y;
+                    xrect[i].bottom = ((PRECT)rgnSrc->Buffer + i)->bottom + off->y;
                 }
                 rgnDst->rdh.rcBound.left   += off->x;
                 rgnDst->rdh.rcBound.right  += off->x;
@@ -652,17 +652,17 @@ REGION_CropAndOffsetRegion(
     }
     else // region box and clipping rect appear to intersect
     {
-        PRECTL lpr, rpr;
+        PRECT lpr, rpr;
         ULONG i, j, clipa, clipb;
         INT left = rgnSrc->rdh.rcBound.right + off->x;
         INT right = rgnSrc->rdh.rcBound.left + off->x;
 
-        for (clipa = 0; (rgnSrc->Buffer + clipa)->bottom <= rect->top; clipa++)
+        for (clipa = 0; ((PRECT)rgnSrc->Buffer + clipa)->bottom <= rect->top; clipa++)
             //region and rect intersect so we stop before clipa > rgnSrc->rdh.nCount
             ; // skip bands above the clipping rectangle
 
         for (clipb = clipa; clipb < rgnSrc->rdh.nCount; clipb++)
-            if ((rgnSrc->Buffer + clipb)->top >= rect->bottom)
+            if (((PRECT)rgnSrc->Buffer + clipb)->top >= rect->bottom)
                 break;    // and below it
 
         // clipa - index of the first rect in the first intersecting band
@@ -670,7 +670,7 @@ REGION_CropAndOffsetRegion(
 
         if ((rgnDst != rgnSrc) && (rgnDst->rdh.nCount < (i = (clipb - clipa))))
         {
-            PRECTL temp;
+            PRECT temp;
             temp = ExAllocatePoolWithTag(PagedPool, i * sizeof(RECT), TAG_REGION);
             if (!temp)
                 return FALSE;
@@ -686,11 +686,11 @@ REGION_CropAndOffsetRegion(
         {
             // i - src index, j - dst index, j is always <= i for obvious reasons
 
-            lpr = rgnSrc->Buffer + i;
+            lpr = (PRECT)rgnSrc->Buffer + i;
 
             if (lpr->left < rect->right && lpr->right > rect->left)
             {
-                rpr = rgnDst->Buffer + j;
+                rpr = (PRECT)rgnDst->Buffer + j;
 
                 rpr->top = lpr->top + off->y;
                 rpr->bottom = lpr->bottom + off->y;
@@ -720,13 +720,13 @@ REGION_CropAndOffsetRegion(
                 break;
 
         for (i = j; i > 0; i--) // fixup bottom band
-            if ((rgnDst->Buffer + i)->bottom > right)
-                (rgnDst->Buffer + i)->bottom = right;
+            if (((PRECT)rgnDst->Buffer + i)->bottom > right)
+                ((PRECT)rgnDst->Buffer + i)->bottom = right;
             else
                 break;
 
-        rgnDst->rdh.rcBound.top = (rgnDst->Buffer)->top;
-        rgnDst->rdh.rcBound.bottom = (rgnDst->Buffer + j)->bottom;
+        rgnDst->rdh.rcBound.top = ((PRECT)rgnDst->Buffer)->top;
+        rgnDst->rdh.rcBound.bottom = ((PRECT)rgnDst->Buffer + j)->bottom;
 
         rgnDst->rdh.iType = RDH_RECTANGLES;
     }
@@ -736,7 +736,7 @@ REGION_CropAndOffsetRegion(
 empty:
     if (!rgnDst->Buffer)
     {
-        rgnDst->Buffer = ExAllocatePoolWithTag(PagedPool, RGN_DEFAULT_RECTS * sizeof(RECT), TAG_REGION);
+        rgnDst->Buffer = (PRECT)ExAllocatePoolWithTag(PagedPool, RGN_DEFAULT_RECTS * sizeof(RECT), TAG_REGION);
         if (rgnDst->Buffer)
         {
             rgnDst->rdh.nCount = RGN_DEFAULT_RECTS;
@@ -771,15 +771,15 @@ REGION_Coalesce(
     INT curStart    /* Index of start of current band */
 )
 {
-    RECTL *pPrevRect;          /* Current rect in previous band */
-    RECTL *pCurRect;           /* Current rect in current band */
-    RECTL *pRegEnd;            /* End of region */
+    RECT *pPrevRect;          /* Current rect in previous band */
+    RECT *pCurRect;           /* Current rect in current band */
+    RECT *pRegEnd;            /* End of region */
     INT curNumRects;          /* Number of rectangles in current band */
     INT prevNumRects;         /* Number of rectangles in previous band */
     INT bandtop;               /* top coordinate for current band */
 
-    pRegEnd = pReg->Buffer + pReg->rdh.nCount;
-    pPrevRect = pReg->Buffer + prevStart;
+    pRegEnd = (PRECT)pReg->Buffer + pReg->rdh.nCount;
+    pPrevRect = (PRECT)pReg->Buffer + prevStart;
     prevNumRects = curStart - prevStart;
 
     /*
@@ -787,7 +787,7 @@ REGION_Coalesce(
      * this because multiple bands could have been added in REGION_RegionOp
      * at the end when one region has been exhausted.
      */
-    pCurRect = pReg->Buffer + curStart;
+    pCurRect = (PRECT)pReg->Buffer + curStart;
     bandtop = pCurRect->top;
     for (curNumRects = 0;
             (pCurRect != pRegEnd) && (pCurRect->top == bandtop);
@@ -809,8 +809,8 @@ REGION_Coalesce(
         {
             pRegEnd--;
         }
-        curStart = pRegEnd - pReg->Buffer;
-        pRegEnd = pReg->Buffer + pReg->rdh.nCount;
+        curStart = pRegEnd - (PRECT)pReg->Buffer;
+        pRegEnd = (PRECT)pReg->Buffer + pReg->rdh.nCount;
     }
 
     if ((curNumRects == prevNumRects) && (curNumRects != 0))
@@ -921,18 +921,18 @@ REGION_RegionOp(
     nonOverlapProcp nonOverlap2Func  /* Function to call for non-overlapping bands in region 2 */
 )
 {
-    RECTL *r1;                         /* Pointer into first region */
-    RECTL *r2;                         /* Pointer into 2d region */
-    RECTL *r1End;                      /* End of 1st region */
-    RECTL *r2End;                      /* End of 2d region */
+    RECT *r1;                         /* Pointer into first region */
+    RECT *r2;                         /* Pointer into 2d region */
+    RECT *r1End;                      /* End of 1st region */
+    RECT *r2End;                      /* End of 2d region */
     INT ybot;                         /* Bottom of intersection */
     INT ytop;                         /* Top of intersection */
-    RECTL *oldRects;                   /* Old rects for newReg */
+    RECT *oldRects;                   /* Old rects for newReg */
     ULONG prevBand;                   /* Index of start of
 						 * previous band in newReg */
     ULONG curBand;                    /* Index of start of current band in newReg */
-    RECTL *r1BandEnd;                  /* End of current band in r1 */
-    RECTL *r2BandEnd;                  /* End of current band in r2 */
+    RECT *r1BandEnd;                  /* End of current band in r1 */
+    RECT *r2BandEnd;                  /* End of current band in r2 */
     ULONG top;                        /* Top of non-overlapping band */
     ULONG bot;                        /* Bottom of non-overlapping band */
 
@@ -943,8 +943,8 @@ REGION_RegionOp(
      * the two source regions, then mark the "new" region empty, allocating
      * another array of rectangles for it to use.
      */
-    r1 = reg1->Buffer;
-    r2 = reg2->Buffer;
+    r1 = (PRECT)reg1->Buffer;
+    r2 = (PRECT)reg2->Buffer;
     r1End = r1 + reg1->rdh.nCount;
     r2End = r2 + reg2->rdh.nCount;
 
@@ -955,7 +955,7 @@ REGION_RegionOp(
      * extents and simply set numRects to zero.
      */
 
-    oldRects = newReg->Buffer;
+    oldRects = (PRECT)newReg->Buffer;
     newReg->rdh.nCount = 0;
 
     /*
@@ -1159,7 +1159,7 @@ REGION_RegionOp(
     {
         if (REGION_NOT_EMPTY(newReg))
         {
-            RECTL *prev_rects = newReg->Buffer;
+            RECT *prev_rects = (PRECT)newReg->Buffer;
             newReg->Buffer = ExAllocatePoolWithTag(PagedPool, newReg->rdh.nCount*sizeof(RECT), TAG_REGION);
 
             if (! newReg->Buffer)
@@ -1210,18 +1210,18 @@ REGION_RegionOp(
 static void FASTCALL
 REGION_IntersectO(
     PROSRGNDATA pReg,
-    PRECTL      r1,
-    PRECTL      r1End,
-    PRECTL      r2,
-    PRECTL      r2End,
+    PRECT       r1,
+    PRECT       r1End,
+    PRECT       r2,
+    PRECT       r2End,
     INT         top,
     INT         bottom
 )
 {
     INT       left, right;
-    RECTL     *pNextRect;
+    RECT      *pNextRect;
 
-    pNextRect = pReg->Buffer + pReg->rdh.nCount;
+    pNextRect = (PRECT)pReg->Buffer + pReg->rdh.nCount;
 
     while ((r1 != r1End) && (r2 != r2End))
     {
@@ -1317,15 +1317,15 @@ REGION_IntersectRegion(
 static void FASTCALL
 REGION_UnionNonO (
     PROSRGNDATA pReg,
-    PRECTL      r,
-    PRECTL      rEnd,
+    PRECT       r,
+    PRECT       rEnd,
     INT         top,
     INT         bottom
 )
 {
-    RECTL *pNextRect;
+    RECT *pNextRect;
 
-    pNextRect = pReg->Buffer + pReg->rdh.nCount;
+    pNextRect = (PRECT)pReg->Buffer + pReg->rdh.nCount;
 
     while (r != rEnd)
     {
@@ -1356,17 +1356,17 @@ REGION_UnionNonO (
 static void FASTCALL
 REGION_UnionO (
     PROSRGNDATA pReg,
-    PRECTL      r1,
-    PRECTL      r1End,
-    PRECTL      r2,
-    PRECTL      r2End,
+    PRECT       r1,
+    PRECT       r1End,
+    PRECT       r2,
+    PRECT       r2End,
     INT         top,
     INT         bottom
 )
 {
-    RECTL *pNextRect;
+    RECT *pNextRect;
 
-    pNextRect = pReg->Buffer + pReg->rdh.nCount;
+    pNextRect = (PRECT)pReg->Buffer + pReg->rdh.nCount;
 
 #define MERGERECT(r) \
     if ((pReg->rdh.nCount != 0) &&  \
@@ -1516,15 +1516,15 @@ REGION_UnionRegion(
 static void FASTCALL
 REGION_SubtractNonO1(
     PROSRGNDATA pReg,
-    PRECTL      r,
-    PRECTL      rEnd,
+    PRECT       r,
+    PRECT       rEnd,
     INT         top,
     INT         bottom
 )
 {
-    RECTL *pNextRect;
+    RECT *pNextRect;
 
-    pNextRect = pReg->Buffer + pReg->rdh.nCount;
+    pNextRect = (PRECT)pReg->Buffer + pReg->rdh.nCount;
 
     while (r != rEnd)
     {
@@ -1555,19 +1555,19 @@ REGION_SubtractNonO1(
 static void FASTCALL
 REGION_SubtractO(
     PROSRGNDATA pReg,
-    PRECTL      r1,
-    PRECTL      r1End,
-    PRECTL      r2,
-    PRECTL      r2End,
+    PRECT       r1,
+    PRECT       r1End,
+    PRECT       r2,
+    PRECT       r2End,
     INT         top,
     INT         bottom
 )
 {
-    RECTL *pNextRect;
+    RECT *pNextRect;
     INT left;
 
     left = r1->left;
-    pNextRect = pReg->Buffer + pReg->rdh.nCount;
+    pNextRect = (PRECT)pReg->Buffer + pReg->rdh.nCount;
 
     while ((r1 != r1End) && (r2 != r2End))
     {
@@ -1740,7 +1740,7 @@ REGION_XorRegion(
     if (!trb)
     {
         REGION_UnlockRgn(tra);
-        GreDeleteObject(htra);
+        NtGdiDeleteObject(htra);
         return;
     }
     htrb = trb->BaseObject.hHmgr;
@@ -1751,8 +1751,8 @@ REGION_XorRegion(
     REGION_UnlockRgn(tra);
     REGION_UnlockRgn(trb);
 
-    GreDeleteObject(htra);
-    GreDeleteObject(htrb);
+    NtGdiDeleteObject(htra);
+    NtGdiDeleteObject(htrb);
     return;
 }
 
@@ -1763,7 +1763,7 @@ REGION_XorRegion(
 VOID FASTCALL
 REGION_UnionRectWithRgn(
     ROSRGNDATA *rgn,
-    const RECTL *rect
+    const RECT *rect
 )
 {
     ROSRGNDATA region;
@@ -1782,8 +1782,8 @@ REGION_CreateSimpleFrameRgn(
     INT y
 )
 {
-    RECTL rc[4];
-    PRECTL prc;
+    RECT rc[4];
+    PRECT prc;
 
     if (x != 0 || y != 0)
     {
@@ -1860,7 +1860,7 @@ REGION_CreateFrameRgn(
 )
 {
     PROSRGNDATA srcObj, destObj;
-    PRECTL rc;
+    PRECT rc;
     ULONG i;
 
     if (!(srcObj = REGION_LockRgn(hSrc)))
@@ -1899,7 +1899,7 @@ REGION_CreateFrameRgn(
     else
     {
         /* Original region moved to right */
-        rc = srcObj->Buffer;
+        rc = (PRECT)srcObj->Buffer;
         for (i = 0; i < srcObj->rdh.nCount; i++)
         {
             rc->left += x;
@@ -1909,7 +1909,7 @@ REGION_CreateFrameRgn(
         REGION_IntersectRegion(destObj, destObj, srcObj);
 
         /* Original region moved to left */
-        rc = srcObj->Buffer;
+        rc = (PRECT)srcObj->Buffer;
         for (i = 0; i < srcObj->rdh.nCount; i++)
         {
             rc->left -= 2 * x;
@@ -1919,7 +1919,7 @@ REGION_CreateFrameRgn(
         REGION_IntersectRegion(destObj, destObj, srcObj);
 
         /* Original region moved down */
-        rc = srcObj->Buffer;
+        rc = (PRECT)srcObj->Buffer;
         for (i = 0; i < srcObj->rdh.nCount; i++)
         {
             rc->left += x;
@@ -1931,7 +1931,7 @@ REGION_CreateFrameRgn(
         REGION_IntersectRegion(destObj, destObj, srcObj);
 
         /* Original region moved up */
-        rc = srcObj->Buffer;
+        rc = (PRECT)srcObj->Buffer;
         for (i = 0; i < srcObj->rdh.nCount; i++)
         {
             rc->top -= 2 * y;
@@ -1941,7 +1941,7 @@ REGION_CreateFrameRgn(
         REGION_IntersectRegion(destObj, destObj, srcObj);
 
         /* Restore the original region */
-        rc = srcObj->Buffer;
+        rc = (PRECT)srcObj->Buffer;
         for (i = 0; i < srcObj->rdh.nCount; i++)
         {
             rc->top += y;
@@ -1963,25 +1963,26 @@ REGION_LPTODP(
     HRGN hDest,
     HRGN hSrc)
 {
-    RECTL *pCurRect, *pEndRect;
+    RECT *pCurRect, *pEndRect;
     PROSRGNDATA srcObj = NULL;
     PROSRGNDATA destObj = NULL;
 
-    RECTL tmpRect;
+    RECT tmpRect;
     BOOL ret = FALSE;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
 
     if (!dc)
         return ret;
-    pdcattr = dc->pdcattr;
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
 
-    if (pdcattr->iMapMode == MM_TEXT) // Requires only a translation
+    if (Dc_Attr->iMapMode == MM_TEXT) // Requires only a translation
     {
         if (NtGdiCombineRgn(hDest, hSrc, 0, RGN_COPY) == ERROR)
             goto done;
 
-        NtGdiOffsetRgn(hDest, pdcattr->ptlViewportOrg.x - pdcattr->ptlWindowOrg.x,
-                       pdcattr->ptlViewportOrg.y - pdcattr->ptlWindowOrg.y);
+        NtGdiOffsetRgn(hDest, Dc_Attr->ptlViewportOrg.x - Dc_Attr->ptlWindowOrg.x,
+                       Dc_Attr->ptlViewportOrg.y - Dc_Attr->ptlWindowOrg.y);
         ret = TRUE;
         goto done;
     }
@@ -1995,14 +1996,14 @@ REGION_LPTODP(
     }
     EMPTY_REGION(destObj);
 
-    pEndRect = srcObj->Buffer + srcObj->rdh.nCount;
-    for (pCurRect = srcObj->Buffer; pCurRect < pEndRect; pCurRect++)
+    pEndRect = (PRECT)srcObj->Buffer + srcObj->rdh.nCount;
+    for (pCurRect = (PRECT)srcObj->Buffer; pCurRect < pEndRect; pCurRect++)
     {
         tmpRect = *pCurRect;
-        tmpRect.left = XLPTODP(pdcattr, tmpRect.left);
-        tmpRect.top = YLPTODP(pdcattr, tmpRect.top);
-        tmpRect.right = XLPTODP(pdcattr, tmpRect.right);
-        tmpRect.bottom = YLPTODP(pdcattr, tmpRect.bottom);
+        tmpRect.left = XLPTODP(Dc_Attr, tmpRect.left);
+        tmpRect.top = YLPTODP(Dc_Attr, tmpRect.top);
+        tmpRect.right = XLPTODP(Dc_Attr, tmpRect.right);
+        tmpRect.bottom = YLPTODP(Dc_Attr, tmpRect.bottom);
 
         if (tmpRect.left > tmpRect.right)
         {
@@ -2043,7 +2044,7 @@ REGION_AllocRgnWithHandle(INT nReg)
     
     hReg = pReg->BaseObject.hHmgr;
 
-    if (nReg == 0 || nReg == 1)
+    if (nReg == 1)
     {
         /* Testing shows that > 95% of all regions have only 1 rect.
            Including that here saves us from having to do another allocation */
@@ -2090,9 +2091,9 @@ IntGdiReleaseRaoRgn(PDC pDC)
 {
   INT Index = GDI_HANDLE_GET_INDEX(pDC->BaseObject.hHmgr);
   PGDI_TABLE_ENTRY Entry = &GdiHandleTable->Entries[Index];
-  pDC->fs |= DC_FLAG_DIRTY_RAO;
+  pDC->DC_Flags |= DC_FLAG_DIRTY_RAO;
   Entry->Flags |= GDI_ENTRY_VALIDATE_VIS;
-  RECTL_vSetEmptyRect(&pDC->erclClip);
+  IntGdiSetEmptyRect((PRECT)&pDC->erclClip);
 }
 
 
@@ -2101,9 +2102,9 @@ IntGdiReleaseVisRgn(PDC pDC)
 {
   INT Index = GDI_HANDLE_GET_INDEX(pDC->BaseObject.hHmgr);
   PGDI_TABLE_ENTRY Entry = &GdiHandleTable->Entries[Index];
-  pDC->fs |= DC_FLAG_DIRTY_RAO;
+  pDC->DC_Flags |= DC_FLAG_DIRTY_RAO;
   Entry->Flags |= GDI_ENTRY_VALIDATE_VIS;
-  RECTL_vSetEmptyRect(&pDC->erclClip);
+  IntGdiSetEmptyRect((PRECT)&pDC->erclClip);
   REGION_Delete(pDC->prgnVis);
   pDC->prgnVis = prgnDefault;
 }
@@ -2113,16 +2114,17 @@ IntUpdateVisRectRgn(PDC pDC, PROSRGNDATA pRgn)
 {
   INT Index = GDI_HANDLE_GET_INDEX(pDC->BaseObject.hHmgr);
   PGDI_TABLE_ENTRY Entry = &GdiHandleTable->Entries[Index];
-  PDC_ATTR pdcattr;
+  PDC_ATTR pDc_Attr;
   RECTL rcl;
 
   if (Entry->Flags & GDI_ENTRY_VALIDATE_VIS)
   {
-     pdcattr = pDC->pdcattr;
+     pDc_Attr = pDC->pDc_Attr;
+     if ( !pDc_Attr ) pDc_Attr = &pDC->Dc_Attr; 
 
-     pdcattr->VisRectRegion.Flags = REGION_Complexity(pRgn);
+     pDc_Attr->VisRectRegion.Flags = REGION_Complexity(pRgn);
 
-     if (pRgn && pdcattr->VisRectRegion.Flags != NULLREGION)
+     if (pRgn && pDc_Attr->VisRectRegion.Flags != NULLREGION)
      {
         rcl.left   = pRgn->rdh.rcBound.left;
         rcl.top    = pRgn->rdh.rcBound.top;
@@ -2135,9 +2137,9 @@ IntUpdateVisRectRgn(PDC pDC, PROSRGNDATA pRgn)
         rcl.bottom -= pDC->erclWindow.top;
      }
      else
-        RECTL_vSetEmptyRect(&rcl);
+        IntGdiSetEmptyRect((PRECT)&rcl);
 
-     pdcattr->VisRectRegion.Rect = rcl;
+     pDc_Attr->VisRectRegion.Rect = rcl;
 
      Entry->Flags &= ~GDI_ENTRY_VALIDATE_VIS;
   }
@@ -2301,7 +2303,7 @@ NtGdiCreateRectRgn(INT LeftRect, INT TopRect, INT RightRect, INT BottomRect)
     PROSRGNDATA pRgn;
     HRGN hRgn;
 
-    /* Allocate region data structure with space for 1 RECTL */
+    /* Allocate region data structure with space for 1 RECT */
     if (!(pRgn = REGION_AllocRgnWithHandle(1)))
     {
         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
@@ -2330,7 +2332,7 @@ NtGdiCreateRoundRectRgn(
     PROSRGNDATA obj;
     HRGN hrgn;
     int asq, bsq, d, xd, yd;
-    RECTL rect;
+    RECT rect;
 
     /* Make the dimensions sensible */
 
@@ -2442,7 +2444,7 @@ NtGdiEqualRgn(
 )
 {
     PROSRGNDATA rgn1, rgn2;
-    PRECTL tRect1, tRect2;
+    PRECT tRect1, tRect2;
     ULONG i;
     BOOL bRet = FALSE;
 
@@ -2463,8 +2465,8 @@ NtGdiEqualRgn(
             rgn1->rdh.rcBound.bottom != rgn2->rdh.rcBound.bottom)
         goto exit;
 
-    tRect1 = rgn1->Buffer;
-    tRect2 = rgn2->Buffer;
+    tRect1 = (PRECT)rgn1->Buffer;
+    tRect2 = (PRECT)rgn2->Buffer;
 
     if (!tRect1 || !tRect2)
         goto exit;
@@ -2496,8 +2498,6 @@ NtGdiExtCreateRegion(
     HRGN hRgn;
     PROSRGNDATA Region;
     DWORD nCount = 0;
-    DWORD iType = 0;
-    DWORD dwSize = 0;
     NTSTATUS Status = STATUS_SUCCESS;
     MATRIX matrix;
 
@@ -2506,8 +2506,14 @@ NtGdiExtCreateRegion(
     {
         ProbeForRead(RgnData, Count, 1);
         nCount = RgnData->rdh.nCount;
-        iType = RgnData->rdh.iType;
-        dwSize = RgnData->rdh.dwSize;
+        if (Count < sizeof(RGNDATAHEADER) + nCount * sizeof(RECT) ||
+            nCount == 0 ||
+            RgnData->rdh.iType != RDH_RECTANGLES ||
+            RgnData->rdh.dwSize != sizeof(RGNDATAHEADER))
+        {
+            Status = STATUS_INVALID_PARAMETER;
+            _SEH2_LEAVE;
+        }
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
@@ -2517,14 +2523,6 @@ NtGdiExtCreateRegion(
     if (!NT_SUCCESS(Status))
     {
         SetLastNtError(Status);
-        return NULL;
-    }
-
-    /* Check parameters, but don't set last error here */
-    if (Count < sizeof(RGNDATAHEADER) + nCount * sizeof(RECT) ||
-        iType != RDH_RECTANGLES ||
-        dwSize != sizeof(RGNDATAHEADER))
-    {
         return NULL;
     }
 
@@ -2539,6 +2537,9 @@ NtGdiExtCreateRegion(
 
     _SEH2_TRY
     {
+        /* Copy header */
+        Region->rdh = RgnData->rdh;
+
         if (Xform)
         {
             ULONG ret;
@@ -2578,7 +2579,7 @@ NtGdiExtCreateRegion(
     {
         SetLastWin32Error(ERROR_INVALID_PARAMETER);
         REGION_UnlockRgn(Region);
-        GreDeleteObject(hRgn);
+        NtGdiDeleteObject(hRgn);
         return NULL;
     }
 
@@ -2597,7 +2598,7 @@ NtGdiFillRgn(
 {
     HBRUSH oldhBrush;
     PROSRGNDATA rgn;
-    PRECTL r;
+    PRECT r;
 
     if (NULL == (rgn = REGION_LockRgn(hRgn)))
     {
@@ -2640,20 +2641,20 @@ NtGdiFrameRgn(
     }
     if (!REGION_CreateFrameRgn(FrameRgn, hRgn, Width, Height))
     {
-        GreDeleteObject(FrameRgn);
+        NtGdiDeleteObject(FrameRgn);
         return FALSE;
     }
 
     Ret = NtGdiFillRgn(hDC, FrameRgn, hBrush);
 
-    GreDeleteObject(FrameRgn);
+    NtGdiDeleteObject(FrameRgn);
     return Ret;
 }
 
 INT FASTCALL
 REGION_GetRgnBox(
     PROSRGNDATA Rgn,
-    PRECTL pRect
+    LPRECT pRect
 )
 {
     DWORD ret;
@@ -2706,20 +2707,23 @@ NtGdiGetRandomRgn(
     switch (iCode)
     {
     case CLIPRGN:
-        hSrc = pDC->rosdc.hClipRgn;
-//        if (pDC->dclevel.prgnClip) hSrc = ((PROSRGNDATA)pDC->dclevel.prgnClip)->BaseObject.hHmgr;
+        hSrc = pDC->w.hClipRgn;
+//        if (pDC->DcLevel.prgnClip) hSrc = ((PROSRGNDATA)pDC->DcLevel.prgnClip)->BaseObject.hHmgr;
         break;
     case METARGN:
-        if (pDC->dclevel.prgnMeta) hSrc = ((PROSRGNDATA)pDC->dclevel.prgnMeta)->BaseObject.hHmgr;
+        if (pDC->DcLevel.prgnMeta) hSrc = ((PROSRGNDATA)pDC->DcLevel.prgnMeta)->BaseObject.hHmgr;
         break;
     case APIRGN:
-        hSrc = pDC->rosdc.hClipRgn;
+        DPRINT1("hMetaRgn not implemented\n");
+        //hSrc = dc->hMetaClipRgn;
+        if (!hSrc) hSrc = pDC->w.hClipRgn;
+        //if (!hSrc) rgn = dc->hMetaRgn;
 //        if (pDC->prgnAPI) hSrc = ((PROSRGNDATA)pDC->prgnAPI)->BaseObject.hHmgr;
-//        else if (pDC->dclevel.prgnClip) hSrc = ((PROSRGNDATA)pDC->dclevel.prgnClip)->BaseObject.hHmgr;
-//        else if (pDC->dclevel.prgnMeta) hSrc = ((PROSRGNDATA)pDC->dclevel.prgnMeta)->BaseObject.hHmgr;
+//        else if (pDC->DcLevel.prgnClip) hSrc = ((PROSRGNDATA)pDC->DcLevel.prgnClip)->BaseObject.hHmgr;
+//        else if (pDC->DcLevel.prgnMeta) hSrc = ((PROSRGNDATA)pDC->DcLevel.prgnMeta)->BaseObject.hHmgr;
         break;
     case SYSRGN:
-        hSrc = pDC->rosdc.hVisRgn;
+        hSrc = pDC->w.hVisRgn;
 //        if (pDC->prgnVis) hSrc = ((PROSRGNDATA)pDC->prgnVis)->BaseObject.hHmgr;
         break;
     default:
@@ -2750,7 +2754,7 @@ NtGdiGetRandomRgn(
 INT APIENTRY
 IntGdiGetRgnBox(
     HRGN hRgn,
-    PRECTL pRect
+    LPRECT pRect
 )
 {
     PROSRGNDATA Rgn;
@@ -2771,11 +2775,11 @@ IntGdiGetRgnBox(
 INT APIENTRY
 NtGdiGetRgnBox(
     HRGN hRgn,
-    PRECTL pRect
+    LPRECT pRect
 )
 {
     PROSRGNDATA  Rgn;
-    RECTL SafeRect;
+    RECT SafeRect;
     DWORD ret;
     NTSTATUS Status = STATUS_SUCCESS;
 
@@ -2818,7 +2822,7 @@ NtGdiInvertRgn(
 {
     PROSRGNDATA RgnData;
     ULONG i;
-    PRECTL rc;
+    PRECT rc;
 
     if (!(RgnData = REGION_LockRgn(hRgn)))
     {
@@ -2826,7 +2830,7 @@ NtGdiInvertRgn(
         return FALSE;
     }
 
-    rc = RgnData->Buffer;
+    rc = (PRECT)RgnData->Buffer;
     for (i = 0; i < RgnData->rdh.nCount; i++)
     {
 
@@ -2864,7 +2868,7 @@ NtGdiOffsetRgn(
     if (XOffset || YOffset)
     {
         int nbox = rgn->rdh.nCount;
-        PRECTL pbox = rgn->Buffer;
+        PRECT pbox = (PRECT)rgn->Buffer;
 
         if (nbox && pbox)
         {
@@ -2901,14 +2905,15 @@ IntGdiPaintRgn(
     PROSRGNDATA visrgn;
     CLIPOBJ* ClipRegion;
     BOOL bRet = FALSE;
+    PGDIBRUSHOBJ pBrush;
+    GDIBRUSHINST BrushInst;
     POINTL BrushOrigin;
     SURFACE *psurf;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
 
     if (!dc) return FALSE;
-    pdcattr = dc->pdcattr;
-
-    ASSERT(!(pdcattr->ulDirty_ & (DIRTY_FILL | DC_BRUSH_DIRTY)));
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
 
     if (!(tmpVisRgn = NtGdiCreateRectRgn(0, 0, 0, 0))) return FALSE;
 
@@ -2916,37 +2921,42 @@ IntGdiPaintRgn(
     if (!REGION_LPTODP(dc, tmpVisRgn, hRgn) || 
          NtGdiOffsetRgn(tmpVisRgn, dc->ptlDCOrig.x, dc->ptlDCOrig.y) == ERROR)
     {
-        GreDeleteObject(tmpVisRgn);
+        NtGdiDeleteObject(tmpVisRgn);
         return FALSE;
     }
 
-    NtGdiCombineRgn(tmpVisRgn, tmpVisRgn, dc->rosdc.hGCClipRgn, RGN_AND);
+    NtGdiCombineRgn(tmpVisRgn, tmpVisRgn, dc->w.hGCClipRgn, RGN_AND);
 
     visrgn = REGION_LockRgn(tmpVisRgn);
     if (visrgn == NULL)
     {
-        GreDeleteObject(tmpVisRgn);
+        NtGdiDeleteObject(tmpVisRgn);
         return FALSE;
     }
 
     ClipRegion = IntEngCreateClipRegion(visrgn->rdh.nCount,
-                                        visrgn->Buffer,
-                                        &visrgn->rdh.rcBound );
+                                        (PRECTL)visrgn->Buffer,
+                                        (PRECTL)&visrgn->rdh.rcBound );
     ASSERT(ClipRegion);
+    pBrush = BRUSHOBJ_LockBrush(Dc_Attr->hbrush);
+    ASSERT(pBrush);
+    IntGdiInitBrushInstance(&BrushInst, pBrush, dc->XlateBrush);
 
-    BrushOrigin.x = pdcattr->ptlBrushOrigin.x;
-    BrushOrigin.y = pdcattr->ptlBrushOrigin.y;
-    psurf = dc->dclevel.pSurface;
+    BrushOrigin.x = Dc_Attr->ptlBrushOrigin.x;
+    BrushOrigin.y = Dc_Attr->ptlBrushOrigin.y;
+    psurf = SURFACE_LockSurface(dc->w.hBitmap);
     /* FIXME - Handle psurf == NULL !!!! */
 
     bRet = IntEngPaint(&psurf->SurfObj,
                        ClipRegion,
-                       &dc->eboFill.BrushObject,
+                       &BrushInst.BrushObject,
                        &BrushOrigin,
                        0xFFFF);//FIXME:don't know what to put here
 
+    SURFACE_UnlockSurface(psurf);
+    BRUSHOBJ_UnlockBrush(pBrush);
     REGION_UnlockRgn(visrgn);
-    GreDeleteObject(tmpVisRgn);
+    NtGdiDeleteObject(tmpVisRgn);
 
     // Fill the region
     return TRUE;
@@ -2962,14 +2972,14 @@ NtGdiPtInRegion(
 {
     PROSRGNDATA rgn;
     ULONG i;
-    PRECTL r;
+    PRECT r;
 
     if (!(rgn = REGION_LockRgn(hRgn) ) )
         return FALSE;
 
     if (rgn->rdh.nCount > 0 && INRECT(rgn->rdh.rcBound, X, Y))
     {
-        r =  rgn->Buffer;
+        r = (PRECT) rgn->Buffer;
         for (i = 0; i < rgn->rdh.nCount; i++)
         {
             if (INRECT(*r, X, Y))
@@ -2988,15 +2998,15 @@ BOOL
 FASTCALL
 REGION_RectInRegion(
     PROSRGNDATA Rgn,
-    const RECTL *rc
+    CONST LPRECT rc
 )
 {
-    PRECTL pCurRect, pRectEnd;
+    PRECT pCurRect, pRectEnd;
 
     // this is (just) a useful optimization
     if ((Rgn->rdh.nCount > 0) && EXTENTCHECK(&Rgn->rdh.rcBound, rc))
     {
-        for (pCurRect = Rgn->Buffer, pRectEnd = pCurRect + Rgn->rdh.nCount; pCurRect < pRectEnd; pCurRect++)
+        for (pCurRect = (PRECT)Rgn->Buffer, pRectEnd = pCurRect + Rgn->rdh.nCount; pCurRect < pRectEnd; pCurRect++)
         {
             if (pCurRect->bottom <= rc->top) continue; // not far enough down yet
             if (pCurRect->top >= rc->bottom) break;    // too far down
@@ -3013,11 +3023,11 @@ BOOL
 APIENTRY
 NtGdiRectInRegion(
     HRGN  hRgn,
-    LPRECTL unsaferc
+    LPRECT unsaferc
 )
 {
     PROSRGNDATA Rgn;
-    RECTL rc = {0};
+    RECT rc = {0};
     BOOL Ret;
     NTSTATUS Status = STATUS_SUCCESS;
 
@@ -3060,7 +3070,7 @@ REGION_SetRectRgn(
     INT BottomRect
 )
 {
-    PRECTL firstRect;
+    PRECT firstRect;
 
     if (LeftRect > RightRect)
     {
@@ -3077,7 +3087,7 @@ REGION_SetRectRgn(
 
     if ((LeftRect != RightRect) && (TopRect != BottomRect))
     {
-        firstRect = rgn->Buffer;
+        firstRect = (PRECT)rgn->Buffer;
         ASSERT(firstRect);
         firstRect->left = rgn->rdh.rcBound.left = LeftRect;
         firstRect->top = rgn->rdh.rcBound.top = TopRect;
@@ -3116,10 +3126,10 @@ NtGdiSetRectRgn(
 HRGN APIENTRY
 NtGdiUnionRectWithRgn(
     HRGN hDest,
-    const RECTL *UnsafeRect
+    CONST PRECT UnsafeRect
 )
 {
-    RECTL SafeRect = {0};
+    RECT SafeRect = {0};
     PROSRGNDATA Rgn;
     NTSTATUS Status = STATUS_SUCCESS;
 
@@ -3447,11 +3457,11 @@ REGION_PtsToRegion(
     POINTBLOCK *FirstPtBlock,
     ROSRGNDATA *reg)
 {
-    RECTL *rects;
+    RECT *rects;
     POINT *pts;
     POINTBLOCK *CurPtBlock;
     int i;
-    RECTL *extents, *temp;
+    RECT *extents, *temp;
     INT numRects;
 
     extents = &reg->rdh.rcBound;
@@ -3701,7 +3711,7 @@ IntCreatePolyPolygonRgn(
         total += Count[poly];
     if (! (pETEs = ExAllocatePoolWithTag(PagedPool, sizeof(EdgeTableEntry) * total, TAG_REGION)) )
     {
-        GreDeleteObject(hrgn);
+        NtGdiDeleteObject(hrgn);
         return 0;
     }
     pts = FirstPtBlock.pts;
@@ -3805,7 +3815,7 @@ IntCreatePolyPolygonRgn(
                         {
                             DPRINT1("Can't alloc tPB\n");
                             ExFreePoolWithTag(pETEs, TAG_REGION);
-                            GreDeleteObject(hrgn);
+                            NtGdiDeleteObject(hrgn);
                             return 0;
                         }
                         curPtBlock->next = tmpPtBlock;

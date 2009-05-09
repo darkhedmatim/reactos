@@ -64,7 +64,6 @@ PDRIVER_OBJECT SavedDriverObject = NULL;
 // local routines 
 
 ULONG
-NTAPI
 UniataEnumBusMasterController__(
 /*    IN PVOID HwDeviceExtension,
     IN PVOID Context,
@@ -75,7 +74,6 @@ UniataEnumBusMasterController__(
     );
 
 VOID
-NTAPI
 AtapiDoNothing(VOID)
 {
     return;
@@ -87,7 +85,6 @@ AtapiDoNothing(VOID)
     Get PCI address by ConfigInfo and RID
 */
 ULONG
-NTAPI
 AtapiGetIoRange(
     IN PVOID HwDeviceExtension,
     IN PPORT_CONFIGURATION_INFORMATION ConfigInfo,
@@ -166,7 +163,6 @@ AtapiGetIoRange(
     Hal routines directly in order to scan PCI bus.
 */
 VOID
-NTAPI
 UniataEnumBusMasterController(
     IN PVOID DriverObject,
     PVOID Argument2
@@ -177,7 +173,6 @@ UniataEnumBusMasterController(
 } // end UniataEnumBusMasterController()
 
 BOOLEAN
-NTAPI
 UniataCheckPCISubclass(
     BOOLEAN known,
     ULONG   RaidFlags,
@@ -217,7 +212,6 @@ UniataCheckPCISubclass(
     Builds PCI device list using Hal routines (not ScsiPort wrappers)
 */
 ULONG
-NTAPI
 UniataEnumBusMasterController__(
     )
 {
@@ -566,7 +560,6 @@ UniataEnumBusMasterController__(
     Wrapper for read PCI config space
 */
 ULONG
-NTAPI
 ScsiPortGetBusDataByOffset(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -605,7 +598,6 @@ ScsiPortGetBusDataByOffset(
     If no matching record found, -1 is returned
 */
 ULONG
-NTAPI
 AtapiFindListedDev(
     PBUSMASTER_CONTROLLER_INFORMATION BusMasterAdapters,
     ULONG     lim,
@@ -684,7 +676,6 @@ AtapiFindListedDev(
     on specified Bus/Slot
 */
 ULONG
-NTAPI
 AtapiFindDev(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -737,7 +728,6 @@ AtapiFindDev(
 
 
 ULONG
-NTAPI
 UniataFindCompatBusMasterController1(
     IN PVOID HwDeviceExtension,
     IN PVOID Context,
@@ -758,7 +748,6 @@ UniataFindCompatBusMasterController1(
 } // end UniataFindCompatBusMasterController1()
 
 ULONG
-NTAPI
 UniataFindCompatBusMasterController2(
     IN PVOID HwDeviceExtension,
     IN PVOID Context,
@@ -779,7 +768,6 @@ UniataFindCompatBusMasterController2(
 } // end UniataFindCompatBusMasterController2()
 
 BOOLEAN
-NTAPI
 UniataAllocateLunExt(
     PHW_DEVICE_EXTENSION  deviceExtension,
     ULONG NewNumberChannels
@@ -840,7 +828,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 UniataFindBusMasterController(
     IN PVOID HwDeviceExtension,
     IN PVOID Context,
@@ -1718,7 +1705,6 @@ exit_notfound:
    This is for claiming PCI Busmaster in compatible mode under WDM OSes
 */
 ULONG
-NTAPI
 UniataFindFakeBusMasterController(
     IN PVOID HwDeviceExtension,
     IN PVOID Context,
@@ -2059,7 +2045,6 @@ Return Value:
 
 --*/
 NTSTATUS
-NTAPI
 UniataConnectIntr2(
     IN PVOID HwDeviceExtension
     )
@@ -2162,7 +2147,6 @@ UniataConnectIntr2(
 } // end UniataConnectIntr2()
 
 NTSTATUS
-NTAPI
 UniataDisconnectIntr2(
     IN PVOID HwDeviceExtension
     )
@@ -2214,7 +2198,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 AtapiFindController(
     IN PVOID HwDeviceExtension,
     IN PVOID Context,
@@ -2631,7 +2614,6 @@ exit_error:
 } // end AtapiFindController()
 
 BOOLEAN
-NTAPI
 UniataAnybodyHome(
     IN PVOID   HwDeviceExtension,
     IN ULONG   lChannel,
@@ -2707,7 +2689,6 @@ UniataAnybodyHome(
 } // end UniataAnybodyHome()
 
 ULONG
-NTAPI
 CheckDevice(
     IN PVOID   HwDeviceExtension,
     IN ULONG   lChannel,
@@ -2892,7 +2873,6 @@ Return Value:
 
 --*/
 BOOLEAN
-NTAPI
 FindDevices(
     IN PVOID HwDeviceExtension,
     IN ULONG   Flags,

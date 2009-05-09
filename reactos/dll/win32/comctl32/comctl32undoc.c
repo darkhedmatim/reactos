@@ -339,7 +339,7 @@ static void MRU_SaveChanged ( LPWINEMRULIST mp )
  */
 void WINAPI FreeMRUList (HANDLE hMRUList)
 {
-    LPWINEMRULIST mp = hMRUList;
+    LPWINEMRULIST mp = (LPWINEMRULIST)hMRUList;
     UINT i;
 
     TRACE("(%p)\n", hMRUList);
@@ -380,7 +380,7 @@ void WINAPI FreeMRUList (HANDLE hMRUList)
 INT WINAPI FindMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData,
                         LPINT lpRegNum)
 {
-    const WINEMRULIST *mp = hList;
+    const WINEMRULIST *mp = (LPWINEMRULIST)hList;
     INT ret;
     UINT i;
     LPSTR dataA = NULL;
@@ -454,7 +454,7 @@ INT WINAPI FindMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData,
  */
 INT WINAPI AddMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData)
 {
-    LPWINEMRULIST mp = hList;
+    LPWINEMRULIST mp = (LPWINEMRULIST)hList;
     LPWINEMRUITEM witem;
     INT i, replace;
 
@@ -718,7 +718,7 @@ static HANDLE CreateMRUListLazy_common(LPWINEMRULIST mp)
 	  mp->extview.cbSize, mp->extview.nMaxItems, mp->extview.dwFlags,
 	  mp->extview.hKey, debugstr_w(mp->extview.lpszSubKey),
 	  mp->extview.lpfnCompare, mp->cursize);
-    return mp;
+    return (HANDLE)mp;
 }
 
 /**************************************************************************
@@ -830,7 +830,7 @@ HANDLE WINAPI CreateMRUListA (const CREATEMRULISTA *lpcml)
 INT WINAPI EnumMRUListW (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
                          DWORD nBufferSize)
 {
-    const WINEMRULIST *mp = hList;
+    const WINEMRULIST *mp = (LPWINEMRULIST) hList;
     const WINEMRUITEM *witem;
     INT desired, datasize;
 
@@ -855,7 +855,7 @@ INT WINAPI EnumMRUListW (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
 INT WINAPI EnumMRUListA (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
                          DWORD nBufferSize)
 {
-    const WINEMRULIST *mp = hList;
+    const WINEMRULIST *mp = (LPWINEMRULIST) hList;
     LPWINEMRUITEM witem;
     INT desired, datasize;
     DWORD lenA;

@@ -35,7 +35,7 @@
 typedef struct _GRAPHICS_DRIVER
 {
   PWSTR  Name;
-  PFN_DrvEnableDriver  EnableDriver;
+  PGD_ENABLEDRIVER  EnableDriver;
   int  ReferenceCount;
   struct _GRAPHICS_DRIVER  *Next;
 } GRAPHICS_DRIVER, *PGRAPHICS_DRIVER;
@@ -43,7 +43,7 @@ typedef struct _GRAPHICS_DRIVER
 static PGRAPHICS_DRIVER  DriverList;
 static PGRAPHICS_DRIVER  GenericDriver = NULL;
 
-BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PFN_DrvEnableDriver  EnableDriver)
+BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PGD_ENABLEDRIVER  EnableDriver)
 {
   PGRAPHICS_DRIVER  Driver;
   
@@ -79,7 +79,7 @@ BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PFN_DrvEnableDriver  EnableDriver)
   return  TRUE;
 }
 
-PFN_DrvEnableDriver DRIVER_FindExistingDDIDriver(LPCWSTR Name)
+PGD_ENABLEDRIVER DRIVER_FindExistingDDIDriver(LPCWSTR Name)
 {
   GRAPHICS_DRIVER *Driver = DriverList;
   while (Driver && Name)
@@ -94,11 +94,11 @@ PFN_DrvEnableDriver DRIVER_FindExistingDDIDriver(LPCWSTR Name)
   return NULL;
 }
 
-PFN_DrvEnableDriver DRIVER_FindDDIDriver(LPCWSTR Name)
+PGD_ENABLEDRIVER DRIVER_FindDDIDriver(LPCWSTR Name)
 {
   static WCHAR DefaultPath[] = L"\\SystemRoot\\System32\\";
   static WCHAR DefaultExtension[] = L".DLL";
-  PFN_DrvEnableDriver ExistingDriver;
+  PGD_ENABLEDRIVER ExistingDriver;
   SYSTEM_GDI_DRIVER_INFORMATION GdiDriverInfo;
   NTSTATUS Status;
   LPWSTR FullName;
@@ -174,7 +174,7 @@ PFN_DrvEnableDriver DRIVER_FindDDIDriver(LPCWSTR Name)
   DRIVER_RegisterDriver( L"DISPLAY", GdiDriverInfo.EntryPoint);
   DRIVER_RegisterDriver( FullName, GdiDriverInfo.EntryPoint);
   ExFreePoolWithTag(FullName, TAG_DRIVER);
-  return (PFN_DrvEnableDriver)GdiDriverInfo.EntryPoint;
+  return (PGD_ENABLEDRIVER)GdiDriverInfo.EntryPoint;
 }
 
 #define BEGIN_FUNCTION_MAP() \

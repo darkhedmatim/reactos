@@ -37,7 +37,7 @@ struct HTMLDOMTextNode {
     const IHTMLDOMTextNodeVtbl   *lpIHTMLDOMTextNodeVtbl;
 };
 
-#define HTMLTEXT(x)  (&(x)->lpIHTMLDOMTextNodeVtbl)
+#define HTMLTEXT(x)  ((IHTMLDOMTextNode*)  &(x)->lpIHTMLDOMTextNodeVtbl)
 
 #define HTMLTEXT_THIS(iface) DEFINE_THIS(HTMLDOMTextNode, IHTMLDOMTextNode, iface)
 
@@ -116,17 +116,17 @@ static HRESULT WINAPI HTMLDOMTextNode_toString(IHTMLDOMTextNode *iface, BSTR *St
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLDOMTextNode_get_length(IHTMLDOMTextNode *iface, LONG *p)
+static HRESULT WINAPI HTMLDOMTextNode_get_length(IHTMLDOMTextNode *iface, long *p)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
     FIXME("(%p)->(%p)\n", This, p);
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLDOMTextNode_splitText(IHTMLDOMTextNode *iface, LONG offset, IHTMLDOMNode **pRetNode)
+static HRESULT WINAPI HTMLDOMTextNode_splitText(IHTMLDOMTextNode *iface, long offset, IHTMLDOMNode **pRetNode)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
-    FIXME("(%p)->(%d %p)\n", This, offset, pRetNode);
+    FIXME("(%p)->(%ld %p)\n", This, offset, pRetNode);
     return E_NOTIMPL;
 }
 

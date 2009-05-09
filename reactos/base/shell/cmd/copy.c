@@ -232,7 +232,7 @@ copy (TCHAR source[MAX_PATH],
         {
             ConOutResPuts(STRING_COPY_ERROR3);
 
-            VirtualFree (buffer, 0, MEM_RELEASE);
+            cmd_free (buffer);
             CloseHandle (hFileDest);
             CloseHandle (hFileSrc);
             nErrorLevel = 1;

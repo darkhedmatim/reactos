@@ -69,28 +69,26 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
 			 BOOLEAN Write, BOOLEAN LockAddress ) {
     UINT i;
     /* Copy the buffer array so we don't lose it */
-    UINT Lock = LockAddress ? 2 : 0;
+    UINT Lock = (LockAddress && AddressLen) ? 2 : 0;
     UINT Size = sizeof(AFD_WSABUF) * (Count + Lock);
     PAFD_WSABUF NewBuf = ExAllocatePool( PagedPool, Size * 2 );
+    PMDL NewMdl;
     BOOLEAN LockFailed = FALSE;
 
     AFD_DbgPrint(MID_TRACE,("Called(%08x)\n", NewBuf));
 
     if( NewBuf ) {
-        RtlZeroMemory(NewBuf, Size * 2);
-
 	PAFD_MAPBUF MapBuf = (PAFD_MAPBUF)(NewBuf + Count + Lock);
 
         _SEH2_TRY {
             RtlCopyMemory( NewBuf, Buf, sizeof(AFD_WSABUF) * Count );
             if( LockAddress ) {
-                if (AddressBuf && AddressLen) {
-                    NewBuf[Count].buf = AddressBuf;
-                    NewBuf[Count].len = *AddressLen;
-                    NewBuf[Count + 1].buf = (PVOID)AddressLen;
-                    NewBuf[Count + 1].len = sizeof(*AddressLen);
-                }
-                Count += 2;
+                NewBuf[Count].buf = AddressBuf;
+                NewBuf[Count].len = *AddressLen;
+                Count++;
+                NewBuf[Count].buf = (PVOID)AddressLen;
+                NewBuf[Count].len = sizeof(*AddressLen);
+                Count++;
             }
         } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
             AFD_DbgPrint(MIN_TRACE,("Access violation copying buffer info "
@@ -104,18 +102,20 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
 	    AFD_DbgPrint(MID_TRACE,("Locking buffer %d (%x:%d)\n",
 				    i, NewBuf[i].buf, NewBuf[i].len));
 
-	    if( NewBuf[i].buf && NewBuf[i].len ) {
-		MapBuf[i].Mdl = IoAllocateMdl( NewBuf[i].buf,
-					       NewBuf[i].len,
-					       FALSE,
-					       FALSE,
-					       NULL );
+	    if( NewBuf[i].len ) {
+		NewMdl = IoAllocateMdl( NewBuf[i].buf,
+					NewBuf[i].len,
+					FALSE,
+					FALSE,
+					NULL );
 	    } else {
 		MapBuf[i].Mdl = NULL;
 		continue;
 	    }
 
-	    AFD_DbgPrint(MID_TRACE,("NewMdl @ %x\n", MapBuf[i].Mdl));
+	    AFD_DbgPrint(MID_TRACE,("NewMdl @ %x\n", NewMdl));
+
+	    MapBuf[i].Mdl = NewMdl;
 
 	    if( MapBuf[i].Mdl ) {
 		AFD_DbgPrint(MID_TRACE,("Probe and lock pages\n"));
@@ -187,9 +187,6 @@ PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount ) {
 	      	 (PVOID*)&FileObjects[i].Handle,
 	      	 NULL );
 	}
-
-        if( !NT_SUCCESS(Status) )
-            FileObjects[i].Handle = 0;
     }
 
     if( !NT_SUCCESS(Status) ) {
@@ -288,7 +285,8 @@ VOID SocketStateUnlock( PAFD_FCB FCB ) {
 
 NTSTATUS NTAPI UnlockAndMaybeComplete
 ( PAFD_FCB FCB, NTSTATUS Status, PIRP Irp,
-  UINT Information ) {
+  UINT Information,
+  PIO_COMPLETION_ROUTINE Completion ) {
 
     Irp->IoStatus.Status = Status;
     Irp->IoStatus.Information = Information;
@@ -302,6 +300,8 @@ NTSTATUS NTAPI UnlockAndMaybeComplete
     } else {
 	if ( Irp->MdlAddress ) UnlockRequest( Irp, IoGetCurrentIrpStackLocation( Irp ) );
 	SocketStateUnlock( FCB );
+	if( Completion )
+	    Completion( FCB->DeviceExt->DeviceObject, Irp, FCB );
 	IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
     }
     return Status;
@@ -321,7 +321,16 @@ NTSTATUS LostSocket( PIRP Irp ) {
 NTSTATUS LeaveIrpUntilLater( PAFD_FCB FCB, PIRP Irp, UINT Function ) {
     InsertTailList( &FCB->PendingIrpList[Function],
 		    &Irp->Tail.Overlay.ListEntry );
-	IoMarkIrpPending(Irp);
-	Irp->IoStatus.Status = STATUS_PENDING;
-    return UnlockAndMaybeComplete( FCB, STATUS_PENDING, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, STATUS_PENDING, Irp, 0, NULL );
+}
+
+VOID SocketCalloutEnter( PAFD_FCB FCB ) {
+    ASSERT(FCB->Locked);
+    FCB->Critical = TRUE;
+    SocketStateUnlock( FCB );
+}
+
+VOID SocketCalloutLeave( PAFD_FCB FCB ) {
+    FCB->Critical = FALSE;
+    SocketAcquireStateLock( FCB );
 }

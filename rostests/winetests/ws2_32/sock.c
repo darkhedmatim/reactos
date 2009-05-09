@@ -852,8 +852,7 @@ static void Exit (void)
     ok ( ret == 0, "WSACleanup failed ret = %d GetLastError is %d\n", ret, err);
     ret = WSACleanup();
     err = WSAGetLastError();
-    ok ( (ret == SOCKET_ERROR && err ==  WSANOTINITIALISED) ||
-         broken(ret == 0),  /* WinME */
+    ok ( ret == SOCKET_ERROR && err ==  WSANOTINITIALISED,
             "WSACleanup returned %d GetLastError is %d\n", ret, err);
 }
 

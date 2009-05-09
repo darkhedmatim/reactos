@@ -38,7 +38,6 @@ KsDefaultDispatchPnp(
         case IRP_MN_QUERY_DEVICE_RELATIONS:
             Irp->IoStatus.Information = 0;
             Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
             return STATUS_INSUFFICIENT_RESOURCES;
         case IRP_MN_REMOVE_DEVICE:
             // FIXME
@@ -49,12 +48,10 @@ KsDefaultDispatchPnp(
         case IRP_MN_SURPRISE_REMOVAL:
             Irp->IoStatus.Information = 0;
             Irp->IoStatus.Status = STATUS_SUCCESS;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
             return STATUS_SUCCESS;
         default:
             Irp->IoStatus.Information = 0;
             Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
             //Status = IoCallDriver(NULL /* PnpBaseObject */, Irp);
     }
 
@@ -82,10 +79,6 @@ KsDefaultDispatchPower(
     IN  PIRP Irp)
 {
     UNIMPLEMENTED;
-
-    Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
-    Irp->IoStatus.Information = 0;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -165,7 +158,7 @@ KsLoadResource(
 /*
     @unimplemented
 */
-KSDDKAPI VOID NTAPI
+VOID
 KsNullDriverUnload(
     IN  PDRIVER_OBJECT DriverObject)
 {
@@ -234,27 +227,10 @@ KsSetTargetState(
     UNIMPLEMENTED;
 }
 
-NTSTATUS
-NTAPI
-CompletionRoutine(
-    IN PDEVICE_OBJECT  DeviceObject,
-    IN PIRP  Irp,
-    IN PVOID  Context)
-{
-    PIO_STATUS_BLOCK IoStatusBlock = (PIO_STATUS_BLOCK)Context;
-
-    IoStatusBlock->Information = Irp->IoStatus.Information;
-    IoStatusBlock->Status = Irp->IoStatus.Status;
-
-    return STATUS_SUCCESS;
-}
-
 /*
-    @implemented
+    @unimplemented
 */
-KSDDKAPI
-NTSTATUS
-NTAPI
+KSDDKAPI NTSTATUS NTAPI
 KsSynchronousIoControlDevice(
     IN  PFILE_OBJECT FileObject,
     IN  KPROCESSOR_MODE RequestorMode,
@@ -262,64 +238,11 @@ KsSynchronousIoControlDevice(
     IN  PVOID InBuffer,
     IN  ULONG InSize,
     OUT PVOID OutBuffer,
-    IN  ULONG OutSize,
+    IN  ULONG OUtSize,
     OUT PULONG BytesReturned)
 {
-    PKSIOBJECT_HEADER ObjectHeader;
-    PDEVICE_OBJECT DeviceObject;
-    KEVENT Event;
-    PIRP Irp;
-    IO_STATUS_BLOCK IoStatusBlock;
-    PIO_STACK_LOCATION IoStack;
-    NTSTATUS Status;
-
-    /* check for valid file object */
-    if (!FileObject)
-        return STATUS_INVALID_PARAMETER;
-
-    /* get device object to send the request to */
-    DeviceObject = IoGetRelatedDeviceObject(FileObject);
-    if (!DeviceObject)
-        return STATUS_UNSUCCESSFUL;
-
-    /* get object header */
-    ObjectHeader = (PKSIOBJECT_HEADER)FileObject->FsContext;
-    /* check if there is fast device io function */
-    if (ObjectHeader->DispatchTable.FastDeviceIoControl)
-    {
-        /* it is send the request */
-        Status = ObjectHeader->DispatchTable.FastDeviceIoControl(FileObject, TRUE, InBuffer, InSize, OutBuffer, OutSize, IoControl, &IoStatusBlock, DeviceObject);
-        /* check if the request was handled */
-        if (Status)
-        {
-            /* store bytes returned */
-            *BytesReturned = IoStatusBlock.Information;
-            /* return status */
-            return IoStatusBlock.Status;
-        }
-    }
-
-    /* initialize the event */
-    KeInitializeEvent(&Event, NotificationEvent, FALSE);
-
-    /* create the irp */
-    Irp =  IoBuildDeviceIoControlRequest(IoControl, DeviceObject, InBuffer, InSize, OutBuffer, OutSize, FALSE, &Event, &IoStatusBlock);
-
-    /* HACK */
-    IoStack = IoGetNextIrpStackLocation(Irp);
-    IoStack->FileObject = FileObject;
-
-    IoSetCompletionRoutine(Irp, CompletionRoutine, (PVOID)&IoStatusBlock, TRUE, TRUE, TRUE);
-
-    Status = IoCallDriver(DeviceObject, Irp);
-    if (Status == STATUS_PENDING)
-    {
-        KeWaitForSingleObject(&Event, Executive, RequestorMode, FALSE, NULL);
-        Status = IoStatusBlock.Status;
-    }
-
-    *BytesReturned = IoStatusBlock.Information;
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_UNSUCCESSFUL;
 }
 
 

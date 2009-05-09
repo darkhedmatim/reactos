@@ -168,10 +168,12 @@ static HRESULT process_pattern_string(LPCWSTR wszPatternString, IAsyncReader * p
     if (!(wszPatternString = strchrW(wszPatternString, ',')))
         hr = E_INVALIDARG;
 
+    wszPatternString++; /* skip ',' */
+
     if (hr == S_OK)
     {
-        wszPatternString++; /* skip ',' */
-        while (!isxdigitW(*wszPatternString) && (*wszPatternString != ',')) wszPatternString++;
+        for ( ; !isxdigitW(*wszPatternString) && (*wszPatternString != ','); wszPatternString++)
+            ;
 
         for (strpos = 0; isxdigitW(*wszPatternString) && (strpos/2 < ulBytes); wszPatternString++, strpos++)
         {
@@ -361,7 +363,7 @@ HRESULT AsyncReader_create(IUnknown * pUnkOuter, LPVOID * ppv)
     pAsyncRead->pszFileName = NULL;
     pAsyncRead->pmt = NULL;
 
-    *ppv = pAsyncRead;
+    *ppv = (LPVOID)pAsyncRead;
 
     TRACE("-- created at %p\n", pAsyncRead);
 
@@ -379,15 +381,15 @@ static HRESULT WINAPI AsyncReader_QueryInterface(IBaseFilter * iface, REFIID rii
     *ppv = NULL;
 
     if (IsEqualIID(riid, &IID_IUnknown))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IPersist))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IMediaFilter))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IBaseFilter))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IFileSourceFilter))
-        *ppv = &This->lpVtblFSF;
+        *ppv = (LPVOID)(&This->lpVtblFSF);
 
     if (*ppv)
     {
@@ -531,7 +533,7 @@ static HRESULT AsyncReader_GetPin(IBaseFilter *iface, ULONG pos, IPin **pin, DWO
     if (pos >= 1 || !This->pOutputPin)
         return S_FALSE;
 
-    *pin = This->pOutputPin;
+    *pin = (IPin *)This->pOutputPin;
     IPin_AddRef(*pin);
     return S_OK;
 }
@@ -781,8 +783,8 @@ static inline FileAsyncReader *impl_from_IAsyncReader( IAsyncReader *iface )
 
 static HRESULT AcceptProcAFR(LPVOID iface, const AM_MEDIA_TYPE *pmt)
 {
-    AsyncReader *This = iface;
-
+    AsyncReader *This = (AsyncReader *)iface;
+    
     FIXME("(%p, %p)\n", iface, pmt);
 
     if (IsEqualGUID(&pmt->majortype, &This->pmt->majortype) &&
@@ -803,11 +805,11 @@ static HRESULT WINAPI FileAsyncReaderPin_QueryInterface(IPin * iface, REFIID rii
     *ppv = NULL;
 
     if (IsEqualIID(riid, &IID_IUnknown))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IPin))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IAsyncReader))
-        *ppv = &This->lpVtblAR;
+        *ppv = (LPVOID)&This->lpVtblAR;
 
     if (*ppv)
     {
@@ -1180,12 +1182,8 @@ static HRESULT WINAPI FileAsyncReader_WaitForNext(IAsyncReader * iface, DWORD dw
         if (buffer >= This->samples)
         {
             if (buffer != This->samples)
-            {
                 FIXME("Returned: %u (%08x)\n", buffer, GetLastError());
-                hr = VFW_E_TIMEOUT;
-            }
-            else
-                hr = VFW_E_WRONG_STATE;
+            hr = VFW_E_TIMEOUT;
             buffer = ~0;
         }
         else

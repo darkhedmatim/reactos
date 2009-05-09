@@ -803,7 +803,7 @@ static void set_tex_op_atifs(DWORD state, IWineD3DStateBlockImpl *stateblock, Wi
     IWineD3DDeviceImpl          *This = stateblock->wineD3DDevice;
     const struct atifs_ffp_desc *desc;
     struct ffp_frag_settings     settings;
-    struct atifs_private_data   *priv = This->fragment_priv;
+    struct atifs_private_data   *priv = (struct atifs_private_data *) This->fragment_priv;
     DWORD mapped_stage;
     unsigned int i;
 
@@ -834,8 +834,7 @@ static void set_tex_op_atifs(DWORD state, IWineD3DStateBlockImpl *stateblock, Wi
      */
     for(i = 0; i < desc->num_textures_used; i++) {
         mapped_stage = This->texUnitMap[i];
-        if (mapped_stage != WINED3D_UNMAPPED_STAGE)
-        {
+        if(mapped_stage != -1) {
             GL_EXTCALL(glActiveTextureARB(GL_TEXTURE0_ARB + mapped_stage));
             checkGLcall("glActiveTextureARB");
             texture_activate_dimensions(i, stateblock, context);
@@ -886,7 +885,6 @@ static void atifs_apply_pixelshader(DWORD state, IWineD3DStateBlockImpl *statebl
     IWineD3DDeviceImpl *device = stateblock->wineD3DDevice;
     BOOL use_vshader = use_vs(stateblock);
 
-    context->last_was_pshader = use_ps(stateblock);
     /* The ATIFS code does not support pixel shaders currently, but we have to provide a state handler
      * to call shader_select to select a vertex shader if one is applied because the vertex shader state
      * may defer calling the shader backend if the pshader state is dirty.
@@ -1109,7 +1107,7 @@ static HRESULT atifs_alloc(IWineD3DDevice *iface) {
         ERR("Out of memory\n");
         return E_OUTOFMEMORY;
     }
-    priv = This->fragment_priv;
+    priv = (struct atifs_private_data *) This->fragment_priv;
     priv->fragment_shaders = hash_table_create(ffp_frag_program_key_hash, ffp_frag_program_key_compare);
     return WINED3D_OK;
 }
@@ -1128,7 +1126,7 @@ static void atifs_free_ffpshader(void *value, void *device) {
 
 static void atifs_free(IWineD3DDevice *iface) {
     IWineD3DDeviceImpl *This = (IWineD3DDeviceImpl *) iface;
-    struct atifs_private_data *priv = This->fragment_priv;
+    struct atifs_private_data *priv = (struct atifs_private_data *) This->fragment_priv;
 
     hash_table_destroy(priv->fragment_shaders, atifs_free_ffpshader, This);
 

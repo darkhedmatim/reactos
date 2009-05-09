@@ -19,7 +19,7 @@ VOID
 FASTCALL
 DoDeviceSync( SURFOBJ *Surface, PRECTL Rect, FLONG fl)
 {
-  PPDEVOBJ Device = (PDEVOBJ*)Surface->hdev;
+  PGDIDEVICE Device = (GDIDEVICE*)Surface->hdev;
 // No punting and "Handle to a surface, provided that the surface is device-managed. 
 // Otherwise, dhsurf is zero".
   if (!(Device->flFlags & PDEV_DRIVER_PUNTED_CALL) && (Surface->dhsurf))
@@ -40,7 +40,7 @@ FASTCALL
 SynchonizeDriver(FLONG Flags)
 {
   SURFOBJ *SurfObj; 
-  PPDEVOBJ Device;
+  PGDIDEVICE Device;
   
   if (Flags & GCAPS2_SYNCFLUSH)
       Flags = DSS_FLUSH_EVENT;
@@ -63,11 +63,12 @@ ULONG
 FASTCALL
 GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
 {
-  PDC_ATTR pdcattr = NULL;
+  PDC_ATTR Dc_Attr = NULL;
 
   if (dc)
   {
-    pdcattr = dc->pdcattr;
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
   }
   // The thread is approaching the end of sunset.
   switch(pHdr->Cmd)
@@ -85,7 +86,7 @@ GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
         PGDIBSSETBRHORG pgSBO;
         if(!dc) break;
         pgSBO = (PGDIBSSETBRHORG) pHdr;
-        pdcattr->ptlBrushOrigin = pgSBO->ptlBrushOrigin;
+        Dc_Attr->ptlBrushOrigin = pgSBO->ptlBrushOrigin;
         break;
      }
      case GdiBCExtSelClipRgn:
@@ -96,13 +97,13 @@ GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
         if(!dc) break;
         pgO = (PGDIBSOBJECT) pHdr;
         TextIntRealizeFont((HFONT) pgO->hgdiobj, NULL);
-        pdcattr->ulDirty_ &= ~(DIRTY_CHARSET);
+        Dc_Attr->ulDirty_ &= ~(DIRTY_CHARSET);
      }
      case GdiBCDelObj:
      case GdiBCDelRgn:
      {
         PGDIBSOBJECT pgO = (PGDIBSOBJECT) pHdr;
-        GreDeleteObject( pgO->hgdiobj );
+        NtGdiDeleteObject( pgO->hgdiobj );
         break;
      }
      default:

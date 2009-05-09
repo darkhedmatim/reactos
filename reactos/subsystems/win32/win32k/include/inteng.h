@@ -34,6 +34,16 @@ typedef struct tagSPAN
 
 /* Definitions of IntEngXxx functions */
 
+#define IntEngLockProcessDriverObjs(W32Process) \
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&(W32Process)->DriverObjListLock)
+
+#define IntEngUnLockProcessDriverObjs(W32Process) \
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&(W32Process)->DriverObjListLock)
+
+VOID FASTCALL
+IntEngCleanupDriverObjs(struct _EPROCESS *Process,
+                        PW32PROCESS Win32Process);
+
 BOOL APIENTRY
 IntEngLineTo(SURFOBJ *Surface,
              CLIPOBJ *Clip,
@@ -156,19 +166,6 @@ IntEngMovePointer(IN SURFOBJ *pso,
                   IN LONG y,
                   IN RECTL *prcl);
 
-ULONG APIENTRY
-IntEngSetPointerShape(
-   IN SURFOBJ *pso,
-   IN SURFOBJ *psoMask,
-   IN SURFOBJ *psoColor,
-   IN XLATEOBJ *pxlo,
-   IN LONG xHot,
-   IN LONG yHot,
-   IN LONG x,
-   IN LONG y,
-   IN RECTL *prcl,
-   IN FLONG fl);
-
 BOOL APIENTRY
 IntEngAlphaBlend(IN SURFOBJ *Dest,
                  IN SURFOBJ *Source,
@@ -178,12 +175,5 @@ IntEngAlphaBlend(IN SURFOBJ *Dest,
                  IN PRECTL SourceRect,
                  IN BLENDOBJ *BlendObj);
 
-BOOL APIENTRY
-IntEngCopyBits(SURFOBJ *psoDest,
-	    SURFOBJ *psoSource,
-	    CLIPOBJ *pco,
-	    XLATEOBJ *pxlo,
-	    RECTL *prclDest,
-	    POINTL *ptlSource);
 
 #endif /* _WIN32K_INTENG_H */

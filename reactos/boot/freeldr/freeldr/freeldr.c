@@ -26,11 +26,9 @@ VOID BootMain(LPSTR CmdLine)
 
 	MachInit(CmdLine);
 
-	FsInit();
-
 	DebugInit();
 
-	DPRINTM(DPRINT_WARNING, "BootMain() called.\n");
+	DbgPrint((DPRINT_WARNING, "BootMain() called.\n"));
 
 	if (!UiInitialize(FALSE))
 	{

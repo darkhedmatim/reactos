@@ -10,7 +10,6 @@
 	<library>uuid</library>
 	<library>wine</library>
 	<library>ntdll</library>
-	<library>gdi32</library>
 	<library>comctl32</library>
 	<library>kernel32</library>
 	<library>advapi32</library>

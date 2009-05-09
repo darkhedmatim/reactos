@@ -10,6 +10,7 @@
 
 #include "precomp.h"
 
+
 BOOLEAN UDPInitialized = FALSE;
 PORT_SET UDPPorts;
 
@@ -88,6 +89,8 @@ NTSTATUS BuildUDPPacket(
 
     /* FIXME: Assumes IPv4 */
     IPInitializePacket(Packet, IP_ADDRESS_V4);
+    if (!Packet)
+	return STATUS_INSUFFICIENT_RESOURCES;
 
     Packet->TotalSize = sizeof(IPv4_HEADER) + sizeof(UDP_HEADER) + DataLen;
 
@@ -161,48 +164,41 @@ NTSTATUS UDPSendDatagram(
     IP_PACKET Packet;
     PTA_IP_ADDRESS RemoteAddressTa = (PTA_IP_ADDRESS)ConnInfo->RemoteAddress;
     IP_ADDRESS RemoteAddress;
-	IP_ADDRESS LocalAddress;
     USHORT RemotePort;
     NTSTATUS Status;
     PNEIGHBOR_CACHE_ENTRY NCE;
 
     TI_DbgPrint(MID_TRACE,("Sending Datagram(%x %x %x %d)\n",
-						   AddrFile, ConnInfo, BufferData, DataSize));
+			   AddrFile, ConnInfo, BufferData, DataSize));
     TI_DbgPrint(MID_TRACE,("RemoteAddressTa: %x\n", RemoteAddressTa));
 
     switch( RemoteAddressTa->Address[0].AddressType ) {
     case TDI_ADDRESS_TYPE_IP:
-		RemoteAddress.Type = IP_ADDRESS_V4;
-		RemoteAddress.Address.IPv4Address =
-			RemoteAddressTa->Address[0].Address[0].in_addr;
-		RemotePort = RemoteAddressTa->Address[0].Address[0].sin_port;
-		break;
+	RemoteAddress.Type = IP_ADDRESS_V4;
+	RemoteAddress.Address.IPv4Address =
+	    RemoteAddressTa->Address[0].Address[0].in_addr;
+	RemotePort = RemoteAddressTa->Address[0].Address[0].sin_port;
+	break;
 
     default:
-		return STATUS_UNSUCCESSFUL;
+	return STATUS_UNSUCCESSFUL;
     }
-
-    if(!(NCE = RouteGetRouteToDestination( &RemoteAddress ))) {
-		return STATUS_NETWORK_UNREACHABLE;
-    }
-
-	LocalAddress = AddrFile->Address;
-	if (AddrIsUnspecified(&LocalAddress))
-	{
-		if (!IPGetDefaultAddress(&LocalAddress))
-			return FALSE;
-	}
 
     Status = BuildUDPPacket( &Packet,
-							 &RemoteAddress,
-							 RemotePort,
-							 &LocalAddress,
-							 AddrFile->Port,
-							 BufferData,
-							 DataSize );
+			     &RemoteAddress,
+			     RemotePort,
+			     &AddrFile->Address,
+			     AddrFile->Port,
+			     BufferData,
+			     DataSize );
 
     if( !NT_SUCCESS(Status) )
-		return Status;
+	return Status;
+
+    if(!(NCE = RouteGetRouteToDestination( &RemoteAddress ))) {
+        FreeNdisPacket(Packet.NdisPacket);
+	return STATUS_UNSUCCESSFUL;
+    }
 
     if (!NT_SUCCESS(Status = IPSendDatagram( &Packet, NCE, UDPSendPacketComplete, NULL )))
     {

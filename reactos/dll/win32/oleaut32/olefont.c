@@ -351,21 +351,21 @@ static HRESULT WINAPI OLEFontImpl_QueryInterface(
    * Compare the riid with the interface IDs implemented by this object.
    */
   if (IsEqualGUID(&IID_IUnknown, riid))
-    *ppvObject = this;
+    *ppvObject = (IFont*)this;
   if (IsEqualGUID(&IID_IFont, riid))
-    *ppvObject = this;
+    *ppvObject = (IFont*)this;
   if (IsEqualGUID(&IID_IDispatch, riid))
-    *ppvObject = &this->lpvtblIDispatch;
+    *ppvObject = (IDispatch*)&(this->lpvtblIDispatch);
   if (IsEqualGUID(&IID_IFontDisp, riid))
-    *ppvObject = &this->lpvtblIDispatch;
+    *ppvObject = (IDispatch*)&(this->lpvtblIDispatch);
   if (IsEqualIID(&IID_IPersist, riid) || IsEqualGUID(&IID_IPersistStream, riid))
-    *ppvObject = &this->lpvtblIPersistStream;
+    *ppvObject = (IPersistStream*)&(this->lpvtblIPersistStream);
   if (IsEqualGUID(&IID_IConnectionPointContainer, riid))
-    *ppvObject = &this->lpvtblIConnectionPointContainer;
+    *ppvObject = (IConnectionPointContainer*)&(this->lpvtblIConnectionPointContainer);
   if (IsEqualGUID(&IID_IPersistPropertyBag, riid))
-    *ppvObject = &this->lpvtblIPersistPropertyBag;
+    *ppvObject = (IPersistPropertyBag*)&(this->lpvtblIPersistPropertyBag);
   if (IsEqualGUID(&IID_IPersistStreamInit, riid))
-    *ppvObject = &this->lpvtblIPersistStreamInit;
+    *ppvObject = (IPersistStreamInit*)&(this->lpvtblIPersistStreamInit);
 
   /*
    * Check that we obtained an interface.
@@ -2343,4 +2343,4 @@ static const IClassFactoryVtbl SFCF_Vtbl = {
 };
 static IClassFactoryImpl STDFONT_CF = {&SFCF_Vtbl, 1 };
 
-void _get_STDFONT_CF(LPVOID *ppv) { *ppv = &STDFONT_CF; }
+void _get_STDFONT_CF(LPVOID *ppv) { *ppv = (LPVOID)&STDFONT_CF; }

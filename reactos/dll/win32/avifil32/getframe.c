@@ -140,7 +140,6 @@ static HRESULT WINAPI IGetFrame_fnQueryInterface(IGetFrame *iface,
   if (IsEqualGUID(&IID_IUnknown, refiid) ||
       IsEqualGUID(&IID_IGetFrame, refiid)) {
     *obj = iface;
-    IGetFrame_AddRef(iface);
     return S_OK;
   }
 

@@ -1,7 +1,7 @@
 #ifndef __WIN32K_NTUSER_H
 #define __WIN32K_NTUSER_H
 
-struct _PROCESSINFO;
+struct _W32PROCESSINFO;
 struct _W32THREADINFO;
 struct _WINDOW;
 
@@ -92,7 +92,7 @@ typedef struct _DESKTOPINFO
 typedef struct _CALLPROC
 {
     USER_OBJHDR hdr; /* FIXME: Move out of the structure once new handle manager is implemented */
-    struct _PROCESSINFO *pi;
+    struct _W32PROCESSINFO *pi;
     WNDPROC WndProc;
     struct _CALLPROC *Next;
     UINT Unicode : 1;
@@ -148,7 +148,7 @@ typedef struct _WINDOW
              eventually replace WINDOW_OBJECT. Right now WINDOW_OBJECT
              keeps a reference to this structure until all the information
              is moved to this structure */
-    struct _PROCESSINFO *pi; /* FIXME: Move to object header some day */
+    struct _W32PROCESSINFO *pi; /* FIXME: Move to object header some day */
     struct _W32THREADINFO *ti;
     struct _DESKTOP *pdesktop;
     RECT WindowRect;
@@ -335,7 +335,7 @@ typedef struct _SERVERINFO
   DWORD    SrvEventActivity;
 } SERVERINFO, *PSERVERINFO;
 
-typedef struct _PROCESSINFO
+typedef struct _W32PROCESSINFO
 {
     PVOID UserHandleTable;
     HANDLE hUserHeap;
@@ -347,7 +347,9 @@ typedef struct _PROCESSINFO
 
     UINT RegisteredSysClasses : 1;
 
-} PROCESSINFO, *PPROCESSINFO;
+    PSERVERINFO psi;
+
+} W32PROCESSINFO, *PW32PROCESSINFO;
 
 #define CTI_INSENDMESSAGE 0x0002
 
@@ -364,12 +366,13 @@ typedef struct _CLIENTTHREADINFO
 
 typedef struct _W32THREADINFO
 {
-    PPROCESSINFO ppi; /* [KERNEL] */
-    PDESKTOPINFO pDeskInfo;
+    PW32PROCESSINFO pi; /* [USER] */
+    PW32PROCESSINFO kpi; /* [KERNEL] */
+    PDESKTOPINFO Desktop;
 //    PVOID DesktopHeapBase;
 //    ULONG_PTR DesktopHeapLimit;
     /* A mask of what hooks are currently active */
-    ULONG fsHooks;
+    ULONG Hooks;
     CLIENTTHREADINFO ClientThreadInfo;
 } W32THREADINFO, *PW32THREADINFO;
 
@@ -410,6 +413,7 @@ typedef struct _CLIENTINFO
     PHOOK phkCurrent;
     ULONG fsHooks;
     CALLBACKWND CallbackWnd;
+    ULONG Win32ClientInfo;
     DWORD dwHookCurrent;
     INT cInDDEMLCallback;
     PCLIENTTHREADINFO pClientThreadInfo;
@@ -422,10 +426,7 @@ typedef struct _CLIENTINFO
     HKL hKL;
     USHORT CodePage;
     USHORT achDbcsCF;
-    MSG msgDbcsCB;
-    ULONG Win32ClientInfo3[28];
-/* It's just a pointer reference not to be used w the structure in user space. */
-    PPROCESSINFO ppi;    
+    ULONG Win32ClientInfo3[35];
 } CLIENTINFO, *PCLIENTINFO;
 
 /* Make sure it fits exactly into the TEB */
@@ -466,7 +467,7 @@ typedef struct _BROADCASTPARM
 } BROADCASTPARM, *PBROADCASTPARM;
 
 PW32THREADINFO GetW32ThreadInfo(VOID);
-PPROCESSINFO GetW32ProcessInfo(VOID);
+PW32PROCESSINFO GetW32ProcessInfo(VOID);
 
 typedef struct _WNDMSG
 {
@@ -1721,8 +1722,7 @@ enum ThreadStateRoutines
     THREADSTATE_ACTIVEWINDOW,
     THREADSTATE_CAPTUREWINDOW,
     THREADSTATE_PROGMANWINDOW,
-    THREADSTATE_TASKMANWINDOW,
-    THREADSTATE_GETMESSAGETIME
+    THREADSTATE_TASKMANWINDOW
 };
 
 DWORD

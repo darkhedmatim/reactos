@@ -173,8 +173,6 @@ static const ClassFactory FileProtocolCF =
     { &ClassFactoryVtbl, FileProtocol_Construct};
 static const ClassFactory FtpProtocolCF =
     { &ClassFactoryVtbl, FtpProtocol_Construct};
-static const ClassFactory GopherProtocolCF =
-    { &ClassFactoryVtbl, GopherProtocol_Construct};
 static const ClassFactory HttpProtocolCF =
     { &ClassFactoryVtbl, HttpProtocol_Construct};
 static const ClassFactory HttpSProtocolCF =
@@ -185,10 +183,6 @@ static const ClassFactory SecurityManagerCF =
     { &ClassFactoryVtbl, SecManagerImpl_Construct};
 static const ClassFactory ZoneManagerCF =
     { &ClassFactoryVtbl, ZoneMgrImpl_Construct};
-static const ClassFactory StdURLMonikerCF =
-    { &ClassFactoryVtbl, StdURLMoniker_Construct};
-static const ClassFactory MimeFilterCF =
-    { &ClassFactoryVtbl, MimeFilter_Construct};
  
 struct object_creation_info
 {
@@ -199,7 +193,6 @@ struct object_creation_info
 
 static const WCHAR wszFile[] = {'f','i','l','e',0};
 static const WCHAR wszFtp[]  = {'f','t','p',0};
-static const WCHAR wszGopher[]  = {'g','o','p','h','e','r',0};
 static const WCHAR wszHttp[] = {'h','t','t','p',0};
 static const WCHAR wszHttps[] = {'h','t','t','p','s',0};
 static const WCHAR wszMk[]   = {'m','k',0};
@@ -208,14 +201,11 @@ static const struct object_creation_info object_creation[] =
 {
     { &CLSID_FileProtocol,            CLASSFACTORY(&FileProtocolCF),    wszFile },
     { &CLSID_FtpProtocol,             CLASSFACTORY(&FtpProtocolCF),     wszFtp  },
-    { &CLSID_GopherProtocol,          CLASSFACTORY(&GopherProtocolCF),  wszGopher },
     { &CLSID_HttpProtocol,            CLASSFACTORY(&HttpProtocolCF),    wszHttp },
     { &CLSID_HttpSProtocol,           CLASSFACTORY(&HttpSProtocolCF),   wszHttps },
     { &CLSID_MkProtocol,              CLASSFACTORY(&MkProtocolCF),      wszMk },
     { &CLSID_InternetSecurityManager, CLASSFACTORY(&SecurityManagerCF), NULL    },
-    { &CLSID_InternetZoneManager,     CLASSFACTORY(&ZoneManagerCF),     NULL    },
-    { &CLSID_StdURLMoniker,           CLASSFACTORY(&StdURLMonikerCF),   NULL    },
-    { &CLSID_DeCompMimeFilter,        CLASSFACTORY(&MimeFilterCF),      NULL    }
+    { &CLSID_InternetZoneManager,     CLASSFACTORY(&ZoneManagerCF),     NULL    }
 };
 
 static void init_session(BOOL init)

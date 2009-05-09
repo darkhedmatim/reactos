@@ -35,13 +35,11 @@ typedef struct {
 
 static IEnumFORMATETC *EnumFORMATETC_Create(UINT cfmtetc, const FORMATETC *rgfmtetc, UINT it);
 
-#define ENUMF_THIS(iface) DEFINE_THIS(EnumFORMATETC, EnumFORMATETC, iface)
+#define ENUMF_THIS(iface) ICOM_THIS_MULTI(EnumFORMATETC, lpEnumFORMATETCVtbl, iface)
 
 static HRESULT WINAPI EnumFORMATETC_QueryInterface(IEnumFORMATETC *iface, REFIID riid, void **ppv)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
-
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid(riid), ppv);
+    TRACE("(%p)->(%s %p)\n", iface, debugstr_guid(riid), ppv);
 
     *ppv = NULL;
 
@@ -57,7 +55,7 @@ static HRESULT WINAPI EnumFORMATETC_QueryInterface(IEnumFORMATETC *iface, REFIID
 
 static ULONG WINAPI EnumFORMATETC_AddRef(IEnumFORMATETC *iface)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
     LONG ref = InterlockedIncrement(&This->ref);
     TRACE("(%p) ref=%d\n", This, ref);
     return ref;
@@ -65,7 +63,7 @@ static ULONG WINAPI EnumFORMATETC_AddRef(IEnumFORMATETC *iface)
 
 static ULONG WINAPI EnumFORMATETC_Release(IEnumFORMATETC *iface)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
     LONG ref = InterlockedDecrement(&This->ref);
 
     TRACE("(%p) ref=%d\n", This, ref);
@@ -83,7 +81,7 @@ static ULONG WINAPI EnumFORMATETC_Release(IEnumFORMATETC *iface)
 static HRESULT WINAPI EnumFORMATETC_Next(IEnumFORMATETC *iface, ULONG celt,
         FORMATETC *rgelt, ULONG *pceltFetched)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
     ULONG cnt;
 
     TRACE("(%p)->(%d %p %p)\n", This, celt, rgelt, pceltFetched);
@@ -110,7 +108,7 @@ static HRESULT WINAPI EnumFORMATETC_Next(IEnumFORMATETC *iface, ULONG celt,
 
 static HRESULT WINAPI EnumFORMATETC_Skip(IEnumFORMATETC *iface, ULONG celt)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
 
     TRACE("(%p)->(%d)\n", This, celt);
 
@@ -120,7 +118,7 @@ static HRESULT WINAPI EnumFORMATETC_Skip(IEnumFORMATETC *iface, ULONG celt)
 
 static HRESULT WINAPI EnumFORMATETC_Reset(IEnumFORMATETC *iface)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
 
     TRACE("(%p)\n", This);
 
@@ -130,7 +128,7 @@ static HRESULT WINAPI EnumFORMATETC_Reset(IEnumFORMATETC *iface)
 
 static HRESULT WINAPI EnumFORMATETC_Clone(IEnumFORMATETC *iface, IEnumFORMATETC **ppenum)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
 
     TRACE("(%p)->(%p)\n", This, ppenum);
 

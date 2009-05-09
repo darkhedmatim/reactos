@@ -24,9 +24,9 @@ if "%1" == "" (
     set _1=%1
 )
 if /i "%_1%" == "i386" (
-    set ROS_ARCH=
+    set _ROSBE_ARCH=
 ) else (
-    set ROS_ARCH=%_1%
+    set _ROSBE_ARCH=%_1%
 )
 goto :EOA
 
@@ -36,14 +36,7 @@ goto :EOA
 
 :EOA
 
-:: arch specific settings.
-if exist "%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd" (
-    call "%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd"
-)
-
 call "%_ROSBE_BASEDIR%\rosbe-gcc-env.cmd"
-
-"%_ROSBE_BASEDIR%\version.cmd"
 goto :EOC
 
 ::

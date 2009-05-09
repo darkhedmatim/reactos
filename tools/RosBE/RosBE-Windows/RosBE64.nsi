@@ -1,5 +1,5 @@
 !define PRODUCT_NAME "ReactOS Build Environment for Windows - 64 Bit Target Compiler"
-!define PRODUCT_VERSION "1.1"
+!define PRODUCT_VERSION "1.0"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\RosBE.cmd"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKCU"
@@ -17,19 +17,17 @@ ShowUnInstDetails show
 ;;
 ;; Add version/product information metadata to the installation file.
 ;;
-VIAddVersionKey /LANG=1033 "FileVersion" "1.1.0.0"
+VIAddVersionKey /LANG=1033 "FileVersion" "1.0.0.0"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=1033 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=1033 "Comments" "This installer was written by Peter Ward and Daniel Reimer using Nullsoft Scriptable Install System (http://nsis.sourceforge.net/)"
 VIAddVersionKey /LANG=1033 "CompanyName" "ReactOS Team"
-VIAddVersionKey /LANG=1033 "LegalTrademarks" "Copyright © 2009 ReactOS Team"
-VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2009 ReactOS Team"
+VIAddVersionKey /LANG=1033 "LegalTrademarks" "Copyright © 2008 ReactOS Team"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2008 ReactOS Team"
 VIAddVersionKey /LANG=1033 "FileDescription" "${PRODUCT_NAME} Setup"
-VIProductVersion "1.1.0.0"
+VIProductVersion "1.0.0.0"
 
 CRCCheck force
-SetDatablockOptimize on
-XPStyle on
 SetCompressor /FINAL /SOLID lzma
 
 !include "MUI2.nsh"
@@ -110,19 +108,6 @@ Section -BaseFiles SEC01
     SetOutPath "$INSTDIR"
     SetOverwrite try
     File /r Root\charch.cmd
-    File /r Root\options.cmd
-    IfFileExists "$INSTDIR\RosBE.ps1" 0 +3
-        File /r Root\charch.ps1
-        File /r Root\options.ps1
-    SetOutPath "$INSTDIR\Tools"
-    SetOverwrite try
-    File /r Components\Tools\options64.exe
-    !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
-        CreateDirectory "$SMPROGRAMS\$ICONS_GROUP"
-        SetOutPath $INSTDIR
-        CreateShortCut "$SMPROGRAMS\$ICONS_GROUP\Options x86-64.lnk" \
-                       "$INSTDIR\Tools\options64.exe"
-    !insertmacro MUI_STARTMENU_WRITE_END
 SectionEnd
 
 Section -MinGWGCCNASM SEC02
@@ -140,10 +125,7 @@ Section -StartMenuShortcuts SEC03
     !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
         CreateDirectory "$SMPROGRAMS\$ICONS_GROUP"
         SetOutPath $REACTOS_SOURCE_DIRECTORY
-        IfFileExists "$INSTDIR\RosBE.cmd" 0 +2
-            CreateShortCut "$SMPROGRAMS\$ICONS_GROUP\ReactOS Build Environment 64-bit.lnk" "$SYSDIR\cmd.exe" '/t:0A /k "$INSTDIR\RosBE.cmd" amd64' "$INSTDIR\rosbe.ico"
-        IfFileExists "$INSTDIR\RosBE.ps1" 0 +2
-            CreateShortCut "$SMPROGRAMS\$ICONS_GROUP\ReactOS Build Environment 64-bit - Powershell.lnk" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" "-noexit &'$INSTDIR\RosBE.ps1' amd64" "$INSTDIR\rosbe.ico"
+        CreateShortCut "$SMPROGRAMS\$ICONS_GROUP\ReactOS Build Environment 64-bit.lnk" "$SYSDIR\cmd.exe" '/k "$INSTDIR\RosBE.cmd" amd64' "$INSTDIR\rosbe.ico"
         SetOutPath $INSTDIR
         CreateShortCut "$SMPROGRAMS\$ICONS_GROUP\Uninstall RosBE - 64 Bit Target.lnk" \
                        "$INSTDIR\Uninstall64-${PRODUCT_VERSION}.exe"
@@ -157,10 +139,7 @@ Section /o "Desktop Shortcuts" SEC04
     ;; Add our desktop shortcuts.
     ;;
     SetOutPath $REACTOS_SOURCE_DIRECTORY
-    IfFileExists "$INSTDIR\RosBE.cmd" 0 +2
-        CreateShortCut "$DESKTOP\ReactOS Build Environment 64-bit.lnk" "$SYSDIR\cmd.exe" '/t:0A /k "$INSTDIR\RosBE.cmd" amd64' "$INSTDIR\rosbe.ico"
-    IfFileExists "$INSTDIR\RosBE.ps1" 0 +2
-        CreateShortCut "$DESKTOP\ReactOS Build Environment 64-bit - Powershell.lnk" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" "-noexit &'$INSTDIR\RosBE.ps1' amd64" "$INSTDIR\rosbe.ico"
+    CreateShortCut "$DESKTOP\ReactOS Build Environment 64-bit.lnk" "$SYSDIR\cmd.exe" '/k "$INSTDIR\RosBE.cmd" amd64' "$INSTDIR\rosbe.ico"
 SectionEnd
 
 Section /o "Quick Launch Shortcuts" SEC05
@@ -170,10 +149,7 @@ Section /o "Quick Launch Shortcuts" SEC05
     ;; Add our quick launch shortcuts.
     ;;
     SetOutPath $REACTOS_SOURCE_DIRECTORY
-    IfFileExists "$INSTDIR\RosBE.cmd" 0 +2
-        CreateShortCut "$QUICKLAUNCH\ReactOS Build Environment 64-bit.lnk" "$SYSDIR\cmd.exe" '/t:0A /k "$INSTDIR\RosBE.cmd" amd64' "$INSTDIR\rosbe.ico"
-    IfFileExists "$INSTDIR\RosBE.ps1" 0 +2
-        CreateShortCut "$QUICKLAUNCH\ReactOS Build Environment 64-bit - Powershell.lnk" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" "-noexit &'$INSTDIR\RosBE.ps1' amd64" "$INSTDIR\rosbe.ico"
+    CreateShortCut "$QUICKLAUNCH\ReactOS Build Environment 64-bit.lnk" "$SYSDIR\cmd.exe" '/k "$INSTDIR\RosBE.cmd" amd64' "$INSTDIR\rosbe.ico"
 SectionEnd
 
 Section -Post SEC06
@@ -206,14 +182,13 @@ Section Uninstall
     ;;
     RMDir /r /REBOOTOK "$INSTDIR\x86_64"
     Delete /REBOOTOK "$INSTDIR\charch.cmd"
-    Delete /REBOOTOK "$INSTDIR\charch.ps1"
     Delete /REBOOTOK "$INSTDIR\Uninstall-${PRODUCT_VERSION}.exe"
     ;; Whoever dares to change this back into: RMDir /r /REBOOTOK "$INSTDIR" will be KILLED!!!
     RMDir /REBOOTOK "$INSTDIR"
-    Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment 64-bit.lnk"
-    Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment 64-bit.lnk"
-    Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment 64-bit - Powershell.lnk"
-    Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment 64-bit - Powershell.lnk"
+    IfFileExists "$DESKTOP\ReactOS Build Environment 64-bit.lnk" 0 +2
+        Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment 64-bit.lnk"
+    IfFileExists "$QUICKLAUNCH\ReactOS Build Environment 64-bit.lnk" 0 +2
+        Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment 64-bit.lnk"
 
     ;;
     ;; Clean up the registry.

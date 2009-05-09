@@ -95,8 +95,6 @@ MiniportHandleInterrupt(
         }
       if(Data & CSR0_RINT)
         {
-          BOOLEAN IndicatedData = FALSE;
-
           DPRINT("receive interrupt\n");
 
           while(1)
@@ -137,8 +135,7 @@ MiniportHandleInterrupt(
               DPRINT("Indicating a %d-byte packet (index %d)\n", ByteCount, Adapter->CurrentReceiveDescriptorIndex);
 
               NdisMEthIndicateReceive(Adapter->MiniportAdapterHandle, 0, Buffer, 14, Buffer+14, ByteCount-14, ByteCount-14);
-
-              IndicatedData = TRUE;
+              NdisMEthIndicateReceiveComplete(Adapter->MiniportAdapterHandle);
 
               RtlZeroMemory(Descriptor, sizeof(RECEIVE_DESCRIPTOR));
               Descriptor->RBADR =
@@ -151,9 +148,6 @@ MiniportHandleInterrupt(
 
               Adapter->Statistics.RcvGoodFrames++;
             }
-
-            if (IndicatedData)
-                NdisMEthIndicateReceiveComplete(Adapter->MiniportAdapterHandle);
         }
       if(Data & CSR0_TINT)
         {
@@ -836,9 +830,6 @@ MiniportInitialize(
   PADAPTER Adapter = 0;
   NDIS_STATUS Status = NDIS_STATUS_FAILURE;
   BOOLEAN InterruptRegistered = FALSE;
-  NDIS_HANDLE ConfigurationHandle;
-  UINT *RegNetworkAddress = 0;
-  UINT RegNetworkAddressLength = 0;
 
   ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
@@ -932,25 +923,6 @@ MiniportInitialize(
 
       /* set up the initialization block */
       MiPrepareInitializationBlock(Adapter);
-
-      /* see if someone set a network address manually */
-      NdisOpenConfiguration(&Status, &ConfigurationHandle, WrapperConfigurationContext);
-      if (Status == NDIS_STATUS_SUCCESS)
-      {
-         NdisReadNetworkAddress(&Status, (PVOID *)&RegNetworkAddress, &RegNetworkAddressLength, ConfigurationHandle);
-         if(Status == NDIS_STATUS_SUCCESS && RegNetworkAddressLength == 6)
-         {
-             int i;
-             DPRINT("NdisReadNetworkAddress returned successfully, address %x:%x:%x:%x:%x:%x\n",
-                     RegNetworkAddress[0], RegNetworkAddress[1], RegNetworkAddress[2], RegNetworkAddress[3],
-                     RegNetworkAddress[4], RegNetworkAddress[5]);
-
-             for(i = 0; i < 6; i++)
-                 Adapter->InitializationBlockVirt->PADR[i] = RegNetworkAddress[i];
-         }
-
-         NdisCloseConfiguration(ConfigurationHandle);
-      }
 
       DPRINT("Interrupt registered successfully\n");
 

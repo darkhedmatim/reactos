@@ -301,7 +301,7 @@ static ULONG IsolatePnPCards(VOID)
 
   DPRINT("Called\n");
 
-	IsaPnPReadPort = (PUCHAR)(ISAPNP_MIN_READ_PORT - READ_DATA_PORT_STEP);
+	IsaPnPReadPort = (PUCHAR)ISAPNP_MIN_READ_PORT;
   if (!IsolateReadDataPortSelect()) {
     DPRINT("Could not set read data port\n");
 		return 0;
@@ -340,6 +340,7 @@ static ULONG IsolatePnPCards(VOID)
 			goto next;
 		}
 		if (iteration == 1) {
+			IsaPnPReadPort += READ_DATA_PORT_STEP;
       if (!IsolateReadDataPortSelect()) {
         DPRINT("Could not set read data port\n");
 				return 0;
@@ -1659,12 +1660,6 @@ ISAPNPControl(
 
   case IRP_MN_STOP_DEVICE:
     Status = ISAPNPStopDevice(DeviceObject, Irp, IrpSp);
-    break;
-
-  case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
-    /* Nothing to do here */
-    DPRINT("IRP_MN_FILTER_RESOURCE_REQUIREMENTS\n");
-    Status = Irp->IoStatus.Status;
     break;
 
   default:

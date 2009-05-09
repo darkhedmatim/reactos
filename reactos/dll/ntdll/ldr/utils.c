@@ -858,6 +858,7 @@ LdrFindEntryForName(PUNICODE_STRING Name,
   PLDR_DATA_TABLE_ENTRY ModulePtr;
   BOOLEAN ContainsPath;
   UNICODE_STRING AdjustedName;
+  unsigned i;
 
   DPRINT("LdrFindEntryForName(Name %wZ)\n", Name);
 
@@ -881,8 +882,14 @@ LdrFindEntryForName(PUNICODE_STRING Name,
       return(STATUS_SUCCESS);
     }
 
-  ContainsPath = (Name->Length >= 2 * sizeof(WCHAR) && L':' == Name->Buffer[1]);
-  LdrAdjustDllName (&AdjustedName, Name, !ContainsPath);
+  LdrAdjustDllName (&AdjustedName, Name, FALSE);
+
+  ContainsPath = (AdjustedName.Length >= 2 * sizeof(WCHAR) && L':' == AdjustedName.Buffer[1]);
+  for (i = 0; ! ContainsPath && i < AdjustedName.Length / sizeof(WCHAR); i++)
+    {
+      ContainsPath = L'\\' == AdjustedName.Buffer[i] ||
+                     L'/' == AdjustedName.Buffer[i];
+    }
 
   if (LdrpLastModule)
     {
@@ -2467,7 +2474,6 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
                         IN ULONG Ordinal,
                         OUT PVOID *ProcedureAddress)
 {
-   NTSTATUS Status = STATUS_PROCEDURE_NOT_FOUND;
    if (Name && Name->Length)
      {
        TRACE_LDR("LdrGetProcedureAddress by NAME - %Z\n", Name);
@@ -2480,37 +2486,28 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
    DPRINT("LdrGetProcedureAddress (BaseAddress %p Name %Z Ordinal %lu ProcedureAddress %p)\n",
           BaseAddress, Name, Ordinal, ProcedureAddress);
 
-   _SEH2_TRY
-   {
-     if (Name && Name->Length)
+   if (Name && Name->Length)
      {
        /* by name */
        *ProcedureAddress = LdrGetExportByName(BaseAddress, (PUCHAR)Name->Buffer, 0xffff);
        if (*ProcedureAddress != NULL)
          {
-           Status = STATUS_SUCCESS;
+           return STATUS_SUCCESS;
          }
        DPRINT("LdrGetProcedureAddress: Can't resolve symbol '%Z'\n", Name);
      }
-     else
+   else
      {
        /* by ordinal */
        Ordinal &= 0x0000FFFF;
        *ProcedureAddress = LdrGetExportByOrdinal(BaseAddress, (WORD)Ordinal);
        if (*ProcedureAddress)
          {
-           Status = STATUS_SUCCESS;
+           return STATUS_SUCCESS;
          }
        DPRINT("LdrGetProcedureAddress: Can't resolve symbol @%lu\n", Ordinal);
      }
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-       Status = STATUS_DLL_NOT_FOUND;
-   }
-   _SEH2_END;
-
-   return Status;
+   return STATUS_PROCEDURE_NOT_FOUND;
 }
 
 /**********************************************************************

@@ -156,10 +156,8 @@ HRESULT WINAPI fnTextSrv_TxSendMessage(ITextServices *iface,
 {
    ICOM_THIS_MULTI(ITextServicesImpl, lpVtbl, iface);
    HRESULT hresult;
-   LRESULT lresult;
 
-   lresult = ME_HandleMessage(This->editor, msg, wparam, lparam, TRUE, &hresult);
-   if (plresult) *plresult = lresult;
+   *plresult = ME_HandleMessage(This->editor, msg, wparam, lparam, TRUE, &hresult);
    return hresult;
 }
 

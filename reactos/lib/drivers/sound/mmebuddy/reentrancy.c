@@ -12,7 +12,6 @@
 #include <mmsystem.h>
 #include <mmddk.h>
 #include <ntddsnd.h>
-#include <sndtypes.h>
 #include <mmebuddy.h>
 
 HANDLE EntrypointMutexes[SOUND_DEVICE_TYPES];

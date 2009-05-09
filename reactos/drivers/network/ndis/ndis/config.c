@@ -33,7 +33,7 @@
 
 #include "ndissys.h"
 
-#define NDIS_VERSION 0x00050000          /* the version of NDIS we claim to be to miniport drivers */
+#define NDIS_VERSION 0x00040000          /* the version of NDIS we claim to be to miniport drivers */
 #define PARAMETERS_KEY L"Parameters"     /* The parameters subkey under the device-specific key */
 
 /*
@@ -337,12 +337,6 @@ NdisReadConfiguration(
 
     NDIS_DbgPrint(MAX_TRACE,("requested read of %wZ\n", Keyword));
 
-    if (ConfigurationContext == NULL)
-    {
-       NDIS_DbgPrint(MID_TRACE,("invalid parameter ConfigurationContext (0x%x)\n",ConfigurationContext));
-       return;
-    }
-
     if(
         !wcsncmp(Keyword->Buffer, L"Environment", Keyword->Length/sizeof(WCHAR)) &&
         wcslen(L"Environment") == Keyword->Length/sizeof(WCHAR)
@@ -615,23 +609,13 @@ NdisReadConfiguration(
                 return;
             }
 
-            (*ParameterValue)->ParameterData.BinaryData.Buffer = ExAllocatePool(PagedPool, KeyInformation->DataLength);
-            if (!(*ParameterValue)->ParameterData.BinaryData.Buffer)
-            {
-                NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
-                ExFreePool(KeyInformation);
-                *Status = NDIS_STATUS_RESOURCES;
-                return;
-            }
-
-            (*ParameterValue)->ParameterType = ParameterType;
-            (*ParameterValue)->ParameterData.BinaryData.Length = KeyInformation->DataLength;
-            memcpy((*ParameterValue)->ParameterData.BinaryData.Buffer, KeyInformation->Data, KeyInformation->DataLength);
-
             MiniportResource->ResourceType = 0;
             MiniportResource->Resource = *ParameterValue;
             NDIS_DbgPrint(MID_TRACE,("inserting 0x%x into the resource list\n", MiniportResource->Resource));
             ExInterlockedInsertTailList(&ConfigurationContext->ResourceListHead, &MiniportResource->ListEntry, &ConfigurationContext->ResourceLock);
+
+            (*ParameterValue)->ParameterType = ParameterType;
+            memcpy(&((*ParameterValue)->ParameterData.BinaryData), KeyInformation->Data, KeyInformation->DataLength);
 
             ExFreePool(KeyInformation);
 
@@ -715,7 +699,16 @@ NdisReadNetworkAddress(
     PNDIS_CONFIGURATION_PARAMETER ParameterValue = NULL;
     NDIS_STRING Keyword;
     UINT *IntArray = 0;
-    UINT i,j = 0;
+    int i;
+
+    /* FIXME - We don't quite support this yet due to buggy code below */
+      {
+        *Status = NDIS_STATUS_FAILURE;
+        return;
+      }
+
+    *NetworkAddress = NULL;
+    *NetworkAddressLength = 6;/* XXX magic constant */
 
     NdisInitUnicodeString(&Keyword, L"NetworkAddress");
     NdisReadConfiguration(Status, &ParameterValue, ConfigurationHandle, &Keyword, NdisParameterString);
@@ -725,18 +718,8 @@ NdisReadNetworkAddress(
         return;
     }
 
-    while (ParameterValue->ParameterData.StringData.Buffer[j] != '\0') j++;
-
-    *NetworkAddressLength = (UINT)((j/2)+0.5);
-
-    if (j == 0)
-    {
-        NDIS_DbgPrint(MIN_TRACE,("Empty NetworkAddress registry entry.\n"));
-        *Status = NDIS_STATUS_FAILURE;
-        return;
-    }
-
-    IntArray = ExAllocatePool(PagedPool, (*NetworkAddressLength)*sizeof(UINT));
+    /* 6 bytes for ethernet, tokenring, fddi, everything else? */
+    IntArray = ExAllocatePool(PagedPool, 6*sizeof(UINT));
     if(!IntArray)
     {
         NDIS_DbgPrint(MIN_TRACE,("Insufficient resources.\n"));
@@ -759,7 +742,7 @@ NdisReadNetworkAddress(
     ExInterlockedInsertTailList(&ConfigurationContext->ResourceListHead, &MiniportResource->ListEntry, &ConfigurationContext->ResourceLock);
 
     /* convert from string to bytes */
-    for(i=0; i<(*NetworkAddressLength); i++)
+    for(i=0; i<6; i++)
     {
         IntArray[i] = (UnicodeToHexByte((ParameterValue->ParameterData.StringData.Buffer)[2*i]) << 4) +
                 UnicodeToHexByte((ParameterValue->ParameterData.StringData.Buffer)[2*i+1]);
@@ -923,3 +906,4 @@ NdisOpenConfigurationKeyByName(
 
     *Status = NDIS_STATUS_SUCCESS;
 }
+

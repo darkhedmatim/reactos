@@ -1550,37 +1550,6 @@ typedef void (WINE_GLAPI *PGLFNCLAMPCOLORARBPROC) (GLenum target, GLenum clamp);
 #endif
 typedef void (WINE_GLAPI *PGLFNDRAWBUFFERSARBPROC) (GLsizei n, const GLenum *bufs);
 
-/* GL_ARB_geometry_shader4 */
-#ifndef GL_ARB_geometry_shader4
-#define GL_GEOMETRY_SHADER_ARB                      0x8dd9
-#define GL_GEOMETRY_VERTICES_OUT_ARB                0x8dda
-#define GL_GEOMETRY_INPUT_TYPE_ARB                  0x8ddb
-#define GL_GEOMETRY_OUTPUT_TYPE_ARB                 0x8ddc
-#define GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS_ARB     0x8c29
-#define GL_MAX_GEOMETRY_VARYING_COMPONENTS_ARB      0x8ddd
-#define GL_MAX_VERTEX_VARYING_COMPONENTS_ARB        0x8dde
-#define GL_MAX_VARYING_COMPONENTS_ARB               0x8b4b
-#define GL_MAX_GEOMETRY_UNIFORM_COMPONENTS_ARB      0x8ddf
-#define GL_MAX_GEOMETRY_OUTPUT_VERTICES_ARB         0x8de0
-#define GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS_ARB 0x8de1
-#define GL_LINES_ADJACENCY_ARB                      0x000a
-#define GL_LINE_STRIP_ADJACENCY_ARB                 0x000b
-#define GL_TRIANGLES_ADJACENCY_ARB                  0x000c
-#define GL_TRIANGLE_STRIP_ADJACENCY_ARB             0x000d
-#define GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS_ARB 0x8da8
-#define GL_FRAMEBUFFER_INCOMPLETE_LAYER_COUNT_ARB   0x8da9
-#define GL_FRAMEBUFFER_ATTACHMENT_LAYERED_ARB       0x8da7
-#define GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER     0x8cd4
-#define GL_PROGRAM_POINT_SIZE_ARB                   0x8642
-#endif
-typedef void (WINE_GLAPI *PGLFNPROGRAMPARAMETERIARBPROC)(GLuint program, GLenum pname, GLint value);
-typedef void (WINE_GLAPI *PGLFNFRAMEBUFFERTEXTUREARBPROC)(GLenum target, GLenum attachment,
-        GLuint texture, GLint level);
-typedef void (WINE_GLAPI *PGLFNFRAMEBUFFERTEXTURELAYERARBPROC)(GLenum target, GLenum attachment,
-        GLuint texture, GLint level, GLint layer);
-typedef void (WINE_GLAPI *PGLFNFRAMEBUFFERTEXTUREFACEARBPROC)(GLenum target, GLenum attachment,
-        GLuint texture, GLint level, GLenum face);
-
 /* GL_ARB_imaging */
 #ifndef GL_ARB_imaging
 #define GL_ARB_imaging 1
@@ -1911,7 +1880,6 @@ typedef void (WINE_GLAPI * PGLFNRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC)(GLenum ta
 typedef void (WINE_GLAPI * PGLFNGLSECONDARYCOLOR3FEXTPROC) (GLfloat red, GLfloat green, GLfloat blue);
 typedef void (WINE_GLAPI * PGLFNGLSECONDARYCOLOR3FVEXTPROC) (const GLfloat *v);
 typedef void (WINE_GLAPI * PGLFNGLSECONDARYCOLOR3UBEXTPROC) (GLubyte red, GLubyte green, GLubyte blue);
-typedef void (WINE_GLAPI * PGLFNGLSECONDARYCOLOR3UBVEXTPROC) (const GLubyte *v);
 typedef void (WINE_GLAPI * PGLFNGLSECONDARYCOLORPOINTEREXTPROC) (GLint size, GLenum type, GLsizei stride, const GLvoid *pointer);
 /* GL_EXT_paletted_texture */
 #ifndef GL_EXT_paletted_texture
@@ -3289,7 +3257,6 @@ typedef enum _GL_Cards {
   CARD_ATI_RADEON_7200            = 0x5144,
   CARD_ATI_RADEON_8500            = 0x514c,
   CARD_ATI_RADEON_9500            = 0x4144,
-  CARD_ATI_RADEON_XPRESS_200M     = 0x5955,
   CARD_ATI_RADEON_X700            = 0x5e4c,
   CARD_ATI_RADEON_X1600           = 0x71c2,
   CARD_ATI_RADEON_HD2300          = 0x7210,
@@ -3320,13 +3287,8 @@ typedef enum _GL_Cards {
   CARD_NVIDIA_GEFORCE_8600GT      = 0x0402,
   CARD_NVIDIA_GEFORCE_8600MGT     = 0x0407,
   CARD_NVIDIA_GEFORCE_8800GTS     = 0x0193,
-  CARD_NVIDIA_GEFORCE_9200        = 0x086d,
-  CARD_NVIDIA_GEFORCE_9400GT      = 0x042c,
-  CARD_NVIDIA_GEFORCE_9500GT      = 0x0640,
   CARD_NVIDIA_GEFORCE_9600GT      = 0x0622,
   CARD_NVIDIA_GEFORCE_9800GT      = 0x0614,
-  CARD_NVIDIA_GEFORCE_GTX260      = 0x05e2,
-  CARD_NVIDIA_GEFORCE_GTX275      = 0x05e6,
   CARD_NVIDIA_GEFORCE_GTX280      = 0x05e1,
 
   CARD_INTEL_845G                 = 0x2562,
@@ -3372,7 +3334,6 @@ typedef enum _GL_SupportedExt {
   ARB_DRAW_BUFFERS,
   ARB_FRAGMENT_PROGRAM,
   ARB_FRAGMENT_SHADER,
-  ARB_GEOMETRY_SHADER4,
   ARB_IMAGING,
   ARB_MULTISAMPLE,
   ARB_MULTITEXTURE,
@@ -3467,7 +3428,6 @@ typedef enum _GL_SupportedExt {
 
   /* WGL extensions */
   WGL_ARB_PBUFFER,
-  WGL_ARB_PIXEL_FORMAT,
   WGL_WINE_PIXEL_FORMAT_PASSTHROUGH,
 
   OPENGL_SUPPORTED_EXT_END
@@ -3483,11 +3443,6 @@ typedef enum _GL_SupportedExt {
     USE_GL_FUNC(PGLFNCLAMPCOLORARBPROC,                             glClampColorARB,                            ARB_COLOR_BUFFER_FLOAT, NULL )\
     /* GL_ARB_draw_buffers */ \
     USE_GL_FUNC(PGLFNDRAWBUFFERSARBPROC,                            glDrawBuffersARB,                           ARB_DRAW_BUFFERS,       NULL )\
-    /* GL_ARB_geometry_shader4 */ \
-    USE_GL_FUNC(PGLFNPROGRAMPARAMETERIARBPROC,                      glProgramParameteriARB,                     ARB_GEOMETRY_SHADER4,   NULL ) \
-    USE_GL_FUNC(PGLFNFRAMEBUFFERTEXTUREARBPROC,                     glFramebufferTextureARB,                    ARB_GEOMETRY_SHADER4,   NULL ) \
-    USE_GL_FUNC(PGLFNFRAMEBUFFERTEXTURELAYERARBPROC,                glFramebufferTextureLayerARB,               ARB_GEOMETRY_SHADER4,   NULL ) \
-    USE_GL_FUNC(PGLFNFRAMEBUFFERTEXTUREFACEARBPROC,                 glFramebufferTextureFaceARB,                ARB_GEOMETRY_SHADER4,   NULL ) \
     /* GL_ARB_imaging, GL_EXT_blend_minmax */ \
     USE_GL_FUNC(PGLFNBLENDCOLORPROC,                                glBlendColorEXT,                            EXT_BLEND_COLOR,        NULL )\
     USE_GL_FUNC(PGLFNBLENDEQUATIONPROC,                             glBlendEquationEXT,                         EXT_BLEND_MINMAX,       NULL )\
@@ -3585,7 +3540,6 @@ typedef enum _GL_SupportedExt {
     USE_GL_FUNC(PGLFNGLPOINTPARAMETERFVEXTPROC,                     glPointParameterfvEXT,                      EXT_POINT_PARAMETERS,   NULL )\
     /* GL_EXT_secondary_color */ \
     USE_GL_FUNC(PGLFNGLSECONDARYCOLOR3UBEXTPROC,                    glSecondaryColor3ubEXT,                     EXT_SECONDARY_COLOR,    NULL )\
-    USE_GL_FUNC(PGLFNGLSECONDARYCOLOR3UBVEXTPROC,                   glSecondaryColor3ubvEXT,                    EXT_SECONDARY_COLOR,    NULL )\
     USE_GL_FUNC(PGLFNGLSECONDARYCOLOR3FEXTPROC,                     glSecondaryColor3fEXT,                      EXT_SECONDARY_COLOR,    NULL )\
     USE_GL_FUNC(PGLFNGLSECONDARYCOLOR3FVEXTPROC,                    glSecondaryColor3fvEXT,                     EXT_SECONDARY_COLOR,    NULL )\
     USE_GL_FUNC(PGLFNGLSECONDARYCOLORPOINTEREXTPROC,                glSecondaryColorPointerEXT,                 EXT_SECONDARY_COLOR,    NULL )\
@@ -3897,6 +3851,15 @@ typedef BOOL (WINAPI * WINED3D_PFNWGLSETPIXELFORMATWINE) (HDC hdc, int iPixelFor
  * Structures
  ****************************************************/
 
+typedef struct _WINED3DGLTYPE {
+    int         d3dType;
+    GLint       size;
+    GLenum      glType;
+    GLint       format;
+    GLboolean   normalized;
+    int         typesize;
+} WINED3DGLTYPE;
+
 #define USE_GL_FUNC(type, pfn, ext, replace) type pfn;
 typedef struct _WineD3D_GL_Info {
 
@@ -3908,7 +3871,6 @@ typedef struct _WineD3D_GL_Info {
   UINT   vidmem;
   DWORD  driver_version;
   DWORD  driver_version_hipart;
-  CHAR   driver_description[255];
   CHAR   gl_renderer[255];
   /**
    * CAPS Constants
@@ -3960,6 +3922,9 @@ typedef struct _WineD3D_GL_Info {
   WGL_EXT_FUNCS_GEN
 
   struct GlPixelFormatDesc *gl_formats;
+
+  /* Vertex data types */
+  WINED3DGLTYPE glTypeLookup[WINED3DDECLTYPE_UNUSED];
 } WineD3D_GL_Info;
 #undef USE_GL_FUNC
 

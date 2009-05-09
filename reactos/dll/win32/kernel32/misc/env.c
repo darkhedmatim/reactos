@@ -244,12 +244,21 @@ SetEnvironmentVariableW (
 	RtlInitUnicodeString (&VarName,
 	                      lpName);
 
-	RtlInitUnicodeString (&VarValue,
-	                      lpValue);
+	if (lpValue)
+	{
+		RtlInitUnicodeString (&VarValue,
+		                      lpValue);
 
-	Status = RtlSetEnvironmentVariable (NULL,
-	                                    &VarName,
-	                                    &VarValue);
+		Status = RtlSetEnvironmentVariable (NULL,
+		                                    &VarName,
+		                                    &VarValue);
+	}
+	else
+	{
+		Status = RtlSetEnvironmentVariable (NULL,
+		                                    &VarName,
+		                                    NULL);
+	}
 
 	if (!NT_SUCCESS(Status))
 	{

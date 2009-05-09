@@ -798,7 +798,7 @@ ehci_submit_urb(PEHCI_DEV ehci, PUSB_DEV pdev, PUSB_ENDPOINT pendp, PURB purb)
 
   LBL_OUT2:
     pdev->ref_count--;
-    RemoveEntryList(&purb->urb_link);
+    RemoveEntryList((PLIST_ENTRY) purb);
 
   LBL_OUT:
     unlock_dev(pdev, TRUE);
@@ -3439,7 +3439,7 @@ ehci_probe(PDRIVER_OBJECT drvr_obj, PUNICODE_STRING reg_path, PUSB_DEV_MANAGER d
     pdev = NULL;
 
     //scan the bus to find ehci controller
-    for(bus = 0; bus < 3; bus++)        /* enum bus0-bus2 */
+    for(bus = 0; bus < 2; bus++)        /*enum only bus0 and bus1 */
     {
         for(i = 0; i < PCI_MAX_DEVICES; i++)
         {
@@ -6221,7 +6221,6 @@ generic_start_io(IN PDEVICE_OBJECT dev_obj, IN PIRP irp)
 }
 
 NTSTATUS
-NTAPI
 DriverEntry(IN PDRIVER_OBJECT DriverObject, IN PUNICODE_STRING RegistryPath)
 {
     NTSTATUS ntStatus = STATUS_SUCCESS;

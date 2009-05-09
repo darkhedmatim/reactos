@@ -18,7 +18,6 @@ fi
 # Change the architecture
 source "$_ROSBE_ROSSCRIPTDIR/rosbelibrary.sh"
 change_architecture $1
-source "$_ROSBE_ROSSCRIPTDIR/$_ROSBE_ARCH/setvars.sh"
 set_path_variable
 
 # Display tool versions

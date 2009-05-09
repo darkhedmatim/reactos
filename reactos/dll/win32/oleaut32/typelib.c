@@ -66,6 +66,7 @@
 #include "winuser.h"
 #include "lzexpand.h"
 
+#include "wine/winbase16.h"
 #include "wine/unicode.h"
 #include "objbase.h"
 #include "typelib.h"
@@ -75,26 +76,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 WINE_DECLARE_DEBUG_CHANNEL(typelib);
-
-typedef struct
-{
-    WORD     offset;
-    WORD     length;
-    WORD     flags;
-    WORD     id;
-    WORD     handle;
-    WORD     usage;
-} NE_NAMEINFO;
-
-typedef struct
-{
-    WORD        type_id;   /* Type identifier */
-    WORD        count;     /* Number of resources of this type */
-    DWORD       resloader; /* SetResourceHandler() */
-    /*
-     * Name info array.
-     */
-} NE_TYPEINFO;
 
 static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, VARTYPE *vt);
 static HRESULT TLB_AllocAndInitVarDesc(const VARDESC *src, VARDESC **dest_ptr);
@@ -168,13 +149,13 @@ static void FromLEDWords(void *p_Val, int p_iSize)
 /*
  * Find a typelib key which matches a requested maj.min version.
  */
-static BOOL find_typelib_key( REFGUID guid, WORD *wMaj, WORD *wMin )
+static BOOL find_typelib_key( REFGUID guid, WORD wMaj, WORD *wMin )
 {
     static const WCHAR typelibW[] = {'T','y','p','e','l','i','b','\\',0};
     WCHAR buffer[60];
     char key_name[16];
     DWORD len, i;
-    INT best_maj = -1, best_min = -1;
+    INT best_min = -1;
     HKEY hkey;
 
     memcpy( buffer, typelibW, sizeof(typelibW) );
@@ -193,40 +174,20 @@ static BOOL find_typelib_key( REFGUID guid, WORD *wMaj, WORD *wMin )
         {
             TRACE("found %s: %x.%x\n", debugstr_w(buffer), v_maj, v_min);
 
-            if (*wMaj == 0xffff && *wMin == 0xffff)
+            if (wMaj == v_maj)
             {
-                if (v_maj > best_maj) best_maj = v_maj;
-                if (v_min > best_min) best_min = v_min;
-            }
-            else if (*wMaj == v_maj)
-            {
-                best_maj = v_maj;
-
                 if (*wMin == v_min)
                 {
                     best_min = v_min;
                     break; /* exact match */
                 }
-                if (*wMin != 0xffff && v_min > best_min) best_min = v_min;
+                if (v_min > best_min) best_min = v_min;
             }
         }
         len = sizeof(key_name);
     }
     RegCloseKey( hkey );
-
-    TRACE("found best_maj %d, best_min %d\n", best_maj, best_min);
-
-    if (*wMaj == 0xffff && *wMin == 0xffff)
-    {
-        if (best_maj >= 0 && best_min >= 0)
-        {
-            *wMaj = best_maj;
-            *wMin = best_min;
-            return TRUE;
-        }
-    }
-
-    if (*wMaj == best_maj && best_min >= 0)
+    if (best_min >= 0)
     {
         *wMin = best_min;
         return TRUE;
@@ -315,7 +276,7 @@ HRESULT WINAPI QueryPathOfRegTypeLib(
 
     TRACE_(typelib)("(%s, %x.%x, 0x%x, %p)\n", debugstr_guid(guid), wMaj, wMin, lcid, path);
 
-    if (!find_typelib_key( guid, &wMaj, &wMin )) return TYPE_E_LIBNOTREGISTERED;
+    if (!find_typelib_key( guid, wMaj, &wMin )) return TYPE_E_LIBNOTREGISTERED;
     get_typelib_key( guid, wMaj, wMin, buffer );
 
     res = RegOpenKeyExW( HKEY_CLASSES_ROOT, buffer, 0, KEY_READ, &hkey );
@@ -435,7 +396,7 @@ HRESULT WINAPI LoadTypeLibEx(
                 /* else fall-through */
 
             case REGKIND_REGISTER:
-                if (FAILED(res = RegisterTypeLib(*pptLib, szPath, NULL)))
+                if (FAILED(res = RegisterTypeLib(*pptLib, (LPOLESTR)szPath, NULL)))
                 {
                     IUnknown_Release(*pptLib);
                     *pptLib = 0;
@@ -3787,7 +3748,7 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
     pPad9 = (SLTG_Pad9*)(pIndex + pTypeLibImpl->TypeInfoCount);
 
-    pFirstBlk = pPad9 + 1;
+    pFirstBlk = (LPVOID)(pPad9 + 1);
 
     /* We'll set up a ptr to the main library block, which is the last one. */
 
@@ -3991,23 +3952,23 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
       }
 
-      /* could get cFuncs, cVars and cImplTypes from here
+      if(pTITail) { /* could get cFuncs, cVars and cImplTypes from here
 		       but we've already set those */
 #define X(x) TRACE_(typelib)("tt "#x": %x\n",pTITail->res##x);
-      X(06);
-      X(16);
-      X(18);
-      X(1a);
-      X(1e);
-      X(24);
-      X(26);
-      X(2a);
-      X(2c);
-      X(2e);
-      X(30);
-      X(32);
-      X(34);
-#undef X
+	  X(06);
+	  X(16);
+	  X(18);
+	  X(1a);
+	  X(1e);
+	  X(24);
+	  X(26);
+	  X(2a);
+	  X(2c);
+	  X(2e);
+	  X(30);
+	  X(32);
+	  X(34);
+      }
       ppTypeInfoImpl = &((*ppTypeInfoImpl)->next);
       pBlk = (char*)pBlk + pBlkEntry[order].len;
     }
@@ -5017,7 +4978,7 @@ static HRESULT WINAPI ITypeInfo_fnGetTypeAttr( ITypeInfo2 *iface,
 
     if (This->TypeAttr.typekind == TKIND_ALIAS)
         TLB_CopyTypeDesc(&(*ppTypeAttr)->tdescAlias,
-            &This->TypeAttr.tdescAlias, *ppTypeAttr + 1);
+            &This->TypeAttr.tdescAlias, (void *)(*ppTypeAttr + 1));
 
     if((*ppTypeAttr)->typekind == TKIND_DISPATCH) {
         /* This should include all the inherited funcs */
@@ -5984,7 +5945,8 @@ DispCallFunc(
 
 #define INVBUF_ELEMENT_SIZE \
     (sizeof(VARIANTARG) + sizeof(VARIANTARG) + sizeof(VARIANTARG *) + sizeof(VARTYPE))
-#define INVBUF_GET_ARG_ARRAY(buffer, params) (buffer)
+#define INVBUF_GET_ARG_ARRAY(buffer, params) \
+    ((VARIANTARG *)(buffer))
 #define INVBUF_GET_MISSING_ARG_ARRAY(buffer, params) \
     ((VARIANTARG *)((char *)(buffer) + sizeof(VARIANTARG) * (params)))
 #define INVBUF_GET_ARG_PTR_ARRAY(buffer, params) \

@@ -9,5 +9,4 @@
 	<file>852-8x8.bin</file>
 	<file>865-8x8.bin</file>
 	<file>866-8x8.bin</file>
-	<file>932-8x8.bin</file>
 </module>

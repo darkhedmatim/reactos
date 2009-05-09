@@ -67,7 +67,6 @@ typedef struct _SETTINGS_ENTRY
 	DWORD dmBitsPerPel;
 	DWORD dmPelsWidth;
 	DWORD dmPelsHeight;
-	DWORD dmDisplayFrequency;
 } SETTINGS_ENTRY, *PSETTINGS_ENTRY;
 
 typedef struct _DISPLAY_DEVICE_ENTRY

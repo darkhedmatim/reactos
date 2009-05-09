@@ -12,7 +12,9 @@
 #include "precomp.h"
 
 VOID IRPRemember( PIRP Irp, PCHAR File, UINT Line ) {
+#ifdef MEMTRACK
     TrackWithTag( IRP_TAG, Irp, File, Line );
+#endif
 }
 
 NTSTATUS IRPFinish( PIRP Irp, NTSTATUS Status ) {
@@ -21,7 +23,9 @@ NTSTATUS IRPFinish( PIRP Irp, NTSTATUS Status ) {
 
     //DbgPrint("Called: Irp %x, Status %x Event %x\n", Irp, Status, Irp->UserEvent);
 
-    UntrackFL( __FILE__, __LINE__, Irp, IRP_TAG );
+#ifdef MEMTRACK
+    UntrackFL( __FILE__, __LINE__, Irp );
+#endif
 
     Irp->IoStatus.Status = Status;
 

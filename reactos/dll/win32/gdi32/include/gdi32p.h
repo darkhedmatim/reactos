@@ -15,7 +15,6 @@ extern HANDLE hProcessHeap;
 extern HANDLE CurrentProcessId;
 extern DWORD GDI_BatchLimit;
 extern PDEVCAPS GdiDevCaps;
-extern BOOL gbLpk;          // Global bool LanguagePack
 
 typedef INT
 (CALLBACK* EMFPLAYPROC)(

@@ -1,5 +1,5 @@
 <group>
-<module name="itss" type="win32dll" baseaddress="${BASEADDRESS_ITSS}" installbase="system32" installname="itss.dll" crt="msvcrt" allowwarnings="true">
+<module name="itss" type="win32dll" baseaddress="${BASEADDRESS_ITSS}" installbase="system32" installname="itss.dll" crt="msvcrt">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
 	<importlibrary definition="itss.spec" />
 	<include base="itss">.</include>

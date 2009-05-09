@@ -762,7 +762,7 @@ static UCHAR nbDispatch(NetBIOSAdapter *adapter, PNCB ncb)
 
 static DWORD WINAPI nbCmdThread(LPVOID lpVoid)
 {
-    PNCB ncb = lpVoid;
+    PNCB ncb = (PNCB)lpVoid;
 
     if (ncb)
     {

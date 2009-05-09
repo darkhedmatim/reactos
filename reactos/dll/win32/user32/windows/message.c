@@ -428,7 +428,7 @@ MsgiAnsiToUnicodeMessage(LPMSG UnicodeMsg, LPMSG AnsiMsg)
     case LB_FINDSTRINGEXACT:
     case LB_SELECTSTRING:
       {
-        DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+        DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
         if (!(dwStyle & (LBS_OWNERDRAWFIXED | LBS_OWNERDRAWVARIABLE)) &&
             (dwStyle & LBS_HASSTRINGS))
           {
@@ -443,7 +443,7 @@ MsgiAnsiToUnicodeMessage(LPMSG UnicodeMsg, LPMSG AnsiMsg)
     case CB_FINDSTRINGEXACT:
     case CB_SELECTSTRING:
       {
-        DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+        DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
         if (!(dwStyle & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE)) &&
             (dwStyle & CBS_HASSTRINGS))
           {
@@ -550,7 +550,7 @@ MsgiAnsiToUnicodeCleanup(LPMSG UnicodeMsg, LPMSG AnsiMsg)
     case LB_FINDSTRINGEXACT:
     case LB_SELECTSTRING:
       {
-        DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+        DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
         if (!(dwStyle & (LBS_OWNERDRAWFIXED | LBS_OWNERDRAWVARIABLE)) &&
             (dwStyle & LBS_HASSTRINGS))
           {
@@ -565,7 +565,7 @@ MsgiAnsiToUnicodeCleanup(LPMSG UnicodeMsg, LPMSG AnsiMsg)
     case CB_FINDSTRINGEXACT:
     case CB_SELECTSTRING:
       {
-        DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+        DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
         if (!(dwStyle & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE)) &&
             (dwStyle & CBS_HASSTRINGS))
           {
@@ -726,7 +726,7 @@ MsgiUnicodeToAnsiMessage(LPMSG AnsiMsg, LPMSG UnicodeMsg)
       case LB_FINDSTRINGEXACT:
       case LB_SELECTSTRING:
         {
-          DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+          DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
           if (!(dwStyle & (LBS_OWNERDRAWFIXED | LBS_OWNERDRAWVARIABLE)) &&
               (dwStyle & LBS_HASSTRINGS))
             {
@@ -741,7 +741,7 @@ MsgiUnicodeToAnsiMessage(LPMSG AnsiMsg, LPMSG UnicodeMsg)
       case CB_FINDSTRINGEXACT:
       case CB_SELECTSTRING:
         {
-          DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+          DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
           if (!(dwStyle & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE)) &&
                (dwStyle & CBS_HASSTRINGS))
             {
@@ -852,7 +852,7 @@ MsgiUnicodeToAnsiCleanup(LPMSG AnsiMsg, LPMSG UnicodeMsg)
       case LB_FINDSTRINGEXACT:
       case LB_SELECTSTRING:
         {
-          DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+          DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
           if (!(dwStyle & (LBS_OWNERDRAWFIXED | LBS_OWNERDRAWVARIABLE)) &&
               (dwStyle & LBS_HASSTRINGS))
             {
@@ -867,7 +867,7 @@ MsgiUnicodeToAnsiCleanup(LPMSG AnsiMsg, LPMSG UnicodeMsg)
       case CB_FINDSTRINGEXACT:
       case CB_SELECTSTRING:
         {
-          DWORD dwStyle = GetWindowLongPtrW(AnsiMsg->hwnd, GWL_STYLE);
+          DWORD dwStyle = GetWindowLongW(AnsiMsg->hwnd, GWL_STYLE);
           if (!(dwStyle & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE)) &&
                (dwStyle & CBS_HASSTRINGS))
             {
@@ -1071,7 +1071,6 @@ GetMessageTime(VOID)
 {
   PUSER32_THREAD_DATA ThreadData = User32GetThreadData();
   return(ThreadData->LastMessage.time);
-//  return NtUserGetThreadState(THREADSTATE_GETMESSAGETIME);
 }
 
 
@@ -1091,7 +1090,8 @@ InSendMessage(VOID)
        return TRUE;
     }
   }
-  return(NtUserGetThreadState(THREADSTATE_INSENDMESSAGE) != ISMEX_NOSEND);
+  return FALSE;
+/*    return(NtUserGetThreadState(THREADSTATE_INSENDMESSAGE) != ISMEX_NOSEND);*/
 }
 
 
@@ -1105,22 +1105,23 @@ InSendMessageEx(
 {
   PCLIENTTHREADINFO pcti = GetWin32ClientInfo()->pClientThreadInfo;
 //  FIXME("ISMEX %x\n",pcti);
-  if (pcti && !(pcti->CTI_flags & CTI_INSENDMESSAGE))
-     return ISMEX_NOSEND;
+  if (pcti && !(pcti->CTI_flags & CTI_INSENDMESSAGE)) return ISMEX_NOSEND;
   else
-     return NtUserGetThreadState(THREADSTATE_INSENDMESSAGE);
+  /* return NtUserGetThreadState(THREADSTATE_INSENDMESSAGE); */
+  return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 WINAPI
 ReplyMessage(
   LRESULT lResult)
 {
-  return NtUserCallOneParam(lResult, ONEPARAM_ROUTINE_REPLYMESSAGE);
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 

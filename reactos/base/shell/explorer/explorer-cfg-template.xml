@@ -2,7 +2,7 @@
 <explorer-cfg>
   <general>
     <look-and-feel name="classic"/>
-	<explorer mdi="true" separate-folders="false"/>
+	<explorer mdi="true" separate-folders="true"/>
 	<language name="EN"/>
   </general>
 

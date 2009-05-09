@@ -342,11 +342,11 @@ NtUserCallOneParam(
 
                if(Enable)
                {
-                  Process->W32PF_flags &= ~W32PF_NOWINDOWGHOSTING;
+                  Process->Flags &= ~W32PF_NOWINDOWGHOSTING;
                }
                else
                {
-                  Process->W32PF_flags |= W32PF_NOWINDOWGHOSTING;
+                  Process->Flags |= W32PF_NOWINDOWGHOSTING;
                }
 
                RETURN( TRUE);
@@ -376,7 +376,7 @@ NtUserCallOneParam(
               RETURN(FALSE);
           }
 
-          if (InterlockedCompareExchangePointer(&ti->ppi->hModUser,
+          if (InterlockedCompareExchangePointer(&ti->kpi->hModUser,
                                                 (HINSTANCE)Param,
                                                 NULL) == NULL)
           {
@@ -453,7 +453,7 @@ NtUserCallTwoParam(
       case TWOPARAM_ROUTINE_GETWINDOWRGNBOX:
          {
             DWORD Ret;
-            RECTL rcRect;
+            RECT rcRect;
             Window = UserGetWindowObject((HWND)Param1);
             if (!Window) RETURN(ERROR);
 
@@ -814,11 +814,11 @@ NtUserCallHwndOpt(
    switch (Routine)
    {
       case HWNDOPT_ROUTINE_SETPROGMANWINDOW:
-         GetW32ThreadInfo()->pDeskInfo->hProgmanWindow = hWnd;
+         GetW32ThreadInfo()->Desktop->hProgmanWindow = hWnd;
          break;
 
       case HWNDOPT_ROUTINE_SETTASKMANWINDOW:
-         GetW32ThreadInfo()->pDeskInfo->hTaskManWindow = hWnd;
+         GetW32ThreadInfo()->Desktop->hTaskManWindow = hWnd;
          break;
    }
 

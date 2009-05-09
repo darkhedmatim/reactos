@@ -2314,6 +2314,12 @@ HDEVINFO WINAPI SetupDiGetClassDevsW(
 /***********************************************************************
  *              SetupDiGetClassDevsExW (SETUPAPI.@)
  */
+LONG
+SETUP_CreateDevicesList(
+    IN OUT struct DeviceInfoSet *list,
+    IN PCWSTR MachineName OPTIONAL,
+    IN CONST GUID *Class OPTIONAL,
+    IN PCWSTR Enumerator OPTIONAL);
 HDEVINFO WINAPI SetupDiGetClassDevsExW(
         CONST GUID *class,
         PCWSTR enumstr,
@@ -3367,12 +3373,7 @@ SetupDiInstallClassExA(
     PWSTR InfFileNameW = NULL;
     BOOL Result;
 
-    if (!InfFileName)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-    else
+    if (InfFileName)
     {
         InfFileNameW = MultiByteToUnicode(InfFileName, CP_ACP);
         if (InfFileNameW == NULL)
@@ -4636,18 +4637,21 @@ ResetDevice(
     IN PSP_DEVINFO_DATA DeviceInfoData)
 {
 #ifndef __WINESRC__
-    struct DeviceInfoSet *set = (struct DeviceInfoSet *)DeviceInfoSet;
+    PLUGPLAY_CONTROL_RESET_DEVICE_DATA ResetDeviceData;
     struct DeviceInfo *deviceInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
-    CONFIGRET cr;
+    NTSTATUS Status;
 
-    cr = CM_Enable_DevNode_Ex(deviceInfo->dnDevInst, 0, set->hMachine);
-    if (cr != CR_SUCCESS)
+    if (((struct DeviceInfoSet *)DeviceInfoSet)->HKLM != HKEY_LOCAL_MACHINE)
     {
-        SetLastError(GetErrorCodeFromCrCode(cr));
+        /* At the moment, I only know how to start local devices */
+        SetLastError(ERROR_INVALID_COMPUTERNAME);
         return FALSE;
     }
 
-    return TRUE;
+    RtlInitUnicodeString(&ResetDeviceData.DeviceInstance, deviceInfo->instanceId);
+    Status = NtPlugPlayControl(PlugPlayControlResetDevice, &ResetDeviceData, sizeof(PLUGPLAY_CONTROL_RESET_DEVICE_DATA));
+    SetLastError(RtlNtStatusToDosError(Status));
+    return NT_SUCCESS(Status);
 #else
     FIXME("Stub: ResetDevice(%p %p)\n", DeviceInfoSet, DeviceInfoData);
     return TRUE;
@@ -5331,7 +5335,7 @@ HKEY WINAPI SetupDiOpenDevRegKey(
        DWORD KeyType,
        REGSAM samDesired)
 {
-    struct DeviceInfoSet *set = DeviceInfoSet;
+    struct DeviceInfoSet *set = (struct DeviceInfoSet *)DeviceInfoSet;
     struct DeviceInfo *devInfo;
     HKEY key = INVALID_HANDLE_VALUE;
     HKEY RootKey;

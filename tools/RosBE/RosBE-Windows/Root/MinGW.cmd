@@ -28,8 +28,11 @@ set _ROSBE_ORIGINALPATH=%PATH%
 set _ROSBE_HOST_MINGWPATH=%_ROSBE_BASEDIR%\i386
 set _ROSBE_TARGET_MINGWPATH=%_ROSBE_BASEDIR%\i386
 
+echo.
+echo.
 call "%_ROSBE_BASEDIR%\rosbe-gcc-env.cmd"
-call "%_ROSBE_BASEDIR%\version.cmd"
+echo.
+echo.
 
 ::
 :: Get the number of CPUs in the system so we know how many jobs to execute.

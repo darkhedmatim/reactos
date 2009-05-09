@@ -28,9 +28,76 @@ typedef struct _FAT_SCAN_CONTEXT
     ((ULONG) ((xOffset - (xVcb)->DataArea) >> (xVcb)->BytesPerClusterLog) + 0x02)
 
 ULONG
-FatScanFat32ForContinousRun(IN OUT PFAT_PAGE_CONTEXT Context,
+FatScanFat12ForContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
                             IN OUT PULONG Index,
                             IN BOOLEAN CanWait);
+
+ULONG
+FatSetFat12ContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN ULONG Index,
+                        IN ULONG Length,
+                        IN BOOLEAN CanWait);
+
+ULONG
+FatScanFat12ForValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN OUT PULONG Index,
+                        IN ULONG IndexValue,
+                        IN BOOLEAN CanWait);
+
+ULONG
+FatSetFat12ValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                    IN ULONG Index,
+                    IN ULONG Length,
+                    IN ULONG IndexValue,
+                    IN BOOLEAN CanWait);
+
+ULONG
+FatScanFat16ForContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                            IN OUT PULONG Index,
+                            IN BOOLEAN CanWait);
+
+ULONG
+FatSetFat16ContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN ULONG Index,
+                        IN ULONG Length,
+                        IN BOOLEAN CanWait);
+
+ULONG
+FatScanFat16ForValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN OUT PULONG Index,
+                        IN ULONG IndexValue,
+                        IN BOOLEAN CanWait);
+
+ULONG
+FatSetFat16ValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                    IN ULONG Index,
+                    IN ULONG Length,
+                    IN ULONG IndexValue,
+                    IN BOOLEAN CanWait);
+
+ULONG
+FatScanFat32ForContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                            IN OUT PULONG Index,
+                            IN BOOLEAN CanWait);
+
+ULONG
+FatSetFat32ContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN ULONG Index,
+                        IN ULONG Length,
+                        IN BOOLEAN CanWait);
+
+ULONG
+FatScanFat32ForValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN OUT PULONG Index,
+                        IN ULONG IndexValue,
+                        IN BOOLEAN CanWait);
+
+ULONG
+FatSetFat32ValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                    IN ULONG Index,
+                    IN ULONG Length,
+                    IN ULONG IndexValue,
+                    IN BOOLEAN CanWait);
 
 BOOLEAN
 NTAPI
@@ -38,122 +105,27 @@ FatValidBpb(IN PBIOS_PARAMETER_BLOCK Bpb);
 
 /* VARIABLES ****************************************************************/
 FAT_METHODS Fat12Methods = {
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    FatScanFat12ForContinousRun,
+    FatSetFat12ContinousRun,
+    FatScanFat16ForValueRun,
+    FatSetFat12ValueRun
 };
 
 FAT_METHODS Fat16Methods = {
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    FatScanFat16ForContinousRun,
+    FatSetFat16ContinousRun,
+    FatScanFat16ForValueRun,
+    FatSetFat16ValueRun
 };
 
 FAT_METHODS Fat32Methods = {
     FatScanFat32ForContinousRun,
-    NULL,
-    NULL,
-    NULL
+    FatSetFat32ContinousRun,
+    FatScanFat32ForValueRun,
+    FatSetFat32ValueRun
 };
 
 /* FUNCTIONS ****************************************************************/
-
-/**
- * Pins the page containing ByteOffset byte.
- *
- * @param Context
- * Keeps current BCB, Buffer pointer
- * and maintains current and next page offset.
- *
- * @param ByteOffset
- * Offset from the beginning of the data stream to be pinned.
- *
- * @return
- * Pointer to the buffer starting with the specified ByteOffset.
- */
-PVOID
-FatPinPage(
-    PFAT_PAGE_CONTEXT Context,
-    LONGLONG ByteOffset)
-{
-    SIZE_T OffsetWithinPage;
-
-    OffsetWithinPage = (SIZE_T) (ByteOffset & (PAGE_SIZE - 1));
-    ByteOffset -= OffsetWithinPage;
-    if (ByteOffset != Context->Offset.QuadPart)
-    {
-        Context->Offset.QuadPart = ByteOffset;
-        if (Context->Bcb != NULL)
-        {
-            CcUnpinData(Context->Bcb);
-            Context->Bcb = NULL;
-        }
-        if (!CcMapData(Context->FileObject,
-                       &Context->Offset,
-                       PAGE_SIZE,
-                       Context->CanWait,
-                       &Context->Bcb,
-                       &Context->Buffer))
-        {
-            Context->Offset.QuadPart = 0LL;
-            ExRaiseStatus(STATUS_CANT_WAIT);
-        }
-    }
-    Context->EndOfPage.QuadPart =
-        Context->Offset.QuadPart + PAGE_SIZE;
-    if (Context->EndOfPage.QuadPart
-        > Context->EndOfData.QuadPart)
-    {
-        Context->ValidLength = (SIZE_T)
-            (Context->EndOfData.QuadPart
-                - Context->Offset.QuadPart);
-    }
-    else
-    {
-        Context->ValidLength = PAGE_SIZE;
-    }
-    return Add2Ptr(Context->Buffer, OffsetWithinPage, PVOID);
-}
-
-/**
- * Pins the next page of data stream.
- *
- * @param Context
- * Keeps current BCB, Buffer pointer
- * and maintains current and next page offset.
- *
- * @return
- * Pointer to the buffer starting with the beginning of the next page.
- */
-PVOID
-FatPinNextPage(
-    PFAT_PAGE_CONTEXT Context)
-{
-    ASSERT ((Context->Offset.QuadPart % PAGE_SIZE)
-        != (Context->EndOfPage.QuadPart % PAGE_SIZE)
-        && Context->Bcb != NULL);
-
-    ASSERT  (Context->ValidLength == PAGE_SIZE);
-
-    Context->Offset = Context->EndOfPage;
-    CcUnpinData(Context->Bcb);
-    if (!CcMapData(Context->FileObject,
-                   &Context->Offset,
-                   PAGE_SIZE,
-                   Context->CanWait,
-                   &Context->Bcb,
-                   &Context->Buffer))
-    {
-        Context->Bcb = NULL;
-        Context->Offset.QuadPart = 0LL;
-        ExRaiseStatus(STATUS_CANT_WAIT);
-    }
-    Context->EndOfPage.QuadPart =
-        Context->Offset.QuadPart + PAGE_SIZE;
-    return Context->Buffer;
-}
 
 /**
  * Determines the index of the set bit.
@@ -176,11 +148,83 @@ FatPowerOfTwo(
     return (((Temp + (Temp >> 3)) & 030707070707) % 63);
 }
 
+ULONG
+FatScanFat12ForContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                            IN OUT PULONG Index,
+                            IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatSetFat12ContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN ULONG Index,
+                        IN ULONG Length,
+                        IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatScanFat12ForValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN OUT PULONG Index,
+                        IN ULONG IndexValue,
+                        IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatSetFat12ValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                    IN ULONG Index,
+                    IN ULONG Length,
+                    IN ULONG IndexValue,
+                    IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatScanFat16ForContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                            IN OUT PULONG Index,
+                            IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatSetFat16ContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN ULONG Index,
+                        IN ULONG Length,
+                        IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatScanFat16ForValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                        IN OUT PULONG Index,
+                        IN ULONG IndexValue,
+                        IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
+ULONG
+FatSetFat16ValueRun(IN OUT PFAT_SCAN_CONTEXT Context,
+                    IN ULONG Index,
+                    IN ULONG Length,
+                    IN ULONG IndexValue,
+                    IN BOOLEAN CanWait)
+{
+    ExRaiseStatus(STATUS_NOT_IMPLEMENTED);
+}
+
 /**
  * Scans FAT32 for continous chain of clusters
  *
  * @param Context
- * Pointer to FAT_PAGE_CONTEXT.
+ * Pointer to FAT_SCAN_CONTEXT.
  *
  * @param Index
  * Supplies the Index of the first cluster
@@ -197,26 +241,79 @@ FatPowerOfTwo(
  * Raises STATUS_CANT_WAIT race condition.
  */
 ULONG
-FatScanFat32ForContinousRun(IN OUT PFAT_PAGE_CONTEXT Context,
+FatScanFat32ForContinousRun(IN OUT PFAT_SCAN_CONTEXT Context,
                             IN OUT PULONG Index,
                             IN BOOLEAN CanWait)
 {
-    PULONG Entry, EndOfPage;
-
-    Entry = FatPinPage(Context, ((LONGLONG) *Index) << 0x2);
-    EndOfPage = FatPinEndOfPage(Context, PULONG);
+    LONGLONG PageOffset;
+    SIZE_T OffsetWithinPage, PageValidLength;
+    PULONG Entry, BeyoudLastEntry;
+   /* Determine page offset and the offset within page
+    * for the first cluster.
+    */
+    PageValidLength = PAGE_SIZE;
+    PageOffset = ((LONGLONG) *Index) << 0x2;
+    OffsetWithinPage = (SIZE_T) (PageOffset & (PAGE_SIZE - 1));
+    PageOffset -= OffsetWithinPage;
+    /* Check if the context already has the required page mapped.
+     * Map the first page is necessary.
+     */
+    if (PageOffset != Context->PageOffset.QuadPart)
+    {
+        Context->PageOffset.QuadPart = PageOffset;
+        if (Context->PageBcb != NULL)
+        {
+            CcUnpinData(Context->PageBcb);
+            Context->PageBcb = NULL;
+        }
+        if (!CcMapData(Context->FileObject,
+                       &Context->PageOffset,
+                       PAGE_SIZE,
+                       CanWait,
+                       &Context->PageBcb,
+                       &Context->PageBuffer))
+        {
+            Context->PageOffset.QuadPart = 0LL;
+            ExRaiseStatus(STATUS_CANT_WAIT);
+        }
+    }
+    Entry = Add2Ptr(Context->PageBuffer, OffsetWithinPage, PULONG);
+    /* Next Page Offset */
+    PageOffset = Context->PageOffset.QuadPart + PAGE_SIZE;
+    if (PageOffset > Context->BeyondLastEntryOffset)
+        PageValidLength = (SIZE_T) (Context->BeyondLastEntryOffset
+            - Context->PageOffset.QuadPart);
+    BeyoudLastEntry = Add2Ptr(Context->PageBuffer, PageValidLength, PULONG);
     while (TRUE)
     {
         do
         {
             if ((*Entry & FAT_CLUSTER_LAST) != ++(*Index))
                 return (*Entry & FAT_CLUSTER_LAST);
-        } while (++Entry < EndOfPage);
+        } while (++Entry < BeyoudLastEntry);
         /* Check if this is the last available entry */
-        if (FatPinIsLastPage(Context))
+        if (PageValidLength < PAGE_SIZE)
             break;
-        Entry = (PULONG) FatPinNextPage(Context);
-        EndOfPage = FatPinEndOfPage(Context, PULONG);
+        /* We are getting beyond current page and
+         * are still in the continous run, map the next page.
+         */
+        Context->PageOffset.QuadPart = PageOffset;
+        CcUnpinData(Context->PageBcb);
+        if (!CcMapData(Context->FileObject,
+            &Context->PageOffset, PAGE_SIZE, CanWait,
+            &Context->PageBcb, &Context->PageBuffer))
+        {
+            Context->PageBcb = NULL;
+            Context->PageOffset.QuadPart = 0LL;
+            ExRaiseStatus(STATUS_CANT_WAIT);
+        }
+        Entry = (PULONG) Context->PageBuffer;
+        /* Next Page Offset */
+        PageOffset = Context->PageOffset.QuadPart + PAGE_SIZE;
+        if (PageOffset > Context->BeyondLastEntryOffset)
+            PageValidLength = (SIZE_T) (Context->BeyondLastEntryOffset
+                - Context->PageOffset.QuadPart);
+        BeyoudLastEntry = Add2Ptr(Context->PageBuffer, PageValidLength, PULONG);
     }
     return (*Index - 1);
 }
@@ -291,7 +388,7 @@ FatScanFat(IN PFCB Fcb,
 {
     LONGLONG CurrentLbo, CurrentVbo, BeyondLastVbo, CurrentLength;
     ULONG Entry, NextEntry, NumberOfEntries, CurrentIndex;
-    FAT_PAGE_CONTEXT Context;
+    FAT_SCAN_CONTEXT Context;
     PVCB Vcb;
 
     /* Some often used values */
@@ -331,11 +428,8 @@ FatScanFat(IN PFCB Fcb,
         CurrentIndex = 0L;
         CurrentVbo = 0LL;
     }
-    /* Initialize Context */
     RtlZeroMemory(&Context, sizeof(Context));
-    Context.FileObject = Vcb->StreamFileObject;
-    Context.EndOfData.QuadPart = Vcb->BeyondLastClusterInFat;
-
+    Context.FileObject = Vcb->VolumeFileObject;
     while (CurrentVbo < BeyondLastVbo)
     {
         /* Locate Continous run starting with the current entry */
@@ -438,10 +532,6 @@ FatiInitializeVcb(PVCB Vcb)
     Vcb->BytesPerCluster = SectorsToBytes(Vcb, Vcb->Bpb.SectorsPerCluster);
     Vcb->BytesPerClusterLog = FatPowerOfTwo(Vcb->BytesPerCluster);
     Vcb->BeyondLastClusterInFat = ((LONGLONG) Vcb->Clusters) * Vcb->IndexDepth / 0x8;
-
-    /* Update real volume size with the real value. */
-    Vcb->Header.FileSize.QuadPart =
-    Vcb->Header.AllocationSize.QuadPart = SectorsToBytes(Vcb, Vcb->Sectors);
 }
 
 NTSTATUS
@@ -468,19 +558,18 @@ FatInitializeVcb(IN PVCB Vcb,
     /* Setup Vcb fields */
     Vcb->TargetDeviceObject = TargetDeviceObject;
     ObReferenceObject(TargetDeviceObject);
-    Vcb->Vpb = Vpb;
 
     /* Setup FCB Header */
     ExInitializeFastMutex(&Vcb->HeaderMutex);
     FsRtlSetupAdvancedHeader(&Vcb->Header, &Vcb->HeaderMutex);
 
     /* Create Volume File Object */
-    Vcb->StreamFileObject = IoCreateStreamFileObject(NULL,
+    Vcb->VolumeFileObject = IoCreateStreamFileObject(NULL,
                                                      Vcb->TargetDeviceObject);
 
     /* We have to setup all FCB fields needed for CC */
-    Vcb->StreamFileObject->FsContext = Vcb;
-    Vcb->StreamFileObject->SectionObjectPointer = &Vcb->SectionObjectPointers;
+    Vcb->VolumeFileObject->FsContext = Vcb;
+    Vcb->VolumeFileObject->SectionObjectPointer = &Vcb->SectionObjectPointers;
 
     /* At least full boot sector should be available */
     Vcb->Header.FileSize.QuadPart = sizeof(PACKED_BOOT_SECTOR);
@@ -489,7 +578,7 @@ FatInitializeVcb(IN PVCB Vcb,
     Vcb->Header.ValidDataLength.LowPart = MAXULONG;
 
     /* Initialize CC */
-    CcInitializeCacheMap(Vcb->StreamFileObject,
+    CcInitializeCacheMap(Vcb->VolumeFileObject,
                          (PCC_FILE_SIZES)&Vcb->Header.AllocationSize,
                          FALSE,
                          &FatGlobalData.CacheMgrNoopCallbacks,
@@ -503,7 +592,7 @@ FatInitializeVcb(IN PVCB Vcb,
      * any of the parameters set further
      * in this routine.
      */
-    if (CcMapData(Vcb->StreamFileObject,
+    if (CcMapData(Vcb->VolumeFileObject,
                   &Offset,
                   sizeof(PACKED_BOOT_SECTOR),
                   TRUE,
@@ -517,7 +606,7 @@ FatInitializeVcb(IN PVCB Vcb,
         {
             Status = STATUS_UNRECOGNIZED_VOLUME;
         }
-        CopyUchar4(&Vcb->Vpb->SerialNumber, BootSector->Id);
+        CopyUchar4(&Vpb->SerialNumber, BootSector->Id);
         CcUnpinData(Bcb);
     }
     else
@@ -552,12 +641,12 @@ FatUninitializeVcb(IN PVCB Vcb)
     ZeroSize.QuadPart = 0LL;
 
     /* Close volume file */
-    if (Vcb->StreamFileObject != NULL)
+    if (Vcb->VolumeFileObject != NULL)
     {
         /* Uninitialize CC. */
-        CcUninitializeCacheMap(Vcb->StreamFileObject, &ZeroSize, NULL);
-        ObDereferenceObject(Vcb->StreamFileObject);
-        Vcb->StreamFileObject = NULL;
+        CcUninitializeCacheMap(Vcb->VolumeFileObject, &ZeroSize, NULL);
+        ObDereferenceObject(Vcb->VolumeFileObject);
+        Vcb->VolumeFileObject = NULL;
     }
 
     /* Free notifications stuff */

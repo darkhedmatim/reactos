@@ -43,20 +43,39 @@ TCHAR cgetchar (VOID)
 	HANDLE hInput = GetStdHandle (STD_INPUT_HANDLE);
 	INPUT_RECORD irBuffer;
 	DWORD  dwRead;
-
+/*
 	do
 	{
 		ReadConsoleInput (hInput, &irBuffer, 1, &dwRead);
 		if ((irBuffer.EventType == KEY_EVENT) &&
 			(irBuffer.Event.KeyEvent.bKeyDown == TRUE))
 		{
+			if ((irBuffer.Event.KeyEvent.dwControlKeyState &
+				 (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) &
+				(irBuffer.Event.KeyEvent.wVirtualKeyCode == 'C'))
+				bCtrlBreak = TRUE;
+
+			break;
+		}
+	}
+	while (TRUE);
+*/
+	do
+ 	{
+ 		ReadConsoleInput (hInput, &irBuffer, 1, &dwRead);
+
+		if (irBuffer.EventType == KEY_EVENT)
+ 		{
 			if (irBuffer.Event.KeyEvent.dwControlKeyState &
 				 (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))
 			{
 				if (irBuffer.Event.KeyEvent.wVirtualKeyCode == 'C')
 				{
-					bCtrlBreak = TRUE;
-					break;
+//					if (irBuffer.Event.KeyEvent.bKeyDown == TRUE)
+//					{
+						bCtrlBreak = TRUE;
+						break;
+//					}
 				}
 			}
 			else if ((irBuffer.Event.KeyEvent.wVirtualKeyCode == VK_SHIFT) ||
@@ -134,7 +153,6 @@ VOID GetPathCase( TCHAR * Path, TCHAR * OutPath)
 BOOL CheckCtrlBreak (INT mode)
 {
 	static BOOL bLeaveAll = FALSE; /* leave all batch files */
-	TCHAR options[4]; /* Yes, No, All */
 	TCHAR c;
 
 	switch (mode)
@@ -150,22 +168,18 @@ BOOL CheckCtrlBreak (INT mode)
 			if (!bCtrlBreak)
 				return FALSE;
 
-			LoadString(CMD_ModuleHandle, STRING_COPY_OPTION, options, 4);
-
 			/* we need to be sure the string arrives on the screen! */
 			do
-			{
-				ConOutResPuts(STRING_CANCEL_BATCH_FILE);
-				c = _totupper(cgetchar());
-			} while (!(_tcschr(options, c) || c == _T('\3')) || !c);
+				ConOutPuts (_T("\r\nCtrl-Break pressed.  Cancel batch file? (Yes/No/All) "));
+			while (!_tcschr (_T("YNA\3"), c = _totupper (cgetchar())) || !c);
 
 			ConOutPuts (_T("\r\n"));
 
-			if (c == options[1])
+			if (c == _T('N'))
 				return bCtrlBreak = FALSE; /* ignore */
 
 			/* leave all batch files */
-			bLeaveAll = ((c == options[2]) || (c == _T('\3')));
+			bLeaveAll = ((c == _T('A')) || (c == _T('\3')));
 			break;
 
 		case BREAK_INPUT:
@@ -489,6 +503,7 @@ BOOL IsExistingDirectory (LPCTSTR pszPath)
 BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 {
 	LPSTR lpString;
+	CHAR ch;
 	DWORD  dwRead;
 	INT len = 0;
 #ifdef _UNICODE
@@ -496,20 +511,18 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 #else
 	lpString = lpBuffer;
 #endif
-
-	if (ReadFile(hFile, lpString, nBufferLength - 1, &dwRead, NULL))
+	while ((--nBufferLength >  0) &&
+		   ReadFile(hFile, &ch, 1, &dwRead, NULL) && dwRead)
 	{
-		/* break at new line*/
-		CHAR *end = memchr(lpString, '\n', dwRead);
-		len = dwRead;
-		if (end)
+        lpString[len++] = ch;
+        if ((ch == _T('\n')) || (ch == _T('\r')))
 		{
-			len = (end - lpString) + 1;
-			SetFilePointer(hFile, len - dwRead, NULL, FILE_CURRENT);
+			/* break at new line*/
+			break;
 		}
 	}
 
-	if (!len)
+	if (!dwRead && !len)
 	{
 #ifdef _UNICODE
 		cmd_free(lpString);
@@ -517,9 +530,9 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 		return FALSE;
 	}
 
-	lpString[len++] = '\0';
+	lpString[len++] = _T('\0');
 #ifdef _UNICODE
-	MultiByteToWideChar(OutputCodePage, 0, lpString, -1, lpBuffer, len);
+	MultiByteToWideChar(CP_ACP, 0, lpString, -1, lpBuffer, len);
 	cmd_free(lpString);
 #endif
 	return TRUE;

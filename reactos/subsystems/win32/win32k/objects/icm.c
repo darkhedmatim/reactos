@@ -99,7 +99,7 @@ BOOL
 FASTCALL
 IntGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
 {
-  PPDEVOBJ pGDev = (PPDEVOBJ) hPDev;
+  PGDIDEVICE pGDev = (PGDIDEVICE) hPDev;
   int i;
 
   if (!(pGDev->flFlags & PDEV_DISPLAY )) return FALSE;
@@ -154,7 +154,7 @@ NtGdiGetDeviceGammaRamp(HDC  hDC,
       return FALSE;
   }
 
-  Ret = IntGetDeviceGammaRamp((HDEV)dc->ppdev, SafeRamp);
+  Ret = IntGetDeviceGammaRamp((HDEV)dc->pPDev, SafeRamp);
 
   if (!Ret) return Ret;
 
@@ -190,7 +190,7 @@ NtGdiSetColorSpace(IN HDC hdc,
                    IN HCOLORSPACE hColorSpace)
 {
   PDC pDC;
-  PDC_ATTR pdcattr;
+  PDC_ATTR pDc_Attr;
   PCOLORSPACE pCS;
 
   pDC = DC_LockDc(hdc);
@@ -199,9 +199,10 @@ NtGdiSetColorSpace(IN HDC hdc,
      SetLastWin32Error(ERROR_INVALID_HANDLE);
      return FALSE;
   }
-  pdcattr = pDC->pdcattr;
+  pDc_Attr = pDC->pDc_Attr;
+  if(!pDc_Attr) pDc_Attr = &pDC->Dc_Attr;
 
-  if (pdcattr->hColorSpace == hColorSpace)
+  if (pDc_Attr->hColorSpace == hColorSpace)
   {
      DC_UnlockDc(pDC);
      return TRUE; 
@@ -214,13 +215,13 @@ NtGdiSetColorSpace(IN HDC hdc,
      return FALSE;
   }
   
-  if (pDC->dclevel.pColorSpace)
+  if (pDC->DcLevel.pColorSpace)
   {
-     GDIOBJ_ShareUnlockObjByPtr((POBJ) pDC->dclevel.pColorSpace);
+     GDIOBJ_ShareUnlockObjByPtr((POBJ) pDC->DcLevel.pColorSpace);
   }
 
-  pDC->dclevel.pColorSpace = pCS;
-  pdcattr->hColorSpace = hColorSpace;
+  pDC->DcLevel.pColorSpace = pCS;
+  pDc_Attr->hColorSpace = hColorSpace;
 
   COLORSPACEOBJ_UnlockCS(pCS);
   DC_UnlockDc(pDC);
@@ -232,9 +233,9 @@ FASTCALL
 UpdateDeviceGammaRamp( HDEV hPDev )
 {
   BOOL Ret = FALSE;
-  PPALETTE palGDI;
+  PPALGDI palGDI;
   PALOBJ *palPtr;
-  PPDEVOBJ pGDev = (PPDEVOBJ) hPDev;
+  PGDIDEVICE pGDev = (PGDIDEVICE) hPDev;
 
   if ((pGDev->DevInfo.iDitherFormat == BMF_8BPP)  ||
       (pGDev->DevInfo.iDitherFormat == BMF_16BPP) ||
@@ -290,7 +291,7 @@ IntSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp, BOOL Test)
 {
   WORD IcmGR, i, R, G, B;
   BOOL Ret = FALSE, TstPeak;
-  PPDEVOBJ pGDev = (PPDEVOBJ) hPDev;
+  PGDIDEVICE pGDev = (PGDIDEVICE) hPDev;
 
   if (!hPDev) return FALSE;
 
@@ -407,7 +408,7 @@ NtGdiSetDeviceGammaRamp(HDC  hDC,
      return FALSE;
   }
 
-  Ret = IntSetDeviceGammaRamp((HDEV)dc->ppdev, SafeRamp, TRUE);
+  Ret = IntSetDeviceGammaRamp((HDEV)dc->pPDev, SafeRamp, TRUE);
   DC_UnlockDc(dc);
   ExFreePool(SafeRamp);
   return Ret;

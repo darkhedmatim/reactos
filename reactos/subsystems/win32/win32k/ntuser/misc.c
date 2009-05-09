@@ -91,33 +91,11 @@ NtUserGetThreadState(
          /* FIXME should use UserEnterShared */
          RETURN( (DWORD)IntGetCapture());
       case THREADSTATE_PROGMANWINDOW:
-         RETURN( (DWORD)GetW32ThreadInfo()->pDeskInfo->hProgmanWindow);
+         RETURN( (DWORD)GetW32ThreadInfo()->Desktop->hProgmanWindow);
       case THREADSTATE_TASKMANWINDOW:
-         RETURN( (DWORD)GetW32ThreadInfo()->pDeskInfo->hTaskManWindow);
+         RETURN( (DWORD)GetW32ThreadInfo()->Desktop->hTaskManWindow);
       case THREADSTATE_ACTIVEWINDOW:
          RETURN ( (DWORD)UserGetActiveWindow());
-      case THREADSTATE_INSENDMESSAGE:
-         {
-           DWORD Ret = ISMEX_NOSEND;
-           PUSER_MESSAGE_QUEUE MessageQueue = 
-                ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->MessageQueue;
-           DPRINT1("THREADSTATE_INSENDMESSAGE\n");
-
-           if (!IsListEmpty(&MessageQueue->SentMessagesListHead))
-           {
-             Ret = ISMEX_SEND;
-           }
-           else if (!IsListEmpty(&MessageQueue->NotifyMessagesListHead))
-           {
-           /* FIXME Need to set message flag when in callback mode with notify */
-             Ret = ISMEX_NOTIFY;
-           }
-           /* FIXME Need to set message flag if replied to or ReplyMessage */
-           RETURN( Ret);           
-         }
-      case THREADSTATE_GETMESSAGETIME: 
-         /* FIXME Needs more work! */
-         RETURN( ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->timeLast);
    }
    RETURN( 0);
 
@@ -305,12 +283,12 @@ NtUserGetGuiResources(
    {
       case GR_GDIOBJECTS:
          {
-            Ret = (DWORD)W32Process->GDIHandleCount;
+            Ret = (DWORD)W32Process->GDIObjects;
             break;
          }
       case GR_USEROBJECTS:
          {
-            Ret = (DWORD)W32Process->UserHandleCount;
+            Ret = (DWORD)W32Process->UserObjects;
             break;
          }
       default:
@@ -457,10 +435,10 @@ IntFreeNULLTerminatedFromUnicodeString(PWSTR NullTerminated, PUNICODE_STRING Uni
    }
 }
 
-PPROCESSINFO
+PW32PROCESSINFO
 GetW32ProcessInfo(VOID)
 {
-    PPROCESSINFO pi;
+    PW32PROCESSINFO pi;
     PW32PROCESS W32Process = PsGetCurrentProcessWin32Process();
 
     if (W32Process == NULL)
@@ -471,17 +449,18 @@ GetW32ProcessInfo(VOID)
 
     if (W32Process->ProcessInfo == NULL)
     {
-        pi = UserHeapAlloc(sizeof(PROCESSINFO));
+        pi = UserHeapAlloc(sizeof(W32PROCESSINFO));
         if (pi != NULL)
         {
             RtlZeroMemory(pi,
-                          sizeof(PROCESSINFO));
+                          sizeof(W32PROCESSINFO));
 
             /* initialize it */
             pi->UserHandleTable = gHandleTable;
             pi->hUserHeap = W32Process->HeapMappings.KernelMapping;
             pi->UserHeapDelta = (ULONG_PTR)W32Process->HeapMappings.KernelMapping -
                                 (ULONG_PTR)W32Process->HeapMappings.UserMapping;
+            pi->psi = gpsi;
 
             if (InterlockedCompareExchangePointer(&W32Process->ProcessInfo,
                                                   pi,
@@ -523,16 +502,17 @@ GetW32ThreadInfo(VOID)
                           sizeof(W32THREADINFO));
 
             /* initialize it */
-            ti->ppi = GetW32ProcessInfo();
-            ti->fsHooks = W32Thread->Hooks;
+            ti->kpi = GetW32ProcessInfo();
+            ti->pi = UserHeapAddressToUser(ti->kpi);
+            ti->Hooks = W32Thread->Hooks;
             W32Thread->pcti = &ti->ClientThreadInfo;
             if (W32Thread->Desktop != NULL)
             {
-                ti->pDeskInfo = W32Thread->Desktop->DesktopInfo;
+                ti->Desktop = W32Thread->Desktop->DesktopInfo;
             }
             else
             {
-                ti->pDeskInfo = NULL;
+                ti->Desktop = NULL;
             }
 
             W32Thread->ThreadInfo = ti;
@@ -545,11 +525,9 @@ GetW32ThreadInfo(VOID)
                 ProbeForWrite(Teb,
                               sizeof(TEB),
                               sizeof(ULONG));
-       // FIXME PLEASE! it's a ref pointer and not user data! Use ClientThreadInfo!
+
                 Teb->Win32ThreadInfo = UserHeapAddressToUser(W32Thread->ThreadInfo);
-//                ci->pClientThreadInfo = &ti->ClientThreadInfo; // FIXME!
-                ci->pClientThreadInfo = NULL;
-                ci->ppi = ti->ppi;
+                ci->pClientThreadInfo = &ti->ClientThreadInfo;
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {

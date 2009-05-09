@@ -13,8 +13,7 @@
  *
  * NOTES:       MME Buddy was the best name I could come up with...
  *              The structures etc. here should be treated as internal to the
- *              library so should not be directly accessed elsewhere. Perhaps they
- *              can be moved to an internal header?
+ *              library so should not be directly accessed elsewhere.
 */
 
 #ifndef ROS_AUDIO_MMEBUDDY_H
@@ -32,7 +31,7 @@
         MessageBox(0, dbg_popup_msg, dbg_popup_title, MB_OK | MB_TASKMODAL); \
     }
 
-#ifndef NDEBUG
+#ifdef DEBUG_NT4
     #define SND_ERR(...) \
         { \
             WCHAR dbg_popup_msg[1024]; \
@@ -56,31 +55,17 @@
         { \
             if ( ! ( condition ) ) \
             { \
-                SND_ERR(L"ASSERT FAILED: %hS File %hS Line %u\n", #condition, __FILE__, __LINE__); \
+                SND_ERR(L"ASSERT FAILED: %hS\n", #condition); \
                 POPUP(L"ASSERT FAILED: %hS\n", #condition); \
                 ExitProcess(1); \
             } \
         }
 
-    #define DUMP_WAVEHDR_QUEUE(sound_device_instance) \
-        { \
-            PWAVEHDR CurrDumpHdr = sound_device_instance->HeadWaveHeader; \
-            SND_TRACE(L"-- Current wave header list --\n"); \
-            while ( CurrDumpHdr ) \
-            { \
-                SND_TRACE(L"%x | %d bytes | flags: %x\n", CurrDumpHdr->lpData, \
-                          CurrDumpHdr->dwBufferLength, \
-                          CurrDumpHdr->dwFlags); \
-                CurrDumpHdr = CurrDumpHdr->lpNext; \
-            } \
-        }
-
 #else
-    #define SND_ERR(...) do {} while ( 0 )
-    #define SND_WARN(...) do {} while ( 0 )
-    #define SND_TRACE(...) do {} while ( 0 )
-    #define SND_ASSERT(condition) do {} while ( 0 )
-    #define DUMP_WAVEHDR_QUEUE(condition) do {} while ( 0 )
+    #define SND_ERR(...) while ( 0 ) do {}
+    #define SND_WARN(...) while ( 0 ) do {}
+    #define SND_TRACE(...) while ( 0 ) do {}
+    #define SND_ASSERT(condition) while ( 0 ) do {}
 #endif
 
 /*
@@ -171,29 +156,6 @@ DEFINE_GETCAPS_FUNCTYPE(MMGETMIDIINCAPS_FUNC,  LPMIDIINCAPS );
 struct _SOUND_DEVICE;
 struct _SOUND_DEVICE_INSTANCE;
 
-
-/*
-    By extending the OVERLAPPED structure, it becomes possible to provide the
-    I/O completion routines with additional information.
-*/
-
-typedef struct _SOUND_OVERLAPPED
-{
-    OVERLAPPED Standard;
-    struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance;
-    PWAVEHDR Header;
-    BOOL PerformCompletion;
-} SOUND_OVERLAPPED, *PSOUND_OVERLAPPED;
-
-typedef MMRESULT (*WAVE_COMMIT_FUNC)(
-    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
-    IN  PVOID OffsetPtr,
-    IN  DWORD Bytes,
-    IN  PSOUND_OVERLAPPED Overlap,
-    IN  LPOVERLAPPED_COMPLETION_ROUTINE CompletionRoutine);
-
-
-
 typedef MMRESULT (*MMWAVEQUERYFORMATSUPPORT_FUNC)(
     IN  struct _SOUND_DEVICE* Device,
     IN  PWAVEFORMATEX WaveFormat,
@@ -216,11 +178,6 @@ typedef MMRESULT (*MMWAVEHEADER_FUNC)(
     IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
     IN  PWAVEHDR WaveHeader);
 
-typedef MMRESULT (*MMBUFFER_FUNC)(
-    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
-    IN  PVOID Buffer,
-    IN  DWORD Length);
-
 typedef struct _MMFUNCTION_TABLE
 {
     union
@@ -238,18 +195,10 @@ typedef struct _MMFUNCTION_TABLE
     MMWAVEQUERYFORMATSUPPORT_FUNC   QueryWaveFormatSupport;
     MMWAVESETFORMAT_FUNC            SetWaveFormat;
 
-    WAVE_COMMIT_FUNC                CommitWaveBuffer;
-
-    // Redundant
-    //MMWAVEHEADER_FUNC               PrepareWaveHeader;
-    //MMWAVEHEADER_FUNC               UnprepareWaveHeader;
-    //MMWAVEHEADER_FUNC               WriteWaveHeader;
-
-    //MMWAVEHEADER_FUNC               SubmitWaveHeaderToDevice;
-    //MMBUFFER_FUNC                   CompleteBuffer;
+    MMWAVEHEADER_FUNC               PrepareWaveHeader;
+    MMWAVEHEADER_FUNC               UnprepareWaveHeader;
+    MMWAVEHEADER_FUNC               SubmitWaveHeader;
 } MMFUNCTION_TABLE, *PMMFUNCTION_TABLE;
-
-
 
 typedef MMRESULT (*SOUND_THREAD_REQUEST_HANDLER)(
     IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
@@ -302,32 +251,7 @@ typedef struct _SOUND_DEVICE_INSTANCE
         DWORD ClientCallback;
         DWORD ClientCallbackInstanceData;
     } WinMM;
-
-    /* DO NOT TOUCH THESE OUTSIDE OF THE SOUND THREAD */
-
-    union
-    {
-        PWAVEHDR HeadWaveHeader;
-    };
-
-    union
-    {
-        PWAVEHDR TailWaveHeader;
-    };
-
-    PWAVEHDR WaveLoopStart;
-    //PWAVEHDR CurrentWaveHeader;
-    DWORD OutstandingBuffers;
-    DWORD LoopsRemaining;
 } SOUND_DEVICE_INSTANCE, *PSOUND_DEVICE_INSTANCE;
-
-/* This lives in WAVEHDR.reserved */
-typedef struct _WAVEHDR_EXTENSION
-{
-    DWORD BytesCommitted;
-    DWORD BytesCompleted;
-} WAVEHDR_EXTENSION, *PWAVEHDR_EXTENSION;
-
 
 /*
     reentrancy.c
@@ -383,12 +307,8 @@ MmeCloseDevice(
 #define MmeUnprepareWaveHeader(private_handle, header) \
     UnprepareWaveHeader((PSOUND_DEVICE_INSTANCE)private_handle, (PWAVEHDR)header)
 
-#define MmeWriteWaveHeader(private_handle, header) \
-    WriteWaveHeader((PSOUND_DEVICE_INSTANCE)private_handle, (PWAVEHDR)header)
-
-MMRESULT
-MmeResetWavePlayback(
-    IN  DWORD PrivateHandle);
+#define MmeSubmitWaveHeader(private_handle, header) \
+    SubmitWaveHeader((PSOUND_DEVICE_INSTANCE)private_handle, (PWAVEHDR)header)
 
 
 /*
@@ -456,7 +376,7 @@ GetSoundDeviceType(
 MMRESULT
 SetSoundDeviceFunctionTable(
     IN  PSOUND_DEVICE SoundDevice,
-    IN  PMMFUNCTION_TABLE FunctionTable);
+    IN  PMMFUNCTION_TABLE FunctionTable OPTIONAL);
 
 MMRESULT
 GetSoundDeviceFunctionTable(
@@ -518,8 +438,9 @@ DestroySoundThread(
 
 MMRESULT
 CallSoundThread(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
+    IN  PSOUND_THREAD Thread,
     IN  SOUND_THREAD_REQUEST_HANDLER RequestHandler,
+    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance OPTIONAL,
     IN  PVOID Parameter OPTIONAL);
 
 
@@ -573,16 +494,6 @@ SetWaveDeviceFormat(
 */
 
 MMRESULT
-EnqueueWaveHeader(
-    PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  PVOID Parameter);
-
-VOID
-CompleteWaveHeader(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  PWAVEHDR Header);
-
-MMRESULT
 PrepareWaveHeader(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
     IN  PWAVEHDR Header);
@@ -593,47 +504,34 @@ UnprepareWaveHeader(
     IN  PWAVEHDR Header);
 
 MMRESULT
-WriteWaveHeader(
+SubmitWaveHeader(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
     IN  PWAVEHDR Header);
 
 
 /*
-    wave/streaming.c
-*/
-
-VOID
-DoWaveStreaming(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance);
-
-VOID CALLBACK
-CompleteIO(
-    IN  DWORD dwErrorCode,
-    IN  DWORD dwNumberOfBytesTransferred,
-    IN  LPOVERLAPPED lpOverlapped);
-
-MMRESULT
-CommitWaveHeaderToKernelDevice(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  PWAVEHDR Header,
-    IN  WAVE_COMMIT_FUNC CommitFunction);
-
-MMRESULT
-WriteFileEx_Committer(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  PVOID OffsetPtr,
-    IN  DWORD Length,
-    IN  PSOUND_OVERLAPPED Overlap,
-    IN  LPOVERLAPPED_COMPLETION_ROUTINE CompletionRoutine);
-
-MMRESULT
-StopStreaming(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance);
-
-
-/*
     kernel.c
 */
+
+#if 0
+#define QueryDevice(h, ctl, o, o_size, xfer, ovl) \
+    Win32ErrorToMmResult( \
+        DeviceIoControl(h, ctl, NULL, 0, o, o_size, xfer, ovl) != 0 \
+        ? ERROR_SUCCESS : GetLastError() \
+    )
+
+#define ControlDevice(h, ctl, i, i_size, xfer, ovl) \
+    Win32ErrorToMmResult( \
+        DeviceIoControl(h, ctl, i, i_size, NULL, 0, xfer, ovl) != 0 \
+        ? ERROR_SUCCESS : GetLastError() \
+    )
+
+#define QuerySoundDevice(sd, ctl, o, o_size, xfer) \
+    SoundDeviceIoControl(sd, ctl, NULL, 0, o, o_size, xfer)
+
+#define ControlSoundDevice(sd, ctl, i, i_size, xfer) \
+    SoundDeviceIoControl(sd, ctl, i, i_size, NULL, 0, xfer)
+#endif
 
 MMRESULT
 OpenKernelSoundDeviceByName(
@@ -661,5 +559,183 @@ SyncOverlappedDeviceIoControl(
     IN  DWORD OutBufferSize,
     OUT LPDWORD BytesTransferred OPTIONAL);
 
+
+#if 0
+
+typedef UCHAR MMDEVICE_TYPE, *PMMDEVICE_TYPE;
+
+struct _SOUND_DEVICE;
+struct _SOUND_DEVICE_INSTANCE;
+
+
+/*
+    Rather than pass caps structures around as a PVOID, this can be
+    used instead.
+*/
+
+typedef union _UNIVERSAL_CAPS
+{
+    WAVEOUTCAPS WaveOut;
+    WAVEINCAPS WaveIn;
+    MIDIOUTCAPS MidiOut;
+    MIDIINCAPS MidiIn;
+} UNIVERSAL_CAPS, *PUNIVERSAL_CAPS;
+
+
+
+/* New sound thread code */
+
+typedef MMRESULT (*SOUND_THREAD_REQUEST_HANDLER)(
+    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
+    IN  OPTIONAL PVOID Parameter);
+
+typedef struct _SOUND_THREAD_REQUEST
+{
+    /* The sound device instance this request relates to */
+    struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance;
+    /* What function to call */
+    SOUND_THREAD_REQUEST_HANDLER RequestHandler;
+    /* Caller-defined parameter */
+    PVOID Parameter;
+    /* This will contain the return code of the request function */
+    MMRESULT ReturnValue;
+} SOUND_THREAD_REQUEST, *PSOUND_THREAD_REQUEST;
+
+typedef VOID (*SOUND_THREAD_IO_COMPLETION_HANDLER)(
+    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
+    IN  PVOID Parameter OPTIONAL,
+    IN  DWORD BytesWritten);
+
+typedef struct _SOUND_THREAD_COMPLETED_IO
+{
+    struct _SOUND_THREAD_COMPLETED_IO* Previous;
+    struct _SOUND_THREAD_COMPLETED_IO* Next;
+
+    struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance;
+    SOUND_THREAD_IO_COMPLETION_HANDLER CompletionHandler;
+    PVOID Parameter;
+    DWORD BytesTransferred;
+} SOUND_THREAD_COMPLETED_IO, *PSOUND_THREAD_COMPLETED_IO;
+
+typedef struct _SOUND_THREAD_OVERLAPPED
+{
+    OVERLAPPED General;
+
+    /* Pointer to structure to fill with completion data */
+    PSOUND_THREAD_COMPLETED_IO CompletionData;
+} SOUND_THREAD_OVERLAPPED, *PSOUND_THREAD_OVERLAPPED;
+
+/*
+    Audio device function table
+*/
+
+typedef MMRESULT (*MMCREATEINSTANCE_FUNC)(
+    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance);
+
+typedef VOID (*MMDESTROYINSTANCE_FUNC)(
+    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance);
+
+typedef MMRESULT (*MMGETCAPS_FUNC)(
+    IN  struct _SOUND_DEVICE* Device,
+    OUT PUNIVERSAL_CAPS Capabilities);
+
+typedef MMRESULT (*MMWAVEQUERYFORMAT_FUNC)(
+    IN  struct _SOUND_DEVICE* Device,
+    IN  PWAVEFORMATEX WaveFormat,
+    IN  DWORD WaveFormatSize);
+
+typedef MMRESULT (*MMWAVESETFORMAT_FUNC)(
+    IN  struct _SOUND_DEVICE_INSTANCE* Instance,
+    IN  PWAVEFORMATEX WaveFormat,
+    IN  DWORD WaveFormatSize);
+
+typedef MMRESULT (*MMWAVEQUEUEBUFFER_FUNC)(
+    IN  struct _SOUND_DEVICE_INSTANCE* Instance,
+    IN  PWAVEHDR WaveHeader);
+
+typedef MMRESULT (*MMGETWAVESTATE_FUNC)(
+    IN  struct _SOUND_DEVICE_INSTANCE* Instance,
+    OUT PULONG State);
+
+typedef MMRESULT (*MMSETWAVESTATE_FUNC)(
+    IN  struct _SOUND_DEVICE_INSTANCE* Instance);
+
+typedef struct _MMFUNCTION_TABLE
+{
+    MMCREATEINSTANCE_FUNC   Constructor;
+    MMDESTROYINSTANCE_FUNC  Destructor;
+    MMGETCAPS_FUNC          GetCapabilities;
+
+    MMWAVEQUERYFORMAT_FUNC  QueryWaveFormat;
+    MMWAVESETFORMAT_FUNC    SetWaveFormat;
+    MMWAVEQUEUEBUFFER_FUNC  QueueWaveBuffer;
+
+    MMGETWAVESTATE_FUNC     GetWaveDeviceState;
+    MMSETWAVESTATE_FUNC     PauseWaveDevice;
+    MMSETWAVESTATE_FUNC     RestartWaveDevice;
+    MMSETWAVESTATE_FUNC     ResetWaveDevice;
+    MMSETWAVESTATE_FUNC     BreakWaveDeviceLoop;
+} MMFUNCTION_TABLE, *PMMFUNCTION_TABLE;
+
+
+/*
+    Represents an audio device
+*/
+
+#define SOUND_DEVICE_TAG "SndD"
+
+typedef struct _SOUND_DEVICE
+{
+    struct _SOUND_DEVICE* Next;
+    struct _SOUND_DEVICE_INSTANCE* FirstInstance;
+    UCHAR DeviceType;
+    LPWSTR DevicePath;
+    MMFUNCTION_TABLE Functions;
+} SOUND_DEVICE, *PSOUND_DEVICE;
+
+
+/*
+    Represents an individual instance of an audio device
+*/
+
+#define WAVE_STREAM_INFO_TAG "WavS"
+
+typedef struct _WAVE_STREAM_INFO
+{
+    /* Buffer queue head and tail */
+    PWAVEHDR BufferQueueHead;
+    PWAVEHDR BufferQueueTail;
+    /* The buffer currently being processed */
+    PWAVEHDR CurrentBuffer;
+    /* How far into the current buffer we've gone */
+    DWORD BufferOffset;
+    /* How many I/O operations have been submitted */
+    DWORD BuffersOutstanding;
+    /* Looping */
+    PWAVEHDR LoopHead;
+    DWORD LoopsRemaining;
+} WAVE_STREAM_INFO, *PWAVE_STREAM_INFO;
+
+
+#define SOUND_DEVICE_INSTANCE_TAG "SndI"
+
+typedef struct _SOUND_DEVICE_INSTANCE
+{
+    struct _SOUND_DEVICE_INSTANCE* Next;
+    PSOUND_DEVICE Device;
+
+    /* The currently opened handle to the device */
+    HANDLE Handle;
+/*    PSOUND_THREAD Thread;*/
+
+
+    /* Device-specific parameters */
+    union
+    {
+        WAVE_STREAM_INFO Wave;
+    } Streaming;
+} SOUND_DEVICE_INSTANCE, *PSOUND_DEVICE_INSTANCE;
+
+#endif
 
 #endif

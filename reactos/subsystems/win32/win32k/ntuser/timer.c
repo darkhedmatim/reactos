@@ -162,7 +162,7 @@ ValidateTimerCallback(PTHREADINFO pti,
   {
     if ( (lParam == (LPARAM)pTmr->pfn) &&
          (pTmr->flags & (TMRF_SYSTEM|TMRF_RIT)) &&
-         (pTmr->pti->ThreadInfo->ppi == pti->ThreadInfo->ppi) )
+         (pTmr->pti->ThreadInfo->kpi == pti->ThreadInfo->kpi) )
        break;
 
     pTmr = (PTIMER)pTmr->ptmrList.Flink;

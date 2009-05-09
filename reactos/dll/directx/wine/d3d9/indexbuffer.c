@@ -58,7 +58,7 @@ static ULONG WINAPI IDirect3DIndexBuffer9Impl_Release(LPDIRECT3DINDEXBUFFER9 ifa
 
     if (ref == 0) {
         EnterCriticalSection(&d3d9_cs);
-        IWineD3DBuffer_Release(This->wineD3DIndexBuffer);
+        IWineD3DIndexBuffer_Release(This->wineD3DIndexBuffer);
         LeaveCriticalSection(&d3d9_cs);
         IDirect3DDevice9Ex_Release(This->parentDevice);
         HeapFree(GetProcessHeap(), 0, This);
@@ -69,17 +69,11 @@ static ULONG WINAPI IDirect3DIndexBuffer9Impl_Release(LPDIRECT3DINDEXBUFFER9 ifa
 /* IDirect3DIndexBuffer9 IDirect3DResource9 Interface follow: */
 static HRESULT WINAPI IDirect3DIndexBuffer9Impl_GetDevice(LPDIRECT3DINDEXBUFFER9 iface, IDirect3DDevice9** ppDevice) {
     IDirect3DIndexBuffer9Impl *This = (IDirect3DIndexBuffer9Impl *)iface;
-    IWineD3DDevice *wined3d_device;
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_GetDevice(This->wineD3DIndexBuffer, &wined3d_device);
-    if (SUCCEEDED(hr))
-    {
-        IWineD3DDevice_GetParent(wined3d_device, (IUnknown **)ppDevice);
-        IWineD3DDevice_Release(wined3d_device);
-    }
+    hr = IDirect3DResource9Impl_GetDevice((LPDIRECT3DRESOURCE9) This, ppDevice);
     LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
@@ -90,7 +84,7 @@ static HRESULT WINAPI IDirect3DIndexBuffer9Impl_SetPrivateData(LPDIRECT3DINDEXBU
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_SetPrivateData(This->wineD3DIndexBuffer, refguid, pData, SizeOfData, Flags);
+    hr = IWineD3DIndexBuffer_SetPrivateData(This->wineD3DIndexBuffer, refguid, pData, SizeOfData, Flags);
     LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
@@ -101,7 +95,7 @@ static HRESULT WINAPI IDirect3DIndexBuffer9Impl_GetPrivateData(LPDIRECT3DINDEXBU
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_GetPrivateData(This->wineD3DIndexBuffer, refguid, pData, pSizeOfData);
+    hr = IWineD3DIndexBuffer_GetPrivateData(This->wineD3DIndexBuffer, refguid, pData, pSizeOfData);
     LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
@@ -112,7 +106,7 @@ static HRESULT WINAPI IDirect3DIndexBuffer9Impl_FreePrivateData(LPDIRECT3DINDEXB
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_FreePrivateData(This->wineD3DIndexBuffer, refguid);
+    hr = IWineD3DIndexBuffer_FreePrivateData(This->wineD3DIndexBuffer, refguid);
     LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
@@ -123,7 +117,7 @@ static DWORD WINAPI IDirect3DIndexBuffer9Impl_SetPriority(LPDIRECT3DINDEXBUFFER9
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    ret = IWineD3DBuffer_SetPriority(This->wineD3DIndexBuffer, PriorityNew);
+    ret = IWineD3DIndexBuffer_SetPriority(This->wineD3DIndexBuffer, PriorityNew);
     LeaveCriticalSection(&d3d9_cs);
     return ret;
 }
@@ -134,7 +128,7 @@ static DWORD WINAPI IDirect3DIndexBuffer9Impl_GetPriority(LPDIRECT3DINDEXBUFFER9
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    ret = IWineD3DBuffer_GetPriority(This->wineD3DIndexBuffer);
+    ret = IWineD3DIndexBuffer_GetPriority(This->wineD3DIndexBuffer);
     LeaveCriticalSection(&d3d9_cs);
     return ret;
 }
@@ -144,15 +138,19 @@ static void WINAPI IDirect3DIndexBuffer9Impl_PreLoad(LPDIRECT3DINDEXBUFFER9 ifac
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    IWineD3DBuffer_PreLoad(This->wineD3DIndexBuffer);
+    IWineD3DIndexBuffer_PreLoad(This->wineD3DIndexBuffer);
     LeaveCriticalSection(&d3d9_cs);
 }
 
 static D3DRESOURCETYPE WINAPI IDirect3DIndexBuffer9Impl_GetType(LPDIRECT3DINDEXBUFFER9 iface) {
     IDirect3DIndexBuffer9Impl *This = (IDirect3DIndexBuffer9Impl *)iface;
-    TRACE("(%p)\n", This);
+    D3DRESOURCETYPE ret;
+    TRACE("(%p) Relay\n", This);
 
-    return D3DRTYPE_INDEXBUFFER;
+    EnterCriticalSection(&d3d9_cs);
+    ret = IWineD3DIndexBuffer_GetType(This->wineD3DIndexBuffer);
+    LeaveCriticalSection(&d3d9_cs);
+    return ret;
 }
 
 /* IDirect3DIndexBuffer9 Interface follow: */
@@ -162,7 +160,7 @@ static HRESULT WINAPI IDirect3DIndexBuffer9Impl_Lock(LPDIRECT3DINDEXBUFFER9 ifac
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_Map(This->wineD3DIndexBuffer, OffsetToLock, SizeToLock, (BYTE **)ppbData, Flags);
+    hr = IWineD3DIndexBuffer_Lock(This->wineD3DIndexBuffer, OffsetToLock, SizeToLock, (BYTE **)ppbData, Flags);
     LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
@@ -173,7 +171,7 @@ static HRESULT WINAPI IDirect3DIndexBuffer9Impl_Unlock(LPDIRECT3DINDEXBUFFER9 if
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_Unmap(This->wineD3DIndexBuffer);
+    hr = IWineD3DIndexBuffer_Unlock(This->wineD3DIndexBuffer);
     LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
@@ -181,21 +179,11 @@ static HRESULT WINAPI IDirect3DIndexBuffer9Impl_Unlock(LPDIRECT3DINDEXBUFFER9 if
 static HRESULT  WINAPI        IDirect3DIndexBuffer9Impl_GetDesc(LPDIRECT3DINDEXBUFFER9 iface, D3DINDEXBUFFER_DESC *pDesc) {
     IDirect3DIndexBuffer9Impl *This = (IDirect3DIndexBuffer9Impl *)iface;
     HRESULT hr;
-    WINED3DBUFFER_DESC desc;
     TRACE("(%p) Relay\n", This);
 
     EnterCriticalSection(&d3d9_cs);
-    hr = IWineD3DBuffer_GetDesc(This->wineD3DIndexBuffer, &desc);
+    hr = IWineD3DIndexBuffer_GetDesc(This->wineD3DIndexBuffer, (WINED3DINDEXBUFFER_DESC *) pDesc);
     LeaveCriticalSection(&d3d9_cs);
-
-    if (SUCCEEDED(hr)) {
-        pDesc->Format = d3dformat_from_wined3dformat(This->format);
-        pDesc->Usage = desc.Usage;
-        pDesc->Pool = desc.Pool;
-        pDesc->Size = desc.Size;
-        pDesc->Type = D3DRTYPE_INDEXBUFFER;
-    }
-
     return hr;
 }
 
@@ -241,13 +229,8 @@ HRESULT WINAPI IDirect3DDevice9Impl_CreateIndexBuffer(LPDIRECT3DDEVICE9EX iface,
 
     object->lpVtbl = &Direct3DIndexBuffer9_Vtbl;
     object->ref = 1;
-    object->format = wined3dformat_from_d3dformat(Format);
     TRACE("Calling wined3d create index buffer\n");
-    EnterCriticalSection(&d3d9_cs);
-    hrc = IWineD3DDevice_CreateIndexBuffer(This->WineD3DDevice, Length, Usage & WINED3DUSAGE_MASK,
-            (WINED3DPOOL)Pool, &object->wineD3DIndexBuffer,
-            pSharedHandle, (IUnknown *)object);
-    LeaveCriticalSection(&d3d9_cs);
+    hrc = IWineD3DDevice_CreateIndexBuffer(This->WineD3DDevice, Length, Usage & WINED3DUSAGE_MASK, Format, (WINED3DPOOL) Pool, &object->wineD3DIndexBuffer, pSharedHandle, (IUnknown *)object);
     if (hrc != D3D_OK) {
 
         /* free up object */

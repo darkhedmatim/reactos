@@ -37,11 +37,6 @@ DEFINE_GUIDSTRUCT("00000092-0000-0010-8000-00aa00389b71", KSDATAFORMAT_SUBTYPE_D
 #define KSDATAFORMAT_SUBTYPE_DOLBY_AC3_SPDIF DEFINE_GUIDNAMED(KSDATAFORMAT_SUBTYPE_DOLBY_AC3_SPDIF)
 #endif
 
-NTSTATUS NTAPI PropertyHandler_Level(PPCPROPERTY_REQUEST PropertyRequest);
-NTSTATUS NTAPI PropertyHandler_CpuResources(PPCPROPERTY_REQUEST PropertyRequest);
-NTSTATUS NTAPI PropertyHandler_OnOff(PPCPROPERTY_REQUEST PropertyRequest);
-NTSTATUS NTAPI PropertyHandler_ComponentId(PPCPROPERTY_REQUEST PropertyRequest);
-NTSTATUS NTAPI PropertyHandler_Private(PPCPROPERTY_REQUEST PropertyRequest);
 
 static KSDATARANGE PinDataRangesBridge[] =
 {
@@ -297,16 +292,15 @@ static PCPROPERTY_ITEM PropertiesVolume[] =
         &KSPROPSETID_Audio,
         KSPROPERTY_AUDIO_VOLUMELEVEL,
         KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-        (PCPFNPROPERTY_HANDLER)PropertyHandler_Level
+        PropertyHandler_Level
     },
     {
         &KSPROPSETID_Audio,
         KSPROPERTY_AUDIO_CPU_RESOURCES,
         KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        (PCPFNPROPERTY_HANDLER)PropertyHandler_CpuResources
+        PropertyHandler_CpuResources
     }
 };
-
 DEFINE_PCAUTOMATION_TABLE_PROP(AutomationVolume,PropertiesVolume);
 
 static PCPROPERTY_ITEM PropertiesLoudness[] =
@@ -315,13 +309,13 @@ static PCPROPERTY_ITEM PropertiesLoudness[] =
         &KSPROPSETID_Audio,
         KSPROPERTY_AUDIO_LOUDNESS,
         KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-        (PCPFNPROPERTY_HANDLER)PropertyHandler_OnOff
+        PropertyHandler_OnOff
     },
     {
         &KSPROPSETID_Audio,
         KSPROPERTY_AUDIO_CPU_RESOURCES,
         KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        (PCPFNPROPERTY_HANDLER)PropertyHandler_CpuResources
+        PropertyHandler_CpuResources
     }
 };
 DEFINE_PCAUTOMATION_TABLE_PROP(AutomationLoudness,PropertiesLoudness);
@@ -332,13 +326,13 @@ static PCPROPERTY_ITEM PropertiesMute[] =
         &KSPROPSETID_Audio,
         KSPROPERTY_AUDIO_MUTE,
         KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_SET | KSPROPERTY_TYPE_BASICSUPPORT,
-        (PCPFNPROPERTY_HANDLER)PropertyHandler_OnOff
+        PropertyHandler_OnOff
     },
     {
         &KSPROPSETID_Audio,
         KSPROPERTY_AUDIO_CPU_RESOURCES,
         KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-        (PCPFNPROPERTY_HANDLER)PropertyHandler_CpuResources
+        PropertyHandler_CpuResources
     }
 };
 DEFINE_PCAUTOMATION_TABLE_PROP(AutomationMute,PropertiesMute);
@@ -349,19 +343,19 @@ static PCPROPERTY_ITEM PropertiesFilter[] =
     &KSPROPSETID_General,
     KSPROPERTY_GENERAL_COMPONENTID,
     KSPROPERTY_TYPE_GET | KSPROPERTY_TYPE_BASICSUPPORT,
-    (PCPFNPROPERTY_HANDLER)PropertyHandler_ComponentId
+    PropertyHandler_ComponentId
   },
   {
     &KSPROPSETID_CMI,
     KSPROPERTY_CMI_GET,
     KSPROPERTY_TYPE_GET,
-    (PCPFNPROPERTY_HANDLER)PropertyHandler_Private
+    PropertyHandler_Private
   },
   {
     &KSPROPSETID_CMI,
     KSPROPERTY_CMI_SET,
     KSPROPERTY_TYPE_SET,
-    (PCPFNPROPERTY_HANDLER)PropertyHandler_Private
+    PropertyHandler_Private
   }
 };
 DEFINE_PCAUTOMATION_TABLE_PROP(AutomationFilter,PropertiesFilter);

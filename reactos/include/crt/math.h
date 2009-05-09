@@ -189,9 +189,6 @@ extern "C" {
     return res;
   }
   __CRT_INLINE float __cdecl ldexpf (float x, int expn) { return (float) ldexp (x, expn); }
-#endif
-#endif
-
 #ifndef __x86_64
   __CRT_INLINE float acosf(float _X) { return ((float)acos((double)_X)); }
   __CRT_INLINE float asinf(float _X) { return ((float)asin((double)_X)); }
@@ -216,6 +213,8 @@ extern "C" {
   __CRT_INLINE float sqrtf(float _X) { return ((float)sqrt((double)_X)); }
   __CRT_INLINE float tanf(float _X) { return ((float)tan((double)_X)); }
   __CRT_INLINE float tanhf(float _X) { return ((float)tanh((double)_X)); }
+#endif
+#endif
 #endif
 
 #ifndef	NO_OLDNAMES
@@ -270,10 +269,6 @@ extern "C" {
     unsigned short sw;
     __asm__ ("fxam; fstsw %%ax;" : "=a" (sw): "t" (x));
     return sw & (FP_NAN | FP_NORMAL | FP_ZERO );
-  }
-
-  __CRT_INLINE int __cdecl __fpclassify (double x){
-    return __fpclassifyl((long double)x);
   }
 
 #define fpclassify(x) (sizeof (x) == sizeof (float) ? __fpclassifyf (x)	  \

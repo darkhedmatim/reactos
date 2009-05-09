@@ -44,7 +44,6 @@ Revision History:
 #include "stdafx.h"
 
 BOOLEAN
-NTAPI
 UniataChipDetectChannels(
     IN PVOID HwDeviceExtension,
     IN PPCI_COMMON_CONFIG pciData, // optional
@@ -141,7 +140,6 @@ UniataChipDetectChannels(
 } // end UniataChipDetectChannels()
 
 BOOLEAN
-NTAPI
 UniataChipDetect(
     IN PVOID HwDeviceExtension,
     IN PPCI_COMMON_CONFIG pciData, // optional
@@ -918,7 +916,6 @@ for_ugly_chips:
     This will prevent data losses
 */
 VOID
-NTAPI
 AtapiViaSouthBridgeFixup(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -983,7 +980,6 @@ AtapiViaSouthBridgeFixup(
     This will prevent data losses
 */
 VOID
-NTAPI
 AtapiRosbSouthBridgeFixup(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -1035,7 +1031,6 @@ AtapiRosbSouthBridgeFixup(
     This will prevent data losses
 */
 VOID
-NTAPI
 AtapiAliSouthBridgeFixup(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -1087,7 +1082,6 @@ AtapiAliSouthBridgeFixup(
 } // end AtapiRosbSouthBridgeFixup()
 
 ULONG
-NTAPI
 hpt_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel               // physical channel number (0-1)
@@ -1122,7 +1116,6 @@ hpt_cable80(
 
 
 ULONG
-NTAPI
 via_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel               // physical channel number (0-1)
@@ -1170,7 +1163,6 @@ via_cable80(
 } // end via_cable80()
 
 BOOLEAN
-NTAPI
 generic_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel,               // physical channel number (0-1)
@@ -1200,7 +1192,6 @@ generic_cable80(
 } // end generic_cable80()
 
 VOID
-NTAPI
 UniAtaReadLunConfig(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel,  // physical channel
@@ -1250,7 +1241,6 @@ UniAtaReadLunConfig(
 } // end UniAtaReadLunConfig()
 
 BOOLEAN
-NTAPI
 AtapiReadChipConfig(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1332,7 +1322,6 @@ AtapiReadChipConfig(
 } // end AtapiReadChipConfig()
 
 BOOLEAN
-NTAPI
 AtapiChipInit(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1891,7 +1880,6 @@ AtapiChipInit(
 } // end AtapiChipInit()
 
 VOID
-NTAPI
 UniataInitMapBM(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN PIDE_BUSMASTER_REGISTERS BaseIoAddressBM_0,
@@ -1918,7 +1906,6 @@ UniataInitMapBM(
 } // end UniataInitMapBM()
 
 VOID
-NTAPI
 UniataInitMapBase(
     IN PHW_CHANNEL chan,
     IN PIDE_REGISTERS_1 BaseIoAddress1,
@@ -1939,7 +1926,6 @@ UniataInitMapBase(
 } // end UniataInitMapBase()
 
 VOID
-NTAPI
 UniataInitSyncBaseIO(
     IN PHW_CHANNEL chan
     )

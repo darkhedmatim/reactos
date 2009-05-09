@@ -380,9 +380,7 @@ static void test_GetShellSecurityDescriptor(void)
     }
 
     psd = pGetShellSecurityDescriptor(NULL, 2);
-    ok(psd==NULL ||
-       broken(psd==INVALID_HANDLE_VALUE), /* IE5 */
-       "GetShellSecurityDescriptor should fail\n");
+    ok(psd==NULL, "GetShellSecurityDescriptor should fail\n");
     psd = pGetShellSecurityDescriptor(rgsup, 0);
     ok(psd==NULL, "GetShellSecurityDescriptor should fail\n");
 
@@ -392,11 +390,6 @@ static void test_GetShellSecurityDescriptor(void)
     {
         /* The previous calls to GetShellSecurityDescriptor don't set the last error */
         win_skip("GetShellSecurityDescriptor is not implemented\n");
-        return;
-    }
-    if (psd==INVALID_HANDLE_VALUE)
-    {
-        win_skip("GetShellSecurityDescriptor is broken on IE5\n");
         return;
     }
     ok(psd!=NULL, "GetShellSecurityDescriptor failed\n");
@@ -471,7 +464,7 @@ static void test_SHPackDispParams(void)
     HRESULT hres;
 
     if(!pSHPackDispParams)
-        win_skip("SHPackSidpParams not available\n");
+        skip("SHPackSidpParams not available\n");
 
     memset(&params, 0xc0, sizeof(params));
     memset(vars, 0xc0, sizeof(vars));
@@ -482,7 +475,7 @@ static void test_SHPackDispParams(void)
     ok(params.rgdispidNamedArgs == NULL, "params.rgdispidNamedArgs = %p\n", params.rgdispidNamedArgs);
     ok(params.rgvarg == vars, "params.rgvarg = %p\n", params.rgvarg);
     ok(V_VT(vars) == VT_I4, "V_VT(var) = %d\n", V_VT(vars));
-    ok(V_I4(vars) == 0xdeadbeef, "failed %x\n", V_I4(vars));
+    ok(V_DISPATCH(vars) == (void*)0xdeadbeef, "failed\n");
 
     memset(&params, 0xc0, sizeof(params));
     hres = pSHPackDispParams(&params, NULL, 0, 0);

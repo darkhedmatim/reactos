@@ -1,10 +1,10 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS
- * FILE:            drivers/wdm/audio/backpln/portcls/irp.c
+ * FILE:            drivers/multimedia/portcls/irp.c
  * PURPOSE:         Port Class driver / IRP Handling
  * PROGRAMMER:      Andrew Greenwood
- *                  Johannes Anderwald
+ *
  * HISTORY:
  *                  27 Jan 07   Created
  */
@@ -12,6 +12,30 @@
 
 #include "private.h"
 #include <portcls.h>
+
+/*
+    A safe place for IRPs to be bounced to, if no handler has been
+    set. Whether this is a good idea or not...?
+*/
+#if 0
+static
+NTSTATUS
+NTAPI
+IrpStub(
+    IN  PDEVICE_OBJECT DeviceObject,
+    IN  PIRP Irp)
+{
+    NTSTATUS status = STATUS_NOT_SUPPORTED;
+
+    Irp->IoStatus.Status = STATUS_NOT_SUPPORTED;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+
+    DPRINT1("IRP Stub called\n");
+
+    return status;
+}
+#endif
 
 /*
     Handles IRP_MJ_CREATE, which occurs when someone wants to make use of
@@ -23,7 +47,7 @@ PortClsCreate(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
 {
-    DPRINT("PortClsCreate called\n");
+    DPRINT1("PortClsCreate called\n");
 
     return KsDispatchIrp(DeviceObject, Irp);
 }
@@ -44,7 +68,7 @@ PortClsPnp(
     PIO_STACK_LOCATION IoStack;
     IResourceList* resource_list = NULL;
 
-    DPRINT("PortClsPnp called\n");
+    DPRINT1("PortClsPnp called\n");
 
     DeviceExt = (PPCLASS_DEVICE_EXTENSION) DeviceObject->DeviceExtension;
     IoStack = IoGetCurrentIrpStackLocation(Irp);
@@ -76,36 +100,23 @@ PortClsPnp(
                 return Status;
             }
 
-            /* forward irp to lower device object */
-            Status = PcForwardIrpSynchronous(DeviceObject, Irp);
+            /* Assign the resource list to our extension */
+            DeviceExt->resources = resource_list;
 
-            if (!NT_SUCCESS(Status))
-            {
-                /* lower device object failed to start */
-                resource_list->lpVtbl->Release(resource_list);
-                /* complete the request */
-                IoCompleteRequest(Irp, IO_NO_INCREMENT);
-                /* return result */
-                return Status;
-            }
-
-            /* sanity check */
             ASSERT(DeviceExt->StartDevice);
+
             /* Call the StartDevice routine */
             DPRINT("Calling StartDevice at 0x%8p\n", DeviceExt->StartDevice);
             Status = DeviceExt->StartDevice(DeviceObject, Irp, resource_list);
             if (!NT_SUCCESS(Status))
             {
                 DPRINT("StartDevice returned a failure code [0x%8x]\n", Status);
-                resource_list->lpVtbl->Release(resource_list);
+                //resource_list->lpVtbl->Release(resource_list);
 
                 Irp->IoStatus.Status = Status;
                 IoCompleteRequest(Irp, IO_NO_INCREMENT);
                 return Status;
             }
-
-            /* Assign the resource list to our extension */
-            DeviceExt->resources = resource_list;
 
             Irp->IoStatus.Status = STATUS_SUCCESS;
             IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -120,37 +131,22 @@ PortClsPnp(
 
             /* Do not complete? */
             Irp->IoStatus.Status = STATUS_SUCCESS;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
             return STATUS_SUCCESS;
 
         case IRP_MN_QUERY_INTERFACE:
-            DPRINT("IRP_MN_QUERY_INTERFACE\n");
-            Status = PcForwardIrpSynchronous(DeviceObject, Irp);
-            Irp->IoStatus.Status = Status;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
-            return Status;
+            DPRINT1("FIXME: IRP_MN_QUERY_INTERFACE: call next lower device object\n");
+            /* FIXME
+             * call next lower device object */
+            Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
+            return Irp->IoStatus.Status;
 
         case IRP_MN_QUERY_DEVICE_RELATIONS:
             Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
-            return STATUS_UNSUCCESSFUL;
-        case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
-            Irp->IoStatus.Status = STATUS_SUCCESS;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
-            return STATUS_SUCCESS;
-       case IRP_MN_QUERY_RESOURCE_REQUIREMENTS:
-            DPRINT("IRP_MN_QUERY_RESOURCE_REQUIREMENTS\n");
-            Status = PcForwardIrpSynchronous(DeviceObject, Irp);
-            Irp->IoStatus.Status = Status;
-            IoCompleteRequest(Irp, IO_NO_INCREMENT);
-            return Status;
+            return Irp->IoStatus.Status;
     }
 
     DPRINT1("unhandled function %u\n", IoStack->MinorFunction);
-
-    Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return STATUS_UNSUCCESSFUL;
+    return STATUS_SUCCESS;
 }
 
 /*
@@ -163,7 +159,7 @@ PortClsPower(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
 {
-    DPRINT("PortClsPower called\n");
+    DPRINT1("PortClsPower called\n");
 
     /* TODO */
 
@@ -184,7 +180,7 @@ PortClsSysControl(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
 {
-    DPRINT("PortClsSysControl called\n");
+    DPRINT1("PortClsSysControl called\n");
 
     /* TODO */
 
@@ -213,7 +209,7 @@ PcDispatchIrp(
 {
     PIO_STACK_LOCATION IoStack;
 
-    DPRINT("PcDispatchIrp called - handling IRP in PortCls\n");
+    DPRINT1("PcDispatchIrp called - handling IRP in PortCls\n");
 
     IoStack = IoGetCurrentIrpStackLocation(Irp);
 
@@ -228,12 +224,6 @@ PcDispatchIrp(
 
         case IRP_MJ_POWER :
             return PortClsPower(DeviceObject, Irp);
-
-        case IRP_MJ_DEVICE_CONTROL:
-            return KsDispatchIrp(DeviceObject, Irp);
-
-        case IRP_MJ_CLOSE:
-            return KsDispatchIrp(DeviceObject, Irp);
 
         case IRP_MJ_SYSTEM_CONTROL :
             return PortClsSysControl(DeviceObject, Irp);
@@ -264,18 +254,16 @@ PcCompleteIrp(
     return STATUS_UNSUCCESSFUL;
 }
 
+static
 NTSTATUS
 NTAPI
-CompletionRoutine(
-    IN PDEVICE_OBJECT  DeviceObject,
-    IN PIRP  Irp,
-    IN PVOID  Context)
+IrpCompletionRoutine(
+    IN PDEVICE_OBJECT DeviceObject,
+    IN PIRP Irp,
+    IN PVOID Context)
 {
-    if (Irp->PendingReturned == TRUE)
-    {
-        KeSetEvent ((PKEVENT) Context, IO_NO_INCREMENT, FALSE);
-    }
-    return STATUS_MORE_PROCESSING_REQUIRED;
+    KeSetEvent((PRKEVENT)Context, IO_NO_INCREMENT, FALSE);
+    return STATUS_SUCCESS;
 }
 
 
@@ -291,16 +279,20 @@ PcForwardIrpSynchronous(
     PPCLASS_DEVICE_EXTENSION DeviceExt;
     NTSTATUS Status;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    DPRINT1("PcForwardIrpSynchronous\n");
 
     DeviceExt = (PPCLASS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-
+return STATUS_SUCCESS;
     /* initialize the notification event */
     KeInitializeEvent(&Event, NotificationEvent, FALSE);
 
+    /* setup a completion routine */
+    IoSetCompletionRoutine(Irp, IrpCompletionRoutine, (PVOID)&Event, TRUE, FALSE, FALSE);
+
+    /* copy the current stack location */
     IoCopyCurrentIrpStackLocationToNext(Irp);
 
-    IoSetCompletionRoutine(Irp, CompletionRoutine, (PVOID)&Event, TRUE, TRUE, TRUE);
+    DPRINT1("PcForwardIrpSynchronous %p Irp %p\n", DeviceExt->PrevDeviceObject, Irp);
 
     /* now call the driver */
     Status = IoCallDriver(DeviceExt->PrevDeviceObject, Irp);
@@ -309,7 +301,8 @@ PcForwardIrpSynchronous(
     {
         /* not yet, lets wait a bit */
         KeWaitForSingleObject(&Event, Executive, KernelMode, FALSE, NULL);
-        Status = Irp->IoStatus.Status;
+        Status = STATUS_SUCCESS;
     }
+    DPRINT1("Returning status %x\n", Status);
     return Status;
 }

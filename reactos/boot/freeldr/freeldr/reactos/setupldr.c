@@ -72,7 +72,7 @@ VOID LoadReactOSSetup(VOID)
   LoaderBlock.PageDirectoryEnd = (ULONG_PTR)&PageDirectoryEnd;
   LoaderBlock.ModsCount = 0;
   LoaderBlock.ModsAddr = reactos_modules;
-  LoaderBlock.MmapLength = (unsigned long)MachVtbl.GetMemoryMap((PBIOS_MEMORY_MAP)reactos_memory_map, 32) * sizeof(memory_map_t);
+  LoaderBlock.MmapLength = (unsigned long)MachGetMemoryMap((PBIOS_MEMORY_MAP)reactos_memory_map, 32) * sizeof(memory_map_t);
   if (LoaderBlock.MmapLength)
   {
 #if defined (_M_IX86) || defined (_M_AMD64)
@@ -185,11 +185,7 @@ VOID LoadReactOSSetup(VOID)
 
     /* Load the kernel */
     LoadBase = FrLdrLoadImage(FileName, 5, 1);
-    if (!LoadBase)
-    {
-        DPRINT1("Loading the kernel failed!\n");
-        return;
-    }
+    if (!LoadBase) return;
 
     /* Get the NT header, kernel base and kernel entry */
     NtHeader = RtlImageNtHeader(LoadBase);
@@ -306,10 +302,7 @@ VOID LoadReactOSSetup(VOID)
                 if (strcmp(Media, "x") == 0)
                 {
                     if (!FrLdrLoadDriver((PCHAR)DriverName,0))
-                    {
-                        DPRINTM(DPRINT_WARNING, "could not load %s, %s\n", SourcePath, DriverName);
                         return;
-                    }
                 }
             }
         } while (InfFindNextLine(&InfContext, &InfContext));

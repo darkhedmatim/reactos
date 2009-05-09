@@ -449,10 +449,10 @@ START_TEST(base64)
     if (pCryptBinaryToStringA)
         testBinaryToStringA();
     else
-        win_skip("CryptBinaryToStringA is not available\n");
+        skip("CryptBinaryToStringA is not available\n");
 
     if (pCryptStringToBinaryA)
         testStringToBinaryA();
     else
-        win_skip("CryptStringToBinaryA is not available\n");
+        skip("CryptStringToBinaryA is not available\n");
 }

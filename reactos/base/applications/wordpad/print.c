@@ -95,7 +95,7 @@ static void AddTextButton(HWND hRebarWnd, UINT string, UINT command, UINT id)
     LoadStringW(hInstance, string, text, MAX_STRING_LEN);
     hButton = CreateWindowW(WC_BUTTONW, text,
                             WS_VISIBLE | WS_CHILD, 5, 5, 100, 15,
-                            hRebarWnd, ULongToHandle(command), hInstance, NULL);
+                            hRebarWnd, (HMENU)ULongToHandle(command), hInstance, NULL);
 
     rb.cbSize = sizeof(rb);
     rb.fMask = RBBIM_SIZE | RBBIM_CHILDSIZE | RBBIM_STYLE | RBBIM_CHILD | RBBIM_IDEALSIZE | RBBIM_ID;
@@ -226,12 +226,12 @@ static LPWSTR dialog_print_to_file(HWND hMainWnd)
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
     ofn.hwndOwner = hMainWnd;
     ofn.lpstrFilter = file_filter;
-    ofn.lpstrFile = file;
+    ofn.lpstrFile = (LPWSTR)file;
     ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrDefExt = defExt;
+    ofn.lpstrDefExt = (LPWSTR)defExt;
 
     if(GetSaveFileNameW(&ofn))
-        return file;
+        return (LPWSTR)file;
     else
         return FALSE;
 }
@@ -489,7 +489,7 @@ BOOL preview_isactive(void)
     return preview.page != 0;
 }
 
-static void add_ruler_units(HDC hdcRuler, RECT* drawRect, BOOL NewMetrics, LONG EditLeftmost)
+static void add_ruler_units(HDC hdcRuler, RECT* drawRect, BOOL NewMetrics, long EditLeftmost)
 {
     static HDC hdc;
 
@@ -564,7 +564,7 @@ static void add_ruler_units(HDC hdcRuler, RECT* drawRect, BOOL NewMetrics, LONG 
     BitBlt(hdcRuler, 0, 0, drawRect->right, drawRect->bottom, hdc, 0, 0, SRCAND);
 }
 
-static void paint_ruler(HWND hWnd, LONG EditLeftmost, BOOL NewMetrics)
+static void paint_ruler(HWND hWnd, long EditLeftmost, BOOL NewMetrics)
 {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hWnd, &ps);
@@ -603,7 +603,7 @@ static void paint_ruler(HWND hWnd, LONG EditLeftmost, BOOL NewMetrics)
 LRESULT CALLBACK ruler_proc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static WNDPROC pPrevRulerProc;
-    static LONG EditLeftmost;
+    static long EditLeftmost;
     static BOOL NewMetrics;
 
     switch(msg)

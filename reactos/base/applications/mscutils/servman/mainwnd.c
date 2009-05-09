@@ -288,9 +288,8 @@ pCreateToolbar(PMAIN_WND_INFO Info)
 
         hImageList = InitImageList(IDB_PROP,
                                    IDB_RESTART,
-                                   GetSystemMetrics(SM_CXSMICON),
-                                   GetSystemMetrics(SM_CXSMICON),
-                                   IMAGE_BITMAP);
+                                   16,
+                                   16);
         if (hImageList == NULL)
             return FALSE;
 
@@ -891,7 +890,7 @@ CreateMainWindow(LPCTSTR lpCaption,
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
-                                  680,
+                                  650,
                                   450,
                                   NULL,
                                   NULL,

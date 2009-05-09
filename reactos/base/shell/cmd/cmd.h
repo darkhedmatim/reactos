@@ -53,27 +53,22 @@
 /* global variables */
 extern HANDLE hOut;
 extern HANDLE hIn;
-extern LPTSTR lpOriginalEnvironment;
+extern HANDLE hConsole;
 extern WORD   wColor;
 extern WORD   wDefColor;
 extern BOOL   bCtrlBreak;
 extern BOOL   bIgnoreEcho;
 extern BOOL   bExit;
-extern BOOL   bDisableBatchEcho;
-extern BOOL   bDelayedExpansion;
 extern INT    nErrorLevel;
 extern SHORT  maxx;
 extern SHORT  maxy;
 extern OSVERSIONINFO osvi;
-extern BOOL bUnicodeOutput;
+
 
 
 /* Prototypes for ALIAS.C */
 VOID ExpandAlias (LPTSTR, INT);
 INT CommandAlias (LPTSTR);
-
-/* Prototypes for ASSOC.C */
-INT CommandAssoc (LPTSTR);
 
 /* Prototypes for ATTRIB.C */
 INT CommandAttrib (LPTSTR);
@@ -100,18 +95,15 @@ INT cmd_cls (LPTSTR);
 
 
 /* Prototypes for CMD.C */
-INT ConvertULargeInteger(ULONGLONG num, LPTSTR des, INT len, BOOL bPutSeperator);
-HANDLE RunFile(DWORD, LPTSTR, LPTSTR, LPTSTR, INT);
-INT ParseCommandLine(LPTSTR);
+INT ConvertULargeInteger (ULARGE_INTEGER num, LPTSTR des, INT len, BOOL bPutSeperator);
+VOID ParseCommandLine (LPTSTR);
 struct _PARSED_COMMAND;
-INT ExecuteCommand(struct _PARSED_COMMAND *Cmd);
+BOOL ExecuteCommand(struct _PARSED_COMMAND *Cmd);
 LPCTSTR GetEnvVarOrSpecial ( LPCTSTR varName );
 VOID AddBreakHandler (VOID);
 VOID RemoveBreakHandler (VOID);
-BOOL SubstituteVars(TCHAR *Src, TCHAR *Dest, TCHAR Delim);
-BOOL SubstituteForVars(TCHAR *Src, TCHAR *Dest);
 LPTSTR DoDelayedExpansion(LPTSTR Line);
-INT DoCommand(LPTSTR first, LPTSTR rest, struct _PARSED_COMMAND *Cmd);
+BOOL DoCommand (LPTSTR line);
 BOOL ReadLine(TCHAR *commandline, BOOL bMore);
 int cmd_main (int argc, const TCHAR *argv[]);
 
@@ -119,7 +111,7 @@ extern HANDLE CMD_ModuleHandle;
 
 
 /* Prototypes for CMDINPUT.C */
-BOOL ReadCommand (LPTSTR, INT);
+VOID ReadCommand (LPTSTR, INT);
 
 
 /* Prototypes for CMDTABLE.C */
@@ -155,8 +147,6 @@ VOID ConInString (LPTSTR, DWORD);
 
 VOID ConOutChar (TCHAR);
 VOID ConOutPuts (LPTSTR);
-VOID ConPrintf(LPTSTR, va_list, DWORD);
-INT ConPrintfPaging(BOOL NewPage, LPTSTR, va_list, DWORD);
 VOID ConOutPrintf (LPTSTR, ...);
 INT ConOutPrintfPaging (BOOL NewPage, LPTSTR, ...);
 VOID ConErrChar (TCHAR);
@@ -196,8 +186,6 @@ INT CommandDelay (LPTSTR);
 
 
 /* Prototypes for DIR.C */
-INT FormatDate (TCHAR *, LPSYSTEMTIME, BOOL);
-INT FormatTime (TCHAR *, LPSYSTEMTIME);
 INT CommandDir (LPTSTR);
 
 
@@ -211,7 +199,6 @@ INT  CommandDirs (LPTSTR);
 
 
 /* Prototypes for ECHO.C */
-BOOL OnOffCommand(LPTSTR param, LPBOOL flag, INT message);
 INT  CommandEcho (LPTSTR);
 INT  CommandEchos (LPTSTR);
 INT  CommandEchoerr (LPTSTR);
@@ -222,7 +209,7 @@ INT  CommandEchoserr (LPTSTR);
 VOID ErrorMessage (DWORD, LPTSTR, ...);
 
 VOID error_no_pipe (VOID);
-VOID error_bad_command (LPTSTR);
+VOID error_bad_command (VOID);
 VOID error_invalid_drive (VOID);
 VOID error_req_param_missing (VOID);
 VOID error_sfile_not_found (LPTSTR);
@@ -249,12 +236,7 @@ VOID CompleteFilename (LPTSTR, BOOL, LPTSTR, UINT);
 
 
 /* Prototypes for FOR.C */
-#define FOR_DIRS      1 /* /D */
-#define FOR_F         2 /* /F */
-#define FOR_LOOP      4 /* /L */
-#define FOR_RECURSIVE 8 /* /R */
 INT cmd_for (LPTSTR);
-INT ExecuteFor(struct _PARSED_COMMAND *Cmd);
 
 
 /* Prototypes for FREE.C */
@@ -283,7 +265,7 @@ INT CommandHistory (LPTSTR param);
 enum { IF_CMDEXTVERSION, IF_DEFINED, IF_ERRORLEVEL, IF_EXIST,
        IF_STRINGEQ,         /* == */
        IF_EQU, IF_GTR, IF_GEQ, IF_LSS, IF_LEQ, IF_NEQ };
-INT ExecuteIf(struct _PARSED_COMMAND *Cmd);
+BOOL ExecuteIf(struct _PARSED_COMMAND *Cmd);
 
 
 /* Prototypes for INTERNAL.C */
@@ -312,8 +294,8 @@ extern INT nNumberGroups;
 
 
 VOID InitLocale (VOID);
-LPTSTR GetDateString (VOID);
-LPTSTR GetTimeString (VOID);
+VOID PrintDate (VOID);
+VOID PrintTime (VOID);
 
 /* cache codepage */
 extern UINT InputCodePage;
@@ -323,13 +305,9 @@ extern UINT OutputCodePage;
 INT CommandMemory (LPTSTR);
 
 
-/* Prototypes for MKLINK.C */
-INT cmd_mklink(LPTSTR);
-
-
 /* Prototypes for MISC.C */
 INT GetRootPath(TCHAR *InPath,TCHAR *OutPath,INT size);
-BOOL SetRootPath(TCHAR *oldpath,TCHAR *InPath);
+BOOL SetRootPath(TCHAR *InPath);
 TCHAR  cgetchar (VOID);
 BOOL   CheckCtrlBreak (INT);
 BOOL add_entry (LPINT ac, LPTSTR **arg, LPCTSTR entry);
@@ -363,7 +341,7 @@ INT CommandMsgbox (LPTSTR);
 
 
 /* Prototypes from PARSER.C */
-enum { C_COMMAND, C_QUIET, C_BLOCK, C_MULTI, C_IFFAILURE, C_IFSUCCESS, C_PIPE, C_IF, C_FOR };
+enum { C_COMMAND, C_QUIET, C_BLOCK, C_MULTI, C_IFFAILURE, C_IFSUCCESS, C_PIPE, C_IF };
 typedef struct _PARSED_COMMAND
 {
 	struct _PARSED_COMMAND *Subcommands;
@@ -374,8 +352,8 @@ typedef struct _PARSED_COMMAND
 	{
 		struct
 		{
-			TCHAR *Rest;
-			TCHAR First[];
+			TCHAR *Tail;
+			TCHAR CommandLine[];
 		} Command;
 		struct
 		{
@@ -384,19 +362,10 @@ typedef struct _PARSED_COMMAND
 			TCHAR *LeftArg;
 			TCHAR *RightArg;
 		} If;
-		struct
-		{
-			BYTE Switches;
-			TCHAR Variable;
-			LPTSTR Params;
-			LPTSTR List;
-			struct tagFORCONTEXT *Context;
-		} For;
 	};
 } PARSED_COMMAND;
 PARSED_COMMAND *ParseCommand(LPTSTR Line);
 VOID EchoCommand(PARSED_COMMAND *Cmd);
-TCHAR *Unparse(PARSED_COMMAND *Cmd, TCHAR *Out, TCHAR *OutEnd);
 VOID FreeCommand(PARSED_COMMAND *Cmd);
 
 
@@ -439,7 +408,6 @@ INT CommandScreen (LPTSTR);
 INT cmd_set (LPTSTR);
 
 /* Prototypes for SETLOCAL.C */
-LPTSTR DuplicateEnvironment(VOID);
 INT cmd_setlocal (LPTSTR);
 INT cmd_endlocal (LPTSTR);
 

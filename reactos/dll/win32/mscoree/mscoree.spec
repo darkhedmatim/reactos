@@ -70,7 +70,7 @@
 @ stdcall LoadLibraryShim(ptr ptr ptr ptr)
 @ stub LoadLibraryWithPolicyShim
 @ stdcall LoadStringRCEx(long long ptr long long ptr)
-@ stdcall LockClrVersion(ptr ptr ptr)
+@ stub LockClrVersion
 @ stub MetaDataGetDispenser
 @ stdcall ND_CopyObjDst(ptr ptr long long)
 @ stdcall ND_CopyObjSrc(ptr long ptr long)
@@ -103,8 +103,8 @@
 @ stub StrongNameSignatureGeneration
 @ stub StrongNameSignatureGenerationEx
 @ stub StrongNameSignatureSize
-@ stdcall StrongNameSignatureVerification(wstr long ptr)
-@ stdcall StrongNameSignatureVerificationEx(wstr long ptr)
+@ stub StrongNameSignatureVerification
+@ stub StrongNameSignatureVerificationEx
 @ stub StrongNameSignatureVerificationFromImage
 @ stub StrongNameTokenFromAssembly
 @ stub StrongNameTokenFromAssemblyEx

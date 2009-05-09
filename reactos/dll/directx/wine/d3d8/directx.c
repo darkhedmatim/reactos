@@ -71,9 +71,7 @@ static ULONG WINAPI IDirect3D8Impl_Release(LPDIRECT3D8 iface) {
 
     if (ref == 0) {
         TRACE("Releasing wined3d %p\n", This->WineD3D);
-        EnterCriticalSection(&d3d8_cs);
         IWineD3D_Release(This->WineD3D);
-        LeaveCriticalSection(&d3d8_cs);
         HeapFree(GetProcessHeap(), 0, This);
     }
 
@@ -149,9 +147,6 @@ static HRESULT WINAPI IDirect3D8Impl_EnumAdapterModes (LPDIRECT3D8 iface, UINT A
     EnterCriticalSection(&d3d8_cs);
     hr = IWineD3D_EnumAdapterModes(This->WineD3D, Adapter, WINED3DFMT_UNKNOWN, Mode, (WINED3DDISPLAYMODE *) pMode);
     LeaveCriticalSection(&d3d8_cs);
-
-    if (SUCCEEDED(hr)) pMode->Format = d3dformat_from_wined3dformat(pMode->Format);
-
     return hr;
 }
 
@@ -163,9 +158,6 @@ static HRESULT WINAPI IDirect3D8Impl_GetAdapterDisplayMode (LPDIRECT3D8 iface, U
     EnterCriticalSection(&d3d8_cs);
     hr = IWineD3D_GetAdapterDisplayMode(This->WineD3D, Adapter, (WINED3DDISPLAYMODE *) pMode);
     LeaveCriticalSection(&d3d8_cs);
-
-    if (SUCCEEDED(hr)) pMode->Format = d3dformat_from_wined3dformat(pMode->Format);
-
     return hr;
 }
 
@@ -177,8 +169,8 @@ static HRESULT  WINAPI  IDirect3D8Impl_CheckDeviceType            (LPDIRECT3D8 i
     TRACE("(%p)->(%d, %d, %d, %d, %s)\n", This, Adapter, CheckType, DisplayFormat, BackBufferFormat, Windowed ? "true" : "false");
 
     EnterCriticalSection(&d3d8_cs);
-    hr = IWineD3D_CheckDeviceType(This->WineD3D, Adapter, CheckType, wined3dformat_from_d3dformat(DisplayFormat),
-            wined3dformat_from_d3dformat(BackBufferFormat), Windowed);
+    hr = IWineD3D_CheckDeviceType(This->WineD3D, Adapter, CheckType, DisplayFormat,
+                                    BackBufferFormat, Windowed);
     LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
@@ -188,23 +180,11 @@ static HRESULT  WINAPI  IDirect3D8Impl_CheckDeviceFormat          (LPDIRECT3D8 i
                                                             DWORD Usage, D3DRESOURCETYPE RType, D3DFORMAT CheckFormat) {
     IDirect3D8Impl *This = (IDirect3D8Impl *)iface;
     HRESULT hr;
-    WINED3DRESOURCETYPE WineD3DRType;
     TRACE("(%p)->(%d, %d, %d, %08x, %d, %d)\n", This, Adapter, DeviceType, AdapterFormat, Usage, RType, CheckFormat);
 
-    switch(RType) {
-        case D3DRTYPE_VERTEXBUFFER:
-        case D3DRTYPE_INDEXBUFFER:
-            WineD3DRType = WINED3DRTYPE_BUFFER;
-            break;
-
-        default:
-            WineD3DRType = RType;
-            break;
-    }
-
     EnterCriticalSection(&d3d8_cs);
-    hr = IWineD3D_CheckDeviceFormat(This->WineD3D, Adapter, DeviceType, wined3dformat_from_d3dformat(AdapterFormat),
-            Usage, WineD3DRType, wined3dformat_from_d3dformat(CheckFormat), SURFACE_OPENGL);
+    hr = IWineD3D_CheckDeviceFormat(This->WineD3D, Adapter, DeviceType, AdapterFormat,
+                                    Usage, RType, CheckFormat, SURFACE_OPENGL);
     LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
@@ -217,8 +197,8 @@ static HRESULT  WINAPI  IDirect3D8Impl_CheckDeviceMultiSampleType(LPDIRECT3D8 if
     TRACE("(%p)-<(%d, %d, %d, %s, %d)\n", This, Adapter, DeviceType, SurfaceFormat, Windowed ? "true" : "false", MultiSampleType);
 
     EnterCriticalSection(&d3d8_cs);
-    hr = IWineD3D_CheckDeviceMultiSampleType(This->WineD3D, Adapter, DeviceType,
-            wined3dformat_from_d3dformat(SurfaceFormat), Windowed, (WINED3DMULTISAMPLE_TYPE) MultiSampleType, NULL);
+    hr = IWineD3D_CheckDeviceMultiSampleType(This->WineD3D, Adapter, DeviceType, SurfaceFormat,
+                                               Windowed, (WINED3DMULTISAMPLE_TYPE) MultiSampleType, NULL);
     LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
@@ -231,9 +211,8 @@ static HRESULT  WINAPI  IDirect3D8Impl_CheckDepthStencilMatch(LPDIRECT3D8 iface,
     TRACE("(%p)-<(%d, %d, %d, %d, %d)\n", This, Adapter, DeviceType, AdapterFormat, RenderTargetFormat, DepthStencilFormat);
 
     EnterCriticalSection(&d3d8_cs);
-    hr = IWineD3D_CheckDepthStencilMatch(This->WineD3D, Adapter, DeviceType,
-            wined3dformat_from_d3dformat(AdapterFormat), wined3dformat_from_d3dformat(RenderTargetFormat),
-            wined3dformat_from_d3dformat(DepthStencilFormat));
+    hr = IWineD3D_CheckDepthStencilMatch(This->WineD3D, Adapter, DeviceType, AdapterFormat,
+                                           RenderTargetFormat, DepthStencilFormat);
     LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
@@ -337,9 +316,8 @@ static HRESULT WINAPI IDirect3D8Impl_CreateDevice(LPDIRECT3D8 iface, UINT Adapte
     object->lpVtbl = &Direct3DDevice8_Vtbl;
     object->device_parent_vtbl = &d3d8_wined3d_device_parent_vtbl;
     object->ref = 1;
-    object->handle_table.entries = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
-            D3D8_INITIAL_HANDLE_TABLE_SIZE * sizeof(*object->handle_table.entries));
-    object->handle_table.table_size = D3D8_INITIAL_HANDLE_TABLE_SIZE;
+    object->shader_handles = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, INITIAL_SHADER_HANDLE_TABLE_SIZE * sizeof(shader_handle));
+    object->shader_handle_table_size = INITIAL_SHADER_HANDLE_TABLE_SIZE;
     *ppReturnedDeviceInterface = (IDirect3DDevice8 *)object;
 
     /* Allocate an associated WineD3DDevice object */
@@ -358,7 +336,7 @@ static HRESULT WINAPI IDirect3D8Impl_CreateDevice(LPDIRECT3D8 iface, UINT Adapte
 
     localParameters.BackBufferWidth                             = pPresentationParameters->BackBufferWidth;
     localParameters.BackBufferHeight                            = pPresentationParameters->BackBufferHeight;
-    localParameters.BackBufferFormat                            = wined3dformat_from_d3dformat(pPresentationParameters->BackBufferFormat);
+    localParameters.BackBufferFormat                            = pPresentationParameters->BackBufferFormat;
     localParameters.BackBufferCount                             = pPresentationParameters->BackBufferCount;
     localParameters.MultiSampleType                             = pPresentationParameters->MultiSampleType;
     localParameters.MultiSampleQuality                          = 0; /* d3d9 only */
@@ -366,7 +344,7 @@ static HRESULT WINAPI IDirect3D8Impl_CreateDevice(LPDIRECT3D8 iface, UINT Adapte
     localParameters.hDeviceWindow                               = pPresentationParameters->hDeviceWindow;
     localParameters.Windowed                                    = pPresentationParameters->Windowed;
     localParameters.EnableAutoDepthStencil                      = pPresentationParameters->EnableAutoDepthStencil;
-    localParameters.AutoDepthStencilFormat                      = wined3dformat_from_d3dformat(pPresentationParameters->AutoDepthStencilFormat);
+    localParameters.AutoDepthStencilFormat                      = pPresentationParameters->AutoDepthStencilFormat;
     localParameters.Flags                                       = pPresentationParameters->Flags;
     localParameters.FullScreen_RefreshRateInHz                  = pPresentationParameters->FullScreen_RefreshRateInHz;
     localParameters.PresentationInterval                        = pPresentationParameters->FullScreen_PresentationInterval;
@@ -381,14 +359,14 @@ static HRESULT WINAPI IDirect3D8Impl_CreateDevice(LPDIRECT3D8 iface, UINT Adapte
 
     pPresentationParameters->BackBufferWidth                    = localParameters.BackBufferWidth;
     pPresentationParameters->BackBufferHeight                   = localParameters.BackBufferHeight;
-    pPresentationParameters->BackBufferFormat                   = d3dformat_from_wined3dformat(localParameters.BackBufferFormat);
+    pPresentationParameters->BackBufferFormat                   = localParameters.BackBufferFormat;
     pPresentationParameters->BackBufferCount                    = localParameters.BackBufferCount;
     pPresentationParameters->MultiSampleType                    = localParameters.MultiSampleType;
     pPresentationParameters->SwapEffect                         = localParameters.SwapEffect;
     pPresentationParameters->hDeviceWindow                      = localParameters.hDeviceWindow;
     pPresentationParameters->Windowed                           = localParameters.Windowed;
     pPresentationParameters->EnableAutoDepthStencil             = localParameters.EnableAutoDepthStencil;
-    pPresentationParameters->AutoDepthStencilFormat             = d3dformat_from_wined3dformat(localParameters.AutoDepthStencilFormat);
+    pPresentationParameters->AutoDepthStencilFormat             = localParameters.AutoDepthStencilFormat;
     pPresentationParameters->Flags                              = localParameters.Flags;
     pPresentationParameters->FullScreen_RefreshRateInHz         = localParameters.FullScreen_RefreshRateInHz;
     pPresentationParameters->FullScreen_PresentationInterval    = localParameters.PresentationInterval;
@@ -403,9 +381,7 @@ static HRESULT WINAPI IDirect3D8Impl_CreateDevice(LPDIRECT3D8 iface, UINT Adapte
     object->decls = HeapAlloc(GetProcessHeap(), 0, object->declArraySize * sizeof(*object->decls));
     if(!object->decls) {
         ERR("Out of memory\n");
-        EnterCriticalSection(&d3d8_cs);
         IWineD3DDevice_Release(object->WineD3DDevice);
-        LeaveCriticalSection(&d3d8_cs);
         HeapFree(GetProcessHeap(), 0, object);
         *ppReturnedDeviceInterface = NULL;
         hr = E_OUTOFMEMORY;

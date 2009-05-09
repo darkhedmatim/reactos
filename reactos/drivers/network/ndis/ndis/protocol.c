@@ -22,154 +22,6 @@ KSPIN_LOCK ProtocolListLock;
 
 #define WORKER_TEST 0
 
-PNET_PNP_EVENT
-ProSetupPnPEvent(
-    NET_PNP_EVENT_CODE EventCode,
-    PVOID              EventBuffer,
-    ULONG              EventBufferLength)
-{
-    PNET_PNP_EVENT PnPEvent;
-
-    PnPEvent = ExAllocatePool(PagedPool, sizeof(NET_PNP_EVENT));
-    if (!PnPEvent)
-        return NULL;
-
-    RtlZeroMemory(PnPEvent, sizeof(NET_PNP_EVENT));
-
-    PnPEvent->NetEvent = EventCode;
-
-    if (EventBuffer != NULL)
-    {
-        PnPEvent->Buffer = ExAllocatePool(PagedPool, EventBufferLength);
-        if (!PnPEvent->Buffer)
-        {
-            ExFreePool(PnPEvent);
-            return NULL;
-        }
-
-        PnPEvent->BufferLength = EventBufferLength;
-
-        RtlCopyMemory(PnPEvent->Buffer, EventBuffer, PnPEvent->BufferLength);
-    }
-
-    return PnPEvent;
-}
-
-NDIS_STATUS
-ProSendAndFreePnPEvent(
-   PLOGICAL_ADAPTER Adapter,
-   PNET_PNP_EVENT   PnPEvent,
-   PIRP             Irp)
-{
-  PLIST_ENTRY CurrentEntry;
-  NDIS_STATUS Status;
-  PADAPTER_BINDING AdapterBinding;
-
-  CurrentEntry = Adapter->ProtocolListHead.Flink;
-
-  while (CurrentEntry != &Adapter->ProtocolListHead)
-  {
-     AdapterBinding = CONTAINING_RECORD(CurrentEntry, ADAPTER_BINDING, AdapterListEntry);
-
-     Status = (*AdapterBinding->ProtocolBinding->Chars.PnPEventHandler)(
-      AdapterBinding->NdisOpenBlock.ProtocolBindingContext,
-      PnPEvent);
-
-     if (Status == NDIS_STATUS_PENDING)
-     {
-         IoMarkIrpPending(Irp);
-         /* Yes, I know this is stupid */
-         PnPEvent->NdisReserved[0] = (ULONG_PTR)Irp;
-         PnPEvent->NdisReserved[1] = (ULONG_PTR)CurrentEntry->Flink;
-         return NDIS_STATUS_PENDING;
-     }
-     else if (Status != NDIS_STATUS_SUCCESS)
-     {
-         if (PnPEvent->Buffer) ExFreePool(PnPEvent->Buffer);
-         ExFreePool(PnPEvent);
-         return Status;
-     }
-
-     CurrentEntry = CurrentEntry->Flink;
-  }
-
-  if (PnPEvent->Buffer) ExFreePool(PnPEvent->Buffer);
-  ExFreePool(PnPEvent);
-
-  return NDIS_STATUS_SUCCESS;
-}
-
-NTSTATUS
-NTAPI
-NdisIPwrSetPower(
-    IN PDEVICE_OBJECT DeviceObject,
-    PIRP Irp)
-{
-  PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)DeviceObject->DeviceExtension;
-  PNET_PNP_EVENT PnPEvent;
-  PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
-
-  ASSERT(Stack->Parameters.Power.Type == DevicePowerState);
-
-  PnPEvent = ProSetupPnPEvent(NetEventSetPower, &Stack->Parameters.Power.State, sizeof(NDIS_DEVICE_POWER_STATE));
-  if (!PnPEvent)
-      return NDIS_STATUS_RESOURCES;
-
-  return ProSendAndFreePnPEvent(Adapter, PnPEvent, Irp);
-}
-
-NTSTATUS
-NTAPI
-NdisIPwrQueryPower(
-    IN PDEVICE_OBJECT DeviceObject,
-    PIRP Irp)
-{
-  PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)DeviceObject->DeviceExtension;
-  PNET_PNP_EVENT PnPEvent;
-  PIO_STACK_LOCATION Stack = IoGetCurrentIrpStackLocation(Irp);
-
-  ASSERT(Stack->Parameters.Power.Type == DevicePowerState);
-
-  PnPEvent = ProSetupPnPEvent(NetEventQueryPower, &Stack->Parameters.Power.State, sizeof(NDIS_DEVICE_POWER_STATE));
-  if (!PnPEvent)
-      return NDIS_STATUS_RESOURCES;
-
-  return ProSendAndFreePnPEvent(Adapter, PnPEvent, Irp);
-}
-
-
-NTSTATUS
-NTAPI
-NdisIPnPQueryStopDevice(
-    IN PDEVICE_OBJECT DeviceObject,
-    PIRP Irp)
-{
-  PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)DeviceObject->DeviceExtension;
-  PNET_PNP_EVENT PnPEvent;
-
-  PnPEvent = ProSetupPnPEvent(NetEventQueryRemoveDevice, NULL, 0);
-  if (!PnPEvent)
-      return NDIS_STATUS_RESOURCES;
-
-  return ProSendAndFreePnPEvent(Adapter, PnPEvent, Irp);
-}
-
-NTSTATUS
-NTAPI
-NdisIPnPCancelStopDevice(
-    IN PDEVICE_OBJECT DeviceObject,
-    PIRP Irp)
-{
-  PLOGICAL_ADAPTER Adapter = (PLOGICAL_ADAPTER)DeviceObject->DeviceExtension;
-  PNET_PNP_EVENT PnPEvent;
-
-  PnPEvent = ProSetupPnPEvent(NetEventCancelRemoveDevice, NULL, 0);
-  if (!PnPEvent)
-      return NDIS_STATUS_RESOURCES;
-
-  return ProSendAndFreePnPEvent(Adapter, PnPEvent, Irp);
-}
-
 
 /*
  * @implemented
@@ -197,26 +49,6 @@ NdisCompleteBindAdapter(
 
   /* Put protocol binding struct on global list */
   ExInterlockedInsertTailList(&ProtocolListHead, &Protocol->ListEntry, &ProtocolListLock);
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisCompleteUnbindAdapter(
-    IN  NDIS_HANDLE UnbindAdapterContext,
-    IN  NDIS_STATUS Status)
-{
-  /* We probably need to do more here but for now we just do
-   * the opposite of what NdisCompleteBindAdapter does
-   */
-
-  PROTOCOL_BINDING *Protocol = (PROTOCOL_BINDING *)UnbindAdapterContext;
-
-  if (!NT_SUCCESS(Status)) return;
-
-  ExInterlockedRemoveEntryList(&Protocol->ListEntry, &ProtocolListLock);
 }
 
 
@@ -349,7 +181,7 @@ proSendPacketToMiniport(PLOGICAL_ADAPTER Adapter, PNDIS_PACKET Packet)
             NDIS_DbgPrint(MAX_TRACE, ("Calling miniport's SendPackets handler\n"));
             (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.SendPacketsHandler)(
              Adapter->NdisMiniportBlock.MiniportAdapterContext, &Packet, 1);
-             NdisStatus = NDIS_STATUS_PENDING;
+             NdisStatus = NDIS_GET_PACKET_STATUS(Packet);
         } else {
             /* SendPackets is called at DISPATCH_LEVEL for all serialized miniports */
             KeRaiseIrql(DISPATCH_LEVEL, &RaiseOldIrql);
@@ -373,14 +205,14 @@ proSendPacketToMiniport(PLOGICAL_ADAPTER Adapter, PNDIS_PACKET Packet)
         {
             NDIS_DbgPrint(MAX_TRACE, ("Calling miniport's Send handler\n"));
             NdisStatus = (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.SendHandler)(
-                          Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, Packet->Private.Flags);
+                          Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
             NDIS_DbgPrint(MAX_TRACE, ("back from miniport's send handler\n"));
         } else {
             /* Send is called at DISPATCH_LEVEL for all serialized miniports */
             KeRaiseIrql(DISPATCH_LEVEL, &RaiseOldIrql);
             NDIS_DbgPrint(MAX_TRACE, ("Calling miniport's Send handler\n"));
             NdisStatus = (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.SendHandler)(
-                          Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, Packet->Private.Flags);
+                          Adapter->NdisMiniportBlock.MiniportAdapterContext, Packet, 0);
             NDIS_DbgPrint(MAX_TRACE, ("back from miniport's send handler\n"));
             KeLowerIrql(RaiseOldIrql);
 
@@ -427,7 +259,7 @@ ProSend(
   ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
 
   /* XXX what is this crazy black magic? */
-  Packet->Reserved[1] = (ULONG_PTR)MacBindingHandle;
+  Packet->Reserved[0] = (ULONG_PTR)MacBindingHandle;
 
   /*
    * Test the packet to see if it is a MAC loopback.
@@ -470,6 +302,12 @@ ProSendPackets(
        {
           (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.SendPacketsHandler)(
            Adapter->NdisMiniportBlock.MiniportAdapterContext, PacketArray, NumberOfPackets);
+          for (i = 0; i < NumberOfPackets; i++)
+          {
+             NdisStatus = NDIS_GET_PACKET_STATUS(PacketArray[i]);
+             if (NdisStatus != NDIS_STATUS_PENDING)
+                 MiniSendComplete(Adapter, PacketArray[i], NdisStatus);
+          }
        }
        else
        {
@@ -493,7 +331,7 @@ ProSendPackets(
           for (i = 0; i < NumberOfPackets; i++)
           {
              NdisStatus = (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.SendHandler)(
-                           Adapter->NdisMiniportBlock.MiniportAdapterContext, PacketArray[i], PacketArray[i]->Private.Flags);
+                           Adapter->NdisMiniportBlock.MiniportAdapterContext, PacketArray[i], 0);
              if (NdisStatus != NDIS_STATUS_PENDING)
                  MiniSendComplete(Adapter, PacketArray[i], NdisStatus);
           }
@@ -505,7 +343,7 @@ ProSendPackets(
          for (i = 0; i < NumberOfPackets; i++)
          {
             NdisStatus = (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.SendHandler)(
-                           Adapter->NdisMiniportBlock.MiniportAdapterContext, PacketArray[i], PacketArray[i]->Private.Flags);
+                           Adapter->NdisMiniportBlock.MiniportAdapterContext, PacketArray[i], 0);
             if (NdisStatus != NDIS_STATUS_PENDING)
                 MiniSendComplete(Adapter, PacketArray[i], NdisStatus);
          }
@@ -555,8 +393,6 @@ ProTransferData(
                                    BytesTransferred);
         return NDIS_STATUS_SUCCESS;
     }
-
-    ASSERT(Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.TransferDataHandler);
 
     KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
 
@@ -1122,33 +958,6 @@ NdisReEnumerateProtocolBindings(IN NDIS_HANDLE NdisProtocolHandle)
     NDIS_STATUS NdisStatus;
 
     ndisBindMiniportsToProtocol(&NdisStatus, &Protocol->Chars);
-}
-
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisGetDriverHandle(
-    IN  PNDIS_HANDLE    NdisBindingHandle,
-    OUT PNDIS_HANDLE    NdisDriverHandle)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PADAPTER_BINDING Binding = (PADAPTER_BINDING)NdisBindingHandle;
-
-    if (!Binding)
-    {
-        *NdisDriverHandle = NULL;
-        return;
-    }
-
-    *NdisDriverHandle = Binding->Adapter->NdisMiniportBlock.DriverHandle;
 }
 
 /* EOF */

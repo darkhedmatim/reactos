@@ -107,6 +107,8 @@ NTSTATUS BuildRawIpPacket(
 
     /* FIXME: Assumes IPv4 */
     IPInitializePacket(Packet, IP_ADDRESS_V4);
+    if (!Packet)
+	return STATUS_INSUFFICIENT_RESOURCES;
 
     Packet->TotalSize = sizeof(IPv4_HEADER) + DataLen;
 
@@ -154,8 +156,6 @@ NTSTATUS BuildRawIpPacket(
 
     RtlCopyMemory( Packet->Data, DataBuffer, DataLen );
 
-    Packet->Flags |= IP_PACKET_FLAG_RAW;
-
     TI_DbgPrint(MID_TRACE, ("Displaying packet\n"));
 
     DISPLAY_IP_PACKET(Packet);
@@ -189,7 +189,7 @@ NTSTATUS RawIPSendDatagram(
 {
     IP_PACKET Packet;
     PTA_IP_ADDRESS RemoteAddressTa = (PTA_IP_ADDRESS)ConnInfo->RemoteAddress;
-    IP_ADDRESS RemoteAddress,  LocalAddress;
+    IP_ADDRESS RemoteAddress;
     USHORT RemotePort;
     NTSTATUS Status;
     PNEIGHBOR_CACHE_ENTRY NCE;
@@ -210,17 +210,10 @@ NTSTATUS RawIPSendDatagram(
 	return STATUS_UNSUCCESSFUL;
     }
 
-    LocalAddress = AddrFile->Address;
-    if (AddrIsUnspecified(&LocalAddress))
-    {
-        if (!IPGetDefaultAddress(&LocalAddress))
-            return STATUS_UNSUCCESSFUL;
-    }
-
     Status = BuildRawIpPacket( &Packet,
                                &RemoteAddress,
                                RemotePort,
-                               &LocalAddress,
+                               &AddrFile->Address,
                                AddrFile->Port,
                                BufferData,
                                DataSize );
@@ -232,7 +225,7 @@ NTSTATUS RawIPSendDatagram(
 
     if(!(NCE = RouteGetRouteToDestination( &RemoteAddress ))) {
         FreeNdisPacket(Packet.NdisPacket);
-	return STATUS_NETWORK_UNREACHABLE;
+	return STATUS_UNSUCCESSFUL;
     }
 
     TI_DbgPrint(MID_TRACE,("About to send datagram\n"));

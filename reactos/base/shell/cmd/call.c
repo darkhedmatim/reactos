@@ -33,13 +33,16 @@
 
 /*
  * Perform CALL command.
+ *
+ * Allocate a new batch context and add it to the current chain.
+ * Call parsecommandline passing in our param string
+ * If No batch file was opened then remove our newly allocted
+ * context block.
  */
 
 INT cmd_call (LPTSTR param)
 {
-	TCHAR line[CMDLINE_LENGTH + 1];
-	TCHAR *first;
-	BOOL bInQuote = FALSE;
+	LPBATCH_CONTEXT n = NULL;
 
 	TRACE ("cmd_call: (\'%s\')\n", debugstr_aw(param));
 	if (!_tcsncmp (param, _T("/?"), 2))
@@ -48,37 +51,52 @@ INT cmd_call (LPTSTR param)
 		return 0;
 	}
 
-	/* Do a second round of %-variable substitutions */
-	if (!SubstituteVars(param, line, _T('%')))
-		return nErrorLevel = 1;
-
-	/* Find start and end of first word */
-	first = line;
-	while (_istspace(*first))
-		first++;
-
-	for (param = first; *param; param++)
+	if (*param == _T(':') && (bc))
 	{
-		if (!bInQuote && (_istspace(*param) || _tcschr(_T(",;="), *param)))
-			break;
-		bInQuote ^= (*param == _T('"'));
-	}
-
-	/* Separate first word from rest of line */
-	memmove(param + 1, param, (_tcslen(param) + 1) * sizeof(TCHAR));
-	*param++ = _T('\0');
-
-	if (*first == _T(':') && (bc))
-	{
-		/* CALL :label - call a subroutine of the current batch file */
-		while (*param == _T(' '))
+		TCHAR *first = param;
+		while (*param && !_istspace(*param))
 			param++;
-		nErrorLevel = Batch(bc->BatchFilePath, first, param, NULL);
-		return nErrorLevel;
+		if (*param)
+		{
+			*param++ = _T('\0');
+			while (_istspace(*param))
+				param++;
+		}
+		if (!Batch(bc->BatchFilePath, first, param, TRUE))
+			return 1;
+		return cmd_goto(first);
 	}
 
-	nErrorLevel = DoCommand(first, param, NULL);
-	return nErrorLevel;
+    nErrorLevel = 0;
+
+	n = (LPBATCH_CONTEXT)cmd_alloc (sizeof (BATCH_CONTEXT));
+
+	if (n == NULL)
+	{
+		error_out_of_memory ();
+		return 1;
+	}
+
+	n->prev = bc;
+	bc = n;
+
+	bc->hBatchFile = INVALID_HANDLE_VALUE;
+	bc->params = NULL;
+	bc->shiftlevel = 0;
+	bc->forvar = 0;        /* HBP004 */
+	bc->forproto = NULL;   /* HBP004 */
+	bc->RedirList = NULL;
+	ParseCommandLine (param);
+
+
+	/* Wasn't a batch file so remove conext */
+	if (bc->hBatchFile == INVALID_HANDLE_VALUE)
+	{
+		bc = bc->prev;
+		cmd_free (n);
+	}
+
+	return 0;
 }
 
 /* EOF */

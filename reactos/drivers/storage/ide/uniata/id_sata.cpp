@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 UCHAR
-NTAPI
 UniataSataConnect(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel          // logical channel
@@ -62,7 +61,6 @@ UniataSataConnect(
 } // end UniataSataConnect()
 
 UCHAR
-NTAPI
 UniataSataPhyEnable(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel          // logical channel
@@ -120,7 +118,6 @@ UniataSataPhyEnable(
 } // end UniataSataPhyEnable()
 
 BOOLEAN
-NTAPI
 UniataSataClearErr(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel,          // logical channel
@@ -165,7 +162,6 @@ UniataSataClearErr(
 } // end UniataSataClearErr()
 
 BOOLEAN
-NTAPI
 UniataSataEvent(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel,          // logical channel
@@ -201,7 +197,6 @@ UniataSataEvent(
 } // end UniataSataEvent()
 
 BOOLEAN
-NTAPI
 UniataAhciInit(
     IN PVOID HwDeviceExtension
     )
@@ -313,7 +308,6 @@ UniataAhciInit(
 } // end UniataAhciInit()
 
 UCHAR
-NTAPI
 UniataAhciStatus(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel
@@ -373,7 +367,6 @@ UniataAhciStatus(
 } // end UniataAhciStatus()
 
 ULONG
-NTAPI
 UniataAhciSetupFIS(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG DeviceNumber,

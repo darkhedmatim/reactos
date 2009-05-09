@@ -12,7 +12,6 @@
 #include <mmsystem.h>
 #include <mmddk.h>
 #include <ntddsnd.h>
-#include <sndtypes.h>
 #include <mmebuddy.h>
 
 /*
@@ -60,12 +59,11 @@ MmeGetSoundDeviceCapabilities(
 
     SND_TRACE(L"MME *_GETCAPS for device %d of type %d\n", DeviceId, DeviceType);
 
-    /* FIXME: Validate device ID */
+    /* FIXME: Validate device type and ID */
     VALIDATE_MMSYS_PARAMETER( Capabilities );
-    VALIDATE_MMSYS_PARAMETER( IS_VALID_SOUND_DEVICE_TYPE(DeviceType) );
+    VALIDATE_MMSYS_PARAMETER( CapabilitiesSize > 0 );
 
     /* Our parameter checks are done elsewhere */
-
     Result = GetSoundDevice(DeviceType, DeviceId, &SoundDevice);
 
     if ( ! MMSUCCESS(Result) )
@@ -165,9 +163,6 @@ MmeCloseDevice(
     VALIDATE_MMSYS_PARAMETER( PrivateHandle );
     SoundDeviceInstance = (PSOUND_DEVICE_INSTANCE) PrivateHandle;
 
-    if ( ! IsValidSoundDeviceInstance(SoundDeviceInstance) )
-        return MMSYSERR_INVALHANDLE;
-
     Result = GetSoundDeviceFromInstance(SoundDeviceInstance, &SoundDevice);
     if ( ! MMSUCCESS(Result) )
         return TranslateInternalMmResult(Result);
@@ -176,11 +171,7 @@ MmeCloseDevice(
     if ( ! MMSUCCESS(Result) )
         return TranslateInternalMmResult(Result);
 
-
-    /* TODO: Check device is stopped! */
-
     ReleaseEntrypointMutex(DeviceType);
-    /* TODO: Work with MIDI devices too */
     NotifyMmeClient(SoundDeviceInstance,
                     DeviceType == WAVE_OUT_DEVICE_TYPE ? WOM_CLOSE : WIM_CLOSE,
                     0);
@@ -189,18 +180,4 @@ MmeCloseDevice(
     Result = DestroySoundDeviceInstance(SoundDeviceInstance);
 
     return Result;
-}
-
-MMRESULT
-MmeResetWavePlayback(
-    IN  DWORD PrivateHandle)
-{
-    PSOUND_DEVICE_INSTANCE SoundDeviceInstance;
-
-    SND_TRACE(L"Resetting wave device (WODM_RESET)\n");
-
-    VALIDATE_MMSYS_PARAMETER( PrivateHandle );
-    SoundDeviceInstance = (PSOUND_DEVICE_INSTANCE) PrivateHandle;
-
-    return StopStreaming(SoundDeviceInstance);
 }

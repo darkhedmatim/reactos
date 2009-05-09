@@ -81,18 +81,16 @@ TCHAR textline[BATCH_BUFFSIZE];
  *
  */
 
-LPTSTR FindArg(TCHAR Char, BOOL *IsParam0)
+LPTSTR FindArg (INT n)
 {
 	LPTSTR pp;
-	INT n = Char - _T('0');
 
 	TRACE ("FindArg: (%d)\n", n);
 
-	if (n < 0 || n > 9)
+	if (bc == NULL)
 		return NULL;
 
-	n = bc->shiftlevel[n];
-	*IsParam0 = (n == 0);
+	n += bc->shiftlevel;
 	pp = bc->params;
 
 	/* Step up the strings till we reach the end */
@@ -132,25 +130,28 @@ LPTSTR BatchParams (LPTSTR s1, LPTSTR s2)
 
 	while (*s2)
 	{
-		BOOL inquotes = FALSE;
-
-		/* Find next parameter */
-		while (_istspace(*s2) || (*s2 && _tcschr(_T(",;="), *s2)))
-			s2++;
-		if (!*s2)
-			break;
-
-		/* Copy it */
-		do
+		if (_istspace (*s2) || _tcschr (_T(",;"), *s2))
 		{
-			if (!inquotes && (_istspace(*s2) || _tcschr(_T(",;="), *s2)))
-				break;
-			inquotes ^= (*s2 == _T('"'));
-			*s1++ = *s2++;
-		} while (*s2);
-		*s1++ = _T('\0');
+			*s1++ = _T('\0');
+			s2++;
+			while (*s2 && _tcschr (_T(" ,;"), *s2))
+				s2++;
+			continue;
+		}
+
+		if ((*s2 == _T('"')) || (*s2 == _T('\'')))
+		{
+			TCHAR st = *s2;
+
+			do
+				*s1++ = *s2++;
+			while (*s2 && (*s2 != st));
+		}
+
+		*s1++ = *s2++;
 	}
 
+	*s1++ = _T('\0');
 	*s1 = _T('\0');
 
 	return dp;
@@ -167,32 +168,44 @@ LPTSTR BatchParams (LPTSTR s1, LPTSTR s2)
  * message
  */
 
-VOID ExitBatch()
+VOID ExitBatch (LPTSTR msg)
 {
-	TRACE ("ExitBatch\n");
+	TRACE ("ExitBatch: (\'%s\')\n", debugstr_aw(msg));
 
-	if (bc->hBatchFile)
+	if (bc != NULL)
 	{
-		CloseHandle (bc->hBatchFile);
-		bc->hBatchFile = INVALID_HANDLE_VALUE;
+		LPBATCH_CONTEXT t = bc;
+
+		if (bc->hBatchFile)
+		{
+			CloseHandle (bc->hBatchFile);
+			bc->hBatchFile = INVALID_HANDLE_VALUE;
+		}
+
+		if (bc->raw_params)
+			cmd_free(bc->raw_params);
+
+		if (bc->params)
+			cmd_free(bc->params);
+
+		if (bc->forproto)
+			cmd_free(bc->forproto);
+
+		if (bc->ffind)
+			cmd_free(bc->ffind);
+
+		UndoRedirection(bc->RedirList, NULL);
+		FreeRedirection(bc->RedirList);
+
+		/* Preserve echo state across batch calls */
+		bEcho = bc->bEcho;
+
+		bc = bc->prev;
+		cmd_free(t);
 	}
 
-	if (bc->raw_params)
-		cmd_free(bc->raw_params);
-
-	if (bc->params)
-		cmd_free(bc->params);
-
-	UndoRedirection(bc->RedirList, NULL);
-	FreeRedirection(bc->RedirList);
-
-	/* Preserve echo state across batch calls */
-	bEcho = bc->bEcho;
-
-	while (bc->setlocal)
-		cmd_endlocal(_T(""));
-
-	bc = bc->prev;
+	if (msg && *msg)
+		ConOutPrintf (_T("%s\n"), msg);
 }
 
 
@@ -203,13 +216,8 @@ VOID ExitBatch()
  *
  */
 
-INT Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param, PARSED_COMMAND *Cmd)
+BOOL Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param, BOOL forcenew)
 {
-	BATCH_CONTEXT new;
-	LPFOR_CONTEXT saved_fc;
-	INT i;
-	INT ret = 0;
-
 	HANDLE hFile;
 	SetLastError(0);
 	hFile = CreateFile (fullname, GENERIC_READ, FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
@@ -222,10 +230,29 @@ INT Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param, PARSED_COMMAND *Cmd)
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
 		ConErrResPuts(STRING_BATCH_ERROR);
-		return 1;
+		return FALSE;
 	}
 
-	if (bc != NULL && Cmd == bc->current)
+	/* Kill any and all FOR contexts */
+	while (bc && bc->forvar)
+		ExitBatch (NULL);
+
+	if (bc == NULL || forcenew)
+	{
+		/* No curent batch file, create a new context */
+		LPBATCH_CONTEXT n = (LPBATCH_CONTEXT)cmd_alloc (sizeof(BATCH_CONTEXT));
+
+		if (n == NULL)
+		{
+			error_out_of_memory ();
+			return FALSE;
+		}
+
+		n->prev = bc;
+		bc = n;
+		bc->RedirList = NULL;
+	}
+	else if (bc->hBatchFile != INVALID_HANDLE_VALUE)
 	{
 		/* Then we are transferring to another batch */
 		CloseHandle (bc->hBatchFile);
@@ -234,36 +261,6 @@ INT Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param, PARSED_COMMAND *Cmd)
 			cmd_free (bc->params);
 		if (bc->raw_params)
 			cmd_free (bc->raw_params);
-		AddBatchRedirection(&Cmd->Redirections);
-	}
-	else
-	{
-		struct _SETLOCAL *setlocal = NULL;
-
-		if (Cmd == NULL)
-		{
-			/* This is a CALL. CALL will set errorlevel to our return value, so
-			 * in order to keep the value of errorlevel unchanged in the case
-			 * of calling an empty batch file, we must return that same value. */
-			ret = nErrorLevel;
-		}
-		else if (bc)
-		{
-			/* If a batch file runs another batch file as part of a compound command
-			 * (e.g. "x.bat & somethingelse") then the first file gets terminated. */
-
-			/* Get its SETLOCAL stack so it can be migrated to the new context */
-			setlocal = bc->setlocal;
-			bc->setlocal = NULL;
-			ExitBatch();
-		}
-
-		/* Create a new context. This function will not
-		 * return until this context has been exited */
-		new.prev = bc;
-		bc = &new;
-		bc->RedirList = NULL;
-		bc->setlocal = setlocal;
 	}
 
 	GetFullPathName(fullname, sizeof(bc->BatchFilePath) / sizeof(TCHAR), bc->BatchFilePath, NULL);
@@ -271,61 +268,40 @@ INT Batch (LPTSTR fullname, LPTSTR firstword, LPTSTR param, PARSED_COMMAND *Cmd)
 	bc->hBatchFile = hFile;
 	SetFilePointer (bc->hBatchFile, 0, NULL, FILE_BEGIN);
 	bc->bEcho = bEcho; /* Preserve echo across batch calls */
-	for (i = 0; i < 10; i++)
-		bc->shiftlevel[i] = i;
+	bc->shiftlevel = 0;
 	
+	bc->ffind = NULL;
+	bc->forvar = _T('\0');
+	bc->forproto = NULL;
 	bc->params = BatchParams (firstword, param);
     //
     // Allocate enough memory to hold the params and copy them over without modifications
     //
-    bc->raw_params = cmd_dup(param);
-    if (bc->raw_params == NULL)
+    bc->raw_params = (TCHAR*) cmd_alloc((_tcslen(param)+1) * sizeof(TCHAR));
+    if (bc->raw_params != NULL)
+    {
+        _tcscpy(bc->raw_params,param);
+    }
+    else
     {
         error_out_of_memory();
-        return 1;
+        return FALSE;
     }
 
-	/* Check if this is a "CALL :label" */
-	if (*firstword == _T(':'))
-		cmd_goto(firstword);
-
-	/* If we are calling from inside a FOR, hide the FOR variables */
-	saved_fc = fc;
-	fc = NULL;
-
-	/* If we have created a new context, don't return
-	 * until this batch file has completed. */
-	while (bc == &new && !bExit)
-	{
-		Cmd = ParseCommand(NULL);
-		if (!Cmd)
-			continue;
-
-		/* JPP 19980807 */
-		/* Echo batch file line */
-		if (bEcho && !bDisableBatchEcho && Cmd->Type != C_QUIET)
-		{
-			if (!bIgnoreEcho)
-				ConOutChar(_T('\n'));
-			PrintPrompt();
-			EchoCommand(Cmd);
-			ConOutChar(_T('\n'));
-		}
-
-		bc->current = Cmd;
-		ret = ExecuteCommand(Cmd);
-		FreeCommand(Cmd);
-	}
+    /* Don't print a newline for this command */
+    bIgnoreEcho = TRUE;
 
 	TRACE ("Batch: returns TRUE\n");
 
-	fc = saved_fc;
-	return ret;
+	return TRUE;
 }
 
 VOID AddBatchRedirection(REDIRECTION **RedirList)
 {
 	REDIRECTION **ListEnd;
+
+	if(!bc)
+		return;
 
 	/* Prepend the list to the batch context's list */
 	ListEnd = RedirList;
@@ -345,35 +321,133 @@ VOID AddBatchRedirection(REDIRECTION **RedirList)
  * If no batch file is current or no further executable lines are found
  * return NULL.
  *
+ * Here we also look out for FOR bcontext structures which trigger the
+ * FOR expansion code.
+ *
  * Set eflag to 0 if line is not to be echoed else 1
  */
 
 LPTSTR ReadBatchLine ()
 {
+	LPTSTR first;
+
+	/* No batch */
+	if (bc == NULL)
+		return NULL;
+
 	TRACE ("ReadBatchLine ()\n");
 
-	/* User halt */
-	if (CheckCtrlBreak (BREAK_BATCHFILE))
+	while (1)
 	{
-		while (bc)
-			ExitBatch();
-		return NULL;
+		/* User halt */
+		if (CheckCtrlBreak (BREAK_BATCHFILE))
+		{
+			while (bc)
+				ExitBatch (NULL);
+			return NULL;
+		}
+
+		/* No batch */
+		if (bc == NULL)
+			return NULL;
+
+		/* If its a FOR context... */
+		if (bc->forvar)
+		{
+			LPTSTR sp = bc->forproto; /* pointer to prototype command */
+			LPTSTR dp = textline;     /* Place to expand protoype */
+			LPTSTR fv = FindArg (0);  /* Next list element */
+
+			/* End of list so... */
+			if ((fv == NULL) || (*fv == _T('\0')))
+			{
+				/* just exit this context */
+				ExitBatch (NULL);
+				continue;
+			}
+
+			if (_tcscspn (fv, _T("?*")) == _tcslen (fv))
+			{
+				/* element is wild file */
+				bc->shiftlevel++;       /* No use it and shift list */
+			}
+			else
+			{
+				/* Wild file spec, find first (or next) file name */
+				if (bc->ffind)
+				{
+					/* First already done so do next */
+
+					fv = FindNextFile (bc->hFind, bc->ffind) ? bc->ffind->cFileName : NULL;
+				}
+				else
+				{
+					/*  For first find, allocate a find first block */
+					if ((bc->ffind = (LPWIN32_FIND_DATA)cmd_alloc (sizeof (WIN32_FIND_DATA))) == NULL)
+					{
+						error_out_of_memory();
+						return NULL;
+					}
+
+					bc->hFind = FindFirstFile (fv, bc->ffind);
+
+					fv = !(bc->hFind==INVALID_HANDLE_VALUE) ? bc->ffind->cFileName : NULL;
+				}
+
+				if (fv == NULL)
+				{
+					/* Null indicates no more files.. */
+					cmd_free (bc->ffind);      /* free the buffer */
+					bc->ffind = NULL;
+					bc->shiftlevel++;     /* On to next list element */
+					continue;
+				}
+			}
+
+			/* At this point, fv points to parameter string */
+			while (*sp)
+			{
+				if ((*sp == _T('%')) && (*(sp + 1) == bc->forvar))
+				{
+					/* replace % var */
+					dp = _stpcpy (dp, fv);
+					sp += 2;
+				}
+				else
+				{
+					/* Else just copy */
+					*dp++ = *sp++;
+				}
+			}
+
+			*dp++ = _T('\n');
+			*dp = _T('\0');
+
+			return textline;
+		}
+
+		if (!FileGetString (bc->hBatchFile, textline, sizeof (textline) / sizeof (textline[0]) - 1))
+		{
+			TRACE ("ReadBatchLine(): Reached EOF!\n");
+			/* End of file.... */
+			ExitBatch (NULL);
+
+			if (bc == NULL)
+				return NULL;
+
+			continue;
+		}
+		TRACE ("ReadBatchLine(): textline: \'%s\'\n", debugstr_aw(textline));
+
+		if (textline[_tcslen(textline) - 1] != _T('\n'))
+			_tcscat(textline, _T("\n"));
+
+		first = textline;
+
+		break;
 	}
 
-	if (!FileGetString (bc->hBatchFile, textline, sizeof (textline) / sizeof (textline[0]) - 1))
-	{
-		TRACE ("ReadBatchLine(): Reached EOF!\n");
-		/* End of file.... */
-		ExitBatch();
-		return NULL;
-	}
-
-	TRACE ("ReadBatchLine(): textline: \'%s\'\n", debugstr_aw(textline));
-
-	if (textline[_tcslen(textline) - 1] != _T('\n'))
-		_tcscat(textline, _T("\n"));
-
-	return textline;
+	return first;
 }
 
 /* EOF */

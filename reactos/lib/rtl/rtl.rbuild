@@ -12,7 +12,6 @@
 			<file>debug_asm.S</file>
 			<file>except_asm.s</file>
 			<file>except.c</file>
-			<file>interlck.S</file>
 			<file>random_asm.S</file>
 			<file>rtlswap.S</file>
 			<file>rtlmem.s</file>

@@ -898,11 +898,21 @@ kaboom:
 	sti
 	mov	si, err_bootfailed
 	call	writestr
-	xor	ax, ax		; Wait for keypress
-	int	16h
+	call	getchar
 	cli
 	mov	word [BIOS_magic], 0	; Cold reboot
 	jmp	0F000h:0FFF0h		; Reset vector address
+
+getchar:
+.again:
+	mov	ah, 1		; Poll keyboard
+	int	16h
+	jz	.again
+.kbd:
+	xor	ax, ax		; Get keyboard input
+	int	16h
+.func_key:
+	ret
 
 
 ;
@@ -910,11 +920,19 @@ kaboom:
 ;
 pollchar_and_empty:
 	pushad
-	mov ah, 1		; Did the user press a key?
+	mov ah, 1		; Poll keyboard
 	int 16h
-	jz	.end		; No, then we're done
-	mov ah, 0		; Otherwise empty the buffer by reading it
+	jz	.end
+.empty_buffer:
+	mov ah, 0		; Read from keyboard
 	int 16h
+	
+	mov ah, 1		; Poll keyboard again
+	int 16h
+	jz	.buffer_emptied
+	jmp .empty_buffer
+.buffer_emptied:
+	and ax, ax	; ZF = 0
 .end:
 	popad
 	ret

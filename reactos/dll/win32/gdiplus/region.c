@@ -339,9 +339,6 @@ GpStatus WINGDIPAPI GdipCombineRegionRectI(GpRegion *region,
     return GdipCombineRegionRect(region, &rectf, mode);
 }
 
-/*****************************************************************************
- * GdipCombineRegionRegion [GDIPLUS.@]
- */
 GpStatus WINGDIPAPI GdipCombineRegionRegion(GpRegion *region1,
         GpRegion *region2, CombineMode mode)
 {
@@ -547,9 +544,6 @@ GpStatus WINGDIPAPI GdipCreateRegionRect(GDIPCONST GpRectF *rect,
     return Ok;
 }
 
-/*****************************************************************************
- * GdipCreateRegionRectI [GDIPLUS.@]
- */
 GpStatus WINGDIPAPI GdipCreateRegionRectI(GDIPCONST GpRect *rect,
         GpRegion **region)
 {
@@ -627,9 +621,6 @@ GpStatus WINGDIPAPI GdipCreateRegionHrgn(HRGN hrgn, GpRegion **region)
     return stat;
 }
 
-/*****************************************************************************
- * GdipDeleteRegion [GDIPLUS.@]
- */
 GpStatus WINGDIPAPI GdipDeleteRegion(GpRegion *region)
 {
     TRACE("%p\n", region);
@@ -808,7 +799,7 @@ static void write_element(const region_element* element, DWORD *buffer,
  *
  * RETURNS
  *  SUCCESS: Ok
- *  FAILURE: InvalidParameter
+ *  FAILURE: InvalidParamter
  *
  * NOTES
  *  The header contains the size, a checksum, a version string, and the number

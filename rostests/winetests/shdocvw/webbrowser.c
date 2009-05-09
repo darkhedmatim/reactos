@@ -30,7 +30,6 @@
 #include "exdisp.h"
 #include "htiframe.h"
 #include "mshtmhst.h"
-#include "mshtmcid.h"
 #include "idispids.h"
 #include "olectl.h"
 #include "mshtmdid.h"
@@ -105,11 +104,6 @@ DEFINE_EXPECT(Invoke_ONTOOLBAR);
 DEFINE_EXPECT(Invoke_ONFULLSCREEN);
 DEFINE_EXPECT(Invoke_ONTHEATERMODE);
 DEFINE_EXPECT(Invoke_WINDOWSETRESIZABLE);
-DEFINE_EXPECT(Invoke_TITLECHANGE);
-DEFINE_EXPECT(Invoke_NAVIGATECOMPLETE2);
-DEFINE_EXPECT(Invoke_PROGRESSCHANGE);
-DEFINE_EXPECT(Invoke_DOCUMENTCOMPLETE);
-DEFINE_EXPECT(Invoke_282);
 DEFINE_EXPECT(EnableModeless_TRUE);
 DEFINE_EXPECT(EnableModeless_FALSE);
 DEFINE_EXPECT(GetHostInfo);
@@ -122,10 +116,6 @@ DEFINE_EXPECT(Exec_SETDOWNLOADSTATE_1);
 DEFINE_EXPECT(Exec_SETPROGRESSMAX);
 DEFINE_EXPECT(Exec_SETPROGRESSPOS);
 DEFINE_EXPECT(QueryStatus_SETPROGRESSTEXT);
-DEFINE_EXPECT(QueryStatus_STOP);
-DEFINE_EXPECT(DocHost_EnableModeless_TRUE);
-DEFINE_EXPECT(DocHost_EnableModeless_FALSE);
-DEFINE_EXPECT(GetDropTarget);
 
 static const WCHAR wszItem[] = {'i','t','e','m',0};
 static const WCHAR about_blankW[] = {'a','b','o','u','t',':','b','l','a','n','k',0};
@@ -135,7 +125,6 @@ static VARIANT_BOOL exvb;
 static IWebBrowser2 *wb;
 
 static HWND container_hwnd, shell_embedding_hwnd;
-static BOOL is_downloading = FALSE;
 
 static const char *debugstr_w(LPCWSTR str)
 {
@@ -205,10 +194,6 @@ static HRESULT WINAPI OleCommandTarget_QueryStatus(IOleCommandTarget *iface, con
     ok(!pCmdText, "pCmdText != NULL\n");
 
     switch(prgCmds[0].cmdID) {
-    case OLECMDID_STOP:
-        CHECK_EXPECT2(QueryStatus_STOP);
-        prgCmds[0].cmdf = OLECMDF_SUPPORTED;
-        return S_OK;
     case OLECMDID_SETPROGRESSTEXT:
         CHECK_EXPECT(QueryStatus_SETPROGRESSTEXT);
         prgCmds[0].cmdf = OLECMDF_ENABLED;
@@ -226,7 +211,7 @@ static HRESULT WINAPI OleCommandTarget_Exec(IOleCommandTarget *iface, const GUID
     if(!pguidCmdGroup) {
         switch(nCmdID) {
         case OLECMDID_SETPROGRESSMAX:
-            CHECK_EXPECT2(Exec_SETPROGRESSMAX);
+            CHECK_EXPECT(Exec_SETPROGRESSMAX);
             ok(nCmdexecopt == OLECMDEXECOPT_DONTPROMPTUSER, "nCmdexecopts=%08x\n", nCmdexecopt);
             ok(pvaIn != NULL, "pvaIn == NULL\n");
             if(pvaIn)
@@ -234,7 +219,7 @@ static HRESULT WINAPI OleCommandTarget_Exec(IOleCommandTarget *iface, const GUID
             ok(pvaOut == NULL, "pvaOut=%p, expected NULL\n", pvaOut);
             return S_OK;
         case OLECMDID_SETPROGRESSPOS:
-            CHECK_EXPECT2(Exec_SETPROGRESSPOS);
+            CHECK_EXPECT(Exec_SETPROGRESSPOS);
             ok(nCmdexecopt == OLECMDEXECOPT_DONTPROMPTUSER, "nCmdexecopts=%08x\n", nCmdexecopt);
             ok(pvaIn != NULL, "pvaIn == NULL\n");
             if(pvaIn)
@@ -242,17 +227,13 @@ static HRESULT WINAPI OleCommandTarget_Exec(IOleCommandTarget *iface, const GUID
             ok(pvaOut == NULL, "pvaOut=%p, expected NULL\n", pvaOut);
             return S_OK;
         case OLECMDID_SETDOWNLOADSTATE:
-            if(is_downloading)
-                ok(nCmdexecopt == OLECMDEXECOPT_DONTPROMPTUSER || !nCmdexecopt,
-                   "nCmdexecopts=%08x\n", nCmdexecopt);
-            else
-                ok(!nCmdexecopt, "nCmdexecopts=%08x\n", nCmdexecopt);
+            ok(!nCmdexecopt, "nCmdexecopts=%08x\n", nCmdexecopt);
             ok(pvaOut == NULL, "pvaOut=%p\n", pvaOut);
             ok(pvaIn != NULL, "pvaIn == NULL\n");
             ok(V_VT(pvaIn) == VT_I4, "V_VT(pvaIn)=%d\n", V_VT(pvaIn));
             switch(V_I4(pvaIn)) {
             case 0:
-                CHECK_EXPECT2(Exec_SETDOWNLOADSTATE_0);
+                CHECK_EXPECT(Exec_SETDOWNLOADSTATE_0);
                 break;
             case 1:
                 CHECK_EXPECT2(Exec_SETDOWNLOADSTATE_1);
@@ -266,14 +247,12 @@ static HRESULT WINAPI OleCommandTarget_Exec(IOleCommandTarget *iface, const GUID
         }
     }else if(IsEqualGUID(&CGID_Explorer, pguidCmdGroup)) {
         switch(nCmdID) {
-        case 24: /* TODO */
-        case 25: /* IE5 */
-        case 37: /* TODO */
-        case 39: /* TODO */
-        case 66: /* TODO */
-        case 67: /* TODO */
-        case 69: /* TODO */
-            return E_FAIL;
+        case 24:
+            return E_FAIL; /* TODO */
+        case 25:
+            return E_FAIL; /* IE5 */
+        case 66:
+            return E_FAIL; /* TODO */
         default:
             ok(0, "unexpected nCmdID %d\n", nCmdID);
         }
@@ -671,30 +650,6 @@ static HRESULT WINAPI WebBrowserEvents2_Invoke(IDispatch *iface, DISPID dispIdMe
         test_invoke_bool(pDispParams, TRUE);
         break;
 
-    case DISPID_TITLECHANGE:
-        CHECK_EXPECT2(Invoke_TITLECHANGE);
-        /* FIXME */
-        break;
-
-    case DISPID_NAVIGATECOMPLETE2:
-        CHECK_EXPECT(Invoke_NAVIGATECOMPLETE2);
-        /* FIXME */
-        break;
-
-    case DISPID_PROGRESSCHANGE:
-        CHECK_EXPECT(Invoke_PROGRESSCHANGE);
-        /* FIXME */
-        break;
-
-    case DISPID_DOCUMENTCOMPLETE:
-        CHECK_EXPECT(Invoke_DOCUMENTCOMPLETE);
-        /* FIXME */
-        break;
-
-    case 282: /* FIXME */
-        CHECK_EXPECT2(Invoke_282);
-        break;
-
     default:
         ok(0, "unexpected dispIdMember %d\n", dispIdMember);
     }
@@ -895,9 +850,9 @@ static HRESULT WINAPI InPlaceFrame_SetStatusText(IOleInPlaceFrame *iface, LPCOLE
 static HRESULT WINAPI InPlaceFrame_EnableModeless(IOleInPlaceFrame *iface, BOOL fEnable)
 {
     if(fEnable)
-        CHECK_EXPECT2(EnableModeless_TRUE);
+        CHECK_EXPECT(EnableModeless_TRUE);
     else
-        CHECK_EXPECT2(EnableModeless_FALSE);
+        CHECK_EXPECT(EnableModeless_FALSE);
     return S_OK;
 }
 
@@ -1163,12 +1118,8 @@ static HRESULT WINAPI DocHostUIHandler_UpdateUI(IDocHostUIHandler2 *iface)
 
 static HRESULT WINAPI DocHostUIHandler_EnableModeless(IDocHostUIHandler2 *iface, BOOL fEnable)
 {
-    if(fEnable)
-        CHECK_EXPECT(DocHost_EnableModeless_TRUE);
-    else
-        CHECK_EXPECT(DocHost_EnableModeless_FALSE);
-
-    return S_OK;
+    ok(0, "unexpected call\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI DocHostUIHandler_OnDocWindowActivate(IDocHostUIHandler2 *iface, BOOL fActivate)
@@ -1211,7 +1162,7 @@ static HRESULT WINAPI DocHostUIHandler_GetOptionKeyPath(IDocHostUIHandler2 *ifac
 static HRESULT WINAPI DocHostUIHandler_GetDropTarget(IDocHostUIHandler2 *iface,
         IDropTarget *pDropTarget, IDropTarget **ppDropTarget)
 {
-    CHECK_EXPECT(GetDropTarget);
+    ok(0, "unexpected call\n");
     return E_NOTIMPL;
 }
 
@@ -1420,7 +1371,7 @@ static void test_ClientSite(IUnknown *unk, IOleClientSite *client)
         SET_EXPECT(Site_GetWindow);
         SET_EXPECT(Invoke_AMBIENT_OFFLINEIFNOTCONNECTED);
         SET_EXPECT(Invoke_AMBIENT_SILENT);
-    }else if(!is_downloading) {
+    }else {
         SET_EXPECT(Invoke_DOWNLOADCOMPLETE);
         SET_EXPECT(Exec_SETDOWNLOADSTATE_0);
         SET_EXPECT(Invoke_COMMANDSTATECHANGE);
@@ -1434,7 +1385,7 @@ static void test_ClientSite(IUnknown *unk, IOleClientSite *client)
         CHECK_CALLED(Site_GetWindow);
         CHECK_CALLED(Invoke_AMBIENT_OFFLINEIFNOTCONNECTED);
         CHECK_CALLED(Invoke_AMBIENT_SILENT);
-    }else if(!is_downloading) {
+    }else {
         todo_wine CHECK_CALLED(Invoke_DOWNLOADCOMPLETE);
         todo_wine CHECK_CALLED(Exec_SETDOWNLOADSTATE_0);
         todo_wine CHECK_CALLED(Invoke_COMMANDSTATECHANGE);
@@ -2072,88 +2023,6 @@ static void test_Navigate2(IUnknown *unk)
     IWebBrowser2_Release(webbrowser);
 }
 
-static void test_download(void)
-{
-    MSG msg;
-
-    is_downloading = TRUE;
-
-    SET_EXPECT(Exec_SETPROGRESSMAX);
-    SET_EXPECT(Exec_SETPROGRESSPOS);
-    SET_EXPECT(Exec_SETDOWNLOADSTATE_1);
-    SET_EXPECT(DocHost_EnableModeless_FALSE);
-    SET_EXPECT(DocHost_EnableModeless_TRUE);
-    SET_EXPECT(Invoke_SETSECURELOCKICON);
-    SET_EXPECT(Invoke_282);
-    SET_EXPECT(EnableModeless_FALSE);
-    SET_EXPECT(Invoke_COMMANDSTATECHANGE);
-    SET_EXPECT(Invoke_STATUSTEXTCHANGE);
-    SET_EXPECT(SetStatusText);
-    SET_EXPECT(EnableModeless_TRUE);
-    SET_EXPECT(QueryStatus_STOP);
-    SET_EXPECT(Exec_SETDOWNLOADSTATE_0);
-    SET_EXPECT(Invoke_TITLECHANGE);
-    SET_EXPECT(Invoke_NAVIGATECOMPLETE2);
-    SET_EXPECT(GetDropTarget);
-    SET_EXPECT(Invoke_PROGRESSCHANGE);
-    SET_EXPECT(Invoke_DOCUMENTCOMPLETE);
-
-    while(!called_Invoke_DOCUMENTCOMPLETE && GetMessage(&msg, NULL, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
-    todo_wine CHECK_CALLED(Exec_SETPROGRESSMAX);
-    todo_wine CHECK_CALLED(Exec_SETPROGRESSPOS);
-    todo_wine CHECK_CALLED(Exec_SETDOWNLOADSTATE_1);
-    CLEAR_CALLED(DocHost_EnableModeless_FALSE); /* IE 7 */
-    CLEAR_CALLED(DocHost_EnableModeless_TRUE); /* IE 7 */
-    todo_wine CHECK_CALLED(Invoke_SETSECURELOCKICON);
-    CLEAR_CALLED(Invoke_282); /* IE 7 */
-    todo_wine CHECK_CALLED(EnableModeless_FALSE);
-    todo_wine CHECK_CALLED(Invoke_COMMANDSTATECHANGE);
-    todo_wine CHECK_CALLED(Invoke_STATUSTEXTCHANGE);
-    todo_wine CHECK_CALLED(SetStatusText);
-    todo_wine CHECK_CALLED(EnableModeless_TRUE);
-    todo_wine CHECK_CALLED(QueryStatus_STOP);
-    todo_wine CHECK_CALLED(Exec_SETDOWNLOADSTATE_0);
-    todo_wine CHECK_CALLED(Invoke_TITLECHANGE);
-    CHECK_CALLED(Invoke_NAVIGATECOMPLETE2);
-    todo_wine CHECK_CALLED(GetDropTarget);
-    todo_wine CHECK_CALLED(Invoke_PROGRESSCHANGE);
-    CHECK_CALLED(Invoke_DOCUMENTCOMPLETE);
-}
-
-static void test_olecmd(IUnknown *unk, BOOL loaded)
-{
-    IOleCommandTarget *cmdtrg;
-    OLECMD cmds[3];
-    HRESULT hres;
-
-    hres = IUnknown_QueryInterface(unk, &IID_IOleCommandTarget, (void**)&cmdtrg);
-    ok(hres == S_OK, "Could not get IOleCommandTarget iface: %08x\n", hres);
-    if(FAILED(hres))
-        return;
-
-    cmds[0].cmdID = OLECMDID_SPELL;
-    cmds[0].cmdf = 0xdeadbeef;
-    cmds[1].cmdID = OLECMDID_REFRESH;
-    cmds[1].cmdf = 0xdeadbeef;
-    hres = IOleCommandTarget_QueryStatus(cmdtrg, NULL, 2, cmds, NULL);
-    if(loaded) {
-        ok(hres == S_OK, "QueryStatus failed: %08x\n", hres);
-        ok(cmds[0].cmdf == OLECMDF_SUPPORTED, "OLECMDID_SPELL cmdf = %x\n", cmds[0].cmdf);
-        ok(cmds[1].cmdf == (OLECMDF_ENABLED|OLECMDF_SUPPORTED),
-           "OLECMDID_REFRESH cmdf = %x\n", cmds[1].cmdf);
-    }else {
-        ok(hres == 0x80040104, "QueryStatus failed: %08x\n", hres);
-        ok(cmds[0].cmdf == 0xdeadbeef, "OLECMDID_SPELL cmdf = %x\n", cmds[0].cmdf);
-        ok(cmds[1].cmdf == 0xdeadbeef, "OLECMDID_REFRESH cmdf = %x\n", cmds[0].cmdf);
-    }
-
-    IOleCommandTarget_Release(cmdtrg);
-}
-
 static void test_IServiceProvider(IUnknown *unk)
 {
     IServiceProvider *servprov = (void*)0xdeadbeef;
@@ -2219,7 +2088,7 @@ static void test_QueryInterface(IUnknown *unk)
 
 }
 
-static void test_WebBrowser(BOOL do_download)
+static void test_WebBrowser(void)
 {
     IUnknown *unk = NULL;
     ULONG ref;
@@ -2230,8 +2099,6 @@ static void test_WebBrowser(BOOL do_download)
     ok(hres == S_OK, "CoCreateInterface failed: %08x\n", hres);
     if(FAILED(hres))
         return;
-
-    is_downloading = FALSE;
 
     hres = IUnknown_QueryInterface(unk, &IID_IWebBrowser2, (void**)&wb);
     ok(hres == S_OK, "Could not get IWebBrowser2 iface: %08x\n", hres);
@@ -2244,14 +2111,7 @@ static void test_WebBrowser(BOOL do_download)
     test_Extent(unk);
     test_wb_funcs(unk, TRUE);
     test_DoVerb(unk);
-    test_olecmd(unk, FALSE);
     test_Navigate2(unk);
-
-    if(do_download) {
-        test_download();
-        test_olecmd(unk, TRUE);
-    }
-
     test_ClientSite(unk, NULL);
     test_ie_funcs(unk);
     test_GetControlInfo(unk);
@@ -2302,10 +2162,7 @@ START_TEST(webbrowser)
 
     OleInitialize(NULL);
 
-    trace("Testing WebBrowser (no download)...\n");
-    test_WebBrowser(FALSE);
-    trace("Testing WebBrowser...\n");
-    test_WebBrowser(TRUE);
+    test_WebBrowser();
 
     OleUninitialize();
 

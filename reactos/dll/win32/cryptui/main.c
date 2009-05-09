@@ -1076,24 +1076,25 @@ static LRESULT CALLBACK cert_mgr_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
         HWND tab = GetDlgItem(hwnd, IDC_MGR_STORES);
 
         data = HeapAlloc(GetProcessHeap(), 0, sizeof(struct CertMgrData));
-        if (!data)
-            return 0;
-        data->imageList = ImageList_Create(16, 16, ILC_COLOR4 | ILC_MASK, 2, 0);
-        if (data->imageList)
+        if (data)
         {
-            HBITMAP bmp;
-            COLORREF backColor = RGB(255, 0, 255);
+            data->imageList = ImageList_Create(16, 16, ILC_COLOR4 | ILC_MASK,
+             2, 0);
+            if (data->imageList)
+            {
+                HBITMAP bmp;
+                COLORREF backColor = RGB(255, 0, 255);
 
-            bmp = LoadBitmapW(hInstance, MAKEINTRESOURCEW(IDB_SMALL_ICONS));
-            ImageList_AddMasked(data->imageList, bmp, backColor);
-            DeleteObject(bmp);
-            ImageList_SetBkColor(data->imageList, CLR_NONE);
-            SendMessageW(GetDlgItem(hwnd, IDC_MGR_CERTS), LVM_SETIMAGELIST,
-                         LVSIL_SMALL, (LPARAM)data->imageList);
+                bmp = LoadBitmapW(hInstance, MAKEINTRESOURCEW(IDB_SMALL_ICONS));
+                ImageList_AddMasked(data->imageList, bmp, backColor);
+                DeleteObject(bmp);
+                ImageList_SetBkColor(data->imageList, CLR_NONE);
+                SendMessageW(GetDlgItem(hwnd, IDC_MGR_CERTS), LVM_SETIMAGELIST,
+                 LVSIL_SMALL, (LPARAM)data->imageList);
+            }
+            SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
+            data->title = pCryptUICertMgr->pwszTitle;
         }
-        SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
-        data->title = pCryptUICertMgr->pwszTitle;
-
         initialize_purpose_selection(hwnd);
         add_cert_columns(hwnd);
         if (pCryptUICertMgr->pwszTitle)
@@ -3236,7 +3237,8 @@ static WCHAR *get_cert_property_as_string(PCCERT_CONTEXT cert, DWORD prop)
         name = HeapAlloc(GetProcessHeap(), 0, cb);
         if (name)
         {
-            if (!CertGetCertificateContextProperty(cert, prop, name, &cb))
+            if (!CertGetCertificateContextProperty(cert, prop, (LPBYTE)name,
+             &cb))
             {
                 HeapFree(GetProcessHeap(), 0, name);
                 name = NULL;
@@ -3337,7 +3339,7 @@ static void show_cert_usages(HWND hwnd, struct edit_cert_data *data)
     DWORD size;
     RECT rc;
     LVCOLUMNW column;
-    PurposeSelection purposeSelection = PurposeEnableAll;
+    PurposeSelection purposeSelection;
 
     GetWindowRect(lv, &rc);
     column.mask = LVCF_WIDTH;
@@ -4459,7 +4461,7 @@ static BOOL is_ca_cert(PCCERT_CONTEXT cert, BOOL defaultIfNotSpecified)
 
         if (CryptDecodeObjectEx(X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS,
          ext->Value.pbData, ext->Value.cbData, CRYPT_DECODE_ALLOC_FLAG,
-         NULL, &info, &size))
+         NULL, (LPBYTE)&info, &size))
         {
             if (info->SubjectType.cbData == 1)
                 isCA = info->SubjectType.pbData[0] & CERT_CA_SUBJECT_FLAG;
@@ -4993,12 +4995,6 @@ static LRESULT CALLBACK import_file_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
 
         data = (struct ImportWizData *)page->lParam;
         SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
-        if (data->fileName)
-        {
-            HWND fileNameEdit = GetDlgItem(hwnd, IDC_IMPORT_FILENAME);
-
-            SendMessageW(fileNameEdit, WM_SETTEXT, 0, (LPARAM)data->fileName);
-        }
         break;
     }
     case WM_NOTIFY:
@@ -5389,15 +5385,10 @@ static BOOL show_import_ui(DWORD dwFlags, HWND hwndParent,
     data.dwFlags = dwFlags;
     data.pwszWizardTitle = pwszWizardTitle;
     if (pImportSrc)
-    {
         memcpy(&data.importSrc, pImportSrc, sizeof(data.importSrc));
-        data.fileName = (LPWSTR)pImportSrc->u.pwszFileName;
-    }
     else
-    {
         memset(&data.importSrc, 0, sizeof(data.importSrc));
-        data.fileName = NULL;
-    }
+    data.fileName = NULL;
     data.freeSource = FALSE;
     data.hDestCertStore = hDestCertStore;
     data.freeDest = FALSE;
@@ -5481,8 +5472,7 @@ static BOOL show_import_ui(DWORD dwFlags, HWND hwndParent,
     hdr.u4.pszbmWatermark = MAKEINTRESOURCEW(IDB_CERT_WATERMARK);
     hdr.u5.pszbmHeader = MAKEINTRESOURCEW(IDB_CERT_HEADER);
     PropertySheetW(&hdr);
-    if (data.fileName != data.importSrc.u.pwszFileName)
-        HeapFree(GetProcessHeap(), 0, data.fileName);
+    HeapFree(GetProcessHeap(), 0, data.fileName);
     if (data.freeSource &&
      data.importSrc.dwSubjectChoice == CRYPTUI_WIZ_IMPORT_SUBJECT_CERT_STORE)
         CertCloseStore(data.importSrc.u.hCertStore, 0);
@@ -5526,11 +5516,8 @@ struct ExportWizData
     HFONT titleFont;
     DWORD dwFlags;
     LPCWSTR pwszWizardTitle;
-    CRYPTUI_WIZ_EXPORT_INFO exportInfo;
+    PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo;
     CRYPTUI_WIZ_EXPORT_CERTCONTEXT_INFO contextInfo;
-    BOOL freePassword;
-    PCRYPT_KEY_PROV_INFO keyProvInfo;
-    BOOL deleteKeys;
     LPWSTR fileName;
     HANDLE file;
     BOOL success;
@@ -5580,141 +5567,6 @@ static LRESULT CALLBACK export_welcome_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
     return ret;
 }
 
-static PCRYPT_KEY_PROV_INFO export_get_private_key_info(PCCERT_CONTEXT cert)
-{
-    PCRYPT_KEY_PROV_INFO info = NULL;
-    DWORD size;
-
-    if (CertGetCertificateContextProperty(cert, CERT_KEY_PROV_INFO_PROP_ID,
-     NULL, &size))
-    {
-        info = HeapAlloc(GetProcessHeap(), 0, size);
-        if (info)
-        {
-            if (!CertGetCertificateContextProperty(cert,
-             CERT_KEY_PROV_INFO_PROP_ID, info, &size))
-            {
-                HeapFree(GetProcessHeap(), 0, info);
-                info = NULL;
-            }
-        }
-    }
-    return info;
-}
-
-static BOOL export_acquire_private_key(PCRYPT_KEY_PROV_INFO info,
- HCRYPTPROV *phProv)
-{
-    BOOL ret;
-
-    ret = CryptAcquireContextW(phProv, info->pwszContainerName,
-     info->pwszProvName, info->dwProvType, 0);
-    if (ret)
-    {
-        DWORD i;
-
-        for (i = 0; i < info->cProvParam; i++)
-            CryptSetProvParam(*phProv, info->rgProvParam[i].dwParam,
-             info->rgProvParam[i].pbData, info->rgProvParam[i].dwFlags);
-    }
-    return ret;
-}
-
-static BOOL export_is_key_exportable(HCRYPTPROV hProv, DWORD keySpec)
-{
-    BOOL ret;
-    HCRYPTKEY key;
-
-    if ((ret = CryptGetUserKey(hProv, keySpec, &key)))
-    {
-        DWORD permissions, size = sizeof(permissions);
-
-        if ((ret = CryptGetKeyParam(key, KP_PERMISSIONS, (BYTE *)&permissions,
-         &size, 0)) && !(permissions & CRYPT_EXPORT))
-            ret = FALSE;
-        CryptDestroyKey(key);
-    }
-    return ret;
-}
-
-static LRESULT CALLBACK export_private_key_dlg_proc(HWND hwnd, UINT msg,
- WPARAM wp, LPARAM lp)
-{
-    LRESULT ret = 0;
-    struct ExportWizData *data;
-
-    switch (msg)
-    {
-    case WM_INITDIALOG:
-    {
-        PROPSHEETPAGEW *page = (PROPSHEETPAGEW *)lp;
-        PCRYPT_KEY_PROV_INFO info;
-        HCRYPTPROV hProv = 0;
-        int errorID = 0;
-
-        data = (struct ExportWizData *)page->lParam;
-        SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
-        /* Get enough information about a key to see whether it's exportable.
-         */
-        if (!(info = export_get_private_key_info(
-         data->exportInfo.u.pCertContext)))
-            errorID = IDS_EXPORT_PRIVATE_KEY_UNAVAILABLE;
-        else if (!export_acquire_private_key(info, &hProv))
-            errorID = IDS_EXPORT_PRIVATE_KEY_UNAVAILABLE;
-        else if (!export_is_key_exportable(hProv, info->dwKeySpec))
-            errorID = IDS_EXPORT_PRIVATE_KEY_NON_EXPORTABLE;
-
-        if (errorID)
-        {
-            WCHAR error[MAX_STRING_LEN];
-
-            LoadStringW(hInstance, errorID, error,
-             sizeof(error) / sizeof(error[0]));
-            SendMessageW(GetDlgItem(hwnd, IDC_EXPORT_PRIVATE_KEY_UNAVAILABLE),
-             WM_SETTEXT, 0, (LPARAM)error);
-            EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_PRIVATE_KEY_YES), FALSE);
-        }
-        else
-            data->keyProvInfo = info;
-        if (hProv)
-            CryptReleaseContext(hProv, 0);
-        SendMessageW(GetDlgItem(hwnd, IDC_EXPORT_PRIVATE_KEY_NO), BM_CLICK,
-         0, 0);
-        break;
-    }
-    case WM_NOTIFY:
-    {
-        NMHDR *hdr = (NMHDR *)lp;
-
-        switch (hdr->code)
-        {
-        case PSN_SETACTIVE:
-            PostMessageW(GetParent(hwnd), PSM_SETWIZBUTTONS, 0,
-             PSWIZB_BACK | PSWIZB_NEXT);
-            ret = TRUE;
-            break;
-        case PSN_WIZNEXT:
-            data = (struct ExportWizData *)GetWindowLongPtrW(hwnd, DWLP_USER);
-            if (IsDlgButtonChecked(hwnd, IDC_EXPORT_PRIVATE_KEY_NO))
-            {
-                data->contextInfo.dwExportFormat =
-                 CRYPTUI_WIZ_EXPORT_FORMAT_DER;
-                data->contextInfo.fExportPrivateKeys = FALSE;
-            }
-            else
-            {
-                data->contextInfo.dwExportFormat =
-                 CRYPTUI_WIZ_EXPORT_FORMAT_PFX;
-                data->contextInfo.fExportPrivateKeys = TRUE;
-            }
-            break;
-        }
-        break;
-    }
-    }
-    return ret;
-}
-
 static BOOL export_info_has_private_key(PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo)
 {
     BOOL ret = FALSE;
@@ -5733,41 +5585,6 @@ static BOOL export_info_has_private_key(PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo)
     return ret;
 }
 
-static void export_format_enable_controls(HWND hwnd, struct ExportWizData *data)
-{
-    int defaultFormatID;
-
-    switch (data->contextInfo.dwExportFormat)
-    {
-    case CRYPTUI_WIZ_EXPORT_FORMAT_BASE64:
-        defaultFormatID = IDC_EXPORT_FORMAT_BASE64;
-        break;
-    case CRYPTUI_WIZ_EXPORT_FORMAT_PKCS7:
-        defaultFormatID = IDC_EXPORT_FORMAT_CMS;
-        break;
-    case CRYPTUI_WIZ_EXPORT_FORMAT_PFX:
-        defaultFormatID = IDC_EXPORT_FORMAT_PFX;
-        break;
-    default:
-        defaultFormatID = IDC_EXPORT_FORMAT_DER;
-    }
-    SendMessageW(GetDlgItem(hwnd, defaultFormatID), BM_CLICK, 0, 0);
-    if (defaultFormatID == IDC_EXPORT_FORMAT_PFX)
-    {
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_DER), FALSE);
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_BASE64), FALSE);
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_CMS), FALSE);
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_PFX), TRUE);
-    }
-    else
-    {
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_DER), TRUE);
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_BASE64), TRUE);
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_CMS), TRUE);
-        EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_PFX), FALSE);
-    }
-}
-
 static LRESULT CALLBACK export_format_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
  LPARAM lp)
 {
@@ -5779,10 +5596,32 @@ static LRESULT CALLBACK export_format_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
     case WM_INITDIALOG:
     {
         PROPSHEETPAGEW *page = (PROPSHEETPAGEW *)lp;
+        int defaultFormatID;
+        BOOL hasPrivateKey;
 
         data = (struct ExportWizData *)page->lParam;
         SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
-        export_format_enable_controls(hwnd, data);
+        hasPrivateKey = export_info_has_private_key(data->pExportInfo);
+        if (hasPrivateKey)
+            EnableWindow(GetDlgItem(hwnd, IDC_EXPORT_FORMAT_PFX), TRUE);
+        switch (data->contextInfo.dwExportFormat)
+        {
+        case CRYPTUI_WIZ_EXPORT_FORMAT_BASE64:
+            defaultFormatID = IDC_EXPORT_FORMAT_BASE64;
+            break;
+        case CRYPTUI_WIZ_EXPORT_FORMAT_PKCS7:
+            defaultFormatID = IDC_EXPORT_FORMAT_CMS;
+            break;
+        case CRYPTUI_WIZ_EXPORT_FORMAT_PFX:
+            if (hasPrivateKey)
+                defaultFormatID = IDC_EXPORT_FORMAT_PFX;
+            else
+                defaultFormatID = IDC_EXPORT_FORMAT_DER;
+            break;
+        default:
+            defaultFormatID = IDC_EXPORT_FORMAT_DER;
+        }
+        SendMessageW(GetDlgItem(hwnd, defaultFormatID), BM_CLICK, 0, 0);
         break;
     }
     case WM_NOTIFY:
@@ -5794,14 +5633,10 @@ static LRESULT CALLBACK export_format_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
         case PSN_SETACTIVE:
             PostMessageW(GetParent(hwnd), PSM_SETWIZBUTTONS, 0,
              PSWIZB_BACK | PSWIZB_NEXT);
-            data = (struct ExportWizData *)GetWindowLongPtrW(hwnd, DWLP_USER);
-            export_format_enable_controls(hwnd, data);
             ret = TRUE;
             break;
         case PSN_WIZNEXT:
         {
-            BOOL skipPasswordPage = TRUE;
-
             data = (struct ExportWizData *)GetWindowLongPtrW(hwnd, DWLP_USER);
             if (IsDlgButtonChecked(hwnd, IDC_EXPORT_FORMAT_DER))
                 data->contextInfo.dwExportFormat =
@@ -5826,12 +5661,8 @@ static LRESULT CALLBACK export_format_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
                 if (IsDlgButtonChecked(hwnd, IDC_EXPORT_PFX_STRONG_ENCRYPTION))
                     data->contextInfo.fStrongEncryption = TRUE;
                 if (IsDlgButtonChecked(hwnd, IDC_EXPORT_PFX_DELETE_PRIVATE_KEY))
-                    data->deleteKeys = TRUE;
-                skipPasswordPage = FALSE;
+                    data->contextInfo.fExportPrivateKeys = TRUE;
             }
-            SetWindowLongPtrW(hwnd, DWLP_MSGRESULT,
-             skipPasswordPage ? IDD_EXPORT_FILE : 0);
-            ret = 1;
             break;
         }
         }
@@ -5874,111 +5705,6 @@ static LRESULT CALLBACK export_format_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
     return ret;
 }
 
-static void export_password_mismatch(HWND hwnd, struct ExportWizData *data)
-{
-    WCHAR title[MAX_STRING_LEN], error[MAX_STRING_LEN];
-    LPCWSTR pTitle;
-
-    if (data->pwszWizardTitle)
-        pTitle = data->pwszWizardTitle;
-    else
-    {
-        LoadStringW(hInstance, IDS_EXPORT_WIZARD, title,
-         sizeof(title) / sizeof(title[0]));
-        pTitle = title;
-    }
-    LoadStringW(hInstance, IDS_EXPORT_PASSWORD_MISMATCH, error,
-     sizeof(error) / sizeof(error[0]));
-    MessageBoxW(hwnd, error, pTitle, MB_ICONERROR | MB_OK);
-    SetFocus(GetDlgItem(hwnd, IDC_EXPORT_PASSWORD));
-}
-
-static LRESULT CALLBACK export_password_dlg_proc(HWND hwnd, UINT msg,
- WPARAM wp, LPARAM lp)
-{
-    LRESULT ret = 0;
-    struct ExportWizData *data;
-
-    switch (msg)
-    {
-    case WM_INITDIALOG:
-    {
-        PROPSHEETPAGEW *page = (PROPSHEETPAGEW *)lp;
-
-        data = (struct ExportWizData *)page->lParam;
-        SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
-        break;
-    }
-    case WM_NOTIFY:
-    {
-        NMHDR *hdr = (NMHDR *)lp;
-
-        switch (hdr->code)
-        {
-        case PSN_SETACTIVE:
-            PostMessageW(GetParent(hwnd), PSM_SETWIZBUTTONS, 0,
-             PSWIZB_BACK | PSWIZB_NEXT);
-            ret = TRUE;
-            break;
-        case PSN_WIZNEXT:
-        {
-            HWND passwordEdit = GetDlgItem(hwnd, IDC_EXPORT_PASSWORD);
-            HWND passwordConfirmEdit = GetDlgItem(hwnd,
-             IDC_EXPORT_PASSWORD_CONFIRM);
-            DWORD passwordLen = SendMessageW(passwordEdit, WM_GETTEXTLENGTH,
-             0, 0);
-            DWORD passwordConfirmLen = SendMessageW(passwordConfirmEdit,
-             WM_GETTEXTLENGTH, 0, 0);
-
-            data = (struct ExportWizData *)GetWindowLongPtrW(hwnd, DWLP_USER);
-            if (!passwordLen && !passwordConfirmLen)
-                data->contextInfo.pwszPassword = NULL;
-            else if (passwordLen != passwordConfirmLen)
-            {
-                export_password_mismatch(hwnd, data);
-                SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, 1);
-                ret = 1;
-            }
-            else
-            {
-                LPWSTR password = HeapAlloc(GetProcessHeap(), 0,
-                 (passwordLen + 1) * sizeof(WCHAR));
-                LPWSTR passwordConfirm = HeapAlloc(GetProcessHeap(), 0,
-                 (passwordConfirmLen + 1) * sizeof(WCHAR));
-                BOOL freePassword = TRUE;
-
-                if (password && passwordConfirm)
-                {
-                    SendMessageW(passwordEdit, WM_GETTEXT, passwordLen + 1,
-                     (LPARAM)password);
-                    SendMessageW(passwordConfirmEdit, WM_GETTEXT,
-                     passwordConfirmLen + 1, (LPARAM)passwordConfirm);
-                    if (strcmpW(password, passwordConfirm))
-                    {
-                        export_password_mismatch(hwnd, data);
-                        SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, 1);
-                        ret = 1;
-                    }
-                    else
-                    {
-                        data->contextInfo.pwszPassword = password;
-                        freePassword = FALSE;
-                        data->freePassword = TRUE;
-                    }
-                }
-                if (freePassword)
-                    HeapFree(GetProcessHeap(), 0, password);
-                HeapFree(GetProcessHeap(), 0, passwordConfirm);
-            }
-            break;
-        }
-        }
-        break;
-    }
-    }
-    return ret;
-}
-
 static LPWSTR export_append_extension(struct ExportWizData *data,
  LPWSTR fileName)
 {
@@ -6001,7 +5727,7 @@ static LPWSTR export_append_extension(struct ExportWizData *data,
         extension = pfx;
         break;
     default:
-        switch (data->exportInfo.dwSubjectChoice)
+        switch (data->pExportInfo->dwSubjectChoice)
         {
         case CRYPTUI_WIZ_EXPORT_CRL_CONTEXT:
             extension = crl;
@@ -6200,9 +5926,9 @@ static LRESULT CALLBACK export_file_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
 
         data = (struct ExportWizData *)page->lParam;
         SetWindowLongPtrW(hwnd, DWLP_USER, (LPARAM)data);
-        if (data->exportInfo.pwszExportFileName)
+        if (data->pExportInfo->pwszExportFileName)
             SendMessageW(GetDlgItem(hwnd, IDC_EXPORT_FILENAME), WM_SETTEXT, 0,
-             (LPARAM)data->exportInfo.pwszExportFileName);
+             (LPARAM)data->pExportInfo->pwszExportFileName);
         break;
     }
     case WM_NOTIFY:
@@ -6211,15 +5937,6 @@ static LRESULT CALLBACK export_file_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
 
         switch (hdr->code)
         {
-        case PSN_WIZBACK:
-            data = (struct ExportWizData *)GetWindowLongPtrW(hwnd, DWLP_USER);
-            if (data->contextInfo.dwExportFormat !=
-             CRYPTUI_WIZ_EXPORT_FORMAT_PFX)
-            {
-                SetWindowLongPtrW(hwnd, DWLP_MSGRESULT, IDD_EXPORT_FORMAT);
-                ret = 1;
-            }
-            break;
         case PSN_WIZNEXT:
         {
             HWND fileNameEdit = GetDlgItem(hwnd, IDC_EXPORT_FILENAME);
@@ -6289,7 +6006,7 @@ static LRESULT CALLBACK export_file_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
             ofn.hwndOwner = hwnd;
             ofn.lpstrFilter = make_export_file_filter(
              data->contextInfo.dwExportFormat,
-             data->exportInfo.dwSubjectChoice);
+             data->pExportInfo->dwSubjectChoice);
             ofn.lpstrFile = fileBuf;
             ofn.nMaxFile = sizeof(fileBuf) / sizeof(fileBuf[0]);
             fileBuf[0] = 0;
@@ -6326,7 +6043,7 @@ static void show_export_details(HWND lv, struct ExportWizData *data)
     }
 
     item.pszText = text;
-    switch (data->exportInfo.dwSubjectChoice)
+    switch (data->pExportInfo->dwSubjectChoice)
     {
     case CRYPTUI_WIZ_EXPORT_CRL_CONTEXT:
     case CRYPTUI_WIZ_EXPORT_CTL_CONTEXT:
@@ -6367,7 +6084,7 @@ static void show_export_details(HWND lv, struct ExportWizData *data)
     SendMessageW(lv, LVM_INSERTITEMW, 0, (LPARAM)&item);
 
     item.iSubItem = 1;
-    switch (data->exportInfo.dwSubjectChoice)
+    switch (data->pExportInfo->dwSubjectChoice)
     {
     case CRYPTUI_WIZ_EXPORT_CRL_CONTEXT:
         contentID = IDS_EXPORT_FILTER_CRL;
@@ -6510,140 +6227,8 @@ static BOOL save_serialized_store(HANDLE file, HCERTSTORE store)
      CERT_STORE_SAVE_AS_STORE, CERT_STORE_SAVE_TO_FILE, file, 0);
 }
 
-static BOOL save_pfx(HANDLE file, PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo,
- PCCRYPTUI_WIZ_EXPORT_CERTCONTEXT_INFO pContextInfo,
- PCRYPT_KEY_PROV_INFO keyProvInfo, BOOL deleteKeys)
-{
-    HCERTSTORE store = CertOpenStore(CERT_STORE_PROV_MEMORY, X509_ASN_ENCODING,
-     0, CERT_STORE_CREATE_NEW_FLAG, NULL);
-    BOOL ret = FALSE;
-
-    if (store)
-    {
-        CRYPT_DATA_BLOB pfxBlob = { 0, NULL };
-        PCCERT_CONTEXT cert = NULL;
-        BOOL freeKeyProvInfo = FALSE;
-
-        if (pContextInfo->fExportChain)
-        {
-            HCERTCHAINENGINE engine = NULL;
-
-            if (pExportInfo->cStores)
-            {
-                CERT_CHAIN_ENGINE_CONFIG config;
-
-                memset(&config, 0, sizeof(config));
-                config.cbSize = sizeof(config);
-                config.cAdditionalStore = pExportInfo->cStores;
-                config.rghAdditionalStore = pExportInfo->rghStores;
-                ret = CertCreateCertificateChainEngine(&config, &engine);
-            }
-            else
-                ret = TRUE;
-            if (ret)
-            {
-                CERT_CHAIN_PARA chainPara;
-                PCCERT_CHAIN_CONTEXT chain;
-
-                memset(&chainPara, 0, sizeof(chainPara));
-                chainPara.cbSize = sizeof(chainPara);
-                ret = CertGetCertificateChain(engine,
-                 pExportInfo->u.pCertContext, NULL, NULL, &chainPara, 0, NULL,
-                 &chain);
-                if (ret)
-                {
-                    DWORD i, j;
-
-                    for (i = 0; ret && i < chain->cChain; i++)
-                        for (j = 0; ret && j < chain->rgpChain[i]->cElement;
-                         j++)
-                        {
-                            if (i == 0 && j == 0)
-                                ret = CertAddCertificateContextToStore(store,
-                                 chain->rgpChain[i]->rgpElement[j]->pCertContext,
-                                 CERT_STORE_ADD_ALWAYS, &cert);
-                            else
-                                ret = CertAddCertificateContextToStore(store,
-                                 chain->rgpChain[i]->rgpElement[j]->pCertContext,
-                                 CERT_STORE_ADD_ALWAYS, NULL);
-                        }
-                    CertFreeCertificateChain(chain);
-                }
-            }
-            if (engine)
-                CertFreeCertificateChainEngine(engine);
-        }
-        else
-            ret = CertAddCertificateContextToStore(store,
-             pExportInfo->u.pCertContext, CERT_STORE_ADD_ALWAYS, &cert);
-        /* Copy private key info to newly created cert, so it'll get exported
-         * along with the cert.
-         */
-        if (ret && pContextInfo->fExportPrivateKeys)
-        {
-            if (keyProvInfo)
-                ret = CertSetCertificateContextProperty(cert,
-                 CERT_KEY_PROV_INFO_PROP_ID, 0, keyProvInfo);
-            else
-            {
-                if (!(keyProvInfo = export_get_private_key_info(cert)))
-                    ret = FALSE;
-                else
-                {
-                    ret = CertSetCertificateContextProperty(cert,
-                     CERT_KEY_PROV_INFO_PROP_ID, 0, keyProvInfo);
-                    freeKeyProvInfo = TRUE;
-                }
-            }
-        }
-        if (ret)
-        {
-            DWORD exportFlags =
-             REPORT_NOT_ABLE_TO_EXPORT_PRIVATE_KEY | EXPORT_PRIVATE_KEYS;
-
-            ret = PFXExportCertStore(store, &pfxBlob,
-             pContextInfo->pwszPassword, exportFlags);
-            if (ret)
-            {
-                pfxBlob.pbData = HeapAlloc(GetProcessHeap(), 0, pfxBlob.cbData);
-                if (pfxBlob.pbData)
-                {
-                    ret = PFXExportCertStore(store, &pfxBlob,
-                     pContextInfo->pwszPassword, exportFlags);
-                    if (ret)
-                    {
-                        DWORD bytesWritten;
-
-                        ret = WriteFile(file, pfxBlob.pbData, pfxBlob.cbData,
-                         &bytesWritten, NULL);
-                    }
-                }
-                else
-                {
-                    SetLastError(ERROR_OUTOFMEMORY);
-                    ret = FALSE;
-                }
-            }
-        }
-        if (ret && deleteKeys)
-        {
-            HCRYPTPROV prov;
-
-            CryptAcquireContextW(&prov, keyProvInfo->pwszContainerName,
-             keyProvInfo->pwszProvName, keyProvInfo->dwProvType,
-             CRYPT_DELETEKEYSET);
-        }
-        if (freeKeyProvInfo)
-            HeapFree(GetProcessHeap(), 0, keyProvInfo);
-        CertFreeCertificateContext(cert);
-        CertCloseStore(store, 0);
-    }
-    return ret;
-}
-
 static BOOL do_export(HANDLE file, PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo,
- PCCRYPTUI_WIZ_EXPORT_CERTCONTEXT_INFO pContextInfo,
- PCRYPT_KEY_PROV_INFO keyProvInfo, BOOL deleteKeys)
+ PCCRYPTUI_WIZ_EXPORT_CERTCONTEXT_INFO pContextInfo)
 {
     BOOL ret;
 
@@ -6687,8 +6272,8 @@ static BOOL do_export(HANDLE file, PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo,
              pContextInfo->fExportChain);
             break;
         case CRYPTUI_WIZ_EXPORT_FORMAT_PFX:
-            ret = save_pfx(file, pExportInfo, pContextInfo, keyProvInfo,
-             deleteKeys);
+            FIXME("unimplemented for PFX\n");
+            ret = FALSE;
             break;
         default:
             SetLastError(E_FAIL);
@@ -6751,8 +6336,8 @@ static LRESULT CALLBACK export_finish_dlg_proc(HWND hwnd, UINT msg, WPARAM wp,
             DWORD mbFlags;
 
             data = (struct ExportWizData *)GetWindowLongPtrW(hwnd, DWLP_USER);
-            if ((data->success = do_export(data->file, &data->exportInfo,
-             &data->contextInfo, data->keyProvInfo, data->deleteKeys)))
+            if ((data->success = do_export(data->file, data->pExportInfo,
+             &data->contextInfo)))
             {
                 messageID = IDS_EXPORT_SUCCEEDED;
                 mbFlags = MB_OK;
@@ -6786,33 +6371,24 @@ static BOOL show_export_ui(DWORD dwFlags, HWND hwndParent,
  LPCWSTR pwszWizardTitle, PCCRYPTUI_WIZ_EXPORT_INFO pExportInfo, void *pvoid)
 {
     PROPSHEETHEADERW hdr;
-    PROPSHEETPAGEW pages[6];
+    PROPSHEETPAGEW pages[4];
     struct ExportWizData data;
     int nPages = 0;
-    BOOL hasPrivateKey, showFormatPage = TRUE;
-    INT_PTR l;
+    BOOL showFormatPage = TRUE;
 
     data.dwFlags = dwFlags;
     data.pwszWizardTitle = pwszWizardTitle;
-    memset(&data.exportInfo, 0, sizeof(data.exportInfo));
-    memcpy(&data.exportInfo, pExportInfo,
-     min(sizeof(data.exportInfo), pExportInfo->dwSize));
-    if (pExportInfo->dwSize > sizeof(data.exportInfo))
-        data.exportInfo.dwSize = sizeof(data.exportInfo);
+    data.pExportInfo = pExportInfo;
     data.contextInfo.dwSize = sizeof(data.contextInfo);
     data.contextInfo.dwExportFormat = CRYPTUI_WIZ_EXPORT_FORMAT_DER;
     data.contextInfo.fExportChain = FALSE;
     data.contextInfo.fStrongEncryption = FALSE;
     data.contextInfo.fExportPrivateKeys = FALSE;
-    data.contextInfo.pwszPassword = NULL;
-    data.freePassword = FALSE;
     if (pExportInfo->dwSubjectChoice == CRYPTUI_WIZ_EXPORT_CERT_CONTEXT &&
      pvoid)
         memcpy(&data.contextInfo, pvoid,
          min(((PCCRYPTUI_WIZ_EXPORT_CERTCONTEXT_INFO)pvoid)->dwSize,
          sizeof(data.contextInfo)));
-    data.keyProvInfo = NULL;
-    data.deleteKeys = FALSE;
     data.fileName = NULL;
     data.file = INVALID_HANDLE_VALUE;
     data.success = FALSE;
@@ -6827,7 +6403,6 @@ static BOOL show_export_ui(DWORD dwFlags, HWND hwndParent,
     pages[nPages].lParam = (LPARAM)&data;
     nPages++;
 
-    hasPrivateKey = export_info_has_private_key(pExportInfo);
     switch (pExportInfo->dwSubjectChoice)
     {
     case CRYPTUI_WIZ_EXPORT_CRL_CONTEXT:
@@ -6845,21 +6420,6 @@ static BOOL show_export_ui(DWORD dwFlags, HWND hwndParent,
         data.contextInfo.dwExportFormat = CRYPTUI_WIZ_EXPORT_FORMAT_PKCS7;
         break;
     }
-
-    if (hasPrivateKey && showFormatPage)
-    {
-        pages[nPages].dwSize = sizeof(pages[0]);
-        pages[nPages].hInstance = hInstance;
-        pages[nPages].u.pszTemplate = MAKEINTRESOURCEW(IDD_EXPORT_PRIVATE_KEY);
-        pages[nPages].pfnDlgProc = export_private_key_dlg_proc;
-        pages[nPages].dwFlags = PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
-        pages[nPages].pszHeaderTitle =
-         MAKEINTRESOURCEW(IDS_EXPORT_PRIVATE_KEY_TITLE);
-        pages[nPages].pszHeaderSubTitle =
-         MAKEINTRESOURCEW(IDS_EXPORT_PRIVATE_KEY_SUBTITLE);
-        pages[nPages].lParam = (LPARAM)&data;
-        nPages++;
-    }
     if (showFormatPage)
     {
         pages[nPages].dwSize = sizeof(pages[0]);
@@ -6871,20 +6431,6 @@ static BOOL show_export_ui(DWORD dwFlags, HWND hwndParent,
          MAKEINTRESOURCEW(IDS_EXPORT_FORMAT_TITLE);
         pages[nPages].pszHeaderSubTitle =
          MAKEINTRESOURCEW(IDS_EXPORT_FORMAT_SUBTITLE);
-        pages[nPages].lParam = (LPARAM)&data;
-        nPages++;
-    }
-    if (hasPrivateKey && showFormatPage)
-    {
-        pages[nPages].dwSize = sizeof(pages[0]);
-        pages[nPages].hInstance = hInstance;
-        pages[nPages].u.pszTemplate = MAKEINTRESOURCEW(IDD_EXPORT_PASSWORD);
-        pages[nPages].pfnDlgProc = export_password_dlg_proc;
-        pages[nPages].dwFlags = PSP_USEHEADERTITLE | PSP_USEHEADERSUBTITLE;
-        pages[nPages].pszHeaderTitle =
-         MAKEINTRESOURCEW(IDS_EXPORT_PASSWORD_TITLE);
-        pages[nPages].pszHeaderSubTitle =
-         MAKEINTRESOURCEW(IDS_EXPORT_PASSWORD_SUBTITLE);
         pages[nPages].lParam = (LPARAM)&data;
         nPages++;
     }
@@ -6922,21 +6468,11 @@ static BOOL show_export_ui(DWORD dwFlags, HWND hwndParent,
     hdr.nPages = nPages;
     hdr.u4.pszbmWatermark = MAKEINTRESOURCEW(IDB_CERT_WATERMARK);
     hdr.u5.pszbmHeader = MAKEINTRESOURCEW(IDB_CERT_HEADER);
-    l = PropertySheetW(&hdr);
+    PropertySheetW(&hdr);
     DeleteObject(data.titleFont);
-    if (data.freePassword)
-        HeapFree(GetProcessHeap(), 0,
-         (LPWSTR)data.contextInfo.pwszPassword);
-    HeapFree(GetProcessHeap(), 0, data.keyProvInfo);
     CloseHandle(data.file);
     HeapFree(GetProcessHeap(), 0, data.fileName);
-    if (l == 0)
-    {
-        SetLastError(ERROR_CANCELLED);
-        return FALSE;
-    }
-    else
-        return data.success;
+    return data.success;
 }
 
 BOOL WINAPI CryptUIWizExport(DWORD dwFlags, HWND hwndParent,
@@ -6958,7 +6494,7 @@ BOOL WINAPI CryptUIWizExport(DWORD dwFlags, HWND hwndParent,
 
         if (file != INVALID_HANDLE_VALUE)
         {
-            ret = do_export(file, pExportInfo, pvoid, NULL, FALSE);
+            ret = do_export(file, pExportInfo, pvoid);
             CloseHandle(file);
         }
         else

@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef _MINIPORT_
-#define _MINIPORT_
+#ifndef __MINIPORT_H
+#define __MINIPORT_H
 
 #ifdef __cplusplus
 extern "C" {

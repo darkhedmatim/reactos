@@ -44,5 +44,4 @@ BEGIN
     IDS_HISTORY        "Local Settings\\Geschiedenis"
     IDS_COOKIES        "Cookies"
     IDS_PROGRAMFILES   "%SystemDrive%\\Program Files"
-    IDS_COMMONFILES    "Common Files"
 END

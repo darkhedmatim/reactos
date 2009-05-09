@@ -34,8 +34,8 @@
 
 static __inline int
 CompareRightDown(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -70,8 +70,8 @@ CompareRightDown(
 
 static __inline int
 CompareRightUp(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -106,8 +106,8 @@ CompareRightUp(
 
 static __inline int
 CompareLeftDown(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -142,8 +142,8 @@ CompareLeftDown(
 
 static __inline int
 CompareLeftUp(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -177,8 +177,8 @@ CompareLeftUp(
 
 static __inline int
 CompareSpans(
-    const SPAN *Span1,
-    const SPAN *Span2)
+    const PSPAN Span1,
+    const PSPAN Span2)
 {
     int Cmp;
 

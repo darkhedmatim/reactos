@@ -81,7 +81,7 @@ PCALLPROC
 CreateCallProc(IN PDESKTOPINFO Desktop,
                IN WNDPROC WndProc,
                IN BOOL Unicode,
-               IN PPROCESSINFO pi)
+               IN PW32PROCESSINFO pi)
 {
     PCALLPROC NewCallProc;
     HANDLE Handle;

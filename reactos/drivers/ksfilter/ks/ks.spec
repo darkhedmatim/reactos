@@ -98,7 +98,7 @@
 @ stdcall KsFreeObjectCreateItem(ptr ptr)
 @ stdcall KsFreeObjectCreateItemsByContext(ptr ptr)
 @ stdcall KsLoadResource(ptr long ptr long ptr ptr)
-@ stdcall KsNullDriverUnload(ptr)
+; KsNullDriverUnload@4
 @ stdcall KsPinDataIntersectionEx(ptr ptr ptr long ptr long ptr ptr)
 @ stdcall KsQueryDevicePnpObject(ptr)
 @ stdcall KsRecalculateStackDepth(ptr long)

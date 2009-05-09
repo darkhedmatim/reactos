@@ -704,7 +704,7 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 		non_if_data.includes.push_back ( include );
 		subs_invalid = true;
 	}
-	else if ( e.name == "define" || e.name == "redefine" )
+	else if ( e.name == "define" )
 	{
 		Define* pDefine = new Define ( project, this, e );
 		non_if_data.defines.push_back ( pDefine );
@@ -1090,10 +1090,16 @@ Module::GetDefaultModuleEntrypoint () const
 			return "DllMain@12";
 		case Win32CUI:
 		case Test:
-			return "mainCRTStartup";
+			if ( isUnicode )
+				return "wmainCRTStartup";
+			else
+				return "mainCRTStartup";
 		case Win32SCR:
 		case Win32GUI:
-			return "WinMainCRTStartup";
+			if ( isUnicode )
+				return "wWinMainCRTStartup";
+			else
+				return "WinMainCRTStartup";
 		case BuildTool:
 		case StaticLibrary:
 		case HostStaticLibrary:

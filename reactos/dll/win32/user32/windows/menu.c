@@ -16,8 +16,6 @@
 #include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
-LRESULT DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active);
-
 /* internal popup menu window messages */
 #define MM_SETMENUHANDLE (WM_USER + 0)
 #define MM_GETMENUHANDLE (WM_USER + 1)
@@ -115,6 +113,9 @@ static BOOL fEndMenu = FALSE;
 static HWND TopPopup;
 
 /* Dimension of the menu bitmaps */
+static WORD ArrowBitmapWidth = 0, ArrowBitmapHeight = 0;
+
+static HBITMAP StdMnArrow = NULL;
 static HBITMAP BmpSysMenu = NULL;
 
 static SIZE MenuCharSize;
@@ -286,6 +287,20 @@ MenuCleanupAllRosMenuItemInfo(PROSMENUITEMINFO ItemInfo)
 static void FASTCALL
 MenuLoadBitmaps(VOID)
 {
+  /* Load menu bitmaps */
+  if (NULL == StdMnArrow)
+    {
+      StdMnArrow = LoadBitmapW(0, MAKEINTRESOURCEW(OBM_MNARROW));
+
+      if (NULL != StdMnArrow)
+        {
+          BITMAP bm;
+          GetObjectW(StdMnArrow, sizeof(BITMAP), &bm);
+          ArrowBitmapWidth = bm.bmWidth;
+          ArrowBitmapHeight = bm.bmHeight;
+        }
+    }
+
   /* Load system buttons bitmaps */
   if (NULL == BmpSysMenu)
     {
@@ -604,12 +619,18 @@ MenuDrawMenuItem(HWND hWnd, PROSMENUINFO MenuInfo, HWND WndOwner, HDC Dc,
       SendMessageW(WndOwner, WM_DRAWITEM, 0, (LPARAM) &dis);
       /* Draw the popup-menu arrow */
       if (0 != (Item->fType & MF_POPUP))
-      {
-           RECT rectTemp;
-           CopyRect(&rectTemp, &Rect);
-           rectTemp.left = rectTemp.right - GetSystemMetrics(SM_CXMENUCHECK);
-           DrawFrameControl(Dc, &rectTemp, DFC_MENU, DFCS_MENUARROW);
-      }
+        {
+          HDC DcMem = CreateCompatibleDC(Dc);
+          HBITMAP OrigBitmap;
+
+          OrigBitmap = SelectObject(DcMem, StdMnArrow);
+          BitBlt(Dc, Rect.right - ArrowBitmapWidth - 1,
+                 ((Rect.top + Rect.bottom) - ArrowBitmapHeight) / 2,
+                 ArrowBitmapWidth, ArrowBitmapHeight,
+                 DcMem, 0, 0, SRCCOPY);
+          SelectObject(DcMem, OrigBitmap);
+          DeleteDC(DcMem);
+        }
       return;
     }
 
@@ -724,12 +745,18 @@ MenuDrawMenuItem(HWND hWnd, PROSMENUINFO MenuInfo, HWND WndOwner, HDC Dc,
         }
         else if (0 != (Item->fState & MF_CHECKED))  /* standard bitmaps */
         {
-           RECT rectTemp;
-           CopyRect(&rectTemp, &Rect);
-           rectTemp.right = rectTemp.left + GetSystemMetrics(SM_CXMENUCHECK);
-           DrawFrameControl(Dc, &rectTemp, DFC_MENU,
+           RECT r;
+           HBITMAP bm = CreateBitmap(CheckBitmapWidth, CheckBitmapHeight, 1, 1, NULL);
+           HDC DcMem = CreateCompatibleDC(Dc);
+           SelectObject(DcMem, bm);
+           SetRect( &r, 0, 0, CheckBitmapWidth, CheckBitmapHeight);
+           DrawFrameControl(DcMem, &r, DFC_MENU,
                             0 != (Item->fType & MFT_RADIOCHECK) ?
                                  DFCS_MENUBULLET : DFCS_MENUCHECK);
+           BitBlt(Dc, Rc.left, (y - r.bottom) / 2, r.right, r.bottom,
+                  DcMem, 0, 0, SRCCOPY );
+           DeleteDC(DcMem);
+           DeleteObject(bm);
            checked = TRUE;
         }
      }
@@ -740,15 +767,21 @@ MenuDrawMenuItem(HWND hWnd, PROSMENUINFO MenuInfo, HWND WndOwner, HDC Dc,
      /* Draw the popup-menu arrow */
      if (0 != (Item->fType & MF_POPUP))
      {
-           RECT rectTemp;
-           CopyRect(&rectTemp, &Rect);
-           rectTemp.left = rectTemp.right - GetSystemMetrics(SM_CXMENUCHECK);
-           DrawFrameControl(Dc, &rectTemp, DFC_MENU, DFCS_MENUARROW);
+        HDC DcMem = CreateCompatibleDC(Dc);
+        HBITMAP OrigBitmap;
+
+        OrigBitmap = SelectObject(DcMem, StdMnArrow);
+        BitBlt(Dc, Rect.right - ArrowBitmapWidth - 1,
+              (y - ArrowBitmapHeight) / 2,
+               ArrowBitmapWidth, ArrowBitmapHeight,
+               DcMem, 0, 0, SRCCOPY);
+        SelectObject(DcMem, OrigBitmap);
+        DeleteDC(DcMem);
      }
      Rect.left += 4;
      if( !(MenuInfo->dwStyle & MNS_NOCHECK))
         Rect.left += CheckBitmapWidth;
-     Rect.right -= CheckBitmapWidth;
+     Rect.right -= ArrowBitmapWidth;
   }
   else if (Item->hbmpItem) /* Draw the bitmap */
   {
@@ -1221,7 +1254,7 @@ MenuCalcItemSize(HDC Dc, PROSMENUITEMINFO ItemInfo, PROSMENUINFO MenuInfo, HWND 
     {
       ItemInfo->Rect.bottom += SEPARATOR_HEIGHT;
       if( !MenuBar)
-            ItemInfo->Rect.right += CheckBitmapWidth +  MenuCharSize.cx;
+            ItemInfo->Rect.right += ArrowBitmapWidth +  MenuCharSize.cx;
       return;
     }
 
@@ -1251,7 +1284,7 @@ MenuCalcItemSize(HDC Dc, PROSMENUITEMINFO ItemInfo, PROSMENUINFO MenuInfo, HWND 
            ItemInfo->Rect.right += 2 * CheckBitmapWidth;
          ItemInfo->Rect.right += 4 + MenuCharSize.cx;
          ItemInfo->XTab = ItemInfo->Rect.right;
-         ItemInfo->Rect.right += CheckBitmapWidth;
+         ItemInfo->Rect.right += ArrowBitmapWidth;
       }
       else /* hbmpItem & MenuBar */
       {
@@ -1272,7 +1305,7 @@ MenuCalcItemSize(HDC Dc, PROSMENUITEMINFO ItemInfo, PROSMENUINFO MenuInfo, HWND 
            ItemInfo->Rect.right += CheckBitmapWidth;
       ItemInfo->Rect.right += 4 + MenuCharSize.cx;
       ItemInfo->XTab = ItemInfo->Rect.right;
-      ItemInfo->Rect.right += CheckBitmapWidth;
+      ItemInfo->Rect.right += ArrowBitmapWidth;
   }
 
   /* it must be a text item - unless it's the system menu */
@@ -2215,8 +2248,8 @@ MenuShowSubPopup(HWND WndOwner, PROSMENUINFO MenuInfo, BOOL SelectFirst, UINT Fl
 
   if (IS_SYSTEM_MENU(MenuInfo))
     {
-      MenuInitSysMenuPopup(ItemInfo.hSubMenu, GetWindowLongPtrW(MenuInfo->Wnd, GWL_STYLE),
-                           GetClassLongPtrW(MenuInfo->Wnd, GCL_STYLE), HTSYSMENU);
+      MenuInitSysMenuPopup(ItemInfo.hSubMenu, GetWindowLongW(MenuInfo->Wnd, GWL_STYLE),
+                           GetClassLongW(MenuInfo->Wnd, GCL_STYLE), HTSYSMENU);
 
       NcGetSysPopupPos(MenuInfo->Wnd, &Rect);
       Rect.top = Rect.bottom;
@@ -2773,7 +2806,7 @@ MenuDoNextMenu(MTRACKER* Mt, UINT Vk)
 
       if (NULL == NextMenu.hmenuNext || NULL == NextMenu.hwndNext)
         {
-          DWORD Style = GetWindowLongPtrW(Mt->OwnerWnd, GWL_STYLE);
+          DWORD Style = GetWindowLongW(Mt->OwnerWnd, GWL_STYLE);
           NewWnd = Mt->OwnerWnd;
           if (IS_SYSTEM_MENU(&TopMenuInfo))
             {
@@ -2811,7 +2844,7 @@ MenuDoNextMenu(MTRACKER* Mt, UINT Vk)
 
           if (IsMenu(NewMenu) && IsWindow(NewWnd))
             {
-              DWORD Style = GetWindowLongPtrW(NewWnd, GWL_STYLE);
+              DWORD Style = GetWindowLongW(NewWnd, GWL_STYLE);
 
               if (0 != (Style & WS_SYSMENU)
                   && GetSystemMenu(NewWnd, FALSE) == NewMenu)
@@ -3585,7 +3618,7 @@ MenuTrackKbdMenuBar(HWND hWnd, UINT wParam, WCHAR wChar)
 
     /* find window that has a menu */
 
-    while (!((GetWindowLongPtrW( hWnd, GWL_STYLE ) &
+    while (!((GetWindowLongW( hWnd, GWL_STYLE ) &
                                          (WS_CHILD | WS_POPUP)) != WS_CHILD))
         if (!(hWnd = GetAncestor( hWnd, GA_PARENT ))) return;
 
@@ -3594,7 +3627,7 @@ MenuTrackKbdMenuBar(HWND hWnd, UINT wParam, WCHAR wChar)
     hTrackMenu = GetMenu( hWnd );
     if (!hTrackMenu || IsIconic(hWnd) || wChar == ' ' )
     {
-        if (!(GetWindowLongPtrW( hWnd, GWL_STYLE ) & WS_SYSMENU)) return;
+        if (!(GetWindowLongW( hWnd, GWL_STYLE ) & WS_SYSMENU)) return;
         hTrackMenu = NtUserGetSystemMenu(hWnd, FALSE);
         uItem = 0;
         wParam |= HTSYSMENU; /* prevent item lookup */
@@ -4000,23 +4033,7 @@ CreatePopupMenu(VOID)
 BOOL WINAPI
 DrawMenuBar(HWND hWnd)
 {
-//  return (BOOL)NtUserCallHwndLock(hWnd, HWNDLOCK_ROUTINE_DRAWMENUBAR);
-  ROSMENUINFO MenuInfo;
-  HMENU hMenu;
-  hMenu = GetMenu(hWnd);
-  if (!hMenu)
-     return FALSE;
-  MenuGetRosMenuInfo(&MenuInfo, hMenu);
-  MenuInfo.Height = 0; // make sure to recalc size
-  MenuSetRosMenuInfo(&MenuInfo);
-  /* The wine method doesn't work and I suspect it's more effort
-     then hackfix solution 
-  SetWindowPos( hWnd, 0, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE |
-                  SWP_NOZORDER | SWP_FRAMECHANGED );
-  return TRUE;*/
-  // FIXME: hackfix
-  DefWndNCPaint(hWnd,(HRGN)-1,-1);
-  return TRUE;
+  return (BOOL)NtUserCallHwndLock(hWnd, HWNDLOCK_ROUTINE_DRAWMENUBAR);
 }
 
 

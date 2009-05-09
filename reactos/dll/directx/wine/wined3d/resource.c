@@ -25,17 +25,17 @@
 #include "wined3d_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(d3d);
+#define GLINFO_LOCATION ((IWineD3DImpl *)(((IWineD3DDeviceImpl *)This->resource.wineD3DDevice)->wineD3D))->gl_info
 
 HRESULT resource_init(struct IWineD3DResourceClass *resource, WINED3DRESOURCETYPE resource_type,
-        IWineD3DDeviceImpl *device, UINT size, DWORD usage, const struct GlPixelFormatDesc *format_desc,
-        WINED3DPOOL pool, IUnknown *parent)
+        IWineD3DDeviceImpl *device, UINT size, DWORD usage, WINED3DFORMAT format, WINED3DPOOL pool, IUnknown *parent)
 {
     resource->wineD3DDevice = device;
     resource->parent = parent;
     resource->resourceType = resource_type;
     resource->ref = 1;
     resource->pool = pool;
-    resource->format_desc = format_desc;
+    resource->format = format;
     resource->usage = usage;
     resource->size = size;
     resource->priority = 0;

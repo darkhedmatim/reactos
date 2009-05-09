@@ -152,7 +152,6 @@ IopCreateServiceListEntry(PUNICODE_STRING ServiceName)
   RTL_QUERY_REGISTRY_TABLE QueryTable[7];
   PSERVICE Service;
   NTSTATUS Status;
-  ULONG DefaultTag = ~0;
 
   DPRINT("ServiceName: '%wZ'\n", ServiceName);
 
@@ -192,9 +191,6 @@ IopCreateServiceListEntry(PUNICODE_STRING ServiceName)
   QueryTable[5].Name = L"Tag";
   QueryTable[5].Flags = RTL_QUERY_REGISTRY_DIRECT;
   QueryTable[5].EntryContext = &Service->Tag;
-  QueryTable[5].DefaultData = &DefaultTag;
-  QueryTable[5].DefaultType = REG_DWORD;
-  QueryTable[5].DefaultLength = sizeof(DefaultTag);
 
   Status = RtlQueryRegistryValues(RTL_REGISTRY_SERVICES,
 				  ServiceName->Buffer,

@@ -44,7 +44,6 @@
 #include "lang/en-US.h"
 #include "lang/en-ZA.h"
 #include "lang/en-ZW.h"
-#include "lang/eo-AA.h"
 #include "lang/es-AR.h"
 #include "lang/es-BO.h"
 #include "lang/es-CL.h"
@@ -108,7 +107,6 @@
 #include "lang/pl-PL.h"
 #include "lang/pt-BR.h"
 #include "lang/pt-PT.h"
-#include "lang/rm-CH.h"
 #include "lang/ro-RO.h"
 #include "lang/ru-RU.h"
 #include "lang/sa-IN.h"
@@ -129,7 +127,6 @@
 #include "lang/ur-PK.h"
 #include "lang/uz-UZ.h"
 #include "lang/vi-VN.h"
-#include "lang/wa-BE.h"
 #include "lang/zh-CN.h"
 #include "lang/zh-HK.h"
 #include "lang/zh-MO.h"
@@ -189,7 +186,6 @@ const MUI_LANGUAGE LanguageList[] =
   {L"00002C09", L"1252", L"850", L"10000", L"English (Trinidad)",           L"1",   enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    enTTLayouts },
   {L"00003009", L"1252", L"437", L"10000", L"English (Zimbabwe)",           L"1",   enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    enZWLayouts },
   {L"00003409", L"1252", L"437", L"10000", L"English (Philippines)",        L"63",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    enPHLayouts },
-  {L"0000048F", L"1252", L"437", L"10000", L"Esperanto",                    L"1",   enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    eoAALayouts },
   {L"00000425", L"1257", L"775", L"10029", L"Estonian",                     L"372", enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    etEELayouts },
   {L"00000438", L"1252", L"850", L"10079", L"Faeroese",                     L"1",   enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    foFOLayouts },
   {L"00000429", L"1256", L"720", L"10004", L"Farsi",                        L"1",   enUSPages, enUSErrorEntries, enUSStrings, UnicodeFonts,  faIRLayouts },
@@ -216,7 +212,7 @@ const MUI_LANGUAGE LanguageList[] =
   {L"00000421", L"1252", L"850", L"10079", L"Indonesian",                   L"62",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    idIDLayouts },
   {L"00000410", L"1252", L"850", L"10000", L"Italian (Italy)",              L"39",  itITPages, itITErrorEntries, itITStrings, LatinFonts,    itITLayouts },
   {L"00000810", L"1252", L"850", L"10000", L"Italian (Switzerland)",        L"41",  itITPages, itITErrorEntries, itITStrings, LatinFonts,    itCHLayouts },
-  {L"00000411", L"932",  L"932", L"10001", L"Japanese",                     L"81",  jaJPPages, jaJPErrorEntries, jaJPStrings, JapaneseFonts, jaJPLayouts },
+  {L"00000411", L"932",  L"932", L"10001", L"Japanese",                     L"81",  enUSPages, enUSErrorEntries, enUSStrings, UnicodeFonts,  jaJPLayouts },
   {L"0000044B", L"1252", L"437", L"10079", L"Kannada (India)",              L"91",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    knINLayouts },
   {L"0000043F", L"1251", L"866", L"10007", L"Kazakh",                       L"705", enUSPages, enUSErrorEntries, enUSStrings, CyrillicFonts, kkKZLayouts },
   {L"00000457", L"0",    L"437", L"2",     L"Konkani",                      L"1",   enUSPages, enUSErrorEntries, enUSStrings, UnicodeFonts,  kokINLayouts},
@@ -236,7 +232,6 @@ const MUI_LANGUAGE LanguageList[] =
   {L"00000416", L"1252", L"850", L"10000", L"Portuguese (Brazil)",          L"55",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    ptBRLayouts },
   {L"00000446", L"0",    L"1",   L"2",     L"Punjabi (India)",              L"91",  enUSPages, enUSErrorEntries, enUSStrings, UnicodeFonts,  paINLayouts },
   {L"00000418", L"1250", L"852", L"10029", L"Romanian",                     L"40",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    roROLayouts },
-  {L"00000417", L"1252", L"850", L"10000", L"Romansh",                      L"41",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    rmCHLayouts },
   {L"00000419", L"1251", L"866", L"10007", L"Russian",                      L"7",   ruRUPages, ruRUErrorEntries, ruRUStrings, CyrillicFonts, ruRULayouts },
   {L"0000044F", L"0",    L"1",   L"2",     L"Sanskrit",                     L"1",   enUSPages, enUSErrorEntries, enUSStrings, UnicodeFonts,  saINLayouts },
   {L"00000C1A", L"1251", L"855", L"10007", L"Serbian (Cyrillic)",           L"1",   enUSPages, enUSErrorEntries, enUSStrings, CyrillicFonts, srSPLayouts },
@@ -277,7 +272,6 @@ const MUI_LANGUAGE LanguageList[] =
   {L"00000443", L"1254", L"857", L"10029", L"Uzbek (Latin)",                L"998", enUSPages, enUSErrorEntries, enUSStrings, CyrillicFonts, uzUZLayouts },
   {L"00000843", L"1251", L"866", L"10007", L"Uzbek (Cyrillic)",             L"998", enUSPages, enUSErrorEntries, enUSStrings, CyrillicFonts, uzUZLayouts },
   {L"0000042A", L"1258", L"1258",L"10000", L"Vietnamese",                   L"1",   enUSPages, enUSErrorEntries, enUSStrings, UnicodeFonts,  viVNLayouts },
-  {L"00000490", L"1252", L"850", L"10000", L"Walon",                        L"32",  enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    waBELayouts },
   {L"00000435", L"1252", L"850", L"10000", L"Zulu",                         L"1",   enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    enUSLayouts },
   {NULL, NULL, NULL, NULL, NULL, NULL}
 };

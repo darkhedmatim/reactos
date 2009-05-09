@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/api.c
+ * FILE:            drivers/multimedia/portcls/adapter.c
  * PURPOSE:         Port Class driver / DriverEntry and IRP handlers
  * PROGRAMMER:      Andrew Greenwood
  *
@@ -10,6 +10,9 @@
  */
 
 #include "private.h"
+#include <devguid.h>
+#include <initguid.h>
+#include <ksmedia.h>
 
 /*
     This is called from DriverEntry so that PortCls can take care of some
@@ -46,7 +49,15 @@ PcInitializeAdapterDriver(
     //ULONG i;
 
     DPRINT1("PcInitializeAdapterDriver\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+
+#if 0
+    /* Set default stub - is this a good idea? */
+    DPRINT1("Setting IRP stub\n");
+    for ( i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i ++ )
+    {
+        DriverObject->MajorFunction[i] = IrpStub;
+    }
+#endif
 
     /* Our IRP handlers */
     DPRINT1("Setting IRP handlers\n");
@@ -59,7 +70,7 @@ PcInitializeAdapterDriver(
     DriverObject->DriverExtension->AddDevice = AddDevice;
 
     /* KS handles these */
-    DPRINT("Setting KS function handlers\n");
+    DPRINT1("Setting KS function handlers\n");
     KsSetMajorFunctionHandler(DriverObject, IRP_MJ_CLOSE);
     KsSetMajorFunctionHandler(DriverObject, IRP_MJ_DEVICE_CONTROL);
     KsSetMajorFunctionHandler(DriverObject, IRP_MJ_FLUSH_BUFFERS);
@@ -68,7 +79,7 @@ PcInitializeAdapterDriver(
     KsSetMajorFunctionHandler(DriverObject, IRP_MJ_SET_SECURITY);
     KsSetMajorFunctionHandler(DriverObject, IRP_MJ_WRITE);
 
-    DPRINT("PortCls has finished initializing the adapter driver\n");
+    DPRINT1("PortCls has finished initializing the adapter driver\n");
 
     return STATUS_SUCCESS;
 }
@@ -92,10 +103,9 @@ PcAddAdapterDevice(
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     PDEVICE_OBJECT fdo = NULL;
     PDEVICE_OBJECT PrevDeviceObject;
-    PPCLASS_DEVICE_EXTENSION portcls_ext = NULL;
+    PPCLASS_DEVICE_EXTENSION portcls_ext;
 
     DPRINT1("PcAddAdapterDevice called\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!DriverObject || !PhysicalDeviceObject || !StartDevice)
     {
@@ -137,13 +147,6 @@ PcAddAdapterDevice(
     /* allocate create item */
     portcls_ext->CreateItems = AllocateItem(NonPagedPool, MaxObjects * sizeof(KSOBJECT_CREATE_ITEM), TAG_PORTCLASS);
 
-    if (!portcls_ext->CreateItems)
-    {
-        /* not enough resources */
-        status = STATUS_INSUFFICIENT_RESOURCES;
-        goto cleanup;
-    }
-
     /* store the physical device object */
     portcls_ext->PhysicalDeviceObject = PhysicalDeviceObject;
     /* set up the start device function */
@@ -163,7 +166,12 @@ PcAddAdapterDevice(
     /* did we succeed */
     if (!NT_SUCCESS(status))
     {
-        goto cleanup;
+        /* free previously allocated create items */
+        FreeItem(portcls_ext->CreateItems, TAG_PORTCLASS);
+        /* delete created fdo */
+        IoDeleteDevice(fdo);
+        /* return error code */
+        return status;
     }
 
     /* attach device to device stack */
@@ -177,41 +185,22 @@ PcAddAdapterDevice(
     }
     else
     {
-        /* return error code */
-        status = STATUS_UNSUCCESSFUL;
-        goto cleanup;
-    }
-    return status;
-
-cleanup:
-
-    if (portcls_ext)
-    {
-
-        if (portcls_ext->KsDeviceHeader)
-        {
-            /* free the device header */
-            KsFreeDeviceHeader(portcls_ext->KsDeviceHeader);
-        }
-
-        if (portcls_ext->CreateItems)
-        {
-            /* free previously allocated create items */
-            FreeItem(portcls_ext->CreateItems, TAG_PORTCLASS);
-        }
-    }
-
-    if (fdo)
-    {
+        /* free the device header */
+        KsFreeDeviceHeader(portcls_ext->KsDeviceHeader);
+        /* free previously allocated create items */
+        FreeItem(portcls_ext->CreateItems, TAG_PORTCLASS);
         /* delete created fdo */
         IoDeleteDevice(fdo);
+        /* return error code */
+        return STATUS_UNSUCCESSFUL;
     }
+
+
 
     return status;
 }
 
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcRegisterSubdevice(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PWCHAR Name,
@@ -225,26 +214,17 @@ PcRegisterSubdevice(
     ULONG Index;
 
     DPRINT1("PcRegisterSubdevice DeviceObject %p Name %S Unknown %p\n", DeviceObject, Name, Unknown);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
-    /* check if all parameters are valid */
     if (!DeviceObject || !Name || !Unknown)
     {
         DPRINT("PcRegisterSubdevice invalid parameter\n");
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* get device extension */
     DeviceExt = (PPCLASS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-
     if (!DeviceExt)
-    {
-        /* should not happen */
-        KeBugCheck(0);
         return STATUS_UNSUCCESSFUL;
-    }
 
-    /* look up our undocumented interface */
     Status = Unknown->lpVtbl->QueryInterface(Unknown, &IID_ISubdevice, (LPVOID)&SubDevice);
     if (!NT_SUCCESS(Status))
     {
@@ -252,17 +232,6 @@ PcRegisterSubdevice(
         /* the provided port driver doesnt support ISubdevice */
         return STATUS_INVALID_PARAMETER;
     }
-
-    /* get the subdevice descriptor */
-    Status = SubDevice->lpVtbl->GetDescriptor(SubDevice, &SubDeviceDescriptor);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to get subdevice descriptor %x\n", Status);
-        SubDevice->lpVtbl->Release(SubDevice);
-        return STATUS_UNSUCCESSFUL;
-    }
-
-    /* add an create item to the device header */
     Status = KsAddObjectCreateItemToDeviceHeader(DeviceExt->KsDeviceHeader, PcCreateItemDispatch, (PVOID)SubDevice, Name, NULL);
     if (!NT_SUCCESS(Status))
     {
@@ -271,16 +240,17 @@ PcRegisterSubdevice(
         DPRINT1("KsAddObjectCreateItemToDeviceHeader failed with %x\n", Status);
         return Status;
     }
-
-    /* increment reference count */
     SubDevice->lpVtbl->AddRef(SubDevice);
+
+    Status = SubDevice->lpVtbl->GetDescriptor(SubDevice, &SubDeviceDescriptor);
+    if (!NT_SUCCESS(Status))
+    {
+        DPRINT1("Failed to get subdevice descriptor %x\n", Status);
+        SubDevice->lpVtbl->Release(SubDevice);
+    }
 
     for(Index = 0; Index < SubDeviceDescriptor->InterfaceCount; Index++)
     {
-        //FIXME
-        // Use a reference string such as Wave0001 / Topology0001
-        //
-
         Status = IoRegisterDeviceInterface(DeviceExt->PhysicalDeviceObject,
                                            &SubDeviceDescriptor->Interfaces[Index],
                                            NULL,

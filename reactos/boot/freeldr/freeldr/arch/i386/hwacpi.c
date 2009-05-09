@@ -34,7 +34,7 @@ FindAcpiBios(VOID)
     {
         if (!memcmp(Ptr, "RSD PTR ", 8))
         {
-            DPRINTM(DPRINT_HWDETECT, "ACPI supported\n");
+            DbgPrint((DPRINT_HWDETECT, "ACPI supported\n"));
 
             return (PRSDP_DESCRIPTOR)Ptr;
         }
@@ -42,7 +42,7 @@ FindAcpiBios(VOID)
         Ptr = (PUCHAR)((ULONG_PTR)Ptr + 0x10);
     }
 
-    DPRINTM(DPRINT_HWDETECT, "ACPI not supported\n");
+    DbgPrint((DPRINT_HWDETECT, "ACPI not supported\n"));
 
     return NULL;
 }
@@ -83,7 +83,7 @@ DetectAcpiBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
 
         /* Get BIOS memory map */
         RtlZeroMemory(BiosMemoryMap, sizeof(BIOS_MEMORY_MAP) * 32);
-        BiosMemoryMapEntryCount = PcMemGetMemoryMap(BiosMemoryMap,
+        BiosMemoryMapEntryCount = MachGetMemoryMap(BiosMemoryMap,
             sizeof(BiosMemoryMap) / sizeof(BIOS_MEMORY_MAP));
 
         /* Calculate the table size */
@@ -110,8 +110,8 @@ DetectAcpiBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
         memcpy(AcpiBiosData->MemoryMap, BiosMemoryMap,
             BiosMemoryMapEntryCount * sizeof(BIOS_MEMORY_MAP));
 
-        DPRINTM(DPRINT_HWDETECT, "RSDT %p, data size %x\n", Rsdp->rsdt_physical_address,
-            TableSize);
+        DbgPrint((DPRINT_HWDETECT, "RSDT %p, data size %x\n", Rsdp->rsdt_physical_address,
+            TableSize));
 
         FldrSetConfigurationData(BiosKey,
                                  PartialResourceList,

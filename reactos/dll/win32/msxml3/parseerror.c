@@ -191,7 +191,7 @@ static HRESULT WINAPI parseError_Invoke(
 
 static HRESULT WINAPI parseError_get_errorCode(
     IXMLDOMParseError *iface,
-    LONG *code )
+    long *code )
 {
     parse_error_t *This = impl_from_IXMLDOMParseError( iface );
     TRACE("(%p)->(%p)\n", This, code);
@@ -238,7 +238,7 @@ static HRESULT WINAPI parseError_get_srcText(
 
 static HRESULT WINAPI parseError_get_line(
     IXMLDOMParseError *iface,
-    LONG *line )
+    long *line )
 {
     FIXME("\n");
     return E_NOTIMPL;
@@ -246,7 +246,7 @@ static HRESULT WINAPI parseError_get_line(
 
 static HRESULT WINAPI parseError_get_linepos(
     IXMLDOMParseError *iface,
-    LONG *linepos )
+    long *linepos )
 {
     FIXME("\n");
     return E_NOTIMPL;
@@ -254,7 +254,7 @@ static HRESULT WINAPI parseError_get_linepos(
 
 static HRESULT WINAPI parseError_get_filepos(
     IXMLDOMParseError *iface,
-    LONG *filepos )
+    long *filepos )
 {
     FIXME("\n");
     return E_NOTIMPL;

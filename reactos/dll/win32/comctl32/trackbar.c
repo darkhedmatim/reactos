@@ -81,8 +81,6 @@ typedef struct
 
 #define TOOLTIP_OFFSET		2     /* distance from ctrl edge to tooltip */
 
-#define TB_DEFAULTPAGESIZE	20
-
 /* Used by TRACKBAR_Refresh to find out which parts of the control
    need to be recalculated */
 
@@ -1130,10 +1128,7 @@ TRACKBAR_SetPageSize (TRACKBAR_INFO *infoPtr, LONG lPageSize)
 {
     LONG lTemp = infoPtr->lPageSize;
 
-    if (lPageSize != -1)
-        infoPtr->lPageSize = lPageSize;
-    else
-        infoPtr->lPageSize = TB_DEFAULTPAGESIZE;
+    infoPtr->lPageSize = lPageSize;
 
     return lTemp;
 }
@@ -1410,7 +1405,7 @@ TRACKBAR_Create (HWND hwnd, const CREATESTRUCTW *lpcs)
     infoPtr->lRangeMin = 0;
     infoPtr->lRangeMax = 100;
     infoPtr->lLineSize = 1;
-    infoPtr->lPageSize = TB_DEFAULTPAGESIZE;
+    infoPtr->lPageSize = 20;
     infoPtr->lSelMin   = 0;
     infoPtr->lSelMax   = 0;
     infoPtr->lPos      = 0;

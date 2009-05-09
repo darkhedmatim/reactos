@@ -24,23 +24,19 @@ ObAssignObjectSecurityDescriptor(IN PVOID Object,
     POBJECT_HEADER ObjectHeader;
     NTSTATUS Status;
     PSECURITY_DESCRIPTOR NewSd;
-    PEX_FAST_REF FastRef;
     PAGED_CODE();
 
     /* Get the object header */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-    FastRef = (PEX_FAST_REF)&ObjectHeader->SecurityDescriptor;
     if (!SecurityDescriptor)
     {
         /* Nothing to assign */
-        ExInitializeFastReference(FastRef, NULL);
+        ObjectHeader->SecurityDescriptor = NULL;
         return STATUS_SUCCESS;
     }
 
     /* Add it to our internal cache */
-    Status = ObLogSecurityDescriptor(SecurityDescriptor,
-                                     &NewSd,
-                                     MAX_FAST_REFS + 1);
+    Status = ObLogSecurityDescriptor(SecurityDescriptor, &NewSd, 1);
     if (NT_SUCCESS(Status))
     {
         /* Free the old copy */
@@ -48,7 +44,7 @@ ObAssignObjectSecurityDescriptor(IN PVOID Object,
 
         /* Set the new pointer */
         ASSERT(NewSd);
-        ExInitializeFastReference(FastRef, NewSd);
+        ObjectHeader->SecurityDescriptor = NewSd;
     }
 
     /* Return status */
@@ -59,22 +55,11 @@ NTSTATUS
 NTAPI
 ObDeassignSecurity(IN OUT PSECURITY_DESCRIPTOR *SecurityDescriptor)
 {
-    EX_FAST_REF FastRef;
-    ULONG_PTR Count;
-    PSECURITY_DESCRIPTOR OldSecurityDescriptor;
-    
-    /* Get the fast reference and capture it */
-    FastRef = *(PEX_FAST_REF)SecurityDescriptor;
-    
+    /* Dereference it */
+    ObDereferenceSecurityDescriptor(*SecurityDescriptor, 1);
+
     /* Don't free again later */
     *SecurityDescriptor = NULL;
-    
-    /* Get the descriptor and reference count */
-    OldSecurityDescriptor = ExGetObjectFastReference(FastRef);
-    Count = ExGetCountFastReference(FastRef);
-    
-    /* Dereference the descriptor */
-    ObDereferenceSecurityDescriptor(OldSecurityDescriptor, Count + 1);
 
     /* All done */
     return STATUS_SUCCESS;
@@ -124,9 +109,6 @@ ObSetSecurityDescriptorInfo(IN PVOID Object,
     NTSTATUS Status;
     POBJECT_HEADER ObjectHeader;
     PSECURITY_DESCRIPTOR OldDescriptor, NewDescriptor, CachedDescriptor;
-    PEX_FAST_REF FastRef;
-    EX_FAST_REF OldValue;
-    ULONG_PTR Count;
     PAGED_CODE();
 
     /* Get the object header */
@@ -147,9 +129,7 @@ ObSetSecurityDescriptorInfo(IN PVOID Object,
         if (NT_SUCCESS(Status))
         {
             /* Now add this to the cache */
-            Status = ObLogSecurityDescriptor(NewDescriptor,
-                                             &CachedDescriptor,
-                                             MAX_FAST_REFS + 1);
+            Status = ObLogSecurityDescriptor(NewDescriptor, &CachedDescriptor, 1);
 
             /* Let go of our uncached copy */
             ExFreePool(NewDescriptor);
@@ -157,34 +137,15 @@ ObSetSecurityDescriptorInfo(IN PVOID Object,
             /* Check for success */
             if (NT_SUCCESS(Status))
             {
-                /* Do the swap */
-                FastRef = (PEX_FAST_REF)OutputSecurityDescriptor;
-                OldValue = ExCompareSwapFastReference(FastRef,
-                                                      CachedDescriptor,
-                                                      OldDescriptor);
-                
-                /* Get the security descriptor */
-                SecurityDescriptor = ExGetObjectFastReference(OldValue);
-                Count = ExGetCountFastReference(OldValue);
-                
-                /* Make sure the swap worked */
-                if (SecurityDescriptor == OldDescriptor)
-                {
-                    /* Flush waiters */
-                    ObpAcquireObjectLock(ObjectHeader);
-                    ObpReleaseObjectLock(ObjectHeader);
+                /* Dereference the old one */
+                ASSERT(OldDescriptor == ObjectHeader->SecurityDescriptor);
 
-                    /* And dereference the old one */
-                    ObDereferenceSecurityDescriptor(OldDescriptor, Count + 2);
-                    break;
-                }
-                else
-                {
-                    /* Someone changed it behind our back -- try again */
-                    ObDereferenceSecurityDescriptor(OldDescriptor, 1);
-                    ObDereferenceSecurityDescriptor(CachedDescriptor,
-                                                    MAX_FAST_REFS + 1);
-                }
+                /* Now set this as the new descriptor */
+                ObjectHeader->SecurityDescriptor = CachedDescriptor;
+
+                /* And dereference the old one */
+                ObDereferenceSecurityDescriptor(OldDescriptor, 1);
+                break;
             }
             else
             {

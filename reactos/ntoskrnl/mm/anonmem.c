@@ -47,7 +47,7 @@
 
 NTSTATUS
 NTAPI
-MmWritePageVirtualMemory(PMMSUPPORT AddressSpace,
+MmWritePageVirtualMemory(PMM_AVL_TABLE AddressSpace,
                          PMEMORY_AREA MemoryArea,
                          PVOID Address,
                          PMM_PAGEOP PageOp)
@@ -130,7 +130,7 @@ MmWritePageVirtualMemory(PMMSUPPORT AddressSpace,
 
 NTSTATUS
 NTAPI
-MmPageOutVirtualMemory(PMMSUPPORT AddressSpace,
+MmPageOutVirtualMemory(PMM_AVL_TABLE AddressSpace,
                        PMEMORY_AREA MemoryArea,
                        PVOID Address,
                        PMM_PAGEOP PageOp)
@@ -239,7 +239,7 @@ MmPageOutVirtualMemory(PMMSUPPORT AddressSpace,
 
 NTSTATUS
 NTAPI
-MmNotPresentFaultVirtualMemory(PMMSUPPORT AddressSpace,
+MmNotPresentFaultVirtualMemory(PMM_AVL_TABLE AddressSpace,
                                MEMORY_AREA* MemoryArea,
                                PVOID Address,
                                BOOLEAN Locked)
@@ -446,7 +446,7 @@ MmNotPresentFaultVirtualMemory(PMMSUPPORT AddressSpace,
 }
 
 static VOID
-MmModifyAttributes(PMMSUPPORT AddressSpace,
+MmModifyAttributes(PMM_AVL_TABLE AddressSpace,
                    PVOID BaseAddress,
                    ULONG RegionSize,
                    ULONG OldType,
@@ -562,7 +562,7 @@ NtAllocateVirtualMemory(IN     HANDLE ProcessHandle,
    ULONG_PTR MemoryAreaLength;
    ULONG Type;
    NTSTATUS Status;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    PVOID BaseAddress;
    ULONG RegionSize;
    PVOID PBaseAddress;
@@ -713,7 +713,7 @@ NtAllocateVirtualMemory(IN     HANDLE ProcessHandle,
    Type = (AllocationType & MEM_COMMIT) ? MEM_COMMIT : MEM_RESERVE;
    DPRINT("Type %x\n", Type);
 
-   AddressSpace = &Process->Vm;
+   AddressSpace = &Process->VadRoot;
    MmLockAddressSpace(AddressSpace);
 
    if (PBaseAddress != 0)
@@ -888,7 +888,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
          if (PageOp != NULL)
          {
             NTSTATUS Status;
-            MmUnlockAddressSpace(&Process->Vm);
+            MmUnlockAddressSpace(&Process->VadRoot);
             Status = KeWaitForSingleObject(&PageOp->CompletionEvent,
                                            0,
                                            KernelMode,
@@ -899,7 +899,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
                DPRINT1("Failed to wait for page op\n");
                KeBugCheck(MEMORY_MANAGEMENT);
             }
-            MmLockAddressSpace(&Process->Vm);
+            MmLockAddressSpace(&Process->VadRoot);
             MmReleasePageOp(PageOp);
          }
       }
@@ -915,7 +915,7 @@ MmFreeVirtualMemory(PEPROCESS Process,
    }
 
    /* Actually free the memory area. */
-   MmFreeMemoryArea(&Process->Vm,
+   MmFreeMemoryArea(&Process->VadRoot,
                     MemoryArea,
                     MmFreeVirtualMemoryPage,
                     (PVOID)Process);
@@ -945,7 +945,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
    MEMORY_AREA* MemoryArea;
    NTSTATUS Status;
    PEPROCESS Process;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    PVOID BaseAddress;
    ULONG RegionSize;
 
@@ -974,7 +974,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
       return(Status);
    }
 
-   AddressSpace = &Process->Vm;
+   AddressSpace = &Process->VadRoot;
 
    MmLockAddressSpace(AddressSpace);
    MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, BaseAddress);
@@ -1003,9 +1003,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
          Status =
             MmAlterRegion(AddressSpace,
                           MemoryArea->StartingAddress,
-                          (MemoryArea->Type == MEMORY_AREA_SECTION_VIEW) ?
-                             &MemoryArea->Data.SectionData.RegionListHead :
-                             &MemoryArea->Data.VirtualMemoryData.RegionListHead,
+                          &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                           BaseAddress,
                           RegionSize,
                           MEM_RESERVE,
@@ -1026,7 +1024,7 @@ unlock_deref_and_return:
 
 NTSTATUS
 NTAPI
-MmProtectAnonMem(PMMSUPPORT AddressSpace,
+MmProtectAnonMem(PMM_AVL_TABLE AddressSpace,
                  PMEMORY_AREA MemoryArea,
                  PVOID BaseAddress,
                  ULONG Length,
@@ -1034,48 +1032,26 @@ MmProtectAnonMem(PMMSUPPORT AddressSpace,
                  PULONG OldProtect)
 {
    PMM_REGION Region;
-   NTSTATUS Status = STATUS_SUCCESS;
-   ULONG LengthCount = 0;
+   NTSTATUS Status;
 
-   /* Search all Regions in MemoryArea up to Length */
-   /* Every Region up to Length must be committed for success */
-   for (;;)
+   Region = MmFindRegion(MemoryArea->StartingAddress,
+                         &MemoryArea->Data.VirtualMemoryData.RegionListHead,
+                         BaseAddress, NULL);
+   if (Region->Type == MEM_COMMIT)
    {
-      Region = MmFindRegion(MemoryArea->StartingAddress,
-                            &MemoryArea->Data.VirtualMemoryData.RegionListHead,
-                            (PVOID)((ULONG_PTR)BaseAddress + (ULONG_PTR)LengthCount), NULL);
-
-      /* If a Region was found and it is committed */
-      if ((Region) && (Region->Type == MEM_COMMIT))
-      {
-         LengthCount += Region->Length;
-         if (Length <= LengthCount) break;
-         continue;
-      }
-      /* If Region was found and it is not commited */
-      else if (Region)
-      {
-         Status = STATUS_NOT_COMMITTED;
-         break;
-      }
-      /* If no Region was found at all */
-      else if (LengthCount == 0)
-      {
-         Status = STATUS_INVALID_ADDRESS;
-         break;
-      }
-   }
-
-   if (NT_SUCCESS(Status))
-   {
+       /* FIXME: check if the whole range is committed 
+        * before altering the memory */
        *OldProtect = Region->Protect;
        Status = MmAlterRegion(AddressSpace, MemoryArea->StartingAddress,
                               &MemoryArea->Data.VirtualMemoryData.RegionListHead,
                               BaseAddress, Length, Region->Type, Protect,
                               MmModifyAttributes);
    }
-
-   return (Status);
+   else
+   {
+       Status = STATUS_NOT_COMMITTED;
+   }
+   return(Status);
 }
 
 NTSTATUS NTAPI

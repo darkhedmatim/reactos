@@ -18,7 +18,8 @@ clear-host
 if ($ENV:APPDATA.Length -lt 1) {
     $ENV:APPDATA = $ENV:USERPROFILE
 }
-$global:_ROSBE_VERSION = "1.4.2"
+$ENV:PATH = "$ENV:SystemRoot\system32;$ENV:SystemRoot"
+$global:_ROSBE_VERSION = 1.4
 $global:0 = $myInvocation.MyCommand.Definition
 $global:_ROSBE_BASEDIR = [System.IO.Path]::GetDirectoryName($0)
 $global:_ROSBE_MODE = "RosBE"
@@ -53,10 +54,12 @@ function global:Get-WebFile {
 function RosBE {
     "*******************************************************************************"
     "*                                                                             *"
-    "*                        ReactOS Build Environment $_ROSBE_VERSION                      *"
+    "*                        ReactOS Build Environment $_ROSBE_VERSION                        *"
     "*                                                                             *"
     "*******************************************************************************"
     ""
+    ""
+    (get-WmiObject Win32_OperatingSystem).caption
     #
     # Set the correct path for the build tools and set the MinGW make.
     #
@@ -111,8 +114,6 @@ function LoadAliases {
         set-alias UPDATE "$_ROSBE_BASEDIR\update.ps1" -scope Global
     }
 
-    set-alias VERSION "$_ROSBE_BASEDIR\version.ps1" -scope Global
-
     if (Test-Path "$_ROSBE_BASEDIR\options.ps1") {
         set-alias OPTIONS "$_ROSBE_BASEDIR\options.ps1" -scope Global
     }
@@ -130,11 +131,6 @@ if (!(Test-Path "$ENV:APPDATA\RosBE")) {
 #
 if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options.ps1") {
     & "$ENV:APPDATA\RosBE\rosbe-options.ps1"
-}
-
-# arch specific settings.
-if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options-$args.ps1") {
-    & "$ENV:APPDATA\RosBE\rosbe-options-$args.ps1"
 }
 
 $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"

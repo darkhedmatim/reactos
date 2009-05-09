@@ -1,14 +1,29 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/port.c
- * PURPOSE:         Port construction API
- * PROGRAMMER:      Johannes Anderwald
- *                  Andrew Greenwood
- */
-
 #include "private.h"
 
+NTSTATUS StringFromCLSID(
+	const CLSID *id,	/* [in] GUID to be converted */
+	LPWSTR idstr		/* [out] pointer to buffer to contain converted guid */
+) {
+  static const char hex[] = "0123456789ABCDEF";
+  WCHAR *s;
+  int	i;
+
+  swprintf(idstr, L"{%08X-%04X-%04X-%02X%02X-",
+	  id->Data1, id->Data2, id->Data3,
+	  id->Data4[0], id->Data4[1]);
+  s = &idstr[25];
+
+  /* 6 hex bytes */
+  for (i = 2; i < 8; i++) {
+    *s++ = hex[id->Data4[i]>>4];
+    *s++ = hex[id->Data4[i] & 0xf];
+  }
+
+  *s++ = '}';
+  *s++ = '\0';
+
+  return STATUS_SUCCESS;
+}
 
 
 NTSTATUS
@@ -18,11 +33,9 @@ PcNewPort(
     IN  REFCLSID ClassId)
 {
     NTSTATUS Status;
-    UNICODE_STRING GuidString;
+    WCHAR Buffer[100];
 
-    DPRINT("PcNewPort entered\n");
-
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    DPRINT1("PcNewPort entered\n");
 
     if (!OutPort)
     {
@@ -31,7 +44,7 @@ PcNewPort(
     }
 
     if (IsEqualGUIDAligned(ClassId, &CLSID_PortMidi))
-        Status = NewPortDMus(OutPort);
+        Status = NewPortMidi(OutPort);
     else if (IsEqualGUIDAligned(ClassId, &CLSID_PortDMus))
         Status = NewPortDMus(OutPort);
     else if (IsEqualGUIDAligned(ClassId, &CLSID_PortTopology))
@@ -43,11 +56,8 @@ PcNewPort(
     else
     {
 
-        if (RtlStringFromGUID(ClassId, &GuidString) == STATUS_SUCCESS)
-        {
-            DPRINT1("unknown interface %S\n", GuidString.Buffer);
-            RtlFreeUnicodeString(&GuidString);
-        }
+        StringFromCLSID(ClassId, Buffer);
+        DPRINT1("unknown interface %S\n", Buffer);
 
         Status = STATUS_NOT_SUPPORTED;
         return Status;

@@ -51,13 +51,7 @@ extern "C" {
 #define VOLATILE volatile
 
 #define RESTRICTED_POINTER
-
-#if defined(_WIN64)
-#define POINTER_ALIGNMENT DECLSPEC_ALIGN(8)
-#else
 #define POINTER_ALIGNMENT
-#endif
-
 #define DECLSPEC_ADDRSAFE
 
 #ifdef NONAMELESSUNION
@@ -101,15 +95,10 @@ extern "C" {
 
 #ifndef __IID_ALIGNED__
     #define __IID_ALIGNED__
-    #ifdef __cplusplus
-        inline int IsEqualGUIDAligned(REFGUID guid1, REFGUID guid2)
-        {
-            return ((*(PLONGLONG)(&guid1) == *(PLONGLONG)(&guid2)) && (*((PLONGLONG)(&guid1) + 1) == *((PLONGLONG)(&guid2) + 1)));
-        }
-    #else
-        #define IsEqualGUIDAligned(guid1, guid2) \
-            ((*(PLONGLONG)(guid1) == *(PLONGLONG)(guid2)) && (*((PLONGLONG)(guid1) + 1) == *((PLONGLONG)(guid2) + 1)))
-    #endif 
+
+    #define IsEqualGUIDAligned(guid1, guid2) \
+        ( (*(PLONGLONG)(guid1) == *(PLONGLONG)(guid2)) && \
+            (*((PLONGLONG)(guid1) + 1) == *((PLONGLONG)(guid2) + 1)) )
 #endif
 
 /*
@@ -1620,6 +1609,27 @@ typedef struct _CM_FLOPPY_DEVICE_DATA {
   UCHAR  DataTransferRate;
 } CM_FLOPPY_DEVICE_DATA, *PCM_FLOPPY_DEVICE_DATA;
 
+typedef enum _INTERFACE_TYPE {
+  InterfaceTypeUndefined = -1,
+  Internal,
+  Isa,
+  Eisa,
+  MicroChannel,
+  TurboChannel,
+  PCIBus,
+  VMEBus,
+  NuBus,
+  PCMCIABus,
+  CBus,
+  MPIBus,
+  MPSABus,
+  ProcessorInternal,
+  InternalPowerBus,
+  PNPISABus,
+  PNPBus,
+  MaximumInterfaceType
+} INTERFACE_TYPE, *PINTERFACE_TYPE;
+
 typedef struct _PNP_BUS_INFORMATION {
   GUID  BusTypeGuid;
   INTERFACE_TYPE  LegacyBusType;
@@ -1627,6 +1637,80 @@ typedef struct _PNP_BUS_INFORMATION {
 } PNP_BUS_INFORMATION, *PPNP_BUS_INFORMATION;
 
 #include <pshpack1.h>
+typedef struct _CM_PARTIAL_RESOURCE_DESCRIPTOR {
+  UCHAR Type;
+  UCHAR ShareDisposition;
+  USHORT Flags;
+  union {
+    struct {
+      PHYSICAL_ADDRESS Start;
+      ULONG Length;
+    } Generic;
+    struct {
+      PHYSICAL_ADDRESS Start;
+      ULONG Length;
+    } Port;
+    struct {
+      ULONG Level;
+      ULONG Vector;
+      KAFFINITY Affinity;
+    } Interrupt;
+#if (NTDDI_VERSION >= NTDDI_LONGHORN)
+    struct {
+      union {
+        struct {
+          USHORT Reserved;
+          USHORT MessageCount;
+          ULONG Vector;
+          KAFFINITY Affinity;
+        } Raw;
+        struct {
+          ULONG Level;
+          ULONG Vector;
+          KAFFINITY Affinity;
+        } Translated;
+      };
+    } MessageInterrupt;
+#endif
+    struct {
+      PHYSICAL_ADDRESS Start;
+      ULONG Length;
+    } Memory;
+    struct {
+      ULONG Channel;
+      ULONG Port;
+      ULONG Reserved1;
+    } Dma;
+    struct {
+      ULONG Data[3];
+    } DevicePrivate;
+    struct {
+      ULONG Start;
+      ULONG Length;
+      ULONG Reserved;
+    } BusNumber;
+    struct {
+      ULONG DataSize;
+      ULONG Reserved1;
+      ULONG Reserved2;
+    } DeviceSpecificData;
+#if (NTDDI_VERSION >= NTDDI_LONGHORN)
+    struct {
+      PHYSICAL_ADDRESS Start;
+      ULONG Length40;
+    } Memory40;
+    struct {
+      PHYSICAL_ADDRESS Start;
+      ULONG Length48;
+    } Memory48;
+    struct {
+      PHYSICAL_ADDRESS Start;
+      ULONG Length64;
+    } Memory64;
+#endif
+  } u;
+} CM_PARTIAL_RESOURCE_DESCRIPTOR, *PCM_PARTIAL_RESOURCE_DESCRIPTOR;
+
 /* CM_PARTIAL_RESOURCE_DESCRIPTOR.Type */
 
 #define CmResourceTypeNull                0
@@ -1742,7 +1826,6 @@ typedef struct _CM_PNP_BIOS_INSTALLATION_CHECK
 } CM_PNP_BIOS_INSTALLATION_CHECK, *PCM_PNP_BIOS_INSTALLATION_CHECK;
 
 #include <poppack.h>
-
 
 typedef struct _CM_DISK_GEOMETRY_DEVICE_DATA
 {
@@ -1868,6 +1951,80 @@ typedef enum _KINTERRUPT_POLARITY
     InterruptActiveHigh,
     InterruptActiveLow
 } KINTERRUPT_POLARITY, *PKINTERRUPT_POLARITY;
+
+/* IO_RESOURCE_DESCRIPTOR.Option */
+
+#define IO_RESOURCE_PREFERRED             0x01
+#define IO_RESOURCE_DEFAULT               0x02
+#define IO_RESOURCE_ALTERNATIVE           0x08
+
+typedef struct _IO_RESOURCE_DESCRIPTOR {
+  UCHAR  Option;
+  UCHAR  Type;
+  UCHAR  ShareDisposition;
+  UCHAR  Spare1;
+  USHORT  Flags;
+  USHORT  Spare2;
+  union {
+    struct {
+      ULONG  Length;
+      ULONG  Alignment;
+      PHYSICAL_ADDRESS  MinimumAddress;
+      PHYSICAL_ADDRESS  MaximumAddress;
+    } Port;
+    struct {
+      ULONG  Length;
+      ULONG  Alignment;
+      PHYSICAL_ADDRESS  MinimumAddress;
+      PHYSICAL_ADDRESS  MaximumAddress;
+    } Memory;
+    struct {
+      ULONG  MinimumVector;
+      ULONG  MaximumVector;
+    } Interrupt;
+    struct {
+      ULONG  MinimumChannel;
+      ULONG  MaximumChannel;
+    } Dma;
+    struct {
+      ULONG  Length;
+      ULONG  Alignment;
+      PHYSICAL_ADDRESS  MinimumAddress;
+      PHYSICAL_ADDRESS  MaximumAddress;
+    } Generic;
+    struct {
+      ULONG  Data[3];
+    } DevicePrivate;
+    struct {
+      ULONG  Length;
+      ULONG  MinBusNumber;
+      ULONG  MaxBusNumber;
+      ULONG  Reserved;
+    } BusNumber;
+    struct {
+      ULONG  Priority;
+      ULONG  Reserved1;
+      ULONG  Reserved2;
+    } ConfigData;
+  } u;
+} IO_RESOURCE_DESCRIPTOR, *PIO_RESOURCE_DESCRIPTOR;
+
+typedef struct _IO_RESOURCE_LIST {
+  USHORT  Version;
+  USHORT  Revision;
+  ULONG  Count;
+  IO_RESOURCE_DESCRIPTOR  Descriptors[1];
+} IO_RESOURCE_LIST, *PIO_RESOURCE_LIST;
+
+typedef struct _IO_RESOURCE_REQUIREMENTS_LIST {
+  ULONG  ListSize;
+  INTERFACE_TYPE  InterfaceType;
+  ULONG  BusNumber;
+  ULONG  SlotNumber;
+  ULONG  Reserved[3];
+  ULONG  AlternativeLists;
+  IO_RESOURCE_LIST  List[1];
+} IO_RESOURCE_REQUIREMENTS_LIST, *PIO_RESOURCE_REQUIREMENTS_LIST;
 
 typedef struct _IO_ERROR_LOG_PACKET {
   UCHAR  MajorFunctionCode;
@@ -5627,13 +5784,6 @@ BOOLEAN
 FASTCALL
 KeTryToAcquireSpinLockAtDpcLevel(
     IN OUT PKSPIN_LOCK SpinLock
-);
-
-NTKERNELAPI
-BOOLEAN
-FASTCALL
-KeTestSpinLock(
-    IN PKSPIN_LOCK SpinLock
 );
 
 #if defined (_X86_)

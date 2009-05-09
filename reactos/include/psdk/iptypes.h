@@ -2,8 +2,6 @@
 #define _IPTYPES_H
 
 #include <sys/types.h>
-#include <ifdef.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -13,7 +13,6 @@
 #include "ntgdi/NtGdiCreateCompatibleBitmap.c"
 #include "ntgdi/NtGdiCreateCompatibleDC.c"
 #include "ntgdi/NtGdiCreateDIBSection.c"
-#include "ntgdi/NtGdiDeleteObjectApp.c"
 #include "ntgdi/NtGdiDoPalette.c"
 #include "ntgdi/NtGdiEngCreatePalette.c"
 //#include "ntgdi/NtGdiEnumFontChunk.c"
@@ -25,8 +24,6 @@
 #include "ntgdi/NtGdiGetFontResourceInfoInternalW.c"
 #include "ntgdi/NtGdiGetRandomRgn.c"
 #include "ntgdi/NtGdiPolyPolyDraw.c"
-#include "ntgdi/NtGdiRestoreDC.c"
-#include "ntgdi/NtGdiSaveDC.c"
 #include "ntgdi/NtGdiSelectBitmap.c"
 #include "ntgdi/NtGdiSelectBrush.c"
 #include "ntgdi/NtGdiSelectFont.c"
@@ -75,7 +72,6 @@ TESTENTRY TestList[] =
 	{ L"NtGdiCreateCompatibleBitmap", Test_NtGdiCreateCompatibleBitmap },
 	{ L"NtGdiCreateCompatibleDC", Test_NtGdiCreateCompatibleDC },
 	{ L"NtGdiCreateDIBSection", Test_NtGdiCreateDIBSection },
-	{ L"NtGdiDeleteObjectApp", Test_NtGdiDeleteObjectApp },
 	{ L"NtGdiDoPalette", Test_NtGdiDoPalette },
 	{ L"NtGdiEngCreatePalette", Test_NtGdiEngCreatePalette },
 //	{ L"NtGdiEnumFontChunk", Test_NtGdiEnumFontChunk },
@@ -87,8 +83,6 @@ TESTENTRY TestList[] =
 	{ L"NtGdiGetFontResourceInfoInternalW", Test_NtGdiGetFontResourceInfoInternalW },
 	{ L"NtGdiGetRandomRgn", Test_NtGdiGetRandomRgn },
 	{ L"NtGdiPolyPolyDraw", Test_NtGdiPolyPolyDraw },
-	{ L"NtGdiRestoreDC", Test_NtGdiRestoreDC },
-	{ L"NtGdiSaveDC", Test_NtGdiSaveDC },
 	{ L"NtGdiSetBitmapBits", Test_NtGdiSetBitmapBits },
 	{ L"NtGdiSetDIBitsToDeviceInternal", Test_NtGdiSetDIBitsToDeviceInternal },
 	{ L"NtGdiSelectBitmap", Test_NtGdiSelectBitmap },

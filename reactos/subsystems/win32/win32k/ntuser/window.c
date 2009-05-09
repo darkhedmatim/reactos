@@ -499,13 +499,13 @@ static LRESULT co_UserFreeWindow(PWINDOW_OBJECT Window,
 
    /* dereference the class */
    IntDereferenceClass(Wnd->Class,
-                       Window->ti->pDeskInfo,
-                       Window->ti->ppi);
+                       Window->ti->Desktop,
+                       Window->ti->kpi);
    Wnd->Class = NULL;
 
    if(Window->WindowRegion)
    {
-      GreDeleteObject(Window->WindowRegion);
+      NtGdiDeleteObject(Window->WindowRegion);
    }
 
    ASSERT(Window->Wnd != NULL);
@@ -581,10 +581,10 @@ IntGetWindowProc(IN PWINDOW_OBJECT Window,
                                                Wnd->Unicode);
                 if (NewCallProc == NULL)
                 {
-                    NewCallProc = CreateCallProc(Wnd->ti->pDeskInfo,
+                    NewCallProc = CreateCallProc(Wnd->ti->Desktop,
                                                  Wnd->WndProc,
                                                  Wnd->Unicode,
-                                                 Wnd->ti->ppi);
+                                                 Wnd->ti->kpi);
                     if (NewCallProc == NULL)
                     {
                         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
@@ -739,7 +739,7 @@ co_DestroyThreadWindows(struct _ETHREAD *Thread)
  * \note Does not check the validity of the parameters
 */
 VOID FASTCALL
-IntGetClientRect(PWINDOW_OBJECT Window, RECTL *Rect)
+IntGetClientRect(PWINDOW_OBJECT Window, PRECT Rect)
 {
    ASSERT( Window );
    ASSERT( Rect );
@@ -1484,14 +1484,14 @@ NtUserChildWindowFromPointEx(HWND hwndParent,
  * calculates the default position of a window
  */
 BOOL FASTCALL
-IntCalcDefPosSize(PWINDOW_OBJECT Parent, PWINDOW_OBJECT Window, RECTL *rc, BOOL IncPos)
+IntCalcDefPosSize(PWINDOW_OBJECT Parent, PWINDOW_OBJECT Window, RECT *rc, BOOL IncPos)
 {
    SIZE Sz;
    POINT Pos = {0, 0};
 
    if(Parent != NULL)
    {
-      RECTL_bIntersectRect(rc, rc, &Parent->Wnd->ClientRect);
+      IntGdiIntersectRect(rc, rc, &Parent->Wnd->ClientRect);
 
       if(IncPos)
       {
@@ -1630,7 +1630,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
 
    ClassAtom = IntGetClassAtom(ClassName,
                                hInstance,
-                               ti->ppi,
+                               ti->kpi,
                                &Class,
                                &ClassLink);
 
@@ -1679,7 +1679,7 @@ co_IntCreateWindowEx(DWORD dwExStyle,
        Wnd = Window->Wnd;
 
        Wnd->ti = ti;
-       Wnd->pi = ti->ppi;
+       Wnd->pi = ti->kpi;
        Wnd->pdesktop = pti->Desktop;
        Wnd->hWndLastActive = hWnd;
    }
@@ -1899,7 +1899,7 @@ AllocErr:
    /* default positioning for overlapped windows */
    if(!(Wnd->Style & (WS_POPUP | WS_CHILD)))
    {
-      RECTL rc, WorkArea;
+      RECT rc, WorkArea;
       PRTL_USER_PROCESS_PARAMETERS ProcessParams;
       BOOL CalculatedDefPosSize = FALSE;
 
@@ -1997,7 +1997,7 @@ AllocErr:
    Wnd->WindowRect.bottom = Pos.y + Size.cy;
    if (0 != (Wnd->Style & WS_CHILD) && ParentWindow)
    {
-      RECTL_vOffsetRect(&(Wnd->WindowRect), ParentWindow->Wnd->ClientRect.left,
+      IntGdiOffsetRect(&(Wnd->WindowRect), ParentWindow->Wnd->ClientRect.left,
                        ParentWindow->Wnd->ClientRect.top);
    }
    Wnd->ClientRect = Wnd->WindowRect;
@@ -2032,7 +2032,7 @@ AllocErr:
    Wnd->WindowRect.bottom = Pos.y + Size.cy;
    if (0 != (Wnd->Style & WS_CHILD) && ParentWindow)
    {
-      RECTL_vOffsetRect(&(Wnd->WindowRect), ParentWindow->Wnd->ClientRect.left,
+      IntGdiOffsetRect(&(Wnd->WindowRect), ParentWindow->Wnd->ClientRect.left,
                        ParentWindow->Wnd->ClientRect.top);
    }
    Wnd->ClientRect = Wnd->WindowRect;
@@ -2067,7 +2067,7 @@ AllocErr:
                                       &Window->Wnd->WindowRect,
                                       &Window->Wnd->ClientRect);
 
-   RECTL_vOffsetRect(&Window->Wnd->WindowRect,
+   IntGdiOffsetRect(&Window->Wnd->WindowRect,
                     MaxPos.x - Window->Wnd->WindowRect.left,
                     MaxPos.y - Window->Wnd->WindowRect.top);
 
@@ -2172,7 +2172,7 @@ AllocErr:
    /* Show or maybe minimize or maximize the window. */
    if (Wnd->Style & (WS_MINIMIZE | WS_MAXIMIZE))
    {
-      RECTL NewPos;
+      RECT NewPos;
       UINT16 SwFlag;
 
       SwFlag = (Wnd->Style & WS_MINIMIZE) ? SW_MINIMIZE :
@@ -2245,8 +2245,8 @@ AllocErr:
    if (ClassAtom == 0XC007)
    {
       PCALLPROC CallProc;
-      //CallProc = CreateCallProc(NULL, Wnd->WndProc, bUnicodeWindow, Wnd->ti->ppi);
-      CallProc = CreateCallProc(NULL, Wnd->WndProc, Wnd->Unicode , Wnd->ti->ppi);
+      //CallProc = CreateCallProc(NULL, Wnd->WndProc, bUnicodeWindow, Wnd->ti->kpi);
+      CallProc = CreateCallProc(NULL, Wnd->WndProc, Wnd->Unicode , Wnd->ti->kpi);
 
       if (!CallProc)
       {
@@ -2279,8 +2279,8 @@ CLEANUP:
        if (Class != NULL)
        {
            IntDereferenceClass(Class,
-                               ti->pDeskInfo,
-                               ti->ppi);
+                               ti->Desktop,
+                               ti->kpi);
        }
    }
    END_CLEANUP;
@@ -2397,11 +2397,9 @@ BOOLEAN FASTCALL co_UserDestroyWindow(PWINDOW_OBJECT Window)
    BOOLEAN isChild;
    PWINDOW Wnd;
 
-   ASSERT_REFS_CO(Window); // FIXME: temp hack?
+   ASSERT_REFS_CO(Window); //fixme: temp hack?
 
    Wnd = Window->Wnd;
-
-   if (!Wnd) return TRUE; // FIXME: Need to finish object rewrite or lock the thread when killing the window!
 
    /* Check for owner thread */
    if ((Window->OwnerThread != PsGetCurrentThread()))
@@ -3341,7 +3339,7 @@ NtUserSetShellWindowEx(HWND hwndShell, HWND hwndListView)
    WinStaObject->ShellListView = hwndListView;
 
    ti = GetW32ThreadInfo();
-   if (ti->pDeskInfo) ti->pDeskInfo->hShellWindow = hwndShell;
+   if (ti->Desktop) ti->Desktop->hShellWindow = hwndShell;
 
    UserDerefObjectCo(WndShell);
 
@@ -3709,7 +3707,7 @@ IntSetWindowProc(PWINDOW_OBJECT Window,
                 CallProc = CreateCallProc(NULL,
                                           Wnd->WndProc,
                                           Wnd->Unicode,
-                                          Wnd->ti->ppi);
+                                          Wnd->ti->kpi);
                 if (CallProc == NULL)
                 {
                     SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
@@ -4480,13 +4478,13 @@ IntGetWindowRgn(PWINDOW_OBJECT Window, HRGN hRgn)
    else
       Ret = ERROR;
 
-   GreDeleteObject(VisRgn);
+   NtGdiDeleteObject(VisRgn);
 
    return Ret;
 }
 
 INT FASTCALL
-IntGetWindowRgnBox(PWINDOW_OBJECT Window, RECTL *Rect)
+IntGetWindowRgnBox(PWINDOW_OBJECT Window, RECT *Rect)
 {
    INT Ret;
    HRGN VisRgn;
@@ -4520,7 +4518,7 @@ IntGetWindowRgnBox(PWINDOW_OBJECT Window, RECTL *Rect)
    else
       Ret = ERROR;
 
-   GreDeleteObject(VisRgn);
+   NtGdiDeleteObject(VisRgn);
 
    return Ret;
 }
@@ -4552,7 +4550,7 @@ NtUserSetWindowRgn(
    if(Window->WindowRegion)
    {
       /* Delete no longer needed region handle */
-      GreDeleteObject(Window->WindowRegion);
+      NtGdiDeleteObject(Window->WindowRegion);
    }
    Window->WindowRegion = hRgn;
 

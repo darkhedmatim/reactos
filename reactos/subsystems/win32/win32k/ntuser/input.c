@@ -1072,6 +1072,7 @@ IntMouseInput(MOUSEINPUT *mi)
    PWINSTATION_OBJECT WinSta;
    BOOL DoMove, SwapButtons;
    MSG Msg;
+   HBITMAP hBitmap;
    SURFACE *psurf;
    SURFOBJ *pso;
    PDC dc;
@@ -1168,7 +1169,10 @@ IntMouseInput(MOUSEINPUT *mi)
       dc = DC_LockDc(hDC);
       if (dc)
       {
-         psurf = dc->dclevel.pSurface;
+         hBitmap = dc->w.hBitmap;
+         DC_UnlockDc(dc);
+
+         psurf = SURFACE_LockSurface(hBitmap);
          if (psurf)
          {
             pso = &psurf->SurfObj;
@@ -1177,13 +1181,13 @@ IntMouseInput(MOUSEINPUT *mi)
             {
                IntEngMovePointer(pso, MousePos.x, MousePos.y, &(GDIDEV(pso)->Pointer.Exclude));
             }
-            /* Only now, update the info in the PDEVOBJ, so EngMovePointer can
+            /* Only now, update the info in the GDIDEVICE, so EngMovePointer can
             * use the old values to move the pointer image */
             gpsi->ptCursor.x = MousePos.x;
             gpsi->ptCursor.y = MousePos.y;
-         }
 
-         DC_UnlockDc(dc);
+            SURFACE_UnlockSurface(psurf);
+         }
       }
    }
 

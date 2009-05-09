@@ -166,25 +166,6 @@ extern "C" {
 #define EMR_GLSRECORD 102
 #define EMR_GLSBOUNDEDRECORD 103
 #define EMR_PIXELFORMAT 104
-#if (_WIN32_WINNT >= 0x0500)
-#define EMR_DRAWESCAPE 105
-#define EMR_EXTESCAPE 106
-#define EMR_STARTDOC 107
-#define EMR_SMALLTEXTOUT 108
-#define EMR_FORCEUFIMAPPING 109
-#define EMR_NAMEDESCAPE 110
-#define EMR_COLORCORRECTPALETTE 111
-#define EMR_SETICMPROFILEA 112
-#define EMR_SETICMPROFILEW 113
-#define EMR_ALPHABLEND 114
-#define EMR_ALPHADIBBLEND 115
-#define EMR_TRANSPARENTBLT 116
-#define EMR_TRANSPARENTDIB 117
-#define EMR_GRADIENTFILL 118
-#define EMR_SETLINKEDUFIS 119
-#define EMR_SETTEXTJUSTIFICATION 120
-#define EMR_COLORMATCHTOTARGETW 121
-#endif
 #define ENHMETA_SIGNATURE 1179469088
 #define EPS_SIGNATURE 0x46535045
 #if (_WIN32_WINNT >= 0x0500)
@@ -1457,11 +1438,9 @@ typedef struct _devicemodeA {
 #else
     } DUMMYSTRUCTNAME;
 #endif
-    struct {
-      POINTL dmPosition;
-      DWORD  dmDisplayOrientation;
-      DWORD  dmDisplayFixedOutput;
-    } DUMMYSTRUCTNAME2;
+    POINTL dmPosition;
+    DWORD  dmDisplayOrientation;
+    DWORD  dmDisplayFixedOutput;
 #ifdef __WINESRC__
   } DUMMYUNIONNAME1;
 #else
@@ -1518,11 +1497,9 @@ typedef struct _devicemodeW {
 #else
     } DUMMYSTRUCTNAME;
 #endif
-    struct {
-      POINTL dmPosition;
-      DWORD  dmDisplayOrientation;
-      DWORD  dmDisplayFixedOutput;
-    } DUMMYSTRUCTNAME2;
+    POINTL dmPosition;
+    DWORD  dmDisplayOrientation;
+    DWORD  dmDisplayFixedOutput;
 #ifdef __WINESRC__
   } DUMMYUNIONNAME1;
 #else
@@ -1556,7 +1533,7 @@ typedef struct _devicemodeW {
   DWORD  dmPanningHeight;
 #endif
 #endif /* WINVER >= 0x0400 */
-} DEVMODEW,*LPDEVMODEW,*PDEVMODEW,*NPDEVMODEW;
+} DEVMODEW,*LPDEVMODEW,*PDEVMODEW;
 typedef struct tagDIBSECTION {
 	BITMAP dsBm;
 	BITMAPINFOHEADER dsBmih;

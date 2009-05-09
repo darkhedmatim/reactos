@@ -1,85 +1,62 @@
 /*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/drm.c
- * PURPOSE:         portcls drm functions
- * PROGRAMMER:      Andrew Greenwood
- */
+    ReactOS Kernel Streaming
+    Port Class / Digital Rights Management
+
+    Author: Andrew Greenwood
+
+    Notes:
+        These are convenience functions for accessing DRM facilities, as
+        documented here:
+        http://www.osronline.com/ddkx/stream/aud-prop_9f77.htm
+*/
 
 #include "private.h"
+#include <portcls.h>
+#include <drmk.h>
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcAddContentHandlers(
     IN  ULONG ContentId,
     IN  PVOID *paHandlers,
     IN  ULONG NumHandlers)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmAddContentHandlers(ContentId, paHandlers, NumHandlers);
 }
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcCreateContentMixed(
     IN  PULONG paContentId,
     IN  ULONG cContentId,
     OUT PULONG pMixedContentId)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmCreateContentMixed(paContentId, cContentId, pMixedContentId);
 }
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcDestroyContent(
     IN  ULONG ContentId)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmDestroyContent(ContentId);
 }
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcForwardContentToDeviceObject(
     IN  ULONG ContentId,
     IN  PVOID Reserved,
     IN  PCDRMFORWARD DrmForward)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmForwardContentToDeviceObject(ContentId, Reserved, DrmForward);
 }
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcForwardContentToFileObject(
     IN  ULONG ContentId,
     IN  PFILE_OBJECT FileObject)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmForwardContentToFileObject(ContentId, FileObject);
 }
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcForwardContentToInterface(
     IN  ULONG ContentId,
     IN  PUNKNOWN pUnknown,
@@ -88,15 +65,10 @@ PcForwardContentToInterface(
     return DrmForwardContentToInterface(ContentId, pUnknown, NumMethods);
 }
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcGetContentRights(
     IN  ULONG ContentId,
     OUT PDRMRIGHTS DrmRights)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmGetContentRights(ContentId, DrmRights);
 }

@@ -72,7 +72,6 @@ FATIsDirectoryEmpty(PVFATFCB Fcb)
             }
 
             FatDirEntry += Index % FAT_ENTRIES_PER_PAGE;
-            FileOffset.QuadPart += PAGE_SIZE;
         }
 
         if (FAT_ENTRY_END(FatDirEntry))
@@ -126,7 +125,6 @@ FATXIsDirectoryEmpty(PVFATFCB Fcb)
             }
 
             FatXDirEntry += Index % FATX_ENTRIES_PER_PAGE;
-            FileOffset.QuadPart += PAGE_SIZE;
         }
 
         if (FATX_ENTRY_END(FatXDirEntry))

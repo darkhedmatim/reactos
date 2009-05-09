@@ -105,7 +105,7 @@ ULONG __RPC_USER CLIPFORMAT_UserSize(ULONG *pFlags, ULONG StartingSize, CLIPFORM
 
     TRACE("(%s, %d, %p\n", debugstr_user_flags(pFlags), StartingSize, pCF);
 
-    size += 8;
+    size += sizeof(userCLIPFORMAT);
 
     /* only need to marshal the name if it is not a pre-defined type and
      * we are going remote */
@@ -113,7 +113,7 @@ ULONG __RPC_USER CLIPFORMAT_UserSize(ULONG *pFlags, ULONG StartingSize, CLIPFORM
     {
         WCHAR format[255];
         INT ret;
-        size += 3 * sizeof(UINT);
+        size += 3 * sizeof(INT);
         /* urg! this function is badly designed because it won't tell us how
          * much space is needed without doing a dummy run of storing the
          * name into a buffer */
@@ -146,30 +146,30 @@ ULONG __RPC_USER CLIPFORMAT_UserSize(ULONG *pFlags, ULONG StartingSize, CLIPFORM
  */
 unsigned char * __RPC_USER CLIPFORMAT_UserMarshal(ULONG *pFlags, unsigned char *pBuffer, CLIPFORMAT *pCF)
 {
+    wireCLIPFORMAT wirecf = (wireCLIPFORMAT)pBuffer;
+
     TRACE("(%s, %p, &0x%04x\n", debugstr_user_flags(pFlags), pBuffer, *pCF);
+
+    wirecf->u.dwValue = *pCF;
+    pBuffer += sizeof(*wirecf);
 
     /* only need to marshal the name if it is not a pre-defined type and
      * we are going remote */
     if ((*pCF >= 0xc000) && (LOWORD(*pFlags) == MSHCTX_DIFFERENTMACHINE))
     {
         WCHAR format[255];
-        UINT len;
-
-        *(DWORD *)pBuffer = WDT_REMOTE_CALL;
-        pBuffer += 4;
-        *(DWORD *)pBuffer = *pCF;
-        pBuffer += 4;
-
+        INT len;
+        wirecf->fContext = WDT_REMOTE_CALL;
         len = GetClipboardFormatNameW(*pCF, format, sizeof(format)/sizeof(format[0])-1);
         if (!len)
             RaiseException(DV_E_CLIPFORMAT, 0, 0, NULL);
         len += 1;
-        *(UINT *)pBuffer = len;
-        pBuffer += sizeof(UINT);
-        *(UINT *)pBuffer = 0;
-        pBuffer += sizeof(UINT);
-        *(UINT *)pBuffer = len;
-        pBuffer += sizeof(UINT);
+        *(INT *)pBuffer = len;
+        pBuffer += sizeof(INT);
+        *(INT *)pBuffer = 0;
+        pBuffer += sizeof(INT);
+        *(INT *)pBuffer = len;
+        pBuffer += sizeof(INT);
         TRACE("marshaling format name %s\n", debugstr_wn(format, len-1));
         lstrcpynW((LPWSTR)pBuffer, format, len);
         pBuffer += len * sizeof(WCHAR);
@@ -177,12 +177,7 @@ unsigned char * __RPC_USER CLIPFORMAT_UserMarshal(ULONG *pFlags, unsigned char *
         pBuffer += sizeof(WCHAR);
     }
     else
-    {
-        *(DWORD *)pBuffer = WDT_INPROC_CALL;
-        pBuffer += 4;
-        *(DWORD *)pBuffer = *pCF;
-        pBuffer += 4;
-    }
+        wirecf->fContext = WDT_INPROC_CALL;
 
     return pBuffer;
 }
@@ -208,36 +203,24 @@ unsigned char * __RPC_USER CLIPFORMAT_UserMarshal(ULONG *pFlags, unsigned char *
  */
 unsigned char * __RPC_USER CLIPFORMAT_UserUnmarshal(ULONG *pFlags, unsigned char *pBuffer, CLIPFORMAT *pCF)
 {
-    LONG fContext;
+    wireCLIPFORMAT wirecf = (wireCLIPFORMAT)pBuffer;
 
     TRACE("(%s, %p, %p\n", debugstr_user_flags(pFlags), pBuffer, pCF);
 
-    fContext = *(DWORD *)pBuffer;
-    pBuffer += 4;
-
-    if (fContext == WDT_INPROC_CALL)
-    {
-        *pCF = *(CLIPFORMAT *)pBuffer;
-        pBuffer += 4;
-    }
-    else if (fContext == WDT_REMOTE_CALL)
+    pBuffer += sizeof(*wirecf);
+    if (wirecf->fContext == WDT_INPROC_CALL)
+        *pCF = (CLIPFORMAT)wirecf->u.dwValue;
+    else if (wirecf->fContext == WDT_REMOTE_CALL)
     {
         CLIPFORMAT cf;
-        UINT len;
-
-        /* pointer ID for registered clip format string */
-        if (*(DWORD *)pBuffer == 0)
+        INT len = *(INT *)pBuffer;
+        pBuffer += sizeof(INT);
+        if (*(INT *)pBuffer != 0)
             RaiseException(RPC_S_INVALID_BOUND, 0, 0, NULL);
-        pBuffer += 4;
-
-        len = *(UINT *)pBuffer;
-        pBuffer += sizeof(UINT);
-        if (*(UINT *)pBuffer != 0)
+        pBuffer += sizeof(INT);
+        if (*(INT *)pBuffer != len)
             RaiseException(RPC_S_INVALID_BOUND, 0, 0, NULL);
-        pBuffer += sizeof(UINT);
-        if (*(UINT *)pBuffer != len)
-            RaiseException(RPC_S_INVALID_BOUND, 0, 0, NULL);
-        pBuffer += sizeof(UINT);
+        pBuffer += sizeof(INT);
         if (((WCHAR *)pBuffer)[len] != '\0')
             RaiseException(RPC_S_INVALID_BOUND, 0, 0, NULL);
         TRACE("unmarshaling clip format %s\n", debugstr_w((LPCWSTR)pBuffer));
@@ -2414,7 +2397,7 @@ HRESULT CALLBACK IStorage_OpenStream_Proxy(
 HRESULT __RPC_STUB IStorage_OpenStream_Stub(
     IStorage* This,
     LPCOLESTR pwcsName,
-    ULONG cbReserved1,
+    unsigned long cbReserved1,
     byte *reserved1,
     DWORD grfMode,
     DWORD reserved2,
@@ -2438,7 +2421,7 @@ HRESULT CALLBACK IStorage_EnumElements_Proxy(
 HRESULT __RPC_STUB IStorage_EnumElements_Stub(
     IStorage* This,
     DWORD reserved1,
-    ULONG cbReserved2,
+    unsigned long cbReserved2,
     byte *reserved2,
     DWORD reserved3,
     IEnumSTATSTG **ppenum)

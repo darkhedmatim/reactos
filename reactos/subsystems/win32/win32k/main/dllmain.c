@@ -129,13 +129,14 @@ Win32kProcessCallback(struct _EPROCESS *Process,
       }
 
       /* setup process flags */
-      Win32Process->W32PF_flags = 0;
+      Win32Process->Flags = 0;
     }
   else
     {
       DPRINT("Destroying W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
       IntCleanupMenus(Process, Win32Process);
       IntCleanupCurIcons(Process, Win32Process);
+      IntEngCleanupDriverObjs(Process, Win32Process);
       CleanupMonitorImpl();
 
       /* no process windows should exist at this point, or the function will assert! */
@@ -283,7 +284,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
       if (Win32Thread->ThreadInfo)
       {
           Win32Thread->ThreadInfo->ClientThreadInfo.dwcPumpHook = 0;
-//          Win32Thread->pClientInfo->pClientThreadInfo = &Win32Thread->ThreadInfo->ClientThreadInfo;
+          Win32Thread->pClientInfo->pClientThreadInfo = &Win32Thread->ThreadInfo->ClientThreadInfo;
       }
     }
   else

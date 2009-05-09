@@ -673,15 +673,19 @@ static INT_PTR PROPSHEET_CreateDialog(PropSheetInfo* psInfo)
   if( psInfo->unicode )
   {
     ret = (INT_PTR)CreateDialogIndirectParamW(psInfo->ppshheader.hInstance,
-                                          temp, psInfo->ppshheader.hwndParent,
-                                          PROPSHEET_DialogProc, (LPARAM)psInfo);
+                                          (LPDLGTEMPLATEW) temp,
+                                          psInfo->ppshheader.hwndParent,
+                                          PROPSHEET_DialogProc,
+                                          (LPARAM)psInfo);
     if ( !ret ) ret = -1;
   }
   else
   {
     ret = (INT_PTR)CreateDialogIndirectParamA(psInfo->ppshheader.hInstance,
-                                          temp, psInfo->ppshheader.hwndParent,
-                                          PROPSHEET_DialogProc, (LPARAM)psInfo);
+                                          (LPDLGTEMPLATEA) temp,
+                                          psInfo->ppshheader.hwndParent,
+                                          PROPSHEET_DialogProc,
+                                          (LPARAM)psInfo);
     if ( !ret ) ret = -1;
   }
 
@@ -736,10 +740,9 @@ static BOOL PROPSHEET_AdjustSize(HWND hwndDlg, PropSheetInfo* psInfo)
   HWND hwndTabCtrl = GetDlgItem(hwndDlg, IDC_TABCONTROL);
   HWND hwndButton = GetDlgItem(hwndDlg, IDOK);
   RECT rc,tabRect;
-  int buttonHeight;
+  int tabOffsetX, tabOffsetY, buttonHeight;
   PADDING_INFO padding = PROPSHEET_GetPaddingInfo(hwndDlg);
   RECT units;
-  LONG style;
 
   /* Get the height of buttons */
   GetClientRect(hwndButton, &rc);
@@ -781,6 +784,9 @@ static BOOL PROPSHEET_AdjustSize(HWND hwndDlg, PropSheetInfo* psInfo)
 
   SendMessageW(hwndTabCtrl, TCM_ADJUSTRECT, TRUE, (LPARAM)&rc);
 
+  tabOffsetX = -(rc.left);
+  tabOffsetY = -(rc.top);
+
   rc.right -= rc.left;
   rc.bottom -= rc.top;
   TRACE("setting tab %p, rc (0,0)-(%d,%d)\n",
@@ -792,15 +798,8 @@ static BOOL PROPSHEET_AdjustSize(HWND hwndDlg, PropSheetInfo* psInfo)
 
   TRACE("tab client rc %s\n", wine_dbgstr_rect(&rc));
 
-  rc.right += (padding.x * 2);
-  rc.bottom += buttonHeight + (3 * padding.y);
-
-  style = GetWindowLongW(hwndDlg, GWL_STYLE);
-  if (!(style & WS_CHILD))
-    AdjustWindowRect(&rc, style, FALSE);
-
-  rc.right -= rc.left;
-  rc.bottom -= rc.top;
+  rc.right += ((padding.x * 2) + tabOffsetX);
+  rc.bottom += (buttonHeight + (3 * padding.y) + tabOffsetY);
 
   /*
    * Resize the property sheet.
@@ -2440,6 +2439,7 @@ EnumChildProc(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 
+
 /******************************************************************************
  *            PROPSHEET_SetWizButtons
  *
@@ -2756,7 +2756,7 @@ static void PROPSHEET_CleanUp(HWND hwndDlg)
   Free(psInfo->strPropertiesFor);
   ImageList_Destroy(psInfo->hImageList);
 
-  GlobalFree(psInfo);
+  GlobalFree((HGLOBAL)psInfo);
 }
 
 static INT do_loop(const PropSheetInfo *psInfo)
@@ -3268,7 +3268,7 @@ static LRESULT PROPSHEET_Paint(HWND hwnd, HDC hdcParam)
 	MapWindowPoints(hwndLineHeader, hwnd, (LPPOINT) &r, 2);
 	SetRect(&rzone, 0, 0, r.right + 1, r.top - 1);
 
-	GetObjectW(psInfo->ppshheader.u5.hbmHeader, sizeof(BITMAP), &bm);
+	GetObjectW(psInfo->ppshheader.u5.hbmHeader, sizeof(BITMAP), (LPVOID)&bm);		
 
  	if (psInfo->ppshheader.dwFlags & PSH_WIZARD97_OLD)
  	{
@@ -3376,7 +3376,7 @@ static LRESULT PROPSHEET_Paint(HWND hwnd, HDC hdcParam)
 	hbr = GetSysColorBrush(COLOR_WINDOW);
 	FillRect(hdc, &rzone, hbr);
 
-	GetObjectW(psInfo->ppshheader.u4.hbmWatermark, sizeof(BITMAP), &bm);
+	GetObjectW(psInfo->ppshheader.u4.hbmWatermark, sizeof(BITMAP), (LPVOID)&bm);
 	hbmp = SelectObject(hdcSrc, psInfo->ppshheader.u4.hbmWatermark);
 
         /* The watermark is truncated to a width of 164 pixels */
@@ -3431,7 +3431,7 @@ PROPSHEET_DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       /* Using PropSheetInfoStr to store extra data doesn't match the native
        * common control: native uses TCM_[GS]ETITEM
        */
-      SetPropW(hwnd, PropSheetInfoStr, psInfo);
+      SetPropW(hwnd, PropSheetInfoStr, (HANDLE)psInfo);
 
       /*
        * psInfo->hwnd is not being used by WINE code - it exists

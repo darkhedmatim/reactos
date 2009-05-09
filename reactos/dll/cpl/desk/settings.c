@@ -107,7 +107,6 @@ GetPossibleSettings(IN LPCTSTR DeviceName, OUT DWORD* pSettingsCount, OUT PSETTI
 			Current->dmPelsWidth = devmode.dmPelsWidth;
 			Current->dmPelsHeight = devmode.dmPelsHeight;
 			Current->dmBitsPerPel = devmode.dmBitsPerPel;
-			Current->dmDisplayFrequency = devmode.dmDisplayFrequency;
 			while (Next != NULL && (
 			       Next->dmPelsWidth < Current->dmPelsWidth ||
 			       (Next->dmPelsWidth == Current->dmPelsWidth && Next->dmPelsHeight < Current->dmPelsHeight) ||
@@ -699,8 +698,7 @@ SettingsPageProc(IN HWND hwndDlg, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lPar
 					devmode.dmPelsWidth = pGlobalData->CurrentDisplayDevice->CurrentSettings->dmPelsWidth;
 					devmode.dmPelsHeight = pGlobalData->CurrentDisplayDevice->CurrentSettings->dmPelsHeight;
 					devmode.dmBitsPerPel = pGlobalData->CurrentDisplayDevice->CurrentSettings->dmBitsPerPel;
-					devmode.dmDisplayFrequency = pGlobalData->CurrentDisplayDevice->CurrentSettings->dmDisplayFrequency;
-					devmode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+					devmode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL;
 					rc = ChangeDisplaySettingsEx(
 						pGlobalData->CurrentDisplayDevice->DeviceName,
 						&devmode,

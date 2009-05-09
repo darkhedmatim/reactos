@@ -215,12 +215,12 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
   InstData = (PCM_PNP_BIOS_INSTALLATION_CHECK)PnpBiosSupported();
   if (InstData == NULL || strncmp((CHAR*)InstData->Signature, "$PnP", 4))
     {
-      DPRINTM(DPRINT_HWDETECT, "PnP-BIOS not supported\n");
+      DbgPrint((DPRINT_HWDETECT, "PnP-BIOS not supported\n"));
       return;
     }
-  DPRINTM(DPRINT_HWDETECT, "Signature '%c%c%c%c'\n",
+  DbgPrint((DPRINT_HWDETECT, "Signature '%c%c%c%c'\n",
 	    InstData->Signature[0], InstData->Signature[1],
-	    InstData->Signature[2], InstData->Signature[3]);
+	    InstData->Signature[2], InstData->Signature[3]));
 
 
   x = PnpBiosGetDeviceNodeCount(&NodeSize, &NodeCount);
@@ -229,12 +229,12 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
                      // e.g. look: http://my.execpc.com/~geezer/osd/pnp/pnp16.c
   if (x != 0 || NodeSize == 0 || NodeCount == 0)
     {
-      DPRINTM(DPRINT_HWDETECT, "PnP-BIOS failed to enumerate device nodes\n");
+      DbgPrint((DPRINT_HWDETECT, "PnP-BIOS failed to enumerate device nodes\n"));
       return;
     }
-  DPRINTM(DPRINT_HWDETECT, "PnP-BIOS supported\n");
-  DPRINTM(DPRINT_HWDETECT, "MaxNodeSize %u  NodeCount %u\n", NodeSize, NodeCount);
-  DPRINTM(DPRINT_HWDETECT, "Estimated buffer size %u\n", NodeSize * NodeCount);
+  DbgPrint((DPRINT_HWDETECT, "PnP-BIOS supported\n"));
+  DbgPrint((DPRINT_HWDETECT, "MaxNodeSize %u  NodeCount %u\n", NodeSize, NodeCount));
+  DbgPrint((DPRINT_HWDETECT, "Estimated buffer size %u\n", NodeSize * NodeCount));
 
     /* Create component key */
     FldrCreateComponentKey(SystemKey,
@@ -259,8 +259,8 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
   PartialResourceList = MmHeapAlloc(Size);
   if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
       return;
     }
   memset(PartialResourceList, 0, Size);
@@ -293,11 +293,11 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
 	{
 	  DeviceNode = (PCM_PNP_BIOS_DEVICE_NODE)DISKREADBUFFER;
 
-	  DPRINTM(DPRINT_HWDETECT,
+	  DbgPrint((DPRINT_HWDETECT,
 		    "Node: %u  Size %u (0x%x)\n",
 		    DeviceNode->Node,
 		    DeviceNode->Size,
-		    DeviceNode->Size);
+		    DeviceNode->Size));
 
 	  memcpy (Ptr,
 		  DeviceNode,
@@ -317,8 +317,8 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
     PnpBufferSize;
   Size = sizeof(CM_PARTIAL_RESOURCE_LIST) + PnpBufferSize;
 
-  DPRINTM(DPRINT_HWDETECT, "Real buffer size: %u\n", PnpBufferSize);
-  DPRINTM(DPRINT_HWDETECT, "Resource size: %u\n", Size);
+  DbgPrint((DPRINT_HWDETECT, "Real buffer size: %u\n", PnpBufferSize));
+  DbgPrint((DPRINT_HWDETECT, "Resource size: %u\n", Size));
   
     FldrSetConfigurationData(BusKey, PartialResourceList, Size);
     MmHeapFree(PartialResourceList);
@@ -342,8 +342,8 @@ SetHarddiskConfigurationData(PCONFIGURATION_COMPONENT_DATA DiskKey,
   PartialResourceList = MmHeapAlloc(Size);
   if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate a full resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate a full resource descriptor\n"));
       return;
     }
 
@@ -379,115 +379,22 @@ SetHarddiskConfigurationData(PCONFIGURATION_COMPONENT_DATA DiskKey,
     }
   else
     {
-      DPRINTM(DPRINT_HWDETECT, "Reading disk geometry failed\n");
+      DbgPrint((DPRINT_HWDETECT, "Reading disk geometry failed\n"));
       MmHeapFree(PartialResourceList);
       return;
     }
-  DPRINTM(DPRINT_HWDETECT,
+  DbgPrint((DPRINT_HWDETECT,
 	   "Disk %x: %u Cylinders  %u Heads  %u Sectors  %u Bytes\n",
 	   DriveNumber,
 	   DiskGeometry->NumberOfCylinders,
 	   DiskGeometry->NumberOfHeads,
 	   DiskGeometry->SectorsPerTrack,
-	   DiskGeometry->BytesPerSector);
+	   DiskGeometry->BytesPerSector));
 
   FldrSetConfigurationData(DiskKey, PartialResourceList, Size);
   MmHeapFree(PartialResourceList);
 }
 
-typedef struct tagDISKCONTEXT
-{
-    ULONG DriveNumber;
-    ULONG SectorSize;
-    ULONGLONG SectorOffset;
-    ULONGLONG SectorNumber;
-} DISKCONTEXT;
-
-static LONG DiskClose(ULONG FileId)
-{
-    DISKCONTEXT* Context = FsGetDeviceSpecific(FileId);
-
-    MmHeapFree(Context);
-    return ESUCCESS;
-}
-
-static LONG DiskGetFileInformation(ULONG FileId, FILEINFORMATION* Information)
-{
-    return EINVAL;
-}
-
-static LONG DiskOpen(CHAR* Path, OPENMODE OpenMode, ULONG* FileId)
-{
-    DISKCONTEXT* Context;
-    ULONG DriveNumber, DrivePartition, SectorSize;
-    ULONGLONG SectorOffset = 0;
-    PARTITION_TABLE_ENTRY PartitionTableEntry;
-    CHAR FileName[1];
-
-    if (!DissectArcPath(Path, FileName, &DriveNumber, &DrivePartition))
-        return EINVAL;
-    SectorSize = (DrivePartition == 0xff ? 2048 : 512);
-    if (DrivePartition != 0xff && DrivePartition != 0)
-    {
-        if (!MachDiskGetPartitionEntry(DriveNumber, DrivePartition, &PartitionTableEntry))
-            return EINVAL;
-        SectorOffset = PartitionTableEntry.SectorCountBeforePartition;
-    }
-
-    Context = MmHeapAlloc(sizeof(DISKCONTEXT));
-    if (!Context)
-        return ENOMEM;
-    Context->DriveNumber = DriveNumber;
-    Context->SectorSize = SectorSize;
-    Context->SectorOffset = SectorOffset;
-    Context->SectorNumber = 0;
-    FsSetDeviceSpecific(*FileId, Context);
-
-    return ESUCCESS;
-}
-
-static LONG DiskRead(ULONG FileId, VOID* Buffer, ULONG N, ULONG* Count)
-{
-    DISKCONTEXT* Context = FsGetDeviceSpecific(FileId);
-    BOOLEAN ret;
-
-    *Count = 0;
-    if (N & (Context->SectorSize - 1))
-        return EINVAL;
-
-    ret = MachDiskReadLogicalSectors(
-        Context->DriveNumber,
-        Context->SectorNumber + Context->SectorOffset,
-        N / Context->SectorSize,
-        Buffer);
-    if (!ret)
-        return EIO;
-
-    *Count = N;
-    return ESUCCESS;
-}
-
-static LONG DiskSeek(ULONG FileId, LARGE_INTEGER* Position, SEEKMODE SeekMode)
-{
-    DISKCONTEXT* Context = FsGetDeviceSpecific(FileId);
-
-    if (SeekMode != SeekAbsolute)
-        return EINVAL;
-    if (Position->LowPart & (Context->SectorSize - 1))
-        return EINVAL;
-
-    /* FIXME: take HighPart into account */
-    Context->SectorNumber = Position->LowPart / Context->SectorSize;
-    return ESUCCESS;
-}
-
-static const DEVVTBL DiskVtbl = {
-    DiskClose,
-    DiskGetFileInformation,
-    DiskOpen,
-    DiskRead,
-    DiskSeek,
-};
 
 static VOID
 SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
@@ -500,12 +407,11 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
   ULONG Signature;
   CHAR Identifier[20];
   CHAR ArcName[256];
-  PARTITION_TABLE_ENTRY PartitionTableEntry;
 
   /* Read the MBR */
   if (!MachDiskReadLogicalSectors(DriveNumber, 0ULL, 1, (PVOID)DISKREADBUFFER))
     {
-      DPRINTM(DPRINT_HWDETECT, "Reading MBR failed\n");
+      DbgPrint((DPRINT_HWDETECT, "Reading MBR failed\n"));
       return;
     }
 
@@ -513,7 +419,7 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
   Mbr = (PMASTER_BOOT_RECORD)DISKREADBUFFER;
 
   Signature =  Mbr->Signature;
-  DPRINTM(DPRINT_HWDETECT, "Signature: %x\n", Signature);
+  DbgPrint((DPRINT_HWDETECT, "Signature: %x\n", Signature));
 
   /* Calculate the MBR checksum */
   Checksum = 0;
@@ -522,7 +428,7 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
       Checksum += Buffer[i];
     }
   Checksum = ~Checksum + 1;
-  DPRINTM(DPRINT_HWDETECT, "Checksum: %x\n", Checksum);
+  DbgPrint((DPRINT_HWDETECT, "Checksum: %x\n", Checksum));
 
   /* Fill out the ARC disk block */
   reactos_arc_disk_info[reactos_disk_count].Signature = Signature;
@@ -532,23 +438,6 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
   reactos_arc_disk_info[reactos_disk_count].ArcName =
       reactos_arc_strings[reactos_disk_count];
   reactos_disk_count++;
-
-  sprintf(ArcName, "multi(0)disk(0)rdisk(%lu)partition(0)", DriveNumber - 0x80);
-  FsRegisterDevice(ArcName, &DiskVtbl);
-
-  /* Add partitions */
-  i = 0;
-  DiskReportError(FALSE);
-  while (MachDiskGetPartitionEntry(DriveNumber, i, &PartitionTableEntry))
-  {
-    if (PartitionTableEntry.SystemIndicator != PARTITION_ENTRY_UNUSED)
-    {
-      sprintf(ArcName, "multi(0)disk(0)rdisk(%lu)partition(%lu)", DriveNumber - 0x80, i);
-      FsRegisterDevice(ArcName, &DiskVtbl);
-    }
-    i++;
-  }
-  DiskReportError(TRUE);
 
   /* Convert checksum and signature to identifier string */
   Identifier[0] = Hex[(Checksum >> 28) & 0x0F];
@@ -571,7 +460,7 @@ SetHarddiskIdentifier(PCONFIGURATION_COMPONENT_DATA DiskKey,
   Identifier[17] = '-';
   Identifier[18] = 'A';
   Identifier[19] = 0;
-  DPRINTM(DPRINT_HWDETECT, "Identifier: %s\n", Identifier);
+  DbgPrint((DPRINT_HWDETECT, "Identifier: %s\n", Identifier));
 
   /* Set identifier */
   FldrSetIdentifier(DiskKey, Identifier);
@@ -659,8 +548,8 @@ DetectBiosFloppyPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
     PartialResourceList = MmHeapAlloc(Size);
     if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
       return;
     }
 
@@ -706,17 +595,17 @@ DetectBiosFloppyController(PCONFIGURATION_COMPONENT_DATA BusKey,
   ULONG FloppyCount;
 
   FloppyCount = GetFloppyCount();
-  DPRINTM(DPRINT_HWDETECT,
+  DbgPrint((DPRINT_HWDETECT,
 	    "Floppy count: %u\n",
-	    FloppyCount);
+	    FloppyCount));
   
   Size = sizeof(CM_PARTIAL_RESOURCE_LIST) +
 	 2 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
   PartialResourceList = MmHeapAlloc(Size);
   if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
       return;
     }
   memset(PartialResourceList, 0, Size);
@@ -770,8 +659,7 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
     ULONG DiskCount;
     ULONG Size;
     ULONG i;
-    BOOLEAN Changed, BootDriveReported = FALSE;
-    CHAR BootPath[512];
+    BOOLEAN Changed;
     
     /* Count the number of visible drives */
     DiskReportError(FALSE);
@@ -792,16 +680,16 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
         }
         if (! Changed)
         {
-            DPRINTM(DPRINT_HWDETECT, "BIOS reports success for disk %d but data didn't change\n",
-                      (int)DiskCount);
+            DbgPrint((DPRINT_HWDETECT, "BIOS reports success for disk %d but data didn't change\n",
+                      (int)DiskCount));
             break;
         }
         DiskCount++;
         memset((PVOID) DISKREADBUFFER, 0xcd, 512);
     }
     DiskReportError(TRUE);
-    DPRINTM(DPRINT_HWDETECT, "BIOS reports %d harddisk%s\n",
-              (int)DiskCount, (DiskCount == 1) ? "": "s");
+    DbgPrint((DPRINT_HWDETECT, "BIOS reports %d harddisk%s\n",
+              (int)DiskCount, (DiskCount == 1) ? "": "s"));
     
     FldrCreateComponentKey(BusKey,
                            L"DiskController",
@@ -809,7 +697,7 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
                            ControllerClass,
                            DiskController,
                            &ControllerKey);
-    DPRINTM(DPRINT_HWDETECT, "Created key: DiskController\\0\n");
+    DbgPrint((DPRINT_HWDETECT, "Created key: DiskController\\0\n"));
     
     /* Set 'ComponentInformation' value */
     FldrSetComponentInformation(ControllerKey,
@@ -825,8 +713,8 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
     PartialResourceList = MmHeapAlloc(Size);
     if (PartialResourceList == NULL)
     {
-        DPRINTM(DPRINT_HWDETECT,
-                  "Failed to allocate resource descriptor\n");
+        DbgPrint((DPRINT_HWDETECT,
+                  "Failed to allocate resource descriptor\n"));
         return;
     }
     
@@ -845,9 +733,6 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
     Int13Drives = (PVOID)(((ULONG_PTR)PartialResourceList) + sizeof(CM_PARTIAL_RESOURCE_LIST));
     for (i = 0; i < DiskCount; i++)
     {
-        if (BootDrive == 0x80 + i)
-            BootDriveReported = TRUE;
-
         if (MachDiskGetDriveGeometry(0x80 + i, &Geometry))
         {
             Int13Drives[i].DriveSelect = 0x80 + i;
@@ -856,13 +741,13 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
             Int13Drives[i].MaxHeads = Geometry.Heads - 1;
             Int13Drives[i].NumberDrives = DiskCount;
             
-            DPRINTM(DPRINT_HWDETECT,
+            DbgPrint((DPRINT_HWDETECT,
                       "Disk %x: %u Cylinders  %u Heads  %u Sectors  %u Bytes\n",
                       0x80 + i,
                       Geometry.Cylinders - 1,
                       Geometry.Heads -1,
                       Geometry.Sectors,
-                      Geometry.BytesPerSector);
+                      Geometry.BytesPerSector));
         }
     }
     
@@ -890,17 +775,6 @@ DetectBiosDisks(PCONFIGURATION_COMPONENT_DATA SystemKey,
         /* Set disk values */
         SetHarddiskConfigurationData(DiskKey, 0x80 + i);
         SetHarddiskIdentifier(DiskKey, 0x80 + i);
-    }
-
-    /* Get the drive we're booting from */
-    MachDiskGetBootPath(BootPath, sizeof(BootPath));
-
-    /* Add it, if it's a floppy or cdrom */
-    if ((BootDrive >= 0x80 && !BootDriveReported) ||
-        DiskIsDriveRemovable(BootDrive))
-    {
-        /* TODO: Check if it's really a cdrom drive */
-        FsRegisterDevice(BootPath, &DiskVtbl);
     }
 }
 
@@ -968,9 +842,9 @@ DetectSerialMouse(PUCHAR Port)
       Buffer[i] = READ_PORT_UCHAR(Port);
     }
 
-  DPRINTM(DPRINT_HWDETECT,
+  DbgPrint((DPRINT_HWDETECT,
 	    "Mouse data: %x %x %x %x\n",
-	    Buffer[0],Buffer[1],Buffer[2],Buffer[3]);
+	    Buffer[0],Buffer[1],Buffer[2],Buffer[3]));
 
   /* Check that four bytes for signs */
   for (i = 0; i < 4; ++i)
@@ -994,19 +868,19 @@ DetectSerialMouse(PUCHAR Port)
 	  switch (Buffer[i + 1])
 	    {
 	      case '3':
-		DPRINTM(DPRINT_HWDETECT,
-			  "Microsoft Mouse with 3-buttons detected\n");
+		DbgPrint((DPRINT_HWDETECT,
+			  "Microsoft Mouse with 3-buttons detected\n"));
 		return MOUSE_TYPE_LOGITECH;
 
 	      case 'Z':
-		DPRINTM(DPRINT_HWDETECT,
-			  "Microsoft Wheel Mouse detected\n");
+		DbgPrint((DPRINT_HWDETECT,
+			  "Microsoft Wheel Mouse detected\n"));
 		return MOUSE_TYPE_WHEELZ;
 
 	      /* case '2': */
 	      default:
-		DPRINTM(DPRINT_HWDETECT,
-			  "Microsoft Mouse with 2-buttons detected\n");
+		DbgPrint((DPRINT_HWDETECT,
+			  "Microsoft Mouse with 2-buttons detected\n"));
 		return MOUSE_TYPE_MICROSOFT;
 	    }
 	}
@@ -1090,8 +964,8 @@ DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
   ULONG j;
   ULONG k;
 
-  DPRINTM(DPRINT_HWDETECT,
-	    "DetectSerialPointerPeripheral()\n");
+  DbgPrint((DPRINT_HWDETECT,
+	    "DetectSerialPointerPeripheral()\n"));
 
   Identifier[0] = 0;
 
@@ -1101,9 +975,9 @@ DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
   if (MouseType != MOUSE_TYPE_NONE)
     {
       Length = GetSerialMousePnpId(Base, Buffer);
-      DPRINTM(DPRINT_HWDETECT,
+      DbgPrint((DPRINT_HWDETECT,
 		"PnP ID length: %u\n",
-		Length);
+		Length));
 
       if (Length != 0)
 	{
@@ -1115,9 +989,9 @@ DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
 	    }
 	  Buffer[Length] = 0;
 
-	  DPRINTM(DPRINT_HWDETECT,
+	  DbgPrint((DPRINT_HWDETECT,
 		    "PnP ID string: %s\n",
-		    Buffer);
+		    Buffer));
 
 	  /* Copy PnpId string */
           for (i = 0; i < 7; i++)
@@ -1188,9 +1062,9 @@ DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
 		}
 	    }
 
-	  DPRINTM(DPRINT_HWDETECT,
+	  DbgPrint((DPRINT_HWDETECT,
 		    "Identifier string: %s\n",
-		    Identifier);
+		    Identifier));
 	}
 
       if (Length == 0 || strlen(Identifier) < 11)
@@ -1222,8 +1096,8 @@ DetectSerialPointerPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey,
                              PeripheralClass,
                              PointerPeripheral,
                              &PeripheralKey);
-      DPRINTM(DPRINT_HWDETECT,
-		"Created key: PointerPeripheral\\0\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Created key: PointerPeripheral\\0\n"));
 
       /* Set 'ComponentInformation' value */
       FldrSetComponentInformation(PeripheralKey,
@@ -1263,7 +1137,7 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
   ULONG i;
   ULONG Size;
 
-  DPRINTM(DPRINT_HWDETECT, "DetectSerialPorts()\n");
+  DbgPrint((DPRINT_HWDETECT, "DetectSerialPorts()\n"));
 
   ControllerNumber = 0;
   BasePtr = (PUSHORT)0x400;
@@ -1273,10 +1147,10 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       if (Base == 0)
         continue;
 
-      DPRINTM(DPRINT_HWDETECT,
+      DbgPrint((DPRINT_HWDETECT,
 		"Found COM%u port at 0x%x\n",
 		i + 1,
-		Base);
+		Base));
 
       /* Create controller key */
       FldrCreateComponentKey(BusKey,
@@ -1299,8 +1173,8 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       PartialResourceList = MmHeapAlloc(Size);
       if (PartialResourceList == NULL)
 	{
-	  DPRINTM(DPRINT_HWDETECT,
-		    "Failed to allocate resource descriptor\n");
+	  DbgPrint((DPRINT_HWDETECT,
+		    "Failed to allocate resource descriptor\n"));
 	  continue;
 	}
       memset(PartialResourceList, 0, Size);
@@ -1346,9 +1220,9 @@ DetectSerialPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       /* Set 'Identifier' value */
       sprintf(Buffer, "COM%ld", i + 1);
       FldrSetIdentifier(ControllerKey, Buffer);
-      DPRINTM(DPRINT_HWDETECT,
+      DbgPrint((DPRINT_HWDETECT,
 		"Created value: Identifier %s\n",
-		Buffer);
+		Buffer));
 
       if (!Rs232PortInUse(Base))
         {
@@ -1375,7 +1249,7 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
   ULONG i;
   ULONG Size;
 
-  DPRINTM(DPRINT_HWDETECT, "DetectParallelPorts() called\n");
+  DbgPrint((DPRINT_HWDETECT, "DetectParallelPorts() called\n"));
 
   ControllerNumber = 0;
   BasePtr = (PUSHORT)0x408;
@@ -1385,10 +1259,10 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       if (Base == 0)
         continue;
 
-      DPRINTM(DPRINT_HWDETECT,
+      DbgPrint((DPRINT_HWDETECT,
 		"Parallel port %u: %x\n",
 		ControllerNumber,
-		Base);
+		Base));
 
       /* Create controller key */
       FldrCreateComponentKey(BusKey,
@@ -1412,8 +1286,8 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       PartialResourceList = MmHeapAlloc(Size);
       if (PartialResourceList == NULL)
 	{
-	  DPRINTM(DPRINT_HWDETECT,
-		    "Failed to allocate resource descriptor\n");
+	  DbgPrint((DPRINT_HWDETECT,
+		    "Failed to allocate resource descriptor\n"));
 	  continue;
 	}
       memset(PartialResourceList, 0, Size);
@@ -1451,14 +1325,14 @@ DetectParallelPorts(PCONFIGURATION_COMPONENT_DATA BusKey)
       /* Set 'Identifier' value */
       sprintf(Buffer, "PARALLEL%ld", i + 1);
       FldrSetIdentifier(ControllerKey, Buffer);
-      DPRINTM(DPRINT_HWDETECT,
+      DbgPrint((DPRINT_HWDETECT,
 		"Created value: Identifier %s\n",
-		Buffer);
+		Buffer));
 
       ControllerNumber++;
     }
 
-  DPRINTM(DPRINT_HWDETECT, "DetectParallelPorts() done\n");
+  DbgPrint((DPRINT_HWDETECT, "DetectParallelPorts() done\n"));
 }
 
 
@@ -1552,7 +1426,7 @@ DetectKeyboardPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
                              PeripheralClass,
                              KeyboardPeripheral,
                              &PeripheralKey);
-    DPRINTM(DPRINT_HWDETECT, "Created key: KeyboardPeripheral\\0\n");
+    DbgPrint((DPRINT_HWDETECT, "Created key: KeyboardPeripheral\\0\n"));
 
     /* Set 'ComponentInformation' value */
     FldrSetComponentInformation(PeripheralKey,
@@ -1566,8 +1440,8 @@ DetectKeyboardPeripheral(PCONFIGURATION_COMPONENT_DATA ControllerKey)
     PartialResourceList = MmHeapAlloc(Size);
     if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
       return;
     }
 
@@ -1614,7 +1488,7 @@ DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
                          ControllerClass,
                          KeyboardController,
                          &ControllerKey);
-  DPRINTM(DPRINT_HWDETECT, "Created key: KeyboardController\\0\n");
+  DbgPrint((DPRINT_HWDETECT, "Created key: KeyboardController\\0\n"));
 
   /* Set 'ComponentInformation' value */
   FldrSetComponentInformation(ControllerKey,
@@ -1628,8 +1502,8 @@ DetectKeyboardController(PCONFIGURATION_COMPONENT_DATA BusKey)
   PartialResourceList = MmHeapAlloc(Size);
   if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
       return;
     }
 
@@ -1792,7 +1666,7 @@ DetectPS2Mouse(PCONFIGURATION_COMPONENT_DATA BusKey)
 
   if (DetectPS2AuxPort())
     {
-      DPRINTM(DPRINT_HWDETECT, "Detected PS2 port\n");
+      DbgPrint((DPRINT_HWDETECT, "Detected PS2 port\n"));
 
       /* Create controller key */
       FldrCreateComponentKey(BusKey,
@@ -1801,7 +1675,7 @@ DetectPS2Mouse(PCONFIGURATION_COMPONENT_DATA BusKey)
                              ControllerClass,
                              PointerController,
                              &ControllerKey);
-      DPRINTM(DPRINT_HWDETECT, "Created key: PointerController\\0\n");
+      DbgPrint((DPRINT_HWDETECT, "Created key: PointerController\\0\n"));
 
       /* Set 'ComponentInformation' value */
       FldrSetComponentInformation(ControllerKey,
@@ -1831,7 +1705,7 @@ DetectPS2Mouse(PCONFIGURATION_COMPONENT_DATA BusKey)
 
       if (DetectPS2AuxDevice())
 	{
-	  DPRINTM(DPRINT_HWDETECT, "Detected PS2 mouse\n");
+	  DbgPrint((DPRINT_HWDETECT, "Detected PS2 mouse\n"));
 
           /* Create peripheral key */
           FldrCreateComponentKey(ControllerKey,
@@ -1840,7 +1714,7 @@ DetectPS2Mouse(PCONFIGURATION_COMPONENT_DATA BusKey)
                                  ControllerClass,
                                  PointerPeripheral,
                                  &PeripheralKey);
-	  DPRINTM(DPRINT_HWDETECT, "Created key: PointerPeripheral\\0\n");
+	  DbgPrint((DPRINT_HWDETECT, "Created key: PointerPeripheral\\0\n"));
 
 	  /* Set 'ComponentInformation' value */
 	  FldrSetComponentInformation(PeripheralKey,
@@ -1880,7 +1754,7 @@ DetectDisplayController(PCONFIGURATION_COMPONENT_DATA BusKey)
                          ControllerClass,
                          DisplayController,
                          &ControllerKey);
-  DPRINTM(DPRINT_HWDETECT, "Created key: DisplayController\\0\n");
+  DbgPrint((DPRINT_HWDETECT, "Created key: DisplayController\\0\n"));
 
   /* Set 'ComponentInformation' value */
   FldrSetComponentInformation(ControllerKey,
@@ -1893,15 +1767,15 @@ DetectDisplayController(PCONFIGURATION_COMPONENT_DATA BusKey)
   VesaVersion = BiosIsVesaSupported();
   if (VesaVersion != 0)
     {
-      DPRINTM(DPRINT_HWDETECT,
+      DbgPrint((DPRINT_HWDETECT,
 		"VESA version %c.%c\n",
 		(VesaVersion >> 8) + '0',
-		(VesaVersion & 0xFF) + '0');
+		(VesaVersion & 0xFF) + '0'));
     }
   else
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"VESA not supported\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"VESA not supported\n"));
     }
 
   if (VesaVersion >= 0x0200)
@@ -1955,8 +1829,8 @@ DetectIsaBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
   PartialResourceList = MmHeapAlloc(Size);
   if (PartialResourceList == NULL)
     {
-      DPRINTM(DPRINT_HWDETECT,
-		"Failed to allocate resource descriptor\n");
+      DbgPrint((DPRINT_HWDETECT,
+		"Failed to allocate resource descriptor\n"));
       return;
     }
 
@@ -1993,7 +1867,7 @@ PcHwDetect(VOID)
   PCONFIGURATION_COMPONENT_DATA SystemKey;
   ULONG BusNumber = 0;
 
-  DPRINTM(DPRINT_HWDETECT, "DetectHardware()\n");
+  DbgPrint((DPRINT_HWDETECT, "DetectHardware()\n"));
 
   /* Create the 'System' key */
   FldrCreateSystemKey(&SystemKey);
@@ -2011,7 +1885,7 @@ PcHwDetect(VOID)
   DetectIsaBios(SystemKey, &BusNumber);
   DetectAcpiBios(SystemKey, &BusNumber);
   
-  DPRINTM(DPRINT_HWDETECT, "DetectHardware() Done\n");
+  DbgPrint((DPRINT_HWDETECT, "DetectHardware() Done\n"));
 
   return SystemKey;
 }

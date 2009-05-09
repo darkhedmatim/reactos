@@ -45,8 +45,8 @@ VOID
 NTAPI
 ExInitializeCallBack(IN OUT PEX_CALLBACK Callback)
 {
-    /* Initialize the fast reference */
-    ExInitializeFastReference(&Callback->RoutineBlock, NULL);
+    /* Initialize the fast references */
+    Callback->RoutineBlock.Object = NULL;
 }
 
 PEX_CALLBACK_ROUTINE_BLOCK
@@ -54,66 +54,93 @@ NTAPI
 ExAllocateCallBack(IN PEX_CALLBACK_FUNCTION Function,
                    IN PVOID Context)
 {
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock;
+    PEX_CALLBACK_ROUTINE_BLOCK Callback;
 
     /* Allocate a callback */
-    CallbackBlock = ExAllocatePoolWithTag(PagedPool,
-                                          sizeof(EX_CALLBACK_ROUTINE_BLOCK),
-                                          'CbRb');
-    if (CallbackBlock)
+    Callback = ExAllocatePoolWithTag(PagedPool,
+                                     sizeof(*Callback),
+                                     TAG('C', 'b', 'r', 'b'));
+    if (Callback)
     {
         /* Initialize it */
-        CallbackBlock->Function = Function;
-        CallbackBlock->Context = Context;
-        ExInitializeRundownProtection(&CallbackBlock->RundownProtect);
+        Callback->Function = Function;
+        Callback->Context = Context;
+        ExInitializeRundownProtection(&Callback->RundownProtect);
     }
 
     /* Return it */
-    return CallbackBlock;
+    return Callback;
 }
 
 VOID
 NTAPI
-ExFreeCallBack(IN PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock)
+ExFreeCallBack(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
 {
     /* Just free it from memory */
-    ExFreePool(CallbackBlock);
+    ExFreePool(Callback);
 }
 
 VOID
 NTAPI
-ExWaitForCallBacks(IN PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock)
+ExWaitForCallBacks(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
 {
     /* Wait on the rundown */
-    ExWaitForRundownProtectionRelease(&CallbackBlock->RundownProtect);
+    ExWaitForRundownProtectionRelease(&Callback->RundownProtect);
 }
 
 PEX_CALLBACK_FUNCTION
 NTAPI
-ExGetCallBackBlockRoutine(IN PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock)
+ExGetCallBackBlockRoutine(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
 {
     /* Return the function */
-    return CallbackBlock->Function;
+    return Callback->Function;
 }
 
 PVOID
 NTAPI
-ExGetCallBackBlockContext(IN PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock)
+ExGetCallBackBlockContext(IN PEX_CALLBACK_ROUTINE_BLOCK Callback)
 {
     /* Return the context */
-    return CallbackBlock->Context;
+    return Callback->Context;
 }
 
 VOID
 NTAPI
 ExDereferenceCallBackBlock(IN OUT PEX_CALLBACK CallBack,
-                           IN PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock)
+                           IN PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock)
 {
-    /* Release a fast reference */
-    if (!ExReleaseFastReference(&CallBack->RoutineBlock, CallbackBlock))
+    PEX_FAST_REF FastRef = &CallBack->RoutineBlock;
+    EX_FAST_REF Value, NewValue;
+
+    /* Sanity checks */
+    ASSERT(CallbackRoutineBlock);
+    ASSERT(!(((ULONG_PTR)CallbackRoutineBlock) & MAX_FAST_REFS));
+
+    /* Start dereference loop */
+    for (;;)
     {
-        /* Take slow path */
-        ExReleaseRundownProtection(&CallbackBlock->RundownProtect);
+        /* Get the current count */
+        Value = *FastRef;
+        if ((Value.Value ^ (ULONG_PTR)CallbackRoutineBlock) < MAX_FAST_REFS)
+        {
+            /* Decrease the reference count */
+            NewValue.Value = Value.Value + 1;
+            NewValue.Object = InterlockedCompareExchangePointer(&FastRef->Object,
+                                                                NewValue.Object,
+                                                                Value.Object);
+            if (NewValue.Object != Value.Object) continue;
+
+            /* We're all done */
+            break;
+        }
+        else
+        {
+            /* Release rundown protection */
+            ExReleaseRundownProtection(&CallbackRoutineBlock->RundownProtect);
+
+            /* We're all done */
+            break;
+        }
     }
 }
 
@@ -121,48 +148,89 @@ PEX_CALLBACK_ROUTINE_BLOCK
 NTAPI
 ExReferenceCallBackBlock(IN OUT PEX_CALLBACK CallBack)
 {
-    EX_FAST_REF OldValue;
-    ULONG_PTR Count;
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock;
-    
-    /* Acquire a reference */
-    OldValue = ExAcquireFastReference(&CallBack->RoutineBlock);
-    Count = ExGetCountFastReference(OldValue);
+    PEX_FAST_REF FastRef = &CallBack->RoutineBlock;
+    EX_FAST_REF Value, NewValue;
+    PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock;
+
+    /* Start reference loop */
+    for (;;)
+    {
+        /* Get the current count */
+        Value = *FastRef;
+        if (Value.RefCnt != 0)
+        {
+            /* Increase the reference count */
+            NewValue.Value = Value.Value - 1;
+            NewValue.Object = InterlockedCompareExchangePointer(&FastRef->Object,
+                                                                NewValue.Object,
+                                                                Value.Object);
+            if (NewValue.Object != Value.Object) continue;
+        }
+
+        /* All done */
+        break;
+    }
 
     /* Fail if there isn't any object */
-    if (!ExGetObjectFastReference(OldValue)) return NULL;
+    if (!Value.Value) return NULL;
 
     /* Check if we don't have a reference */
-    if (!Count)
+    if (!Value.RefCnt)
     {
         /* FIXME: Race */
+        CallbackRoutineBlock = NULL;
         DPRINT1("Unhandled callback race condition\n");
         ASSERT(FALSE);
-        return NULL;
     }
-    
-    /* Get the callback block */
-    CallbackBlock = ExGetObjectFastReference(OldValue);
-    
-    /* Check if this is the last reference */
-    if (Count == 1)
+    else
     {
-        /* Acquire rundown protection */
-        if (ExfAcquireRundownProtectionEx(&CallbackBlock->RundownProtect,
-                                          MAX_FAST_REFS))
+        /* Get the callback block */
+        CallbackRoutineBlock = (PVOID)(Value.Value &~ MAX_FAST_REFS);
+
+        /* Check if this is the last reference */
+        if (Value.RefCnt == 1)
         {
-            /* Insert references */
-            if (!ExInsertFastReference(&CallBack->RoutineBlock, CallbackBlock))
+            /* Acquire rundown protection */
+            if (ExfAcquireRundownProtectionEx(&CallbackRoutineBlock->
+                                              RundownProtect,
+                                              MAX_FAST_REFS))
             {
-                /* Backdown the rundown acquire */
-                ExfReleaseRundownProtectionEx(&CallbackBlock->RundownProtect,
-                                              MAX_FAST_REFS);
+                /* Sanity check */
+                ASSERT(!(((ULONG_PTR)CallbackRoutineBlock) & MAX_FAST_REFS));
+
+                /* Start reference loop */
+                for (;;)
+                {
+                    /* Check if the current count is too high */
+                    Value = *FastRef;
+                    if (((Value.RefCnt + MAX_FAST_REFS) > MAX_FAST_REFS) ||
+                        ((Value.Value &~ MAX_FAST_REFS) !=
+                         (ULONG_PTR)CallbackRoutineBlock))
+                    {
+                        /* Backdown the rundown acquire */
+                        ExfReleaseRundownProtectionEx(&CallbackRoutineBlock->
+                                                      RundownProtect,
+                                                      MAX_FAST_REFS);
+                        break;
+                    }
+
+                    /* Increase the reference count */
+                    NewValue.Value = Value.Value + MAX_FAST_REFS;
+                    NewValue.Object =
+                        InterlockedCompareExchangePointer(&FastRef->Object,
+                                                          NewValue.Object,
+                                                          Value.Object);
+                    if (NewValue.Object != Value.Object) continue;
+
+                    /* Break out if the change was OK */
+                    break;
+                }
             }
         }
     }
 
     /* Return the callback block */
-    return CallbackBlock;
+    return CallbackRoutineBlock;
 }
 
 BOOLEAN
@@ -171,9 +239,9 @@ ExCompareExchangeCallBack(IN OUT PEX_CALLBACK CallBack,
                           IN PEX_CALLBACK_ROUTINE_BLOCK NewBlock,
                           IN PEX_CALLBACK_ROUTINE_BLOCK OldBlock)
 {
-    EX_FAST_REF OldValue;
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock;
-    ULONG_PTR Count;
+    EX_FAST_REF Value, NewValue;
+    PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock;
+    PEX_FAST_REF FastRef = &CallBack->RoutineBlock;
 
     /* Check that we have a new block */
     if (NewBlock)
@@ -187,21 +255,47 @@ ExCompareExchangeCallBack(IN OUT PEX_CALLBACK CallBack,
             return FALSE;
         }
     }
-    
-    /* Do the swap */
-    OldValue = ExCompareSwapFastReference(&CallBack->RoutineBlock,
-                                          NewBlock,
-                                          OldBlock);
+
+    /* Sanity check and start swap loop */
+    ASSERT(!(((ULONG_PTR)NewBlock) & MAX_FAST_REFS));
+    for (;;)
+    {
+        /* Get the current value */
+        Value = *FastRef;
+
+        /* Make sure there's enough references to swap */
+        if (!((Value.Value ^ (ULONG_PTR)OldBlock) <= MAX_FAST_REFS)) break;
+
+        /* Check if we have an object to swap */
+        if (NewBlock)
+        {
+            /* Set up the value with maximum fast references */
+            NewValue.Value = (ULONG_PTR)NewBlock | MAX_FAST_REFS;
+        }
+        else
+        {
+            /* Write the object address itself (which is empty) */
+            NewValue.Value = (ULONG_PTR)NewBlock;
+        }
+
+        /* Do the actual compare exchange */
+        NewValue.Object = InterlockedCompareExchangePointer(&FastRef->Object,
+                                                            NewValue.Object,
+                                                            Value.Object);
+        if (NewValue.Object != Value.Object) continue;
+
+        /* All done */
+        break;
+    }
 
     /* Get the routine block */
-    CallbackBlock = ExGetObjectFastReference(OldValue);
-    Count = ExGetCountFastReference(OldValue);
+    CallbackRoutineBlock = (PVOID)(Value.Value & ~MAX_FAST_REFS);
 
     /* Make sure the swap worked */
-    if (CallbackBlock == OldBlock)
+    if (CallbackRoutineBlock == OldBlock)
     {
         /* Make sure we replaced a valid pointer */
-        if (CallbackBlock)
+        if (CallbackRoutineBlock)
         {
             /* Acquire the flush lock and immediately release it */
             KeEnterCriticalRegion();
@@ -209,8 +303,8 @@ ExCompareExchangeCallBack(IN OUT PEX_CALLBACK CallBack,
 
             /* Release rundown protection */
             KeLeaveCriticalRegion();
-            ExfReleaseRundownProtectionEx(&CallbackBlock->RundownProtect,
-                                          Count + 1);
+            ExfReleaseRundownProtectionEx(&CallbackRoutineBlock->RundownProtect,
+                                          Value.RefCnt + 1);
         }
 
         /* Compare worked */

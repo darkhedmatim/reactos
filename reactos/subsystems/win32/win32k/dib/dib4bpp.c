@@ -271,8 +271,7 @@ DIB_4BPP_BitBlt(PBLTINFO BltInfo)
       }
       else
       {
-         if (BltInfo->Brush)
-           Pattern = ExpandSolidColor[BltInfo->Brush->iSolidColor];
+         Pattern = ExpandSolidColor[BltInfo->Brush->iSolidColor];
       }
    }
 
@@ -377,7 +376,7 @@ return TRUE;
 
 BOOLEAN
 DIB_4BPP_TransparentBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf,
-                        RECTL*  DestRect,  RECTL *SourceRect,
+                        RECTL*  DestRect,  POINTL  *SourcePoint,
                         XLATEOBJ *ColorTranslation, ULONG iTransColor)
 {
   return FALSE;

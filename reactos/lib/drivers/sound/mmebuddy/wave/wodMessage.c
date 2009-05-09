@@ -14,7 +14,6 @@
 #include <mmddk.h>
 
 #include <ntddsnd.h>
-#include <sndtypes.h>
 
 #include <mmebuddy.h>
 
@@ -94,25 +93,18 @@ wodMessage(
 
         case WODM_WRITE :
         {
-            Result = MmeWriteWaveHeader(PrivateHandle, Parameter1);
-            break;
-        }
-
-        case WODM_RESET :
-        {
-            /* Stop playback, reset position to zero */
-            Result = MmeResetWavePlayback(PrivateHandle);
-            break;
-        }
-
-        case WODM_RESTART :
-        {
-            /* Continue playback when paused */
+            Result = MmeSubmitWaveHeader(PrivateHandle, Parameter1);
             break;
         }
 
         case WODM_GETPOS :
         {
+#if 0
+            /* Hacky code to test the threading */
+            PSOUND_DEVICE_INSTANCE Instance = (PSOUND_DEVICE_INSTANCE)PrivateHandle;
+            CallSoundThread(Instance->Thread, HelloWorld, Instance, L"Hello World!");
+            CallSoundThread(Instance->Thread, HelloWorld, Instance, L"Hello Universe!");
+#endif
             break;
         }
     }

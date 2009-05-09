@@ -1112,7 +1112,7 @@ TREEVIEW_DoSetItemT(const TREEVIEW_INFO *infoPtr, TREEVIEW_ITEM *wineItem,
     if (tvItem->mask & TVIF_TEXT)
     {
         wineItem->textWidth = 0; /* force width recalculation */
-	if (tvItem->pszText != LPSTR_TEXTCALLBACKW && tvItem->pszText != NULL) /* covers != TEXTCALLBACKA too, and undocumented: pszText of NULL also means TEXTCALLBACK */
+	if (tvItem->pszText != LPSTR_TEXTCALLBACKW) /* covers != TEXTCALLBACKA too */
 	{
             int len;
             LPWSTR newText;
@@ -2306,13 +2306,11 @@ TREEVIEW_DrawItemLines(const TREEVIEW_INFO *infoPtr, HDC hdc, const TREEVIEW_ITE
 		 & (TVS_LINESATROOT|TVS_HASLINES|TVS_HASBUTTONS))
 		> TVS_LINESATROOT);
     HBRUSH hbr, hbrOld;
-    COLORREF clrBk = infoPtr->clrBk == -1 ? GetSysColor(COLOR_WINDOW):
-                                            infoPtr->clrBk;
 
     if (!lar && item->iLevel == 0)
 	return;
 
-    hbr    = CreateSolidBrush(clrBk);
+    hbr    = CreateSolidBrush(infoPtr->clrBk);
     hbrOld = SelectObject(hdc, hbr);
     
     centerx = (item->linesOffset + item->stateOffset) / 2;
@@ -2425,8 +2423,8 @@ TREEVIEW_DrawItemLines(const TREEVIEW_INFO *infoPtr, HDC hdc, const TREEVIEW_ITE
                     {
                         Rectangle(hdc, centerx - 1, centery - plussize + 1,
                         centerx + 2, centery + plussize);
-                        SetPixel(hdc, centerx - 1, centery, clrBk);
-                        SetPixel(hdc, centerx + 1, centery, clrBk);
+                        SetPixel(hdc, centerx - 1, centery, infoPtr->clrBk);
+                        SetPixel(hdc, centerx + 1, centery, infoPtr->clrBk);
                     }
                 }
             }
@@ -2474,8 +2472,7 @@ TREEVIEW_DrawItem(const TREEVIEW_INFO *infoPtr, HDC hdc, TREEVIEW_ITEM *wineItem
     }
     else
     {
-	nmcdhdr.clrTextBk = infoPtr->clrBk == -1 ? GetSysColor(COLOR_WINDOW):
-                                                   infoPtr->clrBk;
+	nmcdhdr.clrTextBk = infoPtr->clrBk;
 	if ((infoPtr->dwStyle & TVS_TRACKSELECT) && (wineItem == infoPtr->hotItem))
 	    nmcdhdr.clrText = comctl32_color.clrHighlight;
 	else if (infoPtr->clrText == -1)
@@ -2785,12 +2782,9 @@ TREEVIEW_UpdateScrollBars(TREEVIEW_INFO *infoPtr)
 static LRESULT
 TREEVIEW_EraseBackground(const TREEVIEW_INFO *infoPtr, HDC hDC)
 {
-    HBRUSH hBrush;
-    COLORREF clrBk = infoPtr->clrBk == -1 ? GetSysColor(COLOR_WINDOW):
-                                            infoPtr->clrBk;
+    HBRUSH hBrush = CreateSolidBrush(infoPtr->clrBk);
     RECT rect;
 
-    hBrush =  CreateSolidBrush(clrBk);
     GetClientRect(infoPtr->hwnd, &rect);
     FillRect(hDC, &rect, hBrush);
     DeleteObject(hBrush);
@@ -2837,7 +2831,7 @@ TREEVIEW_Refresh(TREEVIEW_INFO *infoPtr, HDC hdc, const RECT *rc)
     }
 
     //
-    // This is correct, but is causes and infinite loop of WM_PAINT messages, resulting
+    // This is correct, but it causes an infinite loop of WM_PAINT messages, resulting
     // in continuous painting of the scroll bar in reactos. Comment out until the real
     // bug is found
     // 
@@ -3297,59 +3291,56 @@ TREEVIEW_Expand(TREEVIEW_INFO *infoPtr, TREEVIEW_ITEM *wineItem,
     if (bExpandPartial)
 	FIXME("TVE_EXPANDPARTIAL not implemented\n");
 
-    if (ISVISIBLE(wineItem))
+    TREEVIEW_RecalculateVisibleOrder(infoPtr, wineItem);
+    TREEVIEW_UpdateSubTree(infoPtr, wineItem);
+    TREEVIEW_UpdateScrollBars(infoPtr);
+
+    scrollRect.left = 0;
+    scrollRect.bottom = infoPtr->treeHeight;
+    scrollRect.right = infoPtr->clientWidth;
+    if (nextItem)
     {
-        TREEVIEW_RecalculateVisibleOrder(infoPtr, wineItem);
-        TREEVIEW_UpdateSubTree(infoPtr, wineItem);
-        TREEVIEW_UpdateScrollBars(infoPtr);
+        scrollDist = nextItem->rect.top - orgNextTop;
+        scrollRect.top = orgNextTop;
 
-        scrollRect.left = 0;
-        scrollRect.bottom = infoPtr->treeHeight;
-        scrollRect.right = infoPtr->clientWidth;
-        if (nextItem)
-        {
-            scrollDist = nextItem->rect.top - orgNextTop;
-            scrollRect.top = orgNextTop;
+        ScrollWindowEx (infoPtr->hwnd, 0, scrollDist, &scrollRect, NULL,
+                       NULL, NULL, SW_ERASE | SW_INVALIDATE);
+        TREEVIEW_Invalidate (infoPtr, wineItem);
+    } else {
+        scrollRect.top = wineItem->rect.top;
+        InvalidateRect(infoPtr->hwnd, &scrollRect, FALSE);
+    }
 
-            ScrollWindowEx (infoPtr->hwnd, 0, scrollDist, &scrollRect, NULL,
-                        NULL, NULL, SW_ERASE | SW_INVALIDATE);
-            TREEVIEW_Invalidate (infoPtr, wineItem);
-        } else {
-            scrollRect.top = wineItem->rect.top;
-            InvalidateRect(infoPtr->hwnd, &scrollRect, FALSE);
-        }
+    /* Scroll up so that as many children as possible are visible.
+     * This fails when expanding causes an HScroll bar to appear, but we
+     * don't know that yet, so the last item is obscured. */
+    if (wineItem->firstChild != NULL)
+    {
+	int nChildren = wineItem->lastChild->visibleOrder
+	    - wineItem->firstChild->visibleOrder + 1;
 
-        /* Scroll up so that as many children as possible are visible.
-        * This fails when expanding causes an HScroll bar to appear, but we
-        * don't know that yet, so the last item is obscured. */
-        if (wineItem->firstChild != NULL)
-        {
-            int nChildren = wineItem->lastChild->visibleOrder
-                - wineItem->firstChild->visibleOrder + 1;
+	int visible_pos = wineItem->visibleOrder
+	    - infoPtr->firstVisible->visibleOrder;
 
-            int visible_pos = wineItem->visibleOrder
-                - infoPtr->firstVisible->visibleOrder;
+	int rows_below = TREEVIEW_GetVisibleCount(infoPtr) - visible_pos - 1;
 
-            int rows_below = TREEVIEW_GetVisibleCount(infoPtr) - visible_pos - 1;
+	if (visible_pos > 0 && nChildren > rows_below)
+	{
+	    int scroll = nChildren - rows_below;
 
-            if (visible_pos > 0 && nChildren > rows_below)
-            {
-                int scroll = nChildren - rows_below;
+	    if (scroll > visible_pos)
+		scroll = visible_pos;
 
-                if (scroll > visible_pos)
-                    scroll = visible_pos;
-
-                if (scroll > 0)
-                {
-                    TREEVIEW_ITEM *newFirstVisible
-                        = TREEVIEW_GetListItem(infoPtr, infoPtr->firstVisible,
-                                            scroll);
+	    if (scroll > 0)
+	    {
+		TREEVIEW_ITEM *newFirstVisible
+		    = TREEVIEW_GetListItem(infoPtr, infoPtr->firstVisible,
+					   scroll);
 
 
-                    TREEVIEW_SetFirstVisible(infoPtr, newFirstVisible, TRUE);
-                }
-            }
-        }
+		TREEVIEW_SetFirstVisible(infoPtr, newFirstVisible, TRUE);
+	    }
+	}
     }
 
     return TRUE;
@@ -4951,7 +4942,7 @@ TREEVIEW_Create(HWND hwnd, const CREATESTRUCTW *lpcs)
 
     infoPtr->scrollX = 0;
 
-    infoPtr->clrBk   = -1; /* use system color */
+    infoPtr->clrBk = GetSysColor(COLOR_WINDOW);
     infoPtr->clrText = -1;	/* use system color */
     infoPtr->clrLine = RGB(128, 128, 128);
     infoPtr->clrInsertMark = GetSysColor(COLOR_BTNTEXT);

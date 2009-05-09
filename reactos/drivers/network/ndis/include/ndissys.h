@@ -511,14 +511,9 @@ typedef struct _NDIS40_MINIPORT_CHARACTERISTICS {
 VOID
 NTAPI
 ExGetCurrentProcessorCounts(
-   PULONG ThreadKernelTime,
+  PULONG ThreadKernelTime,
    PULONG TotalCpuTime,
    PULONG ProcessorNumber);
-
-VOID
-NTAPI
-ExGetCurrentProcessorCpuUsage(
-    PULONG CpuUsage);
 
 #endif /* __NDISSYS_H */
 

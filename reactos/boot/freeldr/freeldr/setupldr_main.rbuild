@@ -15,9 +15,6 @@
 		<file>inffile.c</file>
 	</directory>
 	<directory name="reactos">
-		<file>setupldr.c</file>
-	</directory>
-	<directory name="windows">
-		<file>setupldr2.c</file>
+	  <file>setupldr.c</file>
 	</directory>
 </module>

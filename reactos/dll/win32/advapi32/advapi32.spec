@@ -645,7 +645,7 @@
 @ stdcall SystemFunction041(ptr long long)
 @ stdcall TraceEvent(double ptr)
 @ stub TraceEventInstance
-@ varargs TraceMessage(ptr long ptr long)
+@ stdcall TraceMessage(ptr long ptr long) advapi32.TraceMessage
 @ stub TraceMessageVa
 @ stdcall TreeResetNamedSecurityInfoA(str ptr ptr ptr ptr ptr ptr long ptr ptr ptr)
 @ stdcall TreeResetNamedSecurityInfoW(wstr ptr ptr ptr ptr ptr ptr long ptr ptr ptr)

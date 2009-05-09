@@ -493,31 +493,6 @@ static APARTMENT *apartment_findmain(void)
     return result;
 }
 
-/* gets the multi-threaded apartment if it exists. The caller must
- * release the reference from the apartment as soon as the apartment pointer
- * is no longer required. */
-static APARTMENT *apartment_find_multi_threaded(void)
-{
-    APARTMENT *result = NULL;
-    struct list *cursor;
-
-    EnterCriticalSection(&csApartment);
-
-    LIST_FOR_EACH( cursor, &apts )
-    {
-        struct apartment *apt = LIST_ENTRY( cursor, struct apartment, entry );
-        if (apt->multi_threaded)
-        {
-            result = apt;
-            apartment_addref(result);
-            break;
-        }
-    }
-
-    LeaveCriticalSection(&csApartment);
-    return result;
-}
-
 struct host_object_params
 {
     HKEY hkeydll;
@@ -959,7 +934,6 @@ static HRESULT COMPOBJ_DllList_Add(LPCWSTR library_name, OpenDll **ret)
         }
         else
         {
-            HeapFree(GetProcessHeap(), 0, entry);
             hr = E_OUTOFMEMORY;
             FreeLibrary(hLibrary);
         }
@@ -1024,6 +998,7 @@ static void COMPOBJ_DllList_Free(void)
 
 /******************************************************************************
  *           CoBuildVersion [OLE32.@]
+ *           CoBuildVersion [COMPOBJ.1]
  *
  * Gets the build version of the DLL.
  *
@@ -1342,6 +1317,7 @@ HRESULT WINAPI CoDisconnectObject( LPUNKNOWN lpUnk, DWORD reserved )
 
 /******************************************************************************
  *		CoCreateGuid [OLE32.@]
+ *		CoCreateGuid [COMPOBJ.73]
  *
  * Simply forwards to UuidCreate in RPCRT4.
  *
@@ -1454,6 +1430,40 @@ HRESULT WINAPI CLSIDFromString(LPOLESTR idstr, CLSID *id )
     return ret;
 }
 
+/* Converts a GUID into the respective string representation. */
+HRESULT WINE_StringFromCLSID(
+	const CLSID *id,	/* [in] GUID to be converted */
+	LPSTR idstr		/* [out] pointer to buffer to contain converted guid */
+) {
+  static const char hex[] = "0123456789ABCDEF";
+  char *s;
+  int	i;
+
+  if (!id)
+	{ ERR("called with id=Null\n");
+	  *idstr = 0x00;
+	  return E_FAIL;
+	}
+
+  sprintf(idstr, "{%08X-%04X-%04X-%02X%02X-",
+	  id->Data1, id->Data2, id->Data3,
+	  id->Data4[0], id->Data4[1]);
+  s = &idstr[25];
+
+  /* 6 hex bytes */
+  for (i = 2; i < 8; i++) {
+    *s++ = hex[id->Data4[i]>>4];
+    *s++ = hex[id->Data4[i] & 0xf];
+  }
+
+  *s++ = '}';
+  *s++ = '\0';
+
+  TRACE("%p->%s\n", id, idstr);
+
+  return S_OK;
+}
+
 
 /******************************************************************************
  *		StringFromCLSID	[OLE32.@]
@@ -1475,17 +1485,25 @@ HRESULT WINAPI CLSIDFromString(LPOLESTR idstr, CLSID *id )
  */
 HRESULT WINAPI StringFromCLSID(REFCLSID id, LPOLESTR *idstr)
 {
-    HRESULT ret;
-    LPMALLOC mllc;
+	char            buf[80];
+	HRESULT       ret;
+	LPMALLOC	mllc;
 
-    if ((ret = CoGetMalloc(0,&mllc))) return ret;
-    if (!(*idstr = IMalloc_Alloc( mllc, CHARS_IN_GUID * sizeof(WCHAR) ))) return E_OUTOFMEMORY;
-    StringFromGUID2( id, *idstr, CHARS_IN_GUID );
-    return S_OK;
+	if ((ret = CoGetMalloc(0,&mllc)))
+		return ret;
+
+	ret=WINE_StringFromCLSID(id,buf);
+	if (ret == S_OK) {
+            DWORD len = MultiByteToWideChar( CP_ACP, 0, buf, -1, NULL, 0 );
+            *idstr = IMalloc_Alloc( mllc, len * sizeof(WCHAR) );
+            MultiByteToWideChar( CP_ACP, 0, buf, -1, *idstr, len );
+	}
+	return ret;
 }
 
 /******************************************************************************
  *		StringFromGUID2	[OLE32.@]
+ *		StringFromGUID2	[COMPOBJ.76]
  *
  * Modified version of StringFromCLSID that allows you to specify max
  * buffer size.
@@ -1501,15 +1519,11 @@ HRESULT WINAPI StringFromCLSID(REFCLSID id, LPOLESTR *idstr)
  */
 INT WINAPI StringFromGUID2(REFGUID id, LPOLESTR str, INT cmax)
 {
-    static const WCHAR formatW[] = { '{','%','0','8','X','-','%','0','4','X','-',
-                                     '%','0','4','X','-','%','0','2','X','%','0','2','X','-',
-                                     '%','0','2','X','%','0','2','X','%','0','2','X','%','0','2','X',
-                                     '%','0','2','X','%','0','2','X','}',0 };
-    if (cmax < CHARS_IN_GUID) return 0;
-    sprintfW( str, formatW, id->Data1, id->Data2, id->Data3,
-              id->Data4[0], id->Data4[1], id->Data4[2], id->Data4[3],
-              id->Data4[4], id->Data4[5], id->Data4[6], id->Data4[7] );
-    return CHARS_IN_GUID;
+  char		xguid[80];
+
+  if (WINE_StringFromCLSID(id,xguid))
+  	return 0;
+  return MultiByteToWideChar( CP_ACP, 0, xguid, -1, str, cmax );
 }
 
 /* open HKCR\\CLSID\\{string form of clsid}\\{keyname} key */
@@ -2262,7 +2276,6 @@ HRESULT WINAPI CoGetClassObject(
     LPUNKNOWN	regClassObject;
     HRESULT	hres = E_UNEXPECTED;
     APARTMENT  *apt;
-    BOOL release_apt = FALSE;
 
     TRACE("\n\tCLSID:\t%s,\n\tIID:\t%s\n", debugstr_guid(rclsid), debugstr_guid(iid));
 
@@ -2271,14 +2284,11 @@ HRESULT WINAPI CoGetClassObject(
 
     *ppv = NULL;
 
-    if (!(apt = COM_CurrentApt()))
+    apt = COM_CurrentApt();
+    if (!apt)
     {
-        if (!(apt = apartment_find_multi_threaded()))
-        {
-            ERR("apartment not initialised\n");
-            return CO_E_NOTINITIALIZED;
-        }
-        release_apt = TRUE;
+        ERR("apartment not initialised\n");
+        return CO_E_NOTINITIALIZED;
     }
 
     if (pServerInfo) {
@@ -2302,7 +2312,7 @@ HRESULT WINAPI CoGetClassObject(
        * is good since we are not returning it in the "out" parameter.
        */
       IUnknown_Release(regClassObject);
-      if (release_apt) apartment_release(apt);
+
       return hres;
     }
 
@@ -2313,10 +2323,7 @@ HRESULT WINAPI CoGetClassObject(
         HKEY hkey;
 
         if (IsEqualCLSID(rclsid, &CLSID_InProcFreeMarshaler))
-        {
-            if (release_apt) apartment_release(apt);
             return FTMarshalCF_Create(iid, ppv);
-        }
 
         hres = COM_OpenKeyForCLSID(rclsid, wszInprocServer32, KEY_READ, &hkey);
         if (FAILED(hres))
@@ -2340,10 +2347,7 @@ HRESULT WINAPI CoGetClassObject(
         /* return if we got a class, otherwise fall through to one of the
          * other types */
         if (SUCCEEDED(hres))
-        {
-            if (release_apt) apartment_release(apt);
             return hres;
-        }
     }
 
     /* Next try in-process handler */
@@ -2374,12 +2378,8 @@ HRESULT WINAPI CoGetClassObject(
         /* return if we got a class, otherwise fall through to one of the
          * other types */
         if (SUCCEEDED(hres))
-        {
-            if (release_apt) apartment_release(apt);
             return hres;
-        }
     }
-    if (release_apt) apartment_release(apt);
 
     /* Next try out of process */
     if (CLSCTX_LOCAL_SERVER & dwClsContext)
@@ -2457,7 +2457,6 @@ HRESULT WINAPI CoCreateInstance(
 {
   HRESULT hres;
   LPCLASSFACTORY lpclf = 0;
-  APARTMENT *apt;
 
   TRACE("(rclsid=%s, pUnkOuter=%p, dwClsContext=%08x, riid=%s, ppv=%p)\n", debugstr_guid(rclsid),
         pUnkOuter, dwClsContext, debugstr_guid(iid), ppv);
@@ -2473,14 +2472,10 @@ HRESULT WINAPI CoCreateInstance(
    */
   *ppv = 0;
 
-  if (!(apt = COM_CurrentApt()))
+  if (!COM_CurrentApt())
   {
-    if (!(apt = apartment_find_multi_threaded()))
-    {
       ERR("apartment not initialised\n");
       return CO_E_NOTINITIALIZED;
-    }
-    apartment_release(apt);
   }
 
   /*
@@ -2688,6 +2683,7 @@ void WINAPI CoFreeUnusedLibrariesEx(DWORD dwUnloadDelay, DWORD dwReserved)
 
 /***********************************************************************
  *           CoFreeUnusedLibraries [OLE32.@]
+ *           CoFreeUnusedLibraries [COMPOBJ.17]
  *
  * Frees any unused libraries. Unused are identified as those that return
  * S_OK from their DllCanUnloadNow function.
@@ -2705,6 +2701,7 @@ void WINAPI CoFreeUnusedLibraries(void)
 
 /***********************************************************************
  *           CoFileTimeNow [OLE32.@]
+ *           CoFileTimeNow [COMPOBJ.82]
  *
  * Retrieves the current time in FILETIME format.
  *
@@ -2966,10 +2963,7 @@ HRESULT WINAPI CoGetTreatAsClass(REFCLSID clsidOld, LPCLSID clsidNew)
 
     res = COM_OpenKeyForCLSID(clsidOld, wszTreatAs, KEY_READ, &hkey);
     if (FAILED(res))
-    {
-        res = S_FALSE;
         goto done;
-    }
     if (RegQueryValueW(hkey, NULL, szClsidNew, &len))
     {
         res = S_FALSE;
@@ -2985,6 +2979,7 @@ done:
 
 /******************************************************************************
  *		CoGetCurrentProcess	[OLE32.@]
+ *		CoGetCurrentProcess	[COMPOBJ.34]
  *
  * Gets the current process ID.
  *

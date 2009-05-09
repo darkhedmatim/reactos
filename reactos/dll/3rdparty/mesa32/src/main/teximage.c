@@ -766,15 +766,15 @@ _mesa_select_tex_object(GLcontext *ctx, const struct gl_texture_unit *texUnit,
 {
    switch (target) {
       case GL_TEXTURE_1D:
-         return texUnit->CurrentTex[TEXTURE_1D_INDEX];
+         return texUnit->Current1D;
       case GL_PROXY_TEXTURE_1D:
          return ctx->Texture.ProxyTex[TEXTURE_1D_INDEX];
       case GL_TEXTURE_2D:
-         return texUnit->CurrentTex[TEXTURE_2D_INDEX];
+         return texUnit->Current2D;
       case GL_PROXY_TEXTURE_2D:
          return ctx->Texture.ProxyTex[TEXTURE_2D_INDEX];
       case GL_TEXTURE_3D:
-         return texUnit->CurrentTex[TEXTURE_3D_INDEX];
+         return texUnit->Current3D;
       case GL_PROXY_TEXTURE_3D:
          return ctx->Texture.ProxyTex[TEXTURE_3D_INDEX];
       case GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB:
@@ -785,25 +785,25 @@ _mesa_select_tex_object(GLcontext *ctx, const struct gl_texture_unit *texUnit,
       case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB:
       case GL_TEXTURE_CUBE_MAP_ARB:
          return ctx->Extensions.ARB_texture_cube_map
-                ? texUnit->CurrentTex[TEXTURE_CUBE_INDEX] : NULL;
+                ? texUnit->CurrentCubeMap : NULL;
       case GL_PROXY_TEXTURE_CUBE_MAP_ARB:
          return ctx->Extensions.ARB_texture_cube_map
                 ? ctx->Texture.ProxyTex[TEXTURE_CUBE_INDEX] : NULL;
       case GL_TEXTURE_RECTANGLE_NV:
          return ctx->Extensions.NV_texture_rectangle
-                ? texUnit->CurrentTex[TEXTURE_RECT_INDEX] : NULL;
+                ? texUnit->CurrentRect : NULL;
       case GL_PROXY_TEXTURE_RECTANGLE_NV:
          return ctx->Extensions.NV_texture_rectangle
                 ? ctx->Texture.ProxyTex[TEXTURE_RECT_INDEX] : NULL;
       case GL_TEXTURE_1D_ARRAY_EXT:
          return ctx->Extensions.MESA_texture_array
-                ? texUnit->CurrentTex[TEXTURE_1D_ARRAY_INDEX] : NULL;
+                ? texUnit->Current1DArray : NULL;
       case GL_PROXY_TEXTURE_1D_ARRAY_EXT:
          return ctx->Extensions.MESA_texture_array
                 ? ctx->Texture.ProxyTex[TEXTURE_1D_ARRAY_INDEX] : NULL;
       case GL_TEXTURE_2D_ARRAY_EXT:
          return ctx->Extensions.MESA_texture_array
-                ? texUnit->CurrentTex[TEXTURE_2D_ARRAY_INDEX] : NULL;
+                ? texUnit->Current2DArray : NULL;
       case GL_PROXY_TEXTURE_2D_ARRAY_EXT:
          return ctx->Extensions.MESA_texture_array
                 ? ctx->Texture.ProxyTex[TEXTURE_2D_ARRAY_INDEX] : NULL;
@@ -2224,8 +2224,7 @@ copytexsubimage_error_check2( GLcontext *ctx, GLuint dimensions,
 
    if (!_mesa_source_buffer_exists(ctx, teximage->_BaseFormat)) {
       _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glCopyTexSubImage%dD(missing readbuffer, format=0x%x)",
-                  dimensions, teximage->_BaseFormat);
+               "glCopyTexSubImage%dD(missing readbuffer)", dimensions);
       return GL_TRUE;
    }
 
@@ -2604,7 +2603,7 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
                               1, border)) {
          /* when error, clear all proxy texture image parameters */
          if (texImage)
-            clear_teximage_fields(texImage);
+            clear_teximage_fields(ctx->Texture.ProxyTex[TEXTURE_2D_INDEX]->Image[0][level]);
       }
       else {
          /* no error, set the tex image parameters */

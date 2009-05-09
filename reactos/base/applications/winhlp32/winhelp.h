@@ -80,8 +80,6 @@ typedef struct tagWinHelp
     HWND                hShadowWnd;
     HWND                hHistoryWnd;
 
-    WNDPROC             origRicheditWndProc;
-
     HFONT*              fonts;
     UINT                fonts_len;
 
@@ -90,6 +88,7 @@ typedef struct tagWinHelp
     HBRUSH              hBrush;
 
     HLPFILE_WINDOWINFO* info;
+    HLPFILE_LINK*       current_link;
 
     WINHELP_PAGESET     back;
     unsigned            font_scale; /* 0 = small, 1 = normal, 2 = large */

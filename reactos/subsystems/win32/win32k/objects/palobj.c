@@ -42,7 +42,7 @@ PPALETTEENTRY FASTCALL ReturnSystemPalette (VOID)
 BOOL INTERNAL_CALL
 PALETTE_Cleanup(PVOID ObjectBody)
 {
-  PPALETTE pPal = (PPALETTE)ObjectBody;
+  PPALGDI pPal = (PPALGDI)ObjectBody;
   if (NULL != pPal->IndexedColors)
     {
       ExFreePool(pPal->IndexedColors);
@@ -61,9 +61,9 @@ PALETTE_AllocPalette(ULONG Mode,
                      ULONG Blue)
 {
   HPALETTE NewPalette;
-  PPALETTE PalGDI;
+  PPALGDI PalGDI;
 
-  PalGDI = (PPALETTE)GDIOBJ_AllocObjWithHandle(GDI_OBJECT_TYPE_PALETTE);
+  PalGDI = (PPALGDI)GDIOBJ_AllocObjWithHandle(GDI_OBJECT_TYPE_PALETTE);
   if (!PalGDI)
   {
       return NULL;
@@ -108,10 +108,10 @@ PALETTE_AllocPaletteIndexedRGB(ULONG NumColors,
                                CONST RGBQUAD *Colors)
 {
   HPALETTE NewPalette;
-  PPALETTE PalGDI;
+  PPALGDI PalGDI;
   UINT i;
 
-  PalGDI = (PPALETTE)GDIOBJ_AllocObjWithHandle(GDI_OBJECT_TYPE_PALETTE);
+  PalGDI = (PPALGDI)GDIOBJ_AllocObjWithHandle(GDI_OBJECT_TYPE_PALETTE);
   if (!PalGDI)
   {
       return NULL;
@@ -229,8 +229,8 @@ INT APIENTRY PALETTE_SetMapping(PALOBJ *palPtr, UINT uStart, UINT uNum, BOOL map
   int  index, iRemapped = 0;
   int *mapping;
   HPALETTE hSysPal = NtGdiGetStockObject(DEFAULT_PALETTE);
-  PPALETTE pSysPal = PALETTE_LockPalette(hSysPal);
-  PPALETTE palGDI = CONTAINING_RECORD(palPtr,PALETTE,PalObj);
+  PPALGDI pSysPal = PALETTE_LockPalette(hSysPal);
+  PPALGDI palGDI = CONTAINING_RECORD(palPtr,PALGDI,PalObj);
   /* FIXME - handle pSysPal == NULL!!!!!!! */
 
   COLOR_sysPal = pSysPal->IndexedColors;
@@ -339,7 +339,7 @@ INT APIENTRY PALETTE_SetMapping(PALOBJ *palPtr, UINT uStart, UINT uNum, BOOL map
 #endif
 
 INT FASTCALL
-PALETTE_GetObject(PPALETTE pGdiObject, INT cbCount, LPLOGBRUSH lpBuffer)
+PALETTE_GetObject(PPALGDI pGdiObject, INT cbCount, LPLOGBRUSH lpBuffer)
 {
   if (!lpBuffer)
   {

@@ -75,13 +75,13 @@ IopUpdateOperationCount(IN IOP_TRANSFER_TYPE Type)
         {
             /* Increase write count */
             IoWriteOperationCount++;
-            CountToChange = &PsGetCurrentProcess()->WriteOperationCount;
+            CountToChange = &PsGetCurrentProcess()->ReadOperationCount;
         }
         else
         {
             /* Increase other count */
             IoOtherOperationCount++;
-            CountToChange = &PsGetCurrentProcess()->OtherOperationCount;
+            CountToChange = &PsGetCurrentProcess()->ReadOperationCount;
         }
 
         /* Increase the process-wide count */

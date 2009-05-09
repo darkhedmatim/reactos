@@ -222,7 +222,6 @@ BEGIN
 	IDS_SYS_TOOLS        "Systemprogramme"
 	IDS_CMT_CHARMAP      "Zeichentabelle"
 	IDS_CMT_KBSWITCH     "Tastaturlayout-Umschalter"
-    IDS_CMT_DXDIAG       "Launch ReactX-Diagnostic program"
 END
 
 
@@ -230,13 +229,6 @@ STRINGTABLE
 BEGIN
 	IDS_SYS_ACCESSIBILITY        "Eingabehilfen"
 	IDS_CMT_MAGNIFY      	     "Bildschirmlupe"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_SYS_ENTERTAINMENT       "Entertainment"
-    IDS_CMT_MPLAY32             "Launch Multimedia Player"
-    IDS_CMT_SNDVOL32            "Launch Volume Control"
 END
 
 STRINGTABLE
@@ -259,7 +251,6 @@ BEGIN
     IDS_SHORT_DOWNLOADER "Download !.lnk"
     IDS_SHORT_SERVICE    "Dienste-Manager.lnk"
     IDS_SHORT_DEVICE     "Geräte-Manager.lnk"
-    IDS_SHORT_MPLAY32    "Multimedia Player.lnk"
     IDS_SHORT_CALC       "Rechner.lnk"
     IDS_SHORT_REGEDIT    "Registrierungseditor.lnk"
     IDS_SHORT_NOTEPAD    "Editor.lnk"
@@ -273,8 +264,6 @@ BEGIN
     IDS_SHORT_KBSWITCH   "Tastaturlayout-Umschalter.lnk"
     IDS_SHORT_EVENTVIEW  "Ereignisanzeige.lnk"
     IDS_SHORT_MSCONFIG   "Systemkonfiguration.lnk"
-    IDS_SHORT_SNDVOL32   "Volume Control.lnk"
-    IDS_SHORT_DXDIAG     "ReactX Diagnostic.lnk"
 END
 
 STRINGTABLE

@@ -431,6 +431,19 @@ ReadFileScatter(HANDLE hFile,
 /*
  * @unimplemented
  */
+ULONG
+WINAPI
+RemoveVectoredExceptionHandler(
+    PVOID VectoredHandlerHandle
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
 VOID
 WINAPI
 RestoreLastError(

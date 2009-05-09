@@ -95,6 +95,7 @@ typedef struct
 #define HORZ_BORDER 0
 #define VERT_BORDER 2
 #define HORZ_GAP    2
+#define MIN_PANE_HEIGHT 18
 
 static const WCHAR themeClass[] = { 'S','t','a','t','u','s',0 };
 
@@ -648,9 +649,7 @@ STATUSBAR_SetIcon (STATUS_INFO *infoPtr, INT nPart, HICON hIcon)
 static BOOL
 STATUSBAR_SetMinHeight (STATUS_INFO *infoPtr, INT height)
 {
-    DWORD ysize = GetSystemMetrics(SM_CYSIZE);
-    if (ysize & 1) ysize--;
-    infoPtr->minHeight = max(height, ysize);
+    infoPtr->minHeight = max(height, MIN_PANE_HEIGHT);
     infoPtr->height = STATUSBAR_ComputeHeight(infoPtr);
     /* like native, don't resize the control */
     return TRUE;
@@ -759,10 +758,11 @@ STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
     if (style & SBT_OWNERDRAW) {
         if (!(oldStyle & SBT_OWNERDRAW))
             Free (part->text);
+        else if (part->text == text)
+            return TRUE;
         part->text = (LPWSTR)text;
     } else {
 	LPWSTR ntext;
-	WCHAR  *idx;
 
 	if (text && !isW) {
 	    LPCSTR atxt = (LPCSTR)text;
@@ -775,16 +775,6 @@ STATUSBAR_SetTextT (STATUS_INFO *infoPtr, INT nPart, WORD style,
 	    if (!ntext) return FALSE;
 	    strcpyW (ntext, text);
 	} else ntext = 0;
-
-	/* replace nonprintable characters with spaces */
-	if (ntext) {
-	    idx = ntext;
-	    while (*idx) {
-	        if(!isprintW(*idx))
-	            *idx = ' ';
-	        idx++;
-	    }
-	}
 
 	/* check if text is unchanged -> no need to redraw */
 	if (text) {
@@ -931,8 +921,7 @@ STATUSBAR_WMCreate (HWND hwnd, const CREATESTRUCTA *lpCreate)
     infoPtr->horizontalBorder = HORZ_BORDER;
     infoPtr->verticalBorder = VERT_BORDER;
     infoPtr->horizontalGap = HORZ_GAP;
-    infoPtr->minHeight = GetSystemMetrics(SM_CYSIZE);
-    if (infoPtr->minHeight & 1) infoPtr->minHeight--;
+    infoPtr->minHeight = MIN_PANE_HEIGHT;
 
     STATUSBAR_NotifyFormat(infoPtr, infoPtr->Notify, NF_REQUERY);
 

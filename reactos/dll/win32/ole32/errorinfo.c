@@ -95,7 +95,7 @@ static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
     stringBuffer = (WCHAR*)newBuffer;
     stringBuffer[len] = 0;
 
-    return stringBuffer;
+    return (LPWSTR)stringBuffer;
 }
 
 /* this code is from SysFreeString (ole2disp.c in oleaut32)*/
@@ -163,9 +163,9 @@ static inline ErrorInfoImpl *impl_from_ISupportErrorInfo( ISupportErrorInfo *ifa
 /*
  converts This to an object pointer
  */
-#define _IErrorInfo_(This)              ((IErrorInfo*)&(This)->lpvtei)
-#define _ICreateErrorInfo_(This)        (&(This)->lpvtcei)
-#define _ISupportErrorInfo_(This)       (&(This)->lpvtsei)
+#define _IErrorInfo_(This)		(IErrorInfo*)&(This->lpvtei)
+#define _ICreateErrorInfo_(This)	(ICreateErrorInfo*)&(This->lpvtcei)
+#define _ISupportErrorInfo_(This)	(ISupportErrorInfo*)&(This->lpvtsei)
 
 static IErrorInfo * IErrorInfoImpl_Constructor(void)
 {

@@ -29,31 +29,22 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma code_seg("PAGE")
 
-NTSTATUS
-NewCMIAdapter(
-    PUNKNOWN *Unknown, 
-    REFCLSID,
-    PUNKNOWN UnknownOuter, 
-    POOL_TYPE PoolType)
+NTSTATUS NewCMIAdapter(PUNKNOWN *Unknown, REFCLSID, PUNKNOWN UnknownOuter, POOL_TYPE PoolType)
 {
-#if 0
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("NewCMIAdapter()"));
-	//ASSERT (Unknown);
-#endif
+	ASSERT (Unknown);
 	STD_CREATE_BODY_(CCMIAdapter, Unknown, UnknownOuter, PoolType, PCMIADAPTER);
 }
 
 
 STDMETHODIMP_(NTSTATUS) CCMIAdapter::init(PRESOURCELIST ResourceList, PDEVICE_OBJECT aDeviceObject)
 {
-#if 0
-    //PAGED_CODE();
-	//ASSERT(ResourceList);
-	//ASSERT(aDeviceObject);
-	//ASSERT(ResourceList->FindTranslatedPort(0));
+    PAGED_CODE();
+	ASSERT(ResourceList);
+	ASSERT(aDeviceObject);
+	ASSERT(ResourceList->FindTranslatedPort(0));
 	DBGPRINT(("CCMIAdapter[%p]::init()", this));
-#endif
 
 	NTSTATUS ntStatus = STATUS_SUCCESS;
 
@@ -119,7 +110,7 @@ STDMETHODIMP_(NTSTATUS) CCMIAdapter::init(PRESOURCELIST ResourceList, PDEVICE_OB
 
 CCMIAdapter::~CCMIAdapter()
 {
-	//PAGED_CODE ();
+	PAGED_CODE ();
 	DBGPRINT(("CCMIAdapter[%p]::~CCMIAdapter()", this));
 
 	if (InterruptSync) {
@@ -131,11 +122,11 @@ CCMIAdapter::~CCMIAdapter()
 
 STDMETHODIMP_(NTSTATUS) CCMIAdapter::NonDelegatingQueryInterface(REFIID Interface, PVOID* Object)
 {
-    //PAGED_CODE();
+    PAGED_CODE();
 
 	DBGPRINT(("CCMIAdapter[%p]::NonDelegatingQueryInterface()", this));
 
-	//ASSERT(Object);
+	ASSERT(Object);
 
 	// Is it IID_IUnknown?
 	if (IsEqualGUIDAligned (Interface, IID_IUnknown)) {
@@ -164,7 +155,7 @@ STDMETHODIMP_(NTSTATUS) CCMIAdapter::NonDelegatingQueryInterface(REFIID Interfac
 
 bool CCMIAdapter::queryChip()
 {
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::queryChip()", this));
 
 	UInt32 version = readUInt32(REG_INTHLDCLR) & VERSION_MASK;
@@ -225,7 +216,7 @@ bool CCMIAdapter::queryChip()
 
 void CCMIAdapter::resetMixer()
 {
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::resetMixer()", this));
 
 	writeMixer(0, 0);
@@ -234,10 +225,8 @@ void CCMIAdapter::resetMixer()
 
 void CCMIAdapter::resetController()
 {
-#if 0
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::resetController()", this));
-#endif
 
 	writeUInt32(REG_INTHLDCLR, 0);
 
@@ -269,11 +258,10 @@ void CCMIAdapter::resetController()
 
 STDMETHODIMP_(NTSTATUS) CCMIAdapter::activateMPU(ULONG* MPUBase)
 {
-	UInt32 LegacyCtrl;
-#if 0
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::activateMPU(%X)", this, MPUBase));
-#endif
+
+	UInt32 LegacyCtrl;
 
 	switch ((LONGLONG)MPUBase) {
 		case 0x300: LegacyCtrl = UART_300; break;
@@ -296,10 +284,8 @@ STDMETHODIMP_(NTSTATUS) CCMIAdapter::activateMPU(ULONG* MPUBase)
 // XP's order of power states when going to hibernate: D3 -> D0, waking up: D0 -> D3.
 STDMETHODIMP_(void) CCMIAdapter::PowerChangeState(POWER_STATE NewState)
 {
-#if 0
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::PowerChangeState(%p)", this, NewState));
-#endif
 
 	if (NewState.DeviceState == CurrentPowerState ) {
 		return;
@@ -332,31 +318,25 @@ STDMETHODIMP_(void) CCMIAdapter::PowerChangeState(POWER_STATE NewState)
 
 STDMETHODIMP_(NTSTATUS) CCMIAdapter::QueryPowerChangeState(POWER_STATE NewStateQuery)
 {
-#if 0
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::QueryPowerChangeState(%p)", this, NewStateQuery));
-#endif
 	return STATUS_SUCCESS;
 }
 
 STDMETHODIMP_(NTSTATUS) CCMIAdapter::QueryDeviceCapabilities(PDEVICE_CAPABILITIES PowerDeviceCaps)
 {
-#if 0
-	//PAGED_CODE();
+	PAGED_CODE();
 	DBGPRINT(("CCMIAdapter[%p]::QueryDeviceCapabilities(%p)", this, PowerDeviceCaps));
-#endif
 	return STATUS_SUCCESS;
 }
 
 STDMETHODIMP_(NTSTATUS) CCMIAdapter::loadSBMixerFromMemory()
 {
+	PAGED_CODE();
+	DBGPRINT(("CCMIAdapter[%p]::loadSBMixerFromMemory()", this));
 	UInt8 sbIndex[] = { 0x04, 0x0A, 0x22, 0x28, 0x2E, 0x30, 0x31, 0x32, 0x33, 0x36, 0x37, 0x38,
 	                    0x39, 0x3A, 0x3C, 0x3D, 0x3E, 0xF0 };
 
-#if 0
-	//PAGED_CODE();
-	DBGPRINT(("CCMIAdapter[%p]::loadSBMixerFromMemory()", this));
-#endif
 	for (int i = 0; i<(sizeof(sbIndex)/sizeof(sbIndex[0]));i++) {
 		writeUInt8(REG_SBINDEX, sbIndex[i]);
 		writeUInt8(REG_SBDATA, mixerCache[i]);
@@ -451,14 +431,12 @@ STDMETHODIMP_(void) CCMIAdapter::clearMixerBit(UInt8 index, UInt8 flag)
 
 NTSTATUS CCMIAdapter::InterruptServiceRoutine(PINTERRUPTSYNC InterruptSync, PVOID DynamicContext)
 {
+	ASSERT(InterruptSync);
+	ASSERT(DynamicContext);
+
 	UInt32 status, mask = 0;
 
 	CCMIAdapter *CMIAdapter = (CCMIAdapter *)DynamicContext;
-
-#if 0
-	//ASSERT(InterruptSync);
-	//ASSERT(DynamicContext);
-#endif
 
 	if (!(CMIAdapter->cm.WaveMiniport)) {
         	return STATUS_UNSUCCESSFUL;

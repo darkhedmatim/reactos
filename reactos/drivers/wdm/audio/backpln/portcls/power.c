@@ -1,12 +1,6 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/power.c
- * PURPOSE:         Power support functions
- * PROGRAMMER:      Johannes Anderwald
- */
-
 #include "private.h"
+
+
 
 /*
  * @implemented
@@ -23,8 +17,7 @@ PcRegisterAdapterPowerManagement(
     PPCLASS_DEVICE_EXTENSION DeviceExt;
     IAdapterPowerManagement * pPower;
 
-    DPRINT("PcRegisterAdapterPowerManagement pUnknown %p pvContext %p\n", pUnknown, pvContext);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    DPRINT1("PcRegisterAdapterPowerManagement pUnknown %p pvContext %p\n", pUnknown, pvContext);
 
     if (!pUnknown || !pvContext)
         return STATUS_INVALID_PARAMETER;
@@ -42,7 +35,7 @@ PcRegisterAdapterPowerManagement(
     }
 
     DeviceExt->AdapterPowerManagement = pPower;
-    DPRINT("PcRegisterAdapterPowerManagement success %x\n", Status);
+    DPRINT1("PcRegisterAdapterPowerManagement success %x\n", Status);
     return STATUS_SUCCESS;
 }
 
@@ -72,8 +65,6 @@ PcRequestNewPowerState(
     NTSTATUS Status;
     POWER_STATE PowerState;
     PPCLASS_DEVICE_EXTENSION DeviceExt;
-
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!DeviceObject || !RequestedNewState)
         return STATUS_INVALID_PARAMETER;

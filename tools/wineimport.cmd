@@ -147,13 +147,15 @@ IF "%WINE_HAS_DLLINSTALL%" == "1" (
 	)
 )
 IF EXIST "%WINE_RELATIVE_WINE%\%WINE_MODULE_NAME%.spec" (
-	ECHO 	^<importlibrary definition="%WINE_MODULE_NAME%.spec" /^>
+	ECHO 	^<importlibrary definition="%WINE_MODULE_NAME%.spec.def" /^>
 )
 ECHO 	^<include base="%WINE_SHORT_NAME%"^>.^</include^>
 IF "%WINE_IS_EXE%" == "0" (
 	ECHO 	^<include base="ReactOS"^>include/reactos/wine^</include^>
 	ECHO 	^<define name="__WINESRC__" /^>
 )
+ECHO 	^<define name="WINVER"^>0x600^</define^>
+ECHO 	^<define name="_WIN32_WINNT"^>0x600^</define^>
 SET WINE_FULL_LINE=
 SET WINE_END_PREC_LINE=
 SET WINE_VARTYPE=0
@@ -173,6 +175,9 @@ IF NOT "%WINE_HAS_IDL%" == "" (
 )
 IF "%WINE_IS_EXE%" == "1" (
 	ECHO 	^<file^>testlist.c^</file^>
+)
+IF EXIST "%WINE_RELATIVE_WINE%\%WINE_MODULE_NAME%.spec" (
+	ECHO 	^<file^>%WINE_MODULE_NAME%.spec^</file^>
 )
 FOR %%j IN (%WINE_LIBRARIES%) DO (
 	ECHO 	^<library^>%%j^</library^>

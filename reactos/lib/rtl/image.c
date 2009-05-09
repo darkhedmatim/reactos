@@ -177,7 +177,6 @@ LdrProcessRelocationBlockLongLong(
     USHORT i;
     PUSHORT ShortPtr;
     PULONG LongPtr;
-    PULONGLONG LongLongPtr;
 
     for (i = 0; i < Count; i++)
     {
@@ -213,11 +212,6 @@ LdrProcessRelocationBlockLongLong(
         case IMAGE_REL_BASED_HIGHLOW:
             LongPtr = (PULONG)RVA(Address, Offset);
             *LongPtr = SWAPD(*LongPtr) + (ULONG)Delta;
-            break;
-
-        case IMAGE_REL_BASED_DIR64:
-            LongLongPtr = (PUINT64)RVA(Address, Offset);
-            *LongLongPtr = SWAPQ(*LongLongPtr) + Delta;
             break;
 
         case IMAGE_REL_BASED_HIGHADJ:

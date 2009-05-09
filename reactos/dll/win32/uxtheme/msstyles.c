@@ -733,9 +733,9 @@ static inline void parse_init_nonclient (struct PARSENONCLIENTSTATE* state)
     memset (state, 0, sizeof (*state));
     state->metrics.cbSize = sizeof (NONCLIENTMETRICSW);
     SystemParametersInfoW (SPI_GETNONCLIENTMETRICS, sizeof (NONCLIENTMETRICSW),
-        &state->metrics, 0);
+        (PVOID)&state->metrics, 0);
     SystemParametersInfoW (SPI_GETICONTITLELOGFONT, sizeof (LOGFONTW),
-        &state->iconTitleFont, 0);
+        (PVOID)&state->iconTitleFont, 0);
 }
 
 static BOOL parse_handle_nonclient_font (struct PARSENONCLIENTSTATE* state, 
@@ -838,9 +838,9 @@ static void parse_apply_nonclient (struct PARSENONCLIENTSTATE* state)
     if (state->metricsDirty)
     {
         SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, sizeof (state->metrics),
-            &state->metrics, 0);
+            (PVOID)&state->metrics, 0);
         SystemParametersInfoW (SPI_SETICONTITLELOGFONT, sizeof (state->iconTitleFont),
-            &state->iconTitleFont, 0);
+            (PVOID)&state->iconTitleFont, 0);
     }
 }
 
@@ -1086,7 +1086,7 @@ static BOOL prepare_alpha (HBITMAP bmp, BOOL* hasAlpha)
         return TRUE;
 
     *hasAlpha = TRUE;
-    p = dib.dsBm.bmBits;
+    p = (BYTE*)dib.dsBm.bmBits;
     n = abs(dib.dsBmih.biHeight) * dib.dsBmih.biWidth;
     /* AlphaBlend() wants premultiplied alpha, so do that now */
     while (n-- > 0)

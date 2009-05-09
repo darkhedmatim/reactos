@@ -1,12 +1,7 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/drm_port.c
- * PURPOSE:         portcls drm port object
- * PROGRAMMER:      Johannes Anderwald
- */
-
 #include "private.h"
+
+
+
 
 typedef struct
 {
@@ -23,7 +18,7 @@ IDrmPort2_fnAddRef(
 
     DPRINT("IDrmPort2_AddRef: This %p\n", This);
 
-    return InterlockedIncrement(&This->ref);
+    return _InterlockedIncrement(&This->ref);
 }
 
 ULONG
@@ -33,7 +28,7 @@ IDrmPort2_fnRelease(
 {
     IDrmPort2Impl * This = (IDrmPort2Impl*)iface;
 
-    InterlockedDecrement(&This->ref);
+    _InterlockedDecrement(&This->ref);
 
     if (This->ref == 0)
     {
@@ -51,7 +46,6 @@ IDrmPort2_fnQueryInterface(
     IN  REFIID refiid,
     OUT PVOID* Output)
 {
-    UNICODE_STRING GuidString;
     IDrmPort2Impl * This = (IDrmPort2Impl*)iface;
 
     if (IsEqualGUIDAligned(refiid, &IID_IDrmPort) ||
@@ -59,15 +53,11 @@ IDrmPort2_fnQueryInterface(
         IsEqualGUIDAligned(refiid, &IID_IUnknown))
     {
         *Output = (PVOID)&This->lpVtbl;
-        InterlockedIncrement(&This->ref);
+        _InterlockedIncrement(&This->ref);
         return STATUS_SUCCESS;
     }
 
-    if (RtlStringFromGUID(refiid, &GuidString) == STATUS_SUCCESS)
-    {
-        DPRINT1("IDrmPort2_QueryInterface no interface!!! iface %S\n", GuidString.Buffer);
-        RtlFreeUnicodeString(&GuidString);
-    }
+    DPRINT("IDrmPort2_QueryInterface: This %p unknown iid\n", This, This->ref);
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -79,7 +69,6 @@ IDrmPort2_fnCreateContentMixed(
     IN  ULONG cContentId,
     OUT PULONG pMixedContentId)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmCreateContentMixed(paContentId, cContentId, pMixedContentId);
 }
 
@@ -89,7 +78,6 @@ IDrmPort2_fnDestroyContent(
     IN IDrmPort2 * iface,
     IN ULONG ContentId)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmDestroyContent(ContentId);
 }
 
@@ -111,7 +99,6 @@ IDrmPort2_fnForwardContentToInterface(
     IN PUNKNOWN pUnknown,
     IN ULONG NumMethods)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmForwardContentToInterface(ContentId, pUnknown, NumMethods);
 }
 
@@ -122,7 +109,6 @@ IDrmPort2_fnGetContentRights(
     IN ULONG ContentId,
     OUT PDRMRIGHTS  DrmRights)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmGetContentRights(ContentId, DrmRights);
 }
 
@@ -134,7 +120,6 @@ IDrmPort2_fnAddContentHandlers(
     IN PVOID * paHandlers,
     IN ULONG NumHandlers)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmAddContentHandlers(ContentId, paHandlers, NumHandlers);
 }
 
@@ -146,7 +131,6 @@ IDrmPort2_fnForwardContentToDeviceObject(
     IN PVOID Reserved,
     IN PCDRMFORWARD DrmForward)
 {
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
     return DrmForwardContentToDeviceObject(ContentId, Reserved, DrmForward);
 }
 

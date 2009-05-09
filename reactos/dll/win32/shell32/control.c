@@ -72,7 +72,7 @@ CPlApplet*	Control_LoadApplet(HWND hWnd, LPCWSTR cmd, CPanel* panel)
 
     for (i = 0; i < applet->count; i++) {
        ZeroMemory(&newinfo, sizeof(newinfo));
-       newinfo.dwSize = sizeof(NEWCPLINFOW);
+       newinfo.dwSize = sizeof(NEWCPLINFOA);
        applet->info[i].dwSize = sizeof(NEWCPLINFOW);
        /* proc is supposed to return a null value upon success for
 	* CPL_INQUIRE and CPL_NEWINQUIRE
@@ -102,12 +102,21 @@ CPlApplet*	Control_LoadApplet(HWND hWnd, LPCWSTR cmd, CPanel* panel)
        else
        {
            CopyMemory(&applet->info[i], &newinfo, newinfo.dwSize);
-	       if (newinfo.dwSize != sizeof(NEWCPLINFOW))
+	   if (newinfo.dwSize != sizeof(NEWCPLINFOW))
            {
-	            applet->info[i].dwSize = sizeof(NEWCPLINFOW);
-		        lstrcpyW(applet->info[i].szName, newinfo.szName);
-				lstrcpyW(applet->info[i].szInfo, newinfo.szInfo);
-				lstrcpyW(applet->info[i].szHelpFile, newinfo.szHelpFile);
+	       applet->info[i].dwSize = sizeof(NEWCPLINFOW);
+               MultiByteToWideChar(CP_ACP, 0, ((LPNEWCPLINFOA)&newinfo)->szName,
+	                           sizeof(((LPNEWCPLINFOA)&newinfo)->szName) / sizeof(CHAR),
+			           applet->info[i].szName,
+			           sizeof(applet->info[i].szName) / sizeof(WCHAR));
+               MultiByteToWideChar(CP_ACP, 0, ((LPNEWCPLINFOA)&newinfo)->szInfo,
+	                           sizeof(((LPNEWCPLINFOA)&newinfo)->szInfo) / sizeof(CHAR),
+			           applet->info[i].szInfo,
+			           sizeof(applet->info[i].szInfo) / sizeof(WCHAR));
+               MultiByteToWideChar(CP_ACP, 0, ((LPNEWCPLINFOA)&newinfo)->szHelpFile,
+	                           sizeof(((LPNEWCPLINFOA)&newinfo)->szHelpFile) / sizeof(CHAR),
+			           applet->info[i].szHelpFile,
+			           sizeof(applet->info[i].szHelpFile) / sizeof(WCHAR));
            }
        }
     }
@@ -122,11 +131,11 @@ CPlApplet*	Control_LoadApplet(HWND hWnd, LPCWSTR cmd, CPanel* panel)
     return NULL;
 }
 
-static void Control_WndProc_Create(HWND hWnd, const CREATESTRUCTW* cs)
+static void 	 Control_WndProc_Create(HWND hWnd, const CREATESTRUCTA* cs)
 {
    CPanel*	panel = (CPanel*)cs->lpCreateParams;
 
-   SetWindowLongPtrW(hWnd, 0, (LONG_PTR)panel);
+   SetWindowLongPtrA(hWnd, 0, (LONG_PTR)panel);
    panel->status = 0;
    panel->hWnd = hWnd;
 }
@@ -217,12 +226,12 @@ static LRESULT Control_WndProc_LButton(CPanel* panel, LPARAM lParam, BOOL up)
 static LRESULT WINAPI	Control_WndProc(HWND hWnd, UINT wMsg,
 					WPARAM lParam1, LPARAM lParam2)
 {
-   CPanel*	panel = (CPanel*)GetWindowLongPtrW(hWnd, 0);
+   CPanel*	panel = (CPanel*)GetWindowLongPtrA(hWnd, 0);
 
    if (panel || wMsg == WM_CREATE) {
       switch (wMsg) {
       case WM_CREATE:
-	 Control_WndProc_Create(hWnd, (CREATESTRUCTW*)lParam2);
+	 Control_WndProc_Create(hWnd, (CREATESTRUCTA*)lParam2);
 	 return 0;
       case WM_DESTROY:
          {
@@ -243,14 +252,14 @@ static LRESULT WINAPI	Control_WndProc(HWND hWnd, UINT wMsg,
       }
    }
 
-   return DefWindowProcW(hWnd, wMsg, lParam1, lParam2);
+   return DefWindowProcA(hWnd, wMsg, lParam1, lParam2);
 }
 
-static void Control_DoInterface(CPanel* panel, HWND hWnd, HINSTANCE hInst)
+static void    Control_DoInterface(CPanel* panel, HWND hWnd, HINSTANCE hInst)
 {
-    WNDCLASSW	wc;
-    MSG	msg;
-    const WCHAR* appName = L"ReactOS Control Panel";
+    WNDCLASSA	wc;
+    MSG		msg;
+    const CHAR* appName = "Wine Control Panel";
     wc.style = CS_HREDRAW|CS_VREDRAW;
     wc.lpfnWndProc = Control_WndProc;
     wc.cbClsExtra = 0;
@@ -260,11 +269,11 @@ static void Control_DoInterface(CPanel* panel, HWND hWnd, HINSTANCE hInst)
     wc.hCursor = 0;
     wc.hbrBackground = GetStockObject(WHITE_BRUSH);
     wc.lpszMenuName = NULL;
-    wc.lpszClassName = L"Shell_Control_WndClass";
+    wc.lpszClassName = "Shell_Control_WndClass";
 
-    if (!RegisterClassW(&wc)) return;
+    if (!RegisterClassA(&wc)) return;
 
-    CreateWindowExW(0, wc.lpszClassName, appName,
+    CreateWindowExA(0, wc.lpszClassName, appName,
 		    WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 		    CW_USEDEFAULT, CW_USEDEFAULT,
 		    CW_USEDEFAULT, CW_USEDEFAULT,
@@ -273,17 +282,17 @@ static void Control_DoInterface(CPanel* panel, HWND hWnd, HINSTANCE hInst)
 
     if (!panel->first) {
 	/* FIXME appName & message should be localized  */
-	MessageBoxW(panel->hWnd, L"Cannot load any applets", appName, MB_OK);
+	MessageBoxA(panel->hWnd, "Cannot load any applets", appName, MB_OK);
 	return;
     }
 
-    while (GetMessageW(&msg, panel->hWnd, 0, 0)) {
+    while (GetMessageA(&msg, panel->hWnd, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        DispatchMessageA(&msg);
     }
 }
 
-static void Control_DoWindow(CPanel* panel, HWND hWnd, HINSTANCE hInst)
+static	void	Control_DoWindow(CPanel* panel, HWND hWnd, HINSTANCE hInst)
 {
     HANDLE		h;
     WIN32_FIND_DATAW	fd;
@@ -415,7 +424,7 @@ static	void	Control_DoLaunch(CPanel* panel, HWND hWnd, LPCWSTR wszCmd)
           }
        }
        if (applet->info[sp].dwSize) {
-	  if (!applet->proc(applet->hWnd, CPL_STARTWPARMSW, sp, (LPARAM)extraPmts))
+	  if (!applet->proc(applet->hWnd, CPL_STARTWPARMSA, sp, (LPARAM)extraPmts))
 	     applet->proc(applet->hWnd, CPL_DBLCLK, sp, applet->info[sp].lData);
        }
        Control_UnloadApplet(applet);

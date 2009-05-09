@@ -21,7 +21,6 @@
 	<file>indexsrv.idl</file>
 	<file>mimeinfo.idl</file>
 	<file>mlang.idl</file>
-	<file>msctf.idl</file>
 	<file>mshtml.idl</file>
 	<file>mstask.idl</file>
 	<file>msxml.idl</file>
@@ -35,7 +34,6 @@
 	<file>oledb.idl</file>
 	<file>oleidl.idl</file>
 	<file>optary.idl</file>
-	<file>perhist.idl</file>
 	<file>propidl.idl</file>
 	<file>pstore.idl</file>
 	<file>richole.idl</file>
@@ -45,7 +43,6 @@
 	<file>shobjidl.idl</file>
 	<file>shtypes.idl</file>
 	<file>strmif.idl</file>
-	<file>textstor.idl</file>
 	<file>tom.idl</file>
 	<file>unknwn.idl</file>
 	<file>urlhist.idl</file>
@@ -55,7 +52,6 @@
 	<file>mshtmhst.idl</file>
 	<file>exdisp.idl</file>
 	<file>wtypes.idl</file>
-	<file>wuapi.idl</file>
 	<file>comcat.idl</file>
 	<file>xmldso.idl</file>
 	<file>xmldom.idl</file>

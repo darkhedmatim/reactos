@@ -35,7 +35,7 @@ PVOID MmAllocateMemoryWithType(ULONG MemorySize, TYPE_OF_MEMORY MemoryType)
 
 	if (MemorySize == 0)
 	{
-		DPRINTM(DPRINT_MEMORY, "MmAllocateMemory() called for 0 bytes. Returning NULL.\n");
+		DbgPrint((DPRINT_MEMORY, "MmAllocateMemory() called for 0 bytes. Returning NULL.\n"));
 		UiMessageBoxCritical("Memory allocation failed: MmAllocateMemory() called for 0 bytes.");
 		return NULL;
 	}
@@ -50,7 +50,7 @@ PVOID MmAllocateMemoryWithType(ULONG MemorySize, TYPE_OF_MEMORY MemoryType)
 	// then return NULL
 	if (FreePagesInLookupTable < PagesNeeded)
 	{
-		DPRINTM(DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemory(). Not enough free memory to allocate %d bytes.\n", MemorySize);
+		DbgPrint((DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemory(). Not enough free memory to allocate %d bytes.\n", MemorySize));
 		UiMessageBoxCritical("Memory allocation failed: out of memory.");
 		return NULL;
 	}
@@ -59,7 +59,7 @@ PVOID MmAllocateMemoryWithType(ULONG MemorySize, TYPE_OF_MEMORY MemoryType)
 
 	if (FirstFreePageFromEnd == 0)
 	{
-		DPRINTM(DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemory(). Not enough free memory to allocate %d bytes.\n", MemorySize);
+		DbgPrint((DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemory(). Not enough free memory to allocate %d bytes.\n", MemorySize));
 		UiMessageBoxCritical("Memory allocation failed: out of memory.");
 		return NULL;
 	}
@@ -70,8 +70,8 @@ PVOID MmAllocateMemoryWithType(ULONG MemorySize, TYPE_OF_MEMORY MemoryType)
 	MemPointer = (PVOID)((ULONG_PTR)FirstFreePageFromEnd * MM_PAGE_SIZE);
 
 #ifdef DBG
-	DPRINTM(DPRINT_MEMORY, "Allocated %d bytes (%d pages) of memory starting at page %d.\n", MemorySize, PagesNeeded, FirstFreePageFromEnd);
-	DPRINTM(DPRINT_MEMORY, "Memory allocation pointer: 0x%x\n", MemPointer);
+	DbgPrint((DPRINT_MEMORY, "Allocated %d bytes (%d pages) of memory starting at page %d.\n", MemorySize, PagesNeeded, FirstFreePageFromEnd));
+	DbgPrint((DPRINT_MEMORY, "Memory allocation pointer: 0x%x\n", MemPointer));
 #endif // DBG
 
 	// Update LoaderPagesSpanned count
@@ -89,7 +89,7 @@ PVOID MmHeapAlloc(ULONG MemorySize)
 
 	if (MemorySize > MM_PAGE_SIZE)
 	{
-		DPRINTM(DPRINT_MEMORY, "Consider using other functions to allocate %d bytes of memory!\n", MemorySize);
+		DbgPrint((DPRINT_MEMORY, "Consider using other functions to allocate %d bytes of memory!\n", MemorySize));
 	}
 
 	// Get the buffer from BGET pool
@@ -97,14 +97,14 @@ PVOID MmHeapAlloc(ULONG MemorySize)
 
 	if (Result == NULL)
 	{
-		DPRINTM(DPRINT_MEMORY, "Heap allocation for %d bytes failed\n", MemorySize);
+		DbgPrint((DPRINT_MEMORY, "Heap allocation for %d bytes failed\n", MemorySize));
 	}
 
 	// Gather some stats
 	bstats(&CurAlloc, &TotalFree, &MaxFree, &NumberOfGets, &NumberOfRels);
 
-	DPRINTM(DPRINT_MEMORY, "Current alloced %d bytes, free %d bytes, allocs %d, frees %d\n",
-		CurAlloc, TotalFree, NumberOfGets, NumberOfRels);
+	DbgPrint((DPRINT_MEMORY, "Current alloced %d bytes, free %d bytes, allocs %d, frees %d\n",
+		CurAlloc, TotalFree, NumberOfGets, NumberOfRels));
 
 	return Result;
 }
@@ -129,7 +129,7 @@ PVOID MmAllocateMemoryAtAddress(ULONG MemorySize, PVOID DesiredAddress, TYPE_OF_
 
 	if (MemorySize == 0)
 	{
-		DPRINTM(DPRINT_MEMORY, "MmAllocateMemoryAtAddress() called for 0 bytes. Returning NULL.\n");
+		DbgPrint((DPRINT_MEMORY, "MmAllocateMemoryAtAddress() called for 0 bytes. Returning NULL.\n"));
 		UiMessageBoxCritical("Memory allocation failed: MmAllocateMemoryAtAddress() called for 0 bytes.");
 		return NULL;
 	}
@@ -145,18 +145,18 @@ PVOID MmAllocateMemoryAtAddress(ULONG MemorySize, PVOID DesiredAddress, TYPE_OF_
 	// then return NULL
 	if (FreePagesInLookupTable < PagesNeeded)
 	{
-		DPRINTM(DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemoryAtAddress(). "
+		DbgPrint((DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemoryAtAddress(). "
 			"Not enough free memory to allocate %d bytes (requesting %d pages but have only %d). "
-			"\n", MemorySize, PagesNeeded, FreePagesInLookupTable);
+			"\n", MemorySize, PagesNeeded, FreePagesInLookupTable));
 		UiMessageBoxCritical("Memory allocation failed: out of memory.");
 		return NULL;
 	}
 
 	if (MmAreMemoryPagesAvailable(PageLookupTableAddress, TotalPagesInLookupTable, DesiredAddress, PagesNeeded) == FALSE)
 	{
-		DPRINTM(DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemoryAtAddress(). "
+		DbgPrint((DPRINT_MEMORY, "Memory allocation failed in MmAllocateMemoryAtAddress(). "
 			"Not enough free memory to allocate %d bytes at address %p.\n",
-			MemorySize, DesiredAddress);
+			MemorySize, DesiredAddress));
 
 		// Don't tell this to user since caller should try to alloc this memory
 		// at a different address
@@ -170,8 +170,8 @@ PVOID MmAllocateMemoryAtAddress(ULONG MemorySize, PVOID DesiredAddress, TYPE_OF_
 	MemPointer = (PVOID)((ULONG_PTR)StartPageNumber * MM_PAGE_SIZE);
 
 #ifdef DBG
-	DPRINTM(DPRINT_MEMORY, "Allocated %d bytes (%d pages) of memory starting at page %d.\n", MemorySize, PagesNeeded, StartPageNumber);
-	DPRINTM(DPRINT_MEMORY, "Memory allocation pointer: 0x%x\n", MemPointer);
+	DbgPrint((DPRINT_MEMORY, "Allocated %d bytes (%d pages) of memory starting at page %d.\n", MemorySize, PagesNeeded, StartPageNumber));
+	DbgPrint((DPRINT_MEMORY, "Memory allocation pointer: 0x%x\n", MemPointer));
 #endif // DBG
 
 	// Update LoaderPagesSpanned count
@@ -207,7 +207,7 @@ PVOID MmAllocateHighestMemoryBelowAddress(ULONG MemorySize, PVOID DesiredAddress
 
 	if (MemorySize == 0)
 	{
-		DPRINTM(DPRINT_MEMORY, "MmAllocateHighestMemoryBelowAddress() called for 0 bytes. Returning NULL.\n");
+		DbgPrint((DPRINT_MEMORY, "MmAllocateHighestMemoryBelowAddress() called for 0 bytes. Returning NULL.\n"));
 		UiMessageBoxCritical("Memory allocation failed: MmAllocateHighestMemoryBelowAddress() called for 0 bytes.");
 		return NULL;
 	}
@@ -223,7 +223,7 @@ PVOID MmAllocateHighestMemoryBelowAddress(ULONG MemorySize, PVOID DesiredAddress
 	// then return NULL
 	if (FreePagesInLookupTable < PagesNeeded)
 	{
-		DPRINTM(DPRINT_MEMORY, "Memory allocation failed in MmAllocateHighestMemoryBelowAddress(). Not enough free memory to allocate %d bytes.\n", MemorySize);
+		DbgPrint((DPRINT_MEMORY, "Memory allocation failed in MmAllocateHighestMemoryBelowAddress(). Not enough free memory to allocate %d bytes.\n", MemorySize));
 		UiMessageBoxCritical("Memory allocation failed: out of memory.");
 		return NULL;
 	}
@@ -232,7 +232,7 @@ PVOID MmAllocateHighestMemoryBelowAddress(ULONG MemorySize, PVOID DesiredAddress
 
 	if (FirstFreePageFromEnd == 0)
 	{
-		DPRINTM(DPRINT_MEMORY, "Memory allocation failed in MmAllocateHighestMemoryBelowAddress(). Not enough free memory to allocate %d bytes.\n", MemorySize);
+		DbgPrint((DPRINT_MEMORY, "Memory allocation failed in MmAllocateHighestMemoryBelowAddress(). Not enough free memory to allocate %d bytes.\n", MemorySize));
 		UiMessageBoxCritical("Memory allocation failed: out of memory.");
 		return NULL;
 	}
@@ -243,8 +243,8 @@ PVOID MmAllocateHighestMemoryBelowAddress(ULONG MemorySize, PVOID DesiredAddress
 	MemPointer = (PVOID)((ULONG_PTR)FirstFreePageFromEnd * MM_PAGE_SIZE);
 
 #ifdef DBG
-	DPRINTM(DPRINT_MEMORY, "Allocated %d bytes (%d pages) of memory starting at page %d.\n", MemorySize, PagesNeeded, FirstFreePageFromEnd);
-	DPRINTM(DPRINT_MEMORY, "Memory allocation pointer: 0x%x\n", MemPointer);
+	DbgPrint((DPRINT_MEMORY, "Allocated %d bytes (%d pages) of memory starting at page %d.\n", MemorySize, PagesNeeded, FirstFreePageFromEnd));
+	DbgPrint((DPRINT_MEMORY, "Memory allocation pointer: 0x%x\n", MemPointer));
 #endif // DBG
 
 	// Update LoaderPagesSpanned count
@@ -266,74 +266,74 @@ VOID DumpMemoryAllocMap(VOID)
 	ULONG							Idx;
 	PPAGE_LOOKUP_TABLE_ITEM		RealPageLookupTable = (PPAGE_LOOKUP_TABLE_ITEM)PageLookupTableAddress;
 
-	DPRINTM(DPRINT_MEMORY, "----------- Memory Allocation Bitmap -----------\n");
+	DbgPrint((DPRINT_MEMORY, "----------- Memory Allocation Bitmap -----------\n"));
 
 	for (Idx=0; Idx<TotalPagesInLookupTable; Idx++)
 	{
 		if ((Idx % 32) == 0)
 		{
-			DPRINTM(DPRINT_MEMORY, "\n");
-			DPRINTM(DPRINT_MEMORY, "%08x:\t", (Idx * MM_PAGE_SIZE));
+			DbgPrint((DPRINT_MEMORY, "\n"));
+			DbgPrint((DPRINT_MEMORY, "%08x:\t", (Idx * MM_PAGE_SIZE)));
 		}
 		else if ((Idx % 4) == 0)
 		{
-			DPRINTM(DPRINT_MEMORY, " ");
+			DbgPrint((DPRINT_MEMORY, " "));
 		}
 
 		switch (RealPageLookupTable[Idx].PageAllocated)
 		{
 		case LoaderFree:
-			DPRINTM(DPRINT_MEMORY, "*");
+			DbgPrint((DPRINT_MEMORY, "*"));
 			break;
 		case LoaderBad:
-			DPRINTM(DPRINT_MEMORY, "-");
+			DbgPrint((DPRINT_MEMORY, "-"));
 			break;
 		case LoaderLoadedProgram:
-			DPRINTM(DPRINT_MEMORY, "O");
+			DbgPrint((DPRINT_MEMORY, "O"));
 			break;
 		case LoaderFirmwareTemporary:
-			DPRINTM(DPRINT_MEMORY, "T");
+			DbgPrint((DPRINT_MEMORY, "T"));
 			break;
 		case LoaderFirmwarePermanent:
-			DPRINTM(DPRINT_MEMORY, "P");
+			DbgPrint((DPRINT_MEMORY, "P"));
 			break;
 		case LoaderOsloaderHeap:
-			DPRINTM(DPRINT_MEMORY, "H");
+			DbgPrint((DPRINT_MEMORY, "H"));
 			break;
 		case LoaderOsloaderStack:
-			DPRINTM(DPRINT_MEMORY, "S");
+			DbgPrint((DPRINT_MEMORY, "S"));
 			break;
 		case LoaderSystemCode:
-			DPRINTM(DPRINT_MEMORY, "K");
+			DbgPrint((DPRINT_MEMORY, "K"));
 			break;
 		case LoaderHalCode:
-			DPRINTM(DPRINT_MEMORY, "L");
+			DbgPrint((DPRINT_MEMORY, "L"));
 			break;
 		case LoaderBootDriver:
-			DPRINTM(DPRINT_MEMORY, "B");
+			DbgPrint((DPRINT_MEMORY, "B"));
 			break;
 		case LoaderStartupPcrPage:
-			DPRINTM(DPRINT_MEMORY, "G");
+			DbgPrint((DPRINT_MEMORY, "G"));
 			break;
 		case LoaderRegistryData:
-			DPRINTM(DPRINT_MEMORY, "R");
+			DbgPrint((DPRINT_MEMORY, "R"));
 			break;
 		case LoaderMemoryData:
-			DPRINTM(DPRINT_MEMORY, "M");
+			DbgPrint((DPRINT_MEMORY, "M"));
 			break;
 		case LoaderNlsData:
-			DPRINTM(DPRINT_MEMORY, "N");
+			DbgPrint((DPRINT_MEMORY, "N"));
 			break;
 		case LoaderSpecialMemory:
-			DPRINTM(DPRINT_MEMORY, "C");
+			DbgPrint((DPRINT_MEMORY, "C"));
 			break;
 		default:
-			DPRINTM(DPRINT_MEMORY, "?");
+			DbgPrint((DPRINT_MEMORY, "?"));
 			break;
 		}
 	}
 
-	DPRINTM(DPRINT_MEMORY, "\n");
+	DbgPrint((DPRINT_MEMORY, "\n"));
 }
 #endif // DBG
 

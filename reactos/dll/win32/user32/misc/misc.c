@@ -120,6 +120,21 @@ GetW32ThreadInfo(VOID)
     return ti;
 }
 
+PW32PROCESSINFO
+GetW32ProcessInfo(VOID)
+{
+    PW32THREADINFO ti;
+    PW32PROCESSINFO pi = NULL;
+
+    ti = GetW32ThreadInfo();
+    if (ti != NULL)
+    {
+        pi = ti->pi;
+    }
+
+    return pi;
+}
+
 
 /*
  * GetUserObjectSecurity
@@ -264,17 +279,6 @@ IsGUIThread(
   }
   else
     return TRUE;
-}
-
-BOOL
-FASTCALL
-TestWindowProcess(PWINDOW Wnd)
-{
-   if (Wnd->ti == (PW32THREADINFO)NtCurrentTeb()->Win32ThreadInfo)
-      return TRUE;
-   else
-      return (NtUserQueryWindow(Wnd->hdr.Handle, QUERY_WINDOW_UNIQUE_PROCESS_ID) ==
-              (DWORD)NtCurrentTeb()->ClientId.UniqueProcess );
 }
 
 BOOL
@@ -431,7 +435,7 @@ FASTCALL
 ValidateCallProc(HANDLE hCallProc)
 {
     PCALLPROC CallProc = ValidateHandle(hCallProc, VALIDATE_TYPE_CALLPROC);
-    if (CallProc != NULL && CallProc->pi == g_ppi)
+    if (CallProc != NULL && CallProc->pi == g_kpi)
         return CallProc;
 
     return NULL;

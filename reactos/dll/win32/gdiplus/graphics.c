@@ -172,187 +172,6 @@ static void transform_and_round_points(GpGraphics *graphics, POINT *pti,
     }
 }
 
-static ARGB blend_colors(ARGB start, ARGB end, REAL position)
-{
-    ARGB result=0;
-    ARGB i;
-    for (i=0xff; i<=0xff0000; i = i << 8)
-        result |= (int)((start&i)*(1.0f - position)+(end&i)*(position))&i;
-    return result;
-}
-
-static ARGB blend_line_gradient(GpLineGradient* brush, REAL position)
-{
-    REAL blendfac;
-
-    /* clamp to between 0.0 and 1.0, using the wrap mode */
-    if (brush->wrap == WrapModeTile)
-    {
-        position = fmodf(position, 1.0f);
-        if (position < 0.0f) position += 1.0f;
-    }
-    else /* WrapModeFlip* */
-    {
-        position = fmodf(position, 2.0f);
-        if (position < 0.0f) position += 2.0f;
-        if (position > 1.0f) position = 2.0f - position;
-    }
-
-    if (brush->blendcount == 1)
-        blendfac = position;
-    else
-    {
-        int i=1;
-        REAL left_blendpos, left_blendfac, right_blendpos, right_blendfac;
-        REAL range;
-
-        /* locate the blend positions surrounding this position */
-        while (position > brush->blendpos[i])
-            i++;
-
-        /* interpolate between the blend positions */
-        left_blendpos = brush->blendpos[i-1];
-        left_blendfac = brush->blendfac[i-1];
-        right_blendpos = brush->blendpos[i];
-        right_blendfac = brush->blendfac[i];
-        range = right_blendpos - left_blendpos;
-        blendfac = (left_blendfac * (right_blendpos - position) +
-                    right_blendfac * (position - left_blendpos)) / range;
-    }
-    return blend_colors(brush->startcolor, brush->endcolor, blendfac);
-}
-
-static void brush_fill_path(GpGraphics *graphics, GpBrush* brush)
-{
-    switch (brush->bt)
-    {
-    case BrushTypeLinearGradient:
-    {
-        GpLineGradient *line = (GpLineGradient*)brush;
-        RECT rc;
-
-        SelectClipPath(graphics->hdc, RGN_AND);
-        if (GetClipBox(graphics->hdc, &rc) != NULLREGION)
-        {
-            GpPointF endpointsf[2];
-            POINT endpointsi[2];
-            POINT poly[4];
-
-            SelectObject(graphics->hdc, GetStockObject(NULL_PEN));
-
-            endpointsf[0] = line->startpoint;
-            endpointsf[1] = line->endpoint;
-            transform_and_round_points(graphics, endpointsi, endpointsf, 2);
-
-            if (abs(endpointsi[0].x-endpointsi[1].x) > abs(endpointsi[0].y-endpointsi[1].y))
-            {
-                /* vertical-ish gradient */
-                int startx, endx; /* x co-ordinates of endpoints shifted to intersect the top of the visible rectangle */
-                int startbottomx; /* x co-ordinate of start point shifted to intersect the bottom of the visible rectangle */
-                int width;
-                COLORREF col;
-                HBRUSH hbrush, hprevbrush;
-                int leftx, rightx; /* x co-ordinates where the leftmost and rightmost gradient lines hit the top of the visible rectangle */
-                int x;
-                int tilt; /* horizontal distance covered by a gradient line */
-
-                startx = roundr((rc.top - endpointsf[0].Y) * (endpointsf[1].Y - endpointsf[0].Y) / (endpointsf[0].X - endpointsf[1].X) + endpointsf[0].X);
-                endx = roundr((rc.top - endpointsf[1].Y) * (endpointsf[1].Y - endpointsf[0].Y) / (endpointsf[0].X - endpointsf[1].X) + endpointsf[1].X);
-                width = endx - startx;
-                startbottomx = roundr((rc.bottom - endpointsf[0].Y) * (endpointsf[1].Y - endpointsf[0].Y) / (endpointsf[0].X - endpointsf[1].X) + endpointsf[0].X);
-                tilt = startx - startbottomx;
-
-                if (startx >= startbottomx)
-                {
-                    leftx = rc.left;
-                    rightx = rc.right + tilt;
-                }
-                else
-                {
-                    leftx = rc.left + tilt;
-                    rightx = rc.right;
-                }
-
-                poly[0].y = rc.bottom;
-                poly[1].y = rc.top;
-                poly[2].y = rc.top;
-                poly[3].y = rc.bottom;
-
-                for (x=leftx; x<=rightx; x++)
-                {
-                    ARGB argb = blend_line_gradient(line, (x-startx)/(REAL)width);
-                    col = ARGB2COLORREF(argb);
-                    hbrush = CreateSolidBrush(col);
-                    hprevbrush = SelectObject(graphics->hdc, hbrush);
-                    poly[0].x = x - tilt - 1;
-                    poly[1].x = x - 1;
-                    poly[2].x = x;
-                    poly[3].x = x - tilt;
-                    Polygon(graphics->hdc, poly, 4);
-                    SelectObject(graphics->hdc, hprevbrush);
-                    DeleteObject(hbrush);
-                }
-            }
-            else if (endpointsi[0].y != endpointsi[1].y)
-            {
-                /* horizontal-ish gradient */
-                int starty, endy; /* y co-ordinates of endpoints shifted to intersect the left of the visible rectangle */
-                int startrighty; /* y co-ordinate of start point shifted to intersect the right of the visible rectangle */
-                int height;
-                COLORREF col;
-                HBRUSH hbrush, hprevbrush;
-                int topy, bottomy; /* y co-ordinates where the topmost and bottommost gradient lines hit the left of the visible rectangle */
-                int y;
-                int tilt; /* vertical distance covered by a gradient line */
-
-                starty = roundr((rc.left - endpointsf[0].X) * (endpointsf[0].X - endpointsf[1].X) / (endpointsf[1].Y - endpointsf[0].Y) + endpointsf[0].Y);
-                endy = roundr((rc.left - endpointsf[1].X) * (endpointsf[0].X - endpointsf[1].X) / (endpointsf[1].Y - endpointsf[0].Y) + endpointsf[1].Y);
-                height = endy - starty;
-                startrighty = roundr((rc.right - endpointsf[0].X) * (endpointsf[0].X - endpointsf[1].X) / (endpointsf[1].Y - endpointsf[0].Y) + endpointsf[0].Y);
-                tilt = starty - startrighty;
-
-                if (starty >= startrighty)
-                {
-                    topy = rc.top;
-                    bottomy = rc.bottom + tilt;
-                }
-                else
-                {
-                    topy = rc.top + tilt;
-                    bottomy = rc.bottom;
-                }
-
-                poly[0].x = rc.right;
-                poly[1].x = rc.left;
-                poly[2].x = rc.left;
-                poly[3].x = rc.right;
-
-                for (y=topy; y<=bottomy; y++)
-                {
-                    ARGB argb = blend_line_gradient(line, (y-starty)/(REAL)height);
-                    col = ARGB2COLORREF(argb);
-                    hbrush = CreateSolidBrush(col);
-                    hprevbrush = SelectObject(graphics->hdc, hbrush);
-                    poly[0].y = y - tilt - 1;
-                    poly[1].y = y - 1;
-                    poly[2].y = y;
-                    poly[3].y = y - tilt;
-                    Polygon(graphics->hdc, poly, 4);
-                    SelectObject(graphics->hdc, hprevbrush);
-                    DeleteObject(hbrush);
-                }
-            }
-            /* else startpoint == endpoint */
-        }
-        break;
-    }
-    default:
-        SelectObject(graphics->hdc, brush->gdibrush);
-        FillPath(graphics->hdc);
-        break;
-    }
-}
-
 /* GdipDrawPie/GdipFillPie helper function */
 static void draw_pie(GpGraphics *graphics, REAL x, REAL y, REAL width,
     REAL height, REAL startAngle, REAL sweepAngle)
@@ -947,7 +766,6 @@ GpStatus WINGDIPAPI GdipCreateFromHDC2(HDC hdc, HANDLE hDevice, GpGraphics **gra
 
     (*graphics)->hdc = hdc;
     (*graphics)->hwnd = WindowFromDC(hdc);
-    (*graphics)->owndc = FALSE;
     (*graphics)->smoothing = SmoothingModeDefault;
     (*graphics)->compqual = CompositingQualityDefault;
     (*graphics)->interpolation = InterpolationModeDefault;
@@ -964,20 +782,13 @@ GpStatus WINGDIPAPI GdipCreateFromHDC2(HDC hdc, HANDLE hDevice, GpGraphics **gra
 GpStatus WINGDIPAPI GdipCreateFromHWND(HWND hwnd, GpGraphics **graphics)
 {
     GpStatus ret;
-    HDC hdc;
 
     TRACE("(%p, %p)\n", hwnd, graphics);
 
-    hdc = GetDC(hwnd);
-
-    if((ret = GdipCreateFromHDC(hdc, graphics)) != Ok)
-    {
-        ReleaseDC(hwnd, hdc);
+    if((ret = GdipCreateFromHDC(GetDC(hwnd), graphics)) != Ok)
         return ret;
-    }
 
     (*graphics)->hwnd = hwnd;
-    (*graphics)->owndc = TRUE;
 
     return Ok;
 }
@@ -1112,7 +923,7 @@ GpStatus WINGDIPAPI GdipDeleteGraphics(GpGraphics *graphics)
     if(!graphics) return InvalidParameter;
     if(graphics->busy) return ObjectBusy;
 
-    if(graphics->owndc)
+    if(graphics->hwnd)
         ReleaseDC(graphics->hwnd, graphics->hdc);
 
     GdipDeleteRegion(graphics->clip);
@@ -2042,35 +1853,20 @@ GpStatus WINGDIPAPI GdipDrawString(GpGraphics *graphics, GDIPCONST WCHAR *string
     rectcpy[3].Y = rectcpy[2].Y = rect->Y + rect->Height;
     transform_and_round_points(graphics, corners, rectcpy, 4);
 
-    if (roundr(rect->Width) == 0)
-    {
-        rel_width = 1.0;
-        nwidth = INT_MAX;
+    if(roundr(rect->Width) == 0 && roundr(rect->Height) == 0){
+        rel_width = rel_height = 1.0;
+        nwidth = nheight = INT_MAX;
     }
-    else
-    {
+    else{
         rel_width = sqrt((corners[1].x - corners[0].x) * (corners[1].x - corners[0].x) +
                          (corners[1].y - corners[0].y) * (corners[1].y - corners[0].y))
                          / rect->Width;
-        nwidth = roundr(rel_width * rect->Width);
-    }
-
-    if (roundr(rect->Height) == 0)
-    {
-        rel_height = 1.0;
-        nheight = INT_MAX;
-    }
-    else
-    {
         rel_height = sqrt((corners[2].x - corners[1].x) * (corners[2].x - corners[1].x) +
                           (corners[2].y - corners[1].y) * (corners[2].y - corners[1].y))
                           / rect->Height;
-        nheight = roundr(rel_height * rect->Height);
-    }
 
-    if (roundr(rect->Width) != 0 && roundr(rect->Height) != 0)
-    {
-        /* FIXME: If only the width or only the height is 0, we should probably still clip */
+        nwidth = roundr(rel_width * rect->Width);
+        nheight = roundr(rel_height * rect->Height);
         rgn = CreatePolygonRgn(corners, 4, ALTERNATE);
         SelectClipRgn(graphics->hdc, rgn);
     }
@@ -2098,13 +1894,14 @@ GpStatus WINGDIPAPI GdipDrawString(GpGraphics *graphics, GDIPCONST WCHAR *string
     DeleteObject(SelectObject(graphics->hdc, CreateFontIndirectW(&lfw)));
 
     for(i = 0, j = 0; i < length; i++){
-        if(!isprintW(string[i]) && (string[i] != '\n'))
+        if(!isprint(string[i]) && (string[i] != '\n'))
             continue;
 
         stringdup[j] = string[i];
         j++;
     }
 
+    stringdup[j] = 0;
     length = j;
 
     while(sum < length){
@@ -2290,6 +2087,7 @@ GpStatus WINGDIPAPI GdipFillPath(GpGraphics *graphics, GpBrush *brush, GpPath *p
 
     save_state = SaveDC(graphics->hdc);
     EndPath(graphics->hdc);
+    SelectObject(graphics->hdc, brush->gdibrush);
     SetPolyFillMode(graphics->hdc, (path->fill == FillModeAlternate ? ALTERNATE
                                                                     : WINDING));
 
@@ -2301,7 +2099,7 @@ GpStatus WINGDIPAPI GdipFillPath(GpGraphics *graphics, GpBrush *brush, GpPath *p
         goto end;
 
     EndPath(graphics->hdc);
-    brush_fill_path(graphics, brush);
+    FillPath(graphics->hdc);
 
     retval = Ok;
 
@@ -2479,14 +2277,12 @@ GpStatus WINGDIPAPI GdipFillRectangle(GpGraphics *graphics, GpBrush *brush,
 
     save_state = SaveDC(graphics->hdc);
     EndPath(graphics->hdc);
+    SelectObject(graphics->hdc, brush->gdibrush);
+    SelectObject(graphics->hdc, GetStockObject(NULL_PEN));
 
     transform_and_round_points(graphics, pti, ptf, 4);
 
-    BeginPath(graphics->hdc);
     Polygon(graphics->hdc, pti, 4);
-    EndPath(graphics->hdc);
-
-    brush_fill_path(graphics, brush);
 
     RestoreDC(graphics->hdc, save_state);
 
@@ -2954,7 +2750,7 @@ GpStatus WINGDIPAPI GdipMeasureString(GpGraphics *graphics,
         nwidth = nheight = INT_MAX;
 
     for(i = 0, j = 0; i < length; i++){
-        if(!isprintW(string[i]) && (string[i] != '\n'))
+        if(!isprint(string[i]) && (string[i] != '\n'))
             continue;
 
         stringdup[j] = string[i];
@@ -3241,18 +3037,6 @@ GpStatus WINGDIPAPI GdipSetPixelOffsetMode(GpGraphics *graphics, PixelOffsetMode
     graphics->pixeloffset = mode;
 
     return Ok;
-}
-
-GpStatus WINGDIPAPI GdipSetRenderingOrigin(GpGraphics *graphics, INT x, INT y)
-{
-    static int calls;
-
-    TRACE("(%p,%i,%i)\n", graphics, x, y);
-
-    if (!(calls++))
-        FIXME("not implemented\n");
-
-    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipSetSmoothingMode(GpGraphics *graphics, SmoothingMode mode)

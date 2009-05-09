@@ -408,7 +408,7 @@ static HWND COMDLG32_FR_DoFindReplace(
         }
         else
         {
-                loadrc = pdata->fr.hInstance;
+        	loadrc = (HGLOBAL)pdata->fr.hInstance;
         }
 
         if(!loadrc)

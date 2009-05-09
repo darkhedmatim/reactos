@@ -34,7 +34,6 @@ typedef struct {
     IInternetBindInfo *bind_info;
     IInternetProtocolSink *protocol_sink;
     IServiceProvider *service_provider;
-    IWinInetInfo *wininet_info;
 
     LONG priority;
 
@@ -105,8 +104,6 @@ static ULONG WINAPI BindProtocol_Release(IInternetProtocol *iface)
     TRACE("(%p) ref=%d\n", This, ref);
 
     if(!ref) {
-        if(This->wininet_info)
-            IWinInetInfo_Release(This->wininet_info);
         if(This->protocol)
             IInternetProtocol_Release(This->protocol);
         if(This->bind_info)
@@ -123,18 +120,17 @@ static ULONG WINAPI BindProtocol_Release(IInternetProtocol *iface)
 
 static HRESULT WINAPI BindProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
         IInternetProtocolSink *pOIProtSink, IInternetBindInfo *pOIBindInfo,
-        DWORD grfPI, HANDLE_PTR dwReserved)
+        DWORD grfPI, DWORD dwReserved)
 {
     BindProtocol *This = PROTOCOL_THIS(iface);
     IInternetProtocol *protocol = NULL;
     IInternetPriority *priority;
     IServiceProvider *service_provider;
-    BOOL urlmon_protocol = FALSE;
     CLSID clsid = IID_NULL;
     LPOLESTR clsid_str;
     HRESULT hres;
 
-    TRACE("(%p)->(%s %p %p %08x %lx)\n", This, debugstr_w(szUrl), pOIProtSink,
+    TRACE("(%p)->(%s %p %p %08x %d)\n", This, debugstr_w(szUrl), pOIProtSink,
             pOIBindInfo, grfPI, dwReserved);
 
     if(!szUrl || !pOIProtSink || !pOIBindInfo)
@@ -153,7 +149,7 @@ static HRESULT WINAPI BindProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl
         IClassFactory *cf;
         IUnknown *unk;
 
-        hres = get_protocol_handler(szUrl, &clsid, &urlmon_protocol, &cf);
+        hres = get_protocol_handler(szUrl, &clsid, &cf);
         if(FAILED(hres))
             return hres;
 
@@ -181,9 +177,6 @@ static HRESULT WINAPI BindProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl
     CoTaskMemFree(clsid_str);
 
     This->protocol = protocol;
-
-    if(urlmon_protocol)
-        IInternetProtocol_QueryInterface(protocol, &IID_IWinInetInfo, (void**)&This->wininet_info);
 
     IInternetBindInfo_AddRef(pOIBindInfo);
     This->bind_info = pOIBindInfo;
@@ -309,13 +302,6 @@ void set_binding_sink(IInternetProtocol *bind_protocol, IInternetProtocolSink *s
     service_provider = InterlockedExchangePointer((void**)&This->service_provider, service_provider);
     if(service_provider)
         IServiceProvider_Release(service_provider);
-}
-
-IWinInetInfo *get_wininet_info(IInternetProtocol *bind_protocol)
-{
-    BindProtocol *This = PROTOCOL_THIS(bind_protocol);
-
-    return This->wininet_info;
 }
 
 #undef PROTOCOL_THIS

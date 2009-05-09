@@ -927,23 +927,23 @@ static HRESULT WINAPI IPropertyStorage_fnStat(
 static int PropertyStorage_PropNameCompare(const void *a, const void *b,
  void *extra)
 {
-    PropertyStorage_impl *This = extra;
+    PropertyStorage_impl *This = (PropertyStorage_impl *)extra;
 
     if (This->codePage == CP_UNICODE)
     {
         TRACE("(%s, %s)\n", debugstr_w(a), debugstr_w(b));
         if (This->grfFlags & PROPSETFLAG_CASE_SENSITIVE)
-            return lstrcmpW(a, b);
+            return lstrcmpW((LPCWSTR)a, (LPCWSTR)b);
         else
-            return lstrcmpiW(a, b);
+            return lstrcmpiW((LPCWSTR)a, (LPCWSTR)b);
     }
     else
     {
         TRACE("(%s, %s)\n", debugstr_a(a), debugstr_a(b));
         if (This->grfFlags & PROPSETFLAG_CASE_SENSITIVE)
-            return lstrcmpA(a, b);
+            return lstrcmpA((LPCSTR)a, (LPCSTR)b);
         else
-            return lstrcmpiA(a, b);
+            return lstrcmpiA((LPCSTR)a, (LPCSTR)b);
     }
 }
 
@@ -961,13 +961,13 @@ static int PropertyStorage_PropCompare(const void *a, const void *b,
 
 static void PropertyStorage_PropertyDestroy(void *k, void *d, void *extra)
 {
-    PropVariantClear(d);
+    PropVariantClear((PROPVARIANT *)d);
     HeapFree(GetProcessHeap(), 0, d);
 }
 
 #ifdef WORDS_BIGENDIAN
 /* Swaps each character in str to or from little endian; assumes the conversion
- * is symmetric, that is, that lendian16toh is equivalent to htole16.
+ * is symmetric, that is, that le16toh is equivalent to htole16.
  */
 static void PropertyStorage_ByteSwapString(LPWSTR str, size_t len)
 {
@@ -1063,7 +1063,7 @@ static HRESULT PropertyStorage_ReadProperty(PropertyStorage_impl *This,
     case VT_INT:
     case VT_I4:
         StorageUtl_ReadDWord(data, 0, (DWORD*)&prop->u.lVal);
-        TRACE("Read long %d\n", prop->u.lVal);
+        TRACE("Read long %ld\n", prop->u.lVal);
         break;
     case VT_UINT:
     case VT_UI4:
@@ -1486,8 +1486,8 @@ struct DictionaryClosure
 static BOOL PropertyStorage_DictionaryWriter(const void *key,
  const void *value, void *extra, void *closure)
 {
-    PropertyStorage_impl *This = extra;
-    struct DictionaryClosure *c = closure;
+    PropertyStorage_impl *This = (PropertyStorage_impl *)extra;
+    struct DictionaryClosure *c = (struct DictionaryClosure *)closure;
     DWORD propid;
     ULONG count;
 
@@ -1756,8 +1756,8 @@ struct PropertyClosure
 static BOOL PropertyStorage_PropertiesWriter(const void *key, const void *value,
  void *extra, void *closure)
 {
-    PropertyStorage_impl *This = extra;
-    struct PropertyClosure *c = closure;
+    PropertyStorage_impl *This = (PropertyStorage_impl *)extra;
+    struct PropertyClosure *c = (struct PropertyClosure *)closure;
 
     assert(key);
     assert(value);

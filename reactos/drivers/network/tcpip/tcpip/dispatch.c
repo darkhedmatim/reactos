@@ -106,7 +106,7 @@ VOID DispDataRequestComplete(
 			    Irp->IoStatus.Information));
     TI_DbgPrint(DEBUG_IRP, ("Completing IRP at (0x%X).\n", Irp));
 
-    IRPFinish(Irp, Status);
+    IRPFinish(Irp, Irp->IoStatus.Status);
 
     TI_DbgPrint(DEBUG_IRP, ("Done Completing IRP\n"));
 }
@@ -181,11 +181,11 @@ VOID NTAPI DispCancelRequest(
 
 	TCPRemoveIRP( TranContext->Handle.ConnectionContext, Irp );
 
-	IoReleaseCancelSpinLock(Irp->CancelIrql);
-
 	if( !ChewCreate( &WorkItem, sizeof(DISCONNECT_TYPE),
 			 DispDoDisconnect, &DisType ) )
 	    ASSERT(0);
+
+	IoReleaseCancelSpinLock(Irp->CancelIrql);
         return;
 
     case TDI_SEND_DATAGRAM:
@@ -212,7 +212,7 @@ VOID NTAPI DispCancelRequest(
     }
 
     IoReleaseCancelSpinLock(Irp->CancelIrql);
-    IRPFinish(Irp, STATUS_CANCELLED);
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
     TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
@@ -256,8 +256,7 @@ VOID NTAPI DispCancelListenRequest(
 
     IoReleaseCancelSpinLock(Irp->CancelIrql);
 
-    Irp->IoStatus.Information = 0;
-    IRPFinish(Irp, STATUS_CANCELLED);
+    DispDataRequestComplete(Irp, STATUS_CANCELLED, 0);
 
     TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
@@ -397,14 +396,14 @@ NTSTATUS DispTdiConnect(
   TranContext = IrpSp->FileObject->FsContext;
   if (!TranContext) {
     TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
   Connection = (PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
   if (!Connection) {
     TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
@@ -500,14 +499,14 @@ NTSTATUS DispTdiDisconnect(
   TranContext = IrpSp->FileObject->FsContext;
   if (!TranContext) {
     TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
   Connection = (PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
   if (!Connection) {
     TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
@@ -561,7 +560,7 @@ NTSTATUS DispTdiListen(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -569,7 +568,7 @@ NTSTATUS DispTdiListen(
   if (Connection == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -662,7 +661,7 @@ NTSTATUS DispTdiQueryInformation(
   TranContext = IrpSp->FileObject->FsContext;
   if (!TranContext) {
     TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-    return STATUS_INVALID_PARAMETER;
+    return STATUS_INVALID_CONNECTION;
   }
 
   switch (Parameters->QueryType)
@@ -672,42 +671,19 @@ NTSTATUS DispTdiQueryInformation(
         PTDI_ADDRESS_INFO AddressInfo;
         PADDRESS_FILE AddrFile;
         PTA_IP_ADDRESS Address;
-        PCONNECTION_ENDPOINT Endpoint = NULL;
-
-
-        if (MmGetMdlByteCount(Irp->MdlAddress) <
-            (FIELD_OFFSET(TDI_ADDRESS_INFO, Address.Address[0].Address) +
-             sizeof(TDI_ADDRESS_IP))) {
-          TI_DbgPrint(MID_TRACE, ("MDL buffer too small.\n"));
-          return STATUS_BUFFER_TOO_SMALL;
-        }
 
         AddressInfo = (PTDI_ADDRESS_INFO)MmGetSystemAddressForMdl(Irp->MdlAddress);
-		Address = (PTA_IP_ADDRESS)&AddressInfo->Address;
 
         switch ((ULONG)IrpSp->FileObject->FsContext2) {
           case TDI_TRANSPORT_ADDRESS_FILE:
             AddrFile = (PADDRESS_FILE)TranContext->Handle.AddressHandle;
-
-			Address->TAAddressCount = 1;
-			Address->Address[0].AddressLength = TDI_ADDRESS_LENGTH_IP;
-			Address->Address[0].AddressType = TDI_ADDRESS_TYPE_IP;
-			Address->Address[0].Address[0].sin_port = AddrFile->Port;
-			Address->Address[0].Address[0].in_addr = AddrFile->Address.Address.IPv4Address;
-			RtlZeroMemory(
-				&Address->Address[0].Address[0].sin_zero,
-				sizeof(Address->Address[0].Address[0].sin_zero));
-			return STATUS_SUCCESS;
+            break;
 
           case TDI_CONNECTION_FILE:
-            Endpoint =
-				(PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
-			TCPGetSockAddress( Endpoint, (PTRANSPORT_ADDRESS)Address, FALSE );
-			DbgPrint("Returning socket address %x\n", Address->Address[0].Address[0].in_addr);
-			RtlZeroMemory(
-				&Address->Address[0].Address[0].sin_zero,
-				sizeof(Address->Address[0].Address[0].sin_zero));
-			return STATUS_SUCCESS;
+            AddrFile =
+              ((PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext)->
+              AddressFile;
+            break;
 
           default:
             TI_DbgPrint(MIN_TRACE, ("Invalid transport context\n"));
@@ -719,6 +695,24 @@ NTSTATUS DispTdiQueryInformation(
           return STATUS_INVALID_PARAMETER;
         }
 
+        if (MmGetMdlByteCount(Irp->MdlAddress) <
+            (FIELD_OFFSET(TDI_ADDRESS_INFO, Address.Address[0].Address) +
+             sizeof(TDI_ADDRESS_IP))) {
+          TI_DbgPrint(MID_TRACE, ("MDL buffer too small.\n"));
+          return STATUS_BUFFER_OVERFLOW;
+        }
+
+        Address = (PTA_IP_ADDRESS)&AddressInfo->Address;
+        Address->TAAddressCount = 1;
+        Address->Address[0].AddressLength = TDI_ADDRESS_LENGTH_IP;
+        Address->Address[0].AddressType = TDI_ADDRESS_TYPE_IP;
+        Address->Address[0].Address[0].sin_port = AddrFile->Port;
+        Address->Address[0].Address[0].in_addr =
+          AddrFile->Address.Address.IPv4Address;
+        RtlZeroMemory(
+          &Address->Address[0].Address[0].sin_zero,
+          sizeof(Address->Address[0].Address[0].sin_zero));
+
         return STATUS_SUCCESS;
       }
 
@@ -727,13 +721,6 @@ NTSTATUS DispTdiQueryInformation(
         PTDI_CONNECTION_INFORMATION AddressInfo;
         PADDRESS_FILE AddrFile;
         PCONNECTION_ENDPOINT Endpoint = NULL;
-
-        if (MmGetMdlByteCount(Irp->MdlAddress) <
-            (FIELD_OFFSET(TDI_CONNECTION_INFORMATION, RemoteAddress) +
-             sizeof(PVOID))) {
-          TI_DbgPrint(MID_TRACE, ("MDL buffer too small (ptr).\n"));
-          return STATUS_BUFFER_TOO_SMALL;
-        }
 
         AddressInfo = (PTDI_CONNECTION_INFORMATION)
           MmGetSystemAddressForMdl(Irp->MdlAddress);
@@ -758,7 +745,14 @@ NTSTATUS DispTdiQueryInformation(
           return STATUS_INVALID_PARAMETER;
         }
 
-        return TCPGetSockAddress( Endpoint, AddressInfo->RemoteAddress, TRUE );
+        if (MmGetMdlByteCount(Irp->MdlAddress) <
+            (FIELD_OFFSET(TDI_CONNECTION_INFORMATION, RemoteAddress) +
+             sizeof(PVOID))) {
+          TI_DbgPrint(MID_TRACE, ("MDL buffer too small (ptr).\n"));
+          return STATUS_BUFFER_OVERFLOW;
+        }
+
+        return TCPGetPeerAddress( Endpoint, AddressInfo->RemoteAddress );
       }
   }
 
@@ -793,14 +787,14 @@ NTSTATUS DispTdiReceive(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
   if (TranContext->Handle.ConnectionContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -865,7 +859,7 @@ NTSTATUS DispTdiReceiveDatagram(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -881,7 +875,7 @@ NTSTATUS DispTdiReceiveDatagram(
 
   if (NT_SUCCESS(Status))
     {
-	PVOID DataBuffer;
+	PCHAR DataBuffer;
 	UINT BufferSize;
 
 	NdisQueryBuffer( (PNDIS_BUFFER)Irp->MdlAddress,
@@ -942,14 +936,14 @@ NTSTATUS DispTdiSend(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
   if (TranContext->Handle.ConnectionContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -961,7 +955,7 @@ NTSTATUS DispTdiSend(
   TI_DbgPrint(MID_TRACE,("TCPIP<<< Got an MDL: %x\n", Irp->MdlAddress));
   if (NT_SUCCESS(Status))
     {
-	PVOID Data;
+	PCHAR Data;
 	UINT Len;
 
 	NdisQueryBuffer( Irp->MdlAddress, &Data, &Len );
@@ -1018,7 +1012,7 @@ NTSTATUS DispTdiSendDatagram(
     if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -1033,7 +1027,7 @@ NTSTATUS DispTdiSendDatagram(
         (PDRIVER_CANCEL)DispCancelRequest);
 
     if (NT_SUCCESS(Status)) {
-	PVOID DataBuffer;
+	PCHAR DataBuffer;
 	UINT BufferSize;
 
 	TI_DbgPrint(MID_TRACE,("About to query buffer %x\n", Irp->MdlAddress));

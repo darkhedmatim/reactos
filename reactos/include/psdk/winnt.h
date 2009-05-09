@@ -1561,9 +1561,6 @@ typedef enum {
 #define IMAGE_REL_BASED_HIGHLOW 3
 #define IMAGE_REL_BASED_HIGHADJ 4
 #define IMAGE_REL_BASED_MIPS_JMPADDR 5
-#define IMAGE_REL_BASED_MIPS_JMPADDR16 9
-#define IMAGE_REL_BASED_IA64_IMM64 9
-#define IMAGE_REL_BASED_DIR64 10
 #define IMAGE_ARCHIVE_START_SIZE 8
 #define IMAGE_ARCHIVE_START "!<arch>\n"
 #define IMAGE_ARCHIVE_END "`\n"
@@ -2318,6 +2315,11 @@ typedef struct _KNONVOLATILE_CONTEXT_POINTERS {
         };
     };
 } KNONVOLATILE_CONTEXT_POINTERS, *PKNONVOLATILE_CONTEXT_POINTERS;
+
+#define UNW_FLAG_NHANDLER 0x0 /* No handler. */
+#define UNW_FLAG_EHANDLER 0x1 /* Exception handler should be called */
+#define UNW_FLAG_UHANDLER 0x2 /* Termination handler that should be called when unwinding an exception */
+#define UNW_FLAG_CHAININFO 0x4 /* FunctionEntry member is the contents of a previous function table entry */
 
 #define RUNTIME_FUNCTION_INDIRECT 0x1
 

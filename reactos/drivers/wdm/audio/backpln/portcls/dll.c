@@ -1,19 +1,19 @@
 /*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/dll.c
- * PURPOSE:         portcls generic dispatcher
- * PROGRAMMER:      Andrew Greenwood
- */
+    ReactOS Kernel Streaming
+    Port Class / Library Init and Cleanup
 
+    Author: Andrew Greenwood
+
+    Notes:
+    -
+*/
 
 #include "private.h"
 
 /*
  * @implemented
  */
-ULONG
-NTAPI
+ULONG NTAPI
 DllInitialize(ULONG Unknown)
 {
     return 0;
@@ -22,8 +22,7 @@ DllInitialize(ULONG Unknown)
 /*
  * @implemented
  */
-ULONG
-NTAPI
+ULONG NTAPI
 DllUnload(VOID)
 {
     return 0;

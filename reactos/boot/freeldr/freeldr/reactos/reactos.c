@@ -271,7 +271,7 @@ FrLdrLoadNlsFiles(PCHAR szSystemRoot,
 
     /* load ANSI codepage table */
     sprintf(szFileName,"%ssystem32\\%S", szSystemRoot, szNameBuffer);
-    DPRINTM(DPRINT_REACTOS, "ANSI file: %s\n", szFileName);
+    DbgPrint((DPRINT_REACTOS, "ANSI file: %s\n", szFileName));
     if (!FrLdrLoadNlsFile(szFileName, "ansi.nls")) {
 
         strcpy(szErrorOut, "Couldn't load ansi.nls");
@@ -300,7 +300,7 @@ FrLdrLoadNlsFiles(PCHAR szSystemRoot,
 
     /* load OEM codepage table */
     sprintf(szFileName, "%ssystem32\\%S", szSystemRoot, szNameBuffer);
-    DPRINTM(DPRINT_REACTOS, "Oem file: %s\n", szFileName);
+    DbgPrint((DPRINT_REACTOS, "Oem file: %s\n", szFileName));
     if (!FrLdrLoadNlsFile(szFileName, "oem.nls")) {
 
         strcpy(szErrorOut, "Couldn't load oem.nls");
@@ -330,13 +330,13 @@ FrLdrLoadNlsFiles(PCHAR szSystemRoot,
     rc = RegQueryValue(hKey, szIdBuffer, NULL, (PUCHAR)szNameBuffer, &BufferSize);
     if (rc != ERROR_SUCCESS) {
 
-        sprintf(szErrorOut, "Language Default setting exists, but isn't readable (%S)", szIdBuffer);
+        strcpy(szErrorOut, "Language Default setting exists, but isn't readable");
         return(FALSE);
     }
 
     /* load Unicode case table */
     sprintf(szFileName, "%ssystem32\\%S", szSystemRoot, szNameBuffer);
-    DPRINTM(DPRINT_REACTOS, "Casemap file: %s\n", szFileName);
+    DbgPrint((DPRINT_REACTOS, "Casemap file: %s\n", szFileName));
     if (!FrLdrLoadNlsFile(szFileName, "casemap.nls")) {
 
         strcpy(szErrorOut, "casemap.nls");
@@ -376,7 +376,7 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                     &hGroupKey);
     if (rc != ERROR_SUCCESS) {
 
-        DPRINTM(DPRINT_REACTOS, "Failed to open the 'ServiceGroupOrder' key (rc %d)\n", (int)rc);
+        DbgPrint((DPRINT_REACTOS, "Failed to open the 'ServiceGroupOrder' key (rc %d)\n", (int)rc));
         return;
     }
 
@@ -386,7 +386,7 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                     &hOrderKey);
     if (rc != ERROR_SUCCESS) {
 
-        DPRINTM(DPRINT_REACTOS, "Failed to open the 'GroupOrderList' key (rc %d)\n", (int)rc);
+        DbgPrint((DPRINT_REACTOS, "Failed to open the 'GroupOrderList' key (rc %d)\n", (int)rc));
         return;
     }
 
@@ -396,22 +396,22 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                     &hServiceKey);
     if (rc != ERROR_SUCCESS)  {
 
-        DPRINTM(DPRINT_REACTOS, "Failed to open the 'Services' key (rc %d)\n", (int)rc);
+        DbgPrint((DPRINT_REACTOS, "Failed to open the 'Services' key (rc %d)\n", (int)rc));
         return;
     }
 
     /* Get the Name Group */
     BufferSize = sizeof(GroupNameBuffer);
     rc = RegQueryValue(hGroupKey, L"List", NULL, (PUCHAR)GroupNameBuffer, &BufferSize);
-    DPRINTM(DPRINT_REACTOS, "RegQueryValue(): rc %d\n", (int)rc);
+    DbgPrint((DPRINT_REACTOS, "RegQueryValue(): rc %d\n", (int)rc));
     if (rc != ERROR_SUCCESS) return;
-    DPRINTM(DPRINT_REACTOS, "BufferSize: %d \n", (int)BufferSize);
-    DPRINTM(DPRINT_REACTOS, "GroupNameBuffer: '%S' \n", GroupNameBuffer);
+    DbgPrint((DPRINT_REACTOS, "BufferSize: %d \n", (int)BufferSize));
+    DbgPrint((DPRINT_REACTOS, "GroupNameBuffer: '%S' \n", GroupNameBuffer));
 
     /* Loop through each group */
     GroupName = GroupNameBuffer;
     while (*GroupName) {
-        DPRINTM(DPRINT_REACTOS, "Driver group: '%S'\n", GroupName);
+        DbgPrint((DPRINT_REACTOS, "Driver group: '%S'\n", GroupName));
 
         /* Query the Order */
         BufferSize = sizeof(OrderList);
@@ -428,12 +428,12 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                 /* Get the Driver's Name */
                 ValueSize = sizeof(ServiceName);
                 rc = RegEnumKey(hServiceKey, Index, ServiceName, &ValueSize);
-                DPRINTM(DPRINT_REACTOS, "RegEnumKey(): rc %d\n", (int)rc);
+                DbgPrint((DPRINT_REACTOS, "RegEnumKey(): rc %d\n", (int)rc));
 
                 /* Makre sure it's valid, and check if we're done */
                 if (rc == ERROR_NO_MORE_ITEMS) break;
                 if (rc != ERROR_SUCCESS) return;
-                DPRINTM(DPRINT_REACTOS, "Service %d: '%S'\n", (int)Index, ServiceName);
+                DbgPrint((DPRINT_REACTOS, "Service %d: '%S'\n", (int)Index, ServiceName));
 
                 /* open driver Key */
                 rc = RegOpenKey(hServiceKey, ServiceName, &hDriverKey);
@@ -443,18 +443,18 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                     ValueSize = sizeof(ULONG);
                     rc = RegQueryValue(hDriverKey, L"Start", &ValueType, (PUCHAR)&StartValue, &ValueSize);
                     if (rc != ERROR_SUCCESS) StartValue = (ULONG)-1;
-                    DPRINTM(DPRINT_REACTOS, "  Start: %x  \n", (int)StartValue);
+                    DbgPrint((DPRINT_REACTOS, "  Start: %x  \n", (int)StartValue));
 
                     /* Read the Tag */
                     ValueSize = sizeof(ULONG);
                     rc = RegQueryValue(hDriverKey, L"Tag", &ValueType, (PUCHAR)&TagValue, &ValueSize);
                     if (rc != ERROR_SUCCESS) TagValue = (ULONG)-1;
-                    DPRINTM(DPRINT_REACTOS, "  Tag:   %x  \n", (int)TagValue);
+                    DbgPrint((DPRINT_REACTOS, "  Tag:   %x  \n", (int)TagValue));
 
                     /* Read the driver's group */
                     DriverGroupSize = sizeof(DriverGroup);
                     rc = RegQueryValue(hDriverKey, L"Group", NULL, (PUCHAR)DriverGroup, &DriverGroupSize);
-                    DPRINTM(DPRINT_REACTOS, "  Group: '%S'  \n", DriverGroup);
+                    DbgPrint((DPRINT_REACTOS, "  Group: '%S'  \n", DriverGroup));
 
                     /* Make sure it should be started */
                     if ((StartValue == 0) &&
@@ -467,16 +467,16 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
 
                         /* Write the whole path if it suceeded, else prepare to fail */
                         if (rc != ERROR_SUCCESS) {
-                            DPRINTM(DPRINT_REACTOS, "  ImagePath: not found\n");
+                            DbgPrint((DPRINT_REACTOS, "  ImagePath: not found\n"));
                             sprintf(ImagePath, "%s\\system32\\drivers\\%S.sys", szSystemRoot, ServiceName);
                         } else if (TempImagePath[0] != L'\\') {
                             sprintf(ImagePath, "%s%S", szSystemRoot, TempImagePath);
                         } else {
                             sprintf(ImagePath, "%S", TempImagePath);
-                            DPRINTM(DPRINT_REACTOS, "  ImagePath: '%s'\n", ImagePath);
+                            DbgPrint((DPRINT_REACTOS, "  ImagePath: '%s'\n", ImagePath));
                         }
 
-                        DPRINTM(DPRINT_REACTOS, "  Loading driver: '%s'\n", ImagePath);
+                        DbgPrint((DPRINT_REACTOS, "  Loading driver: '%s'\n", ImagePath));
 
                         /* Update the position if needed */
                         if (nPos < 100) nPos += 5;
@@ -485,8 +485,8 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
 
                     } else {
 
-                        DPRINTM(DPRINT_REACTOS, "  Skipping driver '%S' with Start %d, Tag %d and Group '%S' (Current Tag %d, current group '%S')\n",
-                                 ServiceName, StartValue, TagValue, DriverGroup, OrderList[TagIndex], GroupName);
+                        DbgPrint((DPRINT_REACTOS, "  Skipping driver '%S' with Start %d, Tag %d and Group '%S' (Current Tag %d, current group '%S')\n",
+                                 ServiceName, StartValue, TagValue, DriverGroup, OrderList[TagIndex], GroupName));
                     }
                 }
 
@@ -501,10 +501,10 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
             ValueSize = sizeof(ServiceName);
             rc = RegEnumKey(hServiceKey, Index, ServiceName, &ValueSize);
 
-            DPRINTM(DPRINT_REACTOS, "RegEnumKey(): rc %d\n", (int)rc);
+            DbgPrint((DPRINT_REACTOS, "RegEnumKey(): rc %d\n", (int)rc));
             if (rc == ERROR_NO_MORE_ITEMS) break;
             if (rc != ERROR_SUCCESS) return;
-            DPRINTM(DPRINT_REACTOS, "Service %d: '%S'\n", (int)Index, ServiceName);
+            DbgPrint((DPRINT_REACTOS, "Service %d: '%S'\n", (int)Index, ServiceName));
 
             /* open driver Key */
             rc = RegOpenKey(hServiceKey, ServiceName, &hDriverKey);
@@ -514,18 +514,18 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                 ValueSize = sizeof(ULONG);
                 rc = RegQueryValue(hDriverKey, L"Start", &ValueType, (PUCHAR)&StartValue, &ValueSize);
                 if (rc != ERROR_SUCCESS) StartValue = (ULONG)-1;
-                DPRINTM(DPRINT_REACTOS, "  Start: %x  \n", (int)StartValue);
+                DbgPrint((DPRINT_REACTOS, "  Start: %x  \n", (int)StartValue));
 
                 /* Read the Tag */
                 ValueSize = sizeof(ULONG);
                 rc = RegQueryValue(hDriverKey, L"Tag", &ValueType, (PUCHAR)&TagValue, &ValueSize);
                 if (rc != ERROR_SUCCESS) TagValue = (ULONG)-1;
-                DPRINTM(DPRINT_REACTOS, "  Tag:   %x  \n", (int)TagValue);
+                DbgPrint((DPRINT_REACTOS, "  Tag:   %x  \n", (int)TagValue));
 
                 /* Read the driver's group */
                 DriverGroupSize = sizeof(DriverGroup);
                 rc = RegQueryValue(hDriverKey, L"Group", NULL, (PUCHAR)DriverGroup, &DriverGroupSize);
-                DPRINTM(DPRINT_REACTOS, "  Group: '%S'  \n", DriverGroup);
+                DbgPrint((DPRINT_REACTOS, "  Group: '%S'  \n", DriverGroup));
 
                 for (TagIndex = 1; TagIndex <= OrderList[0]; TagIndex++) {
                     if (TagValue == OrderList[TagIndex]) break;
@@ -538,15 +538,15 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
                         ValueSize = sizeof(TempImagePath);
                         rc = RegQueryValue(hDriverKey, L"ImagePath", NULL, (PUCHAR)TempImagePath, &ValueSize);
                         if (rc != ERROR_SUCCESS) {
-                            DPRINTM(DPRINT_REACTOS, "  ImagePath: not found\n");
+                            DbgPrint((DPRINT_REACTOS, "  ImagePath: not found\n"));
                             sprintf(ImagePath, "%ssystem32\\drivers\\%S.sys", szSystemRoot, ServiceName);
                         } else if (TempImagePath[0] != L'\\') {
                             sprintf(ImagePath, "%s%S", szSystemRoot, TempImagePath);
                         } else {
                             sprintf(ImagePath, "%S", TempImagePath);
-                            DPRINTM(DPRINT_REACTOS, "  ImagePath: '%s'\n", ImagePath);
+                            DbgPrint((DPRINT_REACTOS, "  ImagePath: '%s'\n", ImagePath));
                         }
-                    DPRINTM(DPRINT_REACTOS, "  Loading driver: '%s'\n", ImagePath);
+                    DbgPrint((DPRINT_REACTOS, "  Loading driver: '%s'\n", ImagePath));
 
                     if (nPos < 100) nPos += 5;
 
@@ -554,8 +554,8 @@ FrLdrLoadBootDrivers(PCHAR szSystemRoot,
 
                 } else {
 
-                    DPRINTM(DPRINT_REACTOS, "  Skipping driver '%S' with Start %d, Tag %d and Group '%S' (Current group '%S')\n",
-                    ServiceName, StartValue, TagValue, DriverGroup, GroupName);
+                    DbgPrint((DPRINT_REACTOS, "  Skipping driver '%S' with Start %d, Tag %d and Group '%S' (Current group '%S')\n",
+                    ServiceName, StartValue, TagValue, DriverGroup, GroupName));
                 }
             }
 
@@ -642,7 +642,7 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
     LoaderBlock.DrivesAddr = reactos_arc_disk_info;
     LoaderBlock.RdAddr = (ULONG_PTR)gRamDiskBase;
     LoaderBlock.RdLength = gRamDiskSize;
-    LoaderBlock.MmapLength = (SIZE_T)MachVtbl.GetMemoryMap((PBIOS_MEMORY_MAP)reactos_memory_map, 32) * sizeof(memory_map_t);
+    LoaderBlock.MmapLength = (SIZE_T)MachGetMemoryMap((PBIOS_MEMORY_MAP)reactos_memory_map, 32) * sizeof(memory_map_t);
     if (LoaderBlock.MmapLength)
     {
         ULONG i;
@@ -769,8 +769,8 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
         szBootPath[strlen(szBootPath)] != '\\')
         strcat(szBootPath, "\\");
 
-	DPRINTM(DPRINT_REACTOS,"SystemRoot: '%s'\n", szBootPath);
-	strcpy(SystemRoot, szBootPath);
+    DbgPrint((DPRINT_REACTOS,"SystemRoot: '%s'\n", szBootPath));
+    strcpy(SystemRoot, szBootPath);
 
     /*
      * Find the kernel image name
@@ -844,7 +844,7 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
     strcpy(szFileName, szBootPath);
     strcat(szFileName, "SYSTEM32\\CONFIG\\SYSTEM");
 
-	DPRINTM(DPRINT_REACTOS, "SystemHive: '%s'", szFileName);
+    DbgPrint((DPRINT_REACTOS, "SystemHive: '%s'", szFileName));
 
     FilePointer = FsOpenFile(szFileName);
     if (FilePointer == NULL)
@@ -862,16 +862,16 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
         strcat(name, " ");
     UiDrawStatusText(name);
 
-	/*
-	 * Load the System hive
-	 */
-	Base = FrLdrLoadModule(FilePointer, szFileName, &Size);
-	if (Base == 0 || Size == 0)
-	{
-		UiMessageBox("Could not load the System hive!\n");
-		return;
-	}
-	DPRINTM(DPRINT_REACTOS, "SystemHive loaded at 0x%x size %u", (unsigned)Base, (unsigned)Size);
+    /*
+     * Load the System hive
+     */
+    Base = FrLdrLoadModule(FilePointer, szFileName, &Size);
+    if (Base == 0 || Size == 0)
+    {
+        UiMessageBox("Could not load the System hive!\n");
+        return;
+    }
+    DbgPrint((DPRINT_REACTOS, "SystemHive loaded at 0x%x size %u", (unsigned)Base, (unsigned)Size));
 
     /*
      * Import the loaded system hive
@@ -912,6 +912,37 @@ LoadAndBootReactOS(PCSTR OperatingSystemName)
     // Setup paging and jump to kernel
     //
     FrLdrStartup(0x2badb002);
+}
+
+#undef DbgPrint
+ULONG
+DbgPrint(const char *Format, ...)
+{
+    va_list ap;
+    CHAR Buffer[512];
+    ULONG Length;
+
+    va_start(ap, Format);
+
+    /* Construct a string */
+    Length = _vsnprintf(Buffer, 512, Format, ap);
+
+    /* Check if we went past the buffer */
+    if (Length == -1U)
+    {
+        /* Terminate it if we went over-board */
+        Buffer[sizeof(Buffer) - 1] = '\n';
+
+        /* Put maximum */
+        Length = sizeof(Buffer);
+    }
+
+    /* Show it as a message box */
+    UiMessageBox(Buffer);
+
+    /* Cleanup and exit */
+    va_end(ap);
+    return 0;
 }
 
 /* EOF */

@@ -181,51 +181,24 @@ ObpReferenceSecurityDescriptor(IN POBJECT_HEADER ObjectHeader)
 {
     PSECURITY_DESCRIPTOR SecurityDescriptor;
     PSECURITY_DESCRIPTOR_HEADER SdHeader;
-    PEX_FAST_REF FastRef;
-    EX_FAST_REF OldValue;
-    ULONG_PTR Count;
-
-    /* Acquire a reference to the security descriptor */
-    FastRef = (PEX_FAST_REF)&ObjectHeader->SecurityDescriptor;
-    OldValue = ExAcquireFastReference(FastRef);
-
-    /* Get the descriptor and reference count */
-    SecurityDescriptor = ExGetObjectFastReference(OldValue);
-    Count = ExGetCountFastReference(OldValue);
-
-    /* Check if there's no descriptor or if there's still cached references */
-    if ((Count >= 1) || !(SecurityDescriptor))
+    
+    /* Get the SD */
+    SecurityDescriptor = ObjectHeader->SecurityDescriptor;
+    if (!SecurityDescriptor)
     {
-        /* Check if this is the last reference */
-        if (Count == 1)
-        {
-            /* Add the extra references that we'll take */
-            SdHeader = ObpGetHeaderForSd(SecurityDescriptor);
-            InterlockedExchangeAdd((PLONG)&SdHeader->RefCount, MAX_FAST_REFS);
-
-            /* Now insert them */
-            if (!ExInsertFastReference(FastRef, SecurityDescriptor))
-            {
-                /* Undo the references since we failed */
-                InterlockedExchangeAdd((PLONG)&SdHeader->RefCount,
-                                       -MAX_FAST_REFS);
-            }
-        }
-
-        /* Return the SD */
-        return SecurityDescriptor;
+        /* No SD, nothing to do */
+        return NULL;
     }
-
+    
     /* Lock the object */
     ObpAcquireObjectLockShared(ObjectHeader);
-
+    
     /* Get the object header */
-    SecurityDescriptor = ExGetObjectFastReference(*FastRef);
     SdHeader = ObpGetHeaderForSd(SecurityDescriptor);
-
+    
     /* Do the reference */
     InterlockedIncrement((PLONG)&SdHeader->RefCount);
-
+    
     /* Release the lock and return */
     ObpReleaseObjectLock(ObjectHeader);
     return SecurityDescriptor;

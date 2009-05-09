@@ -1,14 +1,4 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/port_wavecyclic.c
- * PURPOSE:         WaveCyclic Port Driver
- * PROGRAMMER:      Johannes Anderwald
- */
-
 #include "private.h"
-
-extern GUID IID_IDmaChannelSlave;
 
 typedef struct
 {
@@ -29,10 +19,7 @@ typedef struct
     PPOWERNOTIFY pPowerNotify;
     PPCFILTER_DESCRIPTOR pDescriptor;
     PSUBDEVICE_DESCRIPTOR SubDeviceDescriptor;
-    IPortFilterWaveCyclic * Filter;
 }IPortWaveCyclicImpl;
-
-GUID KSPROPERTY_SETID_Topology                = {0x720D4AC0L, 0x7533, 0x11D0, {0xA5, 0xD6, 0x28, 0xDB, 0x04, 0xC1, 0x00, 0x00}};
 
 static GUID InterfaceGuids[3] = 
 {
@@ -49,32 +36,6 @@ static GUID InterfaceGuids[3] =
         0x6994AD04, 0x93EF, 0x11D0, {0xA3, 0xCC, 0x00, 0xA0, 0xC9, 0x22, 0x31, 0x96}
     }
 };
-
-DEFINE_KSPROPERTY_TOPOLOGYSET(PortFilterWaveCyclicTopologySet, TopologyPropertyHandler);
-DEFINE_KSPROPERTY_PINPROPOSEDATAFORMAT(PortFilterWaveCyclicPinSet, PinPropertyHandler, PinPropertyHandler, PinPropertyHandler);
-
-KSPROPERTY_SET WaveCyclicPropertySet[] =
-{
-    {
-        &KSPROPSETID_Topology,
-        sizeof(PortFilterWaveCyclicTopologySet) / sizeof(KSPROPERTY_ITEM),
-        (const KSPROPERTY_ITEM*)&PortFilterWaveCyclicTopologySet,
-        0,
-        NULL
-    },
-    {
-        &KSPROPSETID_Pin,
-        sizeof(PortFilterWaveCyclicPinSet) / sizeof(KSPROPERTY_ITEM),
-        (const KSPROPERTY_ITEM*)&PortFilterWaveCyclicPinSet,
-        0,
-        NULL
-    }
-};
-
-//KSEVENTSETID_LoopedStreaming, Type = KSEVENT_LOOPEDSTREAMING_POSITION
-//KSEVENTSETID_Connection, Type = KSEVENT_CONNECTION_ENDOFSTREAM,
-
-
 
 #if 0
 static const KSIDENTIFIER Identifiers[] = 
@@ -106,7 +67,7 @@ IPortEvents_fnQueryInterface(
 {
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblPortEvents);
 
-    DPRINT("IPortEvents_fnQueryInterface entered\n");
+    DPRINT1("IPortEvents_fnQueryInterface entered\n");
 
     if (IsEqualGUIDAligned(refiid, &IID_IPortEvents) ||
         IsEqualGUIDAligned(refiid, &IID_IUnknown))
@@ -125,7 +86,7 @@ IPortEvents_fnAddRef(
     IPortEvents* iface)
 {
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblPortEvents);
-    DPRINT("IPortEvents_fnQueryInterface entered\n");
+    DPRINT1("IPortEvents_fnQueryInterface entered\n");
     return InterlockedIncrement(&This->ref);
 }
 
@@ -136,8 +97,7 @@ IPortEvents_fnRelease(
     IPortEvents* iface)
 {
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblPortEvents);
-
-    DPRINT("IPortEvents_fnRelease entered\n");
+    DPRINT1("IPortEvents_fnQueryInterface entered\n");
     InterlockedDecrement(&This->ref);
 
     if (This->ref == 0)
@@ -156,7 +116,7 @@ IPortEvents_fnAddEventToEventList(
     IPortEvents* iface,
     IN PKSEVENT_ENTRY EventEntry)
 {
-    UNIMPLEMENTED
+    DPRINT1("IPortEvents_fnAddEventToEventList stub\n");
 }
 
 
@@ -172,7 +132,7 @@ IPortEvents_fnGenerateEventList(
     IN  BOOL NodeEvent,
     IN  ULONG NodeId)
 {
-    UNIMPLEMENTED
+    DPRINT1("IPortEvents_fnGenerateEventList stub\n");
 }
 
 static IPortEventsVtbl vt_IPortEvents = 
@@ -195,9 +155,8 @@ IPortWaveCyclic_fnQueryInterface(
     IN  REFIID refiid,
     OUT PVOID* Output)
 {
-    UNICODE_STRING GuidString;
+    WCHAR Buffer[100];
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
-
     if (IsEqualGUIDAligned(refiid, &IID_IPortWaveCyclic) ||
         IsEqualGUIDAligned(refiid, &IID_IUnknown))
     {
@@ -227,11 +186,9 @@ IPortWaveCyclic_fnQueryInterface(
         return NewIDrmPort((PDRMPORT2*)Output);
     }
 
-    if (RtlStringFromGUID(refiid, &GuidString) == STATUS_SUCCESS)
-    {
-        DPRINT1("IPortWaveCyclic_fnQueryInterface no interface!!! iface %S\n", GuidString.Buffer);
-        RtlFreeUnicodeString(&GuidString);
-    }
+    StringFromCLSID(refiid, Buffer);
+    DPRINT1("IPortWaveCyclic_fnQueryInterface no interface!!! iface %S\n", Buffer);
+    KeBugCheckEx(0, 0, 0, 0, 0);
 
     return STATUS_UNSUCCESSFUL;
 }
@@ -289,7 +246,6 @@ IPortWaveCyclic_fnGetDeviceProperty(
     OUT PULONG  ReturnLength)
 {
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!This->bInitialized)
     {
@@ -316,8 +272,7 @@ IPortWaveCyclic_fnInit(
     PPOWERNOTIFY PowerNotify;
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
 
-    DPRINT("IPortWaveCyclic_Init entered %p\n", This);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    DPRINT1("IPortWaveCyclic_Init entered\n");
 
     if (This->bInitialized)
     {
@@ -364,11 +319,11 @@ IPortWaveCyclic_fnInit(
     /* create the subdevice descriptor */
     Status = PcCreateSubdeviceDescriptor(&This->SubDeviceDescriptor, 
                                          3,
-                                         InterfaceGuids,
+                                         InterfaceGuids, 
                                          0, 
                                          NULL,
-                                         2, 
-                                         WaveCyclicPropertySet,
+                                         0, 
+                                         NULL,
                                          0,
                                          0,
                                          0,
@@ -405,7 +360,7 @@ IPortWaveCyclic_fnInit(
     ResourceList->lpVtbl->AddRef(ResourceList);
 
 
-    DPRINT("IPortWaveCyclic successfully initialized\n");
+    DPRINT1("IPortWaveCyclic successfully initialized\n");
     return STATUS_SUCCESS;
 }
 
@@ -423,8 +378,6 @@ IPortWaveCyclic_fnNewRegistryKey(
     OUT PULONG  Disposition  OPTIONAL)
 {
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
-
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
     if (!This->bInitialized)
     {
@@ -456,8 +409,6 @@ IPortWaveCyclic_fnNewMasterDmaChannel(
     DEVICE_DESCRIPTION DeviceDescription;
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
     if (!This->bInitialized)
     {
         DPRINT("IPortWaveCyclic_fnNewSlaveDmaChannel called w/o initialized\n");
@@ -488,9 +439,8 @@ IPortWaveCyclic_fnNewSlaveDmaChannel(
     DEVICE_DESCRIPTION DeviceDescription;
     PDMACHANNEL DmaChannel;
     NTSTATUS Status;
-    IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)iface;
 
     if (!This->bInitialized)
     {
@@ -586,38 +536,14 @@ ISubDevice_fnNewIrpTarget(
     IN WCHAR * Name,
     IN PUNKNOWN Unknown,
     IN POOL_TYPE PoolType,
-    IN PDEVICE_OBJECT DeviceObject,
-    IN PIRP Irp,
+    IN PDEVICE_OBJECT * DeviceObject,
+    IN PIRP Irp, 
     IN KSOBJECT_CREATE *CreateObject)
 {
-    NTSTATUS Status;
-    IPortFilterWaveCyclic * Filter;
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblSubDevice);
 
-    DPRINT("ISubDevice_NewIrpTarget this %p\n", This);
-
-    if (This->Filter)
-    {
-        *OutTarget = (IIrpTarget*)This->Filter;
-        return STATUS_SUCCESS;
-    }
-
-
-    Status = NewPortFilterWaveCyclic(&Filter);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    Status = Filter->lpVtbl->Init(Filter, (IPortWaveCyclic*)This);
-    if (!NT_SUCCESS(Status))
-    {
-        Filter->lpVtbl->Release(Filter);
-        return Status;
-    }
-
-    *OutTarget = (IIrpTarget*)Filter;
-    return Status;
+    DPRINT1("ISubDevice_NewIrpTarget this %p\n", This);
+    return STATUS_UNSUCCESSFUL;
 }
 
 static
@@ -626,9 +552,9 @@ NTAPI
 ISubDevice_fnReleaseChildren(
     IN ISubdevice *iface)
 {
-    //IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblSubDevice);
+    IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblSubDevice);
 
-    UNIMPLEMENTED
+    DPRINT1("ISubDevice_ReleaseChildren this %p\n", This);
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -641,11 +567,9 @@ ISubDevice_fnGetDescriptor(
 {
     IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl*)CONTAINING_RECORD(iface, IPortWaveCyclicImpl, lpVtblSubDevice);
 
-    ASSERT(This->SubDeviceDescriptor != NULL);
-
     *Descriptor = This->SubDeviceDescriptor;
 
-    DPRINT("ISubDevice_GetDescriptor this %p desc %p\n", This, This->SubDeviceDescriptor);
+    DPRINT1("ISubDevice_GetDescriptor this %p\n", This);
     return STATUS_SUCCESS;
 }
 
@@ -730,22 +654,6 @@ static ISubdeviceVtbl vt_ISubdeviceVtbl =
 };
 
 
-///--------------------------------------------------------------
-PMINIPORTWAVECYCLIC
-GetWaveCyclicMiniport(
-    IN IPortWaveCyclic* iface)
-{
-    IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl *)iface;
-    return This->pMiniport;
-}
-
-PDEVICE_OBJECT
-GetDeviceObject(
-    PPORTWAVECYCLIC iface)
-{
-    IPortWaveCyclicImpl * This = (IPortWaveCyclicImpl *)iface;
-    return This->pDeviceObject;
-}
 
 //---------------------------------------------------------------
 // IPortWaveCyclic constructor
@@ -767,7 +675,7 @@ NewPortWaveCyclic(
     This->ref = 1;
     *OutPort = (PPORT)(&This->lpVtbl);
 
-    DPRINT("NewPortWaveCyclic %p\n", *OutPort);
+    DPRINT1("NewPortWaveCyclic %p\n", *OutPort);
 
     return STATUS_SUCCESS;
 }

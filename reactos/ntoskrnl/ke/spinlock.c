@@ -305,24 +305,14 @@ KeReleaseInStackQueuedSpinLockForDpc(IN PKLOCK_QUEUE_HANDLE LockHandle)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN
 FASTCALL
 KeTestSpinLock(IN PKSPIN_LOCK SpinLock)
 {
-    /* Test this spinlock */
-    if (*SpinLock)
-    {
-        /* Spinlock is busy, yield execution */
-        YieldProcessor();
-
-        /* Return busy flag */
-        return FALSE;
-    }
-
-    /* Spinlock appears to be free */
-    return TRUE;
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
 /* EOF */

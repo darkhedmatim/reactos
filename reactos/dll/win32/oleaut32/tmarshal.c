@@ -213,7 +213,7 @@ _marshal_interface(marshal_state *buf, REFIID riid, LPUNKNOWN pUnk) {
 	goto fail;
     }
     
-    hres = IStream_Stat(pStm,&ststg,STATFLAG_NONAME);
+    hres = IStream_Stat(pStm,&ststg,0);
     if (hres) {
         ERR("Stream stat failed\n");
         goto fail;
@@ -254,7 +254,7 @@ fail:
 static HRESULT WINAPI
 PSFacBuf_QueryInterface(LPPSFACTORYBUFFER iface, REFIID iid, LPVOID *ppv) {
     if (IsEqualIID(iid,&IID_IPSFactoryBuffer)||IsEqualIID(iid,&IID_IUnknown)) {
-        *ppv = iface;
+	*ppv = (LPVOID)iface;
 	/* No ref counting, static class */
 	return S_OK;
     }
@@ -410,7 +410,7 @@ TMProxyImpl_QueryInterface(LPRPCPROXYBUFFER iface, REFIID riid, LPVOID *ppv)
 {
     TRACE("()\n");
     if (IsEqualIID(riid,&IID_IUnknown)||IsEqualIID(riid,&IID_IRpcProxyBuffer)) {
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
         IRpcProxyBuffer_AddRef(iface);
         return S_OK;
     }
@@ -1646,7 +1646,7 @@ static HRESULT WINAPI TMarshalDispatchChannel_QueryInterface(LPRPCCHANNELBUFFER 
     *ppv = NULL;
     if (IsEqualIID(riid,&IID_IRpcChannelBuffer) || IsEqualIID(riid,&IID_IUnknown))
     {
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
         IUnknown_AddRef(iface);
         return S_OK;
     }
@@ -1937,8 +1937,8 @@ PSFacBuf_CreateProxy(
 
     if (hres == S_OK)
     {
-        *ppv = proxy;
-        *ppProxy = (IRpcProxyBuffer *)&(proxy->lpvtbl2);
+        *ppv		= (LPVOID)proxy;
+        *ppProxy		= (IRpcProxyBuffer *)&(proxy->lpvtbl2);
         IUnknown_AddRef((IUnknown *)*ppv);
         return S_OK;
     }
@@ -1962,7 +1962,7 @@ static HRESULT WINAPI
 TMStubImpl_QueryInterface(LPRPCSTUBBUFFER iface, REFIID riid, LPVOID *ppv)
 {
     if (IsEqualIID(riid,&IID_IRpcStubBuffer)||IsEqualIID(riid,&IID_IUnknown)){
-        *ppv = iface;
+	*ppv = (LPVOID)iface;
 	IRpcStubBuffer_AddRef(iface);
 	return S_OK;
     }

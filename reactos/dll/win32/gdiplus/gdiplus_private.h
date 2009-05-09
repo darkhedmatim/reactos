@@ -61,7 +61,7 @@ extern inline void delete_element(region_element *element);
 
 static inline INT roundr(REAL x)
 {
-    return (INT) floorf(x + 0.5);
+    return (INT) floor(x + 0.5);
 }
 
 static inline REAL deg2rad(REAL degrees)
@@ -91,7 +91,6 @@ struct GpPen{
 struct GpGraphics{
     HDC hdc;
     HWND hwnd;
-    BOOL owndc;
     SmoothingMode smoothing;
     CompositingQuality compqual;
     InterpolationMode interpolation;
@@ -143,12 +142,8 @@ struct GpLineGradient{
     GpPointF endpoint;
     ARGB startcolor;
     ARGB endcolor;
-    RectF rect;
     GpWrapMode wrap;
     BOOL gamma;
-    REAL* blendfac;  /* blend factors */
-    REAL* blendpos;  /* blend positions */
-    INT blendcount;
 };
 
 struct GpTexture{

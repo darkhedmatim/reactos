@@ -316,7 +316,7 @@ RunningObjectTableImpl_QueryInterface(IRunningObjectTable* iface,
 
     if (IsEqualIID(&IID_IUnknown, riid) ||
         IsEqualIID(&IID_IRunningObjectTable, riid))
-        *ppvObject = This;
+        *ppvObject = (IRunningObjectTable*)This;
 
     if ((*ppvObject)==0)
         return E_NOINTERFACE;
@@ -340,7 +340,7 @@ RunningObjectTableImpl_AddRef(IRunningObjectTable* iface)
 }
 
 /***********************************************************************
- *        RunningObjectTable_Destroy
+ *        RunningObjectTable_Initialize
  */
 static HRESULT
 RunningObjectTableImpl_Destroy(void)
@@ -414,7 +414,7 @@ RunningObjectTableImpl_Release(IRunningObjectTable* iface)
  * grfFlags       [in] Registration options 
  * punkObject     [in] the object being registered
  * pmkObjectName  [in] the moniker of the object being registered
- * pdwRegister    [out] the value identifying the registration
+ * pdwRegister    [in] the value identifying the registration
  */
 static HRESULT WINAPI
 RunningObjectTableImpl_Register(IRunningObjectTable* iface, DWORD grfFlags,
@@ -1291,10 +1291,10 @@ static HRESULT WINAPI EnumMonikerImpl_QueryInterface(IEnumMoniker* iface,REFIID 
     *ppvObject = NULL;
 
     if (IsEqualIID(&IID_IUnknown, riid))
-        *ppvObject = This;
+        *ppvObject = (IEnumMoniker*)This;
     else
         if (IsEqualIID(&IID_IEnumMoniker, riid))
-            *ppvObject = This;
+            *ppvObject = (IEnumMoniker*)This;
 
     if ((*ppvObject)==NULL)
         return E_NOINTERFACE;

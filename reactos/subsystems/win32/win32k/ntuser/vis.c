@@ -71,13 +71,13 @@ VIS_ComputeVisibleRegion(
       CurrentWnd = CurrentWindow->Wnd;
       if (!(CurrentWnd) || !(CurrentWnd->Style & WS_VISIBLE))
       {
-         GreDeleteObject(VisRgn);
+         NtGdiDeleteObject(VisRgn);
          return NULL;
       }
 
       ClipRgn = UnsafeIntCreateRectRgnIndirect(&CurrentWnd->ClientRect);
       NtGdiCombineRgn(VisRgn, VisRgn, ClipRgn, RGN_AND);
-      GreDeleteObject(ClipRgn);
+      NtGdiDeleteObject(ClipRgn);
 
       if ((PreviousWnd->Style & WS_CLIPSIBLINGS) ||
           (PreviousWnd == Wnd && ClipSiblings))
@@ -98,7 +98,7 @@ VIS_ComputeVisibleRegion(
                   NtGdiOffsetRgn(ClipRgn, CurrentSiblingWnd->WindowRect.left, CurrentSiblingWnd->WindowRect.top);
                }
                NtGdiCombineRgn(VisRgn, VisRgn, ClipRgn, RGN_DIFF);
-               GreDeleteObject(ClipRgn);
+               NtGdiDeleteObject(ClipRgn);
             }
             CurrentSibling = CurrentSibling->NextSibling;
          }
@@ -127,7 +127,7 @@ VIS_ComputeVisibleRegion(
                NtGdiOffsetRgn(ClipRgn, CurrentWnd->WindowRect.left, CurrentWnd->WindowRect.top);
             }
             NtGdiCombineRgn(VisRgn, VisRgn, ClipRgn, RGN_DIFF);
-            GreDeleteObject(ClipRgn);
+            NtGdiDeleteObject(ClipRgn);
          }
          CurrentWindow = CurrentWindow->NextSibling;
       }
@@ -174,7 +174,7 @@ co_VIS_WindowLayoutChanged(
                           RDW_ALLCHILDREN);
       UserDerefObjectCo(Parent);
    }
-   GreDeleteObject(Temp);
+   NtGdiDeleteObject(Temp);
 }
 
 /* EOF */

@@ -122,7 +122,6 @@ BadBlockQueryRoutine(
 
 
 void
-NTAPI
 InitBadBlocks(
     IN PHW_LU_EXTENSION LunExt
     )
@@ -223,7 +222,6 @@ InitBadBlocks(
 
 
 void
-NTAPI
 ForgetBadBlocks(
     IN PHW_LU_EXTENSION LunExt
     )
@@ -237,7 +235,6 @@ ForgetBadBlocks(
 } // end ForgetBadBlocks()
 
 bool
-NTAPI
 CheckIfBadBlock(
     IN PHW_LU_EXTENSION LunExt,
 //    IN UCHAR command,

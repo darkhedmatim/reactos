@@ -87,7 +87,7 @@ BindCtxImpl_QueryInterface(IBindCtx* iface,REFIID riid,void** ppvObject)
     if (IsEqualIID(&IID_IUnknown, riid) ||
         IsEqualIID(&IID_IBindCtx, riid))
     {
-        *ppvObject = This;
+        *ppvObject = (IBindCtx*)This;
         IBindCtx_AddRef(iface);
         return S_OK;
     }

@@ -77,10 +77,10 @@ static PUCHAR NtfsDecodeRun(PUCHAR DataRun, LONGLONG *DataRunOffset, ULONGLONG *
         *DataRunOffset = ((CHAR)(*(DataRun++)) << (i << 3)) + *DataRunOffset;
     }
 
-    DPRINTM(DPRINT_FILESYSTEM, "DataRunOffsetSize: %x\n", DataRunOffsetSize);
-    DPRINTM(DPRINT_FILESYSTEM, "DataRunLengthSize: %x\n", DataRunLengthSize);
-    DPRINTM(DPRINT_FILESYSTEM, "DataRunOffset: %x\n", *DataRunOffset);
-    DPRINTM(DPRINT_FILESYSTEM, "DataRunLength: %x\n", *DataRunLength);
+    DbgPrint((DPRINT_FILESYSTEM, "DataRunOffsetSize: %x\n", DataRunOffsetSize));
+    DbgPrint((DPRINT_FILESYSTEM, "DataRunLengthSize: %x\n", DataRunLengthSize));
+    DbgPrint((DPRINT_FILESYSTEM, "DataRunOffset: %x\n", *DataRunOffset));
+    DbgPrint((DPRINT_FILESYSTEM, "DataRunLength: %x\n", *DataRunLength));
 
     return DataRun;
 }
@@ -128,7 +128,7 @@ static BOOLEAN NtfsDiskRead(ULONGLONG Offset, ULONGLONG Length, PCHAR Buffer)
 {
     USHORT ReadLength;
 
-    DPRINTM(DPRINT_FILESYSTEM, "NtfsDiskRead - Offset: %I64d Length: %I64d\n", Offset, Length);
+    DbgPrint((DPRINT_FILESYSTEM, "NtfsDiskRead - Offset: %I64d Length: %I64d\n", Offset, Length));
     RtlZeroMemory((PCHAR)DISKREADBUFFER, 0x1000);
 
     /* I. Read partial first sector if needed */
@@ -442,7 +442,7 @@ VOID NtfsPrintFile(PNTFS_INDEX_ENTRY IndexEntry)
         AnsiFileName[i] = FileName[i];
     AnsiFileName[i] = 0;
 
-    DPRINTM(DPRINT_FILESYSTEM, "- %s (%x)\n", AnsiFileName, IndexEntry->Data.Directory.IndexedFile);
+    DbgPrint((DPRINT_FILESYSTEM, "- %s (%x)\n", AnsiFileName, IndexEntry->Data.Directory.IndexedFile));
 }
 #endif
 
@@ -526,7 +526,7 @@ static BOOLEAN NtfsFindMftRecord(ULONG MFTIndex, PCHAR FileName, ULONG *OutMFTIn
         IndexEntryEnd = (PNTFS_INDEX_ENTRY)(IndexRecord + IndexRootCtx->Record.Resident.ValueLength);
         NtfsReleaseAttributeContext(IndexRootCtx);
 
-        DPRINTM(DPRINT_FILESYSTEM, "NtfsIndexRecordSize: %x IndexBlockSize: %x\n", NtfsIndexRecordSize, IndexRoot->IndexBlockSize);
+        DbgPrint((DPRINT_FILESYSTEM, "NtfsIndexRecordSize: %x IndexBlockSize: %x\n", NtfsIndexRecordSize, IndexRoot->IndexBlockSize));
 
         while (IndexEntry < IndexEntryEnd &&
                !(IndexEntry->Flags & NTFS_INDEX_ENTRY_END))
@@ -543,19 +543,19 @@ static BOOLEAN NtfsFindMftRecord(ULONG MFTIndex, PCHAR FileName, ULONG *OutMFTIn
 
         if (IndexRoot->IndexHeader.Flags & NTFS_LARGE_INDEX)
         {
-            DPRINTM(DPRINT_FILESYSTEM, "Large Index!\n");
+            DbgPrint((DPRINT_FILESYSTEM, "Large Index!\n"));
 
             IndexBlockSize = IndexRoot->IndexBlockSize;
 
             IndexBitmapCtx = NtfsFindAttribute(MftRecord, NTFS_ATTR_TYPE_BITMAP, L"$I30");
             if (IndexBitmapCtx == NULL)
             {
-                DPRINTM(DPRINT_FILESYSTEM, "Corrupted filesystem!\n");
+                DbgPrint((DPRINT_FILESYSTEM, "Corrupted filesystem!\n"));
                 MmHeapFree(MftRecord);
                 return FALSE;
             }
             BitmapDataSize = NtfsGetAttributeSize(&IndexBitmapCtx->Record);
-            DPRINTM(DPRINT_FILESYSTEM, "BitmapDataSize: %x\n", BitmapDataSize);
+            DbgPrint((DPRINT_FILESYSTEM, "BitmapDataSize: %x\n", BitmapDataSize));
             BitmapData = MmHeapAlloc(BitmapDataSize);
             if (BitmapData == NULL)
             {
@@ -569,7 +569,7 @@ static BOOLEAN NtfsFindMftRecord(ULONG MFTIndex, PCHAR FileName, ULONG *OutMFTIn
             IndexAllocationCtx = NtfsFindAttribute(MftRecord, NTFS_ATTR_TYPE_INDEX_ALLOCATION, L"$I30");
             if (IndexAllocationCtx == NULL)
             {
-                DPRINTM(DPRINT_FILESYSTEM, "Corrupted filesystem!\n");
+                DbgPrint((DPRINT_FILESYSTEM, "Corrupted filesystem!\n"));
                 MmHeapFree(BitmapData);
                 MmHeapFree(IndexRecord);
                 MmHeapFree(MftRecord);
@@ -581,7 +581,7 @@ static BOOLEAN NtfsFindMftRecord(ULONG MFTIndex, PCHAR FileName, ULONG *OutMFTIn
 
             for (;;)
             {
-                DPRINTM(DPRINT_FILESYSTEM, "RecordOffset: %x IndexAllocationSize: %x\n", RecordOffset, IndexAllocationSize);
+                DbgPrint((DPRINT_FILESYSTEM, "RecordOffset: %x IndexAllocationSize: %x\n", RecordOffset, IndexAllocationSize));
                 for (; RecordOffset < IndexAllocationSize;)
                 {
                     UCHAR Bit = 1 << ((RecordOffset / IndexBlockSize) & 7);
@@ -612,7 +612,7 @@ static BOOLEAN NtfsFindMftRecord(ULONG MFTIndex, PCHAR FileName, ULONG *OutMFTIn
                 {
                     if (NtfsCompareFileName(FileName, IndexEntry))
                     {
-                        DPRINTM(DPRINT_FILESYSTEM, "File found\n");
+                        DbgPrint((DPRINT_FILESYSTEM, "File found\n"));
                         *OutMFTIndex = IndexEntry->Data.Directory.IndexedFile;
                         MmHeapFree(BitmapData);
                         MmHeapFree(IndexRecord);
@@ -634,7 +634,7 @@ static BOOLEAN NtfsFindMftRecord(ULONG MFTIndex, PCHAR FileName, ULONG *OutMFTIn
     }
     else
     {
-        DPRINTM(DPRINT_FILESYSTEM, "Can't read MFT record\n");
+        DbgPrint((DPRINT_FILESYSTEM, "Can't read MFT record\n"));
     }
     MmHeapFree(MftRecord);
 
@@ -648,7 +648,7 @@ static BOOLEAN NtfsLookupFile(PCSTR FileName, PNTFS_MFT_RECORD MftRecord, PNTFS_
     ULONG CurrentMFTIndex;
     UCHAR i;
 
-    DPRINTM(DPRINT_FILESYSTEM, "NtfsLookupFile() FileName = %s\n", FileName);
+    DbgPrint((DPRINT_FILESYSTEM, "NtfsLookupFile() FileName = %s\n", FileName));
 
     CurrentMFTIndex = NTFS_FILE_ROOT;
     NumberOfPathParts = FsGetNumPathParts(FileName);
@@ -660,25 +660,25 @@ static BOOLEAN NtfsLookupFile(PCSTR FileName, PNTFS_MFT_RECORD MftRecord, PNTFS_
             ;
         FileName++;
 
-        DPRINTM(DPRINT_FILESYSTEM, "- Lookup: %s\n", PathPart);
+        DbgPrint((DPRINT_FILESYSTEM, "- Lookup: %s\n", PathPart));
         if (!NtfsFindMftRecord(CurrentMFTIndex, PathPart, &CurrentMFTIndex))
         {
-            DPRINTM(DPRINT_FILESYSTEM, "- Failed\n");
+            DbgPrint((DPRINT_FILESYSTEM, "- Failed\n"));
             return FALSE;
         }
-        DPRINTM(DPRINT_FILESYSTEM, "- Lookup: %x\n", CurrentMFTIndex);
+        DbgPrint((DPRINT_FILESYSTEM, "- Lookup: %x\n", CurrentMFTIndex));
     }
 
     if (!NtfsReadMftRecord(CurrentMFTIndex, MftRecord))
     {
-        DPRINTM(DPRINT_FILESYSTEM, "NtfsLookupFile: Can't read MFT record\n");
+        DbgPrint((DPRINT_FILESYSTEM, "NtfsLookupFile: Can't read MFT record\n"));
         return FALSE;
     }
 
     *DataContext = NtfsFindAttribute(MftRecord, NTFS_ATTR_TYPE_DATA, L"");
     if (*DataContext == NULL)
     {
-        DPRINTM(DPRINT_FILESYSTEM, "NtfsLookupFile: Can't find data attribute\n");
+        DbgPrint((DPRINT_FILESYSTEM, "NtfsLookupFile: Can't find data attribute\n"));
         return FALSE;
     }
 
@@ -689,7 +689,7 @@ BOOLEAN NtfsOpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector, ULONGLONG
 {
     NtfsBootSector = (PNTFS_BOOTSECTOR)DISKREADBUFFER;
 
-    DPRINTM(DPRINT_FILESYSTEM, "NtfsOpenVolume() DriveNumber = 0x%x VolumeStartSector = 0x%x\n", DriveNumber, VolumeStartSector);
+    DbgPrint((DPRINT_FILESYSTEM, "NtfsOpenVolume() DriveNumber = 0x%x VolumeStartSector = 0x%x\n", DriveNumber, VolumeStartSector));
 
     if (!MachDiskReadLogicalSectors(DriveNumber, VolumeStartSector, 1, (PCHAR)DISKREADBUFFER))
     {
@@ -721,16 +721,16 @@ BOOLEAN NtfsOpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector, ULONGLONG
     else
         NtfsIndexRecordSize = 1 << (-NtfsBootSector->ClustersPerIndexRecord);
 
-    DPRINTM(DPRINT_FILESYSTEM, "NtfsClusterSize: 0x%x\n", NtfsClusterSize);
-    DPRINTM(DPRINT_FILESYSTEM, "ClustersPerMftRecord: %d\n", NtfsBootSector->ClustersPerMftRecord);
-    DPRINTM(DPRINT_FILESYSTEM, "ClustersPerIndexRecord: %d\n", NtfsBootSector->ClustersPerIndexRecord);
-    DPRINTM(DPRINT_FILESYSTEM, "NtfsMftRecordSize: 0x%x\n", NtfsMftRecordSize);
-    DPRINTM(DPRINT_FILESYSTEM, "NtfsIndexRecordSize: 0x%x\n", NtfsIndexRecordSize);
+    DbgPrint((DPRINT_FILESYSTEM, "NtfsClusterSize: 0x%x\n", NtfsClusterSize));
+    DbgPrint((DPRINT_FILESYSTEM, "ClustersPerMftRecord: %d\n", NtfsBootSector->ClustersPerMftRecord));
+    DbgPrint((DPRINT_FILESYSTEM, "ClustersPerIndexRecord: %d\n", NtfsBootSector->ClustersPerIndexRecord));
+    DbgPrint((DPRINT_FILESYSTEM, "NtfsMftRecordSize: 0x%x\n", NtfsMftRecordSize));
+    DbgPrint((DPRINT_FILESYSTEM, "NtfsIndexRecordSize: 0x%x\n", NtfsIndexRecordSize));
 
     NtfsDriveNumber = DriveNumber;
     NtfsSectorOfClusterZero = VolumeStartSector;
 
-    DPRINTM(DPRINT_FILESYSTEM, "Reading MFT index...\n");
+    DbgPrint((DPRINT_FILESYSTEM, "Reading MFT index...\n"));
     if (!MachDiskReadLogicalSectors(DriveNumber,
                                 NtfsSectorOfClusterZero +
                                 (NtfsBootSector->MftLocation * NtfsBootSector->SectorsPerCluster),
@@ -749,7 +749,7 @@ BOOLEAN NtfsOpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector, ULONGLONG
 
     RtlCopyMemory(NtfsMasterFileTable, (PCHAR)DISKREADBUFFER, NtfsMftRecordSize);
 
-    DPRINTM(DPRINT_FILESYSTEM, "Searching for DATA attribute...\n");
+    DbgPrint((DPRINT_FILESYSTEM, "Searching for DATA attribute...\n"));
     NtfsMFTContext = NtfsFindAttribute(NtfsMasterFileTable, NTFS_ATTR_TYPE_DATA, L"");
     if (NtfsMFTContext == NULL)
     {

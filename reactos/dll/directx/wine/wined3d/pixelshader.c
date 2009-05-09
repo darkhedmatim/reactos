@@ -34,6 +34,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(d3d_shader);
 
 #define GLINFO_LOCATION ((IWineD3DDeviceImpl *) This->baseShader.device)->adapter->gl_info
 
+#define GLNAME_REQUIRE_GLSL  ((const char *)1)
+
 static HRESULT  WINAPI IWineD3DPixelShaderImpl_QueryInterface(IWineD3DPixelShader *iface, REFIID riid, LPVOID *ppobj) {
     TRACE("iface %p, riid %s, ppobj %p\n", iface, debugstr_guid(riid), ppobj);
 
@@ -354,7 +356,7 @@ static HRESULT WINAPI IWineD3DPixelShaderImpl_SetFunction(IWineD3DPixelShader *i
         for (i = 0; i < MAX_REG_INPUT; ++i)
         {
             if (This->input_reg_used[i]) This->input_reg_map[i] = This->declared_in_count++;
-            else This->input_reg_map[i] = ~0U;
+            else This->input_reg_map[i] = -1;
         }
     }
 
@@ -428,13 +430,16 @@ static GLuint pixelshader_compile(IWineD3DPixelShaderImpl *This, const struct ps
     pixelshader_update_samplers(&This->baseShader.reg_maps,
             ((IWineD3DDeviceImpl *)This->baseShader.device)->stateBlock->textures);
 
+    /* Reset fields tracking stateblock values being hardcoded in the shader */
+    This->baseShader.num_sampled_samplers = 0;
+
     /* Generate the HW shader */
     TRACE("(%p) : Generating hardware program\n", This);
-    This->cur_args = args;
     shader_buffer_init(&buffer);
     retval = device->shader_backend->shader_generate_pshader((IWineD3DPixelShader *)This, &buffer, args);
     shader_buffer_free(&buffer);
-    This->cur_args = NULL;
+
+    This->baseShader.is_compiled = TRUE;
 
     return retval;
 }
@@ -455,26 +460,20 @@ const IWineD3DPixelShaderVtbl IWineD3DPixelShader_Vtbl =
 };
 
 void find_ps_compile_args(IWineD3DPixelShaderImpl *shader, IWineD3DStateBlockImpl *stateblock, struct ps_compile_args *args) {
-    UINT i;
+    UINT i, sampler;
     IWineD3DBaseTextureImpl *tex;
 
     memset(args, 0, sizeof(*args)); /* FIXME: Make sure all bits are set */
     args->srgb_correction = stateblock->renderState[WINED3DRS_SRGBWRITEENABLE] ? 1 : 0;
-    args->np2_fixup = 0;
 
-    for(i = 0; i < MAX_FRAGMENT_SAMPLERS; i++) {
-        if(shader->baseShader.reg_maps.samplers[i] == 0) continue;
-        tex = (IWineD3DBaseTextureImpl *) stateblock->textures[i];
+    for(i = 0; i < shader->baseShader.num_sampled_samplers; i++) {
+        sampler = shader->baseShader.sampled_samplers[i];
+        tex = (IWineD3DBaseTextureImpl *) stateblock->textures[sampler];
         if(!tex) {
-            args->color_fixup[i] = COLOR_FIXUP_IDENTITY;
+            args->color_fixup[sampler] = COLOR_FIXUP_IDENTITY;
             continue;
         }
-        args->color_fixup[i] = tex->resource.format_desc->color_fixup;
-
-        /* Flag samplers that need NP2 texcoord fixup. */
-        if(!tex->baseTexture.pow2Matrix_identity) {
-            args->np2_fixup |= (1 << i);
-        }
+        args->color_fixup[sampler] = tex->baseTexture.shader_color_fixup;
     }
     if (shader->baseShader.reg_maps.shader_version >= WINED3DPS_VERSION(3,0))
     {
@@ -521,12 +520,10 @@ void find_ps_compile_args(IWineD3DPixelShaderImpl *shader, IWineD3DStateBlockImp
 GLuint find_gl_pshader(IWineD3DPixelShaderImpl *shader, const struct ps_compile_args *args)
 {
     UINT i;
-    DWORD new_size;
-    struct ps_compiled_shader *new_array;
+    struct ps_compiled_shader *old_array;
 
     /* Usually we have very few GL shaders for each d3d shader(just 1 or maybe 2),
-     * so a linear search is more performant than a hashmap or a binary search
-     * (cache coherency etc)
+     * so a linear search is more performant than a hashmap
      */
     for(i = 0; i < shader->num_gl_shaders; i++) {
         if(memcmp(&shader->gl_shaders[i].args, args, sizeof(*args)) == 0) {
@@ -535,23 +532,17 @@ GLuint find_gl_pshader(IWineD3DPixelShaderImpl *shader, const struct ps_compile_
     }
 
     TRACE("No matching GL shader found, compiling a new shader\n");
-    if(shader->shader_array_size == shader->num_gl_shaders) {
-        if (shader->num_gl_shaders)
-        {
-            new_size = shader->shader_array_size + max(1, shader->shader_array_size / 2);
-            new_array = HeapReAlloc(GetProcessHeap(), 0, shader->gl_shaders,
-                                    new_size * sizeof(*shader->gl_shaders));
-        } else {
-            new_array = HeapAlloc(GetProcessHeap(), 0, sizeof(*shader->gl_shaders));
-            new_size = 1;
-        }
+    old_array = shader->gl_shaders;
+    if(old_array) {
+        shader->gl_shaders = HeapReAlloc(GetProcessHeap(), 0, old_array,
+                                         (shader->num_gl_shaders + 1) * sizeof(*shader->gl_shaders));
+    } else {
+        shader->gl_shaders = HeapAlloc(GetProcessHeap(), 0, sizeof(*shader->gl_shaders));
+    }
 
-        if(!new_array) {
-            ERR("Out of memory\n");
-            return 0;
-        }
-        shader->gl_shaders = new_array;
-        shader->shader_array_size = new_size;
+    if(!shader->gl_shaders) {
+        ERR("Out of memory\n");
+        return 0;
     }
 
     shader->gl_shaders[shader->num_gl_shaders].args = *args;

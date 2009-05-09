@@ -206,11 +206,11 @@ static HRESULT WINAPI DefaultHandler_NDIUnknown_QueryInterface(
   if (IsEqualIID(&IID_IUnknown, riid))
     *ppvObject = iface;
   else if (IsEqualIID(&IID_IOleObject, riid))
-    *ppvObject = &This->lpVtbl;
+    *ppvObject = (IOleObject*)&This->lpVtbl;
   else if (IsEqualIID(&IID_IDataObject, riid))
-    *ppvObject = &This->lpvtblIDataObject;
+    *ppvObject = (IDataObject*)&This->lpvtblIDataObject;
   else if (IsEqualIID(&IID_IRunnableObject, riid))
-    *ppvObject = &This->lpvtblIRunnableObject;
+    *ppvObject = (IRunnableObject*)&This->lpvtblIRunnableObject;
   else if (IsEqualIID(&IID_IPersist, riid) ||
            IsEqualIID(&IID_IPersistStorage, riid))
     *ppvObject = &This->lpvtblIPersistStorage;

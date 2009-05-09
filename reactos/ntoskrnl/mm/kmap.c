@@ -16,23 +16,19 @@
 /* GLOBALS *****************************************************************/
 
 /* FUNCTIONS ***************************************************************/
-
 NTSTATUS
 NTAPI
 MiZeroPage(PFN_TYPE Page)
 {
-   PEPROCESS Process;
-   KIRQL Irql;
    PVOID TempAddress;
 
-   Process = PsGetCurrentProcess();
-   TempAddress = MiMapPageInHyperSpace(Process, Page, &Irql);
+   TempAddress = MmCreateHyperspaceMapping(Page);
    if (TempAddress == NULL)
    {
       return(STATUS_NO_MEMORY);
    }
    memset(TempAddress, 0, PAGE_SIZE);
-   MiUnmapPageInHyperSpace(Process, TempAddress, Irql);
+   MmDeleteHyperspaceMapping(TempAddress);
    return(STATUS_SUCCESS);
 }
 
@@ -40,19 +36,15 @@ NTSTATUS
 NTAPI
 MiCopyFromUserPage(PFN_TYPE DestPage, PVOID SourceAddress)
 {
-   PEPROCESS Process;
-   KIRQL Irql;
    PVOID TempAddress;
 
-   Process = PsGetCurrentProcess();
-   TempAddress = MiMapPageInHyperSpace(Process, DestPage, &Irql);
+   TempAddress = MmCreateHyperspaceMapping(DestPage);
    if (TempAddress == NULL)
    {
       return(STATUS_NO_MEMORY);
    }
    memcpy(TempAddress, SourceAddress, PAGE_SIZE);
-   MiUnmapPageInHyperSpace(Process, TempAddress, Irql);
+   MmDeleteHyperspaceMapping(TempAddress);
    return(STATUS_SUCCESS);
 }
 
-/* EOF */

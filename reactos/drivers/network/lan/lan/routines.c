@@ -87,22 +87,23 @@ NDIS_STATUS AllocatePacketWithBufferX( PNDIS_PACKET *NdisPacket,
     NDIS_STATUS Status;
     PCHAR NewData;
 
-    NewData = exAllocatePool( NonPagedPool, Len );
+    NewData = ExAllocatePool( NonPagedPool, Len );
     if( !NewData ) return NDIS_STATUS_NOT_ACCEPTED; // XXX
+    TrackWithTag(EXALLOC_TAG, NewData, File, Line);
 
     if( Data )
 	RtlCopyMemory(NewData, Data, Len);
 
     NdisAllocatePacket( &Status, &Packet, GlobalPacketPool );
     if( Status != NDIS_STATUS_SUCCESS ) {
-	exFreePool( NewData );
+	ExFreePool( NewData );
 	return Status;
     }
     TrackWithTag(NDIS_PACKET_TAG, Packet, File, Line);
 
     NdisAllocateBuffer( &Status, &Buffer, GlobalBufferPool, NewData, Len );
     if( Status != NDIS_STATUS_SUCCESS ) {
-	exFreePool( NewData );
+	ExFreePool( NewData );
 	FreeNdisPacket( Packet );
     }
     TrackWithTag(NDIS_BUFFER_TAG, Buffer, File, Line);
@@ -138,7 +139,8 @@ VOID FreeNdisPacketX
         NdisQueryBuffer(Buffer, &Data, &Length);
         NdisFreeBuffer(Buffer);
 	UntrackFL(File,Line,Buffer);
-        exFreePool(Data);
+        ExFreePool(Data);
+	UntrackFL(File,Line,Data);
     }
 
     /* Finally free the NDIS packet discriptor */

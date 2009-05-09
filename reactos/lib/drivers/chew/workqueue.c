@@ -87,7 +87,7 @@ BOOLEAN ChewCreate
 	    ExInterlockedInsertTailList
 		( &WorkQueue, &Item->Entry, &WorkQueueLock );
 	    IoQueueWorkItem
-		( Item->WorkItem, ChewWorkItem, DelayedWorkQueue, Item );
+		( Item->WorkItem, ChewWorkItem, CriticalWorkQueue, Item );
 	    
 	    if( ItemPtr ) 
 		*ItemPtr = Item;

@@ -5,7 +5,6 @@
 	<include base="fastfatn">.</include>
 	<library>ntoskrnl</library>
 	<library>hal</library>
-	<library>pseh</library>
 	<file>blockdev.c</file>
 	<file>cleanup.c</file>
 	<file>close.c</file>

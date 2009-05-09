@@ -198,8 +198,8 @@ BEGIN
     IDS_CMT_DEVMGMT     "Lancia la Gestione periferiche"
     IDS_CMT_SERVMAN     "Lancia la Gestione dei servizi"
     IDS_CMT_RDESKTOP    "Avvia il Desktop remoto"
-    IDS_CMT_EVENTVIEW   "Lancia il visualizzatore degli eventi"
-    IDS_CMT_MSCONFIG    "Lancia il programma di configurazione del sistema"
+    IDS_CMT_EVENTVIEW   "Launch Event Viewer"
+    IDS_CMT_MSCONFIG    "Launch System Configuration program"
 END
 
 STRINGTABLE
@@ -213,21 +213,13 @@ STRINGTABLE
 BEGIN
 	IDS_SYS_TOOLS        "Strumenti di sistema"
 	IDS_CMT_CHARMAP      "Mappa dei caratteri"
-	IDS_CMT_KBSWITCH     "Cambia il layout di tastiera"
-    IDS_CMT_DXDIAG       "Esegui il programma di diagnostica ReactX-"
+	IDS_CMT_KBSWITCH     "Keyboard Layout Switcher"
 END
 
 STRINGTABLE
 BEGIN
 	IDS_SYS_ACCESSIBILITY        "Accessibilità"
 	IDS_CMT_MAGNIFY      	     "Ingrandisci"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_SYS_ENTERTAINMENT       "Divertimento"
-    IDS_CMT_MPLAY32             "Esegui Multimedia Player"
-    IDS_CMT_SNDVOL32            "Esegui Controllo Volume"
 END
 
 STRINGTABLE
@@ -245,27 +237,24 @@ END
 
 STRINGTABLE
 BEGIN
-    IDS_SHORT_CMD        "Prompt dei comandi.lnk"
+    IDS_SHORT_CMD        "Command Prompt.lnk"
     IDS_SHORT_EXPLORER   "ReactOS Explorer.lnk"
     IDS_SHORT_DOWNLOADER "Download !.lnk"
     IDS_SHORT_SERVICE    "Service Manager.lnk"
     IDS_SHORT_DEVICE     "Device Manager.lnk"
-    IDS_SHORT_MPLAY32    "Multimedia Player.lnk"
-    IDS_SHORT_CALC       "Calcolatrice.lnk"
+    IDS_SHORT_CALC       "Calculator.lnk"
     IDS_SHORT_REGEDIT    "Regedit.lnk"
     IDS_SHORT_NOTEPAD    "Notepad.lnk"
     IDS_SHORT_WORDPAD    "WordPad.lnk"
     IDS_SHORT_SNAP       "SnapShot.lnk"
-    IDS_SHORT_SOLITAIRE  "Solitario.lnk"
+    IDS_SHORT_SOLITAIRE  "Solitaire.lnk"
     IDS_SHORT_WINEMINE   "WineMine.lnk"
     IDS_SHORT_CHARMAP    "CharMap.lnk"
     IDS_SHORT_MAGNIFY    "Magnify.lnk"
     IDS_SHORT_RDESKTOP   "Remote Desktop.lnk"
-    IDS_SHORT_KBSWITCH   "Layout di tastiera.lnk"
-    IDS_SHORT_EVENTVIEW  "Visualizzatore Eventi.lnk"
-    IDS_SHORT_MSCONFIG   "Configuratione del sistema.lnk"
-    IDS_SHORT_SNDVOL32   "Controllo Volume.lnk"
-    IDS_SHORT_DXDIAG     "ReactX Diagnostica.lnk"
+    IDS_SHORT_KBSWITCH   "Keyboard Layout Switcher.lnk"
+    IDS_SHORT_EVENTVIEW  "Event Viewer.lnk"
+    IDS_SHORT_MSCONFIG   "System Configuration.lnk"
 END
 
 STRINGTABLE

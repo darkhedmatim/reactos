@@ -3,6 +3,7 @@
 <group xmlns:xi="http://www.w3.org/2001/XInclude">
 	<bootstrap installbase="$(CDOUTPUT)" />
 	<importlibrary definition="ntoskrnl.pspec" />
+	<define name="_DISABLE_TIDENTS" />
 	<define name="__NTOSKRNL__" />
 	<define name="_NTOSKRNL_" />
 	<define name="_NTSYSTEM_" />
@@ -362,10 +363,8 @@
 		<file>anonmem.c</file>
 		<file>balance.c</file>
 		<file>cont.c</file>
-		<file>dbgpool.c</file>
 		<file>drvlck.c</file>
 		<file>freelist.c</file>
-		<file>hypermap.c</file>
 		<file>iospace.c</file>
 		<file>kmap.c</file>
 		<file>marea.c</file>

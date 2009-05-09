@@ -47,22 +47,29 @@ static BOOL (WINAPI *pSetupGetFileCompressionInfoExA)(PCSTR, PSTR, DWORD, PDWORD
 static BOOL (WINAPI *pSetupCopyOEMInfA)(PCSTR, PCSTR, DWORD, DWORD, PSTR, DWORD, PDWORD, PSTR *);
 static BOOL (WINAPI *pSetupQueryInfOriginalFileInformationA)(PSP_INF_INFORMATION, UINT, PSP_ALTPLATFORM_INFO, PSP_ORIGINAL_FILE_INFO_A);
 
+static void append_str(char **str, const char *data)
+{
+    sprintf(*str, data);
+    *str += strlen(*str);
+}
+
 static void create_inf_file(LPCSTR filename)
 {
+    char data[1024];
+    char *ptr = data;
     DWORD dwNumberOfBytesWritten;
     HANDLE hf = CreateFile(filename, GENERIC_WRITE, 0, NULL,
                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
-    static const char data[] =
-        "[Version]\n"
-        "Signature=\"$Chicago$\"\n"
-        "AdvancedINF=2.5\n"
-        "[DefaultInstall]\n"
-        "RegisterOCXs=RegisterOCXsSection\n"
-        "[RegisterOCXsSection]\n"
-        "%%11%%\\ole32.dll\n";
+    append_str(&ptr, "[Version]\n");
+    append_str(&ptr, "Signature=\"$Chicago$\"\n");
+    append_str(&ptr, "AdvancedINF=2.5\n");
+    append_str(&ptr, "[DefaultInstall]\n");
+    append_str(&ptr, "RegisterOCXs=RegisterOCXsSection\n");
+    append_str(&ptr, "[RegisterOCXsSection]\n");
+    append_str(&ptr, "%%11%%\\ole32.dll\n");
 
-    WriteFile(hf, data, sizeof(data) - 1, &dwNumberOfBytesWritten, NULL);
+    WriteFile(hf, data, ptr - data, &dwNumberOfBytesWritten, NULL);
     CloseHandle(hf);
 }
 
@@ -107,7 +114,7 @@ static void test_original_file_name(LPCSTR original, LPCSTR dest)
 
     if (!pSetupQueryInfOriginalFileInformationA)
     {
-        win_skip("SetupQueryInfOriginalFileInformationA is not available\n");
+        skip("SetupQueryInfOriginalFileInformationA is not available\n");
         return;
     }
 
@@ -159,10 +166,8 @@ static void test_SetupCopyOEMInf(void)
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA("", NULL, 0, SP_COPY_NOOVERWRITE, NULL, 0, NULL, NULL);
     ok(res == FALSE, "Expected FALSE, got %d\n", res);
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND ||
-       GetLastError() == ERROR_BAD_PATHNAME || /* Win98 */
-       GetLastError() == ERROR_INVALID_PARAMETER, /* Vista, W2K8 */
-       "Unexpected error : %d\n", GetLastError());
+    ok(GetLastError() == ERROR_FILE_NOT_FOUND,
+       "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
 
     /* try a relative nonexistent SourceInfFileName */
     SetLastError(0xdeadbeef);
@@ -186,9 +191,8 @@ static void test_SetupCopyOEMInf(void)
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA(toolong, NULL, 0, SP_COPY_NOOVERWRITE, NULL, 0, NULL, NULL);
     ok(res == FALSE, "Expected FALSE, got %d\n", res);
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND ||
-       GetLastError() == ERROR_FILENAME_EXCED_RANGE, /* Win98 */
-       "Expected ERROR_FILE_NOT_FOUND or ERROR_FILENAME_EXCED_RANGE, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_FILE_NOT_FOUND,
+       "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
 
     get_temp_filename(tmpfile);
     create_inf_file(tmpfile);
@@ -197,20 +201,8 @@ static void test_SetupCopyOEMInf(void)
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA(tmpfile, NULL, 0, SP_COPY_NOOVERWRITE, NULL, 0, NULL, NULL);
     ok(res == FALSE, "Expected FALSE, got %d\n", res);
-    if (GetLastError() == ERROR_WRONG_INF_TYPE)
-    {
-       /* FIXME:
-        * Vista needs a [Manufacturer] entry in the inf file. Doing this will give some
-        * popups during the installation though as it also needs a catalog file (signed?).
-        */
-       win_skip("Needs a different inf file on Vista/W2K8\n");
-       DeleteFile(tmpfile);
-       return;
-    }
-
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND ||
-       GetLastError() == ERROR_FILE_EXISTS, /* Win98 */
-       "Expected ERROR_FILE_NOT_FOUND or ERROR_FILE_EXISTS, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_FILE_NOT_FOUND,
+       "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
     ok(file_exists(tmpfile), "Expected tmpfile to exist\n");
 
     /* try SP_COPY_REPLACEONLY, dest does not exist */
@@ -408,7 +400,6 @@ static void test_SetupGetFileCompressionInfo(void)
     ok(target_size == sizeof(uncompressed), "got %d\n", target_size);
     ok(type == FILE_COMPRESSION_NONE, "got %d, expected FILE_COMPRESSION_NONE\n", type);
 
-    MyFree(name);
     DeleteFileA(source);
 }
 
@@ -591,14 +582,14 @@ START_TEST(misc)
     if (pSetupCopyOEMInfA)
         test_SetupCopyOEMInf();
     else
-        win_skip("SetupCopyOEMInfA is not available\n");
+        skip("SetupCopyOEMInfA is not available\n");
 
     test_SetupGetFileCompressionInfo();
 
     if (pSetupGetFileCompressionInfoExA)
         test_SetupGetFileCompressionInfoEx();
     else
-        win_skip("SetupGetFileCompressionInfoExA is not available\n");
+        skip("SetupGetFileCompressionInfoExA is not available\n");
 
     test_SetupDecompressOrCopyFile();
 }

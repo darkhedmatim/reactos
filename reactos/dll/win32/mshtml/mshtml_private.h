@@ -21,7 +21,6 @@
 #include "mshtml.h"
 #include "mshtmhst.h"
 #include "hlink.h"
-#include "perhist.h"
 #include "dispex.h"
 
 #include "wine/list.h"
@@ -85,9 +84,6 @@ typedef enum {
     IHTMLBodyElement2_tid,
     IHTMLCommentElement_tid,
     IHTMLCurrentStyle_tid,
-    IHTMLCurrentStyle2_tid,
-    IHTMLCurrentStyle3_tid,
-    IHTMLCurrentStyle4_tid,
     IHTMLDocument2_tid,
     IHTMLDocument3_tid,
     IHTMLDocument4_tid,
@@ -111,8 +107,6 @@ typedef enum {
     IHTMLSelectElement_tid,
     IHTMLStyle_tid,
     IHTMLStyle2_tid,
-    IHTMLStyle3_tid,
-    IHTMLStyle4_tid,
     IHTMLTable_tid,
     IHTMLTableRow_tid,
     IHTMLTextContainer_tid,
@@ -230,7 +224,6 @@ struct HTMLDocument {
     const IHTMLDocument5Vtbl              *lpHTMLDocument5Vtbl;
     const IPersistMonikerVtbl             *lpPersistMonikerVtbl;
     const IPersistFileVtbl                *lpPersistFileVtbl;
-    const IPersistHistoryVtbl             *lpPersistHistoryVtbl;
     const IMonikerPropVtbl                *lpMonikerPropVtbl;
     const IOleObjectVtbl                  *lpOleObjectVtbl;
     const IOleDocumentVtbl                *lpOleDocumentVtbl;
@@ -444,7 +437,6 @@ typedef struct {
 #define HLNKTARGET(x)    ((IHlinkTarget*)                 &(x)->lpHlinkTargetVtbl)
 #define CONPTCONT(x)     ((IConnectionPointContainer*)    &(x)->lpConnectionPointContainerVtbl)
 #define PERSTRINIT(x)    ((IPersistStreamInit*)           &(x)->lpPersistStreamInitVtbl)
-#define PERSISTHIST(x)   ((IPersistHistory*)              &(x)->lpPersistHistoryVtbl)
 #define CUSTOMDOC(x)     ((ICustomDoc*)                   &(x)->lpCustomDocVtbl)
 
 #define NSWBCHROME(x)    ((nsIWebBrowserChrome*)          &(x)->lpWebBrowserChromeVtbl)

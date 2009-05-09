@@ -253,7 +253,7 @@ CP
 }
 
 /*
- * FUNCTION: Prepares a file object for close
+ * FUNCTION: Releases resources used by a file object
  * ARGUMENTS:
  *     DeviceObject = Pointer to a device object for this driver
  *     Irp          = Pointer to a I/O request packet
@@ -298,76 +298,7 @@ NTSTATUS TiCleanupFileObject(
 
   case TDI_CONTROL_CHANNEL_FILE:
     Request.Handle.ControlChannel = Context->Handle.ControlChannel;
-	/* Nothing to do to close */
-	Status = STATUS_SUCCESS;
-    break;
-
-  default:
-    /* This should never happen */
-
-    TI_DbgPrint(MIN_TRACE, ("Unknown transport context.\n"));
-
-    IoAcquireCancelSpinLock(&OldIrql);
-    Context->CancelIrps = FALSE;
-    IoReleaseCancelSpinLock(OldIrql);
-
-    Status = STATUS_INVALID_PARAMETER;
-
-  }
-
-  Irp->IoStatus.Status = Status;
-
-  return Irp->IoStatus.Status;
-}
-
-
-/*
- * FUNCTION: Releases resources used by a file object
- * ARGUMENTS:
- *     DeviceObject = Pointer to a device object for this driver
- *     Irp          = Pointer to a I/O request packet
- * RETURNS:
- *     Status of the operation
- * NOTES:
- *     This function does not pend
- */
-NTSTATUS TiCloseFileObject(
-  PDEVICE_OBJECT DeviceObject,
-  PIRP Irp)
-{
-  PIO_STACK_LOCATION IrpSp;
-  PTRANSPORT_CONTEXT Context;
-  TDI_REQUEST Request;
-  NTSTATUS Status;
-  KIRQL OldIrql;
-
-  IrpSp   = IoGetCurrentIrpStackLocation(Irp);
-  Context = IrpSp->FileObject->FsContext;
-  if (!Context) {
-    TI_DbgPrint(MIN_TRACE, ("Parameters are invalid.\n"));
-    return STATUS_INVALID_PARAMETER;
-  }
-
-  IoAcquireCancelSpinLock(&OldIrql);
-
-  Context->CancelIrps = TRUE;
-
-  IoReleaseCancelSpinLock(OldIrql);
-
-  switch ((ULONG_PTR)IrpSp->FileObject->FsContext2) {
-  case TDI_TRANSPORT_ADDRESS_FILE:
-    Request.Handle.AddressHandle = Context->Handle.AddressHandle;
-    Status = FileFreeAddress(&Request);
-    break;
-
-  case TDI_CONNECTION_FILE:
-    Request.Handle.ConnectionContext = Context->Handle.ConnectionContext;
-    Status = FileFreeConnection(&Request);
-    break;
-
-  case TDI_CONTROL_CHANNEL_FILE:
-    Request.Handle.ControlChannel = Context->Handle.ControlChannel;
-    Status = FileFreeControlChannel(&Request);
+    Status = FileCloseControlChannel(&Request);
     break;
 
   default:
@@ -406,7 +337,7 @@ TiDispatchOpenClose(
   NTSTATUS Status;
   PTRANSPORT_CONTEXT Context;
 
-  IRPRemember(Irp, __FILE__, __LINE__);
+  RIRP(Irp);
 
 //  DbgPrint("Called. DeviceObject is at (0x%X), IRP is at (0x%X).\n", DeviceObject, Irp);
 
@@ -421,7 +352,9 @@ TiDispatchOpenClose(
   /* Close an address file, connection endpoint, or control connection */
   case IRP_MJ_CLOSE:
     Context = (PTRANSPORT_CONTEXT)IrpSp->FileObject->FsContext;
-	Status = TiCloseFileObject(DeviceObject, Irp);
+    if (Context)
+        exFreePool(Context);
+    Status = STATUS_SUCCESS;
     break;
 
   /* Release resources bound to an address file, connection endpoint,
@@ -457,7 +390,7 @@ TiDispatchInternal(
   BOOLEAN Complete = TRUE;
   PIO_STACK_LOCATION IrpSp;
 
-  IRPRemember(Irp, __FILE__, __LINE__);
+  RIRP(Irp);
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
@@ -540,6 +473,8 @@ TiDispatchInternal(
 
   if( Complete )
       IRPFinish( Irp, Status );
+  else
+      Irp->IoStatus.Status = Status;
 
   return Status;
 }
@@ -561,7 +496,7 @@ TiDispatch(
   NTSTATUS Status;
   PIO_STACK_LOCATION IrpSp;
 
-  IRPRemember(Irp, __FILE__, __LINE__);
+  RIRP(Irp);
 
   IrpSp  = IoGetCurrentIrpStackLocation(Irp);
 
@@ -695,7 +630,7 @@ VOID NTAPI IPTimeoutDpcFn(
  */
 {
     if( !IpWorkItemQueued ) {
-	ExQueueWorkItem( &IpWorkItem, DelayedWorkQueue );
+	ExQueueWorkItem( &IpWorkItem, CriticalWorkQueue );
 	IpWorkItemQueued = TRUE;
     }
 }

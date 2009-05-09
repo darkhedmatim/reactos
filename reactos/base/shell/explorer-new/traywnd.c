@@ -362,11 +362,11 @@ ITrayWindowImpl_GetMinimumWindowSize(IN OUT ITrayWindowImpl *This,
     RECT rcMin = {0};
 
     AdjustWindowRectEx(&rcMin,
-                       GetWindowLongPtr(This->hWnd,
-                                        GWL_STYLE),
+                       GetWindowLong(This->hWnd,
+                                     GWL_STYLE),
                        FALSE,
-                       GetWindowLongPtr(This->hWnd,
-                                        GWL_EXSTYLE));
+                       GetWindowLong(This->hWnd,
+                                     GWL_EXSTYLE));
 
     *pRect = rcMin;
 }

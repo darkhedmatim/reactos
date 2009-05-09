@@ -219,9 +219,9 @@ OutputDebugStringA(LPCSTR _OutputString)
 		static BOOL s_bDBMonMutexTriedOpen = FALSE;
 
 		/* local copy of the mutex handle */
-		volatile HANDLE hDBMonMutex = s_hDBMonMutex;
+		HANDLE hDBMonMutex = s_hDBMonMutex;
 		/* handle to the Section of the shared buffer */
-		volatile HANDLE hDBMonBuffer = NULL;
+		HANDLE hDBMonBuffer = NULL;
 
 		/* pointer to the mapped view of the shared buffer. It consist of the current
 		   process id followed by the message string */
@@ -229,11 +229,11 @@ OutputDebugStringA(LPCSTR _OutputString)
 
 		/* event: signaled by the debug message monitor when OutputDebugString can write
 		   to the shared buffer */
-		volatile HANDLE hDBMonBufferReady = NULL;
+		HANDLE hDBMonBufferReady = NULL;
 
 		/* event: to be signaled by OutputDebugString when it's done writing to the
 		   shared buffer */
-		volatile HANDLE hDBMonDataReady = NULL;
+		HANDLE hDBMonDataReady = NULL;
 
 		/* mutex not opened, and no previous attempts to open/create it */
 		if(hDBMonMutex == NULL && !s_bDBMonMutexTriedOpen)
@@ -246,8 +246,6 @@ OutputDebugStringA(LPCSTR _OutputString)
 
 		_SEH2_TRY
 		{
-			volatile PCHAR a_cBuffer = NULL;
-
 			/* opening the mutex failed */
 			if(hDBMonMutex == NULL)
 			{
@@ -297,10 +295,10 @@ OutputDebugStringA(LPCSTR _OutputString)
 			_SEH2_TRY
 			{
 				/* size of the current output block */
-				volatile SIZE_T nRoundLen;
+				SIZE_T nRoundLen;
 
 				/* size of the remainder of the string */
-				volatile SIZE_T nOutputStringLen;
+				SIZE_T nOutputStringLen;
 
 				/* output the whole string */
 				nOutputStringLen = strlen(_OutputString);
@@ -341,17 +339,11 @@ OutputDebugStringA(LPCSTR _OutputString)
 					else
 					{
 						/* output in blocks of 512 characters */
-						a_cBuffer = (CHAR*)HeapAlloc(GetProcessHeap(), 0, 512);
-
-						if (!a_cBuffer)
-						{
-							DbgPrint("OutputDebugStringA: Failed\n");
-							break;
-						}
+						CHAR a_cBuffer[512];
 
 						/* write a maximum of 511 bytes */
-						if(nOutputStringLen > 510)
-							nRoundLen = 510;
+						if(nOutputStringLen > (sizeof(a_cBuffer) - 2))
+							nRoundLen = sizeof(a_cBuffer) - 2;
 						else
 							nRoundLen = nOutputStringLen;
 
@@ -363,12 +355,6 @@ OutputDebugStringA(LPCSTR _OutputString)
 
 						/* send the current block to the kernel debugger */
 						DbgPrint("%s", a_cBuffer);
-
-						if (a_cBuffer)
-						{
-							HeapFree(GetProcessHeap(), 0, a_cBuffer);
-							a_cBuffer = NULL;
-						}
 					}
 
 					/* move to the next block */
@@ -381,9 +367,6 @@ OutputDebugStringA(LPCSTR _OutputString)
 			/* ignore access violations and let other exceptions fall through */
 			_SEH2_EXCEPT((_SEH2_GetExceptionCode() == STATUS_ACCESS_VIOLATION) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
 			{
-				if (a_cBuffer)
-					HeapFree(GetProcessHeap(), 0, a_cBuffer);
-
 				/* string copied verbatim from Microsoft's kernel32.dll */
 				DbgPrint("\nOutputDebugString faulted during output\n");
 			}

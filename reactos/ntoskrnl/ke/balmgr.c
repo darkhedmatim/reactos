@@ -121,7 +121,7 @@ KiScanReadyQueues(IN PKDPC Dpc,
     else
     {
         /* Set the index we're in now */
-        Prcb->QueueIndex = Index;
+        Prcb->QueueIndex = 0;
     }
 
     /* Increment the CPU number for next time and normalize to CPU count */

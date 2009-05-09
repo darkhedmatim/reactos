@@ -144,13 +144,11 @@ static void testGetInfo(void)
     /* First package: Unified */
     status = pTables->GetInfo(&PackageInfo);
     ok(status == STATUS_SUCCESS, "status: 0x%x\n", status);
-    ok(PackageInfo.fCapabilities == 0x107b3, "fCapabilities: 0x%x\n",
+    ok(PackageInfo.fCapabilities == 0x107b3, "fCapabilities: 0x%lx\n",
        PackageInfo.fCapabilities);
     ok(PackageInfo.wVersion == 1, "wVersion: %d\n", PackageInfo.wVersion);
     ok(PackageInfo.wRPCID == 14, "wRPCID: %d\n", PackageInfo.wRPCID);
-    ok(PackageInfo.cbMaxToken == 0x4000 ||
-       PackageInfo.cbMaxToken == 0x6000, /* Vista */
-       "cbMaxToken: 0x%x\n",
+    ok(PackageInfo.cbMaxToken == 0x4000, "cbMaxToken: 0x%lx\n",
        PackageInfo.cbMaxToken);
 
     /* Second package: SChannel */
@@ -164,11 +162,11 @@ static void testGetInfo(void)
 
     if (status == STATUS_SUCCESS)
     {
-        ok(PackageInfo.fCapabilities == 0x107b3, "fCapabilities: 0x%x\n",
+        ok(PackageInfo.fCapabilities == 0x107b3, "fCapabilities: 0x%lx\n",
            PackageInfo.fCapabilities);
         ok(PackageInfo.wVersion == 1, "wVersion: %d\n", PackageInfo.wVersion);
         ok(PackageInfo.wRPCID == 14, "wRPCID: %d\n", PackageInfo.wRPCID);
-        ok(PackageInfo.cbMaxToken == 0x4000, "cbMaxToken: 0x%x\n",
+        ok(PackageInfo.cbMaxToken == 0x4000, "cbMaxToken: 0x%lx\n",
            PackageInfo.cbMaxToken);
     }
 }
@@ -177,7 +175,7 @@ START_TEST(main)
 {
     HMODULE hMod = LoadLibraryA("schannel.dll");
     if (!hMod) {
-        win_skip("schannel.dll not available\n");
+        skip("schannel.dll not found.\n");
         return;
     }
 
@@ -189,7 +187,7 @@ START_TEST(main)
         testInitialize();
         testGetInfo();
     }
-    else win_skip( "schannel functions not found\n" );
+    else skip( "schannel functions not found\n" );
 
     FreeLibrary(hMod);
 }

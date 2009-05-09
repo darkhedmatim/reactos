@@ -20,10 +20,10 @@
  *
  */
 
-#ifndef _WINDDI_
-#define _WINDDI_
+#ifndef __WINDDI_H
+#define __WINDDI_H
 
-#ifdef __VIDEO_H__
+#ifdef __VIDEO_H
 #error video.h cannot be included with winddi.h
 #else
 
@@ -113,12 +113,6 @@ typedef struct _ENG_EVENT *PEVENT;
 #define GX_OFFSET                         1
 #define GX_SCALE                          2
 #define GX_GENERAL                        3
-
-#define LTOFX(x)        ((x) << 4)
-#define FXTOL(x)        ((x) >> 4)
-#define FXTOLFLOOR(x)   ((x) >> 4)
-#define FXTOLCEILING(x) ((x + 0x0F) >> 4)
-#define FXTOLROUND(x)   ((((x) >> 3) + 1) >> 1)
 
 typedef struct _POINTE {
 	FLOATL  x;
@@ -435,7 +429,6 @@ typedef struct _DRVFN {
 #define DDI_DRIVER_VERSION_SP3            0x00020003
 #define DDI_DRIVER_VERSION_NT5            0x00030000
 #define DDI_DRIVER_VERSION_NT5_01         0x00030100
-#define DDI_DRIVER_VERSION_NT5_01_SP1     0x00030101
 
 typedef struct _DRVENABLEDATA {
   ULONG  iDriverVersion;
@@ -808,7 +801,7 @@ typedef struct _GDIINFO {
 typedef struct _PATHDATA {
   FLONG  flags;
   ULONG  count;
-  POINTFIX  *pptfx;
+  POINTFIX  *glypptfx;
 } PATHDATA, *PPATHDATA;
 
 /* PATHOBJ.fl constants */
@@ -3642,20 +3635,21 @@ typedef BOOL
   IN ULONG  iEngineVersion,
   IN ULONG  cj,
   OUT DRVENABLEDATA  *pded);
-
-typedef DHPDEV 
+#if 0
+typedef DHPDEV
 (APIENTRY *PFN_DrvEnablePDEV)(
   IN DEVMODEW  *pdm,
   IN LPWSTR  pwszLogAddress,
   IN ULONG  cPat,
   OUT HSURF  *phsurfPatterns,
   IN ULONG  cjCaps,
-  GDIINFO  *pdevcaps,
+  OUT ULONG  *pdevcaps,
   IN ULONG  cjDevInfo,
   OUT DEVINFO  *pdi,
   IN HDEV  hdev,
   IN LPWSTR  pwszDeviceName,
   IN HANDLE  hDriver);
+#endif
 
 typedef HSURF
 (APIENTRY *PFN_DrvEnableSurface)(
@@ -4100,21 +4094,10 @@ APIENTRY
 DrvDisableDirectDraw(
   IN DHPDEV  dhpdev);
 
-typedef VOID
-(APIENTRY *PFN_DrvDisableDirectDraw)(
-  IN DHPDEV  dhpdev);
-
 WIN32KAPI
 BOOL
 APIENTRY
 DrvEnableDirectDraw(
-  IN DHPDEV  dhpdev,
-  OUT DD_CALLBACKS  *pCallBacks,
-  OUT DD_SURFACECALLBACKS  *pSurfaceCallBacks,
-  OUT DD_PALETTECALLBACKS  *pPaletteCallBacks);
-
-typedef BOOL
-(APIENTRY *PFN_DrvEnableDirectDraw)(
   IN DHPDEV  dhpdev,
   OUT DD_CALLBACKS  *pCallBacks,
   OUT DD_SURFACECALLBACKS  *pSurfaceCallBacks,
@@ -4131,32 +4114,10 @@ DrvGetDirectDrawInfo(
   OUT DWORD  *pdwNumFourCCCodes,
   OUT DWORD  *pdwFourCC);
 
-typedef BOOL
-(APIENTRY *PFN_DrvGetDirectDrawInfo)(
-  IN DHPDEV  dhpdev,
-  OUT DD_HALINFO  *pHalInfo,
-  OUT DWORD  *pdwNumHeaps,
-  OUT VIDEOMEMORY  *pvmList,
-  OUT DWORD  *pdwNumFourCCCodes,
-  OUT DWORD  *pdwFourCC);
-
-//DECLSPEC_DEPRECATED_DDK
-BOOL
-APIENTRY
-DrvQuerySpoolType(
-  IN DHPDEV dhpdev,
-  IN LPWSTR pwchType);
-
-typedef BOOL
-(APIENTRY *PFN_DrvQuerySpoolType)(
-  IN DHPDEV dhpdev,
-  IN LPWSTR pwchType);
-
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* defined __VIDEO_H__ */
+#endif /* defined __VIDEO_H */
 
-#endif /* _WINDDI_ */
+#endif /* __WINDDI_H */

@@ -10,6 +10,9 @@
 	<directory name="dxtest">
 		<xi:include href="dxtest/directory.rbuild" />
 	</directory>
+	<directory name="regtests_by_casper">
+		<xi:include href="regtests_by_casper/directory.rbuild" />
+	</directory>
 	<directory name="rosautotest">
 		<xi:include href="rosautotest/rosautotest.rbuild" />
 	</directory>

@@ -826,17 +826,15 @@ SoundsDlgProc(HWND hwndDlg,
                 case IDC_PLAY_SOUND:
                 {
                     LRESULT lIndex;
+                    TCHAR szValue[MAX_PATH];
+
                     lIndex = SendDlgItemMessage(hwndDlg, IDC_SOUND_LIST, CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
                     if (lIndex == CB_ERR)
                     {
                         break;
                     }
-
-                    lIndex = SendDlgItemMessage(hwndDlg, IDC_SOUND_LIST, CB_GETITEMDATA, (WPARAM)lIndex, (LPARAM)0);
-                    if (lIndex != CB_ERR)
-                    {
-                        PlaySound((TCHAR*)lIndex, NULL, SND_FILENAME);
-                    }
+                    SendDlgItemMessage(hwndDlg, IDC_SOUND_LIST, CB_GETLBTEXT, (WPARAM)lIndex, (LPARAM)szValue);
+                    PlaySound(szValue, NULL, SND_FILENAME);
                     break;
                 }
                 case IDC_SOUND_SCHEME:

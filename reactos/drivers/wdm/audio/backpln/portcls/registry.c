@@ -1,11 +1,3 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/registry.c
- * PURPOSE:         Registry access object
- * PROGRAMMER:      Johannes Anderwald
- */
-
 #include "private.h"
 
 typedef struct
@@ -14,7 +6,6 @@ typedef struct
 
     LONG ref;
     HANDLE hKey;
-    BOOL Deleted;
 
 }IRegistryKeyImpl;
 
@@ -23,7 +14,7 @@ static IRegistryKeyVtbl vt_IRegistryKey;
 
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnAddRef(
     IN IRegistryKey* iface)
 {
@@ -35,14 +26,14 @@ IRegistryKey_fnAddRef(
 }
 
 ULONG
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnRelease(
     IN IRegistryKey* iface)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
 
     InterlockedDecrement(&This->ref);
-    DPRINT("IRegistryKey_fnRelease ref %u this %p entered\n", This->ref, This);
+    DPRINT1("IRegistryKey_fnRelease ref %u this %p entered\n", This->ref, This);
     if (This->ref == 0)
     {
         if (This->hKey)
@@ -57,14 +48,14 @@ IRegistryKey_fnRelease(
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryInterface(
     IN IRegistryKey* iface,
     IN  REFIID refiid,
     OUT PVOID* Output)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    DPRINT("IRegistryKey_fnQueryInterface entered\n");
+    DPRINT1("IRegistryKey_fnQueryInterface entered\n");
     if (IsEqualGUIDAligned(refiid, &IID_IRegistryKey))
     {
         *Output = (PVOID)&This->lpVtbl;
@@ -73,34 +64,21 @@ IRegistryKey_fnQueryInterface(
     }
 
     DPRINT("IRegistryKey_QueryInterface: This %p unknown iid\n", This, This->ref);
-    DbgBreakPoint();
     return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnDeleteKey(
     IN IRegistryKey* iface)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    NTSTATUS Status;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
-    Status = ZwDeleteKey(This->hKey);
-    if (NT_SUCCESS(Status))
-    {
-        This->Deleted = TRUE;
-    }
-    return Status;
+    DPRINT1("IRegistryKey_fnDeleteKey entered\n");
+    return ZwDeleteKey(This->hKey);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnEnumerateKey(
     IN IRegistryKey* iface,
     IN ULONG  Index,
@@ -110,18 +88,12 @@ IRegistryKey_fnEnumerateKey(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT1("IRegistryKey_fnEnumerateKey entered\n");
     return ZwEnumerateKey(This->hKey, Index, KeyInformationClass, KeyInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnEnumerateKeyValue(
     IN IRegistryKey* iface,
     IN ULONG  Index,
@@ -131,18 +103,12 @@ IRegistryKey_fnEnumerateKeyValue(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT1("IRegistryKey_fnEnumerateKeyValue entered\n");
     return ZwEnumerateValueKey(This->hKey, Index, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnNewSubKey(
     IN IRegistryKey* iface,
     OUT PREGISTRYKEY  *RegistrySubKey,
@@ -157,23 +123,13 @@ IRegistryKey_fnNewSubKey(
     HANDLE hKey;
     IRegistryKeyImpl * NewThis, *This = (IRegistryKeyImpl*)iface;
 
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    DPRINT("IRegistryKey_fnNewSubKey entered %S\n", SubKeyName);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
+    DPRINT1("IRegistryKey_fnNewSubKey entered\n");
 
     InitializeObjectAttributes(&Attributes, SubKeyName, 0, This->hKey, NULL);
     Status = ZwCreateKey(&hKey, KEY_READ | KEY_WRITE, &Attributes, 0, NULL, 0, Disposition);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("IRegistryKey_fnNewSubKey failed with %x\n", Status);
-        DbgBreakPoint();
         return Status;
-    }
+
 
     NewThis = AllocateItem(NonPagedPool, sizeof(IRegistryKeyImpl), TAG_PORTCLASS);
     if (!NewThis)
@@ -182,21 +138,18 @@ IRegistryKey_fnNewSubKey(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    if (OuterUnknown)
-        OuterUnknown->lpVtbl->AddRef(OuterUnknown);
-
     NewThis->hKey = hKey;
     NewThis->ref = 1;
     NewThis->lpVtbl = &vt_IRegistryKey;
     *RegistrySubKey = (PREGISTRYKEY)&NewThis->lpVtbl;
 
-    DPRINT("IRegistryKey_fnNewSubKey RESULT %p\n", *RegistrySubKey );
+    DPRINT1("IRegistryKey_fnNewSubKey RESULT %p\n", *RegistrySubKey );
 
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryKey(
     IN IRegistryKey* iface,
     IN KEY_INFORMATION_CLASS  KeyInformationClass,
@@ -205,36 +158,24 @@ IRegistryKey_fnQueryKey(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT1("IRegistryKey_fnQueryKey entered\n");
     return ZwQueryKey(This->hKey, KeyInformationClass, KeyInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryRegistryValues(
     IN IRegistryKey* iface,
     IN PRTL_QUERY_REGISTRY_TABLE  QueryTable,
     IN PVOID  Context  OPTIONAL)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
-    return RtlQueryRegistryValues(RTL_REGISTRY_HANDLE, (PCWSTR)This->hKey, QueryTable, Context, NULL);
+    DPRINT1("IRegistryKey_QueryRegistryValues: This %p\n", This);
+    return STATUS_UNSUCCESSFUL;
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnQueryValueKey(
     IN IRegistryKey* iface,
     IN PUNICODE_STRING  ValueName,
@@ -244,20 +185,12 @@ IRegistryKey_fnQueryValueKey(
     OUT PULONG  ResultLength)
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-
-    DPRINT("IRegistryKey_fnQueryValueKey entered %p value %wZ\n", This, ValueName);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT1("IRegistryKey_fnQueryValueKey entered %p value %wZ\n", This, ValueName);
     return ZwQueryValueKey(This->hKey, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 }
 
 NTSTATUS
-NTAPI
+STDMETHODCALLTYPE
 IRegistryKey_fnSetValueKey(
     IN IRegistryKey* iface,
     IN PUNICODE_STRING  ValueName  OPTIONAL,
@@ -267,14 +200,7 @@ IRegistryKey_fnSetValueKey(
     )
 {
     IRegistryKeyImpl * This = (IRegistryKeyImpl*)iface;
-    DPRINT("IRegistryKey_fnSetValueKey entered %S\n", ValueName->Buffer);
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
-    if (This->Deleted)
-    {
-        return STATUS_INVALID_HANDLE;
-    }
-
+    DPRINT1("IRegistryKey_fnSetValueKey entered\n");
     return ZwSetValueKey(This->hKey, ValueName, 0, Type, Data, DataSize);
 }
 
@@ -296,7 +222,7 @@ static IRegistryKeyVtbl vt_IRegistryKey =
 };
 
 /*
- * @implemented
+ * @unimplemented
  */
 NTSTATUS NTAPI
 PcNewRegistryKey(
@@ -315,7 +241,7 @@ PcNewRegistryKey(
     IRegistryKeyImpl * This;
     PPCLASS_DEVICE_EXTENSION DeviceExt;
 
-    DPRINT("PcNewRegistryKey entered\n");
+    DPRINT1("PcNewRegistryKey entered\n");
 
     if (!OutRegistryKey)
         return STATUS_INVALID_PARAMETER;
@@ -360,8 +286,7 @@ PcNewRegistryKey(
     else if (RegistryKeyType == DeviceInterfaceRegistryKey)
     {
         /* FIXME */
-        UNIMPLEMENTED
-        DbgBreakPoint();
+        DPRINT1("fixme\n");
     }
 
     if (!NT_SUCCESS(Status))
@@ -376,15 +301,12 @@ PcNewRegistryKey(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    if (OuterUnknown)
-        OuterUnknown->lpVtbl->AddRef(OuterUnknown);
-
     This->hKey = hHandle;
     This->lpVtbl = &vt_IRegistryKey;
-    This->ref = 2;
+    This->ref = 1;
 
     *OutRegistryKey = (PREGISTRYKEY)&This->lpVtbl;
-    DPRINT("PcNewRegistryKey result %p\n", *OutRegistryKey);
+    DPRINT1("PcNewRegistryKey result %p\n", *OutRegistryKey);
     return STATUS_SUCCESS;
 }
 

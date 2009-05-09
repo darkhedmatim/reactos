@@ -122,12 +122,8 @@ static void test_SHGetValue(void)
 	dwType = -1;
         dwRet = SHGetValueA(HKEY_CURRENT_USER, REG_TEST_KEY, "Test1", &dwType, buf, &dwSize);
 	ok( ERROR_SUCCESS == dwRet, "SHGetValueA failed, ret=%u\n", dwRet);
-        ok( 0 == strcmp(sExpTestpath1, buf) ||
-            broken(0 == strcmp(sTestpath1, buf)), /* IE4.x */
-            "Comparing of (%s) with (%s) failed\n", buf, sExpTestpath1);
-        ok( REG_SZ == dwType ||
-            broken(REG_EXPAND_SZ == dwType), /* IE4.x */
-            "Expected REG_SZ, got (%u)\n", dwType);
+	ok( 0 == strcmp(sExpTestpath1, buf), "Comparing of (%s) with (%s) failed\n", buf, sExpTestpath1);
+	ok( REG_SZ == dwType, "Expected REG_SZ, got (%u)\n", dwType);
 
 	strcpy(buf, sEmptyBuffer);
 	dwSize = MAX_PATH;
@@ -200,9 +196,7 @@ static void test_SHQUeryValueEx(void)
 	dwSize = 6;
         dwRet = SHQueryValueExA( hKey, "Test3", NULL, NULL, NULL, &dwSize);
 	ok( ERROR_SUCCESS == dwRet, "%s failed, ret=%u\n", sTestedFunction, dwRet);
-        ok( dwSize >= nUsedBuffer2 ||
-            broken(dwSize == (strlen(sTestpath2) + 1)), /* < IE4.x */
-            "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
+	ok( dwSize >= nUsedBuffer2, "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
 
 	/*
 	 * Case 1 string shrinks during expanding
@@ -214,9 +208,7 @@ static void test_SHQUeryValueEx(void)
 	ok( ERROR_MORE_DATA == dwRet, "Expected ERROR_MORE_DATA, got (%u)\n", dwRet);
 	ok( 0 == strcmp(sEmptyBuffer, buf) , "Comparing (%s) with (%s) failed\n", buf, sEmptyBuffer);
 	ok( dwSize == nUsedBuffer1, "Buffer sizes (%u) and (%u) are not equal\n", dwSize, nUsedBuffer1);
-        ok( REG_SZ == dwType ||
-            broken(REG_EXPAND_SZ == dwType), /* < IE6 */
-            "Expected REG_SZ, got (%u)\n", dwType);
+	ok( REG_SZ == dwType , "Expected REG_SZ, got (%u)\n", dwType);
 
 	/*
 	 * string grows during expanding
@@ -228,12 +220,8 @@ static void test_SHQUeryValueEx(void)
 	dwRet = SHQueryValueExA( hKey, "Test3", NULL, &dwType, buf, &dwSize);
 	ok( ERROR_MORE_DATA == dwRet, "Expected ERROR_MORE_DATA, got (%u)\n", dwRet);
 	ok( 0 == strcmp(sEmptyBuffer, buf) , "Comparing (%s) with (%s) failed\n", buf, sEmptyBuffer);
-        ok( dwSize >= nUsedBuffer2 ||
-            broken(dwSize == (strlen(sTestpath2) + 1)), /* < IE6 */
-            "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
-        ok( REG_SZ == dwType ||
-            broken(REG_EXPAND_SZ == dwType), /* < IE6 */
-            "Expected REG_SZ, got (%u)\n", dwType);
+	ok( dwSize >= nUsedBuffer2, "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
+	ok( REG_SZ == dwType , "Expected REG_SZ, got (%u)\n", dwType);
 
         /*
          * string grows during expanding
@@ -245,10 +233,7 @@ static void test_SHQUeryValueEx(void)
         dwSize = strlen(sEnvvar2) - 2;
         dwType = -1;
         dwRet = SHQueryValueExA( hKey, "Test3", NULL, &dwType, buf, &dwSize);
-        ok( ERROR_MORE_DATA == dwRet ||
-            broken(ERROR_ENVVAR_NOT_FOUND == dwRet) || /* IE5.5 */
-            broken(ERROR_SUCCESS == dwRet), /* < IE5.5*/
-            "Expected ERROR_MORE_DATA, got (%u)\n", dwRet);
+        ok( ERROR_MORE_DATA == dwRet, "Expected ERROR_MORE_DATA, got (%u)\n", dwRet);
 
         todo_wine
         {
@@ -256,9 +241,7 @@ static void test_SHQUeryValueEx(void)
                     "Expected empty or unexpanded string (win98), got (%s)\n", buf); 
         }
 
-        ok( dwSize >= nUsedBuffer2 ||
-            broken(dwSize == (strlen("") + 1)), /* < IE 5.5 */
-            "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
+        ok( dwSize >= nUsedBuffer2, "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
         ok( REG_SZ == dwType , "Expected REG_SZ, got (%u)\n", dwType);
 
 	/*
@@ -271,22 +254,15 @@ static void test_SHQUeryValueEx(void)
 	dwSize = nExpLen2 - 4;
 	dwType = -1;
         dwRet = SHQueryValueExA( hKey, "Test3", NULL, &dwType, buf, &dwSize);
-        ok( ERROR_MORE_DATA == dwRet ||
-            broken(ERROR_ENVVAR_NOT_FOUND == dwRet) || /* IE5.5 */
-            broken(ERROR_SUCCESS == dwRet), /* < IE5.5 */
-            "Expected ERROR_MORE_DATA, got (%u)\n", dwRet);
+	ok( ERROR_MORE_DATA == dwRet, "Expected ERROR_MORE_DATA, got (%u)\n", dwRet);
 
         todo_wine
         {
-            ok( (0 == strcmp("", buf)) || (0 == strcmp(sEnvvar2, buf)) ||
-                broken(0 == strcmp(sTestpath2, buf)), /* IE 5.5 */
-                "Expected empty or first part of the string \"%s\", got \"%s\"\n", sEnvvar2, buf);
+            ok( (0 == strcmp("", buf)) || (0 == strcmp(sEnvvar2, buf)),
+                    "Expected empty or first part of the string \"%s\", got \"%s\"\n", sEnvvar2, buf);
         }
 
-        ok( dwSize >= nUsedBuffer2 ||
-            broken(dwSize == (strlen(sEnvvar2) + 1)) || /* IE4.01 SP1 (W98) and IE5 (W98SE) */
-            broken(dwSize == (strlen("") + 1)), /* IE4.01 (NT4) and IE5.x (W2K) */
-            "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
+	ok( dwSize >= nUsedBuffer2, "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
 	ok( REG_SZ == dwType , "Expected REG_SZ, got (%u)\n", dwType);
 
 	/*
@@ -297,9 +273,7 @@ static void test_SHQUeryValueEx(void)
 	dwType = -1;
 	dwRet = SHQueryValueExA( hKey, "Test3", NULL, &dwType, NULL, &dwSize);
 	ok( ERROR_SUCCESS == dwRet, "%s failed, ret=%u\n", sTestedFunction, dwRet);
-        ok( dwSize >= nUsedBuffer2 ||
-            broken(dwSize == (strlen(sTestpath2) + 1)), /* IE4.01 SP1 (Win98) */
-            "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
+	ok( dwSize >= nUsedBuffer2, "Buffer size (%u) should be >= (%u)\n", dwSize, nUsedBuffer2);
 	ok( REG_SZ == dwType , "Expected REG_SZ, got (%u)\n", dwType);
 
 	RegCloseKey(hKey);

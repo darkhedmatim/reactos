@@ -23,7 +23,7 @@ typedef struct _MENU_ITEM
   ULONG_PTR dwItemData;
   UNICODE_STRING Text;
   HBITMAP hbmpItem;
-  RECTL Rect;
+  RECT Rect;
   UINT XTab;
 } MENU_ITEM, *PMENU_ITEM;
 
@@ -40,7 +40,7 @@ typedef struct _SETMENUITEMRECT
 {
   UINT uItem;
   BOOL fByPosition;
-  RECTL rcRect;
+  RECT rcRect;
 } SETMENUITEMRECT, *PSETMENUITEMRECT;
 
 PMENU_OBJECT FASTCALL
@@ -95,7 +95,7 @@ DWORD FASTCALL
 IntCheckMenuItem(PMENU_OBJECT MenuObject, UINT uIDCheckItem, UINT uCheck);
 
 BOOL FASTCALL
-IntSetMenuItemRect(PMENU_OBJECT MenuObject, UINT Item, BOOL fByPos, RECTL *rcRect);
+IntSetMenuItemRect(PMENU_OBJECT MenuObject, UINT Item, BOOL fByPos, RECT *rcRect);
 
 DWORD APIENTRY UserInsertMenuItem(HMENU hMenu, UINT uItem, BOOL fByPosition, LPCMENUITEMINFOW lpmii);
 

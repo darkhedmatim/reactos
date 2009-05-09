@@ -255,6 +255,7 @@ static BOOL	EDIT_EM_Undo(EDITSTATE *es);
  *	WM_XXX message handlers
  */
 static LRESULT	EDIT_WM_Char(EDITSTATE *es, WCHAR c);
+static void	EDIT_WM_Command(EDITSTATE *es, INT code, INT id, HWND conrtol);
 static void	EDIT_WM_ContextMenu(EDITSTATE *es, INT x, INT y);
 static void	EDIT_WM_Copy(EDITSTATE *es);
 static LRESULT	EDIT_WM_Create(EDITSTATE *es, LPCWSTR name);
@@ -771,12 +772,12 @@ static LRESULT EditWndProc_common( HWND hwnd, UINT msg,
 #endif
 	case EM_SETREADONLY:
 		if (wParam) {
-                    SetWindowLongPtrW( hwnd, GWL_STYLE,
-                                       GetWindowLongPtrW( hwnd, GWL_STYLE ) | ES_READONLY );
+                    SetWindowLongW( hwnd, GWL_STYLE,
+                                    GetWindowLongW( hwnd, GWL_STYLE ) | ES_READONLY );
                     es->style |= ES_READONLY;
 		} else {
-                    SetWindowLongPtrW( hwnd, GWL_STYLE,
-                                       GetWindowLongPtrW( hwnd, GWL_STYLE ) & ~ES_READONLY );
+                    SetWindowLongW( hwnd, GWL_STYLE,
+                                    GetWindowLongW( hwnd, GWL_STYLE ) & ~ES_READONLY );
                     es->style &= ~ES_READONLY;
 		}
                 result = 1;
@@ -944,6 +945,10 @@ static LRESULT EditWndProc_common( HWND hwnd, UINT msg,
 
 	case WM_CLEAR:
 		EDIT_WM_Clear(es);
+		break;
+
+	case WM_COMMAND:
+		EDIT_WM_Command(es, HIWORD(wParam), LOWORD(wParam), (HWND)lParam);
 		break;
 
         case WM_CONTEXTMENU:
@@ -3875,13 +3880,13 @@ static void EDIT_EM_SetPasswordChar(EDITSTATE *es, WCHAR c)
 	if (es->password_char == c)
 		return;
 
-        style = GetWindowLongPtrW( es->hwndSelf, GWL_STYLE );
+        style = GetWindowLongW( es->hwndSelf, GWL_STYLE );
 	es->password_char = c;
 	if (c) {
-            SetWindowLongPtrW( es->hwndSelf, GWL_STYLE, style | ES_PASSWORD );
+            SetWindowLongW( es->hwndSelf, GWL_STYLE, style | ES_PASSWORD );
             es->style |= ES_PASSWORD;
 	} else {
-            SetWindowLongPtrW( es->hwndSelf, GWL_STYLE, style & ~ES_PASSWORD );
+            SetWindowLongW( es->hwndSelf, GWL_STYLE, style & ~ES_PASSWORD );
             es->style &= ~ES_PASSWORD;
 	}
 	EDIT_UpdateText(es, NULL, TRUE);
@@ -4105,7 +4110,7 @@ static BOOL EDIT_IsInsideDialog(EDITSTATE *es)
 #ifdef __REACTOS__
     if (es->hwndParent && es->hwndParent != GetDesktopWindow())
     {
-        if (GetClassLongPtrW (es->hwndParent, GCW_ATOM) == (DWORD)MAKEINTATOM(32770))
+        if (GetClassLongW (es->hwndParent, GCW_ATOM) == (DWORD)MAKEINTATOM(32770))
             return TRUE;
     }
     return FALSE;
@@ -4216,6 +4221,43 @@ static LRESULT EDIT_WM_Char(EDITSTATE *es, WCHAR c)
 
 /*********************************************************************
  *
+ *	WM_COMMAND
+ *
+ */
+static void EDIT_WM_Command(EDITSTATE *es, INT code, INT id, HWND control)
+{
+	if (code || control)
+		return;
+
+	switch (id) {
+		case EM_UNDO:
+                        SendMessageW(es->hwndSelf, WM_UNDO, 0, 0);
+			break;
+		case WM_CUT:
+                        SendMessageW(es->hwndSelf, WM_CUT, 0, 0);
+			break;
+		case WM_COPY:
+                        SendMessageW(es->hwndSelf, WM_COPY, 0, 0);
+			break;
+		case WM_PASTE:
+                        SendMessageW(es->hwndSelf, WM_PASTE, 0, 0);
+			break;
+		case WM_CLEAR:
+                        SendMessageW(es->hwndSelf, WM_CLEAR, 0, 0);
+			break;
+		case EM_SETSEL:
+			EDIT_EM_SetSel(es, 0, (UINT)-1, FALSE);
+			EDIT_EM_ScrollCaret(es);
+			break;
+		default:
+			ERR("unknown menu item, please report\n");
+			break;
+	}
+}
+
+
+/*********************************************************************
+ *
  *	WM_CONTEXTMENU
  *
  *	Note: the resource files resource/sysres_??.rc cannot define a
@@ -4240,8 +4282,6 @@ static void EDIT_WM_ContextMenu(EDITSTATE *es, INT x, INT y)
 	HMENU popup = GetSubMenu(menu, 0);
 	UINT start = es->selection_start;
 	UINT end = es->selection_end;
-
-	BOOL selectedItem;
 
 	ORDER_UINT(start, end);
 
@@ -4268,35 +4308,7 @@ static void EDIT_WM_ContextMenu(EDITSTATE *es, INT x, INT y)
             y = rc.top + (rc.bottom - rc.top) / 2;
         }
 
-	selectedItem = TrackPopupMenu(popup, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD, x, y, 0, es->hwndSelf, NULL);
-
-	switch (selectedItem) {
-		case EM_UNDO:
-			SendMessageW(es->hwndSelf, WM_UNDO, 0, 0);
-			break;
-		case WM_CUT:
-			SendMessageW(es->hwndSelf, WM_CUT, 0, 0);
-			break;
-		case WM_COPY:
-			SendMessageW(es->hwndSelf, WM_COPY, 0, 0);
-			break;
-		case WM_PASTE:
-			SendMessageW(es->hwndSelf, WM_PASTE, 0, 0);
-			break;
-		case WM_CLEAR:
-			SendMessageW(es->hwndSelf, WM_CLEAR, 0, 0);
-			break;
-		case EM_SETSEL:
-			EDIT_EM_SetSel(es, 0, (UINT)-1, FALSE);
-			EDIT_EM_ScrollCaret(es);
-			break;
-		case 0:
-			break;
-		default:
-			ERR("unknown menu item, please report\n");
-			break;
-	}
-
+	TrackPopupMenu(popup, TPM_LEFTALIGN | TPM_RIGHTBUTTON, x, y, 0, es->hwndSelf, NULL);
 	DestroyMenu(menu);
 }
 
@@ -4513,7 +4525,7 @@ static LRESULT EDIT_WM_HScroll(EDITSTATE *es, INT action, INT pos)
 	case SB_THUMBPOSITION:
 		TRACE("SB_THUMBPOSITION %d\n", pos);
 		es->flags &= ~EF_HSCROLL_TRACK;
-		if(GetWindowLongPtrW( es->hwndSelf, GWL_STYLE ) & WS_HSCROLL)
+		if(GetWindowLongW( es->hwndSelf, GWL_STYLE ) & WS_HSCROLL)
 		    dx = pos - es->x_offset;
 		else
 		{
@@ -4546,7 +4558,7 @@ static LRESULT EDIT_WM_HScroll(EDITSTATE *es, INT action, INT pos)
 #endif
 	{
 		LRESULT ret;
-		if(GetWindowLongPtrW( es->hwndSelf, GWL_STYLE ) & WS_HSCROLL)
+		if(GetWindowLongW( es->hwndSelf, GWL_STYLE ) & WS_HSCROLL)
 		    ret = GetScrollPos(es->hwndSelf, SB_HORZ);
 		else
 		{
@@ -5008,7 +5020,7 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
 	if (lpcs->dwExStyle & WS_EX_CLIENTEDGE)
 		es->style &= ~WS_BORDER;
         else if (es->style & WS_BORDER)
-		SetWindowLongPtrW(hwnd, GWL_STYLE, es->style & ~WS_BORDER);
+		SetWindowLongW(hwnd, GWL_STYLE, es->style & ~WS_BORDER);
 
 	return TRUE;
 }
@@ -5475,7 +5487,7 @@ static LRESULT EDIT_WM_VScroll(EDITSTATE *es, INT action, INT pos)
 #endif
 	{
 		LRESULT ret;
-		if(GetWindowLongPtrW( es->hwndSelf, GWL_STYLE ) & WS_VSCROLL)
+		if(GetWindowLongW( es->hwndSelf, GWL_STYLE ) & WS_VSCROLL)
 		    ret = GetScrollPos(es->hwndSelf, SB_VERT);
 		else
 		{

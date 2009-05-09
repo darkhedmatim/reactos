@@ -35,7 +35,7 @@ KsRegisterWorker(
         return STATUS_INVALID_PARAMETER;
     }
 
-    KsWorker = ExAllocatePool(NonPagedPool, sizeof(KS_WORKER));
+    KsWorker = ExAllocatePoolWithTag(NonPagedPool, sizeof(KS_WORKER), 0);
     if (!KsWorker)
         return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -43,7 +43,7 @@ KsRegisterWorker(
     KsWorker->Counter = 0;
     KsWorker->WorkItemActive = 0;
     KsWorker->WorkItem = NULL;
-    KsWorker->DeleteInProgress = FALSE;
+    KsWorker->DeleteInProgress = TRUE;
     KeInitializeSpinLock(&KsWorker->Lock);
     KeInitializeEvent(&KsWorker->Event, NotificationEvent, FALSE);
 
@@ -80,7 +80,7 @@ KsUnregisterWorker(
         KeReleaseSpinLock(&KsWorker->Lock, OldIrql);
     }
 
-    ExFreePool(KsWorker);
+    ExFreePoolWithTag(KsWorker, 0);
 }
 
 /*
@@ -181,9 +181,6 @@ KsQueueWorkItem(
     if (!KsWorker->DeleteInProgress)
     {
         ExQueueWorkItem(WorkItem, KsWorker->Type);
-    }
-    else
-    {
         Status = STATUS_UNSUCCESSFUL;
     }
 

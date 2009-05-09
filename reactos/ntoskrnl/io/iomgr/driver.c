@@ -32,7 +32,6 @@ POBJECT_TYPE IoDriverObjectType = NULL;
 #define TAG_RTLREGISTRY TAG('R', 'q', 'r', 'v')
 
 extern BOOLEAN ExpInTextModeSetup;
-extern BOOLEAN PnpSystemInit;
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
@@ -72,7 +71,7 @@ IopDeleteDriver(IN PVOID ObjectBody)
     if (DriverObject->DriverSection)
     {
         /* Unload it */
-        MmUnloadSystemImage(DriverObject->DriverSection);
+        //LdrpUnloadImage(DriverObject->DriverSection);
     }
 
     /* Check if it has a name */
@@ -483,7 +482,7 @@ IopInitializeDriverModule(
        DeviceObject = DeviceObject->NextDevice;
    }
 
-   if (PnpSystemInit) IopReinitializeDrivers();
+   IopReinitializeDrivers();
 
    return STATUS_SUCCESS;
 }
@@ -1108,6 +1107,9 @@ IopUnloadDriver(PUNICODE_STRING DriverServiceName, BOOLEAN UnloadPnpDrivers)
       /* Dereference it 2 times */
       ObDereferenceObject(DriverObject);
       ObDereferenceObject(DriverObject);
+
+      /* Unload the driver */
+      MmUnloadSystemImage(DriverObject->DriverSection);
 
       return STATUS_SUCCESS;
    }

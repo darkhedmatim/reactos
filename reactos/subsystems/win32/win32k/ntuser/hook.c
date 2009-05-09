@@ -109,11 +109,8 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
       W32Thread = ((PTHREADINFO)Thread->Tcb.Win32Thread);
       ASSERT(W32Thread != NULL);
       W32Thread->Hooks |= HOOKID_TO_FLAG(HookId);
-
-      GetWin32ClientInfo()->fsHooks = W32Thread->Hooks;
-
       if (W32Thread->ThreadInfo != NULL)
-          W32Thread->ThreadInfo->fsHooks = W32Thread->Hooks;
+          W32Thread->ThreadInfo->Hooks = W32Thread->Hooks;
    }
 
    RtlInitUnicodeString(&Hook->ModuleName, NULL);
@@ -223,11 +220,8 @@ IntRemoveHook(PHOOK Hook, PWINSTATION_OBJECT WinStaObj, BOOL TableAlreadyLocked)
    W32Thread = ((PTHREADINFO)Hook->Thread->Tcb.Win32Thread);
    ASSERT(W32Thread != NULL);
    W32Thread->Hooks &= ~HOOKID_TO_FLAG(Hook->HookId);
-
-   GetWin32ClientInfo()->fsHooks = W32Thread->Hooks;
-
    if (W32Thread->ThreadInfo != NULL)
-       W32Thread->ThreadInfo->fsHooks = W32Thread->Hooks;
+       W32Thread->ThreadInfo->Hooks = W32Thread->Hooks;
 
    if (0 != Table->Counts[HOOKID_TO_INDEX(Hook->HookId)])
    {
@@ -740,7 +734,7 @@ UserCallNextHookEx(
 
             case HCBT_MOVESIZE:
             {
-               RECTL rt;
+               RECT rt;
                DPRINT1("HOOK HCBT_MOVESIZE\n");
                if (lParam)
                {
@@ -1057,7 +1051,7 @@ NtUserSetWindowsHookEx(
       Global = TRUE;
    }
 
-   if ( ( Global && (HookId != WH_KEYBOARD_LL && HookId != WH_MOUSE_LL) ) ||
+   if ( ( Global && (HookId != WH_KEYBOARD_LL || HookId != WH_MOUSE_LL) ) ||
         WH_DEBUG == HookId ||
         WH_JOURNALPLAYBACK == HookId ||
         WH_JOURNALRECORD == HookId)

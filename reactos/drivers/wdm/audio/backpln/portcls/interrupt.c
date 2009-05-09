@@ -1,12 +1,3 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/wdm/audio/backpln/portcls/interrupt.c
- * PURPOSE:         portcls interrupt object
- * PROGRAMMER:      Johannes Anderwald
- */
-
-
 #include "private.h"
 
 typedef struct
@@ -48,7 +39,7 @@ IInterruptSync_fnQueryInterface(
 {
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
 
-    DPRINT("IInterruptSync_fnQueryInterface: This %p\n", This);
+    DPRINT1("IInterruptSync_fnQueryInterface: This %p\n", This);
 
     if (IsEqualGUIDAligned(refiid, &IID_IInterruptSync) ||
         IsEqualGUIDAligned(refiid, &IID_IUnknown))
@@ -68,7 +59,7 @@ IInterruptSync_fnAddRef(
 {
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
 
-    DPRINT("IInterruptSync_AddRef: This %p\n", This);
+    DPRINT1("IInterruptSync_AddRef: This %p\n", This);
 
     return InterlockedIncrement(&This->ref);
 }
@@ -84,7 +75,7 @@ IInterruptSync_fnRelease(
 
     InterlockedDecrement(&This->ref);
 
-    DPRINT("IInterruptSync_Release: This %p new ref %u\n", This, This->ref);
+    DPRINT1("IInterruptSync_Release: This %p new ref %u\n", This, This->ref);
 
     if (This->ref == 0)
     {
@@ -95,8 +86,9 @@ IInterruptSync_fnRelease(
             FreeItem(Entry, TAG_PORTCLASS);
         }
 
-        This->ResourceList->lpVtbl->Release(This->ResourceList);
-        FreeItem(This, TAG_PORTCLASS);
+        //This->ResourceList->lpVtbl->Release(This->ResourceList);
+        //FreeItem(This, TAG_PORTCLASS);
+DPRINT1("IInterruptSync_Release: complete\n");
         return 0;
     }
     /* Return new reference count */
@@ -114,7 +106,7 @@ IInterruptSynchronizedRoutine(
     IN PVOID  ServiceContext)
 {
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)ServiceContext;
-    DPRINT("IInterruptSynchronizedRoutine This %p SyncRoutine %p Context %p\n", This, This->SyncRoutine, This->DynamicContext);
+    DPRINT1("IInterruptSynchronizedRoutine This %p SyncRoutine %p Context %p\n", This, This->SyncRoutine, This->DynamicContext);
     return This->SyncRoutine((IInterruptSync*)&This->lpVtbl, This->DynamicContext);
 }
 
@@ -128,7 +120,7 @@ IInterruptSync_fnCallSynchronizedRoutine(
     KIRQL OldIrql;
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
 
-    DPRINT("IInterruptSync_fnCallSynchronizedRoutine This %p Routine %p DynamicContext %p Irql %x Interrupt %p\n", This, Routine, DynamicContext, KeGetCurrentIrql(), This->Interrupt);
+    DPRINT1("IInterruptSync_fnCallSynchronizedRoutine This %p Routine %p DynamicContext %p\n", This, Routine, DynamicContext);
 
     if (!This->Interrupt)
     {
@@ -148,10 +140,7 @@ IInterruptSync_fnCallSynchronizedRoutine(
     This->SyncRoutine = Routine;
     This->DynamicContext = DynamicContext;
 
-    if (KeSynchronizeExecution(This->Interrupt, IInterruptSynchronizedRoutine, (PVOID)This))
-        return STATUS_SUCCESS;
-    else
-        return STATUS_UNSUCCESSFUL;
+    return KeSynchronizeExecution(This->Interrupt, IInterruptSynchronizedRoutine, (PVOID)This);
 }
 
 NTAPI
@@ -160,7 +149,7 @@ IInterruptSync_fnGetKInterrupt(
     IN IInterruptSync * iface)
 {
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
-    DPRINT("IInterruptSynchronizedRoutine\n");
+    DPRINT1("IInterruptSynchronizedRoutine\n");
 
     return This->Interrupt;
 }
@@ -177,7 +166,7 @@ IInterruptServiceRoutine(
     BOOL Success;
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)ServiceContext;
 
-    //DPRINT("IInterruptServiceRoutine Mode %u\n", This->Mode);
+    DPRINT1("IInterruptServiceRoutine\n");
 
     if (This->Mode == InterruptSyncModeNormal)
     {
@@ -241,8 +230,7 @@ IInterruptSync_fnConnect(
     NTSTATUS Status;
     PCM_PARTIAL_RESOURCE_DESCRIPTOR Descriptor;
 
-    DPRINT("IInterruptSync_fnConnect\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    DPRINT1("IInterruptSync_fnConnect\n");
 
     Descriptor = This->ResourceList->lpVtbl->FindTranslatedEntry(This->ResourceList, CmResourceTypeInterrupt, This->ResourceIndex);
     if (!Descriptor)
@@ -258,12 +246,12 @@ IInterruptSync_fnConnect(
                                 Descriptor->u.Interrupt.Vector, 
                                 Descriptor->u.Interrupt.Level,
                                 Descriptor->u.Interrupt.Level, //FIXME
-                                Descriptor->Flags,
+                                LevelSensitive, //FIXME
                                 TRUE,
                                 Descriptor->u.Interrupt.Affinity, 
                                 FALSE);
 
-    DPRINT("IInterruptSync_fnConnect result %x\n", Status);
+    DPRINT1("IInterruptSync_fnConnect result %x\n", Status);
     return Status;
 }
 
@@ -274,9 +262,7 @@ IInterruptSync_fnDisconnect(
     IN IInterruptSync * iface)
 {
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
-
-    DPRINT("IInterruptSync_fnDisconnect\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+    DPRINT1("IInterruptSync_fnDisconnect\n");
 
     if (!This->Interrupt)
     {
@@ -299,8 +285,7 @@ IInterruptSync_fnRegisterServiceRoutine(
     PSYNC_ENTRY NewEntry;
     IInterruptSyncImpl * This = (IInterruptSyncImpl*)iface;
 
-    DPRINT("IInterruptSync_fnRegisterServiceRoutine\n");
-    ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
+DPRINT1("IInterruptSync_fnRegisterServiceRoutine\n");
 
     NewEntry = AllocateItem(NonPagedPool, sizeof(SYNC_ENTRY), TAG_PORTCLASS);
     if (!NewEntry)
@@ -344,7 +329,7 @@ PcNewInterruptSync(
 {
     IInterruptSyncImpl * This;
 
-    DPRINT("PcNewInterruptSync entered OutInterruptSync %p OuterUnknown %p ResourceList %p ResourceIndex %u Mode %d\n", 
+    DPRINT1("PcNewInterruptSync entered OutInterruptSync %p OuterUnknown %p ResourceList %p ResourceIndex %u Mode %d\n", 
             OutInterruptSync, OuterUnknown, ResourceList, ResourceIndex, Mode);
 
     if (!OutInterruptSync || !ResourceList || Mode > InterruptSyncModeRepeat || Mode < 0)
@@ -370,7 +355,7 @@ PcNewInterruptSync(
     KeInitializeSpinLock(&This->Lock);
 
     *OutInterruptSync = (PINTERRUPTSYNC)&This->lpVtbl;
-    DPRINT("PcNewInterruptSync success %p\n", *OutInterruptSync);
+    DPRINT1("PcNewInterruptSync success %p\n", *OutInterruptSync);
     return STATUS_SUCCESS;
 }
 
