@@ -305,19 +305,13 @@ DeleteEnhMetaFile(
 BOOL
 WINAPI
 EnumEnhMetaFile(
-	HDC		hdc,
-	HENHMETAFILE	hmf,
-	ENHMFENUMPROC	callback,
-	LPVOID		data,
-	CONST RECT	*lpRect
+	HDC		a0,
+	HENHMETAFILE	a1,
+	ENHMFENUMPROC	a2,
+	LPVOID		a3,
+	CONST RECT	*a4
 	)
 {
-    if(!lpRect && hdc)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
@@ -626,15 +620,10 @@ GdiFlush()
 int
 WINAPI
 SetICMMode(
-	HDC	hdc,
-	int	iEnableICM
+	HDC	a0,
+	int	a1
 	)
 {
-    /*FIXME:  Assume that ICM is always off, and cannot be turned on */
-    if (iEnableICM == ICM_OFF) return ICM_OFF;
-    if (iEnableICM == ICM_ON) return 0;
-    if (iEnableICM == ICM_QUERY) return ICM_OFF;
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
@@ -726,14 +715,11 @@ ColorMatchToTarget(
 BOOL
 WINAPI
 wglCopyContext(
-	HGLRC	hglrcSrc,
-	HGLRC	hglrcDst,
-	UINT	mask
+	HGLRC	a0,
+	HGLRC	a1,
+	UINT	a2
 	)
 {
-    if(!hglrcSrc || !hglrcDst)
-        return FALSE;
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
@@ -777,11 +763,9 @@ wglCreateLayerContext(
 BOOL
 WINAPI
 wglDeleteContext(
-	HGLRC	hglrc
+	HGLRC	a
 	)
 {
-    if (hglrc == NULL) return FALSE;
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
@@ -820,11 +804,9 @@ wglGetCurrentDC(VOID)
 PROC
 WINAPI
 wglGetProcAddress(
-	LPCSTR		func
+	LPCSTR		a0
 	)
 {
-    if(!func) return NULL;
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
@@ -853,11 +835,10 @@ wglMakeCurrent(
 BOOL
 WINAPI
 wglShareLists(
-	HGLRC	hglrc1,
-	HGLRC	hglrc2
+	HGLRC	a0,
+	HGLRC	a1
 	)
 {
-    if (hglrc1 == NULL) return FALSE;
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;

@@ -42,7 +42,7 @@
 @ stub GdipBitmapGetHistogramSize
 @ stdcall GdipBitmapGetPixel(ptr long long ptr)
 @ stdcall GdipBitmapLockBits(ptr ptr long long ptr)
-@ stdcall GdipBitmapSetPixel(ptr long long long)
+@ stub GdipBitmapSetPixel
 @ stdcall GdipBitmapSetResolution(ptr long long)
 @ stdcall GdipBitmapUnlockBits(ptr ptr)
 @ stdcall GdipClearPathMarkers(ptr)
@@ -295,13 +295,13 @@
 @ stdcall GdipGetImagePaletteSize(ptr ptr)
 @ stdcall GdipGetImagePixelFormat(ptr ptr)
 @ stdcall GdipGetImageRawFormat(ptr ptr)
-@ stdcall GdipGetImageThumbnail(ptr long long ptr ptr ptr)
+@ stub GdipGetImageThumbnail
 @ stdcall GdipGetImageType(ptr ptr)
 @ stdcall GdipGetImageVerticalResolution(ptr ptr)
 @ stdcall GdipGetImageWidth(ptr ptr)
 @ stdcall GdipGetInterpolationMode(ptr ptr)
-@ stdcall GdipGetLineBlend(ptr ptr ptr long)
-@ stdcall GdipGetLineBlendCount(ptr ptr)
+@ stub GdipGetLineBlend
+@ stub GdipGetLineBlendCount
 @ stdcall GdipGetLineColors(ptr ptr)
 @ stdcall GdipGetLineGammaCorrection(ptr ptr)
 @ stub GdipGetLinePresetBlend
@@ -409,7 +409,7 @@
 @ stdcall GdipImageGetFrameCount(ptr ptr ptr)
 @ stdcall GdipImageGetFrameDimensionsCount(ptr ptr)
 @ stdcall GdipImageGetFrameDimensionsList(ptr ptr long)
-@ stdcall GdipImageRotateFlip(ptr long)
+@ stub GdipImageRotateFlip
 @ stdcall GdipImageSelectActiveFrame(ptr ptr long)
 @ stub GdipImageSetAbort
 @ stub GdipInitializePalette
@@ -582,7 +582,7 @@
 @ stdcall GdipSetPenWidth(ptr long)
 @ stdcall GdipSetPixelOffsetMode(ptr long)
 @ stdcall GdipSetPropertyItem(ptr ptr)
-@ stdcall GdipSetRenderingOrigin(ptr long long)
+@ stub GdipSetRenderingOrigin
 @ stdcall GdipSetSmoothingMode(ptr long)
 @ stdcall GdipSetSolidFillColor(ptr ptr)
 @ stdcall GdipSetStringFormatAlign(ptr long)

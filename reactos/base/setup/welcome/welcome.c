@@ -222,7 +222,7 @@ ButtonSubclassWndProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
   if (uMsg == WM_MOUSEMOVE)
     {
-      i = GetWindowLongPtr(hWnd, GWL_ID);
+      i = GetWindowLong(hWnd, GWL_ID);
       if (nTopic != i)
 	{
 	  nTopic = i;

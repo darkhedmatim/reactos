@@ -302,7 +302,7 @@ CreateWindowExA(DWORD dwExStyle,
 
         lpParam = (LPVOID)&mdi;
 
-        if (GetWindowLongPtrW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
+        if (GetWindowLongW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
         {
             if (dwStyle & WS_POPUP)
             {
@@ -408,7 +408,7 @@ CreateWindowExW(DWORD dwExStyle,
 
         lpParam = (LPVOID)&mdi;
 
-        if (GetWindowLongPtrW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
+        if (GetWindowLongW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
         {
             if (dwStyle & WS_POPUP)
             {
@@ -1433,7 +1433,7 @@ IsWindowEnabled(HWND hWnd)
     // disabled. I think they stop processing messages but stay appearing
     // as enabled.
 
-    return !(GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_DISABLED);
+    return !(GetWindowLongW(hWnd, GWL_STYLE) & WS_DISABLED);
 }
 
 
@@ -1443,7 +1443,7 @@ IsWindowEnabled(HWND hWnd)
 BOOL WINAPI
 IsZoomed(HWND hWnd)
 {
-    return (GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_MAXIMIZE) != 0;
+    return (GetWindowLongW(hWnd, GWL_STYLE) & WS_MAXIMIZE) != 0;
 }
 
 
@@ -1494,7 +1494,7 @@ AnimateWindow(HWND hwnd,
 BOOL WINAPI
 OpenIcon(HWND hWnd)
 {
-    if (!(GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_MINIMIZE))
+    if (!(GetWindowLongW(hWnd, GWL_STYLE) & WS_MINIMIZE))
         return FALSE;
 
     ShowWindow(hWnd,SW_RESTORE);
@@ -1555,7 +1555,7 @@ SetWindowTextA(HWND hWnd,
 
         DefSetText(hWnd, (PCWSTR)lpString, TRUE);
 
-        if ((GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
+        if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
         {
             DefWndNCPaint(hWnd, (HRGN)1, -1);
         }
@@ -1585,7 +1585,7 @@ SetWindowTextW(HWND hWnd,
 
         DefSetText(hWnd, lpString, FALSE);
 
-        if ((GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
+        if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
         {
             DefWndNCPaint(hWnd, (HRGN)1, -1);
         }

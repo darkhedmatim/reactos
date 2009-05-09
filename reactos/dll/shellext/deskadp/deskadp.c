@@ -421,9 +421,9 @@ DisplayAdapterDlgProc(HWND hwndDlg,
             {
                 case PSN_APPLY:
                 {
-                    SetWindowLongPtr(hwndDlg,
-                                     DWL_MSGRESULT,
-                                     ApplyDisplayAdapterChanges(This));
+                    SetWindowLong(hwndDlg,
+                                  DWL_MSGRESULT,
+                                  ApplyDisplayAdapterChanges(This));
                     break;
                 }
 

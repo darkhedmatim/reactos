@@ -12,7 +12,7 @@
 @ stub CloseClusterResource
 @ stdcall ClusterCloseEnum(ptr)
 @ stub ClusterControl
-@ stdcall ClusterEnum(ptr long ptr ptr ptr)
+@ stdcall ClusterEnum(ptr long ptr wstr ptr)
 @ stub ClusterGetEnumCount
 @ stub ClusterGroupCloseEnum
 @ stub ClusterGroupControl

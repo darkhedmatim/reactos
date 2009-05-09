@@ -380,9 +380,9 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
         ptr->wSignalledEvent |= wEventId;
 
         if (ptr->dwFlags  & SHCNRF_NewDelivery)
-            SendMessageW(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
+            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
         else
-            SendMessageW(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
+            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
 
         TRACE("notifying %s, event %s(%x) after\n", NodeName( ptr ), DumpEvent(
                 wEventId ),wEventId );

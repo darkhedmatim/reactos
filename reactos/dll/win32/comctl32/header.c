@@ -1663,8 +1663,7 @@ HEADER_LButtonUp (HWND hwnd, LPARAM lParam)
 	    }
 	    else
 		InvalidateRect(hwnd, &infoPtr->items[infoPtr->iMoveItem].rect, FALSE);
-
-            infoPtr->bDragging = FALSE;
+                
             HEADER_SetHotDivider(hwnd, FALSE, -1);
 	}
 	else if (!(dwStyle&HDS_DRAGDROP) || !HEADER_IsDragDistance(infoPtr, &pt))

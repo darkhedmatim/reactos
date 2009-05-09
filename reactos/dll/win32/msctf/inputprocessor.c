@@ -288,61 +288,18 @@ static HRESULT WINAPI InputProcessorProfiles_ActivateLanguageProfile(
         ITfInputProcessorProfiles *iface, REFCLSID rclsid, LANGID langid,
         REFGUID guidProfiles)
 {
-    HRESULT hr;
-    BOOL enabled;
-    TF_LANGUAGEPROFILE LanguageProfile;
     InputProcessorProfiles *This = (InputProcessorProfiles*)iface;
-
-    TRACE("(%p) %s %x %s\n",This,debugstr_guid(rclsid),langid,debugstr_guid(guidProfiles));
-
-    if (langid != This->currentLanguage) return E_INVALIDARG;
-
-    if (get_active_textservice(rclsid,NULL))
-    {
-        TRACE("Already Active\n");
-        return E_FAIL;
-    }
-
-    hr = ITfInputProcessorProfiles_IsEnabledLanguageProfile(iface, rclsid,
-            langid, guidProfiles, &enabled);
-    if (FAILED(hr) || !enabled)
-    {
-        TRACE("Not Enabled\n");
-        return E_FAIL;
-    }
-
-    LanguageProfile.clsid = *rclsid;
-    LanguageProfile.langid = langid;
-    LanguageProfile.guidProfile = *guidProfiles;
-
-    hr = add_active_textservice(&LanguageProfile);
-
-    return hr;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI InputProcessorProfiles_GetActiveLanguageProfile(
         ITfInputProcessorProfiles *iface, REFCLSID rclsid, LANGID *plangid,
         GUID *pguidProfile)
 {
-    TF_LANGUAGEPROFILE profile;
     InputProcessorProfiles *This = (InputProcessorProfiles*)iface;
-
-    TRACE("(%p) %s %p %p\n",This,debugstr_guid(rclsid),plangid,pguidProfile);
-
-    if (!rclsid || !plangid || !pguidProfile)
-        return E_INVALIDARG;
-
-    if (get_active_textservice(rclsid, &profile))
-    {
-        *plangid = profile.langid;
-        *pguidProfile = profile.guidProfile;
-        return S_OK;
-    }
-    else
-    {
-        *pguidProfile = GUID_NULL;
-        return S_FALSE;
-    }
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI InputProcessorProfiles_GetLanguageProfileDescription(
@@ -799,7 +756,8 @@ static INT next_LanguageProfile(EnumTfLanguageProfiles *This, CLSID clsid, TF_LA
 
         tflp->clsid = clsid;
         tflp->langid = This->langid;
-        tflp->fActive = get_active_textservice(&clsid, NULL);
+        /* FIXME */
+        tflp->fActive = FALSE;
         tflp->guidProfile = profile;
         if (ITfCategoryMgr_FindClosestCategory(This->catmgr, &clsid,
                 &tflp->catid, tipcats, 3) != S_OK)

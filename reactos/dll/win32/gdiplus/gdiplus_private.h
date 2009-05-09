@@ -91,7 +91,6 @@ struct GpPen{
 struct GpGraphics{
     HDC hdc;
     HWND hwnd;
-    BOOL owndc;
     SmoothingMode smoothing;
     CompositingQuality compqual;
     InterpolationMode interpolation;
@@ -143,12 +142,8 @@ struct GpLineGradient{
     GpPointF endpoint;
     ARGB startcolor;
     ARGB endcolor;
-    RectF rect;
     GpWrapMode wrap;
     BOOL gamma;
-    REAL* blendfac;  /* blend factors */
-    REAL* blendpos;  /* blend positions */
-    INT blendcount;
 };
 
 struct GpTexture{
