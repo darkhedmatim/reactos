@@ -37,7 +37,7 @@
 
 #include "glheader.h"
 #include "imports.h"
-#include "glthread.h"
+#include "glapi/glthread.h"
 #include "hash.h"
 
 
@@ -300,7 +300,7 @@ _mesa_HashWalk(const struct _mesa_HashTable *table,
    GLuint pos;
    ASSERT(table);
    ASSERT(callback);
-   _glthread_UNLOCK_MUTEX(table2->Mutex);
+   _glthread_LOCK_MUTEX(table2->Mutex);
    for (pos = 0; pos < TABLE_SIZE; pos++) {
       struct HashEntry *entry;
       for (entry = table->Table[pos]; entry; entry = entry->Next) {
