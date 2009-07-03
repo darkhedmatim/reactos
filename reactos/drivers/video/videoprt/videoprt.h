@@ -104,15 +104,6 @@ typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
       VIDEO_PORT_DEVICE_EXTENSION, \
       MiniPortDeviceExtension)
 
-typedef struct _VIDEO_PORT_EVENT
-{
-    /* Public part */
-    ENG_EVENT;
-
-    /* Private part */
-    KEVENT Event;
-} VIDEO_PORT_EVENT, *PVIDEO_PORT_EVENT;
-
 /* agp.c */
 
 NTSTATUS

@@ -13,12 +13,8 @@
 		<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38269
 		<pch>k32.h</pch>
 		-->
-		<group compilerset="gcc">
-			<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-			<compilerflag>-fno-unit-at-a-time</compilerflag>
-			<compilerflag compiler="cxx">-fno-exceptions</compilerflag>
-			<compilerflag compiler="cxx">-fno-rtti</compilerflag>
-		</group>
+		<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
+		<compilerflag>-fno-unit-at-a-time</compilerflag>
 		<directory name="debug">
 			<file>debugger.c</file>
 			<file>output.c</file>
@@ -132,6 +128,9 @@
 				</directory>
 			</if>
 		</directory>
+
+		<compilerflag compiler="cxx">-fno-exceptions</compilerflag>
+		<compilerflag compiler="cxx">-fno-rtti</compilerflag>
 
 		<directory name="misc">
 			<file>icustubs.cpp</file>

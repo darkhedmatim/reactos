@@ -327,3 +327,27 @@ PcValidateConnectRequest(
     return KsValidateConnectRequest(Irp, Factory->PinDescriptorCount, Factory->KsPinDescriptor, Connect);
 }
 
+
+/* PcDeleteSubdeviceDescriptor */
+
+/* PcFreeEventTable */
+
+/* PcFreePropertyTable */
+
+/* PcGenerateEventDeferredRoutine */
+
+/* PcGenerateEventList */
+
+/* PcHandleDisableEventWithTable */
+
+/* PcHandleEnableEventWithTable */
+
+/* PcHandlePropertyWithTable */
+
+/* PcPinPropertyHandler */
+
+/* PcTerminateConnection */
+
+/* PcValidateConnectRequest */
+
+/* PcVerifyFilterIsReady */

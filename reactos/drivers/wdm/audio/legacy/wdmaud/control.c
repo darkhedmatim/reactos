@@ -184,7 +184,24 @@ WdmAudControlOpen(
         return SetIrpIoStatus(Irp, STATUS_NO_MEMORY, 0);
     }
 
+    InstanceInfo->Property.Set = KSPROPSETID_Sysaudio;
+    InstanceInfo->Property.Id = KSPROPERTY_SYSAUDIO_INSTANCE_INFO;
+    InstanceInfo->Property.Flags = KSPROPERTY_TYPE_SET;
+    InstanceInfo->Flags = 0;
+    InstanceInfo->DeviceNumber = FilterId;
+
     DeviceExtension = (PWDMAUD_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
+
+    Status = KsSynchronousIoControlDevice(DeviceExtension->FileObject, KernelMode, IOCTL_KS_PROPERTY, (PVOID)InstanceInfo, sizeof(SYSAUDIO_INSTANCE_INFO), NULL, 0, &BytesReturned);
+
+    if (!NT_SUCCESS(Status))
+    {
+        /* failed to acquire audio device */
+        DPRINT1("KsSynchronousIoControlDevice failed with %x\n", Status);
+        ExFreePool(InstanceInfo);
+        return SetIrpIoStatus(Irp, Status, 0);
+    }
+
     if (DeviceInfo->DeviceType == WAVE_IN_DEVICE_TYPE ||
         DeviceInfo->DeviceType == MIDI_IN_DEVICE_TYPE ||
         DeviceInfo->DeviceType == MIXER_DEVICE_TYPE)
@@ -244,17 +261,13 @@ WdmAudControlOpen(
 
         for(Index = 0; Index < ClientInfo->NumPins; Index++)
         {
-            if (ClientInfo->hPins[Index].Handle == NULL)
+            if (ClientInfo->hPins[Index].Handle == PinHandle)
             {
-                /* re-use a free index */
-                ClientInfo->hPins[Index].Handle = PinHandle;
-                ClientInfo->hPins[Index].FilterId = FilterId;
-                ClientInfo->hPins[Index].PinId = PinId;
-                ClientInfo->hPins[Index].Type = DeviceInfo->DeviceType;
-
+                /* the pin handle has been re-used */
                 DeviceInfo->hDevice = PinHandle;
                 return SetIrpIoStatus(Irp, Status, sizeof(WDMAUD_DEVICE_INFO));
             }
+
         }
 
         Handels = ExAllocatePool(NonPagedPool, sizeof(WDMAUD_HANDLE) * (ClientInfo->NumPins+1));
@@ -666,8 +679,6 @@ WdmAudWrite(
     PCONTEXT_WRITE Packet;
     PFILE_OBJECT FileObject;
     IO_STATUS_BLOCK IoStatusBlock;
-    PMDL Mdl;
-    PVOID SystemBuffer;
 
     IoStack = IoGetCurrentIrpStackLocation(Irp);
 
@@ -735,19 +746,10 @@ WdmAudWrite(
     }
     Packet->Header.Data = Buffer;
 
-    Mdl = IoAllocateMdl(DeviceInfo->Buffer, DeviceInfo->BufferSize, FALSE, FALSE, FALSE);
-    if (!Mdl)
-    {
-        /* no memory */
-        ExFreePool(Packet);
-        ObDereferenceObject(FileObject);
-        ExFreePool(Buffer);
-        return SetIrpIoStatus(Irp, STATUS_NO_MEMORY, 0);
-    }
-
     _SEH2_TRY
     {
-        MmProbeAndLockPages(Mdl, UserMode, IoReadAccess);
+        ProbeForRead(DeviceInfo->Buffer, DeviceInfo->BufferSize, TYPE_ALIGNMENT(char));
+        RtlMoveMemory(Buffer, DeviceInfo->Buffer, DeviceInfo->BufferSize);
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
@@ -761,25 +763,9 @@ WdmAudWrite(
         DPRINT1("Invalid buffer supplied\n");
         ExFreePool(Buffer);
         ExFreePool(Packet);
-        IoFreeMdl(Mdl);
         ObDereferenceObject(FileObject);
         return SetIrpIoStatus(Irp, Status, 0);
     }
-
-    SystemBuffer = MmGetSystemAddressForMdlSafe(Mdl, NormalPagePriority );
-    if (!SystemBuffer)
-    {
-        DPRINT1("Invalid buffer supplied\n");
-        ExFreePool(Buffer);
-        ExFreePool(Packet);
-        IoFreeMdl(Mdl);
-        ObDereferenceObject(FileObject);
-        return SetIrpIoStatus(Irp, Status, 0);
-    }
-
-    RtlMoveMemory(Buffer, SystemBuffer, DeviceInfo->BufferSize);
-    MmUnlockPages(Mdl);
-    IoFreeMdl(Mdl);
 
     KsStreamIo(FileObject, NULL, NULL, NULL, NULL, 0, &IoStatusBlock, Packet, sizeof(CONTEXT_WRITE), KSSTREAM_WRITE, KernelMode);
     ObDereferenceObject(FileObject);

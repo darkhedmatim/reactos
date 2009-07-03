@@ -309,7 +309,7 @@ KiRosConfigureArcDescriptor(IN ULONG PageBegin,
         }
 
         /* Check if the block matches us, and we haven't tried combining yet */
-        if (((TYPE_OF_MEMORY)BlockType == MemoryType) && !(Combined))
+        if ((BlockType == MemoryType) && !(Combined))
         {
             /* Check if it starts where we end */
             if (BlockBegin == PageEnd)

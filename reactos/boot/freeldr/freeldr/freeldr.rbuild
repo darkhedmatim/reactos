@@ -13,10 +13,8 @@
 			<library>cmlib</library>
 			<library>rtl</library>
 			<library>libcntpr</library>
-			<group linkerset="ld">
-				<linkerflag>-static</linkerflag>
-				<linkerflag>-lgcc</linkerflag>
-			</group>
+			<linkerflag>-static</linkerflag>
+			<linkerflag>-lgcc</linkerflag>
 		</module>
 	</if>
 	<if property="ARCH" value="arm">
@@ -31,11 +29,9 @@
 			<library>cmlib</library>
 			<library>rtl</library>
 			<library>libcntpr</library>
-			<group linkerset="ld">
-				<linkerflag>-lgcc</linkerflag>
-				<linkerflag>-static</linkerflag>
-				<linkerflag>-Wl,--section-start,pagedata=0x50000</linkerflag>
-			</group>
+			<linkerflag>-lgcc</linkerflag>
+			<linkerflag>-static</linkerflag>
+			<linkerflag>-Wl,--section-start,pagedata=0x50000</linkerflag>
 		</module>
 	</if>
 	<if property="ARCH" value="powerpc">
@@ -64,10 +60,8 @@
 			<library>cmlib</library>
 			<library>rtl</library>
 			<library>libcntpr</library>
-			<group linkerset="ld">
-				<linkerflag>-static</linkerflag>
-				<linkerflag>-lgcc</linkerflag>
-			</group>
+			<linkerflag>-static</linkerflag>
+			<linkerflag>-lgcc</linkerflag>
 		</module>
 	</if>
 </group>

@@ -31,7 +31,6 @@ typedef struct _SETTINGS
     BOOL writelog;
     BOOL objstate;
     BOOL outstate;
-    BOOL showversion;
 }
 SETTINGS, *PSETTINGS;
 

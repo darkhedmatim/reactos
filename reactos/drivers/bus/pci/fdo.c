@@ -176,7 +176,7 @@ FdoQueryBusRelations(
   IN PIRP Irp,
   PIO_STACK_LOCATION IrpSp)
 {
-  PPDO_DEVICE_EXTENSION PdoDeviceExtension = NULL;
+  PPDO_DEVICE_EXTENSION PdoDeviceExtension;
   PFDO_DEVICE_EXTENSION DeviceExtension;
   PDEVICE_RELATIONS Relations;
   PLIST_ENTRY CurrentEntry;
@@ -186,8 +186,6 @@ FdoQueryBusRelations(
   NTSTATUS ErrorStatus;
   ULONG Size;
   ULONG i;
-
-  UNREFERENCED_PARAMETER(IrpSp);
 
   DPRINT("Called\n");
 
@@ -433,8 +431,6 @@ FdoSetPower(
 {
   PFDO_DEVICE_EXTENSION DeviceExtension;
   NTSTATUS Status;
-
-  UNREFERENCED_PARAMETER(Irp);
 
   DPRINT("Called\n");
 

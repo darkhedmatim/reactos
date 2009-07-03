@@ -71,17 +71,3 @@ extern HINSTANCE hProgInstance;
 extern TCHAR filename[256];
 extern TCHAR filepathname[1000];
 extern BOOL isAFile;
-
-extern BOOL showGrid;
-extern BOOL showMiniature;
-
-extern HWND hwndMiniature;
-
-extern HWND hSizeboxLeftTop;
-extern HWND hSizeboxCenterTop;
-extern HWND hSizeboxRightTop;
-extern HWND hSizeboxLeftCenter;
-extern HWND hSizeboxRightCenter;
-extern HWND hSizeboxLeftBottom;
-extern HWND hSizeboxCenterBottom;
-extern HWND hSizeboxRightBottom;

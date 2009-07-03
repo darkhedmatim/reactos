@@ -132,7 +132,6 @@ PdoQueryBusInformation(
   PFDO_DEVICE_EXTENSION FdoDeviceExtension;
   PPNP_BUS_INFORMATION BusInformation;
 
-  UNREFERENCED_PARAMETER(IrpSp);
   DPRINT("Called\n");
 
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -162,7 +161,6 @@ PdoQueryCapabilities(
   PDEVICE_CAPABILITIES DeviceCapabilities;
   ULONG DeviceNumber, FunctionNumber;
 
-  UNREFERENCED_PARAMETER(Irp);
   DPRINT("Called\n");
 
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -321,7 +319,6 @@ PdoQueryResourceRequirements(
   ULONG Length;
   ULONG Flags;
 
-  UNREFERENCED_PARAMETER(IrpSp);
   DPRINT("PdoQueryResourceRequirements() called\n");
 
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -633,7 +630,6 @@ PdoQueryResources(
 
   DPRINT("PdoQueryResources() called\n");
 
-  UNREFERENCED_PARAMETER(IrpSp);
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
   /* Get PCI configuration space */
@@ -1125,7 +1121,6 @@ PdoQueryInterface(
 {
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(Irp);
   if (RtlCompareMemory(IrpSp->Parameters.QueryInterface.InterfaceType,
     &GUID_BUS_INTERFACE_STANDARD, sizeof(GUID)) == sizeof(GUID))
   {
@@ -1257,7 +1252,6 @@ PdoSetPower(
   PPDO_DEVICE_EXTENSION DeviceExtension;
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(Irp);
   DPRINT("Called\n");
 
   DeviceExtension = (PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;

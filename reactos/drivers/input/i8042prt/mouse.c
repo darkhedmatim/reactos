@@ -263,10 +263,6 @@ i8042MouDpcRoutine(
 	KIRQL Irql;
 	LARGE_INTEGER Timeout;
 
-	UNREFERENCED_PARAMETER(Dpc);
-	UNREFERENCED_PARAMETER(SystemArgument1);
-	UNREFERENCED_PARAMETER(SystemArgument2);
-
 	DeviceExtension = (PI8042_MOUSE_EXTENSION)DeferredContext;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 
@@ -351,10 +347,6 @@ i8042DpcRoutineMouseTimeout(
 	PI8042_MOUSE_EXTENSION DeviceExtension;
 	PPORT_DEVICE_EXTENSION PortDeviceExtension;
 	KIRQL Irql;
-
-	UNREFERENCED_PARAMETER(Dpc);
-	UNREFERENCED_PARAMETER(SystemArgument1);
-	UNREFERENCED_PARAMETER(SystemArgument2);
 
 	DeviceExtension = (PI8042_MOUSE_EXTENSION)DeferredContext;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
@@ -880,10 +872,8 @@ i8042MouInterruptService(
 	PI8042_MOUSE_EXTENSION DeviceExtension;
 	PPORT_DEVICE_EXTENSION PortDeviceExtension;
 	ULONG Counter;
-	UCHAR Output = 0, PortStatus = 0;
+	UCHAR Output, PortStatus;
 	NTSTATUS Status;
-
-	UNREFERENCED_PARAMETER(Interrupt);
 
 	DeviceExtension = (PI8042_MOUSE_EXTENSION)Context;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;

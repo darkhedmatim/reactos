@@ -52,7 +52,6 @@ PciDispatchDeviceControl(
   PIO_STACK_LOCATION IrpSp;
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(DeviceObject);
   DPRINT("Called. IRP is at (0x%X)\n", Irp);
 
   Irp->IoStatus.Information = 0;
@@ -189,7 +188,6 @@ DriverEntry(
 {
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(RegistryPath);
   DPRINT("Peripheral Component Interconnect Bus Driver\n");
 
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = PciDispatchDeviceControl;

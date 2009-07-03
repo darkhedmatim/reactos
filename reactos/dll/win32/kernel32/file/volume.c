@@ -88,7 +88,6 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 {
    DWORD drive, count;
    DWORD dwDriveMap;
-   LPSTR p;
 
    dwDriveMap = GetLogicalDrives();
 
@@ -101,7 +100,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 
    if ((count * 4) + 1 > nBufferLength) return ((count * 4) + 1);
 
-	p = lpBuffer;
+	LPSTR p = lpBuffer;
 
 	for (drive = 0; drive < MAX_DOS_DRIVES; drive++)
 	  if (dwDriveMap & (1<<drive))
@@ -127,7 +126,6 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 {
    DWORD drive, count;
    DWORD dwDriveMap;
-   LPWSTR p;
 
    dwDriveMap = GetLogicalDrives();
 
@@ -139,7 +137,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 
     if ((count * 4) + 1 > nBufferLength) return ((count * 4) + 1);
 
-    p = lpBuffer;
+    LPWSTR p = lpBuffer;
     for (drive = 0; drive < MAX_DOS_DRIVES; drive++)
         if (dwDriveMap & (1<<drive))
         {
@@ -936,7 +934,7 @@ GetVolumeNameForVolumeMountPointW(
             BufferLength = sizeof(MOUNTDEV_NAME) + MountDevName->NameLength;
             continue;
          }
-         else
+         else 
          {
             NtClose(FileHandle);
             SetLastErrorByStatus(Status);
@@ -1025,7 +1023,7 @@ GetVolumeNameForVolumeMountPointW(
    {
       MountPoint = MountPoints->MountPoints + Index;
       SymbolicLinkName = (PUCHAR)MountPoints + MountPoint->SymbolicLinkNameOffset;
-
+      
       /*
        * Check for "\\?\Volume{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}\"
        * (with the last slash being optional) style symbolic links.

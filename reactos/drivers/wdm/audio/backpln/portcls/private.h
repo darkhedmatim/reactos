@@ -7,11 +7,9 @@
 #ifndef PORTCLS_PRIVATE_H
 #define PORTCLS_PRIVATE_H
 
-//#define _KS_NO_ANONYMOUS_STRUCTURES_
-
 #include <ntddk.h>
 #include <portcls.h>
-#define YDEBUG
+#define NDEBUG
 #include <debug.h>
 
 #include <dmusicks.h>
@@ -184,6 +182,24 @@ NTAPI
 NewIrpQueue(
     IN IIrpQueue **Queue);
 
+
+typedef struct
+{
+    LIST_ENTRY Entry;
+    KSOBJECT_HEADER ObjectHeader;
+}SUBDEVICE_ENTRY;
+
+typedef struct
+{
+    LIST_ENTRY Entry;
+    ISubdevice * FromSubDevice;
+    LPWSTR FromUnicodeString;
+    ULONG FromPin;
+    ISubdevice * ToSubDevice;
+    LPWSTR ToUnicodeString;
+    ULONG ToPin;
+}PHYSICAL_CONNECTION;
+
 NTSTATUS
 NTAPI
 TopologyPropertyHandler(
@@ -197,6 +213,37 @@ PinPropertyHandler(
     IN PIRP Irp,
     IN PKSIDENTIFIER  Request,
     IN OUT PVOID  Data);
+
+typedef struct
+{
+    KSDEVICE_HEADER KsDeviceHeader;
+    PDEVICE_OBJECT PhysicalDeviceObject;
+    PDEVICE_OBJECT PrevDeviceObject;
+    PCPFNSTARTDEVICE StartDevice;
+    ULONG_PTR Unused[4];
+    IAdapterPowerManagement * AdapterPowerManagement;
+    ULONG MaxSubDevices;
+    KSOBJECT_CREATE_ITEM * CreateItems;
+
+    IResourceList* resources;
+    LIST_ENTRY SubDeviceList;
+    LIST_ENTRY PhysicalConnectionList;
+
+} PCLASS_DEVICE_EXTENSION, *PPCLASS_DEVICE_EXTENSION;
+
+
+typedef struct
+{
+    KSSTREAM_HEADER Header;
+    PIRP Irp;
+}CONTEXT_WRITE, *PCONTEXT_WRITE;
+
+typedef struct
+{
+    PVOID Pin;
+    PIO_WORKITEM WorkItem;
+    PIRP Irp;
+}CLOSESTREAM_CONTEXT, *PCLOSESTREAM_CONTEXT;
 
 NTSTATUS
 NTAPI
@@ -289,12 +336,6 @@ NTAPI
 NewIPortWavePciStream(
     OUT PPORTWAVEPCISTREAM *Stream);
 
-VOID
-NTAPI
-PcIoTimerRoutine(
-    IN PDEVICE_OBJECT  DeviceObject,
-    IN PVOID  Context);
-
 #define DEFINE_KSPROPERTY_PINPROPOSEDATAFORMAT(PinSet,\
     PropGeneral, PropInstances, PropIntersection)\
 DEFINE_KSPROPERTY_TABLE(PinSet) {\
@@ -311,63 +352,5 @@ DEFINE_KSPROPERTY_TABLE(PinSet) {\
     DEFINE_KSPROPERTY_ITEM_PIN_CONSTRAINEDDATARANGES(PropGeneral),\
     DEFINE_KSPROPERTY_ITEM_PIN_PROPOSEDATAFORMAT(PropGeneral)\
 }
-
-typedef struct
-{
-    LIST_ENTRY Entry;
-    KSOBJECT_HEADER ObjectHeader;
-}SUBDEVICE_ENTRY;
-
-typedef struct
-{
-    LIST_ENTRY Entry;
-    ISubdevice * FromSubDevice;
-    LPWSTR FromUnicodeString;
-    ULONG FromPin;
-    ISubdevice * ToSubDevice;
-    LPWSTR ToUnicodeString;
-    ULONG ToPin;
-}PHYSICAL_CONNECTION;
-
-typedef struct
-{
-    KSDEVICE_HEADER KsDeviceHeader;
-    PDEVICE_OBJECT PhysicalDeviceObject;
-    PDEVICE_OBJECT PrevDeviceObject;
-    PCPFNSTARTDEVICE StartDevice;
-    ULONG_PTR Unused[4];
-    IAdapterPowerManagement * AdapterPowerManagement;
-    ULONG MaxSubDevices;
-    KSOBJECT_CREATE_ITEM * CreateItems;
-
-    IResourceList* resources;
-    LIST_ENTRY SubDeviceList;
-    LIST_ENTRY PhysicalConnectionList;
-
-    LIST_ENTRY TimerList;
-    KSPIN_LOCK TimerListLock;
-
-} PCLASS_DEVICE_EXTENSION, *PPCLASS_DEVICE_EXTENSION;
-
-
-typedef struct
-{
-    KSSTREAM_HEADER Header;
-    PIRP Irp;
-}CONTEXT_WRITE, *PCONTEXT_WRITE;
-
-typedef struct
-{
-    PVOID Pin;
-    PIO_WORKITEM WorkItem;
-    PIRP Irp;
-}CLOSESTREAM_CONTEXT, *PCLOSESTREAM_CONTEXT;
-
-typedef struct
-{
-    LIST_ENTRY Entry;
-    PIO_TIMER_ROUTINE pTimerRoutine;
-    PVOID Context;
-}TIMER_CONTEXT, *PTIMER_CONTEXT;
 
 #endif

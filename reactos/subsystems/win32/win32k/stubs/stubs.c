@@ -799,6 +799,18 @@ BRUSHOBJ_hGetColorTransform(
 /*
  * @unimplemented
  */
+VOID
+APIENTRY
+EngClearEvent(
+   IN PEVENT Event)
+{
+    /* Forward to the kernel */
+    KeClearEvent((PKEVENT)Event);
+}
+
+/*
+ * @unimplemented
+ */
 BOOL
 APIENTRY
 EngDeleteFile(
@@ -911,6 +923,17 @@ EngQueryFileTimeStamp(IN LPWSTR FileName)
    FileTime.QuadPart = 0;
    UNIMPLEMENTED;
    return FileTime;
+}
+
+/*
+ * @unimplemented
+ */
+LONG APIENTRY
+EngReadStateEvent(
+   IN PEVENT Event)
+{
+   UNIMPLEMENTED;
+   return 0;
 }
 
 /*

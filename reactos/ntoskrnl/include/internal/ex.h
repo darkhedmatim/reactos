@@ -574,8 +574,8 @@ ExInsertFastReference(IN OUT PEX_FAST_REF FastRef,
     return TRUE;   
 }
 
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 ExReleaseFastReference(IN PEX_FAST_REF FastRef,
                        IN PVOID Object)
 {
@@ -609,8 +609,8 @@ ExReleaseFastReference(IN PEX_FAST_REF FastRef,
     return TRUE;
 }
 
-FORCEINLINE
 EX_FAST_REF
+FORCEINLINE
 ExSwapFastReference(IN PEX_FAST_REF FastRef,
                     IN PVOID Object)
 {
@@ -636,8 +636,8 @@ ExSwapFastReference(IN PEX_FAST_REF FastRef,
     return OldValue;
 }
 
-FORCEINLINE
 EX_FAST_REF
+FORCEINLINE
 ExCompareSwapFastReference(IN PEX_FAST_REF FastRef,
                            IN PVOID Object,
                            IN PVOID OldObject)

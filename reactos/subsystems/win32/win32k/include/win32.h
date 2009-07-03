@@ -43,7 +43,6 @@ typedef struct _THREADINFO
     UINT                cPaintsReady; /* Count of paints pending. */
     UINT                cTimersReady; /* Count of timers pending. */
     ULONG               fsHooks;
-    PHOOK               sphkCurrent;
     LIST_ENTRY          PtiLink;
 
     CLIENTTHREADINFO    cti;  // Used only when no Desktop or pcti NULL.

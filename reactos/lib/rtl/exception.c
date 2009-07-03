@@ -66,11 +66,6 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
     RtlRaiseStatus(Status);
 }
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4717)
-#endif
-
 /*
  * @implemented
  */
@@ -117,10 +112,6 @@ RtlRaiseStatus(NTSTATUS Status)
     /* If we returned, raise a status */
     RtlRaiseStatus(Status);
 }
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 /*
  * @implemented

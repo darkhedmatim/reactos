@@ -71,6 +71,12 @@ MiFlushTlb(PULONG Pt, PVOID Address)
     }
 }
 
+PULONG
+MmGetPageDirectory(VOID)
+{
+    return (PULONG)(ULONG_PTR)__readcr3();
+}
+
 static ULONG
 ProtectToPTE(ULONG flProtect)
 {
@@ -220,6 +226,32 @@ MmCreateProcessAddressSpace(IN ULONG MinWs,
     return TRUE;
 }
 
+VOID
+NTAPI
+MmDeletePageTable(PEPROCESS Process, PVOID Address)
+{
+    PEPROCESS CurrentProcess = PsGetCurrentProcess();
+    
+    if (Process != NULL && Process != CurrentProcess)
+    {
+        KeAttachProcess(&Process->Pcb);
+    }
+    
+    MiAddressToPde(Address)->u.Long = 0;
+    MiFlushTlb((PULONG)MiAddressToPde(Address),
+               MiAddressToPte(Address));
+    
+    if (Address >= MmSystemRangeStart)
+    {
+        KeBugCheck(MEMORY_MANAGEMENT);
+        //       MmGlobalKernelPageDirectory[ADDR_TO_PDE_OFFSET(Address)] = 0;
+    }
+    if (Process != NULL && Process != CurrentProcess)
+    {
+        KeDetachProcess();
+    }
+}
+
 static PULONG
 MmGetPageTableForProcess(PEPROCESS Process, PVOID Address, BOOLEAN Create)
 {
@@ -278,7 +310,7 @@ MmGetPageTableForProcess(PEPROCESS Process, PVOID Address, BOOLEAN Create)
                 {
                     return NULL;
                 }
-                Status = MmRequestPageMemoryConsumer(MC_SYSTEM, FALSE, &Pfn);
+                Status = MmRequestPageMemoryConsumer(MC_NPPOOL, FALSE, &Pfn);
                 if (!NT_SUCCESS(Status) || Pfn == 0)
                 {
                     KeBugCheck(MEMORY_MANAGEMENT);
@@ -290,11 +322,8 @@ MmGetPageTableForProcess(PEPROCESS Process, PVOID Address, BOOLEAN Create)
                 }
                 if(0 != InterlockedCompareExchangePte(&MmGlobalKernelPageDirectory[PdeOffset], Entry, 0))
                 {
-                    MmReleasePageMemoryConsumer(MC_SYSTEM, Pfn);
+                    MmReleasePageMemoryConsumer(MC_NPPOOL, Pfn);
                 }
-                InterlockedExchangePte(PageDir, MmGlobalKernelPageDirectory[PdeOffset]);
-                RtlZeroMemory(MiPteToAddress(PageDir), PAGE_SIZE);
-                return (PULONG)MiAddressToPte(Address);
             }
             InterlockedExchangePte(PageDir, MmGlobalKernelPageDirectory[PdeOffset]);
         }
@@ -1129,7 +1158,7 @@ MiInitPageDirectoryMap(VOID)
     BoundaryAddressMultiple.QuadPart = 0;
     BaseAddress = (PVOID)PAGETABLE_MAP;
     Status = MmCreateMemoryArea(MmGetKernelAddressSpace(),
-                                MEMORY_AREA_SYSTEM | MEMORY_AREA_STATIC,
+                                MEMORY_AREA_SYSTEM,
                                 &BaseAddress,
                                 0x400000,
                                 PAGE_READWRITE,
@@ -1143,7 +1172,7 @@ MiInitPageDirectoryMap(VOID)
     }
     BaseAddress = (PVOID)HYPERSPACE;
     Status = MmCreateMemoryArea(MmGetKernelAddressSpace(),
-                                MEMORY_AREA_SYSTEM | MEMORY_AREA_STATIC,
+                                MEMORY_AREA_SYSTEM,
                                 &BaseAddress,
                                 0x400000,
                                 PAGE_READWRITE,

@@ -28,7 +28,6 @@ typedef struct _DESKTOP
     PWIN32HEAP pheapDesktop;
     PSECTION_OBJECT DesktopHeapSection;
     PDESKTOPINFO DesktopInfo;
-    HWND spwndMessage;
 } DESKTOP, *PDESKTOP;
 
 extern PDESKTOP InputDesktop;
@@ -110,17 +109,22 @@ IntValidateDesktopHandle(
    KPROCESSOR_MODE AccessMode,
    ACCESS_MASK DesiredAccess,
    PDESKTOP *Object);
+
 NTSTATUS FASTCALL
 IntParseDesktopPath(PEPROCESS Process,
                     PUNICODE_STRING DesktopPath,
                     HWINSTA *hWinSta,
                     HDESK *hDesktop);
-BOOL FASTCALL IntDesktopUpdatePerUserSettings(BOOL bEnable);
+
+BOOL FASTCALL
+IntDesktopUpdatePerUserSettings(BOOL bEnable);
+
 VOID APIENTRY UserRedrawDesktop(VOID);
+
 BOOL IntRegisterShellHookWindow(HWND hWnd);
 BOOL IntDeRegisterShellHookWindow(HWND hWnd);
+
 VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam);
-HDC FASTCALL UserGetDesktopDC(ULONG,BOOL,BOOL);
 
 #define IntIsActiveDesktop(Desktop) \
   ((Desktop)->WindowStation->ActiveDesktop == (Desktop))
@@ -130,7 +134,6 @@ HDC FASTCALL UserGetDesktopDC(ULONG,BOOL,BOOL);
     &(OBJECT_HEADER_TO_NAME_INFO(OBJECT_TO_OBJECT_HEADER(d))->Name) :   \
     NULL
 
-HWND FASTCALL IntGetMessageWindow(VOID);
 
 static __inline PVOID
 DesktopHeapAlloc(IN PDESKTOP Desktop,

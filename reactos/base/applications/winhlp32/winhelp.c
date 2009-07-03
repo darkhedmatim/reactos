@@ -257,11 +257,11 @@ HLPFILE_WINDOWINFO*     WINHELP_GetWindowInfo(HLPFILE* hlpfile, LPCSTR name)
     unsigned int     i;
 
     if (!name || !name[0])
-        name = Globals.active_win->info->name;
+        name = Globals.active_win->lpszName;
 
     if (hlpfile)
         for (i = 0; i < hlpfile->numWindows; i++)
-            if (!lstrcmpi(hlpfile->windows[i].name, name))
+            if (!strcmp(hlpfile->windows[i].name, name))
                 return &hlpfile->windows[i];
 
     if (strcmp(name, "main") != 0)
@@ -274,19 +274,11 @@ HLPFILE_WINDOWINFO*     WINHELP_GetWindowInfo(HLPFILE* hlpfile, LPCSTR name)
     {
         strcpy(mwi.type, "primary");
         strcpy(mwi.name, "main");
-        if (hlpfile && hlpfile->lpszTitle[0])
-        {
-            char        tmp[128];
-            LoadString(Globals.hInstance, STID_WINE_HELP, tmp, sizeof(tmp));
-            snprintf(mwi.caption, sizeof(mwi.caption), "%s %s - %s",
-                     hlpfile->lpszTitle, tmp, hlpfile->lpszPath);
-        }
-        else
-            LoadString(Globals.hInstance, STID_WINE_HELP, mwi.caption, sizeof(mwi.caption));
+        LoadString(Globals.hInstance, STID_WINE_HELP, mwi.caption, sizeof(mwi.caption));
         mwi.origin.x = mwi.origin.y = mwi.size.cx = mwi.size.cy = CW_USEDEFAULT;
         mwi.style = SW_SHOW;
         mwi.win_style = WS_OVERLAPPEDWINDOW;
-        mwi.sr_color = mwi.nsr_color = 0xFFFFFF;
+        mwi.sr_color = mwi.sr_color = 0xFFFFFF;
     }
     return &mwi;
 }
@@ -508,39 +500,11 @@ static void WINHELP_DeletePageLinks(HLPFILE_PAGE* page)
 
 /***********************************************************************
  *
- *           WINHELP_GrabWindow
- */
-WINHELP_WINDOW* WINHELP_GrabWindow(WINHELP_WINDOW* win)
-{
-    WINE_TRACE("Grab %p#%d++\n", win, win->ref_count);
-    win->ref_count++;
-    return win;
-}
-
-/***********************************************************************
- *
- *           WINHELP_RelaseWindow
- */
-BOOL WINHELP_ReleaseWindow(WINHELP_WINDOW* win)
-{
-    WINE_TRACE("Release %p#%d--\n", win, win->ref_count);
-
-    if (!--win->ref_count)
-    {
-        DestroyWindow(win->hMainWnd);
-        return FALSE;
-    }
-    return TRUE;
-}
-
-/***********************************************************************
- *
  *           WINHELP_DeleteWindow
  */
 static void WINHELP_DeleteWindow(WINHELP_WINDOW* win)
 {
     WINHELP_WINDOW**    w;
-    BOOL bExit;
 
     for (w = &Globals.win_list; *w; w = &(*w)->next)
     {
@@ -550,7 +514,6 @@ static void WINHELP_DeleteWindow(WINHELP_WINDOW* win)
             break;
         }
     }
-    bExit = (Globals.wVersion >= 4 && !lstrcmpi(win->info->name, "main"));
 
     if (Globals.active_win == win)
     {
@@ -574,10 +537,6 @@ static void WINHELP_DeleteWindow(WINHELP_WINDOW* win)
 
     if (win->page) HLPFILE_FreeHlpFile(win->page->file);
     HeapFree(GetProcessHeap(), 0, win);
-
-    if (bExit) MACRO_Exit();
-    if (!Globals.win_list)
-        PostQuitMessage(0);
 }
 
 static char* WINHELP_GetCaption(WINHELP_WNDPAGE* wpage)
@@ -686,6 +645,7 @@ BOOL WINHELP_CreateHelpWindow(WINHELP_WNDPAGE* wpage, int nCmdShow, BOOL remembe
 {
     WINHELP_WINDOW*     win = NULL;
     BOOL                bPrimary, bPopup, bReUsed = FALSE;
+    LPSTR               name;
     HICON               hIcon;
     HWND                hTextWnd = NULL;
 
@@ -696,7 +656,7 @@ BOOL WINHELP_CreateHelpWindow(WINHELP_WNDPAGE* wpage, int nCmdShow, BOOL remembe
     {
         for (win = Globals.win_list; win; win = win->next)
         {
-            if (!lstrcmpi(win->info->name, wpage->wininfo->name))
+            if (!lstrcmpi(win->lpszName, wpage->wininfo->name))
             {
                 POINT   pt = {0, 0};
                 SIZE    sz = {0, 0};
@@ -739,19 +699,21 @@ BOOL WINHELP_CreateHelpWindow(WINHELP_WNDPAGE* wpage, int nCmdShow, BOOL remembe
     if (!win)
     {
         /* Initialize WINHELP_WINDOW struct */
-        win = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(WINHELP_WINDOW));
+        win = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY,
+                        sizeof(WINHELP_WINDOW) + strlen(wpage->wininfo->name) + 1);
         if (!win) return FALSE;
         win->next = Globals.win_list;
         Globals.win_list = win;
 
+        name = (char*)win + sizeof(WINHELP_WINDOW);
+        lstrcpy(name, wpage->wininfo->name);
+        win->lpszName = name;
         win->hHandCur = LoadCursorW(0, (LPWSTR)IDC_HAND);
         win->back.index = 0;
         win->font_scale = 1;
-        WINHELP_GrabWindow(win);
     }
     win->page = wpage->page;
     win->info = wpage->wininfo;
-    WINHELP_GrabWindow(win);
 
     if (!bPopup && wpage->page && remember)
     {
@@ -810,19 +772,11 @@ BOOL WINHELP_CreateHelpWindow(WINHELP_WNDPAGE* wpage, int nCmdShow, BOOL remembe
     {
         HLPFILE_MACRO  *macro;
         for (macro = wpage->page->file->first_macro; macro; macro = macro->next)
-            MACRO_ExecuteMacro(win, macro->lpszMacro);
+            MACRO_ExecuteMacro(macro->lpszMacro);
 
         for (macro = wpage->page->first_macro; macro; macro = macro->next)
-            MACRO_ExecuteMacro(win, macro->lpszMacro);
+            MACRO_ExecuteMacro(macro->lpszMacro);
     }
-    /* See #17681, in some cases, the newly created window is closed by the macros it contains
-     * (braindead), so deal with this case
-     */
-    for (win = Globals.win_list; win; win = win->next)
-    {
-        if (!lstrcmpi(win->info->name, wpage->wininfo->name)) break;
-    }
-    if (!win || !WINHELP_ReleaseWindow(win)) return TRUE;
 
     if (bPopup)
     {
@@ -916,7 +870,7 @@ static BOOL WINHELP_HandleTextMouse(WINHELP_WINDOW* win, UINT msg, LPARAM lParam
                                            SW_NORMAL);
                 break;
             case hlp_link_macro:
-                MACRO_ExecuteMacro(win, link->string);
+                MACRO_ExecuteMacro(link->string);
                 break;
             default:
                 WINE_FIXME("Unknown link cookie %d\n", link->cookie);
@@ -934,7 +888,7 @@ static BOOL WINHELP_HandleTextMouse(WINHELP_WINDOW* win, UINT msg, LPARAM lParam
  */
 static BOOL WINHELP_CheckPopup(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT* lret)
 {
-    WINHELP_WINDOW*     popup;
+    HWND        hPopup;
 
     if (!Globals.active_popup) return FALSE;
 
@@ -967,9 +921,9 @@ static BOOL WINHELP_CheckPopup(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     case WM_NCLBUTTONDOWN:
     case WM_NCMBUTTONDOWN:
     case WM_NCRBUTTONDOWN:
-        popup = Globals.active_popup;
+        hPopup = Globals.active_popup->hMainWnd;
         Globals.active_popup = NULL;
-        WINHELP_ReleaseWindow(popup);
+        DestroyWindow(hPopup);
         return TRUE;
     }
     return FALSE;
@@ -1414,7 +1368,7 @@ static LRESULT CALLBACK WINHELP_MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, 
             for (button = win->first_button; button; button = button->next)
                 if (wParam == button->wParam) break;
             if (button)
-                MACRO_ExecuteMacro(win, button->lpszMacro);
+                MACRO_ExecuteMacro(button->lpszMacro);
             else if (!HIWORD(wParam))
                 MessageBox(0, MAKEINTRESOURCE(STID_NOT_IMPLEMENTED),
                            MAKEINTRESOURCE(STID_WHERROR), MB_OK);
@@ -1473,8 +1427,7 @@ static LRESULT CALLBACK WINHELP_MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, 
                     switch (msgf->msg)
                     {
                     case WM_KEYUP:
-                        if (msgf->wParam == VK_ESCAPE)
-                            WINHELP_ReleaseWindow((WINHELP_WINDOW*)GetWindowLongPtr(hWnd, 0));
+                        if (msgf->wParam == VK_ESCAPE) DestroyWindow(hWnd);
                         break;
                     case WM_RBUTTONDOWN:
                     {
@@ -1538,9 +1491,18 @@ static LRESULT CALLBACK WINHELP_MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, 
         CheckMenuItem((HMENU)wParam, MNID_OPTS_FONTS_LARGE,
                       MF_BYCOMMAND | (win->font_scale == 2) ? MF_CHECKED : 0);
         break;
-    case WM_DESTROY:
-        win = (WINHELP_WINDOW*) GetWindowLongPtr(hWnd, 0);
-        WINHELP_DeleteWindow(win);
+
+    case WM_NCDESTROY:
+        {
+            BOOL bExit;
+            win = (WINHELP_WINDOW*) GetWindowLongPtr(hWnd, 0);
+            bExit = (Globals.wVersion >= 4 && !lstrcmpi(win->lpszName, "main"));
+            WINHELP_DeleteWindow(win);
+
+            if (bExit) MACRO_Exit();
+            if (!Globals.win_list)
+                PostQuitMessage(0);
+        }
         break;
     }
     return DefWindowProc(hWnd, msg, wParam, lParam);

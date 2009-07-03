@@ -342,8 +342,7 @@ typedef enum _KDP_DEBUG_SERVICE
     KdSpare1 = 0x23, /* h */
     KdSpare2 = 0x17, /* i */
     KdSpare3 = 0x24, /* j */
-    EnterDebugger = 0x25,  /* k */
-    ThatsWhatSheSaid = 69 /* FIGURE IT OUT */
+    EnterDebugger = 0x25  /* k */
 } KDP_DEBUG_SERVICE;
 
 /* Dispatch Table for Wrapper Functions */

@@ -23,8 +23,6 @@ VfatReadWritePartialCompletion (IN PDEVICE_OBJECT DeviceObject,
   PVFAT_IRP_CONTEXT IrpContext;
   PMDL Mdl;
 
-  UNREFERENCED_PARAMETER(DeviceObject);
-
   DPRINT("VfatReadWritePartialCompletion() called\n");
 
   IrpContext = (PVFAT_IRP_CONTEXT)Context;

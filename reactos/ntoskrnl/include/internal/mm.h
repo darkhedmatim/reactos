@@ -21,6 +21,7 @@ extern ULONG MmPagedPoolSize;
 extern PMEMORY_ALLOCATION_DESCRIPTOR MiFreeDescriptor;
 extern MEMORY_ALLOCATION_DESCRIPTOR MiFreeDescriptorOrg;
 extern ULONG MmHighestPhysicalPage;
+extern PVOID MmPfnDatabase;
 
 struct _KTRAP_FRAME;
 struct _EPROCESS;
@@ -28,8 +29,6 @@ struct _MM_RMAP_ENTRY;
 struct _MM_PAGEOP;
 typedef ULONG SWAPENTRY;
 typedef ULONG PFN_TYPE, *PPFN_TYPE;
-
-#define MI_STATIC_MEMORY_AREAS              (8)
 
 #define MEMORY_AREA_INVALID                 (0)
 #define MEMORY_AREA_SECTION_VIEW            (1)
@@ -45,7 +44,6 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 #define MEMORY_AREA_PAGED_POOL              (12)
 #define MEMORY_AREA_NO_ACCESS               (13)
 #define MEMORY_AREA_PEB_OR_TEB              (14)
-#define MEMORY_AREA_STATIC                  (0x80000000)
 
 #define MM_PHYSICAL_PAGE_MPW_PENDING        (0x8)
 
@@ -64,7 +62,6 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 #define HYPER_SPACE		                    (0xC0400000)
 
 #define MI_HYPERSPACE_PTES                  (256 - 1)
-#define MI_ZERO_PTES                        (32)
 #define MI_MAPPING_RANGE_START              (ULONG)HYPER_SPACE
 #define MI_MAPPING_RANGE_END                (MI_MAPPING_RANGE_START + \
                                              MI_HYPERSPACE_PTES * PAGE_SIZE)
@@ -106,8 +103,7 @@ typedef ULONG PFN_TYPE, *PPFN_TYPE;
 #define MC_USER                             (1)
 #define MC_PPOOL                            (2)
 #define MC_NPPOOL                           (3)
-#define MC_SYSTEM                           (4)
-#define MC_MAXIMUM                          (5)
+#define MC_MAXIMUM                          (4)
 
 #define PAGED_POOL_MASK                     1
 #define MUST_SUCCEED_POOL_MASK              2
@@ -293,76 +289,31 @@ typedef struct
     ULONG PagingRequestsInLastFifteenMinutes;
 } MM_STATS;
 
-//
-// These two mappings are actually used by Windows itself, based on the ASSERTS
-//
-#define StartOfAllocation ReadInProgress
-#define EndOfAllocation WriteInProgress
-
-typedef struct _MMPFNENTRY
+typedef struct _PHYSICAL_PAGE
 {
-    USHORT Modified:1;
-    USHORT ReadInProgress:1;                 // StartOfAllocation
-    USHORT WriteInProgress:1;                // EndOfAllocation
-    USHORT PrototypePte:1;                   // Zero
-    USHORT PageColor:4;                      // LockCount
-    USHORT PageLocation:3;                   // Consumer
-    USHORT RemovalRequested:1;
-    USHORT CacheAttribute:2;                 // Type
-    USHORT Rom:1;
-    USHORT ParityError:1;
-} MMPFNENTRY;
-
-typedef struct _MMPFN
-{
-    union
-    {
-        PFN_NUMBER Flink;                    // ListEntry.Flink
-        ULONG WsIndex;
-        PKEVENT Event;
-        NTSTATUS ReadStatus;
-        SINGLE_LIST_ENTRY NextStackPfn;
-    } u1;
-    PMMPTE PteAddress;                       // ListEntry.Blink
-    union
-    {
-        PFN_NUMBER Blink;
-        ULONG_PTR ShareCount;                // MapCount
-    } u2;
     union
     {
         struct
         {
-            USHORT ReferenceCount;           // ReferenceCount
-            MMPFNENTRY e1;
-        };
-        struct
-        {
-            USHORT ReferenceCount;
-            USHORT ShortFlags;
-        } e2;
-    } u3;
-    union
-    {
-        MMPTE OriginalPte;
-        LONG AweReferenceCount;              // RmapListHead
+            ULONG Type: 2;
+            ULONG Consumer: 3;
+            ULONG Zero: 1;
+            ULONG StartOfAllocation: 1;
+            ULONG EndOfAllocation: 1;
+        }
+        Flags;
+        ULONG AllFlags;
     };
-    union
-    {
-        ULONG_PTR EntireFrame;               // SavedSwapEntry
-        struct
-        {
-            ULONG_PTR PteFrame:25;
-            ULONG_PTR InPageError:1;
-            ULONG_PTR VerifierAllocation:1;
-            ULONG_PTR AweAllocation:1;
-            ULONG_PTR Priority:3;
-            ULONG_PTR MustBeCached:1;
-        };
-    } u4;
-} MMPFN, *PMMPFN;
 
-extern PMMPFN MmPfnDatabase;
+    LIST_ENTRY ListEntry;
+    ULONG ReferenceCount;
+    SWAPENTRY SavedSwapEntry;
+    ULONG LockCount;
+    ULONG MapCount;
+    struct _MM_RMAP_ENTRY* RmapListHead;
+}
+PHYSICAL_PAGE, *PPHYSICAL_PAGE;
+
 extern MM_STATS MmStats;
 
 typedef struct _MM_PAGEOP
@@ -1040,19 +991,24 @@ MmPageOutPhysicalAddress(PFN_TYPE Page);
 
 /* freelist.c **********************************************************/
 
-#define ASSERT_PFN(x) ASSERT((x)->u3.e1.CacheAttribute != 0)
+#define ASSERT_PFN(x) ASSERT((x)->Flags.Type != 0)
 
 FORCEINLINE
-PMMPFN
+PPHYSICAL_PAGE
 MiGetPfnEntry(IN PFN_TYPE Pfn)
 {
-    PMMPFN Page;
+    PPHYSICAL_PAGE Page;
+    extern PPHYSICAL_PAGE MmPageArray;
+    extern ULONG MmPageArraySize;
+
+    /* Mark MmPageArraySize as unreferenced, otherwise it will appear as an unused variable on a Release build */
+    UNREFERENCED_PARAMETER(MmPageArraySize);
 
     /* Make sure the PFN number is valid */
-    if (Pfn > MmHighestPhysicalPage) return NULL;
+    ASSERT(Pfn <= MmPageArraySize);
 
     /* Get the entry */
-    Page = &MmPfnDatabase[Pfn];
+    Page = &MmPageArray[Pfn];
 
     /* Make sure it's valid */
     ASSERT_PFN(Page);
@@ -1060,16 +1016,6 @@ MiGetPfnEntry(IN PFN_TYPE Pfn)
     /* Return it */
     return Page;
 };
-
-FORCEINLINE
-PFN_NUMBER
-MiGetPfnEntryIndex(IN PMMPFN Pfn1)
-{
-    //
-    // This will return the Page Frame Number (PFN) from the MMPFN
-    //
-    return Pfn1 - MmPfnDatabase;
-}
 
 PFN_TYPE
 NTAPI
@@ -1126,20 +1072,13 @@ MmInitializePageList(
     VOID
 );
 
-VOID
-NTAPI
-MmDumpPfnDatabase(
-   VOID
-);
-
 PFN_TYPE
 NTAPI
 MmGetContinuousPages(
     ULONG NumberOfBytes,
     PHYSICAL_ADDRESS LowestAcceptableAddress,
     PHYSICAL_ADDRESS HighestAcceptableAddress,
-    PHYSICAL_ADDRESS BoundaryAddressMultiple,
-    BOOLEAN ZeroPages
+    PHYSICAL_ADDRESS BoundaryAddressMultiple
 );
 
 NTSTATUS
@@ -1167,31 +1106,17 @@ MiUnmapPageInHyperSpace(IN PEPROCESS Process,
 
 PVOID
 NTAPI
-MiMapPagesToZeroInHyperSpace(IN PMMPFN *Pages,
-                             IN PFN_NUMBER NumberOfPages);
-
-VOID
-NTAPI
-MiUnmapPagesInZeroSpace(IN PVOID VirtualAddress,
-                        IN PFN_NUMBER NumberOfPages);
+MiMapPageToZeroInHyperSpace(IN PFN_NUMBER Page);
 
 //
 // ReactOS Compatibility Layer
 //
-FORCEINLINE
 PVOID
+FORCEINLINE
 MmCreateHyperspaceMapping(IN PFN_NUMBER Page)
 {
     HyperProcess = (PEPROCESS)KeGetCurrentThread()->ApcState.Process;
     return MiMapPageInHyperSpace(HyperProcess, Page, &HyperIrql);
-}
-
-FORCEINLINE
-PVOID
-MiMapPageToZeroInHyperSpace(IN PFN_NUMBER Page)
-{
-    PMMPFN Pfn1 = MiGetPfnEntry(Page);
-    return MiMapPagesToZeroInHyperSpace(&Pfn1, 1);
 }
 
 #define MmDeleteHyperspaceMapping(x) MiUnmapPageInHyperSpace(HyperProcess, x, HyperIrql);
@@ -1352,6 +1277,16 @@ MmGetReferenceCountPage(PFN_TYPE Page);
 BOOLEAN
 NTAPI
 MmIsPageInUse(PFN_TYPE Page);
+
+VOID
+NTAPI
+MmSetFlagsPage(
+    PFN_TYPE Page,
+    ULONG Flags);
+
+ULONG
+NTAPI
+MmGetFlagsPage(PFN_TYPE Page);
 
 VOID
 NTAPI

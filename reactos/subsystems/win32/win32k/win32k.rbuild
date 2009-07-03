@@ -9,7 +9,6 @@
 	<include base="freetype">include</include>
 	<include base="ReactOS">include/reactos/subsys</include>
 	<include base="ReactOS">include/reactos/drivers</include>
-	<compilerflag compilerset="gcc">-fms-extensions</compilerflag>
 	<define name="LANGPACK" />
 	<define name="_WIN32K_" />
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38269
@@ -48,13 +47,13 @@
 		<file>alphablend.c</file>
 		<file>bitblt.c</file>
 		<file>engbrush.c</file>
-		<file>engevent.c</file>
 		<file>clip.c</file>
 		<file>copybits.c</file>
 		<file>debug.c</file>
 		<file>device.c</file>
 		<file>driverobj.c</file>
 		<file>error.c</file>
+		<file>event.c</file>
 		<file>float.c</file>
 		<if property="ARCH" value="i386">
 			<directory name="i386">
@@ -87,11 +86,9 @@
 	<directory name="misc">
 		<file>driver.c</file>
 		<file>err.c</file>
-		<file>file.c</file>
 		<file>math.c</file>
 		<file>rtlstr.c</file>
 		<file>copy.c</file>
-		<file>registry.c</file>
 		<file>usrheap.c</file>
 		<if property="ARCH" value="i386">
 			<directory name="i386">
@@ -198,7 +195,7 @@
 	</directory>
 
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>
 <module name="win32k" type="kernelmodedriver" installbase="system32" installname="win32k.sys" crt="libcntpr">
 	<importlibrary definition="win32k.pspec" />

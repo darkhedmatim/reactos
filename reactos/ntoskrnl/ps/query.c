@@ -74,31 +74,22 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
         (PPROCESS_SESSION_INFORMATION)ProcessInformation;
     PVM_COUNTERS VmCounters = (PVM_COUNTERS)ProcessInformation;
     PIO_COUNTERS IoCounters = (PIO_COUNTERS)ProcessInformation;
-    PQUOTA_LIMITS QuotaLimits = (PQUOTA_LIMITS)ProcessInformation;
     PROCESS_DEVICEMAP_INFORMATION DeviceMap;
     PUNICODE_STRING ImageName;
     ULONG Cookie;
     PAGED_CODE();
 
-    /* Check for user-mode caller */
-    if (PreviousMode != KernelMode)
-    {
-        /* Prepare to probe parameters */
-        _SEH2_TRY
-        {
-            ProbeForWrite(ProcessInformation,
-                          ProcessInformationLength,
-                          sizeof(ULONG));
-            if (ReturnLength) ProbeForWriteUlong(ReturnLength);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Get the error code */
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
-        if(!NT_SUCCESS(Status)) return Status;
-    }
+    /* Check validity of Information Class */
+#if 0
+    Status = DefaultQueryInfoBufferCheck(ProcessInformationClass,
+                                         PsProcessInfoClass,
+                                         RTL_NUMBER_OF(PsProcessInfoClass),
+                                         ProcessInformation,
+                                         ProcessInformationLength,
+                                         ReturnLength,
+                                         PreviousMode);
+    if (!NT_SUCCESS(Status)) return Status;
+#endif
 
     if((ProcessInformationClass == ProcessCookie) &&
         (ProcessHandle != NtCurrentProcess()))
@@ -160,7 +151,7 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
             ObDereferenceObject(Process);
             break;
 
-        /* Process quota limits */
+        /* Quote limits: not implemented */
         case ProcessQuotaLimits:
 
             Length = sizeof(QUOTA_LIMITS);
@@ -179,46 +170,9 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
                                                NULL);
             if (!NT_SUCCESS(Status)) break;
 
-            /* Indicate success */
-            Status = STATUS_SUCCESS;
-
-            _SEH2_TRY
-            {
-                /* Set max/min working set sizes */
-                QuotaLimits->MaximumWorkingSetSize =
-                        Process->Vm.MaximumWorkingSetSize << PAGE_SHIFT;
-                QuotaLimits->MinimumWorkingSetSize =
-                        Process->Vm.MinimumWorkingSetSize << PAGE_SHIFT;
-
-                /* Set default time limits */
-                QuotaLimits->TimeLimit.LowPart = (ULONG)-1;
-                QuotaLimits->TimeLimit.HighPart = (ULONG)-1;
-
-                /* Is quota block a default one? */
-                if (Process->QuotaBlock == &PspDefaultQuotaBlock)
-                {
-                    /* Set default pools and pagefile limits */
-                    QuotaLimits->PagedPoolLimit = (SIZE_T)-1;
-                    QuotaLimits->NonPagedPoolLimit = (SIZE_T)-1;
-                    QuotaLimits->PagefileLimit = (SIZE_T)-1;
-                }
-                else
-                {
-                    /* Get limits from non-default quota block */
-                    QuotaLimits->PagedPoolLimit =
-                        Process->QuotaBlock->QuotaEntry[PagedPool].Limit;
-                    QuotaLimits->NonPagedPoolLimit =
-                        Process->QuotaBlock->QuotaEntry[NonPagedPool].Limit;
-                    QuotaLimits->PagefileLimit =
-                        Process->QuotaBlock->QuotaEntry[2].Limit;
-                }
-            }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-            {
-                /* Get exception code */
-                Status = _SEH2_GetExceptionCode();
-            }
-            _SEH2_END;
+            /* TODO: Implement this case */
+            DPRINT1("Query ProcessQuotaLimits unimplemented\n");
+            Status = STATUS_NOT_IMPLEMENTED;
 
             /* Dereference the process */
             ObDereferenceObject(Process);
@@ -447,29 +401,6 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
 
         /* WOW64: Not implemented */
         case ProcessWow64Information:
-
-            /* Set the return length */
-            Length = sizeof(ULONG_PTR);
-
-            if (ProcessInformationLength != Length)
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
-            /* Reference the process */
-            Status = ObReferenceObjectByHandle(ProcessHandle,
-                                               PROCESS_QUERY_INFORMATION,
-                                               PsProcessType,
-                                               PreviousMode,
-                                               (PVOID*)&Process,
-                                               NULL);
-            if (!NT_SUCCESS(Status)) break;
-
-            DPRINT1("Not implemented: ProcessWow64Information\n");
-
-            /* Dereference the process */
-            ObDereferenceObject(Process);
             Status = STATUS_NOT_IMPLEMENTED;
             break;
 
@@ -1080,72 +1011,10 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
             Status = STATUS_SUCCESS;
             break;
 
-        case ProcessQuotaLimits:
-
-            /* Check buffer length */
-            if (ProcessInformationLength != sizeof(QUOTA_LIMITS))
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
-            DPRINT1("Not implemented: ProcessQuotaLimits\n");
-            Status = STATUS_NOT_IMPLEMENTED;
-            break;
-
-        case ProcessBasePriority:
-
-            /* Check buffer length */
-            if (ProcessInformationLength != sizeof(KPRIORITY))
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
-            DPRINT1("Not implemented: ProcessBasePriority\n");
-            Status = STATUS_NOT_IMPLEMENTED;
-            break;
-
-        case ProcessRaisePriority:
-
-            /* Check buffer length */
-            if (ProcessInformationLength != sizeof(ULONG))
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
-            DPRINT1("Not implemented: ProcessRaisePriority\n");
-            Status = STATUS_NOT_IMPLEMENTED;
-            break;
-
-        case ProcessWx86Information:
-
-            /* Check buffer length */
-            if (ProcessInformationLength != sizeof(HANDLE))
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
-            DPRINT1("Not implemented: ProcessWx86Information\n");
-            Status = STATUS_NOT_IMPLEMENTED;
-            break;
-
-        case ProcessDebugPort:
-
-            /* Check buffer length */
-            if (ProcessInformationLength != sizeof(HANDLE))
-            {
-                Status = STATUS_INFO_LENGTH_MISMATCH;
-                break;
-            }
-
-            DPRINT1("Not implemented: ProcessDebugPort\n");
-            Status = STATUS_NOT_IMPLEMENTED;
-            break;
-
         /* We currently don't implement any of these */
+        case ProcessQuotaLimits:
+        case ProcessBasePriority:
+        case ProcessRaisePriority:
         case ProcessLdtInformation:
         case ProcessLdtSize:
         case ProcessIoPortHandlers:
@@ -1162,8 +1031,10 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
         case ProcessIoCounters:
         case ProcessTimes:
         case ProcessPooledUsageAndLimits:
+        case ProcessWx86Information:
         case ProcessHandleCount:
         case ProcessWow64Information:
+        case ProcessDebugPort:
         default:
             DPRINT1("Unsupported or unimplemented: %lx\n", ProcessInformationClass);
             Status = STATUS_INVALID_INFO_CLASS;

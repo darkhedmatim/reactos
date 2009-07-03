@@ -26,8 +26,6 @@ typedef struct
     BOOL TimerActive;
     KTIMER Timer;
     KDPC Dpc;
-    KEVENT Event;
-    LONG ThreadActive;
 }IServiceGroupImpl;
 
 
@@ -96,10 +94,6 @@ IServiceGroup_fnRelease(
             FreeItem(Entry, TAG_PORTCLASS);
         }
         KeCancelTimer(&This->Timer);
-        if (This->ThreadActive)
-        {
-            KeSetEvent(&This->Event, 0, TRUE);
-        }
         FreeItem(This, TAG_PORTCLASS);
         return 0;
     }
@@ -209,60 +203,18 @@ IServiceGroupDpc(
     }
 }
 
-
-VOID
-NTAPI
-ServiceGroupThread(IN PVOID StartContext)
-{
-    NTSTATUS Status;
-    KWAIT_BLOCK WaitBlockArray[2];
-    PVOID WaitObjects[2];
-    IServiceGroupImpl * This = (IServiceGroupImpl*)StartContext;
-
-    /* Set thread state */
-    InterlockedIncrement(&This->ThreadActive);
-
-    /* Setup the wait objects */
-    WaitObjects[0] = &This->Timer;
-    WaitObjects[1] = &This->Event;
-
-    do
-    {
-        /* Wait on our objects */
-        Status = KeWaitForMultipleObjects(2, WaitObjects, WaitAny, Executive, KernelMode, FALSE, NULL, WaitBlockArray);
-
-        switch(Status)
-        {
-            case STATUS_WAIT_0:
-                IServiceGroupDpc(&This->Dpc, (PVOID)This, NULL, NULL);
-                break;
-            case STATUS_WAIT_1:
-                PsTerminateSystemThread(STATUS_SUCCESS);
-                break;
-        }
-    }while(TRUE);
-}
-
 VOID
 NTAPI
 IServiceGroup_fnSupportDelayedService(
     IN IServiceGroup * iface)
 {
-    NTSTATUS Status;
-    HANDLE ThreadHandle;
     IServiceGroupImpl * This = (IServiceGroupImpl*)iface;
 
     ASSERT_IRQL(DISPATCH_LEVEL);
 
-    if (This->Initialized)
-        return;
-
-    KeInitializeTimerEx(&This->Timer, NotificationTimer);
-
-    Status = PsCreateSystemThread(&ThreadHandle, THREAD_ALL_ACCESS, NULL, 0, NULL, ServiceGroupThread, (PVOID)This);
-    if (NT_SUCCESS(Status))
+    if (!This->Initialized)
     {
-        ZwClose(ThreadHandle);
+        KeInitializeTimerEx(&This->Timer, NotificationTimer);
         This->Initialized = TRUE;
     }
 }
@@ -338,7 +290,6 @@ PcNewServiceGroup(
     This->ref = 1;
     KeInitializeDpc(&This->Dpc, IServiceGroupDpc, (PVOID)This);
     KeSetImportanceDpc(&This->Dpc, HighImportance);
-    KeInitializeEvent(&This->Event, NotificationEvent, FALSE);
     InitializeListHead(&This->ServiceSinkHead);
     *OutServiceGroup = (PSERVICEGROUP)&This->lpVtbl;
 

@@ -1,43 +1,28 @@
-/*
- * PROJECT:     ReactOS System Regression Testing Utility
- * LICENSE:     GNU GPLv2 or any later version as published by the Free Software Foundation
- * PURPOSE:     Processing the incoming debugging data
- * COPYRIGHT:   Copyright 2008-2009 Christoph von Wittich <christoph_vw@reactos.org>
- *              Copyright 2009 Colin Finck <colin@reactos.org>
- */
-
 #include "sysreg.h"
-#define BUFFER_SIZE         512
 
 int ProcessDebugData(const char* tty, int timeout, int stage )
 {
-    char Buffer[BUFFER_SIZE];
-    char CacheBuffer[BUFFER_SIZE];
-    char Raddr2LineBuffer[BUFFER_SIZE];
+    char buf[512];
+    char rbuf[512];
     char* bp;
     int got;
-    int Ret = EXIT_DONT_CONTINUE;
-    int ttyfd;
+    int ttyfd, i;
     struct termios ttyattr, rawattr;
-    unsigned int CacheHits = 0;
-    unsigned int i;
-    unsigned int KdbgHit = 0;
-
-    /* Initialize CacheBuffer with an empty string */
-    *CacheBuffer = 0;
+    int Ret = EXIT_NONCONTINUABLE_ERROR;
+    int KdbgHit = 0;
 
     /* ttyfd is the file descriptor of the virtual COM port */
     if ((ttyfd = open(tty, O_NOCTTY | O_RDWR)) < 0)
     {
         SysregPrintf("error opening tty\n");
-        return Ret;
+        return false;
     }
 
     /* We also monitor STDIN_FILENO, so a user can cancel the process with ESC */
     if (tcgetattr(STDIN_FILENO, &ttyattr) < 0)
     {
         SysregPrintf("tcgetattr failed with error %d\n", errno);
-        return Ret;
+        return false;
     }
 
     rawattr = ttyattr;
@@ -51,10 +36,10 @@ int ProcessDebugData(const char* tty, int timeout, int stage )
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &rawattr) < 0)
     {
         SysregPrintf("tcsetattr failed with error %d\n", errno);
-        return Ret;
+        return false;
     }
 
-    for(;;)
+    while (1)
     { 
         struct pollfd fds[] = {
             { STDIN_FILENO, POLLIN, 0 },
@@ -75,7 +60,7 @@ int ProcessDebugData(const char* tty, int timeout, int stage )
         {
             /* timeout */
             SysregPrintf("timeout\n");
-            Ret = EXIT_CONTINUE;
+            Ret = EXIT_ERROR;
             goto cleanup;
         }
 
@@ -85,10 +70,10 @@ int ProcessDebugData(const char* tty, int timeout, int stage )
             if (!(fds[i].revents & POLLIN))
                 continue;
 
-            bp = Buffer;
+            bp = buf;
 
             /* Read one line or a maximum of 511 bytes into a buffer (leave space for the null character) */
-            while (bp - Buffer < (BUFFER_SIZE - 1))
+            while (bp - buf < sizeof(buf) - 1)
             {
                 got = read(fds[i].fd, bp, 1);
 
@@ -103,6 +88,10 @@ int ProcessDebugData(const char* tty, int timeout, int stage )
                     break;
                 }
 
+                /* Also break on newlines */
+                if(*bp == '\n')
+                    break;
+
                 if (fds[i].fd == STDIN_FILENO)
                 {
                     /* break on ESC */
@@ -111,94 +100,67 @@ int ProcessDebugData(const char* tty, int timeout, int stage )
                 }
                 else
                 {
-                    /* Also break on newlines */
-                    if(*bp == '\n')
-                        break;
-
                     /* KDBG doesn't send a newline */
-                    if ((strstr(Buffer, "kdb:>")) || 
-                        (strstr(Buffer, "--- Press q")))
+                    if ((strstr(buf, "kdb:>")) || 
+                        (strstr(buf, "--- Press q")))
                         break;
                 }
                 
                 ++bp;
             }
 
-            /* The rest of this logic is just about processing the serial output */
-            if(fds[i].fd == STDIN_FILENO)
-                continue;
-
-            /* Check whether the message is of zero length */
-            if (bp == Buffer)
+            if (bp == buf)
             {
-                /* This can happen when the machine shut down (like after 1st or 2nd stage)
-                   or after we got a Kdbg backtrace. */
-                Ret = EXIT_CONTINUE;
+                /* This usually means the machine shut down (like in 1st or 2nd stage) */
+                Ret = EXIT_SHUTDOWN;
                 goto cleanup;
             }
 
-            /* Null-terminate the line */
             *(++bp) = 0;
 
-            /* Detect whether the same line appears over and over again.
-               If that is the case, cancel this test after a specified number of repetitions. */
-            if(!strcmp(Buffer, CacheBuffer))
+            /* Now check the output */
+            if (fds[i].fd != STDIN_FILENO)
             {
-                ++CacheHits;
-
-                if(CacheHits > AppSettings.MaxCacheHits)
+                /* Check for "magic" sequences */
+                if (strstr(buf, "kdb:>"))
                 {
-                    SysregPrintf("Test seems to be stuck in an endless loop, canceled!\n");
-                    Ret = EXIT_CONTINUE;
-                    goto cleanup;
+                    ++KdbgHit;
+
+                    if (KdbgHit == 1)
+                    {
+                        /* We hit Kdbg for the first time, get a backtrace for the log */
+                        safewrite(ttyfd, "bt\r", 3);
+                        continue;
+                    }
+                    else
+                    {
+                        /* We hit it yet another time, give up here */
+                        Ret = EXIT_ERROR;
+                        goto cleanup;
+                    }
                 }
-            }
-            else
-            {
-                CacheHits = 0;
-                memcpy(CacheBuffer, Buffer, bp - Buffer + 1);
-            }
-
-            /* Output the line, raddr2line the included addresses if necessary */
-            if (ResolveAddressFromFile(Raddr2LineBuffer, BUFFER_SIZE, Buffer))
-                printf("%s", Raddr2LineBuffer);
-            else
-                printf("%s", Buffer);
-
-            /* Check for "magic" sequences */
-            if (strstr(Buffer, "kdb:>"))
-            {
-                ++KdbgHit;
-
-                if (KdbgHit == 1)
+                else if (strstr(buf, "--- Press q"))
                 {
-                    /* We hit Kdbg for the first time, get a backtrace for the log */
-                    safewrite(ttyfd, "bt\r", 3);
+                    /* Send Return to get more data from Kdbg */
+                    safewrite(ttyfd, "\r", 1);
                     continue;
                 }
-                else
+                else if (strstr(buf, "SYSREG_ROSAUTOTEST_FAILURE"))
                 {
-                    /* We hit it yet another time, give up here */
-                    Ret = EXIT_CONTINUE;
+                    /* rosautotest itself has problems, so there's no reason to continue */
                     goto cleanup;
                 }
-            }
-            else if (strstr(Buffer, "--- Press q"))
-            {
-                /* Send Return to get more data from Kdbg */
-                safewrite(ttyfd, "\r", 1);
-                continue;
-            }
-            else if (strstr(Buffer, "SYSREG_ROSAUTOTEST_FAILURE"))
-            {
-                /* rosautotest itself has problems, so there's no reason to continue */
-                goto cleanup;
-            }
-            else if (*AppSettings.Stage[stage].Checkpoint && strstr(Buffer, AppSettings.Stage[stage].Checkpoint))
-            {
-                /* We reached a checkpoint, so return success */
-                Ret = EXIT_CHECKPOINT_REACHED;
-                goto cleanup;
+                else if (*AppSettings.Stage[stage].Checkpoint && strstr(buf, AppSettings.Stage[stage].Checkpoint))
+                {
+                    /* We reached a checkpoint, so return success */
+                    Ret = EXIT_CHECKPOINT_REACHED;
+                    goto cleanup;
+                }
+
+                if (ResolveAddressFromFile(rbuf, sizeof(rbuf), buf))
+                    printf("%s", rbuf);
+                else
+                    printf("%s", buf);
             }
         }
     }
@@ -210,3 +172,4 @@ cleanup:
 
     return Ret;
 }
+

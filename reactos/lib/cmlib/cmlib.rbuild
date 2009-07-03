@@ -20,10 +20,8 @@
 	<define name="_NTOSKRNL_" />
 	<define name="_NTSYSTEM_" />
 	<define name="NASSERT" />
-	<group compilerset="gcc">
-		<compilerflag>-Wwrite-strings</compilerflag>
-		<compilerflag>-Wpointer-arith</compilerflag>
-	</group>
+	<compilerflag>-Wwrite-strings</compilerflag>
+	<compilerflag>-Wpointer-arith</compilerflag>
 	<define name="CMLIB_HOST" />
 	<file>cminit.c</file>
 	<file>hivebin.c</file>

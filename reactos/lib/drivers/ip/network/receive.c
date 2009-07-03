@@ -174,9 +174,7 @@ PIPDATAGRAM_REASSEMBLY GetReassemblyInfo(
 }
 
 
-BOOLEAN
-ReassembleDatagram(
-  PIP_PACKET             IPPacket,
+PIP_PACKET ReassembleDatagram(
   PIPDATAGRAM_REASSEMBLY IPDR)
 /*
  * FUNCTION: Reassembles an IP datagram
@@ -191,6 +189,7 @@ ReassembleDatagram(
  *     At this point, header is expected to point to the IP header
  */
 {
+  PIP_PACKET IPPacket;
   PLIST_ENTRY CurrentEntry;
   PIP_FRAGMENT Current;
   PVOID Data;
@@ -201,6 +200,11 @@ ReassembleDatagram(
 
   TI_DbgPrint(DEBUG_IP, ("Fragment header:\n"));
   //OskitDumpBuffer((PCHAR)IPDR->IPv4Header, IPDR->HeaderSize);
+
+  /* FIXME: Assume IPv4 */
+  IPPacket = IPCreatePacket(IP_ADDRESS_V4);
+  if (!IPPacket)
+    return NULL;
 
   IPPacket->TotalSize  = IPDR->HeaderSize + IPDR->DataSize;
   IPPacket->ContigSize = IPPacket->TotalSize;
@@ -215,7 +219,7 @@ ReassembleDatagram(
   if (!IPPacket->Header) {
     TI_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
     (*IPPacket->Free)(IPPacket);
-    return FALSE;
+    return NULL;
   }
 
   /* Copy the header into the buffer */
@@ -239,7 +243,7 @@ ReassembleDatagram(
     CurrentEntry = CurrentEntry->Flink;
   }
 
-  return TRUE;
+  return IPPacket;
 }
 
 
@@ -285,9 +289,8 @@ VOID ProcessFragment(
   USHORT FragLast;
   BOOLEAN MoreFragments;
   PIPv4_HEADER IPv4Header;
-  IP_PACKET Datagram;
+  PIP_PACKET Datagram;
   PIP_FRAGMENT Fragment;
-  BOOLEAN Success;
 
   /* FIXME: Assume IPv4 */
 
@@ -445,29 +448,26 @@ VOID ProcessFragment(
 
     TI_DbgPrint(DEBUG_IP, ("Complete datagram received.\n"));
 
-    /* FIXME: Assumes IPv4 */
-    IPInitializePacket(&Datagram, IP_ADDRESS_V4);
-
-    Success = ReassembleDatagram(&Datagram, IPDR);
+    Datagram = ReassembleDatagram(IPDR);
 
     RemoveIPDR(IPDR);
     TcpipReleaseSpinLock(&IPDR->Lock, OldIrql);
 
     FreeIPDR(IPDR);
 
-    if (!Success)
+    if (!Datagram)
       /* Not enough free resources, discard the packet */
       return;
 
-    DISPLAY_IP_PACKET(&Datagram);
+    DISPLAY_IP_PACKET(Datagram);
 
     /* Give the packet to the protocol dispatcher */
-    IPDispatchProtocol(IF, &Datagram);
+    IPDispatchProtocol(IF, Datagram);
 
     /* We're done with this datagram */
-    exFreePool(Datagram.Header);
+    exFreePool(Datagram->Header);
     TI_DbgPrint(MAX_TRACE, ("Freeing datagram at (0x%X).\n", Datagram));
-    (*Datagram.Free)(&Datagram);
+    (*Datagram->Free)(Datagram);
   } else
     TcpipReleaseSpinLock(&IPDR->Lock, OldIrql);
 }

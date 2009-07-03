@@ -63,11 +63,26 @@ GetSysColor(int nIndex)
 {
   if(nIndex >= 0 && nIndex < NUM_SYSCOLORS)
   {
-    return g_psi->argbSystem[nIndex];
+    return g_psi->SysColors[nIndex];
   }
 
   SetLastError(ERROR_INVALID_PARAMETER);
   return 0;
+}
+
+/*
+ * @implemented
+ */
+HPEN WINAPI
+GetSysColorPen(int nIndex)
+{
+  if(nIndex >= 0 && nIndex < NUM_SYSCOLORS)
+  {
+    return g_psi->SysColorPens[nIndex];
+  }
+
+  SetLastError(ERROR_INVALID_PARAMETER);
+  return NULL;
 }
 
 /*
@@ -78,7 +93,7 @@ GetSysColorBrush(int nIndex)
 {
   if(nIndex >= 0 && nIndex < NUM_SYSCOLORS)
   {
-    return g_psi->ahbrSystem[nIndex];
+    return g_psi->SysColorBrushes[nIndex];
   }
 
   SetLastError(ERROR_INVALID_PARAMETER);
@@ -667,14 +682,13 @@ DefWndDoSizeMove(HWND hwnd, WORD wParam)
       DeleteObject(DesktopRgn);
     }
   }
-//#if 0
-//  if (ISITHOOKED(WH_CBT))
+#if 0
+  if (ISITHOOKED(WH_CBT))
   {
-      LRESULT lResult;
-      NtUserMessageCall( hwnd, WM_CBT, HCBT_MOVESIZE, (LPARAM)&sizingRect, (ULONG_PTR)&lResult, FNID_DEFWINDOWPROC, FALSE);
-      if (lResult) moved = FALSE;
+      if (NtUserMessageCall( hWnd, WM_SYSCOMMAND, wParam, (LPARAM)&sizingRect, 0, FNID_DEFWINDOWPROC, FALSE))
+         moved = FALSE;
   }
-//#endif
+#endif
   (void)NtUserSetGUIThreadHandle(MSQ_STATE_MOVESIZE, NULL);
   SendMessageA( hwnd, WM_EXITSIZEMOVE, 0, 0 );
   SendMessageA( hwnd, WM_SETVISIBLE, !IsIconic(hwnd), 0L);
@@ -754,16 +768,13 @@ DefWndHandleSysCommand(HWND hWnd, WPARAM wParam, LPARAM lParam)
   WINDOWPLACEMENT wp;
   POINT Pt;
 
-  if (!IsWindowEnabled( hWnd )) return 0;
-
-//#if 0
-//  if (ISITHOOKED(WH_CBT))
+#if 0
+  if (ISITHOOKED(WH_CBT))
   {
-     LRESULT lResult;
-     NtUserMessageCall( hWnd, WM_SYSCOMMAND, wParam, lParam, (ULONG_PTR)&lResult, FNID_DEFWINDOWPROC, FALSE);
-     if (lResult) return 0;
+     if (NtUserMessageCall( hWnd, WM_SYSCOMMAND, wParam, lParam, 0, FNID_DEFWINDOWPROC, FALSE))
+        return 0;
   }
-//#endif
+#endif
   switch (wParam & 0xfff0)
     {
       case SC_MOVE:
@@ -795,8 +806,8 @@ DefWndHandleSysCommand(HWND hWnd, WPARAM wParam, LPARAM lParam)
         }
         break;
       case SC_CLOSE:
-        return SendMessageW(hWnd, WM_CLOSE, 0, 0);
-
+        SendMessageA(hWnd, WM_CLOSE, 0, 0);
+        break;
       case SC_MOUSEMENU:
         {
           Pt.x = (short)LOWORD(lParam);

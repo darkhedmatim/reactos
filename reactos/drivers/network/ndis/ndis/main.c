@@ -21,7 +21,7 @@ ULONG DebugTraceLevel = MIN_TRACE;
 
 #endif /* DBG */
 
-LONG CancelId;
+UCHAR CancelId;
 
 
 VOID NTAPI MainUnload(

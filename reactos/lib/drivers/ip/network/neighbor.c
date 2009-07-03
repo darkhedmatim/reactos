@@ -64,6 +64,7 @@ VOID NBSendPackets( PNEIGHBOR_CACHE_ENTRY NCE ) {
 
 /* Must be called with table lock acquired */
 VOID NBFlushPacketQueue( PNEIGHBOR_CACHE_ENTRY NCE,
+			 BOOLEAN CallComplete,
 			 NTSTATUS ErrorCode ) {
     PLIST_ENTRY PacketEntry;
     PNEIGHBOR_PACKET Packet;
@@ -80,10 +81,13 @@ VOID NBFlushPacketQueue( PNEIGHBOR_CACHE_ENTRY NCE,
 	     ("PacketEntry: %x, NdisPacket %x\n",
 	      PacketEntry, Packet->Packet));
 
-        ASSERT_KM_POINTER(Packet->Complete);
-	Packet->Complete( Packet->Context,
-                          Packet->Packet,
-                          ErrorCode );
+	if( CallComplete )
+        {
+            ASSERT_KM_POINTER(Packet->Complete);
+	    Packet->Complete( Packet->Context,
+			      Packet->Packet,
+			      ErrorCode );
+        }
 
 	exFreePool( Packet );
     }
@@ -113,7 +117,7 @@ VOID NCETimeout(
 	       so maybe it's not that big a problem */
 
             /* Flush packet queue */
-	    NBFlushPacketQueue( NCE, NDIS_STATUS_REQUEST_ABORTED );
+	    NBFlushPacketQueue( NCE, TRUE, NDIS_STATUS_REQUEST_ABORTED );
             NCE->EventCount = 0;
 	}
         else
@@ -209,7 +213,7 @@ VOID NBShutdown(VOID)
           NextNCE = CurNCE->Next;
 
           /* Flush wait queue */
-	  NBFlushPacketQueue( CurNCE, NDIS_STATUS_NOT_ACCEPTED );
+	  NBFlushPacketQueue( CurNCE, FALSE, STATUS_SUCCESS );
 
 	  CurNCE = NextNCE;
       }
@@ -524,7 +528,7 @@ VOID NBRemoveNeighbor(
           /* Found it, now unlink it from the list */
           *PrevNCE = CurNCE->Next;
 
-	  NBFlushPacketQueue( CurNCE, NDIS_STATUS_REQUEST_ABORTED );
+	  NBFlushPacketQueue( CurNCE, TRUE, NDIS_STATUS_REQUEST_ABORTED );
           exFreePool(CurNCE);
 
 	  break;

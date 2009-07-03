@@ -321,16 +321,13 @@ CreatePinWorkerRoutine(
             return;
         }
 
-        /* Zero pin connect */
-        RtlZeroMemory(MixerPinConnect, sizeof(KSPIN_CONNECT) + sizeof(KSDATAFORMAT_WAVEFORMATEX));
-
         /* Copy initial connect details */
         RtlMoveMemory(MixerPinConnect, WorkerContext->PinConnect, sizeof(KSPIN_CONNECT));
 
 
         OutputFormat = (PKSDATAFORMAT_WAVEFORMATEX)(MixerPinConnect + 1);
 
-        Status = ComputeCompatibleFormat(WorkerContext->Entry, WorkerContext->PinConnect->PinId, WorkerContext->DeviceExtension, InputFormat, OutputFormat);
+        Status = ComputeCompatibleFormat(WorkerContext->Entry, WorkerContext->PinConnect->PinId, WorkerContext->DeviceExtension, (PKSDATAFORMAT_WAVEFORMATEX)(WorkerContext->PinConnect + 1), OutputFormat);
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("ComputeCompatibleFormat failed with %x\n", Status);
@@ -615,7 +612,6 @@ ComputeCompatibleFormat(
         {
             UNIMPLEMENTED
             AudioRange = (PKSDATARANGE_AUDIO)((PUCHAR)AudioRange + AudioRange->DataRange.FormatSize);
-            continue;
         }
         /* Select best quality available */
 

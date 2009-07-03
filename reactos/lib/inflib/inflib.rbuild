@@ -14,12 +14,10 @@
 <module name="inflibhost" type="hoststaticlibrary" allowwarnings="true">
 	<include base="inflibhost">.</include>
 	<define name="__NO_CTYPE_INLINES" />
-	<group compilerset="gcc">
-		<compilerflag>-Wpointer-arith</compilerflag>
-		<compilerflag>-Wconversion</compilerflag>
-		<compilerflag>-Wstrict-prototypes</compilerflag>
-		<compilerflag>-Wmissing-prototypes</compilerflag>
-	</group>
+	<compilerflag>-Wpointer-arith</compilerflag>
+	<compilerflag>-Wconversion</compilerflag>
+	<compilerflag>-Wstrict-prototypes</compilerflag>
+	<compilerflag>-Wmissing-prototypes</compilerflag>
 	<define name="INFLIB_HOST" />
 	<file>infcore.c</file>
 	<file>infget.c</file>

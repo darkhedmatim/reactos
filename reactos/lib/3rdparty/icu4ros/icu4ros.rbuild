@@ -5,10 +5,8 @@
 	<define name="U_HAVE_INTTYPES_H" />
 	<define name="UCONFIG_NO_FILE_IO">1</define>
 	<define name="ICU_NO_USER_DATA_OVERRIDE">1</define>
-	<group compilerset="gcc">
-		<compilerflag compiler="cxx">-fno-exceptions</compilerflag>
-		<compilerflag compiler="cxx">-fno-rtti</compilerflag>
-	</group>
+	<compilerflag compiler="cxx">-fno-exceptions</compilerflag>
+	<compilerflag compiler="cxx">-fno-rtti</compilerflag>
 	<include base="icu4ros">icu/source/common</include>
 	<include base="icu4ros">icu/source/i18n</include>
 	<file>stubs.cpp</file>

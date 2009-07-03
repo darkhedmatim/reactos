@@ -40,41 +40,7 @@ PcGetTimeInterval(
 }
 
 /*
- * @implemented
- */
-
-VOID
-NTAPI
-PcIoTimerRoutine(
-    IN PDEVICE_OBJECT  DeviceObject,
-    IN PVOID  Context)
-{
-    PPCLASS_DEVICE_EXTENSION DeviceExtension;
-    KIRQL OldIrql;
-    PLIST_ENTRY ListEntry;
-    PTIMER_CONTEXT CurContext;
-
-    if (!DeviceObject || !DeviceObject->DeviceExtension)
-        return;
-
-    DeviceExtension = (PPCLASS_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-
-    KeAcquireSpinLock(&DeviceExtension->TimerListLock, &OldIrql);
-
-    ListEntry = DeviceExtension->TimerList.Flink;
-    while(ListEntry != &DeviceExtension->TimerList)
-    {
-        CurContext = (PTIMER_CONTEXT)CONTAINING_RECORD(ListEntry, TIMER_CONTEXT, Entry);
-
-        CurContext->pTimerRoutine(DeviceObject, CurContext->Context);
-        ListEntry = ListEntry->Flink;
-    }
-
-    KeReleaseSpinLock(&DeviceExtension->TimerListLock, OldIrql);
-}
-
-/*
- * @implemented
+ * @unimplemented
  */
 NTSTATUS NTAPI
 PcRegisterIoTimeout(
@@ -82,107 +48,42 @@ PcRegisterIoTimeout(
     IN  PIO_TIMER_ROUTINE pTimerRoutine,
     IN  PVOID pContext)
 {
-    NTSTATUS Status = STATUS_SUCCESS;
-    PTIMER_CONTEXT TimerContext, CurContext;
-    KIRQL OldIrql;
-    PLIST_ENTRY ListEntry;
-    BOOLEAN bFound;
-    PPCLASS_DEVICE_EXTENSION DeviceExtension;
+    NTSTATUS Status;
 
     ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
-    if (!pDeviceObject || !pDeviceObject->DeviceExtension)
-        return STATUS_INVALID_PARAMETER;
+    /* FIXME 
+     * check if timer is already used 
+     */
 
-    DeviceExtension = (PPCLASS_DEVICE_EXTENSION)pDeviceObject->DeviceExtension;
-
-    TimerContext = AllocateItem(NonPagedPool, sizeof(TIMER_CONTEXT), TAG_PORTCLASS);
-    if (!TimerContext)
+    Status = IoInitializeTimer(pDeviceObject, pTimerRoutine, pContext);
+    if (!NT_SUCCESS(Status))
     {
-        DPRINT1("Failed to allocate memory\n");
-        return STATUS_INSUFFICIENT_RESOURCES;
+        DPRINT1("IoInitializeTimer failed with %x\n", Status);
+        return Status;
     }
 
-    KeAcquireSpinLock(&DeviceExtension->TimerListLock, &OldIrql);
-
-    ListEntry = DeviceExtension->TimerList.Flink;
-    bFound = FALSE;
-    while(ListEntry != &DeviceExtension->TimerList)
-    {
-        CurContext = (PTIMER_CONTEXT)CONTAINING_RECORD(ListEntry, TIMER_CONTEXT, Entry);
-
-        if (CurContext->Context == pContext && CurContext->pTimerRoutine == pTimerRoutine)
-        {
-            bFound = TRUE;
-            Status = STATUS_UNSUCCESSFUL;
-            ExFreePool(TimerContext);
-            break;
-        }
-        ListEntry = ListEntry->Flink;
-    }
-
-    if (!bFound)
-    {
-        TimerContext->Context = pContext;
-        TimerContext->pTimerRoutine = pTimerRoutine;
-        InsertTailList(&DeviceExtension->TimerList, &TimerContext->Entry);
-    }
-
-    KeReleaseSpinLock(&DeviceExtension->TimerListLock, OldIrql);
-
-    return Status;
+    IoStartTimer(pDeviceObject);
+    return STATUS_SUCCESS;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTSTATUS NTAPI
 PcUnregisterIoTimeout(
     IN  PDEVICE_OBJECT pDeviceObject,
     IN  PIO_TIMER_ROUTINE pTimerRoutine,
     IN  PVOID pContext)
 {
-    PTIMER_CONTEXT CurContext;
-    KIRQL OldIrql;
-    PLIST_ENTRY ListEntry;
-    BOOLEAN bFound;
-    PPCLASS_DEVICE_EXTENSION DeviceExtension;
-
     ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
-    if (!pDeviceObject || !pDeviceObject->DeviceExtension)
-        return STATUS_INVALID_PARAMETER;
+    /* FIXME 
+     * check if timer is already used 
+     */
 
-
-    DeviceExtension = (PPCLASS_DEVICE_EXTENSION)pDeviceObject->DeviceExtension;
-
-
-    KeAcquireSpinLock(&DeviceExtension->TimerListLock, &OldIrql);
-
-    ListEntry = DeviceExtension->TimerList.Flink;
-    bFound = FALSE;
-
-    while(ListEntry != &DeviceExtension->TimerList)
-    {
-        CurContext = (PTIMER_CONTEXT)CONTAINING_RECORD(ListEntry, TIMER_CONTEXT, Entry);
-
-        if (CurContext->Context == pContext && CurContext->pTimerRoutine == pTimerRoutine)
-        {
-            bFound = TRUE;
-            RemoveEntryList(&CurContext->Entry);
-            ExFreePool(CurContext);
-            break;
-        }
-        ListEntry = ListEntry->Flink;
-    }
-
-    KeReleaseSpinLock(&DeviceExtension->TimerListLock, OldIrql);
-
-    if (bFound)
-        return STATUS_SUCCESS;
-    else
-        return STATUS_NOT_FOUND;
+    IoStopTimer(pDeviceObject);
+    return STATUS_SUCCESS;
 }
 
 

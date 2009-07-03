@@ -35,47 +35,40 @@ extern "C"
 {
 #endif
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmAddContentHandlers(
     IN  ULONG ContentId,
     IN  PVOID *paHandlers,
     IN  ULONG NumHandlers);
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmCreateContentMixed(
     IN  PULONG paContentId,
     IN  ULONG cContentId,
     OUT PULONG pMixedContentId);
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmDestroyContent(
     IN  ULONG ContentId);
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmForwardContentToDeviceObject(
     IN  ULONG ContentId,
     IN  PVOID Reserved,
     IN  PCDRMFORWARD DrmForward);
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmForwardContentToFileObject(
     IN  ULONG ContentId,
     IN  PFILE_OBJECT FileObject);
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmForwardContentToInterface(
     IN  ULONG ContentId,
     IN  PUNKNOWN pUnknown,
     IN  ULONG NumMethods);
 
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmGetContentRights(
     IN  ULONG ContentId,
     OUT PDRMRIGHTS DrmRights);

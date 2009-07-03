@@ -415,6 +415,7 @@ PFIB_ENTRY RouterCreateRoute(
  */
 {
     KIRQL OldIrql;
+    PFIB_ENTRY FIBE;
     PLIST_ENTRY CurrentEntry;
     PLIST_ENTRY NextEntry;
     PFIB_ENTRY Current;
@@ -449,7 +450,13 @@ PFIB_ENTRY RouterCreateRoute(
         return NULL;
     }
 
-    return RouterAddRoute(NetworkAddress, Netmask, NCE, Metric);
+    FIBE = RouterAddRoute(NetworkAddress, Netmask, NCE, Metric);
+    if (!FIBE) {
+        /* Not enough free resources */
+        NBRemoveNeighbor(NCE);
+    }
+
+    return FIBE;
 }
 
 

@@ -7,12 +7,6 @@
 #ifndef __DISPATCH_H
 #define __DISPATCH_H
 
-typedef struct _DISCONNECT_TYPE {
-    UINT Type;
-    PVOID Context;
-    PIRP Irp;
-    PFILE_OBJECT FileObject;
-} DISCONNECT_TYPE, *PDISCONNECT_TYPE;
 
 NTSTATUS DispTdiAccept(
     PIRP Irp);
@@ -69,9 +63,6 @@ NTSTATUS DispTdiSetIPAddress(
 NTSTATUS DispTdiDeleteIPAddress(
     PIRP Irp,
     PIO_STACK_LOCATION IrpSp);
-
-VOID DispDoDisconnect(
-    PVOID Data);
 
 #endif /* __DISPATCH_H */
 

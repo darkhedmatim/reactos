@@ -6,7 +6,7 @@
 
 #include "ndissys.h"
 
-extern LONG CancelId;
+extern UCHAR CancelId;
 
 /*
  * @implemented
@@ -158,7 +158,6 @@ NdisMapFile(
   if (HandleObject->Mapped)
   {
       /* If a file already mapped we will return an error code */
-      NDIS_DbgPrint(MIN_TRACE, ("File already mapped\n"));
       *Status = NDIS_STATUS_ALREADY_MAPPED;
       return;
   }
@@ -248,7 +247,6 @@ NdisOpenFile(
 
   if ( !FullFileName.Buffer )
   {
-    NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
     *Status = NDIS_STATUS_RESOURCES;
     goto cleanup;
   }
@@ -256,7 +254,6 @@ NdisOpenFile(
   FileHandleObject = ExAllocatePool ( NonPagedPool, sizeof(NDIS_HANDLE_OBJECT) );
   if ( !FileHandleObject )
   {
-    NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
     *Status = NDIS_STATUS_RESOURCES;
     goto cleanup;
   }
@@ -266,7 +263,6 @@ NdisOpenFile(
   *Status = RtlAppendUnicodeStringToString ( &FullFileName, FileName );
   if ( !NT_SUCCESS(*Status) )
   {
-    NDIS_DbgPrint(MIN_TRACE, ("RtlAppendUnicodeStringToString failed (%x)\n", *Status));
     *Status = NDIS_STATUS_FAILURE;
     goto cleanup;
   }
@@ -292,7 +288,6 @@ NdisOpenFile(
   
   if ( !NT_SUCCESS(*Status) )
   {
-    NDIS_DbgPrint(MIN_TRACE, ("ZwCreateFile failed (%x)\n", *Status));
     *Status = NDIS_STATUS_FAILURE;
   }
 
@@ -515,7 +510,7 @@ NdisGetVersion(VOID)
 {
     NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
-    return NDIS_VERSION;
+    return (UINT) 0x501;
 }
 
 /*
@@ -527,7 +522,7 @@ NdisGeneratePartialCancelId(VOID)
 {
     UCHAR PartialCancelId;
 
-    PartialCancelId = (UCHAR)InterlockedIncrement(&CancelId);
+    PartialCancelId = InterlockedIncrement((PLONG)&CancelId);
 
     NDIS_DbgPrint(MAX_TRACE, ("Cancel ID %u\n", PartialCancelId));
 

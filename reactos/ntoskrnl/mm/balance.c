@@ -85,8 +85,6 @@ MmInitializeBalancer(ULONG NrAvailablePages, ULONG NrSystemPages)
    MiMemoryConsumers[MC_PPOOL].PagesTarget = NrAvailablePages / 2;
    MiMemoryConsumers[MC_NPPOOL].PagesTarget = 0xFFFFFFFF;
    MiMemoryConsumers[MC_NPPOOL].PagesUsed = NrSystemPages;
-   MiMemoryConsumers[MC_SYSTEM].PagesTarget = 0xFFFFFFFF;
-   MiMemoryConsumers[MC_SYSTEM].PagesUsed = 0;
 }
 
 VOID
@@ -163,38 +161,6 @@ MiTrimMemoryConsumer(ULONG Consumer)
    }
 }
 
-NTSTATUS
-MmTrimUserMemory(ULONG Target, ULONG Priority, PULONG NrFreedPages)
-{
-    PFN_TYPE CurrentPage;
-    PFN_TYPE NextPage;
-    NTSTATUS Status;
-    
-    (*NrFreedPages) = 0;
-    
-    CurrentPage = MmGetLRUFirstUserPage();
-    while (CurrentPage != 0 && Target > 0)
-    {
-        NextPage = MmGetLRUNextUserPage(CurrentPage);
-        
-        Status = MmPageOutPhysicalAddress(CurrentPage);
-        if (NT_SUCCESS(Status))
-        {
-            DPRINT("Succeeded\n");
-            Target--;
-            (*NrFreedPages)++;
-        }
-        else if (Status == STATUS_PAGEFILE_QUOTA)
-        {
-            MmRemoveLRUUserPage(CurrentPage);
-            MmInsertLRULastUserPage(CurrentPage);
-        }
-        
-        CurrentPage = NextPage;
-    }
-    return(STATUS_SUCCESS);
-}
-
 VOID
 NTAPI
 MmRebalanceMemoryConsumers(VOID)
@@ -255,7 +221,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
    /*
     * Allocate always memory for the non paged pool and for the pager thread.
     */
-   if ((Consumer == MC_NPPOOL) || (Consumer == MC_SYSTEM) || MiIsBalancerThread())
+   if (Consumer == MC_NPPOOL || MiIsBalancerThread())
    {
       Page = MmAllocPage(Consumer, 0);
       if (Page == 0)
@@ -311,7 +277,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
          KeBugCheck(NO_PAGES_AVAILABLE);
       }
       /* Update the Consumer */
-      MiGetPfnEntry(Page)->u3.e1.PageLocation = Consumer;
+      MiGetPfnEntry(Page)->Flags.Consumer = Consumer;
       if(Consumer == MC_USER) MmInsertLRULastUserPage(Page);
       *AllocatedPage = Page;
       (void)InterlockedDecrementUL(&MiPagesRequired);

@@ -68,14 +68,12 @@ BOOLEAN NTAPI ServiceRoutine(
   NDIS_DbgPrint(MAX_TRACE, ("Called. Interrupt (0x%X)\n", NdisInterrupt));
 
   if (NdisInterrupt->IsrRequested) {
-      NDIS_DbgPrint(MAX_TRACE, ("Calling MiniportISR\n"));
       (*NdisMiniportBlock->DriverHandle->MiniportCharacteristics.ISRHandler)(
           &InterruptRecognized,
           &QueueMiniportHandleInterrupt,
           NdisMiniportBlock->MiniportAdapterContext);
 
   } else if (NdisMiniportBlock->DriverHandle->MiniportCharacteristics.DisableInterruptHandler) {
-      NDIS_DbgPrint(MAX_TRACE, ("Calling MiniportDisableInterrupt\n"));
       (*NdisMiniportBlock->DriverHandle->MiniportCharacteristics.DisableInterruptHandler)(
           NdisMiniportBlock->MiniportAdapterContext);
        QueueMiniportHandleInterrupt = TRUE;
@@ -278,10 +276,8 @@ NdisMAllocateMapRegisters(
   ASSERT(Adapter);
 
   /* only bus masters may call this routine */
-  if(!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER)) {
-    NDIS_DbgPrint(MIN_TRACE, ("Not a bus master\n"));
+  if(!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER))
     return NDIS_STATUS_NOT_SUPPORTED;
-  }
 
   DeviceObject = Adapter->NdisMiniportBlock.DeviceObject;
 
@@ -568,11 +564,10 @@ NdisMFreeMapRegisters(
   ASSERT(Adapter);
 
   /* only bus masters may call this routine */
+  ASSERT(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER);
   if(!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER) ||
-     Adapter->NdisMiniportBlock.SystemAdapterObject == NULL) {
-     NDIS_DbgPrint(MIN_TRACE, ("Not bus master or bad adapter object\n"));
+     Adapter->NdisMiniportBlock.SystemAdapterObject == NULL)
     return;
-  }
 
   MapRegistersPerBaseRegister = ((Adapter->NdisMiniportBlock.MaximumPhysicalMapping - 2) / PAGE_SIZE) + 2;
 
@@ -722,15 +717,12 @@ NdisMRegisterDmaChannel(
 
 
   DmaBlock = ExAllocatePool(NonPagedPool, sizeof(NDIS_DMA_BLOCK));
-  if (!DmaBlock) {
-      NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
+  if (!DmaBlock)
       return NDIS_STATUS_RESOURCES;
-  }
 
   DmaBlock->SystemAdapterObject = (PVOID)IoGetDmaAdapter(Adapter->NdisMiniportBlock.PhysicalDeviceObject, &DeviceDesc, &MapRegisters);
 
   if (!DmaBlock->SystemAdapterObject) {
-      NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
       ExFreePool(DmaBlock);
       return NDIS_STATUS_RESOURCES;
   }
@@ -890,10 +882,8 @@ NdisMRegisterIoPortRange(
   *PortOffset = MmMapIoSpace(TranslatedAddress, NumberOfPorts, MmNonCached);
   NDIS_DbgPrint(MAX_TRACE, ("Returning 0x%x for port range\n", *PortOffset));
 
-  if(!*PortOffset) {
-    NDIS_DbgPrint(MIN_TRACE, ("MmMapIoSpace failed\n"));
+  if(!*PortOffset)
     return NDIS_STATUS_RESOURCES;
-  }
 
   return NDIS_STATUS_SUCCESS;
 }
@@ -951,10 +941,8 @@ NdisMInitializeScatterGatherDma(
 
     NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
-    if (!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER)) {
-        NDIS_DbgPrint(MIN_TRACE, ("Not a bus master\n"));
+    if (!(Adapter->NdisMiniportBlock.Flags & NDIS_ATTRIBUTE_BUS_MASTER))
         return NDIS_STATUS_NOT_SUPPORTED;
-    }
 
     RtlZeroMemory(&DeviceDesc, sizeof(DEVICE_DESCRIPTION));
 

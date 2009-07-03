@@ -1,5 +1,5 @@
 !define PRODUCT_NAME "ReactOS Build Environment for Windows"
-!define PRODUCT_VERSION "1.4.4"
+!define PRODUCT_VERSION "1.4.3"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\RosBE.cmd"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKCU"
@@ -17,7 +17,7 @@ ShowUnInstDetails show
 ;;
 ;; Add version/product information metadata to the installation file.
 ;;
-VIAddVersionKey /LANG=1033 "FileVersion" "1.4.4.0"
+VIAddVersionKey /LANG=1033 "FileVersion" "1.4.3.0"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=1033 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=1033 "Comments" "This installer was written by Peter Ward and Daniel Reimer using Nullsoft Scriptable Install System (http://nsis.sourceforge.net/)"
@@ -25,7 +25,7 @@ VIAddVersionKey /LANG=1033 "CompanyName" "ReactOS Team"
 VIAddVersionKey /LANG=1033 "LegalTrademarks" "Copyright © 2009 ReactOS Team"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2009 ReactOS Team"
 VIAddVersionKey /LANG=1033 "FileDescription" "${PRODUCT_NAME} Setup"
-VIProductVersion "1.4.4.0"
+VIProductVersion "1.4.3.0"
 
 CRCCheck force
 SetDatablockOptimize on
@@ -423,20 +423,20 @@ Function un.onInit
     IfFileExists "$PROFILE\RosBE\." 0 +5
         MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
         "Do you want to remove the ReactOS Build Environment configuration file from the Profile Path?" \
-        IDNO +2
+        IDNO +1
         RMDir /r /REBOOTOK "$PROFILE\RosBE"
     IfFileExists "$APPDATA\RosBE\." 0 +5
         MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
         "Do you want to remove the ReactOS Build Environment configuration file from the Application Data Path?" \
-        IDNO +2
+        IDNO +1
         RMDir /r /REBOOTOK "$APPDATA\RosBE"
     MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 \
     "Do you want to remove the Shortcuts? If you just want to Update to a new Version of RosBE, keep them. This keeps your previous settings." \
-    IDNO +5
-        Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment.lnk"
-        Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment.lnk"
-        Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment - Powershell.lnk"
-        Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment - Powershell.lnk"
+    IDNO +9
+    Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment.lnk"
+    Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment.lnk"
+    Delete /REBOOTOK "$DESKTOP\ReactOS Build Environment - Powershell.lnk"
+    Delete /REBOOTOK "$QUICKLAUNCH\ReactOS Build Environment - Powershell.lnk"
 FunctionEnd
 
 Section Uninstall
@@ -448,17 +448,13 @@ Section Uninstall
     ;;
     RMDir /r /REBOOTOK "$INSTDIR\i386"
     RMDir /r /REBOOTOK "$INSTDIR\Tools"
-    StrCmp $ICONS_GROUP "" NO_SHORTCUTS
     RMDir /r /REBOOTOK "$SMPROGRAMS\$ICONS_GROUP"
-    NO_SHORTCUTS:
     Delete /REBOOTOK "$INSTDIR\Build.cmd"
     Delete /REBOOTOK "$INSTDIR\Build-Multi.cmd"
     Delete /REBOOTOK "$INSTDIR\Build-Shared.cmd"
     Delete /REBOOTOK "$INSTDIR\Build.ps1"
     Delete /REBOOTOK "$INSTDIR\chdefdir.cmd"
     Delete /REBOOTOK "$INSTDIR\chdefdir.ps1"
-    Delete /REBOOTOK "$INSTDIR\charch.cmd"
-    Delete /REBOOTOK "$INSTDIR\charch.ps1"
     Delete /REBOOTOK "$INSTDIR\chdefgcc.cmd"
     Delete /REBOOTOK "$INSTDIR\chdefgcc.ps1"
     Delete /REBOOTOK "$INSTDIR\Clean.cmd"
@@ -537,7 +533,6 @@ Function UninstallPrevious
         Push $R0
         Call GetParent
         Pop $PREVIOUSINSTDIR
-        Pop $R0
         ExecWait '$R0 _?=$PREVIOUSINSTDIR'
     UninstallPrevious_no:
 FunctionEnd

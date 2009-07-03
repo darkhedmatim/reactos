@@ -30,14 +30,13 @@ if ("$ENV:ROS_ARCH" -eq "") {
 
 $global:0 = $myInvocation.MyCommand.Definition
 $global:_ROSBE_BASEDIR = [System.IO.Path]::GetDirectoryName($0)
-$global:_ROSBE_VERSION = "1.4.4"
+$global:_ROSBE_VERSION = "1.4.3"
 $global:_ROSBE_ROSSOURCEDIR = "$pwd"
 $global:_ROSBE_SHOWTIME = 1
 $global:_ROSBE_WRITELOG = 1
 $global:_ROSBE_USECCACHE = 0
 $global:_ROSBE_STRIP = 0
 $global:_ROSBE_NOSTRIP = 0
-$global:_ROSBE_SHOWVERSION = 0
 $global:_ROSBE_LOGDIR = "$pwd\RosBE-Logs"
 $global:_ROSBE_HOST_MINGWPATH = "$_ROSBE_BASEDIR\i386"
 $global:_ROSBE_TARGET_MINGWPATH = "$_ROSBE_BASEDIR\$ENV:ROS_ARCH"
@@ -155,9 +154,6 @@ clear-host
 # new source directory.
 if (Test-Path "$_ROSBE_BASEDIR\scut.ps1") {
     & "$_ROSBE_BASEDIR\scut.ps1"
-}
-if ($_ROSBE_SHOWVERSION -eq "1") {
-    & "$_ROSBE_BASEDIR\version.ps1"
 }
 
 # Tell how to display the available commands.

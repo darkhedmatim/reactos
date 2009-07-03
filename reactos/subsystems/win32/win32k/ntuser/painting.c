@@ -679,7 +679,7 @@ IntFindWindowToRepaint(PWINDOW_OBJECT Window, PTHREADINFO Thread)
 }
 
 BOOL FASTCALL
-IntGetPaintMessage(PWINDOW_OBJECT Window, UINT MsgFilterMin, UINT MsgFilterMax,
+IntGetPaintMessage(HWND hWnd, UINT MsgFilterMin, UINT MsgFilterMax,
                    PTHREADINFO Thread, MSG *Message, BOOL Remove)
 {
    PUSER_MESSAGE_QUEUE MessageQueue = (PUSER_MESSAGE_QUEUE)Thread->MessageQueue;
@@ -701,7 +701,7 @@ IntGetPaintMessage(PWINDOW_OBJECT Window, UINT MsgFilterMin, UINT MsgFilterMax,
       return FALSE;
    }
 
-   if (Window != NULL && Message->hwnd != Window->hSelf)
+   if (hWnd != NULL && Message->hwnd != hWnd)
       return FALSE;
 
    Message->message = WM_PAINT;
@@ -1559,10 +1559,10 @@ UserDrawCaptionText(HDC hDc,
    #endif
 
    nclm.cbSize = sizeof(nclm);
-   if(!UserSystemParametersInfo(SPI_GETNONCLIENTMETRICS,
+   if(!IntSystemParametersInfo(SPI_GETNONCLIENTMETRICS,
       sizeof(NONCLIENTMETRICS), &nclm, 0))
    {
-      DPRINT1("%s: UserSystemParametersInfo() failed!\n", __FUNCTION__);
+      DPRINT1("%s: IntSystemParametersInfo() failed!\n", __FUNCTION__);
       return FALSE;
    }
 

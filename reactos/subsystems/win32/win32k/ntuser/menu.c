@@ -502,6 +502,20 @@ IntGetMenuInfo(PMENU_OBJECT Menu, PROSMENUINFO lpmi)
    return TRUE;
 }
 
+
+BOOL FASTCALL
+IntIsMenu(HMENU hMenu)
+{
+   PMENU_OBJECT Menu;
+
+   if((Menu = UserGetMenuObject(hMenu)))
+   {
+      return TRUE;
+   }
+   return FALSE;
+}
+
+
 BOOL FASTCALL
 IntSetMenuInfo(PMENU_OBJECT Menu, PROSMENUINFO lpmi)
 {

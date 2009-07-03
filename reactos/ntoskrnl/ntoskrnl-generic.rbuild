@@ -359,32 +359,26 @@
 				<file>page.c</file>
 			</directory>
 		</if>
-		<directory name="ARM3">
-			<file>contmem.c</file>
-			<file>drvmgmt.c</file>
-			<file>dynamic.c</file>
-			<file>hypermap.c</file>
-			<file>init.c</file>
-			<file>iosup.c</file>
-			<file>mdlsup.c</file>
-			<file>ncache.c</file>
-			<file>pool.c</file>
-			<file>procsup.c</file>
-			<file>syspte.c</file>
-		</directory>
 		<file>anonmem.c</file>
 		<file>balance.c</file>
+		<file>cont.c</file>
 		<file>dbgpool.c</file>
+		<file>drvlck.c</file>
 		<file>freelist.c</file>
+		<file>hypermap.c</file>
+		<file>iospace.c</file>
+		<file>kmap.c</file>
 		<file>marea.c</file>
-		<file>mmfault.c</file>
-		<file>mmsup.c</file>
+		<file>mdlsup.c</file>
+		<file>mm.c</file>
 		<file>mminit.c</file>
 		<file>mpw.c</file>
+		<file>ncache.c</file>
 		<file>npool.c</file>
 		<file>pagefile.c</file>
 		<file>pageop.c</file>
 		<file>pe.c</file>
+		<file>physical.c</file>
 		<file>pool.c</file>
 		<file>ppool.c</file>
 		<file>procsup.c</file>
@@ -392,7 +386,9 @@
 		<file>rmap.c</file>
 		<file>section.c</file>
 		<file>sysldr.c</file>
+		<file>verifier.c</file>
 		<file>virtual.c</file>
+		<file>wset.c</file>
 		<if property="_ELF_" value="1">
 			<file>elf32.c</file>
 			<file>elf64.c</file>
@@ -476,5 +472,5 @@
 	<linkerscript>ntoskrnl_$(ARCH).lnk</linkerscript>
 
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </group>

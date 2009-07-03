@@ -120,10 +120,6 @@ VfatGetPositionInformation(PFILE_OBJECT FileObject,
 			   PFILE_POSITION_INFORMATION PositionInfo,
 			   PULONG BufferLength)
 {
-  UNREFERENCED_PARAMETER(FileObject);
-  UNREFERENCED_PARAMETER(FCB);
-  UNREFERENCED_PARAMETER(DeviceObject);
-
   DPRINT ("VfatGetPositionInformation()\n");
 
   if (*BufferLength < sizeof(FILE_POSITION_INFORMATION))
@@ -207,9 +203,6 @@ VfatGetBasicInformation(PFILE_OBJECT FileObject,
 			PULONG BufferLength)
 {
   PDEVICE_EXTENSION DeviceExt;
-  
-  UNREFERENCED_PARAMETER(FileObject);
-  
   DPRINT("VfatGetBasicInformation()\n");
 
   DeviceExt = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -346,10 +339,6 @@ VfatGetNameInformation(PFILE_OBJECT FileObject,
  */
 {
   ULONG BytesToCopy;
-
-  UNREFERENCED_PARAMETER(FileObject);
-  UNREFERENCED_PARAMETER(DeviceObject);
-
   ASSERT(NameInfo != NULL);
   ASSERT(FCB != NULL);
 
@@ -480,9 +469,6 @@ VfatGetEaInformation(PFILE_OBJECT FileObject,
 		     PULONG BufferLength)
 {
     PDEVICE_EXTENSION DeviceExt = DeviceObject->DeviceExtension;
-
-    UNREFERENCED_PARAMETER(FileObject);
-    UNREFERENCED_PARAMETER(Fcb);
 
     /* FIXME - use SEH to access the buffer! */
     Info->EaSize = 0;

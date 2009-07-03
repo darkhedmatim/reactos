@@ -34,8 +34,6 @@ typedef struct
     ULONG PreCompleted;
     ULONG PostCompleted;
 
-    ULONG Delay;
-
 }IPortPinWavePciImpl;
 
 
@@ -138,13 +136,7 @@ SetStreamWorkerRoutine(
         {
             /* reset start stream */
             This->IrpQueue->lpVtbl->CancelBuffers(This->IrpQueue); //FIX function name
-            This->ServiceGroup->lpVtbl->CancelDelayedService(This->ServiceGroup);
             DPRINT1("Stopping PreCompleted %u PostCompleted %u\n", This->PreCompleted, This->PostCompleted);
-        }
-        if (This->State == KSSTATE_RUN)
-        {
-            /* start the notification timer */
-            This->ServiceGroup->lpVtbl->RequestDelayedService(This->ServiceGroup, This->Delay);
         }
     }
 }
@@ -391,12 +383,14 @@ CloseStreamRoutine(
         if (This->State != KSSTATE_STOP)
         {
             This->Stream->lpVtbl->SetState(This->Stream, KSSTATE_STOP);
+            KeStallExecutionProcessor(10);
         }
     }
 
     if (This->ServiceGroup)
     {
         This->ServiceGroup->lpVtbl->RemoveMember(This->ServiceGroup, (PSERVICESINK)&This->lpVtblServiceSink);
+        This->ServiceGroup->lpVtbl->Release(This->ServiceGroup);
     }
 
     Status = This->Port->lpVtbl->QueryInterface(This->Port, &IID_ISubdevice, (PVOID*)&ISubDevice);
@@ -405,15 +399,20 @@ CloseStreamRoutine(
         Status = ISubDevice->lpVtbl->GetDescriptor(ISubDevice, &Descriptor);
         if (NT_SUCCESS(Status))
         {
+            ISubDevice->lpVtbl->Release(ISubDevice);
             Descriptor->Factory.Instances[This->ConnectDetails->PinId].CurrentPinInstanceCount--;
         }
-        ISubDevice->lpVtbl->Release(ISubDevice);
     }
 
     if (This->Format)
     {
         ExFreePool(This->Format);
         This->Format = NULL;
+    }
+
+    if (This->WaveStream)
+    {
+        This->WaveStream->lpVtbl->Release(This->WaveStream);
     }
 
     /* complete the irp */
@@ -433,6 +432,7 @@ CloseStreamRoutine(
         This->Stream = NULL;
         DPRINT1("Closing stream at Irql %u\n", KeGetCurrentIrql());
         Stream->lpVtbl->Release(Stream);
+        /* this line is never reached */
     }
 }
 
@@ -743,9 +743,6 @@ IPortPinWavePci_fnInit(
         This->ServiceGroup->lpVtbl->SupportDelayedService(This->ServiceGroup);
     }
 
-    /* delay of 10 milisec */
-    This->Delay = Int32x32To64(10, -10000);
-
     This->IrpQueue = IPortWavePciStream_GetIrpQueue(This->WaveStream);
 
     Status = This->Stream->lpVtbl->GetAllocatorFraming(This->Stream, &AllocatorFraming);
@@ -755,8 +752,9 @@ IPortPinWavePci_fnInit(
         return Status;
     }
 
-    DPRINT("OptionFlags %x RequirementsFlag %x PoolType %x Frames %lu FrameSize %lu FileAlignment %lu\n",
-           AllocatorFraming.OptionsFlags, AllocatorFraming.RequirementsFlags, AllocatorFraming.PoolType, AllocatorFraming.Frames, AllocatorFraming.FrameSize, AllocatorFraming.FileAlignment);
+	DPRINT("OptionFlags %x RequirementsFlag %x PoolType %x Frames %lu FrameSize %lu FileAlignment %lu\n",
+			AllocatorFraming.OptionsFlags, AllocatorFraming.RequirementsFlags, AllocatorFraming.PoolType, AllocatorFraming.Frames, AllocatorFraming.FrameSize, AllocatorFraming.FileAlignment);
+
 
     Status = This->IrpQueue->lpVtbl->Init(This->IrpQueue, ConnectDetails, This->Format, DeviceObject, AllocatorFraming.FrameSize, AllocatorFraming.FileAlignment);
     if (!NT_SUCCESS(Status))

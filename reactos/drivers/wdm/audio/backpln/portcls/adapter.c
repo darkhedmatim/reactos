@@ -153,14 +153,6 @@ PcAddAdapterDevice(
     InitializeListHead(&portcls_ext->SubDeviceList);
     /* prepare the physical connection list */
     InitializeListHead(&portcls_ext->PhysicalConnectionList);
-    /* initialize timer lock */
-    KeInitializeSpinLock(&portcls_ext->TimerListLock);
-    /* initialize timer list */
-    InitializeListHead(&portcls_ext->TimerList);
-    /* initialize io timer */
-    IoInitializeTimer(fdo, PcIoTimerRoutine, NULL);
-    /* start the io timer */
-    IoStartTimer(fdo);
 
     /* set io flags */
     fdo->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;

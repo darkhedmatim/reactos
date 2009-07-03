@@ -1,11 +1,3 @@
-/*
- * PROJECT:     ReactOS System Regression Testing Utility
- * LICENSE:     GNU GPLv2 or any later version as published by the Free Software Foundation
- * PURPOSE:     Main entry point and controlling the virtual machine
- * COPYRIGHT:   Copyright 2008-2009 Christoph von Wittich <christoph_vw@reactos.org>
- *              Copyright 2009 Colin Finck <colin@reactos.org>
- */
-
 #include "sysreg.h"
 
 bool GetConsole(virDomainPtr vDomPtr, char* console)
@@ -153,13 +145,13 @@ int main(int argc, char **argv)
     virConnectPtr vConn = NULL;
     virDomainPtr vDom;
     virDomainInfo info;
+    int Crashes;
+    int Stage;
     char qemu_img_cmdline[300];
     FILE* file;
     char config[255];
-    int Ret = EXIT_DONT_CONTINUE;
+    int Ret = EXIT_NONCONTINUABLE_ERROR;
     char console[50];
-    unsigned int Retries;
-    unsigned int Stage;
 
     if (argc == 2)
         strcpy(config, argv[1]);
@@ -201,7 +193,7 @@ int main(int argc, char **argv)
 
     for(Stage = 0; Stage < NUM_STAGES; Stage++)
     {
-        for(Retries = 0; Retries < AppSettings.MaxRetries; Retries++)
+        for(Crashes = 0; Crashes < AppSettings.MaxCrashes; Crashes++)
         {
             vDom = LaunchVirtualMachine(vConn, AppSettings.Filename,
                     AppSettings.Stage[Stage].BootDevice);
@@ -231,19 +223,19 @@ int main(int argc, char **argv)
             /* If we have a checkpoint to reach for success, assume that
                the application used for running the tests (probably "rosautotest")
                continues with the next test after a VM restart. */
-            if (Ret == EXIT_CONTINUE && *AppSettings.Stage[Stage].Checkpoint)
-                SysregPrintf("Rebooting VM (retry %d)\n", Retries + 1);
+            if (Ret == EXIT_ERROR && *AppSettings.Stage[Stage].Checkpoint)
+                SysregPrintf("Crash %d encountered, resuming the testing process\n", Crashes);
             else
                 break;
         }
 
-        if (Retries == AppSettings.MaxRetries)
+        if (Crashes == AppSettings.MaxCrashes)
         {
-            SysregPrintf("Maximum number of allowed retries exceeded, aborting!\n");
+            SysregPrintf("Maximum number of allowed crashes exceeded, aborting!\n");
             break;
         }
 
-        if (Ret == EXIT_DONT_CONTINUE)
+        if (Ret == EXIT_ERROR || Ret == EXIT_NONCONTINUABLE_ERROR)
             break;
     }
 
@@ -258,11 +250,15 @@ cleanup:
             SysregPrintf("Status: Reached the checkpoint!\n");
             break;
 
-        case EXIT_CONTINUE:
+        case EXIT_SHUTDOWN:
+            SysregPrintf("Status: Machine shut down, but did not reach the checkpoint!\n");
+            break;
+
+        case EXIT_ERROR:
             SysregPrintf("Status: Failed to reach the checkpoint!\n");
             break;
 
-        case EXIT_DONT_CONTINUE:
+        case EXIT_NONCONTINUABLE_ERROR:
             SysregPrintf("Status: Testing process aborted!\n");
             break;
     }

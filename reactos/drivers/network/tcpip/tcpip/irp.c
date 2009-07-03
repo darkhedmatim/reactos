@@ -16,7 +16,10 @@ VOID IRPRemember( PIRP Irp, PCHAR File, UINT Line ) {
 }
 
 NTSTATUS IRPFinish( PIRP Irp, NTSTATUS Status ) {
-    KIRQL OldIrql;
+    KIRQL Irql;
+    PIO_STACK_LOCATION IrpSp = IoGetCurrentIrpStackLocation(Irp);
+
+    //DbgPrint("Called: Irp %x, Status %x Event %x\n", Irp, Status, Irp->UserEvent);
 
     UntrackFL( __FILE__, __LINE__, Irp, IRP_TAG );
 
@@ -25,11 +28,15 @@ NTSTATUS IRPFinish( PIRP Irp, NTSTATUS Status ) {
     if( Status == STATUS_PENDING )
 	IoMarkIrpPending( Irp );
     else {
-        IoAcquireCancelSpinLock(&OldIrql);
-	(void)IoSetCancelRoutine( Irp, NULL );
-        IoReleaseCancelSpinLock(OldIrql);
+	Irql = KeGetCurrentIrql();
 
+	(void)IoSetCancelRoutine( Irp, NULL );
 	IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
+	if (KeGetCurrentIrql() != Irql) {
+	    DbgPrint("WARNING: IO COMPLETION RETURNED AT WRONG IRQL:\n");
+	    DbgPrint("WARNING: IRP TYPE WAS %d\n", IrpSp->MajorFunction);
+	}
+	ASSERT(KeGetCurrentIrql() == Irql);
     }
 
     return Status;

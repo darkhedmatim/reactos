@@ -266,9 +266,9 @@ static BOOLEAN NICReadSAPROM(
         for (i = 0; i < 16; i++)
             Adapter->SAPROM[i] = Buffer[i * 2];
 
-        /* Copy the permanent address */
+        /* Copy the station address */
         NdisMoveMemory(
-            (PVOID)&Adapter->PermanentAddress,
+            (PVOID)&Adapter->StationAddress,
             (PVOID)&Adapter->SAPROM,
             DRIVER_LENGTH_OF_ADDRESS);
 

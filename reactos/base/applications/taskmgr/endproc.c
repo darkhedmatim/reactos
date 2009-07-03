@@ -25,14 +25,30 @@
 
 void ProcessPage_OnEndProcess(void)
 {
+    LVITEM  lvitem;
+    ULONG   Index;
     DWORD   dwProcessId;
     HANDLE  hProcess;
     WCHAR   szTitle[256];
     WCHAR   strErrorText[260];
 
-    dwProcessId = GetSelectedProcessId();
+    for (Index=0; Index<(ULONG)ListView_GetItemCount(hProcessPageListCtrl); Index++)
+    {
+        memset(&lvitem, 0, sizeof(LVITEM));
 
-    if (dwProcessId == 0)
+        lvitem.mask = LVIF_STATE;
+        lvitem.stateMask = LVIS_SELECTED;
+        lvitem.iItem = Index;
+
+        (void)ListView_GetItem(hProcessPageListCtrl, &lvitem);
+
+        if (lvitem.state & LVIS_SELECTED)
+            break;
+    }
+
+    dwProcessId = PerfDataGetProcessId(Index);
+
+    if ((ListView_GetSelectedCount(hProcessPageListCtrl) != 1) || (dwProcessId == 0))
         return;
 
     LoadStringW(hInst, IDS_MSG_WARNINGTERMINATING, strErrorText, 256);
@@ -62,14 +78,30 @@ void ProcessPage_OnEndProcess(void)
 
 void ProcessPage_OnEndProcessTree(void)
 {
+    LVITEM  lvitem;
+    ULONG   Index;
     DWORD   dwProcessId;
     HANDLE  hProcess;
     WCHAR   szTitle[256];
     WCHAR   strErrorText[260];
 
-    dwProcessId = GetSelectedProcessId();
+    for (Index=0; Index<(ULONG)ListView_GetItemCount(hProcessPageListCtrl); Index++)
+    {
+        memset(&lvitem, 0, sizeof(LVITEM));
 
-    if (dwProcessId == 0)
+        lvitem.mask = LVIF_STATE;
+        lvitem.stateMask = LVIS_SELECTED;
+        lvitem.iItem = Index;
+
+        (void)ListView_GetItem(hProcessPageListCtrl, &lvitem);
+
+        if (lvitem.state & LVIS_SELECTED)
+            break;
+    }
+
+    dwProcessId = PerfDataGetProcessId(Index);
+
+    if ((ListView_GetSelectedCount(hProcessPageListCtrl) != 1) || (dwProcessId == 0))
         return;
 
     LoadStringW(hInst, IDS_MSG_WARNINGTERMINATING, strErrorText, 256);

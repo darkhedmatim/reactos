@@ -1,27 +1,3 @@
-*** Oct XXth, 2009 - RosBE 1.4.5 Released
-
-- Installer Fixes:
-  * Installer starts the Uninstaller of the old Version again.
-  * Installer does not accidentially kill the whole Start menu again.
-  * Installer uninstalls charch too.
-  * Fixed some line skippers.
-(care2debug, Daniel Reimer)
-
-*** Jul 29th, 2009 - RosBE 1.4.4 Released
-
-- Reverted to the old GCC. Because of the optimization we have problems running ROS on Pentium I PCs. (Colin Finck)
-- Updated SVN to 1.6.3 (Daniel Reimer)
-- Fixed a bug which prevented makefile.auto to be deleted by "clean" in the PS Version, this was the reason for
-  the "buildno.h not found" error, too (Daniel Reimer)
-- Fixed "ssvn create" not working due to the fact that RosBE creates a log folder and then tries to verify a
-  empty folder. Thx for gabriel_it and kjk_hyperion for mentioning. (Daniel Reimer)
-- Updated: NSIS to 2.45 (Daniel Reimer)
-- Added a way to enable/disable the Version Show up (Daniel Reimer)
-- Fixed a bug with not activating settings in options.ps1 (Daniel Reimer)
-- Added a while-like loop into Batch where already used in PS. This makes it possible to get more than 10 Updates
-  and realizes the Log show feature in SSVN in Batch too. (Victor Martinez, Daniel Reimer)
-- Killed a forgotten regression test from update.ps1 (Daniel Reimer)
-
 *** May 26th, 2009 - RosBE 1.4.3 Released
 
 - GCC is now optimized for Pentium3. Thus it uses MMX and SSE Optimizations (Colin Finck)
