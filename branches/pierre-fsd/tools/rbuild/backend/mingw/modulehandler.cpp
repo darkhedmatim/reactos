@@ -743,10 +743,9 @@ MingwModuleHandler::GenerateMacro (
 	size_t i;
 	bool generateAssignment;
 
+	generateAssignment = (use_pch && module.pch != NULL ) || data.includes.size () > 0 || data.defines.size () > 0;
 	if ( generatingCompilerMacro )
-		generateAssignment = (use_pch && module.pch != NULL ) || data.includes.size () > 0 || data.defines.size () > 0 || data.compilerFlags.size () > 0;
-	else
-		generateAssignment = (use_pch && module.pch != NULL ) || data.includes.size () > 0 || data.defines.size () > 0;
+		generateAssignment |= data.compilerFlags.size () > 0;
 	if ( generateAssignment )
 	{
 		fprintf ( fMakefile,
@@ -1581,7 +1580,7 @@ MingwModuleHandler::GenerateLinkerCommand (
 {
 	const FileLocation *target_file = GetTargetFilename ( module, NULL );
 	const FileLocation *definitionFilename = GetDefinitionFilename ();
-	string linker = module.cplusplus ? "${gpp}" : "${gcc}";
+	string linker = "${ld}";
 	string objectsMacro = GetObjectsMacro ( module );
 	string libsMacro = GetLibsMacro ();
 
@@ -1590,7 +1589,7 @@ MingwModuleHandler::GenerateLinkerCommand (
 
 	string linkerScriptArgument;
 	if ( module.linkerScript != NULL )
-		linkerScriptArgument = ssprintf ( " -Wl,-T,%s", backend->GetFullName ( *module.linkerScript->file ).c_str () );
+		linkerScriptArgument = ssprintf ( " -T %s", backend->GetFullName ( *module.linkerScript->file ).c_str () );
 	else
 		linkerScriptArgument = "";
 
@@ -1603,19 +1602,24 @@ MingwModuleHandler::GenerateLinkerCommand (
 	fprintf ( fMakefile, "\t$(ECHO_LD)\n" );
 	string targetName ( module.output->name );
 
-	if ( !module.IsDLL () )
+	/* HACK: if we have C++ in kernel, link it with some user mode dlls (kernel32 + msvcrt) ... */
+	static const string libsCppKernel = " '$(shell ${TARGET_CC} -print-file-name=libkernel32.a)' '$(shell ${TARGET_CC} -print-file-name=libmsvcrt.a)'";
+
+	if ( !module.HasImportLibrary() )
 	{
 		fprintf ( fMakefile,
-		          "\t%s %s%s -o %s %s %s %s\n",
+		          "\t%s %s%s %s %s%s %s %s -o %s\n",
 		          linker.c_str (),
 		          linkerParameters.c_str (),
 		          linkerScriptArgument.c_str (),
-		          target_macro.c_str (),
 		          objectsMacro.c_str (),
+		          module.cplusplus ? "$(PROJECT_LPPFLAGS) " : "",
+		          module.cplusplus && (module.type == KernelModeDLL || module.type == KernelModeDriver) ? libsCppKernel.c_str () : "",
 		          libsMacro.c_str (),
-		          GetLinkerMacro ().c_str () );
+		          GetLinkerMacro ().c_str (),
+		          target_macro.c_str () );
 	}
-	else if ( module.HasImportLibrary () )
+	else
 	{
 		FileLocation temp_exp ( TemporaryDirectory,
 		                        "",
@@ -1631,15 +1635,17 @@ MingwModuleHandler::GenerateLinkerCommand (
 		          module.underscoreSymbols ? " --add-underscore" : "" );
 
 		fprintf ( fMakefile,
-		          "\t%s %s%s %s -o %s %s %s %s\n",
+		          "\t%s %s%s %s %s %s%s %s %s -o %s\n",
 		          linker.c_str (),
 		          linkerParameters.c_str (),
 		          linkerScriptArgument.c_str (),
 		          backend->GetFullName ( temp_exp ).c_str (),
-		          target_macro.c_str (),
 		          objectsMacro.c_str (),
+		          module.cplusplus ? "$(PROJECT_LPPFLAGS) " : "",
+		          module.cplusplus && (module.type == KernelModeDLL || module.type == KernelModeDriver) ? libsCppKernel.c_str () : "",
 		          libsMacro.c_str (),
-		          GetLinkerMacro ().c_str () );
+		          GetLinkerMacro ().c_str (),
+		          target_macro.c_str () );
 
 		fprintf ( fMakefile,
 		          "\t$(Q)$(PEFIXUP_TARGET) %s -exports%s\n",
@@ -1649,24 +1655,6 @@ MingwModuleHandler::GenerateLinkerCommand (
 		fprintf ( fMakefile,
 		          "\t-@${rm} %s 2>$(NUL)\n",
 		          backend->GetFullName ( temp_exp ).c_str () );
-	}
-	else
-	{
-		/* XXX: need to workaround binutils bug, which exports
-		 * all functions in a dll if no .def file or an empty
-		 * one has been provided... */
-		/* See bug 1244 */
-		//printf ( "%s will have all its functions exported\n",
-		//         module.target->name.c_str () );
-		fprintf ( fMakefile,
-		          "\t%s %s%s -o %s %s %s %s\n",
-		          linker.c_str (),
-		          linkerParameters.c_str (),
-		          linkerScriptArgument.c_str (),
-		          target_macro.c_str (),
-		          objectsMacro.c_str (),
-		          libsMacro.c_str (),
-		          GetLinkerMacro ().c_str () );
 	}
 
 	GenerateBuildMapCode ();
@@ -2529,7 +2517,7 @@ MingwKernelModuleHandler::GenerateKernelModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s",
+		string linkerParameters = ssprintf ( "-subsystem=native -entry=%s -image-base=%s",
 		                                     module.GetEntryPoint(!(Environment::GetArch() == "arm")).c_str (),
 		                                     module.baseaddress.c_str () );
 
@@ -2652,7 +2640,7 @@ MingwKernelModeDLLModuleHandler::GenerateKernelModeDLLModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -shared",
+		string linkerParameters = ssprintf ( "-subsystem=native -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000 -shared",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -2701,7 +2689,7 @@ MingwKernelModeDriverModuleHandler::GenerateKernelModeDriverModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -shared",
+		string linkerParameters = ssprintf ( "-subsystem=native -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000 -shared",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -2749,7 +2737,7 @@ MingwNativeDLLModuleHandler::GenerateNativeDLLModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -nostdlib -shared",
+		string linkerParameters = ssprintf ( "-subsystem=native -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000 -shared",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -2797,7 +2785,7 @@ MingwNativeCUIModuleHandler::GenerateNativeCUIModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,native -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -nostartfiles -nostdlib",
+		string linkerParameters = ssprintf ( "-subsystem=native -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -2922,7 +2910,7 @@ MingwWin32DLLModuleHandler::GenerateWin32DLLModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -shared",
+		string linkerParameters = ssprintf ( "-subsystem=console -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000 -shared",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -2964,7 +2952,7 @@ MingwWin32OCXModuleHandler::GenerateWin32OCXModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000 -shared",
+		string linkerParameters = ssprintf ( "-subsystem=console -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000 -shared",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -3013,7 +3001,7 @@ MingwWin32CUIModuleHandler::GenerateWin32CUIModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000",
+		string linkerParameters = ssprintf ( "-subsystem=console -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -3062,7 +3050,7 @@ MingwWin32GUIModuleHandler::GenerateWin32GUIModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,windows -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000",
+		string linkerParameters = ssprintf ( "-subsystem=windows -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,
@@ -3684,7 +3672,7 @@ MingwTestModuleHandler::GenerateTestModuleTarget ()
 
 		string dependencies = linkDepsMacro + " " + objectsMacro;
 
-		string linkerParameters = ssprintf ( "-Wl,--subsystem,console -Wl,--entry,%s -Wl,--image-base,%s -Wl,--file-alignment,0x1000 -Wl,--section-alignment,0x1000",
+		string linkerParameters = ssprintf ( "-subsystem=console -entry=%s -image-base=%s -file-alignment=0x1000 -section-alignment=0x1000",
 		                                     module.GetEntryPoint(true).c_str (),
 		                                     module.baseaddress.c_str () );
 		GenerateLinkerCommand ( dependencies,

@@ -526,8 +526,8 @@ MingwBackend::GenerateGlobalVariables () const
 
 	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
 	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
-	fprintf ( fMakefile, "PROJECT_LFLAGS := %s\n",
-	          GenerateProjectLFLAGS ().c_str () );
+	fprintf ( fMakefile, "PROJECT_LFLAGS := '$(shell ${TARGET_CC} -print-libgcc-file-name)' %s\n", GenerateProjectLFLAGS ().c_str () );
+	fprintf ( fMakefile, "PROJECT_LPPFLAGS := '$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)' '$(shell ${TARGET_CPP} -print-file-name=libgcc.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)'\n" );
 	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall\n" );
 	fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
 	fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
@@ -1074,30 +1074,38 @@ MingwBackend::DetectPCHSupport ()
 {
 	printf ( "Detecting compiler pre-compiled header support..." );
 
-	string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
-	string cmd = ssprintf (
-		"%s -c %s 1>%s 2>%s",
-		FixSeparatorForSystemCommand(compilerCommand).c_str (),
-		path.c_str (),
-		NUL,
-		NUL );
-	system ( cmd.c_str () );
-	path += ".gch";
-
-	FILE* f = fopen ( path.c_str (), "rb" );
-	if ( f )
+	if ( configuration.PrecompiledHeadersEnabled )
 	{
-		use_pch = true;
-		fclose ( f );
-		unlink ( path.c_str () );
+		string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
+		string cmd = ssprintf (
+			"%s -c %s 1>%s 2>%s",
+			FixSeparatorForSystemCommand(compilerCommand).c_str (),
+			path.c_str (),
+			NUL,
+			NUL );
+		system ( cmd.c_str () );
+		path += ".gch";
+	
+		FILE* f = fopen ( path.c_str (), "rb" );
+		if ( f )
+		{
+			use_pch = true;
+			fclose ( f );
+			unlink ( path.c_str () );
+		}
+		else
+			use_pch = false;
+
+		if ( use_pch )
+			printf ( "detected\n" );
+		else
+			printf ( "not detected\n" );
 	}
 	else
+	{
 		use_pch = false;
-
-	if ( use_pch )
-		printf ( "detected\n" );
-	else
-		printf ( "not detected\n" );
+		printf ( "disabled\n" );
+	}
 }
 
 void
@@ -1192,11 +1200,11 @@ MingwBackend::OutputModuleInstallTargets ()
 string
 MingwBackend::GetRegistrySourceFiles ()
 {
-	return "boot" + sSep + "bootdata" + sSep + "hivecls.inf "
-		"boot" + sSep + "bootdata" + sSep + "hivedef.inf "
-		"boot" + sSep + "bootdata" + sSep + "hiveinst.inf "
-		"boot" + sSep + "bootdata" + sSep + "hivesft.inf "
-		"boot" + sSep + "bootdata" + sSep + "hivesys.inf";
+	return "boot" + sSep + "bootdata" + sSep + Environment::GetArch() + sSep + "hivecls.inf "
+		"boot" + sSep + "bootdata" + sSep + Environment::GetArch() + sSep + "hivedef.inf "
+		"boot" + sSep + "bootdata" + sSep + Environment::GetArch() + sSep + "hiveinst.inf "
+		"boot" + sSep + "bootdata" + sSep + Environment::GetArch() + sSep + "hivesft.inf "
+		"boot" + sSep + "bootdata" + sSep + Environment::GetArch() + sSep + "hivesys.inf";
 }
 
 string
@@ -1233,9 +1241,9 @@ MingwBackend::OutputRegistryInstallTarget ()
 	fprintf ( fMakefile,
 	          "\t$(ECHO_MKHIVE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(MKHIVE_TARGET) boot%cbootdata %s boot%cbootdata%chiveinst.inf\n",
-	          cSep, GetFullPath ( system32 ).c_str (),
-	          cSep, cSep );
+	          "\t$(MKHIVE_TARGET) boot%cbootdata%c$(ROS_ARCH) %s boot%cbootdata%c$(ROS_ARCH)%chiveinst.inf\n",
+	          cSep, cSep, GetFullPath ( system32 ).c_str (),
+	          cSep, cSep, cSep );
 	fprintf ( fMakefile,
 	          "\n" );
 }
