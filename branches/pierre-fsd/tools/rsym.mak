@@ -16,7 +16,11 @@ RSYM_SOURCES = \
 RSYM_OBJECTS = \
 	$(addprefix $(INTERMEDIATE_), $(RSYM_SOURCES:.c=.o))
 
+ifeq ($(ARCH),amd64)
+RSYM_HOST_CFLAGS = $(TOOLS_CFLAGS) -D_TARGET_PE64
+else
 RSYM_HOST_CFLAGS = $(TOOLS_CFLAGS)
+endif
 
 RSYM_HOST_LFLAGS = $(TOOLS_LFLAGS)
 
@@ -24,15 +28,15 @@ RSYM_HOST_LFLAGS = $(TOOLS_LFLAGS)
 rsym: $(RSYM_TARGET)
 
 $(RSYM_TARGET): $(RSYM_OBJECTS) | $(RSYM_OUT)
-	$(ECHO_LD)
+	$(ECHO_HOSTLD)
 	${host_gcc} $(RSYM_OBJECTS) $(RSYM_HOST_LFLAGS) -o $@
 
 $(RSYM_INT_)rsym.o: $(RSYM_BASE_)rsym.c | $(RSYM_INT)
-	$(ECHO_CC)
+	$(ECHO_HOSTCC)
 	${host_gcc} $(RSYM_HOST_CFLAGS) -c $< -o $@
 
 $(RSYM_INT_)rsym_common.o: $(RSYM_BASE_)rsym_common.c | $(RSYM_INT)
-	$(ECHO_CC)
+	$(ECHO_HOSTCC)
 	${host_gcc} $(RSYM_HOST_CFLAGS) -c $< -o $@
 
 .PHONY: rsym_clean

@@ -21,6 +21,7 @@
  */
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 )
+#pragma warning ( disable : 4996 )
 #endif//_MSC_VER
 
 #include <iostream>
@@ -114,9 +115,9 @@ void MSVCBackend::Process()
 
 void MSVCBackend::ProcessModules()
 {
-	for(size_t i = 0; i < ProjectNode.modules.size(); i++)
+	for(std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p)
 	{
-		Module &module = *ProjectNode.modules[i];
+		Module &module = *p->second;
 
 		module.guid = _gen_guid();
 
@@ -390,9 +391,9 @@ MSVCBackend::_get_def_files ( const Module& module, vector<string>& out) const
 void
 MSVCBackend::_clean_project_files ( void )
 {
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 		vector<string> out;
 		printf("Cleaning project %s %s %s\n", module.name.c_str (), module.output->relative_path.c_str (), NcbFileName ( module ).c_str () );
 
@@ -457,9 +458,9 @@ MSVCBackend::_copy_file ( const std::string& inputname, const std::string& targe
 void
 MSVCBackend::_install_files (const std::string& vcdir, const::string& config)
 {
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 		if ( !module.install )
 			continue;
 

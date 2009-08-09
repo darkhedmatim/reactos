@@ -698,30 +698,20 @@ static void output_import_thunk( const char *name, const char *table, int pos )
         output( "\tjmp $31,($0)\n" );
         break;
     case CPU_POWERPC:
-        output( "\taddi %s, %s, -0x4\n", ppc_reg(1), ppc_reg(1) );
-        output( "\tstw  %s, 0(%s)\n",    ppc_reg(9), ppc_reg(1) );
-        output( "\taddi %s, %s, -0x4\n", ppc_reg(1), ppc_reg(1) );
-        output( "\tstw  %s, 0(%s)\n",    ppc_reg(8), ppc_reg(1) );
-        output( "\taddi %s, %s, -0x4\n", ppc_reg(1), ppc_reg(1) );
-        output( "\tstw  %s, 0(%s)\n",    ppc_reg(7), ppc_reg(1) );
+        output( "\tmr %s, %s\n", ppc_reg(0), ppc_reg(31) );
         if (target_platform == PLATFORM_APPLE)
         {
-            output( "\tlis %s, ha16(%s+%d)\n", ppc_reg(9), table, pos );
-            output( "\tla  %s, lo16(%s+%d)(%s)\n", ppc_reg(8), table, pos, ppc_reg(9) );
+            output( "\tlis %s, ha16(%s+%d+32768)\n", ppc_reg(31), table, pos );
+            output( "\tla  %s, lo16(%s+%d)(%s)\n", ppc_reg(31), table, pos, ppc_reg(31) );
         }
         else
         {
-            output( "\tlis %s, (%s+%d)@h\n", ppc_reg(9), table, pos );
-            output( "\tla  %s, (%s+%d)@l(%s)\n", ppc_reg(8), table, pos, ppc_reg(9) );
+            output( "\tlis %s, (%s+%d+32768)@h\n", ppc_reg(31), table, pos );
+            output( "\tla  %s, (%s+%d)@l(%s)\n", ppc_reg(31), table, pos, ppc_reg(31) );
         }
-        output( "\tlwz  %s, 0(%s)\n", ppc_reg(7), ppc_reg(8) );
-        output( "\tmtctr %s\n", ppc_reg(7) );
-        output( "\tlwz  %s, 0(%s)\n",   ppc_reg(7), ppc_reg(1) );
-        output( "\taddi %s, %s, 0x4\n", ppc_reg(1), ppc_reg(1) );
-        output( "\tlwz  %s, 0(%s)\n",   ppc_reg(8), ppc_reg(1) );
-        output( "\taddi %s, %s, 0x4\n", ppc_reg(1), ppc_reg(1) );
-        output( "\tlwz  %s, 0(%s)\n",   ppc_reg(9), ppc_reg(1) );
-        output( "\taddi %s, %s, 0x4\n", ppc_reg(1), ppc_reg(1) );
+        output( "\tlwz   %s, 0(%s)\n", ppc_reg(31), ppc_reg(31) );
+        output( "\tmtctr %s\n", ppc_reg(31) );
+        output( "\tmr    %s, %s\n", ppc_reg(31), ppc_reg(0) );
         output( "\tbctr\n" );
         break;
     }
@@ -755,7 +745,8 @@ static void output_immediate_imports(void)
     {
         if (dll_imports[i]->delay) continue;
         dll_name = make_c_identifier( dll_imports[i]->spec->file_name );
-        output( "\t.long 0\n" );     /* OriginalFirstThunk */
+        output( "\t.long .L__wine_spec_import_data_names+%d-.L__wine_spec_rva_base\n",  /* OriginalFirstThunk */
+                 j * get_ptr_size() );
         output( "\t.long 0\n" );     /* TimeDateStamp */
         output( "\t.long 0\n" );     /* ForwarderChain */
         output( "\t.long .L__wine_spec_import_name_%s-.L__wine_spec_rva_base\n", /* Name */
@@ -771,7 +762,7 @@ static void output_immediate_imports(void)
     output( "\t.long 0\n" );     /* FirstThunk */
 
     output( "\n\t.align %d\n", get_alignment(get_ptr_size()) );
-    output( ".L__wine_spec_import_data_ptrs:\n" );
+    output( ".L__wine_spec_import_data_names:\n" );
     for (i = 0; i < nb_imports; i++)
     {
         if (dll_imports[i]->delay) continue;
@@ -790,6 +781,13 @@ static void output_immediate_imports(void)
                     output( "\t.long 0x8000%04x\n", odp->ordinal );
             }
         }
+        output( "\t%s 0\n", get_asm_ptr_keyword() );
+    }
+    output( ".L__wine_spec_import_data_ptrs:\n" );
+    for (i = 0; i < nb_imports; i++)
+    {
+        if (dll_imports[i]->delay) continue;
+        for (j = 0; j < dll_imports[i]->nb_imports; j++) output( "\t%s 0\n", get_asm_ptr_keyword() );
         output( "\t%s 0\n", get_asm_ptr_keyword() );
     }
     output( ".L__wine_spec_imports_end:\n" );
@@ -972,22 +970,22 @@ static void output_delayed_import_thunks( const DLLSPEC *spec )
         output( "\tjmp *%%eax\n" );
         break;
     case CPU_x86_64:
-        output( "\tpushq %%rdi\n" );
-        output( "\tpushq %%rsi\n" );
         output( "\tpushq %%rdx\n" );
         output( "\tpushq %%rcx\n" );
         output( "\tpushq %%r8\n" );
         output( "\tpushq %%r9\n" );
-        output( "\tsubq $8,%%rsp\n" );
-        output( "\tmovq %%r11,%%rdi\n" );
+        output( "\tpushq %%r10\n" );
+        output( "\tpushq %%r11\n" );
+        output( "\tsubq $40,%%rsp\n" );
+        output( "\tmovq %%rax,%%rcx\n" );
         output( "\tcall %s\n", asm_name("__wine_spec_delay_load") );
-        output( "\taddq $8,%%rsp\n" );
+        output( "\taddq $40,%%rsp\n" );
+        output( "\tpopq %%r11\n" );
+        output( "\tpopq %%r10\n" );
         output( "\tpopq %%r9\n" );
         output( "\tpopq %%r8\n" );
         output( "\tpopq %%rcx\n" );
         output( "\tpopq %%rdx\n" );
-        output( "\tpopq %%rsi\n" );
-        output( "\tpopq %%rdi\n" );
         output( "\tjmp *%%rax\n" );
         break;
     case CPU_SPARC:
@@ -1070,7 +1068,7 @@ static void output_delayed_import_thunks( const DLLSPEC *spec )
                 output( "\tjmp %s\n", asm_name("__wine_delay_load_asm") );
                 break;
             case CPU_x86_64:
-                output( "\tmovq $%d,%%r11\n", (idx << 16) | j );
+                output( "\tmovq $%d,%%rax\n", (idx << 16) | j );
                 output( "\tjmp %s\n", asm_name("__wine_delay_load_asm") );
                 break;
             case CPU_SPARC:
@@ -1193,45 +1191,64 @@ void output_stubs( DLLSPEC *spec )
         output( "\t%s\n", func_declaration(name) );
         output( "%s:\n", asm_name(name) );
 
-        /* flesh out the stub a bit to make safedisc happy */
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
-        output(" \tnop\n" );
+        switch (target_cpu)
+        {
+        case CPU_x86:
+            /* flesh out the stub a bit to make safedisc happy */
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
+            output(" \tnop\n" );
 
-        output( "\tsubl $4,%%esp\n" );
-        if (UsePIC)
-        {
-            output( "\tcall %s\n", asm_name("__wine_spec_get_pc_thunk_eax") );
-            output( "1:" );
-            if (exp_name)
+            output( "\tsubl $4,%%esp\n" );
+            if (UsePIC)
             {
-                output( "\tleal .L%s_string-1b(%%eax),%%ecx\n", name );
+                output( "\tcall %s\n", asm_name("__wine_spec_get_pc_thunk_eax") );
+                output( "1:" );
+                if (exp_name)
+                {
+                    output( "\tleal .L%s_string-1b(%%eax),%%ecx\n", name );
+                    output( "\tpushl %%ecx\n" );
+                    count++;
+                }
+                else
+                    output( "\tpushl $%d\n", odp->ordinal );
+                output( "\tleal .L__wine_spec_file_name-1b(%%eax),%%ecx\n" );
                 output( "\tpushl %%ecx\n" );
-                count++;
             }
             else
-                output( "\tpushl $%d\n", odp->ordinal );
-            output( "\tleal .L__wine_spec_file_name-1b(%%eax),%%ecx\n" );
-            output( "\tpushl %%ecx\n" );
-        }
-        else
-        {
+            {
+                if (exp_name)
+                {
+                    output( "\tpushl $.L%s_string\n", name );
+                    count++;
+                }
+                else
+                    output( "\tpushl $%d\n", odp->ordinal );
+                output( "\tpushl $.L__wine_spec_file_name\n" );
+            }
+            output( "\tcall %s\n", asm_name("__wine_spec_unimplemented_stub") );
+            break;
+        case CPU_x86_64:
+            output( "\tleaq .L__wine_spec_file_name(%%rip),%%rdi\n" );
             if (exp_name)
             {
-                output( "\tpushl $.L%s_string\n", name );
+                output( "leaq .L%s_string(%%rip),%%rsi\n", name );
                 count++;
             }
             else
-                output( "\tpushl $%d\n", odp->ordinal );
-            output( "\tpushl $.L__wine_spec_file_name\n" );
+                output( "\tmovq $%d,%%rsi\n", odp->ordinal );
+            output( "\tsubq $8,%%rsp\n" );
+            output( "\tcall %s\n", asm_name("__wine_spec_unimplemented_stub") );
+            break;
+        default:
+            assert(0);
         }
-        output( "\tcall %s\n", asm_name("__wine_spec_unimplemented_stub") );
         output_function_size( name );
     }
 

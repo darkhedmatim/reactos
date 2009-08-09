@@ -223,9 +223,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			else
 				common_defines.insert( defs[i]->name );
 		}
-		for ( i = 0; i < data.properties.size(); i++ )
+		for ( std::map<std::string, Property*>::const_iterator p = data.properties.begin(); p != data.properties.end(); ++ p )
 		{
-			Property& prop = *data.properties[i];
+			Property& prop = *p->second;
 			if ( strstr ( module.baseaddress.c_str(), prop.name.c_str() ) )
 				baseaddr = prop.value;
 		}
@@ -481,7 +481,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			fprintf ( OUT, "\t\t\t<Tool\r\n" );
 			fprintf ( OUT, "\t\t\t\tName=\"VCLinkerTool\"\r\n" );
-			if (module.GetEntryPoint(false) == "0")
+			if (module.GetEntryPoint(false) == "0" && sys == false)
 				fprintf ( OUT, "AdditionalOptions=\"/noentry\"" );
 
 			if (configuration.VSProjectVersion == "9.00")
@@ -554,7 +554,10 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 			if ( sys )
 			{
-				fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
+				if (module.GetEntryPoint(false) == "0")
+					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /noentry /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
+				else
+					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tIgnoreAllDefaultLibraries=\"TRUE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tGenerateManifest=\"FALSE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tSubSystem=\"%d\"\r\n", 3 );
@@ -938,7 +941,7 @@ MSVCBackend::_strip_gcc_deffile(std::string Filename, std::string sourcedir, std
 
 		line += "\n";
 		out_file << line;
-	} 
+	}
 	in_file.close();
 	out_file.close();
 
@@ -990,7 +993,7 @@ MSVCBackend::_get_studio_version ( void )
 
 	if (configuration.VSProjectVersion.empty())
 		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
-	
+
 	else if (configuration.VSProjectVersion == "7.00")
 		version = "2002";
 
@@ -1053,9 +1056,9 @@ MSVCBackend::_generate_sln_footer ( FILE* OUT )
 		fprintf ( OUT, "\t\t%s = %s\r\n", m_configurations[i]->name.c_str(), m_configurations[i]->name.c_str() );
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	fprintf ( OUT, "\tGlobalSection(ProjectConfiguration) = postSolution\r\n" );
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 		std::string guid = module.guid;
 		_generate_sln_configurations ( OUT, guid.c_str() );
 	}
@@ -1101,9 +1104,9 @@ MSVCBackend::_generate_sln ( FILE* OUT )
 
 	_generate_sln_header(OUT);
 	// TODO FIXME - is it necessary to sort them?
-	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
+	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 
 		std::string vcproj_file = VcprojFileName ( module );
 		_generate_sln_project ( OUT, module, vcproj_file, sln_guid, module.guid, module.non_if_data.libraries );
@@ -1114,20 +1117,20 @@ MSVCBackend::_generate_sln ( FILE* OUT )
 const Property*
 MSVCBackend::_lookup_property ( const Module& module, const std::string& name ) const
 {
+	std::map<std::string, Property*>::const_iterator p;
+
 	/* Check local values */
-	for ( size_t i = 0; i < module.non_if_data.properties.size(); i++ )
-	{
-		const Property& property = *module.non_if_data.properties[i];
-		if ( property.name == name )
-			return &property;
-	}
+	p = module.non_if_data.properties.find(name);
+
+	if ( p != module.non_if_data.properties.end() )
+		return p->second;
+
 	// TODO FIXME - should we check local if-ed properties?
-	for ( size_t i = 0; i < module.project.non_if_data.properties.size(); i++ )
-	{
-		const Property& property = *module.project.non_if_data.properties[i];
-		if ( property.name == name )
-			return &property;
-	}
+	p = module.project.non_if_data.properties.find(name);
+
+	if ( p != module.project.non_if_data.properties.end() )
+		return p->second;
+
 	// TODO FIXME - should we check global if-ed properties?
 	return NULL;
 }

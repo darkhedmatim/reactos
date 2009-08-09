@@ -13,9 +13,6 @@
 <directory name="rgenstat">
 	<xi:include href="rgenstat/rgenstat.rbuild" />
 </directory>
-<directory name="sysreg">
-	<xi:include href="sysreg/sysreg.rbuild" />
-</directory>
 <directory name="unicode">
 	<xi:include href="unicode/unicode.rbuild" />
 </directory>
@@ -33,5 +30,8 @@
 </directory>
 <directory name="wrc">
 	<xi:include href="wrc/wrc.rbuild" />
+</directory>
+<directory name="utf16le">
+	<xi:include href="utf16le/utf16le.rbuild" />
 </directory>
 </group>

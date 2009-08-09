@@ -241,8 +241,6 @@ CmiAddSubKey(
 	HSTORAGE_TYPE Storage;
 	ULONG i;
 
-	DPRINT("CmiAddSubKey(%p '%wZ')\n", RegistryHive, SubKeyName);
-
 	VERIFY_KEY_CELL(ParentKeyCell);
 
 	/* Skip leading backslash */
@@ -523,8 +521,6 @@ CmiScanForSubKey(
 
 	VERIFY_KEY_CELL(KeyCell);
 
-	DPRINT("CmiScanForSubKey('%wZ')\n", SubKeyName);
-
 	ASSERT(RegistryHive);
 
 	*pSubKeyCell = NULL;
@@ -622,7 +618,7 @@ CmiAllocateValueCell(
 
 	NameLength = CmiGetPackedNameLength(ValueName, &Packable);
 
-	DPRINT("ValueName->Length %lu  NameLength %lu\n", ValueName->Length, NameLength);
+	DPRINT("ValueName->Length %u  NameLength %u\n", ValueName->Length, NameLength);
 
 	*VBOffset = HvAllocateCell(&RegistryHive->Hive, sizeof(CM_KEY_VALUE) + NameLength, Storage, HCELL_NIL);
 	if (*VBOffset == HCELL_NIL)

@@ -149,6 +149,12 @@ private:
 	                    bool verbose );
 };
 
+enum DependenciesType
+{
+	NoDependencies,
+	AutomaticDependencies,
+	FullDependencies
+};
 
 class Configuration
 {
@@ -157,7 +163,7 @@ public:
 	~Configuration ();
 	bool Verbose;
 	bool CleanAsYouGo;
-	bool AutomaticDependencies;
+	DependenciesType Dependencies;
 	bool CheckDependenciesForModuleOnly;
 	bool CompilationUnitsEnabled;
 	bool PrecompiledHeadersEnabled;
@@ -212,7 +218,7 @@ public:
 	std::vector<Include*> includes;
 	std::vector<Define*> defines;
 	std::vector<Library*> libraries;
-	std::vector<Property*> properties;
+	std::map<std::string, Property*> properties;
 	std::vector<Module*> modules;
 	std::vector<CompilerFlag*> compilerFlags;
 	std::vector<If*> ifs;
@@ -221,7 +227,7 @@ public:
 	IfableData();
 	~IfableData();
 	void ProcessXML();
-	void ExtractModules( std::vector<Module*> &modules );
+	void ExtractModules( std::map<std::string, Module*> &modules );
 };
 
 class Project
@@ -237,8 +243,11 @@ public:
 	std::vector<LinkerFlag*> linkerFlags;
 	std::vector<CDFile*> cdfiles;
 	std::vector<InstallFile*> installfiles;
-	std::vector<Module*> modules;
+	std::map<std::string, Module*> modules;
 	IfableData non_if_data;
+	IfableData host_non_if_data;
+	bool allowWarnings;
+	bool allowWarningsSet;
 
 	Project ( const Configuration& configuration,
 	          const std::string& filename,
@@ -246,7 +255,6 @@ public:
 	~Project ();
 	void SetBackend ( Backend* backend ) { _backend = backend; }
 	Backend& GetBackend() { return *_backend; }
-	void WriteConfigurationFile ();
 	void ExecuteInvocations ();
 
 	void ProcessXML ( const std::string& path );
@@ -256,12 +264,6 @@ public:
 	std::string ResolveProperties ( const std::string& s ) const;
 private:
 	std::string ResolveNextProperty ( const std::string& s ) const;
-	const Property* LookupProperty ( const std::string& name ) const;
-	void SetConfigurationOption ( char* s,
-	                              std::string name,
-	                              std::string alternativeName );
-	void SetConfigurationOption ( char* s,
-	                              std::string name );
 	void ReadXml ();
 	void ProcessXMLSubElement ( const XMLElement& e,
 	                            const std::string& path,
@@ -275,33 +277,34 @@ private:
 
 enum ModuleType
 {
-	BuildTool = 0,
-	StaticLibrary = 1,
-	ObjectLibrary = 2,
-	Kernel = 3,
-	KernelModeDLL = 4,
-	KernelModeDriver = 5,
-	NativeDLL = 6,
-	NativeCUI = 7,
-	Win32DLL = 8,
-	Win32OCX = 9,
-	Win32CUI = 10,
-	Win32GUI = 11,
-	BootLoader = 12,
-	BootSector = 13,
-	Iso = 14,
-	LiveIso = 15,
-	Test = 16,
-	RpcServer = 17,
-	RpcClient = 18,
-	Alias = 19,
-	BootProgram = 20,
-	Win32SCR = 21,
-	IdlHeader = 23,
-	IsoRegTest = 24,
-	LiveIsoRegTest = 25,
-	EmbeddedTypeLib = 26,
-	ElfExecutable = 27,
+	BuildTool,
+	StaticLibrary,
+	ObjectLibrary,
+	Kernel,
+	KernelModeDLL,
+	KernelModeDriver,
+	NativeDLL,
+	NativeCUI,
+	Win32DLL,
+	Win32OCX,
+	Win32CUI,
+	Win32GUI,
+	BootLoader,
+	BootSector,
+	Iso,
+	LiveIso,
+	Test,
+	RpcServer,
+	RpcClient,
+	Alias,
+	BootProgram,
+	Win32SCR,
+	IdlHeader,
+	IdlInterface,
+	IsoRegTest,
+	LiveIsoRegTest,
+	EmbeddedTypeLib,
+	ElfExecutable,
 	RpcProxy,
 	HostStaticLibrary,
 	TypeDontCare,
@@ -372,11 +375,13 @@ public:
 	PchFile* pch;
 	bool cplusplus;
 	std::string prefix;
-	HostType host;
 	std::string aliasedModuleName;
 	bool allowWarnings;
 	bool enabled;
 	bool isStartupLib;
+	bool isCRT;
+	std::string CRT;
+	bool dynamicCRT;
 	FileLocation *output; // "path/foo.exe"
 	FileLocation *dependency; // "path/foo.exe" or "path/libfoo.a"
 	FileLocation *install;
@@ -401,17 +406,23 @@ public:
 	bool HasFileWithExtension ( const IfableData&, const std::string& extension ) const;
 	void InvokeModule () const;
 	void ProcessXML ();
+	std::string GetDllName() const;
 private:
 	void SetImportLibrary ( ImportLibrary* importLibrary );
 	DirectoryLocation GetTargetDirectoryTree () const;
 	std::string GetDefaultModuleExtension () const;
 	std::string GetDefaultModuleEntrypoint () const;
 	std::string GetDefaultModuleBaseaddress () const;
+	std::string GetDefaultModuleCRT () const;
+	bool GetDefaultModuleIsCRT () const;
 	std::string entrypoint;
 	void ProcessXMLSubElement ( const XMLElement& e,
 	                            DirectoryLocation directory,
 	                            const std::string& relative_path,
 	                            ParseContext& parseContext );
+	bool GetBooleanAttribute ( const XMLElement& moduleNode,
+	                           const char * name,
+	                           bool default_value = false );
 };
 
 

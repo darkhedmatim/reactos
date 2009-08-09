@@ -116,7 +116,7 @@ enum target_cpu
 
 enum target_platform
 {
-    PLATFORM_UNSPECIFIED, PLATFORM_APPLE, PLATFORM_WINDOWS
+    PLATFORM_UNSPECIFIED, PLATFORM_APPLE, PLATFORM_SOLARIS, PLATFORM_WINDOWS
 };
 
 extern enum target_cpu target_cpu;
@@ -127,13 +127,15 @@ extern enum target_platform target_platform;
 #define FLAG_NONAME    0x02  /* don't export function by name */
 #define FLAG_RET16     0x04  /* function returns a 16-bit value */
 #define FLAG_RET64     0x08  /* function returns a 64-bit value */
-#define FLAG_I386      0x10  /* function is i386 only */
-#define FLAG_REGISTER  0x20  /* use register calling convention */
-#define FLAG_PRIVATE   0x40  /* function is private (cannot be imported) */
-#define FLAG_ORDINAL   0x80  /* function should be imported by ordinal */
+#define FLAG_REGISTER  0x10  /* use register calling convention */
+#define FLAG_PRIVATE   0x20  /* function is private (cannot be imported) */
+#define FLAG_ORDINAL   0x40  /* function should be imported by ordinal */
 
 #define FLAG_FORWARD   0x100  /* function is a forwarded name */
 #define FLAG_EXT_LINK  0x200  /* function links to an external symbol */
+
+#define FLAG_CPU(cpu)  (0x01000 << (cpu))
+#define FLAG_CPU_MASK  0x1f000
 
 #define MAX_ORDINALS  65535
 
@@ -143,14 +145,22 @@ extern enum target_platform target_platform;
 #define __attribute__(X)
 #endif
 
+#ifndef DECLSPEC_NORETURN
+# if defined(_MSC_VER) && (_MSC_VER >= 1200) && !defined(MIDL_PASS)
+#  define DECLSPEC_NORETURN __declspec(noreturn)
+# else
+#  define DECLSPEC_NORETURN __attribute__((noreturn))
+# endif
+#endif
+
 extern void *xmalloc (size_t size);
 extern void *xrealloc (void *ptr, size_t size);
 extern char *xstrdup( const char *str );
 extern char *strupper(char *s);
 extern int strendswith(const char* str, const char* end);
-extern void fatal_error( const char *msg, ... )
+extern DECLSPEC_NORETURN void fatal_error( const char *msg, ... )
    __attribute__ ((__format__ (__printf__, 1, 2)));
-extern void fatal_perror( const char *msg, ... )
+extern DECLSPEC_NORETURN void fatal_perror( const char *msg, ... )
    __attribute__ ((__format__ (__printf__, 1, 2)));
 extern void error( const char *msg, ... )
    __attribute__ ((__format__ (__printf__, 1, 2)));
@@ -169,6 +179,7 @@ extern DLLSPEC *alloc_dll_spec(void);
 extern void free_dll_spec( DLLSPEC *spec );
 extern const char *make_c_identifier( const char *str );
 extern const char *get_stub_name( const ORDDEF *odp, const DLLSPEC *spec );
+extern enum target_cpu get_cpu_from_name( const char *name );
 extern unsigned int get_alignment(unsigned int align);
 extern unsigned int get_page_size(void);
 extern unsigned int get_ptr_size(void);
@@ -221,6 +232,7 @@ extern int kill_at;
 extern int verbose;
 extern int save_temps;
 extern int link_ext_symbols;
+extern int force_pointer_size;
 
 extern char *input_file_name;
 extern char *spec_file_name;

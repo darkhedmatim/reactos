@@ -34,6 +34,42 @@ using std::map;
 
 typedef set<string> set_string;
 
+const struct ModuleHandlerInformations ModuleHandlerInformations[] = {
+	{ HostTrue, "", "", "" }, // BuildTool
+	{ HostFalse, "", "", "" }, // StaticLibrary
+	{ HostFalse, "", "", "" }, // ObjectLibrary
+	{ HostFalse, "", "", "" }, // Kernel
+	{ HostFalse, "", "", "" }, // KernelModeDLL
+	{ HostFalse, "-D__NTDRIVER__", "", "" }, // KernelModeDriver
+	{ HostFalse, "", "", "" }, // NativeDLL
+	{ HostFalse, "-D__NTAPP__", "", "" }, // NativeCUI
+	{ HostFalse, "", "", "" }, // Win32DLL
+	{ HostFalse, "", "", "" }, // Win32OCX
+	{ HostFalse, "", "", "" }, // Win32CUI
+	{ HostFalse, "", "", "" }, // Win32GUI
+	{ HostFalse, "", "", "-nostartfiles -nostdlib" }, // BootLoader
+	{ HostFalse, "", "-f bin", "" }, // BootSector
+	{ HostFalse, "", "", "" }, // Iso
+	{ HostFalse, "", "", "" }, // LiveIso
+	{ HostFalse, "", "", "" }, // Test
+	{ HostFalse, "", "", "" }, // RpcServer
+	{ HostFalse, "", "", "" }, // RpcClient
+	{ HostFalse, "", "", "" }, // Alias
+	{ HostFalse, "", "", "-nostartfiles -nostdlib" }, // BootProgram
+	{ HostFalse, "", "", "" }, // Win32SCR
+	{ HostFalse, "", "", "" }, // IdlHeader
+	{ HostFalse, "", "", "" }, // IdlInterface
+	{ HostFalse, "", "", "" }, // IsoRegTest
+	{ HostFalse, "", "", "" }, // LiveIsoRegTest
+	{ HostFalse, "", "", "" }, // EmbeddedTypeLib
+	{ HostFalse, "", "", "" }, // ElfExecutable
+	{ HostFalse, "", "", "" }, // RpcProxy
+	{ HostTrue, "", "", "" }, // HostStaticLibrary
+	{ HostFalse, "", "", "" }, // Cabinet
+	{ HostFalse, "", "", "" }, // KeyboardLayout
+	{ HostFalse, "", "", "" }, // MessageHeader
+};
+
 string
 MingwBackend::GetFullPath ( const FileLocation& file ) const
 {
@@ -239,9 +275,9 @@ MingwBackend::ProcessModules ()
 	vector<MingwModuleHandler*> v;
 	size_t i;
 
-	for ( i = 0; i < ProjectNode.modules.size (); i++ )
+	for ( std::map<std::string, Module*>::iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
 	{
-		Module& module = *ProjectNode.modules[i];
+		Module& module = *p->second;
 		if ( !module.enabled )
 			continue;
 		MingwModuleHandler* h = MingwModuleHandler::InstanciateHandler (
@@ -250,11 +286,6 @@ MingwBackend::ProcessModules ()
 		h->AddImplicitLibraries ( module );
 		if ( use_pch && CanEnablePreCompiledHeaderSupportForModule ( module ) )
 			h->EnablePreCompiledHeaderSupport ();
-		if ( module.host == HostDefault )
-		{
-			module.host = h->DefaultHost();
-			assert ( module.host != HostDefault );
-		}
 		v.push_back ( h );
 	}
 
@@ -302,7 +333,7 @@ MingwBackend::Process ()
 void
 MingwBackend::CheckAutomaticDependenciesForModuleOnly ()
 {
-	if ( configuration.AutomaticDependencies )
+	if ( configuration.Dependencies == AutomaticDependencies )
 	{
 		Module* module = ProjectNode.LocateModule ( configuration.CheckDependenciesForModuleOnlyModule );
 		if ( module == NULL )
@@ -324,6 +355,8 @@ MingwBackend::CheckAutomaticDependenciesForModuleOnly ()
 void
 MingwBackend::ProcessNormal ()
 {
+	assert(sizeof(ModuleHandlerInformations)/sizeof(ModuleHandlerInformations[0]) == TypeDontCare);
+
 	DetectCompiler ();
 	DetectBinutils ();
 	DetectNetwideAssembler ();
@@ -379,7 +412,7 @@ MingwBackend::GenerateProjectCFlagsMacro ( const char* assignmentOperation,
 	if ( data.includes.size () > 0 )
 		fprintf (
 			fMakefile,
-			"PROJECT_CFLAGS %s %s\n",
+			"PROJECT_CINCLUDES %s %s\n",
 			assignmentOperation,
 			MingwModuleHandler::GenerateGccIncludeParametersFromVector ( data.includes ).c_str ());
 
@@ -396,11 +429,9 @@ MingwBackend::GenerateGlobalCFlagsAndProperties (
 	const char* assignmentOperation,
 	const IfableData& data ) const
 {
-	size_t i;
-
-	for ( i = 0; i < data.properties.size(); i++ )
+	for ( std::map<std::string, Property*>::const_iterator p = data.properties.begin(); p != data.properties.end(); ++ p )
 	{
-		Property& prop = *data.properties[i];
+		Property& prop = *p->second;
 
 		if (!prop.isInternal)
 		{
@@ -460,7 +491,44 @@ MingwBackend::GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
 		}
 	}
 
-	fprintf ( fMakefile, "\n" );
+	fputs ( "\n", fMakefile );
+
+	// TODO: reference these from somewhere
+	fprintf (
+		fMakefile,
+		"PROJECT_GCC_CFLAGS %s",
+		assignmentOperation );
+
+	for ( i = 0; i < data.compilerFlags.size(); i++ )
+	{
+		if ( data.compilerFlags[i]->compiler == CompilerTypeCC )
+		{
+			fprintf (
+				fMakefile,
+				" %s",
+				data.compilerFlags[i]->flag.c_str() );
+		}
+	}
+
+	fputs ( "\n", fMakefile );
+
+	fprintf (
+		fMakefile,
+		"PROJECT_GCC_CXXFLAGS %s",
+		assignmentOperation );
+
+	for ( i = 0; i < data.compilerFlags.size(); i++ )
+	{
+		if ( data.compilerFlags[i]->compiler == CompilerTypeCPP )
+		{
+			fprintf (
+				fMakefile,
+				" %s",
+				data.compilerFlags[i]->flag.c_str() );
+		}
+	}
+
+	fputs ( "\n", fMakefile );
 }
 
 void
@@ -514,6 +582,17 @@ MingwBackend::GenerateProjectLFLAGS () const
 void
 MingwBackend::GenerateGlobalVariables () const
 {
+	fputs ( "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)rules.mak\n", fMakefile );
+
+	if ( configuration.Dependencies == FullDependencies )
+	{
+		fprintf ( fMakefile,
+				  "ifeq ($(ROS_BUILDDEPS),)\n"
+				  "ROS_BUILDDEPS:=%s\n"
+				  "endif\n",
+				  "full" );
+	}
+
 	fprintf ( fMakefile,
 	          "PREFIX := %s\n",
 	          compilerPrefix.c_str () );
@@ -524,15 +603,24 @@ MingwBackend::GenerateGlobalVariables () const
 	GenerateGlobalCFlagsAndProperties ( "=", ProjectNode.non_if_data );
 	GenerateProjectGccOptions ( "=", ProjectNode.non_if_data );
 
-	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
-	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CFLAGS) $(PROJECT_CDEFINES)\n" );
+	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CINCLUDES) $(PROJECT_CDEFINES)\n" );
+	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CINCLUDES) $(PROJECT_CDEFINES)\n" );
 	fprintf ( fMakefile, "PROJECT_LFLAGS := '$(shell ${TARGET_CC} -print-libgcc-file-name)' %s\n", GenerateProjectLFLAGS ().c_str () );
-	fprintf ( fMakefile, "PROJECT_LPPFLAGS := '$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)' '$(shell ${TARGET_CPP} -print-file-name=libgcc.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)'\n" );
-	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall\n" );
+	fprintf ( fMakefile, "PROJECT_LPPFLAGS := '$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)' '$(shell ${TARGET_CPP} -print-file-name=libgcc.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)' '$(shell ${TARGET_CPP} -print-file-name=libcoldname.a)'\n" );
+	/* hack to get libgcc_eh.a, should check mingw version or something */
+	if (Environment::GetArch() == "amd64")
+	{
+	    fprintf ( fMakefile, "PROJECT_LPPFLAGS += '$(shell ${TARGET_CPP} -print-file-name=libgcc_eh.a)'\n" );
+	}
+	fprintf ( fMakefile, "PROJECT_GCCOPTIONS += -Wall\n" );
 	fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
-	fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
+	fprintf ( fMakefile, "PROJECT_GCCOPTIONS += -march=$(OARCH)\n" );
 	fprintf ( fMakefile, "endif\n" );
-	fprintf ( fMakefile, "PROJECT_CFLAGS += $(PROJECT_GCCOPTIONS)\n" );
+	fprintf ( fMakefile, "ifneq ($(TUNE),)\n" );
+	fprintf ( fMakefile, "PROJECT_GCCOPTIONS += -mtune=$(TUNE)\n" );
+	fprintf ( fMakefile, "endif\n" );
+	fprintf ( fMakefile, "PROJECT_CFLAGS = $(PROJECT_GCCOPTIONS) $(PROJECT_GCC_CFLAGS)\n" );
+	fprintf ( fMakefile, "PROJECT_CXXFLAGS = $(PROJECT_GCCOPTIONS) $(PROJECT_GCC_CXXFLAGS)\n" );
 	fprintf ( fMakefile, "\n" );
 }
 
@@ -706,7 +794,7 @@ MingwBackend::GenerateProxyMakefiles ()
 void
 MingwBackend::CheckAutomaticDependencies ()
 {
-	if ( configuration.AutomaticDependencies )
+	if ( configuration.Dependencies == AutomaticDependencies )
 	{
 		printf ( "Checking automatic dependencies..." );
 		AutomaticDependency automaticDependency ( ProjectNode );
@@ -816,7 +904,7 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 	buffer[i] = '\0';
 	pclose ( fp );
 
-	char separators[] = " ";
+	char separators[] = " ()";
 	char *token;
 	char *prevtoken = NULL;
 
@@ -1085,7 +1173,7 @@ MingwBackend::DetectPCHSupport ()
 			NUL );
 		system ( cmd.c_str () );
 		path += ".gch";
-	
+
 		FILE* f = fopen ( path.c_str (), "rb" );
 		if ( f )
 		{
@@ -1123,9 +1211,9 @@ void
 MingwBackend::GetModuleInstallTargetFiles (
 	vector<FileLocation>& out ) const
 {
-	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
+	for ( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
 	{
-		const Module& module = *ProjectNode.modules[i];
+		const Module& module = *p->second;
 		if ( !module.enabled )
 			continue;
 		if ( module.install )
@@ -1184,9 +1272,9 @@ MingwBackend::GetAliasedModuleOrModule ( const Module& module ) const
 void
 MingwBackend::OutputModuleInstallTargets ()
 {
-	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
+	for ( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
 	{
-		const Module& module = *ProjectNode.modules[i];
+		const Module& module = *p->second;
 		if ( !module.enabled )
 			continue;
 		if ( module.install )
@@ -1271,9 +1359,9 @@ void
 MingwBackend::GetModuleTestTargets (
 	vector<string>& out ) const
 {
-	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
+	for ( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
 	{
-		const Module& module = *ProjectNode.modules[i];
+		const Module& module = *p->second;
 		if ( !module.enabled )
 			continue;
 		if ( module.type == Test )
