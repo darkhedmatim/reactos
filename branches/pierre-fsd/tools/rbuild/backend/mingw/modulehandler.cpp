@@ -165,15 +165,8 @@ MingwModuleHandler::InstanciateHandler (
 	MingwModuleHandler* handler;
 	switch ( module.type )
 	{
-		case BuildTool:
-			handler = new MingwBuildToolModuleHandler ( module );
-			break;
 		case StaticLibrary:
-			handler = new MingwStaticLibraryModuleHandler ( module );
-			break;
 		case HostStaticLibrary:
-			handler = new MingwHostStaticLibraryModuleHandler ( module );
-			break;
 		case ObjectLibrary:
 		case RpcServer:
 		case RpcClient:
@@ -184,6 +177,9 @@ MingwModuleHandler::InstanciateHandler (
 		case EmbeddedTypeLib:
 		case BootSector:
 			handler = new MingwModuleHandler( module );
+			break;
+		case BuildTool:
+			handler = new MingwBuildToolModuleHandler ( module );
 			break;
 		case Kernel:
 			handler = new MingwKernelModuleHandler ( module );
@@ -233,29 +229,11 @@ MingwModuleHandler::InstanciateHandler (
 		case Test:
 			handler = new MingwTestModuleHandler ( module );
 			break;
-		case RpcServer:
-			handler = new MingwRpcServerModuleHandler ( module );
-			break;
-		case RpcClient:
-			handler = new MingwRpcClientModuleHandler ( module );
-			break;
-		case RpcProxy:
-			handler = new MingwRpcProxyModuleHandler ( module );
-			break;
 		case Alias:
 			handler = new MingwAliasModuleHandler ( module );
 			break;
-		case MessageHeader:
-			handler = new MingwMessageHeaderModuleHandler (module);
-			break;
-		case IdlHeader:
-			handler = new MingwIdlHeaderModuleHandler ( module );
-			break;
 		case Cabinet:
 			handler = new MingwCabinetModuleHandler ( module );
-			break;
-		case EmbeddedTypeLib:
-			handler = new MingwEmbeddedTypeLibModuleHandler ( module );
 			break;
 		case ElfExecutable:
 			handler = new MingwElfExecutableModuleHandler ( module );
@@ -308,13 +286,6 @@ MingwModuleHandler::GetModuleArchiveFilename () const
 	return new FileLocation ( IntermediateDirectory,
 	                          module.output->relative_path,
 	                          ReplaceExtension ( module.name, ".temp.a" ) );
-}
-
-bool
-MingwModuleHandler::IsGeneratedFile ( const File& file ) const
-{
-	string extension = GetExtension ( file.file );
-	return ( extension == ".spec" || extension == ".SPEC" );
 }
 
 /*static*/ bool
@@ -839,34 +810,6 @@ MingwModuleHandler::GenerateMacros (
 				deps.c_str() );
 		}
 	}
-
-	const vector<If*>& ifs = data.ifs;
-	for ( i = 0; i < ifs.size(); i++ )
-	{
-		If& rIf = *ifs[i];
-		if ( rIf.data.defines.size()
-			|| rIf.data.includes.size()
-			|| rIf.data.libraries.size()
-			|| rIf.data.compilationUnits.size()
-			|| rIf.data.compilerFlags.size()
-			|| rIf.data.ifs.size() )
-		{
-			fprintf (
-				fMakefile,
-				"%s (\"$(%s)\",\"%s\")\n",
-				rIf.negated ? "ifneq" : "ifeq",
-				rIf.property.c_str(),
-				rIf.value.c_str() );
-			GenerateMacros (
-				"+=",
-				rIf.data,
-				NULL,
-				used_defs );
-			fprintf (
-				fMakefile,
-				"endif\n\n" );
-		}
-	}
 }
 
 void
@@ -883,7 +826,6 @@ MingwModuleHandler::GetModuleSpecificCompilationUnits ( vector<CompilationUnit*>
 
 void
 MingwModuleHandler::GenerateSourceMacros (
-	const char* assignmentOperation,
 	const IfableData& data )
 {
 	size_t i;
@@ -895,9 +837,8 @@ MingwModuleHandler::GenerateSourceMacros (
 	{
 		fprintf (
 			fMakefile,
-			"%s %s",
-			sourcesMacro.c_str (),
-			assignmentOperation );
+			"%s =",
+			sourcesMacro.c_str () );
 		for ( i = 0; i < compilationUnits.size(); i++ )
 		{
 			CompilationUnit& compilationUnit = *compilationUnits[i];
@@ -909,32 +850,6 @@ MingwModuleHandler::GenerateSourceMacros (
 				backend->GetFullName ( compilationName ).c_str () );
 		}
 		fprintf ( fMakefile, "\n" );
-	}
-
-	const vector<If*>& ifs = data.ifs;
-	for ( i = 0; i < ifs.size(); i++ )
-	{
-		If& rIf = *ifs[i];
-		if ( rIf.data.defines.size()
-			|| rIf.data.includes.size()
-			|| rIf.data.libraries.size()
-			|| rIf.data.compilationUnits.size()
-			|| rIf.data.compilerFlags.size()
-			|| rIf.data.ifs.size() )
-		{
-			fprintf (
-				fMakefile,
-				"%s (\"$(%s)\",\"%s\")\n",
-				rIf.negated ? "ifneq" : "ifeq",
-				rIf.property.c_str(),
-				rIf.value.c_str() );
-			GenerateSourceMacros (
-				"+=",
-				rIf.data );
-			fprintf (
-				fMakefile,
-				"endif\n\n" );
-		}
 	}
 
 	vector<CompilationUnit*> sourceCompilationUnits;
@@ -953,10 +868,10 @@ MingwModuleHandler::GenerateSourceMacros (
 
 void
 MingwModuleHandler::GenerateObjectMacros (
-	const char* assignmentOperation,
 	const IfableData& data )
 {
 	size_t i;
+	const char* assignmentOperation = "=";
 
 	const vector<CompilationUnit*>& compilationUnits = data.compilationUnits;
 	vector<const FileLocation *> headers;
@@ -973,11 +888,12 @@ MingwModuleHandler::GenerateObjectMacros (
 				const FileLocation& compilationName = compilationUnit.GetFilename ();
 				const FileLocation *object_file = GetObjectFilename ( &compilationName, module );
 				fprintf ( fMakefile,
-					"%s := %s $(%s)\n",
+					"%s := %s\n",
 					objectsMacro.c_str(),
-					backend->GetFullName ( *object_file ).c_str (),
-					objectsMacro.c_str() );
+					backend->GetFullName ( *object_file ).c_str () );
 				delete object_file;
+				assignmentOperation = "+=";
+				break;
 			}
 		}
 		fprintf (
@@ -1068,32 +984,6 @@ MingwModuleHandler::GenerateObjectMacros (
 			delete mcresources[i];
 		}
 		fprintf ( fMakefile, "\n" );
-	}
-
-	const vector<If*>& ifs = data.ifs;
-	for ( i = 0; i < ifs.size(); i++ )
-	{
-		If& rIf = *ifs[i];
-		if ( rIf.data.defines.size()
-			|| rIf.data.includes.size()
-			|| rIf.data.libraries.size()
-			|| rIf.data.compilationUnits.size()
-			|| rIf.data.compilerFlags.size()
-			|| rIf.data.ifs.size() )
-		{
-			fprintf (
-				fMakefile,
-				"%s (\"$(%s)\",\"%s\")\n",
-				rIf.negated ? "ifneq" : "ifeq",
-				rIf.property.c_str(),
-				rIf.value.c_str() );
-			GenerateObjectMacros (
-				"+=",
-				rIf.data );
-			fprintf (
-				fMakefile,
-				"endif\n\n" );
-		}
 	}
 
 	vector<CompilationUnit*> sourceCompilationUnits;
@@ -1849,12 +1739,6 @@ MingwModuleHandler::GenerateObjectFileTargets ( const IfableData& data )
 		          "\n" );
 	}
 
-	const vector<If*>& ifs = data.ifs;
-	for ( i = 0; i < ifs.size(); i++ )
-	{
-		GenerateObjectFileTargets ( ifs[i]->data );
-	}
-
 	vector<CompilationUnit*> sourceCompilationUnits;
 	GetModuleSpecificCompilationUnits ( sourceCompilationUnits );
 	for ( i = 0; i < sourceCompilationUnits.size (); i++ )
@@ -2035,9 +1919,7 @@ MingwModuleHandler::GenerateSourceMacro ()
 {
 	sourcesMacro = ssprintf ( "%s_SOURCES", module.name.c_str ());
 
-	GenerateSourceMacros (
-		"=",
-		module.non_if_data );
+	GenerateSourceMacros ( module.non_if_data );
 
 	// future references to the macro will be to get its values
 	sourcesMacro = ssprintf ("$(%s)", sourcesMacro.c_str ());
@@ -2048,9 +1930,7 @@ MingwModuleHandler::GenerateObjectMacro ()
 {
 	objectsMacro = ssprintf ("%s_OBJS", module.name.c_str ());
 
-	GenerateObjectMacros (
-		"=",
-		module.non_if_data );
+	GenerateObjectMacros ( module.non_if_data );
 
 	// future references to the macro will be to get its values
 	objectsMacro = ssprintf ("$(%s)", objectsMacro.c_str ());
@@ -2798,84 +2678,11 @@ MingwKernelModuleHandler::GenerateKernelModuleTarget ()
 }
 
 
-MingwStaticLibraryModuleHandler::MingwStaticLibraryModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwStaticLibraryModuleHandler::Process ()
-{
-	GenerateStaticLibraryModuleTarget ();
-}
-
-void
-MingwStaticLibraryModuleHandler::GenerateStaticLibraryModuleTarget ()
-{
-	GenerateRules ();
-}
-
-
-MingwHostStaticLibraryModuleHandler::MingwHostStaticLibraryModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwHostStaticLibraryModuleHandler::Process ()
-{
-	GenerateHostStaticLibraryModuleTarget ();
-}
-
-void
-MingwHostStaticLibraryModuleHandler::GenerateHostStaticLibraryModuleTarget ()
-{
-	GenerateRules ();
-}
-
-
-MingwObjectLibraryModuleHandler::MingwObjectLibraryModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwObjectLibraryModuleHandler::Process ()
-{
-	GenerateObjectLibraryModuleTarget ();
-}
-
-void
-MingwObjectLibraryModuleHandler::GenerateObjectLibraryModuleTarget ()
-{
-	GenerateRules ();
-}
-
-
 MingwKernelModeDLLModuleHandler::MingwKernelModeDLLModuleHandler (
 	const Module& module_ )
 
 	: MingwModuleHandler ( module_ )
 {
-}
-
-MingwEmbeddedTypeLibModuleHandler::MingwEmbeddedTypeLibModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwEmbeddedTypeLibModuleHandler::Process ()
-{
-	GenerateRules ();
 }
 
 
@@ -3728,7 +3535,7 @@ MingwLiveIsoModuleHandler::OutputRegistryCommands ( string& livecdDirectory )
 	fprintf ( fMakefile,
 	          "\t$(ECHO_MKHIVE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(MKHIVE_TARGET) boot%cbootdata %s boot%cbootdata%clivecd.inf boot%cbootdata%chiveinst.inf\n",
+	          "\t$(MKHIVE_TARGET) boot%cbootdata %s $(ARCH) boot%cbootdata%clivecd.inf boot%cbootdata%chiveinst_$(ARCH).inf\n",
 	          cSep, backend->GetFullPath ( reactosSystem32ConfigDirectory ).c_str (),
 	          cSep, cSep, cSep, cSep );
 }
@@ -3844,48 +3651,6 @@ MingwTestModuleHandler::GenerateTestModuleTarget ()
 }
 
 
-MingwRpcServerModuleHandler::MingwRpcServerModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwRpcServerModuleHandler::Process ()
-{
-	GenerateRules ();
-}
-
-
-MingwRpcClientModuleHandler::MingwRpcClientModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwRpcClientModuleHandler::Process ()
-{
-	GenerateRules ();
-}
-
-
-MingwRpcProxyModuleHandler::MingwRpcProxyModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwRpcProxyModuleHandler::Process ()
-{
-	GenerateRules ();
-}
-
-
 MingwAliasModuleHandler::MingwAliasModuleHandler (
 	const Module& module_ )
 
@@ -3898,31 +3663,6 @@ MingwAliasModuleHandler::Process ()
 {
 }
 
-MingwMessageHeaderModuleHandler::MingwMessageHeaderModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwMessageHeaderModuleHandler::Process ()
-{
-	GenerateRules ();
-}
-
-MingwIdlHeaderModuleHandler::MingwIdlHeaderModuleHandler (
-	const Module& module_ )
-
-	: MingwModuleHandler ( module_ )
-{
-}
-
-void
-MingwIdlHeaderModuleHandler::Process ()
-{
-	GenerateRules ();
-}
 
 MingwCabinetModuleHandler::MingwCabinetModuleHandler (
 	const Module& module_ )

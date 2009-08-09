@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005 Casper S. Hornstrup
+ * Copyright (C) 2008 Hervé Poussineau
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -93,8 +94,7 @@ Environment::GetAutomakeFile ( const std::string& defaultFile )
 }
 
 ParseContext::ParseContext ()
-	: ifData (NULL),
-	  compilationUnit (NULL)
+	: compilationUnit (NULL)
 {
 }
 
@@ -315,27 +315,6 @@ Project::ProcessXML ( const string& path )
 
 	non_if_data.ExtractModules( modules );
 
-	for ( i = 0; i < non_if_data.ifs.size (); i++ )
-	{
-		const Property *property =
-		    LookupProperty( non_if_data.ifs[i]->property );
-
-		if( !property ) continue;
-
-		bool conditionTrue =
-			(non_if_data.ifs[i]->negated &&
-			 (property->value != non_if_data.ifs[i]->value)) ||
-			(property->value == non_if_data.ifs[i]->value);
-		if ( conditionTrue )
-			non_if_data.ifs[i]->data.ExtractModules( modules );
-		else
-		{
-			If * if_data = non_if_data.ifs[i];
-			non_if_data.ifs.erase ( non_if_data.ifs.begin () + i );
-			delete if_data;
-			i--;
-		}
-	}
 	for ( i = 0; i < linkerFlags.size (); i++ )
 		linkerFlags[i]->ProcessXML ();
 	for( std::map<std::string, Module*>::const_iterator p = modules.begin(); p != modules.end(); ++ p )
@@ -352,7 +331,6 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
                                 ParseContext& parseContext )
 {
 	bool subs_invalid = false;
-	If* pOldIf = parseContext.ifData;
 
 	string subpath(path);
 	if ( e.name == "module" )
@@ -364,10 +342,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 				"module name conflict: '%s' (originally defined at %s)",
 				module->name.c_str(),
 				module->node.location.c_str() );
-		if ( parseContext.ifData )
-		    parseContext.ifData->data.modules.push_back( module );
-		else
-		    non_if_data.modules.push_back ( module );
+		non_if_data.modules.push_back ( module );
 		return; // defer processing until later
 	}
 	else if ( e.name == "cdfile" )
@@ -415,10 +390,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 	else if ( e.name == "compilerflag" )
 	{
 		CompilerFlag* pCompilerFlag = new CompilerFlag ( *this, e );
-		if ( parseContext.ifData )
-			parseContext.ifData->data.compilerFlags.push_back ( pCompilerFlag );
-		else
-			non_if_data.compilerFlags.push_back ( pCompilerFlag );
+		non_if_data.compilerFlags.push_back ( pCompilerFlag );
 		subs_invalid = true;
 	}
 	else if ( e.name == "linkerflag" )
@@ -426,7 +398,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 		linkerFlags.push_back ( new LinkerFlag ( *this, e ) );
 		subs_invalid = true;
 	}
-	else if ( e.name == "if" )
+	else if ( e.name == "if" || e.name == "ifnot" )
 	{
 		const XMLAttribute* name;
 		name = e.GetAttribute ( "property", true );
@@ -460,15 +432,6 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 		}
 		subs_invalid = false;
 	}
-	else if ( e.name == "ifnot" )
-	{
-		parseContext.ifData = new If ( e, *this, NULL, true );
-		if ( pOldIf )
-			pOldIf->data.ifs.push_back ( parseContext.ifData );
-		else
-			non_if_data.ifs.push_back ( parseContext.ifData );
-		subs_invalid = false;
-	}
 	else if ( e.name == "property" )
 	{
 		Property* property = new Property ( e, *this, NULL );
@@ -483,8 +446,6 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 	}
 	for ( size_t i = 0; i < e.subElements.size (); i++ )
 		ProcessXMLSubElement ( *e.subElements[i], subpath, parseContext );
-
-	parseContext.ifData = pOldIf;
 }
 
 Module*
