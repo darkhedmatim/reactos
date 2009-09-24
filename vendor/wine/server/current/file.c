@@ -147,6 +147,7 @@ static struct object *create_file_obj( struct fd *fd, unsigned int access, mode_
     if (!file) return NULL;
     file->access  = access;
     file->mode    = mode;
+    file->uid     = ~(uid_t)0;
     file->fd      = fd;
     grab_object( fd );
     set_fd_user( fd, &file_fd_ops, &file->obj );
@@ -206,7 +207,7 @@ static struct object *create_file( const char *nameptr, data_size_t len, unsigne
     if (!fd) goto done;
 
     if (S_ISDIR(mode))
-        obj = create_dir_obj( fd );
+        obj = create_dir_obj( fd, access, mode );
     else if (S_ISCHR(mode) && is_serial_fd( fd ))
         obj = create_serial( fd );
     else
@@ -534,6 +535,7 @@ static int file_set_sd( struct object *obj, const struct security_descriptor *sd
 {
     struct file *file = (struct file *)obj;
     const SID *owner;
+    struct stat st;
     mode_t mode;
     int unix_fd;
 
@@ -541,7 +543,7 @@ static int file_set_sd( struct object *obj, const struct security_descriptor *sd
 
     unix_fd = get_file_unix_fd( file );
 
-    if (unix_fd == -1) return 1;
+    if (unix_fd == -1 || fstat( unix_fd, &st ) == -1) return 1;
 
     if (set_info & OWNER_SECURITY_INFORMATION)
     {
@@ -566,18 +568,13 @@ static int file_set_sd( struct object *obj, const struct security_descriptor *sd
     if (set_info & DACL_SECURITY_INFORMATION)
     {
         /* keep the bits that we don't map to access rights in the ACL */
-        mode = file->mode & (S_ISUID|S_ISGID|S_ISVTX|S_IRWXG);
+        mode = st.st_mode & (S_ISUID|S_ISGID|S_ISVTX|S_IRWXG);
         mode |= sd_to_mode( sd, owner );
 
-        if (file->mode != mode)
+        if (st.st_mode != mode && fchmod( unix_fd, mode ) == -1)
         {
-            if (fchmod( unix_fd, mode ) == -1)
-            {
-                file_set_error();
-                return 0;
-            }
-
-            file->mode = mode;
+            file_set_error();
+            return 0;
         }
     }
     return 1;
@@ -602,8 +599,8 @@ void file_set_error(void)
     case ENOSPC:    set_error( STATUS_DISK_FULL ); break;
     case EACCES:
     case ESRCH:
+    case EROFS:
     case EPERM:     set_error( STATUS_ACCESS_DENIED ); break;
-    case EROFS:     set_error( STATUS_MEDIA_WRITE_PROTECTED ); break;
     case EBUSY:     set_error( STATUS_FILE_LOCK_CONFLICT ); break;
     case ENOENT:    set_error( STATUS_NO_SUCH_FILE ); break;
     case EISDIR:    set_error( STATUS_FILE_IS_A_DIRECTORY ); break;

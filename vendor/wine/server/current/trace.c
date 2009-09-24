@@ -457,9 +457,8 @@ static void dump_varargs_context( const char *prefix, data_size_t size )
             dump_uint64( ",rip=", &ctx.ctl.x86_64_regs.rip );
             dump_uint64( ",rbp=", &ctx.ctl.x86_64_regs.rbp );
             dump_uint64( ",rsp=", &ctx.ctl.x86_64_regs.rsp );
-            fprintf( stderr, ",cs=%04x,ss=%04x,flags=%08x,mxcsr=%08x",
-                     ctx.ctl.x86_64_regs.cs, ctx.ctl.x86_64_regs.ss,
-                     ctx.ctl.x86_64_regs.flags, ctx.ctl.x86_64_regs.mxcsr );
+            fprintf( stderr, ",cs=%04x,ss=%04x,flags=%08x",
+                     ctx.ctl.x86_64_regs.cs, ctx.ctl.x86_64_regs.ss, ctx.ctl.x86_64_regs.flags );
         }
         if (ctx.flags & SERVER_CTX_INTEGER)
         {
@@ -675,65 +674,38 @@ static void dump_varargs_debug_event( const char *prefix, data_size_t size )
 }
 
 /* dump a unicode string contained in a buffer; helper for dump_varargs_startup_info */
-static void dump_inline_unicode_string( const UNICODE_STRING *str, const void *data, data_size_t size )
+static data_size_t dump_inline_unicode_string( const char *prefix, data_size_t pos, data_size_t len, data_size_t total_size )
 {
-    size_t length = str->Length;
-    size_t offset = (size_t)str->Buffer;
-
-    if (offset >= size) return;
-    if (offset + length > size) length = size - offset;
-    dump_strW( (const WCHAR *)data + offset/sizeof(WCHAR), length/sizeof(WCHAR), stderr, "\"\"" );
+    fputs( prefix, stderr );
+    if (pos >= total_size) return pos;
+    if (len > total_size - pos) len = total_size - pos;
+    len /= sizeof(WCHAR);
+    dump_strW( (const WCHAR *)cur_data + pos/sizeof(WCHAR), len, stderr, "\"\"" );
+    return pos + len * sizeof(WCHAR);
 }
 
 static void dump_varargs_startup_info( const char *prefix, data_size_t size )
 {
-    const RTL_USER_PROCESS_PARAMETERS *ptr = cur_data;
-    RTL_USER_PROCESS_PARAMETERS params;
+    startup_info_t info;
+    data_size_t pos = sizeof(info);
 
-    if (size < sizeof(params.Size))
-    {
-        fprintf( stderr, "%s{}", prefix );
-        return;
-    }
-    if (size > ptr->Size) size = ptr->Size;
-    memset( &params, 0, sizeof(params) );
-    memcpy( &params, ptr, min( size, sizeof(params) ));
+    memset( &info, 0, sizeof(info) );
+    memcpy( &info, cur_data, min( size, sizeof(info) ));
 
-    fprintf( stderr, "%s{AllocationSize=%x,", prefix, params.AllocationSize );
-    fprintf( stderr, "Size=%x,", params.Size );
-    fprintf( stderr, "Flags=%x,", params.Flags );
-    fprintf( stderr, "DebugFlags=%x,", params.DebugFlags );
-    fprintf( stderr, "ConsoleHandle=%p,", params.ConsoleHandle );
-    fprintf( stderr, "ConsoleFlags=%x,", params.ConsoleFlags );
-    fprintf( stderr, "hStdInput=%p,", params.hStdInput );
-    fprintf( stderr, "hStdOutput=%p,", params.hStdOutput );
-    fprintf( stderr, "hStdError=%p,", params.hStdError );
-    fprintf( stderr, "CurrentDirectory.Handle=%p,", params.CurrentDirectory.Handle );
-    fprintf( stderr, "dwX=%d,", params.dwX );
-    fprintf( stderr, "dwY=%d,", params.dwY );
-    fprintf( stderr, "dwXSize=%d,", params.dwXSize );
-    fprintf( stderr, "dwYSize=%d,", params.dwYSize );
-    fprintf( stderr, "dwXCountChars=%d,", params.dwXCountChars );
-    fprintf( stderr, "dwYCountChars=%d,", params.dwYCountChars );
-    fprintf( stderr, "dwFillAttribute=%x,", params.dwFillAttribute );
-    fprintf( stderr, "dwFlags=%x,", params.dwFlags );
-    fprintf( stderr, "wShowWindow=%x,", params.wShowWindow );
-    fprintf( stderr, "CurrentDirectory.DosPath=L\"" );
-    dump_inline_unicode_string( &params.CurrentDirectory.DosPath, cur_data, size );
-    fprintf( stderr, "\",DllPath=L\"" );
-    dump_inline_unicode_string( &params.DllPath, cur_data, size );
-    fprintf( stderr, "\",ImagePathName=L\"" );
-    dump_inline_unicode_string( &params.ImagePathName, cur_data, size );
-    fprintf( stderr, "\",CommandLine=L\"" );
-    dump_inline_unicode_string( &params.CommandLine, cur_data, size );
-    fprintf( stderr, "\",WindowTitle=L\"" );
-    dump_inline_unicode_string( &params.WindowTitle, cur_data, size );
-    fprintf( stderr, "\",Desktop=L\"" );
-    dump_inline_unicode_string( &params.Desktop, cur_data, size );
-    fprintf( stderr, "\",ShellInfo=L\"" );
-    dump_inline_unicode_string( &params.ShellInfo, cur_data, size );
-    fprintf( stderr, "\",RuntimeInfo=L\"" );
-    dump_inline_unicode_string( &params.RuntimeInfo, cur_data, size );
+    fprintf( stderr,
+             "%s{debug_flags=%x,console_flags=%x,console=%04x,hstdin=%04x,hstdout=%04x,hstderr=%04x,"
+             "x=%u,y=%u,xsize=%u,ysize=%u,xchars=%u,ychars=%u,attribute=%02x,flags=%x,show=%u",
+             prefix, info.debug_flags, info.console_flags, info.console,
+             info.hstdin, info.hstdout, info.hstderr, info.x, info.y, info.xsize, info.ysize,
+             info.xchars, info.ychars, info.attribute, info.flags, info.show );
+    pos = dump_inline_unicode_string( ",curdir=L\"", pos, info.curdir_len, size );
+    pos = dump_inline_unicode_string( "\",dllpath=L\"", pos, info.dllpath_len, size );
+    pos = dump_inline_unicode_string( "\",imagepath=L\"", pos, info.imagepath_len, size );
+    pos = dump_inline_unicode_string( "\",cmdline=L\"", pos, info.cmdline_len, size );
+    pos = dump_inline_unicode_string( "\",title=L\"", pos, info.title_len, size );
+    pos = dump_inline_unicode_string( "\",desktop=L\"", pos, info.desktop_len, size );
+    pos = dump_inline_unicode_string( "\",shellinfo=L\"", pos, info.shellinfo_len, size );
+    pos = dump_inline_unicode_string( "\",runtime=L\"", pos, info.runtime_len, size );
     fprintf( stderr, "\"}" );
     remove_data( size );
 }
@@ -1025,14 +997,12 @@ static void dump_new_process_request( const struct new_process_request *req )
     fprintf( stderr, ", create_flags=%08x", req->create_flags );
     fprintf( stderr, ", socket_fd=%d", req->socket_fd );
     fprintf( stderr, ", exe_file=%04x", req->exe_file );
-    fprintf( stderr, ", hstdin=%04x", req->hstdin );
-    fprintf( stderr, ", hstdout=%04x", req->hstdout );
-    fprintf( stderr, ", hstderr=%04x", req->hstderr );
     fprintf( stderr, ", process_access=%08x", req->process_access );
     fprintf( stderr, ", process_attr=%08x", req->process_attr );
     fprintf( stderr, ", thread_access=%08x", req->thread_access );
     fprintf( stderr, ", thread_attr=%08x", req->thread_attr );
-    dump_varargs_startup_info( ", info=", cur_size );
+    fprintf( stderr, ", info_size=%u", req->info_size );
+    dump_varargs_startup_info( ", info=", min(cur_size,req->info_size) );
     dump_varargs_unicode_str( ", env=", cur_size );
 }
 
@@ -1077,10 +1047,8 @@ static void dump_get_startup_info_request( const struct get_startup_info_request
 static void dump_get_startup_info_reply( const struct get_startup_info_reply *req )
 {
     fprintf( stderr, " exe_file=%04x", req->exe_file );
-    fprintf( stderr, ", hstdin=%04x", req->hstdin );
-    fprintf( stderr, ", hstdout=%04x", req->hstdout );
-    fprintf( stderr, ", hstderr=%04x", req->hstderr );
-    dump_varargs_startup_info( ", info=", cur_size );
+    fprintf( stderr, ", info_size=%u", req->info_size );
+    dump_varargs_startup_info( ", info=", min(cur_size,req->info_size) );
     dump_varargs_unicode_str( ", env=", cur_size );
 }
 
@@ -1152,6 +1120,7 @@ static void dump_get_process_info_reply( const struct get_process_info_reply *re
     dump_timeout( ", end_time=", &req->end_time );
     fprintf( stderr, ", exit_code=%d", req->exit_code );
     fprintf( stderr, ", priority=%d", req->priority );
+    dump_cpu_type( ", cpu=", &req->cpu );
 }
 
 static void dump_set_process_info_request( const struct set_process_info_request *req )
@@ -2567,6 +2536,8 @@ static void dump_register_async_request( const struct register_async_request *re
 static void dump_cancel_async_request( const struct cancel_async_request *req )
 {
     fprintf( stderr, " handle=%04x", req->handle );
+    dump_uint64( ", iosb=", &req->iosb );
+    fprintf( stderr, ", only_thread=%d", req->only_thread );
 }
 
 static void dump_ioctl_request( const struct ioctl_request *req )
@@ -4582,12 +4553,12 @@ static const struct
     { "IO_TIMEOUT",                  STATUS_IO_TIMEOUT },
     { "KEY_DELETED",                 STATUS_KEY_DELETED },
     { "MAPPED_FILE_SIZE_ZERO",       STATUS_MAPPED_FILE_SIZE_ZERO },
-    { "MEDIA_WRITE_PROTECTED",       STATUS_MEDIA_WRITE_PROTECTED },
     { "MUTANT_NOT_OWNED",            STATUS_MUTANT_NOT_OWNED },
     { "NAME_TOO_LONG",               STATUS_NAME_TOO_LONG },
     { "NOTIFY_ENUM_DIR",             STATUS_NOTIFY_ENUM_DIR },
     { "NOT_ALL_ASSIGNED",            STATUS_NOT_ALL_ASSIGNED },
     { "NOT_A_DIRECTORY",             STATUS_NOT_A_DIRECTORY },
+    { "NOT_FOUND",                   STATUS_NOT_FOUND },
     { "NOT_IMPLEMENTED",             STATUS_NOT_IMPLEMENTED },
     { "NOT_REGISTRY_FILE",           STATUS_NOT_REGISTRY_FILE },
     { "NOT_SUPPORTED",               STATUS_NOT_SUPPORTED },
