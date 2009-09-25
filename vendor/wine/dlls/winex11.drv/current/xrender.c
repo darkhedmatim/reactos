@@ -427,23 +427,41 @@ static WineXRenderFormat *get_xrender_format(WXRFormat format)
     return NULL;
 }
 
-static WineXRenderFormat *get_xrender_format_from_pdevice(X11DRV_PDEVICE *physDev)
+static WineXRenderFormat *get_xrender_format_from_color_shifts(int depth, ColorShifts *shifts)
 {
-    WXRFormat format;
+    int redMask, greenMask, blueMask;
+    unsigned int i;
 
-    switch(physDev->depth)
+    if(depth == 1)
+        return get_xrender_format(WXR_FORMAT_MONO);
+
+    /* physDevs of a depth <=8, don't have color_shifts set and XRender can't handle those except for 1-bit */
+    if(!shifts)
+        return default_format;
+
+    redMask   = shifts->physicalRed.max << shifts->physicalRed.shift;
+    greenMask = shifts->physicalGreen.max << shifts->physicalGreen.shift;
+    blueMask  = shifts->physicalBlue.max << shifts->physicalBlue.shift;
+
+    /* Try to locate a format which matches the specification of the dibsection. */
+    for(i = 0; i < (sizeof(wxr_formats_template) / sizeof(wxr_formats_template[0])); i++)
     {
-        case 1:
-            format = WXR_FORMAT_MONO;
-            break;
-        default:
-            /* For now fall back to the format of the default visual.
-               In the future we should check if we are using a DDB/DIB and what exact format we need.
-             */
-            return default_format;
+        if( depth     == wxr_formats_template[i].depth &&
+            redMask   == (wxr_formats_template[i].redMask << wxr_formats_template[i].red) &&
+            greenMask == (wxr_formats_template[i].greenMask << wxr_formats_template[i].green) &&
+            blueMask  == (wxr_formats_template[i].blueMask << wxr_formats_template[i].blue) )
+
+        {
+            /* When we reach this stage the format was found in our template table but this doesn't mean that
+            * the Xserver also supports this format (e.g. its depth might be too low). The call below verifies that.
+            */
+            return get_xrender_format(wxr_formats_template[i].wxr_format);
+        }
     }
 
-    return get_xrender_format(format);
+    /* This should not happen because when we reach 'shifts' must have been set and we only allows shifts which are backed by X */
+    ERR("No XRender format found!\n");
+    return NULL;
 }
 
 static BOOL fontcmp(LFANDSIZE *p1, LFANDSIZE *p2)
@@ -1381,7 +1399,7 @@ BOOL X11DRV_XRender_ExtTextOut( X11DRV_PDEVICE *physDev, INT x, INT y, UINT flag
     unsigned int idx;
     double cosEsc, sinEsc;
     LOGFONTW lf;
-    WineXRenderFormat *dst_format = get_xrender_format_from_pdevice(physDev);
+    WineXRenderFormat *dst_format = get_xrender_format_from_color_shifts(physDev->depth, physDev->color_shifts);
     Picture tile_pict = 0;
 
     /* Do we need to disable antialiasing because of palette mode? */
@@ -1787,7 +1805,7 @@ BOOL CDECL X11DRV_AlphaBlend(X11DRV_PDEVICE *devDst, INT xDst, INT yDst, INT wid
     POINT pts[2];
     BOOL top_down = FALSE;
     RGNDATA *rgndata;
-    WineXRenderFormat *dst_format = get_xrender_format_from_pdevice(devDst);
+    WineXRenderFormat *dst_format = get_xrender_format_from_color_shifts(devDst->depth, devDst->color_shifts);
     WineXRenderFormat *src_format;
     int repeat_src;
 
@@ -1816,14 +1834,10 @@ BOOL CDECL X11DRV_AlphaBlend(X11DRV_PDEVICE *devDst, INT xDst, INT yDst, INT wid
     heightSrc = pts[1].y - pts[0].y;
     if (!widthDst || !heightDst || !widthSrc || !heightSrc) return TRUE;
 
-    /* If the source is a 1x1 bitmap, tiling is equivalent to stretching, but
-        tiling is much faster. Therefore, we do no stretching in this case. */
-    repeat_src = widthSrc == 1 && heightSrc == 1;
-
 #ifndef HAVE_XRENDERSETPICTURETRANSFORM
-    if((widthDst != widthSrc || heightDst != heightSrc) && !repeat_src)
+    if(widthDst != widthSrc || heightDst != heightSrc)
 #else
-    if(!pXRenderSetPictureTransform && !repeat_src)
+    if(!pXRenderSetPictureTransform)
 #endif
     {
         FIXME("Unable to Stretch, XRenderSetPictureTransform is currently required\n");
@@ -1840,6 +1854,10 @@ BOOL CDECL X11DRV_AlphaBlend(X11DRV_PDEVICE *devDst, INT xDst, INT yDst, INT wid
         }
         return FALSE;
     }
+
+    /* If the source is a 1x1 bitmap, tiling is equivalent to stretching, but
+        tiling is much faster. Therefore, we do no stretching in this case. */
+    repeat_src = dib.dsBmih.biWidth == 1 && abs(dib.dsBmih.biHeight) == 1;
 
     if (xSrc < 0 || ySrc < 0 || widthSrc < 0 || heightSrc < 0 || xSrc + widthSrc > dib.dsBmih.biWidth
         || ySrc + heightSrc > abs(dib.dsBmih.biHeight))
@@ -1948,7 +1966,10 @@ BOOL CDECL X11DRV_AlphaBlend(X11DRV_PDEVICE *devDst, INT xDst, INT yDst, INT wid
     /* Make sure we ALWAYS set the transformation matrix even if we don't need to scale. The reason is
      * that later on we want to reuse pictures (it can bring a lot of extra performance) and each time
      * a different transformation matrix might have been used. */
-    set_xrender_transformation(src_pict, widthSrc/(double)widthDst, heightSrc/(double)heightDst, 0, 0);
+    if (repeat_src)
+        set_xrender_transformation(src_pict, 1.0, 1.0, 0, 0);
+    else
+        set_xrender_transformation(src_pict, widthSrc/(double)widthDst, heightSrc/(double)heightDst, 0, 0);
     pXRenderComposite(gdi_display, PictOpOver, src_pict, 0, dst_pict,
                       0, 0, 0, 0,
                       xDst + devDst->dc_rect.left, yDst + devDst->dc_rect.top, widthDst, heightDst);
@@ -1966,6 +1987,40 @@ BOOL CDECL X11DRV_AlphaBlend(X11DRV_PDEVICE *devDst, INT xDst, INT yDst, INT wid
     return TRUE;
 }
 
+void X11DRV_XRender_CopyBrush(X11DRV_PDEVICE *physDev, X_PHYSBITMAP *physBitmap, int width, int height)
+{
+    /* At depths >1, the depth of physBitmap and physDev might not be the same e.g. the physbitmap might be a 16-bit DIB while the physdev uses 24-bit */
+    int depth = physBitmap->pixmap_depth == 1 ? 1 : physDev->depth;
+
+    wine_tsx11_lock();
+    physDev->brush.pixmap = XCreatePixmap(gdi_display, root_window, width, height, depth);
+
+    /* Use XCopyArea when the physBitmap and brush.pixmap have the same depth. */
+    if(physBitmap->pixmap_depth == 1 || physDev->depth == physBitmap->pixmap_depth)
+    {
+        XCopyArea( gdi_display, physBitmap->pixmap, physDev->brush.pixmap,
+                   get_bitmap_gc(physBitmap->pixmap_depth), 0, 0, width, height, 0, 0 );
+    }
+    else /* We meed depth conversion */
+    {
+        WineXRenderFormat *src_format = get_xrender_format_from_color_shifts(physBitmap->pixmap_depth, &physBitmap->pixmap_color_shifts);
+        WineXRenderFormat *dst_format = get_xrender_format_from_color_shifts(physDev->depth, physDev->color_shifts);
+
+        Picture src_pict, dst_pict;
+        XRenderPictureAttributes pa;
+        pa.subwindow_mode = IncludeInferiors;
+        pa.repeat = RepeatNone;
+
+        src_pict = pXRenderCreatePicture(gdi_display, physBitmap->pixmap, src_format->pict_format, CPSubwindowMode|CPRepeat, &pa);
+        dst_pict = pXRenderCreatePicture(gdi_display, physDev->brush.pixmap, dst_format->pict_format, CPSubwindowMode|CPRepeat, &pa);
+
+        xrender_blit(src_pict, 0, dst_pict, 0, 0, 1.0, 1.0, width, height);
+        pXRenderFreePicture(gdi_display, src_pict);
+        pXRenderFreePicture(gdi_display, dst_pict);
+    }
+    wine_tsx11_unlock();
+}
+
 BOOL X11DRV_XRender_GetSrcAreaStretch(X11DRV_PDEVICE *physDevSrc, X11DRV_PDEVICE *physDevDst,
                                       Pixmap pixmap, GC gc,
                                       INT widthSrc, INT heightSrc,
@@ -1977,8 +2032,8 @@ BOOL X11DRV_XRender_GetSrcAreaStretch(X11DRV_PDEVICE *physDevSrc, X11DRV_PDEVICE
     int height = visRectDst->bottom - visRectDst->top;
     int x_src = physDevSrc->dc_rect.left + visRectSrc->left;
     int y_src = physDevSrc->dc_rect.top + visRectSrc->top;
-    WineXRenderFormat *src_format = get_xrender_format_from_pdevice(physDevSrc);
-    WineXRenderFormat *dst_format = get_xrender_format_from_pdevice(physDevDst);
+    WineXRenderFormat *src_format = get_xrender_format_from_color_shifts(physDevSrc->depth, physDevSrc->color_shifts);
+    WineXRenderFormat *dst_format = get_xrender_format_from_color_shifts(physDevDst->depth, physDevDst->color_shifts);
     Picture src_pict=0, dst_pict=0, mask_pict=0;
 
     double xscale = widthSrc/(double)widthDst;
@@ -2105,6 +2160,16 @@ BOOL X11DRV_AlphaBlend(X11DRV_PDEVICE *devDst, INT xDst, INT yDst, INT widthDst,
 {
   FIXME("not supported - XRENDER headers were missing at compile time\n");
   return FALSE;
+}
+
+void X11DRV_XRender_CopyBrush(X11DRV_PDEVICE *physDev, X_PHYSBITMAP *physBitmap, int width, int height)
+{
+    wine_tsx11_lock();
+    physDev->brush.pixmap = XCreatePixmap(gdi_display, root_window, width, height, physBitmap->pixmap_depth);
+
+    XCopyArea( gdi_display, physBitmap->pixmap, physDev->brush.pixmap,
+               get_bitmap_gc(physBitmap->pixmap_depth), 0, 0, width, height, 0, 0 );
+    wine_tsx11_unlock();
 }
 
 BOOL X11DRV_XRender_GetSrcAreaStretch(X11DRV_PDEVICE *physDevSrc, X11DRV_PDEVICE *physDevDst,
