@@ -35,6 +35,9 @@
 #ifdef HAVE_POLL_H
 #include <poll.h>
 #endif
+#ifdef HAVE_SCHED_H
+#include <sched.h>
+#endif
 
 #include "ntstatus.h"
 #define WIN32_NO_STATUS
@@ -404,6 +407,35 @@ struct thread *get_thread_from_pid( int pid )
     return NULL;
 }
 
+void set_thread_affinity( struct thread *thread, affinity_t affinity )
+{
+    if ((affinity & thread->process->affinity) != affinity)
+    {
+        set_error( STATUS_INVALID_PARAMETER );
+        return;
+    }
+#ifdef HAVE_SCHED_SETAFFINITY
+    if (thread->unix_pid != -1)
+    {
+        cpu_set_t set;
+        int i;
+        affinity_t mask;
+
+        CPU_ZERO( &set );
+        for (i = 0, mask = 1; mask; i++, mask <<= 1)
+            if (affinity & mask) CPU_SET( i, &set );
+
+        if (!sched_setaffinity( thread->unix_pid, sizeof(set), &set ))
+            thread->affinity = affinity;
+        else
+            file_set_error();
+    }
+    else set_error( STATUS_ACCESS_DENIED );
+#else
+    thread->affinity = affinity;
+#endif
+}
+
 #define THREAD_PRIORITY_REALTIME_HIGHEST 6
 #define THREAD_PRIORITY_REALTIME_LOWEST -7
 
@@ -428,7 +460,7 @@ static void set_thread_info( struct thread *thread,
             set_error( STATUS_INVALID_PARAMETER );
     }
     if (req->mask & SET_THREAD_INFO_AFFINITY)
-        thread->affinity = req->affinity;
+        set_thread_affinity( thread, req->affinity );
     if (req->mask & SET_THREAD_INFO_TOKEN)
         security_set_thread_token( thread, req->token );
 }

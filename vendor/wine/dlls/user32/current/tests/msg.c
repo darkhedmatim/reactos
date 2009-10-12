@@ -5257,7 +5257,7 @@ static WNDPROC old_button_proc;
 
 static LRESULT CALLBACK button_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static long defwndproc_counter = 0;
+    static LONG defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -5458,7 +5458,7 @@ static WNDPROC old_static_proc;
 
 static LRESULT CALLBACK static_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static long defwndproc_counter = 0;
+    static LONG defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -5553,7 +5553,7 @@ static WNDPROC old_combobox_proc;
 
 static LRESULT CALLBACK combobox_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static long defwndproc_counter = 0;
+    static LONG defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -7813,6 +7813,12 @@ static VOID CALLBACK tfunc(HWND hwnd, UINT uMsg, UINT_PTR id, DWORD dwTime)
 {
 }
 
+static VOID CALLBACK tfunc_crash(HWND hwnd, UINT uMsg, UINT_PTR id, DWORD dwTime)
+{
+    /* Crash on purpose */
+    *(volatile int *)0 = 2;
+}
+
 #define TIMER_ID  0x19
 
 static DWORD WINAPI timer_thread_proc(LPVOID x)
@@ -7834,6 +7840,7 @@ static void test_timers(void)
 {
     struct timer_info info;
     DWORD id;
+    MSG msg;
 
     info.hWnd = CreateWindow ("TestWindowClass", NULL,
        WS_OVERLAPPEDWINDOW ,
@@ -7854,6 +7861,26 @@ static void test_timers(void)
     CloseHandle(info.handles[1]);
 
     ok( KillTimer(info.hWnd, TIMER_ID), "KillTimer failed\n");
+
+    ok(DestroyWindow(info.hWnd), "failed to destroy window\n");
+
+    /* Test timer callback with crash */
+    SetLastError(0xdeadbeef);
+    info.hWnd = CreateWindowW(testWindowClassW, NULL,
+                              WS_OVERLAPPEDWINDOW ,
+                              CW_USEDEFAULT, CW_USEDEFAULT, 300, 300, 0,
+                              NULL, NULL, 0);
+    if ((!info.hWnd && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED) || /* Win9x/Me */
+        (!pGetMenuInfo)) /* Win95/NT4 */
+    {
+        win_skip("Test would crash on Win9x/WinMe/NT4\n");
+        DestroyWindow(info.hWnd);
+        return;
+    }
+    info.id = SetTimer(info.hWnd, TIMER_ID, 0, tfunc_crash);
+    ok(info.id, "SetTimer failed\n");
+    Sleep(150);
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) DispatchMessage(&msg);
 
     ok(DestroyWindow(info.hWnd), "failed to destroy window\n");
 }
@@ -8984,7 +9011,7 @@ static WNDPROC old_edit_proc;
 
 static LRESULT CALLBACK edit_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static long defwndproc_counter = 0;
+    static LONG defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
