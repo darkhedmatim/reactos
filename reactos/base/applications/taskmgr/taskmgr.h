@@ -47,9 +47,6 @@ typedef struct _IO_COUNTERS {
 #define RUN_PERF_PAGE
 
 #define STATUS_WINDOW	2001
-#define STATUS_SIZE1	80
-#define STATUS_SIZE2	210
-#define STATUS_SIZE3	400
 
 typedef struct
 {
@@ -71,10 +68,12 @@ typedef struct
 
 	/* Update speed settings */
 	/* How many half-seconds in between updates (i.e. 0 - Paused, 1 - High, 2 - Normal, 4 - Low) */
-	DWORD	UpdateSpeed;
+	int	UpdateSpeed;
 
 	/* Applications page settings */
-	DWORD	ViewMode;
+	BOOL	View_LargeIcons;
+	BOOL	View_SmallIcons;
+	BOOL	View_Details;
 
 	/* Processes page settings */
 	BOOL	ShowProcessesFromAllUsers; /* Server-only? */
@@ -116,13 +115,16 @@ void TaskManager_OnRestoreMainWindow(void);
 void TaskManager_OnEnterMenuLoop(HWND hWnd);
 void TaskManager_OnExitMenuLoop(HWND hWnd);
 void TaskManager_OnMenuSelect(HWND hWnd, UINT nItemID, UINT nFlags, HMENU hSysMenu);
-void TaskManager_OnViewUpdateSpeed(DWORD);
+void TaskManager_OnViewUpdateSpeedHigh(void);
+void TaskManager_OnViewUpdateSpeedNormal(void);
+void TaskManager_OnViewUpdateSpeedLow(void);
+void TaskManager_OnViewUpdateSpeedPaused(void);
 void TaskManager_OnViewRefresh(void);
 void TaskManager_OnTabWndSelChange(void);
 LPTSTR GetLastErrorText( LPTSTR lpszBuf, DWORD dwSize );
 
 #ifdef __cplusplus
-}
+};
 #endif
 
 #endif /* __TASKMGR_H__ */

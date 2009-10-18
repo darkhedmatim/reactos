@@ -3,7 +3,6 @@
  *
  * Copyright 2005-2006 Hervé Poussineau (hpoussin@reactos.org)
  *           2005 Christoph von Wittich (Christoph@ActiveVB.de)
- *           2009 Colin Finck (colin@reactos.org)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -384,7 +383,7 @@ SearchDriverRecursive(
 		{
 			LPCWSTR pszExtension = GetFileExt(FileName);
 
-			if ((_wcsicmp(pszExtension, L".inf") == 0) && (wcscmp(LastDirPath, DirPath) != 0))
+			if ((wcsicmp(pszExtension, L".inf") == 0) && (wcscmp(LastDirPath, DirPath) != 0))
 			{
 				wcscpy(LastDirPath, DirPath);
 
@@ -644,8 +643,6 @@ DevInstallW(
 	DWORD config_flags;
 	BOOL retval = FALSE;
 
-	TRACE("(%p, %p, %s, %d)\n", hWndParent, hInstance, debugstr_w(InstanceId), Show);
-
 	if (!IsUserAdmin())
 	{
 		/* XP kills the process... */
@@ -734,7 +731,6 @@ DevInstallW(
 		if (config_flags & CONFIGFLAG_FAILEDINSTALL)
 		{
 			/* The device is disabled */
-			TRACE("Device is disabled\n");
 			retval = TRUE;
 			goto cleanup;
 		}
@@ -752,7 +748,6 @@ DevInstallW(
 	{
 		/* Driver found ; install it */
 		retval = InstallCurrentDriver(DevInstData);
-		TRACE("InstallCurrentDriver() returned %d\n", retval);
 		if (retval && Show != SW_HIDE)
 		{
 			/* Should we display the 'Need to reboot' page? */
@@ -764,10 +759,7 @@ DevInstallW(
 				&installParams))
 			{
 				if (installParams.Flags & (DI_NEEDRESTART | DI_NEEDREBOOT))
-				{
-					TRACE("Displaying 'Reboot' wizard page\n");
 					retval = DisplayWizard(DevInstData, hWndParent, IDD_NEEDREBOOT);
-				}
 			}
 		}
 		goto cleanup;
@@ -775,12 +767,10 @@ DevInstallW(
 	else if (Show == SW_HIDE)
 	{
 		/* We can't show the wizard. Fail the install */
-		TRACE("No wizard\n");
 		goto cleanup;
 	}
 
 	/* Prepare the wizard, and display it */
-	TRACE("Need to show install wizard\n");
 	retval = DisplayWizard(DevInstData, hWndParent, IDD_WELCOMEPAGE);
 
 cleanup:
@@ -804,7 +794,7 @@ cleanup:
 }
 
 /*
-* @implemented
+* @unimplemented
 */
 BOOL WINAPI
 ClientSideInstallW(
@@ -812,75 +802,11 @@ ClientSideInstallW(
 	IN DWORD dwUnknownFlags,
 	IN LPWSTR lpNamedPipeName)
 {
-    BOOL ReturnValue = FALSE;
-    BOOL ShowWizard;
-    DWORD BytesRead;
-    DWORD Value;
-    HANDLE hPipe = INVALID_HANDLE_VALUE;
-    PWSTR DeviceInstance = NULL;
-    PWSTR InstallEventName = NULL;
-
-    /* Open the pipe */
-    hPipe = CreateFileW(lpNamedPipeName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if(hPipe == INVALID_HANDLE_VALUE)
-    {
-        ERR("CreateFileW failed with error %u\n", GetLastError());
-        goto cleanup;
-    }
-
-    /* Read the data. Some is just included for compatibility with Windows right now and not yet used by ReactOS.
-       See umpnpmgr for more details. */
-    if(!ReadFile(hPipe, &Value, sizeof(Value), &BytesRead, NULL))
-    {
-        ERR("ReadFile failed with error %u\n", GetLastError());
-        goto cleanup;
-    }
-
-    InstallEventName = (PWSTR)HeapAlloc(GetProcessHeap(), 0, Value);
-
-    if(!ReadFile(hPipe, InstallEventName, Value, &BytesRead, NULL))
-    {
-        ERR("ReadFile failed with error %u\n", GetLastError());
-        goto cleanup;
-    }
-
-    /* I couldn't figure out what the following value means under Windows XP.
-       Therefore I used it in umpnpmgr to pass the ShowWizard variable. */
-    if(!ReadFile(hPipe, &ShowWizard, sizeof(ShowWizard), &BytesRead, NULL))
-    {
-        ERR("ReadFile failed with error %u\n", GetLastError());
-        goto cleanup;
-    }
-
-    /* Next one is again size in bytes of the following string */
-    if(!ReadFile(hPipe, &Value, sizeof(Value), &BytesRead, NULL))
-    {
-        ERR("ReadFile failed with error %u\n", GetLastError());
-        goto cleanup;
-    }
-
-    DeviceInstance = (PWSTR)HeapAlloc(GetProcessHeap(), 0, Value);
-
-    if(!ReadFile(hPipe, DeviceInstance, Value, &BytesRead, NULL))
-    {
-        ERR("ReadFile failed with error %u\n", GetLastError());
-        goto cleanup;
-    }
-
-    ReturnValue = DevInstallW(NULL, NULL, DeviceInstance, ShowWizard ? SW_SHOWNOACTIVATE : SW_HIDE);
-
-cleanup:
-    if(hPipe != INVALID_HANDLE_VALUE)
-        CloseHandle(hPipe);
-
-    if(InstallEventName)
-        HeapFree(GetProcessHeap(), 0, InstallEventName);
-
-    if(DeviceInstance)
-        HeapFree(GetProcessHeap(), 0, DeviceInstance);
-
-    return ReturnValue;
+	/* NOTE: pNamedPipeName is in the format:
+	 *       "\\.\pipe\PNP_Device_Install_Pipe_0.{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}"
+	 */
+	FIXME("Stub\n");
+	return FALSE;
 }
 
 BOOL WINAPI

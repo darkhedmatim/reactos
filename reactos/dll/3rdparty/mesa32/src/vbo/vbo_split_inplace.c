@@ -27,9 +27,9 @@
  */
 
 
-#include "main/mtypes.h"
-#include "main/macros.h"
-#include "main/enums.h"
+#include "mtypes.h"
+#include "macros.h"
+#include "enums.h"
 #include "vbo_split.h"
 
 
@@ -58,7 +58,7 @@ struct split_context {
 
 static void flush_vertex( struct split_context *split )
 {
-   GLuint min_index, max_index;
+   GLint min_index, max_index;
 
    if (!split->dstprim_nr) 
       return;

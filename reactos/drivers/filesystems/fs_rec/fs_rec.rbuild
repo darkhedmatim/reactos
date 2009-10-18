@@ -6,7 +6,6 @@
 	<library>hal</library>
 	<file>blockdev.c</file>
 	<file>cdfs.c</file>
-	<file>ext2.c</file>
 	<file>fat.c</file>
 	<file>fs_rec.c</file>
 	<file>ntfs.c</file>

@@ -20,6 +20,11 @@
 
 #include <string.h>
 
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
+
+
+
 LPDDRAWI_DIRECTDRAW_INT
 internal_directdraw_int_alloc(LPDDRAWI_DIRECTDRAW_INT This)
 {
@@ -43,7 +48,7 @@ Main_DirectDraw_QueryInterface (LPDDRAWI_DIRECTDRAW_INT This,
 
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* FIXME
             the D3D object can be optained from here
@@ -57,7 +62,7 @@ Main_DirectDraw_QueryInterface (LPDDRAWI_DIRECTDRAW_INT This,
                 if (!This)
                 {
                     retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
+                    _SEH_LEAVE;
                 }
             }
 
@@ -73,24 +78,24 @@ Main_DirectDraw_QueryInterface (LPDDRAWI_DIRECTDRAW_INT This,
                 if (!This)
                 {
                     retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
+                    _SEH_LEAVE;
                 }
             }
 
-            This->lpVtbl = &DirectDraw4_Vtable;
+            This->lpVtbl = &DirectDraw2_Vtable;
             *obj = This;
             Main_DirectDraw_AddRef(This);
         }
 
-        else if (IsEqualGUID(&IID_IDirectDraw2, id))
+        else if (IsEqualGUID(&IID_IDirectDraw4, id))
         {
-            if (This->lpVtbl != &DirectDraw2_Vtable)
+            if (This->lpVtbl != &DirectDraw4_Vtable)
             {
                 This = internal_directdraw_int_alloc(This);
                 if (!This)
                 {
                     retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
+                    _SEH_LEAVE;
                 }
             }
 
@@ -106,7 +111,7 @@ Main_DirectDraw_QueryInterface (LPDDRAWI_DIRECTDRAW_INT This,
                 if (!This)
                 {
                     retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
+                    _SEH_LEAVE;
                 }
             }
 
@@ -121,10 +126,10 @@ Main_DirectDraw_QueryInterface (LPDDRAWI_DIRECTDRAW_INT This,
             retVal = E_NOINTERFACE;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
@@ -136,7 +141,7 @@ Main_DirectDraw_AddRef (LPDDRAWI_DIRECTDRAW_INT This)
 
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         This->dwIntRefCnt++;
         This->lpLcl->dwLocalRefCnt++;
@@ -146,20 +151,20 @@ Main_DirectDraw_AddRef (LPDDRAWI_DIRECTDRAW_INT This)
             This->lpLcl->lpGbl->dwRefCnt++;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         retValue = This->dwIntRefCnt;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         retValue = 0;
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retValue;
 }
@@ -173,7 +178,7 @@ Main_DirectDraw_Release (LPDDRAWI_DIRECTDRAW_INT This)
     ULONG Counter = 0;
 
     DX_WINDBG_trace();
-    _SEH2_TRY
+    _SEH_TRY
     {
         if (This!=NULL)
         {
@@ -204,10 +209,10 @@ Main_DirectDraw_Release (LPDDRAWI_DIRECTDRAW_INT This)
             Counter = This->dwIntRefCnt;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
     return Counter;
 }
 
@@ -230,17 +235,17 @@ Main_DirectDraw_Compact(LPDDRAWI_DIRECTDRAW_INT This)
     DX_WINDBG_trace();
     // EnterCriticalSection(&ddcs);
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         if (This->lpLcl->lpGbl->lpExclusiveOwner != This->lpLcl)
         {
             retVal = DDERR_NOEXCLUSIVEMODE;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
     // LeaveCriticalSection(&ddcs);
     return retVal;
 }
@@ -253,16 +258,16 @@ Main_DirectDraw_GetAvailableVidMem(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS ddsca
 
     ZeroMemory(&myddscaps, sizeof(DDSCAPS2));
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         myddscaps.dwCaps =  ddscaps->dwCaps;
         retValue = Main_DirectDraw_GetAvailableVidMem4(This, &myddscaps, dwTotal, dwFree);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
          retValue = DDERR_INVALIDPARAMS;
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retValue;
 }
@@ -276,7 +281,7 @@ Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 dds
 
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         // There is no HEL implentation of this api
         if (!(This->lpLcl->lpDDCB->HALDDMiscellaneous.dwFlags & DDHAL_MISCCB32_GETAVAILDRIVERMEMORY) ||
@@ -289,7 +294,7 @@ Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 dds
             if ((!dwTotal && !dwFree) || !ddscaps)
             {
                 retVal = DDERR_INVALIDPARAMS;
-                _SEH2_LEAVE;
+                _SEH_LEAVE;
             }
 
             if ( ddscaps->dwCaps & (DDSCAPS_BACKBUFFER  | DDSCAPS_COMPLEX   | DDSCAPS_FLIP |
@@ -297,7 +302,7 @@ Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 dds
                                     DDSCAPS_VISIBLE     | DDSCAPS_WRITEONLY | DDSCAPS_OWNDC))
             {
                 retVal = DDERR_INVALIDPARAMS;
-                _SEH2_LEAVE;
+                _SEH_LEAVE;
             }
 
 
@@ -310,7 +315,7 @@ Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 dds
             if ( ddscaps->dwCaps2 & 0x01)
             {
                 retVal = DDERR_INVALIDCAPS;
-                _SEH2_LEAVE;
+                _SEH_LEAVE;
             }
 
             if ( ddscaps->dwCaps3 & ~( DDSCAPS3_MULTISAMPLE_QUALITY_MASK | DDSCAPS3_MULTISAMPLE_MASK |
@@ -319,13 +324,13 @@ Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 dds
                                        DDSCAPS3_DMAP))
             {
                 retVal = DDERR_INVALIDCAPS;
-                _SEH2_LEAVE;
+                _SEH_LEAVE;
             }
 
             if ( ddscaps->dwCaps4)
             {
                 retVal = DDERR_INVALIDCAPS;
-                _SEH2_LEAVE;
+                _SEH_LEAVE;
             }
 
             ZeroMemory(&memdata, sizeof(DDHAL_GETAVAILDRIVERMEMORYDATA));
@@ -359,10 +364,10 @@ Main_DirectDraw_GetAvailableVidMem4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSCAPS2 dds
             }
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
@@ -377,7 +382,7 @@ Main_DirectDraw_GetFourCCCodes(LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpNumCodes,
 
      // EnterCriticalSection(&ddcs);
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         if(IsBadWritePtr(lpNumCodes,sizeof(LPDWORD)))
         {
@@ -407,10 +412,10 @@ Main_DirectDraw_GetFourCCCodes(LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpNumCodes,
             }
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     //LeaveCriticalSection(&ddcs);
     return retVal;
@@ -429,24 +434,22 @@ Main_DirectDraw_GetFourCCCodes(LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpNumCodes,
 /* For DirectDraw 1 - 3 */
 HRESULT WINAPI
 Main_DirectDraw_CreateSurface (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDDSD,
-                               LPDDRAWI_DDRAWSURFACE_INT *ppSurf, IUnknown *pUnkOuter)
+                               LPDIRECTDRAWSURFACE *ppSurf, IUnknown *pUnkOuter)
 {
    HRESULT ret = DDERR_GENERIC;
    DDSURFACEDESC2 dd_desc_v2;
 
    DX_WINDBG_trace();
 
-    EnterCriticalSection(&ddcs);
-    *ppSurf = NULL;
-
-    _SEH2_TRY
+    // EnterCriticalSection(&ddcs);
+    _SEH_TRY
     {
         if (pDDSD->dwSize == sizeof(DDSURFACEDESC))
         {
             CopyDDSurfDescToDDSurfDesc2(&dd_desc_v2, (LPDDSURFACEDESC)pDDSD);
             ret = Internal_CreateSurface(This,
                                          &dd_desc_v2,
-                                         ppSurf,
+                                         (LPDIRECTDRAWSURFACE7 *)ppSurf,
                                          pUnkOuter);
         }
         else
@@ -454,44 +457,40 @@ Main_DirectDraw_CreateSurface (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDD
             ret = DDERR_INVALIDPARAMS;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         ret = DDERR_INVALIDPARAMS;
     }
-    _SEH2_END;
-    LeaveCriticalSection(&ddcs);
-    return ret;
+    _SEH_END;
+  // LeaveCriticalSection(&ddcs);
+  return ret;
 }
 
 
 /* For DirectDraw 4 - 7 */
 HRESULT WINAPI
 Main_DirectDraw_CreateSurface4(LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC2 pDDSD,
-                               LPDDRAWI_DDRAWSURFACE_INT *ppSurf, IUnknown *pUnkOuter)
+                               LPDIRECTDRAWSURFACE7 *ppSurf, IUnknown *pUnkOuter)
 {
-    HRESULT ret = DD_OK;
+    HRESULT ret;
     DX_WINDBG_trace();
-
-    EnterCriticalSection(&ddcs);
-    *ppSurf = NULL;
-
-    _SEH2_TRY
+    // EnterCriticalSection(&ddcs);
+    _SEH_TRY
     {
-        ret = Internal_CreateSurface(This, pDDSD, ppSurf, pUnkOuter);
+        ret = Internal_CreateSurface(This, pDDSD, ppSurf,pUnkOuter);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         ret = DDERR_INVALIDPARAMS;
     }
-    _SEH2_END;
+    _SEH_END;
 
-    LeaveCriticalSection(&ddcs);
+    // LeaveCriticalSection(&ddcs);
     return ret;
 }
 
 /* 5 of 31 DirectDraw7_Vtable api are working simluare to windows */
 /* 8 of 31 DirectDraw7_Vtable api are under devloping / testing */
-
 
 
 

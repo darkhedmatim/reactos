@@ -9,6 +9,7 @@
  */
 
 #include "rosdraw.h"
+#include "ddrawgdi.h"
 
 DDRAWI_DIRECTDRAW_GBL ddgbl;
 DDRAWI_DDRAWSURFACE_GBL ddSurfGbl;
@@ -136,7 +137,7 @@ Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface,
     {
         DX_STUB_str("Got iface\n");
 
-        if (StartDirectDraw((LPDIRECTDRAW)This, pGUID, FALSE) == DD_OK)
+        if (StartDirectDraw((LPDIRECTDRAW)This, pGUID, FALSE) == DD_OK);
         {
             /*
             RtlZeroMemory(&wnd_class, sizeof(wnd_class));

@@ -67,7 +67,7 @@ ChkdskPartition(
                                           10,
                                           24,
                                           TRUE,
-                                          MUIGetString(STRING_CHECKINGDISK));
+                                         "Setup is checking your disk");
 
     ProgressSetStepCount(ChkdskProgressBar, 100);
 

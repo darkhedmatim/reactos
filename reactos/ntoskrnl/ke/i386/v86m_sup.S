@@ -139,25 +139,45 @@ _Opcode0FV86:
     UNHANDLED_V86_OPCODE
 .endfunc
 
-#undef LOCK
+.func OpcodeESPrefixV86
+_OpcodeESPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
 
-GENERATE_PREFIX_HANDLER ES
-GENERATE_PREFIX_HANDLER CS
-GENERATE_PREFIX_HANDLER DS
-GENERATE_PREFIX_HANDLER FS
-GENERATE_PREFIX_HANDLER GS
-GENERATE_PREFIX_HANDLER SS
-GENERATE_PREFIX_HANDLER OPER32
-GENERATE_PREFIX_HANDLER ADDR32
-GENERATE_PREFIX_HANDLER LOCK
-GENERATE_PREFIX_HANDLER REP
-GENERATE_PREFIX_HANDLER REPNE
+.func OpcodeCSPrefixV86
+_OpcodeCSPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
 
-#ifdef CONFIG_SMP
-#define LOCK lock
-#else
-#define LOCK
-#endif
+.func OpcodeSSPrefixV86
+_OpcodeSSPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeDSPrefixV86
+_OpcodeDSPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeFSPrefixV86
+_OpcodeFSPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeGSPrefixV86
+_OpcodeGSPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeOPER32PrefixV86
+_OpcodeOPER32PrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeADDR32PrefixV86
+_OpcodeADDR32PrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
 
 .func OpcodeINSBV86
 _OpcodeINSBV86:
@@ -183,7 +203,7 @@ _OpcodeOUTSWV86:
 _OpcodePUSHFV86:
 
     /* Get VDM state */
-    mov eax, FIXED_NTVDMSTATE_LINEAR_PC_AT
+    mov eax, 0x714
     mov eax, [eax]
 
     /* Get EFLAGS and mask out IF */
@@ -191,11 +211,11 @@ _OpcodePUSHFV86:
     and eax, ~EFLAGS_INTERRUPT_MASK
 
     /* Mask align check and interrupt mask */
-    and eax, EFLAGS_ALIGN_CHECK + EFLAGS_NESTED_TASK + EFLAGS_INTERRUPT_MASK
+    and eax, EFLAGS_ALIGN_CHECK + 0x4000 + EFLAGS_INTERRUPT_MASK
     or eax, edx
 
     /* Add IOPL Mask */
-    or eax, EFLAGS_IOPL
+    or eax, 0x3000
 
     /* Get flat ESP */
     movzx ecx, word ptr [ebp+KTRAP_FRAME_SS]
@@ -204,7 +224,7 @@ _OpcodePUSHFV86:
     sub dx, 2
 
     /* Check if there is an OPER32 prefix */
-    test ebx, PREFIX_FLAG_OPER32
+    test ebx, 0x4000
     jnz SkipPrefix
 
     /* Push EFLAGS */
@@ -232,7 +252,7 @@ SkipPrefix:
 _OpcodePOPFV86:
 
     /* Get VDM state */
-    mov eax, FIXED_NTVDMSTATE_LINEAR_PC_AT
+    mov eax, 0x714
 
     /* Get flat ESP */
     mov ecx, [ebp+KTRAP_FRAME_SS]
@@ -244,7 +264,7 @@ _OpcodePOPFV86:
     add edx, 4
 
     /* Check for OPER32 prefix */
-    test ebx, PREFIX_FLAG_OPER32
+    test ebx, 0x4000
     jnz NoPrefix
 
     /* Skip 2 bytes */
@@ -257,10 +277,10 @@ NoPrefix:
     mov [ebp+KTRAP_FRAME_ESP], edx
 
     /* Mask out EFLAGS */
-    and eax, ~EFLAGS_IOPL
+    and eax, ~0x3000
     mov ebx, ebx
-    and ebx, ~EFLAGS_NESTED_TASK
-    and ecx, EFLAGS_ALIGN_CHECK + EFLAGS_NESTED_TASK + EFLAGS_INTERRUPT_MASK
+    and ebx, ~0x4000
+    and ecx, EFLAGS_ALIGN_CHECK + 0x4000 + EFLAGS_INTERRUPT_MASK
 
     /* FIXME: Support VME */
 
@@ -294,7 +314,7 @@ NoAdjustEsp0:
     pop eax
 
     /* Update the flags in the VDM State */
-    LOCK and dword ptr [eax], ~(EFLAGS_ALIGN_CHECK + EFLAGS_NESTED_TASK + EFLAGS_INTERRUPT_MASK)
+    LOCK and dword ptr [eax], ~(EFLAGS_ALIGN_CHECK + 0x4000 + EFLAGS_INTERRUPT_MASK)
     LOCK or [eax], ecx
 
     /* Update EIP */
@@ -314,7 +334,7 @@ _OpcodeINTnnV86:
     mov edx, [ebp+KTRAP_FRAME_EFLAGS]
 
     /* Remove the flag in the VDM State */
-    mov eax, FIXED_NTVDMSTATE_LINEAR_PC_AT
+    mov eax, 0x714
     mov ecx, [eax]
     LOCK and dword ptr [eax], ~EFLAGS_INTERRUPT_MASK
 
@@ -329,11 +349,11 @@ _OpcodeINTnnV86:
 
     /* Now mask out VIF and TF */
     or eax, ecx
-    and edx, ~(EFLAGS_VIF + EFLAGS_NESTED_TASK + EFLAGS_TF)
+    and edx, ~(EFLAGS_VIF + 0x4000 + EFLAGS_TF)
     mov [ebp+KTRAP_FRAME_EFLAGS], edx
 
     /* Set the IOPL Mask */
-    or eax, EFLAGS_IOPL
+    or eax, 0x3000
 
     /* Get stack flat address */
     movzx ecx, word ptr [ebp+KTRAP_FRAME_SS]
@@ -402,7 +422,7 @@ _OpcodeINTOV86:
 _OpcodeIRETV86:
 
     /* Get the VDM State */
-    mov eax, FIXED_NTVDMSTATE_LINEAR_PC_AT
+    mov eax, 0x714
 
     /* Get flat ESP */
     movzx ecx, word ptr [ebp+KTRAP_FRAME_SS]
@@ -411,7 +431,7 @@ _OpcodeIRETV86:
     add ecx, edx
 
     /* Check for OPER32 prefix */
-    test ebx, PREFIX_FLAG_OPER32
+    test ebx, 0x4000
     jnz Iret32
 
     /* Get flat IP */
@@ -430,7 +450,7 @@ _OpcodeIRETV86:
 MaskEFlags:
 
     /* Mask out EFLAGS */
-    and ebx, ~(EFLAGS_IOPL + EFLAGS_VIF + EFLAGS_NESTED_TASK + EFLAGS_VIP)
+    and ebx, ~(0x3000 + EFLAGS_VIF + 0x4000 + EFLAGS_VIP)
     mov ecx, ebx
 
     /* FIXME: Check for VME support */
@@ -556,11 +576,26 @@ _OpcodeOUTWV86:
     UNHANDLED_V86_OPCODE
 .endfunc
 
+.func OpcodeLOCKPrefixV86
+_OpcodeLOCKPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeREPNEPrefixV86
+_OpcodeREPNEPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
+.func OpcodeREPPrefixV86
+_OpcodeREPPrefixV86:
+    UNHANDLED_V86_OPCODE
+.endfunc
+
 .func OpcodeCLIV86
 _OpcodeCLIV86:
 
     /* Get VDM State */
-    mov eax, FIXED_NTVDMSTATE_LINEAR_PC_AT
+    mov eax, 0x714
 
     /* FIXME: Support VME */
 
@@ -581,7 +616,7 @@ _OpcodeCLIV86:
 _OpcodeSTIV86:
 
     /* Get VDM State */
-    mov eax, FIXED_NTVDMSTATE_LINEAR_PC_AT
+    mov eax, 0x714
 
     /* FIXME: Support VME */
 
@@ -596,23 +631,6 @@ _OpcodeSTIV86:
     /* Return success */
     mov eax, 1
     ret
-.endfunc
-
-.func OpcodeGenericPrefixV86
-_OpcodeGenericPrefixV86:
-
-    /* Skip instruction */
-    inc esi
-    inc edi
-    
-    /* Get the instruction */
-    movzx ecx, byte ptr [esi]
-    
-    /* Get the opcode index */
-    movzx edx, byte ptr OpcodeIndex[ecx]
-    
-    /* Dispatch it */
-    jmp OpcodeDispatchV86[edx*4]
 .endfunc
 
 .func OpcodeHLTV86

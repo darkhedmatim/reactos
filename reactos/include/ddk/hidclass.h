@@ -23,6 +23,10 @@
 #ifndef __HIDCLASS_H
 #define __HIDCLASS_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "hidpi.h"
 
 #ifdef __cplusplus
@@ -75,22 +79,6 @@ DEFINE_GUID (GUID_HID_INTERFACE_HIDPARSE, \
 #define IOCTL_HID_SET_DRIVER_CONFIG           HID_BUFFER_CTL_CODE(101)
 #define IOCTL_HID_GET_MS_GENRE_DESCRIPTOR     HID_OUT_CTL_CODE(121)
 
-/* FIXME: these values are wrong! */
-#define IOCTL_HID_GET_STRING                  0
-#define IOCTL_HID_GET_DEVICE_ATTRIBUTES       1
-#define IOCTL_HID_GET_DEVICE_DESCRIPTOR       2
-#define IOCTL_HID_READ_REPORT                 3
-#define IOCTL_HID_WRITE_REPORT                4
-#define IOCTL_HID_GET_REPORT_DESCRIPTOR       5
-
-typedef enum _HID_STRING_TYPE
-{
-	HID_STRING_INDEXED = 0,
-	HID_STRING_ID_IMANUFACTURER,
-	HID_STRING_ID_IPRODUCT,
-	HID_STRING_ID_ISERIALNUMBER,
-	HID_STRING_MAX
-} HID_STRING_TYPE;
 
 enum DeviceObjectState {
   DeviceObjectStarted = 0,
@@ -98,11 +86,11 @@ enum DeviceObjectState {
   DeviceObjectRemoved
 };
 
-typedef VOID (DDKAPI *PHID_STATUS_CHANGE)(
+typedef VOID DDKAPI (*PHID_STATUS_CHANGE)(
   PVOID  Context,
   enum DeviceObjectState  State);
 
-typedef NTSTATUS (DDKAPI *PHIDP_GETCAPS)(
+typedef NTSTATUS DDKAPI (*PHIDP_GETCAPS)(
   IN PHIDP_PREPARSED_DATA  PreparsedData,
   OUT PHIDP_CAPS  Capabilities);
 

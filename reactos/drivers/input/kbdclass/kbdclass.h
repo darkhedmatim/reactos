@@ -2,16 +2,15 @@
 #include <kbdmou.h>
 #include <ntddkbd.h>
 #include <stdio.h>
-#include <pseh/pseh2.h>
-
+#include <pseh/pseh.h>
 #include <debug.h>
 
 #define MAX_PATH 260
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define CLASS_TAG 'CdbK'
-#define DPFLTR_CLASS_NAME_ID DPFLTR_KBDCLASS_ID
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#define CLASS_TAG TAG('K', 'b', 'd', 'C')
 
 typedef enum
 {
@@ -80,13 +79,3 @@ DuplicateUnicodeString(
 	IN ULONG Flags,
 	IN PCUNICODE_STRING SourceString,
 	OUT PUNICODE_STRING DestinationString);
-
-/* setup.c */
-BOOLEAN
-IsFirstStageSetup(
-	VOID);
-
-VOID NTAPI
-Send8042StartDevice(
-	IN PDRIVER_OBJECT DriverObject,
-	IN PDEVICE_OBJECT Pdo);

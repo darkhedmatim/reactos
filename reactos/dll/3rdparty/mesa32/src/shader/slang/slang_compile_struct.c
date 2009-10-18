@@ -28,7 +28,7 @@
  * \author Michal Krol
  */
 
-#include "main/imports.h"
+#include "imports.h"
 #include "slang_mem.h"
 #include "slang_compile.h"
 
@@ -115,7 +115,6 @@ slang_struct_construct(slang_struct * stru)
       return 0;
    }
    _slang_struct_scope_ctr(stru->structs);
-   stru->constructor = NULL;
    return 1;
 }
 

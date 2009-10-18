@@ -202,17 +202,10 @@ ITrayBandSiteImpl_OnLoad(IN OUT ITrayBandSite *iface,
     if (SUCCEEDED(hRet))
     {
         /* Now let's read the CLSID from the stream and see if it's our task band */
-#if defined(IStream_Read)
         hRet = IStream_Read(pStm,
                             &clsid,
                             sizeof(clsid),
                             &ulRead);
-#else
-        ulRead = sizeof(clsid);
-        hRet = IStream_Read(pStm,
-                            &clsid,
-                            sizeof(clsid));
-#endif
         if (SUCCEEDED(hRet) && ulRead == sizeof(clsid))
         {
             if (IsEqualGUID(&clsid,
@@ -332,8 +325,7 @@ ITrayBandSiteImpl_ProcessMessage(IN OUT ITrayBandSite *iface,
                     {
                         LPNMMOUSE nmm = (LPNMMOUSE)lParam;
 
-                        if (nmm->dwHitInfo == RBHT_CLIENT || nmm->dwHitInfo == RBHT_NOWHERE ||
-                            nmm->dwItemSpec == (DWORD_PTR)-1)
+                        if (nmm->dwHitInfo == RBHT_CLIENT || nmm->dwItemSpec == (DWORD_PTR)-1)
                         {
                             /* Make the rebar control appear transparent so the user
                                can drag the tray window */
@@ -358,7 +350,7 @@ ITrayBandSiteImpl_ProcessMessage(IN OUT ITrayBandSite *iface,
        shell behavior! */
     if (This->WindowEventHandler != NULL)
     {
-        /*DbgPrint("Calling IWindowEventHandler::ProcessMessage(0x%p, 0x%x, 0x%p, 0x%p, 0x%p) This->hWndRebar=0x%p\n", hWnd, uMsg, wParam, lParam, plResult, This->hWndRebar);*/
+        DbgPrint("Calling IWindowEventHandler::ProcessMessage(0x%p, 0x%x, 0x%p, 0x%p, 0x%p) This->hWndRebar=0x%p\n", hWnd, uMsg, wParam, lParam, plResult, This->hWndRebar);
         hRet = IWindowEventHandler_ProcessMessage(This->WindowEventHandler,
                                                   hWnd,
                                                   uMsg,
@@ -573,8 +565,6 @@ ITrayBandSiteImpl_QueryBand(IN OUT IBandSite *iface,
         if (ppstb != NULL)
             *ppstb = pstb;
     }
-    else if (ppstb != NULL)
-        *ppstb = NULL;
 
     return hRet;
 }
@@ -732,7 +722,7 @@ ITrayBandSiteImpl_BroadcastOleCommandExec(IN OUT ITrayBandSiteImpl *This,
                                          &dwBandID)))
     {
         if (SUCCEEDED(IBandSite_GetBandObject(This->BandSite,
-                                              dwBandID,
+                                              uBand,
                                               &IID_IOleCommandTarget,
                                               (PVOID*)&pOct)))
         {

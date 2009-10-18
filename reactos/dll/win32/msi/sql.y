@@ -32,7 +32,6 @@
 #include "query.h"
 #include "wine/list.h"
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 #define YYLEX_PARAM info
 #define YYPARSE_PARAM info
@@ -46,26 +45,24 @@ typedef struct tag_SQL_input
     MSIDATABASE *db;
     LPCWSTR command;
     DWORD n, len;
-    UINT r;
     MSIVIEW **view;  /* view structure for the resulting query */
     struct list *mem;
 } SQL_input;
 
-static UINT SQL_getstring( void *info, const struct sql_str *strdata, LPWSTR *str );
+static LPWSTR SQL_getstring( void *info, struct sql_str *str );
 static INT SQL_getint( void *info );
 static int sql_lex( void *SQL_lval, SQL_input *info );
 
-static LPWSTR parser_add_table( void *info, LPCWSTR list, LPCWSTR table );
 static void *parser_alloc( void *info, unsigned int sz );
 static column_info *parser_alloc_column( void *info, LPCWSTR table, LPCWSTR column );
 
-static BOOL SQL_MarkPrimaryKeys( column_info **cols, column_info *keys);
+static BOOL SQL_MarkPrimaryKeys( column_info *cols, column_info *keys);
 
 static struct expr * EXPR_complex( void *info, struct expr *l, UINT op, struct expr *r );
 static struct expr * EXPR_unary( void *info, struct expr *l, UINT op );
-static struct expr * EXPR_column( void *info, const column_info *column );
+static struct expr * EXPR_column( void *info, column_info *column );
 static struct expr * EXPR_ival( void *info, int val );
-static struct expr * EXPR_sval( void *info, const struct sql_str *str );
+static struct expr * EXPR_sval( void *info, struct sql_str * );
 static struct expr * EXPR_wildcard( void *info );
 
 %}
@@ -83,8 +80,8 @@ static struct expr * EXPR_wildcard( void *info );
     int integer;
 }
 
-%token TK_ALTER TK_AND TK_BY TK_CHAR TK_COMMA TK_CREATE TK_DELETE TK_DROP
-%token TK_DISTINCT TK_DOT TK_EQ TK_FREE TK_FROM TK_GE TK_GT TK_HOLD TK_ADD
+%token TK_ALTER TK_AND TK_BY TK_CHAR TK_COMMA TK_CREATE TK_DELETE
+%token TK_DISTINCT TK_DOT TK_EQ TK_FREE TK_FROM TK_GE TK_GT TK_HOLD
 %token <str> TK_ID
 %token TK_ILLEGAL TK_INSERT TK_INT
 %token <str> TK_INTEGER
@@ -104,11 +101,11 @@ static struct expr * EXPR_wildcard( void *info );
 %nonassoc END_OF_FILE ILLEGAL SPACE UNCLOSED_STRING COMMENT FUNCTION
           COLUMN AGG_FUNCTION.
 
-%type <string> table tablelist id
+%type <string> table id
 %type <column_list> selcollist column column_and_type column_def table_def
 %type <column_list> column_assignment update_assign_list constlist
 %type <query> query from fromtable selectfrom unorderedsel
-%type <query> oneupdate onedelete oneselect onequery onecreate oneinsert onealter onedrop
+%type <query> oneupdate onedelete oneselect onequery onecreate oneinsert onealter
 %type <expr> expr val column_val const_val
 %type <column_type> column_type data_type data_type_l data_count
 %type <integer> number alterop
@@ -137,7 +134,6 @@ onequery:
   | oneupdate
   | onedelete
   | onealter
-  | onedrop
     ;
 
 oneinsert:
@@ -145,8 +141,9 @@ oneinsert:
         {
             SQL_input *sql = (SQL_input*) info;
             MSIVIEW *insert = NULL;
+            UINT r;
 
-            INSERT_CreateView( sql->db, &insert, $3, $5, $9, FALSE );
+            r = INSERT_CreateView( sql->db, &insert, $3, $5, $9, FALSE );
             if( !insert )
                 YYABORT;
             $$ = insert;
@@ -168,16 +165,12 @@ onecreate:
         {
             SQL_input* sql = (SQL_input*) info;
             MSIVIEW *create = NULL;
-            UINT r;
 
             if( !$5 )
                 YYABORT;
-            r = CREATE_CreateView( sql->db, &create, $3, $5, FALSE );
+            CREATE_CreateView( sql->db, &create, $3, $5, FALSE );
             if( !create )
-            {
-                sql->r = r;
                 YYABORT;
-            }
             $$ = create;
         }
   | TK_CREATE TK_TABLE table TK_LP table_def TK_RP TK_HOLD
@@ -236,28 +229,8 @@ onealter:
             SQL_input* sql = (SQL_input*) info;
             MSIVIEW *alter = NULL;
 
-            ALTER_CreateView( sql->db, &alter, $3, NULL, $4 );
+            ALTER_CreateView( sql->db, &alter, $3, $4 );
             if( !alter )
-                YYABORT;
-            $$ = alter;
-        }
-  | TK_ALTER TK_TABLE table TK_ADD column_and_type
-        {
-            SQL_input *sql = (SQL_input *)info;
-            MSIVIEW *alter = NULL;
-
-            ALTER_CreateView( sql->db, &alter, $3, $5, 0 );
-            if (!alter)
-                YYABORT;
-            $$ = alter;
-        }
-  | TK_ALTER TK_TABLE table TK_ADD column_and_type TK_HOLD
-        {
-            SQL_input *sql = (SQL_input *)info;
-            MSIVIEW *alter = NULL;
-
-            ALTER_CreateView( sql->db, &alter, $3, $5, 1 );
-            if (!alter)
                 YYABORT;
             $$ = alter;
         }
@@ -274,23 +247,10 @@ alterop:
         }
   ;
 
-onedrop:
-    TK_DROP TK_TABLE table
-        {
-            SQL_input* sql = (SQL_input*) info;
-            UINT r;
-
-            $$ = NULL;
-            r = DROP_CreateView( sql->db, &$$, $3 );
-            if( r != ERROR_SUCCESS || !$$ )
-                YYABORT;
-        }
-  ;
-
 table_def:
     column_def TK_PRIMARY TK_KEY selcollist
         {
-            if( SQL_MarkPrimaryKeys( &$1, $4 ) )
+            if( SQL_MarkPrimaryKeys( $1, $4 ) )
                 $$ = $1;
             else
                 $$ = NULL;
@@ -318,8 +278,7 @@ column_and_type:
     column column_type
         {
             $$ = $1;
-            $$->type = ($2 | MSITYPE_VALID);
-            $$->temporary = $2 & MSITYPE_TEMPORARY ? TRUE : FALSE;
+            $$->type = $2 | MSITYPE_VALID;
         }
     ;
 
@@ -334,7 +293,7 @@ column_type:
         }
   | data_type_l TK_TEMPORARY
         {
-            $$ = $1 | MSITYPE_TEMPORARY;
+            FIXME("temporary column\n");
         }
     ;
 
@@ -360,15 +319,15 @@ data_type:
         }
   | TK_LONGCHAR
         {
-            $$ = MSITYPE_STRING | 0x400;
+            $$ = 2;
         }
   | TK_SHORT
         {
-            $$ = 2 | 0x400;
+            $$ = 2;
         }
   | TK_INT
         {
-            $$ = 2 | 0x400;
+            $$ = 2;
         }
   | TK_LONG
         {
@@ -392,16 +351,15 @@ data_count:
 oneselect:
     unorderedsel TK_ORDER TK_BY selcollist
         {
-            UINT r;
+            SQL_input* sql = (SQL_input*) info;
 
+            $$ = NULL;
             if( $4 )
-            {
-                r = $1->ops->sort( $1, $4 );
-                if ( r != ERROR_SUCCESS)
-                    YYABORT;
-            }
-
-            $$ = $1;
+                ORDER_CreateView( sql->db, &$$, $1, $4 );
+            else
+                $$ = $1;
+            if( !$$ )
+                YYABORT;
         }
   | unorderedsel
     ;
@@ -487,27 +445,14 @@ fromtable:
             if( r != ERROR_SUCCESS || !$$ )
                 YYABORT;
         }
-  | TK_FROM tablelist
+  | TK_FROM table TK_COMMA table
         {
             SQL_input* sql = (SQL_input*) info;
             UINT r;
 
-            r = JOIN_CreateView( sql->db, &$$, $2 );
+            /* only support inner joins on two tables */
+            r = JOIN_CreateView( sql->db, &$$, $2, $4 );
             if( r != ERROR_SUCCESS )
-                YYABORT;
-        }
-    ;
-
-tablelist:
-    table
-        {
-            $$ = $1;
-        }
-  |
-    table TK_COMMA tablelist
-        {
-            $$ = parser_add_table( info, $3, $1 );
-            if (!$$)
                 YYABORT;
         }
     ;
@@ -682,7 +627,8 @@ table:
 id:
     TK_ID
         {
-            if ( SQL_getstring( info, &$1, &$$ ) != ERROR_SUCCESS || !$$ )
+            $$ = SQL_getstring( info, &$1 );
+            if( !$$ )
                 YYABORT;
         }
     ;
@@ -695,22 +641,6 @@ number:
     ;
 
 %%
-
-static LPWSTR parser_add_table( void *info, LPCWSTR list, LPCWSTR table )
-{
-    static const WCHAR space[] = {' ',0};
-    DWORD len = strlenW( list ) + strlenW( table ) + 2;
-    LPWSTR ret;
-
-    ret = parser_alloc( info, len * sizeof(WCHAR) );
-    if( ret )
-    {
-        strcpyW( ret, list );
-        strcatW( ret, space );
-        strcatW( ret, table );
-    }
-    return ret;
-}
 
 static void *parser_alloc( void *info, unsigned int sz )
 {
@@ -764,15 +694,11 @@ static int sql_lex( void *SQL_lval, SQL_input *sql )
     return token;
 }
 
-UINT SQL_getstring( void *info, const struct sql_str *strdata, LPWSTR *str )
+LPWSTR SQL_getstring( void *info, struct sql_str *strdata )
 {
     LPCWSTR p = strdata->data;
     UINT len = strdata->len;
-
-    /* match quotes */
-    if( ( (p[0]=='`') && (p[len-1]!='`') ) ||
-        ( (p[0]=='\'') && (p[len-1]!='\'') ) )
-        return ERROR_FUNCTION_FAILED;
+    LPWSTR str;
 
     /* if there's quotes, remove them */
     if( ( (p[0]=='`') && (p[len-1]=='`') ) ||
@@ -781,13 +707,13 @@ UINT SQL_getstring( void *info, const struct sql_str *strdata, LPWSTR *str )
         p++;
         len -= 2;
     }
-    *str = parser_alloc( info, (len + 1)*sizeof(WCHAR) );
-    if( !*str )
-        return ERROR_OUTOFMEMORY;
-    memcpy( *str, p, len*sizeof(WCHAR) );
-    (*str)[len]=0;
+    str = parser_alloc( info, (len + 1)*sizeof(WCHAR) );
+    if( !str )
+        return str;
+    memcpy( str, p, len*sizeof(WCHAR) );
+    str[len]=0;
 
-    return ERROR_SUCCESS;
+    return str;
 }
 
 INT SQL_getint( void *info )
@@ -850,7 +776,7 @@ static struct expr * EXPR_unary( void *info, struct expr *l, UINT op )
     return e;
 }
 
-static struct expr * EXPR_column( void *info, const column_info *column )
+static struct expr * EXPR_column( void *info, column_info *column )
 {
     struct expr *e = parser_alloc( info, sizeof *e );
     if( e )
@@ -872,68 +798,34 @@ static struct expr * EXPR_ival( void *info, int val )
     return e;
 }
 
-static struct expr * EXPR_sval( void *info, const struct sql_str *str )
+static struct expr * EXPR_sval( void *info, struct sql_str *str )
 {
     struct expr *e = parser_alloc( info, sizeof *e );
     if( e )
     {
         e->type = EXPR_SVAL;
-        if( SQL_getstring( info, str, (LPWSTR *)&e->u.sval ) != ERROR_SUCCESS )
-            return NULL; /* e will be freed by query destructor */
+        e->u.sval = SQL_getstring( info, str );
     }
     return e;
 }
 
-static void swap_columns( column_info **cols, column_info *A, int idx )
-{
-    column_info *preA = NULL, *preB = NULL, *B, *ptr;
-    int i = 0;
-
-    B = NULL;
-    ptr = *cols;
-    while( ptr )
-    {
-        if( i++ == idx )
-            B = ptr;
-        else if( !B )
-            preB = ptr;
-
-        if( ptr->next == A )
-            preA = ptr;
-
-        ptr = ptr->next;
-    }
-
-    if( preB ) preB->next = A;
-    if( preA ) preA->next = B;
-    ptr = A->next;
-    A->next = B->next;
-    B->next = ptr;
-    if( idx == 0 )
-      *cols = A;
-}
-
-static BOOL SQL_MarkPrimaryKeys( column_info **cols,
+static BOOL SQL_MarkPrimaryKeys( column_info *cols,
                                  column_info *keys )
 {
     column_info *k;
     BOOL found = TRUE;
-    int count;
 
-    for( k = keys, count = 0; k && found; k = k->next, count++ )
+    for( k = keys; k && found; k = k->next )
     {
         column_info *c;
-        int idx;
 
         found = FALSE;
-        for( c = *cols, idx = 0; c && !found; c = c->next, idx++ )
+        for( c = cols; c && !found; c = c->next )
         {
-            if( lstrcmpW( k->column, c->column ) )
-                continue;
-            c->type |= MSITYPE_KEY;
-            found = TRUE;
-            if (idx != count)
-                swap_columns( cols, c, count );
+             if( lstrcmpW( k->column, c->column ) )
+                 continue;
+             c->type |= MSITYPE_KEY;
+             found = TRUE;
         }
     }
 
@@ -952,7 +844,6 @@ UINT MSI_ParseSQL( MSIDATABASE *db, LPCWSTR command, MSIVIEW **phview,
     sql.command = command;
     sql.n = 0;
     sql.len = 0;
-    sql.r = ERROR_BAD_QUERY_SYNTAX;
     sql.view = phview;
     sql.mem = mem;
 
@@ -961,12 +852,8 @@ UINT MSI_ParseSQL( MSIDATABASE *db, LPCWSTR command, MSIVIEW **phview,
     TRACE("Parse returned %d\n", r);
     if( r )
     {
-        if (*sql.view)
-        {
-            (*sql.view)->ops->delete(*sql.view);
-            *sql.view = NULL;
-        }
-        return sql.r;
+        *sql.view = NULL;
+        return ERROR_BAD_QUERY_SYNTAX;
     }
 
     return ERROR_SUCCESS;

@@ -1,10 +1,11 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
-<module name="ftp" type="win32cui" installbase="system32" installname="ftp.exe">
+<module name="ftp" type="win32cui" installbase="system32" installname="ftp.exe" allowwarnings="true">
 	<include base="ftp">.</include>
 	<define name="lint" />
 	<library>kernel32</library>
 	<library>ws2_32</library>
+	<library>crtdll</library>
 	<library>iphlpapi</library>
 	<file>cmds.c</file>
 	<file>cmdtab.c</file>

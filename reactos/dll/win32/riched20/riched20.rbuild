@@ -1,13 +1,20 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
 <module name="riched20" type="win32dll" baseaddress="${BASEADDRESS_RICHED20}" installbase="system32" installname="riched20.dll" allowwarnings="true">
-	<importlibrary definition="riched20.spec" />
+	<importlibrary definition="riched20.spec.def" />
 	<include base="riched20">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<compilerflag compilerset="msc">/FIwine/typeof.h</compilerflag>
-	<linkerflag linkerset="ld">-enable-stdcall-fixup</linkerflag>
+	<define name="WINVER">0x600</define>
+	<define name="_WIN32_WINNT">0x600</define>
+	<library>wine</library>
+	<library>ole32</library>
+	<library>imm32</library>
+	<library>user32</library>
+	<library>gdi32</library>
+	<library>kernel32</library>
+	<library>uuid</library>
+	<library>ntdll</library>
 	<file>caret.c</file>
 	<file>clipboard.c</file>
 	<file>context.c</file>
@@ -21,21 +28,10 @@
 	<file>run.c</file>
 	<file>string.c</file>
 	<file>style.c</file>
-	<file>table.c</file>
-	<file>txthost.c</file>
 	<file>txtsrv.c</file>
 	<file>undo.c</file>
 	<file>wrap.c</file>
 	<file>writer.c</file>
 	<file>version.rc</file>
-	<library>wine</library>
-	<library>uuid</library>
-	<library>ole32</library>
-	<library>oleaut32</library>
-	<library>imm32</library>
-	<library>user32</library>
-	<library>gdi32</library>
-	<library>kernel32</library>
-	<library>ntdll</library>
+	<file>riched20.spec</file>
 </module>
-</group>

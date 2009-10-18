@@ -16,46 +16,21 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* $Id$ */
 
 #include <w32k.h>
 
 #define NDEBUG
 #include <debug.h>
 
-HCOLORSPACE hStockColorSpace = NULL;
-
-
-HCOLORSPACE
-FASTCALL
-IntGdiCreateColorSpace(
-    PLOGCOLORSPACEEXW pLogColorSpace)
-{
-  PCOLORSPACE pCS;
-  HCOLORSPACE hCS;
-
-  pCS = COLORSPACEOBJ_AllocCSWithHandle();
-  hCS = pCS->BaseObject.hHmgr;
-
-  pCS->lcsColorSpace = pLogColorSpace->lcsColorSpace;
-  pCS->dwFlags = pLogColorSpace->dwFlags;
-
-  COLORSPACEOBJ_UnlockCS(pCS);
-  return hCS;
-}
-
 BOOL
-FASTCALL
-IntGdiDeleteColorSpace(
-    HCOLORSPACE hColorSpace)
+STDCALL
+NtGdiColorMatchToTarget(HDC  hDC,
+                             HDC  hDCTarget,
+                             DWORD  Action)
 {
-  BOOL Ret = FALSE;
-
-  if ( hColorSpace != hStockColorSpace )
-  {
-     Ret = COLORSPACEOBJ_FreeCSByHandle(hColorSpace);
-     if ( !Ret ) SetLastWin32Error(ERROR_INVALID_PARAMETER);
-  }
-  return Ret;
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 HANDLE
@@ -63,28 +38,8 @@ APIENTRY
 NtGdiCreateColorSpace(
     IN PLOGCOLORSPACEEXW pLogColorSpace)
 {
-  LOGCOLORSPACEEXW Safelcs;
-  NTSTATUS Status = STATUS_SUCCESS;
-
-  _SEH2_TRY
-  {
-     ProbeForRead( pLogColorSpace,
-                    sizeof(LOGCOLORSPACEEXW),
-                    1);
-     RtlCopyMemory(&Safelcs, pLogColorSpace, sizeof(LOGCOLORSPACEEXW));
-  }
-  _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-  {
-     Status = _SEH2_GetExceptionCode();
-  }
-  _SEH2_END;
-
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastNtError(Status);
-     return NULL;
-  }
-  return IntGdiCreateColorSpace(&Safelcs);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 BOOL
@@ -92,22 +47,46 @@ APIENTRY
 NtGdiDeleteColorSpace(
     IN HANDLE hColorSpace)
 {
-  return IntGdiDeleteColorSpace(hColorSpace);
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+INT
+STDCALL
+NtGdiEnumICMProfiles(HDC    hDC,
+                    LPWSTR lpstrBuffer,
+                    UINT   cch )
+{
+  /*
+   * FIXME - build list of file names into lpstrBuffer.
+   * (MULTI-SZ would probably be best format)
+   * return (needed) length of buffer in bytes
+   */
+  UNIMPLEMENTED;
+  return 0;
+}
+
+HCOLORSPACE
+STDCALL
+NtGdiGetColorSpace(HDC  hDC)
+{
+  /* FIXME: Need to to whatever GetColorSpace actually does */
+  return  0;
 }
 
 BOOL
 FASTCALL
 IntGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
 {
-  PPDEVOBJ pGDev = (PPDEVOBJ) hPDev;
+  PGDIDEVICE pGDev = (PGDIDEVICE) hPDev;
   int i;
 
   if (!(pGDev->flFlags & PDEV_DISPLAY )) return FALSE;
 
-  if ((pGDev->devinfo.iDitherFormat == BMF_8BPP)  ||
-      (pGDev->devinfo.iDitherFormat == BMF_16BPP) ||
-      (pGDev->devinfo.iDitherFormat == BMF_24BPP) ||
-      (pGDev->devinfo.iDitherFormat == BMF_32BPP))
+  if ((pGDev->DevInfo.iDitherFormat == BMF_8BPP)  ||
+      (pGDev->DevInfo.iDitherFormat == BMF_16BPP) ||
+      (pGDev->DevInfo.iDitherFormat == BMF_24BPP) ||
+      (pGDev->DevInfo.iDitherFormat == BMF_32BPP))
   {
      if (pGDev->flFlags & PDEV_GAMMARAMP_TABLE)
         RtlCopyMemory( Ramp,
@@ -118,7 +97,8 @@ IntGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
         for(i=0; i<256; i++ )
         {
           int NewValue = i * 256;
-
+          if (NewValue > 65535) NewValue = 65535;
+          
           Ramp->Red[i] = Ramp->Green[i] = Ramp->Blue[i] = ((WORD)NewValue);
         }
      return TRUE;
@@ -128,7 +108,7 @@ IntGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtGdiGetDeviceGammaRamp(HDC  hDC,
                              LPVOID  Ramp)
 {
@@ -142,7 +122,7 @@ NtGdiGetDeviceGammaRamp(HDC  hDC,
   dc = DC_LockDc(hDC);
   if (!dc)
   {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
+     SetLastWin32Error(ERROR_INVALID_HANDLE);   
      return FALSE;
   }
 
@@ -152,13 +132,13 @@ NtGdiGetDeviceGammaRamp(HDC  hDC,
       DC_UnlockDc(dc);
       SetLastWin32Error(STATUS_NO_MEMORY);
       return FALSE;
-  }
+  }  
 
-  Ret = IntGetDeviceGammaRamp((HDEV)dc->ppdev, SafeRamp);
+  Ret = IntGetDeviceGammaRamp((HDEV)dc->pPDev, SafeRamp);
 
   if (!Ret) return Ret;
 
-  _SEH2_TRY
+  _SEH_TRY
   {
      ProbeForWrite( Ramp,
                     sizeof(PVOID),
@@ -167,11 +147,11 @@ NtGdiGetDeviceGammaRamp(HDC  hDC,
                     SafeRamp,
                     sizeof(GAMMARAMP));
   }
-  _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+  _SEH_HANDLE
   {
-     Status = _SEH2_GetExceptionCode();
+     Status = _SEH_GetExceptionCode();
   }
-  _SEH2_END;
+  _SEH_END;
 
   DC_UnlockDc(dc);
   ExFreePool(SafeRamp);
@@ -185,46 +165,32 @@ NtGdiGetDeviceGammaRamp(HDC  hDC,
 }
 
 BOOL
-APIENTRY
+STDCALL
+NtGdiGetICMProfile(HDC  hDC,
+                        LPDWORD  NameSize,
+                        LPWSTR  Filename)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
+NtGdiGetLogColorSpace(HCOLORSPACE  hColorSpace,
+                           LPLOGCOLORSPACEW  Buffer,
+                           DWORD  Size)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
 NtGdiSetColorSpace(IN HDC hdc,
                    IN HCOLORSPACE hColorSpace)
 {
-  PDC pDC;
-  PDC_ATTR pdcattr;
-  PCOLORSPACE pCS;
-
-  pDC = DC_LockDc(hdc);
-  if (!pDC)
-  {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-  }
-  pdcattr = pDC->pdcattr;
-
-  if (pdcattr->hColorSpace == hColorSpace)
-  {
-     DC_UnlockDc(pDC);
-     return TRUE; 
-  }
-  
-  pCS = COLORSPACEOBJ_LockCS(hColorSpace);
-  if (!pCS)
-  {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-  }
-  
-  if (pDC->dclevel.pColorSpace)
-  {
-     GDIOBJ_ShareUnlockObjByPtr((POBJ) pDC->dclevel.pColorSpace);
-  }
-
-  pDC->dclevel.pColorSpace = pCS;
-  pdcattr->hColorSpace = hColorSpace;
-
-  COLORSPACEOBJ_UnlockCS(pCS);
-  DC_UnlockDc(pDC);
-  return TRUE;
+  UNIMPLEMENTED;
+  return 0;
 }
 
 BOOL
@@ -232,26 +198,26 @@ FASTCALL
 UpdateDeviceGammaRamp( HDEV hPDev )
 {
   BOOL Ret = FALSE;
-  PPALETTE palGDI;
+  PPALGDI palGDI;
   PALOBJ *palPtr;
-  PPDEVOBJ pGDev = (PPDEVOBJ) hPDev;
+  PGDIDEVICE pGDev = (PGDIDEVICE) hPDev;
 
-  if ((pGDev->devinfo.iDitherFormat == BMF_8BPP)  ||
-      (pGDev->devinfo.iDitherFormat == BMF_16BPP) ||
-      (pGDev->devinfo.iDitherFormat == BMF_24BPP) ||
-      (pGDev->devinfo.iDitherFormat == BMF_32BPP))
+  if ((pGDev->DevInfo.iDitherFormat == BMF_8BPP)  ||
+      (pGDev->DevInfo.iDitherFormat == BMF_16BPP) ||
+      (pGDev->DevInfo.iDitherFormat == BMF_24BPP) ||
+      (pGDev->DevInfo.iDitherFormat == BMF_32BPP))
   {
      if (pGDev->DriverFunctions.IcmSetDeviceGammaRamp)
-         return pGDev->DriverFunctions.IcmSetDeviceGammaRamp( pGDev->dhpdev,
+         return pGDev->DriverFunctions.IcmSetDeviceGammaRamp( pGDev->PDev,
                                                         IGRF_RGB_256WORDS,
                                                        pGDev->pvGammaRamp);
 
-     if ( (pGDev->devinfo.iDitherFormat != BMF_8BPP) ||
-         !(pGDev->gdiinfo.flRaster & RC_PALETTE)) return FALSE;
+     if ( (pGDev->DevInfo.iDitherFormat != BMF_8BPP) ||
+         !(pGDev->GDIInfo.flRaster & RC_PALETTE)) return FALSE;
 
      if (!(pGDev->flFlags & PDEV_GAMMARAMP_TABLE)) return FALSE;
 
-     palGDI = PALETTE_LockPalette(pGDev->devinfo.hpalDefault);
+     palGDI = PALETTE_LockPalette(pGDev->DevInfo.hpalDefault);
      if(!palGDI) return FALSE;
      palPtr = (PALOBJ*) palGDI;
 
@@ -266,7 +232,7 @@ UpdateDeviceGammaRamp( HDEV hPDev )
      // PALOBJ_cGetColors check mode flags and update Gamma Correction.
      // Set the HDEV to pal and go.
         palGDI->hPDev = hPDev;
-        Ret = pGDev->DriverFunctions.SetPalette(pGDev->dhpdev,
+        Ret = pGDev->DriverFunctions.SetPalette(pGDev->PDev, 
                                                      palPtr,
                                                           0,
                                                           0,
@@ -279,88 +245,56 @@ UpdateDeviceGammaRamp( HDEV hPDev )
      return FALSE;
 }
 
-//
-// ICM registry subkey sets internal brightness range, gamma range is 128 or
-// 256 when icm is init.
-INT IcmGammaRangeSet = 128; // <- make it global
-
 BOOL
 FASTCALL
-IntSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp, BOOL Test)
+IntSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
 {
-  WORD IcmGR, i, R, G, B;
-  BOOL Ret = FALSE, TstPeak;
-  PPDEVOBJ pGDev = (PPDEVOBJ) hPDev;
+  BOOL Ret = FALSE;
+  PGDIDEVICE pGDev = (PGDIDEVICE) hPDev;
 
   if (!hPDev) return FALSE;
 
   if (!(pGDev->flFlags & PDEV_DISPLAY )) return FALSE;
 
-  if ((pGDev->devinfo.iDitherFormat == BMF_8BPP)  ||
-      (pGDev->devinfo.iDitherFormat == BMF_16BPP) ||
-      (pGDev->devinfo.iDitherFormat == BMF_24BPP) ||
-      (pGDev->devinfo.iDitherFormat == BMF_32BPP))
+  if ((pGDev->DevInfo.iDitherFormat == BMF_8BPP)  ||
+      (pGDev->DevInfo.iDitherFormat == BMF_16BPP) ||
+      (pGDev->DevInfo.iDitherFormat == BMF_24BPP) ||
+      (pGDev->DevInfo.iDitherFormat == BMF_32BPP))
   {
      if (!pGDev->DriverFunctions.IcmSetDeviceGammaRamp)
      {  // No driver support
-        if (!(pGDev->devinfo.flGraphicsCaps2 & GCAPS2_CHANGEGAMMARAMP))
-        { // Driver does not support Gamma Ramp, so test to see we
+        if (!(pGDev->DevInfo.flGraphicsCaps2 & GCAPS2_CHANGEGAMMARAMP))
+        { // Driver does not support Gamma Ramp, so test to see we 
           // have BMF_8BPP only and palette operation support.
-           if ((pGDev->devinfo.iDitherFormat != BMF_8BPP) ||
-              !(pGDev->gdiinfo.flRaster & RC_PALETTE))  return FALSE;
+           if ((pGDev->DevInfo.iDitherFormat != BMF_8BPP) || 
+              !(pGDev->GDIInfo.flRaster & RC_PALETTE))  return FALSE;
         }
      }
 
      if (pGDev->flFlags & PDEV_GAMMARAMP_TABLE)
         if (RtlCompareMemory( pGDev->pvGammaRamp, Ramp, sizeof(GAMMARAMP)) ==
                                                sizeof(GAMMARAMP)) return TRUE;
-     // Verify Ramp is inside range.
-     IcmGR = -IcmGammaRangeSet;
-     TstPeak = (Test == FALSE);
-     for (i = 0; i < 256; i++)
-     {
-         R = Ramp->Red[i]   / 256;
-         G = Ramp->Green[i] / 256;
-         B = Ramp->Blue[i]  / 256;
-         if ( R >= IcmGR)
-         {
-            if ( R <= IcmGammaRangeSet + i)
-            {
-               if ( G >= IcmGR &&
-                   (G <= IcmGammaRangeSet + i) &&
-                    B >= IcmGR &&
-                   (B <= IcmGammaRangeSet + i) ) continue;
-            }
-         }
-         if (Test) return Ret; // Don't set and return.
-         // No test override, check max range
-         if (TstPeak)
-         {
-            if ( R != (IcmGR * 256) ||
-                 G != (IcmGR * 256) ||
-                 B != (IcmGR * 256) ) TstPeak = FALSE; // W/i range.
-         }
-     }
-     // ReactOS allocates a ramp even if it is 8BPP and Palette only.
-     // This way we have a record of the change in memory.
+
      if (!pGDev->pvGammaRamp && !(pGDev->flFlags & PDEV_GAMMARAMP_TABLE))
      {  // If the above is true and we have nothing allocated, create it.
         pGDev->pvGammaRamp = ExAllocatePoolWithTag(PagedPool, sizeof(GAMMARAMP), TAG_GDIICM);
         pGDev->flFlags |= PDEV_GAMMARAMP_TABLE;
      }
-     if (pGDev->pvGammaRamp)
-        RtlCopyMemory( pGDev->pvGammaRamp, Ramp, sizeof(GAMMARAMP));
+     //
+     // Need to adjust the input Ramp with internal brightness before copy.
+     // ICM subkey sets internal brightness, gamma range 128 or 256 during icm init.
+     RtlCopyMemory( pGDev->pvGammaRamp, Ramp, sizeof(GAMMARAMP));
 
      Ret = UpdateDeviceGammaRamp(hPDev);
 
      return Ret;
   }
   else
-     return Ret;
+     return FALSE;
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtGdiSetDeviceGammaRamp(HDC  hDC,
                              LPVOID  Ramp)
 {
@@ -373,7 +307,7 @@ NtGdiSetDeviceGammaRamp(HDC  hDC,
   dc = DC_LockDc(hDC);
   if (!dc)
   {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
+     SetLastWin32Error(ERROR_INVALID_HANDLE);   
      return FALSE;
   }
 
@@ -383,8 +317,8 @@ NtGdiSetDeviceGammaRamp(HDC  hDC,
       DC_UnlockDc(dc);
       SetLastWin32Error(STATUS_NO_MEMORY);
       return FALSE;
-  }
-  _SEH2_TRY
+  }  
+  _SEH_TRY
   {
      ProbeForRead( Ramp,
                    sizeof(PVOID),
@@ -393,11 +327,11 @@ NtGdiSetDeviceGammaRamp(HDC  hDC,
                     Ramp,
                     sizeof(GAMMARAMP));
   }
-  _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+  _SEH_HANDLE
   {
-     Status = _SEH2_GetExceptionCode();
+     Status = _SEH_GetExceptionCode();
   }
-  _SEH2_END;
+  _SEH_END;
 
   if (!NT_SUCCESS(Status))
   {
@@ -407,14 +341,14 @@ NtGdiSetDeviceGammaRamp(HDC  hDC,
      return FALSE;
   }
 
-  Ret = IntSetDeviceGammaRamp((HDEV)dc->ppdev, SafeRamp, TRUE);
+  Ret = IntSetDeviceGammaRamp((HDEV)dc->pPDev, SafeRamp);
   DC_UnlockDc(dc);
   ExFreePool(SafeRamp);
   return Ret;
 }
 
 INT
-APIENTRY
+STDCALL
 NtGdiSetIcmMode(HDC  hDC,
                 ULONG nCommand,
                 ULONG EnableICM) // ulMode
@@ -434,6 +368,26 @@ NtGdiSetIcmMode(HDC  hDC,
     }
 
   return  0;
+}
+
+BOOL
+STDCALL
+NtGdiSetICMProfile(HDC  hDC,
+                        LPWSTR  Filename)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+BOOL
+STDCALL
+NtGdiUpdateICMRegKey(DWORD  Reserved,
+                          LPWSTR  CMID,
+                          LPWSTR  Filename,
+                          UINT  Command)
+{
+  UNIMPLEMENTED;
+  return FALSE;
 }
 
 /* EOF */

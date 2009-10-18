@@ -210,7 +210,7 @@ static HRESULT write_predefined_strings(HMODULE hm, LPCWSTR ini_path)
  * substitution table, and executes the INF.
  *
  * PARAMS
- *   hm         [I] Module that contains the REGINST resource.
+ *   hm         [I] Module that contains the REGINST resouce.
  *   pszSection [I] The INF section to execute.
  *   pstTable   [I] Table of string substitutions.
  * 
@@ -230,7 +230,7 @@ HRESULT WINAPI RegInstallW(HMODULE hm, LPCWSTR pszSection, const STRTABLEW* pstT
     if(!create_tmp_ini_file(hm, tmp_ini_path))
         return E_FAIL;
 
-    if (write_predefined_strings(hm, tmp_ini_path) != S_OK)
+    if (write_predefined_strings(hm, tmp_ini_path))
         goto done;
 
     /* Write the additional string table */

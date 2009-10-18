@@ -25,7 +25,6 @@
 #include "window.h"
 #include "winpos.h"
 #include "winsta.h"
-#include "ntwrapper.h"
 
 /* One/Two Param Functions */
 #define NtUserMsqSetWakeMask(dwWaitMask) \
@@ -41,7 +40,7 @@
   (BOOL)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_VALIDATERGN)
 
 #define NtUserSetWindowContextHelpId(hWnd, dwContextHelpId) \
-  (BOOL)NtUserCallHwndParam(hWnd, dwContextHelpId, HWNDPARAM_ROUTINE_SETWNDCONTEXTHLPID)
+  (BOOL)NtUserCallTwoParam((DWORD)hwnd, dwContextHelpId, TWOPARAM_ROUTINE_SETWNDCONTEXTHLPID)
 
 #define NtUserSetCaretPos(X, Y) \
   (BOOL)NtUserCallTwoParam((DWORD)X, (DWORD)Y, TWOPARAM_ROUTINE_SETCARETPOS)
@@ -49,8 +48,14 @@
 #define NtUserSetGUIThreadHandle(field, hwnd) \
   (BOOL)NtUserCallTwoParam((DWORD)field, (DWORD)hwnd, TWOPARAM_ROUTINE_SETGUITHRDHANDLE)
 
+#define NtUserSetMenuItemRect(menu, mir) \
+  (BOOL)NtUserCallTwoParam((DWORD)menu, (DWORD)mir, TWOPARAM_ROUTINE_SETMENUITEMRECT)
+
 #define NtUserSetMenuBarHeight(menu, height) \
   (BOOL)NtUserCallTwoParam((DWORD)menu, (DWORD)height, TWOPARAM_ROUTINE_SETMENUBARHEIGHT)
+
+#define NtUserGetWindowInfo(hwnd, pwi) \
+  (BOOL)NtUserCallTwoParam((DWORD)hwnd, (DWORD)pwi, TWOPARAM_ROUTINE_GETWINDOWINFO)
 
 #define NtUserRegisterLogonProcess(hproc, x) \
   (BOOL)NtUserCallTwoParam((DWORD)hproc, (DWORD)x, TWOPARAM_ROUTINE_REGISTERLOGONPROC)
@@ -58,11 +63,20 @@
 #define NtUserGetSysColorBrushes(HBrushes, count) \
   (BOOL)NtUserCallTwoParam((DWORD)(HBrushes), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES)
 
+#define NtUserGetSysColorPens(HPens, count) \
+  (BOOL)NtUserCallTwoParam((DWORD)(HPens), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORPENS)
+
 #define NtUserGetSysColors(ColorRefs, count) \
   (BOOL)NtUserCallTwoParam((DWORD)(ColorRefs), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORS)
 
+#define NtUserSetSysColors(ColorRefs, count) \
+  (BOOL)NtUserCallTwoParam((DWORD)(ColorRefs), (DWORD)(count), TWOPARAM_ROUTINE_SETSYSCOLORS)
+
 #define NtUserSetCaretBlinkTime(uMSeconds) \
   (BOOL)NtUserCallOneParam((DWORD)uMSeconds, ONEPARAM_ROUTINE_SETCARETBLINKTIME)
+
+#define NtUserRegisterUserModule(hInstance) \
+  (BOOL)NtUserCallOneParam((DWORD)hInstance, ONEPARAM_ROUTINE_REGISTERUSERMODULE)
 
 /*
 #define NtUserEnumClipboardFormats(format) \
@@ -78,11 +92,20 @@
 #define NtUserSwapMouseButton(fSwap) \
   (BOOL)NtUserCallOneParam((DWORD)fSwap, ONEPARAM_ROUTINE_SWAPMOUSEBUTTON)
 
+#define NtUserGetMenu(hWnd) \
+  (HMENU)NtUserCallOneParam((DWORD)hWnd, ONEPARAM_ROUTINE_GETMENU)
+
 #define NtUserSetMessageExtraInfo(lParam) \
   (LPARAM)NtUserCallOneParam((DWORD)lParam, ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO)
 
+#define NtUserIsWindowUnicode(hWnd) \
+  (BOOL)NtUserCallOneParam((DWORD)hWnd, ONEPARAM_ROUTINE_ISWINDOWUNICODE)
+
 #define NtUserGetWindowContextHelpId(hwnd) \
   NtUserCallOneParam((DWORD)hwnd, ONEPARAM_ROUTINE_GETWNDCONTEXTHLPID)
+
+#define NtUserGetWindowInstance(hwnd) \
+  (HINSTANCE)NtUserCallOneParam((DWORD)hwnd, ONEPARAM_ROUTINE_GETWINDOWINSTANCE)
 
 #define NtUserGetCursorPos(lpPoint) \
   (BOOL)NtUserCallOneParam((DWORD)lpPoint, ONEPARAM_ROUTINE_GETCURSORPOSITION)
@@ -105,9 +128,11 @@
 #define HideCaret(hwnd) \
   NtUserHideCaret(hwnd)
 
+#define NtUserRegisterSystemClasses(Count,SysClasses) \
+    (BOOL)NtUserCallTwoParam((DWORD)Count, (DWORD)SysClasses, TWOPARAM_ROUTINE_ROS_REGSYSCLASSES)
+
 /* Internal Thread Data */
 extern HINSTANCE User32Instance;
-extern HINSTANCE hImmInstance;
 
 /* Critical Section*/
 extern RTL_CRITICAL_SECTION User32Crit;
@@ -121,17 +146,18 @@ typedef struct _USER32_TRACKINGLIST {
 typedef struct _USER32_THREAD_DATA
 {
     MSG LastMessage;
+    HKL KeyboardLayoutHandle;
     USER32_TRACKINGLIST tracking_info; /* TrackMouseEvent stuff */
 } USER32_THREAD_DATA, *PUSER32_THREAD_DATA;
 
 PUSER32_THREAD_DATA User32GetThreadData();
 
 DEVMODEW *
-WINAPI
+STDCALL
 GdiConvertToDevmodeW(DEVMODEA *dm);
 
 /* FIXME: Belongs to some header. */
-BOOL WINAPI GdiDllInitialize(HANDLE, DWORD, LPVOID);
+BOOL STDCALL GdiDllInitialize(HANDLE, DWORD, LPVOID);
 void InitStockObjects(void);
 VOID DeleteFrameBrushes(VOID);
 
@@ -163,8 +189,6 @@ extern int SPY_Init(void);
 #define VALIDATE_TYPE_CALLPROC 7
 #define VALIDATE_TYPE_ACCEL    8
 #define VALIDATE_TYPE_MONITOR  12
-#define VALIDATE_TYPE_EVENT    15
-#define VALIDATE_TYPE_TIMER    16
 
 #define FIRST_USER_HANDLE 0x0020  /* first possible value for low word of user handle */
 #define LAST_USER_HANDLE  0xffef  /* last possible value for low word of user handle */
@@ -183,8 +207,8 @@ typedef struct _USER_HANDLE_ENTRY
     union
     {
         PVOID pi;
-        PTHREADINFO pti;          // pointer to Win32ThreadInfo
-        PPROCESSINFO ppi;         // pointer to W32ProcessInfo
+        PW32THREADINFO pti;          // pointer to Win32ThreadInfo
+        PW32PROCESSINFO ppi;         // pointer to W32ProcessInfo
     };
     unsigned short type;         /* object type (0 if free) */
     unsigned short generation;   /* generation counter */
@@ -203,31 +227,6 @@ extern PUSER_HANDLE_ENTRY gHandleEntries;
 
 PUSER_HANDLE_ENTRY FASTCALL GetUser32Handle(HANDLE);
 PVOID FASTCALL ValidateHandle(HANDLE, UINT);
-
-#define WIN_GetFullHandle(h) ((HWND)(h))
-
-#ifndef __ms_va_list
-# if defined(__x86_64__) && defined (__GNUC__)
-#  define __ms_va_list __builtin_ms_va_list
-#  define __ms_va_start(list,arg) __builtin_ms_va_start(list,arg)
-#  define __ms_va_end(list) __builtin_ms_va_end(list)
-# else
-#  define __ms_va_list va_list
-#  define __ms_va_start(list,arg) va_start(list,arg)
-#  define __ms_va_end(list) va_end(list)
-# endif
-#endif
-
-#ifdef _MSC_VER
-#ifndef inline
-#define inline __inline
-#endif
-#endif
-
-/* Hack away wine hack */
-#define __TRY if(1)
-#define __EXCEPT_PAGE_FAULT else
-#define __ENDTRY
 
 #endif
 /* EOF */

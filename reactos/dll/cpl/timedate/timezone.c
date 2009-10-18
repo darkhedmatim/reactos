@@ -89,7 +89,7 @@ CreateTimeZoneList(VOID)
                                NULL,
                                NULL,
                                NULL);
-        if (lError == ERROR_NO_MORE_ITEMS)
+        if (lError != ERROR_SUCCESS && lError != ERROR_MORE_DATA)
             break;
 
         if (RegOpenKeyEx (hZonesKey,
@@ -107,18 +107,15 @@ CreateTimeZoneList(VOID)
         }
 
         dwValueSize = 64 * sizeof(WCHAR);
-        lError = RegQueryValueExW(hZoneKey,
+        if (RegQueryValueExW(hZoneKey,
                              L"Display",
                              NULL,
                              NULL,
                              (LPBYTE)&Entry->Description,
-                             &dwValueSize);
-        if (lError != ERROR_SUCCESS)
+                             &dwValueSize))
         {
             RegCloseKey(hZoneKey);
-            dwIndex++;
-            HeapFree(GetProcessHeap(), 0, Entry);
-            continue;
+            break;
         }
 
         dwValueSize = 33 * sizeof(WCHAR);
@@ -454,7 +451,7 @@ TimeZonePageProc(HWND hwndDlg,
                 {
                     SetAutoDaylightInfo(GetDlgItem(hwndDlg, IDC_AUTODAYLIGHT));
                     SetLocalTimeZone(GetDlgItem(hwndDlg, IDC_TIMEZONELIST));
-                    SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
+                    SetWindowLong(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
                     return TRUE;
                 }
 

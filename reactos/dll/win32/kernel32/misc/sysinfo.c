@@ -34,7 +34,7 @@ GetLargePageMinimum(VOID)
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
 GetSystemInfo (
 	LPSYSTEM_INFO	Si
 	)
@@ -146,7 +146,7 @@ GetSystemInfo (
 			Si->dwProcessorType = PROCESSOR_PPC_620;
 			break;
 		default:
-			Si->dwProcessorType = 0;
+			Si->dwProcessorType = -1;
 		}
 		break;
 
@@ -171,9 +171,9 @@ GetSystemInfo (
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL WINAPI
+BOOL STDCALL
 IsProcessorFeaturePresent(DWORD ProcessorFeature)
 {
   if (ProcessorFeature >= PROCESSOR_FEATURE_MAX)
@@ -187,7 +187,7 @@ IsProcessorFeaturePresent(DWORD ProcessorFeature)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetSystemRegistryQuota(PDWORD pdwQuotaAllowed,
                        PDWORD pdwQuotaUsed)
 {
@@ -221,7 +221,7 @@ GetSystemRegistryQuota(PDWORD pdwQuotaAllowed,
  * @implemented
  */
 VOID
-WINAPI
+STDCALL
 GetNativeSystemInfo(
     LPSYSTEM_INFO lpSystemInfo
     )
@@ -233,38 +233,4 @@ GetNativeSystemInfo(
     GetSystemInfo(lpSystemInfo);
 }
 
-/*
- * @implemented
- */
-BOOL
-WINAPI
-GetLogicalProcessorInformation(OUT PSYSTEM_LOGICAL_PROCESSOR_INFORMATION Buffer,
-                               IN OUT PDWORD ReturnLength)
-{
-    NTSTATUS Status;
-
-    if (!ReturnLength)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    Status = NtQuerySystemInformation(SystemLogicalProcessorInformation,
-                                      Buffer,
-                                      *ReturnLength,
-                                      ReturnLength);
-
-    if (!NT_SUCCESS(Status))
-    {
-        /*
-         * When NtQuerySystemInformation says STATUS_INFO_LENGTH_MISMATCH,
-         * return ERROR_INSUFFICIENT_BUFFER instead of ERROR_BAD_LENGTH.
-         */
-        SetLastErrorByStatus(Status == STATUS_INFO_LENGTH_MISMATCH
-                             ? STATUS_BUFFER_TOO_SMALL
-                             : Status);
-        return FALSE;
-    }
-
-    return TRUE;
-}
+/* EOF */

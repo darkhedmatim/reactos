@@ -11,7 +11,6 @@
 
 LONG CALLBACK SystemApplet(VOID);
 HINSTANCE hApplet = 0;
-HWND hCPLWindow;
 
 /* Applets */
 APPLET Applets[NUM_APPLETS] =
@@ -113,7 +112,7 @@ SystemApplet(VOID)
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags =  PSH_PROPTITLE;
-    psh.hwndParent = hCPLWindow;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
     psh.pszCaption = MAKEINTRESOURCE(IDS_CPLSYSTEMNAME);
@@ -177,7 +176,6 @@ CPlApplet(HWND hwndCPl,
             break;
 
         case CPL_DBLCLK:
-            hCPLWindow = hwndCPl;
             Applets[i].AppletProc();
             break;
     }
@@ -186,7 +184,7 @@ CPlApplet(HWND hwndCPl,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpvReserved)

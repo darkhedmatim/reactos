@@ -1,14 +1,9 @@
+#include "windows.h"
+#include "resource.h"
+
 LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
 STRINGTABLE DISCARDABLE
-BEGIN
-
-STRING_ASSOC_HELP,    "Modifica le associazioni per le estensioni dei file.\n\n\
-assoc [.ext[=[FileType]]]\n\
-\n\
-assoc (mostra tutte le associazioni)\n\
-assoc .ext (mostra una specifica associazione)\n\
-assoc .ext= (rimuove una specifica associazione)\n\
-assoc .ext=FileType (aggiung una associazione)\n"
+{
 
 STRING_ATTRIB_HELP,    "Visualizza o modifica gli attributi dei file.\n\n\
 ATTRIB [+R | -R] [+A | -A] [+S | -S] [+H | -H] file ...\n\
@@ -41,7 +36,6 @@ STRING_CALL_HELP, "Chiama un programma batch da un altro.\n\n\
 CALL [disco:][percorso]nomefile [Parametri]\n\n\
   Parametri  Indicano le informazioni richieste per il programma batch."
 
-
 STRING_CD_HELP,      "Cambia la cartella corrente o ne visualizza nome\n\n\
 CHDIR [/D][disco:][percorso]\n\
 CHDIR[..|.]\n\
@@ -69,7 +63,7 @@ ERRORLEVEL è valorizzato alla posizione in elenco delle scelta dell'utente.\n"
 
 STRING_CLS_HELP, "Cancella lo schermo.\n\nCLS\n"
 
-STRING_CMD_HELP1, "\nComandi interni disponibili:\n"
+STRING_CMD_HELP1, "\nComandi interni disponibilin:\n"
 
 STRING_CMD_HELP2, "\nFunzioni disponibili:"
 
@@ -95,21 +89,21 @@ CMD [/[C|K] comando][/P][/Q][/T:bf]\n\n\
 STRING_COLOR_HELP1, "Definisce i colori predefiniti di primo piano e sfondo.\n\n\
 COLOR [attr [/-F]] \n\n\
   attr        Indica gli attributi di colore per i messaggi su console\n\
-  /-F         Non riempie lo spazio vuoto della console con gli attributi di colore\n\n\
+  /-F         Non riempie lo spazio vuoto della consol con gli attributi di colore\n\n\
 Ci sono tre modi per indicare i colori:\n\
 1) [bright] nome su [bright] nome  (sono necessarie solo le prime tre lettere)\n\
 2) decimale su decimale\n\
 3) due cifre esadecimali\n\n\
 I colori sono:\n\
 dec  esa  name       dec  esa  nome\n\
-0    0    Nero        8   8    Grigio (Nero acceso)\n\
-1    1    Blu         9   9    Blu acceso\n\
-2    2    Verde      10   A    Verde acceso\n\
-3    3    Ciano      11   B    Ciano acceso\n\
-4    4    Rosso      12   C    Rosso acceso\n\
-5    5    Magenta    13   D    Magenta acceso\n\
-6    6    Giallo     14   E    Giallo acceso\n\
-7    7    Bianco     15   F    Bianco acceso\n"
+0    0    Black       8   8    Gray(Bright black)\n\
+1    1    Blue        9   9    Bright Blue\n\
+2    2    Green      10   A    Bright Green\n\
+3    3    Cyan       11   B    Bright Cyan\n\
+4    4    Red        12   C    Bright Red\n\
+5    5    Magenta    13   D    Bright Magenta\n\
+6    6    Yellow     14   E    Bright Yellow\n\
+7    7    White      15   F    Bright White\n"
 
 STRING_COPY_HELP1,  "Sovrascrivi %s (Si/No/Tutti)? "
 
@@ -120,7 +114,7 @@ COPY [/V][/Y|/-Y][/A|/B] sorgente [/A|/B]\n\
   /A           Indica un file di testo ASCII.\n\
   /B           Indica un file binario.\n\
   destinazione Indica la cartella e/o il nome di file per i nuovi/o file.\n\
-  /V           Verifica che i file sono stati scritti correttamente.\n\
+  /V           Verifies that new files are written correctly.\n\
   /Y           Elimina le richieste di conferma per le sovrascrittura\n\
                di un file di destinazione già esistente.\n\
   /-Y          Effettua le richieste di conferma per le sovrascrittura\n\
@@ -151,10 +145,10 @@ ERASE [/N /P /T /Q /S /W /Y /Z /A[[:]attributi]] file ...\n\n\
   /Q    Tacito.\n\
   /W    Sovrascive con valori casuali prima di cancellare.\n\
   /Y    Cancella anche *.* senza chiedere conferma.\n\
-  /F    Forza la cancellazione di file nascosti, di sistema o in sola lettura.\n\
+  /F    Forza la cancellazione di file nascost, di sistema o in sola lettura.\n\
   /S    Cancella i file anche nelle sottocartelle\n\
   /A    Seleziona i file da cancellare in base agli attributi.\n\
-        attributi\n\
+        attributes\n\
         R     Sola lettura\n\
         S     Sistema\n\
         A     Archiviabile\n\
@@ -211,12 +205,12 @@ STRING_DIR_HELP6, "%16i Cartelle% 15s byte\n"
 STRING_DIR_HELP7, "\n Cartelle di %s\n\n"
 STRING_DIR_HELP8, "%16i File% 14s byte\n"
 
-STRING_DIRSTACK_HELP1, "Salva la cartella corrente per l'uso con il comando POPD, poi\n\
-passa alla cartella indicata.\n\n\
+STRING_DIRSTACK_HELP1, "Salva la directory corrente per l'uso con il comando POPD, poi\n\
+cambia alla cartella indicata.\n\n\
 PUSHD [percorso | ..]\n\n\
   percorso        Indica la cartella che deve diventare quella corrente\n"
 
-STRING_DIRSTACK_HELP2, "Cambia alla cartella memorizzata da PUSHD.\n\nPOPD"
+STRING_DIRSTACK_HELP2, "cambia alla cartella memorizzata da PUSHD.\n\nPOPD"
 
 STRING_DIRSTACK_HELP3, "Visualizza il contenuto dello stack delle cartelle.\n\nDIRS"
 
@@ -295,15 +289,9 @@ STRING_LABEL_HELP5, "Etichetta del disco (11 Caratteri, INVIO per nessuna)? "
 
 STRING_LOCALE_HELP1, "L'ora attuale è"
 
-STRING_MKDIR_HELP,   "Crea una cartella.\n\n\
-MKDIR [disco:]percorso\nMD    [disco:]percorso"
-
-STRING_MKLINK_HELP, "Crea un oggetto di collegamento nel filesystem.\n\n\
-MKLINK [/D | /H | /J] nomelink target\n\n\
-  /D  Indica che il link simbolico è riferito a una cartella.\n\
-  /H  Crea un hard link.\n\
-  /J  Crea una directory junction.\n\n\
-Se non sono specificati ne /H ne /J verrà creato un link simbolico."
+STRING_MKDIR_HELP,   "Crea una directory.\n\n\
+MKDIR [disco:]percorso\n\
+MD    [disco:]percorso"
 
 STRING_MEMMORY_HELP1, "Visualizza la quantità della memoria di sistema.\n\n\
 MEMORY"
@@ -323,7 +311,7 @@ STRING_MOVE_HELP1, "Sovrascrivi %s (Si/No/Tutti)? "
 STRING_MOVE_HELP2, "Sposta i file o cambia il nome a file e cartelle.\n\n\
 Per spostare uno o più file:\n\
 MOVE [/N][disco:][percorso]nomefile1[,...] destinazione\n\n\
-Per rinominare una cartella:\n\
+To rename a directory:\n\
 MOVE [/N][disco:][percorso]]cartella1 cartella2\n\n\
   [disco:][percorso]nomefile1  indica la posizione e il nome del file\n\
                                o dei file da spostare.\n\
@@ -344,7 +332,7 @@ ERRORLEVEL assume il valore in funzione del bottone premuto:\n\n\
 YES  :  10    |  NO      :  11\n\
 OK   :  10    |  CANCEL  :  12\n"
 
-STRING_PATH_HELP1, "Visualizza o imposta i percorsi di ricerca per\n\
+STRING_PATH_HELP1, "visualizza o imposta i percorsi di ricerca per\n\
 gli eseguibili.\n\n\
 PATH [[disco:][percorso[;...]]\n\
 PATH ;\n\n\
@@ -391,8 +379,8 @@ RMDIR [disco:]percorso\nRD [disco:]percorso\n\
 STRING_RMDIR_HELP2,	"La cartella non è vuota!\n"
 
 STRING_REN_HELP1, "Rinomina file/cartella or file/cartelle.\n\n\
-RENAME [/E /N /P /Q /S /T] vecchio_nome ... nuovo_nome\n\
-REN    [/E /N /P /Q /S /T] vecchio_nome ... nuovo_nome\n\n\
+RENAME [/E /N /P /Q /S /T] vecchi_onome ... novo_nome\n\
+REN    [/E /N /P /Q /S /T] vecchi_onome ... novo_nome\n\n\
   /E    Nessun messaggio di errore.\n\
   /N    Nulla.\n\
   /P    Chiede conferma per ogni file.\n\
@@ -406,46 +394,6 @@ Usare il comando MOVE.\n"
 STRING_REN_HELP2, "    %lu file rinominato\n"
 
 STRING_REN_HELP3, "    %lu files rinominati\n"
-
-STRING_REPLACE_HELP1, "Sostituisce i file.\n\n\
-REPLACE [disco1:][percorso1]nomefile [disco2:][percorso2] [/A] [/P] [/R] [/W]\n\
-REPLACE [disco1:][percorso1]nomefile [disco2:][percorso2] [/P] [/R] [/S] [/W] [/U]\n\n\
-  [drive1:][path1]nomefile Specifica il o i file sorgenti.\n\
-  [disco2:][percorso2]     Specifica la cartella dove i file devono essere\n\
-                           sostituiti.\n\
-  /A                       Aggiunge i file alla cartella di destinazione. Non può\n\
-                           essere usato con /S o /U .\n\
-  /P                       Chiede conferma prima di sostituire o aggiungere\n\
-                           un file.\n\
-  /R                       Sostituisce sia i file in sola lettura che quelli\n\
-                           non protetti.\n\
-  /S                       Sostituisce i file in tutte le sottocartelle\n\
-                           della cartella di destinazione. Non può essere\n\
-                           usato con /A .\n\
-  /W                       Aspetta che sia inserito un disco prima di iniziare.\n\
-  /U                       Sostituisce (aggiorna) solo i file più vecchi\n\
-                           dei file sorgenti. Non può essere usato con /A .\n"
-
-STRING_REPLACE_HELP2, "Il percorso sorgente è obbligatorio\n"
-
-STRING_REPLACE_HELP3, "Nessun file sostituito\n"
-
-STRING_REPLACE_HELP4, "%lu file sostituiti\n"
-
-STRING_REPLACE_HELP5, "Sostituzione di %s in corso\n"
-
-STRING_REPLACE_HELP6, "Sostituzione di %s\n"
-
-STRING_REPLACE_HELP7, "Nessun file aggiunto\n"
-
-STRING_REPLACE_HELP8, "%lu file aggiunti\n"
-
-STRING_REPLACE_HELP9, "Aggiungere %s (S/N) "
-
-STRING_REPLACE_HELP10, "Sostituire %s (S/N) "
-
-STRING_REPLACE_HELP11, "Aggiunta di %s in corso\n"
-
 
 STRING_SHIFT_HELP, "Cambia la posizione dei parametri in un batch.\n\n\
 SHIFT [DOWN]"
@@ -542,25 +490,25 @@ STRING_VERSION_HELP7, "\nVersione ReactOS scritto da:\n"
 
 STRING_VOL_HELP1, " Il Volume del disco %c è %s\n"
 STRING_VOL_HELP2, " Il Volume del disco %c non ha etichetta\n"
-STRING_VOL_HELP3, " Il numero di serie del Volume è %04X-%04X\n"
+STRING_VOL_HELP3, " Il numero diserie del Volume è %04X-%04X\n"
 STRING_VOL_HELP4, "Visualizza l'etichetta del volume del disco e il numero di serie se disponibili.\n\n\
 VOL [disco:]"
 
-STRING_WINDOW_HELP1, "Cambia l'aspetto della finestra della console\n\n\
+STRING_WINDOW_HELP1, "cambia l'aspetto della finestra della console\n\n\
 WINDOW [/POS[=]sinistra,alto,larghezza,altezza]\n\
               [MIN|MAX|RESTORE] ['titolo']\n\n\
-/POS          specifica la posizione e la dimensione della finestra\n\
+/POS          specify window placement and dimensions\n\
 MIN           minimizza la finestra\n\
-MAX           massimizza la finestra\n\
+MAX           massimizzala finestra\n\
 RESTORE       ripristina la finestra"
 
-STRING_WINDOW_HELP2, "Cambia l'aspetto della finestra della console\n\n\
+STRING_WINDOW_HELP2, "cambia l'aspetto della finestra della console\n\n\
 ACTIVATE 'window' [/POS[=]sinistra,alto,larghezza,altezza]\n\
               [MIN|MAX|RESTORE] ['title']\n\n\
 window        finestra su cui eseguire l'azione\n\
 /POS          indica la posizione e la dimensione della finestra\n\
 MIN           minimizza la finestra\n\
-MAX           massimizza la finestra\n\
+MAX           massimizzala finestra\n\
 RESTORE       ripristina la finestra\n\
 titolo        il nuovo titolo\n"
 
@@ -569,7 +517,6 @@ STRING_HELP1, "Elenco di tutti i comandi disponibili (+ descrizione)\n\n\
   comando /?   Per i dettagli su uno specifico comando\n\n\
 ?        Elenco di tutti i comandi disponibili.\n\
 ALIAS    Imposta, toglie o visualizza gli alias.\n\
-ASSOC    Modifica le associazioni per le estensioni dei file.\n\
 ATTRIB   Visualizza o modifica gli attributi dei file.\n\
 BEEP     Segnale acustico.\n\
 CALL     Chiama un batch da un'altro.\n\
@@ -583,19 +530,18 @@ COPY     Copia uno o più file in un'altra destinazione.\n\
 DATE     Visualizza o modifica la data.\n\
 DELETE   Cancella uno o più file.\n\
 DIR      Visualizza un elenco di file e sottocartelle in una cartella.\n\
-ECHO     Visualizza messaggi o abilita e disabilita la visualizzazione dei comandi.\n\
+ECHO     Visualizza messaggi, o abilita e disabilita la visualizzazione dei comandi.\n\
 ERASE    Cancella uno o più file.\n\
 EXIT     Esce dall'interprete dei comandi.\n\
 FOR      Esegue un comando per ognuno dei file indicati.\n\
 FREE     Spazio libero.\n\
-GOTO     Salta a una etichetta durante l'esecuzione di un batch.\n\
+GOTO     Salta a una etichettadurante l'esecuzione di un batch.\n\
 HELP     Fornisce informazioni sui comandi di ReactOS.\n\
 HISTORY  Elenco degli ultimi comandi usati\n\
 IF       Esegue elaborazioni condizionali in un batch.\n\
 LABEL    Crea, modifica, o cancella l'etichetta di un disco.\n\
 MD       Crea una cartella.\n\
 MKDIR    Crea una cartella.\n\
-MKLINK   Crea un oggetto di collegamento nel filesystem.\n\
 MOVE     Muove uno o più file da una cartella a un'altra\n\
 PATH     Visualizza o imposta i percorsi di ricerca per gli eseguibili.\n\
 PAUSE    Ferma l'esecuzione di un batch e visualizza un messaggio.\n\
@@ -627,7 +573,6 @@ STRING_COPY_OPTION,           "SNT"
 
 
 STRING_ALIAS_ERROR,          "Linea di comando troppo lunga dopo l'espansione degli alias!\n"
-STRING_ASSOC_ERROR,          "File association not found for extension %s\n"
 STRING_BATCH_ERROR,          "Errore durante l'apertura di un batch\n"
 STRING_CHCP_ERROR1,          "Tabella dei codici attiva: %u\n"
 STRING_CHCP_ERROR4,          "Tabella dei codici non valida\n"
@@ -687,7 +632,7 @@ STRING_ERROR_FILE_NOT_FOUND,       "File non trovato\n"
 STRING_ERROR_REQ_PARAM_MISSING,    "Parametro obbligatorio mancante\n"
 STRING_ERROR_INVALID_DRIVE,        "Disco non valido\n"
 STRING_ERROR_INVALID_PARAM_FORMAT, "Formato dei parametri non valido - %s\n"
-STRING_ERROR_BADCOMMAND,           "Comando o nome di file errato - %s\n"
+STRING_ERROR_BADCOMMAND,           "Comando o nome di file errato\n"
 STRING_ERROR_OUT_OF_MEMORY,        "Errore di memoria esaurita.\n"
 STRING_ERROR_CANNOTPIPE,           "Errore!  Impossibile ridirigere!  Impossibile aprire un file temporaneo!\n"
 STRING_ERROR_D_PAUSEMSG,           "Premi un tasto per continuare . . ."
@@ -695,16 +640,7 @@ STRING_ERROR_DRIVER_NOT_READY,     "Disco non pronto"
 
 STRING_PATH_ERROR,                 "CMD: Non nell'ambiente '%s'\n"
 
-STRING_REPLACE_ERROR1, "Parametro non valido - %s\n"
-STRING_REPLACE_ERROR2, "Percorso non trovato - %s\n"
-STRING_REPLACE_ERROR3, "Il nome del file, della cartella o della etichetta di volume è errato.\n"
-STRING_REPLACE_ERROR4, "Combinazione di parametri non valida\n"
-STRING_REPLACE_ERROR5, "Accesso negato - %s\n"
-STRING_REPLACE_ERROR6, "Nessun file trovato - %s\n"
-STRING_REPLACE_ERROR7, "Errore esteso 32\n"
-
-STRING_REACTOS_VERSION,            "ReactOS Operating System [Version %s-%s]\n"
-STRING_CMD_SHELLINFO,              "\nInterprete di linea di comando di ReactOS\nVersion %s %s"
+STRING_CMD_SHELLINFO,              "\nInterprete di linea di comando di ReactOS"
 STRING_VERSION_RUNVER,             " in esecuzione su %s"
 STRING_COPY_FILE ,                 "        %d file copiati\n"
 STRING_DELETE_WIPE,                "resi illeggibili"
@@ -712,15 +648,10 @@ STRING_FOR_ERROR,                  "variabile non valida."
 STRING_SCREEN_COL,                 "valore non valido per colonna"
 STRING_SCREEN_ROW,                 "valore non valido per riga"
 STRING_TIMER_TIME                  "Timer %d è %s: "
-STRING_MKLINK_CREATED_SYMBOLIC,    "Link simbolico creato per %s <<===>> %s\n"
-STRING_MKLINK_CREATED_HARD,        "Hard link creato per %s <<===>> %s\n"
-STRING_MKLINK_CREATED_JUNCTION,    "Junction creato per %s <<===>> %s\n"
-STRING_MORE,                       "Avanti? "
-STRING_CANCEL_BATCH_FILE,          "\r\nCtrl-Break.  Interrompere il file batch? (Si/No/Tutti)"
 
 STRING_INVALID_OPERAND,            "Operando non valido."
 STRING_EXPECTED_CLOSE_PAREN,       "Attesa una ')'."
 STRING_EXPECTED_NUMBER_OR_VARIABLE,"Attesa un numero o un nome di variabile."
 STRING_SYNTAX_COMMAND_INCORRECT,   "La sintassi del comando è errata."
 
-END
+}

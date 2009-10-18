@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -145,12 +146,13 @@ CmpFindSubKeyInRoot(IN PHHIVE Hive,
                     IN PCUNICODE_STRING SearchName,
                     IN PHCELL_INDEX SubKey)
 {
-    ULONG High, Low = 0, i = 0, ReturnIndex;
+    ULONG High, Low = 0, i, ReturnIndex;
     HCELL_INDEX LeafCell;
     PCM_KEY_INDEX Leaf;
     LONG Result;
 
     /* Verify Index for validity */
+    ASSERTMSG("We don't do a linear search yet!\n", FALSE);
     ASSERT(Index->Count != 0);
     ASSERT(Index->Signature == CM_KEY_INDEX_ROOT);
 
@@ -159,9 +161,7 @@ CmpFindSubKeyInRoot(IN PHHIVE Hive,
     while (TRUE)
     {
         /* Choose next entry */
-#ifdef SOMEONE_WAS_NICE_ENOUGH_TO_MAKE_OUR_CELLS_LEXICALLY_SORTED
         i = ((High - Low) / 2) + Low;
-#endif
 
         /* Get the leaf cell and then the leaf itself */
         LeafCell = Index->List[i];
@@ -191,7 +191,6 @@ CmpFindSubKeyInRoot(IN PHHIVE Hive,
                 goto Return;
             }
 
-#ifdef SOMEONE_WAS_NICE_ENOUGH_TO_MAKE_OUR_CELLS_LEXICALLY_SORTED
             /* Check for negative result */
             if (Result < 0)
             {
@@ -230,7 +229,6 @@ CmpFindSubKeyInRoot(IN PHHIVE Hive,
                 /* Update the base to this index, since we know it's not lower. */
                 Low = i;
             }
-#endif
         }
         else
         {
@@ -245,16 +243,6 @@ Big:
 
         /* Release the leaf cell */
         HvReleaseCell(Hive, LeafCell);
-
-#ifndef SOMEONE_WAS_NICE_ENOUGH_TO_MAKE_OUR_CELLS_LEXICALLY_SORTED
-        /* Go to the next index, and return failure if we reach the end */
-        if (++i > High)
-        {
-            /* Return failure */
-            *SubKey = HCELL_NIL;
-            return 0;
-        }
-#endif
     }
 
     /* Make sure we got here for the right reasons */
@@ -821,9 +809,9 @@ CmpMarkIndexDirty(IN PHHIVE Hive,
         SearchName.Length = CmpCompressedNameSize(Node->Name,
                                                   Node->NameLength);
         SearchName.MaximumLength = SearchName.Length;
-        SearchName.Buffer = CmpAllocate(SearchName.Length,
-                                        TRUE,
-                                        TAG_CM);
+        SearchName.Buffer = ExAllocatePoolWithTag(PagedPool,
+                                                  SearchName.Length,
+                                                  TAG_CM);
         if (!SearchName.Buffer)
         {
             /* Fail */
@@ -917,7 +905,7 @@ CmpMarkIndexDirty(IN PHHIVE Hive,
             if (Child != HCELL_NIL)
             {
                 /* We found it, free the name now */
-                if (IsCompressed) CmpFree(SearchName.Buffer, 0);
+                if (IsCompressed) ExFreePool(SearchName.Buffer);
 
                 /* Release the parent key */
                 HvReleaseCell(Hive, ParentKey);
@@ -942,7 +930,7 @@ Quickie:
     if (CellToRelease != HCELL_NIL) HvReleaseCell(Hive, CellToRelease);
 
     /* Free the search name and return failure */
-    if (IsCompressed) CmpFree(SearchName.Buffer, 0);
+    if (IsCompressed) ExFreePool(SearchName.Buffer);
     return FALSE;
 }
 
@@ -1129,366 +1117,6 @@ CmpAddToLeaf(IN PHHIVE Hive,
     return NewCell;
 }
 
-HCELL_INDEX
-NTAPI
-CmpSplitLeaf(IN PHHIVE Hive,
-             IN HCELL_INDEX RootCell,
-             IN ULONG RootSelect,
-             IN HSTORAGE_TYPE Type)
-{
-    PCM_KEY_INDEX IndexKey, LeafKey, NewKey;
-    PCM_KEY_FAST_INDEX FastLeaf;
-    HCELL_INDEX LeafCell, NewCell;
-    ULONG FirstHalf, LastHalf;
-    ULONG EntrySize, TotalSize;
-
-    /* Get the cell */
-    IndexKey = (PCM_KEY_INDEX)HvGetCell(Hive, RootCell);
-
-    /* Check if we've got valid IndexKey */
-    if (!IndexKey) return HCELL_NIL;
-
-    /* Get the leaf cell and key */
-    LeafCell = IndexKey->List[RootSelect];
-    LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-    /* Check if we've got valid LeafKey */
-    if (!LeafKey) return HCELL_NIL;
-
-    /* We are going to divide this leaf into two halves */
-    FirstHalf = (LeafKey->Count / 2);
-    LastHalf = LeafKey->Count - FirstHalf;
-
-    /* Now check what kind of hive we're dealing with,
-     * and compute entry size
-     */
-    if (Hive->Version >= 5)
-    {
-        /* XP Hive: Use hash leaf */
-        ASSERT(LeafKey->Signature == CM_KEY_HASH_LEAF);
-        EntrySize = sizeof(CM_INDEX);
-    }
-    else
-    {
-        /* Use index leaf */
-        ASSERT(LeafKey->Signature == CM_KEY_INDEX_LEAF);
-        EntrySize = sizeof(HCELL_INDEX);
-    }
-
-    /* Compute the total size */
-    TotalSize = (EntrySize * LastHalf) + FIELD_OFFSET(CM_KEY_INDEX, List) + 1;
-
-    /* Mark the leaf cell dirty */
-    HvMarkCellDirty(Hive, LeafCell, FALSE);
-
-    /* Make sure its type is the same */
-    ASSERT(HvGetCellType(LeafCell) == Type);
-
-    /* Allocate the cell, fail in case of error */
-    NewCell = HvAllocateCell(Hive, TotalSize, Type, LeafCell);
-    if (NewCell == HCELL_NIL) return NewCell;
-
-    /* Get the key */
-    NewKey = (PCM_KEY_INDEX)HvGetCell(Hive, NewCell);
-    if (!NewKey)
-    {
-        /* Free the cell and exit - should not happen! */
-        ASSERT(FALSE);
-        HvFreeCell(Hive, NewCell);
-        return HCELL_NIL;
-    }
-
-    /* Release the newly created cell */
-    HvReleaseCell(Hive, NewCell);
-
-    /* Set its signature according to the version of the hive */
-    if (Hive->Version >= 5)
-    {
-        /* XP Hive: Use hash leaf signature */
-        NewKey->Signature = CM_KEY_HASH_LEAF;
-    }
-    else
-    {
-        /* Use index leaf signature */
-        NewKey->Signature = CM_KEY_INDEX_LEAF;
-    }
-
-    /* Calculate the size of the free entries in the root key */
-    TotalSize = HvGetCellSize(Hive, IndexKey) -
-        (IndexKey->Count * sizeof(HCELL_INDEX)) -
-        FIELD_OFFSET(CM_KEY_INDEX, List);
-
-    /* Check if we're out of space */
-    if (TotalSize / sizeof(HCELL_INDEX) < 1)
-    {
-        /* Grow the leaf by one more entry */
-        TotalSize = HvGetCellSize(Hive, IndexKey) + sizeof(HCELL_INDEX);
-
-        /* Re-allocate the root */
-        RootCell = HvReallocateCell(Hive, RootCell, TotalSize);
-        if (RootCell == HCELL_NIL)
-        {
-            /* Free the cell and exit */
-            HvFreeCell(Hive, NewCell);
-            return HCELL_NIL;
-        }
-
-        /* Get the leaf cell */
-        IndexKey = (PCM_KEY_INDEX)HvGetCell(Hive, RootCell);
-        if (!IndexKey)
-        {
-            /* This shouldn't happen */
-            ASSERT(FALSE);
-            return HCELL_NIL;
-        }
-    }
-
-    /* Splitting is done, now we need to copy the contents,
-     * according to the hive version
-     */
-    if (Hive->Version >= 5)
-    {
-        /* Copy the fast indexes */
-        FastLeaf = (PCM_KEY_FAST_INDEX)LeafKey;
-        RtlMoveMemory(&NewKey->List[0],
-                      &FastLeaf->List[FirstHalf],
-                      LastHalf * EntrySize);
-    }
-    else
-    {
-        /* Copy the indexes themselves */
-        RtlMoveMemory(&NewKey->List[0],
-                      &LeafKey->List[FirstHalf],
-                      LastHalf * EntrySize);
-    }
-
-    /* Shift the data inside the root key */
-    if (RootSelect < (IndexKey->Count - 1))
-    {
-        RtlMoveMemory(&IndexKey->List[RootSelect + 2],
-                      &IndexKey->List[RootSelect + 1],
-                      IndexKey->Count -
-                      (RootSelect + 1) * sizeof(HCELL_INDEX));
-    }
-
-    /* Make sure both old and new computed counts are valid */
-    ASSERT(FirstHalf != 0);
-    ASSERT(LastHalf != 0);
-
-    /* Update the count value of old and new keys */
-    LeafKey->Count = FirstHalf;
-    NewKey->Count = LastHalf;
-
-    /* Increase the count value of the root key */
-    IndexKey->Count++;
-
-    /* Set the new cell in root's list */
-    IndexKey->List[RootSelect + 1] = NewCell;
-
-    /* Return the root cell */
-    return RootCell;
-}
-
-HCELL_INDEX
-NTAPI
-CmpSelectLeaf(IN PHHIVE Hive,
-              IN PCM_KEY_NODE KeyNode,
-              IN PUNICODE_STRING Name,
-              IN HSTORAGE_TYPE Type,
-              IN PHCELL_INDEX *RootCell)
-{
-    PCM_KEY_INDEX IndexKey, LeafKey;
-    PCM_KEY_FAST_INDEX FastLeaf;
-    HCELL_INDEX LeafCell, CurrentCell;
-    ULONG SubKeyIndex;
-    LONG Result;
-
-    /* Mark it as dirty */
-    HvMarkCellDirty(Hive, KeyNode->SubKeyLists[Type], FALSE);
-
-    /* Get the cell */
-    IndexKey = (PCM_KEY_INDEX)HvGetCell(Hive, KeyNode->SubKeyLists[Type]);
-
-    /* Check if we've got a valid key */
-    if (!IndexKey)
-    {
-        /* Should not happen! */
-        ASSERTMSG("IndexKey = NULL!, it should not happen!\n", FALSE);
-        return HCELL_NIL;
-    }
-
-    /* Sanity check */
-    ASSERT(IndexKey->Signature == CM_KEY_INDEX_ROOT);
-
-    while (TRUE)
-    {
-        /* Find subkey */
-        SubKeyIndex = CmpFindSubKeyInRoot(Hive, IndexKey, Name, &LeafCell);
-
-        /* Make sure we found something valid */
-        if (SubKeyIndex & 0x80000000) return HCELL_NIL;
-
-        /* Try to fit it into the LeafCell, if it was found */
-        if (LeafCell != HCELL_NIL)
-        {
-            /* Get the leaf key */
-            LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-            /* Check for failure */
-            if (!LeafKey) return HCELL_NIL;
-
-            /* Check if it fits into this leaf and break */
-            if (LeafKey->Count < CmpMaxIndexPerHblock)
-            {
-                /* Fill in the result and return it */
-                *RootCell = &IndexKey->List[SubKeyIndex];
-                return LeafCell;
-            }
-        }
-        else
-        {
-            /* Get the leaf cell at the very end */
-            LeafCell = IndexKey->List[SubKeyIndex];
-            LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-            /* Return an error in case of problems */
-            if (!LeafKey) return HCELL_NIL;
-
-            /* Choose the cell to search from depending on the key type */
-            if ((LeafKey->Signature == CM_KEY_FAST_LEAF) ||
-                (LeafKey->Signature == CM_KEY_HASH_LEAF))
-            {
-                FastLeaf = (PCM_KEY_FAST_INDEX)LeafKey;
-                CurrentCell = FastLeaf->List[0].Cell;
-            }
-            else
-            {
-                /* Make sure it's an index leaf */
-                ASSERT(LeafKey->Signature == CM_KEY_INDEX_LEAF);
-                CurrentCell = LeafKey->List[0];
-            }
-
-            /* Do a name compare */
-            Result = CmpDoCompareKeyName(Hive, Name, CurrentCell);
-
-            /* Check for failure */
-            if (Result == 2) return HCELL_NIL;
-
-            /* Names can't be equal, ensure that */
-            ASSERT(Result != 0);
-
-            /* Check if it's above */
-            if (Result >= 0)
-            {
-                /* Get the first cell in the index */
-                LeafCell = IndexKey->List[0];
-                LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-                /* Return an error in case of problems */
-                if (!LeafKey) return HCELL_NIL;
-
-                /* Check if it fits into this leaf and break */
-                if (LeafKey->Count < CmpMaxIndexPerHblock)
-                {
-                    /* Fill in the result and return the cell */
-                    *RootCell = &IndexKey->List[SubKeyIndex + 1];
-                    return LeafCell;
-                }
-
-                /* No, it doesn't fit, check the other leaf */
-                if (SubKeyIndex < (IndexKey->Count - 1))
-                {
-                    /* Yes, there is space */
-                    LeafCell = IndexKey->List[SubKeyIndex + 1];
-                    LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-                    /* Return an error in case of problems */
-                    if (!LeafKey) return HCELL_NIL;
-
-                    /* Check if it fits and break */
-                    if (LeafKey->Count < CmpMaxIndexPerHblock)
-                    {
-                        /* Fill in the result and return the cell */
-                        *RootCell = &IndexKey->List[SubKeyIndex + 1];
-                        return LeafCell;
-                    }
-                }
-            }
-            else
-            {
-                /* No, it's below, check the subkey index */
-                if (SubKeyIndex > 0)
-                {
-                    /* There should be space at the leaf one before that */
-                    LeafCell = IndexKey->List[SubKeyIndex - 1];
-                    LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-                    /* Return an error in case of problems */
-                    if (!LeafKey) return HCELL_NIL;
-
-                    /* Check if it fits and break */
-                    if (LeafKey->Count < CmpMaxIndexPerHblock)
-                    {
-                        /* Decrement the subkey index */
-                        SubKeyIndex--;
-
-                        /* Fill in the result and return the cell */
-                        *RootCell = &IndexKey->List[SubKeyIndex];
-                        return LeafCell;
-                    }
-                }
-                else
-                {
-                    /* Use the first leaf, if possible */
-                    LeafCell = IndexKey->List[0];
-                    LeafKey = (PCM_KEY_INDEX)HvGetCell(Hive, LeafCell);
-
-                    /* Return an error in case of problems */
-                    if (!LeafKey) return HCELL_NIL;
-
-                    /* Check if it fits and break */
-                    if (LeafKey->Count < CmpMaxIndexPerHblock)
-                    {
-                        /* Fill in the result and return the cell */
-                        *RootCell = &IndexKey->List[0];
-                        return LeafCell;
-                    }
-                }
-
-                /* It didn't fit into either, so proceed to splitting */
-            }
-        }
-
-        /* We need to split */
-        CurrentCell = CmpSplitLeaf(Hive,
-                                   KeyNode->SubKeyLists[Type],
-                                   SubKeyIndex,
-                                   Type);
-
-        /* Return failure in case splitting failed */
-        if (CurrentCell == HCELL_NIL) return CurrentCell;
-
-        /* Set the SubKeyLists value with the new key */
-        KeyNode->SubKeyLists[Type] = CurrentCell;
-
-        /* Get the new cell */
-        IndexKey = (PCM_KEY_INDEX)HvGetCell(Hive, KeyNode->SubKeyLists[Type]);
-
-        /* Return in case of failure */
-        if (!IndexKey) return HCELL_NIL;
-
-        /* Make sure the new key became index root */
-        ASSERT(IndexKey->Signature == CM_KEY_INDEX_ROOT);
-
-        /* Now loop over with the new IndexKey value, which definately
-         * has the space now
-         */
-    }
-
-    /* Shouldn't come here */
-    return HCELL_NIL;
-}
-
 BOOLEAN
 NTAPI
 CmpAddSubKey(IN PHHIVE Hive,
@@ -1626,7 +1254,7 @@ CmpAddSubKey(IN PHHIVE Hive,
             /* Convert */
             OldIndex = (PCM_KEY_FAST_INDEX)Index;
 
-            for (i = 0; i < OldIndex->Count; i++)
+            for (i=0; i < OldIndex->Count; i++)
             {
                 Index->List[i] = OldIndex->List[i].Cell;
             }
@@ -1672,17 +1300,9 @@ CmpAddSubKey(IN PHHIVE Hive,
     /* Check if we turned the index into a root */
     if (Index->Signature == CM_KEY_INDEX_ROOT)
     {
-        DPRINT("Leaf->Root Index Conversion\n");
-
-        /* Get the leaf where to add the new entry (the routine will do
-         * the splitting if necessary)
-         */
-        LeafCell = CmpSelectLeaf(Hive, KeyNode, &Name, Type, &RootPointer);
-        if (LeafCell == HCELL_NIL)
-        {
-            /* Not handled */
-            ASSERT(FALSE);
-        }
+        /* Not handled yet */
+        DPRINT1("Leaf->Root Index Conversion not yet implemented!\n");
+        ASSERT(FALSE);
     }
 
     /* Add our leaf cell */
@@ -1758,9 +1378,9 @@ CmpRemoveSubKey(IN PHHIVE Hive,
         if (SearchName.MaximumLength > sizeof(Buffer))
         {
             /* Allocate one */
-            SearchName.Buffer = CmpAllocate(SearchName.Length,
-                                            TRUE,
-                                            TAG_CM);
+            SearchName.Buffer = ExAllocatePoolWithTag(PagedPool,
+                                                      SearchName.Length,
+                                                      TAG_CM);
             if (!SearchName.Buffer) return FALSE;
         }
         else
@@ -1899,7 +1519,7 @@ Exit:
     if ((IsCompressed) && (SearchName.MaximumLength > sizeof(Buffer)))
     {
         /* Free the buffer we allocated */
-        CmpFree(SearchName.Buffer, 0);
+        ExFreePool(SearchName.Buffer);
     }
 
     /* Return the result */

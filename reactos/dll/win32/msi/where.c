@@ -35,14 +35,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(msidb);
 
-#define MSI_HASH_TABLE_SIZE 37
-
-typedef struct tagMSIHASHENTRY
-{
-    struct tagMSIHASHENTRY *next;
-    UINT value;
-    UINT row;
-} MSIHASHENTRY;
 
 /* below is the query interface to a table */
 
@@ -52,81 +44,13 @@ typedef struct tagMSIWHEREVIEW
     MSIDATABASE   *db;
     MSIVIEW       *table;
     UINT           row_count;
-    MSIHASHENTRY **reorder;
+    UINT          *reorder;
     struct expr   *cond;
-    UINT           rec_index;
 } MSIWHEREVIEW;
-
-static void free_hash_table(MSIHASHENTRY **table)
-{
-    MSIHASHENTRY *new, *old;
-    int i;
-
-    if (!table)
-        return;
-
-    for (i = 0; i < MSI_HASH_TABLE_SIZE; i++)
-    {
-        new = table[i];
-
-        while (new)
-        {
-            old = new;
-            new = old->next;
-            msi_free(old);
-        }
-
-        table[i] = NULL;
-    }
-
-    msi_free(table);
-}
-
-static UINT find_entry_in_hash(MSIHASHENTRY **table, UINT row, UINT *val)
-{
-    MSIHASHENTRY *entry;
-
-    if (!table)
-        return ERROR_SUCCESS;
-
-    if (!(entry = table[row % MSI_HASH_TABLE_SIZE]))
-    {
-        WARN("Row not found in hash table!\n");
-        return ERROR_FUNCTION_FAILED;
-    }
-
-    while (entry && entry->row != row)
-        entry = entry->next;
-
-    if (entry) *val = entry->value;
-    return ERROR_SUCCESS;
-}
-
-static UINT add_entry_to_hash(MSIHASHENTRY **table, UINT row, UINT val)
-{
-    MSIHASHENTRY *new = msi_alloc(sizeof(MSIHASHENTRY));
-    MSIHASHENTRY *prev;
-
-    if (!new)
-        return ERROR_OUTOFMEMORY;
-
-    new->next = NULL;
-    new->value = val;
-    new->row = row;
-
-    prev = table[row % MSI_HASH_TABLE_SIZE];
-    if (prev)
-        new->next = prev;
-
-    table[row % MSI_HASH_TABLE_SIZE] = new;
-
-    return ERROR_SUCCESS;
-}
 
 static UINT WHERE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *val )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
-    UINT r;
 
     TRACE("%p %d %d %p\n", wv, row, col, val );
 
@@ -136,9 +60,7 @@ static UINT WHERE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *
     if( row > wv->row_count )
         return ERROR_NO_MORE_ITEMS;
 
-    r = find_entry_in_hash(wv->reorder, row, &row);
-    if (r != ERROR_SUCCESS)
-        return r;
+    row = wv->reorder[ row ];
 
     return wv->table->ops->fetch_int( wv->table, row, col, val );
 }
@@ -146,7 +68,6 @@ static UINT WHERE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *
 static UINT WHERE_fetch_stream( struct tagMSIVIEW *view, UINT row, UINT col, IStream **stm )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
-    UINT r;
 
     TRACE("%p %d %d %p\n", wv, row, col, stm );
 
@@ -156,37 +77,14 @@ static UINT WHERE_fetch_stream( struct tagMSIVIEW *view, UINT row, UINT col, ISt
     if( row > wv->row_count )
         return ERROR_NO_MORE_ITEMS;
 
-    r = find_entry_in_hash(wv->reorder, row, &row);
-    if (r != ERROR_SUCCESS)
-        return r;
+    row = wv->reorder[ row ];
 
     return wv->table->ops->fetch_stream( wv->table, row, col, stm );
-}
-
-static UINT WHERE_get_row( struct tagMSIVIEW *view, UINT row, MSIRECORD **rec )
-{
-    MSIWHEREVIEW *wv = (MSIWHEREVIEW *)view;
-    UINT r;
-
-    TRACE("%p %d %p\n", wv, row, rec );
-
-    if (!wv->table)
-        return ERROR_FUNCTION_FAILED;
-
-    if (row > wv->row_count)
-        return ERROR_NO_MORE_ITEMS;
-
-    r = find_entry_in_hash(wv->reorder, row, &row);
-    if (r != ERROR_SUCCESS)
-        return r;
-
-    return wv->table->ops->get_row(wv->table, row, rec);
 }
 
 static UINT WHERE_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UINT mask )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
-    UINT r;
 
     TRACE("%p %d %p %08x\n", wv, row, rec, mask );
 
@@ -196,31 +94,9 @@ static UINT WHERE_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UI
     if( row > wv->row_count )
         return ERROR_NO_MORE_ITEMS;
 
-    r = find_entry_in_hash(wv->reorder, row, &row);
-    if (r != ERROR_SUCCESS)
-        return r;
+    row = wv->reorder[ row ];
 
     return wv->table->ops->set_row( wv->table, row, rec, mask );
-}
-
-static UINT WHERE_delete_row(struct tagMSIVIEW *view, UINT row)
-{
-    MSIWHEREVIEW *wv = (MSIWHEREVIEW *)view;
-    UINT r;
-
-    TRACE("(%p %d)\n", view, row);
-
-    if ( !wv->table )
-        return ERROR_FUNCTION_FAILED;
-
-    if ( row > wv->row_count )
-        return ERROR_NO_MORE_ITEMS;
-
-    r = find_entry_in_hash( wv->reorder, row, &row );
-    if ( r != ERROR_SUCCESS )
-        return r;
-
-    return wv->table->ops->delete_row( wv->table, row );
 }
 
 static INT INT_evaluate_binary( INT lval, UINT op, INT rval )
@@ -263,25 +139,24 @@ static INT INT_evaluate_unary( INT lval, UINT op )
     return 0;
 }
 
-static const WCHAR *STRING_evaluate( MSIWHEREVIEW *wv, UINT row,
-                                     const struct expr *expr,
-                                     const MSIRECORD *record )
+static const WCHAR *STRING_evaluate( string_table *st,
+              MSIVIEW *table, UINT row, struct expr *expr, MSIRECORD *record )
 {
     UINT val = 0, r;
 
     switch( expr->type )
     {
     case EXPR_COL_NUMBER_STRING:
-        r = wv->table->ops->fetch_int( wv->table, row, expr->u.col_number, &val );
+        r = table->ops->fetch_int( table, row, expr->u.col_number, &val );
         if( r != ERROR_SUCCESS )
             return NULL;
-        return msi_string_lookup_id( wv->db->strings, val );
+        return msi_string_lookup_id( st, val );
 
     case EXPR_SVAL:
         return expr->u.sval;
 
     case EXPR_WILDCARD:
-        return MSI_RecordGetString( record, ++wv->rec_index );
+        return MSI_RecordGetString( record, 1 );
 
     default:
         ERR("Invalid expression type\n");
@@ -290,16 +165,15 @@ static const WCHAR *STRING_evaluate( MSIWHEREVIEW *wv, UINT row,
     return NULL;
 }
 
-static UINT STRCMP_Evaluate( MSIWHEREVIEW *wv, UINT row, const struct expr *cond,
-                             INT *val, const MSIRECORD *record )
+static UINT STRCMP_Evaluate( string_table *st, MSIVIEW *table, UINT row,
+                             struct expr *cond, INT *val, MSIRECORD *record )
 {
     int sr;
     const WCHAR *l_str, *r_str;
 
-    l_str = STRING_evaluate( wv, row, cond->u.expr.left, record );
-    r_str = STRING_evaluate( wv, row, cond->u.expr.right, record );
-    if( l_str == r_str ||
-        ((!l_str || !*l_str) && (!r_str || !*r_str)) )
+    l_str = STRING_evaluate( st, table, row, cond->u.expr.left, record );
+    r_str = STRING_evaluate( st, table, row, cond->u.expr.right, record );
+    if( l_str == r_str )
         sr = 0;
     else if( l_str && ! r_str )
         sr = 1;
@@ -309,15 +183,14 @@ static UINT STRCMP_Evaluate( MSIWHEREVIEW *wv, UINT row, const struct expr *cond
         sr = lstrcmpW( l_str, r_str );
 
     *val = ( cond->u.expr.op == OP_EQ && ( sr == 0 ) ) ||
-           ( cond->u.expr.op == OP_NE && ( sr != 0 ) ) ||
            ( cond->u.expr.op == OP_LT && ( sr < 0 ) ) ||
            ( cond->u.expr.op == OP_GT && ( sr > 0 ) );
 
     return ERROR_SUCCESS;
 }
 
-static UINT WHERE_evaluate( MSIWHEREVIEW *wv, UINT row,
-                            struct expr *cond, INT *val, MSIRECORD *record )
+static UINT WHERE_evaluate( MSIDATABASE *db, MSIVIEW *table, UINT row,
+                             struct expr *cond, INT *val, MSIRECORD *record )
 {
     UINT r, tval;
     INT lval, rval;
@@ -328,12 +201,12 @@ static UINT WHERE_evaluate( MSIWHEREVIEW *wv, UINT row,
     switch( cond->type )
     {
     case EXPR_COL_NUMBER:
-        r = wv->table->ops->fetch_int( wv->table, row, cond->u.col_number, &tval );
+        r = table->ops->fetch_int( table, row, cond->u.col_number, &tval );
         *val = tval - 0x8000;
         return ERROR_SUCCESS;
 
     case EXPR_COL_NUMBER32:
-        r = wv->table->ops->fetch_int( wv->table, row, cond->u.col_number, &tval );
+        r = table->ops->fetch_int( table, row, cond->u.col_number, &tval );
         *val = tval - 0x80000000;
         return r;
 
@@ -342,27 +215,27 @@ static UINT WHERE_evaluate( MSIWHEREVIEW *wv, UINT row,
         return ERROR_SUCCESS;
 
     case EXPR_COMPLEX:
-        r = WHERE_evaluate( wv, row, cond->u.expr.left, &lval, record );
+        r = WHERE_evaluate( db, table, row, cond->u.expr.left, &lval, record );
         if( r != ERROR_SUCCESS )
             return r;
-        r = WHERE_evaluate( wv, row, cond->u.expr.right, &rval, record );
+        r = WHERE_evaluate( db, table, row, cond->u.expr.right, &rval, record );
         if( r != ERROR_SUCCESS )
             return r;
         *val = INT_evaluate_binary( lval, cond->u.expr.op, rval );
         return ERROR_SUCCESS;
 
     case EXPR_UNARY:
-        r = wv->table->ops->fetch_int( wv->table, row, cond->u.expr.left->u.col_number, &tval );
+        r = table->ops->fetch_int( table, row, cond->u.expr.left->u.col_number, &tval );
         if( r != ERROR_SUCCESS )
             return r;
         *val = INT_evaluate_unary( tval, cond->u.expr.op );
         return ERROR_SUCCESS;
 
     case EXPR_STRCMP:
-        return STRCMP_Evaluate( wv, row, cond, val, record );
+        return STRCMP_Evaluate( db->strings, table, row, cond, val, record );
 
     case EXPR_WILDCARD:
-        *val = MSI_RecordGetInteger( record, ++wv->rec_index );
+        *val = MSI_RecordGetInteger( record, 1 );
         return ERROR_SUCCESS;
 
     default:
@@ -371,6 +244,7 @@ static UINT WHERE_evaluate( MSIWHEREVIEW *wv, UINT row,
     }
 
     return ERROR_SUCCESS;
+
 }
 
 static UINT WHERE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
@@ -393,10 +267,10 @@ static UINT WHERE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
     if( r != ERROR_SUCCESS )
         return r;
 
-    free_hash_table(wv->reorder);
-    wv->reorder = msi_alloc_zero(MSI_HASH_TABLE_SIZE * sizeof(MSIHASHENTRY *));
+    msi_free( wv->reorder );
+    wv->reorder = msi_alloc( count*sizeof(UINT) );
     if( !wv->reorder )
-        return ERROR_OUTOFMEMORY;
+        return ERROR_FUNCTION_FAILED;
 
     wv->row_count = 0;
     if (wv->cond->type == EXPR_STRCMP)
@@ -433,7 +307,7 @@ static UINT WHERE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
             {
                 r = table->ops->find_matching_rows(table, col, value, &row, &handle);
                 if (r == ERROR_SUCCESS)
-                    add_entry_to_hash(wv->reorder, wv->row_count++, row);
+                    wv->reorder[ wv->row_count ++ ] = row;
             } while (r == ERROR_SUCCESS);
 
             if (r == ERROR_NO_MORE_ITEMS)
@@ -447,12 +321,11 @@ static UINT WHERE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
     for( i=0; i<count; i++ )
     {
         val = 0;
-        wv->rec_index = 0;
-        r = WHERE_evaluate( wv, i, wv->cond, &val, record );
+        r = WHERE_evaluate( wv->db, table, i, wv->cond, &val, record );
         if( r != ERROR_SUCCESS )
             return r;
         if( val )
-            add_entry_to_hash( wv->reorder, wv->row_count++, i );
+            wv->reorder[ wv->row_count ++ ] = i;
     }
 
     return ERROR_SUCCESS;
@@ -465,7 +338,10 @@ static UINT WHERE_close( struct tagMSIVIEW *view )
     TRACE("%p\n", wv );
 
     if( !wv->table )
-        return ERROR_FUNCTION_FAILED;
+         return ERROR_FUNCTION_FAILED;
+
+    msi_free( wv->reorder );
+    wv->reorder = NULL;
 
     return wv->table->ops->close( wv->table );
 }
@@ -490,30 +366,29 @@ static UINT WHERE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *col
 }
 
 static UINT WHERE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", wv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", wv, n, name, type );
 
     if( !wv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return wv->table->ops->get_column_info( wv->table, n, name,
-                                            type, temporary );
+    return wv->table->ops->get_column_info( wv->table, n, name, type );
 }
 
 static UINT WHERE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                          MSIRECORD *rec, UINT row )
+                MSIRECORD *rec )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
 
-    TRACE("%p %d %p\n", wv, eModifyMode, rec);
+    TRACE("%p %d %p\n", wv, eModifyMode, rec );
 
-    find_entry_in_hash(wv->reorder, row - 1, &row);
-    row++;
+    if( !wv->table )
+         return ERROR_FUNCTION_FAILED;
 
-    return wv->table->ops->modify( wv->table, eModifyMode, rec, row );
+    return wv->table->ops->modify( wv->table, eModifyMode, rec );
 }
 
 static UINT WHERE_delete( struct tagMSIVIEW *view )
@@ -526,7 +401,7 @@ static UINT WHERE_delete( struct tagMSIVIEW *view )
         wv->table->ops->delete( wv->table );
     wv->table = 0;
 
-    free_hash_table(wv->reorder);
+    msi_free( wv->reorder );
     wv->reorder = NULL;
     wv->row_count = 0;
 
@@ -548,45 +423,29 @@ static UINT WHERE_find_matching_rows( struct tagMSIVIEW *view, UINT col,
          return ERROR_FUNCTION_FAILED;
 
     r = wv->table->ops->find_matching_rows( wv->table, col, val, row, handle );
-    if (r != ERROR_SUCCESS)
-        return r;
 
     if( *row > wv->row_count )
         return ERROR_NO_MORE_ITEMS;
 
-    return find_entry_in_hash(wv->reorder, *row, row);
+    *row = wv->reorder[ *row ];
+
+    return r;
 }
 
-static UINT WHERE_sort(struct tagMSIVIEW *view, column_info *columns)
-{
-    MSIWHEREVIEW *wv = (MSIWHEREVIEW *)view;
-
-    TRACE("%p %p\n", view, columns);
-
-    return wv->table->ops->sort(wv->table, columns);
-}
 
 static const MSIVIEWOPS where_ops =
 {
     WHERE_fetch_int,
     WHERE_fetch_stream,
-    WHERE_get_row,
     WHERE_set_row,
     NULL,
-    WHERE_delete_row,
     WHERE_execute,
     WHERE_close,
     WHERE_get_dimensions,
     WHERE_get_column_info,
     WHERE_modify,
     WHERE_delete,
-    WHERE_find_matching_rows,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    WHERE_sort,
-    NULL,
+    WHERE_find_matching_rows
 };
 
 static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr *cond,
@@ -601,7 +460,7 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
         if( r == ERROR_SUCCESS )
         {
             UINT type = 0;
-            r = table->ops->get_column_info( table, val, NULL, &type, NULL );
+            r = table->ops->get_column_info( table, val, NULL, &type );
             if( r == ERROR_SUCCESS )
             {
                 if (type&MSITYPE_STRING)
@@ -619,7 +478,7 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
         else
         {
             *valid = 0;
-            WARN("Couldn't find column %s\n", debugstr_w( cond->u.column ) );
+            ERR("Couldn't find column %s\n", debugstr_w( cond->u.column ) );
         }
         break;
     case EXPR_COMPLEX:
@@ -643,7 +502,6 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
             case OP_EQ:
             case OP_GT:
             case OP_LT:
-            case OP_NE:
                 break;
             default:
                 *valid = FALSE;
@@ -713,7 +571,7 @@ UINT WHERE_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table,
     wv = msi_alloc_zero( sizeof *wv );
     if( !wv )
         return ERROR_FUNCTION_FAILED;
-    
+
     /* fill the structure */
     wv->view.ops = &where_ops;
     msiobj_addref( &db->hdr );
@@ -722,7 +580,6 @@ UINT WHERE_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table,
     wv->row_count = 0;
     wv->reorder = NULL;
     wv->cond = cond;
-    wv->rec_index = 0;
     *view = (MSIVIEW*) wv;
 
     return ERROR_SUCCESS;

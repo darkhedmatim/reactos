@@ -31,13 +31,15 @@ static LOCAL_KEYBOARD_INDICATOR_TRANSLATION IndicatorTranslation = { 3, {
 
 /* FUNCTIONS *****************************************************************/
 
+/* Debug stuff */
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+
 static VOID NTAPI
 i8042DebugWorkItem(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PVOID Key)
 {
-	UNREFERENCED_PARAMETER(DeviceObject);
-	INFO_(I8042PRT, "Debug key: p\n", Key);
+	DPRINT("Debug key: %p\n", Key);
 
 	if (!Key)
 		return;
@@ -45,7 +47,7 @@ i8042DebugWorkItem(
 	/* We hope kernel would understand this. If
 	 * that's not the case, nothing would happen.
 	 */
-	KdSystemDebugControl(' soR', Key, 0, NULL, 0, NULL, KernelMode);
+	KdSystemDebugControl(TAG('R', 'o', 's', ' '), Key, 0, NULL, 0, NULL, KernelMode);
 }
 
 /*
@@ -83,11 +85,11 @@ i8042KbdQueuePacket(
 	DeviceExtension->KeysInBuffer++;
 	if (DeviceExtension->KeysInBuffer > DeviceExtension->Common.PortDeviceExtension->Settings.KeyboardDataQueueSize)
 	{
-		WARN_(I8042PRT, "Keyboard buffer overflow\n");
+		DPRINT1("Keyboard buffer overflow\n");
 		DeviceExtension->KeysInBuffer--;
 	}
 
-	TRACE_(I8042PRT, "Irq completes key\n");
+	DPRINT("Irq completes key\n");
 	KeInsertQueueDpc(&DeviceExtension->DpcKeyboard, NULL, NULL);
 }
 
@@ -128,11 +130,7 @@ i8042KbdStartIo(
 	{
 		case IOCTL_KEYBOARD_SET_INDICATORS:
 		{
-			TRACE_(I8042PRT, "IOCTL_KEYBOARD_SET_INDICATORS\n");
-			INFO_(I8042PRT, "Leds: {%s%s%s }\n",
-				DeviceExtension->KeyboardIndicators.LedFlags & KEYBOARD_CAPS_LOCK_ON ? " CAPSLOCK" : "",
-				DeviceExtension->KeyboardIndicators.LedFlags & KEYBOARD_NUM_LOCK_ON ? " NUMLOCK" : "",
-				DeviceExtension->KeyboardIndicators.LedFlags & KEYBOARD_SCROLL_LOCK_ON ? " SCROLLLOCK" : "");
+			DPRINT("IOCTL_KEYBOARD_SET_INDICATORS\n");
 
 			PortDeviceExtension->PacketBuffer[0] = KBD_CMD_SET_LEDS;
 			PortDeviceExtension->PacketBuffer[1] = 0;
@@ -155,7 +153,7 @@ i8042KbdStartIo(
 		}
 		default:
 		{
-			ERR_(I8042PRT, "Unknown ioctl code 0x%lx\n",
+			DPRINT("Unknown ioctl code 0x%lx\n",
 				Stack->Parameters.DeviceIoControl.IoControlCode);
 			ASSERT(FALSE);
 		}
@@ -211,8 +209,6 @@ i8042PowerWorkItem(
 
 	DeviceExtension = (PI8042_KEYBOARD_EXTENSION)Context;
 
-	UNREFERENCED_PARAMETER(DeviceObject);
-
 	/* See http://blogs.msdn.com/doronh/archive/2006/09/08/746961.aspx */
 
 	/* Register GUID_DEVICE_SYS_BUTTON interface and report capability */
@@ -238,7 +234,7 @@ i8042PowerWorkItem(
 			if (!NT_SUCCESS(Status))
 			{
 				/* We can't do more yet, ignore the keypress... */
-				WARN_(I8042PRT, "IoRegisterDeviceInterface(GUID_DEVICE_SYS_BUTTON) failed with status 0x%08lx\n",
+				DPRINT("IoRegisterDeviceInterface(GUID_DEVICE_SYS_BUTTON) failed with status 0x%08lx\n",
 					Status);
 				DeviceExtension->PowerInterfaceName.MaximumLength = 0;
 				return;
@@ -253,7 +249,7 @@ i8042PowerWorkItem(
 			if (!NT_SUCCESS(Status))
 			{
 				/* Ignore the key press... */
-				WARN_(I8042PRT, "Disabling interface %wZ failed with status 0x%08lx\n",
+				DPRINT("Disabling interface %wZ failed with status 0x%08lx\n",
 					&DeviceExtension->PowerInterfaceName, Status);
 				return;
 			}
@@ -266,7 +262,7 @@ i8042PowerWorkItem(
 		if (!NT_SUCCESS(Status))
 		{
 			/* Ignore the key press... */
-			WARN_(I8042PRT, "Enabling interface %wZ failed with status 0x%08lx\n",
+			DPRINT("Enabling interface %wZ failed with status 0x%08lx\n",
 					&DeviceExtension->PowerInterfaceName, Status);
 			return;
 		}
@@ -340,10 +336,6 @@ i8042KbdDpcRoutine(
 	ULONG KeysInBufferCopy;
 	KIRQL Irql;
 
-	UNREFERENCED_PARAMETER(Dpc);
-	UNREFERENCED_PARAMETER(SystemArgument1);
-	UNREFERENCED_PARAMETER(SystemArgument2);
-
 	DeviceExtension = (PI8042_KEYBOARD_EXTENSION)DeferredContext;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 
@@ -387,12 +379,12 @@ i8042KbdDpcRoutine(
 		}
 	}
 
-	TRACE_(I8042PRT, "Send a key\n");
+	DPRINT("Send a key\n");
 
 	if (!DeviceExtension->KeyboardData.ClassService)
 		return;
 
-	INFO_(I8042PRT, "Sending %lu key(s)\n", KeysInBufferCopy);
+	DPRINT("Sending %lu key(s)\n", KeysInBufferCopy);
 	(*(PSERVICE_CALLBACK_ROUTINE)DeviceExtension->KeyboardData.ClassService)(
 		DeviceExtension->KeyboardData.ClassDeviceObject,
 		DeviceExtension->KeyboardBuffer,
@@ -426,7 +418,7 @@ i8042KbdDeviceControl(
 		{
 			/* Part of GUID_DEVICE_SYS_BUTTON interface */
 			PULONG pCaps;
-			TRACE_(I8042PRT, "IOCTL_GET_SYS_BUTTON_CAPS\n");
+			DPRINT("IOCTL_GET_SYS_BUTTON_CAPS\n");
 
 			if (Stack->Parameters.DeviceIoControl.OutputBufferLength != sizeof(ULONG))
 				Status = STATUS_INVALID_PARAMETER;
@@ -444,7 +436,7 @@ i8042KbdDeviceControl(
 		{
 			/* Part of GUID_DEVICE_SYS_BUTTON interface */
 			PIRP WaitingIrp;
-			TRACE_(I8042PRT, "IOCTL_GET_SYS_BUTTON_EVENT\n");
+			DPRINT("IOCTL_GET_SYS_BUTTON_EVENT\n");
 
 			if (Stack->Parameters.DeviceIoControl.OutputBufferLength != sizeof(ULONG))
 				Status = STATUS_INVALID_PARAMETER;
@@ -458,7 +450,7 @@ i8042KbdDeviceControl(
 				if (WaitingIrp)
 				{
 					/* Unable to have a 2nd pending IRP for this IOCTL */
-					WARN_(I8042PRT, "Unable to pend a second IRP for IOCTL_GET_SYS_BUTTON_EVENT\n");
+					DPRINT1("Unable to pend a second IRP for IOCTL_GET_SYS_BUTTON_EVENT\n");
 					Status = STATUS_INVALID_PARAMETER;
 					Irp->IoStatus.Status = Status;
 					IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -478,7 +470,7 @@ i8042KbdDeviceControl(
 					}
 					else
 					{
-						TRACE_(I8042PRT, "Pending IOCTL_GET_SYS_BUTTON_EVENT\n");
+						DPRINT("Pending IOCTL_GET_SYS_BUTTON_EVENT\n");
 						Status = STATUS_PENDING;
 						Irp->IoStatus.Status = Status;
 						IoMarkIrpPending(Irp);
@@ -490,7 +482,7 @@ i8042KbdDeviceControl(
 		}
 		default:
 		{
-			ERR_(I8042PRT, "IRP_MJ_DEVICE_CONTROL / unknown ioctl code 0x%lx\n",
+			DPRINT("IRP_MJ_DEVICE_CONTROL / unknown ioctl code 0x%lx\n",
 				Stack->Parameters.DeviceIoControl.IoControlCode);
 			ASSERT(FALSE);
 			return ForwardIrpAndForget(DeviceObject, Irp);
@@ -530,7 +522,7 @@ i8042KbdInternalDeviceControl(
 			PIO_WORKITEM WorkItem = NULL;
 			PI8042_HOOK_WORKITEM WorkItemData = NULL;
 
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_INTERNAL_KEYBOARD_CONNECT\n");
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_INTERNAL_KEYBOARD_CONNECT\n");
 			if (Stack->Parameters.DeviceIoControl.InputBufferLength != sizeof(CONNECT_DATA))
 			{
 				Status = STATUS_INVALID_PARAMETER;
@@ -544,7 +536,7 @@ i8042KbdInternalDeviceControl(
 			WorkItem = IoAllocateWorkItem(DeviceObject);
 			if (!WorkItem)
 			{
-				WARN_(I8042PRT, "IoAllocateWorkItem() failed\n");
+				DPRINT("IoAllocateWorkItem() failed\n");
 				Status = STATUS_INSUFFICIENT_RESOURCES;
 				goto cleanup;
 			}
@@ -554,7 +546,7 @@ i8042KbdInternalDeviceControl(
 				I8042PRT_TAG);
 			if (!WorkItemData)
 			{
-				WARN_(I8042PRT, "ExAllocatePoolWithTag() failed\n");
+				DPRINT("ExAllocatePoolWithTag() failed\n");
 				Status = STATUS_NO_MEMORY;
 				goto cleanup;
 			}
@@ -570,7 +562,7 @@ i8042KbdInternalDeviceControl(
 				I8042PRT_TAG);
 			if (!DeviceExtension->KeyboardBuffer)
 			{
-				WARN_(I8042PRT, "ExAllocatePoolWithTag() failed\n");
+				DPRINT("ExAllocatePoolWithTag() failed\n");
 				Status = STATUS_NO_MEMORY;
 				goto cleanup;
 			}
@@ -582,14 +574,14 @@ i8042KbdInternalDeviceControl(
 			DeviceExtension->PowerWorkItem = IoAllocateWorkItem(DeviceObject);
 			if (!DeviceExtension->PowerWorkItem)
 			{
-				WARN_(I8042PRT, "IoAllocateWorkItem() failed\n");
+				DPRINT("IoAllocateWorkItem() failed\n");
 				Status = STATUS_INSUFFICIENT_RESOURCES;
 				goto cleanup;
 			}
 			DeviceExtension->DebugWorkItem = IoAllocateWorkItem(DeviceObject);
 			if (!DeviceExtension->DebugWorkItem)
 			{
-				WARN_(I8042PRT, "IoAllocateWorkItem() failed\n");
+				DPRINT("IoAllocateWorkItem() failed\n");
 				Status = STATUS_INSUFFICIENT_RESOURCES;
 				goto cleanup;
 			}
@@ -622,7 +614,7 @@ cleanup:
 		}
 		case IOCTL_INTERNAL_KEYBOARD_DISCONNECT:
 		{
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_INTERNAL_KEYBOARD_DISCONNECT\n");
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_INTERNAL_KEYBOARD_DISCONNECT\n");
 			/* MSDN says that operation is to implemented.
 			 * To implement it, we just have to do:
 			 * DeviceExtension->KeyboardData.ClassService = NULL;
@@ -632,46 +624,14 @@ cleanup:
 		}
 		case IOCTL_INTERNAL_I8042_HOOK_KEYBOARD:
 		{
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_INTERNAL_I8042_HOOK_KEYBOARD\n");
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_INTERNAL_I8042_HOOK_KEYBOARD\n");
 			/* Nothing to do here */
 			Status = STATUS_SUCCESS;
 			break;
 		}
-		case IOCTL_KEYBOARD_QUERY_ATTRIBUTES:
-		{
-			DPRINT1("IOCTL_KEYBOARD_QUERY_ATTRIBUTES not implemented\n");
-#if 0
-            /* FIXME: KeyboardAttributes are not initialized anywhere */
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_QUERY_ATTRIBUTES\n");
-			if (Stack->Parameters.DeviceIoControl.OutputBufferLength < sizeof(KEYBOARD_ATTRIBUTES))
-			{
-				Status = STATUS_BUFFER_TOO_SMALL;
-				break;
-			}
-
-			*(PKEYBOARD_ATTRIBUTES) Irp->AssociatedIrp.SystemBuffer = DeviceExtension->KeyboardAttributes;
-			Irp->IoStatus.Information = sizeof(KEYBOARD_ATTRIBUTES);
-			Status = STATUS_SUCCESS;
-			break;
-#endif
-			Status = STATUS_NOT_IMPLEMENTED;
-			break;
-		}
-		case IOCTL_KEYBOARD_QUERY_TYPEMATIC:
-		{
-			DPRINT1("IOCTL_KEYBOARD_QUERY_TYPEMATIC not implemented\n");
-			Status = STATUS_NOT_IMPLEMENTED;
-			break;
-		}
-		case IOCTL_KEYBOARD_SET_TYPEMATIC:
-		{
-			DPRINT1("IOCTL_KEYBOARD_SET_TYPEMATIC not implemented\n");
-			Status = STATUS_NOT_IMPLEMENTED;
-			break;
-		}
 		case IOCTL_KEYBOARD_QUERY_INDICATOR_TRANSLATION:
 		{
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_QUERY_INDICATOR_TRANSLATION\n");
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_QUERY_INDICATOR_TRANSLATION\n");
 
 			/* We should check the UnitID, but it's kind of pointless as
 			 * all keyboards are supposed to have the same one
@@ -693,7 +653,7 @@ cleanup:
 		}
 		case IOCTL_KEYBOARD_QUERY_INDICATORS:
 		{
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_QUERY_INDICATORS\n");
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_QUERY_INDICATORS\n");
 
 			if (Stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(KEYBOARD_INDICATOR_PARAMETERS))
 			{
@@ -712,7 +672,7 @@ cleanup:
 		}
 		case IOCTL_KEYBOARD_SET_INDICATORS:
 		{
-			TRACE_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_SET_INDICATORS\n");
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / IOCTL_KEYBOARD_SET_INDICATORS\n");
 
 			if (Stack->Parameters.DeviceIoControl.InputBufferLength < sizeof(KEYBOARD_INDICATOR_PARAMETERS))
 			{
@@ -732,7 +692,7 @@ cleanup:
 		}
 		default:
 		{
-			ERR_(I8042PRT, "IRP_MJ_INTERNAL_DEVICE_CONTROL / unknown ioctl code 0x%lx\n",
+			DPRINT("IRP_MJ_INTERNAL_DEVICE_CONTROL / unknown ioctl code 0x%lx\n",
 				Stack->Parameters.DeviceIoControl.IoControlCode);
 			ASSERT(FALSE);
 			return ForwardIrpAndForget(DeviceObject, Irp);
@@ -791,11 +751,9 @@ i8042KbdInterruptService(
 	PPORT_DEVICE_EXTENSION PortDeviceExtension;
 	PKEYBOARD_INPUT_DATA InputData;
 	ULONG Counter;
-	UCHAR PortStatus = 0, Output = 0;
+	UCHAR PortStatus, Output;
 	BOOLEAN ToReturn = FALSE;
 	NTSTATUS Status;
-
-	UNREFERENCED_PARAMETER(Interrupt);
 
 	DeviceExtension = (PI8042_KEYBOARD_EXTENSION)Context;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
@@ -807,7 +765,7 @@ i8042KbdInterruptService(
 		Status = i8042ReadStatus(PortDeviceExtension, &PortStatus);
 		if (!NT_SUCCESS(Status))
 		{
-			WARN_(I8042PRT, "i8042ReadStatus() failed with status 0x%08lx\n", Status);
+			DPRINT("i8042ReadStatus() failed with status 0x%08lx\n", Status);
 			return FALSE;
 		}
 		Status = i8042ReadKeyboardData(PortDeviceExtension, &Output);
@@ -818,11 +776,11 @@ i8042KbdInterruptService(
 	}
 	if (Counter == 0)
 	{
-		WARN_(I8042PRT, "Spurious i8042 keyboard interrupt\n");
+		DPRINT("Spurious i8042 keyboard interrupt\n");
 		return FALSE;
 	}
 
-	INFO_(I8042PRT, "Got: 0x%02x\n", Output);
+	DPRINT("Got: 0x%02x\n", Output);
 
 	if (PortDeviceExtension->Settings.CrashOnCtrlScroll)
 	{
@@ -848,14 +806,14 @@ i8042KbdInterruptService(
 	{
 		if (PortDeviceExtension->PacketComplete)
 		{
-			TRACE_(I8042PRT, "Packet complete\n");
+			DPRINT("Packet complete\n");
 			KeInsertQueueDpc(&DeviceExtension->DpcKeyboard, NULL, NULL);
 		}
-		TRACE_(I8042PRT, "Irq eaten by packet\n");
+		DPRINT("Irq eaten by packet\n");
 		return TRUE;
 	}
 
-	TRACE_(I8042PRT, "Irq is keyboard input\n");
+	DPRINT("Irq is keyboard input\n");
 
 	if (DeviceExtension->KeyboardScanState == Normal)
 	{

@@ -1,7 +1,9 @@
+/* 
+ * $Id$
+ */
+
 /*
  * void *memmove (void *to, const void *from, size_t count)
- *
- * NOTE: This code is duplicated in memcpy_asm.s
  */
 
 .globl	_memmove

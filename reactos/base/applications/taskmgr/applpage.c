@@ -1,7 +1,7 @@
 /*
  *  ReactOS Task Manager
  *
- *  applpage.c
+ *  applicationpage.cpp
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
  *                2005         Klemens Friedl <frik85@reactos.at>
@@ -41,7 +41,6 @@ static int      nApplicationPageHeight;
 static HANDLE   hApplicationPageEvent = NULL;   /* When this event becomes signaled then we refresh the app list */
 static BOOL     bSortAscending = TRUE;
 DWORD WINAPI    ApplicationPageRefreshThread(void *lpParameter);
-BOOL            noApps;
 BOOL CALLBACK   EnumWindowsProc(HWND hWnd, LPARAM lParam);
 void            AddOrUpdateHwnd(HWND hWnd, WCHAR *szTitle, HICON hIcon, BOOL bHung);
 void            ApplicationPageUpdate(void);
@@ -57,31 +56,6 @@ HWND hWnd,   /* Handle to the window that should be activated */
 BOOL bRestore /* Restore the window if it is minimized */
 );
 #endif
-
-static INT
-GetSystemColorDepth(VOID)
-{
-    DEVMODE pDevMode;
-    INT ColorDepth;
-
-    pDevMode.dmSize = sizeof(DEVMODE);
-    pDevMode.dmDriverExtra = 0;
-
-    if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &pDevMode))
-        return ILC_COLOR;
-
-    switch (pDevMode.dmBitsPerPel)
-    {
-        case 32: ColorDepth = ILC_COLOR32; break;
-        case 24: ColorDepth = ILC_COLOR24; break;
-        case 16: ColorDepth = ILC_COLOR16; break;
-        case  8: ColorDepth = ILC_COLOR8;  break;
-        case  4: ColorDepth = ILC_COLOR4;  break;
-        default: ColorDepth = ILC_COLOR;   break;
-    }
-
-    return ColorDepth;
-}
 
 INT_PTR CALLBACK
 ApplicationPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -126,8 +100,8 @@ ApplicationPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         column.cx = 95;
         (void)ListView_InsertColumn(hApplicationPageListCtrl, 1, &column);    /* Add the "Status" column */
 
-        (void)ListView_SetImageList(hApplicationPageListCtrl, ImageList_Create(16, 16, GetSystemColorDepth()|ILC_MASK, 0, 1), LVSIL_SMALL);
-        (void)ListView_SetImageList(hApplicationPageListCtrl, ImageList_Create(32, 32, GetSystemColorDepth()|ILC_MASK, 0, 1), LVSIL_NORMAL);
+        (void)ListView_SetImageList(hApplicationPageListCtrl, ImageList_Create(16, 16, ILC_COLOR8|ILC_MASK, 0, 1), LVSIL_SMALL);
+        (void)ListView_SetImageList(hApplicationPageListCtrl, ImageList_Create(32, 32, ILC_COLOR8|ILC_MASK, 0, 1), LVSIL_NORMAL);
 
         UpdateApplicationListControlViewSetting();
 
@@ -220,16 +194,21 @@ void RefreshApplicationPage(void)
 
 void UpdateApplicationListControlViewSetting(void)
 {
-    DWORD  dwStyle = GetWindowLongPtrW(hApplicationPageListCtrl, GWL_STYLE);
+    DWORD  dwStyle = GetWindowLongW(hApplicationPageListCtrl, GWL_STYLE);
 
-    dwStyle &= ~(LVS_REPORT | LVS_ICON | LVS_LIST | LVS_SMALLICON);
+    dwStyle &= ~LVS_REPORT;
+    dwStyle &= ~LVS_ICON;
+    dwStyle &= ~LVS_LIST;
+    dwStyle &= ~LVS_SMALLICON;
 
-    switch (TaskManagerSettings.ViewMode) {
-    case ID_VIEW_LARGE:   dwStyle |= LVS_ICON; break;
-    case ID_VIEW_SMALL:   dwStyle |= LVS_SMALLICON; break;
-    case ID_VIEW_DETAILS: dwStyle |= LVS_REPORT; break;
-    }
-    SetWindowLongPtrW(hApplicationPageListCtrl, GWL_STYLE, dwStyle);
+    if (TaskManagerSettings.View_LargeIcons)
+        dwStyle |= LVS_ICON;
+    else if (TaskManagerSettings.View_SmallIcons)
+        dwStyle |= LVS_SMALLICON;
+    else
+        dwStyle |= LVS_REPORT;
+
+    SetWindowLongW(hApplicationPageListCtrl, GWL_STYLE, dwStyle);
 
     RefreshApplicationPage();
 }
@@ -265,10 +244,7 @@ DWORD WINAPI ApplicationPageRefreshThread(void *lpParameter)
              *
              * Should this be EnumDesktopWindows() instead?
              */
-            noApps = TRUE;
             EnumWindows(EnumWindowsProc, 0);
-            if (noApps)
-                (void)ListView_DeleteAllItems(hApplicationPageListCtrl);
         }
     }
 }
@@ -289,7 +265,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
     if (hWnd == hMainWnd)
         return TRUE;
 
-    bLargeIcon = (TaskManagerSettings.ViewMode == ID_VIEW_LARGE);
+    bLargeIcon = TaskManagerSettings.View_LargeIcons ? TRUE : FALSE;
 
     GetWindowTextW(hWnd, szText, 260); /* Get the window text */
 
@@ -298,12 +274,11 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lParam)
         !IsWindowVisible(hWnd) ||
         (GetParent(hWnd) != NULL) ||
         (GetWindow(hWnd, GW_OWNER) != NULL) ||
-        (GetWindowLongPtrW(hWnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
+        (GetWindowLongW(hWnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
     {
         return TRUE; /* Skip this window */
     }
 
-    noApps = FALSE;
     /* Get the icon for this window */
     hIcon = NULL;
     SendMessageTimeoutW(hWnd, WM_GETICON,bLargeIcon ? ICON_BIG /*1*/ : ICON_SMALL /*0*/, 0, 0, 1000, (PDWORD_PTR)xhIcon);
@@ -422,7 +397,7 @@ void AddOrUpdateHwnd(HWND hWnd, WCHAR *szTitle, HICON hIcon, BOOL bHung)
             !IsWindowVisible(pAPLI->hWnd) ||
             (GetParent(pAPLI->hWnd) != NULL) ||
             (GetWindow(pAPLI->hWnd, GW_OWNER) != NULL) ||
-            (GetWindowLongPtrW(hWnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
+            (GetWindowLongW(hWnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
         {
             ImageList_Remove(hImageListLarge, item.iItem);
             ImageList_Remove(hImageListSmall, item.iItem);
@@ -459,23 +434,16 @@ void ApplicationPageUpdate(void)
     if (ListView_GetSelectedCount(hApplicationPageListCtrl))
     {
         EnableWindow(hApplicationPageEndTaskButton, TRUE);
-    }
-    else
-    {
-        EnableWindow(hApplicationPageEndTaskButton, FALSE);
-    }
-    /* Enable "Switch To" button only if one app is selected */
-    if (ListView_GetSelectedCount(hApplicationPageListCtrl) == 1 )
-    {
         EnableWindow(hApplicationPageSwitchToButton, TRUE);
     }
     else
     {
-    EnableWindow(hApplicationPageSwitchToButton, FALSE);
+        EnableWindow(hApplicationPageEndTaskButton, FALSE);
+        EnableWindow(hApplicationPageSwitchToButton, FALSE);
     }
 
-    /* If we are on the applications tab the windows menu will be */
-    /* present on the menu bar so enable & disable the menu items */
+    /* If we are on the applications tab the the windows menu will */
+    /* be present on the menu bar so enable & disable the menu items */
     if (TabCtrl_GetCurSel(hTabWnd) == 0)
     {
         HMENU  hMenu;
@@ -553,12 +521,13 @@ void ApplicationPageOnNotify(WPARAM wParam, LPARAM lParam)
                 if (pAPLI->bHung)
                 {
                     LoadStringW( GetModuleHandleW(NULL), IDS_Not_Responding , szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
+                    wcsncpy(pnmdi->item.pszText, szMsg, pnmdi->item.cchTextMax);
                 }
                 else
                 {
                     LoadStringW( GetModuleHandleW(NULL), IDS_Running, (LPWSTR) szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
+                    wcsncpy(pnmdi->item.pszText, szMsg, pnmdi->item.cchTextMax);
                 }
-                wcsncpy(pnmdi->item.pszText, szMsg, pnmdi->item.cchTextMax);
             }
 
             break;
@@ -622,7 +591,12 @@ void ApplicationPageShowContextMenu1(void)
     hMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_APPLICATION_PAGE_CONTEXT1));
     hSubMenu = GetSubMenu(hMenu, 0);
 
-    CheckMenuRadioItem(hSubMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, TaskManagerSettings.ViewMode, MF_BYCOMMAND);
+    if (TaskManagerSettings.View_LargeIcons)
+        CheckMenuRadioItem(hSubMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_LARGE, MF_BYCOMMAND);
+    else if (TaskManagerSettings.View_SmallIcons)
+        CheckMenuRadioItem(hSubMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_SMALL, MF_BYCOMMAND);
+    else
+        CheckMenuRadioItem(hSubMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_DETAILS, MF_BYCOMMAND);
 
     TrackPopupMenu(hSubMenu, TPM_LEFTALIGN|TPM_TOPALIGN|TPM_LEFTBUTTON, pt.x, pt.y, 0, hMainWnd, NULL);
 
@@ -675,7 +649,7 @@ void ApplicationPageShowContextMenu2(void)
     DestroyMenu(hMenu);
 }
 
-void ApplicationPage_OnView(DWORD dwMode)
+void ApplicationPage_OnViewLargeIcons(void)
 {
     HMENU  hMenu;
     HMENU  hViewMenu;
@@ -683,13 +657,78 @@ void ApplicationPage_OnView(DWORD dwMode)
     hMenu = GetMenu(hMainWnd);
     hViewMenu = GetSubMenu(hMenu, 2);
 
-    TaskManagerSettings.ViewMode = dwMode;
-    CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, dwMode, MF_BYCOMMAND);
+    TaskManagerSettings.View_LargeIcons = TRUE;
+    TaskManagerSettings.View_SmallIcons = FALSE;
+    TaskManagerSettings.View_Details = FALSE;
+    CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_LARGE, MF_BYCOMMAND);
 
     UpdateApplicationListControlViewSetting();
 }
 
-void ApplicationPage_OnWindowsTile(DWORD dwMode)
+void ApplicationPage_OnViewSmallIcons(void)
+{
+    HMENU  hMenu;
+    HMENU  hViewMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+
+    TaskManagerSettings.View_LargeIcons = FALSE;
+    TaskManagerSettings.View_SmallIcons = TRUE;
+    TaskManagerSettings.View_Details = FALSE;
+    CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_SMALL, MF_BYCOMMAND);
+
+    UpdateApplicationListControlViewSetting();
+}
+
+void ApplicationPage_OnViewDetails(void)
+{
+    HMENU  hMenu;
+    HMENU  hViewMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+
+    TaskManagerSettings.View_LargeIcons = FALSE;
+    TaskManagerSettings.View_SmallIcons = FALSE;
+    TaskManagerSettings.View_Details = TRUE;
+    CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_DETAILS, MF_BYCOMMAND);
+
+    UpdateApplicationListControlViewSetting();
+}
+
+void ApplicationPage_OnWindowsTileHorizontally(void)
+{
+    LPAPPLICATION_PAGE_LIST_ITEM  pAPLI = NULL;
+    LV_ITEM                       item;
+    int                           i;
+    HWND*                         hWndArray;
+    int                           nWndCount;
+
+    hWndArray = (HWND*)HeapAlloc(GetProcessHeap(), 0, sizeof(HWND) * ListView_GetItemCount(hApplicationPageListCtrl));
+    nWndCount = 0;
+
+    for (i=0; i<ListView_GetItemCount(hApplicationPageListCtrl); i++) {
+        memset(&item, 0, sizeof(LV_ITEM));
+        item.mask = LVIF_STATE|LVIF_PARAM;
+        item.iItem = i;
+        item.stateMask = (UINT)-1;
+        (void)ListView_GetItem(hApplicationPageListCtrl, &item);
+
+        if (item.state & LVIS_SELECTED) {
+            pAPLI = (LPAPPLICATION_PAGE_LIST_ITEM)item.lParam;
+
+            if (pAPLI) {
+                hWndArray[nWndCount] = pAPLI->hWnd;
+                nWndCount++;
+            }
+        }
+    }
+    TileWindows(NULL, MDITILE_HORIZONTAL, NULL, nWndCount, hWndArray);
+    HeapFree(GetProcessHeap(), 0, hWndArray);
+}
+
+void ApplicationPage_OnWindowsTileVertically(void)
 {
     LPAPPLICATION_PAGE_LIST_ITEM  pAPLI = NULL;
     LV_ITEM                       item;
@@ -716,7 +755,7 @@ void ApplicationPage_OnWindowsTile(DWORD dwMode)
         }
     }
 
-    TileWindows(NULL, dwMode, NULL, nWndCount, hWndArray);
+    TileWindows(NULL, MDITILE_VERTICAL, NULL, nWndCount, hWndArray);
     HeapFree(GetProcessHeap(), 0, hWndArray);
 }
 

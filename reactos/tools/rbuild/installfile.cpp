@@ -22,12 +22,6 @@
 
 using std::string;
 
-InstallFile::~InstallFile()
-{
-	delete source;
-	delete target;
-}
-
 InstallFile::InstallFile ( const Project& project,
                            const XMLElement& installfileNode,
                            const string& path )

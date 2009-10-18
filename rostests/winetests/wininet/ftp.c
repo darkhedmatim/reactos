@@ -25,6 +25,8 @@
  * TODO:
  *     Add W-function tests.
  *     Add missing function tests:
+ *         FtpFindFirstFile
+ *         FtpGetCurrentDirectory
  *         FtpGetFileSize
  *         FtpSetCurrentDirectory
  */
@@ -39,10 +41,6 @@
 #include "winsock.h"
 
 #include "wine/test.h"
-
-
-static BOOL (WINAPI *pFtpCommandA)(HINTERNET,BOOL,DWORD,LPCSTR,DWORD_PTR,HINTERNET*);
-
 
 static void test_getfile_no_open(void)
 {
@@ -65,8 +63,6 @@ static void test_connect(HINTERNET hInternet)
      * anonymous : NULL
      * NULL      : IEUser@
      * NULL      : NULL
-     * ""        : IEUser@
-     * ""        : NULL
      */
 
     SetLastError(0xdeadbeef);
@@ -84,13 +80,6 @@ static void test_connect(HINTERNET hInternet)
     hFtp = InternetConnect(hInternet, "ftp.winehq.org", INTERNET_DEFAULT_FTP_PORT, NULL, "IEUser@", INTERNET_SERVICE_FTP, INTERNET_FLAG_PASSIVE, 0);
     ok ( hFtp == NULL, "Expected InternetConnect to fail\n");
     ok ( GetLastError() == ERROR_INVALID_PARAMETER,
-        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    hFtp = InternetConnect(hInternet, "ftp.winehq.org", INTERNET_DEFAULT_FTP_PORT, "", "IEUser@",
-            INTERNET_SERVICE_FTP, INTERNET_FLAG_PASSIVE, 0);
-    ok(!hFtp, "Expected InternetConnect to fail\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER,
         "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
 
     /* Using a NULL username and password will be interpreted as anonymous ftp. The username will be 'anonymous' the password
@@ -111,20 +100,6 @@ static void test_connect(HINTERNET hInternet)
     ok ( hFtp != NULL, "InternetConnect failed : %d\n", GetLastError());
     ok ( GetLastError() == ERROR_SUCCESS,
         "ERROR_SUCCESS, got %d\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    hFtp = InternetConnect(hInternet, "ftp.winehq.org", INTERNET_DEFAULT_FTP_PORT, "", NULL,
-            INTERNET_SERVICE_FTP, INTERNET_FLAG_PASSIVE, 0);
-    if (!hFtp)
-    {
-        ok(GetLastError() == ERROR_INTERNET_LOGIN_FAILURE,
-                "Expected ERROR_INTERNET_LOGIN_FAILURE, got %d\n", GetLastError());
-    }
-    else
-    {
-        ok(GetLastError() == ERROR_SUCCESS,
-                "Expected ERROR_SUCCESS, got %d\n", GetLastError());
-    }
 }
 
 static void test_createdir(HINTERNET hFtp, HINTERNET hConnect)
@@ -281,6 +256,7 @@ static void test_getfile(HINTERNET hFtp, HINTERNET hConnect)
     ok ( GetLastError() == ERROR_INTERNET_EXTENDED_ERROR,
         "Expected ERROR_INTERNET_EXTENDED_ERROR, got %d\n", GetLastError());
     /* Currently Wine always creates the local file (even on failure) which is not correct, hence the test */
+    todo_wine
     ok (GetFileAttributesA("should_also_be_non_existing_deadbeef") == INVALID_FILE_ATTRIBUTES,
         "Local file should not have been created\n");
 
@@ -301,6 +277,7 @@ static void test_getfile(HINTERNET hFtp, HINTERNET hConnect)
     ok ( GetLastError() == ERROR_INTERNET_EXTENDED_ERROR,
         "Expected ERROR_INTERNET_EXTENDED_ERROR, got %d\n", GetLastError());
     /* Currently Wine always creates the local file (even on failure) which is not correct, hence the test */
+    todo_wine
     ok (GetFileAttributesA("should_also_be_non_existing_deadbeef") == INVALID_FILE_ATTRIBUTES,
         "Local file should not have been created\n");
 
@@ -407,9 +384,7 @@ static void test_openfile(HINTERNET hFtp, HINTERNET hConnect)
     SetLastError(0xdeadbeef);
     hOpenFile = FtpOpenFileA(hFtp, "welcome.msg", GENERIC_READ, FTP_TRANSFER_TYPE_ASCII, 0);
     ok ( hOpenFile != NULL, "Expected FtpOpenFileA to succeed\n");
-    ok ( GetLastError() == ERROR_SUCCESS ||
-        broken(GetLastError() == ERROR_FILE_NOT_FOUND), /* Win98 */
-        "Expected ERROR_SUCCESS, got %u\n", GetLastError());
+    ok ( GetLastError() == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", GetLastError());
 
     if (hOpenFile)
     {
@@ -705,16 +680,10 @@ static void test_command(HINTERNET hFtp, HINTERNET hConnect)
         { TRUE,  ERROR_SUCCESS,                 "PWD\r\n" }
     };
 
-    if (!pFtpCommandA)
-    {
-        win_skip("FtpCommandA() is not available. Skipping the Ftp command tests\n");
-        return;
-    }
-
     for (i = 0; i < sizeof(command_test) / sizeof(command_test[0]); i++)
     {
         SetLastError(0xdeadbeef);
-        ret = pFtpCommandA(hFtp, FALSE, FTP_TRANSFER_TYPE_ASCII, command_test[i].cmd, 0, NULL);
+        ret = FtpCommandA(hFtp, FALSE, FTP_TRANSFER_TYPE_ASCII, command_test[i].cmd, 0, NULL);
         error = GetLastError();
 
         ok(ret == command_test[i].ret, "%d: expected FtpCommandA to %s\n", i, command_test[i].ret ? "succeed" : "fail");
@@ -722,180 +691,9 @@ static void test_command(HINTERNET hFtp, HINTERNET hConnect)
     }
 }
 
-static void test_find_first_file(HINTERNET hFtp, HINTERNET hConnect)
-{
-    WIN32_FIND_DATA findData;
-    HINTERNET hSearch;
-    HINTERNET hSearch2;
-    HINTERNET hOpenFile;
-
-    /* NULL as the search file ought to return the first file in the directory */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, NULL, &findData, 0, 0);
-    ok ( hSearch != NULL, "Expected FtpFindFirstFileA to pass\n" );
-
-    /* This should fail as the previous handle wasn't closed */
-    SetLastError(0xdeadbeef);
-    hSearch2 = FtpFindFirstFileA(hFtp, "welcome.msg", &findData, 0, 0);
-    todo_wine ok ( hSearch2 == NULL, "Expected FtpFindFirstFileA to fail\n" );
-    todo_wine ok ( GetLastError() == ERROR_FTP_TRANSFER_IN_PROGRESS,
-        "Expected ERROR_FTP_TRANSFER_IN_PROGRESS, got %d\n", GetLastError() );
-    InternetCloseHandle(hSearch2); /* Just in case */
-
-    InternetCloseHandle(hSearch);
-
-    /* Try a valid filename in a subdirectory search */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, "pub/wine", &findData, 0, 0);
-    todo_wine ok ( hSearch != NULL, "Expected FtpFindFirstFileA to pass\n" );
-    InternetCloseHandle(hSearch);
-
-    /* Try a valid filename in a subdirectory wildcard search */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, "pub/w*", &findData, 0, 0);
-    todo_wine ok ( hSearch != NULL, "Expected FtpFindFirstFileA to pass\n" );
-    InternetCloseHandle(hSearch);
-
-    /* Try an invalid wildcard search */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, "*/w*", &findData, 0, 0);
-    ok ( hSearch == NULL, "Expected FtpFindFirstFileA to fail\n" );
-    InternetCloseHandle(hSearch); /* Just in case */
-
-    /* Try FindFirstFile between FtpOpenFile and InternetCloseHandle */
-    SetLastError(0xdeadbeef);
-    hOpenFile = FtpOpenFileA(hFtp, "welcome.msg", GENERIC_READ, FTP_TRANSFER_TYPE_ASCII, 0);
-    ok ( hOpenFile != NULL, "Expected FtpOpenFileA to succeed\n" );
-    ok ( GetLastError() == ERROR_SUCCESS ||
-        broken(GetLastError() == ERROR_FILE_NOT_FOUND), /* Win98 */
-        "Expected ERROR_SUCCESS, got %u\n", GetLastError() );
-
-    /* This should fail as the OpenFile handle wasn't closed */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, "welcome.msg", &findData, 0, 0);
-    ok ( hSearch == NULL, "Expected FtpFindFirstFileA to fail\n" );
-    ok ( GetLastError() == ERROR_FTP_TRANSFER_IN_PROGRESS,
-        "Expected ERROR_FTP_TRANSFER_IN_PROGRESS, got %d\n", GetLastError() );
-    InternetCloseHandle(hSearch); /* Just in case */
-
-    InternetCloseHandle(hOpenFile);
-
-    /* Test using a nonexistent filename */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, "this_file_should_not_exist", &findData, 0, 0);
-    ok ( hSearch == NULL, "Expected FtpFindFirstFileA to fail\n" );
-    todo_wine ok ( GetLastError() == ERROR_INTERNET_EXTENDED_ERROR,
-        "Expected ERROR_INTERNET_EXTENDED_ERROR, got %d\n", GetLastError() );
-    InternetCloseHandle(hSearch); /* Just in case */
-
-    /* Test using a nonexistent filename and a wildcard */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hFtp, "this_file_should_not_exist*", &findData, 0, 0);
-    ok ( hSearch == NULL, "Expected FtpFindFirstFileA to fail\n" );
-    todo_wine ok ( GetLastError() == ERROR_NO_MORE_FILES,
-        "Expected ERROR_NO_MORE_FILES, got %d\n", GetLastError() );
-    InternetCloseHandle(hSearch); /* Just in case */
-
-    /* Test using an invalid handle type */
-    SetLastError(0xdeadbeef);
-    hSearch = FtpFindFirstFileA(hConnect, "welcome.msg", &findData, 0, 0);
-    ok ( hSearch == NULL, "Expected FtpFindFirstFileA to fail\n" );
-    ok ( GetLastError() == ERROR_INTERNET_INCORRECT_HANDLE_TYPE,
-        "Expected ERROR_INTERNET_INCORRECT_HANDLE_TYPE, got %d\n", GetLastError() );
-    InternetCloseHandle(hSearch); /* Just in case */
-}
-
-static void test_get_current_dir(HINTERNET hFtp, HINTERNET hConnect)
-{
-    BOOL    bRet;
-    DWORD   dwCurrentDirectoryLen = MAX_PATH;
-    CHAR    lpszCurrentDirectory[MAX_PATH];
-
-    if (!pFtpCommandA)
-    {
-        win_skip("FtpCommandA() is not available. Skipping the Ftp get_current_dir tests\n");
-        return;
-    }
-
-    /* change directories to get a more interesting pwd */
-    bRet = pFtpCommandA(hFtp, FALSE, FTP_TRANSFER_TYPE_ASCII, "CWD pub/", 0, NULL);
-    if(bRet == FALSE)
-    {
-        skip("Failed to change directories in test_get_current_dir(HINTERNET hFtp).\n");
-        return;
-    }
-
-    /* test with all NULL arguments */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( NULL, NULL, 0 );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n" );
-    ok ( GetLastError() == ERROR_INVALID_HANDLE, "Expected ERROR_INVALID_HANDLE, got: %d\n", GetLastError());
-
-    /* test with NULL parameters instead of expected LPSTR/LPDWORD */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( hFtp, NULL, 0 );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n" );
-    ok ( GetLastError() == ERROR_INVALID_PARAMETER, "Expected ERROR_INVALID_PARAMETER, got: %d\n", GetLastError());
-
-    /* test with no valid handle and valid parameters */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( NULL, lpszCurrentDirectory, &dwCurrentDirectoryLen );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n" );
-    ok ( GetLastError() == ERROR_INVALID_HANDLE, "Expected ERROR_INVALID_HANDLE, got: %d\n", GetLastError());
-
-    /* test with invalid dwCurrentDirectory and all other parameters correct */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( hFtp, lpszCurrentDirectory, 0 );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n" );
-    ok ( GetLastError() == ERROR_INVALID_PARAMETER, "Expected ERROR_INVALID_PARAMETER, got: %d\n", GetLastError());
-
-    /* test with invalid lpszCurrentDirectory and all other parameters correct */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( hFtp, NULL, &dwCurrentDirectoryLen );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n" );
-    ok ( GetLastError() == ERROR_INSUFFICIENT_BUFFER, "Expected ERROR_INSUFFICIENT_BUFFER, got: %d\n", GetLastError());
-
-    /* test to show it checks the handle type */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( hConnect, lpszCurrentDirectory, &dwCurrentDirectoryLen );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n" );
-    ok ( GetLastError() == ERROR_INTERNET_INCORRECT_HANDLE_TYPE,
-    "Expected ERROR_INTERNET_INCORRECT_HANDLE_TYPE, got: %d\n", GetLastError());
-
-    /* test for the current directory with legitimate values */
-    SetLastError(0xdeadbeef);
-    bRet = FtpGetCurrentDirectoryA( hFtp, lpszCurrentDirectory, &dwCurrentDirectoryLen );
-    ok ( bRet == TRUE, "Expected FtpGetCurrentDirectoryA to pass\n" );
-    ok ( !strcmp(lpszCurrentDirectory, "/pub"), "Expected returned value \"%s\" to match \"/pub\"\n", lpszCurrentDirectory);
-    ok ( GetLastError() == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got: %d\n", GetLastError());
-
-    /* test for the current directory with a size only large enough to
-     * fit the string and not the null terminating character */
-    SetLastError(0xdeadbeef);
-    dwCurrentDirectoryLen = 4;
-    lpszCurrentDirectory[4] = 'a'; /* set position 4 of the array to something else to make sure a leftover \0 isn't fooling the test */
-    bRet = FtpGetCurrentDirectoryA( hFtp, lpszCurrentDirectory, &dwCurrentDirectoryLen );
-    ok ( bRet == FALSE, "Expected FtpGetCurrentDirectoryA to fail\n");
-    ok ( strcmp(lpszCurrentDirectory, "/pub"), "Expected returned value \"%s\" to not match \"/pub\"\n", lpszCurrentDirectory);
-    ok ( GetLastError() == ERROR_INSUFFICIENT_BUFFER, "Expected ERROR_INSUFFICIENT_BUFFER, got: %d\n", GetLastError());
-
-    /* test for the current directory with a size large enough to store
-     * the expected string as well as the null terminating character */
-    SetLastError(0xdeadbeef);
-    dwCurrentDirectoryLen = 5;
-    bRet = FtpGetCurrentDirectoryA( hFtp, lpszCurrentDirectory, &dwCurrentDirectoryLen );
-    ok ( bRet == TRUE, "Expected FtpGetCurrentDirectoryA to pass\n");
-    ok ( !strcmp(lpszCurrentDirectory, "/pub"), "Expected returned value \"%s\" to match \"/pub\"\n", lpszCurrentDirectory);
-    ok ( GetLastError() == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got: %d\n", GetLastError());
-}
-
 START_TEST(ftp)
 {
-    HMODULE hWininet;
     HANDLE hInternet, hFtp, hHttp;
-
-    hWininet = GetModuleHandleA("wininet.dll");
-    pFtpCommandA = (void*)GetProcAddress(hWininet, "FtpCommandA");
 
     SetLastError(0xdeadbeef);
     hInternet = InternetOpen("winetest", 0, NULL, NULL, 0);
@@ -935,8 +733,6 @@ START_TEST(ftp)
     test_removedir(hFtp, hHttp);
     test_renamefile(hFtp, hHttp);
     test_command(hFtp, hHttp);
-    test_find_first_file(hFtp, hHttp);
-    test_get_current_dir(hFtp, hHttp);
 
     InternetCloseHandle(hHttp);
     InternetCloseHandle(hFtp);

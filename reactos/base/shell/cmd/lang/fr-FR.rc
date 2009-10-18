@@ -1,3 +1,5 @@
+#include "windows.h"
+#include "resource.h"
 /*
  * French resources
  * Sylvain Pétréolle  2005
@@ -6,15 +8,7 @@
 
 LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
 STRINGTABLE DISCARDABLE
-BEGIN
-
-STRING_ASSOC_HELP,    "Modify file extension associations.\n\n\
-assoc [.ext[=[FileType]]]\n\
-\n\
-assoc (print all associations)\n\
-assoc .ext (print specific association)\n\
-assoc .ext= (remove specific association)\n\
-assoc .ext=FileType (add new association)\n"
+{
 
 STRING_ATTRIB_HELP,    "Affiche ou change des attributs de fichiers.\n\n\
 ATTRIB [+R | -R] [+A | -A] [+S | -S] [+H | -H] file ...\n\
@@ -56,7 +50,7 @@ STRING_CD_HELP,      "Change ou affiche le répertoire courant\n\n\
   ..   répertoire parent\n\
   -    répertoire précédent\n\n\
   /D   Changera le lecteur et le répertoire courant.\n\n\
-Taper CD lecteur: pour afficher le répertoire courant sur le disque indiqué.\n\
+Taper CD lecteur: pour affiche le répertoire courant sur le disque indiqué.\n\
 Taper CD sans paramètre pour afficher le répertoire courant du disque actuel.\n"
 
 STRING_CHCP_HELP,   "Affiche ou change la page de codes active.\n\n\
@@ -89,7 +83,7 @@ STRING_CMD_HELP5,"  [complétion des noms de fichiers façon unix]"
 
 STRING_CMD_HELP6,"  [pile de répertoires]"
 
-STRING_CMD_HELP7,"  [redirections et canaux]"
+STRING_CMD_HELP7,"  [redirections et piping]"
 
 STRING_CMD_HELP8, "Démarre une nouvelle instance de l'interpréteur de commandes de ReactOS.\n\n\
 CMD [/[C|K] commande][/P][/Q][/T:ap]\n\n\
@@ -130,7 +124,7 @@ COPY [/V][/Y|/-Y][/A|/B] source [/A|/B]\n\
   /B           Spécifie qu'il s'agit d'un fichier binaire.\n\
   destination  Indique le répertoire ou le nom de fichier\n\
                pour le(s) nouveau(x) fichier(s).\n\
-  /V           Vérifie que les fichiers ont été copiés correctement.\n\
+  /V           Vérifie que les fichier ont été copiés correctement.\n\
   /Y           Supprime l'invite de confirmation en cas d'écrasement\n\
                d'un fichier destination existant.\n\
   /-Y          Affiche un invite de confirmation en cas d'écrasement\n\
@@ -159,15 +153,15 @@ ERASE [/N /P /T /Q /W /Y /Z] fichier ...\n\n\
   /P    Demande. Demande avant d'effacer pour chaque fichier.\n\
   /T    Total. Affiche le total de fichiers effacés et l'espace disque libéré.\n\
   /Q    Silencieux.\n\
-  /W    Wipe. Ecrase le fichier avec des nombres aléatoires avant d'effacer.\n\
+  /W    Wipe. Ecrase le fichier avec des nombres aléatoire avant d'effacer.\n\
   /Y    Oui. Efface, même *.*, sans demander.\n\
-  /F    Force la suppression des fichiers cachés, en lecture-seule et système.\n\
+  /F    Force la suppression des fichiers cachés, en lecture-seul et système.\n\
   /S    Supprime les fichiers de tous les sous-répertoires.\n\
   /A    Sélectionne les fichiers à supprimer en fonction des attributs.\n\
         attributs\n\
         R     Fichiers en lecture-seule\n\
         S     Fichiers système\n\
-        A     Fichiers archivables\n\
+        A     Archiveable files\n\
         H     Fichiers cachés\n\
         -     préfixe signifiant ne pas\n"
 
@@ -198,7 +192,7 @@ STRING_DIR_HELP1, "DIR [lecteur:][chemin][fichier] [/A[[:]attributs]] [/B] [/C] 
   /L          Utilise les minuscules.\n\
   /N          Nouveau format de liste longue où les noms de fichiers sont \n\
               sur la droite.\n\
-  /O          Lister les fichiers de façon triée.\n\
+  /O          Lister les fichier de façon triée.\n\
   ordre de     N  Par nom (alphabétique) S  Par taille (plus petit d'abord)\n\
   tri          E  Par extension tique)   D  Par date (plus vieux d'abord)\n\
                G  Répertoires d'abord    -  Préfixe pour inverser l'ordre\n\
@@ -311,13 +305,6 @@ STRING_LOCALE_HELP1, "L'heure actuelle est "
 STRING_MKDIR_HELP,   "Crée un répertoire.\n\n\
 MKDIR [lecteur:]chemin\nMD [lecteur:]chemin"
 
-STRING_MKLINK_HELP, "Creates a filesystem link object.\n\n\
-MKLINK [/D | /H | /J] linkname target\n\n\
-  /D  Indicates that the symbolic link target is a directory.\n\
-  /H  Create a hard link.\n\
-  /J  Create a directory junction.\n\n\
-If neither /H or /J is specified, a symbolic link is created."
-
 STRING_MEMMORY_HELP1, "Affiche la quantité de mémoire système.\n\nMEMORY"
 
 STRING_MEMMORY_HELP2, "\n  %12s%% de charge mémoire.\n\n\
@@ -429,7 +416,7 @@ REPLACE [lecteur1:][chemin1]nomdefichier [lecteur2:][chemin2] [/P] [/R] [/S] [/W
                                    d'ajouter un fichier source.\n\
   /R                               Remplace les fichiers en lecture-seule aussi bien que les\n\
                                    fichiers sans protection.\n\
-  /S                               Remplace les fichiers dans tous les sous-répertoires du\n\
+  /S                               Remplaces les fichiers dans tous les sous-répertoires du\n\
                                    répertoire de destination. Ne peut être utilisé avec /A\n\
   /W                               Attend que vous insériez un disque avant de commencer.\n\
   /U                               Remplace (met à jour) uniquement les fichiers qui sont plus anciens que\n\
@@ -504,7 +491,7 @@ TIMER  [ON|OFF] [/S] [/n] [/Fn]\n\n\
               n peut être :\n\
                     0    millisecondes\n\
                     1    hh%cmm%css%cdd\n\n\
-En l'absence d'une option ON, OFF ou /S la commande\n\
+Si aucun de ON, OFF or /S n'est spécifié la commande\n\
 changera l'état du chronomètre sélectionné\n\n"
 
 STRING_TYPE_HELP1, "Affiche le contenu de fichiers textes.\n\nTYPE [lecteur:][chemin]nomfich \n\
@@ -520,7 +507,7 @@ STRING_VERIFY_HELP2, "VERIFY est %s.\n"
 
 STRING_VERIFY_HELP3, "Vous devez indiquer ON ou OFF."
 
-STRING_VERSION_HELP1, "Affiche les informations de version du shell\n\n\
+STRING_VERSION_HELP1, "Affiche les information de version du shell\n\n\
 VER [/C][/R][/W]\n\n\
   /C  Affiche les crédits.\n\
   /R  Affiche les informations sur la redistribution.\n\
@@ -578,7 +565,7 @@ STRING_HELP1, "Liste de toutes les commandes disponibles (+ description)\n\n\
 ALIAS    Défini, supprime ou montre les alias.\n\
 ATTRIB   Affiche ou change les attributs d'un fichier.\n\
 BEEP     Émet un bip par le haut-parleur système.\n\
-CALL     Appelle un programme batch à partir d'un autre.\n\
+CALL     Appeller un programme batch à partir d'un autre.\n\
 CD       Affiche ou change le répertoire courant.\n\
 CHCP     Affiche ou défini le numéro de page de codes.\n\
 CHOICE   Attend après l'utilisateur pour un choix parmi un ensemble de propositions.\n\
@@ -602,7 +589,6 @@ IF       Exécute un traitement conditionnel dans des programmes batch.\n\
 LABEL    Créé, change, ou supprime le nom de volume d'un disque.\n\
 MD       Créé un répertoire.\n\
 MKDIR    Créé un répertoire.\n\
-MKLINK   Creates a filesystem link object.\n\
 MOVE     Déplace un ou plusieurs fichiers d'un répertoire vers un autre\n\
          répertoire.\n\
 PATH     Affiche ou défini un chemin de recherche pour les fichiers exécutables.\n\
@@ -620,14 +606,14 @@ RMDIR    Supprime un répertoire.\n\
 SCREEN   Déplace le curseur, optionnellement affiche du texte.\n\
 SET      Affiche, défini, ou supprime des variables d'environnement de ReactOS.\n\
 SHIFT    Déplace la position des paramètres remplacables dans un fichier batch.\n"
-STRING_HELP2, "START    Démarre une fenêtre séparée pour lancer un programme spécifié ou une commande.\n\
+STRING_HELP2, "START    Démarre une fenêtre séparer pour lancer un programme spécifié ou une commande.\n\
          Exécute la commande.\n\
 TIME     Affiche ou défini l'heure du système.\n\
 TIMER    Permet l'utilisation de dix chronomètres.\n\
 TITLE    Défini le titre de la fenêtre pour une session de CMD.EXE.\n\
 TYPE     Affiche le contenu d'un fichier texte.\n\
 VER      Affiche la version de ReactOS.\n\
-VERIFY   Spécifie à ReactOS s'il faut vérifier que les fichiers sont correctement\n\
+VERIFY   Spécifie à ReactOS s'il faut vérifier que vous fichiers sont correctement\n\
          écrit sur un disque.\n\
 VOL      Affiche le nom de volume d'un disque et son numéro de série.\n"
 
@@ -637,14 +623,13 @@ STRING_COPY_OPTION,          "ONT"
 
 
 STRING_ALIAS_ERROR,          "Ligne de commande trop longue après remplacement de l'alias!\n"
-STRING_ASSOC_ERROR,          "File association not found for extension %s\n"
 STRING_BATCH_ERROR,          "Erreur à l'ouverture du fichier batch\n"
 STRING_CHCP_ERROR1,          "Page de codes actuelle : %u\n"
-STRING_CHCP_ERROR4,          "Page de codes invalide \n"
+STRING_CHCP_ERROR4,          "Page de code invalide \n"
 STRING_CHOICE_ERROR,         "Option invalide. Format attendu : /C[:]options"
 STRING_CHOICE_ERROR_TXT,     "Option invalide. Format attendu : /T[:]c,nn"
 STRING_CHOICE_ERROR_OPTION,  "Option invalide : %s"
-STRING_MD_ERROR,             "Un sous répertoire ou un fichier existe déjà.\n"
+STRING_MD_ERROR,             "Un sous répertoire ou un fichier est déjà existant.\n"
 STRING_MD_ERROR2,            "Le chemin vers le nouveau répertoire n'existe pas.\n"
 STRING_CMD_ERROR1,           "Ne peut rediriger l'entrée depuis le fichier %s\n"
 STRING_CMD_ERROR2,           "Erreur à la création du fichier temporaire pour les données du pipe\n"
@@ -680,7 +665,7 @@ STRING_MOVE_ERROR2,          "[Erreur]\n"
 
 STRING_REN_ERROR1,           "MoveFile() a échoué. Erreur : %lu\n"
 
-STRING_START_ERROR1,         "Pas de support batch pour l'instant !"
+STRING_START_ERROR1,         "No batch support at the moment !"
 
 STRING_TIME_ERROR1,          "Heure invalide."
 
@@ -697,7 +682,7 @@ STRING_ERROR_FILE_NOT_FOUND,       "Fichier non trouvé\n"
 STRING_ERROR_REQ_PARAM_MISSING,    "Paramètre requis manquant\n"
 STRING_ERROR_INVALID_DRIVE,        "Lecteur spécifié introuvable\n"
 STRING_ERROR_INVALID_PARAM_FORMAT, "Format de paramètre incorrect - %s\n"
-STRING_ERROR_BADCOMMAND,           "Commande ou nom de fichier inconnu - %s\n"
+STRING_ERROR_BADCOMMAND,           "Commande ou nom de fichier inconnu\n"
 STRING_ERROR_OUT_OF_MEMORY,        "Pas assez de mémoire.\n"
 STRING_ERROR_CANNOTPIPE,           "Erreur !  Impossible de chaîner !  Échec à l'ouverture du fichier temporaire!\n"
 STRING_ERROR_D_PAUSEMSG,           "Appuyez sur une touche pour continuer . . ."
@@ -713,8 +698,7 @@ STRING_REPLACE_ERROR5, "Accès refusé - %s\n"
 STRING_REPLACE_ERROR6, "Aucun fichier trouvé - %s\n"
 STRING_REPLACE_ERROR7, "Erreur étendue 32\n"
 
-STRING_REACTOS_VERSION,            "ReactOS Operating System [Version %s-%s]\n"
-STRING_CMD_SHELLINFO,              "\n Interpréteur de ligne de commandes ReactOS\nVersion %s %s"
+STRING_CMD_SHELLINFO,              "\n Interpréteur de ligne de commandes ReactOS"
 STRING_VERSION_RUNVER,             " tournant sur %s"
 STRING_COPY_FILE,                  "        %d fichier(s) copié(s)\n"
 STRING_DELETE_WIPE,                "effacé(s)"
@@ -722,15 +706,10 @@ STRING_FOR_ERROR,                  "mauvaise variable spécifiée."
 STRING_SCREEN_COL,                 "valeur invalide pour col"
 STRING_SCREEN_ROW,                 "valeur invalide pour lig"
 STRING_TIMER_TIME                  "Le timer n°%d est %s : "
-STRING_MKLINK_CREATED_SYMBOLIC,    "Symbolic link created for %s <<===>> %s\n"
-STRING_MKLINK_CREATED_HARD,        "Hard link created for %s <<===>> %s\n"
-STRING_MKLINK_CREATED_JUNCTION,    "Junction created for %s <<===>> %s\n"
-STRING_MORE,                       "More? "
-STRING_CANCEL_BATCH_FILE,          "\r\nCtrl-Break pressed.  Cancel batch file? (Oui/Non/Tous) "
 
 STRING_INVALID_OPERAND,            "Opérande invalide."
 STRING_EXPECTED_CLOSE_PAREN,       "Attendu ')'."
 STRING_EXPECTED_NUMBER_OR_VARIABLE,"Attendu nombre ou nom de variable."
-STRING_SYNTAX_COMMAND_INCORRECT,   "La syntaxe de la commande est incorrecte."
+STRING_SYNTAX_COMMAND_INCORRECT,   "La syntaxe the la commande est incorrecte."
 
-END
+}

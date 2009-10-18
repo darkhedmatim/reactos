@@ -66,7 +66,7 @@ END
 IDD_ABOUTBOX DIALOGEX 22,16,190,182
 CAPTION "За управителя на устройствата"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 BEGIN
   LTEXT "Service Manager v0.5.1\nCopyright (C) 2005-2006\nby Ged Murphy (gedmurphy@gmail.com)", IDC_STATIC, 48, 7, 130, 26
   PUSHBUTTON "Close", IDOK, 75, 162, 44, 15
@@ -77,7 +77,7 @@ END
 IDD_DLG_GENERAL DIALOGEX 6,6,300,225
 CAPTION "Общи"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   LTEXT "", IDC_SERV_NAME, 120,11,176,11, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_DISP_NAME, 120, 29, 176, 13, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_READONLY
@@ -105,7 +105,7 @@ END
 IDD_DLG_DEPEND DIALOGEX 6,6,253,225
 CAPTION "Зависимости"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   CONTROL "", IDC_DEPEND_TREE1, "SysTreeView32" ,0x50010007, 8, 70, 236, 68, 0x00000200
   CONTROL "", IDC_DEPEND_TREE2, "SysTreeView32", 0x50010007, 8, 151, 234, 67, 0x00000200
@@ -118,11 +118,11 @@ END
 IDD_DLG_CREATE DIALOGEX 6,6,225,209
 CAPTION "Създаване на услуга"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   EDITTEXT IDC_CREATE_SERVNAME, 72, 12, 150, 11, WS_CHILD | WS_VISIBLE | WS_EX_CLIENTEDGE
   EDITTEXT IDC_CREATE_DISPNAME, 72, 31, 150, 11, WS_CHILD | WS_VISIBLE
-  EDITTEXT IDC_CREATE_PATH, 10, 62, 210, 13, WS_CHILD | WS_VISIBLE
+  EDITTEXT IDC_CREATE_PATH, 8, 62, 214, 13, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_CREATE_DESC, 10, 97, 210, 48, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_CREATE_OPTIONS, 10, 162, 210, 13, WS_CHILD | WS_VISIBLE
   LTEXT "*Име на услугата :", IDC_STATIC, 12, 12, 54, 9
@@ -131,14 +131,14 @@ BEGIN
   LTEXT "Описание :", IDC_STATIC, 12, 86, 44, 9
   PUSHBUTTON "Добре", IDOK, 126, 192, 44, 13
   PUSHBUTTON "Отказ", IDCANCEL, 176, 192, 46, 13
-  LTEXT "Допълнителни настройки (натиснете „Помощ“ за подробности)", IDC_STATIC, 10, 151, 134, 9
-  PUSHBUTTON "Помощ", ID_CREATE_HELP, 10, 192, 44, 13
+  LTEXT "Допълнителни настройки (натиснете 'Помощ' за подробности)", IDC_STATIC, 10, 151, 134, 9
+  PUSHBUTTON "Помощ", ID_CREATE_HELP, 6, 192, 44, 13
 END
 
 IDD_DLG_DELETE DIALOGEX 6,6,185,148
 CAPTION "Изтриване на услуга"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
 BEGIN
   ICON IDI_WARNING, IDC_STATIC, 10, 8, 24, 22
   LTEXT "Сигурен ли сте, че искате да изтриете тази услуга? Изтриването е необратимо!", IDC_STATIC, 50, 6, 125, 25
@@ -161,7 +161,7 @@ END
 IDD_DLG_PROGRESS DIALOGEX 6,6,255,89
 CAPTION "Управление на услугите"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 EXSTYLE WS_EX_TOOLWINDOW
 BEGIN
   CONTROL "", IDC_SERVCON_PROGRESS, "msctls_progress32", 0x50000000, 8, 46, 238, 13
@@ -194,8 +194,6 @@ STRINGTABLE DISCARDABLE
 BEGIN
 /*  IDS_NUM_SERVICES "Num Services: %d" */
   IDS_NUM_SERVICES "Брой услуги: %d"
-  IDS_STOP_DEPENDS "When %s stops, these other services will also stop"
-  IDS_NO_DEPENDS "<No Dependencies>"
   IDS_LICENSE "This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\r\n\r\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\r\n\r\nYou should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."
 END
 
@@ -222,11 +220,6 @@ BEGIN
   IDS_DELETE_SUCCESS "Услугата е успешно изтрита"
   IDS_CREATE_REQ "Полетата, отбелязани със \nзвездичка са задължителни"
   IDS_DELETE_STOP "Трябва ръчно да спрете услугата, преди да я изтриете!"
-END
-
-STRINGTABLE DISCARDABLE
-BEGIN
-  IDS_HELP_OPTIONS "CREATE OPTIONS:\r\nNOTE: The option name includes the equal sign.\r\n type= <own|share|interact|kernel|filesys|rec>\r\n       (default = own)\r\n start= <boot|system|auto|demand|disabled>\r\n       (default = demand) \r\n error= <normal|severe|critical|ignore>\r\n       (default = normal)\r\n group= <LoadOrderGroup>\r\n tag= <yes|no>\r\n depend= <Dependencies(separated by / (forward slash))>\r\n obj= <AccountName|ObjectName>\r\n       (default = LocalSystem)\r\n password= <password>\r\n"
 END
 
 /* Hints */

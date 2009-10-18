@@ -48,16 +48,16 @@ static int init_wksta_tests(void)
     BOOL rc;
 
     user_name[0] = 0;
-    dwSize = sizeof(user_name)/sizeof(user_name[0]);
+    dwSize = sizeof(user_name);
     rc=GetUserNameW(user_name, &dwSize);
     if (rc==FALSE && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED) {
-        win_skip("GetUserNameW is not implemented\n");
+        skip("GetUserNameW is not implemented\n");
         return 0;
     }
     ok(rc, "User Name Retrieved\n");
 
     computer_name[0] = 0;
-    dwSize = sizeof(computer_name)/sizeof(computer_name[0]);
+    dwSize = sizeof(computer_name);
     ok(GetComputerNameW(computer_name, &dwSize), "Computer Name Retrieved\n");
     return 1;
 }
@@ -80,17 +80,7 @@ static void run_wkstausergetinfo_tests(void)
 
     /* Level 0 */
     ok(pNetWkstaUserGetInfo(NULL, 0, (LPBYTE *)&ui0) == NERR_Success,
-       "NetWkstaUserGetInfo is unsuccessful\n");
-
-    ok(ui0 != NULL, "ui0 is NULL\n");
-    /* This failure occurred when I ran sshd as service and didn't authenticate
-     * Since the test dereferences ui0, the rest of this test is worthless
-     */
-    if (!ui0)
-    {
-        return;
-    }
-
+       "NetWkstaUserGetInfo is successful\n");
     ok(!lstrcmpW(user_name, ui0->wkui0_username), "This is really user name\n");
     pNetApiBufferSize(ui0, &dwSize);
     ok(dwSize >= (sizeof(WKSTA_USER_INFO_0) +
@@ -192,7 +182,7 @@ START_TEST(wksta)
      * if one is not available, none are.
      */
     if (!pNetApiBufferFree) {
-        win_skip("Needed functions are not available\n");
+        skip("Needed functions are not available\n");
         FreeLibrary(hnetapi32);
         return;
     }

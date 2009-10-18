@@ -8,5 +8,5 @@
 int
 _ttoi(const _TCHAR *str)
 {
-  return (int)_ttoi64(str);
+  return (int)_tcstol(str, 0, 10);
 }

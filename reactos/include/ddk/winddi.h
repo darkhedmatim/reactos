@@ -20,10 +20,14 @@
  *
  */
 
-#ifndef _WINDDI_
-#define _WINDDI_
+#ifndef __WINDDI_H
+#define __WINDDI_H
 
-#ifdef __VIDEO_H__
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
+#ifdef __VIDEO_H
 #error video.h cannot be included with winddi.h
 #else
 
@@ -34,8 +38,8 @@
 extern "C" {
 #endif
 
-#ifndef DECLSPEC_IMPORT
-#define DECLSPEC_IMPORT __attribute__((dllimport))
+#ifndef DECL_IMPORT
+#define DECL_IMPORT __attribute__((dllimport))
 #endif
 
 #ifndef WIN32KAPI
@@ -84,9 +88,7 @@ DECLARE_HANDLE(DHSURF);
 DECLARE_HANDLE(DHPDEV);
 DECLARE_HANDLE(HDRVOBJ);
 
-#ifndef __NTDDVDEO_H
 typedef struct _ENG_EVENT *PEVENT;
-#endif
 
 #define OPENGL_CMD                        4352
 #define OPENGL_GETINFO                    4353
@@ -115,12 +117,6 @@ typedef struct _ENG_EVENT *PEVENT;
 #define GX_OFFSET                         1
 #define GX_SCALE                          2
 #define GX_GENERAL                        3
-
-#define LTOFX(x)        ((x) << 4)
-#define FXTOL(x)        ((x) >> 4)
-#define FXTOLFLOOR(x)   ((x) >> 4)
-#define FXTOLCEILING(x) ((x + 0x0F) >> 4)
-#define FXTOLROUND(x)   ((((x) >> 3) + 1) >> 1)
 
 typedef struct _POINTE {
 	FLOATL  x;
@@ -318,11 +314,11 @@ typedef struct _DEVINFO {
   FLONG  flGraphicsCaps2;
 } DEVINFO, *PDEVINFO;
 
-struct _DRIVEROBJ;
+typedef struct _DRIVEROBJ *PDRIVEROBJ;
 
 typedef BOOL
 (APIENTRY CALLBACK *FREEOBJPROC)(
-  IN struct _DRIVEROBJ  *pDriverObj);
+  IN PDRIVEROBJ  pDriverObj);
 
 typedef struct _DRIVEROBJ {
   PVOID  pvObj;
@@ -341,7 +337,6 @@ typedef struct _DRIVEROBJ {
 #define INDEX_DrvOffset                   6L
 #define INDEX_DrvResetPDEV                7L
 #define INDEX_DrvDisableDriver            8L
-#define INDEX_DrvUnknown1                 9L
 #define INDEX_DrvCreateDeviceBitmap       10L
 #define INDEX_DrvDeleteDeviceBitmap       11L
 #define INDEX_DrvRealizeBrush             12L
@@ -353,7 +348,6 @@ typedef struct _DRIVEROBJ {
 #define INDEX_DrvBitBlt                   18L
 #define INDEX_DrvCopyBits                 19L
 #define INDEX_DrvStretchBlt               20L
-#define INDEX_DrvUnknown2                 21L
 #define INDEX_DrvSetPalette               22L
 #define INDEX_DrvTextOut                  23L
 #define INDEX_DrvEscape                   24L
@@ -368,10 +362,8 @@ typedef struct _DRIVEROBJ {
 #define INDEX_DrvStartPage                33L
 #define INDEX_DrvEndDoc                   34L
 #define INDEX_DrvStartDoc                 35L
-#define INDEX_DrvUnknown3                 36L
 #define INDEX_DrvGetGlyphMode             37L
 #define INDEX_DrvSynchronize              38L
-#define INDEX_DrvUnknown4                 39L
 #define INDEX_DrvSaveScreenBits           40L
 #define INDEX_DrvGetModes                 41L
 #define INDEX_DrvFree                     42L
@@ -395,7 +387,6 @@ typedef struct _DRIVEROBJ {
 #define INDEX_DrvEnableDirectDraw         60L
 #define INDEX_DrvDisableDirectDraw        61L
 #define INDEX_DrvQuerySpoolType           62L
-#define INDEX_DrvUnknown5                 63L
 #define INDEX_DrvIcmCreateColorTransform  64L
 #define INDEX_DrvIcmDeleteColorTransform  65L
 #define INDEX_DrvIcmCheckBitmapBits       66L
@@ -437,7 +428,6 @@ typedef struct _DRVFN {
 #define DDI_DRIVER_VERSION_SP3            0x00020003
 #define DDI_DRIVER_VERSION_NT5            0x00030000
 #define DDI_DRIVER_VERSION_NT5_01         0x00030100
-#define DDI_DRIVER_VERSION_NT5_01_SP1     0x00030101
 
 typedef struct _DRVENABLEDATA {
   ULONG  iDriverVersion;
@@ -549,15 +539,11 @@ typedef struct _FD_KERNINGPAIR {
   FWORD  fwdKern;
 } FD_KERNINGPAIR;
 
-#if defined(_X86_) && !defined(USERMODE_DRIVER)
 typedef struct _FLOATOBJ
 {
   ULONG  ul1;
   ULONG  ul2;
 } FLOATOBJ, *PFLOATOBJ;
-#else
-typedef FLOAT FLOATOBJ, *PFLOATOBJ;
-#endif
 
 typedef struct _FLOATOBJ_XFORM {
   FLOATOBJ  eM11;
@@ -810,7 +796,7 @@ typedef struct _GDIINFO {
 typedef struct _PATHDATA {
   FLONG  flags;
   ULONG  count;
-  POINTFIX  *pptfx;
+  POINTFIX  *glypptfx;
 } PATHDATA, *PPATHDATA;
 
 /* PATHOBJ.fl constants */
@@ -1114,17 +1100,6 @@ typedef struct _XLATEOBJ {
   ULONG  cEntries;
   ULONG  *pulXlate;
 } XLATEOBJ;
-
-/* WNDOBJCHANGEPROC.fl constants */
-#define WOC_RGN_CLIENT_DELTA              0x00000001
-#define WOC_RGN_CLIENT                    0x00000002
-#define WOC_RGN_SURFACE_DELTA             0x00000004
-#define WOC_RGN_SURFACE                   0x00000008
-#define WOC_CHANGED                       0x00000010
-#define WOC_DELETE                        0x00000020
-#define WOC_DRAWN                         0x00000040
-#define WOC_SPRITE_OVERLAP                0x00000080
-#define WOC_SPRITE_NO_OVERLAP             0x00000100
 
 typedef VOID (APIENTRY CALLBACK *WNDOBJCHANGEPROC)(
   IN WNDOBJ  *pwo,
@@ -2307,7 +2282,6 @@ EngWritePrinter(
   IN DWORD  cbBuf,
   OUT LPDWORD  pcWritten);
 
-#if defined(_X86_) && !defined(USERMODE_DRIVER)
 WIN32KAPI
 VOID
 APIENTRY
@@ -2465,34 +2439,6 @@ APIENTRY
 FLOATOBJ_SubLong(
   IN OUT PFLOATOBJ  pf,
   IN LONG  l);
-
-#else
-
-#define FLOATOBJ_SetFloat(pf, f)        {*(pf) = (f);}
-#define FLOATOBJ_SetLong(pf, l)         {*(pf) = (FLOAT)(l);}
-#define FLOATOBJ_GetFloat(pf)           (*(PULONG)(pf))
-#define FLOATOBJ_GetLong(pf)            ((LONG)*(pf))
-#define FLOATOBJ_Add(pf, pf1)           {*(pf) += *(pf1);}
-#define FLOATOBJ_AddFloat(pf, f)        {*(pf) += (f);}
-#define FLOATOBJ_AddLong(pf, l)         {*(pf) += (l);}
-#define FLOATOBJ_Sub(pf, pf1)           {*(pf) -= *(pf1);}
-#define FLOATOBJ_SubFloat(pf, f)        {*(pf) -= (f);}
-#define FLOATOBJ_SubLong(pf, l)         {*(pf) -= (l);}
-#define FLOATOBJ_Mul(pf, pf1)           {*(pf) *= *(pf1);}
-#define FLOATOBJ_MulFloat(pf, f)        {*(pf) *= (f);}
-#define FLOATOBJ_MulLong(pf, l)         {*(pf) *= (l);}
-#define FLOATOBJ_Div(pf, pf1)           {*(pf) /= *(pf1);}
-#define FLOATOBJ_DivFloat(pf, f)        {*(pf) /= (f);}
-#define FLOATOBJ_DivLong(pf, l)         {*(pf) /= (l);}
-#define FLOATOBJ_Neg(pf)                {*(pf) = -(*(pf));}
-#define FLOATOBJ_Equal(pf, pf1)         (*(pf) == *(pf1))
-#define FLOATOBJ_GreaterThan(pf, pf1)   (*(pf) > *(pf1))
-#define FLOATOBJ_LessThan(pf, pf1)      (*(pf) < *(pf1))
-#define FLOATOBJ_EqualLong(pf, l)       (*(pf) == (FLOAT)(l))
-#define FLOATOBJ_GreaterThanLong(pf, l) (*(pf) > (FLOAT)(l))
-#define FLOATOBJ_LessThanLong(pf, l)    (*(pf) < (FLOAT)(l))
-
-#endif
 
 WIN32KAPI
 ULONG
@@ -3542,6 +3488,23 @@ APIENTRY
 DrvUnloadFontFile(
   IN ULONG_PTR  iFile);
 
+/* WNDOBJCHANGEPROC.fl constants */
+#define WOC_RGN_CLIENT_DELTA              0x00000001
+#define WOC_RGN_CLIENT                    0x00000002
+#define WOC_RGN_SURFACE_DELTA             0x00000004
+#define WOC_RGN_SURFACE                   0x00000008
+#define WOC_CHANGED                       0x00000010
+#define WOC_DELETE                        0x00000020
+#define WOC_DRAWN                         0x00000040
+#define WOC_SPRITE_OVERLAP                0x00000080
+#define WOC_SPRITE_NO_OVERLAP             0x00000100
+
+typedef VOID
+(APIENTRY CALLBACK * WNDOBJCHANGEPROC)(
+  WNDOBJ  *pwo,
+  FLONG  fl);
+
+
 typedef BOOL
 (APIENTRY *PFN_DrvAlphaBlend)(
   IN SURFOBJ  *psoDest,
@@ -3644,21 +3607,21 @@ typedef BOOL
   IN ULONG  iEngineVersion,
   IN ULONG  cj,
   OUT DRVENABLEDATA  *pded);
-
-typedef DHPDEV 
+#if 0
+typedef DHPDEV
 (APIENTRY *PFN_DrvEnablePDEV)(
   IN DEVMODEW  *pdm,
   IN LPWSTR  pwszLogAddress,
   IN ULONG  cPat,
   OUT HSURF  *phsurfPatterns,
   IN ULONG  cjCaps,
-  GDIINFO  *pdevcaps,
+  OUT ULONG  *pdevcaps,
   IN ULONG  cjDevInfo,
   OUT DEVINFO  *pdi,
   IN HDEV  hdev,
   IN LPWSTR  pwszDeviceName,
   IN HANDLE  hDriver);
-
+#endif
 typedef HSURF
 (APIENTRY *PFN_DrvEnableSurface)(
   IN DHPDEV  dhpdev);
@@ -3815,6 +3778,12 @@ typedef BOOL
   IN BRUSHOBJ  *pbo,
   IN POINTL  *pptlBrushOrg,
   IN MIX  mix);
+
+typedef VOID 
+(APIENTRY *PFN_DrvMovePanning)(
+  IN LONG    x,
+  IN LONG    y,
+  IN FLONG   fl);
 
 typedef BOOL
 (APIENTRY *PFN_DrvPlgBlt)(
@@ -4102,21 +4071,10 @@ APIENTRY
 DrvDisableDirectDraw(
   IN DHPDEV  dhpdev);
 
-typedef VOID
-(APIENTRY *PFN_DrvDisableDirectDraw)(
-  IN DHPDEV  dhpdev);
-
 WIN32KAPI
 BOOL
 APIENTRY
 DrvEnableDirectDraw(
-  IN DHPDEV  dhpdev,
-  OUT DD_CALLBACKS  *pCallBacks,
-  OUT DD_SURFACECALLBACKS  *pSurfaceCallBacks,
-  OUT DD_PALETTECALLBACKS  *pPaletteCallBacks);
-
-typedef BOOL
-(APIENTRY *PFN_DrvEnableDirectDraw)(
   IN DHPDEV  dhpdev,
   OUT DD_CALLBACKS  *pCallBacks,
   OUT DD_SURFACECALLBACKS  *pSurfaceCallBacks,
@@ -4133,32 +4091,10 @@ DrvGetDirectDrawInfo(
   OUT DWORD  *pdwNumFourCCCodes,
   OUT DWORD  *pdwFourCC);
 
-typedef BOOL
-(APIENTRY *PFN_DrvGetDirectDrawInfo)(
-  IN DHPDEV  dhpdev,
-  OUT DD_HALINFO  *pHalInfo,
-  OUT DWORD  *pdwNumHeaps,
-  OUT VIDEOMEMORY  *pvmList,
-  OUT DWORD  *pdwNumFourCCCodes,
-  OUT DWORD  *pdwFourCC);
-
-//DECLSPEC_DEPRECATED_DDK
-BOOL
-APIENTRY
-DrvQuerySpoolType(
-  IN DHPDEV dhpdev,
-  IN LPWSTR pwchType);
-
-typedef BOOL
-(APIENTRY *PFN_DrvQuerySpoolType)(
-  IN DHPDEV dhpdev,
-  IN LPWSTR pwchType);
-
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* defined __VIDEO_H__ */
+#endif /* defined __VIDEO_H */
 
-#endif /* _WINDDI_ */
+#endif /* __WINDDI_H */

@@ -138,7 +138,6 @@ int main(int argc,char *argv[])
 	int ret;
 	int i;
 	int cmdlen;
-	char rcbasedir[256];
 
 	atexit( cleanup_files );
 	signal(SIGSEGV, segvhandler);
@@ -266,8 +265,6 @@ int main(int argc,char *argv[])
 		strcat(header_name, ".h");
 	}
 
-	get_rcbasedir(rcbasedir, output_name);
-
 	if(input_name)
 	{
 		if(!(yyin = fopen(input_name, "rb")))
@@ -290,7 +287,7 @@ int main(int argc,char *argv[])
 	write_h_file(header_name);
 	write_rc_file(output_name);
 	if(!rcinline)
-		write_bin_files(rcbasedir);
+		write_bin_files();
 	output_name = NULL;
 	header_name = NULL;
 	return 0;

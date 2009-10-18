@@ -63,7 +63,6 @@ AddListViewItems(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
     HIMAGELIST himl;
     TCHAR wallpaperFilename[MAX_PATH];
     DWORD bufferSize = sizeof(wallpaperFilename);
-    TCHAR buffer[MAX_PATH];
     DWORD varType = REG_SZ;
     LONG result;
     UINT i = 0;
@@ -111,12 +110,6 @@ AddListViewItems(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
     result = RegQueryValueEx(regKey, TEXT("Wallpaper"), 0, &varType, (LPBYTE)wallpaperFilename, &bufferSize);
     if ((result == ERROR_SUCCESS) && (_tcslen(wallpaperFilename) > 0))
     {
-        /* Allow environment variables in file name */
-        if (ExpandEnvironmentStrings(wallpaperFilename, buffer, MAX_PATH))
-        {
-            _tcscpy(wallpaperFilename, buffer);
-        }
-        
         himl = (HIMAGELIST)SHGetFileInfo(wallpaperFilename,
                                          0,
                                          &sfi,
@@ -350,13 +343,13 @@ OnColorButton(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
         /* Save selected color to var */
         pGlobalData->backgroundDesktopColor = cc.rgbResult;
 
-        /* Apply button will be activated */
+        /* Allpy buuton will be activated */
         PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
 
         /* Window will be updated :) */
         InvalidateRect(GetDlgItem(hwndDlg, IDC_BACKGROUND_PREVIEW), NULL, TRUE);
 
-        /* Save custom colors to reg. To this moment key must be created already. See above */
+        /* Save custom colors to reg. To this moment key must be ceated already. See above */
         res = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance"), 0,
             KEY_WRITE, &hKey);
         if (res == ERROR_SUCCESS)
@@ -404,7 +397,6 @@ OnBrowseButton(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
     SHFILEINFO sfi;
     LV_ITEM listItem;
     HWND hwndBackgroundList;
-    TCHAR *p;
 
     hwndBackgroundList = GetDlgItem(hwndDlg, IDC_BACKGROUND_LIST);
 
@@ -447,21 +439,17 @@ OnBrowseButton(HWND hwndDlg, PGLOBAL_DATA pGlobalData)
         backgroundItem->bWallpaper = TRUE;
 
         _tcscpy(backgroundItem->szDisplayName, sfi.szDisplayName);
-        p = _tcsrchr(backgroundItem->szDisplayName, _T('.'));
-        if (p)
-            *p = (TCHAR)0;
         _tcscpy(backgroundItem->szFilename, filename);
 
         ZeroMemory(&listItem, sizeof(LV_ITEM));
         listItem.mask       = LVIF_TEXT | LVIF_PARAM | LVIF_STATE | LVIF_IMAGE;
-        listItem.state      = LVIS_SELECTED;
+        listItem.state      = 0;
         listItem.pszText    = backgroundItem->szDisplayName;
         listItem.iImage     = sfi.iIcon;
         listItem.iItem      = pGlobalData->listViewItemCount;
         listItem.lParam     = pGlobalData->listViewItemCount;
 
         (void)ListView_InsertItem(hwndBackgroundList, &listItem);
-        SendMessage(hwndBackgroundList, WM_VSCROLL, SB_BOTTOM, 0);
 
         pGlobalData->listViewItemCount++;
     }
@@ -493,6 +481,8 @@ ListViewItemChanged(HWND hwndDlg, PGLOBAL_DATA pGlobalData, int itemIndex)
     InvalidateRect(GetDlgItem(hwndDlg, IDC_BACKGROUND_PREVIEW),
                    NULL, TRUE);
 
+    EnableWindow(GetDlgItem(hwndDlg, IDC_COLOR_BUTTON),
+                 (backgroundItem->bWallpaper == FALSE ? TRUE : FALSE));
     EnableWindow(GetDlgItem(hwndDlg, IDC_PLACEMENT_COMBO),
                  backgroundItem->bWallpaper);
 

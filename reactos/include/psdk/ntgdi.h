@@ -36,7 +36,7 @@
 #define GS_HANDOBJ_ALLOC            3
 #define GS_LOOKASIDE_INFO           4
 
-/* NtGdiEnumFontOpen */
+/* NtGdiQueryFonts */
 #define TYPE_ENUMFONTS              1
 #define TYPE_ENUMFONTFAMILIES       2
 #define TYPE_ENUMFONTFAMILIESEX     3
@@ -61,14 +61,7 @@ typedef struct _LOGCOLORSPACEEXW
     DWORD dwFlags;
 } LOGCOLORSPACEEXW, *PLOGCOLORSPACEEXW;
 
-typedef struct _POLYPATBLT
-{
-  INT nXLeft;
-  INT nYLeft;
-  INT nWidth;
-  INT nHeight;
-  HBRUSH hBrush;
-} POLYPATBLT, *PPOLYPATBLT;
+typedef struct _POLYPATBLT POLYPATBLT, *PPOLYPATBLT;
 
 /* NtGdiAddRemoteMMInstanceToDC */
 typedef struct tagDOWNLOADDESIGNVECTOR
@@ -1703,11 +1696,6 @@ NtGdiFlattenPath(
 );
 
 W32KAPI
-NTSTATUS
-APIENTRY
-NtGdiFlushUserBatch(VOID);
-
-W32KAPI
 HRGN
 APIENTRY
 NtGdiPathToRegion(
@@ -2085,7 +2073,6 @@ NtGdiOpenDCW(
     IN DEVMODEW *pdm,  // See note for NtGdiResetDC
     IN PUNICODE_STRING pustrLogAddr,
     IN ULONG iType,
-    IN BOOL bDisplay,
     IN OPTIONAL HANDLE hspool,
     IN OPTIONAL VOID *pDriverInfo2, // this is  "typedef struct _DRIVER_INFO_2W DRIVER_INFO_2W;"
     OUT VOID *pUMdhpdev
@@ -2844,7 +2831,6 @@ NtGdiFullscreenControl(
 
 W32KAPI
 DWORD
-APIENTRY
 NtGdiGetCharSet(
     IN HDC hdc
 );
@@ -2899,7 +2885,6 @@ NtGdiQueryFontAssocInfo(
 #if (_WIN32_WINNT >= 0x0500)
 W32KAPI
 DWORD
-APIENTRY
 NtGdiGetFontUnicodeRanges(
     IN HDC hdc,
     OUT OPTIONAL LPGLYPHSET pgs
@@ -2909,7 +2894,6 @@ NtGdiGetFontUnicodeRanges(
 #ifdef LANGPACK
 W32KAPI
 BOOL
-APIENTRY
 NtGdiGetRealizationInfo(
     IN HDC hdc,
     OUT PREALIZATION_INFO pri,
@@ -2919,7 +2903,6 @@ NtGdiGetRealizationInfo(
 
 W32KAPI
 BOOL
-APIENTRY
 NtGdiAddRemoteMMInstanceToDC(
     IN HDC hdc,
     IN DOWNLOADDESIGNVECTOR *pddv,
@@ -3523,7 +3506,6 @@ NtGdiEngCheckAbort(
 
 W32KAPI
 DHPDEV
-APIENTRY
 NtGdiGetDhpdev(
     IN HDEV hdev
 );

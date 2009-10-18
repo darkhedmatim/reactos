@@ -1,7 +1,7 @@
 /*
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            ntoskrnl/ob/obname.c
+ * FILE:            ntoskrnl/ob/namespce.c
  * PURPOSE:         Manages all functions related to the Object Manager name-
  *                  space, such as finding objects or querying their names.
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
@@ -100,8 +100,7 @@ ObpCreateDosDevicesDirectory(VOID)
     /* FIXME: Hack Hack! */
     ObSystemDeviceMap = ExAllocatePoolWithTag(NonPagedPool,
                                               sizeof(*ObSystemDeviceMap),
-                                              'mDbO');
-    if (!ObSystemDeviceMap) return STATUS_INSUFFICIENT_RESOURCES;
+                                              TAG('O', 'b', 'D', 'm'));
     RtlZeroMemory(ObSystemDeviceMap, sizeof(*ObSystemDeviceMap));
 
     /* Return status */
@@ -180,7 +179,7 @@ ObpDeleteNameCheck(IN PVOID Object)
 
     /* Get object structures */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-    ObjectNameInfo = ObpReferenceNameInfo(ObjectHeader);
+    ObjectNameInfo = ObpAcquireNameInformation(ObjectHeader);
     ObjectType = ObjectHeader->Type;
 
     /*
@@ -194,7 +193,7 @@ ObpDeleteNameCheck(IN PVOID Object)
          !(ObjectHeader->Flags & OB_FLAG_PERMANENT))
     {
         /* Setup a lookup context */
-        ObpInitializeLookupContext(&Context);
+        ObpInitializeDirectoryLookup(&Context);
 
         /* Lock the directory */
         ObpAcquireDirectoryLockExclusive(ObjectNameInfo->Directory, &Context);
@@ -207,8 +206,8 @@ ObpDeleteNameCheck(IN PVOID Object)
                                          &Context);
         if (Object)
         {
-            /* Lock the object */
-            ObpAcquireObjectLock(ObjectHeader);
+            /* Lock the object type */
+            ObpEnterObjectTypeMutex(ObjectType);
 
             /* Make sure we can still delete the object */
             if (!(ObjectHeader->HandleCount) &&
@@ -239,20 +238,20 @@ ObpDeleteNameCheck(IN PVOID Object)
             }
 
             /* Release the lock */
-            ObpReleaseObjectLock(ObjectHeader);
+            ObpLeaveObjectTypeMutex(ObjectType);
         }
 
         /* Cleanup after lookup */
-        ObpReleaseLookupContext(&Context);
+        ObpCleanupDirectoryLookup(&Context);
 
         /* Remove another query reference since we added one on top */
-        ObpDereferenceNameInfo(ObjectNameInfo);
+        ObpReleaseNameInformation(ObjectNameInfo);
 
         /* Check if we were inserted in a directory */
         if (Directory)
         {
             /* We were, so first remove the extra reference we had added */
-            ObpDereferenceNameInfo(ObjectNameInfo);
+            ObpReleaseNameInformation(ObjectNameInfo);
 
             /* Now dereference the object as well */
             ObDereferenceObject(Object);
@@ -261,7 +260,7 @@ ObpDeleteNameCheck(IN PVOID Object)
     else
     {
         /* Remove the reference we added */
-        ObpDereferenceNameInfo(ObjectNameInfo);
+        ObpReleaseNameInformation(ObjectNameInfo);
     }
 }
 
@@ -283,6 +282,7 @@ ObpLookupObjectName(IN HANDLE RootHandle OPTIONAL,
     POBJECT_HEADER ObjectHeader;
     UNICODE_STRING ComponentName, RemainingName;
     BOOLEAN Reparse = FALSE, SymLink = FALSE;
+    PDEVICE_MAP DeviceMap = NULL;
     POBJECT_DIRECTORY Directory = NULL, ParentDirectory = NULL, RootDirectory;
     POBJECT_DIRECTORY ReferencedDirectory = NULL, ReferencedParentDirectory = NULL;
     KIRQL CalloutIrql;
@@ -300,7 +300,7 @@ ObpLookupObjectName(IN HANDLE RootHandle OPTIONAL,
             InsertObject);
 
     /* Initialize starting state */
-    ObpInitializeLookupContext(LookupContext);
+    ObpInitializeDirectoryLookup(LookupContext);
     *FoundObject = NULL;
     Status = STATUS_SUCCESS;
     Object = NULL;
@@ -497,7 +497,13 @@ ObpLookupObjectName(IN HANDLE RootHandle OPTIONAL,
         else
         {
 ParseFromRoot:
-            /* FIXME: Check if we have a device map */
+            /* Check if we have a device map */
+            if (DeviceMap)
+            {
+                /* Dereference it */
+                //ObfDereferenceDeviceMap(DeviceMap);
+                DeviceMap = NULL;
+            }
 
             /* Check if this is a possible DOS name */
             if (!((ULONG_PTR)(ObjectName->Buffer) & 7))
@@ -714,7 +720,7 @@ ParseFromRoot:
                 if (ObjectNameInfo->Name.Buffer)
                 {
                     /* Free it */
-                    ExFreePoolWithTag(ObjectNameInfo->Name.Buffer, OB_NAME_TAG );
+                    ExFreePool(ObjectNameInfo->Name.Buffer);
                 }
 
                 /* Write new one */
@@ -749,7 +755,7 @@ ReparseObject:
                 InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
 
                 /* Cleanup from the first lookup */
-                ObpReleaseLookupContext(LookupContext);
+                ObpCleanupDirectoryLookup(LookupContext);
 
                 /* Check if we have a referenced directory */
                 if (ReferencedDirectory)
@@ -925,7 +931,7 @@ ReparseObject:
     if (!NT_SUCCESS(Status))
     {
         /* Cleanup after lookup */
-        ObpReleaseLookupContext(LookupContext);
+        ObpCleanupDirectoryLookup(LookupContext);
     }
 
     /* Check if we have a device map and dereference it if so */

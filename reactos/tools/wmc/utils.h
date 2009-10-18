@@ -41,7 +41,6 @@ void error(const char *s, ...) __attribute__((format (printf, 1, 2)));
 void warning(const char *s, ...) __attribute__((format (printf, 1, 2)));
 
 char *dup_basename(const char *name, const char *ext);
-void get_rcbasedir(char *basedir, const char *name);
 
 WCHAR *xunistrdup(const WCHAR * str);
 WCHAR *unistrcpy(WCHAR *dst, const WCHAR *src);

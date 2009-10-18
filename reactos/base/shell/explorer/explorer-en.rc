@@ -38,7 +38,7 @@ BEGIN
     BEGIN
         MENUITEM "&Toolbar",                    ID_VIEW_TOOL_BAR
         MENUITEM "&Extra Bar",                  ID_VIEW_EXTRA_BAR
-        MENUITEM "&Drivebar",                   ID_VIEW_DRIVE_BAR
+        MENUITEM "&Drivebar",                   ID_VIEW_DRIVE_BAR, CHECKED
         MENUITEM "S&ide Bar",                   ID_VIEW_SIDE_BAR
         MENUITEM "&Status Bar",                 ID_VIEW_STATUSBAR
         MENUITEM SEPARATOR
@@ -91,7 +91,7 @@ IDM_NOTIFYAREA MENU DISCARDABLE
 BEGIN
     POPUP ""
     BEGIN
-        MENUITEM "&Show Hidden Icons",          ID_SHOW_HIDDEN_ICONS
+        MENUITEM "&Show hidden icons",          ID_SHOW_HIDDEN_ICONS
         MENUITEM "Show Icon &Button",           ID_SHOW_ICON_BUTTON
         MENUITEM "&Configure Notifications...", ID_CONFIG_NOTIFYAREA
         MENUITEM "Adjust Date/&Time...",        ID_CONFIG_TIME
@@ -136,8 +136,8 @@ END
 // Dialog
 //
 
-IDD_EXECUTE DIALOGEX DISCARDABLE  15, 13, 210, 63
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_EXECUTE DIALOG DISCARDABLE  15, 13, 210, 63
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Execute"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -153,11 +153,11 @@ BEGIN
 END
 
 IDD_SEARCH_PROGRAM DIALOGEX 0, 0, 200, 65
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Search Program in Startmenu"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     LTEXT           "&Filter:",IDC_STATIC,7,9,18,8
     EDITTEXT        IDC_FILTER,34,7,100,14,ES_AUTOHSCROLL
@@ -167,12 +167,12 @@ BEGIN
     PUSHBUTTON      "&Check Entries",IDC_CHECK_ENTRIES,143,7,50,14
 END
 
-IDD_DESKBAR_DESKTOP DIALOGEX DISCARDABLE  0, 0, 212, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_DESKTOP DIALOG DISCARDABLE  0, 0, 212, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Desktop Properties"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "Please select your preferred icon alignment algorithm:",
+    LTEXT           "Please select your prefered icon alignment algorithm:",
                     IDC_STATIC,7,7,166,8
     CONTROL         "left/top dwn",IDC_ICON_ALIGN_0,"Button",BS_OWNERDRAW |
                     BS_BOTTOM | WS_TABSTOP,7,25,46,44
@@ -202,32 +202,32 @@ BEGIN
 //                    BS_AUTOCHECKBOX | WS_TABSTOP,7,177,91,10
 END
 
-IDD_DESKBAR_TASKBAR DIALOGEX DISCARDABLE  0, 0, 210, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_TASKBAR DIALOG DISCARDABLE  0, 0, 210, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Taskbar Properties"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
-    CONTROL         "Show &clock",ID_SHOW_CLOCK,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "show &clock",ID_SHOW_CLOCK,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,152,52,10
-    CONTROL         "&Hide inactive notification icons",
+    CONTROL         "&hide inactive notification icons",
                     ID_HIDE_INACTIVE_ICONS,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,174,111,10
     PUSHBUTTON      "&Notifications...",ID_CONFIG_NOTIFYAREA,153,173,50,14
 END
 
-IDD_DESKBAR_STARTMENU DIALOGEX DISCARDABLE  0, 0, 210, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Start Menu Properties"
-FONT 8, "MS Shell Dlg"
+IDD_DESKBAR_STARTMENU DIALOG DISCARDABLE  0, 0, 210, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Startmenu Properties"
+FONT 8, "MS Sans Serif"
 BEGIN
 END
 
 IDD_NOTIFYAREA DIALOGEX 0, 0, 208, 174
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Configure Notification Icons"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     CONTROL         "Tree1",IDC_NOTIFY_ICONS,"SysTreeView32",TVS_HASLINES |
                     TVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,7,7,194,31
@@ -255,12 +255,12 @@ BEGIN
 END
 
 IDD_MDI_SDI DIALOGEX 0, 0, 194, 157
-STYLE DS_SHELLFONT | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Choose Explorer window mode"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
-    LTEXT           "Please select your preferred Explorer user interface:",
+    LTEXT           "Please select your prefered explorer user interface:",
                     IDC_STATIC,7,7,160,8
     CONTROL         "&MDI (Multiple Document Interface)",IDC_MDI,"Button",
                     BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,7,31,124,10
@@ -271,16 +271,16 @@ BEGIN
     CONTROL         "Open Subfolders in s&eparate windows",
                     IDC_SEPARATE_SUBFOLDERS,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,90,135,10
-    LTEXT           "This setting will be used as default for all Explorer windows in the future.",
+    LTEXT           "This setting will be used as default for all explorer windows in the future.",
                     IDC_STATIC,7,111,174,22
     DEFPUSHBUTTON   "&OK",IDOK,29,136,50,14,WS_GROUP
     PUSHBUTTON      "&Cancel",IDCANCEL,106,136,50,14
 END
 
-IDD_ABOUT_EXPLORER DIALOGEX DISCARDABLE  0, 0, 199, 106
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ABOUT_EXPLORER DIALOG DISCARDABLE  0, 0, 199, 106
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About ReactOS Explorer"
-FONT 8, "MS Shell Dlg"
+FONT 10, "MS Sans Serif"
 BEGIN
     LTEXT           "ReactOS Explorer",IDC_ROS_EXPLORER,91,13,104,11
     LTEXT           "V 0.9",IDC_VERSION_TXT,91,27,104,8
@@ -346,17 +346,17 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_STARTMENU           "Start Menu"
-    IDS_MINIMIZE_ALL        "Minimize all windows"
+    IDS_STARTMENU           "Startmenu"
+    IDS_MINIMIZE_ALL        "minimize all windows"
     IDS_DESKTOP_NUM         "Desktop %d"
     IDS_VOLUME              "Volume"
-    IDS_ITEMS_CUR           "Current items"
-    IDS_ITEMS_CONFIGURED    "Configuration"
-    IDS_ITEMS_VISIBLE       "Visible"
-    IDS_ITEMS_HIDDEN        "Hidden"
-    IDS_NOTIFY_SHOW         "Show"
-    IDS_NOTIFY_HIDE         "Hide"
-    IDS_NOTIFY_AUTOHIDE     "Autohide"
+    IDS_ITEMS_CUR           "current items"
+    IDS_ITEMS_CONFIGURED    "configuration"
+    IDS_ITEMS_VISIBLE       "visible"
+    IDS_ITEMS_HIDDEN        "hidden"
+    IDS_NOTIFY_SHOW         "show"
+    IDS_NOTIFY_HIDE         "hide"
+    IDS_NOTIFY_AUTOHIDE     "autohide"
     IDS_SHOW_HIDDEN_ICONS   "Show hidden icons"
     IDS_HIDE_ICONS          "Hide icons"
     IDS_TERMINATE           "Terminate ROS Explorer"
@@ -381,9 +381,6 @@ BEGIN
     IDS_DESKTOPBAR_SETTINGS "Desktop Settings"
     IDS_DESKTOP             "Desktop"
     IDS_TASKBAR             "Taskbar"
-    IDS_NAMECOLUMN          "Name"
-    IDS_PATHCOLUMN          "Path"
-    IDS_MENUCOLUMN          "Menu path"
 END
 
 #endif    // English (U.S.) resources
@@ -400,7 +397,6 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
 
 
 

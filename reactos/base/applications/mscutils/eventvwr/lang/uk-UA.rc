@@ -3,7 +3,7 @@
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        base/applications/mscutils/eventvwr/lang/uk-UA.rc
  * PURPOSE:     Ukraianian Language File for ReactOS Event Viewer
- * TRANSLATORS: Rostislav Zabolotny, Artem Reznikov
+ * TRANSLATORS: Rostislav Zabolotny
  */
 
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
@@ -12,7 +12,7 @@ IDC_EVENTVWR MENU
 BEGIN
 	POPUP	"&Звіт"
 	BEGIN
-		MENUITEM "&Програма",                 ID_LOG_APPLICATION
+		MENUITEM "&Програма",                 ID_LOG_APPLICATION, CHECKED
 		MENUITEM "&Захист",                   ID_LOG_SECURITY
 		MENUITEM "&Система",                  ID_LOG_SYSTEM
 		MENUITEM SEPARATOR
@@ -38,7 +38,7 @@ BEGIN
 END
 
 IDD_ABOUTBOX DIALOGEX 0, 0, 230, 75
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_CAPTION | WS_SYSMENU
 CAPTION "Про..."
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -49,7 +49,7 @@ BEGIN
 END
 
 IDD_PROGRESSBOX DIALOGEX 0, 0, 230, 40
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER 
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER 
 CAPTION "Зачекайте.."
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -57,7 +57,7 @@ BEGIN
 END
 
 IDD_EVENTDETAILDIALOG DIALOGEX 0, 0, 276, 282
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_CONTEXTHELP
 CAPTION "Деталі події"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -85,7 +85,7 @@ BEGIN
 	LTEXT           "Категорія:",IDC_STATIC,133,55,36,8
 	LTEXT           "постійна",IDC_EVENTCATEGORYSTATIC,175,55,87,8
 	EDITTEXT        IDC_EVENTDATAEDIT,14,204,247,44,ES_MULTILINE | ES_READONLY
-	LTEXT           "Д&aта",IDC_STATIC,14,194,20,8
+	LTEXT           "Д&aта",IDC_STATIC,14,194,16,8
 	CONTROL         "&Байт",IDC_BYTESRADIO,"Button",BS_AUTORADIOBUTTON,39,194,34,10
 	CONTROL         "&Слово",IDC_WORDRADIO,"Button",BS_AUTORADIOBUTTON,77,194,33,10
 END
@@ -94,11 +94,11 @@ STRINGTABLE
 BEGIN
 	IDS_APP_TITLE                  "Оглядач подій"
 	IDC_EVENTSTRINGIDNOTFOUND      "Опис для Ідентифікатора події( %lu ) за джерелом( %s ) не знайдено. Локальний комп'ютер може не мати необхідної інформації в реєстрі чи DLL файлів повідомлень для відображення повідомлень, що надходять від віддаленого комп'ютера."
-	IDC_EVENTLOG_ERROR_TYPE        "Помилка"
-	IDC_EVENTLOG_WARNING_TYPE      "Попередження"
-	IDC_EVENTLOG_INFORMATION_TYPE  "Повідомлення"
-	IDC_EVENTLOG_AUDIT_SUCCESS     "Аудит успіхів"
-	IDC_EVENTLOG_AUDIT_FAILURE     "Аудит відмов"
-	IDC_EVENTLOG_SUCCESS           "Успіх"
-	IDC_EVENTLOG_UNKNOWN_TYPE      "Невідома подія"
+	IDC_EVENTLOG_ERROR_TYPE        "Error"
+	IDC_EVENTLOG_WARNING_TYPE      "Warning"
+	IDC_EVENTLOG_INFORMATION_TYPE  "Information"
+	IDC_EVENTLOG_AUDIT_SUCCESS     "Audit Success"
+	IDC_EVENTLOG_AUDIT_FAILURE     "Audit Failure"
+	IDC_EVENTLOG_SUCCESS           "Success"
+	IDC_EVENTLOG_UNKNOWN_TYPE      "Unknown Event"
 END

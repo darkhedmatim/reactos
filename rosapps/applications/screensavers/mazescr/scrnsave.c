@@ -19,7 +19,6 @@
 
 #include <windows.h>
 #include <tchar.h>
-#include "resource.h"
 
 #define APPNAME _T("Scrnsave")
 
@@ -49,8 +48,6 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	switch (msg)
 	{
 		case WM_DESTROY:
-			if (fullscreen)
-				ShowCursor(TRUE);
 			PostQuitMessage(0);
 			break;
 
@@ -118,27 +115,13 @@ HWND InitSaver(HWND hwndParent)
 	}
 	else
 	{
-		hwnd = CreateWindowEx(WS_EX_TOPMOST,
-		                      APPNAME,
-		                      APPNAME,
-		                      WS_VISIBLE | WS_POPUP,
-		                      0,
-		                      0,
-		                      GetSystemMetrics(SM_CXSCREEN),
-		                      GetSystemMetrics(SM_CYSCREEN),
-		                      HWND_DESKTOP,
-		                      0,
-		                      hInstance,
-		                      NULL);
-
-		SetWindowPos(hwnd,
-		             0,
-		             0,
-		             0,
-		             0,
-		             0,
-		             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE | SWP_SHOWWINDOW);
-
+		hwnd = CreateWindow(APPNAME, APPNAME,
+		                    WS_VISIBLE | WS_POPUP | WS_EX_TOPMOST,
+		                    0, 0,
+		                    GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+		                    HWND_DESKTOP, 0,
+		                    hInstance, NULL);
+		ShowWindow(hwnd, SW_SHOWMAXIMIZED);
 		ShowCursor(FALSE);
 		fullscreen = TRUE;
 	}
@@ -173,27 +156,6 @@ void ParseCommandLine(PSTR szCmdLine, int *chOption, HWND *hwndParent)
 		*hwndParent = 0;
 }
 
-void Configure(void)
-{
-	TCHAR szTitle[256];
-	TCHAR szText[256];
-
-	LoadString(hInstance,
-		   IDS_TITLE,
-		   szTitle,
-		   256);
-
-	LoadString(hInstance,
-		   IDS_TEXT,
-		   szText,
-		   256);
-
-	MessageBox(0,
-	           szText,
-	           szTitle,
-	           MB_OK | MB_ICONWARNING);
-}
-
 int WINAPI WinMain (HINSTANCE hInst,
                     HINSTANCE hPrev,
                     LPSTR lpCmdLine,
@@ -222,7 +184,10 @@ int WINAPI WinMain (HINSTANCE hInst,
 
 		case 'c':
 		default:
-			Configure();
+			MessageBox(0,
+			           _T("No options need to be set."),
+			           _T("About"),
+			           MB_OK | MB_ICONWARNING);
 			return 0;
 	}
 

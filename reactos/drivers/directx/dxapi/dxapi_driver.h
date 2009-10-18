@@ -1,4 +1,7 @@
 
+
+
+/* DDK/NDK/SDK Headers */
 /* DDK/NDK/SDK Headers */
 #include <ddk/ntddk.h>
 #include <ddk/ntddmou.h>
@@ -10,11 +13,11 @@
 #include <windef.h>
 #include <winerror.h>
 #include <wingdi.h>
-#define NT_BUILD_ENVIRONMENT
 #include <winddi.h>
+#include <winuser.h>
 #include <prntfont.h>
 #include <dde.h>
-
+#include <wincon.h>
 
 #include <ddk/ddkmapi.h>
 

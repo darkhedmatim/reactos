@@ -121,7 +121,7 @@ OnInitDialog(HWND hwndDlg)
     AddUserProfiles(GetDlgItem(hwndDlg, IDC_USERPROFILE_LIST));
 
     /* Disable the "Delete" and "Copy To" buttons if the user is not an admin */
-    if (!IsUserAnAdmin())
+    if (!IsUserAdmin())
     {
          EnableWindow(GetDlgItem(hwndDlg, IDC_USERPROFILE_DELETE), FALSE);
          EnableWindow(GetDlgItem(hwndDlg, IDC_USERPROFILE_COPY), FALSE);
@@ -139,6 +139,7 @@ UserProfileDlgProc(HWND hwndDlg,
     switch (uMsg)
     {
         case WM_INITDIALOG:
+            MessageBox(hwndDlg, _T("Dialog not yet implemented!"), NULL, 0);
             OnInitDialog(hwndDlg);
             break;
 

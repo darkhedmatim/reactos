@@ -43,28 +43,28 @@ SerenumPdoQueryId(
 	{
 		case BusQueryDeviceID:
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryDeviceID\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryDeviceID\n");
 			SourceString = &DeviceExtension->DeviceId;
 			break;
 		}
 		case BusQueryHardwareIDs:
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryHardwareIDs\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryHardwareIDs\n");
 			SourceString = &DeviceExtension->HardwareIds;
 			break;
 		}
 		case BusQueryCompatibleIDs:
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryCompatibleIDs\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryCompatibleIDs\n");
 			SourceString = &DeviceExtension->CompatibleIds;
 			break;
 		case BusQueryInstanceID:
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryInstanceID\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryInstanceID\n");
 			SourceString = &DeviceExtension->InstanceId;
 			break;
 		}
 		default:
-			WARN_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_ID / unknown query id type 0x%lx\n", IdType);
+			DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_ID / unknown query id type 0x%lx\n", IdType);
 			ASSERT(FALSE);
 			return STATUS_NOT_SUPPORTED;
 	}
@@ -140,7 +140,7 @@ SerenumPdoPnp(
 		*/
 		case IRP_MN_START_DEVICE: /* 0x0 */
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_START_DEVICE\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_START_DEVICE\n");
 			Status = SerenumPdoStartDevice(DeviceObject);
 			break;
 		}
@@ -155,14 +155,14 @@ SerenumPdoPnp(
 				case TargetDeviceRelation:
 				{
 					PDEVICE_RELATIONS DeviceRelations = NULL;
-					TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / TargetDeviceRelation\n");
+					DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / TargetDeviceRelation\n");
 					Status = SerenumPdoQueryDeviceRelations(DeviceObject, &DeviceRelations);
 					Information = (ULONG_PTR)DeviceRelations;
 					break;
 				}
 				default:
 				{
-					WARN_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / Unknown type 0x%lx\n",
+					DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / Unknown type 0x%lx\n",
 						Stack->Parameters.QueryDeviceRelations.Type);
 					ASSERT(FALSE);
 					Status = STATUS_NOT_IMPLEMENTED;
@@ -175,7 +175,7 @@ SerenumPdoPnp(
 		{
 			PDEVICE_CAPABILITIES DeviceCapabilities;
 			ULONG i;
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_CAPABILITIES\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_CAPABILITIES\n");
 
 			DeviceCapabilities = (PDEVICE_CAPABILITIES)Stack->Parameters.DeviceCapabilities.Capabilities;
 			/* FIXME: capabilities can change with connected device */
@@ -201,7 +201,7 @@ SerenumPdoPnp(
 		}
 		case IRP_MN_QUERY_RESOURCES: /* 0xa */
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_RESOURCES\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_RESOURCES\n");
 			/* Serial devices don't need resources, except the ones of
 			 * the serial port. This PDO is the serial device PDO, so
 			 * report no resource by not changing Information and
@@ -213,7 +213,7 @@ SerenumPdoPnp(
 		}
 		case IRP_MN_QUERY_RESOURCE_REQUIREMENTS: /* 0xb */
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_RESOURCE_REQUIREMENTS\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_RESOURCE_REQUIREMENTS\n");
 			/* Serial devices don't need resources, except the ones of
 			 * the serial port. This PDO is the serial device PDO, so
 			 * report no resource by not changing Information and
@@ -231,7 +231,7 @@ SerenumPdoPnp(
 				{
 					PUNICODE_STRING Source;
 					PWSTR Description;
-					TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_TEXT / DeviceTextDescription\n");
+					DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_TEXT / DeviceTextDescription\n");
 
 					Source = &((PPDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->DeviceDescription;
 					Description = ExAllocatePoolWithTag(PagedPool, Source->Length + sizeof(WCHAR), SERENUM_TAG);
@@ -257,7 +257,7 @@ SerenumPdoPnp(
 				}
 				default:
 				{
-					WARN_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_TEXT / unknown type 0x%lx\n",
+					DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_TEXT / unknown type 0x%lx\n",
 						Stack->Parameters.QueryDeviceText.DeviceTextType);
 					ASSERT(FALSE);
 					Status = STATUS_NOT_SUPPORTED;
@@ -277,7 +277,7 @@ SerenumPdoPnp(
 		case IRP_MN_QUERY_BUS_INFORMATION: /* 0x15 */
 		{
 			PPNP_BUS_INFORMATION BusInfo;
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_BUS_INFORMATION\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_BUS_INFORMATION\n");
 
 			BusInfo = (PPNP_BUS_INFORMATION)ExAllocatePoolWithTag(PagedPool, sizeof(PNP_BUS_INFORMATION), SERENUM_TAG);
 			if (!BusInfo)
@@ -300,7 +300,7 @@ SerenumPdoPnp(
 		{
 			/* We can't forward request to the lower driver, because
 			 * we are a Pdo, so we don't have lower driver... */
-			WARN_(SERENUM, "IRP_MJ_PNP / unknown minor function 0x%lx\n", MinorFunction);
+			DPRINT1("IRP_MJ_PNP / unknown minor function 0x%lx\n", MinorFunction);
 			ASSERT(FALSE);
 			Information = Irp->IoStatus.Information;
 			Status = Irp->IoStatus.Status;

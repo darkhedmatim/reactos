@@ -132,8 +132,8 @@ struct OLEFontImpl
   /*
    * Size ratio
    */
-  LONG cyLogical;
-  LONG cyHimetric;
+  long cyLogical;
+  long cyHimetric;
 
   IConnectionPoint *pPropertyNotifyCP;
   IConnectionPoint *pFontEventsCP;
@@ -328,7 +328,7 @@ static void OLEFont_SendNotify(OLEFontImpl* this, DISPID dispID)
  *
  * See Windows documentation for more details on IUnknown methods.
  */
-static HRESULT WINAPI OLEFontImpl_QueryInterface(
+HRESULT WINAPI OLEFontImpl_QueryInterface(
   IFont*  iface,
   REFIID  riid,
   void**  ppvObject)
@@ -351,21 +351,21 @@ static HRESULT WINAPI OLEFontImpl_QueryInterface(
    * Compare the riid with the interface IDs implemented by this object.
    */
   if (IsEqualGUID(&IID_IUnknown, riid))
-    *ppvObject = this;
+    *ppvObject = (IFont*)this;
   if (IsEqualGUID(&IID_IFont, riid))
-    *ppvObject = this;
+    *ppvObject = (IFont*)this;
   if (IsEqualGUID(&IID_IDispatch, riid))
-    *ppvObject = &this->lpvtblIDispatch;
+    *ppvObject = (IDispatch*)&(this->lpvtblIDispatch);
   if (IsEqualGUID(&IID_IFontDisp, riid))
-    *ppvObject = &this->lpvtblIDispatch;
+    *ppvObject = (IDispatch*)&(this->lpvtblIDispatch);
   if (IsEqualIID(&IID_IPersist, riid) || IsEqualGUID(&IID_IPersistStream, riid))
-    *ppvObject = &this->lpvtblIPersistStream;
+    *ppvObject = (IPersistStream*)&(this->lpvtblIPersistStream);
   if (IsEqualGUID(&IID_IConnectionPointContainer, riid))
-    *ppvObject = &this->lpvtblIConnectionPointContainer;
+    *ppvObject = (IConnectionPointContainer*)&(this->lpvtblIConnectionPointContainer);
   if (IsEqualGUID(&IID_IPersistPropertyBag, riid))
-    *ppvObject = &this->lpvtblIPersistPropertyBag;
+    *ppvObject = (IPersistPropertyBag*)&(this->lpvtblIPersistPropertyBag);
   if (IsEqualGUID(&IID_IPersistStreamInit, riid))
-    *ppvObject = &this->lpvtblIPersistStreamInit;
+    *ppvObject = (IPersistStreamInit*)&(this->lpvtblIPersistStreamInit);
 
   /*
    * Check that we obtained an interface.
@@ -384,7 +384,7 @@ static HRESULT WINAPI OLEFontImpl_QueryInterface(
  *
  * See Windows documentation for more details on IUnknown methods.
  */
-static ULONG WINAPI OLEFontImpl_AddRef(
+ULONG WINAPI OLEFontImpl_AddRef(
   IFont* iface)
 {
   OLEFontImpl *this = (OLEFontImpl *)iface;
@@ -397,7 +397,7 @@ static ULONG WINAPI OLEFontImpl_AddRef(
  *
  * See Windows documentation for more details on IUnknown methods.
  */
-static ULONG WINAPI OLEFontImpl_Release(
+ULONG WINAPI OLEFontImpl_Release(
       IFont* iface)
 {
   OLEFontImpl *this = (OLEFontImpl *)iface;
@@ -941,7 +941,7 @@ static HRESULT WINAPI OLEFontImpl_IsEqual(
 {
   OLEFontImpl *left = (OLEFontImpl *)iface;
   OLEFontImpl *right = (OLEFontImpl *)pFontOther;
-  INT ret;
+  HRESULT hres;
   INT left_len,right_len;
 
   if((iface == NULL) || (pFontOther == NULL))
@@ -964,9 +964,9 @@ static HRESULT WINAPI OLEFontImpl_IsEqual(
   /* Check from string */
   left_len = strlenW(left->description.lpstrName);
   right_len = strlenW(right->description.lpstrName);
-  ret = CompareStringW(0,0,left->description.lpstrName, left_len,
+  hres = CompareStringW(0,0,left->description.lpstrName, left_len,
     right->description.lpstrName, right_len);
-  if (ret != CSTR_EQUAL)
+  if (hres != CSTR_EQUAL)
     return S_FALSE;
 
   return S_OK;
@@ -1215,7 +1215,6 @@ static HRESULT WINAPI OLEFontImpl_GetTypeInfo(
     return hres;
   }
   hres = ITypeLib_GetTypeInfoOfGuid(tl, &IID_IFontDisp, ppTInfo);
-  ITypeLib_Release(tl);
   if (FAILED(hres)) {
     FIXME("Did not IDispatch typeinfo from typelib, hres %x\n",hres);
   }
@@ -1270,7 +1269,7 @@ static HRESULT WINAPI OLEFontImpl_GetIDsOfNames(
  * OLEFontImpl_Invoke (IDispatch)
  *
  * See Windows documentation for more details on IDispatch methods.
- * 
+ *
  * Note: Do not call _put_Xxx methods, since setting things here
  * should not call notify functions as I found out debugging the generic
  * MS VB5 installer.
@@ -1377,6 +1376,7 @@ static HRESULT WINAPI OLEFontImpl_Invoke(
       return hr;
     } else {
       VARIANTARG vararg;
+      HRESULT hr;
 
       VariantInit(&vararg);
       hr = VariantChangeTypeEx(&vararg, &pDispParams->rgvarg[0], lcid, 0, VT_BOOL);
@@ -1398,6 +1398,7 @@ static HRESULT WINAPI OLEFontImpl_Invoke(
       return hr;
     } else {
       VARIANTARG vararg;
+      HRESULT hr;
 
       VariantInit(&vararg);
       hr = VariantChangeTypeEx(&vararg, &pDispParams->rgvarg[0], lcid, 0, VT_BOOL);
@@ -1419,6 +1420,7 @@ static HRESULT WINAPI OLEFontImpl_Invoke(
       return hr;
     } else {
       VARIANTARG vararg;
+      HRESULT hr;
 
       VariantInit(&vararg);
       hr = VariantChangeTypeEx(&vararg, &pDispParams->rgvarg[0], lcid, 0, VT_BOOL);
@@ -1437,6 +1439,7 @@ static HRESULT WINAPI OLEFontImpl_Invoke(
       return OLEFontImpl_get_Size((IFont *)this, &V_CY(pVarResult));
     } else {
       VARIANTARG vararg;
+      HRESULT hr;
 
       VariantInit(&vararg);
       hr = VariantChangeTypeEx(&vararg, &pDispParams->rgvarg[0], lcid, 0, VT_CY);
@@ -1455,6 +1458,7 @@ static HRESULT WINAPI OLEFontImpl_Invoke(
       return OLEFontImpl_get_Weight((IFont *)this, &V_I2(pVarResult));
     } else {
       VARIANTARG vararg;
+      HRESULT hr;
 
       VariantInit(&vararg);
       hr = VariantChangeTypeEx(&vararg, &pDispParams->rgvarg[0], lcid, 0, VT_I2);
@@ -1473,6 +1477,7 @@ static HRESULT WINAPI OLEFontImpl_Invoke(
       return OLEFontImpl_get_Charset((IFont *)this, &V_I2(pVarResult));
     } else {
       VARIANTARG vararg;
+      HRESULT hr;
 
       VariantInit(&vararg);
       hr = VariantChangeTypeEx(&vararg, &pDispParams->rgvarg[0], lcid, 0, VT_I2);
@@ -1556,7 +1561,7 @@ static HRESULT WINAPI OLEFontImpl_GetClassID(
   if (pClassID==0)
     return E_POINTER;
 
-  *pClassID = CLSID_StdFont;
+  memcpy(pClassID, &CLSID_StdFont, sizeof(CLSID_StdFont));
 
   return S_OK;
 }
@@ -1806,9 +1811,7 @@ static HRESULT WINAPI OLEFontImpl_GetSizeMax(
   pcbSize->u.LowPart += sizeof(BYTE);  /* StrLength */
 
   if (this->description.lpstrName!=0)
-      pcbSize->u.LowPart += WideCharToMultiByte( CP_ACP, 0, this->description.lpstrName,
-                                                 strlenW(this->description.lpstrName),
-                                                 NULL, 0, NULL, NULL );
+    pcbSize->u.LowPart += lstrlenW(this->description.lpstrName);
 
   return S_OK;
 }
@@ -2097,7 +2100,7 @@ static HRESULT WINAPI OLEFontImpl_IPersistPropertyBag_Save(
   return E_FAIL;
 }
 
-static const IPersistPropertyBagVtbl OLEFontImpl_IPersistPropertyBag_VTable = 
+static const IPersistPropertyBagVtbl OLEFontImpl_IPersistPropertyBag_VTable =
 {
   OLEFontImpl_IPersistPropertyBag_QueryInterface,
   OLEFontImpl_IPersistPropertyBag_AddRef,
@@ -2175,7 +2178,7 @@ static HRESULT WINAPI OLEFontImpl_IPersistStreamInit_InitNew(
   return S_OK;
 }
 
-static const IPersistStreamInitVtbl OLEFontImpl_IPersistStreamInit_VTable = 
+static const IPersistStreamInitVtbl OLEFontImpl_IPersistStreamInit_VTable =
 {
   OLEFontImpl_IPersistStreamInit_QueryInterface,
   OLEFontImpl_IPersistStreamInit_AddRef,
@@ -2343,4 +2346,4 @@ static const IClassFactoryVtbl SFCF_Vtbl = {
 };
 static IClassFactoryImpl STDFONT_CF = {&SFCF_Vtbl, 1 };
 
-void _get_STDFONT_CF(LPVOID *ppv) { *ppv = &STDFONT_CF; }
+void _get_STDFONT_CF(LPVOID *ppv) { *ppv = (LPVOID)&STDFONT_CF; }

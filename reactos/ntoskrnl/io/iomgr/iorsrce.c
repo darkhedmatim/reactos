@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/resource.c
@@ -11,12 +12,12 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
 static CONFIGURATION_INFORMATION
-_SystemConfigurationInformation = { 0, 0, 0, 0, 0, 0, 0, FALSE, FALSE, 0, 0 };
+_SystemConfigurationInformation = {0, 0, 0, 0, 0, 0, 0, FALSE, FALSE};
 
 /* API Parameters to Pass in IopQueryBusDescription */
 typedef struct IO_QUERY {
@@ -95,7 +96,7 @@ PWSTR ArcTypes[42] = {
  *      Status
  */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IopQueryDeviceDescription(
    PIO_QUERY Query,
    UNICODE_STRING RootKey,
@@ -179,7 +180,7 @@ IopQueryDeviceDescription(
       if (!NT_SUCCESS(Status))
       {
          if (ControllerFullInformation != NULL)
-            ExFreePoolWithTag(ControllerFullInformation, TAG_IO_RESOURCE);
+            ExFreePool(ControllerFullInformation);
          return Status;
       }
 
@@ -188,7 +189,7 @@ IopQueryDeviceDescription(
       MaximumControllerNumber = ControllerFullInformation->SubKeys;
 
       /* Free Memory */
-      ExFreePoolWithTag(ControllerFullInformation, TAG_IO_RESOURCE);
+      ExFreePool(ControllerFullInformation);
       ControllerFullInformation = NULL;
    }
 
@@ -318,7 +319,7 @@ IopQueryDeviceDescription(
          MaximumPeripheralNumber = PeripheralFullInformation->SubKeys;
 
          /* Free Memory */
-         ExFreePoolWithTag(PeripheralFullInformation, TAG_IO_RESOURCE);
+         ExFreePool(PeripheralFullInformation);
          PeripheralFullInformation = NULL;
       }
 
@@ -400,7 +401,7 @@ IopQueryDeviceDescription(
             {
                if (PeripheralInformation[PeripheralLoop])
                {
-                  ExFreePoolWithTag(PeripheralInformation[PeripheralLoop], TAG_IO_RESOURCE);
+                  ExFreePool(PeripheralInformation[PeripheralLoop]);
                   PeripheralInformation[PeripheralLoop] = NULL;
                }
             }
@@ -416,7 +417,7 @@ EndLoop:
       {
          if (ControllerInformation[ControllerLoop])
          {
-            ExFreePoolWithTag(ControllerInformation[ControllerLoop], TAG_IO_RESOURCE);
+            ExFreePool(ControllerInformation[ControllerLoop]);
             ControllerInformation[ControllerLoop] = NULL;
          }
       }
@@ -449,7 +450,7 @@ EndLoop:
  *      Status
  */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IopQueryBusDescription(
    PIO_QUERY Query,
    UNICODE_STRING RootKey,
@@ -498,7 +499,7 @@ IopQueryBusDescription(
    }
 
    /* Deallocate the old Buffer */
-   ExFreePoolWithTag(FullInformation, TAG_IO_RESOURCE);
+   ExFreePool(FullInformation);
 
    /* Try to find a Bus */
    for (BusLoop = 0; NT_SUCCESS(Status); BusLoop++)
@@ -619,7 +620,7 @@ IopQueryBusDescription(
          {
             if (BusInformation[SubBusLoop])
             {
-               ExFreePoolWithTag(BusInformation[SubBusLoop], TAG_IO_RESOURCE);
+               ExFreePool(BusInformation[SubBusLoop]);
                BusInformation[SubBusLoop] = NULL;
             }
          }
@@ -645,7 +646,7 @@ IopQueryBusDescription(
 
    /* Free the last remaining Allocated Memory */
    if (BasicInformation)
-      ExFreePoolWithTag(BasicInformation, TAG_IO_RESOURCE);
+      ExFreePool(BasicInformation);
 
    return Status;
 }
@@ -655,7 +656,7 @@ IopQueryBusDescription(
 /*
  * @implemented
  */
-PCONFIGURATION_INFORMATION NTAPI
+PCONFIGURATION_INFORMATION STDCALL
 IoGetConfigurationInformation(VOID)
 {
   return(&_SystemConfigurationInformation);
@@ -664,7 +665,7 @@ IoGetConfigurationInformation(VOID)
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IoReportResourceUsage(PUNICODE_STRING DriverClassName,
 		      PDRIVER_OBJECT DriverObject,
 		      PCM_RESOURCE_LIST DriverList,
@@ -705,7 +706,7 @@ IoReportResourceUsage(PUNICODE_STRING DriverClassName,
 /*
  * @unimplemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IoAssignResources(PUNICODE_STRING RegistryPath,
 		  PUNICODE_STRING DriverClassName,
 		  PDRIVER_OBJECT DriverObject,
@@ -788,7 +789,7 @@ IoQueryDeviceDescription(PINTERFACE_TYPE BusType OPTIONAL,
    }
 
    /* Free Memory */
-   ExFreePoolWithTag(RootRegKey.Buffer, TAG_IO_RESOURCE);
+   ExFreePool(RootRegKey.Buffer);
 
    return Status;
 }
@@ -796,7 +797,7 @@ IoQueryDeviceDescription(PINTERFACE_TYPE BusType OPTIONAL,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IoReportHalResourceUsage(PUNICODE_STRING HalDescription,
 			 PCM_RESOURCE_LIST RawList,
 			 PCM_RESOURCE_LIST TranslatedList,

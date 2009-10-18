@@ -11,9 +11,9 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include <debug.h>
 
 /* GLOBALS ******************************************************************/
 
@@ -25,7 +25,7 @@ LONG ProcessPipeId = 0;
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CreatePipe(PHANDLE hReadPipe,
            PHANDLE hWritePipe,
            LPSECURITY_ATTRIBUTES lpPipeAttributes,
@@ -55,7 +55,7 @@ CreatePipe(PHANDLE hReadPipe,
     /* Create the pipe name */
     swprintf(Buffer,
              L"\\Device\\NamedPipe\\Win32Pipes.%08x.%08x",
-             NtCurrentTeb()->ClientId.UniqueProcess,
+             NtCurrentTeb()->Cid.UniqueProcess,
              PipeId);
     RtlInitUnicodeString(&PipeName, Buffer);
 
@@ -97,7 +97,7 @@ CreatePipe(PHANDLE hReadPipe,
     if (!NT_SUCCESS(Status))
     {
         /* Convert error and fail */
-        WARN("Status: %lx\n", Status);
+        DPRINT1("Status: %lx\n", Status);
         SetLastErrorByStatus(Status);
         return FALSE;
     }
@@ -112,7 +112,7 @@ CreatePipe(PHANDLE hReadPipe,
     if (!NT_SUCCESS(Status))
     {
         /* Convert error and fail */
-        WARN("Status: %lx\n", Status);
+        DPRINT1("Status: %lx\n", Status);
         NtClose(ReadPipeHandle);
         SetLastErrorByStatus(Status);
         return FALSE;

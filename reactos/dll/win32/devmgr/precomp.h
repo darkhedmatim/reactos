@@ -6,7 +6,6 @@
 #include <setupapi.h>
 #include <cfgmgr32.h>
 #include <commctrl.h>
-#include <stdio.h>
 #include <dll/devmgr/devmgr.h>
 #include "resource.h"
 

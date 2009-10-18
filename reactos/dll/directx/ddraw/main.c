@@ -13,6 +13,9 @@
 #include "rosdraw.h"
 HMODULE hDllModule = 0;
 
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
+
 CRITICAL_SECTION ddcs;
 
 // This function is exported by the dll
@@ -23,8 +26,8 @@ typedef struct
     LPVOID lpContext;
 } DirectDrawEnumerateProcData;
 
-BOOL
-CALLBACK
+BOOL 
+CALLBACK 
 TranslateCallbackA(GUID *lpGUID,
                    LPSTR lpDriverDescription,
                    LPSTR lpDriverName,
@@ -74,8 +77,8 @@ HRESULT WINAPI DirectDrawCreateClipper (DWORD dwFlags,
 *        <FILLMEIN>.
 *
 * @param pUnkOuter
-*        Always set to NULL otherwise DirectDrawCreate will fail and return
-*        error code CLASS_E_NOAGGREGATION
+*        Alwas set to NULL other wise will  DirectDrawCreate fail it return
+*        errror code CLASS_E_NOAGGREGATION
 *
 * @return  <FILLMEIN>.
 *
@@ -91,14 +94,14 @@ DirectDrawCreate (LPGUID lpGUID,
 {
     HRESULT retVal = DDERR_GENERIC;
     /*
-       remove this when UML diagram is in place
-       this api is finished and is working as it should
+       remove this when UML digram are in place
+       this api is finish and is working as it should
     */
 
     DX_WINDBG_trace();
-     _SEH2_TRY
+     _SEH_TRY
     {
-        /* check if pUnkOuter is null or not */
+        /* check see if pUnkOuter is null or not */
         if (pUnkOuter)
         {
             retVal = CLASS_E_NOAGGREGATION;
@@ -108,10 +111,10 @@ DirectDrawCreate (LPGUID lpGUID,
             retVal = Create_DirectDraw (lpGUID, (LPDIRECTDRAW*)lplpDD, &IID_IDirectDraw, FALSE);
         }
      }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
@@ -128,8 +131,8 @@ DirectDrawCreate (LPGUID lpGUID,
 *        <FILLMEIN>.
 *
 * @param pUnkOuter
-*        Always set to NULL otherwise DirectDrawCreateEx will fail and return
-*        error code CLASS_E_NOAGGREGATION
+*        Alwas set to NULL other wise will  DirectDrawCreateEx fail it return
+*        errror code CLASS_E_NOAGGREGATION
 *
 * @return  <FILLMEIN>.
 *
@@ -145,12 +148,12 @@ DirectDrawCreateEx(LPGUID lpGUID,
 {
     HRESULT retVal = DDERR_GENERIC;
     /*
-        remove this when UML diagram is in place
-        this api is finished and is working as it should
+        remove this when UML digram are in place
+        this api is finish and is working as it should
     */
     DX_WINDBG_trace();
 
-     _SEH2_TRY
+     _SEH_TRY
     {
         /* check see if pUnkOuter is null or not */
         if (pUnkOuter)
@@ -169,16 +172,16 @@ DirectDrawCreateEx(LPGUID lpGUID,
 
         /* Create our DirectDraw interface */
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
 
-HRESULT
-WINAPI
+HRESULT 
+WINAPI 
 DirectDrawEnumerateA( LPDDENUMCALLBACKA lpCallback,
                      LPVOID lpContext)
 {
@@ -246,17 +249,17 @@ DirectDrawEnumerateExA(LPDDENUMCALLBACKEXA lpCallback,
             RegCloseKey(hKey);
         }
 
-        /* Call the user supplied callback function */
+        /* Call the user supplyed callback function */
         rc = lpCallback(NULL, strMsg, "display", lpContext, NULL);
 
-        /* If the callback function returns DDENUMRET_CANCEL, we will stop enumerating devices */
+        /* If the callback function returns DDENUMRET_CANCEL, we will stop enumerating devices now */
         if(rc == DDENUMRET_CANCEL)
         {
             retVal = DD_OK;
         }
         else
         {
-            // not finished
+            // not finish
             retVal = DDERR_UNSUPPORTED;
         }
     }
@@ -292,10 +295,11 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
    See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/
        Display_d/hh/Display_d/d3d_21ac30ea-9803-401e-b541-6b08af79653d.xml.asp
 
-   for more info about this command see msdn documentation
+   for more info about this command
 
-    The buffer start with D3DHAL_DP2COMMAND struct afer that follows either one struct or
-    no struct at at all
+   summuer the msdn
+
+    The buffer start with D3DHAL_DP2COMMAND struct afer that it follow either one struct or no struct at at all
     example for command D3DDP2OP_VIEWPORTINFO
 
     then lpCmd will look like this
@@ -307,9 +311,9 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
     | D3DHAL_DP2VIEWPORTINFO | 0x04 - xxxx |
     ---------------------------------------
 
-    to calculate the end of the lpCmd buffer in this exmaple
+    to calc end of the lpCmd buffer in this exmaple
     D3DHAL_DP2COMMAND->wStateCount * sizeof(D3DHAL_DP2VIEWPORTINFO);
-    now you got number of bytes but we need to add the size of D3DHAL_DP2COMMAND
+    now you got number of bytes but we need add the size of D3DHAL_DP2COMMAND
     to get this right. the end should be
     sizeof(D3DHAL_DP2COMMAND) + ( D3DHAL_DP2COMMAND->wStateCount * sizeof(D3DHAL_DP2VIEWPORTINFO));
     to get the xxxx end positions.
@@ -334,12 +338,12 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
 *       } D3DHAL_DP2COMMAND, *LPD3DHAL_DP2COMMAND;
 *
 *       lpCmd->bCommand
-*       only accept D3DDP2OP_VIEWPORTINFO, and undocumented command 0x0D
-*       anything else will result in an error
+*       only accpect D3DDP2OP_VIEWPORTINFO, and undocument command 0x0D
+*       rest of the command will be return error code for.
 *
         Command 0x0D
 *       dp2command->bReserved
-*       is the size of the struct we got in wStateCount or how many wStateCount we got
+*       is how big struect we got in wStateCount or how many wStateCount we got
 *       do not known more about it, no info in msdn about it either.
 *
 *       Command  D3DDP2OP_VIEWPORTINFO
@@ -374,7 +378,7 @@ D3DParseUnknownCommand( LPVOID lpCmd,
 
     switch (dp2command->bCommand)
     {
-       /* check for vaild command, only 3 commands are vaild */
+       /* check for vaild command, only 3 command is vaild */
        case D3DDP2OP_VIEWPORTINFO:
            *(PBYTE)lpRetCmd += ((dp2command->wStateCount * sizeof(D3DHAL_DP2VIEWPORTINFO)) + sizeof(D3DHAL_DP2COMMAND));
            break;

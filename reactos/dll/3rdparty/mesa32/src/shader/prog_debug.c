@@ -23,9 +23,9 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/macros.h"
+#include "glheader.h"
+#include "context.h"
+#include "macros.h"
 #include "nvfragparse.h"
 #include "nvvertparse.h"
 #include "program.h"

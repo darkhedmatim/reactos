@@ -22,8 +22,6 @@
 #include <stdarg.h>
 
 #include <host/nls.h>
-
-#include "widltypes.h"
 #include "hash.h"
 
 static const unsigned char Lookup_16[128 * 3] = {
@@ -501,7 +499,7 @@ static const unsigned char Lookup_224[128 * 3] = {
  *  skind and lcid, while the low word is based on a repeated string
  *  hash of skind/str.
  */
-unsigned int lhash_val_of_name_sys( syskind_t skind, LCID lcid, LPCSTR lpStr)
+unsigned long lhash_val_of_name_sys( syskind_t skind, LCID lcid, LPCSTR lpStr)
 {
   ULONG nOffset, nMask = skind == SYS_MAC ? 1 : 0;
   ULONG nHiWord, nLoWord = 0x0deadbee;
@@ -513,7 +511,7 @@ unsigned int lhash_val_of_name_sys( syskind_t skind, LCID lcid, LPCSTR lpStr)
   switch (PRIMARYLANGID(LANGIDFROMLCID(lcid)))
   {
   default:
-    fprintf(stderr, "Unknown lcid %x, treating as latin-based, please report\n", lcid);
+    fprintf(stderr, "Unknown lcid %lx, treating as latin-based, please report\n", lcid);
     /* .. Fall Through .. */
   case LANG_AFRIKAANS:  case LANG_ALBANIAN:   case LANG_ARMENIAN:
   case LANG_ASSAMESE:   case LANG_AZERI:      case LANG_BASQUE:
@@ -534,38 +532,13 @@ unsigned int lhash_val_of_name_sys( syskind_t skind, LCID lcid, LPCSTR lpStr)
   case LANG_SWEDISH:    case LANG_SYRIAC:     case LANG_TAMIL:
   case LANG_TATAR:      case LANG_TELUGU:     case LANG_THAI:
   case LANG_UKRAINIAN:  case LANG_URDU:       case LANG_UZBEK:
-  case LANG_VIETNAMESE: case LANG_MALTESE:    case LANG_IRISH:
-  case LANG_SAMI:       case LANG_UPPER_SORBIAN: case LANG_TSWANA:
-  case LANG_XHOSA:      case LANG_ZULU:       case LANG_WELSH:
+  case LANG_VIETNAMESE: case LANG_GAELIC:     case LANG_MALTESE:
+  case LANG_TAJIK:      case LANG_ROMANSH:    case LANG_IRISH:
+  case LANG_SAMI:       case LANG_UPPER_SORBIAN: case LANG_SUTU:
+  case LANG_TSONGA:     case LANG_TSWANA:     case LANG_VENDA:
+  case LANG_XHOSA:      case LANG_ZULU:       case LANG_ESPERANTO:
+  case LANG_WALON:      case LANG_CORNISH:    case LANG_WELSH:
   case LANG_BRETON:
-/* some languages not in all windows versions or ReactOS */
-#ifdef LANG_GAELIC
-  case LANG_GAELIC:
-#endif
-#ifdef LANG_TAJIK
-  case LANG_TAJIK:
-#endif
-#ifdef LANG_ROMANSH
-  case LANG_ROMANSH:
-#endif
-#ifdef LANG_SUTU
-  case LANG_SUTU:
-#endif
-#ifdef LANG_TSONGA
-  case LANG_TSONGA:
-#endif
-#ifdef LANG_VENDA
-  case LANG_VENDA:
-#endif
-#ifdef LANG_ESPERANTO
-  case LANG_ESPERANTO:
-#endif
-#ifdef LANG_WALON
-  case LANG_WALON:
-#endif
-#ifdef LANG_CORNISH
-  case LANG_CORNISH:
-#endif
     nOffset = 16;
     pnLookup = Lookup_16;
     break;
@@ -629,7 +602,13 @@ unsigned int lhash_val_of_name_sys( syskind_t skind, LCID lcid, LPCSTR lpStr)
 
   while (*str)
   {
-    nLoWord = 37 * nLoWord + pnLookup[*str > 0x7f && nMask ? *str + 0x80 : *str];
+    ULONG newLoWord = 0, i;
+
+    /* Cumulative prime multiplication (*37) with modulo 2^32 wrap-around */
+    for (i = 0; i < 37; i++)
+      newLoWord += nLoWord;
+
+    nLoWord = newLoWord + pnLookup[*str > 0x7f && nMask ? *str + 0x80 : *str];
     str++;
   }
   /* Constrain to a prime modulo and sizeof(WORD) */

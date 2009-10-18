@@ -11,5 +11,6 @@ LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
 STRINGTABLE DISCARDABLE
 BEGIN
     IDS_DESCRIPTION "Заставка ""Вхід до системи"""
+    IDS_TITLE       "Про"
     IDS_TEXT        "Ця заставка не має налаштовуваних параметрів."
 END

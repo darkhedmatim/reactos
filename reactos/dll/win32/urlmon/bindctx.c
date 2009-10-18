@@ -16,10 +16,23 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include <stdarg.h>
 #include <stdio.h>
 
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "windef.h"
+#include "winbase.h"
+#include "objbase.h"
+#include "winuser.h"
+#include "ole2.h"
+#include "urlmon.h"
 #include "urlmon_main.h"
+
 #include "wine/debug.h"
+#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
@@ -119,7 +132,7 @@ static ULONG WINAPI BindStatusCallback_Release(IBindStatusCallback *iface)
         if(This->authenticate)
             IAuthenticate_Release(This->authenticate);
         IBindStatusCallback_Release(This->callback);
-        heap_free(This);
+        urlmon_free(This);
     }
 
     return ref;
@@ -386,7 +399,7 @@ static HRESULT WINAPI BSCHttpNegotiate_GetRootSecurityId(IHttpNegotiate2 *iface,
     TRACE("(%p)->(%p %p %ld)\n", This, pbSecurityId, pcbSecurityId, dwReserved);
 
     if(!This->http_negotiate2)
-        return E_NOTIMPL;
+        return E_FAIL;
 
     return IHttpNegotiate2_GetRootSecurityId(This->http_negotiate2, pbSecurityId,
                                              pcbSecurityId, dwReserved);
@@ -442,7 +455,7 @@ static const IAuthenticateVtbl BSCAuthenticateVtbl = {
 
 static IBindStatusCallback *create_bsc(IBindStatusCallback *bsc)
 {
-    BindStatusCallback *ret = heap_alloc_zero(sizeof(BindStatusCallback));
+    BindStatusCallback *ret = urlmon_alloc_zero(sizeof(BindStatusCallback));
 
     ret->lpBindStatusCallbackVtbl = &BindStatusCallbackVtbl;
     ret->lpServiceProviderVtbl    = &BSCServiceProviderVtbl;
@@ -511,8 +524,7 @@ HRESULT WINAPI RegisterBindStatusCallback(IBindCtx *pbc, IBindStatusCallback *pb
     hres = IBindCtx_RegisterObjectParam(pbc, BSCBHolder, (IUnknown*)bsc);
     IBindStatusCallback_Release(bsc);
     if(FAILED(hres)) {
-        if(prev)
-            IBindStatusCallback_Release(prev);
+        IBindStatusCallback_Release(prev);
         return hres;
     }
 
@@ -628,7 +640,7 @@ static ULONG WINAPI AsyncBindCtx_Release(IBindCtx *iface)
 
     if(!ref) {
         IBindCtx_Release(This->bindctx);
-        heap_free(This);
+        urlmon_free(This);
     }
 
     return ref;
@@ -706,13 +718,13 @@ static HRESULT WINAPI AsyncBindCtx_GetObjectParam(IBindCtx* iface, LPOLESTR pszk
     return IBindCtx_GetObjectParam(This->bindctx, pszkey, punk);
 }
 
-static HRESULT WINAPI AsyncBindCtx_RevokeObjectParam(IBindCtx *iface, LPOLESTR pszkey)
+static HRESULT WINAPI AsyncBindCtx_RevokeObjectParam(IBindCtx *iface, LPOLESTR ppenum)
 {
     AsyncBindCtx *This = BINDCTX_THIS(iface);
 
-    TRACE("(%p)->(%s)\n", This, debugstr_w(pszkey));
+    TRACE("(%p)->(%p)\n", This, ppenum);
 
-    return IBindCtx_RevokeObjectParam(This->bindctx, pszkey);
+    return IBindCtx_RevokeObjectParam(This->bindctx, ppenum);
 }
 
 static HRESULT WINAPI AsyncBindCtx_EnumObjectParam(IBindCtx *iface, IEnumString **pszkey)
@@ -821,16 +833,11 @@ HRESULT WINAPI CreateAsyncBindCtxEx(IBindCtx *ibind, DWORD options,
     if(reserved)
         WARN("reserved=%d\n", reserved);
 
-    if(ibind) {
-        IBindCtx_AddRef(ibind);
-        bindctx = ibind;
-    }else {
-        hres = CreateBindCtx(0, &bindctx);
-        if(FAILED(hres))
-            return hres;
-    }
+    hres = CreateBindCtx(0, &bindctx);
+    if(FAILED(hres))
+        return hres;
 
-    ret = heap_alloc(sizeof(AsyncBindCtx));
+    ret = urlmon_alloc(sizeof(AsyncBindCtx));
 
     ret->lpBindCtxVtbl = &AsyncBindCtxVtbl;
     ret->ref = 1;

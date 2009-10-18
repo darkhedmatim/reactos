@@ -37,16 +37,16 @@ Output(POUTPUTBUFFER OutBuf, PCTSTR Text)
     }
 
   /* Doesn't fit? */
-  Length = (ULONG)_tcslen(Text);
+  Length = _tcslen(Text);
   if (OutBuf->FreeSize < Length + 1 && INF_SUCCESS(OutBuf->Status))
     {
-      DPRINT("Out of free space. TotalSize %u FreeSize %u Length %u\n",
-             (UINT)OutBuf->TotalSize, (UINT)OutBuf->FreeSize, (UINT)Length);
+      DPRINT("Out of free space. TotalSize %lu FreeSize %lu Length %u\n",
+             OutBuf->TotalSize, OutBuf->FreeSize, Length);
       /* Round up to next SIZE_INC */
       NewSize = OutBuf->TotalSize +
                 (((Length + 1) - OutBuf->FreeSize + (SIZE_INC - 1)) /
                  SIZE_INC) * SIZE_INC;
-      DPRINT("NewSize %u\n", (UINT)NewSize);
+      DPRINT("NewSize %lu\n", NewSize);
       NewBuf = MALLOC(NewSize);
       /* Abort if failed */
       if (NULL == NewBuf)
@@ -59,8 +59,8 @@ Output(POUTPUTBUFFER OutBuf, PCTSTR Text)
       /* Need to copy old contents? */
       if (NULL != OutBuf->Buffer)
         {
-          DPRINT("Copying %u bytes from old content\n",
-                 (UINT)(OutBuf->TotalSize - OutBuf->FreeSize));
+          DPRINT("Copying %lu bytes from old content\n",
+                 OutBuf->TotalSize - OutBuf->FreeSize);
           MEMCPY(NewBuf, OutBuf->Buffer, OutBuf->TotalSize - OutBuf->FreeSize);
           OutBuf->Current = NewBuf + (OutBuf->Current - OutBuf->Buffer);
           FREE(OutBuf->Buffer);
@@ -72,8 +72,8 @@ Output(POUTPUTBUFFER OutBuf, PCTSTR Text)
       OutBuf->Buffer = NewBuf;
       OutBuf->FreeSize += NewSize - OutBuf->TotalSize;
       OutBuf->TotalSize = NewSize;
-      DPRINT("After reallocation TotalSize %u FreeSize %u\n",
-             (UINT)OutBuf->TotalSize, (UINT)OutBuf->FreeSize);
+      DPRINT("After reallocation TotalSize %lu FreeSize %lu\n",
+             OutBuf->TotalSize, OutBuf->FreeSize);
     }
 
   /* We're guaranteed to have enough room now. Copy char by char because of
@@ -145,8 +145,8 @@ InfpBuildFileBuffer(PINFCACHE Cache,
               NeedQuotes = FALSE;
               while (_T('\0') != *p && ! NeedQuotes)
                 {
-                  NeedQuotes = (BOOLEAN)(_T(',') == *p || _T(';') == *p ||
-                                         _T('\\') == *p);
+                  NeedQuotes = _T(',') == *p || _T(';') == *p ||
+                               _T('\\') == *p;
                   p++;
                 }
               if (NeedQuotes)

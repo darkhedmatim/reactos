@@ -2,5 +2,4 @@
 #include "resource.h"
 
 #include "lang/en-US.rc"
-#include "lang/pl-PL.rc"
 #include "lang/ru-RU.rc"

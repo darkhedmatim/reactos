@@ -42,26 +42,10 @@ Author:
     & ~(MM_ALLOCATION_GRANULARITY - 1))
 
 //
-// PFN Identity Uses
+// Macro for generating pool tags
 //
-#define MMPFNUSE_PROCESSPRIVATE                             0
-#define MMPFNUSE_FILE                                       1
-#define MMPFNUSE_PAGEFILEMAPPED                             2
-#define MMPFNUSE_PAGETABLE                                  3
-#define MMPFNUSE_PAGEDPOOL                                  4
-#define MMPFNUSE_NONPAGEDPOOL                               5
-#define MMPFNUSE_SYSTEMPTE                                  6
-#define MMPFNUSE_SESSIONPRIVATE                             7
-#define MMPFNUSE_METAFILE                                   8
-#define MMPFNUSE_AWEPAGE                                    9
-#define MMPFNUSE_DRIVERLOCKPAGE                             10
-#define MMPFNUSE_KERNELSTACK                                11
-
-//
-// Lock/Unlock Virtuam Memory Flags
-//
-#define MAP_PROCESS                                         1
-#define MAP_SYSTEM                                          2
+#define TAG(A, B, C, D)                                     \
+    (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 
 #ifndef NTOS_MODE_USER
 
@@ -120,21 +104,6 @@ typedef enum _POOL_TYPE
     NonPagedPoolCacheAlignedMustSSession
 } POOL_TYPE;
 #endif
-
-//
-// Memory Manager Page Lists
-//
-typedef enum _MMLISTS
-{
-   ZeroedPageList = 0,
-   FreePageList = 1,
-   StandbyPageList = 2,
-   ModifiedPageList = 3,
-   ModifiedNoWritePageList = 4,
-   BadPageList = 5,
-   ActiveAndValid = 6,
-   TransitionPage = 7
-} MMLISTS;
 
 //
 // Per Processor Non Paged Lookaside List IDs
@@ -209,68 +178,6 @@ typedef struct _VM_COUNTERS_EX
 #endif
 
 //
-// Sub-Information Types for PFN Identity
-//
-typedef struct _MEMORY_FRAME_INFORMATION
-{
-    ULONGLONG UseDescription:4;
-    ULONGLONG ListDescription:3;
-    ULONGLONG Reserved0:1;
-    ULONGLONG Pinned:1;
-    ULONGLONG DontUse:48;
-    ULONGLONG Priority:3;
-    ULONGLONG Reserved:4;
-} MEMORY_FRAME_INFORMATION, *PMEMORY_FRAME_INFORMATION;
-
-typedef struct _FILEOFFSET_INFORMATION
-{
-    ULONGLONG DontUse:9;
-    ULONGLONG Offset:48;
-    ULONGLONG Reserved:7;
-} FILEOFFSET_INFORMATION, *PFILEOFFSET_INFORMATION;
-
-typedef struct _PAGEDIR_INFORMATION
-{
-    ULONGLONG DontUse:9;
-    ULONGLONG PageDirectoryBase:48;
-    ULONGLONG Reserved:7;
-} PAGEDIR_INFORMATION, *PPAGEDIR_INFORMATION;
-
-typedef struct _UNIQUE_PROCESS_INFORMATION
-{
-    ULONGLONG DontUse:9;
-    ULONGLONG UniqueProcessKey:48;
-    ULONGLONG Reserved:7;
-} UNIQUE_PROCESS_INFORMATION, *PUNIQUE_PROCESS_INFORMATION;
-
-//
-// PFN Identity Data Structure
-//
-typedef struct _MMPFN_IDENTITY
-{
-    union
-    {
-        MEMORY_FRAME_INFORMATION e1;
-        FILEOFFSET_INFORMATION e2;
-        PAGEDIR_INFORMATION e3;
-        UNIQUE_PROCESS_INFORMATION e4;
-    } u1;
-    SIZE_T PageFrameIndex;
-    union
-    {
-        struct
-        {
-            ULONG Image:1;
-            ULONG Mismatch:1;
-        } e1;
-        PVOID FileObject;
-        PVOID UniqueFileObjectKey;
-        PVOID ProtoPteAddress;
-        PVOID VirtualAddress;
-    } u2;
-} MMPFN_IDENTITY, *PMMPFN_IDENTITY;
-
-//
 // List of Working Sets
 //
 typedef struct _MEMORY_WORKING_SET_LIST
@@ -304,17 +211,17 @@ typedef struct _SECTION_IMAGE_INFORMATION
     ULONG ZeroBits;
     ULONG MaximumStackSize;
     ULONG CommittedStackSize;
-    ULONG SubSystemType;
+    ULONG SubsystemType;
     USHORT SubSystemMinorVersion;
     USHORT SubSystemMajorVersion;
     ULONG GpValue;
     USHORT ImageCharacteristics;
-    USHORT DllCharacteristics;
+    USHORT DllChracteristics;
     USHORT Machine;
     UCHAR ImageContainsCode;
     UCHAR Spare1;
     ULONG LoaderFlags;
-    ULONG ImageFileSize;
+    ULONG ImageFileSIze;
     ULONG Reserved[1];
 } SECTION_IMAGE_INFORMATION, *PSECTION_IMAGE_INFORMATION;
 
@@ -369,7 +276,7 @@ typedef struct _SEGMENT
     ULONG NumberOfCommittedPages;
     PMMEXTEND_INFO ExtendInfo;
     SEGMENT_FLAGS SegmentFlags;
-    PVOID BasedAddress;
+    PVOID BaseAddress;
     union
     {
         SIZE_T ImageCommitment;
@@ -389,9 +296,9 @@ typedef struct _SEGMENT
 //
 typedef struct _EVENT_COUNTER
 {
-    SLIST_ENTRY ListEntry;
     ULONG RefCount;
     KEVENT Event;
+    LIST_ENTRY ListEntry;
 } EVENT_COUNTER, *PEVENT_COUNTER;
 
 //
@@ -592,7 +499,7 @@ typedef struct _MMADDRESS_NODE
 {
     union
     {
-        LONG Balance:2;
+        ULONG Balance:2;
         struct _MMADDRESS_NODE *Parent;
     } u1;
     struct _MMADDRESS_NODE *LeftChild;
@@ -642,7 +549,7 @@ typedef struct _MMWSLENTRY
     ULONG Hashed:1;
     ULONG Direct:1;
     ULONG Age:2;
-    ULONG VirtualPageNumber:20;
+    ULONG VirtualPageNumber:14;
 } MMWSLENTRY, *PMMWSLENTRY;
 
 typedef struct _MMWSLE
@@ -692,7 +599,7 @@ typedef struct _MMSUPPORT_FLAGS
     ULONG TrimHard:1;
     ULONG MaximumWorkingSetHard:1;
     ULONG ForceTrim:1;
-    ULONG MinimumWorkingSetHard:1;
+    ULONG MinimumworkingSetHard:1;
     ULONG Available0:1;
     ULONG MemoryPriority:8;
     ULONG GrowWsleHash:1;
@@ -756,7 +663,7 @@ typedef struct _MEMORY_BASIC_INFORMATION
     PVOID BaseAddress;
     PVOID AllocationBase;
     ULONG AllocationProtect;
-    SIZE_T RegionSize;
+    ULONG RegionSize;
     ULONG State;
     ULONG Protect;
     ULONG Type;

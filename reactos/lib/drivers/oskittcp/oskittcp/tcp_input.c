@@ -84,6 +84,7 @@ struct inpcbinfo tcbinfo;
  * Set DELACK for segments received in order, but ack immediately
  * when segments are out of order (so fast retransmit can work).
  */
+#ifdef TCP_ACK_HACK
 #define	TCP_REASS(tp, ti, m, so, flags) { \
 	if ((ti)->ti_seq == (tp)->rcv_nxt && \
 	    (tp)->seg_next == (struct tcpiphdr *)(tp) && \
@@ -103,6 +104,24 @@ struct inpcbinfo tcbinfo;
 		tp->t_flags |= TF_ACKNOW; \
 	} \
 }
+#else
+#define	TCP_REASS(tp, ti, m, so, flags) { \
+	if ((ti)->ti_seq == (tp)->rcv_nxt && \
+	    (tp)->seg_next == (struct tcpiphdr *)(tp) && \
+	    (tp)->t_state == TCPS_ESTABLISHED) { \
+		tp->t_flags |= TF_DELACK; \
+		(tp)->rcv_nxt += (ti)->ti_len; \
+		flags = (ti)->ti_flags & TH_FIN; \
+		tcpstat.tcps_rcvpack++;\
+		tcpstat.tcps_rcvbyte += (ti)->ti_len;\
+		sbappend(&(so)->so_rcv, (m)); \
+		sorwakeup(so); \
+	} else { \
+		(flags) = tcp_reass((tp), (ti), (m)); \
+		tp->t_flags |= TF_ACKNOW; \
+	} \
+}
+#endif
 #ifndef TUBA_INCLUDE
 
 int
@@ -467,7 +486,7 @@ findpcb:
 	 * else do it below (after getting remote address).
 	 */
 	if (tp->t_state != TCPS_LISTEN)
-		tcp_dooptions(tp, (u_char *)optp, optlen, ti, &to);
+		tcp_dooptions(tp, optp, optlen, ti, &to);
 
 	/*
 	 * Header prediction: check for the two common cases
@@ -573,6 +592,7 @@ findpcb:
 			 */
 			sbappend(&so->so_rcv, m);
 			sorwakeup(so);
+#ifdef TCP_ACK_HACK
 			/*
 			 * If this is a short packet, then ACK now - with Nagel
 			 *	congestion avoidance sender won't send more until
@@ -584,6 +604,9 @@ findpcb:
 			} else {
 				tp->t_flags |= TF_DELACK;
 			}
+#else
+			tp->t_flags |= TF_DELACK;
+#endif
 			return;
 		}
 	}
@@ -664,7 +687,7 @@ findpcb:
 			taop = &tao_noncached;
 			bzero(taop, sizeof(*taop));
 		}
-		tcp_dooptions(tp, (u_char *)optp, optlen, ti, &to);
+		tcp_dooptions(tp, optp, optlen, ti, &to);
 		if (iss)
 			tp->iss = iss;
 		else
@@ -1951,7 +1974,7 @@ tcp_mss(tp, offer)
 	int offer;
 {
 	register struct rtentry *rt;
-	struct ifnet *ifp = NULL;
+	struct ifnet *ifp;
 	register int rtt, mss;
 	u_long bufsize;
 	struct inpcb *inp;

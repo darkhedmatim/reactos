@@ -28,6 +28,7 @@
 static INT
 PrintVolumeHeader (LPTSTR pszRootPath)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	TCHAR szVolName[80];
 	DWORD dwSerialNr;
 
@@ -48,20 +49,23 @@ PrintVolumeHeader (LPTSTR pszRootPath)
 	/* print drive info */
 	if (szVolName[0] != '\0')
 	{
-		ConOutResPrintf(STRING_VOL_HELP1, pszRootPath[0],szVolName);
+		LoadString(CMD_ModuleHandle, STRING_VOL_HELP1, szMsg, RC_STRING_MAX_SIZE);
+		ConOutPrintf(szMsg, pszRootPath[0],szVolName);
 	}
 	else
 	{
-		ConOutResPrintf(STRING_VOL_HELP2, pszRootPath[0]);
+		LoadString(CMD_ModuleHandle, STRING_VOL_HELP2, szMsg, RC_STRING_MAX_SIZE);
+		ConOutPrintf(szMsg, pszRootPath[0]);
 	}
 
 	/* print the volume serial number */
-	ConOutResPrintf(STRING_VOL_HELP3, HIWORD(dwSerialNr), LOWORD(dwSerialNr));
+	LoadString(CMD_ModuleHandle, STRING_VOL_HELP3, szMsg, RC_STRING_MAX_SIZE);
+	ConOutPrintf(szMsg, HIWORD(dwSerialNr), LOWORD(dwSerialNr));
 	return 0;
 }
 
 
-INT cmd_vol (LPTSTR param)
+INT cmd_vol (LPTSTR cmd, LPTSTR param)
 {
 	TCHAR szRootPath[] = _T("A:\\");
 	TCHAR szPath[MAX_PATH];

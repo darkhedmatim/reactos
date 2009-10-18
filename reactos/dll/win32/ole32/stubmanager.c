@@ -42,6 +42,382 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
+static void stub_manager_delete_ifstub(struct stub_manager *m, struct ifstub *ifstub);
+static struct ifstub *stub_manager_ipid_to_ifstub(struct stub_manager *m, const IPID *ipid);
+
+/* creates a new stub manager and adds it into the apartment. caller must
+ * release stub manager when it is no longer required. the apartment and
+ * external refs together take one implicit ref */
+struct stub_manager *new_stub_manager(APARTMENT *apt, IUnknown *object)
+{
+    struct stub_manager *sm;
+
+    assert( apt );
+
+    sm = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(struct stub_manager));
+    if (!sm) return NULL;
+
+    list_init(&sm->ifstubs);
+
+    InitializeCriticalSection(&sm->lock);
+    DEBUG_SET_CRITSEC_NAME(&sm->lock, "stub_manager");
+
+    IUnknown_AddRef(object);
+    sm->object = object;
+    sm->apt    = apt;
+
+    /* start off with 2 references because the stub is in the apartment
+     * and the caller will also hold a reference */
+    sm->refs   = 2;
+
+    sm->oxid_info.dwPid = GetCurrentProcessId();
+    sm->oxid_info.dwTid = GetCurrentThreadId();
+    /*
+     * FIXME: this is a hack for marshalling IRemUnknown. In real
+     * DCOM, the IPID of the IRemUnknown interface is generated like
+     * any other and passed to the OXID resolver which then returns it
+     * when queried. We don't have an OXID resolver yet so instead we
+     * use a magic IPID reserved for IRemUnknown.
+     */
+    sm->oxid_info.ipidRemUnknown.Data1 = 0xffffffff;
+    sm->oxid_info.ipidRemUnknown.Data2 = 0xffff;
+    sm->oxid_info.ipidRemUnknown.Data3 = 0xffff;
+    assert(sizeof(sm->oxid_info.ipidRemUnknown.Data4) == sizeof(apt->oxid));
+    memcpy(&sm->oxid_info.ipidRemUnknown.Data4, &apt->oxid, sizeof(OXID));
+    sm->oxid_info.dwAuthnHint = RPC_C_AUTHN_LEVEL_NONE;
+    sm->oxid_info.psa = NULL /* FIXME */;
+
+    /* yes, that's right, this starts at zero. that's zero EXTERNAL
+     * refs, ie nobody has unmarshalled anything yet. we can't have
+     * negative refs because the stub manager cannot be explicitly
+     * killed, it has to die by somebody unmarshalling then releasing
+     * the marshalled ifptr.
+     */
+    sm->extrefs = 0;
+
+    EnterCriticalSection(&apt->cs);
+    sm->oid = apt->oidc++;
+    list_add_head(&apt->stubmgrs, &sm->entry);
+    LeaveCriticalSection(&apt->cs);
+
+    TRACE("Created new stub manager (oid=%s) at %p for object with IUnknown %p\n", wine_dbgstr_longlong(sm->oid), sm, object);
+
+    return sm;
+}
+
+/* caller must remove stub manager from apartment prior to calling this function */
+static void stub_manager_delete(struct stub_manager *m)
+{
+    struct list *cursor;
+
+    TRACE("destroying %p (oid=%s)\n", m, wine_dbgstr_longlong(m->oid));
+
+    /* release every ifstub */
+    while ((cursor = list_head(&m->ifstubs)))
+    {
+        struct ifstub *ifstub = LIST_ENTRY(cursor, struct ifstub, entry);
+        stub_manager_delete_ifstub(m, ifstub);
+    }
+
+    CoTaskMemFree(m->oxid_info.psa);
+    IUnknown_Release(m->object);
+
+    DEBUG_CLEAR_CRITSEC_NAME(&m->lock);
+    DeleteCriticalSection(&m->lock);
+
+    HeapFree(GetProcessHeap(), 0, m);
+}
+
+/* gets the stub manager associated with an object - caller must have
+ * a reference to the apartment while a reference to the stub manager is held.
+ * it must also call release on the stub manager when it is no longer needed */
+struct stub_manager *get_stub_manager_from_object(APARTMENT *apt, void *object)
+{
+    struct stub_manager *result = NULL;
+    struct list         *cursor;
+
+    EnterCriticalSection(&apt->cs);
+    LIST_FOR_EACH( cursor, &apt->stubmgrs )
+    {
+        struct stub_manager *m = LIST_ENTRY( cursor, struct stub_manager, entry );
+
+        if (m->object == object)
+        {
+            result = m;
+            stub_manager_int_addref(result);
+            break;
+        }
+    }
+    LeaveCriticalSection(&apt->cs);
+
+    if (result)
+        TRACE("found %p for object %p\n", result, object);
+    else
+        TRACE("not found for object %p\n", object);
+
+    return result;
+}
+
+/* removes the apartment reference to an object, destroying it when no other
+ * threads have a reference to it */
+void apartment_disconnectobject(struct apartment *apt, void *object)
+{
+    int found = FALSE;
+    struct stub_manager *stubmgr;
+
+    EnterCriticalSection(&apt->cs);
+    LIST_FOR_EACH_ENTRY( stubmgr, &apt->stubmgrs, struct stub_manager, entry )
+    {
+        if (stubmgr->object == object)
+        {
+            found = TRUE;
+            stub_manager_int_release(stubmgr);
+            break;
+        }
+    }
+    LeaveCriticalSection(&apt->cs);
+
+    if (found)
+        TRACE("disconnect object %p\n", object);
+    else
+        WARN("couldn't find object %p\n", object);
+}
+
+/* gets the stub manager associated with an object id - caller must have
+ * a reference to the apartment while a reference to the stub manager is held.
+ * it must also call release on the stub manager when it is no longer needed */
+struct stub_manager *get_stub_manager(APARTMENT *apt, OID oid)
+{
+    struct stub_manager *result = NULL;
+    struct list         *cursor;
+
+    EnterCriticalSection(&apt->cs);
+    LIST_FOR_EACH( cursor, &apt->stubmgrs )
+    {
+        struct stub_manager *m = LIST_ENTRY( cursor, struct stub_manager, entry );
+
+        if (m->oid == oid)
+        {
+            result = m;
+            stub_manager_int_addref(result);
+            break;
+        }
+    }
+    LeaveCriticalSection(&apt->cs);
+
+    if (result)
+        TRACE("found %p for oid %s\n", result, wine_dbgstr_longlong(oid));
+    else
+        TRACE("not found for oid %s\n", wine_dbgstr_longlong(oid));
+
+    return result;
+}
+
+/* increments the internal refcount */
+ULONG stub_manager_int_addref(struct stub_manager *This)
+{
+    ULONG refs;
+
+    EnterCriticalSection(&This->apt->cs);
+    refs = ++This->refs;
+    LeaveCriticalSection(&This->apt->cs);
+
+    TRACE("before %d\n", refs - 1);
+
+    return refs;
+}
+
+/* decrements the internal refcount */
+ULONG stub_manager_int_release(struct stub_manager *This)
+{
+    ULONG refs;
+    APARTMENT *apt = This->apt;
+
+    EnterCriticalSection(&apt->cs);
+    refs = --This->refs;
+
+    TRACE("after %d\n", refs);
+
+    /* remove from apartment so no other thread can access it... */
+    if (!refs)
+        list_remove(&This->entry);
+
+    LeaveCriticalSection(&apt->cs);
+
+    /* ... so now we can delete it without being inside the apartment critsec */
+    if (!refs)
+        stub_manager_delete(This);
+
+    return refs;
+}
+
+/* add some external references (ie from a client that unmarshaled an ifptr) */
+ULONG stub_manager_ext_addref(struct stub_manager *m, ULONG refs)
+{
+    ULONG rc;
+
+    EnterCriticalSection(&m->lock);
+
+    /* make sure we don't overflow extrefs */
+    refs = min(refs, (ULONG_MAX-1 - m->extrefs));
+    rc = (m->extrefs += refs);
+
+    LeaveCriticalSection(&m->lock);
+
+    TRACE("added %u refs to %p (oid %s), rc is now %u\n", refs, m, wine_dbgstr_longlong(m->oid), rc);
+
+    return rc;
+}
+
+/* remove some external references */
+ULONG stub_manager_ext_release(struct stub_manager *m, ULONG refs, BOOL last_unlock_releases)
+{
+    ULONG rc;
+
+    EnterCriticalSection(&m->lock);
+
+    /* make sure we don't underflow extrefs */
+    refs = min(refs, m->extrefs);
+    rc = (m->extrefs -= refs);
+
+    LeaveCriticalSection(&m->lock);
+
+    TRACE("removed %u refs from %p (oid %s), rc is now %u\n", refs, m, wine_dbgstr_longlong(m->oid), rc);
+
+    if (rc == 0 && last_unlock_releases)
+        stub_manager_int_release(m);
+
+    return rc;
+}
+
+static struct ifstub *stub_manager_ipid_to_ifstub(struct stub_manager *m, const IPID *ipid)
+{
+    struct list    *cursor;
+    struct ifstub  *result = NULL;
+
+    EnterCriticalSection(&m->lock);
+    LIST_FOR_EACH( cursor, &m->ifstubs )
+    {
+        struct ifstub *ifstub = LIST_ENTRY( cursor, struct ifstub, entry );
+
+        if (IsEqualGUID(ipid, &ifstub->ipid))
+        {
+            result = ifstub;
+            break;
+        }
+    }
+    LeaveCriticalSection(&m->lock);
+
+    return result;
+}
+
+struct ifstub *stub_manager_find_ifstub(struct stub_manager *m, REFIID iid, MSHLFLAGS flags)
+{
+    struct ifstub  *result = NULL;
+    struct ifstub  *ifstub;
+
+    EnterCriticalSection(&m->lock);
+    LIST_FOR_EACH_ENTRY( ifstub, &m->ifstubs, struct ifstub, entry )
+    {
+        if (IsEqualIID(iid, &ifstub->iid) && (ifstub->flags == flags))
+        {
+            result = ifstub;
+            break;
+        }
+    }
+    LeaveCriticalSection(&m->lock);
+
+    return result;
+}
+
+/* gets the stub manager associated with an ipid - caller must have
+ * a reference to the apartment while a reference to the stub manager is held.
+ * it must also call release on the stub manager when it is no longer needed */
+static struct stub_manager *get_stub_manager_from_ipid(APARTMENT *apt, const IPID *ipid)
+{
+    struct stub_manager *result = NULL;
+    struct list         *cursor;
+
+    EnterCriticalSection(&apt->cs);
+    LIST_FOR_EACH( cursor, &apt->stubmgrs )
+    {
+        struct stub_manager *m = LIST_ENTRY( cursor, struct stub_manager, entry );
+
+        if (stub_manager_ipid_to_ifstub(m, ipid))
+        {
+            result = m;
+            stub_manager_int_addref(result);
+            break;
+        }
+    }
+    LeaveCriticalSection(&apt->cs);
+
+    if (result)
+        TRACE("found %p for ipid %s\n", result, debugstr_guid(ipid));
+    else
+        ERR("not found for ipid %s\n", debugstr_guid(ipid));
+
+    return result;
+}
+
+HRESULT ipid_to_stub_manager(const IPID *ipid, APARTMENT **stub_apt, struct stub_manager **stubmgr_ret)
+{
+    /* FIXME: hack for IRemUnknown */
+    if (ipid->Data2 == 0xffff)
+        *stub_apt = apartment_findfromoxid(*(const OXID *)ipid->Data4, TRUE);
+    else
+        *stub_apt = apartment_findfromtid(ipid->Data2);
+    if (!*stub_apt)
+    {
+        TRACE("Couldn't find apartment corresponding to TID 0x%04x\n", ipid->Data2);
+        return RPC_E_INVALID_OBJECT;
+    }
+    *stubmgr_ret = get_stub_manager_from_ipid(*stub_apt, ipid);
+    if (!*stubmgr_ret)
+    {
+        apartment_release(*stub_apt);
+        *stub_apt = NULL;
+        return RPC_E_INVALID_OBJECT;
+    }
+    return S_OK;
+}
+
+/* gets the apartment, stub and channel of an object. the caller must
+ * release the references to all objects (except iface) if the function
+ * returned success, otherwise no references are returned. */
+HRESULT ipid_get_dispatch_params(const IPID *ipid, APARTMENT **stub_apt,
+                                 IRpcStubBuffer **stub, IRpcChannelBuffer **chan,
+                                 IID *iid, IUnknown **iface)
+{
+    struct stub_manager *stubmgr;
+    struct ifstub *ifstub;
+    APARTMENT *apt;
+    HRESULT hr;
+
+    hr = ipid_to_stub_manager(ipid, &apt, &stubmgr);
+    if (hr != S_OK) return RPC_E_DISCONNECTED;
+
+    ifstub = stub_manager_ipid_to_ifstub(stubmgr, ipid);
+    if (ifstub)
+    {
+        *stub = ifstub->stubbuffer;
+        IRpcStubBuffer_AddRef(*stub);
+        *chan = ifstub->chan;
+        IRpcChannelBuffer_AddRef(*chan);
+        *stub_apt = apt;
+        *iid = ifstub->iid;
+        *iface = ifstub->iface;
+
+        stub_manager_int_release(stubmgr);
+        return S_OK;
+    }
+    else
+    {
+        stub_manager_int_release(stubmgr);
+        apartment_release(apt);
+        return RPC_E_DISCONNECTED;
+    }
+}
 
 /* generates an ipid in the following format (similar to native version):
  * Data1 = apartment-local ipid counter
@@ -126,387 +502,6 @@ static void stub_manager_delete_ifstub(struct stub_manager *m, struct ifstub *if
     HeapFree(GetProcessHeap(), 0, ifstub);
 }
 
-static struct ifstub *stub_manager_ipid_to_ifstub(struct stub_manager *m, const IPID *ipid)
-{
-    struct list    *cursor;
-    struct ifstub  *result = NULL;
-
-    EnterCriticalSection(&m->lock);
-    LIST_FOR_EACH( cursor, &m->ifstubs )
-    {
-        struct ifstub *ifstub = LIST_ENTRY( cursor, struct ifstub, entry );
-
-        if (IsEqualGUID(ipid, &ifstub->ipid))
-        {
-            result = ifstub;
-            break;
-        }
-    }
-    LeaveCriticalSection(&m->lock);
-
-    return result;
-}
-
-struct ifstub *stub_manager_find_ifstub(struct stub_manager *m, REFIID iid, MSHLFLAGS flags)
-{
-    struct ifstub  *result = NULL;
-    struct ifstub  *ifstub;
-
-    EnterCriticalSection(&m->lock);
-    LIST_FOR_EACH_ENTRY( ifstub, &m->ifstubs, struct ifstub, entry )
-    {
-        if (IsEqualIID(iid, &ifstub->iid) && (ifstub->flags == flags))
-        {
-            result = ifstub;
-            break;
-        }
-    }
-    LeaveCriticalSection(&m->lock);
-
-    return result;
-}
-
-/* creates a new stub manager and adds it into the apartment. caller must
- * release stub manager when it is no longer required. the apartment and
- * external refs together take one implicit ref */
-struct stub_manager *new_stub_manager(APARTMENT *apt, IUnknown *object)
-{
-    struct stub_manager *sm;
-
-    assert( apt );
-    
-    sm = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(struct stub_manager));
-    if (!sm) return NULL;
-
-    list_init(&sm->ifstubs);
-
-    InitializeCriticalSection(&sm->lock);
-    DEBUG_SET_CRITSEC_NAME(&sm->lock, "stub_manager");
-
-    IUnknown_AddRef(object);
-    sm->object = object;
-    sm->apt    = apt;
-
-    /* start off with 2 references because the stub is in the apartment
-     * and the caller will also hold a reference */
-    sm->refs   = 2;
-    sm->weakrefs = 0;
-
-    sm->oxid_info.dwPid = GetCurrentProcessId();
-    sm->oxid_info.dwTid = GetCurrentThreadId();
-    /*
-     * FIXME: this is a hack for marshalling IRemUnknown. In real
-     * DCOM, the IPID of the IRemUnknown interface is generated like
-     * any other and passed to the OXID resolver which then returns it
-     * when queried. We don't have an OXID resolver yet so instead we
-     * use a magic IPID reserved for IRemUnknown.
-     */
-    sm->oxid_info.ipidRemUnknown.Data1 = 0xffffffff;
-    sm->oxid_info.ipidRemUnknown.Data2 = 0xffff;
-    sm->oxid_info.ipidRemUnknown.Data3 = 0xffff;
-    assert(sizeof(sm->oxid_info.ipidRemUnknown.Data4) == sizeof(apt->oxid));
-    memcpy(sm->oxid_info.ipidRemUnknown.Data4, &apt->oxid, sizeof(OXID));
-    sm->oxid_info.dwAuthnHint = RPC_C_AUTHN_LEVEL_NONE;
-    sm->oxid_info.psa = NULL /* FIXME */;
-
-    /* Yes, that's right, this starts at zero. that's zero EXTERNAL
-     * refs, i.e., nobody has unmarshalled anything yet. We can't have
-     * negative refs because the stub manager cannot be explicitly
-     * killed, it has to die by somebody unmarshalling then releasing
-     * the marshalled ifptr.
-     */
-    sm->extrefs = 0;
-
-    EnterCriticalSection(&apt->cs);
-    sm->oid = apt->oidc++;
-    list_add_head(&apt->stubmgrs, &sm->entry);
-    LeaveCriticalSection(&apt->cs);
-
-    TRACE("Created new stub manager (oid=%s) at %p for object with IUnknown %p\n", wine_dbgstr_longlong(sm->oid), sm, object);
-    
-    return sm;
-}
-
-/* caller must remove stub manager from apartment prior to calling this function */
-static void stub_manager_delete(struct stub_manager *m)
-{
-    struct list *cursor;
-
-    TRACE("destroying %p (oid=%s)\n", m, wine_dbgstr_longlong(m->oid));
-
-    /* release every ifstub */
-    while ((cursor = list_head(&m->ifstubs)))
-    {
-        struct ifstub *ifstub = LIST_ENTRY(cursor, struct ifstub, entry);
-        stub_manager_delete_ifstub(m, ifstub);
-    }
-
-    CoTaskMemFree(m->oxid_info.psa);
-    IUnknown_Release(m->object);
-
-    DEBUG_CLEAR_CRITSEC_NAME(&m->lock);
-    DeleteCriticalSection(&m->lock);
-
-    HeapFree(GetProcessHeap(), 0, m);
-}
-
-/* increments the internal refcount */
-static ULONG stub_manager_int_addref(struct stub_manager *This)
-{
-    ULONG refs;
-
-    EnterCriticalSection(&This->apt->cs);
-    refs = ++This->refs;
-    LeaveCriticalSection(&This->apt->cs);
-
-    TRACE("before %d\n", refs - 1);
-
-    return refs;
-}
-
-/* decrements the internal refcount */
-ULONG stub_manager_int_release(struct stub_manager *This)
-{
-    ULONG refs;
-    APARTMENT *apt = This->apt;
-
-    EnterCriticalSection(&apt->cs);
-    refs = --This->refs;
-
-    TRACE("after %d\n", refs);
-
-    /* remove from apartment so no other thread can access it... */
-    if (!refs)
-        list_remove(&This->entry);
-
-    LeaveCriticalSection(&apt->cs);
-
-    /* ... so now we can delete it without being inside the apartment critsec */
-    if (!refs)
-        stub_manager_delete(This);
-
-    return refs;
-}
-
-/* gets the stub manager associated with an object - caller must have
- * a reference to the apartment while a reference to the stub manager is held.
- * it must also call release on the stub manager when it is no longer needed */
-struct stub_manager *get_stub_manager_from_object(APARTMENT *apt, void *object)
-{
-    struct stub_manager *result = NULL;
-    struct list         *cursor;
-
-    EnterCriticalSection(&apt->cs);
-    LIST_FOR_EACH( cursor, &apt->stubmgrs )
-    {
-        struct stub_manager *m = LIST_ENTRY( cursor, struct stub_manager, entry );
-
-        if (m->object == object)
-        {
-            result = m;
-            stub_manager_int_addref(result);
-            break;
-        }
-    }
-    LeaveCriticalSection(&apt->cs);
-
-    if (result)
-        TRACE("found %p for object %p\n", result, object);
-    else
-        TRACE("not found for object %p\n", object);
-
-    return result;    
-}
-
-/* removes the apartment reference to an object, destroying it when no other
- * threads have a reference to it */
-void apartment_disconnectobject(struct apartment *apt, void *object)
-{
-    int found = FALSE;
-    struct stub_manager *stubmgr;
-
-    EnterCriticalSection(&apt->cs);
-    LIST_FOR_EACH_ENTRY( stubmgr, &apt->stubmgrs, struct stub_manager, entry )
-    {
-        if (stubmgr->object == object)
-        {
-            found = TRUE;
-            stub_manager_int_release(stubmgr);
-            break;
-        }
-    }
-    LeaveCriticalSection(&apt->cs);
-
-    if (found)
-        TRACE("disconnect object %p\n", object);
-    else
-        WARN("couldn't find object %p\n", object);
-}
-
-/* gets the stub manager associated with an object id - caller must have
- * a reference to the apartment while a reference to the stub manager is held.
- * it must also call release on the stub manager when it is no longer needed */
-struct stub_manager *get_stub_manager(APARTMENT *apt, OID oid)
-{
-    struct stub_manager *result = NULL;
-    struct list         *cursor;
-
-    EnterCriticalSection(&apt->cs);
-    LIST_FOR_EACH( cursor, &apt->stubmgrs )
-    {
-        struct stub_manager *m = LIST_ENTRY( cursor, struct stub_manager, entry );
-
-        if (m->oid == oid)
-        {
-            result = m;
-            stub_manager_int_addref(result);
-            break;
-        }
-    }
-    LeaveCriticalSection(&apt->cs);
-
-    if (result)
-        TRACE("found %p for oid %s\n", result, wine_dbgstr_longlong(oid));
-    else
-        TRACE("not found for oid %s\n", wine_dbgstr_longlong(oid));
-
-    return result;
-}
-
-/* add some external references (ie from a client that unmarshaled an ifptr) */
-ULONG stub_manager_ext_addref(struct stub_manager *m, ULONG refs, BOOL tableweak)
-{
-    ULONG rc;
-
-    EnterCriticalSection(&m->lock);
-
-    /* make sure we don't overflow extrefs */
-    refs = min(refs, (ULONG_MAX-1 - m->extrefs));
-    rc = (m->extrefs += refs);
-
-    if (tableweak)
-        rc += ++m->weakrefs;
-
-    LeaveCriticalSection(&m->lock);
-    
-    TRACE("added %u refs to %p (oid %s), rc is now %u\n", refs, m, wine_dbgstr_longlong(m->oid), rc);
-
-    return rc;
-}
-
-/* remove some external references */
-ULONG stub_manager_ext_release(struct stub_manager *m, ULONG refs, BOOL tableweak, BOOL last_unlock_releases)
-{
-    ULONG rc;
-
-    EnterCriticalSection(&m->lock);
-
-    /* make sure we don't underflow extrefs */
-    refs = min(refs, m->extrefs);
-    rc = (m->extrefs -= refs);
-
-    if (tableweak)
-        rc += --m->weakrefs;
-
-    LeaveCriticalSection(&m->lock);
-    
-    TRACE("removed %u refs from %p (oid %s), rc is now %u\n", refs, m, wine_dbgstr_longlong(m->oid), rc);
-
-    if (rc == 0 && last_unlock_releases)
-        stub_manager_int_release(m);
-
-    return rc;
-}
-
-/* gets the stub manager associated with an ipid - caller must have
- * a reference to the apartment while a reference to the stub manager is held.
- * it must also call release on the stub manager when it is no longer needed */
-static struct stub_manager *get_stub_manager_from_ipid(APARTMENT *apt, const IPID *ipid)
-{
-    struct stub_manager *result = NULL;
-    struct list         *cursor;
-
-    EnterCriticalSection(&apt->cs);
-    LIST_FOR_EACH( cursor, &apt->stubmgrs )
-    {
-        struct stub_manager *m = LIST_ENTRY( cursor, struct stub_manager, entry );
-
-        if (stub_manager_ipid_to_ifstub(m, ipid))
-        {
-            result = m;
-            stub_manager_int_addref(result);
-            break;
-        }
-    }
-    LeaveCriticalSection(&apt->cs);
-
-    if (result)
-        TRACE("found %p for ipid %s\n", result, debugstr_guid(ipid));
-    else
-        ERR("not found for ipid %s\n", debugstr_guid(ipid));
-
-    return result;
-}
-
-static HRESULT ipid_to_stub_manager(const IPID *ipid, APARTMENT **stub_apt, struct stub_manager **stubmgr_ret)
-{
-    /* FIXME: hack for IRemUnknown */
-    if (ipid->Data2 == 0xffff)
-        *stub_apt = apartment_findfromoxid(*(const OXID *)ipid->Data4, TRUE);
-    else
-        *stub_apt = apartment_findfromtid(ipid->Data2);
-    if (!*stub_apt)
-    {
-        TRACE("Couldn't find apartment corresponding to TID 0x%04x\n", ipid->Data2);
-        return RPC_E_INVALID_OBJECT;
-    }
-    *stubmgr_ret = get_stub_manager_from_ipid(*stub_apt, ipid);
-    if (!*stubmgr_ret)
-    {
-        apartment_release(*stub_apt);
-        *stub_apt = NULL;
-        return RPC_E_INVALID_OBJECT;
-    }
-    return S_OK;
-}
-
-/* gets the apartment, stub and channel of an object. the caller must
- * release the references to all objects (except iface) if the function
- * returned success, otherwise no references are returned. */
-HRESULT ipid_get_dispatch_params(const IPID *ipid, APARTMENT **stub_apt,
-                                 IRpcStubBuffer **stub, IRpcChannelBuffer **chan,
-                                 IID *iid, IUnknown **iface)
-{
-    struct stub_manager *stubmgr;
-    struct ifstub *ifstub;
-    APARTMENT *apt;
-    HRESULT hr;
-
-    hr = ipid_to_stub_manager(ipid, &apt, &stubmgr);
-    if (hr != S_OK) return RPC_E_DISCONNECTED;
-
-    ifstub = stub_manager_ipid_to_ifstub(stubmgr, ipid);
-    if (ifstub)
-    {
-        *stub = ifstub->stubbuffer;
-        IRpcStubBuffer_AddRef(*stub);
-        *chan = ifstub->chan;
-        IRpcChannelBuffer_AddRef(*chan);
-        *stub_apt = apt;
-        *iid = ifstub->iid;
-        *iface = ifstub->iface;
-
-        stub_manager_int_release(stubmgr);
-        return S_OK;
-    }
-    else
-    {
-        stub_manager_int_release(stubmgr);
-        apartment_release(apt);
-        return RPC_E_DISCONNECTED;
-    }
-}
-
 /* returns TRUE if it is possible to unmarshal, FALSE otherwise. */
 BOOL stub_manager_notify_unmarshal(struct stub_manager *m, const IPID *ipid)
 {
@@ -539,28 +534,28 @@ BOOL stub_manager_notify_unmarshal(struct stub_manager *m, const IPID *ipid)
 }
 
 /* handles refcounting for CoReleaseMarshalData */
-void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs, const IPID *ipid, BOOL tableweak)
+void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs, const IPID *ipid)
 {
     struct ifstub *ifstub;
- 
+
     if (!(ifstub = stub_manager_ipid_to_ifstub(m, ipid)))
         return;
- 
+
     if (ifstub->flags & MSHLFLAGS_TABLEWEAK)
         refs = 0;
     else if (ifstub->flags & MSHLFLAGS_TABLESTRONG)
         refs = 1;
 
-    stub_manager_ext_release(m, refs, tableweak, TRUE);
+    stub_manager_ext_release(m, refs, TRUE);
 }
 
 /* is an ifstub table marshaled? */
 BOOL stub_manager_is_table_marshaled(struct stub_manager *m, const IPID *ipid)
 {
     struct ifstub *ifstub = stub_manager_ipid_to_ifstub(m, ipid);
- 
+
     assert( ifstub );
-    
+
     return ifstub->flags & (MSHLFLAGS_TABLESTRONG | MSHLFLAGS_TABLEWEAK);
 }
 
@@ -604,7 +599,7 @@ static HRESULT WINAPI RemUnknown_QueryInterface(IRemUnknown *iface, REFIID riid,
     if (IsEqualIID(riid, &IID_IUnknown) ||
         IsEqualIID(riid, &IID_IRemUnknown))
     {
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
         IRemUnknown_AddRef(iface);
         return S_OK;
     }
@@ -698,9 +693,9 @@ static HRESULT WINAPI RemUnknown_RemAddRef(IRemUnknown *iface,
             continue;
         }
 
-        stub_manager_ext_addref(stubmgr, InterfaceRefs[i].cPublicRefs, FALSE);
+        stub_manager_ext_addref(stubmgr, InterfaceRefs[i].cPublicRefs);
         if (InterfaceRefs[i].cPrivateRefs)
-            FIXME("Adding %d refs securely not implemented\n", InterfaceRefs[i].cPrivateRefs);
+            FIXME("Adding %ld refs securely not implemented\n", InterfaceRefs[i].cPrivateRefs);
 
         stub_manager_int_release(stubmgr);
         apartment_release(apt);
@@ -731,9 +726,9 @@ static HRESULT WINAPI RemUnknown_RemRelease(IRemUnknown *iface,
             break;
         }
 
-        stub_manager_ext_release(stubmgr, InterfaceRefs[i].cPublicRefs, FALSE, TRUE);
+        stub_manager_ext_release(stubmgr, InterfaceRefs[i].cPublicRefs, TRUE);
         if (InterfaceRefs[i].cPrivateRefs)
-            FIXME("Releasing %d refs securely not implemented\n", InterfaceRefs[i].cPrivateRefs);
+            FIXME("Releasing %ld refs securely not implemented\n", InterfaceRefs[i].cPrivateRefs);
 
         stub_manager_int_release(stubmgr);
         apartment_release(apt);

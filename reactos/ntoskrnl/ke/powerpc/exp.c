@@ -13,9 +13,24 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <debug.h>
-#include <ppcmmu/mmu.h>
 
 /* FUNCTIONS *****************************************************************/
+
+_SEH_DEFINE_LOCALS(KiCopyInfo)
+{
+    volatile EXCEPTION_RECORD SehExceptRecord;
+};
+
+_SEH_FILTER(KiCopyInformation)
+{
+    _SEH_ACCESS_LOCALS(KiCopyInfo);
+
+    /* Copy the exception records and return to the handler */
+    RtlMoveMemory((PVOID)&_SEH_VAR(SehExceptRecord),
+                  _SEH_GetExceptionPointers()->ExceptionRecord,
+                  sizeof(EXCEPTION_RECORD));
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 
 VOID
 INIT_FUNCTION
@@ -85,10 +100,6 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                     IN KPROCESSOR_MODE PreviousMode,
                     IN BOOLEAN FirstChance)
 {
-    DbgPrint("EXCEPTION! Record %08x Frame %08x\n",
-             ExceptionRecord, ExceptionFrame);
-    MmuDumpMap();
-    KeBugCheck(0);
 }
 
 /*

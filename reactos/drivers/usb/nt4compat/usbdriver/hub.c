@@ -122,7 +122,7 @@ free_event(PUSB_EVENT_POOL pool, PUSB_EVENT pevent)
     }
 
     RtlZeroMemory(pevent, sizeof(USB_EVENT));
-    InsertTailList(&pool->free_que, &pevent->event_link);
+    InsertTailList(&pool->free_que, (PLIST_ENTRY) pevent);
     pool->free_count++;
     usb_dbg_print(DBGLVL_MAXIMUM + 1,
                   ("free_event(): alloced=0x%x, addr=0x%x\n", MAX_EVENTS - pool->free_count, pevent));
@@ -204,7 +204,7 @@ free_timer_svc(PTIMER_SVC_POOL pool, PTIMER_SVC ptimer)
         return FALSE;
 
     RtlZeroMemory(ptimer, sizeof(TIMER_SVC));
-    InsertTailList(&pool->free_que, &ptimer->timer_svc_link);
+    InsertTailList(&pool->free_que, (PLIST_ENTRY) & ptimer->timer_svc_link);
     pool->free_count++;
 
     return TRUE;
@@ -432,14 +432,13 @@ hub_start_int_request(PUSB_DEV pdev)
         return STATUS_DEVICE_DOES_NOT_EXIST;
     }
     purb = usb_alloc_mem(NonPagedPool, sizeof(URB));
+    RtlZeroMemory(purb, sizeof(URB));
 
     if (purb == NULL)
     {
         unlock_dev(pdev, FALSE);
         return STATUS_NO_MEMORY;
     }
-
-    RtlZeroMemory(purb, sizeof(URB));
 
     purb->flags = 0;
     purb->status = STATUS_SUCCESS;
@@ -763,12 +762,10 @@ hub_clear_port_feature_completion(PURB purb, PVOID context)
                 //
                 // do not think the device is workable, no requests to it any more.
                 // including the int polling
-
-                if (purb)
-                    usb_free_mem(purb);
-
-                if (port_idx)
-                    hub_check_reset_port_status(pdev, port_idx);
+                //
+                // usb_free_mem( purb );
+                //
+                goto LBL_SCAN_PORT_STAT;
             }
         }
         return;
@@ -1243,7 +1240,6 @@ hub_event_dev_stable(PUSB_DEV pdev,
         //Let's start a reset port request
         InsertHeadList(&dev_mgr->event_list, &pevent->event_link);
         purb = usb_alloc_mem(NonPagedPool, sizeof(URB));
-        if (!purb) goto LBL_OUT;
         RtlZeroMemory(purb, sizeof(URB));
 
         purb->data_buffer = NULL;
@@ -1298,7 +1294,7 @@ hub_start_reset_port_completion(PURB purb, PVOID context)
     ULONG port_idx;
     PHCD hcd;
 
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
     if (purb == NULL)
         return;
 
@@ -1464,7 +1460,7 @@ hub_disable_port_request(PUSB_DEV pdev, UCHAR port_idx)
     PUSB_CTRL_SETUP_PACKET psetup;
     NTSTATUS status;
     PHCD hcd;
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
 
     if (pdev == NULL || port_idx == 0)
         return STATUS_INVALID_PARAMETER;
@@ -1593,7 +1589,7 @@ hub_start_next_reset_port(PUSB_DEV_MANAGER dev_mgr, BOOLEAN from_dpc)
     PUSB_CTRL_SETUP_PACKET psetup;
     PHCD hcd = NULL;
 
-    USE_NON_PENDING_IRQL;
+    USE_NON_PENDING_IRQL;;
 
     if (dev_mgr == NULL)
         return FALSE;
@@ -1634,15 +1630,6 @@ hub_start_next_reset_port(PUSB_DEV_MANAGER dev_mgr, BOOLEAN from_dpc)
             }
 
             purb = usb_alloc_mem(NonPagedPool, sizeof(URB));
-            if (!purb)
-            {
-                if (from_dpc)
-                    KeReleaseSpinLockFromDpcLevel(&dev_mgr->event_list_lock);
-                else
-                    KeReleaseSpinLock(&dev_mgr->event_list_lock, old_irql);
-                return FALSE;
-            }
-
             RtlZeroMemory(purb, sizeof(URB));
 
             purb->data_buffer = NULL;
@@ -1718,7 +1705,6 @@ hub_post_esq_event(PUSB_DEV pdev, BYTE port_idx, PROCESS_EVENT pe)
     dev_mgr = dev_mgr_from_dev(pdev);
 
     pevent = alloc_event(&dev_mgr->event_pool, 1);
-    if (!pevent) return;
     pevent->event = USB_EVENT_DEFAULT;
     pevent->process_queue = event_list_default_process_queue;
     pevent->process_event = pe;
@@ -1750,7 +1736,7 @@ hub_check_reset_port_status(PUSB_DEV pdev, LONG port_idx)
     PUSB_CTRL_SETUP_PACKET psetup;
     ULONG status;
 
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
 
     //let's check whether the status change is a reset complete
     usb_dbg_print(DBGLVL_MAXIMUM, ("hub_check_reset_port_status(): entering...\n"));
@@ -1884,7 +1870,7 @@ hub_reexamine_port_status_queue(PUSB_DEV hub_dev, ULONG port_idx, BOOLEAN from_d
     PHUB2_EXTENSION hub_ext;
     PUSB_DEV_MANAGER dev_mgr;
 
-    USE_NON_PENDING_IRQL;
+    USE_NON_PENDING_IRQL;;
 
     if (hub_dev == NULL || port_idx == 0)
         return;
@@ -2045,7 +2031,7 @@ hub_set_cfg_completion(PURB purb, PVOID pcontext)
     PUSB_INTERFACE pif;
     BOOLEAN high_speed, multiple_tt;
     NTSTATUS status;
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
 
     if (purb == NULL || pcontext == NULL)
         return;
@@ -2223,7 +2209,7 @@ hub_power_on_port(PUSB_DEV pdev, UCHAR port_idx)
     PURB purb;
     PHCD hcd;
 
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
     if (pdev == NULL || port_idx == 0)
         return STATUS_INVALID_PARAMETER;
 
@@ -2284,7 +2270,7 @@ hub_get_hub_desc_completion(PURB purb, PVOID pcontext)
     PUSB_DRIVER pdriver;
     DEV_HANDLE dev_handle;
 
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
 
     if (purb == NULL)
     {
@@ -2402,7 +2388,7 @@ hub_lock_unlock_tt(PUSB_DEV pdev, UCHAR port_idx, UCHAR type, BOOLEAN lock)
     PHUB2_EXTENSION dev_ext;
     PULONG pmap = NULL;
 
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
 
     if (pdev == NULL || port_idx > 127)
         return FALSE;
@@ -2497,7 +2483,7 @@ hub_clear_tt_buffer(PUSB_DEV pdev, URB_HS_PIPE_CONTENT pipe_content, UCHAR port_
     PHUB2_EXTENSION hub_ext;
     PHCD hcd;
     NTSTATUS status;
-    USE_BASIC_NON_PENDING_IRQL;
+    USE_BASIC_NON_PENDING_IRQL;;
 
     if (pdev == NULL)
         return FALSE;
@@ -2519,14 +2505,13 @@ hub_clear_tt_buffer(PUSB_DEV pdev, URB_HS_PIPE_CONTENT pipe_content, UCHAR port_
         return FALSE;
     }
     purb = usb_alloc_mem(NonPagedPool, sizeof(URB));
+    RtlZeroMemory(purb, sizeof(URB));
 
     if (purb == NULL)
     {
         unlock_dev(pdev, FALSE);
         return FALSE;
     }
-
-    RtlZeroMemory(purb, sizeof(URB));
 
     purb->flags = 0;
     purb->status = STATUS_SUCCESS;
@@ -2586,7 +2571,7 @@ hub_post_clear_tt_event(PUSB_DEV pdev, BYTE port_idx, ULONG pipe)
 {
     PUSB_DEV_MANAGER dev_mgr;
     PUSB_EVENT pevent;
-    USE_NON_PENDING_IRQL;
+    USE_NON_PENDING_IRQL;;
 
     dev_mgr = dev_mgr_from_dev(pdev);
 
@@ -2703,7 +2688,7 @@ remove_irp_from_list(PIRP_LIST irp_list,
     PUSB_ENDPOINT pendp;
     PHCD hcd;
 
-    USE_NON_PENDING_IRQL;
+    USE_NON_PENDING_IRQL;;
 
     if (irp_list == NULL || pirp == NULL)
         return NULL;

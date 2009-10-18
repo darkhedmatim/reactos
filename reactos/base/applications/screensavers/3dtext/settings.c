@@ -26,30 +26,30 @@
 
 TCHAR m_Text[MAX_PATH];
 
-VOID LoadSettings(VOID)
+void LoadSettings()
 {
 	HKEY hkey;
-	DWORD len = MAX_PATH * sizeof(TCHAR);
+	DWORD len = MAX_PATH;
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, _T("Software\\Microsoft\\ScreenSavers\\Text3D"), 0,
 		_T(""), 0, KEY_READ, NULL, &hkey, NULL);
 
-	if (RegQueryValueEx(hkey, _T("DisplayString"), NULL, NULL, (LPBYTE)m_Text, &len) != ERROR_SUCCESS)
+	if(RegQueryValueEx(hkey, _T("DisplayString"),  0, 0, (LPBYTE)m_Text, &len) != ERROR_SUCCESS)
 	{
-		_tcscpy(m_Text, _TEXT("ReactOS Rocks!"));
+		_tcscpy(m_Text  , _TEXT("ReactOS Rocks!"));
 	}
 
 	RegCloseKey(hkey);
 }
 
-VOID SaveSettings(VOID)
+void SaveSettings()
 {
 	HKEY hkey;
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, _T("Software\\Microsoft\\ScreenSavers\\Text3D"), 0,
 		_T(""), 0, KEY_WRITE, NULL, &hkey, NULL);
 
-	RegSetValueEx(hkey, _T("DisplayString"), 0, REG_SZ, (LPBYTE)m_Text, (_tcslen(m_Text) + 1) * sizeof(TCHAR));
+	RegSetValueEx(hkey, _T("DisplayString"), 0, REG_SZ, (BYTE *)&m_Text, sizeof (m_Text));
 
 	RegCloseKey(hkey);
 }

@@ -9,8 +9,6 @@
 /* INCLUDES ******************************************************************/
 
 #include "svchost.h"
-
-#define NDEBUG
 #include <debug.h>
 
 #ifdef _MSC_VER
@@ -142,7 +140,7 @@ BOOL PrepareService(LPCTSTR ServiceName)
 	return TRUE;
 }
 
-VOID FreeServices(VOID)
+VOID FreeServices()
 {
 	while (FirstService)
 	{

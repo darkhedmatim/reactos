@@ -10,15 +10,6 @@
 #include <ndk/ntndk.h>
 #include <fmifs/fmifs.h>
 
-#include "check/dosfsck.h"
-#include "check/common.h"
-#include "check/io.h"
-#include "check/lfn.h"
-#include "check/boot.h"
-#include "check/fat.h"
-#include "check/file.h"
-#include "check/check.h"
-
 #define SECTORSIZE 512
 
 #include <pshpack1.h>
@@ -138,8 +129,5 @@ Fat32Format (HANDLE FileHandle,
 VOID
 UpdateProgress (PFORMAT_CONTEXT Context,
 		ULONG Increment);
-
-VOID
-VfatPrint(PCHAR Format, ...);
 
 /* EOF */

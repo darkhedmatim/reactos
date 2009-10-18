@@ -32,7 +32,7 @@ static HRESULT WINAPI IDirect3DQuery9Impl_QueryInterface(LPDIRECT3DQUERY9 iface,
 
     if (IsEqualGUID(riid, &IID_IUnknown)
         || IsEqualGUID(riid, &IID_IDirect3DQuery9)) {
-        IDirect3DQuery9_AddRef(iface);
+        IUnknown_AddRef(iface);
         *ppobj = This;
         return S_OK;
     }
@@ -57,11 +57,10 @@ static ULONG WINAPI IDirect3DQuery9Impl_Release(LPDIRECT3DQUERY9 iface) {
     TRACE("(%p) : ReleaseRef to %d\n", This, ref);
 
     if (ref == 0) {
-        wined3d_mutex_lock();
+        EnterCriticalSection(&d3d9_cs);
         IWineD3DQuery_Release(This->wineD3DQuery);
-        wined3d_mutex_unlock();
-
-        IDirect3DDevice9Ex_Release(This->parentDevice);
+        LeaveCriticalSection(&d3d9_cs);
+        IUnknown_Release(This->parentDevice);
         HeapFree(GetProcessHeap(), 0, This);
     }
     return ref;
@@ -75,7 +74,7 @@ static HRESULT WINAPI IDirect3DQuery9Impl_GetDevice(LPDIRECT3DQUERY9 iface, IDir
 
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
+    EnterCriticalSection(&d3d9_cs);
     hr = IWineD3DQuery_GetDevice(This->wineD3DQuery, &pDevice);
     if(hr != D3D_OK){
         *ppDevice = NULL;
@@ -83,8 +82,7 @@ static HRESULT WINAPI IDirect3DQuery9Impl_GetDevice(LPDIRECT3DQUERY9 iface, IDir
         hr = IWineD3DDevice_GetParent(pDevice, (IUnknown **)ppDevice);
         IWineD3DDevice_Release(pDevice);
     }
-    wined3d_mutex_unlock();
-
+    LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
 
@@ -93,10 +91,9 @@ static D3DQUERYTYPE WINAPI IDirect3DQuery9Impl_GetType(LPDIRECT3DQUERY9 iface) {
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
+    EnterCriticalSection(&d3d9_cs);
     hr = IWineD3DQuery_GetType(This->wineD3DQuery);
-    wined3d_mutex_unlock();
-
+    LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
 
@@ -105,10 +102,9 @@ static DWORD WINAPI IDirect3DQuery9Impl_GetDataSize(LPDIRECT3DQUERY9 iface) {
     DWORD ret;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
+    EnterCriticalSection(&d3d9_cs);
     ret = IWineD3DQuery_GetDataSize(This->wineD3DQuery);
-    wined3d_mutex_unlock();
-
+    LeaveCriticalSection(&d3d9_cs);
     return ret;
 }
 
@@ -117,10 +113,9 @@ static HRESULT WINAPI IDirect3DQuery9Impl_Issue(LPDIRECT3DQUERY9 iface, DWORD dw
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
+    EnterCriticalSection(&d3d9_cs);
     hr = IWineD3DQuery_Issue(This->wineD3DQuery, dwIssueFlags);
-    wined3d_mutex_unlock();
-
+    LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
 
@@ -129,10 +124,9 @@ static HRESULT WINAPI IDirect3DQuery9Impl_GetData(LPDIRECT3DQUERY9 iface, void* 
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
+    EnterCriticalSection(&d3d9_cs);
     hr = IWineD3DQuery_GetData(This->wineD3DQuery, pData, dwSize, dwGetDataFlags);
-    wined3d_mutex_unlock();
-
+    LeaveCriticalSection(&d3d9_cs);
     return hr;
 }
 
@@ -151,7 +145,7 @@ static const IDirect3DQuery9Vtbl Direct3DQuery9_Vtbl =
 
 
 /* IDirect3DDevice9 IDirect3DQuery9 Methods follow: */
-HRESULT WINAPI IDirect3DDevice9Impl_CreateQuery(LPDIRECT3DDEVICE9EX iface, D3DQUERYTYPE Type, IDirect3DQuery9** ppQuery) {
+HRESULT WINAPI IDirect3DDevice9Impl_CreateQuery(LPDIRECT3DDEVICE9 iface, D3DQUERYTYPE Type, IDirect3DQuery9** ppQuery) {
     IDirect3DDevice9Impl *This = (IDirect3DDevice9Impl *)iface;
     IDirect3DQuery9Impl *object = NULL;
     HRESULT hr = D3D_OK;
@@ -160,34 +154,32 @@ HRESULT WINAPI IDirect3DDevice9Impl_CreateQuery(LPDIRECT3DDEVICE9EX iface, D3DQU
 
     if (!ppQuery)
     {
-        wined3d_mutex_lock();
+        EnterCriticalSection(&d3d9_cs);
         hr = IWineD3DDevice_CreateQuery(This->WineD3DDevice, Type, NULL, NULL);
-        wined3d_mutex_unlock();
-
+        LeaveCriticalSection(&d3d9_cs);
         return hr;
     }
 
     /* Allocate the storage for the device */
     object = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IDirect3DQuery9Impl));
     if (NULL == object) {
-        ERR("Allocation of memory failed, returning D3DERR_OUTOFVIDEOMEMORY\n");
+        FIXME("Allocation of memory failed, returning D3DERR_OUTOFVIDEOMEMORY\n");
         return D3DERR_OUTOFVIDEOMEMORY;
     }
 
     object->lpVtbl = &Direct3DQuery9_Vtbl;
     object->ref = 1;
-
-    wined3d_mutex_lock();
+    EnterCriticalSection(&d3d9_cs);
     hr = IWineD3DDevice_CreateQuery(This->WineD3DDevice, Type, &object->wineD3DQuery, (IUnknown *)object);
-    wined3d_mutex_unlock();
+    LeaveCriticalSection(&d3d9_cs);
 
     if (FAILED(hr)) {
 
         /* free up object */
-        WARN("(%p) call to IWineD3DDevice_CreateQuery failed\n", This);
+        FIXME("(%p) call to IWineD3DDevice_CreateQuery failed\n", This);
         HeapFree(GetProcessHeap(), 0, object);
     } else {
-        IDirect3DDevice9Ex_AddRef(iface);
+        IUnknown_AddRef(iface);
         object->parentDevice = iface;
         *ppQuery = (LPDIRECT3DQUERY9) object;
         TRACE("(%p) : Created query %p\n", This , object);

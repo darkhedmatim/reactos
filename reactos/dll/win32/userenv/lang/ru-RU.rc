@@ -22,7 +22,7 @@ STRINGTABLE
 BEGIN
     IDS_PROFILEPATH    "%SystemDrive%\\Documents and Settings"
     IDS_APPDATA        "Application Data"
-    IDS_DESKTOP        "Рабочий стол"
+    IDS_DESKTOP        "Desktop"
     IDS_FAVORITES      "Избранное"
     IDS_STARTMENU      "Главное меню"
     IDS_PROGRAMS       "Главное меню\\Программы"
@@ -44,5 +44,4 @@ BEGIN
     IDS_HISTORY        "Local Settings\\History"
     IDS_COOKIES        "Cookies"
     IDS_PROGRAMFILES   "%SystemDrive%\\Program Files"
-    IDS_COMMONFILES    "Common Files"
 END

@@ -11,12 +11,7 @@ enum
 #define KD_SECONDARY_VERSION_AMD64_OBSOLETE_CONTEXT_1   0
 #define KD_SECONDARY_VERSION_AMD64_OBSOLETE_CONTEXT_2   1
 #define KD_SECONDARY_VERSION_AMD64_CONTEXT              2
-
-#if defined(_AMD64_)
-#define CURRENT_KD_SECONDARY_VERSION                    KD_SECONDARY_VERSION_AMD64_CONTEXT
-#else
 #define CURRENT_KD_SECONDARY_VERSION                    KD_SECONDARY_VERSION_DEFAULT
-#endif
 
 #define DBGKD_VERS_FLAG_MP                              0x0001
 #define DBGKD_VERS_FLAG_DATA                            0x0002
@@ -25,102 +20,7 @@ enum
 #define DBGKD_VERS_FLAG_HSS                             0x0010
 #define DBGKD_VERS_FLAG_PARTITIONS                      0x0020
 
-#define KDBG_TAG                                        'GBDK'
-
-typedef struct _DBGKD_GET_VERSION32
-{
-    USHORT MajorVersion;
-    USHORT MinorVersion;
-    USHORT ProtocolVersion;
-    USHORT Flags;
-    ULONG KernBase;
-    ULONG PsLoadedModuleList;
-    USHORT MachineType;
-    USHORT ThCallbackStack;
-    USHORT NextCallback;
-    USHORT FramePointer;
-    ULONG KiCallUserMode;
-    ULONG KeUserCallbackDispatcher;
-    ULONG BreakpointWithStatus;
-    ULONG DebuggerDataList;
-} DBGKD_GET_VERSION32, *PDBGKD_GET_VERSION32;
-
-typedef struct _DBGKD_DEBUG_DATA_HEADER32
-{
-    LIST_ENTRY32 List;
-    ULONG OwnerTag;
-    ULONG Size;
-} DBGKD_DEBUG_DATA_HEADER32, *PDBGKD_DEBUG_DATA_HEADER32;
-
-typedef struct _KDDEBUGGER_DATA32
-{
-    DBGKD_DEBUG_DATA_HEADER32 Header;
-    ULONG KernBase;
-    ULONG BreakpointWithStatus;
-    ULONG SavedContext;
-    USHORT ThCallbackStack;
-    USHORT NextCallback;
-    USHORT FramePointer;
-    USHORT PaeEnabled:1;
-    ULONG KiCallUserMode;
-    ULONG KeUserCallbackDispatcher;
-    ULONG PsLoadedModuleList;
-    ULONG PsActiveProcessHead;
-    ULONG PspCidTable;
-    ULONG ExpSystemResourcesList;
-    ULONG ExpPagedPoolDescriptor;
-    ULONG ExpNumberOfPagedPools;
-    ULONG KeTimeIncrement;
-    ULONG KeBugCheckCallbackListHead;
-    ULONG KiBugcheckData;
-    ULONG IopErrorLogListHead;
-    ULONG ObpRootDirectoryObject;
-    ULONG ObpTypeObjectType;
-    ULONG MmSystemCacheStart;
-    ULONG MmSystemCacheEnd;
-    ULONG MmSystemCacheWs;
-    ULONG MmPfnDatabase;
-    ULONG MmSystemPtesStart;
-    ULONG MmSystemPtesEnd;
-    ULONG MmSubsectionBase;
-    ULONG MmNumberOfPagingFiles;
-    ULONG MmLowestPhysicalPage;
-    ULONG MmHighestPhysicalPage;
-    ULONG MmNumberOfPhysicalPages;
-    ULONG MmMaximumNonPagedPoolInBytes;
-    ULONG MmNonPagedSystemStart;
-    ULONG MmNonPagedPoolStart;
-    ULONG MmNonPagedPoolEnd;
-    ULONG MmPagedPoolStart;
-    ULONG MmPagedPoolEnd;
-    ULONG MmPagedPoolInformation;
-    ULONG MmPageSize;
-    ULONG MmSizeOfPagedPoolInBytes;
-    ULONG MmTotalCommitLimit;
-    ULONG MmTotalCommittedPages;
-    ULONG MmSharedCommit;
-    ULONG MmDriverCommit;
-    ULONG MmProcessCommit;
-    ULONG MmPagedPoolCommit;
-    ULONG MmExtendedCommit;
-    ULONG MmZeroedPageListHead;
-    ULONG MmFreePageListHead;
-    ULONG MmStandbyPageListHead;
-    ULONG MmModifiedPageListHead;
-    ULONG MmModifiedNoWritePageListHead;
-    ULONG MmAvailablePages;
-    ULONG MmResidentAvailablePages;
-    ULONG PoolTrackTable;
-    ULONG NonPagedPoolDescriptor;
-    ULONG MmHighestUserAddress;
-    ULONG MmSystemRangeStart;
-    ULONG MmUserProbeAddress;
-    ULONG KdPrintCircularBuffer;
-    ULONG KdPrintCircularBufferEnd;
-    ULONG KdPrintWritePointer;
-    ULONG KdPrintRolloverCount;
-    ULONG MmLoadedUserImageList;
-} KDDEBUGGER_DATA32, *PKDDEBUGGER_DATA32;
+#define KDBG_TAG                                        TAG('K', 'D', 'B', 'G')
 
 typedef struct _DBGKD_GET_VERSION64
 {
@@ -164,7 +64,7 @@ typedef struct _KDDEBUGGER_DATA64
     USHORT FramePointer;
     USHORT PaeEnabled:1;
     GCC_ULONG64 KiCallUserMode;
-    ULONG64 KeUserCallbackDispatcher;
+    GCC_ULONG64 KeUserCallbackDispatcher;
     GCC_ULONG64 PsLoadedModuleList;
     GCC_ULONG64 PsActiveProcessHead;
     GCC_ULONG64 PspCidTable;

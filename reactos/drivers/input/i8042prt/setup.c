@@ -42,8 +42,125 @@ IsFirstStageSetup(
 
 	if (hSetupKey != (HANDLE)NULL)
 		ZwClose(hSetupKey);
-	INFO_(I8042PRT, "IsFirstStageSetup() returns %s\n", ret ? "YES" : "NO");
+	DPRINT("IsFirstStageSetup() returns %s\n", ret ? "YES" : "NO");
 	return ret;
+}
+
+static VOID NTAPI
+SendStartDevice(
+	IN PDRIVER_OBJECT DriverObject,
+	IN PVOID Context,
+	IN ULONG Count)
+{
+	PDEVICE_OBJECT Pdo;
+	PCM_RESOURCE_LIST AllocatedResources = NULL;
+	PCM_RESOURCE_LIST AllocatedResourcesTranslated = NULL;
+	PDEVICE_OBJECT TopDeviceObject = NULL;
+	KEVENT Event;
+	IO_STATUS_BLOCK IoStatusBlock;
+	PIRP Irp;
+	PIO_STACK_LOCATION Stack;
+	ULONG ResourceListSize;
+	NTSTATUS Status;
+
+	Pdo = (PDEVICE_OBJECT)Context;
+	DPRINT("SendStartDevice(%p)\n", Pdo);
+
+	/* Create default resource list */
+	ResourceListSize = sizeof(CM_RESOURCE_LIST) + 3 * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
+	AllocatedResources = ExAllocatePoolWithTag(PagedPool, ResourceListSize, I8042PRT_TAG);
+	if (!AllocatedResources)
+	{
+		DPRINT("ExAllocatePoolWithTag() failed\n");
+		Status = STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	AllocatedResources->Count = 1;
+	AllocatedResources->List[0].PartialResourceList.Version = 1;
+	AllocatedResources->List[0].PartialResourceList.Revision = 1;
+	AllocatedResources->List[0].PartialResourceList.Count = 3;
+	/* Data port */
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[0].Type = CmResourceTypePort;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[0].ShareDisposition = CmResourceShareDeviceExclusive;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[0].Flags = 0; /* FIXME */
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[0].u.Port.Start.u.HighPart = 0;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[0].u.Port.Start.u.LowPart = KEYBOARD_DATA_PORT;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[0].u.Port.Length = 1;
+	/* Control port */
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[1].Type = CmResourceTypePort;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[1].ShareDisposition = CmResourceShareDeviceExclusive;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[1].Flags = 0; /* FIXME */
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[1].u.Port.Start.u.HighPart = 0;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[1].u.Port.Start.u.LowPart = KEYBOARD_CONTROL_PORT;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[1].u.Port.Length = 1;
+	/* Interrupt */
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].Type = CmResourceTypeInterrupt;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].ShareDisposition = CmResourceShareDeviceExclusive;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].Flags = CM_RESOURCE_INTERRUPT_LATCHED;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Level = KEYBOARD_IRQ;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Vector = 0;
+	AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Affinity = (KAFFINITY)-1;
+
+	/* Create default resource list translated */
+	AllocatedResourcesTranslated = ExAllocatePoolWithTag(PagedPool, ResourceListSize, I8042PRT_TAG);
+	if (!AllocatedResourcesTranslated)
+	{
+		DPRINT("ExAllocatePoolWithTag() failed\n");
+		Status = STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	RtlCopyMemory(AllocatedResourcesTranslated, AllocatedResources, ResourceListSize);
+	AllocatedResourcesTranslated->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Vector = HalGetInterruptVector(
+			Internal, 0,
+			AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Level,
+			AllocatedResources->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Vector,
+			(PKIRQL)&AllocatedResourcesTranslated->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Level,
+			&AllocatedResourcesTranslated->List[0].PartialResourceList.PartialDescriptors[2].u.Interrupt.Affinity);
+
+	/* Send IRP_MN_START_DEVICE */
+	TopDeviceObject = IoGetAttachedDeviceReference(Pdo);
+	KeInitializeEvent(
+		&Event,
+		NotificationEvent,
+		FALSE);
+	Irp = IoBuildSynchronousFsdRequest(
+		IRP_MJ_PNP,
+		TopDeviceObject,
+		NULL,
+		0,
+		NULL,
+		&Event,
+		&IoStatusBlock);
+	Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
+	Irp->IoStatus.Information = 0;
+	Stack = IoGetNextIrpStackLocation(Irp);
+	Stack->MinorFunction = IRP_MN_START_DEVICE;
+	Stack->Parameters.StartDevice.AllocatedResources = AllocatedResources;
+	Stack->Parameters.StartDevice.AllocatedResourcesTranslated = AllocatedResourcesTranslated;
+	Status = IoCallDriver(TopDeviceObject, Irp);
+	if (Status == STATUS_PENDING)
+	{
+		KeWaitForSingleObject(
+			&Event,
+			Executive,
+			KernelMode,
+			FALSE,
+			NULL);
+		Status = IoStatusBlock.Status;
+	}
+	if (!NT_SUCCESS(Status))
+	{
+		DPRINT("IoCallDriver() failed with status 0x%08lx\n", Status);
+		goto cleanup;
+	}
+
+cleanup:
+	if (TopDeviceObject)
+		ObDereferenceObject(TopDeviceObject);
+	if (AllocatedResources)
+		ExFreePoolWithTag(AllocatedResources, I8042PRT_TAG);
+	if (AllocatedResourcesTranslated)
+		ExFreePoolWithTag(AllocatedResourcesTranslated, I8042PRT_TAG);
 }
 
 static NTSTATUS
@@ -63,7 +180,7 @@ AddRegistryEntry(
 	Status = ZwOpenKey(&hDeviceMapKey, 0, &ObjectAttributes);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(I8042PRT, "ZwOpenKey() failed with status 0x%08lx\n", Status);
+		DPRINT("ZwOpenKey() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
@@ -72,14 +189,14 @@ AddRegistryEntry(
 	Status = ZwCreateKey(&hPortKey, KEY_SET_VALUE, &ObjectAttributes, 0, NULL, REG_OPTION_VOLATILE, NULL);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(I8042PRT, "ZwCreateKey() failed with status 0x%08lx\n", Status);
+		DPRINT("ZwCreateKey() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
 	Status = ZwSetValueKey(hPortKey, DeviceName, 0, REG_SZ, (PVOID)RegistryPath, wcslen(RegistryPath) * sizeof(WCHAR) + sizeof(UNICODE_NULL));
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(I8042PRT, "ZwSetValueKey() failed with status 0x%08lx\n", Status);
+		DPRINT("ZwSetValueKey() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
@@ -103,7 +220,7 @@ i8042AddLegacyKeyboard(
 	PDEVICE_OBJECT Pdo = NULL;
 	NTSTATUS Status;
 
-	TRACE_(I8042PRT, "i8042AddLegacyKeyboard()\n");
+	DPRINT("i8042AddLegacyKeyboard()\n");
 
 	/* Create a named PDO */
 	Status = IoCreateDevice(
@@ -116,7 +233,7 @@ i8042AddLegacyKeyboard(
 		&Pdo);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(I8042PRT, "IoCreateDevice() failed with status 0x%08lx\n", Status);
+		DPRINT("IoCreateDevice() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
@@ -130,12 +247,16 @@ i8042AddLegacyKeyboard(
 	Status = i8042AddDevice(DriverObject, Pdo);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(I8042PRT, "i8042AddDevice() failed with status 0x%08lx\n", Status);
+		DPRINT("i8042AddDevice() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
-	/* We will send the IRP_MN_START_DEVICE later when kbdclass looks for legacy drivers */
+	/* We will send the IRP_MN_START_DEVICE later, once kbdclass is loaded */
 	AddRegistryEntry(L"KeyboardPort", &KeyboardName, RegistryPath->Buffer);
+	IoRegisterBootDriverReinitialization(
+		DriverObject,
+		SendStartDevice,
+		Pdo);
 
 	Status = STATUS_SUCCESS;
 	/* Yes, completly forget the Pdo pointer, as we will never

@@ -1,35 +1,39 @@
 /*
- * Copyright (C) 2007 Google (Evan Stade)
+ * GdiPlusMem.h
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * Windows GDI+
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * This file is part of the w32api package.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * THIS SOFTWARE IS NOT COPYRIGHTED
+ *
+ * This source code is offered for use in the public domain. You may
+ * use, modify or distribute it freely.
+ *
+ * This code is distributed in the hope that it will be useful but
+ * WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
+ * DISCLAIMED. This includes but is not limited to warranties of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #ifndef _GDIPLUSMEM_H
 #define _GDIPLUSMEM_H
 
-#define WINGDIPAPI __stdcall
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void* WINGDIPAPI GdipAlloc(SIZE_T) __WINE_ALLOC_SIZE(1);
-void WINGDIPAPI GdipFree(void*);
+#define WINGDIPAPI __stdcall
+
+void* WINGDIPAPI GdipAlloc(size_t size);
+void WINGDIPAPI GdipFree(void* ptr);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* _GDIPLUSMEM_H */

@@ -13,9 +13,6 @@ _wtol(const wchar_t *str)
     unsigned long RunningTotal = 0;
     char bMinus = 0;
 
-    if (str == NULL)
-        return 0;
-
     while (iswctype(*str, _SPACE) ) {
         str++;
     } /* while */

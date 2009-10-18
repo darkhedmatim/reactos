@@ -26,12 +26,12 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/colormac.h"
-#include "main/context.h"
-#include "main/macros.h"
-#include "main/imports.h"
-#include "main/mtypes.h"
+#include "glheader.h"
+#include "colormac.h"
+#include "context.h"
+#include "macros.h"
+#include "imports.h"
+#include "mtypes.h"
 
 #include "math/m_xform.h"
 
@@ -148,11 +148,11 @@ run_fog_stage(GLcontext *ctx, struct tnl_pipeline_stage *stage)
    struct fog_stage_data *store = FOG_STAGE_DATA(stage);
    GLvector4f *input;
 
-
-   if (!ctx->Fog.Enabled)
+   if (!ctx->Fog.Enabled || ctx->VertexProgram._Current)
       return GL_TRUE;
 
-   if (ctx->Fog.FogCoordinateSource == GL_FRAGMENT_DEPTH_EXT && !ctx->VertexProgram._Current) {
+
+   if (ctx->Fog.FogCoordinateSource == GL_FRAGMENT_DEPTH_EXT) {
       GLuint i;
       GLfloat *coord;
       /* Fog is computed from vertex or fragment Z values */

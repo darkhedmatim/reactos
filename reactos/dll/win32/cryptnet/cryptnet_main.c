@@ -20,23 +20,20 @@
 
 #include "config.h"
 #include "wine/port.h"
+#include <stdio.h>
 
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
-#define CERT_REVOCATION_PARA_HAS_EXTRA_FIELDS
-
-#include <stdio.h>
-#include <stdarg.h>
 
 #include "windef.h"
+#include "wine/debug.h"
 #include "winbase.h"
 #include "winnt.h"
 #include "winnls.h"
 #include "wininet.h"
 #include "objbase.h"
+#define CERT_REVOCATION_PARA_HAS_EXTRA_FIELDS
 #include "wincrypt.h"
-
-#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(cryptnet);
 
@@ -136,7 +133,7 @@ static BOOL WINAPI CRYPT_GetUrlFromCertificateCRLDistPoint(LPCSTR pszUrlOid,
  LPVOID pvPara, DWORD dwFlags, PCRYPT_URL_ARRAY pUrlArray, DWORD *pcbUrlArray,
  PCRYPT_URL_INFO pUrlInfo, DWORD *pcbUrlInfo, LPVOID pvReserved)
 {
-    PCCERT_CONTEXT cert = pvPara;
+    PCCERT_CONTEXT cert = (PCCERT_CONTEXT)pvPara;
     PCERT_EXTENSION ext;
     BOOL ret = FALSE;
 
@@ -222,7 +219,8 @@ static BOOL WINAPI CRYPT_GetUrlFromCertificateCRLDistPoint(LPCSTR pszUrlOid,
                                     pUrlArray->rgwszUrl[pUrlArray->cUrl++] =
                                      nextUrl;
                                     nextUrl +=
-                                     (lstrlenW(name->rgAltEntry[j].u.pwszURL) + 1);
+                                     (lstrlenW(name->rgAltEntry[j].u.pwszURL) + 1)
+                                     * sizeof(WCHAR);
                                 }
                             }
                     }
@@ -400,62 +398,69 @@ static BOOL CRYPT_GetObjectFromFile(HANDLE hFile, PCRYPT_BLOB_ARRAY pObject)
     return ret;
 }
 
+/* FIXME: should make wininet cache all downloads instead */
 static BOOL CRYPT_GetObjectFromCache(LPCWSTR pszURL, PCRYPT_BLOB_ARRAY pObject,
  PCRYPT_RETRIEVE_AUX_INFO pAuxInfo)
 {
     BOOL ret = FALSE;
-    INTERNET_CACHE_ENTRY_INFOW *pCacheInfo = NULL;
-    DWORD size = 0;
+    INTERNET_CACHE_ENTRY_INFOW cacheInfo = { sizeof(cacheInfo), 0 };
+    DWORD size = sizeof(cacheInfo);
 
     TRACE("(%s, %p, %p)\n", debugstr_w(pszURL), pObject, pAuxInfo);
 
-    ret = GetUrlCacheEntryInfoW(pszURL, NULL, &size);
-    if (!ret && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-    {
-        pCacheInfo = CryptMemAlloc(size);
-        if (pCacheInfo)
-            ret = TRUE;
-        else
-            SetLastError(ERROR_OUTOFMEMORY);
-    }
-    if (ret && (ret = GetUrlCacheEntryInfoW(pszURL, pCacheInfo, &size)))
+    if (GetUrlCacheEntryInfoW(pszURL, &cacheInfo, &size) ||
+     GetLastError() == ERROR_INSUFFICIENT_BUFFER)
     {
         FILETIME ft;
 
         GetSystemTimeAsFileTime(&ft);
-        if (CompareFileTime(&pCacheInfo->ExpireTime, &ft) >= 0)
+        if (CompareFileTime(&cacheInfo.ExpireTime, &ft) >= 0)
         {
-            HANDLE hFile = CreateFileW(pCacheInfo->lpszLocalFileName,
-             GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            LPINTERNET_CACHE_ENTRY_INFOW pCacheInfo = CryptMemAlloc(size);
 
-            if (hFile != INVALID_HANDLE_VALUE)
+            if (pCacheInfo)
             {
-                if ((ret = CRYPT_GetObjectFromFile(hFile, pObject)))
+                if (GetUrlCacheEntryInfoW(pszURL, pCacheInfo, &size))
                 {
-                    if (pAuxInfo && pAuxInfo->cbSize >=
-                     offsetof(CRYPT_RETRIEVE_AUX_INFO,
-                     pLastSyncTime) + sizeof(PFILETIME) &&
-                     pAuxInfo->pLastSyncTime)
-                        memcpy(pAuxInfo->pLastSyncTime,
-                         &pCacheInfo->LastSyncTime,
-                         sizeof(FILETIME));
+                    HANDLE hFile = CreateFileW(pCacheInfo->lpszLocalFileName,
+                     GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                     FILE_ATTRIBUTE_NORMAL, NULL);
+
+                    if (hFile != INVALID_HANDLE_VALUE)
+                    {
+                        if ((ret = CRYPT_GetObjectFromFile(hFile, pObject)))
+                        {
+                            if (pAuxInfo && pAuxInfo->cbSize >=
+                             offsetof(CRYPT_RETRIEVE_AUX_INFO,
+                             pLastSyncTime) + sizeof(PFILETIME) &&
+                             pAuxInfo->pLastSyncTime)
+                                memcpy(pAuxInfo->pLastSyncTime,
+                                 &pCacheInfo->LastSyncTime,
+                                 sizeof(FILETIME));
+                        }
+                        CloseHandle(hFile);
+                    }
                 }
-                CloseHandle(hFile);
+                CryptMemFree(pCacheInfo);
             }
             else
-            {
-                DeleteUrlCacheEntryW(pszURL);
-                ret = FALSE;
-            }
+                SetLastError(ERROR_OUTOFMEMORY);
         }
         else
-        {
             DeleteUrlCacheEntryW(pszURL);
-            ret = FALSE;
-        }
     }
-    CryptMemFree(pCacheInfo);
     TRACE("returning %d\n", ret);
+    return ret;
+}
+
+static inline LPWSTR strndupW(LPWSTR string, int len)
+{
+    LPWSTR ret = NULL;
+    if (string && (ret = CryptMemAlloc((len + 1) * sizeof(WCHAR))) != NULL)
+    {
+        memcpy(ret, string, len * sizeof(WCHAR));
+        ret[len] = 0;
+    }
     return ret;
 }
 
@@ -471,16 +476,18 @@ static BOOL CRYPT_CrackUrl(LPCWSTR pszURL, URL_COMPONENTSW *components)
 
     memset(components, 0, sizeof(*components));
     components->dwStructSize = sizeof(*components);
-    components->lpszHostName = CryptMemAlloc(MAX_PATH * sizeof(WCHAR));
-    components->dwHostNameLength = MAX_PATH;
-    components->lpszUrlPath = CryptMemAlloc(MAX_PATH * 2 * sizeof(WCHAR));
-    components->dwUrlPathLength = 2 * MAX_PATH;
+    components->dwHostNameLength = 1;
+    components->dwUrlPathLength = 1;
     ret = InternetCrackUrlW(pszURL, 0, ICU_DECODE, components);
     if (ret)
     {
-        if ((components->dwUrlPathLength == 2 * MAX_PATH - 1) ||
-            (components->dwHostNameLength == MAX_PATH - 1))
-            FIXME("Buffers are too small\n");
+        LPWSTR hostname = strndupW(components->lpszHostName,
+         components->dwHostNameLength);
+        LPWSTR path = strndupW(components->lpszUrlPath,
+         components->dwUrlPathLength);
+
+        components->lpszHostName = hostname;
+        components->lpszUrlPath = path;
         switch (components->nScheme)
         {
         case INTERNET_SCHEME_FTP:
@@ -604,73 +611,30 @@ static BOOL CRYPT_DownloadObject(DWORD dwRetrievalFlags, HINTERNET hHttp,
     return ret;
 }
 
-/* Finds the object specified by pszURL in the cache.  If it's not found,
- * creates a new cache entry for the object and writes the object to it.
- * Sets the expiration time of the cache entry to expires.
- */
-static void CRYPT_CacheURL(LPCWSTR pszURL, const CRYPT_BLOB_ARRAY *pObject,
+static void CRYPT_CacheURL(LPCWSTR pszURL, PCRYPT_BLOB_ARRAY pObject,
  DWORD dwRetrievalFlags, FILETIME expires)
 {
     WCHAR cacheFileName[MAX_PATH];
-    DWORD size = 0;
-    BOOL ret, create = FALSE;
 
-    GetUrlCacheEntryInfoW(pszURL, NULL, &size);
-    if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+    /* FIXME: let wininet directly cache instead */
+    if (CreateUrlCacheEntryW(pszURL, pObject->rgBlob[0].cbData, NULL,
+     cacheFileName, 0))
     {
-        INTERNET_CACHE_ENTRY_INFOW *info = CryptMemAlloc(size);
+        HANDLE hCacheFile = CreateFileW(cacheFileName, GENERIC_WRITE, 0, NULL,
+         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
-        if (info)
+        if (hCacheFile != INVALID_HANDLE_VALUE)
         {
-            FILETIME ft;
+            DWORD bytesWritten, entryType;
+            FILETIME ft = { 0 };
 
-            ret = GetUrlCacheEntryInfoW(pszURL, info, &size);
-            if (ret)
-                lstrcpyW(cacheFileName, info->lpszLocalFileName);
-            /* Check if the existing cache entry is up to date.  If it isn't,
-             * overwite it with the new value.
-             */
-            GetSystemTimeAsFileTime(&ft);
-            if (CompareFileTime(&info->ExpireTime, &ft) < 0)
-                create = TRUE;
-            CryptMemFree(info);
-        }
-        else
-            ret = FALSE;
-    }
-    else
-    {
-        ret = CreateUrlCacheEntryW(pszURL, pObject->rgBlob[0].cbData, NULL,
-         cacheFileName, 0);
-        create = TRUE;
-    }
-    if (ret)
-    {
-        DWORD entryType;
-        FILETIME ft = { 0 };
-
-        if (create)
-        {
-            HANDLE hCacheFile = CreateFileW(cacheFileName, GENERIC_WRITE, 0,
-             NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-
-            if (hCacheFile != INVALID_HANDLE_VALUE)
-            {
-                DWORD bytesWritten;
-
-                WriteFile(hCacheFile, pObject->rgBlob[0].pbData,
-                 pObject->rgBlob[0].cbData, &bytesWritten, NULL);
-                CloseHandle(hCacheFile);
-            }
-            else
-                ret = FALSE;
-        }
-        if (ret)
-        {
             if (!(dwRetrievalFlags & CRYPT_STICKY_CACHE_RETRIEVAL))
                 entryType = NORMAL_CACHE_ENTRY;
             else
                 entryType = STICKY_CACHE_ENTRY;
+            WriteFile(hCacheFile, pObject->rgBlob[0].pbData,
+             pObject->rgBlob[0].cbData, &bytesWritten, NULL);
+            CloseHandle(hCacheFile);
             CommitUrlCacheEntryW(pszURL, cacheFileName, expires, ft, entryType,
              NULL, 0, NULL, NULL);
         }
@@ -686,13 +650,13 @@ static void CALLBACK CRYPT_InetStatusCallback(HINTERNET hInt,
     switch (status)
     {
     case INTERNET_STATUS_REQUEST_COMPLETE:
-        result = statusInfo;
+        result = (LPINTERNET_ASYNC_RESULT)statusInfo;
         context->error = result->dwError;
         SetEvent(context->event);
     }
 }
 
-static BOOL CRYPT_Connect(const URL_COMPONENTSW *components,
+static BOOL CRYPT_Connect(URL_COMPONENTSW *components,
  struct InetContext *context, PCRYPT_CREDENTIALS pCredentials,
  HINTERNET *phInt, HINTERNET *phHost)
 {
@@ -909,15 +873,11 @@ static BOOL WINAPI File_RetrieveEncodedObjectW(LPCWSTR pszURL,
     *ppfnFreeObject = CRYPT_FreeBlob;
     *ppvFreeContext = NULL;
 
-    components.lpszUrlPath = CryptMemAlloc(MAX_PATH * 2 * sizeof(WCHAR));
-    components.dwUrlPathLength = 2 * MAX_PATH;
+    components.dwUrlPathLength = 1;
     ret = InternetCrackUrlW(pszURL, 0, ICU_DECODE, &components);
     if (ret)
     {
         LPWSTR path;
-
-        if (components.dwUrlPathLength == 2 * MAX_PATH - 1)
-            FIXME("Buffers are too small\n");
 
         /* 3 == lstrlenW(L"c:") + 1 */
         path = CryptMemAlloc((components.dwUrlPathLength + 3) * sizeof(WCHAR));
@@ -972,7 +932,6 @@ static BOOL WINAPI File_RetrieveEncodedObjectW(LPCWSTR pszURL,
             CryptMemFree(path);
         }
     }
-    CryptMemFree(components.lpszUrlPath);
     return ret;
 }
 
@@ -993,7 +952,7 @@ static BOOL CRYPT_GetRetrieveFunction(LPCWSTR pszURL,
     *pFunc = NULL;
     *phFunc = 0;
     components.dwSchemeLength = 1;
-    ret = InternetCrackUrlW(pszURL, 0, 0, &components);
+    ret = InternetCrackUrlW(pszURL, 0, ICU_DECODE, &components);
     if (ret)
     {
         /* Microsoft always uses CryptInitOIDFunctionSet/
@@ -1049,7 +1008,7 @@ static BOOL CRYPT_GetRetrieveFunction(LPCWSTR pszURL,
 }
 
 static BOOL WINAPI CRYPT_CreateBlob(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext)
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext)
 {
     DWORD size, i;
     CRYPT_BLOB_ARRAY *context;
@@ -1086,7 +1045,7 @@ static BOOL WINAPI CRYPT_CreateBlob(LPCSTR pszObjectOid,
 typedef BOOL (WINAPI *AddContextToStore)(HCERTSTORE hCertStore,
  const void *pContext, DWORD dwAddDisposition, const void **ppStoreContext);
 
-static BOOL CRYPT_CreateContext(const CRYPT_BLOB_ARRAY *pObject,
+static BOOL CRYPT_CreateContext(PCRYPT_BLOB_ARRAY pObject,
  DWORD dwExpectedContentTypeFlags, AddContextToStore addFunc, void **ppvContext)
 {
     BOOL ret = TRUE;
@@ -1142,28 +1101,28 @@ static BOOL CRYPT_CreateContext(const CRYPT_BLOB_ARRAY *pObject,
 }
 
 static BOOL WINAPI CRYPT_CreateCert(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext)
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext)
 {
     return CRYPT_CreateContext(pObject, CERT_QUERY_CONTENT_FLAG_CERT,
      (AddContextToStore)CertAddCertificateContextToStore, ppvContext);
 }
 
 static BOOL WINAPI CRYPT_CreateCRL(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext)
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext)
 {
     return CRYPT_CreateContext(pObject, CERT_QUERY_CONTENT_FLAG_CRL,
      (AddContextToStore)CertAddCRLContextToStore, ppvContext);
 }
 
 static BOOL WINAPI CRYPT_CreateCTL(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext)
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext)
 {
     return CRYPT_CreateContext(pObject, CERT_QUERY_CONTENT_FLAG_CTL,
      (AddContextToStore)CertAddCTLContextToStore, ppvContext);
 }
 
 static BOOL WINAPI CRYPT_CreatePKCS7(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext)
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext)
 {
     BOOL ret;
 
@@ -1177,7 +1136,7 @@ static BOOL WINAPI CRYPT_CreatePKCS7(LPCSTR pszObjectOid,
         ret = CryptQueryObject(CERT_QUERY_OBJECT_BLOB, &pObject->rgBlob[0],
          CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED |
          CERT_QUERY_CONTENT_FLAG_PKCS7_UNSIGNED, CERT_QUERY_FORMAT_FLAG_BINARY,
-         0, NULL, NULL, NULL, ppvContext, NULL, NULL);
+         0, NULL, NULL, NULL, (HCERTSTORE *)ppvContext, NULL, NULL);
     else
     {
         FIXME("multiple messages unimplemented\n");
@@ -1187,7 +1146,7 @@ static BOOL WINAPI CRYPT_CreatePKCS7(LPCSTR pszObjectOid,
 }
 
 static BOOL WINAPI CRYPT_CreateAny(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext)
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext)
 {
     BOOL ret;
 
@@ -1244,17 +1203,17 @@ static BOOL WINAPI CRYPT_CreateAny(LPCSTR pszObjectOid,
                     {
                     case CERT_QUERY_CONTENT_CERT:
                         if (!CertAddCertificateContextToStore(store,
-                         context, CERT_STORE_ADD_ALWAYS, NULL))
+                         (PCCERT_CONTEXT)context, CERT_STORE_ADD_ALWAYS, NULL))
                             ret = FALSE;
                         break;
                     case CERT_QUERY_CONTENT_CRL:
                         if (!CertAddCRLContextToStore(store,
-                         context, CERT_STORE_ADD_ALWAYS, NULL))
+                         (PCCRL_CONTEXT)context, CERT_STORE_ADD_ALWAYS, NULL))
                              ret = FALSE;
                         break;
                     case CERT_QUERY_CONTENT_CTL:
                         if (!CertAddCTLContextToStore(store,
-                         context, CERT_STORE_ADD_ALWAYS, NULL))
+                         (PCCTL_CONTEXT)context, CERT_STORE_ADD_ALWAYS, NULL))
                              ret = FALSE;
                         break;
                     default:
@@ -1273,7 +1232,7 @@ static BOOL WINAPI CRYPT_CreateAny(LPCSTR pszObjectOid,
 }
 
 typedef BOOL (WINAPI *ContextDllCreateObjectContext)(LPCSTR pszObjectOid,
- DWORD dwRetrievalFlags, const CRYPT_BLOB_ARRAY *pObject, void **ppvContext);
+ DWORD dwRetrievalFlags, PCRYPT_BLOB_ARRAY pObject, void **ppvContext);
 
 static BOOL CRYPT_GetCreateFunction(LPCSTR pszObjectOid,
  ContextDllCreateObjectContext *pFunc, HCRYPTOIDFUNCADDR *phFunc)
@@ -1322,63 +1281,6 @@ static BOOL CRYPT_GetCreateFunction(LPCSTR pszObjectOid,
     return ret;
 }
 
-typedef BOOL (*get_object_expiration_func)(const void *pvContext,
- FILETIME *expiration);
-
-static BOOL CRYPT_GetExpirationFromCert(const void *pvObject, FILETIME *expiration)
-{
-    PCCERT_CONTEXT cert = pvObject;
-
-    *expiration = cert->pCertInfo->NotAfter;
-    return TRUE;
-}
-
-static BOOL CRYPT_GetExpirationFromCRL(const void *pvObject, FILETIME *expiration)
-{
-    PCCRL_CONTEXT cert = pvObject;
-
-    *expiration = cert->pCrlInfo->NextUpdate;
-    return TRUE;
-}
-
-static BOOL CRYPT_GetExpirationFromCTL(const void *pvObject, FILETIME *expiration)
-{
-    PCCTL_CONTEXT cert = pvObject;
-
-    *expiration = cert->pCtlInfo->NextUpdate;
-    return TRUE;
-}
-
-static BOOL CRYPT_GetExpirationFunction(LPCSTR pszObjectOid,
- get_object_expiration_func *getExpiration)
-{
-    BOOL ret;
-
-    if (!HIWORD(pszObjectOid))
-    {
-        switch (LOWORD(pszObjectOid))
-        {
-        case LOWORD(CONTEXT_OID_CERTIFICATE):
-            *getExpiration = CRYPT_GetExpirationFromCert;
-            ret = TRUE;
-            break;
-        case LOWORD(CONTEXT_OID_CRL):
-            *getExpiration = CRYPT_GetExpirationFromCRL;
-            ret = TRUE;
-            break;
-        case LOWORD(CONTEXT_OID_CTL):
-            *getExpiration = CRYPT_GetExpirationFromCTL;
-            ret = TRUE;
-            break;
-        default:
-            ret = FALSE;
-        }
-    }
-    else
-        ret = FALSE;
-    return ret;
-}
-
 /***********************************************************************
  *    CryptRetrieveObjectByUrlW (CRYPTNET.@)
  */
@@ -1415,17 +1317,7 @@ BOOL WINAPI CryptRetrieveObjectByUrlW(LPCWSTR pszURL, LPCSTR pszObjectOid,
          pAuxInfo);
         if (ret)
         {
-            get_object_expiration_func getExpiration;
-
             ret = create(pszObjectOid, dwRetrievalFlags, &object, ppvObject);
-            if (ret && !(dwRetrievalFlags & CRYPT_DONT_CACHE_RESULT) &&
-             CRYPT_GetExpirationFunction(pszObjectOid, &getExpiration))
-            {
-                FILETIME expires;
-
-                if (getExpiration(*ppvObject, &expires))
-                    CRYPT_CacheURL(pszURL, &object, dwRetrievalFlags, expires);
-            }
             freeObject(pszObjectOid, &object, freeContext);
         }
     }
@@ -1518,7 +1410,7 @@ BOOL WINAPI CertDllVerifyRevocation(DWORD dwEncodingType, DWORD dwRevType,
                             PCRL_ENTRY entry = NULL;
 
                             CertFindCertificateInCRL(
-                             rgpvContext[i], crl, 0, NULL,
+                             (PCCERT_CONTEXT)rgpvContext[i], crl, 0, NULL,
                              &entry);
                             if (entry)
                             {

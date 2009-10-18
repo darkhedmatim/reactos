@@ -1,23 +1,25 @@
 /*
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            ntoskrnl/io/iomgr/util.c
+ * FILE:            ntoskrnl/io/util.c
  * PURPOSE:         I/O Utility Functions
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
- *                  Aleksey Bragin (aleksey@reactos.org)
- *                  Daniel Zimmerman (netzimme@aim.com)
+ * PROGRAMMERS:     <UNKNOWN>
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 VOID
 NTAPI
 RtlpGetStackLimits(PULONG_PTR StackBase,
                    PULONG_PTR StackLimit);
+
+/* DATA **********************************************************************/
+
+KSPIN_LOCK CancelSpinLock;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -26,10 +28,10 @@ RtlpGetStackLimits(PULONG_PTR StackBase,
  */
 VOID
 NTAPI
-IoAcquireCancelSpinLock(OUT PKIRQL Irql)
+IoAcquireCancelSpinLock(PKIRQL Irql)
 {
     /* Just acquire the internal lock */
-    *Irql = KeAcquireQueuedSpinLock(LockQueueIoCancelLock);
+    KeAcquireSpinLock(&CancelSpinLock,Irql);
 }
 
 /*
@@ -48,8 +50,8 @@ IoGetInitialStack(VOID)
  */
 VOID
 NTAPI
-IoGetStackLimits(OUT PULONG_PTR LowLimit,
-                 OUT PULONG_PTR HighLimit)
+IoGetStackLimits(OUT PULONG LowLimit,
+                 OUT PULONG HighLimit)
 {
     PKPRCB Prcb = KeGetCurrentPrcb();
     ULONG_PTR DpcStack = (ULONG_PTR)(Prcb->DpcStack);
@@ -111,7 +113,6 @@ PEPROCESS
 NTAPI
 IoGetCurrentProcess(VOID)
 {
-    /* Return the current thread's process */
     return (PEPROCESS)PsGetCurrentThread()->Tcb.ApcState.Process;
 }
 
@@ -120,10 +121,10 @@ IoGetCurrentProcess(VOID)
  */
 VOID
 NTAPI
-IoReleaseCancelSpinLock(IN KIRQL Irql)
+IoReleaseCancelSpinLock(KIRQL Irql)
 {
     /* Release the internal lock */
-    KeReleaseQueuedSpinLock(LockQueueIoCancelLock, Irql);
+    KeReleaseSpinLock(&CancelSpinLock,Irql);
 }
 
 /*
@@ -169,8 +170,6 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
     ULONG NextEaBufferOffset;
     LONG IntEaLength;
 
-    PAGED_CODE();
-
     /* Lenght of the rest. Inital equal to EaLength */
     IntEaLength = EaLength;
 
@@ -211,7 +210,7 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
                      */
                     NextEaBufferOffset = ((NextEaBufferOffset + 3) & ~3);
                     if ((EaBufferEnd->NextEntryOffset == NextEaBufferOffset) &&
-                        ((LONG)EaBufferEnd->NextEntryOffset > 0))
+                        (EaBufferEnd->NextEntryOffset>0))
                     {
                         /* Rest of buffer must be greater then the
                            next offset */
@@ -316,3 +315,4 @@ IoCheckQuerySetVolumeInformation(IN FS_INFORMATION_CLASS FsInformationClass,
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
 }
+/* EOF */

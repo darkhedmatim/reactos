@@ -19,8 +19,19 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
+#include <string.h>
 
-#include <precomp.h>
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "windef.h"
+#include "wingdi.h"
+#include "pidl.h"
+#include "winerror.h"
+#include "shell32_main.h"
+#include "wine/debug.h"
+#include "undocshell.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -450,7 +461,7 @@ HRESULT WINAPI SHCreateDataObject(LPCITEMIDLIST pidlFolder, UINT cidl, LPCITEMID
 {
     if (IsEqualIID(riid, &IID_IDataObject))
     {
-        return CIDLData_CreateFromIDArray(pidlFolder, cidl, apidl, (IDataObject**)ppv);
+        return CIDLData_CreateFromIDArray(pidlFolder, cidl, apidl, ppv);
     }
     return E_FAIL;
 }

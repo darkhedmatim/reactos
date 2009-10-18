@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -188,8 +189,8 @@ CmpValueToData(IN PHHIVE Hive,
     if (BufferAllocated)
     {
         /* Free the buffer and bugcheck */
-        CmpFree(Buffer, 0);
-        KeBugCheckEx(REGISTRY_ERROR, 8, 0, (ULONG_PTR)Hive, (ULONG_PTR)Value);
+        ExFreePool(Buffer);
+        KEBUGCHECKEX(REGISTRY_ERROR, 8, 0, (ULONG_PTR)Hive, (ULONG_PTR)Value);
     }
 
     /* Otherwise, return the cell data */

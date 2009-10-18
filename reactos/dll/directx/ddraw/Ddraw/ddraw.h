@@ -31,17 +31,10 @@ Main_DirectDraw_CreatePalette(
                               LPUNKNOWN pUnkOuter);
 
 HRESULT WINAPI
-Main_DirectDraw_CreateSurface(
-                               LPDDRAWI_DIRECTDRAW_INT This,
-                               LPDDSURFACEDESC pDDSD,
-                               LPDDRAWI_DDRAWSURFACE_INT *ppSurf,
-                               IUnknown *pUnkOuter);
-
-HRESULT WINAPI
 Main_DirectDraw_CreateSurface4(
                                LPDDRAWI_DIRECTDRAW_INT This,
                                LPDDSURFACEDESC2 pDDSD,
-                               LPDDRAWI_DDRAWSURFACE_INT *ppSurf,
+                               LPDIRECTDRAWSURFACE7 *ppSurf,
                                IUnknown *pUnkOuter);
 
 HRESULT WINAPI
@@ -70,22 +63,6 @@ HRESULT WINAPI
 Main_DirectDraw_EnumSurfaces(
                              LPDDRAWI_DIRECTDRAW_INT This,
                              DWORD dwFlags,
-                             LPDDSURFACEDESC lpDDSD2,
-                             LPVOID context,
-                             LPDDENUMSURFACESCALLBACK callback);
-
-HRESULT WINAPI
-Main_DirectDraw_EnumSurfaces4(
-                             LPDDRAWI_DIRECTDRAW_INT This,
-                             DWORD dwFlags,
-                             LPDDSURFACEDESC2 lpDDSD2,
-                             LPVOID context,
-                             LPDDENUMSURFACESCALLBACK2 callback);
-
-HRESULT WINAPI
-Main_DirectDraw_EnumSurfaces7(
-                             LPDDRAWI_DIRECTDRAW_INT This,
-                             DWORD dwFlags,
                              LPDDSURFACEDESC2 lpDDSD2,
                              LPVOID context,
                              LPDDENUMSURFACESCALLBACK7 callback);
@@ -101,11 +78,6 @@ Main_DirectDraw_GetCaps(
 
 HRESULT WINAPI
 Main_DirectDraw_GetDisplayMode (
-                                LPDDRAWI_DIRECTDRAW_INT This,
-                                LPDDSURFACEDESC pDDSD);
-
-HRESULT WINAPI
-Main_DirectDraw_GetDisplayMode4 (
                                 LPDDRAWI_DIRECTDRAW_INT This,
                                 LPDDSURFACEDESC2 pDDSD);
 
@@ -230,7 +202,4 @@ DWORD CALLBACK HelDdSurfSetOverlayPosition(LPDDHAL_SETOVERLAYPOSITIONDATA lpSetO
 DWORD CALLBACK HelDdSurfSetPalette(LPDDHAL_SETPALETTEDATA lpSetPaletteData);
 DWORD CALLBACK HelDdSurfUnlock(LPDDHAL_UNLOCKDATA lpUnLockData);
 DWORD CALLBACK HelDdSurfUpdateOverlay(LPDDHAL_UPDATEOVERLAYDATA lpUpDateOveryLayData);
-
-
-
 

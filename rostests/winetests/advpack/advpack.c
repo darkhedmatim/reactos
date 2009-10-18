@@ -35,7 +35,6 @@
 #define REG_VAL_EXISTS(key, value)   !RegQueryValueEx(key, value, NULL, NULL, NULL, NULL)
 #define OPEN_GUID_KEY() !RegOpenKey(HKEY_LOCAL_MACHINE, GUID_KEY, &guid)
 
-static HMODULE hAdvPack;
 static HRESULT (WINAPI *pCloseINFEngine)(HINF);
 static HRESULT (WINAPI *pDelNode)(LPCSTR,DWORD);
 static HRESULT (WINAPI *pGetVersionFromFile)(LPCSTR,LPDWORD,LPDWORD,BOOL);
@@ -67,7 +66,7 @@ static void get_progfiles_dir(void)
 
 static BOOL init_function_pointers(void)
 {
-    hAdvPack = LoadLibraryA("advpack.dll");
+    HMODULE hAdvPack = LoadLibraryA("advpack.dll");
 
     if (!hAdvPack)
         return FALSE;
@@ -82,11 +81,7 @@ static BOOL init_function_pointers(void)
 
     if (!pCloseINFEngine || !pDelNode || !pGetVersionFromFile ||
         !pOpenINFEngine || !pSetPerUserSecValues || !pTranslateInfString)
-    {
-        win_skip("Needed functions are not available\n");
-        FreeLibrary(hAdvPack);
         return FALSE;
-    }
 
     return TRUE;
 }
@@ -264,7 +259,7 @@ static void translateinfstring_test(void)
 
     if(hr == HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND))
     {
-        win_skip("WinNT 3.51 detected. Skipping tests for TranslateInfString()\n");
+        trace("WinNT 3.51 detected. Skipping tests for TranslateInfString()\n");
         return;
     }
 
@@ -272,11 +267,6 @@ static void translateinfstring_test(void)
     buffer[0] = 0;
     hr = pTranslateInfString(inf_file, "idontexist", "Options.NTx86",
                              "InstallDir", buffer, MAX_PATH, &dwSize, NULL);
-    if (hr == E_ACCESSDENIED)
-    {
-        skip("TranslateInfString is broken\n");
-        return;
-    }
     ok(hr == S_OK, "Expected S_OK, got 0x%08x\n", (UINT)hr);
     ok(!strcmp(buffer, TEST_STRING2), "Expected %s, got %s\n", TEST_STRING2, buffer);
     ok(dwSize == 25, "Expected size 25, got %d\n", dwSize);
@@ -330,13 +320,6 @@ static void translateinfstringex_test(void)
     char buffer[MAX_PATH];
     DWORD size = MAX_PATH;
 
-    hr = pOpenINFEngine(inf_file, NULL, 0, &hinf, NULL);
-    if (hr == E_UNEXPECTED)
-    {
-        win_skip("Skipping tests on win9x because of brokenness\n");
-        return;
-    }
-
     create_inf_file();
     
     /* need to see if there are any flags */
@@ -347,9 +330,8 @@ static void translateinfstringex_test(void)
 
     /* try an empty filename */
     hr = pOpenINFEngine("", "Options.NTx86", 0, &hinf, NULL);
-    ok(hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND) /* NT+ */ ||
-       hr == HRESULT_FROM_WIN32(E_UNEXPECTED) /* 9x */,
-        "Expected HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND or E_UNEXPECTED), got %08x\n", hr);
+    ok(hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND),
+        "Expected HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), got %08x\n", hr);
 
     /* try a NULL hinf */
     hr = pOpenINFEngine(inf_file, "Options.NTx86", 0, NULL, NULL);
@@ -482,63 +464,6 @@ static void translateinfstringex_test(void)
     ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
 
     DeleteFileA(inf_file);
-
-    /* Create another .inf file which is just here to trigger a wine bug */
-    {
-        char data[1024];
-        char *ptr = data;
-        DWORD dwNumberOfBytesWritten;
-        HANDLE hf = CreateFile(inf_file, GENERIC_WRITE, 0, NULL,
-                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-
-        append_str(&ptr, "[Version]\n");
-        append_str(&ptr, "Signature=\"$Chicago$\"\n");
-        append_str(&ptr, "[section]\n");
-        append_str(&ptr, "NotACustomDestination=Version\n");
-        append_str(&ptr, "CustomDestination=CustInstDestSection\n");
-        append_str(&ptr, "[CustInstDestSection]\n");
-        append_str(&ptr, "49010=DestA,1\n");
-        append_str(&ptr, "49020=DestB\n");
-        append_str(&ptr, "49030=DestC\n");
-        append_str(&ptr, "49040=DestD\n");
-        append_str(&ptr, "[Options.NTx86]\n");
-        append_str(&ptr, "Result2=%%49030%%\n");
-        append_str(&ptr, "[DestA]\n");
-        append_str(&ptr, "HKLM,\"Software\\Garbage\",\"ProgramFilesDir\",,'%%24%%'\n");
-        /* The point of this test is to have HKCU just before the quoted HKLM */
-        append_str(&ptr, "[DestB]\n");
-        append_str(&ptr, "HKCU,\"Software\\Garbage\",\"ProgramFilesDir\",,'%%24%%'\n");
-        append_str(&ptr, "[DestC]\n");
-        append_str(&ptr, "'HKLM','Software\\Microsoft\\Windows\\CurrentVersion',");
-        append_str(&ptr, "'ProgramFilesDir',,\"%%24%%\"\n");
-        append_str(&ptr, "[DestD]\n");
-        append_str(&ptr, "HKLM,\"Software\\Garbage\",\"ProgramFilesDir\",,'%%24%%'\n");
-
-        WriteFile(hf, data, ptr - data, &dwNumberOfBytesWritten, NULL);
-        CloseHandle(hf);
-    }
-
-    /* open the inf with the install section */
-    hr = pOpenINFEngine(inf_file, "section", 0, &hinf, NULL);
-    ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
-
-    /* Single quote test (Note size includes null on return from call) */
-    memset(buffer, 'a', APP_PATH_LEN);
-    buffer[APP_PATH_LEN - 1] = '\0';
-    size = MAX_PATH;
-    hr = pTranslateInfStringEx(hinf, inf_file, "Options.NTx86", "Result2",
-                              buffer, size, &size, NULL);
-    ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
-    ok(!lstrcmpi(buffer, PROG_FILES_ROOT),
-           "Expected %s, got %s\n", PROG_FILES_ROOT, buffer);
-    ok(size == lstrlenA(PROG_FILES_ROOT)+1, "Expected size %d, got %d\n",
-           lstrlenA(PROG_FILES_ROOT)+1, size);
-
-    /* close the INF again */
-    hr = pCloseINFEngine(hinf);
-    ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
-
-    DeleteFileA(inf_file);
 }
 
 static BOOL check_reg_str(HKEY hkey, LPCSTR name, LPCSTR value)
@@ -596,12 +521,7 @@ static void setperusersecvalues_test(void)
     /* set initial values */
     lstrcpy(peruser.szGUID, "guid");
     hr = pSetPerUserSecValues(&peruser);
-    if (hr == E_FAIL)
-    {
-        skip("SetPerUserSecValues is broken\n");
-        return;
-    }
-    ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
+    ok(hr == S_OK, "Expected S_OK, got %d\n", hr);
     ok(OPEN_GUID_KEY(), "Expected guid key to exist\n");
     ok(check_reg_str(guid, NULL, "displayname"), "Expected displayname\n");
     ok(check_reg_str(guid, "ComponentID", "compid"), "Expected compid\n");
@@ -618,7 +538,7 @@ static void setperusersecvalues_test(void)
     /* raise the version, but bRollback is FALSE, so vals not saved */
     lstrcpy(peruser.szVersion, "2,1,1,1");
     hr = pSetPerUserSecValues(&peruser);
-    ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
+    ok(hr == S_OK, "Expected S_OK, got %d\n", hr);
     ok(check_reg_str(guid, NULL, "displayname"), "Expected displayname\n");
     ok(check_reg_str(guid, "ComponentID", "compid"), "Expected compid\n");
     ok(check_reg_str(guid, "Locale", "locale"), "Expected locale\n");
@@ -635,7 +555,7 @@ static void setperusersecvalues_test(void)
     peruser.bRollback = TRUE;
     lstrcpy(peruser.szVersion, "3,1,1,1");
     hr = pSetPerUserSecValues(&peruser);
-    ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
+    ok(hr == S_OK, "Expected S_OK, got %d\n", hr);
     ok(check_reg_str(guid, NULL, "displayname"), "Expected displayname\n");
     ok(check_reg_str(guid, "ComponentID", "compid"), "Expected compid\n");
     ok(check_reg_str(guid, "Locale", "locale"), "Expected locale\n");
@@ -674,6 +594,4 @@ START_TEST(advpack)
     setperusersecvalues_test();
     translateinfstring_test();
     translateinfstringex_test();
-
-    FreeLibrary(hAdvPack);
 }

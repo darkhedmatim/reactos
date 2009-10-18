@@ -196,7 +196,7 @@ typedef DWORD (NTAPI *PGD_DXGENERICTRUNK)(ULONG_PTR, ULONG_PTR, SIZE_T*, PVOID, 
 //typedef x (NTAPI *PGD_DxDvpReleaseNotification)(
 //typedef x (NTAPI *PGD_DxDdHeapVidMemAllocAligned)(
 //typedef x (NTAPI *PGD_DxDdHeapVidMemFree)(
-typedef BOOLEAN (NTAPI *PGD_DXDDENABLEDIRECTDRAW)(PVOID, BOOLEAN);
+//typedef x (NTAPI *PGD_DxDdEnableDirectDraw)(
 //typedef x (NTAPI *PGD_DxDdDisableDirectDraw)(
 //typedef x (NTAPI *PGD_DxDdSuspendDirectDraw)(
 //typedef x (NTAPI *PGD_DxDdResumeDirectDraw)(
@@ -206,8 +206,8 @@ typedef BOOLEAN (NTAPI *PGD_DXDDENABLEDIRECTDRAW)(PVOID, BOOLEAN);
 //typedef x (NTAPI *PGD_DxDdEnableDirectDrawRedirection)(
 //typedef x (NTAPI *PGD_DxDdAllocPrivateUserMem)(
 //typedef x (NTAPI *PGD_DxDdFreePrivateUserMem)(
-typedef PDD_SURFACE_LOCAL (NTAPI *PGD_DxDdLockDirectDrawSurface)(HANDLE hDdSurface);
-typedef BOOL (NTAPI *PGD_DxDdUnlockDirectDrawSurface)(HANDLE hDdSurface);
+//typedef x (NTAPI *PGD_DxDdLockDirectDrawSurface)(
+//typedef x (NTAPI *PGD_DxDdUnlockDirectDrawSurface)(
 //typedef x (NTAPI *PGD_DxDdSetAccelLevel)(
 //typedef x (NTAPI *PGD_DxDdGetSurfaceLock)(
 //typedef x (NTAPI *PGD_DxDdEnumLockedSurfaceRect)(

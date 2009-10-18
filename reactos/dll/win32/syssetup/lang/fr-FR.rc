@@ -21,8 +21,8 @@
 LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
 
 
-IDD_WELCOMEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 193
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_WELCOMEPAGE DIALOG DISCARDABLE  0, 0, 317, 193
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -30,17 +30,17 @@ BEGIN
     LTEXT "Cet assistant installe ReactOS sur votre ordinateur. Il a "\
           "besoin de certaines informations sur vous et votre ordinateur "\
           "pour configurer ReactOS correctement.", IDC_STATIC, 115, 50, 189, 100
-    LTEXT "Appuyez sur Suivant pour continuer l'installation.", IDC_STATIC, 115, 160, 189, 31
+    LTEXT "Appuyez sur Suivant pour continuer l'assistant.", IDC_STATIC, 115, 160, 189, 31
 END
 
 
 IDD_ACKPAGE DIALOGEX 0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT           "Les développeurs de ReactOS voudraient présenter les projets Open Source suivants, "\
-                    "(ou seulement des composants) qui ont été utilisés pour créer ReactOS :",
+                    "(ou seulement des composants) qui ont été utilisés pour créer ReactOS:",
                     IDC_STATIC,15,7,286,19
     LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS |
                     LBS_NOINTEGRALHEIGHT | WS_VSCROLL
@@ -53,12 +53,11 @@ BEGIN
 END
 
 
-IDD_OWNERPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_OWNERPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON2, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Entrez votre nom complet et le nom de votre société.",
           IDC_STATIC, 54, 7, 242, 21
     LTEXT "&Nom :", IDC_STATIC, 54, 37, 44, 8
@@ -68,64 +67,60 @@ BEGIN
 END
 
 
-IDD_COMPUTERPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_COMPUTERPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON1, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Entrez un nom pour votre ordinateur de 63 caractères ou moins. "\
           "Si vous êtes sur un réseau, le nom saisi doit être unique.",
           IDC_STATIC, 54, 7, 250, 24
     LTEXT "&Nom de l'ordinateur :", IDC_STATIC, 54, 38, 75, 8
-    EDITTEXT IDC_COMPUTERNAME, 165, 35, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
-    ICON IDI_ICON5, IDC_STATIC, 21, 57, 20, 20
+    EDITTEXT IDC_COMPUTERNAME, 132, 35, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
     LTEXT "L'assistant va créer un compte utilisateur sur votre ordinateur appelé Administrateur. "\
           "Vous pourrez utiliser ce compte pour avoir un accès complet à votre ordinateur.",
           IDC_STATIC, 54, 57, 250, 25
     LTEXT "Entrez le mot de passe Administrateur (14 caractères ou moins).",
           IDC_STATIC, 54, 87, 250, 8
-    LTEXT "&Mot de passe :", IDC_STATIC, 54, 104, 105, 8
-    EDITTEXT IDC_ADMINPASSWORD1, 165, 101, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
-    LTEXT "Confirmation :", IDC_STATIC, 54, 123, 105, 8
-    EDITTEXT IDC_ADMINPASSWORD2, 165, 120, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    LTEXT "&Mot de passe :", IDC_STATIC, 54, 104, 75, 8
+    EDITTEXT IDC_ADMINPASSWORD1, 132, 101, 172, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    LTEXT "Confirmation :", IDC_STATIC, 54, 123, 75, 8
+    EDITTEXT IDC_ADMINPASSWORD2, 132, 120, 172, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
 END
 
 
-IDD_LOCALEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_LOCALEPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON4, IDC_STATIC, 21, 7, 20, 20
     LTEXT "La localisation système correspond à la langue souhaitée "\
           "pour les applications. Elle contrôle la manière dont les nombres, "\
           "monnaies et dates sont affichées.", IDC_STATIC, 53, 7, 253, 20
     LTEXT "", IDC_LOCALETEXT, 53, 29, 250, 16
     LTEXT "Pour changer la localisation système, cliquez sur Modifier.",
           IDC_STATIC, 53, 60, 184, 8
-    PUSHBUTTON "&Modifier...", IDC_CUSTOMLOCALE, 250, 57, 50, 14
+    PUSHBUTTON "&Modifier...", IDC_CUSTOMLOCALE, 245, 57, 50, 14
     LTEXT "La configuration clavier contrôle la saisie des touches quand vous tapez.",
           IDC_STATIC, 53, 86, 253, 8
     LTEXT "", IDC_LAYOUTTEXT, 53, 100, 250, 16
     LTEXT "Pour changer la configuration clavier, cliquez sur Modifier.",
           IDC_STATIC, 53, 126, 184, 8
-    PUSHBUTTON "M&odifier...", IDC_CUSTOMLAYOUT, 250, 122, 50, 14
+    PUSHBUTTON "M&odifier...", IDC_CUSTOMLAYOUT, 245, 122, 50, 14
 END
 
 
-IDD_DATETIMEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_DATETIMEPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON3, IDC_STATIC, 21, 10, 20, 20
-    LTEXT "Date et Heure :", IDC_STATIC, 53, 7, 253, 8
+    LTEXT "Date et Heure", IDC_STATIC, 53, 7, 253, 8
     CONTROL "", IDC_DATEPICKER, "SysDateTimePick32",
             DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 53, 17, 137, 14
     CONTROL "", IDC_TIMEPICKER, "SysDateTimePick32",
             DTS_TIMEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 200, 17, 54, 14
-    LTEXT "Fuseau horaire :", IDC_STATIC, 53, 42, 253, 8
+    LTEXT "Fuseau horaire", IDC_STATIC, 53, 42, 253, 8
     COMBOBOX IDC_TIMEZONELIST, 53, 52, 201, 93,
              CBS_DROPDOWNLIST | WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL
     AUTOCHECKBOX "Ajuster automatiquement l'horloge pour l'heure &d'été",
@@ -133,8 +128,8 @@ BEGIN
 END
 
 
-IDD_PROCESSPAGE DIALOGEX 0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_PROCESSPAGE DIALOG 0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -144,8 +139,8 @@ BEGIN
 END
 
 
-IDD_FINISHPAGE DIALOGEX DISCARDABLE  0, 0, 317, 193
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_FINISHPAGE DIALOG DISCARDABLE  0, 0, 317, 193
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Installation de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -158,8 +153,8 @@ BEGIN
 END
 
 
-IDD_GPL DIALOGEX 0, 0, 333, 230
-STYLE DS_SHELLFONT | DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_GPL DIALOG 0, 0, 333, 230
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GNU General Public License"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -170,7 +165,7 @@ END
 
 
 IDD_STATUSWINDOW_DLG DIALOGEX 0,0,274,26
-STYLE NOT WS_VISIBLE | DS_CENTER | DS_MODALFRAME | DS_SHELLFONT | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
+STYLE NOT WS_VISIBLE | DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
 CAPTION "Veuillez patienter..."
 FONT 8,"MS Shell Dlg 2",400,0,1
 BEGIN
@@ -212,9 +207,6 @@ BEGIN
     IDS_CMT_DEVMGMT     "Lancer le gestionnaire de périphériques"
     IDS_CMT_SERVMAN     "Lancer le gestionnaire de services"
     IDS_CMT_RDESKTOP    "Lancer le bureau distant"
-    IDS_CMT_EVENTVIEW   "Launch Event Viewer"
-    IDS_CMT_MSCONFIG    "Launch System Configuration program"
-    IDS_CMT_PAINT       "Launch Paint"
 END
 
 STRINGTABLE
@@ -222,15 +214,12 @@ BEGIN
     IDS_GAMES		    "Jeux"
     IDS_CMT_SOLITAIRE	"Solitaire"
     IDS_CMT_WINEMINE	"WineMine"
-	IDS_CMT_SPIDER      "Spider Solitaire"
 END
 
 STRINGTABLE
 BEGIN
 	IDS_SYS_TOOLS        "Outils système"
 	IDS_CMT_CHARMAP      "Table des Caractères"
-	IDS_CMT_KBSWITCH     "Sélecteur de configuration clavier"
-    IDS_CMT_DXDIAG       "Launch ReactX-Diagnostic program"
 END
 
 STRINGTABLE
@@ -241,20 +230,13 @@ END
 
 STRINGTABLE
 BEGIN
-    IDS_SYS_ENTERTAINMENT       "Entertainment"
-    IDS_CMT_MPLAY32             "Launch Multimedia Player"
-    IDS_CMT_SNDVOL32            "Launch Volume Control"
-END
-
-STRINGTABLE
-BEGIN
     IDS_REACTOS_SETUP		    "Installation de ReactOS"
     IDS_UNKNOWN_ERROR           "Erreur inconnue"
     IDS_REGISTERING_COMPONENTS  "Enregistrement des composants..."
-    IDS_LOADLIBRARY_FAILED	    "Échec de LoadLibrary : "
-    IDS_GETPROCADDR_FAILED	    "Échec de GetProcAddr : "
-    IDS_REGSVR_FAILED           "Échec de DllRegisterServer : "
-    IDS_DLLINSTALL_FAILED	    "Échec de DllInstall : "
+    IDS_LOADLIBRARY_FAILED	    "Échec de LoadLibrary: "
+    IDS_GETPROCADDR_FAILED	    "Échec de GetProcAddr: "
+    IDS_REGSVR_FAILED           "Échec de DllRegisterServer: "
+    IDS_DLLINSTALL_FAILED	    "Échec de DllInstall: "
     IDS_TIMEOUT			        "Délai dépassé lors de l'enregistrement"
     IDS_REASON_UNKNOWN          ""
 END
@@ -263,10 +245,9 @@ STRINGTABLE
 BEGIN
     IDS_SHORT_CMD        "Invite de commandes.lnk"
     IDS_SHORT_EXPLORER   "Explorateur ReactOS.lnk"
-    IDS_SHORT_DOWNLOADER "ReactOS Applications Manager.lnk"
+    IDS_SHORT_DOWNLOADER "Télécharger !.lnk"
     IDS_SHORT_SERVICE    "Gestionnaire de services.lnk"
     IDS_SHORT_DEVICE     "Gestionnaire de périphériques.lnk"
-    IDS_SHORT_MPLAY32    "Multimedia Player.lnk"
     IDS_SHORT_CALC       "Calculatrice.lnk"
     IDS_SHORT_REGEDIT    "Regedit.lnk"
     IDS_SHORT_NOTEPAD    "Notepad.lnk"
@@ -277,13 +258,6 @@ BEGIN
     IDS_SHORT_CHARMAP    "Table des Caractères.lnk"
     IDS_SHORT_MAGNIFY    "Loupe.lnk"
     IDS_SHORT_RDESKTOP   "Bureau Distant.lnk"
-    IDS_SHORT_KBSWITCH   "Sélecteur de configuration clavier.lnk"
-    IDS_SHORT_EVENTVIEW  "Event Viewer.lnk"
-    IDS_SHORT_MSCONFIG   "System Configuration.lnk"
-    IDS_SHORT_SNDVOL32   "Volume Control.lnk"
-    IDS_SHORT_DXDIAG     "ReactX Diagnostic.lnk"
-    IDS_SHORT_PAINT      "Paint.lnk"
-	IDS_SHORT_SPIDER     "Spider Solitaire.lnk"
 END
 
 STRINGTABLE

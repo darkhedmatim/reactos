@@ -131,32 +131,23 @@ BOOL WINAPI SetupSetSourceListW(DWORD flags, PCWSTR *list, UINT count)
 }
 
 /***********************************************************************
- *      SetupPromptForDiskA (SETUPAPI.@)
+ *		SetupDiRegisterDeviceInfo(SETUPAPI.@)
  */
-UINT WINAPI SetupPromptForDiskA(HWND hwndParent, PCSTR DialogTitle, PCSTR DiskName,
-        PCSTR PathToSource, PCSTR FileSought, PCSTR TagFile, DWORD DiskPromptStyle,
-        PSTR PathBuffer, DWORD PathBufferSize, PDWORD PathRequiredSize)
+BOOL WINAPI
+SetupDiRegisterDeviceInfo(
+    IN HDEVINFO DeviceInfoSet,
+    IN PSP_DEVINFO_DATA DeviceInfoData,
+    IN DWORD Flags,
+    IN PSP_DETSIG_CMPPROC CompareProc OPTIONAL,
+    IN PVOID CompareContext OPTIONAL,
+    OUT PSP_DEVINFO_DATA DupDeviceInfoData OPTIONAL)
 {
-    FIXME("%p %s %s %s %s %s %d %p %d %p: stub\n", hwndParent, debugstr_a(DialogTitle),
-          debugstr_a(DiskName), debugstr_a(PathToSource), debugstr_a(FileSought),
-          debugstr_a(TagFile), DiskPromptStyle, PathBuffer, PathBufferSize,
-          PathRequiredSize);
-    return 0;
+    FIXME ("Stub %p %p 0x%lx %p %p %p\n", DeviceInfoSet, DeviceInfoData,
+        Flags, CompareProc, CompareContext, DupDeviceInfoData);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
-/***********************************************************************
- *      SetupPromptForDiskW (SETUPAPI.@)
- */
-UINT WINAPI SetupPromptForDiskW(HWND hwndParent, PCWSTR DialogTitle, PCWSTR DiskName,
-        PCWSTR PathToSource, PCWSTR FileSought, PCWSTR TagFile, DWORD DiskPromptStyle,
-        PWSTR PathBuffer, DWORD PathBufferSize, PDWORD PathRequiredSize)
-{
-    FIXME("%p %s %s %s %s %s %d %p %d %p: stub\n", hwndParent, debugstr_w(DialogTitle),
-          debugstr_w(DiskName), debugstr_w(PathToSource), debugstr_w(FileSought),
-          debugstr_w(TagFile), DiskPromptStyle, PathBuffer, PathBufferSize,
-          PathRequiredSize);
-    return 0;
-}
 
 /***********************************************************************
  *		SetupDiRemoveDevice(SETUPAPI.@)
@@ -183,66 +174,4 @@ SetupDiUnremoveDevice(
     FIXME ("Stub %p %p\n", DeviceInfoSet, DeviceInfoData);
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
-}
-
-
-/***********************************************************************
- *		CMP_RegisterNotification(SETUPAPI.@)
- */
-CONFIGRET
-WINAPI
-CMP_RegisterNotification(
-  IN HANDLE hRecipient,
-  IN LPVOID lpvNotificationFilter,
-  IN DWORD  dwFlags,
-  OUT PULONG pluhDevNotify)
-{
-    FIXME ("Stub %p %p %lu %p\n", hRecipient, lpvNotificationFilter, dwFlags, pluhDevNotify);
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return CR_FAILURE;
-}
-
-
-/***********************************************************************
- *		CMP_UnregisterNotification(SETUPAPI.@)
- */
-CONFIGRET
-WINAPI
-CMP_UnregisterNotification(IN HDEVNOTIFY handle)
-{
-    FIXME ("Stub %p\n", handle);
-    return CR_SUCCESS;
-}
-
-/***********************************************************************
- *      CM_Get_Device_Interface_List_Size_ExA (SETUPAPI.@)
- */
-CONFIGRET WINAPI CM_Get_Device_Interface_List_Size_ExA(PULONG len, LPGUID class, DEVINSTID_A id,
-                                                       ULONG flags, HMACHINE machine)
-{
-    FIXME("%p %p %s 0x%08x %p: stub\n", len, class, debugstr_a(id), flags, machine);
-    return CR_FAILURE;
-}
-
-/***********************************************************************
- *      CM_Get_Device_Interface_List_Size_ExW (SETUPAPI.@)
- */
-CONFIGRET WINAPI CM_Get_Device_Interface_List_Size_ExW(PULONG len, LPGUID class, DEVINSTID_W id,
-                                                       ULONG flags, HMACHINE machine)
-{
-    FIXME("%p %p %s 0x%08x %p: stub\n", len, class, debugstr_w(id), flags, machine);
-    return CR_FAILURE;
-}
-
-WINSETUPAPI BOOL WINAPI SetupDiGetDeviceInterfaceAlias(IN HDEVINFO  DeviceInfoSet, IN PSP_DEVICE_INTERFACE_DATA  DeviceInterfaceData, IN CONST GUID *AliasInterfaceClassGuid, OUT PSP_DEVICE_INTERFACE_DATA  AliasDeviceInterfaceData)
-{
-    FIXME("%p %p %p %p %p stub\n", DeviceInfoSet, DeviceInterfaceData, AliasInterfaceClassGuid, AliasDeviceInterfaceData);
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
-}
-
-HKEY WINAPI SetupDiOpenDeviceInterfaceRegKey(IN HDEVINFO  DeviceInfoSet, IN PSP_DEVICE_INTERFACE_DATA  DeviceInterfaceData, IN DWORD  Reserved, IN REGSAM  samDesired)
-{
-    FIXME("%p %p %p 0x%08x 0x%08x: stub\n", DeviceInfoSet, DeviceInterfaceData, Reserved, samDesired);
-    return INVALID_HANDLE_VALUE;
 }

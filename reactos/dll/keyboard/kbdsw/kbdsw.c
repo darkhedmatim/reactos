@@ -470,17 +470,17 @@ ROSDATA KBDTABLES keyboard_layout_table = {
 
   MAKELONG(1,1), /* Version 1.0 */
 
-  /* Ligatures -- Swedish doesn't have any */
+  /* Ligatures -- German doesn't have any */
   0,
   0,
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 
-INT WINAPI
+INT STDCALL
 DllMain(
   PVOID hinstDll,
   ULONG dwReason,

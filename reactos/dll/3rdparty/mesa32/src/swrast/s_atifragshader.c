@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright (C) 2004  David Airlie   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -19,13 +20,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "main/glheader.h"
-#include "main/colormac.h"
-#include "main/context.h"
-#include "main/macros.h"
-#include "shader/program.h"
-#include "shader/atifragshader.h"
-#include "swrast/s_atifragshader.h"
+#include "glheader.h"
+#include "colormac.h"
+#include "context.h"
+#include "atifragshader.h"
+#include "macros.h"
+#include "program.h"
+
+#include "s_atifragshader.h"
 
 
 /**

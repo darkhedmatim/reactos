@@ -304,13 +304,13 @@ static VOID
 CreateTempDir(
     IN LPCWSTR VarName)
 {
-    WCHAR szTempDir[MAX_PATH];
-    WCHAR szBuffer[MAX_PATH];
+    TCHAR szTempDir[MAX_PATH];
+    TCHAR szBuffer[MAX_PATH];
     DWORD dwLength;
     HKEY hKey;
 
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                     L"SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                     _T("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"),
                      0,
                      KEY_QUERY_VALUE,
                      &hKey))
@@ -320,8 +320,8 @@ CreateTempDir(
     }
 
     /* Get temp dir */
-    dwLength = MAX_PATH * sizeof(WCHAR);
-    if (RegQueryValueExW(hKey,
+    dwLength = MAX_PATH * sizeof(TCHAR);
+    if (RegQueryValueEx(hKey,
                         VarName,
                         NULL,
                         NULL,
@@ -334,7 +334,7 @@ CreateTempDir(
     }
 
     /* Expand it */
-    if (!ExpandEnvironmentStringsW(szBuffer,
+    if (!ExpandEnvironmentStrings(szBuffer,
                                   szTempDir,
                                   MAX_PATH))
     {
@@ -344,7 +344,7 @@ CreateTempDir(
     }
 
     /* Create profiles directory */
-    if (!CreateDirectoryW(szTempDir, NULL))
+    if (!CreateDirectory(szTempDir, NULL))
     {
         if (GetLastError() != ERROR_ALREADY_EXISTS)
         {
@@ -362,11 +362,11 @@ BOOL
 InstallSysSetupInfDevices(VOID)
 {
     INFCONTEXT InfContext;
-    WCHAR LineBuffer[256];
+    TCHAR LineBuffer[256];
     DWORD LineLength;
 
-    if (!SetupFindFirstLineW(hSysSetupInf,
-                            L"DeviceInfsToInstall",
+    if (!SetupFindFirstLine(hSysSetupInf,
+                            _T("DeviceInfsToInstall"),
                             NULL,
                             &InfContext))
     {
@@ -375,7 +375,7 @@ InstallSysSetupInfDevices(VOID)
 
     do
     {
-        if (!SetupGetStringFieldW(&InfContext,
+        if (!SetupGetStringField(&InfContext,
                                  0,
                                  LineBuffer,
                                  sizeof(LineBuffer)/sizeof(LineBuffer[0]),
@@ -384,7 +384,7 @@ InstallSysSetupInfDevices(VOID)
             return FALSE;
         }
 
-        if (!SetupDiInstallClassW(NULL, LineBuffer, DI_QUIETINSTALL, NULL))
+        if (!SetupDiInstallClass(NULL, LineBuffer, DI_QUIETINSTALL, NULL))
         {
             return FALSE;
         }
@@ -397,12 +397,11 @@ BOOL
 InstallSysSetupInfComponents(VOID)
 {
     INFCONTEXT InfContext;
-    WCHAR NameBuffer[256];
-    WCHAR SectionBuffer[256];
-    HINF hComponentInf = INVALID_HANDLE_VALUE;
+    TCHAR NameBuffer[256];
+    TCHAR SectionBuffer[256];
 
-    if (!SetupFindFirstLineW(hSysSetupInf,
-                            L"Infs.Always",
+    if (!SetupFindFirstLine(hSysSetupInf,
+                            _T("Infs.Always"),
                             NULL,
                             &InfContext))
     {
@@ -412,7 +411,7 @@ InstallSysSetupInfComponents(VOID)
     {
         do
         {
-            if (!SetupGetStringFieldW(&InfContext,
+            if (!SetupGetStringField(&InfContext,
                                      1, // Get the component name
                                      NameBuffer,
                                      sizeof(NameBuffer)/sizeof(NameBuffer[0]),
@@ -422,7 +421,7 @@ InstallSysSetupInfComponents(VOID)
                 return FALSE;
             }
 
-            if (!SetupGetStringFieldW(&InfContext,
+            if (!SetupGetStringField(&InfContext,
                                      2, // Get the component install section
                                      SectionBuffer,
                                      sizeof(SectionBuffer)/sizeof(SectionBuffer[0]),
@@ -434,35 +433,21 @@ InstallSysSetupInfComponents(VOID)
 
             DPRINT("Trying to execute install section '%S' from '%S' \n", SectionBuffer , NameBuffer);
 
-            hComponentInf = SetupOpenInfFileW(NameBuffer,
-                                              NULL,
-                                              INF_STYLE_WIN4,
-                                              NULL);
-
-            if (hComponentInf == INVALID_HANDLE_VALUE)
+            if (!SetupInstallFromInfSection(NULL,
+                                           hSysSetupInf,
+                                           SectionBuffer,
+                                           SPINST_ALL,
+                                           NULL,
+                                           NULL,
+                                           SP_COPY_NEWER,
+                                           NULL,
+                                           NULL,
+                                           NULL,
+                                           NULL))
             {
-                DebugPrint("SetupOpenInfFileW() failed to open '%S' (Error: %lu)\n", NameBuffer ,GetLastError());
+                DebugPrint("Error while trying to install : %S (Error: %lu) \n", NameBuffer, GetLastError());
                 return FALSE;
             }
-
-            if (!SetupInstallFromInfSectionW(NULL,
-                                            hComponentInf,
-                                            SectionBuffer,
-                                            SPINST_ALL,
-                                            NULL,
-                                            NULL,
-                                            SP_COPY_NEWER,
-                                            SetupDefaultQueueCallbackW,
-                                            NULL,
-                                            NULL,
-                                            NULL))
-           {
-                DebugPrint("Error while trying to install : %S (Error: %lu)\n", NameBuffer, GetLastError());
-                SetupCloseInfFile(hComponentInf);
-                return FALSE;
-           }
-
-           SetupCloseInfFile(hComponentInf);
         }
         while (SetupFindNextLine(&InfContext, &InfContext));
     }
@@ -481,18 +466,18 @@ EnableUserModePnpManager(VOID)
     if (hSCManager == NULL)
         goto cleanup;
 
-    hService = OpenServiceW(hSCManager, L"PlugPlay", SERVICE_CHANGE_CONFIG | SERVICE_START);
+    hService = OpenService(hSCManager, _T("PlugPlay"), SERVICE_CHANGE_CONFIG | SERVICE_START);
     if (hService == NULL)
         goto cleanup;
 
-    ret = ChangeServiceConfigW(
+    ret = ChangeServiceConfig(
         hService,
         SERVICE_NO_CHANGE, SERVICE_AUTO_START, SERVICE_NO_CHANGE,
         NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     if (!ret)
         goto cleanup;
 
-    ret = StartServiceW(hService, 0, NULL);
+    ret = StartService(hService, 0, NULL);
     if (!ret)
         goto cleanup;
 
@@ -520,11 +505,11 @@ StatusMessageWindowProc(
     {
         case WM_INITDIALOG:
         {
-            WCHAR szMsg[256];
+            TCHAR szMsg[256];
 
-            if (!LoadStringW(hDllInstance, IDS_STATUS_INSTALL_DEV, szMsg, sizeof(szMsg)/sizeof(szMsg[0])))
+            if (!LoadString(hDllInstance, IDS_STATUS_INSTALL_DEV, szMsg, sizeof(szMsg)/sizeof(szMsg[0])))
                 return FALSE;
-            SetDlgItemTextW(hwndDlg, IDC_STATUSLABEL, szMsg);
+            SetDlgItemText(hwndDlg, IDC_STATUSLABEL, szMsg);
             return TRUE;
         }
     }
@@ -705,7 +690,7 @@ CommonInstall(VOID)
 DWORD WINAPI
 InstallLiveCD(IN HINSTANCE hInstance)
 {
-    STARTUPINFOW StartupInfo;
+    STARTUPINFO StartupInfo;
     PROCESS_INFORMATION ProcessInformation;
     BOOL res;
 
@@ -714,15 +699,15 @@ InstallLiveCD(IN HINSTANCE hInstance)
     SetupCloseInfFile(hSysSetupInf);
 
     /* Run the shell */
-    StartupInfo.cb = sizeof(STARTUPINFOW);
+    StartupInfo.cb = sizeof(StartupInfo);
     StartupInfo.lpReserved = NULL;
     StartupInfo.lpDesktop = NULL;
     StartupInfo.lpTitle = NULL;
     StartupInfo.dwFlags = 0;
     StartupInfo.cbReserved2 = 0;
     StartupInfo.lpReserved2 = 0;
-    res = CreateProcessW(
-        L"userinit.exe",
+    res = CreateProcess(
+        _T("userinit.exe"),
         NULL,
         NULL,
         NULL,
@@ -738,10 +723,10 @@ InstallLiveCD(IN HINSTANCE hInstance)
     return 0;
 
 cleanup:
-    MessageBoxW(
+    MessageBoxA(
         NULL,
-        L"You can shutdown your computer, or press ENTER to reboot",
-        L"ReactOS LiveCD",
+        "You can shutdown your computer, or press ENTER to reboot",
+        "ReactOS LiveCD",
         MB_OK);
     return 0;
 }
@@ -755,58 +740,45 @@ CreateShortcuts(VOID)
     CoInitialize(NULL);
 
     /* Create desktop shortcuts */
-    CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, TRUE);
+    CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, FALSE);
 
     /* Create program startmenu shortcuts */
-    CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_EXPLORER, _T("%SystemRoot%\\explorer.exe"), IDS_CMT_EXPLORER, TRUE);
-    CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_DOWNLOADER, _T("%SystemRoot%\\system32\\rapps.exe"), IDS_CMT_DOWNLOADER, TRUE);
+    CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_EXPLORER, _T("%SystemRoot%\\explorer.exe"), IDS_CMT_EXPLORER, FALSE);
+    CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_DOWNLOADER, _T("%SystemRoot%\\system32\\downloader.exe"), IDS_CMT_DOWNLOADER, TRUE);
 
     /* Create administrative tools startmenu shortcuts */
-    CreateShortcut(CSIDL_COMMON_ADMINTOOLS, NULL, IDS_SHORT_SERVICE, _T("%SystemRoot%\\system32\\servman.exe"), IDS_CMT_SERVMAN, TRUE);
-    CreateShortcut(CSIDL_COMMON_ADMINTOOLS, NULL, IDS_SHORT_DEVICE, _T("%SystemRoot%\\system32\\devmgmt.exe"), IDS_CMT_DEVMGMT, TRUE);
-    CreateShortcut(CSIDL_COMMON_ADMINTOOLS, NULL, IDS_SHORT_EVENTVIEW, _T("%SystemRoot%\\system32\\eventvwr.exe"), IDS_CMT_EVENTVIEW, TRUE);
-    CreateShortcut(CSIDL_COMMON_ADMINTOOLS, NULL, IDS_SHORT_MSCONFIG, _T("%SystemRoot%\\system32\\msconfig.exe"), IDS_CMT_MSCONFIG, TRUE);
+    CreateShortcut(CSIDL_COMMON_ADMINTOOLS, NULL, IDS_SHORT_SERVICE, _T("%SystemRoot%\\system32\\servman.exe"), IDS_CMT_SERVMAN, FALSE);
+    CreateShortcut(CSIDL_COMMON_ADMINTOOLS, NULL, IDS_SHORT_DEVICE, _T("%SystemRoot%\\system32\\devmgmt.exe"), IDS_CMT_DEVMGMT, FALSE);
 
     /* Create and fill Accessories subfolder */
     if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_ACCESSORIES, szFolder, sizeof(szFolder)/sizeof(szFolder[0])))
     {
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CALC, _T("%SystemRoot%\\system32\\calc.exe"), IDS_CMT_CALC, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_NOTEPAD, _T("%SystemRoot%\\system32\\notepad.exe"), IDS_CMT_NOTEPAD, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_RDESKTOP, _T("%SystemRoot%\\system32\\mstsc.exe"), IDS_CMT_RDESKTOP, TRUE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CALC, _T("%SystemRoot%\\system32\\calc.exe"), IDS_CMT_CALC, FALSE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, FALSE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_NOTEPAD, _T("%SystemRoot%\\system32\\notepad.exe"), IDS_CMT_NOTEPAD, FALSE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_REGEDIT, _T("%SystemRoot%\\regedit.exe"), IDS_CMT_REGEDIT, FALSE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WORDPAD, _T("%SystemRoot%\\system32\\wordpad.exe"), IDS_CMT_WORDPAD, FALSE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SNAP, _T("%SystemRoot%\\system32\\screenshot.exe"), IDS_CMT_SCREENSHOT, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WORDPAD, _T("%SystemRoot%\\system32\\wordpad.exe"), IDS_CMT_WORDPAD, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_PAINT, _T("%SystemRoot%\\system32\\paint.exe"), IDS_CMT_PAINT, TRUE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_RDESKTOP, _T("%SystemRoot%\\system32\\mstsc.exe"), IDS_CMT_RDESKTOP, FALSE);
     }
 
-    /* Create System Tools subfolder and fill if the exe is available */
+    /* Creacte System Tools subfolder and fill if the exe is available */
     if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_SYS_TOOLS, szFolder, sizeof(szFolder)/sizeof(szFolder[0])))
     {
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CHARMAP, _T("%SystemRoot%\\system32\\charmap.exe"), IDS_CMT_CHARMAP, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_KBSWITCH, _T("%SystemRoot%\\system32\\kbswitch.exe"), IDS_CMT_KBSWITCH, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_REGEDIT, _T("%SystemRoot%\\regedit.exe"), IDS_CMT_REGEDIT, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_DXDIAG, _T("%SystemRoot%\\system32\\dxdiag.exe"), IDS_CMT_DXDIAG, TRUE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_CHARMAP, _T("%SystemRoot%\\system32\\charmap.exe"), IDS_CMT_CHARMAP, FALSE);
     }
 
-    /* Create Accessibility subfolder and fill if the exe is available */
+    /* Creacte Accessibility subfolder and fill if the exe is available */
     if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_SYS_ACCESSIBILITY, szFolder, sizeof(szFolder)/sizeof(szFolder[0])))
     {
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_MAGNIFY, _T("%SystemRoot%\\system32\\magnify.exe"), IDS_CMT_MAGNIFY, TRUE);
     }
 
-    /* Create Entertainment subfolder and fill if the exe is available */
-    if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_SYS_ENTERTAINMENT, szFolder, sizeof(szFolder)/sizeof(szFolder[0])))
-    {
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_MPLAY32, _T("%SystemRoot%\\system32\\mplay32.exe"), IDS_CMT_MPLAY32, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SNDVOL32, _T("%SystemRoot%\\system32\\sndvol32.exe"), IDS_CMT_SNDVOL32, TRUE);
-    }
-
     /* Create Games subfolder and fill if the exe is available */
     if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_GAMES, szFolder, sizeof(szFolder)/sizeof(szFolder[0])))
     {
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SOLITAIRE, _T("%SystemRoot%\\system32\\sol.exe"), IDS_CMT_SOLITAIRE, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WINEMINE, _T("%SystemRoot%\\system32\\winemine.exe"), IDS_CMT_WINEMINE, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SPIDER, _T("%SystemRoot%\\system32\\spider.exe"), IDS_CMT_SPIDER, TRUE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SOLITAIRE, _T("%SystemRoot%\\system32\\sol.exe"), IDS_CMT_SOLITAIRE, FALSE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WINEMINE, _T("%SystemRoot%\\system32\\winemine.exe"), IDS_CMT_WINEMINE, FALSE);
     }
 
     CoUninitialize();
@@ -854,6 +826,10 @@ InstallReactOS(HINSTANCE hInstance)
     InitializeSetupActionLog(FALSE);
     LogItem(SYSSETUP_SEVERITY_INFORMATION, L"Installing ReactOS");
 
+    /* Set user langage to the system language */
+    SetUserDefaultLCID(GetSystemDefaultLCID());
+    SetThreadLocale(GetSystemDefaultLCID());
+
     if (!InitializeProfiles())
     {
         DebugPrint("InitializeProfiles() failed");
@@ -890,21 +866,6 @@ InstallReactOS(HINSTANCE hInstance)
 
     /* Append the Admin-RID */
     AppendRidToSid(&AdminSid, DomainSid, DOMAIN_USER_RID_ADMIN);
-
-    CreateTempDir(L"TEMP");
-    CreateTempDir(L"TMP");
-
-    if (GetWindowsDirectory(szBuffer, sizeof(szBuffer) / sizeof(TCHAR)))
-    {
-        PathAddBackslash(szBuffer);
-        _tcscat(szBuffer, _T("system"));
-        CreateDirectory(szBuffer, NULL);
-    }
-
-    if (!CommonInstall())
-        return 0;
-
-    InstallWizard();
 
     /* Create the Administrator account */
     if (!SamCreateUser(L"Administrator", L"", AdminSid))
@@ -957,6 +918,21 @@ InstallReactOS(HINSTANCE hInstance)
     }
     /* END OF ROS HACK */
 
+    CreateTempDir(L"TEMP");
+    CreateTempDir(L"TMP");
+
+    if (GetWindowsDirectory(szBuffer, sizeof(szBuffer) / sizeof(TCHAR)))
+    {
+        PathAddBackslash(szBuffer);
+        _tcscat(szBuffer, _T("system"));
+        CreateDirectory(szBuffer, NULL);
+    }
+
+    if (!CommonInstall())
+        return 0;
+
+    InstallWizard();
+
     SetupCloseInfFile(hSysSetupInf);
     SetSetupType(0);
 
@@ -991,6 +967,13 @@ InstallReactOS(HINSTANCE hInstance)
         return 0;
     }
 
+    if (SetupData.BootCDRegtestActive)
+    {
+        /// THE FOLLOWING DPRINT IS FOR THE SYSTEM REGRESSION TOOL
+        /// DO NOT REMOVE!!!
+        DbgPrint("SYSREG_CHECKPOINT:SYSSETUP_COMPLETE\n");
+    }
+
     ExitWindowsEx(EWX_REBOOT, 0);
     return 0;
 }
@@ -999,35 +982,11 @@ InstallReactOS(HINSTANCE hInstance)
 /*
  * @unimplemented
  */
-DWORD WINAPI
+DWORD STDCALL
 SetupChangeFontSize(
     IN HANDLE hWnd,
     IN LPCWSTR lpszFontSize)
 {
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return FALSE;
-}
-
-/*
- * @unimplemented
- */
-DWORD WINAPI
-SetupChangeLocaleEx(HWND hWnd,
-                    LCID Lcid,
-                    LPCWSTR lpSrcRootPath,
-                    char Unknown,
-                    DWORD dwUnused1,
-                    DWORD dwUnused2)
-{
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
-}
-
-/*
- * @implemented
- */
-DWORD WINAPI
-SetupChangeLocale(HWND hWnd, LCID Lcid)
-{
-    return SetupChangeLocaleEx(hWnd, Lcid, NULL, 0, 0, 0);
 }

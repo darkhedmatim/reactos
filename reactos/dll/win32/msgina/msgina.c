@@ -30,7 +30,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(msgina);
 
-HINSTANCE hDllInstance;
+extern HINSTANCE hDllInstance;
 
 extern GINA_UI GinaGraphicalUI;
 extern GINA_UI GinaTextUI;
@@ -247,8 +247,6 @@ WlxStartApplication(
 		CurrentDirectory,
 		&StartupInfo,
 		&ProcessInformation);
-	CloseHandle(ProcessInformation.hProcess);
-	CloseHandle(ProcessInformation.hThread);
 	CloseHandle(hAppToken);
 	if (!ret)
 		WARN("CreateProcessAsUserW() failed with error %lu\n", GetLastError());

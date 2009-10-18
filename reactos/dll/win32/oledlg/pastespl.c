@@ -434,7 +434,7 @@ static void update_result_text(HWND hdlg, const ps_struct_t *ps_struct)
     LoadStringW(OLEDLG_hInstance, res_id, resource_txt, sizeof(resource_txt)/sizeof(WCHAR));
     if((ptr = strstrW(resource_txt, percent_s)))
     {
-        /* FIXME handle %s in ResultText. Sub appname if IDS_PS_PASTE_OBJECT{_AS_ICON}.  Else sub appropriate type name */
+        /* FIXME handle %s in ResultText. Sub appname if IDS_PS_PASTE_OBJECT{_AS_ICON}.  Else sub appropiate type name */
         size_t result_txt_len = strlenW(pent->lpstrResultText);
         ptrdiff_t offs = (char*)ptr - (char*)resource_txt;
         result_txt = HeapAlloc(GetProcessHeap(), 0, (strlenW(resource_txt) + result_txt_len - 1) * sizeof(WCHAR));
@@ -648,7 +648,7 @@ UINT WINAPI OleUIPasteSpecialA(LPOLEUIPASTESPECIALA psA)
     if(psA->cPasteEntries > 0)
     {
         DWORD size = psA->cPasteEntries * sizeof(ps.arrPasteEntries[0]);
-        INT i;
+        UINT i;
 
         ps.arrPasteEntries = HeapAlloc(GetProcessHeap(), 0, size);
         memcpy(ps.arrPasteEntries, psA->arrPasteEntries, size);
@@ -665,7 +665,7 @@ UINT WINAPI OleUIPasteSpecialA(LPOLEUIPASTESPECIALA psA)
 
     if(psA->cPasteEntries > 0)
     {
-        INT i;
+        UINT i;
         for(i = 0; i < psA->cPasteEntries; i++)
         {
             HeapFree(GetProcessHeap(), 0, (WCHAR*)ps.arrPasteEntries[i].lpstrFormatName);

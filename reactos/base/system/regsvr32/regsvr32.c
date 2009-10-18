@@ -220,7 +220,7 @@ LPTSTR *WINAPI CommandLineToArgvT(LPCTSTR lpCmdLine, int *lpArgc)
 // should not be modified until FreeConvertedWideChar has been called.
 #ifdef UNICODE
 #define ConvertToWideChar(lptString) (lptString)
-#define FreeConvertedWideChar(lpwString) ((void) 0)
+#define FreeConvertedWideChar(lpwString)
 #else
 
 LPWSTR ConvertToWideChar(LPCSTR lpString)
@@ -247,10 +247,10 @@ void DisplayMessage(BOOL bConsole, BOOL bSilent, LPCTSTR lpMessage, LPCTSTR lpTi
 		_tprintf(_T("%s: %s\n\n"),lpTitle,lpMessage);
 }
 
-int WINAPI _tWinMain(
+int WINAPI WinMain(
   HINSTANCE hInstance,
   HINSTANCE hPrevInstance,
-  LPTSTR lpCmdLine,
+  LPSTR lpCmdLineA,
   int nCmdShow
 )
 {

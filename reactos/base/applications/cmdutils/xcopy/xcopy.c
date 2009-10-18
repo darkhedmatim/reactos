@@ -43,7 +43,6 @@
 #include <stdio.h>
 #include <windows.h>
 #include <wine/debug.h>
-#include <wine/unicode.h>
 #include "xcopy.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(xcopy);
@@ -121,7 +120,7 @@ int wmain (int argc, WCHAR *argvW[])
     }
 
     /* Preinitialize flags based on COPYCMD */
-    if (GetEnvironmentVariableW(COPYCMD, copyCmd, MAXSTRING)) {
+    if (GetEnvironmentVariable(COPYCMD, copyCmd, MAXSTRING)) {
         if (wcsstr(copyCmd, PROMPTSTR1) != NULL ||
             wcsstr(copyCmd, PROMPTSTR2) != NULL) {
             flags |= OPT_NOPROMPT;
@@ -178,7 +177,7 @@ int wmain (int argc, WCHAR *argvW[])
                                OPT_REMOVEARCH;    break;
 
             /* E can be /E or /EXCLUDE */
-            case 'E': if (CompareStringW(LOCALE_USER_DEFAULT,
+            case 'E': if (CompareString (LOCALE_USER_DEFAULT,
                                          NORM_IGNORECASE | SORT_STRINGSORT,
                                          &argvW[0][1], 8,
                                          EXCLUDE, -1) == 2) {
@@ -222,10 +221,10 @@ int wmain (int argc, WCHAR *argvW[])
 
                               /* Debug info: */
                               FileTimeToSystemTime (&dateRange, &st);
-                              GetDateFormatW(0, DATE_SHORTDATE, &st, NULL, datestring,
-                                             sizeof(datestring)/sizeof(WCHAR));
-                              GetTimeFormatW(0, TIME_NOSECONDS, &st,
-                                             NULL, timestring, sizeof(timestring)/sizeof(WCHAR));
+                              GetDateFormat (0, DATE_SHORTDATE, &st, NULL, datestring,
+                                          sizeof(datestring));
+                              GetTimeFormat (0, TIME_NOSECONDS, &st,
+                                          NULL, timestring, sizeof(timestring));
 
                               WINE_TRACE("Date being used is: %s %s\n",
                                          wine_dbgstr_w(datestring), wine_dbgstr_w(timestring));
@@ -324,7 +323,7 @@ static int XCOPY_ProcessSourceParm(WCHAR *suppliedsource, WCHAR *stem,
     /*
      * Validate the source, expanding to full path ensuring it exists
      */
-    if (GetFullPathNameW(suppliedsource, MAX_PATH, actualsource, NULL) == 0) {
+    if (GetFullPathName(suppliedsource, MAX_PATH, actualsource, NULL) == 0) {
         WINE_FIXME("Unexpected failure expanding source path (%d)\n", GetLastError());
         return RC_INITERROR;
     }
@@ -352,7 +351,7 @@ static int XCOPY_ProcessSourceParm(WCHAR *suppliedsource, WCHAR *stem,
     if (starPos || questPos) {
         attribs = 0x00;  /* Ensures skips invalid or directory check below */
     } else {
-        attribs = GetFileAttributesW(actualsource);
+        attribs = GetFileAttributes(actualsource);
     }
 
     if (attribs == INVALID_FILE_ATTRIBUTES) {
@@ -394,7 +393,7 @@ static int XCOPY_ProcessSourceParm(WCHAR *suppliedsource, WCHAR *stem,
             lstrcpyW(spec, suppliedsource+2);
         } else {
             WCHAR curdir[MAXSTRING];
-            GetCurrentDirectoryW(sizeof(curdir)/sizeof(WCHAR), curdir);
+            GetCurrentDirectory (sizeof(curdir), curdir);
             stem[0] = curdir[0];
             stem[1] = curdir[1];
             stem[2] = 0x00;
@@ -419,13 +418,13 @@ static int XCOPY_ProcessDestParm(WCHAR *supplieddestination, WCHAR *stem, WCHAR 
     /*
      * Validate the source, expanding to full path ensuring it exists
      */
-    if (GetFullPathNameW(supplieddestination, MAX_PATH, actualdestination, NULL) == 0) {
+    if (GetFullPathName(supplieddestination, MAX_PATH, actualdestination, NULL) == 0) {
         WINE_FIXME("Unexpected failure expanding source path (%d)\n", GetLastError());
         return RC_INITERROR;
     }
 
     /* Destination is either a directory or a file */
-    attribs = GetFileAttributesW(actualdestination);
+    attribs = GetFileAttributes(actualdestination);
 
     if (attribs == INVALID_FILE_ATTRIBUTES) {
 
@@ -501,17 +500,16 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
                         WCHAR *deststem, WCHAR *destspec,
                         DWORD flags)
 {
-    WIN32_FIND_DATAW *finddata;
+    WIN32_FIND_DATA *finddata;
     HANDLE          h;
     BOOL            findres = TRUE;
     WCHAR           *inputpath, *outputpath;
     BOOL            copiedFile = FALSE;
     DWORD           destAttribs, srcAttribs;
     BOOL            skipFile;
-    int             ret = 0;
 
     /* Allocate some working memory on heap to minimize footprint */
-    finddata = HeapAlloc(GetProcessHeap(), 0, sizeof(WIN32_FIND_DATAW));
+    finddata = HeapAlloc(GetProcessHeap(), 0, sizeof(WIN32_FIND_DATA));
     inputpath = HeapAlloc(GetProcessHeap(), 0, MAX_PATH * sizeof(WCHAR));
     outputpath = HeapAlloc(GetProcessHeap(), 0, MAX_PATH * sizeof(WCHAR));
 
@@ -520,7 +518,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
     lstrcatW(inputpath, srcspec);
 
     /* Search 1 - Look for matching files */
-    h = FindFirstFileW(inputpath, finddata);
+    h = FindFirstFile(inputpath, finddata);
     while (h != INVALID_HANDLE_VALUE && findres) {
 
         skipFile = FALSE;
@@ -588,7 +586,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
             /* If just /D supplied, only overwrite if src newer than dest */
             if (!skipFile && (flags & OPT_DATENEWER) &&
                (destAttribs != INVALID_FILE_ATTRIBUTES)) {
-                HANDLE h = CreateFileW(copyTo, GENERIC_READ, FILE_SHARE_READ,
+                HANDLE h = CreateFile(copyTo, GENERIC_READ, FILE_SHARE_READ,
                                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                                       NULL);
                 if (h != INVALID_HANDLE_VALUE) {
@@ -612,7 +610,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
 
                 /* Uppercase source filename */
                 lstrcpyW(copyFromUpper, copyFrom);
-                CharUpperBuffW(copyFromUpper, lstrlenW(copyFromUpper));
+                CharUpperBuff(copyFromUpper, lstrlenW(copyFromUpper));
 
                 /* Loop through testing each exclude line */
                 while (pos) {
@@ -704,13 +702,13 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
                    write protection                                       */
                 if ((destAttribs & FILE_ATTRIBUTE_READONLY) &&
                     (flags & OPT_REPLACEREAD)) {
-                    SetFileAttributesW(copyTo, destAttribs & ~FILE_ATTRIBUTE_READONLY);
+                    SetFileAttributes(copyTo, destAttribs & ~FILE_ATTRIBUTE_READONLY);
                 }
 
                 copiedFile = TRUE;
                 if (flags & OPT_SIMULATE || flags & OPT_NOCOPY) {
                     /* Skip copy */
-                } else if (CopyFileW(copyFrom, copyTo, FALSE) == 0) {
+                } else if (CopyFile(copyFrom, copyTo, FALSE) == 0) {
 
                     DWORD error = GetLastError();
                     XCOPY_wprintf(XCOPY_LoadMessage(STRING_COPYFAIL),
@@ -720,8 +718,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
                     if (flags & OPT_IGNOREERRORS) {
                         skipFile = TRUE;
                     } else {
-                        ret = RC_WRITEERROR;
-                        goto cleanup;
+                        return RC_WRITEERROR;
                     }
                 }
 
@@ -729,7 +726,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
                 if (!skipFile) {
                     if ((srcAttribs & FILE_ATTRIBUTE_ARCHIVE) &&
                         (flags & OPT_REMOVEARCH)) {
-                        SetFileAttributesW(copyFrom, (srcAttribs & ~FILE_ATTRIBUTE_ARCHIVE));
+                        SetFileAttributes(copyFrom, (srcAttribs & ~FILE_ATTRIBUTE_ARCHIVE));
                     }
                     filesCopied++;
                 }
@@ -737,7 +734,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
         }
 
         /* Find next file */
-        findres = FindNextFileW(h, finddata);
+        findres = FindNextFile(h, finddata);
     }
     FindClose(h);
 
@@ -748,7 +745,7 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
         findres = TRUE;
         WINE_TRACE("Processing subdirs with spec: %s\n", wine_dbgstr_w(inputpath));
 
-        h = FindFirstFileW(inputpath, finddata);
+        h = FindFirstFile(inputpath, finddata);
         while (h != INVALID_HANDLE_VALUE && findres) {
 
             /* Only looking for dirs */
@@ -779,23 +776,21 @@ static int XCOPY_DoCopy(WCHAR *srcstem, WCHAR *srcspec,
             }
 
             /* Find next one */
-            findres = FindNextFileW(h, finddata);
+            findres = FindNextFile(h, finddata);
         }
     }
-
-cleanup:
 
     /* free up memory */
     HeapFree(GetProcessHeap(), 0, finddata);
     HeapFree(GetProcessHeap(), 0, inputpath);
     HeapFree(GetProcessHeap(), 0, outputpath);
 
-    return ret;
+    return 0;
 }
 
 /* =========================================================================
  * Routine copied from cmd.exe md command -
- * This works recursively. so creating dir1\dir2\dir3 will create dir1 and
+ * This works recursivly. so creating dir1\dir2\dir3 will create dir1 and
  * dir2 if they do not already exist.
  * ========================================================================= */
 static BOOL XCOPY_CreateDirectory(const WCHAR* path)
@@ -810,7 +805,7 @@ static BOOL XCOPY_CreateDirectory(const WCHAR* path)
     while ((len = lstrlenW(new_path)) && new_path[len - 1] == '\\')
         new_path[len - 1] = 0;
 
-    while (!CreateDirectoryW(new_path,NULL))
+    while (!CreateDirectory(new_path,NULL))
     {
         WCHAR *slash;
         DWORD last_error = GetLastError();
@@ -900,7 +895,7 @@ static BOOL XCOPY_ProcessExcludeFile(WCHAR* filename, WCHAR* endOfName) {
     }
 
     /* Process line by line */
-    while (fgetws(buffer, sizeof(buffer)/sizeof(WCHAR), inFile) != NULL) {
+    while (fgetws(buffer, sizeof(buffer), inFile) != NULL) {
         EXCLUDELIST *thisEntry;
         int length = lstrlenW(buffer);
 
@@ -915,7 +910,7 @@ static BOOL XCOPY_ProcessExcludeFile(WCHAR* filename, WCHAR* endOfName) {
           thisEntry->name = HeapAlloc(GetProcessHeap(), 0,
                                       (length * sizeof(WCHAR))+1);
           lstrcpyW(thisEntry->name, buffer);
-          CharUpperBuffW(thisEntry->name, length);
+          CharUpperBuff(thisEntry->name, length);
           WINE_TRACE("Read line : '%s'\n", wine_dbgstr_w(thisEntry->name));
         }
     }
@@ -941,7 +936,7 @@ static WCHAR *XCOPY_LoadMessage(UINT id) {
     static WCHAR msg[MAXSTRING];
     const WCHAR failedMsg[]  = {'F', 'a', 'i', 'l', 'e', 'd', '!', 0};
 
-    if (!LoadStringW(GetModuleHandleW(NULL), id, msg, sizeof(msg)/sizeof(WCHAR))) {
+    if (!LoadString(GetModuleHandle(NULL), id, msg, sizeof(msg))) {
        WINE_FIXME("LoadString failed with %d\n", GetLastError());
        lstrcpyW(msg, failedMsg);
     }
@@ -956,10 +951,10 @@ static void XCOPY_FailMessage(DWORD err) {
     LPWSTR lpMsgBuf;
     int status;
 
-    status = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+    status = FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |
                             FORMAT_MESSAGE_FROM_SYSTEM,
                             NULL, err, 0,
-                            (LPWSTR) &lpMsgBuf, 0, NULL);
+                            (LPTSTR) &lpMsgBuf, 0, NULL);
     if (!status) {
       WINE_FIXME("FIXME: Cannot display message for error %d, status %d\n",
                  err, GetLastError());
@@ -984,8 +979,7 @@ int XCOPY_wprintf(const WCHAR *format, ...) {
 #define MAX_WRITECONSOLE_SIZE 65535
 
     va_list parms;
-    DWORD   nOut;
-    int len;
+    DWORD   len, nOut;
     DWORD   res = 0;
 
     /*
@@ -1001,13 +995,10 @@ int XCOPY_wprintf(const WCHAR *format, ...) {
       return 0;
     }
 
+    /* Use wvsprintf to store output into unicode buffer */
     va_start(parms, format);
-    len = vsnprintfW(output_bufW, MAX_WRITECONSOLE_SIZE/sizeof(WCHAR), format, parms);
+    len = vswprintf(output_bufW, format, parms);
     va_end(parms);
-    if (len < 0) {
-      WINE_FIXME("String too long.\n");
-      return 0;
-    }
 
     /* Try to write as unicode all the time we think its a console */
     if (toConsole) {

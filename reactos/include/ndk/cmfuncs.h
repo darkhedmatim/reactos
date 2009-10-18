@@ -234,7 +234,7 @@ NTSTATUS
 NTAPI
 NtQueryOpenSubKeys(
     IN POBJECT_ATTRIBUTES TargetKey,
-    OUT PULONG HandleCount
+    IN ULONG HandleCount
 );
 
 NTSTATUS
@@ -256,14 +256,6 @@ NtQueryValueKey(
     OUT PVOID KeyValueInformation,
     IN ULONG Length,
     OUT PULONG ResultLength
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtRenameKey(
-    IN HANDLE KeyHandle,
-    IN PUNICODE_STRING ReplacementName
 );
 
 NTSYSCALLAPI

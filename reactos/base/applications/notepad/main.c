@@ -27,14 +27,6 @@
 NOTEPAD_GLOBALS Globals;
 static ATOM aFINDMSGSTRING;
 
-VOID NOTEPAD_EnableSearchMenu()
-{
-    EnableMenuItem(GetMenu(Globals.hMainWnd), CMD_SEARCH,
-                   MF_BYCOMMAND | ((GetWindowTextLength(Globals.hEdit) == 0) ? MF_DISABLED | MF_GRAYED : MF_ENABLED));
-    EnableMenuItem(GetMenu(Globals.hMainWnd), CMD_SEARCH_NEXT,
-                   MF_BYCOMMAND | ((GetWindowTextLength(Globals.hEdit) == 0) ? MF_DISABLED | MF_GRAYED : MF_ENABLED));
-}
-
 /***********************************************************************
  *
  *           SetFileName
@@ -91,7 +83,7 @@ static int NOTEPAD_MenuCommand(WPARAM wParam)
     case CMD_ABOUT:            DialogBox(GetModuleHandle(NULL),
                                          MAKEINTRESOURCE(IDD_ABOUTBOX),
                                          Globals.hMainWnd,
-                                         AboutDialogProc);
+                                         (DLGPROC) AboutDialogProc);
                                break;
     case CMD_ABOUT_WINE:       DIALOG_HelpAboutWine(); break;
 
@@ -298,32 +290,6 @@ static VOID NOTEPAD_InitMenuPopup(HMENU menu, LPARAM index)
     DrawMenuBar(Globals.hMainWnd);
 }
 
-LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{ 
-    switch (msg)
-    {
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        {
-            switch (wParam)
-            {
-                case VK_UP:
-                case VK_DOWN:
-                case VK_LEFT:
-                case VK_RIGHT:
-                    DIALOG_StatusBarUpdateCaretPos();
-                    break;
-            }
-        }
-        case WM_LBUTTONUP:
-        {
-            DIALOG_StatusBarUpdateCaretPos();
-            break;
-        }
-    }
-    return CallWindowProc( (WNDPROC)Globals.EditProc, hWnd, msg, wParam, lParam);
-}
-
 /***********************************************************************
  *
  *           NOTEPAD_WndProc
@@ -346,17 +312,12 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
         SendMessage(Globals.hEdit, EM_LIMITTEXT, 0, 0);
         if (Globals.hFont)
             SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, (LPARAM)TRUE);
-
-        Globals.EditProc = (WNDPROC) SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)EDIT_WndProc);
-
         break;
     }
 
     case WM_COMMAND:
         if (HIWORD(wParam) == EN_CHANGE || HIWORD(wParam) == EN_HSCROLL || HIWORD(wParam) == EN_VSCROLL)
             DIALOG_StatusBarUpdateCaretPos();
-        if ((HIWORD(wParam) == EN_CHANGE))
-            NOTEPAD_EnableSearchMenu();
         NOTEPAD_MenuCommand(LOWORD(wParam));
         break;
 
@@ -366,8 +327,8 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
 
     case WM_CLOSE:
         if (DoCloseFile()) {
-            if (Globals.hFont)
-                DeleteObject(Globals.hFont);
+			if (Globals.hFont)
+				DeleteObject(Globals.hFont);
             DestroyWindow(hWnd);
         }
         break;
@@ -379,8 +340,6 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
         break;
 
     case WM_DESTROY:
-        SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc);
-        SaveSettings();
         PostQuitMessage(0);
         break;
 
@@ -556,13 +515,9 @@ static void HandleCommandLine(LPTSTR cmdline)
  */
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int show)
 {
-    MSG         msg;
-    HACCEL      hAccel;
-    WNDCLASSEX  wndclass;
-    HMONITOR    monitor;
-    MONITORINFO info;
-    INT         x, y;
-
+    MSG        msg;
+    HACCEL     hAccel;
+    WNDCLASSEX wndclass;
     static const TCHAR className[] = _T("NPClass");
     static const TCHAR winName[]   = _T("Notepad");
 
@@ -590,22 +545,9 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 
     /* Setup windows */
 
-    monitor = MonitorFromRect( &Globals.main_rect, MONITOR_DEFAULTTOPRIMARY );
-    info.cbSize = sizeof(info);
-    GetMonitorInfoW( monitor, &info );
-
-    x = Globals.main_rect.left;
-    y = Globals.main_rect.top;
-    if (Globals.main_rect.left >= info.rcWork.right ||
-        Globals.main_rect.top >= info.rcWork.bottom ||
-        Globals.main_rect.right < info.rcWork.left ||
-        Globals.main_rect.bottom < info.rcWork.top)
-        x = y = CW_USEDEFAULT;
-
     Globals.hMainWnd =
         CreateWindow(className, winName, WS_OVERLAPPEDWINDOW,
-                     x, y, Globals.main_rect.right - Globals.main_rect.left,
-                     Globals.main_rect.bottom - Globals.main_rect.top,
+                     CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
                      NULL, NULL, Globals.hInstance, NULL);
     if (!Globals.hMainWnd)
     {
@@ -620,8 +562,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     UpdateWindow(Globals.hMainWnd);
     DragAcceptFiles(Globals.hMainWnd, TRUE);
 
-    DIALOG_ViewStatusBar();
-
     HandleCommandLine(cmdline);
 
     hAccel = LoadAccelerators( hInstance, MAKEINTRESOURCE(ID_ACCEL) );
@@ -635,5 +575,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
             DispatchMessage(&msg);
         }
     }
+    SaveSettings();
     return (int) msg.wParam;
 }

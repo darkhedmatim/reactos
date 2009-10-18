@@ -132,7 +132,12 @@ relocate:
 
 	; Make sure the keyboard buffer is empty
 %ifdef WAIT_FOR_KEY
-	call	pollchar_and_empty
+.kbd_buffer_test:
+	call	pollchar
+	jz	.kbd_buffer_empty
+	call	getchar
+	jmp	.kbd_buffer_test
+.kbd_buffer_empty:
 
 	; Check for MBR on harddisk
 	pusha
@@ -161,7 +166,7 @@ relocate:
 	add	eax, 19				; 
 
 .poll_again:
-	call	pollchar_and_empty
+	call	pollchar
 	jnz	.boot_cdrom
 
 	mov	ebx, [BIOS_timer]
@@ -898,24 +903,30 @@ kaboom:
 	sti
 	mov	si, err_bootfailed
 	call	writestr
-	xor	ax, ax		; Wait for keypress
-	int	16h
+	call	getchar
 	cli
 	mov	word [BIOS_magic], 0	; Cold reboot
 	jmp	0F000h:0FFF0h		; Reset vector address
 
+getchar:
+.again:
+	mov	ah, 1		; Poll keyboard
+	int	16h
+	jz	.again
+.kbd:
+	xor	ax, ax		; Get keyboard input
+	int	16h
+.func_key:
+	ret
+
 
 ;
-; pollchar_and_empty: check if we have an input character pending (ZF = 0) and empty the input buffer afterwards
+; pollchar: check if we have an input character pending (ZF = 0)
 ;
-pollchar_and_empty:
+pollchar:
 	pushad
-	mov ah, 1		; Did the user press a key?
+	mov ah,1		; Poll keyboard
 	int 16h
-	jz	.end		; No, then we're done
-	mov ah, 0		; Otherwise empty the buffer by reading it
-	int 16h
-.end:
 	popad
 	ret
 

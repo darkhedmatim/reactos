@@ -26,7 +26,6 @@
 #include "winerror.h"
 #include "wingdi.h"
 #include "winuser.h"
-#include "objbase.h"
 
 #include "cderr.h"
 #include "commdlg.h"
@@ -51,7 +50,8 @@ static LPCSTR load_functions(void)
     LPCSTR  ptr;
 
     ptr = "comdlg32.dll";
-    hcomdlg32 = GetModuleHandleA(ptr);
+    hcomdlg32 = LoadLibraryA(ptr);
+    if (!hcomdlg32) return ptr;
 
     ptr = "PrintDlgExA";
     pPrintDlgExA = (void *) GetProcAddress(hcomdlg32, ptr);
@@ -215,9 +215,11 @@ static void test_PrintDlgA(void)
         SetLastError(0xdeadbeef);
         res = GetProfileStringA(PrinterPortsA, device, emptyA, buffer, sizeof(buffer));
         ptr = strchr(buffer, ',');
+        todo_wine {
         ok( (res > 1) && (ptr != NULL),
             "got %u with %u and %p for '%s' (expected '>1' and '!= NULL')\n",
             res, GetLastError(), ptr, buffer);
+        }
 
         if (ptr) ptr[0] = '\0';
         todo_wine {
@@ -289,90 +291,6 @@ static void test_PrintDlgExW(void)
 
 }
 
-static BOOL abort_proc_called = FALSE;
-static BOOL CALLBACK abort_proc(HDC hdc, int error) { return abort_proc_called = TRUE; }
-static void test_abort_proc(void)
-{
-    HDC print_dc;
-    RECT rect = {0, 0, 100, 100};
-    DOCINFOA doc_info = {0};
-    PRINTDLGA pd = {0};
-    char filename[MAX_PATH];
-    int job_id;
-
-    if (!GetTempFileNameA(".", "prn", 0, filename))
-    {
-        skip("Failed to create a temporary file name\n");
-        return;
-    }
-
-    pd.lStructSize = sizeof(pd);
-    pd.Flags = PD_RETURNDEFAULT | PD_ALLPAGES | PD_RETURNDC | PD_PRINTTOFILE;
-    pd.nFromPage = 1;
-    pd.nToPage = 1;
-    pd.nCopies = 1;
-
-    if (!PrintDlgA(&pd))
-    {
-        skip("No default printer available.\n");
-        ok(DeleteFileA(filename), "Failed to delete temporary file\n");
-        return;
-    }
-
-    ok(pd.hDC != NULL, "PrintDlg didn't return a DC.\n");
-    if (!(print_dc = pd.hDC))
-    {
-        ok(DeleteFileA(filename), "Failed to delete temporary file\n");
-        return;
-    }
-
-    ok(SetAbortProc(print_dc, abort_proc) > 0, "SetAbortProc failed\n");
-    ok(!abort_proc_called, "AbortProc got called unexpectedly by SetAbortProc.\n");
-    abort_proc_called = FALSE;
-
-    doc_info.cbSize = sizeof(doc_info);
-    doc_info.lpszDocName = "Some document";
-    doc_info.lpszOutput = filename;
-
-    job_id = StartDocA(print_dc, &doc_info);
-
-    ok(job_id > 0 ||
-       GetLastError() == ERROR_SPL_NO_STARTDOC, /* Vista can fail with this error when using the XPS driver */
-       "StartDocA failed ret %d gle %d\n", job_id, GetLastError());
-
-    if(job_id <= 0)
-    {
-        skip("StartDoc failed\n");
-        goto end;
-    }
-
-    ok(abort_proc_called, "AbortProc didn't get called by StartDoc.\n");
-    abort_proc_called = FALSE;
-
-    ok(StartPage(print_dc) > 0, "StartPage failed\n");
-    ok(!abort_proc_called, "AbortProc got called unexpectedly by StartPage.\n");
-    abort_proc_called = FALSE;
-
-    ok(FillRect(print_dc, &rect, (HBRUSH)(COLOR_BACKGROUND + 1)), "FillRect failed\n");
-    ok(!abort_proc_called, "AbortProc got called unexpectedly by StretchBlt.\n");
-    abort_proc_called = FALSE;
-
-    ok(EndPage(print_dc) > 0, "EndPage failed\n");
-    ok(!abort_proc_called, "AbortProc got called unexpectedly by EndPage.\n");
-    abort_proc_called = FALSE;
-
-    ok(EndDoc(print_dc) > 0, "EndDoc failed\n");
-    ok(!abort_proc_called, "AbortProc got called unexpectedly by EndDoc.\n");
-    abort_proc_called = FALSE;
-
-    ok(DeleteDC(print_dc), "DeleteDC failed\n");
-    ok(!abort_proc_called, "AbortProc got called unexpectedly by DeleteDC.\n");
-    abort_proc_called = FALSE;
-
-end:
-    ok(DeleteFileA(filename), "Failed to delete temporary file\n");
-}
-
 /* ########################### */
 
 START_TEST(printdlg)
@@ -383,11 +301,10 @@ START_TEST(printdlg)
 
     test_PageSetupDlgA();
     test_PrintDlgA();
-    test_abort_proc();
 
     /* PrintDlgEx not present before w2k */
     if (ptr) {
-        win_skip("%s\n", ptr);
+        skip("%s\n", ptr);
         return;
     }
 

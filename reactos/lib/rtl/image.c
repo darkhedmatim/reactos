@@ -16,8 +16,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#define RVA(m, b) ((PVOID)((ULONG_PTR)(b) + (ULONG_PTR)(m)))
-
 /* FUNCTIONS *****************************************************************/
 
 BOOLEAN
@@ -114,13 +112,13 @@ RtlImageRvaToSection (
 	ULONG Count;
 
 	Count = SWAPW(NtHeader->FileHeader.NumberOfSections);
-	Section = IMAGE_FIRST_SECTION(NtHeader);
-
-	while (Count--)
+	Section = (PIMAGE_SECTION_HEADER)((ULONG)&NtHeader->OptionalHeader +
+	                                  SWAPW(NtHeader->FileHeader.SizeOfOptionalHeader));
+	while (Count)
 	{
 		Va = SWAPD(Section->VirtualAddress);
 		if ((Va <= Rva) &&
-		    (Rva < Va + SWAPD(Section->Misc.VirtualSize)))
+		    (Rva < Va + SWAPD(Section->SizeOfRawData)))
 			return Section;
 		Section++;
 	}
@@ -147,7 +145,7 @@ RtlImageRvaToVa (
 
 	if (Section == NULL ||
 	    Rva < SWAPD(Section->VirtualAddress) ||
-	    Rva >= SWAPD(Section->VirtualAddress) + SWAPD(Section->Misc.VirtualSize))
+	    Rva >= SWAPD(Section->VirtualAddress) + SWAPD(Section->SizeOfRawData))
 	{
 		Section = RtlImageRvaToSection (NtHeader, BaseAddress, Rva);
 		if (Section == NULL)
@@ -177,7 +175,6 @@ LdrProcessRelocationBlockLongLong(
     USHORT i;
     PUSHORT ShortPtr;
     PULONG LongPtr;
-    PULONGLONG LongLongPtr;
 
     for (i = 0; i < Count; i++)
     {
@@ -213,11 +210,6 @@ LdrProcessRelocationBlockLongLong(
         case IMAGE_REL_BASED_HIGHLOW:
             LongPtr = (PULONG)RVA(Address, Offset);
             *LongPtr = SWAPD(*LongPtr) + (ULONG)Delta;
-            break;
-
-        case IMAGE_REL_BASED_DIR64:
-            LongLongPtr = (PUINT64)RVA(Address, Offset);
-            *LongLongPtr = SWAPQ(*LongLongPtr) + Delta;
             break;
 
         case IMAGE_REL_BASED_HIGHADJ:

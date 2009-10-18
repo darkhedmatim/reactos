@@ -100,6 +100,16 @@ MsBuildBackend::_generate_sources ( const Module& module )
 	{
 		const IfableData& data = *ifs_list.back();
 		ifs_list.pop_back();
+		for ( i = 0; i < data.ifs.size(); i++ )
+		{
+			const Property* property = _lookup_property( module, data.ifs[i]->property );
+			if ( property != NULL )
+			{
+				if ( data.ifs[i]->value == property->value && data.ifs[i]->negated == false ||
+					data.ifs[i]->value != property->value && data.ifs[i]->negated)
+					ifs_list.push_back ( &data.ifs[i]->data );
+			}
+		}
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
@@ -141,13 +151,8 @@ MsBuildBackend::_generate_sources ( const Module& module )
 
 	if (module_type == ".sys")
 		fprintf ( OUT, "TARGETTYPE=DRIVER\r\n" );
-	else if (module_type == ".dll")
-	{
+	if (module_type == ".dll")
 		fprintf ( OUT, "TARGETTYPE=LIBRARY\r\n" );
-
-	}
-	else if (module_type == ".exe")
-		fprintf ( OUT, "TARGETTYPE=PROGRAM\r\n" );
 
 	fprintf ( OUT, "\r\nMSC_WARNING_LEVEL=/W3 /WX\r\n\r\n" );
 
@@ -202,9 +207,9 @@ MsBuildBackend::_generate_sources ( const Module& module )
 
 void MsBuildBackend::ProcessModules()
 {
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for(size_t i = 0; i < ProjectNode.modules.size(); i++)
 	{
-		Module &module = *p->second;
+		Module &module = *ProjectNode.modules[i];
 		_generate_makefile ( module );
 		_generate_sources ( module );
 	}
@@ -213,9 +218,9 @@ void MsBuildBackend::ProcessModules()
 void
 MsBuildBackend::_clean_project_files ( void )
 {
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 		printf("Cleaning project %s %s\n", module.name.c_str (), module.output->relative_path.c_str () );
 
 		string makefile = module.output->relative_path + "\\makefile";
@@ -235,20 +240,20 @@ MsBuildConfiguration::MsBuildConfiguration ( const std::string &name )
 const Property*
 MsBuildBackend::_lookup_property ( const Module& module, const std::string& name ) const
 {
-	std::map<std::string, Property*>::const_iterator p;
-
 	/* Check local values */
-	p = module.non_if_data.properties.find(name);
-
-	if ( p != module.non_if_data.properties.end() )
-		return p->second;
-
+	for ( size_t i = 0; i < module.non_if_data.properties.size(); i++ )
+	{
+		const Property& property = *module.non_if_data.properties[i];
+		if ( property.name == name )
+			return &property;
+	}
 	// TODO FIXME - should we check local if-ed properties?
-	p = module.project.non_if_data.properties.find(name);
-
-	if ( p != module.project.non_if_data.properties.end() )
-		return p->second;
-
+	for ( size_t i = 0; i < module.project.non_if_data.properties.size(); i++ )
+	{
+		const Property& property = *module.project.non_if_data.properties[i];
+		if ( property.name == name )
+			return &property;
+	}
 	// TODO FIXME - should we check global if-ed properties?
 	return NULL;
 }

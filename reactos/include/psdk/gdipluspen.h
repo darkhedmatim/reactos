@@ -19,6 +19,10 @@
 #ifndef _GDIPLUSPEN_H
 #define _GDIPLUSPEN_H
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 class Pen : public GdiplusBase
 {
   friend class Graphics;

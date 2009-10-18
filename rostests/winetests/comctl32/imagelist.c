@@ -65,8 +65,7 @@ typedef struct _ILHEAD
 } ILHEAD;
 #include "poppack.h"
 
-static BOOL (WINAPI *pImageList_DrawIndirect)(IMAGELISTDRAWPARAMS*);
-static BOOL (WINAPI *pImageList_SetImageCount)(HIMAGELIST,UINT);
+static BOOL (WINAPI *pImageList_DrawIndirect)(IMAGELISTDRAWPARAMS*) = NULL;
 
 static HDC desktopDC;
 static HINSTANCE hinst;
@@ -136,9 +135,9 @@ static HWND create_a_window(void)
         cls.cbClsExtra    = 0;
         cls.cbWndExtra    = 0;
         cls.hInstance     = 0;
-        cls.hIcon         = LoadIconA (0, IDI_APPLICATION);
-        cls.hCursor       = LoadCursorA (0, IDC_ARROW);
-        cls.hbrBackground = GetStockObject (WHITE_BRUSH);
+        cls.hIcon         = LoadIconA (0, (LPSTR)IDI_APPLICATION);
+        cls.hCursor       = LoadCursorA (0, (LPSTR)IDC_ARROW);
+        cls.hbrBackground = (HBRUSH) GetStockObject (WHITE_BRUSH);
         cls.lpszMenuName  = 0;
         cls.lpszClassName = className;
 
@@ -360,19 +359,12 @@ static BOOL DoTest1(void)
     ok(!ImageList_Remove(himl,0),"removed nonexistent icon\n");
 
     /* check SetImageCount/GetImageCount */
-    if (pImageList_SetImageCount)
-    {
-        ok(pImageList_SetImageCount(himl, 3), "couldn't increase image count\n");
-        ok(ImageList_GetImageCount(himl) == 3, "invalid image count after increase\n");
-        ok(pImageList_SetImageCount(himl, 1), "couldn't decrease image count\n");
-        ok(ImageList_GetImageCount(himl) == 1, "invalid image count after decrease to 1\n");
-        ok(pImageList_SetImageCount(himl, 0), "couldn't decrease image count\n");
-        ok(ImageList_GetImageCount(himl) == 0, "invalid image count after decrease to 0\n");
-    }
-    else
-    {
-        skip("skipped ImageList_SetImageCount tests\n");
-    }
+    ok(ImageList_SetImageCount(himl, 3), "couldn't increase image count\n");
+    ok(ImageList_GetImageCount(himl) == 3, "invalid image count after increase\n");
+    ok(ImageList_SetImageCount(himl, 1), "couldn't decrease image count\n");
+    ok(ImageList_GetImageCount(himl) == 1, "invalid image count after decrease to 1\n");
+    ok(ImageList_SetImageCount(himl, 0), "couldn't decrease image count\n");
+    ok(ImageList_GetImageCount(himl) == 0, "invalid image count after decrease to 0\n");
 
     /* destroy it */
     ok(ImageList_Destroy(himl),"destroy imagelist failed\n");
@@ -433,8 +425,13 @@ static BOOL DoTest3(void)
 
     if (!pImageList_DrawIndirect)
     {
-        win_skip("ImageList_DrawIndirect not available, skipping test\n");
-        return TRUE;
+        HMODULE hComCtl32 = LoadLibraryA("comctl32.dll");
+        pImageList_DrawIndirect = (void*)GetProcAddress(hComCtl32, "ImageList_DrawIndirect");
+        if (!pImageList_DrawIndirect)
+        {
+            trace("ImageList_DrawIndirect not available, skipping test\n");
+            return TRUE;
+        }
     }
 
     hwndfortest = create_a_window();
@@ -457,12 +454,9 @@ static BOOL DoTest3(void)
     ok(0==ImageList_Add(himl, hbm1, 0),"failed to add bitmap 1\n");
     ok(1==ImageList_Add(himl, hbm2, 0),"failed to add bitmap 2\n");
 
-    if (pImageList_SetImageCount)
-    {
-        ok(pImageList_SetImageCount(himl,3),"Setimage count failed\n");
-        /*ok(2==ImageList_Add(himl, hbm3, NULL),"failed to add bitmap 3\n"); */
-        ok(ImageList_Replace(himl, 2, hbm3, 0),"failed to replace bitmap 3\n");
-    }
+    ok(ImageList_SetImageCount(himl,3),"Setimage count failed\n");
+    /*ok(2==ImageList_Add(himl, hbm3, NULL),"failed to add bitmap 3\n"); */
+    ok(ImageList_Replace(himl, 2, hbm3, 0),"failed to replace bitmap 3\n");
 
     memset(&imldp, 0, sizeof (imldp));
     ok(!pImageList_DrawIndirect(&imldp), "zero data succeeded!\n");
@@ -835,18 +829,10 @@ static void check_ilhead_data(const char *ilh_data, INT cx, INT cy, INT cur, INT
     ok(ilh->cy == cy, "wrong cy %d (expected %d)\n", ilh->cy, cy);
     ok(ilh->bkcolor == CLR_NONE, "wrong bkcolor %x\n", ilh->bkcolor);
     ok(ilh->flags == ILC_COLOR24, "wrong flags %04x\n", ilh->flags);
-    ok(ilh->ovls[0] == -1 ||
-       ilh->ovls[0] == 0, /* win95 */
-       "wrong ovls[0] %04x\n", ilh->ovls[0]);
-    ok(ilh->ovls[1] == -1 ||
-       ilh->ovls[1] == 0, /* win95 */
-       "wrong ovls[1] %04x\n", ilh->ovls[1]);
-    ok(ilh->ovls[2] == -1 ||
-       ilh->ovls[2] == 0, /* win95 */
-       "wrong ovls[2] %04x\n", ilh->ovls[2]);
-    ok(ilh->ovls[3] == -1 ||
-       ilh->ovls[3] == 0, /* win95 */
-       "wrong ovls[3] %04x\n", ilh->ovls[3]);
+    ok(ilh->ovls[0] == -1, "wrong ovls[0] %04x\n", ilh->ovls[0]);
+    ok(ilh->ovls[1] == -1, "wrong ovls[1] %04x\n", ilh->ovls[1]);
+    ok(ilh->ovls[2] == -1, "wrong ovls[2] %04x\n", ilh->ovls[2]);
+    ok(ilh->ovls[3] == -1, "wrong ovls[3] %04x\n", ilh->ovls[3]);
 }
 
 static HBITMAP create_bitmap(INT cx, INT cy, COLORREF color, const char *comment)
@@ -983,10 +969,6 @@ static void test_imagelist_storage(void)
 
 START_TEST(imagelist)
 {
-    HMODULE hComCtl32 = GetModuleHandle("comctl32.dll");
-    pImageList_DrawIndirect = (void*)GetProcAddress(hComCtl32, "ImageList_DrawIndirect");
-    pImageList_SetImageCount = (void*)GetProcAddress(hComCtl32, "ImageList_SetImageCount");
-
     desktopDC=GetDC(NULL);
     hinst = GetModuleHandleA(NULL);
 

@@ -199,7 +199,7 @@ RecycleBin5_RecycleBin5_DeleteFile(
 	TRACE("(%p, %s)\n", This, debugstr_w(szFileName));
 
 	if (s->EnumeratorCount != 0)
-		return HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION);
+		return E_FAIL;
 
 	/* Get full file name */
 	while (TRUE)
@@ -414,7 +414,7 @@ RecycleBin5_RecycleBin5_Delete(
 	TRACE("(%p, %s, %p)\n", This, debugstr_w(pDeletedFileName), pDeletedFile);
 
 	if (s->EnumeratorCount != 0)
-		return HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION);
+		return E_FAIL;
 
 	pHeader = MapViewOfFile(s->hInfoMapped, FILE_MAP_WRITE, 0, 0, 0);
 	if (!pHeader)
@@ -472,12 +472,11 @@ RecycleBin5_RecycleBin5_Restore(
 	PINFO2_HEADER pHeader;
 	DELETED_FILE_RECORD *pRecord, *pLast;
 	DWORD dwEntries, i;
-	SHFILEOPSTRUCTW op;
 
 	TRACE("(%p, %s, %p)\n", This, debugstr_w(pDeletedFileName), pDeletedFile);
 
 	if (s->EnumeratorCount != 0)
-		return HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION);
+		return E_FAIL;
 
 	pHeader = MapViewOfFile(s->hInfoMapped, FILE_MAP_WRITE, 0, 0, 0);
 	if (!pHeader)
@@ -497,12 +496,7 @@ RecycleBin5_RecycleBin5_Restore(
 		if (pRecord->dwRecordUniqueId == pDeletedFile->dwRecordUniqueId)
 		{
 			/* Restore file */
-			ZeroMemory(&op, sizeof(op));
-			op.wFunc = FO_COPY;
-			op.pFrom = pDeletedFileName;
-			op.pTo = pDeletedFile->FileNameW;
-
-			if (!SHFileOperationW(&op))
+			if (!MoveFileW(pDeletedFileName, pDeletedFile->FileNameW))
 			{
 				UnmapViewOfFile(pHeader);
 				return HRESULT_FROM_WIN32(GetLastError());
@@ -564,7 +558,7 @@ RecycleBin5_Create(
 	LPWSTR FileName; /* Pointer into BufferName buffer */
 	LPCSTR DesktopIniContents = "[.ShellClassInfo]\r\nCLSID={645FF040-5081-101B-9F08-00AA002F954E}\r\n";
 	INFO2_HEADER Info2Contents[] = { { 5, 0, 0, 0x320, 0 } };
-	DWORD BytesToWrite, BytesWritten, Needed;
+	SIZE_T BytesToWrite, BytesWritten, Needed;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
 	HRESULT hr;
 
@@ -676,7 +670,7 @@ HRESULT RecycleBin5_Constructor(IN LPCWSTR VolumePath, OUT IUnknown **ppUnknown)
 	HANDLE tokenHandle = INVALID_HANDLE_VALUE;
 	PTOKEN_USER TokenUserInfo = NULL;
 	LPWSTR StringSid = NULL, p;
-	DWORD Needed, DirectoryLength;
+	SIZE_T Needed, DirectoryLength;
 	INT len;
 	HRESULT hr;
 

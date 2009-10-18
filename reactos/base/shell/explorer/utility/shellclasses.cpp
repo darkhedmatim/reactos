@@ -566,7 +566,6 @@ HRESULT ShellFolderContextMenu(IShellFolder* shell_folder, HWND hwndParent, int 
 				}
 			} else
 				cm_ifs.reset();
-			DestroyMenu(hmenu);
 		}
 
 		pcm->Release();

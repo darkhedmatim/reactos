@@ -12,8 +12,7 @@
 static const WCHAR szMapWndClass[] = L"FontMapWnd";
 static const WCHAR szLrgCellWndClass[] = L"LrgCellWnd";
 
-static
-VOID
+static VOID
 TagFontToCell(PCELL pCell,
               WCHAR ch)
 {
@@ -21,8 +20,7 @@ TagFontToCell(PCELL pCell,
 }
 
 
-static
-VOID
+static VOID
 SetGrid(PMAP infoPtr)
 {
     INT x, y;
@@ -44,8 +42,7 @@ SetGrid(PMAP infoPtr)
     }
 }
 
-static
-VOID
+static VOID
 DrawActiveCell(PMAP infoPtr,
                HDC hdc)
 {
@@ -58,8 +55,7 @@ DrawActiveCell(PMAP infoPtr,
 }
 
 
-static
-VOID
+static VOID
 DrawGrid(PMAP infoPtr,
          HDC hdc)
 {
@@ -81,8 +77,7 @@ DrawGrid(PMAP infoPtr,
 }
 
 
-static
-VOID
+static VOID
 FillGrid(PMAP infoPtr,
          HDC hdc)
 {
@@ -112,8 +107,7 @@ FillGrid(PMAP infoPtr,
 }
 
 
-static
-BOOL
+static BOOL
 CreateLargeCell(PMAP infoPtr)
 {
     RECT rLarge;
@@ -123,7 +117,7 @@ CreateLargeCell(PMAP infoPtr)
 
     MapWindowPoints(infoPtr->hMapWnd,
                     infoPtr->hParent,
-                    (VOID*)&rLarge,
+                    (LPPOINT)&rLarge,
                     2);
 
     InflateRect(&rLarge,
@@ -149,8 +143,7 @@ CreateLargeCell(PMAP infoPtr)
 }
 
 
-static
-VOID
+static VOID
 MoveLargeCell(PMAP infoPtr)
 {
     RECT rLarge;
@@ -160,7 +153,7 @@ MoveLargeCell(PMAP infoPtr)
 
     MapWindowPoints(infoPtr->hMapWnd,
                     infoPtr->hParent,
-                    (VOID*)&rLarge,
+                    (LPPOINT)&rLarge,
                     2);
 
     InflateRect(&rLarge,
@@ -180,8 +173,7 @@ MoveLargeCell(PMAP infoPtr)
 }
 
 
-static
-VOID
+static VOID
 SetFont(PMAP infoPtr,
         LPWSTR lpFontName)
 {
@@ -210,8 +202,7 @@ SetFont(PMAP infoPtr,
 }
 
 
-static
-LRESULT
+static LRESULT
 NotifyParentOfSelection(PMAP infoPtr,
                         UINT code,
                         WCHAR ch)
@@ -236,8 +227,7 @@ NotifyParentOfSelection(PMAP infoPtr,
 }
 
 
-static
-VOID
+static VOID
 OnClick(PMAP infoPtr,
         WORD ptx,
         WORD pty)
@@ -304,8 +294,7 @@ OnClick(PMAP infoPtr,
 }
 
 
-static
-BOOL
+static BOOL
 OnCreate(PMAP infoPtr,
          HWND hwnd,
          HWND hParent)
@@ -351,8 +340,7 @@ OnCreate(PMAP infoPtr,
 }
 
 
-static
-VOID
+static VOID
 OnVScroll(PMAP infoPtr,
           INT Value,
           INT Pos)
@@ -421,8 +409,7 @@ OnVScroll(PMAP infoPtr,
 }
 
 
-static
-VOID
+static VOID
 OnPaint(PMAP infoPtr,
         WPARAM wParam)
 {
@@ -464,8 +451,7 @@ OnPaint(PMAP infoPtr,
 }
 
 
-LRESULT
-CALLBACK
+LRESULT CALLBACK
 MapWndProc(HWND hwnd,
            UINT uMsg,
            WPARAM wParam,

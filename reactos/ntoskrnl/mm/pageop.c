@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/pageop.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, MmInitializePageOp)
@@ -66,7 +67,7 @@ MmReleasePageOp(PMM_PAGEOP PageOp)
       PrevPageOp = PrevPageOp->Next;
    }
    KeReleaseSpinLock(&MmPageOpHashTableLock, oldIrql);
-   KeBugCheck(MEMORY_MANAGEMENT);
+   KEBUGCHECK(0);
 }
 
 PMM_PAGEOP
@@ -132,6 +133,8 @@ MmCheckForPageOp(PMEMORY_AREA MArea, HANDLE Pid, PVOID Address,
    return(NULL);
 }
 
+extern BOOLEAN RmapReady, PageOpReady, SectionsReady, PagingReady;
+
 PMM_PAGEOP
 NTAPI
 MmGetPageOp(PMEMORY_AREA MArea, HANDLE Pid, PVOID Address,
@@ -145,6 +148,12 @@ MmGetPageOp(PMEMORY_AREA MArea, HANDLE Pid, PVOID Address,
    ULONG_PTR Hash;
    KIRQL oldIrql;
    PMM_PAGEOP PageOp;
+
+   if (!PageOpReady)
+   {
+       DPRINT1("PAGEOPS USED TOO SOON!!!\n");
+       while (TRUE);
+   }
 
    /*
     * Calcuate the hash value for pageop structure
@@ -211,7 +220,7 @@ MmGetPageOp(PMEMORY_AREA MArea, HANDLE Pid, PVOID Address,
    if (PageOp == NULL)
    {
       KeReleaseSpinLock(&MmPageOpHashTableLock, oldIrql);
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
       return(NULL);
    }
 

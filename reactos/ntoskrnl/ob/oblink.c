@@ -1,7 +1,7 @@
 /*
 * PROJECT:         ReactOS Kernel
 * LICENSE:         GPL - See COPYING in the top level directory
-* FILE:            ntoskrnl/ob/oblink.c
+* FILE:            ntoskrnl/ob/symlink.c
 * PURPOSE:         Implements symbolic links
 * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
 *                  David Welch (welch@mcmail.com)
@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS ******************************************************************/
 
@@ -49,7 +49,7 @@ ObpCreateSymbolicLinkName(IN POBJECT_SYMBOLIC_LINK SymbolicLink)
 
     /* FIXME: We don't support device maps yet */
     DPRINT1("Unhandled path!\n");
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -123,7 +123,6 @@ ObpParseSymbolicLink(IN PVOID ParsedObject,
     PWSTR NewTargetPath;
     ULONG LengthUsed, MaximumLength;
     NTSTATUS Status;
-    PAGED_CODE();
 
     /* Assume failure */
     *NextObject = NULL;
@@ -170,7 +169,6 @@ ObpParseSymbolicLink(IN PVOID ParsedObject,
         NewTargetPath = ExAllocatePoolWithTag(NonPagedPool,
                                               MaximumLength,
                                               TAG_SYMLINK_TTARGET);
-        if (!NewTargetPath) return STATUS_INSUFFICIENT_RESOURCES;
     }
     else
     {
@@ -183,7 +181,7 @@ ObpParseSymbolicLink(IN PVOID ParsedObject,
     if (RemainingName->Length)
     {
         /* Copy the new path */
-        RtlMoveMemory((PVOID)((ULONG_PTR)NewTargetPath + TargetPath->Length),
+        RtlCopyMemory((PVOID)((ULONG_PTR)NewTargetPath + TargetPath->Length),
                       RemainingName->Buffer,
                       RemainingName->Length);
     }
@@ -240,13 +238,13 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
     POBJECT_SYMBOLIC_LINK SymbolicLink;
     UNICODE_STRING CapturedLinkTarget;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we need to probe parameters */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the target */
             CapturedLinkTarget = ProbeForReadUnicodeString(LinkTarget);
@@ -257,12 +255,15 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
             /* Probe the return handle */
             ProbeForWriteHandle(LinkHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Exception, get the error code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Probing failed, return the error code */
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -333,17 +334,17 @@ NtCreateSymbolicLinkObject(OUT PHANDLE LinkHandle,
                                 &hLink);
         if (NT_SUCCESS(Status))
         {
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Return the handle to caller */
                 *LinkHandle = hLink;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
                 /* Get exception code */
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -379,23 +380,26 @@ NtOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
 {
     HANDLE hLink;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we need to probe parameters */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the return handle */
             ProbeForWriteHandle(LinkHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Exception, get the error code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Probing failed, return the error code */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the object */
@@ -408,17 +412,17 @@ NtOpenSymbolicLinkObject(OUT PHANDLE LinkHandle,
                                 &hLink);
     if (NT_SUCCESS(Status))
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return the handle to caller */
             *LinkHandle = hLink;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             /* Get exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status to caller */
@@ -451,16 +455,16 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
                           OUT PUNICODE_STRING LinkTarget,
                           OUT PULONG ResultLength OPTIONAL)
 {
-    UNICODE_STRING SafeLinkTarget = { 0, 0, NULL };
+    UNICODE_STRING SafeLinkTarget = {0};
     POBJECT_SYMBOLIC_LINK SymlinkObject;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ULONG LengthUsed;
     PAGED_CODE();
 
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the unicode string for read and write */
             ProbeForWriteUnicodeString(LinkTarget);
@@ -472,14 +476,17 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
                           sizeof(WCHAR));
 
             /* Probe the return length */
-            if (ResultLength) ProbeForWriteUlong(ResultLength);
+            if(ResultLength) ProbeForWriteUlong(ResultLength);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Probe failure: get exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Probe failed, return status */
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -496,8 +503,9 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
                                        NULL);
     if (NT_SUCCESS(Status))
     {
-        /* Lock the object */
-        ObpAcquireObjectLock(OBJECT_TO_OBJECT_HEADER(SymlinkObject));
+        /* Lock the object type */
+        KeEnterCriticalRegion();
+        ExAcquireResourceExclusiveLite(&ObSymbolicLinkType->Mutex, TRUE);
 
         /*
          * So here's the thing: If you specify a return length, then the
@@ -508,7 +516,7 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
                                     SymlinkObject->LinkTarget.Length;
 
         /* Enter SEH so we can safely copy */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Make sure our buffer will fit */
             if (LengthUsed <= SafeLinkTarget.MaximumLength)
@@ -534,15 +542,16 @@ NtQuerySymbolicLinkObject(IN HANDLE LinkHandle,
                 *ResultLength = SymlinkObject->LinkTarget.MaximumLength;
             }
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             /* Get the error code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
 
-        /* Unlock and dereference the object */
-        ObpReleaseObjectLock(OBJECT_TO_OBJECT_HEADER(SymlinkObject));
+        /* Unlock the object type and reference the object */
+        ExReleaseResourceLite(&ObSymbolicLinkType->Mutex);
+        KeLeaveCriticalRegion();
         ObDereferenceObject(SymlinkObject);
     }
 

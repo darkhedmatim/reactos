@@ -2,14 +2,11 @@
 #define _WINE_UNICODE_H
 
 #include <stdarg.h>
-#include <stdlib.h>
-#include <wchar.h>
 
 #include <windef.h>
 #include <winbase.h>
 #include <winnls.h>
 
-#define memicmpW(s1,s2,n) _wcsnicmp((const wchar_t *)(s1),(const wchar_t *)(s2),(n))
 #define strlenW(s) wcslen((const wchar_t *)(s))
 #define strcpyW(d,s) wcscpy((wchar_t *)(d),(const wchar_t *)(s))
 #define strcatW(d,s) wcscat((wchar_t *)(d),(const wchar_t *)(s))
@@ -42,23 +39,10 @@
 #define vsprintfW vswprintf
 #define snprintfW _snwprintf
 #define vsnprintfW _vsnwprintf
-#define isprintW iswprint
 
 #ifndef WINE_UNICODE_API
-# if defined(_MSC_VER)
-#  define WINE_UNICODE_API __declspec(dllimport)
-# else
-#  define WINE_UNICODE_API __attribute__((dllimport))
-# endif
+#define WINE_UNICODE_API __attribute__((dllimport))
 #endif
-
-#ifndef __VALIST
-#ifdef __GNUC__
-#define __VALIST __gnuc_va_list
-#else
-#define __VALIST char*
-#endif
-#endif /* defined __VALIST  */
 
 static __inline WCHAR *strpbrkW( const WCHAR *str, const WCHAR *accept )
 {

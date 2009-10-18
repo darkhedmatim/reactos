@@ -9,8 +9,8 @@
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
 
 
-IDD_WELCOMEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 193
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_WELCOMEPAGE DIALOG DISCARDABLE  0, 0, 317, 193
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -23,7 +23,7 @@ END
 
 
 IDD_ACKPAGE DIALOGEX 0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -41,12 +41,11 @@ BEGIN
 END
 
 
-IDD_OWNERPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_OWNERPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON2, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Введіть своє повне ім'я і назву вашої компанії або організації.",
           IDC_STATIC, 54, 7, 242, 21
     LTEXT "&Ім'я:", IDC_STATIC, 54, 37, 44, 8
@@ -56,18 +55,16 @@ BEGIN
 END
 
 
-IDD_COMPUTERPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_COMPUTERPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON1, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Введіть ім'я Вашого комп'ютера довжиною до 63 символів. "\
           "Якщо Ви працює в мережі, ім'я Вашого комп'ютера має бути унікальним.",
           IDC_STATIC, 54, 7, 250, 24
     LTEXT "&Ім'я комп'ютера:", IDC_STATIC, 54, 38, 75, 8
     EDITTEXT IDC_COMPUTERNAME, 132, 35, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
-    ICON IDI_ICON5, IDC_STATIC, 21, 57, 20, 20
     LTEXT "Програма установки створить обліковий запис користувача 'Адміністратор', "\
           "який дає повні права доступу до Вашого комп'ютера.",
           IDC_STATIC, 54, 57, 250, 25
@@ -80,12 +77,11 @@ BEGIN
 END
 
 
-IDD_LOCALEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_LOCALEPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON4, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Мова системи має відповідати мові додатків, які ви хочете "\
           "використовувати. Мова користувача задає формат виведення, "\
           "чисел, грошових одиниць і дат.", IDC_STATIC, 53, 7, 253, 20
@@ -102,12 +98,11 @@ BEGIN
 END
 
 
-IDD_DATETIMEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_DATETIMEPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON3, IDC_STATIC, 21, 10, 20, 20
     LTEXT "Дата й час", IDC_STATIC, 53, 7, 253, 8
     CONTROL "", IDC_DATEPICKER, "SysDateTimePick32",
             DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 53, 17, 137, 14
@@ -121,8 +116,8 @@ BEGIN
 END
 
 
-IDD_PROCESSPAGE DIALOGEX 0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_PROCESSPAGE DIALOG 0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -133,8 +128,8 @@ BEGIN
 END
 
 
-IDD_FINISHPAGE DIALOGEX DISCARDABLE  0, 0, 317, 193
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_FINISHPAGE DIALOG DISCARDABLE  0, 0, 317, 193
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Завершення установки ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -147,8 +142,8 @@ BEGIN
 END
 
 
-IDD_GPL DIALOGEX 0, 0, 333, 230
-STYLE DS_SHELLFONT | DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_GPL DIALOG 0, 0, 333, 230
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GNU General Public License"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -159,7 +154,7 @@ END
 
 
 IDD_STATUSWINDOW_DLG DIALOGEX 0,0,274,26
-STYLE NOT WS_VISIBLE | DS_CENTER | DS_MODALFRAME | DS_SHELLFONT | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
+STYLE NOT WS_VISIBLE | DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
 CAPTION "Зачекайте..."
 FONT 8,"MS Shell Dlg 2",400,0,1
 BEGIN
@@ -201,9 +196,6 @@ BEGIN
     IDS_CMT_DEVMGMT     "Запустити Диспетчер пристроїв"
     IDS_CMT_SERVMAN     "Запустити Диспетчер керування службами"
     IDS_CMT_RDESKTOP    "Запустити Віддалене керування робочим столом"
-    IDS_CMT_EVENTVIEW   "Launch Event Viewer"
-    IDS_CMT_MSCONFIG    "Launch System Configuration program"
-    IDS_CMT_PAINT       "Launch Paint"
 END
 
 STRINGTABLE
@@ -211,15 +203,12 @@ BEGIN
     IDS_GAMES		    "Ігри"
     IDS_CMT_SOLITAIRE	"Косинка"
     IDS_CMT_WINEMINE	"Сапер"
-	IDS_CMT_SPIDER      "Spider Solitaire"
 END
 
 STRINGTABLE
 BEGIN
 	IDS_SYS_TOOLS        "Службові"
 	IDS_CMT_CHARMAP      "Таблиця символів"
-	IDS_CMT_KBSWITCH     "Keyboard Layout Switcher"
-    IDS_CMT_DXDIAG       "Launch ReactX-Diagnostic program"
 END
 
 
@@ -227,13 +216,6 @@ STRINGTABLE
 BEGIN
 	IDS_SYS_ACCESSIBILITY        "Спеціальні можливості"
 	IDS_CMT_MAGNIFY      	     "Екранна лупа"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_SYS_ENTERTAINMENT       "Entertainment"
-    IDS_CMT_MPLAY32             "Launch Multimedia Player"
-    IDS_CMT_SNDVOL32            "Launch Volume Control"
 END
 
 STRINGTABLE
@@ -253,10 +235,9 @@ STRINGTABLE
 BEGIN
     IDS_SHORT_CMD        "Command Prompt.lnk"
     IDS_SHORT_EXPLORER   "ReactOS Explorer.lnk"
-    IDS_SHORT_DOWNLOADER "ReactOS Applications Manager.lnk"
+    IDS_SHORT_DOWNLOADER "Download !.lnk"
     IDS_SHORT_SERVICE    "Service Manager.lnk"
     IDS_SHORT_DEVICE     "Device Manager.lnk"
-    IDS_SHORT_MPLAY32    "Multimedia Player.lnk"
     IDS_SHORT_CALC       "Calculator.lnk"
     IDS_SHORT_REGEDIT    "Regedit.lnk"
     IDS_SHORT_NOTEPAD    "Notepad.lnk"
@@ -264,16 +245,9 @@ BEGIN
     IDS_SHORT_SNAP       "SnapShot.lnk"
     IDS_SHORT_SOLITAIRE  "Solitaire.lnk"
     IDS_SHORT_WINEMINE   "WineMine.lnk"
-    IDS_SHORT_CHARMAP    "CharMap.lnk"
-    IDS_SHORT_MAGNIFY    "Magnify.lnk"
+	IDS_SHORT_CHARMAP    "CharMap.lnk"
+	IDS_SHORT_MAGNIFY    "Magnify.lnk"
     IDS_SHORT_RDESKTOP   "Remote Desktop.lnk"
-    IDS_SHORT_KBSWITCH   "Keyboard Layout Switcher.lnk"
-    IDS_SHORT_EVENTVIEW  "Event Viewer.lnk"
-    IDS_SHORT_MSCONFIG   "System Configuration.lnk"
-    IDS_SHORT_SNDVOL32   "Volume Control.lnk"
-    IDS_SHORT_DXDIAG     "ReactX Diagnostic.lnk"
-    IDS_SHORT_PAINT      "Paint.lnk"
-	IDS_SHORT_SPIDER     "Spider Solitaire.lnk"
 END
 
 STRINGTABLE

@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -18,18 +19,18 @@ BOOLEAN
 NTAPI
 CmpDoFlushAll(IN BOOLEAN ForceFlush)
 {
+    NTSTATUS Status;
     PLIST_ENTRY NextEntry;
     PCMHIVE Hive;
-    NTSTATUS Status;
-    BOOLEAN Result = TRUE;
+    BOOLEAN Result = TRUE;    
 
     /* Make sure that the registry isn't read-only now */
     if (CmpNoWrite) return TRUE;
-
+    
     /* Otherwise, acquire the hive list lock and disable force flush */
     CmpForceForceFlush = FALSE;
     ExAcquirePushLockShared(&CmpHiveListHeadLock);
-
+    
     /* Loop the hive list */
     NextEntry = CmpHiveListHead.Flink;
     while (NextEntry != &CmpHiveListHead)
@@ -38,23 +39,15 @@ CmpDoFlushAll(IN BOOLEAN ForceFlush)
         Hive = CONTAINING_RECORD(NextEntry, CMHIVE, HiveList);
         if (!(Hive->Hive.HiveFlags & HIVE_NOLAZYFLUSH))
         {
-            /* Acquire the flusher lock */
-            ExAcquirePushLockExclusive((PVOID)&Hive->FlusherLock);
-
             /* Do the sync */
             Status = HvSyncHive(&Hive->Hive);
-
-            /* If something failed - set the flag and continue looping*/
             if (!NT_SUCCESS(Status)) Result = FALSE;
-
-            /* Release the flusher lock */
-            ExReleasePushLock((PVOID)&Hive->FlusherLock);
         }
 
         /* Try the next entry */
         NextEntry = NextEntry->Flink;
     }
-
+    
     /* Release lock and return */
     ExReleasePushLock(&CmpHiveListHeadLock);
     return Result;
@@ -274,60 +267,10 @@ CmSetValueKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     NTSTATUS Status;
     BOOLEAN Found, Result;
     ULONG Count, ChildIndex, SmallData, Storage;
-    VALUE_SEARCH_RETURN_TYPE SearchResult;
 
-    /* Acquire hive lock */
-    CmpLockRegistry();
-    CmpAcquireKcbLockShared(Kcb);
-    
-    /* Sanity check */
-    ASSERT(sizeof(ULONG) == CM_KEY_VALUE_SMALL);
-    
-    /* Don't touch deleted KCBs */
-DoAgain:
-    if (Kcb->Delete)
-    {
-        /* Fail */
-        Status = STATUS_KEY_DELETED;
-        goto Quickie;
-    }
-    
-    /* Don't let anyone mess with symlinks */
-    if ((Kcb->Flags & KEY_SYM_LINK) &&
-        ((Type != REG_LINK) ||
-         !(ValueName) ||
-         !(RtlEqualUnicodeString(&CmSymbolicLinkValueName, ValueName, TRUE))))
-    {
-        /* Invalid modification of a symlink key */
-        Status = STATUS_ACCESS_DENIED;
-        goto Quickie;
-    }
-    
-    /* Search for the value */
-    SearchResult = CmpCompareNewValueDataAgainstKCBCache(Kcb,
-                                                         ValueName,
-                                                         Type,
-                                                         Data,
-                                                         DataLength);
-    if (SearchResult == SearchNeedExclusiveLock)
-    {
-        /* Try again with the exclusive lock */
-        CmpConvertKcbSharedToExclusive(Kcb);
-        goto DoAgain;
-    }
-    else if (SearchResult == SearchSuccess)
-    {
-        /* We don't actually need to do anything! */
-        Status = STATUS_SUCCESS;
-        goto Quickie;
-    }
-
-    /* We need the exclusive KCB lock now */
-    if (!(CmpIsKcbLockedExclusive(Kcb)) && !(CmpTryToConvertKcbSharedToExclusive(Kcb)))
-    {
-        /* Acquire exclusive lock */
-        CmpConvertKcbSharedToExclusive(Kcb);
-    }
+    /* Acquire hive lock exclusively */
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get pointer to key cell */
     Hive = Kcb->KeyHive;
@@ -373,11 +316,7 @@ DoAgain:
         /* No child list, we'll need to add it */
         ChildIndex = 0;
     }
-    
-    /* The KCB must be locked exclusive at this point */
-    ASSERT((CmpIsKcbLockedExclusive(Kcb) == TRUE) ||
-           (CmpTestRegistryLockExclusive() == TRUE));
-    
+
     /* Mark the cell dirty */
     HvMarkCellDirty(Hive, Cell, FALSE);
 
@@ -419,23 +358,27 @@ DoAgain:
                                         SmallData);
     }
 
+    /* Mark link key */
+    if ((Type == REG_LINK) &&
+        (_wcsicmp(ValueName->Buffer, L"SymbolicLinkValue") == 0))
+    {
+        Parent->Flags |= KEY_SYM_LINK;
+    }
+
     /* Check for success */
+Quickie:
     if (NT_SUCCESS(Status))
     {
-        /* Check if the maximum value name length changed */
         ASSERT(Parent->MaxValueNameLen == Kcb->KcbMaxValueNameLen);
         if (Parent->MaxValueNameLen < ValueName->Length)
         {
-            /* Set the new values */
             Parent->MaxValueNameLen = ValueName->Length;
             Kcb->KcbMaxValueNameLen = ValueName->Length;
         }
-    
-        /* Check if the maximum data length changed */
+        
         ASSERT(Parent->MaxValueDataLen == Kcb->KcbMaxValueDataLen);
         if (Parent->MaxValueDataLen < DataLength)
         {
-            /* Update it */
             Parent->MaxValueDataLen = DataLength;
             Kcb->KcbMaxValueDataLen = Parent->MaxValueDataLen;
         }
@@ -443,32 +386,11 @@ DoAgain:
         /* Save the write time */
         KeQuerySystemTime(&Parent->LastWriteTime);
         KeQuerySystemTime(&Kcb->KcbLastWriteTime);
-        
-        /* Check if the cell is cached */
-        if ((Found) && (CMP_IS_CELL_CACHED(Kcb->ValueCache.ValueList)))
-        {
-            /* Shouldn't happen */
-            ASSERT(FALSE);
-        }
-        else
-        {
-            /* Cleanup the value cache */
-            CmpCleanUpKcbValueCache(Kcb);
-
-            /* Sanity checks */
-            ASSERT(!(CMP_IS_CELL_CACHED(Kcb->ValueCache.ValueList)));
-            ASSERT(!(Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND));
-            
-            /* Set the value cache */
-            Kcb->ValueCache.Count = Parent->ValueList.Count;
-            Kcb->ValueCache.ValueList = Parent->ValueList.List;
-        }
     }
-    
-Quickie:
-    /* Release the locks */
-    CmpReleaseKcbLock(Kcb);
-    CmpUnlockRegistry();
+
+    /* Release the lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
@@ -487,19 +409,8 @@ CmDeleteValueKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     BOOLEAN Result;
 
     /* Acquire hive lock */
-    CmpLockRegistry();
-    
-    /* Lock KCB exclusively */
-    CmpAcquireKcbLockExclusive(Kcb);
-    
-    /* Don't touch deleted keys */
-    if (Kcb->Delete)
-    {
-        /* Undo everything */
-        CmpReleaseKcbLock(Kcb);
-        CmpUnlockRegistry();
-        return STATUS_KEY_DELETED;
-    }
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get the hive and the cell index */
     Hive = Kcb->KeyHive;
@@ -580,17 +491,6 @@ CmDeleteValueKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
             Kcb->KcbMaxValueNameLen = 0;
             Kcb->KcbMaxValueDataLen = 0;
         }
-        
-        /* Cleanup the value cache */
-        CmpCleanUpKcbValueCache(Kcb);
-        
-        /* Sanity checks */
-        ASSERT(!(CMP_IS_CELL_CACHED(Kcb->ValueCache.ValueList)));
-        ASSERT(!(Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND));
-        
-        /* Set the value cache */
-        Kcb->ValueCache.Count = ChildList->Count;
-        Kcb->ValueCache.ValueList = ChildList->List;
 
         /* Change default Status to success */
         Status = STATUS_SUCCESS;
@@ -608,9 +508,9 @@ Quickie:
         HvReleaseCell(Hive, ChildCell);
     }
 
-    /* Release locks */
-    CmpReleaseKcbLock(Kcb);
-    CmpUnlockRegistry();
+    /* Release hive lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
@@ -634,27 +534,8 @@ CmQueryValueKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     PAGED_CODE();
 
     /* Acquire hive lock */
-    CmpLockRegistry();
-    
-    /* Lock the KCB shared */
-    CmpAcquireKcbLockShared(Kcb);
-    
-    /* Don't touch deleted keys */
-DoAgain:
-    if (Kcb->Delete)
-    {
-        /* Undo everything */
-        CmpReleaseKcbLock(Kcb);
-        CmpUnlockRegistry();
-        return STATUS_KEY_DELETED;
-    }
-    
-    /* We don't deal with this yet */
-    if (Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND)
-    {
-        /* Shouldn't happen */
-        ASSERT(FALSE);
-    }
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get the hive */
     Hive = Kcb->KeyHive;
@@ -667,17 +548,6 @@ DoAgain:
                                          &ValueData,
                                          &ValueCached,
                                          &CellToRelease);
-    if (Result == SearchNeedExclusiveLock)
-    {
-        /* Check if we need an exclusive lock */
-        ASSERT(CellToRelease == HCELL_NIL);
-        ASSERT(ValueData == NULL);
-        
-        /* Try with exclusive KCB lock */
-        CmpConvertKcbSharedToExclusive(Kcb);
-        goto DoAgain;
-    }
-    
     if (Result == SearchSuccess)
     {
         /* Sanity check */
@@ -693,12 +563,6 @@ DoAgain:
                                       Length,
                                       ResultLength,
                                       &Status);
-        if (Result == SearchNeedExclusiveLock)
-        {            
-            /* Try with exclusive KCB lock */
-            CmpConvertKcbSharedToExclusive(Kcb);
-            goto DoAgain;
-        }
     }
     else
     {
@@ -709,9 +573,9 @@ DoAgain:
     /* If we have a cell to release, do so */
     if (CellToRelease != HCELL_NIL) HvReleaseCell(Hive, CellToRelease);
 
-    /* Release locks */
-    CmpReleaseKcbLock(Kcb);
-    CmpUnlockRegistry();
+    /* Release hive lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
@@ -732,24 +596,12 @@ CmEnumerateValueKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     BOOLEAN IndexIsCached, ValueIsCached = FALSE;
     PCELL_DATA CellData;
     PCM_CACHED_VALUE *CachedValue;
-    PCM_KEY_VALUE ValueData = NULL;
+    PCM_KEY_VALUE ValueData;
     PAGED_CODE();
 
     /* Acquire hive lock */
-    CmpLockRegistry();
-    
-    /* Lock the KCB shared */
-    CmpAcquireKcbLockShared(Kcb);
-
-    /* Don't touch deleted keys */
-DoAgain:
-    if (Kcb->Delete)
-    {
-        /* Undo everything */
-        CmpReleaseKcbLock(Kcb);
-        CmpUnlockRegistry();
-        return STATUS_KEY_DELETED;
-    }
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get the hive and parent */
     Hive = Kcb->KeyHive;
@@ -770,30 +622,13 @@ DoAgain:
         Status = STATUS_NO_MORE_ENTRIES;
         goto Quickie;
     }
-    
-    /* We don't deal with this yet */
-    if (Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND)
-    {
-        /* Shouldn't happen */
-        ASSERT(FALSE);
-    }
 
     /* Find the value list */
     Result = CmpGetValueListFromCache(Kcb,
                                       &CellData,
                                       &IndexIsCached,
                                       &CellToRelease);
-    if (Result == SearchNeedExclusiveLock)
-    {
-        /* Check if we need an exclusive lock */
-        ASSERT(CellToRelease == HCELL_NIL);
-        ASSERT(ValueData == NULL);
-        
-        /* Try with exclusive KCB lock */
-        CmpConvertKcbSharedToExclusive(Kcb);
-        goto DoAgain;
-    }
-    else if (Result != SearchSuccess)
+    if (Result != SearchSuccess)
     {
         /* Sanity check */
         ASSERT(CellData == NULL);
@@ -812,16 +647,10 @@ DoAgain:
                                      IndexIsCached,
                                      &ValueIsCached,
                                      &CellToRelease2);
-    if (Result == SearchNeedExclusiveLock)
-    {
-        /* Try with exclusive KCB lock */
-        CmpConvertKcbSharedToExclusive(Kcb);
-        goto DoAgain;
-    }
-    else if (Result != SearchSuccess)
+    if (Result != SearchSuccess)
     {
         /* Sanity check */
-        ASSERT(ValueData == NULL);
+        ASSERT(CellToRelease2 == HCELL_NIL);
 
         /* Release the cells and fail */
         Status = STATUS_INSUFFICIENT_RESOURCES;
@@ -838,12 +667,6 @@ DoAgain:
                                   Length,
                                   ResultLength,
                                   &Status);
-    if (Result == SearchNeedExclusiveLock)
-    {
-        /* Try with exclusive KCB lock */
-        CmpConvertKcbSharedToExclusive(Kcb);
-        goto DoAgain;
-    }
 
 Quickie:
     /* If we have a cell to release, do so */
@@ -855,9 +678,9 @@ Quickie:
     /* If we have a cell to release, do so */
     if (CellToRelease2 != HCELL_NIL) HvReleaseCell(Hive, CellToRelease2);
 
-    /* Release locks */
-    CmpReleaseKcbLock(Kcb);
-    CmpUnlockRegistry();
+    /* Release hive lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
@@ -1089,10 +912,8 @@ CmQueryKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     PCM_KEY_NODE Parent;
 
     /* Acquire hive lock */
-    CmpLockRegistry();
-    
-    /* Lock KCB shared */
-    CmpAcquireKcbLockShared(Kcb);
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get the hive and parent */
     Hive = Kcb->KeyHive;
@@ -1101,14 +922,6 @@ CmQueryKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     {
         /* Fail */
         Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto Quickie;
-    }
-    
-    /* Don't touch deleted keys */
-    if (Kcb->Delete)
-    {
-        /* Fail */
-        Status = STATUS_KEY_DELETED;
         goto Quickie;
     }
 
@@ -1149,9 +962,9 @@ CmQueryKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     }
 
 Quickie:
-    /* Release locks */
-    CmpReleaseKcbLock(Kcb);
-    CmpUnlockRegistry();
+    /* Release hive lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
@@ -1170,19 +983,8 @@ CmEnumerateKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     HCELL_INDEX ChildCell;
 
     /* Acquire hive lock */
-    CmpLockRegistry();
-    
-    /* Lock the KCB shared */
-    CmpAcquireKcbLockShared(Kcb);
-    
-    /* Don't touch deleted keys */
-    if (Kcb->Delete)
-    {
-        /* Undo everything */
-        CmpReleaseKcbLock(Kcb);
-        CmpUnlockRegistry();
-        return STATUS_KEY_DELETED;
-    }
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get the hive and parent */
     Hive = Kcb->KeyHive;
@@ -1226,46 +1028,24 @@ CmEnumerateKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
                              ResultLength);
 
 Quickie:
-    /* Release locks */
-    CmpReleaseKcbLock(Kcb);
-    CmpUnlockRegistry();
+    /* Release hive lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
 NTSTATUS
 NTAPI
-CmDeleteKey(IN PCM_KEY_BODY KeyBody)
+CmDeleteKey(IN PCM_KEY_CONTROL_BLOCK Kcb)
 {
     NTSTATUS Status;
     PHHIVE Hive;
     PCM_KEY_NODE Node, Parent;
     HCELL_INDEX Cell, ParentCell;
-    PCM_KEY_CONTROL_BLOCK Kcb;
 
     /* Acquire hive lock */
-    CmpLockRegistry();
-    
-    /* Get the kcb */
-    Kcb = KeyBody->KeyControlBlock;
-    
-    /* Don't allow deleting the root */
-    if (!Kcb->ParentKcb)
-    {
-        /* Fail */
-        CmpUnlockRegistry();
-        return STATUS_CANNOT_DELETE;
-    }
-    
-    /* Lock parent and child */
-    CmpAcquireTwoKcbLocksExclusiveByKey(Kcb->ConvKey, Kcb->ParentKcb->ConvKey);
-    
-    /* Check if we're already being deleted */
-    if (Kcb->Delete)
-    {
-        /* Don't do it twice */
-        Status = STATUS_SUCCESS;
-        goto Quickie2;
-    }
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
 
     /* Get the hive and node */
     Hive = Kcb->KeyHive;
@@ -1279,22 +1059,34 @@ CmDeleteKey(IN PCM_KEY_BODY KeyBody)
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto Quickie;
     }
-   
+
+    /* Check if we have no parent */
+    if (!Node->Parent)
+    {
+        /* This is an attempt to delete \Registry itself! */
+        Status = STATUS_CANNOT_DELETE;
+        goto Quickie;
+    }
+    
+    /* Check if we're already being deleted */
+    if (Kcb->Delete)
+    {
+        /* Don't do it twice */
+        Status = STATUS_SUCCESS;
+        goto Quickie;
+    }
+    
     /* Sanity check */
     ASSERT(Node->Flags == Kcb->Flags);
 
     /* Check if we don't have any children */
-    if (!(Node->SubKeyCounts[Stable] + Node->SubKeyCounts[Volatile]) &&
-        !(Node->Flags & KEY_NO_DELETE))
+    if (!(Node->SubKeyCounts[Stable] + Node->SubKeyCounts[Volatile]))
     {
         /* Get the parent and free the cell */
         ParentCell = Node->Parent;
         Status = CmpFreeKeyByCell(Hive, Cell, TRUE);
         if (NT_SUCCESS(Status))
         {
-            /* Clean up information we have on the subkey */
-            CmpCleanUpSubKeyInfo(Kcb->ParentKcb);
-
             /* Get the parent node */
             Parent = (PCM_KEY_NODE)HvGetCell(Hive, ParentCell);
             if (Parent)
@@ -1307,7 +1099,7 @@ CmDeleteKey(IN PCM_KEY_BODY KeyBody)
 
                 /* Update the write time */
                 KeQuerySystemTime(&Parent->LastWriteTime);
-                Kcb->ParentKcb->KcbLastWriteTime = Parent->LastWriteTime;
+                KeQuerySystemTime(&Kcb->ParentKcb->KcbLastWriteTime);
 
                 /* Release the cell */
                 HvReleaseCell(Hive, ParentCell);
@@ -1327,16 +1119,16 @@ CmDeleteKey(IN PCM_KEY_BODY KeyBody)
         Status = STATUS_CANNOT_DELETE;
     }
     
+    /* Flush the registry */
+    CmpLazyFlush();
+    
 Quickie:
     /* Release the cell */
     HvReleaseCell(Hive, Cell);
-    
-    /* Release the KCB locks */
-Quickie2:
-    CmpReleaseTwoKcbLockByKey(Kcb->ConvKey, Kcb->ParentKcb->ConvKey);
 
     /* Release hive lock */
-    CmpUnlockRegistry();
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
     return Status;
 }
 
@@ -1348,9 +1140,6 @@ CmFlushKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     PCMHIVE CmHive;
     NTSTATUS Status = STATUS_SUCCESS;
     PHHIVE Hive;
-
-    /* Ignore flushes until we're ready */
-    if (CmpNoWrite) return STATUS_SUCCESS;
     
     /* Get the hives */
     Hive = Kcb->KeyHive;
@@ -1450,7 +1239,7 @@ CmLoadKey(IN POBJECT_ATTRIBUTES TargetKey,
     }
     
     /* Lock the registry shared */
-    CmpLockRegistry();
+    //CmpLockRegistry();
     
     /* Lock the hive to this thread */
     CmHive->Hive.HiveFlags |= HIVE_IS_UNLOADING;
@@ -1463,7 +1252,7 @@ CmLoadKey(IN POBJECT_ATTRIBUTES TargetKey,
     Status = CmpLinkHiveToMaster(TargetKey->ObjectName,
                                  TargetKey->RootDirectory,
                                  CmHive,
-                                 Allocate,
+                                 FALSE,
                                  TargetKey->SecurityDescriptor);
     if (NT_SUCCESS(Status))
     {
@@ -1487,18 +1276,9 @@ CmLoadKey(IN POBJECT_ATTRIBUTES TargetKey,
     }
     
     /* Unlock the registry */
-    CmpUnlockRegistry();
+    //CmpUnlockRegistry();
     
     /* Close handle and return */
     if (KeyHandle) ZwClose(KeyHandle);
     return Status;
-}
-
-NTSTATUS
-NTAPI
-CmUnloadKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
-            IN ULONG Flags)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }

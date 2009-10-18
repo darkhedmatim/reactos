@@ -64,7 +64,8 @@ static void test_IMalloc(void)
 
     /* Prove that native mapi uses LocalAlloc/LocalFree */
     lpMem = IMalloc_Alloc(lpMalloc, 61);
-    ok (lpMem && IMalloc_GetSize(lpMalloc, lpMem) == LocalSize(lpMem),
+    ok (lpMem && IMalloc_GetSize(lpMalloc, lpMem) ==
+        LocalSize((HANDLE)lpMem),
         "Expected non-null, same size, got %p, %s size\n", lpMem,
         lpMem ? "different" : "same");
 
@@ -93,7 +94,7 @@ START_TEST(imalloc)
     pScInitMapiUtil = (void*)GetProcAddress(hMapi32, "ScInitMapiUtil@4");
     if (!pScInitMapiUtil)
     {
-        win_skip("ScInitMapiUtil is not available\n");
+        skip("ScInitMapiUtil is not available\n");
         FreeLibrary(hMapi32);
         return;
     }
@@ -102,7 +103,7 @@ START_TEST(imalloc)
     ret = pScInitMapiUtil(0);
     if ((ret != S_OK) && (GetLastError() == ERROR_PROC_NOT_FOUND))
     {
-        win_skip("ScInitMapiUtil is not implemented\n");
+        skip("ScInitMapiUtil is not implemented\n");
         FreeLibrary(hMapi32);
         return;
     }

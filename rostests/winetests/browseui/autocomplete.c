@@ -20,11 +20,9 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#include <initguid.h>
 #include <windows.h>
 #include <shlobj.h>
 #include <shlwapi.h>
-#include <shlguid.h>
 
 #include "wine/test.h"
 
@@ -45,10 +43,10 @@
         ok(FALSE, #exp " failed: %x\n", res); \
 }
 
-static LPWSTR strdup_AtoW(LPCSTR str)
+LPWSTR strdup_AtoW(LPCSTR str)
 {
     int size = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
-    LPWSTR wstr = CoTaskMemAlloc((size + 1)*sizeof(WCHAR));
+    LPWSTR wstr = (LPWSTR)CoTaskMemAlloc((size + 1)*sizeof(WCHAR));
     MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, size+1);
     return wstr;
 }
@@ -86,14 +84,14 @@ static TestACL *TestACL_Constructor(int limit, const char **strings)
     return This;
 }
 
-static ULONG STDMETHODCALLTYPE TestACL_AddRef(IEnumString *iface)
+ULONG STDMETHODCALLTYPE TestACL_AddRef(IEnumString *iface)
 {
     TestACL *This = (TestACL *)iface;
     trace("ACL(%p): addref (%d)\n", This, This->ref+1);
     return InterlockedIncrement(&This->ref);
 }
 
-static ULONG STDMETHODCALLTYPE TestACL_Release(IEnumString *iface)
+ULONG STDMETHODCALLTYPE TestACL_Release(IEnumString *iface)
 {
     TestACL *This = (TestACL *)iface;
     ULONG res;
@@ -103,7 +101,7 @@ static ULONG STDMETHODCALLTYPE TestACL_Release(IEnumString *iface)
     return res;
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_QueryInterface(IEnumString *iface, REFIID iid, LPVOID *ppvOut)
+HRESULT STDMETHODCALLTYPE TestACL_QueryInterface(IEnumString *iface, REFIID iid, LPVOID *ppvOut)
 {
     TestACL *This = (TestACL *)iface;
     *ppvOut = NULL;
@@ -129,7 +127,7 @@ static HRESULT STDMETHODCALLTYPE TestACL_QueryInterface(IEnumString *iface, REFI
     return E_NOINTERFACE;
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_Next(IEnumString *iface, ULONG celt, LPOLESTR *rgelt, ULONG *pceltFetched)
+HRESULT STDMETHODCALLTYPE TestACL_Next(IEnumString *iface, ULONG celt, LPOLESTR *rgelt, ULONG *pceltFetched)
 {
     TestACL *This = (TestACL *)iface;
     ULONG i;
@@ -150,19 +148,19 @@ static HRESULT STDMETHODCALLTYPE TestACL_Next(IEnumString *iface, ULONG celt, LP
     return S_FALSE;
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_Skip(IEnumString *iface, ULONG celt)
+HRESULT STDMETHODCALLTYPE TestACL_Skip(IEnumString *iface, ULONG celt)
 {
     ok(FALSE, "Unexpected call to TestACL_Skip\n");
     return E_NOTIMPL;
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_Clone(IEnumString *iface, IEnumString **out)
+HRESULT STDMETHODCALLTYPE TestACL_Clone(IEnumString *iface, IEnumString **out)
 {
     ok(FALSE, "Unexpected call to TestACL_Clone\n");
     return E_OUTOFMEMORY;
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_Reset(IEnumString *iface)
+HRESULT STDMETHODCALLTYPE TestACL_Reset(IEnumString *iface)
 {
     TestACL *This = (TestACL *)iface;
     trace("ACL(%p): Reset\n", This);
@@ -170,7 +168,7 @@ static HRESULT STDMETHODCALLTYPE TestACL_Reset(IEnumString *iface)
     return S_OK;
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_Expand(IACList *iface, LPCOLESTR str)
+HRESULT STDMETHODCALLTYPE TestACL_Expand(IACList *iface, LPCOLESTR str)
 {
     TestACL *This = impl_from_IACList(iface);
     trace("ACL(%p): Expand\n", impl_from_IACList(iface));
@@ -190,17 +188,17 @@ IEnumStringVtbl TestACLVtbl =
     TestACL_Clone
 };
 
-static ULONG STDMETHODCALLTYPE TestACL_ACList_AddRef(IACList *iface)
+ULONG STDMETHODCALLTYPE TestACL_ACList_AddRef(IACList *iface)
 {
     return TestACL_AddRef((IEnumString *)impl_from_IACList(iface));
 }
 
-static ULONG STDMETHODCALLTYPE TestACL_ACList_Release(IACList *iface)
+ULONG STDMETHODCALLTYPE TestACL_ACList_Release(IACList *iface)
 {
     return TestACL_Release((IEnumString *)impl_from_IACList(iface));
 }
 
-static HRESULT STDMETHODCALLTYPE TestACL_ACList_QueryInterface(IACList *iface, REFIID iid, LPVOID *ppvout)
+HRESULT STDMETHODCALLTYPE TestACL_ACList_QueryInterface(IACList *iface, REFIID iid, LPVOID *ppvout)
 {
     return TestACL_QueryInterface((IEnumString *)impl_from_IACList(iface), iid, ppvout);
 }
@@ -275,8 +273,7 @@ static void test_ACLMulti(void)
 
     ole_ok(acl->lpVtbl->Expand(acl, exp));
     ok(acl1->expcount == 1, "expcount - expected 1, got %d\n", acl1->expcount);
-    ok(acl2->expcount == 0 /* XP */ || acl2->expcount == 1 /* Vista */,
-        "expcount - expected 0 or 1, got %d\n", acl2->expcount);
+    ok(acl2->expcount == 0, "expcount - expected 0, got %d\n", acl2->expcount);
 
     ole_ok(obj->lpVtbl->Next(obj, 15, wstrtab, &i));
     ok(i == 1, "Expected i == 1, got %d\n", i);
@@ -285,18 +282,15 @@ static void test_ACLMulti(void)
     ole_ok(obj->lpVtbl->Next(obj, 15, wstrtab, &i));
     ole_ok(acl->lpVtbl->Expand(acl, exp));
     ok(acl1->expcount == 2, "expcount - expected 1, got %d\n", acl1->expcount);
-    ok(acl2->expcount == 0 /* XP */ || acl2->expcount == 2 /* Vista */,
-        "expcount - expected 0 or 2, got %d\n", acl2->expcount);
+    ok(acl2->expcount == 0, "expcount - expected 0, got %d\n", acl2->expcount);
     acl1->expret = S_FALSE;
     ole_ok(acl->lpVtbl->Expand(acl, exp));
     ok(acl1->expcount == 3, "expcount - expected 1, got %d\n", acl1->expcount);
-    ok(acl2->expcount == 1 /* XP */ || acl2->expcount == 3 /* Vista */,
-        "expcount - expected 0 or 3, got %d\n", acl2->expcount);
+    ok(acl2->expcount == 1, "expcount - expected 0, got %d\n", acl2->expcount);
     acl1->expret = E_NOTIMPL;
     ole_ok(acl->lpVtbl->Expand(acl, exp));
     ok(acl1->expcount == 4, "expcount - expected 1, got %d\n", acl1->expcount);
-    ok(acl2->expcount == 2 /* XP */ || acl2->expcount == 4 /* Vista */,
-        "expcount - expected 0 or 4, got %d\n", acl2->expcount);
+    ok(acl2->expcount == 2, "expcount - expected 0, got %d\n", acl2->expcount);
     acl2->expret = E_OUTOFMEMORY;
     ok(acl->lpVtbl->Expand(acl, exp) == E_OUTOFMEMORY, "Unexpected Expand return\n");
     acl2->expret = E_FAIL;

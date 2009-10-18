@@ -11,9 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
-
-#define TAG_ATMT 'TotA' /* Atom table */
+#include <internal/debug.h>
 
 extern ULONG NtGlobalFlag;
 
@@ -24,7 +22,6 @@ typedef struct _RTL_RANGE_ENTRY
 } RTL_RANGE_ENTRY, *PRTL_RANGE_ENTRY;
 
 PAGED_LOOKASIDE_LIST RtlpRangeListEntryLookasideList;
-SIZE_T RtlpAllocDeallocQueryBufferSize = 128;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -38,7 +35,7 @@ RtlInitializeRangeListPackage(VOID)
                                    NULL,
                                    POOL_COLD_ALLOCATION,
                                    sizeof(RTL_RANGE_ENTRY),
-                                   'elRR',
+                                   TAG('R', 'R', 'l', 'e'),
                                    16);
 }
 
@@ -59,14 +56,14 @@ RtlpSetInDbgPrint(IN BOOLEAN NewValue)
 }
 
 KPROCESSOR_MODE
-NTAPI
+STDCALL
 RtlpGetMode()
 {
    return KernelMode;
 }
 
 PVOID
-NTAPI
+STDCALL
 RtlpAllocateMemory(ULONG Bytes,
                    ULONG Tag)
 {
@@ -76,24 +73,19 @@ RtlpAllocateMemory(ULONG Bytes,
 }
 
 
-#define TAG_USTR        'RTSU'
-#define TAG_ASTR        'RTSA'
-#define TAG_OSTR        'RTSO'
 VOID
-NTAPI
+STDCALL
 RtlpFreeMemory(PVOID Mem,
                ULONG Tag)
 {
-    if (Tag == TAG_ASTR || Tag == TAG_OSTR || Tag == TAG_USTR)
-        ExFreePool(Mem);
-    else
-        ExFreePoolWithTag(Mem, Tag);
+    ExFreePoolWithTag(Mem,
+                      Tag);
 }
 
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlAcquirePebLock(VOID)
 {
 
@@ -102,14 +94,14 @@ RtlAcquirePebLock(VOID)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlReleasePebLock(VOID)
 {
 
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrShutdownThread(VOID)
 {
     return STATUS_SUCCESS;
@@ -117,56 +109,56 @@ LdrShutdownThread(VOID)
 
 
 PPEB
-NTAPI
-RtlGetCurrentPeb(VOID)
+STDCALL
+RtlpCurrentPeb(VOID)
 {
    return ((PEPROCESS)(KeGetCurrentThread()->ApcState.Process))->Peb;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlDeleteHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlEnterHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlInitializeHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-   ASSERT(FALSE);
+   KEBUGCHECK(0);
    return STATUS_SUCCESS;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlLeaveHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return STATUS_SUCCESS;
 }
 
-#if DBG
+#ifdef DBG
 VOID FASTCALL
 CHECK_PAGED_CODE_RTL(char *file, int line)
 {
   if(KeGetCurrentIrql() > APC_LEVEL)
   {
     DbgPrint("%s:%i: Pagable code called at IRQL > APC_LEVEL (%d)\n", file, line, KeGetCurrentIrql());
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
   }
 }
 #endif
@@ -217,8 +209,6 @@ RtlpHandleDpcStackException(IN PEXCEPTION_REGISTRATION_RECORD RegistrationFrame,
     /* Not in DPC stack */
     return FALSE;
 }
-
-#ifndef _ARM_
 
 BOOLEAN
 NTAPI
@@ -293,8 +283,6 @@ RtlWalkFrameChain(OUT PVOID *Callers,
         __asm__("move $sp, %0" : "=r" (Stack) : );
 #elif defined(_M_PPC)
     __asm__("mr %0,1" : "=r" (Stack) : );
-#elif defined(_M_ARM)
-    __asm__("mov sp, %0" : "=r"(Stack) : );
 #else
 #error Unknown architecture
 #endif
@@ -313,7 +301,7 @@ RtlWalkFrameChain(OUT PVOID *Callers,
     }
 
     /* Use a SEH block for maximum protection */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we want the user-mode stack frame */
         if (Flags == 1)
@@ -341,8 +329,6 @@ RtlWalkFrameChain(OUT PVOID *Callers,
             Stack = TrapFrame->Ebp;
 #elif defined(_M_PPC)
             Stack = TrapFrame->Gpr1;
-#else
-#error Unknown architecture
 #endif
 
             /* Validate them */
@@ -400,18 +386,16 @@ RtlWalkFrameChain(OUT PVOID *Callers,
             Stack = NewStack;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* No index */
         i = 0;
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return frames parsed */
     return i;
 }
-
-#endif
 
 /* RTL Atom Tables ************************************************************/
 
@@ -486,21 +470,21 @@ RtlpFreeAtomTable(PRTL_ATOM_TABLE AtomTable)
 PRTL_ATOM_TABLE_ENTRY
 RtlpAllocAtomTableEntry(ULONG Size)
 {
-    PRTL_ATOM_TABLE_ENTRY Entry;
+   PRTL_ATOM_TABLE_ENTRY Entry = ExAllocatePool(NonPagedPool,
+                                                Size);
+   if (Entry != NULL)
+   {
+      RtlZeroMemory(Entry,
+                    Size);
+   }
 
-    Entry = ExAllocatePoolWithTag(NonPagedPool, Size, TAG_ATMT);
-    if (Entry != NULL)
-    {
-        RtlZeroMemory(Entry, Size);
-    }
-
-    return Entry;
+   return Entry;
 }
 
 VOID
 RtlpFreeAtomTableEntry(PRTL_ATOM_TABLE_ENTRY Entry)
 {
-    ExFreePoolWithTag(Entry, TAG_ATMT);
+   ExFreePool(Entry);
 }
 
 VOID
@@ -518,36 +502,29 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
    HANDLE Handle;
    USHORT HandleIndex;
 
-   /* Initialize ex handle table entry */
    ExEntry.Object = Entry;
    ExEntry.GrantedAccess = 0x1; /* FIXME - valid handle */
 
-   /* Create ex handle */
    Handle = ExCreateHandle(AtomTable->ExHandleTable,
-                           &ExEntry);
-   if (!Handle) return FALSE;
-
-   /* Calculate HandleIndex (by getting rid of the first two bits) */
-   HandleIndex = (USHORT)((ULONG_PTR)Handle >> 2);
-
-   /* Index must be less than 0xC000 */
-   if (HandleIndex >= 0xC000)
+                                &ExEntry);
+   if (Handle != NULL)
    {
-       /* Destroy ex handle */
-       ExDestroyHandle(AtomTable->ExHandleTable,
-                       Handle,
-                       NULL);
+      HandleIndex = (USHORT)((ULONG_PTR)Handle >> 2);
+      /* FIXME - Handle Indexes >= 0xC000 ?! */
+      if ((ULONG_PTR)HandleIndex >> 2 < 0xC000)
+      {
+         Entry->HandleIndex = HandleIndex;
+         Entry->Atom = 0xC000 + HandleIndex;
 
-       /* Return failure */
-       return FALSE;
+         return TRUE;
+      }
+      else
+         ExDestroyHandle(AtomTable->ExHandleTable,
+                         Handle,
+                         NULL);
    }
 
-   /* Initialize atom table entry */
-   Entry->HandleIndex = HandleIndex;
-   Entry->Atom = 0xC000 + HandleIndex;
-
-   /* Return success */
-   return TRUE;
+   return FALSE;
 }
 
 PRTL_ATOM_TABLE_ENTRY
@@ -571,6 +548,30 @@ RtlpGetAtomEntry(PRTL_ATOM_TABLE AtomTable, ULONG Index)
    }
 
    return Entry;
+}
+
+/* FIXME - RtlpCreateUnicodeString is obsolete and should be removed ASAP! */
+BOOLEAN FASTCALL
+RtlpCreateUnicodeString(
+   IN OUT PUNICODE_STRING UniDest,
+   IN PCWSTR  Source,
+   IN POOL_TYPE PoolType)
+{
+   ULONG Length;
+
+   Length = (wcslen (Source) + 1) * sizeof(WCHAR);
+   UniDest->Buffer = ExAllocatePoolWithTag(PoolType, Length, TAG('U', 'S', 'T', 'R'));
+   if (UniDest->Buffer == NULL)
+      return FALSE;
+
+   RtlCopyMemory (UniDest->Buffer,
+                  Source,
+                  Length);
+
+   UniDest->MaximumLength = (USHORT)Length;
+   UniDest->Length = (USHORT)Length - sizeof (WCHAR);
+
+   return TRUE;
 }
 
 /*

@@ -72,18 +72,11 @@
 #define	_FPCLASS_PINF	0x0200	/* Positive Infinity */
 #endif /* __MINGW_FPCLASS_DEFINED */
 
-/* _statusfp bit flags */
-#define _SW_INEXACT    0x00000001  /* inexact (precision) */
-#define _SW_UNDERFLOW  0x00000002  /* underflow */
-#define _SW_OVERFLOW   0x00000004  /* overflow */
-#define _SW_ZERODIVIDE 0x00000008  /* zero divide */
-#define _SW_INVALID    0x00000010  /* invalid */
-#define _SW_DENORMAL    0x00080000 /* denormal status bit */
-
-#define _SW_UNEMULATED     0x00000040  /* unemulated instruction */
-#define _SW_SQRTNEG        0x00000080  /* square root of a neg number */
-#define _SW_STACKOVERFLOW  0x00000200  /* FP stack overflow */
-#define _SW_STACKUNDERFLOW 0x00000400  /* FP stack underflow */
+/* invalid subconditions (_SW_INVALID also set) */
+#define _SW_UNEMULATED		0x0040  /* unemulated instruction */
+#define _SW_SQRTNEG		0x0080  /* square root of a neg number */
+#define _SW_STACKOVERFLOW	0x0200  /* FP stack overflow */
+#define _SW_STACKUNDERFLOW	0x0400  /* FP stack underflow */
 
 /*  Floating point error signals and return codes */
 #define _FPE_INVALID		0x81
@@ -101,6 +94,9 @@
 #ifndef DBL_MAX_10_EXP
 #define DBL_MAX_10_EXP  308
 #endif
+#ifndef S_IFIFO
+#define S_IFIFO			-1
+#endif
 #ifndef UINT64_MAX
 #define UINT64_MAX	0xffffffffffffffff
 #endif
@@ -114,10 +110,10 @@ extern "C" {
 #ifndef _CRTIMP
 #ifdef  _DLL
 #define _CRTIMP __declspec(dllimport)
-#else
+#else   
 #define _CRTIMP
 #endif  /* _DLL */
-#endif
+#endif 
 
 /* Set the FPU control word as cw = (cw & ~unMask) | (unNew & unMask),
  * i.e. change the bits in unMask to have the values they have in unNew,
@@ -172,5 +168,4 @@ _CRTIMP int __cdecl _isnan (double);
 #endif	/* Not __STRICT_ANSI__ */
 
 #endif /* _FLOAT_H_ */
-
 

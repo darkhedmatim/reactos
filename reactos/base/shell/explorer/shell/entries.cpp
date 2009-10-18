@@ -96,8 +96,6 @@ Entry::Entry(const Entry& other)
  // free a directory entry
 Entry::~Entry()
 {
-	free_subentries();
-
 	if (_icon_id > ICID_NONE)
 		g_Globals._icon_cache.free_icon(_icon_id);
 
@@ -109,9 +107,6 @@ Entry::~Entry()
 
 	if (_content)
 		free(_content);
-
-	if (_down)
-		delete _down;
 }
 
 
@@ -376,7 +371,7 @@ int Entry::extract_icon(ICONCACHE_FLAGS flags)
 		if (!(flags & ICF_OVERLAYS)) {
 			IExtractIcon* pExtract;
 			if (SUCCEEDED(GetUIObjectOf(0, IID_IExtractIcon, (LPVOID*)&pExtract))) {
-				unsigned gil_flags = 0;
+				unsigned gil_flags;
 				int idx;
 
 				if (flags & ICF_OPEN)

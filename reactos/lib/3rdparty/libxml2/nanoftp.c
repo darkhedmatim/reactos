@@ -77,21 +77,19 @@
 #endif
 
 
-#if defined(__MINGW32__) || defined(_WIN32_WCE)
-#ifndef _WINSOCKAPI_
+#ifdef __MINGW32__
 #define _WINSOCKAPI_
-#endif
 #include <wsockcompat.h>
 #include <winsock2.h>
 #undef XML_SOCKLEN_T
-#define XML_SOCKLEN_T int
+#define XML_SOCKLEN_T unsigned int
 #endif
 
 /**
  * A couple portability macros
  */
 #ifndef _WINSOCKAPI_
-#if !defined(__BEOS__) || defined(__HAIKU__)
+#ifndef __BEOS__
 #define closesocket(s) close(s)
 #endif
 #define SOCKET int
@@ -104,9 +102,7 @@
 #endif
 
 #ifdef _AIX
-#ifdef HAVE_BROKEN_SS_FAMILY
 #define ss_family __ss_family
-#endif
 #endif
 
 #ifndef XML_SOCKLEN_T
@@ -320,7 +316,7 @@ xmlNanoFTPScanURL(void *ctx, const char *URL) {
     }
     if (URL == NULL) return;
 
-    uri = xmlParseURIRaw(URL, 1);
+    uri = xmlParseURI(URL);
     if (uri == NULL)
 	return;
 
@@ -381,7 +377,7 @@ xmlNanoFTPUpdateURL(void *ctx, const char *URL) {
     if (ctxt->hostname == NULL)
 	return(-1);
 
-    uri = xmlParseURIRaw(URL, 1);
+    uri = xmlParseURI(URL);
     if (uri == NULL)
 	return(-1);
 
@@ -444,7 +440,7 @@ xmlNanoFTPScanProxy(const char *URL) {
 #endif
     if (URL == NULL) return;
 
-    uri = xmlParseURIRaw(URL, 1);
+    uri = xmlParseURI(URL);
     if ((uri == NULL) || (uri->scheme == NULL) ||
 	(strcmp(uri->scheme, "ftp")) || (uri->server == NULL)) {
 	__xmlIOErr(XML_FROM_FTP, XML_FTP_URL_SYNTAX, "Syntax Error\n");
@@ -948,7 +944,7 @@ xmlNanoFTPConnect(void *ctx) {
 	((struct sockaddr_in *)&ctxt->ftpAddr)->sin_family = AF_INET;
 	memcpy (&((struct sockaddr_in *)&ctxt->ftpAddr)->sin_addr,
 		hp->h_addr_list[0], hp->h_length);
-	((struct sockaddr_in *)&ctxt->ftpAddr)->sin_port = (u_short)htons ((unsigned short)port);
+	((struct sockaddr_in *)&ctxt->ftpAddr)->sin_port = htons (port);
 	ctxt->controlFd = socket (AF_INET, SOCK_STREAM, 0);
 	addrlen = sizeof (struct sockaddr_in);
     }

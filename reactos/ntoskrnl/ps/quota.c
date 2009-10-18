@@ -12,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 EPROCESS_QUOTA_BLOCK PspDefaultQuotaBlock;
 
@@ -38,7 +38,7 @@ NTSTATUS
 NTAPI
 PspChargeProcessQuotaSpecifiedPool(IN PEPROCESS Process,
                                    IN UCHAR     PoolIndex,
-                                   IN SIZE_T    Amount)
+                                   IN ULONG     Amount)
 {
     ASSERT(Process);
     ASSERT(Process != PsInitialSystemProcess);
@@ -74,7 +74,7 @@ VOID
 NTAPI
 PspReturnProcessQuotaSpecifiedPool(IN PEPROCESS Process,
                                    IN UCHAR     PoolIndex,
-                                   IN SIZE_T    Amount)
+                                   IN ULONG     Amount)
 {
     ASSERT(Process);
     ASSERT(Process != PsInitialSystemProcess);
@@ -108,17 +108,17 @@ PsInitializeQuotaSystem(VOID)
 }
 
 VOID
-NTAPI
+STDCALL
 PspInheritQuota(PEPROCESS Process, PEPROCESS ParentProcess)
 {
     if (ParentProcess != NULL)
     {
         PEPROCESS_QUOTA_BLOCK QuotaBlock = ParentProcess->QuotaBlock;
-
+        
         ASSERT(QuotaBlock != NULL);
 
         (void)InterlockedIncrementUL(&QuotaBlock->ReferenceCount);
-
+        
         Process->QuotaBlock = QuotaBlock;
     }
     else
@@ -126,7 +126,7 @@ PspInheritQuota(PEPROCESS Process, PEPROCESS ParentProcess)
 }
 
 VOID
-NTAPI
+STDCALL
 PspDestroyQuotaBlock(PEPROCESS Process)
 {
     PEPROCESS_QUOTA_BLOCK QuotaBlock = Process->QuotaBlock;
@@ -159,10 +159,10 @@ PsChargeProcessPageFileQuota(IN PEPROCESS Process,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 PsChargePoolQuota(IN PEPROCESS Process,
                   IN POOL_TYPE PoolType,
-                  IN SIZE_T Amount)
+                  IN ULONG Amount)
 {
     NTSTATUS Status;
 
@@ -184,9 +184,9 @@ PsChargePoolQuota(IN PEPROCESS Process,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PsChargeProcessNonPagedPoolQuota(IN PEPROCESS Process,
-                                 IN SIZE_T Amount)
+                                 IN ULONG_PTR Amount)
 {
     /* Call the general function */
     return PsChargeProcessPoolQuota(Process, NonPagedPool, Amount);
@@ -196,9 +196,9 @@ PsChargeProcessNonPagedPoolQuota(IN PEPROCESS Process,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PsChargeProcessPagedPoolQuota(IN PEPROCESS Process,
-                              IN SIZE_T Amount)
+                              IN ULONG_PTR Amount)
 {
     /* Call the general function */
     return PsChargeProcessPoolQuota(Process, PagedPool, Amount);
@@ -208,10 +208,10 @@ PsChargeProcessPagedPoolQuota(IN PEPROCESS Process,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PsChargeProcessPoolQuota(IN PEPROCESS Process,
                          IN POOL_TYPE PoolType,
-                         IN SIZE_T Amount)
+                         IN ULONG Amount)
 {
     /* Don't do anything for the system process */
     if (Process == PsInitialSystemProcess) return STATUS_SUCCESS;
@@ -230,10 +230,10 @@ PsChargeProcessPoolQuota(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsReturnPoolQuota(IN PEPROCESS Process,
                   IN POOL_TYPE PoolType,
-                  IN SIZE_T Amount)
+                  IN ULONG_PTR Amount)
 {
 #ifdef PS_QUOTA_ENABLE_QUOTA_CODE
     /* MS-documented IRQL requirement. Not yet enabled as it */
@@ -257,9 +257,9 @@ PsReturnPoolQuota(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsReturnProcessNonPagedPoolQuota(IN PEPROCESS Process,
-                                 IN SIZE_T Amount)
+                                 IN ULONG_PTR Amount)
 {
     /* Don't do anything for the system process */
     if (Process == PsInitialSystemProcess) return;
@@ -275,9 +275,9 @@ PsReturnProcessNonPagedPoolQuota(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsReturnProcessPagedPoolQuota(IN PEPROCESS Process,
-                              IN SIZE_T Amount)
+                              IN ULONG_PTR Amount)
 {
     /* Don't do anything for the system process */
     if (Process == PsInitialSystemProcess) return;
@@ -296,7 +296,7 @@ PsReturnProcessPageFileQuota(IN PEPROCESS Process,
 {
     /* Don't do anything for the system process */
     if (Process == PsInitialSystemProcess) return STATUS_SUCCESS;
-
+    
 #ifdef PS_QUOTA_ENABLE_QUOTA_CODE
     PspReturnProcessQuotaSpecifiedPool(Process, 2, Amount);
 #else

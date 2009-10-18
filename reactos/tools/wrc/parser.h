@@ -15,24 +15,25 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WRC_PARSER_H
 #define __WRC_PARSER_H
 
 /* From parser.y */
-extern int parser_debug;
-extern int want_nl;		/* Set when getting line-numbers */
+extern int yydebug;
+extern int want_nl;		/* Set when getting line-numers */
 extern int want_id;		/* Set when getting the resource name */
 
-int parser_parse(void);
+int yyparse(void);
 
 /* From parser.l */
-extern FILE *parser_in;
-extern char *parser_text;
+extern FILE *yyin;
+extern char *yytext;
 extern int yy_flex_debug;
 
-int parser_lex(void);
+int yylex(void);
 
 #endif
+

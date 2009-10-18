@@ -11,7 +11,6 @@ extern void func_change(void);
 extern void func_env(void);
 extern void func_error(void);
 extern void func_exception(void);
-extern void func_file(void);
 extern void func_generated(void);
 extern void func_info(void);
 extern void func_large_int(void);
@@ -32,8 +31,7 @@ const struct test winetest_testlist[] =
     { "env", func_env },
     { "error", func_error },
     { "exception", func_exception },
-    { "file", func_file },
-    //{ "generated", func_generated },
+//    { "generated", func_generated },
     { "info", func_info },
     { "large_int", func_large_int },
     { "om", func_om },

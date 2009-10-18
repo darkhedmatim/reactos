@@ -30,7 +30,6 @@
 
 VOID SetScreenColor (WORD wColor, BOOL bNoFill)
 {
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	DWORD dwWritten;
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	COORD coPos;
@@ -64,9 +63,9 @@ VOID SetScreenColor (WORD wColor, BOOL bNoFill)
  *
  * internal dir command
  */
-INT CommandColor (LPTSTR rest)
+INT CommandColor (LPTSTR first, LPTSTR rest)
 {
-	WORD wColor;
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	if (_tcsncmp (rest, _T("/?"), 2) == 0)
 	{
@@ -87,7 +86,6 @@ INT CommandColor (LPTSTR rest)
 
 	if ( _tcslen(&rest[0])==1)
 	{
-	  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	  if ( (_tcscmp(&rest[0], _T("0")) >=0 ) && (_tcscmp(&rest[0], _T("9")) <=0 ) )
 	  {
         SetConsoleTextAttribute (hConsole, (WORD)_ttoi(rest));
@@ -115,14 +113,13 @@ INT CommandColor (LPTSTR rest)
 		return 1;
 	}
 
-	if (((bc) && (bc->bEcho)) || !bc)
-	{
-		ConErrResPrintf(STRING_COLOR_ERROR3, wColor);
-	}
+	LoadString(CMD_ModuleHandle, STRING_COLOR_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+	ConErrPrintf(szMsg, wColor);
 
 	if ((wColor & 0xF) == (wColor &0xF0) >> 4)
 	{
-		ConErrResPrintf(STRING_COLOR_ERROR4, wColor);
+		LoadString(CMD_ModuleHandle, STRING_COLOR_ERROR4, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg, wColor);
 		nErrorLevel = 1;
 		return 1;
 	}

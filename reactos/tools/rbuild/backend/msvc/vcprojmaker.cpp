@@ -147,6 +147,16 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	{
 		const IfableData& data = *ifs_list.back();
 		ifs_list.pop_back();
+		for ( i = 0; i < data.ifs.size(); i++ )
+		{
+			const Property* property = _lookup_property( module, data.ifs[i]->property );
+			if ( property != NULL )
+			{
+				if ( data.ifs[i]->value == property->value && data.ifs[i]->negated == false ||
+					data.ifs[i]->value != property->value && data.ifs[i]->negated)
+					ifs_list.push_back ( &data.ifs[i]->data );
+			}
+		}
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
@@ -213,9 +223,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			else
 				common_defines.insert( defs[i]->name );
 		}
-		for ( std::map<std::string, Property*>::const_iterator p = data.properties.begin(); p != data.properties.end(); ++ p )
+		for ( i = 0; i < data.properties.size(); i++ )
 		{
-			Property& prop = *p->second;
+			Property& prop = *data.properties[i];
 			if ( strstr ( module.baseaddress.c_str(), prop.name.c_str() ) )
 				baseaddr = prop.value;
 		}
@@ -262,11 +272,8 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	// don't do the work m_configurations.size() times
 	if (module.importLibrary != NULL)
 	{
-		intermediatedir = module.output->relative_path + vcdir;
+		intermediatedir = intdir + "\\" + module.output->relative_path + vcdir;
 		importLib = _strip_gcc_deffile(module.importLibrary->source->name, module.importLibrary->source->relative_path, intermediatedir);
-		importLib = Path::RelativeFromDirectory (
-				importLib,
-				module.output->relative_path );
 	}
 
 	fprintf ( OUT, "\t<Configurations>\r\n" );
@@ -340,37 +347,12 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				multiple_includes = true;
 			}
 		}
-		else
-		{
-			// Add WDK or PSDK paths, if user provides them
-			if (getenv ( "BASEDIR" ) != NULL &&
-				(module.type == Kernel ||
-				 module.type == KernelModeDLL ||
-				 module.type == KernelModeDriver ||
-				 module.type == KeyboardLayout))
-			{
-				string WdkBase, SdkPath, CrtPath, DdkPath;
-				WdkBase = getenv ( "BASEDIR" );
-				SdkPath = WdkBase + "\\inc\\api";
-				CrtPath = WdkBase + "\\inc\\crt";
-				DdkPath = WdkBase + "\\inc\\ddk";
-
-				if ( multiple_includes )
-					fprintf ( OUT, ";" );
-
-				fprintf ( OUT, "%s;", SdkPath.c_str() );
-				fprintf ( OUT, "%s;", CrtPath.c_str() );
-				fprintf ( OUT, "%s", DdkPath.c_str() );
-				multiple_includes = true;
-			}
-		}
 		fprintf ( OUT, "\"\r\n" );
 
 		StringSet defines = common_defines;
 
-		// Always add _CRT_SECURE_NO_WARNINGS to disable warnings about not
-		// using the safe functions introduced in MSVC8.
-		defines.insert ( "_CRT_SECURE_NO_WARNINGS" );
+        // Always add _CRT_SECURE_NO_WARNINGS to disable warnings about not using the safe functions introduced in MSVC8.
+        defines.insert ( "_CRT_SECURE_NO_WARNINGS" );
 
 		if ( debug )
 		{
@@ -400,13 +382,17 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				fprintf ( OUT, ";" );
 
 			string unescaped = *it1;
-			fprintf ( OUT, "%s", _replace_str(unescaped, "\"","").c_str() );
+			defines.erase(unescaped);
+			const string& escaped = _replace_str(unescaped, "\"","");
+
+			defines.insert(escaped);
+			fprintf ( OUT, "%s", escaped.c_str() );
 		}
 		fprintf ( OUT, "\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tForcedIncludeFiles=\"%s\"\r\n", "warning.h");
 		fprintf ( OUT, "\t\t\t\tMinimalRebuild=\"%s\"\r\n", speed ? "TRUE" : "FALSE" );
 		fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"0\"\r\n" );
-		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 3 : 2 );	// 3=/MDd 2=/MD
+		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 1 : 5 );	// 1=/MTd 5=/MT
 		fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"FALSE\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tEnableFunctionLevelLinking=\"FALSE\"\r\n" );
 
@@ -414,7 +400,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			fprintf ( OUT, "\t\t\t\tUsePrecompiledHeader=\"2\"\r\n" );
 			string pch_path = Path::RelativeFromDirectory (
-				module.pch->file->name,
+				module.pch->file.name,
 				module.output->relative_path );
 			string::size_type pos = pch_path.find_last_of ("/");
 			if ( pos != string::npos )
@@ -467,7 +453,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			fprintf ( OUT, "\t\t\t<Tool\r\n" );
 			fprintf ( OUT, "\t\t\t\tName=\"VCLinkerTool\"\r\n" );
-			if (module.GetEntryPoint(false) == "0" && sys == false)
+			if (module.GetEntryPoint(false) == "0")
 				fprintf ( OUT, "AdditionalOptions=\"/noentry\"" );
 
 			if (configuration.VSProjectVersion == "9.00")
@@ -496,27 +482,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			fprintf ( OUT, "\"\r\n" );
 
 			fprintf ( OUT, "\t\t\t\tAdditionalLibraryDirectories=\"" );
-
-			// Add WDK libs paths, if needed
-			if (getenv ( "BASEDIR" ) != NULL &&
-				(module.type == Kernel ||
-				 module.type == KernelModeDLL ||
-				 module.type == KernelModeDriver ||
-				 module.type == KeyboardLayout))
-			{
-				string WdkBase, CrtPath, DdkPath;
-				WdkBase = getenv ( "BASEDIR" );
-				CrtPath = WdkBase + "\\lib\\crt\\i386";
-				DdkPath = WdkBase + "\\lib\\wnet\\i386";
-
-				fprintf ( OUT, "%s;", CrtPath.c_str() );
-				fprintf ( OUT, "%s", DdkPath.c_str() );
-
-				if (libraries.size () > 0)
-					fprintf ( OUT, ";" );
-			}
-
-			// Add conventional libraries dirs
 			for (i = 0; i < libraries.size (); i++)
 			{
 				if ( i > 0 )
@@ -527,7 +492,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				libpath = libpath.substr (0, libpath.find_last_of ("\\") );
 				fprintf ( OUT, "%s", libpath.c_str() );
 			}
-
 			fprintf ( OUT, "\"\r\n" );
 
 			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s%s\"\r\n", module.name.c_str(), module_type.c_str() );
@@ -540,10 +504,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 			if ( sys )
 			{
-				if (module.GetEntryPoint(false) == "0")
-					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /noentry /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
-				else
-					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
+				fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tIgnoreAllDefaultLibraries=\"TRUE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tGenerateManifest=\"FALSE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tSubSystem=\"%d\"\r\n", 3 );
@@ -887,14 +848,11 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 std::string
 MSVCBackend::_strip_gcc_deffile(std::string Filename, std::string sourcedir, std::string objdir)
 {
-	std::string NewFilename = Environment::GetIntermediatePath () + "\\" + objdir + "\\" + Filename;
+	std::string NewFilename = objdir + "\\" + Filename;
 	// we don't like infinite loops - so replace it in two steps
 	NewFilename = _replace_str(NewFilename, ".def", "_msvc.de");
 	NewFilename = _replace_str(NewFilename, "_msvc.de", "_msvc.def");
 	Filename = sourcedir + "\\" + Filename;
-
-	Directory dir(objdir);
-	dir.GenerateTree(IntermediateDirectory, false);
 
 	std::fstream in_file(Filename.c_str(), std::ios::in);
 	std::fstream out_file(NewFilename.c_str(), std::ios::out);
@@ -927,7 +885,7 @@ MSVCBackend::_strip_gcc_deffile(std::string Filename, std::string sourcedir, std
 
 		line += "\n";
 		out_file << line;
-	}
+	} 
 	in_file.close();
 	out_file.close();
 
@@ -957,40 +915,17 @@ MSVCBackend::_get_solution_version ( void )
 	if (configuration.VSProjectVersion.empty())
 		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
 
-	else if (configuration.VSProjectVersion == "7.00")
+	if (configuration.VSProjectVersion == "7.00")
 		version = "7.00";
 
-	else if (configuration.VSProjectVersion == "7.10")
+	if (configuration.VSProjectVersion == "7.10")
 		version = "8.00";
 
-	else if (configuration.VSProjectVersion == "8.00")
+	if (configuration.VSProjectVersion == "8.00")
 		version = "9.00";
 
-	else if (configuration.VSProjectVersion == "9.00")
+	if (configuration.VSProjectVersion == "9.00")
 		version = "10.00";
-
-	return version;
-}
-
-std::string
-MSVCBackend::_get_studio_version ( void )
-{
-	string version;
-
-	if (configuration.VSProjectVersion.empty())
-		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
-
-	else if (configuration.VSProjectVersion == "7.00")
-		version = "2002";
-
-	else if (configuration.VSProjectVersion == "7.10")
-		version = "2003";
-
-	else if (configuration.VSProjectVersion == "8.00")
-		version = "2005";
-
-	else if (configuration.VSProjectVersion == "9.00")
-		version = "2008";
 
 	return version;
 }
@@ -999,7 +934,7 @@ void
 MSVCBackend::_generate_sln_header ( FILE* OUT )
 {
 	fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_version().c_str() );
-	fprintf ( OUT, "# Visual Studio %s\r\n", _get_studio_version().c_str() );
+	fprintf ( OUT, "# Visual Studio 2005\r\n" );
 	fprintf ( OUT, "\r\n" );
 }
 
@@ -1042,9 +977,9 @@ MSVCBackend::_generate_sln_footer ( FILE* OUT )
 		fprintf ( OUT, "\t\t%s = %s\r\n", m_configurations[i]->name.c_str(), m_configurations[i]->name.c_str() );
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	fprintf ( OUT, "\tGlobalSection(ProjectConfiguration) = postSolution\r\n" );
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 		std::string guid = module.guid;
 		_generate_sln_configurations ( OUT, guid.c_str() );
 	}
@@ -1090,9 +1025,9 @@ MSVCBackend::_generate_sln ( FILE* OUT )
 
 	_generate_sln_header(OUT);
 	// TODO FIXME - is it necessary to sort them?
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 
 		std::string vcproj_file = VcprojFileName ( module );
 		_generate_sln_project ( OUT, module, vcproj_file, sln_guid, module.guid, module.non_if_data.libraries );
@@ -1103,20 +1038,20 @@ MSVCBackend::_generate_sln ( FILE* OUT )
 const Property*
 MSVCBackend::_lookup_property ( const Module& module, const std::string& name ) const
 {
-	std::map<std::string, Property*>::const_iterator p;
-
 	/* Check local values */
-	p = module.non_if_data.properties.find(name);
-
-	if ( p != module.non_if_data.properties.end() )
-		return p->second;
-
+	for ( size_t i = 0; i < module.non_if_data.properties.size(); i++ )
+	{
+		const Property& property = *module.non_if_data.properties[i];
+		if ( property.name == name )
+			return &property;
+	}
 	// TODO FIXME - should we check local if-ed properties?
-	p = module.project.non_if_data.properties.find(name);
-
-	if ( p != module.project.non_if_data.properties.end() )
-		return p->second;
-
+	for ( size_t i = 0; i < module.project.non_if_data.properties.size(); i++ )
+	{
+		const Property& property = *module.project.non_if_data.properties[i];
+		if ( property.name == name )
+			return &property;
+	}
 	// TODO FIXME - should we check global if-ed properties?
 	return NULL;
 }

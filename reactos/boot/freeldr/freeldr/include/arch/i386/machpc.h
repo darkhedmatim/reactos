@@ -29,8 +29,8 @@
 VOID PcMachInit(const char *CmdLine);
 
 VOID PcConsPutChar(int Ch);
-BOOLEAN PcConsKbHit(VOID);
-int PcConsGetCh(VOID);
+BOOLEAN PcConsKbHit();
+int PcConsGetCh();
 
 VOID PcVideoClearScreen(UCHAR Attr);
 VIDEODISPLAYMODE PcVideoSetDisplayMode(char *DisplayMode, BOOLEAN Init);
@@ -45,7 +45,6 @@ VOID PcVideoSetPaletteColor(UCHAR Color, UCHAR Red, UCHAR Green, UCHAR Blue);
 VOID PcVideoGetPaletteColor(UCHAR Color, UCHAR* Red, UCHAR* Green, UCHAR* Blue);
 VOID PcVideoSync(VOID);
 VOID PcVideoPrepareForReactOS(IN BOOLEAN Setup);
-VOID PcPrepareForReactOS(IN BOOLEAN Setup);
 
 ULONG PcMemGetMemoryMap(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MaxMemoryMapSize);
 
@@ -54,9 +53,9 @@ BOOLEAN PcDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPARTI
 BOOLEAN PcDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY DriveGeometry);
 ULONG PcDiskGetCacheableBlockCount(ULONG DriveNumber);
 
-TIMEINFO* PcGetTime(VOID);
+VOID PcRTCGetCurrentDateTime(PULONG Year, PULONG Month, PULONG Day, PULONG Hour, PULONG Minute, PULONG Second);
 
-PCONFIGURATION_COMPONENT_DATA PcHwDetect(VOID);
+VOID PcHwDetect(VOID);
 
 #endif /* __I386_MACHPC_H_ */
 

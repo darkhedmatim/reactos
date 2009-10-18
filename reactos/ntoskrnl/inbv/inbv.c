@@ -111,7 +111,6 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     PCHAR CommandLine;
     BOOLEAN CustomLogo = FALSE;
     ULONG i;
-    extern BOOLEAN ExpInTextModeSetup;
 
     /* Quit if we're already installed */
     if (InbvBootDriverInstalled) return TRUE;
@@ -124,9 +123,6 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
         CommandLine = _strupr(LoaderBlock->LoadOptions);
         CustomLogo = strstr(CommandLine, "BOOTLOGO") ? TRUE: FALSE;
     }
-
-    /* For SetupLDR, don't reset the BIOS Display -- FIXME! */
-    if (ExpInTextModeSetup) CustomLogo = TRUE;
 
     /* Initialize the video */
     InbvBootDriverInstalled = VidInitialize(!CustomLogo);
@@ -157,7 +153,7 @@ InbvAcquireLock(VOID)
     if (InbvOldIrql < DISPATCH_LEVEL)
     {
         /* Raise IRQL to dispatch level */
-        KeRaiseIrql(DISPATCH_LEVEL, &InbvOldIrql);
+        InbvOldIrql = KfRaiseIrql(DISPATCH_LEVEL);
     }
 
     /* Acquire the lock */
@@ -172,7 +168,7 @@ InbvReleaseLock(VOID)
     KiReleaseSpinLock(&BootDriverLock);
 
     /* If we were below dispatch level, lower IRQL back */
-    if (InbvOldIrql < DISPATCH_LEVEL) KeLowerIrql(InbvOldIrql);
+    if (InbvOldIrql < DISPATCH_LEVEL) KfLowerIrql(InbvOldIrql);
 }
 
 VOID

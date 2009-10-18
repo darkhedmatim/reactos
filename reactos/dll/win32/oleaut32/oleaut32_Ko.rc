@@ -1,7 +1,7 @@
 /*
  * Korean resources for oleaut32
  *
- * 
+ *
  *Copyright 2005 YunSong Hwang(hys545@dreamwiz.com)
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-LANGUAGE LANG_KOREAN, SUBLANG_DEFAULT
+LANGUAGE LANG_KOREAN, SUBLANG_NEUTRAL
 
 STRINGTABLE DISCARDABLE
 {

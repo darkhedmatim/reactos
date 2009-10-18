@@ -1,5 +1,8 @@
 #ifndef _WINREG_H
 #define _WINREG_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +37,7 @@ extern "C" {
 #define REG_NOTIFY_CHANGE_LAST_SET 4
 #define REG_NOTIFY_CHANGE_SECURITY 8
 
+#if (_WIN32_WINNT >= 0x0600)
 #define RRF_RT_REG_NONE         (1 << 0)
 #define RRF_RT_REG_SZ           (1 << 1)
 #define RRF_RT_REG_EXPAND_SZ    (1 << 2)
@@ -46,10 +50,10 @@ extern "C" {
 #define RRF_RT_ANY              (0x0000FFFF)
 #define RRF_NOEXPAND            (1 << 28)
 #define RRF_ZEROONFAILURE       (1 << 29)
+#endif
 
 #ifndef RC_INVOKED
 typedef ACCESS_MASK REGSAM;
-typedef LONG LSTATUS;
 typedef struct value_entA {
 	LPSTR ve_valuename;
 	DWORD ve_valuelen;
@@ -78,8 +82,6 @@ LONG WINAPI RegCreateKeyExA(HKEY,LPCSTR,DWORD,LPSTR,DWORD,REGSAM,LPSECURITY_ATTR
 LONG WINAPI RegCreateKeyExW(HKEY,LPCWSTR,DWORD,LPWSTR,DWORD,REGSAM,LPSECURITY_ATTRIBUTES,PHKEY,PDWORD);
 LONG WINAPI RegCreateKeyW(HKEY,LPCWSTR,PHKEY);
 LONG WINAPI RegDeleteKeyA(HKEY,LPCSTR);
-LONG WINAPI RegDeleteKeyExA (HKEY,LPCSTR,REGSAM,DWORD);
-LONG WINAPI RegDeleteKeyExW (HKEY,LPCWSTR,REGSAM,DWORD);
 #if (_WIN32_WINNT >= 0x0600)
 LONG WINAPI RegDeleteKeyValueA(HKEY,LPCSTR,LPCSTR);
 LONG WINAPI RegDeleteKeyValueW(HKEY,LPCWSTR,LPCWSTR);
@@ -93,8 +95,6 @@ LONG WINAPI RegDeleteValueA(HKEY,LPCSTR);
 LONG WINAPI RegDeleteValueW(HKEY,LPCWSTR);
 #if (_WIN32_WINNT >= 0x0500)
 LONG WINAPI RegDisablePredefinedCache(VOID);
-LONG WINAPI RegSaveKeyExA(HKEY,LPCSTR,LPSECURITY_ATTRIBUTES,DWORD);
-LONG WINAPI RegSaveKeyExW(HKEY,LPCWSTR,LPSECURITY_ATTRIBUTES,DWORD);
 #endif
 #if (_WIN32_WINNT >= 0x0600)
 LONG WINAPI RegDisablePredefinedCacheEx(VOID);
@@ -165,7 +165,6 @@ typedef VALENTW VALENT,*PVALENT;
 #define RegCreateKey RegCreateKeyW
 #define RegCreateKeyEx RegCreateKeyExW
 #define RegDeleteKey RegDeleteKeyW
-#define RegDeleteKeyEx RegDeleteKeyExW
 #if (_WIN32_WINNT >= 0x0600)
 #define RegDeleteKeyValue RegDeleteKeyValueW
 #define RegDeleteTree RegDeleteTreeW
@@ -190,7 +189,6 @@ typedef VALENTW VALENT,*PVALENT;
 #define RegReplaceKey RegReplaceKeyW
 #define RegRestoreKey RegRestoreKeyW
 #define RegSaveKey RegSaveKeyW
-#define RegSaveKeyEx RegSaveKeyExW
 #if (_WIN32_WINNT >= 0x0600)
 #define RegSetKeyValue RegSetKeyValueW
 #endif
@@ -208,7 +206,6 @@ typedef VALENTA VALENT,*PVALENT;
 #define RegCreateKey RegCreateKeyA
 #define RegCreateKeyEx RegCreateKeyExA
 #define RegDeleteKey RegDeleteKeyA
-#define RegDeleteKeyEx RegDeleteKeyExA
 #if (_WIN32_WINNT >= 0x0600)
 #define RegDeleteKeyValue RegDeleteKeyValueA
 #define RegDeleteTree RegDeleteTreeA
@@ -233,7 +230,6 @@ typedef VALENTA VALENT,*PVALENT;
 #define RegReplaceKey RegReplaceKeyA
 #define RegRestoreKey RegRestoreKeyA
 #define RegSaveKey RegSaveKeyA
-#define RegSaveKeyEx RegSaveKeyExA
 #if (_WIN32_WINNT >= 0x0600)
 #define RegSetKeyValue RegSetKeyValueA
 #endif

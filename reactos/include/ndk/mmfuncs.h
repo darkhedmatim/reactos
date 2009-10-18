@@ -48,10 +48,10 @@ MmMapViewOfSection(
     IN PVOID SectionObject,
     IN PEPROCESS Process,
     IN OUT PVOID *BaseAddress,
-    IN ULONG_PTR ZeroBits,
-    IN SIZE_T CommitSize,
+    IN ULONG ZeroBits,
+    IN ULONG CommitSize,
     IN OUT PLARGE_INTEGER SectionOffset OPTIONAL,
-    IN OUT PSIZE_T ViewSize,
+    IN OUT PULONG ViewSize,
     IN SECTION_INHERIT InheritDisposition,
     IN ULONG AllocationType,
     IN ULONG Protect
@@ -81,8 +81,8 @@ NTSTATUS
 NTAPI
 NtAllocateUserPhysicalPages(
     IN HANDLE ProcessHandle,
-    IN OUT PULONG_PTR NumberOfPages,
-    IN OUT PULONG_PTR UserPfnArray
+    IN OUT PULONG NumberOfPages,
+    IN OUT PULONG UserPfnArray
 );
 
 NTSYSCALLAPI
@@ -91,7 +91,7 @@ NTAPI
 NtAllocateVirtualMemory(
     IN HANDLE ProcessHandle,
     IN OUT PVOID *BaseAddress,
-    IN ULONG_PTR ZeroBits,
+    IN ULONG ZeroBits,
     IN OUT PSIZE_T RegionSize,
     IN ULONG AllocationType,
     IN ULONG Protect
@@ -142,8 +142,8 @@ NTSTATUS
 NTAPI
 NtFreeUserPhysicalPages(
     IN HANDLE ProcessHandle,
-    IN OUT PULONG_PTR NumberOfPages,
-    IN OUT PULONG_PTR UserPfnArray
+    IN OUT PULONG NumberOfPages,
+    IN OUT PULONG UserPfnArray
 );
 
 NTSYSCALLAPI
@@ -163,9 +163,9 @@ NtGetWriteWatch(
     IN HANDLE ProcessHandle,
     IN ULONG Flags,
     IN PVOID BaseAddress,
-    IN SIZE_T RegionSize,
+    IN ULONG RegionSize,
     IN PVOID *UserAddressArray,
-    OUT PULONG_PTR EntriesInUserAddressArray,
+    OUT PULONG EntriesInUserAddressArray,
     OUT PULONG Granularity
 );
 
@@ -173,26 +173,26 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtLockVirtualMemory(
-    IN HANDLE ProcessHandle,
-    IN OUT PVOID *BaseAddress,
-    IN OUT PSIZE_T NumberOfBytesToLock,
-    IN ULONG MapType
+    HANDLE ProcessHandle,
+    PVOID BaseAddress,
+    ULONG NumberOfBytesToLock,
+    PULONG NumberOfBytesLocked
 );
 
 NTSTATUS
 NTAPI
 NtMapUserPhysicalPages(
-    IN PVOID VirtualAddresses,
-    IN ULONG_PTR NumberOfPages,
-    IN OUT PULONG_PTR UserPfnArray
+    IN PVOID *VirtualAddresses,
+    IN ULONG NumberOfPages,
+    IN OUT PULONG UserPfnArray
 );
 
 NTSTATUS
 NTAPI
 NtMapUserPhysicalPagesScatter(
     IN PVOID *VirtualAddresses,
-    IN ULONG_PTR NumberOfPages,
-    IN OUT PULONG_PTR UserPfnArray
+    IN ULONG NumberOfPages,
+    IN OUT PULONG UserPfnArray
 );
 
 NTSYSCALLAPI
@@ -202,8 +202,8 @@ NtMapViewOfSection(
     IN HANDLE SectionHandle,
     IN HANDLE ProcessHandle,
     IN OUT PVOID *BaseAddress,
-    IN ULONG_PTR ZeroBits,
-    IN SIZE_T CommitSize,
+    IN ULONG ZeroBits,
+    IN ULONG CommitSize,
     IN OUT PLARGE_INTEGER SectionOffset OPTIONAL,
     IN OUT PSIZE_T ViewSize,
     IN SECTION_INHERIT InheritDisposition,
@@ -226,7 +226,7 @@ NTAPI
 NtProtectVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID *BaseAddress,
-    IN SIZE_T *NumberOfBytesToProtect,
+    IN ULONG *NumberOfBytesToProtect,
     IN ULONG NewAccessProtection,
     OUT PULONG OldAccessProtection
 );
@@ -278,9 +278,9 @@ NTSTATUS
 NTAPI
 NtUnlockVirtualMemory(
     IN HANDLE ProcessHandle,
-    IN OUT PVOID *BaseAddress,
-    IN OUT PSIZE_T NumberOfBytesToUnlock,
-    IN ULONG MapType
+    IN PVOID BaseAddress,
+    IN SIZE_T  NumberOfBytesToUnlock,
+    OUT PSIZE_T NumberOfBytesUnlocked OPTIONAL
 );
 
 NTSYSCALLAPI
@@ -316,7 +316,7 @@ NTAPI
 ZwAllocateVirtualMemory(
     IN HANDLE ProcessHandle,
     IN OUT PVOID *BaseAddress,
-    IN ULONG_PTR ZeroBits,
+    IN ULONG ZeroBits,
     IN OUT PSIZE_T RegionSize,
     IN ULONG AllocationType,
     IN ULONG Protect
@@ -367,10 +367,10 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwLockVirtualMemory(
-    IN HANDLE ProcessHandle,
-    IN OUT PVOID *BaseAddress,
-    IN OUT PSIZE_T NumberOfBytesToLock,
-    IN ULONG MapType
+    HANDLE ProcessHandle,
+    PVOID BaseAddress,
+    SIZE_T NumberOfBytesToLock,
+    PSIZE_T NumberOfBytesLocked
 );
 
 NTSYSAPI
@@ -380,8 +380,8 @@ ZwMapViewOfSection(
     IN HANDLE SectionHandle,
     IN HANDLE ProcessHandle,
     IN OUT PVOID *BaseAddress,
-    IN ULONG_PTR ZeroBits,
-    IN SIZE_T CommitSize,
+    IN ULONG ZeroBits,
+    IN ULONG CommitSize,
     IN OUT PLARGE_INTEGER SectionOffset OPTIONAL,
     IN OUT PSIZE_T ViewSize,
     IN SECTION_INHERIT InheritDisposition,
@@ -404,7 +404,7 @@ NTAPI
 ZwProtectVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID *BaseAddress,
-    IN SIZE_T *NumberOfBytesToProtect,
+    IN ULONG *NumberOfBytesToProtect,
     IN ULONG NewAccessProtection,
     OUT PULONG OldAccessProtection
 );
@@ -448,9 +448,9 @@ NTSTATUS
 NTAPI
 ZwUnlockVirtualMemory(
     IN HANDLE ProcessHandle,
-    IN OUT PVOID *BaseAddress,
-    IN OUT PSIZE_T NumberOfBytesToUnlock,
-    IN ULONG MapType
+    IN PVOID BaseAddress,
+    IN SIZE_T  NumberOfBytesToUnlock,
+    OUT PSIZE_T NumberOfBytesUnlocked OPTIONAL
 );
 
 NTSYSAPI
@@ -468,8 +468,8 @@ ZwWriteVirtualMemory(
     IN HANDLE ProcessHandle,
     IN PVOID  BaseAddress,
     IN PVOID Buffer,
-    IN SIZE_T NumberOfBytesToWrite,
-    OUT PSIZE_T NumberOfBytesWritten
+    IN ULONG NumberOfBytesToWrite,
+    OUT PULONG NumberOfBytesWritten
 );
 
 #endif

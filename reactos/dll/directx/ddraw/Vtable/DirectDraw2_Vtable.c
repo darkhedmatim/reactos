@@ -55,8 +55,8 @@ Main_DirectDraw_CreateSurface(
 HRESULT WINAPI
 Main_DirectDraw_DuplicateSurface(
                                  LPDIRECTDRAW2 iface,
-                                 LPDIRECTDRAWSURFACE src,
-                                 LPDIRECTDRAWSURFACE* dst);
+                                 LPDIRECTDRAWSURFACE2 src,
+                                 LPDIRECTDRAWSURFACE2* dst);
 
 HRESULT WINAPI
 Main_DirectDraw_EnumDisplayModes(
@@ -180,6 +180,5 @@ IDirectDraw2Vtbl DirectDraw2_Vtable =
     Main_DirectDraw_WaitForVerticalBlank,
     Main_DirectDraw_GetAvailableVidMem
 };
-
 
 

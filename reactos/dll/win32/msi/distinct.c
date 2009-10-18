@@ -205,21 +205,20 @@ static UINT DISTINCT_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *
 }
 
 static UINT DISTINCT_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSIDISTINCTVIEW *dv = (MSIDISTINCTVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", dv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", dv, n, name, type );
 
     if( !dv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return dv->table->ops->get_column_info( dv->table, n, name,
-                                            type, temporary );
+    return dv->table->ops->get_column_info( dv->table, n, name, type );
 }
 
 static UINT DISTINCT_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                             MSIRECORD *rec, UINT row )
+                MSIRECORD *rec )
 {
     MSIDISTINCTVIEW *dv = (MSIDISTINCTVIEW*)view;
 
@@ -228,7 +227,7 @@ static UINT DISTINCT_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
     if( !dv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return dv->table->ops->modify( dv->table, eModifyMode, rec, row );
+    return dv->table->ops->modify( dv->table, eModifyMode, rec );
 }
 
 static UINT DISTINCT_delete( struct tagMSIVIEW *view )
@@ -268,20 +267,10 @@ static UINT DISTINCT_find_matching_rows( struct tagMSIVIEW *view, UINT col,
     return r;
 }
 
-static UINT DISTINCT_sort(struct tagMSIVIEW *view, column_info *columns)
-{
-    MSIDISTINCTVIEW *dv = (MSIDISTINCTVIEW *)view;
-
-    TRACE("%p %p\n", view, columns);
-
-    return dv->table->ops->sort( dv->table, columns );
-}
 
 static const MSIVIEWOPS distinct_ops =
 {
     DISTINCT_fetch_int,
-    NULL,
-    NULL,
     NULL,
     NULL,
     NULL,
@@ -292,12 +281,6 @@ static const MSIVIEWOPS distinct_ops =
     DISTINCT_modify,
     DISTINCT_delete,
     DISTINCT_find_matching_rows,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    DISTINCT_sort,
-    NULL,
 };
 
 UINT DISTINCT_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table )
@@ -317,7 +300,7 @@ UINT DISTINCT_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table )
     dv = msi_alloc_zero( sizeof *dv );
     if( !dv )
         return ERROR_FUNCTION_FAILED;
-    
+
     /* fill the structure */
     dv->view.ops = &distinct_ops;
     msiobj_addref( &db->hdr );

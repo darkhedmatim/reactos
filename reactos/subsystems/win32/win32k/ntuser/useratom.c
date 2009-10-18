@@ -33,11 +33,9 @@ RTL_ATOM FASTCALL
 IntAddAtom(LPWSTR AtomName)
 {
    NTSTATUS Status = STATUS_SUCCESS;
-   PTHREADINFO pti;
    RTL_ATOM Atom;
 
-   pti = PsGetCurrentThreadWin32Thread();
-   if (pti->Desktop == NULL)
+   if (PsGetCurrentThreadWin32Thread()->Desktop == NULL)
    {
       SetLastNtError(Status);
       return (RTL_ATOM)0;
@@ -57,11 +55,9 @@ ULONG FASTCALL
 IntGetAtomName(RTL_ATOM nAtom, LPWSTR lpBuffer, ULONG nSize)
 {
    NTSTATUS Status = STATUS_SUCCESS;
-   PTHREADINFO pti;
    ULONG Size = nSize;
 
-   pti = PsGetCurrentThreadWin32Thread();
-   if (pti->Desktop == NULL)
+   if (PsGetCurrentThreadWin32Thread()->Desktop == NULL)
    {
       SetLastNtError(Status);
       return 0;
@@ -77,25 +73,6 @@ IntGetAtomName(RTL_ATOM nAtom, LPWSTR lpBuffer, ULONG nSize)
       return 0;
    }
    return Size;
-}
-
-RTL_ATOM FASTCALL
-IntAddGlobalAtom(LPWSTR lpBuffer, BOOL PinAtom)
-{
-   RTL_ATOM Atom;
-   NTSTATUS Status = STATUS_SUCCESS;
-
-   Status = RtlAddAtomToAtomTable(gAtomTable, lpBuffer, &Atom);
-
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Error init Global Atom.\n");
-      return 0;
-   }
-
-   if ( Atom && PinAtom ) RtlPinAtomInAtomTable(gAtomTable, Atom);
-
-   return Atom;
 }
 
 /* EOF */

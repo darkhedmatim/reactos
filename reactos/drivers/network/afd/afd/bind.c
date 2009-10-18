@@ -25,7 +25,7 @@ NTSTATUS WarmSocketForBind( PAFD_FCB FCB ) {
     }
     if( !FCB->LocalAddress ) {
         AFD_DbgPrint(MID_TRACE,("No local address\n"));
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_UNSUCCESSFUL;
     }
 
     Status = TdiOpenAddressFile(&FCB->TdiDeviceName,
@@ -38,7 +38,7 @@ NTSTATUS WarmSocketForBind( PAFD_FCB FCB ) {
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	      PIO_STACK_LOCATION IrpSp) {
     NTSTATUS Status = STATUS_SUCCESS;
@@ -48,12 +48,11 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     AFD_DbgPrint(MID_TRACE,("Called\n"));
 
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
+    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, FALSE );
     if( !(BindReq = LockRequest( Irp, IrpSp )) )
 	return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY,
-				       Irp, 0 );
+				       Irp, 0, NULL, FALSE );
 
-    if( FCB->LocalAddress ) ExFreePool( FCB->LocalAddress );
     FCB->LocalAddress = TaCopyTransportAddress( &BindReq->Address );
 
     if( FCB->LocalAddress )
@@ -62,7 +61,7 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     if( NT_SUCCESS(Status) )
 	FCB->State = SOCKET_STATE_BOUND;
-    else return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    else return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );
 
     AFD_DbgPrint(MID_TRACE,("FCB->Flags %x\n", FCB->Flags));
 
@@ -70,8 +69,6 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	/* This will be the from address for subsequent recvfrom calls */
 	TdiBuildConnectionInfo( &FCB->AddressFrom,
 				FCB->LocalAddress );
-
-	if( !FCB->AddressFrom ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0 );
 
 	AFD_DbgPrint(MID_TRACE,("Calling TdiReceiveDatagram\n"));
 
@@ -90,6 +87,6 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	if( Status == STATUS_PENDING ) Status = STATUS_SUCCESS;
     }
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, TRUE );
 }
 

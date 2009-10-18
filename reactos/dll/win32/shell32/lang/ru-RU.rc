@@ -79,8 +79,8 @@ BEGIN
 	END
 END
 
-SHBRSFORFOLDER_MSGBOX DIALOGEX LOADONCALL MOVEABLE DISCARDABLE 15, 40, 188, 192
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+SHBRSFORFOLDER_MSGBOX DIALOG LOADONCALL MOVEABLE DISCARDABLE 15, 40, 188, 192
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_3DLOOK
 CAPTION "Обзор"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -91,8 +91,8 @@ BEGIN
 	CONTROL "", IDD_TREEVIEW, "SysTreeView32", TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | WS_BORDER | WS_TABSTOP, 4, 40, 180, 120
 END
 
-SHNEWBRSFORFOLDER_MSGBOX DIALOGEX LOADONCALL MOVEABLE DISCARDABLE 15, 40, 218, 196
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+SHNEWBRSFORFOLDER_MSGBOX DIALOG LOADONCALL MOVEABLE DISCARDABLE 15, 40, 218, 196
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME | DS_SETFONT | DS_3DLOOK
 CAPTION "Обзор"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -106,8 +106,8 @@ BEGIN
 	PUSHBUTTON "Отменить", IDCANCEL, 156, 174, 50, 14, WS_GROUP | WS_TABSTOP
 END
 
-SHELL_YESTOALL_MSGBOX DIALOGEX 200, 100, 280, 90
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+SHELL_YESTOALL_MSGBOX DIALOG 200, 100, 280, 90
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Уведомление"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -120,7 +120,7 @@ BEGIN
 END
 
 IDD_SHELL_ABOUT DIALOGEX LOADONCALL MOVEABLE DISCARDABLE 0, 0, 275, 198
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_FIXEDSYS | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "О %s"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -141,29 +141,29 @@ BEGIN
 END
 
 IDD_SHELL_ABOUT_AUTHORS DIALOGEX MOVEABLE DISCARDABLE 35, 90, 235, 85
-STYLE DS_SHELLFONT | WS_CHILD
+STYLE DS_FIXEDSYS | WS_CHILD
 FONT 8, "MS Shell Dlg"
 BEGIN
 	LTEXT "Разработчики ReactOS:", IDC_STATIC, 0, 0, 180, 10
 	LISTBOX IDC_SHELL_ABOUT_AUTHORS_LISTBOX, 0, 10, 165, 75
 END
 
-SHELL_RUN_DLG DIALOGEX LOADONCALL MOVEABLE DISCARDABLE 0, 0, 227, 95
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+SHELL_RUN_DLG DIALOG LOADONCALL MOVEABLE DISCARDABLE 0, 0, 227, 95
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION ""
 FONT 8, "MS Shell Dlg"
 BEGIN
 	ICON "", 12297, 7, 11, 18, 20, WS_VISIBLE
 	LTEXT "Введите имя программы, папки, документа или ресурс Интернета, и ReactOS откроет их.", 12289, 36, 11, 182, 18
 	LTEXT "&Открыть:", 12305, 5, 39, 34, 10
-	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 40, 37, 183, 100
+	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 40, 37, 183, 100
 	DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
 	PUSHBUTTON "Отмена", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
 	PUSHBUTTON "Об&зор...", 12288, 170, 63, 50, 14, WS_TABSTOP
 END
 
 SHELL_GENERAL_SHORTCUT_DLG DIALOGEX 0, 0, 235, 215
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Ярлык"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -188,7 +188,7 @@ BEGIN
 END
 
 SHELL_EXTENDED_SHORTCUT_DLG DIALOGEX 0, 0, 230, 150
-STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION
 CAPTION "Дополнительные свойства"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -200,36 +200,15 @@ BEGIN
 	PUSHBUTTON "Отмена", IDCANCEL, 120, 123, 50, 14, WS_VISIBLE
 END
 
-SHELL_FOLDER_GENERAL_DLG DIALOGEX 0, 0, 240, 205
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Общие"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-	ICON "", 14000, 10, 3, 30, 30, WS_VISIBLE
-	EDITTEXT 14001, 70, 9, 158, 14, ES_LEFT | ES_READONLY
-	LTEXT "Тип файла:", 14004, 8, 35, 50, 10
-	LTEXT "Папка", 14005, 68, 35, 160, 10
-	LTEXT "Расположение:", 14006, 8, 53, 50, 10
-	LTEXT "", 14007, 68, 53, 315, 10
-	LTEXT "Размер:", 14008, 8, 72, 45, 10
-	LTEXT "", 14009, 68, 72, 315, 10
-	LTEXT "Содержит:", 14010, 8, 93, 45, 10
-	LTEXT "", 14011, 68, 93, 160, 10
-	LTEXT "Создано:", 14014, 8, 118, 45, 10
-	LTEXT "", 14015, 68, 118, 160, 10
-	AUTOCHECKBOX "&Только чтение", 14021, 45, 150, 67, 10
-	AUTOCHECKBOX "&Скрыто", 14022, 126, 150, 50, 10
-END
-
 SHELL_FILE_GENERAL_DLG DIALOGEX 0, 0, 240, 205
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Общие"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
 	ICON "", 14000, 10, 3, 30, 30, WS_VISIBLE
 	EDITTEXT 14001, 70, 9, 158, 14, ES_LEFT | ES_READONLY
 	LTEXT "Тип файла:", 14004, 8, 35, 50, 10
-	LTEXT "файл", 14005, 68, 35, 160, 10
+	LTEXT "File", 14005, 68, 35, 160, 10
 	LTEXT "Приложение:", 14006, 8, 53, 50, 10
 	LTEXT "", 14007, 68, 53, 160, 10
 	LTEXT "Размещение:", 14008, 8, 72, 45, 10
@@ -249,7 +228,7 @@ BEGIN
 END
 
 SHELL_FILE_VERSION_DLG DIALOGEX 0, 0, 235, 215
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Версия"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -267,41 +246,41 @@ BEGIN
 END
 
 DRIVE_GENERAL_DLG DIALOGEX 0, 0, 240, 230
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Общие"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-	EDITTEXT 14000, 40, 20, 190, 14, ES_LEFT|WS_BORDER|WS_GROUP
+	EDITTEXT 14001, 40, 20, 190, 14, ES_LEFT|WS_BORDER|WS_GROUP
 	LTEXT "Тип:", -1, 15, 49, 40, 10
-	LTEXT "", 14001, 110, 49, 100, 10
+	LTEXT "", 14002, 110, 49, 100, 10
 
 	LTEXT "Файловая система:", -1, 15, 68, 86, 10
-	LTEXT "", 14002, 110, 68, 100, 10
+	LTEXT "", 14003, 110, 68, 100, 10
 
 	CONTROL "", 14013, "STATIC", SS_OWNERDRAW | SS_NOTIFY | SS_SUNKEN, 5, 90, 10, 10
 	LTEXT "Занято:", -1, 25, 90, 78, 10
-	LTEXT "", 14003, 110, 90, 120, 10
-	LTEXT "", 14004, 200, 90, 40, 10
+	LTEXT "", 14004, 110, 90, 120, 10
+	LTEXT "", 14005, 200, 90, 40, 10
 
 	CONTROL "", 14014, "STATIC", SS_OWNERDRAW | SS_NOTIFY | SS_SUNKEN, 5, 105, 10, 10
 	LTEXT "Свободно:", -1, 25, 105, 70, 10
-	LTEXT "", 14005, 110, 105, 120, 10
-	LTEXT "", 14006, 200, 105, 40, 10
+	LTEXT "", 14006, 110, 105, 120, 10
+	LTEXT "", 14007, 200, 105, 40, 10
 
 	LTEXT "Емкость:", -1, 25, 125, 80, 10
-	LTEXT "", 14007, 110, 125, 120, 10
-	LTEXT "", 14008, 200, 125, 40, 10
+	LTEXT "", 14008, 110, 125, 120, 10
+	LTEXT "", 14009, 200, 125, 40, 10
 
 	CONTROL "", 14015, "STATIC", SS_OWNERDRAW | SS_NOTIFY | SS_SUNKEN, 20, 140, 200, 20
 
-	LTEXT "Диск %s", 14009, 100, 170, 52, 10
-	PUSHBUTTON "Очистка диска", 14010, 166, 175, 64, 15, WS_TABSTOP
-	CHECKBOX "&Сжимать для экономии места", 14011, 15, 205, 180, 10, WS_DISABLED
+	LTEXT "Диск %s", 14010, 100, 170, 52, 10
+	PUSHBUTTON "Очистка диска", 14011, 166, 175, 64, 15, WS_TABSTOP
+	CHECKBOX "&Сжимать для экономии места", 14012, 15, 205, 180, 10, WS_DISABLED
 	CHECKBOX "Разрешить &индексирование диска для быстрого поиска", 14012, 15, 220, 216, 10, WS_DISABLED
 END
 
 DRIVE_EXTRA_DLG DIALOGEX 0, 0, 240, 230
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Сервис"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -317,14 +296,14 @@ BEGIN
 END
 
 DRIVE_HARDWARE_DLG DIALOGEX 0, 0, 240, 230
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Оборудование"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
 END
 
 RUN_AS_DIALOG DIALOGEX 0, 0, 252, 190
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Запуск от другого имени"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -344,7 +323,7 @@ BEGIN
 END
 
 BITBUCKET_PROPERTIES_DLG DIALOGEX 0, 0, 240, 190
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Свойства: Корзина"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -354,11 +333,11 @@ BEGIN
 	EDITTEXT 14002, 100, 78, 65, 14, WS_TABSTOP | ES_NUMBER
 	LTEXT "&Максимальный размер(Мб):", -1, 17, 95, 102, 10
 	RADIOBUTTON "&Уничтожать файлы сразу после удаления, не помещая их в корзину.", 14003, 17, 108, 206, 20, BS_MULTILINE | WS_TABSTOP
-	AUTOCHECKBOX "&Запрашивать подтверждение на удаление", 14004, 20, 145, 176, 10, WS_TABSTOP
+	RADIOBUTTON "&Запрашивать подтверждение на удаление", 14004, 20, 145, 176, 10, WS_TABSTOP
 END
 
 OPEN_WITH_PROGRAMM_DLG DIALOGEX 0, 0, 264, 256
-STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_CAPTION
 CAPTION "Выбор программы"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -366,229 +345,11 @@ BEGIN
 	LTEXT "Выберите программу для открытия этого файла.", -1, 44, 12, 211, 10
 	LTEXT "Файл:    ", 14001, 44, 25, 188, 10
 	GROUPBOX "Программы", -1, 7, 42, 249, 187
-        LISTBOX 14002, 16 ,57, 230, 130, LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP, WS_EX_STATICEDGE
+	CONTROL "", 14002, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 16, 57, 230, 130
 	AUTOCHECKBOX "&Использовать ее для всех файлов такого типа", 14003, 20, 193, 225, 10
 	PUSHBUTTON "&Обзор...", 14004, 198, 207, 50, 14
 	PUSHBUTTON "OK", 14005, 150, 236, 50, 14
 	PUSHBUTTON "Отмена", 14006, 206, 236, 50, 14
-END
-
-FOLDER_OPTIONS_GENERAL_DLG DIALOGEX 0, 0, 264, 238
-STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
-CAPTION "Общие"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-	GROUPBOX "Задачи", -1, 7, 10, 249, 45
-	ICON "", 30109, 14, 24, 21, 20, SS_REALSIZECONTROL
-	AUTORADIOBUTTON "Отобра&жение списка типичных задач в папках", 14001, 40, 24, 185, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Использовать обы&чные папки ReactOS", 14002, 40, 36, 185, 10, WS_TABSTOP | WS_GROUP
-	GROUPBOX "Обзор папок", -1, 7, 60, 249, 45, WS_TABSTOP
-	ICON "", 30110, 14, 75, 21, 20, SS_REALSIZECONTROL
-	AUTORADIOBUTTON "&Открывать папки в одном и том же окне", 14004, 40, 75, 185, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "О&ткрывать каждую папку в отдельном окне", 14005, 40, 87, 185, 10, WS_TABSTOP | WS_GROUP
-	GROUPBOX "Щелчки мышью", -1, 7, 110, 249, 60
-	ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
-	AUTORADIOBUTTON "От&крывать одним щелчком, выделять указателем", 14007, 40, 120, 200, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Подчеркив&ать подписи значков", 14008, 50, 132, 170, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Подчеркивать подписи з&начков при наведении", 14009, 50, 144, 185, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Откр&ывать двойным, а выделять одним щелчком", 14010, 40, 156, 195, 10, WS_TABSTOP | WS_GROUP
-	PUSHBUTTON "&Восстановить умолчания", 14011, 148, 180, 104, 14, WS_TABSTOP
-END
-
-FOLDER_OPTIONS_VIEW_DLG DIALOGEX 0, 0, 264, 238
-STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
-CAPTION "Вид"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-GROUPBOX "Представление папок", -1, 7, 10, 249, 60
-//ICON
-LTEXT "Можно применить вид, выбранный для этой папки, например, ""Таблица"" или ""Плитка"", ко всем папкам.", -1, 60, 24, 180, 20
-PUSHBUTTON "&Применить ко всем папкам", 14001, 60, 50, 100, 14, WS_TABSTOP
-PUSHBUTTON "&Сброс для всех папок", 14002, 164, 50, 80, 14, WS_TABSTOP
-LTEXT "Дополнительные параметры:", -1, 9, 78, 120, 10
-CONTROL "", 14003, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 90, 249, 120
-PUSHBUTTON "&Восстановить умолчания", 14004, 156, 216, 101, 14, WS_TABSTOP
-END
-
-FOLDER_OPTIONS_FILETYPES_DLG DIALOGEX 0, 0, 264, 238
-STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
-CAPTION "Типы файлов"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-LTEXT "&Зарегистрированные типы файлов:", -1, 9, 7, 133, 10
-CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
-PUSHBUTTON "&Создать", 14001, 147, 110, 50, 14, WS_TABSTOP
-PUSHBUTTON "&Удалить", 14002, 202, 110, 50, 14, WS_TABSTOP
-GROUPBOX "Описание расширения '%s'", 14003, 7, 130, 249, 70
-LTEXT "Открывать в:", -1, 12, 142, 54, 10
-//ICON
-LTEXT "Приложение:", 14005, 100, 142, 54, 10
-PUSHBUTTON "&Изменить...", 14006, 180, 140, 63, 14, WS_TABSTOP
-LTEXT "Файлы с расширением '%s' имеют тип '%s'. Для изменения параметров всех файлов '%s', нажмите ""Дополнительно"".", 14007, 12, 155, 162, 36
-PUSHBUTTON "До&полнительно", 14008, 180, 175, 63, 14, WS_TABSTOP
-END
-
-CONFIRM_FILE_REPLACE_DLG DIALOGEX 0, 0, 282, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_CENTER | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Подтверждение замены файла"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	DEFPUSHBUTTON "&Да", IDYES, 20, 122, 60, 14
-	PUSHBUTTON "Да - для &всех", 12807, 85, 122, 60, 14
-	PUSHBUTTON "&Нет", IDNO, 150, 122, 60, 14
-	PUSHBUTTON "Отмена", IDCANCEL, 215, 122, 60, 14
-	ICON 146, -1, 11, 10, 21, 20, SS_REALSIZECONTROL
-	LTEXT "Папка уже содержит файл ""%2"".", 12291, 44, 10, 231, 22, SS_NOPREFIX
-	LTEXT "Папка уже содержит доступный только для чтения файл ""%2"".", 12292, 41, 10, 222, 22, SS_NOPREFIX
-	LTEXT "Папка уже содержит системный файл ""%2"".", 12293, 41, 10, 222, 22, SS_NOPREFIX
-	LTEXT "Заменить имеющийся файл", -1, 44, 35, 228, 10, SS_NOPREFIX
-	LTEXT "(дата и размер неизвестны)", 12302, 79, 51, 198, 20, SS_NOPREFIX
-	ICON "", 12300, 50, 49, 21, 20, SS_REALSIZECONTROL
-	LTEXT "следующим файлом?", -1, 44, 75, 228, 10, SS_NOPREFIX
-	LTEXT "(дата и размер неизвестны)", 12303, 79, 91, 198, 20, SS_NOPREFIX
-	ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
-END
-
-LOGOFF_DLG DIALOGEX 0, 0, 190, 60
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
-CAPTION "Выход из ReactOS"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
-	LTEXT "Вы действительно хотите выйти из системы?", -1, 43, 11, 140, 22
-	DEFPUSHBUTTON "В&ыход", IDOK, 57, 40, 60, 14
-	PUSHBUTTON "Отмена", IDCANCEL, 122, 40, 60, 14
-END
-
-DISCONNECT_DLG DIALOGEX 0, 0, 190, 60
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
-CAPTION "Отключение ReactOS"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	ICON 49, 14346, 10, 10, 21, 20, SS_REALSIZECONTROL
-	LTEXT "Вы действительно хотите выполнить отключение?", -1, 49, 12, 137, 23
-	DEFPUSHBUTTON "Отклю&чение", IDOK, 57, 40, 60, 14
-	PUSHBUTTON "Отмена", IDCANCEL, 123, 40, 60, 14
-END
-
-AUTOPLAY1_DLG DIALOGEX 0, 0, 227, 218
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUPWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION
-CAPTION "Автозапуск"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	LTEXT "Выберите &тип содержимого, а затем действие, автоматически выполняемое при его обнаружении в этом устройстве:", 1000, 7, 7, 215, 20
-	CONTROL "", 1001, "COMBOBOXEX32", WS_TABSTOP | 0x00000043, 7, 27, 212, 200
-	GROUPBOX "Действия", -1, 7, 45, 212, 146
-	AUTORADIOBUTTON "&Выберите выполняемое действие:", 1005, 14, 54, 202, 10, WS_GROUP
-	CONTROL "LIST2", 1002, "SYSLISTVIEW32", WS_BORDER | WS_TABSTOP | 0x0000C04D, 22, 66, 192, 107
-	AUTORADIOBUTTON "Выдавать &запрос на выбор выполняемого действия", 1006, 14, 177, 202, 10
-	PUSHBUTTON "Восстановить умол&чания", 1008, 108, 197, 110, 14, WS_DISABLED
-END
-
-MIXED_CONTENT1_DLG DIALOGEX 0, 0, 227, 207
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION
-CAPTION "Смешанное содержимое"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	ICON "", 1000, 5, 7, 21, 20
-	LTEXT "На этом диске или устройстве хранится содержимое различных типов.", 1001, 32, 7, 191, 20
-	LTEXT "Какое действие следует выполнять ReactOS?", 1002, 32, 31, 188, 8
-	CONTROL "", 1003, "SYSLISTVIEW32", WS_BORDER | WS_TABSTOP | 0x0000C04D, 32, 43, 188, 139
-	DEFPUSHBUTTON "OK", IDOK, 96, 186, 60, 14
-	PUSHBUTTON "Отмена", IDCANCEL, 160, 186, 60, 14
-END
-
-MIXED_CONTENT2_DLG DIALOGEX 0, 0, 227, 206
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION
-CAPTION "Смешанное содержимое"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	ICON "", 1000, 5, 7, 21, 20
-	LTEXT "ReactOS может всегда выполнять одно и то же действие, когда вы вставляете диск или подключаете устройство с файлами следующего типа:", 1001, 30, 7, 193, 20
-	ICON "", 1005, 32, 27, 11, 10, SS_REALSIZECONTROL
-	EDITTEXT 1006, 49, 28, 177, 14, ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER | NOT WS_TABSTOP
-	LTEXT "Какое действие следует выполнять ReactOS?", 1002, 32, 41, 190, 8
-	CONTROL "", 1003, "SYSLISTVIEW32", WS_BORDER | WS_TABSTOP | 0x0000C04D, 32, 55, 188, 112
-	AUTOCHECKBOX "Всегда выполнять выбранное действие.", 1004, 32, 171, 190, 10
-	DEFPUSHBUTTON "OK", IDOK, 96, 185, 60, 14
-	PUSHBUTTON "Отмена", IDCANCEL, 160, 185, 60, 14
-END
-
-AUTOPLAY2_DLG DIALOGEX 0, 0, 227, 181
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION
-CAPTION "Автозапуск"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	ICON "", 1000, 5, 7, 21, 20
-	LTEXT "ReactOS может выполнять одно и то же действие при каждом подключении этого устройства.", 1001, 32, 7, 190, 22
-	LTEXT "&Какое действие следует выполнять ReactOS?", 1002, 32, 31, 190, 8
-	CONTROL "", 1003, "SYSLISTVIEW32", WS_BORDER | WS_TABSTOP | 0x0000C04D, 32, 43, 187, 96
-	AUTOCHECKBOX "&Всегда выполнять выбранное действие", 1004, 32, 143, 190, 8
-	DEFPUSHBUTTON "OK", IDOK, 94, 160, 60, 14
-	PUSHBUTTON "Отмена", IDCANCEL, 159, 160, 60, 14
-END
-
-SHUTDOWN_DLG DIALOGEX 0, 0, 211, 103
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
-CAPTION "Завершение работы ReactOS"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	ICON 8240, -1, 6, 6, 21, 20, SS_REALSIZECONTROL | WS_GROUP
-	LTEXT "Выберите желаемое действие.", -1, 39, 7, 167, 10
-	COMBOBOX 8224, 39, 20, 165, 200, CBS_DROPDOWNLIST | WS_VSCROLL
-	LTEXT "Сохранить сеанс, обеспечивая работу компьютера в спящем режиме и данными в памяти. При нажатии на любую клавишу или передвижении мыши компьютер возвратится в обычный режим.", 8225, 39, 40, 167, 37
-	DEFPUSHBUTTON "OK", 1, 7, 82, 60, 14, WS_GROUP
-	PUSHBUTTON "Отмена", IDCANCEL, 75, 82, 60, 14
-	PUSHBUTTON "&Справка", IDHELP, 144, 82, 60, 14
-END
-
-FORMAT_DLG DIALOGEX 50, 50, 184, 218
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Форматирование"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	DEFPUSHBUTTON "&Начать", IDOK, 53, 198, 60, 14
-	PUSHBUTTON "&Закрыть", IDCANCEL, 118, 198, 60, 14
-	LTEXT "&Емкость:", -1, 7, 6, 169, 9
-	COMBOBOX 28673, 7, 17, 170, 200, CBS_DROPDOWNLIST | WS_VSCROLL | NOT WS_TABSTOP
-	LTEXT "&Файловая система:", -1, 7, 35, 170, 9
-	COMBOBOX 28677, 7, 46, 170, 200, CBS_DROPDOWNLIST | WS_VSCROLL | NOT WS_TABSTOP
-	CONTROL "", 28678, "MSCTLS_PROGRESS32", 0, 7, 181, 170, 8
-	LTEXT "&Размер кластера:", -1, 7, 64, 170, 9
-	COMBOBOX 28680, 7, 75, 170, 200, CBS_DROPDOWNLIST | WS_VSCROLL | NOT WS_TABSTOP
-	LTEXT "&Метка тома:", -1, 7, 93, 170, 9
-	EDITTEXT 28679, 7, 103, 170, 13, ES_AUTOHSCROLL
-	GROUPBOX "&Способы форматирования:", 4610, 7, 121, 170, 49
-	AUTOCHECKBOX "&Быстрое (очистка оглавления)", 28674, 16, 135, 155, 10
-	AUTOCHECKBOX "&Использовать сжатие", 28675, 16, 152, 155, 10
-END
-
-CHKDSK_DLG DIALOGEX 50, 50, 232, 111
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Проверка диска"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	DEFPUSHBUTTON "Запуск", IDOK, 101, 91, 60, 14
-	GROUPBOX "Параметры проверки диска", -1, 7, 5, 218, 50
-	PUSHBUTTON "Отмена", IDCANCEL, 165, 91, 60, 14
-	AUTOCHECKBOX "&Автоматически исправлять системные ошибки", 14000, 16, 19, 178, 10
-	AUTOCHECKBOX "&Проверять и востанавливать поврежденные сектора", 14001, 16, 35, 200, 10
-	CONTROL "", 14002, "MSCTLS_PROGRESS32", 16, 7, 60, 218, 8
-	LTEXT "", 14003, 7, 75, 218, 10
-END
-
-IDD_PICK_ICON_DIALOG DIALOGEX 0, 0, 237, 204
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Изменение значка"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    LTEXT "Имя файла:", -1, 7, 14, 208, 10
-    PUSHBUTTON      "Обзор...",IDC_BUTTON_PATH, 148, 24,67,14
-    EDITTEXT        IDC_EDIT_PATH, 6, 24, 135, 15, ES_AUTOHSCROLL
-    LTEXT "Значки:", -1, 7, 47, 208, 10
-    LISTBOX         IDC_PICKICON_LIST,7,57,208,119,LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | LBS_MULTICOLUMN | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP,WS_EX_STATICEDGE
-    DEFPUSHBUTTON   "OK",IDOK, 107, 181,50, 14
-    PUSHBUTTON      "Отмена",IDCANCEL, 167, 181, 50, 14
 END
 
 STRINGTABLE DISCARDABLE
@@ -605,25 +366,14 @@ BEGIN
 	IDS_SHV_COLUMN9             "Комментарий"
 	IDS_SHV_COLUMN10            "Владелец"
 	IDS_SHV_COLUMN11            "Группа"
-	IDS_SHV_COLUMN12            "Имя файла"
-	IDS_SHV_COLUMN13            "Категория"
 	IDS_SHV_COLUMN_DELFROM      "Изначальное расположение"
 	IDS_SHV_COLUMN_DELDATE      "Дата удаления"
-	IDS_SHV_COLUMN_FONTTYPE     "Тип шрифта"
-	IDS_SHV_COLUMN_WORKGROUP    "Рабочая группа"
-	IDS_SHV_NETWORKLOCATION     "Сетевое расположение"
-	IDS_SHV_COLUMN_DOCUMENTS    "Документы"
-	IDS_SHV_COLUMN_STATUS       "Состояние"
-	IDS_SHV_COLUMN_COMMENTS     "Коментарии"
-	IDS_SHV_COLUMN_LOCATION     "Расположение"
-	IDS_SHV_COLUMN_MODEL        "Модель"
 
 	/* special folders */
 	IDS_DESKTOP                 "Рабочий стол"
 	IDS_MYCOMPUTER              "Мой компьютер"
 	IDS_RECYCLEBIN_FOLDER_NAME  "Корзина"
 	IDS_CONTROLPANEL            "Панель управления"
-	IDS_ADMINISTRATIVETOOLS     "Администрирование"
 
 	/* context menus */
 	IDS_VIEW_LARGE              "&Большие значки"
@@ -632,15 +382,6 @@ BEGIN
 	IDS_VIEW_DETAILS            "&Подробно"
 	IDS_SELECT                  "&Выбрать"
 	IDS_OPEN                    "&Открыть"
-	IDS_CREATELINK              "Создать &ярлык"
-	IDS_COPY                    "Копировать"
-	IDS_DELETE                  "Удалить"
-	IDS_PROPERTIES              "Свойства"
-	IDS_CUT                     "Вырезать"
-	IDS_RESTORE                 "Востановить"
-	IDS_FORMATDRIVE             "Форматировать..."
-	IDS_RENAME                  "Переименовать"
-	IDS_INSERT                  "Вставить"
 
 	IDS_CREATEFOLDER_DENIED     "Невозможно создать папку - нет полномочий."
 	IDS_CREATEFOLDER_CAPTION    "Ошибка во время создания папки"
@@ -693,9 +434,6 @@ BEGIN
 	IDS_COMMON_PICTURES         "Общие документы\\Мои рисунки"
 	IDS_COMMON_VIDEO            "Общие документы\\Мои фильмы"
 	IDS_CDBURN_AREA             "Local Settings\\Application Data\\Microsoft\\CD Burning"
-	IDS_NETWORKPLACE            "Сетевое окружение"
-
-	IDS_NEWFOLDER               "Новая папка"
 
 	IDS_DRIVE_FIXED             "Локальный диск"
 	IDS_DRIVE_CDROM             "CDROM"
@@ -709,43 +447,4 @@ BEGIN
 	FCIDM_SHVIEW_NEW 	    "Создать"
 	FCIDM_SHVIEW_NEWFOLDER 	    "&Папка"
 	FCIDM_SHVIEW_NEWLINK 	    "&Ярлык"
-	IDS_FOLDER_OPTIONS          "Свойства папки"
-	IDS_RECYCLEBIN_LOCATION     "Расположение Корзины"
-	IDS_RECYCLEBIN_DISKSPACE    "Доступное пространство"
-	IDS_EMPTY_BITBUCKET         "Очистить корзину"
-	IDS_PICK_ICON_TITLE         "Выбрать значок"
-	IDS_PICK_ICON_FILTER        "Файлы значков(*.ico, *.icl, *.exe, *.dll)\0*.ico;*.icl;*.exe;*.dll\0"
-	IDS_OPEN_WITH_FILTER        "Исполняемые файлы\0*.exe\0"
-	IDS_DIRECTORY               "Папка"
-	IDS_VIRTUAL_DRIVER          "Драйвер виртуального устройства"
-	IDS_BAT_FILE                "Пакетный файл ReactOS"
-	IDS_CMD_FILE                "Командный скрипт ReactOS"
-	IDS_COM_FILE                "Приложение Dos"
-	IDS_CPL_FILE                "Аплет панели управления"
-	IDS_CUR_FILE                "Курсор"
-	IDS_DLL_FILE                "Расширение приложения"
-	IDS_DRV_FILE                "Драйвер устройства"
-	IDS_EXE_FILE                "Приложение"
-	IDS_FON_FILE                "Файл шрифта"
-	IDS_TTF_FILE                "Файл шрифта TrueType"
-	IDS_HLP_FILE                "Файл справки"
-	IDS_INI_FILE                "Файл конфигурации"
-	IDS_LNK_FILE                "Ярлык"
-	IDS_SYS_FILE                "Системный файл"
-
-	IDS_OPEN_VERB               "Открыть"
-	IDS_RUNAS_VERB              "Запустить как "
-	IDS_EDIT_VERB               "Изменить"
-	IDS_FIND_VERB               "Поиск"
-	IDS_PRINT_VERB              "Печать"
-	IDS_PLAY_VERB               "Воспроизвести"
-	IDS_PREVIEW_VERB            "Предпросмотр"
-
-	IDS_FILE_FOLDER             "%u файлов, %u папок"
-	IDS_PRINTERS                "Принтеры"
-	IDS_FONTS                   "Шрифты"
-	IDS_INSTALLNEWFONT          "Установить новый шрифт..."
-
-	IDS_DEFAULT_CLUSTER_SIZE    "Выделяемый по умолчанию размер"
-	IDS_COPY_OF                 "Copy of"
 END

@@ -1,4 +1,4 @@
-/* $Id: mouse.c 29112 2007-09-19 21:31:49Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -20,7 +20,7 @@
 #define SPEEDTICKS 9
 #define ACCELTICKS 9
 
-static UINT nSpeedArray[SPEEDTICKS] = {10, 20, 30, 40, 60, 80, 120, 180, 360};
+static INT nSpeedArray[SPEEDTICKS] = {10, 20, 30, 40, 60, 80, 120, 180, 360};
 
 
 INT_PTR CALLBACK
@@ -88,7 +88,7 @@ MouseKeysDlgProc(HWND hwndDlg,
             break;
 
         case WM_HSCROLL:
-            switch (GetWindowLongPtr((HWND) lParam, GWL_ID))
+            switch (GetWindowLong((HWND) lParam, GWL_ID))
             {
                 case IDC_MOUSEKEYS_SPEED_TRACK:
                     i = SendDlgItemMessage(hwndDlg, IDC_MOUSEKEYS_SPEED_TRACK, TBM_GETPOS, 0, 0);

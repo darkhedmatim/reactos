@@ -35,7 +35,7 @@ BEGIN
     POPUP "&Ver"
     BEGIN
         MENUITEM "&Actualizar Ahora",                ID_VIEW_REFRESH
-        POPUP "Velocidad de A&ctualización"
+        POPUP "Velocidad de A&ctualizacion"
         BEGIN
             MENUITEM "A&lta",		ID_VIEW_UPDATESPEED_HIGH
             MENUITEM "&Normal",		ID_VIEW_UPDATESPEED_NORMAL
@@ -53,14 +53,14 @@ CHECKED
 ID_VIEW_SELECTCOLUMNS
         POPUP "Historial de la &CPU"
         BEGIN
-            MENUITEM "&Una Gráfica, Todas las CPUs",
+            MENUITEM "&Una Grafica, Todas las CPUs",
 ID_VIEW_CPUHISTORY_ONEGRAPHALL
 
-            MENUITEM "Una Gráfica, &Por CPU",
+            MENUITEM "Una Grafica, &Por CPU",
 ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU
             , CHECKED
         END
-        MENUITEM "&Mostrar tiempos del Núcleo",
+        MENUITEM "&Mostrar tiempos del Nucleo",
 ID_VIEW_SHOWKERNELTIMES
     END
     POPUP "&Ventanas"
@@ -148,7 +148,7 @@ BEGIN
     POPUP "DUMMY"
     BEGIN
         MENUITEM "&Finalizar Proceso",                ID_PROCESS_PAGE_ENDPROCESS
-        MENUITEM "Finalizar &Árbol de Procesos",           ID_PROCESS_PAGE_ENDPROCESSTREE
+        MENUITEM "Finalizar &Arbol de Procesos",           ID_PROCESS_PAGE_ENDPROCESSTREE
 
         MENUITEM "&Depurador",                      ID_PROCESS_PAGE_DEBUG
         MENUITEM SEPARATOR
@@ -168,7 +168,7 @@ BEGIN
 
         END
         MENUITEM "Establecer &Afinidad...",            ID_PROCESS_PAGE_SETAFFINITY
-	MENUITEM "Editar &Canales de Depuración...",	ID_PROCESS_PAGE_DEBUGCHANNELS
+	MENUITEM "Editar &Canales de Depuracion...",	ID_PROCESS_PAGE_DEBUGCHANNELS
     END
 END
 
@@ -178,8 +178,22 @@ END
 // Dialog
 //
 
-IDD_TASKMGR_DIALOG DIALOGEX DISCARDABLE  0, 0, 264, 246
-STYLE DS_SHELLFONT | DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
+IDD_ABOUTBOX DIALOG DISCARDABLE  22, 17, 259, 210
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+CAPTION "Acerca del Administrador de Tareas"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    CONTROL         "Task Manager v1.0\nCopyright (C) 1999 - 2001\nby Brian Palmer (brianp@reactos.org)",
+                    IDC_STATIC,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,53,28,
+                    122,26
+    DEFPUSHBUTTON   "Aceptar",IDOK,183,189,44,14,WS_GROUP
+    ICON            IDI_TASKMANAGER,IDC_STATIC,19,30,20,20
+    EDITTEXT        IDC_LICENSE_EDIT,53,63,174,107,ES_MULTILINE |
+                    ES_READONLY | WS_VSCROLL
+END
+
+IDD_TASKMGR_DIALOG DIALOG DISCARDABLE  0, 0, 264, 246
+STYLE DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
     WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU |
     WS_THICKFRAME
 CAPTION "Administrador de Tareas"
@@ -190,8 +204,8 @@ BEGIN
 "Tab1",IDC_TAB,"SysTabControl32",WS_TABSTOP,3,3,257,228
 END
 
-IDD_APPLICATION_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+IDD_APPLICATION_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_APPLIST,"SysListView32",LVS_REPORT |
@@ -202,82 +216,83 @@ WS_TABSTOP,7,7,233,177
     PUSHBUTTON      "&Finalizar Tarea",IDC_ENDTASK,75,189,53,14,WS_DISABLED
 END
 
-IDD_PROCESS_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+IDD_PROCESS_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_PROCESSLIST,"SysListView32",LVS_REPORT
 |
-                    LVS_SINGLESEL | LVS_SHOWSELALWAYS |
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_OWNERDATA |
                     WS_BORDER | WS_TABSTOP,7,7,233,177
     PUSHBUTTON      "&Finalizar Proceso",IDC_ENDPROCESS,171,189,69,14
     CONTROL         "&Mostrar Procesos de todos los usuario",IDC_SHOWALLPROCESSES,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,191,165,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,191,111,10
 END
 
 //IDD_PERFORMANCE_PAGE DIALOGEX 0, 0, 247, 210
 IDD_PERFORMANCE_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX        "Uso de CPU",IDC_CPU_USAGE_FRAME,5,5,60,54,0,WS_EX_TRANSPARENT
-    GROUPBOX        "Uso de MEM",IDC_MEM_USAGE_FRAME,5,63,60,54,BS_LEFTTEXT, WS_EX_TRANSPARENT
+    GROUPBOX        "Uso de la CPU",IDC_CPU_USAGE_FRAME,5,5,60,54,WS_TABSTOP, WS_EX_TRANSPARENT
+    GROUPBOX        "Uso de la MEMORIA",IDC_MEM_USAGE_FRAME,5,63,60,54,BS_LEFTTEXT, WS_EX_TRANSPARENT
     GROUPBOX        "Totales",IDC_TOTALS_FRAME,5,122,111,39,0,WS_EX_TRANSPARENT
-    GROUPBOX        "Carga de transacciones (KB)",IDC_COMMIT_CHARGE_FRAME,5,166,111,39,0,WS_EX_TRANSPARENT
-    GROUPBOX        "Memoria física (KB)",IDC_PHYSICAL_MEMORY_FRAME,131,122,111,39,0,WS_EX_TRANSPARENT
-    GROUPBOX        "Memoria del núcleo (KB)",IDC_KERNEL_MEMORY_FRAME,131,166,111,39,0,WS_EX_TRANSPARENT
-    LTEXT           "Identificadores",IDS_TOTALS_HANDLE_COUNT,12,131,40,8
-    LTEXT           "Subprocesos",IDS_TOTALS_THREAD_COUNT,12,140,40,8
+    GROUPBOX        "Commit Charge (K)",IDC_COMMIT_CHARGE_FRAME,5,166,111,39,0,WS_EX_TRANSPARENT
+    GROUPBOX        "Memoria Fisica (K)",IDC_PHYSICAL_MEMORY_FRAME,131,122,111,39,0,WS_EX_TRANSPARENT
+    GROUPBOX        "Memoria del Nucleo (K)",IDC_KERNEL_MEMORY_FRAME,131,166,111,39,0,WS_EX_TRANSPARENT
+    LTEXT           "Manejadores",IDS_TOTALS_HANDLE_COUNT,12,131,27,8
+    LTEXT           "Hilos",IDS_TOTALS_THREAD_COUNT,12,140,27,8
     LTEXT           "Procesos",IDS_TOTALS_PROCESS_COUNT,12,149,34,8
     EDITTEXT        IDC_TOTALS_HANDLE_COUNT,65,131,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_TOTALS_THREAD_COUNT,65,140,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_TOTALS_PROCESS_COUNT,65,149,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Total",IDS_COMMIT_CHARGE_TOTAL,12,175,27,8
-    LTEXT           "Límite",IDS_COMMIT_CHARGE_LIMIT,12,184,30,8,NOT WS_BORDER
-    LTEXT           "Máximo",IDS_COMMIT_CHARGE_PEAK,12,193,34,8
+    LTEXT           "Limite",IDS_COMMIT_CHARGE_LIMIT,12,184,15,8
+    LTEXT           "Pico",IDS_COMMIT_CHARGE_PEAK,12,193,34,8
     EDITTEXT        IDC_COMMIT_CHARGE_TOTAL,65,174,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_COMMIT_CHARGE_LIMIT,65,184,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_COMMIT_CHARGE_PEAK,65,193,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Total",IDS_PHYSICAL_MEMORY_TOTAL,137,131,27,8
-    LTEXT           "Disponible",IDS_PHYSICAL_MEMORY_AVAILABLE,137,140,35,8
-    LTEXT           "Caché sistema",IDS_PHYSICAL_MEMORY_SYSTEM_CACHE,137,149,85,8
+    LTEXT           "Disponible",IDS_PHYSICAL_MEMORY_AVAILABLE,137,140,30,8
+    LTEXT           "Cache del Sistema",IDS_PHYSICAL_MEMORY_SYSTEM_CACHE,137,149,46,8
     EDITTEXT        IDC_PHYSICAL_MEMORY_TOTAL,185,131,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
-    EDITTEXT        IDC_PHYSICAL_MEMORY_AVAILABLE,185,140,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
+    EDITTEXT        IDC_PHYSICAL_MEMORY_AVAILABLE,185,140,48,8,ES_RIGHT
+|
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT
 IDC_PHYSICAL_MEMORY_SYSTEM_CACHE,185,149,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Total",IDS_KERNEL_MEMORY_TOTAL,137,174,27,8
-    LTEXT           "Paginado",IDS_KERNEL_MEMORY_PAGED,137,184,30,8
-    LTEXT           "No-paginado",IDS_KERNEL_MEMORY_NONPAGED,137,193,40,8
+    LTEXT           "Paginado",IDS_KERNEL_MEMORY_PAGED,137,184,21,8
+    LTEXT           "No-paginado",IDS_KERNEL_MEMORY_NONPAGED,137,193,34,8
     EDITTEXT        IDC_KERNEL_MEMORY_TOTAL,185,174,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_KERNEL_MEMORY_PAGED,185,184,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_KERNEL_MEMORY_NONPAGED,185,193,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     GROUPBOX        "Historial de uso de la CPU",IDC_CPU_USAGE_HISTORY_FRAME,74,5,168,54,0,WS_EX_TRANSPARENT
     GROUPBOX        "Historial de uso de la Memoria",IDC_MEMORY_USAGE_HISTORY_FRAME,74,63,168,54,0,WS_EX_TRANSPARENT
-    PUSHBUTTON      "Display de uso de la CPU",IDC_CPU_USAGE_GRAPH,12,17,47,37,NOT WS_TABSTOP,
+    PUSHBUTTON      "Display de uso de la CPU",IDC_CPU_USAGE_GRAPH,12,17,47,37,0,
 		    WS_EX_CLIENTEDGE
-    PUSHBUTTON      "Display de uso de la Memoria",IDC_MEM_USAGE_GRAPH,12,75,47,37,NOT WS_TABSTOP,
+    PUSHBUTTON      "Display de uso de la Memoria",IDC_MEM_USAGE_GRAPH,12,75,47,37,0,
                     WS_EX_CLIENTEDGE
     PUSHBUTTON      "Historial de uso de la CPU",IDC_CPU_USAGE_HISTORY_GRAPH,81,17,
-                    153,37,NOT WS_TABSTOP,WS_EX_CLIENTEDGE
+                    153,37,0,WS_EX_CLIENTEDGE
     PUSHBUTTON      "Historial de uso de la Memoria",IDC_MEM_USAGE_HISTORY_GRAPH,81,75,
-                    153,37,NOT WS_TABSTOP,WS_EX_CLIENTEDGE
+                    153,37,0,WS_EX_CLIENTEDGE
 END
 
-IDD_DEBUG_CHANNELS_DIALOG DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Canales de Depuración"
+IDD_DEBUG_CHANNELS_DIALOG DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Canales de Depuracion"
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_DEBUG_CHANNELS_LIST,"SysListView32",LVS_REPORT |
@@ -287,8 +302,8 @@ WS_TABSTOP |
     PUSHBUTTON      "Cerrar",IDOK,171,189,69,14
 END
 
-IDD_AFFINITY_DIALOG DIALOGEX DISCARDABLE  0, 0, 231, 154
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_AFFINITY_DIALOG DIALOG DISCARDABLE  0, 0, 231, 154
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Afinidad del Procesador"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -362,66 +377,66 @@ BEGIN
                     WS_DISABLED | WS_TABSTOP,175,119,41,10
 END
 
-IDD_COLUMNS_DIALOG DIALOGEX DISCARDABLE  0, 0, 245, 199 //0, 0, 195, 199
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_COLUMNS_DIALOG DIALOG DISCARDABLE  0, 0, 195, 199
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Seleccionar Columnas"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    DEFPUSHBUTTON   "Aceptar",IDOK,126,178,50,14 //84
-    PUSHBUTTON      "Cancelar",IDCANCEL,180,178,50,14 //138
-    LTEXT           "Selecciona las columnas que aparecerán en la página de Procesos del Administrador de Tareas.",
-                    IDC_STATIC,7,7,221,17 //181
+    DEFPUSHBUTTON   "Aceptar",IDOK,84,178,50,14
+    PUSHBUTTON      "Cancelar",IDCANCEL,138,178,50,14
+    LTEXT           "Selecciona las columnas que apareceran en la pagina del Procesador del Administrador de Tareas.",
+                    IDC_STATIC,7,7,181,17
     CONTROL         "Nombre de la &Imagen",IDC_IMAGENAME,"Button",BS_AUTOCHECKBOX |
-                    WS_DISABLED | WS_TABSTOP,7,28,88,10 //56
+                    WS_DISABLED | WS_TABSTOP,7,28,56,10
     CONTROL         "&PID (Identificador de Proceso)",IDC_PID,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,39,120,10 //88
-    CONTROL         "Uso de &CPU",IDC_CPUUSAGE,"Button",BS_AUTOCHECKBOX |
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,39,88,10
+    CONTROL         "Uso de la &CPU",IDC_CPUUSAGE,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,50,53,10
-    CONTROL         "Ti&empo de CPU",IDC_CPUTIME,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,61,65,10 //48
-    CONTROL         "Uso de &Memoria",IDC_MEMORYUSAGE,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "Ti&empos de la CPU",IDC_CPUTIME,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,7,61,48,10
+    CONTROL         "Uso de la &Memoria",IDC_MEMORYUSAGE,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,72,63,10
-    CONTROL         "Di&ferencia de uso de memoria",IDC_MEMORYUSAGEDELTA,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,83,120,10 //82
-    CONTROL         "Uso má&ximo de la Memoria",IDC_PEAKMEMORYUSAGE,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,94,120,10 //82
-    CONTROL         "Err&ores de Página",IDC_PAGEFAULTS,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,105,80,10 //53
-    CONTROL         "O&bjetos de USUARIO",IDC_USEROBJECTS,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,116,80,10 //62
+    CONTROL         "Uso de la Memoria &Delta",IDC_MEMORYUSAGEDELTA,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,83,82,10
+    CONTROL         "Pi&co de Uso de la Memory",IDC_PEAKMEMORYUSAGE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,94,82,10
+    CONTROL         "&Fallos de Pagina",IDC_PAGEFAULTS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,7,105,53,10
+    CONTROL         "Objetos de &USUARIO",IDC_USEROBJECTS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,7,116,62,10
     CONTROL         "Lecturas E/S",IDC_IOREADS,"Button",BS_AUTOCHECKBOX
 |
-                    WS_TABSTOP,7,127,60,10 //49
+                    WS_TABSTOP,7,127,49,10
     CONTROL         "Bytes E/S Leidos",IDC_IOREADBYTES,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,7,138,65,10
-    CONTROL         "I&D de Sesion",IDC_SESSIONID,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,149,65,10 //50
+    CONTROL         "ID de &Sesion",IDC_SESSIONID,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,7,149,50,10
     CONTROL         "&Nombre de Usuario",IDC_USERNAME,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,160,75,10 //51
-    CONTROL         "Diferencia de erro&res de página",IDC_PAGEFAULTSDELTA,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,127,28,120,10 //107,60
+                    WS_TABSTOP,7,160,51,10
+    CONTROL         "F&allos de Pagina Delta",IDC_PAGEFAULTSDELTA,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,28,72,10
     CONTROL         "Tamaño de la Memoria &Virtual",IDC_VIRTUALMEMORYSIZE,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,127,39,120,10 //107,60
-    CONTROL         "B&loque paginado",IDC_PAGEDPOOL,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,127,50,67,10 //107,53
-    CONTROL         "Blo&que no paginado",IDC_NONPAGEDPOOL,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,127,61,115,10 //107
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,39,77,10
+    CONTROL         "Pa&ged Pool",IDC_PAGEDPOOL,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,107,50,53,10
+    CONTROL         "N&on-paged Pool",IDC_NONPAGEDPOOL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,61,67,10
     CONTROL         "P&rioridad Base",IDC_BASEPRIORITY,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,127,72,80,10 //107
-    CONTROL         "&Recuento de identificadores",IDC_HANDLECOUNT,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,127,83,59,10 //107
-    CONTROL         "Nú&mero de subprocesos",IDC_THREADCOUNT,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,127,94,59,10 //107
-    CONTROL         "Objetos &GDI",IDC_GDIOBJECTS,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,127,105,55,10 //107
-    CONTROL         "Escrituras de E/S",IDC_IOWRITES,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,127,116,90,10 //107
-    CONTROL         "Bytes de escritura de E/S",IDC_IOWRITEBYTES,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,127,127,105,10 //107
-    CONTROL         "Otros de E/S",IDC_IOOTHER,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,127,138,60,10
-    CONTROL         "Otros Bytes de E/S",IDC_IOOTHERBYTES,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,127,149,75,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,72,55,10
+    CONTROL         "&Handle Count",IDC_HANDLECOUNT,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,107,83,59,10
+    CONTROL         "&Thread Count",IDC_THREADCOUNT,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,107,94,59,10
+    CONTROL         "Objetos GDI",IDC_GDIOBJECTS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,107,105,55,10
+    CONTROL         "Escrituras E/S",IDC_IOWRITES,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,107,116,49,10
+    CONTROL         "Bytes E/S Escritos",IDC_IOWRITEBYTES,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,127,65,10
+    CONTROL         "Otros E/S",IDC_IOOTHER,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,107,138,46,10
+    CONTROL         "Bytes E/S Otros",IDC_IOOTHERBYTES,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,149,65,10
 END
 
 #ifdef APSTUDIO_INVOKED
@@ -576,12 +591,12 @@ BEGIN
     ID_WINDOWS_CASCADE      "Mostrar las ventanas en diagonal sobre el escritorio en forma de cascada"
     ID_WINDOWS_BRINGTOFRONT "Trae el frente de ventana, pero no cambiar a ella"
     ID_HELP_TOPICS          "Mostrar Temas de ayuda del Administrador de Tareas"
-    ID_HELP_ABOUT           "Mostrar información del programa, número de versión y copyright"
+    ID_HELP_ABOUT           "Mostrar informacion del programa, numero de version y copyright"
     ID_FILE_EXIT            "Cerrar el Administrador de Tareas"
     ID_OPTIONS_SHOW16BITTASKS
                             "Mostrar tareas de 16-bit bajo el ntvdm.exe asociado"
     ID_VIEW_SELECTCOLUMNS   "Seleccionar que columnas seran visibles en la pagina de Procesos"
-    ID_VIEW_SHOWKERNELTIMES "Mostrar tiempos del núcleo en los graficos de rendimiento"
+    ID_VIEW_SHOWKERNELTIMES "Mostrar tiempos del nucleo en los graficos de rendimiento"
     ID_VIEW_CPUHISTORY_ONEGRAPHALL
                             "Un simple histograma muestra el uso total de la CPU"
     ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU "Cada CPU tiene su histograma propio"
@@ -596,7 +611,7 @@ BEGIN
     ID_RESTORE              "Restaurar el Administrador de Tareas de su estado oculto"
     ID_PROCESS_PAGE_ENDPROCESS "Eliminar el proceso del sistema"
     ID_PROCESS_PAGE_ENDPROCESSTREE
-                            "Eliminar este proceso y todos sus subprocesos del sistema"
+                            "Eliminar este proceso y todos sus hijos del sistema"
     ID_PROCESS_PAGE_DEBUG   "Ata a la depuración a este proceso"
     ID_PROCESS_PAGE_SETAFFINITY
                             "Controlar en que procesadores puede ejecutarse cada proceso"
@@ -610,6 +625,7 @@ BEGIN
     ID_PROCESS_PAGE_SETPRIORITY_BELOWNORMAL
                             "Establece el proceso en prioridad ABAJO DE LO NORMAL"
     ID_PROCESS_PAGE_SETPRIORITY_LOW "Establece el proceso en prioridad BAJA"
+    IDS_LICENSE             "Este programa es software libre; usted puede redistribuirlo y/o modificarlo bajo los términos de la Licencia de GNU General Public License publicada por la Free Software Fundation;  la versión 2.1 de la Licencia, (o en su opción) cualquier versión posterior.\r\n\r\nEste programa es distribuido con la esperanza de que será útil, pero SIN NINGUNA GARANTÍA; sin ni siquiera la garantía implícita de VALOR COMERCIAL O SALUD PARA UN OBJETIVO PARTICULAR. Ver que la GNU General Public License para más detalles \r\n\r\nUsted debería haber recibido una copia de la GNU General Public License junto con este programa; si no, escriba a la Free Software Fundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, EE. UU."
 
 END	// Spanish (SPAIN) resources by Carlos Garcia Gomez
 
@@ -620,23 +636,23 @@ BEGIN
     IDS_TAB_PROCESSES             "Procesos"
     IDS_TAB_PERFORMANCE           "Rendimiento"
     IDS_TAB_TASK                  "Tareas"
-    IDS_TAB_STATUS                "Estado"
+    IDS_TAB_STATUS                "Estatus"
     IDS_TAB_IMAGENAME             "Nombre de Imagen"
     IDS_TAB_PID                   "PID"
     IDS_TAB_USERNAME              "Nombre Usuario"
     IDS_TAB_SESSIONID             "ID de sección"
     IDS_TAB_CPU                   "CPU"
     IDS_TAB_CPUTIME               "Tiempo CPU"
-    IDS_TAB_MEMUSAGE              "Uso de Memoria"
-    IDS_TAB_PEAKMEMUSAGE          "Pico uso de Memoria"
-    IDS_TAB_MEMDELTA              "Diferencia de Memoria"
+    IDS_TAB_MEMUSAGE              "Uso de Mem"
+    IDS_TAB_PEAKMEMUSAGE          "Pico uso de Mem"
+    IDS_TAB_MEMDELTA              "Delta Mem"
     IDS_TAB_PAGEFAULT             "Faltas de Pagina"
-    IDS_TAB_PFDELTA               "Diferencia de FP"
+    IDS_TAB_PFDELTA               "FP Delta"
     IDS_TAB_VMSIZE                "Tamaño MV(Maquina Virtual)"
     IDS_TAB_PAGEDPOOL             "Grupo Paginado"
     IDS_TAB_NPPOOL                "Grupo NP"
     IDS_TAB_BASEPRI               "Base Pri"
-    IDS_TAB_HANDLES               "Manejadores"
+    IDS_TAB_HANDLES               "Manijas(Handles)"
     IDS_TAB_THREADS               "Hilos"
     IDS_TAB_USERPBJECTS           "Objetos USER"
     IDS_TAB_GDIOBJECTS            "Objetos GDI"
@@ -647,7 +663,7 @@ BEGIN
     IDS_TAB_IOWRITESBYTES         "I/O Bytes Escritos"
     IDS_TAB_IOOTHERBYTES          "I/O Otros Bytes"
     IDS_MENU_SELECTCOLUMNS        "&Seleccione Columnas..."
-    IDS_MENU_16BITTASK            "Mos&trar tareas 16-bit"
+    IDS_MENU_16BITTASK            "&Eseñe tareas 16-bit"
     IDS_MENU_WINDOWS              "&Ventanas"
     IDS_MENU_LARGEICONS           "Iconos G&randes"
     IDS_MENU_SMALLICONS           "Iconos &Pequeños"
@@ -655,21 +671,21 @@ BEGIN
     IDS_MENU_ONEGRAPHALLCPUS      "&Una Grafica, Todos CPUs"
     IDS_MENU_ONEGRAPHPERCPU       "Una Grafica &Por CPU"
     IDS_MENU_CPUHISTORY           "Historial &CPU"
-    IDS_MENU_SHOWKERNELTIMES      "Mues&tra tiempos Núcleo"
+    IDS_MENU_SHOWKERNELTIMES      "Mues&tra tiempos Nucleo"
     IDS_CREATENEWTASK             "Crear Tarea Nueva"
-    IDS_CREATENEWTASK_DESC        "Escriba el nombre del programa, carpeta, documento o recurso de Internet que desea que ReactOS abra."
-    IDS_MSG_ACCESSPROCESSAFF      "Incapaz de acceder o configurar la Afinidad del Proceso"
+    IDS_CREATENEWTASK_DESC        "Escriba el nombre de un programa, carpeta, documento, o recurso de internet, y Task Manager lo habrera por ti."
+    IDS_MSG_ACCESSPROCESSAFF      "Incapaz de accesar o alterar Afinidad del Proceso"
     IDS_MSG_PROCESSONEPRO         "El proceso debe tener afinidad con por lo menos un procesador."
     IDS_MSG_INVALIDOPTION         "Opción Invalida"
     IDS_MSG_UNABLEDEBUGPROCESS    "Incapaz de depurar proceso"
     IDS_MSG_WARNINGDEBUG          "ADVERTENCIA: La depuración de este proceso puede resultar en perdidad de data.\n¿Esta seguro que quiere usar el depurador?"
     IDS_MSG_TASKMGRWARNING        "Advertencia de Manejador de Tareas"
-    IDS_MSG_WARNINGTERMINATING    "ADVERTENCIA: Si temina un proceso puede obtener resultados no\ndeseados como la pérdida de datos y la inestabilidad del sistema. El\nproceso no tendrá tiempo para guardar su estado o datos\nantes de ser terminado. ¿Está seguro que quiere terminar\nel proceso?"
+    IDS_MSG_WARNINGTERMINATING    "ADVERTENCIA: Terminando un proceso puede causar resultados indeseados\nresultados que incluyen la posible perdida de data o inestabilidad del systema. El\nproceso no se le dara un chance de grabar su estado o\ndata antes de ser terminado. ¿Está seguro que quiere \nterminar el proceso?"
     IDS_MSG_UNABLETERMINATEPRO    "Incapaz de cerrar el Proceso"
     IDS_MSG_UNABLECHANGEPRIORITY  "Incapaz de cambiar la prioridad"
-    IDS_MSG_WARNINGCHANGEPRIORITY "Advertencia: Si cambia la clase de prioridad de este proceso, puede\nobtener resultados no deseados, incluso la inestabilidad del sistema. ¿Está seguro que\ndesea cambiar la Clase de Prioridad?"
+    IDS_MSG_WARNINGCHANGEPRIORITY "Advertencia: Cambiando la clase de prioridad de este proceso puede\ncausar resultados indeseados incluyendo posible inestabilidad del sistema. ¿Está seguro que\nusted quiera cambiar la Clase de Prioridad?"
     IDS_MSG_TRAYICONCPUUSAGE      "Promedio CPU: %d%%"
-    IDS_STATUS_MEMUSAGE           "Uso Memoria: %dK / %dK"
+    IDS_STATUS_MEMUSAGE           "Uso Mem: %dK / %dK"
     IDS_STATUS_CPUUSAGE           "Uso CPU: %3d%%"
     IDS_STATUS_PROCESSES          "Procesos: %d"
     IDS_Not_Responding            "No Responde"

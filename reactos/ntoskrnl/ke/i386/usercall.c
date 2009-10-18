@@ -10,11 +10,27 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 extern PGDI_BATCHFLUSH_ROUTINE KeGdiFlushUserBatch;
 
 /* PRIVATE FUNCTIONS *********************************************************/
+
+_SEH_DEFINE_LOCALS(KiCopyInfo)
+{
+    volatile EXCEPTION_RECORD SehExceptRecord;
+};
+
+_SEH_FILTER(KiCopyInformation2)
+{
+    _SEH_ACCESS_LOCALS(KiCopyInfo);
+
+    /* Copy the exception records and return to the handler */
+    RtlCopyMemory((PVOID)&_SEH_VAR(SehExceptRecord),
+                  _SEH_GetExceptionPointers()->ExceptionRecord,
+                  sizeof(EXCEPTION_RECORD));
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 
 /*++
  * @name KiInitializeUserApc
@@ -54,6 +70,7 @@ KiInitializeUserApc(IN PKEXCEPTION_FRAME ExceptionFrame,
     ULONG_PTR Stack, AlignedEsp;
     ULONG ContextLength;
     EXCEPTION_RECORD SehExceptRecord;
+    _SEH_DECLARE_LOCALS(KiCopyInfo);
 
     /* Don't deliver APCs in V86 mode */
     if (TrapFrame->EFlags & EFLAGS_V86_MASK) return;
@@ -63,7 +80,7 @@ KiInitializeUserApc(IN PKEXCEPTION_FRAME ExceptionFrame,
     KeTrapFrameToContext(TrapFrame, ExceptionFrame, &Context);
 
     /* Protect with SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Sanity check */
         ASSERT((TrapFrame->SegCs & MODE_MASK) != KernelMode);
@@ -99,7 +116,7 @@ KiInitializeUserApc(IN PKEXCEPTION_FRAME ExceptionFrame,
         TrapFrame->EFlags = Ke386SanitizeFlags(Context.EFlags, UserMode);
 
         /* Check if thread has IOPL and force it enabled if so */
-        if (KeGetCurrentThread()->Iopl) TrapFrame->EFlags |= EFLAGS_IOPL;
+        if (KeGetCurrentThread()->Iopl) TrapFrame->EFlags |= 0x3000;
 
         /* Setup the stack */
         *(PULONG_PTR)(Stack + 0 * sizeof(ULONG_PTR)) = (ULONG_PTR)NormalRoutine;
@@ -107,17 +124,17 @@ KiInitializeUserApc(IN PKEXCEPTION_FRAME ExceptionFrame,
         *(PULONG_PTR)(Stack + 2 * sizeof(ULONG_PTR)) = (ULONG_PTR)SystemArgument1;
         *(PULONG_PTR)(Stack + 3 * sizeof(ULONG_PTR)) = (ULONG_PTR)SystemArgument2;
     }
-    _SEH2_EXCEPT((RtlCopyMemory(&SehExceptRecord, _SEH2_GetExceptionInformation()->ExceptionRecord, sizeof(EXCEPTION_RECORD)), EXCEPTION_EXECUTE_HANDLER))
+    _SEH_EXCEPT(KiCopyInformation2)
     {
         /* Dispatch the exception */
-        SehExceptRecord.ExceptionAddress = (PVOID)TrapFrame->Eip;
+        _SEH_VAR(SehExceptRecord).ExceptionAddress = (PVOID)TrapFrame->Eip;
         KiDispatchException(&SehExceptRecord,
                             ExceptionFrame,
                             TrapFrame,
                             UserMode,
                             TRUE);
     }
-    _SEH2_END;
+    _SEH_END;
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/
@@ -135,7 +152,7 @@ KeUserModeCallback(IN ULONG RoutineIndex,
 {
     ULONG_PTR NewStack, OldStack;
     PULONG UserEsp;
-    NTSTATUS CallbackStatus;
+    NTSTATUS CallbackStatus = STATUS_SUCCESS;
     PEXCEPTION_REGISTRATION_RECORD ExceptionList;
     PTEB Teb;
     ULONG GdiBatchCount = 0;
@@ -147,7 +164,7 @@ KeUserModeCallback(IN ULONG RoutineIndex,
     OldStack = *UserEsp;
 
     /* Enter a SEH Block */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Calculate and align the stack size */
         NewStack = (OldStack - ArgumentLength) & ~3;
@@ -189,12 +206,13 @@ KeUserModeCallback(IN ULONG RoutineIndex,
         /* Read the GDI Batch count */
         GdiBatchCount = Teb->GdiBatchCount;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Get the SEH exception */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        CallbackStatus = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
+    if (!NT_SUCCESS(CallbackStatus)) return CallbackStatus;
 
     /* Check if we have GDI Batch operations */
     if (GdiBatchCount)

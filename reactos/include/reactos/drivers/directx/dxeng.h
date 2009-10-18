@@ -1,7 +1,6 @@
 
-
 /************************************************************************/
-/* These functions are imported from win32k.sys by dxg.sys              */
+/* This driver interface are exported from win32k.sys to dxg.sys        */
 /************************************************************************/
 #define DXENG_INDEX_Resverd0                            0x00
 #define DXENG_INDEX_DxEngNUIsTermSrv                    0x01
@@ -47,77 +46,72 @@
 #define DXENG_INDEX_DxEngGetRedirectionBitmap           0x29
 #define DXENG_INDEX_DxEngLoadImage                      0x2A
 
-typedef enum _DXEGSHDEVDATA
-{
-  DxEGShDevData_Surface,
-  DxEGShDevData_hSpooler,
-  DxEGShDevData_DitherFmt,
-  DxEGShDevData_FxCaps,
-  DxEGShDevData_FxCaps2,
-  DxEGShDevData_DrvFuncs,
-  DxEGShDevData_dhpdev,
-  DxEGShDevData_eddg,
-  DxEGShDevData_dd_nCount,
-  DxEGShDevData_dd_flags,
-  DxEGShDevData_disable,
-  DxEGShDevData_metadev,
-  DxEGShDevData_display,
-  DxEGShDevData_Parent,
-  DxEGShDevData_OpenRefs,
-  DxEGShDevData_palette,
-  DxEGShDevData_ldev,
-  DxEGShDevData_GDev,
-  DxEGShDevData_clonedev,
-} DXEGSHDEVDATA,*PDXEGSHDEVDATA;
-
 /************************************************************************/
-/* win32k.sys internal protypes for driver functions it exports         */
+/* win32k.sys internal protypes for the driver functions it export      */
 /************************************************************************/
-BOOLEAN NTAPI DxEngNUIsTermSrv();
-PDC NTAPI DxEngLockDC(HDC hDC);
-BOOLEAN NTAPI DxEngUnlockDC(PDC pDC);
-DWORD_PTR NTAPI DxEngGetHdevData(HDEV, DXEGSHDEVDATA);
-BOOLEAN NTAPI DxEngSetHdevData(HDEV, DXEGSHDEVDATA, DWORD_PTR);
-BOOLEAN NTAPI DxEngLockHdev(HDEV hdev);
-BOOLEAN NTAPI DxEngUnlockHdev(HDEV hdev);
-DWORD_PTR NTAPI DxEngGetDCState(HDC hDC, DWORD type);
-BOOLEAN NTAPI DxEngReferenceHdev(HDEV hdev);
-BOOLEAN NTAPI DxEngLockShareSem();
-BOOLEAN NTAPI DxEngUnlockShareSem();
-DWORD NTAPI DxEngScreenAccessCheck();
-BOOL NTAPI DxEngSetDCOwner(HGDIOBJ hObject, DWORD OwnerMask);
 
-/* Prototypes for the following functions are not yet finished */
-BOOLEAN NTAPI DxEngRedrawDesktop();
-ULONG NTAPI DxEngDispUniq();
-ULONG NTAPI DxEngVisRgnUniq();
-HDEV* NTAPI DxEngEnumerateHdev(HDEV *hdev);
-BOOL NTAPI DxEngGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp);
-BOOLEAN NTAPI DxEngSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp, BOOL Unuse);
-BOOLEAN NTAPI DxEngCleanDC(HDC hdc);
-BOOLEAN NTAPI DxEngIncDispUniq();
+/* Notes : Check see if termal server got a connections or not */
+BOOL DxEngNUIsTermSrv();
 
-HDC NTAPI DxEngCreateMemoryDC(HDEV hDev);
+/* Notes : it always return TRUE, and it update whole the screen (redaw current desktop) */
+BOOL DxEngRedrawDesktop();
 
-BOOLEAN NTAPI DxEngIsHdevLockedByCurrentThread(HDEV hDev);
-BOOLEAN NTAPI DxEngUnreferenceHdev(HDEV hDev);
-DWORD NTAPI DxEngSpTearDownSprites(DWORD x1, DWORD x2, DWORD x3);
-DWORD NTAPI DxEngSpUnTearDownSprites(DWORD x1, DWORD x2, DWORD x3);
-DWORD NTAPI DxEngSpSpritesVisible(DWORD x1);
-HDC NTAPI DxEngGetDesktopDC(ULONG DcType, BOOL EmptyDC, BOOL ValidatehWnd);
-BOOLEAN NTAPI DxEngDeleteDC(HDC hdc, BOOL Force);
-BOOLEAN NTAPI DxEngSetDCState(HDC hDC, DWORD SetType, DWORD Set);
-DWORD NTAPI DxEngSelectBitmap(DWORD x1, DWORD x2);
-DWORD NTAPI DxEngSetBitmapOwner(DWORD x1, DWORD x2);
-DWORD NTAPI DxEngDeleteSurface(DWORD x1);
-DWORD NTAPI DxEngGetSurfaceData(DWORD x1, DWORD x2);
-DWORD NTAPI DxEngAltLockSurface(DWORD x1);
-DWORD NTAPI DxEngUploadPaletteEntryToSurface(DWORD x1, DWORD x2,DWORD x3, DWORD x4);
-DWORD NTAPI DxEngMarkSurfaceAsDirectDraw(DWORD x1, DWORD x2);
-DWORD NTAPI DxEngSelectPaletteToSurface(DWORD x1, DWORD x2);
-DWORD NTAPI DxEngSyncPaletteTableWithDevice(DWORD x1, DWORD x2);
-DWORD NTAPI DxEngSetPaletteState(DWORD x1, DWORD x2, DWORD x3);
-DWORD NTAPI DxEngGetRedirectionBitmap(DWORD x1);
-DWORD NTAPI DxEngLoadImage(DWORD x1,DWORD x2);
+/* Notes : return the DisplayUniqVisrgn counter from gdishare memory */
+ULONG DxEngDispUniq();
 
+/* Notes :  return the VisRgnUniq counter for win32k */
+ULONG DxEngVisRgnUniq();
+
+/* Notes : Enumate all drivers in win32k */
+HDEV *DxEngEnumerateHdev(HDEV *hdev);
+
+/* Notes : same protypes NtGdiEngGetDeviceGammaRamp, diffent is we skipp the user mode checks and seh */
+BOOL
+DxEngGetDeviceGammaRamp(HDC hDC, LPVOID lpRamp);
+
+/* Notes : Lock the hDC */
+PDC DxEngLockDC(HDC hDC);
+
+/* Notes : Unlock the hDC */
+BOOL DxEngUnlockDC(PDC pDC);
+
+
+
+/* prototypes are not done yet, I need gather all my notes 
+ * to make them correct 
+ */
+DWORD DxEngCreateMemoryDC(DWORD x1);
+DWORD DxEngScreenAccessCheck();
+DWORD DxEngLockShareSem();
+DWORD DxEngUnlockShareSem();
+DWORD DxEngLockHdev(DWORD x1);
+DWORD DxEngUnlockHdev(DWORD x1);
+DWORD DxEngReferenceHdev(DWORD x1);
+DWORD DxEngIsHdevLockedByCurrentThread(DWORD x1);
+DWORD DxEngUnreferenceHdev(DWORD x1);
+DWORD DxEngSetDeviceGammaRamp(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngSpTearDownSprites(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngSpUnTearDownSprites(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngSpSpritesVisible(DWORD x1);
+DWORD DxEngGetHdevData(PEDD_DIRECTDRAW_GLOBAL pEDDgpl, DWORD Index);
+DWORD DxEngSetHdevData(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngGetDesktopDC(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngDeleteDC(DWORD x1, DWORD x2);
+DWORD DxEngCleanDC(DWORD x1);
+DWORD DxEngSetDCOwner(DWORD x1, DWORD x2);
+DWORD DxEngSetDCState(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngGetDCState(HDC hDC, DWORD type);
+DWORD DxEngSelectBitmap(DWORD x1, DWORD x2);
+DWORD DxEngSetBitmapOwner(DWORD x1, DWORD x2);
+DWORD DxEngDeleteSurface(DWORD x1);
+DWORD DxEngGetSurfaceData(DWORD x1, DWORD x2);
+DWORD DxEngAltLockSurface(DWORD x1);
+DWORD DxEngUploadPaletteEntryToSurface(DWORD x1, DWORD x2,DWORD x3, DWORD x4);
+DWORD DxEngMarkSurfaceAsDirectDraw(DWORD x1, DWORD x2);
+DWORD DxEngSelectPaletteToSurface(DWORD x1, DWORD x2);
+DWORD DxEngSyncPaletteTableWithDevice(DWORD x1, DWORD x2);
+DWORD DxEngSetPaletteState(DWORD x1, DWORD x2, DWORD x3);
+DWORD DxEngGetRedirectionBitmap(DWORD x1);
+DWORD DxEngLoadImage(DWORD x1,DWORD x2);
+DWORD DxEngIncDispUniq();
 

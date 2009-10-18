@@ -7,9 +7,10 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#include <precomp.h>
-
+#define COBJMACROS
 #define CONST_VTABLE
+#include <shlobj.h>
+#include <debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -21,7 +22,7 @@ struct IconLocation
 
 struct IconExtraction
 {
-    LONG ref;
+    ULONG ref;
     IDefaultExtractIconInit defaultExtractIconInitImpl;
     IExtractIconW extractIconWImpl;
     IExtractIconA extractIconAImpl;
@@ -91,7 +92,7 @@ IconExtraction_DefaultExtractIconInit_AddRef(
     IDefaultExtractIconInit *This)
 {
     struct IconExtraction *s = CONTAINING_RECORD(This, struct IconExtraction, defaultExtractIconInitImpl);
-    ULONG refCount = InterlockedIncrement(&s->ref);
+    ULONG refCount = InterlockedIncrement((PLONG)&s->ref);
     TRACE("(%p)\n", This);
     return refCount;
 }
@@ -105,7 +106,7 @@ IconExtraction_DefaultExtractIconInit_Release(
 
     TRACE("(%p)\n", This);
 
-    refCount = InterlockedDecrement(&s->ref);
+    refCount = InterlockedDecrement((PLONG)&s->ref);
     if (refCount == 0)
     {
         if (s->defaultIcon.file) CoTaskMemFree(s->defaultIcon.file);
@@ -535,10 +536,10 @@ SHCreateDefaultExtractIcon(
     if (!s)
         return E_OUTOFMEMORY;
     memset(s, 0, sizeof(struct IconExtraction));
-    s->defaultExtractIconInitImpl.lpVtbl = (IDefaultExtractIconInitVtbl*)&IconExtractionDefaultExtractIconInitVtbl;
-    s->extractIconAImpl.lpVtbl = (IExtractIconAVtbl*)&IconExtractionExtractIconAVtbl;
-    s->extractIconWImpl.lpVtbl = (IExtractIconWVtbl*)&IconExtractionExtractIconWVtbl;
-    s->persistFileImpl.lpVtbl = (IPersistFileVtbl*)&IconExtractionPersistFileVtbl;
+    s->defaultExtractIconInitImpl.lpVtbl = &IconExtractionDefaultExtractIconInitVtbl;
+    s->extractIconAImpl.lpVtbl = &IconExtractionExtractIconAVtbl;
+    s->extractIconWImpl.lpVtbl = &IconExtractionExtractIconWVtbl;
+    s->persistFileImpl.lpVtbl = &IconExtractionPersistFileVtbl;
     s->ref = 1;
     *ppv = &s->defaultExtractIconInitImpl;
 

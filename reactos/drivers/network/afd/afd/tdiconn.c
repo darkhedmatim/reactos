@@ -8,17 +8,16 @@
  * 20040708 Created
  */
 #include <afd.h>
-#include <pseh/pseh2.h>
 #include "debug.h"
 #include "tdiconn.h"
 
 UINT TdiAddressSizeFromType( UINT AddressType ) {
     switch( AddressType ) {
     case AF_INET:
-		return sizeof(TA_IP_ADDRESS);
+	return sizeof(TA_IP_ADDRESS);
     default:
-		AFD_DbgPrint(MID_TRACE,("TdiAddressSizeFromType - invalid type: %x\n", AddressType));
-		KeBugCheck( 0 );
+	AFD_DbgPrint(MID_TRACE,("TdiAddressSizeFromType - invalid type: %x\n", AddressType));
+	KeBugCheck( 0 );
     }
     return 0;
 }
@@ -36,7 +35,7 @@ UINT TaLengthOfTransportAddress( PTRANSPORT_ADDRESS Addr ) {
 }
 
 VOID TaCopyAddressInPlace( PTA_ADDRESS Target,
-						   PTA_ADDRESS Source ) {
+			   PTA_ADDRESS Source ) {
     UINT AddrLen = TaLengthOfAddress( Source );
     RtlCopyMemory( Target, Source, AddrLen );
 }
@@ -44,13 +43,12 @@ VOID TaCopyAddressInPlace( PTA_ADDRESS Target,
 PTA_ADDRESS TaCopyAddress( PTA_ADDRESS Source ) {
     UINT AddrLen = TaLengthOfAddress( Source );
     PVOID Buffer = ExAllocatePool( NonPagedPool, AddrLen );
-    if (Buffer)
-       RtlCopyMemory( Buffer, Source, AddrLen );
+    RtlCopyMemory( Buffer, Source, AddrLen );
     return Buffer;
 }
 
 VOID TaCopyTransportAddressInPlace( PTRANSPORT_ADDRESS Target,
-									PTRANSPORT_ADDRESS Source ) {
+				    PTRANSPORT_ADDRESS Source ) {
     UINT AddrLen = TaLengthOfTransportAddress( Source );
     RtlCopyMemory( Target, Source, AddrLen );
 }
@@ -64,9 +62,9 @@ PTRANSPORT_ADDRESS TaCopyTransportAddress( PTRANSPORT_ADDRESS OtherAddress ) {
     A = ExAllocatePool( NonPagedPool, AddrLen );
 
     if( A )
-		TaCopyTransportAddressInPlace( A, OtherAddress );
+	TaCopyTransportAddressInPlace( A, OtherAddress );
 
-	return A;
+  return A;
 }
 
 static NTSTATUS TdiBuildNullConnectionInfoInPlace
@@ -81,23 +79,23 @@ static NTSTATUS TdiBuildNullConnectionInfoInPlace
  *     Status of operation
  */
 {
-	ULONG TdiAddressSize;
-	PTRANSPORT_ADDRESS TransportAddress;
+  ULONG TdiAddressSize;
+  PTRANSPORT_ADDRESS TransportAddress;
 
-	TdiAddressSize = TdiAddressSizeFromType(Type);
+  TdiAddressSize = TdiAddressSizeFromType(Type);
 
-	RtlZeroMemory(ConnInfo,
-				  sizeof(TDI_CONNECTION_INFORMATION) +
-				  TdiAddressSize);
+  RtlZeroMemory(ConnInfo,
+		sizeof(TDI_CONNECTION_INFORMATION) +
+		TdiAddressSize);
 
-	ConnInfo->OptionsLength = sizeof(ULONG);
-	ConnInfo->RemoteAddressLength = TdiAddressSize;
-	ConnInfo->RemoteAddress = TransportAddress =
-		(PTRANSPORT_ADDRESS)&ConnInfo[1];
-	TransportAddress->TAAddressCount = 1;
-	TransportAddress->Address[0].AddressType = Type;
+  ConnInfo->OptionsLength = sizeof(ULONG);
+  ConnInfo->RemoteAddressLength = TdiAddressSize;
+  ConnInfo->RemoteAddress = TransportAddress =
+      (PTRANSPORT_ADDRESS)&ConnInfo[1];
+  TransportAddress->TAAddressCount = 1;
+  TransportAddress->Address[0].AddressType = Type;
 
-	return STATUS_SUCCESS;
+  return STATUS_SUCCESS;
 }
 
 NTSTATUS TdiBuildNullConnectionInfo
@@ -113,34 +111,30 @@ NTSTATUS TdiBuildNullConnectionInfo
  *     Status of operation
  */
 {
-	PTDI_CONNECTION_INFORMATION ConnInfo;
-	ULONG TdiAddressSize;
-	NTSTATUS Status;
+  PTDI_CONNECTION_INFORMATION ConnInfo;
+  ULONG TdiAddressSize;
+  NTSTATUS Status;
 
-	TdiAddressSize = TdiAddressSizeFromType(Type);
+  TdiAddressSize = TdiAddressSizeFromType(Type);
 
-	ConnInfo = (PTDI_CONNECTION_INFORMATION)
-		ExAllocatePool(NonPagedPool,
-					   sizeof(TDI_CONNECTION_INFORMATION) +
-					   TdiAddressSize);
-	if (!ConnInfo) {
-		*ConnectionInfo = NULL;
-		return STATUS_INSUFFICIENT_RESOURCES;
-	}
+  ConnInfo = (PTDI_CONNECTION_INFORMATION)
+    ExAllocatePool(NonPagedPool,
+		   sizeof(TDI_CONNECTION_INFORMATION) +
+		   TdiAddressSize);
+  if (!ConnInfo)
+    return STATUS_INSUFFICIENT_RESOURCES;
 
-	Status = TdiBuildNullConnectionInfoInPlace( ConnInfo, Type );
+  Status = TdiBuildNullConnectionInfoInPlace( ConnInfo, Type );
 
-	if (!NT_SUCCESS(Status)) {
-		ExFreePool( ConnInfo );
-		*ConnectionInfo = NULL;
-		return Status;
-	} else
-		*ConnectionInfo = ConnInfo;
+  if (!NT_SUCCESS(Status))
+      ExFreePool( ConnInfo );
+  else
+      *ConnectionInfo = ConnInfo;
 
-	ConnInfo->RemoteAddress = (PTA_ADDRESS)&ConnInfo[1];
-	ConnInfo->RemoteAddressLength = TdiAddressSize;
+  ConnInfo->RemoteAddress = (PTA_ADDRESS)&ConnInfo[1];
+  ConnInfo->RemoteAddressLength = TdiAddressSize;
 
-	return Status;
+  return Status;
 }
 
 
@@ -150,13 +144,9 @@ TdiBuildConnectionInfoInPlace
   PTRANSPORT_ADDRESS Address ) {
     NTSTATUS Status = STATUS_SUCCESS;
 
-    _SEH2_TRY {
-    	RtlCopyMemory( ConnectionInfo->RemoteAddress,
-					   Address,
-					   ConnectionInfo->RemoteAddressLength );
-    } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
-		Status = _SEH2_GetExceptionCode();
-    } _SEH2_END;
+    RtlCopyMemory( ConnectionInfo->RemoteAddress,
+		   Address,
+		   ConnectionInfo->RemoteAddressLength );
 
     return Status;
 }
@@ -167,10 +157,10 @@ TdiBuildConnectionInfo
 ( PTDI_CONNECTION_INFORMATION *ConnectionInfo,
   PTRANSPORT_ADDRESS Address ) {
     NTSTATUS Status = TdiBuildNullConnectionInfo
-		( ConnectionInfo, Address->Address[0].AddressType );
+	( ConnectionInfo, Address->Address[0].AddressType );
 
     if( NT_SUCCESS(Status) )
-		TdiBuildConnectionInfoInPlace( *ConnectionInfo, Address );
+	TdiBuildConnectionInfoInPlace( *ConnectionInfo, Address );
 
     return Status;
 }
@@ -179,23 +169,21 @@ NTSTATUS
 TdiBuildConnectionInfoPair
 ( PTDI_CONNECTION_INFO_PAIR ConnectionInfo,
   PTRANSPORT_ADDRESS From, PTRANSPORT_ADDRESS To )
-/*
- * FUNCTION: Fill a TDI_CONNECTION_INFO_PAIR struct will the two addresses
- *           given.
- * ARGUMENTS:
- *   ConnectionInfo: The pair
- *   From:           The from address
- *   To:             The to address
- * RETURNS:
- *   Status of the operation
- */
+    /*
+     * FUNCTION: Fill a TDI_CONNECTION_INFO_PAIR struct will the two addresses
+     *           given.
+     * ARGUMENTS:
+     *   ConnectionInfo: The pair
+     *   From:           The from address
+     *   To:             The to address
+     * RETURNS:
+     *   Status of the operation
+     */
 {
     PCHAR LayoutFrame;
     UINT SizeOfEntry;
     ULONG TdiAddressSize;
     PTDI_CONNECTION_INFORMATION FromTdiConn, ToTdiConn;
-
-    if (!From) return STATUS_INVALID_PARAMETER;
 
     /* FIXME: Get from socket information */
     TdiAddressSize = TdiAddressSizeFromType(From->Address[0].AddressType);
@@ -210,10 +198,15 @@ TdiBuildConnectionInfoPair
 
     RtlZeroMemory( LayoutFrame, 2 * SizeOfEntry );
 
-    FromTdiConn = (PTDI_CONNECTION_INFORMATION)LayoutFrame;
-    ToTdiConn = (PTDI_CONNECTION_INFORMATION)LayoutFrame + SizeOfEntry;
+	FromTdiConn = (PTDI_CONNECTION_INFORMATION)LayoutFrame;
+	ToTdiConn = (PTDI_CONNECTION_INFORMATION)LayoutFrame + SizeOfEntry;
 
-    TdiBuildConnectionInfoInPlace( FromTdiConn, From );
+    if (From != NULL) {
+	TdiBuildConnectionInfoInPlace( FromTdiConn, From );
+    } else {
+	TdiBuildNullConnectionInfoInPlace( FromTdiConn,
+					   From->Address[0].AddressType );
+    }
 
     TdiBuildConnectionInfoInPlace( ToTdiConn, To );
 
@@ -221,10 +214,10 @@ TdiBuildConnectionInfoPair
 }
 
 PTA_ADDRESS TdiGetRemoteAddress( PTDI_CONNECTION_INFORMATION TdiConn )
-/*
- * Convenience function that rounds out the abstraction of
- * the TDI_CONNECTION_INFORMATION struct.
- */
+    /*
+     * Convenience function that rounds out the abstraction of
+     * the TDI_CONNECTION_INFORMATION struct.
+     */
 {
     return TdiConn->RemoteAddress;
 }

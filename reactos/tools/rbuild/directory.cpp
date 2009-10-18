@@ -197,7 +197,7 @@ Directory::EscapeSpaces ( const string& path )
 			newpath = newpath + "\\ ";
 		else
 			newpath = newpath + *p;
-		p++;
+		*p++;
 	}
 	return newpath;
 }
@@ -211,22 +211,18 @@ Directory::CreateRule ( FILE* f,
 
 	if ( escapedName.size() > 0 )
 	{
-		if ( ! (escapedName == "tools" &&
-		     ( parent == "$(OUTPUT)" || parent == "$(INTERMEDIATE)" ) ) )
-		{
-			fprintf ( f,
-				"%s%c%s: | %s\n",
-				parent.c_str (),
-				cSep,
-				escapedName.c_str (),
-				parent.c_str () );
+		fprintf ( f,
+			"%s%c%s: | %s\n",
+			parent.c_str (),
+			cSep,
+			escapedName.c_str (),
+			parent.c_str () );
 
-			fprintf ( f,
-				"\t$(ECHO_MKDIR)\n" );
+		fprintf ( f,
+			"\t$(ECHO_MKDIR)\n" );
 
-			fprintf ( f,
-				"\t${mkdir} $@\n" );
-		}
+		fprintf ( f,
+			"\t${mkdir} $@\n" );
 
 		path = parent + sSep + escapedName;
 	}
@@ -239,11 +235,4 @@ Directory::CreateRule ( FILE* f,
 	{
 		i->second->CreateRule ( f, path );
 	}
-}
-
-Directory::~Directory()
-{
-	std::map<std::string, Directory*>::iterator theIterator;
-	for ( theIterator = subdirs.begin (); theIterator != subdirs.end (); theIterator++ )
-		delete theIterator->second;
 }

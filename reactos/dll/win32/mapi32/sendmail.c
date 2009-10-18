@@ -67,11 +67,10 @@ ULONG WINAPI MAPISendMail( LHANDLE session, ULONG_PTR uiparam,
     static const char format[] =
         "mailto:\"%s\"?subject=\"%s\"&cc=\"%s\"&bcc=\"%s\"&body=\"%s\"";
     char *mailto = NULL, *escape = NULL;
-    char empty_string[] = "";
     HRESULT res;
     DWORD size;
 
-    TRACE( "(0x%08x 0x%08lx %p 0x%08x 0x%08x)\n", session, uiparam,
+    TRACE( "(0x%08lx 0x%08lx %p 0x%08lx 0x%08x)\n", session, uiparam,
            message, flags, reserved );
 
     if (!message) return MAPI_E_FAILURE;
@@ -128,19 +127,16 @@ ULONG WINAPI MAPISendMail( LHANDLE session, ULONG_PTR uiparam,
     {
         to = HeapAlloc( GetProcessHeap(), 0, to_size );
         if (!to) goto exit;
-        to[0] = 0;
     }
     if (cc_size)
     {
         cc = HeapAlloc( GetProcessHeap(), 0, cc_size );
         if (!cc) goto exit;
-        cc[0] = 0;
     }
     if (bcc_size)
     {
         bcc = HeapAlloc( GetProcessHeap(), 0, bcc_size );
         if (!bcc) goto exit;
-        bcc[0] = 0;
     }
 
     if (message->lpOriginator)
@@ -179,8 +175,8 @@ ULONG WINAPI MAPISendMail( LHANDLE session, ULONG_PTR uiparam,
 
     sprintf( mailto, format, to ? to : "", subject, cc ? cc : "", bcc ? bcc : "", body );
 
-    size = 1;
-    res = UrlEscapeA( mailto, empty_string, &size, URL_ESCAPE_SPACES_ONLY );
+    size = 0;
+    res = UrlEscapeA( mailto, NULL, &size, URL_ESCAPE_SPACES_ONLY );
     if (res != E_POINTER) goto exit;
 
     escape = HeapAlloc( GetProcessHeap(), 0, size );

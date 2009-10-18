@@ -27,15 +27,26 @@
  *
  *    02-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
  *        Remove all hardcode string to En.rc
- *
- *    02-Feb-2008 (Christoph von Wittich) <christoph_vw@reactos.org>)
- *        rewrote alias handling for doskey compat
-  */
+ */
 
 
 #include <precomp.h>
 
 #ifdef FEATURE_ALIASES
+
+typedef struct tagALIAS
+{
+	struct tagALIAS *next;
+	LPTSTR lpName;
+	LPTSTR lpSubst;
+	DWORD  dwUsed;
+} ALIAS, *LPALIAS;
+
+
+static LPALIAS lpFirst = NULL;
+static LPALIAS lpLast = NULL;
+static DWORD   dwUsed = 0;
+
 
 /* module internal functions */
 /* strlwr only for first word in string */
@@ -50,124 +61,247 @@ partstrlwr (LPTSTR str)
 	}
 }
 
+
 static VOID
 PrintAlias (VOID)
 {
-	LPTSTR Aliases;
-	LPTSTR ptr;
-	DWORD len;
+	LPALIAS ptr = lpFirst;
+	while (ptr)
+	{
+		ConOutPrintf (_T("%s=%s\n"), ptr->lpName, ptr->lpSubst);
+		ptr = ptr->next;
+	}
+}
 
-	len = GetConsoleAliasesLength(_T("cmd.exe"));
-	if (len <= 0)
-		return;
 
-	/* allocate memory for an extra \0 char to make parsing easier */
-	ptr = cmd_alloc(len + sizeof(TCHAR));
+static VOID
+DeleteAlias (LPTSTR pszName)
+{
+	LPALIAS ptr = lpFirst;
+	LPALIAS prev = NULL;
+
+	while (ptr)
+	{
+		if (!_tcsicmp (ptr->lpName, pszName))
+		{
+			if (prev)
+				prev->next = ptr->next;
+			else
+				lpFirst = ptr->next;
+			cmd_free (ptr->lpName);
+			cmd_free (ptr->lpSubst);
+			cmd_free (ptr);
+			return;
+		}
+		prev = ptr;
+		ptr = ptr->next;
+	}
+}
+
+
+static VOID
+AddAlias (LPTSTR name, LPTSTR subst)
+{
+	LPALIAS ptr = lpFirst;
+	LPALIAS prev, entry;
+	LPTSTR s;
+
+	while (ptr)
+	{
+		if (!_tcsicmp (ptr->lpName, name))
+		{
+			s = (LPTSTR)cmd_alloc ((_tcslen (subst) + 1)*sizeof(TCHAR));
+			if (!s)
+			{
+				error_out_of_memory ();
+				return;
+			}
+
+			cmd_free (ptr->lpSubst);
+			ptr->lpSubst = s;
+			_tcscpy (ptr->lpSubst, subst);
+			return;
+		}
+		ptr = ptr->next;
+	}
+
+	ptr = (LPALIAS)cmd_alloc (sizeof (ALIAS));
 	if (!ptr)
 		return;
 
-	Aliases = ptr;
+	ptr->next = 0;
 
-	ZeroMemory(Aliases, len + sizeof(TCHAR));
-
-	if (GetConsoleAliases(Aliases, len, _T("cmd.exe")) != 0)
+	ptr->lpName = (LPTSTR)cmd_alloc ((_tcslen (name) + 1)*sizeof(TCHAR));
+	if (!ptr->lpName)
 	{
-		while (*Aliases != '\0')
-		{
-			ConOutPrintf(_T("%s\n"), Aliases);
-			Aliases = Aliases + lstrlen(Aliases);
-			Aliases++;
-		}
+		error_out_of_memory ();
+		cmd_free (ptr);
+		return;
 	}
-	cmd_free(ptr);
+	_tcscpy (ptr->lpName, name);
+
+	ptr->lpSubst = (LPTSTR)cmd_alloc ((_tcslen (subst) + 1)*sizeof(TCHAR));
+	if (!ptr->lpSubst)
+	{
+		error_out_of_memory ();
+		cmd_free (ptr->lpName);
+		cmd_free (ptr);
+		return;
+	}
+	_tcscpy (ptr->lpSubst, subst);
+
+	/* it's necessary for recursive substitution */
+	partstrlwr (ptr->lpSubst);
+
+	ptr->dwUsed = 0;
+
+	/* Alias table must be sorted!
+	 * Here a little example:
+	 *   command line = "ls -c"
+	 * If the entries are
+	 *   ls=dir
+	 *   ls -c=ls /w
+	 * command line will be expanded to "dir -c" which is not correct.
+	 * If the entries are sortet as
+	 *   ls -c=ls /w
+	 *   ls=dir
+	 * it will be expanded to "dir /w" which is a valid DOS command.
+	 */
+	entry = lpFirst;
+	prev = 0;
+	while (entry)
+	{
+		if (_tcsicmp (ptr->lpName, entry->lpName) > 0)
+		{
+			if (prev)
+			{
+				prev->next = ptr;
+				ptr->next = entry;
+			}
+			else
+			{
+				ptr->next = entry;
+				lpFirst = ptr;
+			}
+			return;
+		}
+		prev = entry;
+		entry = entry->next;
+	}
+
+	/* The new entry is the smallest (or the first) and must be
+	 * added to the end of the list.
+	 */
+	if (!lpFirst)
+		lpFirst = ptr;
+	else
+		lpLast->next = ptr;
+	lpLast = ptr;
+
+	return;
+}
+
+
+VOID InitializeAlias (VOID)
+{
+	lpFirst = NULL;
+	lpLast = NULL;
+	dwUsed = 0;
+}
+
+VOID DestroyAlias (VOID)
+{
+        if (lpFirst == NULL)
+                return;
+
+        while (lpFirst->next != NULL)
+        {
+                lpLast = lpFirst;
+                lpFirst = lpLast->next;
+
+                cmd_free (lpLast->lpName);
+                cmd_free (lpLast->lpSubst);
+                cmd_free (lpLast);
+        }
+
+        cmd_free (lpFirst->lpName);
+        cmd_free (lpFirst->lpSubst);
+        cmd_free (lpFirst);
+
+        lpFirst = NULL;
+        lpLast = NULL;
+        dwUsed = 0;
 }
 
 /* specified routines */
 VOID ExpandAlias (LPTSTR cmd, INT maxlen)
 {
-	LPTSTR buffer;
-	TCHAR *position, *in, *out;
-	LPTSTR Token;
-	LPTSTR tmp;
+	unsigned n = 0,
+		m,
+		i,
+		len;
+	short d = 1;
+	LPALIAS ptr = lpFirst;
 
-	tmp = cmd_dup(cmd);
-	if (!tmp)
-		return;
-
-	/* first part is the macro name */
-	position = tmp + _tcscspn(tmp, _T(" \n"));
-	if (position == tmp)
+	dwUsed++;
+	if (dwUsed == 0)
 	{
-		cmd_free(tmp);
-		return;
+		while (ptr)
+			ptr->dwUsed = 0;
+		ptr = lpFirst;
+		dwUsed = 1;
 	}
-	*position++ = _T('\0');
-	position += _tcsspn(position, _T(" "));
 
-	buffer = cmd_alloc(maxlen);
-	if (!buffer)
+	/* skipping white spaces */
+	while (_istspace (cmd[n]))
+		n++;
+
+	partstrlwr (&cmd[n]);
+
+	if (!_tcsncmp (&cmd[n], _T("NOALIAS"), 7) &&
+	    (_istspace (cmd[n + 7]) || cmd[n + 7] == _T('\0')))
 	{
-		cmd_free(tmp);
-		return;
-	}
-	
-	if (GetConsoleAlias(tmp, buffer, maxlen, _T("cmd.exe")) == 0)
-	{
-		cmd_free(tmp);
-		cmd_free(buffer);
+		memmove (cmd, &cmd[n + 7], (_tcslen (&cmd[n + 7]) + 1) * sizeof (TCHAR));
 		return;
 	}
 
-	in = buffer;
-	out = cmd;
-	while (*in)
+	/* substitution loop */
+	while (d)
 	{
-		if (*in == _T('$'))
+		d = 0;
+		while (ptr)
 		{
-			Token = position;
-			if (in[1] >= _T('1') && in[1] <= _T('9'))
+			len = _tcslen (ptr->lpName);
+			if (!_tcsncmp (&cmd[n], ptr->lpName, len) &&
+			    (_istspace (cmd[n + len]) || cmd[n + len] == _T('\0')) &&
+				ptr->dwUsed != dwUsed)
 			{
-				/* Copy a single space-delimited token from the input line */
-				INT num;
-				for (num = in[1] - _T('1'); num > 0; num--)
+				m = _tcslen (ptr->lpSubst);
+				if ((int)(_tcslen (cmd) - len + m - n) > maxlen)
 				{
-					Token += _tcscspn(Token, _T(" \n"));
-					Token += _tcsspn(Token, _T(" "));
-				}
-				while (!_tcschr(_T(" \n"), *Token))
-				{
-					if (out >= &cmd[maxlen - 1])
-						break;
-					*out++ = *Token++;
-				}
-				in += 2;
-				continue;
-			}
-			else if (in[1] == _T('*'))
-			{
-				/* Copy the entire remainder of the line */
-				while (*Token && *Token != _T('\n'))
-				{
-					if (out >= &cmd[maxlen - 1])
-						break;
-					*out++ = *Token++;
-				}
-				in += 2;
-				continue;
-			}
-		}
-		if (out >= &cmd[maxlen - 1])
-			break;
-		*out++ = *in++;
-	}
-	*out++ = _T('\n');
-	*out = _T('\0');
+					ConErrResPuts(STRING_ALIAS_ERROR);
 
-	cmd_free(buffer);
-	cmd_free(tmp);
+					/* the parser won't cause any problems with an empty line */
+					cmd[0] = _T('\0');
+				}
+				else
+				{
+					memmove (&cmd[m], &cmd[n + len], (_tcslen(&cmd[n + len]) + 1) * sizeof (TCHAR));
+					for (i = 0; i < m; i++)
+						cmd[i] = ptr->lpSubst[i];
+					ptr->dwUsed = dwUsed;
+					/* whitespaces are removed! */
+					n = 0;
+					d = 1;
+				}
+			}
+			ptr = ptr->next;
+		}
+	}
 }
 
-INT CommandAlias (LPTSTR param)
+
+INT CommandAlias (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR ptr;
 
@@ -200,9 +334,9 @@ INT CommandAlias (LPTSTR param)
 	partstrlwr (param);
 
 	if (ptr[0] == _T('\0'))
-		AddConsoleAlias(param, NULL, _T("cmd.exe"));
+		DeleteAlias (param);
 	else
-		AddConsoleAlias(param, ptr, _T("cmd.exe"));
+		AddAlias (param, ptr);
 
 	return 0;
 }

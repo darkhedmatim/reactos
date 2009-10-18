@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -223,8 +224,18 @@ CmpDoCreateChild(IN PHHIVE Hive,
     PCELL_DATA CellData;
     ULONG StorageType;
     LARGE_INTEGER SystemTime;
+    BOOLEAN Hack = FALSE;
     PCM_KEY_CONTROL_BLOCK Kcb;
-    PSECURITY_DESCRIPTOR NewDescriptor;
+
+    /* ReactOS Hack */
+    if (Name->Buffer[0] == OBJ_NAME_PATH_SEPARATOR)
+    {
+        /* Skip initial path separator */
+        Name->Buffer++;
+        Name->Length -= sizeof(OBJ_NAME_PATH_SEPARATOR);
+        Name->MaximumLength -= sizeof(OBJ_NAME_PATH_SEPARATOR);
+        Hack = TRUE;
+    }
 
     /* Get the storage type */
     StorageType = Stable;
@@ -286,7 +297,7 @@ CmpDoCreateChild(IN PHHIVE Hive,
     
     /* Setup the key body */
     KeyBody = (PCM_KEY_BODY)(*Object);
-    KeyBody->Type = '20yk';
+    KeyBody->Type = TAG('k', 'y', '0', '2');
     KeyBody->KeyControlBlock = NULL;
 
     /* Check if we had a class */
@@ -340,7 +351,7 @@ CmpDoCreateChild(IN PHHIVE Hive,
                                    *KeyCell,
                                    KeyNode,
                                    ParentKcb,
-                                   0, // CMP_LOCK_HASHES_FOR_KCB,
+                                   CMP_LOCK_HASHES_FOR_KCB,
                                    Name);
     if (!Kcb)
     {
@@ -361,26 +372,6 @@ CmpDoCreateChild(IN PHHIVE Hive,
     /* Link it with the KCB */
     EnlistKeyBodyWithKCB(KeyBody, 0);
 
-    /* Assign security */
-    Status = SeAssignSecurity(ParentDescriptor,
-                              AccessState->SecurityDescriptor,
-                              &NewDescriptor,
-                              TRUE,
-                              &AccessState->SubjectSecurityContext,
-                              &CmpKeyObjectType->TypeInfo.GenericMapping,
-                              CmpKeyObjectType->TypeInfo.PoolType);
-    if (NT_SUCCESS(Status))
-    {
-        Status = CmpSecurityMethod(*Object,
-                                   AssignSecurityDescriptor,
-                                   NULL,
-                                   NewDescriptor,
-                                   NULL,
-                                   NULL,
-                                   CmpKeyObjectType->TypeInfo.PoolType,
-                                   &CmpKeyObjectType->TypeInfo.GenericMapping);
-    }
-
 Quickie:
     /* Check if we got here because of failure */
     if (!NT_SUCCESS(Status))
@@ -388,6 +379,15 @@ Quickie:
         /* Free any cells we might've allocated */
         if (ParseContext->Class.Length > 0) HvFreeCell(Hive, ClassCell);
         HvFreeCell(Hive, *KeyCell);
+    }
+
+    /* Check if we applied ReactOS hack */
+    if (Hack)
+    {
+        /* Restore name */
+        Name->Buffer--;
+        Name->Length += sizeof(OBJ_NAME_PATH_SEPARATOR);
+        Name->MaximumLength += sizeof(OBJ_NAME_PATH_SEPARATOR);
     }
 
     /* Return status */
@@ -584,100 +584,21 @@ CmpDoOpen(IN PHHIVE Hive,
         /* It is, don't touch it */
         return STATUS_OBJECT_NAME_NOT_FOUND;
     }
-
-    /* Check if we have a context */
-    if (Context)
-    {
-        /* Check if this is a link create (which shouldn't be an open) */
-        if (Context->CreateLink)
-        {
-            return STATUS_ACCESS_DENIED;
-        }
-
-        /* Check if this is symlink create attempt */
-        if (Context->CreateOptions & REG_OPTION_CREATE_LINK)
-        {
-            /* Key already exists */
-            return STATUS_OBJECT_NAME_COLLISION;
-        }
-
-        /* Set the disposition */
-        Context->Disposition = REG_OPENED_EXISTING_KEY;
-    }
-
+    
     /* Do this in the registry lock */
     CmpLockRegistry();
 
     /* If we have a KCB, make sure it's locked */
     //ASSERT(CmpIsKcbLockedExclusive(*CachedKcb));
 
-    /* Check if caller doesn't want to create a KCB */
-    if (ControlFlags & CMP_OPEN_KCB_NO_CREATE)
-    {
-        /* Check if this is a symlink */
-        if ((Node->Flags & KEY_SYM_LINK) && !(Attributes & OBJ_OPENLINK))
-        {
-            /* This case for a cached KCB is not implemented yet */
-            ASSERT(FALSE);
-        }
-
-        /* The caller wants to open a cached KCB */
-        if (!CmpReferenceKeyControlBlock(*CachedKcb))
-        {
-            /* Release the registry lock */
-            CmpUnlockRegistry();
-
-            /* Return failure code */
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        /* Our kcb is that one */
-        Kcb = *CachedKcb;
-    }
-    else
-    {
-        /* Check if this is a symlink */
-        if ((Node->Flags & KEY_SYM_LINK) && !(Attributes & OBJ_OPENLINK))
-        {
-            /* Create the KCB for the symlink */
-            Kcb = CmpCreateKeyControlBlock(Hive,
-                                           Cell,
-                                           Node,
-                                           *CachedKcb,
-                                           0,
-                                           KeyName);
-            if (!Kcb)
-            {
-                /* Release registry lock and return failure */
-                CmpUnlockRegistry();
-                return STATUS_INSUFFICIENT_RESOURCES;
-            }
-
-            /* Make sure it's also locked, and set the pointer */
-            //ASSERT(CmpIsKcbLockedExclusive(Kcb));
-            *CachedKcb = Kcb;
-
-            /* Release the registry lock */
-            CmpUnlockRegistry();
-
-            /* Return reparse required */
-            return STATUS_REPARSE;
-        }
-
-        /* Create the KCB. FIXME: Use lock flag */
-        Kcb = CmpCreateKeyControlBlock(Hive,
-                                       Cell,
-                                       Node,
-                                       *CachedKcb,
-                                       0,
-                                       KeyName);
-        if (!Kcb)
-        {
-            /* Release registry lock and return failure */
-            CmpUnlockRegistry();
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-    }
+    /* Create the KCB. FIXME: Use lock flag */
+    Kcb = CmpCreateKeyControlBlock(Hive,
+                                   Cell,
+                                   Node,
+                                   *CachedKcb,
+                                   0,
+                                   KeyName);
+    if (!Kcb) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Make sure it's also locked, and set the pointer */
     //ASSERT(CmpIsKcbLockedExclusive(Kcb));
@@ -701,22 +622,12 @@ CmpDoOpen(IN PHHIVE Hive,
         /* Get the key body and fill it out */
         KeyBody = (PCM_KEY_BODY)(*Object);       
         KeyBody->KeyControlBlock = Kcb;
-        KeyBody->Type = '20yk';
+        KeyBody->Type = TAG('k', 'y', '0', '2');
         KeyBody->ProcessID = PsGetCurrentProcessId();
         KeyBody->NotifyBlock = NULL;
         
         /* Link to the KCB */
         EnlistKeyBodyWithKCB(KeyBody, 0);
-
-        if (!ObCheckObjectAccess(*Object,
-                                 AccessState,
-                                 FALSE,
-                                 AccessMode,
-                                 &Status))
-        {
-            /* Access check failed */
-            ObDereferenceObject(*Object);
-        }
     }
     else
     {
@@ -824,7 +735,7 @@ CmpCreateLinkNode(IN PHHIVE Hive,
                            AccessState,
                            AccessMode,
                            CreateOptions,
-                           NULL,
+                           Context,
                            0,
                            &Kcb,
                            &Name,
@@ -871,7 +782,7 @@ CmpCreateLinkNode(IN PHHIVE Hive,
         /* Release it */
         HvReleaseCell(Context->ChildHive.KeyHive, ChildCell);
         
-        /* Set the parent and flags */
+        /* Set the parent adn flags */
         KeyNode->Parent = LinkCell;
         KeyNode->Flags |= KEY_HIVE_ENTRY | KEY_NO_DELETE;
         
@@ -1035,29 +946,23 @@ CmpBuildHashStackAndLookupCache(IN PCM_KEY_BODY ParseObject,
     /* Return hive and cell data */
     *Hive = (*Kcb)->KeyHive;
     *Cell = (*Kcb)->KeyCell;
-
-    /* Make sure it's not a dead KCB */
-    ASSERT((*Kcb)->RefCount > 0);
-
-    /* Reference it */
-    (VOID)CmpReferenceKeyControlBlock(*Kcb);
-
+    
     /* Return success for now */
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 NTAPI
-CmpParseKey(IN PVOID ParseObject,
-            IN PVOID ObjectType,
-            IN OUT PACCESS_STATE AccessState,
-            IN KPROCESSOR_MODE AccessMode,
-            IN ULONG Attributes,
-            IN OUT PUNICODE_STRING CompleteName,
-            IN OUT PUNICODE_STRING RemainingName,
-            IN OUT PVOID Context OPTIONAL,
-            IN PSECURITY_QUALITY_OF_SERVICE SecurityQos OPTIONAL,
-            OUT PVOID *Object)
+CmpParseKey2(IN PVOID ParseObject,
+             IN PVOID ObjectType,
+             IN OUT PACCESS_STATE AccessState,
+             IN KPROCESSOR_MODE AccessMode,
+             IN ULONG Attributes,
+             IN OUT PUNICODE_STRING CompleteName,
+             IN OUT PUNICODE_STRING RemainingName,
+             IN OUT PVOID Context OPTIONAL,
+             IN PSECURITY_QUALITY_OF_SERVICE SecurityQos OPTIONAL,
+             OUT PVOID *Object)
 {
     NTSTATUS Status;
     PCM_KEY_CONTROL_BLOCK Kcb, ParentKcb;
@@ -1072,6 +977,7 @@ CmpParseKey(IN PVOID ParseObject,
     PULONG LockedKcbs = NULL;
     BOOLEAN Result, Last;
     PAGED_CODE();
+    DPRINT1("New style parse routine called: %wZ %wZ!\n", CompleteName, RemainingName);
 
     /* Loop path separators at the end */
     while ((RemainingName->Length) &&
@@ -1097,6 +1003,7 @@ CmpParseKey(IN PVOID ParseObject,
     
     /* Grab the KCB */
     Kcb = ((PCM_KEY_BODY)ParseObject)->KeyControlBlock;
+    DPRINT1("KCB Parse: %p\n", Kcb);
 
     /* Lookup in the cache */
     Status = CmpBuildHashStackAndLookupCache(ParseObject,
@@ -1112,20 +1019,22 @@ CmpParseKey(IN PVOID ParseObject,
     
     /* This is now the parent */
     ParentKcb = Kcb;
+    DPRINT1("ParentKcb Parse: %p\n", ParentKcb);
+    DPRINT1("Hive Parse: %p\n", Hive);
+    DPRINT1("Cell Parse: %p\n", Cell);    
     
     /* Check if everything was found cached */
     if (!TotalRemainingSubkeys) ASSERTMSG("Caching not implemented", FALSE);
-
+    
     /* Don't do anything if we're being deleted */
-    if (Kcb->Delete)
-    {
-        Status = STATUS_OBJECT_NAME_NOT_FOUND;
-        goto Quickie;
-    }
-
+    if (Kcb->Delete) return STATUS_OBJECT_NAME_NOT_FOUND;
+    
     /* Check if this is a symlink */
     if (Kcb->Flags & KEY_SYM_LINK)
     {
+        DPRINT1("Parsing sym link: %lx %lx %lx\n", Kcb->Flags, Status,
+                CompleteName);
+        
         /* Get the next name */
         Result = CmpGetNextName(&Current, &NextName, &Last);
         Current.Buffer = NextName.Buffer;
@@ -1162,6 +1071,10 @@ CmpParseKey(IN PVOID ParseObject,
             /* Couldn't find symlink */
             Status = STATUS_OBJECT_NAME_NOT_FOUND;
         }
+        
+        /* Not implemented */
+        DPRINT1("Parsing sym link: %lx %wZ %wZ\n", Status,
+                CompleteName, &Current);
 
         /* We're done */
         goto Quickie;
@@ -1169,18 +1082,16 @@ CmpParseKey(IN PVOID ParseObject,
     
     /* Get the key node */
     Node = (PCM_KEY_NODE)HvGetCell(Hive, Cell);
-    if (!Node)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto Quickie;
-    }
-
+    if (!Node) return STATUS_INSUFFICIENT_RESOURCES;
+    DPRINT1("Node Parse: %p\n", Node);
+    
     /* Start parsing */
     Status = STATUS_NOT_IMPLEMENTED;
     while (TRUE)
     {
         /* Get the next component */
-        Result = CmpGetNextName(&Current, &NextName, &Last);
+        Result = CmpGetNextName(&Current, &NextName, &Last); 
+        DPRINT1("Result Parse: %p\n", Result);
         if ((Result) && (NextName.Length))
         {
             /* See if this is a sym link */
@@ -1188,11 +1099,13 @@ CmpParseKey(IN PVOID ParseObject,
             {
                 /* Find the subkey */
                 NextCell = CmpFindSubKeyByName(Hive, Node, &NextName);
+                DPRINT1("NextCell Parse: %lx %wZ\n", NextCell, &NextName);
                 if (NextCell != HCELL_NIL)
                 {
                     /* Get the new node */
                     Cell = NextCell;
                     Node = (PCM_KEY_NODE)HvGetCell(Hive, Cell);
+                    DPRINT1("Node Parse: %p\n", Node);
                     if (!Node) ASSERT(FALSE);
                     
                     /* Check if this was the last key */
@@ -1202,11 +1115,13 @@ CmpParseKey(IN PVOID ParseObject,
                         if (Node->Flags & KEY_HIVE_EXIT)
                         {
                             /* Handle it */
+                            DPRINT1("Exit node\n");
                             CmpHandleExitNode(&Hive,
                                               &Cell,
                                               &Node,
                                               &HiveToRelease,
                                               &CellToRelease);
+                            DPRINT1("Node Parse: %p\n", Node);
                             if (!Node) ASSERT(FALSE);
                         }
                         
@@ -1224,6 +1139,9 @@ CmpParseKey(IN PVOID ParseObject,
                                            Object);
                         if (Status == STATUS_REPARSE)
                         {
+                            DPRINT1("Parsing sym link: %lx %lx\n", Status,
+                                    CompleteName);
+
                             /* Parse the symlink */
                             if (!CmpGetSymbolicLink(Hive,
                                                     CompleteName,
@@ -1233,9 +1151,15 @@ CmpParseKey(IN PVOID ParseObject,
                                 /* Symlink parse failed */
                                 Status = STATUS_OBJECT_NAME_NOT_FOUND;
                             }
+
+                            /* Not implemented */
+                            DPRINT1("Parsing sym link: %lx %wZ\n", Status,
+                                    CompleteName);
+                            while (TRUE); 
                         }
                         
                         /* We are done */
+                        DPRINT1("Open of last key\n");
                         break;
                     }
                     
@@ -1243,11 +1167,13 @@ CmpParseKey(IN PVOID ParseObject,
                     if (Node->Flags & KEY_HIVE_EXIT)
                     {
                         /* Handle it */
+                        DPRINT1("Exit node: %lx\n", Node->Flags);
                         CmpHandleExitNode(&Hive,
                                           &Cell,
                                           &Node,
                                           &HiveToRelease,
                                           &CellToRelease);
+                        DPRINT1("Node Parse: %p\n", Node);
                         if (!Node) ASSERT(FALSE);
                     }
 
@@ -1259,6 +1185,7 @@ CmpParseKey(IN PVOID ParseObject,
                                                    0,
                                                    &NextName);
                     if (!Kcb) ASSERT(FALSE);
+                    DPRINT1("Kcb Parse: %p\n", Kcb);
                     
                     /* Dereference the parent and set the new one */
                     CmpDereferenceKeyControlBlock(ParentKcb);
@@ -1269,6 +1196,8 @@ CmpParseKey(IN PVOID ParseObject,
                     /* Check if this was the last key for a create */
                     if ((Last) && (ParseContext))
                     {
+                        PCM_KEY_BODY KeyBody;
+
                         /* Check if we're doing a link node */
                         if (ParseContext->CreateLink)
                         {
@@ -1282,22 +1211,22 @@ CmpParseKey(IN PVOID ParseObject,
                                                        ParseContext,
                                                        ParentKcb,
                                                        Object);
+                            DPRINT1("Link created: %lx\n", Status);
                         }
                         else
                         {
-                            /* Do the create */
-                            Status = CmpDoCreate(Hive,
-                                                 Cell,
-                                                 AccessState,
-                                                 &NextName,
-                                                 AccessMode,
-                                                 ParseContext,
-                                                 ParentKcb,
-                                                 Object);
+                            /* Create: should not see this (yet) */
+                            DPRINT1("Unexpected: Creating new child\n");
+                            while (TRUE);
                         }
                         
                         /* Check for reparse (in this case, someone beat us) */
                         if (Status == STATUS_REPARSE) break;
+                        
+                        /* ReactOS Hack: Link this key to the parent */
+                        KeyBody = (PCM_KEY_BODY)*Object;
+                        InsertTailList(&ParentKcb->KeyBodyListHead,
+                                       &KeyBody->KeyBodyList);
 
                         /* Update disposition */
                         ParseContext->Disposition = REG_CREATED_NEW_KEY;
@@ -1313,6 +1242,9 @@ CmpParseKey(IN PVOID ParseObject,
             }
             else
             {
+                DPRINT1("Parsing sym link: %lx %lx\n", Status,
+                        CompleteName);
+                
                 /* Save the next name */
                 Current.Buffer = NextName.Buffer;
                 
@@ -1348,44 +1280,20 @@ CmpParseKey(IN PVOID ParseObject,
                     /* Couldn't find symlink */
                     Status = STATUS_OBJECT_NAME_NOT_FOUND;
                 }
-
+                
+                /* Not implemented */
+                DPRINT1("Parsing sym link: %lx %wZ %wZ\n", Status,
+                        CompleteName, &Current);
+                
                 /* We're done */
                 break;
             }
         }
         else if ((Result) && (Last))
         {
-            /* Opening the root. Is this an exit node? */
-            if (Node->Flags & KEY_HIVE_EXIT)
-            {
-                /* Handle it */
-                CmpHandleExitNode(&Hive,
-                                  &Cell,
-                                  &Node,
-                                  &HiveToRelease,
-                                  &CellToRelease);
-                if (!Node) ASSERT(FALSE);
-            }
-
-            /* Do the open */
-            Status = CmpDoOpen(Hive,
-                               Cell,
-                               Node,
-                               AccessState,
-                               AccessMode,
-                               Attributes,
-                               ParseContext,
-                               CMP_OPEN_KCB_NO_CREATE /* | CMP_CREATE_KCB_KCB_LOCKED */,
-                               &Kcb,
-                               &NextName,
-                               Object);
-            if (Status == STATUS_REPARSE)
-            {
-                /* Nothing to do */
-            }
-            
-            /* We're done */
-            break;
+            /* Opening root: unexpected */
+            DPRINT1("Unexpected: Opening root\n");
+            while (TRUE);
         }
         else
         {

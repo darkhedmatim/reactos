@@ -18,7 +18,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include <stdarg.h>
+
+#include "windef.h"
+#include "winbase.h"
+#include "ddeml.h"
+#include "shellapi.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -33,7 +40,7 @@ static HSZ hszFolders;
 static DWORD dwDDEInst;
 
 
-static BOOL __inline Dde_OnConnect(HSZ hszTopic, HSZ hszService)
+static inline BOOL Dde_OnConnect(HSZ hszTopic, HSZ hszService)
 {
     if ((hszTopic == hszProgmanTopic) && (hszService == hszProgmanService))
         return TRUE;
@@ -46,25 +53,25 @@ static BOOL __inline Dde_OnConnect(HSZ hszTopic, HSZ hszService)
     return FALSE;
 }
 
-static void __inline Dde_OnConnectConfirm(HCONV hconv, HSZ hszTopic, HSZ hszService)
+static inline void Dde_OnConnectConfirm(HCONV hconv, HSZ hszTopic, HSZ hszService)
 {
     FIXME("stub\n");
 }
 
-static BOOL __inline Dde_OnWildConnect(HSZ hszTopic, HSZ hszService)
+static inline BOOL Dde_OnWildConnect(HSZ hszTopic, HSZ hszService)
 {
     FIXME("stub\n");
     return FALSE;
 }
 
-static HDDEDATA __inline Dde_OnRequest(UINT uFmt, HCONV hconv, HSZ hszTopic,
+static inline HDDEDATA Dde_OnRequest(UINT uFmt, HCONV hconv, HSZ hszTopic,
                                      HSZ hszItem)
 {
     FIXME("stub\n");
     return NULL;
 }
 
-static DWORD __inline Dde_OnExecute(HCONV hconv, HSZ hszTopic, HDDEDATA hdata)
+static inline DWORD Dde_OnExecute(HCONV hconv, HSZ hszTopic, HDDEDATA hdata)
 {
     BYTE * pszCommand;
 
@@ -79,7 +86,7 @@ static DWORD __inline Dde_OnExecute(HCONV hconv, HSZ hszTopic, HDDEDATA hdata)
     return DDE_FNOTPROCESSED;
 }
 
-static void __inline Dde_OnDisconnect(HCONV hconv)
+static inline void Dde_OnDisconnect(HCONV hconv)
 {
     FIXME("stub\n");
 }

@@ -132,9 +132,6 @@ ServiceMain(DWORD argc, LPWSTR argv)
         return;
 */
     }
-    /* start system audio services */
-    StartSystemAudioServices();
-
 
     InitializeFakeDevice();
 

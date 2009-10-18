@@ -1,7 +1,7 @@
 /*
  * void *memcpy (void *to, const void *from, size_t count)
  *
- * NOTE: This code is a duplicate of memmove function from memmove_asm.s
+ * Some optimization research can be found in media/doc/memcpy_optimize.txt
  */
 
 .globl	_memcpy
@@ -9,31 +9,19 @@
 _memcpy:
 	push	%ebp
 	mov	%esp,%ebp
-	
 	push	%esi
 	push	%edi
-	
-	mov	8(%ebp),%edi
-	mov	12(%ebp),%esi
-	mov	16(%ebp),%ecx
-	
-	cmp	%esi,%edi
-	jbe	.CopyUp
-	mov	%ecx,%eax
-	add	%esi,%eax
-	cmp	%eax,%edi
-	jb	.CopyDown
-	
-.CopyUp:	
+	mov	0x8(%ebp),%edi
+	mov	0xc(%ebp),%esi
+	mov	0x10(%ebp),%ecx
 	cld
-	
 	cmp	$16,%ecx
 	jb	.L1
 	mov	%ecx,%edx
 	test	$3,%edi
 	je	.L2
 /*
- * Make the destination dword aligned
+ *  Make the destination dword aligned
  */
         mov	%edi,%ecx
         and	$3,%ecx
@@ -52,63 +40,9 @@ _memcpy:
 	je	.L3
 	rep	movsb
 .L3:
-	mov	8(%ebp),%eax
 	pop	%edi
 	pop	%esi
+	mov	0x8(%ebp),%eax
 	leave
 	ret
-
-.CopyDown:
-        std
-        
-	add	%ecx,%edi
-	add	%ecx,%esi
-	
-	cmp	$16,%ecx
-	jb	.L4
-        mov	%ecx,%edx
-	test	$3,%edi
-	je	.L5
-	
-/*
- * Make the destination dword aligned
- */
-	mov	%edi,%ecx
-	and	$3,%ecx
-	sub	%ecx,%edx
-	dec	%esi
-	dec	%edi
-	rep	movsb
-	mov	%edx,%ecx
-	
-	sub	$3,%esi
-	sub	$3,%edi
-.L6:	
-	shr	$2,%ecx
-	rep	movsl
-	mov	%edx,%ecx
-	and	$3,%ecx
-	je	.L7
-	add	$3,%esi
-	add	$3,%edi
-.L8:	
-	rep	movsb
-.L7:
-	cld
-	mov	8(%ebp),%eax
-	pop	%edi
-	pop	%esi
-	leave
-	ret
-.L5:
-	sub	$4,%edi
-	sub	$4,%esi
-	jmp	.L6
-		
-.L4:
-	test	%ecx,%ecx
-	je	.L7	
-	dec	%esi
-	dec	%edi
-	jmp	.L8
 

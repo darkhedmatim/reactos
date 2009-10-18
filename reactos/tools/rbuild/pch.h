@@ -20,15 +20,12 @@
 
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 ) // identifier was truncated to '255' characters in the debug information
-#pragma warning ( disable : 4996 ) // CRT deprecate
 #endif//_MSC_VER
 
 #include <string>
 #include <vector>
 #include <map>
 #include <set>
-#include <utility>
-#include <bitset>
 
 #ifdef WIN32
 #include <windows.h>
@@ -43,7 +40,7 @@ typedef LONG *PLONG;
 #endif//WIN32
 
 #include <stdarg.h>
-#include <stdio.h>
+
 
 #ifndef WIN32
 #include <string.h>

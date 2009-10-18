@@ -291,7 +291,7 @@ typedef struct _TEB
     ULONG           GdiClientTID;               /* 6f8 */
     PVOID           GdiThreadLocaleInfo;        /* 6fc */
     PVOID           UserReserved[5];            /* 700 */
-    PVOID           glDispatchTable[280];        /* 714 */
+    PVOID           glDispachTable[280];        /* 714 */
     ULONG           glReserved1[26];            /* b74 */
     PVOID           glReserved2;                /* bdc */
     PVOID           glSectionInfo;              /* be0 */
@@ -1622,11 +1622,6 @@ typedef enum _IO_COMPLETION_INFORMATION_CLASS {
   IoCompletionBasicInformation
 } IO_COMPLETION_INFORMATION_CLASS, *PIO_COMPLETION_INFORMATION_CLASS;
 
-typedef struct _FILE_COMPLETION_INFORMATION {
-    HANDLE CompletionPort;
-    ULONG_PTR CompletionKey;
-} FILE_COMPLETION_INFORMATION, *PFILE_COMPLETION_INFORMATION;
-
 typedef enum _HARDERROR_RESPONSE_OPTION {
   OptionAbortRetryIgnore,
   OptionOk,
@@ -1661,6 +1656,9 @@ typedef enum _SYSDBG_COMMAND {
 /***********************************************************************
  * Function declarations
  */
+
+extern LPSTR _strlwr(LPSTR str); /* FIXME: Doesn't belong here */
+extern LPSTR _strupr(LPSTR str); /* FIXME: Doesn't belong here */
 
 #if defined(__i386__) && defined(__GNUC__)
 static inline void WINAPI DbgBreakPoint(void) { __asm__ __volatile__("int3"); }
@@ -1736,7 +1734,7 @@ NTSTATUS  WINAPI NtFindAtom(const WCHAR*,ULONG,RTL_ATOM*);
 NTSTATUS  WINAPI NtFlushBuffersFile(HANDLE,IO_STATUS_BLOCK*);
 NTSTATUS  WINAPI NtFlushInstructionCache(HANDLE,LPCVOID,SIZE_T);
 NTSTATUS  WINAPI NtFlushKey(HANDLE);
-NTSTATUS  WINAPI NtFlushVirtualMemory(HANDLE,LPCVOID*,SIZE_T*,PIO_STATUS_BLOCK);
+NTSTATUS  WINAPI NtFlushVirtualMemory(HANDLE,LPCVOID*,SIZE_T*,ULONG);
 NTSTATUS  WINAPI NtFlushWriteBuffer(VOID);
 NTSTATUS  WINAPI NtFreeVirtualMemory(HANDLE,PVOID*,SIZE_T*,ULONG);
 NTSTATUS  WINAPI NtFsControlFile(HANDLE,HANDLE,PIO_APC_ROUTINE,PVOID,PIO_STATUS_BLOCK,ULONG,PVOID,ULONG,PVOID,ULONG);
@@ -1987,7 +1985,7 @@ BOOL      WINAPI RtlEqualPrefixSid(PSID,PSID);
 BOOL      WINAPI RtlEqualSid(PSID,PSID);
 BOOLEAN   WINAPI RtlEqualString(const STRING*,const STRING*,BOOLEAN);
 BOOLEAN   WINAPI RtlEqualUnicodeString(const UNICODE_STRING*,const UNICODE_STRING*,BOOLEAN);
-DECLSPEC_NORETURN void      WINAPI RtlExitUserThread(ULONG);
+void      WINAPI RtlExitUserThread(ULONG) DECLSPEC_NORETURN;
 NTSTATUS  WINAPI RtlExpandEnvironmentStrings_U(PWSTR, const UNICODE_STRING*, UNICODE_STRING*, ULONG*);
 LONGLONG  WINAPI RtlExtendedMagicDivide(LONGLONG,LONGLONG,INT);
 LONGLONG  WINAPI RtlExtendedIntegerMultiply(LONGLONG,INT);

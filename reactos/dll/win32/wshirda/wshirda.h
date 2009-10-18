@@ -14,7 +14,7 @@
 
 #include <wsahelp.h>
 
-#define EXPORT WINAPI
+#define EXPORT STDCALL
 
 #endif /* __WSHIRDA_H */
 

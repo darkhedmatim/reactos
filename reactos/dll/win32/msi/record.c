@@ -73,7 +73,7 @@ static void MSI_CloseRecord( MSIOBJECTHDR *arg )
         MSI_FreeField( &rec->fields[i] );
 }
 
-MSIRECORD *MSI_CreateRecord( UINT cParams )
+MSIRECORD *MSI_CreateRecord( unsigned int cParams )
 {
     MSIRECORD *rec;
     UINT len;
@@ -90,7 +90,7 @@ MSIRECORD *MSI_CreateRecord( UINT cParams )
     return rec;
 }
 
-MSIHANDLE WINAPI MsiCreateRecord( UINT cParams )
+MSIHANDLE WINAPI MsiCreateRecord( unsigned int cParams )
 {
     MSIRECORD *rec;
     MSIHANDLE ret = 0;
@@ -106,17 +106,17 @@ MSIHANDLE WINAPI MsiCreateRecord( UINT cParams )
     return ret;
 }
 
-UINT MSI_RecordGetFieldCount( const MSIRECORD *rec )
+unsigned int MSI_RecordGetFieldCount( MSIRECORD *rec )
 {
     return rec->count;
 }
 
-UINT WINAPI MsiRecordGetFieldCount( MSIHANDLE handle )
+unsigned int WINAPI MsiRecordGetFieldCount( MSIHANDLE handle )
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d\n", handle );
+    TRACE("%ld\n", handle );
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -148,13 +148,13 @@ static BOOL string2intW( LPCWSTR str, int *out )
 
     if( str[0] == '-' ) /* check if it's negative */
         x = -x;
-    *out = x; 
+    *out = x;
 
     return TRUE;
 }
 
-UINT MSI_RecordCopyField( MSIRECORD *in_rec, UINT in_n,
-                          MSIRECORD *out_rec, UINT out_n )
+UINT MSI_RecordCopyField( MSIRECORD *in_rec, unsigned int in_n,
+                          MSIRECORD *out_rec, unsigned int out_n )
 {
     UINT r = ERROR_SUCCESS;
 
@@ -200,7 +200,7 @@ UINT MSI_RecordCopyField( MSIRECORD *in_rec, UINT in_n,
     return r;
 }
 
-int MSI_RecordGetInteger( MSIRECORD *rec, UINT iField)
+int MSI_RecordGetInteger( MSIRECORD *rec, unsigned int iField)
 {
     int ret = 0;
 
@@ -224,12 +224,12 @@ int MSI_RecordGetInteger( MSIRECORD *rec, UINT iField)
     return MSI_NULL_INTEGER;
 }
 
-int WINAPI MsiRecordGetInteger( MSIHANDLE handle, UINT iField)
+int WINAPI MsiRecordGetInteger( MSIHANDLE handle, unsigned int iField)
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d\n", handle, iField );
+    TRACE("%ld %d\n", handle, iField );
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -248,7 +248,7 @@ UINT WINAPI MsiRecordClearData( MSIHANDLE handle )
     MSIRECORD *rec;
     UINT i;
 
-    TRACE("%d\n", handle );
+    TRACE("%ld\n", handle );
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -267,7 +267,7 @@ UINT WINAPI MsiRecordClearData( MSIHANDLE handle )
     return ERROR_SUCCESS;
 }
 
-UINT MSI_RecordSetInteger( MSIRECORD *rec, UINT iField, int iVal )
+UINT MSI_RecordSetInteger( MSIRECORD *rec, unsigned int iField, int iVal )
 {
     TRACE("%p %u %d\n", rec, iField, iVal);
 
@@ -281,12 +281,12 @@ UINT MSI_RecordSetInteger( MSIRECORD *rec, UINT iField, int iVal )
     return ERROR_SUCCESS;
 }
 
-UINT WINAPI MsiRecordSetInteger( MSIHANDLE handle, UINT iField, int iVal )
+UINT WINAPI MsiRecordSetInteger( MSIHANDLE handle, unsigned int iField, int iVal )
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %u %d\n", handle, iField, iVal);
+    TRACE("%ld %u %d\n", handle, iField, iVal);
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -299,7 +299,7 @@ UINT WINAPI MsiRecordSetInteger( MSIHANDLE handle, UINT iField, int iVal )
     return ret;
 }
 
-BOOL MSI_RecordIsNull( MSIRECORD *rec, UINT iField )
+BOOL MSI_RecordIsNull( MSIRECORD *rec, unsigned int iField )
 {
     BOOL r = TRUE;
 
@@ -311,12 +311,12 @@ BOOL MSI_RecordIsNull( MSIRECORD *rec, UINT iField )
     return r;
 }
 
-BOOL WINAPI MsiRecordIsNull( MSIHANDLE handle, UINT iField )
+BOOL WINAPI MsiRecordIsNull( MSIHANDLE handle, unsigned int iField )
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d\n", handle, iField );
+    TRACE("%ld %d\n", handle, iField );
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -329,8 +329,8 @@ BOOL WINAPI MsiRecordIsNull( MSIHANDLE handle, UINT iField )
 
 }
 
-UINT MSI_RecordGetStringA(MSIRECORD *rec, UINT iField,
-               LPSTR szValue, LPDWORD pcchValue)
+UINT MSI_RecordGetStringA(MSIRECORD *rec, unsigned int iField,
+               LPSTR szValue, DWORD *pcchValue)
 {
     UINT len=0, ret;
     CHAR buffer[16];
@@ -338,13 +338,7 @@ UINT MSI_RecordGetStringA(MSIRECORD *rec, UINT iField,
     TRACE("%p %d %p %p\n", rec, iField, szValue, pcchValue);
 
     if( iField > rec->count )
-    {
-        if ( szValue && *pcchValue > 0 )
-            szValue[0] = 0;
-
-        *pcchValue = 0;
-        return ERROR_SUCCESS;
-    }
+        return ERROR_INVALID_PARAMETER;
 
     ret = ERROR_SUCCESS;
     switch( rec->fields[iField].type )
@@ -352,22 +346,20 @@ UINT MSI_RecordGetStringA(MSIRECORD *rec, UINT iField,
     case MSIFIELD_INT:
         wsprintfA(buffer, "%d", rec->fields[iField].u.iVal);
         len = lstrlenA( buffer );
-        if (szValue)
-            lstrcpynA(szValue, buffer, *pcchValue);
+        lstrcpynA(szValue, buffer, *pcchValue);
         break;
     case MSIFIELD_WSTR:
         len = WideCharToMultiByte( CP_ACP, 0, rec->fields[iField].u.szwVal, -1,
                              NULL, 0 , NULL, NULL);
-        if (szValue)
-            WideCharToMultiByte( CP_ACP, 0, rec->fields[iField].u.szwVal, -1,
-                                 szValue, *pcchValue, NULL, NULL);
+        WideCharToMultiByte( CP_ACP, 0, rec->fields[iField].u.szwVal, -1,
+                             szValue, *pcchValue, NULL, NULL);
         if( szValue && *pcchValue && len>*pcchValue )
             szValue[*pcchValue-1] = 0;
         if( len )
             len--;
         break;
     case MSIFIELD_NULL:
-        if( szValue && *pcchValue > 0 )
+        if( *pcchValue > 0 )
             szValue[0] = 0;
         break;
     default:
@@ -382,13 +374,13 @@ UINT MSI_RecordGetStringA(MSIRECORD *rec, UINT iField,
     return ret;
 }
 
-UINT WINAPI MsiRecordGetStringA(MSIHANDLE handle, UINT iField,
-               LPSTR szValue, LPDWORD pcchValue)
+UINT WINAPI MsiRecordGetStringA(MSIHANDLE handle, unsigned int iField,
+               LPSTR szValue, DWORD *pcchValue)
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d %p %p\n", handle, iField, szValue, pcchValue);
+    TRACE("%ld %d %p %p\n", handle, iField, szValue, pcchValue);
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -400,7 +392,7 @@ UINT WINAPI MsiRecordGetStringA(MSIHANDLE handle, UINT iField,
     return ret;
 }
 
-const WCHAR *MSI_RecordGetString( const MSIRECORD *rec, UINT iField )
+const WCHAR *MSI_RecordGetString( MSIRECORD *rec, unsigned int iField )
 {
     if( iField > rec->count )
         return NULL;
@@ -411,8 +403,8 @@ const WCHAR *MSI_RecordGetString( const MSIRECORD *rec, UINT iField )
     return rec->fields[iField].u.szwVal;
 }
 
-UINT MSI_RecordGetStringW(MSIRECORD *rec, UINT iField,
-               LPWSTR szValue, LPDWORD pcchValue)
+UINT MSI_RecordGetStringW(MSIRECORD *rec, unsigned int iField,
+               LPWSTR szValue, DWORD *pcchValue)
 {
     UINT len=0, ret;
     WCHAR buffer[16];
@@ -421,13 +413,7 @@ UINT MSI_RecordGetStringW(MSIRECORD *rec, UINT iField,
     TRACE("%p %d %p %p\n", rec, iField, szValue, pcchValue);
 
     if( iField > rec->count )
-    {
-        if ( szValue && *pcchValue > 0 )
-            szValue[0] = 0;
-
-        *pcchValue = 0;
-        return ERROR_SUCCESS;
-    }
+        return ERROR_INVALID_PARAMETER;
 
     ret = ERROR_SUCCESS;
     switch( rec->fields[iField].type )
@@ -435,15 +421,14 @@ UINT MSI_RecordGetStringW(MSIRECORD *rec, UINT iField,
     case MSIFIELD_INT:
         wsprintfW(buffer, szFormat, rec->fields[iField].u.iVal);
         len = lstrlenW( buffer );
-        if (szValue)
-            lstrcpynW(szValue, buffer, *pcchValue);
+        lstrcpynW(szValue, buffer, *pcchValue);
         break;
     case MSIFIELD_WSTR:
         len = lstrlenW( rec->fields[iField].u.szwVal );
-        if (szValue)
-            lstrcpynW(szValue, rec->fields[iField].u.szwVal, *pcchValue);
+        lstrcpynW(szValue, rec->fields[iField].u.szwVal, *pcchValue);
         break;
     case MSIFIELD_NULL:
+        len = 1;
         if( szValue && *pcchValue > 0 )
             szValue[0] = 0;
     default:
@@ -457,13 +442,13 @@ UINT MSI_RecordGetStringW(MSIRECORD *rec, UINT iField,
     return ret;
 }
 
-UINT WINAPI MsiRecordGetStringW(MSIHANDLE handle, UINT iField,
-               LPWSTR szValue, LPDWORD pcchValue)
+UINT WINAPI MsiRecordGetStringW(MSIHANDLE handle, unsigned int iField,
+               LPWSTR szValue, DWORD *pcchValue)
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d %p %p\n", handle, iField, szValue, pcchValue);
+    TRACE("%ld %d %p %p\n", handle, iField, szValue, pcchValue);
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -487,7 +472,7 @@ static UINT msi_get_stream_size( IStream *stm )
     return stat.cbSize.QuadPart;
 }
 
-static UINT MSI_RecordDataSize(MSIRECORD *rec, UINT iField)
+UINT MSI_RecordDataSize(MSIRECORD *rec, unsigned int iField)
 {
     TRACE("%p %d\n", rec, iField);
 
@@ -508,12 +493,12 @@ static UINT MSI_RecordDataSize(MSIRECORD *rec, UINT iField)
     return 0;
 }
 
-UINT WINAPI MsiRecordDataSize(MSIHANDLE handle, UINT iField)
+UINT WINAPI MsiRecordDataSize(MSIHANDLE handle, unsigned int iField)
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d\n", handle, iField);
+    TRACE("%ld %d\n", handle, iField);
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -525,7 +510,7 @@ UINT WINAPI MsiRecordDataSize(MSIHANDLE handle, UINT iField)
     return ret;
 }
 
-static UINT MSI_RecordSetStringA( MSIRECORD *rec, UINT iField, LPCSTR szValue )
+UINT MSI_RecordSetStringA( MSIRECORD *rec, unsigned int iField, LPCSTR szValue )
 {
     LPWSTR str;
 
@@ -550,12 +535,12 @@ static UINT MSI_RecordSetStringA( MSIRECORD *rec, UINT iField, LPCSTR szValue )
     return 0;
 }
 
-UINT WINAPI MsiRecordSetStringA( MSIHANDLE handle, UINT iField, LPCSTR szValue )
+UINT WINAPI MsiRecordSetStringA( MSIHANDLE handle, unsigned int iField, LPCSTR szValue )
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d %s\n", handle, iField, debugstr_a(szValue));
+    TRACE("%ld %d %s\n", handle, iField, debugstr_a(szValue));
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -567,7 +552,7 @@ UINT WINAPI MsiRecordSetStringA( MSIHANDLE handle, UINT iField, LPCSTR szValue )
     return ret;
 }
 
-UINT MSI_RecordSetStringW( MSIRECORD *rec, UINT iField, LPCWSTR szValue )
+UINT MSI_RecordSetStringW( MSIRECORD *rec, unsigned int iField, LPCWSTR szValue )
 {
     LPWSTR str;
 
@@ -593,12 +578,12 @@ UINT MSI_RecordSetStringW( MSIRECORD *rec, UINT iField, LPCWSTR szValue )
     return 0;
 }
 
-UINT WINAPI MsiRecordSetStringW( MSIHANDLE handle, UINT iField, LPCWSTR szValue )
+UINT WINAPI MsiRecordSetStringW( MSIHANDLE handle, unsigned int iField, LPCWSTR szValue )
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d %s\n", handle, iField, debugstr_w(szValue));
+    TRACE("%ld %d %s\n", handle, iField, debugstr_w(szValue));
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -661,19 +646,7 @@ static UINT RECORD_StreamFromFile(LPCWSTR szFile, IStream **pstm)
     return ERROR_SUCCESS;
 }
 
-UINT MSI_RecordSetStream(MSIRECORD *rec, UINT iField, IStream *stream)
-{
-    if ( (iField == 0) || (iField > rec->count) )
-        return ERROR_INVALID_PARAMETER;
-
-    MSI_FreeField( &rec->fields[iField] );
-    rec->fields[iField].type = MSIFIELD_STREAM;
-    rec->fields[iField].u.stream = stream;
-
-    return ERROR_SUCCESS;
-}
-
-UINT MSI_RecordSetStreamFromFileW(MSIRECORD *rec, UINT iField, LPCWSTR szFilename)
+UINT MSI_RecordSetStreamW(MSIRECORD *rec, unsigned int iField, LPCWSTR szFilename)
 {
     IStream *stm = NULL;
     HRESULT r;
@@ -707,18 +680,20 @@ UINT MSI_RecordSetStreamFromFileW(MSIRECORD *rec, UINT iField, LPCWSTR szFilenam
             return r;
 
         /* if all's good, store it in the record */
-        MSI_RecordSetStream(rec, iField, stm);
+        MSI_FreeField( &rec->fields[iField] );
+        rec->fields[iField].type = MSIFIELD_STREAM;
+        rec->fields[iField].u.stream = stm;
     }
 
     return ERROR_SUCCESS;
 }
 
-UINT WINAPI MsiRecordSetStreamA(MSIHANDLE hRecord, UINT iField, LPCSTR szFilename)
+UINT WINAPI MsiRecordSetStreamA(MSIHANDLE hRecord, unsigned int iField, LPCSTR szFilename)
 {
     LPWSTR wstr = NULL;
     UINT ret;
 
-    TRACE("%d %d %s\n", hRecord, iField, debugstr_a(szFilename));
+    TRACE("%ld %d %s\n", hRecord, iField, debugstr_a(szFilename));
 
     if( szFilename )
     {
@@ -732,25 +707,25 @@ UINT WINAPI MsiRecordSetStreamA(MSIHANDLE hRecord, UINT iField, LPCSTR szFilenam
     return ret;
 }
 
-UINT WINAPI MsiRecordSetStreamW(MSIHANDLE handle, UINT iField, LPCWSTR szFilename)
+UINT WINAPI MsiRecordSetStreamW(MSIHANDLE handle, unsigned int iField, LPCWSTR szFilename)
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d %s\n", handle, iField, debugstr_w(szFilename));
+    TRACE("%ld %d %s\n", handle, iField, debugstr_w(szFilename));
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
         return ERROR_INVALID_HANDLE;
 
     msiobj_lock( &rec->hdr );
-    ret = MSI_RecordSetStreamFromFileW( rec, iField, szFilename );
+    ret = MSI_RecordSetStreamW( rec, iField, szFilename );
     msiobj_unlock( &rec->hdr );
     msiobj_release( &rec->hdr );
     return ret;
 }
 
-UINT MSI_RecordReadStream(MSIRECORD *rec, UINT iField, char *buf, LPDWORD sz)
+UINT MSI_RecordReadStream(MSIRECORD *rec, unsigned int iField, char *buf, DWORD *sz)
 {
     ULONG count;
     HRESULT r;
@@ -763,12 +738,6 @@ UINT MSI_RecordReadStream(MSIRECORD *rec, UINT iField, char *buf, LPDWORD sz)
 
     if( iField > rec->count)
         return ERROR_INVALID_PARAMETER;
-
-    if ( rec->fields[iField].type == MSIFIELD_NULL )
-    {
-        *sz = 0;
-        return ERROR_INVALID_DATA;
-    }
 
     if( rec->fields[iField].type != MSIFIELD_STREAM )
         return ERROR_INVALID_DATATYPE;
@@ -808,12 +777,12 @@ UINT MSI_RecordReadStream(MSIRECORD *rec, UINT iField, char *buf, LPDWORD sz)
     return ERROR_SUCCESS;
 }
 
-UINT WINAPI MsiRecordReadStream(MSIHANDLE handle, UINT iField, char *buf, LPDWORD sz)
+UINT WINAPI MsiRecordReadStream(MSIHANDLE handle, unsigned int iField, char *buf, DWORD *sz)
 {
     MSIRECORD *rec;
     UINT ret;
 
-    TRACE("%d %d %p %p\n", handle, iField, buf, sz);
+    TRACE("%ld %d %p %p\n", handle, iField, buf, sz);
 
     rec = msihandle2msiinfo( handle, MSIHANDLETYPE_RECORD );
     if( !rec )
@@ -825,7 +794,7 @@ UINT WINAPI MsiRecordReadStream(MSIHANDLE handle, UINT iField, char *buf, LPDWOR
     return ret;
 }
 
-UINT MSI_RecordSetIStream( MSIRECORD *rec, UINT iField, IStream *stm )
+UINT MSI_RecordSetIStream( MSIRECORD *rec, unsigned int iField, IStream *stm )
 {
     TRACE("%p %d %p\n", rec, iField, stm);
 
@@ -841,7 +810,7 @@ UINT MSI_RecordSetIStream( MSIRECORD *rec, UINT iField, IStream *stm )
     return ERROR_SUCCESS;
 }
 
-UINT MSI_RecordGetIStream( MSIRECORD *rec, UINT iField, IStream **pstm)
+UINT MSI_RecordGetIStream( MSIRECORD *rec, unsigned int iField, IStream **pstm)
 {
     TRACE("%p %d %p\n", rec, iField, pstm);
 
@@ -889,7 +858,7 @@ end:
     return ERROR_SUCCESS;
 }
 
-UINT MSI_RecordStreamToFile( MSIRECORD *rec, UINT iField, LPCWSTR name )
+UINT MSI_RecordStreamToFile( MSIRECORD *rec, unsigned int iField, LPCWSTR name )
 {
     IStream *stm = NULL;
     UINT r;
@@ -908,76 +877,4 @@ UINT MSI_RecordStreamToFile( MSIRECORD *rec, UINT iField, LPCWSTR name )
     msiobj_unlock( &rec->hdr );
 
     return r;
-}
-
-MSIRECORD *MSI_CloneRecord(MSIRECORD *rec)
-{
-    MSIRECORD *clone;
-    UINT r, i, count;
-
-    count = MSI_RecordGetFieldCount(rec);
-    clone = MSI_CreateRecord(count);
-    if (!clone)
-        return NULL;
-
-    for (i = 0; i <= count; i++)
-    {
-        if (rec->fields[i].type == MSIFIELD_STREAM)
-        {
-            if (FAILED(IStream_Clone(rec->fields[i].u.stream,
-                                     &clone->fields[i].u.stream)))
-            {
-                msiobj_release(&clone->hdr);
-                return NULL;
-            }
-            clone->fields[i].type = MSIFIELD_STREAM;
-        }
-        else
-        {
-            r = MSI_RecordCopyField(rec, i, clone, i);
-            if (r != ERROR_SUCCESS)
-            {
-                msiobj_release(&clone->hdr);
-                return NULL;
-            }
-        }
-    }
-
-    return clone;
-}
-
-BOOL MSI_RecordsAreEqual(MSIRECORD *a, MSIRECORD *b)
-{
-    UINT i;
-
-    if (a->count != b->count)
-        return FALSE;
-
-    for (i = 0; i <= a->count; i++)
-    {
-        if (a->fields[i].type != b->fields[i].type)
-            return FALSE;
-
-        switch (a->fields[i].type)
-        {
-            case MSIFIELD_NULL:
-                break;
-
-            case MSIFIELD_INT:
-                if (a->fields[i].u.iVal != b->fields[i].u.iVal)
-                    return FALSE;
-                break;
-
-            case MSIFIELD_WSTR:
-                if (lstrcmpW(a->fields[i].u.szwVal, b->fields[i].u.szwVal))
-                    return FALSE;
-                break;
-
-            case MSIFIELD_STREAM:
-            default:
-                return FALSE;
-        }
-    }
-
-    return TRUE;
 }

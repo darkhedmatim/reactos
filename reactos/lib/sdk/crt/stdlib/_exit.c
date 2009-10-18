@@ -1,8 +1,6 @@
 #include <precomp.h>
 #include <internal/atexit.h>
 
-extern void _atexit_cleanup(void);
-
 struct __atexit *__atexit_ptr = 0;
 
 /*
@@ -19,8 +17,7 @@ void exit(int status)
     djgpp_first_dtor[i]();
 */
   /* in case the program set it this way */
-  _setmode(0, _O_TEXT);
-  _atexit_cleanup();
+  _setmode(0, O_TEXT);
   _exit(status);
   for(;;);
 }
@@ -31,7 +28,6 @@ void exit(int status)
  */
 void _exit(int _status)
 {
-	// FIXME: _exit and _c_exit should prevent atexit routines from being called during DLL unload
 	ExitProcess(_status);
 	for(;;);
 }
@@ -41,7 +37,6 @@ void _exit(int _status)
  */
 void _cexit( void )
 {
-	_atexit_cleanup();
 	// flush
 }
 
@@ -50,6 +45,5 @@ void _cexit( void )
  */
 void _c_exit( void )
 {
-	// FIXME: _exit and _c_exit should prevent atexit routines from being called during DLL unload
 	// reset interup vectors
 }

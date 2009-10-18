@@ -32,7 +32,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(variant);
 
-extern HMODULE hProxyDll DECLSPEC_HIDDEN;
+extern HMODULE OLEAUT32_hModule;
 
 #define CY_MULTIPLIER   10000             /* 4 dp of precision */
 #define CY_MULTIPLIER_F 10000.0
@@ -82,7 +82,7 @@ static inline void VARIANT_CopyData(const VARIANT *srcVar, VARTYPE vt, void *pOu
   else if (fract == -0.5) { typ is_odd = (typ)whole & 1; res = whole - is_odd; } \
   else if (fract > -0.5) res = (typ)whole; \
   else res = (typ)whole - (typ)1; \
-} while(0)
+} while(0);
 
 
 /* Coerce VT_BSTR to a numeric type */
@@ -153,7 +153,7 @@ static HRESULT VARIANT_FromDisp(IDispatch* pdispIn, LCID lcid, void* pOut,
 
 /* Compiler cast where input cannot be negative */
 #define NEGTST(dest, src, func) RETTYP _##func(src in, dest* out) { \
-  if (in < 0) return DISP_E_OVERFLOW; *out = in; return S_OK; }
+  if (in < (src)0) return DISP_E_OVERFLOW; *out = in; return S_OK; }
 
 /* Compiler cast where input cannot be > some number */
 #define POSTST(dest, src, func, tst) RETTYP _##func(src in, dest* out) { \
@@ -3265,7 +3265,7 @@ HRESULT WINAPI VarR8FromUI4(ULONG ulIn, double *pDblOut)
  *  Success: S_OK.
  *  Failure: E_INVALIDARG, if the source value is invalid.
  */
-HRESULT WINAPI VarR8FromDec(const DECIMAL* pDecIn, double *pDblOut)
+HRESULT WINAPI VarR8FromDec(DECIMAL* pDecIn, double *pDblOut)
 {
   BYTE scale = DEC_SCALE(pDecIn);
   double divisor = 1.0, highPart;
@@ -3980,9 +3980,9 @@ HRESULT WINAPI VarCyRound(const CY cyIn, int cDecimals, CY* pCyOut)
 
     _VarR8FromCy(cyIn, &d);
     d = d * div;
-    VARIANT_DutchRound(LONGLONG, d, pCyOut->int64);
+    VARIANT_DutchRound(LONGLONG, d, pCyOut->int64)
     d = (double)pCyOut->int64 / div * CY_MULTIPLIER_F;
-    VARIANT_DutchRound(LONGLONG, d, pCyOut->int64);
+    VARIANT_DutchRound(LONGLONG, d, pCyOut->int64)
     return S_OK;
   }
 }
@@ -4153,7 +4153,7 @@ typedef struct DECIMAL_internal
 static HRESULT VARIANT_DI_FromR4(float source, VARIANT_DI * dest);
 static HRESULT VARIANT_DI_FromR8(double source, VARIANT_DI * dest);
 static void VARIANT_DIFromDec(const DECIMAL * from, VARIANT_DI * to);
-static void VARIANT_DecFromDI(const VARIANT_DI * from, DECIMAL * to);
+static void VARIANT_DecFromDI(VARIANT_DI * from, DECIMAL * to);
 
 /************************************************************************
  * VarDecFromR4 (OLEAUT32.193)
@@ -4623,7 +4623,7 @@ static void VARIANT_DIFromDec(const DECIMAL * from, VARIANT_DI * to)
     to->bitsnum[2] = DEC_HI32(from);
 }
 
-static void VARIANT_DecFromDI(const VARIANT_DI * from, DECIMAL * to)
+static void VARIANT_DecFromDI(VARIANT_DI * from, DECIMAL * to)
 {
     if (from->sign) {
         DEC_SIGNSCALE(to) = SIGNSCALE(DECIMAL_NEG, from->scale);
@@ -4659,20 +4659,20 @@ static unsigned char VARIANT_int_divbychar(DWORD * p, unsigned int n, unsigned c
         unsigned char remainder = 0;
         ULONGLONG iTempDividend;
         signed int i;
-        
+
         for (i = n - 1; i >= 0 && !p[i]; i--);  /* skip leading zeros */
         for (; i >= 0; i--) {
             iTempDividend = ((ULONGLONG)remainder << 32) + p[i];
             remainder = iTempDividend % divisor;
             p[i] = iTempDividend / divisor;
         }
-        
+
         return remainder;
     }
 }
 
 /* check to test if encoded number is a zero. Returns 1 if zero, 0 for nonzero */
-static int VARIANT_int_iszero(const DWORD * p, unsigned int n)
+static int VARIANT_int_iszero(DWORD * p, unsigned int n)
 {
     for (; n > 0; n--) if (*p++ != 0) return 0;
     return 1;
@@ -4683,7 +4683,7 @@ static int VARIANT_int_iszero(const DWORD * p, unsigned int n)
    digits when scale > 0 in order to fit an overflowing result. Final overflow
    flag is returned.
  */
-static int VARIANT_DI_mul(const VARIANT_DI * a, const VARIANT_DI * b, VARIANT_DI * result)
+static int VARIANT_DI_mul(VARIANT_DI * a, VARIANT_DI * b, VARIANT_DI * result)
 {
     int r_overflow = 0;
     DWORD running[6];
@@ -4706,17 +4706,17 @@ static int VARIANT_DI_mul(const VARIANT_DI * a, const VARIANT_DI * b, VARIANT_DI
         result->sign = 0;
     } else {
         unsigned char remainder = 0;
-        int iA;        
+        int iA;
 
         /* perform actual multiplication */
         for (iA = 0; iA <= mulstart; iA++) {
             ULONG iOverflowMul;
             int iB;
-            
+
             for (iOverflowMul = 0, iB = 0; iB < sizeof(b->bitsnum)/sizeof(DWORD); iB++) {
                 ULONG iRV;
                 int iR;
-                
+
                 iRV = VARIANT_Mul(b->bitsnum[iB], a->bitsnum[iA], &iOverflowMul);
                 iR = iA + iB;
                 do {
@@ -4748,12 +4748,12 @@ static int VARIANT_DI_mul(const VARIANT_DI * a, const VARIANT_DI * b, VARIANT_DI
         while (result->scale > 0 && !VARIANT_int_iszero(
             running + sizeof(result->bitsnum) / sizeof(DWORD),
             (sizeof(running) - sizeof(result->bitsnum)) / sizeof(DWORD))) {
-            
+
             remainder = VARIANT_int_divbychar(running, sizeof(running) / sizeof(DWORD), 10);
             if (remainder > 0) WARN("losing significant digits (remainder %u)...\n", remainder);
             result->scale--;
         }
-        
+
         /* round up the result - native oleaut32 does this */
         if (remainder >= 5) {
             unsigned int i;
@@ -4768,7 +4768,7 @@ static int VARIANT_DI_mul(const VARIANT_DI * a, const VARIANT_DI * b, VARIANT_DI
            and copy result bits into result structure
         */
         r_overflow = !VARIANT_int_iszero(
-            running + sizeof(result->bitsnum)/sizeof(DWORD), 
+            running + sizeof(result->bitsnum)/sizeof(DWORD),
             (sizeof(running) - sizeof(result->bitsnum))/sizeof(DWORD));
         memcpy(result->bitsnum, running, sizeof(result->bitsnum));
     }
@@ -4779,7 +4779,7 @@ static int VARIANT_DI_mul(const VARIANT_DI * a, const VARIANT_DI * b, VARIANT_DI
    hardcoded (period for decimal separator, dash as negative sign). Returns 0 for
    success, nonzero if insufficient space in output buffer.
  */
-static int VARIANT_DI_tostringW(const VARIANT_DI * a, WCHAR * s, unsigned int n)
+static int VARIANT_DI_tostringW(VARIANT_DI * a, WCHAR * s, unsigned int n)
 {
     int overflow = 0;
     DWORD quotient[3];
@@ -4847,7 +4847,7 @@ static int VARIANT_DI_tostringW(const VARIANT_DI * a, WCHAR * s, unsigned int n)
             } else {
                 memmove(s + periodpos + 1, s + periodpos, (i + 1 - periodpos) * sizeof(WCHAR));
                 s[periodpos] = '.'; i++;
-                
+
                 /* remove extra zeros at the end, if any */
                 while (s[i - 1] == '0') s[--i] = '\0';
                 if (s[i - 1] == '.') s[--i] = '\0';
@@ -4863,14 +4863,14 @@ static void VARIANT_int_shiftleft(DWORD * p, unsigned int n, unsigned int shift)
 {
     DWORD shifted;
     unsigned int i;
-    
+
     /* shift whole DWORDs to the left */
     while (shift >= 32)
     {
         memmove(p + 1, p, (n - 1) * sizeof(DWORD));
         *p = 0; shift -= 32;
     }
-    
+
     /* shift remainder (1..31 bits) */
     shifted = 0;
     if (shift > 0) for (i = 0; i < n; i++)
@@ -4886,7 +4886,7 @@ static void VARIANT_int_shiftleft(DWORD * p, unsigned int n, unsigned int shift)
    Value at v is incremented by the value at p. Any size is supported, provided
    that v is not shorter than p. Any unapplied carry is returned as a result.
  */
-static unsigned char VARIANT_int_add(DWORD * v, unsigned int nv, const DWORD * p,
+static unsigned char VARIANT_int_add(DWORD * v, unsigned int nv, DWORD * p,
     unsigned int np)
 {
     unsigned char carry = 0;
@@ -4912,11 +4912,11 @@ static unsigned char VARIANT_int_add(DWORD * v, unsigned int nv, const DWORD * p
     return carry;
 }
 
-/* perform integral division with operand p as dividend. Parameter n indicates 
-   number of available DWORDs in divisor p, but available space in p must be 
-   actually at least 2 * n DWORDs, because the remainder of the integral 
-   division is built in the next n DWORDs past the start of the quotient. This 
-   routine replaces the dividend in p with the quotient, and appends n 
+/* perform integral division with operand p as dividend. Parameter n indicates
+   number of available DWORDs in divisor p, but available space in p must be
+   actually at least 2 * n DWORDs, because the remainder of the integral
+   division is built in the next n DWORDs past the start of the quotient. This
+   routine replaces the dividend in p with the quotient, and appends n
    additional DWORDs for the remainder.
 
    Thanks to Lee & Mark Atkinson for their book _Using_C_ (my very first book on
@@ -4925,7 +4925,7 @@ static unsigned char VARIANT_int_add(DWORD * v, unsigned int nv, const DWORD * p
    was then heavily modified by me (Alex Villacis Lasso) in order to handle
    variably-scaled integers such as the MS DECIMAL representation.
  */
-static void VARIANT_int_div(DWORD * p, unsigned int n, const DWORD * divisor,
+static void VARIANT_int_div(DWORD * p, unsigned int n, DWORD * divisor,
     unsigned int dn)
 {
     unsigned int i;
@@ -4961,15 +4961,15 @@ static unsigned char VARIANT_int_mulbychar(DWORD * p, unsigned int n, unsigned c
 {
     unsigned int i;
     ULONG iOverflowMul;
-    
+
     for (iOverflowMul = 0, i = 0; i < n; i++)
         p[i] = VARIANT_Mul(p[i], m, &iOverflowMul);
     return (unsigned char)iOverflowMul;
 }
 
-/* increment value in A by the value indicated in B, with scale adjusting. 
-   Modifies parameters by adjusting scales. Returns 0 if addition was 
-   successful, nonzero if a parameter underflowed before it could be 
+/* increment value in A by the value indicated in B, with scale adjusting.
+   Modifies parameters by adjusting scales. Returns 0 if addition was
+   successful, nonzero if a parameter underflowed before it could be
    successfully used in the addition.
  */
 static int VARIANT_int_addlossy(
@@ -5126,8 +5126,7 @@ static int VARIANT_int_addlossy(
    0 if the division was completed (even if quotient is set to 0), or nonzero
    in case of quotient overflow.
  */
-static HRESULT VARIANT_DI_div(const VARIANT_DI * dividend, const VARIANT_DI * divisor,
-                              VARIANT_DI * quotient)
+static HRESULT VARIANT_DI_div(VARIANT_DI * dividend, VARIANT_DI * divisor, VARIANT_DI * quotient)
 {
     HRESULT r_overflow = S_OK;
 
@@ -5179,7 +5178,7 @@ static HRESULT VARIANT_DI_div(const VARIANT_DI * dividend, const VARIANT_DI * di
            to multiply quotient by 10 (without overflowing), while adjusting the scale,
            until scale is 0. If this cannot be done, it is a real overflow.
          */
-        while (r_overflow == S_OK && quotientscale < 0) {
+        while (!r_overflow && quotientscale < 0) {
             memset(remainderplusquotient, 0, sizeof(remainderplusquotient));
             memcpy(remainderplusquotient, quotient->bitsnum, sizeof(quotient->bitsnum));
             VARIANT_int_mulbychar(remainderplusquotient, sizeof(remainderplusquotient)/sizeof(DWORD), 10);
@@ -5189,7 +5188,7 @@ static HRESULT VARIANT_DI_div(const VARIANT_DI * dividend, const VARIANT_DI * di
                 memcpy(quotient->bitsnum, remainderplusquotient, sizeof(quotient->bitsnum));
             } else r_overflow = DISP_E_OVERFLOW;
         }
-        if (r_overflow == S_OK) {
+        if (!r_overflow) {
             if (quotientscale <= 255) quotient->scale = quotientscale;
             else VARIANT_DI_clear(quotient);
         }
@@ -5311,7 +5310,7 @@ static HRESULT VARIANT_DI_normalize(VARIANT_DI * val, int exponent2, int isDoubl
             VARIANT_int_add(val->bitsnum, 3, &x, 1);
         }
     }
-    /* This step is required in order to remove excess bits of precision from the
+    /* This step is requierd in order to remove excess bits of precision from the
        end of the bit representation, down to the precision guaranteed by the
        floating point number. */
     if (isDouble) {
@@ -5500,7 +5499,7 @@ HRESULT WINAPI VarDecDiv(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECI
   VARIANT_DIFromDec(pDecLeft, &di_left);
   VARIANT_DIFromDec(pDecRight, &di_right);
   divresult = VARIANT_DI_div(&di_left, &di_right, &di_result);
-  if (divresult != S_OK)
+  if (divresult)
   {
       /* division actually overflowed */
       hRet = divresult;
@@ -5512,14 +5511,14 @@ HRESULT WINAPI VarDecDiv(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECI
       if (di_result.scale > DEC_MAX_SCALE)
       {
         unsigned char remainder = 0;
-      
+
         /* division underflowed. In order to comply with the MSDN
            specifications for DECIMAL ranges, some significant digits
            must be removed
          */
         WARN("result scale is %u, scaling (with loss of significant digits)...\n",
             di_result.scale);
-        while (di_result.scale > DEC_MAX_SCALE && 
+        while (di_result.scale > DEC_MAX_SCALE &&
                !VARIANT_int_iszero(di_result.bitsnum, sizeof(di_result.bitsnum) / sizeof(DWORD)))
         {
             remainder = VARIANT_int_divbychar(di_result.bitsnum, sizeof(di_result.bitsnum) / sizeof(DWORD), 10);
@@ -5584,7 +5583,7 @@ HRESULT WINAPI VarDecMul(const DECIMAL* pDecLeft, const DECIMAL* pDecRight, DECI
        */
       WARN("result scale is %u, scaling (with loss of significant digits)...\n",
           di_result.scale);
-      while (di_result.scale > DEC_MAX_SCALE && 
+      while (di_result.scale > DEC_MAX_SCALE &&
             !VARIANT_int_iszero(di_result.bitsnum, sizeof(di_result.bitsnum)/sizeof(DWORD)))
       {
         VARIANT_int_divbychar(di_result.bitsnum, sizeof(di_result.bitsnum)/sizeof(DWORD), 10);
@@ -5662,9 +5661,6 @@ HRESULT WINAPI VarDecAbs(const DECIMAL* pDecIn, DECIMAL* pDecOut)
  */
 HRESULT WINAPI VarDecFix(const DECIMAL* pDecIn, DECIMAL* pDecOut)
 {
-  double dbl;
-  HRESULT hr;
-
   if (DEC_SIGN(pDecIn) & ~DECIMAL_NEG)
     return E_INVALIDARG;
 
@@ -5674,13 +5670,8 @@ HRESULT WINAPI VarDecFix(const DECIMAL* pDecIn, DECIMAL* pDecOut)
     return S_OK;
   }
 
-  hr = VarR8FromDec(pDecIn, &dbl);
-  if (SUCCEEDED(hr)) {
-    LONGLONG rounded = dbl;
-
-    hr = VarDecFromI8(rounded, pDecOut);
-  }
-  return hr;
+  FIXME("semi-stub!\n");
+  return DISP_E_OVERFLOW;
 }
 
 /************************************************************************
@@ -5702,22 +5693,14 @@ HRESULT WINAPI VarDecFix(const DECIMAL* pDecIn, DECIMAL* pDecOut)
  */
 HRESULT WINAPI VarDecInt(const DECIMAL* pDecIn, DECIMAL* pDecOut)
 {
-  double dbl;
-  HRESULT hr;
-
   if (DEC_SIGN(pDecIn) & ~DECIMAL_NEG)
     return E_INVALIDARG;
 
   if (!(DEC_SIGN(pDecIn) & DECIMAL_NEG) || !DEC_SCALE(pDecIn))
     return VarDecFix(pDecIn, pDecOut); /* The same, if +ve or no fractionals */
 
-  hr = VarR8FromDec(pDecIn, &dbl);
-  if (SUCCEEDED(hr)) {
-    LONGLONG rounded = dbl >= 0.0 ? dbl + 0.5 : dbl - 0.5;
-
-    hr = VarDecFromI8(rounded, pDecOut);
-  }
-  return hr;
+  FIXME("semi-stub!\n");
+  return DISP_E_OVERFLOW;
 }
 
 /************************************************************************
@@ -5787,16 +5770,6 @@ HRESULT WINAPI VarDecCmp(const DECIMAL* pDecLeft, const DECIMAL* pDecRight)
 {
   HRESULT hRet;
   DECIMAL result;
-
-  if (!pDecLeft || !pDecRight)
-    return VARCMP_NULL;
-
-  if ((!(DEC_SIGN(pDecLeft) & DECIMAL_NEG)) && (DEC_SIGN(pDecRight) & DECIMAL_NEG) &&
-      (DEC_HI32(pDecLeft) | DEC_MID32(pDecLeft) | DEC_LO32(pDecLeft)))
-    return VARCMP_GT;
-  else if ((DEC_SIGN(pDecLeft) & DECIMAL_NEG) && (!(DEC_SIGN(pDecRight) & DECIMAL_NEG)) &&
-      (DEC_HI32(pDecLeft) | DEC_MID32(pDecLeft) | DEC_LO32(pDecLeft)))
-    return VARCMP_LT;
 
   /* Subtract right from left, and compare the result to 0 */
   hRet = VarDecSub(pDecLeft, pDecRight, &result);
@@ -5971,21 +5944,15 @@ HRESULT WINAPI VarBoolFromCy(CY cyIn, VARIANT_BOOL *pBoolOut)
   return S_OK;
 }
 
-/************************************************************************
- * VARIANT_GetLocalisedText [internal]
- *
- * Get a localized string from the resources
- *
- */
-BOOL VARIANT_GetLocalisedText(LANGID langId, DWORD dwId, WCHAR *lpszDest)
+static BOOL VARIANT_GetLocalisedText(LANGID langId, DWORD dwId, WCHAR *lpszDest)
 {
   HRSRC hrsrc;
 
-  hrsrc = FindResourceExW( hProxyDll, (LPWSTR)RT_STRING,
+  hrsrc = FindResourceExW( OLEAUT32_hModule, (LPWSTR)RT_STRING,
                            MAKEINTRESOURCEW((dwId >> 4) + 1), langId );
   if (hrsrc)
   {
-    HGLOBAL hmem = LoadResource( hProxyDll, hrsrc );
+    HGLOBAL hmem = LoadResource( OLEAUT32_hModule, hrsrc );
 
     if (hmem)
     {
@@ -6375,14 +6342,14 @@ HRESULT WINAPI VarBstrFromI4(LONG lIn, LCID lcid, ULONG dwFlags, BSTR* pbstrOut)
   return VARIANT_BstrFromUInt(ul64, lcid, dwFlags, pbstrOut);
 }
 
-static BSTR VARIANT_BstrReplaceDecimal(const WCHAR * buff, LCID lcid, ULONG dwFlags)
+static BSTR VARIANT_BstrReplaceDecimal(WCHAR * buff, LCID lcid, ULONG dwFlags)
 {
   BSTR bstrOut;
   WCHAR lpDecimalSep[16];
 
   /* Native oleaut32 uses the locale-specific decimal separator even in the
-     absence of the LOCALE_USE_NLS flag. For example, the Spanish/Latin 
-     American locales will see "one thousand and one tenth" as "1000,1" 
+     absence of the LOCALE_USE_NLS flag. For example, the Spanish/Latin
+     American locales will see "one thousand and one tenth" as "1000,1"
      instead of "1000.1" (notice the comma). The following code checks for
      the need to replace the decimal separator, and if so, will prepare an
      appropriate NUMBERFMTW structure to do the job via GetNumberFormatW().
@@ -6548,7 +6515,7 @@ HRESULT WINAPI VarBstrFromCy(CY cyIn, LCID lcid, ULONG dwFlags, BSTR *pbstrOut)
     VARIANT_int_add(decVal.bitsnum, 3, &one, 1);
   }
   decVal.bitsnum[2] = 0;
-  VARIANT_DI_tostringW(&decVal, buff, sizeof(buff)/sizeof(buff[0]));
+  VARIANT_DI_tostringW(&decVal, buff, sizeof(buff));
 
   if (dwFlags & LOCALE_USE_NLS)
   {
@@ -6561,7 +6528,7 @@ HRESULT WINAPI VarBstrFromCy(CY cyIn, LCID lcid, ULONG dwFlags, BSTR *pbstrOut)
     *pbstrOut = SysAllocString(cybuff);
   }
   else
-    *pbstrOut = VARIANT_BstrReplaceDecimal(buff,lcid,dwFlags);
+    *pbstrOut = SysAllocString(buff);
 
   return *pbstrOut ? S_OK : E_OUTOFMEMORY;
 }
@@ -6822,7 +6789,7 @@ HRESULT WINAPI VarBstrFromDec(DECIMAL* pDecIn, LCID lcid, ULONG dwFlags, BSTR* p
   {
     *pbstrOut = VARIANT_BstrReplaceDecimal(buff, lcid, dwFlags);
   }
-  
+
   TRACE("returning %s\n", debugstr_w(*pbstrOut));
   return *pbstrOut ? S_OK : E_OUTOFMEMORY;
 }
@@ -6973,8 +6940,9 @@ HRESULT WINAPI VarBstrCmp(BSTR pbstrLeft, BSTR pbstrRight, LCID lcid, DWORD dwFl
 
     if (!pbstrLeft || !*pbstrLeft)
     {
-      if (pbstrRight && *pbstrRight)
-        return VARCMP_LT;
+      if (!pbstrRight || !*pbstrRight)
+        return VARCMP_EQ;
+      return VARCMP_LT;
     }
     else if (!pbstrRight || !*pbstrRight)
         return VARCMP_GT;
@@ -6996,17 +6964,8 @@ HRESULT WINAPI VarBstrCmp(BSTR pbstrLeft, BSTR pbstrRight, LCID lcid, DWORD dwFl
     }
     else
     {
-      unsigned int lenLeft = SysStringLen(pbstrLeft);
-      unsigned int lenRight = SysStringLen(pbstrRight);
-
-      if (lenLeft == 0 || lenRight == 0)
-      {
-          if (lenLeft == 0 && lenRight == 0) return VARCMP_EQ;
-          return lenLeft < lenRight ? VARCMP_LT : VARCMP_GT;
-      }
-
-      hres = CompareStringW(lcid, dwFlags, pbstrLeft, lenLeft,
-              pbstrRight, lenRight) - 1;
+      hres = CompareStringW(lcid, dwFlags, pbstrLeft, SysStringLen(pbstrLeft),
+              pbstrRight, SysStringLen(pbstrRight)) - 1;
       TRACE("%d\n", hres);
       return hres;
     }
@@ -7388,7 +7347,7 @@ VARIANT_MakeDate_OK:
  *
  * RETURNS
  *  Success: S_OK. pdateOut contains the converted value.
- *  FAILURE: An HRESULT error code indicating the problem.
+ *  FAILURE: An HRESULT error code indicating the prolem.
  *
  * NOTES
  *  Any date format that can be created using the date formats from lcid

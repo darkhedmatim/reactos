@@ -1,22 +1,19 @@
-#include <precomp.h>
 #include <mbstring.h>
 
 /*
- * @implemented
+ * FIXME not correct
+ *
+ * @unimplemented
  */
-unsigned char *_mbsspnp (const unsigned char *str1, const unsigned char *str2)
+unsigned char * _mbsspnp(const unsigned char *s1, const unsigned char *s2)
 {
-    int c;
-    unsigned char *ptr;
+  const unsigned char *p = s1, *spanp;
+  char c, sc;
 
-    while ((c = _mbsnextc (str1))) {
-
-	if ((ptr = _mbschr (str2, c)) == 0)
-	    return (unsigned char *) str1;
-
-	str1 = _mbsinc ((unsigned char *) str1);
-
-    }
-
-    return 0;
+ cont:
+  c = *p++;
+  for (spanp = s2; (sc = *spanp++) != 0;)
+    if (sc == c)
+      goto cont;
+  return (unsigned char *)p;
 }

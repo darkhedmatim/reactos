@@ -29,8 +29,6 @@ NdisInitializeReadWriteLock(
  */
 {
   RtlZeroMemory(Lock, sizeof(NDIS_RW_LOCK));
-
-  KeInitializeSpinLock(&Lock->SpinLock);
 }
 
 
@@ -83,13 +81,12 @@ NdisAcquireReadWriteLock(
         if (Lock->Context != PsGetCurrentThread()) {
           /* Wait for the exclusive lock to be released. */
           Lock->RefCount[KeGetCurrentProcessorNumber()].RefCount--;
-          KeAcquireSpinLockAtDpcLevel(&Lock->SpinLock);
+          KefAcquireSpinLockAtDpcLevel(&Lock->SpinLock);
           Lock->RefCount[KeGetCurrentProcessorNumber()].RefCount++;
-          KeReleaseSpinLockFromDpcLevel(&Lock->SpinLock);
+          KefReleaseSpinLockFromDpcLevel(&Lock->SpinLock);
         }
       }
     }
-    Lock->Context = PsGetCurrentThread();
     LockState->LockState = 3;
   }
 }
@@ -124,7 +121,7 @@ NdisReleaseReadWriteLock(
     case 4: /* Exclusive write lock */
       Lock->Context = NULL;
       LockState->LockState = -1;
-      KeReleaseSpinLock(&Lock->SpinLock, LockState->OldIrql);
+      KfReleaseSpinLock(&Lock->SpinLock, LockState->OldIrql);
       return;
   }
 }
@@ -220,6 +217,23 @@ NdisFreeSpinLock(
   /* Nothing to do here! */
 }
 
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisGetCurrentProcessorCpuUsage(
+    PULONG  pCpuUsage)
+/*
+ * FUNCTION: Returns how busy the current processor is as a percentage
+ * ARGUMENTS:
+ *     pCpuUsage = Pointer to a buffer to place CPU usage
+ */
+{
+    UNIMPLEMENTED
+}
+
 
 /*
  * @implemented
@@ -310,7 +324,7 @@ NdisWaitEvent(
   LARGE_INTEGER Timeout;
   NTSTATUS Status;
 
-  Timeout.QuadPart = Int32x32To64(MsToWait, -10000);
+  Timeout.QuadPart = MsToWait * -10000LL;
 
   Status = KeWaitForSingleObject(&Event->Event, Executive, KernelMode, TRUE, &Timeout);
 

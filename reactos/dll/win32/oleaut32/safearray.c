@@ -207,7 +207,7 @@ static void SAFEARRAY_SetFeatures(VARTYPE vt, SAFEARRAY *psa)
 static SAFEARRAY* SAFEARRAY_Create(VARTYPE vt, UINT cDims, const SAFEARRAYBOUND *rgsabound, ULONG ulSize)
 {
   SAFEARRAY *psa = NULL;
-  unsigned int i;
+  int i;
 
   if (!rgsabound)
     return NULL;
@@ -299,7 +299,7 @@ static HRESULT SAFEARRAY_DestroyData(SAFEARRAY *psa, ULONG ulStartCell)
 
       if (SUCCEEDED(SafeArrayGetRecordInfo(psa, &lpRecInfo)))
       {
-        PBYTE pRecordData = psa->pvData;
+        PBYTE pRecordData = (PBYTE)psa->pvData;
         while(ulCellCount--)
         {
           IRecordInfo_RecordClear(lpRecInfo, pRecordData);
@@ -314,7 +314,8 @@ static HRESULT SAFEARRAY_DestroyData(SAFEARRAY *psa, ULONG ulStartCell)
 
       while(ulCellCount--)
       {
-        SysFreeString(*lpBstr);
+        if (*lpBstr)
+          SysFreeString(*lpBstr);
         lpBstr++;
       }
     }
@@ -350,8 +351,8 @@ static HRESULT SAFEARRAY_CopyData(SAFEARRAY *psa, SAFEARRAY *dest)
 
     if (psa->fFeatures & FADF_VARIANT)
     {
-      VARIANT* lpVariant = psa->pvData;
-      VARIANT* lpDest = dest->pvData;
+      VARIANT* lpVariant = (VARIANT*)psa->pvData;
+      VARIANT* lpDest = (VARIANT*)dest->pvData;
 
       while(ulCellCount--)
       {
@@ -365,8 +366,8 @@ static HRESULT SAFEARRAY_CopyData(SAFEARRAY *psa, SAFEARRAY *dest)
     }
     else if (psa->fFeatures & FADF_BSTR)
     {
-      BSTR* lpBstr = psa->pvData;
-      BSTR* lpDest = dest->pvData;
+      BSTR* lpBstr = (BSTR*)psa->pvData;
+      BSTR* lpDest = (BSTR*)dest->pvData;
 
       while(ulCellCount--)
       {
@@ -389,7 +390,7 @@ static HRESULT SAFEARRAY_CopyData(SAFEARRAY *psa, SAFEARRAY *dest)
 
       if (psa->fFeatures & (FADF_UNKNOWN|FADF_DISPATCH))
       {
-        LPUNKNOWN *lpUnknown = dest->pvData;
+        LPUNKNOWN *lpUnknown = (LPUNKNOWN *)dest->pvData;
 
         while(ulCellCount--)
         {
@@ -448,7 +449,7 @@ HRESULT WINAPI SafeArrayAllocDescriptor(UINT cDims, SAFEARRAY **ppsaOut)
   LONG allocSize;
 
   TRACE("(%d,%p)\n", cDims, ppsaOut);
-  
+
   if (!cDims || cDims >= 0x10000) /* Maximum 65535 dimensions */
     return E_INVALIDARG;
 
@@ -482,7 +483,7 @@ HRESULT WINAPI SafeArrayAllocDescriptor(UINT cDims, SAFEARRAY **ppsaOut)
  *  Failure: An HRESULT error code indicating the error.
  *
  * NOTES
- *  - This function does not check that vt is an allowed VARTYPE.
+ *  - This function does not chack that vt is an allowed VARTYPE.
  *  - Unlike SafeArrayAllocDescriptor(), vt is associated with the array.
  *  See SafeArray.
  */
@@ -492,7 +493,7 @@ HRESULT WINAPI SafeArrayAllocDescriptorEx(VARTYPE vt, UINT cDims, SAFEARRAY **pp
   HRESULT hRet = E_UNEXPECTED;
 
   TRACE("(%d->%s,%d,%p)\n", vt, debugstr_vt(vt), cDims, ppsaOut);
-    
+
   cbElements = SAFEARRAY_GetVTSize(vt);
   if (!cbElements)
     WARN("Creating a descriptor with an invalid VARTYPE!\n");
@@ -525,9 +526,9 @@ HRESULT WINAPI SafeArrayAllocDescriptorEx(VARTYPE vt, UINT cDims, SAFEARRAY **pp
 HRESULT WINAPI SafeArrayAllocData(SAFEARRAY *psa)
 {
   HRESULT hRet = E_INVALIDARG;
-  
+
   TRACE("(%p)\n", psa);
-  
+
   if (psa)
   {
     ULONG ulSize = SAFEARRAY_GetCellCount(psa);
@@ -596,11 +597,11 @@ SAFEARRAY* WINAPI SafeArrayCreate(VARTYPE vt, UINT cDims, SAFEARRAYBOUND *rgsabo
 SAFEARRAY* WINAPI SafeArrayCreateEx(VARTYPE vt, UINT cDims, SAFEARRAYBOUND *rgsabound, LPVOID pvExtra)
 {
   ULONG ulSize = 0;
-  IRecordInfo* iRecInfo = pvExtra;
+  IRecordInfo* iRecInfo = (IRecordInfo*)pvExtra;
   SAFEARRAY* psa;
- 
+
   TRACE("(%d->%s,%d,%p,%p)\n", vt, debugstr_vt(vt), cDims, rgsabound, pvExtra);
- 
+
   if (vt == VT_RECORD)
   {
     if  (!iRecInfo)
@@ -645,7 +646,7 @@ SAFEARRAY* WINAPI SafeArrayCreateEx(VARTYPE vt, UINT cDims, SAFEARRAYBOUND *rgsa
 SAFEARRAY* WINAPI SafeArrayCreateVector(VARTYPE vt, LONG lLbound, ULONG cElements)
 {
   TRACE("(%d->%s,%d,%d\n", vt, debugstr_vt(vt), lLbound, cElements);
-    
+
   if (vt == VT_RECORD)
     return NULL;
 
@@ -673,11 +674,11 @@ SAFEARRAY* WINAPI SafeArrayCreateVector(VARTYPE vt, LONG lLbound, ULONG cElement
 SAFEARRAY* WINAPI SafeArrayCreateVectorEx(VARTYPE vt, LONG lLbound, ULONG cElements, LPVOID pvExtra)
 {
   ULONG ulSize;
-  IRecordInfo* iRecInfo = pvExtra;
+  IRecordInfo* iRecInfo = (IRecordInfo*)pvExtra;
   SAFEARRAY* psa;
 
  TRACE("(%d->%s,%d,%d,%p\n", vt, debugstr_vt(vt), lLbound, cElements, pvExtra);
- 
+
   if (vt == VT_RECORD)
   {
     if  (!iRecInfo)
@@ -723,7 +724,7 @@ SAFEARRAY* WINAPI SafeArrayCreateVectorEx(VARTYPE vt, LONG lLbound, ULONG cEleme
 HRESULT WINAPI SafeArrayDestroyDescriptor(SAFEARRAY *psa)
 {
   TRACE("(%p)\n", psa);
-    
+
   if (psa)
   {
     LPVOID lpv = (char*)psa - SAFEARRAY_HIDDEN_SIZE;
@@ -766,7 +767,7 @@ HRESULT WINAPI SafeArrayLock(SAFEARRAY *psa)
   ULONG ulLocks;
 
   TRACE("(%p)\n", psa);
-    
+
   if (!psa)
     return E_INVALIDARG;
 
@@ -800,11 +801,11 @@ HRESULT WINAPI SafeArrayLock(SAFEARRAY *psa)
 HRESULT WINAPI SafeArrayUnlock(SAFEARRAY *psa)
 {
   TRACE("(%p)\n", psa);
-  
+
   if (!psa)
     return E_INVALIDARG;
 
-  if (InterlockedDecrement( (LONG*) &psa->cLocks) < 0)
+  if ((LONG)InterlockedDecrement( (LONG*) &psa->cLocks) < 0)
   {
     WARN("Unlocked but no lock held!\n");
     InterlockedIncrement( (LONG*) &psa->cLocks);
@@ -851,8 +852,8 @@ HRESULT WINAPI SafeArrayPutElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
     {
       if (psa->fFeatures & FADF_VARIANT)
       {
-        VARIANT* lpVariant = pvData;
-        VARIANT* lpDest = lpvDest;
+        VARIANT* lpVariant = (VARIANT*)pvData;
+        VARIANT* lpDest = (VARIANT*)lpvDest;
 
         hRet = VariantClear(lpDest);
         if (FAILED(hRet)) FIXME("VariantClear failed with 0x%x\n", hRet);
@@ -862,9 +863,10 @@ HRESULT WINAPI SafeArrayPutElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
       else if (psa->fFeatures & FADF_BSTR)
       {
         BSTR  lpBstr = (BSTR)pvData;
-        BSTR* lpDest = lpvDest;
+        BSTR* lpDest = (BSTR*)lpvDest;
 
-        SysFreeString(*lpDest);
+        if (*lpDest)
+         SysFreeString(*lpDest);
 
         *lpDest = SysAllocStringByteLen((char*)lpBstr, SysStringByteLen(lpBstr));
         if (!*lpDest)
@@ -874,8 +876,8 @@ HRESULT WINAPI SafeArrayPutElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
       {
         if (psa->fFeatures & (FADF_UNKNOWN|FADF_DISPATCH))
         {
-          LPUNKNOWN  lpUnknown = pvData;
-          LPUNKNOWN *lpDest = lpvDest;
+          LPUNKNOWN  lpUnknown = (LPUNKNOWN)pvData;
+          LPUNKNOWN *lpDest = (LPUNKNOWN *)lpvDest;
 
           if (lpUnknown)
             IUnknown_AddRef(lpUnknown);
@@ -916,7 +918,7 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
   HRESULT hRet;
 
   TRACE("(%p,%p,%p)\n", psa, rgIndices, pvData);
-    
+
   if (!psa || !rgIndices || !pvData)
     return E_INVALIDARG;
 
@@ -932,8 +934,8 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
     {
       if (psa->fFeatures & FADF_VARIANT)
       {
-        VARIANT* lpVariant = lpvSrc;
-        VARIANT* lpDest = pvData;
+        VARIANT* lpVariant = (VARIANT*)lpvSrc;
+        VARIANT* lpDest = (VARIANT*)pvData;
 
         /* The original content of pvData is ignored. */
         V_VT(lpDest) = VT_EMPTY;
@@ -942,8 +944,8 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
       }
       else if (psa->fFeatures & FADF_BSTR)
       {
-        BSTR* lpBstr = lpvSrc;
-        BSTR* lpDest = pvData;
+        BSTR* lpBstr = (BSTR*)lpvSrc;
+        BSTR* lpDest = (BSTR*)pvData;
 
         if (*lpBstr)
         {
@@ -958,7 +960,7 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
       {
         if (psa->fFeatures & (FADF_UNKNOWN|FADF_DISPATCH))
         {
-          LPUNKNOWN *lpUnknown = lpvSrc;
+          LPUNKNOWN *lpUnknown = (LPUNKNOWN *)lpvSrc;
 
           if (*lpUnknown)
             IUnknown_AddRef(*lpUnknown);
@@ -992,7 +994,7 @@ HRESULT WINAPI SafeArrayGetElement(SAFEARRAY *psa, LONG *rgIndices, void *pvData
 HRESULT WINAPI SafeArrayGetUBound(SAFEARRAY *psa, UINT nDim, LONG *plUbound)
 {
   TRACE("(%p,%d,%p)\n", psa, nDim, plUbound);
-    
+
   if (!psa || !plUbound)
     return E_INVALIDARG;
 
@@ -1052,7 +1054,7 @@ HRESULT WINAPI SafeArrayGetLBound(SAFEARRAY *psa, UINT nDim, LONG *plLbound)
  */
 UINT WINAPI SafeArrayGetDim(SAFEARRAY *psa)
 {
-  TRACE("(%p) returning %d\n", psa, psa ? psa->cDims : 0u);  
+  TRACE("(%p) returning %d\n", psa, psa ? psa->cDims : 0u);
   return psa ? psa->cDims : 0;
 }
 
@@ -1159,7 +1161,7 @@ HRESULT WINAPI SafeArrayPtrOfIndex(SAFEARRAY *psa, LONG *rgIndices, void **ppvDa
   LONG c1;
 
   TRACE("(%p,%p,%p)\n", psa, rgIndices, ppvData);
-  
+
   /* The general formula for locating the cell number of an entry in an n
    * dimensional array (where cn = coordinate in dimension dn) is:
    *
@@ -1216,7 +1218,7 @@ HRESULT WINAPI SafeArrayPtrOfIndex(SAFEARRAY *psa, LONG *rgIndices, void **ppvDa
 HRESULT WINAPI SafeArrayDestroyData(SAFEARRAY *psa)
 {
   TRACE("(%p)\n", psa);
-  
+
   if (!psa)
     return E_INVALIDARG;
 
@@ -1272,7 +1274,7 @@ HRESULT WINAPI SafeArrayCopyData(SAFEARRAY *psaSource, SAFEARRAY *psaTarget)
   int dim;
 
   TRACE("(%p,%p)\n", psaSource, psaTarget);
-  
+
   if (!psaSource || !psaTarget ||
       psaSource->cDims != psaTarget->cDims ||
       psaSource->cbElements != psaTarget->cbElements)
@@ -1385,7 +1387,7 @@ HRESULT WINAPI SafeArrayCopy(SAFEARRAY *psa, SAFEARRAY **ppsaOut)
     if ((*ppsaOut)->pvData)
     {
       hRet = SAFEARRAY_CopyData(psa, *ppsaOut);
- 
+
       if (SUCCEEDED(hRet))
         return hRet;
 
@@ -1418,7 +1420,7 @@ HRESULT WINAPI SafeArrayRedim(SAFEARRAY *psa, SAFEARRAYBOUND *psabound)
   SAFEARRAYBOUND *oldBounds;
 
   TRACE("(%p,%p)\n", psa, psabound);
-  
+
   if (!psa || psa->fFeatures & FADF_FIXEDSIZE || !psabound)
     return E_INVALIDARG;
 
@@ -1498,8 +1500,6 @@ HRESULT WINAPI SafeArrayGetVartype(SAFEARRAY* psa, VARTYPE* pvt)
 
   if (psa->fFeatures & FADF_RECORD)
     *pvt = VT_RECORD;
-  else if ((psa->fFeatures & (FADF_HAVEIID|FADF_DISPATCH)) == (FADF_HAVEIID|FADF_DISPATCH))
-    *pvt = VT_DISPATCH;
   else if (psa->fFeatures & FADF_HAVEIID)
     *pvt = VT_UNKNOWN;
   else if (psa->fFeatures & FADF_HAVEVARTYPE)
@@ -1534,7 +1534,7 @@ HRESULT WINAPI SafeArraySetRecordInfo(SAFEARRAY *psa, IRecordInfo *pRinfo)
   IRecordInfo** dest = (IRecordInfo**)psa;
 
   TRACE("(%p,%p)\n", psa, pRinfo);
-  
+
   if (!psa || !(psa->fFeatures & FADF_RECORD))
     return E_INVALIDARG;
 
@@ -1659,7 +1659,7 @@ HRESULT WINAPI VectorFromBstr(BSTR bstr, SAFEARRAY **ppsa)
   SAFEARRAYBOUND sab;
 
   TRACE("(%p,%p)\n", bstr, ppsa);
-  
+
   if (!ppsa)
     return E_INVALIDARG;
 

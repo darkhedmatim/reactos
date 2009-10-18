@@ -37,6 +37,6 @@ FsRtlNotifyVolumeEvent(IN PFILE_OBJECT FileObject,
                        IN ULONG EventCode)
 {
     /* Unimplemented */
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return STATUS_NOT_IMPLEMENTED;
 }

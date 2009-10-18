@@ -21,13 +21,13 @@
 #define __DRIVEMAP_H
 
 #ifdef __i386__
-#include <pshpack1.h>
 typedef struct
 {
 	UCHAR		DriveMapCount;		// Count of drives currently mapped
+
 	CHAR		DriveMap[8];		// Map of BIOS drives
-} DRIVE_MAP_LIST, *PDRIVE_MAP_LIST;
-#include <poppack.h>
+
+} PACKED DRIVE_MAP_LIST, *PDRIVE_MAP_LIST;
 
 VOID	DriveMapMapDrivesInSection(PCSTR SectionName);
 BOOLEAN	DriveMapIsValidDriveString(PCSTR DriveString);			// Checks the drive string ("hd0") for validity

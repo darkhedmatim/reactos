@@ -3,11 +3,17 @@
 
 #include <ntddk.h>
 
+#ifdef _MSC_VER
+  #define STDCALL
+  #define DDKAPI
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define TAG_ISAPNP 'PNPI'
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#define TAG_ISAPNP TAG('I', 'P', 'N', 'P')
 
 #define IO_RESOURCE_REQUIRED  0x00  //ROS Extension
 
@@ -329,7 +335,7 @@ typedef struct _ISAPNP_DEVICE_EXTENSION
 } ISAPNP_DEVICE_EXTENSION, *PISAPNP_DEVICE_EXTENSION;
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath);

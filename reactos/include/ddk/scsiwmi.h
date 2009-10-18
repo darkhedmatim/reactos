@@ -23,6 +23,10 @@
 #ifndef __SCSIWMI_H
 #define __SCSIWMI_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "srb.h"
 
 #ifdef __cplusplus
@@ -60,14 +64,14 @@ typedef struct _SCSIWMIGUIDREGINFO {
   ULONG  Flags;
 } SCSIWMIGUIDREGINFO, *PSCSIWMIGUIDREGINFO;
 
-typedef UCHAR
-(DDKAPI *PSCSIWMI_QUERY_REGINFO)(
+typedef UCHAR DDKAPI
+(*PSCSIWMI_QUERY_REGINFO)(
 	IN PVOID  DeviceContext,
 	IN PSCSIWMI_REQUEST_CONTEXT  RequestContext,
 	OUT PWCHAR  *MofResourceName);
 
-typedef BOOLEAN
-(DDKAPI *PSCSIWMI_QUERY_DATABLOCK)(
+typedef BOOLEAN DDKAPI
+(*PSCSIWMI_QUERY_DATABLOCK)(
   IN PVOID  Context,
   IN PSCSIWMI_REQUEST_CONTEXT  DispatchContext,
   IN ULONG  GuidIndex,
@@ -77,8 +81,8 @@ typedef BOOLEAN
   IN ULONG  BufferAvail,
   OUT PUCHAR  Buffer);
 
-typedef BOOLEAN
-(DDKAPI *PSCSIWMI_SET_DATABLOCK)(
+typedef BOOLEAN DDKAPI
+(*PSCSIWMI_SET_DATABLOCK)(
   IN PVOID  DeviceContext,
   IN PSCSIWMI_REQUEST_CONTEXT  RequestContext,
   IN ULONG  GuidIndex,
@@ -86,8 +90,8 @@ typedef BOOLEAN
   IN ULONG  BufferSize,
   IN PUCHAR  Buffer);
 
-typedef BOOLEAN
-(DDKAPI *PSCSIWMI_SET_DATAITEM)(
+typedef BOOLEAN DDKAPI
+(*PSCSIWMI_SET_DATAITEM)(
   IN PVOID  DeviceContext,
   IN PSCSIWMI_REQUEST_CONTEXT  RequestContext,
   IN ULONG  GuidIndex,
@@ -96,8 +100,8 @@ typedef BOOLEAN
   IN ULONG  BufferSize,
   IN PUCHAR  Buffer);
 
-typedef BOOLEAN
-(DDKAPI *PSCSIWMI_EXECUTE_METHOD)(
+typedef BOOLEAN DDKAPI
+(*PSCSIWMI_EXECUTE_METHOD)(
   IN PVOID  DeviceContext,
   IN PSCSIWMI_REQUEST_CONTEXT  RequestContext,
   IN ULONG  GuidIndex,
@@ -112,8 +116,8 @@ typedef enum _SCSIWMI_ENABLE_DISABLE_CONTROL {
 	ScsiWmiDataBlockControl
 } SCSIWMI_ENABLE_DISABLE_CONTROL;
 
-typedef BOOLEAN
-(DDKAPI *PSCSIWMI_FUNCTION_CONTROL)(
+typedef BOOLEAN DDKAPI
+(*PSCSIWMI_FUNCTION_CONTROL)(
   IN PVOID  DeviceContext,
   IN PSCSIWMI_REQUEST_CONTEXT  RequestContext,
   IN ULONG  GuidIndex,

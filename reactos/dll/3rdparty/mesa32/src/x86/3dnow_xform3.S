@@ -1,3 +1,4 @@
+/* $Id: 3dnow_xform3.S,v 1.5 2006/04/17 18:58:24 krh Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -24,7 +25,6 @@
  */
 
 #ifdef USE_3DNOW_ASM
-#include "assyntax.h"
 #include "matypes.h"
 #include "xform_args.h"
 

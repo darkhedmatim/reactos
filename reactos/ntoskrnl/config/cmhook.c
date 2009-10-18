@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -116,7 +117,7 @@ CmRegisterCallback(IN PEX_CALLBACK_FUNCTION Function,
 
     Callback = ExAllocatePoolWithTag(PagedPool,
                                    sizeof(REGISTRY_CALLBACK),
-                                   'bcMC');
+                                   TAG('C', 'M', 'c', 'b'));
     if (Callback != NULL)
     {
         /* initialize the callback */

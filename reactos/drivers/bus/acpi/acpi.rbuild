@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="acpi" type="kernelmodedriver" installbase="system32/drivers" installname="acpi.sys">
+<module name="acpi" type="kernelmodedriver" installbase="system32/drivers" installname="acpi.sys" allowwarnings="true">
 	<bootstrap installbase="$(CDOUTPUT)" />
 	<include base="acpi">include</include>
 	<include base="acpi">ospm/include</include>
@@ -136,7 +136,5 @@
 		<file>cmxface.c</file>
 	</directory>
 	<file>acpi.rc</file>
-	<directory name="include">
-		<pch>acpi.h</pch>
-	</directory>
+	<pch>include/acpi.h</pch>
 </module>

@@ -51,7 +51,8 @@ BOOL WINAPI ILGetDisplayNameEx(
 
 LPITEMIDLIST WINAPI ILGlobalClone(LPCITEMIDLIST pidl);
 void WINAPI ILGlobalFree(LPITEMIDLIST pidl);
-LPITEMIDLIST WINAPI SHSimpleIDListFromPathA (LPCSTR lpszPath); //FIXME
+
+LPITEMIDLIST WINAPI SHSimpleIDListFromPathA (LPCSTR lpszPath);
 LPITEMIDLIST WINAPI SHSimpleIDListFromPathW (LPCWSTR lpszPath);
 
 HRESULT WINAPI SHILCreateFromPathA (
@@ -70,6 +71,15 @@ HRESULT WINAPI SHILCreateFromPathW (
 BOOL WINAPI StrRetToStrNA(LPSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 BOOL WINAPI StrRetToStrNW(LPWSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 
+
+/****************************************************************************
+* SHChangeNotifyRegister API
+*/
+#define SHCNRF_InterruptLevel		0x0001
+#define SHCNRF_ShellLevel		0x0002
+#define SHCNRF_RecursiveInterrupt	0x1000	/* Must be combined with SHCNRF_InterruptLevel */
+#define SHCNRF_NewDelivery		0x8000	/* Messages use shared memory */
+
 /****************************************************************************
  * Shell Common Dialogs
  */
@@ -80,8 +90,6 @@ BOOL WINAPI StrRetToStrNW(LPWSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 #define RFF_CALCDIRECTORY  0x04
 #define RFF_NOLABEL        0x08
 #define RFF_NOSEPARATEMEM  0x20  /* NT only */
-
-#define DE_SAMEFILE 0x71
 
 /* RunFileFlg notification structure */
 typedef struct
@@ -121,7 +129,7 @@ int  WINAPI SHOutOfMemoryMessageBox(
 
 DWORD WINAPI SHNetConnectionDialog(
 	HWND hwndOwner,
-	LPCWSTR lpstrRemoteName,
+	LPCSTR lpstrRemoteName,
 	DWORD dwType);
 
 /****************************************************************************
@@ -177,10 +185,10 @@ typedef struct
  * System Imagelist Routines
  */
 
-int WINAPI Shell_GetCachedImageIndexA(
+int WINAPI Shell_GetCachedImageIndex(
 	LPCSTR lpszFileName,
-	int nIconIndex,
-	UINT bSimulateDoc);
+	UINT nIconIndex,
+	BOOL bSimulateDoc);
 
 BOOL WINAPI Shell_GetImageLists(
 	HIMAGELIST *lphimlLarge,
@@ -416,7 +424,7 @@ VOID WINAPI PathSetDlgItemPathAW(HWND hDlg, int nIDDlgItem, LPCVOID lpszPath);
 /* PathProcessCommand flags */
 #define PPCF_QUOTEPATH        0x01 /* implies PPCF_INCLUDEARGS */
 #define PPCF_INCLUDEARGS      0x02
-//#define PPCF_NODIRECTORIES    0x10 move to shlobj
+#define PPCF_NODIRECTORIES    0x10
 #define PPCF_DONTRESOLVE      0x20
 #define PPCF_PATHISRELATIVE   0x40
 
@@ -546,38 +554,8 @@ DWORD WINAPI CheckEscapesW(LPWSTR string, DWORD len);
 /* policy functions */
 BOOL WINAPI SHInitRestricted(LPCVOID unused, LPCVOID inpRegKey);
 
-/* Shell Desktop functions */
-
-#undef INTERFACE
-#define INTERFACE IShellDesktop
-DECLARE_INTERFACE_(IShellDesktop,IUnknown)
-{
-    /*** IUnknown ***/
-    STDMETHOD(QueryInterface)(THIS_ REFIID,PVOID*) PURE;
-    STDMETHOD_(ULONG,AddRef)(THIS) PURE;
-    STDMETHOD_(ULONG,Release)(THIS) PURE;
-    /*** IShellDesktopTray ***/
-    STDMETHOD_(ULONG,GetState)(THIS) PURE;
-    STDMETHOD(GetTrayWindow)(THIS_ HWND*) PURE;
-    STDMETHOD(RegisterDesktopWindow)(THIS_ HWND) PURE;
-    STDMETHOD(Unknown)(THIS_ DWORD,DWORD) PURE;
-};
-#undef INTERFACE
-
-#define IShellDesktop_QueryInterface(T,a,b) (T)->lpVtbl->QueryInterface(T,a,b)
-#define IShellDesktop_AddRef(T) (T)->lpVtbl->AddRef(T)
-#define IShellDesktop_Release(T) (T)->lpVtbl->Release(T)
-#define IShellDesktop_GetState(T) (T)->lpVtbl->GetState(T)
-#define IShellDesktop_GetTrayWindow(T,a) (T)->lpVtbl->GetTrayWindow(T,a)
-#define IShellDesktop_RegisterDesktopWindow(T,a) (T)->lpVtbl->RegisterDesktopWindow(T,a)
-#define IShellDesktop_Unknown(T,a,b) (T)->lpVtbl->Unknown(T,a,b)
-
-#define WM_GETISHELLBROWSER (WM_USER+7)
-
-HANDLE WINAPI SHCreateDesktop(IShellDesktop*);
-BOOL WINAPI SHDesktopMessageLoop(HANDLE);
-
-#define CSIDL_FOLDER_MASK	0x00ff
+DEFINE_GUID(CLSID_OpenWith, 0x09799AFB, 0xAD67, 0x11d1, 0xAB,0xCD,0x00,0xC0,0x4F,0xC3,0x09,0x36);
+DEFINE_GUID(CLSID_StartMenu, 0x4622AD11, 0xFF23, 0x11D0, 0x8D,0x34,0x00,0xA0,0xC9,0x0F,0x27,0x19);
 
 #ifdef __cplusplus
 } /* extern "C" */

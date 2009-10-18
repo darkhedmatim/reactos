@@ -53,7 +53,7 @@ LIST_ENTRY gHotkeyList;
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS FASTCALL
-InitHotkeyImpl(VOID)
+InitHotkeyImpl()
 {
    InitializeListHead(&gHotkeyList);
 
@@ -63,7 +63,7 @@ InitHotkeyImpl(VOID)
 
 #if 0 //not used
 NTSTATUS FASTCALL
-CleanupHotKeys(VOID)
+CleanupHotKeys()
 {
 
    return STATUS_SUCCESS;
@@ -158,7 +158,7 @@ IsHotKey (UINT fsModifiers, UINT vk)
 /* SYSCALLS *****************************************************************/
 
 
-BOOL APIENTRY
+BOOL STDCALL
 NtUserRegisterHotKey(HWND hWnd,
                      int id,
                      UINT fsModifiers,
@@ -214,7 +214,7 @@ CLEANUP:
 }
 
 
-BOOL APIENTRY
+BOOL STDCALL
 NtUserUnregisterHotKey(HWND hWnd, int id)
 {
    PHOT_KEY_ITEM HotKeyItem;

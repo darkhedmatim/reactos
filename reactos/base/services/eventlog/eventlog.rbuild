@@ -1,8 +1,10 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="eventlog" type="win32cui" installbase="system32" installname="eventlog.exe" unicode="yes">
+<module name="eventlog" type="win32cui" installbase="system32" installname="eventlog.exe">
 	<include base="eventlog">.</include>
 	<include base="eventlog_server">.</include>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>advapi32</library>

@@ -42,13 +42,9 @@ typedef struct _PST_PROVIDERINFO
     LPWSTR szProviderName;
 } PST_PROVIDERINFO, *PPST_PROVIDERINFO;
 
-typedef struct _PST_PROMPTINFO
-{
-    DWORD cbSize;
-    DWORD dwPromptFlags;
-    HWND hwndApp;
-    LPCWSTR szPrompt;
-} PST_PROMPTINFO, *PPST_PROMPTINFO;
+typedef void *PPST_PROMPTIFO;
+
+
 
 typedef struct {
     DWORD cbSize;
@@ -75,9 +71,15 @@ typedef struct {
     LPWSTR szDisplayName;
 } PST_TYPEINFO, *PPST_TYPEINFO;
 
+typedef struct {
+    DWORD cbSize;
+    DWORD dwPromptFlags;
+    DWORD_PTR  hwndApp;
+    LPCWSTR szPrompt;
+} PST_PROMPTINFO, *PPST_PROMPTINFO;
+
 [
   object,
-  uuid(5a6f1ec1-2db1-11d0-8c39-00c04fd9126b),
   pointer_default(unique)
 ]
 interface IEnumPStoreItems : IUnknown
@@ -98,7 +100,6 @@ interface IEnumPStoreItems : IUnknown
 
 [
   object,
-  uuid(789c1cbf-31ee-11d0-8c39-00c04fd9126b),
   pointer_default(unique)
 ]
 interface IEnumPStoreTypes : IUnknown
@@ -122,7 +123,6 @@ interface IEnumPStoreTypes : IUnknown
  */
 [
   object,
-  uuid(5a6f1ec0-2db1-11d0-8c39-00c04fd9126b),
   pointer_default(unique)
 ]
 interface IPStore : IUnknown
@@ -222,7 +222,7 @@ interface IPStore : IUnknown
         [in] LPCWSTR szItemName,
         [in] DWORD *cbData,
         [in] BYTE** pbData,
-        [in] PPST_PROMPTINFO pPromptInfo,
+        [in] PPST_PROMPTIFO pPromptInfo,
         [in] DWORD dwFlags );
 
     HRESULT WriteItem(
@@ -232,7 +232,7 @@ interface IPStore : IUnknown
         [in] LPCWSTR szItemName,
         [in] DWORD cbData,
         [in,size_is(cbData)] BYTE *ppbData,
-        [in] PPST_PROMPTINFO pPromptInfo,
+        [in] PPST_PROMPTIFO pPromptInfo,
         [in] DWORD dwDefaultConfirmationStyle,
         [in] DWORD dwFlags);
 
@@ -242,12 +242,12 @@ interface IPStore : IUnknown
         [in] const GUID* pItemSubtype,
         [in] LPCWSTR szItemName,
         [in] PST_ACCESSMODE ModeFlags,
-        [in] PPST_PROMPTINFO pProomptInfo,
+        [in] PPST_PROMPTIFO pProomptInfo,
         [in] DWORD dwFlags );
 
-    HRESULT CloseItem( 
-        [in] PST_KEY Key, 
-        [in] const GUID* pItemType, 
+    HRESULT CloseItem(
+        [in] PST_KEY Key,
+        [in] const GUID* pItemType,
         [in] const GUID* pItemSubtype,
         [in] LPCWSTR* szItemName,
         [in] DWORD dwFlags );

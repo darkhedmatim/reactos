@@ -3,9 +3,11 @@
 <module name="libcntpr" type="staticlibrary">
 	<include base="crt">.</include>
 	<include base="crt">include</include>
+	<define name="__NO_CTYPE_INLINES" />
 	<define name="NO_RTL_INLINES" />
 	<define name="_NTSYSTEM_" />
 	<define name="_NTDLLBUILD_" />
+	<define name="_SEH_NO_NATIVE_NLG" />
 	<define name="_LIBCNT_" />
 	<if property="ARCH" value="i386">
 		<define name="__MINGW_IMPORT">"extern __attribute__ ((dllexport))"</define>
@@ -39,7 +41,6 @@
 				<file>aulldvrm_asm.s</file>
 				<file>aullrem_asm.s</file>
 				<file>aullshr_asm.s</file>
-				<file>ci.c</file>
 				<file>ceil_asm.s</file>
 				<file>cos_asm.s</file>
 				<file>fabs_asm.s</file>
@@ -53,7 +54,6 @@
 			</directory>
 		</if>
 		<file>abs.c</file>
-		<file>div.c</file>
 		<file>labs.c</file>
 		<file>rand_nt.c</file>
 	</directory>
@@ -81,10 +81,6 @@
 	<directory name="search">
 		<file>bsearch.c</file>
 		<file>lfind.c</file>
-	</directory>
-
-	<directory name="stdlib">
-		<file>qsort.c</file>
 	</directory>
 
 	<directory name="string">
@@ -135,7 +131,6 @@
 			<file>wcsrchr.c</file>
 		</ifnot>
 		<file>ctype.c</file>
-		<file>scanf.c</file>
 		<file>strcspn.c</file>
 		<file>stricmp.c</file>
 		<file>strnicmp.c</file>
@@ -153,14 +148,13 @@
 		<file>itow.c</file>
 		<file>mbstowcs_nt.c</file>
 		<file>splitp.c</file>
+		<file>sscanf.c</file>
 		<file>strtol.c</file>
 		<file>strtoul.c</file>
 		<file>strtoull.c</file>
-		<file>wcs.c</file>
 		<file>wcstol.c</file>
 		<file>wcstombs_nt.c</file>
 		<file>wcstoul.c</file>
-		<file>wsplitp.c</file>
 		<file>wtoi64.c</file>
 		<file>wtoi.c</file>
 		<file>wtol.c</file>
@@ -172,7 +166,12 @@
 		<file>wcsnicmp.c</file>
 		<file>wcsupr.c</file>
 		<file>wcscspn.c</file>
+		<file>wcspbrk.c</file>
+		<file>wcsset.c</file>
 		<file>wcsspn.c</file>
 		<file>wcsstr.c</file>
+		<file>wcsrev.c</file>
 	</directory>
+
+	<pch>precomp.h</pch>
 </module>

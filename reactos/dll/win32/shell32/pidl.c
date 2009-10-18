@@ -22,7 +22,31 @@
  *
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <ctype.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "objbase.h"
+#include "shlguid.h"
+#include "winerror.h"
+#include "winnls.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shlwapi.h"
+
+#include "pidl.h"
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(pidl);
 WINE_DECLARE_DEBUG_CHANNEL(shell);
@@ -31,17 +55,14 @@ WINE_DECLARE_DEBUG_CHANNEL(shell);
 extern LPVOID WINAPI Alloc(INT);
 extern BOOL WINAPI Free(LPVOID);
 
-static LPSTR _ILGetSTextPointer(LPCITEMIDLIST pidl);
-static LPWSTR _ILGetTextPointerW(LPCITEMIDLIST pidl);
-
 /*************************************************************************
- * ILGetDisplayNameExA        [SHELL32.186]
+ * ILGetDisplayNameEx        [SHELL32.186]
  *
  * Retrieves the display name of an ItemIDList
  *
  * PARAMS
  *  psf        [I]   Shell Folder to start with, if NULL the desktop is used
- *  pidl       [I]   ItemIDList relative to the psf to get the display name for
+ *  pidl       [I]   ItemIDList relativ to the psf to get the display name for
  *  path       [O]   Filled in with the display name, assumed to be at least MAX_PATH long
  *  type       [I]   Type of display name to retrieve
  *                    0 = SHGDN_FORPARSING | SHGDN_FORADDRESSBAR uses always the desktop as root
@@ -51,7 +72,7 @@ static LPWSTR _ILGetTextPointerW(LPCITEMIDLIST pidl);
  * RETURNS
  *  True if the display name could be retrieved successfully, False otherwise
  */
-static BOOL ILGetDisplayNameExA(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPSTR path, DWORD type)
+BOOL WINAPI ILGetDisplayNameExA(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPSTR path, DWORD type)
 {
     BOOL ret = FALSE;
     WCHAR wPath[MAX_PATH];
@@ -88,7 +109,7 @@ BOOL WINAPI ILGetDisplayNameExW(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPWSTR pa
             return FALSE;
     }
 
-    if (type <= 2)
+    if (type >= 0 && type <= 2)
     {
         switch (type)
         {
@@ -213,7 +234,7 @@ LPITEMIDLIST WINAPI ILClone (LPCITEMIDLIST pidl)
         return NULL;
 
     len = ILGetSize(pidl);
-    newpidl = SHAlloc(len);
+    newpidl = (LPITEMIDLIST)SHAlloc(len);
     if (newpidl)
         memcpy(newpidl,pidl,len);
 
@@ -240,7 +261,7 @@ LPITEMIDLIST WINAPI ILCloneFirst(LPCITEMIDLIST pidl)
     if (pidl)
     {
         len = pidl->mkid.cb;
-        pidlNew = SHAlloc(len+2);
+        pidlNew = (LPITEMIDLIST) SHAlloc (len+2);
         if (pidlNew)
         {
             memcpy(pidlNew,pidl,len+2);        /* 2 -> mind a desktop pidl */
@@ -274,7 +295,7 @@ HRESULT WINAPI ILLoadFromStream (IStream * pStream, LPITEMIDLIST * ppPidl)
 
     IStream_AddRef (pStream);
 
-    if (SUCCEEDED(IStream_Read(pStream, &wLen, 2, &dwBytesRead)))
+    if (SUCCEEDED(IStream_Read(pStream, (LPVOID)&wLen, 2, &dwBytesRead)))
     {
         TRACE("PIDL length is %d\n", wLen);
         if (wLen != 0)
@@ -329,7 +350,7 @@ HRESULT WINAPI ILSaveToStream (IStream * pStream, LPCITEMIDLIST pPidl)
 
     wLen = ILGetSize(pPidl);
 
-    if (SUCCEEDED(IStream_Write(pStream, &wLen, 2, NULL)))
+    if (SUCCEEDED(IStream_Write(pStream, (LPVOID)&wLen, 2, NULL)))
     {
         if (SUCCEEDED(IStream_Write(pStream, pPidl, wLen, NULL)))
             ret = S_OK;
@@ -410,7 +431,7 @@ HRESULT WINAPI SHILCreateFromPathAW (LPCVOID path, LPITEMIDLIST * ppidl, DWORD *
  *  Caller is responsible for deallocating the returned ItemIDList with the
  *  shells IMalloc interface, aka ILFree.
  */
-PIDLIST_ABSOLUTE WINAPI SHCloneSpecialIDList(HWND hwndOwner, int nFolder, BOOL fCreate)
+LPITEMIDLIST WINAPI SHCloneSpecialIDList(HWND hwndOwner, DWORD nFolder, BOOL fCreate)
 {
     LPITEMIDLIST ppidl;
     TRACE_(shell)("(hwnd=%p,csidl=0x%x,%s).\n", hwndOwner, nFolder, fCreate ? "T" : "F");
@@ -445,7 +466,7 @@ LPITEMIDLIST WINAPI ILGlobalClone(LPCITEMIDLIST pidl)
         return NULL;
 
     len = ILGetSize(pidl);
-    newpidl = Alloc(len);
+    newpidl = (LPITEMIDLIST)Alloc(len);
     if (newpidl)
         memcpy(newpidl,pidl,len);
 
@@ -487,7 +508,7 @@ BOOL WINAPI ILIsEqual(LPCITEMIDLIST pidl1, LPCITEMIDLIST pidl2)
         _ILSimpleGetText(pidltemp1, szData1, MAX_PATH);
         _ILSimpleGetText(pidltemp2, szData2, MAX_PATH);
 
-        if (strcmp( szData1, szData2 ))
+        if (strcasecmp( szData1, szData2 ))
             return FALSE;
 
         pidltemp1 = ILGetNext(pidltemp1);
@@ -537,7 +558,7 @@ BOOL WINAPI ILIsParent(LPCITEMIDLIST pidlParent, LPCITEMIDLIST pidlChild, BOOL b
         _ILSimpleGetText(pParent, szData1, MAX_PATH);
         _ILSimpleGetText(pChild, szData2, MAX_PATH);
 
-        if (strcmp( szData1, szData2 ))
+        if (strcasecmp( szData1, szData2 ))
             return FALSE;
 
         pParent = ILGetNext(pParent);
@@ -604,7 +625,7 @@ LPITEMIDLIST WINAPI ILFindChild(LPCITEMIDLIST pidl1, LPCITEMIDLIST pidl2)
             _ILSimpleGetText(pidltemp1, szData1, MAX_PATH);
             _ILSimpleGetText(pidltemp2, szData2, MAX_PATH);
 
-            if (strcmp(szData1,szData2))
+            if (strcasecmp(szData1,szData2))
                 break;
 
             pidltemp1 = ILGetNext(pidltemp1);
@@ -706,7 +727,7 @@ HRESULT WINAPI SHGetRealIDL(LPSHELLFOLDER lpsf, LPCITEMIDLIST pidlSimple, LPITEM
         if (SUCCEEDED(hr))
         {
             /*assert(pida->cidl==1);*/
-            LPIDA pida = GlobalLock(medium.u.hGlobal);
+            LPIDA pida = (LPIDA)GlobalLock(medium.u.hGlobal);
 
             LPCITEMIDLIST pidl_folder = (LPCITEMIDLIST) ((LPBYTE)pida+pida->aoffset[0]);
             LPCITEMIDLIST pidl_child = (LPCITEMIDLIST) ((LPBYTE)pida+pida->aoffset[1]);
@@ -966,7 +987,7 @@ LPITEMIDLIST WINAPI ILCreateFromPathAW (LPCVOID path)
  *  is used to avoid having to verify the current path element on disk, so
  *  that creating an ItemIDList from a nonexistent path still can work.
  */
-static HRESULT _ILParsePathW(LPCWSTR path, LPWIN32_FIND_DATAW lpFindFile,
+static HRESULT WINAPI _ILParsePathW(LPCWSTR path, LPWIN32_FIND_DATAW lpFindFile,
                              BOOL bBindCtx, LPITEMIDLIST *ppidl, LPDWORD prgfInOut)
 {
     LPSHELLFOLDER pSF = NULL;
@@ -997,7 +1018,7 @@ static HRESULT _ILParsePathW(LPCWSTR path, LPWIN32_FIND_DATAW lpFindFile,
 
     IShellFolder_Release(pSF);
 
-    if (FAILED(ret) && ppidl)
+    if (!SUCCEEDED(ret) && ppidl)
         *ppidl = NULL;
 
     TRACE("%s %p 0x%x\n", debugstr_w(path), ppidl ? *ppidl : NULL, prgfInOut ? *prgfInOut : 0);
@@ -1104,12 +1125,12 @@ HRESULT WINAPI SHGetDataFromIDListA(LPSHELLFOLDER psf, LPCITEMIDLIST pidl,
         shortname = _ILGetSTextPointer(pidl);
 
         if (filename)
-            lstrcpynA(pfd->cFileName, filename, sizeof(pfd->cFileName));
+            lstrcpynA(pfd->cFileName, filename, MAX_PATH);
         else
             pfd->cFileName[0] = '\0';
 
         if (shortname)
-            lstrcpynA(pfd->cAlternateFileName, shortname, sizeof(pfd->cAlternateFileName));
+            lstrcpynA(pfd->cAlternateFileName, shortname, MAX_PATH);
         else
             pfd->cAlternateFileName[0] = '\0';
         return NOERROR;
@@ -1303,14 +1324,7 @@ HRESULT WINAPI SHBindToParent(LPCITEMIDLIST pidl, REFIID riid, LPVOID *ppv, LPCI
  *
  *************************************************************************
  */
-
-/* Basic PIDL constructor.  Allocates size + 5 bytes, where:
- * - two bytes are SHITEMID.cb
- * - one byte is PIDLDATA.type
- * - two bytes are the NULL PIDL terminator
- * Sets type of the returned PIDL to type.
- */
-static LPITEMIDLIST _ILAlloc(PIDLTYPE type, unsigned int size)
+LPITEMIDLIST _ILAlloc(PIDLTYPE type, unsigned int size)
 {
     LPITEMIDLIST pidlOut = NULL;
 
@@ -1367,14 +1381,31 @@ LPITEMIDLIST _ILCreateIExplore(void)
 
 LPITEMIDLIST _ILCreateControlPanel(void)
 {
-    LPITEMIDLIST ret = NULL;
-    LPITEMIDLIST parent = _ILCreateGuid(PT_GUID, &CLSID_MyComputer);
+    LPITEMIDLIST parent = _ILCreateGuid(PT_GUID, &CLSID_MyComputer), ret = NULL;
 
     TRACE("()\n");
-
     if (parent)
     {
-        LPITEMIDLIST printers = _ILCreateGuid(PT_YAGUID, &CLSID_ControlPanel);
+        LPITEMIDLIST cpl = _ILCreateGuid(PT_SHELLEXT, &CLSID_ControlPanel);
+
+        if (cpl)
+        {
+            ret = ILCombine(parent, cpl);
+            SHFree(cpl);
+        }
+        SHFree(parent);
+    }
+    return ret;
+}
+
+LPITEMIDLIST _ILCreatePrinters(void)
+{
+    LPITEMIDLIST parent = _ILCreateGuid(PT_GUID, &CLSID_MyComputer), ret = NULL;
+
+    TRACE("()\n");
+    if (parent)
+    {
+        LPITEMIDLIST printers = _ILCreateGuid(PT_YAGUID, &CLSID_Printers);
 
         if (printers)
         {
@@ -1384,13 +1415,6 @@ LPITEMIDLIST _ILCreateControlPanel(void)
         SHFree(parent);
     }
     return ret;
-
-    return _ILCreateGuid(PT_SHELLEXT, &CLSID_ControlPanel);
-}
-
-LPITEMIDLIST _ILCreatePrinters(void)
-{
-    return _ILCreateGuid(PT_YAGUID, &CLSID_Printers);
 }
 
 LPITEMIDLIST _ILCreateNetwork(void)
@@ -1405,12 +1429,6 @@ LPITEMIDLIST _ILCreateBitBucket(void)
     return _ILCreateGuid(PT_GUID, &CLSID_RecycleBin);
 }
 
-LPITEMIDLIST _ILCreateAdminTools(void)
-{
-    TRACE("()\n");
-    return _ILCreateGuid(PT_GUID, &CLSID_AdminFolderShortcut); //FIXME
-}
-
 LPITEMIDLIST _ILCreateGuid(PIDLTYPE type, REFIID guid)
 {
     LPITEMIDLIST pidlOut;
@@ -1422,7 +1440,7 @@ LPITEMIDLIST _ILCreateGuid(PIDLTYPE type, REFIID guid)
         {
             LPPIDLDATA pData = _ILGetDataPointer(pidlOut);
 
-            pData->u.guid.guid = *guid;
+            memcpy(&(pData->u.guid.guid), guid, sizeof(GUID));
             TRACE("-- create GUID-pidl %s\n",
                   debugstr_guid(&(pData->u.guid.guid)));
         }
@@ -1439,7 +1457,7 @@ LPITEMIDLIST _ILCreateGuidFromStrA(LPCSTR szGUID)
 {
     IID iid;
 
-    if (FAILED(SHCLSIDFromStringA(szGUID, &iid)))
+    if (!SUCCEEDED(SHCLSIDFromStringA(szGUID, &iid)))
     {
         ERR("%s is not a GUID\n", szGUID);
         return NULL;
@@ -1451,7 +1469,7 @@ LPITEMIDLIST _ILCreateGuidFromStrW(LPCWSTR szGUID)
 {
     IID iid;
 
-    if (FAILED(CLSIDFromString((LPOLESTR)szGUID, &iid)))
+    if (!SUCCEEDED(SHCLSIDFromStringW(szGUID, &iid)))
     {
         ERR("%s is not a GUID\n", debugstr_w(szGUID));
         return NULL;
@@ -1478,7 +1496,7 @@ LPITEMIDLIST _ILCreateFromFindDataW( const WIN32_FIND_DATAW *wfd )
 
     type = (wfd->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? PT_FOLDER : PT_VALUE;
 
-    wlen = wcslen(wfd->cFileName) + 1;
+    wlen = lstrlenW(wfd->cFileName) + 1;
     pidl = _ILAlloc(type, FIELD_OFFSET(FileStruct, szNames[alen + (alen & 1)]) +
                     FIELD_OFFSET(FileStructW, wszName[wlen]) + sizeof(WORD));
     if (pidl)
@@ -1541,7 +1559,7 @@ LPITEMIDLIST _ILCreateDrive(LPCWSTR lpszNew)
         if (pszDest)
         {
             strcpy(pszDest, "x:\\");
-            pszDest[0]=towupper(lpszNew[0]);
+            pszDest[0]=toupperW(lpszNew[0]);
             TRACE("-- create Drive: %s\n", debugstr_a(pszDest));
         }
     }
@@ -1610,39 +1628,6 @@ BOOL _ILIsMyDocuments(LPCITEMIDLIST pidl)
     return FALSE;
 }
 
-BOOL _ILIsControlPanel(LPCITEMIDLIST pidl)
-{
-    REFIID iid = _ILGetGUIDPointer(pidl);
-
-    TRACE("(%p)\n",pidl);
-
-    if (iid)
-        return IsEqualIID(iid, &CLSID_ControlPanel);
-    return FALSE;
-}
-
-BOOL _ILIsNetHood(LPCITEMIDLIST pidl)
-{
-    REFIID iid = _ILGetGUIDPointer(pidl);
-
-    TRACE("(%p)\n",pidl);
-
-    if (iid)
-        return IsEqualIID(iid, &CLSID_NetworkPlaces);
-    return FALSE;
-}
-
-
-LPITEMIDLIST _ILCreateNetHood(void)
-{
-    return _ILCreateGuid(PT_GUID, &CLSID_NetworkPlaces);
-}
-
-LPITEMIDLIST _ILCreateFont(void)
-{
-    return _ILCreateGuid(PT_GUID, &CLSID_FontsFolderShortcut);
-}
-
 BOOL _ILIsMyComputer(LPCITEMIDLIST pidl)
 {
     REFIID iid = _ILGetGUIDPointer(pidl);
@@ -1651,17 +1636,6 @@ BOOL _ILIsMyComputer(LPCITEMIDLIST pidl)
 
     if (iid)
         return IsEqualIID(iid, &CLSID_MyComputer);
-    return FALSE;
-}
-
-BOOL _ILIsPrinter(LPCITEMIDLIST pidl)
-{
-    REFIID iid = _ILGetGUIDPointer(pidl);
-
-    TRACE("(%p)\n",pidl);
-
-    if (iid)
-        return IsEqualIID(iid, &CLSID_Printers);
     return FALSE;
 }
 
@@ -1674,18 +1648,6 @@ BOOL _ILIsBitBucket(LPCITEMIDLIST pidl)
     if (iid)
         return IsEqualIID(iid, &CLSID_RecycleBin);
     return FALSE;
-}
-
-BOOL _ILIsAdminTools(LPCITEMIDLIST pidl)
-{
-    REFIID iid = _ILGetGUIDPointer(pidl);
-
-    TRACE("(%p)\n",pidl);
-
-    if (iid)
-        return IsEqualIID(iid, &CLSID_AdminFolderShortcut);
-    else
-        return FALSE;
 }
 
 BOOL _ILIsSpecialFolder (LPCITEMIDLIST pidl)
@@ -1851,7 +1813,7 @@ DWORD _ILSimpleGetTextW (LPCITEMIDLIST pidl, LPWSTR szOut, UINT uOutSize)
 
     if (pFileStructW) {
         lstrcpynW(szOut, pFileStructW->wszName, uOutSize);
-        dwReturn = wcslen(pFileStructW->wszName);
+        dwReturn = lstrlenW(pFileStructW->wszName);
     } else {
         GUID const * riid;
         WCHAR szTemp[MAX_PATH];
@@ -1873,7 +1835,7 @@ DWORD _ILSimpleGetTextW (LPCITEMIDLIST pidl, LPWSTR szOut, UINT uOutSize)
                 if (szOut)
                     lstrcpynW(szOut, szTemp, uOutSize);
 
-                dwReturn = wcslen (szTemp);
+                dwReturn = lstrlenW (szTemp);
             }
         }
         else if (( szSrcW = _ILGetTextPointerW(pidl) ))
@@ -1882,7 +1844,7 @@ DWORD _ILSimpleGetTextW (LPCITEMIDLIST pidl, LPWSTR szOut, UINT uOutSize)
             if (szOut)
                 lstrcpynW(szOut, szSrcW, uOutSize);
 
-            dwReturn = wcslen(szSrcW);
+            dwReturn = lstrlenW(szSrcW);
         }
         else if (( szSrc = _ILGetTextPointer(pidl) ))
         {
@@ -1892,7 +1854,7 @@ DWORD _ILSimpleGetTextW (LPCITEMIDLIST pidl, LPWSTR szOut, UINT uOutSize)
             if (szOut)
                 lstrcpynW(szOut, szTemp, uOutSize);
 
-            dwReturn = wcslen (szTemp);
+            dwReturn = lstrlenW (szTemp);
         }
         else if (( riid = _ILGetGUIDPointer(pidl) ))
         {
@@ -1902,7 +1864,7 @@ DWORD _ILSimpleGetTextW (LPCITEMIDLIST pidl, LPWSTR szOut, UINT uOutSize)
                 if (szOut)
                     lstrcpynW(szOut, szTemp, uOutSize);
 
-                dwReturn = wcslen (szTemp);
+                dwReturn = lstrlenW (szTemp);
             }
         }
         else
@@ -1925,7 +1887,7 @@ DWORD _ILSimpleGetTextW (LPCITEMIDLIST pidl, LPWSTR szOut, UINT uOutSize)
 LPPIDLDATA _ILGetDataPointer(LPCITEMIDLIST pidl)
 {
     if(pidl && pidl->mkid.cb != 0x00)
-        return (LPPIDLDATA)pidl->mkid.abID;
+        return (LPPIDLDATA) &(pidl->mkid.abID);
     return NULL;
 }
 
@@ -1933,7 +1895,7 @@ LPPIDLDATA _ILGetDataPointer(LPCITEMIDLIST pidl)
  *  _ILGetTextPointerW()
  * gets a pointer to the unicode long filename string stored in the pidl
  */
-static LPWSTR _ILGetTextPointerW(LPCITEMIDLIST pidl)
+LPWSTR _ILGetTextPointerW(LPCITEMIDLIST pidl)
 {
     /* TRACE(pidl,"(pidl%p)\n", pidl);*/
 
@@ -1973,7 +1935,7 @@ static LPWSTR _ILGetTextPointerW(LPCITEMIDLIST pidl)
         return NULL;
 
     case PT_VALUEW:
-        return (LPWSTR)pdata->u.file.szNames;
+        return (LPWSTR)&(pdata->u.file.szNames);
     }
     return NULL;
 }
@@ -2003,21 +1965,21 @@ LPSTR _ILGetTextPointer(LPCITEMIDLIST pidl)
     case PT_DRIVE1:
     case PT_DRIVE2:
     case PT_DRIVE3:
-        return pdata->u.drive.szDriveName;
+        return (LPSTR)&(pdata->u.drive.szDriveName);
 
     case PT_FOLDER:
     case PT_FOLDER1:
     case PT_VALUE:
     case PT_IESPECIAL1:
     case PT_IESPECIAL2:
-        return pdata->u.file.szNames;
+        return (LPSTR)&(pdata->u.file.szNames);
 
     case PT_WORKGRP:
     case PT_COMP:
     case PT_NETWORK:
     case PT_NETPROVIDER:
     case PT_SHARE:
-        return pdata->u.network.szNames;
+        return (LPSTR)&(pdata->u.network.szNames);
     }
     return NULL;
 }
@@ -2026,7 +1988,7 @@ LPSTR _ILGetTextPointer(LPCITEMIDLIST pidl)
  *  _ILGetSTextPointer()
  * gets a pointer to the short filename string stored in the pidl
  */
-static LPSTR _ILGetSTextPointer(LPCITEMIDLIST pidl)
+LPSTR _ILGetSTextPointer(LPCITEMIDLIST pidl)
 {
     /* TRACE(pidl,"(pidl%p)\n", pidl); */
 
@@ -2041,10 +2003,10 @@ static LPSTR _ILGetSTextPointer(LPCITEMIDLIST pidl)
     case PT_VALUE:
     case PT_IESPECIAL1:
     case PT_IESPECIAL2:
-        return pdata->u.file.szNames + strlen (pdata->u.file.szNames) + 1;
+        return (LPSTR)(pdata->u.file.szNames + strlen (pdata->u.file.szNames) + 1);
 
     case PT_WORKGRP:
-        return pdata->u.network.szNames + strlen (pdata->u.network.szNames) + 1;
+        return (LPSTR)(pdata->u.network.szNames + strlen (pdata->u.network.szNames) + 1);
     }
     return NULL;
 }
@@ -2264,42 +2226,24 @@ BOOL _ILGetExtension (LPCITEMIDLIST pidl, LPSTR pOut, UINT uOutSize)
  */
 void _ILGetFileType(LPCITEMIDLIST pidl, LPSTR pOut, UINT uOutSize)
 {
-    char sType[64];
-
     if(_ILIsValue(pidl))
     {
         char sTemp[64];
 
         if(uOutSize > 0)
             pOut[0] = 0;
-        if (_ILGetExtension (pidl, sType, 64))
+        if (_ILGetExtension (pidl, sTemp, 64))
         {
-            if (HCR_MapTypeToValueA(sType, sTemp, 64, TRUE))
+            if (!( HCR_MapTypeToValueA(sTemp, sTemp, 64, TRUE)
+                && HCR_MapTypeToValueA(sTemp, pOut, uOutSize, FALSE )))
             {
-                /* retrieve description */
-                if(HCR_MapTypeToValueA(sTemp, pOut, uOutSize, FALSE ))
-                    return;
-            }
-            /* display Ext-file as description */
-            strcpy(pOut, sType);
-            _strupr(pOut);
-            /* load localized file string */
-            sTemp[0] = '\0';
-            if(LoadStringA(shell32_hInstance, IDS_SHV_COLUMN1, sTemp, 64))
-            {
-                sTemp[63] = '\0';
-                strcat(pOut, "-");
-                strcat(pOut, sTemp);
+                lstrcpynA (pOut, sTemp, uOutSize - 6);
+                strcat (pOut, "-file");
             }
         }
     }
-    else 
-    {
-        pOut[0] = '\0';
-        LoadStringA(shell32_hInstance, IDS_DIRECTORY, pOut, uOutSize);
-        /* make sure its null terminated */
-        pOut[uOutSize-1] = '\0';
-    }
+    else
+        lstrcpynA(pOut, "Folder", uOutSize);
 }
 
 /*************************************************************************

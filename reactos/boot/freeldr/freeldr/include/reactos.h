@@ -23,8 +23,6 @@
 /* Base Addres of Kernel in Physical Memory */
 #define KERNEL_BASE_PHYS 0x800000
 
-#if defined(_M_IX86)
-
 /* Bits to shift to convert a Virtual Address into an Offset in the Page Table */
 #define PFN_SHIFT 12
 
@@ -41,19 +39,18 @@
     ((p) >> PFN_SHIFT)
 
 #define STARTUP_BASE                0xC0000000
+#define HYPERSPACE_BASE             0xC0400000
 #define HAL_BASE                    0xFFC00000
-#define APIC_BASE                   0xFFFE0000
 
 #define LowMemPageTableIndex        0
 #define StartupPageTableIndex       (STARTUP_BASE >> 22)
+#define HyperspacePageTableIndex    (HYPERSPACE_BASE >> 22)
 #define HalPageTableIndex           (HAL_BASE >> 22)
 
 typedef struct _PAGE_DIRECTORY_X86
 {
     HARDWARE_PTE Pde[1024];
 } PAGE_DIRECTORY_X86, *PPAGE_DIRECTORY_X86;
-
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
@@ -98,25 +95,17 @@ extern reactos_mem_data_t reactos_mem_data;
 VOID FASTCALL FrLdrSetupPae(ULONG Magic);
 VOID FASTCALL FrLdrSetupPageDirectory(VOID);
 VOID FASTCALL FrLdrGetPaeMode(VOID);
-BOOLEAN NTAPI FrLdrMapKernel(PFILE KernelImage);
+BOOLEAN NTAPI FrLdrMapKernel(FILE *KernelImage);
 ULONG_PTR NTAPI FrLdrCreateModule(LPCSTR ModuleName);
-ULONG_PTR NTAPI FrLdrLoadModule(PFILE ModuleImage, LPCSTR ModuleName, PULONG ModuleSize);
+ULONG_PTR NTAPI FrLdrLoadModule(FILE *ModuleImage, LPCSTR ModuleName, PULONG ModuleSize);
 BOOLEAN NTAPI FrLdrCloseModule(ULONG_PTR ModuleBase, ULONG dwModuleSize);
 VOID NTAPI FrLdrStartup(ULONG Magic);
-typedef VOID (FASTCALL *ROS_KERNEL_ENTRY_POINT)(ULONG Magic, PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
+typedef VOID (FASTCALL *ASMCODE)(ULONG Magic, PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
 
 PVOID
 NTAPI
 FrLdrMapImage(
-    IN PFILE Image,
-    IN PCHAR ShortName,
-    IN ULONG ImageType
-);
-
-PVOID
-NTAPI
-FrLdrReadAndMapImage(
-    IN PFILE Image,
+    IN FILE *Image,
     IN PCHAR ShortName,
     IN ULONG ImageType
 );

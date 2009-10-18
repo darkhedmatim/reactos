@@ -175,10 +175,6 @@ DrvSetPalette(
    IN ULONG cColors)
 {
    PPALETTEENTRY PaletteEntries;
-   BOOL bRet;
-
-   if (cColors == 0)
-       return FALSE;
 
    PaletteEntries = EngAllocMem(0, cColors * sizeof(ULONG), ALLOC_TAG);
    if (PaletteEntries == NULL)
@@ -189,11 +185,8 @@ DrvSetPalette(
    if (PALOBJ_cGetColors(ppalo, iStart, cColors, (PULONG)PaletteEntries) !=
        cColors)
    {
-      EngFreeMem(PaletteEntries);
       return FALSE;
    }
 
-   bRet = IntSetPalette(dhpdev, PaletteEntries, iStart, cColors);
-   EngFreeMem(PaletteEntries);
-   return bRet;
+   return IntSetPalette(dhpdev, PaletteEntries, iStart, cColors);
 }

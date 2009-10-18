@@ -54,6 +54,20 @@ FsRtlIncrementCcFastReadNoWait(VOID)
     CcFastReadNoWait++;
 }
 
+_SEH_FILTER(FsRtlCcCopyFilter)
+{
+   LONG ExceptionDisposition;
+
+   /* Check if this was an expected exception */
+   ExceptionDisposition = FsRtlIsNtstatusExpected(_SEH_GetExceptionCode() ?
+                                                  EXCEPTION_EXECUTE_HANDLER :
+                                                  EXCEPTION_CONTINUE_SEARCH);
+
+   /* Continue execution if we expected it, otherwise fail the call */
+   return ExceptionDisposition;
+}
+
+
 /*
  * @implemented
  */
@@ -74,7 +88,7 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
     PFAST_IO_DISPATCH FastIoDispatch;
     PDEVICE_OBJECT Device;
     BOOLEAN Result = TRUE;
-	ULONG PageCount = ADDRESS_AND_SIZE_TO_SPAN_PAGES(FileOffset,Length);
+	ULONG PageCount = COMPUTE_PAGES_SPANNED(FileOffset,Length);
 
 	PAGED_CODE();
     ASSERT(FileObject);
@@ -173,7 +187,7 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
     /* Set this as top-level IRP */
    	PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
-	_SEH2_TRY
+	_SEH_TRY
 	{
 	    /* Make sure the IO and file size is below 4GB */
 		if (Wait && !(Offset.HighPart | FcbHeader->FileSize.HighPart )) {
@@ -204,10 +218,10 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
 			FileObject->CurrentByteOffset.QuadPart += IoStatus->Information;
 		}
 	}
-	_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+	_SEH_EXCEPT(FsRtlCcCopyFilter)
 	{
 		Result = FALSE;
-    } _SEH2_END;
+    } _SEH_END;
 
 	PsGetCurrentThread()->TopLevelIrp = 0;
 
@@ -247,7 +261,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
     PFSRTL_COMMON_FCB_HEADER FcbHeader;
 
     /* WDK doc. Offset=0xffffffffffffffff indicates append to the end of file */
-    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == (LONG)0xffffffff) && (FileOffset->LowPart == 0xffffffff));
+    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == 0xffffffff) && (FileOffset->LowPart == 0xffffffff));
     BOOLEAN ResourceAquiredShared = FALSE;
 
     BOOLEAN b_4GB = FALSE;
@@ -401,7 +415,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 	    /* Set this as top-level IRP */
 	    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
-		_SEH2_TRY
+		_SEH_TRY
 		{
 			if (Offset.LowPart > FcbHeader->ValidDataLength.LowPart) {
 				LARGE_INTEGER OffsetVar;
@@ -413,10 +427,10 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 			/* Call the cache manager */
 			CcFastCopyWrite(FileObject,Offset.LowPart,Length,Buffer);
 		}
-		_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+		_SEH_EXCEPT(FsRtlCcCopyFilter)
 		{
 			Result = FALSE;
-	    } _SEH2_END;
+	    } _SEH_END;
 
         /* Remove ourselves at the top level component after the IO is done */
 	    PsGetCurrentThread()->TopLevelIrp = 0;
@@ -586,7 +600,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
             /* Nagar p.544 */
             /* Set ourselves as top component */
 		    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
-			_SEH2_TRY
+			_SEH_TRY
 			{
    				BOOLEAN CallCc = TRUE;
                 /*  Check if there is a gap between the end of the file and the offset
@@ -606,10 +620,10 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 				if (CallCc) {
 					Result = CcCopyWrite(FileObject,&Offset,Length, Wait, Buffer);
 				}
-			}_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+			}_SEH_EXCEPT(FsRtlCcCopyFilter)
 			{
 				Result = FALSE;
-		    } _SEH2_END;
+		    } _SEH_END;
 
             /* Reset the top component */
 		    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
@@ -746,7 +760,7 @@ FsRtlGetFileSize(IN PFILE_OBJECT  FileObject,
         IoStackLocation->Parameters.QueryFile.FileInformationClass = FileStandardInformation;
 
         /* Send the IRP to the related device object */
-        Status = IoCallDriver(DeviceObject,Irp);
+        Status = IofCallDriver(DeviceObject,Irp);
 
         /* Standard DDK IRP result processing */
         if (Status == STATUS_PENDING)
@@ -989,16 +1003,16 @@ FsRtlMdlReadDev(IN PFILE_OBJECT FileObject,
     /* Set this as top-level IRP */
     PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Attempt a read */
         CcMdlRead(FileObject, FileOffset, Length, MdlChain, IoStatus);
         FileObject->Flags |= FO_FILE_FAST_IO_READ;
     }
-	_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+	_SEH_EXCEPT(FsRtlCcCopyFilter)
 	{
 		Result = FALSE;
-    } _SEH2_END;
+    } _SEH_END;
 
 
     /* Remove the top-level IRP flag */
@@ -1153,7 +1167,7 @@ FsRtlPrepareMdlWriteDev(IN PFILE_OBJECT FileObject,
     LARGE_INTEGER Offset;
 
     /* WDK doc. Offset=0xffffffffffffffff indicates append to the end of file */
-    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == (LONG)0xffffffff) && (FileOffset->LowPart == 0xffffffff));
+    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == 0xffffffff) && (FileOffset->LowPart == 0xffffffff));
     BOOLEAN FileSizeModified = FALSE;
     BOOLEAN ResourceAquiredShared = FALSE;
 
@@ -1286,7 +1300,7 @@ FsRtlPrepareMdlWriteDev(IN PFILE_OBJECT FileObject,
         /* Nagar p.544 */
         /* Set ourselves as top component */
 	    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
-		_SEH2_TRY
+		_SEH_TRY
 		{
             /*  Check if there is a gap between the end of the file and the offset
                 If yes, then we have to zero the data
@@ -1301,10 +1315,10 @@ FsRtlPrepareMdlWriteDev(IN PFILE_OBJECT FileObject,
 				    CcPrepareMdlWrite(FileObject,&Offset,Length,MdlChain,IoStatus);
 		    }
 
-		}_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+		}_SEH_EXCEPT(FsRtlCcCopyFilter)
 		{
 			Result = FALSE;
-	    } _SEH2_END;
+	    } _SEH_END;
 
         /* Reset the top component */
 	    PsGetCurrentThread()->TopLevelIrp = 0;
@@ -1384,7 +1398,7 @@ FsRtlAcquireFileExclusive(IN PFILE_OBJECT FileObject)
     PAGED_CODE();
     FsRtlAcquireFileExclusiveCommon(FileObject,0,0);
     */
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*
@@ -1395,7 +1409,7 @@ NTAPI
 FsRtlReleaseFile(IN PFILE_OBJECT FileObject)
 {
 
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++

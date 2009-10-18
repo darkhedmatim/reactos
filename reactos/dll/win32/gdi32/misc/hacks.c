@@ -10,6 +10,72 @@
  *
  */
 
+/*
+ * @implemented
+ *
+ */
+INT
+STDCALL
+SetDIBitsToDevice(
+    HDC hDC,
+    int XDest,
+    int YDest,
+    DWORD Width,
+    DWORD Height,
+    int XSrc,
+    int YSrc,
+    UINT StartScan,
+    UINT ScanLines,
+    CONST VOID *Bits,
+    CONST BITMAPINFO *lpbmi,
+    UINT ColorUse)
+{
+    return NtGdiSetDIBitsToDeviceInternal(hDC,
+                                          XDest,
+                                          YDest,
+                                          Width,
+                                          Height,
+                                          XSrc,
+                                          YSrc,
+                                          StartScan,
+                                          ScanLines,
+                                          (LPBYTE)Bits,
+                                          (LPBITMAPINFO)lpbmi,
+                                          ColorUse,
+                                          lpbmi->bmiHeader.biSizeImage,
+                                          lpbmi->bmiHeader.biSize,
+                                          FALSE,
+                                          NULL);
+}
+
+
+/*
+ * @implemented
+ *
+ */
+BOOL
+STDCALL
+OffsetViewportOrgEx(HDC hdc,
+                    int nXOffset,
+                    int nYOffset,
+                    LPPOINT lpPoint)
+{
+    return  NtGdiOffsetViewportOrgEx(hdc, nXOffset, nYOffset, lpPoint);
+}
+
+/*
+ * @implemented
+ *
+ */
+BOOL
+STDCALL
+OffsetWindowOrgEx(HDC hdc,
+                  int nXOffset,
+                  int nYOffset,
+                  LPPOINT lpPoint)
+{
+    return NtGdiOffsetWindowOrgEx(hdc, nXOffset, nYOffset, lpPoint);
+}
 
 
 

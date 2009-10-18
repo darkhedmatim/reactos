@@ -16,12 +16,13 @@ typedef struct _PORT_SET {
     PVOID ProtoBitBuffer;
     UINT StartingPort;
     UINT PortsToOversee;
+    UINT LastAllocatedPort;
     FAST_MUTEX Mutex;
 } PORT_SET, *PPORT_SET;
 
-NTSTATUS PortsStartup( PPORT_SET PortSet,
-		       UINT StartingPort,
-		       UINT PortsToManage );
+VOID PortsStartup( PPORT_SET PortSet,
+		   UINT StartingPort,
+		   UINT PortsToManage );
 VOID PortsShutdown( PPORT_SET PortSet );
 VOID DeallocatePort( PPORT_SET PortSet, ULONG Port );
 BOOLEAN AllocatePort( PPORT_SET PortSet, ULONG Port );

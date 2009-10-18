@@ -5,7 +5,6 @@
  * Copyright 2001 Casper S. Hournstroup
  * Copyright 2003 Andrew Greenwood
  * Copyright 2003 Filip Navara
- * Copyright 2009 Matthias Kupfer
  *
  * Based on Wine code.
  *
@@ -121,7 +120,8 @@ static const signed char LTRBInnerFlat[] = {
 /* FUNCTIONS *****************************************************************/
 
 
-HBRUSH WINAPI GetSysColorBrush(int nIndex);
+HPEN STDCALL GetSysColorPen(int nIndex);
+HBRUSH STDCALL GetSysColorBrush(int nIndex);
 
 /* Ported from WINE20020904 */
 /* Same as DrawEdge invoked with BF_DIAGONAL */
@@ -187,9 +187,9 @@ static BOOL IntDrawDiagEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
     }
 
     if(InnerI != -1)
-        InnerPen = GetStockObject(DC_PEN);
+        InnerPen = GetSysColorPen(InnerI);
     if(OuterI != -1)
-        OuterPen = GetStockObject(DC_PEN);
+        OuterPen = GetSysColorPen(OuterI);
 
     MoveToEx(hdc, 0, 0, &SavePoint);
 
@@ -241,11 +241,9 @@ static BOOL IntDrawDiagEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
 
     MoveToEx(hdc, spx, spy, NULL);
     SelectObject(hdc, OuterPen);
-    SetDCPenColor(hdc, GetSysColor(OuterI));
     LineTo(hdc, epx, epy);
 
     SelectObject(hdc, InnerPen);
-    SetDCPenColor(hdc, GetSysColor(InnerI));
 
     switch(uFlags & (BF_RECT|BF_DIAGONAL))
     {
@@ -339,11 +337,11 @@ static BOOL IntDrawDiagEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
     if((uFlags & BF_MIDDLE) && retval)
     {
         HBRUSH hbsave;
+        HBRUSH hb = GetSysColorBrush(uFlags & BF_MONO ? COLOR_WINDOW : COLOR_BTNFACE);
         HPEN hpsave;
-        hbsave = (HBRUSH)SelectObject(hdc, GetStockObject(DC_BRUSH));
-        hpsave = (HPEN)SelectObject(hdc, GetStockObject(DC_PEN));
-        SetDCBrushColor(hdc, GetSysColor(uFlags & BF_MONO ? COLOR_WINDOW : COLOR_BTNFACE));
-        SetDCPenColor(hdc, GetSysColor(uFlags & BF_MONO ? COLOR_WINDOW : COLOR_BTNFACE));
+        HPEN hp = GetSysColorPen(uFlags & BF_MONO ? COLOR_WINDOW : COLOR_BTNFACE);
+        hbsave = (HBRUSH)SelectObject(hdc, hb);
+        hpsave = (HPEN)SelectObject(hdc, hp);
         Polygon(hdc, Points, 4);
         SelectObject(hdc, hbsave);
         SelectObject(hdc, hpsave);
@@ -505,13 +503,13 @@ static BOOL IntDrawRectEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
         LTpenplus = 1;
 
     if(LTInnerI != -1)
-        LTInnerPen = GetStockObject(DC_PEN);
+        LTInnerPen = GetSysColorPen(LTInnerI);
     if(LTOuterI != -1)
-        LTOuterPen = GetStockObject(DC_PEN);
+        LTOuterPen = GetSysColorPen(LTOuterI);
     if(RBInnerI != -1)
-        RBInnerPen = GetStockObject(DC_PEN);
+        RBInnerPen = GetSysColorPen(RBInnerI);
     if(RBOuterI != -1)
-        RBOuterPen = GetStockObject(DC_PEN);
+        RBOuterPen = GetSysColorPen(RBOuterI);
     if((uFlags & BF_MIDDLE) && retval)
     {
         FillRect(hdc, &InnerRect, GetSysColorBrush(uFlags & BF_MONO ?
@@ -521,7 +519,6 @@ static BOOL IntDrawRectEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
 
     /* Draw the outer edge */
     SelectObject(hdc, LTOuterPen);
-    SetDCPenColor(hdc, GetSysColor(LTOuterI));
     if(uFlags & BF_TOP)
     {
         MoveToEx(hdc, InnerRect.left, InnerRect.top, NULL);
@@ -533,7 +530,6 @@ static BOOL IntDrawRectEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
         LineTo(hdc, InnerRect.left, InnerRect.bottom);
     }
     SelectObject(hdc, RBOuterPen);
-    SetDCPenColor(hdc, GetSysColor(RBOuterI));
     if(uFlags & BF_BOTTOM)
     {
         MoveToEx(hdc, InnerRect.left, InnerRect.bottom-1, NULL);
@@ -547,7 +543,6 @@ static BOOL IntDrawRectEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
 
     /* Draw the inner edge */
     SelectObject(hdc, LTInnerPen);
-    SetDCPenColor(hdc, GetSysColor(LTInnerI));
     if(uFlags & BF_TOP)
     {
         MoveToEx(hdc, InnerRect.left+LTpenplus, InnerRect.top+1, NULL);
@@ -559,7 +554,6 @@ static BOOL IntDrawRectEdge(HDC hdc, LPRECT rc, UINT uType, UINT uFlags)
         LineTo(hdc, InnerRect.left+1, InnerRect.bottom-LBpenplus);
     }
     SelectObject(hdc, RBInnerPen);
-    SetDCPenColor(hdc, GetSysColor(RBInnerI));
     if(uFlags & BF_BOTTOM)
     {
         MoveToEx(hdc, InnerRect.left+LBpenplus, InnerRect.bottom-2, NULL);
@@ -651,9 +645,6 @@ static void UITOOLS_DrawCheckedRect( HDC dc, LPRECT rect )
  * Does a pretty good job in emulating MS behavior. Some quirks are
  * however there because MS uses a TrueType font (Marlett) to draw
  * the buttons.
- *
- * FIXME: This looks a little bit strange, needs to be rewritten completely
- * (several quirks with adjust, DFCS_CHECKED aso)
  */
 static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
 {
@@ -699,33 +690,71 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
     return TRUE;
 }
 
-static BOOL UITOOLS95_DFC_ButtonCheckRadio(HDC dc, LPRECT r, UINT uFlags, BOOL Radio)
+/* Ported from WINE20020904 */
+/* Draw a check/3state button coming from DrawFrameControl()
+ *
+ * Does a pretty good job in emulating MS behavior. Some quirks are
+ * however there because MS uses a TrueType font (Marlett) to draw
+ * the buttons.
+ */
+static BOOL UITOOLS95_DFC_ButtonCheck(HDC dc, LPRECT r, UINT uFlags)
+{
+    RECT myr, bar;
+    UINT flags = BF_RECT | BF_ADJUST;
+    UITOOLS_MakeSquareRect(r, &myr);
+
+    if(uFlags & DFCS_FLAT)
+        flags |= BF_FLAT;
+    else if(uFlags & DFCS_MONO)
+        flags |= BF_MONO;
+
+    IntDrawRectEdge( dc, &myr, EDGE_SUNKEN, flags );
+
+    if(uFlags & (DFCS_INACTIVE|DFCS_PUSHED))
+        FillRect(dc, &myr, GetSysColorBrush(COLOR_BTNFACE));
+    else if( (uFlags & DFCS_BUTTON3STATE) && (uFlags & DFCS_CHECKED) )
+        UITOOLS_DrawCheckedRect( dc, &myr );
+    else
+    {
+        FillRect(dc, &myr, GetSysColorBrush(COLOR_WINDOW));
+    }
+
+    if(uFlags & DFCS_CHECKED)
+    {
+        int i, k;
+        i = (uFlags & DFCS_INACTIVE) || (uFlags & 0xff) == DFCS_BUTTON3STATE ?
+            COLOR_BTNSHADOW : COLOR_WINDOWTEXT;
+
+        /* draw 7 bars, with h=3w to form the check */
+        bar.left = myr.left;
+        bar.top = myr.top + 2;
+        for (k = 0; k < 7; k++) {
+            bar.left = bar.left + 1;
+            bar.top = (k < 3) ? bar.top + 1 : bar.top - 1;
+            bar.bottom = bar.top + 3;
+            bar.right = bar.left + 1;
+            FillRect(dc, &bar, GetSysColorBrush(i));
+        }
+    }
+    return TRUE;
+}
+
+static BOOL UITOOLS95_DFC_ButtonRadio(HDC dc, LPRECT r, UINT uFlags)
 {
     RECT rc;
-    LOGFONTW lf;
+    LOGFONT lf;
     HFONT hFont, hOldFont;
     int SmallDiam, i;
-    TCHAR OutRight, OutLeft, InRight, InLeft, Center;
 
-    if (Radio)
-    {
-        OutRight = 'j'; // Outer right
-        OutLeft  = 'k'; // Outer left
-        InRight  = 'l'; // inner left
-        InLeft   = 'm'; // inner right
-        Center   = 'n'; // center
-    } else
-    {
-        OutRight = 'c'; // Outer right
-        OutLeft  = 'd'; // Outer left
-        InRight  = 'e'; // inner left
-        InLeft   = 'f'; // inner right
-        Center   = 'g'; // center
-    }
+    LPCTSTR OutRight = TEXT("j"); // Outer right
+    LPCTSTR OutLeft  = TEXT("k"); // Outer left
+    LPCTSTR InRight  = TEXT("l"); // inner left
+    LPCTSTR InLeft   = TEXT("m"); // inner right
+    LPCTSTR Center   = TEXT("n"); // center
 
     SmallDiam = UITOOLS_MakeSquareRect(r, &rc);
 
-    ZeroMemory(&lf, sizeof(LOGFONTW));
+    ZeroMemory(&lf, sizeof(LOGFONT));
     lf.lfHeight = SmallDiam;
     lf.lfWidth = 0;
     lf.lfWeight = FW_NORMAL;
@@ -734,16 +763,16 @@ static BOOL UITOOLS95_DFC_ButtonCheckRadio(HDC dc, LPRECT r, UINT uFlags, BOOL R
     hFont = CreateFontIndirect(&lf);
     hOldFont = SelectObject(dc, hFont);
 
-    if(Radio && ((uFlags & 0xff) == DFCS_BUTTONRADIOMASK))
+    if((uFlags & 0xff) == DFCS_BUTTONRADIOMASK)
     {
         SetBkMode(dc, OPAQUE);
         SetTextColor(dc, GetSysColor(COLOR_WINDOWFRAME));
-        TextOut(dc, rc.left, rc.top, &Center, 1);
+        TextOut(dc, rc.left, rc.top, Center, 1);
         SetBkMode(dc, TRANSPARENT);
         SetTextColor(dc, GetSysColor(COLOR_WINDOWFRAME));
-        TextOut(dc, rc.left, rc.top, &OutRight, 1);
+        TextOut(dc, rc.left, rc.top, OutRight, 1);
         SetTextColor(dc, GetSysColor(COLOR_WINDOWFRAME));
-        TextOut(dc, rc.left, rc.top, &OutLeft, 1);
+        TextOut(dc, rc.left, rc.top, OutLeft, 1);
     }
     else
     {
@@ -752,40 +781,39 @@ static BOOL UITOOLS95_DFC_ButtonCheckRadio(HDC dc, LPRECT r, UINT uFlags, BOOL R
         /* Center section, white for active, grey for inactive */
         i= !(uFlags & (DFCS_INACTIVE|DFCS_PUSHED)) ? COLOR_WINDOW : COLOR_BTNFACE;
         SetTextColor(dc, GetSysColor(i));
-        TextOut(dc, rc.left, rc.top, &Center, 1);
+        TextOut(dc, rc.left, rc.top, Center, 1);
 
         if(uFlags & (DFCS_FLAT | DFCS_MONO))
         {
             SetTextColor(dc, GetSysColor(COLOR_WINDOWFRAME));
-            TextOut(dc, rc.left, rc.top, &OutRight, 1);
-            TextOut(dc, rc.left, rc.top, &OutLeft, 1);
-            TextOut(dc, rc.left, rc.top, &InRight, 1);
-            TextOut(dc, rc.left, rc.top, &InLeft, 1);
+            TextOut(dc, rc.left, rc.top, OutRight, 1);
+            TextOut(dc, rc.left, rc.top, OutLeft, 1);
+            TextOut(dc, rc.left, rc.top, InRight, 1);
+            TextOut(dc, rc.left, rc.top, InLeft, 1);
         }
         else
         {
             SetTextColor(dc, GetSysColor(COLOR_BTNSHADOW));
-            TextOut(dc, rc.left, rc.top, &OutRight, 1);
+            TextOut(dc, rc.left, rc.top, OutRight, 1);
             SetTextColor(dc, GetSysColor(COLOR_BTNHIGHLIGHT));
-            TextOut(dc, rc.left, rc.top, &OutLeft, 1);
+            TextOut(dc, rc.left, rc.top, OutLeft, 1);
             SetTextColor(dc, GetSysColor(COLOR_3DDKSHADOW));
-            TextOut(dc, rc.left, rc.top, &InRight, 1);
+            TextOut(dc, rc.left, rc.top, InRight, 1);
             SetTextColor(dc, GetSysColor(COLOR_3DLIGHT));
-            TextOut(dc, rc.left, rc.top, &InLeft, 1);
+            TextOut(dc, rc.left, rc.top, InLeft, 1);
         }
     }
 
     if(uFlags & DFCS_CHECKED)
     {
-        TCHAR Check = (Radio) ? 'i' : 'b';
+        LPCTSTR Check = TEXT("i");
 
         SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
-        TextOut(dc, rc.left, rc.top, &Check, 1);
+        TextOut(dc, rc.left, rc.top, Check, 1);
     }
 
     SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
     SelectObject(dc, hOldFont);
-    DeleteObject(hFont);
 
     return TRUE;
 }
@@ -800,12 +828,12 @@ static BOOL UITOOLS95_DrawFrameButton(HDC hdc, LPRECT rc, UINT uState)
 
         case DFCS_BUTTONCHECK:
         case DFCS_BUTTON3STATE:
-            return UITOOLS95_DFC_ButtonCheckRadio(hdc, rc, uState, FALSE);
+            return UITOOLS95_DFC_ButtonCheck(hdc, rc, uState);
 
         case DFCS_BUTTONRADIOIMAGE:
         case DFCS_BUTTONRADIOMASK:
         case DFCS_BUTTONRADIO:
-            return UITOOLS95_DFC_ButtonCheckRadio(hdc, rc, uState, TRUE);
+            return UITOOLS95_DFC_ButtonRadio(hdc, rc, uState);
 
 /*
         default:
@@ -816,233 +844,477 @@ static BOOL UITOOLS95_DrawFrameButton(HDC hdc, LPRECT rc, UINT uState)
     return FALSE;
 }
 
+/* Ported from WINE20020904 */
+/* Draw caption buttons (win95), coming from DrawFrameControl() */
 static BOOL UITOOLS95_DrawFrameCaption(HDC dc, LPRECT r, UINT uFlags)
 {
-    LOGFONTW lf;
-    HFONT hFont, hOldFont;
-    COLORREF clrsave;
+    POINT Line1[10];
+    POINT Line2[10];
+    int Line1N;
+    int Line2N;
     RECT myr;
-    INT bkmode;
-    TCHAR Symbol;
+    int SmallDiam = UITOOLS_MakeSquareRect(r, &myr)-2;
+    int i;
+    HBRUSH hbsave;
+    HPEN hpsave;
+    HFONT hfsave, hf;
+    int colorIdx = uFlags & DFCS_INACTIVE ? COLOR_BTNSHADOW : COLOR_BTNTEXT;
+    int xc = (myr.left+myr.right)/2;
+    int yc = (myr.top+myr.bottom)/2;
+    int edge, move;
+    char str[2] = "?";
+    UINT alignsave;
+    int bksave;
+    COLORREF clrsave;
+    SIZE size;
+
+    if(uFlags & DFCS_PUSHED)
+        IntDrawRectEdge(dc,r,EDGE_SUNKEN, BF_RECT | BF_MIDDLE | BF_SOFT);
+    else
+        IntDrawRectEdge(dc,r,BDR_RAISEDINNER | BDR_RAISEDOUTER, BF_RECT |
+                        BF_SOFT | BF_MIDDLE);
+
     switch(uFlags & 0xff)
     {
         case DFCS_CAPTIONCLOSE:
-		Symbol = 'r';
-		break;
+        {
+            /* The "X" is made by drawing a series of lines.
+            * The number of lines drawn depends on the size
+            * of the bounding rect.  e.g. For a 6x5 inside rect,
+            * two lines are drawn from top-left to bottom-right,
+            * and two lines from top-right to bottom-left.
+            *
+            * 0 1 2 3 4 5       0 1 2 3 4 5
+            * 1 * *                     * *
+            * 2   * *                 * *
+            * 3     * *             * *
+            * 4       * *         * *
+            *
+            * Drawing one line for every 6 pixels in width
+            * seems to provide the best proportions.
+            */
+
+            POINT start, oldPos;
+            INT width = myr.right - (++myr.left) - 5;
+            INT height = (--myr.bottom) - myr.top - 6;
+            INT numLines = (width / 6) + 1;
+
+            hpsave = (HPEN)SelectObject(dc, GetSysColorPen(colorIdx));
+
+            start.x = myr.left + 2;
+            start.y = myr.top + 2;
+
+            if (width < 6)
+                height = width;
+            else
+                start.y++;
+
+            if (uFlags & DFCS_PUSHED)
+            {
+                start.x++;
+                start.y++;
+            }
+
+            /* now use the width of each line */
+            width -= numLines - 1;
+
+            for (i = 0; i < numLines; i++)
+            {
+                MoveToEx(dc, start.x + i, start.y, &oldPos);
+                LineTo(dc, start.x + i + width, start.y + height);
+
+                MoveToEx(dc, start.x + i, start.y + height - 1, &oldPos);
+                LineTo(dc, start.x + i + width, start.y - 1);
+            }
+
+            SelectObject(dc, hpsave);
+            return TRUE;
+        }
+
         case DFCS_CAPTIONHELP:
-		Symbol = 's';
-		break;
+            /* This one breaks the flow */
+            /* FIXME: We need the Marlett font in order to get this right. */
+
+            hf = CreateFontA(-SmallDiam, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                             ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                             DEFAULT_QUALITY, FIXED_PITCH|FF_DONTCARE, "System");
+            alignsave = SetTextAlign(dc, TA_TOP|TA_LEFT);
+            bksave = SetBkMode(dc, TRANSPARENT);
+            clrsave = GetTextColor(dc);
+            hfsave = (HFONT)SelectObject(dc, hf);
+            GetTextExtentPoint32A(dc, str, 1, &size);
+
+            if(uFlags & DFCS_INACTIVE)
+            {
+                SetTextColor(dc, GetSysColor(COLOR_BTNHIGHLIGHT));
+                TextOutA(dc, xc-size.cx/2+1, yc-size.cy/2+1, str, 1);
+            }
+            SetTextColor(dc, GetSysColor(colorIdx));
+            TextOutA(dc, xc-size.cx/2, yc-size.cy/2, str, 1);
+
+            SelectObject(dc, hfsave);
+            SetTextColor(dc, clrsave);
+            SetBkMode(dc, bksave);
+            SetTextAlign(dc, alignsave);
+            DeleteObject(hf);
+            return TRUE;
+
         case DFCS_CAPTIONMIN:
-		Symbol = '0';
-		break;
+            /*
+            * If the button goes from x 0 -- w-1, the leftmost point of the
+            * minimize line always starts at x>=4.
+            */
+        {
+            const int width = myr.right - myr.left;
+            const int xInsetPixels = (width>=9 ? width - 9 : 0) / 8 + 4;
+            Line1[0].x = Line1[3].x = myr.left   + xInsetPixels;
+            Line1[1].x = Line1[2].x = Line1[0].x + 372*SmallDiam/750;
+            Line1[0].y = Line1[1].y = myr.top    + 563*SmallDiam/750+1;
+            Line1[2].y = Line1[3].y = Line1[0].y +  92*SmallDiam/750;
+            Line1N = 4;
+            Line2N = 0;
+        }
+        break;
+
         case DFCS_CAPTIONMAX:
-		Symbol = '1';
-		break;
+            edge = 47*SmallDiam/750;
+            Line1[0].x = Line1[5].x = myr.left +  57*SmallDiam/750+3;
+            Line1[0].y = Line1[1].y = myr.top  + 143*SmallDiam/750+1;
+            Line1[1].x = Line1[2].x = Line1[0].x + 562*SmallDiam/750;
+            Line1[5].y = Line1[4].y = Line1[0].y +  93*SmallDiam/750;
+            Line1[2].y = Line1[3].y = Line1[0].y + 513*SmallDiam/750;
+            Line1[3].x = Line1[4].x = Line1[1].x -  edge;
+
+            Line2[0].x = Line2[5].x = Line1[0].x;
+            Line2[3].x = Line2[4].x = Line1[1].x;
+            Line2[1].x = Line2[2].x = Line1[0].x + edge;
+            Line2[0].y = Line2[1].y = Line1[0].y;
+            Line2[4].y = Line2[5].y = Line1[2].y;
+            Line2[2].y = Line2[3].y = Line1[2].y - edge;
+            Line1N = 6;
+            Line2N = 6;
+            break;
+
         case DFCS_CAPTIONRESTORE:
-		Symbol = '2';
-		break;
+            /* FIXME: this one looks bad at small sizes < 15x15 :( */
+            edge = 47*SmallDiam/750;
+            move = 420*SmallDiam/750;
+            Line1[0].x = Line1[9].x = myr.left + 198*SmallDiam/750+2;
+            Line1[0].y = Line1[1].y = myr.top  + 169*SmallDiam/750+1;
+            Line1[6].y = Line1[7].y = Line1[0].y + 93*SmallDiam/750;
+            Line1[7].x = Line1[8].x = Line1[0].x + edge;
+            Line1[1].x = Line1[2].x = Line1[0].x + move;
+            Line1[5].x = Line1[6].x = Line1[1].x - edge;
+            Line1[9].y = Line1[8].y = Line1[0].y + 187*SmallDiam/750;
+            Line1[2].y = Line1[3].y = Line1[0].y + 327*SmallDiam/750;
+            Line1[4].y = Line1[5].y = Line1[2].y - edge;
+            Line1[3].x = Line1[4].x = Line1[2].x - 140*SmallDiam/750;
+
+            Line2[1].x = Line2[2].x = Line1[3].x;
+            Line2[7].x = Line2[8].x = Line2[1].x - edge;
+            Line2[0].x = Line2[9].x = Line2[3].x = Line2[4].x = Line2[1].x - move;
+            Line2[5].x = Line2[6].x = Line2[0].x + edge;
+            Line2[0].y = Line2[1].y = Line1[9].y + 93*SmallDiam/750;
+            Line2[4].y = Line2[5].y = Line2[8].y = Line2[9].y = Line2[0].y + 93*SmallDiam/750;
+            Line2[2].y = Line2[3].y = Line2[0].y + 327*SmallDiam/750;
+            Line2[6].y = Line2[7].y = Line2[2].y - edge;
+            Line1N = 10;
+            Line2N = 10;
+            break;
+
         default:
-             return FALSE;
+            return FALSE;
     }
-    IntDrawRectEdge(dc,r,(uFlags&DFCS_PUSHED) ? EDGE_SUNKEN : EDGE_RAISED, BF_RECT | BF_MIDDLE | BF_SOFT);
-    ZeroMemory(&lf, sizeof(LOGFONTW));
-    UITOOLS_MakeSquareRect(r, &myr);
-    myr.left += 1;
-    myr.top += 1;
-    myr.right -= 1;
-    myr.bottom -= 1;
-    if(uFlags & DFCS_PUSHED)
-       OffsetRect(&myr,1,1);
-    lf.lfHeight = myr.bottom - myr.top;
-    lf.lfWidth = 0;
-    lf.lfWeight = FW_NORMAL;
-    lf.lfCharSet = DEFAULT_CHARSET;
-    lstrcpy(lf.lfFaceName, TEXT("Marlett"));
-    hFont = CreateFontIndirect(&lf);
-    /* save font and text color */
-    hOldFont = SelectObject(dc, hFont);
-    clrsave = GetTextColor(dc);
-    bkmode = GetBkMode(dc);
-    /* set color and drawing mode */
-    SetBkMode(dc, TRANSPARENT);
+
+    /* Here the drawing takes place */
     if(uFlags & DFCS_INACTIVE)
     {
-        /* draw shadow */
-        SetTextColor(dc, GetSysColor(COLOR_BTNHIGHLIGHT));
-        TextOut(dc, myr.left + 1, myr.top + 1, &Symbol, 1);
+        /* If we have an inactive button, then you see a shadow */
+        hbsave = (HBRUSH)SelectObject(dc, GetSysColorBrush(COLOR_BTNHIGHLIGHT));
+        hpsave = (HPEN)SelectObject(dc, GetSysColorPen(COLOR_BTNHIGHLIGHT));
+        Polygon(dc, Line1, Line1N);
+        if(Line2N > 0)
+            Polygon(dc, Line2, Line2N);
+        SelectObject(dc, hpsave);
+        SelectObject(dc, hbsave);
     }
-    SetTextColor(dc, GetSysColor((uFlags & DFCS_INACTIVE) ? COLOR_BTNSHADOW : COLOR_BTNTEXT));
-    /* draw selected symbol */
-    TextOut(dc, myr.left, myr.top, &Symbol, 1);
-    /* restore previous settings */
-    SetTextColor(dc, clrsave);
-    SelectObject(dc, hOldFont);
-    SetBkMode(dc, bkmode);
-    DeleteObject(hFont);
+
+    /* Correct for the shadow shift */
+    if (!(uFlags & DFCS_PUSHED))
+    {
+        for(i = 0; i < Line1N; i++)
+        {
+            Line1[i].x--;
+            Line1[i].y--;
+        }
+        for(i = 0; i < Line2N; i++)
+        {
+            Line2[i].x--;
+            Line2[i].y--;
+        }
+    }
+
+    /* Make the final picture */
+    hbsave = (HBRUSH)SelectObject(dc, GetSysColorBrush(colorIdx));
+    hpsave = (HPEN)SelectObject(dc, GetSysColorPen(colorIdx));
+
+    Polygon(dc, Line1, Line1N);
+    if(Line2N > 0)
+        Polygon(dc, Line2, Line2N);
+    SelectObject(dc, hpsave);
+    SelectObject(dc, hbsave);
+
     return TRUE;
 }
 
 static BOOL UITOOLS95_DrawFrameScroll(HDC dc, LPRECT r, UINT uFlags)
 {
-    LOGFONTW lf;
-    HFONT hFont, hOldFont;
-    COLORREF clrsave;
+    POINT Line[4];
     RECT myr;
-    INT bkmode;
-    TCHAR Symbol;
+    int SmallDiam = UITOOLS_MakeSquareRect(r, &myr) - 2;
+    int i;
+    HBRUSH hbsave, hb, hb2;
+    HPEN hpsave, hp, hp2;
+    int tri = 290*SmallDiam/1000 - 1;
+    int d46, d93;
+
+    /*
+     * This fixes a problem with really tiny "scroll" buttons. In particular
+     * with the updown control.
+     * Making sure that the arrow is as least 3 pixels wide (or high).
+     */
+    if (tri == 0)
+        tri = 1;
+
     switch(uFlags & 0xff)
     {
         case DFCS_SCROLLCOMBOBOX:
         case DFCS_SCROLLDOWN:
-		Symbol = '6';
-		break;
+            Line[2].x = myr.left + 470*SmallDiam/1000 + 2;
+            Line[2].y = myr.top  + 687*SmallDiam/1000 + 1;
+            Line[0].x = Line[2].x - tri;
+            Line[1].x = Line[2].x + tri;
+            Line[0].y = Line[1].y = Line[2].y - tri;
+            break;
 
-	case DFCS_SCROLLUP:
-		Symbol = '5';
-		break;
+        case DFCS_SCROLLUP:
+            Line[2].x = myr.left + 470*SmallDiam/1000 + 2;
+            Line[2].y = myr.bottom - (687*SmallDiam/1000 + 1);
+            Line[0].x = Line[2].x - tri;
+            Line[1].x = Line[2].x + tri;
+            Line[0].y = Line[1].y = Line[2].y + tri;
+            break;
 
-	case DFCS_SCROLLLEFT:
-		Symbol = '3';
-		break;
+        case DFCS_SCROLLLEFT:
+            Line[2].x = myr.right - (687*SmallDiam/1000 + 1);
+            Line[2].y = myr.top  + 470*SmallDiam/1000 + 2;
+            Line[0].y = Line[2].y - tri;
+            Line[1].y = Line[2].y + tri;
+            Line[0].x = Line[1].x = Line[2].x + tri;
+            break;
 
-	case DFCS_SCROLLRIGHT:
-		Symbol = '4';
-		break;
+        case DFCS_SCROLLRIGHT:
+            Line[2].x = myr.left + 687*SmallDiam/1000 + 1;
+            Line[2].y = myr.top  + 470*SmallDiam/1000 + 2;
+            Line[0].y = Line[2].y - tri;
+            Line[1].y = Line[2].y + tri;
+            Line[0].x = Line[1].x = Line[2].x - tri;
+            break;
 
-	case DFCS_SCROLLSIZEGRIP:
-	case DFCS_SCROLLSIZEGRIPRIGHT:
-		ZeroMemory(&lf, sizeof(LOGFONTW));
-		UITOOLS_MakeSquareRect(r, &myr);
-		lf.lfHeight = myr.bottom - myr.top;
-		lf.lfWidth = 0;
-		lf.lfWeight = FW_NORMAL;
-		lf.lfCharSet = DEFAULT_CHARSET;
-		lstrcpy(lf.lfFaceName, TEXT("Marlett"));
-		hFont = CreateFontIndirect(&lf);
-		/* save font and text color */
-		hOldFont = SelectObject(dc, hFont);
-		clrsave = GetTextColor(dc);
-		bkmode = GetBkMode(dc);
-		/* set color and drawing mode */
-		SetBkMode(dc, TRANSPARENT);
-		if (!(uFlags & (DFCS_MONO | DFCS_FLAT)))
-		{
-			SetTextColor(dc, GetSysColor(COLOR_BTNHIGHLIGHT));
-			/* draw selected symbol */
-			Symbol = ((uFlags & 0xff) == DFCS_SCROLLSIZEGRIP) ? 'o' : 'x';
-			TextOut(dc, myr.left, myr.top, &Symbol, 1);
-			SetTextColor(dc, GetSysColor(COLOR_BTNSHADOW));
-		} else
-			SetTextColor(dc, GetSysColor(COLOR_WINDOWFRAME));
-		/* draw selected symbol */
-		Symbol = ((uFlags & 0xff) == DFCS_SCROLLSIZEGRIP) ? 'p' : 'y';
-		TextOut(dc, myr.left, myr.top, &Symbol, 1);
-		/* restore previous settings */
-		SetTextColor(dc, clrsave);
-		SelectObject(dc, hOldFont);
-		SetBkMode(dc, bkmode);
-		DeleteObject(hFont);
+        case DFCS_SCROLLSIZEGRIP:
+            /* This one breaks the flow... */
+            IntDrawRectEdge(dc, r, EDGE_BUMP, BF_MIDDLE | ((uFlags&(DFCS_MONO|DFCS_FLAT)) ? BF_MONO : 0));
+            hpsave = (HPEN)SelectObject(dc, GetStockObject(NULL_PEN));
+            hbsave = (HBRUSH)SelectObject(dc, GetStockObject(NULL_BRUSH));
+            if(uFlags & (DFCS_MONO|DFCS_FLAT))
+            {
+                hp = hp2 = GetSysColorPen(COLOR_WINDOWFRAME);
+                hb = hb2 = GetSysColorBrush(COLOR_WINDOWFRAME);
+            }
+            else
+            {
+                hp  = GetSysColorPen(COLOR_BTNHIGHLIGHT);
+                hp2 = GetSysColorPen(COLOR_BTNSHADOW);
+                hb  = GetSysColorBrush(COLOR_BTNHIGHLIGHT);
+                hb2 = GetSysColorBrush(COLOR_BTNSHADOW);
+            }
+            Line[0].x = Line[1].x = r->right-1;
+            Line[2].y = Line[3].y = r->bottom-1;
+            d46 = 46*SmallDiam/750;
+            d93 = 93*SmallDiam/750;
+
+            i = 586*SmallDiam/750;
+            Line[0].y = r->bottom - i - 1;
+            Line[3].x = r->right - i - 1;
+            Line[1].y = Line[0].y + d46;
+            Line[2].x = Line[3].x + d46;
+            SelectObject(dc, hb);
+            SelectObject(dc, hp);
+            Polygon(dc, Line, 4);
+
+            Line[1].y++; Line[2].x++;
+            Line[0].y = Line[1].y + d93;
+            Line[3].x = Line[2].x + d93;
+            SelectObject(dc, hb2);
+            SelectObject(dc, hp2);
+            Polygon(dc, Line, 4);
+
+            i = 398*SmallDiam/750;
+            Line[0].y = r->bottom - i - 1;
+            Line[3].x = r->right - i - 1;
+            Line[1].y = Line[0].y + d46;
+            Line[2].x = Line[3].x + d46;
+            SelectObject(dc, hb);
+            SelectObject(dc, hp);
+            Polygon(dc, Line, 4);
+
+            Line[1].y++; Line[2].x++;
+            Line[0].y = Line[1].y + d93;
+            Line[3].x = Line[2].x + d93;
+            SelectObject(dc, hb2);
+            SelectObject(dc, hp2);
+            Polygon(dc, Line, 4);
+
+            i = 210*SmallDiam/750;
+            Line[0].y = r->bottom - i - 1;
+            Line[3].x = r->right - i - 1;
+            Line[1].y = Line[0].y + d46;
+            Line[2].x = Line[3].x + d46;
+            SelectObject(dc, hb);
+            SelectObject(dc, hp);
+            Polygon(dc, Line, 4);
+
+            Line[1].y++; Line[2].x++;
+            Line[0].y = Line[1].y + d93;
+            Line[3].x = Line[2].x + d93;
+            SelectObject(dc, hb2);
+            SelectObject(dc, hp2);
+            Polygon(dc, Line, 4);
+
+            SelectObject(dc, hpsave);
+            SelectObject(dc, hbsave);
             return TRUE;
-	default:
+
+        default:
             return FALSE;
     }
-    IntDrawRectEdge(dc, r, (uFlags & DFCS_PUSHED) ? EDGE_SUNKEN : EDGE_RAISED, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT);
-    ZeroMemory(&lf, sizeof(LOGFONTW));
-    UITOOLS_MakeSquareRect(r, &myr);
-    myr.left += 1;
-    myr.top += 1;
-    myr.right -= 1;
-    myr.bottom -= 1;
-    if(uFlags & DFCS_PUSHED)
-       OffsetRect(&myr,1,1);
-    lf.lfHeight = myr.bottom - myr.top;
-    lf.lfWidth = 0;
-    lf.lfWeight = FW_NORMAL;
-    lf.lfCharSet = DEFAULT_CHARSET;
-    lstrcpy(lf.lfFaceName, TEXT("Marlett"));
-    hFont = CreateFontIndirect(&lf);
-    /* save font and text color */
-    hOldFont = SelectObject(dc, hFont);
-    clrsave = GetTextColor(dc);
-    bkmode = GetBkMode(dc);
-    /* set color and drawing mode */
-    SetBkMode(dc, TRANSPARENT);
+
+    /* Here do the real scroll-bar controls end up */
+    if( ! (uFlags & (0xff00 & ~DFCS_ADJUSTRECT)) )
+        /* UITOOLS95_DFC_ButtonPush always uses BF_SOFT which we don't */
+        /* want for the normal scroll-arrow button. */
+        IntDrawRectEdge( dc, r, EDGE_RAISED, (uFlags&DFCS_ADJUSTRECT) | BF_MIDDLE | BF_RECT);
+    else
+        UITOOLS95_DFC_ButtonPush(dc, r, (uFlags & 0xff00) );
+
     if(uFlags & DFCS_INACTIVE)
     {
-        /* draw shadow */
-        SetTextColor(dc, GetSysColor(COLOR_BTNHIGHLIGHT));
-        TextOut(dc, myr.left + 1, myr.top + 1, &Symbol, 1);
+        hbsave = (HBRUSH)SelectObject(dc, GetSysColorBrush(COLOR_BTNHIGHLIGHT));
+        hpsave = (HPEN)SelectObject(dc, GetSysColorPen(COLOR_BTNHIGHLIGHT));
+        Polygon(dc, Line, 3);
+        SelectObject(dc, hpsave);
+        SelectObject(dc, hbsave);
     }
-    SetTextColor(dc, GetSysColor((uFlags & DFCS_INACTIVE) ? COLOR_BTNSHADOW : COLOR_BTNTEXT));
-    /* draw selected symbol */
-    TextOut(dc, myr.left, myr.top, &Symbol, 1);
-    /* restore previous settings */
-    SetTextColor(dc, clrsave);
-    SelectObject(dc, hOldFont);
-    SetBkMode(dc, bkmode);
-    DeleteObject(hFont);
+
+    if( (uFlags & DFCS_INACTIVE) || !(uFlags & DFCS_PUSHED) )
+        for(i = 0; i < 3; i++)
+        {
+            Line[i].x--;
+            Line[i].y--;
+        }
+
+    i = uFlags & DFCS_INACTIVE ? COLOR_BTNSHADOW : COLOR_BTNTEXT;
+    hbsave = (HBRUSH)SelectObject(dc, GetSysColorBrush(i));
+    hpsave = (HPEN)SelectObject(dc, GetSysColorPen(i));
+    Polygon(dc, Line, 3);
+    SelectObject(dc, hpsave);
+    SelectObject(dc, hbsave);
+
     return TRUE;
 }
 
+/* Ported from WINE20020904 */
+/* Draw a menu control coming from DrawFrameControl() */
 static BOOL UITOOLS95_DrawFrameMenu(HDC dc, LPRECT r, UINT uFlags)
 {
-    LOGFONTW lf;
-    HFONT hFont, hOldFont;
-    TCHAR Symbol;
+    POINT Points[6];
+    RECT myr;
+    int SmallDiam = UITOOLS_MakeSquareRect(r, &myr);
+    int i;
+    HBRUSH hbsave;
+    HPEN hpsave;
+    int xe, ye;
+    int xc, yc;
+    BOOL retval = TRUE;
+
+    /* Using black and white seems to be utterly wrong, but win95 doesn't */
+    /* use anything else. I think I tried all sys-colors to change things */
+    /* without luck. It seems as if this behavior is inherited from the */
+    /* win31 DFC() implementation... (you remember, B/W menus). */
+
+    FillRect(dc, r, (HBRUSH)GetStockObject(WHITE_BRUSH));
+
+    hbsave = (HBRUSH)SelectObject(dc, GetStockObject(BLACK_BRUSH));
+    hpsave = (HPEN)SelectObject(dc, GetStockObject(BLACK_PEN));
+
     switch(uFlags & 0xff)
     {
         case DFCS_MENUARROW:
-            Symbol = '8';
+            i = 187*SmallDiam/750;
+            Points[2].x = myr.left + 468*SmallDiam/750;
+            Points[2].y = myr.top  + 352*SmallDiam/750+1;
+            Points[0].y = Points[2].y - i;
+            Points[1].y = Points[2].y + i;
+            Points[0].x = Points[1].x = Points[2].x - i;
+            Polygon(dc, Points, 3);
             break;
 
-        case DFCS_MENUARROWRIGHT:
-	    Symbol = 'w'; // FIXME: needs to confirm
-	    break;
-
         case DFCS_MENUBULLET:
-            Symbol = 'h';
+            xe = myr.left;
+            ye = myr.top  + SmallDiam - SmallDiam/2;
+            xc = myr.left + SmallDiam - SmallDiam/2;
+            yc = myr.top  + SmallDiam - SmallDiam/2;
+            i = 234*SmallDiam/750;
+            i = i < 1 ? 1 : i;
+            myr.left   = xc - i+i/2;
+            myr.right  = xc + i/2;
+            myr.top    = yc - i+i/2;
+            myr.bottom = yc + i/2;
+            Pie(dc, myr.left, myr.top, myr.right, myr.bottom, xe, ye, xe, ye);
             break;
 
         case DFCS_MENUCHECK:
-            Symbol = 'a';
+            Points[0].x = myr.left + 253*SmallDiam/1000;
+            Points[0].y = myr.top  + 445*SmallDiam/1000;
+            Points[1].x = myr.left + 409*SmallDiam/1000;
+            Points[1].y = Points[0].y + (Points[1].x-Points[0].x);
+            Points[2].x = myr.left + 690*SmallDiam/1000;
+            Points[2].y = Points[1].y - (Points[2].x-Points[1].x);
+            Points[3].x = Points[2].x;
+            Points[3].y = Points[2].y + 3*SmallDiam/16;
+            Points[4].x = Points[1].x;
+            Points[4].y = Points[1].y + 3*SmallDiam/16;
+            Points[5].x = Points[0].x;
+            Points[5].y = Points[0].y + 3*SmallDiam/16;
+            Polygon(dc, Points, 6);
             break;
 
         default:
 /*
             DbgPrint("Invalid menu; flags=0x%04x\n", uFlags);
 */
-            return FALSE;
+            retval = FALSE;
+            break;
     }
-    /* acquire ressources only if valid menu */
-    ZeroMemory(&lf, sizeof(LOGFONTW));
-    lf.lfHeight = r->bottom - r->top;
-    lf.lfWidth = 0;
-    lf.lfWeight = FW_NORMAL;
-    lf.lfCharSet = DEFAULT_CHARSET;
-    lstrcpy(lf.lfFaceName, TEXT("Marlett"));
-    hFont = CreateFontIndirect(&lf);
-    /* save font */
-    hOldFont = SelectObject(dc, hFont);
-    // FIXME selecting color doesn't work
-#if 0
-    if(uFlags & DFCS_INACTIVE)
-    {
-        /* draw shadow */
-        SetTextColor(dc, GetSysColor(COLOR_BTNHIGHLIGHT));
-        TextOut(dc, r->left + 1, r->top + 1, &Symbol, 1);
-    }
-    SetTextColor(dc, GetSysColor((uFlags & DFCS_INACTIVE) ? COLOR_BTNSHADOW : COLOR_BTNTEXT));
-#endif
-    /* draw selected symbol */
-    TextOut(dc, r->left, r->top, &Symbol, 1);
-    /* restore previous settings */
-    SelectObject(dc, hOldFont);
-    DeleteObject(hFont);
-    return TRUE;
+
+    SelectObject(dc, hpsave);
+    SelectObject(dc, hbsave);
+    return retval;
 }
 
+
 BOOL
-WINAPI
+STDCALL
 IntGrayString(
     HDC hDC,
     HBRUSH hBrush,
@@ -1436,8 +1708,8 @@ cleanup:
 /*
  * @implemented
  */
-BOOL WINAPI
-RealDrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
+BOOL STDCALL
+DrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
 {
     if (GetMapMode(hDC) != MM_TEXT)
         return FALSE;
@@ -1461,36 +1733,10 @@ RealDrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
     return FALSE;
 }
 
-BOOL WINAPI
-DrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealDrawFrameControl(hDC, rc, uType, uState);
-
-   _SEH2_TRY
-   {
-      Ret = guah.DrawFrameControl(hDC, rc, uType, uState);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
-}
-
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 DrawEdge(HDC hDC, LPRECT rc, UINT edge, UINT flags)
 {
     if (flags & BF_DIAGONAL)
@@ -1502,7 +1748,7 @@ DrawEdge(HDC hDC, LPRECT rc, UINT edge, UINT flags)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GrayStringA(HDC hDC, HBRUSH hBrush, GRAYSTRINGPROC lpOutputFunc, LPARAM lpData,
             int nCount, int X, int Y, int nWidth, int nHeight)
 {
@@ -1512,7 +1758,7 @@ GrayStringA(HDC hDC, HBRUSH hBrush, GRAYSTRINGPROC lpOutputFunc, LPARAM lpData,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GrayStringW(HDC hDC, HBRUSH hBrush, GRAYSTRINGPROC lpOutputFunc, LPARAM lpData,
             int nCount, int X, int Y, int nWidth, int nHeight)
 {
@@ -1522,7 +1768,7 @@ GrayStringW(HDC hDC, HBRUSH hBrush, GRAYSTRINGPROC lpOutputFunc, LPARAM lpData,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 InvertRect(HDC hDC, CONST RECT *lprc)
 {
     return PatBlt(hDC, lprc->left, lprc->top, lprc->right - lprc->left,
@@ -1532,7 +1778,7 @@ InvertRect(HDC hDC, CONST RECT *lprc)
 /*
  * @implemented
  */
-INT WINAPI
+INT STDCALL
 FrameRect(HDC hDC, CONST RECT *lprc, HBRUSH hbr)
 {
     HBRUSH oldbrush;
@@ -1551,26 +1797,29 @@ FrameRect(HDC hDC, CONST RECT *lprc, HBRUSH hbr)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
-BOOL WINAPI
+BOOL STDCALL
 FlashWindow(HWND hWnd, BOOL bInvert)
 {
-    FLASHWINFO FlashWndInfo;
+    UNIMPLEMENTED;
+    return FALSE;
+}
 
-    FlashWndInfo.cbSize = sizeof(FLASHWINFO);
-    FlashWndInfo.hwnd = hWnd;
-    FlashWndInfo.dwFlags = !bInvert ? 0 : (FLASHW_TRAY | FLASHW_CAPTION);
-    FlashWndInfo.uCount = 1;
-    FlashWndInfo.dwTimeout = 0;
-
-    return NtUserFlashWindowEx(&FlashWndInfo);
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+FlashWindowEx(PFLASHWINFO pfwi)
+{
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
 /*
  * @implemented
  */
-INT WINAPI
+INT STDCALL
 FillRect(HDC hDC, CONST RECT *lprc, HBRUSH hbr)
 {
     HBRUSH prevhbr;
@@ -1590,9 +1839,20 @@ FillRect(HDC hDC, CONST RECT *lprc, HBRUSH hbr)
 }
 
 /*
+ * @unimplemented
+ */
+BOOL STDCALL
+DrawAnimatedRects(HWND hWnd, int idAni, CONST RECT *lprcFrom,
+                  CONST RECT *lprcTo)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 DrawFocusRect(HDC hdc, CONST RECT *rect)
 {
     static HBRUSH hFocusRectBrush = NULL;
@@ -1629,7 +1889,7 @@ DrawFocusRect(HDC hdc, CONST RECT *rect)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 DrawStateA(HDC hDC, HBRUSH hBrush, DRAWSTATEPROC lpOutputFunc, LPARAM lData,
            WPARAM wData, int x, int y, int cx, int cy, UINT fuFlags)
 {
@@ -1639,7 +1899,7 @@ DrawStateA(HDC hDC, HBRUSH hBrush, DRAWSTATEPROC lpOutputFunc, LPARAM lData,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 DrawStateW(HDC hDC, HBRUSH hBrush, DRAWSTATEPROC lpOutputFunc, LPARAM lData,
            WPARAM wData, int x, int y, int cx, int cy, UINT fuFlags)
 {

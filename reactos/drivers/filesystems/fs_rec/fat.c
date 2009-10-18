@@ -15,7 +15,7 @@
 
 /* FUNCTIONS ****************************************************************/
 
-BOOLEAN
+NTSTATUS
 NTAPI
 FsRecIsFatVolume(IN PPACKED_BOOT_SECTOR PackedBootSector)
 {
@@ -104,7 +104,7 @@ FsRecVfatFsControl(IN PDEVICE_OBJECT DeviceObject,
     PDEVICE_OBJECT MountDevice;
     PPACKED_BOOT_SECTOR Bpb = NULL;
     ULONG SectorSize;
-    LARGE_INTEGER Offset = {{0, 0}};
+    LARGE_INTEGER Offset = {{0}};
     BOOLEAN DeviceError = FALSE;
     PAGED_CODE();
 
@@ -163,7 +163,7 @@ FsRecVfatFsControl(IN PDEVICE_OBJECT DeviceObject,
 
             /* Load the file system */
             Status = FsRecLoadFileSystem(DeviceObject,
-                                         L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\fastfat");
+                                         L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\Vfatfs");
             break;
 
         default:

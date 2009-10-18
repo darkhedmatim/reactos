@@ -1,4 +1,4 @@
-/* $Id: general.c 29112 2007-09-19 21:31:49Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -19,7 +19,7 @@
 
 
 #define BAUDTICKS 6
-static UINT nBaudArray[BAUDTICKS] = {300, 1200, 2400, 4800, 9600, 19200};
+static INT nBaudArray[BAUDTICKS] = {300, 1200, 2400, 4800, 9600, 19200};
 
 
 INT_PTR CALLBACK
@@ -170,7 +170,7 @@ WriteGlobalData(PGLOBAL_DATA pGlobalData)
                   _T("Sound On Activation"),
                   0,
                   REG_DWORD,
-                  (LPBYTE)&pGlobalData->bSoundOnActivation,
+                  (LPBYTE)pGlobalData->bSoundOnActivation,
                   sizeof(BOOL));
 
     RegCloseKey(hKey);

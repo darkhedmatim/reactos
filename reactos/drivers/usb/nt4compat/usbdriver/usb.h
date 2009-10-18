@@ -4,6 +4,8 @@
  * Some USB bandwidth allocation constants.
  */
 
+typedef unsigned long ULONG_PTR, *PULONG_PTR;
+
 #define USB2_HOST_DELAY	5			/* nsec, guess */
 #define BW_HOST_DELAY	1000L		/* nanoseconds */
 #define BW_HUB_LS_SETUP	333L		/* nanoseconds */
@@ -129,12 +131,12 @@
 	( uRb )->endp_handle =  ( endp_hanDle ); \
 	( uRb )->data_buffer = ( transferBufFer ); \
 	( uRb )->data_length = sizeof(USHORT); \
-    ( uRb )->completion = ( completIon );\
+    ( uRb )->compleiton = ( completIon );\
     ( uRb )->context = ( contExt );\
     ( uRb )->reference = ( refereNce );\
 	pseTup->bmRequestType = ( 0x80 | recipiEnt );\
 	pseTup->bRequest = USB_REQ_GET_STATUS;\
-	pseTup->wIndex = ( inDex ); \
+	pseTup->wIndex = ( index ); \
     pseTup->wValue = 0;\
 	pseTup->wLength = sizeof( USHORT );\
 }

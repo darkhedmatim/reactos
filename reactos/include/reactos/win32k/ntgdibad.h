@@ -59,21 +59,242 @@ NtGdiGetFontFamilyInfo(
     DWORD Size
 );
 
+/* The gdi32 call does all the work in user-mode, save for NtGdiMakeFontDir */
+BOOL
+NTAPI
+NtGdiCreateScalableFontResource(
+    DWORD Hidden,
+    LPCWSTR FontRes,
+    LPCWSTR FontFile,
+    LPCWSTR CurrentPath
+);
+
+/* The gdi32 call Should Use NtGdiGetTextExtent */
+BOOL
+NTAPI
+NtGdiGetTextExtentPoint32(
+    HDC hDC,
+    LPCWSTR String,
+    int Count,
+    LPSIZE
+);
+
+/* Use NtGdiAddFontResourceW */
+int
+STDCALL
+NtGdiAddFontResource(PUNICODE_STRING Filename,
+					 DWORD fl);
+
+/* Metafiles are user mode */
+HENHMETAFILE
+STDCALL
+NtGdiCloseEnhMetaFile (
+	HDC	hDC
+	);
+
+/* Does not exist */
+BOOL
+STDCALL
+NtGdiColorMatchToTarget(HDC  hDC,
+                             HDC  hDCTarget,
+                             DWORD  Action);
+
+/* Metafiles are user mode */
+HENHMETAFILE
+STDCALL
+NtGdiCopyEnhMetaFile (
+	HENHMETAFILE	Src,
+	LPCWSTR		File
+	);
+
+/* Use NtGdiCreateDIBitmapInternal */
+HBITMAP
+STDCALL
+NtGdiCreateDIBitmap (
+	HDC			hDC,
+	CONST BITMAPINFOHEADER	* bmih,
+	DWORD			Init,
+	CONST VOID		* bInit,
+	CONST BITMAPINFO	* bmi,
+	UINT			Usage
+	);
+
+/* Metafiles are user mode */
+HDC
+STDCALL
+NtGdiCreateEnhMetaFile (
+	HDC		hDCRef,
+	LPCWSTR		File,
+	CONST LPRECT	Rect,
+	LPCWSTR		Description
+	);
+
+/* Use NtGdiPolyPolyDraw with PolyPolyRgn. */
+HRGN
+STDCALL
+NtGdiCreatePolygonRgn(CONST PPOINT  pt,
+                           INT  Count,
+                           INT  PolyFillMode);
+
+/* Meta are user-mode. */
+BOOL
+STDCALL
+NtGdiDeleteEnhMetaFile (
+	HENHMETAFILE	emf
+	);
+
+/* Meta are user-mode. */
+BOOL
+STDCALL
+NtGdiEnumEnhMetaFile (
+	HDC		hDC,
+	HENHMETAFILE	emf,
+	ENHMFENUMPROC	EnhMetaFunc,
+	LPVOID		Data,
+	CONST LPRECT	Rect
+	);
+
+/* Should be done in user-mode. */
+int
+STDCALL
+NtGdiEnumFonts(HDC  hDC,
+                   LPCWSTR FaceName,
+                   FONTENUMPROCW  FontFunc,
+                   LPARAM  lParam);
+
+/* Should be done in user-mode. */
+INT
+STDCALL
+NtGdiEnumICMProfiles(HDC    hDC,
+                    LPWSTR lpstrBuffer,
+                    UINT   cch );
+
+/* Use NtGdiExtTextOutW with 0, 0 at the end. */
+BOOL
+STDCALL
+NtGdiExtTextOut(HDC  hdc,
+                     int  X,
+                     int  Y,
+                     UINT  fuOptions,
+                     CONST RECT  *lprc,
+                     LPCWSTR  lpString,
+                     UINT  cbCount,
+                     CONST INT  *lpDx);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiGdiComment (
+	HDC		hDC,
+	UINT		Size,
+	CONST LPBYTE	Data
+	);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiGetAspectRatioFilterEx(HDC  hDC,
+                                 LPSIZE  AspectRatio);
+
+/* Use NtGdiGetColorSpaceforBitmap. */
+HCOLORSPACE
+STDCALL
+NtGdiGetColorSpace(HDC  hDC);
+
+/* Meta are user-mode. */
+HENHMETAFILE
+STDCALL
+NtGdiGetEnhMetaFile (
+	LPCWSTR	MetaFile
+	);
+
+/* Meta are user-mode. */
+UINT
+STDCALL
+NtGdiGetEnhMetaFileBits (
+	HENHMETAFILE	hemf,
+	UINT		BufSize,
+	LPBYTE		Buffer
+	);
+
+/* Meta are user-mode. */
+UINT
+STDCALL
+NtGdiGetEnhMetaFileDescription (
+	HENHMETAFILE	hemf,
+	UINT		BufSize,
+	LPWSTR		Description
+	);
+
+/* Meta are user-mode. */
+UINT
+STDCALL
+NtGdiGetEnhMetaFileHeader (
+	HENHMETAFILE	hemf,
+	UINT		BufSize,
+	LPENHMETAHEADER	emh
+	);
+
+/* Meta are user-mode. */
+UINT
+STDCALL
+NtGdiGetEnhMetaFilePaletteEntries (
+	HENHMETAFILE	hemf,
+	UINT		Entries,
+	LPPALETTEENTRY	pe
+	);
+
+/* Meta are user-mode. */
+UINT
+STDCALL
+NtGdiGetEnhMetaFilePixelFormat(HENHMETAFILE  hEMF,
+                                    DWORD  BufSize,
+                                    CONST PPIXELFORMATDESCRIPTOR  pfd);
+
+/* Should be done in user-mode. */
+DWORD
+STDCALL
+NtGdiGetFontLanguageInfo(HDC  hDC);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiGetICMProfile(HDC  hDC,
+                        LPDWORD  NameSize,
+                        LPWSTR  Filename);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiGetLogColorSpace(HCOLORSPACE  hColorSpace,
+                           LPLOGCOLORSPACEW  Buffer,
+                           DWORD  Size);
+ 
+/* Should be done in user-mode using shared GDI Objects. */
+INT
+STDCALL
+NtGdiGetPixelFormat(HDC  hDC);
+
+/* Should be done in user-mode using shared GDI Objects. */
+UINT
+STDCALL
+NtGdiGetTextCharset(HDC  hDC);
+
 /* Use NtGdiGetDCPoint with GdiGetViewPortExt */
-BOOL APIENTRY  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
+BOOL STDCALL  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
+BOOL STDCALL  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
+BOOL STDCALL  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
+BOOL STDCALL  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
 NtGdiOffsetViewportOrgEx (
 	HDC	hDC,
 	int	XOffset,
@@ -83,7 +304,7 @@ NtGdiOffsetViewportOrgEx (
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
 NtGdiOffsetWindowOrgEx (
 	HDC	hDC,
 	int	XOffset,
@@ -91,29 +312,47 @@ NtGdiOffsetWindowOrgEx (
 	LPPOINT	Point
 	);
 
-/* Needs to be done in user-mode. */
+/* Metafiles are user-mode. */
 BOOL
-APIENTRY
-NtGdiSetViewportOrgEx (
-	HDC	hDC,
-	int	X,
-	int	Y,
-	LPPOINT	Point
+STDCALL
+NtGdiPlayEnhMetaFile (
+	HDC		hDC,
+	HENHMETAFILE	hemf,
+	CONST PRECT	Rect
 	);
 
-/* Needs to be done in user-mode. */
+/* Metafiles are user-mode. */
 BOOL
-APIENTRY
-NtGdiSetWindowOrgEx (
-	HDC	hDC,
-	int	X,
-	int	Y,
-	LPPOINT	Point
+STDCALL
+NtGdiPlayEnhMetaFileRecord (
+	HDC			hDC,
+	LPHANDLETABLE		Handletable,
+	CONST ENHMETARECORD	* EnhMetaRecord,
+	UINT			Handles
 	);
+
+/* Use NtGdiPolyTextOutW with 0 at the end. */
+BOOL
+STDCALL
+NtGdiPolyTextOut(HDC  hDC,
+                      CONST LPPOLYTEXTW txt,
+                      int  Count);
+
+/* Call UserRealizePalette. */
+UINT
+STDCALL
+NtGdiRealizePalette (
+	HDC	hDC
+	);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiRemoveFontResource(LPCWSTR  FileName);
 
 /* Use SetDIBitsToDevice in gdi32. */
 INT
-APIENTRY
+STDCALL
 NtGdiSetDIBits (
 	HDC			hDC,
 	HBITMAP			hBitmap,
@@ -123,6 +362,94 @@ NtGdiSetDIBits (
 	CONST BITMAPINFO	* bmi,
 	UINT			ColorUse
 	);
+
+/* Metafiles are user-mode. */
+HENHMETAFILE
+STDCALL
+NtGdiSetEnhMetaFileBits (
+	UINT		BufSize,
+	CONST PBYTE	Data
+	);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetICMProfile(HDC  hDC,
+                        LPWSTR  Filename);
+
+/* Needs to be done in user-mode, using shared GDI Object Attributes. */
+DWORD
+STDCALL
+NtGdiSetMapperFlags(HDC  hDC,
+                          DWORD  Flag);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetWindowExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetViewportOrgEx (
+	HDC	hDC,
+	int	X,
+	int	Y,
+	LPPOINT	Point
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetViewportExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetWindowOrgEx (
+	HDC	hDC,
+	int	X,
+	int	Y,
+	LPPOINT	Point
+	);
+
+/* Use NtGdiStretchDIBitsInternal. */
+INT
+STDCALL
+NtGdiStretchDIBits (
+	HDC			hDC,
+	INT			XDest,
+	INT			YDest,
+	INT			DestWidth,
+	INT			DestHeight,
+	INT			XSrc,
+	INT			YSrc,
+	INT			SrcWidth,
+	INT			SrcHeight,
+	CONST VOID		* Bits,
+	CONST BITMAPINFO	* BitsInfo,
+	UINT			Usage,
+	DWORD			ROP
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiUpdateICMRegKey(DWORD  Reserved,
+                          LPWSTR  CMID,
+                          LPWSTR  Filename,
+                          UINT  Command);
+
 
 #endif /* WIN32K_NTGDI_BAD_INCLUDED */
 

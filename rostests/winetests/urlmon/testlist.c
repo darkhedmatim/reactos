@@ -14,10 +14,10 @@ extern void func_url(void);
 
 const struct test winetest_testlist[] =
 {
-	{ "generated", func_generated },
-	{ "misc", func_misc },
-	{ "protocol", func_protocol },
-	{ "stream", func_stream },
-	{ "url", func_url },
+    { "generated", func_generated },
+    { "misc", func_misc },
+    { "protocol", func_protocol },
+    { "stream", func_stream },
+    { "url", func_url },
     { 0, 0 }
 };

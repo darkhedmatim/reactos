@@ -21,7 +21,7 @@
 #include <ppcmmu/mmu.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 KDPC KiExpireTimerDpc;
 extern ULONG KiMaximumDpcQueueDepth;
@@ -32,8 +32,6 @@ extern LONG KiTickOffset;
 extern ULONG KeMaximumIncrement;
 extern ULONG KeMinimumIncrement;
 extern ULONG KeTimeAdjustment;
-
-extern void PearPCDebug(int ch);
 
 /* GLOBALS *****************************************************************/
 
@@ -142,7 +140,7 @@ static ISR_TABLE IsrTable[NR_TRAPS][MAXIMUM_PROCESSORS];
 static ISR_TABLE IsrTable[NR_TRAPS][1];
 #endif
 
-#define TAG_ISR_LOCK     'LRSI'
+#define TAG_ISR_LOCK     TAG('I', 'S', 'R', 'L')
 
 /* FUNCTIONS ****************************************************************/
 
@@ -191,7 +189,7 @@ KeTrapFrameToIRQTrapFrame(PKTRAP_FRAME TrapFrame,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeUpdateRunTime(IN PKTRAP_FRAME  TrapFrame,
                 IN KIRQL  Irql)
 {
@@ -301,7 +299,7 @@ KeUpdateRunTime(IN PKTRAP_FRAME  TrapFrame,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
                    IN KIRQL Irql,
                    IN ULONG Increment)
@@ -349,6 +347,9 @@ KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
         SharedUserData->TickCount.LowPart = Time.LowPart;
         SharedUserData->TickCount.High1Time = Time.HighPart;
 
+        /* Update tick count in shared user data as well */
+        SharedUserData->TickCountLowDeprecated++;
+
         /* Queue a DPC that will expire timers */
         KeInsertQueueDpc(&KiExpireTimerDpc, 0, 0);
     }
@@ -362,7 +363,7 @@ KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
     }
 }
 
-VOID NTAPI
+VOID STDCALL
 KiInterruptDispatch2 (ULONG vector, KIRQL old_level)
 /*
  * FUNCTION: Calls all the interrupt handlers for a given irq.
@@ -469,6 +470,11 @@ KiInterruptDispatch3 (ULONG vector, PKIRQ_TRAPFRAME Trapframe)
        CurrentThread = KeGetCurrentThread();
        if (CurrentThread!=NULL && CurrentThread->ApcState.UserApcPending)
          {
+           DPRINT("PID: %d, TID: %d CS %04x/%04x\n",
+                  ((PETHREAD)CurrentThread)->ThreadsProcess->UniqueProcessId,
+                  ((PETHREAD)CurrentThread)->Cid.UniqueThread,
+                  Trapframe->Cs,
+                  CurrentThread->TrapFrame ? CurrentThread->TrapFrame->Cs : 0);
            if (CurrentThread->TrapFrame == NULL)
              {
                OldTrapFrame = CurrentThread->TrapFrame;
@@ -537,7 +543,7 @@ KeDumpIrqList(VOID)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 KeConnectInterrupt(PKINTERRUPT InterruptObject)
 {
    KIRQL oldlvl,synch_oldlvl;
@@ -612,7 +618,7 @@ KeConnectInterrupt(PKINTERRUPT InterruptObject)
  *        InterruptObject = isr to release
  */
 BOOLEAN
-NTAPI
+STDCALL
 KeDisconnectInterrupt(PKINTERRUPT InterruptObject)
 {
     KIRQL oldlvl,synch_oldlvl;
@@ -668,7 +674,7 @@ KeDisconnectInterrupt(PKINTERRUPT InterruptObject)
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeInitializeInterrupt(PKINTERRUPT Interrupt,
                       PKSERVICE_ROUTINE ServiceRoutine,
                       PVOID ServiceContext,
@@ -748,25 +754,19 @@ ULONG
 NTAPI
 KdpServiceDispatcher(ULONG Service, PCHAR Buffer, ULONG Length);
 
-typedef ULONG (*PSYSCALL_FUN)
-(ULONG,ULONG,ULONG,ULONG,ULONG,ULONG,ULONG,ULONG,ULONG,ULONG);
-
 VOID
 NTAPI
 KiSystemService(ppc_trap_frame_t *trap_frame)
 {
     int i;
     PKSYSTEM_ROUTINE SystemRoutine;
-    PSYSCALL_FUN SyscallFunction;
 
-    switch(trap_frame->gpr[0])
+    switch(trap_frame->gpr[8])
     {
     case 0x10000: /* DebugService */
 	for( i = 0; i < trap_frame->gpr[5]; i++ )
-        {
-            PearPCDebug(((PCHAR)trap_frame->gpr[4])[i]);
-            WRITE_PORT_UCHAR((PVOID)0x800003f8, ((PCHAR)trap_frame->gpr[4])[i]);
-        }
+	    SetPhysByte(0x800003f8, ((PCHAR)trap_frame->gpr[4])[i]);
+
 	trap_frame->gpr[3] = KdpServiceDispatcher
 	    (trap_frame->gpr[3],
 	     (PCHAR)trap_frame->gpr[4],
@@ -777,24 +777,6 @@ KiSystemService(ppc_trap_frame_t *trap_frame)
         SystemRoutine = (PKSYSTEM_ROUTINE)trap_frame->gpr[3];
         SystemRoutine((PKSTART_ROUTINE)trap_frame->gpr[4], 
                       (PVOID)trap_frame->gpr[5]);
-        break;
-
-        /* Handle a normal system call */
-    default:
-        SyscallFunction = 
-            ((PSYSCALL_FUN*)KeServiceDescriptorTable
-             [trap_frame->gpr[0] >> 12].Base)[trap_frame->gpr[0] & 0xfff];
-        trap_frame->gpr[3] = SyscallFunction
-            (trap_frame->gpr[3],
-             trap_frame->gpr[4],
-             trap_frame->gpr[5],
-             trap_frame->gpr[6],
-             trap_frame->gpr[7],
-             trap_frame->gpr[8],
-             trap_frame->gpr[9],
-             trap_frame->gpr[10],
-             trap_frame->gpr[11],
-             trap_frame->gpr[12]);
         break;
     }
 }

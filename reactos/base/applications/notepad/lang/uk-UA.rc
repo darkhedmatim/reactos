@@ -21,82 +21,75 @@
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
 
 ID_ACCEL ACCELERATORS
-BEGIN
+{
     "^A", CMD_SELECT_ALL
     "^C", CMD_COPY
     "^F", CMD_SEARCH
     "^G", CMD_GOTO
     "H", CMD_REPLACE, VIRTKEY, CONTROL
-    "^N", CMD_NEW
     "^O", CMD_OPEN
-    "^P", CMD_PRINT
     "^S", CMD_SAVE
     "^V", CMD_PASTE
     "^X", CMD_CUT
     "^Z", CMD_UNDO
     VK_F3, CMD_SEARCH_NEXT, VIRTKEY
     VK_F5, CMD_TIME_DATE, VIRTKEY
-END
+}
 
 MAIN_MENU MENU
-BEGIN
-    POPUP "&Файл"
-    BEGIN
-        MENUITEM "&Створити\tCtrl+N",      CMD_NEW
-        MENUITEM "&Відкрити...\tCtrl+O",   CMD_OPEN
-        MENUITEM "&З&берегти\tCtrl+S",     CMD_SAVE
-        MENUITEM "Зберегти &як...",        CMD_SAVE_AS
-        MENUITEM SEPARATOR
-        MENUITEM "Пара&метри сторінки...", CMD_PAGE_SETUP
-        MENUITEM "Д&рук\tCtrl+P",          CMD_PRINT
-        MENUITEM "Настройка &принтера...", CMD_PRINTER_SETUP
-        MENUITEM SEPARATOR
-        MENUITEM "В&ихід",                 CMD_EXIT
-    END
-    POPUP "&Правка"
-    BEGIN
-        MENUITEM "&Скасувати\tCtrl+Z",    CMD_UNDO
-        MENUITEM SEPARATOR
-        MENUITEM "&Вирізати\tCtrl+X",     CMD_CUT
-        MENUITEM "&Копіювати\tCtrl+C",    CMD_COPY
-        MENUITEM "Вст&авити\tCtrl+V",     CMD_PASTE
-        MENUITEM "В&идалити\tDel",        CMD_DELETE
-        MENUITEM SEPARATOR
-        MENUITEM "З&найти...\tCtrl+F",    CMD_SEARCH
-        MENUITEM "Зна&йти далі\tF3",      CMD_SEARCH_NEXT
-        MENUITEM "&Замінити\tCtrl+H",     CMD_REPLACE
-        MENUITEM "Перей&ти...\tCtrl+G",   CMD_GOTO
-        MENUITEM SEPARATOR
-        MENUITEM "Виді&лити все\tCtrl+A", CMD_SELECT_ALL
-        MENUITEM "&Дата й час\tF5",       CMD_TIME_DATE
-    END
-    POPUP "Фор&мат"
-    BEGIN
-        MENUITEM "&Перенос по словах", CMD_WRAP
-        MENUITEM "&Шрифт...",          CMD_FONT
-    END
-    POPUP "&Вигляд"
-    BEGIN
-        MENUITEM "&Рядок стану", CMD_STATUSBAR
-    END
-    POPUP "&Довідка"
-    BEGIN
-        MENUITEM "&Зміст",        CMD_HELP_CONTENTS
-        MENUITEM "&Пошук...",     CMD_HELP_SEARCH
-        MENUITEM "&Help on help", CMD_HELP_ON_HELP
-        MENUITEM SEPARATOR
-        MENUITEM "&Про"           CMD_ABOUT
-        MENUITEM "&Про програму", CMD_ABOUT_WINE
-    END
-END
+{
+ POPUP "&Файл" {
+  MENUITEM "&Створити",              CMD_NEW
+  MENUITEM "&Відкрити...\tCtrl+O",   CMD_OPEN
+  MENUITEM "&З&берегти\tCtrl+S",     CMD_SAVE
+  MENUITEM "Зберегти &як...",        CMD_SAVE_AS
+  MENUITEM SEPARATOR
+  MENUITEM "Пара&метри сторінки...", CMD_PAGE_SETUP
+  MENUITEM "Д&рук",                  CMD_PRINT
+  MENUITEM "Настройка &принтера...", CMD_PRINTER_SETUP
+  MENUITEM SEPARATOR
+  MENUITEM "В&ихід",                 CMD_EXIT
+ }
+POPUP "&Правка" {
+  MENUITEM "&Скасувати\tCtrl+Z",     CMD_UNDO
+  MENUITEM SEPARATOR
+  MENUITEM "&Вирізати\tCtrl+X",      CMD_CUT
+  MENUITEM "&Копіювати\tCtrl+C",     CMD_COPY
+  MENUITEM "Вст&авити\tCtrl+V",      CMD_PASTE
+  MENUITEM "В&идалити\tDel",         CMD_DELETE
+  MENUITEM SEPARATOR
+  MENUITEM "З&найти...\tCtrl+F",     CMD_SEARCH
+  MENUITEM "Зна&йти далі\tF3",       CMD_SEARCH_NEXT
+  MENUITEM "&Замінити\tCtrl+H",      CMD_REPLACE
+  MENUITEM "Перей&ти...\tCtrl+G",    CMD_GOTO
+  MENUITEM SEPARATOR
+  MENUITEM "Виді&лити все\tCtrl+A",  CMD_SELECT_ALL
+  MENUITEM "&Дата й час\tF5",        CMD_TIME_DATE
+ }
+POPUP "Фор&мат" {
+  MENUITEM "&Перенос по словах",     CMD_WRAP
+  MENUITEM "&Шрифт...",              CMD_FONT
+}
+POPUP "&Вигляд" {
+  MENUITEM "&Рядок стану",           CMD_STATUSBAR
+}
+POPUP "&Довідка" {
+  MENUITEM "&Зміст",                 CMD_HELP_CONTENTS
+  MENUITEM "&Пошук...",              CMD_HELP_SEARCH
+  MENUITEM "&Help on help",          CMD_HELP_ON_HELP
+  MENUITEM SEPARATOR
+		MENUITEM "&Про"      CMD_ABOUT
+  MENUITEM "&Про програму",          CMD_ABOUT_WINE
+ }
+}
 
 /* Dialog `Page setup' */
 
-DIALOG_PAGESETUP DIALOGEX 0, 0, 225, 95
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+DIALOG_PAGESETUP DIALOG 0, 0, 225, 95
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Параметри сторінки"
-BEGIN
+{
 LTEXT    "В&ерхній колонтитул:", 0x140,   10, 07, 40, 15
 EDITTEXT                         0x141,       60, 05,110, 12, WS_BORDER | WS_TABSTOP
 LTEXT    "Н&ижній колонтитул:",  0x142,   10, 24, 40, 15
@@ -115,37 +108,37 @@ EDITTEXT /*STRING_PAGESETUP_BOTTOMVALUE,*/ 0x150,    130, 73, 35, 11, WS_CHILD |
 DEFPUSHBUTTON "OK",         IDOK,                   180,  3, 40, 15, WS_TABSTOP
 PUSHBUTTON    "Скасувати",     IDCANCEL,               180, 21, 40, 15, WS_TABSTOP
 PUSHBUTTON    "&Довідка",       IDHELP,                180, 39, 40, 15, WS_TABSTOP
-END
+}
 
 /* Dialog `Encoding' */
-DIALOG_ENCODING DIALOGEX 0, 0, 256, 44
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
+DIALOG_ENCODING DIALOG 0, 0, 256, 44
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
     WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Кодування"
-BEGIN
+{
 COMBOBOX        ID_ENCODING,54,0,156,80,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
 LTEXT           "Кодування:",0x155,5,2,41,12
 COMBOBOX        ID_EOLN,54,18,156,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 LTEXT           "Розриви рядків:",0x156,5,20,41,12
-END
+}
 
 /* Dialog 'Go To' */
-DIALOG_GOTO DIALOGEX 0,0,165,50
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+DIALOG_GOTO DIALOG 0,0,165,50
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Перехід до рядка"
-BEGIN
+{
 EDITTEXT        ID_LINENUMBER,54,10,106,12,WS_CHILD | WS_BORDER | WS_TABSTOP
 LTEXT           "Номер рядка:",0x155,5,12,41,12,WS_CHILD | WS_TABSTOP | ES_NUMBER
 DEFPUSHBUTTON   "OK", IDOK, 75, 30, 40, 15, WS_CHILD | WS_TABSTOP
 PUSHBUTTON      "Скасувати", IDCANCEL, 120, 30, 40, 15, WS_CHILD | WS_TABSTOP
-END
+}
 
-IDD_ABOUTBOX DIALOGEX DISCARDABLE  22,16,284,170
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+IDD_ABOUTBOX DIALOG DISCARDABLE  22,16,284,170
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 CAPTION "Про Блокнот ReactOS"
-FONT 8, "MS Shell Dlg"
+FONT 8, "Tahoma"
 BEGIN
     CONTROL         "Блокнот ReactOS v1.0\r\nCopyright 1997,98 Marcel Baur <mbaur@g26.ethz.ch>\r\nCopyright 2000 Mike McCormack <Mike_McCormack@looksmart.com.au>\r\nCopyright 2002 Sylvain Petreolle <spetreolle@yahoo.fr>\r\nCopyright 2002 Andriy Palamarchuk\r\n ",
                     -1,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,46,7,232,39
@@ -163,7 +156,7 @@ BEGIN
 END
 
 STRINGTABLE DISCARDABLE
-BEGIN
+{
 STRING_PAGESETUP_HEADERVALUE,   "&n"        /* FIXME */
 STRING_PAGESETUP_FOOTERVALUE,   "Сторінка &s"   /* FIXME */
 STRING_PAGESETUP_LEFTVALUE,             "20 мм"     /* FIXME */
@@ -200,5 +193,4 @@ STRING_UTF8,                                    "UTF-8"
 STRING_CRLF,                                    "Windows"
 STRING_LF,                                      "Unix"
 STRING_CR,                                      "Mac"
-STRING_LINE_COLUMN,                             "Line %d, column %d"
-END
+}

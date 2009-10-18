@@ -27,10 +27,10 @@
 #include "winbase.h"
 #include "winerror.h"
 #include "wincrypt.h"
-#include "winreg.h"
 
 static HCRYPTPROV hProv;
 static const char szContainer[] = "winetest";
+static const unsigned char pbData[] = "Wine rocks totally!";
 static const char szProvider[] = MS_ENHANCED_PROV_A;
 
 typedef struct _ctdatatype {
@@ -56,33 +56,6 @@ static const cryptdata cTestData[4] = {
        12,12,16}
 };
 
-/*
- * 1. Take the MD5 Hash of the container name (with an extra null byte)
- * 2. Turn the hash into a 4 DWORD hex value
- * 3. Append a '_'
- * 4. Add the MachineGuid
- *
- */
-static void uniquecontainer(char *unique)
-{
-    /* MD5 hash of "winetest\0" in 4 DWORD hex */
-    static const char szContainer_md5[] = "9d20fd8d05ed2b8455d125d0bf6d6a70";
-    static const char szCryptography[] = "Software\\Microsoft\\Cryptography";
-    static const char szMachineGuid[] = "MachineGuid";
-    HKEY hkey;
-    char guid[MAX_PATH];
-    DWORD size = MAX_PATH;
-
-    /* Get the MachineGUID */
-    RegOpenKeyA(HKEY_LOCAL_MACHINE, szCryptography, &hkey);
-    RegQueryValueExA(hkey, szMachineGuid, NULL, NULL, (LPBYTE)guid, &size);
-    RegCloseKey(hkey);
-
-    lstrcpy(unique, szContainer_md5);
-    lstrcat(unique, "_");
-    lstrcat(unique, guid);
-}
-
 static void printBytes(const char *heading, const BYTE *pb, size_t cb)
 {
     size_t i;
@@ -106,13 +79,13 @@ static void trace_hex(BYTE *pbData, DWORD dwLen) {
         trace(szTemp);
     }
     for (j=0; i<dwLen; j++,i++) {
-        sprintf(szTemp+6*j, "0x%02x,\n", pbData[i]);
+        sprintf(szTemp+6*j, "0x%02x, \n", pbData[i]);
     }
     trace(szTemp);
 }
 */
 
-static int init_base_environment(DWORD dwKeyFlags)
+static int init_base_environment(void)
 {
     HCRYPTKEY hKey;
     BOOL result;
@@ -132,10 +105,10 @@ static int init_base_environment(DWORD dwKeyFlags)
                                      CRYPT_NEWKEYSET);
         ok(result, "%08x\n", GetLastError());
         if (!result) return 0;
-        result = CryptGenKey(hProv, AT_KEYEXCHANGE, dwKeyFlags, &hKey);
+        result = CryptGenKey(hProv, AT_KEYEXCHANGE, 0, &hKey);
         ok(result, "%08x\n", GetLastError());
         if (result) CryptDestroyKey(hKey);
-        result = CryptGenKey(hProv, AT_SIGNATURE, dwKeyFlags, &hKey);
+        result = CryptGenKey(hProv, AT_SIGNATURE, 0, &hKey);
         ok(result, "%08x\n", GetLastError());
         if (result) CryptDestroyKey(hKey);
     }
@@ -146,16 +119,9 @@ static void clean_up_base_environment(void)
 {
     BOOL result;
 
-    SetLastError(0xdeadbeef);
     result = CryptReleaseContext(hProv, 1);
-    ok(!result || broken(result) /* Win98 */, "Expected failure\n");
-    ok(GetLastError()==NTE_BAD_FLAGS, "Expected NTE_BAD_FLAGS, got %08x\n", GetLastError());
+    ok(!result && GetLastError()==NTE_BAD_FLAGS, "%08x\n", GetLastError());
         
-    /* Just to prove that Win98 also released the CSP */
-    SetLastError(0xdeadbeef);
-    result = CryptReleaseContext(hProv, 0);
-    ok(!result && GetLastError()==ERROR_INVALID_PARAMETER, "%08x\n", GetLastError());
-
     CryptAcquireContext(&hProv, szContainer, szProvider, PROV_RSA_FULL, CRYPT_DELETEKEYSET);
 }
 
@@ -174,11 +140,6 @@ static int init_aes_environment(void)
      * This provider is available on Windows XP, Windows 2003 and Vista.      */
 
     result = CryptAcquireContext(&hProv, szContainer, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT);
-    if (!result && GetLastError() == NTE_PROV_TYPE_NOT_DEF)
-    {
-        win_skip("RSA_ASE provider not supported\n");
-        return 0;
-    }
     ok(!result && GetLastError()==NTE_BAD_FLAGS, "%d, %08x\n", result, GetLastError());
 
     if (!CryptAcquireContext(&hProv, szContainer, NULL, PROV_RSA_AES, 0))
@@ -215,20 +176,12 @@ static void test_prov(void)
     DWORD dwLen, dwInc;
     
     dwLen = (DWORD)sizeof(DWORD);
-    SetLastError(0xdeadbeef);
     result = CryptGetProvParam(hProv, PP_SIG_KEYSIZE_INC, (BYTE*)&dwInc, &dwLen, 0);
-    if (!result && GetLastError() == NTE_BAD_TYPE)
-        skip("PP_SIG_KEYSIZE_INC is not supported (win9x or NT)\n");
-    else
-        ok(result && dwInc==8, "%08x, %d\n", GetLastError(), dwInc);
+    ok(result && dwInc==8, "%08x, %d\n", GetLastError(), dwInc);
     
     dwLen = (DWORD)sizeof(DWORD);
-    SetLastError(0xdeadbeef);
     result = CryptGetProvParam(hProv, PP_KEYX_KEYSIZE_INC, (BYTE*)&dwInc, &dwLen, 0);
-    if (!result && GetLastError() == NTE_BAD_TYPE)
-        skip("PP_KEYX_KEYSIZE_INC is not supported (win9x or NT)\n");
-    else
-        ok(result && dwInc==8, "%08x, %d\n", GetLastError(), dwInc);
+    ok(result && dwInc==8, "%08x, %d\n", GetLastError(), dwInc);
 }
 
 static void test_gen_random(void)
@@ -260,7 +213,7 @@ static BOOL derive_key(ALG_ID aiAlgid, HCRYPTKEY *phKey, DWORD len)
     unsigned char pbData[2000];
     int i;
 
-    *phKey = 0;
+    *phKey = (HCRYPTKEY)NULL;
     for (i=0; i<2000; i++) pbData[i] = (unsigned char)i;
     result = CryptCreateHash(hProv, CALG_MD2, 0, 0, &hHash);
     if (!result) {
@@ -270,7 +223,7 @@ static BOOL derive_key(ALG_ID aiAlgid, HCRYPTKEY *phKey, DWORD len)
     } 
     ok(result, "%08x\n", GetLastError());
     if (!result) return FALSE;
-    result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+    result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
     ok(result, "%08x\n", GetLastError());
     if (!result) return FALSE;
     result = CryptDeriveKey(hProv, aiAlgid, hHash, (len << 16) | CRYPT_EXPORTABLE, phKey);
@@ -315,7 +268,7 @@ static void test_hashes(void)
         /* rsaenh compiled without OpenSSL */
         ok(GetLastError() == NTE_BAD_ALGID, "%08x\n", GetLastError());
     } else {
-        result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+        result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
         ok(result, "%08x\n", GetLastError());
 
         len = sizeof(DWORD);
@@ -336,7 +289,7 @@ static void test_hashes(void)
     result = CryptCreateHash(hProv, CALG_MD4, 0, 0, &hHash);
     ok(result, "%08x\n", GetLastError());
 
-    result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+    result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
     ok(result, "%08x\n", GetLastError());
 
     len = sizeof(DWORD);
@@ -360,7 +313,7 @@ static void test_hashes(void)
     result = CryptGetHashParam(hHash, HP_HASHSIZE, (BYTE*)&hashlen, &len, 0);
     ok(result && (hashlen == 16), "%08x, hashlen: %d\n", GetLastError(), hashlen);
 
-    result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+    result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
     ok(result, "%08x\n", GetLastError());
 
     len = 16;
@@ -390,11 +343,8 @@ static void test_hashes(void)
 
     /* Can't add data after the hash been retrieved */
     SetLastError(0xdeadbeef);
-    result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
-    ok(!result, "Expected failure\n");
-    ok(GetLastError() == NTE_BAD_HASH_STATE ||
-       GetLastError() == NTE_BAD_ALGID, /* Win9x, WinMe, NT4 */
-       "Expected NTE_BAD_HASH_STATE or NTE_BAD_ALGID, got %08x\n", GetLastError());
+    result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
+    ok(!result && GetLastError() == NTE_BAD_HASH_STATE, "%08x\n", GetLastError());
 
     /* You can still retrieve the hash, its value just hasn't changed */
     result = CryptGetHashParam(hHash, HP_HASHVAL, pbHashValue, &len, 0);
@@ -409,7 +359,7 @@ static void test_hashes(void)
     result = CryptCreateHash(hProv, CALG_SHA, 0, 0, &hHash);
     ok(result, "%08x\n", GetLastError());
 
-    result = CryptHashData(hHash, pbData, 5, 0);
+    result = CryptHashData(hHash, (BYTE*)pbData, 5, 0);
     ok(result, "%08x\n", GetLastError());
 
     if(pCryptDuplicateHash) {
@@ -466,17 +416,17 @@ static void test_block_cipher_modes(void)
     ok(result, "%08x\n", GetLastError());
 
     dwLen = 23;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, NULL, &dwLen, 24);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, NULL, &dwLen, 24);
     ok(result, "CryptEncrypt failed: %08x\n", GetLastError());
     ok(dwLen == 24, "Unexpected length %d\n", dwLen);
 
     SetLastError(ERROR_SUCCESS);
     dwLen = 23;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, abData, &dwLen, 24);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData, &dwLen, 24);
     ok(result && dwLen == 24 && !memcmp(ecb, abData, sizeof(ecb)), 
        "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
-    result = CryptDecrypt(hKey, 0, TRUE, 0, abData, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData, &dwLen);
     ok(result && dwLen == 23 && !memcmp(plain, abData, sizeof(plain)), 
        "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
@@ -485,16 +435,16 @@ static void test_block_cipher_modes(void)
     ok(result, "%08x\n", GetLastError());
     
     dwLen = 23;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, NULL, &dwLen, 24);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, NULL, &dwLen, 24);
     ok(result, "CryptEncrypt failed: %08x\n", GetLastError());
     ok(dwLen == 24, "Unexpected length %d\n", dwLen);
 
     dwLen = 23;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, abData, &dwLen, 24);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData, &dwLen, 24);
     ok(result && dwLen == 24 && !memcmp(cbc, abData, sizeof(cbc)), 
        "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
-    result = CryptDecrypt(hKey, 0, TRUE, 0, abData, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData, &dwLen);
     ok(result && dwLen == 23 && !memcmp(plain, abData, sizeof(plain)), 
        "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
@@ -503,20 +453,20 @@ static void test_block_cipher_modes(void)
     ok(result, "%08x\n", GetLastError());
     
     dwLen = 16;
-    result = CryptEncrypt(hKey, 0, FALSE, 0, abData, &dwLen, 24);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, FALSE, 0, abData, &dwLen, 24);
     ok(result && dwLen == 16, "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
     dwLen = 7;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, abData+16, &dwLen, 8);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData+16, &dwLen, 8);
     ok(result && dwLen == 8 && !memcmp(cfb, abData, sizeof(cfb)), 
        "%08x, dwLen: %d\n", GetLastError(), dwLen);
     
     dwLen = 8;
-    result = CryptDecrypt(hKey, 0, FALSE, 0, abData, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, FALSE, 0, abData, &dwLen);
     ok(result && dwLen == 8, "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
     dwLen = 16;
-    result = CryptDecrypt(hKey, 0, TRUE, 0, abData+8, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData+8, &dwLen);
     ok(result && dwLen == 15 && !memcmp(plain, abData, sizeof(plain)), 
        "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
@@ -525,10 +475,8 @@ static void test_block_cipher_modes(void)
     ok(result, "%08x\n", GetLastError());
     
     dwLen = 23;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, abData, &dwLen, 24);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abData, &dwLen, 24);
     ok(!result && GetLastError() == NTE_BAD_ALGID, "%08x\n", GetLastError());
-
-    CryptDestroyKey(hKey);
 }
 
 static void test_3des112(void)
@@ -549,10 +497,10 @@ static void test_3des112(void)
     for (i=0; i<sizeof(pbData); i++) pbData[i] = (unsigned char)i;
     
     dwLen = 13;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, 16);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, 16);
     ok(result, "%08x\n", GetLastError());
     
-    result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
     ok(result, "%08x\n", GetLastError());
 
     for (i=0; i<4; i++)
@@ -560,11 +508,11 @@ static void test_3des112(void)
       memcpy(pbData,cTestData[i].origstr,cTestData[i].strlen);
 
       dwLen = cTestData[i].enclen;
-      result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
+      result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].buflen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].buflen);
 
-      result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+      result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].enclen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].enclen);
       ok(memcmp(pbData,cTestData[i].decstr,cTestData[1].enclen)==0,"decryption incorrect %d\n",i);
@@ -605,10 +553,10 @@ static void test_des(void)
     for (i=0; i<sizeof(pbData); i++) pbData[i] = (unsigned char)i;
     
     dwLen = 13;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, 16);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, 16);
     ok(result, "%08x\n", GetLastError());
     
-    result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
     ok(result, "%08x\n", GetLastError());
 
     for (i=0; i<4; i++)
@@ -616,11 +564,11 @@ static void test_des(void)
       memcpy(pbData,cTestData[i].origstr,cTestData[i].strlen);
 
       dwLen = cTestData[i].enclen;
-      result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
+      result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].buflen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].buflen);
 
-      result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+      result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].enclen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].enclen);
       ok(memcmp(pbData,cTestData[i].decstr,cTestData[i].enclen)==0,"decryption incorrect %d\n",i);
@@ -653,12 +601,12 @@ static void test_3des(void)
     for (i=0; i<sizeof(pbData); i++) pbData[i] = (unsigned char)i;
     
     dwLen = 13;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, 16);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, 16);
     ok(result, "%08x\n", GetLastError());
-
+    
     ok(!memcmp(pbData, des3, sizeof(des3)), "3DES encryption failed!\n");
-
-    result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+    
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
     ok(result, "%08x\n", GetLastError());
 
     for (i=0; i<4; i++)
@@ -666,11 +614,11 @@ static void test_3des(void)
       memcpy(pbData,cTestData[i].origstr,cTestData[i].strlen);
 
       dwLen = cTestData[i].enclen;
-      result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
+      result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].buflen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].buflen);
 
-      result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+      result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].enclen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].enclen);
       ok(memcmp(pbData,cTestData[i].decstr,cTestData[i].enclen)==0,"decryption incorrect %d\n",i);
@@ -711,10 +659,10 @@ static void test_aes(int keylen)
     for (i=0; i<sizeof(pbData); i++) pbData[i] = (unsigned char)i;
 
     dwLen = 13;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, 16);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, 16);
     ok(result, "%08x\n", GetLastError());
 
-    result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+    result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
     ok(result, "%08x\n", GetLastError());
 
     for (i=0; i<4; i++)
@@ -722,11 +670,11 @@ static void test_aes(int keylen)
       memcpy(pbData,cTestData[i].origstr,cTestData[i].strlen);
 
       dwLen = cTestData[i].enclen;
-      result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
+      result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen, cTestData[i].buflen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].buflen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].buflen);
 
-      result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwLen);
+      result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwLen);
       ok(result, "%08x\n", GetLastError());
       ok(dwLen==cTestData[i].enclen,"length incorrect, got %d, expected %d\n",dwLen,cTestData[i].enclen);
       ok(memcmp(pbData,cTestData[i].decstr,cTestData[1].enclen)==0,"decryption incorrect %d\n",i);
@@ -743,9 +691,9 @@ static void test_aes(int keylen)
 
 static void test_rc2(void)
 {
-    static const BYTE rc2_40_encrypted[16] = {
-        0xc0, 0x9a, 0xe4, 0x2f, 0x0a, 0x47, 0x67, 0x11,
-        0xfb, 0x18, 0x87, 0xce, 0x0c, 0x75, 0x07, 0xb1 };
+    static const BYTE rc2encrypted[16] = { 
+        0x02, 0x34, 0x7d, 0xf6, 0x1d, 0xc5, 0x9b, 0x8b, 
+        0x2e, 0x0d, 0x63, 0x80, 0x72, 0xc1, 0xc2, 0xb1 };
     static const BYTE rc2_128_encrypted[] = {
         0x82,0x81,0xf7,0xff,0xdd,0xd7,0x88,0x8c,0x2a,0x2a,0xc0,0xce,0x4c,0x89,
         0xb6,0x66 };
@@ -764,16 +712,14 @@ static void test_rc2(void)
     if (!result) {
         ok(GetLastError()==NTE_BAD_ALGID, "%08x\n", GetLastError());
     } else {
-        CRYPT_INTEGER_BLOB salt;
-
-        result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+        result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
         ok(result, "%08x\n", GetLastError());
 
         dwLen = 16;
         result = CryptGetHashParam(hHash, HP_HASHVAL, pbHashValue, &dwLen, 0);
         ok(result, "%08x\n", GetLastError());
 
-        result = CryptDeriveKey(hProv, CALG_RC2, hHash, 40 << 16, &hKey);
+        result = CryptDeriveKey(hProv, CALG_RC2, hHash, 56 << 16, &hKey);
         ok(result, "%08x\n", GetLastError());
 
         dwLen = sizeof(DWORD);
@@ -787,16 +733,6 @@ static void test_rc2(void)
         dwLen = sizeof(DWORD);
         result = CryptGetKeyParam(hKey, KP_MODE_BITS, (BYTE*)&dwModeBits, &dwLen, 0);
         ok(result, "%08x\n", GetLastError());
-
-        dwModeBits = 0xdeadbeef;
-        dwLen = sizeof(DWORD);
-        result = CryptGetKeyParam(hKey, KP_PERMISSIONS, (BYTE*)&dwModeBits, &dwLen, 0);
-        ok(result, "%08x\n", GetLastError());
-        ok(dwModeBits ==
-            (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-            broken(dwModeBits == 0xffffffff), /* Win9x/NT4 */
-            "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-            " got %08x\n", dwModeBits);
 
         dwLen = sizeof(DWORD);
         result = CryptGetKeyParam(hKey, KP_PERMISSIONS, (BYTE*)&dwModeBits, &dwLen, 0);
@@ -825,10 +761,10 @@ static void test_rc2(void)
         ok(result, "%08x\n", GetLastError());
 
         dwDataLen = 13;
-        result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwDataLen, 24);
+        result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwDataLen, 24);
         ok(result, "%08x\n", GetLastError());
 
-        ok(!memcmp(pbData, rc2_40_encrypted, 16), "RC2 encryption failed!\n");
+        ok(!memcmp(pbData, rc2encrypted, 8), "RC2 encryption failed!\n");
 
         result = CryptGetKeyParam(hKey, KP_IV, NULL, &dwLen, 0);
         ok(result, "%08x\n", GetLastError());
@@ -836,23 +772,8 @@ static void test_rc2(void)
         CryptGetKeyParam(hKey, KP_IV, pbTemp, &dwLen, 0);
         HeapFree(GetProcessHeap(), 0, pbTemp);
 
-        result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwDataLen);
+        result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwDataLen);
         ok(result, "%08x\n", GetLastError());
-
-        /* What sizes salt can I set? */
-        salt.pbData = pbData;
-        for (i=0; i<24; i++)
-        {
-            salt.cbData = i;
-            result = CryptSetKeyParam(hKey, KP_SALT_EX, (BYTE *)&salt, 0);
-            ok(result, "setting salt failed for size %d: %08x\n", i, GetLastError());
-        }
-        salt.cbData = 25;
-        SetLastError(0xdeadbeef);
-        result = CryptSetKeyParam(hKey, KP_SALT_EX, (BYTE *)&salt, 0);
-        ok(!result ||
-           broken(result), /* Win9x, WinMe, NT4, W2K */
-           "%08x\n", GetLastError());
 
         result = CryptDestroyKey(hKey);
         ok(result, "%08x\n", GetLastError());
@@ -865,7 +786,7 @@ static void test_rc2(void)
     if (!result) {
         ok(GetLastError()==NTE_BAD_ALGID, "%08x\n", GetLastError());
     } else {
-        result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+        result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
         ok(result, "%08x\n", GetLastError());
 
         dwLen = 16;
@@ -890,7 +811,7 @@ static void test_rc2(void)
         CryptGetKeyParam(hKey, KP_KEYLEN, (BYTE *)&dwKeyLen, &dwLen, 0);
         ok(dwKeyLen == 56, "%d (%08x)\n", dwKeyLen, GetLastError());
         CryptGetKeyParam(hKey, KP_EFFECTIVE_KEYLEN, (BYTE *)&dwKeyLen, &dwLen, 0);
-        ok(dwKeyLen == 56 || broken(dwKeyLen == 40), "%d (%08x)\n", dwKeyLen, GetLastError());
+        ok(dwKeyLen == 56, "%d (%08x)\n", dwKeyLen, GetLastError());
 
         dwKeyLen = 128;
         result = CryptSetKeyParam(hKey, KP_EFFECTIVE_KEYLEN, (LPBYTE)&dwKeyLen, 0);
@@ -906,7 +827,7 @@ static void test_rc2(void)
         ok(result, "%08x\n", GetLastError());
 
         dwDataLen = 13;
-        result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwDataLen, 24);
+        result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwDataLen, 24);
         ok(result, "%08x\n", GetLastError());
 
         ok(!memcmp(pbData, rc2_128_encrypted, sizeof(rc2_128_encrypted)),
@@ -943,9 +864,7 @@ static void test_rc4(void)
         /* rsaenh compiled without OpenSSL */
         ok(GetLastError() == NTE_BAD_ALGID, "%08x\n", GetLastError());
     } else {
-        CRYPT_INTEGER_BLOB salt;
-
-        result = CryptHashData(hHash, pbData, sizeof(pbData), 0);
+        result = CryptHashData(hHash, (BYTE*)pbData, sizeof(pbData), 0);
            ok(result, "%08x\n", GetLastError());
 
         dwLen = 16;
@@ -982,31 +901,16 @@ static void test_rc4(void)
         ok(result, "%08x\n", GetLastError());
 
         dwDataLen = 16;
-        result = CryptEncrypt(hKey, 0, TRUE, 0, NULL, &dwDataLen, 24);
+        result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, NULL, &dwDataLen, 24);
         ok(result, "%08x\n", GetLastError());
         dwDataLen = 16;
-        result = CryptEncrypt(hKey, 0, TRUE, 0, pbData, &dwDataLen, 24);
+        result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwDataLen, 24);
         ok(result, "%08x\n", GetLastError());
 
         ok(!memcmp(pbData, rc4, dwDataLen), "RC4 encryption failed!\n");
 
-        result = CryptDecrypt(hKey, 0, TRUE, 0, pbData, &dwDataLen);
+        result = CryptDecrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, pbData, &dwDataLen);
         ok(result, "%08x\n", GetLastError());
-
-        /* What sizes salt can I set? */
-        salt.pbData = pbData;
-        for (i=0; i<24; i++)
-        {
-            salt.cbData = i;
-            result = CryptSetKeyParam(hKey, KP_SALT_EX, (BYTE *)&salt, 0);
-            ok(result, "setting salt failed for size %d: %08x\n", i, GetLastError());
-        }
-        salt.cbData = 25;
-        SetLastError(0xdeadbeef);
-        result = CryptSetKeyParam(hKey, KP_SALT_EX, (BYTE *)&salt, 0);
-        ok(!result ||
-           broken(result), /* Win9x, WinMe, NT4, W2K */
-           "%08x\n", GetLastError());
 
         result = CryptDestroyKey(hKey);
         ok(result, "%08x\n", GetLastError());
@@ -1037,7 +941,7 @@ static void test_hmac(void) {
     result = CryptSetHashParam(hHash, HP_HMAC_INFO, (BYTE*)&hmacInfo, 0);
     ok(result, "%08x\n", GetLastError());
 
-    result = CryptHashData(hHash, abData, sizeof(abData), 0);
+    result = CryptHashData(hHash, (BYTE*)abData, sizeof(abData), 0);
     ok(result, "%08x\n", GetLastError());
 
     dwLen = sizeof(abData)/sizeof(BYTE);
@@ -1063,30 +967,30 @@ static void test_mac(void) {
     BOOL result;
     DWORD dwLen;
     BYTE abData[256], abEnc[264];
-    static const BYTE mac_40[8] = { 0xb7, 0xa2, 0x46, 0xe9, 0x11, 0x31, 0xe0, 0xad};
+    static const BYTE mac[8] = { 0x0d, 0x3e, 0x15, 0x6b, 0x85, 0x63, 0x5c, 0x11 };
     int i;
 
     for (i=0; i<sizeof(abData)/sizeof(BYTE); i++) abData[i] = (BYTE)i;
     for (i=0; i<sizeof(abData)/sizeof(BYTE); i++) abEnc[i] = (BYTE)i;
 
-    if (!derive_key(CALG_RC2, &hKey, 40)) return;
+    if (!derive_key(CALG_RC2, &hKey, 56)) return;
 
     dwLen = 256;
-    result = CryptEncrypt(hKey, 0, TRUE, 0, abEnc, &dwLen, 264);
+    result = CryptEncrypt(hKey, (HCRYPTHASH)NULL, TRUE, 0, abEnc, &dwLen, 264);
     ok (result && dwLen == 264, "%08x, dwLen: %d\n", GetLastError(), dwLen);
     
     result = CryptCreateHash(hProv, CALG_MAC, hKey, 0, &hHash);
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
 
-    result = CryptHashData(hHash, abData, sizeof(abData), 0);
+    result = CryptHashData(hHash, (BYTE*)abData, sizeof(abData), 0);
     ok(result, "%08x\n", GetLastError());
 
     dwLen = sizeof(abData)/sizeof(BYTE);
     result = CryptGetHashParam(hHash, HP_HASHVAL, abData, &dwLen, 0);
     ok(result && dwLen == 8, "%08x, dwLen: %d\n", GetLastError(), dwLen);
 
-    ok(!memcmp(abData, mac_40, sizeof(mac_40)), "MAC failed!\n");
+    ok(!memcmp(abData, mac, sizeof(mac)), "MAC failed!\n");
     
     result = CryptDestroyHash(hHash);
     ok(result, "%08x\n", GetLastError());
@@ -1097,11 +1001,8 @@ static void test_mac(void) {
     /* Provoke errors */
     if (!derive_key(CALG_RC4, &hKey, 56)) return;
 
-    SetLastError(0xdeadbeef);
     result = CryptCreateHash(hProv, CALG_MAC, hKey, 0, &hHash);
-    ok((!result && GetLastError() == NTE_BAD_KEY) ||
-            broken(result), /* Win9x, WinMe, NT4, W2K */
-            "%08x\n", GetLastError());
+    ok(!result && GetLastError() == NTE_BAD_KEY, "%08x\n", GetLastError());
 
     result = CryptDestroyKey(hKey);
     ok(result, "%08x\n", GetLastError());
@@ -1187,7 +1088,7 @@ static BYTE abPlainPrivateKey[596] = {
 
 static void test_import_private(void) 
 {
-    DWORD dwLen, dwVal;
+    DWORD dwLen;
     HCRYPTKEY hKeyExchangeKey, hSessionKey;
     BOOL result;
     static BYTE abSessionKey[148] = {
@@ -1228,37 +1129,22 @@ static void test_import_private(void)
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
 
-    dwVal = 0xdeadbeef;
-    dwLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hSessionKey, KP_PERMISSIONS, (BYTE*)&dwVal, &dwLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
-
     dwLen = (DWORD)sizeof(abEncryptedMessage);
     result = CryptDecrypt(hSessionKey, 0, TRUE, 0, abEncryptedMessage, &dwLen);
     ok(result && dwLen == 12 && !memcmp(abEncryptedMessage, "Wine rocks!",12), 
        "%08x, len: %d\n", GetLastError(), dwLen);
-    CryptDestroyKey(hSessionKey);
     
     if (!derive_key(CALG_RC4, &hSessionKey, 56)) return;
 
     dwLen = (DWORD)sizeof(abSessionKey);
     result = CryptExportKey(hSessionKey, hKeyExchangeKey, SIMPLEBLOB, 0, abSessionKey, &dwLen);
     ok(result, "%08x\n", GetLastError());
-    CryptDestroyKey(hSessionKey);
     if (!result) return;
 
     dwLen = (DWORD)sizeof(abSessionKey);
     result = CryptImportKey(hProv, abSessionKey, dwLen, hKeyExchangeKey, 0, &hSessionKey);
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
-
-    CryptDestroyKey(hSessionKey);
-    CryptDestroyKey(hKeyExchangeKey);
 }
 
 static void test_verify_signature(void) {
@@ -1459,11 +1345,10 @@ static void test_verify_signature(void) {
     if (result) return;
 
     /* check that we get a bad signature error when the signature is too short*/
-    SetLastError(0xdeadbeef);
     result = CryptVerifySignature(hHash, abSignatureMD2, 64, hPubSignKey, NULL, 0);
-    ok((!result && NTE_BAD_SIGNATURE == GetLastError()) ||
-     broken(result), /* Win9x, WinMe, NT4 */
-     "Expected NTE_BAD_SIGNATURE, got %08x\n",  GetLastError());
+    ok(!result && NTE_BAD_SIGNATURE == GetLastError(),
+     "Expected NTE_BAD_SIGNATURE error, got %08x\n", GetLastError());
+    if (result) return;
 
     result = CryptVerifySignature(hHash, abSignatureMD2, 128, hPubSignKey, NULL, 0);
     ok(result, "%08x\n", GetLastError());
@@ -1478,8 +1363,6 @@ static void test_verify_signature(void) {
     /*result = CryptVerifySignature(hHash, abSignatureMD2NoOID, 128, hPubSignKey, NULL, 0);
     ok(!result && GetLastError()==NTE_BAD_SIGNATURE, "%08lx\n", GetLastError());
     if (result) return;*/
-
-    CryptDestroyHash(hHash);
 
     result = CryptCreateHash(hProv, CALG_MD4, 0, 0, &hHash);
     ok(result, "%08x\n", GetLastError());
@@ -1497,8 +1380,6 @@ static void test_verify_signature(void) {
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
 
-    CryptDestroyHash(hHash);
-
     result = CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash);
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
@@ -1515,8 +1396,6 @@ static void test_verify_signature(void) {
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
 
-    CryptDestroyHash(hHash);
-
     result = CryptCreateHash(hProv, CALG_SHA, 0, 0, &hHash);
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
@@ -1532,9 +1411,6 @@ static void test_verify_signature(void) {
     result = CryptVerifySignature(hHash, abSignatureSHANoOID, 128, hPubSignKey, NULL, CRYPT_NOHASHOID);
     ok(result, "%08x\n", GetLastError());
     if (!result) return;
-
-    CryptDestroyHash(hHash);
-    CryptDestroyKey(hPubSignKey);
 }
 
 static void test_rsa_encrypt(void)
@@ -1542,7 +1418,7 @@ static void test_rsa_encrypt(void)
     HCRYPTKEY hRSAKey;
     BYTE abData[2048] = "Wine rocks!";
     BOOL result;
-    DWORD dwVal, dwLen;
+    DWORD dwLen;
 
     /* It is allowed to use the key exchange key for encryption/decryption */
     result = CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hRSAKey);
@@ -1561,66 +1437,12 @@ static void test_rsa_encrypt(void)
     result = CryptDecrypt(hRSAKey, 0, TRUE, 0, abData, &dwLen);
     ok (result && dwLen == 12 && !memcmp(abData, "Wine rocks!", 12), "%08x\n", GetLastError());
     
-    dwVal = 0xdeadbeef;
-    dwLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hRSAKey, KP_PERMISSIONS, (BYTE*)&dwVal, &dwLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
-
-    /* The key exchange key's public key may be exported.. */
-    result = CryptExportKey(hRSAKey, 0, PUBLICKEYBLOB, 0, NULL, &dwLen);
-    ok(result, "%08x\n", GetLastError());
-    /* but its private key may not be. */
-    SetLastError(0xdeadbeef);
-    result = CryptExportKey(hRSAKey, 0, PRIVATEKEYBLOB, 0, NULL, &dwLen);
-    ok((!result && GetLastError() == NTE_BAD_KEY_STATE) ||
-        broken(result), /* Win9x/NT4 */
-        "expected NTE_BAD_KEY_STATE, got %08x\n", GetLastError());
-    /* Setting the permissions of the key exchange key isn't allowed, either. */
-    dwVal |= CRYPT_EXPORT;
-    SetLastError(0xdeadbeef);
-    result = CryptSetKeyParam(hRSAKey, KP_PERMISSIONS, (BYTE *)&dwVal, 0);
-    ok(!result &&
-        (GetLastError() == NTE_BAD_DATA || GetLastError() == NTE_BAD_FLAGS),
-        "expected NTE_BAD_DATA or NTE_BAD_FLAGS, got %08x\n", GetLastError());
-
     CryptDestroyKey(hRSAKey);
 
     /* It is not allowed to use the signature key for encryption/decryption */
     result = CryptGetUserKey(hProv, AT_SIGNATURE, &hRSAKey);
     ok (result, "%08x\n", GetLastError());
     if (!result) return;
-
-    dwVal = 0xdeadbeef;
-    dwLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hRSAKey, KP_PERMISSIONS, (BYTE*)&dwVal, &dwLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
-
-    /* The signature key's public key may also be exported.. */
-    result = CryptExportKey(hRSAKey, 0, PUBLICKEYBLOB, 0, NULL, &dwLen);
-    ok(result, "%08x\n", GetLastError());
-    /* but its private key may not be. */
-    SetLastError(0xdeadbeef);
-    result = CryptExportKey(hRSAKey, 0, PRIVATEKEYBLOB, 0, NULL, &dwLen);
-    ok((!result && GetLastError() == NTE_BAD_KEY_STATE) ||
-        broken(result), /* Win9x/NT4 */
-        "expected NTE_BAD_KEY_STATE, got %08x\n", GetLastError());
-    /* Setting the permissions of the signature key isn't allowed, either. */
-    dwVal |= CRYPT_EXPORT;
-    SetLastError(0xdeadbeef);
-    result = CryptSetKeyParam(hRSAKey, KP_PERMISSIONS, (BYTE *)&dwVal, 0);
-    ok(!result &&
-        (GetLastError() == NTE_BAD_DATA || GetLastError() == NTE_BAD_FLAGS),
-        "expected NTE_BAD_DATA or NTE_BAD_FLAGS, got %08x\n", GetLastError());
 
     dwLen = 12;
     result = CryptEncrypt(hRSAKey, 0, TRUE, 0, abData, &dwLen, (DWORD)sizeof(abData));
@@ -1631,7 +1453,7 @@ static void test_rsa_encrypt(void)
 
 static void test_import_export(void)
 {
-    DWORD dwLen, dwDataLen, dwVal;
+    DWORD dwLen, dwDataLen;
     HCRYPTKEY hPublicKey;
     BOOL result;
     ALG_ID algID;
@@ -1659,21 +1481,10 @@ static void test_import_export(void)
     ok(result, "failed to get the KP_ALGID from the imported public key\n");
     ok(algID == CALG_RSA_KEYX, "Expected CALG_RSA_KEYX, got %x\n", algID);
         
-    dwVal = 0xdeadbeef;
-    dwDataLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hPublicKey, KP_PERMISSIONS, (BYTE*)&dwVal, &dwDataLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
     result = CryptExportKey(hPublicKey, 0, PUBLICKEYBLOB, 0, emptyKey, &dwLen);
     ok(result, "failed to export the fresh imported public key\n");
     ok(dwLen == 84, "Expected exported key to be 84 bytes long but got %d bytes.\n",dwLen);
     ok(!memcmp(emptyKey, abPlainPublicKey, dwLen), "exported key is different from the imported key\n");
-
-    CryptDestroyKey(hPublicKey);
 }
         
 static void test_schannel_provider(void)
@@ -1686,6 +1497,83 @@ static void test_schannel_provider(void)
     SCHANNEL_ALG saSChannelAlg;
     CRYPT_DATA_BLOB data_blob;
     HMAC_INFO hmacInfo = { CALG_MD5, NULL, 0, NULL, 0 };
+    BYTE abPlainPrivateKey[596] = {
+        0x07, 0x02, 0x00, 0x00, 0x00, 0xa4, 0x00, 0x00,
+        0x52, 0x53, 0x41, 0x32, 0x00, 0x04, 0x00, 0x00,
+        0x01, 0x00, 0x01, 0x00, 0x9b, 0x64, 0xef, 0xce,
+        0x31, 0x7c, 0xad, 0x56, 0xe2, 0x1e, 0x9b, 0x96,
+        0xb3, 0xf0, 0x29, 0x88, 0x6e, 0xa8, 0xc2, 0x11,
+        0x33, 0xd6, 0xcc, 0x8c, 0x69, 0xb2, 0x1a, 0xfd,
+        0xfc, 0x23, 0x21, 0x30, 0x4d, 0x29, 0x45, 0xb6,
+        0x3a, 0x67, 0x11, 0x80, 0x1a, 0x91, 0xf2, 0x9f,
+        0x01, 0xac, 0xc0, 0x11, 0x50, 0x5f, 0xcd, 0xb9,
+        0xad, 0x76, 0x9f, 0x6e, 0x91, 0x55, 0x71, 0xda,
+        0x97, 0x96, 0x96, 0x22, 0x75, 0xb4, 0x83, 0x44,
+        0x89, 0x9e, 0xf8, 0x44, 0x40, 0x7c, 0xd6, 0xcd,
+        0x9d, 0x88, 0xd6, 0x88, 0xbc, 0x56, 0xb7, 0x64,
+        0xe9, 0x2c, 0x24, 0x2f, 0x0d, 0x78, 0x55, 0x1c,
+        0xb2, 0x67, 0xb1, 0x5e, 0xbc, 0x0c, 0xcf, 0x1c,
+        0xe9, 0xd3, 0x9e, 0xa2, 0x15, 0x24, 0x73, 0xd6,
+        0xdb, 0x6f, 0x83, 0xb2, 0xf8, 0xbc, 0xe7, 0x47,
+        0x3b, 0x01, 0xef, 0x49, 0x08, 0x98, 0xd6, 0xa3,
+        0xf9, 0x25, 0x57, 0xe9, 0x39, 0x3c, 0x53, 0x30,
+        0x1b, 0xf2, 0xc9, 0x62, 0x31, 0x43, 0x5d, 0x84,
+        0x24, 0x30, 0x21, 0x9a, 0xad, 0xdb, 0x62, 0x91,
+        0xc8, 0x07, 0xd9, 0x2f, 0xd6, 0xb5, 0x37, 0x6f,
+        0xfe, 0x7a, 0x12, 0xbc, 0xd9, 0xd2, 0x2b, 0xbf,
+        0xd7, 0xb1, 0xfa, 0x7d, 0xc0, 0x48, 0xdd, 0x74,
+        0xdd, 0x55, 0x04, 0xa1, 0x8b, 0xc1, 0x0a, 0xc4,
+        0xa5, 0x57, 0x62, 0xee, 0x08, 0x8b, 0xf9, 0x19,
+        0x6c, 0x52, 0x06, 0xf8, 0x73, 0x0f, 0x24, 0xc9,
+        0x71, 0x9f, 0xc5, 0x45, 0x17, 0x3e, 0xae, 0x06,
+        0x81, 0xa2, 0x96, 0x40, 0x06, 0xbf, 0xeb, 0x9e,
+        0x80, 0x2b, 0x27, 0x20, 0x8f, 0x38, 0xcf, 0xeb,
+        0xff, 0x3b, 0x38, 0x41, 0x35, 0x69, 0x66, 0x13,
+        0x1d, 0x3c, 0x01, 0x3b, 0xf6, 0x37, 0xca, 0x9c,
+        0x61, 0x74, 0x98, 0xcf, 0xc9, 0x6e, 0xe8, 0x90,
+        0xc7, 0xb7, 0x33, 0xc0, 0x07, 0x3c, 0xf8, 0xc8,
+        0xf6, 0xf2, 0xd7, 0xf0, 0x21, 0x62, 0x58, 0x8a,
+        0x55, 0xbf, 0xa1, 0x2d, 0x3d, 0xa6, 0x69, 0xc5,
+        0x02, 0x19, 0x31, 0xf0, 0x94, 0x0f, 0x45, 0x5c,
+        0x95, 0x1b, 0x53, 0xbc, 0xf5, 0xb0, 0x1a, 0x8f,
+        0xbf, 0x40, 0xe0, 0xc7, 0x73, 0xe7, 0x72, 0x6e,
+        0xeb, 0xb1, 0x0f, 0x38, 0xc5, 0xf8, 0xee, 0x04,
+        0xed, 0x34, 0x1a, 0x10, 0xf9, 0x53, 0x34, 0xf3,
+        0x3e, 0xe6, 0x5c, 0xd1, 0x47, 0x65, 0xcd, 0xbd,
+        0xf1, 0x06, 0xcb, 0xb4, 0xb1, 0x26, 0x39, 0x9f,
+        0x71, 0xfe, 0x3d, 0xf8, 0x62, 0xab, 0x22, 0x8b,
+        0x0e, 0xdc, 0xb9, 0xe8, 0x74, 0x06, 0xfc, 0x8c,
+        0x25, 0xa1, 0xa9, 0xcf, 0x07, 0xf9, 0xac, 0x21,
+        0x01, 0x7b, 0x1c, 0xdc, 0x94, 0xbd, 0x47, 0xe1,
+        0xa0, 0x86, 0x59, 0x35, 0x6a, 0x6f, 0xb9, 0x70,
+        0x26, 0x7c, 0x3c, 0xfd, 0xbd, 0x81, 0x39, 0x36,
+        0x42, 0xc2, 0xbd, 0xbe, 0x84, 0x27, 0x9a, 0x69,
+        0x81, 0xda, 0x99, 0x27, 0xc2, 0x4f, 0x62, 0x33,
+        0xf4, 0x79, 0x30, 0xc5, 0x63, 0x54, 0x71, 0xf1,
+        0x47, 0x22, 0x25, 0x9b, 0x6c, 0x00, 0x2f, 0x1c,
+        0xf4, 0x1f, 0x85, 0xbc, 0xf6, 0x67, 0x6a, 0xe3,
+        0xf6, 0x55, 0x8a, 0xef, 0xd0, 0x0b, 0xd3, 0xa2,
+        0xc5, 0x51, 0x70, 0x15, 0x0a, 0xf0, 0x98, 0x4c,
+        0xb7, 0x19, 0x62, 0x0e, 0x2d, 0x2a, 0x4a, 0x7d,
+        0x7a, 0x0a, 0xc4, 0x17, 0xe3, 0x5d, 0x20, 0x52,
+        0xa9, 0x98, 0xc3, 0xaa, 0x11, 0xf6, 0xbf, 0x4c,
+        0x94, 0x99, 0x81, 0x89, 0xf0, 0x7f, 0x66, 0xaa,
+        0xc8, 0x88, 0xd7, 0x31, 0x84, 0x71, 0xb6, 0x64,
+        0x09, 0x76, 0x0b, 0x7f, 0x1a, 0x1f, 0x2e, 0xfe,
+        0xcd, 0x59, 0x2a, 0x54, 0x11, 0x84, 0xd4, 0x6a,
+        0x61, 0xdf, 0xaa, 0x76, 0x66, 0x9d, 0x82, 0x11,
+        0x56, 0x3d, 0xd2, 0x52, 0xe6, 0x42, 0x5a, 0x77,
+        0x92, 0x98, 0x34, 0xf3, 0x56, 0x6c, 0x96, 0x10,
+        0x40, 0x59, 0x16, 0xcb, 0x77, 0x61, 0xe3, 0xbf,
+        0x4b, 0xd4, 0x39, 0xfb, 0xb1, 0x4e, 0xc1, 0x74,
+        0xec, 0x7a, 0xea, 0x3d, 0x68, 0xbb, 0x0b, 0xe6,
+        0xc6, 0x06, 0xbf, 0xdd, 0x7f, 0x94, 0x42, 0xc0,
+        0x0f, 0xe4, 0x92, 0x33, 0x6c, 0x6e, 0x1b, 0xba,
+        0x73, 0xf9, 0x79, 0x84, 0xdf, 0x45, 0x00, 0xe4,
+        0x94, 0x88, 0x9d, 0x08, 0x89, 0xcf, 0xf2, 0xa4,
+        0xc5, 0x47, 0x45, 0x85, 0x86, 0xa5, 0xcc, 0xa8,
+        0xf2, 0x5d, 0x58, 0x07
+    };
     BYTE abTLS1Master[140] = {
         0x01, 0x02, 0x00, 0x00, 0x06, 0x4c, 0x00, 0x00, 
         0x00, 0xa4, 0x00, 0x00, 0x5b, 0x13, 0xc7, 0x68, 
@@ -1726,11 +1614,6 @@ static void test_schannel_provider(void)
     };
     
     result = CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_SCHANNEL, CRYPT_VERIFYCONTEXT|CRYPT_NEWKEYSET);
-    if (!result)
-    {
-        win_skip("no PROV_RSA_SCHANNEL support\n");
-        return;
-    }
     ok (result, "%08x\n", GetLastError());
     if (result)
         CryptReleaseContext(hProv, 0);
@@ -1865,12 +1748,8 @@ static void test_enum_container(void)
 
     /* If PP_ENUMCONTAINERS is queried with CRYPT_FIRST and abData == NULL, it returns
      * the maximum legal length of container names (which is MAX_PATH + 1 == 261) */
-    SetLastError(0xdeadbeef);
     result = CryptGetProvParam(hProv, PP_ENUMCONTAINERS, NULL, &dwBufferLen, CRYPT_FIRST);
-    ok (result, "%08x\n", GetLastError());
-    ok (dwBufferLen == MAX_PATH + 1 ||
-        broken(dwBufferLen != MAX_PATH + 1), /* Win9x, WinMe, NT4 */
-        "Expected dwBufferLen to be (MAX_PATH + 1), it was : %d\n", dwBufferLen);
+    ok (result && dwBufferLen == MAX_PATH + 1, "%08x\n", GetLastError());
 
     /* If the result fits into abContainerName dwBufferLen is left untouched */
     dwBufferLen = (DWORD)sizeof(abContainerName);
@@ -1920,12 +1799,12 @@ static void test_null_provider(void)
     ok(!result && GetLastError() == NTE_BAD_PROV_TYPE,
      "Expected NTE_BAD_PROV_TYPE, got %08x\n", GetLastError());
     result = CryptAcquireContext(NULL, szContainer, NULL, PROV_RSA_FULL, 0);
-    ok(!result && (GetLastError() == ERROR_INVALID_PARAMETER || GetLastError() == NTE_BAD_KEYSET),
-     "Expected ERROR_INVALID_PARAMETER or NTE_BAD_KEYSET, got %08x\n", GetLastError());
+    ok(!result && GetLastError() == ERROR_INVALID_PARAMETER,
+     "Expected ERROR_INVALID_PARAMETER, got %08x\n", GetLastError());
     result = CryptAcquireContext(NULL, szContainer, NULL, PROV_RSA_FULL,
      CRYPT_DELETEKEYSET);
-    ok(!result && ( GetLastError() == ERROR_INVALID_PARAMETER || GetLastError() == NTE_BAD_KEYSET),
-     "Expected ERROR_INVALID_PARAMETER or NTE_BAD_KEYSET, got %08x\n", GetLastError());
+    ok(!result && GetLastError() == ERROR_INVALID_PARAMETER,
+     "Expected ERROR_INVALID_PARAMETER, got %08x\n", GetLastError());
     result = CryptAcquireContext(&prov, szContainer, NULL, PROV_RSA_FULL,
      CRYPT_DELETEKEYSET);
     ok(!result && GetLastError() == NTE_BAD_KEYSET,
@@ -2004,13 +1883,9 @@ static void test_null_provider(void)
     ok(result && dataLen == sizeof(dwParam) && (dwParam & CRYPT_SEC_DESCR),
         "Expected CRYPT_SEC_DESCR to be set, got 0x%08X\n",dwParam);
     dataLen = sizeof(keySpec);
-    SetLastError(0xdeadbeef);
     result = CryptGetProvParam(prov, PP_KEYSPEC, (LPBYTE)&keySpec, &dataLen, 0);
-    if (!result && GetLastError() == NTE_BAD_TYPE)
-        skip("PP_KEYSPEC is not supported (win9x or NT)\n");
-    else
-        ok(result && keySpec == (AT_KEYEXCHANGE | AT_SIGNATURE),
-            "Expected AT_KEYEXCHANGE | AT_SIGNATURE, got %08x\n", keySpec);
+    ok(result && keySpec == (AT_KEYEXCHANGE | AT_SIGNATURE),
+        "Expected AT_KEYEXCHANGE | AT_SIGNATURE, got %08x\n", keySpec);
     /* PP_CONTAINER parameter */
     dataLen = sizeof(szName);
     result = CryptGetProvParam(prov, PP_CONTAINER, (LPBYTE)szName, &dataLen, 0);
@@ -2019,28 +1894,10 @@ static void test_null_provider(void)
         (result)? "TRUE":"FALSE",GetLastError(),dataLen);
     /* PP_UNIQUE_CONTAINER parameter */
     dataLen = sizeof(szName);
-    SetLastError(0xdeadbeef);
     result = CryptGetProvParam(prov, PP_UNIQUE_CONTAINER, (LPBYTE)szName, &dataLen, 0);
-    if (!result && GetLastError() == NTE_BAD_TYPE)
-    {
-        skip("PP_UNIQUE_CONTAINER is not supported (win9x or NT)\n");
-    }
-    else
-    {
-        char container[MAX_PATH];
-
-        ok(result, "failed getting PP_UNIQUE_CONTAINER : 0x%08X\n", GetLastError());
-        uniquecontainer(container);
-        todo_wine
-        {
-            ok(dataLen == strlen(container)+1 ||
-               broken(dataLen == strlen(szContainer)+1) /* WinME */,
-               "Expected a param length of 70, got %d\n", dataLen);
-            ok(!strcmp(container, szName) ||
-               broken(!strcmp(szName, szContainer)) /* WinME */,
-               "Wrong container name : %s\n", szName);
-        }
-    }
+    ok(result && dataLen == strlen(szContainer)+1 && strcmp(szContainer,szName) == 0,
+        "failed getting PP_CONTAINER. result = %s. Error 0x%08X. returned length = %d\n",
+        (result)? "TRUE":"FALSE",GetLastError(),dataLen);
     result = CryptGetUserKey(prov, AT_KEYEXCHANGE, &key);
     ok(!result && GetLastError() == NTE_NO_KEY,
      "Expected NTE_NO_KEY, got %08x\n", GetLastError());
@@ -2072,7 +1929,6 @@ static void test_null_provider(void)
     if (!result) return;
     result = CryptImportKey(prov, signBlob, sizeof(signBlob), 0, 0, &key);
     ok(result, "CryptGenKey failed: %08x\n", GetLastError());
-    CryptDestroyKey(key);
     /* doesn't allow access to the key exchange key.. */
     result = CryptGetUserKey(prov, AT_KEYEXCHANGE, &key);
     ok(!result && GetLastError() == NTE_NO_KEY,
@@ -2081,7 +1937,6 @@ static void test_null_provider(void)
     result = CryptGetUserKey(prov, AT_SIGNATURE, &key);
     ok(result, "CryptGetUserKey failed: %08x\n", GetLastError());
     CryptDestroyKey(key);
-    CryptReleaseContext(prov, 0);
 
     CryptAcquireContext(&prov, szContainer, NULL, PROV_RSA_FULL,
      CRYPT_DELETEKEYSET);
@@ -2101,7 +1956,6 @@ static void test_null_provider(void)
     result = CryptGetUserKey(prov, AT_KEYEXCHANGE, &key);
     ok (result, "CryptGetUserKey failed with error %08x\n", GetLastError());
     CryptDestroyKey(key);
-    CryptReleaseContext(prov, 0);
 
     CryptAcquireContext(&prov, szContainer, NULL, PROV_RSA_FULL,
      CRYPT_DELETEKEYSET);
@@ -2128,144 +1982,9 @@ static void test_null_provider(void)
 
 }
 
-static void test_key_permissions(void)
-{
-    HCRYPTKEY hKey1, hKey2;
-    DWORD dwVal, dwLen;
-    BOOL result;
-
-    /* Create keys that are exportable */
-    if (!init_base_environment(CRYPT_EXPORTABLE))
-        return;
-
-    result = CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey1);
-    ok (result, "%08x\n", GetLastError());
-    if (!result) return;
-
-    dwVal = 0xdeadbeef;
-    dwLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hKey1, KP_PERMISSIONS, (BYTE*)&dwVal, &dwLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_EXPORT|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_EXPORT|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
-
-    /* The key exchange key's public key may be exported.. */
-    result = CryptExportKey(hKey1, 0, PUBLICKEYBLOB, 0, NULL, &dwLen);
-    ok(result, "%08x\n", GetLastError());
-    /* and its private key may be too. */
-    result = CryptExportKey(hKey1, 0, PRIVATEKEYBLOB, 0, NULL, &dwLen);
-    ok(result, "%08x\n", GetLastError());
-    /* Turning off the key's export permissions is "allowed".. */
-    dwVal &= ~CRYPT_EXPORT;
-    result = CryptSetKeyParam(hKey1, KP_PERMISSIONS, (BYTE *)&dwVal, 0);
-    ok(result ||
-        broken(!result && GetLastError() == NTE_BAD_DATA) || /* W2K */
-        broken(!result && GetLastError() == NTE_BAD_FLAGS), /* Win9x/WinME/NT4 */
-        "%08x\n", GetLastError());
-    /* but it has no effect. */
-    dwVal = 0xdeadbeef;
-    dwLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hKey1, KP_PERMISSIONS, (BYTE*)&dwVal, &dwLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_EXPORT|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_EXPORT|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
-    /* Thus, changing the export flag of the key doesn't affect whether the key
-     * may be exported.
-     */
-    result = CryptExportKey(hKey1, 0, PRIVATEKEYBLOB, 0, NULL, &dwLen);
-    ok(result, "%08x\n", GetLastError());
-
-    result = CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey2);
-    ok (result, "%08x\n", GetLastError());
-
-    /* A subsequent get of the same key, into a different handle, also doesn't
-     * show that the permissions have been changed.
-     */
-    dwVal = 0xdeadbeef;
-    dwLen = sizeof(DWORD);
-    result = CryptGetKeyParam(hKey2, KP_PERMISSIONS, (BYTE*)&dwVal, &dwLen, 0);
-    ok(result, "%08x\n", GetLastError());
-    ok(dwVal ==
-        (CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_EXPORT|CRYPT_DECRYPT|CRYPT_ENCRYPT) ||
-        broken(dwVal == 0xffffffff), /* Win9x/NT4 */
-        "expected CRYPT_MAC|CRYPT_WRITE|CRYPT_READ|CRYPT_EXPORT|CRYPT_DECRYPT|CRYPT_ENCRYPT,"
-        " got %08x\n", dwVal);
-
-    CryptDestroyKey(hKey2);
-    CryptDestroyKey(hKey1);
-
-    clean_up_base_environment();
-}
-
-static void test_key_initialization(void)
-{
-    DWORD dwLen;
-    HCRYPTPROV prov1, prov2;
-    HCRYPTKEY hKeyExchangeKey, hSessionKey, hKey;
-    BOOL result;
-    static BYTE abSessionKey[148] = {
-        0x01, 0x02, 0x00, 0x00, 0x01, 0x68, 0x00, 0x00,
-        0x00, 0xa4, 0x00, 0x00, 0xb8, 0xa4, 0xdf, 0x5e,
-        0x9e, 0xb1, 0xbf, 0x85, 0x3d, 0x24, 0x2d, 0x1e,
-        0x69, 0xb7, 0x67, 0x13, 0x8e, 0x78, 0xf2, 0xdf,
-        0xc6, 0x69, 0xce, 0x46, 0x7e, 0xf2, 0xf2, 0x33,
-        0x20, 0x6f, 0xa1, 0xa5, 0x59, 0x83, 0x25, 0xcb,
-        0x3a, 0xb1, 0x8a, 0x12, 0x63, 0x02, 0x3c, 0xfb,
-        0x4a, 0xfa, 0xef, 0x8e, 0xf7, 0x29, 0x57, 0xb1,
-        0x9e, 0xa7, 0xf3, 0x02, 0xfd, 0xca, 0xdf, 0x5a,
-        0x1f, 0x71, 0xb6, 0x26, 0x09, 0x24, 0x39, 0xda,
-        0xc0, 0xde, 0x2a, 0x0e, 0xcd, 0x1f, 0xe5, 0xb6,
-        0x4f, 0x82, 0xa0, 0xa9, 0x90, 0xd3, 0xd9, 0x6a,
-        0x43, 0x14, 0x2a, 0xf7, 0xac, 0xd5, 0xa0, 0x54,
-        0x93, 0xc4, 0xb9, 0xe7, 0x24, 0x84, 0x4d, 0x69,
-        0x5e, 0xcc, 0x2a, 0x32, 0xb5, 0xfb, 0xe4, 0xb4,
-        0x08, 0xd5, 0x36, 0x58, 0x59, 0x40, 0xfb, 0x29,
-        0x7f, 0xa7, 0x17, 0x25, 0xc4, 0x0d, 0x78, 0x37,
-        0x04, 0x8c, 0x49, 0x92
-    };
-
-    /* Like init_base_environment, but doesn't generate new keys, as they'll
-     * be imported instead.
-     */
-    if (!CryptAcquireContext(&prov1, szContainer, szProvider, PROV_RSA_FULL, 0))
-    {
-        result = CryptAcquireContext(&prov1, szContainer, szProvider, PROV_RSA_FULL,
-                                     CRYPT_NEWKEYSET);
-        ok(result, "%08x\n", GetLastError());
-    }
-    dwLen = (DWORD)sizeof(abPlainPrivateKey);
-    result = CryptImportKey(prov1, abPlainPrivateKey, dwLen, 0, 0, &hKeyExchangeKey);
-
-    dwLen = (DWORD)sizeof(abSessionKey);
-    result = CryptImportKey(prov1, abSessionKey, dwLen, hKeyExchangeKey, 0, &hSessionKey);
-    ok(result, "%08x\n", GetLastError());
-
-    /* Once the key has been imported, subsequently acquiring a context with
-     * the same name will allow retrieving the key.
-     */
-    result = CryptAcquireContext(&prov2, szContainer, szProvider, PROV_RSA_FULL, 0);
-    ok(result, "%08x\n", GetLastError());
-    result = CryptGetUserKey(prov2, AT_KEYEXCHANGE, &hKey);
-    ok(result, "%08x\n", GetLastError());
-    if (result) CryptDestroyKey(hKey);
-    CryptReleaseContext(prov2, 0);
-
-    CryptDestroyKey(hSessionKey);
-    CryptDestroyKey(hKeyExchangeKey);
-    CryptReleaseContext(prov1, 0);
-    CryptAcquireContext(&prov1, szContainer, NULL, PROV_RSA_FULL,
-     CRYPT_DELETEKEYSET);
-}
-
 START_TEST(rsaenh)
 {
-    if (!init_base_environment(0))
+    if (!init_base_environment())
         return;
     test_prov();
     test_gen_random();
@@ -2284,8 +2003,6 @@ START_TEST(rsaenh)
     test_import_export();
     test_enum_container();
     clean_up_base_environment();
-    test_key_permissions();
-    test_key_initialization();
     test_schannel_provider();
     test_null_provider();
     if (!init_aes_environment())

@@ -254,23 +254,22 @@ NtCancelTimer(IN HANDLE TimerHandle,
     KIRQL OldIrql;
     PETHREAD TimerThread;
     ULONG DerefsToDo = 1;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
-    /* Check if we need to probe */
+    /* Check Parameter Validity */
     if ((CurrentState) && (PreviousMode != KernelMode))
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Make sure the pointer is valid */
             ProbeForWriteBoolean(CurrentState);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Get the Timer Object */
@@ -342,19 +341,18 @@ NtCancelTimer(IN HANDLE TimerHandle,
         /* Dereference the Object */
         ObDereferenceObjectEx(Timer, DerefsToDo);
 
-        /* Check if caller wants the state */
+        /* Make sure it's safe to write to the handle */
         if (CurrentState)
         {
-            _SEH2_TRY
+            _SEH_TRY
             {
-                /* Return the Timer State */
                 *CurrentState = State;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
 
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -372,7 +370,7 @@ NtCreateTimer(OUT PHANDLE TimerHandle,
     PETIMER Timer;
     HANDLE hTimer;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check for correct timer type */
@@ -383,20 +381,19 @@ NtCreateTimer(OUT PHANDLE TimerHandle,
         return STATUS_INVALID_PARAMETER_4;
     }
 
-    /* Check if we need to probe */
+    /* Check Parameter Validity */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Make sure the pointer is valid */
             ProbeForWriteHandle(TimerHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Create the Object */
@@ -434,17 +431,16 @@ NtCreateTimer(OUT PHANDLE TimerHandle,
         /* Check for success */
         if (NT_SUCCESS(Status))
         {
-            /* Enter SEH */
-            _SEH2_TRY
+            /* Make sure it's safe to write to the handle */
+            _SEH_TRY
             {
-                /* Return the Timer Handle */
                 *TimerHandle = hTimer;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
 
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -460,23 +456,22 @@ NtOpenTimer(OUT PHANDLE TimerHandle,
 {
     HANDLE hTimer;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check Parameter Validity */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Make sure the pointer is valid */
             ProbeForWriteHandle(TimerHandle);
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Timer */
@@ -489,17 +484,16 @@ NtOpenTimer(OUT PHANDLE TimerHandle,
                                 &hTimer);
     if (NT_SUCCESS(Status))
     {
-        /* Enter SEH */
-        _SEH2_TRY
+        /* Make sure it's safe to write to the handle */
+        _SEH_TRY
         {
-            /* Return the Timer Handle */
             *TimerHandle = hTimer;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
 
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return to Caller */
@@ -529,7 +523,7 @@ NtQueryTimer(IN HANDLE TimerHandle,
                                          TimerInformationLength,
                                          ReturnLength,
                                          PreviousMode);
-    if (!NT_SUCCESS(Status)) return Status;
+    if(!NT_SUCCESS(Status)) return Status;
 
     /* Get the Timer Object */
     Status = ObReferenceObjectByHandle(TimerHandle,
@@ -538,10 +532,10 @@ NtQueryTimer(IN HANDLE TimerHandle,
                                        PreviousMode,
                                        (PVOID*)&Timer,
                                        NULL);
-    if (NT_SUCCESS(Status))
+    if(NT_SUCCESS(Status))
     {
         /* Return the Basic Information */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return the remaining time, corrected */
             BasicInfo->TimeRemaining.QuadPart = Timer->
@@ -554,12 +548,11 @@ NtQueryTimer(IN HANDLE TimerHandle,
             /* Return the buffer length if requested */
             if (ReturnLength) *ReturnLength = sizeof(TIMER_BASIC_INFORMATION);
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
 
         /* Dereference Object */
         ObDereferenceObject(Timer);
@@ -593,23 +586,20 @@ NtSetTimer(IN HANDLE TimerHandle,
     /* Check for a valid Period */
     if (Period < 0) return STATUS_INVALID_PARAMETER_6;
 
-    /* Check if we need to probe */
+    /* Check Parameter Validity */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Probe and capture the due time */
             TimerDueTime = ProbeForReadLargeInteger(DueTime);
-
-            /* Probe the state pointer if one was passed */
             if (PreviousState) ProbeForWriteBoolean(PreviousState);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -725,20 +715,17 @@ NtSetTimer(IN HANDLE TimerHandle,
         /* Dereference if it was previously enabled */
         if (DerefsToDo) ObDereferenceObjectEx(Timer, DerefsToDo);
 
-        /* Check if we need to return the State */
+        /* Make sure it's safe to write to the handle */
         if (PreviousState)
         {
-            /* Enter SEH */
-            _SEH2_TRY
+            _SEH_TRY
             {
-                /* Return the Timer State */
                 *PreviousState = State;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
-
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 

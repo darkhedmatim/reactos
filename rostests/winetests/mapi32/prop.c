@@ -24,7 +24,6 @@
 #include "winuser.h"
 #include "winerror.h"
 #include "winnt.h"
-#include "initguid.h"
 #include "mapiutil.h"
 #include "mapitags.h"
 
@@ -93,11 +92,11 @@ static void test_PropCopyMore(void)
     if (!pPropCopyMore)
         return;
 
-    scode = pMAPIAllocateBuffer(sizeof(LPSPropValue), lpDest);
+    scode = pMAPIAllocateBuffer(sizeof(LPSPropValue), (LPVOID *)lpDest);
     if (FAILED(scode))
         return;
 
-    scode = pMAPIAllocateMore(sizeof(LPSPropValue), lpDest, lpSrc);
+    scode = pMAPIAllocateMore(sizeof(LPSPropValue), lpDest, (LPVOID *)lpSrc);
     if (FAILED(scode))
         return;
 
@@ -239,8 +238,7 @@ static void test_UlPropSize(void)
         }
 
         res = pUlPropSize(&pv);
-        ok(res == exp || broken(!res) /* Win9x */,
-           "pt= %d: Expected %d, got %d\n", pt, exp, res);
+        ok(res == exp, "pt= %d: Expected %d, got %d\n", pt, exp, res);
     }
 }
 
@@ -281,30 +279,30 @@ static void test_FPropContainsProp(void)
     pvRight.Value.lpszA = szFull;
 
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_FULLSTRING);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,full)[] match failed\n");
+    ok(bRet == TRUE, "(full,full)[] match failed\n");
     pvRight.Value.lpszA = szPrefix;
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_FULLSTRING);
     ok(bRet == FALSE, "(full,prefix)[] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
     ok(bRet == TRUE, "(full,prefix)[PREFIX] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,prefix)[SUBSTRING] match failed\n");
+    ok(bRet == TRUE, "(full,prefix)[SUBSTRING] match failed\n");
     pvRight.Value.lpszA = szPrefixLower;
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
     ok(bRet == FALSE, "(full,prefixlow)[PREFIX] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING);
     ok(bRet == FALSE, "(full,prefixlow)[SUBSTRING] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX|FL_IGNORECASE);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,prefixlow)[PREFIX|IGNORECASE] match failed\n");
+    ok(bRet == TRUE, "(full,prefixlow)[PREFIX|IGNORECASE] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING|FL_IGNORECASE);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,prefixlow)[SUBSTRING|IGNORECASE] match failed\n");
+    ok(bRet == TRUE, "(full,prefixlow)[SUBSTRING|IGNORECASE] match failed\n");
     pvRight.Value.lpszA = szSubstring;
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_FULLSTRING);
     ok(bRet == FALSE, "(full,substr)[] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
     ok(bRet == FALSE, "(full,substr)[PREFIX] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,substr)[SUBSTRING] match failed\n");
+    ok(bRet == TRUE, "(full,substr)[SUBSTRING] match failed\n");
     pvRight.Value.lpszA = szSubstringLower;
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
     ok(bRet == FALSE, "(full,substrlow)[PREFIX] match failed\n");
@@ -313,10 +311,10 @@ static void test_FPropContainsProp(void)
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX|FL_IGNORECASE);
     ok(bRet == FALSE, "(full,substrlow)[PREFIX|IGNORECASE] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING|FL_IGNORECASE);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,substrlow)[SUBSTRING|IGNORECASE] match failed\n");
+    ok(bRet == TRUE, "(full,substrlow)[SUBSTRING|IGNORECASE] match failed\n");
     pvRight.Value.lpszA = szFullLower;
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_FULLSTRING|FL_IGNORECASE);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "(full,fulllow)[IGNORECASE] match failed\n");
+    ok(bRet == TRUE, "(full,fulllow)[IGNORECASE] match failed\n");
 
     pvLeft.ulPropTag = pvRight.ulPropTag = PT_BINARY;
     pvLeft.Value.bin.lpb = (LPBYTE)szFull;
@@ -324,15 +322,15 @@ static void test_FPropContainsProp(void)
     pvLeft.Value.bin.cb = pvRight.Value.bin.cb = strlen(szFull);
 
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_FULLSTRING);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "bin(full,full)[] match failed\n");
+    ok(bRet == TRUE, "bin(full,full)[] match failed\n");
     pvRight.Value.bin.lpb = (LPBYTE)szPrefix;
     pvRight.Value.bin.cb = strlen(szPrefix);
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_FULLSTRING);
     ok(bRet == FALSE, "bin(full,prefix)[] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "bin(full,prefix)[PREFIX] match failed\n");
+    ok(bRet == TRUE, "bin(full,prefix)[PREFIX] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "bin(full,prefix)[SUBSTRING] match failed\n");
+    ok(bRet == TRUE, "bin(full,prefix)[SUBSTRING] match failed\n");
     pvRight.Value.bin.lpb = (LPBYTE)szPrefixLower;
     pvRight.Value.bin.cb = strlen(szPrefixLower);
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
@@ -350,7 +348,7 @@ static void test_FPropContainsProp(void)
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
     ok(bRet == FALSE, "bin(full,substr)[PREFIX] match failed\n");
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_SUBSTRING);
-    ok(bRet == TRUE || broken(!bRet) /* Win9x */, "bin(full,substr)[SUBSTRING] match failed\n");
+    ok(bRet == TRUE, "bin(full,substr)[SUBSTRING] match failed\n");
     pvRight.Value.bin.lpb = (LPBYTE)szSubstringLower;
     pvRight.Value.bin.cb = strlen(szSubstringLower);
     bRet = pFPropContainsProp(&pvLeft, &pvRight, FL_PREFIX);
@@ -503,8 +501,7 @@ static void test_FPropCompareProp(void)
             }
 
             bRet = pFPropCompareProp(&pvLeft, FPCProp_Results[j].relOp, &pvRight);
-            ok(bRet == bExp || broken(!bRet) /* Win9x */,
-               "pt %d (%d,%d,%s): expected %d, got %d\n", ptTypes[i],
+            ok(bRet == bExp, "pt %d (%d,%d,%s): expected %d, got %d\n", ptTypes[i],
                FPCProp_Results[j].lVal, FPCProp_Results[j].rVal,
                relops[FPCProp_Results[j].relOp], bExp, bRet);
         }
@@ -627,8 +624,7 @@ static void test_LPropCompareProp(void)
             }
 
             iRet = pLPropCompareProp(&pvLeft, &pvRight);
-            ok(iRet == iExp || broken(iRet == 0) /* Win9x */,
-               "pt %d (%d,%d): expected %d, got %d\n", ptTypes[i],
+            ok(iRet == iExp, "pt %d (%d,%d): expected %d, got %d\n", ptTypes[i],
                LPCProp_Results[j].lVal, LPCProp_Results[j].rVal, iExp, iRet);
         }
     }
@@ -649,8 +645,7 @@ static void test_PpropFindProp(void)
         pvProp.ulPropTag = ptTypes[i];
 
         pRet = pPpropFindProp(&pvProp, 1u, ptTypes[i]);
-        ok(pRet == &pvProp || broken(pRet != &pvProp) /* Win9x */,
-           "PpropFindProp[%d]: Didn't find existing propery\n",
+        ok(pRet == &pvProp, "PpropFindProp[%d]: Didn't find existing propery\n",
            ptTypes[i]);
 
         pRet = pPpropFindProp(&pvProp, 1u, i ? ptTypes[i-1] : ptTypes[i+1]);
@@ -828,16 +823,13 @@ static void test_ScCopyRelocProps(void)
 
     sc = pScCopyProps(1, &pvProp, buffer, &ulCount);
     ok(sc == S_OK, "wrong ret %d\n", sc);
-    if(sc == S_OK)
-    {
-        ok(lpResProp->ulPropTag == pvProp.ulPropTag, "wrong tag %x\n",lpResProp->ulPropTag);
-        ok(lpResProp->Value.MVszA.cValues == 1, "wrong cValues %d\n", lpResProp->Value.MVszA.cValues);
-        ok(lpResProp->Value.MVszA.lppszA[0] == buffer + sizeof(SPropValue) + sizeof(char*),
-           "wrong lppszA[0] %p\n",lpResProp->Value.MVszA.lppszA[0]);
-        ok(ulCount == sizeof(SPropValue) + sizeof(char*) + 5, "wrong count %d\n", ulCount);
-        ok(!strcmp(lpResProp->Value.MVszA.lppszA[0], szTestA),
-           "wrong string '%s'\n", lpResProp->Value.MVszA.lppszA[0]);
-    }
+    ok(lpResProp->ulPropTag == pvProp.ulPropTag, "wrong tag %x\n",lpResProp->ulPropTag);
+    ok(lpResProp->Value.MVszA.cValues == 1, "wrong cValues %d\n", lpResProp->Value.MVszA.cValues);
+    ok(lpResProp->Value.MVszA.lppszA[0] == buffer + sizeof(SPropValue) + sizeof(char*),
+       "wrong lppszA[0] %p\n",lpResProp->Value.MVszA.lppszA[0]);
+    ok(ulCount == sizeof(SPropValue) + sizeof(char*) + 5, "wrong count %d\n", ulCount);
+    ok(!strcmp(lpResProp->Value.MVszA.lppszA[0], szTestA),
+       "wrong string '%s'\n", lpResProp->Value.MVszA.lppszA[0]);
 
     memcpy(buffer2, buffer, sizeof(buffer));
 
@@ -852,21 +844,18 @@ static void test_ScCopyRelocProps(void)
     lpResProp = (LPSPropValue)buffer2;
 
     ok(sc == S_OK, "wrong ret %d\n", sc);
-    if(sc == S_OK)
-    {
-        ok(lpResProp->ulPropTag == pvProp.ulPropTag, "wrong tag %x\n",lpResProp->ulPropTag);
-        ok(lpResProp->Value.MVszA.cValues == 1, "wrong cValues %d\n", lpResProp->Value.MVszA.cValues);
-        ok(lpResProp->Value.MVszA.lppszA[0] == buffer2 + sizeof(SPropValue) + sizeof(char*),
-           "wrong lppszA[0] %p\n",lpResProp->Value.MVszA.lppszA[0]);
-        /* Native has a bug whereby it calculates the size correctly when copying
-         * but when relocating does not (presumably it uses UlPropSize() which
-         * ignores multivalue pointers). Wine returns the correct value.
-         */
-        ok(ulCount == sizeof(SPropValue) + sizeof(char*) + 5 || ulCount == sizeof(SPropValue) + 5,
-           "wrong count %d\n", ulCount);
-        ok(!strcmp(lpResProp->Value.MVszA.lppszA[0], szTestA),
-           "wrong string '%s'\n", lpResProp->Value.MVszA.lppszA[0]);
-    }
+    ok(lpResProp->ulPropTag == pvProp.ulPropTag, "wrong tag %x\n",lpResProp->ulPropTag);
+    ok(lpResProp->Value.MVszA.cValues == 1, "wrong cValues %d\n", lpResProp->Value.MVszA.cValues);
+    ok(lpResProp->Value.MVszA.lppszA[0] == buffer2 + sizeof(SPropValue) + sizeof(char*),
+       "wrong lppszA[0] %p\n",lpResProp->Value.MVszA.lppszA[0]);
+    /* Native has a bug whereby it calculates the size correctly when copying
+     * but when relocating does not (presumably it uses UlPropSize() which
+     * ignores multivalue pointers). Wine returns the correct value.
+     */
+    ok(ulCount == sizeof(SPropValue) + sizeof(char*) + 5 || ulCount == sizeof(SPropValue) + 5,
+       "wrong count %d\n", ulCount);
+    ok(!strcmp(lpResProp->Value.MVszA.lppszA[0], szTestA),
+       "wrong string '%s'\n", lpResProp->Value.MVszA.lppszA[0]);
 
     /* Native crashes with lpNew or lpOld set to NULL so skip testing this */
 }
@@ -886,8 +875,7 @@ static void test_LpValFindProp(void)
         pvProp.ulPropTag = PROP_TAG(ptTypes[i], 1u);
 
         pRet = pLpValFindProp(PROP_TAG(ptTypes[i], 1u), 1u, &pvProp);
-        ok(pRet == &pvProp || broken(pRet != &pvProp) /* Win9x */,
-           "LpValFindProp[%d]: Didn't find existing propery id/type\n",
+        ok(pRet == &pvProp, "LpValFindProp[%d]: Didn't find existing propery id/type\n",
            ptTypes[i]);
 
         pRet = pLpValFindProp(PROP_TAG(ptTypes[i], 0u), 1u, &pvProp);
@@ -899,8 +887,7 @@ static void test_LpValFindProp(void)
            ptTypes[i]);
 
         pRet = pLpValFindProp(PROP_TAG(PT_NULL, 1u), 1u, &pvProp);
-        ok(pRet == &pvProp || broken(pRet != &pvProp) /* Win9x */,
-           "LpValFindProp[%d]: Didn't find existing propery id\n",
+        ok(pRet == &pvProp, "LpValFindProp[%d]: Didn't find existing propery id\n",
            ptTypes[i]);
     }
 }
@@ -996,8 +983,7 @@ static void test_FBadPropTag(void)
         if (bBad)
             ok(res != 0, "pt= %d: Expected non-zero, got 0\n", pt);
         else
-            ok(res == 0 || broken(res) /* Win9x */,
-               "pt= %d: Expected zero, got %d\n", pt, res);
+            ok(res == 0, "pt= %d: Expected zero, got %d\n", pt, res);
     }
 }
 
@@ -1086,8 +1072,7 @@ static void test_FBadProp(void)
         if (bBad)
             ok(res != 0, "pt= %d: Expected non-zero, got 0\n", pt);
         else
-            ok(res == 0 || broken(res) /* Win9x */,
-               "pt= %d: Expected zero, got %d\n", pt, res);
+            ok(res == 0, "pt= %d: Expected zero, got %d\n", pt, res);
     }
 }
 
@@ -1138,8 +1123,7 @@ static void test_FBadColumnSet(void)
         if (bBad)
             ok(res != 0, "pt= %d: Expected non-zero, got 0\n", pt);
         else
-            ok(res == 0 || broken(res) /* Win9x */,
-               "pt= %d: Expected zero, got %d\n", pt, res);
+            ok(res == 0, "pt= %d: Expected zero, got %d\n", pt, res);
     }
 }
 
@@ -1362,7 +1346,7 @@ START_TEST(prop)
 
     if(!InitFuncPtrs())
     {
-        win_skip("Needed functions are not available\n");
+        skip("Needed functions are not available\n");
         return;
     }
 
@@ -1370,7 +1354,7 @@ START_TEST(prop)
     ret = pScInitMapiUtil(0);
     if ((ret != S_OK) && (GetLastError() == ERROR_PROC_NOT_FOUND))
     {
-        win_skip("ScInitMapiUtil is not implemented\n");
+        skip("ScInitMapiUtil is not implemented\n");
         FreeLibrary(hMapi32);
         return;
     }

@@ -1,6 +1,8 @@
-<module name="beepmidi" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_BEEPMIDI}" installbase="system32" installname="beepmidi.dll" unicode="yes">
-	<importlibrary definition="beepmidi.spec" />
+<module name="beepmidi" type="win32dll" installbase="system32" installname="beepmidi.dll">
+	<importlibrary definition="beepmidi.def" />
 	<include base="beepmidi">.</include>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>user32</library>

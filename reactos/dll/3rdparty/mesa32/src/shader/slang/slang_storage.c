@@ -28,7 +28,7 @@
  * \author Michal Krol
  */
 
-#include "main/imports.h"
+#include "imports.h"
 #include "slang_storage.h"
 #include "slang_mem.h"
 

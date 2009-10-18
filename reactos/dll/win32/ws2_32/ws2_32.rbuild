@@ -1,8 +1,11 @@
-<module name="ws2_32" type="win32dll" baseaddress="${BASEADDRESS_WS2_32}" installbase="system32" installname="ws2_32.dll" unicode="yes">
-	<importlibrary definition="ws2_32.spec" />
+<module name="ws2_32" type="win32dll" baseaddress="${BASEADDRESS_WS2_32}" installbase="system32" installname="ws2_32.dll">
+	<importlibrary definition="ws2_32.def" />
 	<include base="ws2_32">include</include>
 	<include base="ReactOS">include/reactos/wine</include>
+	<define name="_DISABLE_TIDENTS" />
+	<define name="UNICODE" />
 	<define name="LE" />
+	<define name="_WIN32_WINNT">0x0500</define>
 	<library>wine</library>
 	<library>ntdll</library>
 	<library>kernel32</library>
@@ -26,4 +29,3 @@
 	</directory>
 	<file>ws2_32.rc</file>
 </module>
-

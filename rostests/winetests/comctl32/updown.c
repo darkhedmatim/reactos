@@ -70,7 +70,6 @@ static const struct message create_parent_wnd_seq[] = {
     { WM_CREATE, sent },
     { WM_SHOWWINDOW, sent|wparam, 1 },
     { WM_WINDOWPOSCHANGING, sent|wparam, 0 },
-    { WM_QUERYNEWPALETTE,   sent|optional },
     { WM_WINDOWPOSCHANGING, sent|wparam, 0 },
     { WM_ACTIVATEAPP, sent|wparam, 1 },
     { WM_NCACTIVATE, sent|wparam, 1 },
@@ -101,7 +100,7 @@ static const struct message add_updown_with_edit_seq[] = {
 
 static const struct message add_updown_to_parent_seq[] = {
     { WM_NOTIFYFORMAT, sent|lparam, 0, NF_QUERY },
-    { WM_QUERYUISTATE, sent|optional },
+    { WM_QUERYUISTATE, sent },
     { WM_PARENTNOTIFY, sent|wparam, MAKELONG(WM_CREATE, WM_CREATE) },
     { 0 }
 };
@@ -193,13 +192,12 @@ static const struct message test_updown_destroy_seq[] = {
 
 static LRESULT WINAPI parent_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct message msg;
 
-    /* log system messages, except for painting */
-    if (message < WM_USER &&
-        message != WM_PAINT &&
+    /* do not log painting messages */
+    if (message != WM_PAINT &&
         message != WM_ERASEBKGND &&
         message != WM_NCPAINT &&
         message != WM_NCHITTEST &&
@@ -234,7 +232,7 @@ static BOOL register_parent_wnd_class(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(NULL);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "Up-Down test parent class";
@@ -262,7 +260,7 @@ struct subclass_info
 static LRESULT WINAPI edit_subclass_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     struct subclass_info *info = (struct subclass_info *)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct message msg;
 
@@ -310,7 +308,7 @@ static HWND create_edit_control(void)
 static LRESULT WINAPI updown_subclass_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     struct subclass_info *info = (struct subclass_info *)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct message msg;
 

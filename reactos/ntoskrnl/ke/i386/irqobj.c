@@ -19,7 +19,7 @@
 
 ULONG KiISRTimeout = 55;
 USHORT KiISROverflow = 30000;
-extern ULONG NTAPI KiChainedDispatch2ndLvl(VOID);
+extern ULONG KiChainedDispatch2ndLvl;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -27,11 +27,11 @@ BOOLEAN
 NTAPI
 KeDisableInterrupts(VOID)
 {
-    ULONG Flags;
+    ULONG Flags = 0;
     BOOLEAN Return;
 
     /* Get EFLAGS and check if the interrupt bit is set */
-    Flags = __readeflags();
+    Ke386SaveFlags(Flags);
     Return = (Flags & EFLAGS_INTERRUPT_MASK) ? TRUE: FALSE;
 
     /* Disable interrupts */
@@ -194,8 +194,8 @@ KeInitializeInterrupt(IN PKINTERRUPT Interrupt,
     Interrupt->ShareVector = ShareVector;
     Interrupt->Number = ProcessorNumber;
     Interrupt->FloatingSave = FloatingSave;
-    Interrupt->TickCount = MAXULONG;
-    Interrupt->DispatchCount = MAXULONG;
+    Interrupt->TickCount = (ULONG)-1;
+    Interrupt->DispatchCount = (ULONG)-1;
 
     /* Loop the template in memory */
     for (i = 0; i < KINTERRUPT_DISPATCH_CODES; i++)
@@ -281,17 +281,13 @@ KeConnectInterrupt(IN PKINTERRUPT Interrupt)
                 (Dispatch.Interrupt->Mode == Interrupt->Mode))
         {
             /* The vector is shared and the interrupts are compatible */
+            while (TRUE); // FIXME: NOT YET SUPPORTED/TESTED
             Interrupt->Connected = Connected = TRUE;
-
-            /* FIXME */
-            // ASSERT(Irql <= SYNCH_LEVEL);
+            ASSERT(Irql <= SYNCH_LEVEL);
 
             /* Check if this is the first chain */
             if (Dispatch.Type != ChainConnect)
             {
-                /* This is not supported */
-                ASSERT(Dispatch.Interrupt->Mode != Latched);
-
                 /* Setup the chainned handler */
                 KiConnectVectorToInterrupt(Dispatch.Interrupt, ChainConnect);
             }

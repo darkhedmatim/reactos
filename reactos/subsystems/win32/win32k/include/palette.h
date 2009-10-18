@@ -1,8 +1,6 @@
 #ifndef _WIN32K_PALETTE_H
 #define _WIN32K_PALETTE_H
 
-#include <include/dc.h>
-
 #define NO_MAPPING
 
 #define PALETTE_FIXED    0x0001 /* read-only colormap - have to use XAllocColor (if not virtual) */
@@ -33,12 +31,17 @@
 #define PAL_RGB16_565       0x00400000 // 16-bit RGB in 565 format
 #define PAL_GAMMACORRECTION 0x00800000 // Correct colors
 
+typedef struct {
+    int shift;
+    int scale;
+    int max;
+} ColorShifts;
 
-typedef struct _PALETTE
-{
-  /* Header for all gdi objects in the handle table.
-     Do not (re)move this. */
-  BASEOBJECT    BaseObject;
+typedef struct _PALGDI {
+//  HGDIOBJ     hHmgr;
+//  PVOID       pvEntry;
+//  ULONG       lucExcLock;
+//  ULONG       Tid;
 
   PALOBJ PalObj;
   XLATEOBJ *logicalToSystem;
@@ -49,14 +52,8 @@ typedef struct _PALETTE
   ULONG RedMask;
   ULONG GreenMask;
   ULONG BlueMask;
-  ULONG ulRedShift;
-  ULONG ulGreenShift;
-  ULONG ulBlueShift;
   HDEV  hPDev;
-} PALETTE, *PPALETTE;
-
-extern PALETTE gpalRGB, gpalBGR, gpalMono;
-
+} PALGDI, *PPALGDI;
 
 HPALETTE FASTCALL PALETTE_AllocPalette(ULONG Mode,
                                        ULONG NumColors,
@@ -66,52 +63,20 @@ HPALETTE FASTCALL PALETTE_AllocPalette(ULONG Mode,
                                        ULONG Blue);
 HPALETTE FASTCALL PALETTE_AllocPaletteIndexedRGB(ULONG NumColors,
                                                  CONST RGBQUAD *Colors);
-#define  PALETTE_FreePalette(pPalette)  GDIOBJ_FreeObj((POBJ)pPalette, GDIObjType_PAL_TYPE)
-#define  PALETTE_FreePaletteByHandle(hPalette)  GDIOBJ_FreeObjByHandle((HGDIOBJ)hPalette, GDI_OBJECT_TYPE_PALETTE)
-#define  PALETTE_LockPalette(hPalette) ((PPALETTE)GDIOBJ_LockObj((HGDIOBJ)hPalette, GDI_OBJECT_TYPE_PALETTE))
-#define  PALETTE_UnlockPalette(pPalette) GDIOBJ_UnlockObjByPtr((POBJ)pPalette)
-
-#define  PALETTE_ShareLockPalette(hpal) \
-  ((PPALETTE)GDIOBJ_ShareLockObj((HGDIOBJ)hpal, GDI_OBJECT_TYPE_PALETTE))
-#define  PALETTE_ShareUnlockPalette(ppal)  \
-  GDIOBJ_ShareUnlockObjByPtr(&ppal->BaseObject)
-
+#define  PALETTE_FreePalette(hPalette)  GDIOBJ_FreeObj(GdiHandleTable, (HGDIOBJ)hPalette, GDI_OBJECT_TYPE_PALETTE)
+#define  PALETTE_LockPalette(hPalette) ((PPALGDI)GDIOBJ_LockObj(GdiHandleTable, (HGDIOBJ)hPalette, GDI_OBJECT_TYPE_PALETTE))
+#define  PALETTE_UnlockPalette(pPalette) GDIOBJ_UnlockObjByPtr(GdiHandleTable, pPalette)
 BOOL INTERNAL_CALL PALETTE_Cleanup(PVOID ObjectBody);
 
 HPALETTE FASTCALL PALETTE_Init (VOID);
 VOID     FASTCALL PALETTE_ValidateFlags (PALETTEENTRY* lpPalE, INT size);
 #ifndef NO_MAPPING
-INT      APIENTRY  PALETTE_SetMapping(PALOBJ* palPtr, UINT uStart, UINT uNum, BOOL mapOnly);
+INT      STDCALL  PALETTE_SetMapping(PALOBJ* palPtr, UINT uStart, UINT uNum, BOOL mapOnly);
 #endif
 INT      FASTCALL PALETTE_ToPhysical (PDC dc, COLORREF color);
 
-INT FASTCALL PALETTE_GetObject(PPALETTE pGdiObject, INT cbCount, LPLOGBRUSH lpBuffer);
-ULONG NTAPI PALETTE_ulGetNearestPaletteIndex(PALETTE* ppal, ULONG iColor);
-ULONG NTAPI PALETTE_ulGetNearestIndex(PALETTE* ppal, ULONG iColor);
-VOID NTAPI PALETTE_vGetBitMasks(PPALETTE ppal, PULONG pulColors);
+INT FASTCALL PALETTE_GetObject(PPALGDI pGdiObject, INT cbCount, LPLOGBRUSH lpBuffer);
 
 PPALETTEENTRY FASTCALL ReturnSystemPalette (VOID);
-HPALETTE FASTCALL GdiSelectPalette(HDC, HPALETTE, BOOL);
 
-ULONG
-FORCEINLINE
-CalculateShift(ULONG ulMask1, ULONG ulMask2)
-{
-    ULONG ulShift1, ulShift2;
-    BitScanReverse(&ulShift1, ulMask1);
-    BitScanReverse(&ulShift2, ulMask2);
-    ulShift2 -= ulShift1;
-    if ((INT)ulShift2 < 0) ulShift2 += 32;
-    return ulShift2;
-}
-
-FORCEINLINE
-ULONG
-PALETTE_ulGetRGBColorFromIndex(PPALETTE ppal, ULONG ulIndex)
-{
-    return RGB(ppal->IndexedColors[ulIndex].peRed,
-               ppal->IndexedColors[ulIndex].peGreen,
-               ppal->IndexedColors[ulIndex].peBlue);
-}
-
-#endif /* not _WIN32K_PALETTE_H */
+#endif /* _WIN32K_PALETTE_H */

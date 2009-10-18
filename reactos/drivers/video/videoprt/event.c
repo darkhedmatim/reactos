@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id: event.c 21844 2006-05-07 19:34:23Z ion $
  */
 
 #include "videoprt.h"
@@ -35,30 +36,22 @@ VideoPortCreateEvent(
    IN PVOID Unused,
    OUT PEVENT *Event)
 {
-   PVIDEO_PORT_EVENT VpEvent;
-   EVENT_TYPE Type = SynchronizationEvent;
+   EVENT_TYPE Type;
 
-   /* Allocate storage for the event structure */
-   VpEvent = ExAllocatePoolWithTag(
+   (*Event) = ExAllocatePoolWithTag(
       NonPagedPool,
-      sizeof(VIDEO_PORT_EVENT),
+      sizeof(KEVENT),
       TAG_VIDEO_PORT);
 
-   /* Fail if not enough memory */
-   if (!VpEvent) return ERROR_NOT_ENOUGH_MEMORY;
+   if ((*Event) == NULL)
+      return ERROR_NOT_ENOUGH_MEMORY;
 
-   /* Initialize the event structure */
-   RtlZeroMemory(VpEvent, sizeof(VIDEO_PORT_EVENT));
-   VpEvent->pKEvent = &VpEvent->Event;
-
-   /* Determine the event type */
    if (EventFlag & NOTIFICATION_EVENT)
       Type = NotificationEvent;
+   else
+      Type = SynchronizationEvent;
 
-   /* Initialize kernel event */
-   KeInitializeEvent(VpEvent->pKEvent, Type, EventFlag & INITIAL_EVENT_SIGNALED);
-
-   /* Indicate success */
+   KeInitializeEvent((PKEVENT)*Event, Type, EventFlag & INITIAL_EVENT_SIGNALED);
    return NO_ERROR;
 }
 
@@ -71,10 +64,7 @@ VideoPortDeleteEvent(
    IN PVOID HwDeviceExtension,
    IN PEVENT Event)
 {
-   /* Free storage */
    ExFreePool(Event);
-
-   /* Indicate success */
    return NO_ERROR;
 }
 
@@ -87,7 +77,7 @@ VideoPortSetEvent(
    IN PVOID HwDeviceExtension,
    IN PEVENT Event)
 {
-   return KeSetEvent(Event->pKEvent, IO_NO_INCREMENT, FALSE);
+   return KeSetEvent((PKEVENT)Event, IO_NO_INCREMENT, FALSE);
 }
 
 /*
@@ -99,7 +89,7 @@ VideoPortClearEvent(
    IN PVOID HwDeviceExtension,
    IN PEVENT Event)
 {
-   KeClearEvent(Event->pKEvent);
+   KeClearEvent((PKEVENT)Event);
 }
 
 /*

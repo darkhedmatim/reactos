@@ -20,30 +20,19 @@
     SetPalette;
 */
 
-LPDDRAWI_DDRAWSURFACE_INT
-internal_directdrawsurface_int_alloc(LPDDRAWI_DDRAWSURFACE_INT This)
-{
-    LPDDRAWI_DDRAWSURFACE_INT  newThis;
-    DxHeapMemAlloc(newThis, sizeof(DDRAWI_DDRAWSURFACE_INT));
-    if (newThis)
-    {
-        newThis->lpLcl = This->lpLcl;
-        newThis->lpLink = This;
-    }
-    return  newThis;
-}
 
-HRESULT WINAPI Main_DDrawSurface_Initialize (LPDDRAWI_DDRAWSURFACE_INT iface, LPDIRECTDRAW pDD, LPDDSURFACEDESC2 pDDSD2)
+HRESULT WINAPI Main_DDrawSurface_Initialize (LPDIRECTDRAWSURFACE7 iface, LPDIRECTDRAW pDD, LPDDSURFACEDESC2 pDDSD2)
 {
     return DDERR_ALREADYINITIALIZED;
 }
 
-ULONG WINAPI Main_DDrawSurface_AddRef(LPDDRAWI_DDRAWSURFACE_INT This)
+ULONG WINAPI Main_DDrawSurface_AddRef(LPDIRECTDRAWSURFACE7 iface)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
     DX_WINDBG_trace();
 
-    if (This!=NULL)
+    if (iface!=NULL)
     {
         This->dwIntRefCnt++;
         This->lpLcl->dwLocalRefCnt++;
@@ -58,212 +47,21 @@ ULONG WINAPI Main_DDrawSurface_AddRef(LPDDRAWI_DDRAWSURFACE_INT This)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_QueryInterface(LPDDRAWI_DDRAWSURFACE_INT This, REFIID riid, LPVOID* ppObj)
+Main_DDrawSurface_QueryInterface(LPDIRECTDRAWSURFACE7 iface, REFIID riid,
+				      LPVOID* ppObj)
 {
-    HRESULT retVal = DD_OK;
-    *ppObj = NULL;
-
     DX_WINDBG_trace();
 
-    _SEH2_TRY
-    {
-        if (IsEqualGUID(&IID_IDirectDrawSurface7, riid))
-        {
-            if (This->lpVtbl != &DirectDrawSurface7_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawSurface7_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawSurface4, riid))
-        {
-            if (This->lpVtbl != &DirectDrawSurface4_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawSurface4_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawSurface3, riid))
-        {
-            if (This->lpVtbl != &DirectDrawSurface3_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawSurface3_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawSurface2, riid))
-        {
-            if (This->lpVtbl != &DirectDrawSurface2_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawSurface2_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawSurface, riid))
-        {
-            if (This->lpVtbl != &DirectDrawSurface_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawSurface_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawColorControl, riid))
-        {
-            if (This->lpVtbl != &DirectDrawColorControl_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawColorControl_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawGammaControl, riid))
-        {
-            if (This->lpVtbl != &DirectDrawGammaControl_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawGammaControl_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirectDrawSurfaceKernel, riid))
-        {
-            if (This->lpVtbl != &DirectDrawSurfaceKernel_Vtable)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &DirectDrawSurfaceKernel_Vtable;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirect3D, riid))
-        {
-            if (This->lpVtbl != &IDirect3D_Vtbl)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &IDirect3D_Vtbl;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirect3D2, riid))
-        {
-            if (This->lpVtbl != &IDirect3D2_Vtbl)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &IDirect3D2_Vtbl;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirect3D3, riid))
-        {
-            if (This->lpVtbl != &IDirect3D3_Vtbl)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &IDirect3D3_Vtbl;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else if (IsEqualGUID(&IID_IDirect3D7, riid))
-        {
-            if (This->lpVtbl != &IDirect3D7_Vtbl)
-            {
-                This = internal_directdrawsurface_int_alloc(This);
-                if (!This)
-                {
-                    retVal = DDERR_OUTOFVIDEOMEMORY;
-                    _SEH2_LEAVE;
-                }
-            }
-            This->lpVtbl = &IDirect3D7_Vtbl;
-            *ppObj = This;
-            Main_DDrawSurface_AddRef(This);
-        }
-        else
-        {
-            DX_STUB_str("E_NOINTERFACE");
-            retVal = E_NOINTERFACE;
-        }
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
-    return retVal;
+	DX_STUB_str("Unimplement\n");
+
+	return E_NOINTERFACE;
 }
 
 
 
-ULONG WINAPI Main_DDrawSurface_Release(LPDDRAWI_DDRAWSURFACE_INT This)
+ULONG WINAPI Main_DDrawSurface_Release(LPDIRECTDRAWSURFACE7 iface)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
     /* FIXME
        This is not right exiame how it should be done
@@ -272,9 +70,11 @@ ULONG WINAPI Main_DDrawSurface_Release(LPDDRAWI_DDRAWSURFACE_INT This)
     return This->dwIntRefCnt;
 }
 
-HRESULT WINAPI Main_DDrawSurface_Blt(LPDDRAWI_DDRAWSURFACE_INT ThisDest, LPRECT rdst,
-			  LPDDRAWI_DDRAWSURFACE_INT ThisSrc, LPRECT rsrc, DWORD dwFlags, LPDDBLTFX lpbltfx)
+HRESULT WINAPI Main_DDrawSurface_Blt(LPDIRECTDRAWSURFACE7 iface, LPRECT rdst,
+			  LPDIRECTDRAWSURFACE7 src, LPRECT rsrc, DWORD dwFlags, LPDDBLTFX lpbltfx)
 {
+	 LPDDRAWI_DDRAWSURFACE_INT ThisDest = (LPDDRAWI_DDRAWSURFACE_INT)iface;
+	 LPDDRAWI_DDRAWSURFACE_INT ThisSrc = (LPDDRAWI_DDRAWSURFACE_INT)src;
 
 	 DDHAL_BLTDATA mDdBlt;
 
@@ -387,14 +187,15 @@ HRESULT WINAPI Main_DDrawSurface_Blt(LPDDRAWI_DDRAWSURFACE_INT ThisDest, LPRECT 
 
 
 HRESULT WINAPI
-Main_DDrawSurface_Lock (LPDDRAWI_DDRAWSURFACE_INT This, LPRECT prect,
+Main_DDrawSurface_Lock (LPDIRECTDRAWSURFACE7 iface, LPRECT prect,
                         LPDDSURFACEDESC2 pDDSD, DWORD flags, HANDLE events)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
     DDHAL_LOCKDATA mdLock;
 
     DX_WINDBG_trace();
 
-    DX_WINDBG_trace_res( (DWORD)This->lpLcl->lpGbl->wWidth, (DWORD)This->lpLcl->lpGbl->wHeight, (DWORD)This->lpLcl->lpGbl->lPitch, (DWORD) 0);
+    DX_WINDBG_trace_res( This->lpLcl->lpGbl->wWidth, This->lpLcl->lpGbl->wHeight, This->lpLcl->lpGbl->lPitch, 0);
 
     if (events != NULL)
     {
@@ -460,7 +261,7 @@ Main_DDrawSurface_Lock (LPDDRAWI_DDRAWSURFACE_INT This, LPRECT prect,
 
         pDDSD->lpSurface = (LPVOID)  mdLock.lpSurfData;
 
-        pDDSD->dwHeight = This->lpLcl->lpGbl->wHeight;
+        pDDSD->dwHeight =This->lpLcl->lpGbl->wHeight;
         pDDSD->dwWidth = This->lpLcl->lpGbl->wWidth;
 
         pDDSD->ddpfPixelFormat.dwRGBBitCount = This->lpLcl->lpGbl->lpDD->lpModeInfo->dwBPP;// .lpModeInfo->dwBPP; //This->lpLcl->lpGbl->lPitch/ 8;
@@ -472,13 +273,14 @@ Main_DDrawSurface_Lock (LPDDRAWI_DDRAWSURFACE_INT This, LPRECT prect,
 }
 
 
-HRESULT WINAPI Main_DDrawSurface_Unlock (LPDDRAWI_DDRAWSURFACE_INT This, LPRECT pRect)
+HRESULT WINAPI Main_DDrawSurface_Unlock (LPDIRECTDRAWSURFACE7 iface, LPRECT pRect)
 {
+	LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 	DDHAL_UNLOCKDATA mdUnLock;
 
 	DX_WINDBG_trace();
 
-	if (!(This->lpLcl->lpSurfMore->lpDD_lcl->lpDDCB->cbDDSurfaceCallbacks.dwFlags & DDHAL_SURFCB32_UNLOCK))
+	if (!This->lpLcl->lpSurfMore->lpDD_lcl->lpDDCB->cbDDSurfaceCallbacks.dwFlags & DDHAL_SURFCB32_UNLOCK)
 	{
 	   DX_STUB_str("DDERR_UNSUPPORTED");
 	   return DDERR_UNSUPPORTED;
@@ -505,8 +307,8 @@ HRESULT WINAPI Main_DDrawSurface_Unlock (LPDDRAWI_DDRAWSURFACE_INT This, LPRECT 
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_AddAttachedSurface(LPDDRAWI_DDRAWSURFACE_INT iface,
-					  LPDDRAWI_DDRAWSURFACE_INT pAttach)
+Main_DDrawSurface_AddAttachedSurface(LPDIRECTDRAWSURFACE7 iface,
+					  LPDIRECTDRAWSURFACE7 pAttach)
 {
 
    // LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
@@ -518,28 +320,30 @@ Main_DDrawSurface_AddAttachedSurface(LPDDRAWI_DDRAWSURFACE_INT iface,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetAttachedSurface(LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_GetAttachedSurface(LPDIRECTDRAWSURFACE7 iface,
                                      LPDDSCAPS2 pCaps,
-                                     LPDDRAWI_DDRAWSURFACE_INT* ppSurface)
+                                     LPDIRECTDRAWSURFACE7* ppSurface)
 {
     /* FIXME hacked */
 
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
     DX_WINDBG_trace();
 
-    *ppSurface = This->lpLcl->lpGbl->lpDD->dsList;
+    *ppSurface = (LPDIRECTDRAWSURFACE7) This->lpLcl->lpGbl->lpDD->dsList;
 
 
     return DD_OK;
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetBltStatus(LPDDRAWI_DDRAWSURFACE_INT This, DWORD dwFlags)
+Main_DDrawSurface_GetBltStatus(LPDIRECTDRAWSURFACE7 iface, DWORD dwFlags)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
 	DX_WINDBG_trace();
 
-	if (!(This->lpLcl->lpGbl->lpDD->lpDDCBtmp->cbDDSurfaceCallbacks.dwFlags & DDHAL_SURFCB32_FLIP))
+	if (!This->lpLcl->lpGbl->lpDD->lpDDCBtmp->cbDDSurfaceCallbacks.dwFlags & DDHAL_SURFCB32_FLIP)
 	{
 		return DDERR_GENERIC;
 	}
@@ -548,12 +352,13 @@ Main_DDrawSurface_GetBltStatus(LPDDRAWI_DDRAWSURFACE_INT This, DWORD dwFlags)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetCaps(LPDDRAWI_DDRAWSURFACE_INT This, LPDDSCAPS2 pCaps)
+Main_DDrawSurface_GetCaps(LPDIRECTDRAWSURFACE7 iface, LPDDSCAPS2 pCaps)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This;
 
 	DX_WINDBG_trace();
 
-    if (This == NULL)
+    if (iface == NULL)
     {
        return DDERR_INVALIDOBJECT;
     }
@@ -563,6 +368,8 @@ Main_DDrawSurface_GetCaps(LPDDRAWI_DDRAWSURFACE_INT This, LPDDSCAPS2 pCaps)
        return DDERR_INVALIDPARAMS;
     }
 
+    This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
+
     RtlZeroMemory(pCaps,sizeof(DDSCAPS2));
 
 	pCaps->dwCaps = This->lpLcl->ddsCaps.dwCaps;
@@ -571,9 +378,10 @@ Main_DDrawSurface_GetCaps(LPDDRAWI_DDRAWSURFACE_INT This, LPDDSCAPS2 pCaps)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetClipper(LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_GetClipper(LPDIRECTDRAWSURFACE7 iface,
 				  LPDIRECTDRAWCLIPPER* ppClipper)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
 	DX_WINDBG_trace();
 
@@ -598,9 +406,10 @@ Main_DDrawSurface_GetClipper(LPDDRAWI_DDRAWSURFACE_INT This,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_SetClipper (LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_SetClipper (LPDIRECTDRAWSURFACE7 iface,
 				  LPDIRECTDRAWCLIPPER pDDClipper)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
 	DX_WINDBG_trace();
 
@@ -628,12 +437,13 @@ Main_DDrawSurface_SetClipper (LPDDRAWI_DDRAWSURFACE_INT This,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetDC(LPDDRAWI_DDRAWSURFACE_INT This, HDC *phDC)
+Main_DDrawSurface_GetDC(LPDIRECTDRAWSURFACE7 iface, HDC *phDC)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This;
 
 	DX_WINDBG_trace();
 
-    if (This == NULL)
+    if (iface == NULL)
     {
        return DDERR_INVALIDOBJECT;
     }
@@ -643,6 +453,7 @@ Main_DDrawSurface_GetDC(LPDDRAWI_DDRAWSURFACE_INT This, HDC *phDC)
        return DDERR_INVALIDPARAMS;
     }
 
+    This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
     *phDC = (HDC)This->lpLcl->lpSurfMore->lpDD_lcl->hDC;
 
@@ -650,9 +461,10 @@ Main_DDrawSurface_GetDC(LPDDRAWI_DDRAWSURFACE_INT This, HDC *phDC)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetPixelFormat(LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_GetPixelFormat(LPDIRECTDRAWSURFACE7 iface,
                                  LPDDPIXELFORMAT pDDPixelFormat)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
     HRESULT retVale = DDERR_INVALIDPARAMS;
 
     DX_WINDBG_trace();
@@ -675,11 +487,13 @@ Main_DDrawSurface_GetPixelFormat(LPDDRAWI_DDRAWSURFACE_INT This,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_GetSurfaceDesc(LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_GetSurfaceDesc(LPDIRECTDRAWSURFACE7 iface,
 				      LPDDSURFACEDESC2 pDDSD)
 {
     DWORD dwSize;
 
+
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 	DX_WINDBG_trace();
 
     dwSize =  pDDSD->dwSize;
@@ -775,11 +589,12 @@ Main_DDrawSurface_GetSurfaceDesc(LPDDRAWI_DDRAWSURFACE_INT This,
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_ReleaseDC(LPDDRAWI_DDRAWSURFACE_INT This, HDC hDC)
+Main_DDrawSurface_ReleaseDC(LPDIRECTDRAWSURFACE7 iface, HDC hDC)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This;
 	DX_WINDBG_trace();
 
-    if (This == NULL)
+    if (iface == NULL)
     {
        return DDERR_INVALIDOBJECT;
     }
@@ -788,6 +603,8 @@ Main_DDrawSurface_ReleaseDC(LPDDRAWI_DDRAWSURFACE_INT This, HDC hDC)
     {
        return DDERR_INVALIDPARAMS;
     }
+
+    This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
     /* FIXME check if surface exits or not */
 
@@ -801,9 +618,10 @@ Main_DDrawSurface_ReleaseDC(LPDDRAWI_DDRAWSURFACE_INT This, HDC hDC)
 }
 
 HRESULT WINAPI
-Main_DDrawSurface_SetColorKey (LPDDRAWI_DDRAWSURFACE_INT This,
+Main_DDrawSurface_SetColorKey (LPDIRECTDRAWSURFACE7 iface,
 				   DWORD dwFlags, LPDDCOLORKEY pCKey)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
 	DDHAL_SETCOLORKEYDATA ColorKeyData;
 
@@ -835,8 +653,9 @@ Main_DDrawSurface_SetColorKey (LPDDRAWI_DDRAWSURFACE_INT This,
 
 
 HRESULT WINAPI
-Main_DDrawSurface_SetOverlayPosition (LPDDRAWI_DDRAWSURFACE_INT This, LONG X, LONG Y)
+Main_DDrawSurface_SetOverlayPosition (LPDIRECTDRAWSURFACE7 iface, LONG X, LONG Y)
 {
+    LPDDRAWI_DDRAWSURFACE_INT This = (LPDDRAWI_DDRAWSURFACE_INT)iface;
 
 	DDHAL_SETOVERLAYPOSITIONDATA OverLayPositionData;
 
@@ -869,3 +688,62 @@ Main_DDrawSurface_SetOverlayPosition (LPDDRAWI_DDRAWSURFACE_INT This, LONG X, LO
 
 	return DDERR_GENERIC;
 }
+
+IDirectDrawSurface7Vtbl DirectDrawSurface7_Vtable =
+{
+      /*** IUnknown ***/
+    Main_DDrawSurface_QueryInterface,
+    Main_DDrawSurface_AddRef,                        /* (Compact done) */
+    Main_DDrawSurface_Release,
+    /*** IDirectDrawSurface ***/
+    Main_DDrawSurface_AddAttachedSurface,
+    Main_DDrawSurface_AddOverlayDirtyRect,
+    Main_DDrawSurface_Blt,
+    Main_DDrawSurface_BltBatch,
+    Main_DDrawSurface_BltFast,
+    Main_DDrawSurface_DeleteAttachedSurface,
+    Main_DDrawSurface_EnumAttachedSurfaces,
+    Main_DDrawSurface_EnumOverlayZOrders,
+    Main_DDrawSurface_Flip,
+    Main_DDrawSurface_GetAttachedSurface,
+    Main_DDrawSurface_GetBltStatus,
+    Main_DDrawSurface_GetCaps,
+    Main_DDrawSurface_GetClipper,
+    Main_DDrawSurface_GetColorKey,
+    Main_DDrawSurface_GetDC,
+    Main_DDrawSurface_GetFlipStatus,
+    Main_DDrawSurface_GetOverlayPosition,
+    Main_DDrawSurface_GetPalette,
+    Main_DDrawSurface_GetPixelFormat,
+    Main_DDrawSurface_GetSurfaceDesc,
+    Main_DDrawSurface_Initialize,
+    Main_DDrawSurface_IsLost,
+    Main_DDrawSurface_Lock,
+    Main_DDrawSurface_ReleaseDC,
+    Main_DDrawSurface_Restore,
+    Main_DDrawSurface_SetClipper,
+    Main_DDrawSurface_SetColorKey,
+    Main_DDrawSurface_SetOverlayPosition,
+    Main_DDrawSurface_SetPalette,
+    Main_DDrawSurface_Unlock,
+    Main_DDrawSurface_UpdateOverlay,
+    Main_DDrawSurface_UpdateOverlayDisplay,
+    Main_DDrawSurface_UpdateOverlayZOrder,
+    /*** IDirectDrawSurface2 ***/
+    Main_DDrawSurface_GetDDInterface,
+    Main_DDrawSurface_PageLock,
+    Main_DDrawSurface_PageUnlock,
+    /*** IDirectDrawSurface3 ***/
+    Main_DDrawSurface_SetSurfaceDesc,
+    /*** IDirectDrawSurface4 ***/
+    Main_DDrawSurface_SetPrivateData,
+    Main_DDrawSurface_GetPrivateData,
+    Main_DDrawSurface_FreePrivateData,
+    Main_DDrawSurface_GetUniquenessValue,
+    Main_DDrawSurface_ChangeUniquenessValue,
+    /*** IDirectDrawSurface7 ***/
+    Main_DDrawSurface_SetPriority,
+    Main_DDrawSurface_GetPriority,
+    Main_DDrawSurface_SetLOD,
+    Main_DDrawSurface_GetLOD
+};

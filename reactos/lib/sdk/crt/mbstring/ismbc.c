@@ -1,18 +1,7 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/ismbc.c
- * PURPOSE:
- * PROGRAMER:   
- * UPDATE HISTORY:
- *              05/30/08: Samuel Serapion adapted from PROJECT C Library
- *
- */
-
-
-#include <precomp.h>
 #include <mbstring.h>
-#include <mbctype.h>
+
+int _ismbbalpha(unsigned char c);
+int _ismbbalnum(unsigned char c);
 
 /*
  * @implemented
@@ -34,7 +23,14 @@ int _ismbcalnum( unsigned int c )
  */
 int _ismbcalpha( unsigned int c )
 {
-	return (_ismbcupper (c) || _ismbclower (c));
+	if ((c & 0xFF00) != 0) {
+		// true multibyte character
+		return 0;
+	}
+	else
+		return _ismbbalpha(c);
+
+	return 0;
 }
 
 /*
@@ -42,80 +38,98 @@ int _ismbcalpha( unsigned int c )
  */
 int _ismbcdigit( unsigned int c )
 {
-	return ((c) >= 0x824f && (c) <= 0x8258);
+	if ((c & 0xFF00) != 0) {
+		// true multibyte character
+		return 0;
+	}
+	else
+		return 0;
+//		return _ismbbdigit(c);
+
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 int _ismbcprint( unsigned int c )
 {
-    return (_MBHMASK (c) ? _ismbclegal (c) : (isprint (c) || _ismbbkana (c)));
+	if ((c & 0xFF00) != 0) {
+		// true multibyte character
+		return 0;
+	}
+	else
+		return 0;
+//		return _ismbbdigit(c);
+
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 int _ismbcsymbol( unsigned int c )
 {
-	return (c >= 0x8141 && c <= 0x817e) || (c >= 0x8180 && c <= 0x81ac);
+	if ((c & 0xFF00) != 0) {
+		// true multibyte character
+		return 0;
+	}
+	else
+		return 0;
+//		return _ismbbdigit(c);
+
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 int _ismbcspace( unsigned int c )
 {
-	return ((c) == 0x8140);
+	if ((c & 0xFF00) != 0) {
+		// true multibyte character
+		return 0;
+	}
+	else
+		return 0;
+//		return _ismbbdigit(c);
+
+	return 0;
 }
 /*
  * @implemented
  */
 int _ismbclegal(unsigned int c)
 {
-	return (_ismbblead (_MBGETH (c)) && _ismbbtrail (_MBGETL (c)));
+	if ((c & 0xFF00) != 0) {
+		return _ismbblead(c>>8) && _ismbbtrail(c&0xFF);
+	}
+	else
+		return _ismbbtrail(c&0xFF);
+
+	return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 int _ismbcl0(unsigned int c)
 {
-  return (c >= 0x8140 && c <= 0x889e);
+  return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 int _ismbcl1(unsigned int c)
 {
-  return (c >= 0x889f && c <= 0x9872);
+  return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 int _ismbcl2(unsigned int c)
 {
-  return (c >= 0x989f && c <= 0xea9e);
-}
-
-/*
- * @unimplemented
- */
-int _ismbcgraph(unsigned int ch)
-{
-    //wchar_t wch = msvcrt_mbc_to_wc( ch );
-    //return (get_char_typeW( wch ) & (C1_UPPER | C1_LOWER | C1_DIGIT | C1_PUNCT | C1_ALPHA));
-    return 0;
-}
-
-/*
- * @unimplemented
- */
-int _ismbcpunct(unsigned int ch)
-{
-    //wchar_t wch = msvcrt_mbc_to_wc( ch );
-    //return (get_char_typeW( wch ) & C1_PUNCT);
-    return 0;
+  return 0;
 }

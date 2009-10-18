@@ -44,12 +44,7 @@ EthCreateFilter(
       *Filter = (PETH_FILTER)NewFilter;
       return TRUE;
     }
-  else
-    {
-      NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
-      *Filter = NULL;
-      return FALSE;
-    }
+  return FALSE;
 }
 
 
@@ -63,7 +58,7 @@ EthDeleteFilter(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 EXPORT
@@ -92,10 +87,7 @@ EthFilterDprIndicateReceive(
     /* Not sure if this is a valid thing to do, but we do arrive here early
      * in the boot process with Filter NULL.  We need to investigate whether
      * this should be handled or not allowed. */
-    if( !Filter ) {
-        NDIS_DbgPrint(MIN_TRACE, ("Filter is NULL\n"));
-        return;
-    }
+    if( !Filter ) return;
     MiniIndicateData((PLOGICAL_ADAPTER)((PETHI_FILTER)Filter)->Miniport,
 		     MacReceiveContext,
 		     HeaderBuffer,
@@ -107,7 +99,7 @@ EthFilterDprIndicateReceive(
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 EXPORT
@@ -119,21 +111,19 @@ EthFilterDprIndicateReceiveComplete(
  *     Filter = Pointer to Ethernet filter
  */
 {
+  KIRQL OldIrql;
   PLIST_ENTRY CurrentEntry;
   PLOGICAL_ADAPTER Adapter;
   PADAPTER_BINDING AdapterBinding;
 
   NDIS_DbgPrint(DEBUG_MINIPORT, ("Called.\n"));
 
-  if( !Filter ) {
-      NDIS_DbgPrint(MIN_TRACE, ("Filter is NULL\n"));
-      return;
-  }
+  if( !Filter ) return;
 
   Adapter = (PLOGICAL_ADAPTER)((PETHI_FILTER)Filter)->Miniport;
 
   NDIS_DbgPrint(MAX_TRACE, ("acquiring miniport block lock\n"));
-  KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+  KeAcquireSpinLock(&Adapter->NdisMiniportBlock.Lock, &OldIrql);
     {
       CurrentEntry = Adapter->ProtocolListHead.Flink;
 
@@ -147,7 +137,7 @@ EthFilterDprIndicateReceiveComplete(
           CurrentEntry = CurrentEntry->Flink;
         }
     }
-  KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+  KeReleaseSpinLock(&Adapter->NdisMiniportBlock.Lock, OldIrql);
 }
 
 /* EOF */

@@ -20,15 +20,21 @@
 
 #include <stdarg.h>
 
-#include "urlmon_main.h"
+#define COBJMACROS
 
+#include "windef.h"
+#include "winbase.h"
 #include "winreg.h"
 
 #define NO_SHLWAPI_REG
 #include "shlwapi.h"
 #include "wine/debug.h"
+#include "wine/unicode.h"
 
+#include "winuser.h"
 #include "urlmon.h"
+#include "urlmon_main.h"
+#include "ole2.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
@@ -36,90 +42,8 @@ LONG URLMON_refCount = 0;
 
 HINSTANCE URLMON_hInstance = 0;
 static HMODULE hCabinet = NULL;
-static DWORD urlmon_tls = TLS_OUT_OF_INDEXES;
 
 static void init_session(BOOL);
-
-static struct list tls_list = LIST_INIT(tls_list);
-
-static CRITICAL_SECTION tls_cs;
-static CRITICAL_SECTION_DEBUG tls_cs_dbg =
-{
-    0, 0, &tls_cs,
-    { &tls_cs_dbg.ProcessLocksList, &tls_cs_dbg.ProcessLocksList },
-      0, 0, { (DWORD_PTR)(__FILE__ ": tls") }
-};
-
-static CRITICAL_SECTION tls_cs = { &tls_cs_dbg, -1, 0, 0, 0, 0 };
-
-tls_data_t *get_tls_data(void)
-{
-    tls_data_t *data;
-
-    if(urlmon_tls == TLS_OUT_OF_INDEXES) {
-        DWORD tls = TlsAlloc();
-        if(tls == TLS_OUT_OF_INDEXES)
-            return NULL;
-
-        tls = InterlockedCompareExchange((LONG*)&urlmon_tls, tls, TLS_OUT_OF_INDEXES);
-        if(tls != urlmon_tls)
-            TlsFree(tls);
-    }
-
-    data = TlsGetValue(urlmon_tls);
-    if(!data) {
-        data = heap_alloc_zero(sizeof(tls_data_t));
-        if(!data)
-            return NULL;
-
-        EnterCriticalSection(&tls_cs);
-        list_add_tail(&tls_list, &data->entry);
-        LeaveCriticalSection(&tls_cs);
-
-        TlsSetValue(urlmon_tls, data);
-    }
-
-    return data;
-}
-
-static void free_tls_list(void)
-{
-    tls_data_t *data;
-
-    if(urlmon_tls == TLS_OUT_OF_INDEXES)
-        return;
-
-    while(!list_empty(&tls_list)) {
-        data = LIST_ENTRY(list_head(&tls_list), tls_data_t, entry);
-        list_remove(&data->entry);
-        heap_free(data);
-    }
-
-    TlsFree(urlmon_tls);
-}
-
-static void detach_thread(void)
-{
-    tls_data_t *data;
-
-    if(urlmon_tls == TLS_OUT_OF_INDEXES)
-        return;
-
-    data = TlsGetValue(urlmon_tls);
-    if(!data)
-        return;
-
-    EnterCriticalSection(&tls_cs);
-    list_remove(&data->entry);
-    LeaveCriticalSection(&tls_cs);
-
-    if(data->notif_hwnd) {
-        WARN("notif_hwnd not destroyed\n");
-        DestroyWindow(data->notif_hwnd);
-    }
-
-    heap_free(data);
-}
 
 /***********************************************************************
  *		DllMain (URLMON.init)
@@ -130,6 +54,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
 
     switch(fdwReason) {
     case DLL_PROCESS_ATTACH:
+        DisableThreadLibraryCalls(hinstDLL);
         URLMON_hInstance = hinstDLL;
         init_session(TRUE);
 	break;
@@ -139,13 +64,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
             FreeLibrary(hCabinet);
         hCabinet = NULL;
         init_session(FALSE);
-        free_tls_list();
         URLMON_hInstance = 0;
 	break;
-
-    case DLL_THREAD_DETACH:
-        detach_thread();
-        break;
     }
     return TRUE;
 }
@@ -259,8 +179,6 @@ static const ClassFactory FileProtocolCF =
     { &ClassFactoryVtbl, FileProtocol_Construct};
 static const ClassFactory FtpProtocolCF =
     { &ClassFactoryVtbl, FtpProtocol_Construct};
-static const ClassFactory GopherProtocolCF =
-    { &ClassFactoryVtbl, GopherProtocol_Construct};
 static const ClassFactory HttpProtocolCF =
     { &ClassFactoryVtbl, HttpProtocol_Construct};
 static const ClassFactory HttpSProtocolCF =
@@ -271,10 +189,6 @@ static const ClassFactory SecurityManagerCF =
     { &ClassFactoryVtbl, SecManagerImpl_Construct};
 static const ClassFactory ZoneManagerCF =
     { &ClassFactoryVtbl, ZoneMgrImpl_Construct};
-static const ClassFactory StdURLMonikerCF =
-    { &ClassFactoryVtbl, StdURLMoniker_Construct};
-static const ClassFactory MimeFilterCF =
-    { &ClassFactoryVtbl, MimeFilter_Construct};
  
 struct object_creation_info
 {
@@ -285,7 +199,6 @@ struct object_creation_info
 
 static const WCHAR wszFile[] = {'f','i','l','e',0};
 static const WCHAR wszFtp[]  = {'f','t','p',0};
-static const WCHAR wszGopher[]  = {'g','o','p','h','e','r',0};
 static const WCHAR wszHttp[] = {'h','t','t','p',0};
 static const WCHAR wszHttps[] = {'h','t','t','p','s',0};
 static const WCHAR wszMk[]   = {'m','k',0};
@@ -294,26 +207,40 @@ static const struct object_creation_info object_creation[] =
 {
     { &CLSID_FileProtocol,            CLASSFACTORY(&FileProtocolCF),    wszFile },
     { &CLSID_FtpProtocol,             CLASSFACTORY(&FtpProtocolCF),     wszFtp  },
-    { &CLSID_GopherProtocol,          CLASSFACTORY(&GopherProtocolCF),  wszGopher },
     { &CLSID_HttpProtocol,            CLASSFACTORY(&HttpProtocolCF),    wszHttp },
     { &CLSID_HttpSProtocol,           CLASSFACTORY(&HttpSProtocolCF),   wszHttps },
     { &CLSID_MkProtocol,              CLASSFACTORY(&MkProtocolCF),      wszMk },
     { &CLSID_InternetSecurityManager, CLASSFACTORY(&SecurityManagerCF), NULL    },
-    { &CLSID_InternetZoneManager,     CLASSFACTORY(&ZoneManagerCF),     NULL    },
-    { &CLSID_StdURLMoniker,           CLASSFACTORY(&StdURLMonikerCF),   NULL    },
-    { &CLSID_DeCompMimeFilter,        CLASSFACTORY(&MimeFilterCF),      NULL    }
+    { &CLSID_InternetZoneManager,     CLASSFACTORY(&ZoneManagerCF),     NULL    }
 };
 
 static void init_session(BOOL init)
 {
-    unsigned int i;
+    IInternetSession *session;
+    int i;
+
+    CoInternetGetSession(0, &session, 0);
 
     for(i=0; i < sizeof(object_creation)/sizeof(object_creation[0]); i++) {
-
-        if(object_creation[i].protocol)
-            register_urlmon_namespace(object_creation[i].cf, object_creation[i].clsid,
-                                      object_creation[i].protocol, init);
+        if(object_creation[i].protocol) {
+            if(init)
+            {
+                IInternetSession_RegisterNameSpace(session, object_creation[i].cf,
+                        object_creation[i].clsid, object_creation[i].protocol, 0, NULL, 0);
+                /* make sure that the AddRef on the class factory doesn't keep us loaded */
+                URLMON_UnlockModule();
+            }
+            else
+            {
+                /* make sure that the Release on the class factory doesn't unload us */
+                URLMON_LockModule();
+                IInternetSession_UnregisterNameSpace(session, object_creation[i].cf,
+                        object_creation[i].protocol);
+            }
+        }
     }
+
+    IInternetSession_Release(session);
 }
 
 /*******************************************************************************
@@ -336,7 +263,7 @@ static void init_session(BOOL init)
 
 HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
-    unsigned int i;
+    int i;
     
     TRACE("(%s,%s,%p)\n", debugstr_guid(rclsid), debugstr_guid(riid), ppv);
     
@@ -477,51 +404,12 @@ void WINAPI ReleaseBindInfo(BINDINFO* pbindinfo)
     if(offsetof(BINDINFO, szExtraInfo) < size)
         CoTaskMemFree(pbindinfo->szCustomVerb);
 
+
     if(pbindinfo->pUnk && offsetof(BINDINFO, pUnk) < size)
         IUnknown_Release(pbindinfo->pUnk);
 
     memset(pbindinfo, 0, size);
     pbindinfo->cbSize = size;
-}
-
-/***********************************************************************
- *           CopyStgMedium (URLMON.@)
- */
-HRESULT WINAPI CopyStgMedium(const STGMEDIUM *src, STGMEDIUM *dst)
-{
-    TRACE("(%p %p)\n", src, dst);
-
-    if(!src || !dst)
-        return E_POINTER;
-
-    *dst = *src;
-
-    switch(dst->tymed) {
-    case TYMED_NULL:
-        break;
-    case TYMED_FILE:
-        if(src->u.lpszFileName && !src->pUnkForRelease) {
-            DWORD size = (strlenW(src->u.lpszFileName)+1)*sizeof(WCHAR);
-            dst->u.lpszFileName = CoTaskMemAlloc(size);
-            memcpy(dst->u.lpszFileName, src->u.lpszFileName, size);
-        }
-        break;
-    case TYMED_ISTREAM:
-        if(dst->u.pstm)
-            IStream_AddRef(dst->u.pstm);
-        break;
-    case TYMED_ISTORAGE:
-        if(dst->u.pstg)
-            IStorage_AddRef(dst->u.pstg);
-        break;
-    default:
-        FIXME("Unimplemented tymed %d\n", src->tymed);
-    }
-
-    if(dst->pUnkForRelease)
-        IUnknown_AddRef(dst->pUnkForRelease);
-
-    return S_OK;
 }
 
 static BOOL text_richtext_filter(const BYTE *b, DWORD size)
@@ -531,7 +419,7 @@ static BOOL text_richtext_filter(const BYTE *b, DWORD size)
 
 static BOOL text_html_filter(const BYTE *b, DWORD size)
 {
-    DWORD i;
+    int i;
 
     if(size < 5)
         return FALSE;
@@ -546,12 +434,6 @@ static BOOL text_html_filter(const BYTE *b, DWORD size)
     }
 
     return FALSE;
-}
-
-static BOOL audio_basic_filter(const BYTE *b, DWORD size)
-{
-    return size > 4
-        && b[0] == '.' && b[1] == 's' && b[2] == 'n' && b[3] == 'd';
 }
 
 static BOOL audio_wav_filter(const BYTE *b, DWORD size)
@@ -694,11 +576,10 @@ HRESULT WINAPI FindMimeFromData(LPBC pBC, LPCWSTR pwzUrl, LPVOID pBuffer,
         const BYTE *buf = pBuffer;
         DWORD len;
         LPCWSTR ret = NULL;
-        unsigned int i;
+        int i;
 
         static const WCHAR wszTextHtml[] = {'t','e','x','t','/','h','t','m','l',0};
         static const WCHAR wszTextRichtext[] = {'t','e','x','t','/','r','i','c','h','t','e','x','t',0};
-        static const WCHAR wszAudioBasic[] = {'a','u','d','i','o','/','b','a','s','i','c',0};
         static const WCHAR wszAudioWav[] = {'a','u','d','i','o','/','w','a','v',0};
         static const WCHAR wszImageGif[] = {'i','m','a','g','e','/','g','i','f',0};
         static const WCHAR wszImagePjpeg[] = {'i','m','a','g','e','/','p','j','p','e','g',0};
@@ -729,25 +610,16 @@ HRESULT WINAPI FindMimeFromData(LPBC pBC, LPCWSTR pwzUrl, LPVOID pBuffer,
         } mime_filters[] = {
             {wszTextHtml,       text_html_filter},
             {wszTextRichtext,   text_richtext_filter},
-         /* {wszAudioXAiff,     audio_xaiff_filter}, */
-            {wszAudioBasic,     audio_basic_filter},
             {wszAudioWav,       audio_wav_filter},
             {wszImageGif,       image_gif_filter},
             {wszImagePjpeg,     image_pjpeg_filter},
             {wszImageTiff,      image_tiff_filter},
             {wszImageXPng,      image_xpng_filter},
-         /* {wszImageXBitmap,   image_xbitmap_filter}, */
             {wszImageBmp,       image_bmp_filter},
-         /* {wszImageXJg,       image_xjg_filter}, */
-         /* {wszImageXEmf,      image_xemf_filter}, */
-         /* {wszImageXWmf,      image_xwmf_filter}, */
             {wszVideoAvi,       video_avi_filter},
             {wszVideoMpeg,      video_mpeg_filter},
             {wszAppPostscript,  application_postscript_filter},
-         /* {wszAppBase64,      application_base64_filter}, */
-         /* {wszAppMacbinhex40, application_macbinhex40_filter}, */
             {wszAppPdf,         application_pdf_filter},
-         /* {wszAppXCompressed, application_xcompressed_filter}, */
             {wszAppXZip,        application_xzip_filter},
             {wszAppXGzip,       application_xgzip_filter},
             {wszAppJava,        application_java_filter},
@@ -862,22 +734,4 @@ HRESULT WINAPI Extract(void *dest, LPCSTR szCabName)
     if (!pExtract) return HRESULT_FROM_WIN32(GetLastError());
 
     return pExtract(dest, szCabName);
-}
-
-/***********************************************************************
- *           IsLoggingEnabledA (URLMON.@)
- */
-BOOL WINAPI IsLoggingEnabledA(LPCSTR url)
-{
-    FIXME("(%s)\n", debugstr_a(url));
-    return FALSE;
-}
-
-/***********************************************************************
- *           IsLoggingEnabledW (URLMON.@)
- */
-BOOL WINAPI IsLoggingEnabledW(LPCWSTR url)
-{
-    FIXME("(%s)\n", debugstr_w(url));
-    return FALSE;
 }

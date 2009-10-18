@@ -20,7 +20,40 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "winspool.h"
+
+#include "ole2.h"
+#include "shlguid.h"
+
+#include "enumidlist.h"
+#include "pidl.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shresdef.h"
+#include "shlwapi.h"
+#include "shellfolder.h"
+#include "wine/debug.h"
+#include "debughlp.h"
+#include "shfldr.h"
+#include "shresdef.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
@@ -37,26 +70,6 @@ typedef struct
 
 #define _IExtractIconA_Offset ((int)(&(((IExtractIconWImpl*)0)->lpvtblExtractIconA)))
 #define _ICOM_THIS_From_IExtractIconA(class, name) class* This = (class*)(((char*)name)-_IExtractIconA_Offset);
-
-static shvheader PrinterSFHeader[] = {
-    {IDS_SHV_COLUMN8, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-    {IDS_SHV_COLUMN_DOCUMENTS , SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-    {IDS_SHV_COLUMN_STATUS, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-    {IDS_SHV_COLUMN_COMMENTS, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-    {IDS_SHV_COLUMN_LOCATION, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-    {IDS_SHV_COLUMN_MODEL, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15}
-};
-
-#define COLUMN_NAME          0
-#define COLUMN_DOCUMENTS     1
-#define COLUMN_STATUS        2
-#define COLUMN_COMMENTS      3
-#define COLUMN_LOCATION      4
-#define COLUMN_MODEL         5
-
-
-#define PrinterSHELLVIEWCOLUMNS (6)
-
 
 /**************************************************************************
  *  IExtractIconW_QueryInterface
@@ -84,7 +97,7 @@ static HRESULT WINAPI IEI_Printers_fnQueryInterface(IExtractIconW *iface, REFIID
 
     if(*ppvObj)
     {
-        ((IExtractIconW*)*ppvObj)->lpVtbl->AddRef(*ppvObj);
+        IExtractIconW_AddRef((IExtractIconW*) *ppvObj);
         TRACE("-- Interface: (%p)->(%p)\n",ppvObj,*ppvObj);
         return S_OK;
     }
@@ -146,7 +159,7 @@ static HRESULT WINAPI IEI_Printers_fnGetIconLocation(
         *pwFlags = 0;
 
     lstrcpynW(szIconFile, swShell32Name, cchMax);
-    *piIndex = -IDI_SHELL_PRINTERS_FOLDER; /* FIXME: other icons for default, network, print to file */
+    *piIndex = -IDI_SHELL_PRINTER; /* FIXME: other icons for default, network, print to file */
 
     TRACE("-- %s %x\n", debugstr_w(szIconFile), *piIndex);
     return NOERROR;
@@ -192,7 +205,7 @@ static HRESULT WINAPI IEIA_Printers_fnQueryInterface(IExtractIconA * iface, REFI
 {
     _ICOM_THIS_From_IExtractIconA(IExtractIconW, iface);
 
-    return This->lpVtbl->QueryInterface(This, riid, ppvObj);
+    return IExtractIconW_QueryInterface(This, riid, ppvObj);
 }
 
 /**************************************************************************
@@ -202,7 +215,7 @@ static ULONG WINAPI IEIA_Printers_fnAddRef(IExtractIconA * iface)
 {
     _ICOM_THIS_From_IExtractIconA(IExtractIconW, iface);
 
-    return This->lpVtbl->AddRef(This);
+    return IExtractIconW_AddRef(This);
 }
 /**************************************************************************
  *  IExtractIconA_Release
@@ -211,7 +224,7 @@ static ULONG WINAPI IEIA_Printers_fnRelease(IExtractIconA * iface)
 {
     _ICOM_THIS_From_IExtractIconA(IExtractIconW, iface);
 
-    return This->lpVtbl->AddRef(This);
+    return IExtractIconW_AddRef(This);
 }
 
 /**************************************************************************
@@ -231,7 +244,7 @@ static HRESULT WINAPI IEIA_Printers_fnGetIconLocation(
 
     TRACE("(%p) (flags=%u %p %u %p %p)\n", This, uFlags, szIconFile, cchMax, piIndex, pwFlags);
 
-    ret = This->lpVtbl->GetIconLocation(This, uFlags, lpwstrFile, cchMax, piIndex, pwFlags);
+    ret = IExtractIconW_GetIconLocation(This, uFlags, lpwstrFile, cchMax, piIndex, pwFlags);
     WideCharToMultiByte(CP_ACP, 0, lpwstrFile, -1, szIconFile, cchMax, NULL, NULL);
     HeapFree(GetProcessHeap(), 0, lpwstrFile);
 
@@ -253,7 +266,7 @@ static HRESULT WINAPI IEIA_Printers_fnExtract(IExtractIconA *iface, LPCSTR pszFi
     TRACE("(%p) (file=%p index=%u %p %p size=%u)\n", This, pszFile, nIconIndex, phiconLarge, phiconSmall, nIconSize);
 
     MultiByteToWideChar(CP_ACP, 0, pszFile, -1, lpwstrFile, len);
-    ret = This->lpVtbl->Extract(This, lpwstrFile, nIconIndex, phiconLarge, phiconSmall, nIconSize);
+    ret = IExtractIconW_Extract(This, lpwstrFile, nIconIndex, phiconLarge, phiconSmall, nIconSize);
     HeapFree(GetProcessHeap(), 0, lpwstrFile);
     return ret;
 }
@@ -296,7 +309,7 @@ typedef struct {
     IShellFolder2Vtbl *lpVtbl;
     IPersistFolder2Vtbl *lpVtblPersistFolder2;
 
-    LONG ref;
+    DWORD ref;
 
     CLSID *pclsid;
 
@@ -333,7 +346,7 @@ static HRESULT WINAPI ISF_Printers_fnQueryInterface(
         IsEqualIID (riid, &IID_IShellFolder) ||
         IsEqualIID (riid, &IID_IShellFolder2))
     {
-        *ppvObj = _IShellFolder_(This);
+        *ppvObj = This;
     }
 
     else if (IsEqualIID (riid, &IID_IPersist) ||
@@ -403,61 +416,6 @@ static HRESULT WINAPI ISF_Printers_fnParseDisplayName (IShellFolder2 * iface,
     return E_NOTIMPL;
 }
 
-static LPITEMIDLIST _ILCreatePrinterItem(PRINTER_INFO_4W *pi)
-{
-    PIDLDATA tmp;
-    LPITEMIDLIST pidl;
-    PIDLPrinterStruct * p;
-    int size0 = (char*)&tmp.u.cprinter.szName-(char*)&tmp.u.cprinter;
-    int size = size0;
-
-    tmp.type = 0x00;
-    tmp.u.cprinter.dummy = 0xFF;
-    if (pi->pPrinterName)
-        tmp.u.cprinter.offsServer = wcslen(pi->pPrinterName) + 1;
-    else
-        tmp.u.cprinter.offsServer = 1;
-
-    size += tmp.u.cprinter.offsServer * sizeof(WCHAR);
-    if (pi->pServerName)
-        size += ( + wcslen(pi->pServerName) + 1) * sizeof(WCHAR);
-    else
-        size += sizeof(WCHAR);
-
-    pidl = (LPITEMIDLIST)SHAlloc(size + 4);
-    if (!pidl)
-        return pidl;
-
-    pidl->mkid.cb = size+2;
-    memcpy(pidl->mkid.abID, &tmp, 2+size0);
-
-    p = &((PIDLDATA*)pidl->mkid.abID)->u.cprinter;
-
-    p->Attributes = pi->Attributes;
-    if (pi->pPrinterName)
-        wcscpy(p->szName, pi->pPrinterName);
-    else
-        p->szName[0] = L'\0';
-
-    if (pi->pServerName)
-        wcscpy(p->szName + p->offsServer, pi->pServerName);
-    else
-        p->szName[p->offsServer] = L'\0';
-
-    *(WORD*)((char*)pidl+(size+2)) = 0;
-    return pidl;
-}
-
-static PIDLPrinterStruct * _ILGetPrinterStruct(LPCITEMIDLIST pidl)
-{
-    LPPIDLDATA pdata = _ILGetDataPointer(pidl);
-
-    if (pdata && pdata->type==0x00)
-        return (PIDLPrinterStruct*)&(pdata->u.cfont);
-
-    return NULL;
-}
-
 /**************************************************************************
  *  CreatePrintersEnumList()
  */
@@ -470,13 +428,10 @@ static BOOL CreatePrintersEnumList(IEnumIDList *list, DWORD dwFlags)
     /* enumerate the folders */
     if (dwFlags & SHCONTF_NONFOLDERS)
     {
-        DWORD needed = 0, num = 0, i;
+        DWORD needed, num, i;
         PRINTER_INFO_4W *pi;
 
         EnumPrintersW(PRINTER_ENUM_LOCAL, NULL, 4, NULL, 0, &needed, &num);
-        if (!needed)
-            return ret;
-
         pi = HeapAlloc(GetProcessHeap(), 0, needed);
         if(!EnumPrintersW(PRINTER_ENUM_LOCAL, NULL, 4, (LPBYTE)pi, needed, &needed, &num)) {
             HeapFree(GetProcessHeap(), 0, pi);
@@ -484,13 +439,13 @@ static BOOL CreatePrintersEnumList(IEnumIDList *list, DWORD dwFlags)
         }
 
         for(i = 0; i < num; i++) {
-            LPITEMIDLIST pidl = _ILCreatePrinterItem(&pi[i]);
-            if (pidl)
-            {
-                if (!AddToEnumList(list, pidl))
-                    SHFree(pidl);
-            }
+            DWORD len = strlenW(pi[i].pPrinterName);
+            LPITEMIDLIST pidl = _ILAlloc(PT_VALUEW, (len + 1) * sizeof(WCHAR));
+            LPPIDLDATA data = _ILGetDataPointer(pidl);
+            memcpy(data->u.valueW.name, pi[i].pPrinterName, (len + 1) * sizeof(WCHAR));
+            AddToEnumList(list, pidl);
         }
+
         HeapFree(GetProcessHeap(), 0, pi);
     }
     return ret;
@@ -525,10 +480,10 @@ static HRESULT WINAPI ISF_Printers_fnBindToObject (IShellFolder2 * iface,
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
 
-    TRACE ("(%p)->(pidl=%p,%p,%s,%p)\n", This,
-            pidl, pbcReserved, shdebugstr_guid (riid), ppvOut);
+    FIXME ("(%p)->(pidl=%p,%p,%s,%p)\n",
+           This, pidl, pbcReserved, shdebugstr_guid (riid), ppvOut);
 
-    return SHELL32_BindToChild (This->pidlRoot, NULL, pidl, riid, ppvOut);
+    return E_NOTIMPL;
 }
 
 /**************************************************************************
@@ -553,12 +508,9 @@ static HRESULT WINAPI ISF_Printers_fnCompareIDs (IShellFolder2 * iface,
                         LPARAM lParam, LPCITEMIDLIST pidl1, LPCITEMIDLIST pidl2)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    int nReturn;
 
-    TRACE ("(%p)->(0x%08lx,pidl1=%p,pidl2=%p)\n", This, lParam, pidl1, pidl2);
-    nReturn = SHELL32_CompareIDs (_IShellFolder_ (This), lParam, pidl1, pidl2);
-    TRACE ("-- %i\n", nReturn);
-    return nReturn;
+    FIXME ("(%p)->(0x%08lx,pidl1=%p,pidl2=%p): stub\n", This, lParam, pidl1, pidl2);
+    return E_NOTIMPL;
 }
 
 /**************************************************************************
@@ -567,40 +519,12 @@ static HRESULT WINAPI ISF_Printers_fnCompareIDs (IShellFolder2 * iface,
 static HRESULT WINAPI ISF_Printers_fnCreateViewObject (IShellFolder2 * iface,
                               HWND hwndOwner, REFIID riid, LPVOID * ppvOut)
 {
-
-    LPSHELLVIEW pShellView;
-    HRESULT hr = E_INVALIDARG;
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
 
-    TRACE ("(%p)->(hwnd=%p,%s,%p)\n", This,
-            hwndOwner, shdebugstr_guid (riid), ppvOut);
+    FIXME ("(%p)->(hwnd=%p,%s,%p): stub\n",
+           This, hwndOwner, shdebugstr_guid (riid), ppvOut);
 
-    if (!ppvOut)
-        return hr;
-
-    *ppvOut = NULL;
-
-    if (IsEqualIID (riid, &IID_IDropTarget))
-    {
-        WARN ("IDropTarget not implemented\n");
-        hr = E_NOTIMPL;
-    }
-    else if (IsEqualIID (riid, &IID_IContextMenu))
-    {
-        WARN ("IContextMenu not implemented\n");
-        hr = E_NOTIMPL;
-    }
-    else if (IsEqualIID (riid, &IID_IShellView))
-    {
-        pShellView = IShellView_Constructor ((IShellFolder *) iface);
-        if (pShellView)
-        {
-            hr = IShellView_QueryInterface (pShellView, riid, ppvOut);
-            IShellView_Release (pShellView);
-        }
-    }
-    TRACE ("-- (%p)->(interface=%p)\n", This, ppvOut);
-    return hr;
+    return E_NOTIMPL;
 }
 
 /**************************************************************************
@@ -609,20 +533,12 @@ static HRESULT WINAPI ISF_Printers_fnCreateViewObject (IShellFolder2 * iface,
 static HRESULT WINAPI ISF_Printers_fnGetAttributesOf (IShellFolder2 * iface,
                 UINT cidl, LPCITEMIDLIST * apidl, DWORD * rgfInOut)
 {
-    static const DWORD dwPrintersAttributes =
-        SFGAO_HASPROPSHEET | SFGAO_STORAGEANCESTOR | SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_CANRENAME | SFGAO_CANDELETE;
-    HRESULT hr = S_OK;
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
 
     FIXME ("(%p)->(cidl=%d apidl=%p mask=0x%08lx): stub\n",
            This, cidl, apidl, *rgfInOut);
 
-    *rgfInOut &= dwPrintersAttributes;
-
-    *rgfInOut &= ~SFGAO_VALIDATE;
-
-    TRACE ("-- result=0x%08x\n", *rgfInOut);
-    return hr;
+    return E_NOTIMPL;
 }
 
 /**************************************************************************
@@ -677,47 +593,23 @@ static HRESULT WINAPI ISF_Printers_fnGetUIObjectOf (IShellFolder2 * iface,
 static HRESULT WINAPI ISF_Printers_fnGetDisplayNameOf (IShellFolder2 * iface,
                 LPCITEMIDLIST pidl, DWORD dwFlags, LPSTRRET strRet)
 {
-    LPWSTR pszName;
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    PIDLPrinterStruct * p;
+    WCHAR *name;
+    DWORD len;
 
     TRACE ("(%p)->(pidl=%p,0x%08lx,%p)\n", This, pidl, dwFlags, strRet);
     pdump (pidl);
 
     if (!strRet)
-    {
-        WARN("no strRet\n");
         return E_INVALIDARG;
-    }
 
-    if (_ILIsPrinter(pidl))
-    {
-        pszName = CoTaskMemAlloc(MAX_PATH * sizeof(WCHAR));
-        if (!pszName)
-            return E_OUTOFMEMORY;
+    name = _ILGetDataPointer(pidl)->u.valueW.name;
+    len = strlenW(name);
 
-        if (LoadStringW(shell32_hInstance, IDS_PRINTERS, pszName, MAX_PATH))
-        {
-            pszName[MAX_PATH-1] = L'\0';
-            strRet->uType = STRRET_WSTR;
-            strRet->u.pOleStr = pszName;
-            return S_OK;
-        }
-        CoTaskMemFree(pszName);
-        return E_FAIL;
-    }
+    strRet->uType = STRRET_WSTR;
+    strRet->u.pOleStr = SHAlloc((len + 1) * sizeof(WCHAR));
+    memcpy(strRet->u.pOleStr, name, (len + 1) * sizeof(WCHAR));
 
-    p = _ILGetPrinterStruct(pidl);
-    if (!p)
-    {
-        WARN("no printer struct\n");
-        return E_INVALIDARG;
-    }
-    strRet->u.pOleStr = SHAlloc(p->offsServer * sizeof(WCHAR));
-    if (!strRet->u.pOleStr)
-        return E_OUTOFMEMORY;
-
-    memcpy((LPVOID)strRet->u.pOleStr, (LPVOID)p->szName, p->offsServer * sizeof(WCHAR));
     TRACE("ret %s\n", debugstr_w(strRet->u.pOleStr));
 
     return S_OK;
@@ -767,21 +659,20 @@ static HRESULT WINAPI ISF_Printers_fnEnumSearches (IShellFolder2 *iface,
 static HRESULT WINAPI ISF_Printers_fnGetDefaultColumn (IShellFolder2 * iface,
                 DWORD dwRes, ULONG * pSort, ULONG * pDisplay)
 {
-    if (pSort)
-        *pSort = 0;
-    if (pDisplay)
-        *pDisplay = 0;
+    IGenericSFImpl *This = (IGenericSFImpl *)iface;
 
-    return S_OK;
+    FIXME ("(%p): stub\n", This);
+
+    return E_NOTIMPL;
 }
 static HRESULT WINAPI ISF_Printers_fnGetDefaultColumnState (
                 IShellFolder2 * iface, UINT iColumn, DWORD * pcsFlags)
 {
-    if (!pcsFlags || iColumn >= PrinterSHELLVIEWCOLUMNS)
-        return E_INVALIDARG;
-    *pcsFlags = PrinterSFHeader[iColumn].pcsFlags;
-    return S_OK;
+    IGenericSFImpl *This = (IGenericSFImpl *)iface;
 
+    FIXME ("(%p): stub\n", This);
+
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI ISF_Printers_fnGetDetailsEx (IShellFolder2 * iface,
@@ -797,33 +688,8 @@ static HRESULT WINAPI ISF_Printers_fnGetDetailsOf (IShellFolder2 * iface,
                 LPCITEMIDLIST pidl, UINT iColumn, SHELLDETAILS * psd)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    WCHAR buffer[MAX_PATH] = {0};
-    HRESULT hr = E_FAIL;
 
-    TRACE("(%p)->(%p %i %p): stub\n", This, pidl, iColumn, psd);
-
-    if (iColumn >= PrinterSHELLVIEWCOLUMNS)
-        return E_FAIL;
-
-    psd->fmt = PrinterSFHeader[iColumn].fmt;
-    psd->cxChar = PrinterSFHeader[iColumn].cxChar;
-    if (pidl == NULL)
-    {
-        psd->str.uType = STRRET_WSTR;
-        if (LoadStringW(shell32_hInstance, PrinterSFHeader[iColumn].colnameid, buffer, MAX_PATH))
-            hr = SHStrDupW(buffer, &psd->str.u.pOleStr);
-
-        return hr;
-    }
-
-    if (iColumn == COLUMN_NAME)
-    {
-        psd->str.uType = STRRET_WSTR;
-        return IShellFolder2_GetDisplayNameOf(iface, pidl, SHGDN_NORMAL, &psd->str);
-    }
-
-    psd->str.uType = STRRET_CSTR;
-    psd->str.u.cStr[0] = '\0';
+    FIXME ("(%p)->(%p %i %p): stub\n", This, pidl, iColumn, psd);
 
     return E_NOTIMPL;
 }
@@ -921,11 +787,8 @@ static HRESULT WINAPI IPF_Printers_Initialize (
                IPersistFolder2 * iface, LPCITEMIDLIST pidl)
 {
     _ICOM_THIS_From_IPersistFolder2 (IGenericSFImpl, iface);
-    if (This->pidlRoot)
-        SHFree((LPVOID)This->pidlRoot);
-
-    This->pidlRoot = ILClone(pidl);
-    return S_OK;
+    FIXME ("(%p)->(%p): stub\n", This, pidl);
+    return E_NOTIMPL;
 }
 
 /**************************************************************************

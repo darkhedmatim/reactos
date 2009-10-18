@@ -1,6 +1,10 @@
 #ifndef MUP_H
 #define MUP_H
 
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
+
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
 
 
@@ -15,13 +19,13 @@ typedef struct
 
 /* create.c */
 DRIVER_DISPATCH MupCreate;
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 MupCreate(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
 
 /* mup.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath);
 

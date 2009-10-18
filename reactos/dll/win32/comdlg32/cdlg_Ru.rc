@@ -46,7 +46,7 @@ FONT 8, "MS Shell Dlg"
 
 SAVE_FILE DIALOG LOADONCALL MOVEABLE DISCARDABLE 36, 24, 275, 134
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Сохранить как..."
+CAPTION "Сохранить как ..."
 FONT 8, "MS Shell Dlg"
 {
  LTEXT "&Имя файла:", 1090, 6, 6, 76, 9
@@ -312,13 +312,13 @@ BEGIN
   AUTORADIOBUTTON "Аль&бомная", rad2, 16, 190, 52, 12, BS_AUTORADIOBUTTON
   GROUPBOX "Поля", grp4, 80, 156, 152, 56, BS_GROUPBOX
   LTEXT "&Слева:", stc15, 88, 172, 31, 8
-  EDITTEXT edt4, 121, 170, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT edt4, 121, 170, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   LTEXT "С&верху:", stc16, 159, 172, 27, 8
-  EDITTEXT edt6, 187, 170, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT edt6, 187, 170, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   LTEXT "Спр&ава:", stc17, 88, 192, 31, 8
-  EDITTEXT edt5, 121, 190, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT edt5, 121, 190, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   LTEXT "Сни&зу:", stc18, 159, 192, 23, 8
-  EDITTEXT edt7, 187, 190, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT edt7, 187, 190, 29, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   DEFPUSHBUTTON "ОК", IDOK, 71, 220, 50, 14, BS_PUSHBUTTON
   PUSHBUTTON "Отмена", IDCANCEL, 126, 220, 50, 14
   PUSHBUTTON "&Принтер...", psh3, 184, 220, 48, 14
@@ -370,7 +370,7 @@ STRINGTABLE DISCARDABLE
     IDS_CREATEFILE          "Файла не существует\nХотите ли Вы его создать?"
     IDS_OVERWRITEFILE       "Файл уже существует.\nЗаменить его?"
     IDS_INVALID_FILENAME_TITLE "Некорректный символ в записи пути"
-    IDS_INVALID_FILENAME    "Имя файла не может содержать следующие символы:\n                          / : < > |"
+    IDS_INVALID_FILENAME    "Имя файла не может содержать следующие символы: \n                          / : < > |"
     IDS_PATHNOTEXISTING     "Путь не существует"
     IDS_FILENOTEXISTING     "Файл не существует"
 }
@@ -411,8 +411,8 @@ STRINGTABLE DISCARDABLE
     PD32_DEFAULT_PRINTER                  "Принтер по умолчанию; "
     PD32_NR_OF_DOCUMENTS_IN_QUEUE         "%d документов в очереди"
     PD32_MARGINS_IN_INCHES                "Границы [дюймы)"
-    PD32_MARGINS_IN_MILLIMETERS           "Границы [мм]"
-    PD32_MILLIMETERS                      "мм"
+    PD32_MARGINS_IN_MILIMETERS            "Границы [мм]"
+    PD32_MILIMETERS                       "мм"
 
     PD32_PRINTER_STATUS_READY             "Готово"
     PD32_PRINTER_STATUS_PAUSED            "Приостановлено; "
@@ -440,14 +440,6 @@ STRINGTABLE DISCARDABLE
     PD32_PRINTER_STATUS_DOOR_OPEN         "Крышка принтера открыта; "
     PD32_PRINTER_STATUS_SERVER_UNKNOWN    "Неизвестный сервер принтера; "
     PD32_PRINTER_STATUS_POWER_SAVE        "Питание в безопасном режиме; "
-}
-
-STRINGTABLE DISCARDABLE /* Font styles */
-{
-    IDS_FONT_REGULAR       "Нормальный"
-    IDS_FONT_BOLD          "Жирный"
-    IDS_FONT_ITALIC        "Курсив"
-    IDS_FONT_BOLD_ITALIC   "Жирный курсив"
 }
 
 STRINGTABLE DISCARDABLE /* Color names */

@@ -11,9 +11,4 @@
 	<library>cmlib</library>
 	<library>rtl</library>
 	<library>libcntpr</library>
-	<group linkerset="ld">
-		<linkerflag>-nostartfiles</linkerflag>
-		<linkerflag>-nostdlib</linkerflag>
-		<linkerflag>-lgcc</linkerflag>
-	</group>
 </module>

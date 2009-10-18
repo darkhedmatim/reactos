@@ -9,8 +9,6 @@
 #include <d3dhal.h>
 #include <ddrawgdi.h>
 
-#include <pseh/pseh2.h>
-
 #include "Ddraw/ddraw.h"
 #include "Surface/surface.h"
 #include "Clipper/clipper.h"
@@ -30,21 +28,13 @@ extern IDirectDrawVtbl DirectDraw_Vtable;
 
 
 extern IDirectDrawSurface7Vtbl DirectDrawSurface7_Vtable;
-extern IDirectDrawSurface4Vtbl DirectDrawSurface4_Vtable;
-extern IDirectDrawSurface3Vtbl DirectDrawSurface3_Vtable;
-extern IDirectDrawSurface2Vtbl DirectDrawSurface2_Vtable;
-extern IDirectDrawSurfaceVtbl DirectDrawSurface_Vtable;
+extern IDirectDrawSurface3Vtbl DirectDrawSurface3_VTable;
 extern IDirectDrawPaletteVtbl DirectDrawPalette_Vtable;
 extern IDirectDrawClipperVtbl DirectDrawClipper_Vtable;
 extern IDirectDrawColorControlVtbl DirectDrawColorControl_Vtable;
 extern IDirectDrawGammaControlVtbl DirectDrawGammaControl_Vtable;
 extern IDirectDrawKernelVtbl        DirectDrawKernel_Vtable;
 extern IDirectDrawSurfaceKernelVtbl DirectDrawSurfaceKernel_Vtable;
-
-extern IDirect3DVtbl IDirect3D_Vtbl;
-extern IDirect3D2Vtbl IDirect3D2_Vtbl;
-extern IDirect3D3Vtbl IDirect3D3_Vtbl;
-extern IDirect3D7Vtbl IDirect3D7_Vtbl;
 
 /* Start up direct hal or hel
  * iface = a pointer to the com object
@@ -90,7 +80,7 @@ HRESULT
 Internal_CreateSurface(
                        LPDDRAWI_DIRECTDRAW_INT pDDraw,
                        LPDDSURFACEDESC2 pDDSD,
-                       LPDDRAWI_DDRAWSURFACE_INT *ppSurf,
+                       LPDIRECTDRAWSURFACE7 *ppSurf,
                        IUnknown *pUnkOuter);
 
 /* convert DDSURFACEDESC to DDSURFACEDESC2 */
@@ -271,7 +261,7 @@ VOID Hal_DirectDraw_Release (LPDIRECTDRAW7);
     if (firstcallxx) \
     { \
         char buffer[1024]; \
-        sprintf ( buffer, "Setmode have been req width=%ld, height=%ld bpp=%ld freq = %ld\n",width,height,bpp, freq); \
+        sprintf ( buffer, "Setmode have been req width=%d, height=%d bpp=%d freq = %d\n",width,height,bpp, freq); \
         OutputDebugStringA(buffer); \
         firstcallxx = TRUE; \
     }

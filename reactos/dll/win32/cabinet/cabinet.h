@@ -403,11 +403,11 @@ typedef struct {
 #define FDI_INT_MAGIC 0xfdfdfd05
 
 #define REALLY_IS_FCI(hfci) ( \
-  ((hfci) != NULL) && \
+  (((void *) hfci) != NULL) && \
   (PFCI_INT(hfci)->FCI_Intmagic == FCI_INT_MAGIC) )
 
 #define REALLY_IS_FDI(hfdi) ( \
-  ((hfdi) != NULL) && \
+  (((void *) hfdi) != NULL) && \
   (PFDI_INT(hfdi)->FDI_Intmagic == FDI_INT_MAGIC) )
 
 /*
@@ -652,5 +652,10 @@ typedef struct {
     CHAR Reserved[MAX_PATH];
     struct FILELIST *FilterList;
 } SESSION;
+
+/* from fdi.c */
+void QTMupdatemodel(struct QTMmodel *model, int sym);
+int make_decode_table(cab_ULONG nsyms, cab_ULONG nbits, const cab_UBYTE *length, cab_UWORD *table);
+cab_ULONG checksum(const cab_UBYTE *data, cab_UWORD bytes, cab_ULONG csum);
 
 #endif /* __WINE_CABINET_H */

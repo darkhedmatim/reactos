@@ -30,7 +30,7 @@ static DWORD dwResumeCount = 1;
 
 
 PSERVICE
-ScmGetServiceEntryByName(LPCWSTR lpServiceName)
+ScmGetServiceEntryByName(LPWSTR lpServiceName)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
@@ -59,7 +59,7 @@ ScmGetServiceEntryByName(LPCWSTR lpServiceName)
 
 
 PSERVICE
-ScmGetServiceEntryByDisplayName(LPCWSTR lpDisplayName)
+ScmGetServiceEntryByDisplayName(LPWSTR lpDisplayName)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
@@ -117,13 +117,13 @@ ScmGetServiceEntryByResumeCount(DWORD dwResumeCount)
 
 
 PSERVICE
-ScmGetServiceEntryByClientHandle(HANDLE Handle)
+ScmGetServiceEntryByClientHandle(ULONG Handle)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
 
     DPRINT("ScmGetServiceEntryByClientHandle() called\n");
-    DPRINT("looking for %p\n", Handle);
+    DPRINT("looking for %lu\n", Handle);
 
     ServiceEntry = ServiceListHead.Flink;
     while (ServiceEntry != &ServiceListHead)
@@ -148,7 +148,7 @@ ScmGetServiceEntryByClientHandle(HANDLE Handle)
 
 
 DWORD
-ScmCreateNewServiceRecord(LPCWSTR lpServiceName,
+ScmCreateNewServiceRecord(LPWSTR lpServiceName,
                           PSERVICE *lpServiceRecord)
 {
     PSERVICE lpService = NULL;
@@ -172,11 +172,10 @@ ScmCreateNewServiceRecord(LPCWSTR lpServiceName,
     /* Set the resume count */
     lpService->dwResumeCount = dwResumeCount++;
 
-    /* Append service record */
+    /* Append service entry */
     InsertTailList(&ServiceListHead,
                    &lpService->ServiceListEntry);
 
-    /* Initialize the service status */
     lpService->Status.dwCurrentState = SERVICE_STOPPED;
     lpService->Status.dwControlsAccepted = 0;
     lpService->Status.dwWin32ExitCode = ERROR_SERVICE_NEVER_STARTED;
@@ -188,44 +187,8 @@ ScmCreateNewServiceRecord(LPCWSTR lpServiceName,
 }
 
 
-VOID
-ScmDeleteServiceRecord(PSERVICE lpService)
-{
-    DPRINT1("Deleting Service %S\n", lpService->lpServiceName);
-
-    /* Delete the display name */
-    if (lpService->lpDisplayName != NULL &&
-        lpService->lpDisplayName != lpService->lpServiceName)
-        HeapFree(GetProcessHeap(), 0, lpService->lpDisplayName);
-
-    /* Decrement the image reference counter */
-    if (lpService->lpImage)
-        lpService->lpImage->dwServiceRefCount--;
-
-    /* Decrement the group reference counter */
-    if (lpService->lpGroup)
-        lpService->lpGroup->dwRefCount--;
-
-    /* FIXME: SecurityDescriptor */
-
-    /* Close the control pipe */
-    if (lpService->ControlPipeHandle != INVALID_HANDLE_VALUE)
-        CloseHandle(lpService->ControlPipeHandle);
-
-    /* Remove the Service from the List */
-    RemoveEntryList(&lpService->ServiceListEntry);
-
-    DPRINT1("Deleted Service %S\n", lpService->lpServiceName);
-
-    /* Delete the service record */
-    HeapFree(GetProcessHeap(), 0, lpService);
-
-    DPRINT1("Done\n");
-}
-
-
 static DWORD
-CreateServiceListEntry(LPCWSTR lpServiceName,
+CreateServiceListEntry(LPWSTR lpServiceName,
                        HKEY hServiceKey)
 {
     PSERVICE lpService = NULL;
@@ -359,60 +322,11 @@ done:;
 }
 
 
-DWORD
-ScmDeleteRegKey(HKEY hKey, LPCWSTR lpszSubKey)
-{
-    DWORD dwRet, dwMaxSubkeyLen = 0, dwSize;
-    WCHAR szNameBuf[MAX_PATH], *lpszName = szNameBuf;
-    HKEY hSubKey = 0;
-
-    dwRet = RegOpenKeyExW(hKey, lpszSubKey, 0, KEY_READ, &hSubKey);
-    if (!dwRet)
-    {
-        /* Find the maximum subkey length so that we can allocate a buffer */
-        dwRet = RegQueryInfoKeyW(hSubKey, NULL, NULL, NULL, NULL,
-                                                         &dwMaxSubkeyLen, NULL, NULL, NULL, NULL, NULL, NULL);
-        if (!dwRet)
-        {
-            dwMaxSubkeyLen++;
-            if (dwMaxSubkeyLen > sizeof(szNameBuf)/sizeof(WCHAR))
-                /* Name too big: alloc a buffer for it */
-                lpszName = HeapAlloc(GetProcessHeap(), 0, dwMaxSubkeyLen*sizeof(WCHAR));
-
-            if(!lpszName)
-                dwRet = ERROR_NOT_ENOUGH_MEMORY;
-            else
-            {
-                while (dwRet == ERROR_SUCCESS)
-                {
-                    dwSize = dwMaxSubkeyLen;
-                    dwRet = RegEnumKeyExW(hSubKey, 0, lpszName, &dwSize, NULL, NULL, NULL, NULL);
-                    if (dwRet == ERROR_SUCCESS || dwRet == ERROR_MORE_DATA)
-                        dwRet = ScmDeleteRegKey(hSubKey, lpszName);
-                }
-                if (dwRet == ERROR_NO_MORE_ITEMS)
-                    dwRet = ERROR_SUCCESS;
-
-                if (lpszName != szNameBuf)
-                    HeapFree(GetProcessHeap(), 0, lpszName); /* Free buffer if allocated */
-            }
-        }
-
-        RegCloseKey(hSubKey);
-        if (!dwRet)
-            dwRet = RegDeleteKeyW(hKey, lpszSubKey);
-    }
-    return dwRet;
-}
-
-
 VOID
 ScmDeleteMarkedServices(VOID)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
-    HKEY hServicesKey;
-    DWORD dwError;
 
     ServiceEntry = ServiceListHead.Flink;
     while (ServiceEntry != &ServiceListHead)
@@ -423,66 +337,14 @@ ScmDeleteMarkedServices(VOID)
 
         if (CurrentService->bDeleted == TRUE)
         {
-            dwError = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                                    L"System\\CurrentControlSet\\Services",
-                                    0,
-                                    DELETE,
-                                    &hServicesKey);
-            if (dwError == ERROR_SUCCESS)
-            {
-                dwError = ScmDeleteRegKey(hServicesKey, CurrentService->lpServiceName);
-                RegCloseKey(hServicesKey);
-                if (dwError == ERROR_SUCCESS)
-                {
-                    RemoveEntryList(&CurrentService->ServiceListEntry);
-                    HeapFree(GetProcessHeap(), 0, CurrentService);
-                }
-            }
-            
-            if (dwError != ERROR_SUCCESS)
-                DPRINT1("Delete service failed: %S\n", CurrentService->lpServiceName);
+            DPRINT1("Delete service: %S\n", CurrentService->lpServiceName);
+
+            /* FIXME: Delete the registry keys */
+
+            /* FIXME: Delete the service record from the list */
+
         }
     }
-}
-
-
-VOID
-WaitForLSA(VOID)
-{
-    HANDLE hEvent;
-    DWORD dwError;
-
-    DPRINT("WaitForLSA() called\n");
-
-    hEvent = CreateEventW(NULL,
-                          TRUE,
-                          FALSE,
-                          L"LSA_RPC_SERVER_ACTIVE");
-    if (hEvent == NULL)
-    {
-        dwError = GetLastError();
-        DPRINT1("Failed to create the notication event (Error %lu)\n", dwError);
-
-        if (dwError == ERROR_ALREADY_EXISTS)
-        {
-            hEvent = OpenEventW(SYNCHRONIZE,
-                                FALSE,
-                                L"LSA_RPC_SERVER_ACTIVE");
-            if (hEvent != NULL)
-            {
-               DPRINT1("Could not open the notification event!\n");
-               return;
-            }
-        }
-    }
-
-    DPRINT("Wait for LSA!\n");
-    WaitForSingleObject(hEvent, INFINITE);
-    DPRINT("LSA is available!\n");
-
-    CloseHandle(hEvent);
-
-    DPRINT("WaitForLSA() done\n");
 }
 
 
@@ -555,9 +417,6 @@ ScmCreateServiceDatabase(VOID)
     }
 
     RegCloseKey(hServicesKey);
-
-    /* Wait for LSA */
-    WaitForLSA();
 
     /* Delete services that are marked for delete */
     ScmDeleteMarkedServices();
@@ -727,7 +586,7 @@ ScmControlService(PSERVICE Service,
     ControlPacket->dwSize = TotalLength;
     wcscpy(&ControlPacket->szArguments[0], Service->lpServiceName);
 
-    /* Send the control packet */
+    /* Send the start command */
     WriteFile(Service->ControlPipeHandle,
               ControlPacket,
               sizeof(SCM_CONTROL_PACKET) + (TotalLength * sizeof(WCHAR)),
@@ -753,8 +612,7 @@ ScmControlService(PSERVICE Service,
 
 static DWORD
 ScmSendStartCommand(PSERVICE Service,
-                    DWORD argc,
-                    LPWSTR *argv)
+                    LPWSTR Arguments)
 {
     PSCM_CONTROL_PACKET ControlPacket;
     DWORD TotalLength;
@@ -767,14 +625,16 @@ ScmSendStartCommand(PSERVICE Service,
 
     /* Calculate the total length of the start command line */
     TotalLength = wcslen(Service->lpServiceName) + 1;
-    if (argc > 0)
+    if (Arguments != NULL)
     {
-        for (Count = 0; Count < argc; Count++)
+        Ptr = Arguments;
+        while (*Ptr)
         {
-            DPRINT("Arg: %S\n", argv[Count]);
-            Length = wcslen(argv[Count]) + 1;
+            Length = wcslen(Ptr) + 1;
             TotalLength += Length;
             ArgsLength += Length;
+            Ptr += Length;
+            DPRINT("Arg: %S\n", Ptr);
         }
     }
     TotalLength++;
@@ -795,14 +655,10 @@ ScmSendStartCommand(PSERVICE Service,
     Ptr += (wcslen(Service->lpServiceName) + 1);
 
     /* Copy argument list */
-    if (argc > 0)
+    if (Arguments != NULL)
     {
-        UNIMPLEMENTED;
-        DPRINT1("Arguments sent to service ignored!\n");
-#if 0
         memcpy(Ptr, Arguments, ArgsLength);
         Ptr += ArgsLength;
-#endif
     }
 
     /* Terminate the argument list */
@@ -830,8 +686,7 @@ ScmSendStartCommand(PSERVICE Service,
 
 static DWORD
 ScmStartUserModeService(PSERVICE Service,
-                        DWORD argc,
-                        LPWSTR *argv)
+                        LPWSTR lpArgs)
 {
     RTL_QUERY_REGISTRY_TABLE QueryTable[3];
     PROCESS_INFORMATION ProcessInformation;
@@ -939,8 +794,8 @@ ScmStartUserModeService(PSERVICE Service,
     StartupInfo.cbReserved2 = 0;
     StartupInfo.lpReserved2 = 0;
 
-    Result = CreateProcessW(NULL,
-                            ImagePath.Buffer,
+    Result = CreateProcessW(ImagePath.Buffer,
+                            NULL,
                             NULL,
                             NULL,
                             FALSE,
@@ -1000,7 +855,7 @@ ScmStartUserModeService(PSERVICE Service,
             DPRINT("Received service status %lu\n", Service->hClient);
 
             /* Send start command */
-            dwError = ScmSendStartCommand(Service, argc, argv);
+            dwError = ScmSendStartCommand(Service, lpArgs);
         }
     }
     else
@@ -1023,7 +878,7 @@ ScmStartUserModeService(PSERVICE Service,
 
 
 DWORD
-ScmStartService(PSERVICE Service, DWORD argc, LPWSTR *argv)
+ScmStartService(PSERVICE Service, LPWSTR lpArgs)
 {
     PSERVICE_GROUP Group = Service->lpGroup;
     DWORD dwError = ERROR_SUCCESS;
@@ -1043,7 +898,7 @@ ScmStartService(PSERVICE Service, DWORD argc, LPWSTR *argv)
     else
     {
         /* Start user-mode service */
-        dwError = ScmStartUserModeService(Service, argc, argv);
+        dwError = ScmStartUserModeService(Service, lpArgs);
     }
 
     DPRINT("ScmStartService() done (Error %lu)\n", dwError);
@@ -1130,7 +985,7 @@ ScmAutoStartServices(VOID)
                     (CurrentService->dwTag == CurrentGroup->TagArray[i]))
                 {
                     CurrentService->ServiceVisited = TRUE;
-                    ScmStartService(CurrentService, 0, NULL);
+                    ScmStartService(CurrentService, NULL);
                 }
 
                 ServiceEntry = ServiceEntry->Flink;
@@ -1148,7 +1003,7 @@ ScmAutoStartServices(VOID)
                 (CurrentService->ServiceVisited == FALSE))
             {
                 CurrentService->ServiceVisited = TRUE;
-                ScmStartService(CurrentService, 0, NULL);
+                ScmStartService(CurrentService, NULL);
             }
 
             ServiceEntry = ServiceEntry->Flink;
@@ -1168,7 +1023,7 @@ ScmAutoStartServices(VOID)
             (CurrentService->ServiceVisited == FALSE))
         {
             CurrentService->ServiceVisited = TRUE;
-            ScmStartService(CurrentService, 0, NULL);
+            ScmStartService(CurrentService, NULL);
         }
 
         ServiceEntry = ServiceEntry->Flink;
@@ -1185,7 +1040,7 @@ ScmAutoStartServices(VOID)
             (CurrentService->ServiceVisited == FALSE))
         {
             CurrentService->ServiceVisited = TRUE;
-            ScmStartService(CurrentService, 0, NULL);
+            ScmStartService(CurrentService, NULL);
         }
 
         ServiceEntry = ServiceEntry->Flink;

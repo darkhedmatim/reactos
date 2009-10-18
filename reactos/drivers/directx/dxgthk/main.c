@@ -12,7 +12,7 @@
 /* DDK/NDK/SDK Headers */
 #include <ddk/ntddk.h>
 
-NTSTATUS NTAPI
+NTSTATUS
 DriverEntry(IN PVOID Context1,
             IN PVOID Context2)
 {

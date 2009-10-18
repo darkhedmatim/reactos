@@ -9,15 +9,12 @@
 #define NDEBUG
 #include <debug.h>
 
-static __inline PHCELL CMAPI
+static PHCELL __inline CMAPI
 HvpGetCellHeader(
    PHHIVE RegistryHive,
    HCELL_INDEX CellIndex)
 {
    PVOID Block;
-
-   CMLTRACE(CMLIB_HCELL_DEBUG, "%s - Hive %p, CellIndex %08lx\n",
-       __FUNCTION__, RegistryHive, CellIndex);
 
    ASSERT(CellIndex != HCELL_NIL);
    if (!RegistryHive->Flat)
@@ -46,24 +43,26 @@ BOOLEAN CMAPI
 HvIsCellAllocated(IN PHHIVE RegistryHive,
                   IN HCELL_INDEX CellIndex)
 {
-   ULONG Type, Block;
+    ULONG Type, Block;
 
-   /* If it's a flat hive, the cell is always allocated */
-   if (RegistryHive->Flat)
-      return TRUE;
+    /* If it's a flat hive, the cell is always allocated */
+    if (RegistryHive->Flat) return TRUE;
 
-   /* Otherwise, get the type and make sure it's valid */
-   Type = HvGetCellType(CellIndex);
-   Block = HvGetCellBlock(CellIndex);
-   if (Block >= RegistryHive->Storage[Type].Length)
-      return FALSE;
+    /* Otherwise, get the type and make sure it's valid */
+    Type = HvGetCellType(CellIndex);
+    if (((CellIndex % ~HCELL_TYPE_MASK) > RegistryHive->Storage[Type].Length) ||
+        (CellIndex % (RegistryHive->Version >= 2 ? 8 : 16)))
+    {
+        /* Invalid cell index */
+        return FALSE;
+    }
 
-   /* Try to get the cell block */
-   if (RegistryHive->Storage[Type].BlockList[Block].BlockAddress)
-      return TRUE;
+    /* Try to get the cell block */
+    Block = (CellIndex & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
+    if (RegistryHive->Storage[Type].BlockList[Block].BlockAddress) return TRUE;
 
-   /* No valid block, fail */
-   return FALSE;
+    /* No valid block, fail */
+    return FALSE;
 }
 
 PVOID CMAPI
@@ -74,12 +73,11 @@ HvGetCell(
    return (PVOID)(HvpGetCellHeader(RegistryHive, CellIndex) + 1);
 }
 
-static __inline LONG CMAPI
+static LONG __inline CMAPI
 HvpGetCellFullSize(
    PHHIVE RegistryHive,
    PVOID Cell)
 {
-   UNREFERENCED_PARAMETER(RegistryHive);
    return ((PHCELL)Cell - 1)->Size;
 }
 
@@ -87,15 +85,13 @@ LONG CMAPI
 HvGetCellSize(IN PHHIVE Hive,
               IN PVOID Address)
 {
-   PHCELL CellHeader;
-   LONG Size;
+    PHCELL CellHeader;
+    LONG Size;
 
-   UNREFERENCED_PARAMETER(Hive);
-
-   CellHeader = (PHCELL)Address - 1;
-   Size = CellHeader->Size * -1;
-   Size -= sizeof(HCELL);
-   return Size;
+    CellHeader = (PHCELL)Address - 1;
+    Size = CellHeader->Size * -1;
+    Size -= sizeof(HCELL);
+    return Size;
 }
 
 BOOLEAN CMAPI
@@ -104,19 +100,21 @@ HvMarkCellDirty(
    HCELL_INDEX CellIndex,
    BOOLEAN HoldingLock)
 {
+   LONG CellSize;
    ULONG CellBlock;
    ULONG CellLastBlock;
 
    ASSERT(RegistryHive->ReadOnly == FALSE);
-
-   CMLTRACE(CMLIB_HCELL_DEBUG, "%s - Hive %p, CellIndex %08lx, HoldingLock %b\n",
-       __FUNCTION__, RegistryHive, CellIndex, HoldingLock);
 
    if ((CellIndex & HCELL_TYPE_MASK) >> HCELL_TYPE_SHIFT != Stable)
       return FALSE;
 
    CellBlock = (CellIndex & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
    CellLastBlock = ((CellIndex + HV_BLOCK_SIZE - 1) & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
+
+   CellSize = HvpGetCellFullSize(RegistryHive, HvGetCell(RegistryHive, CellIndex));
+   if (CellSize < 0)
+      CellSize = -CellSize;
 
    RtlSetBits(&RegistryHive->DirtyVector,
               CellBlock, CellLastBlock - CellBlock);
@@ -127,24 +125,17 @@ BOOLEAN CMAPI
 HvIsCellDirty(IN PHHIVE Hive,
               IN HCELL_INDEX Cell)
 {
-   BOOLEAN IsDirty = FALSE;
+    /* Sanity checks */
+    ASSERT(Hive->ReadOnly == FALSE);
 
-   /* Sanity checks */
-   ASSERT(Hive->ReadOnly == FALSE);
+    /* Volatile cells are always "dirty" */
+    if (HvGetCellType(Cell) == Volatile) return TRUE;
 
-   /* Volatile cells are always "dirty" */
-   if (HvGetCellType(Cell) == Volatile)
-      return TRUE;
-
-   /* Check if the dirty bit is set */
-   if (RtlCheckBit(&Hive->DirtyVector, Cell / HV_BLOCK_SIZE))
-       IsDirty = TRUE;
-
-   /* Return result as boolean*/
-   return IsDirty;
+    /* Check if the dirty bit is set */
+    return RtlCheckBit(&Hive->DirtyVector, Cell / HV_BLOCK_SIZE);
 }
 
-static __inline ULONG CMAPI
+static ULONG __inline CMAPI
 HvpComputeFreeListIndex(
    ULONG Size)
 {
@@ -213,7 +204,7 @@ HvpRemoveFree(
    PHCELL_INDEX FreeCellData;
    PHCELL_INDEX pFreeCellOffset;
    HSTORAGE_TYPE Storage;
-   ULONG Index, FreeListIndex;
+   ULONG Index;
 
    ASSERT(RegistryHive->ReadOnly == FALSE);
 
@@ -232,25 +223,7 @@ HvpRemoveFree(
       pFreeCellOffset = FreeCellData;
    }
 
-   /* Something bad happened, print a useful trace info and bugcheck */
-   CMLTRACE(CMLIB_HCELL_DEBUG, "-- beginning of HvpRemoveFree trace --\n");
-   CMLTRACE(CMLIB_HCELL_DEBUG, "block we are about to free: %08x\n", CellIndex);
-   CMLTRACE(CMLIB_HCELL_DEBUG, "chosen free list index: %d\n", Index);
-   for (FreeListIndex = 0; FreeListIndex < 24; FreeListIndex++)
-   {
-      CMLTRACE(CMLIB_HCELL_DEBUG, "free list [%d]: ", FreeListIndex);
-      pFreeCellOffset = &RegistryHive->Storage[Storage].FreeDisplay[FreeListIndex];
-      while (*pFreeCellOffset != HCELL_NIL)
-      {
-         CMLTRACE(CMLIB_HCELL_DEBUG, "%08x ", *pFreeCellOffset);
-         FreeCellData = (PHCELL_INDEX)HvGetCell(RegistryHive, *pFreeCellOffset);
-         pFreeCellOffset = FreeCellData;
-      }
-      CMLTRACE(CMLIB_HCELL_DEBUG, "\n");
-   }
-   CMLTRACE(CMLIB_HCELL_DEBUG, "-- end of HvpRemoveFree trace --\n");
-
-   ASSERT(FALSE);
+   //ASSERT(FALSE);
 }
 
 static HCELL_INDEX CMAPI
@@ -348,9 +321,6 @@ HvAllocateCell(
 
    ASSERT(RegistryHive->ReadOnly == FALSE);
 
-   CMLTRACE(CMLIB_HCELL_DEBUG, "%s - Hive %p, Size %x, %s, Vicinity %08lx\n",
-       __FUNCTION__, RegistryHive, Size, (Storage == 0) ? "Stable" : "Volatile", Vicinity);
-
    /* Round to 16 bytes multiple. */
    Size = ROUND_UP(Size + sizeof(HCELL), 16);
 
@@ -370,13 +340,8 @@ HvAllocateCell(
    FreeCell = HvpGetCellHeader(RegistryHive, FreeCellOffset);
 
    /* Split the block in two parts */
-
-   /* The free block that is created has to be at least
-      sizeof(HCELL) + sizeof(HCELL_INDEX) big, so that free
-      cell list code can work. Moreover we round cell sizes
-      to 16 bytes, so creating a smaller block would result in
-      a cell that would never be allocated. */
-   if ((ULONG)FreeCell->Size > Size + 16)
+   /* FIXME: There is some minimal cell size that we must respect. */
+   if ((ULONG)FreeCell->Size > Size + sizeof(HCELL_INDEX))
    {
       NewCell = (PHCELL)((ULONG_PTR)FreeCell + Size);
       NewCell->Size = FreeCell->Size - Size;
@@ -390,9 +355,6 @@ HvAllocateCell(
       HvMarkCellDirty(RegistryHive, FreeCellOffset, FALSE);
    FreeCell->Size = -FreeCell->Size;
    RtlZeroMemory(FreeCell + 1, Size - sizeof(HCELL));
-
-   CMLTRACE(CMLIB_HCELL_DEBUG, "%s - CellIndex %08lx\n",
-       __FUNCTION__, FreeCellOffset);
 
    return FreeCellOffset;
 }
@@ -411,9 +373,6 @@ HvReallocateCell(
 
    ASSERT(CellIndex != HCELL_NIL);
 
-   CMLTRACE(CMLIB_HCELL_DEBUG, "%s - Hive %p, CellIndex %08lx, Size %x\n",
-       __FUNCTION__, RegistryHive, CellIndex, Size);
-
    Storage = (CellIndex & HCELL_TYPE_MASK) >> HCELL_TYPE_SHIFT;
 
    OldCell = HvGetCell(RegistryHive, CellIndex);
@@ -427,7 +386,7 @@ HvReallocateCell(
     * FIXME: Merge with adjacent free cell if possible.
     * FIXME: Implement shrinking.
     */
-   if (Size > (ULONG)OldCellSize)
+   if (Size > OldCellSize)
    {
       NewCellIndex = HvAllocateCell(RegistryHive, Size, Storage, HCELL_NIL);
       if (NewCellIndex == HCELL_NIL)
@@ -456,9 +415,6 @@ HvFreeCell(
    ULONG CellBlock;
 
    ASSERT(RegistryHive->ReadOnly == FALSE);
-
-   CMLTRACE(CMLIB_HCELL_DEBUG, "%s - Hive %p, CellIndex %08lx\n",
-       __FUNCTION__, RegistryHive, CellIndex);
 
    Free = HvpGetCellHeader(RegistryHive, CellIndex);
 
@@ -492,23 +448,11 @@ HvFreeCell(
       {
          if ((ULONG_PTR)Neighbor + Neighbor->Size == (ULONG_PTR)Free)
          {
-            HCELL_INDEX NeighborCellIndex =
-               (HCELL_INDEX)((ULONG_PTR)Neighbor - (ULONG_PTR)Bin +
-               Bin->FileOffset) | (CellIndex & HCELL_TYPE_MASK);
-
-            if (HvpComputeFreeListIndex(Neighbor->Size) !=
-                HvpComputeFreeListIndex(Neighbor->Size + Free->Size))
-            {
-               HvpRemoveFree(RegistryHive, Neighbor, NeighborCellIndex);
-               Neighbor->Size += Free->Size;
-               HvpAddFree(RegistryHive, Neighbor, NeighborCellIndex);
-            }
-            else
-               Neighbor->Size += Free->Size;
-
+            Neighbor->Size += Free->Size;
             if (CellType == Stable)
-               HvMarkCellDirty(RegistryHive, NeighborCellIndex, FALSE);
-
+               HvMarkCellDirty(RegistryHive,
+                               (HCELL_INDEX)((ULONG_PTR)Neighbor - (ULONG_PTR)Bin +
+                               Bin->FileOffset), FALSE);
             return;
          }
          Neighbor = (PHCELL)((ULONG_PTR)Neighbor + Neighbor->Size);

@@ -49,36 +49,31 @@ static void test_solidbrush(void)
 
     for(i=0; i<sizeof(stock)/sizeof(stock[0]); i++) {
         solidBrush = CreateSolidBrush(stock[i].color);
-        
+
         if(stock[i].stockobj != -1) {
-            stockBrush = GetStockObject(stock[i].stockobj);
-            ok(stockBrush!=solidBrush ||
-               broken(stockBrush==solidBrush), /* win9x does return stock object */
-               "Stock %s brush equals solid %s brush\n", stock[i].name, stock[i].name);
+            stockBrush = (HBRUSH)GetStockObject(stock[i].stockobj);
+            ok(stockBrush!=solidBrush, "Stock %s brush equals solid %s brush\n", stock[i].name, stock[i].name);
         }
         else
             stockBrush = NULL;
         memset(&br, 0, sizeof(br));
         ret = GetObject(solidBrush, sizeof(br), &br);
-        ok( ret !=0, "GetObject on solid %s brush failed, error=%d\n", stock[i].name, GetLastError());
+        ok( ret !=0, "GetObject on solid %s brush failed, error=%ld\n", stock[i].name, GetLastError());
         ok(br.lbStyle==BS_SOLID, "%s brush has wrong style, got %d expected %d\n", stock[i].name, br.lbStyle, BS_SOLID);
-        ok(br.lbColor==stock[i].color, "%s brush has wrong color, got 0x%08x expected 0x%08x\n", stock[i].name, br.lbColor, stock[i].color);
-        
+        ok(br.lbColor==stock[i].color, "%s brush has wrong color, got 0x%08lx expected 0x%08lx\n", stock[i].name, br.lbColor, stock[i].color);
+
         if(stockBrush) {
             /* Sanity check, make sure the colors being compared do in fact have a stock brush */
             ret = GetObject(stockBrush, sizeof(br), &br);
-            ok( ret !=0, "GetObject on stock %s brush failed, error=%d\n", stock[i].name, GetLastError());
-            ok(br.lbColor==stock[i].color, "stock %s brush unexpected color, got 0x%08x expected 0x%08x\n", stock[i].name, br.lbColor, stock[i].color);
+            ok( ret !=0, "GetObject on stock %s brush failed, error=%ld\n", stock[i].name, GetLastError());
+            ok(br.lbColor==stock[i].color, "stock %s brush unexpected color, got 0x%08lx expected 0x%08lx\n", stock[i].name, br.lbColor, stock[i].color);
         }
 
         DeleteObject(solidBrush);
-        ret = GetObject(solidBrush, sizeof(br), &br);
-        ok(ret==0 ||
-           broken(ret!=0), /* win9x */
-           "GetObject succeeded on a deleted %s brush\n", stock[i].name);
+        ok(GetObject(solidBrush, sizeof(br), &br)==0, "GetObject succeeded on a deleted %s brush\n", stock[i].name);
     }
 }
- 
+
 START_TEST(brush)
 {
     test_solidbrush();

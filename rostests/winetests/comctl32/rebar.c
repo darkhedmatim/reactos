@@ -17,10 +17,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-/* make sure the structures work with a comctl32 v5.x */
-#define _WIN32_WINNT 0x500
-#define _WIN32_IE 0x500
-
 #include <assert.h>
 #include <stdarg.h>
 
@@ -157,7 +153,7 @@ static void dump_sizes(HWND hRebar)
         printf("%s{ {%3d, %3d, %3d, %3d}, 0x%02x, %d}, ", (i%2==0 ? "\n    " : ""), r.left, r.top, r.right, r.bottom,
             rbi.fStyle, rbi.cx);
     }
-    printf("\n  }, },\n");
+    printf("\n  }, }, \n");
 }
 
 #define check_sizes() dump_sizes(hRebar);
@@ -256,21 +252,6 @@ rbsize_result_t rbsize_results[] = {
     { {328,   0, 511,  20}, 0x00, 183}, { {511,   0, 672,  20}, 0x00, 161},
     { {  0,  20, 672,  40}, 0x00, 200},
   }, },
-  { {0, 0, 672, 56}, 56, 2, {28, 28, }, 5, {
-    { {  0,   0, 114,  28}, 0x00, 40}, { {114,   0, 328,  28}, 0x00, 214},
-    { {328,   0, 511,  28}, 0x00, 183}, { {511,   0, 672,  28}, 0x00, 161},
-    { {  0,  28, 672,  56}, 0x00, 200},
-  }, },
-  { {0, 0, 672, 40}, 40, 2, {20, 20, }, 5, {
-    { {  0,   0, 114,  20}, 0x00, 40}, { {114,   0, 328,  20}, 0x00, 214},
-    { {328,   0, 511,  20}, 0x00, 183}, { {511,   0, 672,  20}, 0x00, 161},
-    { {  0,  20, 672,  40}, 0x00, 200},
-  }, },
-  { {0, 0, 672, 56}, 56, 2, {28, 28, }, 5, {
-    { {  0,   0, 114,  28}, 0x00, 40}, { {114,   0, 328,  28}, 0x00, 214},
-    { {328,   0, 511,  28}, 0x00, 183}, { {511,   0, 672,  28}, 0x00, 161},
-    { {  0,  28, 672,  56}, 0x00, 200},
-  }, },
   { {0, 0, 672, 0}, 0, 0, {0, }, 0, {{{0, 0, 0, 0}, 0, 0},
   }, },
   { {0, 0, 672, 65}, 65, 1, {65, }, 3, {
@@ -348,8 +329,6 @@ static void layout_test(void)
 {
     HWND hRebar = NULL;
     REBARBANDINFO rbi;
-    HIMAGELIST himl;
-    REBARINFO ri;
 
     rebuild_rebar(&hRebar);
     check_sizes();
@@ -427,27 +406,6 @@ static void layout_test(void)
     SendMessageA(hRebar, RB_MINIMIZEBAND, 0, 0);
     check_sizes();
 
-    /* an image will increase the band height */
-    himl = ImageList_LoadImage(LoadLibrary("comctl32"), MAKEINTRESOURCE(121), 24, 2, CLR_NONE, IMAGE_BITMAP, LR_DEFAULTCOLOR);
-    ri.cbSize = sizeof(ri);
-    ri.fMask = RBIM_IMAGELIST;
-    ri.himl = himl;
-    ok(SendMessage(hRebar, RB_SETBARINFO, 0, (LPARAM)&ri), "RB_SETBARINFO failed\n");
-    rbi.fMask = RBBIM_IMAGE;
-    rbi.iImage = 1;
-    SendMessage(hRebar, RB_SETBANDINFO, 1, (LPARAM)&rbi);
-    check_sizes();
-
-    /* after removing it everything is back to normal*/
-    rbi.iImage = -1;
-    SendMessage(hRebar, RB_SETBANDINFO, 1, (LPARAM)&rbi);
-    check_sizes();
-
-    /* Only -1 means that the image is not present. Other invalid values increase the height */
-    rbi.iImage = -2;
-    SendMessage(hRebar, RB_SETBANDINFO, 1, (LPARAM)&rbi);
-    check_sizes();
-
     /* VARHEIGHT resizing test on a horizontal rebar */
     rebuild_rebar(&hRebar);
     SetWindowLong(hRebar, GWL_STYLE, GetWindowLong(hRebar, GWL_STYLE) | RBS_AUTOSIZE);
@@ -512,7 +470,7 @@ static void dump_client(HWND hRebar)
     RECT r;
     BOOL notify;
     GetWindowRect(hRebar, &r);
-    MapWindowPoints(HWND_DESKTOP, hMainWnd, &r, 2);
+    MapWindowPoints(HWND_DESKTOP, hMainWnd, (LPPOINT)&r, 2);
     if (height_change_notify_rect.top != -1)
     {
         RECT rcClient;
@@ -828,24 +786,14 @@ static void bandinfo_test(void)
 
 START_TEST(rebar)
 {
-    HMODULE hComctl32;
-    BOOL (WINAPI *pInitCommonControlsEx)(const INITCOMMONCONTROLSEX*);
-    INITCOMMONCONTROLSEX iccex;
+    INITCOMMONCONTROLSEX icc;
     WNDCLASSA wc;
     MSG msg;
     RECT rc;
 
-    /* LoadLibrary is needed. This file has no references to functions in comctl32 */
-    hComctl32 = LoadLibraryA("comctl32.dll");
-    pInitCommonControlsEx = (void*)GetProcAddress(hComctl32, "InitCommonControlsEx");
-    if (!pInitCommonControlsEx)
-    {
-        skip("InitCommonControlsEx() is missing. Skipping the tests\n");
-        return;
-    }
-    iccex.dwSize = sizeof(iccex);
-    iccex.dwICC = ICC_COOL_CLASSES;
-    pInitCommonControlsEx(&iccex);
+    icc.dwSize = sizeof(icc);
+    icc.dwICC = ICC_COOL_CLASSES;
+    InitCommonControlsEx(&icc);
 
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.cbClsExtra = 0;
@@ -880,6 +828,4 @@ START_TEST(rebar)
         DispatchMessageA(&msg);
     }
     DestroyWindow(hMainWnd);
-
-    FreeLibrary(hComctl32);
 }

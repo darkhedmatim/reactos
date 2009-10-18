@@ -34,7 +34,7 @@
 
 /* GLOBALS ******************************************************************/
 
-#define YEAR_STR_MAX_SIZE        5
+#define YEAR_STR_MAX_SIZE        4
 #define MAX_SHRT_DATE_SEPARATORS 3
 #define STD_DATE_SEP             _T(".")
 #define YEAR_DIFF                (99)
@@ -59,8 +59,8 @@ LPTSTR
 FindDateSep(const TCHAR *szSourceStr)
 {
     LPTSTR pszFoundSep;
-    UINT nDateCompCount=0;
-    UINT nDateSepCount=0;
+    INT nDateCompCount=0;
+    INT nDateSepCount=0;
 
     pszFoundSep = (LPTSTR)malloc(MAX_SAMPLES_STR_SIZE * sizeof(TCHAR));
 
@@ -418,14 +418,14 @@ SetMaxDate(HWND hwndDlg, LCID lcid)
     SetCalendarInfo(lcid,
                     CAL_GREGORIAN,
                     48 , /* CAL_ITWODIGITYEARMAX */
-                    (LPCTSTR)szMaxDateVal);
+                    (LPCTSTR)&szMaxDateVal);
 }
 
 /* Get max date value from registry set */
 static INT
 GetMaxDate(LCID lcid)
 {
-    INT nMaxDateVal = 0;
+    INT nMaxDateVal;
 
     GetCalendarInfo(lcid,
                     CAL_GREGORIAN,

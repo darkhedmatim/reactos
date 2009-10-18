@@ -13,25 +13,10 @@
 	<directory name="rpcss">
 		<xi:include href="rpcss/rpcss.rbuild" />
 	</directory>
-	<directory name="spoolsv">
-		<xi:include href="spoolsv/spoolsv.rbuild" />
-	</directory>
-	<directory name="svchost">
-		<xi:include href="svchost/svchost.rbuild" />
-	</directory>
 	<directory name="tcpsvcs">
 		<xi:include href="tcpsvcs/tcpsvcs.rbuild" />
 	</directory>
-	<directory name="telnetd">
-		<xi:include href="telnetd/telnetd.rbuild" />
-	</directory>
-        <directory name="tftpd">
-                <xi:include href="tftpd/tftpd.rbuild" />
-        </directory>
 	<directory name="umpnpmgr">
 		<xi:include href="umpnpmgr/umpnpmgr.rbuild" />
-	</directory>
-	<directory name="wlansvc">
-		<xi:include href="wlansvc/wlansvc.rbuild" />
 	</directory>
 </group>

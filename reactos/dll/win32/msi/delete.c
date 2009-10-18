@@ -77,6 +77,7 @@ static UINT DELETE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
 {
     MSIDELETEVIEW *dv = (MSIDELETEVIEW*)view;
     UINT r, i, rows = 0, cols = 0;
+    MSIRECORD *empty;
 
     TRACE("%p %p\n", dv, record);
 
@@ -91,11 +92,17 @@ static UINT DELETE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
     if( r != ERROR_SUCCESS )
         return r;
 
-    TRACE("deleting %d rows\n", rows);
+    TRACE("blanking %d rows\n", rows);
+
+    empty = MSI_CreateRecord( cols );
+    if (!empty)
+        return ERROR_FUNCTION_FAILED;
 
     /* blank out all the rows that match */
     for ( i=0; i<rows; i++ )
-        dv->table->ops->delete_row( dv->table, i );
+        dv->table->ops->set_row( dv->table, i, empty, (1<<cols)-1 );
+
+    msiobj_release( &empty->hdr );
 
     return ERROR_SUCCESS;
 }
@@ -127,21 +134,20 @@ static UINT DELETE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *co
 }
 
 static UINT DELETE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSIDELETEVIEW *dv = (MSIDELETEVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", dv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", dv, n, name, type );
 
     if( !dv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return dv->table->ops->get_column_info( dv->table, n, name,
-                                            type, temporary );
+    return dv->table->ops->get_column_info( dv->table, n, name, type );
 }
 
 static UINT DELETE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                           MSIRECORD *rec, UINT row )
+                MSIRECORD *rec )
 {
     MSIDELETEVIEW *dv = (MSIDELETEVIEW*)view;
 
@@ -179,21 +185,13 @@ static const MSIVIEWOPS delete_ops =
     DELETE_fetch_stream,
     NULL,
     NULL,
-    NULL,
-    NULL,
     DELETE_execute,
     DELETE_close,
     DELETE_get_dimensions,
     DELETE_get_column_info,
     DELETE_modify,
     DELETE_delete,
-    DELETE_find_matching_rows,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    DELETE_find_matching_rows
 };
 
 UINT DELETE_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table )
@@ -205,7 +203,7 @@ UINT DELETE_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table )
     dv = msi_alloc_zero( sizeof *dv );
     if( !dv )
         return ERROR_FUNCTION_FAILED;
-    
+
     /* fill the structure */
     dv->view.ops = &delete_ops;
     dv->db = db;

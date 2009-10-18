@@ -1,3 +1,4 @@
+/* $Id: x86.c,v 1.26 2005/10/07 17:18:52 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -27,8 +28,8 @@
  * Intel x86 assembly code by Josh Vanderhoof
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 

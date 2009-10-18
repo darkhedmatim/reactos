@@ -227,12 +227,6 @@ typedef struct _KEY_FULL_INFORMATION
     WCHAR Class[1];
 } KEY_FULL_INFORMATION, *PKEY_FULL_INFORMATION;
 
-typedef struct _KEY_NAME_INFORMATION
-{
-    WCHAR Name[1];
-} KEY_NAME_INFORMATION, *PKEY_NAME_INFORMATION;
-
-
 typedef struct _KEY_NODE_INFORMATION
 {
     LARGE_INTEGER LastWriteTime;
@@ -433,29 +427,8 @@ typedef struct _CM_PARTIAL_RESOURCE_DESCRIPTOR
         {
             ULONG Level;
             ULONG Vector;
-            KAFFINITY Affinity;
+            ULONG Affinity;
         } Interrupt;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-        struct
-        {
-            union
-            {
-                struct
-                {
-                    USHORT Reserved;
-                    USHORT MessageCount;
-                    ULONG Vector;
-                    KAFFINITY Affinity;
-                } Raw;
-                struct
-                {
-                    ULONG Level;
-                    ULONG Vector;
-                    KAFFINITY Affinity;
-                } Translated;
-            };
-        } MessageInterrupt;
-#endif
         struct
         {
             PHYSICAL_ADDRESS Start;
@@ -469,7 +442,7 @@ typedef struct _CM_PARTIAL_RESOURCE_DESCRIPTOR
         } Dma;
         struct
         {
-            ULONG Data[3];
+          ULONG Data[3];
         } DevicePrivate;
         struct
         {
@@ -483,23 +456,6 @@ typedef struct _CM_PARTIAL_RESOURCE_DESCRIPTOR
             ULONG Reserved1;
             ULONG Reserved2;
         } DeviceSpecificData;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-        struct
-        {
-            PHYSICAL_ADDRESS Start;
-            ULONG Length40;
-        } Memory40;
-        struct
-        {
-            PHYSICAL_ADDRESS Start;
-            ULONG Length48;
-        } Memory48;
-        struct
-        {
-            PHYSICAL_ADDRESS Start;
-            ULONG Length64;
-        } Memory64;
-#endif
     } u;
 } CM_PARTIAL_RESOURCE_DESCRIPTOR, *PCM_PARTIAL_RESOURCE_DESCRIPTOR;
 
@@ -561,6 +517,5 @@ typedef struct _CM_DISK_GEOMETRY_DEVICE_DATA
 #endif // _!NTOS_MODE_USER
 
 #endif // _CMTYPES_H
-
 
 

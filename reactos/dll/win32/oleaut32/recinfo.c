@@ -59,8 +59,8 @@ static HRESULT copy_to_variant(void *src, VARIANT *pvar, enum VARENUM vt)
 
 #define CASE_COPY(x) \
     case VT_ ## x: \
-        memcpy(&V_ ## x(pvar), src, sizeof(V_ ## x(pvar))); \
-        break 
+        V_ ## x(pvar) = *(typeof(V_ ## x(pvar))*)src; \
+        break
 
     switch(vt) {
         CASE_COPY(I2);
@@ -106,7 +106,7 @@ static HRESULT copy_from_variant(VARIANT *src, void *dest, enum VARENUM vt)
 
 #define CASE_COPY(x) \
     case VT_ ## x: \
-        memcpy(dest, &V_ ## x(&var), sizeof(V_ ## x(&var))); \
+        *(typeof(V_ ## x(&var))*)dest = V_ ## x(&var); \
         break
 
     switch(vt) {
@@ -211,12 +211,12 @@ static HRESULT WINAPI IRecordInfoImpl_RecordClear(IRecordInfo *iface, PVOID pvEx
         var = ((PBYTE)pvExisting)+This->fields[i].offset;
         switch(This->fields[i].vt) {
             case VT_BSTR:
-               SysFreeString(*(BSTR*)var);
+                /* NOTE: Windows implementatino reads DWORD (len) before string,
+                 *       but it seems to do nothing with this */
                 *(BSTR*)var = NULL;
                 break;
             case VT_I2:
             case VT_I4:
-            case VT_R4:
             case VT_R8:
             case VT_CY:
             case VT_DATE:
@@ -236,15 +236,12 @@ static HRESULT WINAPI IRecordInfoImpl_RecordClear(IRecordInfo *iface, PVOID pvEx
             case VT_UINT_PTR:
                 *(void**)var = NULL;
                 break;
-            case VT_SAFEARRAY:
-                SafeArrayDestroy(var);
-                break;
             default:
                 FIXME("Not supported vt = %d\n", This->fields[i].vt);
                 break;
         }
     }
-    
+
     return S_OK;
 }
 
@@ -254,7 +251,7 @@ static HRESULT WINAPI IRecordInfoImpl_RecordCopy(IRecordInfo *iface, PVOID pvExi
     IRecordInfoImpl *This = (IRecordInfoImpl*)iface;
 
     TRACE("(%p)->(%p %p)\n", This, pvExisting, pvNew);
-    
+
     if(!pvExisting || !pvNew)
         return E_INVALIDARG;
 
@@ -271,7 +268,7 @@ static HRESULT WINAPI IRecordInfoImpl_GetGuid(IRecordInfo *iface, GUID *pguid)
     if(!pguid)
         return E_INVALIDARG;
 
-    *pguid = This->guid;
+    memcpy(pguid, &This->guid, sizeof(GUID));
     return S_OK;
 }
 
@@ -291,12 +288,12 @@ static HRESULT WINAPI IRecordInfoImpl_GetName(IRecordInfo *iface, BSTR *pbstrNam
 static HRESULT WINAPI IRecordInfoImpl_GetSize(IRecordInfo *iface, ULONG *pcbSize)
 {
     IRecordInfoImpl *This = (IRecordInfoImpl*)iface;
-    
+
     TRACE("(%p)->(%p)\n", This, pcbSize);
 
     if(!pcbSize)
         return E_INVALIDARG;
-    
+
     *pcbSize = This->size;
     return S_OK;
 }
@@ -332,7 +329,7 @@ static HRESULT WINAPI IRecordInfoImpl_GetField(IRecordInfo *iface, PVOID pvData,
             break;
     if(i == This->n_vars)
         return TYPE_E_FIELDNOTFOUND;
-    
+
     VariantClear(pvarField);
     return copy_to_variant(((PBYTE)pvData)+This->fields[i].offset, pvarField,
             This->fields[i].vt);
@@ -415,7 +412,8 @@ static HRESULT WINAPI IRecordInfoImpl_GetFieldNames(IRecordInfo *iface, ULONG *p
                                                 BSTR *rgBstrNames)
 {
     IRecordInfoImpl *This = (IRecordInfoImpl*)iface;
-    ULONG n = This->n_vars, i;
+    ULONG n = This->n_vars;
+    int i;
 
     TRACE("(%p)->(%p %p)\n", This, pcNames, rgBstrNames);
 
@@ -429,7 +427,7 @@ static HRESULT WINAPI IRecordInfoImpl_GetFieldNames(IRecordInfo *iface, ULONG *p
         for(i=0; i<n; i++)
             rgBstrNames[i] = SysAllocString(This->fields[i].name);
     }
-    
+
     *pcNames = n;
     return S_OK;
 }
@@ -461,7 +459,7 @@ static HRESULT WINAPI IRecordInfoImpl_RecordCreateCopy(IRecordInfo *iface, PVOID
 
     if(!pvSource || !ppvDest)
         return E_INVALIDARG;
-    
+
     *ppvDest = IRecordInfo_RecordCreate(iface);
     return IRecordInfo_RecordCopy(iface, pvSource, *ppvDest);
 }
@@ -469,13 +467,8 @@ static HRESULT WINAPI IRecordInfoImpl_RecordCreateCopy(IRecordInfo *iface, PVOID
 static HRESULT WINAPI IRecordInfoImpl_RecordDestroy(IRecordInfo *iface, PVOID pvRecord)
 {
     IRecordInfoImpl *This = (IRecordInfoImpl*)iface;
-    HRESULT hres;
 
     TRACE("(%p)->(%p)\n", This, pvRecord);
-
-    hres = IRecordInfo_RecordClear(iface, pvRecord);
-    if(FAILED(hres))
-        return hres;
 
     if(!HeapFree(GetProcessHeap(), 0, pvRecord))
         return E_INVALIDARG;
@@ -518,7 +511,7 @@ HRESULT WINAPI GetRecordInfoFromGuids(REFGUID rGuidTypeLib, ULONG uVerMajor,
     ITypeInfo *pTypeInfo;
     ITypeLib *pTypeLib;
     HRESULT hres;
-    
+
     TRACE("(%p,%d,%d,%d,%p,%p)\n", rGuidTypeLib, uVerMajor, uVerMinor,
             lcid, rGuidTypeInfo, ppRecInfo);
 
@@ -555,7 +548,7 @@ HRESULT WINAPI GetRecordInfoFromTypeInfo(ITypeInfo* pTI, IRecordInfo** ppRecInfo
 
     if(!pTI || !ppRecInfo)
         return E_INVALIDARG;
-    
+
     hres = ITypeInfo_GetTypeAttr(pTI, &typeattr);
     if(FAILED(hres) || !typeattr) {
         WARN("GetTypeAttr failed: %08x\n", hres);
@@ -564,7 +557,7 @@ HRESULT WINAPI GetRecordInfoFromTypeInfo(ITypeInfo* pTI, IRecordInfo** ppRecInfo
 
     if(typeattr->typekind == TKIND_ALIAS) {
         hres = ITypeInfo_GetRefTypeInfo(pTI, typeattr->tdescAlias.u.hreftype, &pTypeInfo);
-        guid = typeattr->guid;
+        memcpy(&guid, &typeattr->guid, sizeof(GUID));
         ITypeInfo_ReleaseTypeAttr(pTI, typeattr);
         if(FAILED(hres)) {
             WARN("GetRefTypeInfo failed: %08x\n", hres);
@@ -574,7 +567,7 @@ HRESULT WINAPI GetRecordInfoFromTypeInfo(ITypeInfo* pTI, IRecordInfo** ppRecInfo
     }else  {
         pTypeInfo = pTI;
         ITypeInfo_AddRef(pTypeInfo);
-        guid = typeattr->guid;
+        memcpy(&guid, &typeattr->guid, sizeof(GUID));
     }
 
     if(typeattr->typekind != TKIND_RECORD) {
@@ -592,7 +585,7 @@ HRESULT WINAPI GetRecordInfoFromTypeInfo(ITypeInfo* pTI, IRecordInfo** ppRecInfo
     ret->size = typeattr->cbSizeInstance;
     ITypeInfo_ReleaseTypeAttr(pTypeInfo, typeattr);
 
-    ret->guid = guid;
+    memcpy(&ret->guid, &guid, sizeof(GUID));
 
     /* NOTE: Windows implementation calls ITypeInfo::GetCantainingTypeLib and
      *       ITypeLib::GetLibAttr, but we currently don't need this.
@@ -621,7 +614,7 @@ HRESULT WINAPI GetRecordInfoFromTypeInfo(ITypeInfo* pTI, IRecordInfo** ppRecInfo
             WARN("GetDocumentation failed: %08x\n", hres);
         ITypeInfo_ReleaseVarDesc(pTypeInfo, vardesc);
     }
-        
+
     *ppRecInfo = (IRecordInfo*)ret;
 
     return S_OK;

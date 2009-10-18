@@ -43,8 +43,8 @@ CHAR			LinuxBootPath[260] = "";
 
 VOID LoadAndBootLinux(PCSTR OperatingSystemName, PCSTR Description)
 {
-	PFILE	LinuxKernel = 0;
-	PFILE	LinuxInitrdFile = 0;
+	PFILE	LinuxKernel = NULL;
+	PFILE	LinuxInitrdFile = NULL;
 	CHAR	TempString[260];
 
 	UiDrawBackdrop();
@@ -73,10 +73,15 @@ VOID LoadAndBootLinux(PCSTR OperatingSystemName, PCSTR Description)
 		UiMessageBox("Invalid boot path");
 		goto LinuxBootFailed;
 	}
+	if (!FsOpenSystemVolume(LinuxBootPath, NULL, NULL))
+	{
+		UiMessageBox("Failed to open boot drive.");
+		goto LinuxBootFailed;
+	}
 
 	// Open the kernel
 	LinuxKernel = FsOpenFile(LinuxKernelName);
-	if (!LinuxKernel)
+	if (LinuxKernel == NULL)
 	{
 		sprintf(TempString, "Linux kernel \'%s\' not found.", LinuxKernelName);
 		UiMessageBox(TempString);
@@ -87,7 +92,7 @@ VOID LoadAndBootLinux(PCSTR OperatingSystemName, PCSTR Description)
 	if (LinuxHasInitrd)
 	{
 		LinuxInitrdFile = FsOpenFile(LinuxInitrdName);
-		if (!LinuxInitrdFile)
+		if (LinuxInitrdFile == NULL)
 		{
 			sprintf(TempString, "Linux initrd image \'%s\' not found.", LinuxInitrdName);
 			UiMessageBox(TempString);
@@ -173,11 +178,11 @@ VOID LoadAndBootLinux(PCSTR OperatingSystemName, PCSTR Description)
 
 LinuxBootFailed:
 
-	if (LinuxKernel)
+	if (LinuxKernel != NULL)
 	{
 		FsCloseFile(LinuxKernel);
 	}
-	if (LinuxInitrdFile)
+	if (LinuxInitrdFile != NULL)
 	{
 		FsCloseFile(LinuxInitrdFile);
 	}
@@ -281,14 +286,14 @@ BOOLEAN LinuxReadBootSector(PFILE LinuxKernelFile)
 
 	DbgDumpBuffer(DPRINT_LINUX, LinuxBootSector, 512);
 
-	DPRINTM(DPRINT_LINUX, "SetupSectors: %d\n", LinuxBootSector->SetupSectors);
-	DPRINTM(DPRINT_LINUX, "RootFlags: 0x%x\n", LinuxBootSector->RootFlags);
-	DPRINTM(DPRINT_LINUX, "SystemSize: 0x%x\n", LinuxBootSector->SystemSize);
-	DPRINTM(DPRINT_LINUX, "SwapDevice: 0x%x\n", LinuxBootSector->SwapDevice);
-	DPRINTM(DPRINT_LINUX, "RamSize: 0x%x\n", LinuxBootSector->RamSize);
-	DPRINTM(DPRINT_LINUX, "VideoMode: 0x%x\n", LinuxBootSector->VideoMode);
-	DPRINTM(DPRINT_LINUX, "RootDevice: 0x%x\n", LinuxBootSector->RootDevice);
-	DPRINTM(DPRINT_LINUX, "BootFlag: 0x%x\n", LinuxBootSector->BootFlag);
+	DbgPrint((DPRINT_LINUX, "SetupSectors: %d\n", LinuxBootSector->SetupSectors));
+	DbgPrint((DPRINT_LINUX, "RootFlags: 0x%x\n", LinuxBootSector->RootFlags));
+	DbgPrint((DPRINT_LINUX, "SystemSize: 0x%x\n", LinuxBootSector->SystemSize));
+	DbgPrint((DPRINT_LINUX, "SwapDevice: 0x%x\n", LinuxBootSector->SwapDevice));
+	DbgPrint((DPRINT_LINUX, "RamSize: 0x%x\n", LinuxBootSector->RamSize));
+	DbgPrint((DPRINT_LINUX, "VideoMode: 0x%x\n", LinuxBootSector->VideoMode));
+	DbgPrint((DPRINT_LINUX, "RootDevice: 0x%x\n", LinuxBootSector->RootDevice));
+	DbgPrint((DPRINT_LINUX, "BootFlag: 0x%x\n", LinuxBootSector->BootFlag));
 
 	return TRUE;
 }
@@ -340,21 +345,21 @@ BOOLEAN LinuxReadSetupSector(PFILE LinuxKernelFile)
 
 	DbgDumpBuffer(DPRINT_LINUX, LinuxSetupSector, SetupSectorSize);
 
-	DPRINTM(DPRINT_LINUX, "SetupHeaderSignature: 0x%x (HdrS)\n", LinuxSetupSector->SetupHeaderSignature);
-	DPRINTM(DPRINT_LINUX, "Version: 0x%x\n", LinuxSetupSector->Version);
-	DPRINTM(DPRINT_LINUX, "RealModeSwitch: 0x%x\n", LinuxSetupSector->RealModeSwitch);
-	DPRINTM(DPRINT_LINUX, "SetupSeg: 0x%x\n", LinuxSetupSector->SetupSeg);
-	DPRINTM(DPRINT_LINUX, "StartSystemSeg: 0x%x\n", LinuxSetupSector->StartSystemSeg);
-	DPRINTM(DPRINT_LINUX, "KernelVersion: 0x%x\n", LinuxSetupSector->KernelVersion);
-	DPRINTM(DPRINT_LINUX, "TypeOfLoader: 0x%x\n", LinuxSetupSector->TypeOfLoader);
-	DPRINTM(DPRINT_LINUX, "LoadFlags: 0x%x\n", LinuxSetupSector->LoadFlags);
-	DPRINTM(DPRINT_LINUX, "SetupMoveSize: 0x%x\n", LinuxSetupSector->SetupMoveSize);
-	DPRINTM(DPRINT_LINUX, "Code32Start: 0x%x\n", LinuxSetupSector->Code32Start);
-	DPRINTM(DPRINT_LINUX, "RamdiskAddress: 0x%x\n", LinuxSetupSector->RamdiskAddress);
-	DPRINTM(DPRINT_LINUX, "RamdiskSize: 0x%x\n", LinuxSetupSector->RamdiskSize);
-	DPRINTM(DPRINT_LINUX, "BootSectKludgeOffset: 0x%x\n", LinuxSetupSector->BootSectKludgeOffset);
-	DPRINTM(DPRINT_LINUX, "BootSectKludgeSegment: 0x%x\n", LinuxSetupSector->BootSectKludgeSegment);
-	DPRINTM(DPRINT_LINUX, "HeapEnd: 0x%x\n", LinuxSetupSector->HeapEnd);
+	DbgPrint((DPRINT_LINUX, "SetupHeaderSignature: 0x%x (HdrS)\n", LinuxSetupSector->SetupHeaderSignature));
+	DbgPrint((DPRINT_LINUX, "Version: 0x%x\n", LinuxSetupSector->Version));
+	DbgPrint((DPRINT_LINUX, "RealModeSwitch: 0x%x\n", LinuxSetupSector->RealModeSwitch));
+	DbgPrint((DPRINT_LINUX, "SetupSeg: 0x%x\n", LinuxSetupSector->SetupSeg));
+	DbgPrint((DPRINT_LINUX, "StartSystemSeg: 0x%x\n", LinuxSetupSector->StartSystemSeg));
+	DbgPrint((DPRINT_LINUX, "KernelVersion: 0x%x\n", LinuxSetupSector->KernelVersion));
+	DbgPrint((DPRINT_LINUX, "TypeOfLoader: 0x%x\n", LinuxSetupSector->TypeOfLoader));
+	DbgPrint((DPRINT_LINUX, "LoadFlags: 0x%x\n", LinuxSetupSector->LoadFlags));
+	DbgPrint((DPRINT_LINUX, "SetupMoveSize: 0x%x\n", LinuxSetupSector->SetupMoveSize));
+	DbgPrint((DPRINT_LINUX, "Code32Start: 0x%x\n", LinuxSetupSector->Code32Start));
+	DbgPrint((DPRINT_LINUX, "RamdiskAddress: 0x%x\n", LinuxSetupSector->RamdiskAddress));
+	DbgPrint((DPRINT_LINUX, "RamdiskSize: 0x%x\n", LinuxSetupSector->RamdiskSize));
+	DbgPrint((DPRINT_LINUX, "BootSectKludgeOffset: 0x%x\n", LinuxSetupSector->BootSectKludgeOffset));
+	DbgPrint((DPRINT_LINUX, "BootSectKludgeSegment: 0x%x\n", LinuxSetupSector->BootSectKludgeSegment));
+	DbgPrint((DPRINT_LINUX, "HeapEnd: 0x%x\n", LinuxSetupSector->HeapEnd));
 
 	return TRUE;
 }
@@ -369,7 +374,7 @@ BOOLEAN LinuxReadKernel(PFILE LinuxKernelFile)
 	UiDrawStatusText(StatusText);
 
 	// Allocate memory for Linux kernel
-	LinuxKernelLoadAddress = MmAllocateMemoryAtAddress(LinuxKernelSize, (PVOID)LINUX_KERNEL_LOAD_ADDRESS, LoaderSystemCode);
+	LinuxKernelLoadAddress = MmAllocateMemoryAtAddress(LinuxKernelSize, (PVOID)LINUX_KERNEL_LOAD_ADDRESS);
 	if (LinuxKernelLoadAddress != (PVOID)LINUX_KERNEL_LOAD_ADDRESS)
 	{
 		return FALSE;
@@ -446,11 +451,11 @@ BOOLEAN LinuxReadInitrd(PFILE LinuxInitrdFile)
 	//LinuxInitrdLoadAddress = MmAllocateMemoryAtAddress(LinuxInitrdSize, (PVOID)ROUND_UP((LINUX_KERNEL_LOAD_ADDRESS + LinuxKernelSize), 0x100000));
 	if (LinuxSetupSector->Version <= 0x0202)
 	{
-		LinuxInitrdLoadAddress = MmAllocateHighestMemoryBelowAddress(LinuxInitrdSize, (PVOID)LINUX_MAX_INITRD_ADDRESS, LoaderSystemCode);
+		LinuxInitrdLoadAddress = MmAllocateHighestMemoryBelowAddress(LinuxInitrdSize, (PVOID)LINUX_MAX_INITRD_ADDRESS);
 	}
 	else
 	{
-		LinuxInitrdLoadAddress = MmAllocateHighestMemoryBelowAddress(LinuxInitrdSize, (PVOID)LinuxSetupSector->InitrdAddressMax, LoaderSystemCode);
+		LinuxInitrdLoadAddress = MmAllocateHighestMemoryBelowAddress(LinuxInitrdSize, (PVOID)LinuxSetupSector->InitrdAddressMax);
 	}
 	if (LinuxInitrdLoadAddress == NULL)
 	{
@@ -461,12 +466,12 @@ BOOLEAN LinuxReadInitrd(PFILE LinuxInitrdFile)
 	LinuxSetupSector->RamdiskAddress = (ULONG)LinuxInitrdLoadAddress;
 	LinuxSetupSector->RamdiskSize = LinuxInitrdSize;
 
-	DPRINTM(DPRINT_LINUX, "RamdiskAddress: 0x%x\n", LinuxSetupSector->RamdiskAddress);
-	DPRINTM(DPRINT_LINUX, "RamdiskSize: 0x%x\n", LinuxSetupSector->RamdiskSize);
+	DbgPrint((DPRINT_LINUX, "RamdiskAddress: 0x%x\n", LinuxSetupSector->RamdiskAddress));
+	DbgPrint((DPRINT_LINUX, "RamdiskSize: 0x%x\n", LinuxSetupSector->RamdiskSize));
 
 	if (LinuxSetupSector->Version >= 0x0203)
 	{
-		DPRINTM(DPRINT_LINUX, "InitrdAddressMax: 0x%x\n", LinuxSetupSector->InitrdAddressMax);
+		DbgPrint((DPRINT_LINUX, "InitrdAddressMax: 0x%x\n", LinuxSetupSector->InitrdAddressMax));
 	}
 
 	// Read in the ramdisk
