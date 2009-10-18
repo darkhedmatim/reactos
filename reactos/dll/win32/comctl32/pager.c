@@ -237,7 +237,7 @@ PAGER_DrawButton(HDC hdc, COLORREF clrBk, RECT arrowRect,
         return;
 
     hBrush = CreateSolidBrush(clrBk);
-    hOldBrush = SelectObject(hdc, hBrush);
+    hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
 
     FillRect(hdc, &rc, hBrush);
 
@@ -555,8 +555,8 @@ static INT
 PAGER_SetFixedWidth(PAGER_INFO* infoPtr)
 {
   /* Must set the non-scrollable dimension to be less than the full height/width
-   * so that NCCalcSize is called.  The Microsoft docs mention 3/4 factor for button
-   * size, and experimentation shows that the effect is almost right. */
+   * so that NCCalcSize is called.  The Msoft docs mention 3/4 factor for button
+   * size, and experimentation shows that affect is almost right. */
 
     RECT wndRect;
     INT delta, h;
@@ -586,8 +586,8 @@ static INT
 PAGER_SetFixedHeight(PAGER_INFO* infoPtr)
 {
   /* Must set the non-scrollable dimension to be less than the full height/width
-   * so that NCCalcSize is called.  The Microsoft docs mention 3/4 factor for button
-   * size, and experimentation shows that the effect is almost right. */
+   * so that NCCalcSize is called.  The Msoft docs mention 3/4 factor for button
+   * size, and experimentation shows that affect is almost right. */
 
     RECT wndRect;
     INT delta, w;
@@ -801,7 +801,7 @@ PAGER_Create (HWND hwnd, const CREATESTRUCTW *lpcs)
     PAGER_INFO *infoPtr;
 
     /* allocate memory for info structure */
-    infoPtr = Alloc (sizeof(PAGER_INFO));
+    infoPtr = (PAGER_INFO *)Alloc (sizeof(PAGER_INFO));
     if (!infoPtr) return -1;
     SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
 
@@ -1008,8 +1008,9 @@ PAGER_MouseMove (PAGER_INFO* infoPtr, INT keys, INT x, INT y)
 	/* If in one of the buttons the capture and draw buttons */
 	if (btnrect)
 	{
-            TRACE("[%p] draw btn (%s), Capture %s, style %08x\n",
-                  infoPtr->hwndSelf, wine_dbgstr_rect(btnrect),
+            TRACE("[%p] draw btn (%d,%d)-(%d,%d), Capture %s, style %08x\n",
+		  infoPtr->hwndSelf, btnrect->left, btnrect->top,
+		  btnrect->right, btnrect->bottom,
 		  (infoPtr->bCapture) ? "TRUE" : "FALSE",
 		  infoPtr->dwStyle);
 	    if (!infoPtr->bCapture)

@@ -311,9 +311,7 @@ LRESULT StartMenu::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		break;
 
 	  case WM_MOVE: {
-		POINTS pos;
-		pos.x = LOWORD(lparam);
-		pos.y = HIWORD(lparam);
+		const POINTS& pos = MAKEPOINTS(lparam);
 
 		 // move open submenus of floating menus
 		if (_submenu) {
@@ -701,12 +699,10 @@ bool StartMenu::Navigate(int step)
 	int idx = GetSelectionIndex();
 
 	if (idx == -1)
-	{
 		if (step > 0)
 			idx = 0 - step;
 		else
 			idx = _buttons.size() - step;
-	}
 
 	for(;;) {
 		idx += step;
@@ -1071,12 +1067,10 @@ ShellEntryMap::iterator StartMenu::AddEntry(const String& title, ICON_ID icon_id
 {
 	 // search for an already existing subdirectory entry with the same name
 	if (entry->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-	{
 		for(ShellEntryMap::iterator it=_entries.begin(); it!=_entries.end(); ++it) {
 			StartMenuEntry& sme = it->second;
 
 			if (!_tcsicmp(sme._title, title))	///@todo speed up by using a map indexed by name
-			{
 				for(ShellEntrySet::iterator it2=sme._entries.begin(); it2!=sme._entries.end(); ++it2) {
 					if ((*it2)->_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 						 // merge the new shell entry with the existing of the same name
@@ -1085,9 +1079,7 @@ ShellEntryMap::iterator StartMenu::AddEntry(const String& title, ICON_ID icon_id
 						return it;
 					}
 				}
-			}
 		}
-	}
 
 	ShellEntryMap::iterator sme = AddEntry(title, icon_id);
 
@@ -1557,8 +1549,7 @@ void StartMenuButton::DrawItem(LPDRAWITEMSTRUCT dis)
 
 
 StartMenuRoot::StartMenuRoot(HWND hwnd, const StartMenuRootCreateInfo& info)
- :	super(hwnd, info._icon_size),
-	_hwndStartButton(0)
+ :	super(hwnd, info._icon_size)
 {
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
 	if (!g_Globals._SHRestricted || !SHRestricted(REST_NOCOMMONGROUPS))
@@ -1607,6 +1598,8 @@ static void CalculateStartPos(HWND hwndOwner, RECT& rect, int icon_size)
 #ifndef _LIGHT_STARTMENU
 	rect.top += STARTMENU_LINE_HEIGHT(icon_size);
 #endif
+
+	AdjustWindowRectEx(&rect, WS_POPUP|WS_THICKFRAME|WS_CLIPCHILDREN|WS_VISIBLE, FALSE, 0);
 }
 
 HWND StartMenuRoot::Create(HWND hwndOwner, int icon_size)
@@ -1638,7 +1631,7 @@ void StartMenuRoot::TrackStartmenu()
 	 // recalculate start menu root position
 	RECT rect;
 
-	CalculateStartPos(_hwndStartButton, rect, _icon_size);
+	CalculateStartPos(GetParent(hwnd), rect, _icon_size);
 
 	SetWindowPos(hwnd, 0, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top, 0);
 
@@ -1765,7 +1758,7 @@ LRESULT	StartMenuRoot::Init(LPCREATESTRUCT pcs)
 #endif
 		AddButton(ResString(IDS_LOGOFF),	ICID_LOGOFF, false, IDC_LOGOFF);
 
-#ifdef __REACTOS__
+#ifdef _ROS_
 		AddButton(ResString(IDS_RESTART), ICID_RESTART, false, IDC_RESTART);
 #endif
 
@@ -1776,7 +1769,7 @@ LRESULT	StartMenuRoot::Init(LPCREATESTRUCT pcs)
 #endif
 		AddButton(ResString(IDS_SHUTDOWN),	ICID_SHUTDOWN, false, IDC_SHUTDOWN);
 
-#ifndef __REACTOS__
+#ifndef _ROS_
 	AddButton(ResString(IDS_TERMINATE),	ICID_LOGOFF, false, IDC_TERMINATE);
 #endif
 
@@ -1941,10 +1934,9 @@ int StartMenuHandler::Command(int id, int code)
 		ShowLogoffDialog(g_Globals._hwndDesktopBar);
 		break;
 
-#ifndef __REACTOS__
+#ifndef _ROS_
 	  case IDC_TERMINATE:
-		DestroyWindow(g_Globals._hwndDesktopBar);
-		DestroyWindow(g_Globals._hwndDesktop);
+		DestroyWindow(GetParent(_hwnd));
 		break;
 #endif
 
@@ -2032,7 +2024,7 @@ int StartMenuHandler::Command(int id, int code)
 
 	  case IDC_CONNECTIONS:
 #ifndef ROSSHELL
-#ifdef __REACTOS__	// to be removed when RAS will be implemented
+#ifdef _ROS_	// to be removed when RAS will be implemented
 		MessageBox(0, TEXT("RAS folder not yet implemented in SHELL32"), ResString(IDS_TITLE), MB_OK);
 #else
 		CreateSubmenu(id, CSIDL_CONNECTIONS, ResString(IDS_CONNECTIONS));
@@ -2048,7 +2040,7 @@ int StartMenuHandler::Command(int id, int code)
 	// browse menu
 
 	  case IDC_NETWORK:
-#ifdef __REACTOS__	///@todo to be removed when network browsing will be implemented in shell namespace
+#ifdef _ROS_	///@todo to be removed when network browsing will be implemented in shell namespace
 		MessageBox(0, TEXT("network not yet implemented"), ResString(IDS_TITLE), MB_OK);
 #else
 		CreateSubmenu(id, CSIDL_NETWORK, ResString(IDS_NETWORK));
@@ -2089,7 +2081,7 @@ int StartMenuHandler::Command(int id, int code)
 
 void StartMenuHandler::ShowSearchDialog()
 {
-#ifndef __REACTOS__	///@todo to be removed when SHFindFiles() will be implemented in shell32.dll
+#ifndef _ROS_	///@todo to be removed when SHFindFiles() will be implemented in shell32.dll
 	static DynamicFct<SHFINDFILES> SHFindFiles(TEXT("SHELL32"), 90);
 
 	if (SHFindFiles)
@@ -2101,7 +2093,7 @@ void StartMenuHandler::ShowSearchDialog()
 
 void StartMenuHandler::ShowSearchComputer()
 {
-#ifndef __REACTOS__	///@todo to be removed when SHFindComputer() will be implemented in shell32.dll
+#ifndef _ROS_	///@todo to be removed when SHFindComputer() will be implemented in shell32.dll
 	static DynamicFct<SHFINDCOMPUTER> SHFindComputer(TEXT("SHELL32"), 91);
 
 	if (SHFindComputer)
@@ -2113,11 +2105,26 @@ void StartMenuHandler::ShowSearchComputer()
 
 void StartMenuHandler::ShowLaunchDialog(HWND hwndOwner)
 {
+	 ///@todo All text phrases should be put into the resources.
+	static LPCSTR szTitle = "Run";
+	static LPCSTR szText = "Type the name of a program, folder, document, or Internet resource, and Explorer will open it for you.";
+
 	static DynamicFct<RUNFILEDLG> RunFileDlg(TEXT("SHELL32"), 61);
 
 	 // Show "Run..." dialog
 	if (RunFileDlg) {
-		(*RunFileDlg)(hwndOwner, 0, NULL, NULL, NULL, RFF_CALCDIRECTORY);
+#ifndef _ROS_ /* FIXME: our shell32 always expects Ansi strings */
+		if ((HIWORD(GetVersion())>>14) == W_VER_NT) {
+			WCHAR wTitle[40], wText[256];
+
+			MultiByteToWideChar(CP_ACP, 0, szTitle, -1, wTitle, 40);
+			MultiByteToWideChar(CP_ACP, 0, szText, -1, wText, 256);
+
+			(*RunFileDlg)(hwndOwner, 0, NULL, (LPCSTR)wTitle, (LPCSTR)wText, RFF_CALCDIRECTORY);
+		}
+		else
+#endif
+			(*RunFileDlg)(hwndOwner, 0, NULL, szTitle, szText, RFF_CALCDIRECTORY);
 	}
 }
 
@@ -2160,7 +2167,7 @@ void SettingsMenu::AddEntries()
 {
 	super::AddEntries();
 
-#if defined(ROSSHELL) || defined(__REACTOS__)	// __REACTOS__ to be removed when printer/network will be implemented
+#if defined(ROSSHELL) || defined(_ROS_)	// _ROS_ to be removed when printer/network will be implemented
 //TODO	AddButton(ResString(IDS_PRINTERS),			ICID_PRINTER, false, IDC_PRINTERS_MENU);
 	AddButton(ResString(IDS_CONNECTIONS),		ICID_NETWORK, false, IDC_CONNECTIONS);
 #else
@@ -2191,7 +2198,7 @@ void BrowseMenu::AddEntries()
 #ifndef __MINGW32__	// SHRestricted() missing in MinGW (as of 29.10.2003)
 	if (!g_Globals._SHRestricted || !SHRestricted(REST_NONETHOOD))	// or REST_NOENTIRENETWORK ?
 #endif
-#if defined(ROSSHELL) || defined(__REACTOS__)	// __REACTOS__ to be removed when printer/network will be implemented
+#if defined(ROSSHELL) || defined(_ROS_)	// _ROS_ to be removed when printer/network will be implemented
 		AddButton(ResString(IDS_NETWORK),		ICID_NETWORK, false, IDC_NETWORK);
 #else
 		AddButton(ResString(IDS_NETWORK),		ICID_NETWORK, true, IDC_NETWORK);

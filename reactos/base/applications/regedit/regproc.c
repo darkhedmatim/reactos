@@ -441,7 +441,6 @@ LPSTR getRegKeyName(LPSTR lpLine)
 
     keyNameBeg = strchr(lpLineCopy, '\\');    /* The key name start by '\' */
     if (keyNameBeg) {
-        keyNameBeg++;
         if (lpLine[0] == '[') /* need to find matching ']' */
         {
             LPSTR keyNameEnd;

@@ -1,254 +1,408 @@
 /*
- * PROJECT:         ReactOS Screen Saver Library
- * LICENSE:         GPL v2 or any later version
- * FILE:            lib/sdk/scrnsave/scrnsave.c
- * PURPOSE:         Library for writing screen savers, compatible with MS' scrnsave.lib
- * PROGRAMMERS:     Anders Norlander <anorland@hem2.passagen.se>
- *                  Colin Finck <mail@colinfinck.de>
+  Screen saver library by Anders Norlander <anorland@hem2.passagen.se>
+
+  This library is (hopefully) compatible with Microsoft's
+  screen saver library.
+
+  This is public domain software.
+
  */
-
 #include <windows.h>
-#include <tchar.h>
 #include <scrnsave.h>
+#include <regstr.h>
 
-// Screen Saver window class
+/* screen saver window class */
 #define CLASS_SCRNSAVE TEXT("WindowsScreenSaverClass")
 
-// Globals
-HWND        hMainWindow = NULL;
-BOOL        fChildPreview = FALSE;
-HINSTANCE   hMainInstance;
-TCHAR       szName[TITLEBARNAMELEN];
-TCHAR       szAppName[APPNAMEBUFFERLEN];
-TCHAR       szIniFile[MAXFILELEN];
-TCHAR       szScreenSaver[22];
-TCHAR       szHelpFile[MAXFILELEN];
-TCHAR       szNoHelpMemory[BUFFLEN];
-UINT        MyHelpMessage;
+/* globals */
+HWND		hMainWindow = NULL;
+BOOL		fChildPreview = FALSE;
+HINSTANCE	hMainInstance;
+TCHAR		szName[TITLEBARNAMELEN];
+TCHAR		szAppName[APPNAMEBUFFERLEN];
+TCHAR		szIniFile[MAXFILELEN];
+TCHAR		szScreenSaver[22];
+TCHAR		szHelpFile[MAXFILELEN];
+TCHAR		szNoHelpMemory[BUFFLEN];
+UINT		MyHelpMessage;
 
-// Local house keeping
+/* local house keeping */
+static HINSTANCE hPwdLib = NULL;
 static POINT pt_orig;
+static BOOL checking_pwd = FALSE;
+static BOOL closing = FALSE;
+static BOOL w95 = FALSE;
 
-static int ISSPACE(TCHAR c)
+typedef BOOL (WINAPI *VERIFYPWDPROC)(HWND);
+typedef DWORD (WINAPI *CHPWDPROC)(LPCTSTR, HWND, DWORD, PVOID);
+static VERIFYPWDPROC VerifyScreenSavePwd = NULL;
+
+/* function names */
+#define szVerifyPassword "VerifyScreenSavePwd"
+
+#ifdef UNICODE
+#define szPwdChangePassword "PwdChangePasswordW"
+#else
+#define szPwdChangePassword "PwdChangePasswordA"
+#endif
+
+static void TerminateScreenSaver(HWND hWnd);
+static BOOL RegisterClasses(void);
+static LRESULT WINAPI SysScreenSaverProc(HWND,UINT,WPARAM,LPARAM);
+static int LaunchScreenSaver(HWND hParent);
+static void LaunchConfig(void);
+
+static int ISSPACE(char c)
 {
-    return (c == ' ' || c == '\t');
+  return (c == ' ' || c == '\t');
 }
 
 #define ISNUM(c) ((c) >= '0' && c <= '9')
-
-static ULONG_PTR _toulptr(const TCHAR *s)
+static unsigned long
+_toul(const char *s)
 {
-    ULONG_PTR res;
-    ULONG_PTR n;
-    const TCHAR *p;
-
-    for (p = s; *p; p++)
-        if (!ISNUM(*p))
-            break;
-
-    p--;
-    res = 0;
-
-    for (n = 1; p >= s; p--, n *= 10)
-        res += (*p - '0') * n;
-
-    return res;
+  unsigned long res;
+  unsigned long n;
+  const char *p;
+  for (p = s; *p; p++)
+    if (!ISNUM(*p)) break;
+  p--;
+  res = 0;
+  for (n = 1; p >= s; p--, n *= 10)
+    res += (*p - '0') * n;
+  return res;
 }
 
-// This function takes care of *must* do tasks, like terminating screen saver
-static LRESULT WINAPI SysScreenSaverProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+/* screen saver entry point */
+int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrevInst,
+                     LPSTR CmdLine, int nCmdShow)
 {
-    switch(uMsg)
+  LPSTR p;
+  OSVERSIONINFO vi;
+
+  /* initialize */
+  hMainInstance = hInst;
+
+  vi.dwOSVersionInfoSize = sizeof(vi);
+  GetVersionEx(&vi);
+  /* check if we are going to check for passwords */
+  if (vi.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS)
     {
-        case WM_CREATE:
-            // Mouse is not supposed to move from this position
-            GetCursorPos(&pt_orig);
-            break;
-
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            break;
-
-        case WM_SYSCOMMAND:
-            if (!fChildPreview)
-            {
-                switch (wParam)
-                {
-                    case SC_CLOSE:
-                    case SC_SCREENSAVE:
-                        return FALSE;
-                }
-            }
-            break;
-    }
-
-    return ScreenSaverProc(hWnd, uMsg, wParam, lParam);
-}
-
-LRESULT WINAPI DefScreenSaverProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    // Don't do any special processing when in preview mode
-    if (fChildPreview)
-        return DefWindowProc(hWnd, uMsg, wParam, lParam);
-
-    switch (uMsg)
-    {
-        case WM_NCACTIVATE:
-        case WM_ACTIVATE:
-        case WM_ACTIVATEAPP:
-            if (!wParam)
-            {
-                // wParam is FALSE, so the screensaver is losing the focus.
-                PostMessage(hWnd, WM_CLOSE, 0, 0);
-            }
-            break;
-
-        case WM_MOUSEMOVE:
+      HKEY hKey;
+      /* we are using windows 95 */
+      w95 = TRUE;
+      if (RegOpenKey(HKEY_CURRENT_USER, REGSTR_PATH_SCREENSAVE ,&hKey) ==
+          ERROR_SUCCESS)
         {
-            POINT pt;
-            GetCursorPos(&pt);
-            if (pt.x == pt_orig.x && pt.y == pt_orig.y)
-                break;
-
-            // Fall through
+          DWORD check_pwd;
+          DWORD size = sizeof(DWORD);
+          DWORD type;
+          LONG res;
+          res = RegQueryValueEx(hKey, REGSTR_VALUE_USESCRPASSWORD,
+                                NULL, &type, (PBYTE) &check_pwd, &size);
+          if (check_pwd && res == ERROR_SUCCESS)
+            {
+              hPwdLib = LoadLibrary(TEXT("PASSWORD.CPL"));
+              if (hPwdLib)
+                VerifyScreenSavePwd = GetProcAddress(hPwdLib, szVerifyPassword);
+            }
+          RegCloseKey(hKey);
         }
-
-        case WM_LBUTTONDOWN:
-        case WM_RBUTTONDOWN:
-        case WM_MBUTTONDOWN:
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-            // Send a WM_CLOSE to close the screen saver (allows the screensaver author to do clean-up tasks)
-            PostMessage(hWnd, WM_CLOSE, 0, 0);
-            break;
-
-        case WM_SETCURSOR:
-            SetCursor(NULL);
-            return TRUE;
     }
 
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
-}
+  /* parse arguments */
+  for (p = CmdLine; *p; p++)
+    {
+      switch (*p)
+        {
+        case 'S':
+        case 's':
+          /* start screen saver */
+          return LaunchScreenSaver(NULL);
+          
+        case 'P':
+        case 'p':
+          {
+            /* start screen saver in preview window */
+            HWND hParent;
+            fChildPreview = TRUE;
+            while (ISSPACE(*++p));
+            hParent = (HWND) _toul(p);
+            if (hParent && IsWindow(hParent))
+              return LaunchScreenSaver(hParent);
+          }
+          return 0;
 
-// Registers the screen saver window class
-static BOOL RegisterScreenSaverClass(void)
-{
-    WNDCLASS cls = {0,};
+        case 'C':
+        case 'c':
+          /* display configure dialog */
+          LaunchConfig();
+          return 0;
 
-    cls.hIcon = LoadIcon(hMainInstance, MAKEINTATOM(ID_APP));
-    cls.lpszClassName = CLASS_SCRNSAVE;
-    cls.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-    cls.hInstance = hMainInstance;
-    cls.style = CS_VREDRAW | CS_HREDRAW | CS_SAVEBITS | CS_PARENTDC;
-    cls.lpfnWndProc = (WNDPROC)SysScreenSaverProc;
+        case 'A':
+        case 'a':
+          {
+            /* change screen saver password */
+            HWND hParent;
+            while (ISSPACE(*++p));
+            hParent = (HWND) _toul(p);
+            if (!hParent || !IsWindow(hParent))
+              hParent = GetForegroundWindow();
+            ScreenSaverChangePassword(hParent);
+          }
+          return 0;
 
-    return RegisterClass(&cls) != 0;
+        case '-':
+        case '/':
+        case ' ':
+        default: 
+	  break;
+        }
+    }
+  LaunchConfig();
+  return 0;
 }
 
 static void LaunchConfig(void)
 {
-    // Only show the dialog if the RegisterDialogClasses function succeeded.
-    // This is the same behaviour as MS' scrnsave.lib.
-    if( RegisterDialogClasses(hMainInstance) )
-        DialogBox(hMainInstance, MAKEINTRESOURCE(DLG_SCRNSAVECONFIGURE), GetForegroundWindow(), (DLGPROC) ScreenSaverConfigureDialog);
+  /* FIXME: should this be called */
+  RegisterDialogClasses(hMainInstance);
+  /* display configure dialog */
+  DialogBox(hMainInstance, MAKEINTRESOURCE(DLG_SCRNSAVECONFIGURE),
+            GetForegroundWindow(), (DLGPROC) ScreenSaverConfigureDialog);
 }
+
 
 static int LaunchScreenSaver(HWND hParent)
 {
-    UINT style;
-    RECT rc;
-    MSG msg;
+  BOOL foo;
+  UINT style;
+  RECT rc;
+  MSG msg;
 
-    if (!RegisterScreenSaverClass())
+  /* don't allow other tasks to get into the foreground */
+  if (w95 && !fChildPreview)
+    SystemParametersInfo(SPI_SCREENSAVERRUNNING, TRUE, &foo, 0);
+
+  msg.wParam = 0;
+
+  /* register classes, both user defined and classes used by screen saver
+     library */
+  if (!RegisterClasses())
     {
-        MessageBox(NULL, TEXT("RegisterClass() failed"), NULL, MB_ICONHAND);
-        return 1;
+      MessageBox(NULL, TEXT("RegisterClasses() failed"), NULL, MB_ICONHAND);
+      goto restore;
     }
 
-    // A slightly different approach needs to be used when displaying in a preview window
-    if (hParent)
+  /* a slightly different approach needs to be used when displaying
+     in a preview window */
+  if (hParent)
     {
-        style = WS_CHILD;
-        GetClientRect(hParent, &rc);
+      style = WS_CHILD;
+      GetClientRect(hParent, &rc);
     }
-    else
+  else
     {
-        style = WS_POPUP;
-        rc.right = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        rc.bottom = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-        style |= WS_VISIBLE;
+      style = WS_POPUP;
+      rc.right = GetSystemMetrics(SM_CXSCREEN);
+      rc.bottom = GetSystemMetrics(SM_CYSCREEN);
+      style |= WS_VISIBLE;
     }
 
-    // Create the main screen saver window
-    hMainWindow = CreateWindowEx(hParent ? 0 : WS_EX_TOPMOST, CLASS_SCRNSAVE,
-                                 TEXT("SCREENSAVER"), style,
-                                 0, 0, rc.right, rc.bottom, hParent, NULL,
-                                 hMainInstance, NULL);
+  /* create main screen saver window */
+  hMainWindow = CreateWindowEx(hParent ? 0 : WS_EX_TOPMOST, CLASS_SCRNSAVE,
+                               TEXT("SCREENSAVER"), style,
+                               0, 0, rc.right, rc.bottom, hParent, NULL,
+                               hMainInstance, NULL);
 
-    if(!hMainWindow)
-        return 1;
-
-    // Display window and start pumping messages
-    ShowWindow(hMainWindow, SW_SHOW);
-    if (!hParent)
-        SetCursor(NULL);
-
-    while (GetMessage(&msg, NULL, 0, 0))
-        DispatchMessage(&msg);
-
-    return msg.wParam;
-}
-
-// Screen Saver entry point
-int APIENTRY _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR CmdLine, int nCmdShow)
-{
-    LPTSTR p;
-
-	UNREFERENCED_PARAMETER(nCmdShow);
-	UNREFERENCED_PARAMETER(hPrevInst);
-
-    hMainInstance = hInst;
-
-    // Parse the arguments
-    for (p = CmdLine; *p; p++)
+  /* display window and start pumping messages */
+  if (hMainWindow)
     {
-        switch (*p)
+      UpdateWindow(hMainWindow);
+      ShowWindow(hMainWindow, SW_SHOW);
+
+      while (GetMessage(&msg, NULL, 0, 0) == TRUE)
         {
-            case 'S':
-            case 's':
-                // Start the screen saver
-                return LaunchScreenSaver(NULL);
-
-            case 'P':
-            case 'p':
-            {
-                // Start the screen saver in preview mode
-                HWND hParent;
-                fChildPreview = TRUE;
-
-                while (ISSPACE(*++p));
-                hParent = (HWND) _toulptr(p);
-
-                if (hParent && IsWindow(hParent))
-                    return LaunchScreenSaver(hParent);
-            }
-            return 0;
-
-            case 'C':
-            case 'c':
-                // Display the configuration dialog
-                LaunchConfig();
-                return 0;
-
-            case '-':
-            case '/':
-            case ' ':
-            default:
-                break;
+          TranslateMessage(&msg);
+          DispatchMessage(&msg);
         }
     }
 
-    LaunchConfig();
-
-    return 0;
+restore:
+  /* restore system */
+  if (w95 && !fChildPreview)
+    SystemParametersInfo(SPI_SCREENSAVERRUNNING, FALSE, &foo, 0);
+  FreeLibrary(hPwdLib);
+  return msg.wParam;
 }
+
+/* this function takes care of *must* do tasks, like terminating
+   screen saver */
+static LRESULT WINAPI SysScreenSaverProc(HWND hWnd, UINT msg,
+                                  WPARAM wParam, LPARAM lParam)
+{
+  switch (msg)
+    {
+    case WM_CREATE:
+      if (!fChildPreview)
+        SetCursor(NULL);
+      /* mouse is not supposed to move from this position */
+      GetCursorPos(&pt_orig);
+      break;
+    case WM_DESTROY:
+      PostQuitMessage(0);
+      break;
+    case WM_TIMER:
+      if (closing)
+        return 0;
+      break;
+    case WM_PAINT:
+      if (closing)
+        return DefWindowProc(hWnd, msg, wParam, lParam);
+      break;
+    case WM_SYSCOMMAND:
+      if (!fChildPreview)
+        switch (wParam)
+          {
+          case SC_CLOSE:
+          case SC_SCREENSAVE:
+          case SC_NEXTWINDOW:
+          case SC_PREVWINDOW:
+            return FALSE;
+          }
+      break;
+    case WM_MOUSEMOVE:
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+    case WM_NCACTIVATE:
+    case WM_ACTIVATE:
+    case WM_ACTIVATEAPP:
+      if (closing)
+        return DefWindowProc(hWnd, msg, wParam, lParam);
+      break;
+    }
+  return ScreenSaverProc(hWnd, msg, wParam, lParam);
+}
+
+LONG WINAPI DefScreenSaverProc(HWND hWnd, UINT msg,
+                               WPARAM wParam, LPARAM lParam)
+{
+  /* don't do any special processing when in preview mode */
+  if (fChildPreview || closing)
+    return DefWindowProc(hWnd, msg, wParam, lParam);
+
+  switch (msg)
+    {
+    case WM_CLOSE:
+      TerminateScreenSaver(hWnd);
+      /* do NOT pass this to DefWindowProc; it will terminate even if
+         an invalid password was given.
+       */
+      return 0;
+    case SCRM_VERIFYPW: 
+      /* verify password or return TRUE if password checking is turned off */
+      if (VerifyScreenSavePwd) 
+        return VerifyScreenSavePwd(hWnd);
+      else
+        return TRUE;
+    case WM_SETCURSOR:
+      if (checking_pwd)
+        break;
+      SetCursor(NULL);
+      return TRUE;
+    case WM_NCACTIVATE:
+    case WM_ACTIVATE:
+    case WM_ACTIVATEAPP:
+      if (wParam != FALSE)
+        break;
+    case WM_MOUSEMOVE:
+      {
+        POINT pt;
+        GetCursorPos(&pt);
+        if (pt.x == pt_orig.x && pt.y == pt_orig.y)
+          break;
+      }
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+    case WM_MBUTTONDOWN:
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+      /* try to terminate screen saver */
+      if (!checking_pwd)
+        PostMessage(hWnd, WM_CLOSE, 0, 0);
+      break;
+    }
+  return DefWindowProc(hWnd, msg, wParam, lParam);
+}
+
+static void TerminateScreenSaver(HWND hWnd)
+{
+  /* don't allow recursion */
+  if (checking_pwd || closing)
+    return;
+
+  /* verify password */
+  if (VerifyScreenSavePwd)
+    {
+      checking_pwd = TRUE;
+      closing = SendMessage(hWnd, SCRM_VERIFYPW, 0, 0);
+      checking_pwd = FALSE;
+    }
+  else
+    closing = TRUE;
+
+  /* are we closing? */
+  if (closing)
+    {
+      DestroyWindow(hWnd);
+    }
+  else
+    GetCursorPos(&pt_orig); /* if not: get new mouse position */
+}
+
+/*
+  Register screen saver window class and call user
+  supplied hook.
+ */
+static BOOL RegisterClasses(void)
+{
+  WNDCLASS cls;
+  ZeroMemory(&cls, sizeof(cls));
+  cls.hCursor = NULL; 
+  cls.hIcon = LoadIcon(hMainInstance, MAKEINTATOM(ID_APP)); 
+  cls.lpszMenuName = NULL;
+  cls.lpszClassName = CLASS_SCRNSAVE;
+  cls.hbrBackground = NULL; //(HBRUSH)GetStockObject(BLACK_BRUSH);
+  cls.hInstance = hMainInstance;
+  cls.style = CS_VREDRAW | CS_HREDRAW | CS_SAVEBITS | CS_PARENTDC;
+  cls.lpfnWndProc = (WNDPROC) SysScreenSaverProc;
+  cls.cbWndExtra = 0;
+  cls.cbClsExtra = 0;
+  
+  if (!RegisterClass(&cls))
+    return FALSE;
+
+  return RegisterDialogClasses(hMainInstance);
+}
+
+void WINAPI ScreenSaverChangePassword(HWND hParent)
+{
+  /* load Master Password Router (MPR) */
+  HINSTANCE hMpr = LoadLibrary(TEXT("MPR.DLL"));
+  
+  if (hMpr)
+    {
+      CHPWDPROC ChangePassword;
+      ChangePassword = (CHPWDPROC) GetProcAddress(hMpr, szPwdChangePassword);
+
+      /* change password for screen saver provider */
+      if (ChangePassword)
+        ChangePassword(TEXT("SCRSAVE"), hParent, 0, NULL);
+
+      FreeLibrary(hMpr);
+    }
+}
+

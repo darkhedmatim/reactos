@@ -30,22 +30,12 @@ typedef struct _VIDEO_PORT_FUNCTION_TABLE {
 
 /* GLOBAL VARIABLES ***********************************************************/
 
-#define VP_EXPORTED_FUNCS 6
+#define VP_EXPORTED_FUNCS 1
 
-UCHAR FN_VideoPortClearEvent[] = "VideoPortClearEvent";
-UCHAR FN_VideoPortCreateEvent[] = "VideoPortCreateEvent";
 UCHAR FN_VideoPortCreateSecondaryDisplay[] = "VideoPortCreateSecondaryDisplay";
-UCHAR FN_VideoPortDeleteEvent[] = "VideoPortDeleteEvent";
-UCHAR FN_VideoPortQueueDpc[] = "VideoPortQueueDpc";
-UCHAR FN_VideoPortSetEvent[] = "VideoPortSetEvent";
 
 VIDEO_PORT_FUNCTION_TABLE VideoPortExports[] = {
-    {VideoPortClearEvent, FN_VideoPortClearEvent},
-    {VideoPortCreateEvent, FN_VideoPortCreateEvent},
-    {VideoPortCreateSecondaryDisplay, FN_VideoPortCreateSecondaryDisplay},
-    {VideoPortDeleteEvent, FN_VideoPortDeleteEvent},
-    {VideoPortQueueDpc, FN_VideoPortQueueDpc},
-    {VideoPortSetEvent, FN_VideoPortSetEvent}
+    {VideoPortCreateSecondaryDisplay, FN_VideoPortCreateSecondaryDisplay}
 };
 
 PVOID NTAPI

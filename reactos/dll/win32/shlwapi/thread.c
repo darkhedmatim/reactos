@@ -140,7 +140,7 @@ HRESULT WINAPI SHGetThreadRef(IUnknown **lppUnknown)
   if (!lppUnknown || SHLWAPI_ThreadRef_index == TLS_OUT_OF_INDEXES)
     return E_NOINTERFACE;
 
-  *lppUnknown = TlsGetValue(SHLWAPI_ThreadRef_index);
+  *lppUnknown = (IUnknown*)TlsGetValue(SHLWAPI_ThreadRef_index);
   if (!*lppUnknown)
     return E_NOINTERFACE;
 

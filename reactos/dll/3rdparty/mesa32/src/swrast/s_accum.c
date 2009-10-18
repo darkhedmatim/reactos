@@ -23,11 +23,11 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/macros.h"
-#include "main/imports.h"
-#include "main/fbobject.h"
+#include "glheader.h"
+#include "context.h"
+#include "macros.h"
+#include "imports.h"
+#include "fbobject.h"
 
 #include "s_accum.h"
 #include "s_context.h"
@@ -474,9 +474,7 @@ accum_return(GLcontext *ctx, GLfloat value,
          SWspan span;
 
          /* init color span */
-         INIT_SPAN(span, GL_BITMAP);
-         span.end = width;
-         span.arrayMask = SPAN_RGBA;
+         INIT_SPAN(span, GL_BITMAP, width, 0, SPAN_RGBA);
          span.x = xpos;
          span.y = ypos + i;
 
@@ -525,8 +523,8 @@ accum_return(GLcontext *ctx, GLfloat value,
          }
 
          /* store colors */
-         for (buffer = 0; buffer < fb->_NumColorDrawBuffers; buffer++) {
-            struct gl_renderbuffer *rb = fb->_ColorDrawBuffers[buffer];
+         for (buffer = 0; buffer < fb->_NumColorDrawBuffers[0]; buffer++) {
+            struct gl_renderbuffer *rb = fb->_ColorDrawBuffers[0][buffer];
             if (masking) {
                _swrast_mask_rgba_span(ctx, rb, &span);
             }

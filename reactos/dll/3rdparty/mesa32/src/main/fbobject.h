@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  6.5
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,9 +26,6 @@
 #ifndef FBOBJECT_H
 #define FBOBJECT_H
 
-
-extern void
-_mesa_init_fbobjects(GLcontext *ctx);
 
 extern struct gl_renderbuffer *
 _mesa_lookup_renderbuffer(GLcontext *ctx, GLuint id);
@@ -114,10 +111,6 @@ extern void GLAPIENTRY
 _mesa_FramebufferTexture3DEXT(GLenum target, GLenum attachment,
                               GLenum textarget, GLuint texture,
                               GLint level, GLint zoffset);
-
-extern void GLAPIENTRY
-_mesa_FramebufferTextureLayerEXT(GLenum target, GLenum attachment,
-                                 GLuint texture, GLint level, GLint layer);
 
 extern void GLAPIENTRY
 _mesa_FramebufferRenderbufferEXT(GLenum target, GLenum attachment,

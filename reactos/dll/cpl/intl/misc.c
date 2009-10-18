@@ -47,7 +47,7 @@ InsSpacesFmt(LPCTSTR szSourceStr, LPCTSTR szFmtStr)
     LPTSTR pszDestStr;
     LPTSTR pszTempStr;
     TCHAR szFmtVal[255];
-    UINT nFmtCount = 0;
+    INT nFmtCount = 0;
     INT nValCount = 0;
     INT nLastVal = 0;
     INT nSpaceOffset = 0;
@@ -124,10 +124,10 @@ ReplaceSubStr(LPCTSTR szSourceStr,
               LPCTSTR szTempl)
 {
     LPTSTR szDestStr;
-    UINT nCharCnt;
-    UINT nSubStrCnt;
-    UINT nDestStrCnt;
-    UINT nFirstCharCnt;
+    INT nCharCnt;
+    INT nSubStrCnt;
+    INT nDestStrCnt;
+    INT nFirstCharCnt;
 
     szDestStr = (LPTSTR)malloc(MAX_SAMPLES_STR_SIZE * sizeof(TCHAR));
 
@@ -190,7 +190,7 @@ InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc, PGLOBALDATA p
 /* Create applets */
 LONG
 APIENTRY
-SetupApplet(HWND hwndDlg, LCID lcid)
+SetupApplet(LCID lcid)
 {
     PROPSHEETPAGE PsPage[NUM_SHEETS + 1];
     PROPSHEETHEADER psh;
@@ -207,7 +207,7 @@ SetupApplet(HWND hwndDlg, LCID lcid)
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_USECALLBACK | PSH_PROPTITLE;
-    psh.hwndParent = hwndDlg;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_CPLICON));
     psh.pszCaption = Caption;

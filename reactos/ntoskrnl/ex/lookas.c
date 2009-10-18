@@ -108,7 +108,7 @@ ExpInitLookasideLists()
         ExInitializeSystemLookasideList(&ExpSmallNPagedPoolLookasideLists[i],
                                         NonPagedPool,
                                         (i + 1) * 8,
-                                        'looP',
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
 
@@ -116,7 +116,7 @@ ExpInitLookasideLists()
         ExInitializeSystemLookasideList(&ExpSmallPagedPoolLookasideLists[i],
                                         PagedPool,
                                         (i + 1) * 8,
-                                        'looP',
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
     }
@@ -222,7 +222,7 @@ ExInitializeNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside,
                                 IN PALLOCATE_FUNCTION Allocate OPTIONAL,
                                 IN PFREE_FUNCTION Free OPTIONAL,
                                 IN ULONG Flags,
-                                IN SIZE_T Size,
+                                IN ULONG Size,
                                 IN ULONG Tag,
                                 IN USHORT Depth)
 {
@@ -274,7 +274,7 @@ ExInitializePagedLookasideList(IN PPAGED_LOOKASIDE_LIST Lookaside,
                                IN PALLOCATE_FUNCTION Allocate OPTIONAL,
                                IN PFREE_FUNCTION Free OPTIONAL,
                                IN ULONG Flags,
-                               IN SIZE_T Size,
+                               IN ULONG Size,
                                IN ULONG Tag,
                                IN USHORT Depth)
 {

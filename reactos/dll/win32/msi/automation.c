@@ -39,9 +39,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(msi);
 
-#define REG_INDEX_CLASSES_ROOT 0
-#define REG_INDEX_DYN_DATA 6
-
 /*
  * AutomationObject - "base" class for all automation objects. For each interface, we implement Invoke function
  *                    called from AutomationObject::Invoke, and pass this function to create_automation_object.
@@ -153,7 +150,7 @@ HRESULT load_type_info(IDispatch *iface, ITypeInfo **pptinfo, REFIID clsid, LCID
 
 /* Create the automation object, placing the result in the pointer ppObj. The automation object is created
  * with the appropriate clsid and invocation function. */
-static HRESULT create_automation_object(MSIHANDLE msiHandle, IUnknown *pUnkOuter, LPVOID *ppObj, REFIID clsid,
+HRESULT create_automation_object(MSIHANDLE msiHandle, IUnknown *pUnkOuter, LPVOID *ppObj, REFIID clsid,
             HRESULT (STDMETHODCALLTYPE *funcInvoke)(AutomationObject*,DISPID,REFIID,LCID,WORD,DISPPARAMS*,
                                                     VARIANT*,EXCEPINFO*,UINT*),
                                  void (STDMETHODCALLTYPE *funcFree)(AutomationObject*),
@@ -162,7 +159,7 @@ static HRESULT create_automation_object(MSIHANDLE msiHandle, IUnknown *pUnkOuter
     AutomationObject *object;
     HRESULT hr;
 
-    TRACE("(%d,%p,%p,%s,%p,%p,%ld)\n", msiHandle, pUnkOuter, ppObj, debugstr_guid(clsid), funcInvoke, funcFree, sizetPrivateData);
+    TRACE("(%ld,%p,%p,%s,%p,%p,%ld)\n", (unsigned long)msiHandle, pUnkOuter, ppObj, debugstr_guid(clsid), funcInvoke, funcFree, sizetPrivateData);
 
     if( pUnkOuter )
         return CLASS_E_NOAGGREGATION;
@@ -194,7 +191,7 @@ static HRESULT create_automation_object(MSIHANDLE msiHandle, IUnknown *pUnkOuter
 }
 
 /* Create a list enumerator, placing the result in the pointer ppObj.  */
-static HRESULT create_list_enumerator(IUnknown *pUnkOuter, LPVOID *ppObj, AutomationObject *pObj, ULONG ulPos)
+HRESULT create_list_enumerator(IUnknown *pUnkOuter, LPVOID *ppObj, AutomationObject *pObj, ULONG ulPos)
 {
     ListEnumerator *object;
 
@@ -336,7 +333,7 @@ static HRESULT WINAPI AutomationObject_GetIDsOfNames(
     hr = ITypeInfo_GetIDsOfNames(This->iTypeInfo, rgszNames, cNames, rgDispId);
     if (hr == DISP_E_UNKNOWNNAME)
     {
-        UINT idx;
+        int idx;
         for (idx=0; idx<cNames; idx++)
         {
             if (rgDispId[idx] == DISPID_UNKNOWN)
@@ -405,7 +402,7 @@ static HRESULT WINAPI AutomationObject_Invoke(
              (hr == DISP_E_PARAMNOTFOUND ||
               hr == DISP_E_EXCEPTION)) {
         static const WCHAR szComma[] = { ',',0 };
-        static const WCHAR szExceptionSource[] = {'M','s','i',' ','A','P','I',' ','E','r','r','o','r',0};
+        static WCHAR szExceptionSource[] = {'M','s','i',' ','A','P','I',' ','E','r','r','o','r',0};
         WCHAR szExceptionDescription[MAX_PATH];
         BSTR bstrParamNames[MAX_FUNC_PARAMS];
         unsigned namesNo, i;
@@ -441,7 +438,7 @@ static HRESULT WINAPI AutomationObject_Invoke(
     if (pVarResult == &varResultDummy) VariantClear(pVarResult);
 
     /* Free function name if we retrieved it */
-    SysFreeString(bstrName);
+    if (bstrName) SysFreeString(bstrName);
 
     TRACE("Returning 0x%08x, %s\n", hr, SUCCEEDED(hr) ? "ok" : "not ok");
 
@@ -618,7 +615,7 @@ static ULONG WINAPI ListEnumerator_Release(IEnumVARIANT* iface)
 static HRESULT WINAPI ListEnumerator_Next(IEnumVARIANT* iface, ULONG celt, VARIANT *rgVar, ULONG *pCeltFetched)
 {
     ListEnumerator *This = (ListEnumerator *)iface;
-    ListData *data = private_data(This->pObj);
+    ListData *data = (ListData *)private_data(This->pObj);
     ULONG idx, local;
 
     TRACE("(%p,%uld,%p,%p)\n", iface, celt, rgVar, pCeltFetched);
@@ -645,7 +642,7 @@ static HRESULT WINAPI ListEnumerator_Next(IEnumVARIANT* iface, ULONG celt, VARIA
 static HRESULT WINAPI ListEnumerator_Skip(IEnumVARIANT* iface, ULONG celt)
 {
     ListEnumerator *This = (ListEnumerator *)iface;
-    ListData *data = private_data(This->pObj);
+    ListData *data = (ListData *)private_data(This->pObj);
 
     TRACE("(%p,%uld)\n", iface, celt);
 
@@ -708,7 +705,7 @@ static const struct IEnumVARIANTVtbl ListEnumerator_Vtbl =
 /* Helper function that copies a passed parameter instead of using VariantChangeType like the actual DispGetParam.
    This function is only for VARIANT type parameters that have several types that cannot be properly discriminated
    using DispGetParam/VariantChangeType. */
-static HRESULT DispGetParam_CopyOnly(
+HRESULT WINAPI DispGetParam_CopyOnly(
         DISPPARAMS *pdispparams, /* [in] Parameter list */
         UINT        *position,    /* [in] Position of parameter to copy in pdispparams; on return will contain calculated position */
         VARIANT    *pvarResult)  /* [out] Destination for resulting variant */
@@ -988,7 +985,7 @@ static HRESULT WINAPI ListImpl_Invoke(
         EXCEPINFO* pExcepInfo,
         UINT* puArgErr)
 {
-    ListData *data = private_data(This);
+    ListData *data = (ListData *)private_data(This);
     HRESULT hr;
     VARIANTARG varg0;
     IUnknown *pUnk = NULL;
@@ -1388,20 +1385,6 @@ static HRESULT WINAPI SessionImpl_Invoke(
             else return DISP_E_MEMBERNOTFOUND;
             break;
 
-        case DISPID_SESSION_MESSAGE:
-            if(!(wFlags & DISPATCH_METHOD))
-                return DISP_E_MEMBERNOTFOUND;
-
-            hr = DispGetParam(pDispParams, 0, VT_I4, &varg0, puArgErr);
-            if (FAILED(hr)) return hr;
-            hr = DispGetParam(pDispParams, 1, VT_DISPATCH, &varg1, puArgErr);
-            if (FAILED(hr)) return hr;
-
-            V_VT(pVarResult) = VT_I4;
-            V_I4(pVarResult) =
-                MsiProcessMessage(This->msiHandle, V_I4(&varg0), ((AutomationObject *)V_DISPATCH(&varg1))->msiHandle);
-            break;
-
         case DISPID_SESSION_SETINSTALLLEVEL:
             if (wFlags & DISPATCH_METHOD) {
                 hr = DispGetParam(pDispParams, 0, VT_I4, &varg0, puArgErr);
@@ -1552,7 +1535,6 @@ static HRESULT WINAPI InstallerImpl_Invoke(
     HRESULT hr;
     LPWSTR szString = NULL;
     DWORD dwSize = 0;
-    INSTALLUILEVEL ui;
 
     VariantInit(&varg0);
     VariantInit(&varg1);
@@ -1645,31 +1627,6 @@ static HRESULT WINAPI InstallerImpl_Invoke(
             else return DISP_E_MEMBERNOTFOUND;
             break;
 
-        case DISPID_INSTALLER_UILEVEL:
-            if (wFlags & DISPATCH_PROPERTYPUT)
-            {
-                hr = DispGetParam(pDispParams, 0, VT_I4, &varg0, puArgErr);
-                if (FAILED(hr)) return hr;
-                if ((ui = MsiSetInternalUI(V_I4(&varg0), NULL) == INSTALLUILEVEL_NOCHANGE))
-                {
-                    ERR("MsiSetInternalUI failed\n");
-                    return DISP_E_EXCEPTION;
-                }
-            }
-            else if (wFlags & DISPATCH_PROPERTYGET)
-            {
-                if ((ui = MsiSetInternalUI(INSTALLUILEVEL_NOCHANGE, NULL) == INSTALLUILEVEL_NOCHANGE))
-                {
-                    ERR("MsiSetInternalUI failed\n");
-                    return DISP_E_EXCEPTION;
-                }
-
-                V_VT(pVarResult) = VT_I4;
-                V_I4(pVarResult) = ui;
-            }
-            else return DISP_E_MEMBERNOTFOUND;
-            break;
-
         case DISPID_INSTALLER_INSTALLPRODUCT:
             if (wFlags & DISPATCH_METHOD)
             {
@@ -1728,12 +1685,7 @@ static HRESULT WINAPI InstallerImpl_Invoke(
                     VariantClear(&varg1);
                     return hr;
                 }
-
-                if (V_I4(&varg0) >= REG_INDEX_CLASSES_ROOT &&
-                    V_I4(&varg0) <= REG_INDEX_DYN_DATA)
-                    V_I4(&varg0) |= (UINT_PTR)HKEY_CLASSES_ROOT;
-
-                ret = RegOpenKeyW((HKEY)(UINT_PTR)V_I4(&varg0), V_BSTR(&varg1), &hkey);
+                ret = RegOpenKeyW((HKEY)V_I4(&varg0), V_BSTR(&varg1), &hkey);
 
                 /* Third parameter can be VT_EMPTY, VT_I4, or VT_BSTR */
                 switch (V_VT(&varg2))
@@ -1868,7 +1820,7 @@ static HRESULT WINAPI InstallerImpl_Invoke(
                     V_DISPATCH(pVarResult) = pDispatch;
 
                     /* Save product strings */
-                    ldata = private_data((AutomationObject *)pDispatch);
+                    ldata = (ListData *)private_data((AutomationObject *)pDispatch);
                     if (!(ldata->pVars = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(VARIANT)*idx)))
                         ERR("Out of memory\n");
                     else
@@ -1914,7 +1866,7 @@ static HRESULT WINAPI InstallerImpl_Invoke(
                     V_DISPATCH(pVarResult) = pDispatch;
 
                     /* Save product strings */
-                    ldata = private_data((AutomationObject *)pDispatch);
+                    ldata = (ListData *)private_data((AutomationObject *)pDispatch);
                     if (!(ldata->pVars = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(VARIANT)*idx)))
                         ERR("Out of memory\n");
                     else

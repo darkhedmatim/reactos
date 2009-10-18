@@ -3,6 +3,9 @@
 #define REACTOS_STR_INTERNAL_NAME	"d3d8thk\0"
 #define REACTOS_STR_ORIGINAL_FILENAME	"d3d8thk.dll\0"
 
-#include <reactos/reactx.h>
+#define REACTOS_FILEVERSION 5,3,0,900
+#define REACTOS_STR_FILE_VERSION "5.3.0.900"
+#define REACTOS_PRODUCTVERSION 5,3,0,900
+#define REACTOS_STR_PRODUCT_VERSION "5.3"
 
 #include <reactos/version.rc>

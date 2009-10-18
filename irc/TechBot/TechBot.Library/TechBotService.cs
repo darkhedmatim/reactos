@@ -4,50 +4,87 @@ using System.Collections.Generic;
 using System.IO;
 using System.Data;
 using System.Threading;
-
 using TechBot.IRCLibrary;
 
 namespace TechBot.Library
 {
-	public abstract class TechBotService
+	public class TechBotService
 	{
-		protected IServiceOutput m_ServiceOutput;
+		private IServiceOutput serviceOutput;
+		private string chmPath;
+		private string mainChm;
+		private string ntstatusXml;
+		private string winerrorXml;
+		private string hresultXml;
+		private string wmXml;
+		private string svnCommand;
+		private string bugUrl, WineBugUrl, SambaBugUrl;
+        private List<Command> commands = new List<Command>();
 		
-		public TechBotService(IServiceOutput serviceOutput)
+		public TechBotService(IServiceOutput serviceOutput,
+		                      string chmPath,
+		                      string mainChm)
+                              //string ntstatusXml,
+                              //string winerrorXml,
+                              //string hresultXml,
+                              //string wmXml,
+		                      //string svnCommand,
+                              //string bugUrl,
+                              //string WineBugUrl,
+                              //string SambaBugUrl)
 		{
-			m_ServiceOutput = serviceOutput;
+			this.serviceOutput = serviceOutput;
+			this.chmPath = chmPath;
+			this.mainChm = mainChm;
+			this.ntstatusXml = ntstatusXml;
+			this.winerrorXml = winerrorXml;
+			this.hresultXml = hresultXml;
+			this.wmXml = wmXml;
+			this.svnCommand = svnCommand;
+			this.bugUrl = bugUrl;
+			this.WineBugUrl = WineBugUrl;
+			this.SambaBugUrl = SambaBugUrl;
 		}
 
-        public virtual void Run()
+        public void Run()
         {
-            CommandFactory.LoadPlugins();
+            commands.Add(new HelpCommand(this));
+            /*commands.Add(new ApiCommand(serviceOutput,
+                                        chmPath,
+                                        mainChm));*/
+            commands.Add(new NtStatusCommand(this));
+            commands.Add(new WinerrorCommand(this));
+            commands.Add(new HResultCommand(this));
+            commands.Add(new ErrorCommand(this));
+            commands.Add(new WMCommand(this));
+            commands.Add(new SvnCommand(this));
+            commands.Add(new ReactOSBugUrl(this));
+            commands.Add(new SambaBugUrl(this));
+            commands.Add(new WineBugUrl(this));
         }
 
         public IServiceOutput ServiceOutput
         {
-            get { return m_ServiceOutput; }
+            get { return serviceOutput; }
         }
 
-        public CommandBuilderCollection Commands
+        public IList<Command> Commands
         {
-            get { return CommandFactory.Commands; }
+            get { return commands; }
         }
-
-        public void InjectMessage(MessageContext context, string message)
-        {
-            ParseCommandMessage(context,
-                                message);
-        }
+		
+		public void InjectMessage(MessageContext context,
+		                          string message)
+		{
+			if (message.StartsWith("!"))
+				ParseCommandMessage(context,
+				                    message);
+		}
 		
 		private bool IsCommandMessage(string message)
 		{
-            return message.StartsWith(Settings.Default.CommandPrefix);
+			return message.StartsWith("!");
 		}
-
-        public void InjectMessage(string message)
-        {
-            ParseCommandMessage(null, message);
-        }
 
 		public void ParseCommandMessage(MessageContext context,
 		                                string message)
@@ -67,35 +104,19 @@ namespace TechBot.Library
 			else
 				commandName = message.Trim();
 
-            foreach (CommandBuilder command in Commands)
-            {
-                if (command.Name == commandName)
+			foreach (Command command in commands)
+			{
+                foreach (string cmd in command.AvailableCommands)
                 {
-                    //Create a new instance of the required command type
-                    Command cmd = command.CreateCommand();
-
-                    cmd.TechBot = this;
-                    cmd.Context = context;
-                    cmd.Parameters = commandParams;
-
-                    try
+                    if (cmd == commandName)
                     {
-                        cmd.Initialize();
-                        cmd.Run();
-                        cmd.DeInitialize();
+                        command.Handle(context,
+                                       commandName, 
+                                       commandParams);
+                        return;
                     }
-                    catch (Exception e)
-                    {
-                        ServiceOutput.WriteLine(context, string.Format("Uops! Just crashed with exception '{0}' at {1}",
-                            e.Message,
-                            e.Source));
-
-                        ServiceOutput.WriteLine(context, e.StackTrace);
-                    }
-
-                    return;
                 }
-            }
+			}
 		}
 	}
 }

@@ -251,78 +251,16 @@ HeapUsage(HANDLE hHeap,
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
-HeapWalk(HANDLE	hHeap,
+STDCALL
+HeapWalk(HANDLE	 hHeap,
          LPPROCESS_HEAP_ENTRY lpEntry)
 {
-    NTSTATUS Status;
-
-    Status = RtlWalkHeap(hHeap, lpEntry);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-HeapQueryInformation(HANDLE HeapHandle,
-                     HEAP_INFORMATION_CLASS HeapInformationClass,
-                     PVOID HeapInformation OPTIONAL,
-                     SIZE_T HeapInformationLength OPTIONAL,
-                     PSIZE_T ReturnLength OPTIONAL)
-{
-    NTSTATUS Status;
-
-    Status = RtlQueryHeapInformation(HeapHandle,
-                                     HeapInformationClass,
-                                     HeapInformation,
-                                     HeapInformationLength,
-                                     ReturnLength);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-HeapSetInformation(HANDLE HeapHandle,
-                   HEAP_INFORMATION_CLASS HeapInformationClass,
-                   PVOID HeapInformation OPTIONAL,
-                   SIZE_T HeapInformationLength OPTIONAL)
-{
-    NTSTATUS Status;
-
-    Status = RtlSetHeapInformation(HeapHandle,
-                                   HeapInformationClass,
-                                   HeapInformation,
-                                   HeapInformationLength);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
+    /* Not implemented */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 /* EOF */

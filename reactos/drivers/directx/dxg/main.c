@@ -1,3 +1,4 @@
+
 /*
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -24,7 +25,7 @@ const ULONG gcDxgFuncs = DXG_INDEX_DxDdIoctl + 1;
 
 
 
-NTSTATUS NTAPI
+NTSTATUS
 DriverEntry(IN PVOID Context1,
             IN PVOID Context2)
 {
@@ -42,7 +43,7 @@ DxDdStartupDxGraphics (ULONG SizeEngDrv,
 {
 
     PDRVFN drv_func;
-    UINT i;
+    INT i;
 
     /* Test see if the data is vaild we got from win32k.sys */
     if ((SizeEngDrv != sizeof(DRVENABLEDATA)) ||
@@ -116,8 +117,7 @@ DxDdStartupDxGraphics (ULONG SizeEngDrv,
 
 
 NTSTATUS
-APIENTRY
-DxDdCleanupDxGraphics(VOID)
+DxDdCleanupDxGraphics()
 {
     DdHmgDestroy();
 
@@ -135,4 +135,11 @@ DxDdCleanupDxGraphics(VOID)
 
     return 0;
 }
+
+
+
+
+
+
+
 

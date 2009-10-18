@@ -44,7 +44,7 @@ static PDRIVER_OBJECT DriverObject;
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdCloseFile(PDEVICE_EXTENSION DeviceExt,
 	     PFILE_OBJECT FileObject)
 /*
@@ -55,7 +55,7 @@ FsdCloseFile(PDEVICE_EXTENSION DeviceExt,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdOpenFile(PDEVICE_EXTENSION DeviceExt,
 	    PFILE_OBJECT FileObject,
 	    PWSTR FileName)
@@ -67,7 +67,7 @@ FsdOpenFile(PDEVICE_EXTENSION DeviceExt,
 }
 
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 FsdHasFileSystem(PDEVICE_OBJECT DeviceToMount)
 /*
  * FUNCTION: Tests if the device contains a filesystem that can be mounted
@@ -78,7 +78,7 @@ FsdHasFileSystem(PDEVICE_OBJECT DeviceToMount)
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdMountDevice(PDEVICE_EXTENSION DeviceExt,
 	       PDEVICE_OBJECT DeviceToMount)
 /*
@@ -89,7 +89,7 @@ FsdMountDevice(PDEVICE_EXTENSION DeviceExt,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdReadFile(PDEVICE_EXTENSION DeviceExt,
 	    PFILE_OBJECT FileObject,
 	    PVOID Buffer,
@@ -103,7 +103,7 @@ FsdReadFile(PDEVICE_EXTENSION DeviceExt,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdClose(PDEVICE_OBJECT DeviceObject,
 	 PIRP Irp)
 {
@@ -122,7 +122,7 @@ FsdClose(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdCreate(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
 {
@@ -142,7 +142,7 @@ FsdCreate(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdWrite(PDEVICE_OBJECT DeviceObject,
 	 PIRP Irp)
 {
@@ -153,7 +153,7 @@ FsdWrite(PDEVICE_OBJECT DeviceObject,
   return(STATUS_UNSUCCESSFUL);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdRead(PDEVICE_OBJECT DeviceObject,
 	PIRP Irp)
 {
@@ -210,7 +210,7 @@ FsdMount(PDEVICE_OBJECT DeviceToMount)
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 FsdFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp)
 {
@@ -236,7 +236,7 @@ FsdFileSystemControl(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT _DriverObject,
 	    PUNICODE_STRING RegistryPath)
 /*

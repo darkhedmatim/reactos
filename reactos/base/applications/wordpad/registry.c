@@ -33,7 +33,6 @@ static const WCHAR key_text[] = {'T','e','x','t',0};
 static const WCHAR var_file[] = {'F','i','l','e','%','d',0};
 static const WCHAR var_framerect[] = {'F','r','a','m','e','R','e','c','t',0};
 static const WCHAR var_barstate0[] = {'B','a','r','S','t','a','t','e','0',0};
-static const WCHAR var_maximized[] = {'M','a','x','i','m','i','z','e','d',0};
 
 static LRESULT registry_get_handle(HKEY *hKey, LPDWORD action, LPCWSTR subKey)
 {
@@ -78,20 +77,16 @@ static LRESULT registry_get_handle(HKEY *hKey, LPDWORD action, LPCWSTR subKey)
 
 void registry_set_options(HWND hMainWnd)
 {
-    HKEY hKey = 0;
+    HKEY hKey;
     DWORD action;
 
-    if(registry_get_handle(&hKey, &action, key_options) == ERROR_SUCCESS)
+    if(registry_get_handle(&hKey, &action, (LPWSTR)key_options) == ERROR_SUCCESS)
     {
-        WINDOWPLACEMENT wp;
-        DWORD isMaximized;
+        RECT rc;
 
-        wp.length = sizeof(WINDOWPLACEMENT);
-        GetWindowPlacement(hMainWnd, &wp);
-        isMaximized = (wp.showCmd == SW_SHOWMAXIMIZED);
+        GetWindowRect(hMainWnd, &rc);
 
-        RegSetValueExW(hKey, var_framerect, 0, REG_BINARY, (LPBYTE)&wp.rcNormalPosition, sizeof(RECT));
-        RegSetValueExW(hKey, var_maximized, 0, REG_DWORD, (LPBYTE)&isMaximized, sizeof(DWORD));
+        RegSetValueExW(hKey, var_framerect, 0, REG_BINARY, (LPBYTE)&rc, sizeof(RECT));
 
         registry_set_pagemargins(hKey);
     }
@@ -101,10 +96,10 @@ void registry_set_options(HWND hMainWnd)
 
 void registry_read_winrect(RECT* rc)
 {
-    HKEY hKey = 0;
+    HKEY hKey;
     DWORD size = sizeof(RECT);
 
-    if(registry_get_handle(&hKey, 0, key_options) != ERROR_SUCCESS ||
+    if(registry_get_handle(&hKey, 0, (LPWSTR)key_options) != ERROR_SUCCESS ||
        RegQueryValueExW(hKey, var_framerect, 0, NULL, (LPBYTE)rc, &size) !=
        ERROR_SUCCESS || size != sizeof(RECT))
     {
@@ -112,21 +107,6 @@ void registry_read_winrect(RECT* rc)
         rc->left = 0;
         rc->bottom = 300;
         rc->right = 600;
-    }
-
-    RegCloseKey(hKey);
-}
-
-void registry_read_maximized(DWORD *bMaximized)
-{
-    HKEY hKey = 0;
-    DWORD size = sizeof(DWORD);
-
-    if(registry_get_handle(&hKey, 0, key_options) != ERROR_SUCCESS ||
-       RegQueryValueExW(hKey, var_maximized, 0, NULL, (LPBYTE)bMaximized, &size) !=
-       ERROR_SUCCESS || size != sizeof(DWORD))
-    {
-        *bMaximized = FALSE;
     }
 
     RegCloseKey(hKey);
@@ -207,7 +187,7 @@ static void format_filelist_filename(LPWSTR file, LPWSTR out)
     else if(truncpos1 == truncpos2 || !truncpos2)
         lstrcatW(out, file);
     else
-        truncate_path(file, out, truncpos1, truncpos2);
+        truncate_path(file, out, truncpos1, truncpos2 ? truncpos2 : (pos_basename-1));
 }
 
 void registry_read_filelist(HWND hMainWnd)
@@ -243,7 +223,7 @@ void registry_read_filelist(HWND hMainWnd)
                != ERROR_SUCCESS)
                 break;
 
-            mi.dwItemData = (ULONG_PTR)pFile[i];
+            mi.dwItemData = (DWORD)pFile[i];
             wsprintfW(itemText, numFormat, i+1);
 
             lstrcpyW(buffer, pFile[i]);
@@ -305,7 +285,7 @@ void registry_set_filelist(LPCWSTR newFile, HWND hMainWnd)
                 pFiles[0] = newFile;
             } else
             {
-                for(i = 0; i < FILELIST_ENTRIES-1; i++)
+                for(i = 0; pFiles[i] && i < FILELIST_ENTRIES-1; i++)
                     pFiles[FILELIST_ENTRIES-1-i] = pFiles[FILELIST_ENTRIES-2-i];
 
                 pFiles[0] = newFile;
@@ -314,12 +294,12 @@ void registry_set_filelist(LPCWSTR newFile, HWND hMainWnd)
             for(i = 0; pFiles[i] && i < FILELIST_ENTRIES; i++)
             {
                 wsprintfW(buffer, var_file, i+1);
-                RegSetValueExW(hKey, (LPWSTR)&buffer, 0, REG_SZ, (const BYTE*)pFiles[i],
+                RegSetValueExW(hKey, (LPWSTR)&buffer, 0, REG_SZ, (LPBYTE)pFiles[i],
                                (lstrlenW(pFiles[i])+1)*sizeof(WCHAR));
             }
         }
-        RegCloseKey(hKey);
     }
+    RegCloseKey(hKey);
     registry_read_filelist(hMainWnd);
 }
 
@@ -335,10 +315,9 @@ void registry_read_options(void)
     if(registry_get_handle(&hKey, 0, key_options) != ERROR_SUCCESS)
         registry_read_pagemargins(NULL);
     else
-    {
         registry_read_pagemargins(hKey);
-        RegCloseKey(hKey);
-    }
+
+    RegCloseKey(hKey);
 }
 
 static void registry_read_formatopts(int index, LPCWSTR key, DWORD barState[], DWORD wordWrap[])
@@ -367,7 +346,7 @@ static void registry_read_formatopts(int index, LPCWSTR key, DWORD barState[], D
     if(index == reg_formatindex(SF_RTF))
         wordWrap[index] = ID_WORDWRAP_WINDOW;
     else if(index == reg_formatindex(SF_TEXT))
-        wordWrap[index] = ID_WORDWRAP_NONE;
+        wordWrap[index] = ID_WORDWRAP_WINDOW; /* FIXME: should be ID_WORDWRAP_NONE once we support it */
 
     RegCloseKey(hKey);
 }

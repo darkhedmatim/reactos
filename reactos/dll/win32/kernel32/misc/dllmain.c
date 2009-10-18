@@ -26,11 +26,11 @@ HMODULE hCurrentModule = NULL;
 HANDLE hBaseDir = NULL;
 PPEB Peb;
 ULONG SessionId;
-BOOL ConsoleInitialized = FALSE;
 
 static BOOL DllInitialized = FALSE;
+static BOOL ConsoleInitialized = FALSE;
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HANDLE hInst,
 	DWORD dwReason,
 	LPVOID lpReserved);
@@ -42,12 +42,12 @@ RTL_CRITICAL_SECTION ConsoleLock;
 extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
 extern __declspec(noreturn) VOID CALLBACK ConsoleControlDispatcher(DWORD CodeAndFlag);
 
-extern BOOL FASTCALL NlsInit(VOID);
-extern VOID FASTCALL NlsUninit(VOID);
+extern BOOL FASTCALL NlsInit();
+extern VOID FASTCALL NlsUninit();
 BOOLEAN InWindows = FALSE;
 
 HANDLE
-WINAPI
+STDCALL
 DuplicateConsoleHandle(HANDLE hConsole,
                        DWORD dwDesiredAccess,
                        BOOL	bInheritHandle,
@@ -119,7 +119,7 @@ BaseProcessInitPostImport(VOID)
 }
 
 BOOL
-WINAPI
+STDCALL
 BasepInitConsole(VOID)
 {
     CSR_API_MESSAGE Request;
@@ -233,7 +233,7 @@ BasepInitConsole(VOID)
 
 
 BOOL
-WINAPI
+STDCALL
 DllMain(HANDLE hDll,
         DWORD dwReason,
         LPVOID lpReserved)
@@ -256,6 +256,42 @@ DllMain(HANDLE hDll,
     switch (dwReason)
     {
         case DLL_PROCESS_ATTACH:
+
+#ifdef _M_IX86
+        /* OK, yes, this is really retarded but it works for now */
+        InWindows = NtCurrentPeb()->BeingDebugged;
+
+        /*
+         * CreateProcess will run in the real kernel32 and it will write
+         * its own BaseProcessStartThunk EIP in the CONTEXT that ZwContinue
+         * will get. We'll be first called by Ldr while initializing, and we'll
+         * be wrapped in 3 layers of SEH, followed by two frames, finally 
+         * followed by our CONTEXT on the stack. We'll modify the EIP in it
+         * to match the correct one (our own) and then everything works.
+         * Tested on XP and 2K3, probably doesn't work in 2K.
+         */
+        if (InWindows)
+        {
+            /* 
+             * Due to yet another bug in how Windows handles .local, LDR will
+             * actually end up loading us twice. The second time will be the
+             * "official" load, at a totally different address. It will be,
+             * it will be at -that- address that all the APIs will be called.
+             * However, that address is dynamic while this one will be static,
+             * so we'll do initilization with this one. Plus, at this one,
+             * we know exactly that we're within 3 SEH layers.
+             */
+            if (hDll == (HANDLE)0x7c800000)
+            {
+                PULONG Eip;
+                __debugbreak();
+                Eip = (PULONG)*(PULONG)*(PULONG)NtCurrentTeb()->Tib.ExceptionList +
+                    0x9 +
+                    FIELD_OFFSET(CONTEXT, Eip) / sizeof(ULONG);
+                *Eip = (ULONG)BaseProcessStartThunk;
+            }
+        }
+#endif
 
         /* Don't bother us for each thread */
         LdrDisableThreadCalloutsForDll((PVOID)hDll);
@@ -374,7 +410,6 @@ DllMain(HANDLE hDll,
                 /* Delete DLL critical section */
                 if (ConsoleInitialized == TRUE)
                 {
-                    ConsoleInitialized = FALSE;
                     RtlDeleteCriticalSection (&ConsoleLock);
                 }
                 RtlDeleteCriticalSection (&DllLock);

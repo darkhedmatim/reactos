@@ -1,6 +1,6 @@
 /*
  * PROJECT:     RosBE - ReactOS Build Environment for Windows.
- * LICENSE:     GNU General Public License v2. (see LICENSE.txt)
+ * LICENSE:     GPL - See LICENSE.txt in the top level directory.
  * FILE:        Tools/tee.c
  * PURPOSE:     Spit stdin to stdout and a file.
  * COPYRIGHT:   Copyright 2007 Peter Ward <dralnix@gmail.com>

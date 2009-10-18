@@ -31,11 +31,12 @@
 #ifdef INCLUDE_CMD_TYPE
 
 
-INT cmd_type (LPTSTR param)
+INT cmd_type (LPTSTR cmd, LPTSTR param)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	TCHAR  buff[256];
 	HANDLE hFile, hConsoleOut;
-	DWORD  dwRet;
+	BOOL   bRet;
 	INT    argc,i;
 	LPTSTR *argv;
 	LPTSTR errmsg;
@@ -70,7 +71,8 @@ INT cmd_type (LPTSTR param)
 	{
 		if (_T('/') == argv[i][0] && _totupper(argv[i][1]) != _T('P'))
 		{
-			ConErrResPrintf(STRING_TYPE_ERROR1, argv[i] + 1);
+			LoadString(CMD_ModuleHandle, STRING_TYPE_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, argv[i] + 1);
 			continue;
 		}
 
@@ -99,34 +101,28 @@ INT cmd_type (LPTSTR param)
 			continue;
 		}
 
-		if (bPaging)
+		do
 		{
-			while (FileGetString (hFile, buff, sizeof(buff) / sizeof(TCHAR)))
+			bRet = FileGetString (hFile, buff, sizeof(buff) / sizeof(TCHAR));
+			if(bPaging)
 			{
-				if (ConOutPrintfPaging(bFirstTime, _T("%s"), buff) == 1)
+				if(bRet)
 				{
-					bCtrlBreak = FALSE;
-					CloseHandle(hFile);
-					freep(argv);
-					return 0;
-				}
-				bFirstTime = FALSE;
-			}
-		}
-		else
-		{
-			while (ReadFile(hFile, buff, sizeof(buff), &dwRet, NULL) && dwRet > 0)
-			{
-				WriteFile(hConsoleOut, buff, dwRet, &dwRet, NULL);
-				if (bCtrlBreak)
-				{
-					bCtrlBreak = FALSE;
-					CloseHandle(hFile);
-					freep(argv);
-					return 0;
+					if (ConOutPrintfPaging(bFirstTime, buff) == 1)
+					{
+						bCtrlBreak = FALSE;
+						return 0;
+					}
 				}
 			}
-		}
+			else
+			{
+				if(bRet)
+					ConOutPrintf(buff);
+			}
+			bFirstTime = FALSE;
+
+		} while(bRet);
 
 		CloseHandle(hFile);
 	}

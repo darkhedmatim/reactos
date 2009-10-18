@@ -26,7 +26,6 @@
 #include "advpub.h"
 
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
@@ -153,7 +152,7 @@ static HRESULT register_interfaces(struct regsvr_interface const *list)
 				  KEY_READ | KEY_WRITE, NULL, &key, NULL);
 	    if (res != ERROR_SUCCESS) goto error_close_iid_key;
 
-	    sprintfW(buf, fmt, list->num_methods);
+	    wsprintfW(buf, fmt, list->num_methods);
 	    res = RegSetValueExW(key, NULL, 0, REG_SZ,
 				 (CONST BYTE*)buf,
 				 (lstrlenW(buf) + 1) * sizeof(WCHAR));
@@ -513,32 +512,31 @@ static struct regsvr_interface const interface_list[] = {
 #define INF_SET_CLSID(clsid)                  \
     do                                        \
     {                                         \
-        static CHAR name[] = #clsid;          \
+        static CHAR name[] = "CLSID_" #clsid; \
                                               \
         pse[i].pszName = name;                \
-        clsids[i++] = &clsid;                 \
+        clsids[i++] = &CLSID_ ## clsid;       \
     } while (0)
 
 static HRESULT register_inf(BOOL doregister)
 {
     HRESULT hres;
     HMODULE hAdvpack;
-    HRESULT (WINAPI *pRegInstall)(HMODULE hm, LPCSTR pszSection, const STRTABLEA* pstTable);
+    typeof(RegInstallA) *pRegInstall;
     STRTABLEA strtable;
-    STRENTRYA pse[8];
-    static CLSID const *clsids[8];
-    unsigned int i = 0;
+    STRENTRYA pse[7];
+    static CLSID const *clsids[34];
+    int i = 0;
 
     static const WCHAR wszAdvpack[] = {'a','d','v','p','a','c','k','.','d','l','l',0};
 
-    INF_SET_CLSID(CLSID_CdlProtocol);
-    INF_SET_CLSID(CLSID_FileProtocol);
-    INF_SET_CLSID(CLSID_FtpProtocol);
-    INF_SET_CLSID(CLSID_GopherProtocol);
-    INF_SET_CLSID(CLSID_HttpProtocol);
-    INF_SET_CLSID(CLSID_HttpSProtocol);
-    INF_SET_CLSID(CLSID_MkProtocol);
-    INF_SET_CLSID(CLSID_DeCompMimeFilter);
+    INF_SET_CLSID(CdlProtocol);
+    INF_SET_CLSID(FileProtocol);
+    INF_SET_CLSID(FtpProtocol);
+    INF_SET_CLSID(GopherProtocol);
+    INF_SET_CLSID(HttpProtocol);
+    INF_SET_CLSID(HttpSProtocol);
+    INF_SET_CLSID(MkProtocol);
 
     for(i = 0; i < sizeof(pse)/sizeof(pse[0]); i++) {
         pse[i].pszValue = heap_alloc(39);
@@ -552,7 +550,7 @@ static HRESULT register_inf(BOOL doregister)
     strtable.pse = pse;
 
     hAdvpack = LoadLibraryW(wszAdvpack);
-    pRegInstall = (void *)GetProcAddress(hAdvpack, "RegInstall");
+    pRegInstall = (typeof(RegInstallA)*)GetProcAddress(hAdvpack, "RegInstall");
 
     hres = pRegInstall(URLMON_hInstance, doregister ? "RegisterDll" : "UnregisterDll", &strtable);
 

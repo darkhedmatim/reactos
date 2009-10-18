@@ -20,7 +20,7 @@
 PKBL KBLList = NULL; // Keyboard layout list.
 
 typedef PVOID (*KbdLayerDescriptor)(VOID);
-NTSTATUS APIENTRY LdrGetProcedureAddress(PVOID module,
+NTSTATUS STDCALL LdrGetProcedureAddress(PVOID module,
                                         PANSI_STRING import_name,
                                         DWORD flags,
                                         PVOID *func_addr);
@@ -40,7 +40,7 @@ NTSTATUS APIENTRY LdrGetProcedureAddress(PVOID module,
  * Returns NTSTATUS
  */
 
-static NTSTATUS APIENTRY ReadRegistryValue( PUNICODE_STRING KeyName,
+static NTSTATUS NTAPI ReadRegistryValue( PUNICODE_STRING KeyName,
       PUNICODE_STRING ValueName,
       PUNICODE_STRING ReturnedValue )
 {
@@ -92,7 +92,7 @@ static NTSTATUS APIENTRY ReadRegistryValue( PUNICODE_STRING KeyName,
    if( !NT_SUCCESS(Status) )
    {
       NtClose(KeyHandle);
-      ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+      ExFreePool(KeyValuePartialInfo);
       return Status;
    }
 
@@ -104,7 +104,7 @@ static NTSTATUS APIENTRY ReadRegistryValue( PUNICODE_STRING KeyName,
    if(!ReturnBuffer)
    {
       NtClose(KeyHandle);
-      ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+      ExFreePool(KeyValuePartialInfo);
       return STATUS_NO_MEMORY;
    }
 
@@ -113,7 +113,7 @@ static NTSTATUS APIENTRY ReadRegistryValue( PUNICODE_STRING KeyName,
       KeyValuePartialInfo->DataLength);
    RtlInitUnicodeString(ReturnedValue, ReturnBuffer);
 
-   ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+   ExFreePool(KeyValuePartialInfo);
    NtClose(KeyHandle);
 
    return Status;
@@ -133,7 +133,7 @@ static BOOL UserLoadKbdDll(WCHAR *wsKLID,
    UNICODE_STRING klid;
    WCHAR LayoutPathBuffer[MAX_PATH] = L"\\SystemRoot\\System32\\";
    WCHAR KeyNameBuffer[MAX_PATH] = L"\\REGISTRY\\Machine\\SYSTEM\\"
-                   L"CurrentControlSet\\Control\\Keyboard Layouts\\";
+                   L"CurrentControlSet\\Control\\KeyboardLayouts\\";
 
    RtlInitUnicodeString(&klid, wsKLID);
    RtlInitUnicodeString(&LayoutValueName,L"Layout File");
@@ -154,7 +154,7 @@ static BOOL UserLoadKbdDll(WCHAR *wsKLID,
    FullLayoutPath.MaximumLength = sizeof(LayoutPathBuffer);
    RtlAppendUnicodeStringToString(&FullLayoutPath, &LayoutFile);
    DPRINT("Loading Keyboard DLL %wZ\n", &FullLayoutPath);
-   ExFreePoolWithTag(LayoutFile.Buffer, TAG_STRING);
+   RtlFreeUnicodeString(&LayoutFile);
 
    *phModule = EngLoadImage(FullLayoutPath.Buffer);
 
@@ -321,10 +321,7 @@ PKBL W32kGetDefaultKeyLayout(VOID)
          Status = ReadRegistryValue(&FullKeyboardLayoutPath, &LayoutValueName, &LayoutLocaleIdString);
 
          if( NT_SUCCESS(Status) )
-         {
             RtlUnicodeStringToInteger(&LayoutLocaleIdString, 16, &LayoutLocaleId);
-            ExFreePoolWithTag(LayoutLocaleIdString.Buffer, TAG_STRING);
-         }
          else
             DPRINT1("ReadRegistryValue failed! (%08lx).\n", Status);
       }
@@ -407,7 +404,7 @@ BOOL UserUnloadKbl(PKBL pKbl)
    return TRUE;
 }
 
-static PKBL co_UserActivateKbl(PTHREADINFO w32Thread, PKBL pKbl, UINT Flags)
+static PKBL co_UserActivateKbl(PW32THREAD w32Thread, PKBL pKbl, UINT Flags)
 {
    PKBL Prev;
 
@@ -444,7 +441,7 @@ UserGetKeyboardLayout(
 {
    NTSTATUS Status;
    PETHREAD Thread;
-   PTHREADINFO W32Thread;
+   PW32THREAD W32Thread;
    HKL Ret;
 
    if(!dwThreadId)
@@ -467,7 +464,7 @@ UserGetKeyboardLayout(
 }
 
 UINT
-APIENTRY
+STDCALL
 NtUserGetKeyboardLayoutList(
    INT nItems,
    HKL* pHklBuff)
@@ -488,7 +485,7 @@ NtUserGetKeyboardLayoutList(
    }
    else
    {
-      _SEH2_TRY
+      _SEH_TRY
       {
          ProbeForWrite(pHklBuff, nItems*sizeof(HKL), 4);
 
@@ -504,12 +501,12 @@ NtUserGetKeyboardLayoutList(
          }
 
       }
-      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+      _SEH_HANDLE
       {
-         SetLastNtError(_SEH2_GetExceptionCode());
+         SetLastNtError(_SEH_GetExceptionCode());
          Ret = 0;
       }
-      _SEH2_END;
+      _SEH_END;
    }
 
    UserLeave();
@@ -517,30 +514,28 @@ NtUserGetKeyboardLayoutList(
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserGetKeyboardLayoutName(
    LPWSTR lpszName)
 {
    BOOL ret = FALSE;
    PKBL pKbl;
-   PTHREADINFO pti;
 
    UserEnterShared();
 
-   _SEH2_TRY
+   _SEH_TRY
    {
       ProbeForWrite(lpszName, KL_NAMELENGTH*sizeof(WCHAR), 1);
-      pti = PsGetCurrentThreadWin32Thread();
-      pKbl = pti->KeyboardLayout;
+      pKbl = PsGetCurrentThreadWin32Thread()->KeyboardLayout;
       RtlCopyMemory(lpszName,  pKbl->Name, KL_NAMELENGTH*sizeof(WCHAR));
       ret = TRUE;
    }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+   _SEH_HANDLE
    {
-      SetLastNtError(_SEH2_GetExceptionCode());
+      SetLastNtError(_SEH_GetExceptionCode());
       ret = FALSE;
    }
-   _SEH2_END;
+   _SEH_END;
 
    UserLeave();
    return ret;
@@ -548,7 +543,7 @@ NtUserGetKeyboardLayoutName(
 
 
 HKL
-APIENTRY
+STDCALL
 NtUserLoadKeyboardLayoutEx(
    IN HANDLE Handle,
    IN DWORD offTable,
@@ -609,14 +604,14 @@ the_end:
 }
 
 HKL
-APIENTRY
+STDCALL
 NtUserActivateKeyboardLayout(
    HKL hKl,
    ULONG Flags)
 {
    PKBL pKbl;
    HKL Ret = NULL;
-   PTHREADINFO pWThread;
+   PW32THREAD pWThread;
 
    UserEnterExclusive();
 
@@ -666,7 +661,7 @@ the_end:
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserUnloadKeyboardLayout(
    HKL hKl)
 {

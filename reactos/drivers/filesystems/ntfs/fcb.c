@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/fcb.c
+ * FILE:             services/fs/ntfs/fcb.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -36,7 +38,7 @@
 
 /* MACROS *******************************************************************/
 
-#define TAG_FCB 'BCFI'
+#define TAG_FCB TAG('I', 'F', 'C', 'B')
 
 
 
@@ -46,14 +48,14 @@ static PWCHAR
 NtfsGetNextPathElement(PWCHAR FileName)
 {
   if (*FileName == L'\0')
-  {
-    return(NULL);
-  }
+    {
+      return(NULL);
+    }
 
   while (*FileName != L'\0' && *FileName != L'\\')
-  {
-    FileName++;
-  }
+    {
+      FileName++;
+    }
 
   return(FileName);
 }
@@ -67,49 +69,36 @@ NtfsWSubString(PWCHAR pTarget, const PWCHAR pSource, size_t pLength)
 }
 
 
-PNTFS_FCB
-NtfsCreateFCB(PCWSTR FileName, PNTFS_VCB Vcb)
+PFCB
+NtfsCreateFCB(PCWSTR FileName)
 {
-  PNTFS_FCB Fcb;
+  PFCB Fcb;
 
-  ASSERT(Vcb);
-  ASSERT(Vcb->Identifier.Type == NTFS_TYPE_VCB);
-
-  Fcb = ExAllocatePoolWithTag(NonPagedPool, sizeof(NTFS_FCB), TAG_FCB);
-  RtlZeroMemory(Fcb, sizeof(NTFS_FCB));
-
-  Fcb->Identifier.Type = NTFS_TYPE_FCB;
-  Fcb->Identifier.Size = sizeof(NTFS_TYPE_FCB);
-  
-  Fcb->Vcb = Vcb;
+  Fcb = ExAllocatePoolWithTag(NonPagedPool, sizeof(FCB), TAG_FCB);
+  RtlZeroMemory(Fcb, sizeof(FCB));
 
   if (FileName)
-  {
-    wcscpy(Fcb->PathName, FileName);
-    if (wcsrchr(Fcb->PathName, '\\') != 0)
     {
-      Fcb->ObjectName = wcsrchr(Fcb->PathName, '\\');
+      wcscpy(Fcb->PathName, FileName);
+      if (wcsrchr(Fcb->PathName, '\\') != 0)
+	{
+	  Fcb->ObjectName = wcsrchr(Fcb->PathName, '\\');
+	}
+      else
+	{
+	  Fcb->ObjectName = Fcb->PathName;
+	}
     }
-    else
-    {
-      Fcb->ObjectName = Fcb->PathName;
-    }
-  }
 
   ExInitializeResourceLite(&Fcb->MainResource);
-  
-  Fcb->RFCB.Resource = &(Fcb->MainResource);
 
   return(Fcb);
 }
 
 
 VOID
-NtfsDestroyFCB(PNTFS_FCB Fcb)
+NtfsDestroyFCB(PFCB Fcb)
 {
-  ASSERT(Fcb);
-  ASSERT(Fcb->Identifier.Type == NTFS_TYPE_FCB);
-
   ExDeleteResourceLite(&Fcb->MainResource);
 
   ExFreePool(Fcb);
@@ -117,7 +106,7 @@ NtfsDestroyFCB(PNTFS_FCB Fcb)
 
 
 BOOLEAN
-NtfsFCBIsDirectory(PNTFS_FCB Fcb)
+NtfsFCBIsDirectory(PFCB Fcb)
 {
 //  return(Fcb->entry.Attrib & FILE_ATTRIBUTE_DIRECTORY);
 //  return(Fcb->Entry.FileFlags & 0x02);
@@ -126,22 +115,22 @@ NtfsFCBIsDirectory(PNTFS_FCB Fcb)
 
 
 BOOLEAN
-NtfsFCBIsRoot(PNTFS_FCB Fcb)
+NtfsFCBIsRoot(PFCB Fcb)
 {
   return(wcscmp(Fcb->PathName, L"\\") == 0);
 }
 
 
 VOID
-NtfsGrabFCB(PNTFS_VCB Vcb,
-            PNTFS_FCB Fcb)
+NtfsGrabFCB(PDEVICE_EXTENSION Vcb,
+	    PFCB Fcb)
 {
   KIRQL  oldIrql;
 
   DPRINT("grabbing FCB at %p: %S, refCount:%d\n",
-         Fcb,
-         Fcb->PathName,
-         Fcb->RefCount);
+	 Fcb,
+	 Fcb->PathName,
+	 Fcb->RefCount);
 
   KeAcquireSpinLock(&Vcb->FcbListLock, &oldIrql);
   Fcb->RefCount++;
@@ -150,77 +139,81 @@ NtfsGrabFCB(PNTFS_VCB Vcb,
 
 
 VOID
-NtfsReleaseFCB(PNTFS_VCB Vcb,
-               PNTFS_FCB Fcb)
+NtfsReleaseFCB(PDEVICE_EXTENSION Vcb,
+	       PFCB Fcb)
 {
   KIRQL  oldIrql;
 
   DPRINT("releasing FCB at %p: %S, refCount:%d\n",
-         Fcb,
-         Fcb->PathName,
-         Fcb->RefCount);
+	 Fcb,
+	 Fcb->PathName,
+	 Fcb->RefCount);
 
   KeAcquireSpinLock(&Vcb->FcbListLock, &oldIrql);
   Fcb->RefCount--;
   if (Fcb->RefCount <= 0 && !NtfsFCBIsDirectory(Fcb))
-  {
-    RemoveEntryList(&Fcb->FcbListEntry);
-    CcUninitializeCacheMap(Fcb->FileObject, NULL, NULL);
-    NtfsDestroyFCB(Fcb);
-  }
+    {
+      RemoveEntryList(&Fcb->FcbListEntry);
+#ifdef USE_ROS_CC_AND_FS
+      CcRosReleaseFileCache(Fcb->FileObject);
+#else
+      CcUninitializeCacheMap (Fcb->FileObject, NULL, NULL);
+#endif
+      NtfsDestroyFCB(Fcb);
+    }
   KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
 }
 
 
 VOID
-NtfsAddFCBToTable(PNTFS_VCB Vcb,
-                  PNTFS_FCB Fcb)
+NtfsAddFCBToTable(PDEVICE_EXTENSION Vcb,
+		  PFCB Fcb)
 {
   KIRQL  oldIrql;
 
   KeAcquireSpinLock(&Vcb->FcbListLock, &oldIrql);
-  Fcb->Vcb = Vcb;
+  Fcb->DevExt = Vcb;
   InsertTailList(&Vcb->FcbListHead, &Fcb->FcbListEntry);
   KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
 }
 
 
-PNTFS_FCB
-NtfsGrabFCBFromTable(PNTFS_VCB Vcb,
-                     PCWSTR FileName)
+PFCB
+NtfsGrabFCBFromTable(PDEVICE_EXTENSION Vcb,
+		     PCWSTR FileName)
 {
   KIRQL  oldIrql;
-  PNTFS_FCB Fcb;
+  PFCB Fcb;
   PLIST_ENTRY  current_entry;
 
   KeAcquireSpinLock(&Vcb->FcbListLock, &oldIrql);
 
   if (FileName == NULL || *FileName == 0)
-  {
-    DPRINT("Return FCB for stream file object\n");
-    Fcb = Vcb->StreamFileObject->FsContext;
-    Fcb->RefCount++;
-    KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
-    return(Fcb);
-  }
-
-  current_entry = Vcb->FcbListHead.Flink;
-  while (current_entry != &Vcb->FcbListHead)
-  {
-    Fcb = CONTAINING_RECORD(current_entry, NTFS_FCB, FcbListEntry);
-
-    DPRINT("Comparing '%S' and '%S'\n", FileName, Fcb->PathName);
-    if (_wcsicmp(FileName, Fcb->PathName) == 0)
     {
+      DPRINT("Return FCB for stream file object\n");
+      Fcb = Vcb->StreamFileObject->FsContext;
       Fcb->RefCount++;
       KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
       return(Fcb);
     }
 
+  current_entry = Vcb->FcbListHead.Flink;
+  while (current_entry != &Vcb->FcbListHead)
+    {
+      Fcb = CONTAINING_RECORD(current_entry, FCB, FcbListEntry);
+
+      DPRINT("Comparing '%S' and '%S'\n", FileName, Fcb->PathName);
+      if (_wcsicmp(FileName, Fcb->PathName) == 0)
+	{
+	  Fcb->RefCount++;
+	  KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
+	  return(Fcb);
+	}
+
       //FIXME: need to compare against short name in FCB here
 
-    current_entry = current_entry->Flink;
-  }
+      current_entry = current_entry->Flink;
+    }
   KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
 
   return(NULL);
@@ -228,39 +221,45 @@ NtfsGrabFCBFromTable(PNTFS_VCB Vcb,
 
 
 NTSTATUS
-NtfsFCBInitializeCache(PNTFS_VCB Vcb,
-                       PNTFS_FCB Fcb)
+NtfsFCBInitializeCache(PVCB Vcb,
+		       PFCB Fcb)
 {
   PFILE_OBJECT FileObject;
   NTSTATUS Status;
-  PNTFS_CCB  newCCB;
+  PCCB  newCCB;
 
   FileObject = IoCreateStreamFileObject(NULL, Vcb->StorageDevice);
 
-  newCCB = ExAllocatePoolWithTag(NonPagedPool, sizeof(NTFS_CCB), TAG_CCB);
+  newCCB = ExAllocatePoolWithTag(NonPagedPool, sizeof(CCB), TAG_CCB);
   if (newCCB == NULL)
-  {
+    {
       return(STATUS_INSUFFICIENT_RESOURCES);
-  }
-  RtlZeroMemory(newCCB, sizeof(NTFS_CCB));
-
-  newCCB->Identifier.Type = NTFS_TYPE_CCB;
-  newCCB->Identifier.Size = sizeof(NTFS_TYPE_CCB);
+    }
+  RtlZeroMemory(newCCB,
+		sizeof(CCB));
 
   FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
   FileObject->FsContext = Fcb;
   FileObject->FsContext2 = newCCB;
   newCCB->PtrFileObject = FileObject;
   Fcb->FileObject = FileObject;
-  Fcb->Vcb = Vcb;
-
+  Fcb->DevExt = Vcb;
+#ifdef ROS_USE_CC_AND_FS
+  Status = CcRosInitializeFileCache(FileObject,
+				    CACHEPAGESIZE(Vcb));
+  if (!NT_SUCCESS(Status))
+    {
+      DbgPrint("CcRosInitializeFileCache failed\n");
+      KEBUGCHECK(0);
+    }
+#else
   Status = STATUS_SUCCESS;
   CcInitializeCacheMap(FileObject,
                        (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
                        FALSE,
-                       &(NtfsGlobalData->CacheMgrCallbacks),
-                       Fcb);
-
+                       NULL,
+                       NULL);
+#endif
   ObDereferenceObject(FileObject);
   Fcb->Flags |= FCB_CACHE_INITIALIZED;
 
@@ -268,12 +267,12 @@ NtfsFCBInitializeCache(PNTFS_VCB Vcb,
 }
 
 
-PNTFS_FCB
-NtfsMakeRootFCB(PNTFS_VCB Vcb)
+PFCB
+NtfsMakeRootFCB(PDEVICE_EXTENSION Vcb)
 {
-  PNTFS_FCB Fcb;
+  PFCB Fcb;
 
-  Fcb = NtfsCreateFCB(L"\\", Vcb);
+  Fcb = NtfsCreateFCB(L"\\");
 
 //  memset(Fcb->entry.Filename, ' ', 11);
 
@@ -294,16 +293,16 @@ NtfsMakeRootFCB(PNTFS_VCB Vcb)
 }
 
 
-PNTFS_FCB
-NtfsOpenRootFCB(PNTFS_VCB Vcb)
+PFCB
+NtfsOpenRootFCB(PDEVICE_EXTENSION Vcb)
 {
-  PNTFS_FCB Fcb;
+  PFCB Fcb;
 
   Fcb = NtfsGrabFCBFromTable(Vcb, L"\\");
   if (Fcb == NULL)
-  {
-    Fcb = NtfsMakeRootFCB(Vcb);
-  }
+    {
+      Fcb = NtfsMakeRootFCB(Vcb);
+    }
 
   return(Fcb);
 }
@@ -381,7 +380,7 @@ NtfsMakeFCBFromDirEntry(PVCB Vcb,
       wcscat(pathName, entryName);
     }
 
-  rcFCB = NtfsCreateFCB(pathName, Vcb);
+  rcFCB = NtfsCreateFCB(pathName);
   memcpy(&rcFCB->Entry, Record, sizeof(DIR_RECORD));
 
   Size = rcFCB->Entry.DataLengthL;
@@ -401,38 +400,45 @@ NtfsMakeFCBFromDirEntry(PVCB Vcb,
 
 
 NTSTATUS
-NtfsAttachFCBToFileObject(PNTFS_VCB Vcb,
-                          PNTFS_FCB Fcb,
-                          PFILE_OBJECT FileObject)
+NtfsAttachFCBToFileObject(PDEVICE_EXTENSION Vcb,
+			  PFCB Fcb,
+			  PFILE_OBJECT FileObject)
 {
-  PNTFS_CCB  newCCB;
+  PCCB  newCCB;
 
-  newCCB = ExAllocatePoolWithTag(NonPagedPool, sizeof(NTFS_CCB), TAG_CCB);
+  newCCB = ExAllocatePoolWithTag(NonPagedPool, sizeof(CCB), TAG_CCB);
   if (newCCB == NULL)
-  {
-    return(STATUS_INSUFFICIENT_RESOURCES);
-  }
-  RtlZeroMemory(newCCB, sizeof(NTFS_CCB));
-
-  newCCB->Identifier.Type = NTFS_TYPE_CCB;
-  newCCB->Identifier.Size = sizeof(NTFS_TYPE_CCB);
+    {
+      return(STATUS_INSUFFICIENT_RESOURCES);
+    }
+  memset(newCCB, 0, sizeof(CCB));
 
   FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
   FileObject->FsContext = Fcb;
   FileObject->FsContext2 = newCCB;
   newCCB->PtrFileObject = FileObject;
-  Fcb->Vcb = Vcb;
+  Fcb->DevExt = Vcb;
 
   if (!(Fcb->Flags & FCB_CACHE_INITIALIZED))
-  {
-    CcInitializeCacheMap(FileObject,
-                         (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
-                         FALSE,
-                         NULL,
-                         NULL);
-
-    Fcb->Flags |= FCB_CACHE_INITIALIZED;
-  }
+    {
+#ifdef ROS_USE_CC_AND_FS
+      NTSTATUS Status;
+      Status = CcRosInitializeFileCache(FileObject,
+					CACHEPAGESIZE(Vcb));
+      if (!NT_SUCCESS(Status))
+	{
+	  DbgPrint("CcRosInitializeFileCache failed\n");
+	  KEBUGCHECK(0);
+	}
+#else
+  CcInitializeCacheMap(FileObject,
+                       (PCC_FILE_SIZES)(&Fcb->RFCB.AllocationSize),
+                       FALSE,
+                       NULL,
+                       NULL);
+#endif
+      Fcb->Flags |= FCB_CACHE_INITIALIZED;
+    }
 
   //DPRINT("file open: fcb:%x file size: %d\n", Fcb, Fcb->Entry.DataLengthL);
 
@@ -441,10 +447,10 @@ NtfsAttachFCBToFileObject(PNTFS_VCB Vcb,
 
 
 static NTSTATUS
-NtfsDirFindFile(PNTFS_VCB Vcb,
-                PNTFS_FCB DirectoryFcb,
-                PWSTR FileToFind,
-                PNTFS_FCB *FoundFCB)
+NtfsDirFindFile(PDEVICE_EXTENSION DeviceExt,
+		PFCB DirectoryFcb,
+		PWSTR FileToFind,
+		PFCB *FoundFCB)
 {
 #if 0
   WCHAR TempName[2];
@@ -552,23 +558,23 @@ NtfsDirFindFile(PNTFS_VCB Vcb,
 
 
 NTSTATUS
-NtfsGetFCBForFile(PNTFS_VCB Vcb,
-                  PNTFS_FCB *pParentFCB,
-                  PNTFS_FCB *pFCB,
-                  const PWSTR pFileName)
+NtfsGetFCBForFile(PDEVICE_EXTENSION Vcb,
+		  PFCB *pParentFCB,
+		  PFCB *pFCB,
+		  const PWSTR pFileName)
 {
   NTSTATUS Status;
   WCHAR  pathName [MAX_PATH];
   WCHAR  elementName [MAX_PATH];
   PWCHAR  currentElement;
-  PNTFS_FCB  FCB;
-  PNTFS_FCB  parentFCB;
+  PFCB  FCB;
+  PFCB  parentFCB;
 
   DPRINT("NtfsGetFCBForFile(%p, %p, %p, '%S')\n",
-         Vcb,
-         pParentFCB,
-         pFCB,
-         pFileName);
+	 Vcb,
+	 pParentFCB,
+	 pFCB,
+	 pFileName);
 
   /* Dummy code */
 //  FCB = NtfsOpenRootFCB(Vcb);
@@ -578,97 +584,97 @@ NtfsGetFCBForFile(PNTFS_VCB Vcb,
 #if 1
   /* Trivial case, open of the root directory on volume */
   if (pFileName [0] == L'\0' || wcscmp(pFileName, L"\\") == 0)
-  {
-    DPRINT("returning root FCB\n");
+    {
+      DPRINT("returning root FCB\n");
 
-    FCB = NtfsOpenRootFCB(Vcb);
-    *pFCB = FCB;
-    *pParentFCB = NULL;
+      FCB = NtfsOpenRootFCB(Vcb);
+      *pFCB = FCB;
+      *pParentFCB = NULL;
 
-    return((FCB != NULL) ? STATUS_SUCCESS : STATUS_OBJECT_PATH_NOT_FOUND);
-  }
+      return((FCB != NULL) ? STATUS_SUCCESS : STATUS_OBJECT_PATH_NOT_FOUND);
+    }
   else
-  {
-    currentElement = pFileName + 1;
-    wcscpy (pathName, L"\\");
-    FCB = NtfsOpenRootFCB (Vcb);
-  }
+    {
+      currentElement = pFileName + 1;
+      wcscpy (pathName, L"\\");
+      FCB = NtfsOpenRootFCB (Vcb);
+    }
   parentFCB = NULL;
 
   /* Parse filename and check each path element for existance and access */
   while (NtfsGetNextPathElement(currentElement) != 0)
-  {
-    /*  Skip blank directory levels */
-    if ((NtfsGetNextPathElement(currentElement) - currentElement) == 0)
     {
-      currentElement++;
-      continue;
+      /*  Skip blank directory levels */
+      if ((NtfsGetNextPathElement(currentElement) - currentElement) == 0)
+	{
+	  currentElement++;
+	  continue;
+	}
+
+      DPRINT("Parsing, currentElement:%S\n", currentElement);
+      DPRINT("  parentFCB:%p FCB:%p\n", parentFCB, FCB);
+
+      /* Descend to next directory level */
+      if (parentFCB)
+	{
+	  NtfsReleaseFCB(Vcb, parentFCB);
+	  parentFCB = NULL;
+	}
+
+      /* fail if element in FCB is not a directory */
+      if (!NtfsFCBIsDirectory(FCB))
+	{
+	  DPRINT("Element in requested path is not a directory\n");
+
+	  NtfsReleaseFCB(Vcb, FCB);
+	  FCB = 0;
+	  *pParentFCB = NULL;
+	  *pFCB = NULL;
+
+	  return(STATUS_OBJECT_PATH_NOT_FOUND);
+	}
+      parentFCB = FCB;
+
+      /* Extract next directory level into dirName */
+      NtfsWSubString(pathName,
+		     pFileName,
+		     NtfsGetNextPathElement(currentElement) - pFileName);
+      DPRINT("  pathName:%S\n", pathName);
+
+      FCB = NtfsGrabFCBFromTable(Vcb, pathName);
+      if (FCB == NULL)
+	{
+	  NtfsWSubString(elementName,
+			 currentElement,
+			 NtfsGetNextPathElement(currentElement) - currentElement);
+	  DPRINT("  elementName:%S\n", elementName);
+
+	  Status = NtfsDirFindFile(Vcb, parentFCB, elementName, &FCB);
+	  if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
+	    {
+	      *pParentFCB = parentFCB;
+	      *pFCB = NULL;
+	      currentElement = NtfsGetNextPathElement(currentElement);
+	      if (*currentElement == L'\0' || NtfsGetNextPathElement(currentElement + 1) == 0)
+		{
+		  return(STATUS_OBJECT_NAME_NOT_FOUND);
+		}
+	      else
+		{
+		  return(STATUS_OBJECT_PATH_NOT_FOUND);
+		}
+	    }
+	  else if (!NT_SUCCESS(Status))
+	    {
+	      NtfsReleaseFCB(Vcb, parentFCB);
+	      *pParentFCB = NULL;
+	      *pFCB = NULL;
+
+	      return(Status);
+	    }
+	}
+      currentElement = NtfsGetNextPathElement(currentElement);
     }
-
-    DPRINT("Parsing, currentElement:%S\n", currentElement);
-    DPRINT("  parentFCB:%p FCB:%p\n", parentFCB, FCB);
-
-    /* Descend to next directory level */
-    if (parentFCB)
-    {
-      NtfsReleaseFCB(Vcb, parentFCB);
-      parentFCB = NULL;
-    }
-
-    /* fail if element in FCB is not a directory */
-    if (!NtfsFCBIsDirectory(FCB))
-    {
-      DPRINT("Element in requested path is not a directory\n");
-
-      NtfsReleaseFCB(Vcb, FCB);
-      FCB = 0;
-      *pParentFCB = NULL;
-      *pFCB = NULL;
-
-      return(STATUS_OBJECT_PATH_NOT_FOUND);
-    }
-    parentFCB = FCB;
-
-    /* Extract next directory level into dirName */
-    NtfsWSubString(pathName,
-                   pFileName,
-                   NtfsGetNextPathElement(currentElement) - pFileName);
-    DPRINT("  pathName:%S\n", pathName);
-
-    FCB = NtfsGrabFCBFromTable(Vcb, pathName);
-    if (FCB == NULL)
-    {
-      NtfsWSubString(elementName,
-                     currentElement,
-                     NtfsGetNextPathElement(currentElement) - currentElement);
-      DPRINT("  elementName:%S\n", elementName);
-
-      Status = NtfsDirFindFile(Vcb, parentFCB, elementName, &FCB);
-      if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
-      {
-        *pParentFCB = parentFCB;
-        *pFCB = NULL;
-        currentElement = NtfsGetNextPathElement(currentElement);
-        if (*currentElement == L'\0' || NtfsGetNextPathElement(currentElement + 1) == 0)
-        {
-          return(STATUS_OBJECT_NAME_NOT_FOUND);
-        }
-        else
-        {
-          return(STATUS_OBJECT_PATH_NOT_FOUND);
-        }
-      }
-      else if (!NT_SUCCESS(Status))
-      {
-        NtfsReleaseFCB(Vcb, parentFCB);
-        *pParentFCB = NULL;
-        *pFCB = NULL;
-
-        return(Status);
-      }
-    }
-    currentElement = NtfsGetNextPathElement(currentElement);
-  }
 
   *pParentFCB = parentFCB;
   *pFCB = FCB;

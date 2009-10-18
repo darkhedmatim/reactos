@@ -56,9 +56,6 @@ struct _xmlEntity {
     struct _xmlEntity     *nexte;	/* unused */
     const xmlChar           *URI;	/* the full URI as computed */
     int                    owner;	/* does the entity own the childrens */
-    int			 checked;	/* was the entity content checked */
-					/* this is also used to count entites
-					 * references done from that entity */
 };
 
 /*
@@ -77,14 +74,6 @@ typedef xmlEntitiesTable *xmlEntitiesTablePtr;
 XMLPUBFUN void XMLCALL
 		xmlInitializePredefinedEntities	(void);
 #endif /* LIBXML_LEGACY_ENABLED */
-
-XMLPUBFUN xmlEntityPtr XMLCALL
-			xmlNewEntity		(xmlDocPtr doc,
-						 const xmlChar *name,
-						 int type,
-						 const xmlChar *ExternalID,
-						 const xmlChar *SystemID,
-						 const xmlChar *content);
 XMLPUBFUN xmlEntityPtr XMLCALL
 			xmlAddDocEntity		(xmlDocPtr doc,
 						 const xmlChar *name,

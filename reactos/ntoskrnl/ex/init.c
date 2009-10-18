@@ -197,7 +197,7 @@ ExpInitNls(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     HANDLE NlsSection;
     PVOID SectionBase = NULL;
     ULONG ViewSize = 0;
-    LARGE_INTEGER SectionOffset = {{0, 0}};
+    LARGE_INTEGER SectionOffset = {{0}};
     PLIST_ENTRY ListHead, NextEntry;
     PMEMORY_ALLOCATION_DESCRIPTOR MdBlock;
     ULONG NlsTablesEncountered = 0;
@@ -235,37 +235,31 @@ ExpInitNls(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
         /* Allocate the a new buffer since loader memory will be freed */
         ExpNlsTableBase = ExAllocatePoolWithTag(NonPagedPool,
                                                 ExpNlsTableSize,
-                                                'iltR');
+                                                TAG('R', 't', 'l', 'i'));
         if (!ExpNlsTableBase) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
 
         /* Copy the codepage data in its new location. */
-        if (NlsTablesEncountered == 1)
-        {
-            /* Ntldr-way boot process */
-            RtlCopyMemory(ExpNlsTableBase,
-                          LoaderBlock->NlsData->AnsiCodePageData,
-                          ExpNlsTableSize);
-        }
-        else
-        {
-            /*
-            * In NT, the memory blocks are contiguous, but in ReactOS they aren't,
-            * so unless someone fixes FreeLdr, we'll have to use this icky hack.
-            */
-            RtlCopyMemory(ExpNlsTableBase,
-                          LoaderBlock->NlsData->AnsiCodePageData,
-                          NlsTableSizes[0]);
+        //RtlCopyMemory(ExpNlsTableBase,
+        //              LoaderBlock->NlsData->AnsiCodePageData,
+        //              ExpNlsTableSize);
 
-            RtlCopyMemory((PVOID)((ULONG_PTR)ExpNlsTableBase + NlsTableSizes[0]),
-                          LoaderBlock->NlsData->OemCodePageData,
-                          NlsTableSizes[1]);
+        /*
+         * In NT, the memory blocks are contiguous, but in ReactOS they aren't,
+         * so unless someone fixes FreeLdr, we'll have to use this icky hack.
+         */
+        RtlCopyMemory(ExpNlsTableBase,
+                      LoaderBlock->NlsData->AnsiCodePageData,
+                      NlsTableSizes[0]);
 
-            RtlCopyMemory((PVOID)((ULONG_PTR)ExpNlsTableBase + NlsTableSizes[0] +
-                          NlsTableSizes[1]),
-                          LoaderBlock->NlsData->UnicodeCodePageData,
-                          NlsTableSizes[2]);
-            /* End of Hack */
-        }
+        RtlCopyMemory((PVOID)((ULONG_PTR)ExpNlsTableBase + NlsTableSizes[0]),
+                      LoaderBlock->NlsData->OemCodePageData,
+                      NlsTableSizes[1]);
+
+        RtlCopyMemory((PVOID)((ULONG_PTR)ExpNlsTableBase + NlsTableSizes[0] +
+                      NlsTableSizes[1]),
+                      LoaderBlock->NlsData->UnicodeCodePageData,
+                      NlsTableSizes[2]);
+        /* End of Hack */
 
         /* Initialize and reset the NLS TAbles */
         RtlInitNlsTables((PVOID)((ULONG_PTR)ExpNlsTableBase +
@@ -324,7 +318,7 @@ ExpInitNls(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     RtlCopyMemory(SectionBase, ExpNlsTableBase, ExpNlsTableSize);
 
     /* Free the previously allocated buffer and set the new location */
-    ExFreePoolWithTag(ExpNlsTableBase, 'iltR');
+    ExFreePool(ExpNlsTableBase);
     ExpNlsTableBase = SectionBase;
 
     /* Initialize the NLS Tables */
@@ -466,7 +460,7 @@ ExpLoadInitialProcess(IN PINIT_BUFFER InitBuffer,
 
     /* Make sure the buffer is a valid string which within the given length */
     if ((NtInitialUserProcessBufferType != REG_SZ) ||
-        ((NtInitialUserProcessBufferLength != MAXULONG) &&
+        ((NtInitialUserProcessBufferLength != -1) &&
          ((NtInitialUserProcessBufferLength < sizeof(WCHAR)) ||
           (NtInitialUserProcessBufferLength >
            sizeof(NtInitialUserProcessBuffer) - sizeof(WCHAR)))))
@@ -869,10 +863,10 @@ ExpInitializeExecutive(IN ULONG Cpu,
     if (LoaderBlock->SetupLdrBlock)
     {
         /* Check if this is text-mode setup */
-        if (LoaderBlock->SetupLdrBlock->Flags & SETUPLDR_TEXT_MODE) ExpInTextModeSetup = TRUE;
+        if (LoaderBlock->SetupLdrBlock->Flags & 1) ExpInTextModeSetup = TRUE;
 
         /* Check if this is network boot */
-        if (LoaderBlock->SetupLdrBlock->Flags & SETUPLDR_REMOTE_BOOT)
+        if (LoaderBlock->SetupLdrBlock->Flags & 2)
         {
             /* Set variable */
             IoRemoteBootClient = TRUE;
@@ -981,12 +975,12 @@ ExpInitializeExecutive(IN ULONG Cpu,
 
     /* Now fill it in */
     Status = RtlAnsiStringToUnicodeString(&NtSystemRoot, &AnsiPath, FALSE);
-    if (!NT_SUCCESS(Status)) KeBugCheck(SESSION3_INITIALIZATION_FAILED);
+    if (!NT_SUCCESS(Status)) KEBUGCHECK(SESSION3_INITIALIZATION_FAILED);
 
     /* Setup bugcheck messages */
     KiInitializeBugCheck();
 
-    /* Setup initial system settings */
+    /* Setup initial system settings (FIXME: Needs Cm Rewrite) */
     CmGetSystemControlValues(LoaderBlock->RegistryBase, CmControlVector);
 
     /* Load static defaults for Service Pack 1 and add our SVN revision */
@@ -1002,7 +996,7 @@ ExpInitializeExecutive(IN ULONG Cpu,
     }
 
     /* Initialize the executive at phase 0 */
-    if (!ExInitSystem()) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
+    if (!ExInitSystem()) KEBUGCHECK(PHASE0_INITIALIZATION_FAILED);
 
     /* Initialize the memory manager at phase 0 */
     if (!MmInitSystem(0, LoaderBlock)) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
@@ -1188,7 +1182,7 @@ ExpInitializeExecutive(IN ULONG Cpu,
     KeServiceDescriptorTable[0].Count =
         ExAllocatePoolWithTag(NonPagedPool,
                               KiServiceLimit * sizeof(ULONG),
-                              'llaC');
+                              TAG('C', 'a', 'l', 'l'));
 
     /* Use it for the shadow table too */
     KeServiceDescriptorTableShadow[0].Count = KeServiceDescriptorTable[0].Count;
@@ -1203,16 +1197,16 @@ ExpInitializeExecutive(IN ULONG Cpu,
 #endif
 
     /* Create the Basic Object Manager Types to allow new Object Types */
-    if (!ObInitSystem()) KeBugCheck(OBJECT_INITIALIZATION_FAILED);
+    if (!ObInit()) KEBUGCHECK(OBJECT_INITIALIZATION_FAILED);
 
     /* Load basic Security for other Managers */
-    if (!SeInitSystem()) KeBugCheck(SECURITY_INITIALIZATION_FAILED);
+    if (!SeInit()) KEBUGCHECK(SECURITY_INITIALIZATION_FAILED);
 
     /* Initialize the Process Manager */
-    if (!PsInitSystem(LoaderBlock)) KeBugCheck(PROCESS_INITIALIZATION_FAILED);
+    if (!PsInitSystem(LoaderBlock)) KEBUGCHECK(PROCESS_INITIALIZATION_FAILED);
 
     /* Initialize the PnP Manager */
-    if (!PpInitSystem()) KeBugCheck(PP0_INITIALIZATION_FAILED);
+    if (!PpInitSystem()) KEBUGCHECK(PP0_INITIALIZATION_FAILED);
 
     /* Initialize the User-Mode Debugging Subsystem */
     DbgkInitialize();
@@ -1226,8 +1220,18 @@ ExpInitializeExecutive(IN ULONG Cpu,
     SharedUserData->NtMinorVersion = NtMinorVersion;
 
     /* Set the machine type */
-    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_ARCHITECTURE;
-    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_ARCHITECTURE;
+#if defined(_X86_)
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_I386;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_I386;
+#elif defined(_PPC_) // <3 Arty
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_POWERPC;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_POWERPC;
+#elif defined(_MIPS_)
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_R4000;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_R4000;
+#else
+#error "Unsupported ReactOS Target"
+#endif
 }
 
 VOID
@@ -1256,7 +1260,7 @@ Phase1InitializationDiscard(IN PVOID Context)
     /* Allocate the initialization buffer */
     InitBuffer = ExAllocatePoolWithTag(NonPagedPool,
                                        sizeof(INIT_BUFFER),
-                                       'tinI');
+                                       TAG('I', 'n', 'i', 't'));
     if (!InitBuffer)
     {
         /* Bugcheck */
@@ -1416,7 +1420,7 @@ Phase1InitializationDiscard(IN PVOID Context)
         if (!ExpRealTimeIsUniversal)
         {
             /* Check if we don't have a valid bias */
-            if (ExpLastTimeZoneBias == MAXULONG)
+            if (ExpLastTimeZoneBias == -1)
             {
                 /* Reset */
                 ResetBias = TRUE;
@@ -1503,7 +1507,7 @@ Phase1InitializationDiscard(IN PVOID Context)
     InbvUpdateProgressBar(5);
 
     /* Call OB initialization again */
-    if (!ObInitSystem()) KeBugCheck(OBJECT1_INITIALIZATION_FAILED);
+    if (!ObInit()) KeBugCheck(OBJECT1_INITIALIZATION_FAILED);
 
     /* Initialize Basic System Objects and Worker Threads */
     if (!ExInitSystem()) KeBugCheckEx(PHASE1_INITIALIZATION_FAILED, 0, 0, 1, 0);
@@ -1519,7 +1523,7 @@ Phase1InitializationDiscard(IN PVOID Context)
     }
 
     /* Initialize the SRM in Phase 1 */
-    if (!SeInitSystem()) KeBugCheck(SECURITY1_INITIALIZATION_FAILED);
+    if (!SeInit()) KEBUGCHECK(SECURITY1_INITIALIZATION_FAILED);
 
     /* Update the progress bar */
     InbvUpdateProgressBar(10);
@@ -1828,9 +1832,7 @@ Phase1InitializationDiscard(IN PVOID Context)
     InbvUpdateProgressBar(80);
 
     /* Initialize VDM support */
-#ifdef i386
     KeI386VdmInitialize();
-#endif
 
     /* Initialize Power Subsystem in Phase 1*/
     if (!PoInitSystem(1, AcpiTableDetected)) KeBugCheck(INTERNAL_POWER_ERROR);

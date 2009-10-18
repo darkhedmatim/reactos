@@ -59,7 +59,7 @@ TuiDisplayMenu(PCSTR MenuItemList[],
     //
     // Get the current second of time
     //
-    LastClockSecond = ArcGetTime()->Second;
+    MachRTCGetCurrentDateTime(NULL, NULL, NULL, NULL, NULL, &LastClockSecond);
 
     //
     // Process keys
@@ -92,7 +92,12 @@ TuiDisplayMenu(PCSTR MenuItemList[],
             //
             // Get the updated time, seconds only
             //
-            CurrentClockSecond = ArcGetTime()->Second;
+            MachRTCGetCurrentDateTime(NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      &CurrentClockSecond);
 
             //
             // Check if more then a second has now elapsed
@@ -281,35 +286,6 @@ TuiDrawMenuBox(PUI_MENU_INFO MenuInfo)
             //
             // Display under the menu directly
             //
-            UiDrawText(0,
-                       MenuInfo->Bottom + 3,
-                       MenuLineText,
-                       ATTR(UiMenuFgColor, UiMenuBgColor));
-        }
-    }
-    else
-    {
-        //
-        // Erase the timeout string with spaces, and 0-terminate for sure
-        //
-        for (i=0; i<sizeof(MenuLineText)-1; i++)
-        {
-            MenuLineText[i] = ' ';
-        }
-        MenuLineText[sizeof(MenuLineText)-1] = 0;
-
-        //
-        // Draw this "empty" string to erase
-        //
-        if (UiCenterMenu)
-        {
-            UiDrawText(MenuInfo->Right - strlen(MenuLineText) - 1,
-                       MenuInfo->Bottom,
-                       MenuLineText,
-                       ATTR(UiMenuFgColor, UiMenuBgColor));
-        }
-        else
-        {
             UiDrawText(0,
                        MenuInfo->Bottom + 3,
                        MenuLineText,

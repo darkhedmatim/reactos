@@ -36,7 +36,35 @@
  * Release() ???
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "windef.h"
+#include "winerror.h"
+#include "winbase.h"
+#include "winnls.h"
+#include "objbase.h"
+#include "servprov.h"
+#include "shlguid.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "shlobj.h"
+#include "undocshell.h"
+#include "shresdef.h"
+#include "wine/debug.h"
+
+#include "docobj.h"
+#include "pidl.h"
+#include "shell32_main.h"
+#include "shellfolder.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -82,7 +110,7 @@ typedef struct
         UINT            cScrollDelay;   /* Send a WM_*SCROLL msg every 250 ms during drag-scroll */
         POINT           ptLastMousePos; /* Mouse position at last DragOver call */
     IContextMenu2   *pCM;
-} IShellViewImpl, *LPIShellViewImpl;
+} IShellViewImpl;
 
 static const IShellViewVtbl svvt;
 static const IOleCommandTargetVtbl ctvt;
@@ -91,24 +119,24 @@ static const IDropSourceVtbl dsvt;
 static const IViewObjectVtbl vovt;
 
 
-static LPIShellViewImpl __inline impl_from_IOleCommandTarget( IOleCommandTarget *iface )
+static inline IShellViewImpl *impl_from_IOleCommandTarget( IOleCommandTarget *iface )
 {
-    return (LPIShellViewImpl)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblOleCommandTarget));
+    return (IShellViewImpl *)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblOleCommandTarget));
 }
 
-static LPIShellViewImpl __inline impl_from_IDropTarget( IDropTarget *iface )
+static inline IShellViewImpl *impl_from_IDropTarget( IDropTarget *iface )
 {
-    return (LPIShellViewImpl)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblDropTarget));
+    return (IShellViewImpl *)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblDropTarget));
 }
 
-static LPIShellViewImpl __inline impl_from_IDropSource( IDropSource *iface )
+static inline IShellViewImpl *impl_from_IDropSource( IDropSource *iface )
 {
-    return (LPIShellViewImpl)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblDropSource));
+    return (IShellViewImpl *)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblDropSource));
 }
 
-static LPIShellViewImpl __inline impl_from_IViewObject( IViewObject *iface )
+static inline IShellViewImpl *impl_from_IViewObject( IViewObject *iface )
 {
-    return (LPIShellViewImpl)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblViewObject));
+    return (IShellViewImpl *)((char*)iface - FIELD_OFFSET(IShellViewImpl, lpvtblViewObject));
 }
 
 /* ListView Header ID's */
@@ -267,8 +295,8 @@ static void SetStyle(IShellViewImpl * This, DWORD dwAdd, DWORD dwRemove)
 
 	TRACE("(%p)\n", This);
 
-	tmpstyle = GetWindowLongPtrW(This->hWndList, GWL_STYLE);
-	SetWindowLongPtrW(This->hWndList, GWL_STYLE, dwAdd | (tmpstyle & ~dwRemove));
+	tmpstyle = GetWindowLongW(This->hWndList, GWL_STYLE);
+	SetWindowLongW(This->hWndList, GWL_STYLE, dwAdd | (tmpstyle & ~dwRemove));
 }
 
 /**********************************************************
@@ -538,10 +566,7 @@ static BOOLEAN LV_AddItem(IShellViewImpl * This, LPCITEMIDLIST pidl)
 	lvItem.lParam = (LPARAM) ILClone(ILFindLastID(pidl));				/*set the item's data*/
 	lvItem.pszText = LPSTR_TEXTCALLBACKW;			/*get text on a callback basis*/
 	lvItem.iImage = I_IMAGECALLBACK;			/*get the image on a callback basis*/
-	if (SendMessageW(This->hWndList, LVM_INSERTITEMW, 0, (LPARAM)&lvItem) == -1)
-      return FALSE;
-	else
-	  return TRUE;
+	return (-1==ListView_InsertItemW(This->hWndList, &lvItem))? FALSE: TRUE;
 }
 
 /**********************************************************
@@ -749,8 +774,8 @@ static void ShellView_MergeFileMenu(IShellViewImpl * This, HMENU hSubMenu)
 
 	if(hSubMenu)
 	{ /*insert This item at the beginning of the menu */
-	  _InsertMenuItemW(hSubMenu, 0, TRUE, 0, MFT_SEPARATOR, NULL, MFS_ENABLED);
-	  _InsertMenuItemW(hSubMenu, 0, TRUE, IDM_MYFILEITEM, MFT_STRING, L"dummy45", MFS_ENABLED);
+	  _InsertMenuItem(hSubMenu, 0, TRUE, 0, MFT_SEPARATOR, NULL, MFS_ENABLED);
+	  _InsertMenuItem(hSubMenu, 0, TRUE, IDM_MYFILEITEM, MFT_STRING, "dummy45", MFS_ENABLED);
 
 	}
 	TRACE("--\n");
@@ -766,18 +791,18 @@ static void ShellView_MergeViewMenu(IShellViewImpl * This, HMENU hSubMenu)
 
 	if(hSubMenu)
 	{ /*add a separator at the correct position in the menu*/
-	  MENUITEMINFOW mii;
-	  static WCHAR view[] = L"View";
+	  MENUITEMINFOA mii;
+	  static char view[] = "View";
 
-	  _InsertMenuItemW(hSubMenu, FCIDM_MENU_VIEW_SEP_OPTIONS, FALSE, 0, MFT_SEPARATOR, NULL, MFS_ENABLED);
+	  _InsertMenuItem(hSubMenu, FCIDM_MENU_VIEW_SEP_OPTIONS, FALSE, 0, MFT_SEPARATOR, NULL, MFS_ENABLED);
 
 	  ZeroMemory(&mii, sizeof(mii));
 	  mii.cbSize = sizeof(mii);
 	  mii.fMask = MIIM_SUBMENU | MIIM_TYPE | MIIM_DATA;
 	  mii.fType = MFT_STRING;
 	  mii.dwTypeData = view;
-	  mii.hSubMenu = LoadMenuW(shell32_hInstance, L"MENU_001");
-	  InsertMenuItemW(hSubMenu, FCIDM_MENU_VIEW_SEP_OPTIONS, FALSE, &mii);
+	  mii.hSubMenu = LoadMenuA(shell32_hInstance, "MENU_001");
+	  InsertMenuItemA(hSubMenu, FCIDM_MENU_VIEW_SEP_OPTIONS, FALSE, &mii);
 	}
 }
 
@@ -810,14 +835,12 @@ static UINT ShellView_GetSelections(IShellViewImpl * This)
 	  lvItem.iItem = 0;
 	  lvItem.iSubItem = 0;
 
-	  while(SendMessageW(This->hWndList, LVM_GETITEMW, 0, (LPARAM)&lvItem) && (i < This->cidl))
+	  while(ListView_GetItemW(This->hWndList, &lvItem) && (i < This->cidl))
 	  {
 	    if(lvItem.state & LVIS_SELECTED)
 	    {
 	      This->apidl[i] = (LPITEMIDLIST)lvItem.lParam;
 	      i++;
-		  if (i == This->cidl)
-	        break;
 	      TRACE("-- selected Item found\n");
 	    }
 	    lvItem.iItem++;
@@ -835,8 +858,6 @@ static HRESULT ShellView_OpenSelectedItems(IShellViewImpl * This)
 	static UINT CF_IDLIST = 0;
 	HRESULT hr;
 	IDataObject* selection;
-	IContextMenu * cm;
-	HMENU hmenu;
 	FORMATETC fetc;
 	STGMEDIUM stgm;
 	LPIDA pIDList;
@@ -845,70 +866,14 @@ static HRESULT ShellView_OpenSelectedItems(IShellViewImpl * This)
 	LPCWSTR parent_dir = NULL;
 	SFGAOF attribs;
 	int i;
-	CMINVOKECOMMANDINFOEX ici;
-	MENUITEMINFOW info;
 
 	if (0 == ShellView_GetSelections(This))
 	{
 	  return S_OK;
 	}
-
-	hr = IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl,
-	                                (LPCITEMIDLIST*)This->apidl, &IID_IContextMenu,
-	                                0, (LPVOID *)&cm);
-
-	if (SUCCEEDED(hr))
-	{
-		hmenu = CreatePopupMenu();
-		if (hmenu)
-		{
-			if (SUCCEEDED(IContextMenu_QueryContextMenu( cm, hmenu, 0, 0x20, 0x7fff, CMF_DEFAULTONLY)))
-			{
-				INT def = -1, n = GetMenuItemCount(hmenu);
-
-				for ( i = 0; i < n; i++ )
-				{
-					memset( &info, 0, sizeof info );
-					info.cbSize = sizeof info;
-					info.fMask = MIIM_FTYPE | MIIM_STATE | MIIM_ID;
-					if (GetMenuItemInfoW( hmenu, i, TRUE, &info))
-					{
-						if (info.fState & MFS_DEFAULT)
-						{
-							def = info.wID;
-							break;
-						}
-					}
-				}
-				if (def != -1)
-				{
-					memset( &ici, 0, sizeof ici );
-					ici.cbSize = sizeof ici;
-					ici.lpVerb = MAKEINTRESOURCEA( def );
-					ici.hwnd = This->hWnd;
-
-					if (IContextMenu_InvokeCommand(cm, (LPCMINVOKECOMMANDINFO) &ici ) == S_OK)
-					{
-						IContextMenu_Release(cm);
-						DestroyMenu( hmenu );
-						return S_OK;
-					}
-				}
-				
-			}
-			DestroyMenu( hmenu );
-		}
-		IContextMenu_Release(cm);
-	}
-
-
-
 	hr = IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl,
 	                                (LPCITEMIDLIST*)This->apidl, &IID_IDataObject,
 	                                0, (LPVOID *)&selection);
-
-
-
 	if (FAILED(hr))
 	  return hr;
 
@@ -1065,7 +1030,7 @@ static void ShellView_DoContextMenu(IShellViewImpl * This, WORD x, WORD y, BOOL 
 	{
 	  hMenu = CreatePopupMenu();
 
-	  CDefFolderMenu_Create2(NULL, NULL, This->cidl, (LPCITEMIDLIST*)This->apidl, This->pSFParent, NULL, 0, NULL, (IContextMenu**)&This->pCM);
+	  This->pCM = ISvBgCm_Constructor(This->pSFParent, FALSE);
 	  IContextMenu2_QueryContextMenu(This->pCM, hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, 0);
 
 	  uCommand = TrackPopupMenu( hMenu, TPM_LEFTALIGN | TPM_RETURNCMD,x,y,0,This->hWnd,NULL);
@@ -1450,8 +1415,8 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 
 	          if (pds)
 	          {
-	            DWORD dwEffect2;
-		    DoDragDrop(pda, pds, dwEffect, &dwEffect2);
+	            DWORD dwEffect;
+		    DoDragDrop(pda, pds, dwEffect, &dwEffect);
 		  }
 	          IDataObject_Release(pda);
 	      }
@@ -1704,7 +1669,7 @@ static LRESULT CALLBACK ShellView_WndProc(HWND hWnd, UINT uMessage, WPARAM wPara
 	      return 1;
 	    break;
       case CWM_GETISHELLBROWSER:
-          return (LRESULT)pThis->pShellBrowser;
+          return pThis->pShellBrowser;
 	}
 	return DefWindowProcW(hWnd, uMessage, wParam, lParam);
 }
@@ -1959,7 +1924,7 @@ static HRESULT WINAPI IShellView_fnCreateViewWindow(
 	  wc.hInstance		= shell32_hInstance;
 	  wc.hIcon		= 0;
 	  wc.hCursor		= LoadCursorW(0, (LPWSTR)IDC_ARROW);
-	  wc.hbrBackground	= (HBRUSH) (COLOR_BACKGROUND+1);
+	  wc.hbrBackground	= (HBRUSH) (COLOR_WINDOW + 1);
 	  wc.lpszMenuName	= NULL;
 	  wc.lpszClassName	= SV_CLASS_NAME;
 
@@ -2098,7 +2063,6 @@ static HRESULT WINAPI IShellView_fnSelectItem(
 
 static HRESULT WINAPI IShellView_fnGetItemObject(IShellView * iface, UINT uItem, REFIID riid, LPVOID *ppvOut)
 {
-	HRESULT hr = E_FAIL;
 	IShellViewImpl *This = (IShellViewImpl *)iface;
 
 	TRACE("(%p)->(uItem=0x%08x,\n\tIID=%s, ppv=%p)\n",This, uItem, debugstr_guid(riid), ppvOut);
@@ -2108,19 +2072,19 @@ static HRESULT WINAPI IShellView_fnGetItemObject(IShellView * iface, UINT uItem,
 	switch(uItem)
 	{
 	  case SVGIO_BACKGROUND:
-	    //*ppvOut = ISvBgCm_Constructor(This->pSFParent, FALSE);
-		CDefFolderMenu_Create2(NULL, NULL, This->cidl, (LPCITEMIDLIST*)This->apidl, This->pSFParent, NULL, 0, NULL, (IContextMenu**)ppvOut);
-        if (!ppvOut) hr = E_OUTOFMEMORY;
+	    *ppvOut = ISvBgCm_Constructor(This->pSFParent, FALSE);
 	    break;
 
 	  case SVGIO_SELECTION:
 	    ShellView_GetSelections(This);
-	    hr = IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl, (LPCITEMIDLIST*)This->apidl, riid, 0, ppvOut);
+	    IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl, (LPCITEMIDLIST*)This->apidl, riid, 0, ppvOut);
 	    break;
 	}
 	TRACE("-- (%p)->(interface=%p)\n",This, *ppvOut);
 
-	return hr;
+	if(!*ppvOut) return E_OUTOFMEMORY;
+
+	return S_OK;
 }
 
 static const IShellViewVtbl svvt =

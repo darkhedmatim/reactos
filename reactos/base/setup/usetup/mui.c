@@ -21,18 +21,299 @@
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/mui.c
  * PURPOSE:         Text-mode setup
- * PROGRAMMER:
+ * PROGRAMMER:      
  */
 
 #include "usetup.h"
-#include "interface/consup.h"
 #include "errorcode.h"
 #include "mui.h"
-#include "muifonts.h"
-#include "muilanguages.h"
 
 #define NDEBUG
 #include <debug.h>
+
+#include "lang/bg-BG.h"
+#include "lang/en-US.h"
+#include "lang/de-DE.h"
+#include "lang/el-GR.h"
+#include "lang/es-ES.h"
+#include "lang/fr-FR.h"
+#include "lang/it-IT.h"
+#include "lang/pl-PL.h"
+#include "lang/ru-RU.h"
+#include "lang/sv-SE.h"
+#include "lang/uk-UA.h"
+#include "lang/lt-LT.h"
+
+static const MUI_LANGUAGE LanguageList[] =
+{
+    {
+        L"00000409",        /* The Language ID */
+        L"00000409",        /* Default Keyboard Layout for this language */
+        L"1252",            /* ANSI Codepage */
+        L"437",             /* OEM Codepage */
+        L"10000",           /* MAC Codepage */
+        L"English",         /* Language Name , not used just to make things easier when updating this file */
+        enUSPages,          /* Translated page strings  */
+        enUSErrorEntries    /* Translated error strings */
+    },
+    {
+        L"00000402",
+        L"00000402",
+        L"1251",
+        L"866",
+        L"10007",
+        L"Bulgarian",
+        bgBGPages,
+        bgBGErrorEntries
+    },
+    {
+        L"00000403",
+        L"00000403",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Catalan",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000804",
+        L"00000804",
+        L"936",
+        L"936",
+        L"10008",
+        L"Chinese (PRC)",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000406",
+        L"00000406",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Danish",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000413",
+        L"00000813",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Dutch",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"0000040B",
+        L"0000040B",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Finnish",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"0000040C",
+        L"0000040C",
+        L"1252",
+        L"850",
+        L"10000",
+        L"French",
+        frFRPages,
+        frFRErrorEntries
+    },
+    {
+        L"00000407",
+        L"00000407",
+        L"1252",
+        L"850",
+        L"10000",
+        L"German",
+        deDEPages,
+        deDEErrorEntries
+    },
+    {
+        L"00000408",
+        L"00000408",
+        L"1253",
+        L"737",
+        L"10006",
+        L"Greek",
+        elGRPages,
+        elGRErrorEntries
+    },
+    {
+        L"0000040D",
+        L"0000040D",
+        L"1255",
+        L"862",
+        L"10005",
+        L"Hebrew",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"0000040E",
+        L"0000040E",
+        L"1250",
+        L"852",
+        L"10029",
+        L"Hungarian",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000410",
+        L"00000410",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Italian",
+        itITPages,
+        itITErrorEntries
+    },
+    {
+        L"00000411",
+        L"00000411",
+        L"932",
+        L"932",
+        L"10001",
+        L"Japanese",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000412",
+        L"00000412",
+        L"949",
+        L"949",
+        L"10003",
+        L"Korean",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000427",
+        L"00000427",
+        L"1257",
+        L"775",
+        L"10029",
+        L"Lithuanian",
+        ltLTPages,
+        ltLTErrorEntries
+    },
+    {
+        L"00000414",
+        L"00000414",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Norwegian",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000419",
+        L"00000419",
+        L"1251",
+        L"866",
+        L"10007",
+        L"Russian",
+        ruRUPages,
+        ruRUErrorEntries
+    },
+    {
+        L"0000041B",
+        L"0000041B",
+        L"1250",
+        L"852",
+        L"10029",
+        L"Slovak",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"0000040A",
+        L"0000040A",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Spanish",
+        esESPages,
+        esESErrorEntries
+    },
+    {
+        L"00000415",
+        L"00000415",
+        L"1250",
+        L"852",
+        L"10029",
+        L"Polish",
+        plPLPages,
+        plPLErrorEntries
+    },
+    {
+        L"00000816",
+        L"00000816",
+        L"1252",
+        L"850",
+        L"10000",
+        L"Portuguese",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"0000041D",
+        L"0000041D",
+        L"1252",
+        L"865",
+        L"10000",
+        L"Swedish",
+        svSEPages,
+        svSEErrorEntries
+    },
+    {
+        L"0000041E",
+        L"0000041E",
+        L"874",
+        L"874",
+        L"10021",
+        L"Thai",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"0000041F",
+        L"0000041F",
+        L"1254",
+        L"857",
+        L"10081",
+        L"Turkish",
+        enUSPages,
+        enUSErrorEntries
+    },
+    {
+        L"00000422",
+        L"00000422",
+        L"1251",
+        L"866",
+        L"10017",
+        L"Ukrainian",
+        ukUAPages,
+        ukUAErrorEntries
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    }
+};
 
 extern
 VOID
@@ -41,50 +322,36 @@ PopupError(IN PCCH Text,
            IN PINPUT_RECORD Ir,
            IN ULONG WaitEvent);
 
-static 
-ULONG
-FindLanguageIndex()
-{
-    ULONG lngIndex = 0;
-
-    if (SelectedLanguageId == NULL)
-    {
-        /* default to english */
-        return 0;
-    }
-
-    do
-    {
-        if (_wcsicmp(LanguageList[lngIndex].LanguageID , SelectedLanguageId) == 0)
-        {
-            return lngIndex;
-        }
-
-        lngIndex++;
-    }while (LanguageList[lngIndex].MuiPages != NULL);
-
-    return 0;
-}
-
-
 static
 const MUI_ENTRY *
 FindMUIEntriesOfPage(IN ULONG PageNumber)
 {
     ULONG muiIndex = 0;
-    ULONG lngIndex;
+    ULONG lngIndex = 0;
     const MUI_PAGE * Pages = NULL;
-
-    lngIndex = max(FindLanguageIndex(), 0);
-    Pages = LanguageList[lngIndex].MuiPages;
 
     do
     {
-         if (Pages[muiIndex].Number == PageNumber)
-             return Pages[muiIndex].MuiEntry;
+        /* First we search the language list till we find current selected language messages */
+        if (_wcsicmp(LanguageList[lngIndex].LanguageID , SelectedLanguageId) == 0)
+        {
+            /* Get all available pages for this language */
+            Pages = LanguageList[lngIndex].MuiPages;
 
-         muiIndex++;
-    }while (Pages[muiIndex].MuiEntry != NULL);
+            do
+            {
+                /* Get page messages */
+                if (Pages[muiIndex].Number == PageNumber)
+                    return Pages[muiIndex].MuiEntry;
+
+                muiIndex++;
+            }
+            while (Pages[muiIndex].MuiEntry != NULL);
+        }
+
+        lngIndex++;
+    }
+    while (LanguageList[lngIndex].MuiPages != NULL);
 
     return NULL;
 }
@@ -93,37 +360,42 @@ static
 const MUI_ERROR *
 FindMUIErrorEntries(VOID)
 {
-    ULONG lngIndex = max(FindLanguageIndex(), 0);
-    return LanguageList[lngIndex].MuiErrors;
-}
+    ULONG lngIndex = 0;
 
-static
-const MUI_STRING *
-FindMUIStringEntries(VOID)
-{
-    ULONG lngIndex = max(FindLanguageIndex(), 0);
-    return LanguageList[lngIndex].MuiStrings;
+    do
+    {
+        /* First we search the language list till we find current selected language messages */
+        if (_wcsicmp(LanguageList[lngIndex].LanguageID , SelectedLanguageId) == 0)
+        {
+            /* Get all available error messages for this language */
+            return LanguageList[lngIndex].MuiErrors;
+        }
+
+        lngIndex++;
+    }
+    while (LanguageList[lngIndex].MuiPages != NULL);
+
+    return NULL;
 }
 
 LPCWSTR
 MUIDefaultKeyboardLayout(VOID)
 {
-    ULONG lngIndex = max(FindLanguageIndex(), 0);
-    return LanguageList[lngIndex].MuiLayouts[0].LayoutID;
-}
+    ULONG lngIndex = 0;
+    do
+    {
+        /* First we search the language list till we find current selected language messages */
+        if (_wcsicmp(LanguageList[lngIndex].LanguageID , SelectedLanguageId) == 0)
+        {
+            /* Return default keyboard layout */
+            return LanguageList[lngIndex].LanguageKeyboardLayoutID;
+        }
 
-PWCHAR
-MUIGetGeoID(VOID)
-{
-    ULONG lngIndex = max(FindLanguageIndex(), 0);
-    return LanguageList[lngIndex].GeoID;
-}
+        lngIndex++;
+    }
+    while (LanguageList[lngIndex].MuiPages != NULL);
 
-const MUI_LAYOUTS *
-MUIGetLayoutsList(VOID)
-{
-    ULONG lngIndex = max(FindLanguageIndex(), 0);
-    return LanguageList[lngIndex].MuiLayouts;
+    return NULL;
 }
 
 VOID
@@ -131,6 +403,7 @@ MUIDisplayPage(IN ULONG page)
 {
     const MUI_ENTRY * entry;
     int index;
+    int flags;
 
     entry = FindMUIEntriesOfPage(page);
     if (!entry)
@@ -145,12 +418,24 @@ MUIDisplayPage(IN ULONG page)
     index = 0;
     do
     {
-        CONSOLE_SetStyledText (
-		    entry[index].X, 
-		    entry[index].Y, 
-		    entry[index].Flags,
-		    entry[index].Buffer);
-
+        flags = entry[index].Flags;
+        switch(flags)
+        {
+            case TEXT_NORMAL:
+                CONSOLE_SetTextXY(entry[index].X, entry[index].Y, entry[index].Buffer);
+                break;
+            case TEXT_HIGHLIGHT:
+                CONSOLE_SetHighlightedTextXY(entry[index].X, entry[index].Y, entry[index].Buffer);
+                break;
+            case TEXT_UNDERLINE:
+                CONSOLE_SetUnderlinedTextXY(entry[index].X, entry[index].Y, entry[index].Buffer);
+                break;
+            case TEXT_STATUS:
+                CONSOLE_SetStatusText(entry[index].Buffer);
+                break;
+            default:
+                break;
+        }
         index++;
     }
     while (entry[index].Buffer != NULL);
@@ -187,306 +472,6 @@ MUIDisplayError(IN ULONG ErrorNum, OUT PINPUT_RECORD Ir, IN ULONG WaitEvent)
                WaitEvent);
 }
 
-LPSTR
-MUIGetString(ULONG Number)
-{
-    ULONG i;
-    const MUI_STRING * entry;
-    CHAR szErr[100];
-
-    entry = FindMUIStringEntries();
-    if (entry)
-    {
-        for (i = 0; entry[i].Number != 0; i++)
-        {
-            if (entry[i].Number == Number)
-            {
-                return entry[i].String;
-            }
-        }
-    }
-
-    sprintf(szErr, "Error: failed find string id %lu for language index %lu\n", Number, FindLanguageIndex());
-
-    PopupError(szErr,
-                NULL,
-                NULL,
-                POPUP_WAIT_NONE);
-
-    return "<nostring>";
-}
-
-static BOOLEAN
-AddHotkeySettings(IN LPCWSTR Hotkey, IN LPCWSTR LangHotkey, IN LPCWSTR LayoutHotkey)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-    HANDLE KeyHandle;
-    ULONG Disposition;
-    NTSTATUS Status;
-
-    RtlInitUnicodeString(&KeyName,
-                         L"\\Registry\\User\\.DEFAULT\\Keyboard Layout\\Toggle");
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status =  NtCreateKey(&KeyHandle,
-                          KEY_SET_VALUE,
-                          &ObjectAttributes,
-                          0,
-                          NULL,
-                          0,
-                          &Disposition);
-
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-
-    RtlInitUnicodeString(&ValueName,
-                         L"Hotkey");
-
-    Status = NtSetValueKey(KeyHandle,
-                           &ValueName,
-                           0,
-                           REG_SZ,
-                           (PVOID)Hotkey,
-                           (1 + 1) * sizeof(WCHAR));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-        NtClose(KeyHandle);
-        return FALSE;
-    }
-
-    RtlInitUnicodeString(&ValueName,
-                         L"Language Hotkey");
-
-    Status = NtSetValueKey(KeyHandle,
-                           &ValueName,
-                           0,
-                           REG_SZ,
-                           (PVOID)LangHotkey,
-                           (1 + 1) * sizeof(WCHAR));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-        NtClose(KeyHandle);
-        return FALSE;
-    }
-
-    RtlInitUnicodeString(&ValueName,
-                         L"Layout Hotkey");
-
-    Status = NtSetValueKey(KeyHandle,
-                           &ValueName,
-                           0,
-                           REG_SZ,
-                           (PVOID)LayoutHotkey,
-                           (1 + 1) * sizeof(WCHAR));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-        NtClose(KeyHandle);
-        return FALSE;
-    }
-
-    NtClose(KeyHandle);
-    return TRUE;
-}
-
-BOOLEAN
-AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-    HANDLE KeyHandle;
-    HANDLE SubKeyHandle;
-    NTSTATUS Status;
-    ULONG Disposition;
-    ULONG uIndex = 0;
-    ULONG uCount = 0;
-    WCHAR szKeyName[48] = L"\\Registry\\User\\.DEFAULT\\Keyboard Layout";
-    WCHAR szValueName[3 + 1];
-    WCHAR szLangID[8 + 1];
-
-    // Open the keyboard layout key
-    RtlInitUnicodeString(&KeyName,
-                         szKeyName);
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status =  NtCreateKey(&KeyHandle,
-                          KEY_CREATE_SUB_KEY,
-                          &ObjectAttributes,
-                          0,
-                          NULL,
-                          0,
-                          &Disposition);
-
-    if(NT_SUCCESS(Status))
-        NtClose(KeyHandle);
-    else
-    {
-        DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-
-    KeyName.MaximumLength = sizeof(szKeyName);
-    Status = RtlAppendUnicodeToString(&KeyName, L"\\Preload");
-
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("RtlAppend failed! (%lx)\n", Status);
-        DPRINT1("String is %wZ\n", &KeyName);
-        return FALSE;
-    }
-
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status = NtCreateKey(&KeyHandle,
-                         KEY_SET_VALUE,
-                         &ObjectAttributes,
-                         0,
-                         NULL,
-                         0,
-                         &Disposition);
-
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-
-    RtlInitUnicodeString(&KeyName, L"\\Registry\\User\\.DEFAULT\\Keyboard Layout\\Substitutes");
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status =  NtCreateKey(&SubKeyHandle,
-                          KEY_SET_VALUE,
-                          &ObjectAttributes,
-                          0,
-                          NULL,
-                          0,
-                          &Disposition);
-
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
-        NtClose(SubKeyHandle);
-        NtClose(KeyHandle);
-        return FALSE;
-    }
-
-    do
-    {
-        if (uIndex > 19) break;
-
-        swprintf(szValueName, L"%u", uIndex + 1);
-        RtlInitUnicodeString(&ValueName, szValueName);
-
-        swprintf(szLangID, L"0000%s", MuiLayouts[uIndex].LangID);
-
-        if (_wcsicmp(szLangID, MuiLayouts[uIndex].LayoutID) == 0)
-        {
-            Status = NtSetValueKey(KeyHandle,
-                                   &ValueName,
-                                   0,
-                                   REG_SZ,
-                                   (PVOID)MuiLayouts[uIndex].LayoutID,
-                                   (wcslen(MuiLayouts[uIndex].LayoutID)+1) * sizeof(WCHAR));
-            if (!NT_SUCCESS(Status))
-            {
-                DPRINT1("NtSetValueKey() failed (Status = %lx, uIndex = %d)\n", Status, uIndex);
-                NtClose(SubKeyHandle);
-                NtClose(KeyHandle);
-                return FALSE;
-            }
-        }
-        else
-        {
-            swprintf(szLangID, L"d%03u%s", uCount, MuiLayouts[uIndex].LangID);
-            Status = NtSetValueKey(KeyHandle,
-                                   &ValueName,
-                                   0,
-                                   REG_SZ,
-                                   (PVOID)szLangID,
-                                   (wcslen(szLangID)+1) * sizeof(WCHAR));
-            if (!NT_SUCCESS(Status))
-            {
-                DPRINT1("NtSetValueKey() failed (Status = %lx, uIndex = %d)\n", Status, uIndex);
-                NtClose(SubKeyHandle);
-                NtClose(KeyHandle);
-                return FALSE;
-            }
-
-            RtlInitUnicodeString(&ValueName, szLangID);
-
-            Status = NtSetValueKey(SubKeyHandle,
-                                   &ValueName,
-                                   0,
-                                   REG_SZ,
-                                   (PVOID)MuiLayouts[uIndex].LayoutID,
-                                   (wcslen(MuiLayouts[uIndex].LayoutID)+1) * sizeof(WCHAR));
-            if (!NT_SUCCESS(Status))
-            {
-                DPRINT1("NtSetValueKey() failed (Status = %lx, uIndex = %u)\n", Status, uIndex);
-                NtClose(SubKeyHandle);
-                NtClose(KeyHandle);
-                return FALSE;
-            }
-
-            uCount++;
-        }
-
-        uIndex++;
-    }
-    while (MuiLayouts[uIndex].LangID != NULL);
-
-    if (uIndex > 1)
-        AddHotkeySettings(L"2", L"2", L"1");
-    else
-        AddHotkeySettings(L"3", L"3", L"3");
-
-    NtClose(SubKeyHandle);
-    NtClose(KeyHandle);
-    return TRUE;
-}
-
-BOOLEAN
-AddKeyboardLayouts(VOID)
-{
-    ULONG lngIndex = 0;
-    do
-    {
-        if (_wcsicmp(LanguageList[lngIndex].LanguageID , SelectedLanguageId) == 0)
-        {
-            return AddKbLayoutsToRegistry(LanguageList[lngIndex].MuiLayouts);
-        }
-
-        lngIndex++;
-    }
-    while (LanguageList[lngIndex].MuiPages != NULL);
-
-    return FALSE;
-}
-
 static BOOLEAN
 AddCodepageToRegistry(IN LPCWSTR ACPage, IN LPCWSTR OEMCPage, IN LPCWSTR MACCPage)
 {
@@ -520,7 +505,7 @@ AddCodepageToRegistry(IN LPCWSTR ACPage, IN LPCWSTR OEMCPage, IN LPCWSTR MACCPag
                            0,
                            REG_SZ,
                            (PVOID)ACPage,
-                           (wcslen(ACPage)+1) * sizeof(PWCHAR));
+                           wcslen(ACPage) * sizeof(PWCHAR));
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
@@ -535,7 +520,7 @@ AddCodepageToRegistry(IN LPCWSTR ACPage, IN LPCWSTR OEMCPage, IN LPCWSTR MACCPag
                            0,
                            REG_SZ,
                            (PVOID)OEMCPage,
-                           (wcslen(OEMCPage)+1) * sizeof(PWCHAR));
+                           wcslen(OEMCPage) * sizeof(PWCHAR));
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
@@ -550,64 +535,13 @@ AddCodepageToRegistry(IN LPCWSTR ACPage, IN LPCWSTR OEMCPage, IN LPCWSTR MACCPag
                            0,
                            REG_SZ,
                            (PVOID)MACCPage,
-                           (wcslen(MACCPage)+1) * sizeof(PWCHAR));
+                           wcslen(MACCPage) * sizeof(PWCHAR));
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
         NtClose(KeyHandle);
         return FALSE;
     }
-
-    NtClose(KeyHandle);
-
-    return TRUE;
-}
-
-static BOOLEAN
-AddFontsSettingsToRegistry(IN const MUI_SUBFONT * MuiSubFonts)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-    HANDLE KeyHandle;
-    NTSTATUS Status;
-    ULONG uIndex = 0;
-
-    RtlInitUnicodeString(&KeyName,
-                         L"\\Registry\\Machine\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\SysFontSubstitutes");
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-    Status =  NtOpenKey(&KeyHandle,
-                        KEY_WRITE,
-                        &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-
-    do
-    {
-        RtlInitUnicodeString(&ValueName, MuiSubFonts[uIndex].FontName);
-        Status = NtSetValueKey(KeyHandle,
-                               &ValueName,
-                               0,
-                               REG_SZ,
-                               (PVOID)MuiSubFonts[uIndex].SubFontName,
-                               (wcslen(MuiSubFonts[uIndex].SubFontName)+1) * sizeof(WCHAR));
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT1("NtSetValueKey() failed (Status = %lx, uIndex = %d)\n", Status, uIndex);
-            NtClose(KeyHandle);
-            return FALSE;
-        }
-
-        uIndex++;
-    }
-    while (MuiSubFonts[uIndex].FontName != NULL);
 
     NtClose(KeyHandle);
 
@@ -622,17 +556,9 @@ AddCodePage(VOID)
     {
         if (_wcsicmp(LanguageList[lngIndex].LanguageID , SelectedLanguageId) == 0)
         {
-            if (AddCodepageToRegistry(LanguageList[lngIndex].ACPage,
-                                      LanguageList[lngIndex].OEMCPage,
-                                      LanguageList[lngIndex].MACCPage)&&
-                AddFontsSettingsToRegistry(LanguageList[lngIndex].MuiSubFonts))
-            {
-                return TRUE;
-            }
-            else
-            {
-                return FALSE;
-            }
+            return AddCodepageToRegistry(LanguageList[lngIndex].ACPage,
+                                         LanguageList[lngIndex].OEMCPage,
+                                         LanguageList[lngIndex].MACCPage);
         }
 
         lngIndex++;

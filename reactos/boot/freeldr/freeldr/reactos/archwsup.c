@@ -18,14 +18,6 @@ extern CHAR reactos_arc_hardware_data[];
 ULONG FldrpHwHeapLocation;
 PCONFIGURATION_COMPONENT_DATA FldrArcHwTreeRoot;
 
-BOOLEAN UseRealHeap = FALSE;
-
-VOID
-NTAPI
-FldrSetConfigurationData(IN PCONFIGURATION_COMPONENT_DATA ComponentData,
-                         IN PCM_PARTIAL_RESOURCE_LIST ResourceList,
-                         IN ULONG Size);
-
 /* FUNCTIONS ******************************************************************/
 
 PVOID
@@ -33,21 +25,13 @@ NTAPI
 FldrpHwHeapAlloc(IN ULONG Size)
 {
     PVOID Buffer;
-
-    if (UseRealHeap)
-    {
-        /* Allocate memory from generic bootloader heap */
-        Buffer = MmHeapAlloc(Size);
-    }
-    else
-    {
-        /* Return a block of memory from the ARC Hardware Heap */
-        Buffer = &reactos_arc_hardware_data[FldrpHwHeapLocation];
-
-        /* Increment the heap location */
-        FldrpHwHeapLocation += Size;
-        if (FldrpHwHeapLocation > HW_MAX_ARC_HEAP_SIZE) Buffer = NULL;
-    }
+    
+    /* Return a block of memory from the ARC Hardware Heap */
+    Buffer = &reactos_arc_hardware_data[FldrpHwHeapLocation];
+    
+    /* Increment the heap location */
+    FldrpHwHeapLocation += Size;
+    if (FldrpHwHeapLocation > HW_MAX_ARC_HEAP_SIZE) Buffer = NULL;
 
     /* Clear it */
     if (Buffer)
@@ -59,21 +43,39 @@ FldrpHwHeapAlloc(IN ULONG Size)
 
 VOID
 NTAPI
+FldrSetComponentInformation(IN PCONFIGURATION_COMPONENT_DATA ComponentData,
+                            IN IDENTIFIER_FLAG Flags,
+                            IN ULONG Key,
+                            IN ULONG Affinity)
+{
+    PCONFIGURATION_COMPONENT Component = &ComponentData->ComponentEntry;
+
+    /* Set component information */
+    Component->Flags = Flags;
+    Component->Version = 0;
+    Component->Revision = 0;
+    Component->Key = Key;
+    Component->AffinityMask = Affinity;
+}
+
+VOID
+NTAPI
 FldrSetIdentifier(IN PCONFIGURATION_COMPONENT_DATA ComponentData,
-                  IN PCHAR IdentifierString)
+                  IN PWCHAR IdentifierString)
 {
     ULONG IdentifierLength;
     PCONFIGURATION_COMPONENT Component = &ComponentData->ComponentEntry;
     PCHAR Identifier;
     
     /* Allocate memory for the identifier */
-    IdentifierLength = strlen(IdentifierString) + 1;
+    /* WARNING: This should be ASCII data */
+    IdentifierLength = (wcslen(IdentifierString) + 1) * sizeof(WCHAR);
     Identifier = FldrpHwHeapAlloc(IdentifierLength);
     if (!Identifier) return;
-
+    
     /* Copy the identifier */
     RtlCopyMemory(Identifier, IdentifierString, IdentifierLength);
-
+    
     /* Set component information */
     Component->IdentifierLength = IdentifierLength;
     Component->Identifier = Identifier;
@@ -96,11 +98,6 @@ FldrCreateSystemKey(OUT PCONFIGURATION_COMPONENT_DATA *SystemNode)
     Component->ConfigurationDataLength = 0;
     Component->Identifier = 0;
     Component->IdentifierLength = 0;
-    Component->Flags = 0;
-    Component->Version = 0;
-    Component->Revision = 0;
-    Component->Key = 0;
-    Component->AffinityMask = 0xFFFFFFFF;
     
     /* Return the node */
     *SystemNode = FldrArcHwTreeRoot;
@@ -139,14 +136,10 @@ FldrLinkToParent(IN PCONFIGURATION_COMPONENT_DATA Parent,
 VOID
 NTAPI
 FldrCreateComponentKey(IN PCONFIGURATION_COMPONENT_DATA SystemNode,
+                       IN PWCHAR BusName,
+                       IN ULONG BusNumber,
                        IN CONFIGURATION_CLASS Class,
                        IN CONFIGURATION_TYPE Type,
-                       IN IDENTIFIER_FLAG Flags,
-                       IN ULONG Key,
-                       IN ULONG Affinity,
-                       IN PCHAR IdentifierString,
-                       IN PCM_PARTIAL_RESOURCE_LIST ResourceList,
-                       IN ULONG Size,
                        OUT PCONFIGURATION_COMPONENT_DATA *ComponentKey)
 {
     PCONFIGURATION_COMPONENT_DATA ComponentData;
@@ -160,24 +153,12 @@ FldrCreateComponentKey(IN PCONFIGURATION_COMPONENT_DATA SystemNode,
     ComponentData->Parent = SystemNode;
     
     /* Link us to the parent */
-    if (SystemNode)
-        FldrLinkToParent(SystemNode, ComponentData);
+    FldrLinkToParent(SystemNode, ComponentData);
     
     /* Set us up */
     Component = &ComponentData->ComponentEntry;
     Component->Class = Class;
     Component->Type = Type;
-    Component->Flags = Flags;
-    Component->Key = Key;
-    Component->AffinityMask = Affinity;
-    
-    /* Set identifier */
-    if (IdentifierString)
-        FldrSetIdentifier(ComponentData, IdentifierString);
-    
-    /* Set configuration data */
-    if (ResourceList)
-        FldrSetConfigurationData(ComponentData, ResourceList, Size);
     
     /* Return the child */
     *ComponentKey = ComponentData; 

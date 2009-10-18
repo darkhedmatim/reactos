@@ -1,38 +1,27 @@
 ::
 :: PROJECT:     RosBE - ReactOS Build Environment for Windows
-:: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
+:: LICENSE:     GPL - See LICENSE.txt in the top level directory.
 :: FILE:        Root/options.cmd
 :: PURPOSE:     Starts options.exe and restarts RosBE afterwards.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 ::
-
+::
 @echo off
-if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
-if %_ROSBE_DEBUG% == 1 (
-    @echo on
-)
 
 title Options
 
-if "%ROS_ARCH%" == "amd64" (
-    set options=%_ROSBE_BASEDIR%\Tools\options64.exe
-    set cfgfile=%APPDATA%\RosBE\rosbe-options-amd64.cmd
-) else (
-    set options=%_ROSBE_BASEDIR%\Tools\options.exe
-    set cfgfile=%APPDATA%\RosBE\rosbe-options.cmd
-)
-
+::
 :: Run options.exe
-if exist "%options%" (
+::
+if exist "%_ROSBE_BASEDIR%\Tools\options.exe" (
     pushd "%_ROSBE_BASEDIR%"
-    call "%options%"
-    popd
-
-    if exist "%cfgfile%" (
-        call "%cfgfile%"
+    call "%_ROSBE_BASEDIR%\Tools\options.exe"
+    popd "%_ROSBE_BASEDIR%"
+    if exist "%APPDATA%\RosBE\rosbe-options.cmd" (
+        call "%APPDATA%\RosBE\rosbe-options.cmd"
     )
 ) else (
-    echo ERROR: options executable was not found.
+    echo ERROR: options.exe was not found.
 )
 
 title ReactOS Build Environment %_ROSBE_VERSION%

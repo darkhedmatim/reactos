@@ -35,7 +35,7 @@ void LoadSettings()
 	if(hugechar == 0)
 		return;
 
-	ZeroMemory(hugechar, 4096);
+	hugechar[0] = _T('\0');
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, _T("Software\\Catch22\\Matrix Screen Saver"), 0,
 		_T(""), 0, KEY_READ, NULL, &hkey, NULL);
@@ -71,15 +71,21 @@ void LoadSettings()
 	if(ERROR_SUCCESS == RegQueryValueEx(hkey, _T("Randomize"),      0, 0, (BYTE *)&value, &len))
 		g_fRandomizeMessages = (value == 0 ? FALSE : TRUE);
 
-	len = 512;
-	if(RegQueryValueEx(hkey, _T("FontName"),  0, 0, (BYTE *)g_szFontName, &len) != ERROR_SUCCESS)
-		lstrcpy(g_szFontName, _T("Arial"));
+	len = 4096;
+	if(ERROR_SUCCESS == RegQueryValueEx(hkey, _T("FontName"),  0, 0, (BYTE *)hugechar, &len))
+	{
+		if(len > 0)
+			lstrcpy(g_szFontName, hugechar);
+		else
+			lstrcpy(g_szFontName, _T("Arial"));
+
+	}
 
 	len = 4096;
 
 	if(ERROR_SUCCESS == RegQueryValueEx(hkey, _T("Messages"),      0, 0 , (BYTE *)hugechar, &len))
 	{
-		while(len > 0 && *hptr && _istascii(*hptr))
+		while(len > 0 && *hptr && isascii(*hptr))
 		{
 			if(lstrlen(hptr) > 0)
 			{
@@ -103,7 +109,7 @@ void LoadSettings()
 void SaveSettings()
 {
 	HKEY hkey;
-	TCHAR *hugechar = malloc(4096 * sizeof(TCHAR));
+	TCHAR *hugechar = malloc(4096);
 	TCHAR *msgptr = hugechar;
 	int totallen = 0;
 	int i,len;
@@ -112,7 +118,7 @@ void SaveSettings()
 	if(hugechar == 0)
 		return;
 
-	ZeroMemory(hugechar, 4096 * sizeof(TCHAR));
+	hugechar[0] = _T('\0');
 	msgptr = hugechar;
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, _T("Software\\Catch22\\Matrix Screen Saver"), 0,
@@ -136,7 +142,7 @@ void SaveSettings()
 	value = g_fFontBold;
 	RegSetValueEx(hkey, _T("FontBold"), 0, REG_DWORD, (BYTE *)&value, sizeof value);
 
-	RegSetValueEx(hkey, _T("FontName"), 0, REG_SZ, (BYTE *)g_szFontName, lstrlen(g_szFontName) * sizeof(TCHAR));
+	RegSetValueEx(hkey, _T("FontName"), 0, REG_SZ, (BYTE *)g_szFontName, lstrlen(g_szFontName));
 
 	for(i = 0; i < g_nNumMessages; i++)
 	{
@@ -150,10 +156,10 @@ void SaveSettings()
 		}
 	}
 
-	//*msgptr = _T('\0');
+	*msgptr = _T('\0');
 	totallen++;
 
-	RegSetValueEx(hkey, _T("Messages"), 0, REG_MULTI_SZ, (BYTE *)hugechar, totallen * sizeof(TCHAR));
+	RegSetValueEx(hkey, _T("Messages"), 0, REG_MULTI_SZ, (BYTE *)hugechar, totallen);
 	RegCloseKey(hkey);
 
 	free(hugechar);

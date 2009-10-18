@@ -279,18 +279,16 @@ void wnetInit(HINSTANCE hInstDll)
                     {
                         PWSTR ptrPrev;
                         int entireNetworkLen;
-                        LPCWSTR stringresource;
 
                         entireNetworkLen = LoadStringW(hInstDll,
-                         IDS_ENTIRENETWORK, (LPWSTR)&stringresource, 0);
+                         IDS_ENTIRENETWORK, NULL, 0);
                         providerTable->entireNetwork = HeapAlloc(
                          GetProcessHeap(), 0, (entireNetworkLen + 1) *
                          sizeof(WCHAR));
                         if (providerTable->entireNetwork)
-                        {
-                            memcpy(providerTable->entireNetwork, stringresource, entireNetworkLen*sizeof(WCHAR));
-                            providerTable->entireNetwork[entireNetworkLen] = 0;
-                        }
+                            LoadStringW(hInstDll, IDS_ENTIRENETWORK,
+                             providerTable->entireNetwork,
+                             entireNetworkLen + 1);
                         providerTable->numAllocated = numToAllocate;
                         for (ptr = providers; ptr; )
                         {
@@ -357,7 +355,7 @@ static LPNETRESOURCEW _copyNetResourceForEnumW(LPNETRESOURCEW lpNet)
         {
             size_t len;
 
-            *ret = *lpNet;
+            memcpy(ret, lpNet, sizeof(ret));
             ret->lpLocalName = ret->lpComment = ret->lpProvider = NULL;
             if (lpNet->lpRemoteName)
             {
@@ -746,7 +744,8 @@ DWORD WINAPI WNetOpenEnumW( DWORD dwScope, DWORD dwType, DWORD dwUsage,
                                  dwScope, dwType, dwUsage, lpNet, &handle);
                                 if (ret == WN_SUCCESS)
                                 {
-                                    *lphEnum = _createProviderEnumerator(
+                                    *lphEnum =
+                                     (HANDLE)_createProviderEnumerator(
                                      dwScope, dwType, dwUsage, index, handle);
                                     ret = *lphEnum ? WN_SUCCESS :
                                      WN_OUT_OF_MEMORY;
@@ -760,7 +759,7 @@ DWORD WINAPI WNetOpenEnumW( DWORD dwScope, DWORD dwType, DWORD dwUsage,
                     }
                     else if (lpNet->lpRemoteName)
                     {
-                        *lphEnum = _createGlobalEnumeratorW(dwScope,
+                        *lphEnum = (HANDLE)_createGlobalEnumeratorW(dwScope,
                          dwType, dwUsage, lpNet);
                         ret = *lphEnum ? WN_SUCCESS : WN_OUT_OF_MEMORY;
                     }
@@ -772,13 +771,13 @@ DWORD WINAPI WNetOpenEnumW( DWORD dwScope, DWORD dwType, DWORD dwUsage,
                             /* comment matches the "Entire Network", enumerate
                              * global scope of every provider
                              */
-                            *lphEnum = _createGlobalEnumeratorW(dwScope,
+                            *lphEnum = (HANDLE)_createGlobalEnumeratorW(dwScope,
                              dwType, dwUsage, lpNet);
                         }
                         else
                         {
                             /* this is the same as not having passed lpNet */
-                            *lphEnum = _createGlobalEnumeratorW(dwScope,
+                            *lphEnum = (HANDLE)_createGlobalEnumeratorW(dwScope,
                              dwType, dwUsage, NULL);
                         }
                         ret = *lphEnum ? WN_SUCCESS : WN_OUT_OF_MEMORY;
@@ -786,18 +785,19 @@ DWORD WINAPI WNetOpenEnumW( DWORD dwScope, DWORD dwType, DWORD dwUsage,
                 }
                 else
                 {
-                    *lphEnum = _createGlobalEnumeratorW(dwScope, dwType,
+                    *lphEnum = (HANDLE)_createGlobalEnumeratorW(dwScope, dwType,
                      dwUsage, lpNet);
                     ret = *lphEnum ? WN_SUCCESS : WN_OUT_OF_MEMORY;
                 }
                 break;
             case RESOURCE_CONTEXT:
-                *lphEnum = _createContextEnumerator(dwScope, dwType, dwUsage);
+                *lphEnum = (HANDLE)_createContextEnumerator(dwScope, dwType,
+                 dwUsage);
                 ret = *lphEnum ? WN_SUCCESS : WN_OUT_OF_MEMORY;
                 break;
             case RESOURCE_REMEMBERED:
             case RESOURCE_CONNECTED:
-                *lphEnum = _createNullEnumerator();
+                *lphEnum = (HANDLE)_createNullEnumerator();
                 ret = *lphEnum ? WN_SUCCESS : WN_OUT_OF_MEMORY;
                 break;
             default:
@@ -851,8 +851,8 @@ DWORD WINAPI WNetEnumResourceA( HANDLE hEnum, LPDWORD lpcCount,
                  * size is the appropriate usage of this function, so
                  * hopefully it won't be an issue.
                  */
-                ret = _thunkNetResourceArrayWToA(localBuffer, &localCount,
-                 lpBuffer, lpBufferSize);
+                ret = _thunkNetResourceArrayWToA((LPNETRESOURCEW)localBuffer,
+                 &localCount, lpBuffer, lpBufferSize);
                 *lpcCount = localCount;
             }
             HeapFree(GetProcessHeap(), 0, localBuffer);
@@ -921,7 +921,8 @@ static DWORD _enumerateProvidersW(PWNetEnumerator enumerator, LPDWORD lpcCount,
             }
         }
         strNext = (LPWSTR)((LPBYTE)lpBuffer + count * sizeof(NETRESOURCEW));
-        for (i = 0, resource = lpBuffer; i < count; i++, resource++)
+        for (i = 0, resource = (LPNETRESOURCEW)lpBuffer; i < count;
+         i++, resource++)
         {
             resource->dwScope = RESOURCE_GLOBALNET;
             resource->dwType = RESOURCETYPE_ANY;
@@ -1133,7 +1134,7 @@ static DWORD _enumerateContextW(PWNetEnumerator enumerator, LPDWORD lpcCount,
     }
     else
     {
-        LPNETRESOURCEW lpNet = lpBuffer;
+        LPNETRESOURCEW lpNet = (LPNETRESOURCEW)lpBuffer;
 
         lpNet->dwScope = RESOURCE_GLOBALNET;
         lpNet->dwType = enumerator->dwType;
@@ -1309,7 +1310,6 @@ DWORD WINAPI WNetGetResourceInformationA( LPNETRESOURCEA lpNetResource,
         ret = _thunkNetResourceArrayAToW(lpNetResource, &count, lpNetResourceW, &size);
         if (ret == WN_MORE_DATA)
         {
-            HeapFree(GetProcessHeap(), 0, lpNetResourceW);
             lpNetResourceW = HeapAlloc(GetProcessHeap(), 0, size);
             if (lpNetResourceW)
                 ret = _thunkNetResourceArrayAToW(lpNetResource,
@@ -1341,7 +1341,6 @@ DWORD WINAPI WNetGetResourceInformationA( LPNETRESOURCEA lpNetResource,
                 {
                     ret = _thunkNetResourceArrayWToA(lpBufferW,
                             &count, lpBuffer, cbBuffer);
-                    HeapFree(GetProcessHeap(), 0, lpNetResourceW);
                     lpNetResourceW = lpBufferW;
                     size = sizeof(NETRESOURCEA);
                     size += WideCharToMultiByte(CP_ACP, 0, lpNetResourceW->lpRemoteName,
@@ -1415,7 +1414,7 @@ DWORD WINAPI WNetGetResourceInformationW( LPNETRESOURCEW lpNetResource,
 
     if (!(lpBuffer))
         ret = WN_OUT_OF_MEMORY;
-    else if (providerTable != NULL)
+    else
     {
         /* FIXME: For function value of a variable is indifferent, it does
          * search of all providers in a network.
@@ -1858,7 +1857,7 @@ DWORD WINAPI WNetGetUniversalNameA ( LPCSTR lpLocalPath, DWORD dwInfoLevel,
     {
     case UNIVERSAL_NAME_INFO_LEVEL:
     {
-        LPUNIVERSAL_NAME_INFOA info = lpBuffer;
+        LPUNIVERSAL_NAME_INFOA info = (LPUNIVERSAL_NAME_INFOA)lpBuffer;
 
         size = sizeof(*info) + lstrlenA(lpLocalPath) + 1;
         if (*lpBufferSize < size)
@@ -1900,7 +1899,7 @@ DWORD WINAPI WNetGetUniversalNameW ( LPCWSTR lpLocalPath, DWORD dwInfoLevel,
     {
     case UNIVERSAL_NAME_INFO_LEVEL:
     {
-        LPUNIVERSAL_NAME_INFOW info = lpBuffer;
+        LPUNIVERSAL_NAME_INFOW info = (LPUNIVERSAL_NAME_INFOW)lpBuffer;
 
         size = sizeof(*info) + (lstrlenW(lpLocalPath) + 1) * sizeof(WCHAR);
         if (*lpBufferSize < size)
@@ -2118,7 +2117,7 @@ DWORD WINAPI WNetGetNetworkInformationW( LPCWSTR lpProvider,
                  providerTable->table[providerIndex].dwSpecVersion;
                 lpNetInfoStruct->dwStatus = NO_ERROR;
                 lpNetInfoStruct->dwCharacteristics = 0;
-                lpNetInfoStruct->dwHandle = 0;
+                lpNetInfoStruct->dwHandle = (ULONG_PTR)NULL;
                 lpNetInfoStruct->wNetType =
                  HIWORD(providerTable->table[providerIndex].dwNetType);
                 lpNetInfoStruct->dwPrinters = -1;

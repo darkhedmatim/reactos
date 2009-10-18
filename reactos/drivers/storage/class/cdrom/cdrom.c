@@ -126,7 +126,7 @@ typedef struct _CDROM_DATA {
 
     UCHAR MediaChangeCountDown;
 
-#if DBG
+#ifdef DBG
     //
     // Second timer to keep track of how long the media change IRP has been
     // in use.  If this value exceeds the timeout (#defined) then we should
@@ -176,7 +176,7 @@ typedef struct _CDROM_DATA {
 #define CDROM_SRB_LIST_SIZE          4
 
 
-#if DBG
+#ifdef DBG
 
 //
 // Used to detect the loss of the autorun irp.  The driver prints out a message
@@ -232,14 +232,14 @@ typedef struct _CDROM_DATA {
 #endif
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath
     );
 
 BOOLEAN
-NTAPI
+STDCALL
 ScsiCdRomFindDevices(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath,
@@ -249,21 +249,21 @@ ScsiCdRomFindDevices(
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiCdRomOpenClose(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiCdRomReadVerification(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiCdRomSwitchMode(
     IN PDEVICE_OBJECT DeviceObject,
     IN ULONG SectorSize,
@@ -271,7 +271,7 @@ ScsiCdRomSwitchMode(
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomDeviceControl(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -279,7 +279,7 @@ CdRomDeviceControl(
 
 IO_COMPLETION_ROUTINE CdRomDeviceControlCompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomDeviceControlCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -288,7 +288,7 @@ CdRomDeviceControlCompletion(
 
 IO_COMPLETION_ROUTINE CdRomSetVolumeIntermediateCompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomSetVolumeIntermediateCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -297,7 +297,7 @@ CdRomSetVolumeIntermediateCompletion(
 
 IO_COMPLETION_ROUTINE CdRomSwitchModeCompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomSwitchModeCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -306,7 +306,7 @@ CdRomSwitchModeCompletion(
 
 IO_COMPLETION_ROUTINE CdRomXACompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomXACompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -315,7 +315,7 @@ CdRomXACompletion(
 
 IO_COMPLETION_ROUTINE CdRomClassIoctlCompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomClassIoctlCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -323,28 +323,28 @@ CdRomClassIoctlCompletion(
     );
 
 VOID
-NTAPI
+STDCALL
 ScsiCdRomStartIo(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 VOID
-NTAPI
+STDCALL
 CdRomTickHandler(
     IN PDEVICE_OBJECT DeviceObject,
     IN PVOID Context
     );
 
 BOOLEAN
-NTAPI
+STDCALL
 CdRomCheckRegistryForMediaChangeValue(
     IN PUNICODE_STRING RegistryPath,
     IN ULONG DeviceNumber
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomUpdateCapacity(
     IN PDEVICE_EXTENSION DeviceExtension,
     IN PIRP IrpToComplete,
@@ -352,7 +352,7 @@ CdRomUpdateCapacity(
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 CreateCdRomDeviceObject(
     IN PDRIVER_OBJECT DriverObject,
     IN PDEVICE_OBJECT PortDeviceObject,
@@ -365,7 +365,7 @@ CreateCdRomDeviceObject(
     );
 
 VOID
-NTAPI
+STDCALL
 ScanForSpecial(
     PDEVICE_OBJECT DeviceObject,
     PINQUIRYDATA InquiryData,
@@ -373,13 +373,13 @@ ScanForSpecial(
     );
 
 BOOLEAN
-NTAPI
+STDCALL
 CdRomIsPlayActive(
     IN PDEVICE_OBJECT DeviceObject
     );
 
 VOID
-NTAPI
+STDCALL
 HitachProcessError(
     PDEVICE_OBJECT DeviceObject,
     PSCSI_REQUEST_BLOCK Srb,
@@ -389,7 +389,7 @@ HitachProcessError(
 
 IO_COMPLETION_ROUTINE ToshibaProcessErrorCompletion;
 VOID
-NTAPI
+STDCALL
 ToshibaProcessError(
     PDEVICE_OBJECT DeviceObject,
     PSCSI_REQUEST_BLOCK Srb,
@@ -398,14 +398,14 @@ ToshibaProcessError(
     );
 
 BOOLEAN
-NTAPI
+STDCALL
 IsThisAnAtapiChanger(
     IN  PDEVICE_OBJECT DeviceObject,
     OUT PULONG         DiscsPresent
     );
 
 BOOLEAN
-NTAPI
+STDCALL
 IsThisASanyo(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  UCHAR          PathId,
@@ -413,14 +413,14 @@ IsThisASanyo(
     );
 
 BOOLEAN
-NTAPI
+STDCALL
 IsThisAMultiLunDevice(
     IN PDEVICE_OBJECT DeviceObject,
     IN PDEVICE_OBJECT PortDeviceObject
     );
 
 VOID
-NTAPI
+STDCALL
 CdRomCreateNamedEvent(
     IN PDEVICE_EXTENSION DeviceExtension,
     IN ULONG DeviceNumber
@@ -457,7 +457,7 @@ FindScsiAdapter (
 ULONG NoLoad = 0;
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath
@@ -524,7 +524,7 @@ Return Value:
 } // end DriverEntry()
 
 BOOLEAN
-NTAPI
+STDCALL
 ScsiCdRomFindDevices(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath,
@@ -669,7 +669,7 @@ Return Value:
 } // end FindScsiCdRoms()
 
 VOID
-NTAPI
+STDCALL
 CdRomCreateNamedEvent(
     IN PDEVICE_EXTENSION DeviceExtension,
     IN ULONG DeviceNumber
@@ -731,7 +731,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 CreateCdRomDeviceObject(
     IN PDRIVER_OBJECT DriverObject,
     IN PDEVICE_OBJECT PortDeviceObject,
@@ -765,7 +765,8 @@ Return Value:
 
 --*/
 {
-    CHAR ntNameBuffer[64];
+    UCHAR ntNameBuffer[64];
+    UNICODE_STRING ntUnicodeString;
     NTSTATUS status;
     BOOLEAN changerDevice;
     SCSI_REQUEST_BLOCK srb;
@@ -814,6 +815,7 @@ Return Value:
         DebugPrint((1,"CreateCdRomDeviceObjects: Can not create device %s\n",
                     ntNameBuffer));
 
+        RtlFreeUnicodeString(&ntUnicodeString);
         goto CreateCdRomDeviceObjectExit;
     }
 
@@ -984,7 +986,7 @@ Return Value:
 
     deviceExtension->MediaChangeNoMedia = TRUE;
     cddata->MediaChangeIrp = NULL;
-#if DBG
+#ifdef DBG
     cddata->MediaChangeIrpTimeInUse = 0;
     cddata->MediaChangeIrpLost = FALSE;
 #endif
@@ -1364,7 +1366,7 @@ CreateCdRomDeviceObjectExit:
 } // end CreateCdRomDeviceObject()
 
 VOID
-NTAPI
+STDCALL
 ScsiCdRomStartIo(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -2779,7 +2781,7 @@ ScsiCdRomStartIo(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiCdRomReadVerification(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -2833,7 +2835,7 @@ Return Value:
     }
 
     if ((startingOffset.QuadPart > deviceExtension->PartitionLength.QuadPart) ||
-        (transferByteCount & (deviceExtension->DiskGeometry->BytesPerSector - 1))) {
+        (transferByteCount & deviceExtension->DiskGeometry->BytesPerSector - 1)) {
 
         DebugPrint((1,"ScsiCdRomRead: Invalid I/O parameters\n"));
         DebugPrint((1, "\toffset %x:%x, Length %x:%x\n",
@@ -2859,7 +2861,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomDeviceControlCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -2913,7 +2915,7 @@ CdRomDeviceControlCompletion(
                                             srb,
                                             irpStack->MajorFunction,
                                             irpStack->Parameters.DeviceIoControl.IoControlCode,
-                                            MAXIMUM_RETRIES - ((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1),
+                                            MAXIMUM_RETRIES - ((ULONG)realIrpNextStack->Parameters.Others.Argument1),
                                             &status);
 
         DebugPrint((2, "CdRomDeviceControlCompletion: IRP will %sbe retried\n",
@@ -2972,10 +2974,10 @@ CdRomDeviceControlCompletion(
 
         }
 
-        if (retry && (realIrpNextStack->Parameters.Others.Argument1 = (PVOID)((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1-1))) {
+        if (retry && (realIrpNextStack->Parameters.Others.Argument1 = (ULONG)realIrpNextStack->Parameters.Others.Argument1-1)) {
 
 
-            if (((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1)) {
+            if (((ULONG)realIrpNextStack->Parameters.Others.Argument1)) {
 
                 //
                 // Retry request.
@@ -3192,9 +3194,7 @@ CdRomDeviceControlCompletion(
         case IOCTL_CDROM_READ_Q_CHANNEL: {
 
             PSUB_Q_CHANNEL_DATA userChannelData = realIrp->AssociatedIrp.SystemBuffer;
-#if DBG
             PCDROM_SUB_Q_DATA_FORMAT inputBuffer = realIrp->AssociatedIrp.SystemBuffer;
-#endif
             PSUB_Q_CHANNEL_DATA subQPtr = srb->DataBuffer;
 
 #if DBG
@@ -3428,7 +3428,7 @@ CdRomDeviceControlCompletion(
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomSetVolumeIntermediateCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -3479,7 +3479,7 @@ CdRomSetVolumeIntermediateCompletion(
                                             srb,
                                             irpStack->MajorFunction,
                                             irpStack->Parameters.DeviceIoControl.IoControlCode,
-                                            MAXIMUM_RETRIES - ((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1),
+                                            MAXIMUM_RETRIES - ((ULONG)realIrpNextStack->Parameters.Others.Argument1),
                                             &status);
 
         if (status == STATUS_DATA_OVERRUN) {
@@ -3499,9 +3499,9 @@ CdRomSetVolumeIntermediateCompletion(
             retry = TRUE;
         }
 
-        if (retry && (realIrpNextStack->Parameters.Others.Argument1 = (PVOID)((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1-1))) {
+        if (retry && (realIrpNextStack->Parameters.Others.Argument1 = (ULONG)realIrpNextStack->Parameters.Others.Argument1-1)) {
 
-            if (((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1)) {
+            if (((ULONG)realIrpNextStack->Parameters.Others.Argument1)) {
 
                 //
                 // Retry request.
@@ -3760,7 +3760,7 @@ CdRomSetVolumeIntermediateCompletion(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomSwitchModeCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -3810,7 +3810,7 @@ CdRomSwitchModeCompletion(
                                             srb,
                                             irpStack->MajorFunction,
                                             irpStack->Parameters.DeviceIoControl.IoControlCode,
-                                            MAXIMUM_RETRIES - ((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1),
+                                            MAXIMUM_RETRIES - ((ULONG)realIrpNextStack->Parameters.Others.Argument1),
                                             &status);
 
         //
@@ -3825,9 +3825,9 @@ CdRomSwitchModeCompletion(
             retry = TRUE;
         }
 
-        if (retry && (realIrpNextStack->Parameters.Others.Argument1 = (PVOID)((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1-1))) {
+        if (retry && (realIrpNextStack->Parameters.Others.Argument1 = (ULONG)realIrpNextStack->Parameters.Others.Argument1-1)) {
 
-            if (((ULONG_PTR)realIrpNextStack->Parameters.Others.Argument1)) {
+            if (((ULONG)realIrpNextStack->Parameters.Others.Argument1)) {
 
                 //
                 // Retry request.
@@ -4126,7 +4126,7 @@ CdRomSwitchModeCompletion(
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomXACompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -4186,7 +4186,7 @@ Return Value:
             srb,
             irpStack->MajorFunction,
             irpStack->MajorFunction == IRP_MJ_DEVICE_CONTROL ? irpStack->Parameters.DeviceIoControl.IoControlCode : 0,
-            MAXIMUM_RETRIES - ((ULONG_PTR)irpNextStack->Parameters.Others.Argument1),
+            MAXIMUM_RETRIES - ((ULONG)irpNextStack->Parameters.Others.Argument1),
             &status);
 
         //
@@ -4201,9 +4201,9 @@ Return Value:
             retry = TRUE;
         }
 
-        if (retry && (irpNextStack->Parameters.Others.Argument1 = (PVOID)((ULONG_PTR)irpNextStack->Parameters.Others.Argument1-1))) {
+        if (retry && (irpNextStack->Parameters.Others.Argument1 = (ULONG)irpNextStack->Parameters.Others.Argument1-1)) {
 
-            if (((ULONG_PTR)irpNextStack->Parameters.Others.Argument1)) {
+            if (((ULONG)irpNextStack->Parameters.Others.Argument1)) {
 
                 //
                 // Retry request.
@@ -4283,7 +4283,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomDeviceControl(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -4834,7 +4834,7 @@ RetryControl:
 } // end ScsiCdRomDeviceControl()
 
 VOID
-NTAPI
+STDCALL
 ScanForSpecial(
     PDEVICE_OBJECT DeviceObject,
     PINQUIRYDATA InquiryData,
@@ -4871,8 +4871,8 @@ Return Value:
     // to get this cdrom drive to work on scsi adapters that use PIO.
     //
 
-    if ((strncmp((PCHAR)InquiryData->VendorId, "HITACHI CDR-1750S", strlen("HITACHI CDR-1750S")) == 0 ||
-        strncmp((PCHAR)InquiryData->VendorId, "HITACHI CDR-3650/1650S", strlen("HITACHI CDR-3650/1650S")) == 0)
+    if ((strncmp(InquiryData->VendorId, "HITACHI CDR-1750S", strlen("HITACHI CDR-1750S")) == 0 ||
+        strncmp(InquiryData->VendorId, "HITACHI CDR-3650/1650S", strlen("HITACHI CDR-3650/1650S")) == 0)
         && PortCapabilities->AdapterUsesPio) {
 
         DebugPrint((1, "CdRom ScanForSpecial:  Found Hitachi CDR-1750S.\n"));
@@ -4996,7 +4996,7 @@ Return Value:
 }
 
 VOID
-NTAPI
+STDCALL
 HitachProcessError(
     PDEVICE_OBJECT DeviceObject,
     PSCSI_REQUEST_BLOCK Srb,
@@ -5195,7 +5195,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 ToshibaProcessErrorCompletion(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp,
@@ -5258,7 +5258,7 @@ Return Value:
 }
 
 VOID
-NTAPI
+STDCALL
 ToshibaProcessError(
     PDEVICE_OBJECT DeviceObject,
     PSCSI_REQUEST_BLOCK Srb,
@@ -5432,7 +5432,7 @@ Return Value:
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 CdRomIsPlayActive(
     IN PDEVICE_OBJECT DeviceObject
     )
@@ -5524,7 +5524,7 @@ Return Value:
 
 IO_COMPLETION_ROUTINE CdRomMediaChangeCompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomMediaChangeCompletion(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp,
@@ -5695,7 +5695,7 @@ Return Value:
 }
 
 VOID
-NTAPI
+STDCALL
 CdRomTickHandler(
     IN PDEVICE_OBJECT DeviceObject,
     IN PVOID Context
@@ -5746,7 +5746,7 @@ Return Value:
 
             cddata->MediaChangeCountDown--;
 
-#if DBG
+#ifdef DBG
             cddata->MediaChangeIrpTimeInUse = 0;
             cddata->MediaChangeIrpLost = FALSE;
 #endif
@@ -5833,7 +5833,7 @@ Return Value:
             }
         } else {
 
-#if DBG
+#ifdef DBG
             if(cddata->MediaChangeIrpLost == FALSE) {
                 if(cddata->MediaChangeIrpTimeInUse++ >
                    MEDIA_CHANGE_TIMEOUT_TIME) {
@@ -5883,7 +5883,7 @@ Return Value:
             // Decrement the countdown timer and put the IRP back in the list.
             //
 
-            count = (ULONG_PTR) irpStack->Parameters.Others.Argument3;
+            count = (ULONG) irpStack->Parameters.Others.Argument3;
             count--;
             irpStack->Parameters.Others.Argument3 = (PVOID) count;
 
@@ -5949,7 +5949,7 @@ Return Value:
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 CdRomCheckRegistryForMediaChangeValue(
     IN PUNICODE_STRING RegistryPath,
     IN ULONG DeviceNumber
@@ -5993,7 +5993,7 @@ Return Value:
     LONG              tmp = 0;
     LONG              doRun = 0;
 
-    CHAR              buf[32];
+    UCHAR             buf[32];
     ANSI_STRING       paramNum;
 
     UNICODE_STRING    paramStr;
@@ -6160,7 +6160,7 @@ Return Value:
 
 
 BOOLEAN
-NTAPI
+STDCALL
 IsThisASanyo(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  UCHAR          PathId,
@@ -6261,7 +6261,7 @@ Return Value:
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 IsThisAnAtapiChanger(
     IN  PDEVICE_OBJECT DeviceObject,
     OUT PULONG         DiscsPresent
@@ -6369,7 +6369,7 @@ Return Value:
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 IsThisAMultiLunDevice(
     IN PDEVICE_OBJECT DeviceObject,
     IN PDEVICE_OBJECT PortDeviceObject
@@ -6462,7 +6462,7 @@ Return Value:
 
 IO_COMPLETION_ROUTINE CdRomUpdateGeometryCompletion;
 NTSTATUS
-NTAPI
+STDCALL
 CdRomUpdateGeometryCompletion(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp,
@@ -6507,7 +6507,7 @@ Return Value:
     //
 
     irpStack = IoGetCurrentIrpStackLocation(Irp);
-    retryCount = (ULONG_PTR) irpStack->Parameters.Others.Argument1;
+    retryCount = (ULONG) irpStack->Parameters.Others.Argument1;
     originalIrp = (PIRP) irpStack->Parameters.Others.Argument2;
 
     if (!DeviceObject) {
@@ -6714,7 +6714,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomUpdateCapacity(
     IN PDEVICE_EXTENSION DeviceExtension,
     IN PIRP IrpToComplete,
@@ -6886,7 +6886,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 CdRomClassIoctlCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,

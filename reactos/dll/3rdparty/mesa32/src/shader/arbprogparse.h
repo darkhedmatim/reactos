@@ -26,7 +26,7 @@
 #ifndef ARBPROGPARSE_H
 #define ARBPROGPARSE_H
 
-#include "main/mtypes.h"
+#include "mtypes.h"
 
 extern void
 _mesa_parse_arb_vertex_program(GLcontext *ctx, GLenum target,

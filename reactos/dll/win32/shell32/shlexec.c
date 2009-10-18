@@ -19,7 +19,34 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <ctype.h>
+#include <assert.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winerror.h"
+#include "winreg.h"
+#include "winuser.h"
+#include "shlwapi.h"
+#include "ddeml.h"
+
+#include "wine/winbase16.h"
+#include "shell32_main.h"
+#include "pidl.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(exec);
 
@@ -102,7 +129,6 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
                         used++;
                         if (used < len)
                             *res++ = '"';
-                        break;
                     }
                     else
                     {
@@ -120,10 +146,7 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
                     }
                     break;
                 }
-                else
-                {
-                    break;
-                }
+                /* else fall through */
             case '1':
                 if (!done || (*fmt == '1'))
                 {
@@ -133,11 +156,11 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
                     else
                         cmd = lpFile;
 
-                    used += wcslen(cmd);
+                    used += strlenW(cmd);
                     if (used < len)
                     {
-                        wcscpy(res, cmd);
-                        res += wcslen(cmd);
+                        strcpyW(res, cmd);
+                        res += strlenW(cmd);
                     }
                 }
                 found_p1 = TRUE;
@@ -151,11 +174,11 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
             case 'l':
             case 'L':
 		if (lpFile) {
-		    used += wcslen(lpFile);
+		    used += strlenW(lpFile);
 		    if (used < len)
 		    {
-			wcscpy(res, lpFile);
-			res += wcslen(lpFile);
+			strcpyW(res, lpFile);
+			res += strlenW(lpFile);
 		    }
 		}
 		found_p1 = TRUE;
@@ -165,19 +188,19 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
             case 'I':
 		if (pidl) {
 		    INT chars = 0;
-		    /* %p should not exceed 8, maybe 16 when looking forward to 64bit.
+		    /* %p should not exceed 8, maybe 16 when looking foward to 64bit.
 		     * allowing a buffer of 100 should more than exceed all needs */
 		    WCHAR buf[100];
 		    LPVOID  pv;
 		    HGLOBAL hmem = SHAllocShared(pidl, ILGetSize(pidl), 0);
 		    pv = SHLockShared(hmem, 0);
-		    chars = swprintf(buf, wszILPtr, pv);
+		    chars = sprintfW(buf, wszILPtr, pv);
 		    if (chars >= sizeof(buf)/sizeof(WCHAR))
 			ERR("pidl format buffer too small!\n");
 		    used += chars;
 		    if (used < len)
 		    {
-			wcscpy(res,buf);
+			strcpyW(res,buf);
 			res += chars;
 		    }
 		    SHUnlockShared(pv);
@@ -207,20 +230,20 @@ static BOOL SHELL_ArgifyW(WCHAR* out, int len, const WCHAR* fmt, const WCHAR* lp
                     envRet = GetEnvironmentVariableW(tmpBuffer, tmpEnvBuff, MAX_PATH);
                     if (envRet == 0 || envRet > MAX_PATH)
                     {
-                        used += wcslen(tmpBuffer);
+                        used += strlenW(tmpBuffer);
                         if (used < len)
                         {
-                            wcscpy( res, tmpBuffer );
-                            res += wcslen(tmpBuffer);
+                            strcpyW( res, tmpBuffer );
+                            res += strlenW(tmpBuffer);
                         }
                     }
                     else
                     {
-                        used += wcslen(tmpEnvBuff);
+                        used += strlenW(tmpEnvBuff);
                         if (used < len)
                         {
-                            wcscpy( res, tmpEnvBuff );
-                            res += wcslen(tmpEnvBuff);
+                            strcpyW( res, tmpEnvBuff );
+                            res += strlenW(tmpEnvBuff);
                         }
                     }
                 }
@@ -275,7 +298,7 @@ static HRESULT SHELL_GetPathFromIDListForExecuteW(LPCITEMIDLIST pidl, LPWSTR psz
  *
  */
 static UINT_PTR SHELL_ExecuteW(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
-			    const SHELLEXECUTEINFOW *psei, LPSHELLEXECUTEINFOW psei_out)
+			    LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out)
 {
     STARTUPINFOW  startup;
     PROCESS_INFORMATION info;
@@ -352,15 +375,15 @@ static void *SHELL_BuildEnvW( const WCHAR *path )
     static const WCHAR wPath[] = {'P','A','T','H','=',0};
     WCHAR *strings, *new_env;
     WCHAR *p, *p2;
-    int total = wcslen(path) + 1;
+    int total = strlenW(path) + 1;
     BOOL got_path = FALSE;
 
     if (!(strings = GetEnvironmentStringsW())) return NULL;
     p = strings;
     while (*p)
     {
-        int len = wcslen(p) + 1;
-        if (!_wcsnicmp( p, wPath, 5 )) got_path = TRUE;
+        int len = strlenW(p) + 1;
+        if (!strncmpiW( p, wPath, 5 )) got_path = TRUE;
         total += len;
         p += len;
     }
@@ -376,22 +399,22 @@ static void *SHELL_BuildEnvW( const WCHAR *path )
     p2 = new_env;
     while (*p)
     {
-        int len = wcslen(p) + 1;
+        int len = strlenW(p) + 1;
         memcpy( p2, p, len * sizeof(WCHAR) );
-        if (!_wcsnicmp( p, wPath, 5 ))
+        if (!strncmpiW( p, wPath, 5 ))
         {
             p2[len - 1] = ';';
-            wcscpy( p2 + len, path );
-            p2 += wcslen(path) + 1;
+            strcpyW( p2 + len, path );
+            p2 += strlenW(path) + 1;
         }
         p += len;
         p2 += len;
     }
     if (!got_path)
     {
-        wcscpy( p2, wPath );
-        wcscat( p2, path );
-        p2 += wcslen(p2) + 1;
+        strcpyW( p2, wPath );
+        strcatW( p2, path );
+        p2 += strlenW(p2) + 1;
     }
     *p2 = 0;
     FreeEnvironmentStringsW( strings );
@@ -419,8 +442,8 @@ static BOOL SHELL_TryAppPathW( LPCWSTR szName, LPWSTR lpResult, WCHAR **env)
     BOOL found = FALSE;
 
     if (env) *env = NULL;
-    wcscpy(buffer, wszKeyAppPaths);
-    wcscat(buffer, szName);
+    strcpyW(buffer, wszKeyAppPaths);
+    strcatW(buffer, szName);
     res = RegOpenKeyExW(HKEY_LOCAL_MACHINE, buffer, 0, KEY_READ, &hkApp);
     if (res) goto end;
 
@@ -449,20 +472,20 @@ static UINT SHELL_FindExecutableByOperation(LPCWSTR lpOperation, LPWSTR key, LPW
 
     if (RegOpenKeyExW(HKEY_CLASSES_ROOT, filetype, 0, 0x02000000, &hkeyClass))
         return SE_ERR_NOASSOC;
-    if (!HCR_GetDefaultVerbW(hkeyClass, lpOperation, verb, sizeof(verb)/sizeof(verb[0])))
+    if (!HCR_GetDefaultVerbW(hkeyClass, lpOperation, verb, sizeof(verb)))
         return SE_ERR_NOASSOC;
     RegCloseKey(hkeyClass);
 
     /* Looking for ...buffer\shell\<verb>\command */
-    wcscat(filetype, wszShell);
-    wcscat(filetype, verb);
-    wcscat(filetype, wCommand);
+    strcatW(filetype, wszShell);
+    strcatW(filetype, verb);
+    strcatW(filetype, wCommand);
 
     if (RegQueryValueW(HKEY_CLASSES_ROOT, filetype, command,
                        &commandlen) == ERROR_SUCCESS)
     {
 	commandlen /= sizeof(WCHAR);
-        if (key) wcscpy(key, filetype);
+        if (key) strcpyW(key, filetype);
 #if 0
         LPWSTR tmp;
         WCHAR param[256];
@@ -478,13 +501,13 @@ static UINT SHELL_FindExecutableByOperation(LPCWSTR lpOperation, LPWSTR key, LPW
 	   from the associated ddeexec key */
 	tmp = strstrW(filetype, wCommand);
 	tmp[0] = '\0';
-	wcscat(filetype, wDdeexec);
+	strcatW(filetype, wDdeexec);
 	if (RegQueryValueW(HKEY_CLASSES_ROOT, filetype, param,
 				     &paramlen) == ERROR_SUCCESS)
 	{
 	    paramlen /= sizeof(WCHAR);
-            wcscat(command, wSpace);
-            wcscat(command, param);
+            strcatW(command, wSpace);
+            strcatW(command, param);
             commandlen += paramlen;
 	}
 #endif
@@ -511,7 +534,7 @@ static UINT SHELL_FindExecutableByOperation(LPCWSTR lpOperation, LPWSTR key, LPW
  *              command (it'll be used afterwards for more information
  *              on the operation)
  */
-static UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOperation,
+UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOperation,
                                  LPWSTR lpResult, int resultLen, LPWSTR key, WCHAR **env, LPITEMIDLIST pidl, LPCWSTR args)
 {
     static const WCHAR wWindows[] = {'w','i','n','d','o','w','s',0};
@@ -560,19 +583,13 @@ static UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOpera
     attribs = GetFileAttributesW(lpFile);
     if (attribs!=INVALID_FILE_ATTRIBUTES && (attribs&FILE_ATTRIBUTE_DIRECTORY))
     {
-       wcscpy(filetype, wszFolder);
+       strcpyW(filetype, wszFolder);
        filetypelen = 6;    /* strlen("Folder") */
     }
     else
     {
-        /* Did we get something? Anything? */
-        if (xlpFile[0]==0)
-        {
-            TRACE("Returning SE_ERR_FNF\n");
-            return SE_ERR_FNF;
-        }
         /* First thing we need is the file's extension */
-        extension = wcsrchr(xlpFile, '.'); /* Assume last "." is the one; */
+        extension = strrchrW(xlpFile, '.'); /* Assume last "." is the one; */
         /* File->Run in progman uses */
         /* .\FILE.EXE :( */
         TRACE("xlpFile=%s,extension=%s\n", debugstr_w(xlpFile), debugstr_w(extension));
@@ -608,14 +625,14 @@ static UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOpera
                     while (*p == ' ' || *p == '\t') p++;
                 }
 
-                if (wcsicmp(tok, &extension[1]) == 0) /* have to skip the leading "." */
+                if (strcmpiW(tok, &extension[1]) == 0) /* have to skip the leading "." */
                 {
-                    wcscpy(lpResult, xlpFile);
+                    strcpyW(lpResult, xlpFile);
                     /* Need to perhaps check that the file has a path
                      * attached */
                     TRACE("found %s\n", debugstr_w(lpResult));
                     return 33;
-                    /* Greater than 32 to indicate success */
+                   /* Greater than 32 to indicate success */
                 }
                 tok = p;
             }
@@ -664,7 +681,9 @@ static UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOpera
 	    }
             else
             {
-                /* Truncate on first space */
+                /* Truncate on first space, like Windows:
+                 * http://support.microsoft.com/?scid=kb%3Ben-us%3B140724
+                 */
 		WCHAR *p = lpResult;
 		while (*p != ' ' && *p != '\0')
                     p++;
@@ -680,18 +699,18 @@ static UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOpera
 	extension++;
 	if (GetProfileStringW(wExtensions, extension, wszEmpty, command, sizeof(command)/sizeof(WCHAR)) > 0)
         {
-            if (wcslen(command) != 0)
+            if (strlenW(command) != 0)
             {
-                wcscpy(lpResult, command);
-                tok = wcschr(lpResult, '^'); /* should be ^.extension? */
+                strcpyW(lpResult, command);
+                tok = strchrW(lpResult, '^'); /* should be ^.extension? */
                 if (tok != NULL)
                 {
                     tok[0] = '\0';
-                    wcscat(lpResult, xlpFile); /* what if no dir in xlpFile? */
-                    tok = wcschr(command, '^'); /* see above */
-                    if ((tok != NULL) && (wcslen(tok)>5))
+                    strcatW(lpResult, xlpFile); /* what if no dir in xlpFile? */
+                    tok = strchrW(command, '^'); /* see above */
+                    if ((tok != NULL) && (strlenW(tok)>5))
                     {
-                        wcscat(lpResult, &tok[5]);
+                        strcatW(lpResult, &tok[5]);
                     }
                 }
                 retval = 33; /* FIXME - see above */
@@ -726,15 +745,15 @@ static HDDEDATA CALLBACK dde_cb(UINT uType, UINT uFmt, HCONV hConv,
  * launching an application and trying (#2) to connect to it
  *
  */
-static unsigned dde_connect(const WCHAR* key, const WCHAR* start, WCHAR* ddeexec,
+static unsigned dde_connect(WCHAR* key, const WCHAR* start, WCHAR* ddeexec,
                             const WCHAR* lpFile, WCHAR *env,
 			    LPCWSTR szCommandline, LPITEMIDLIST pidl, SHELL_ExecuteW32 execfunc,
-                            const SHELLEXECUTEINFOW *psei, LPSHELLEXECUTEINFOW psei_out)
+                            LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out)
 {
     static const WCHAR wApplication[] = {'\\','a','p','p','l','i','c','a','t','i','o','n',0};
     static const WCHAR wTopic[] = {'\\','t','o','p','i','c',0};
     WCHAR       regkey[256];
-    WCHAR *     endkey = regkey + wcslen(key);
+    WCHAR *     endkey = regkey + strlenW(key);
     WCHAR       app[256], topic[256], ifexec[256], res[256];
     LONG        applen, topiclen, ifexeclen;
     WCHAR *     exec;
@@ -747,8 +766,8 @@ static unsigned dde_connect(const WCHAR* key, const WCHAR* start, WCHAR* ddeexec
     unsigned    ret = SE_ERR_NOASSOC;
     BOOL unicode = !(GetVersion() & 0x80000000);
 
-    wcscpy(regkey, key);
-    wcscpy(endkey, wApplication);
+    strcpyW(regkey, key);
+    strcpyW(endkey, wApplication);
     applen = sizeof(app);
     if (RegQueryValueW(HKEY_CLASSES_ROOT, regkey, app, &applen) != ERROR_SUCCESS)
     {
@@ -761,8 +780,8 @@ static unsigned dde_connect(const WCHAR* key, const WCHAR* start, WCHAR* ddeexec
         /* Get application command from start string and find filename of application */
         if (*start == '"')
         {
-            wcscpy(command, start+1);
-            if ((ptr = wcschr(command, '"')))
+            strcpyW(command, start+1);
+            if ((ptr = strchrW(command, '"')))
                 *ptr = 0;
             ret = SearchPathW(NULL, command, wszExe, sizeof(fullpath)/sizeof(WCHAR), fullpath, &ptr);
         }
@@ -786,12 +805,12 @@ static unsigned dde_connect(const WCHAR* key, const WCHAR* start, WCHAR* ddeexec
             ERR("Unable to find application path for command %s\n", debugstr_w(start));
             return ERROR_ACCESS_DENIED;
         }
-        wcscpy(app, ptr);
+        strcpyW(app, ptr);
 
         /* Remove extensions (including .so) */
-        ptr = app + wcslen(app) - (sizeSo-1);
-        if (wcslen(app) >= sizeSo &&
-            !wcscmp(ptr, wSo))
+        ptr = app + strlenW(app) - (sizeSo-1);
+        if (strlenW(app) >= sizeSo &&
+            !strcmpW(ptr, wSo))
             *ptr = 0;
 
         ptr = strrchrW(app, '.');
@@ -799,12 +818,12 @@ static unsigned dde_connect(const WCHAR* key, const WCHAR* start, WCHAR* ddeexec
         *ptr = 0;
     }
 
-    wcscpy(endkey, wTopic);
+    strcpyW(endkey, wTopic);
     topiclen = sizeof(topic);
     if (RegQueryValueW(HKEY_CLASSES_ROOT, regkey, topic, &topiclen) != ERROR_SUCCESS)
     {
         static const WCHAR wSystem[] = {'S','y','s','t','e','m',0};
-        wcscpy(topic, wSystem);
+        strcpyW(topic, wSystem);
     }
 
     if (unicode)
@@ -886,7 +905,7 @@ static unsigned dde_connect(const WCHAR* key, const WCHAR* start, WCHAR* ddeexec
 /*************************************************************************
  *	execute_from_key [Internal]
  */
-static UINT_PTR execute_from_key(LPCWSTR key, LPCWSTR lpFile, WCHAR *env, LPCWSTR szCommandline,
+static UINT_PTR execute_from_key(LPWSTR key, LPCWSTR lpFile, WCHAR *env, LPCWSTR szCommandline,
                              LPCWSTR executable_name,
 			     SHELL_ExecuteW32 execfunc,
                              LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out)
@@ -912,8 +931,6 @@ static UINT_PTR execute_from_key(LPCWSTR key, LPCWSTR lpFile, WCHAR *env, LPCWST
 
         /* Is there a replace() function anywhere? */
         cmdlen /= sizeof(WCHAR);
-	if (cmdlen >= sizeof(cmd)/sizeof(WCHAR))
-	    cmdlen = sizeof(cmd)/sizeof(WCHAR)-1;
         cmd[cmdlen] = '\0';
         SHELL_ArgifyW(param, sizeof(param)/sizeof(WCHAR), cmd, lpFile, psei->lpIDList, szCommandline, &resultLen);
         if (resultLen > sizeof(param)/sizeof(WCHAR))
@@ -924,7 +941,7 @@ static UINT_PTR execute_from_key(LPCWSTR key, LPCWSTR lpFile, WCHAR *env, LPCWST
        from the associated ddeexec key */
     tmp = strstrW(key, wCommand);
     assert(tmp);
-    wcscpy(tmp, wDdeexec);
+    strcpyW(tmp, wDdeexec);
 
     if (RegQueryValueW(HKEY_CLASSES_ROOT, key, ddeexec, &ddeexeclen) == ERROR_SUCCESS)
     {
@@ -1015,7 +1032,7 @@ HINSTANCE WINAPI FindExecutableW(LPCWSTR lpFile, LPCWSTR lpDirectory, LPWSTR lpR
 }
 
 /* FIXME: is this already implemented somewhere else? */
-static HKEY ShellExecute_GetClassKey( const SHELLEXECUTEINFOW *sei )
+static HKEY ShellExecute_GetClassKey( LPSHELLEXECUTEINFOW sei )
 {
     LPCWSTR ext = NULL, lpClass = NULL;
     LPWSTR cls = NULL;
@@ -1076,11 +1093,10 @@ static IDataObject *shellex_get_dataobj( LPSHELLEXECUTEINFOW sei )
     else
     {
         WCHAR fullpath[MAX_PATH];
-        BOOL ret;
 
         fullpath[0] = 0;
-        ret = GetFullPathNameW( sei->lpFile, MAX_PATH, fullpath, NULL );
-        if (!ret)
+        r = GetFullPathNameW( sei->lpFile, MAX_PATH, fullpath, NULL );
+        if (!r)
             goto end;
 
         pidl = ILCreateFromPathW( fullpath );
@@ -1271,194 +1287,25 @@ static LONG ShellExecute_FromContextMenu( LPSHELLEXECUTEINFOW sei )
     return r;
 }
 
-static UINT_PTR SHELL_execute_class( LPCWSTR wszApplicationName, LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out, SHELL_ExecuteW32 execfunc )
-{
-    static const WCHAR wSpace[] = {' ',0};
-    WCHAR execCmd[1024], wcmd[1024];
-    /* launch a document by fileclass like 'WordPad.Document.1' */
-    /* the Commandline contains 'c:\Path\wordpad.exe "%1"' */
-    /* FIXME: wcmd should not be of a fixed size. Fixed to 1024, MAX_PATH is way too short! */
-    ULONG cmask=(psei->fMask & SEE_MASK_CLASSALL);
-    DWORD resultLen;
-    BOOL done;
-
-    HCR_GetExecuteCommandW((cmask == SEE_MASK_CLASSKEY) ? psei->hkeyClass : NULL,
-                           (cmask == SEE_MASK_CLASSNAME) ? psei->lpClass: NULL,
-                           psei->lpVerb,
-                           execCmd, sizeof(execCmd));
-
-    /* FIXME: get the extension of lpFile, check if it fits to the lpClass */
-    TRACE("SEE_MASK_CLASSNAME->%s, doc->%s\n", debugstr_w(execCmd), debugstr_w(wszApplicationName));
-
-    wcmd[0] = '\0';
-    done = SHELL_ArgifyW(wcmd, sizeof(wcmd)/sizeof(WCHAR), execCmd, wszApplicationName, psei->lpIDList, NULL, &resultLen);
-    if (!done && wszApplicationName[0])
-    {
-        strcatW(wcmd, wSpace);
-        strcatW(wcmd, wszApplicationName);
-    }
-    if (resultLen > sizeof(wcmd)/sizeof(WCHAR))
-        ERR("Argify buffer not large enough... truncating\n");
-    return execfunc(wcmd, NULL, FALSE, psei, psei_out);
-}
-
-static BOOL SHELL_translate_idlist( LPSHELLEXECUTEINFOW sei, LPWSTR wszParameters, DWORD parametersLen, LPWSTR wszApplicationName, DWORD dwApplicationNameLen )
-{
-    static const WCHAR wExplorer[] = {'e','x','p','l','o','r','e','r','.','e','x','e',0};
-    WCHAR buffer[MAX_PATH];
-    BOOL appKnownSingular = FALSE;
-
-    /* last chance to translate IDList: now also allow CLSID paths */
-    if (SUCCEEDED(SHELL_GetPathFromIDListForExecuteW(sei->lpIDList, buffer, sizeof(buffer)))) {
-        if (buffer[0]==':' && buffer[1]==':') {
-            /* open shell folder for the specified class GUID */
-            if (strlenW(buffer) + 1 > parametersLen)
-                ERR("parameters len exceeds buffer size (%i > %i), truncating\n",
-                    lstrlenW(buffer) + 1, parametersLen);
-            lstrcpynW(wszParameters, buffer, parametersLen);
-            if (strlenW(wExplorer) > dwApplicationNameLen)
-                ERR("application len exceeds buffer size (%i > %i), truncating\n",
-                    lstrlenW(wExplorer) + 1, dwApplicationNameLen);
-            lstrcpynW(wszApplicationName, wExplorer, dwApplicationNameLen);
-            appKnownSingular = TRUE;
-
-            sei->fMask &= ~SEE_MASK_INVOKEIDLIST;
-        } else {
-            WCHAR target[MAX_PATH];
-            DWORD attribs;
-            DWORD resultLen;
-            /* Check if we're executing a directory and if so use the
-               handler for the Folder class */
-            strcpyW(target, buffer);
-            attribs = GetFileAttributesW(buffer);
-            if (attribs != INVALID_FILE_ATTRIBUTES &&
-                (attribs & FILE_ATTRIBUTE_DIRECTORY) &&
-                HCR_GetExecuteCommandW(0, wszFolder,
-                                       sei->lpVerb,
-                                       buffer, sizeof(buffer))) {
-                SHELL_ArgifyW(wszApplicationName, dwApplicationNameLen,
-                              buffer, target, sei->lpIDList, NULL, &resultLen);
-                if (resultLen > dwApplicationNameLen)
-                    ERR("Argify buffer not large enough... truncating\n");
-                appKnownSingular = FALSE;
-            }
-            sei->fMask &= ~SEE_MASK_INVOKEIDLIST;
-        }
-    }
-    return appKnownSingular;
-}
-
-static UINT_PTR SHELL_quote_and_execute( LPCWSTR wcmd, LPCWSTR wszParameters, LPCWSTR lpstrProtocol, LPCWSTR wszApplicationName, LPWSTR env, LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out, SHELL_ExecuteW32 execfunc )
-{
-    static const WCHAR wQuote[] = {'"',0};
-    static const WCHAR wSpace[] = {' ',0};
-    UINT_PTR retval;
-    DWORD len;
-    WCHAR *wszQuotedCmd;
-
-    /* Length of quotes plus length of command plus NULL terminator */
-    len = 2 + lstrlenW(wcmd) + 1;
-    if (wszParameters[0])
-    {
-        /* Length of space plus length of parameters */
-        len += 1 + lstrlenW(wszParameters);
-    }
-    wszQuotedCmd = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-    /* Must quote to handle case where cmd contains spaces,
-     * else security hole if malicious user creates executable file "C:\\Program"
-     */
-    strcpyW(wszQuotedCmd, wQuote);
-    strcatW(wszQuotedCmd, wcmd);
-    strcatW(wszQuotedCmd, wQuote);
-    if (wszParameters[0]) {
-        strcatW(wszQuotedCmd, wSpace);
-        strcatW(wszQuotedCmd, wszParameters);
-    }
-    TRACE("%s/%s => %s/%s\n", debugstr_w(wszApplicationName), debugstr_w(psei->lpVerb), debugstr_w(wszQuotedCmd), debugstr_w(lpstrProtocol));
-    if (*lpstrProtocol)
-        retval = execute_from_key(lpstrProtocol, wszApplicationName, env, psei->lpParameters, wcmd, execfunc, psei, psei_out);
-    else
-        retval = execfunc(wszQuotedCmd, env, FALSE, psei, psei_out);
-    HeapFree(GetProcessHeap(), 0, wszQuotedCmd);
-    return retval;
-}
-
-static UINT_PTR SHELL_execute_url( LPCWSTR lpFile, LPCWSTR wFile, LPCWSTR wcmd, LPSHELLEXECUTEINFOW psei, LPSHELLEXECUTEINFOW psei_out, SHELL_ExecuteW32 execfunc )
-{
-    static const WCHAR wShell[] = {'\\','s','h','e','l','l','\\',0};
-    static const WCHAR wCommand[] = {'\\','c','o','m','m','a','n','d',0};
-    UINT_PTR retval;
-    WCHAR *lpstrProtocol;
-    LPCWSTR lpstrRes;
-    INT iSize;
-    DWORD len;
-
-    lpstrRes = strchrW(lpFile, ':');
-    if (lpstrRes)
-        iSize = lpstrRes - lpFile;
-    else
-        iSize = strlenW(lpFile);
-
-    TRACE("Got URL: %s\n", debugstr_w(lpFile));
-    /* Looking for ...protocol\shell\lpOperation\command */
-    len = iSize + lstrlenW(wShell) + lstrlenW(wCommand) + 1;
-    if (psei->lpVerb)
-        len += lstrlenW(psei->lpVerb);
-    else
-        len += lstrlenW(wszOpen);
-    lpstrProtocol = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-    memcpy(lpstrProtocol, lpFile, iSize*sizeof(WCHAR));
-    lpstrProtocol[iSize] = '\0';
-    strcatW(lpstrProtocol, wShell);
-    strcatW(lpstrProtocol, psei->lpVerb? psei->lpVerb: wszOpen);
-    strcatW(lpstrProtocol, wCommand);
-
-    /* Remove File Protocol from lpFile */
-    /* In the case file://path/file     */
-    if (!strncmpiW(lpFile, wFile, iSize))
-    {
-        lpFile += iSize;
-        while (*lpFile == ':') lpFile++;
-    }
-    retval = execute_from_key(lpstrProtocol, lpFile, NULL, psei->lpParameters,
-                              wcmd, execfunc, psei, psei_out);
-    HeapFree(GetProcessHeap(), 0, lpstrProtocol);
-    return retval;
-}
-
-void do_error_dialog( UINT_PTR retval, HWND hwnd )
-{
-    WCHAR msg[2048];
-    int error_code=GetLastError();
-
-    if (retval == SE_ERR_NOASSOC)
-        LoadStringW(shell32_hInstance, IDS_SHLEXEC_NOASSOC, msg, sizeof(msg)/sizeof(WCHAR));
-    else
-        FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error_code, 0, msg, sizeof(msg)/sizeof(WCHAR), NULL);
-
-    MessageBoxW(hwnd, msg, NULL, MB_ICONERROR);
-}
-
 /*************************************************************************
  *	SHELL_execute [Internal]
  */
 BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
 {
+    static const WCHAR wQuote[] = {'"',0};
     static const WCHAR wSpace[] = {' ',0};
     static const WCHAR wWww[] = {'w','w','w',0};
     static const WCHAR wFile[] = {'f','i','l','e',0};
     static const WCHAR wHttp[] = {'h','t','t','p',':','/','/',0};
+    static const WCHAR wExplorer[] = {'e','x','p','l','o','r','e','r','.','e','x','e',0};
+    static const WCHAR wProperties[] = { 'p','r','o','p','e','r','t','i','e','s',0 };
     static const DWORD unsupportedFlags =
         SEE_MASK_INVOKEIDLIST  | SEE_MASK_ICON         | SEE_MASK_HOTKEY |
-        SEE_MASK_CONNECTNETDRV | SEE_MASK_FLAG_DDEWAIT |
+        SEE_MASK_CONNECTNETDRV | SEE_MASK_FLAG_DDEWAIT | SEE_MASK_FLAG_NO_UI |
         SEE_MASK_UNICODE       | SEE_MASK_ASYNCOK      | SEE_MASK_HMONITOR;
 
-    WCHAR parametersBuffer[1024], dirBuffer[MAX_PATH], wcmdBuffer[1024];
-    WCHAR *wszApplicationName, *wszParameters, *wszDir, *wcmd;
+    WCHAR *wszApplicationName, wszParameters[1024], wszDir[MAX_PATH];
     DWORD dwApplicationNameLen = MAX_PATH+2;
-    DWORD parametersLen = sizeof(parametersBuffer) / sizeof(WCHAR);
-    DWORD dirLen = sizeof(dirBuffer) / sizeof(WCHAR);
-    DWORD wcmdLen = sizeof(wcmdBuffer) / sizeof(WCHAR);
     DWORD len;
     SHELLEXECUTEINFOW sei_tmp;	/* modifiable copy of SHELLEXECUTEINFO struct */
     WCHAR wfileName[MAX_PATH];
@@ -1466,10 +1313,13 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
     WCHAR lpstrProtocol[256];
     LPCWSTR lpFile;
     UINT_PTR retval = SE_ERR_NOASSOC;
+    WCHAR wcmd[1024];
+    WCHAR buffer[MAX_PATH];
+    BOOL done;
     BOOL appKnownSingular = FALSE;
 
     /* make a local copy of the LPSHELLEXECUTEINFO structure and work with this from now on */
-    sei_tmp = *sei;
+    memcpy(&sei_tmp, sei, sizeof(sei_tmp));
 
     TRACE("mask=0x%08x hwnd=%p verb=%s file=%s parm=%s dir=%s show=0x%08x class=%s\n",
             sei_tmp.fMask, sei_tmp.hwnd, debugstr_w(sei_tmp.lpVerb),
@@ -1503,31 +1353,13 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
         memcpy(wszApplicationName, sei_tmp.lpFile, l*sizeof(WCHAR));
     }
 
-    wszParameters = parametersBuffer;
     if (sei_tmp.lpParameters)
-    {
-        len = lstrlenW(sei_tmp.lpParameters) + 1;
-        if (len > parametersLen)
-        {
-            wszParameters = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-            parametersLen = len;
-        }
 	strcpyW(wszParameters, sei_tmp.lpParameters);
-    }
     else
 	*wszParameters = '\0';
 
-    wszDir = dirBuffer;
     if (sei_tmp.lpDirectory)
-    {
-        len = lstrlenW(sei_tmp.lpDirectory) + 1;
-        if (len > dirLen)
-        {
-            wszDir = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-            dirLen = len;
-        }
 	strcpyW(wszDir, sei_tmp.lpDirectory);
-    }
     else
 	*wszDir = '\0';
 
@@ -1556,10 +1388,6 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
 
 	    if (hr == S_OK) {
                 HeapFree(GetProcessHeap(), 0, wszApplicationName);
-                if (wszParameters != parametersBuffer)
-                    HeapFree(GetProcessHeap(), 0, wszParameters);
-                if (wszDir != dirBuffer)
-                    HeapFree(GetProcessHeap(), 0, wszDir);
 		return TRUE;
             }
 	}
@@ -1573,46 +1401,80 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
     {
         sei->hInstApp = (HINSTANCE) 33;
         HeapFree(GetProcessHeap(), 0, wszApplicationName);
-        if (wszParameters != parametersBuffer)
-            HeapFree(GetProcessHeap(), 0, wszParameters);
-        if (wszDir != dirBuffer)
-            HeapFree(GetProcessHeap(), 0, wszDir);
+        return TRUE;
+    }
+
+    if (sei_tmp.lpVerb && !wcscmp(sei_tmp.lpVerb, wProperties))
+    {
+        SH_ShowPropertiesDialog(sei_tmp.lpFile);
+        sei->hInstApp = (HINSTANCE) 33;
         return TRUE;
     }
 
     if (sei_tmp.fMask & SEE_MASK_CLASSALL)
     {
-        retval = SHELL_execute_class( wszApplicationName, &sei_tmp, sei,
-                                      execfunc );
-        if (retval <= 32 && !(sei_tmp.fMask & SEE_MASK_FLAG_NO_UI))
+	/* launch a document by fileclass like 'WordPad.Document.1' */
+        /* the Commandline contains 'c:\Path\wordpad.exe "%1"' */
+        /* FIXME: szCommandline should not be of a fixed size. Fixed to 1024, MAX_PATH is way too short! */
+        ULONG cmask=(sei_tmp.fMask & SEE_MASK_CLASSALL);
+        DWORD resultLen;
+        HCR_GetExecuteCommandW((cmask == SEE_MASK_CLASSKEY) ? sei_tmp.hkeyClass : NULL,
+                               (cmask == SEE_MASK_CLASSNAME) ? sei_tmp.lpClass: NULL,
+                               sei_tmp.lpVerb,
+                               wszParameters, sizeof(wszParameters)/sizeof(WCHAR));
+
+        /* FIXME: get the extension of lpFile, check if it fits to the lpClass */
+        TRACE("SEE_MASK_CLASSNAME->%s, doc->%s\n", debugstr_w(wszParameters), debugstr_w(wszApplicationName));
+
+        wcmd[0] = '\0';
+        done = SHELL_ArgifyW(wcmd, sizeof(wcmd)/sizeof(WCHAR), wszParameters, wszApplicationName, sei_tmp.lpIDList, NULL, &resultLen);
+        if (!done && wszApplicationName[0])
         {
-            OPENASINFO Info;
-
-            //FIXME
-            // need full path
-
-            Info.pcszFile = wszApplicationName;
-            Info.pcszClass = NULL;
-            Info.oaifInFlags = OAIF_ALLOW_REGISTRATION | OAIF_EXEC;
-
-            //if (SHOpenWithDialog(sei_tmp.hwnd, &Info) != S_OK)
-               do_error_dialog(retval, sei_tmp.hwnd);
+            strcatW(wcmd, wSpace);
+            strcatW(wcmd, wszApplicationName);
         }
+        if (resultLen > sizeof(wcmd)/sizeof(WCHAR))
+            ERR("Argify buffer not large enough... truncating\n");
+        retval = execfunc(wcmd, NULL, FALSE, &sei_tmp, sei);
+
         HeapFree(GetProcessHeap(), 0, wszApplicationName);
-        if (wszParameters != parametersBuffer)
-            HeapFree(GetProcessHeap(), 0, wszParameters);
-        if (wszDir != dirBuffer)
-            HeapFree(GetProcessHeap(), 0, wszDir);
         return retval > 32;
     }
 
     /* Has the IDList not yet been translated? */
     if (sei_tmp.fMask & SEE_MASK_IDLIST)
     {
-        appKnownSingular = SHELL_translate_idlist( &sei_tmp, wszParameters,
-                                                   parametersLen,
-                                                   wszApplicationName,
-                                                   dwApplicationNameLen );
+	/* last chance to translate IDList: now also allow CLSID paths */
+	if (SUCCEEDED(SHELL_GetPathFromIDListForExecuteW(sei_tmp.lpIDList, buffer, sizeof(buffer)))) {
+	    if (buffer[0]==':' && buffer[1]==':') {
+		/* open shell folder for the specified class GUID */
+		strcpyW(wszParameters, buffer);
+		strcpyW(wszApplicationName, wExplorer);
+		appKnownSingular = TRUE;
+
+		sei_tmp.fMask &= ~SEE_MASK_INVOKEIDLIST;
+	    } else {
+                WCHAR target[MAX_PATH];
+                DWORD attribs;
+                DWORD resultLen;
+		/* Check if we're executing a directory and if so use the
+		   handler for the Folder class */
+		strcpyW(target, buffer);
+		attribs = GetFileAttributesW(buffer);
+		if (attribs != INVALID_FILE_ATTRIBUTES &&
+		    (attribs & FILE_ATTRIBUTE_DIRECTORY) &&
+		    HCR_GetExecuteCommandW(0, wszFolder,
+		                           sei_tmp.lpVerb,
+		                           buffer, sizeof(buffer))) {
+		    SHELL_ArgifyW(wszApplicationName, dwApplicationNameLen,
+		                  buffer, target, sei_tmp.lpIDList, NULL, &resultLen);
+		    if (resultLen > dwApplicationNameLen)
+			ERR("Argify buffer not large enough... truncating\n");
+		    appKnownSingular = FALSE;
+		}
+		sei_tmp.fMask &= ~SEE_MASK_INVOKEIDLIST;
+	    }
+	}
     }
 
     /* expand environment strings */
@@ -1640,11 +1502,10 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
             len++;
             buf = HeapAlloc(GetProcessHeap(),0,len*sizeof(WCHAR));
             ExpandEnvironmentStringsW(sei_tmp.lpParameters, buf, len);
-            if (wszParameters != parametersBuffer)
-                HeapFree(GetProcessHeap(), 0, wszParameters);
-            wszParameters = buf;
-            parametersLen = len;
-            sei_tmp.lpParameters = wszParameters;
+            if (len > 1024)
+                ERR("Parameters exceeds buffer size (%i > 1024)\n",len);
+            lstrcpynW(wszParameters, buf, min(1024,len));
+            HeapFree(GetProcessHeap(),0,buf);
         }
     }
 
@@ -1657,10 +1518,10 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
             len++;
             buf = HeapAlloc(GetProcessHeap(),0,len*sizeof(WCHAR));
             ExpandEnvironmentStringsW(sei_tmp.lpDirectory, buf, len);
-            if (wszDir != dirBuffer)
-                HeapFree(GetProcessHeap(), 0, wszDir);
-            wszDir = buf;
-            sei_tmp.lpDirectory = wszDir;
+            if (len > 1024)
+                ERR("Directory exceeds buffer size (%i > 1024)\n",len);
+            lstrcpynW(wszDir, buf, min(1024,len));
+            HeapFree(GetProcessHeap(),0,buf);
         }
     }
 
@@ -1709,7 +1570,7 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
 		buffer[idx] = '\0';
 
 		/*FIXME This finds directory paths if the targeted file name contains spaces. */
-		if (SearchPathW(*sei_tmp.lpDirectory? sei_tmp.lpDirectory: NULL, buffer, wszExe, sizeof(xlpFile)/sizeof(xlpFile[0]), xlpFile, NULL))
+		if (SearchPathW(*sei_tmp.lpDirectory? sei_tmp.lpDirectory: NULL, buffer, wszExe, sizeof(xlpFile), xlpFile, NULL))
 		{
 		    /* separate out command from parameter string */
 		    LPCWSTR p = space + 1;
@@ -1724,22 +1585,13 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
 		}
 	    }
 
-           lstrcpynW(wfileName, sei_tmp.lpFile,sizeof(wfileName)/sizeof(WCHAR));
+	    strcpyW(wfileName, sei_tmp.lpFile);
 	}
     } else
-       lstrcpynW(wfileName, sei_tmp.lpFile,sizeof(wfileName)/sizeof(WCHAR));
+	strcpyW(wfileName, sei_tmp.lpFile);
 
     lpFile = wfileName;
 
-    wcmd = wcmdBuffer;
-    len = lstrlenW(wszApplicationName) + 1;
-    if (sei_tmp.lpParameters[0])
-        len += 1 + lstrlenW(wszParameters);
-    if (len > wcmdLen)
-    {
-        wcmd = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-        wcmdLen = len;
-    }
     strcpyW(wcmd, wszApplicationName);
     if (sei_tmp.lpParameters[0]) {
         strcatW(wcmd, wSpace);
@@ -1749,56 +1601,61 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
     retval = execfunc(wcmd, NULL, FALSE, &sei_tmp, sei);
     if (retval > 32) {
         HeapFree(GetProcessHeap(), 0, wszApplicationName);
-        if (wszParameters != parametersBuffer)
-            HeapFree(GetProcessHeap(), 0, wszParameters);
-        if (wszDir != dirBuffer)
-            HeapFree(GetProcessHeap(), 0, wszDir);
-        if (wcmd != wcmdBuffer)
-            HeapFree(GetProcessHeap(), 0, wcmd);
         return TRUE;
     }
 
     /* Else, try to find the executable */
     wcmd[0] = '\0';
-    retval = SHELL_FindExecutable(sei_tmp.lpDirectory, lpFile, sei_tmp.lpVerb, wcmd, wcmdLen, lpstrProtocol, &env, sei_tmp.lpIDList, sei_tmp.lpParameters);
+    retval = SHELL_FindExecutable(sei_tmp.lpDirectory, lpFile, sei_tmp.lpVerb, wcmd, 1024, lpstrProtocol, &env, sei_tmp.lpIDList, sei_tmp.lpParameters);
     if (retval > 32)  /* Found */
     {
-        retval = SHELL_quote_and_execute( wcmd, wszParameters, lpstrProtocol,
-                                          wszApplicationName, env, &sei_tmp,
-                                          sei, execfunc );
-        HeapFree( GetProcessHeap(), 0, env );
-    }
-    else if (PathIsDirectoryW(lpFile))
-    {
-        static const WCHAR wExplorer[] = {'e','x','p','l','o','r','e','r',0};
-        static const WCHAR wQuote[] = {'"',0};
-        WCHAR wExec[MAX_PATH];
-        WCHAR * lpQuotedFile = HeapAlloc( GetProcessHeap(), 0, sizeof(WCHAR) * (strlenW(lpFile) + 3) );
-
-        if (lpQuotedFile)
-        {
-            retval = SHELL_FindExecutable( sei_tmp.lpDirectory, wExplorer,
-                                           wszOpen, wExec, MAX_PATH,
-                                           NULL, &env, NULL, NULL );
-            if (retval > 32)
-            {
-                strcpyW(lpQuotedFile, wQuote);
-                strcatW(lpQuotedFile, lpFile);
-                strcatW(lpQuotedFile, wQuote);
-                retval = SHELL_quote_and_execute( wExec, lpQuotedFile,
-                                                  lpstrProtocol,
-                                                  wszApplicationName, env,
-                                                  &sei_tmp, sei, execfunc );
-                HeapFree( GetProcessHeap(), 0, env );
-            }
-            HeapFree( GetProcessHeap(), 0, lpQuotedFile );
+        WCHAR wszQuotedCmd[MAX_PATH+2];
+        /* Must quote to handle case where cmd contains spaces,
+         * else security hole if malicious user creates executable file "C:\\Program"
+         */
+        strcpyW(wszQuotedCmd, wQuote);
+        strcatW(wszQuotedCmd, wcmd);
+        strcatW(wszQuotedCmd, wQuote);
+        if (wszParameters[0]) {
+            strcatW(wszQuotedCmd, wSpace);
+            strcatW(wszQuotedCmd, wszParameters);
         }
+        TRACE("%s/%s => %s/%s\n", debugstr_w(wszApplicationName), debugstr_w(sei_tmp.lpVerb), debugstr_w(wszQuotedCmd), debugstr_w(lpstrProtocol));
+        if (*lpstrProtocol)
+            retval = execute_from_key(lpstrProtocol, wszApplicationName, env, sei_tmp.lpParameters, wcmd, execfunc, &sei_tmp, sei);
         else
-            retval = 0; /* Out of memory */
+            retval = execfunc(wszQuotedCmd, env, FALSE, &sei_tmp, sei);
+        HeapFree( GetProcessHeap(), 0, env );
     }
     else if (PathIsURLW(lpFile))    /* File not found, check for URL */
     {
-        retval = SHELL_execute_url( lpFile, wFile, wcmd, &sei_tmp, sei, execfunc );
+	static const WCHAR wShell[] = {'\\','s','h','e','l','l','\\',0};
+	static const WCHAR wCommand[] = {'\\','c','o','m','m','a','n','d',0};
+        LPWSTR lpstrRes;
+        INT iSize;
+
+        lpstrRes = strchrW(lpFile, ':');
+        if (lpstrRes)
+            iSize = lpstrRes - lpFile;
+        else
+            iSize = strlenW(lpFile);
+
+        TRACE("Got URL: %s\n", debugstr_w(lpFile));
+        /* Looking for ...protocol\shell\lpOperation\command */
+        memcpy(lpstrProtocol, lpFile, iSize*sizeof(WCHAR));
+        lpstrProtocol[iSize] = '\0';
+        strcatW(lpstrProtocol, wShell);
+        strcatW(lpstrProtocol, sei_tmp.lpVerb? sei_tmp.lpVerb: wszOpen);
+        strcatW(lpstrProtocol, wCommand);
+
+        /* Remove File Protocol from lpFile */
+        /* In the case file://path/file     */
+        if (!strncmpiW(lpFile, wFile, iSize))
+        {
+            lpFile += iSize;
+            while (*lpFile == ':') lpFile++;
+        }
+        retval = execute_from_key(lpstrProtocol, lpFile, NULL, sei_tmp.lpParameters, wcmd, execfunc, &sei_tmp, sei);
     }
     /* Check if file specified is in the form www.??????.*** */
     else if (!strncmpiW(lpFile, wWww, 3))
@@ -1812,31 +1669,9 @@ BOOL SHELL_execute( LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc )
 
     TRACE("retval %lu\n", retval);
 
-    if (retval <= 32 && !(sei_tmp.fMask & SEE_MASK_FLAG_NO_UI))
-    {
-        OPENASINFO Info;
-
-        //FIXME
-        // need full path
-
-        Info.pcszFile = wszApplicationName;
-        Info.pcszClass = NULL;
-        Info.oaifInFlags = OAIF_ALLOW_REGISTRATION | OAIF_EXEC;
-
-        //if (SHOpenWithDialog(sei_tmp.hwnd, &Info) != S_OK)
-            do_error_dialog(retval, sei_tmp.hwnd);
-    }
-
     HeapFree(GetProcessHeap(), 0, wszApplicationName);
-    if (wszParameters != parametersBuffer)
-        HeapFree(GetProcessHeap(), 0, wszParameters);
-    if (wszDir != dirBuffer)
-        HeapFree(GetProcessHeap(), 0, wszDir);
-    if (wcmd != wcmdBuffer)
-        HeapFree(GetProcessHeap(), 0, wcmd);
 
     sei->hInstApp = (HINSTANCE)(retval > 32 ? 33 : retval);
-
     return retval > 32;
 }
 
@@ -1853,7 +1688,7 @@ HINSTANCE WINAPI ShellExecuteA(HWND hWnd, LPCSTR lpOperation,LPCSTR lpFile,
           debugstr_a(lpParameters), debugstr_a(lpDirectory), iShowCmd);
 
     sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_FLAG_NO_UI;
+    sei.fMask = 0;
     sei.hwnd = hWnd;
     sei.lpVerb = lpOperation;
     sei.lpFile = lpFile;
@@ -1939,7 +1774,7 @@ HINSTANCE WINAPI ShellExecuteW(HWND hwnd, LPCWSTR lpOperation, LPCWSTR lpFile,
 
     TRACE("\n");
     sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_FLAG_NO_UI;
+    sei.fMask = 0;
     sei.hwnd = hwnd;
     sei.lpVerb = lpOperation;
     sei.lpFile = lpFile;
@@ -1954,42 +1789,6 @@ HINSTANCE WINAPI ShellExecuteW(HWND hwnd, LPCWSTR lpOperation, LPCWSTR lpFile,
 
     SHELL_execute( &sei, SHELL_ExecuteW );
     return sei.hInstApp;
-}
-
-/*************************************************************************
- * WOWShellExecute			[SHELL32.@]
- *
- * FIXME: the callback function most likely doesn't work the same way on Windows.
- */
-HINSTANCE WINAPI WOWShellExecute(HWND hWnd, LPCSTR lpOperation,LPCSTR lpFile,
-                                 LPCSTR lpParameters,LPCSTR lpDirectory, INT iShowCmd, void *callback)
-{
-    SHELLEXECUTEINFOW seiW;
-    WCHAR *wVerb = NULL, *wFile = NULL, *wParameters = NULL, *wDirectory = NULL;
-    HANDLE hProcess = 0;
-
-    seiW.lpVerb = lpOperation ? __SHCloneStrAtoW(&wVerb, lpOperation) : NULL;
-    seiW.lpFile = lpFile ? __SHCloneStrAtoW(&wFile, lpFile) : NULL;
-    seiW.lpParameters = lpParameters ? __SHCloneStrAtoW(&wParameters, lpParameters) : NULL;
-    seiW.lpDirectory = lpDirectory ? __SHCloneStrAtoW(&wDirectory, lpDirectory) : NULL;
-
-    seiW.cbSize = sizeof(seiW);
-    seiW.fMask = 0;
-    seiW.hwnd = hWnd;
-    seiW.nShow = iShowCmd;
-    seiW.lpIDList = 0;
-    seiW.lpClass = 0;
-    seiW.hkeyClass = 0;
-    seiW.dwHotKey = 0;
-    seiW.hProcess = hProcess;
-
-    SHELL_execute( &seiW, callback );
-
-    SHFree(wVerb);
-    SHFree(wFile);
-    SHFree(wParameters);
-    SHFree(wDirectory);
-    return seiW.hInstApp;
 }
 
 /*************************************************************************

@@ -18,20 +18,9 @@
 #define NDEBUG
 #include <debug.h>
 
-/* PRIVATE FUNCTIONS *********************************************************/
-
-VOID
-NTAPI
-HaliHaltSystem(VOID)
-{
-    /* Disable interrupts and halt the CPU */
-    _disable();
-    __halt();
-}
-
 /* FUNCTIONS *****************************************************************/
 
-VOID NTAPI
+VOID STDCALL
 HalInitializeProcessor(ULONG ProcessorNumber,
                        PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
@@ -42,7 +31,7 @@ HalInitializeProcessor(ULONG ProcessorNumber,
    CPU = ThisCPU();
    if (OnlineCPUs & (1 << CPU))
    {
-      ASSERT(FALSE);
+      KEBUGCHECK(0);
    }
 
    if (ProcessorNumber == 0)
@@ -66,7 +55,7 @@ HalInitializeProcessor(ULONG ProcessorNumber,
    //HalpCalibrateStallExecution();
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalAllProcessorsStarted (VOID)
 {
     ULONG CPUs = 0, i;
@@ -81,7 +70,7 @@ HalAllProcessorsStarted (VOID)
     }
     if (CPUs > CPUCount)
     {
-       ASSERT(FALSE);
+       KEBUGCHECK(0);
     }
     else if (CPUs == CPUCount)
     {
@@ -119,7 +108,7 @@ HalStartNextProcessor(
 
    if (CPU >= CPUCount)
    {
-      ASSERT(FALSE);
+      KEBUGCHECK(0);
    }
 
    DPRINT1("Attempting to boot CPU %d\n", CPU);

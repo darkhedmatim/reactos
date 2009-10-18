@@ -45,8 +45,8 @@
 //
 // CM_KEY_CONTROL_BLOCK Signatures
 //
-#define CM_KCB_SIGNATURE                                'bKmC'
-#define CM_KCB_INVALID_SIGNATURE                        '4FmC'
+#define CM_KCB_SIGNATURE                                TAG('C', 'm', 'K', 'b')
+#define CM_KCB_INVALID_SIGNATURE                        TAG('C', 'm', 'F', '4')
 
 //
 // CM_KEY_CONTROL_BLOCK Flags
@@ -86,22 +86,10 @@
 #define CMP_LOCK_HASHES_FOR_KCB                         0x2
 
 //
-// CmpDoCreate and CmpDoOpen flags
-//
-#define CMP_CREATE_KCB_KCB_LOCKED                       0x2
-#define CMP_OPEN_KCB_NO_CREATE                          0x4
-
-//
 // EnlistKeyBodyWithKCB Flags
 //
 #define CMP_ENLIST_KCB_LOCKED_SHARED                    0x1
 #define CMP_ENLIST_KCB_LOCKED_EXCLUSIVE                 0x2
-
-//
-// Unload Flags
-//
-#define CMP_UNLOCK_KCB_LOCKED                    0x1
-#define CMP_UNLOCK_REGISTRY_LOCKED               0x2
 
 //
 // Maximum size of Value Cache
@@ -380,7 +368,7 @@ typedef struct _CM_USE_COUNT_LOG
 typedef struct _CMHIVE
 {
     HHIVE Hive;
-    HANDLE FileHandles[HFILE_TYPE_MAX];
+    HANDLE FileHandles[3];
     LIST_ENTRY NotifyList;
     LIST_ENTRY HiveList;
     EX_PUSH_LOCK HiveLock;
@@ -484,9 +472,9 @@ typedef struct _CM_PARSE_CONTEXT
 //
 typedef struct _CMP_MF_TYPE
 {
-    PCHAR Identifier;
+    PWCHAR Identifier;
     USHORT InterfaceType;
-    USHORT Count;
+    USHORT Count;    
 } CMP_MF_TYPE, *PCMP_MF_TYPE;
 
 //
@@ -852,12 +840,6 @@ CmpAddToDelayedClose(
 
 VOID
 NTAPI
-CmpArmDelayedCloseTimer(
-    VOID
-);
-
-VOID
-NTAPI
 CmpRemoveFromDelayedClose(IN PCM_KEY_CONTROL_BLOCK Kcb);
 
 VOID
@@ -914,18 +896,6 @@ CmpCleanUpKcbCacheWithLock(
 VOID
 NTAPI
 CmpCleanUpSubKeyInfo(
-    IN PCM_KEY_CONTROL_BLOCK Kcb
-);
-
-PUNICODE_STRING
-NTAPI
-CmpConstructName(
-    IN PCM_KEY_CONTROL_BLOCK Kcb
-);
-
-BOOLEAN
-NTAPI
-CmpReferenceKeyControlBlock(
     IN PCM_KEY_CONTROL_BLOCK Kcb
 );
 
@@ -1432,22 +1402,9 @@ CmLoadKey(
     IN PCM_KEY_BODY KeyBody
 );
 
-NTSTATUS
-NTAPI
-CmUnloadKey(
-    IN PCM_KEY_CONTROL_BLOCK Kcb,
-    IN ULONG Flags
-);
-
 //
 // Startup and Shutdown
 //
-BOOLEAN
-NTAPI
-CmInitSystem1(
-    VOID
-);
-
 VOID
 NTAPI
 CmShutdownSystem(
@@ -1457,7 +1414,6 @@ CmShutdownSystem(
 //
 // Global variables accessible from all of Cm
 //
-extern ULONG CmpTraceLevel;
 extern BOOLEAN CmpSpecialBootCondition;
 extern BOOLEAN CmpFlushOnLockRelease;
 extern BOOLEAN CmpShareSystemHives;

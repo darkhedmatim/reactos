@@ -1,10 +1,27 @@
 /*
+ *  ReactOS
+ *  Copyright (C) 2007 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  *
  * PROJECT:         input.dll
  * FILE:            dll/win32/input/input.c
  * PURPOSE:         input.dll
  * PROGRAMMER:      Dmitry Chapyshev (lentind@yandex.ru)
- *                  Colin Finck
  * UPDATE HISTORY:
  *      06-09-2007  Created
  */
@@ -16,13 +33,11 @@
 
 LONG CALLBACK SystemApplet(VOID);
 HINSTANCE hApplet = 0;
-HANDLE hProcessHeap;
-HWND hCPLWindow;
 
 /* Applets */
 APPLET Applets[NUM_APPLETS] =
 {
-    {IDI_CPLSYSTEM, IDS_CPLSYSTEMNAME, IDS_CPLSYSTEMDESCRIPTION, SystemApplet}
+  {IDI_CPLSYSTEM, IDS_CPLSYSTEMNAME, IDS_CPLSYSTEMDESCRIPTION, SystemApplet}
 };
 
 
@@ -43,7 +58,7 @@ InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc)
 LONG CALLBACK
 SystemApplet(VOID)
 {
-    PROPSHEETPAGE psp[1];
+    PROPSHEETPAGE psp[2];
     PROPSHEETHEADER psh;
     TCHAR Caption[1024];
 
@@ -52,7 +67,7 @@ SystemApplet(VOID)
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags =  PSH_PROPSHEETPAGE;
-    psh.hwndParent = hCPLWindow;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
     psh.pszCaption = Caption;
@@ -62,6 +77,7 @@ SystemApplet(VOID)
     psh.pfnCallback = NULL;
 
     InitPropSheetPage(&psp[0], IDD_PROPPAGESETTINGS, (DLGPROC) SettingPageProc);
+    InitPropSheetPage(&psp[1], IDD_PROPPAGEADVANCED, (DLGPROC) AdvancedPageProc);
 
     return (LONG)(PropertySheet(&psh) != -1);
 }
@@ -73,6 +89,8 @@ CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 {
     CPLINFO *CPlInfo;
     DWORD i;
+
+    UNREFERENCED_PARAMETER(hwndCPl);
 
     i = (DWORD)lParam1;
     switch (uMsg)
@@ -92,7 +110,6 @@ CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
             break;
 
         case CPL_DBLCLK:
-            hCPLWindow = hwndCPl;
             Applets[i].AppletProc();
             break;
     }
@@ -111,7 +128,6 @@ DllMain(HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpvReserved)
         case DLL_PROCESS_ATTACH:
         case DLL_THREAD_ATTACH:
             hApplet = hinstDLL;
-            hProcessHeap = GetProcessHeap();
             break;
     }
 

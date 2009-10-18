@@ -165,7 +165,6 @@ SHADER_SOURCES = \
 	shader/prog_parameter.c \
 	shader/prog_print.c \
 	shader/prog_statevars.c \
-	shader/prog_uniform.c \
 	shader/programopt.c \
 	shader/shader_api.c \
 
@@ -241,11 +240,57 @@ SPARC_API =			\
 COMMON_DRIVER_SOURCES =			\
 	drivers/common/driverfuncs.c
 
+X11_DRIVER_SOURCES =		\
+	drivers/x11/glxapi.c	\
+	drivers/x11/fakeglx.c	\
+	drivers/x11/xfonts.c	\
+	drivers/x11/xm_api.c	\
+	drivers/x11/xm_buffer.c	\
+	drivers/x11/xm_dd.c	\
+	drivers/x11/xm_glide.c	\
+	drivers/x11/xm_line.c	\
+	drivers/x11/xm_span.c	\
+	drivers/x11/xm_tri.c
+
+OSMESA_DRIVER_SOURCES = \
+	drivers/osmesa/osmesa.c
+
+GLIDE_DRIVER_SOURCES =			\
+	drivers/glide/fxapi.c		\
+	drivers/glide/fxdd.c		\
+	drivers/glide/fxddspan.c	\
+	drivers/glide/fxddtex.c		\
+	drivers/glide/fxsetup.c		\
+	drivers/glide/fxtexman.c	\
+	drivers/glide/fxtris.c		\
+	drivers/glide/fxvb.c		\
+	drivers/glide/fxglidew.c	\
+	drivers/glide/fxg.c
+
+SVGA_DRIVER_SOURCES =			\
+	drivers/svga/svgamesa.c		\
+	drivers/svga/svgamesa8.c	\
+	drivers/svga/svgamesa15.c	\
+	drivers/svga/svgamesa16.c	\
+	drivers/svga/svgamesa24.c	\
+	drivers/svga/svgamesa32.c
+
+FBDEV_DRIVER_SOURCES =			\
+	drivers/fbdev/glfbdev.c
 
 
 ### All the core C sources
 
-MESA_SOURCES = \
+ALL_SOURCES = \
+	$(GLAPI_SOURCES)	\
+	$(SOLO_SOURCES)		\
+	$(ASM_SOURCES)		\
+	$(COMMON_DRIVER_SOURCES)\
+	$(X11_DRIVER_SOURCES)	\
+	$(FBDEV_DRIVER_SOURCES) \
+	$(OSMESA_DRIVER_SOURCES)
+
+SOLO_SOURCES = \
 	$(MAIN_SOURCES)		\
 	$(MATH_SOURCES)		\
 	$(VBO_SOURCES)		\
@@ -253,30 +298,31 @@ MESA_SOURCES = \
 	$(SHADER_SOURCES)	\
 	$(SWRAST_SOURCES)	\
 	$(SWRAST_SETUP_SOURCES)	\
-	$(COMMON_DRIVER_SOURCES) \
 	$(ASM_C_SOURCES)	\
 	$(SLANG_SOURCES)
 
-ALL_SOURCES = \
-	$(MESA_SOURCES)		\
+CORE_SOURCES = \
 	$(GLAPI_SOURCES)	\
-	$(ASM_SOURCES)		\
-	$(COMMON_DRIVER_SOURCES)
-
+	$(SOLO_SOURCES)
 
 
 ### Object files
 
-MESA_OBJECTS = \
-	$(MESA_SOURCES:.c=.o) \
+SOLO_OBJECTS = \
+	$(SOLO_SOURCES:.c=.o) \
 	$(ASM_SOURCES:.S=.o)
 
 GLAPI_OBJECTS = \
 	$(GLAPI_SOURCES:.c=.o) \
 	$(ASM_API:.S=.o)
 
+CORE_OBJECTS = $(SOLO_OBJECTS) $(GLAPI_OBJECTS)
+
+OSMESA_DRIVER_OBJECTS = $(OSMESA_DRIVER_SOURCES:.c=.o)
 
 COMMON_DRIVER_OBJECTS = $(COMMON_DRIVER_SOURCES:.c=.o)
+
+FBDEV_DRIVER_OBJECTS = $(FBDEV_DRIVER_SOURCES:.c=.o)
 
 
 

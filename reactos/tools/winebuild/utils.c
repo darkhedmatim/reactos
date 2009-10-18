@@ -38,23 +38,6 @@
 static const char *tmp_files[MAX_TMP_FILES];
 static unsigned int nb_tmp_files;
 
-static const struct
-{
-    const char *name;
-    enum target_cpu cpu;
-} cpu_names[] =
-{
-    { "i386",    CPU_x86 },
-    { "i486",    CPU_x86 },
-    { "i586",    CPU_x86 },
-    { "i686",    CPU_x86 },
-    { "i786",    CPU_x86 },
-    { "x86_64",  CPU_x86_64 },
-    { "sparc",   CPU_SPARC },
-    { "alpha",   CPU_ALPHA },
-    { "powerpc", CPU_POWERPC }
-};
-
 /* atexit handler to clean tmp files */
 static void cleanup_tmp_files(void)
 {
@@ -433,15 +416,6 @@ const char *get_stub_name( const ORDDEF *odp, const DLLSPEC *spec )
     return buffer;
 }
 
-/* parse a cpu name and return the corresponding value */
-enum target_cpu get_cpu_from_name( const char *name )
-{
-    unsigned int i;
-
-    for (i = 0; i < sizeof(cpu_names)/sizeof(cpu_names[0]); i++)
-        if (!strcmp( cpu_names[i].name, name )) return cpu_names[i].cpu;
-    return -1;
-}
 
 /*****************************************************************
  *  Function:    get_alignment
@@ -516,7 +490,6 @@ unsigned int get_ptr_size(void)
     case CPU_POWERPC:
     case CPU_SPARC:
     case CPU_ALPHA:
-    case CPU_ARM:
         return 4;
     case CPU_x86_64:
         return 8;

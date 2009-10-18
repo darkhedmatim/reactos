@@ -95,6 +95,9 @@ MSVCBackend::_generate_dsp ( const Module& module )
 	{
 		const IfableData& data = *ifs_list.back();
 		ifs_list.pop_back();
+		// TODO FIXME - refactor needed - we're discarding if conditions
+		for ( i = 0; i < data.ifs.size(); i++ )
+			ifs_list.push_back ( &data.ifs[i]->data );
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
@@ -848,9 +851,9 @@ MSVCBackend::_generate_wine_dsw ( FILE* OUT )
 {
 	_generate_dsw_header(OUT);
 	// TODO FIXME - is it necessary to sort them?
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 
 		std::string dsp_file = DspFileName ( module );
 

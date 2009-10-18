@@ -1,6 +1,6 @@
 /*
  * PROJECT:     ReactOS Build Environment Tools
- * LICENSE:     GNU General Public License v2. (see LICENSE.txt)
+ * LICENSE:     GPL - See LICENSE.txt in the top level directory.
  * FILE:        Tools/cpucount.c
  * PURPOSE:     CPU Core Counter
  * COPYRIGHT:   Copyright 2007 Christoph von Wittich <Christoph_vW@reactos.org>

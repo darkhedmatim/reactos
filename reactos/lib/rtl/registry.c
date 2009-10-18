@@ -13,7 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_RTLREGISTRY 'vrqR'
+#define TAG_RTLREGISTRY TAG('R', 'q', 'r', 'v')
 
 extern SIZE_T RtlpAllocDeallocQueryBufferSize;
 
@@ -131,7 +131,7 @@ RtlpCallQueryRegistryRoutine(IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
     *InfoSize = 0;
 
     /* Check if there's no data */
-    if (KeyValueInfo->DataOffset == MAXULONG)
+    if (KeyValueInfo->DataOffset == (ULONG)-1)
     {
         /* Return proper status code */
         return (QueryTable->Flags & RTL_QUERY_REGISTRY_REQUIRED) ?
@@ -157,7 +157,7 @@ RtlpCallQueryRegistryRoutine(IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
         }
 
         /* We can setup a default value... capture the defaults */
-        Name = (PWCHAR)QueryTable->Name;
+        Name = QueryTable->Name;
         Type = QueryTable->DefaultType;
         Data = QueryTable->DefaultData;
         Length = QueryTable->DefaultLength;
@@ -224,7 +224,7 @@ RtlpCallQueryRegistryRoutine(IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
         else
         {
             /* Just return the name */
-            Name = (PWCHAR)QueryTable->Name;
+            Name = QueryTable->Name;
         }
 
         /* Capture key data */

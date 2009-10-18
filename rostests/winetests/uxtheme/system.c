@@ -85,6 +85,10 @@ static void test_IsThemed(void)
     SetLastError(0xdeadbeef);
     bThemeActive = pIsThemeActive();
     trace("Theming is %s\n", (bThemeActive) ? "active" : "inactive");
+    todo_wine
+        ok( GetLastError() == ERROR_SUCCESS,
+            "Expected ERROR_SUCCESS, got 0x%08x\n",
+            GetLastError());
 
     /* This test is not themed */
     SetLastError(0xdeadbeef);
@@ -97,9 +101,10 @@ static void test_IsThemed(void)
         /* Although Wine currently returns FALSE, the logic behind it is wrong. It is not a todo_wine though in the testing sense */
         ok( bAppThemed == FALSE, "Expected FALSE as this test executable is not (yet) themed.\n");
 
-    ok( GetLastError() == ERROR_SUCCESS,
-        "Expected ERROR_SUCCESS, got 0x%08x\n",
-        GetLastError());
+    todo_wine
+        ok( GetLastError() == ERROR_SUCCESS,
+            "Expected ERROR_SUCCESS, got 0x%08x\n",
+            GetLastError());
 
     SetLastError(0xdeadbeef);
     bTPDefined = pIsThemePartDefined(NULL, 0 , 0);
@@ -123,7 +128,7 @@ static void test_GetWindowTheme(void)
             "Expected E_HANDLE, got 0x%08x\n",
             GetLastError());
 
-    /* Only do the bare minimum to get a valid hwnd */
+    /* Only do the bare minumum to get a valid hwnd */
     hWnd = CreateWindowExA(0, "static", "", WS_POPUP, 0,0,100,100,0, 0, 0, NULL);
     if (!hWnd) return;
 
@@ -156,7 +161,7 @@ static void test_SetWindowTheme(void)
             GetLastError());
     }
 
-    /* Only do the bare minimum to get a valid hwnd */
+    /* Only do the bare minumum to get a valid hwnd */
     hWnd = CreateWindowExA(0, "static", "", WS_POPUP, 0,0,100,100,0, 0, 0, NULL);
     if (!hWnd) return;
 
@@ -226,7 +231,7 @@ static void test_OpenThemeData(void)
                 GetLastError());
     }
 
-    /* Only do the bare minimum to get a valid hdc */
+    /* Only do the bare minumum to get a valid hdc */
     hWnd = CreateWindowExA(0, "static", "", WS_POPUP, 0,0,100,100,0, 0, 0, NULL);
     if (!hWnd) return;
 
@@ -255,7 +260,7 @@ static void test_OpenThemeData(void)
             ok( GetLastError() == E_PROP_ID_UNSUPPORTED,
                 "Expected GLE() to be E_PROP_ID_UNSUPPORTED, got 0x%08x\n",
                 GetLastError());
-        skip("No active theme, skipping rest of OpenThemeData tests\n");
+        trace("No active theme, skipping rest of OpenThemeData tests\n");
         return;
     }
 
@@ -377,7 +382,7 @@ static void test_GetCurrentThemeName(void)
     hRes = pGetCurrentThemeName(currentTheme, 2, NULL, 0, NULL, 0);
     if (bThemeActive)
         todo_wine
-            ok(hRes == HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), "Expected HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), got 0x%08x\n", hRes);
+            ok( LOWORD(hRes) == ERROR_INSUFFICIENT_BUFFER, "Expected 0x8007007A, got 0x%08x\n", hRes);
     else
         ok( hRes == E_PROP_ID_UNSUPPORTED, "Expected E_PROP_ID_UNSUPPORTED, got 0x%08x\n", hRes);
     ok( GetLastError() == 0xdeadbeef,
@@ -391,7 +396,7 @@ static void test_GetCurrentThemeName(void)
                                 currentSize,  sizeof(currentSize)  / sizeof(WCHAR));
     if (bThemeActive)
         todo_wine
-            ok(hRes == HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), "Expected HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), got 0x%08x\n", hRes);
+            ok( LOWORD(hRes) == ERROR_INSUFFICIENT_BUFFER, "Expected 0x8007007A, got 0x%08x\n", hRes);
     else
         ok( hRes == E_PROP_ID_UNSUPPORTED, "Expected E_PROP_ID_UNSUPPORTED, got 0x%08x\n", hRes);
     ok( GetLastError() == 0xdeadbeef,
@@ -412,12 +417,8 @@ static void test_GetCurrentThemeName(void)
     /* Given number of characters for the theme name is too large */
     SetLastError(0xdeadbeef);
     hRes = pGetCurrentThemeName(currentTheme, sizeof(currentTheme), NULL, 0, NULL, 0);
-    if (bThemeActive)
-        ok( hRes == E_POINTER || hRes == S_OK, "Expected E_POINTER or S_OK, got 0x%08x\n", hRes);
-    else
-        ok( hRes == E_PROP_ID_UNSUPPORTED ||
-            hRes == E_POINTER, /* win2k3 */
-            "Expected E_PROP_ID_UNSUPPORTED, got 0x%08x\n", hRes);
+    todo_wine
+        ok( hRes == E_POINTER, "Expected E_POINTER, got 0x%08x\n", hRes);
     ok( GetLastError() == 0xdeadbeef,
         "Expected 0xdeadbeef, got 0x%08x\n",
         GetLastError());

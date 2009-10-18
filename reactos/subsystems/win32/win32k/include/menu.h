@@ -23,7 +23,7 @@ typedef struct _MENU_ITEM
   ULONG_PTR dwItemData;
   UNICODE_STRING Text;
   HBITMAP hbmpItem;
-  RECTL Rect;
+  RECT Rect;
   UINT XTab;
 } MENU_ITEM, *PMENU_ITEM;
 
@@ -40,17 +40,18 @@ typedef struct _SETMENUITEMRECT
 {
   UINT uItem;
   BOOL fByPosition;
-  RECTL rcRect;
+  RECT rcRect;
 } SETMENUITEMRECT, *PSETMENUITEMRECT;
 
 PMENU_OBJECT FASTCALL
 IntGetMenuObject(HMENU hMenu);
 
 #define IntReleaseMenuObject(MenuObj) \
-  UserDereferenceObject(MenuObj)
+  ObmDereferenceObject(MenuObj)
 
 BOOL FASTCALL
-IntFreeMenuItem(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem, BOOL bRecurse);
+IntFreeMenuItem(PMENU_OBJECT MenuObject, PMENU_ITEM MenuItem,
+    BOOL RemoveFromList, BOOL bRecurse);
 
 BOOL FASTCALL
 IntRemoveMenuItem(PMENU_OBJECT MenuObject, UINT uPosition, UINT uFlags,
@@ -78,6 +79,9 @@ BOOL FASTCALL
 IntGetMenuInfo(PMENU_OBJECT MenuObject, PROSMENUINFO lpmi);
 
 BOOL FASTCALL
+IntIsMenu(HMENU hMenu);
+
+BOOL FASTCALL
 IntSetMenuInfo(PMENU_OBJECT MenuObject, PROSMENUINFO lpmi);
 
 int FASTCALL
@@ -92,12 +96,10 @@ DWORD FASTCALL
 IntCheckMenuItem(PMENU_OBJECT MenuObject, UINT uIDCheckItem, UINT uCheck);
 
 BOOL FASTCALL
-IntSetMenuItemRect(PMENU_OBJECT MenuObject, UINT Item, BOOL fByPos, RECTL *rcRect);
-
-DWORD APIENTRY UserInsertMenuItem(HMENU hMenu, UINT uItem, BOOL fByPosition, LPCMENUITEMINFOW lpmii);
+IntSetMenuItemRect(PMENU_OBJECT MenuObject, UINT Item, BOOL fByPos, RECT *rcRect);
 
 BOOL FASTCALL
-IntCleanupMenus(struct _EPROCESS *Process, PPROCESSINFO Win32Process);
+IntCleanupMenus(struct _EPROCESS *Process, PW32PROCESS Win32Process);
 
 BOOL FASTCALL
 IntInsertMenuItem(PMENU_OBJECT MenuObject, UINT uItem, BOOL fByPosition,

@@ -26,6 +26,7 @@
 #define SLANG_STORAGE_H
 
 #include "slang_compile.h"
+#include "slang_typeinfo.h"
 
 
 /*

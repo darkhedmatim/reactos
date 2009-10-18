@@ -1,19 +1,11 @@
 #ifndef _WINDEF_H
 #define _WINDEF_H
-
-#if !defined(__ROS_LONG64__)
-#ifdef __WINESRC__
-#define __ROS_LONG64__
-#endif
+#if __GNUC__ >=3
+#pragma GCC system_header
 #endif
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4255)
 #endif
 
 #ifndef WINVER
@@ -131,36 +123,17 @@ extern "C" {
 #define pascal __stdcall
 #define _pascal __stdcall
 #define __pascal __stdcall
-
+#define PASCAL _pascal
 #define CDECL _cdecl
-
-#if !defined(__x86_64__) //defined(_STDCALL_SUPPORTED)
-#define CALLBACK    __stdcall
-#define WINAPI      __stdcall
-#define WINAPIV     __cdecl
-#define APIENTRY    WINAPI
-#define APIPRIVATE  __stdcall
-#define PASCAL      __stdcall
-#else
-#define CALLBACK
-#define WINAPI
-#define WINAPIV
-#define APIENTRY    WINAPI
-#define APIPRIVATE
-#define PASCAL      pascal
-#endif
+#define STDCALL __stdcall
+#define WINAPI __stdcall
+#define WINAPIV __cdecl
+#define APIENTRY __stdcall
+#define CALLBACK __stdcall
+#define APIPRIVATE __stdcall
 
 #define DECLSPEC_IMPORT __declspec(dllimport)
 #define DECLSPEC_EXPORT __declspec(dllexport)
-#ifndef DECLSPEC_NOINLINE
-#if (_MSC_VER >= 1300)
-#define DECLSPEC_NOINLINE  __declspec(noinline)
-#elif defined(__GNUC__)
-#define DECLSPEC_NOINLINE __attribute__((noinline))
-#else
-#define DECLSPEC_NOINLINE
-#endif
-#endif
 #ifdef __GNUC__
 #define DECLSPEC_NORETURN __declspec(noreturn)
 #define DECLARE_STDCALL_P( type ) __stdcall type
@@ -187,14 +160,21 @@ extern "C" {
 #endif
 #endif
 
-#ifndef NOMINMAX
-    #ifndef max
-        #define max(a,b) ((a)>(b)?(a):(b))
-    #endif
+#if defined(_MSC_VER) && defined(__cplusplus)
 
-    #ifndef min
-        #define min(a,b) ((a)<(b)?(a):(b))
-    #endif
+#include <stdlib.h>
+#define min __min
+#define max __max
+
+#elif !defined(_MSC_VER) && !defined(NOMINMAX)
+
+#ifndef max
+#define max(a,b) ((a)>(b)?(a):(b))
+#endif
+#ifndef min
+#define min(a,b) ((a)<(b)?(a):(b))
+#endif
+
 #endif
 
 #define UNREFERENCED_PARAMETER(P) {(P)=(P);}
@@ -202,8 +182,8 @@ extern "C" {
 #define DBG_UNREFERENCED_PARAMETER(P)
 #define DBG_UNREFERENCED_LOCAL_VARIABLE(L)
 
-#ifndef NONAMELESSUNION
 #ifdef __GNUC__
+#ifndef NONAMELESSUNION
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
 #define _ANONYMOUS_UNION __extension__
 #define _ANONYMOUS_STRUCT __extension__
@@ -212,11 +192,11 @@ extern "C" {
 #define _ANONYMOUS_UNION __extension__
 #endif /* __cplusplus */
 #endif /* __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95) */
+#endif /* NONAMELESSUNION */
 #elif defined(__WATCOMC__) || defined(_MSC_VER)
 #define _ANONYMOUS_UNION
 #define _ANONYMOUS_STRUCT
 #endif /* __GNUC__/__WATCOMC__ */
-#endif /* NONAMELESSUNION */
 
 #ifndef _ANONYMOUS_UNION
 #define _ANONYMOUS_UNION
@@ -267,13 +247,22 @@ extern "C" {
 #endif
 #endif
 
+/* FIXME: This will make some code compile. The programs will most
+   likely crash when an exception is raised, but at least they will
+   compile. */
+#if defined (__GNUC__) && defined (__SEH_NOOP)
+#define __try
+#define __except(x) if (0) /* don't execute handler */
+#define __finally
+
+#define _try __try
+#define _except __except
+#define _finally __finally
+#endif
+
 #ifndef DWORD_DEFINED
 #define DWORD_DEFINED
-#ifndef __ROS_LONG64__
     typedef unsigned long DWORD;
-#else
-    typedef unsigned int DWORD;
-#endif
 #endif//DWORD_DEFINED
 
 typedef int WINBOOL,*PWINBOOL,*LPWINBOOL;
@@ -293,51 +282,16 @@ typedef FLOAT *PFLOAT;
 typedef BYTE *PBYTE,*LPBYTE;
 typedef int *PINT,*LPINT;
 typedef WORD *PWORD,*LPWORD;
-#ifndef __ROS_LONG64__
 typedef long *LPLONG;
-#else
-typedef int *LPLONG;
-#endif
 typedef DWORD *PDWORD,*LPDWORD;
 typedef CONST void *PCVOID,*LPCVOID;
-
-typedef unsigned int UINT,*PUINT,*LPUINT;
-
-typedef void *LPVOID;
-
-#ifndef __ms_va_list
-# if defined(__x86_64__) && defined (__GNUC__)
-#  define __ms_va_list __builtin_ms_va_list
-#  define __ms_va_start(list,arg) __builtin_ms_va_start(list,arg)
-#  define __ms_va_end(list) __builtin_ms_va_end(list)
-# else
-#  define __ms_va_list va_list
-#  define __ms_va_start(list,arg) va_start(list,arg)
-#  define __ms_va_end(list) va_end(list)
-# endif
-#endif
-
-//
-// Check if ntdef.h already defined these for us
-//
-#ifndef BASETYPES
-#define BASETYPES
-#ifndef __ROS_LONG64__
-typedef unsigned long ULONG, *PULONG;
-#else
-typedef unsigned int ULONG, *PULONG;
-#endif
-typedef unsigned short USHORT, *PUSHORT;
-typedef unsigned char UCHAR, *PUCHAR;
-typedef char *PSZ;
 typedef int INT;
-#endif  /* BASETYPES */
+typedef unsigned int UINT,*PUINT,*LPUINT;
 
 #ifndef NT_INCLUDED
 #include <winnt.h>
 #endif
 
-typedef HANDLE *LPHANDLE;
 typedef UINT_PTR WPARAM;
 typedef LONG_PTR LPARAM;
 typedef LONG_PTR LRESULT;
@@ -389,15 +343,9 @@ DECLARE_HANDLE(HKL);
 typedef int HFILE;
 typedef HICON HCURSOR;
 typedef DWORD COLORREF;
-#ifdef _WIN64
-typedef INT_PTR (FAR WINAPI *FARPROC)();
-typedef INT_PTR (NEAR WINAPI *NEARPROC)();
-typedef INT_PTR (WINAPI *PROC)();
-#else
-typedef int (FAR WINAPI *FARPROC)();
-typedef int (NEAR WINAPI *NEARPROC)();
+typedef int (WINAPI *FARPROC)();
+typedef int (WINAPI *NEARPROC)();
 typedef int (WINAPI *PROC)();
-#endif
 typedef struct tagRECT {
 	LONG left;
 	LONG top;
@@ -424,10 +372,6 @@ typedef struct tagPOINTS {
 	SHORT x;
 	SHORT y;
 } POINTS,*PPOINTS,*LPPOINTS;
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #ifdef __cplusplus
 }

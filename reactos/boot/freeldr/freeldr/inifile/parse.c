@@ -36,7 +36,7 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 	PINI_SECTION		CurrentSection = NULL;
 	PINI_SECTION_ITEM	CurrentItem = NULL;
 
-	DPRINTM(DPRINT_INIFILE, "IniParseFile() IniFileSize: %d\n", IniFileSize);
+	DbgPrint((DPRINT_INIFILE, "IniParseFile() IniFileSize: %d\n", IniFileSize));
 
 	if (!IniFileSectionInitialized)
 	{
@@ -172,8 +172,8 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 		CurrentLineNumber++;
 	}
 
-	DPRINTM(DPRINT_INIFILE, "Parsed %d sections and %d settings.\n", IniFileSectionCount, IniFileSettingCount);
-	DPRINTM(DPRINT_INIFILE, "IniParseFile() done.\n");
+	DbgPrint((DPRINT_INIFILE, "Parsed %d sections and %d settings.\n", IniFileSectionCount, IniFileSettingCount));
+	DbgPrint((DPRINT_INIFILE, "IniParseFile() done.\n"));
 
 	return TRUE;
 }
@@ -232,8 +232,10 @@ ULONG IniGetNextLine(PCHAR IniFileData, ULONG IniFileSize, PCHAR Buffer, ULONG B
 	Buffer[Idx] = '\0';
 
 	// Get rid of newline & linefeed characters (if any)
-	while(Idx && (Buffer[--Idx] == '\n' || Buffer[Idx] == '\r'))
-		Buffer[Idx] = '\0';
+	if((Buffer[strlen(Buffer)-1] == '\n') || (Buffer[strlen(Buffer)-1] == '\r'))
+		Buffer[strlen(Buffer)-1] = '\0';
+	if((Buffer[strlen(Buffer)-1] == '\n') || (Buffer[strlen(Buffer)-1] == '\r'))
+		Buffer[strlen(Buffer)-1] = '\0';
 
 	// Send back new offset
 	return CurrentOffset;

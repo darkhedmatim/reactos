@@ -43,7 +43,7 @@
 *
 *--*/
 DWORD
-NTAPI
+STDCALL
 DxDxgGenericThunk(ULONG_PTR ulIndex,
                   ULONG_PTR ulHandle,
                   SIZE_T *pdwSizeOfPtr1,
@@ -78,7 +78,7 @@ DxDxgGenericThunk(ULONG_PTR ulIndex,
 *
 *--*/
 DWORD
-NTAPI
+STDCALL
 DxDdIoctl(ULONG ulIoctl,
           PVOID pBuffer,
           ULONG ulBufferSize)

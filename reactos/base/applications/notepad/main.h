@@ -61,13 +61,12 @@ typedef struct
   TCHAR      szMarginRight[MAX_PATH];
   TCHAR      szHeader[MAX_PATH];
   TCHAR      szFooter[MAX_PATH];
-  TCHAR      szStatusBarLineCol[MAX_PATH];
+  TCHAR      szStatusBarLine[MAX_PATH];
+  TCHAR      szStatusBarCol[MAX_PATH];
   int        iEncoding;
   int        iEoln;
 
   FINDREPLACE find;
-  WNDPROC    EditProc;
-  RECT       main_rect;
 } NOTEPAD_GLOBALS;
 
 extern NOTEPAD_GLOBALS Globals;
@@ -84,4 +83,3 @@ void SaveSettings(void);
 
 /* from main.c */
 BOOL NOTEPAD_FindNext(FINDREPLACE *, BOOL , BOOL );
-VOID NOTEPAD_EnableSearchMenu(VOID);

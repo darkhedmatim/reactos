@@ -43,56 +43,56 @@ static void test_gdi_objects(void)
      */
     SetLastError(0);
     hp = SelectObject(NULL, GetStockObject(BLACK_PEN));
-    ok(!hp && (GetLastError() == ERROR_INVALID_HANDLE || broken(!GetLastError())),
-       "SelectObject(NULL DC) expected 0, ERROR_INVALID_HANDLE, got %p, %u\n",
+    ok(!hp && GetLastError() == ERROR_INVALID_HANDLE,
+       "SelectObject(NULL DC) expected 0, ERROR_INVALID_HANDLE, got %p, 0x%08lx\n",
        hp, GetLastError());
 
     /* With a valid DC and a NULL object, the call returns 0 but does not SetLastError() */
     SetLastError(0);
     hp = SelectObject(hdc, NULL);
     ok(!hp && !GetLastError(),
-       "SelectObject(NULL obj) expected 0, NO_ERROR, got %p, %u\n",
+       "SelectObject(NULL obj) expected 0, NO_ERROR, got %p, 0x%08lx\n",
        hp, GetLastError());
 
     /* The DC is unaffected by the NULL SelectObject */
     SetLastError(0);
     hp = SelectObject(hdc, GetStockObject(BLACK_PEN));
     ok(hp && !GetLastError(),
-       "SelectObject(post NULL) expected non-null, NO_ERROR, got %p, %u\n",
+       "SelectObject(post NULL) expected non-null, NO_ERROR, got %p, 0x%08lx\n",
        hp, GetLastError());
 
     /* GetCurrentObject does not SetLastError() on a null object */
     SetLastError(0);
     hp = GetCurrentObject(NULL, OBJ_PEN);
     ok(!hp && !GetLastError(),
-       "GetCurrentObject(NULL DC) expected 0, NO_ERROR, got %p, %u\n",
+       "GetCurrentObject(NULL DC) expected 0, NO_ERROR, got %p, 0x%08lx\n",
        hp, GetLastError());
 
     /* DeleteObject does not SetLastError() on a null object */
     ret = DeleteObject(NULL);
     ok( !ret && !GetLastError(),
-       "DeleteObject(NULL obj), expected 0, NO_ERROR, got %d, %u\n",
+       "DeleteObject(NULL obj), expected 0, NO_ERROR, got %d, 0x%08lx\n",
        ret, GetLastError());
 
     /* GetObject does not SetLastError() on a null object */
     SetLastError(0);
     i = GetObjectA(NULL, sizeof(buff), buff);
-    ok (!i && (GetLastError() == 0 || GetLastError() == ERROR_INVALID_PARAMETER),
-        "GetObject(NULL obj), expected 0, NO_ERROR, got %d, %u\n",
+    ok (!i && !GetLastError(),
+        "GetObject(NULL obj), expected 0, NO_ERROR, got %d, 0x%08lx\n",
 	i, GetLastError());
 
     /* GetObjectType does SetLastError() on a null object */
     SetLastError(0);
     i = GetObjectType(NULL);
     ok (!i && GetLastError() == ERROR_INVALID_HANDLE,
-        "GetObjectType(NULL obj), expected 0, ERROR_INVALID_HANDLE, got %d, %u\n",
+        "GetObjectType(NULL obj), expected 0, ERROR_INVALID_HANDLE, got %d, 0x%08lx\n",
         i, GetLastError());
 
     /* UnrealizeObject does not SetLastError() on a null object */
     SetLastError(0);
     i = UnrealizeObject(NULL);
     ok (!i && !GetLastError(),
-        "UnrealizeObject(NULL obj), expected 0, NO_ERROR, got %d, %u\n",
+        "UnrealizeObject(NULL obj), expected 0, NO_ERROR, got %d, 0x%08lx\n",
         i, GetLastError());
 
     ReleaseDC(NULL, hdc);
@@ -110,10 +110,10 @@ struct hgdiobj_event
 static DWORD WINAPI thread_proc(void *param)
 {
     LOGPEN lp;
-    struct hgdiobj_event *hgdiobj_event = param;
+    struct hgdiobj_event *hgdiobj_event = (struct hgdiobj_event *)param;
 
     hgdiobj_event->hdc = CreateDC("display", NULL, NULL, NULL);
-    ok(hgdiobj_event->hdc != NULL, "CreateDC error %u\n", GetLastError());
+    ok(hgdiobj_event->hdc != NULL, "CreateDC error %ld\n", GetLastError());
 
     hgdiobj_event->hgdiobj1 = CreatePen(PS_DASHDOTDOT, 17, RGB(1, 2, 3));
     ok(hgdiobj_event->hgdiobj1 != 0, "Failed to create pen\n");
@@ -123,7 +123,7 @@ static DWORD WINAPI thread_proc(void *param)
 
     SetEvent(hgdiobj_event->ready_event);
     ok(WaitForSingleObject(hgdiobj_event->stop_event, INFINITE) == WAIT_OBJECT_0,
-       "WaitForSingleObject error %u\n", GetLastError());
+       "WaitForSingleObject error %ld\n", GetLastError());
 
     ok(!GetObject(hgdiobj_event->hgdiobj1, sizeof(lp), &lp), "GetObject should fail\n");
 
@@ -141,40 +141,40 @@ static void test_thread_objects(void)
     INT ret;
 
     hgdiobj_event.stop_event = CreateEvent(NULL, 0, 0, NULL);
-    ok(hgdiobj_event.stop_event != NULL, "CreateEvent error %u\n", GetLastError());
+    ok(hgdiobj_event.stop_event != NULL, "CreateEvent error %ld\n", GetLastError());
     hgdiobj_event.ready_event = CreateEvent(NULL, 0, 0, NULL);
-    ok(hgdiobj_event.ready_event != NULL, "CreateEvent error %u\n", GetLastError());
+    ok(hgdiobj_event.ready_event != NULL, "CreateEvent error %ld\n", GetLastError());
 
     hthread = CreateThread(NULL, 0, thread_proc, &hgdiobj_event, 0, &tid);
-    ok(hthread != NULL, "CreateThread error %u\n", GetLastError());
+    ok(hthread != NULL, "CreateThread error %ld\n", GetLastError());
 
     ok(WaitForSingleObject(hgdiobj_event.ready_event, INFINITE) == WAIT_OBJECT_0,
-       "WaitForSingleObject error %u\n", GetLastError());
+       "WaitForSingleObject error %ld\n", GetLastError());
 
     ok(GetObject(hgdiobj_event.hgdiobj1, sizeof(lp), &lp) == sizeof(lp),
-       "GetObject error %u\n", GetLastError());
+       "GetObject error %ld\n", GetLastError());
     ok(lp.lopnStyle == PS_DASHDOTDOT, "wrong pen style %d\n", lp.lopnStyle);
-    ok(lp.lopnWidth.x == 17, "wrong pen width.y %d\n", lp.lopnWidth.x);
-    ok(lp.lopnWidth.y == 0, "wrong pen width.y %d\n", lp.lopnWidth.y);
-    ok(lp.lopnColor == RGB(1, 2, 3), "wrong pen width.y %08x\n", lp.lopnColor);
+    ok(lp.lopnWidth.x == 17, "wrong pen width.y %ld\n", lp.lopnWidth.x);
+    ok(lp.lopnWidth.y == 0, "wrong pen width.y %ld\n", lp.lopnWidth.y);
+    ok(lp.lopnColor == RGB(1, 2, 3), "wrong pen width.y %08lx\n", lp.lopnColor);
 
     ret = GetDeviceCaps(hgdiobj_event.hdc, TECHNOLOGY);
     ok(ret == DT_RASDISPLAY, "GetDeviceCaps(TECHNOLOGY) should return DT_RASDISPLAY not %d\n", ret);
 
-    ok(DeleteObject(hgdiobj_event.hgdiobj1), "DeleteObject error %u\n", GetLastError());
-    ok(DeleteDC(hgdiobj_event.hdc), "DeleteDC error %u\n", GetLastError());
+    ok(DeleteObject(hgdiobj_event.hgdiobj1), "DeleteObject error %ld\n", GetLastError());
+    ok(DeleteDC(hgdiobj_event.hdc), "DeleteDC error %ld\n", GetLastError());
 
     type = GetObjectType(hgdiobj_event.hgdiobj2);
-    ok(type == OBJ_REGION, "GetObjectType returned %u\n", type);
+    ok(type == OBJ_REGION, "GetObjectType returned %lu\n", type);
 
     SetEvent(hgdiobj_event.stop_event);
     ok(WaitForSingleObject(hthread, INFINITE) == WAIT_OBJECT_0,
-       "WaitForSingleObject error %u\n", GetLastError());
+       "WaitForSingleObject error %ld\n", GetLastError());
     CloseHandle(hthread);
 
     type = GetObjectType(hgdiobj_event.hgdiobj2);
-    ok(type == OBJ_REGION, "GetObjectType returned %u\n", type);
-    ok(DeleteObject(hgdiobj_event.hgdiobj2), "DeleteObject error %u\n", GetLastError());
+    ok(type == OBJ_REGION, "GetObjectType returned %lu\n", type);
+    ok(DeleteObject(hgdiobj_event.hgdiobj2), "DeleteObject error %ld\n", GetLastError());
 
     CloseHandle(hgdiobj_event.stop_event);
     CloseHandle(hgdiobj_event.ready_event);
@@ -199,7 +199,7 @@ static void test_GetCurrentObject(void)
     assert(hdc != 0);
 
     type = GetObjectType(hdc);
-    ok(type == OBJ_MEMDC, "GetObjectType returned %u\n", type);
+    ok(type == OBJ_MEMDC, "GetObjectType returned %lu\n", type);
 
     hpen = CreatePen(PS_SOLID, 10, RGB(10, 20, 30));
     assert(hpen != 0);
@@ -207,7 +207,7 @@ static void test_GetCurrentObject(void)
     hobj = GetCurrentObject(hdc, OBJ_PEN);
     ok(hobj == hpen, "OBJ_PEN is wrong: %p\n", hobj);
     hobj = GetCurrentObject(hdc, OBJ_EXTPEN);
-    ok(hobj == hpen || broken(hobj == 0) /* win9x */, "OBJ_EXTPEN is wrong: %p\n", hobj);
+    ok(hobj == hpen, "OBJ_EXTPEN is wrong: %p\n", hobj);
 
     hbrush = CreateSolidBrush(RGB(10, 20, 30));
     assert(hbrush != 0);
@@ -243,7 +243,7 @@ static void test_GetCurrentObject(void)
     hobj = GetCurrentObject(hdc, OBJ_PEN);
     ok(hobj == hpen, "OBJ_PEN is wrong: %p\n", hobj);
     hobj = GetCurrentObject(hdc, OBJ_EXTPEN);
-    ok(hobj == hpen || broken(hobj == 0) /* win9x */, "OBJ_EXTPEN is wrong: %p\n", hobj);
+    ok(hobj == hpen, "OBJ_EXTPEN is wrong: %p\n", hobj);
 
     hcs = GetColorSpace(hdc);
     if (hcs)
@@ -254,7 +254,7 @@ static void test_GetCurrentObject(void)
         ok(hcs != 0, "CreateColorSpace failed\n");
         SelectObject(hdc, hcs);
         hobj = GetCurrentObject(hdc, OBJ_COLORSPACE);
-        ok(hobj == hcs || broken(hobj == 0) /* win9x */, "OBJ_COLORSPACE is wrong: %p\n", hobj);
+        ok(hobj == hcs, "OBJ_COLORSPACE is wrong: %p\n", hobj);
     }
 
     hrgn = CreateRectRgn(1, 1, 100, 100);
@@ -266,49 +266,9 @@ static void test_GetCurrentObject(void)
     DeleteDC(hdc);
 }
 
-static void test_region(void)
-{
-    HRGN hrgn = CreateRectRgn(10, 10, 20, 20);
-    RECT rc = { 5, 5, 15, 15 };
-    BOOL ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    /* swap left and right */
-    SetRect( &rc, 15, 5, 5, 15 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    /* swap top and bottom */
-    SetRect( &rc, 5, 15, 15, 5 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    /* swap both */
-    SetRect( &rc, 15, 15, 5, 5 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    DeleteObject(hrgn);
-    /* swap left and right in the region */
-    hrgn = CreateRectRgn(20, 10, 10, 20);
-    SetRect( &rc, 5, 5, 15, 15 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    /* swap left and right */
-    SetRect( &rc, 15, 5, 5, 15 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    /* swap top and bottom */
-    SetRect( &rc, 5, 15, 15, 5 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    /* swap both */
-    SetRect( &rc, 15, 15, 5, 5 );
-    ret = RectInRegion( hrgn, &rc);
-    ok( ret, "RectInRegion should return TRUE\n");
-    DeleteObject(hrgn);
-}
-
 START_TEST(gdiobj)
 {
     test_gdi_objects();
     test_thread_objects();
     test_GetCurrentObject();
-    test_region();
 }

@@ -33,8 +33,6 @@
 #include "utils.h"
 #include "parser.h"
 
-#define CURRENT_LOCATION { input_name ? input_name : "stdin", line_number, parser_text }
-
 static const int want_near_indication = 0;
 
 static void make_print(char *str)
@@ -47,17 +45,17 @@ static void make_print(char *str)
 	}
 }
 
-static void generic_msg(const loc_info_t *loc_info, const char *s, const char *t, va_list ap)
+static void generic_msg(const char *s, const char *t, const char *n, va_list ap)
 {
-	fprintf(stderr, "%s:%d: %s: ", loc_info->input_name, loc_info->line_number, t);
+	fprintf(stderr, "%s:%d: %s: ", input_name ? input_name : "stdin", line_number, t);
 	vfprintf(stderr, s, ap);
 
 	if (want_near_indication)
 	{
 		char *cpy;
-		if(loc_info->near_text)
+		if(n)
 		{
-			cpy = xstrdup(loc_info->near_text);
+			cpy = xstrdup(n);
 			make_print(cpy);
 			fprintf(stderr, " near '%s'", cpy);
 			free(cpy);
@@ -66,37 +64,32 @@ static void generic_msg(const loc_info_t *loc_info, const char *s, const char *t
 }
 
 
-void error_loc(const char *s, ...)
+/* yyerror:  yacc assumes this is not newline terminated.  */
+int parser_error(const char *s, ...)
 {
-	loc_info_t cur_loc = CURRENT_LOCATION;
 	va_list ap;
 	va_start(ap, s);
-	generic_msg(&cur_loc, s, "error", ap);
+	generic_msg(s, "Error", parser_text, ap);
+	fprintf(stderr, "\n");
 	va_end(ap);
 	exit(1);
+	return 1;
 }
 
-/* yyerror:  yacc assumes this is not newline terminated.  */
-void parser_error(const char *s)
-{
-	error_loc("%s\n", s);
-}
-
-void error_loc_info(const loc_info_t *loc_info, const char *s, ...)
+void error_loc(const char *s, ...)
 {
 	va_list ap;
 	va_start(ap, s);
-	generic_msg(loc_info, s, "error", ap);
+	generic_msg(s, "Error", parser_text, ap);
 	va_end(ap);
 	exit(1);
 }
 
 int parser_warning(const char *s, ...)
 {
-	loc_info_t cur_loc = CURRENT_LOCATION;
 	va_list ap;
 	va_start(ap, s);
-	generic_msg(&cur_loc, s, "warning", ap);
+	generic_msg(s, "Warning", parser_text, ap);
 	va_end(ap);
 	return 0;
 }
@@ -117,14 +110,6 @@ void warning(const char *s, ...)
 	va_start(ap, s);
 	fprintf(stderr, "warning: ");
 	vfprintf(stderr, s, ap);
-	va_end(ap);
-}
-
-void warning_loc_info(const loc_info_t *loc_info, const char *s, ...)
-{
-	va_list ap;
-	va_start(ap, s);
-	generic_msg(loc_info, s, "warning", ap);
 	va_end(ap);
 }
 

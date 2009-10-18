@@ -148,16 +148,16 @@ MakeMapObject(int ColorCount,
     /*** FIXME: Our ColorCount has to be a power of two.  Is it necessary to
      * make the user know that or should we automatically round up instead? */
     if (ColorCount != (1 << BitSize(ColorCount))) {
-        return NULL;
+        return ((ColorMapObject *) NULL);
     }
 
     Object = ungif_alloc(sizeof(ColorMapObject));
-    if (Object == NULL) {
-        return NULL;
+    if (Object == (ColorMapObject *) NULL) {
+        return ((ColorMapObject *) NULL);
     }
 
     Object->Colors = ungif_calloc(ColorCount, sizeof(GifColorType));
-    if (Object->Colors == NULL) {
+    if (Object->Colors == (GifColorType *) NULL) {
         return NULL;
     }
 
@@ -350,7 +350,7 @@ DGifGetImageDesc(GifFileType * GifFile) {
 
     int i, BitsPerPixel;
     GifByteType Buf[3];
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *)GifFile->Private;
     SavedImage *sp;
 
     if (DGifGetWord(GifFile, &GifFile->Image.Left) == GIF_ERROR ||
@@ -404,7 +404,7 @@ DGifGetImageDesc(GifFileType * GifFile) {
     }
 
     sp = &GifFile->SavedImages[GifFile->ImageCount];
-    sp->ImageDesc = GifFile->Image;
+    memcpy(&sp->ImageDesc, &GifFile->Image, sizeof(GifImageDesc));
     if (GifFile->Image.ColorMap != NULL) {
         sp->ImageDesc.ColorMap = MakeMapObject(
                                  GifFile->Image.ColorMap->ColorCount,
@@ -413,9 +413,9 @@ DGifGetImageDesc(GifFileType * GifFile) {
             return GIF_ERROR;
         }
     }
-    sp->RasterBits = NULL;
+    sp->RasterBits = (unsigned char *)NULL;
     sp->ExtensionBlockCount = 0;
-    sp->ExtensionBlocks = NULL;
+    sp->ExtensionBlocks = (ExtensionBlock *) NULL;
 
     GifFile->ImageCount++;
 
@@ -436,7 +436,7 @@ DGifGetLine(GifFileType * GifFile,
             int LineLen) {
 
     GifByteType *Dummy;
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *) GifFile->Private;
 
     if (!LineLen)
         LineLen = GifFile->Image.Width;
@@ -492,7 +492,7 @@ DGifGetExtensionNext(GifFileType * GifFile,
                      GifByteType ** Extension) {
 
     GifByteType Buf;
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *)GifFile->Private;
 
     if (READ(GifFile, &Buf, 1) != 1) {
         return GIF_ERROR;
@@ -536,7 +536,7 @@ DGifGetCodeNext(GifFileType * GifFile,
                 GifByteType ** CodeBlock) {
 
     GifByteType Buf;
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *)GifFile->Private;
 
     if (READ(GifFile, &Buf, 1) != 1) {
         return GIF_ERROR;
@@ -566,7 +566,7 @@ DGifSetupDecompress(GifFileType * GifFile) {
     int i, BitsPerPixel;
     GifByteType CodeSize;
     GifPrefixType *Prefix;
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *)GifFile->Private;
 
     READ(GifFile, &CodeSize, 1);    /* Read Code size from file. */
     BitsPerPixel = CodeSize;
@@ -605,7 +605,7 @@ DGifDecompressLine(GifFileType * GifFile,
     int j, CrntCode, EOFCode, ClearCode, CrntPrefix, LastCode, StackPtr;
     GifByteType *Stack, *Suffix;
     GifPrefixType *Prefix;
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *) GifFile->Private;
 
     StackPtr = Private->StackPtr;
     Prefix = Private->Prefix;
@@ -616,7 +616,7 @@ DGifDecompressLine(GifFileType * GifFile,
     LastCode = Private->LastCode;
 
     if (StackPtr != 0) {
-        /* Let pop the stack off before continuing to read the gif file: */
+        /* Let pop the stack off before continueing to read the gif file: */
         while (StackPtr != 0 && i < LineLen)
             Line[i++] = Stack[--StackPtr];
     }
@@ -626,7 +626,7 @@ DGifDecompressLine(GifFileType * GifFile,
             return GIF_ERROR;
 
         if (CrntCode == EOFCode) {
-            /* Note, however, that usually we will not be here as we will stop
+            /* Note however that usually we will not be here as we will stop
              * decoding as soon as we got all the pixel, or EOF code will
              * not be read at all, and DGifGetLine/Pixel clean everything.  */
             if (i != LineLen - 1 || Private->PixelCount != 0) {
@@ -744,7 +744,7 @@ static int
 DGifDecompressInput(GifFileType * GifFile,
                     int *Code) {
 
-    GifFilePrivateType *Private = GifFile->Private;
+    GifFilePrivateType *Private = (GifFilePrivateType *)GifFile->Private;
 
     GifByteType NextByte;
     static const unsigned short CodeMasks[] = {
@@ -973,7 +973,7 @@ DGifCloseFile(GifFileType * GifFile) {
     if (GifFile == NULL)
         return GIF_ERROR;
 
-    Private = GifFile->Private;
+    Private = (GifFilePrivateType *) GifFile->Private;
 
     if (GifFile->Image.ColorMap) {
         FreeMapObject(GifFile->Image.ColorMap);

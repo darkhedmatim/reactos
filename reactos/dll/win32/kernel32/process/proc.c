@@ -17,15 +17,13 @@
 #include <debug.h>
 
 
-typedef INT (WINAPI *MessageBoxW_Proc) (HWND, LPCWSTR, LPCWSTR, UINT);
-
 /* GLOBALS *******************************************************************/
 
 WaitForInputIdleType  lpfnGlobalRegisterWaitForInputIdle;
 
 LPSTARTUPINFOA lpLocalStartupInfo = NULL;
 
-VOID WINAPI
+VOID STDCALL
 RegisterWaitForInputIdle(WaitForInputIdleType lpfnRegisterWaitForInputIdle);
 
 /* FUNCTIONS ****************************************************************/
@@ -33,7 +31,7 @@ RegisterWaitForInputIdle(WaitForInputIdleType lpfnRegisterWaitForInputIdle);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetProcessAffinityMask (HANDLE hProcess,
 			LPDWORD lpProcessAffinityMask,
 			LPDWORD lpSystemAffinityMask)
@@ -73,7 +71,7 @@ GetProcessAffinityMask (HANDLE hProcess,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetProcessAffinityMask (HANDLE hProcess,
 			DWORD dwProcessAffinityMask)
 {
@@ -96,7 +94,7 @@ SetProcessAffinityMask (HANDLE hProcess,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetProcessShutdownParameters (LPDWORD lpdwLevel,
 			      LPDWORD lpdwFlags)
 {
@@ -125,7 +123,7 @@ GetProcessShutdownParameters (LPDWORD lpdwLevel,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetProcessShutdownParameters (DWORD dwLevel,
 			      DWORD dwFlags)
 {
@@ -154,7 +152,7 @@ SetProcessShutdownParameters (DWORD dwLevel,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetProcessWorkingSetSize (HANDLE hProcess,
 			  PSIZE_T lpMinimumWorkingSetSize,
 			  PSIZE_T lpMaximumWorkingSetSize)
@@ -183,7 +181,7 @@ GetProcessWorkingSetSize (HANDLE hProcess,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetProcessWorkingSetSize(HANDLE hProcess,
 			 SIZE_T dwMinimumWorkingSetSize,
 			 SIZE_T dwMaximumWorkingSetSize)
@@ -211,7 +209,7 @@ SetProcessWorkingSetSize(HANDLE hProcess,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetProcessTimes(HANDLE hProcess,
 		LPFILETIME lpCreationTime,
 		LPFILETIME lpExitTime,
@@ -251,7 +249,7 @@ GetProcessTimes(HANDLE hProcess,
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 GetCurrentProcess(VOID)
 {
   return((HANDLE)NtCurrentProcess());
@@ -261,7 +259,7 @@ GetCurrentProcess(VOID)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 GetCurrentThread(VOID)
 {
   return((HANDLE)NtCurrentThread());
@@ -271,17 +269,17 @@ GetCurrentThread(VOID)
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 GetCurrentProcessId(VOID)
 {
-  return((DWORD)GetTeb()->ClientId.UniqueProcess);
+  return((DWORD)GetTeb()->Cid.UniqueProcess);
 }
 
 
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetExitCodeProcess(HANDLE hProcess,
 		   LPDWORD lpExitCode)
 {
@@ -309,7 +307,7 @@ GetExitCodeProcess(HANDLE hProcess,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetProcessId(HANDLE Process)
 {
   PROCESS_BASIC_INFORMATION ProcessBasic;
@@ -333,7 +331,7 @@ GetProcessId(HANDLE Process)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 OpenProcess(DWORD dwDesiredAccess,
 	    BOOL bInheritHandle,
 	    DWORD dwProcessId)
@@ -368,7 +366,7 @@ OpenProcess(DWORD dwDesiredAccess,
 /*
  * @implemented
  */
-UINT WINAPI
+UINT STDCALL
 WinExec(LPCSTR lpCmdLine,
 	UINT uCmdShow)
 {
@@ -412,7 +410,7 @@ WinExec(LPCSTR lpCmdLine,
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL
 RegisterWaitForInputIdle (
 	WaitForInputIdleType	lpfnRegisterWaitForInputIdle
 	)
@@ -424,7 +422,7 @@ RegisterWaitForInputIdle (
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL
 GetStartupInfoW(LPSTARTUPINFOW lpStartupInfo)
 {
   PRTL_USER_PROCESS_PARAMETERS Params;
@@ -461,7 +459,7 @@ GetStartupInfoW(LPSTARTUPINFOW lpStartupInfo)
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL
 GetStartupInfoA(LPSTARTUPINFOA lpStartupInfo)
 {
   PRTL_USER_PROCESS_PARAMETERS Params;
@@ -540,7 +538,7 @@ GetStartupInfoA(LPSTARTUPINFOA lpStartupInfo)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 FlushInstructionCache (HANDLE	hProcess,
 		       LPCVOID	lpBaseAddress,
 		       DWORD	dwSize)
@@ -562,7 +560,7 @@ FlushInstructionCache (HANDLE	hProcess,
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL
 ExitProcess(UINT uExitCode)
 {
   CSR_API_MESSAGE CsrRequest;
@@ -599,16 +597,11 @@ ExitProcess(UINT uExitCode)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 TerminateProcess (HANDLE	hProcess,
 		  UINT	uExitCode)
 {
   NTSTATUS Status;
-
-  if (hProcess == NULL)
-    {
-      return FALSE;
-    }
 
   Status = NtTerminateProcess (hProcess, uExitCode);
   if (NT_SUCCESS(Status))
@@ -623,9 +616,9 @@ TerminateProcess (HANDLE	hProcess,
 /*
  * @unimplemented
  */
-VOID WINAPI
-FatalAppExitA(UINT uAction,
-	          LPCSTR lpMessageText)
+VOID STDCALL
+FatalAppExitA (UINT	uAction,
+	       LPCSTR	lpMessageText)
 {
   UNICODE_STRING MessageTextU;
   ANSI_STRING MessageText;
@@ -645,33 +638,18 @@ FatalAppExitA(UINT uAction,
 /*
  * @unimplemented
  */
-VOID WINAPI
+VOID STDCALL
 FatalAppExitW(UINT uAction,
-              LPCWSTR lpMessageText)
+	      LPCWSTR lpMessageText)
 {
-    static const WCHAR szUser32[] = L"user32.dll\0";
-
-    HMODULE hModule = GetModuleHandleW(szUser32);
-    MessageBoxW_Proc pMessageBoxW = NULL;
-
-    DPRINT1("AppExit\n");
-
-    if (hModule)
-        pMessageBoxW = (MessageBoxW_Proc) GetProcAddress(hModule, "MessageBoxW");
-
-    if (pMessageBoxW)
-        pMessageBoxW(0, lpMessageText, NULL, MB_SYSTEMMODAL | MB_OK);
-    else
-        DPRINT1("%s\n", lpMessageText);
-
-    ExitProcess(0);
+  return;
 }
 
 
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL
 FatalExit (int ExitCode)
 {
   ExitProcess(ExitCode);
@@ -681,7 +659,7 @@ FatalExit (int ExitCode)
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 GetPriorityClass (HANDLE hProcess)
 {
   NTSTATUS Status;
@@ -727,7 +705,7 @@ GetPriorityClass (HANDLE hProcess)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetPriorityClass (HANDLE hProcess,
 		  DWORD	dwPriorityClass)
 {
@@ -785,90 +763,31 @@ SetPriorityClass (HANDLE hProcess,
 /*
  * @implemented
  */
-DWORD WINAPI
-GetProcessVersion(DWORD ProcessId)
+DWORD STDCALL
+GetProcessVersion (DWORD ProcessId)
 {
-    DWORD Version = 0;
-    PIMAGE_NT_HEADERS NtHeader = NULL;
-    IMAGE_NT_HEADERS NtHeaders;
-    IMAGE_DOS_HEADER DosHeader;
-    PROCESS_BASIC_INFORMATION ProcessBasicInfo;
-    PVOID BaseAddress = NULL;
-    HANDLE ProcessHandle;
-    NTSTATUS Status;
-    SIZE_T Count;
-    PEB Peb;
+  DWORD			Version = 0;
+  PIMAGE_NT_HEADERS	NtHeader = NULL;
+  PVOID			BaseAddress = NULL;
 
-    _SEH2_TRY
+  /* Caller's */
+  if (0 == ProcessId || GetCurrentProcessId() == ProcessId)
     {
-        /* Caller's */
-        if (0 == ProcessId || GetCurrentProcessId() == ProcessId)
-        {
-            BaseAddress = (PVOID) NtCurrentPeb()->ImageBaseAddress;
-            NtHeader = RtlImageNtHeader(BaseAddress);
-
-            Version = (NtHeader->OptionalHeader.MajorOperatingSystemVersion << 16) |
-                      (NtHeader->OptionalHeader.MinorOperatingSystemVersion);
-        }
-        else /* other process */
-        {
-            ProcessHandle = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION,
-                                        FALSE,
-                                        ProcessId);
-
-            if (!ProcessHandle) return 0;
-
-            Status = NtQueryInformationProcess(ProcessHandle,
-                                               ProcessBasicInformation,
-                                               &ProcessBasicInfo,
-                                               sizeof(ProcessBasicInfo),
-                                               NULL);
-            if (!NT_SUCCESS(Status)) goto Error;
-
-            Status = NtReadVirtualMemory(ProcessHandle,
-                                         ProcessBasicInfo.PebBaseAddress,
-                                         &Peb,
-                                         sizeof(Peb),
-                                         &Count);
-            if (!NT_SUCCESS(Status) || Count != sizeof(Peb)) goto Error;
-
-            memset(&DosHeader, 0, sizeof(DosHeader));
-            Status = NtReadVirtualMemory(ProcessHandle,
-                                         Peb.ImageBaseAddress,
-                                         &DosHeader,
-                                         sizeof(DosHeader),
-                                         &Count);
-
-            if (!NT_SUCCESS(Status) || Count != sizeof(DosHeader)) goto Error;
-            if (DosHeader.e_magic != IMAGE_DOS_SIGNATURE) goto Error;
-
-            memset(&NtHeaders, 0, sizeof(NtHeaders));
-            Status = NtReadVirtualMemory(ProcessHandle,
-                                         (char *)Peb.ImageBaseAddress + DosHeader.e_lfanew,
-                                         &NtHeaders,
-                                         sizeof(NtHeaders),
-                                         &Count);
-
-            if (!NT_SUCCESS(Status) || Count != sizeof(NtHeaders)) goto Error;
-            if (NtHeaders.Signature != IMAGE_NT_SIGNATURE) goto Error;
-
-            Version = MAKELONG(NtHeaders.OptionalHeader.MinorSubsystemVersion,
-                               NtHeaders.OptionalHeader.MajorSubsystemVersion);
-
-Error:
-            if (!NT_SUCCESS(Status))
-            {
-                SetLastErrorByStatus(Status);
-            }
-        }
+      BaseAddress = (PVOID) NtCurrentPeb()->ImageBaseAddress;
+      NtHeader = RtlImageNtHeader (BaseAddress);
+      if (NULL != NtHeader)
+	{
+	  Version =
+	    (NtHeader->OptionalHeader.MajorOperatingSystemVersion << 16) |
+	    (NtHeader->OptionalHeader.MinorOperatingSystemVersion);
+	}
     }
-    _SEH2_FINALLY
+  else /* other process */
     {
-        if (ProcessHandle) CloseHandle(ProcessHandle);
+      /* FIXME: open the other process */
+      SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     }
-    _SEH2_END;
-
-    return Version;
+  return (Version);
 }
 
 
@@ -876,7 +795,7 @@ Error:
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetProcessIoCounters(
   HANDLE hProcess,
   PIO_COUNTERS lpIoCounters)
@@ -902,7 +821,7 @@ GetProcessIoCounters(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetProcessPriorityBoost(HANDLE hProcess,
                         PBOOL pDisablePriorityBoost)
 {
@@ -929,7 +848,7 @@ GetProcessPriorityBoost(HANDLE hProcess,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetProcessPriorityBoost(HANDLE hProcess,
                         BOOL bDisablePriorityBoost)
 {
@@ -954,7 +873,7 @@ SetProcessPriorityBoost(HANDLE hProcess,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetProcessHandleCount(HANDLE hProcess,
                       PDWORD pdwHandleCount)
 {
@@ -974,138 +893,6 @@ GetProcessHandleCount(HANDLE hProcess,
 
     SetLastErrorByStatus(Status);
     return FALSE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-IsWow64Process(
-    HANDLE hProcess,
-    PBOOL Wow64Process
-    )
-{
-    ULONG pbi;
-    NTSTATUS Status;
-
-    Status = NtQueryInformationProcess(hProcess,
-                                       ProcessWow64Information,
-                                       &pbi,
-                                       sizeof(pbi),
-                                       NULL);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    *Wow64Process = (pbi != 0);
-    return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-QueryFullProcessImageNameW(HANDLE hProcess,
-                           DWORD dwFlags,
-                           LPWSTR lpExeName,
-                           PDWORD pdwSize)
-{
-    BYTE Buffer[sizeof(UNICODE_STRING) + MAX_PATH * sizeof(WCHAR)];
-    UNICODE_STRING *DynamicBuffer = NULL;
-    UNICODE_STRING *Result = NULL;
-    NTSTATUS Status;
-    DWORD Needed;
-
-    Status = NtQueryInformationProcess(hProcess,
-                                       ProcessImageFileName,
-                                       Buffer,
-                                       sizeof(Buffer) - sizeof(WCHAR),
-                                       &Needed);
-    if (Status == STATUS_INFO_LENGTH_MISMATCH)
-    {
-        DynamicBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, Needed + sizeof(WCHAR));
-        if (!DynamicBuffer)
-        {
-            SetLastErrorByStatus(STATUS_NO_MEMORY);
-            return FALSE;
-        }
-
-        Status = NtQueryInformationProcess(hProcess,
-                                           ProcessImageFileName,
-                                           (LPBYTE)DynamicBuffer,
-                                           Needed,
-                                           &Needed);
-        Result = DynamicBuffer;
-    }
-    else Result = (PUNICODE_STRING)Buffer;
-
-    if (!NT_SUCCESS(Status)) goto Cleanup;
-
-    if (Result->Length / sizeof(WCHAR) + 1 > *pdwSize)
-    {
-        Status = STATUS_BUFFER_TOO_SMALL;
-        goto Cleanup;
-    }
-
-    *pdwSize = Result->Length / sizeof(WCHAR);
-    memcpy(lpExeName, Result->Buffer, Result->Length);
-    lpExeName[*pdwSize] = 0;
-
-Cleanup:
-    RtlFreeHeap(RtlGetProcessHeap(), 0, DynamicBuffer);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-    }
-    return !Status;
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-QueryFullProcessImageNameA(HANDLE hProcess,
-                           DWORD dwFlags,
-                           LPSTR lpExeName,
-                           PDWORD pdwSize)
-{
-    DWORD pdwSizeW = *pdwSize;
-    BOOL Result;
-    LPWSTR lpExeNameW;
-
-    lpExeNameW = RtlAllocateHeap(RtlGetProcessHeap(),
-                                 HEAP_ZERO_MEMORY,
-                                 *pdwSize * sizeof(WCHAR));
-    if (!lpExeNameW)
-    {
-        SetLastErrorByStatus(STATUS_NO_MEMORY);
-        return FALSE;
-    }
-
-    Result = QueryFullProcessImageNameW(hProcess, dwFlags, lpExeNameW, &pdwSizeW);
-
-    if (Result)
-        Result = (0 != WideCharToMultiByte(CP_ACP, 0,
-                                           lpExeNameW,
-                                           -1,
-                                           lpExeName,
-                                           *pdwSize,
-                                           NULL, NULL));
-    if (Result)
-        *pdwSize = strlen(lpExeName);
-
-    RtlFreeHeap(RtlGetProcessHeap(), 0, lpExeNameW);
-    return Result;
 }
 
 /* EOF */

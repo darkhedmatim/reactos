@@ -9,8 +9,8 @@
 //
 // Returns whether or not this is a small valued key
 //
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 CmpIsKeyValueSmall(OUT PULONG RealLength,
                    IN ULONG Length)
 {
@@ -30,8 +30,8 @@ CmpIsKeyValueSmall(OUT PULONG RealLength,
 //
 // Returns whether or not this is a big valued key
 //
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 CmpIsKeyValueBig(IN PHHIVE Hive,
                  IN ULONG Length)
 {

@@ -7,8 +7,8 @@ STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Instalación del Controlador de Video"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-  LTEXT "El instalador de ReactOS ha detectado que usted está ejecutando ReactOS sobre el emulador VMware(r).", -1, 117, 8, 140, 24
-  LTEXT "Si usted desea instalar el controlador SVGA VMware(r), haga clic en 'Siguiente', de lo contrario haga clic en 'Cancelar'.", -1, 117, 140, 140, 24
+  LTEXT "El instalador de ReactOS ha detectado que usted está ejecutando ReactOS sobre el emulador VMware(r).", -1, 100, 8, 160, 24
+  LTEXT "Si usted desea instalar el controlador SVGA VMware(r), haga clic en 'Siguiente', de lo contrario haga clic en 'Cancelar'.", -1, 100, 140, 160, 24
 END
 
 IDD_INSERT_VMWARE_TOOLS DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
@@ -34,7 +34,7 @@ CAPTION "Instalación del Controlador de Video"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
   LTEXT "El controlador SVGA VMware(r) ha sido instalado satisfactoriamente.\nPor favor elija su resolución de pantalla favorita:",-1,25,5,225,20
-  PUSHBUTTON "640x480", 1120, 25, 30, 65, 15, BS_AUTORADIOBUTTON
+  PUSHBUTTON "640x480", 540, 25, 30, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "800x600", 1400, 25, 45, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "1024x768", 1792, 25, 60, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "1152x864", 2016, 25, 75, 65, 15, BS_AUTORADIOBUTTON

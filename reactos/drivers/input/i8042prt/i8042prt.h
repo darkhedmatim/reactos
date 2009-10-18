@@ -14,7 +14,8 @@
  * Structures
  * --------------------------------------------------*/
 
-#define I8042PRT_TAG '2408'
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#define I8042PRT_TAG TAG('8', '0', '4', '2')
 
 typedef enum
 {
@@ -146,8 +147,6 @@ typedef struct _I8042_KEYBOARD_EXTENSION
 	INTERNAL_I8042_HOOK_KEYBOARD KeyboardHook; /* FIXME: IsrWritePort ignored */
 	KDPC DpcKeyboard;
 
-	KEYBOARD_ATTRIBUTES KeyboardAttributes;
-
 	KEYBOARD_INDICATOR_PARAMETERS KeyboardIndicators;
 
 	KEYBOARD_SCAN_STATE KeyboardScanState;
@@ -225,7 +224,7 @@ typedef struct _I8042_HOOK_WORKITEM
 
 #define KBD_READ_MODE      0x20
 #define KBD_WRITE_MODE     0x60
-#define MOUSE_ENAB         0xA8
+#define KBD_LINE_TEST      0xAB
 #define MOUSE_LINE_TEST    0xA9
 #define CTRL_SELF_TEST     0xAA
 #define CTRL_WRITE_MOUSE   0xD4
@@ -241,7 +240,6 @@ typedef struct _I8042_HOOK_WORKITEM
  * Keyboard responses
  * --------------------------------------------------*/
 
-#define KBD_SELF_TEST_OK   0x55
 #define KBD_ACK            0xFA
 #define KBD_NACK           0xFC
 #define KBD_RESEND         0xFE
@@ -278,7 +276,7 @@ typedef struct _I8042_HOOK_WORKITEM
  * Mouse commands
  * --------------------------------------------------*/
 
-#define MOU_ENAB           0xF4
+#define MOU_CMD_GET_ID     0xF2
 #define MOU_CMD_RESET      0xFF
 
 /*-----------------------------------------------------
@@ -390,7 +388,7 @@ VOID
 i8042Flush(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension);
 
-BOOLEAN
+VOID
 i8042IsrWritePort(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension,
 	IN UCHAR Value,

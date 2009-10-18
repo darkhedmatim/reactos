@@ -16,11 +16,16 @@
 #ifndef __INTERNAL_DEBUG
 #define __INTERNAL_DEBUG
 
+/*  FIXME: should probably remove this later  */
+#if !defined(CHECKED) && !defined(NDEBUG)
+#define CHECKED
+#endif
+
 /* Define DbgPrint/DbgPrintEx/RtlAssert unless the NDK is used */
-#if !defined(_RTLFUNCS_H) && !defined(_NTDDK_)
+#if !defined(_RTLFUNCS_H) && (!defined(_NTDDK_) || !defined(__NTDDK_H))
 
 /* Make sure we have basic types (some people include us *before* SDK... */
-#if !defined(_NTDEF_) && !defined(_NTDEF_H) && !defined(_WINDEF_) && !defined(_WINDEF_H)
+#if !defined(_NTDEF_) && !defined(_WINDEF_) && !defined(_WINDEF_H)
 #error Please include SDK first.
 #endif
 
@@ -31,7 +36,6 @@ DbgPrint(
     IN ...
 );
 
-NTSYSAPI
 ULONG
 __cdecl
 DbgPrintEx(
@@ -51,7 +55,7 @@ RtlAssert(
     PCHAR Message
 );
 
-#endif /* !defined(_RTLFUNCS_H) && !defined(_NTDDK_) */
+#endif
 
 #ifndef assert
 #ifndef NASSERT
@@ -79,50 +83,82 @@ RtlAssert(
 
 /* Print stuff only on Debug Builds*/
 #define DPFLTR_DEFAULT_ID -1
-#if DBG
+#ifdef DBG
 
     /* These are always printed */
-    #define DPRINT1(fmt, ...) do { \
-        if (DbgPrint("(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__))  \
-            DbgPrint("(%s:%d) DbgPrint() failed!\n", __FILE__, __LINE__); \
-    } while (0)
+    #define DPRINT1 DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
+    #define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 
     /* These are printed only if NDEBUG is NOT defined */
     #ifndef NDEBUG
 
-        #define DPRINT(fmt, ...) do { \
-            if (DbgPrint("(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__))  \
-                DbgPrint("(%s:%d) DbgPrint() failed!\n", __FILE__, __LINE__); \
-        } while (0)
+        #define DPRINT DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
+        #define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 
     #else
-
-        #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-
+        #ifdef _MSC_VER
+            static __inline void DPRINT ( const char* fmt, ... )
+            {
+                UNREFERENCED_PARAMETER(fmt);
+            }
+        #else
+            #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
+        #endif
+        #define CHECKPOINT
     #endif
 
-    #define UNIMPLEMENTED         DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
+    #define UNIMPLEMENTED \
+        DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
 
-    #define ERR_(ch, fmt, ...)    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_ERROR_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-    #define WARN_(ch, fmt, ...)   DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_WARNING_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-    #define TRACE_(ch, fmt, ...)  DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_TRACE_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-    #define INFO_(ch, fmt, ...)   DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_INFO_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-#else /* not DBG */
+    #if defined(__GNUC__)
+        #define ERR_(ch, args...)   DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_ERROR_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_ERROR_LEVEL, ##args)
+        #define WARN_(ch, args...)  DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_WARNING_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_WARNING_LEVEL, ##args)
+        #define TRACE_(ch, args...) DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_TRACE_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_TRACE_LEVEL, ##args)
+        #define INFO_(ch, args...)  DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_INFO_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_INFO_LEVEL, ##args)
+    #elif defined(_MSC_VER)
+    #define ERR_(ch, ...)       DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_ERROR_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_ERROR_LEVEL, __VA_ARGS__)
+    #define WARN_(ch, ...)      DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_WARNING_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_WARNING_LEVEL, __VA_ARGS__)
+    #define TRACE_(ch, ...)     DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_TRACE_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_TRACE_LEVEL, __VA_ARGS__)
+    #define INFO_(ch, ...)      DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_INFO_LEVEL, "(%s:%d) ", __FILE__, __LINE__), \
+                                    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_INFO_LEVEL, __VA_ARGS__)
+    #else
+        #error Unknown compiler
+    #endif
+
+#else
 
     /* On non-debug builds, we never show these */
     #define DPRINT1(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
     #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
 
+    #define CHECKPOINT1
+    #define CHECKPOINT
     #define UNIMPLEMENTED
 
     #define ERR_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
     #define WARN_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
     #define TRACE_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
     #define INFO_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-#endif /* not DBG */
+#endif
 
-#define ASSERT_IRQL_LESS_OR_EQUAL(x) ASSERT(KeGetCurrentIrql()<=(x))
-#define ASSERT_IRQL_EQUAL(x) ASSERT(KeGetCurrentIrql()==(x))
-#define ASSERT_IRQL_LESS(x) ASSERT(KeGetCurrentIrql()<(x))
+/*
+ * FUNCTION: Assert a maximum value for the current irql
+ * ARGUMENTS:
+ *        x = Maximum irql
+ */
+#define ASSERT_IRQL(x) assert(KeGetCurrentIrql()<=(x))
+#define assert_irql(x) assert(KeGetCurrentIrql()<=(x))
+
+#ifndef KEBUGCHECK
+#define KEBUGCHECK(a) DbgPrint("KeBugCheck (0x%X) at %s:%i\n", a, __FILE__,__LINE__), KeBugCheck(a)
+#define KEBUGCHECKEX(a,b,c,d,e) DbgPrint("KeBugCheckEx (0x%X, 0x%X, 0x%X, 0x%X, 0x%X) at %s:%i\n", a, b, c, d, e, __FILE__,__LINE__), KeBugCheckEx(a,b,c,d,e)
+#endif
 
 #endif /* __INTERNAL_DEBUG */

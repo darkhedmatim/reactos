@@ -13,9 +13,6 @@
 	<directory name="debugsup">
 		<xi:include href="debugsup/debugsup.rbuild" />
 	</directory>
-	<directory name="dnslib">
-		<xi:include href="dnslib/dnslib.rbuild" />
-	</directory>
 	<directory name="drivers">
 		<xi:include href="drivers/directory.rbuild" />
 	</directory>
@@ -25,14 +22,8 @@
 	<directory name="fslib">
 		<xi:include href="fslib/directory.rbuild" />
 	</directory>
-	<directory name="host">
-		<xi:include href="host/directory.rbuild" />
-	</directory>
 	<directory name="inflib">
 		<xi:include href="inflib/inflib.rbuild" />
-	</directory>
-	<directory name="nls">
-		<xi:include href="nls/nls.rbuild" />
 	</directory>
 	<directory name="ntdllsys">
 		<xi:include href="ntdllsys/ntdllsys.rbuild" />

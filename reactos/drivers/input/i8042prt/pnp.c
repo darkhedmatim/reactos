@@ -4,7 +4,6 @@
  * FILE:        drivers/input/i8042prt/pnp.c
  * PURPOSE:     IRP_MJ_PNP operations
  * PROGRAMMERS: Copyright 2006-2007 Hervé Poussineau (hpoussin@reactos.org)
- *              Copyright 2008 Colin Finck (mail@colinfinck.de)
  */
 
 /* INCLUDES ******************************************************************/
@@ -76,54 +75,55 @@ i8042BasicDetect(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension)
 {
 	NTSTATUS Status;
-	ULONG ResendIterations;
 	UCHAR Value = 0;
 
 	/* Don't enable keyboard and mouse interrupts, disable keyboard/mouse */
-	i8042Flush(DeviceExtension);
 	if (!i8042ChangeMode(DeviceExtension, CCB_KBD_INT_ENAB | CCB_MOUSE_INT_ENAB, CCB_KBD_DISAB | CCB_MOUSE_DISAB))
 		return STATUS_IO_DEVICE_ERROR;
 
 	i8042Flush(DeviceExtension);
 
-	/* Issue a CTRL_SELF_TEST command to check if this is really an i8042 controller */
-	ResendIterations = DeviceExtension->Settings.ResendIterations + 1;
-	while (ResendIterations--)
+	if (!i8042Write(DeviceExtension, DeviceExtension->ControlPort, CTRL_SELF_TEST))
 	{
-		if (!i8042Write(DeviceExtension, DeviceExtension->ControlPort, CTRL_SELF_TEST))
-		{
-			WARN_(I8042PRT, "Writing CTRL_SELF_TEST command failed\n");
-			return STATUS_IO_TIMEOUT;
-		}
-
-		Status = i8042ReadDataWait(DeviceExtension, &Value);
-		if (!NT_SUCCESS(Status))
-		{
-			WARN_(I8042PRT, "Failed to read CTRL_SELF_TEST response, status 0x%08lx\n", Status);
-			return Status;
-		}
-
-		if (Value == KBD_SELF_TEST_OK)
-		{
-			INFO_(I8042PRT, "CTRL_SELF_TEST completed successfully!\n");
-			break;
-		}
-		else if (Value == KBD_RESEND)
-		{
-			TRACE_(I8042PRT, "Resending...\n", Value);
-			KeStallExecutionProcessor(50);
-		}
-		else
-		{
-			WARN_(I8042PRT, "Got 0x%02x instead of 0x55\n", Value);
-			return STATUS_IO_DEVICE_ERROR;
-		}
+		WARN_(I8042PRT, "Writing CTRL_SELF_TEST command failed\n");
+		return STATUS_IO_TIMEOUT;
 	}
+
+	Status = i8042ReadDataWait(DeviceExtension, &Value);
+	if (!NT_SUCCESS(Status))
+	{
+		WARN_(I8042PRT, "Failed to read CTRL_SELF_TEST response, status 0x%08lx\n", Status);
+		return Status;
+	}
+
+	if (Value != 0x55)
+	{
+		WARN_(I8042PRT, "Got 0x%02x instead of 0x55\n", Value);
+		return STATUS_IO_DEVICE_ERROR;
+	}
+
+	/*
+	 * We used to send a KBD_LINE_TEST (0xAB) command here, but on at least HP
+	 * Pavilion notebooks the response to that command was incorrect.
+	 * So now we just assume that a keyboard is attached.
+	 */
+	DeviceExtension->Flags |= KEYBOARD_PRESENT;
+
+	if (i8042Write(DeviceExtension, DeviceExtension->ControlPort, MOUSE_LINE_TEST))
+	{
+		Status = i8042ReadDataWait(DeviceExtension, &Value);
+		if (NT_SUCCESS(Status) && Value == 0)
+			DeviceExtension->Flags |= MOUSE_PRESENT;
+	}
+
+	if (IsFirstStageSetup())
+		/* Ignore the mouse */
+		DeviceExtension->Flags &= ~MOUSE_PRESENT;
 
 	return STATUS_SUCCESS;
 }
 
-static VOID
+static BOOLEAN
 i8042DetectKeyboard(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension)
 {
@@ -137,7 +137,7 @@ i8042DetectKeyboard(
 		if (!NT_SUCCESS(Status))
 		{
 			WARN_(I8042PRT, "Can't finish SET_LEDS (0x%08lx)\n", Status);
-			return;
+			return FALSE;
 		}
 	}
 	else
@@ -145,61 +145,32 @@ i8042DetectKeyboard(
 		WARN_(I8042PRT, "Warning: can't write SET_LEDS (0x%08lx)\n", Status);
 	}
 
-	/* Turn on translation and SF (Some machines don't reboot if SF is not set, see ReactOS bug #1842) */
+	/* Turn on translation and SF (Some machines don't reboot if SF is not set) */
 	if (!i8042ChangeMode(DeviceExtension, 0, CCB_TRANSLATE | CCB_SYSTEM_FLAG))
-		return;
+		return FALSE;
 
-	/*
-	 * We used to send a KBD_LINE_TEST (0xAB) command, but on at least HP
-	 * Pavilion notebooks the response to that command was incorrect.
-	 * So now we just assume that a keyboard is attached.
-	 */
-	DeviceExtension->Flags |= KEYBOARD_PRESENT;
-
-	INFO_(I8042PRT, "Keyboard detected\n");
+	return TRUE;
 }
 
-static VOID
+static BOOLEAN
 i8042DetectMouse(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension)
 {
+	BOOLEAN Ok = FALSE;
 	NTSTATUS Status;
 	UCHAR Value;
-	UCHAR ExpectedReply[] = { MOUSE_ACK, 0xAA };
+	UCHAR ExpectedReply[] = { MOUSE_ACK, 0xAA, 0x00 };
 	UCHAR ReplyByte;
 
-	/* First do a mouse line test */
-	if (i8042Write(DeviceExtension, DeviceExtension->ControlPort, MOUSE_LINE_TEST))
-	{
-		Status = i8042ReadDataWait(DeviceExtension, &Value);
-
-		if (!NT_SUCCESS(Status) || Value != 0)
-		{
-			WARN_(I8042PRT, "Mouse line test failed\n");
-			goto failure;
-		}
-	}
-
-	/* Now reset the mouse */
 	i8042Flush(DeviceExtension);
 
-	if(!i8042IsrWritePort(DeviceExtension, MOU_CMD_RESET, CTRL_WRITE_MOUSE))
+	if (!i8042Write(DeviceExtension, DeviceExtension->ControlPort, CTRL_WRITE_MOUSE)
+	  ||!i8042Write(DeviceExtension, DeviceExtension->DataPort, MOU_CMD_RESET))
 	{
 		WARN_(I8042PRT, "Failed to write reset command to mouse\n");
-		goto failure;
+		goto cleanup;
 	}
 
-	/* The implementation of the "Mouse Reset" command differs much from chip to chip.
-
-	   By default, the first byte is an ACK, when the mouse is plugged in and working and NACK when it's not.
-	   On success, the next bytes are 0xAA and 0x00.
-
-	   But on some systems (like ECS K7S5A Pro, SiS 735 chipset), we always get an ACK and 0xAA.
-	   Only the last byte indicates, whether a mouse is plugged in.
-	   It is either sent or not, so there is no byte, which indicates a failure here.
-
-	   After the Mouse Reset command was issued, it usually takes some time until we get a response.
-	   So get the first two bytes in a loop. */
 	for (ReplyByte = 0;
 	     ReplyByte < sizeof(ExpectedReply) / sizeof(ExpectedReply[0]);
 	     ReplyByte++)
@@ -209,56 +180,39 @@ i8042DetectMouse(
 		do
 		{
 			Status = i8042ReadDataWait(DeviceExtension, &Value);
-
-			if(!NT_SUCCESS(Status))
-			{
-				/* Wait some time before trying again */
-				KeStallExecutionProcessor(50);
-			}
 		} while (Status == STATUS_IO_TIMEOUT && Counter--);
 
 		if (!NT_SUCCESS(Status))
 		{
 			WARN_(I8042PRT, "No ACK after mouse reset, status 0x%08lx\n", Status);
-			goto failure;
+			goto cleanup;
 		}
 		else if (Value != ExpectedReply[ReplyByte])
 		{
-			WARN_(I8042PRT, "Unexpected reply: 0x%02x (expected 0x%02x)\n", Value, ExpectedReply[ReplyByte]);
-			goto failure;
+			WARN_(I8042PRT, "Unexpected reply: 0x%02x (expected 0x%02x)\n",
+			        Value, ExpectedReply[ReplyByte]);
+			goto cleanup;
 		}
 	}
 
-	/* Finally get the third byte, but only try it one time (see above).
-	   Otherwise this takes around 45 seconds on a K7S5A Pro, when no mouse is plugged in. */
-	Status = i8042ReadDataWait(DeviceExtension, &Value);
+	Ok = TRUE;
 
-	if(!NT_SUCCESS(Status))
+cleanup:
+	if (!Ok)
 	{
-		WARN_(I8042PRT, "Last byte was not transmitted after mouse reset, status 0x%08lx\n", Status);
-		goto failure;
+		/* There is probably no mouse present. On some systems,
+		   the probe locks the entire keyboard controller. Let's
+		   try to get access to the keyboard again by sending a
+		   reset */
+		i8042Flush(DeviceExtension);
+		i8042Write(DeviceExtension, DeviceExtension->ControlPort, CTRL_SELF_TEST);
+		i8042ReadDataWait(DeviceExtension, &Value);
+		i8042Flush(DeviceExtension);
 	}
-	else if(Value != 0x00)
-	{
-		WARN_(I8042PRT, "Last byte after mouse reset was not 0x00, but 0x%02x\n", Value);
-		goto failure;
-	}
 
-	DeviceExtension->Flags |= MOUSE_PRESENT;
-	INFO_(I8042PRT, "Mouse detected\n");
-	return;
+	INFO_(I8042PRT, "Mouse %sdetected\n", Ok ? "" : "not ");
 
-failure:
-	/* There is probably no mouse present. On some systems,
-	   the probe locks the entire keyboard controller. Let's
-	   try to get access to the keyboard again by sending a
-	   reset */
-	i8042Flush(DeviceExtension);
-	i8042Write(DeviceExtension, DeviceExtension->ControlPort, CTRL_SELF_TEST);
-	i8042ReadDataWait(DeviceExtension, &Value);
-	i8042Flush(DeviceExtension);
-
-	INFO_(I8042PRT, "Mouse not detected\n");
+	return Ok;
 }
 
 static NTSTATUS
@@ -372,12 +326,24 @@ cleanup:
 
 static NTSTATUS
 EnableInterrupts(
-	IN PPORT_DEVICE_EXTENSION DeviceExtension,
-	IN UCHAR FlagsToDisable,
-	IN UCHAR FlagsToEnable)
+	IN PPORT_DEVICE_EXTENSION DeviceExtension)
 {
+	UCHAR FlagsToDisable = 0;
+	UCHAR FlagsToEnable = 0;
+
 	i8042Flush(DeviceExtension);
 
+	/* Select the devices we have */
+	if (DeviceExtension->Flags & KEYBOARD_PRESENT)
+	{
+		FlagsToDisable |= CCB_KBD_DISAB;
+		FlagsToEnable |= CCB_KBD_INT_ENAB;
+	}
+	if (DeviceExtension->Flags & MOUSE_PRESENT)
+	{
+		FlagsToDisable |= CCB_MOUSE_DISAB;
+		FlagsToEnable |= CCB_MOUSE_INT_ENAB;
+	}
 	if (!i8042ChangeMode(DeviceExtension, FlagsToDisable, FlagsToEnable))
 		return STATUS_UNSUCCESSFUL;
 
@@ -387,7 +353,10 @@ EnableInterrupts(
 		KIRQL Irql;
 
 		Irql = KeAcquireInterruptSpinLock(DeviceExtension->HighestDIRQLInterrupt);
-		i8042IsrWritePort(DeviceExtension, MOU_CMD_RESET, CTRL_WRITE_MOUSE);
+
+		i8042Write(DeviceExtension, DeviceExtension->ControlPort, CTRL_WRITE_MOUSE);
+		i8042Write(DeviceExtension, DeviceExtension->DataPort, MOU_CMD_RESET);
+
 		KeReleaseInterruptSpinLock(DeviceExtension->HighestDIRQLInterrupt, Irql);
 	}
 
@@ -399,8 +368,6 @@ StartProcedure(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension)
 {
 	NTSTATUS Status;
-	UCHAR FlagsToDisable = 0;
-	UCHAR FlagsToEnable = 0;
 
 	if (DeviceExtension->DataPort == 0)
 	{
@@ -418,20 +385,12 @@ StartProcedure(
 			WARN_(I8042PRT, "i8042BasicDetect() failed with status 0x%08lx\n", Status);
 			return STATUS_UNSUCCESSFUL;
 		}
-
-		/* First detect the mouse and then the keyboard!
-		   If we do it the other way round, some systems throw away settings like the keyboard translation, when detecting the mouse.
-		
-		   Don't detect the mouse if we're in 1st stage setup! */
-		if(!IsFirstStageSetup())
-		{
-			TRACE_(I8042PRT, "Detecting mouse\n");
-			i8042DetectMouse(DeviceExtension);
-		}
-
 		TRACE_(I8042PRT, "Detecting keyboard\n");
-		i8042DetectKeyboard(DeviceExtension);
-
+		if (!i8042DetectKeyboard(DeviceExtension))
+			return STATUS_UNSUCCESSFUL;
+		TRACE_(I8042PRT, "Detecting mouse\n");
+		if (!i8042DetectMouse(DeviceExtension))
+			return STATUS_UNSUCCESSFUL;
 		INFO_(I8042PRT, "Keyboard present: %s\n", DeviceExtension->Flags & KEYBOARD_PRESENT ? "YES" : "NO");
 		INFO_(I8042PRT, "Mouse present   : %s\n", DeviceExtension->Flags & MOUSE_PRESENT ? "YES" : "NO");
 	}
@@ -440,37 +399,55 @@ StartProcedure(
 	if (DeviceExtension->Flags & KEYBOARD_PRESENT &&
 	    DeviceExtension->Flags & KEYBOARD_CONNECTED &&
 	    DeviceExtension->Flags & KEYBOARD_STARTED &&
-	    !(DeviceExtension->Flags & KEYBOARD_INITIALIZED))
+	    !(DeviceExtension->Flags & (MOUSE_PRESENT | KEYBOARD_INITIALIZED)))
 	{
-		/* Keyboard is ready to be initialized */
+		/* No mouse, and the keyboard is ready */
 		Status = i8042ConnectKeyboardInterrupt(DeviceExtension->KeyboardExtension);
 		if (NT_SUCCESS(Status))
 		{
 			DeviceExtension->Flags |= KEYBOARD_INITIALIZED;
-			FlagsToDisable |= CCB_KBD_DISAB;
-			FlagsToEnable |= CCB_KBD_INT_ENAB;
+			Status = EnableInterrupts(DeviceExtension);
 		}
 	}
-
-	if (DeviceExtension->Flags & MOUSE_PRESENT &&
-	    DeviceExtension->Flags & MOUSE_CONNECTED &&
-	    DeviceExtension->Flags & MOUSE_STARTED &&
-	    !(DeviceExtension->Flags & MOUSE_INITIALIZED))
+	else if (DeviceExtension->Flags & MOUSE_PRESENT &&
+	         DeviceExtension->Flags & MOUSE_CONNECTED &&
+	         DeviceExtension->Flags & MOUSE_STARTED &&
+	         !(DeviceExtension->Flags & (KEYBOARD_PRESENT | MOUSE_INITIALIZED)))
 	{
-		/* Mouse is ready to be initialized */
+		/* No keyboard, and the mouse is ready */
 		Status = i8042ConnectMouseInterrupt(DeviceExtension->MouseExtension);
 		if (NT_SUCCESS(Status))
 		{
 			DeviceExtension->Flags |= MOUSE_INITIALIZED;
-			FlagsToDisable |= CCB_MOUSE_DISAB;
-			FlagsToEnable |= CCB_MOUSE_INT_ENAB;
+			Status = EnableInterrupts(DeviceExtension);
 		}
 	}
-
-	if (FlagsToEnable)
-		Status = EnableInterrupts(DeviceExtension, FlagsToDisable, FlagsToEnable);
+	else if (DeviceExtension->Flags & KEYBOARD_PRESENT &&
+	         DeviceExtension->Flags & KEYBOARD_CONNECTED &&
+	         DeviceExtension->Flags & KEYBOARD_STARTED &&
+	         DeviceExtension->Flags & MOUSE_PRESENT &&
+	         DeviceExtension->Flags & MOUSE_CONNECTED &&
+	         DeviceExtension->Flags & MOUSE_STARTED &&
+	         !(DeviceExtension->Flags & (KEYBOARD_INITIALIZED | MOUSE_INITIALIZED)))
+	{
+		/* The keyboard and mouse are ready */
+		Status = i8042ConnectKeyboardInterrupt(DeviceExtension->KeyboardExtension);
+		if (NT_SUCCESS(Status))
+		{
+			DeviceExtension->Flags |= KEYBOARD_INITIALIZED;
+			Status = i8042ConnectMouseInterrupt(DeviceExtension->MouseExtension);
+			if (NT_SUCCESS(Status))
+			{
+				DeviceExtension->Flags |= MOUSE_INITIALIZED;
+				Status = EnableInterrupts(DeviceExtension);
+			}
+		}
+	}
 	else
+	{
+		/* Nothing to do */
 		Status = STATUS_SUCCESS;
+	}
 
 	return Status;
 }
@@ -618,8 +595,8 @@ i8042PnpStartDevice(
 		}
 		default:
 		{
-			WARN_(I8042PRT, "Unknown FDO type %u\n", DeviceExtension->Type);
-			ASSERT(!(PortDeviceExtension->Flags & KEYBOARD_CONNECTED) || !(PortDeviceExtension->Flags & MOUSE_CONNECTED));
+			ERR_(I8042PRT, "Unknown FDO type %u\n", DeviceExtension->Type);
+			ASSERT(FALSE);
 			Status = STATUS_INVALID_DEVICE_REQUEST;
 		}
 	}
@@ -674,7 +651,7 @@ i8042Pnp(
 					PDEVICE_RELATIONS DeviceRelations;
 
 					TRACE_(I8042PRT, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / BusRelations\n");
-					DeviceRelations = ExAllocatePool(PagedPool, sizeof(DEVICE_RELATIONS));
+					DeviceRelations = ExAllocatePoolWithTag(PagedPool, sizeof(DEVICE_RELATIONS), I8042PRT_TAG);
 					if (DeviceRelations)
 					{
 						DeviceRelations->Count = 0;

@@ -4,6 +4,7 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<include base="expand">.</include>
 	<define name="ANONYMOUSUNIONS" />
+	<define name="_WIN32_WINNT">0x0501</define>
 	<library>lz32</library>
 	<library>user32</library>
 	<library>kernel32</library>

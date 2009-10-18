@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.3
+ * Version:  6.5.3
  *
- * Copyright (C) 2004-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 2004-2007  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -233,23 +233,13 @@ _mesa_GetObjectParameterivARB(GLhandleARB object, GLenum pname, GLint *params)
    GET_CURRENT_CONTEXT(ctx);
    /* Implement in terms of GetProgramiv, GetShaderiv */
    if (ctx->Driver.IsProgram(ctx, object)) {
-      if (pname == GL_OBJECT_TYPE_ARB) {
-	 *params = GL_PROGRAM_OBJECT_ARB;
-      }
-      else {
-	 ctx->Driver.GetProgramiv(ctx, object, pname, params);
-      }
+      ctx->Driver.GetProgramiv(ctx, object, pname, params);
    }
    else if (ctx->Driver.IsShader(ctx, object)) {
-      if (pname == GL_OBJECT_TYPE_ARB) {
-	 *params = GL_SHADER_OBJECT_ARB;
-      }
-      else {
-	 ctx->Driver.GetShaderiv(ctx, object, pname, params);
-      }
+      ctx->Driver.GetShaderiv(ctx, object, pname, params);
    }
    else {
-      _mesa_error(ctx, GL_INVALID_VALUE, "glGetObjectParameterivARB");
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glGetObjectParameterivARB");
    }
 }
 
@@ -319,7 +309,11 @@ void GLAPIENTRY
 _mesa_GetUniformivARB(GLhandleARB program, GLint location, GLint * params)
 {
    GET_CURRENT_CONTEXT(ctx);
-   ctx->Driver.GetUniformiv(ctx, program, location, params);
+   GLfloat fparams[16]; /* XXX is 16 enough? */
+   GLuint i;
+   ctx->Driver.GetUniformfv(ctx, program, location, fparams);
+   for (i = 0; i < 16; i++)
+      params[i] = (GLint) fparams[i];  /* XXX correct? */
 }
 
 
@@ -388,7 +382,7 @@ _mesa_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
    GLsizei i, totalLength;
    GLcharARB *source;
 
-   if (!shaderObj || string == NULL) {
+   if (string == NULL) {
       _mesa_error(ctx, GL_INVALID_VALUE, "glShaderSourceARB");
       return;
    }
@@ -406,7 +400,7 @@ _mesa_ShaderSourceARB(GLhandleARB shaderObj, GLsizei count,
    for (i = 0; i < count; i++) {
       if (string[i] == NULL) {
          _mesa_free((GLvoid *) offsets);
-         _mesa_error(ctx, GL_INVALID_OPERATION, "glShaderSourceARB(null string)");
+         _mesa_error(ctx, GL_INVALID_VALUE, "glShaderSourceARB(null string)");
          return;
       }
       if (length == NULL || length[i] < 0)

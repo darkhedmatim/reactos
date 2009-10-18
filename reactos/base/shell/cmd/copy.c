@@ -54,6 +54,7 @@ copy (TCHAR source[MAX_PATH],
       DWORD lpdwFlags,
       BOOL bTouch)
 {
+    TCHAR szMsg[RC_STRING_MAX_SIZE];
     FILETIME srctime,NewFileTime;
     HANDLE hFileSrc;
     HANDLE hFileDest;
@@ -71,7 +72,9 @@ copy (TCHAR source[MAX_PATH],
     if(CheckCtrlBreak(BREAK_INPUT))
         return 0;
 
-    TRACE ("checking mode\n");
+#ifdef _DEBUG
+    DebugPrintf (_T("checking mode\n"));
+#endif
 
     if(bTouch)
     {
@@ -79,7 +82,8 @@ copy (TCHAR source[MAX_PATH],
             NULL, OPEN_EXISTING, 0, NULL);
         if (hFileSrc == INVALID_HANDLE_VALUE)
         {
-            ConOutResPrintf(STRING_COPY_ERROR1, source);
+            LoadString(CMD_ModuleHandle, STRING_COPY_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+            ConOutPrintf(szMsg, source);
             nErrorLevel = 1;
             return 0;
         }
@@ -106,17 +110,22 @@ copy (TCHAR source[MAX_PATH],
         NULL, OPEN_EXISTING, 0, NULL);
     if (hFileSrc == INVALID_HANDLE_VALUE)
     {
-        ConOutResPrintf(STRING_COPY_ERROR1, source);
+        LoadString(CMD_ModuleHandle, STRING_COPY_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+        ConOutPrintf(szMsg, source);
         nErrorLevel = 1;
         return 0;
     }
 
-    TRACE ("getting time\n");
+#ifdef _DEBUG
+    DebugPrintf (_T("getting time\n"));
+#endif
 
     GetFileTime (hFileSrc, &srctime, NULL, NULL);
 
-    TRACE ("copy: flags has %s\n",
+#ifdef _DEBUG
+    DebugPrintf (_T("copy: flags has %s\n"),
         lpdwFlags & COPY_ASCII ? "ASCII" : "BINARY");
+#endif
 
     /* Check to see if /D or /Z are true, if so we need a middle
        man to copy the file too to allow us to use CopyFileEx later */
@@ -156,16 +165,22 @@ copy (TCHAR source[MAX_PATH],
 
     if (!IsExistingFile (dest))
     {
-        TRACE ("opening/creating\n");
+#ifdef _DEBUG
+        DebugPrintf (_T("opening/creating\n"));
+#endif
         hFileDest =
             CreateFile (dest, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
     }
     else if (!append)
     {
-        TRACE ("SetFileAttributes (%s, FILE_ATTRIBUTE_NORMAL);\n", debugstr_aw(dest));
+#ifdef _DEBUG
+        DebugPrintf (_T("SetFileAttributes (%s, FILE_ATTRIBUTE_NORMAL);\n"), dest);
+#endif
         SetFileAttributes (dest, FILE_ATTRIBUTE_NORMAL);
 
-        TRACE ("DeleteFile (%s);\n", debugstr_aw(dest));
+#ifdef _DEBUG
+        DebugPrintf (_T("DeleteFile (%s);\n"), dest);
+#endif
         DeleteFile (dest);
 
         hFileDest =	CreateFile (dest, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
@@ -180,7 +195,9 @@ copy (TCHAR source[MAX_PATH],
             return 0;
         }
 
-        TRACE ("opening/appending\n");
+#ifdef _DEBUG
+        DebugPrintf (_T("opening/appending\n"));
+#endif
         SetFileAttributes (dest, FILE_ATTRIBUTE_NORMAL);
 
         hFileDest =
@@ -232,7 +249,7 @@ copy (TCHAR source[MAX_PATH],
         {
             ConOutResPuts(STRING_COPY_ERROR3);
 
-            VirtualFree (buffer, 0, MEM_RELEASE);
+            cmd_free (buffer);
             CloseHandle (hFileDest);
             CloseHandle (hFileSrc);
             nErrorLevel = 1;
@@ -241,14 +258,18 @@ copy (TCHAR source[MAX_PATH],
     }
     while (!bEof);
 
-    TRACE ("setting time\n");
+#ifdef _DEBUG
+    DebugPrintf (_T("setting time\n"));
+#endif
     SetFileTime (hFileDest, &srctime, NULL, NULL);
 
     if ((lpdwFlags & COPY_ASCII) && !bEof)
     {
         /* we're dealing with ASCII files! */
         buffer[0] = 0x1A;
-        TRACE ("appending ^Z\n");
+#ifdef _DEBUG
+        DebugPrintf (_T("appending ^Z\n"));
+#endif
         WriteFile (hFileDest, buffer, sizeof(CHAR), &dwWritten, NULL);
     }
 
@@ -256,7 +277,9 @@ copy (TCHAR source[MAX_PATH],
     CloseHandle (hFileDest);
     CloseHandle (hFileSrc);
 
-    TRACE ("setting mode\n");
+#ifdef _DEBUG
+    DebugPrintf (_T("setting mode\n"));
+#endif
     SetFileAttributes (dest, dwAttrib);
 
     /* Now finish off the copy if needed with CopyFileEx */
@@ -283,15 +306,18 @@ copy (TCHAR source[MAX_PATH],
 static INT CopyOverwrite (LPTSTR fn)
 {
     /*ask the user if they want to override*/
+    TCHAR szMsg[RC_STRING_MAX_SIZE];
     INT res;
-    ConOutResPrintf(STRING_COPY_HELP1, fn);
-    res = FilePromptYNA (0);
+    LoadString(CMD_ModuleHandle, STRING_COPY_HELP1, szMsg, RC_STRING_MAX_SIZE);
+    ConOutPrintf(szMsg,fn);
+    res = FilePromptYNA (_T(""));
     return res;
 }
 
 
-INT cmd_copy (LPTSTR param)
+INT cmd_copy (LPTSTR cmd, LPTSTR param)
 {
+    TCHAR szMsg[RC_STRING_MAX_SIZE];
     LPTSTR *arg;
     INT argc, i, nFiles, nOverwrite = 0, nSrc = -1, nDes = -1;
     /* this is the path up to the folder of the src and dest ie C:\windows\ */
@@ -456,9 +482,9 @@ INT cmd_copy (LPTSTR param)
 
                     default:
                         /* Invalid switch */
-                        ConOutResPrintf(STRING_ERROR_INVALID_SWITCH, _totupper(arg[i][1]));
+                        LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_SWITCH, szMsg, RC_STRING_MAX_SIZE);
+                        ConOutPrintf(szMsg, _totupper(arg[i][1]));
                         nErrorLevel = 1;
-                        freep (arg);
                         return 1;
                         break;
                 }
@@ -478,19 +504,8 @@ INT cmd_copy (LPTSTR param)
                 /* Add these onto the source string
                    this way we can do all checks
                     directly on source string later on */
-                TCHAR * ptr;
-                int length = (_tcslen(arg[nSrc]) +_tcslen(arg[i]) + _tcslen(arg[i+1]) + 1) * sizeof(TCHAR);
-                ptr = cmd_alloc(length);
-                if (ptr)
-                {
-                    _tcscpy(ptr, arg[nSrc]);
-                    _tcscat(ptr, arg[i]);
-                    _tcscat(ptr, arg[i+1]);
-                    cmd_free(arg[nSrc]);
-                    arg[nSrc] = ptr;
-                    i++;
-                    nFiles -= 2;
-                }
+                _tcscat(arg[nSrc],arg[i]);
+                nFiles--;
             }
             else if(nDes == -1)
             {
@@ -517,26 +532,24 @@ INT cmd_copy (LPTSTR param)
     if(nFiles > 2)
     {
         /* There are too many file names in command */
-        ConErrResPrintf(STRING_ERROR_TOO_MANY_PARAMETERS,_T(""));
+        LoadString(CMD_ModuleHandle, STRING_ERROR_TOO_MANY_PARAMETERS, szMsg, RC_STRING_MAX_SIZE);
+        ConErrPrintf(szMsg,_T(""));
         nErrorLevel = 1;
         freep (arg);
         return 1;
     }
 
-    if (nDes != -1) /* you can only append files when there is a destination */
+    if(((_tcschr (arg[nSrc], _T('+')) != NULL) ||
+        (_tcschr (arg[nSrc], _T('*')) != NULL && _tcschr (arg[nDes], _T('*')) == NULL) ||
+        (IsExistingDirectory (arg[nSrc]) && (_tcschr (arg[nDes], _T('*')) == NULL && !IsExistingDirectory (arg[nDes])))
+        ))
     {
-        if(((_tcschr (arg[nSrc], _T('+')) != NULL) ||
-            (_tcschr (arg[nSrc], _T('*')) != NULL && _tcschr (arg[nDes], _T('*')) == NULL) ||
-            (IsExistingDirectory (arg[nSrc]) && (_tcschr (arg[nDes], _T('*')) == NULL && !IsExistingDirectory (arg[nDes])))
-            ))
-        {
-            /* There is a + in the source filename, this means
-            that there is more then one file being put into
-            one file. */
-            bAppend = TRUE;
-            if(_tcschr (arg[nSrc], _T('+')) != NULL)
-                appendPointer = arg[nSrc];
-        }
+        /* There is a + in the source filename, this means
+        that there is more then one file being put into
+        one file. */
+        bAppend = TRUE;
+        if(_tcschr (arg[nSrc], _T('+')) != NULL)
+            appendPointer = arg[nSrc];
     }
 
     /* Reusing the number of files variable */
@@ -596,7 +609,8 @@ INT cmd_copy (LPTSTR param)
                 szTouch = _tcsstr (arg[nSrc], _T("+"));
                 if(_tcsncmp (szTouch,_T("+,,\0"),4) || nDes != -1)
                 {
-                    ConErrResPrintf(STRING_ERROR_INVALID_PARAM_FORMAT,arg[nSrc]);
+                    LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_PARAM_FORMAT, szMsg, RC_STRING_MAX_SIZE);
+                    ConErrPrintf(szMsg,arg[nSrc]);
                     nErrorLevel = 1;
                     freep (arg);
                     return 1;
@@ -714,7 +728,7 @@ INT cmd_copy (LPTSTR param)
             _tcscpy(tmpDestPath,szDestPath);
 
             /* Can't put a file into a folder that isnt there */
-            if(_tcscmp (szDestPath, _T("\\\\.\\")) && !IsExistingDirectory(szDestPath))
+            if(!IsExistingDirectory(szDestPath))
             {
                 ConOutFormatMessage (GetLastError (), szSrcPath);
                 freep (arg);
@@ -785,7 +799,8 @@ INT cmd_copy (LPTSTR param)
             /* Check to see if the file is the same file */
             if(!bTouch && !_tcscmp (tmpSrcPath, tmpDestPath))
             {
-                ConOutResPrintf(STRING_COPY_ERROR2);
+                LoadString(CMD_ModuleHandle, STRING_COPY_ERROR2, szMsg, RC_STRING_MAX_SIZE);
+                ConOutPrintf(szMsg);
 
                 nErrorLevel = 1;
                 break;
@@ -811,7 +826,8 @@ INT cmd_copy (LPTSTR param)
             else
             {
                 /* print out the error message */
-                ConOutResPrintf(STRING_COPY_ERROR3);
+                LoadString(CMD_ModuleHandle, STRING_COPY_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+                ConOutPrintf(szMsg);
                 ConOutFormatMessage (GetLastError(), szSrcPath);
                 nErrorLevel = 1;
             }
@@ -823,7 +839,8 @@ INT cmd_copy (LPTSTR param)
     } while(!bDone);
 
     /* print out the number of files copied */
-    ConOutResPrintf(STRING_COPY_FILE, nFiles);
+    LoadString(CMD_ModuleHandle, STRING_COPY_FILE, szMsg, RC_STRING_MAX_SIZE);
+    ConOutPrintf(szMsg, nFiles);
 
     FindClose(hFile);
 

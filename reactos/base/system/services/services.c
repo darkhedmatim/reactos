@@ -34,7 +34,7 @@ BOOL ScmShutdown = FALSE;
 VOID
 PrintString(LPCSTR fmt, ...)
 {
-#if DBG
+#ifdef DBG
     CHAR buffer[512];
     va_list ap;
 
@@ -292,11 +292,11 @@ ShutdownHandlerRoutine(DWORD dwCtrlType)
 }
 
 
-int WINAPI
-wWinMain(HINSTANCE hInstance,
-         HINSTANCE hPrevInstance,
-         LPWSTR lpCmdLine,
-         int nShowCmd)
+int STDCALL
+WinMain(HINSTANCE hInstance,
+        HINSTANCE hPrevInstance,
+        LPSTR lpCmdLine,
+        int nShowCmd)
 {
     HANDLE hScmStartEvent;
     HANDLE hEvent;

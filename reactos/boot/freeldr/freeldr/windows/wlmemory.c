@@ -14,7 +14,6 @@
 #include <debug.h>
 
 extern ULONG TotalNLSSize;
-extern ULONG LoaderPagesSpanned;
 
 // This is needed because headers define wrong one for ReactOS
 #undef KIP0PCRADDRESS
@@ -77,17 +76,38 @@ WinLdrSetProcessorContext(PVOID GdtIdt, IN ULONG Pcr, IN ULONG Tss);
 	} GDTIDT;
 #pragma pack(4)
 
+// this is needed for new IDT filling
+#if 0
+extern ULONG_PTR i386DivideByZero;
+extern ULONG_PTR i386DebugException;
+extern ULONG_PTR i386NMIException;
+extern ULONG_PTR i386Breakpoint;
+extern ULONG_PTR i386Overflow;
+extern ULONG_PTR i386BoundException;
+extern ULONG_PTR i386InvalidOpcode;
+extern ULONG_PTR i386FPUNotAvailable;
+extern ULONG_PTR i386DoubleFault;
+extern ULONG_PTR i386CoprocessorSegment;
+extern ULONG_PTR i386InvalidTSS;
+extern ULONG_PTR i386SegmentNotPresent;
+extern ULONG_PTR i386StackException;
+extern ULONG_PTR i386GeneralProtectionFault;
+extern ULONG_PTR i386PageFault; // exc 14
+extern ULONG_PTR i386CoprocessorError; // exc 16
+extern ULONG_PTR i386AlignmentCheck; // exc 17
+#endif
+
 /* GLOBALS ***************************************************************/
 
 PHARDWARE_PTE PDE;
-PHARDWARE_PTE HalPageTable;
+PHARDWARE_PTE HalPT;
 
 PUCHAR PhysicalPageTablesBuffer;
 PUCHAR KernelPageTablesBuffer;
 ULONG PhysicalPageTables;
 ULONG KernelPageTables;
 
-MEMORY_ALLOCATION_DESCRIPTOR *Mad;
+MEMORY_ALLOCATION_DESCRIPTOR Mad[1024];
 ULONG MadCount = 0;
 
 
@@ -105,29 +125,15 @@ MempAllocatePageTables()
 	// and windows doesn't expect ALL memory mapped...
 	NumPageTables = (GetSystemMemorySize() >> MM_PAGE_SHIFT) >> 10;
 
-	DPRINTM(DPRINT_WINDOWS, "NumPageTables = %d\n", NumPageTables);
+	DbgPrint((DPRINT_WINDOWS, "NumPageTables = %d\n", NumPageTables));
 
 	// Allocate memory block for all these things:
 	// PDE, HAL mapping page table, physical mapping, kernel mapping
+	// FIXME: PDE+HAL+KernelPTEs == FirmwarePermanent, Physical PTEs = FirmwareTemporary
 	TotalSize = (1+1+NumPageTables*2)*MM_PAGE_SIZE;
+	Buffer = MmAllocateMemoryWithType(TotalSize, LoaderFirmwarePermanent);
 
-	// PDE+HAL+KernelPTEs == MemoryData
-	Buffer = MmAllocateMemoryWithType(TotalSize, LoaderMemoryData);
-
-	// Physical PTEs = FirmwareTemporary
-	PhysicalPageTablesBuffer = (PUCHAR)Buffer + TotalSize - NumPageTables*MM_PAGE_SIZE;
-	MmSetMemoryType(PhysicalPageTablesBuffer,
-	                NumPageTables*MM_PAGE_SIZE,
-	                LoaderFirmwareTemporary);
-
-	// This check is now redundant
-	if (Buffer + (TotalSize - NumPageTables*MM_PAGE_SIZE) !=
-		PhysicalPageTablesBuffer)
-	{
-		DPRINTM(DPRINT_WINDOWS, "There was a problem allocating two adjacent blocks of memory!");
-	}
-
-	if (Buffer == NULL || PhysicalPageTablesBuffer == NULL)
+	if (Buffer == NULL)
 	{
 		UiMessageBox("Impossible to allocate memory block for page tables!");
 		return FALSE;
@@ -145,15 +151,19 @@ MempAllocatePageTables()
 	PDE[HYPER_SPACE_ENTRY].Write = 1;
 
 	// The last PDE slot is allocated for HAL's memory mapping (Virtual Addresses 0xFFC00000 - 0xFFFFFFFF)
-	HalPageTable = (PHARDWARE_PTE)&Buffer[MM_PAGE_SIZE*1];
+	HalPT = (PHARDWARE_PTE)&Buffer[MM_PAGE_SIZE*1];
 
 	// Map it
-	PDE[1023].PageFrameNumber = (ULONG)HalPageTable >> MM_PAGE_SHIFT;
+	PDE[1023].PageFrameNumber = (ULONG)HalPT >> MM_PAGE_SHIFT;
 	PDE[1023].Valid = 1;
 	PDE[1023].Write = 1;
 
-	// Store pointer to the table for easier access
-	KernelPageTablesBuffer = &Buffer[MM_PAGE_SIZE*2];
+	// Store pointers to the tables for easier access
+	PhysicalPageTablesBuffer = &Buffer[MM_PAGE_SIZE*2];
+	KernelPageTablesBuffer = PhysicalPageTablesBuffer + NumPageTables*MM_PAGE_SIZE;
+
+	// Mark physical PTE's buffer as FirmwareTemporary
+	//MmSetMemoryType(KernelPageTablesBuffer, NumPageTables*MM_PAGE_SIZE, LoaderFirmwareTemporary);
 
 	// Zero counters of page tables used
 	PhysicalPageTables = 0;
@@ -177,7 +187,7 @@ MempAllocatePTE(ULONG Entry, PHARDWARE_PTE *PhysicalPT, PHARDWARE_PTE *KernelPT)
 
 	if (Entry+(KSEG0_BASE >> 22) > 1023)
 	{
-		DPRINTM(DPRINT_WINDOWS, "WARNING! Entry: %X > 1023\n", Entry+(KSEG0_BASE >> 22));
+		DbgPrint((DPRINT_WINDOWS, "WARNING! Entry: %X > 1023\n", Entry+(KSEG0_BASE >> 22)));
 	}
 
 	// Kernel-mode mapping
@@ -255,7 +265,7 @@ MempSetupPaging(IN ULONG StartPage,
 VOID
 MempDisablePages()
 {
-	ULONG i;
+	int i;
 
 	//
 	// We need to delete kernel mapping from memory areas which are
@@ -272,22 +282,23 @@ MempDisablePages()
 		if (Mad[i].MemoryType == LoaderFirmwarePermanent ||
 			Mad[i].MemoryType == LoaderSpecialMemory ||
 			Mad[i].MemoryType == LoaderFree ||
-			(Mad[i].MemoryType == LoaderFirmwareTemporary && EndPage <= LoaderPagesSpanned) ||
+			(Mad[i].MemoryType == LoaderFirmwareTemporary && EndPage <= LOADER_HIGH_ZONE) ||
 			Mad[i].MemoryType == LoaderOsloaderStack ||
 			Mad[i].MemoryType == LoaderLoadedProgram)
 		{
+
 			//
 			// But, the first megabyte of memory always stays!
 			// And, to tell the truth, we don't care about what's higher
-			// than LoaderPagesSpanned
+			// than LOADER_HIGH_ZONE
 			if (Mad[i].MemoryType == LoaderFirmwarePermanent ||
 				Mad[i].MemoryType == LoaderSpecialMemory)
 			{
 				if (StartPage < 0x100)
 					StartPage = 0x100;
 
-				if (EndPage > LoaderPagesSpanned)
-					EndPage = LoaderPagesSpanned;
+				if (EndPage > LOADER_HIGH_ZONE)
+					EndPage = LOADER_HIGH_ZONE;
 			}
 
 			for (Page = StartPage; Page < EndPage; Page++)
@@ -310,6 +321,7 @@ MempDisablePages()
 		}
 	}
 }
+
 
 VOID
 MempAddMemoryBlock(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
@@ -341,14 +353,11 @@ MempAddMemoryBlock(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	// Check if it's more than the allowed for OS loader
 	// if yes - don't map the pages, just add as FirmwareTemporary
 	//
-	if (BasePage + PageCount > LoaderPagesSpanned)
+	if (BasePage + PageCount > LOADER_HIGH_ZONE)
 	{
-		if (Mad[MadCount].MemoryType != LoaderSpecialMemory &&
-			Mad[MadCount].MemoryType != LoaderFirmwarePermanent &&
-			Mad[MadCount].MemoryType != LoaderFree)
+		if (Mad[MadCount].MemoryType != LoaderSpecialMemory ||
+			Mad[MadCount].MemoryType != LoaderFirmwarePermanent)
 		{
-			DPRINTM(DPRINT_WINDOWS, "Setting page %x %x to Temporary from %d\n",
-				BasePage, PageCount, Mad[MadCount].MemoryType);
 			Mad[MadCount].MemoryType = LoaderFirmwareTemporary;
 		}
 
@@ -373,50 +382,11 @@ MempAddMemoryBlock(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 		Status = MempSetupPaging(BasePage, PageCount);
 		if (!Status)
 		{
-			DPRINTM(DPRINT_WINDOWS, "Error during MempSetupPaging\n");
+			DbgPrint((DPRINT_WINDOWS, "Error during MempSetupPaging\n"));
 			return;
 		}
 	}
 }
-
-#ifdef _M_IX86
-VOID
-WinLdrpMapApic()
-{
-	BOOLEAN LocalAPIC;
-	LARGE_INTEGER MsrValue;
-	ULONG APICAddress, CpuInfo[4];
-
-	/* Check if we have a local APIC */
-	__cpuid((int*)CpuInfo, 1);
-	LocalAPIC = (((CpuInfo[3] >> 9) & 1) != 0);
-
-	/* If there is no APIC, just return */
-	if (!LocalAPIC)
-		return;
-
-	/* Read the APIC Address */
-	MsrValue.QuadPart = __readmsr(0x1B);
-	APICAddress = (MsrValue.LowPart & 0xFFFFF000);
-
-	DPRINTM(DPRINT_WINDOWS, "Local APIC detected at address 0x%x\n",
-		APICAddress);
-
-	/* Map it */
-	HalPageTable[(APIC_BASE - 0xFFC00000) >> MM_PAGE_SHIFT].PageFrameNumber
-		= APICAddress >> MM_PAGE_SHIFT;
-	HalPageTable[(APIC_BASE - 0xFFC00000) >> MM_PAGE_SHIFT].Valid = 1;
-	HalPageTable[(APIC_BASE - 0xFFC00000) >> MM_PAGE_SHIFT].Write = 1;
-	HalPageTable[(APIC_BASE - 0xFFC00000) >> MM_PAGE_SHIFT].WriteThrough = 1;
-	HalPageTable[(APIC_BASE - 0xFFC00000) >> MM_PAGE_SHIFT].CacheDisable = 1;
-}
-#else
-VOID
-WinLdrpMapApic()
-{
-	/* Implement it for another arch */
-}
-#endif
 
 BOOLEAN
 WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
@@ -442,7 +412,7 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	// 2) Memory descriptors must map *the whole* physical memory
 	//    showing any memory above 16/24/32 as FirmwareTemporary
 	//
-	// 3) Overall memory blocks count must not exceed 30 (?? why?)
+	// 3) Overall memory blocks count must not exceed 30
 	//
 
 	//
@@ -458,9 +428,6 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	if (MempAllocatePageTables() == FALSE)
 		return FALSE;
 
-	// Allocate memory for memory allocation descriptors
-	Mad = MmHeapAlloc(sizeof(MEMORY_ALLOCATION_DESCRIPTOR) * 1024);
-
 	// Setup an entry for each descriptor
 	MemoryMap = MmGetMemoryMap(&NoEntries);
 	if (MemoryMap == NULL)
@@ -473,13 +440,13 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	MemoryMapStartPage = (ULONG_PTR)MemoryMap >> MM_PAGE_SHIFT;
 	MemoryMapSizeInPages = NoEntries * sizeof(PAGE_LOOKUP_TABLE_ITEM);
 
-	DPRINTM(DPRINT_WINDOWS, "Got memory map with %d entries\n", NoEntries);
+	DbgPrint((DPRINT_WINDOWS, "Got memory map with %d entries\n", NoEntries));
 
 	// Always contigiously map low 1Mb of memory
 	Status = MempSetupPaging(0, 0x100);
 	if (!Status)
 	{
-		DPRINTM(DPRINT_WINDOWS, "Error during MempSetupPaging of low 1Mb\n");
+		DbgPrint((DPRINT_WINDOWS, "Error during MempSetupPaging of low 1Mb\n"));
 		return FALSE;
 	}
 
@@ -542,7 +509,7 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	}
 #endif
 
-	DPRINTM(DPRINT_WINDOWS, "MadCount: %d\n", MadCount);
+	DbgPrint((DPRINT_WINDOWS, "MadCount: %d\n", MadCount));
 
 	WinLdrpDumpMemoryDescriptors(LoaderBlock); //FIXME: Delete!
 
@@ -555,24 +522,21 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	}*/
 
 	//VideoDisplayString(L"Hello from VGA, going into the kernel\n");
-	DPRINTM(DPRINT_WINDOWS, "HalPageTable: 0x%X\n", HalPageTable);
+	DbgPrint((DPRINT_WINDOWS, "HalPT: 0x%X\n", HalPT));
 
 	// Page Tables have been setup, make special handling for PCR and TSS
 	// (which is done in BlSetupFotNt in usual ntldr)
-	HalPageTable[(KI_USER_SHARED_DATA - 0xFFC00000) >> MM_PAGE_SHIFT].PageFrameNumber = PcrBasePage+1;
-	HalPageTable[(KI_USER_SHARED_DATA - 0xFFC00000) >> MM_PAGE_SHIFT].Valid = 1;
-	HalPageTable[(KI_USER_SHARED_DATA - 0xFFC00000) >> MM_PAGE_SHIFT].Write = 1;
+	HalPT[(KI_USER_SHARED_DATA - 0xFFC00000) >> MM_PAGE_SHIFT].PageFrameNumber = PcrBasePage+1;
+	HalPT[(KI_USER_SHARED_DATA - 0xFFC00000) >> MM_PAGE_SHIFT].Valid = 1;
+	HalPT[(KI_USER_SHARED_DATA - 0xFFC00000) >> MM_PAGE_SHIFT].Write = 1;
 
-	HalPageTable[(KIP0PCRADDRESS - 0xFFC00000) >> MM_PAGE_SHIFT].PageFrameNumber = PcrBasePage;
-	HalPageTable[(KIP0PCRADDRESS - 0xFFC00000) >> MM_PAGE_SHIFT].Valid = 1;
-	HalPageTable[(KIP0PCRADDRESS - 0xFFC00000) >> MM_PAGE_SHIFT].Write = 1;
-
-	// Map APIC
-	WinLdrpMapApic();
+	HalPT[(KIP0PCRADDRESS - 0xFFC00000) >> MM_PAGE_SHIFT].PageFrameNumber = PcrBasePage;
+	HalPT[(KIP0PCRADDRESS - 0xFFC00000) >> MM_PAGE_SHIFT].Valid = 1;
+	HalPT[(KIP0PCRADDRESS - 0xFFC00000) >> MM_PAGE_SHIFT].Write = 1;
 
 	// Map VGA memory
 	//VideoMemoryBase = MmMapIoSpace(0xb8000, 4000, MmNonCached);
-	//DPRINTM(DPRINT_WINDOWS, "VideoMemoryBase: 0x%X\n", VideoMemoryBase);
+	//DbgPrint((DPRINT_WINDOWS, "VideoMemoryBase: 0x%X\n", VideoMemoryBase));
 
 	Tss = (PKTSS)(KSEG0_BASE | (TssBasePage << MM_PAGE_SHIFT));
 
@@ -581,26 +545,26 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 
 	// Fill the memory descriptor list and 
 	//PrepareMemoryDescriptorList();
-	DPRINTM(DPRINT_WINDOWS, "Memory Descriptor List prepared, printing PDE\n");
+	DbgPrint((DPRINT_WINDOWS, "Memory Descriptor List prepared, printing PDE\n"));
 	List_PaToVa(&LoaderBlock->MemoryDescriptorListHead);
 
-#if DBG
+#ifdef DBG
 	{
 		ULONG *PDE_Addr=(ULONG *)PDE;//0xC0300000;
 		int j;
 
-		DPRINTM(DPRINT_WINDOWS, "\nPDE\n");
+		DbgPrint((DPRINT_WINDOWS, "\nPDE\n"));
 
 		for (i=0; i<128; i++)
 		{
-			DPRINTM(DPRINT_WINDOWS, "0x%04X | ", i*8);
+			DbgPrint((DPRINT_WINDOWS, "0x%04X | ", i*8));
 
 			for (j=0; j<8; j++)
 			{
-				DPRINTM(DPRINT_WINDOWS, "0x%08X ", PDE_Addr[i*8+j]);
+				DbgPrint((DPRINT_WINDOWS, "0x%08X ", PDE_Addr[i*8+j]));
 			}
 
-			DPRINTM(DPRINT_WINDOWS, "\n");
+			DbgPrint((DPRINT_WINDOWS, "\n"));
 		}
 	}
 #endif
@@ -613,7 +577,7 @@ WinLdrTurnOnPaging(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	_disable();
 
 	// Re-initalize EFLAGS
-	__writeeflags(0);
+	Ke386EraseFlags();
 
 	// Set the PDBR
 	__writecr3((ULONG_PTR)PDE);
@@ -640,8 +604,8 @@ WinLdrInsertDescriptor(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	PLIST_ENTRY PreviousEntry, NextEntry;
 	PMEMORY_ALLOCATION_DESCRIPTOR PreviousDescriptor = NULL, NextDescriptor = NULL;
 
-	DPRINTM(DPRINT_WINDOWS, "BP=0x%X PC=0x%X %s\n", NewDescriptor->BasePage,
-		NewDescriptor->PageCount, MemTypeDesc[NewDescriptor->MemoryType]);
+	DbgPrint((DPRINT_WINDOWS, "BP=0x%X PC=0x%X %s\n", NewDescriptor->BasePage,
+		NewDescriptor->PageCount, MemTypeDesc[NewDescriptor->MemoryType]));
 
 	/* Find a place where to insert the new descriptor to */
 	PreviousEntry = ListHead;
@@ -705,16 +669,16 @@ WinLdrSetProcessorContext(PVOID GdtIdt, IN ULONG Pcr, IN ULONG Tss)
 	ULONG Ldt = 0;
 	//ULONG i;
 
-	DPRINTM(DPRINT_WINDOWS, "GDtIdt %p, Pcr %p, Tss 0x%08X\n",
-		GdtIdt, Pcr, Tss);
+	DbgPrint((DPRINT_WINDOWS, "GDtIdt %p, Pcr %p, Tss 0x%08X\n",
+		GdtIdt, Pcr, Tss));
 
 	// Kernel expects the PCR to be zero-filled on startup
 	// FIXME: Why zero it here when we can zero it right after allocation?
 	RtlZeroMemory((PVOID)Pcr, MM_PAGE_SIZE); //FIXME: Why zero only 1 page when we allocate 2?
 
 	// Get old values of GDT and IDT
-	Ke386GetGlobalDescriptorTable(&GdtDesc);
-	__sidt(&IdtDesc);
+	Ke386GetGlobalDescriptorTable(GdtDesc);
+	Ke386GetInterruptDescriptorTable(IdtDesc);
 
 	// Save old IDT
 	OldIdt.Base = IdtDesc.Base;
@@ -808,7 +772,7 @@ WinLdrSetProcessorContext(PVOID GdtIdt, IN ULONG Pcr, IN ULONG Tss)
 	pGdt[7].HighWord.Bytes.BaseHi	= 0;
 
 	//
-	// Some BIOS stuff (0x40)
+	// Some BIOS fuck (0x40)
 	//
 	pGdt[8].LimitLow				= 0xFFFF;
 	pGdt[8].BaseLow					= 0x400;
@@ -861,7 +825,7 @@ WinLdrSetProcessorContext(PVOID GdtIdt, IN ULONG Pcr, IN ULONG Tss)
 	// Video buffer Selector (0x68)
 	//
 	pGdt[13].LimitLow				= 0x3FFF;
-	pGdt[13].BaseLow				= 0x8000;
+	pGdt[13].BaseLow				= 0x8000; //FIXME: I guess not correct for UGA
 	pGdt[13].HighWord.Bytes.BaseMid	= 0x0B;
 	pGdt[13].HighWord.Bytes.Flags1	= 0x92;
 	pGdt[13].HighWord.Bytes.Flags2	= 0;
@@ -879,37 +843,27 @@ WinLdrSetProcessorContext(PVOID GdtIdt, IN ULONG Pcr, IN ULONG Tss)
 
 	//
 	// Some unused descriptors should go here
-	//
+	// ...
 
 	// Copy the old IDT
-	RtlCopyMemory(pIdt, (PVOID)OldIdt.Base, OldIdt.Limit + 1);
+	RtlCopyMemory(pIdt, (PVOID)OldIdt.Base, OldIdt.Limit);
 
 	// Mask interrupts
 	//asm("cli\n"); // they are already masked before enabling paged mode
 
 	// Load GDT+IDT
-	Ke386SetGlobalDescriptorTable(&GdtDesc);
-	__lidt(&IdtDesc);
+	Ke386SetGlobalDescriptorTable(GdtDesc);
+	Ke386SetInterruptDescriptorTable(IdtDesc);
 
 	// Jump to proper CS and clear prefetch queue
-#if defined(__GNUC__)
-	asm("ljmp	$0x08, $1f\n"
-		"1:\n");
-#elif defined(_MSC_VER)
-	/* We can't express the above in MASM so we use this far return instead */
-	DbgPrint("WinLdrSetProcessorContext: Performing untested far-return\n");
-	__asm {
-		push 8
-		push offset resume
-		retf
-		resume:
-		};
-#else
-#error
-#endif
+	asm("ljmp	$0x08, $mb1\n"
+		"mb1:\n");
 
 	// Set SS selector
-	Ke386SetSs(0x10); // DataSelector=0x10
+	asm(".intel_syntax noprefix\n");
+		asm("mov ax, 0x10\n"); // DataSelector=0x10
+		asm("mov ss, ax\n");
+	asm(".att_syntax\n");
 
 	// Set DS and ES selectors
 	Ke386SetDs(0x10);
@@ -919,10 +873,13 @@ WinLdrSetProcessorContext(PVOID GdtIdt, IN ULONG Pcr, IN ULONG Tss)
 	Ke386SetLocalDescriptorTable(Ldt);
 
 	// Load TSR
-	Ke386SetTr(KGDT_TSS);
+	Ke386SetTr(0x28);
 
 	// Clear GS
-	Ke386SetGs(0);
+	asm(".intel_syntax noprefix\n");
+		asm("push 0\n");
+		asm("pop gs\n");
+	asm(".att_syntax\n");
 
 	// Set FS to PCR
 	Ke386SetFs(0x30);

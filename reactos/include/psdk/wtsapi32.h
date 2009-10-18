@@ -23,12 +23,6 @@
 extern "C" {
 #endif
 
-/*
-*  Current server information
-*/
-#define WTS_CURRENT_SERVER         ((HANDLE)NULL)
-#define WTS_CURRENT_SERVER_HANDLE  ((HANDLE)NULL)
-#define WTS_CURRENT_SERVER_NAME    (NULL)
 
 typedef enum tagWTS_INFO_CLASS
 {

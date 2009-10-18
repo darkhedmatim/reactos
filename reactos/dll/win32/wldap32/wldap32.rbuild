@@ -2,10 +2,16 @@
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
 <module name="wldap32" type="win32dll" baseaddress="${BASEADDRESS_WLDAP32}" installbase="system32" installname="wldap32.dll" allowwarnings="true">
-	<importlibrary definition="wldap32.spec" />
+	<importlibrary definition="wldap32.spec.def" />
 	<include base="wldap32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
+	<define name="WINVER">0x600</define>
+	<define name="_WIN32_WINNT">0x600</define>
+	<library>wine</library>
+	<library>user32</library>
+	<library>kernel32</library>
+	<library>ntdll</library>
 	<file>add.c</file>
 	<file>ber.c</file>
 	<file>bind.c</file>
@@ -27,9 +33,6 @@
 	<file>search.c</file>
 	<file>value.c</file>
 	<file>wldap32.rc</file>
-	<library>wine</library>
-	<library>user32</library>
-	<library>kernel32</library>
-	<library>ntdll</library>
+	<file>wldap32.spec</file>
 </module>
 </group>

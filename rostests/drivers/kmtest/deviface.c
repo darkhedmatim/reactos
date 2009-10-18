@@ -70,7 +70,7 @@
  *    function worked correctly.
  */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ReactOS_IoGetDeviceInterfaces(
    IN CONST GUID *InterfaceClassGuid,
    IN PDEVICE_OBJECT PhysicalDeviceObject OPTIONAL,

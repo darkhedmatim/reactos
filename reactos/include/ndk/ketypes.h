@@ -43,16 +43,6 @@ Author:
 // Processor Architectures
 //
 #define PROCESSOR_ARCHITECTURE_INTEL    0
-#define PROCESSOR_ARCHITECTURE_MIPS     1
-#define PROCESSOR_ARCHITECTURE_ALPHA    2
-#define PROCESSOR_ARCHITECTURE_PPC      3
-#define PROCESSOR_ARCHITECTURE_SHX      4
-#define PROCESSOR_ARCHITECTURE_ARM      5
-#define PROCESSOR_ARCHITECTURE_IA64     6
-#define PROCESSOR_ARCHITECTURE_ALPHA64  7
-#define PROCESSOR_ARCHITECTURE_MSIL     8
-#define PROCESSOR_ARCHITECTURE_AMD64    9
-#define PROCESSOR_ARCHITECTURE_UNKNOWN  0xFFFF
 
 //
 // Object Type Mask for Kernel Dispatcher Objects
@@ -64,6 +54,11 @@ Author:
 // Dispatcher Priority increments
 //
 #define THREAD_ALERT_INCREMENT          2
+
+//
+// User Shared Data in Kernel-Mode
+//
+#define KI_USER_SHARED_DATA             0xffdf0000
 
 //
 // Physical memory offset of KUSER_SHARED_DATA
@@ -107,6 +102,17 @@ Author:
 //
 #define KI_EXCEPTION_INTERNAL           0x10000000
 #define KI_EXCEPTION_ACCESS_VIOLATION   (KI_EXCEPTION_INTERNAL | 0x04)
+
+//
+// KPCR Access for non-IA64 builds
+//
+#define K0IPCR                          ((ULONG_PTR)(KIP0PCRADDRESS))
+#define PCR                             ((volatile KPCR * const)K0IPCR)
+#if !defined(CONFIG_SMP) && !defined(NT_BUILD)
+#define KeGetPcr()                      PCR
+#else
+#define KeGetPcr()                      ((volatile KPCR * const)__readfsdword(0x1C))
+#endif
 
 //
 // Number of dispatch codes supported by KINTERRUPT
@@ -547,14 +553,14 @@ typedef enum _KAPC_ENVIRONMENT
 } KAPC_ENVIRONMENT;
 
 //
-// CPU Cache Types 	 
-// 	 
-typedef enum _PROCESSOR_CACHE_TYPE 	 
+// CPU Cache Types
+//
+typedef enum _PROCESSOR_CACHE_TYPE
 {
-    CacheUnified, 	 
-    CacheInstruction, 	 
-    CacheData, 	 
-    CacheTrace, 	 
+    CacheUnified,
+    CacheInstruction,
+    CacheData,
+    CacheTrace,
 } PROCESSOR_CACHE_TYPE;
 
 //
@@ -563,7 +569,7 @@ typedef enum _PROCESSOR_CACHE_TYPE
 typedef struct _KDPC_DATA
 {
     LIST_ENTRY DpcListHead;
-    ULONG_PTR DpcLock;
+    ULONG DpcLock;
     volatile ULONG DpcQueueDepth;
     ULONG DpcCount;
 } KDPC_DATA, *PKDPC_DATA;
@@ -578,15 +584,15 @@ typedef struct _PP_LOOKASIDE_LIST
 } PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
 
 //
-// CPU Cache Descriptor 	 
-// 	 
-typedef struct _CACHE_DESCRIPTOR 	 
+// CPU Cache Descriptor
+//
+typedef struct _CACHE_DESCRIPTOR
 {
-    UCHAR Level; 	 
-    UCHAR Associativity; 	 
-    USHORT LineSize; 	 
-    ULONG Size; 	 
-    PROCESSOR_CACHE_TYPE Type; 	 
+    UCHAR Level;
+    UCHAR Associativity;
+    USHORT LineSize;
+    ULONG Size;
+    PROCESSOR_CACHE_TYPE Type;
 } CACHE_DESCRIPTOR, *PCACHE_DESCRIPTOR;
 
 //
@@ -626,7 +632,7 @@ typedef struct _KPROFILE
     PVOID RangeLimit;
     ULONG BucketShift;
     PVOID Buffer;
-    ULONG_PTR Segment;
+    ULONG Segment;
     KAFFINITY Affinity;
     KPROFILE_SOURCE Source;
     BOOLEAN Started;
@@ -667,7 +673,7 @@ typedef struct _KINTERRUPT
     ULONGLONG Rsvd1;
 #endif
     ULONG DispatchCode[KINTERRUPT_DISPATCH_CODES];
-} KINTERRUPT;
+} KINTERRUPT, *PKINTERRUPT;
 
 //
 // Kernel Event Pair Object
@@ -944,7 +950,7 @@ typedef struct _KTHREAD
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     PVOID MdlForLockedteb;
 #endif
-} KTHREAD;
+} KTHREAD, *PKTHREAD;
 
 #define ASSERT_THREAD(object) \
     ASSERT((((object)->DispatcherHeader.Type & KOBJECT_TYPE_MASK) == ThreadObject))
@@ -960,7 +966,7 @@ typedef struct _KPROCESS
     ULONG DirectoryTableBase;
     ULONG Unused0;
 #else
-    ULONG DirectoryTableBase[2];
+    LARGE_INTEGER DirectoryTableBase;
 #endif
 #if defined(_M_IX86)
     KGDTENTRY LdtDescriptor;
@@ -1006,7 +1012,7 @@ typedef struct _KPROCESS
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONGLONG CycleTime;
 #endif
-} KPROCESS;
+} KPROCESS, *PKPROCESS;
 
 #define ASSERT_PROCESS(object) \
     ASSERT((((object)->Header.Type & KOBJECT_TYPE_MASK) == ProcessObject))

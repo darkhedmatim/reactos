@@ -445,9 +445,6 @@ HvInitialize(
    NTSTATUS Status;
    PHHIVE Hive = RegistryHive;
 
-   UNREFERENCED_PARAMETER(HiveType);
-   UNREFERENCED_PARAMETER(FileName);
-
    /*
     * Create a new hive structure that will hold all the maintenance data.
     */
@@ -501,7 +498,10 @@ HvInitialize(
    }
 
    if (!NT_SUCCESS(Status))
+   {
+      Hive->Free(Hive, 0);
       return Status;
+   }
 
    if (Operation != HINIT_CREATE) CmPrepareHive(Hive);
 

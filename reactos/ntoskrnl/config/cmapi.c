@@ -18,18 +18,18 @@ BOOLEAN
 NTAPI
 CmpDoFlushAll(IN BOOLEAN ForceFlush)
 {
+    NTSTATUS Status;
     PLIST_ENTRY NextEntry;
     PCMHIVE Hive;
-    NTSTATUS Status;
-    BOOLEAN Result = TRUE;
+    BOOLEAN Result = TRUE;    
 
     /* Make sure that the registry isn't read-only now */
     if (CmpNoWrite) return TRUE;
-
+    
     /* Otherwise, acquire the hive list lock and disable force flush */
     CmpForceForceFlush = FALSE;
     ExAcquirePushLockShared(&CmpHiveListHeadLock);
-
+    
     /* Loop the hive list */
     NextEntry = CmpHiveListHead.Flink;
     while (NextEntry != &CmpHiveListHead)
@@ -43,8 +43,6 @@ CmpDoFlushAll(IN BOOLEAN ForceFlush)
 
             /* Do the sync */
             Status = HvSyncHive(&Hive->Hive);
-
-            /* If something failed - set the flag and continue looping*/
             if (!NT_SUCCESS(Status)) Result = FALSE;
 
             /* Release the flusher lock */
@@ -54,7 +52,7 @@ CmpDoFlushAll(IN BOOLEAN ForceFlush)
         /* Try the next entry */
         NextEntry = NextEntry->Flink;
     }
-
+    
     /* Release lock and return */
     ExReleasePushLock(&CmpHiveListHeadLock);
     return Result;
@@ -732,7 +730,7 @@ CmEnumerateValueKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
     BOOLEAN IndexIsCached, ValueIsCached = FALSE;
     PCELL_DATA CellData;
     PCM_CACHED_VALUE *CachedValue;
-    PCM_KEY_VALUE ValueData = NULL;
+    PCM_KEY_VALUE ValueData;
     PAGED_CODE();
 
     /* Acquire hive lock */
@@ -1307,7 +1305,7 @@ CmDeleteKey(IN PCM_KEY_BODY KeyBody)
 
                 /* Update the write time */
                 KeQuerySystemTime(&Parent->LastWriteTime);
-                Kcb->ParentKcb->KcbLastWriteTime = Parent->LastWriteTime;
+                KeQuerySystemTime(&Kcb->ParentKcb->KcbLastWriteTime);
 
                 /* Release the cell */
                 HvReleaseCell(Hive, ParentCell);
@@ -1492,13 +1490,4 @@ CmLoadKey(IN POBJECT_ATTRIBUTES TargetKey,
     /* Close handle and return */
     if (KeyHandle) ZwClose(KeyHandle);
     return Status;
-}
-
-NTSTATUS
-NTAPI
-CmUnloadKey(IN PCM_KEY_CONTROL_BLOCK Kcb,
-            IN ULONG Flags)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }

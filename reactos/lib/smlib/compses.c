@@ -28,7 +28,7 @@
  * 	Success status as handed by the SM reply; otherwise a failure
  * 	status code.
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmCompleteSession (IN HANDLE hSmApiPort,
 		   IN HANDLE hSbApiPort,
 		   IN HANDLE hApiPort)

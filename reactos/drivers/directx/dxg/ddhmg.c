@@ -1,3 +1,5 @@
+
+
 /*
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
@@ -44,7 +46,7 @@ VerifyObjectOwner(PDD_ENTRY pEntry)
 *--*/
 BOOL
 FASTCALL
-DdHmgCreate(VOID)
+DdHmgCreate()
 {
     gpentDdHmgr = EngAllocMem(FL_ZERO_MEMORY, gcSizeDdHmgr, TAG_THDD);
     ghFreeDdHmgr = 0;
@@ -90,7 +92,7 @@ DdHmgCreate(VOID)
 *--*/
 BOOL
 FASTCALL
-DdHmgDestroy(VOID)
+DdHmgDestroy()
 {
     gcMaxDdHmgr = 0;
     gcSizeDdHmgr = 0;
@@ -142,7 +144,7 @@ DdHmgDestroy(VOID)
 *--*/
 PVOID
 FASTCALL
-DdHmgLock(HANDLE DdHandle, UCHAR ObjectType, BOOLEAN LockOwned)
+DdHmgLock( HANDLE DdHandle, UCHAR ObjectType,  BOOLEAN LockOwned)
 {
 
     DWORD Index = (DWORD)DdHandle & 0x1FFFFF;
@@ -159,7 +161,6 @@ DdHmgLock(HANDLE DdHandle, UCHAR ObjectType, BOOLEAN LockOwned)
         pEntry = (PDD_ENTRY)((PBYTE)gpentDdHmgr + (sizeof(DD_ENTRY) * Index));
         if ( VerifyObjectOwner(pEntry) )
         {
-            /* FIXME
             if ( (pEntry->Objt == ObjectType ) &&
                  (pEntry->FullUnique == (((DWORD)DdHandle >> 21) & 0x7FF) ) &&
                  (pEntry->pobj->cExclusiveLock == 0) &&
@@ -169,7 +170,6 @@ DdHmgLock(HANDLE DdHandle, UCHAR ObjectType, BOOLEAN LockOwned)
                     pEntry->pobj->Tid = PsGetCurrentThread();
                     Object = pEntry->pobj;
                }
-           */
         }
     }
 

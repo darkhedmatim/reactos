@@ -191,9 +191,9 @@ RecycleBin5File_RecycleBinFile_GetAttributes(
 static HRESULT STDMETHODCALLTYPE
 RecycleBin5File_RecycleBinFile_GetFileName(
 	IN IRecycleBinFile *This,
-	IN SIZE_T BufferSize,
+	IN DWORD BufferSize,
 	IN OUT LPWSTR Buffer,
-	OUT SIZE_T *RequiredSize)
+	OUT DWORD *RequiredSize)
 {
 	struct RecycleBin5File *s = CONTAINING_RECORD(This, struct RecycleBin5File, recycleBinFileImpl);
 	DWORD dwRequired;

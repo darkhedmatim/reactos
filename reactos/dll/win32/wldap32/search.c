@@ -55,7 +55,7 @@ ULONG CDECL ldap_searchA( WLDAP32_LDAP *ld, PCHAR base, ULONG scope, PCHAR filte
     TRACE( "(%p, %s, 0x%08x, %s, %p, 0x%08x)\n", ld, debugstr_a(base),
            scope, debugstr_a(filter), attrs, attrsonly );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (base) {
         baseW = strAtoW( base );
@@ -97,7 +97,7 @@ exit:
  *
  * RETURNS
  *  Success: Message ID of the search operation.
- *  Failure: ~0u
+ *  Failure: ~0UL
  *
  * NOTES
  *  Call ldap_result with the message ID to get the result of
@@ -117,7 +117,7 @@ ULONG CDECL ldap_searchW( WLDAP32_LDAP *ld, PWCHAR base, ULONG scope, PWCHAR fil
     TRACE( "(%p, %s, 0x%08x, %s, %p, 0x%08x)\n", ld, debugstr_w(base),
            scope, debugstr_w(filter), attrs, attrsonly );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (base) {
         baseU = strWtoU( base );
@@ -138,7 +138,7 @@ ULONG CDECL ldap_searchW( WLDAP32_LDAP *ld, PWCHAR base, ULONG scope, PWCHAR fil
     if (ret == LDAP_SUCCESS)
         ret = msg;
     else
-        ret = ~0u;
+        ret = ~0UL;
 
 exit:
     strfreeU( baseU );
@@ -251,7 +251,7 @@ ULONG CDECL ldap_search_extW( WLDAP32_LDAP *ld, PWCHAR base, ULONG scope,
            ld, debugstr_w(base), scope, debugstr_w(filter), attrs, attrsonly,
            serverctrls, clientctrls, timelimit, sizelimit, message );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (base) {
         baseU = strWtoU( base );
@@ -277,8 +277,8 @@ ULONG CDECL ldap_search_extW( WLDAP32_LDAP *ld, PWCHAR base, ULONG scope,
     tv.tv_sec = timelimit;
     tv.tv_usec = 0;
 
-    ret = map_error( ldap_search_ext( ld, baseU, scope, filterU, attrsU, attrsonly,
-                                      serverctrlsU, clientctrlsU, &tv, sizelimit, (int *)message ));
+    ret = ldap_search_ext( ld, baseU, scope, filterU, attrsU, attrsonly,
+                           serverctrlsU, clientctrlsU, &tv, sizelimit, (int *)message );
 
 exit:
     strfreeU( baseU );
@@ -412,9 +412,8 @@ ULONG CDECL ldap_search_ext_sW( WLDAP32_LDAP *ld, PWCHAR base, ULONG scope,
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_search_ext_s( ld, baseU, scope, filterU, attrsU, attrsonly,
-                                        serverctrlsU, clientctrlsU, (struct timeval *)timeout,
-                                        sizelimit, res ));
+    ret = ldap_search_ext_s( ld, baseU, scope, filterU, attrsU, attrsonly,
+                             serverctrlsU, clientctrlsU, (struct timeval *)timeout, sizelimit, res );
 
 exit:
     strfreeU( baseU );
@@ -519,8 +518,8 @@ ULONG CDECL ldap_search_sW( WLDAP32_LDAP *ld, PWCHAR base, ULONG scope, PWCHAR f
         if (!attrsU) goto exit;
     }
 
-    ret = map_error( ldap_search_ext_s( ld, baseU, scope, filterU, attrsU, attrsonly,
-                                        NULL, NULL, NULL, 0, res ));
+    ret = ldap_search_ext_s( ld, baseU, scope, filterU, attrsU, attrsonly,
+                             NULL, NULL, NULL, 0, res );
 
 exit:
     strfreeU( baseU );
@@ -629,8 +628,8 @@ ULONG CDECL ldap_search_stW( WLDAP32_LDAP *ld, const PWCHAR base, ULONG scope,
         if (!attrsU) goto exit;
     }
 
-    ret = map_error( ldap_search_ext_s( ld, baseU, scope, filterU, attrsU, attrsonly,
-                                        NULL, NULL, (struct timeval *)timeout, 0, res ));
+    ret = ldap_search_ext_s( ld, baseU, scope, filterU, attrsU, attrsonly,
+                             NULL, NULL, (struct timeval *)timeout, 0, res );
 
 exit:
     strfreeU( baseU );

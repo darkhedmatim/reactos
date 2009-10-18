@@ -328,7 +328,6 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    IDS_FLT_REGFILE         "Registrierungsdatei"
     IDS_FLT_REGFILES        "Registrierungsdateien"
     IDS_FLT_REGFILES_FLT    "*.reg"
     IDS_FLT_REGEDIT4        "Win9x/NT4 Registrierungsdateien (REGEDIT4)"
@@ -363,7 +362,7 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
   IDS_EXPAND                     "&Expandieren"
-  IDS_COLLAPSE                   "&Schlieﬂen"
+  IDS_COLLAPSE                   "&Schlissen"
   IDS_GOTO_SUGGESTED_KEY         "&Gehe zu '%s'"
   IDS_FINISHEDFIND               "Durchsuchen der Registry beendet."
 END

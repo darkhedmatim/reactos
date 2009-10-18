@@ -48,17 +48,13 @@ IntVideoPortSetupInterrupt(
 
    DeviceExtension = (PVIDEO_PORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
-   /*
-    * MSDN documentation for VIDEO_PORT_CONFIG_INFO states: "If a miniport driver's
-    * HwVidFindAdapter function finds that the video adapter does not generate
-    * interrupts or that it cannot determine a valid interrupt vector/level for
-    * the adapter, HwVidFindAdapter should set both BusInterruptVector and
-    * BusInterruptLevel to zero.
-    */
+   if (ConfigInfo->BusInterruptVector == 0)
+      ConfigInfo->BusInterruptVector = DeviceExtension->InterruptVector;
 
-   if (DriverExtension->InitializationData.HwInterrupt != NULL &&
-       (ConfigInfo->BusInterruptLevel != 0 ||
-       ConfigInfo->BusInterruptVector != 0))
+   if (ConfigInfo->BusInterruptLevel == 0)
+      ConfigInfo->BusInterruptLevel = DeviceExtension->InterruptLevel;
+
+   if (DriverExtension->InitializationData.HwInterrupt != NULL)
    {
       ULONG InterruptVector;
       KIRQL Irql;
@@ -123,7 +119,7 @@ VideoPortEnableInterrupt(IN PVOID HwDeviceExtension)
       0,
       DeviceExtension->InterruptLevel);
 
-   return Status ? NO_ERROR : ERROR_INVALID_PARAMETER;
+   return Status ? NO_ERROR : ERROR_INVALID_ACCESS;
 }
 
 /*
@@ -144,5 +140,5 @@ VideoPortDisableInterrupt(IN PVOID HwDeviceExtension)
       DeviceExtension->InterruptVector,
       0);
 
-   return Status ? NO_ERROR : ERROR_INVALID_PARAMETER;
+   return Status ? NO_ERROR : ERROR_INVALID_ACCESS;
 }

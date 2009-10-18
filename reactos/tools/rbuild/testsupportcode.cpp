@@ -51,11 +51,11 @@ TestSupportCode::IsTestModule ( const Module& module )
 void
 TestSupportCode::GenerateTestSupportCode ( bool verbose )
 {
-	for( std::map<std::string, Module*>::const_iterator p = project.modules.begin(); p != project.modules.end(); ++ p )
+	for ( size_t i = 0; i < project.modules.size (); i++ )
 	{
-		if ( IsTestModule ( *p->second ) )
+		if ( IsTestModule ( *project.modules[i] ) )
 		{
-			GenerateTestSupportCodeForModule ( *p->second,
+			GenerateTestSupportCodeForModule ( *project.modules[i],
 			                                   verbose );
 		}
 	}
@@ -312,6 +312,27 @@ TestSupportCode::GetSourceFilenames ( string_list& list,
 		if ( !compilationUnits[i]->IsGeneratedFile () && IsTestFile ( filename ) )
 			list.push_back ( filename );
 	}
+	// intentionally make a copy so that we can append more work in
+	// the middle of processing without having to go recursive
+	vector<If*> v = module.non_if_data.ifs;
+	for ( i = 0; i < v.size (); i++ )
+	{
+		size_t j;
+		If& rIf = *v[i];
+		// check for sub-ifs to add to list
+		const vector<If*>& ifs = rIf.data.ifs;
+		for ( j = 0; j < ifs.size (); j++ )
+			v.push_back ( ifs[j] );
+		const vector<CompilationUnit*>& compilationUnits = rIf.data.compilationUnits;
+		for ( j = 0; j < compilationUnits.size (); j++ )
+		{
+			CompilationUnit& compilationUnit = *compilationUnits[j];
+			const FileLocation& sourceFileLocation = compilationUnits[j]->GetFilename ();
+			string filename = sourceFileLocation.relative_path + sSep + sourceFileLocation.name;
+			if ( !compilationUnit.IsGeneratedFile () && IsTestFile ( filename ) )
+				list.push_back ( filename );
+		}
+	}
 }
 
 char*
@@ -390,7 +411,7 @@ TestSupportCode::WriteStartupFile ( Module& module )
 	s = s + sprintf ( s, "}\n" );
 	s = s + sprintf ( s, "\n" );
 	s = s + sprintf ( s, "int\n" );
-	s = s + sprintf ( s, "WINAPI\n" );
+	s = s + sprintf ( s, "STDCALL\n" );
 	s = s + sprintf ( s, "WinMain(HINSTANCE hInstance,\n" );
 	s = s + sprintf ( s, "  HINSTANCE hPrevInstance,\n" );
 	s = s + sprintf ( s, "  LPSTR lpszCmdParam,\n" );

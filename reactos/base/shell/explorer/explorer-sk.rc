@@ -1,9 +1,9 @@
 /*
-* FILE       :  base/shell/explorer/explorer-sk.rc
-* PURPOSE    :  Slovak Language File for explorer
-* TRANSLATOR :  Kario (kario@szm.sk)
-* DATE OF TR.:  08-08-2007
-* LAST CHANGE:  30-05-2008
+* FILE:        base/shell/explorer/explorer-sk.rc
+* PURPOSE:     Slovak Language File for explorer
+* TRANSLATOR:  Kario (kario@szm.sk)
+* DATE OF TR:  08-08-2007
+* LAST CHANG:  22-01-2008
 * _______________________________________________
 * NOTE:        this file need to be fixed
 */
@@ -358,7 +358,7 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
     IDS_STARTMENU           "Ponuka ätart"
-    IDS_MINIMIZE_ALL        "Minimalizovaù vöetke okn·"
+    IDS_MINIMIZE_ALL        "minimalizovaù vöetke okn·"
     IDS_DESKTOP_NUM         "Pracovn· plocha %d"
     IDS_VOLUME              "Hlasitosù"
     IDS_ITEMS_CUR           "s˙ËasnÈ poloûky"
@@ -392,9 +392,6 @@ BEGIN
     IDS_DESKTOPBAR_SETTINGS "Nastavenia plochy"
     IDS_DESKTOP             "Pracovn· plocha"
     IDS_TASKBAR             "Panel ˙loh"
-    IDS_NAMECOLUMN          "Name"
-    IDS_PATHCOLUMN          "Path"
-    IDS_MENUCOLUMN          "Menu path"
 END
 
 #endif    // Slovak resources
@@ -411,8 +408,6 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
-
 
 
 

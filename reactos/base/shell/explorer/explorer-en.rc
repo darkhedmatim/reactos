@@ -38,7 +38,7 @@ BEGIN
     BEGIN
         MENUITEM "&Toolbar",                    ID_VIEW_TOOL_BAR
         MENUITEM "&Extra Bar",                  ID_VIEW_EXTRA_BAR
-        MENUITEM "&Drivebar",                   ID_VIEW_DRIVE_BAR
+        MENUITEM "&Drivebar",                   ID_VIEW_DRIVE_BAR, CHECKED
         MENUITEM "S&ide Bar",                   ID_VIEW_SIDE_BAR
         MENUITEM "&Status Bar",                 ID_VIEW_STATUSBAR
         MENUITEM SEPARATOR
@@ -381,9 +381,6 @@ BEGIN
     IDS_DESKTOPBAR_SETTINGS "Desktop Settings"
     IDS_DESKTOP             "Desktop"
     IDS_TASKBAR             "Taskbar"
-    IDS_NAMECOLUMN          "Name"
-    IDS_PATHCOLUMN          "Path"
-    IDS_MENUCOLUMN          "Menu path"
 END
 
 #endif    // English (U.S.) resources

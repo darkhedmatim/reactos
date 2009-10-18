@@ -58,13 +58,7 @@ Author:
 #define SE_SYSTEM_ENVIRONMENT_PRIVILEGE   (22L)
 #define SE_CHANGE_NOTIFY_PRIVILEGE        (23L)
 #define SE_REMOTE_SHUTDOWN_PRIVILEGE      (24L)
-#define SE_UNDOCK_PRIVILEGE               (25L)
-#define SE_SYNC_AGENT_PRIVILEGE           (26L)
-#define SE_ENABLE_DELEGATION_PRIVILEGE    (27L)
-#define SE_MANAGE_VOLUME_PRIVILEGE        (28L)
-#define SE_IMPERSONATE_PRIVILEGE          (29L)
-#define SE_CREATE_GLOBAL_PRIVILEGE        (30L)
-#define SE_MAX_WELL_KNOWN_PRIVILEGE       (SE_CREATE_GLOBAL_PRIVILEGE)
+#define SE_MAX_WELL_KNOWN_PRIVILEGE       (SE_REMOTE_SHUTDOWN_PRIVILEGE)
 
 #else
 
@@ -166,12 +160,12 @@ typedef struct _TOKEN
     ULONG VariablePart;                               /* 0xA0 */
 } TOKEN, *PTOKEN;
 
-typedef struct _AUX_ACCESS_DATA
+typedef struct _AUX_DATA
 {
     PPRIVILEGE_SET PrivilegeSet;
     GENERIC_MAPPING GenericMapping;
     ULONG Reserved;
-} AUX_ACCESS_DATA, *PAUX_ACCESS_DATA;
+} AUX_DATA, *PAUX_DATA;
 
 //
 // External SRM Data

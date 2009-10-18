@@ -10,8 +10,7 @@
 #include <precomp.h>
 
 
-static
-HFONT
+static HFONT
 SetLrgFont(PMAP infoPtr)
 {
     LOGFONTW lf;

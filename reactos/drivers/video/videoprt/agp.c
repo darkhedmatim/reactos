@@ -99,7 +99,7 @@ IntAgpCommitPhysical(
 {
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    PAGP_BUS_INTERFACE_STANDARD AgpBusInterface;
-   PHYSICAL_ADDRESS MappingAddr = {{0, 0}};
+   PHYSICAL_ADDRESS MappingAddr = {{0}};
    PVIDEO_PORT_AGP_MAPPING AgpMapping;
    NTSTATUS Status;
 
@@ -186,7 +186,7 @@ IntAgpReservePhysical(
    IN  VIDEO_PORT_CACHE_TYPE Caching,
    OUT PVOID *PhysicalContext)
 {
-   PHYSICAL_ADDRESS ZeroAddress = {{0, 0}};
+   PHYSICAL_ADDRESS ZeroAddress = {{0}};
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    PAGP_BUS_INTERFACE_STANDARD AgpBusInterface;
    MEMORY_CACHING_TYPE MemCachingType;
@@ -253,7 +253,6 @@ IntAgpCommitVirtual(
 {
    PVIDEO_PORT_AGP_VIRTUAL_MAPPING VirtualMapping;
    PVOID BaseAddress = NULL;
-   PHYSICAL_ADDRESS PhysicalAddress;
    NTSTATUS Status;
 
    TRACE_(VIDEOPRT, "AgpCommitVirtual - VirtualContext: 0x%x Pages: %d, Offset: 0x%x\n",
@@ -280,7 +279,7 @@ IntAgpCommitVirtual(
       ULONG OffsetInBytes = Offset * PAGE_SIZE;
       BaseAddress = (PVOID)((ULONG_PTR)VirtualMapping->MappedAddress +
                                        OffsetInBytes);
-      PhysicalAddress = VirtualMapping->AgpMapping->PhysicalAddress;
+      PHYSICAL_ADDRESS PhysicalAddress = VirtualMapping->AgpMapping->PhysicalAddress;
       PhysicalAddress.QuadPart += OffsetInBytes;
 
       Status = ZwFreeVirtualMemory(VirtualMapping->ProcessHandle,

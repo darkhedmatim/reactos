@@ -5,9 +5,6 @@
 		<xi:include href="crt/crt.rbuild" />
 		<xi:include href="crt/libcntpr.rbuild" />
 	</directory>
-	<directory name="delayimp">
-		<xi:include href="delayimp/delayimp.rbuild" />
-	</directory>
 	<directory name="dxguid">
 		<xi:include href="dxguid/dxguid.rbuild" />
 	</directory>
@@ -25,5 +22,8 @@
 	</directory>
 	<directory name="scrnsave">
 		<xi:include href="scrnsave/scrnsave.rbuild" />
+	</directory>
+	<directory name="strsafe">
+		<xi:include href="strsafe/strsafe.rbuild" />
 	</directory>
 </group>

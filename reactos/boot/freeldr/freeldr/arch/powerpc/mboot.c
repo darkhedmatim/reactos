@@ -459,7 +459,7 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
     phnum = ehdr.e_phnum;
     shsize = ehdr.e_shentsize;
     shnum = ehdr.e_shnum;
-    sptr = (PCHAR)MmHeapAlloc(shnum * shsize);
+    sptr = (PCHAR)MmAllocateMemory(shnum * shsize);
 
     /* Read section headers */
     FsSetFilePointer(KernelImage,  ehdr.e_shoff);
@@ -560,14 +560,14 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
 
 	if (!ELF_SECTION(targetSection)->sh_addr) continue;
 
-	RelocSection = MmHeapAlloc(shdr->sh_size);
+	RelocSection = MmAllocateMemory(shdr->sh_size);
 	FsSetFilePointer(KernelImage, relstart);
 	FsReadFile(KernelImage, shdr->sh_size, NULL, RelocSection);
 
 	/* Get the symbol section */
 	shdr = ELF_SECTION(shdr->sh_link);
 
-	SymbolSection = MmHeapAlloc(shdr->sh_size);
+	SymbolSection = MmAllocateMemory(shdr->sh_size);
 	FsSetFilePointer(KernelImage, shdr->sh_offset);
 	FsReadFile(KernelImage, shdr->sh_size, NULL, SymbolSection);
 
@@ -642,11 +642,11 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
 #endif
 	}
 
-	MmHeapFree(SymbolSection);
-	MmHeapFree(RelocSection);
+	MmFreeMemory(SymbolSection);
+	MmFreeMemory(RelocSection);
     }
 
-    MmHeapFree(sptr);
+    MmFreeMemory(sptr);
 
     ModuleData->ModStart = (ULONG)MemLoadAddr;
     /* Increase the next Load Base */
@@ -815,7 +815,7 @@ FrLdrCloseModule(ULONG_PTR ModuleBase,
     if (ModuleData) {
 
         /* Make sure this is the right module and that it hasn't been closed */
-        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == MAXULONG_PTR)) {
+        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == (ULONG_PTR)-1)) {
 
             /* Close the Module */
             ModuleData->ModEnd = ModuleData->ModStart + ModuleSize;

@@ -12,13 +12,14 @@
 #include <stdio.h>
 
 /* WDK HAL Compilation hack */
+#ifdef _MSC_VER
 #include <excpt.h>
 #include <ntdef.h>
 #undef _NTHAL_
 #undef DECLSPEC_IMPORT
 #define DECLSPEC_IMPORT
-#undef NTSYSAPI
-#define NTSYSAPI __declspec(dllimport)
+#define __declspec(dllimport)
+#endif
 
 /* IFS/DDK/NDK Headers */
 #include <ntifs.h>
@@ -45,5 +46,8 @@
 #include "halp.h"
 #include "mps.h"
 #include "ioapic.h"
+
+/* Helper Header */
+#include <reactos/helper.h>
 
 /* EOF */

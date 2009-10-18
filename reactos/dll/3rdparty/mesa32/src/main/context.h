@@ -49,7 +49,7 @@
 #define CONTEXT_H
 
 
-#include "glapi/glapi.h"
+#include "glapi.h"
 #include "imports.h"
 #include "mtypes.h"
 
@@ -113,9 +113,6 @@ _mesa_initialize_context( GLcontext *ctx,
                           GLcontext *share_list,
                           const struct dd_function_table *driverFunctions,
                           void *driverContext );
-
-extern void
-_mesa_initialize_context_extra(GLcontext *ctx);
 
 extern void
 _mesa_free_context_data( GLcontext *ctx );
@@ -275,12 +272,10 @@ do {									\
    (((CTX)->Light.Enabled &&						\
      (CTX)->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)	\
     || (CTX)->Fog.ColorSumEnabled					\
-    || ((CTX)->VertexProgram._Current &&				\
-        ((CTX)->VertexProgram._Current != (CTX)->VertexProgram._TnlProgram) &&    \
-        ((CTX)->VertexProgram._Current->Base.InputsRead & VERT_BIT_COLOR1)) \
-    || ((CTX)->FragmentProgram._Current &&				\
-        ((CTX)->FragmentProgram._Current != (CTX)->FragmentProgram._TexEnvProgram) &&  \
-        ((CTX)->FragmentProgram._Current->Base.InputsRead & FRAG_BIT_COL1)) \
+    || ((CTX)->VertexProgram._Enabled &&				\
+        ((CTX)->VertexProgram.Current->Base.InputsRead & VERT_BIT_COLOR1)) \
+    || ((CTX)->FragmentProgram._Enabled &&				\
+        ((CTX)->FragmentProgram.Current->Base.InputsRead & FRAG_BIT_COL1)) \
    )
 
 

@@ -26,8 +26,8 @@
 @ stdcall SpLsaModeInitialize(long ptr ptr ptr)
 @ stdcall SpUserModeInitialize(long ptr ptr ptr)
 @ stub SslCrackCertificate
-@ stdcall SslEmptyCacheA(str long)
-@ stdcall SslEmptyCacheW(wstr long)
+@ stub SslEmptyCacheA
+@ stub SslEmptyCacheW
 @ stub SslFreeCertificate
 @ stub SslGenerateKeyPair
 @ stub SslGenerateRandomBits

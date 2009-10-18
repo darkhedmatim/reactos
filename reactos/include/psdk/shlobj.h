@@ -34,44 +34,6 @@ extern "C" {
 #include <shtypes.h>
 #include <shobjidl.h>
 
-typedef struct
-{
-    DWORD         dwSize;
-    DWORD         dwMask;
-    SHELLVIEWID*  pvid;
-    LPSTR         pszWebViewTemplate;
-    DWORD         cchWebViewTemplate;
-    LPSTR         pszWebViewTemplateVersion;
-    LPSTR         pszInfoTip;
-    DWORD         cchInfoTip;
-    CLSID*        pclsid;
-    DWORD         dwFlags;
-    LPSTR         pszIconFile;
-    DWORD         cchIconFile;
-    int           iIconIndex;
-    LPSTR         pszLogo;
-    DWORD         cchLogo;
-} SHFOLDERCUSTOMSETTINGSA, *LPSHFOLDERCUSTOMSETTINGSA;
-
-typedef struct
-{
-    DWORD         dwSize;
-    DWORD         dwMask;
-    SHELLVIEWID*  pvid;
-    LPWSTR        pszWebViewTemplate;
-    DWORD         cchWebViewTemplate;
-    LPWSTR        pszWebViewTemplateVersion;
-    LPWSTR        pszInfoTip;
-    DWORD         cchInfoTip;
-    CLSID*        pclsid;
-    DWORD         dwFlags;
-    LPWSTR        pszIconFile;
-    DWORD         cchIconFile;
-    int           iIconIndex;
-    LPWSTR        pszLogo;
-    DWORD         cchLogo;
-} SHFOLDERCUSTOMSETTINGSW, *LPSHFOLDERCUSTOMSETTINGSW;
-
 #ifndef HPSXA_DEFINED
 #define HPSXA_DEFINED
 DECLARE_HANDLE(HPSXA);
@@ -84,16 +46,13 @@ HPSXA        WINAPI SHCreatePropSheetExtArray(HKEY,LPCWSTR,UINT);
 DWORD        WINAPI SHCLSIDFromStringA(LPCSTR,CLSID*);
 DWORD        WINAPI SHCLSIDFromStringW(LPCWSTR,CLSID*);
 #define             SHCLSIDFromString WINELIB_NAME_AW(SHCLSIDFromString)
-HRESULT      WINAPI SHCreateStdEnumFmtEtc(UINT,const FORMATETC *,IEnumFORMATETC**);
+HRESULT      WINAPI SHCreateStdEnumFmtEtc(DWORD,const FORMATETC *,IEnumFORMATETC**);
 void         WINAPI SHDestroyPropSheetExtArray(HPSXA);
 BOOL         WINAPI SHFindFiles(LPCITEMIDLIST,LPCITEMIDLIST);
 DWORD        WINAPI SHFormatDrive(HWND,UINT,UINT,UINT);
 void         WINAPI SHFree(LPVOID);
-BOOL         WINAPI GetFileNameFromBrowse(HWND,LPWSTR,UINT,LPCWSTR,LPCWSTR,LPCWSTR,LPCWSTR);
+BOOL         WINAPI GetFileNameFromBrowse(HWND,LPSTR,DWORD,LPCSTR,LPCSTR,LPCSTR,LPCSTR);
 HRESULT      WINAPI SHGetInstanceExplorer(IUnknown**);
-HRESULT      WINAPI SHGetFolderPathAndSubDirA(HWND,int,HANDLE,DWORD,LPCSTR,LPSTR);
-HRESULT      WINAPI SHGetFolderPathAndSubDirW(HWND,int,HANDLE,DWORD,LPCWSTR,LPWSTR);
-#define             SHGetFolderPathAndSubDir WINELIB_NAME_AW(SHGetFolderPathAndSubDir);
 BOOL         WINAPI SHGetPathFromIDListA(LPCITEMIDLIST,LPSTR);
 BOOL         WINAPI SHGetPathFromIDListW(LPCITEMIDLIST,LPWSTR);
 #define             SHGetPathFromIDList WINELIB_NAME_AW(SHGetPathFromIDList)
@@ -148,7 +107,6 @@ typedef struct
 	UINT aoffset[1];
 } CIDA, *LPIDA;
 
-#define CFSTR_SHELLIDLISTA      "Shell IDList Array"      /* CF_IDLIST */
 #define CFSTR_SHELLIDLISTOFFSET "Shell Object Offsets"    /* CF_OBJECTPOSITIONS */
 #define CFSTR_NETRESOURCES      "Net Resource"            /* CF_NETRESOURCE */
 
@@ -172,7 +130,7 @@ typedef struct
 #define CFSTR_SHELLURL         "UniformResourceLocator"
 #endif
 
-#define CFSTR_FILENAMEW         "FileNameW"
+#define CFSTR_FILENAMEW         L"FileNameW"
 #define CFSTR_FILENAMEA         "FileName"
 #define CFSTR_FILENAMEMAPA      "FileNameMap"             /* CF_FILENAMEMAPA */
 #define CFSTR_FILENAMEMAPW      "FileNameMapW"            /* CF_FILENAMEMAPW */
@@ -187,6 +145,7 @@ typedef struct
 * IShellView interface
 */
 
+typedef GUID SHELLVIEWID;
 #define SV_CLASS_NAME   ("SHELLDLL_DefView")
 
 #define FCIDM_SHVIEWFIRST       0x0000
@@ -464,6 +423,24 @@ DECLARE_INTERFACE_(IProgressDialog,IUnknown)
 #define IProgressDialog_Timer(p,a,b)                      (p)->lpVtbl->Timer(p,a,b)
 #endif
 
+/* IDockingWindowFrame interface */
+#define INTERFACE IDockingWindow
+DECLARE_INTERFACE_(IDockingWindow,IUnknown)
+{
+    /*** IUnknown methods ***/
+    STDMETHOD(QueryInterface)(THIS_ REFIID,PVOID*) PURE;
+    STDMETHOD_(ULONG,AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG,Release)(THIS) PURE;
+    /*** IOleWindow methods ***/
+    STDMETHOD_(HRESULT,GetWindow)(THIS_ HWND*) PURE;
+    STDMETHOD_(HRESULT,ContextSensitiveHelp)(THIS_ BOOL) PURE;
+    /*** IDockingWindow methods ***/
+    STDMETHOD_(HRESULT,ShowDW)(THIS_ BOOL) PURE;
+    STDMETHOD_(HRESULT,CloseDW)(THIS_ DWORD) PURE;
+    STDMETHOD_(HRESULT,ResizeBoderDW)(THIS_ LPCRECT,IUnknown*,BOOL) PURE;
+};
+#undef INTERFACE
+
 
 /* IDeskBarClient interface */
 #define INTERFACE IDeskBarClient
@@ -483,13 +460,6 @@ DECLARE_INTERFACE_(IDeskBarClient,IUnknown)
     STDMETHOD_(HRESULT,GetSize)(THIS_ DWORD,LPRECT) PURE;
 };
 #undef INTERFACE
-
-#define DBC_GS_IDEAL    0
-#define DBC_GS_SIZEDOWN 1
-
-#define DBC_HIDE        0
-#define DBC_SHOW        1
-#define DBC_SHOWOBSCURE 2
 
 
 /****************************************************************************
@@ -801,7 +771,6 @@ HRESULT WINAPI SHGetDataFromIDListA(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, int n
 HRESULT WINAPI SHGetDataFromIDListW(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, int nFormat, LPVOID pv, int cb);
 #define  SHGetDataFromIDList WINELIB_NAME_AW(SHGetDataFromIDList)
 
-PIDLIST_ABSOLUTE WINAPI SHCloneSpecialIDList(HWND hwnd, int csidl, BOOL fCreate);
 BOOL WINAPI SHGetSpecialFolderPathA (HWND hwndOwner, LPSTR szPath, int nFolder, BOOL bCreate);
 BOOL WINAPI SHGetSpecialFolderPathW (HWND hwndOwner, LPWSTR szPath, int nFolder, BOOL bCreate);
 #define  SHGetSpecialFolderPath WINELIB_NAME_AW(SHGetSpecialFolderPath)
@@ -1121,11 +1090,6 @@ typedef struct _SHChangeNotifyEntry
 #define SHCNF_PATH              WINELIB_NAME_AW(SHCNF_PATH)
 #define SHCNF_PRINTER           WINELIB_NAME_AW(SHCNF_PRINTER)
 
-#define SHCNRF_InterruptLevel   0x1
-#define SHCNRF_ShellLevel   0x2
-#define SHCNRF_RecursiveInterrupt   0x1000
-#define SHCNRF_NewDelivery  0x8000
-
 void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID dwItem2);
 
 typedef enum {
@@ -1186,13 +1150,7 @@ typedef struct {
 } NT_FE_CONSOLE_PROPS, *LPNT_FE_CONSOLE_PROPS;
 
 typedef struct {
-
-#ifdef __cplusplus
     DATABLOCK_HEADER dbh;
-#else
-    DWORD cbSize;
-    DWORD dwSignature;
-#endif
     CHAR szDarwinID[MAX_PATH];
     WCHAR szwDarwinID[MAX_PATH];
 } EXP_DARWIN_LINK, *LPEXP_DARWIN_LINK;
@@ -1233,7 +1191,7 @@ typedef struct _SHChangeProductKeyAsIDList {
 } SHChangeProductKeyAsIDList, *LPSHChangeProductKeyAsIDList;
 
 ULONG WINAPI SHChangeNotifyRegister(HWND hwnd, int fSources, LONG fEvents, UINT wMsg,
-                                    int cEntries, const SHChangeNotifyEntry *pshcne);
+                                    int cEntries, SHChangeNotifyEntry *pshcne);
 BOOL WINAPI SHChangeNotifyDeregister(ULONG ulID);
 BOOL WINAPI SHChangeNotification_Unlock(HANDLE hLock);
 
@@ -1242,7 +1200,7 @@ HRESULT WINAPI SHGetRealIDL(IShellFolder *psf, LPCITEMIDLIST pidlSimple, LPITEMI
 /****************************************************************************
 * SHCreateDirectory API
 */
-DWORD WINAPI SHCreateDirectory(HWND, LPCWSTR);
+DWORD WINAPI SHCreateDirectory(HWND, LPCVOID);
 int WINAPI SHCreateDirectoryExA(HWND, LPCSTR, LPSECURITY_ATTRIBUTES);
 int WINAPI SHCreateDirectoryExW(HWND, LPCWSTR, LPSECURITY_ATTRIBUTES);
 
@@ -1322,6 +1280,7 @@ HRESULT WINAPI SHGetFolderPathW(HWND hwnd, int nFolder, HANDLE hToken, DWORD dwF
 #define CSIDL_CDBURN_AREA	0x003b
 #define CSIDL_COMPUTERSNEARME	0x003d
 #define CSIDL_PROFILES		0x003e
+#define CSIDL_FOLDER_MASK	0x00ff
 #define CSIDL_FLAG_PER_USER_INIT 0x0800
 #define CSIDL_FLAG_NO_ALIAS	0x1000
 #define CSIDL_FLAG_DONT_VERIFY	0x4000
@@ -1461,7 +1420,7 @@ BOOL         WINAPI DAD_DragEnterEx(HWND,POINT);
 BOOL         WINAPI DAD_DragEnterEx2(HWND,POINT,IDataObject*);
 BOOL         WINAPI DAD_DragMove(POINT);
 BOOL         WINAPI DAD_DragLeave(void);
-BOOL         WINAPI DAD_AutoScroll(HWND,AUTO_SCROLL_DATA*,const POINT*);
+BOOL         WINAPI DAD_AutoScroll(HWND,AUTO_SCROLL_DATA*,LPPOINT);
 HRESULT      WINAPI SHDoDragDrop(HWND,IDataObject*,IDropSource*,DWORD,LPDWORD);
 
 LPITEMIDLIST WINAPI ILAppendID(LPITEMIDLIST,LPCSHITEMID,BOOL);
@@ -1514,7 +1473,7 @@ typedef struct
 HRESULT WINAPI SHCreateDefaultContextMenu(const DEFCONTEXTMENU *,REFIID,void **ppv);
 
 typedef HRESULT (CALLBACK * LPFNDFMCALLBACK)(IShellFolder*,HWND,IDataObject*,UINT,WPARAM,LPARAM);
-HRESULT WINAPI CDefFolderMenu_Create2(LPCITEMIDLIST,HWND,UINT,LPCITEMIDLIST*,IShellFolder*,LPFNDFMCALLBACK,UINT,const HKEY *,IContextMenu **);
+INT WINAPI CDefFolderMenu_Create2(LPCITEMIDLIST,HWND,UINT,LPCITEMIDLIST*,IShellFolder*,LPFNDFMCALLBACK,UINT,HKEY *,IContextMenu **);
 
 /****************************************************************************
  * SHCreateDefaultContextMenu API
@@ -1546,109 +1505,6 @@ HRESULT WINAPI CIDLData_CreateFromIDArray(
 	UINT cidl,
 	LPCITEMIDLIST* apidl,
 	IDataObject **ppdtobj);
-
-/****************************************************************************
- * SHOpenWithDialog
- */
-
-enum tagOPEN_AS_INFO_FLAGS 
-{
-	OAIF_ALLOW_REGISTRATION = 1,
-	OAIF_REGISTER_EXT       = 2,
-	OAIF_EXEC               = 4,
-	OAIF_FORCE_REGISTRATION = 8,
-#if (NTDDI_VERSION >= NTDDI_VISTA)
-	OAIF_HIDE_REGISTRATION  = 32,
-	OAIF_URL_PROTOCOL       = 64,
-#endif
-};
-typedef int OPEN_AS_INFO_FLAGS;
-
-
-typedef struct tagOPENASINFO {
-	LPCWSTR pcszFile;
-	LPCWSTR pcszClass;
-	OPEN_AS_INFO_FLAGS oaifInFlags;
-} OPENASINFO;
-
-HRESULT WINAPI SHOpenWithDialog(
-  HWND hwndParent,
-  const OPENASINFO *poainfo
-);
-
-/*****************************************************************************
- * IInitializeObject interface
- */
-#undef  INTERFACE
-#define INTERFACE IInitializeObject
-
-DECLARE_INTERFACE_(IInitializeObject, IUnknown)//, "4622AD16-FF23-11d0-8D34-00A0C90F2719")
-{
-    STDMETHOD(QueryInterface) (THIS_ REFIID riid, void **ppv) PURE;
-    STDMETHOD_(ULONG,AddRef) (THIS)  PURE;
-    STDMETHOD_(ULONG,Release) (THIS) PURE;
-
-    STDMETHOD(Initialize)(THIS) PURE;
-};
-#undef INTERFACE
-#if !defined(__cplusplus) || defined(CINTERFACE)
-#define IInitializeObject_QueryInterface(T,a,b) (T)->lpVtbl->QueryInterface(T,a,b)
-#define IInitializeObject_AddRef(T) (T)->lpVtbl->AddRef(T)
-#define IInitializeObject_Release(T) (T)->lpVtbl->Release(T)
-#define IInitializeObject_Initialize(T) (T)->lpVtbl->Initialize(T)
-#endif
-
-
-#define INTERFACE   IShellIconOverlayIdentifier
-
-DEFINE_GUID(IID_IShellIconOverlayIdentifier, 0x0c6c4200L, 0xc589, 0x11d0, 0x99, 0x9a, 0x00, 0xc0, 0x4f, 0xd6, 0x55, 0xe1);
-DECLARE_INTERFACE_(IShellIconOverlayIdentifier, IUnknown)
-{
-    STDMETHOD(QueryInterface) (THIS_ REFIID riid, void **ppv) PURE;
-    STDMETHOD_(ULONG,AddRef) (THIS)  PURE;
-    STDMETHOD_(ULONG,Release) (THIS) PURE;
-
-    STDMETHOD (IsMemberOf)(THIS_ LPCWSTR pwszPath, DWORD dwAttrib) PURE;
-    STDMETHOD (GetOverlayInfo)(THIS_ LPWSTR pwszIconFile, int cchMax, int * pIndex, DWORD * pdwFlags) PURE;
-    STDMETHOD (GetPriority)(THIS_ int * pIPriority) PURE;
-};
-
-#define ISIOI_ICONFILE  0x00000001
-#define ISIOI_ICONINDEX 0x00000002
-
-#undef INTERFACE
-
-/*****************************************************************************
- * IBanneredBar interface
- */
-enum
-{
-    BMICON_LARGE = 0,
-    BMICON_SMALL
-};
-#define INTERFACE IBanneredBar
-DECLARE_INTERFACE_(IBanneredBar, IUnknown)//, "596A9A94-013E-11d1-8D34-00A0C90F2719")
-{
-    STDMETHOD(QueryInterface) (THIS_ REFIID riid, void **ppv) PURE;
-    STDMETHOD_(ULONG,AddRef) (THIS)  PURE;
-    STDMETHOD_(ULONG,Release) (THIS) PURE;
-
-    STDMETHOD(SetIconSize)(THIS_ DWORD iIcon) PURE;
-    STDMETHOD(GetIconSize)(THIS_ DWORD* piIcon) PURE;
-    STDMETHOD(SetBitmap)(THIS_ HBITMAP hBitmap) PURE;
-    STDMETHOD(GetBitmap)(THIS_ HBITMAP* phBitmap) PURE;
-
-};
-#undef INTERFACE
-#if !defined(__cplusplus) || defined(CINTERFACE)
-#define IBanneredBar_QueryInterface(T,a,b) (T)->lpVtbl->QueryInterface(T,a,b)
-#define IBanneredBar_AddRef(T) (T)->lpVtbl->AddRef(T)
-#define IBanneredBar_Release(T) (T)->lpVtbl->Release(T)
-#define IBanneredBar_SetIconSize(T,a) (T)->lpVtbl->SetIconSize(T,a)
-#define IBanneredBar_GetIconSize(T,a) (T)->lpVtbl->GetIconSize(T,a)
-#define IBanneredBar_SetBitmap(T,a) (T)->lpVtbl->SetBitmap(T,a)
-#define IBanneredBar_GetBitmap(T,a) (T)->lpVtbl->GetBitmap(T,a)
-#endif
 
 #ifdef __cplusplus
 } /* extern "C" */

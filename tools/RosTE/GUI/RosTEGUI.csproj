@@ -120,7 +120,6 @@
     <Compile Include="AboutForm.Designer.cs">
       <DependentUpon>AboutForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="ConfigHandler.cs" />
     <Compile Include="ConsoleSettings.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -133,11 +132,14 @@
     <Compile Include="DeleteVM.Designer.cs">
       <DependentUpon>DeleteVM.cs</DependentUpon>
     </Compile>
-    <Compile Include="DebugForm.cs">
+    <Compile Include="ErrorForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="DebugForm.Designer.cs">
-      <DependentUpon>DebugForm.cs</DependentUpon>
+    <Compile Include="ErrorForm.Designer.cs">
+      <DependentUpon>ErrorForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MainConfig.cs">
+      <DependentUpon>MainConfig.xsd</DependentUpon>
     </Compile>
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
@@ -183,6 +185,7 @@
     </Compile>
     <Compile Include="VirtualMachine.cs">
     </Compile>
+    <Compile Include="VMDataBase.cs" />
     <Compile Include="Wizard\Header.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -235,9 +238,9 @@
       <SubType>Designer</SubType>
       <DependentUpon>DeleteVM.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="DebugForm.resx">
+    <EmbeddedResource Include="ErrorForm.resx">
       <SubType>Designer</SubType>
-      <DependentUpon>DebugForm.cs</DependentUpon>
+      <DependentUpon>ErrorForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="NewHardDiskForm.resx">
       <SubType>Designer</SubType>

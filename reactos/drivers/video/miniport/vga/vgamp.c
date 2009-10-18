@@ -23,7 +23,7 @@
 //  RETURNS:
 //    VP_STATUS
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 DriverEntry(IN PVOID Context1,
             IN PVOID Context2)
 {
@@ -72,7 +72,7 @@ DriverEntry(IN PVOID Context1,
 //  RETURNS:
 //    VP_STATUS
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VGAFindAdapter(PVOID DeviceExtension,
                PVOID Context,
                PWSTR ArgumentString,
@@ -104,7 +104,7 @@ VGAFindAdapter(PVOID DeviceExtension,
 //    PVOID  DeviceExtension
 //  RETURNS:
 //    BOOLEAN  Success or failure
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VGAInitialize(PVOID DeviceExtension)
 {
   return  TRUE;
@@ -161,7 +161,7 @@ VGAInitialize(PVOID DeviceExtension)
 //    BOOLEAN  This function must return TRUE, and complete the work or
 //             set an error status in the VRP.
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VGAStartIO(PVOID DeviceExtension,
            PVIDEO_REQUEST_PACKET RequestPacket)
 {
@@ -344,7 +344,7 @@ VGAStartIO(PVOID DeviceExtension,
 //  RETURNS:
 //    BOOLEAN  TRUE if the interrupt was handled by the routine
 
-static BOOLEAN NTAPI
+static BOOLEAN STDCALL
 VGAInterrupt(PVOID DeviceExtension)
 {
   return(TRUE);
@@ -368,7 +368,7 @@ VGAInterrupt(PVOID DeviceExtension)
 //    BOOLEAN  TRUE if no further action is necessary, FALSE if the system
 //             needs to still do a BIOS int 10 reset.
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VGAResetHw(PVOID DeviceExtension,
 	   ULONG Columns,
 	   ULONG Rows)
@@ -391,7 +391,7 @@ VGAResetHw(PVOID DeviceExtension,
 //  RETURNS:
 //    VOID
 
-static VOID NTAPI
+static VOID STDCALL
 VGATimer(PVOID DeviceExtension)
 {
 }

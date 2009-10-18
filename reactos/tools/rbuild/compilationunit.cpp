@@ -58,8 +58,6 @@ CompilationUnit::~CompilationUnit ()
 	size_t i;
 	for ( i = 0; i < files.size (); i++ )
 		delete files[i];
-
-	delete default_name;
 }
 
 void
@@ -77,7 +75,7 @@ CompilationUnit::IsGeneratedFile () const
 		return false;
 	const File* file = files[0];
 	string extension = GetExtension ( file->file );
-	return ( extension == ".spec" || extension == ".pspec" || extension == ".mc");
+	return ( extension == ".spec" || extension == ".SPEC" || extension == ".mc" || extension == ".MC");
 }
 
 bool

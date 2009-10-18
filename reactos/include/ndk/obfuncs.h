@@ -109,15 +109,6 @@ ObReferenceObjectByName(
 );
 
 NTKERNELAPI
-NTSTATUS
-NTAPI
-ObSetSecurityObjectByPointer(
-  IN PVOID Object,
-  IN SECURITY_INFORMATION SecurityInformation,
-  IN PSECURITY_DESCRIPTOR SecurityDescriptor
-);
-
-NTKERNELAPI
 BOOLEAN
 NTAPI
 ObFindHandleForObject(

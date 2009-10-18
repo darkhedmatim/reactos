@@ -94,11 +94,13 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 	typedef map<string, module_data*> ModuleMap;
 	ModuleMap module_map;
 
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 		if ((module.type != Iso) &&
-			(module.type != LiveIso))
+			(module.type != LiveIso) &&
+			(module.type != IsoRegTest) &&
+			(module.type != LiveIsoRegTest))
 		{
 			vector<const IfableData*> ifs_list;
 			ifs_list.push_back ( &module.project.non_if_data );
@@ -151,9 +153,9 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 	fprintf ( m_DepMapFile, "<?xml-stylesheet type=\"text/xsl\" href=\"depmap.xsl\"?>\r\n" );
 	fprintf ( m_DepMapFile, "<components>\r\n" );
 
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 
 		ModuleMap::iterator it = module_map.find ( module.name );
 		if ( it != module_map.end () )

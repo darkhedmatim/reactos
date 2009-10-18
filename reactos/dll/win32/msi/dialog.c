@@ -50,14 +50,12 @@ extern HINSTANCE msi_hInstance;
 struct msi_control_tag;
 typedef struct msi_control_tag msi_control;
 typedef UINT (*msi_handler)( msi_dialog *, msi_control *, WPARAM );
-typedef void (*msi_update)( msi_dialog *, msi_control * );
 
 struct msi_control_tag
 {
     struct list entry;
     HWND hwnd;
     msi_handler handler;
-    msi_update update;
     LPWSTR property;
     LPWSTR value;
     HBITMAP hBitmap;
@@ -135,8 +133,6 @@ static const WCHAR szMaskedEdit[] = { 'M','a','s','k','e','d','E','d','i','t',0 
 static const WCHAR szPathEdit[] = { 'P','a','t','h','E','d','i','t',0 };
 static const WCHAR szProgressBar[] = {
      'P','r','o','g','r','e','s','s','B','a','r',0 };
-static const WCHAR szSetProgress[] = {
-    'S','e','t','P','r','o','g','r','e','s','s',0 };
 static const WCHAR szRadioButtonGroup[] = { 
     'R','a','d','i','o','B','u','t','t','o','n','G','r','o','u','p',0 };
 static const WCHAR szIcon[] = { 'I','c','o','n',0 };
@@ -171,7 +167,7 @@ static HWND hMsiHiddenWindow;
 
 static INT msi_dialog_scale_unit( msi_dialog *dialog, INT val )
 {
-    return MulDiv( val, dialog->scale, 12 );
+    return (dialog->scale * val + 5) / 10;
 }
 
 static msi_control *msi_dialog_find_control( msi_dialog *dialog, LPCWSTR name )
@@ -417,9 +413,8 @@ static msi_control *msi_dialog_create_window( msi_dialog *dialog,
         return NULL;
 
     strcpyW( control->name, name );
-    list_add_tail( &dialog->controls, &control->entry );
+    list_add_head( &dialog->controls, &control->entry );
     control->handler = NULL;
-    control->update = NULL;
     control->property = NULL;
     control->value = NULL;
     control->hBitmap = NULL;
@@ -569,16 +564,6 @@ static HICON msi_load_icon( MSIDATABASE *db, LPCWSTR text, UINT attributes )
     return msi_load_image( db, text, IMAGE_ICON, cx, cy, flags );
 }
 
-static void msi_dialog_update_controls( msi_dialog *dialog, LPCWSTR property )
-{
-    msi_control *control;
-
-    LIST_FOR_EACH_ENTRY( control, &dialog->controls, msi_control, entry )
-    {
-        if ( !lstrcmpW( control->property, property ) && control->update )
-            control->update( dialog, control );
-    }
-}
 
 /* called from the Control Event subscription code */
 void msi_dialog_handle_event( msi_dialog* dialog, LPCWSTR control, 
@@ -870,7 +855,6 @@ static UINT msi_dialog_checkbox_control( msi_dialog *dialog, MSIRECORD *rec )
     control = msi_dialog_add_control( dialog, rec, szButton,
                                 BS_CHECKBOX | BS_MULTILINE | WS_TABSTOP );
     control->handler = msi_dialog_checkbox_handler;
-    control->update = msi_dialog_checkbox_sync_state;
     prop = MSI_RecordGetString( rec, 9 );
     if( prop )
     {
@@ -1206,15 +1190,12 @@ static UINT msi_dialog_combo_control( msi_dialog *dialog, MSIRECORD *rec )
     return ERROR_SUCCESS;
 }
 
-/* length of 2^32 + 1 */
-#define MAX_NUM_DIGITS 11
-
 static UINT msi_dialog_edit_control( msi_dialog *dialog, MSIRECORD *rec )
 {
     msi_control *control;
     LPCWSTR prop, text;
     LPWSTR val, begin, end;
-    WCHAR num[MAX_NUM_DIGITS];
+    WCHAR num[10];
     DWORD limit;
 
     control = msi_dialog_add_control( dialog, rec, szEdit,
@@ -1227,9 +1208,7 @@ static UINT msi_dialog_edit_control( msi_dialog *dialog, MSIRECORD *rec )
         begin = strchrW( text, '{' );
         end = strchrW( text, '}' );
 
-        if ( begin && end && end > begin &&
-             begin[0] >= '0' && begin[0] <= '9' &&
-             end - begin < MAX_NUM_DIGITS)
+        if ( begin && end && end > begin )
         {
             lstrcpynW( num, begin + 1, end - begin );
             limit = atolW( num );
@@ -1390,7 +1369,7 @@ msi_maskedit_set_text( struct msi_maskedit_info *info, LPCWSTR text )
     p = text;
     for( i = 0; i < info->num_groups; i++ )
     {
-        if( info->group[i].len < strlenW( p ) )
+        if( info->group[i].len < lstrlenW( p ) )
         {
             LPWSTR chunk = strdupW( p );
             chunk[ info->group[i].len ] = 0;
@@ -1573,14 +1552,7 @@ end:
 
 static UINT msi_dialog_progress_bar( msi_dialog *dialog, MSIRECORD *rec )
 {
-    msi_control *control;
-
-    control = msi_dialog_add_control( dialog, rec, PROGRESS_CLASSW, WS_VISIBLE );
-    if( !control )
-        return ERROR_FUNCTION_FAILED;
-
-    ControlEvent_SubscribeToEvent( dialog->package, dialog,
-                                   szSetProgress, control->name, szProgress );
+    msi_dialog_add_control( dialog, rec, PROGRESS_CLASSW, WS_VISIBLE );
     return ERROR_SUCCESS;
 }
 
@@ -1734,7 +1706,7 @@ static UINT msi_dialog_pathedit_control( msi_dialog *dialog, MSIRECORD *rec )
 /* radio buttons are a bit different from normal controls */
 static UINT msi_dialog_create_radiobutton( MSIRECORD *rec, LPVOID param )
 {
-    radio_button_group_descr *group = param;
+    radio_button_group_descr *group = (radio_button_group_descr *)param;
     msi_dialog *dialog = group->dialog;
     msi_control *control;
     LPCWSTR prop, text, name;
@@ -1923,7 +1895,7 @@ msi_seltree_menu( HWND hwnd, HTREEITEM hItem )
     case INSTALLSTATE_LOCAL:
     case INSTALLSTATE_ADVERTISED:
     case INSTALLSTATE_ABSENT:
-        msi_feature_set_state(package, feature, r);
+        msi_feature_set_state( feature, r );
         break;
     default:
         FIXME("select feature and all children\n");
@@ -2070,8 +2042,7 @@ static UINT msi_dialog_seltree_handler( msi_dialog *dialog,
     LPNMTREEVIEWW tv = (LPNMTREEVIEWW)param;
     MSIRECORD *row, *rec;
     MSIFOLDER *folder;
-    MSIFEATURE *feature;
-    LPCWSTR dir, title = NULL;
+    LPCWSTR dir;
     UINT r = ERROR_SUCCESS;
 
     static const WCHAR select[] = {
@@ -2085,16 +2056,7 @@ static UINT msi_dialog_seltree_handler( msi_dialog *dialog,
 
     info->selected = tv->itemNew.hItem;
 
-    if (!(tv->itemNew.mask & TVIF_TEXT))
-    {
-        feature = msi_seltree_feature_from_item( control->hwnd, tv->itemNew.hItem );
-        if (feature)
-            title = feature->Title;
-    }
-    else
-        title = tv->itemNew.pszText;
-
-    row = MSI_QueryGetRecord( dialog->package->db, select, title );
+    row = MSI_QueryGetRecord( dialog->package->db, select, tv->itemNew.pszText );
     if (!row)
         return ERROR_FUNCTION_FAILED;
 
@@ -2256,7 +2218,6 @@ static UINT msi_listbox_add_items( struct msi_listbox_info *info, LPCWSTR proper
         return r;
 
     /* just get the number of records */
-    count = 0;
     r = MSI_IterateRecords( view, &count, NULL, NULL );
 
     info->num_items = count;
@@ -2911,7 +2872,7 @@ static INT msi_dialog_get_sans_serif_height( HWND hwnd )
     if (hdc)
     {
         memset( &lf, 0, sizeof lf );
-        lf.lfHeight = MulDiv(12, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        lf.lfHeight = MulDiv(10, GetDeviceCaps(hdc, LOGPIXELSY), 72);
         strcpyW( lf.lfFaceName, szSansSerif );
         hFont = CreateFontIndirectW(&lf);
         if (hFont)
@@ -2943,7 +2904,7 @@ static MSIRECORD *msi_get_dialog_record( msi_dialog *dialog )
 
     rec = MSI_QueryGetRecord( package->db, query, dialog->name );
     if( !rec )
-        WARN("query failed for dialog %s\n", debugstr_w(dialog->name));
+        ERR("query failed for dialog %s\n", debugstr_w(dialog->name));
 
     return rec;
 }
@@ -3002,34 +2963,37 @@ static void msi_dialog_adjust_dialog_pos( msi_dialog *dialog, MSIRECORD *rec, LP
     AdjustWindowRect( pos, style, FALSE );
 }
 
-static void msi_dialog_set_tab_order( msi_dialog *dialog, LPCWSTR first )
+static BOOL msi_control_set_next( msi_control *control, msi_control *next )
 {
-    struct list tab_chain;
+    return SetWindowPos( next->hwnd, control->hwnd, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOREDRAW |
+                         SWP_NOREPOSITION | SWP_NOSENDCHANGING | SWP_NOSIZE );
+}
+
+static UINT msi_dialog_set_tab_order( msi_dialog *dialog )
+{
+    msi_control *control, *tab_next;
+
+    LIST_FOR_EACH_ENTRY( control, &dialog->controls, msi_control, entry )
+    {
+        tab_next = msi_dialog_find_control( dialog, control->tabnext );
+        if( !tab_next )
+            continue;
+        msi_control_set_next( control, tab_next );
+    }
+
+    return ERROR_SUCCESS;
+}
+
+static void msi_dialog_set_first_control( msi_dialog* dialog, LPCWSTR name )
+{
     msi_control *control;
-    HWND prev = HWND_TOP;
 
-    list_init( &tab_chain );
-    if (!(control = msi_dialog_find_control( dialog, first ))) return;
-
-    dialog->hWndFocus = control->hwnd;
-    while (control)
-    {
-        list_remove( &control->entry );
-        list_add_tail( &tab_chain, &control->entry );
-        if (!control->tabnext) break;
-        control = msi_dialog_find_control( dialog, control->tabnext );
-    }
-
-    LIST_FOR_EACH_ENTRY( control, &tab_chain, msi_control, entry )
-    {
-        SetWindowPos( control->hwnd, prev, 0, 0, 0, 0,
-                      SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOREDRAW |
-                      SWP_NOREPOSITION | SWP_NOSENDCHANGING | SWP_NOSIZE );
-        prev = control->hwnd;
-    }
-
-    /* put them back on the main list */
-    list_move_head( &dialog->controls, &tab_chain );
+    control = msi_dialog_find_control( dialog, name );
+    if( control )
+        dialog->hWndFocus = control->hwnd;
+    else
+        dialog->hWndFocus = NULL;
 }
 
 static LRESULT msi_dialog_oncreate( HWND hwnd, LPCREATESTRUCTW cs )
@@ -3038,7 +3002,7 @@ static LRESULT msi_dialog_oncreate( HWND hwnd, LPCREATESTRUCTW cs )
         'D','e','f','a','u','l','t','U','I','F','o','n','t',0 };
     static const WCHAR dfv[] = {
         'M','S',' ','S','h','e','l','l',' ','D','l','g',0 };
-    msi_dialog *dialog = cs->lpCreateParams;
+    msi_dialog *dialog = (msi_dialog*) cs->lpCreateParams;
     MSIRECORD *rec = NULL;
     LPWSTR title = NULL;
     RECT pos;
@@ -3079,7 +3043,8 @@ static LRESULT msi_dialog_oncreate( HWND hwnd, LPCREATESTRUCTW cs )
     msi_dialog_build_font_list( dialog );
     msi_dialog_fill_controls( dialog );
     msi_dialog_evaluate_control_conditions( dialog );
-    msi_dialog_set_tab_order( dialog, MSI_RecordGetString( rec, 8 ) );
+    msi_dialog_set_tab_order( dialog );
+    msi_dialog_set_first_control( dialog, MSI_RecordGetString( rec, 8 ) );
     msiobj_release( &rec->hdr );
 
     return 0;
@@ -3118,7 +3083,6 @@ static UINT msi_dialog_set_property( msi_dialog *dialog, LPCWSTR event, LPCWSTR 
         if( strcmpW( szNullArg, arg ) )
             deformat_string( dialog->package, arg, &arg_fmt );
         MSI_SetPropertyW( dialog->package, prop, arg_fmt );
-        msi_dialog_update_controls( dialog, prop );
         msi_free( arg_fmt );
     }
     else
@@ -3157,7 +3121,7 @@ struct rec_list
 static UINT add_rec_to_list( MSIRECORD *rec, LPVOID param )
 {
     struct rec_list *add_rec;
-    struct list *records = param;
+    struct list *records = (struct list *)param;
 
     msiobj_addref( &rec->hdr );
 
@@ -3483,38 +3447,6 @@ static LRESULT WINAPI MSIHiddenWindowProc( HWND hwnd, UINT msg,
     return DefWindowProcW( hwnd, msg, wParam, lParam );
 }
 
-static BOOL msi_dialog_register_class( void )
-{
-    WNDCLASSW cls;
-
-    ZeroMemory( &cls, sizeof cls );
-    cls.lpfnWndProc   = MSIDialog_WndProc;
-    cls.hInstance     = NULL;
-    cls.hIcon         = LoadIconW(0, (LPWSTR)IDI_APPLICATION);
-    cls.hCursor       = LoadCursorW(0, (LPWSTR)IDC_ARROW);
-    cls.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
-    cls.lpszMenuName  = NULL;
-    cls.lpszClassName = szMsiDialogClass;
-
-    if( !RegisterClassW( &cls ) )
-        return FALSE;
-
-    cls.lpfnWndProc   = MSIHiddenWindowProc;
-    cls.lpszClassName = szMsiHiddenWindow;
-
-    if( !RegisterClassW( &cls ) )
-        return FALSE;
-
-    uiThreadId = GetCurrentThreadId();
-
-    hMsiHiddenWindow = CreateWindowW( szMsiHiddenWindow, NULL, WS_OVERLAPPED,
-                                   0, 0, 100, 100, NULL, NULL, NULL, NULL );
-    if( !hMsiHiddenWindow )
-        return FALSE;
-
-    return TRUE;
-}
-
 /* functions that interface to other modules within MSI */
 
 msi_dialog *msi_dialog_create( MSIPACKAGE* package,
@@ -3525,9 +3457,6 @@ msi_dialog *msi_dialog_create( MSIPACKAGE* package,
     msi_dialog *dialog;
 
     TRACE("%p %s\n", package, debugstr_w(szDialogName));
-
-    if (!hMsiHiddenWindow)
-        msi_dialog_register_class();
 
     /* allocate the structure for the dialog to use */
     dialog = msi_alloc_zero( sizeof *dialog + sizeof(WCHAR)*strlenW(szDialogName) );
@@ -3696,6 +3625,38 @@ void msi_dialog_destroy( msi_dialog *dialog )
     msiobj_release( &dialog->package->hdr );
     dialog->package = NULL;
     msi_free( dialog );
+}
+
+BOOL msi_dialog_register_class( void )
+{
+    WNDCLASSW cls;
+
+    ZeroMemory( &cls, sizeof cls );
+    cls.lpfnWndProc   = MSIDialog_WndProc;
+    cls.hInstance     = NULL;
+    cls.hIcon         = LoadIconW(0, (LPWSTR)IDI_APPLICATION);
+    cls.hCursor       = LoadCursorW(0, (LPWSTR)IDC_ARROW);
+    cls.hbrBackground = (HBRUSH)(COLOR_3DFACE + 1);
+    cls.lpszMenuName  = NULL;
+    cls.lpszClassName = szMsiDialogClass;
+
+    if( !RegisterClassW( &cls ) )
+        return FALSE;
+
+    cls.lpfnWndProc   = MSIHiddenWindowProc;
+    cls.lpszClassName = szMsiHiddenWindow;
+
+    if( !RegisterClassW( &cls ) )
+        return FALSE;
+
+    uiThreadId = GetCurrentThreadId();
+
+    hMsiHiddenWindow = CreateWindowW( szMsiHiddenWindow, NULL, WS_OVERLAPPED,
+                                   0, 0, 100, 100, NULL, NULL, NULL, NULL );
+    if( !hMsiHiddenWindow )
+        return FALSE;
+
+    return TRUE;
 }
 
 void msi_dialog_unregister_class( void )

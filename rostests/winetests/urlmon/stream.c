@@ -76,7 +76,6 @@ DEFINE_EXPECT(OnStopBinding);
 DEFINE_EXPECT(OnDataAvailable);
 DEFINE_EXPECT(GetBindInfo);
 
-static const CHAR wszIndexHtmlA[] = "index.html";
 static const WCHAR wszIndexHtml[] = {'i','n','d','e','x','.','h','t','m','l',0};
 static WCHAR INDEX_HTML[MAX_PATH];
 static const char szHtmlDoc[] = "<HTML></HTML>";
@@ -168,7 +167,7 @@ static HRESULT WINAPI statusclb_OnProgress(IBindStatusCallback *iface, ULONG ulP
             ok(szStatusText != NULL, "szStatusText == NULL\n");
             break;
         default:
-            todo_wine { ok(0, "unexpected code %d\n", ulStatusCode); }
+            todo_wine { ok(0, "unexpexted code %d\n", ulStatusCode); }
     };
     return S_OK;
 }
@@ -261,22 +260,26 @@ static const IBindStatusCallbackVtbl BindStatusCallbackVtbl = {
 
 static IBindStatusCallback BindStatusCallback = { &BindStatusCallbackVtbl };
 
-static void set_file_url(char *path)
+static void set_file_url(void)
 {
-    char INDEX_HTML_A[MAX_PATH];
+    int len;
 
-    lstrcpyA(INDEX_HTML_A, "file:///");
-    lstrcatA(INDEX_HTML_A, path);
-    MultiByteToWideChar(CP_ACP, 0, INDEX_HTML_A, -1, INDEX_HTML, MAX_PATH);
+    static const WCHAR wszFile[] = {'f','i','l','e',':','/','/'};
+
+    memcpy(INDEX_HTML, wszFile, sizeof(wszFile));
+    len = sizeof(wszFile)/sizeof(WCHAR);
+    INDEX_HTML[len++] = '/';
+    len += GetCurrentDirectoryW(sizeof(INDEX_HTML)/sizeof(WCHAR)-len, INDEX_HTML+len);
+    INDEX_HTML[len++] = '\\';
+    memcpy(INDEX_HTML+len, wszIndexHtml, sizeof(wszIndexHtml));
 }
 
 static void create_file(void)
 {
     HANDLE file;
     DWORD size;
-    CHAR path[MAX_PATH];
 
-    file = CreateFileA(wszIndexHtmlA, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+    file = CreateFileW(wszIndexHtml, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                        FILE_ATTRIBUTE_NORMAL, NULL);
     ok(file != INVALID_HANDLE_VALUE, "CreateFile failed\n");
     if(file == INVALID_HANDLE_VALUE)
@@ -285,16 +288,13 @@ static void create_file(void)
     WriteFile(file, szHtmlDoc, sizeof(szHtmlDoc)-1, &size, NULL);
     CloseHandle(file);
 
-    GetCurrentDirectoryA(MAX_PATH, path);
-    lstrcatA(path, "\\");
-    lstrcatA(path, wszIndexHtmlA);
-    set_file_url(path);
+    set_file_url();
 }
 
 static void test_URLOpenBlockingStreamW(void)
 {
     HRESULT hr;
-    IStream *pStream = NULL;
+    IStream *pStream;
     char buffer[256];
 
     hr = URLOpenBlockingStreamW(NULL, NULL, &pStream, 0, &BindStatusCallback);
@@ -324,14 +324,12 @@ static void test_URLOpenBlockingStreamW(void)
     CHECK_CALLED(OnStopBinding);
 
     ok(pStream != NULL, "pStream is NULL\n");
-    if(pStream)
-    {
-        hr = IStream_Read(pStream, buffer, sizeof(buffer), NULL);
-        ok(hr == S_OK, "IStream_Read failed with error 0x%08x\n", hr);
-        ok(!memcmp(buffer, szHtmlDoc, sizeof(szHtmlDoc)-1), "read data differs from file\n");
 
-        IStream_Release(pStream);
-    }
+    hr = IStream_Read(pStream, buffer, sizeof(buffer), NULL);
+    ok(hr == S_OK, "IStream_Read failed with error 0x%08x\n", hr);
+    ok(!memcmp(buffer, szHtmlDoc, sizeof(szHtmlDoc)-1), "read data differs from file\n");
+
+    IStream_Release(pStream);
 }
 
 static void test_URLOpenStreamW(void)
@@ -370,5 +368,5 @@ START_TEST(stream)
     create_file();
     test_URLOpenBlockingStreamW();
     test_URLOpenStreamW();
-    DeleteFileA(wszIndexHtmlA);
+    DeleteFileW(wszIndexHtml);
 }

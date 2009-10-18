@@ -1,16 +1,13 @@
 #ifndef _WINNLS_H
 #define _WINNLS_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
-#endif
-
-#define GEOID_NOT_AVAILABLE (-1)
 #define MAX_LEADBYTES 	12
 #define MAX_DEFAULTCHAR	2
 #define LOCALE_NOUSEROVERRIDE	0x80000000
@@ -112,7 +109,6 @@ extern "C" {
 #define LOCALE_SABBREVMONTHNAME13	0x100F
 #define LOCALE_SPOSITIVESIGN	80
 #define LOCALE_SNEGATIVESIGN	81
-#define LOCALE_SSCRIPTS         108
 #define LOCALE_IPOSSIGNPOSN	82
 #define LOCALE_INEGSIGNPOSN	83
 #define LOCALE_IPOSSYMPRECEDES	84
@@ -123,16 +119,9 @@ extern "C" {
 #define LOCALE_FONTSIGNATURE    88
 #define LOCALE_SISO639LANGNAME  89
 #define LOCALE_SISO3166CTRYNAME 90
-#define LOCALE_SNAME            92
-#endif
-#if (WINVER >= 0x0600)
-#define LOCALE_SSCRIPTS 108
 #endif
 #define LOCALE_SYSTEM_DEFAULT	0x800
 #define LOCALE_USER_DEFAULT	0x400
-
-#define LOCALE_IDEFAULTUNIXCODEPAGE   0x1030 /* Wine extension */
-
 #define NORM_IGNORECASE	1
 #define NORM_IGNOREKANATYPE	65536
 #define NORM_IGNORENONSPACE	2
@@ -169,14 +158,9 @@ extern "C" {
 #define WC_DEFAULTCHAR       0x0040
 #define WC_ERR_INVALID_CHARS 0x0080
 #define WC_COMPOSITECHECK    0x0200
-#if (WINVER >= 0x0500)
 #define WC_NO_BEST_FIT_CHARS 0x0400
-#endif
 
 #define CP_ACP 0
-#ifdef _WINE
-#define CP_UNIXCP CP_ACP
-#endif
 #define CP_OEMCP 1
 #define CP_MACCP 2
 #define CP_THREAD_ACP 3
@@ -228,6 +212,10 @@ extern "C" {
 #define MB_COMPOSITE 2
 #define MB_ERR_INVALID_CHARS 8
 #define MB_USEGLYPHCHARS 4
+#define WC_COMPOSITECHECK 512
+#define WC_DISCARDNS 16
+#define WC_SEPCHARS 32
+#define WC_DEFAULTCHAR 64
 #define CTRY_DEFAULT 0
 #define CTRY_ALBANIA 355
 #define CTRY_ALGERIA 213
@@ -433,18 +421,13 @@ extern "C" {
 #define DATE_LTRREADING 16
 #define DATE_RTLREADING 32
 #define MAP_EXPAND_LIGATURES   0x2000
+#define WC_NO_BEST_FIT_CHARS 1024
 #define CAL_SYEARMONTH 47
 #define CAL_ITWODIGITYEARMAX 48
 #define CAL_NOUSEROVERRIDE LOCALE_NOUSEROVERRIDE
 #define CAL_RETURN_NUMBER LOCALE_RETURN_NUMBER
 #define CAL_USE_CP_ACP LOCALE_USE_CP_ACP
 #endif /* (WINVER >= 0x0500) */
-#if WINVER >= 0x0600
-#define IDN_ALLOW_UNASSIGNED 0x1
-#define IDN_USE_STD3_ASCII_RULES 0x2
-#define VS_ALLOW_LATIN 0x1
-#define GSS_ALLOW_INHERITED_COMMON 0x1
-#endif
 #ifndef  _BASETSD_H
 typedef long LONG_PTR;
 #endif
@@ -563,15 +546,6 @@ typedef struct _numberfmtW {
 	LPWSTR lpThousandSep;
 	UINT NegativeOrder;
 } NUMBERFMTW,*LPNUMBERFMTW;
-#if (WINVER >= 0x0600)
-typedef enum _NORM_FORM {
-	NormalizationOther = 0,
-	NormalizationC = 0x1,
-	NormalizationD = 0x2,
-	NormalizationKC = 0x5,
-	NormalizationKD = 0x6
-} NORM_FORM;
-#endif /* (WINVER >= 0x0600) */
 
 int WINAPI CompareStringA(LCID,DWORD,LPCSTR,int,LPCSTR,int);
 int WINAPI CompareStringW(LCID,DWORD,LPCWSTR,int,LPCWSTR,int);
@@ -652,17 +626,6 @@ LANGID WINAPI GetSystemDefaultUILanguage(void);
 LANGID WINAPI GetUserDefaultUILanguage(void);
 BOOL WINAPI IsValidLanguageGroup(LGRPID,DWORD);
 #endif /* (WINVER >= 0x0500) */
-#if (WINVER >= 0x0600)
-WINBASEAPI
-int WINAPI GetLocaleInfoEx(LPCWSTR,LCTYPE,LPWSTR,int);
-int WINAPI IdnToAscii(DWORD,LPCWSTR,int,LPWSTR,int);
-int WINAPI IdnToNameprepUnicode(DWORD,LPCWSTR,int,LPWSTR,int);
-int WINAPI IdnToUnicode(DWORD,LPCWSTR,int,LPWSTR,int);
-BOOL WINAPI IsNormalizedString(NORM_FORM,LPCWSTR,int);
-int WINAPI NormalizeString(NORM_FORM,LPCWSTR,int,LPWSTR,int);
-int WINAPI GetStringScripts(DWORD,LPCWSTR,int,LPWSTR,int);
-BOOL WINAPI VerifyScripts(DWORD,LPCWSTR,int,LPCWSTR,int);
-#endif /* (WINVER >= 0x0600) */
 
 #ifdef UNICODE
 #define CALINFO_ENUMPROC CALINFO_ENUMPROCW
@@ -701,11 +664,11 @@ typedef LPNUMBERFMTW LPNUMBERFMT;
 #define SetCalendarInfo  SetCalendarInfoW
 #define SetLocaleInfo SetLocaleInfoW
 #if (WINVER >= 0x0500)
-#define EnumCalendarInfoEx EnumCalendarInfoExW
-#define EnumDateFormatsEx EnumDateFormatsExW
-#define EnumSystemLanguageGroups EnumSystemLanguageGroupsW
-#define EnumLanguageGroupLocales EnumLanguageGroupLocalesW
-#define EnumUILanguages EnumUILanguagesW
+#define EnumCalendarInfoEx EnumCalendarInfoExW;
+#define EnumDateFormatsEx EnumDateFormatsExW;
+#define EnumSystemLanguageGroups EnumSystemLanguageGroupsW;
+#define EnumLanguageGroupLocales EnumLanguageGroupLocalesW;
+#define EnumUILanguages EnumUILanguagesW;
 #endif /* (WINVER >= 0x0500) */
 #else
 #define CALINFO_ENUMPROC CALINFO_ENUMPROCA
@@ -744,19 +707,14 @@ typedef LPNUMBERFMTA LPNUMBERFMT;
 #define SetCalendarInfo SetCalendarInfoA
 #define SetLocaleInfo SetLocaleInfoA
 #if (WINVER >= 0x0500)
-#define EnumCalendarInfoEx EnumCalendarInfoExA
-#define EnumDateFormatsEx EnumDateFormatsExA
-#define EnumSystemLanguageGroups EnumSystemLanguageGroupsA
-#define EnumLanguageGroupLocales EnumLanguageGroupLocalesA
-#define EnumUILanguages EnumUILanguagesA
+#define EnumCalendarInfoEx EnumCalendarInfoExA;
+#define EnumDateFormatsEx EnumDateFormatsExA;
+#define EnumSystemLanguageGroups EnumSystemLanguageGroupsA;
+#define EnumLanguageGroupLocales EnumLanguageGroupLocalesA;
+#define EnumUILanguages EnumUILanguagesA;
 #endif /* (WINVER >= 0x0500) */
 #endif /* UNICODE */
 #endif /* RC_INVOKED */
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
 #ifdef __cplusplus
 }
 #endif

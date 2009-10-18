@@ -3,7 +3,8 @@
 #include <tchar.h>
 #include <stdio.h>
 #include "resource.h"
-#include "cardlib.h"
+#include "cardlib/cardlib.h"
+//#include "../catch22lib/trace.h"
 #include "solitaire.h"
 
 #if 1
@@ -13,7 +14,6 @@
 #endif
 
 extern TCHAR MsgWin[128];
-extern TCHAR MsgDeal[128];
 
 CardStack activepile;
 bool fGameStarted = false;
@@ -91,7 +91,7 @@ bool CARDLIBPROC RowStackDragProc(CardRegion &stackobj, int iNumDragCards)
 //    Row a row-stack, we can only drop cards
 //    that are lower / different colour
 //
-bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj, CardStack &dragcards)
+bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj,  const CardStack &dragcards)
 {
     TRACE("ENTER RowStackDropProc()\n");
     Card dragcard = dragcards[dragcards.NumCards() - 1];
@@ -117,8 +117,8 @@ bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj, CardStack &dragcards)
         }
 
         //can only drop if card is different colour
-        if( (mystack[0].IsBlack() && !dragcard.IsRed()) ||
-           (!mystack[0].IsBlack() &&  dragcard.IsRed()) )
+        if( mystack[0].IsBlack() && !dragcard.IsRed() ||
+           !mystack[0].IsBlack() &&  dragcard.IsRed() )
         {
             TRACE("EXIT RowStackDropProc(false)\n");
             return false;
@@ -171,7 +171,7 @@ bool CanDrop(CardRegion &stackobj, Card card)
 //
 //    Can only drop a card onto suit stack if it is same suit, and 1 higher
 //
-bool CARDLIBPROC SuitStackDropProc(CardRegion &stackobj, CardStack &dragcards)
+bool CARDLIBPROC SuitStackDropProc(CardRegion &stackobj, const CardStack &dragcards)
 {
     TRACE("ENTER SuitStackDropProc()\n");
     //only drop 1 card at a time
@@ -254,19 +254,8 @@ void CARDLIBPROC SuitStackAddProc(CardRegion &stackobj, const CardStack &added)
         {
             pSuitStack[i]->Flash(11, 100);
         }
-
-        if( IDYES == MessageBox(SolWnd, MsgDeal, szAppName, MB_YESNO | MB_ICONQUESTION) )
-        {
-            NewGame();
-        }
-        else
-        {
-            SolWnd.EmptyStacks();
-
-            fGameStarted = false;
-        }
+        fGameStarted = false;
     }
-
     TRACE("EXIT SuitStackAddProc()\n");
 }
 

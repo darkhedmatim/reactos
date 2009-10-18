@@ -1,25 +1,17 @@
-/*
- * PROJECT:         ReactOS CRT library
- * LICENSE:         GPL (?) - See COPYING in the top level directory
- * FILE:            lib/sdk/crt/process/process.c
- * PURPOSE:         Process management functions
- * PROGRAMMERS:     ???
- */
-
 #include <precomp.h>
 #include <process.h>
 #include <tchar.h>
-#include <internal/wine/msvcrt.h>
+
+#define NDEBUG
+#include <internal/debug.h>
 
 #ifdef _UNICODE
-   #define sT "S"
    #define find_execT find_execW
    #define argvtosT argvtosW
    #define do_spawnT do_spawnW
    #define valisttosT valisttosW
    #define extT extW
 #else
-   #define sT "s"
    #define find_execT find_execA
    #define argvtosT argvtosA
    #define do_spawnT do_spawnA
@@ -27,7 +19,6 @@
    #define extT extA
 #endif
 
-#define MK_STR(s) #s
 
 _TCHAR const* extT[] =
    {
@@ -44,7 +35,7 @@ const _TCHAR* find_execT(const _TCHAR* path, _TCHAR* rpath)
    const _TCHAR *rd;
    unsigned int i, found = 0;
 
-   TRACE(MK_STR(find_execT)"('%"sT"', %x)\n", path, rpath);
+   DPRINT(MK_STR(find_execT)"('%"sT"', %x)\n", path, rpath);
 
    if (path == NULL)
    {
@@ -63,7 +54,7 @@ const _TCHAR* find_execT(const _TCHAR* path, _TCHAR* rpath)
    {
       _tcscpy(rp, extT[i]);
 
-      TRACE("trying '%"sT"'\n", rpath);
+      DPRINT("trying '%"sT"'\n", rpath);
 
       if (_taccess(rpath, F_OK) == 0 && access_dirT(rpath) != 0)
       {
@@ -99,7 +90,7 @@ const _TCHAR* find_execT(const _TCHAR* path, _TCHAR* rpath)
             {
                _tcscpy(rp, extT[i]);
 
-               TRACE("trying '%"sT"'\n", rpath);
+               DPRINT("trying '%"sT"'\n", rpath);
 
                if (_taccess(rpath, F_OK) == 0 && access_dirT(rpath) != 0)
                {
@@ -182,7 +173,7 @@ valisttosT(const _TCHAR* arg0, va_list alist, _TCHAR delim)
    return str;
 }
 
-static intptr_t
+static int
 do_spawnT(int mode, const _TCHAR* cmdname, const _TCHAR* args, const _TCHAR* envp)
 {
    STARTUPINFO StartupInfo = {0};
@@ -214,7 +205,7 @@ do_spawnT(int mode, const _TCHAR* cmdname, const _TCHAR* args, const _TCHAR* env
       return(-1);
    }
 
-   memset (&StartupInfo, 0, sizeof(StartupInfo));
+   //memset (&StartupInfo, 0, sizeof(StartupInfo));
    StartupInfo.cb = sizeof(StartupInfo);
 
 #if 0
@@ -274,7 +265,7 @@ do_spawnT(int mode, const _TCHAR* cmdname, const _TCHAR* args, const _TCHAR* env
    }
 #endif
 
-   create_io_inherit_block(&StartupInfo.cbReserved2, &StartupInfo.lpReserved2);
+   create_io_inherit_block((STARTUPINFOA*) &StartupInfo);
 
    bResult = CreateProcess((_TCHAR *)cmdname,
                             (_TCHAR *)args,
@@ -295,8 +286,8 @@ do_spawnT(int mode, const _TCHAR* cmdname, const _TCHAR* args, const _TCHAR* env
    if (!bResult)
    {
       dwError = GetLastError();
-      ERR("%x\n", dwError);
-      _dosmaperr(dwError);
+      DPRINT("%x\n", dwError);
+      __set_errno(dwError);
       return(-1);
    }
    CloseHandle(ProcessInformation.hThread);
@@ -304,7 +295,7 @@ do_spawnT(int mode, const _TCHAR* cmdname, const _TCHAR* args, const _TCHAR* env
    {
       case _P_NOWAIT:
       case _P_NOWAITO:
-         return((intptr_t)ProcessInformation.hProcess);
+         return((int)ProcessInformation.hProcess);
       case _P_OVERLAY:
          CloseHandle(ProcessInformation.hProcess);
          _exit(0);
@@ -317,19 +308,19 @@ do_spawnT(int mode, const _TCHAR* cmdname, const _TCHAR* args, const _TCHAR* env
          CloseHandle(ProcessInformation.hProcess);
          return( 0);
    }
-   return( (intptr_t)ProcessInformation.hProcess);
+   return( (int)ProcessInformation.hProcess);
 }
 
 /*
  * @implemented
  */
-intptr_t _tspawnl(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ...)
+int _tspawnl(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ...)
 {
    va_list argp;
    _TCHAR* args;
    int ret = -1;
 
-   TRACE(MK_STR(_tspawnl)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnl)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
@@ -345,12 +336,12 @@ intptr_t _tspawnl(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ...)
 /*
  * @implemented
  */
-intptr_t _tspawnv(int mode, const _TCHAR *cmdname, const _TCHAR* const* argv)
+int _tspawnv(int mode, const _TCHAR *cmdname, const _TCHAR* const* argv)
 {
    _TCHAR* args;
    int ret = -1;
 
-   TRACE(MK_STR(_tspawnv)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnv)"('%"sT"')\n", cmdname);
 
    args = argvtosT(argv, ' ');
 
@@ -365,7 +356,7 @@ intptr_t _tspawnv(int mode, const _TCHAR *cmdname, const _TCHAR* const* argv)
 /*
  * @implemented
  */
-intptr_t _tspawnle(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ... /*, NULL, const char* const* envp*/)
+int _tspawnle(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ... /*, NULL, const char* const* envp*/)
 {
    va_list argp;
    _TCHAR* args;
@@ -373,7 +364,7 @@ intptr_t _tspawnle(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ... /*, 
    _TCHAR const * const* ptr;
    int ret = -1;
 
-   TRACE(MK_STR(_tspawnle)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnle)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
@@ -400,13 +391,13 @@ intptr_t _tspawnle(int mode, const _TCHAR *cmdname, const _TCHAR* arg0, ... /*, 
 /*
  * @implemented
  */
-intptr_t _tspawnve(int mode, const _TCHAR *cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
+int _tspawnve(int mode, const _TCHAR *cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
 {
    _TCHAR *args;
    _TCHAR *envs;
    int ret = -1;
 
-   TRACE(MK_STR(_tspawnve)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnve)"('%"sT"')\n", cmdname);
 
    args = argvtosT(argv, ' ');
    envs = argvtosT(envp, 0);
@@ -426,11 +417,11 @@ intptr_t _tspawnve(int mode, const _TCHAR *cmdname, const _TCHAR* const* argv, c
 /*
  * @implemented
  */
-intptr_t _tspawnvp(int mode, const _TCHAR* cmdname, const _TCHAR* const* argv)
+int _tspawnvp(int mode, const _TCHAR* cmdname, const _TCHAR* const* argv)
 {
    _TCHAR pathname[FILENAME_MAX];
 
-   TRACE(MK_STR(_tspawnvp)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnvp)"('%"sT"')\n", cmdname);
 
    return _tspawnv(mode, find_execT(cmdname, pathname), argv);
 }
@@ -438,14 +429,14 @@ intptr_t _tspawnvp(int mode, const _TCHAR* cmdname, const _TCHAR* const* argv)
 /*
  * @implemented
  */
-intptr_t _tspawnlp(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, NULL*/)
+int _tspawnlp(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, NULL*/)
 {
    va_list argp;
    _TCHAR* args;
    int ret = -1;
    _TCHAR pathname[FILENAME_MAX];
 
-   TRACE(MK_STR(_tspawnlp)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnlp)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
@@ -461,7 +452,7 @@ intptr_t _tspawnlp(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, N
 /*
  * @implemented
  */
-intptr_t _tspawnlpe(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, NULL, const char* const* envp*/)
+int _tspawnlpe(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, NULL, const char* const* envp*/)
 {
    va_list argp;
    _TCHAR* args;
@@ -470,7 +461,7 @@ intptr_t _tspawnlpe(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, 
    int ret = -1;
    _TCHAR pathname[FILENAME_MAX];
 
-   TRACE(MK_STR(_tspawnlpe)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnlpe)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
@@ -496,11 +487,11 @@ intptr_t _tspawnlpe(int mode, const _TCHAR* cmdname, const _TCHAR* arg0, .../*, 
 /*
  * @implemented
  */
-intptr_t _tspawnvpe(int mode, const _TCHAR* cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
+int _tspawnvpe(int mode, const _TCHAR* cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
 {
    _TCHAR pathname[FILENAME_MAX];
 
-   TRACE(MK_STR(_tspawnvpe)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_tspawnvpe)"('%"sT"')\n", cmdname);
 
    return _tspawnve(mode, find_execT(cmdname, pathname), argv, envp);
 }
@@ -508,20 +499,20 @@ intptr_t _tspawnvpe(int mode, const _TCHAR* cmdname, const _TCHAR* const* argv, 
 /*
  * @implemented
  */
-intptr_t _texecl(const _TCHAR* cmdname, const _TCHAR* arg0, ...)
+int _texecl(const _TCHAR* cmdname, const _TCHAR* arg0, ...)
 {
    _TCHAR* args;
    va_list argp;
    int ret = -1;
 
-   TRACE(MK_STR(_texecl)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_texecl)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
 
    if (args)
    {
-      ret = do_spawnT(_P_OVERLAY, cmdname, args, NULL);
+      ret = do_spawnT(P_OVERLAY, cmdname, args, NULL);
       free(args);
    }
    return ret;
@@ -530,16 +521,16 @@ intptr_t _texecl(const _TCHAR* cmdname, const _TCHAR* arg0, ...)
 /*
  * @implemented
  */
-intptr_t _texecv(const _TCHAR* cmdname, const _TCHAR* const* argv)
+int _texecv(const _TCHAR* cmdname, const _TCHAR* const* argv)
 {
-   TRACE(MK_STR(_texecv)"('%"sT"')\n", cmdname);
-   return _tspawnv(_P_OVERLAY, cmdname, argv);
+   DPRINT(MK_STR(_texecv)"('%"sT"')\n", cmdname);
+   return _tspawnv(P_OVERLAY, cmdname, argv);
 }
 
 /*
  * @implemented
  */
-intptr_t _texecle(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char* const* envp */)
+int _texecle(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char* const* envp */)
 {
    va_list argp;
    _TCHAR* args;
@@ -547,7 +538,7 @@ intptr_t _texecle(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char*
    _TCHAR const* const* ptr;
    int ret = -1;
 
-   TRACE(MK_STR(_texecle)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_texecle)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
@@ -560,7 +551,7 @@ intptr_t _texecle(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char*
    envs = argvtosT(ptr, 0);
    if (args)
    {
-      ret = do_spawnT(_P_OVERLAY, cmdname, args, envs);
+      ret = do_spawnT(P_OVERLAY, cmdname, args, envs);
       free(args);
    }
    if (envs)
@@ -573,30 +564,30 @@ intptr_t _texecle(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char*
 /*
  * @implemented
  */
-intptr_t _texecve(const _TCHAR* cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
+int _texecve(const _TCHAR* cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
 {
-   TRACE(MK_STR(_texecve)"('%"sT"')\n", cmdname);
-   return _tspawnve(_P_OVERLAY, cmdname, argv, envp);
+   DPRINT(MK_STR(_texecve)"('%"sT"')\n", cmdname);
+   return _tspawnve(P_OVERLAY, cmdname, argv, envp);
 }
 
 /*
  * @implemented
  */
-intptr_t _texeclp(const _TCHAR* cmdname, const _TCHAR* arg0, ...)
+int _texeclp(const _TCHAR* cmdname, const _TCHAR* arg0, ...)
 {
    _TCHAR* args;
    va_list argp;
    int ret = -1;
    _TCHAR pathname[FILENAME_MAX];
 
-   TRACE(MK_STR(_texeclp)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_texeclp)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
 
    if (args)
    {
-      ret = do_spawnT(_P_OVERLAY, find_execT(cmdname, pathname), args, NULL);
+      ret = do_spawnT(P_OVERLAY, find_execT(cmdname, pathname), args, NULL);
       free(args);
    }
    return ret;
@@ -605,16 +596,16 @@ intptr_t _texeclp(const _TCHAR* cmdname, const _TCHAR* arg0, ...)
 /*
  * @implemented
  */
-intptr_t _texecvp(const _TCHAR* cmdname, const _TCHAR* const* argv)
+int _texecvp(const _TCHAR* cmdname, const _TCHAR* const* argv)
 {
-   TRACE(MK_STR(_texecvp)"('%"sT"')\n", cmdname);
-   return _tspawnvp(_P_OVERLAY, cmdname, argv);
+   DPRINT(MK_STR(_texecvp)"('%"sT"')\n", cmdname);
+   return _tspawnvp(P_OVERLAY, cmdname, argv);
 }
 
 /*
  * @implemented
  */
-intptr_t _texeclpe(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char* const* envp */)
+int _texeclpe(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char* const* envp */)
 {
    va_list argp;
    _TCHAR* args;
@@ -623,7 +614,7 @@ intptr_t _texeclpe(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char
    int ret = -1;
    _TCHAR pathname[FILENAME_MAX];
 
-   TRACE(MK_STR(_texeclpe)"('%"sT"')\n", cmdname);
+   DPRINT(MK_STR(_texeclpe)"('%"sT"')\n", cmdname);
 
    va_start(argp, arg0);
    args = valisttosT(arg0, argp, ' ');
@@ -636,7 +627,7 @@ intptr_t _texeclpe(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char
    envs = argvtosT(ptr, 0);
    if (args)
    {
-      ret = do_spawnT(_P_OVERLAY, find_execT(cmdname, pathname), args, envs);
+      ret = do_spawnT(P_OVERLAY, find_execT(cmdname, pathname), args, envs);
       free(args);
    }
    if (envs)
@@ -649,10 +640,9 @@ intptr_t _texeclpe(const _TCHAR* cmdname, const _TCHAR* arg0, ... /*, NULL, char
 /*
  * @implemented
  */
-intptr_t _texecvpe(const _TCHAR* cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
+int _texecvpe(const _TCHAR* cmdname, const _TCHAR* const* argv, const _TCHAR* const* envp)
 {
-   TRACE(MK_STR(_texecvpe)"('%"sT"')\n", cmdname);
-   return _tspawnvpe(_P_OVERLAY, cmdname, argv, envp);
+   DPRINT(MK_STR(_texecvpe)"('%"sT"')\n", cmdname);
+   return _tspawnvpe(P_OVERLAY, cmdname, argv, envp);
 }
-
 

@@ -11,8 +11,8 @@ STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Instalacja sterownika grafiki"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-  LTEXT "Program konfiguracyjny ReactOS wykry³ emulator VMware(r).", -1, 117, 8, 140, 24
-  LTEXT "Jeœli chcesz zainstalowaæ sterownik SVGA dla VMware(r), naciœnij 'Dalej', w przeciwnym razie - 'Anuluj'.", -1, 117, 140, 140, 17
+  LTEXT "Program konfiguracyjny ReactOS wykry³ emulator VMware(r).", -1, 100, 8, 160, 24
+  LTEXT "Jeœli chcesz zainstalowaæ sterownik SVGA dla VMware(r), naciœnij 'Dalej', w przeciwnym razie - 'Anuluj'.", -1, 100, 140, 160, 17
 END
 
 IDD_INSERT_VMWARE_TOOLS DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
@@ -38,7 +38,7 @@ CAPTION "Instalacja sterownika grafiki"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
   LTEXT "Sterownik SVGA VMware(r) zosta³ zainstalowany pomyœlnie. Proszê wybraæ rozdzielczoœæ ekranu:",-1,25,5,225,20
-  PUSHBUTTON "640x480", 1120, 25, 30, 65, 15, BS_AUTORADIOBUTTON
+  PUSHBUTTON "640x480", 540, 25, 30, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "800x600", 1400, 25, 45, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "1024x768", 1792, 25, 60, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "1152x864", 2016, 25, 75, 65, 15, BS_AUTORADIOBUTTON

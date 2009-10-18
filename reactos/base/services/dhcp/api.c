@@ -61,14 +61,10 @@ DWORD DSQueryHWInfo( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
 
     Adapter = AdapterFindIndex( Req->AdapterIndex );
 
-    Reply.Reply = Adapter ? 1 : 0;
-
-    if (Adapter) {
-        Reply.QueryHWInfo.AdapterIndex = Req->AdapterIndex;
-        Reply.QueryHWInfo.MediaType = Adapter->IfMib.dwType;
-        Reply.QueryHWInfo.Mtu = Adapter->IfMib.dwMtu;
-        Reply.QueryHWInfo.Speed = Adapter->IfMib.dwSpeed;
-    }
+    Reply.QueryHWInfo.AdapterIndex = Req->AdapterIndex;
+    Reply.QueryHWInfo.MediaType = Adapter->IfMib.dwType;
+    Reply.QueryHWInfo.Mtu = Adapter->IfMib.dwMtu;
+    Reply.QueryHWInfo.Speed = Adapter->IfMib.dwSpeed;
 
     ApiUnlock();
 
@@ -78,7 +74,6 @@ DWORD DSQueryHWInfo( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
 DWORD DSReleaseIpAddressLease( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
     COMM_DHCP_REPLY Reply;
     PDHCP_ADAPTER Adapter;
-    struct protocol* proto;
 
     ApiLock();
 
@@ -87,12 +82,8 @@ DWORD DSReleaseIpAddressLease( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
     Reply.Reply = Adapter ? 1 : 0;
 
     if( Adapter ) {
-        if (Adapter->NteContext)
-            DeleteIPAddress( Adapter->NteContext );
-
-        proto = find_protocol_by_adapter( &Adapter->DhclientInfo );
-        if (proto)
-           remove_protocol(proto);
+        DeleteIPAddress( Adapter->NteContext );
+        remove_protocol( find_protocol_by_adapter( &Adapter->DhclientInfo ) );
     }
 
     ApiUnlock();
@@ -108,19 +99,17 @@ DWORD DSRenewIpAddressLease( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
 
     Adapter = AdapterFindIndex( Req->AdapterIndex );
 
-    if( !Adapter || Adapter->DhclientState.state == S_STATIC ) {
+    Reply.Reply = Adapter ? 1 : 0;
+
+    if( !Adapter || Adapter->DhclientState.state != S_BOUND ) {
         Reply.Reply = 0;
-        ApiUnlock();
         return Send( &Reply );
     }
 
-    Reply.Reply = 1;
+    Adapter->DhclientState.state = S_BOUND;
 
-    add_protocol( Adapter->DhclientInfo.name,
-                  Adapter->DhclientInfo.rfdesc, got_one,
-                  &Adapter->DhclientInfo );
-    Adapter->DhclientInfo.client->state = S_INIT;
-    state_reboot(&Adapter->DhclientInfo);
+    send_discover( &Adapter->DhclientInfo );
+    state_bound( &Adapter->DhclientInfo );
 
     ApiUnlock();
 
@@ -131,7 +120,6 @@ DWORD DSStaticRefreshParams( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
     NTSTATUS Status;
     COMM_DHCP_REPLY Reply;
     PDHCP_ADAPTER Adapter;
-    struct protocol* proto;
 
     ApiLock();
 
@@ -140,12 +128,9 @@ DWORD DSStaticRefreshParams( PipeSendFunc Send, COMM_DHCP_REQ *Req ) {
     Reply.Reply = Adapter ? 1 : 0;
 
     if( Adapter ) {
-        if (Adapter->NteContext)
-            DeleteIPAddress( Adapter->NteContext );
+        DeleteIPAddress( Adapter->NteContext );
         Adapter->DhclientState.state = S_STATIC;
-        proto = find_protocol_by_adapter( &Adapter->DhclientInfo );
-        if (proto)
-            remove_protocol(proto);
+        remove_protocol( find_protocol_by_adapter( &Adapter->DhclientInfo ) );
         Status = AddIPAddress( Req->Body.StaticRefreshParams.IPAddress,
                                Req->Body.StaticRefreshParams.Netmask,
                                Req->AdapterIndex,

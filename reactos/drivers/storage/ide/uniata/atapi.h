@@ -86,20 +86,19 @@ ScsiDebugPrint(
 
 #define PRINT_PREFIX                0,
 
-#define KdPrint3(_x_) ScsiDebugPrint _x_    {;}
 #define KdPrint2(_x_) {ScsiDebugPrint("%x: ", PsGetCurrentThread()) ; ScsiDebugPrint _x_ ; }
-#define KdPrint(_x_) ScsiDebugPrint _x_ {;}
+#define KdPrint(_x_) ScsiDebugPrint _x_
 
 #else // SCSI_PORT_DBG_PRINT
 
-//#ifndef USE_DBGPRINT_LOGGER
-//ULONG
-//_cdecl
-//DbgPrint(
-//    PCH Format,
-//    ...
-//    );
-//#endif // USE_DBGPRINT_LOGGER
+#ifndef USE_DBGPRINT_LOGGER
+ULONG
+_cdecl
+DbgPrint(
+    const CHAR * Format,
+    ...
+    );
+#endif // USE_DBGPRINT_LOGGER
 
 #define PRINT_PREFIX
 
@@ -108,7 +107,6 @@ ScsiDebugPrint(
 //#define LOG_ON_RAISED_IRQL_W2K    TRUE
 //#define LOG_ON_RAISED_IRQL_W2K    FALSE
 
-#define KdPrint3(_x_) {if(LOG_ON_RAISED_IRQL_W2K || MajorVersion < 0x05 || KeGetCurrentIrql() <= 2){/*DbgPrint("%x: ", PsGetCurrentThread()) ;*/ DbgPrint _x_ ; if(g_LogToDisplay){ PrintNtConsole _x_ ;} }}
 #define KdPrint2(_x_) {if(LOG_ON_RAISED_IRQL_W2K || MajorVersion < 0x05 || KeGetCurrentIrql() <= 2){/*DbgPrint("%x: ", PsGetCurrentThread()) ;*/ DbgPrint _x_ ; if(g_LogToDisplay){ PrintNtConsole _x_ ;} }}
 #define KdPrint(_x_)  {if(LOG_ON_RAISED_IRQL_W2K || MajorVersion < 0x05 || KeGetCurrentIrql() <= 2){/*DbgPrint("%x: ", PsGetCurrentThread()) ;*/ DbgPrint _x_ ; if(g_LogToDisplay){ PrintNtConsole _x_ ;} }}
 /*
@@ -138,16 +136,8 @@ ScsiDebugPrint(
 
 #else // _DEBUG
 
-#ifdef KdPrint
-#undef KdPrint
-#endif
-
-#define PRINT_PREFIX "UniATA: "
-
-//#define KdPrint3(_x_) {if(LOG_ON_RAISED_IRQL_W2K || MajorVersion < 0x05 || KeGetCurrentIrql() <= 2){/*DbgPrint("%x: ", PsGetCurrentThread()) ;*/ DbgPrint _x_ ; if(g_LogToDisplay){ PrintNtConsole _x_ ;} }}
-#define KdPrint3(_x_)  {;}
-#define KdPrint2(_x_)  {;}
-#define KdPrint(_x_)   {;}
+#define KdPrint2(_x_)
+#define KdPrint(_x_)
 #define Connect_DbgPrint()   {;}
 
 #define AtapiStallExecution(dt)  ScsiPortStallExecution(dt)
@@ -245,9 +235,6 @@ typedef struct _IDE_REGISTERS_2 {
 #define DFLAGS_RCACHE_ENABLED        0x1000    // Indicates that we use read cache
 #define DFLAGS_ORIG_GEOMETRY         0x2000    //
 #define DFLAGS_REINIT_DMA            0x4000    //
-#define DFLAGS_HIDDEN                0x8000    // Hidden device, available only with special IOCTLs
-                                               // via communication virtual device
-//#define DFLAGS_            0x10000    // 
 //
 // Used to disable 'advanced' features.
 //
@@ -300,7 +287,6 @@ typedef struct _MODE_PARAMETER_HEADER_10 {
 #define IDE_COMMAND_ATAPI_RESET      0x08
 #define IDE_COMMAND_RECALIBRATE      0x10
 #define IDE_COMMAND_READ             0x20
-#define IDE_COMMAND_READ_NO_RETR     0x21
 #define IDE_COMMAND_READ48           0x24
 #define IDE_COMMAND_READ_DMA48       0x25
 #define IDE_COMMAND_READ_DMA_Q48     0x26
@@ -310,7 +296,6 @@ typedef struct _MODE_PARAMETER_HEADER_10 {
 #define IDE_COMMAND_READ_STREAM48        0x2B
 #define IDE_COMMAND_READ_LOG48           0x2f
 #define IDE_COMMAND_WRITE                0x30
-#define IDE_COMMAND_WRITE_NO_RETR        0x31
 #define IDE_COMMAND_WRITE48              0x34
 #define IDE_COMMAND_WRITE_DMA48          0x35
 #define IDE_COMMAND_WRITE_DMA_Q48        0x36
@@ -864,10 +849,8 @@ NATIVE_MODE_CONTROLLER_INFORMATION const NativeModeAdapters[] = {
     AtapiWritePort1(chan, IDX_IO1_o_Command, _Command);
 
 
-#define SelectDrive(chan, unit) { \
-    if(chan && chan->lun[unit] && chan->lun[unit]->DeviceFlags & DFLAGS_ATAPI_CHANGER) KdPrint3(("  Select %d\n", unit)); \
-    AtapiWritePort1(chan, IDX_IO1_o_DriveSelect, (unit) ? IDE_DRIVE_SELECT_2 : IDE_DRIVE_SELECT_1); \
-}
+#define SelectDrive(chan, unit) \
+    AtapiWritePort1(chan, IDX_IO1_o_DriveSelect, (unit) ? IDE_DRIVE_SELECT_2 : IDE_DRIVE_SELECT_1);
 
 
 #define ReadBuffer(chan, Buffer, Count, timing) \
@@ -944,30 +927,6 @@ AtapiSoftReset(
     ULONG            DeviceNumber
     );
 
-/*#define IdeHardReset(BaseIoAddress,result) \
-{\
-    UCHAR statusByte;\
-    ULONG i;\
-    SelectDrive(BaseIoAddress,DeviceNumber); \
-    AtapiWritePort1(&BaseIoAddress->AltStatus,IDE_DC_DISABLE_INTERRUPTS | IDE_DC_RESET_CONTROLLER );\
-    ScsiPortStallExecution(50 * 1000);\
-    AtapiWritePort1(&BaseIoAddress->AltStatus,IDE_DC_REENABLE_CONTROLLER);\
-     5 seconds for reset  \
-    for (i = 0; i < 1000 * (1+11); i++) {\
-        statusByte = AtapiReadPort1(&BaseIoAddress->AltStatus);\
-        if (statusByte != IDE_STATUS_IDLE && statusByte != IDE_STATUS_SUCCESS) {\
-            ScsiPortStallExecution((i<1000) ? 5 : 500);\
-        } else {\
-            break;\
-        }\
-    }\
-    KdPrint2((PRINT_PREFIX "IdeHardReset: Status %x\n", statusByte)); \
-    if (i == 1000*1000) {\
-        result = FALSE;\
-    }\
-    result = TRUE;\
-}*/
-
 #endif //USER_MODE
 
 #define IS_RDP(OperationCode)\
@@ -984,21 +943,18 @@ AtapiSoftReset(
 #ifndef USER_MODE
 
 PSCSI_REQUEST_BLOCK
-NTAPI
 BuildMechanismStatusSrb (
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
     );
 
 PSCSI_REQUEST_BLOCK
-NTAPI
 BuildRequestSenseSrb (
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
     );
 
 VOID
-NTAPI
 AtapiHwInitializeChanger (
     IN PVOID HwDeviceExtension,
     IN ULONG TargetId,
@@ -1006,7 +962,6 @@ AtapiHwInitializeChanger (
     );
 
 ULONG
-NTAPI
 AtapiSendCommand(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -1014,7 +969,6 @@ AtapiSendCommand(
     );
 
 ULONG
-NTAPI
 IdeSendCommand(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -1024,7 +978,6 @@ IdeSendCommand(
 #define AtapiCopyMemory RtlCopyMemory
 
 VOID
-NTAPI
 AtapiHexToString (
     ULONG Value,
     PCHAR *Buffer
@@ -1033,33 +986,28 @@ AtapiHexToString (
 #define AtapiStringCmp(s1, s2, n)  _strnicmp(s1, s2, n)
 
 BOOLEAN
-NTAPI
 AtapiInterrupt(
     IN PVOID HwDeviceExtension
     );
 
 BOOLEAN
-NTAPI
 AtapiInterrupt__(
     IN PVOID HwDeviceExtension,
     IN UCHAR c
     );
 
 BOOLEAN
-NTAPI
 AtapiHwInitialize(
     IN PVOID HwDeviceExtension
         );
 
 ULONG
-NTAPI
 IdeBuildSenseBuffer(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
     );
 
 VOID
-NTAPI
 IdeMediaStatus(
     IN BOOLEAN EnableMSN,
     IN PVOID HwDeviceExtension,
@@ -1077,14 +1025,12 @@ AtapiFindController(
     );
 
 ULONG
-NTAPI
 AtapiParseArgumentString(
-    IN PCCH String,
-    IN PCCH KeyWord
+    IN PCHAR String,
+    IN PCHAR KeyWord
     );
 
 BOOLEAN
-NTAPI
 IssueIdentify(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1094,7 +1040,6 @@ IssueIdentify(
     );
 
 BOOLEAN
-NTAPI
 SetDriveParameters(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1102,7 +1047,6 @@ SetDriveParameters(
     );
 
 ULONG
-NTAPI
 CheckDevice(
     IN PVOID   HwDeviceExtension,
     IN ULONG   Channel,
@@ -1110,13 +1054,10 @@ CheckDevice(
     IN BOOLEAN ResetBus
     );
 
-#define UNIATA_FIND_DEV_UNHIDE    0x01
-
 BOOLEAN
-NTAPI
 FindDevices(
     IN PVOID HwDeviceExtension,
-    IN ULONG   Flags,
+    IN BOOLEAN AtapiOnly,
     IN ULONG   Channel
     );
 
@@ -1129,21 +1070,18 @@ FindDevices(
 #ifndef USER_MODE
 
 BOOLEAN
-NTAPI
 AtapiResetController(
     IN PVOID HwDeviceExtension,
     IN ULONG PathId
     );
 
 BOOLEAN
-NTAPI
 AtapiStartIo(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
     );
 
 BOOLEAN
-NTAPI
 AtapiStartIo__(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -1151,7 +1089,6 @@ AtapiStartIo__(
     );
 
 extern UCHAR
-NTAPI
 AtaCommand48(
 //    IN PVOID HwDeviceExtension,
     IN struct _HW_DEVICE_EXTENSION* deviceExtension,
@@ -1165,7 +1102,6 @@ AtaCommand48(
     );
 
 extern UCHAR
-NTAPI
 AtaCommand(
 //    IN PVOID HwDeviceExtension,
     IN struct _HW_DEVICE_EXTENSION* deviceExtension,
@@ -1174,26 +1110,22 @@ AtaCommand(
     IN UCHAR command,
     IN USHORT cylinder,
     IN UCHAR head,
-    IN UCHAR sector, 
+    IN UCHAR sector,
     IN UCHAR count,
     IN UCHAR feature,
     IN ULONG flags
     );
 
 extern LONG
-NTAPI
 AtaPioMode(PIDENTIFY_DATA2 ident);
 
 extern LONG
-NTAPI
 AtaWmode(PIDENTIFY_DATA2 ident);
 
 extern LONG
-NTAPI
 AtaUmode(PIDENTIFY_DATA2 ident);
 
 extern VOID
-NTAPI
 AtapiDpcDispatch(
     IN PKDPC Dpc,
     IN PVOID DeferredContext,
@@ -1201,66 +1133,58 @@ AtapiDpcDispatch(
     IN PVOID SystemArgument2
     );
 
-//#define AtaCommand(de, devn, chan, cmd, cyl, hd, sec, cnt, feat, flg) 
+
+//#define AtaCommand(de, devn, chan, cmd, cyl, hd, sec, cnt, feat, flg)
 
 extern LONG
-NTAPI
 AtaPio2Mode(LONG pio);
 
 extern LONG
-NTAPI
 AtaPioMode(PIDENTIFY_DATA2 ident);
 
 extern VOID
-NTAPI
 AtapiEnableInterrupts(
     IN PVOID HwDeviceExtension,
     IN ULONG c
     );
 
 extern VOID
-NTAPI
 AtapiDisableInterrupts(
     IN PVOID HwDeviceExtension,
     IN ULONG c
     );
 
-#define CHAN_NOT_SPECIFIED                  (0xffffffffL)
-#define CHAN_NOT_SPECIFIED_CHECK_CABLE      (0xfffffffeL)
-#define DEVNUM_NOT_SPECIFIED                (0xffffffffL)
-#define IOMODE_NOT_SPECIFIED                (0xffffffffL)
+#define CHAN_NOT_SPECIFIED      (0xffffffffL)
+#define DEVNUM_NOT_SPECIFIED    (0xffffffffL)
 
 extern ULONG
-NTAPI
 AtapiRegCheckDevValue(
     IN PVOID HwDeviceExtension,
     IN ULONG chan,
     IN ULONG dev,
-    IN PCWSTR Name,
+    IN PWSTR Name,
     IN ULONG Default
     );
 
 extern ULONG
-NTAPI
 AtapiRegCheckParameterValue(
     IN PVOID HwDeviceExtension,
-    IN PCWSTR PathSuffix,
-    IN PCWSTR Name,
+    IN PWSTR PathSuffix,
+    IN PWSTR Name,
     IN ULONG Default
     );
 
-extern ULONG g_LogToDisplay;
+extern ULONG  g_LogToDisplay;
 
 extern "C"
 VOID
 _cdecl
 _PrintNtConsole(
-    PCCH DebugMessage,
+    PCHAR DebugMessage,
     ...
     );
 
 VOID
-NTAPI
 UniataInitMapBM(
     IN struct _HW_DEVICE_EXTENSION* deviceExtension,
     IN struct _IDE_BUSMASTER_REGISTERS* BaseIoAddressBM_0,
@@ -1268,7 +1192,6 @@ UniataInitMapBM(
     );
 
 VOID
-NTAPI
 UniataInitMapBase(
     IN struct _HW_CHANNEL* chan,
     IN PIDE_REGISTERS_1 BaseIoAddress1,
@@ -1276,7 +1199,6 @@ UniataInitMapBase(
     );
 
 VOID
-NTAPI
 UniataInitSyncBaseIO(
     IN struct _HW_CHANNEL* chan
     );
@@ -1289,13 +1211,11 @@ UniataIsIdle(
     );
 
 VOID
-NTAPI
 UniataDumpATARegs(
     IN struct _HW_CHANNEL* chan
     );
 
 ULONG
-NTAPI
 EncodeVendorStr(
    OUT PWCHAR Buffer,
     IN PUCHAR Str,
@@ -1303,14 +1223,12 @@ EncodeVendorStr(
     );
 
 ULONGLONG
-NTAPI
 UniAtaCalculateLBARegsBack(
     struct _HW_LU_EXTENSION* LunExt,
     ULONGLONG            lba
     );
 
 BOOLEAN
-NTAPI
 UniataAnybodyHome(
     IN PVOID   HwDeviceExtension,
     IN ULONG   Channel,

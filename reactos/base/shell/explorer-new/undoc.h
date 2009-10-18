@@ -121,12 +121,13 @@ DECLARE_INTERFACE_(IShellDesktopTray,IUnknown)
 #define IShellDesktopTray_Unknown(T,a,b) (T)->lpVtbl->Unknown(T,a,b)
 #endif
 
+#if USE_API_SHCREATEDESKTOP != 0
 #if 0
 HANDLE WINAPI SHCreateDesktop(IShellDesktopTray*);
 BOOL WINAPI SHDesktopMessageLoop(HANDLE);
 #else
 typedef HANDLE (WINAPI *PSHCreateDesktop)(IShellDesktopTray*);
-static __inline HANDLE
+static HANDLE __inline
 SHCreateDesktop(IShellDesktopTray* sdt)
 {
     static PSHCreateDesktop Func = NULL;
@@ -151,7 +152,7 @@ SHCreateDesktop(IShellDesktopTray* sdt)
 }
 
 typedef BOOL (WINAPI *PSHDesktopMessageLoop)(HANDLE);
-static __inline BOOL
+static BOOL __inline
 SHDesktopMessageLoop(IN HANDLE hDesktop)
 {
     static PSHDesktopMessageLoop Func = NULL;
@@ -175,6 +176,8 @@ SHDesktopMessageLoop(IN HANDLE hDesktop)
     return FALSE;
 }
 #endif
+
+#endif /* USE_API_SHCREATEDESKTOP */
 
 #define WM_GETISHELLBROWSER (WM_USER+7)
 BOOL WINAPI SetShellWindow(HWND);
@@ -225,7 +228,8 @@ typedef CREATEMRULISTA CREATEMRULIST, *PCREATEMRULIST;
 #define DrawCaptionTemp DrawCaptionTempA
 #endif
 
-EXTERN_C const GUID CLSID_RebarBandSite;
+DEFINE_GUID(CLSID_RebarBandSite, 0xECD4FC4D, 0x521C, 0x11D0, 0xB7, 0x92, 0x00, 0xA0, 0xC9, 0x03, 0x12, 0xE1);
+DEFINE_GUID(IID_IDeskBand, 0xEB0FE172, 0x1A3A, 0x11D0, 0x89, 0xB3, 0x00, 0xA0, 0xC9, 0x0A, 0x90, 0xAC);
 
 HRESULT WINAPI SHInvokeDefaultCommand(HWND,IShellFolder*,LPCITEMIDLIST);
 
@@ -237,7 +241,7 @@ HRESULT WINAPI SHGetPerScreenResName(OUT LPWSTR lpResName,
                                      IN DWORD dwReserved);
 #else
 typedef HRESULT (WINAPI *PSHGetPerScreenResName)(LPWSTR,INT,DWORD);
-static __inline HRESULT
+static HRESULT __inline
 SHGetPerScreenResName(OUT LPWSTR lpResName,
                       IN INT cchResName,
                       IN DWORD dwReserved  OPTIONAL)
@@ -268,7 +272,7 @@ SHGetPerScreenResName(OUT LPWSTR lpResName,
 HRESULT WINAPI SHPropertyBag_ReadStream(IPropertyBag*,LPCWSTR,IStream**);
 #else
 typedef HRESULT (WINAPI *PSHPropertyBag_ReadStream)(IPropertyBag*,LPCWSTR,IStream**);
-static __inline HRESULT
+static HRESULT __inline
 SHPropertyBag_ReadStream(IN IPropertyBag *ppb,
                          IN LPCWSTR pszPropName,
                          OUT IStream **ppStream)

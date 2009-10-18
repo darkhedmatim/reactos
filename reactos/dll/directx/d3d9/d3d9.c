@@ -10,6 +10,7 @@
 #include <d3d9.h>
 #include "d3d9_helpers.h"
 #include "d3d9_create.h"
+
 #include <debug.h>
 
 #define DEBUG_MESSAGE_BUFFER_SIZE   512
@@ -24,31 +25,31 @@ static LPCSTR D3dError_WrongSdkVersion =
     "Recompile the application against the appropriate SDK for the installed runtime.\n"
     "\n";
 
-HRESULT WINAPI Direct3DShaderValidatorCreate9(void)
+HRESULT Direct3DShaderValidatorCreate9(void)
 {
     UNIMPLEMENTED
     return 0;
 }
 
-HRESULT WINAPI PSGPError(void)
+HRESULT PSGPError(void)
 {
     UNIMPLEMENTED
     return 0;
 }
 
-HRESULT WINAPI PSGPSampleTexture(void)
+HRESULT PSGPSampleTexture(void)
 {
     UNIMPLEMENTED
     return 0;
 }
 
-HRESULT WINAPI DebugSetLevel(void)
+HRESULT DebugSetLevel(void)
 {
     UNIMPLEMENTED
     return 0;
 }
 
-HRESULT WINAPI DebugSetMute(DWORD dw1)
+HRESULT DebugSetMute(DWORD dw1)
 {
     UNIMPLEMENTED
     return 0;
@@ -64,12 +65,14 @@ IDirect3D9* WINAPI Direct3DCreate9(UINT SDKVersion)
     CHAR DebugMessageBuffer[DEBUG_MESSAGE_BUFFER_SIZE];
     UINT NoDebugSDKVersion = SDKVersion & ~DX_D3D9_DEBUG;
 
+    UNIMPLEMENTED
+
     LoadDebugDllSize = sizeof(LoadDebugDll);
     if (ReadRegistryValue(REG_DWORD, "LoadDebugRuntime", (LPBYTE)&LoadDebugDll, &LoadDebugDllSize))
     {
         if (0 != LoadDebugDll)
         {
-            hDebugDll = LoadLibraryA("d3d9d.dll");
+            hDebugDll = LoadLibrary("d3d9d.dll");
 
             if (0 != hDebugDll)
             {
@@ -84,16 +87,14 @@ IDirect3D9* WINAPI Direct3DCreate9(UINT SDKVersion)
     {
         if (SDKVersion & DX_D3D9_DEBUG)
         {
-            HRESULT hResult;
-            hResult = SafeFormatString(DebugMessageBuffer, DEBUG_MESSAGE_BUFFER_SIZE, D3dError_WrongSdkVersion, NoDebugSDKVersion, D3D_SDK_VERSION);
-            if (SUCCEEDED(hResult))
-                OutputDebugStringA(DebugMessageBuffer);
+            FormatDebugString(DebugMessageBuffer, DEBUG_MESSAGE_BUFFER_SIZE, D3dError_WrongSdkVersion, NoDebugSDKVersion, D3D_SDK_VERSION);
+            OutputDebugStringA(DebugMessageBuffer);
         }
 
         return NULL;
     }
 
-    CreateD3D9(&D3D9Obj, SDKVersion);
+    CreateD3D9(&D3D9Obj);
 
     return D3D9Obj;
 }

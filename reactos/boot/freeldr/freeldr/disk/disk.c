@@ -41,9 +41,9 @@ VOID DiskError(PCSTR ErrorString, ULONG ErrorCode)
 	if (bReportError == FALSE)
 		return;
 
-	sprintf(ErrorCodeString, "%s\n\nError Code: 0x%lx\nError: %s", ErrorString, ErrorCode, DiskGetErrorCodeString(ErrorCode));
+	sprintf(ErrorCodeString, "%s\n\nError Code: 0x%x\nError: %s", ErrorString, ErrorCode, DiskGetErrorCodeString(ErrorCode));
 
-	DPRINTM(DPRINT_DISK, "%s\n", ErrorCodeString);
+	DbgPrint((DPRINT_DISK, "%s\n", ErrorCodeString));
 
 	UiMessageBox(ErrorCodeString);
 }
@@ -91,8 +91,7 @@ BOOLEAN DiskIsDriveRemovable(ULONG DriveNumber)
 	// Hard disks use drive numbers >= 0x80
 	// So if the drive number indicates a hard disk
 	// then return FALSE
-    // 0x49 is our magic ramdisk drive, so return FALSE for that too
-	if ((DriveNumber >= 0x80) || (DriveNumber == 0x49))
+	if (DriveNumber >= 0x80)
 	{
 		return FALSE;
 	}
@@ -100,67 +99,6 @@ BOOLEAN DiskIsDriveRemovable(ULONG DriveNumber)
 	// Drive is a floppy diskette so return TRUE
 	return TRUE;
 }
-
-BOOLEAN
-DiskGetBootPath(char *BootPath, unsigned Size)
-{
-	static char Path[] = "multi(0)disk(0)";
-	char Device[4];
-    
-	_itoa(BootDrive, Device, 10);
-	if (Size <= sizeof(Path) + 6 + strlen(Device))
-	{
-		return FALSE;
-	}
-	strcpy(BootPath, Path);
-	strcat(BootPath, BootDrive < 0x80 ? "fdisk" : "cdrom");
-	strcat(strcat(strcat(BootPath, "("), Device), ")");
-    
-	if (strcmp(BootPath, "multi(0)disk(0)cdrom(128)") == 0)
-		strcpy(BootPath, "multi(0)disk(0)rdisk(0)partition(1)");
-	return TRUE;
-}
-
-BOOLEAN
-DiskNormalizeSystemPath(char *SystemPath, unsigned Size)
-{
-	CHAR BootPath[256];
-	ULONG PartitionNumber;
-	ULONG DriveNumber;
-	PARTITION_TABLE_ENTRY PartEntry;
-	char *p;
-    
-	if (!DissectArcPath(SystemPath, BootPath, &DriveNumber, &PartitionNumber))
-	{
-		return FALSE;
-	}
-    
-	if (0 != PartitionNumber)
-	{
-		return TRUE;
-	}
-    
-	if (! DiskGetActivePartitionEntry(DriveNumber,
-	                                  &PartEntry,
-	                                  &PartitionNumber) ||
-	    PartitionNumber < 1 || 9 < PartitionNumber)
-	{
-		return FALSE;
-	}
-    
-	p = SystemPath;
-	while ('\0' != *p && 0 != _strnicmp(p, "partition(", 10)) {
-		p++;
-	}
-	p = strchr(p, ')');
-	if (NULL == p || '0' != *(p - 1)) {
-		return FALSE;
-	}
-	*(p - 1) = '0' + PartitionNumber;
-    
-	return TRUE;
-}
-
 
 // This function is in arch/i386/i386disk.c
 //VOID DiskStopFloppyMotor(VOID)

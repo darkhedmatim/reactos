@@ -7,14 +7,43 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-/* gcc defaults to cdecl */
-#if defined(__GNUC__)
-#undef __cdecl
-#define __cdecl
-#endif
-
 #include "mkhive.h"
 #include <bitmap.c>
+
+SIZE_T xwcslen( PCWSTR String ) {
+	SIZE_T i;
+
+	for( i = 0; String[i]; i++ );
+
+	return i;
+}
+
+PWSTR xwcschr( PWSTR String, WCHAR Char )
+{
+	SIZE_T i;
+
+	for( i = 0; String[i] && String[i] != Char; i++ );
+
+	if( String[i] ) return &String[i];
+	else return NULL;
+}
+
+int xwcsncmp(PCWSTR s1, PCWSTR s2, size_t n)
+{
+    while(n--)
+    {
+        if(*s1 != *s2)
+            return 1;
+
+        if(*s1 == 0)
+            return 0;
+
+        s1++;
+        s2++;
+    }
+
+    return 0;
+}
 
 /*
  * @implemented
@@ -59,7 +88,7 @@ RtlInitUnicodeString(
 
 	if(SourceString)
 	{
-		DestSize = utf16_wcslen(SourceString) * sizeof(WCHAR);
+		DestSize = xwcslen(SourceString) * sizeof(WCHAR);
 		DestinationString->Length = (USHORT)DestSize;
 		DestinationString->MaximumLength = (USHORT)DestSize + sizeof(WCHAR);
 	}

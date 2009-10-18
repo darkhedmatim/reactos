@@ -34,7 +34,7 @@ IntInt10AllocateBuffer(
 {
    PVOID MemoryAddress;
    NTSTATUS Status;
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
    TRACE_(VIDEOPRT, "IntInt10AllocateBuffer\n");
@@ -81,7 +81,7 @@ IntInt10FreeBuffer(
 {
    PVOID MemoryAddress = (PVOID)((Seg << 4) | Off);
    NTSTATUS Status;
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
    TRACE_(VIDEOPRT, "IntInt10FreeBuffer\n");
@@ -104,7 +104,7 @@ IntInt10ReadMemory(
    OUT PVOID Buffer,
    IN ULONG Length)
 {
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
    TRACE_(VIDEOPRT, "IntInt10ReadMemory\n");
@@ -128,7 +128,7 @@ IntInt10WriteMemory(
    IN PVOID Buffer,
    IN ULONG Length)
 {
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
    TRACE_(VIDEOPRT, "IntInt10WriteMemory\n");
@@ -152,7 +152,7 @@ IntInt10CallBios(
 {
     CONTEXT BiosContext;
     NTSTATUS Status;
-    PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+    PKPROCESS CallingProcess;
     KAPC_STATE ApcState;
 
     /* Attach to CSRSS */
@@ -161,7 +161,7 @@ IntInt10CallBios(
     /* Clear the context */
     RtlZeroMemory(&BiosContext, sizeof(CONTEXT));
 
-    /* Fill out the bios arguments */
+    /* Fil out the bios arguments */
     BiosContext.Eax = BiosArguments->Eax;
     BiosContext.Ebx = BiosArguments->Ebx;
     BiosContext.Ecx = BiosArguments->Ecx;
@@ -199,48 +199,48 @@ IntInt10CallBios(
 
 VP_STATUS NTAPI
 VideoPortInt10(
-    IN PVOID HwDeviceExtension,
-    IN PVIDEO_X86_BIOS_ARGUMENTS BiosArguments)
+   IN PVOID HwDeviceExtension,
+   IN PVIDEO_X86_BIOS_ARGUMENTS BiosArguments)
 {
-    CONTEXT BiosContext;
-    NTSTATUS Status;
-    PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
-    KAPC_STATE ApcState;
+   KV86M_REGISTERS Regs;
+   NTSTATUS Status;
+   PKPROCESS CallingProcess;
+   KAPC_STATE ApcState;
 
-    if (!CsrssInitialized)
-    {
-       return ERROR_INVALID_PARAMETER;
-    }
+   TRACE_(VIDEOPRT, "VideoPortInt10\n");
 
-    /* Attach to CSRSS */
-    IntAttachToCSRSS(&CallingProcess, &ApcState);
+   if (!CsrssInitialized)
+   {
+      return ERROR_INVALID_PARAMETER;
+   }
 
-    /* Clear the context */
-    RtlZeroMemory(&BiosContext, sizeof(CONTEXT));
+   IntAttachToCSRSS(&CallingProcess, &ApcState);
 
-    /* Fill out the bios arguments */
-    BiosContext.Eax = BiosArguments->Eax;
-    BiosContext.Ebx = BiosArguments->Ebx;
-    BiosContext.Ecx = BiosArguments->Ecx;
-    BiosContext.Edx = BiosArguments->Edx;
-    BiosContext.Esi = BiosArguments->Esi;
-    BiosContext.Edi = BiosArguments->Edi;
-    BiosContext.Ebp = BiosArguments->Ebp;
+   memset(&Regs, 0, sizeof(Regs));
+   INFO_(VIDEOPRT, "- Input register Eax: %x\n", BiosArguments->Eax);
+   Regs.Eax = BiosArguments->Eax;
+   INFO_(VIDEOPRT, "- Input register Ebx: %x\n", BiosArguments->Ebx);
+   Regs.Ebx = BiosArguments->Ebx;
+   INFO_(VIDEOPRT, "- Input register Ecx: %x\n", BiosArguments->Ecx);
+   Regs.Ecx = BiosArguments->Ecx;
+   INFO_(VIDEOPRT, "- Input register Edx: %x\n", BiosArguments->Edx);
+   Regs.Edx = BiosArguments->Edx;
+   INFO_(VIDEOPRT, "- Input register Esi: %x\n", BiosArguments->Esi);
+   Regs.Esi = BiosArguments->Esi;
+   INFO_(VIDEOPRT, "- Input register Edi: %x\n", BiosArguments->Edi);
+   Regs.Edi = BiosArguments->Edi;
+   INFO_(VIDEOPRT, "- Input register Ebp: %x\n", BiosArguments->Ebp);
+   Regs.Ebp = BiosArguments->Ebp;
+   Status = Ke386CallBios(0x10, (PCONTEXT)&Regs);
+   BiosArguments->Eax = Regs.Eax;
+   BiosArguments->Ebx = Regs.Ebx;
+   BiosArguments->Ecx = Regs.Ecx;
+   BiosArguments->Edx = Regs.Edx;
+   BiosArguments->Esi = Regs.Esi;
+   BiosArguments->Edi = Regs.Edi;
+   BiosArguments->Ebp = Regs.Ebp;
 
-    /* Do the ROM BIOS call */
-    Status = Ke386CallBios(0x10, &BiosContext);
+   IntDetachFromCSRSS(&CallingProcess, &ApcState);
 
-    /* Return the arguments */
-    BiosArguments->Eax = BiosContext.Eax;
-    BiosArguments->Ebx = BiosContext.Ebx;
-    BiosArguments->Ecx = BiosContext.Ecx;
-    BiosArguments->Edx = BiosContext.Edx;
-    BiosArguments->Esi = BiosContext.Esi;
-    BiosArguments->Edi = BiosContext.Edi;
-    BiosArguments->Ebp = BiosContext.Ebp;
-
-    /* Detach from CSRSS */
-    IntDetachFromCSRSS(&CallingProcess, &ApcState);
-
-    return Status;
+   return Status;
 }

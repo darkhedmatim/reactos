@@ -10,11 +10,10 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
-
+#define NDEBUG
 //#define USING_PROPER_NPFS_WAIT_SEMANTICS
+#include <debug.h>
 
 /* FUNCTIONS ****************************************************************/
 
@@ -55,7 +54,7 @@ CreateNamedPipeA(LPCSTR lpName,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateNamedPipeW(LPCWSTR lpName,
                  DWORD dwOpenMode,
                  DWORD dwPipeMode,
@@ -104,8 +103,8 @@ CreateNamedPipeW(LPCWSTR lpName,
         return INVALID_HANDLE_VALUE;
     }
 
-    TRACE("Pipe name: %wZ\n", &NamedPipeName);
-    TRACE("Pipe name: %S\n", NamedPipeName.Buffer);
+    DPRINT("Pipe name: %wZ\n", &NamedPipeName);
+    DPRINT("Pipe name: %S\n", NamedPipeName.Buffer);
 
     /* Always case insensitive, check if we got extra attributes */
     Attributes = OBJ_CASE_INSENSITIVE;
@@ -229,7 +228,7 @@ CreateNamedPipeW(LPCWSTR lpName,
     if (!NT_SUCCESS(Status))
     {
         /* Failed to create it */
-        WARN("NtCreateNamedPipe failed (Status %x)!\n", Status);
+        DPRINT1("NtCreateNamedPipe failed (Status %x)!\n", Status);
         SetLastErrorByStatus (Status);
         return INVALID_HANDLE_VALUE;
     }
@@ -251,7 +250,7 @@ WaitNamedPipeA(LPCSTR lpNamedPipeName,
     UNICODE_STRING NameU;
 
     /* Convert the name to Unicode */
-    Basep8BitStringToHeapUnicodeString(&NameU, lpNamedPipeName);
+    Basep8BitStringToLiveUnicodeString(&NameU, lpNamedPipeName);
 
     /* Call the Unicode API */
     r = WaitNamedPipeW(NameU.Buffer, nTimeOut);
@@ -295,7 +294,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
     PFILE_PIPE_WAIT_FOR_BUFFER WaitPipeInfo;
 
     /* Start by making a unicode string of the name */
-    TRACE("Sent path: %S\n", lpNamedPipeName);
+    DPRINT("Sent path: %S\n", lpNamedPipeName);
     RtlCreateUnicodeString(&NamedPipeName, lpNamedPipeName);
     NameLength = NamedPipeName.Length / sizeof(WCHAR);
 
@@ -322,7 +321,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
         NewName.Length -= 9 * sizeof(WCHAR);
 
         /* Initialize the Dos Devices name */
-        TRACE("NewName: %wZ\n", &NewName);
+        DPRINT("NewName: %wZ\n", &NewName);
         RtlInitUnicodeString(&DevicePath, L"\\DosDevices\\pipe\\");
     }
     else if (Type == RtlPathTypeRootLocalDevice)
@@ -349,7 +348,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
         else
         {
             /* The name is invalid */
-            WARN("Invalid name!\n");
+            DPRINT1("Invalid name!\n");
             SetLastErrorByStatus(STATUS_OBJECT_PATH_SYNTAX_BAD);
             return FALSE;
         }
@@ -358,7 +357,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
     }
     else
     {
-        WARN("Invalid path type\n");
+        DPRINT1("Invalid path type\n");
         SetLastErrorByStatus(STATUS_OBJECT_PATH_SYNTAX_BAD);
         return FALSE;
     }
@@ -374,7 +373,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
     }
 
     /* Initialize the object attributes */
-    TRACE("Opening: %wZ\n", &DevicePath);
+    DPRINT("Opening: %wZ\n", &DevicePath);
     InitializeObjectAttributes(&ObjectAttributes,
                                &DevicePath,
                                OBJ_CASE_INSENSITIVE,
@@ -391,7 +390,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
     if (!NT_SUCCESS(Status))
     {
         /* Fail; couldn't open */
-        WARN("Status: %lx\n", Status);
+        DPRINT1("Status: %lx\n", Status);
         SetLastErrorByStatus(Status);
         RtlFreeUnicodeString(&NamedPipeName);
         RtlFreeHeap(RtlGetProcessHeap(), 0, WaitPipeInfo);
@@ -450,7 +449,7 @@ WaitNamedPipeW(LPCWSTR lpNamedPipeName,
     if (!NT_SUCCESS(Status))
     {
         /* Failure to wait on the pipe */
-        WARN("Status: %lx\n", Status);
+        DPRINT1("Status: %lx\n", Status);
         SetLastErrorByStatus (Status);
         return FALSE;
      }
@@ -952,7 +951,7 @@ GetNamedPipeHandleStateA(HANDLE hNamedPipe,
                          LPSTR lpUserName,
                          DWORD nMaxUserNameSize)
 {
-    UNICODE_STRING UserNameW = { 0, 0, NULL };
+    UNICODE_STRING UserNameW = {0};
     ANSI_STRING UserNameA;
     BOOL Ret;
 
@@ -1069,7 +1068,7 @@ PeekNamedPipe(HANDLE hNamedPipe,
     NTSTATUS Status;
 
     /* Calculate the buffer space that we'll need and allocate it */
-    BufferSize = nBufferSize + sizeof(FILE_PIPE_PEEK_BUFFER);
+    BufferSize = nBufferSize + FIELD_OFFSET(FILE_PIPE_PEEK_BUFFER, Data[0]);
     Buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, BufferSize);
     if (Buffer == NULL)
     {

@@ -24,7 +24,7 @@ Author:
 //
 #include <umtypes.h>
 #include <cfg.h>
-#if !defined(NTOS_MODE_USER)
+#if defined(_MSC_VER) && !defined(NTOS_MODE_USER)
 #include <ntimage.h>
 #endif
 #include <cmtypes.h>
@@ -47,8 +47,9 @@ Author:
 #endif
 
 //
-// Rtl Atom
+// Atom and Language IDs
 //
+typedef USHORT LANGID, *PLANGID;
 typedef USHORT RTL_ATOM, *PRTL_ATOM;
 
 #ifndef NTOS_MODE_USER
@@ -146,7 +147,6 @@ extern ULONG NtBuildNumber;
 // Pushlock Wait Block Flags
 //
 #define EX_PUSH_LOCK_FLAGS_EXCLUSIVE        1
-#define EX_PUSH_LOCK_FLAGS_WAIT_V           1
 #define EX_PUSH_LOCK_FLAGS_WAIT             2
 
 //
@@ -272,7 +272,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemWatchDogTimerHandler,
     SystemWatchDogTimerInformation,
     SystemLogicalProcessorInformation,
-    SystemWow64SharedInformationObsolete,
+    SystemWo64SharedInformationObosolete,
     SystemRegisterFirmwareTableInformationHandler,
     SystemFirmwareTableInformation,
     SystemModuleInformationEx,
@@ -376,6 +376,29 @@ typedef BOOLEAN
 );
 
 //
+// Compatibility with Windows XP Drivers using ERESOURCE
+//
+typedef struct _ERESOURCE_XP
+{
+    LIST_ENTRY SystemResourcesList;
+    POWNER_ENTRY OwnerTable;
+    SHORT ActiveCount;
+    USHORT Flag;
+    PKSEMAPHORE SharedWaiters;
+    PKEVENT ExclusiveWaiters;
+    OWNER_ENTRY OwnerThreads[2];
+    ULONG ContentionCount;
+    USHORT NumberOfSharedWaiters;
+    USHORT NumberOfExclusiveWaiters;
+    union
+    {
+        PVOID Address;
+        ULONG_PTR CreatorBackTraceIndex;
+    };
+    KSPIN_LOCK SpinLock;
+} ERESOURCE_XP, *PERESOURCE_XP;
+
+//
 // Executive Work Queue Structures
 //
 typedef struct _EX_QUEUE_WORKER_INFO
@@ -418,7 +441,7 @@ typedef struct _EX_RUNDOWN_REF_CACHE_AWARE
     PVOID PoolToFree;
     ULONG RunRefSize;
     ULONG Number;
-} EX_RUNDOWN_REF_CACHE_AWARE;
+} EX_RUNDOWN_REF_CACHE_AWARE, *PEX_RUNDOWN_REF_CACHE_AWARE;
 
 //
 // Executive Rundown Wait Block
@@ -484,7 +507,7 @@ typedef struct _CALLBACK_OBJECT
     LIST_ENTRY RegisteredCallbacks;
     BOOLEAN AllowMultipleCallbacks;
     UCHAR reserved[3];
-} CALLBACK_OBJECT;
+} CALLBACK_OBJECT, *PCALLBACK_OBJECT;
 
 //
 // Callback Handle
@@ -531,7 +554,7 @@ typedef struct _EPROFILE
     PKPROFILE ProfileObject;
     PVOID LockedBufferAddress;
     PMDL Mdl;
-    ULONG_PTR Segment;
+    ULONG Segment;
     KPROFILE_SOURCE ProfileSource;
     KAFFINITY Affinity;
 } EPROFILE, *PEPROFILE;
@@ -817,10 +840,6 @@ typedef struct _SYSTEM_TIMEOFDAY_INFORMATION
     LARGE_INTEGER TimeZoneBias;
     ULONG TimeZoneId;
     ULONG Reserved;
-#if (NTDDI_VERSION >= NTDDI_WIN2K)
-    ULONGLONG BootTimeBias;
-    ULONGLONG SleepTimeBias;
-#endif
 } SYSTEM_TIMEOFDAY_INFORMATION, *PSYSTEM_TIMEOFDAY_INFORMATION;
 
 // Class 4
@@ -858,24 +877,24 @@ typedef struct _SYSTEM_PROCESS_INFORMATION
     HANDLE InheritedFromUniqueProcessId;
     ULONG HandleCount;
     ULONG SessionId;
-    ULONG_PTR PageDirectoryBase;
+    ULONG UniqueProcessKey;
 
     //
     // This part corresponds to VM_COUNTERS_EX.
     // NOTE: *NOT* THE SAME AS VM_COUNTERS!
     //
-    SIZE_T PeakVirtualSize;
+    ULONG PeakVirtualSize;
     ULONG VirtualSize;
-    SIZE_T PageFaultCount;
-    SIZE_T PeakWorkingSetSize;
-    SIZE_T WorkingSetSize;
-    SIZE_T QuotaPeakPagedPoolUsage;
-    SIZE_T QuotaPagedPoolUsage;
-    SIZE_T QuotaPeakNonPagedPoolUsage;
-    SIZE_T QuotaNonPagedPoolUsage;
-    SIZE_T PagefileUsage;
-    SIZE_T PeakPagefileUsage;
-    SIZE_T PrivatePageCount;
+    ULONG PageFaultCount;
+    ULONG PeakWorkingSetSize;
+    ULONG WorkingSetSize;
+    ULONG QuotaPeakPagedPoolUsage;
+    ULONG QuotaPagedPoolUsage;
+    ULONG QuotaPeakNonPagedPoolUsage;
+    ULONG QuotaNonPagedPoolUsage;
+    ULONG PagefileUsage;
+    ULONG PeakPagefileUsage;
+    ULONG PrivatePageCount;
 
     //
     // This part corresponds to IO_COUNTERS

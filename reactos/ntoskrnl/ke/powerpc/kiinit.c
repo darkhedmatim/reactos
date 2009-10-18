@@ -252,7 +252,7 @@ KTRAP_FRAME KiInitialTrapFrame;
 /* Use this for early boot additions to the page table */
 VOID
 NTAPI
-KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
+KiSystemStartup(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
     ULONG Cpu;
     ppc_map_info_t info[4];
@@ -329,7 +329,7 @@ AppCpuInit:
     /* Check for break-in */
     if (KdPollBreakIn())
     {
-	DbgBreakPointWithStatus(DBG_STATUS_CONTROL_C);
+	DbgBreakPointWithStatus(1);
     }
 
     /* Raise to HIGH_LEVEL */

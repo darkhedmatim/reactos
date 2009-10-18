@@ -76,7 +76,6 @@ HalpXboxReadSector(IN PDEVICE_OBJECT DeviceObject,
                                        SectorOffset,
                                        &Event,
                                        &StatusBlock);
-    if (!Irp) return STATUS_INSUFFICIENT_RESOURCES;
 
     Status = IoCallDriver(DeviceObject,
                           Irp);
@@ -199,11 +198,10 @@ HalpXboxIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
                                             ReturnRecognizedPartitions, PartitionBuffer);
     }
 
-    *PartitionBuffer = (PDRIVE_LAYOUT_INFORMATION)ExAllocatePoolWithTag(
-                        PagedPool,
-                        sizeof(DRIVE_LAYOUT_INFORMATION) +
-                        XBOX_PARTITION_COUNT * sizeof(PARTITION_INFORMATION),
-                        'SYSF');
+    *PartitionBuffer = (PDRIVE_LAYOUT_INFORMATION)
+                       ExAllocatePool(PagedPool,
+                                      sizeof(DRIVE_LAYOUT_INFORMATION) +
+                                      XBOX_PARTITION_COUNT * sizeof(PARTITION_INFORMATION));
     if (NULL == *PartitionBuffer)
     {
         return STATUS_NO_MEMORY;
@@ -305,10 +303,7 @@ HalpXboxIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_ACCESS_DENIED;
 }
 
-#define HalExamineMBR                   HALDISPATCH->HalExamineMBR
-#define HalIoReadPartitionTable         HALDISPATCH->HalIoReadPartitionTable
-#define HalIoSetPartitionInformation    HALDISPATCH->HalIoSetPartitionInformation
-#define HalIoWritePartitionTable        HALDISPATCH->HalIoWritePartitionTable
+#define HalExamineMBR HALDISPATCH->HalExamineMBR
 
 void
 HalpXboxInitPartIo(void)

@@ -49,12 +49,12 @@ ULONG CDECL ldap_compareA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR attr, PCHAR value )
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL, *attrW = NULL, *valueW = NULL;
 
-    ret = ~0u;
+    ret = ~0UL;
 
     TRACE( "(%p, %s, %s, %s)\n", ld, debugstr_a(dn), debugstr_a(attr),
            debugstr_a(value) );
 
-    if (!ld || !attr) return ~0u;
+    if (!ld || !attr) return ~0UL;
 
     if (dn) {
         dnW = strAtoW( dn );
@@ -103,12 +103,12 @@ ULONG CDECL ldap_compareW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR attr, PWCHAR valu
     struct berval val = { 0, NULL };
     int msg;
 
-    ret = ~0u;
+    ret = ~0UL;
 
     TRACE( "(%p, %s, %s, %s)\n", ld, debugstr_w(dn), debugstr_w(attr),
            debugstr_w(value) );
 
-    if (!ld || !attr) return ~0u;
+    if (!ld || !attr) return ~0UL;
 
     if (dn) {
         dnU = strWtoU( dn );
@@ -131,7 +131,7 @@ ULONG CDECL ldap_compareW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR attr, PWCHAR valu
     if (ret == LDAP_SUCCESS)
         ret = msg;
     else
-        ret = ~0u;
+        ret = ~0UL;
 
 exit:
     strfreeU( dnU );
@@ -268,8 +268,8 @@ ULONG CDECL ldap_compare_extW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR attr, PWCHAR 
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_compare_ext( ld, dn ? dnU : "", attrU, data ? (struct berval *)data : &val,
-                                       serverctrlsU, clientctrlsU, (int *)message ));
+    ret = ldap_compare_ext( ld, dn ? dnU : "", attrU, data ? (struct berval *)data : &val,
+                            serverctrlsU, clientctrlsU, (int *)message );
 
 exit:
     strfreeU( dnU );
@@ -404,9 +404,9 @@ ULONG CDECL ldap_compare_ext_sW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR attr, PWCHA
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_compare_ext_s( ld, dn ? dnU : "", attr ? attrU : "",
-                                         data ? (struct berval *)data : &val,
-                                         serverctrlsU, clientctrlsU ));
+    ret = ldap_compare_ext_s( ld, dn ? dnU : "", attr ? attrU : "",
+                              data ? (struct berval *)data : &val,
+                              serverctrlsU, clientctrlsU );
 
 exit:
     strfreeU( dnU );
@@ -506,7 +506,7 @@ ULONG CDECL ldap_compare_sW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR attr, PWCHAR va
         val.bv_val = valueU;
     }
 
-    ret = map_error( ldap_compare_ext_s( ld, dn ? dnU : "", attr ? attrU : "", &val, NULL, NULL ));
+    ret = ldap_compare_ext_s( ld, dn ? dnU : "", attr ? attrU : "", &val, NULL, NULL );
 
 exit:
     strfreeU( dnU );

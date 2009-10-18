@@ -9,7 +9,7 @@
 #define NDEBUG
 #include <debug.h>
 
-static __inline PHCELL CMAPI
+static PHCELL __inline CMAPI
 HvpGetCellHeader(
    PHHIVE RegistryHive,
    HCELL_INDEX CellIndex)
@@ -46,24 +46,26 @@ BOOLEAN CMAPI
 HvIsCellAllocated(IN PHHIVE RegistryHive,
                   IN HCELL_INDEX CellIndex)
 {
-   ULONG Type, Block;
+    ULONG Type, Block;
 
-   /* If it's a flat hive, the cell is always allocated */
-   if (RegistryHive->Flat)
-      return TRUE;
+    /* If it's a flat hive, the cell is always allocated */
+    if (RegistryHive->Flat) return TRUE;
 
-   /* Otherwise, get the type and make sure it's valid */
-   Type = HvGetCellType(CellIndex);
-   Block = HvGetCellBlock(CellIndex);
-   if (Block >= RegistryHive->Storage[Type].Length)
-      return FALSE;
+    /* Otherwise, get the type and make sure it's valid */
+    Type = HvGetCellType(CellIndex);
+    if (((CellIndex % ~HCELL_TYPE_MASK) > RegistryHive->Storage[Type].Length) ||
+        (CellIndex % (RegistryHive->Version >= 2 ? 8 : 16)))
+    {
+        /* Invalid cell index */
+        return FALSE;
+    }
 
-   /* Try to get the cell block */
-   if (RegistryHive->Storage[Type].BlockList[Block].BlockAddress)
-      return TRUE;
+    /* Try to get the cell block */
+    Block = (CellIndex & HCELL_BLOCK_MASK) >> HCELL_BLOCK_SHIFT;
+    if (RegistryHive->Storage[Type].BlockList[Block].BlockAddress) return TRUE;
 
-   /* No valid block, fail */
-   return FALSE;
+    /* No valid block, fail */
+    return FALSE;
 }
 
 PVOID CMAPI
@@ -74,12 +76,11 @@ HvGetCell(
    return (PVOID)(HvpGetCellHeader(RegistryHive, CellIndex) + 1);
 }
 
-static __inline LONG CMAPI
+static LONG __inline CMAPI
 HvpGetCellFullSize(
    PHHIVE RegistryHive,
    PVOID Cell)
 {
-   UNREFERENCED_PARAMETER(RegistryHive);
    return ((PHCELL)Cell - 1)->Size;
 }
 
@@ -87,15 +88,13 @@ LONG CMAPI
 HvGetCellSize(IN PHHIVE Hive,
               IN PVOID Address)
 {
-   PHCELL CellHeader;
-   LONG Size;
+    PHCELL CellHeader;
+    LONG Size;
 
-   UNREFERENCED_PARAMETER(Hive);
-
-   CellHeader = (PHCELL)Address - 1;
-   Size = CellHeader->Size * -1;
-   Size -= sizeof(HCELL);
-   return Size;
+    CellHeader = (PHCELL)Address - 1;
+    Size = CellHeader->Size * -1;
+    Size -= sizeof(HCELL);
+    return Size;
 }
 
 BOOLEAN CMAPI
@@ -127,24 +126,17 @@ BOOLEAN CMAPI
 HvIsCellDirty(IN PHHIVE Hive,
               IN HCELL_INDEX Cell)
 {
-   BOOLEAN IsDirty = FALSE;
+    /* Sanity checks */
+    ASSERT(Hive->ReadOnly == FALSE);
 
-   /* Sanity checks */
-   ASSERT(Hive->ReadOnly == FALSE);
+    /* Volatile cells are always "dirty" */
+    if (HvGetCellType(Cell) == Volatile) return TRUE;
 
-   /* Volatile cells are always "dirty" */
-   if (HvGetCellType(Cell) == Volatile)
-      return TRUE;
-
-   /* Check if the dirty bit is set */
-   if (RtlCheckBit(&Hive->DirtyVector, Cell / HV_BLOCK_SIZE))
-       IsDirty = TRUE;
-
-   /* Return result as boolean*/
-   return IsDirty;
+    /* Check if the dirty bit is set */
+    return RtlCheckBit(&Hive->DirtyVector, Cell / HV_BLOCK_SIZE);
 }
 
-static __inline ULONG CMAPI
+static ULONG __inline CMAPI
 HvpComputeFreeListIndex(
    ULONG Size)
 {
@@ -427,7 +419,7 @@ HvReallocateCell(
     * FIXME: Merge with adjacent free cell if possible.
     * FIXME: Implement shrinking.
     */
-   if (Size > (ULONG)OldCellSize)
+   if (Size > OldCellSize)
    {
       NewCellIndex = HvAllocateCell(RegistryHive, Size, Storage, HCELL_NIL);
       if (NewCellIndex == HCELL_NIL)

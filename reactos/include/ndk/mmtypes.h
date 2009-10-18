@@ -42,6 +42,12 @@ Author:
     & ~(MM_ALLOCATION_GRANULARITY - 1))
 
 //
+// Macro for generating pool tags
+//
+#define TAG(A, B, C, D)                                     \
+    (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+
+//
 // PFN Identity Uses
 //
 #define MMPFNUSE_PROCESSPRIVATE                             0
@@ -56,12 +62,6 @@ Author:
 #define MMPFNUSE_AWEPAGE                                    9
 #define MMPFNUSE_DRIVERLOCKPAGE                             10
 #define MMPFNUSE_KERNELSTACK                                11
-
-//
-// Lock/Unlock Virtuam Memory Flags
-//
-#define MAP_PROCESS                                         1
-#define MAP_SYSTEM                                          2
 
 #ifndef NTOS_MODE_USER
 
@@ -304,17 +304,17 @@ typedef struct _SECTION_IMAGE_INFORMATION
     ULONG ZeroBits;
     ULONG MaximumStackSize;
     ULONG CommittedStackSize;
-    ULONG SubSystemType;
+    ULONG SubsystemType;
     USHORT SubSystemMinorVersion;
     USHORT SubSystemMajorVersion;
     ULONG GpValue;
     USHORT ImageCharacteristics;
-    USHORT DllCharacteristics;
+    USHORT DllChracteristics;
     USHORT Machine;
     UCHAR ImageContainsCode;
     UCHAR Spare1;
     ULONG LoaderFlags;
-    ULONG ImageFileSize;
+    ULONG ImageFileSIze;
     ULONG Reserved[1];
 } SECTION_IMAGE_INFORMATION, *PSECTION_IMAGE_INFORMATION;
 
@@ -369,7 +369,7 @@ typedef struct _SEGMENT
     ULONG NumberOfCommittedPages;
     PMMEXTEND_INFO ExtendInfo;
     SEGMENT_FLAGS SegmentFlags;
-    PVOID BasedAddress;
+    PVOID BaseAddress;
     union
     {
         SIZE_T ImageCommitment;
@@ -389,9 +389,9 @@ typedef struct _SEGMENT
 //
 typedef struct _EVENT_COUNTER
 {
-    SLIST_ENTRY ListEntry;
     ULONG RefCount;
     KEVENT Event;
+    LIST_ENTRY ListEntry;
 } EVENT_COUNTER, *PEVENT_COUNTER;
 
 //
@@ -592,7 +592,7 @@ typedef struct _MMADDRESS_NODE
 {
     union
     {
-        LONG Balance:2;
+        ULONG Balance:2;
         struct _MMADDRESS_NODE *Parent;
     } u1;
     struct _MMADDRESS_NODE *LeftChild;
@@ -642,7 +642,7 @@ typedef struct _MMWSLENTRY
     ULONG Hashed:1;
     ULONG Direct:1;
     ULONG Age:2;
-    ULONG VirtualPageNumber:20;
+    ULONG VirtualPageNumber:14;
 } MMWSLENTRY, *PMMWSLENTRY;
 
 typedef struct _MMWSLE
@@ -692,7 +692,7 @@ typedef struct _MMSUPPORT_FLAGS
     ULONG TrimHard:1;
     ULONG MaximumWorkingSetHard:1;
     ULONG ForceTrim:1;
-    ULONG MinimumWorkingSetHard:1;
+    ULONG MinimumworkingSetHard:1;
     ULONG Available0:1;
     ULONG MemoryPriority:8;
     ULONG GrowWsleHash:1;
@@ -756,7 +756,7 @@ typedef struct _MEMORY_BASIC_INFORMATION
     PVOID BaseAddress;
     PVOID AllocationBase;
     ULONG AllocationProtect;
-    SIZE_T RegionSize;
+    ULONG RegionSize;
     ULONG State;
     ULONG Protect;
     ULONG Type;

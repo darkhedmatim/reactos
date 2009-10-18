@@ -22,7 +22,7 @@ HalReboot (VOID)
 }
 
 
-VOID NTAPI
+VOID STDCALL
 HalReturnToFirmware (
 	FIRMWARE_REENTRY	Action
 	)

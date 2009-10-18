@@ -589,9 +589,9 @@ typedef struct linedevstatus_tag {
     DWORD dwOpenMediaModes;
     DWORD dwNumActiveCalls;
     DWORD dwNumOnHoldCalls;
-    DWORD dwNumOnHoldPendCalls;
+    DWORD dwNumOnHoldPendingCalls;
     DWORD dwLineFeatures;
-    DWORD dwNumCallCompletions;
+    DWORD dwNumCallCompletion;
     DWORD dwRingMode;
     DWORD dwSignalLevel;
     DWORD dwBatteryLevel;
@@ -631,18 +631,6 @@ typedef struct linegeneratetone_tag {
     DWORD dwCadenceOff;
     DWORD dwVolume;
 } LINEGENERATETONE, *LPLINEGENERATETONE;
-
-typedef struct lineinitializeexparams_tag {
-    DWORD dwTotalSize;
-    DWORD dwNeededSize;
-    DWORD dwUsedSize;
-    DWORD dwOptions;
-    union {
-    HANDLE hEvent;
-    HANDLE hCompletionPort;
-    } Handles;
-    DWORD dwCompletionKey;
-} LINEINITIALIZEEXPARAMS, *LPLINEINITIALIZEEXPARAMS;
 
 typedef struct linemediacontrolcallstate_tag {
     DWORD dwCallStates;
@@ -900,9 +888,6 @@ DWORD WINAPI lineGetTranslateCaps(HLINEAPP,DWORD,LPLINETRANSLATECAPS);
 DWORD WINAPI lineHandoff(HCALL,LPCSTR,DWORD);
 DWORD WINAPI lineHold(HCALL);
 DWORD WINAPI lineInitialize(LPHLINEAPP,HINSTANCE,LINECALLBACK,LPCSTR,LPDWORD);
-LONG  WINAPI lineInitializeExA(LPHLINEAPP,HINSTANCE,LINECALLBACK,LPCSTR,LPDWORD,LPDWORD,LPLINEINITIALIZEEXPARAMS);
-LONG  WINAPI lineInitializeExW(LPHLINEAPP,HINSTANCE,LINECALLBACK,LPCWSTR,LPDWORD,LPDWORD,LPLINEINITIALIZEEXPARAMS);
-#define      lineInitializeEx WINELIB_NAME_AW(lineInitializeEx)
 DWORD WINAPI lineMakeCall(HLINE,LPHCALL,LPCSTR,DWORD,LPLINECALLPARAMS);
 DWORD WINAPI lineMonitorDigits(HCALL,DWORD);
 DWORD WINAPI lineMonitorMedia(HCALL,DWORD);

@@ -134,7 +134,7 @@ BOOL finalize_hash_impl(ALG_ID aiAlgid, HASH_CONTEXT *pHashContext, BYTE *pbHash
 BOOL duplicate_hash_impl(ALG_ID aiAlgid, CONST HASH_CONTEXT *pSrcHashContext, 
                          HASH_CONTEXT *pDestHashContext) 
 {
-    *pDestHashContext = *pSrcHashContext;
+    memcpy(pDestHashContext, pSrcHashContext, sizeof(HASH_CONTEXT));
 
     return TRUE;
 }
@@ -227,7 +227,7 @@ BOOL duplicate_key_impl(ALG_ID aiAlgid, CONST KEY_CONTEXT *pSrcKeyContext,
         case CALG_AES_128:
         case CALG_AES_192:
         case CALG_AES_256:
-            *pDestKeyContext = *pSrcKeyContext;
+            memcpy(pDestKeyContext, pSrcKeyContext, sizeof(KEY_CONTEXT));
             break;
         case CALG_RSA_KEYX:
         case CALG_RSA_SIGN:

@@ -252,7 +252,6 @@ CsrpInitWin32Csr (int argc, char ** argv, char ** envp)
     }
   Exports.CsrInsertObjectProc = CsrInsertObject;
   Exports.CsrGetObjectProc = CsrGetObject;
-  Exports.CsrReleaseObjectByPointerProc = CsrReleaseObjectByPointer;
   Exports.CsrReleaseObjectProc = CsrReleaseObject;
   Exports.CsrEnumProcessesProc = CsrEnumProcesses;
   if (! (*InitProc)(&ApiDefinitions, &ObjectDefinitions, &InitCompleteProc,
@@ -297,7 +296,7 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     { 0, 0, NULL }
   };
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CsrpCreateListenPort (IN     LPWSTR  Name,
 		      IN OUT PHANDLE Port,
 		      IN     PTHREAD_START_ROUTINE ListenThread)
@@ -674,7 +673,6 @@ CsrpRunWinlogon (int argc, char ** argv, char ** envp)
 		DPRINT1("SM: %s: loading winlogon.exe failed (Status=%08lx)\n",
 				__FUNCTION__, Status);
 	}
-
    ZwResumeThread(ProcessInfo.ThreadHandle, NULL);
 	return Status;
 }
@@ -717,7 +715,7 @@ struct {
  * RETURN VALUE
  * 	TRUE: Initialization OK; otherwise FALSE.
  */
-BOOL WINAPI
+BOOL STDCALL
 CsrServerInitialization (
 	int argc,
 	char ** argv,

@@ -20,6 +20,8 @@
 
 #include "precomp.h"
 
+//#define NDEBUG
+#include <debug.h>
 #define _WINNT_H
 #include "wine/debug.h"
 
@@ -120,7 +122,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
     /* Move to the Next DLL */
     Head = &ImageLoadListHead;
     Next = Head->Flink;
-    TRACE("Trying to find library: %s in current ListHead \n", DllName);
+    DPRINT("Trying to find library: %s in current ListHead \n", DllName);
 
     /* Split the path */
     _splitpath(DllName, Drive, Dir, Filename, Ext);
@@ -133,7 +135,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
     {
         /* Get the Loaded Image Structure */
         LoadedImage = CONTAINING_RECORD(Next, LOADED_IMAGE, Links);
-        TRACE("Found: %s in current ListHead \n", LoadedImage->ModuleName);
+        DPRINT("Found: %s in current ListHead \n", LoadedImage->ModuleName);
 
         /* Check if we didn't have a complete name */
         if (!CompleteName)
@@ -154,7 +156,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
         /* Check if the Names Match */
         if (!_stricmp(DllName, FullName))
         {
-            TRACE("Found it, returning it\n");
+            DPRINT("Found it, returning it\n");
             return LoadedImage;
         }
 
@@ -163,7 +165,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
     }
 
     /* Allocate memory for the Structure, and write the Module Name under */
-    TRACE("Didn't find it...allocating it for you now\n");
+    DPRINT("Didn't find it...allocating it for you now\n");
     LoadedImage = HeapAlloc(IMAGEHLP_hHeap,
                             0,
                             sizeof(*LoadedImage) + strlen(DllName) + 1);
@@ -253,14 +255,14 @@ BOOL IMAGEAPI MapAndLoad(
                                    ImageName,
                                    DotDll ? ".dll" : ".exe",
                                    MAX_PATH,
-                                   (PSTR)Buffer,
+                                   Buffer,
                                    &FilePart);
 
                 /* Check if it was successful */
                 if (Tried && (Tried < MAX_PATH))
                 {
                     /* Change the filename to use, and try again */
-                    FileToOpen = (PSTR)Buffer;
+                    FileToOpen = Buffer;
                     continue;
                 }
             }

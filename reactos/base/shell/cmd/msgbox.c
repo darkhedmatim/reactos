@@ -22,7 +22,7 @@
 #define _SYNTAX_CHECK
 
 
-INT CommandMsgbox (LPTSTR param)
+INT CommandMsgbox (LPTSTR cmd, LPTSTR param)
 {
 
 	//used to parse command line
@@ -130,6 +130,8 @@ INT CommandMsgbox (LPTSTR param)
 	prompt = param;
 
 	hWnd=GetConsoleWindow ();
+//	DebugPrintf("FindWindow hWnd = %d\n",hWnd);
+//	ConErrPrintf("FindWindow hWnd = %d\n",hWnd);
 
 	switch (MessageBox(hWnd, prompt, title, uType))
 	{

@@ -21,7 +21,7 @@
 #include <ppcmmu/mmu.h>
 
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 KDPC KiExpireTimerDpc;
 extern ULONG KiMaximumDpcQueueDepth;
@@ -142,7 +142,7 @@ static ISR_TABLE IsrTable[NR_TRAPS][MAXIMUM_PROCESSORS];
 static ISR_TABLE IsrTable[NR_TRAPS][1];
 #endif
 
-#define TAG_ISR_LOCK     'LRSI'
+#define TAG_ISR_LOCK     TAG('I', 'S', 'R', 'L')
 
 /* FUNCTIONS ****************************************************************/
 
@@ -191,7 +191,7 @@ KeTrapFrameToIRQTrapFrame(PKTRAP_FRAME TrapFrame,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeUpdateRunTime(IN PKTRAP_FRAME  TrapFrame,
                 IN KIRQL  Irql)
 {
@@ -301,7 +301,7 @@ KeUpdateRunTime(IN PKTRAP_FRAME  TrapFrame,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
                    IN KIRQL Irql,
                    IN ULONG Increment)
@@ -349,6 +349,9 @@ KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
         SharedUserData->TickCount.LowPart = Time.LowPart;
         SharedUserData->TickCount.High1Time = Time.HighPart;
 
+        /* Update tick count in shared user data as well */
+        SharedUserData->TickCountLowDeprecated++;
+
         /* Queue a DPC that will expire timers */
         KeInsertQueueDpc(&KiExpireTimerDpc, 0, 0);
     }
@@ -362,7 +365,7 @@ KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
     }
 }
 
-VOID NTAPI
+VOID STDCALL
 KiInterruptDispatch2 (ULONG vector, KIRQL old_level)
 /*
  * FUNCTION: Calls all the interrupt handlers for a given irq.
@@ -537,7 +540,7 @@ KeDumpIrqList(VOID)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 KeConnectInterrupt(PKINTERRUPT InterruptObject)
 {
    KIRQL oldlvl,synch_oldlvl;
@@ -612,7 +615,7 @@ KeConnectInterrupt(PKINTERRUPT InterruptObject)
  *        InterruptObject = isr to release
  */
 BOOLEAN
-NTAPI
+STDCALL
 KeDisconnectInterrupt(PKINTERRUPT InterruptObject)
 {
     KIRQL oldlvl,synch_oldlvl;
@@ -668,7 +671,7 @@ KeDisconnectInterrupt(PKINTERRUPT InterruptObject)
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeInitializeInterrupt(PKINTERRUPT Interrupt,
                       PKSERVICE_ROUTINE ServiceRoutine,
                       PVOID ServiceContext,

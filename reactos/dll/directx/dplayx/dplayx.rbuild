@@ -1,10 +1,15 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="dplayx" type="win32dll" baseaddress="${BASEADDRESS_DPLAYX}" installbase="system32" installname="dplayx.dll" unicode="yes">
-	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
-	<importlibrary definition="dplayx.spec" />
+<module name="dplayx" type="win32dll" baseaddress="${BASEADDRESS_DPLAYX}" installbase="system32" installname="dplayx.dll" allowwarnings ="true">
+	<!-- Won't load correctly in ReactOS yet autoregister infsection="OleControlDlls" type="DllRegisterServer" -->
+	<importlibrary definition="dplayx.spec.def" />
 	<include base="dplayx">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
+	<define name="_WIN32_IE">0x600</define>
+	<define name="_WIN32_WINNT">0x501</define>
+	<define name="WINVER">0x501</define>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ntdll</library>
@@ -25,4 +30,5 @@
 	<file>lobbysp.c</file>
 	<file>name_server.c</file>
 	<file>regsvr.c</file>
+	<file>dplayx.spec</file>
 </module>

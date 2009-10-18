@@ -1,7 +1,7 @@
 /*
  * RPC server API
  *
- * Copyright 2001 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001 Ove Kåven, TransGaming Technologies
  * Copyright 2004 Filip Navara
  * Copyright 2006-2008 Robert Shearman (for CodeWeavers)
  *
@@ -138,22 +138,27 @@ static RpcServerInterface* RPCRT4_find_interface(UUID* object,
   }
   LeaveCriticalSection(&server_cs);
   if (&cif->entry == &server_interfaces) cif = NULL;
-  TRACE("returning %p for object %s, if_id { %d.%d %s }\n", cif,
-    debugstr_guid(object), if_id->SyntaxVersion.MajorVersion,
-    if_id->SyntaxVersion.MinorVersion, debugstr_guid(&if_id->SyntaxGUID));
+  TRACE("returning %p for %s\n", cif, debugstr_guid(object));
   return cif;
 }
 
 static void RPCRT4_release_server_interface(RpcServerInterface *sif)
 {
   if (!InterlockedDecrement(&sif->CurrentCalls) &&
-      sif->Delete) {
+      sif->CallsCompletedEvent) {
     /* sif must have been removed from server_interfaces before
      * CallsCompletedEvent is set */
-    if (sif->CallsCompletedEvent)
-      SetEvent(sif->CallsCompletedEvent);
+    SetEvent(sif->CallsCompletedEvent);
     HeapFree(GetProcessHeap(), 0, sif);
   }
+}
+
+static WINE_EXCEPTION_FILTER(rpc_filter)
+{
+  WARN("exception caught with code 0x%08x = %d\n", GetExceptionCode(), GetExceptionCode());
+  TRACE("returning failure packet\n");
+  /* catch every exception */
+  return EXCEPTION_EXECUTE_HANDLER;
 }
 
 static RPC_STATUS process_bind_packet(RpcConnection *conn, RpcPktBindHdr *hdr, RPC_MESSAGE *msg)
@@ -289,8 +294,7 @@ static RPC_STATUS process_request_packet(RpcConnection *conn, RpcPktRequestHdr *
   RPCRT4_SetThreadCurrentCallHandle(msg->Handle);
   __TRY {
     if (func) func(msg);
-  } __EXCEPT_ALL {
-    WARN("exception caught with code 0x%08x = %d\n", GetExceptionCode(), GetExceptionCode());
+  } __EXCEPT(rpc_filter) {
     exception = TRUE;
     if (GetExceptionCode() == STATUS_ACCESS_VIOLATION)
       status = ERROR_NOACCESS;
@@ -352,7 +356,7 @@ static void RPCRT4_process_packet(RpcConnection* conn, RpcPktHdr* hdr, RPC_MESSA
   }
 
   /* clean up */
-  I_RpcFree(msg->Buffer);
+  I_RpcFreeBuffer(msg);
   RPCRT4_FreeHeader(hdr);
   HeapFree(GetProcessHeap(), 0, msg);
 }
@@ -380,15 +384,13 @@ static DWORD CALLBACK RPCRT4_io_thread(LPVOID the_arg)
 
     status = RPCRT4_Receive(conn, &hdr, msg);
     if (status != RPC_S_OK) {
-      WARN("receive failed with error %x\n", status);
+      WARN("receive failed with error %lx\n", status);
       HeapFree(GetProcessHeap(), 0, msg);
       break;
     }
 
     packet = HeapAlloc(GetProcessHeap(), 0, sizeof(RpcPacket));
     if (!packet) {
-      I_RpcFree(msg->Buffer);
-      RPCRT4_FreeHeader(hdr);
       HeapFree(GetProcessHeap(), 0, msg);
       break;
     }
@@ -397,8 +399,6 @@ static DWORD CALLBACK RPCRT4_io_thread(LPVOID the_arg)
     packet->msg = msg;
     if (!QueueUserWorkItem(RPCRT4_worker_thread, packet, WT_EXECUTELONGFUNCTION)) {
       ERR("couldn't queue work item for worker thread, error was %d\n", GetLastError());
-      I_RpcFree(msg->Buffer);
-      RPCRT4_FreeHeader(hdr);
       HeapFree(GetProcessHeap(), 0, msg);
       HeapFree(GetProcessHeap(), 0, packet);
       break;
@@ -745,7 +745,7 @@ RPC_STATUS WINAPI RpcServerUseProtseqEpExA( RPC_CSTR Protseq, UINT MaxCalls, RPC
   RpcServerProtseq* ps;
   RPC_STATUS status;
 
-  TRACE("(%s,%u,%s,%p,{%u,%u,%u})\n", debugstr_a(szps), MaxCalls,
+  TRACE("(%s,%u,%s,%p,{%u,%lu,%lu})\n", debugstr_a(szps), MaxCalls,
        debugstr_a(szep), SecurityDescriptor,
        lpPolicy->Length, lpPolicy->EndpointFlags, lpPolicy->NICFlags );
 
@@ -766,7 +766,7 @@ RPC_STATUS WINAPI RpcServerUseProtseqEpExW( RPC_WSTR Protseq, UINT MaxCalls, RPC
   RPC_STATUS status;
   LPSTR EndpointA;
 
-  TRACE("(%s,%u,%s,%p,{%u,%u,%u})\n", debugstr_w( Protseq ), MaxCalls,
+  TRACE("(%s,%u,%s,%p,{%u,%lu,%lu})\n", debugstr_w( Protseq ), MaxCalls,
        debugstr_w( Endpoint ), SecurityDescriptor,
        lpPolicy->Length, lpPolicy->EndpointFlags, lpPolicy->NICFlags );
 
@@ -850,7 +850,7 @@ RPC_STATUS WINAPI RpcServerRegisterIf2( RPC_IF_HANDLE IfSpec, UUID* MgrTypeUuid,
   sif = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(RpcServerInterface));
   sif->If           = If;
   if (MgrTypeUuid) {
-    sif->MgrTypeUuid = *MgrTypeUuid;
+    memcpy(&sif->MgrTypeUuid, MgrTypeUuid, sizeof(UUID));
     sif->MgrEpv       = MgrEpv;
   } else {
     memset(&sif->MgrTypeUuid, 0, sizeof(UUID));
@@ -891,10 +891,8 @@ RPC_STATUS WINAPI RpcServerUnregisterIf( RPC_IF_HANDLE IfSpec, UUID* MgrTypeUuid
     if ((!IfSpec || !memcmp(&If->InterfaceId, &cif->If->InterfaceId, sizeof(RPC_SYNTAX_IDENTIFIER))) &&
         UuidEqual(MgrTypeUuid, &cif->MgrTypeUuid, &status)) {
       list_remove(&cif->entry);
-      TRACE("unregistering cif %p\n", cif);
       if (cif->CurrentCalls) {
         completed = FALSE;
-        cif->Delete = TRUE;
         if (WaitForCallsToComplete)
           cif->CallsCompletedEvent = event = CreateEventW(NULL, FALSE, FALSE, NULL);
       }
@@ -984,8 +982,8 @@ RPC_STATUS WINAPI RpcObjectSetType( UUID* ObjUuid, UUID* TypeUuid )
       return RPC_S_ALREADY_REGISTERED;
     /* ... otherwise create a new one and add it in. */
     map = HeapAlloc(GetProcessHeap(), 0, sizeof(RpcObjTypeMap));
-    map->Object = *ObjUuid;
-    map->Type = *TypeUuid;
+    memcpy(&map->Object, ObjUuid, sizeof(UUID));
+    memcpy(&map->Type, TypeUuid, sizeof(UUID));
     map->next = NULL;
     if (prev)
       prev->next = map; /* prev is the last map in the linklist */
@@ -1050,11 +1048,13 @@ RPC_STATUS WINAPI RpcMgmtWaitServerListen( void )
     LeaveCriticalSection(&listen_cs);
     return RPC_S_NOT_LISTENING;
   }
+  
+  do
+  {
+  LeaveCriticalSection(&listen_cs);
 
-  do {
-    LeaveCriticalSection(&listen_cs);
     LIST_FOR_EACH_ENTRY(cps, &protseqs, RpcServerProtseq, entry)
-      WaitForSingleObject(cps->server_ready_event, INFINITE);
+        WaitForSingleObject(cps->server_ready_event, INFINITE);
 
     EnterCriticalSection(&listen_cs);
   } while (!std_listen);
@@ -1127,40 +1127,6 @@ RPC_STATUS WINAPI RpcMgmtInqIfIds(RPC_BINDING_HANDLE Binding, RPC_IF_ID_VECTOR *
 {
   FIXME("(%p,%p): stub\n", Binding, IfIdVector);
   return RPC_S_INVALID_BINDING;
-}
-
-/***********************************************************************
- *             RpcMgmtInqStats (RPCRT4.@)
- */
-RPC_STATUS WINAPI RpcMgmtInqStats(RPC_BINDING_HANDLE Binding, RPC_STATS_VECTOR **Statistics)
-{
-  RPC_STATS_VECTOR *stats;
-
-  FIXME("(%p,%p)\n", Binding, Statistics);
-
-  if ((stats = HeapAlloc(GetProcessHeap(), 0, sizeof(RPC_STATS_VECTOR))))
-  {
-    stats->Count = 1;
-    stats->Stats[0] = 0;
-    *Statistics = stats;
-    return RPC_S_OK;
-  }
-  return RPC_S_OUT_OF_RESOURCES;
-}
-
-/***********************************************************************
- *             RpcMgmtStatsVectorFree (RPCRT4.@)
- */
-RPC_STATUS WINAPI RpcMgmtStatsVectorFree(RPC_STATS_VECTOR **StatsVector)
-{
-  FIXME("(%p)\n", StatsVector);
-
-  if (StatsVector)
-  {
-    HeapFree(GetProcessHeap(), 0, *StatsVector);
-    *StatsVector = NULL;
-  }
-  return RPC_S_OK;
 }
 
 /***********************************************************************

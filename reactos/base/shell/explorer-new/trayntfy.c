@@ -141,7 +141,7 @@ TrayClockWnd_GetMinimumSize(IN OUT PTRAY_CLOCK_WND_DATA This,
 {
     WORD iLinesVisible = 0;
     INT i;
-    SIZE szMax = { 0, 0 };
+    SIZE szMax = {0};
 
     if (!This->LinesMeasured)
         This->LinesMeasured = TrayClockWnd_MeasureLines(This);
@@ -159,7 +159,7 @@ TrayClockWnd_GetMinimumSize(IN OUT PTRAY_CLOCK_WND_DATA This,
             {
                 if (Horizontal)
                 {
-                    if (szMax.cy + This->LineSizes[i].cy + (LONG)This->LineSpacing >
+                    if (szMax.cy + This->LineSizes[i].cy + This->LineSpacing >
                         pSize->cy - (2 * TRAY_CLOCK_WND_SPACING_Y))
                     {
                         break;
@@ -269,8 +269,8 @@ TrayClockWnd_UpdateWnd(IN OUT PTRAY_CLOCK_WND_DATA This)
             NMHDR nmh;
 
             nmh.hwndFrom = This->hWnd;
-            nmh.idFrom = GetWindowLongPtr(This->hWnd,
-                                          GWL_ID);
+            nmh.idFrom = GetWindowLong(This->hWnd,
+                                       GWL_ID);
             nmh.code = NTNWM_REALIGN;
 
             SendMessage(This->hWndNotify,
@@ -713,14 +713,14 @@ typedef struct _TRAY_NOTIFY_WND_DATA
 static VOID
 TrayNotifyWnd_UpdateStyle(IN OUT PTRAY_NOTIFY_WND_DATA This)
 {
-    RECT rcClient = { 0, 0, 0, 0 };
+    RECT rcClient = {0};
 
     if (AdjustWindowRectEx(&rcClient,
-                           GetWindowLongPtr(This->hWnd,
-                                            GWL_STYLE),
+                           GetWindowLong(This->hWnd,
+                                         GWL_STYLE),
                            FALSE,
-                           GetWindowLongPtr(This->hWnd,
-                                            GWL_EXSTYLE)))
+                           GetWindowLong(This->hWnd,
+                                         GWL_EXSTYLE)))
     {
         This->szNonClient.cx = rcClient.right - rcClient.left;
         This->szNonClient.cy = rcClient.bottom - rcClient.top;
@@ -758,7 +758,7 @@ TrayNotifyWnd_GetMinimumSize(IN OUT PTRAY_NOTIFY_WND_DATA This,
 
     if (!This->HideClock)
     {
-        SIZE szClock = { 0, 0 };
+        SIZE szClock = {0};
 
         if (Horizontal)
         {

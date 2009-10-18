@@ -39,8 +39,8 @@ TestTimerApcRoutine(IN PVOID TimerContext,
                     IN LONG TimerHighValue)
 
 {
-    ULONG *ApcCount = (ULONG *)TimerContext;
     DPRINT("Timer Apc called!\n");
+    ULONG *ApcCount = (ULONG *)TimerContext;
     (*ApcCount)++;
 }
 
@@ -173,6 +173,7 @@ ExTimerTest()
 /* PUBLIC FUNCTIONS ***********************************************************/
 
 VOID
+FASTCALL
 NtoskrnlExecutiveTests()
 {
     ExTimerTest();

@@ -51,12 +51,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
     HANDLE hProcess;
     HANDLE hToken;
     TOKEN_PRIVILEGES tkp;
-    HANDLE hMutex;
-
-    /* check wether we're already running or not */
-    hMutex = CreateMutexW(NULL, TRUE, L"taskmgrros");
-    if ((!hMutex) || (GetLastError() == ERROR_ALREADY_EXISTS))
-        return 1;
 
     /* Initialize global variables */
     hInst = hInstance;
@@ -103,12 +97,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 INT_PTR CALLBACK
 TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-#if 0
     HDC              hdc;
     PAINTSTRUCT      ps;
-    RECT             rc;
-#endif
     LPRECT           pRC;
+    RECT             rc;
     int              idctrl;
     LPNMHDR          pnmh;
     WINDOWPLACEMENT  wp;
@@ -145,9 +137,13 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             TaskManager_OnRestoreMainWindow();
             break;
         case ID_VIEW_LARGE:
+            ApplicationPage_OnViewLargeIcons();
+            break;
         case ID_VIEW_SMALL:
+            ApplicationPage_OnViewSmallIcons();
+            break;
         case ID_VIEW_DETAILS:
-            ApplicationPage_OnView(LOWORD(wParam));
+            ApplicationPage_OnViewDetails();
             break;
         case ID_VIEW_SHOWKERNELTIMES:
             PerformancePage_OnViewShowKernelTimes();
@@ -159,10 +155,16 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             PerformancePage_OnViewCPUHistoryOneGraphPerCPU();
             break;
         case ID_VIEW_UPDATESPEED_HIGH:
+            TaskManager_OnViewUpdateSpeedHigh();
+            break;
         case ID_VIEW_UPDATESPEED_NORMAL:
+            TaskManager_OnViewUpdateSpeedNormal();
+            break;
         case ID_VIEW_UPDATESPEED_LOW:
+            TaskManager_OnViewUpdateSpeedLow();
+            break;
         case ID_VIEW_UPDATESPEED_PAUSED:
-            TaskManager_OnViewUpdateSpeed(LOWORD(wParam));
+            TaskManager_OnViewUpdateSpeedPaused();
             break;
         case ID_VIEW_SELECTCOLUMNS:
             ProcessPage_OnViewSelectColumns();
@@ -171,10 +173,10 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             PostMessageW(hDlg, WM_TIMER, 0, 0);
             break;
         case ID_WINDOWS_TILEHORIZONTALLY:
-            ApplicationPage_OnWindowsTile(MDITILE_HORIZONTAL);
+            ApplicationPage_OnWindowsTileHorizontally();
             break;
         case ID_WINDOWS_TILEVERTICALLY:
-            ApplicationPage_OnWindowsTile(MDITILE_VERTICAL);
+            ApplicationPage_OnWindowsTileVertically();
             break;
         case ID_WINDOWS_MINIMIZE:
             ApplicationPage_OnWindowsMinimize();
@@ -250,7 +252,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
             GetCursorPos(&pt);
 
-            OnTop = ((GetWindowLongPtrW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+            OnTop = ((GetWindowLongW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
 
             hMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_TRAY_POPUP));
             hPopupMenu = GetSubMenu(hMenu, 0);
@@ -267,9 +269,6 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if(OnTop)
             {
               CheckMenuItem(hPopupMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND | MF_CHECKED);
-            } else
-            {
-              CheckMenuItem(hPopupMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND | MF_UNCHECKED);
             }
 
             SetForegroundWindow(hMainWnd);
@@ -294,7 +293,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             TaskManager_OnTabWndSelChange();
         }
         break;
-#if 0
+
     case WM_NCPAINT:
         hdc = GetDC(hDlg);
         GetClientRect(hDlg, &rc);
@@ -308,7 +307,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         Draw3dRect(hdc, rc.left, rc.top, rc.right, rc.top + 2, GetSysColor(COLOR_3DSHADOW), GetSysColor(COLOR_3DHILIGHT));
         EndPaint(hDlg, &ps);
         break;
-#endif
+
     case WM_SIZING:
         /* Make sure the user is sizing the dialog */
         /* in an acceptable range */
@@ -414,22 +413,6 @@ void Draw3dRect2(HDC hDC, LPRECT lpRect, COLORREF clrTopLeft, COLORREF clrBottom
         lpRect->bottom - lpRect->top, clrTopLeft, clrBottomRight);
 }
 
-static void SetUpdateSpeed(HWND hWnd)
-{
-    /* Setup update speed (pause=fall down) */
-    switch (TaskManagerSettings.UpdateSpeed) {
-    case ID_VIEW_UPDATESPEED_HIGH:
-        SetTimer(hWnd, 1, 1000, NULL);
-        break;
-    case ID_VIEW_UPDATESPEED_NORMAL:
-        SetTimer(hWnd, 1, 2000, NULL);
-        break;
-    case ID_VIEW_UPDATESPEED_LOW:
-        SetTimer(hWnd, 1, 4000, NULL);
-        break;
-    }
-}
-
 BOOL OnCreate(HWND hWnd)
 {
     HMENU   hMenu;
@@ -459,9 +442,9 @@ BOOL OnCreate(HWND hWnd)
         return FALSE;
 
     /* Create the status bar panes */
-    nParts[0] = STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
-    nParts[2] = STATUS_SIZE3;
+    nParts[0] = 100;
+    nParts[1] = 210;
+    nParts[2] = 400;
     SendMessageW(hStatusWnd, SB_SETPARTS, 3, (LPARAM) (LPINT) nParts);
 
     /* Create tab pages */
@@ -554,15 +537,26 @@ BOOL OnCreate(HWND hWnd)
     else
         CheckMenuItem(hEditMenu, ID_OPTIONS_SHOW16BITTASKS, MF_BYCOMMAND|MF_UNCHECKED);
 
-    /* Set the view mode */
-    CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, TaskManagerSettings.ViewMode, MF_BYCOMMAND);
+    if (TaskManagerSettings.View_LargeIcons)
+        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_LARGE, MF_BYCOMMAND);
+    else if (TaskManagerSettings.View_SmallIcons)
+        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_SMALL, MF_BYCOMMAND);
+    else
+        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_DETAILS, MF_BYCOMMAND);
 
     if (TaskManagerSettings.ShowKernelTimes)
         CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_CHECKED);
     else
         CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_UNCHECKED);
 
-    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, TaskManagerSettings.UpdateSpeed, MF_BYCOMMAND);
+    if (TaskManagerSettings.UpdateSpeed == 1)
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_HIGH, MF_BYCOMMAND);
+    else if (TaskManagerSettings.UpdateSpeed == 2)
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_NORMAL, MF_BYCOMMAND);
+    else if (TaskManagerSettings.UpdateSpeed == 4)
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_LOW, MF_BYCOMMAND);
+    else
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_PAUSED, MF_BYCOMMAND);
 
     if (TaskManagerSettings.CPUHistory_OneGraphPerCPU)
         CheckMenuRadioItem(hCPUHistoryMenu, ID_VIEW_CPUHISTORY_ONEGRAPHALL, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, MF_BYCOMMAND);
@@ -575,8 +569,12 @@ BOOL OnCreate(HWND hWnd)
     TabCtrl_SetCurFocus/*Sel*/(hTabWnd, 2);
     TabCtrl_SetCurFocus/*Sel*/(hTabWnd, nActivePage);
 
-    /* Setup update speed */
-    SetUpdateSpeed(hWnd);
+    if (TaskManagerSettings.UpdateSpeed == 1)
+        SetTimer(hWnd, 1, 1000, NULL);
+    else if (TaskManagerSettings.UpdateSpeed == 2)
+        SetTimer(hWnd, 1, 2000, NULL);
+    else if (TaskManagerSettings.UpdateSpeed == 4)
+        SetTimer(hWnd, 1, 4000, NULL);
 
     /*
      * Refresh the performance data
@@ -635,11 +633,11 @@ void OnSize( WPARAM nType, int cx, int cy )
 
     /* Update the status bar size */
     GetWindowRect(hStatusWnd, &rc);
-    SendMessageW(hStatusWnd, WM_SIZE, nType, MAKELPARAM(cx,rc.bottom - rc.top));
+    SendMessageW(hStatusWnd, WM_SIZE, nType, MAKELPARAM(cx, cy + (rc.bottom - rc.top)));
 
     /* Update the status bar pane sizes */
-    nParts[0] = bInMenuLoop ? -1 : STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
+    nParts[0] = bInMenuLoop ? -1 : 100;
+    nParts[1] = 210;
     nParts[2] = cx;
     SendMessageW(hStatusWnd, SB_SETPARTS, bInMenuLoop ? 1 : 3, (LPARAM) (LPINT) nParts);
 
@@ -671,7 +669,7 @@ void OnSize( WPARAM nType, int cx, int cy )
 void LoadSettings(void)
 {
     HKEY   hKey;
-    WCHAR  szSubKey[] = L"Software\\ReactOS\\TaskManager";
+    WCHAR  szSubKey[] = L"Software\\ReactWare\\TaskManager";
     int    i;
     DWORD  dwSize;
 
@@ -692,10 +690,12 @@ void LoadSettings(void)
     TaskManagerSettings.Show16BitTasks = TRUE;
 
     /* Update speed settings */
-    TaskManagerSettings.UpdateSpeed = ID_VIEW_UPDATESPEED_NORMAL;
+    TaskManagerSettings.UpdateSpeed = 2;
 
     /* Applications page settings */
-    TaskManagerSettings.ViewMode = ID_VIEW_DETAILS;
+    TaskManagerSettings.View_LargeIcons = FALSE;
+    TaskManagerSettings.View_SmallIcons = FALSE;
+    TaskManagerSettings.View_Details = TRUE;
 
     /* Processes page settings */
     TaskManagerSettings.ShowProcessesFromAllUsers = FALSE; /* Server-only? */
@@ -706,7 +706,7 @@ void LoadSettings(void)
         TaskManagerSettings.ColumnSizeArray[i] = ColumnPresets[i].size;
     }
 
-    TaskManagerSettings.SortColumn = COLUMN_IMAGENAME;
+    TaskManagerSettings.SortColumn = 1;
     TaskManagerSettings.SortAscending = TRUE;
 
     /* Performance page settings */
@@ -735,8 +735,8 @@ void SaveSettings(void)
 {
     HKEY hKey;
     WCHAR szSubKey1[] = L"Software";
-    WCHAR szSubKey2[] = L"Software\\ReactOS";
-    WCHAR szSubKey3[] = L"Software\\ReactOS\\TaskManager";
+    WCHAR szSubKey2[] = L"Software\\ReactWare";
+    WCHAR szSubKey3[] = L"Software\\ReactWare\\TaskManager";
 
     /* Open (or create) the key */
     hKey = NULL;
@@ -761,7 +761,7 @@ void TaskManager_OnRestoreMainWindow(void)
 
     hMenu = GetMenu(hMainWnd);
     hOptionsMenu = GetSubMenu(hMenu, OPTIONS_MENU_INDEX);
-    OnTop = ((GetWindowLongPtrW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+    OnTop = ((GetWindowLongW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
 
     OpenIcon(hMainWnd);
     SetForegroundWindow(hMainWnd);
@@ -792,8 +792,8 @@ void TaskManager_OnExitMenuLoop(HWND hWnd)
     bInMenuLoop = FALSE;
     /* Update the status bar pane sizes */
     GetClientRect(hWnd, &rc);
-    nParts[0] = STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
+    nParts[0] = 100;
+    nParts[1] = 210;
     nParts[2] = rc.right;
     SendMessageW(hStatusWnd, SB_SETPARTS, 3, (LPARAM) (LPINT) nParts);
     SendMessageW(hStatusWnd, SB_SETTEXT, 0, (LPARAM)L"");
@@ -819,7 +819,7 @@ void TaskManager_OnMenuSelect(HWND hWnd, UINT nItemID, UINT nFlags, HMENU hSysMe
     SendMessageW(hStatusWnd, SB_SETTEXT, 0, (LPARAM)str);
 }
 
-void TaskManager_OnViewUpdateSpeed(DWORD dwSpeed)
+void TaskManager_OnViewUpdateSpeedHigh(void)
 {
     HMENU  hMenu;
     HMENU  hViewMenu;
@@ -829,17 +829,64 @@ void TaskManager_OnViewUpdateSpeed(DWORD dwSpeed)
     hViewMenu = GetSubMenu(hMenu, 2);
     hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
 
-    TaskManagerSettings.UpdateSpeed = dwSpeed;
-    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, dwSpeed, MF_BYCOMMAND);
+    TaskManagerSettings.UpdateSpeed = 1;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_HIGH, MF_BYCOMMAND);
 
     KillTimer(hMainWnd, 1);
+    SetTimer(hMainWnd, 1, 500, NULL);
+}
 
-    SetUpdateSpeed(hMainWnd);
+void TaskManager_OnViewUpdateSpeedNormal(void)
+{
+    HMENU  hMenu;
+    HMENU  hViewMenu;
+    HMENU  hUpdateSpeedMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+    hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
+
+    TaskManagerSettings.UpdateSpeed = 2;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_NORMAL, MF_BYCOMMAND);
+
+    KillTimer(hMainWnd, 1);
+    SetTimer(hMainWnd, 1, 2000, NULL);
+}
+
+void TaskManager_OnViewUpdateSpeedLow(void)
+{
+    HMENU  hMenu;
+    HMENU  hViewMenu;
+    HMENU  hUpdateSpeedMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+    hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
+
+    TaskManagerSettings.UpdateSpeed = 4;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_LOW, MF_BYCOMMAND);
+
+    KillTimer(hMainWnd, 1);
+    SetTimer(hMainWnd, 1, 4000, NULL);
 }
 
 void TaskManager_OnViewRefresh(void)
 {
     PostMessageW(hMainWnd, WM_TIMER, 0, 0);
+}
+
+void TaskManager_OnViewUpdateSpeedPaused(void)
+{
+    HMENU  hMenu;
+    HMENU  hViewMenu;
+    HMENU  hUpdateSpeedMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+    hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
+    TaskManagerSettings.UpdateSpeed = 0;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_PAUSED, MF_BYCOMMAND);
+    KillTimer(hMainWnd, 1);
 }
 
 void TaskManager_OnTabWndSelChange(void)
@@ -886,8 +933,12 @@ void TaskManager_OnTabWndSelChange(void)
 
             DrawMenuBar(hMainWnd);
         }
-        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, TaskManagerSettings.ViewMode, MF_BYCOMMAND);
-
+        if (TaskManagerSettings.View_LargeIcons)
+            CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_LARGE, MF_BYCOMMAND);
+        else if (TaskManagerSettings.View_SmallIcons)
+            CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_SMALL, MF_BYCOMMAND);
+        else
+            CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_DETAILS, MF_BYCOMMAND);
         /*
          * Give the application list control focus
          */

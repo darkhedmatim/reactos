@@ -33,11 +33,11 @@
 #define FALSE 0
 #define TRUE  1
 
-static const char * argv0 = "";
+static char * argv0 = "";
 static char * filename = NULL;
 static char * build_tag = NULL;
 
-int count_wide_string( const wchar_t *str )
+int count_wide_string( wchar_t *str )
 {
 	int i;
 	for( i = 0; str[i]; i++ )
@@ -45,35 +45,37 @@ int count_wide_string( const wchar_t *str )
 	return i;
 }
 
-long
-GetRev(char *Revision, size_t length)
+char *
+GetRev(void)
 {
-	long revno = 0;
-	char *p;
+	static char Unknown[] = "UNKNOWN";
+	static char Revision[10]; /* 999999999 revisions should be enough for everyone... */
 
+	/* SVN 1.4.x */
 	FILE *fp = NULL;
+	char ch;
+	size_t count = 0, chars = 0;
 	fp = fopen(".svn/entries", "r");
 	if (fp != NULL)
 	{
-		if (fgets(Revision, length, fp) != NULL)
+		if (fgetc(fp) == 56) /* some kind of header? */
 		{
-			/* If the first character of the file is not a digit,
-			   then it is probably in XML format. */
-			if (isdigit(Revision[0]))
+			while((ch=fgetc(fp)) != EOF)
 			{
-				while (fgets(Revision, length, fp) != NULL)
+				if (ch == 10)
+					count++; /* seems to used as a seperator */
+				if (count > 3)
+					break;
+				if ((count == 3) && (chars < sizeof(Revision)))
 				{
-					revno = strtol(Revision, &p, 10);
-					if (revno != 0)
-					{
-						*p = '\0';
-						fclose(fp);
-						return revno;
-					}
+					if (chars != 0)
+						Revision[chars - 1] = ch;
+					chars++;
 				}
 			}
+			fclose(fp);
+			return Revision;
 		}
-		fclose(fp);
 	}
 
 	try
@@ -110,21 +112,20 @@ GetRev(char *Revision, size_t length)
 					}
 					if ("revision" == Attribute->name)
 					{
-						if (length <= Attribute->value.length() + 1)
+						if (sizeof(Revision) <= Attribute->value.length() + 1)
 						{
 							strcpy(Revision, "revtoobig");
 						}
 						else
 						{
 							strcpy(Revision, Attribute->value.c_str());
-							revno = strtol(Revision, NULL, 10);
 						}
 						GotRevision = true;
 					}
 					if (GotName && GotKind && GotRevision)
 					{
 						delete head;
-						return revno;
+						return Revision;
 					}
 				}
 			}
@@ -137,12 +138,11 @@ GetRev(char *Revision, size_t length)
 		;
 	}
 
-	strcpy(Revision, "UNKNOWN");
-	return revno;
+	return Unknown;
 }
 
 void
-write_h (int build, char *buildstr, long revno)
+write_h (int build, char *buildstr)
 {
 	FILE	*h = NULL;
 	char* s;
@@ -158,7 +158,7 @@ write_h (int build, char *buildstr, long revno)
 	s = s + sprintf (s, "#define _INC_REACTOS_BUILDNO\n" );
 
 	s = s + sprintf (s, "#define KERNEL_VERSION_BUILD\t%d\n", build);
-	s = s + sprintf (s, "#define KERNEL_VERSION_BUILD_HEX\t0x%lx\n", revno);
+	s = s + sprintf (s, "#define KERNEL_VERSION_BUILD_HEX\t0x%x\n", atoi(GetRev()));
 	s = s + sprintf (s, "#define KERNEL_VERSION_BUILD_STR\t\"%s\"\n", buildstr);
 	s = s + sprintf (s, "#define KERNEL_VERSION_BUILD_RC\t\"%s\\0\"\n", buildstr);
 	s = s + sprintf (s, "#define KERNEL_RELEASE_RC\t\"%d.%d",
@@ -236,22 +236,14 @@ write_h (int build, char *buildstr, long revno)
 			char* orig;
 	
 			orig = (char *) malloc(length);
-			if (orig == NULL)
-			{
-				fclose(h);
-				free(s1);
-				return;
-			}
 			fseek(h, 0, SEEK_SET);
 			fread(orig, 1, length, h);
 			if (memcmp(s1, orig, length) == 0)
 			{
 				fclose(h);
 				free(s1);
-				free(orig);
 				return;
 			}
-			free(orig);
 		}
 		fclose(h);
 	}
@@ -267,7 +259,7 @@ write_h (int build, char *buildstr, long revno)
 		return;
 	}
 	fwrite(s1, 1, strlen(s1), h);
-	fclose(h);
+	fclose (h);
 }
 
 void
@@ -292,8 +284,7 @@ main (int argc, char * argv [])
 	int quiet = FALSE;
 
 	int build = 0;
-	long revno;
-	char buildstr[64], revision[10];
+	char buildstr[64];
 
 	time_t t1 = 0;
 	struct tm * t1_tm = NULL;
@@ -390,8 +381,7 @@ main (int argc, char * argv [])
 		build_tag = new_build_tag;
 	}
 
-	revno = GetRev(revision, sizeof(revision));
-	sprintf(buildstr, "%d-r%s", build, revision);
+	sprintf(buildstr, "%d-r%s", build, GetRev());
 
 	if (! quiet)
 	{
@@ -408,7 +398,7 @@ main (int argc, char * argv [])
 	/* (Over)write the include file, unless the user switched on -p. */
 	if (! print_only)
 	{
-		write_h (build, buildstr, revno);
+		write_h (build, buildstr);
 	}
 	else
 	{

@@ -4,10 +4,10 @@
 #include <initguid.h>
 #include <debug.h>
 
-#define USB_STOR_TAG 'sbsu'
+#define USB_STOR_TAG TAG('u','s','b','s')
 #define USB_MAXCHILDREN              (16)
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 IoAttachDeviceToDeviceStackSafe(
   IN PDEVICE_OBJECT SourceDevice,
   IN PDEVICE_OBJECT TargetDevice,
@@ -32,13 +32,13 @@ typedef struct _USBSTOR_DEVICE_EXTENSION
 
 
 /* cleanup.c */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbStorCleanup(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
 /* fdo.c */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbStorPnpFdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
@@ -54,7 +54,7 @@ ForwardIrpAndWait(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
@@ -71,7 +71,7 @@ UsbStorInitMultiSzString(
 	... /* list of PCSZ */);
 
 /* pdo.c */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbStorPnpPdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);

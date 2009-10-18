@@ -241,7 +241,7 @@ GetDisplayIdentifier(PWSTR Identifier,
                                NULL);
 
     Status = NtOpenKey(&BusKey,
-                       KEY_ENUMERATE_SUB_KEYS,
+                       KEY_ALL_ACCESS,
                        &ObjectAttributes);
     if (!NT_SUCCESS(Status))
     {
@@ -262,7 +262,7 @@ GetDisplayIdentifier(PWSTR Identifier,
                                    NULL);
 
         Status = NtOpenKey(&BusInstanceKey,
-                           KEY_ENUMERATE_SUB_KEYS,
+                           KEY_ALL_ACCESS,
                            &ObjectAttributes);
         if (!NT_SUCCESS(Status))
         {
@@ -281,7 +281,7 @@ GetDisplayIdentifier(PWSTR Identifier,
                                    NULL);
 
         Status = NtOpenKey(&ControllerKey,
-                           KEY_ENUMERATE_SUB_KEYS,
+                           KEY_ALL_ACCESS,
                            &ObjectAttributes);
         if (NT_SUCCESS(Status))
         {
@@ -300,7 +300,7 @@ GetDisplayIdentifier(PWSTR Identifier,
                                            NULL);
 
                 Status = NtOpenKey(&ControllerInstanceKey,
-                                   KEY_QUERY_VALUE,
+                                   KEY_ALL_ACCESS,
                                    &ObjectAttributes);
                 if (!NT_SUCCESS(Status))
                 {
@@ -485,15 +485,15 @@ ProcessComputerFiles(HINF InfFile, PGENERIC_LIST List, PWCHAR* AdditionalSection
 
     DPRINT("ProcessComputerFiles() called\n");
 
-    Entry = GetCurrentListEntry(List);
+    Entry = GetGenericListEntry(List);
     if (Entry == NULL)
     {
-        DPRINT("GetCurrentListEntry() failed\n");
+        DPRINT("GetGenericListEntry() failed\n");
         return FALSE;
     }
 
     wcscpy(SectionName, L"Files.");
-    wcscat(SectionName, (const wchar_t*)GetListEntryUserData(Entry));
+    wcscat(SectionName, (const wchar_t*) Entry->UserData);
     *AdditionalSectionName = SectionName;
 
     return TRUE;
@@ -514,14 +514,14 @@ ProcessDisplayRegistry(HINF InfFile, PGENERIC_LIST List)
 
     DPRINT("ProcessDisplayRegistry() called\n");
 
-    Entry = GetCurrentListEntry(List);
+    Entry = GetGenericListEntry(List);
     if (Entry == NULL)
     {
-        DPRINT("GetCurrentListEntry() failed\n");
+        DPRINT("GetGenericListEntry() failed\n");
         return FALSE;
     }
 
-    if (!SetupFindFirstLineW(InfFile, L"Display", (WCHAR*)GetListEntryUserData(Entry), &Context))
+    if (!SetupFindFirstLineW(InfFile, L"Display", (WCHAR*) Entry->UserData, &Context))
     {
         DPRINT("SetupFindFirstLineW() failed\n");
         return FALSE;
@@ -629,11 +629,11 @@ ProcessLocaleRegistry(PGENERIC_LIST List)
     HANDLE KeyHandle;
     NTSTATUS Status;
 
-    Entry = GetCurrentListEntry(List);
+    Entry = GetGenericListEntry(List);
     if (Entry == NULL)
         return FALSE;
 
-    LanguageId = (PWCHAR)GetListEntryUserData(Entry);
+    LanguageId = (PWCHAR)Entry->UserData;
     if (LanguageId == NULL)
         return FALSE;
 
@@ -648,7 +648,7 @@ ProcessLocaleRegistry(PGENERIC_LIST List)
                                NULL);
 
     Status =  NtOpenKey(&KeyHandle,
-                        KEY_SET_VALUE,
+                        KEY_ALL_ACCESS,
                         &ObjectAttributes);
 
     if (!NT_SUCCESS(Status))
@@ -742,15 +742,7 @@ CreateKeyboardDriverList(HINF InfFile)
     return List;
 }
 
-ULONG DefaultLanguageIndex = 0;
-
-ULONG
-GetDefaultLanguageIndex(VOID)
-{
-    return DefaultLanguageIndex;
-}
-
-PGENERIC_LIST
+PGENERIC_LIST 
 CreateLanguageList(HINF InfFile, WCHAR * DefaultLanguage) 
 {
     CHAR Buffer[128];
@@ -759,7 +751,6 @@ CreateLanguageList(HINF InfFile, WCHAR * DefaultLanguage)
     PWCHAR KeyName;
     PWCHAR KeyValue;
     PWCHAR UserData;
-    ULONG uIndex = 0;
 
     /* Get default language id */
     if (!SetupFindFirstLineW (InfFile, L"NLS", L"DefaultLanguage", &Context))
@@ -778,7 +769,7 @@ CreateLanguageList(HINF InfFile, WCHAR * DefaultLanguage)
 
     if (!SetupFindFirstLineW (InfFile, L"Language", NULL, &Context))
     {
-        DestroyGenericList(List, FALSE);
+        DestroyGenericList(List, FALSE); 
         return NULL; 
     }
 
@@ -801,14 +792,11 @@ CreateLanguageList(HINF InfFile, WCHAR * DefaultLanguage)
 
         wcscpy(UserData, KeyName);
 
-        if (!_wcsicmp(KeyName, DefaultLanguage)) DefaultLanguageIndex = uIndex;
-
         sprintf(Buffer, "%S", KeyValue);
         AppendGenericListEntry(List,
                                Buffer,
                                UserData,
-                               FALSE);
-        uIndex++;
+                               _wcsicmp(KeyName, DefaultLanguage) ? FALSE : TRUE);
     } while (SetupFindNextLine(&Context, &Context));
 
     return List;
@@ -823,9 +811,6 @@ CreateKeyboardLayoutList(HINF InfFile, WCHAR * DefaultKBLayout)
     PWCHAR KeyName;
     PWCHAR KeyValue;
     PWCHAR UserData;
-    const MUI_LAYOUTS * LayoutsList;
-    ULONG uIndex = 0;
-    BOOL KeyboardLayoutsFound = FALSE;
 
     /* Get default layout id */
     if (!SetupFindFirstLineW (InfFile, L"NLS", L"DefaultLayout", &Context))
@@ -840,110 +825,139 @@ CreateKeyboardLayoutList(HINF InfFile, WCHAR * DefaultKBLayout)
     if (List == NULL)
         return NULL;
 
-    LayoutsList = MUIGetLayoutsList();
-
-    do
+    if (!SetupFindFirstLineW (InfFile, L"KeyboardLayout", NULL, &Context))
     {
-        if (!SetupFindFirstLineW(InfFile, L"KeyboardLayout", NULL, &Context))
-        {
-            DestroyGenericList(List, FALSE);
-            return NULL;
-        }
-
-        do
-        {
-            if (!INF_GetData (&Context, &KeyName, &KeyValue))
-            {
-                /* FIXME: Handle error! */
-                DPRINT("INF_GetData() failed\n");
-                DestroyGenericList(List, FALSE);
-                return NULL;
-            }
-
-            if (_wcsicmp(LayoutsList[uIndex].LayoutID, KeyName) == 0)
-            {
-                UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
-                                                0,
-                                                (wcslen(KeyName) + 1) * sizeof(WCHAR));
-
-                if (UserData == NULL)
-                {
-                    /* FIXME: Handle error! */
-                    DPRINT("RtlAllocateHeap() failed\n");
-                    DestroyGenericList(List, FALSE);
-                    return NULL;
-                }
-
-                wcscpy(UserData, KeyName);
-
-                sprintf(Buffer, "%S", KeyValue);
-                AppendGenericListEntry(List,
-                                       Buffer,
-                                       UserData,
-                                       _wcsicmp(KeyName, DefaultKBLayout) ? FALSE : TRUE);
-                KeyboardLayoutsFound = TRUE;
-            }
-
-        } while (SetupFindNextLine(&Context, &Context));
-
-        uIndex++;
-
-    } while (LayoutsList[uIndex].LangID != NULL);
-
-    /* FIXME: Handle this case */
-    if (!KeyboardLayoutsFound)
-    {
-        DPRINT1("No keyboard layouts have been found\n");
         DestroyGenericList(List, FALSE);
         return NULL;
     }
 
+    do
+    {
+        if (!INF_GetData (&Context, &KeyName, &KeyValue))
+        {
+            /* FIXME: Handle error! */
+            DPRINT("INF_GetData() failed\n");
+            DestroyGenericList(List, FALSE);
+            break;
+        }
+
+        UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+                                            0,
+                                            (wcslen(KeyName) + 1) * sizeof(WCHAR));
+
+        if (UserData == NULL)
+        {
+            /* FIXME: Handle error! */
+        }
+
+        wcscpy(UserData, KeyName);
+
+        sprintf(Buffer, "%S", KeyValue);
+        AppendGenericListEntry(List,
+                               Buffer,
+                               UserData,
+                               _wcsicmp(KeyName, DefaultKBLayout) ? FALSE : TRUE);
+    } while (SetupFindNextLine(&Context, &Context));
+
     return List;
 }
+
 
 BOOLEAN
 ProcessKeyboardLayoutRegistry(PGENERIC_LIST List)
 {
     PGENERIC_LIST_ENTRY Entry;
-    PWCHAR LayoutId;
-    const MUI_LAYOUTS * LayoutsList;
-    MUI_LAYOUTS NewLayoutsList[20];
-    ULONG uIndex;
-    ULONG uOldPos = 0;
+    PWCHAR LanguageId;
+    OBJECT_ATTRIBUTES ObjectAttributes;
+    UNICODE_STRING KeyName;
+    UNICODE_STRING ValueName;
+    ULONG Disposition;
+    HANDLE KeyHandle;
+    NTSTATUS Status;
+    WCHAR szKeyName[48] = L"\\Registry\\User\\.DEFAULT\\Keyboard Layout";       // 48 = "\Registry\User\.DEFAULT\Keyboard Layout\Preload" + NULL char
 
-    Entry = GetCurrentListEntry(List);
+    Entry = GetGenericListEntry(List);
     if (Entry == NULL)
         return FALSE;
 
-    LayoutId = (PWCHAR)GetListEntryUserData(Entry);
-    if (LayoutId == NULL)
+    LanguageId = (PWCHAR)Entry->UserData;
+    if (LanguageId == NULL)
         return FALSE;
 
-    LayoutsList = MUIGetLayoutsList();
+    // First create the "Keyboard Layout" key
+    RtlInitUnicodeString(&KeyName, szKeyName);
 
-    if (_wcsicmp(LayoutsList[0].LayoutID, LayoutId) != 0)
+    InitializeObjectAttributes(&ObjectAttributes,
+                               &KeyName,
+                               OBJ_CASE_INSENSITIVE,
+                               NULL,
+                               NULL);
+
+    Status =  NtCreateKey(&KeyHandle,
+                          KEY_ALL_ACCESS,
+                          &ObjectAttributes,
+                          0,
+                          NULL,
+                          0,
+                          &Disposition);
+
+    if(NT_SUCCESS(Status))
+        NtClose(KeyHandle);
+    else
     {
-        for (uIndex = 1; LayoutsList[uIndex].LangID != NULL; uIndex++)
-        {
-            if (_wcsicmp(LayoutsList[uIndex].LayoutID, LayoutId) == 0)
-            {
-                uOldPos = uIndex;
-                continue;
-            }
-
-            NewLayoutsList[uIndex].LangID   = LayoutsList[uIndex].LangID;
-            NewLayoutsList[uIndex].LayoutID = LayoutsList[uIndex].LayoutID;
-        }
-
-        NewLayoutsList[uIndex].LangID    = NULL;
-        NewLayoutsList[uIndex].LayoutID  = NULL;
-        NewLayoutsList[uOldPos].LangID   = LayoutsList[0].LangID;
-        NewLayoutsList[uOldPos].LayoutID = LayoutsList[0].LayoutID;
-        NewLayoutsList[0].LangID         = LayoutsList[uOldPos].LangID;
-        NewLayoutsList[0].LayoutID       = LayoutsList[uOldPos].LayoutID;
-
-        return AddKbLayoutsToRegistry(NewLayoutsList);
+        DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
+        return FALSE;
     }
+
+    // Then create the "Preload" key
+    KeyName.MaximumLength = sizeof(szKeyName);
+    Status = RtlAppendUnicodeToString(&KeyName, L"\\Preload");
+
+    if(!NT_SUCCESS(Status))
+    {
+        DPRINT1("RtlAppend failed! (%lx)\n", Status);
+        DPRINT1("String is %wZ\n", &KeyName);
+        return FALSE;
+    }
+
+    InitializeObjectAttributes(&ObjectAttributes,
+                               &KeyName,
+                               OBJ_CASE_INSENSITIVE,
+                               NULL,
+                               NULL);
+
+    Status = NtCreateKey(&KeyHandle,
+                         KEY_ALL_ACCESS,
+                         &ObjectAttributes,
+                         0,
+                         NULL,
+                         0,
+                         &Disposition);
+
+    if (!NT_SUCCESS(Status))
+    {
+        DPRINT1("NtCreateKey() failed (Status %lx)\n", Status);
+        return FALSE;
+    }
+
+    /* Set default keyboard layout */
+    RtlInitUnicodeString(&ValueName,
+                         L"1");
+
+    Status = NtSetValueKey(KeyHandle,
+                           &ValueName,
+                           0,
+                           REG_SZ,
+                           (PVOID)LanguageId,
+                           (8 + 1) * sizeof(WCHAR));
+    if (!NT_SUCCESS(Status))
+    {
+        DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
+        NtClose(KeyHandle);
+        return FALSE;
+    }
+
+    NtClose(KeyHandle);
 
     return TRUE;
 }
@@ -956,48 +970,5 @@ ProcessKeyboardLayoutFiles(PGENERIC_LIST List)
     return TRUE;
 }
 #endif
-
-BOOLEAN
-SetGeoID(PWCHAR Id)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-    HANDLE KeyHandle;
-    WCHAR szKeyName[] = L"\\Registry\\User\\.DEFAULT\\Control Panel\\International\\Geo";
-    WCHAR szValueName[] = L"Nation";
-    NTSTATUS Status;
-    RtlInitUnicodeString(&KeyName,
-                         szKeyName);
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status =  NtOpenKey(&KeyHandle,
-                        KEY_SET_VALUE,
-			  &ObjectAttributes);
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-    RtlInitUnicodeString(&ValueName, szValueName);
-    Status = NtSetValueKey(KeyHandle,
-                                   &ValueName,
-                                   0,
-                                   REG_SZ,
-                                   (PVOID)Id,
-                                   (wcslen(Id) * sizeof(WCHAR)));
-    if (!NT_SUCCESS(Status))
-    {
-         DPRINT1("NtSetValueKey() failed (Status = %lx)\n", Status);
-         NtClose(KeyHandle);
-         return FALSE;
-    }
-
-    return TRUE;
-}
 
 /* EOF */

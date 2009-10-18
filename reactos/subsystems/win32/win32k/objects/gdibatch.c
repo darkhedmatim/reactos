@@ -19,23 +19,20 @@ VOID
 FASTCALL
 DoDeviceSync( SURFOBJ *Surface, PRECTL Rect, FLONG fl)
 {
-  PPDEVOBJ Device = (PDEVOBJ*)Surface->hdev;
+  PGDIDEVICE Device = (GDIDEVICE*)Surface->hdev;
 // No punting and "Handle to a surface, provided that the surface is device-managed. 
 // Otherwise, dhsurf is zero".
   if (!(Device->flFlags & PDEV_DRIVER_PUNTED_CALL) && (Surface->dhsurf))
   {
      if (Device->DriverFunctions.SynchronizeSurface)
-     {
-       Device->DriverFunctions.SynchronizeSurface(Surface, Rect, fl);
-     }
+        return Device->DriverFunctions.SynchronizeSurface(Surface, Rect, fl);
      else
      {
        if (Device->DriverFunctions.Synchronize)
-       {
-         Device->DriverFunctions.Synchronize(Surface->dhpdev, Rect);
-       }
+          return Device->DriverFunctions.Synchronize(Surface->dhpdev, Rect);
      }
   }
+  return;  
 }
 
 VOID
@@ -43,7 +40,7 @@ FASTCALL
 SynchonizeDriver(FLONG Flags)
 {
   SURFOBJ *SurfObj; 
-  PPDEVOBJ Device;
+  PGDIDEVICE Device;
   
   if (Flags & GCAPS2_SYNCFLUSH)
       Flags = DSS_FLUSH_EVENT;
@@ -64,13 +61,18 @@ SynchonizeDriver(FLONG Flags)
 //
 ULONG
 FASTCALL
-GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
+GdiFlushUserBatch(HDC hDC, PGDIBATCHHDR pHdr)
 {
-  PDC_ATTR pdcattr = NULL;
-
-  if (dc)
+  PDC dc = NULL;
+  PDC_ATTR Dc_Attr = NULL;
+  if (hDC && !IsObjectDead(hDC))
   {
-    pdcattr = dc->pdcattr;
+    dc = DC_LockDc(hDC);
+    if (dc)
+    {
+      Dc_Attr = dc->pDc_Attr;
+      if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+    }
   }
   // The thread is approaching the end of sunset.
   switch(pHdr->Cmd)
@@ -88,7 +90,7 @@ GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
         PGDIBSSETBRHORG pgSBO;
         if(!dc) break;
         pgSBO = (PGDIBSSETBRHORG) pHdr;
-        pdcattr->ptlBrushOrigin = pgSBO->ptlBrushOrigin;
+        Dc_Attr->ptlBrushOrigin = pgSBO->ptlBrushOrigin;
         break;
      }
      case GdiBCExtSelClipRgn:
@@ -98,20 +100,20 @@ GdiFlushUserBatch(PDC dc, PGDIBATCHHDR pHdr)
         PGDIBSOBJECT pgO;
         if(!dc) break;
         pgO = (PGDIBSOBJECT) pHdr;
-        TextIntRealizeFont((HFONT) pgO->hgdiobj, NULL);
-        pdcattr->ulDirty_ &= ~(DIRTY_CHARSET);
+        if(NT_SUCCESS(TextIntRealizeFont((HFONT) pgO->hgdiobj)))
+                      Dc_Attr->hlfntNew = (HFONT) pgO->hgdiobj;
      }
      case GdiBCDelObj:
      case GdiBCDelRgn:
      {
         PGDIBSOBJECT pgO = (PGDIBSOBJECT) pHdr;
-        GreDeleteObject( pgO->hgdiobj );
+        NtGdiDeleteObject( pgO->hgdiobj );
         break;
      }
      default:
         break;
   }
-
+  if (dc) DC_UnlockDc(dc);
   return pHdr->Size; // Return the full size of the structure.
 }
 
@@ -144,39 +146,25 @@ NtGdiFlushUserBatch(VOID)
   if( (GdiBatchCount > 0) && (GdiBatchCount <= (GDIBATCHBUFSIZE/4)))
   {
     HDC hDC = (HDC) pTeb->GdiTebBatch.HDC;
-
-    /*  If hDC is zero and the buffer fills up with delete objects we need
-        to run anyway. So, hard code to the system batch limit. */
-    if ((hDC) || (GdiBatchCount >= GDI_BATCH_LIMIT))
+//
+//  If hDC is zero and the buffer fills up with delete objects we need to run
+//  anyway. So, hard code to the system batch limit.
+//
+    if ((hDC) || ((!hDC) && (GdiBatchCount >= GDI_BATCH_LIMIT)))
     {
-      PCHAR pHdr = (PCHAR)&pTeb->GdiTebBatch.Buffer[0];
-      PDC pDC = NULL;
-
-      if (hDC && !IsObjectDead(hDC))
-      {
-          pDC = DC_LockDc(hDC);
-      }
-
+       PULONG pHdr = &pTeb->GdiTebBatch.Buffer[0];
        // No need to init anything, just go!
        for (; GdiBatchCount > 0; GdiBatchCount--)
        {
            // Process Gdi Batch!
-           pHdr += GdiFlushUserBatch(pDC, (PGDIBATCHHDR) pHdr);
+           pHdr += GdiFlushUserBatch( hDC, (PGDIBATCHHDR) pHdr );
        }
-
-       if (pDC)
-       {
-           DC_UnlockDc(pDC);
-       }
-
        // Exit and clear out for the next round.
        pTeb->GdiTebBatch.Offset = 0;
        pTeb->GdiBatchCount = 0;
        pTeb->GdiTebBatch.HDC = 0;
     }
   }
-
-  // FIXME: on xp the function returns &pTeb->RealClientId, maybe VOID?
   return STATUS_SUCCESS;
 }
 

@@ -21,12 +21,6 @@
 #define ROUNDUP(a,b)	((((a)+(b)-1)/(b))*(b))
 #define ROUNDDOWN(a,b)	(((a)/(b))*(b))
 
-#define ROUND_DOWN(n, align) \
-    (((ULONG)n) & ~((align) - 1l))
-
-#define ROUND_UP(n, align) \
-    ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
-
 #ifndef FIELD_OFFSET
 #define FIELD_OFFSET(type,fld)	((LONG)&(((type *)0)->fld))
 #endif
@@ -43,15 +37,6 @@
   
 #define SetLastErrorByStatus(__S__) \
  ((void)SetLastError(RtlNtStatusToDosError(__S__)))
-
-typedef struct _CODEPAGE_ENTRY
-{
-   LIST_ENTRY Entry;
-   UINT CodePage;
-   HANDLE SectionHandle;
-   PBYTE SectionMapping;
-   CPTABLEINFO CodePageTable;
-} CODEPAGE_ENTRY, *PCODEPAGE_ENTRY;
 
 typedef
 DWORD
@@ -74,24 +59,21 @@ extern LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter;
 
 /* FUNCTION PROTOTYPES *******************************************************/
 
-BOOL WINAPI VerifyConsoleIoHandle(HANDLE Handle);
+BOOL STDCALL VerifyConsoleIoHandle(HANDLE Handle);
 
-BOOL WINAPI CloseConsoleHandle(HANDLE Handle);
+BOOL STDCALL CloseConsoleHandle(HANDLE Handle);
 
-HANDLE WINAPI
+HANDLE STDCALL
 GetConsoleInputWaitHandle (VOID);
 
-HANDLE WINAPI OpenConsoleW (LPCWSTR wsName,
+HANDLE STDCALL OpenConsoleW (LPWSTR wsName,
 			     DWORD  dwDesiredAccess,
 			     BOOL   bInheritHandle,
-			     DWORD  dwShareMode);
+			     DWORD  dwCreationDistribution);
 
 PTEB GetTeb(VOID);
 
-HANDLE FASTCALL TranslateStdHandle(HANDLE hHandle);
-
 PWCHAR FilenameA2W(LPCSTR NameA, BOOL alloc);
-DWORD FilenameW2A_N(LPSTR dest, INT destlen, LPCWSTR src, INT srclen);
 
 DWORD FilenameW2A_FitOrFail(LPSTR  DestA, INT destLen, LPCWSTR SourceW, INT sourceLen);
 DWORD FilenameU2A_FitOrFail(LPSTR  DestA, INT destLen, PUNICODE_STRING SourceU);
@@ -101,20 +83,20 @@ DWORD FilenameU2A_FitOrFail(LPSTR  DestA, INT destLen, PUNICODE_STRING SourceU);
 #define HeapFree RtlFreeHeap
 
 POBJECT_ATTRIBUTES
-WINAPI
+STDCALL
 BasepConvertObjectAttributes(OUT POBJECT_ATTRIBUTES ObjectAttributes,
                              IN PSECURITY_ATTRIBUTES SecurityAttributes OPTIONAL,
                              IN PUNICODE_STRING ObjectName);
                              
 NTSTATUS
-WINAPI
+STDCALL
 BasepCreateStack(HANDLE hProcess,
                  ULONG StackReserve,
                  ULONG StackCommit,
                  PINITIAL_TEB InitialTeb);
                  
 VOID
-WINAPI
+STDCALL
 BasepInitializeContext(IN PCONTEXT Context,
                        IN PVOID Parameter,
                        IN PVOID StartAddress,
@@ -122,21 +104,21 @@ BasepInitializeContext(IN PCONTEXT Context,
                        IN ULONG ContextType);
                 
 VOID
-WINAPI
+STDCALL
 BaseThreadStartupThunk(VOID);
 
 VOID
-WINAPI
+STDCALL
 BaseProcessStartThunk(VOID);
         
 __declspec(noreturn)
 VOID
-WINAPI
+STDCALL
 BaseThreadStartup(LPTHREAD_START_ROUTINE lpStartAddress,
                   LPVOID lpParameter);
                   
 VOID
-WINAPI
+STDCALL
 BasepFreeStack(HANDLE hProcess,
                PINITIAL_TEB InitialTeb);
 
@@ -145,32 +127,32 @@ VOID
 WINAPI
 BaseFiberStartup(VOID);
 
-typedef UINT (WINAPI *PPROCESS_START_ROUTINE)(VOID);
+typedef UINT (STDCALL *PPROCESS_START_ROUTINE)(VOID);
 
 VOID
-WINAPI
+STDCALL
 BaseProcessStartup(PPROCESS_START_ROUTINE lpStartAddress);
                   
 BOOLEAN
-WINAPI
+STDCALL
 BasepCheckRealTimePrivilege(VOID);
 
 VOID
-WINAPI
+STDCALL
 BasepAnsiStringToHeapUnicodeString(IN LPCSTR AnsiString,
                                    OUT LPWSTR* UnicodeString);
                                    
 PUNICODE_STRING
-WINAPI
+STDCALL
 Basep8BitStringToCachedUnicodeString(IN LPCSTR String);
 
 NTSTATUS
-WINAPI
+STDCALL
 Basep8BitStringToLiveUnicodeString(OUT PUNICODE_STRING UnicodeString,
                                    IN LPCSTR String);
 
 NTSTATUS
-WINAPI
+STDCALL
 Basep8BitStringToHeapUnicodeString(OUT PUNICODE_STRING UnicodeString,
                                    IN LPCSTR String);
 
@@ -181,16 +163,10 @@ typedef NTSTATUS (NTAPI *PRTL_CONVERT_STRING)(IN PUNICODE_STRING UnicodeString,
 extern PRTL_CONVERT_STRING Basep8BitStringToUnicodeString;
 
 NTSTATUS
-WINAPI
+STDCALL
 BasepMapFile(IN LPCWSTR lpApplicationName,
              OUT PHANDLE hSection,
              IN PUNICODE_STRING ApplicationName);
-
-PCODEPAGE_ENTRY FASTCALL
-IntGetCodePageEntry(UINT CodePage);
-
-LPWSTR
-GetDllLoadPath(LPCWSTR lpModule);
 
 #endif /* ndef _KERNEL32_INCLUDE_KERNEL32_H */
 

@@ -35,9 +35,9 @@ CompilationUnitSupportCode::~CompilationUnitSupportCode ()
 void
 CompilationUnitSupportCode::Generate ( bool verbose )
 {
-	for( std::map<std::string, Module*>::const_iterator p = project.modules.begin(); p != project.modules.end(); ++ p )
+	for ( size_t i = 0; i < project.modules.size (); i++ )
 	{
-		GenerateForModule ( *p->second,
+		GenerateForModule ( *project.modules[i],
 		                    verbose );
 	}
 }

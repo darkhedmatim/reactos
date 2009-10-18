@@ -40,7 +40,7 @@ LpcExitThread(IN PETHREAD Thread)
     if (Message)
     {
         /* FIXME: TODO */
-        ASSERT(FALSE);
+        KEBUGCHECK(0);
     }
 
     /* Release the lock */
@@ -374,7 +374,7 @@ LpcpDeletePort(IN PVOID ObjectBody)
         }
 
         /* Dereference the mapping process */
-        ObDereferenceObject(Port->MappingProcess);
+        //ObDereferenceObject(Port->MappingProcess);
         Port->MappingProcess = NULL;
     }
 

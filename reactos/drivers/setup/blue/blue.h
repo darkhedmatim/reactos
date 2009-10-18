@@ -8,40 +8,32 @@
 
 /* DEFINITIONS ***************************************************************/
 
+#define  BUFFER_SIZE 260
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#define TAG_BLUE 'EULB'
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
 
-typedef struct _CFHEADER
-{
-    ULONG Signature;        // File signature 'MSCF' (CAB_SIGNATURE)
-    ULONG Reserved1;        // Reserved field
-    ULONG CabinetSize;      // Cabinet file size
-    ULONG Reserved2;        // Reserved field
-    ULONG FileTableOffset;  // Offset of first CFFILE
-    ULONG Reserved3;        // Reserved field
-    USHORT Version;          // Cabinet version (CAB_VERSION)
-    USHORT FolderCount;      // Number of folders
-    USHORT FileCount;        // Number of files
-    USHORT Flags;            // Cabinet flags (CAB_FLAG_*)
-    USHORT SetID;            // Cabinet set id
-    USHORT CabinetNumber;    // Zero-based cabinet number
-} CFHEADER, *PCFHEADER;
+#define TAG_BLUE TAG('B', 'L', 'U', 'E')
 
-typedef struct _CFFILE
-{
-    ULONG FileSize;         // Uncompressed file size in bytes
-    ULONG FileOffset;       // Uncompressed offset of file in the folder
-    USHORT FileControlID;    // File control ID (CAB_FILE_*)
-    USHORT FileDate;         // File date stamp, as used by DOS
-    USHORT FileTime;         // File time stamp, as used by DOS
-    USHORT Attributes;       // File attributes (CAB_ATTRIB_*)
-    /* After this is the NULL terminated filename */
-} CFFILE, *PCFFILE;
-
-#define CAB_SIGNATURE      0x4643534D // "MSCF"
+#include <pshpack1.h>
+typedef struct {
+    short Version;
+    short GeneralPurposeBitFlag;
+    short CompressionMethod;
+    short LastModFileTime;
+    short LastModFileDate;
+    int CRC32;
+    int CompressedSize;
+    int UncompressedSize;
+    short FileNameLength;
+    short ExtraFieldLength;
+} ZIP_LOCAL_HEADER;
+#include <poppack.h>
 
 #define VIDMEM_BASE        0xb8000
 #define BITPLANE_BASE      0xa0000
@@ -93,5 +85,5 @@ typedef struct _CFFILE
 #define PELINDEX     (PUCHAR)0x3c8
 #define PELDATA      (PUCHAR)0x3c9
 
-void ScrLoadFontTable(UINT32 CodePage);
-NTSTATUS ExtractFont(UINT32 CodePage, PUCHAR FontBitField);
+void ScrLoadFontTable(UINT CodePage);
+NTSTATUS ExtractFont(UINT CodePage, PUCHAR FontBitField);

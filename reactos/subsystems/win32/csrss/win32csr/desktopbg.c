@@ -7,11 +7,12 @@
  * ReactOS Operating System
  */
 
-#define NDEBUG
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
-#define DESKTOP_WINDOW_ATOM 32769
+#define DESKTOP_WINDOW_ATOM 32880
 
 #define PM_SHOW_DESKTOP 1
 #define PM_HIDE_DESKTOP 2
@@ -126,7 +127,7 @@ DtbgInit()
    * Create the desktop window class
    */
   Class.cbSize = sizeof(WNDCLASSEXW);
-  Class.style = CS_GLOBALCLASS;
+  Class.style = 0;
   Class.lpfnWndProc = DtbgWindowProc;
   Class.cbClsExtra = 0;
   Class.cbWndExtra = 0;
@@ -148,7 +149,7 @@ DtbgInit()
   return TRUE;
 }
 
-static DWORD WINAPI
+static DWORD STDCALL
 DtbgDesktopThread(PVOID Data)
 {
   HWND BackgroundWnd;
@@ -208,7 +209,7 @@ CSR_API(CsrCreateDesktop)
       BgInitialized = TRUE;
       if (! DtbgInit())
         {
-          return STATUS_UNSUCCESSFUL;
+          return Request->Status = STATUS_UNSUCCESSFUL;
         }
     }
 
@@ -221,7 +222,7 @@ CSR_API(CsrCreateDesktop)
   if (NULL == ThreadData.Event)
     {
       DPRINT1("Failed to create event (error %d)\n", GetLastError());
-      return STATUS_UNSUCCESSFUL;
+      return Request->Status = STATUS_UNSUCCESSFUL;
     }
   ThreadHandle = CreateThread(NULL,
                               0,
@@ -233,14 +234,16 @@ CSR_API(CsrCreateDesktop)
     {
       CloseHandle(ThreadData.Event);
       DPRINT1("Failed to create desktop window thread.\n");
-      return STATUS_UNSUCCESSFUL;
+      return Request->Status = STATUS_UNSUCCESSFUL;
     }
   CloseHandle(ThreadHandle);
 
   WaitForSingleObject(ThreadData.Event, INFINITE);
   CloseHandle(ThreadData.Event);
 
-  return ThreadData.Status;
+  Request->Status = ThreadData.Status;
+
+  return Request->Status;
 }
 
 CSR_API(CsrShowDesktop)
@@ -258,11 +261,13 @@ CSR_API(CsrShowDesktop)
   nmh.ShowDesktop.Width = (int)Request->Data.ShowDesktopRequest.Width;
   nmh.ShowDesktop.Height = (int)Request->Data.ShowDesktopRequest.Height;
 
-  return SendMessageW(Request->Data.ShowDesktopRequest.DesktopWindow,
-                      WM_NOTIFY,
-                      (WPARAM)nmh.hdr.hwndFrom,
-                      (LPARAM)&nmh)
-         ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS;
+  Request->Status = SendMessageW(Request->Data.ShowDesktopRequest.DesktopWindow,
+                               WM_NOTIFY,
+                               (WPARAM)nmh.hdr.hwndFrom,
+                               (LPARAM)&nmh)
+                  ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS;
+
+  return Request->Status;
 }
 
 CSR_API(CsrHideDesktop)
@@ -277,11 +282,13 @@ CSR_API(CsrHideDesktop)
   nmh.hdr.idFrom = 0;
   nmh.hdr.code = PM_HIDE_DESKTOP;
 
-  return SendMessageW(Request->Data.ShowDesktopRequest.DesktopWindow,
-                      WM_NOTIFY,
-                      (WPARAM)nmh.hdr.hwndFrom,
-                      (LPARAM)&nmh)
-         ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS;
+  Request->Status = SendMessageW(Request->Data.ShowDesktopRequest.DesktopWindow,
+                               WM_NOTIFY,
+                               (WPARAM)nmh.hdr.hwndFrom,
+                               (LPARAM)&nmh)
+                  ? STATUS_UNSUCCESSFUL : STATUS_SUCCESS;
+
+  return Request->Status;
 }
 
 BOOL FASTCALL

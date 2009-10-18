@@ -47,7 +47,6 @@ static const WCHAR CHARACTER_W[] = { 'C','H','A','R','A','C','T','E','R',0 };
 static const WCHAR CREATE_W[] = { 'C','R','E','A','T','E',0 };
 static const WCHAR DELETE_W[] = { 'D','E','L','E','T','E',0 };
 static const WCHAR DISTINCT_W[] = { 'D','I','S','T','I','N','C','T',0 };
-static const WCHAR DROP_W[] = { 'D','R','O','P',0 };
 static const WCHAR FREE_W[] = { 'F','R','E','E',0 };
 static const WCHAR FROM_W[] = { 'F','R','O','M',0 };
 static const WCHAR HOLD_W[] = { 'H','O','L','D',0 };
@@ -78,7 +77,6 @@ static const WCHAR WHERE_W[] = { 'W','H','E','R','E',0 };
 
 /*
 ** These are the keywords
-** They MUST be in alphabetical order
 */
 static const Keyword aKeywordTable[] = {
   { ADD_W, TK_ADD },
@@ -90,7 +88,6 @@ static const Keyword aKeywordTable[] = {
   { CREATE_W, TK_CREATE },
   { DELETE_W, TK_DELETE },
   { DISTINCT_W, TK_DISTINCT },
-  { DROP_W, TK_DROP },
   { FREE_W, TK_FREE },
   { FROM_W, TK_FROM },
   { HOLD_W, TK_HOLD },
@@ -193,8 +190,8 @@ static const char isIdChar[] = {
 int sqliteGetToken(const WCHAR *z, int *tokenType){
   int i;
   switch( *z ){
-    case ' ': case '\t': case '\n': case '\f': {
-      for(i=1; isspace(z[i]) && z[i] != '\r'; i++){}
+    case ' ': case '\t': case '\n': case '\f': case '\r': {
+      for(i=1; isspace(z[i]); i++){}
       *tokenType = TK_SPACE;
       return i;
     }
@@ -254,8 +251,13 @@ int sqliteGetToken(const WCHAR *z, int *tokenType){
     case '`': case '\'': {
       int delim = z[0];
       for(i=1; z[i]; i++){
-        if( z[i]==delim )
-          break;
+        if( z[i]==delim ){
+          if( z[i+1]==delim ){
+            i++;
+          }else{
+            break;
+          }
+        }
       }
       if( z[i] ) i++;
       if( delim == '`' )

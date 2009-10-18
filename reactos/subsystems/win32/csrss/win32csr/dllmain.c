@@ -7,14 +7,15 @@
  */
 
 /* INCLUDES ******************************************************************/
-#define NDEBUG
+
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
 /* Not defined in any header file */
-extern VOID WINAPI PrivateCsrssManualGuiCheck(LONG Check);
-extern VOID WINAPI PrivateCsrssInitialized();
-extern VOID WINAPI InitializeAppSwitchHook();
+extern VOID STDCALL PrivateCsrssManualGuiCheck(LONG Check);
+extern VOID STDCALL PrivateCsrssInitialized();
 
 /* GLOBALS *******************************************************************/
 
@@ -67,13 +68,6 @@ static CSRSS_API_DEFINITION Win32CsrApiDefinitions[] =
     CSRSS_DEFINE_API(GET_CONSOLE_OUTPUT_CP,        CsrGetConsoleOutputCodePage),
     CSRSS_DEFINE_API(SET_CONSOLE_OUTPUT_CP,        CsrSetConsoleOutputCodePage),
     CSRSS_DEFINE_API(GET_PROCESS_LIST,             CsrGetProcessList),
-    CSRSS_DEFINE_API(ADD_CONSOLE_ALIAS,      CsrAddConsoleAlias),
-    CSRSS_DEFINE_API(GET_CONSOLE_ALIAS,      CsrGetConsoleAlias),
-    CSRSS_DEFINE_API(GET_ALL_CONSOLE_ALIASES,         CsrGetAllConsoleAliases),
-    CSRSS_DEFINE_API(GET_ALL_CONSOLE_ALIASES_LENGTH,  CsrGetAllConsoleAliasesLength),
-    CSRSS_DEFINE_API(GET_CONSOLE_ALIASES_EXES,        CsrGetConsoleAliasesExes),
-    CSRSS_DEFINE_API(GET_CONSOLE_ALIASES_EXES_LENGTH, CsrGetConsoleAliasesExesLength),
-    CSRSS_DEFINE_API(GENERATE_CTRL_EVENT,          CsrGenerateCtrlEvent),
     { 0, 0, NULL }
   };
 
@@ -86,7 +80,7 @@ static CSRSS_OBJECT_DEFINITION Win32CsrObjectDefinitions[] =
 
 /* FUNCTIONS *****************************************************************/
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HANDLE hDll,
 	DWORD dwReason,
 	LPVOID lpReserved)
@@ -94,7 +88,6 @@ DllMain(HANDLE hDll,
   if (DLL_PROCESS_ATTACH == dwReason)
     {
       Win32CsrDllHandle = hDll;
-      InitializeAppSwitchHook();
     }
 
   return TRUE;
@@ -102,33 +95,39 @@ DllMain(HANDLE hDll,
 
 NTSTATUS FASTCALL
 Win32CsrInsertObject(PCSRSS_PROCESS_DATA ProcessData,
-                      PHANDLE Handle,
-                      Object_t *Object,
-                      DWORD Access,
-                      BOOL Inheritable)
+                     PHANDLE Handle,
+                     Object_t *Object)
 {
-  return (CsrExports.CsrInsertObjectProc)(ProcessData, Handle, Object, Access, Inheritable);
+  InitializeCriticalSection(&(Object->Lock));
+
+  return (CsrExports.CsrInsertObjectProc)(ProcessData, Handle, Object);
+}
+
+NTSTATUS FASTCALL
+Win32CsrInsertObject2(PCSRSS_PROCESS_DATA ProcessData,
+                      PHANDLE Handle,
+                      Object_t *Object)
+{
+  return (CsrExports.CsrInsertObjectProc)(ProcessData, Handle, Object);
 }
 
 NTSTATUS FASTCALL
 Win32CsrGetObject(PCSRSS_PROCESS_DATA ProcessData,
                  HANDLE Handle,
-                 Object_t **Object,
-                 DWORD Access)
+                 Object_t **Object)
 {
-  return (CsrExports.CsrGetObjectProc)(ProcessData, Handle, Object, Access);
+  return (CsrExports.CsrGetObjectProc)(ProcessData, Handle, Object);
 }
 
 NTSTATUS FASTCALL
 Win32CsrLockObject(PCSRSS_PROCESS_DATA ProcessData,
                    HANDLE Handle,
                    Object_t **Object,
-                   DWORD Access,
                    LONG Type)
 {
   NTSTATUS Status;
 
-  Status = (CsrExports.CsrGetObjectProc)(ProcessData, Handle, Object, Access);
+  Status = (CsrExports.CsrGetObjectProc)(ProcessData, Handle, Object);
   if (! NT_SUCCESS(Status))
     {
       return Status;
@@ -136,7 +135,6 @@ Win32CsrLockObject(PCSRSS_PROCESS_DATA ProcessData,
 
   if ((*Object)->Type != Type)
     {
-      (CsrExports.CsrReleaseObjectByPointerProc)(*Object);
       return STATUS_INVALID_HANDLE;
     }
 
@@ -149,13 +147,6 @@ VOID FASTCALL
 Win32CsrUnlockObject(Object_t *Object)
 {
   LeaveCriticalSection(&(Object->Lock));
-  (CsrExports.CsrReleaseObjectByPointerProc)(Object);
-}
-
-NTSTATUS FASTCALL
-Win32CsrReleaseObjectByPointer(Object_t *Object)
-{
-  return (CsrExports.CsrReleaseObjectByPointerProc)(Object);
 }
 
 NTSTATUS FASTCALL
@@ -172,7 +163,7 @@ Win32CsrEnumProcesses(CSRSS_ENUM_PROCESS_PROC EnumProc,
   return (CsrExports.CsrEnumProcessesProc)(EnumProc, Context);
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 Win32CsrInitComplete(void)
 {
   PrivateCsrssInitialized();
@@ -180,7 +171,7 @@ Win32CsrInitComplete(void)
   return TRUE;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
                   IN PHARDERROR_MSG HardErrorMessage)
 {
@@ -204,8 +195,8 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
 
     HardErrorMessage->Response = ResponseNotHandled;
 
-    DPRINT("NumberOfParameters = %d\n", HardErrorMessage->NumberOfParameters);
-    DPRINT("Status = %lx\n", HardErrorMessage->Status);
+    DPRINT1("NumberOfParameters = %d\n", HardErrorMessage->NumberOfParameters);
+    DPRINT1("Status = %lx\n", HardErrorMessage->Status);
 
     // open client process
     InitializeObjectAttributes(&ObjectAttributes, NULL, 0, NULL, NULL);
@@ -365,7 +356,6 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
         LPSTR NtStatusString;
         UNICODE_STRING MessageU;
         ANSI_STRING MessageA;
-        USHORT CaptionSize = 0;
 
         if( !MessageResource->Flags ) {
             /* we've got an ansi string */
@@ -379,6 +369,7 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
             RtlUnicodeStringToAnsiString(&MessageA, &MessageU, TRUE);
         }
 
+        USHORT CaptionSize = 0;
         // check whether a caption exists
         if( *MessageA.Buffer == '{' ) {
             // get size of the caption
@@ -386,7 +377,7 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
 
             CaptionText = (LPSTR)RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, CaptionSize);
             RtlCopyMemory(CaptionText, MessageA.Buffer+1, CaptionSize-1);
-            CaptionSize += 2; // "}\r\n" - 3
+            CaptionSize += 3; // "}\r\n" - 3
 
             szxCaptionText = (LPWSTR)RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(wchar_t)*CaptionSize+ClientFileNameU.MaximumLength+128);
             if( ClientFileNameU.Buffer ) {
@@ -473,10 +464,7 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
 
             RtlFreeHeap (RtlGetProcessHeap(), 0, NtStatusString);
         }
-        if( MessageResource->Flags ) {
-            /* we've got a unicode string */
-            RtlFreeAnsiString(&MessageA);
-        }
+        RtlFreeAnsiString(&MessageA);
     }
     if( ClientFileNameU.Buffer ) {
         RtlFreeHeap (RtlGetProcessHeap(), 0, ClientFileNameU.Buffer);
@@ -523,7 +511,6 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
     }
 
     // FIXME: We should not use MessageBox !!!!
-    DPRINT1("%S\n", szxMessageBody);
     MessageBoxResponse = MessageBoxW(0, szxMessageBody, szxCaptionText, responce|MB_ICONERROR|MB_SYSTEMMODAL|MB_SETFOREGROUND);
 
     RtlFreeHeap (RtlGetProcessHeap(), 0, szxMessageBody);
@@ -576,7 +563,7 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
                        PCSRSS_OBJECT_DEFINITION *ObjectDefinitions,
                        CSRPLUGIN_INIT_COMPLETE_PROC *InitComplete,
@@ -584,11 +571,8 @@ Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
                        PCSRSS_EXPORTED_FUNCS Exports,
                        HANDLE CsrssApiHeap)
 {
-  NTSTATUS Status;
   CsrExports = *Exports;
   Win32CsrApiHeap = CsrssApiHeap;
-
-  Status = NtUserInitialize(0 ,NULL, NULL);
 
   PrivateCsrssManualGuiCheck(0);
   CsrInitConsoleSupport();

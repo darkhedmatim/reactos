@@ -184,7 +184,6 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
    GET_CURRENT_CONTEXT(ctx);
    GLint i = (GLint) (light - GL_LIGHT0);
    GLfloat temp[4];
-   ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (i < 0 || i >= (GLint) ctx->Const.MaxLights) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glLight(light=0x%x)", light );
@@ -208,8 +207,7 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
       if (_math_matrix_is_dirty(ctx->ModelviewMatrixStack.Top)) {
 	 _math_matrix_analyse(ctx->ModelviewMatrixStack.Top);
       }
-      TRANSFORM_DIRECTION(temp, params, ctx->ModelviewMatrixStack.Top->m);
-      NORMALIZE_3FV(temp);
+      TRANSFORM_NORMAL(temp, params, ctx->ModelviewMatrixStack.Top->inv);
       params = temp;
       break;
    case GL_SPOT_EXPONENT:
@@ -1130,7 +1128,7 @@ compute_light_positions( GLcontext *ctx )
       }
       else {
          /* positional light w/ homogeneous coordinate, divide by W */
-         GLfloat wInv = (GLfloat)1.0 / light->_Position[3];
+         GLfloat wInv = 1.0 / light->_Position[3];
          light->_Position[0] *= wInv;
          light->_Position[1] *= wInv;
          light->_Position[2] *= wInv;

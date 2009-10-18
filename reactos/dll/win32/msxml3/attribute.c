@@ -59,18 +59,18 @@ static HRESULT WINAPI domattr_QueryInterface(
     TRACE("%p %s %p\n", This, debugstr_guid(riid), ppvObject);
 
     if ( IsEqualGUID( riid, &IID_IXMLDOMAttribute ) ||
-         IsEqualGUID( riid, &IID_IDispatch ) ||
          IsEqualGUID( riid, &IID_IUnknown ) )
     {
         *ppvObject = iface;
     }
-    else if ( IsEqualGUID( riid, &IID_IXMLDOMNode ) )
+    else if ( IsEqualGUID( riid, &IID_IDispatch ) ||
+              IsEqualGUID( riid, &IID_IXMLDOMNode ) )
     {
         return IUnknown_QueryInterface(This->node_unk, riid, ppvObject);
     }
     else
     {
-        FIXME("Unsupported interface %s\n", debugstr_guid(riid));
+        FIXME("Unsupported inteferace %s\n", debugstr_guid(riid));
         return E_NOINTERFACE;
     }
 
@@ -106,13 +106,8 @@ static HRESULT WINAPI domattr_GetTypeInfoCount(
     IXMLDOMAttribute *iface,
     UINT* pctinfo )
 {
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-
-    TRACE("(%p)->(%p)\n", This, pctinfo);
-
-    *pctinfo = 1;
-
-    return S_OK;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domattr_GetTypeInfo(
@@ -120,14 +115,8 @@ static HRESULT WINAPI domattr_GetTypeInfo(
     UINT iTInfo, LCID lcid,
     ITypeInfo** ppTInfo )
 {
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-    HRESULT hr;
-
-    TRACE("(%p)->(%u %u %p)\n", This, iTInfo, lcid, ppTInfo);
-
-    hr = get_typeinfo(IXMLDOMAttribute_tid, ppTInfo);
-
-    return hr;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domattr_GetIDsOfNames(
@@ -135,24 +124,8 @@ static HRESULT WINAPI domattr_GetIDsOfNames(
     REFIID riid, LPOLESTR* rgszNames,
     UINT cNames, LCID lcid, DISPID* rgDispId )
 {
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-    ITypeInfo *typeinfo;
-    HRESULT hr;
-
-    TRACE("(%p)->(%s %p %u %u %p)\n", This, debugstr_guid(riid), rgszNames, cNames,
-          lcid, rgDispId);
-
-    if(!rgszNames || cNames == 0 || !rgDispId)
-        return E_INVALIDARG;
-
-    hr = get_typeinfo(IXMLDOMAttribute_tid, &typeinfo);
-    if(SUCCEEDED(hr))
-    {
-        hr = ITypeInfo_GetIDsOfNames(typeinfo, rgszNames, cNames, rgDispId);
-        ITypeInfo_Release(typeinfo);
-    }
-
-    return hr;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domattr_Invoke(
@@ -161,21 +134,8 @@ static HRESULT WINAPI domattr_Invoke(
     WORD wFlags, DISPPARAMS* pDispParams, VARIANT* pVarResult,
     EXCEPINFO* pExcepInfo, UINT* puArgErr )
 {
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-    ITypeInfo *typeinfo;
-    HRESULT hr;
-
-    TRACE("(%p)->(%d %s %d %d %p %p %p %p)\n", This, dispIdMember, debugstr_guid(riid),
-          lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
-
-    hr = get_typeinfo(IXMLDOMAttribute_tid, &typeinfo);
-    if(SUCCEEDED(hr))
-    {
-        hr = ITypeInfo_Invoke(typeinfo, &(This->lpVtbl), dispIdMember, wFlags, pDispParams,
-                pVarResult, pExcepInfo, puArgErr);
-        ITypeInfo_Release(typeinfo);
-    }
-    return hr;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domattr_get_nodeName(
@@ -473,25 +433,24 @@ static HRESULT WINAPI domattr_get_name(
     IXMLDOMAttribute *iface,
     BSTR *p)
 {
-    /* name property returns the same value as nodeName */
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-    return IXMLDOMNode_get_nodeName( This->node, p );
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domattr_get_value(
     IXMLDOMAttribute *iface,
     VARIANT *var1)
 {
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-    return IXMLDOMNode_get_nodeValue( This->node, var1 );
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domattr_put_value(
     IXMLDOMAttribute *iface,
     VARIANT var1)
 {
-    domattr *This = impl_from_IXMLDOMAttribute( iface );
-    return IXMLDOMNode_put_nodeValue( This->node, var1 );
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static const struct IXMLDOMAttributeVtbl domattr_vtbl =
@@ -547,7 +506,7 @@ static const struct IXMLDOMAttributeVtbl domattr_vtbl =
 IUnknown* create_attribute( xmlNodePtr attribute )
 {
     domattr *This;
-    xmlnode *node;
+    HRESULT hr;
 
     This = HeapAlloc( GetProcessHeap(), 0, sizeof *This );
     if ( !This )
@@ -556,15 +515,22 @@ IUnknown* create_attribute( xmlNodePtr attribute )
     This->lpVtbl = &domattr_vtbl;
     This->ref = 1;
 
-    node = create_basic_node( attribute, (IUnknown*)&This->lpVtbl, NULL );
-    if(!node)
+    This->node_unk = create_basic_node( attribute, (IUnknown*)&This->lpVtbl );
+    if(!This->node_unk)
     {
         HeapFree(GetProcessHeap(), 0, This);
         return NULL;
     }
 
-    This->node_unk = (IUnknown*)&node->lpInternalUnkVtbl;
-    This->node = IXMLDOMNode_from_impl(node);
+    hr = IUnknown_QueryInterface(This->node_unk, &IID_IXMLDOMNode, (LPVOID*)&This->node);
+    if(FAILED(hr))
+    {
+        IUnknown_Release(This->node_unk);
+        HeapFree( GetProcessHeap(), 0, This );
+        return NULL;
+    }
+    /* The ref on This->node is actually looped back into this object, so release it */
+    IXMLDOMNode_Release(This->node);
 
     return (IUnknown*) &This->lpVtbl;
 }

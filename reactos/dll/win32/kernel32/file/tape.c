@@ -12,16 +12,16 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include <debug.h>
 
 /* FUNCTIONS ****************************************************************/
 
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 CreateTapePartition (HANDLE hDevice,
 		     DWORD dwPartitionMethod,
 		     DWORD dwCount,
@@ -60,7 +60,7 @@ CreateTapePartition (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 EraseTape (HANDLE hDevice,
 	   DWORD dwEraseType,
 	   BOOL bImmediate)
@@ -97,7 +97,7 @@ EraseTape (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 GetTapeParameters (HANDLE hDevice,
 		   DWORD dwOperation,
 		   LPDWORD lpdwSize,
@@ -164,7 +164,7 @@ GetTapeParameters (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 GetTapePosition (HANDLE hDevice,
 		 DWORD dwPositionType,
 		 LPDWORD lpdwPartition,
@@ -210,7 +210,7 @@ GetTapePosition (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 GetTapeStatus (HANDLE hDevice)
 {
   IO_STATUS_BLOCK IoStatusBlock;
@@ -241,7 +241,7 @@ GetTapeStatus (HANDLE hDevice)
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 PrepareTape (HANDLE hDevice,
 	     DWORD dwOperation,
 	     BOOL bImmediate)
@@ -278,7 +278,7 @@ PrepareTape (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 SetTapeParameters (HANDLE hDevice,
 		   DWORD dwOperation,
 		   LPVOID lpTapeInformation)
@@ -332,7 +332,7 @@ SetTapeParameters (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 SetTapePosition (HANDLE hDevice,
 		 DWORD dwPositionMethod,
 		 DWORD dwPartition,
@@ -375,7 +375,7 @@ SetTapePosition (HANDLE hDevice,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 WriteTapemark (HANDLE hDevice,
 	       DWORD dwTapemarkType,
 	       DWORD dwTapemarkCount,

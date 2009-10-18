@@ -17,7 +17,7 @@
 
 _SwitchToFiber@4:
     /* Get the TEB */
-    mov edx, fs:[TEB_SELF]
+    mov edx, fs:[KGDT_R3_TEB]
     
     /* Get the Fiber */
     mov eax, [edx+TEB_FIBER_DATA]
@@ -37,7 +37,7 @@ _SwitchToFiber@4:
     fstcw [eax+FIBER_CONTEXT_FLOAT_SAVE_CONTROL_WORD]
     
     /* Check if the CPU supports SIMD MXCSR State Save */
-    cmp byte ptr ds:[PROCESSOR_FEATURE_FXSR], 0
+    cmp byte ptr [PROCESSOR_FEATURE_FXSR], 0
     jnz NoFpuStateSave
     stmxcsr [eax+FIBER_CONTEXT_DR6]
     
@@ -101,7 +101,7 @@ StatusWordChanged:
 ControlWordEqual:
 
     /* Load the new one */
-    cmp byte ptr ds:[PROCESSOR_FEATURE_FXSR], 0
+    cmp byte ptr [PROCESSOR_FEATURE_FXSR], 0
     jnz NoFpuStateRestore
     ldmxcsr [ecx+FIBER_CONTEXT_DR6]
     

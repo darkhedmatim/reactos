@@ -584,7 +584,7 @@ ULONG CDECL ldap_start_tls_sA( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
 
     TRACE( "(%p, %p, %p, %p, %p)\n", ld, retval, result, serverctrls, clientctrls );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (serverctrls) {
         serverctrlsW = controlarrayAtoW( serverctrls );
@@ -635,7 +635,7 @@ ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
 
     TRACE( "(%p, %p, %p, %p, %p)\n", ld, retval, result, serverctrls, clientctrls );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (serverctrls) {
         serverctrlsU = controlarrayWtoU( serverctrls );
@@ -646,7 +646,7 @@ ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_start_tls_s( ld, serverctrlsU, clientctrlsU ));
+    ret = ldap_start_tls_s( ld, serverctrlsU, clientctrlsU );
 
 exit:
     controlarrayfreeU( serverctrlsU );

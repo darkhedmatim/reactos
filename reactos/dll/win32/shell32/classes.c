@@ -19,7 +19,31 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+
+#include "wine/debug.h"
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "wingdi.h"
+#include "winuser.h"
+
+#include "shlobj.h"
+#include "shell32_main.h"
+#include "shlguid.h"
+#include "shresdef.h"
+#include "shlwapi.h"
+#include "pidl.h"
+#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -80,12 +104,6 @@ BOOL HCR_MapTypeToValueA(LPCSTR szExtension, LPSTR szFileType, LONG len, BOOL bP
 	  return FALSE;
 	}
 
-	if (RegLoadMUIStringA(hkey, "FriendlyTypeName", szFileType, len, NULL, 0, NULL) == ERROR_SUCCESS)
-	{
-	  RegCloseKey(hkey);
-	  return TRUE;
-	}
-
 	if (RegQueryValueA(hkey, NULL, szFileType, &len))
 	{
 	  RegCloseKey(hkey);
@@ -109,7 +127,7 @@ BOOL HCR_GetDefaultVerbW( HKEY hkeyClass, LPCWSTR szVerb, LPWSTR szDest, DWORD l
         LONG size;
         HKEY hkey;
 
-        TRACE("%p %s %p\n", hkeyClass, debugstr_w(szVerb), szDest);
+	TRACE("%p %s %p\n", hkeyClass, debugstr_w(szVerb), szDest);
 
         if (szVerb)
         {
@@ -119,13 +137,13 @@ BOOL HCR_GetDefaultVerbW( HKEY hkeyClass, LPCWSTR szVerb, LPWSTR szDest, DWORD l
 
         size=len;
         *szDest='\0';
-        if (!RegQueryValueW(hkeyClass, L"shell", szDest, &size) && *szDest)
+        if (!RegQueryValueW(hkeyClass, swShell, szDest, &size) && *szDest)
         {
             /* The MSDN says to first try the default verb */
-            wcscpy(sTemp, swShell);
-            wcscat(sTemp, szDest);
-            wcscat(sTemp, swCommand);
-            if (!RegOpenKeyExW(hkeyClass, sTemp, 0, KEY_READ, &hkey))
+            lstrcpyW(sTemp, swShell);
+            lstrcatW(sTemp, szDest);
+            lstrcatW(sTemp, swCommand);
+            if (!RegOpenKeyExW(hkeyClass, sTemp, 0, 0, &hkey))
             {
                 RegCloseKey(hkey);
                 TRACE("default verb=%s\n", debugstr_w(szDest));
@@ -134,10 +152,10 @@ BOOL HCR_GetDefaultVerbW( HKEY hkeyClass, LPCWSTR szVerb, LPWSTR szDest, DWORD l
         }
 
         /* then fallback to 'open' */
-        wcscpy(sTemp, swShell);
-        wcscat(sTemp, swOpen);
-        wcscat(sTemp, swCommand);
-        if (!RegOpenKeyExW(hkeyClass, sTemp, 0, KEY_READ, &hkey))
+        lstrcpyW(sTemp, swShell);
+        lstrcatW(sTemp, swOpen);
+        lstrcatW(sTemp, swCommand);
+        if (!RegOpenKeyExW(hkeyClass, sTemp, 0, 0, &hkey))
         {
             RegCloseKey(hkey);
             lstrcpynW(szDest, swOpen, len);
@@ -146,20 +164,14 @@ BOOL HCR_GetDefaultVerbW( HKEY hkeyClass, LPCWSTR szVerb, LPWSTR szDest, DWORD l
         }
 
         /* and then just use the first verb on Windows >= 2000 */
-        if (!RegOpenKeyExW(hkeyClass, L"shell", 0, KEY_READ, &hkey))
+        if (!RegEnumKeyW(hkeyClass, 0, szDest, len) && *szDest)
         {
-            if (!RegEnumKeyW(hkey, 0, szDest, len) && *szDest)
-            {
-                TRACE("default verb=first verb=%s\n", debugstr_w(szDest));
-                RegCloseKey(hkey);
-                return TRUE;
-            }
-            RegCloseKey(hkey);
+            TRACE("default verb=first verb=%s\n", debugstr_w(szDest));
+            return TRUE;
         }
 
-
         TRACE("no default verb!\n");
-        return FALSE;
+	return FALSE;
 }
 
 BOOL HCR_GetExecuteCommandW( HKEY hkeyClass, LPCWSTR szClass, LPCWSTR szVerb, LPWSTR szDest, DWORD len )
@@ -178,9 +190,9 @@ BOOL HCR_GetExecuteCommandW( HKEY hkeyClass, LPCWSTR szClass, LPCWSTR szVerb, LP
         if (HCR_GetDefaultVerbW(hkeyClass, szVerb, sTempVerb, sizeof(sTempVerb)))
         {
             WCHAR sTemp[MAX_PATH];
-            wcscpy(sTemp, swShell);
-            wcscat(sTemp, sTempVerb);
-            wcscat(sTemp, swCommand);
+            lstrcpyW(sTemp, swShell);
+            lstrcatW(sTemp, sTempVerb);
+            lstrcatW(sTemp, swCommand);
             ret = (ERROR_SUCCESS == SHGetValueW(hkeyClass, sTemp, NULL, NULL, szDest, &len));
         }
         if (szClass)
@@ -197,15 +209,15 @@ BOOL HCR_GetExecuteCommandW( HKEY hkeyClass, LPCWSTR szClass, LPCWSTR szVerb, LP
 */
 static BOOL HCR_RegOpenClassIDKey(REFIID riid, HKEY *hkey)
 {
-	WCHAR xriid[50];
-    swprintf( xriid, L"CLSID\\{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+	char	xriid[50];
+    sprintf( xriid, "CLSID\\{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
                  riid->Data1, riid->Data2, riid->Data3,
                  riid->Data4[0], riid->Data4[1], riid->Data4[2], riid->Data4[3],
                  riid->Data4[4], riid->Data4[5], riid->Data4[6], riid->Data4[7] );
 
- 	TRACE("%S\n",xriid );
+ 	TRACE("%s\n",xriid );
 
-	return !RegOpenKeyExW(HKEY_CLASSES_ROOT, xriid, 0, KEY_READ, hkey);
+	return !RegOpenKeyExA(HKEY_CLASSES_ROOT, xriid, 0, KEY_READ, hkey);
 }
 
 static BOOL HCR_RegGetDefaultIconW(HKEY hkey, LPWSTR szDest, DWORD len, int* picon_idx)
@@ -266,7 +278,7 @@ BOOL HCR_GetDefaultIconW(LPCWSTR szClass, LPWSTR szDest, DWORD len, int* picon_i
 	TRACE("%s\n",debugstr_w(szClass) );
 
 	lstrcpynW(sTemp, szClass, MAX_PATH);
-	wcscat(sTemp, swDefaultIcon);
+	lstrcatW(sTemp, swDefaultIcon);
 
 	if (!RegOpenKeyExW(HKEY_CLASSES_ROOT, sTemp, 0, KEY_READ, &hkey))
 	{
@@ -327,28 +339,15 @@ BOOL HCR_GetClassNameW(REFIID riid, LPWSTR szDest, DWORD len)
 	HKEY	hkey;
 	BOOL ret = FALSE;
 	DWORD buflen = len;
-	WCHAR szName[100];
-	LPOLESTR pStr;
 
-	szDest[0] = 0;
-
-	if (StringFromCLSID(riid, &pStr) == S_OK)
+ 	szDest[0] = 0;
+	if (HCR_RegOpenClassIDKey(riid, &hkey))
 	{
-	  DWORD dwLen = buflen * sizeof(WCHAR);
-	  swprintf(szName, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CLSID\\%s", pStr);
-	  if (RegGetValueW(HKEY_CURRENT_USER, szName, NULL, RRF_RT_REG_SZ, NULL, (PVOID)szDest, &dwLen) == ERROR_SUCCESS)
-	  {
-	    ret = TRUE;
-	  }
-	  CoTaskMemFree(pStr);
-	}
-	if (!ret && HCR_RegOpenClassIDKey(riid, &hkey))
-	{
-      static const WCHAR wszLocalizedString[] =
-      { 'L','o','c','a','l','i','z','e','d','S','t','r','i','n','g', 0 };
-      if (!RegLoadMUIStringW(hkey, wszLocalizedString, szDest, len, NULL, 0, NULL) ||
+          static const WCHAR wszLocalizedString[] =
+            { 'L','o','c','a','l','i','z','e','d','S','t','r','i','n','g', 0 };
+          if (!RegLoadMUIStringW(hkey, wszLocalizedString, szDest, len, NULL, 0, NULL) ||
               !RegQueryValueExW(hkey, swEmpty, 0, NULL, (LPBYTE)szDest, &len))
-      {
+          {
 	    ret = TRUE;
 	  }
 	  RegCloseKey(hkey);
@@ -376,17 +375,6 @@ BOOL HCR_GetClassNameW(REFIID riid, LPWSTR szDest, DWORD len)
 	    if(LoadStringW(shell32_hInstance, IDS_RECYCLEBIN_FOLDER_NAME, szDest, buflen))
 	      ret = TRUE;
 	  }
-	  else if (IsEqualIID(riid, &CLSID_ControlPanel))
-	  {
-	    if(LoadStringW(shell32_hInstance, IDS_CONTROLPANEL, szDest, buflen))
-	      ret = TRUE;
-	  }
-	  else if (IsEqualIID(riid, &CLSID_AdminFolderShortcut))
-	  {
-	    if(LoadStringW(shell32_hInstance, IDS_ADMINISTRATIVETOOLS, szDest, buflen))
-	      ret = TRUE;
-	  }
-
 	}
 	TRACE("-- %s\n", debugstr_w(szDest));
 	return ret;

@@ -133,8 +133,6 @@ BOOL VFWAPI DrawDibEnd(HDRAWDIB hdd)
 
     TRACE("(%p)\n", hdd);
 
-    if (!whdd) return FALSE;
-
     whdd->hpal = 0; /* Do not free this */
     whdd->hdc = 0;
     HeapFree(GetProcessHeap(), 0, whdd->lpbi);
@@ -458,6 +456,7 @@ HPALETTE VFWAPI DrawDibGetPalette(HDRAWDIB hdd)
 UINT VFWAPI DrawDibRealize(HDRAWDIB hdd, HDC hdc, BOOL fBackground) 
 {
     WINE_HDD *whdd;
+    HPALETTE oldPal;
     UINT ret = 0;
 
     FIXME("(%p, %p, %d), stub\n", hdd, hdc, fBackground);
@@ -474,7 +473,7 @@ UINT VFWAPI DrawDibRealize(HDRAWDIB hdd, HDC hdc, BOOL fBackground)
     if (!whdd->hpal)
         whdd->hpal = CreateHalftonePalette(hdc);
 
-    SelectPalette(hdc, whdd->hpal, fBackground);
+    oldPal = SelectPalette(hdc, whdd->hpal, fBackground);
     ret = RealizePalette(hdc);
 
  out:

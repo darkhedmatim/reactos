@@ -1,6 +1,6 @@
 /*
  * Copyright 2004 by Krzysztof Foltman
- * Copyright 2007-2008 by Alexander N. Sørnes <alex@thehandofagony.com>
+ * Copyright 2007 by Alexander N. Sørnes <alex@thehandofagony.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,13 +17,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <windef.h>
-#include <winuser.h>
-
 #define MAX_STRING_LEN 255
-
-#define TWIPS_PER_INCH 1440
-#define CENTMM_PER_INCH 2540
 
 #define ID_FILE_EXIT 1000
 #define ID_FILE_OPEN 1001
@@ -48,7 +42,6 @@
 
 #define ID_PREVIEW_NEXTPAGE 1017
 #define ID_PREVIEW_PREVPAGE 1018
-#define ID_PREVIEW_NUMPAGES 1019
 
 #define ID_ALIGN_LEFT 1100
 #define ID_ALIGN_CENTER 1101
@@ -82,9 +75,8 @@
 #define ID_TOGGLE_TOOLBAR 1500
 #define ID_TOGGLE_FORMATBAR 1501
 #define ID_TOGGLE_STATUSBAR 1502
-#define ID_TOGGLE_RULER 1503
 
-#define PREVIEW_BUTTONS 5
+#define PREVIEW_BUTTONS 4
 
 #define FILELIST_ENTRIES 4
 #define FILELIST_ENTRY_LENGTH 33
@@ -100,8 +92,7 @@
 #define BANDID_PREVIEW_BTN2 7
 #define BANDID_PREVIEW_BTN3 8
 #define BANDID_PREVIEW_BTN4 9
-#define BANDID_PREVIEW_BTN5 10
-#define BANDID_PREVIEW_BUFFER 11
+#define BANDID_PREVIEW_BUFFER 10
 
 #define ID_WORDWRAP_NONE 0
 #define ID_WORDWRAP_WINDOW 1
@@ -115,12 +106,10 @@
 
 #define IDC_PAGEFMT_TB 100
 #define IDC_PAGEFMT_FB 101
-#define IDC_PAGEFMT_RU 102
-#define IDC_PAGEFMT_SB 103
-#define IDC_PAGEFMT_WN 104
-#define IDC_PAGEFMT_WW 105
-#define IDC_PAGEFMT_WM 106
-#define IDC_PAGEFMT_ID 107
+#define IDC_PAGEFMT_SB 102
+#define IDC_PAGEFMT_WW 103
+#define IDC_PAGEFMT_WM 104
+#define IDC_PAGEFMT_ID 105
 
 #define ID_DATETIME 1600
 #define ID_PARAFORMAT 1601
@@ -144,7 +133,6 @@
 #define IDC_TABSTOPS 2012
 #define IDC_FONTLIST 2013
 #define IDC_SIZELIST 2014
-#define IDC_RULER 2015
 
 #define IDD_DATETIME 2100
 #define IDD_NEWFILE 2101
@@ -172,24 +160,22 @@
 #define STRING_NEWFILE_TXT 1405
 #define STRING_NEWFILE_TXT_UNICODE 1406
 
-#define STRING_PRINTER_FILES_PRN 1407
+#define STRING_ALIGN_LEFT 1407
+#define STRING_ALIGN_RIGHT 1408
+#define STRING_ALIGN_CENTER 1409
 
-#define STRING_ALIGN_LEFT 1416
-#define STRING_ALIGN_RIGHT 1417
-#define STRING_ALIGN_CENTER 1418
+#define STRING_PRINTER_FILES_PRN 1410
 
-#define STRING_VIEWPROPS_TITLE 1432
-#define STRING_VIEWPROPS_TEXT 1433
-#define STRING_VIEWPROPS_RICHTEXT 1434
+#define STRING_VIEWPROPS_TITLE 1411
+#define STRING_VIEWPROPS_TEXT 1412
+#define STRING_VIEWPROPS_RICHTEXT 1413
 
-#define STRING_PREVIEW_PRINT 1448
-#define STRING_PREVIEW_NEXTPAGE 1449
-#define STRING_PREVIEW_PREVPAGE 1450
-#define STRING_PREVIEW_TWOPAGES 1451
-#define STRING_PREVIEW_ONEPAGE 1452
-#define STRING_PREVIEW_CLOSE 1453
+#define STRING_PREVIEW_PRINT 1414
+#define STRING_PREVIEW_NEXTPAGE 1415
+#define STRING_PREVIEW_PREVPAGE 1416
+#define STRING_PREVIEW_CLOSE 1417
 
-#define STRING_UNITS_CM 1454
+#define STRING_UNITS_CM 1418
 
 #define STRING_DEFAULT_FILENAME 1700
 #define STRING_PROMPT_SAVE_CHANGES 1701
@@ -198,12 +184,6 @@
 #define STRING_SAVE_LOSEFORMATTING 1704
 #define STRING_INVALID_NUMBER 1705
 #define STRING_OLE_STORAGE_NOT_SUPPORTED 1706
-#define STRING_WRITE_FAILED 1707
-#define STRING_WRITE_ACCESS_DENIED 1708
-#define STRING_OPEN_FAILED 1709
-#define STRING_OPEN_ACCESS_DENIED 1710
-#define STRING_PRINTING_NOT_IMPLEMENTED 1711
-#define STRING_MAX_TAB_STOPS 1712
 
 LPWSTR file_basename(LPWSTR);
 
@@ -211,7 +191,7 @@ void dialog_printsetup(HWND);
 void dialog_print(HWND, LPWSTR);
 void target_device(HWND, DWORD);
 void print_quick(LPWSTR);
-LRESULT preview_command(HWND, WPARAM);
+LRESULT preview_command(HWND, WPARAM, LPARAM);
 void init_preview(HWND, LPWSTR);
 void close_preview(HWND);
 BOOL preview_isactive(void);
@@ -219,15 +199,12 @@ LRESULT print_preview(HWND);
 void get_default_printer_opts(void);
 void registry_set_pagemargins(HKEY);
 void registry_read_pagemargins(HKEY);
-LRESULT CALLBACK ruler_proc(HWND, UINT, WPARAM, LPARAM);
-void redraw_ruler(HWND);
 
 int reg_formatindex(WPARAM);
 void registry_read_filelist(HWND);
 void registry_read_options(void);
 void registry_read_formatopts_all(DWORD[], DWORD[]);
 void registry_read_winrect(RECT*);
-void registry_read_maximized(DWORD*);
 void registry_set_filelist(LPCWSTR, HWND);
 void registry_set_formatopts_all(DWORD[]);
 void registry_set_options(HWND);

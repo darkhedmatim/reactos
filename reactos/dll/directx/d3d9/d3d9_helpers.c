@@ -16,16 +16,21 @@
 
 static LPCSTR D3D9_DebugRegPath = "Software\\Microsoft\\Direct3D";
 
+LPDIRECT3D9_INT impl_from_IDirect3D9(LPDIRECT3D9 iface)
+{
+    return (LPDIRECT3D9_INT)((ULONG_PTR)iface - FIELD_OFFSET(DIRECT3D9_INT, lpVtbl));
+}
+
 BOOL ReadRegistryValue(IN DWORD ValueType, IN LPCSTR ValueName, OUT LPBYTE DataBuffer, IN OUT LPDWORD DataBufferSize)
 {
     HKEY hKey;
     DWORD Type;
     LONG Ret;
 
-    if (ERROR_SUCCESS != RegOpenKeyExA(HKEY_LOCAL_MACHINE, D3D9_DebugRegPath, 0, KEY_QUERY_VALUE, &hKey))
+    if (ERROR_SUCCESS != RegOpenKeyEx(HKEY_LOCAL_MACHINE, D3D9_DebugRegPath, 0, KEY_QUERY_VALUE, &hKey))
         return FALSE;
 
-    Ret = RegQueryValueExA(hKey, ValueName, 0, &Type, DataBuffer, DataBufferSize);
+    Ret = RegQueryValueEx(hKey, ValueName, 0, &Type, DataBuffer, DataBufferSize);
 
     RegCloseKey(hKey);
 
@@ -38,9 +43,9 @@ BOOL ReadRegistryValue(IN DWORD ValueType, IN LPCSTR ValueName, OUT LPBYTE DataB
     return TRUE;
 }
 
-HRESULT SafeFormatString(OUT LPSTR Buffer, IN DWORD BufferSize, IN LPCSTR FormatString, ... )
+HRESULT FormatDebugString(IN OUT LPSTR Buffer, IN LONG BufferSize, IN LPCSTR FormatString, ... )
 {
-    DWORD BytesWritten;
+    int BytesWritten;
     va_list vargs;
 
     if (BufferSize == 0)
@@ -54,41 +59,7 @@ HRESULT SafeFormatString(OUT LPSTR Buffer, IN DWORD BufferSize, IN LPCSTR Format
 
     Buffer[BufferSize-1] = '\0';
 
-    return ERROR_SUCCESS;
-}
-
-HRESULT SafeCopyString(OUT LPSTR Dst, IN DWORD DstSize, IN LPCSTR Src)
-{
-    HRESULT hr = ERROR_SUCCESS;
-
-    if (Dst == NULL || DstSize == 0 || Src == NULL)
-        return DDERR_INVALIDPARAMS;
-
-    while (*Src != '\0' && DstSize > 0)
-    {
-        *Dst++ = *Src++;
-        --DstSize;
-    }
-
-    if (DstSize == 0)
-    {
-        --Dst;
-        hr = DDERR_GENERIC;
-    }
-
-    return hr;
-}
-
-HRESULT SafeAppendString(IN OUT LPSTR Dst, IN DWORD DstSize, IN LPCSTR Src)
-{
-	size_t CurrentDstLength;
-	
-    if (Dst == NULL || DstSize == 0)
-        return DDERR_INVALIDPARAMS;
-
-    CurrentDstLength = strlen(Dst);
-
-    return SafeCopyString(Dst + CurrentDstLength, DstSize - CurrentDstLength, Src);
+    return 0;
 }
 
 HRESULT AlignedAlloc(IN OUT LPVOID *ppObject, IN SIZE_T dwSize)
@@ -109,7 +80,7 @@ HRESULT AlignedAlloc(IN OUT LPVOID *ppObject, IN SIZE_T dwSize)
 
     dwSize += MEM_ALIGNMENT;
 
-    AlignedPtr = (CHAR *)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSize);
+    AlignedPtr = (CHAR *)LocalAlloc(LMEM_ZEROINIT, dwSize);
 
     if (AlignedPtr == 0)
         return DDERR_OUTOFMEMORY;
@@ -136,5 +107,5 @@ VOID AlignedFree(IN OUT LPVOID pObject)
 
     NonAlignedPtr -= *(AlignedPtr - 1);
 
-    HeapFree(GetProcessHeap(), 0, NonAlignedPtr);
+    LocalFree(NonAlignedPtr);
 }

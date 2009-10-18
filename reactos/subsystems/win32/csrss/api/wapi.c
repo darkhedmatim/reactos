@@ -70,6 +70,7 @@ FASTCALL
 CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
                   PCSR_API_MESSAGE Request)
 {
+  BOOL Found = FALSE;
   unsigned DefIndex;
   ULONG Type;
 
@@ -78,7 +79,7 @@ CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
   DPRINT("CSR: API Number: %x ServerID: %x\n",Type, Request->Type >> 16);
 
   /* FIXME: Extract DefIndex instead of looping */
-  for (DefIndex = 0; DefIndex < ApiDefinitionsCount; DefIndex++)
+  for (DefIndex = 0; ! Found && DefIndex < ApiDefinitionsCount; DefIndex++)
     {
       if (ApiDefinitions[DefIndex].Type == Type)
         {
@@ -91,15 +92,18 @@ CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
             }
           else
             {
-              Request->Status = (ApiDefinitions[DefIndex].Handler)(ProcessData, Request);
+              (ApiDefinitions[DefIndex].Handler)(ProcessData, Request);
+              Found = TRUE;
             }
-          return;
         }
     }
-  DPRINT1("CSR: Unknown request type 0x%x\n", Request->Type);
-  Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
-  Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-  Request->Status = STATUS_INVALID_SYSTEM_SERVICE;
+  if (! Found)
+    {
+      DPRINT1("CSR: Unknown request type 0x%x\n", Request->Type);
+      Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
+      Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
+      Request->Status = STATUS_INVALID_SYSTEM_SERVICE;
+    }
 }
 
 BOOL
@@ -118,12 +122,12 @@ CsrHandleHardError(IN PCSRSS_PROCESS_DATA ProcessData,
     (VOID)CallHardError(ProcessData, Message);
 }
 
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
                              IN HANDLE hApiListenPort)
 {
     NTSTATUS Status;
-    HANDLE ServerPort = NULL, ServerThread = NULL;
+    HANDLE ServerPort = (HANDLE) 0;
     PCSRSS_PROCESS_DATA ProcessData = NULL;
     REMOTE_PORT_VIEW LpcRead;
     LpcRead.Length = sizeof(LpcRead);
@@ -167,6 +171,7 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
         return Status;
     }
 
+    HANDLE ServerThread = (HANDLE) 0;
     Status = RtlCreateUserThread(NtCurrentProcess(),
                                  NULL,
                                  FALSE,
@@ -191,7 +196,7 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
 }
 
 VOID
-WINAPI
+STDCALL
 ClientConnectionThread(HANDLE ServerPort)
 {
     NTSTATUS Status;
@@ -301,6 +306,51 @@ ClientConnectionThread(HANDLE ServerPort)
 
 /**********************************************************************
  * NAME
+ *	ServerApiPortThread/1
+ *
+ * DESCRIPTION
+ * 	Handle connection requests from clients to the port
+ * 	"\Windows\ApiPort".
+ */
+#if 0
+DWORD STDCALL
+ServerApiPortThread (HANDLE hApiListenPort)
+{
+    NTSTATUS Status = STATUS_SUCCESS;
+    BYTE RawRequest[sizeof(PORT_MESSAGE) + sizeof(CSR_CONNECTION_INFO)];
+    PPORT_MESSAGE Request = (PPORT_MESSAGE)RawRequest;
+
+    DPRINT("CSR: %s called", __FUNCTION__);
+
+    for (;;)
+    {
+         REMOTE_PORT_VIEW LpcRead;
+         LpcRead.Length = sizeof(LpcRead);
+
+         Status = NtListenPort (hApiListenPort, Request);
+         if (!NT_SUCCESS(Status))
+         {
+             DPRINT1("CSR: NtListenPort() failed, status=%x\n", Status);
+             break;
+         }
+
+         Status = CsrpHandleConnectionRequest(Request, hApiListenPort);
+         if(!NT_SUCCESS(Status))
+         {
+             DPRINT1("CSR: %s: SmpHandleConnectionRequest failed (Status=0x%08lx)\n",
+                     __FUNCTION__, Status);
+             break;
+         }
+    }
+
+    NtClose(hApiListenPort);
+    NtTerminateThread(NtCurrentThread(), Status);
+    return 0;
+}
+#endif
+
+/**********************************************************************
+ * NAME
  *	ServerSbApiPortThread/1
  *
  * DESCRIPTION
@@ -308,7 +358,7 @@ ClientConnectionThread(HANDLE ServerPort)
  * 	"\Windows\SbApiPort". We will accept only one
  * 	connection request (from the SM).
  */
-DWORD WINAPI
+DWORD STDCALL
 ServerSbApiPortThread (HANDLE hSbApiPortListen)
 {
     HANDLE          hConnectedPort = (HANDLE) 0;

@@ -1,52 +1,43 @@
 #ifndef LANG_BG_BG_H__
 #define LANG_BG_BG_H__
 
-MUI_LAYOUTS bgBGLayouts[] =
-{
-    { L"0402", L"00000402" },
-    { L"0402", L"00020402" },
-    { L"0402", L"00030402" },
-    { L"0409", L"00000409" },
-    { NULL, NULL }
-};
-
 static MUI_ENTRY bgBGLanguagePageEntries[] =
 {
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Избор на език",
-        TEXT_STYLE_NORMAL
+        "Language Selection",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  Изберете език, който да изполвате при слагането.",
-        TEXT_STYLE_NORMAL
+        "\x07  Please choose the language used for the installation process.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   натиснете ENTER.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  Езикът ще бъде подразбираният за крайната уредба.",
-        TEXT_STYLE_NORMAL
+        "\x07  This Language will be the default language for the final system.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване  F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue  F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -61,74 +52,68 @@ static MUI_ENTRY bgBGWelcomePageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "РеактОС ви приветства!",
-        TEXT_STYLE_HIGHLIGHT
+        "Welcome to ReactOS Setup",
+        TEXT_HIGHLIGHT
     },
     {
         6,
         11,
-        "Тази част от настройката записва работната уредба РеактОС",
-        TEXT_STYLE_NORMAL
+        "This part of the setup copies the ReactOS Operating System to your",
+        TEXT_NORMAL
     },
     {
         6,
         12,
-        "на компютъра ви и подготвя втората част на настройката.",
-        TEXT_STYLE_NORMAL
+        "computer and prepares the second part of the setup.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "\x07  Натиснете ENTER за слагане на РеактОС.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ENTER to install ReactOS.",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "\x07  Натиснете R за поправка на РеактОС.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press R to repair ReactOS.",
+        TEXT_NORMAL
     },
     {
         8,
         19,
-        "\x07  Натиснете L, за да видите разрешителните (лицензните)",
-        TEXT_STYLE_NORMAL
-    },
-        {
-        8,
-        20,
-        "   изисквания и условия на РеактОС",
-        TEXT_STYLE_NORMAL
+        "\x07  Press L to view the ReactOS Licensing Terms and Conditions",
+        TEXT_NORMAL
     },
     {
         8,
-        22,
-        "\x07  Натиснете F3 за изход без слагане на РеактОС.",
-        TEXT_STYLE_NORMAL
+        21,
+        "\x07  Press F3 to quit without installing ReactOS.",
+        TEXT_NORMAL
+    },
+    {
+        6,
+        23,
+        "For more information on ReactOS, please visit:",
+        TEXT_NORMAL
     },
     {
         6,
         24,
-        "За повече сведения за РеактОС, посетете:",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        6,
-        25,
         "http://www.reactos.org",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   R = Поправка   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue  R = Repair F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -143,86 +128,86 @@ static MUI_ENTRY bgBGIntroPageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Настройвачът на РеактОС е в ранна степен на разработка. Все още",
-        TEXT_STYLE_NORMAL
+        "ReactOS Setup is in an early development phase. It does not yet",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "няма всички възможности на напълно използваемо настройващо приложение.",
-        TEXT_STYLE_NORMAL
+        "support all the functions of a fully usable setup application.",
+        TEXT_NORMAL
     },
     {
         6,
         12,
-        "Съществуват следните ограничения:",
-        TEXT_STYLE_NORMAL
+        "The following limitations apply:",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "- Настройвачът не може да работи с повече от един дял на диск.",
-        TEXT_STYLE_NORMAL
+        "- Setup can not handle more than one primary partition per disk.",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "- Настройвачът не може да изтриe първичeн дял,",
-        TEXT_STYLE_NORMAL
+        "- Setup can not delete a primary partition from a disk",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "  ако на диска има разширен дял." ,
-        TEXT_STYLE_NORMAL
+        "  as long as extended partitions exist on this disk.",
+        TEXT_NORMAL
     },
     {
         8,
         16,
-        "- Настройвачът не може да изтрие първия разширен дял от диска, ",
-        TEXT_STYLE_NORMAL
+        "- Setup can not delete the first extended partition from a disk",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "  ако на диска има и други разширени дялове.",
-        TEXT_STYLE_NORMAL
+        "  as long as other extended partitions exist on this disk.",
+        TEXT_NORMAL
     },
     {
         8,
         18,
-        "- Настройвачът поддържа само FAT.",
-        TEXT_STYLE_NORMAL
+        "- Setup supports FAT file systems only.",
+        TEXT_NORMAL
     },
     {
         8,
         19,
-        "- Проверката на файловата уредба все още не е готова.",
-        TEXT_STYLE_NORMAL
+        "- File system checks are not implemented yet.",
+        TEXT_NORMAL
     },
     {
         8,
         23,
-        "\x07  Натиснете ENTER за слагане на РеактОС.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ENTER to install ReactOS.",
+        TEXT_NORMAL
     },
     {
         8,
         25,
-        "\x07  Натиснете F3 за изход без слагане на РеактОС.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press F3 to quit without installing ReactOS.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -237,116 +222,116 @@ static MUI_ENTRY bgBGLicensePageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         6,
-        "Лицензиране:",
-        TEXT_STYLE_HIGHLIGHT
+        "Licensing:",
+        TEXT_HIGHLIGHT
     },
     {
         8,
         8,
-        "Уредбата РеактОС е лицензирана при условията на GNU GPL",
-        TEXT_STYLE_NORMAL
+        "The ReactOS System is licensed under the terms of the",
+        TEXT_NORMAL
     },
     {
         8,
         9,
-        "с части, съдържащи код от други съвместими лицензи като",
-        TEXT_STYLE_NORMAL
+        "GNU GPL with parts containing code from other compatible",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "X11, BSD или GNU LGPL.",
-        TEXT_STYLE_NORMAL
+        "licenses such as the X11 or BSD and GNU LGPL licenses.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "Следователно всяко осигуряване, което е част от",
-        TEXT_STYLE_NORMAL
+        "All software that is part of the ReactOS system is",
+        TEXT_NORMAL
     },
     {
         8,
         12,
-        "РеактОС, се обнародва под GNU GPL, с поддържането на",
-        TEXT_STYLE_NORMAL
+        "therefore released under the GNU GPL as well as maintaining",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "на оригиналния лиценз.",
-        TEXT_STYLE_NORMAL
+        "the original license.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
         "This software comes with NO WARRANTY or restrictions on usage",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         16,
         "save applicable local and international law. The licensing of",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         17,
         "ReactOS only covers distribution to third parties.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         18,
-        "Ако поради някаква причина, заедно с РеактОС не сте",
-        TEXT_STYLE_NORMAL
+        "If for some reason you did not receive a copy of the",
+        TEXT_NORMAL
     },
     {
         8,
         19,
-        "получили копие на GNU General Public License, посетете",
-        TEXT_STYLE_NORMAL
+        "GNU General Public License with ReactOS please visit",
+        TEXT_NORMAL
     },
     {
         8,
         20,
         "http://www.gnu.org/licenses/licenses.html",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         8,
         22,
-        "Гаранция:",
-        TEXT_STYLE_HIGHLIGHT
+        "Warranty:",
+        TEXT_HIGHLIGHT
     },
     {
         8,
         24,
-        "Това е свободен софтуер; вижте изходния код за условията на възпроизвеждане.",
-        TEXT_STYLE_NORMAL
+        "This is free software; see the source for copying conditions.",
+        TEXT_NORMAL
     },
     {
         8,
         25,
         "There is NO warranty; not even for MERCHANTABILITY or",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         26,
         "FITNESS FOR A PARTICULAR PURPOSE",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Връщане",
-        TEXT_TYPE_STATUS
+        "   ENTER = Return",
+        TEXT_STATUS
     },
     {
         0,
@@ -361,85 +346,85 @@ static MUI_ENTRY bgBGDevicePageEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Списъкът по- долу показва текущите настройки на устройствата.",
-        TEXT_STYLE_NORMAL
+        "The list below shows the current device settings.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "       Компютър:",
-        TEXT_STYLE_NORMAL
+        "       Computer:",
+        TEXT_NORMAL
     },
     {
         8,
         12,
-        "          Екран:",
-        TEXT_STYLE_NORMAL,
+        "        Display:",
+        TEXT_NORMAL,
     },
     {
-        3,
+        8,
         13,
-        "          Клавиатура:",
-        TEXT_STYLE_NORMAL
+        "       Keyboard:",
+        TEXT_NORMAL
     },
     {
-        3,
+        8,
         14,
-        "Клавиатурна подредба:",
-        TEXT_STYLE_NORMAL
+        "Keyboard layout:",
+        TEXT_NORMAL
     },
     {
-        3,
+        8,
         16,
-        "            Приемане:",
-        TEXT_STYLE_NORMAL
+        "         Accept:",
+        TEXT_NORMAL
     },
     {
         25,
-        16, "Приемане на настройките",
-        TEXT_STYLE_NORMAL
+        16, "Accept these device settings",
+        TEXT_NORMAL
     },
     {
         6,
         19,
-        "За да промените настройките на оборудването, използвайте стрелките",
-        TEXT_STYLE_NORMAL
+        "You can change the hardware settings by pressing the UP or DOWN keys",
+        TEXT_NORMAL
     },
     {
         6,
         20,
-        "НАГОРЕ и НАДОЛУ. След това натиснете ENTER, за да изберете",
-        TEXT_STYLE_NORMAL
+        "to select an entry. Then press the ENTER key to select alternative",
+        TEXT_NORMAL
     },
     {
         6,
         21,
-        "заместващи настройки.",
-        TEXT_STYLE_NORMAL
+        "settings.",
+        TEXT_NORMAL
     },
     {
         6,
         23,
-        "Когато направите всички настройки, изберете 'Приемане на настройките'",
-        TEXT_STYLE_NORMAL
+        "When all settings are correct, select \"Accept these device settings\"",
+        TEXT_NORMAL
     },
     {
         6,
         24,
-        "и натиснете ENTER.",
-        TEXT_STYLE_NORMAL
+        "and press ENTER.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -454,56 +439,56 @@ static MUI_ENTRY bgBGRepairPageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Настройвачът на РеактОС е в ранна степен на разработка. Все още",
-        TEXT_STYLE_NORMAL
+        "ReactOS Setup is in an early development phase. It does not yet",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "няма всички възможности на напълно използваемо настройващо приложение.",
-        TEXT_STYLE_NORMAL
+        "support all the functions of a fully usable setup application.",
+        TEXT_NORMAL
     },
     {
         6,
         12,
-        "Възможността за поправка още не е готова.",
-        TEXT_STYLE_NORMAL
+        "The repair functions are not implemented yet.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "\x07  натиснете U за обновяване на операционната система.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press U for Updating OS.",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "\x07  Натиснете R за възстановяваща среда (конзола).",
-        TEXT_STYLE_NORMAL
+        "\x07  Press R for the Recovery Console.",
+        TEXT_NORMAL
     },
     {
         8,
         19,
-        "\x07  натсинете ESC за връщане към главната страница.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ESC to return to the main page.",
+        TEXT_NORMAL
     },
     {
         8,
         21,
-        "\x07  Натиснете ENTER за презапуск на компютъра.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ENTER to reboot your computer.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ESC = Главна страница  ENTER = Презапуск",
-        TEXT_TYPE_STATUS
+        "   ESC = Main page  ENTER = Reboot",
+        TEXT_STATUS
     },
     {
         0,
@@ -517,44 +502,44 @@ static MUI_ENTRY bgBGComputerPageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Решили сте да смените вида на компютъра.",
-        TEXT_STYLE_NORMAL
+        "You want to change the type of computer to be installed.",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  Изберете вида на екрана със стрелките нагоре и надолу и ",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the UP or DOWN key to select the desired computer type.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   натиснете ENTER.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  Натиснете ESC, за да се върнете към предходната страница, без да",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the ESC key to return to the previous page without changing",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "   сменяте вида на компютъра.",
-        TEXT_STYLE_NORMAL
+        "   the computer type.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   ESC = Отказ   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -569,32 +554,32 @@ static MUI_ENTRY bgBGFlushPageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
-        "Уредбата проверява, дали всички данни са съхранени на диска ви.",
-        TEXT_STYLE_NORMAL
+        "The system is now making sure all data is stored on your disk",
+        TEXT_NORMAL
     },
     {
         10,
         8,
-        "Това ще отнеме минутка.",
-        TEXT_STYLE_NORMAL
+        "This may take a minute",
+        TEXT_NORMAL
     },
     {
         10,
         9,
-        "Компютърът ви ще се презапусне сам, когато приключи.",
-        TEXT_STYLE_NORMAL
+        "When finished, your computer will reboot automatically",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   Изчистване на склада",
-        TEXT_TYPE_STATUS
+        "   Flushing cache",
+        TEXT_STATUS
     },
     {
         0,
@@ -609,38 +594,38 @@ static MUI_ENTRY bgBGQuitPageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
-        "Слагането на РеактОС не е завършило.",
-        TEXT_STYLE_NORMAL
+        "ReactOS is not completely installed",
+        TEXT_NORMAL
     },
     {
         10,
         8,
-        "Извадете дискетата от устройство А: и",
-        TEXT_STYLE_NORMAL
+        "Remove floppy disk from Drive A: and",
+        TEXT_NORMAL
     },
     {
         10,
         9,
-        "всички носители от КД и DVD устройствата.",
-        TEXT_STYLE_NORMAL
+        "all CD-ROMs from CD-Drives.",
+        TEXT_NORMAL
     },
     {
         10,
         11,
-        "Натиснете ENTER, за да презапуснете компютъра.",
-        TEXT_STYLE_NORMAL
+        "Press ENTER to reboot your computer.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   Изчакайте...",
-        TEXT_TYPE_STATUS,
+        "   Please wait ...",
+        TEXT_STATUS,
     },
     {
         0,
@@ -655,43 +640,43 @@ static MUI_ENTRY bgBGDisplayPageEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Решили сте да смените вида на екрана.",
-        TEXT_STYLE_NORMAL
+        "You want to change the type of display to be installed.",
+        TEXT_NORMAL
     },
     {   8,
         10,
-         "\x07  Изберете вида на екрана със стрелките нагоре и надолу и ",
-         TEXT_STYLE_NORMAL
+         "\x07  Press the UP or DOWN key to select the desired display type.",
+         TEXT_NORMAL
     },
     {
         8,
         11,
-        "   натиснете ENTER.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  Натиснете ESC, за да се върнете към предходната страница, без да",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the ESC key to return to the previous page without changing",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "   сменяте вида на екрана.",
-        TEXT_STYLE_NORMAL
+        "   the display type.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   ESC = Отказ   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -706,38 +691,38 @@ static MUI_ENTRY bgBGSuccessPageEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
-        "Основните съставки на РеактОС са сложени успешно.",
-        TEXT_STYLE_NORMAL
+        "The basic components of ReactOS have been installed successfully.",
+        TEXT_NORMAL
     },
     {
         10,
         8,
-        "Извадете дискетата от устройство А: и",
-        TEXT_STYLE_NORMAL
+        "Remove floppy disk from Drive A: and",
+        TEXT_NORMAL
     },
     {
         10,
         9,
-        "всички носители от оптичните устройства (КД/DVD)",
-        TEXT_STYLE_NORMAL
+        "all CD-ROMs from CD-Drive.",
+        TEXT_NORMAL
     },
     {
         10,
         11,
-        "Натиснете ENTER, за да презапуснете компютъра.",
-        TEXT_STYLE_NORMAL
+        "Press ENTER to reboot your computer.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Презапускане на компютъра",
-        TEXT_TYPE_STATUS
+        "   ENTER = Reboot computer",
+        TEXT_STATUS
     },
     {
         0,
@@ -752,38 +737,38 @@ static MUI_ENTRY bgBGBootPageEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Слагането на зареждача (bootloader) на диска на компютъра ви",
-        TEXT_STYLE_NORMAL
+        "Setup cannot install the bootloader on your computers",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "бе неуспешно.",
-        TEXT_STYLE_NORMAL
+        "hardisk",
+        TEXT_NORMAL
     },
     {
         6,
         13,
-        "Сложете форматирана дискета в устройство A:",
-        TEXT_STYLE_NORMAL
+        "Please insert a formatted floppy disk in drive A: and",
+        TEXT_NORMAL
     },
     {
         6,
         14,
-        "и натиснете ENTER.",
-        TEXT_STYLE_NORMAL,
+        "press ENTER.",
+        TEXT_NORMAL,
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -799,50 +784,50 @@ static MUI_ENTRY bgBGSelectPartitionEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Списъкът по- долу съдържа съществуващите дялове и празното",
-        TEXT_STYLE_NORMAL
+        "The list below shows existing partitions and unused disk",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "място за нови дялове",
-        TEXT_STYLE_NORMAL
+        "space for new partitions.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "\x07  Използвайте стрелките за избор от списъка.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press UP or DOWN to select a list entry.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  Натиснете ENTER за слагане на РеактОС на избрания дял.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ENTER to install ReactOS onto the selected partition.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "\x07  Натиснете C за създаване на нов дял.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press C to create a new partition.",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "\x07  Натиснете D за изтриване на съществуващ дял.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press D to delete an existing partition.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   Почакайте...",
-        TEXT_TYPE_STATUS
+        "   Please wait...",
+        TEXT_STATUS
     },
     {
         0,
@@ -857,32 +842,32 @@ static MUI_ENTRY bgBGFormatPartitionEntries[] =
     {
         4,
         3,
-        " Слагане на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Форматиране на дял",
-        TEXT_STYLE_NORMAL
+        "Format partition",
+        TEXT_NORMAL
     },
     {
         6,
         10,
-        "Дялът ще бъде форматиран. Натиснете ENTER за продължаване.",
-        TEXT_STYLE_NORMAL
+        "Setup will now format the partition. Press ENTER to continue.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
         0,
         NULL,
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     }
 };
 
@@ -891,44 +876,44 @@ static MUI_ENTRY bgBGInstallDirectoryEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Файловете на РеактОС ще бъдат сложени на избрания дял. Изберете",
-        TEXT_STYLE_NORMAL
+        "Setup installs ReactOS files onto the selected partition. Choose a",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "папка, в която да бъде сложен РеактОС:",
-        TEXT_STYLE_NORMAL
+        "directory where you want ReactOS to be installed:",
+        TEXT_NORMAL
     },
     {
         6,
         14,
-        "За смяна на предложената папка натиснете BACKSPACE, за да",
-        TEXT_STYLE_NORMAL
+        "To change the suggested directory, press BACKSPACE to delete",
+        TEXT_NORMAL
     },
     {
         6,
         15,
-        "изтриете знаците и тогава напишете папката, в която да бъде",
-        TEXT_STYLE_NORMAL
+        "characters and then type the directory where you want ReactOS to",
+        TEXT_NORMAL
     },
     {
         6,
         16,
-        "сложен РеактОС.",
-        TEXT_STYLE_NORMAL
+        "be installed.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -943,33 +928,32 @@ static MUI_ENTRY bgBGFileCopyEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         11,
         12,
-        "Изчакайте да приключи записът на файловете в избраната папка.",
-        TEXT_STYLE_NORMAL
+        "Please wait while ReactOS Setup copies files to your ReactOS",
+        TEXT_NORMAL
     },
     {
         30,
         13,
-       // "избраната папка.",
-       "",
-        TEXT_STYLE_NORMAL
+        "installation folder.",
+        TEXT_NORMAL
     },
     {
         20,
         14,
-        "Това може да отнеме няколко минути.",
-        TEXT_STYLE_NORMAL
+        "This may take several minutes to complete.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "                                                           \xB3 Почакайте...      ",
-        TEXT_TYPE_STATUS
+        "                                                           \xB3 Please wait...    ",
+        TEXT_STATUS
     },
     {
         0,
@@ -984,38 +968,38 @@ static MUI_ENTRY bgBGBootLoaderEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Протича слагането на зареждача.",
-        TEXT_STYLE_NORMAL
+        "Setup is installing the boot loader",
+        TEXT_NORMAL
     },
     {
         8,
         12,
-        "Слагане на зареждач на твърдия диск (MBR).",
-        TEXT_STYLE_NORMAL
+        "Install bootloader on the harddisk (MBR).",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "Слагане на зареждач на дискета.",
-        TEXT_STYLE_NORMAL
+        "Install bootloader on a floppy disk.",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "Да не се слага зареждач.",
-        TEXT_STYLE_NORMAL
+        "Skip install bootloader.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1030,44 +1014,44 @@ static MUI_ENTRY bgBGKeyboardSettingsEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Искате да смените вида на клавиатурата.",
-        TEXT_STYLE_NORMAL
+        "You want to change the type of keyboard to be installed.",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  Използвайте стрелките, за да изберете вида на клавиатура.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the UP or DOWN key to select the desired keyboard type.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   натиснете ENTER.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  Натиснете ESC, за да се върнете към предходната страница, без да",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the ESC key to return to the previous page without changing",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "   сменяте вида на клавиатурата.",
-        TEXT_STYLE_NORMAL
+        "   the keyboard type.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   ESC = Отказ   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1082,44 +1066,44 @@ static MUI_ENTRY bgBGLayoutSettingsEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Изберете подразбирана клавиатурна подредба.",
-        TEXT_STYLE_NORMAL
+        "You want to change the keyboard layout to be installed.",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  Използвайте стрелките, за да изберете желаната клавиатурна",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the UP or DOWN key to select the desired keyboard",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "    подредба и после натиснете ENTER.",
-        TEXT_STYLE_NORMAL
+        "    layout. Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  Натиснете ESC, за да се върнете към предходната страница, без да",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the ESC key to return to the previous page without changing",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "   сменяте клавиатурната подредба.",
-        TEXT_STYLE_NORMAL
+        "   the keyboard layout.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   ESC = Отказ   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1135,20 +1119,20 @@ static MUI_ENTRY bgBGPrepareCopyEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Компютърът се подготвя за запис на файловете на РеактОС. ",
-        TEXT_STYLE_NORMAL
+        "Setup prepares your computer for copying the ReactOS files. ",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   Съставяне на списъка от файлове за запис...",
-        TEXT_TYPE_STATUS
+        "   Building the file copy list...",
+        TEXT_STATUS
     },
     {
         0,
@@ -1164,38 +1148,38 @@ static MUI_ENTRY bgBGSelectFSEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         17,
-        "За да изберете файлова система от долния списък:",
+        "Select a file system from the list below.",
         0
     },
     {
         8,
         19,
-        "\x07  Изберете файлова система със стрелките.",
+        "\x07  Press UP or DOWN to select a file system.",
         0
     },
     {
         8,
         21,
-        "\x07  Натиснете ENTER, за да форматирате дяла.",
+        "\x07  Press ENTER to format the partition.",
         0
     },
     {
         8,
         23,
-        "\x07  Натиснете ESC, за да изберете друг дял.",
+        "\x07  Press ESC to select another partition.",
         0
     },
     {
         0,
         0,
-        "   ENTER = Продължаване   ESC = Отказ   F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
 
     {
@@ -1211,38 +1195,38 @@ static MUI_ENTRY bgBGDeletePartitionEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Избрали сте да изтриете дял",
-        TEXT_STYLE_NORMAL
+        "You have chosen to delete the partition",
+        TEXT_NORMAL
     },
     {
         8,
         18,
-        "\x07  Натиснете D, за да изтриете дяла.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press D to delete the partition.",
+        TEXT_NORMAL
     },
     {
         11,
         19,
-        "ВНИМАНИЕ: Всички данни на този дял ще бъдат унищожени!",
-        TEXT_STYLE_NORMAL
+        "WARNING: All data on this partition will be lost!",
+        TEXT_NORMAL
     },
     {
         8,
         21,
-        "\x07  Натиснете ESC, за да се откажете.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ESC to cancel.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   D = Изтриване на дяла, ESC = Отказ    F3 = Изход",
-        TEXT_TYPE_STATUS
+        "   D = Delete Partition   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1257,20 +1241,20 @@ static MUI_ENTRY bgBGRegistryEntries[] =
     {
         4,
         3,
-        " Настройка на РеактОС " KERNEL_VERSION_STR " . ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Протича обновяване на системните настройки. ",
-        TEXT_STYLE_NORMAL
+        "Setup is updating the system configuration. ",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   Създаване на регистърните роеве...",
-        TEXT_TYPE_STATUS
+        "   Creating registry hives...",
+        TEXT_STATUS
     },
     {
         0,
@@ -1285,209 +1269,197 @@ MUI_ERROR bgBGErrorEntries[] =
 {
     {
         //ERROR_NOT_INSTALLED
-        "РеактОС не е напълно сложен на компютъра\n"
-        "ви. Ако сега излезете от слаганете, ще трябва\n"
-        "да пуснете настройката отново, за да инсталирате РеактОС.\n"
+        "ReactOS is not completely installed on your\n"
+        "computer. If you quit Setup now, you will need to\n"
+        "run Setup again to install ReactOS.\n"
         "\n"
-        "  \x07  За да продължи слагането, натиснете ENTER.\n"
-        "  \x07  За изход натиснете F3.",
-        "F3 = Изход ENTER = Продължаване"
+        "  \x07  Press ENTER to continue Setup.\n"
+        "  \x07  Press F3 to quit Setup.",
+        "F3 = Quit  ENTER = Continue"
     },
     {
         //ERROR_NO_HDD
-        "Настройвачът не намери твърд диск.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup could not find a harddisk.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_NO_SOURCE_DRIVE
-        "Настройвачът не намери изходното си устройство.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup could not find its source drive.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_LOAD_TXTSETUPSIF
-        "Настройвачът не успя да намери файл TXTSETUP.SIF.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to load the file TXTSETUP.SIF.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CORRUPT_TXTSETUPSIF
-        "Настройвачът намери повреден файл TXTSETUP.SIF.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup found a corrupt TXTSETUP.SIF.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_SIGNATURE_TXTSETUPSIF,
-        "Настройвачът намери нереден подпис в TXTSETUP.SIF.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup found an invalid signature in TXTSETUP.SIF.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_DRIVE_INFORMATION
-        "Настройвачът не успя да открие сведенията на системното ви устройство.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup could not retrieve system drive information.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_WRITE_BOOT,
-        "Неуспешно слагане на означаваш запис (bootcode) за FAT в системния дял.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to install FAT bootcode on the system partition.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_LOAD_COMPUTER,
-        "Настройвачът не успя да зареди списъка с видовете компютри.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to load the computer type list.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_LOAD_DISPLAY,
-        "Настройвачът не успя да зареди списъка с натройки за монитори.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to load the display settings list.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_LOAD_KEYBOARD,
-        "Настройвачът не успя да зареди списъка с видовете клавиатури.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to load the keyboard type list.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_LOAD_KBLAYOUT,
-        "Настройвачът не успя да зареди списъка с клавиатурните подредби.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to load the keyboard layout list.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_WARN_PARTITION,
-          "Настройвачът установи, че поне един твърд диск съдържа несъвместима\n"
-          "дялова таблица, с която не може да се работи правилно!\n"
+          "Setup found that at least one harddisk contains an incompatible\n"
+          "partition table that can not be handled properly!\n"
           "\n"
-          "Създаването или изтриването на дялове може да унищожи дяловата таблица.\n"
+          "Creating or deleting partitions can destroy the partition table.\n"
           "\n"
-          "  \x07  За изход натиснете F3."
-          "  \x07  Натиснете ENTER за продължаване.",
-          "F3 = Изход ENTER = Продължаване"
+          "  \x07  Press F3 to quit Setup."
+          "  \x07  Press ENTER to continue.",
+          "F3= Quit  ENTER = Continue"
     },
     {
         //ERROR_NEW_PARTITION,
-        "Не можете да създадете нов дял в дял,\n"
-        "който вече съществува!\n"
+        "You can not create a new Partition inside\n"
+        "of an already existing Partition!\n"
         "\n"
-        "  * Натиснете клавиш, за да продължите.",
+        "  * Press any key to continue.",
         NULL
     },
     {
         //ERROR_DELETE_SPACE,
-        "Не можете за изтриете неразпределеното дисково място!\n"
+        "You can not delete unpartitioned disk space!\n"
         "\n"
-        "  * Натиснете клавиш, за да продължите.",
+        "  * Press any key to continue.",
         NULL
     },
     {
         //ERROR_INSTALL_BOOTCODE,
-        //"Setup failed to install the FAT bootcode on the system partition.",
-        "Неуспешно слагане на обуващия код за FAT на системния дял.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to install the FAT bootcode on the system partition.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_NO_FLOPPY,
-        "В устройство A: няма носител.",
-        "ENTER = Продължаване"
+        "No disk in drive A:.",
+        "ENTER = Continue"
     },
     {
         //ERROR_UPDATE_KBSETTINGS,
-        "Неуспешно обновяване на настройките на клавиатурната подредба.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to update keyboard layout settings.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_UPDATE_DISPLAY_SETTINGS,
-        "Неуспешно обновяване на регистърни настройки за монитора.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to update display registry settings.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_IMPORT_HIVE,
-        "Неуспешно внасяне на роевия файл.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to import a hive file.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_FIND_REGISTRY
-        "Не бяха открити файловете с регистърни данни.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to find the registry data files.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CREATE_HIVE,
-        "Настройвачът не успя да създаде регистърните роеве.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to create the registry hives.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_INITIALIZE_REGISTRY,
-        //There is something wrong with this line.
-        "Неуспешно означаване на регистъра.",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to set the initialize the registry.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_INVALID_CABINET_INF,
-        "Cab файлът няма правилен inf файл.\n",
-        "ENTER = Презапускане на компютъра"
+        "Cabinet has no valid inf file.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CABINET_MISSING,
-        "Cab файлът не е открит.\n",
-        "ENTER = Презапускане на компютъра"
+        "Cabinet not found.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CABINET_SCRIPT,
-        "Cab файлът няма настроечно писание.\n",
-        "ENTER = Презапускане на компютъра"
+        "Cabinet has no setup script.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_COPY_QUEUE,
-        "Неуспешно отваряне на опашката от файлове за запис.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to open the copy file queue.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CREATE_DIR,
-        "Неуспешно създаване на папките за слагане.",
-        "ENTER = Презапускане на компютъра"
+        "Setup could not create install directories.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_TXTSETUP_SECTION,
-        "Разделът 'Directories' не бе открит\n"
-        "в TXTSETUP.SIF.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to find the 'Directories' section\n"
+        "in TXTSETUP.SIF.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CABINET_SECTION,
-        "Разделът 'Directories' не бе открит\n"
-        "в cab файла.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to find the 'Directories' section\n"
+        "in the cabinet.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_CREATE_INSTALL_DIR
-        "Неуспешно създаване на папката за слагане.",
-        "ENTER = Презапускане на компютъра"
+        "Setup could not create the install directory.",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_FIND_SETUPDATA,
-        "Разделът 'SetupData' не бе открит\n"
-        "в TXTSETUP.SIF.\n",
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to find the 'SetupData' section\n"
+        "in TXTSETUP.SIF.\n",
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_WRITE_PTABLE,
-        "Неуспешно записване на дяловите таблици.\n"
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to write partition tables.\n"
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_ADDING_CODEPAGE,
-        "Неуспешно добавяне на знаковия набор в регистъра.\n"
-        "ENTER = Презапускане на компютъра"
+        "Setup failed to add codepage to registry.\n"
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_UPDATE_LOCALESETTINGS,
-        "Неуспешно установяване на местните настройки.\n"
-        "ENTER = Презапускане на компютъра"
-    },
-    {
-        //ERROR_ADDING_KBLAYOUTS,
-        "Неуспешно добавяне на клавиатурните подредби в регистъра.\n"
-        "ENTER = Презапускане на компютъра"
-    },
-    {
-        //ERROR_UPDATE_GEOID,
-        "Настройката не можа да установи означителя на географското положение.\n"
-        "ENTER = Презапускане на компютъра"
+        "Setup could not set the system locale.\n"
+        "ENTER = Reboot computer"
     },
     {
         NULL,
@@ -1594,117 +1566,6 @@ MUI_PAGE bgBGPages[] =
         -1,
         NULL
     }
-};
-
-MUI_STRING bgBGStrings[] =
-{
-    {STRING_PLEASEWAIT,
-     "   Почакайте..."},
-    {STRING_INSTALLCREATEPARTITION,
-     "   ENTER = Слагане   C = Създаване на дял   F3 = Изход"},
-    {STRING_INSTALLDELETEPARTITION,
-     "   ENTER = Слагане   D = Изтриване на дял   F3 = Изход"},
-    {STRING_PARTITIONSIZE,
-     "Размер на новия дял:"},
-    {STRING_CHOOSENEWPARTITION,
-     "Избрали сте да създадете нов дял на"},
-    {STRING_HDDSIZE,
-    "Въведете размера на новия дял (в мегабайти)."},
-    {STRING_CREATEPARTITION,
-     "   ENTER = Създаване на дял   ESC = Отказ   F3 = Изход"},
-    {STRING_PARTFORMAT,
-    "Предстои форматиране на дяла."},
-    {STRING_NONFORMATTEDPART,
-    "Избрали сте да сложите РеактОС на нов или неразпределен дял."},
-    {STRING_INSTALLONPART,
-    "Слагане на РеактОС върху дял"},
-    {STRING_CHECKINGPART,
-    "Тече проверка на избрания дял."},
-    {STRING_QUITCONTINUE,
-    "F3= Изход  ENTER = Продължаване"},
-    {STRING_REBOOTCOMPUTER,
-    "ENTER = Презапускане на компютъра"},
-    {STRING_TXTSETUPFAILED,
-    "Не бе намерен раздел '%S'\nв TXTSETUP.SIF.\n"},
-    {STRING_COPYING,
-     "\xB3 Запис на файл: %S"},
-    {STRING_SETUPCOPYINGFILES,
-     "Тече записване на файловете..."},
-    {STRING_REGHIVEUPDATE,
-    "   Осъвременяване на регистърните роеве..."},
-    {STRING_IMPORTFILE,
-    "   Внасяне на %S..."},
-    {STRING_DISPLAYETTINGSUPDATE,
-    "   Осъвременяване регистровите настройки на екрана..."},
-    {STRING_LOCALESETTINGSUPDATE,
-    "   Осъвременяване на местните настройки..."},
-    {STRING_KEYBOARDSETTINGSUPDATE,
-    "   Осъвременяване настройките на клавиатурните подредби..."},
-    {STRING_CODEPAGEINFOUPDATE,
-    "   Добавяне в регистъра на сведения за знаковия набор..."},
-    {STRING_DONE,
-    "   Готово..."},
-    {STRING_REBOOTCOMPUTER2,
-    "   ENTER = Презапускане на компютъра"},
-    {STRING_CONSOLEFAIL1,
-    "Отварянето на конзолата е невъзможно\n\n"},
-    {STRING_CONSOLEFAIL2,
-    "Това се случва най- често при употреба на USB клавиатура\n"},
-    {STRING_CONSOLEFAIL3,
-    "Поддръжката на USB е все още непълна\n"},
-    {STRING_FORMATTINGDISK,
-    "Тече форматиране на диска"},
-    {STRING_CHECKINGDISK,
-    "Тече проверка на диска"},
-    {STRING_FORMATDISK1,
-    " Форматиране на дяла като %S файлова уредба (бързо форматиране) "},
-    {STRING_FORMATDISK2,
-    " Форматиране на дяла като %S файлова уредба "},
-    {STRING_KEEPFORMAT,
-    " Запазване на файловата уредба (без промени) "},
-    {STRING_HDINFOPARTCREATE,
-    "%I64u %s  твърд диск %lu  (Извод=%hu, Шина=%hu, ОУ=%hu) на %wZ."},
-    {STRING_HDDINFOUNK1,
-    "%I64u %s  твърд диск %lu  (Извод=%hu, Шина=%hu, ОУ=%hu)."},
-    {STRING_HDDINFOUNK2,
-    "   %c%c  вид %lu    %I64u %s"},
-    {STRING_HDINFOPARTDELETE,
-    "на %I64u %s  твърд диск %lu  (Извод=%hu, Шина=%hu, ОУ=%hu) на %wZ."},
-    {STRING_HDDINFOUNK3,
-    "на %I64u %s  твърд диск %lu  (Извод=%hu, Шина=%hu, ОУ=%hu)."},
-    {STRING_HDINFOPARTZEROED,
-    "твърд диск %lu (%I64u %s), Извод=%hu, Шина=%hu, ОУ=%hu (%wZ)."},
-    {STRING_HDDINFOUNK4,
-    "%c%c  вид %lu    %I64u %s"},
-    {STRING_HDINFOPARTEXISTS,
-    "на твърд диск %lu (%I64u %s), Извод=%hu, Шина=%hu, ОУ=%hu (%wZ)."},
-    {STRING_HDDINFOUNK5,
-    "%c%c  вид %-3u                         %6lu %s"},
-    {STRING_HDINFOPARTSELECT,
-    "%6lu %s  твърд диск %lu  (Извод=%hu, Шина=%hu, ОУ=%hu) на %S"},
-    {STRING_HDDINFOUNK6,
-    "%6lu %s  твърд диск %lu  (Извод=%hu, Шина=%hu, ОУ=%hu)"},
-    {STRING_NEWPARTITION,
-    "Бе създаден нов дял на"},
-    {STRING_UNPSPACE,
-    "    Неразпределено място              %6lu %s"},
-    {STRING_MAXSIZE,
-    "МБ (до %lu МБ)"},
-    {STRING_UNFORMATTED,
-    "Нов (Неформатиран)"},
-    {STRING_FORMATUNUSED,
-    "Неизползван"},
-    {STRING_FORMATUNKNOWN,
-    "Неизвестен"},
-    {STRING_KB,
-    "КБ"},
-    {STRING_MB,
-    "МБ"},
-    {STRING_GB,
-    "ГБ"},
-    {STRING_ADDKBLAYOUTS,
-    "Добавяне на клавиатурни подредби"},
-    {0, 0}
 };
 
 #endif

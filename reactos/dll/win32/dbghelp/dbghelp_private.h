@@ -78,17 +78,11 @@ struct hash_table_elt
     struct hash_table_elt*      next;
 };
 
-struct hash_table_bucket
-{
-    struct hash_table_elt*      first;
-    struct hash_table_elt*      last;
-};
-
 struct hash_table
 {
     unsigned                    num_elts;
     unsigned                    num_buckets;
-    struct hash_table_bucket*   buckets;
+    struct hash_table_elt**     buckets;
     struct pool*                pool;
 };
 
@@ -96,6 +90,7 @@ void     hash_table_init(struct pool* pool, struct hash_table* ht,
                          unsigned num_buckets);
 void     hash_table_destroy(struct hash_table* ht);
 void     hash_table_add(struct hash_table* ht, struct hash_table_elt* elt);
+void*    hash_table_find(const struct hash_table* ht, const char* name);
 unsigned hash_table_hash(const char* name, unsigned num_buckets);
 
 struct hash_table_iter
@@ -111,7 +106,7 @@ void     hash_table_iter_init(const struct hash_table* ht,
 void*    hash_table_iter_up(struct hash_table_iter* hti);
 
 #define GET_ENTRY(__i, __t, __f) \
-    ((__t*)((char*)(__i) - FIELD_OFFSET(__t,__f)))
+    ((__t*)((char*)(__i) - (unsigned int)(&((__t*)0)->__f)))
 
 
 extern unsigned dbghelp_options;
@@ -211,12 +206,12 @@ struct symt_function
     struct vector               vchildren;      /* locals, params, blocks, start/end, labels */
 };
 
-struct symt_hierarchy_point
+struct symt_function_point
 {
     struct symt                 symt;           /* either SymTagFunctionDebugStart, SymTagFunctionDebugEnd, SymTagLabel */
-    struct hash_table_elt       hash_elt;       /* if label (and in compiland's hash table if global) */
-    struct symt*                parent;         /* symt_function or symt_compiland */
+    struct symt_function*       parent;
     struct location             loc;
+    const char*                 name;           /* for labels */
 };
 
 struct symt_public
@@ -261,7 +256,6 @@ struct symt_basic
 struct symt_enum
 {
     struct symt                 symt;
-    struct symt*                base_type;
     const char*                 name;
     struct vector               vchildren;
 };
@@ -308,8 +302,7 @@ enum module_type
     DMT_UNKNOWN,        /* for lookup, not actually used for a module */
     DMT_ELF,            /* a real ELF shared module */
     DMT_PE,             /* a native or builtin PE module */
-    DMT_PDB,            /* .PDB file */
-    DMT_DBG,            /* .DBG file */
+    DMT_PDB,            /* PDB file */
 };
 
 struct process;
@@ -479,11 +472,6 @@ extern BOOL         pe_load_debug_directory(const struct process* pcs,
                                             const IMAGE_DEBUG_DIRECTORY* dbg, int nDbg);
 extern BOOL         pdb_fetch_file_info(struct pdb_lookup* pdb_lookup);
 
-/* path.c */
-extern BOOL         path_find_symbol_file(const struct process* pcs, PCSTR full_path,
-                                          const GUID* guid, DWORD dw1, DWORD dw2, PSTR buffer,
-                                          BOOL* is_unmatched);
-
 /* pe_module.c */
 extern BOOL         pe_load_nt_header(HANDLE hProc, DWORD base, IMAGE_NT_HEADERS* nth);
 extern struct module*
@@ -560,7 +548,7 @@ extern struct symt_block*
                     symt_close_func_block(struct module* module, 
                                           struct symt_function* func,
                                           struct symt_block* block, unsigned pc);
-extern struct symt_hierarchy_point*
+extern struct symt_function_point*
                     symt_add_function_point(struct module* module, 
                                             struct symt_function* func,
                                             enum SymTagEnum point, 
@@ -580,10 +568,6 @@ extern struct symt_data*
                                       struct symt_compiland* parent,
                                       const char* name, struct symt* type,
                                       const VARIANT* v);
-extern struct symt_hierarchy_point*
-                    symt_new_label(struct module* module,
-                                   struct symt_compiland* compiland,
-                                   const char* name, unsigned long address);
 
 /* type.c */
 extern void         symt_init_basic(struct module* module);
@@ -603,8 +587,7 @@ extern BOOL         symt_add_udt_element(struct module* module,
                                          struct symt* elt_type, unsigned offset, 
                                          unsigned size);
 extern struct symt_enum*
-                    symt_new_enum(struct module* module, const char* typename,
-                                  struct symt* basetype);
+                    symt_new_enum(struct module* module, const char* typename);
 extern BOOL         symt_add_enum_element(struct module* module, 
                                           struct symt_enum* enum_type, 
                                           const char* name, int value);

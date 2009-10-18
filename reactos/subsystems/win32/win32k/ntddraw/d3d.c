@@ -22,8 +22,7 @@
 * @implemented
 *
 * The function NtGdiDdCanCreateD3DBuffer checks if you can create a 
-* surface for DirectX. it redirects to dxg.sys in windows XP/2003, 
-* dxkrnl.sys in vista and is fully implemented in win32k.sys in windows 2000 and below
+* surface for DirectX. It is redirected to dxg.sys.
 *
 * @param HANDLE hDirectDraw
 * The handle we got from NtGdiDdCreateDirectDrawObject
@@ -50,13 +49,11 @@
 * puCanCreateSurfaceData->lpDD  is a pointer to DDRAWI_DIRECTDRAW_GBL, not PDD_DIRECTDRAW_GLOBAL as MSDN claims.
 * puCanCreateSurfaceData->lpDD->hDD also needs be filled in with the handle we got from NtGdiDdCreateDirectDrawObject.
 * puCreateSurfaceData->CanCreateSurface is a pointer to the real functions in the HAL or HEL, that you need fill in.
-* Do not forget PDD_CANCREATESURFACEDATA is typecast of LPDDHAL_CANCREATESURFACEDATA and thuse two struct are different size,
-* the correct struct is LPDDHAL_CANCREATESURFACEDATA.
 *
 *--*/
 
 DWORD
-APIENTRY
+STDCALL
 NtGdiDdCanCreateD3DBuffer(HANDLE hDirectDraw,
                           PDD_CANCREATESURFACEDATA puCanCreateSurfaceData)
 {
@@ -76,9 +73,8 @@ NtGdiDdCanCreateD3DBuffer(HANDLE hDirectDraw,
 * @name NtGdiD3dContextCreate
 * @implemented
 *
-* The Function NtGdiD3dContextCreate checks if you can create a 
-* context for Directx. It redirects to dxg.sys in windows XP/2003, 
-* dxkrnl.sys in vista and is fully implemented in win32k.sys in windows 2000 and below
+* The Function NtGdiDdCanCreateD3DBuffer checks if you can create a 
+* surface for Directx. It redirects the call to dxg.sys.
 *
 * @param HANDLE hDirectDrawLocal
 * The handle we got from NtGdiDdCreateDirectDrawObject
@@ -89,45 +85,39 @@ NtGdiDdCanCreateD3DBuffer(HANDLE hDirectDraw,
 * @param HANDLE hSurfZ
 * Handle to a DD_SURFACE_LOCAL. It is the Z deep buffer. According MSDN if it is set to NULL nothing should happen.
 *
-* @param LPD3DNTHAL_CONTEXTCREATEDATA pdcci
+* @param D3DNTHAL_CONTEXTCREATEDATA* hSurfZ
 * The buffer to create the context data
 *
 * @return 
 * DDHAL_DRIVER_HANDLED or DDHAL_DRIVER_NOTHANDLED if the driver supports this function.
 * A full check is done by checking if the return value is DDHAL_DRIVER_HANDLED 
-* and pdcci->ddRVal is set to DD_OK.
+* and puCanCreateSurfaceData->ddRVal is set to DD_OK.
 *
 *
 * @remarks.
 * dxg.sys NtGdiD3dContextCreate calls are redirected to the same function in the dxg.sys. As such they all work the same way.
 *
-* Before calling this function please set the pdcci->ddRVal to an error value such as DDERR_NOTSUPORTED,
+* Before calling this function please set the hSurfZ->ddRVal to an error value such as DDERR_NOTUSPORTED,
 * for the ddRVal will otherwise be unchanged even if an error occurs inside the driver. 
+* hSurfZ->dwhContext also needs to be filled in with the handle we got from NtGdiDdCreateDirectDrawObject
 *
-* pdcci->lpDDLcl is a pointer to DDRAWI_DIRECTDRAW_LCL, not DD_DIRECTDRAW_LOCAL  as MSDN claims.
-* pdcci->lpDDSLcl is a pointer to DDRAWI_DDRAWSURFACE_LCL, not DD_DDDRAWSURFACE_LOCAL as MSDN claims.
-* pdcci->lpDDSZLcl is a pointer to DDRAWI_DDRAWSURFACE_LCL, not DD_DDRAWSURFACE_LOCAL as MSDN claims.
-* pdcci->dwhContext also needs be filled in with the handle we receive from NtGdiDdCreateDirectDrawObject.
-* pdcci->dwPID the processid it belong to, that you need to fill in.
-* Do not forget LPD3DNTHAL_CONTEXTCREATEDATA is typecast of LPD3DHAL_CONTEXTCREATEDATA and thuse two struct are different size,
-* the correct struct is LPD3DHAL_CONTEXTCREATEDATA.
 *--*/
 BOOL 
-APIENTRY
+STDCALL
 NtGdiD3dContextCreate(HANDLE hDirectDrawLocal,
                       HANDLE hSurfColor,
                       HANDLE hSurfZ,
-                      LPD3DNTHAL_CONTEXTCREATEDATA pdcci)
+                      D3DNTHAL_CONTEXTCREATEDATA* pdcci)
 {
     PGD_D3DCONTEXTCREATE pfnD3dContextCreate = (PGD_D3DCONTEXTCREATE)gpDxFuncs[DXG_INDEX_DxD3dContextCreate].pfn;
 
     if (pfnD3dContextCreate == NULL)
     {
-		DPRINT1("Warning: no pfnD3dContextCreate");
+        DPRINT1("Warring no pfnD3dContextCreate");
         return FALSE;
     }
 
-	DPRINT1("Calling dxg.sys D3dContextCreate");
+    DPRINT1("Calling on dxg.sys D3dContextCreate");
     return pfnD3dContextCreate(hDirectDrawLocal, hSurfColor, hSurfZ, pdcci);
 }
 
@@ -136,8 +126,6 @@ NtGdiD3dContextCreate(HANDLE hDirectDrawLocal,
 * @implemented
 *
 * The Function NtGdiD3dContextDestroy destorys the context data we got from NtGdiD3dContextCreate
-* It redirects to dxg.sys in windows XP/2003,  dxkrnl.sys in vista and is fully implemented 
-* in win32k.sys in windows 2000 and below
 *
 * @param LPD3DNTHAL_CONTEXTDESTROYDATA pContextDestroyData
 * The context data we want to destroy
@@ -151,18 +139,18 @@ NtGdiD3dContextCreate(HANDLE hDirectDrawLocal,
 *
 *--*/
 DWORD
-APIENTRY
+STDCALL
 NtGdiD3dContextDestroy(LPD3DNTHAL_CONTEXTDESTROYDATA pContextDestroyData)
 {
     PGD_D3DCONTEXTDESTROY pfnD3dContextDestroy = (PGD_D3DCONTEXTDESTROY)gpDxFuncs[DXG_INDEX_DxD3dContextDestroy].pfn;
 
     if ( pfnD3dContextDestroy == NULL)
     {
-		DPRINT1("Warning: no pfnD3dContextDestroy");
+        DPRINT1("Warring no pfnD3dContextDestroy");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys D3dContextDestroy");
+    DPRINT1("Calling on dxg.sys D3dContextDestroy");
     return pfnD3dContextDestroy(pContextDestroyData);
 }
 
@@ -172,8 +160,6 @@ NtGdiD3dContextDestroy(LPD3DNTHAL_CONTEXTDESTROYDATA pContextDestroyData)
 *
 * The Function NtGdiD3dContextDestroyAll destroys all the context data in a process
 * The data having been allocated with NtGdiD3dContextCreate
-* It redirects to dxg.sys in windows XP/2003,  dxkrnl.sys in vista and is fully implemented 
-* in win32k.sys in windows 2000 and below
 *
 * @param LPD3DNTHAL_CONTEXTDESTROYALLDATA pdcad
 * The context data we want to destory
@@ -189,18 +175,18 @@ NtGdiD3dContextDestroy(LPD3DNTHAL_CONTEXTDESTROYDATA pContextDestroyData)
 * any parameters. Last time MSDN checked: 19/10-2007
 *--*/
 DWORD
-APIENTRY
+STDCALL
 NtGdiD3dContextDestroyAll(LPD3DNTHAL_CONTEXTDESTROYALLDATA pdcad)
 {
     PGD_D3DCONTEXTDESTROYALL pfnD3dContextDestroyAll = (PGD_D3DCONTEXTDESTROYALL)gpDxFuncs[DXG_INDEX_DxD3dContextDestroyAll].pfn;
 
     if (pfnD3dContextDestroyAll == NULL)
     {
-		DPRINT1("Warning: no pfnD3dContextDestroyAll");
+        DPRINT1("Warring no pfnD3dContextDestroyAll");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys D3dContextDestroyAll");
+    DPRINT1("Calling on dxg.sys D3dContextDestroyAll");
     return pfnD3dContextDestroyAll(pdcad);
 }
 
@@ -208,9 +194,8 @@ NtGdiD3dContextDestroyAll(LPD3DNTHAL_CONTEXTDESTROYALLDATA pdcad)
 * @name NtGdiDdCreateD3DBuffer
 * @implemented
 *
-* The function NtGdiDdCreateD3DBuffer creates a surface for DirectX. 
-* It redirects to dxg.sys in windows XP/2003,  dxkrnl.sys in vista and is fully implemented 
-* in win32k.sys in windows 2000 and below
+* The function NtGdiDdCreateD3DBuffer creates a 
+* surface for DirectX. It is redirected to dxg.sys.
 *
 * @param HANDLE hDirectDraw
 * The handle we got from NtGdiDdCreateDirectDrawObject
@@ -257,7 +242,7 @@ NtGdiD3dContextDestroyAll(LPD3DNTHAL_CONTEXTDESTROYALLDATA pdcad)
 *
 *--*/
 DWORD
-APIENTRY
+STDCALL
 NtGdiDdCreateD3DBuffer(HANDLE hDirectDraw,
                        HANDLE *hSurface,
                        DDSURFACEDESC *puSurfaceDescription,
@@ -271,11 +256,11 @@ NtGdiDdCreateD3DBuffer(HANDLE hDirectDraw,
 
     if (pfnDdCreateD3DBuffer == NULL)
     {
-        DPRINT1("Warning no pfnDdCreateD3DBuffer");
+        DPRINT1("Warring no pfnDdCreateD3DBuffer");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys DdCreateD3DBuffer");
+    DPRINT1("Calling on dxg.sys DdCreateD3DBuffer");
     return pfnDdCreateD3DBuffer(hDirectDraw, hSurface,
                                 puSurfaceDescription, puSurfaceGlobalData,
                                 puSurfaceLocalData, puSurfaceMoreData,
@@ -286,18 +271,21 @@ NtGdiDdCreateD3DBuffer(HANDLE hDirectDraw,
 /* NtGdiDdDestroyD3DBuffer                                              */
 /************************************************************************/
 DWORD
-APIENTRY
+STDCALL
 NtGdiDdDestroyD3DBuffer(HANDLE hSurface)
 {
-    PGD_DXDDDESTROYD3DBUFFER pfnDdDestroyD3DBuffer = (PGD_DXDDDESTROYD3DBUFFER)gpDxFuncs[DXG_INDEX_DxDdDestroyD3DBuffer].pfn;  
-    
+    PGD_DXDDDESTROYD3DBUFFER pfnDdDestroyD3DBuffer = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdDestroyD3DBuffer, pfnDdDestroyD3DBuffer);
+
     if (pfnDdDestroyD3DBuffer == NULL)
     {
-        DPRINT1("Warning no pfnDdDestroyD3DBuffer");
+        DPRINT1("Warring no pfnDdDestroyD3DBuffer");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys pfnDdDestroyD3DBuffer");
+    DPRINT1("Calling on dxg.sys pfnDdDestroyD3DBuffer");
     return pfnDdDestroyD3DBuffer(hSurface);
 }
 
@@ -305,7 +293,7 @@ NtGdiDdDestroyD3DBuffer(HANDLE hSurface)
 /* NtGdiD3dDrawPrimitives2                                              */
 /************************************************************************/
 DWORD
-APIENTRY
+STDCALL
 NtGdiD3dDrawPrimitives2(HANDLE hCmdBuf,
                         HANDLE hVBuf,
                         LPD3DNTHAL_DRAWPRIMITIVES2DATA pded,
@@ -314,15 +302,18 @@ NtGdiD3dDrawPrimitives2(HANDLE hCmdBuf,
                         FLATPTR *pfpVidMemVtx,
                         DWORD *pdwSizeVtx)
 {
-    PGD_D3DDRAWPRIMITIVES2 pfnD3dDrawPrimitives2  = (PGD_D3DDRAWPRIMITIVES2)gpDxFuncs[DXG_INDEX_DxD3dDrawPrimitives2].pfn;  
-    
+    PGD_D3DDRAWPRIMITIVES2 pfnD3dDrawPrimitives2 = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxD3dDrawPrimitives2, pfnD3dDrawPrimitives2);
+
     if (pfnD3dDrawPrimitives2 == NULL)
     {
-		DPRINT1("Warning: no pfnD3dDrawPrimitives2");
+        DPRINT1("Warring no pfnD3dDrawPrimitives2");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys D3dDrawPrimitives2");
+    DPRINT1("Calling on dxg.sys D3dDrawPrimitives2");
     return pfnD3dDrawPrimitives2(hCmdBuf,hVBuf,pded,pfpVidMemCmd,pdwSizeCmd,pfpVidMemVtx,pdwSizeVtx);
 }
 
@@ -331,19 +322,22 @@ NtGdiD3dDrawPrimitives2(HANDLE hCmdBuf,
 /* NtGdiD3dValidateTextureStageState                                    */
 /************************************************************************/
 DWORD
-APIENTRY
+STDCALL
 NtGdiDdLockD3D(HANDLE hSurface,
                PDD_LOCKDATA puLockData)
 {
-    PGD_DXDDLOCKD3D pfnDdLockD3D  = (PGD_DXDDLOCKD3D)gpDxFuncs[DXG_INDEX_DxDdLockD3D].pfn;  
-    
+    PGD_DXDDLOCKD3D pfnDdLockD3D  = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdLockD3D, pfnDdLockD3D);
+
     if (pfnDdLockD3D == NULL)
     {
-		DPRINT1("Warning: no pfnDdLockD3D");
+        DPRINT1("Warring no pfnDdLockD3D");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys pfnDdLockD3D");
+    DPRINT1("Calling on dxg.sys pfnDdLockD3D");
     return pfnDdLockD3D(hSurface, puLockData);
 }
 
@@ -351,18 +345,21 @@ NtGdiDdLockD3D(HANDLE hSurface,
 /* NtGdiD3dValidateTextureStageState                                    */
 /************************************************************************/
 DWORD
-APIENTRY
+STDCALL
 NtGdiD3dValidateTextureStageState(LPD3DNTHAL_VALIDATETEXTURESTAGESTATEDATA pData)
 {
-    PGD_D3DVALIDATETEXTURESTAGESTATE pfnD3dValidateTextureStageState = (PGD_D3DVALIDATETEXTURESTAGESTATE)gpDxFuncs[DXG_INDEX_DxD3dValidateTextureStageState].pfn;  
-   
+    PGD_D3DVALIDATETEXTURESTAGESTATE pfnD3dValidateTextureStageState = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxD3dValidateTextureStageState, pfnD3dValidateTextureStageState);
+
     if (pfnD3dValidateTextureStageState == NULL)
     {
-		DPRINT1("Warning: no pfnD3dValidateTextureStageState");
+        DPRINT1("Warring no pfnD3dValidateTextureStageState");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys D3dValidateTextureStageState");
+    DPRINT1("Calling on dxg.sys D3dValidateTextureStageState");
     return pfnD3dValidateTextureStageState(pData);
 }
 
@@ -370,19 +367,22 @@ NtGdiD3dValidateTextureStageState(LPD3DNTHAL_VALIDATETEXTURESTAGESTATEDATA pData
 /* NtGdiDdUnlockD3D                                                     */
 /************************************************************************/
 DWORD
-APIENTRY
+STDCALL
 NtGdiDdUnlockD3D(HANDLE hSurface,
                  PDD_UNLOCKDATA puUnlockData)
 {
-    PGD_DXDDUNLOCKD3D pfnDdUnlockD3D = (PGD_DXDDUNLOCKD3D)gpDxFuncs[DXG_INDEX_DxDdUnlockD3D].pfn;
-   
+    PGD_DXDDUNLOCKD3D pfnDdUnlockD3D = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdUnlockD3D, pfnDdUnlockD3D);
+
     if (pfnDdUnlockD3D == NULL)
     {
-		DPRINT1("Warning: no pfnDdUnlockD3D");
+        DPRINT1("Warring no pfnDdUnlockD3D");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys pfnDdUnlockD3D");
+    DPRINT1("Calling on dxg.sys pfnDdUnlockD3D");
     return pfnDdUnlockD3D(hSurface, puUnlockData);
 
 }

@@ -22,18 +22,12 @@
 import "objidl.idl";
 import "oleidl.idl";
 import "oaidl.idl";
-import "docobj.idl";
 import "shtypes.idl";
 import "servprov.idl";
 import "comcat.idl";
 import "propidl.idl";
-/* FIXME: import "prsht.idl";*/
-import "msxml.idl";
-import "wtypes.idl";
-/* FIXME: import "propsys.idl"; */
-/* FIXME: import "structuredquery.idl"; */
-
-cpp_quote("/* FIXME: #include <sherrors.h> */")
+/*import "prsht.idl";*/
+/*import "msxml.idl";*/
 
 
 /*****************************************************************************
@@ -65,21 +59,6 @@ interface IPersistFolder2 : IPersistFolder
     typedef IPersistFolder2 *LPPERSISTFOLDER2;
 
     HRESULT GetCurFolder( [out] LPITEMIDLIST *ppidl );
-}
-
-
-/*****************************************************************************
- * IPersistIDList interface
- */
-[
-    object,
-    uuid(1079acfc-29bd-11d3-8e0d-00c04f6837d5),
-    pointer_default(unique)
-]
-interface IPersistIDList : IPersist
-{
-    HRESULT SetIDList( [in] LPCITEMIDLIST pidl );
-    HRESULT GetIDList( [out] LPITEMIDLIST *ppidl );
 }
 
 
@@ -355,41 +334,7 @@ interface IShellFolder2 : IShellFolder
     HRESULT MapColumnToSCID( [in] UINT iColumn, [in] SHCOLUMNID *pscid );
 }
 
-/*****************************************************************************
- * IShellItem interface
- */
-[
-    object,
-    uuid(43826d1e-e718-42ee-bc55-a1e261c37bfe),
-    pointer_default(unique)
-]
-interface IShellItem : IUnknown
-{
-    typedef DWORD SIGDN;
 
-    typedef DWORD SICHINTF;
-
-    HRESULT BindToHandler(
-        [in] IBindCtx *pbc,
-        [in] REFGUID rbhid,
-        [in] REFIID riid,
-        [out, iid_is(riid)] void **ppvOut);
-
-    HRESULT GetParent( [out] IShellItem **ppsi );
-
-    HRESULT GetDisplayName(
-        [in] SIGDN sigdnName,
-        [out] LPWSTR *ppszName);
-
-    HRESULT GetAttributes(
-        [in] SFGAOF sfgaoMask,
-        [out] SFGAOF *psfgaoAttribs);
-
-    HRESULT Compare(
-        [in] IShellItem *psi,
-        [in] SICHINTF hint,
-        [out] int *piOrder);
-}
 
 /*****************************************************************************
  * FOLDERSETTINGS
@@ -512,80 +457,6 @@ interface IShellView : IOleWindow
         [in] UINT uItem,
         [in] REFIID riid,
         [out, iid_is(riid)] void **ppv);
-}
-
-
-[
-    uuid(88E39E80-3578-11CF-AE69-08002B2E1262),
-    object,
-    pointer_default(unique)
-]
-interface IShellView2 :  IShellView
-{
-    typedef GUID SHELLVIEWID;
-
-    cpp_quote("#define SV2GV_CURRENTVIEW ((UINT)-1)")
-    cpp_quote("#define SV2GV_DEFAULTVIEW ((UINT)-2)")
-
-    cpp_quote("#include <pshpack8.h>")
-    typedef struct _SV2CVW2_PARAMS
-    {
-        DWORD cbSize;
-
-        IShellView *psvPrev;
-        LPCFOLDERSETTINGS pfs;
-        IShellBrowser *psbOwner;
-        RECT *prcView;
-        SHELLVIEWID const *pvid;
-        HWND hwndView;
-
-    } SV2CVW2_PARAMS, *LPSV2CVW2_PARAMS;
-
-    cpp_quote("#include <poppack.h>")
-
-    HRESULT GetView(
-        [in, out] SHELLVIEWID* pvid,
-        [in] ULONG uView);
-
-    HRESULT CreateViewWindow2(
-        [in] LPSV2CVW2_PARAMS lpParams);
-
-    HRESULT HandleRename(
-        [in, unique] PCUITEMID_CHILD pidlNew);
-
-    HRESULT SelectAndPositionItem(
-        [in] PCUITEMID_CHILD pidlItem,
-        [in] UINT uFlags,
-        [in, unique] POINT *ppt);
-}
-
-
-[
-    uuid(ec39fa88-f8af-41c5-8421-38bed28f4673),
-    object,
-    pointer_default(unique)
-]
-interface IShellView3 :  IShellView2
-{
-    enum tagSV3CVW3
-    {
-        SV3CVW3_DEFAULT             = 0x00000000,
-        SV3CVW3_NONINTERACTIVE      = 0x00000001,
-        SV3CVW3_FORCEVIEWMODE       = 0x00000002,
-        SV3CVW3_FORCEFOLDERFLAGS    = 0x00000004,
-    };
-    typedef DWORD SV3CVW3_FLAGS;
-
-    HRESULT CreateViewWindow3(
-        [in] IShellBrowser *psbOwner,
-        [in, unique] IShellView *psvPrev,
-        [in] SV3CVW3_FLAGS dwViewFlags,
-        [in] FOLDERFLAGS dwMask,
-        [in] FOLDERFLAGS dwFlags,
-        [in] FOLDERVIEWMODE fvMode,
-        [in, unique] const SHELLVIEWID *pvid,
-        [in] const RECT *prcView,
-        [out] HWND *phwndView);
 }
 
 
@@ -843,8 +714,7 @@ cpp_quote("#define IShellLink WINELIB_NAME_AW(IShellLink)")
 [
     object,
     uuid(000214e8-0000-0000-c000-000000000046),
-    pointer_default(unique),
-    local
+    pointer_default(unique)
 ]
 interface IShellExtInit : IUnknown
 {
@@ -997,8 +867,7 @@ cpp_quote("#define CDBOSC_STATECHANGE  0x00000004")
 [
     object,
     uuid(47d2657a-7b27-11d0-8ca9-00a0c92dbfe8),
-    pointer_default(unique),
-    local
+    pointer_default(unique)
 ]
 interface IDockingWindowFrame : IOleWindow
 {
@@ -1088,8 +957,7 @@ interface IDropTargetHelper : IUnknown
 [
     object,
     uuid(000214e4-0000-0000-c000-000000000046),
-    pointer_default(unique),
-    local
+    pointer_default(unique)
 ]
 interface IContextMenu : IUnknown
 {
@@ -1247,8 +1115,7 @@ interface IContextMenu3 : IContextMenu2
 [
     object,
     uuid(000214f5-0000-0000-c000-000000000046),
-    pointer_default(unique),
-    local
+    pointer_default(unique)
 ]
 interface IShellExecuteHookA : IUnknown
 {
@@ -1264,8 +1131,7 @@ interface IShellExecuteHookA : IUnknown
 [
     object,
     uuid(000214fb-0000-0000-c000-000000000046),
-    pointer_default(unique),
-    local
+    pointer_default(unique)
 ]
 interface IShellExecuteHookW : IUnknown
 {
@@ -1284,9 +1150,9 @@ interface IShellExecuteHookW : IUnknown
 ]
 interface IShellLinkDataList : IUnknown
 {
-    [local] HRESULT AddDataBlock(
+    HRESULT AddDataBlock(
                 [in] void *pDataBlock);
-    [local] HRESULT CopyDataBlock(
+    HRESULT CopyDataBlock(
                 [in] DWORD dwSig,
                 [out] void **ppDataBlock);
     HRESULT RemoveDataBlock(
@@ -1396,7 +1262,7 @@ interface INewShortcutHookA : IUnknown
     HRESULT GetExtension(
                 [out] LPSTR pszExtension,
                 [in] int cchExtension);
-} 
+}
 
 
 /*****************************************************************************
@@ -1426,24 +1292,8 @@ interface INewShortcutHookW : IUnknown
     HRESULT GetExtension(
                 [out] LPWSTR pszExtension,
                 [in] int cchExtension);
-} 
-
-/*****************************************************************************
- * IRunnableTask interface
- */
-[
-    object,
-    uuid(85788d00-6807-11d0-b810-00c04fd706ec),
-    pointer_default(unique)
-]
-interface IRunnableTask : IUnknown
-{
-    HRESULT Run();
-    HRESULT Kill([in] BOOL fWait);
-    HRESULT Suspend();
-    HRESULT Resume();
-    ULONG IsRunning();
 }
+
 
 /*****************************************************************************
  * IShellChangeNotify interface
@@ -1478,33 +1328,6 @@ interface IFileSystemBindData : IUnknown
 }
 
 /*****************************************************************************
- *    ITaskbarList interface
- */
-[
-    object,
-    uuid(56FDF342-FD6D-11d0-958A-006097C9A090),
-    pointer_default(unique)
-]
-interface ITaskbarList : IUnknown
-{
-    HRESULT HrInit();
-
-    HRESULT AddTab(
-        [in] HWND hwnd);
-
-    HRESULT DeleteTab(
-        [in] HWND hwnd);
-
-    HRESULT ActivateTab(
-        [in] HWND hwnd);
-
-    HRESULT SetActiveAlt(
-        [in] HWND hwnd);
-}
-
-cpp_quote("EXTERN_C const CLSID CLSID_TaskbarList;")
-
-/*****************************************************************************
  * IContextMenuCB interface
  */
 
@@ -1531,8 +1354,7 @@ interface IContextMenuCB : IUnknown
 [
     object,
     uuid(800AB0B8-F5FA-4e72-8FF3-B1A243B87BD9), /* FIXME: wrong value! */
-    pointer_default(unique),
-	local
+    pointer_default(unique)
 ]
 interface IDefaultExtractIconInit : IUnknown
 {
@@ -1553,319 +1375,3 @@ interface IDefaultExtractIconInit : IUnknown
                        [in] LPCWSTR pszFile,
                        [in] int iIcon);
 }
-
-
-/*****************************************************************************
- * IDockingWindow interface
- */
-[
-    uuid(012dd920-7b26-11d0-8ca9-00a0c92dbfe8),
-    object
-]
-interface IDockingWindow : IOleWindow
-{
-    HRESULT ShowDW([in] BOOL fShow);
-
-    HRESULT CloseDW([in] DWORD dwReserved);
-
-    HRESULT ResizeBorderDW(
-        [in] LPCRECT prcBorder,
-        [in] IUnknown* punkToolbarSite,
-        [in] BOOL fReserved);
-}
-
-
-/*****************************************************************************
- * IDeskBand interface
- */
-cpp_quote("#define DBIM_MINSIZE    0x0001")
-cpp_quote("#define DBIM_MAXSIZE    0x0002")
-cpp_quote("#define DBIM_INTEGRAL   0x0004")
-cpp_quote("#define DBIM_ACTUAL     0x0008")
-cpp_quote("#define DBIM_TITLE      0x0010")
-cpp_quote("#define DBIM_MODEFLAGS  0x0020")
-cpp_quote("#define DBIM_BKCOLOR    0x0040")
-
-cpp_quote("#include <pshpack8.h>")
-
-typedef struct tagDESKBANDINFO
-{
-    DWORD       dwMask;
-    POINTL      ptMinSize;
-    POINTL      ptMaxSize;
-    POINTL      ptIntegral;
-    POINTL      ptActual;
-    WCHAR       wszTitle[256];
-    DWORD       dwModeFlags;
-    COLORREF    crBkgnd;
-} DESKBANDINFO;
-
-cpp_quote("#include <poppack.h>")
-
-cpp_quote("#define DBIMF_NORMAL            0x0000")
-cpp_quote("#define DBIMF_FIXED             0x0001")
-cpp_quote("#define DBIMF_FIXEDBMP          0x0004   // a fixed background bitmap (if supported)")
-cpp_quote("#define DBIMF_VARIABLEHEIGHT    0x0008")
-cpp_quote("#define DBIMF_UNDELETEABLE      0x0010")
-cpp_quote("#define DBIMF_DEBOSSED          0x0020")
-cpp_quote("#define DBIMF_BKCOLOR           0x0040")
-cpp_quote("#define DBIMF_USECHEVRON        0x0080")
-cpp_quote("#define DBIMF_BREAK             0x0100")
-cpp_quote("#define DBIMF_ADDTOFRONT        0x0200")
-cpp_quote("#define DBIMF_TOPALIGN          0x0400")
-cpp_quote("#if (NTDDI_VERSION >= NTDDI_LONGHORN)")
-cpp_quote("#define DBIMF_NOGRIPPER         0x0800")
-cpp_quote("#define DBIMF_ALWAYSGRIPPER     0x1000")
-cpp_quote("#define DBIMF_NOMARGINS         0x2000")
-cpp_quote("#endif  // NTDDI_LONGHORN")
-
-cpp_quote("#define DBIF_VIEWMODE_NORMAL         0x0000")
-cpp_quote("#define DBIF_VIEWMODE_VERTICAL       0x0001")
-cpp_quote("#define DBIF_VIEWMODE_FLOATING       0x0002")
-cpp_quote("#define DBIF_VIEWMODE_TRANSPARENT    0x0004")
-
-enum tagDESKBANDCID {
-    DBID_BANDINFOCHANGED    = 0,
-    DBID_SHOWONLY           = 1,
-    DBID_MAXIMIZEBAND       = 2,
-    DBID_PUSHCHEVRON        = 3,
-    DBID_DELAYINIT          = 4,
-    DBID_FINISHINIT         = 5,
-    DBID_SETWINDOWTHEME     = 6,
-    DBID_PERMITAUTOHIDE     = 7,
-};
-
-cpp_quote("#define DBPC_SELECTFIRST    (DWORD)-1")
-cpp_quote("#define DBPC_SELECTLAST     (DWORD)-2")
-
-cpp_quote("#define CGID_DeskBand IID_IDeskBand")
-
-[
-    uuid(EB0FE172-1A3A-11D0-89B3-00A0C90A90AC),
-    object,
-]
-interface IDeskBand : IDockingWindow
-{
-    HRESULT GetBandInfo(
-        [in] DWORD dwBandID,
-        [in] DWORD dwViewMode,
-        [in, out] DESKBANDINFO* pdbi);
-}
-
-cpp_quote("#if (NTDDI_VERSION >= NTDDI_LONGHORN)")
-
-/*****************************************************************************
- * IDeskBandInfo interface
- */
-[
-    uuid(77E425FC-CBF9-4307-BA6A-BB5727745661),
-    object,
-]
-interface IDeskBandInfo : IUnknown
-{
-    HRESULT GetDefaultBandWidth(
-        [in] DWORD dwBandID,
-        [in] DWORD dwViewMode,
-        [out] int *pnWidth);
-}
-
-
-/*****************************************************************************
- * IDeskBand2 interface
- */
-[
-    uuid(79D16DE4-ABEE-4021-8D9D-9169B261D657),
-    object,
-]
-interface IDeskBand2 : IDeskBand
-{
-    HRESULT CanRenderComposited([out] BOOL *pfCanRenderComposited);
-
-    HRESULT SetCompositionState([in] BOOL fCompositionEnabled);
-
-    HRESULT GetCompositionState([out] BOOL *pfCompositionEnabled);
-}
-
-cpp_quote("#endif  // NTDDI_LONGHORN")
-
-
-
-cpp_quote("#if (_WIN32_IE >= _WIN32_IE_IE60)")
-
-[
-    uuid(EB0FE173-1A3A-11D0-89B3-00A0C90A90AC),
-    object,
-    pointer_default(unique),
-    local
-]
-interface IDeskBar : IOleWindow
-{
-    HRESULT SetClient([in] IUnknown* punkClient);
-
-    HRESULT GetClient([out] IUnknown** ppunkClient);
-
-    HRESULT OnPosRectChangeDB([in] RECT *prc);
-}
-
-
-/*****************************************************************************
- * IMenuPopup interface
- */
-[
-    uuid(D1E7AFEB-6A2E-11d0-8C78-00C04FD918B4),
-    object,
-    pointer_default(unique),
-    local
-]
-interface IMenuPopup : IDeskBar
-{
-    enum tagMENUPOPUPSELECT
-    {
-        MPOS_EXECUTE = 0,
-        MPOS_FULLCANCEL,
-        MPOS_CANCELLEVEL,
-        MPOS_SELECTLEFT,
-        MPOS_SELECTRIGHT,
-        MPOS_CHILDTRACKING
-    };
-
-    enum tagMENUPOPUPPOPUPFLAGS
-    {
-        MPPF_SETFOCUS      = 0x00000001,
-        MPPF_INITIALSELECT = 0x00000002,
-        MPPF_NOANIMATE     = 0x00000004,
-        MPPF_KEYBOARD      = 0x00000010,
-        MPPF_REPOSITION    = 0x00000020,
-        MPPF_FORCEZORDER   = 0x00000040,
-        MPPF_FINALSELECT   = 0x00000080,
-        MPPF_TOP           = 0x20000000,
-        MPPF_LEFT          = 0x40000000,
-        MPPF_RIGHT         = 0x60000000,
-        MPPF_BOTTOM        = 0x80000000,
-        MPPF_POS_MASK      = 0xE0000000,
-        MPPF_ALIGN_LEFT    = 0x02000000,
-        MPPF_ALIGN_RIGHT   = 0x04000000
-    };
-    typedef int MP_POPUPFLAGS;
-
-    HRESULT Popup(
-        [in] POINTL *ppt,
-        [in] RECTL *prcExclude,
-        [in] MP_POPUPFLAGS dwFlags);
-
-    HRESULT OnSelect([in] DWORD dwSelectType);
-
-    HRESULT SetSubMenu(
-        [in] IMenuPopup* pmp,
-        [in] BOOL fSet);
-}
-
-cpp_quote("#endif /* _WIN32_IE_IE60 */")
-
-cpp_quote("#if (_WIN32_IE >= _WIN32_IE_IE40)")
-
-/*****************************************************************************
- * IBandSite interface
- */
-cpp_quote("#include <pshpack8.h>")
-
-typedef struct tagBANDSITEINFO
-{
-    DWORD dwMask;
-    DWORD dwState;
-    DWORD dwStyle;
-} BANDSITEINFO;
-
-cpp_quote("#include <poppack.h>")
-
-
-enum tagBANDSITECID {
-    BSID_BANDADDED,
-    BSID_BANDREMOVED,
-};
-
-cpp_quote("#define BSIM_STATE        0x00000001")
-cpp_quote("#define BSIM_STYLE        0x00000002")
-
-cpp_quote("#define BSSF_VISIBLE      0x00000001")
-cpp_quote("#define BSSF_NOTITLE      0x00000002")
-cpp_quote("#define BSSF_UNDELETEABLE 0x00001000")
-
-cpp_quote("#define BSIS_AUTOGRIPPER       0x00000000")
-cpp_quote("#define BSIS_NOGRIPPER         0x00000001")
-cpp_quote("#define BSIS_ALWAYSGRIPPER     0x00000002")
-cpp_quote("#define BSIS_LEFTALIGN         0x00000004")
-cpp_quote("#define BSIS_SINGLECLICK       0x00000008")
-cpp_quote("#define BSIS_NOCONTEXTMENU     0x00000010")
-cpp_quote("#define BSIS_NODROPTARGET      0x00000020")
-cpp_quote("#define BSIS_NOCAPTION         0x00000040")
-cpp_quote("#define BSIS_PREFERNOLINEBREAK 0x00000080")
-cpp_quote("#define BSIS_LOCKED            0x00000100")
-cpp_quote("#if (_WIN32_IE >= _WIN32_IE_IE70)")
-cpp_quote("#define BSIS_PRESERVEORDERDURINGLAYOUT 0x00000200")
-cpp_quote("#endif  /* _WIN32_IE_IE70 */")
-
-cpp_quote("#define SID_SBandSite IID_IBandSite")
-cpp_quote("#define CGID_BandSite IID_IBandSite")
-
-[
-    object,
-    uuid(4CF504B0-DE96-11D0-8B3F-00A0C911E8E5)
-]
-interface IBandSite : IUnknown
-{
-    HRESULT AddBand([in] IUnknown* punk);
-
-    HRESULT EnumBands(
-        [in] UINT uBand,
-        [out] DWORD* pdwBandID);
-
-    HRESULT QueryBand(
-        [in] DWORD dwBandID,
-        [out] IDeskBand** ppstb,
-        [out] DWORD* pdwState,
-        [out, string, size_is(cchName)] LPWSTR pszName,
-        [in] int cchName);
-
-    HRESULT SetBandState(
-        [in] DWORD dwBandID,
-        [in] DWORD dwMask,
-        [in] DWORD dwState);
-
-    HRESULT RemoveBand([in] DWORD dwBandID);
-
-    HRESULT GetBandObject(
-        [in] DWORD dwBandID,
-        [in] REFIID riid,
-        [out, iid_is(riid)] void **ppv);
-
-    HRESULT SetBandSiteInfo([in] const BANDSITEINFO *pbsinfo);
-
-    HRESULT GetBandSiteInfo([in, out] BANDSITEINFO *pbsinfo);
-}
-
-cpp_quote("#endif /* _WIN32_IE_IE40 */")
-
-/*****************************************************************************
- * IMenuBand interface
- */
-[
-    uuid(568804CD-CBD7-11d0-9816-00C04FD91972),
-    object,
-    pointer_default(unique),
-    local
-]
-interface IMenuBand : IUnknown
-{
-    enum tagMENUBANDHANDLERCID {
-        MBHANDCID_PIDLSELECT = 0,
-    };
-
-    HRESULT IsMenuMessage([in] MSG* pmsg);
-
-    HRESULT TranslateMenuMessage(
-        [in, out] MSG* pmsg,
-        [out] LRESULT* plRet);
-}
-
-

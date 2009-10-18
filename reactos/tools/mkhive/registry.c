@@ -127,7 +127,7 @@ RegpOpenOrCreateKey(
 	LocalKeyName = (PWSTR)KeyName;
 	for (;;)
 	{
-		End = (PWSTR) utf16_wcschr(LocalKeyName, '\\');
+		End = (PWSTR) xwcschr(LocalKeyName, '\\');
 		if (End)
 		{
 			KeyString.Buffer = LocalKeyName;
@@ -138,9 +138,9 @@ RegpOpenOrCreateKey(
 			RtlInitUnicodeString(&KeyString, LocalKeyName);
 
 		/* Redirect from 'CurrentControlSet' to 'ControlSet001' */
-		if (!utf16_wcsncmp(LocalKeyName, L"CurrentControlSet", 17) &&
-                           ParentKey->NameSize == 12 &&
-                           !memcmp(ParentKey->Name, L"SYSTEM", 12))
+		if (!xwcsncmp(LocalKeyName, L"CurrentControlSet", 17) &&
+                    ParentKey->NameSize == 12 &&
+                    !memcmp(ParentKey->Name, L"SYSTEM", 12))
 			RtlInitUnicodeString(&KeyString, L"ControlSet001");
 
 		/* Check subkey in memory structure */
@@ -384,7 +384,7 @@ RegSetValueExW(
 	if (cbData <= sizeof(HCELL_INDEX))
 	{
 		/* If data size <= sizeof(HCELL_INDEX) then store data in the data offset */
-		DPRINT("ValueCell->DataLength %u\n", ValueCell->DataLength);
+		DPRINT("ValueCell->DataLength %lu\n", ValueCell->DataLength);
 		if (DataCell)
 			HvFreeCell(&Key->RegistryHive->Hive, ValueCell->Data);
 
@@ -401,12 +401,12 @@ RegSetValueExW(
 			 * data block and allocate a new one. */
 			HCELL_INDEX NewOffset;
 
-			DPRINT("ValueCell->DataLength %u\n", ValueCell->DataLength);
+			DPRINT("ValueCell->DataLength %lu\n", ValueCell->DataLength);
 
 			NewOffset = HvAllocateCell(&Key->RegistryHive->Hive, cbData, Stable, HCELL_NIL);
 			if (NewOffset == HCELL_NIL)
 			{
-				DPRINT("HvAllocateCell() failed with status 0x%08x\n", Status);
+				DPRINT("HvAllocateCell() failed with status 0x%08lx\n", Status);
 				return ERROR_UNSUCCESSFUL;
 			}
 
@@ -427,7 +427,7 @@ RegSetValueExW(
 
 	HvMarkCellDirty(&Key->RegistryHive->Hive, Key->KeyCellOffset, FALSE);
 
-	DPRINT("Return status 0x%08x\n", Status);
+	DPRINT("Return status 0x%08lx\n", Status);
 	return Status;
 }
 
@@ -581,7 +581,7 @@ ConnectRegistry(
 	Status = CmiInitializeTempHive(HiveToConnect);
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT1("CmiInitializeTempHive() failed with status 0x%08x\n", Status);
+		DPRINT1("CmiInitializeTempHive() failed with status 0x%08lx\n", Status);
 		return FALSE;
 	}
 
@@ -599,6 +599,29 @@ ConnectRegistry(
 	return TRUE;
 }
 
+static BOOL
+MyExportBinaryHive (PCHAR FileName,
+		  PCMHIVE RootHive)
+{
+	FILE *File;
+	BOOL ret;
+
+	/* Create new hive file */
+	File = fopen (FileName, "w+b");
+	if (File == NULL)
+	{
+		printf("    Error creating/opening file\n");
+		return FALSE;
+	}
+
+	fseek (File, 0, SEEK_SET);
+
+	RootHive->FileHandles[HFILE_TYPE_PRIMARY] = (HANDLE)File;
+	ret = HvWriteHive(&RootHive->Hive);
+	fclose (File);
+	return ret;
+}
+
 LIST_ENTRY CmiHiveListHead;
 
 VOID
@@ -613,7 +636,7 @@ RegInitializeRegistry(VOID)
 	Status = CmiInitializeTempHive(&RootHive);
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT1("CmiInitializeTempHive() failed with status 0x%08x\n", Status);
+		DPRINT1("CmiInitializeTempHive() failed with status 0x%08lx\n", Status);
 		return;
 	}
 

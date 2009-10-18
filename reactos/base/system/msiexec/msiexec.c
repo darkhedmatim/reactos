@@ -1,7 +1,7 @@
 /*
  * msiexec.exe implementation
  *
- * Copyright 2004 Vincent BÃ©ron
+ * Copyright 2004 Vincent Béron
  * Copyright 2005 Mike McCormack
  *
  * This library is free software; you can redistribute it and/or
@@ -69,7 +69,7 @@ static const char UsageStr[] =
 "    msiexec {/h|/?}\n"
 "NOTE: Product code on commandline unimplemented as of yet\n"
 "\n"
-"Copyright 2004 Vincent BÃ©ron\n";
+"Copyright 2004 Vincent Béron\n";
 
 static const WCHAR ActionAdmin[] = {
    'A','C','T','I','O','N','=','A','D','M','I','N',0 };
@@ -139,7 +139,7 @@ static LPWSTR build_properties(struct string_list *property_list)
 	for(list = property_list; list; list = list->next)
 		len += lstrlenW(list->str) + 3;
 
-	ret = HeapAlloc( GetProcessHeap(), 0, len*sizeof(WCHAR) );
+	ret = (WCHAR*) HeapAlloc( GetProcessHeap(), 0, len*sizeof(WCHAR) );
 
 	/* add a space before each string, and quote the value */
 	p = ret;
@@ -183,7 +183,7 @@ static LPWSTR build_transforms(struct string_list *transform_list)
 	for(list = transform_list; list; list = list->next)
 		len += lstrlenW(list->str) + 1;
 
-	ret = HeapAlloc( GetProcessHeap(), 0, len*sizeof(WCHAR) );
+	ret = (WCHAR*) HeapAlloc( GetProcessHeap(), 0, len*sizeof(WCHAR) );
 
 	/* add all the transforms with a semicolon between each one */
 	p = ret;
@@ -215,7 +215,7 @@ static DWORD msi_atou(LPCWSTR str)
 static LPWSTR msi_strdup(LPCWSTR str)
 {
 	DWORD len = lstrlenW(str)+1;
-	LPWSTR ret = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
+	LPWSTR ret = (WCHAR*) HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
 	lstrcpyW(ret, str);
 	return ret;
 }
@@ -231,7 +231,7 @@ static BOOL msi_strequal(LPCWSTR str1, LPCSTR str2)
 		return FALSE;
 	if( lstrlenW(str1) != (len-1) )
 		return FALSE;
-	strW = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
+	strW = (WCHAR*) HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
 	MultiByteToWideChar( CP_ACP, 0, str2, -1, strW, len);
 	ret = CompareStringW(GetThreadLocale(), NORM_IGNORECASE, str1, len, strW, len);
 	HeapFree(GetProcessHeap(), 0, strW);
@@ -259,7 +259,7 @@ static BOOL msi_strprefix(LPCWSTR str1, LPCSTR str2)
 		return FALSE;
 	if( lstrlenW(str1) < (len-1) )
 		return FALSE;
-	strW = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
+	strW = (WCHAR*) HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*len);
 	MultiByteToWideChar( CP_ACP, 0, str2, -1, strW, len);
 	ret = CompareStringW(GetThreadLocale(), NORM_IGNORECASE, str1, len-1, strW, len-1);
 	HeapFree(GetProcessHeap(), 0, strW);
@@ -344,14 +344,14 @@ static DWORD DoRegServer(void)
     CHAR path[MAX_PATH+12];
     DWORD ret = 0;
 
-    scm = OpenSCManagerA(NULL, SERVICES_ACTIVE_DATABASEA, SC_MANAGER_CREATE_SERVICE);
+    scm = OpenSCManager(NULL, SERVICES_ACTIVE_DATABASE, SC_MANAGER_CREATE_SERVICE);
     if (!scm)
     {
         fprintf(stderr, "Failed to open the service control manager.\n");
         return 1;
     }
 
-    GetSystemDirectoryA(path, MAX_PATH);
+    GetSystemDirectory(path, MAX_PATH);
     lstrcatA(path, "\\msiexec.exe /V");
 
     service = CreateServiceA(scm, "MSIServer", "MSIServer", GENERIC_ALL,
@@ -388,9 +388,9 @@ enum chomp_state
 
 static int chomp( WCHAR *str )
 {
-	enum chomp_state state = cs_token;
+	enum chomp_state state = cs_whitespace;
 	WCHAR *p, *out;
-	int count = 1, ignore;
+	int count = 0, ignore;
 
 	for( p = str, out = str; *p; p++ )
 	{
@@ -454,7 +454,7 @@ static void process_args( WCHAR *cmdline, int *pargc, WCHAR ***pargv )
 	int i, n;
 
 	n = chomp( p );
-	argv = HeapAlloc(GetProcessHeap(), 0, sizeof (WCHAR*)*(n+1));
+	argv = (WCHAR**) HeapAlloc(GetProcessHeap(), 0, sizeof (WCHAR*)*(n+1));
 	for( i=0; i<n; i++ )
 	{
 		argv[i] = p;
@@ -480,7 +480,7 @@ static BOOL process_args_from_reg( LPWSTR ident, int *pargc, WCHAR ***pargv )
 	r = RegQueryValueExW(hkey, ident, 0, &type, 0, &sz);
 	if(r == ERROR_SUCCESS && type == REG_SZ)
 	{
-		buf = HeapAlloc(GetProcessHeap(), 0, sz);
+		buf = (WCHAR*) HeapAlloc(GetProcessHeap(), 0, sz);
 		r = RegQueryValueExW(hkey, ident, 0, &type, (LPBYTE)buf, &sz);
 		if( r == ERROR_SUCCESS )
 		{
@@ -493,7 +493,7 @@ static BOOL process_args_from_reg( LPWSTR ident, int *pargc, WCHAR ***pargv )
 	return ret;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int main(int argc, char **argv)
 {
 	int i;
 	BOOL FunctionInstall = FALSE;
@@ -529,10 +529,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	LPWSTR DllName = NULL;
 	DWORD ReturnCode;
-	int argc;
 	LPWSTR *argvW = NULL;
 
-	/* parse the command line */
+	/* overwrite the command line */
 	process_args( GetCommandLineW(), &argc, &argvW );
 
 	/*
@@ -664,10 +663,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			PackageName = argvW[i]+2;
 			if (!PackageName[0])
 			{
-				i++;
-				if (i >= argc)
-					ShowUsage(1);
-				PackageName = argvW[i];
+			i++;
+			if(i >= argc)
+				ShowUsage(1);
+			PackageName = argvW[i];
 			}
 			WINE_TRACE("PackageName = %s\n", wine_dbgstr_w(PackageName));
 			StringListAppend(&property_list, RemoveAll);
@@ -822,7 +821,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			LogFileName = argvW[i];
 			if(MsiEnableLogW(LogMode, LogFileName, LogAttributes) != ERROR_SUCCESS)
 			{
-				fprintf(stderr, "Logging in %s (0x%08x, %u) failed\n",
+				fprintf(stderr, "Logging in %s (0x%08lx, %lu) failed\n",
 					 wine_dbgstr_w(LogFileName), LogMode, LogAttributes);
 				ExitProcess(1);
 			}
@@ -853,23 +852,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 			else if(msi_strequal(argvW[i]+2, "f"))
 			{
-				InstallUILevel = INSTALLUILEVEL_FULL|INSTALLUILEVEL_ENDDIALOG;
+				InstallUILevel = (INSTALLUILEVEL) (INSTALLUILEVEL_FULL|INSTALLUILEVEL_ENDDIALOG);
 			}
 			else if(msi_strequal(argvW[i]+2, "n+"))
 			{
-				InstallUILevel = INSTALLUILEVEL_NONE|INSTALLUILEVEL_ENDDIALOG;
+				InstallUILevel = (INSTALLUILEVEL) (INSTALLUILEVEL_NONE|INSTALLUILEVEL_ENDDIALOG);
 			}
 			else if(msi_strequal(argvW[i]+2, "b+"))
 			{
-				InstallUILevel = INSTALLUILEVEL_BASIC|INSTALLUILEVEL_ENDDIALOG;
+				InstallUILevel = (INSTALLUILEVEL) (INSTALLUILEVEL_BASIC|INSTALLUILEVEL_ENDDIALOG);
 			}
 			else if(msi_strequal(argvW[i]+2, "b-"))
 			{
-				InstallUILevel = INSTALLUILEVEL_BASIC|INSTALLUILEVEL_PROGRESSONLY;
+				InstallUILevel = (INSTALLUILEVEL) (INSTALLUILEVEL_BASIC|INSTALLUILEVEL_PROGRESSONLY);
 			}
 			else if(msi_strequal(argvW[i]+2, "b+!"))
 			{
-				InstallUILevel = INSTALLUILEVEL_BASIC|INSTALLUILEVEL_ENDDIALOG;
+				InstallUILevel = (INSTALLUILEVEL) (INSTALLUILEVEL_BASIC|INSTALLUILEVEL_ENDDIALOG);
 				WINE_FIXME("Unknown modifier: !\n");
 			}
 			else

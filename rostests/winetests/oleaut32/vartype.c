@@ -46,7 +46,7 @@ static HMODULE hOleaut32;
 /* Get a conversion function ptr, return if function not available */
 #define CHECKPTR(func) p##func = (void*)GetProcAddress(hOleaut32, #func); \
   if (!p##func) { \
-    win_skip("function " # func " not available, not testing it\n"); return; }
+    skip("function " # func " not available, not testing it\n"); return; }
 
 /* Is a given function exported from oleaut32? */
 #define HAVE_FUNC(func) ((void*)GetProcAddress(hOleaut32, #func) != NULL)
@@ -498,7 +498,6 @@ static HRESULT (WINAPI *pVarBoolFromUI8)(ULONG64,VARIANT_BOOL*);
 
 static HRESULT (WINAPI *pVarBstrFromR4)(FLOAT,LCID,ULONG,BSTR*);
 static HRESULT (WINAPI *pVarBstrFromDate)(DATE,LCID,ULONG,BSTR*);
-static HRESULT (WINAPI *pVarBstrFromCy)(CY,LCID,ULONG,BSTR*);
 static HRESULT (WINAPI *pVarBstrFromDec)(DECIMAL*,LCID,ULONG,BSTR*);
 static HRESULT (WINAPI *pVarBstrCmp)(BSTR,BSTR,LCID,ULONG);
 
@@ -554,7 +553,7 @@ static HRESULT WINAPI DummyDispatch_QueryInterface(LPDISPATCH iface,
     }
     if (*ppvObject)
     {
-      DummyDispatch_AddRef(*ppvObject);
+      DummyDispatch_AddRef((IDispatch*)*ppvObject);
       return S_OK;
     }
   }
@@ -1098,7 +1097,7 @@ static void test_VarUI1FromDisp(void)
   dispatch.vt = VT_UI1;
   dispatch.bFailInvoke = FALSE;
 
-  hres = pVarUI1FromDisp((IDispatch*)&dispatch, in, &out);
+  hres = VarUI1FromDisp((IDispatch*)&dispatch, in, &out);
   trace("0x%08x\n", hres);
 
   hres = VariantChangeTypeEx(&vDst, &vSrc, in, 0, VT_UI1);
@@ -1106,7 +1105,7 @@ static void test_VarUI1FromDisp(void)
 
   dispatch.bFailInvoke = TRUE;
 
-  hres = pVarUI1FromDisp((IDispatch*)&dispatch, in, &out);
+  hres = VarUI1FromDisp((IDispatch*)&dispatch, in, &out);
   trace("0x%08x\n", hres);
 
   hres = VariantChangeTypeEx(&vDst, &vSrc, in, 0, VT_UI1);
@@ -2349,7 +2348,7 @@ static void test_VarI8Copy(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -2379,7 +2378,7 @@ static void test_VarI8ChangeTypeEx(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -2611,7 +2610,7 @@ static void test_VarUI8Copy(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -2641,7 +2640,7 @@ static void test_VarUI8ChangeTypeEx(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -3323,7 +3322,7 @@ static void test_VarDateFromStr(void)
   CHECKPTR(VarDateFromStr);
   CHECKPTR(SystemTimeToVariantTime);
 
-  /* Some date formats are relative, so we need to find the current year */
+  /* Some date formats are relative, so we need to find the cuurent year */
   GetSystemTime(&st);
   st.wHour = st.wMinute = st.wSecond = st.wMilliseconds = 0;
   DFS(NULL); EXPECT_MISMATCH;
@@ -3434,11 +3433,6 @@ static void test_VarDateFromStr(void)
   DFS("1/2/1970");        EXPECT_DBL(25570.0);
   DFS("1-2-1970");        EXPECT_DBL(25570.0);
   /* Native fails "1999 January 3, 9AM". I consider that a bug in native */
-
-  /* test a none english data string */
-  DFS("02.01.1970 00:00:00"); EXPECT_MISMATCH;
-  lcid = MAKELCID(MAKELANGID(LANG_GERMAN,SUBLANG_GERMAN),SORT_DEFAULT);
-  DFS("02.01.1970 00:00:00"); todo_wine EXPECT_DBL(25570.0);
 }
 
 static void test_VarDateCopy(void)
@@ -4413,104 +4407,9 @@ static void test_VarDecCmp(void)
   MATHVARS1;
 
   CHECKPTR(VarDecCmp);
-
   SETDEC(l,0,0,0,1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_EQ;
   SETDEC(l,0,0,0,1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,0,0,1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
   SETDEC(l,0,0,0,0); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,0,0,0); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
-
-  SETDEC(out,0,0,0,1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,0,0,1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,0,0,0); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,0,0,0); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
 }
 
 /*
@@ -4901,71 +4800,9 @@ static void test_VarBstrFromDate(void)
   BSTR_DATE(2958465.0, "12/31/9999");
 }
 
-#define BSTR_CY(l, a, b, e) \
-  S(l).Lo = b; S(l).Hi = a; \
-  hres = pVarBstrFromCy(l, lcid, LOCALE_NOUSEROVERRIDE, &bstr);\
-  ok(hres == S_OK, "got hres 0x%08x\n", hres);\
-  if (hres== S_OK && bstr)\
-  {\
-    ok(lstrcmpW(bstr, e) == 0, "invalid number (got %s)\n", wtoascii(bstr));\
-  }
-
-static void test_VarBstrFromCy(void)
-{
-  LCID lcid;
-  HRESULT hres;
-  BSTR bstr = NULL;
-  CY l;
-
-  static const WCHAR szZero[] = {'0', '\0'};
-  static const WCHAR szOne[] = {'1', '\0'};
-  static const WCHAR szOnePointFive[] = {'1','.','5','\0'};
-  static const WCHAR szMinusOnePointFive[] = {'-','1','.','5','\0'};
-  static const WCHAR szBigNum1[] = {'4','2','9','4','9','6','.','7','2','9','5','\0'};    /* (1 << 32) - 1 / 1000 */
-  static const WCHAR szBigNum2[] = {'4','2','9','4','9','6','.','7','2','9','6','\0'};    /* (1 << 32) / 1000 */
-  static const WCHAR szBigNum3[] = {'9','2','2','3','3','7','2','0','3','6','8','5','4','7','7','.','5','8','0','7','\0'};    /* ((1 << 63) - 1)/10000 */
-
-  static const WCHAR szSmallNumber_English[] = {'0','.','0','0','0','9','\0'};
-  static const WCHAR szSmallNumber_Spanish[] = {'0',',','0','0','0','9','\0'};
-
-  CHECKPTR(VarBstrFromCy);
-  lcid = MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT);
-
-  /* check zero */
-  BSTR_CY(l, 0,0, szZero);
-
-  /* check one */
-  BSTR_CY(l, 0, 10000, szOne);
-
-  /* check one point five */
-  BSTR_CY(l, 0, 15000, szOnePointFive);
-
-  /* check minus one point five */
-  BSTR_CY(l, 0xffffffff, ((15000)^0xffffffff)+1, szMinusOnePointFive);
-
-  /* check bignum (1) */
-  BSTR_CY(l, 0, 0xffffffff, szBigNum1);
-
-  /* check bignum (2) */
-  BSTR_CY(l, 1,0, szBigNum2);
-
-  /* check bignum (3) */
-  BSTR_CY(l, 0x7fffffff,0xffffffff, szBigNum3);
-
-  /* check leading zeros and decimal sep. for English locale */
-  BSTR_CY(l, 0,9, szSmallNumber_English);
-
-  lcid = MAKELCID(MAKELANGID(LANG_SPANISH, SUBLANG_DEFAULT), SORT_DEFAULT);
-
-  /* check leading zeros and decimal sep. for Spanish locale */
-  BSTR_CY(l, 0,9, szSmallNumber_Spanish);
-}
-
-#undef BSTR_CY
-
 #define BSTR_DEC(l, a, b, c, d, e) \
   SETDEC(l, a,b,c,d);\
-  hres = pVarBstrFromDec(&l, lcid, LOCALE_NOUSEROVERRIDE, &bstr);\
+  hres = VarBstrFromDec(&l, lcid, LOCALE_NOUSEROVERRIDE, &bstr);\
   ok(hres == S_OK, "got hres 0x%08x\n", hres);\
   if (hres== S_OK && bstr)\
   {\
@@ -4974,7 +4811,7 @@ static void test_VarBstrFromCy(void)
 
 #define BSTR_DEC64(l, a, b, c, x, d, e) \
   SETDEC64(l, a,b,c,x,d);\
-  hres = pVarBstrFromDec(&l, lcid, LOCALE_NOUSEROVERRIDE, &bstr);\
+  hres = VarBstrFromDec(&l, lcid, LOCALE_NOUSEROVERRIDE, &bstr);\
   ok(hres == S_OK, "got hres 0x%08x\n", hres);\
   if (hres== S_OK && bstr)\
   {\
@@ -5083,8 +4920,6 @@ static void test_VarBstrCmp(void)
     static const WCHAR s2[] = { 'a',0,'b' };
     static const char sb1[] = {1,0,1};
     static const char sb2[] = {1,0,2};
-    static const char sbchr0[] = {0,0};
-    static const char sbchr00[] = {0,0,0};
     BSTR bstr, bstrempty, bstr2;
 
     CHECKPTR(VarBstrCmp);
@@ -5093,12 +4928,12 @@ static void test_VarBstrCmp(void)
     bstr = SysAllocString(sz);
     bstrempty = SysAllocString(szempty);
     
-    /* NULL handling. Yepp, MSDN is totally wrong here */
+    /* NULL handling. Yepp, MSDN is totaly wrong here */
     VARBSTRCMP(NULL,NULL,0,VARCMP_EQ);
     VARBSTRCMP(bstr,NULL,0,VARCMP_GT);
     VARBSTRCMP(NULL,bstr,0,VARCMP_LT);
 
-    /* NULL and empty string comparisons */
+    /* NULL and empty string comparisions */
     VARBSTRCMP(bstrempty,NULL,0,VARCMP_EQ);
     VARBSTRCMP(NULL,bstrempty,0,VARCMP_EQ);
 
@@ -5123,15 +4958,6 @@ static void test_VarBstrCmp(void)
 
     SysFreeString(bstr);
 
-    bstr = SysAllocStringByteLen(sbchr0, sizeof(sbchr0));
-    bstr2 = SysAllocStringByteLen(sbchr0, sizeof(sbchr00));
-    VARBSTRCMP(bstr,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstrempty,bstr,0,VARCMP_LT);
-    VARBSTRCMP(bstr2,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstr2,bstr,0,VARCMP_EQ);
-    SysFreeString(bstr2);
-    SysFreeString(bstr);
-
     /* When (LCID == 0) it should be a binary comparison
      * so these two strings could not match.
      */
@@ -5139,15 +4965,6 @@ static void test_VarBstrCmp(void)
     bstr2 = SysAllocStringByteLen(sb2, sizeof(sb2));
     lcid = 0;
     VARBSTRCMP(bstr,bstr2,0,VARCMP_LT);
-    SysFreeString(bstr2);
-    SysFreeString(bstr);
-
-    bstr = SysAllocStringByteLen(sbchr0, sizeof(sbchr0));
-    bstr2 = SysAllocStringByteLen(sbchr0, sizeof(sbchr00));
-    VARBSTRCMP(bstr,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstrempty,bstr,0,VARCMP_LT);
-    VARBSTRCMP(bstr2,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstr2,bstr,0,VARCMP_GT);
     SysFreeString(bstr2);
     SysFreeString(bstr);
 }
@@ -5180,7 +4997,7 @@ static void test_SysStringByteLen(void)
   BSTR str = GetBSTR(&bstr);
 
   bstr.dwLen = 0;
-  ok (SysStringByteLen(str) == 0, "Expected dwLen 0, got %d\n", SysStringByteLen(str));
+  ok (SysStringByteLen(str) == 0, "Expected dwLen 0, got %d\n", SysStringLen(str));
   bstr.dwLen = 2;
   ok (SysStringByteLen(str) == 2, "Expected dwLen 2, got %d\n", SysStringByteLen(str));
 }
@@ -5322,8 +5139,7 @@ static void test_SysReAllocString(void)
 
     changed = SysReAllocString(&str, szSmaller);
     ok (changed == 1, "Expected 1, got %d\n", changed);
-    /* Vista creates a new string, but older versions reuse the existing string. */
-    /*ok (str == oldstr, "Created new string\n");*/
+    ok (str == oldstr, "Created new string\n");
     bstr = Get(str);
     ok (bstr->dwLen == 2, "Expected 2, got %d\n", bstr->dwLen);
     ok (!lstrcmpW(bstr->szString, szSmaller), "String different\n");
@@ -5362,8 +5178,7 @@ static void test_SysReAllocStringLen(void)
 
     changed = SysReAllocStringLen(&str, szSmaller, 1);
     ok (changed == 1, "Expected 1, got %d\n", changed);
-    /* Vista creates a new string, but older versions reuse the existing string. */
-    /*ok (str == oldstr, "Created new string\n");*/
+    ok (str == oldstr, "Created new string\n");
     bstr = Get(str);
     ok (bstr->dwLen == 2, "Expected 2, got %d\n", bstr->dwLen);
     ok (!lstrcmpW(bstr->szString, szSmaller), "String different\n");
@@ -5572,12 +5387,12 @@ static void test_IUnknownChangeTypeEx(void)
   /* =>IDispatch */
   u.ref = 1;
   V_VT(&vSrc) = VT_UNKNOWN;
-  V_UNKNOWN(&vSrc) = pu;
+  V_UNKNOWN(&vSrc) = (IUnknown*)pu;
   VariantInit(&vDst);
   hres = VariantChangeTypeEx(&vDst, &vSrc, lcid, 0, VT_UNKNOWN);
   /* Note vSrc is not cleared, as final refcount is 2 */
   ok(hres == S_OK && u.ref == 2 &&
-     V_VT(&vDst) == VT_UNKNOWN && V_UNKNOWN(&vDst) == pu,
+     V_VT(&vDst) == VT_UNKNOWN && V_UNKNOWN(&vDst) == (IUnknown*)pu,
      "change unk(src,dst): expected 0x%08x,%d,%d,%p, got 0x%08x,%d,%d,%p\n",
      S_OK, 2, VT_UNKNOWN, pu, hres, u.ref, V_VT(&vDst), V_UNKNOWN(&vDst));
 
@@ -5587,7 +5402,7 @@ static void test_IUnknownChangeTypeEx(void)
     HRESULT hExpected = DISP_E_BADVARTYPE;
 
     V_VT(&vSrc) = VT_UNKNOWN;
-    V_UNKNOWN(&vSrc) = pu;
+    V_UNKNOWN(&vSrc) = (IUnknown*)pu;
     VariantInit(&vDst);
 
     if (vt == VT_UNKNOWN || vt == VT_DISPATCH || vt == VT_EMPTY || vt == VT_NULL)
@@ -5888,13 +5703,21 @@ static void test_UintChangeTypeEx(void)
 
 static void test_ClearCustData(void)
 {
+  WCHAR buff[sizeof(CUSTDATAITEM) * NUM_CUST_ITEMS / sizeof(WCHAR)];
   CUSTDATA ci;
   unsigned i;
 
   CHECKPTR(ClearCustData);
 
+  memset(buff, 0, sizeof(buff));
+
   ci.cCustData = NUM_CUST_ITEMS;
-  ci.prgCustData = CoTaskMemAlloc( sizeof(CUSTDATAITEM) * NUM_CUST_ITEMS );
+  /* This is a bit tricky. We use SysAllocStringByteLen to allocate the
+   * array, since native uses an internal IMalloc interface for allocating
+   * its memory, while Wine uses HeapAlloc(). Doing this ensures we allocate
+   * using the correct function whether with native or builtin.
+   */
+  ci.prgCustData = (LPCUSTDATAITEM)SysAllocStringByteLen((LPCSTR)buff, sizeof(buff));
   for (i = 0; i < NUM_CUST_ITEMS; i++)
     VariantInit(&ci.prgCustData[i].varValue);
   pClearCustData(&ci);
@@ -5906,8 +5729,8 @@ static void test_NullByRef(void)
   VARIANT v1, v2;
   HRESULT hRes;
 
-  VariantInit(&v1);
-  VariantInit(&v2);
+  VariantClear(&v1);
+  VariantClear(&v2);
   V_VT(&v1) = VT_BYREF|VT_VARIANT;
   V_BYREF(&v1) = 0;
 
@@ -5940,8 +5763,8 @@ static void test_ChangeType_keep_dst(void)
      HRESULT hres;
 
      bstr = SysAllocString(testW);
-     VariantInit(&v1);
-     VariantInit(&v2);
+     VariantClear(&v1);
+     VariantClear(&v2);
      V_VT(&v1) = VT_BSTR;
      V_BSTR(&v1) = bstr;
      hres = VariantChangeTypeEx(&v1, &v1, 0, 0, VT_INT);
@@ -6219,7 +6042,6 @@ START_TEST(vartype)
 
   test_VarBstrFromR4();
   test_VarBstrFromDate();
-  test_VarBstrFromCy();
   test_VarBstrFromDec();
   test_VarBstrCmp();
   test_SysStringLen();

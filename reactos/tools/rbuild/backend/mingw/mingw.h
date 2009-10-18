@@ -45,12 +45,10 @@ public:
 	std::string AddDirectoryTarget ( const std::string& directory,
 	                                 Directory* directoryTree );
 	const Module& GetAliasedModuleOrModule ( const Module& module ) const;
-	bool compilerNeedsHelper;
 	std::string compilerPrefix;
 	std::string compilerCommand;
 	std::string nasmCommand;
 	std::string binutilsPrefix;
-	bool binutilsNeedsHelper;
 	std::string binutilsCommand;
 	bool usePipe, manualBinutilsSetting;
 	Directory* intermediateDirectory;
@@ -64,13 +62,21 @@ private:
 	void CreateMakefile ();
 	void CloseMakefile () const;
 	void GenerateHeader () const;
-	void GenerateGlobalProperties ( const char* assignmentOperation,
-									  const IfableData& data ) const;
+	void GenerateProjectCFlagsMacro ( const char* assignmentOperation,
+	                                  const IfableData& data ) const;
+	void GenerateGlobalCFlagsAndProperties ( const char* op,
+	                                         const IfableData& data ) const;
+	void GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
+	                                      IfableData& data ) const;
+	void GenerateProjectGccOptions ( const char* assignmentOperation,
+	                                 IfableData& data ) const;
 	std::string GenerateProjectLFLAGS () const;
 	void GenerateDirectories ();
 	void GenerateGlobalVariables () const;
 	bool IncludeInAllTarget ( const Module& module ) const;
 	void GenerateAllTarget ( const std::vector<MingwModuleHandler*>& handlers ) const;
+	std::string GetBuildToolDependencies () const;
+	void GenerateInitTarget () const;
 	void GenerateRegTestsRunTarget () const;
 	void GenerateXmlBuildFilesMacro() const;
 	void GenerateTestSupportCode ();
@@ -117,8 +123,6 @@ private:
 	void GenerateDirectoryTargets ();
 	FILE* fMakefile;
 	bool use_pch;
-	bool DetectMicrosoftCompiler ( std::string& version, std::string& path );
-	bool DetectMicrosoftLinker ( std::string& version, std::string& path );
 };
 
 
@@ -129,25 +133,14 @@ public:
 	~ProxyMakefile ();
 	void GenerateProxyMakefiles ( bool verbose,
                                       std::string outputTree );
-	static bool GenerateProxyMakefile ( const Module& module );
-
 private:
 	std::string GeneratePathToParentDirectory ( int numberOfParentDirectories );
 	std::string GetPathToTopDirectory ( Module& module );
+	bool GenerateProxyMakefile ( Module& module );
 	void GenerateProxyMakefileForModule ( Module& module,
                                               bool verbose,
                                               std::string outputTree );
 	const Project& project;
 };
-
-struct ModuleHandlerInformations
-{
-	HostType DefaultHost;
-	const char* cflags;
-	const char* nasmflags;
-	const char* linkerflags;
-};
-
-extern const struct ModuleHandlerInformations ModuleHandlerInformations[];
 
 #endif /* MINGW_H */

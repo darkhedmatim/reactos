@@ -24,7 +24,7 @@
 #define LP_S (READ_PORT_UCHAR((PUCHAR)(LP_B+1)))
 #define LP_C (LP_B+2)
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
 
 static void Parallel_Reset(void)
@@ -72,7 +72,7 @@ static void Parallel_putchar(unsigned char ch)
 }
 
 static DRIVER_DISPATCH Dispatch;
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 /*
  * FUNCTION: Handles user mode requests
@@ -120,7 +120,7 @@ Dispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
    return(status);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 /*
  * FUNCTION: Called by the system to initalize the driver

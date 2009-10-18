@@ -67,13 +67,13 @@ static int cond_lex( void *COND_lval, COND_input *info);
 static const WCHAR szEmpty[] = { 0 };
 
 static INT compare_int( INT a, INT operator, INT b );
-static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b, BOOL convert );
+static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b );
 
-static INT compare_and_free_strings( LPWSTR a, INT op, LPWSTR b, BOOL convert )
+static INT compare_and_free_strings( LPWSTR a, INT op, LPWSTR b )
 {
     INT r;
 
-    r = compare_string( a, op, b, convert );
+    r = compare_string( a, op, b );
     msi_free( a );
     msi_free( b );
     return r;
@@ -216,19 +216,19 @@ boolean_factor:
         }
   | symbol_s operator symbol_s
         {
-            $$ = compare_and_free_strings( $1, $2, $3, TRUE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | symbol_s operator literal
         {
-            $$ = compare_and_free_strings( $1, $2, $3, TRUE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | literal operator symbol_s
         {
-            $$ = compare_and_free_strings( $1, $2, $3, TRUE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | literal operator literal
         {
-            $$ = compare_and_free_strings( $1, $2, $3, FALSE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | literal operator value_i
         {
@@ -317,11 +317,7 @@ value_i:
             INSTALLSTATE install = INSTALLSTATE_UNKNOWN, action = INSTALLSTATE_UNKNOWN;
       
             MSI_GetFeatureStateW(cond->package, $2, &install, &action );
-            if (action == INSTALLSTATE_UNKNOWN)
-                $$ = MSICONDITION_FALSE;
-            else
-                $$ = action;
-
+            $$ = action;
             msi_free( $2 );
         }
   | COND_EXCLAM identifier
@@ -408,9 +404,6 @@ static BOOL str_is_number( LPCWSTR str )
 {
     int i;
 
-    if (!*str)
-        return FALSE;
-
     for (i = 0; i < lstrlenW( str ); i++)
         if (!isdigitW(str[i]))
             return FALSE;
@@ -457,7 +450,7 @@ static INT compare_substring( LPCWSTR a, INT operator, LPCWSTR b )
     return 0;
 }
 
-static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b, BOOL convert )
+static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b )
 {
     if (operator >= COND_SS && operator <= COND_RHS)
         return compare_substring( a, operator, b );
@@ -465,9 +458,6 @@ static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b, BOOL convert )
     /* null and empty string are equivalent */
     if (!a) a = szEmpty;
     if (!b) b = szEmpty;
-
-    if (convert && str_is_number(a) && str_is_number(b))
-        return compare_int( atoiW(a), operator, atoiW(b) );
 
     /* a or b may be NULL */
     switch (operator)
@@ -553,14 +543,14 @@ static int COND_GetOperator( COND_input *cond )
         const WCHAR str[4];
         int id;
     } table[] = {
+        { {'~','=',0},     COND_IEQ },
         { {'~','<','=',0}, COND_ILE },
         { {'~','>','<',0}, COND_ISS },
         { {'~','>','>',0}, COND_IRHS },
         { {'~','<','>',0}, COND_INE },
+        { {'~','<',0},     COND_ILT },
         { {'~','>','=',0}, COND_IGE },
         { {'~','<','<',0}, COND_ILHS },
-        { {'~','=',0},     COND_IEQ },
-        { {'~','<',0},     COND_ILT },
         { {'~','>',0},     COND_IGT },
         { {'>','=',0},     COND_GE  },
         { {'>','<',0},     COND_SS  },

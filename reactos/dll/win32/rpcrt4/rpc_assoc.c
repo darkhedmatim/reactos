@@ -222,8 +222,6 @@ static RPC_STATUS RpcAssoc_BindConnection(const RpcAssoc *assoc, RpcConnection *
     RpcPktHdr *response_hdr;
     RPC_MESSAGE msg;
     RPC_STATUS status;
-    unsigned char *auth_data = NULL;
-    unsigned long auth_length;
 
     TRACE("sending bind request to server\n");
 
@@ -237,10 +235,10 @@ static RPC_STATUS RpcAssoc_BindConnection(const RpcAssoc *assoc, RpcConnection *
     if (status != RPC_S_OK)
         return status;
 
-    status = RPCRT4_ReceiveWithAuth(conn, &response_hdr, &msg, &auth_data, &auth_length);
+    status = RPCRT4_Receive(conn, &response_hdr, &msg);
     if (status != RPC_S_OK)
     {
-        ERR("receive failed with error %d\n", status);
+        ERR("receive failed\n");
         return status;
     }
 
@@ -261,17 +259,9 @@ static RPC_STATUS RpcAssoc_BindConnection(const RpcAssoc *assoc, RpcConnection *
                 switch (results->results[0].result)
                 {
                 case RESULT_ACCEPT:
-                    /* respond to authorization request */
-                    if (auth_length > sizeof(RpcAuthVerifier))
-                        status = RPCRT4_AuthorizeConnection(conn,
-                                                            auth_data + sizeof(RpcAuthVerifier),
-                                                            auth_length);
-                    if (status == RPC_S_OK)
-                    {
-                        conn->assoc_group_id = response_hdr->bind_ack.assoc_gid;
-                        conn->MaxTransmissionSize = response_hdr->bind_ack.max_tsize;
-                        conn->ActiveInterface = *InterfaceId;
-                    }
+                    conn->assoc_group_id = response_hdr->bind_ack.assoc_gid;
+                    conn->MaxTransmissionSize = response_hdr->bind_ack.max_tsize;
+                    conn->ActiveInterface = *InterfaceId;
                     break;
                 case RESULT_PROVIDER_REJECTION:
                     switch (results->results[0].reason)
@@ -344,7 +334,6 @@ static RPC_STATUS RpcAssoc_BindConnection(const RpcAssoc *assoc, RpcConnection *
 
     I_RpcFree(msg.Buffer);
     RPCRT4_FreeHeader(response_hdr);
-    HeapFree(GetProcessHeap(), 0, auth_data);
     return status;
 }
 

@@ -115,6 +115,7 @@ CmpInitializeRegistryNode(IN PCONFIGURATION_COMPONENT_DATA CurrentEntry,
         Status = RtlAnsiStringToUnicodeString(&ValueData,
                                               &TempString,
                                               TRUE);
+        RtlCreateUnicodeString(&ValueData, (PWCHAR)Component->Identifier);
         if (NT_SUCCESS(Status))
         {
             /* Save the identifier in the registry */
@@ -243,8 +244,8 @@ CmpSetupConfigurationTree(IN PCONFIGURATION_COMPONENT_DATA CurrentEntry,
                         for (i = 0; CmpMultifunctionTypes[i].Identifier; i++)
                         {
                             /* Check for a name match */
-                            if (!_stricmp(CmpMultifunctionTypes[i].Identifier,
-                                          Component->Identifier))
+                            if (!_wcsicmp(CmpMultifunctionTypes[i].Identifier,
+                                          (PWCHAR)Component->Identifier))
                             {
                                 /* Match found */
                                 break;
@@ -386,7 +387,7 @@ CmpInitializeHardwareConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     }
 
     /* Close our handle, free the buffer and return status */
-    ExFreePoolWithTag(CmpConfigurationData, TAG_CM);
+    ExFreePool(CmpConfigurationData);
     NtClose(KeyHandle);
     return Status;
 }

@@ -1,21 +1,17 @@
 <?xml version="1.0"?>
 <!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
-	<module name="cmd" type="win32cui" installbase="system32" installname="cmd.exe" unicode="yes">
+	<module name="cmd_base" type="objectlibrary">
 		<include base="ReactOS">include/reactos/wine</include>
-		<include base="cmd">.</include>
+		<include base="cmd_base">.</include>
 		<define name="ANONYMOUSUNIONS" />
+		<define name="_WIN32_WINNT">0x0501</define>
 		<define name="_DEBUG_MEM" />
-		<library>wine</library>
-		<library>kernel32</library>
-		<library>advapi32</library>
-		<library>user32</library>
-		<file>cmd.rc</file>
-		<file>main.c</file>
+		<define name="UNICODE" />
+		<define name="_UNICODE" />
 		<pch>precomp.h</pch>
 		<compilationunit name="unit.c">
 			<file>alias.c</file>
-			<file>assoc.c</file>
 			<file>attrib.c</file>
 			<file>batch.c</file>
 			<file>beep.c</file>
@@ -48,10 +44,8 @@
 			<file>locale.c</file>
 			<file>memory.c</file>
 			<file>misc.c</file>
-			<file>mklink.c</file>
 			<file>move.c</file>
 			<file>msgbox.c</file>
-			<file>parser.c</file>
 			<file>path.c</file>
 			<file>pause.c</file>
 			<file>prompt.c</file>
@@ -60,7 +54,6 @@
 			<file>replace.c</file>
 			<file>screen.c</file>
 			<file>set.c</file>
-			<file>setlocal.c</file>
 			<file>shift.c</file>
 			<file>start.c</file>
 			<file>strtoclr.c</file>
@@ -74,5 +67,18 @@
 			<file>where.c</file>
 			<file>window.c</file>
 		</compilationunit>
+	</module>
+	<module name="cmd" type="win32cui" installbase="system32" installname="cmd.exe" unicode="yes">
+		<include base="ReactOS">include/reactos/wine</include>
+		<include base="cmd">.</include>
+		<define name="ANONYMOUSUNIONS" />
+		<define name="_WIN32_WINNT">0x0501</define>
+		<library>cmd_base</library>
+		<library>kernel32</library>
+		<library>advapi32</library>
+		<library>shell32</library>
+		<library>user32</library>
+		<file>cmd.rc</file>
+		<file>main.c</file>
 	</module>
 </group>

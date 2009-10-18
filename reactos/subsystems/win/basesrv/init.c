@@ -34,7 +34,7 @@ HANDLE BaseApiPort = (HANDLE) 0;
  * NAME							PRIVATE
  * 	BaseStaticServerThread/1
  */
-VOID WINAPI BaseStaticServerThread (PVOID x)
+VOID STDCALL BaseStaticServerThread (PVOID x)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PPORT_MESSAGE Request = (PPORT_MESSAGE) x;
@@ -56,7 +56,7 @@ VOID WINAPI BaseStaticServerThread (PVOID x)
 }
 
 
-NTSTATUS WINAPI ServerDllInitialization (ULONG ArgumentCount, LPWSTR *Argument)
+NTSTATUS STDCALL ServerDllInitialization (ULONG ArgumentCount, LPWSTR *Argument)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 

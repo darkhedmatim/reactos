@@ -12,7 +12,7 @@ IDC_EVENTVWR MENU
 BEGIN
 	POPUP "&Log"
 	BEGIN
-		MENUITEM "&Application",              ID_LOG_APPLICATION
+		MENUITEM "&Application",              ID_LOG_APPLICATION, CHECKED
 		MENUITEM "&Security",                 ID_LOG_SECURITY
 		MENUITEM "&System",                   ID_LOG_SYSTEM
 		MENUITEM SEPARATOR
@@ -22,7 +22,7 @@ BEGIN
 	BEGIN
 		MENUITEM "&Refresh",                  IDM_REFRESH
 	END
-	MENUITEM "&Options",                          ID_OPTIONS
+	MENUITEM "&Options",                    ID_OPTIONS
 	POPUP "&Help"
 	BEGIN
 		MENUITEM "H&elp",                     IDM_HELP

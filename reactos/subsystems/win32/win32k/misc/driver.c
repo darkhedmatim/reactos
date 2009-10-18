@@ -31,29 +31,21 @@
 /* #define TRACE_DRV_CALLS to get a log of all calls into the display driver. */
 #undef TRACE_DRV_CALLS
 
-
 typedef struct _GRAPHICS_DRIVER
 {
   PWSTR  Name;
-  PFN_DrvEnableDriver  EnableDriver;
+  PGD_ENABLEDRIVER  EnableDriver;
   int  ReferenceCount;
   struct _GRAPHICS_DRIVER  *Next;
 } GRAPHICS_DRIVER, *PGRAPHICS_DRIVER;
 
 static PGRAPHICS_DRIVER  DriverList;
-static PGRAPHICS_DRIVER  GenericDriver = NULL;
+static PGRAPHICS_DRIVER  GenericDriver = 0;
 
-BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PFN_DrvEnableDriver  EnableDriver)
+BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PGD_ENABLEDRIVER  EnableDriver)
 {
-  PGRAPHICS_DRIVER  Driver;
-  
+  PGRAPHICS_DRIVER  Driver = ExAllocatePoolWithTag(PagedPool, sizeof(*Driver), TAG_DRIVER);
   DPRINT( "DRIVER_RegisterDriver( Name: %S )\n", Name );
-  
-  if (GenericDriver != NULL)
-  {
-     return FALSE;
-  }
-  Driver = ExAllocatePoolWithTag(PagedPool, sizeof(*Driver), TAG_DRIVER);
   if (!Driver)  return  FALSE;
   Driver->ReferenceCount = 0;
   Driver->EnableDriver = EnableDriver;
@@ -65,7 +57,7 @@ BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PFN_DrvEnableDriver  EnableDriver)
     if (Driver->Name == NULL)
     {
         DPRINT1("Out of memory\n");
-        ExFreePoolWithTag(Driver, TAG_DRIVER);
+        ExFreePool(Driver);
         return  FALSE;
     }
 
@@ -75,11 +67,17 @@ BOOL DRIVER_RegisterDriver(LPCWSTR  Name, PFN_DrvEnableDriver  EnableDriver)
     return  TRUE;
   }
 
+  if (GenericDriver != NULL)
+  {
+    ExFreePool(Driver);
+    return  FALSE;
+  }
+
   GenericDriver = Driver;
   return  TRUE;
 }
 
-PFN_DrvEnableDriver DRIVER_FindExistingDDIDriver(LPCWSTR Name)
+PGD_ENABLEDRIVER DRIVER_FindExistingDDIDriver(LPCWSTR Name)
 {
   GRAPHICS_DRIVER *Driver = DriverList;
   while (Driver && Name)
@@ -94,11 +92,11 @@ PFN_DrvEnableDriver DRIVER_FindExistingDDIDriver(LPCWSTR Name)
   return NULL;
 }
 
-PFN_DrvEnableDriver DRIVER_FindDDIDriver(LPCWSTR Name)
+PGD_ENABLEDRIVER DRIVER_FindDDIDriver(LPCWSTR Name)
 {
   static WCHAR DefaultPath[] = L"\\SystemRoot\\System32\\";
   static WCHAR DefaultExtension[] = L".DLL";
-  PFN_DrvEnableDriver ExistingDriver;
+  PGD_ENABLEDRIVER ExistingDriver;
   SYSTEM_GDI_DRIVER_INFORMATION GdiDriverInfo;
   NTSTATUS Status;
   LPWSTR FullName;
@@ -157,7 +155,7 @@ PFN_DrvEnableDriver DRIVER_FindDDIDriver(LPCWSTR Name)
   ExistingDriver = DRIVER_FindExistingDDIDriver(FullName);
   if (ExistingDriver)
   {
-    ExFreePoolWithTag(FullName, TAG_DRIVER);
+    ExFreePool(FullName);
     return ExistingDriver;
   }
 
@@ -173,8 +171,8 @@ PFN_DrvEnableDriver DRIVER_FindDDIDriver(LPCWSTR Name)
 
   DRIVER_RegisterDriver( L"DISPLAY", GdiDriverInfo.EntryPoint);
   DRIVER_RegisterDriver( FullName, GdiDriverInfo.EntryPoint);
-  ExFreePoolWithTag(FullName, TAG_DRIVER);
-  return (PFN_DrvEnableDriver)GdiDriverInfo.EntryPoint;
+  ExFreePool(FullName);
+  return (PGD_ENABLEDRIVER)GdiDriverInfo.EntryPoint;
 }
 
 #define BEGIN_FUNCTION_MAP() \
@@ -393,7 +391,8 @@ BOOL DRIVER_BuildDDIFunctions(PDRVENABLEDATA  DED,
                                PDRIVER_FUNCTIONS  DF)
 {
   BEGIN_FUNCTION_MAP();
-    DRIVER_FUNCTION(EnablePDEV);   
+
+    DRIVER_FUNCTION(EnablePDEV);
     DRIVER_FUNCTION(CompletePDEV);
     DRIVER_FUNCTION(DisablePDEV);
     DRIVER_FUNCTION(EnableSurface);
@@ -402,7 +401,6 @@ BOOL DRIVER_BuildDDIFunctions(PDRVENABLEDATA  DED,
     DRIVER_FUNCTION(Offset);
     DRIVER_FUNCTION(ResetPDEV);
     DRIVER_FUNCTION(DisableDriver);
-    DRIVER_FUNCTION(Unknown1);
     DRIVER_FUNCTION(CreateDeviceBitmap);
     DRIVER_FUNCTION(DeleteDeviceBitmap);
     DRIVER_FUNCTION(RealizeBrush);
@@ -412,9 +410,10 @@ BOOL DRIVER_BuildDDIFunctions(PDRVENABLEDATA  DED,
     DRIVER_FUNCTION(StrokeAndFillPath);
     DRIVER_FUNCTION(Paint);
     DRIVER_FUNCTION(BitBlt);
+    DRIVER_FUNCTION(TransparentBlt);
     DRIVER_FUNCTION(CopyBits);
     DRIVER_FUNCTION(StretchBlt);
-    DRIVER_FUNCTION(Unknown2);    
+    DRIVER_FUNCTION(StretchBltROP);
     DRIVER_FUNCTION(SetPalette);
     DRIVER_FUNCTION(TextOut);
     DRIVER_FUNCTION(Escape);
@@ -429,10 +428,8 @@ BOOL DRIVER_BuildDDIFunctions(PDRVENABLEDATA  DED,
     DRIVER_FUNCTION(StartPage);
     DRIVER_FUNCTION(EndDoc);
     DRIVER_FUNCTION(StartDoc);
-    DRIVER_FUNCTION(Unknown3);
     DRIVER_FUNCTION(GetGlyphMode);
     DRIVER_FUNCTION(Synchronize);
-    DRIVER_FUNCTION(Unknown4);
     DRIVER_FUNCTION(SaveScreenBits);
     DRIVER_FUNCTION(GetModes);
     DRIVER_FUNCTION(Free);
@@ -455,43 +452,18 @@ BOOL DRIVER_BuildDDIFunctions(PDRVENABLEDATA  DED,
     DRIVER_FUNCTION(EnableDirectDraw);
     DRIVER_FUNCTION(DisableDirectDraw);
     DRIVER_FUNCTION(QuerySpoolType);
-    DRIVER_FUNCTION(Unknown5);   
-    DRIVER_FUNCTION(IcmCreateColorTransform);   
-    DRIVER_FUNCTION(IcmDeleteColorTransform);   
-    DRIVER_FUNCTION(IcmCheckBitmapBits);   
-    DRIVER_FUNCTION(IcmSetDeviceGammaRamp);   
-    DRIVER_FUNCTION(GradientFill);   
-    DRIVER_FUNCTION(StretchBltROP);   
-    DRIVER_FUNCTION(PlgBlt);   
-    DRIVER_FUNCTION(AlphaBlend);   
-    DRIVER_FUNCTION(SynthesizeFont);   
-    DRIVER_FUNCTION(GetSynthesizedFontFiles);   
-    DRIVER_FUNCTION(TransparentBlt);   
-    DRIVER_FUNCTION(QueryPerBandInfo);   
-    DRIVER_FUNCTION(QueryDeviceSupport);   
-    DRIVER_FUNCTION(Reserved1);   
-    DRIVER_FUNCTION(Reserved2);   
-    DRIVER_FUNCTION(Reserved3);   
-    DRIVER_FUNCTION(Reserved4);   
-    DRIVER_FUNCTION(Reserved5);   
-    DRIVER_FUNCTION(Reserved6); 
-    DRIVER_FUNCTION(Reserved7); 
-    DRIVER_FUNCTION(Reserved8); 
-    DRIVER_FUNCTION(DeriveSurface); 
-    DRIVER_FUNCTION(QueryGlyphAttrs); 
-    DRIVER_FUNCTION(Notify); 
-    DRIVER_FUNCTION(SynchronizeSurface); 
-    DRIVER_FUNCTION(ResetDevice); 
-    DRIVER_FUNCTION(Reserved9); 
-    DRIVER_FUNCTION(Reserved10); 
-    DRIVER_FUNCTION(Reserved11);     
+    DRIVER_FUNCTION(IcmSetDeviceGammaRamp);
+    DRIVER_FUNCTION(GradientFill);
+    DRIVER_FUNCTION(SynchronizeSurface);
+    DRIVER_FUNCTION(AlphaBlend);
+
   END_FUNCTION_MAP();
 
   return TRUE;
 }
 
 typedef LONG VP_STATUS;
-typedef VP_STATUS (APIENTRY *PMP_DRIVERENTRY)(PVOID, PVOID);
+typedef VP_STATUS (STDCALL *PMP_DRIVERENTRY)(PVOID, PVOID);
 
 PFILE_OBJECT DRIVER_FindMPDriver(ULONG DisplayNumber)
 {

@@ -52,7 +52,7 @@ XMLPUBFUN void XMLCALL
 XMLPUBFUN xmlPatternPtr XMLCALL
 			xmlPatterncompile	(const xmlChar *pattern,
 						 xmlDict *dict,
-						 int flags,
+						 xmlPatternFlags flags,
 						 const xmlChar **namespaces);
 XMLPUBFUN int XMLCALL
 			xmlPatternMatch		(xmlPatternPtr comp,
@@ -67,18 +67,11 @@ XMLPUBFUN int XMLCALL
 XMLPUBFUN int XMLCALL
 			xmlPatternMaxDepth	(xmlPatternPtr comp);
 XMLPUBFUN int XMLCALL
-			xmlPatternMinDepth	(xmlPatternPtr comp);
-XMLPUBFUN int XMLCALL
 			xmlPatternFromRoot	(xmlPatternPtr comp);
 XMLPUBFUN xmlStreamCtxtPtr XMLCALL
 			xmlPatternGetStreamCtxt	(xmlPatternPtr comp);
 XMLPUBFUN void XMLCALL
 			xmlFreeStreamCtxt	(xmlStreamCtxtPtr stream);
-XMLPUBFUN int XMLCALL
-			xmlStreamPushNode	(xmlStreamCtxtPtr stream,
-						 const xmlChar *name,
-						 const xmlChar *ns,
-						 int nodeType);
 XMLPUBFUN int XMLCALL
 			xmlStreamPush		(xmlStreamCtxtPtr stream,
 						 const xmlChar *name,
@@ -89,8 +82,6 @@ XMLPUBFUN int XMLCALL
 						 const xmlChar *ns);
 XMLPUBFUN int XMLCALL
 			xmlStreamPop		(xmlStreamCtxtPtr stream);
-XMLPUBFUN int XMLCALL
-			xmlStreamWantsAnyNode	(xmlStreamCtxtPtr stream);
 #ifdef __cplusplus
 }
 #endif

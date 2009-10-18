@@ -23,6 +23,7 @@ UpdateButtonColor(HWND hwndDlg, GLOBALS* g, INT ID, INT nButton, INT nColor)
 	RECT rect;
 	HBRUSH hbrush;
 	HWND hwndColorButton;
+	COLORREF crColor = g->ThemeAdv.crColor[nColor];
 	HGDIOBJ hgdiTmp;
 
 	if (nColor != -1)
@@ -41,7 +42,7 @@ UpdateButtonColor(HWND hwndDlg, GLOBALS* g, INT ID, INT nButton, INT nColor)
 		rect.top = 2;
 		rect.right = 22;
 		rect.bottom = 13;
-		hbrush = CreateSolidBrush(g->ThemeAdv.crColor[nColor]);
+		hbrush = CreateSolidBrush(crColor);
 		FillRect(hdcCompat, &rect, hbrush);
 		DeleteObject(hbrush);
 
@@ -92,7 +93,7 @@ InitColorButtons(HWND hwndDlg, GLOBALS* g)
 		rect.top = 0;
 		rect.right = 36;
 		rect.bottom = 15;
-		hbrush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+		hbrush = CreateSolidBrush(g->crCOLOR_BTNFACE);
 		FillRect(hdcCompat, &rect, hbrush);
 		DeleteObject(hbrush);
 
@@ -101,12 +102,12 @@ InitColorButtons(HWND hwndDlg, GLOBALS* g)
 		rect.top = 1;
 		rect.right = 23;
 		rect.bottom = 14;
-		hbrush = CreateSolidBrush(GetSysColor(COLOR_BTNTEXT));
+		hbrush = CreateSolidBrush(g->crCOLOR_BTNTEXT);
 		FillRect(hdcCompat, &rect, hbrush);
 		DeleteObject(hbrush);
 
 		/* Draw left side of line */
-		hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNSHADOW));
+		hPen = CreatePen(PS_SOLID, 1, g->crCOLOR_BTNSHADOW);
 		SelectObject(hdcCompat, hPen);
 		MoveToEx(hdcCompat, 26, 1, NULL);
 		LineTo(hdcCompat, 26, 14);
@@ -114,7 +115,7 @@ InitColorButtons(HWND hwndDlg, GLOBALS* g)
 		DeleteObject(hPen);
 
 		/* Draw right side of line */
-		hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNHIGHLIGHT));
+		hPen = CreatePen(PS_SOLID, 1, g->crCOLOR_BTNHIGHLIGHT);
 		SelectObject(hdcCompat,hPen);
 		MoveToEx(hdcCompat, 27, 1, NULL);
 		LineTo(hdcCompat, 27, 14);
@@ -122,8 +123,8 @@ InitColorButtons(HWND hwndDlg, GLOBALS* g)
 		DeleteObject(hPen);
 
 		/* Draw triangle */
-		hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_BTNTEXT));
-		hbrush = CreateSolidBrush(GetSysColor(COLOR_BTNTEXT));
+		hPen = CreatePen(PS_SOLID, 1, g->crCOLOR_BTNTEXT);
+		hbrush = CreateSolidBrush(g->crCOLOR_BTNTEXT);
 		SelectObject(hdcCompat, hPen);
 		SelectObject(hdcCompat, hbrush);
 		SetPolyFillMode(hdcCompat, WINDING);

@@ -3,57 +3,50 @@
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        base/setup/usetup/lang/lt-LT.h
  * PURPOSE:     Lithuanian Language File
- * TRANSLATOR:  Vytis "CMan" Girdÿijauskas (cman@cman.us)
+ * TRANSLATOR:  Vytis "CMan" Gird˛ijauskas (cman@cman.us)
  * DATE:        2008-01-06
  */
 
 #ifndef LANG_LT_LT_H__
 #define LANG_LT_LT_H__
 
-MUI_LAYOUTS ltLTLayouts[] =
-{
-    { L"0427", L"00010427" },
-    { L"0409", L"00000409" },
-    { NULL, NULL }
-};
-
 static MUI_ENTRY ltLTLanguagePageEntries[] =
 {
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Kalbos pasirinkimas",
-        TEXT_STYLE_NORMAL
+        "Language Selection",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  Pasirinkite kalb–, kuri bus naudojama diegimo proceso metu.",
-        TEXT_STYLE_NORMAL
+        "\x07  Please choose the language used for the installation process.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   Tuomet nuspauskite ENTER.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  æi kalba bus nustatyta standartine ‘diegtoje sistemoje.",
-        TEXT_STYLE_NORMAL
+        "\x07  This Language will be the default language for the final system.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti  F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi  F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -68,68 +61,68 @@ static MUI_ENTRY ltLTWelcomePageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Jus sveikina ReactOS diegimo programa",
-        TEXT_STYLE_HIGHLIGHT
+        "Welcome to ReactOS Setup",
+        TEXT_HIGHLIGHT
     },
     {
         6,
         11,
-        "æi diegimo dalis nukopijuos ReactOS operacin”s sistemos bylas ‘ j◊s÷",
-        TEXT_STYLE_NORMAL
+        "This part of the setup copies the ReactOS Operating System to your",
+        TEXT_NORMAL
     },
     {
         6,
         12,
-        "kompiuter‘ ir paruo’ antr–j– diegimo dal‘.",
-        TEXT_STYLE_NORMAL
+        "computer and prepares the second part of the setup.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "\x07  Spauskite ENTER, jei norite diegti ReactOS.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ENTER to install ReactOS.",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "\x07  Spauskite R, jei norite taisyti ReactOS.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press R to repair ReactOS.",
+        TEXT_NORMAL
     },
     {
         8,
         19,
-        "\x07  Spauskite L, jei norite pamatyti ReactOS licencijos s–lygas.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press L to view the ReactOS Licensing Terms and Conditions",
+        TEXT_NORMAL
     },
     {
         8,
         21,
-        "\x07  Spauskite F3, jei norite uÿdaryti ReactOS diegimo program–.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press F3 to quit without installing ReactOS.",
+        TEXT_NORMAL
     },
     {
         6,
         23,
-        "Nor”dami gauti daugiau informacijos apie ReactOS, aplankykite:",
-        TEXT_STYLE_NORMAL
+        "For more information on ReactOS, please visit:",
+        TEXT_NORMAL
     },
     {
         6,
         24,
         "http://www.reactos.org",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         0,
         0,
-        "ENTER = T“sti  R = Taisyti F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi  R = Repair F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -144,86 +137,86 @@ static MUI_ENTRY ltLTIntroPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "ReactOS Setup is in an early development phase. It does not yet",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         9,
         "support all the functions of a fully usable setup application.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         12,
         "The following limitations apply:",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "- Setup can not handle more than one primary partition per disk.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         14,
         "- Setup can not delete a primary partition from a disk",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         15,
         "  as long as extended partitions exist on this disk.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         16,
         "- Setup can not delete the first extended partition from a disk",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         17,
         "  as long as other extended partitions exist on this disk.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         18,
         "- Setup supports FAT file systems only.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         19,
         "- File system checks are not implemented yet.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         23,
         "\x07  Press ENTER to install ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         25,
         "\x07  Press F3 to quit without installing ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -238,116 +231,116 @@ static MUI_ENTRY ltLTLicensePageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         6,
         "Licensing:",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         8,
         8,
         "The ReactOS System is licensed under the terms of the",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         9,
         "GNU GPL with parts containing code from other compatible",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         10,
         "licenses such as the X11 or BSD and GNU LGPL licenses.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
         "All software that is part of the ReactOS system is",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         12,
         "therefore released under the GNU GPL as well as maintaining",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "the original license.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         15,
         "This software comes with NO WARRANTY or restrictions on usage",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         16,
         "save applicable local and international law. The licensing of",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         17,
         "ReactOS only covers distribution to third parties.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         18,
         "If for some reason you did not receive a copy of the",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         19,
         "GNU General Public License with ReactOS please visit",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         20,
         "http://www.gnu.org/licenses/licenses.html",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         8,
         22,
         "Warranty:",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         8,
         24,
         "This is free software; see the source for copying conditions.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         25,
         "There is NO warranty; not even for MERCHANTABILITY or",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         26,
         "FITNESS FOR A PARTICULAR PURPOSE",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = Gr‘ÿti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Return",
+        TEXT_STATUS
     },
     {
         0,
@@ -362,85 +355,85 @@ static MUI_ENTRY ltLTDevicePageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "œemiau esantis s–ra’as rodo dabartinius ‘rengini÷ nustatymus.",
-        TEXT_STYLE_NORMAL
+        "The list below shows the current device settings.",
+        TEXT_NORMAL
     },
     {
-        24,
+        8,
         11,
-        "Kompiuteris:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "       Computer:",
+        TEXT_NORMAL
     },
     {
-        24,
+        8,
         12,
-        "Ekranas:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT,
+        "        Display:",
+        TEXT_NORMAL,
     },
     {
-        24,
+        8,
         13,
-        "Klaviat◊ra:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "       Keyboard:",
+        TEXT_NORMAL
     },
     {
-        24,
+        8,
         14,
-        "Klav i’d”stymas:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "Keyboard layout:",
+        TEXT_NORMAL
     },
     {
-        24,
+        8,
         16,
-        "Naudoti:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "         Accept:",
+        TEXT_NORMAL
     },
     {
         25,
-        16, "Naudoti ’iuos ‘rengini÷ nustatymus",
-        TEXT_STYLE_NORMAL
+        16, "Accept these device settings",
+        TEXT_NORMAL
     },
     {
         6,
         19,
-        "J◊s galite pakeisti ‘rengini÷ nustatymus. Spausdami klavi’us AUKæTYN",
-        TEXT_STYLE_NORMAL
+        "You can change the hardware settings by pressing the UP or DOWN keys",
+        TEXT_NORMAL
     },
     {
         6,
         20,
-        "arba œEMYN, pasirinkite punkt–, kur‘ norite pakeisti. Paspaud“ ENTER",
-        TEXT_STYLE_NORMAL
+        "to select an entry. Then press the ENTER key to select alternative",
+        TEXT_NORMAL
     },
     {
         6,
         21,
-        "gal”site pasirinkti alternatyv–.",
-        TEXT_STYLE_NORMAL
+        "settings.",
+        TEXT_NORMAL
     },
     {
         6,
         23,
-        "Kai visi nustatymai bus teisingi, pasirinkite \"Naudoti ’iuos ‘rengi-",
-        TEXT_STYLE_NORMAL
+        "When all settings are correct, select \"Accept these device settings\"",
+        TEXT_NORMAL
     },
     {
         6,
         24,
-        "ni÷ nustatymus\" ir paspauskite ENTER.",
-        TEXT_STYLE_NORMAL
+        "and press ENTER.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -455,56 +448,56 @@ static MUI_ENTRY ltLTRepairPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "ReactOS Setup is in an early development phase. It does not yet",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         9,
         "support all the functions of a fully usable setup application.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         12,
         "The repair functions are not implemented yet.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         15,
         "\x07  Press U for Updating OS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         17,
         "\x07  Press R for the Recovery Console.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         19,
         "\x07  Press ESC to return to the main page.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         21,
         "\x07  Press ENTER to reboot your computer.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ESC = Main page  ENTER = Reboot",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ESC = Main page  ENTER = Reboot",
+        TEXT_STATUS
     },
     {
         0,
@@ -518,44 +511,44 @@ static MUI_ENTRY ltLTComputerPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "You want to change the type of computer to be installed.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         10,
         "\x07  Press the UP or DOWN key to select the desired computer type.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
         "   Then press ENTER.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "\x07  Press the ESC key to return to the previous page without changing",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         14,
         "   the computer type.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   ESC = At’aukti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   ESC = Atsaukti   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -570,32 +563,32 @@ static MUI_ENTRY ltLTFlushPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
         "The system is now making sure all data is stored on your disk",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         8,
         "This may take a minute",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         9,
         "When finished, your computer will reboot automatically",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "Flushing cache",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   Flushing cache",
+        TEXT_STATUS
     },
     {
         0,
@@ -610,38 +603,38 @@ static MUI_ENTRY ltLTQuitPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
         "ReactOS is not completely installed",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         8,
         "Remove floppy disk from Drive A: and",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         9,
         "all CD-ROMs from CD-Drives.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         11,
         "Press ENTER to reboot your computer.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "Pra’ome palaukti...",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG,
+        "   Please wait ...",
+        TEXT_STATUS,
     },
     {
         0,
@@ -656,43 +649,43 @@ static MUI_ENTRY ltLTDisplayPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "You want to change the type of display to be installed.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {   8,
         10,
          "\x07  Press the UP or DOWN key to select the desired display type.",
-         TEXT_STYLE_NORMAL
+         TEXT_NORMAL
     },
     {
         8,
         11,
         "   Then press ENTER.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "\x07  Press the ESC key to return to the previous page without changing",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         14,
         "   the display type.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   ESC = At’aukti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   ESC = Atsaukti   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -707,38 +700,38 @@ static MUI_ENTRY ltLTSuccessPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
         "The basic components of ReactOS have been installed successfully.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         8,
         "Remove floppy disk from Drive A: and",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         9,
         "all CD-ROMs from CD-Drive.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         11,
         "Press ENTER to reboot your computer.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = Reboot computer",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Reboot computer",
+        TEXT_STATUS
     },
     {
         0,
@@ -753,38 +746,38 @@ static MUI_ENTRY ltLTBootPageEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Setup cannot install the bootloader on your computers",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         9,
         "hardisk",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         13,
         "Please insert a formatted floppy disk in drive A: and",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         14,
         "press ENTER.",
-        TEXT_STYLE_NORMAL,
+        TEXT_NORMAL,
     },
     {
         0,
         0,
-        "ENTER = T“sti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -800,50 +793,50 @@ static MUI_ENTRY ltLTSelectPartitionEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "The list below shows existing partitions and unused disk",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         9,
         "space for new partitions.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
         "\x07  Press UP or DOWN to select a list entry.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "\x07  Press ENTER to install ReactOS onto the selected partition.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         15,
         "\x07  Press C to create a new partition.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         17,
         "\x07  Press D to delete an existing partition.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "Pra’ome palaukti...",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   Please wait...",
+        TEXT_STATUS
     },
     {
         0,
@@ -858,32 +851,32 @@ static MUI_ENTRY ltLTFormatPartitionEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Format partition",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         10,
         "Setup will now format the partition. Press ENTER to continue.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
         0,
         NULL,
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     }
 };
 
@@ -892,44 +885,44 @@ static MUI_ENTRY ltLTInstallDirectoryEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Setup installs ReactOS files onto the selected partition. Choose a",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         9,
         "directory where you want ReactOS to be installed:",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         14,
         "To change the suggested directory, press BACKSPACE to delete",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         15,
         "characters and then type the directory where you want ReactOS to",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         16,
         "be installed.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -944,32 +937,32 @@ static MUI_ENTRY ltLTFileCopyEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
-        0,
+        11,
         12,
         "Please wait while ReactOS Setup copies files to your ReactOS",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        TEXT_NORMAL
     },
     {
-        0,
+        30,
         13,
         "installation folder.",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        TEXT_NORMAL
     },
     {
-        0,
+        20,
         14,
         "This may take several minutes to complete.",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        TEXT_NORMAL
     },
     {
-        50,
         0,
-        "\xB3 Please wait...    ",
-        TEXT_TYPE_STATUS
+        0,
+        "                                                           \xB3 Please wait...    ",
+        TEXT_STATUS
     },
     {
         0,
@@ -984,38 +977,38 @@ static MUI_ENTRY ltLTBootLoaderEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Setup is installing the boot loader",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         12,
         "Install bootloader on the harddisk (MBR).",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "Install bootloader on a floppy disk.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         14,
         "Skip install bootloader.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -1030,44 +1023,44 @@ static MUI_ENTRY ltLTKeyboardSettingsEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "You want to change the type of keyboard to be installed.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         10,
         "\x07  Press the UP or DOWN key to select the desired keyboard type.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
         "   Then press ENTER.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "\x07  Press the ESC key to return to the previous page without changing",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         14,
         "   the keyboard type.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   ESC = At’aukti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   ESC = Atsaukti   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -1082,44 +1075,44 @@ static MUI_ENTRY ltLTLayoutSettingsEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Please select a layout to be installed by default.",
-        TEXT_STYLE_NORMAL
+        "You want to change the keyboard layout to be installed.",
+        TEXT_NORMAL
     },
     {
         8,
         10,
         "\x07  Press the UP or DOWN key to select the desired keyboard",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
         "    layout. Then press ENTER.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "\x07  Press the ESC key to return to the previous page without changing",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         14,
         "   the keyboard layout.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "ENTER = T“sti   ESC = At’aukti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   ESC = Atsaukti   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -1135,20 +1128,20 @@ static MUI_ENTRY ltLTPrepareCopyEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Setup prepares your computer for copying the ReactOS files. ",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "Building the file copy list...",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   Building the file copy list...",
+        TEXT_STATUS
     },
     {
         0,
@@ -1164,8 +1157,8 @@ static MUI_ENTRY ltLTSelectFSEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
@@ -1194,8 +1187,8 @@ static MUI_ENTRY ltLTSelectFSEntries[] =
     {
         0,
         0,
-        "ENTER = T“sti   ESC = At’aukti   F3 = Baigti",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   ENTER = Testi   ESC = Atsaukti   F3 = Baigti",
+        TEXT_STATUS
     },
 
     {
@@ -1211,38 +1204,38 @@ static MUI_ENTRY ltLTDeletePartitionEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "You have chosen to delete the partition",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         18,
         "\x07  Press D to delete the partition.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         11,
         19,
         "WARNING: All data on this partition will be lost!",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         21,
         "\x07  Press ESC to cancel.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "D = Delete Partition   ESC = At’aukti   F3 = Baigti",
-        TEXT_TYPE_STATUS
+        "   D = Delete Partition   ESC = Atsaukti   F3 = Baigti",
+        TEXT_STATUS
     },
     {
         0,
@@ -1257,20 +1250,20 @@ static MUI_ENTRY ltLTRegistryEntries[] =
     {
         4,
         3,
-        " ReactOS " KERNEL_VERSION_STR " diegimo programa ",
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Setup is updating the system configuration. ",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "Creating registry hives...",
-        TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+        "   Creating registry hives...",
+        TEXT_STATUS
     },
     {
         0,
@@ -1411,7 +1404,7 @@ MUI_ERROR ltLTErrorEntries[] =
     },
     {
         //ERROR_INITIALIZE_REGISTRY,
-        "Setup failed to initialize the registry.",
+        "Setup failed to set the initialize the registry.",
         "ENTER = Reboot computer"
     },
     {
@@ -1475,16 +1468,6 @@ MUI_ERROR ltLTErrorEntries[] =
     {
         //ERROR_UPDATE_LOCALESETTINGS,
         "Setup could not set the system locale.\n"
-        "ENTER = Reboot computer"
-    },
-    {
-        //ERROR_ADDING_KBLAYOUTS,
-        "Setup failed to add keyboard layouts to registry.\n"
-        "ENTER = Reboot computer"
-    },
-    {
-        //ERROR_UPDATE_GEOID,
-        "Setup could not set the geo id.\n"
         "ENTER = Reboot computer"
     },
     {
@@ -1592,117 +1575,6 @@ MUI_PAGE ltLTPages[] =
         -1,
         NULL
     }
-};
-
-MUI_STRING ltLTStrings[] =
-{
-    {STRING_PLEASEWAIT,
-     "   Please wait..."},
-    {STRING_INSTALLCREATEPARTITION,
-     "   ENTER = Install   C = Create Partition   F3 = Quit"},
-    {STRING_INSTALLDELETEPARTITION,
-     "   ENTER = Install   D = Delete Partition   F3 = Quit"},
-    {STRING_PARTITIONSIZE,
-     "Size of new partition:"},
-    {STRING_CHOOSENEWPARTITION,
-     "You have chosen to create a new partition on"},
-    {STRING_HDDSIZE,
-    "Please enter the size of the new partition in megabytes."},
-    {STRING_CREATEPARTITION,
-     "   ENTER = Create Partition   ESC = Cancel   F3 = Quit"},
-    {STRING_PARTFORMAT,
-    "This Partition will be formatted next."},
-    {STRING_NONFORMATTEDPART,
-    "You chose to install ReactOS on a new or unformatted Partition."},
-    {STRING_INSTALLONPART,
-    "Setup installs ReactOS onto Partition"},
-    {STRING_CHECKINGPART,
-    "Setup is now checking the selected partition."},
-    {STRING_QUITCONTINUE,
-    "F3= Quit  ENTER = Continue"},
-    {STRING_REBOOTCOMPUTER,
-    "ENTER = Reboot computer"},
-    {STRING_TXTSETUPFAILED,
-    "Setup failed to find the '%S' section\nin TXTSETUP.SIF.\n"},
-    {STRING_COPYING,
-     "\xB3 Copying file: %S"},
-    {STRING_SETUPCOPYINGFILES,
-     "Setup is copying files..."},
-    {STRING_REGHIVEUPDATE,
-    "   Updating registry hives..."},
-    {STRING_IMPORTFILE,
-    "   Importing %S..."},
-    {STRING_DISPLAYETTINGSUPDATE,
-    "   Updating display registry settings..."},
-    {STRING_LOCALESETTINGSUPDATE,
-    "   Updating locale settings..."},
-    {STRING_KEYBOARDSETTINGSUPDATE,
-    "   Updating keyboard layout settings..."},
-    {STRING_CODEPAGEINFOUPDATE,
-    "   Adding codepage information to registry..."},
-    {STRING_DONE,
-    "   Done..."},
-    {STRING_REBOOTCOMPUTER2,
-    "   ENTER = Reboot computer"},
-    {STRING_CONSOLEFAIL1,
-    "Unable to open the console\n\n"},
-    {STRING_CONSOLEFAIL2,
-    "The most common cause of this is using an USB keyboard\n"},
-    {STRING_CONSOLEFAIL3,
-    "USB keyboards are not fully supported yet\n"},
-    {STRING_FORMATTINGDISK,
-    "Setup is formatting your disk"},
-    {STRING_CHECKINGDISK,
-    "Setup is checking your disk"},
-    {STRING_FORMATDISK1,
-    " Format partition as %S file system (quick format) "},
-    {STRING_FORMATDISK2,
-    " Format partition as %S file system "},
-    {STRING_KEEPFORMAT,
-    " Keep current file system (no changes) "},
-    {STRING_HDINFOPARTCREATE,
-    "%I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ."},
-    {STRING_HDDINFOUNK1,
-    "%I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
-    {STRING_HDDINFOUNK2,
-    "   %c%c  Type %lu    %I64u %s"},
-    {STRING_HDINFOPARTDELETE,
-    "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ."},
-    {STRING_HDDINFOUNK3,
-    "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
-    {STRING_HDINFOPARTZEROED,
-    "Harddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
-    {STRING_HDDINFOUNK4,
-    "%c%c  Type %lu    %I64u %s"},
-    {STRING_HDINFOPARTEXISTS,
-    "on Harddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
-    {STRING_HDDINFOUNK5,
-    "%c%c  Type %-3u                         %6lu %s"},
-    {STRING_HDINFOPARTSELECT,
-    "%6lu %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %S"},
-    {STRING_HDDINFOUNK6,
-    "%6lu %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu)"},
-    {STRING_NEWPARTITION,
-    "Setup created a new partition on"},
-    {STRING_UNPSPACE,
-    "    Unpartitioned space              %6lu %s"},
-    {STRING_MAXSIZE,
-    "MB (max. %lu MB)"},
-    {STRING_UNFORMATTED,
-    "New (Unformatted)"},
-    {STRING_FORMATUNUSED,
-    "Unused"},
-    {STRING_FORMATUNKNOWN,
-    "Unknown"},
-    {STRING_KB,
-    "KB"},
-    {STRING_MB,
-    "MB"},
-    {STRING_GB,
-    "GB"},
-    {STRING_ADDKBLAYOUTS,
-    "Adding keyboard layouts"},
-    {0, 0}
 };
 
 #endif

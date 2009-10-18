@@ -81,7 +81,7 @@ GENERATE_IDT_STUBS                  /* INT 30-FF: UNEXPECTED INTERRUPTS     */
 .globl _KiIdtDescriptor
 _KiIdtDescriptor:
     .short 0
-    .short 0x7FF
+    .short 0x800
     .long _KiIdt
 
 .globl _KiUnexpectedEntrySize
@@ -200,7 +200,7 @@ NotWin32K:
     /* Increase total syscall count */
     inc dword ptr PCR[KPCR_SYSTEM_CALLS]
 
-#if DBG
+#ifdef DBG
     /* Increase per-syscall count */
     mov ecx, [edi+SERVICE_DESCRIPTOR_COUNT]
     jecxz NoCountTable
@@ -239,7 +239,7 @@ CopyParams:
     call ebx
 
 AfterSysCall:
-#if DBG
+#ifdef DBG
     /* Make sure the user-mode call didn't return at elevated IRQL */
     test byte ptr [ebp+KTRAP_FRAME_CS], MODE_MASK
     jz SkipCheck
@@ -377,7 +377,7 @@ BadStack:
     push 0
     jmp _KiTrap6
 
-#if DBG
+#ifdef DBG
 InvalidIrql:
     /* Save current IRQL */
     push PCR[KPCR_IRQL]
@@ -646,19 +646,11 @@ _DispatchNoParam:
     call _CommonDispatchException
 .endfunc
 
-.func DispatchOneParamZero
-_DispatchOneParamZero:
+.func DispatchOneParam
+_DispatchOneParam:
     /* Call the common dispatcher */
     xor edx, edx
     mov ecx, 1
-    call _CommonDispatchException
-.endfunc
-
-.func DispatchTwoParamZero
-_DispatchTwoParamZero:
-    /* Call the common dispatcher */
-    xor edx, edx
-    mov ecx, 2
     call _CommonDispatchException
 .endfunc
 
@@ -781,7 +773,7 @@ _KiTrap3:
     TRAP_PROLOG kit3_a, kit3_t
 
     /* Set status code */
-    mov eax, STATUS_SUCCESS
+    mov eax, 0 //STATUS_SUCCESS
 
     /* Check for V86 */
 PrepareInt3:
@@ -1231,13 +1223,14 @@ CheckError:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_INVALID_OPERATION
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 InvalidStack:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_STACK_CHECK
-    jmp _DispatchTwoParamZero
+    xor edx, edx
+    jmp _DispatchTwoParam
 
 ValidNpxOpcode:
 
@@ -1247,7 +1240,7 @@ ValidNpxOpcode:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_DIVIDE_BY_ZERO
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for denormal */
@@ -1256,7 +1249,7 @@ ValidNpxOpcode:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_INVALID_OPERATION
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for overflow */
@@ -1265,7 +1258,7 @@ ValidNpxOpcode:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_OVERFLOW
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for underflow */
@@ -1274,7 +1267,7 @@ ValidNpxOpcode:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_UNDERFLOW
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for precision fault */
@@ -1283,7 +1276,7 @@ ValidNpxOpcode:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_INEXACT_RESULT
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 UnexpectedNpx:
 
@@ -1338,6 +1331,7 @@ BogusTrap:
 .globl _KiTrap8
 .func KiTrap8
 _KiTrap8:
+
     /* Can't really do too much */
     mov eax, 8
     jmp _KiSystemFatalException
@@ -1452,7 +1446,11 @@ _KiTrap13:
 
     /* Otherwise, something is very wrong, raise an exception */
     sti
-    jmp SetException
+    mov ebx, [ebp+KTRAP_FRAME_EIP]
+    mov esi, -1
+    mov eax, STATUS_ACCESS_VIOLATION
+    xor edx, edx
+    jmp _DispatchTwoParam
 
 RaiseIrql:
 
@@ -1496,7 +1494,7 @@ NotV86Trap:
 NotV86:
     /* Enter trap */
     TRAP_PROLOG kitd_a, kitd_t
-    
+
     /* Check if this was from kernel-mode */
     test dword ptr [ebp+KTRAP_FRAME_CS], MODE_MASK
     jnz UserModeGpf
@@ -1510,7 +1508,6 @@ NotV86:
     cmp eax, offset CheckPrivilegedInstruction
     jbe KmodeGpf
     cmp eax, offset CheckPrivilegedInstruction2
-    jae KmodeGpf
 
     /* FIXME: TODO */
     UNHANDLED_PATH
@@ -1597,7 +1594,8 @@ TrapCopy:
     mov esi, [ebp+KTRAP_FRAME_ERROR_CODE]
     and esi, 0xFFFF
     mov eax, STATUS_ACCESS_VIOLATION
-    jmp _DispatchTwoParamZero
+    xor edx, edx
+    jmp _DispatchTwoParam
 
 MsrCheck:
 
@@ -1743,100 +1741,24 @@ InstLoop:
 
     /* If it's not a prefix byte, check other instructions */
     jnz NotPrefixByte
-    
-    /* Keep looping */
-    loop InstLoop
-    
-    /* Fixup the stack */
-    pop PCR[KPCR_EXCEPTION_LIST]
-    add esp, 8
 
-    /* Illegal instruction */
-    jmp KmodeOpcode
+    /* FIXME */
+    UNHANDLED_PATH
 
 NotPrefixByte:
-    /* Check if it's a HLT */
-    cmp al, 0x0F4
-    je IsPrivInstruction
+    /* FIXME: Check if it's a HLT */
 
     /* Check if the instruction has two bytes */
     cmp al, 0xF
     jne CheckRing3Io
-    
-    /* Check if this is a LLDT or LTR */
-    lods byte ptr [esi]
-    cmp al, 0
-    jne NotLldt
-    
-    /* Check if this is an LLDT */
-    lods byte ptr [esi]
-    and al, 0x38
-    cmp al, 0x10
-    je IsPrivInstruction
-    
-    /* Check if this is an LTR */
-    cmp al, 0x18
-    je IsPrivInstruction
-    
-    /* Otherwise, access violation */
-    jmp NotIoViolation
-    
-NotLldt:
-    /* Check if this is LGDT or LIDT or LMSW */
-    cmp al, 0x01
-    jne NotGdt
-    
-    /* Check if this is an LGDT */
-    lods byte ptr [esi]
-    and al, 0x38
-    cmp al, 0x10
-    je IsPrivInstruction
-    
-    /* Check if this is an LIDT */
-    cmp al, 0x18
-    je IsPrivInstruction
-    
-    /* Check if this is an LMSW */
-    cmp al, 0x30
-    je IsPrivInstruction
-    
-    /* Otherwise, access violation */
-    jmp NotIoViolation
-    
-NotGdt:
-    /* Check if it's INVD or WBINVD */
-    cmp al, 0x8
-    je IsPrivInstruction
-    cmp al, 0x9
-    je IsPrivInstruction
-    
-    /* Check if it's sysexit */
-    cmp al, 0x35
-    je IsPrivInstruction
-    
-    /* Check if it's a DR move */
-    cmp al, 0x26
-    je IsPrivInstruction
-    
-    /* Check if it's a CLTS */
-    cmp al, 0x6
-    je IsPrivInstruction
-    
-    /* Check if it's a CR move */
-    cmp al, 0x20
-    jb NotIoViolation
-    
-    /* Check if it's a DR move */
-    cmp al, 0x24
-    jbe IsPrivInstruction
-    
-    /* Everything else is an access violation */
-    jmp NotIoViolation
+
+    /* FIXME */
+    UNHANDLED_PATH
 
 CheckRing3Io:
     /* Get EFLAGS and IOPL */
     mov ebx, [ebp+KTRAP_FRAME_EFLAGS]
-    and ebx, EFLAGS_IOPL
+    and ebx, 0x3000
     shr ebx, 12
 
     /* Check the CS's RPL mask */
@@ -1882,7 +1804,8 @@ SetException:
     mov ebx, [ebp+KTRAP_FRAME_EIP]
     mov esi, -1
     mov eax, STATUS_ACCESS_VIOLATION
-    jmp _DispatchTwoParamZero
+    xor edx, edx
+    jmp _DispatchTwoParam
 
 DispatchV86Gpf:
     /* FIXME */
@@ -1924,14 +1847,14 @@ _KiTrap14:
 NoFixUp:
     mov edi, cr2
 
-    /* REACTOS Mm Hack of Doom */
+    /* ROS HACK: Sometimes we get called with INTS DISABLED! WTF? */
     test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
     je HandlePf
 
     /* Enable interrupts and check if we got here with interrupts disabled */
     sti
-    /* test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
-    jz IllegalState */
+    test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
+    jz IllegalState
 
 HandlePf:
     /* Send trap frame and check if this is kernel-mode or usermode */
@@ -2200,7 +2123,7 @@ XmmiMakeCr0Dirty:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_MULTIPLE_TRAPS
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for zero divide */
@@ -2209,7 +2132,7 @@ XmmiMakeCr0Dirty:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_MULTIPLE_TRAPS
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for denormal */
@@ -2218,7 +2141,7 @@ XmmiMakeCr0Dirty:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_MULTIPLE_TRAPS
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for overflow*/
@@ -2227,7 +2150,7 @@ XmmiMakeCr0Dirty:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_MULTIPLE_FAULTS
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for denormal */
@@ -2236,7 +2159,7 @@ XmmiMakeCr0Dirty:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_MULTIPLE_FAULTS
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 1:
     /* Check for Precision */
@@ -2245,7 +2168,7 @@ XmmiMakeCr0Dirty:
 
     /* Raise exception */
     mov eax, STATUS_FLOAT_MULTIPLE_FAULTS
-    jmp _DispatchOneParamZero
+    jmp _DispatchOneParam
 
 UnexpectedXmmi:
     /* Strange result, bugcheck the OS */
@@ -2455,20 +2378,9 @@ CheckQuantum:
     mov edi, [ebx+KPCR_CURRENT_THREAD]
 
 #ifdef CONFIG_SMP
-    /* Raise to synch level */
-    call _KeRaiseIrqlToSynchLevel@0
-
-    /* Set context swap busy */
-    mov byte ptr [edi+KTHREAD_SWAP_BUSY], 1
-
-    /* Acquire the PRCB Lock */
-    lock bts dword ptr [ebx+KPCR_PRCB_PRCB_LOCK], 0
-    jnb GetNext
-    lea ecx, [ebx+KPCR_PRCB_PRCB_LOCK]
-    call @KefAcquireSpinLockAtDpcLevel@4
+    #error SMP Interrupt not handled!
 #endif
 
-GetNext:
     /* Get the next thread and clear it */
     mov esi, [ebx+KPCR_PRCB_NEXT_THREAD]
     and dword ptr [ebx+KPCR_PRCB_NEXT_THREAD], 0
@@ -2486,12 +2398,6 @@ GetNext:
     /* Set APC_LEVEL and do the swap */
     mov cl, APC_LEVEL
     call @KiSwapContextInternal@0
-
-#ifdef CONFIG_SMP
-    /* Lower IRQL back to dispatch */
-    mov cl, DISPATCH_LEVEL
-    call @KfLowerIrql@4
-#endif
 
     /* Restore registers */
     mov ebp, [esp+0]
@@ -2533,81 +2439,8 @@ TRAP_FIXUPS kit_a, kit_t, DoFixupV86, DoFixupAbios
 .func KiChainedDispatch2ndLvl@0
 _KiChainedDispatch2ndLvl@0:
 
-NextSharedInt:
-    /* Raise IRQL if necessary */
-    mov cl, [edi+KINTERRUPT_SYNCHRONIZE_IRQL]
-    cmp cl, [edi+KINTERRUPT_IRQL]
-    je 1f
-    call @KfRaiseIrql@4
-
-1:
-    /* Acquire the lock */
-    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
-GetIntLock2:
-    ACQUIRE_SPINLOCK(esi, IntSpin2)
-
-    /* Make sure that this interrupt isn't storming */
-    VERIFY_INT kid2
-
-    /* Save the tick count */
-    mov esi, _KeTickCount
-
-    /* Call the ISR */
-    mov eax, [edi+KINTERRUPT_SERVICE_CONTEXT]
-    push eax
-    push edi
-    call [edi+KINTERRUPT_SERVICE_ROUTINE]
-
-    /* Save the ISR result */
-    mov bl, al
-
-    /* Check if the ISR timed out */
-    add esi, _KiISRTimeout
-    cmp _KeTickCount, esi
-    jnc ChainedIsrTimeout
-
-ReleaseLock2:
-    /* Release the lock */
-    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
-    RELEASE_SPINLOCK(esi)
-
-    /* Lower IRQL if necessary */
-    mov cl, [edi+KINTERRUPT_IRQL]
-    cmp cl, [edi+KINTERRUPT_SYNCHRONIZE_IRQL]
-    je 1f
-    call @KfLowerIrql@4
-
-1:
-    /* Check if the interrupt is handled */
-    or bl, bl
-    jnz 1f
-
-    /* Try the next shared interrupt handler */
-    mov eax, [edi+KINTERRUPT_INTERRUPT_LIST_HEAD]
-    lea edi, [eax-KINTERRUPT_INTERRUPT_LIST_HEAD]
-    jmp NextSharedInt
-
-1:
-    ret
-
-#ifdef CONFIG_SMP
-IntSpin2:
-    SPIN_ON_LOCK(esi, GetIntLock2)
-#endif
-
-ChainedIsrTimeout:
-    /* Print warning message */
-    push [edi+KINTERRUPT_SERVICE_ROUTINE]
-    push offset _IsrTimeoutMsg
-    call _DbgPrint
-    add esp,8
-
-    /* Break into debugger, then continue */
-    int 3
-    jmp ReleaseLock2
-
-    /* Cleanup verification */
-    VERIFY_INT_END kid2, 0
+    /* Not yet supported */
+    UNHANDLED_PATH
 .endfunc
 
 .func KiChainedDispatch@0
@@ -2672,8 +2505,8 @@ _KiInterruptDispatch@0:
     jz SpuriousInt
 
     /* Acquire the lock */
-    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
 GetIntLock:
+    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
     ACQUIRE_SPINLOCK(esi, IntSpin)
 
     /* Make sure that this interrupt isn't storming */
@@ -2707,7 +2540,7 @@ SpuriousInt:
 
 #ifdef CONFIG_SMP
 IntSpin:
-    SPIN_ON_LOCK(esi, GetIntLock)
+    SPIN_ON_LOCK esi, GetIntLock
 #endif
 
 IsrTimeout:
@@ -2736,25 +2569,11 @@ _KeSynchronizeExecution@12:
     /* Go to DIRQL */
     mov cl, [ebx+KINTERRUPT_SYNCHRONIZE_IRQL]
     call @KfRaiseIrql@4
-    push eax
-
-#ifdef CONFIG_SMP
-    /* Acquire the interrupt spinlock FIXME: Write this in assembly */
-    mov ecx, [ebx+KINTERRUPT_ACTUAL_LOCK]
-    call @KefAcquireSpinLockAtDpcLevel@4
-#endif
 
     /* Call the routine */
+    push eax
     push [esp+20]
     call [esp+20]
-
-#ifdef CONFIG_SMP
-    /* Release the interrupt spinlock FIXME: Write this in assembly */
-    push eax
-    mov ecx, [ebx+KINTERRUPT_ACTUAL_LOCK]
-    call @KefReleaseSpinLockFromDpcLevel@4
-    pop eax
-#endif
 
     /* Lower IRQL */
     mov ebx, eax
@@ -2765,33 +2584,4 @@ _KeSynchronizeExecution@12:
     mov eax, ebx
     pop ebx
     ret 12
-.endfunc
-
-/*++
- * Kii386SpinOnSpinLock 
- *
- *     FILLMEIN
- *
- * Params:
- *     SpinLock - FILLMEIN
- *
- *     Flags - FILLMEIN
- *
- * Returns:
- *     None.
- *
- * Remarks:
- *     FILLMEIN
- *
- *--*/
-.globl _Kii386SpinOnSpinLock@8
-.func Kii386SpinOnSpinLock@8
-_Kii386SpinOnSpinLock@8:
-
-#ifdef CONFIG_SMP
-    /* FIXME: TODO */
-    int 3
-#endif
-
-    ret 8
 .endfunc

@@ -37,10 +37,10 @@
  * including any use thereof or modifications thereto.
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/imports.h"
-#include "main/macros.h"
+#include "glheader.h"
+#include "context.h"
+#include "imports.h"
+#include "macros.h"
 #include "nvprogram.h"
 #include "nvvertparse.h"
 #include "prog_instruction.h"

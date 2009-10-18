@@ -19,7 +19,6 @@
  */
 
 #include "config.h"
-#include "wine/port.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -292,10 +291,7 @@ static resource_t *read_res32(FILE *fp)
 			usrres = new_user(type, NULL, new_int(memopt));
 		}
 		else
-		{
-			free (type);
 			usrres = NULL;
-		}
 		rsc = new_resource(res_type,
 				   usrres,
 				   memopt,
@@ -354,7 +350,7 @@ resource_t *read_resfile(char *inname)
 
 	fp = fopen(inname, "rb");
 	if(!fp)
-            fatal_perror("Could not open %s", inname);
+		error("Could not open inputfile %s\n", inname);
 
 	/* Determine 16 or 32 bit .res file */
 	if(fread(&rh, 1, sizeof(rh), fp) != sizeof(rh))

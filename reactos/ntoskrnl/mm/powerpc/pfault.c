@@ -1,4 +1,5 @@
-/*
+/* $Id: pfault.c 24443 2006-10-08 10:01:27Z arty $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/powerpc/pfault.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 #include <ppcmmu/mmu.h>
 
 /* EXTERNS *******************************************************************/

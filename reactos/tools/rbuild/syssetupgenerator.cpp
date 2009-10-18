@@ -44,9 +44,9 @@ SysSetupGenerator::Generate ()
 	if ( 0 != InfHostOpenFile ( &inf, syssetupTemplate.c_str (), &errorLine ) )
 		throw new FileNotFoundException ( syssetupTemplate );
 
-	for( std::map<std::string, Module*>::const_iterator p = project.modules.begin(); p != project.modules.end(); ++ p )
+	for ( size_t i = 0; i < project.modules.size (); i++ )
 	{
-		const Module& module = *p->second;
+		const Module& module = *project.modules[i];
 		if ( module.autoRegister != NULL )
 			Generate ( inf, module );
 	}

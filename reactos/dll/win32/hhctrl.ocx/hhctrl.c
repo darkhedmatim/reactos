@@ -86,27 +86,11 @@ static const char *command_to_string(UINT command)
 #undef X
 }
 
-static BOOL resolve_filename(const WCHAR *filename, WCHAR *fullname, DWORD buflen)
-{
-    static const WCHAR helpW[] = {'\\','h','e','l','p','\\',0};
-
-    GetFullPathNameW(filename, buflen, fullname, NULL);
-    if (GetFileAttributesW(fullname) == INVALID_FILE_ATTRIBUTES)
-    {
-        GetWindowsDirectoryW(fullname, buflen);
-        strcatW(fullname, helpW);
-        strcatW(fullname, filename);
-    }
-    return (GetFileAttributesW(fullname) != INVALID_FILE_ATTRIBUTES);
-}
-
 /******************************************************************
  *		HtmlHelpW (HHCTRL.OCX.15)
  */
 HWND WINAPI HtmlHelpW(HWND caller, LPCWSTR filename, UINT command, DWORD_PTR data)
 {
-    WCHAR fullname[MAX_PATH];
-
     TRACE("(%p, %s, command=%s, data=%lx)\n",
           caller, debugstr_w( filename ),
           command_to_string( command ), data);
@@ -124,66 +108,48 @@ HWND WINAPI HtmlHelpW(HWND caller, LPCWSTR filename, UINT command, DWORD_PTR dat
 
         FIXME("Not all HH cases handled correctly\n");
 
-        if (!filename)
-            return NULL;
-
         index = strstrW(filename, delimW);
         if (index)
         {
             memcpy(chm_file, filename, (index-filename)*sizeof(WCHAR));
             chm_file[index-filename] = 0;
             filename = chm_file;
-            index += 2; /* advance beyond "::" for calling NavigateToChm() later */
         }
-
-        if (!resolve_filename(filename, fullname, MAX_PATH))
+        else
         {
-            WARN("can't find %s\n", debugstr_w(filename));
-            return 0;
+            if (command!=HH_DISPLAY_SEARCH) /* FIXME - use HH_FTS_QUERYW structure in data */
+                index = (const WCHAR*)data;
         }
 
-        info = CreateHelpViewer(fullname);
-        if(!info)
-            return NULL;
+        info = CreateHelpViewer(filename);
 
-        if(!index)
-            index = info->WinType.pszFile;
-
-        res = NavigateToChm(info, info->pCHMInfo->szFile, index);
-        if(!res)
+        if (info)
         {
-            ReleaseHelpViewer(info);
-            return NULL;
+            if (!index)
+                index = info->WinType.pszFile;
+            res = NavigateToChm(info, info->pCHMInfo->szFile, index);
+            if(!res)
+                ReleaseHelpViewer(info);
         }
-        return info->WinType.hwndHelp;
+
+        return NULL; /* FIXME */
     }
     case HH_HELP_CONTEXT: {
         HHInfo *info;
         LPWSTR url;
 
-        if (!filename)
-            return NULL;
-
-        if (!resolve_filename(filename, fullname, MAX_PATH))
-        {
-            WARN("can't find %s\n", debugstr_w(filename));
-            return 0;
-        }
-
-        info = CreateHelpViewer(fullname);
+        info = CreateHelpViewer(filename);
         if(!info)
             return NULL;
 
         url = FindContextAlias(info->pCHMInfo, data);
         if(!url)
-        {
-            ReleaseHelpViewer(info);
             return NULL;
-        }
 
         NavigateToUrl(info, url);
         heap_free(url);
-        return info->WinType.hwndHelp;
+
+        return NULL; /* FIXME */
     }
     case HH_PRETRANSLATEMESSAGE: {
         static BOOL warned = FALSE;
@@ -272,28 +238,11 @@ HWND WINAPI HtmlHelpA(HWND caller, LPCSTR filename, UINT command, DWORD_PTR data
 int WINAPI doWinMain(HINSTANCE hInstance, LPSTR szCmdLine)
 {
     MSG msg;
-    int len, buflen;
-    WCHAR *filename;
-    char *endq = NULL;
 
     hh_process = TRUE;
 
     /* FIXME: Check szCmdLine for bad arguments */
-    if (*szCmdLine == '\"')
-        endq = strchr(++szCmdLine, '\"');
-
-    if (endq)
-        len = endq - szCmdLine;
-    else
-        len = strlen(szCmdLine);
-    buflen = MultiByteToWideChar(CP_ACP, 0, szCmdLine, len, NULL, 0) + 1;
-    filename = heap_alloc(buflen * sizeof(WCHAR));
-    MultiByteToWideChar(CP_ACP, 0, szCmdLine, len, filename, buflen);
-    filename[buflen-1] = 0;
-
-    HtmlHelpW(GetDesktopWindow(), filename, HH_DISPLAY_TOPIC, 0);
-
-    heap_free(filename);
+    HtmlHelpA(GetDesktopWindow(), szCmdLine, HH_DISPLAY_TOPIC, 0);
 
     while (GetMessageW(&msg, 0, 0, 0))
     {

@@ -1,4 +1,5 @@
-/* Copyright 1998 Juergen Schmied
+/*
+ * Copyright 1998 Juergen Schmied
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -143,7 +144,7 @@ IDD_SHELL_ABOUT_AUTHORS DIALOGEX MOVEABLE DISCARDABLE 35, 90, 235, 85
 STYLE DS_SHELLFONT | WS_CHILD
 FONT 8, "MS Shell Dlg"
 BEGIN
-	LTEXT "РеактОС достигна до вас, благодарение на:", IDC_STATIC, 0, 0, 250, 10
+	LTEXT "Реактос достигна до вас, благодарение на:", IDC_STATIC, 0, 0, 250, 10
 	LISTBOX IDC_SHELL_ABOUT_AUTHORS_LISTBOX, 0, 10, 165, 75
 END
 
@@ -155,7 +156,7 @@ BEGIN
 	ICON "", 12297, 7, 11, 18, 20, WS_VISIBLE
 	LTEXT "Напишете името на приложение, папка, документ или интернет източник и РеактОС ще го отвори.", 12289, 36, 11, 182, 18
 	LTEXT "&Отваряне:", 12305, 7, 39, 40, 10
-	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 46, 37, 180, 100
+	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 46, 37, 180, 100
 	DEFPUSHBUTTON "Добре", IDOK, 62, 63, 50, 14, WS_TABSTOP
 	PUSHBUTTON "Отказ", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
 	PUSHBUTTON "&Обзор...", 12288, 170, 63, 50, 14, WS_TABSTOP
@@ -197,27 +198,6 @@ BEGIN
 	CHECKBOX "Изпълняване в отделен дял от паметта", 14001, 30, 100, 170, 10, WS_DISABLED
 	PUSHBUTTON "Добре", 1, 63, 124, 50, 15, WS_VISIBLE
 	PUSHBUTTON "Прекъсване", 2, 120, 124, 50, 15, WS_VISIBLE
-END
-
-SHELL_FOLDER_GENERAL_DLG DIALOGEX 0, 0, 240, 205
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Общи"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-	ICON "", 14000, 10, 3, 30, 30, WS_VISIBLE
-	EDITTEXT 14001, 70, 9, 158, 14, ES_LEFT | ES_READONLY
-	LTEXT "Вид на файла:", 14004, 8, 35, 50, 10
-	LTEXT "Папка", 14005, 68, 35, 160, 10
-	LTEXT "Място:", 14006, 8, 53, 50, 10
-	LTEXT "", 14007, 68, 53, 315, 10
-	LTEXT "Размер:", 14008, 8, 72, 45, 10
-	LTEXT "", 14009, 68, 72, 315, 10
-	LTEXT "Съдържа:", 14010, 8, 93, 45, 10
-	LTEXT "", 14011, 68, 93, 160, 10
-	LTEXT "Създадено:", 14014, 8, 118, 45, 10
-	LTEXT "", 14015, 68, 118, 160, 10
-	AUTOCHECKBOX "&Само за четене", 14021, 45, 150, 67, 10
-	AUTOCHECKBOX "&Скрит", 14022, 126, 150, 50, 10
 END
 
 SHELL_FILE_GENERAL_DLG DIALOGEX 0, 0, 240, 205
@@ -270,32 +250,32 @@ STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Общи"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-	EDITTEXT 14000, 40, 20, 190, 14, ES_LEFT|WS_BORDER|WS_GROUP
+	EDITTEXT 14001, 40, 20, 190, 14, ES_LEFT|WS_BORDER|WS_GROUP
 	LTEXT "Вид:", -1, 15, 55, 40, 10
-	LTEXT "", 14001, 110, 55, 100, 10
+	LTEXT "", 14002, 110, 55, 100, 10
 
 	LTEXT "Файлова уредба:", -1, 15, 70, 100, 10
-	LTEXT "", 14002, 110, 70, 100, 10
+	LTEXT "", 14003, 110, 70, 100, 10
 
 	CONTROL "", 14013, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 90, 10, 10
 	LTEXT "Използвано място:", -1, 25, 90, 120, 10
-	LTEXT "", 14003, 110, 90, 120, 10
-	LTEXT "", 14004, 200, 90, 40, 10
+	LTEXT "", 14004, 110, 90, 120, 10
+	LTEXT "", 14005, 200, 90, 40, 10
 
 	CONTROL "", 14014, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 105, 10, 10
 	LTEXT "Свободно място:", -1, 25, 105, 70, 10
-	LTEXT "", 14005, 110, 105, 120, 10
-	LTEXT "", 14006, 200, 105, 40, 10
+	LTEXT "", 14006, 110, 105, 120, 10
+	LTEXT "", 14007, 200, 105, 40, 10
 
 	LTEXT "Обем:", -1, 25, 125, 80, 10
-	LTEXT "", 14007, 110, 125, 120, 10
-	LTEXT "", 14008, 200, 125, 40, 10
+	LTEXT "", 14008, 110, 125, 120, 10
+	LTEXT "", 14009, 200, 125, 40, 10
 
 	CONTROL "", 14015, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 20, 140, 200, 20
 
-	LTEXT "Устройство %s", 14009, 100, 170, 40, 10
-	PUSHBUTTON "Почистване на диска", 14010, 150, 175, 80, 15, WS_TABSTOP
-	CHECKBOX "Уплътняване на устройството за спестяване на място", 14011, 1, 205, 238, 10, WS_DISABLED
+	LTEXT "Устройство %s", 14010, 100, 170, 40, 10
+	PUSHBUTTON "Почистване на диска", 14011, 150, 175, 80, 15, WS_TABSTOP
+	CHECKBOX "Уплътняване на устройството за спестяване на място", 14012, 1, 205, 238, 10, WS_DISABLED
 	CHECKBOX "Индексиращата услуга да индексира диска за по- бързо търсене", 14012, 1, 220, 238, 10, WS_DISABLED
 END
 
@@ -353,11 +333,11 @@ BEGIN
 	EDITTEXT 14002, 106, 87, 50, 14, WS_TABSTOP | ES_NUMBER
 	LTEXT "Размер до (МБ):", -1, 20, 105, 70, 10
 	RADIOBUTTON "Файловете се изтриват веднага, без да се местят в кошчето.", 14003, 20, 117, 170, 20, BS_MULTILINE | WS_TABSTOP
-	AUTOCHECKBOX "&Питане преди изтриване", 14004, 20, 155, 140, 10, WS_TABSTOP
+	RADIOBUTTON "&Питане преди изтриване", 14004, 20, 155, 140, 10, WS_TABSTOP
 END
 
 OPEN_WITH_PROGRAMM_DLG DIALOGEX 0, 0, 264, 256
-STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
+STYLE DS_SHELLFONT | WS_CHILD | WS_CAPTION
 CAPTION "Отваряне с"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
@@ -365,7 +345,7 @@ BEGIN
 	LTEXT "Изберете приложение, което да отвори този файл:", -1, 44, 12, 211, 10
 	LTEXT "Файл:    ", 14001, 44, 25, 188, 10
 	GROUPBOX "&Приложения", -1, 7, 42, 249, 187
-        LISTBOX 14002, 16 ,57, 230, 130, LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP, WS_EX_STATICEDGE
+	CONTROL "", 14002, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_NOCOLUMNHEADER | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 16, 57, 230, 130
 	AUTOCHECKBOX "&Винаги избраното приложение да отваря този вид файлове.", 14003, 20, 193, 225, 10
 	PUSHBUTTON "&Обзор...", 14004, 198, 207, 50, 14
 	PUSHBUTTON "Добре", 14005, 150, 236, 50, 14
@@ -377,21 +357,22 @@ STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
 CAPTION "Общи"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-	GROUPBOX "Задачи", -1, 7, 10, 249, 45
-	ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
-	AUTORADIOBUTTON "Показване на общите задачи в папките", 14001, 20, 25, 210, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Използване на обичайните папки на Windows", 14002, 20, 37, 210, 10, WS_TABSTOP | WS_GROUP
-	GROUPBOX "Обзор на папките", -1, 7, 60, 249, 45, WS_TABSTOP
-	ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
-	AUTORADIOBUTTON "Отваряне на всички папки в &един прозорец", 14004, 20, 70, 210, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Отваряне на всяка папка в от&делен прозорец", 14005, 20, 82, 210, 10, WS_TABSTOP | WS_GROUP
-	GROUPBOX "Цъкането действа така:", -1, 7, 110, 249, 60
-	ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
-	AUTORADIOBUTTON "&Отваряне с единично цъкане (избор с посочване)", 14007, 20, 120, 210, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Подчертаване заглавията на значетата съгласно &обзорника ми", 14008, 30, 220, 170, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "Подчертаване на заглавията на значетата при &посочване", 14009, 30, 144, 220, 10, WS_TABSTOP | WS_GROUP
-	AUTORADIOBUTTON "&Отваряне с двойно цъкане (избиране с единично)", 14010, 20, 156, 170, 10, WS_TABSTOP | WS_GROUP
-	PUSHBUTTON "От под&разбираните", 14011, 160, 180, 75, 14, WS_TABSTOP
+
+GROUPBOX "Задачи", -1, 7, 10, 249, 45
+//ICON
+AUTORADIOBUTTON "Показване на общите задачи в папките", 14001, 20, 25, 210, 10, WS_TABSTOP
+AUTORADIOBUTTON "Използване на обичайните папки на Windows", 14002, 20, 37, 210, 10, WS_TABSTOP
+GROUPBOX "Обзор на папките", -1, 7, 60, 249, 45, WS_TABSTOP
+//ICON
+AUTORADIOBUTTON "Отваряне на всички папки в &един прозорец", 14004, 20, 70, 210, 10, WS_TABSTOP
+AUTORADIOBUTTON "Отваряне на всяка папка в от&делен прозорец", 14005, 20, 82, 210, 10, WS_TABSTOP
+GROUPBOX "Цъкането действа така:", -1, 7, 110, 249, 60
+//ICON
+AUTORADIOBUTTON "&Отваряне с единично цъкане (избор с посочване)", 14007, 20, 120, 210, 10, WS_TABSTOP
+AUTORADIOBUTTON "Подчертаване заглавията на значетата съгласно &обзорника ми", 14008, 30, 220, 170, 10, WS_TABSTOP
+AUTORADIOBUTTON "Подчертаване на заглавията на значетата при &посочване", 14009, 30, 144, 220, 10, WS_TABSTOP
+AUTORADIOBUTTON "&Отваряне с двойно цъкане (избиране с единично)", 14010, 20, 156, 170, 10, WS_TABSTOP
+PUSHBUTTON "От под&разбираните", 14011, 160, 180, 75, 14, WS_TABSTOP
 END
 
 FOLDER_OPTIONS_VIEW_DLG DIALOGEX 0, 0, 264, 256
@@ -429,7 +410,7 @@ END
 
 CONFIRM_FILE_REPLACE_DLG DIALOGEX 0, 0, 282, 143
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_CENTER | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Потвърждение за замяна на файл"
+CAPTION "Confirm File Replace"
 FONT 8, "MS Shell Dlg"
 BEGIN
 	DEFPUSHBUTTON "&Да", IDYES, 20, 122, 60, 14
@@ -509,7 +490,7 @@ BEGIN
 	EDITTEXT 1006, 49, 28, 177, 14, ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER | NOT WS_TABSTOP
 	LTEXT "Какво да направи РеактОС?", 1002, 32, 41, 190, 8
 	CONTROL "", 1003, "SYSLISTVIEW32", WS_BORDER | WS_TABSTOP | 0x0000C04D, 32, 55, 188, 112
-	AUTOCHECKBOX "Винаги прави избраното.", 1004, 32, 171, 190, 10
+	AUTOCHECKBOX "Винаго прави избраното.", 1004, 32, 171, 190, 10
 	DEFPUSHBUTTON "Добре", IDOK, 96, 185, 60, 14
 	PUSHBUTTON "Отказ", IDCANCEL, 160, 185, 60, 14
 END
@@ -527,6 +508,8 @@ BEGIN
 	DEFPUSHBUTTON "Добре", IDOK, 94, 160, 60, 14
 	PUSHBUTTON "Отказ", IDCANCEL, 159, 160, 60, 14
 END
+
+
 
 SHUTDOWN_DLG DIALOGEX 0, 0, 211, 103
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
@@ -563,34 +546,6 @@ BEGIN
 	AUTOCHECKBOX "&Използване на уплътняване", 28675, 16, 152, 155, 10
 END
 
-CHKDSK_DLG DIALOGEX 50, 50, 244, 120
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Проверка на диска"
-FONT 8, "MS Shell Dlg"
-BEGIN
-	DEFPUSHBUTTON "Начало", IDOK, 53, 100, 60, 14
-	GROUPBOX "Настройки за проверката", -1, 7, 6, 229, 50
-	PUSHBUTTON "Отказ", IDCANCEL, 118, 100, 60, 14
-	AUTOCHECKBOX "Самопоправяне на системните грешки на файловете", 14000, 16, 15, 210, 10
-	AUTOCHECKBOX "Об&хождане и опит за възстановяване на лошите сектори", 14001, 16, 30, 210, 10
-	CONTROL "", 14002, "MSCTLS_PROGRESS32", 16, 42, 60, 170, 8
-	LTEXT "", 14003, 60, 80, 170, 10
-END
-
-IDD_PICK_ICON_DIALOG DIALOGEX 0, 0, 237, 204
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
-CAPTION "Смяна на значе"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    LTEXT "Файлов име:", -1, 7, 14, 208, 10
-    PUSHBUTTON      "Обзор...",IDC_BUTTON_PATH, 148, 24,67,14
-    EDITTEXT        IDC_EDIT_PATH, 6, 24, 135, 15, ES_AUTOHSCROLL
-    LTEXT "Значета:", -1, 7, 47, 208, 10
-    LISTBOX         IDC_PICKICON_LIST,7,57,208,119,LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | LBS_MULTICOLUMN | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP,WS_EX_STATICEDGE
-    DEFPUSHBUTTON   "Добре",IDOK, 107, 181,50, 14
-    PUSHBUTTON      "Отказ",IDCANCEL, 167, 181, 50, 14
-END
-
 
 STRINGTABLE DISCARDABLE
 BEGIN
@@ -606,25 +561,14 @@ BEGIN
 	IDS_SHV_COLUMN9             "Забележки"
 	IDS_SHV_COLUMN10            "Собственик"
 	IDS_SHV_COLUMN11            "Група"
-	IDS_SHV_COLUMN12            "Файлово име"
-	IDS_SHV_COLUMN13            "Раздел"
 	IDS_SHV_COLUMN_DELFROM      "Първоначално място"
 	IDS_SHV_COLUMN_DELDATE      "Дата на изтриване"
-		IDS_SHV_COLUMN_FONTTYPE     "Вид шрифт"
-	IDS_SHV_COLUMN_WORKGROUP    "Работна група"
-	IDS_SHV_NETWORKLOCATION     "Място в мрежата"
-	IDS_SHV_COLUMN_DOCUMENTS    "Книжа"
-	IDS_SHV_COLUMN_STATUS       "Състояние"
-	IDS_SHV_COLUMN_COMMENTS     "Забележки"
-	IDS_SHV_COLUMN_LOCATION     "Място"
-	IDS_SHV_COLUMN_MODEL        "Модел"
 
 	// special folders 
 	IDS_DESKTOP                 "Работна площ"
 	IDS_MYCOMPUTER              "Моят компютър"
 	IDS_RECYCLEBIN_FOLDER_NAME  "Кошче"
 	IDS_CONTROLPANEL            "Крило за управление"
-	IDS_ADMINISTRATIVETOOLS     "Управнически средства"
 
 	// context menus 
 	IDS_VIEW_LARGE              "&Големи значета"
@@ -633,16 +577,7 @@ BEGIN
 	IDS_VIEW_DETAILS            "&Подробен"
 	IDS_SELECT                  "Избор"
 	IDS_OPEN                    "Отваряне"
-	IDS_CREATELINK              "Създаване на &връзка"
-	IDS_COPY                    "За&помняне"
-	IDS_DELETE                  "Из&триване"
-	IDS_PROPERTIES              "&Свойства"
-	IDS_CUT                     "Из&рязване"
-	IDS_RESTORE                 "Възвръщане"
-	IDS_FORMATDRIVE             "Оразмеряване..."
-	IDS_RENAME                  "Преименуване"
-	IDS_INSERT                  "Вмъкване"
-
+/* */
 	IDS_CREATEFOLDER_DENIED     "Създаването на нова папка е невъзможно: недостатъчни права."
 	IDS_CREATEFOLDER_CAPTION    "Грешка при създаване на нова папка"
 	IDS_DELETEITEM_CAPTION      "Потвърдете изтриване на файла"
@@ -668,34 +603,34 @@ BEGIN
 	IDS_SHUTDOWN_PROMPT         "Искате ли да изключите компютъра?"
 
 	// shell folder path default values 
-	IDS_PROGRAMS                "Пусков изборник\\Приложения"
+	IDS_PROGRAMS                "Start Menu\\Programs"
 	IDS_PERSONAL                "Книжа"
 	IDS_FAVORITES               "Любимки"
-	IDS_STARTUP                 "Пусков изборник\\Приложения\\Самозапускащи"
+	IDS_STARTUP                 "Start Menu\\Programs\\StartUp"
 	IDS_RECENT                  "Скорошни"
 	IDS_SENDTO                  "Изпращане"
 	IDS_STARTMENU               "Пусков изборник"
-	IDS_MYMUSIC                 "Музиката ми"
-	IDS_MYVIDEO                 "Лентите ми"
+	IDS_MYMUSIC                 "My Music"
+	IDS_MYVIDEO                 "My Videos"
 	IDS_DESKTOPDIRECTORY        "Работна площ"
 	IDS_NETHOOD                 "Мрежова околност"
-	IDS_TEMPLATES               "Шаблони"
+	IDS_TEMPLATES               "Templates"
 	IDS_APPDATA                 "Приложни данни"
 	IDS_PRINTHOOD               "Съседски печатачи"
-	IDS_LOCAL_APPDATA           "Местни настройки\\Приложни данни"
-	IDS_INTERNET_CACHE          "Местни настройки\\Temporary Internet Files"
+	IDS_LOCAL_APPDATA           "Local Settings\\Application Data"
+	IDS_INTERNET_CACHE          "Local Settings\\Temporary Internet Files"
 	IDS_COOKIES                 "Бисквитки"
-	IDS_HISTORY                 "Местни настройки\\History"
+	IDS_HISTORY                 "Local Settings\\History"
 	IDS_PROGRAM_FILES           "Program Files"
 	IDS_MYPICTURES              "Моите изображения"
 	IDS_PROGRAM_FILES_COMMON    "Program Files\\Common Files"
 	IDS_COMMON_DOCUMENTS        "Документи"
-	IDS_ADMINTOOLS              "Пусков изборник\\Приложения\\Управнически средства"
-	IDS_COMMON_MUSIC            "Документи\\Музиката ми"
-	IDS_COMMON_PICTURES         "Документи\\Рисунките ми"
-	IDS_COMMON_VIDEO            "Документи\\Лентите ми"
-	IDS_CDBURN_AREA             "Местни настройки\\Приложни данни\\Microsoft\\CD Burning"
-	IDS_NETWORKPLACE            "Моята мрежа"
+	IDS_ADMINTOOLS              "Start Menu\\Programs\\Administrative Tools"
+	IDS_COMMON_MUSIC            "Documents\\My Music"
+	IDS_COMMON_PICTURES         "Documents\\My Pictures"
+	IDS_COMMON_VIDEO            "Documents\\My Videos"
+	IDS_CDBURN_AREA             "Local Settings\\Application Data\\Microsoft\\CD Burning"
+	IDS_NETWORKPLACE            "My Network Place"
 
 	IDS_NEWFOLDER               "Нова папка"
 
@@ -705,53 +640,13 @@ BEGIN
 
 	IDS_OPEN_WITH               "Отваряне с"
 	IDS_OPEN_WITH_CHOOSE        "Избор на приложение..."
-
+/* */
 	IDS_SHELL_ABOUT_AUTHORS     "&Създатели"
 	IDS_SHELL_ABOUT_BACK        "< &Назад"
 	FCIDM_SHVIEW_NEW 	    "Нови"
 	FCIDM_SHVIEW_NEWFOLDER 	    "Нова &папка"
 	FCIDM_SHVIEW_NEWLINK        "Нова &връзка"
 	IDS_FOLDER_OPTIONS          "Настройки на папките"
-	IDS_RECYCLEBIN_LOCATION     "Място на кошчето"
-	IDS_RECYCLEBIN_DISKSPACE    "Свободно място"
-	IDS_EMPTY_BITBUCKET         "Empty Recycle Bin"
-	IDS_PICK_ICON_TITLE         "Изберете значе"
-	IDS_PICK_ICON_FILTER        "Файлове със значета(*.ico, *.icl, *.exe, *.dll)\0*.ico;*.icl;*.exe;*.dll\0"
-	IDS_OPEN_WITH_FILTER        "Изпълними файлове\0*.exe\0"
-	IDS_DIRECTORY               "Папка"
-	IDS_VIRTUAL_DRIVER          "Водач на привидно устройство"
-	IDS_BAT_FILE                "Пакетен файл на РеактОС"
-	IDS_CMD_FILE                "Писание за управление на РеактОС"
-	IDS_COM_FILE                "Приложение за ДОС"
-	IDS_CPL_FILE                "Предмет от крилото за управление"
-	IDS_CUR_FILE                "Показалец"
-	IDS_DLL_FILE                "Разширение за приложения"
-	IDS_DRV_FILE                "Водача на устройство"
-	IDS_EXE_FILE                "Приложение"
-	IDS_FON_FILE                "Шрифтов файл"
-	IDS_TTF_FILE                "Файл с шрифт TrueType "
-	IDS_HLP_FILE                "Помощен файл"
-	IDS_INI_FILE                "Настроечен файл"
-	IDS_LNK_FILE                "Препратка"
-	IDS_SYS_FILE                "Системен файл"
-
-	IDS_OPEN_VERB               "Отваряне"
-	IDS_RUNAS_VERB              "Изпълняване като "
-	IDS_EDIT_VERB               "Обработка"
-	IDS_FIND_VERB               "Търсене"
-	IDS_PRINT_VERB              "Разпечатване"
-	IDS_PLAY_VERB               "Възпроизвеждане"
-	IDS_PREVIEW_VERB            "Преглед"
-
-	IDS_FILE_FOLDER             "%u файла, %u папки"
-	IDS_PRINTERS                "Печатачи"
-	IDS_FONTS                   "Шрифтове"
-	IDS_INSTALLNEWFONT          "Слагане на нов шрифт..."
-
-	IDS_DEFAULT_CLUSTER_SIZE    "Подразбиран разпределителен размер"
-	IDS_COPY_OF                 "Copy of"
 END
-
-
 
 

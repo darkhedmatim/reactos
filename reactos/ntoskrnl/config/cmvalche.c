@@ -55,7 +55,7 @@ CmpGetValueListFromCache(IN PCM_KEY_CONTROL_BLOCK Kcb,
     *ValueListToRelease = HCELL_NIL;
     *IndexIsCached = FALSE;
 
-    /* Get the hive and value cache */
+    /* Get the hive and value ceche */
     Hive = Kcb->KeyHive;
     ChildList = &Kcb->ValueCache;
     KeyNode = (PCM_KEY_NODE)HvGetCell(Hive, Kcb->KeyCell);
@@ -797,7 +797,7 @@ Quickie:
     if (ValueCellToRelease) HvReleaseCell(Kcb->KeyHive, ValueCellToRelease);
     
     /* Free the buffer */
-    if (BufferAllocated) CmpFree(Buffer, 0);
+    if (BufferAllocated) ExFreePool(Buffer);
     
     /* Free the cell */
     if (CellToRelease) HvReleaseCell(Kcb->KeyHive, CellToRelease);

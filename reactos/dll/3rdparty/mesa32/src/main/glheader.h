@@ -46,6 +46,11 @@
 #ifndef GLHEADER_H
 #define GLHEADER_H
 
+/* This allows Mesa to be integrated into XFree86 */
+#ifdef HAVE_DIX_CONFIG_H
+#include "dix-config.h"
+#endif
+
 #include <assert.h>
 #include <ctype.h>
 #if defined(__alpha__) && defined(CCPML)
@@ -72,29 +77,8 @@
 #  if _MSC_VER == 1200
      typedef UINT_PTR uintptr_t;
 #  endif 
-#elif defined(__INTERIX)
-/* Interix 3.x has a gcc that shadows this. */
-#  ifndef _UINTPTR_T_DEFINED
-     typedef unsigned long uintptr_t;
-#  define _UINTPTR_T_DEFINED
-#  endif
 #else
 #  include <inttypes.h>
-#endif
-
-
-/* Sun compilers define __i386 instead of the gcc-style __i386__ */
-#ifdef __SUNPRO_C
-# if !defined(__i386__) && defined(__i386)
-#  define __i386__
-# elif !defined(__amd64__) && defined(__amd64)
-#  define __amd64__
-# elif !defined(__sparc__) && defined(__sparc)
-#  define __sparc__
-# endif
-# if !defined(__volatile)
-#  define __volatile volatile
-# endif
 #endif
 
 #if defined(_WIN32) && !defined(__WIN32__) && !defined(__CYGWIN__) && !defined(BUILD_FOR_SNAP)
@@ -146,8 +130,7 @@
 #include <byteswap.h>
 #define CPU_TO_LE32( x )	bswap_32( x )
 #else /*__linux__*/
-#include <sys/endian.h>
-#define CPU_TO_LE32( x )	bswap32( x )
+#define CPU_TO_LE32( x )	( x )  /* fix me for non-Linux big-endian! */
 #endif /*__linux__*/
 #define MESA_BIG_ENDIAN 1
 #else
@@ -160,25 +143,6 @@
 #define GL_GLEXT_PROTOTYPES
 #include "GL/gl.h"
 #include "GL/glext.h"
-
-
-#ifndef GL_FIXED
-#define GL_FIXED 0x140C
-#endif
-
-
-#ifndef GL_OES_point_size_array
-#define GL_POINT_SIZE_ARRAY_OES                                 0x8B9C
-#define GL_POINT_SIZE_ARRAY_TYPE_OES                            0x898A
-#define GL_POINT_SIZE_ARRAY_STRIDE_OES                          0x898B
-#define GL_POINT_SIZE_ARRAY_POINTER_OES                         0x898C
-#define GL_POINT_SIZE_ARRAY_BUFFER_BINDING_OES                  0x8B9F
-#endif
-
-
-#ifndef GL_OES_draw_texture
-#define GL_TEXTURE_CROP_RECT_OES  0x8B9D
-#endif
 
 
 #if !defined(CAPI) && defined(WIN32) && !defined(BUILD_FOR_SNAP)
@@ -236,12 +200,6 @@
 #  define INLINE inline
 #elif defined(__WATCOMC__) && (__WATCOMC__ >= 1100)
 #  define INLINE __inline
-#elif defined(__SUNPRO_C) && defined(__C99FEATURES__)
-#  define INLINE inline
-#  define __inline inline
-#  define __inline__ inline
-#elif (__STDC_VERSION__ >= 199901L) /* C99 */
-#  define INLINE inline
 #else
 #  define INLINE
 #endif
@@ -270,7 +228,6 @@
 #endif
 
 
-#if !defined(_WIN32_WCE)
 #if defined(BUILD_FOR_SNAP) && defined(CHECKED)
 #  define ASSERT(X)   _CHECK(X) 
 #elif defined(DEBUG)
@@ -278,10 +235,9 @@
 #else
 #  define ASSERT(X)
 #endif
-#endif
 
 
-#if (!defined(__GNUC__) || __GNUC__ < 3) && (!defined(__IBMC__) || __IBMC__ < 900)
+#if (!defined(__GNUC__) || __GNUC__ < 3) && !defined(__IBMC__)
 #  define __builtin_expect(x, y) x
 #endif
 
@@ -289,17 +245,12 @@
  * If we're not using gcc, define __FUNCTION__ as a cpp symbol here.
  * Don't define it if using a newer Windows compiler.
  */
-#ifndef __FUNCTION__
-# if defined(__VMS)
-#  define __FUNCTION__ "VMS$NL:"
-# elif ((!defined __GNUC__) || (__GNUC__ < 2)) && (!defined __xlC__) && \
+#if defined(__VMS)
+# define __FUNCTION__ "VMS$NL:"
+#elif __STDC_VERSION__ < 199901L
+# if ((!defined __GNUC__) || (__GNUC__ < 2)) && (!defined __xlC__) && \
       (!defined(_MSC_VER) || _MSC_VER < 1300)
-#  if (__STDC_VERSION__ >= 199901L) /* C99 */ || \
-    (defined(__SUNPRO_C) && defined(__C99FEATURES__))
-#   define __FUNCTION__ __func__
-#  else
-#   define __FUNCTION__ "<unknown>"
-#  endif
+#  define __FUNCTION__ "<unknown>"
 # endif
 #endif
 

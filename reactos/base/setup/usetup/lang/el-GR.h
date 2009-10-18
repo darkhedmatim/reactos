@@ -1,50 +1,43 @@
 #ifndef LANG_EL_GR_H__
 #define LANG_EL_GR_H__
 
-MUI_LAYOUTS elGRLayouts[] =
-{
-    { L"0408", L"00000408" },
-    { L"0409", L"00000409" },
-    { NULL, NULL }
-};
-
 static MUI_ENTRY elGRLanguagePageEntries[] =
 {
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "ДзавжЪу ЪвщййШк.",
-        TEXT_STYLE_NORMAL
+        "Language Selection.",
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         10,
-        "\x07 ПШиШбШвщ ЬзавтелЬ лЮ ЪвщййШ зжм ЯШ оиЮйагжзжаЮЯЬх бШлс лЮд ЬЪбШлсйлШйЮ.",
-        TEXT_STYLE_NORMAL
+        "\x07  Please choose the language used for the installation process.",
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         11,
-        "  ЛЬлс зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         13,
-        "\x07  Амлу Ю ЪвщййШ ЯШ ЬхдШа Ю зижЬзавЬЪгтдЮ ЪаШ лж лЬвабц йчйлЮгШ.",
-        TEXT_STYLE_NORMAL
+        "\x07  This Language will be the default language for the final system.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ  F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue  F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -59,68 +52,68 @@ static MUI_ENTRY elGRWelcomePageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
-        5,
+        6,
         8,
         "ЙШвщк ОихйШлЬ йлЮд ЬЪбШлсйлШйЮ лжм ReactOS",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
-        5,
+        6,
         11,
-        "Амлц лж гтижк лЮк ЬЪбШлсйлШйЮк ШдлаЪиснЬа лж вЬалжмиЪабц йчйлЮгШ ReactOS",
-        TEXT_STYLE_NORMAL
+        "Амлц лж гтижк лЮк ЬЪбШлсйлШйЮк ШдлаЪиснЬа лж вЬалжмиЪабц йчйлЮгШ ReactOS йлжд",
+        TEXT_NORMAL
     },
     {
-        5,
+        6,
         12,
-        "йлжд мзжвжЪайлу йШк бШа зижЬлжагсЭЬа лж ЫЬчлЬиж гтижк лЮк ЬЪбШлсйлШйЮк.",
-        TEXT_STYLE_NORMAL
+        "мзжвжЪайлу йШк бШа зижЬлжагсЭЬа лж ЫЬчлЬиж гтижк лЮк ЬЪбШлсйлШйЮк.",
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         15,
         "\x07  ПШлуйлЬ ENTER ЪаШ дШ ЬЪбШлШйлуйЬлЬ лж ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         17,
         "\x07  ПШлуйлЬ R ЪаШ дШ ЬзаЫажиЯщйЬлЬ лж ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         19,
-        "\x07  ПШлуйлЬ L ЪаШ дШ ЫЬхлЬ лжмк цижмк ШЫЬажЫцлЮйЮк лжм ReactOS.",
-        TEXT_STYLE_NORMAL
+        "\x07  ПШлуйлЬ L ЪаШ дШ ЫЬхлЬ лжмк цижмк ШЫЬажЫцлЮйЮк бШа лак зижшзжЯтйЬак ЪаШ лж ReactOS",
+        TEXT_NORMAL
     },
     {
-        7,
+        8,
         21,
         "\x07  ПШлуйлЬ F3 ЪаШ дШ ШзжориуйЬлЬ орихк дШ ЬЪбШлШйлуйЬлЬ лж ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
-        5,
+        6,
         23,
         "ВаШ зЬиаййцлЬиЬк звЮижнжихЬк ЪаШ лж ReactOS, зШиШбШвжчгЬ ЬзайбЬнЯЬхлЬ лж:",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
-        5,
+        6,
         24,
         "http://www.reactos.org",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         0,
         0,
         "   ENTER = СмдтоЬаШ  R = ДзаЫациЯрйЮ F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -135,92 +128,86 @@ static MUI_ENTRY elGRIntroPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
-    },
-    {
-        6,
-        7,
-        "Ж ЬЪбШлсйлШйЮ лжм ReactOS ЩихйбЬлШа йЬ зищагж йлсЫаж ШдсзлмеЮк бШа",
-        TEXT_STYLE_NORMAL
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "ЫЬд мзжйлЮихЭЬа ШбцгШ цвЬк лак ЫмдШлцлЮлЬк гаШк звуижмк ЬЪбШлсйлШйЮк",
-        TEXT_STYLE_NORMAL
+        "Ж ЬЪбШлсйлШйЮ лжм ReactOS ЬхдШа йЬ Шиоабу нсйЮ зижЪиШггШлайгжч. ГЬд мзжйлЮихЭЬа ШбцгШ",
+        TEXT_NORMAL
     },
     {
         6,
-        11,
-        "Ийочжмд жа зШиШбслр зЬиажиайгжх :",
-        TEXT_STYLE_NORMAL
+        9,
+        "цвЬк лак вЬалжмиЪабцлЮлШк гаШк звуижмк ЬЪбШлсйлШйЮк вЬалжмиЪабжч.",
+        TEXT_NORMAL
     },
     {
-        8,
+        6,
         12,
-        "- Ж ЬЪбШлсйлШйЮ ЫЬ гзжиЬх дШ оЬаиайлЬх зсдр Шзц тдШ зирлЬчжд",
-        TEXT_STYLE_NORMAL
+        "Оа ЬзцгЬджа зЬиажиайгжх айочжмд:",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "  ЫаШгтиайгШ Шдс Ыхйбж.",
-        TEXT_STYLE_NORMAL
+        "- Ж ЬЪбШлсйлШйЮ ЫЬ гзжиЬх дШ ШдлШзЬетвЯЬа гЬ зсдр Шзц тдШ primary partition Шдс Ыхйбж.",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "- Ж ЬЪбШлсйлШйЮ ЫЬ гзжиЬх дШ ЫаШЪиспЬа тдШ зирлЬчжд ЫаШгтиайгШ ",
-        TEXT_STYLE_NORMAL
+        "- Ж ЬЪбШлсйлШйЮ ЫЬ гзжиЬх дШ ЫаШЪиспЬа тдШ primary partition Шзц тдШ Ыхйбж",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "  Шзц тдШ Ыхйбж Ьнцйжд мзсиожмд ЬблЬлШгтдШ ЫаШгЬихйгШлШ йлж Ыхйбж Шмлц.",
-        TEXT_STYLE_NORMAL
+        "  Ьнцйжд мзсиожмд extended partitions йлж Ыхйбж Шмлц.",
+        TEXT_NORMAL
     },
     {
         8,
         16,
-        "- Ж ЬЪбШлсйШйЮ ЫЬ гзжиЬх дШ ЫаШЪиспЬа лж зищлж ЬблЬлШгтдж ЫаШгтиайгШ Ьдцк ",
-        TEXT_STYLE_NORMAL
+        "- Ж ЬЪбШлсйШйЮ ЫЬ гзжиЬх дШ ЫаШЪиспЬа лж зищлж extended partition Ьдцк Ыхйбжм",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "  Ыхйбжм Ьнцйжд мзсиожмд ба сввШ ЬблЬлШгтдШ ЫаШгЬихйгШлШ йлж Ыхйбж Шмлц.",
-        TEXT_STYLE_NORMAL
+        "  Ьнцйжд мзсиожмд ба сввШ extended partitions йлж Ыхйбж Шмлц.",
+        TEXT_NORMAL
     },
     {
         8,
         18,
         "- Ж ЬЪбШлсйлШйЮ мзжйлЮихЭЬа гцдж FAT ймйлугШлШ ШиоЬхрд.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         19,
-        "- ГЬд мзжйлЮихЭЬлШа ШбцгШ твЬЪожк йнШвгслрд йлШ ймлугШлШ ШиоЬхрд.",
-        TEXT_STYLE_NORMAL
+        "- File system checks are not implemented yet.",
+        TEXT_NORMAL
     },
     {
         8,
         23,
         "\x07  ПШлуйлЬ ENTER ЪаШ дШ ЬЪбШлШйлуйЬлЬ лж ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         25,
         "\x07  ПШлуйлЬ F3 ЪаШ дШ ШзжориуйЬлЬ орихк дШ ЬЪбШлШйлуйЬлЬ лж ReactOS.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ENTER = СмдтоЬаШ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -235,116 +222,116 @@ static MUI_ENTRY elGRLicensePageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         6,
-        "АЫЬажЫцлЮйЮ:",
-        TEXT_STYLE_HIGHLIGHT
+        "Licensing:",
+        TEXT_HIGHLIGHT
     },
     {
         8,
         8,
         "The ReactOS System is licensed under the terms of the",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         9,
         "GNU GPL with parts containing code from other compatible",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         10,
         "licenses such as the X11 or BSD and GNU LGPL licenses.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
         "All software that is part of the ReactOS system is",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         12,
         "therefore released under the GNU GPL as well as maintaining",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         13,
         "the original license.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         15,
         "This software comes with NO WARRANTY or restrictions on usage",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         16,
         "save applicable local and international law. The licensing of",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         17,
         "ReactOS only covers distribution to third parties.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         18,
         "If for some reason you did not receive a copy of the",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         19,
         "GNU General Public License with ReactOS please visit",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         20,
         "http://www.gnu.org/licenses/licenses.html",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         8,
         22,
         "Warranty:",
-        TEXT_STYLE_HIGHLIGHT
+        TEXT_HIGHLIGHT
     },
     {
         8,
         24,
         "This is free software; see the source for copying conditions.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         25,
         "There is NO warranty; not even for MERCHANTABILITY or",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         26,
         "FITNESS FOR A PARTICULAR PURPOSE",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = Дзайлижну",
-        TEXT_TYPE_STATUS
+        "   ENTER = Return",
+        TEXT_STATUS
     },
     {
         0,
@@ -359,85 +346,85 @@ static MUI_ENTRY elGRDevicePageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "Ж зШиШбслр вхйлШ ЫЬходЬа лак имЯгхйЬак ймйбЬмщд.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "    УзжвжЪайлук:",
-        TEXT_STYLE_NORMAL
+        "       УзжвжЪайлук:",
+        TEXT_NORMAL
     },
     {
         8,
         12,
-        "       ДгнсдайЮ:",
-        TEXT_STYLE_NORMAL,
+        "        ДгнсдайЮ:",
+        TEXT_NORMAL,
     },
     {
         8,
         13,
-        "   ПвЮближвцЪаж:",
-        TEXT_STYLE_NORMAL
+        "       ПвЮближвцЪаж:",
+        TEXT_NORMAL
     },
     {
-        2,
+        8,
         14,
         "ГаслШеЮ звЮближвжЪхжм:",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         16,
-        "        АзжЫжоу:",
-        TEXT_STYLE_NORMAL
+        "         АзжЫжоу:",
+        TEXT_NORMAL
     },
     {
         25,
-        16, "АзжЫжоу Шмлщд лрд имЯгхйЬрд",
-        TEXT_STYLE_NORMAL
+        16, "АзжЫжоу Шмлщд лрд имЯгхйЬрд ймйбЬмщд",
+        TEXT_NORMAL
     },
     {
         6,
         19,
-        "ЛзжиЬхлЬ дШ ШввсеЬлЬ лак имЯгхйЬак мвабжч зШлщдлШк лШ звублиШ ПАМЧ",
-        TEXT_STYLE_NORMAL
+        "ЛзжиЬхлЬ дШ ШввсеЬлЬ лак имЯгхйЬак мвабжч зШлщдлШк лШ звублиШ UP у DOWN",
+        TEXT_NORMAL
     },
     {
         6,
         20,
-        "у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ гаШ ичЯгайЮ.  ",
-        TEXT_STYLE_NORMAL
+        "ЪаШ дШ ЬзавтеЬлЬ гаШ ичЯгайЮ. ЛЬлс зШлуйлЬ лж звуближ ENTER ЪаШ дШ ЬзавтеЬлЬ сввЬк",
+        TEXT_NORMAL
     },
     {
         6,
         21,
-        "ЛЬлс зШлуйлЬ лж звуближ ENTER ЪаШ дШ ЬзавтеЬлЬ сввЬк имЯгхйЬак.",
-        TEXT_STYLE_NORMAL
+        "имЯгхйЬак.",
+        TEXT_NORMAL
     },
     {
         6,
         23,
-        "юлШд цвЬк жа имЯгхйЬак ЬхдШа йрйлтк, ЬзавтелЬ ",
-        TEXT_STYLE_NORMAL
+        "юлШд цвЬк жа имЯгхйЬак ЬхдШа йрйлтк, ЬзавтелЬ \"АзжЫжоу Шмлщд лрд имЯгхйЬрд ймйбЬмщд\"",
+        TEXT_NORMAL
     },
     {
         6,
         24,
-        "\"АзжЫжоу Шмлщд лрд имЯгхйЬрд ймйбЬмщд\" бШа зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL
+        "бШа зШлуйлЬ ENTER.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ENTER = СмдтоЬаШ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -452,56 +439,56 @@ static MUI_ENTRY elGRRepairPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж ЬЪбШлсйлШйЮ лжм ReactOS ЩихйбЬлШа йЬ зищагж йлсЫаж ШдсзлмеЮк бШа",
-        TEXT_STYLE_NORMAL
+        "Ж ЬЪбШлсйлШйЮ лжм ReactOS ЩихйбЬлШа йЬ зищагж йлсЫаж ШдсзлмеЮк. ГЬд мзжйлЮихЭЬа ШбцгШ",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "ЫЬд мзжйлЮихЭЬа ШбцгШ цвЬк лак ЫмдШлцлЮлЬк гаШк звуижмк ЬЪбШлсйлШйЮк.",
-        TEXT_STYLE_NORMAL
+        "цвЬк лак вЬалжмиЪабцлЮлЬк гаШк звуижмк ЬЪбШлсйлШйЮк вЬалжмиЪабжч.",
+        TEXT_NORMAL
     },
     {
         6,
         12,
-        "Оа вЬалжмиЪхЬк ЬзаЫациЯрйЮк ЫЬд тожмд мвжзжаЮЯЬх ШбцгШ.",
-        TEXT_STYLE_NORMAL
+        "Ж вЬалжмиЪхЬк ЬзаЫациЯрйЮк ЫЬд тожмд мвжзжаЮЯЬх ШбцгШ.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "\x07  ПШлуйлЬ U ЪаШ ШдШдтрйЮ лжм вЬалижмиЪабжч.",
-        TEXT_STYLE_NORMAL
+        "\x07  ПШлуйлЬ U ЪаШ ШдШдтрйЮ лжм OS.",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "\x07  ПШлуйлЬ R ЪаШ дШ ЬблЬвтйЬлЬ лЮд бждйцвШ ЬзаЫациЯрйЮк.",
-        TEXT_STYLE_NORMAL
+        "\x07  ПШлуйлЬ R ЪаШ лЮ Recovery Console.",
+        TEXT_NORMAL
     },
     {
         8,
         19,
         "\x07  ПШлуйлЬ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд бчиаШ йЬвхЫШ.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         21,
         "\x07  ПШлуйлЬ ENTER ЪаШ дШ ЬзШдЬббадуйЬлЬ лжд мзжвжЪайлу.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ESC = ЙчиаШ йЬвхЫШ  ENTER = ДзШдЬббхдЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -515,50 +502,44 @@ static MUI_ENTRY elGRComputerPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "ЗтвЬлЬ дШ ШввсеЬлЬ лжд лчзж лжм мзжвжЪайлу зжм ЯШ ЬЪбШлШйлШЯЬх.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  ПШлуйлЬ лШ звублиШ ПАМЧ у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ лжд ЬзаЯмгЮлц",
-        TEXT_STYLE_NORMAL
+        "\x07  ПШлуйлЬ лШ звублиШ UP у DOWN ЪаШ дШ ЬзавтеЬлЬ лжд ЬзаЯмгЮлц лчзж мзжвжЪайлу.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   лчзж мзжвжЪайлу.",
-        TEXT_STYLE_NORMAL
+        "   ЛЬлс зШлуйлЬ ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
-        12,
-        "   ЛЬлс зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL
+        13,
+        "\x07  ПШлуйлЬ лж звуближ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд зжиЮЪжчгЬдЮ йЬвхЫШ орихк дШ ШввсеЬлЬ",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "\x07  ПШлуйлЬ лж звуближ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд зижЮЪжчгЬдЮ",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        8,
-        15,
-        "   йЬвхЫШ орихк дШ ШввсеЬлЬ лжд лчзж мзжвжЪайлу.",
-        TEXT_STYLE_NORMAL
+        "   лжд лчзж мзжвжЪайлу.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ENTER = СмдтоЬаШ   ESC = АбчирйЮ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -573,32 +554,32 @@ static MUI_ENTRY elGRFlushPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
-        "Тж йчйлЮгШ ЬзаЩЬЩШащдЬа лщиШ цла цвШ лШ ЫЬЫжгтдШ тожмд ШзжЯЮбЬмлЬх",
-        TEXT_STYLE_NORMAL
+        "Тж йчйлЮгШ ЬзаЩЬЩШащдЬа лщиШ цла цвШ лШ ЫЬЫжгтдШ ШзжЯЮбЬчлЮбШд йлж Ыхйбж",
+        TEXT_NORMAL
     },
     {
         10,
         8,
         "Амлц хйрк зсиЬа вхЪЮ щиШ",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         9,
         "юлШд жвжбвЮирЯЬх, ж мзжвжЪайлук йШк ЯШ ЬзШдЬббадЮЯЬх ШмлцгШлШ",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ДббШЯсиайЮ зижйриадщд ШиоЬхрд...",
-        TEXT_TYPE_STATUS
+        "   Flushing cache",
+        TEXT_STATUS
     },
     {
         0,
@@ -613,38 +594,38 @@ static MUI_ENTRY elGRQuitPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
         "Тж ReactOS ЫЬд ЬЪбШлШйлсЯЮбЬ звуирк",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         8,
         "АнШаитйлЬ лЮ ЫайбтлШ Шзц лж A: бШа",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         9,
         "цвШ лШ CD-ROMs  Шзц лШ CD-Drives.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         11,
         "ПШлуйлЬ ENTER ЪаШ дШ ЬзШдЬббадуйЬлЬ лжд мзжвжЪайлу.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ПШиШбШвщ зЬиагтдЬлЬ ...",
-        TEXT_TYPE_STATUS,
+        TEXT_STATUS,
     },
     {
         0,
@@ -659,48 +640,43 @@ static MUI_ENTRY elGRDisplayPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
         "ЗтвЬлЬ дШ ШввсеЬлЬ лжд лчзж лЮк ЬгнсдайЮк зжм ЯШ ЬЪбШлШйлШЯЬх.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {   8,
         10,
-         "\x07  ПШлуйлЬ лж звуближ ПАМЧ у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ лжд ЬзаЯмгЮлц.",
-         TEXT_STYLE_NORMAL
-    },
-    {   8,
-        11,
-         "  лчзж ЬгнсдайЮк.",
-         TEXT_STYLE_NORMAL
+         "\x07  ПШлуйлЬ лж звуближ UP у DOWN ЪаШ дШ ЬзавтеЬлЬ лжд ЬзаЯмгЮлц лчзж ЬгнсдайЮк.",
+         TEXT_NORMAL
     },
     {
         8,
-        12,
+        11,
         "   ЛЬлс зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
+    },
+    {
+        8,
+        13,
+        "\x07  ПШлуйлЬ лж звуближ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд зижЮЪжчгЬдЮ йЬвхЫШ орихк дШ ШввсеЬлЬ",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "\x07  ПШлуйлЬ лж звуближ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд зижЮЪжчгЬдЮ ",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        8,
-        15,
-        "   йЬвхЫШ орихк дШ ШввсеЬлЬ лжд лчзж ЬгнсдайЮк.",
-        TEXT_STYLE_NORMAL
+        "   лжд лчзж ЬгнсдайЮк.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ENTER = СмдтоЬаШ   ESC = АбчирйЮ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -715,38 +691,38 @@ static MUI_ENTRY elGRSuccessPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         10,
         6,
         "ТШ ЩШйабс йлжаоЬхШ лжм ReactOS ЬЪбШлШйлсЯЮбШд Ьзалмощк.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         8,
         "АнШаитйлЬ лЮ ЫайбтлШ Шзц лж A: бШа",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         9,
         "цвШ лШ CD-ROMs Шзц лж CD-Drive.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         10,
         11,
         "ПШлуйлЬ ENTER ЪаШ дШ ЬзШдЬббадуйЬлЬ лжд мзжвжЪайлу йШк.",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         0,
         0,
         "   ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -761,38 +737,38 @@ static MUI_ENTRY elGRBootPageEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзжиЬх дШ ЬЪбШлШйлуйЬа лжд bootloader",
-        TEXT_STYLE_NORMAL
+        "Ж ЬЪбШлсйлШйЮ ЫЬ гзжиЬх дШ ЬЪбШлШйлуйЬа лжд bootloader йлж йбвЮиц Ыхйбж",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "йлж йбвЮиц Ыхйбж лжм мзжвжЪайлу йШк",
-        TEXT_STYLE_NORMAL
+        "лжм мзжвжЪайлу йШк",
+        TEXT_NORMAL
     },
     {
         6,
         13,
         "ПШиШбШвщ ЬайсЪЬлЬ гаШ ЫаШгжинргтдЮ ЫайбтлШ йлж A: бШа",
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     },
     {
         6,
         14,
         "зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL,
+        TEXT_NORMAL,
     },
     {
         0,
         0,
         "   ENTER = СмдтоЬаШ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        TEXT_STATUS
     },
     {
         0,
@@ -808,50 +784,50 @@ static MUI_ENTRY elGRSelectPartitionEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж зШиШбШлр вхйлШ ЬгнШдхЭЬа лШ мзсиождлШ ЫаШгЬихйгШлШ бШа",
-        TEXT_STYLE_NORMAL
+        "The list below shows existing partitions and unused disk",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "бШа лжд ЬвтмЯЬиж ощиж ЪаШ дтШ ЫаШгЬихйгШлШ.",
-        TEXT_STYLE_NORMAL
+        "space for new partitions.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "\x07  ПШлуйлЬ ПАМЧ у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ тдШ йлжаоЬхж лЮк вхйлШк.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press UP or DOWN to select a list entry.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  ПШлуйлЬ ENTER ЪаШ дШ ЬЪбШлШйлуйЬлЬ лж ReactOS йлж ЬзавЬЪгтдж ЫаШгтиайгШ.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ENTER to install ReactOS onto the selected partition.",
+        TEXT_NORMAL
     },
     {
         8,
         15,
-        "\x07  ПШлуйлЬ C ЪаШ дШ ЫЮгажмиЪуйЬлЬ тдШ дтж ЫаШгтиайгШ.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press C to create a new partition.",
+        TEXT_NORMAL
     },
     {
         8,
         17,
-        "\x07  ПШлуйлЬ D ЪаШ дШ ЫаШЪиспЬлЬ тдШ мзсиожд ЫаШгтиайгШ.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press D to delete an existing partition.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ПШиШбШвщ зЬиагтдЬлЬ...",
-        TEXT_TYPE_STATUS
+        "   Please wait...",
+        TEXT_STATUS
     },
     {
         0,
@@ -866,38 +842,32 @@ static MUI_ENTRY elGRFormatPartitionEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "ГаШгцинрйЮ ЫаШгЬихйгШлжк",
-        TEXT_STYLE_NORMAL
+        "Format partition",
+        TEXT_NORMAL
     },
     {
         6,
         10,
-        "Ж ЬЪбШлсйлШйЮ лщиШ ЯШ ЫаШгжинщйЬа лж ЫаШгтиайгШ",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        6,
-        11,
-        "ПШлуйлЬ ENTER ЪаШ дШ ймдЬохйЬлЬ.",
-        TEXT_STYLE_NORMAL
+        "Setup will now format the partition. Press ENTER to continue.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
         0,
         NULL,
-        TEXT_STYLE_NORMAL
+        TEXT_NORMAL
     }
 };
 
@@ -906,44 +876,44 @@ static MUI_ENTRY elGRInstallDirectoryEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж ЬЪбШлсйлШйЮ ШдлаЪиснЬа лШ ШиоЬхШ лжм ReactOS йлж ЬзавЬЪгтдж ЫаШгтиайгШ.",
-        TEXT_STYLE_NORMAL
+        "Setup installs ReactOS files onto the selected partition. Choose a",
+        TEXT_NORMAL
     },
     {
         6,
         9,
-        "ДзавтелЬ лжд йлжд нсбЬвж зжм ЯтвЬлЬ дШ ЬЪбШлШйлШЯЬх лж ReactOS:",
-        TEXT_STYLE_NORMAL
+        "directory where you want ReactOS to be installed:",
+        TEXT_NORMAL
     },
     {
         6,
         14,
-        "ВаШ дШ ШввсеЬлЬ лжд зижлЬадцгЬдж нсбЬвж зШлуйлЬ BACKSPACE ЪаШ дШ",
-        TEXT_STYLE_NORMAL
+        "To change the suggested directory, press BACKSPACE to delete",
+        TEXT_NORMAL
     },
     {
         6,
         15,
-        "ЫаШЪиспЬлЬ оШиШблуиЬк бШа гЬлс звЮближвжЪЬхйлЬ лжд нсбЬвж йлжд жзжхж",
-        TEXT_STYLE_NORMAL
+        "characters and then type the directory where you want ReactOS to",
+        TEXT_NORMAL
     },
     {
         6,
         16,
-        "ЯтвЬлЬ дШ ЬЪбШйлШЯЬх лж ReactOS.",
-        TEXT_STYLE_NORMAL
+        "be installed.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -958,32 +928,32 @@ static MUI_ENTRY elGRFileCopyEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
-        0,
+        11,
         12,
-        "ПШиШбШвщ зЬиагтдЬлЬ цйж Ю ЬЪбШлсйлШйЮ лжм ReactOS ШдлаЪиснЬа",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        "Please wait while ReactOS Setup copies files to your ReactOS",
+        TEXT_NORMAL
     },
     {
-        0,
+        30,
         13,
-        "лШ ШиоЬхШ йлж нсбЬвж ЬЪбШлсйлШйЮк",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        "installation folder.",
+        TEXT_NORMAL
     },
     {
-        0,
+        20,
         14,
-        "Амлу Ю ЫаШЫабШйхШ гзжиЬх дШ биШлуйЬа ШибЬлс вЬзлс.",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        "This may take several minutes to complete.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "                                                           \xB3 ПШиШбШвщ зЬиагтдЬлЬ...    ",
-        TEXT_TYPE_STATUS
+        "                                                           \xB3 Please wait...    ",
+        TEXT_STATUS
     },
     {
         0,
@@ -998,38 +968,38 @@ static MUI_ENTRY elGRBootLoaderEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж ЬЪбШлсйлШйЮ ЪиснЬа лжд boot loader",
-        TEXT_STYLE_NORMAL
+        "Setup is installing the boot loader",
+        TEXT_NORMAL
     },
     {
         8,
         12,
-        "ДЪбШлсйлШйЮ лжм bootloader йлж йбвЮиц Ыхйбж (MBR).",
-        TEXT_STYLE_NORMAL
+        "Install bootloader on the harddisk (MBR).",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "ДЪбШлсйлШйЮ лжм bootloader йЬ гаШ ЫайбтлШ.",
-        TEXT_STYLE_NORMAL
+        "Install bootloader on a floppy disk.",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "МШ гЮ ЪхдЬа ЬЪбШлсйлШйЮ лжм bootloader.",
-        TEXT_STYLE_NORMAL
+        "Skip install bootloader.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1044,50 +1014,44 @@ static MUI_ENTRY elGRKeyboardSettingsEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "ЗтвЬлЬ дШ ШввсеЬлЬ лжд лчзж лжм звЮближвжЪхжм зжм ЯШ ЬЪбШлШйлШЯЬх.",
-        TEXT_STYLE_NORMAL
+        "You want to change the type of keyboard to be installed.",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  ПШлуйлЬ лШ звублиШ ПАМЧ у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ лжд ЬзаЯмгЮлц",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the UP or DOWN key to select the desired keyboard type.",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   лчзж звЮближвжЪхжм.",
-        TEXT_STYLE_NORMAL
+        "   Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
-        12,
-        "   ЛЬлс зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL
+        13,
+        "\x07  Press the ESC key to return to the previous page without changing",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "\x07  ПШлуйлЬ лж звуближ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд зижЮЪжчгЬдЮ",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        8,
-        15,
-        "   йЬвхЫШ орихк дШ ШввсеЬлЬ лжд лчзж лжм звЮближвжЪхжм.",
-        TEXT_STYLE_NORMAL
+        "   the keyboard type.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ   ESC = АбчирйЮ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1102,44 +1066,44 @@ static MUI_ENTRY elGRLayoutSettingsEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "ПШиШбШвщ ЬзавтелЬ гаШ ЫаслШеЮ ЪаШ дШ ЬЪбШлШйлШЯЬх рк зижЬзавЬЪгтдЮ.",
-        TEXT_STYLE_NORMAL
+        "You want to change the keyboard layout to be installed.",
+        TEXT_NORMAL
     },
     {
         8,
         10,
-        "\x07  ПШлуйлЬ лШ звублиШ ПАМЧ у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ лЮд ЬзаЯмЮгЮлу",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the UP or DOWN key to select the desired keyboard",
+        TEXT_NORMAL
     },
     {
         8,
         11,
-        "   ЫаслШеЮ звЮближвжЪхжм. ЛЬлс зШлуйлЬ ENTER.",
-        TEXT_STYLE_NORMAL
+        "    layout. Then press ENTER.",
+        TEXT_NORMAL
     },
     {
         8,
         13,
-        "\x07  ПШлуйлЬ лж звуближ ESC ЪаШ дШ ЬзайлитпЬлЬ йлЮд зижЮЪжчгЬдЮ",
-        TEXT_STYLE_NORMAL
+        "\x07  Press the ESC key to return to the previous page without changing",
+        TEXT_NORMAL
     },
     {
         8,
         14,
-        "   йЬвхЫШ орихк дШ ШввсеЬлЬ лЮд ЫаслШеЮ лжм звЮближвжЪхжм.",
-        TEXT_STYLE_NORMAL
+        "   the keyboard layout.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ   ESC = АбчирйЮ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1155,20 +1119,20 @@ static MUI_ENTRY elGRPrepareCopyEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж ЬЪбШлсйлШйЮ зижЬлжагсЭЬа лжд мзжвжЪайлу йШк ЪаШ лЮд ШдлаЪиШну лрд ШиоЬхрд лжм ReactOS. ",
-        TEXT_STYLE_NORMAL
+        "Setup prepares your computer for copying the ReactOS files. ",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ХлхЭЬлШа Ю вхйлШ лрд ШиоЬхрд зижк ШдлаЪиШну...",
-        TEXT_TYPE_STATUS
+        "   Building the file copy list...",
+        TEXT_STATUS
     },
     {
         0,
@@ -1184,38 +1148,38 @@ static MUI_ENTRY elGRSelectFSEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         17,
-        "ДзавтелЬ тдШ йчйлЮгШ ШиоЬхрд Шзц лЮд зШиШбслр вхйлШ.",
+        "Select a file system from the list below.",
         0
     },
     {
         8,
         19,
-        "\x07  ПШлуйлЬ лШ звублиШ ПАМЧ у ЙАТЧ ЪаШ дШ ЬзавтеЬлЬ лж йчйлЮгШ ШиоЬхрд.",
+        "\x07  Press UP or DOWN to select a file system.",
         0
     },
     {
         8,
         21,
-        "\x07  ПШлуйлЬ ENTER ЪаШ дШ ЫаШгжинщйЬлЬ лж parition.",
+        "\x07  Press ENTER to format the partition.",
         0
     },
     {
         8,
         23,
-        "\x07  ПШлуйлЬ ESC ЪаШ дШ ЬзавтеЬлЬ сввж partition.",
+        "\x07  Press ESC to select another partition.",
         0
     },
     {
         0,
         0,
-        "   ENTER = СмдтоЬаШ   ESC = АбчирйЮ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   ENTER = Continue   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
 
     {
@@ -1231,38 +1195,38 @@ static MUI_ENTRY elGRDeletePartitionEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "ДзавтеШлЬ дШ ЫаШЪиспЬлЬ Шмлц лж partition",
-        TEXT_STYLE_NORMAL
+        "You have chosen to delete the partition",
+        TEXT_NORMAL
     },
     {
         8,
         18,
-        "\x07  ПШлуйлЬ D ЪаШ дШ ЫаШЪиспЬлЬ лж partition.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press D to delete the partition.",
+        TEXT_NORMAL
     },
     {
         11,
         19,
-        "ПРОДИГОПОИЖСЖ: ювШ лШ ЫЬЫжгтдШ йЬ Шмлц лж partition ЯШ оШЯжчд!",
-        TEXT_STYLE_NORMAL
+        "WARNING: All data on this partition will be lost!",
+        TEXT_NORMAL
     },
     {
         8,
         21,
-        "\x07  ПШлуйлЬ ESC ЪаШ ШбчирйЮ.",
-        TEXT_STYLE_NORMAL
+        "\x07  Press ESC to cancel.",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   D = ГаШЪиШну Partition   ESC = АбчирйЮ   F3 = АзжощиЮйЮ",
-        TEXT_TYPE_STATUS
+        "   D = Delete Partition   ESC = Cancel   F3 = Quit",
+        TEXT_STATUS
     },
     {
         0,
@@ -1277,20 +1241,20 @@ static MUI_ENTRY elGRRegistryEntries[] =
     {
         4,
         3,
-        " ДЪбШлсйлШйЮ лжм ReactOS " KERNEL_VERSION_STR,
-        TEXT_STYLE_UNDERLINE
+        " ReactOS " KERNEL_VERSION_STR " Setup ",
+        TEXT_UNDERLINE
     },
     {
         6,
         8,
-        "Ж ЬЪбШлсйлШйЮ ШдШдЬщдЬа лЮ Ыжгу лжм ймйлугШлжк. ",
-        TEXT_STYLE_NORMAL
+        "Setup is updating the system configuration. ",
+        TEXT_NORMAL
     },
     {
         0,
         0,
-        "   ГЮгажмиЪжчдлШа лШ registry hives...",
-        TEXT_TYPE_STATUS
+        "   Creating registry hives...",
+        TEXT_STATUS
     },
     {
         0,
@@ -1315,7 +1279,7 @@ MUI_ERROR elGRErrorEntries[] =
     },
     {
         //ERROR_NO_HDD
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ ЩиЬа бсзжажд йбвЮиц Ыхйбж.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ ЩиЬа бсзжажд йбвЮиц Ыхйбж.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
@@ -1325,12 +1289,12 @@ MUI_ERROR elGRErrorEntries[] =
     },
     {
         //ERROR_LOAD_TXTSETUPSIF
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лж ШиоЬхж TXTSETUP.SIF.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лж ШиоЬхж TXTSETUP.SIF.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_CORRUPT_TXTSETUPSIF
-        "Ж ЬЪбШлсйлйЮ ЩиубЬ тдШ бШлЬйлиШгтдж ШиоЬхж TXTSETUP.SIF.\n",
+        "Ж ДЪбШлсйлйЮ ЩиубЬ тдШ бШлЬйлиШгтдж ШиоЬхж TXTSETUP.SIF.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
@@ -1340,7 +1304,7 @@ MUI_ERROR elGRErrorEntries[] =
     },
     {
         //ERROR_DRIVE_INFORMATION
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лак звЮижнжихЬк лжм Ыхйбжм ймйлугШлжк.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лак звЮижнжихЬк лжм Ыхйбжм ймйлугШлжк.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
@@ -1350,27 +1314,27 @@ MUI_ERROR elGRErrorEntries[] =
     },
     {
         //ERROR_LOAD_COMPUTER,
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ лчзрд мзжвжЪайлу.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ лчзрд мзжвжЪайлу.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_LOAD_DISPLAY,
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ лчзрд ЬгнсдайЮк.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ лчзрд ЬгнсдайЮк.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_LOAD_KEYBOARD,
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ лчзрд звЮближвжЪхжм.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ лчзрд звЮближвжЪхжм.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_LOAD_KBLAYOUT,
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ ЫаШлсеЬрд звЮближвжЪхжм.\n",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ нжилщйЬа лЮ вхйлШ ЫаШлсеЬрд звЮближвжЪхжм.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_WARN_PARTITION,
-          "Ж ЬЪбШлсйлШйЮ ЩиубЬ цла лжмвсоайлжд тдШк йбвЮицк Ыхйбжк зЬиатоЬа тдШ гЮ ймгЩШлц\n"
+          "Ж ДЪбШлсйлШйЮ ЩиубЬ цла лжмвсоайлжд тдШк йбвЮицк Ыхйбжк зЬиатоЬа тдШ гЮ ймгЩШлц\n"
           "partition table зжм ЫЬ гзжиЬх дШ ЬвЬЪоЯЬх йрйлс!\n"
           "\n"
           "Ж ЫЮгажмиЪхШ у ЫаШЪиШну partitions гзжиЬх дШ бШлШйлитпЬа лж partiton table.\n"
@@ -1411,27 +1375,27 @@ MUI_ERROR elGRErrorEntries[] =
     },
     {
         //ERROR_UPDATE_DISPLAY_SETTINGS,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ШдШдЬщйЬа лак имЯгхйЬак гЮлищжм ЪаШ лЮд ЬгнсдайЮ.",
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ШдШдЬщйЬа лак имЯгхйЬак гЮлищжм ЪаШ лЮд ЬгнсдайЮ.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_IMPORT_HIVE,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ нжилщйЬа тдШ hive ШиоЬхж.",
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ нжилщйЬа тдШ hive ШиоЬхж.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_FIND_REGISTRY
-        "Ж ЬЪбШлсйШйЮ ШзтлмоЬ дШ ЩиЬа лШ ШиоЬхШ ЫЬЫжгтдрд лжм гЮлищжм.",
+        "Ж ДЪбШлсйШйЮ ШзтлмоШ дШ ЩиЬа лШ ШиоЬхШ ЫЬЫжгтдрд лжм гЮлищжм.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_CREATE_HIVE,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ЫЮгажмиЪуйЬа лШ registry hives.",
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ЫЮгажмиЪуйЬа лШ registry hives.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_INITIALIZE_REGISTRY,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ШиоабжзжауйЬа лж гЮлищж.",
+        "Setup failed to set the initialize the registry.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
@@ -1451,60 +1415,50 @@ MUI_ERROR elGRErrorEntries[] =
     },
     {
         //ERROR_COPY_QUEUE,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ШджхеЬа лЮд жмис ШиоЬхрд зижк ШдлаЪиШну.\n",
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ШджхеЬа лЮд жмис ШиоЬхрд зижк ШдлаЪиШну.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_CREATE_DIR,
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ ЫЮгажмиЪуйЬа лжмк бШлШвцЪжмк ЬЪбШлсйлШйЮк.",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ ЫЮгажмиЪуйЬа лжмк бШлШвцЪжмк ЬЪбШлсйлШйЮк.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_TXTSETUP_SECTION,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ЩиЬа лжд лжгтШ 'Directories'\n"
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ЩиЬа лжд лжгтШ 'Directories'\n"
         "йлж TXTSETUP.SIF.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_CABINET_SECTION,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ЩиЬа лжд лжгтШ 'Directories'\n"
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ЩиЬа лжд лжгтШ 'Directories'\n"
         "йлж cabinet.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_CREATE_INSTALL_DIR
-        "Ж ЬЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ ЫЮгажмиЪуйЬа лжд бШлсвжЪж ЬЪбШлсйлШйЮк.",
+        "Ж ДЪбШлсйлШйЮ ЫЬ гзциЬйЬ дШ ЫЮгажмиЪуйЬа лжд бШлсвжЪж ЬЪбШлсйлШйЮк.",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_FIND_SETUPDATA,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ЩиЬа лжд лжгтШ 'SetupData'\n"
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ЩиЬа лжд лжгтШ 'SetupData'\n"
         "йлж TXTSETUP.SIF.\n",
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_WRITE_PTABLE,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ ЪиспЬа лШ partition tables.\n"
+        "Ж ДЪбШлсйлШйЮ ШзтлмоЬ дШ ЪиспЬа лШ partition tables.\n"
         "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
     },
     {
         //ERROR_ADDING_CODEPAGE,
         "Setup failed to add codepage to registry.\n"
-        "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
+        "ENTER = Reboot computer"
     },
     {
         //ERROR_UPDATE_LOCALESETTINGS,
         "Setup could not set the system locale.\n"
-        "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
-    },
-    {
-        //ERROR_ADDING_KBLAYOUTS,
-        "Ж ЬЪбШлсйлШйЮ ШзтлмоЬ дШ зижйЯтйЬа лак ЫаШлсеЬак звЮближвжЪхрд йлж гЮлищж.\n"
-        "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"
-    },
-    {
-        //ERROR_UPDATE_GEOID,
-        "Setup could not set the geo id.\n"
         "ENTER = Reboot computer"
     },
     {
@@ -1612,117 +1566,6 @@ MUI_PAGE elGRPages[] =
         -1,
         NULL
     }
-};
-
-MUI_STRING elGRStrings[] =
-{
-    {STRING_PLEASEWAIT,
-     "   ПШиШбШвщ зЬиагтдЬлЬ..."},
-    {STRING_INSTALLCREATEPARTITION,
-     "   ENTER = ДЪбШлсйлШйЮ   C = ГЮгажмиЪхШ Partition   F3 = АзжощиЮйЮ"},
-    {STRING_INSTALLDELETEPARTITION,
-     "   ENTER = ДЪбШлсйлШйЮ   D = ГаШЪиШну Partition   F3 = АзжощиЮйЮ"},
-    {STRING_PARTITIONSIZE,
-     "ЛтЪЬЯжк лжм дтжм partition:"},
-    {STRING_CHOOSENEWPARTITION,
-     "ДзавтеШлЬ дШ ЫЮгажмиЪуйЬлЬ тдШ дтж partition on"},
-    {STRING_HDDSIZE,
-    "ПШиШбШвщ ЫщйлЬ лж гтЪЬЯжк лжм partition йЬ megabytes."},
-    {STRING_CREATEPARTITION,
-     "   ENTER = ГЮгажмиЪхШ Partition   ESC = АбчирйЮ   F3 = АзжощиЮйЮ"},
-    {STRING_PARTFORMAT,
-    "Амлц лж Partition ЯШ ЫаШгжинрЯЬх гЬлс."},
-    {STRING_NONFORMATTEDPART,
-    "ДзавтеШлЬ дШ ЬЪбШлШйлуйЬлЬ лж ReactOS йЬ тдШ дтж у гЮ ЫаШгжинргтдж Partition."},
-    {STRING_INSTALLONPART,
-    "Setup install ReactOS onto Partition"},
-    {STRING_CHECKINGPART,
-    "Ж ЬЪбШлсйлШйЮ ЬвтЪоЬа лщиШ лж ЬзавЬЪгтдж partition."},
-    {STRING_QUITCONTINUE,
-    "F3= АзжощиЮйЮ  ENTER = СмдтоЬаШ"},
-    {STRING_REBOOTCOMPUTER,
-    "ENTER = ДзШдЬббхдЮйЮ мзжвжЪайлу"},
-    {STRING_TXTSETUPFAILED,
-    "Setup failed to find the '%S' section\nin TXTSETUP.SIF.\n"},
-    {STRING_COPYING,
-     "\xB3 АдлаЪиснЬлШа лж ШиоЬхж: %S"},
-    {STRING_SETUPCOPYINGFILES,
-     "Ж ЬЪбШлсйлШйЮ ШдлаЪиснЬа ШиоЬхШ..."},
-    {STRING_REGHIVEUPDATE,
-    "   ВхдЬлШа ШдШдтрйЮ лрд registry hives..."},
-    {STRING_IMPORTFILE,
-    "   ВхдЬлШа ЬайШЪрЪу лжм %S..."},
-    {STRING_DISPLAYETTINGSUPDATE,
-    "   ВхдЬлШа ШдШдтрйЮ лрд имЯгхйЬрд ЬгнсдайЮк лжм гЮлищжм..."},
-    {STRING_LOCALESETTINGSUPDATE,
-    "   ВхдЬлШа ШдШдтрйЮ лрд имЯгхйЬрд ЪвщййШк..."},
-    {STRING_KEYBOARDSETTINGSUPDATE,
-    "   ВхдЬлШа ШдШдтрйЮ лрд имЯгхйЬрд ЫаслШеЮк звЮближвжЪхжм..."},
-    {STRING_CODEPAGEINFOUPDATE,
-    "   Adding codepage information to registry..."},
-    {STRING_DONE,
-    "   ОвжбвЮищЯЮбЬ..."},
-    {STRING_REBOOTCOMPUTER2,
-    "   ENTER = ДзЬдаббхдЮйЮ мзжвжЪайлу"},
-    {STRING_CONSOLEFAIL1,
-    "АЫчдШлж дШ ШджаолЬх Ю бждйцвШ\n\n"},
-    {STRING_CONSOLEFAIL2,
-    "The most common cause of this is using an USB keyboard\n"},
-    {STRING_CONSOLEFAIL3,
-    "ТШ USB звЮближвцЪаШ ЫЬд ЬхдШа звуирк мзжйлЮиаЭцгЬдШ ШбцгШ\n"},
-    {STRING_FORMATTINGDISK,
-    "Ж ЬЪбШлсйлШйЮ ЫаШгжинщдЬа лж Ыхйбж йШк"},
-    {STRING_CHECKINGDISK,
-    "Ж ЬЪбШлсйлШйЮ ЬвтЪоЬа лж Ыхйбж йШк"},
-    {STRING_FORMATDISK1,
-    " ГаШгцинрйЮ лжм partition рк %S йчйлЮгШ ШиоЬхрд (ЪиуЪжиЮ ЫаШгцинрйЮ) "},
-    {STRING_FORMATDISK2,
-    " ГаШгцинрйЮ лжм partition рк %S йчйлЮгШ ШиоЬхрд "},
-    {STRING_KEEPFORMAT,
-    " МШ зШиШгЬхдЬа лж йчйлЮгШ ШиоЬхрд рк тоЬа (бШгхШ ШввШЪу) "},
-    {STRING_HDINFOPARTCREATE,
-    "%I64u %s  СбвЮицк Ыхйбжк %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ."},
-    {STRING_HDDINFOUNK1,
-    "%I64u %s  СбвЮицк Ыхйбжк %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
-    {STRING_HDDINFOUNK2,
-    "   %c%c  Type %lu    %I64u %s"},
-    {STRING_HDINFOPARTDELETE,
-    "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ."},
-    {STRING_HDDINFOUNK3,
-    "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
-    {STRING_HDINFOPARTZEROED,
-    "СбвЮицк Ыхйбжк %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
-    {STRING_HDDINFOUNK4,
-    "%c%c  Type %lu    %I64u %s"},
-    {STRING_HDINFOPARTEXISTS,
-    "йлж йбвЮиц Ыхйбж %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
-    {STRING_HDDINFOUNK5,
-    "%c%c  Type %-3u                         %6lu %s"},
-    {STRING_HDINFOPARTSELECT,
-    "%6lu %s  СбвЮицк Ыхйбжк %lu  (Port=%hu, Bus=%hu, Id=%hu) on %S"},
-    {STRING_HDDINFOUNK6,
-    "%6lu %s  СбвЮицк Ыхйбжк %lu  (Port=%hu, Bus=%hu, Id=%hu)"},
-    {STRING_NEWPARTITION,
-    "Ж ЬЪбШлсйлШйЮ ЫЮгажчиЪЮйЬ тдШ дтж partition йлж"},
-    {STRING_UNPSPACE,
-    "    Unpartitioned space              %6lu %s"},
-    {STRING_MAXSIZE,
-    "MB (гЬЪ. %lu MB)"},
-    {STRING_UNFORMATTED,
-    "Мтж (ЛЮ ЫаШгжинргтдж)"},
-    {STRING_FORMATUNUSED,
-    "АоиЮйагжзжхЮлж"},
-    {STRING_FORMATUNKNOWN,
-    "ъЪдрйлж"},
-    {STRING_KB,
-    "KB"},
-    {STRING_MB,
-    "MB"},
-    {STRING_GB,
-    "GB"},
-    {STRING_ADDKBLAYOUTS,
-    "ВхдЬлШа зижйЯубЮ лрд ЫаШлсеЬрд звЮближвжЪхжм"},
-    {0, 0}
 };
 
 #endif

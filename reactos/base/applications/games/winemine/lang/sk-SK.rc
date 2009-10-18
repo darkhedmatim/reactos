@@ -10,7 +10,7 @@ STRINGTABLE
 BEGIN
 	IDS_SECONDS, "sek."
 	IDS_NOBODY,  "Nikto" //windows = Anonym
-	IDS_ABOUT,   "od Joshua Thielen a v˝voj·rov systÈmu ReactOS"
+	IDS_ABOUT,   "od Joshua Thielen a v˝voj·rov ReactOS-u"
 END
 
 IDM_WINEMINE MENU DISCARDABLE
@@ -28,7 +28,7 @@ BEGIN
 		MENUITEM SEPARATOR
 		MENUITEM "&Najlepöie Ëasy...", IDM_TIMES
 		MENUITEM SEPARATOR
-		MENUITEM "S&konËiù",           IDM_EXIT
+		MENUITEM "Sk&onËiù",           IDM_EXIT
 	END
 	POPUP "&Info" //windows = &PomocnÌk
         BEGIN

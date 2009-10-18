@@ -387,8 +387,6 @@ IrpStub(
 {
 	NTSTATUS Status = Irp->IoStatus.Status;
 
-	UNREFERENCED_PARAMETER(DeviceObject);
-
 	/* Do nothing */
 	ASSERT(FALSE);
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -401,6 +399,7 @@ i8042DeviceControl(
 	IN PIRP Irp)
 {
 	PFDO_DEVICE_EXTENSION DeviceExtension;
+	NTSTATUS Status;
 
 	TRACE_(I8042PRT, "i8042DeviceControl(%p %p)\n", DeviceObject, Irp);
 	DeviceExtension = (PFDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -413,6 +412,8 @@ i8042DeviceControl(
 		default:
 			return IrpStub(DeviceObject, Irp);
 	}
+
+	return Status;
 }
 
 static NTSTATUS NTAPI
@@ -473,17 +474,6 @@ DriverEntry(
 	PI8042_DRIVER_EXTENSION DriverExtension;
 	ULONG i;
 	NTSTATUS Status;
-
-	/* ROS Hack: ideally, we shouldn't have to initialize debug level this way,
-	   but since the only way is to change it via KDBG, it's better to leave
-	   it here too. */
-#if 0
-	DbgSetDebugFilterState(
-		DPFLTR_I8042PRT_ID,
-		(1 << DPFLTR_ERROR_LEVEL) | (1 << DPFLTR_WARNING_LEVEL) |
-		(1 << DPFLTR_TRACE_LEVEL) /*| (1 << DPFLTR_INFO_LEVEL)*/ | DPFLTR_MASK,
-		TRUE);
-#endif
 
 	Status = IoAllocateDriverObjectExtension(
 		DriverObject,

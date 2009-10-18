@@ -20,6 +20,15 @@
 
 /* GLOBAL VARIABLES ***********************************************************/
 
+typedef struct _CODEPAGE_ENTRY
+{
+   LIST_ENTRY Entry;
+   UINT CodePage;
+   HANDLE SectionHandle;
+   PBYTE SectionMapping;
+   CPTABLEINFO CodePageTable;
+} CODEPAGE_ENTRY, *PCODEPAGE_ENTRY;
+
 /* Sequence length based on the first character. */
 static const char UTF8Length[128] =
 {
@@ -44,11 +53,11 @@ static RTL_CRITICAL_SECTION CodePageListLock;
 
 /* FORWARD DECLARATIONS *******************************************************/
 
-BOOL WINAPI
+BOOL STDCALL
 GetNlsSectionName(UINT CodePage, UINT Base, ULONG Unknown,
                   LPSTR BaseName, LPSTR Result, ULONG ResultSize);
 
-BOOL WINAPI
+BOOL STDCALL
 GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize);
 
 /* PRIVATE FUNCTIONS **********************************************************/
@@ -59,54 +68,47 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize);
  * Internal NLS related stuff initialization.
  */
 
-BOOL
-FASTCALL
-NlsInit(VOID)
+BOOL FASTCALL
+NlsInit()
 {
-    UNICODE_STRING DirName;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    HANDLE Handle;
+   UNICODE_STRING DirName;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   HANDLE Handle;
 
-    InitializeListHead(&CodePageListHead);
-    RtlInitializeCriticalSection(&CodePageListLock);
+   InitializeListHead(&CodePageListHead);
+   RtlInitializeCriticalSection(&CodePageListLock);
 
-    /*
-     * FIXME: Eventually this should be done only for the NLS Server
-     * process, but since we don't have anything like that (yet?) we
-     * always try to create the "\Nls" directory here.
-     */
-    RtlInitUnicodeString(&DirName, L"\\Nls");
+   /*
+    * FIXME: Eventually this should be done only for the NLS Server
+    * process, but since we don't have anything like that (yet?) we
+    * always try to create the "\Nls" directory here.
+    */
+   RtlInitUnicodeString(&DirName, L"\\Nls");
+   InitializeObjectAttributes(&ObjectAttributes, &DirName,
+                              OBJ_CASE_INSENSITIVE | OBJ_PERMANENT,
+                              NULL, NULL);
+   if (NT_SUCCESS(NtCreateDirectoryObject(&Handle, DIRECTORY_ALL_ACCESS, &ObjectAttributes)))
+   {
+      NtClose(Handle);
+   }
 
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &DirName,
-                               OBJ_CASE_INSENSITIVE | OBJ_PERMANENT,
-                               NULL,
-                               NULL);
+   /* Setup ANSI code page. */
+   AnsiCodePage.CodePage = CP_ACP;
+   AnsiCodePage.SectionHandle = NULL;
+   AnsiCodePage.SectionMapping = NtCurrentTeb()->ProcessEnvironmentBlock->AnsiCodePageData;
+   RtlInitCodePageTable((PUSHORT)AnsiCodePage.SectionMapping,
+                        &AnsiCodePage.CodePageTable);
+   InsertTailList(&CodePageListHead, &AnsiCodePage.Entry);
 
-    if (NT_SUCCESS(NtCreateDirectoryObject(&Handle, DIRECTORY_ALL_ACCESS, &ObjectAttributes)))
-    {
-        NtClose(Handle);
-    }
+   /* Setup OEM code page. */
+   OemCodePage.CodePage = CP_OEMCP;
+   OemCodePage.SectionHandle = NULL;
+   OemCodePage.SectionMapping = NtCurrentTeb()->ProcessEnvironmentBlock->OemCodePageData;
+   RtlInitCodePageTable((PUSHORT)OemCodePage.SectionMapping,
+                        &OemCodePage.CodePageTable);
+   InsertTailList(&CodePageListHead, &OemCodePage.Entry);
 
-    /* Setup ANSI code page. */
-    AnsiCodePage.CodePage = CP_ACP;
-    AnsiCodePage.SectionHandle = NULL;
-    AnsiCodePage.SectionMapping = NtCurrentTeb()->ProcessEnvironmentBlock->AnsiCodePageData;
-
-    RtlInitCodePageTable((PUSHORT)AnsiCodePage.SectionMapping,
-                         &AnsiCodePage.CodePageTable);
-    InsertTailList(&CodePageListHead, &AnsiCodePage.Entry);
-
-    /* Setup OEM code page. */
-    OemCodePage.CodePage = CP_OEMCP;
-    OemCodePage.SectionHandle = NULL;
-    OemCodePage.SectionMapping = NtCurrentTeb()->ProcessEnvironmentBlock->OemCodePageData;
-
-    RtlInitCodePageTable((PUSHORT)OemCodePage.SectionMapping,
-                         &OemCodePage.CodePageTable);
-    InsertTailList(&CodePageListHead, &OemCodePage.Entry);
-
-    return TRUE;
+   return TRUE;
 }
 
 /**
@@ -115,24 +117,23 @@ NlsInit(VOID)
  * Internal NLS related stuff uninitialization.
  */
 
-VOID
-FASTCALL
-NlsUninit(VOID)
+VOID FASTCALL
+NlsUninit()
 {
-    PCODEPAGE_ENTRY Current;
+   PCODEPAGE_ENTRY Current;
 
-    /* Delete the code page list. */
-    while (!IsListEmpty(&CodePageListHead))
-    {
-        Current = CONTAINING_RECORD(CodePageListHead.Flink, CODEPAGE_ENTRY, Entry);
-        if (Current->SectionHandle != NULL)
-        {
-            UnmapViewOfFile(Current->SectionMapping);
-            NtClose(Current->SectionHandle);
-        }
-        RemoveHeadList(&CodePageListHead);
-    }
-    RtlDeleteCriticalSection(&CodePageListLock);
+   /* Delete the code page list. */
+   while (!IsListEmpty(&CodePageListHead))
+   {
+      Current = CONTAINING_RECORD(CodePageListHead.Flink, CODEPAGE_ENTRY, Entry);
+      if (Current->SectionHandle != NULL)
+      {
+         UnmapViewOfFile(Current->SectionMapping);
+         NtClose(Current->SectionHandle);
+      }
+      RemoveHeadList(&CodePageListHead);
+   }
+   RtlDeleteCriticalSection(&CodePageListLock);
 }
 
 /**
@@ -149,28 +150,27 @@ NlsUninit(VOID)
  *         been loaded yet.
  */
 
-PCODEPAGE_ENTRY
-FASTCALL
+PCODEPAGE_ENTRY FASTCALL
 IntGetLoadedCodePageEntry(UINT CodePage)
 {
-    LIST_ENTRY *CurrentEntry;
-    PCODEPAGE_ENTRY Current;
+   LIST_ENTRY *CurrentEntry;
+   PCODEPAGE_ENTRY Current;
 
-    RtlEnterCriticalSection(&CodePageListLock);
-    for (CurrentEntry = CodePageListHead.Flink;
-         CurrentEntry != &CodePageListHead;
-         CurrentEntry = CurrentEntry->Flink)
-    {
-        Current = CONTAINING_RECORD(CurrentEntry, CODEPAGE_ENTRY, Entry);
-        if (Current->CodePage == CodePage)
-        {
-            RtlLeaveCriticalSection(&CodePageListLock);
-            return Current;
-        }
-    }
-    RtlLeaveCriticalSection(&CodePageListLock);
+   RtlEnterCriticalSection(&CodePageListLock);
+   for (CurrentEntry = CodePageListHead.Flink;
+        CurrentEntry != &CodePageListHead;
+        CurrentEntry = CurrentEntry->Flink)
+   {
+      Current = CONTAINING_RECORD(CurrentEntry, CODEPAGE_ENTRY, Entry);
+      if (Current->CodePage == CodePage)
+      {
+         RtlLeaveCriticalSection(&CodePageListLock);
+         return Current;
+      }
+   }
+   RtlLeaveCriticalSection(&CodePageListLock);
 
-    return NULL;
+   return NULL;
 }
 
 /**
@@ -185,155 +185,122 @@ IntGetLoadedCodePageEntry(UINT CodePage)
  * @return Code page entry.
  */
 
-PCODEPAGE_ENTRY
-FASTCALL
+static PCODEPAGE_ENTRY FASTCALL
 IntGetCodePageEntry(UINT CodePage)
 {
-    CHAR SectionName[40];
-    NTSTATUS Status;
-    HANDLE SectionHandle = INVALID_HANDLE_VALUE, FileHandle;
-    PBYTE SectionMapping;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    ANSI_STRING AnsiName;
-    UNICODE_STRING UnicodeName;
-    WCHAR FileName[MAX_PATH + 1];
-    UINT FileNamePos;
-    PCODEPAGE_ENTRY CodePageEntry;
+   CHAR SectionName[40];
+   NTSTATUS Status;
+   HANDLE SectionHandle = INVALID_HANDLE_VALUE, FileHandle;
+   PBYTE SectionMapping;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   ANSI_STRING AnsiName;
+   UNICODE_STRING UnicodeName;
+   WCHAR FileName[MAX_PATH + 1];
+   UINT FileNamePos;
+   PCODEPAGE_ENTRY CodePageEntry;
 
-    if (CodePage == CP_THREAD_ACP)
-    {
-        if (!GetLocaleInfoW(GetThreadLocale(),
-                            LOCALE_IDEFAULTANSICODEPAGE | LOCALE_RETURN_NUMBER,
-                            (WCHAR *)&CodePage,
-                            sizeof(CodePage) / sizeof(WCHAR)))
-        {
-            /* Last error is set by GetLocaleInfoW. */
-            return NULL;
-        }
-    }
-    else if (CodePage == CP_MACCP)
-    {
-        if (!GetLocaleInfoW(LOCALE_SYSTEM_DEFAULT,
-                            LOCALE_IDEFAULTMACCODEPAGE | LOCALE_RETURN_NUMBER,
-                            (WCHAR *)&CodePage,
-                            sizeof(CodePage) / sizeof(WCHAR)))
-        {
-            /* Last error is set by GetLocaleInfoW. */
-            return NULL;
-        }
-    }
+   if (CodePage == CP_THREAD_ACP)
+   {
+      if (!GetLocaleInfoW(GetThreadLocale(), LOCALE_IDEFAULTANSICODEPAGE |
+                          LOCALE_RETURN_NUMBER, (WCHAR *)&CodePage,
+                          sizeof(CodePage) / sizeof(WCHAR)))
+      {
+         /* Last error is set by GetLocaleInfoW. */
+         return 0;
+      }
+   }
+   else if (CodePage == CP_MACCP)
+   {
+      if (!GetLocaleInfoW(LOCALE_SYSTEM_DEFAULT, LOCALE_IDEFAULTMACCODEPAGE |
+                          LOCALE_RETURN_NUMBER, (WCHAR *)&CodePage,
+                          sizeof(CodePage) / sizeof(WCHAR)))
+      {
+         /* Last error is set by GetLocaleInfoW. */
+         return 0;
+      }
+   }
 
-    /* Try searching for loaded page first. */
-    CodePageEntry = IntGetLoadedCodePageEntry(CodePage);
-    if (CodePageEntry != NULL)
-    {
-        return CodePageEntry;
-    }
+   /* Try searching for loaded page first. */
+   CodePageEntry = IntGetLoadedCodePageEntry(CodePage);
+   if (CodePageEntry != NULL)
+   {
+      return CodePageEntry;
+   }
 
-    /*
-     * Yes, we really want to lock here. Otherwise it can happen that
-     * two parallel requests will try to get the entry for the same
-     * code page and we would load it twice.
-     */
-    RtlEnterCriticalSection(&CodePageListLock);
+   /*
+    * Yes, we really want to lock here. Otherwise it can happen that
+    * two parallel requests will try to get the entry for the same
+    * code page and we would load it twice.
+    */
+   RtlEnterCriticalSection(&CodePageListLock);
 
-    /* Generate the section name. */
-    if (!GetNlsSectionName(CodePage,
-                           10,
-                           0,
-                           "\\Nls\\NlsSectionCP",
-                           SectionName,
-                           sizeof(SectionName)))
-    {
-        RtlLeaveCriticalSection(&CodePageListLock);
-        return NULL;
-    }
+   /* Generate the section name. */
+   if (!GetNlsSectionName(CodePage, 10, 0, "\\Nls\\NlsSectionCP",
+                          SectionName, sizeof(SectionName)))
+   {
+      RtlLeaveCriticalSection(&CodePageListLock);
+      return NULL;
+   }
+   RtlInitAnsiString(&AnsiName, SectionName);
+   RtlAnsiStringToUnicodeString(&UnicodeName, &AnsiName, TRUE);
+   InitializeObjectAttributes(&ObjectAttributes, &UnicodeName, 0,
+                              NULL, NULL);
 
-    RtlInitAnsiString(&AnsiName, SectionName);
-    RtlAnsiStringToUnicodeString(&UnicodeName, &AnsiName, TRUE);
+   /* Try to open the section first */
+   Status = NtOpenSection(&SectionHandle, SECTION_MAP_READ, &ObjectAttributes);
 
-    InitializeObjectAttributes(&ObjectAttributes, &UnicodeName, 0, NULL, NULL);
+   /* If the section doesn't exist, try to create it. */
+   if (Status == STATUS_UNSUCCESSFUL ||
+       Status == STATUS_OBJECT_NAME_NOT_FOUND ||
+       Status == STATUS_OBJECT_PATH_NOT_FOUND)
+   {
+      FileNamePos = GetSystemDirectoryW(FileName, MAX_PATH);
+      if (GetCPFileNameFromRegistry(CodePage, FileName + FileNamePos + 1,
+                                    MAX_PATH - FileNamePos - 1))
+      {
+         FileName[FileNamePos] = L'\\';
+         FileName[MAX_PATH] = 0;
+         FileHandle = CreateFileW(FileName, FILE_GENERIC_READ, FILE_SHARE_READ,
+                                  NULL, OPEN_EXISTING, 0, NULL);
+         Status = NtCreateSection(&SectionHandle, SECTION_MAP_READ,
+                                  &ObjectAttributes, NULL, PAGE_READONLY,
+                                  SEC_FILE, FileHandle);
+      }
+   }
+   RtlFreeUnicodeString(&UnicodeName);
 
-    /* Try to open the section first */
-    Status = NtOpenSection(&SectionHandle, SECTION_MAP_READ, &ObjectAttributes);
+   if (!NT_SUCCESS(Status))
+   {
+      RtlLeaveCriticalSection(&CodePageListLock);
+      return NULL;
+   }
 
-    /* If the section doesn't exist, try to create it. */
-    if (Status == STATUS_UNSUCCESSFUL ||
-        Status == STATUS_OBJECT_NAME_NOT_FOUND ||
-        Status == STATUS_OBJECT_PATH_NOT_FOUND)
-    {
-        FileNamePos = GetSystemDirectoryW(FileName, MAX_PATH);
-        if (GetCPFileNameFromRegistry(CodePage,
-                                      FileName + FileNamePos + 1,
-                                      MAX_PATH - FileNamePos - 1))
-        {
-            FileName[FileNamePos] = L'\\';
-            FileName[MAX_PATH] = 0;
-            FileHandle = CreateFileW(FileName,
-                                     FILE_GENERIC_READ,
-                                     FILE_SHARE_READ,
-                                     NULL,
-                                     OPEN_EXISTING,
-                                     0,
-                                     NULL);
+   SectionMapping = MapViewOfFile(SectionHandle, FILE_MAP_READ, 0, 0, 0);
+   if (SectionMapping == NULL)
+   {
+      NtClose(SectionHandle);
+      RtlLeaveCriticalSection(&CodePageListLock);
+      return NULL;
+   }
 
-            Status = NtCreateSection(&SectionHandle,
-                                     SECTION_MAP_READ,
-                                     &ObjectAttributes,
-                                     NULL,
-                                     PAGE_READONLY,
-                                     SEC_FILE,
-                                     FileHandle);
+   CodePageEntry = HeapAlloc(GetProcessHeap(), 0, sizeof(CODEPAGE_ENTRY));
+   if (CodePageEntry == NULL)
+   {
+      NtClose(SectionHandle);
+      RtlLeaveCriticalSection(&CodePageListLock);
+      return NULL;
+   }
 
-            /* HACK: Check if another process was faster
-             * and already created this section. See bug 3626 for details */
-            if (Status == STATUS_OBJECT_NAME_COLLISION)
-            {
-                /* Close the file then */
-                NtClose(FileHandle);
+   CodePageEntry->CodePage = CodePage;
+   CodePageEntry->SectionHandle = SectionHandle;
+   CodePageEntry->SectionMapping = SectionMapping;
+   RtlInitCodePageTable((PUSHORT)SectionMapping, &CodePageEntry->CodePageTable);
 
-                /* And open the section */
-                Status = NtOpenSection(&SectionHandle,
-                                       SECTION_MAP_READ,
-                                       &ObjectAttributes);
-            }
-        }
-    }
-    RtlFreeUnicodeString(&UnicodeName);
+   /* Insert the new entry to list and unlock. Uff. */
+   InsertTailList(&CodePageListHead, &CodePageEntry->Entry);
+   RtlLeaveCriticalSection(&CodePageListLock);
 
-    if (!NT_SUCCESS(Status))
-    {
-        RtlLeaveCriticalSection(&CodePageListLock);
-        return NULL;
-    }
-
-    SectionMapping = MapViewOfFile(SectionHandle, FILE_MAP_READ, 0, 0, 0);
-    if (SectionMapping == NULL)
-    {
-        NtClose(SectionHandle);
-        RtlLeaveCriticalSection(&CodePageListLock);
-        return NULL;
-    }
-
-    CodePageEntry = HeapAlloc(GetProcessHeap(), 0, sizeof(CODEPAGE_ENTRY));
-    if (CodePageEntry == NULL)
-    {
-        NtClose(SectionHandle);
-        RtlLeaveCriticalSection(&CodePageListLock);
-        return NULL;
-    }
-
-    CodePageEntry->CodePage = CodePage;
-    CodePageEntry->SectionHandle = SectionHandle;
-    CodePageEntry->SectionMapping = SectionMapping;
-
-    RtlInitCodePageTable((PUSHORT)SectionMapping, &CodePageEntry->CodePageTable);
-
-    /* Insert the new entry to list and unlock. Uff. */
-    InsertTailList(&CodePageListHead, &CodePageEntry->Entry);
-    RtlLeaveCriticalSection(&CodePageListLock);
-
-    return CodePageEntry;
+   return CodePageEntry;
 }
 
 /**
@@ -345,63 +312,59 @@ IntGetCodePageEntry(UINT CodePage)
  * @todo Add UTF8 validity checks.
  */
 
-static
-INT
-WINAPI
+static INT STDCALL
 IntMultiByteToWideCharUTF8(DWORD Flags,
-                           LPCSTR MultiByteString,
-                           INT MultiByteCount,
-                           LPWSTR WideCharString,
-                           INT WideCharCount)
+                           LPCSTR MultiByteString, INT MultiByteCount,
+                           LPWSTR WideCharString, INT WideCharCount)
 {
-    LPCSTR MbsEnd;
-    UCHAR Char, Length;
-    WCHAR WideChar;
-    LONG Count;
+   LPCSTR MbsEnd;
+   UCHAR Char, Length;
+   WCHAR WideChar;
+   LONG Count;
 
-    if (Flags != 0)
-    {
-        SetLastError(ERROR_INVALID_FLAGS);
-        return 0;
-    }
+   if (Flags != 0)
+   {
+      SetLastError(ERROR_INVALID_FLAGS);
+      return 0;
+   }
 
-    /* Does caller query for output buffer size? */
-    if (WideCharCount == 0)
-    {
-        MbsEnd = MultiByteString + MultiByteCount;
-        for (; MultiByteString < MbsEnd; WideCharCount++)
-        {
-            Char = *MultiByteString++;
-            if (Char < 0xC0)
-                continue;
-            MultiByteString += UTF8Length[Char - 0x80];
-        }
-        return WideCharCount;
-    }
-
-    MbsEnd = MultiByteString + MultiByteCount;
-    for (Count = 0; Count < WideCharCount && MultiByteString < MbsEnd; Count++)
-    {
-        Char = *MultiByteString++;
-        if (Char < 0x80)
-        {
-            *WideCharString++ = Char;
+   /* Does caller query for output buffer size? */
+   if (WideCharCount == 0)
+   {
+      MbsEnd = MultiByteString + MultiByteCount;
+      for (; MultiByteString < MbsEnd; WideCharCount++)
+      {
+         Char = *MultiByteString++;
+         if (Char < 0xC0)
             continue;
-        }
-        Length = UTF8Length[Char - 0x80];
-        WideChar = Char & UTF8Mask[Length];
-        while (Length && MultiByteString < MbsEnd)
-        {
-            WideChar = (WideChar << 6) | (*MultiByteString++ & 0x7f);
-            Length--;
-        }
-        *WideCharString++ = WideChar;
-    }
+         MultiByteString += UTF8Length[Char - 0x80];
+      }
+      return WideCharCount;
+   }
 
-    if (MultiByteString < MbsEnd)
-        SetLastError(ERROR_INSUFFICIENT_BUFFER);
+   MbsEnd = MultiByteString + MultiByteCount;
+   for (Count = 0; Count < WideCharCount && MultiByteString < MbsEnd; Count++)
+   {
+      Char = *MultiByteString++;
+      if (Char < 0x80)
+      {
+         *WideCharString++ = Char;
+         continue;
+      }
+      Length = UTF8Length[Char - 0x80];
+      WideChar = Char & UTF8Mask[Length];
+      while (Length && MultiByteString < MbsEnd)
+      {
+         WideChar = (WideChar << 6) | *MultiByteString++;
+         Length--;
+      }
+      *WideCharString++ = WideChar;
+   }
 
-    return Count;
+   if (MultiByteString < MbsEnd)
+      SetLastError(ERROR_INSUFFICIENT_BUFFER);
+
+   return Count;
 }
 
 /**
@@ -414,132 +377,124 @@ IntMultiByteToWideCharUTF8(DWORD Flags,
  *       DBCS codepages.
  */
 
-static
-INT
-WINAPI
-IntMultiByteToWideCharCP(UINT CodePage,
-                         DWORD Flags,
-                         LPCSTR MultiByteString,
-                         INT MultiByteCount,
-                         LPWSTR WideCharString,
-                         INT WideCharCount)
+static INT STDCALL
+IntMultiByteToWideCharCP(UINT CodePage, DWORD Flags,
+                         LPCSTR MultiByteString, INT MultiByteCount,
+                         LPWSTR WideCharString, INT WideCharCount)
 {
-    PCODEPAGE_ENTRY CodePageEntry;
-    PCPTABLEINFO CodePageTable;
-    LPCSTR TempString;
-    INT TempLength;
+   PCODEPAGE_ENTRY CodePageEntry;
+   PCPTABLEINFO CodePageTable;
+   LPCSTR TempString;
+   INT TempLength;
 
-    /* Get code page table. */
-    CodePageEntry = IntGetCodePageEntry(CodePage);
-    if (CodePageEntry == NULL)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-    CodePageTable = &CodePageEntry->CodePageTable;
+   /* Get code page table. */
+   CodePageEntry = IntGetCodePageEntry(CodePage);
+   if (CodePageEntry == NULL)
+   {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return 0;
+   }
+   CodePageTable = &CodePageEntry->CodePageTable;
 
-    /* Different handling for DBCS code pages. */
-    if (CodePageTable->MaximumCharacterSize > 1)
-    {
-        /* FIXME */
+   /* Different handling for DBCS code pages. */
+   if (CodePageTable->MaximumCharacterSize > 1)
+   {
+      /* FIXME */
 
-        UCHAR Char;
-        USHORT DBCSOffset;
-        LPCSTR MbsEnd = MultiByteString + MultiByteCount;
-        INT Count;
+      UCHAR Char;
+      USHORT DBCSOffset;
+      LPCSTR MbsEnd = MultiByteString + MultiByteCount;
+      ULONG Count;
 
-        /* Does caller query for output buffer size? */
-        if (WideCharCount == 0)
-        {
-            for (; MultiByteString < MbsEnd; WideCharCount++)
-            {
-                Char = *MultiByteString++;
-
-                if (Char < 0x80)
-                    continue;
-
-                DBCSOffset = CodePageTable->DBCSOffsets[Char];
-
-                if (!DBCSOffset)
-                    continue;
-
-                if (MultiByteString < MbsEnd)
-                    MultiByteString++;
-            }
-
-            return WideCharCount;
-        }
-
-        for (Count = 0; Count < WideCharCount && MultiByteString < MbsEnd; Count++)
-        {
+      /* Does caller query for output buffer size? */
+      if (WideCharCount == 0)
+      {
+         for (; MultiByteString < MbsEnd; WideCharCount++)
+         {
             Char = *MultiByteString++;
 
             if (Char < 0x80)
-            {
-                *WideCharString++ = Char;
-                continue;
-            }
+               continue;
 
             DBCSOffset = CodePageTable->DBCSOffsets[Char];
 
             if (!DBCSOffset)
-            {
-                *WideCharString++ = CodePageTable->MultiByteTable[Char];
-                continue;
-            }
+               continue;
 
             if (MultiByteString < MbsEnd)
-                *WideCharString++ = CodePageTable->DBCSOffsets[DBCSOffset + *(PUCHAR)MultiByteString++];
-        }
+               MultiByteString++;
+         }
 
-        if (MultiByteString < MbsEnd)
-        {
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            return 0;
-        }
+         return WideCharCount;
+      }
 
-        return Count;
-    }
-    else /* Not DBCS code page */
-    {
-        /* Check for invalid characters. */
-        if (Flags & MB_ERR_INVALID_CHARS)
-        {
-            for (TempString = MultiByteString, TempLength = MultiByteCount;
-                 TempLength > 0;
-                 TempString++, TempLength--)
+      for (Count = 0; Count < WideCharCount && MultiByteString < MbsEnd; Count++)
+      {
+         Char = *MultiByteString++;
+
+         if (Char < 0x80)
+         {
+            *WideCharString++ = Char;
+            continue;
+         }
+
+         DBCSOffset = CodePageTable->DBCSOffsets[Char];
+
+         if (!DBCSOffset)
+         {
+            *WideCharString++ = CodePageTable->MultiByteTable[Char];
+            continue;
+         }
+
+         if (MultiByteString < MbsEnd)
+            *WideCharString++ =
+               CodePageTable->DBCSOffsets[DBCSOffset + *(PUCHAR)MultiByteString++];
+      }
+
+      if (MultiByteString < MbsEnd)
+         SetLastError(ERROR_INSUFFICIENT_BUFFER);
+
+      return Count;
+   }
+   else /* Not DBCS code page */
+   {
+      /* Check for invalid characters. */
+      if (Flags & MB_ERR_INVALID_CHARS)
+      {
+         for (TempString = MultiByteString, TempLength = MultiByteCount;
+              TempLength > 0;
+              TempString++, TempLength--)
+         {
+            if (CodePageTable->MultiByteTable[(UCHAR)*TempString] ==
+                CodePageTable->UniDefaultChar &&
+                *TempString != CodePageEntry->CodePageTable.DefaultChar)
             {
-                if (CodePageTable->MultiByteTable[(UCHAR)*TempString] ==
-                    CodePageTable->UniDefaultChar &&
-                    *TempString != CodePageEntry->CodePageTable.DefaultChar)
-                {
-                    SetLastError(ERROR_NO_UNICODE_TRANSLATION);
-                    return 0;
-                }
+               SetLastError(ERROR_NO_UNICODE_TRANSLATION);
+               return 0;
             }
-        }
+         }
+      }
 
-        /* Does caller query for output buffer size? */
-        if (WideCharCount == 0)
-            return MultiByteCount;
+      /* Does caller query for output buffer size? */
+      if (WideCharCount == 0)
+         return MultiByteCount;
 
-        /* Fill the WideCharString buffer with what will fit: Verified on WinXP */
-        for (TempLength = (WideCharCount < MultiByteCount) ? WideCharCount : MultiByteCount;
-            TempLength > 0;
-            MultiByteString++, TempLength--)
-        {
-            *WideCharString++ = CodePageTable->MultiByteTable[(UCHAR)*MultiByteString];
-        }
+      /* Adjust buffer size. Wine trick ;-) */
+      if (WideCharCount < MultiByteCount)
+      {
+         MultiByteCount = WideCharCount;
+         SetLastError(ERROR_INSUFFICIENT_BUFFER);
+      }
 
-        /* Adjust buffer size. Wine trick ;-) */
-        if (WideCharCount < MultiByteCount)
-        {
-            MultiByteCount = WideCharCount;
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            return 0;
-        }
-	    return MultiByteCount;
-    }
+      for (TempLength = MultiByteCount;
+           TempLength > 0;
+           MultiByteString++, TempLength--)
+      {
+         *WideCharString++ = CodePageTable->MultiByteTable[(UCHAR)*MultiByteString];
+      }
+
+      return MultiByteCount;
+   }
 }
 
 /**
@@ -550,52 +505,48 @@ IntMultiByteToWideCharCP(UINT CodePage,
  * @see MultiByteToWideChar
  */
 
-static
-INT
-WINAPI 
+static INT STDCALL 
 IntMultiByteToWideCharSYMBOL(DWORD Flags, 
-                             LPCSTR MultiByteString,
-                             INT MultiByteCount, 
-                             LPWSTR WideCharString,
-                             INT WideCharCount)
+                             LPCSTR MultiByteString, INT MultiByteCount, 
+                             LPWSTR WideCharString, INT WideCharCount)
 {
-    LONG Count;
-    UCHAR Char;
-    INT WideCharMaxLen;
+   LONG Count;
+   UCHAR Char;
+   INT WideCharMaxLen;
 
 
-    if (Flags != 0)
-    {
-        SetLastError(ERROR_INVALID_FLAGS);
-        return 0;
-    }
+   if (Flags != 0)
+   {
+      SetLastError(ERROR_INVALID_FLAGS);
+      return 0;
+   }
 
-    if (WideCharCount == 0) 
-    {
-        return MultiByteCount;
-    }
+   if (WideCharCount == 0) 
+   {
+      return MultiByteCount;
+   }
 
-    WideCharMaxLen = WideCharCount > MultiByteCount ? MultiByteCount : WideCharCount;
+   WideCharMaxLen = WideCharCount > MultiByteCount ? MultiByteCount : WideCharCount;
 
-    for (Count = 0; Count < WideCharMaxLen; Count++)
-    {
-        Char = MultiByteString[Count];
-        if ( Char < 0x20 )
-        {
-            WideCharString[Count] = Char;
-        }
-        else
-        {
-            WideCharString[Count] = Char + 0xf000;
-        }
-    }
-    if (MultiByteCount > WideCharMaxLen) 
-    {
-        SetLastError(ERROR_INSUFFICIENT_BUFFER);
-        return 0;
-    }
+   for (Count = 0; Count < WideCharMaxLen; Count++)
+   {
+      Char = MultiByteString[Count];
+      if ( Char < 0x20 )
+      {
+         WideCharString[Count] = Char;
+      }
+      else
+      {
+         WideCharString[Count] = Char + 0xf000;
+      }
+   }
+   if (MultiByteCount > WideCharMaxLen) 
+   {
+      SetLastError(ERROR_INSUFFICIENT_BUFFER);
+      return 0;
+   }
 
-    return WideCharMaxLen;
+   return WideCharMaxLen;
 }
 
 /**
@@ -606,57 +557,54 @@ IntMultiByteToWideCharSYMBOL(DWORD Flags,
  * @see WideCharToMultiByte
  */
 
-static INT
-WINAPI
+static INT STDCALL
 IntWideCharToMultiByteSYMBOL(DWORD Flags,
-                             LPCWSTR WideCharString,
-                             INT WideCharCount,
-                             LPSTR MultiByteString,
-                             INT MultiByteCount)
+                             LPCWSTR WideCharString, INT WideCharCount,
+                             LPSTR MultiByteString, INT MultiByteCount)
 {
-    LONG Count;
-    INT MaxLen;
-    WCHAR Char;
+   LONG Count;
+   INT MaxLen;
+   WCHAR Char;
 
-    if (Flags!=0)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
+   if (Flags!=0)
+   {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return 0;
+   }
 
 
-    if (MultiByteCount == 0) 
-    {
-        return WideCharCount;
-    }
+   if( MultiByteCount == 0) 
+   {
+      return WideCharCount;
+   }
 
-    MaxLen = MultiByteCount > WideCharCount ? WideCharCount : MultiByteCount;
-    for (Count = 0; Count < MaxLen; Count++)
-    {
-        Char = WideCharString[Count];
-        if (Char < 0x20)
-        {
-            MultiByteString[Count] = Char;
-        }
-        else 
-        {
-            if ((Char>=0xf020)&&(Char<0xf100))
-            {
-                MultiByteString[Count] = Char - 0xf000;
-            }
-            else
-            {
-                SetLastError(ERROR_NO_UNICODE_TRANSLATION);
-                return 0;
-            }
-        }
-    }
-    if (WideCharCount > MaxLen) 
-    {
-        SetLastError(ERROR_INSUFFICIENT_BUFFER);
-        return 0;
-    }
-    return MaxLen;
+   MaxLen = MultiByteCount>WideCharCount?WideCharCount:MultiByteCount;
+   for (Count = 0;Count<MaxLen;Count++)
+   {
+      Char = WideCharString[Count];
+      if (Char<0x20)
+      {
+         MultiByteString[Count] = Char;
+      }
+      else 
+      {
+         if ((Char>=0xf020)&&(Char<0xf100))
+         {
+            MultiByteString[Count] = Char - 0xf000;
+         }
+         else
+         {
+            SetLastError(ERROR_NO_UNICODE_TRANSLATION);
+            return 0;
+         }
+      }
+   }
+   if ( WideCharCount > MaxLen) 
+   {
+      SetLastError(ERROR_INSUFFICIENT_BUFFER);
+      return 0;
+   }
+   return MaxLen;
 }
 
 /**
@@ -667,136 +615,76 @@ IntWideCharToMultiByteSYMBOL(DWORD Flags,
  * @see WideCharToMultiByte
  */
 
-static INT
-WINAPI
-IntWideCharToMultiByteUTF8(UINT CodePage,
-                           DWORD Flags,
-                           LPCWSTR WideCharString,
-                           INT WideCharCount,
-                           LPSTR MultiByteString,
-                           INT MultiByteCount,
-                           LPCSTR DefaultChar,
-                           LPBOOL UsedDefaultChar)
+static INT STDCALL
+IntWideCharToMultiByteUTF8(UINT CodePage, DWORD Flags,
+                           LPCWSTR WideCharString, INT WideCharCount,
+                           LPSTR MultiByteString, INT MultiByteCount,
+                           LPCSTR DefaultChar, LPBOOL UsedDefaultChar)
 {
-    INT TempLength;
-    WCHAR Char;
+   INT TempLength;
+   WCHAR Char;
 
-    /* Does caller query for output buffer size? */
-    if (MultiByteCount == 0)
-    {
-        for (TempLength = 0; WideCharCount;
-            WideCharCount--, WideCharString++)
-        {
+   /* Does caller query for output buffer size? */
+   if (MultiByteCount == 0)
+   {
+      for (TempLength = 0; WideCharCount;
+           WideCharCount--, WideCharString++)
+      {
+         TempLength++;
+         if (*WideCharString >= 0x80)
+         {
             TempLength++;
-            if (*WideCharString >= 0x80)
-            {
-                TempLength++;
-                if (*WideCharString >= 0x800)
-                    TempLength++;
-            }
-        }
-        return TempLength;
-    }
+            if (*WideCharString >= 0x800)
+               TempLength++;
+         }
+      }
+      return TempLength;
+   }
 
-    for (TempLength = MultiByteCount; WideCharCount; WideCharCount--, WideCharString++)
-    {
-        Char = *WideCharString;
-        if (Char < 0x80)
-        {
-            if (!TempLength)
-            {
-                SetLastError(ERROR_INSUFFICIENT_BUFFER);
-                break;
-            }
-            TempLength--;
-            *MultiByteString++ = (CHAR)Char;
-            continue;
-        }
-
-        if (Char < 0x800)  /* 0x80-0x7ff: 2 bytes */
-        {
-            if (TempLength < 2)
-            {
-                SetLastError(ERROR_INSUFFICIENT_BUFFER);
-                break;
-            }
-            MultiByteString[1] = 0x80 | (Char & 0x3f); Char >>= 6;
-            MultiByteString[0] = 0xc0 | Char;
-            MultiByteString += 2;
-            TempLength -= 2;
-            continue;
-        }
-
-        /* 0x800-0xffff: 3 bytes */
-        if (TempLength < 3)
-        {
+   for (TempLength = MultiByteCount; WideCharCount;
+        WideCharCount--, WideCharString++)
+   {
+      Char = *WideCharString;
+      if (Char < 0x80)
+      {
+         if (!TempLength)
+         {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             break;
-        }
-        MultiByteString[2] = 0x80 | (Char & 0x3f); Char >>= 6;
-        MultiByteString[1] = 0x80 | (Char & 0x3f); Char >>= 6;
-        MultiByteString[0] = 0xe0 | Char;
-        MultiByteString += 3;
-        TempLength -= 3;
-    }
+         }
+         TempLength--;
+         *MultiByteString++ = (CHAR)Char;
+         continue;
+      }
 
-    return MultiByteCount - TempLength;
-}
+      if (Char < 0x800)  /* 0x80-0x7ff: 2 bytes */
+      {
+         if (TempLength < 2)
+         {
+            SetLastError(ERROR_INSUFFICIENT_BUFFER);
+            break;
+         }
+         MultiByteString[1] = 0x80 | (Char & 0x3f); Char >>= 6;
+         MultiByteString[0] = 0xc0 | Char;
+         MultiByteString += 2;
+         TempLength -= 2;
+         continue;
+      }
 
-/**
- * @name IsValidSBCSMapping
- *
- * Checks if ch (single-byte character) is a valid mapping for wch
- *
- * @see IntWideCharToMultiByteCP
- */
-static
-inline
-BOOL
-IntIsValidSBCSMapping(PCPTABLEINFO CodePageTable, DWORD Flags, WCHAR wch, UCHAR ch)
-{
-    /* If the WC_NO_BEST_FIT_CHARS flag has been specified, the characters need to match exactly. */
-    if (Flags & WC_NO_BEST_FIT_CHARS)
-        return (CodePageTable->MultiByteTable[ch] == wch);
+      /* 0x800-0xffff: 3 bytes */
+      if (TempLength < 3)
+      {
+         SetLastError(ERROR_INSUFFICIENT_BUFFER);
+         break;
+      }
+      MultiByteString[2] = 0x80 | (Char & 0x3f); Char >>= 6;
+      MultiByteString[1] = 0x80 | (Char & 0x3f); Char >>= 6;
+      MultiByteString[0] = 0xe0 | Char;
+      MultiByteString += 3;
+      TempLength -= 3;
+   }
 
-    /* By default, all characters except TransDefaultChar apply as a valid mapping
-       for ch (so also "nearest" characters) */
-    if (ch != CodePageTable->TransDefaultChar)
-        return TRUE;
-
-    /* The only possible left valid mapping is the default character itself */
-    return (wch == CodePageTable->TransUniDefaultChar);
-}
-
-/**
- * @name IsValidDBCSMapping
- *
- * Checks if ch (double-byte character) is a valid mapping for wch
- *
- * @see IntWideCharToMultiByteCP
- */
-static inline BOOL
-IntIsValidDBCSMapping(PCPTABLEINFO CodePageTable, DWORD Flags, WCHAR wch, USHORT ch)
-{
-    /* If ch is the default character, but the wch is not, it can't be a valid mapping */
-    if (ch == CodePageTable->TransDefaultChar && wch != CodePageTable->TransUniDefaultChar)
-        return FALSE;
-
-    /* If the WC_NO_BEST_FIT_CHARS flag has been specified, the characters need to match exactly. */
-    if (Flags & WC_NO_BEST_FIT_CHARS)
-    {
-        if(ch & 0xff00)
-        {
-            USHORT uOffset = CodePageTable->DBCSOffsets[ch >> 8];
-            /* if (!uOffset) return (CodePageTable->MultiByteTable[ch] == wch); */
-            return (CodePageTable->DBCSOffsets[uOffset + (ch & 0xff)] == wch);
-        }
-
-        return (CodePageTable->MultiByteTable[ch] == wch);
-    }
-
-    /* If we're still here, we have a valid mapping */
-    return TRUE;
+   return MultiByteCount - TempLength;
 }
 
 /**
@@ -805,272 +693,131 @@ IntIsValidDBCSMapping(PCPTABLEINFO CodePageTable, DWORD Flags, WCHAR wch, USHORT
  * Internal version of WideCharToMultiByte for code page tables.
  *
  * @see WideCharToMultiByte
- * @todo Handle WC_COMPOSITECHECK
+ * @todo Handle default characters and flags.
  */
-static
-INT
-WINAPI
-IntWideCharToMultiByteCP(UINT CodePage,
-                         DWORD Flags,
-                         LPCWSTR WideCharString,
-                         INT WideCharCount,
-                         LPSTR MultiByteString,
-                         INT MultiByteCount,
-                         LPCSTR DefaultChar,
-                         LPBOOL UsedDefaultChar)
+
+static INT STDCALL
+IntWideCharToMultiByteCP(UINT CodePage, DWORD Flags,
+                         LPCWSTR WideCharString, INT WideCharCount,
+                         LPSTR MultiByteString, INT MultiByteCount,
+                         LPCSTR DefaultChar, LPBOOL UsedDefaultChar)
 {
-    PCODEPAGE_ENTRY CodePageEntry;
-    PCPTABLEINFO CodePageTable;
-    INT TempLength;
+   PCODEPAGE_ENTRY CodePageEntry;
+   PCPTABLEINFO CodePageTable;
+   INT TempLength;
 
-    /* Get code page table. */
-    CodePageEntry = IntGetCodePageEntry(CodePage);
-    if (CodePageEntry == NULL)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-    CodePageTable = &CodePageEntry->CodePageTable;
+   /* Get code page table. */
+   CodePageEntry = IntGetCodePageEntry(CodePage);
+   if (CodePageEntry == NULL)
+   {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return 0;
+   }
+   CodePageTable = &CodePageEntry->CodePageTable;
 
+   /* Different handling for DBCS code pages. */
+   if (CodePageTable->MaximumCharacterSize > 1)
+   {
+      /* FIXME */
 
-    /* Different handling for DBCS code pages. */
-    if (CodePageTable->MaximumCharacterSize > 1)
-    {
-        /* If Flags, DefaultChar or UsedDefaultChar were given, we have to do some more work */
-        if(Flags || DefaultChar || UsedDefaultChar)
-        {
-            BOOL TempUsedDefaultChar;
-            USHORT DefChar;
+      USHORT WideChar;
+      USHORT MbChar;
 
-            /* If UsedDefaultChar is not set, set it to a temporary value, so we don't have
-               to check on every character */
-            if(!UsedDefaultChar)
-                UsedDefaultChar = &TempUsedDefaultChar;
+      /* Does caller query for output buffer size? */
+      if (MultiByteCount == 0)
+      {
+         for (TempLength = 0; WideCharCount; WideCharCount--, TempLength++)
+         {
+            WideChar = *WideCharString++;
 
-            *UsedDefaultChar = FALSE;
+            if (WideChar < 0x80)
+               continue;
 
-            /* Use the CodePage's TransDefaultChar if none was given. Don't modify the DefaultChar pointer here. */
-            if(DefaultChar)
-                DefChar = DefaultChar[1] ? ((DefaultChar[0] << 8) | DefaultChar[1]) : DefaultChar[0];
-            else
-                DefChar = CodePageTable->TransDefaultChar;
+            MbChar = ((PWCHAR)CodePageTable->WideCharTable)[WideChar];
 
-            /* Does caller query for output buffer size? */
-            if(!MultiByteCount)
+            if (!(MbChar & 0xff00))
+               continue;
+
+            TempLength++;
+         }
+
+         return TempLength;
+      }
+
+      for (TempLength = MultiByteCount; WideCharCount; WideCharCount--)
+      {
+         WideChar = *WideCharString++;
+
+         if (WideChar < 0x80)
+         {
+            if (!TempLength)
             {
-                for(TempLength = 0; WideCharCount; WideCharCount--, WideCharString++, TempLength++)
-                {
-                    USHORT uChar;
-
-                    if ((Flags & WC_COMPOSITECHECK) && WideCharCount > 1)
-                    {
-                        /* FIXME: Handle WC_COMPOSITECHECK */
-                    }
-
-                    uChar = ((PUSHORT) CodePageTable->WideCharTable)[*WideCharString];
-
-                    /* Verify if the mapping is valid for handling DefaultChar and UsedDefaultChar */
-                    if (!IntIsValidDBCSMapping(CodePageTable, Flags, *WideCharString, uChar))
-                    {
-                        uChar = DefChar;
-                        *UsedDefaultChar = TRUE;
-                    }
-
-                    /* Increment TempLength again if this is a double-byte character */
-                    if (uChar & 0xff00)
-                        TempLength++;
-                }
-
-                return TempLength;
+               SetLastError(ERROR_INSUFFICIENT_BUFFER);
+               break;
             }
+            TempLength--;
 
-            /* Convert the WideCharString to the MultiByteString and verify if the mapping is valid */
-            for(TempLength = MultiByteCount;
-                WideCharCount && TempLength;
-                TempLength--, WideCharString++, WideCharCount--)
+            *MultiByteString++ = (CHAR)WideChar;
+            continue;
+         }
+
+         MbChar = ((PWCHAR)CodePageTable->WideCharTable)[WideChar];
+
+         if (!(MbChar & 0xff00))
+         {
+            if (!TempLength)
             {
-                USHORT uChar;
-
-                if ((Flags & WC_COMPOSITECHECK) && WideCharCount > 1)
-                {
-                    /* FIXME: Handle WC_COMPOSITECHECK */
-                }
-
-                uChar = ((PUSHORT)CodePageTable->WideCharTable)[*WideCharString];
-
-                /* Verify if the mapping is valid for handling DefaultChar and UsedDefaultChar */
-                if (!IntIsValidDBCSMapping(CodePageTable, Flags, *WideCharString, uChar))
-                {
-                    uChar = DefChar;
-                    *UsedDefaultChar = TRUE;
-                }
-
-                /* Handle double-byte characters */
-                if (uChar & 0xff00)
-                {
-                    /* Don't output a partial character */
-                    if (TempLength == 1)
-                        break;
-
-                    TempLength--;
-                    *MultiByteString++ = uChar >> 8;
-                }
-
-                *MultiByteString++ = (char)uChar;
+               SetLastError(ERROR_INSUFFICIENT_BUFFER);
+               break;
             }
+            TempLength--;
 
-            /* WideCharCount should be 0 if all characters were converted */
-            if (WideCharCount)
-            {
-                SetLastError(ERROR_INSUFFICIENT_BUFFER);
-                return 0;
-            }
+            *MultiByteString++ = (CHAR)MbChar;
+            continue;;
+         }
 
-            return MultiByteCount - TempLength;
-        }
-
-        /* Does caller query for output buffer size? */
-        if (!MultiByteCount)
-        {
-            for (TempLength = 0; WideCharCount; WideCharCount--, WideCharString++, TempLength++)
-            {
-                /* Increment TempLength again if this is a double-byte character */
-                if (((PWCHAR)CodePageTable->WideCharTable)[*WideCharString] & 0xff00)
-                    TempLength++;
-            }
-
-            return TempLength;
-        }
-
-        /* Convert the WideCharString to the MultiByteString */
-        for (TempLength = MultiByteCount;
-             WideCharCount && TempLength;
-             TempLength--, WideCharString++, WideCharCount--)
-        {
-            USHORT uChar = ((PUSHORT) CodePageTable->WideCharTable)[*WideCharString];
-
-            /* Is this a double-byte character? */
-            if (uChar & 0xff00)
-            {
-                /* Don't output a partial character */
-                if (TempLength == 1)
-                    break;
-
-                TempLength--;
-                *MultiByteString++ = uChar >> 8;
-            }
-
-            *MultiByteString++ = (char)uChar;
-        }
-
-        /* WideCharCount should be 0 if all characters were converted */
-        if (WideCharCount)
-        {
+         if (TempLength >= 2)
+         {
+            MultiByteString[1] = (CHAR)MbChar; MbChar >>= 8;
+            MultiByteString[0] = (CHAR)MbChar;
+            MultiByteString += 2;
+            TempLength -= 2;
+         }
+         else
+         {
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            return 0;
-        }
+            break;
+         }
+      }
 
-        return MultiByteCount - TempLength;
-    }
-    else /* Not DBCS code page */
-    {
-        INT nReturn;
+      return MultiByteCount - TempLength;
+   }
+   else /* Not DBCS code page */
+   {
+      /* Does caller query for output buffer size? */
+      if (MultiByteCount == 0)
+         return WideCharCount;
 
-        /* If Flags, DefaultChar or UsedDefaultChar were given, we have to do some more work */
-        if (Flags || DefaultChar || UsedDefaultChar)
-        {
-            BOOL TempUsedDefaultChar;
-            CHAR DefChar;
+      /* Adjust buffer size. Wine trick ;-) */
+      if (MultiByteCount < WideCharCount)
+      {
+         WideCharCount = MultiByteCount;
+         SetLastError(ERROR_INSUFFICIENT_BUFFER);
+      }
 
-            /* If UsedDefaultChar is not set, set it to a temporary value, so we don't have
-               to check on every character */
-            if (!UsedDefaultChar)
-                UsedDefaultChar = &TempUsedDefaultChar;
+      for (TempLength = WideCharCount;
+           TempLength > 0;
+           WideCharString++, TempLength--)
+      {
+         *MultiByteString++ = ((PCHAR)CodePageTable->WideCharTable)[*WideCharString];
+      }
 
-            *UsedDefaultChar = FALSE;
+      /* FIXME */
+      if (UsedDefaultChar != NULL)
+         *UsedDefaultChar = FALSE;
 
-            /* Does caller query for output buffer size? */
-            if (!MultiByteCount)
-            {
-                /* Loop through the whole WideCharString and check if we can get a valid mapping for each character */
-                for (TempLength = 0; WideCharCount; TempLength++, WideCharString++, WideCharCount--)
-                {
-                    if ((Flags & WC_COMPOSITECHECK) && WideCharCount > 1)
-                    {
-                        /* FIXME: Handle WC_COMPOSITECHECK */
-                    }
-
-                    if (!*UsedDefaultChar)
-                        *UsedDefaultChar = !IntIsValidSBCSMapping(CodePageTable,
-                                                                  Flags,
-                                                                  *WideCharString,
-                                                                  ((PCHAR)CodePageTable->WideCharTable)[*WideCharString]);
-                }
-
-                return TempLength;
-            }
-
-            /* Use the CodePage's TransDefaultChar if none was given. Don't modify the DefaultChar pointer here. */
-            if (DefaultChar)
-                DefChar = *DefaultChar;
-            else
-                DefChar = CodePageTable->TransDefaultChar;
-
-            /* Convert the WideCharString to the MultiByteString and verify if the mapping is valid */
-            for (TempLength = MultiByteCount;
-                 WideCharCount && TempLength;
-                 MultiByteString++, TempLength--, WideCharString++, WideCharCount--)
-            {
-                if ((Flags & WC_COMPOSITECHECK) && WideCharCount > 1)
-                {
-                    /* FIXME: Handle WC_COMPOSITECHECK */
-                }
-
-                *MultiByteString = ((PCHAR)CodePageTable->WideCharTable)[*WideCharString];
-
-                if (!IntIsValidSBCSMapping(CodePageTable, Flags, *WideCharString, *MultiByteString))
-                {
-                    *MultiByteString = DefChar;
-                    *UsedDefaultChar = TRUE;
-                }
-            }
-
-            /* WideCharCount should be 0 if all characters were converted */
-            if (WideCharCount)
-            {
-                SetLastError(ERROR_INSUFFICIENT_BUFFER);
-                return 0;
-            }
-
-            return MultiByteCount - TempLength;
-        }
-
-        /* Does caller query for output buffer size? */
-        if (!MultiByteCount)
-            return WideCharCount;
-
-        /* Is the buffer large enough? */
-        if (MultiByteCount < WideCharCount)
-        {
-            /* Convert the string up to MultiByteCount and return 0 */
-            WideCharCount = MultiByteCount;
-            SetLastError(ERROR_INSUFFICIENT_BUFFER);
-            nReturn = 0;
-        }
-        else
-        {
-            /* Otherwise WideCharCount will be the number of converted characters */
-            nReturn = WideCharCount;
-        }
-
-        /* Convert the WideCharString to the MultiByteString */
-        for (TempLength = WideCharCount; --TempLength >= 0; WideCharString++, MultiByteString++)
-        {
-            *MultiByteString = ((PCHAR)CodePageTable->WideCharTable)[*WideCharString];
-        }
-
-        return nReturn;
-    }
+      return WideCharCount;
+   }
 }
 
 /**
@@ -1080,22 +827,21 @@ IntWideCharToMultiByteCP(UINT CodePage,
  * table.
  */
 
-static BOOL
-WINAPI
+static BOOL STDCALL
 IntIsLeadByte(PCPTABLEINFO TableInfo, BYTE Byte)
 {
-    UINT i;
+   UINT LeadByteNo;
 
-    if (TableInfo->MaximumCharacterSize == 2)
-    {
-        for (i = 0; i < MAXIMUM_LEADBYTES && TableInfo->LeadByte[i]; i += 2)
-        {
-            if (Byte >= TableInfo->LeadByte[i] && Byte <= TableInfo->LeadByte[i+1])
-                return TRUE;
-        }
-    }
+   if (TableInfo->MaximumCharacterSize == 2)
+   {
+      for (LeadByteNo = 0; LeadByteNo < MAXIMUM_LEADBYTES; LeadByteNo++)
+      {
+         if (TableInfo->LeadByte[LeadByteNo] == Byte)
+            return TRUE;
+      }
+   }
 
-    return FALSE;
+   return FALSE;
 }
 
 /* PUBLIC FUNCTIONS ***********************************************************/
@@ -1127,31 +873,26 @@ IntIsLeadByte(PCPTABLEINFO TableInfo, BYTE Byte)
  * @implemented
  */
 
-BOOL
-WINAPI
-GetNlsSectionName(UINT CodePage,
-                  UINT Base,
-                  ULONG Unknown,
-                  LPSTR BaseName,
-                  LPSTR Result,
-                  ULONG ResultSize)
+BOOL STDCALL
+GetNlsSectionName(UINT CodePage, UINT Base, ULONG Unknown,
+                  LPSTR BaseName, LPSTR Result, ULONG ResultSize)
 {
-    CHAR Integer[11];
+   CHAR Integer[11];
 
-    if (!NT_SUCCESS(RtlIntegerToChar(CodePage, Base, sizeof(Integer), Integer)))
-        return FALSE;
+   if (!NT_SUCCESS(RtlIntegerToChar(CodePage, Base, sizeof(Integer), Integer)))
+      return FALSE;
 
-    /*
-     * If the name including the terminating NULL character doesn't
-     * fit in the output buffer then fail.
-     */
-    if (strlen(Integer) + strlen(BaseName) >= ResultSize)
-        return FALSE;
+   /*
+    * If the name including the terminating NULL character doesn't
+    * fit in the output buffer then fail.
+    */
+   if (strlen(Integer) + strlen(BaseName) >= ResultSize)
+      return FALSE;
 
-    lstrcpyA(Result, BaseName);
-    lstrcatA(Result, Integer);
+   lstrcpyA(Result, BaseName);
+   lstrcatA(Result, Integer);
 
-    return TRUE;
+   return TRUE;
 }
 
 /**
@@ -1172,69 +913,68 @@ GetNlsSectionName(UINT CodePage,
  * @implemented
  */
 
-BOOL
-WINAPI
+BOOL STDCALL
 GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
 {
-    WCHAR ValueNameBuffer[11];
-    UNICODE_STRING KeyName, ValueName;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    NTSTATUS Status;
-    HANDLE KeyHandle;
-    PKEY_VALUE_PARTIAL_INFORMATION Kvpi;
-    DWORD KvpiSize;
-    BOOL bRetValue;
+   WCHAR ValueNameBuffer[11];
+   UNICODE_STRING KeyName, ValueName;
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   NTSTATUS Status;
+   HANDLE KeyHandle;
+   PKEY_VALUE_PARTIAL_INFORMATION Kvpi;
+   DWORD KvpiSize;
+   BOOL bRetValue;
 
-    bRetValue = FALSE;
+   bRetValue = FALSE;
 
-    /* Convert the codepage number to string. */
-    ValueName.Buffer = ValueNameBuffer;
-    ValueName.MaximumLength = sizeof(ValueNameBuffer);
+   /* Convert the codepage number to string. */
+   ValueName.Buffer = ValueNameBuffer;
+   ValueName.MaximumLength = sizeof(ValueNameBuffer);
+   if (!NT_SUCCESS(RtlIntegerToUnicodeString(CodePage, 10, &ValueName)))
+      return bRetValue;
 
-    if (!NT_SUCCESS(RtlIntegerToUnicodeString(CodePage, 10, &ValueName)))
-        return bRetValue;
+   /* Open the registry key containing file name mappings. */
+   RtlInitUnicodeString(&KeyName, L"\\Registry\\Machine\\System\\"
+                        L"CurrentControlSet\\Control\\Nls\\CodePage");
+   InitializeObjectAttributes(&ObjectAttributes, &KeyName, OBJ_CASE_INSENSITIVE,
+			      NULL, NULL);
+   Status = NtOpenKey(&KeyHandle, KEY_READ, &ObjectAttributes);
+   if (!NT_SUCCESS(Status))
+   {
+      return bRetValue;
+   }
 
-    /* Open the registry key containing file name mappings. */
-    RtlInitUnicodeString(&KeyName, L"\\Registry\\Machine\\System\\"
-                         L"CurrentControlSet\\Control\\Nls\\CodePage");
-    InitializeObjectAttributes(&ObjectAttributes, &KeyName, OBJ_CASE_INSENSITIVE,
-                               NULL, NULL);
-    Status = NtOpenKey(&KeyHandle, KEY_READ, &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        return bRetValue;
-    }
+   /* Allocate buffer that will be used to query the value data. */
+   KvpiSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
+              (MAX_PATH * sizeof(WCHAR));
+   Kvpi = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, KvpiSize);
+   if (Kvpi == NULL)
+   {
+      NtClose(KeyHandle);
+      return bRetValue;
+   }
 
-    /* Allocate buffer that will be used to query the value data. */
-    KvpiSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + (MAX_PATH * sizeof(WCHAR));
-    Kvpi = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, KvpiSize);
-    if (Kvpi == NULL)
-    {
-        NtClose(KeyHandle);
-        return bRetValue;
-    }
+   /* Query the file name for our code page. */
+   Status = NtQueryValueKey(KeyHandle, &ValueName, KeyValuePartialInformation,
+                            Kvpi, KvpiSize, &KvpiSize);
 
-    /* Query the file name for our code page. */
-    Status = NtQueryValueKey(KeyHandle, &ValueName, KeyValuePartialInformation,
-                             Kvpi, KvpiSize, &KvpiSize);
+   NtClose(KeyHandle);
 
-    NtClose(KeyHandle);
+   /* Check if we succeded and the value is non-empty string. */
+   if (NT_SUCCESS(Status) && Kvpi->Type == REG_SZ &&
+       Kvpi->DataLength > sizeof(WCHAR))
+   {
+      bRetValue = TRUE;
+      if (FileName != NULL)
+      {
+         lstrcpynW(FileName, (WCHAR*)Kvpi->Data,
+                   min(Kvpi->DataLength / sizeof(WCHAR), FileNameSize));
+      }
+   }
 
-    /* Check if we succeded and the value is non-empty string. */
-    if (NT_SUCCESS(Status) && Kvpi->Type == REG_SZ &&
-        Kvpi->DataLength > sizeof(WCHAR))
-    {
-        bRetValue = TRUE;
-        if (FileName != NULL)
-        {
-            lstrcpynW(FileName, (WCHAR*)Kvpi->Data,
-                      min(Kvpi->DataLength / sizeof(WCHAR), FileNameSize));
-        }
-    }
-
-    /* free temporary buffer */
-    HeapFree(GetProcessHeap(),0,Kvpi);
-    return bRetValue;
+   /* free temporary buffer */
+   HeapFree(GetProcessHeap(),0,Kvpi);
+   return bRetValue;
 }
 
 /**
@@ -1248,16 +988,14 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize)
  * @return TRUE if code page is present.
  */
 
-BOOL
-WINAPI
+BOOL STDCALL
 IsValidCodePage(UINT CodePage)
 {
-    if (CodePage == 0) return FALSE;
-    if (CodePage == CP_UTF8 || CodePage == CP_UTF7)
-        return TRUE;
-    if (IntGetLoadedCodePageEntry(CodePage))
-        return TRUE;
-    return GetCPFileNameFromRegistry(CodePage, NULL, 0);
+   if (CodePage == CP_UTF8 || CodePage == CP_UTF7)
+      return TRUE;
+   if (IntGetLoadedCodePageEntry(CodePage))
+      return TRUE;
+   return GetCPFileNameFromRegistry(CodePage, NULL, 0);
 }
 
 /**
@@ -1291,57 +1029,46 @@ IsValidCodePage(UINT CodePage)
  * @implemented
  */
 
-INT
-WINAPI
-MultiByteToWideChar(UINT CodePage,
-                    DWORD Flags,
-                    LPCSTR MultiByteString,
-                    INT MultiByteCount,
-                    LPWSTR WideCharString,
-                    INT WideCharCount)
+INT STDCALL
+MultiByteToWideChar(UINT CodePage, DWORD Flags,
+                    LPCSTR MultiByteString, INT MultiByteCount,
+                    LPWSTR WideCharString, INT WideCharCount)
 {
-    /* Check the parameters. */
-    if (MultiByteString == NULL ||
-        (WideCharString == NULL && WideCharCount > 0) ||
-        (PVOID)MultiByteString == (PVOID)WideCharString)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
+   /* Check the parameters. */
+   if (MultiByteString == NULL ||
+       (WideCharString == NULL && WideCharCount > 0) ||
+       (PVOID)MultiByteString == (PVOID)WideCharString)
+   {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return 0;
+   }
 
-    /* Determine the input string length. */
-    if (MultiByteCount < 0)
-    {
-        MultiByteCount = lstrlenA(MultiByteString) + 1;
-    }
+   /* Determine the input string length. */
+   if (MultiByteCount < 0)
+   {
+      MultiByteCount = lstrlenA(MultiByteString) + 1;
+   }
 
-    switch (CodePage)
-    {
-        case CP_UTF8:
-            return IntMultiByteToWideCharUTF8(Flags,
-                                              MultiByteString,
-                                              MultiByteCount,
-                                              WideCharString,
-                                              WideCharCount);
+   switch (CodePage)
+   {
+      case CP_UTF8:
+         return IntMultiByteToWideCharUTF8(
+            Flags, MultiByteString, MultiByteCount,
+            WideCharString, WideCharCount);
 
-        case CP_UTF7:
-            DPRINT1("MultiByteToWideChar for CP_UTF7 is not implemented!\n");
-            return 0;
+      case CP_UTF7:
+         DPRINT1("MultiByteToWideChar for CP_UTF7 is not implemented!\n");
+         return 0;
 
-        case CP_SYMBOL:
-            return IntMultiByteToWideCharSYMBOL(Flags,
-                                                MultiByteString,
-                                                MultiByteCount,
-                                                WideCharString,
-                                                WideCharCount);
-        default:
-            return IntMultiByteToWideCharCP(CodePage,
-                                            Flags,
-                                            MultiByteString,
-                                            MultiByteCount,
-                                            WideCharString,
-                                            WideCharCount);
-    }
+      case CP_SYMBOL:
+         return IntMultiByteToWideCharSYMBOL(
+            Flags, MultiByteString, MultiByteCount,
+            WideCharString, WideCharCount);
+      default:
+         return IntMultiByteToWideCharCP(
+            CodePage, Flags, MultiByteString, MultiByteCount,
+            WideCharString, WideCharCount);
+   }
 }
 
 /**
@@ -1383,70 +1110,54 @@ MultiByteToWideChar(UINT CodePage,
  * @implemented
  */
 
-INT
-WINAPI
-WideCharToMultiByte(UINT CodePage,
-                    DWORD Flags,
-                    LPCWSTR WideCharString,
-                    INT WideCharCount,
-                    LPSTR MultiByteString,
-                    INT MultiByteCount,
-                    LPCSTR DefaultChar,
-                    LPBOOL UsedDefaultChar)
+INT STDCALL
+WideCharToMultiByte(UINT CodePage, DWORD Flags,
+                    LPCWSTR WideCharString, INT WideCharCount,
+                    LPSTR MultiByteString, INT MultiByteCount,
+                    LPCSTR DefaultChar, LPBOOL UsedDefaultChar)
 {
-    /* Check the parameters. */
-    if (WideCharString == NULL ||
-        (MultiByteString == NULL && MultiByteCount > 0) ||
-        (PVOID)WideCharString == (PVOID)MultiByteString ||
-        MultiByteCount < 0)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
+   /* Check the parameters. */
+   if (WideCharString == NULL ||
+       (MultiByteString == NULL && MultiByteCount > 0) ||
+       (PVOID)WideCharString == (PVOID)MultiByteString)
+   {
+      SetLastError(ERROR_INVALID_PARAMETER);
+      return 0;
+   }
 
-    /* Determine the input string length. */
-    if (WideCharCount < 0)
-    {
-        WideCharCount = lstrlenW(WideCharString) + 1;
-    }
+   /* Determine the input string length. */
+   if (WideCharCount < 0)
+   {
+      WideCharCount = lstrlenW(WideCharString) + 1;
+   }
 
-    switch (CodePage)
-    {
-        case CP_UTF8:
-            return IntWideCharToMultiByteUTF8(CodePage,
-                                              Flags,
-                                              WideCharString,
-                                              WideCharCount,
-                                              MultiByteString,
-                                              MultiByteCount,
-                                              DefaultChar,
-                                              UsedDefaultChar);
+   switch (CodePage)
+   {
+      case CP_UTF8:
+         return IntWideCharToMultiByteUTF8(
+            CodePage, Flags, WideCharString, WideCharCount,
+            MultiByteString, MultiByteCount, DefaultChar,
+            UsedDefaultChar);
 
-        case CP_UTF7:
-            DPRINT1("WideCharToMultiByte for CP_UTF7 is not implemented!\n");
+      case CP_UTF7:
+         DPRINT1("WideCharToMultiByte for CP_UTF7 is not implemented!\n");
+         return 0;
+
+      case CP_SYMBOL:
+         if ((DefaultChar!=NULL) || (UsedDefaultChar!=NULL))
+         {
+            SetLastError(ERROR_INVALID_PARAMETER);
             return 0;
+         }
+         return IntWideCharToMultiByteSYMBOL(
+            Flags,WideCharString,WideCharCount,MultiByteString,
+            MultiByteCount);
 
-        case CP_SYMBOL:
-            if ((DefaultChar!=NULL) || (UsedDefaultChar!=NULL))
-            {
-                SetLastError(ERROR_INVALID_PARAMETER);
-                return 0;
-            }
-            return IntWideCharToMultiByteSYMBOL(Flags,
-                                                WideCharString,
-                                                WideCharCount,
-                                                MultiByteString,
-                                                MultiByteCount);
-
-        default:
-            return IntWideCharToMultiByteCP(CodePage,
-                                            Flags,
-                                            WideCharString,
-                                            WideCharCount,
-                                            MultiByteString,
-                                            MultiByteCount,
-                                            DefaultChar,
-                                            UsedDefaultChar);
+      default:
+         return IntWideCharToMultiByteCP(
+            CodePage, Flags, WideCharString, WideCharCount,
+            MultiByteString, MultiByteCount, DefaultChar,
+            UsedDefaultChar);
    }
 }
 
@@ -1458,11 +1169,10 @@ WideCharToMultiByte(UINT CodePage,
  * @implemented
  */
 
-UINT
-WINAPI
+UINT STDCALL
 GetACP(VOID)
 {
-    return AnsiCodePage.CodePageTable.CodePage;
+   return AnsiCodePage.CodePageTable.CodePage;
 }
 
 /**
@@ -1473,11 +1183,10 @@ GetACP(VOID)
  * @implemented
  */
 
-UINT
-WINAPI
+UINT STDCALL
 GetOEMCP(VOID)
 {
-    return OemCodePage.CodePageTable.CodePage;
+   return OemCodePage.CodePageTable.CodePage;
 }
 
 /**
@@ -1488,18 +1197,17 @@ GetOEMCP(VOID)
  * @implemented
  */
 
-BOOL
-WINAPI
+BOOL STDCALL
 IsDBCSLeadByteEx(UINT CodePage, BYTE TestByte)
 {
-    PCODEPAGE_ENTRY CodePageEntry;
+   PCODEPAGE_ENTRY CodePageEntry;
 
-    CodePageEntry = IntGetCodePageEntry(CodePage);
-    if (CodePageEntry != NULL)
-        return IntIsLeadByte(&CodePageEntry->CodePageTable, TestByte);
+   CodePageEntry = IntGetCodePageEntry(CodePage);
+   if (CodePageEntry != NULL)
+      return IntIsLeadByte(&CodePageEntry->CodePageTable, TestByte);
 
-    SetLastError(ERROR_INVALID_PARAMETER);
-    return FALSE;
+   SetLastError(ERROR_INVALID_PARAMETER);
+   return FALSE;
 }
 
 /**
@@ -1510,11 +1218,10 @@ IsDBCSLeadByteEx(UINT CodePage, BYTE TestByte)
  * @implemented
  */
 
-BOOL
-WINAPI
+BOOL STDCALL
 IsDBCSLeadByte(BYTE TestByte)
 {
-    return IntIsLeadByte(&AnsiCodePage.CodePageTable, TestByte);
+   return IntIsLeadByte(&AnsiCodePage.CodePageTable, TestByte);
 }
 
 /* EOF */

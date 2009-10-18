@@ -21,7 +21,6 @@
 #include <regedit.h>
 
 ChildWnd* g_pChildWnd;
-static int last_split;
 HBITMAP SizingPattern = 0;
 HBRUSH  SizingBrush = 0;
 static TCHAR Suggestions[256];
@@ -93,24 +92,6 @@ static void OnPaint(HWND hWnd)
     hdc = BeginPaint(hWnd, &ps);
     FillRect(ps.hdc, &rt, GetSysColorBrush(COLOR_BTNFACE));
     EndPaint(hWnd, &ps);
-}
-
-/*******************************************************************************
- * finish_splitbar [internal]
- *
- * make the splitbar invisible and resize the windows
- * (helper for ChildWndProc)
- */
-static void finish_splitbar(HWND hWnd, int x)
-{
-    RECT rt;
-
-    draw_splitbar(hWnd, last_split);
-    last_split = -1;
-    GetClientRect(hWnd, &rt);
-    g_pChildWnd->nSplitPos = x;
-    ResizeWnd(g_pChildWnd, rt.right, rt.bottom);
-    ReleaseCapture();
 }
 
 /*******************************************************************************
@@ -324,6 +305,7 @@ void FixPointIfContext(POINTS *pt, HWND hWnd)
  */
 LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    static int last_split;
     BOOL Result;
     ChildWnd* pChildWnd = g_pChildWnd;
 
@@ -394,9 +376,10 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         break;
     case WM_LBUTTONDOWN: {
             RECT rt;
-            int x = (short)LOWORD(lParam);
+            POINTS pt;
+            pt = MAKEPOINTS(lParam);
             GetClientRect(hWnd, &rt);
-            if (x>=pChildWnd->nSplitPos-SPLIT_WIDTH/2 && x<pChildWnd->nSplitPos+SPLIT_WIDTH/2+1) {
+            if (pt.x>=pChildWnd->nSplitPos-SPLIT_WIDTH/2 && pt.x<pChildWnd->nSplitPos+SPLIT_WIDTH/2+1) {
                 last_split = pChildWnd->nSplitPos;
                 draw_splitbar(hWnd, last_split);
                 SetCapture(hWnd);
@@ -405,9 +388,17 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         }
 
     case WM_LBUTTONUP:
-    case WM_RBUTTONDOWN:
         if (GetCapture() == hWnd) {
-            finish_splitbar(hWnd, LOWORD(lParam));
+            RECT rt;
+            POINTS pt;
+            pt = MAKEPOINTS(lParam);
+            GetClientRect(hWnd, &rt);
+            pt.x = (SHORT) min(max(pt.x, SPLIT_MIN), rt.right - SPLIT_MIN);
+            draw_splitbar(hWnd, last_split);
+            last_split = -1;
+            pChildWnd->nSplitPos = pt.x;
+            ResizeWnd(pChildWnd, rt.right, rt.bottom);
+            ReleaseCapture();
         }
         break;
 
@@ -434,7 +425,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
             HDC hdc;
             RECT rt;
             HGDIOBJ OldObj;
-            int x = LOWORD(lParam);
+            POINTS pt;
             if(!SizingPattern)
             {
               const DWORD Pattern[4] = {0x5555AAAA, 0x5555AAAA, 0x5555AAAA, 0x5555AAAA};
@@ -445,18 +436,19 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
               SizingBrush = CreatePatternBrush(SizingPattern);
             }
 
+            pt = MAKEPOINTS(lParam);
             GetClientRect(hWnd, &rt);
-            x = (SHORT) min(max(x, SPLIT_MIN), rt.right - SPLIT_MIN);
-            if(last_split != x)
+            pt.x = (SHORT) min(max(pt.x, SPLIT_MIN), rt.right - SPLIT_MIN);
+            if(last_split != pt.x)
             {
               rt.left = last_split-SPLIT_WIDTH/2;
               rt.right = last_split+SPLIT_WIDTH/2+1;
               hdc = GetDC(hWnd);
               OldObj = SelectObject(hdc, SizingBrush);
               PatBlt(hdc, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, PATINVERT);
-              last_split = x;
-              rt.left = x-SPLIT_WIDTH/2;
-              rt.right = x+SPLIT_WIDTH/2+1;
+              last_split = pt.x;
+              rt.left = pt.x-SPLIT_WIDTH/2;
+              rt.right = pt.x+SPLIT_WIDTH/2+1;
               PatBlt(hdc, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, PATINVERT);
               SelectObject(hdc, OldObj);
               ReleaseDC(hWnd, hdc);
@@ -583,8 +575,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
       {
         int i, cnt;
         BOOL IsDefault;
-        pt.x = LOWORD(lParam);
-		pt.y = HIWORD(lParam);
+        pt = MAKEPOINTS(lParam);
         cnt = ListView_GetSelectedCount(pChildWnd->hListWnd);
         i = ListView_GetNextItem(pChildWnd->hListWnd, -1, LVNI_FOCUSED | LVNI_SELECTED);
         FixPointIfContext(&pt, pChildWnd->hListWnd);
@@ -621,8 +612,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
         int iLastPos;
         WORD wID;
 
-        pt.x = LOWORD(lParam);
-		pt.y = HIWORD(lParam);
+        pt = MAKEPOINTS(lParam);
         hti.pt.x = pt.x;
         hti.pt.y = pt.y;
         ScreenToClient(pChildWnd->hTreeWnd, &hti.pt);

@@ -29,9 +29,7 @@ BEGIN
     "^F", CMD_SEARCH
     "^G", CMD_GOTO
     "H", CMD_REPLACE, VIRTKEY, CONTROL
-    "^N", CMD_NEW
     "^O", CMD_OPEN
-    "^P", CMD_PRINT
     "^S", CMD_SAVE
     "^V", CMD_PASTE
     "^X", CMD_CUT
@@ -42,54 +40,54 @@ END
 
 MAIN_MENU MENU
 BEGIN
-    POPUP "&Файл"
-    BEGIN
-        MENUITEM "&Нов\tCtrl+N",               CMD_NEW
-        MENUITEM "&Отваряне\tCtrl+O",          CMD_OPEN
-        MENUITEM "&Запис\tCtrl+S",             CMD_SAVE
-        MENUITEM "Запис &като...",             CMD_SAVE_AS
-        MENUITEM SEPARATOR
-        MENUITEM "Настройка на страницата...", CMD_PAGE_SETUP
-        MENUITEM "От&печатване\tCtrl+P",       CMD_PRINT
-        MENUITEM "Настройка на печатача...",   CMD_PRINTER_SETUP
-        MENUITEM SEPARATOR
-        MENUITEM "Из&ход",                     CMD_EXIT
-    END
-    POPUP "&Обработка"
-    BEGIN
-        MENUITEM "&Отмяна\tCtrl+Z",            CMD_UNDO
-        MENUITEM SEPARATOR
-        MENUITEM "От&рязване\tCtrl+X",         CMD_CUT
-        MENUITEM "&Запомняне\tCtrl+C",         CMD_COPY
-        MENUITEM "&Поставяне\tCtrl+V",         CMD_PASTE
-        MENUITEM "&Изтриване\tDel",            CMD_DELETE
-        MENUITEM SEPARATOR
-        MENUITEM "&Търсене...\tCtrl+F",        CMD_SEARCH
-        MENUITEM "Търсене на &следващото\tF3", CMD_SEARCH_NEXT
-        MENUITEM "Замяна\tCtrl+H",             CMD_REPLACE
-        MENUITEM "Отиване на...\tCtrl+G",      CMD_GOTO
-        MENUITEM SEPARATOR
-        MENUITEM "Избор на вси&чки\tCtrl+A",   CMD_SELECT_ALL
-        MENUITEM "&Време/дата\tF5",            CMD_TIME_DATE
-    END
-    POPUP "О&формление"
-    BEGIN
-        MENUITEM "&Пренасяне на дългите редове", CMD_WRAP
-        MENUITEM "&Шрифт...",                    CMD_FONT
-    END
-    POPUP "&Изглед"
-    BEGIN
-        MENUITEM "Лента на &състоянието", CMD_STATUSBAR
-    END
-    POPUP "Помо&щ"
-    BEGIN
-        MENUITEM "&Съдържание",       CMD_HELP_CONTENTS
-        MENUITEM "&Търсене...",       CMD_HELP_SEARCH
-        MENUITEM "&Помощ за помощта", CMD_HELP_ON_HELP
-        MENUITEM SEPARATOR
-        MENUITEM "&За"                CMD_ABOUT
-        MENUITEM "С&ведения",         CMD_ABOUT_WINE
-    END
+	POPUP "&Файл"
+	BEGIN
+		MENUITEM "&Нов...",           CMD_NEW
+		MENUITEM "&Отваряне\tCtrl+O",     CMD_OPEN
+		MENUITEM "&Запис\tCtrl+S",     CMD_SAVE
+		MENUITEM "Запис &като...",       CMD_SAVE_AS
+		MENUITEM SEPARATOR
+		MENUITEM "Настройка на страницата...",    CMD_PAGE_SETUP
+		MENUITEM "От&печатване",            CMD_PRINT
+		MENUITEM "Настройка на печатача...", CMD_PRINTER_SETUP
+		MENUITEM SEPARATOR
+		MENUITEM "Из&ход",             CMD_EXIT
+	END
+	POPUP "&Обработка"
+	BEGIN
+		MENUITEM "&Отмяна\tCtrl+Z",     CMD_UNDO
+		MENUITEM SEPARATOR
+		MENUITEM "От&рязване\tCtrl+X",      CMD_CUT
+		MENUITEM "&Запомняне\tCtrl+C",     CMD_COPY
+		MENUITEM "&Поставяне\tCtrl+V",    CMD_PASTE
+		MENUITEM "&Изтриване\tDel",      CMD_DELETE
+		MENUITEM SEPARATOR
+		MENUITEM "&Търсене...\tCtrl+F",  CMD_SEARCH
+		MENUITEM "Търсене на &следващото\tF3",    CMD_SEARCH_NEXT
+		MENUITEM "Замяна\tCtrl+H",   CMD_REPLACE
+		MENUITEM "Отиване на...\tCtrl+G",  CMD_GOTO
+		MENUITEM SEPARATOR
+		MENUITEM "Избор на вси&чки\tCtrl+A",       CMD_SELECT_ALL
+		MENUITEM "&Време/дата\tF5",    CMD_TIME_DATE
+	END
+	POPUP "О&формление"
+	BEGIN
+		MENUITEM "&Пренасяне на дългите редове",  CMD_WRAP
+		MENUITEM "&Шрифт...",          CMD_FONT
+	END
+	POPUP "&Изглед"
+	BEGIN
+		MENUITEM "Лента на &състоянието",    CMD_STATUSBAR
+	END
+	POPUP "Помо&щ"
+	BEGIN
+		MENUITEM "&Съдържание",         CMD_HELP_CONTENTS
+		MENUITEM "&Търсене...",        CMD_HELP_SEARCH
+		MENUITEM "&Помощ за помощта",     CMD_HELP_ON_HELP
+		MENUITEM SEPARATOR
+		MENUITEM "&За"             CMD_ABOUT
+		MENUITEM "С&ведения",      CMD_ABOUT_WINE
+	END
 END
 
 /* Dialog `Page setup' */
@@ -126,10 +124,10 @@ STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
 FONT 8, "MS Shell Dlg"
 CAPTION "Знаков набор"
 BEGIN
-COMBOBOX        ID_ENCODING,65,0,145,80,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
-LTEXT           "Знаков набор:",0x155,5,2,60,12
-COMBOBOX        ID_EOLN,65,18,145,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-LTEXT           "Знак за нов ред:",0x156,5,20,60,12
+COMBOBOX        ID_ENCODING,56,0,154,80,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+LTEXT           "Знаков набор:",0x155,5,2,51,12
+COMBOBOX        ID_EOLN,56,18,154,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+LTEXT           "Endlines:",0x156,5,20,51,12
 END
 
 /* Dialog 'Go To' */
@@ -185,13 +183,13 @@ STRING_ALL_FILES,                               "Всички файлове (*.*)"
 STRING_TEXT_FILES_TXT,                  "Словесни файлове (*.txt)"
 
 STRING_TOOLARGE,                                "Файлът '%s' е твърде голям за бележника.\n \
-Използвайте друг обработчик."
+Please use a different editor."
 STRING_NOTEXT,                                  "Не сте въвел текст. \
-\nНапишете нещо и опитайте пак."
+\nPlease type something and try again"
 STRING_DOESNOTEXIST,                            "Файлът '%s'\nне съществува\n\n \
-Искате ли да създадете нов файл?"
+Do you want to create a new file ?"
 STRING_NOTSAVED,                                "Файлът '%s'\nе бил променен\n\n \
-Искате ли да запишете промените?"
+Would you like to save the changes ?"
 STRING_NOTFOUND,                                        "'%s' не може да бъде открит."
 STRING_OUT_OF_MEMORY,                   "Няма достатъчно памет за приключване на\
 задачата. \nЗатворете едно или повече приложения,\n за да освободите памет."
@@ -203,5 +201,4 @@ STRING_UTF8,                                    "UTF-8"
 STRING_CRLF,                                    "Уьиндоуьс"
 STRING_LF,                                      "Юникс"
 STRING_CR,                                      "Мак"
-STRING_LINE_COLUMN,                             "Ред %d, стълб %d"
 END

@@ -215,8 +215,8 @@ UINT msi_strcpy_to_awstring( LPCWSTR str, awstring *awbuf, DWORD *sz )
 /***********************************************************************
  * MsiGetTargetPath   (internal)
  */
-static UINT MSI_GetTargetPath( MSIHANDLE hInstall, LPCWSTR szFolder,
-                               awstring *szPathBuf, LPDWORD pcchPathBuf )
+static UINT WINAPI MSI_GetTargetPath( MSIHANDLE hInstall, LPCWSTR szFolder,
+                                      awstring *szPathBuf, LPDWORD pcchPathBuf )
 {
     MSIPACKAGE *package;
     LPWSTR path;
@@ -707,7 +707,7 @@ BOOL WINAPI MsiGetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode)
         break;
 
     default:
-        FIXME("%d %d\n", hInstall, iRunMode);
+        FIXME("%ld %d\n", hInstall, iRunMode);
         r = TRUE;
     }
 
@@ -727,7 +727,7 @@ BOOL WINAPI MsiSetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode, BOOL fState)
     case MSIRUNMODE_RESERVED15:
         return FALSE;
     default:
-        FIXME("%d %d %d\n", hInstall, iRunMode, fState);
+        FIXME("%ld %d %d\n", hInstall, iRunMode, fState);
     }
     return TRUE;
 }
@@ -774,7 +774,7 @@ UINT WINAPI MSI_SetFeatureStateW(MSIPACKAGE* package, LPCWSTR szFeature,
         feature->Attributes & msidbFeatureAttributesDisallowAdvertise)
         return ERROR_FUNCTION_FAILED;
 
-    msi_feature_set_state(package, feature, iState);
+    msi_feature_set_state( feature, iState );
 
     ACTION_UpdateComponentStates(package,szFeature);
 
@@ -886,7 +886,7 @@ UINT WINAPI MsiGetFeatureStateW(MSIHANDLE hInstall, LPCWSTR szFeature,
     MSIPACKAGE* package;
     UINT ret;
 
-    TRACE("%d %s %p %p\n", hInstall, debugstr_w(szFeature), piInstalled, piAction);
+    TRACE("%ld %s %p %p\n", hInstall, debugstr_w(szFeature), piInstalled, piAction);
 
     package = msihandle2msiinfo(hInstall, MSIHANDLETYPE_PACKAGE);
     if (!package)
@@ -934,7 +934,7 @@ UINT WINAPI MsiGetFeatureStateW(MSIHANDLE hInstall, LPCWSTR szFeature,
 UINT WINAPI MsiGetFeatureCostA(MSIHANDLE hInstall, LPCSTR szFeature,
                   MSICOSTTREE iCostTree, INSTALLSTATE iState, LPINT piCost)
 {
-    FIXME("(%d %s %i %i %p): stub\n", hInstall, debugstr_a(szFeature),
+    FIXME("(%ld %s %i %i %p): stub\n", hInstall, debugstr_a(szFeature),
           iCostTree, iState, piCost);
     if (piCost) *piCost = 0;
     return ERROR_SUCCESS;
@@ -946,7 +946,7 @@ UINT WINAPI MsiGetFeatureCostA(MSIHANDLE hInstall, LPCSTR szFeature,
 UINT WINAPI MsiGetFeatureCostW(MSIHANDLE hInstall, LPCWSTR szFeature,
                   MSICOSTTREE iCostTree, INSTALLSTATE iState, LPINT piCost)
 {
-    FIXME("(%d %s %i %i %p): stub\n", hInstall, debugstr_w(szFeature),
+    FIXME("(%ld %s %i %i %p): stub\n", hInstall, debugstr_w(szFeature),
           iCostTree, iState, piCost);
     if (piCost) *piCost = 0;
     return ERROR_SUCCESS;
@@ -1082,7 +1082,7 @@ UINT WINAPI MsiGetComponentStateW(MSIHANDLE hInstall, LPCWSTR szComponent,
     MSIPACKAGE* package;
     UINT ret;
 
-    TRACE("%d %s %p %p\n", hInstall, debugstr_w(szComponent),
+    TRACE("%ld %s %p %p\n", hInstall, debugstr_w(szComponent),
            piInstalled, piAction);
 
     package = msihandle2msiinfo(hInstall, MSIHANDLETYPE_PACKAGE);
@@ -1169,16 +1169,15 @@ UINT MSI_SetInstallLevel( MSIPACKAGE *package, int iInstallLevel )
 
     TRACE("%p %i\n", package, iInstallLevel);
 
-    if (iInstallLevel > 32767)
+    if (iInstallLevel<1 || iInstallLevel>32767)
         return ERROR_INVALID_PARAMETER;
-
-    if (iInstallLevel < 1)
-        return MSI_SetFeatureStates( package );
 
     sprintfW( level, fmt, iInstallLevel );
     r = MSI_SetPropertyW( package, szInstallLevel, level );
     if ( r == ERROR_SUCCESS )
+    {
         r = MSI_SetFeatureStates( package );
+    }
 
     return r;
 }
@@ -1191,7 +1190,7 @@ UINT WINAPI MsiSetInstallLevel(MSIHANDLE hInstall, int iInstallLevel)
     MSIPACKAGE* package;
     UINT r;
 
-    TRACE("%d %i\n", hInstall, iInstallLevel);
+    TRACE("%ld %i\n", hInstall, iInstallLevel);
 
     package = msihandle2msiinfo(hInstall, MSIHANDLETYPE_PACKAGE);
     if (!package)
@@ -1232,7 +1231,7 @@ UINT WINAPI MsiGetFeatureValidStatesW(MSIHANDLE hInstall, LPCWSTR szFeature,
                   LPDWORD pInstallState)
 {
     if(pInstallState) *pInstallState = 1<<INSTALLSTATE_LOCAL;
-    FIXME("%d %s %p stub returning %d\n",
+    FIXME("%ld %s %p stub returning %d\n",
         hInstall, debugstr_w(szFeature), pInstallState, pInstallState ? *pInstallState : 0);
 
     return ERROR_SUCCESS;

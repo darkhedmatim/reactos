@@ -99,7 +99,6 @@ namespace RosTEGUI
             this.conUpdateNow.TabIndex = 1;
             this.conUpdateNow.Text = "Check now";
             this.conUpdateNow.UseVisualStyleBackColor = true;
-            this.conUpdateNow.Click += new System.EventHandler(this.checkupdate_click);
             // 
             // conUpdateCombo
             // 
@@ -146,7 +145,7 @@ namespace RosTEGUI
             this.button5.TabIndex = 1;
             this.button5.Text = "Browse...";
             this.button5.UseVisualStyleBackColor = true;
-            this.button5.Click += new System.EventHandler(this.vmloc_click);
+            this.button5.Click += new System.EventHandler(this.button5_Click);
             // 
             // conDefVmLoc
             // 
@@ -174,7 +173,7 @@ namespace RosTEGUI
             this.button4.TabIndex = 1;
             this.button4.Text = "Browse...";
             this.button4.UseVisualStyleBackColor = true;
-            this.button4.Click += new System.EventHandler(this.vdkloc_click);
+            this.button4.Click += new System.EventHandler(this.button4_Click);
             // 
             // conVdkLoc
             // 
@@ -202,7 +201,7 @@ namespace RosTEGUI
             this.button3.TabIndex = 1;
             this.button3.Text = "Browse...";
             this.button3.UseVisualStyleBackColor = true;
-            this.button3.Click += new System.EventHandler(this.qemuloc_click);
+            this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
             // conQemuLoc
             // 
@@ -230,7 +229,6 @@ namespace RosTEGUI
             this.conAppDebug.TabIndex = 0;
             this.conAppDebug.Text = "Turn on application debugging";
             this.conAppDebug.UseVisualStyleBackColor = true;
-            this.conAppDebug.CheckedChanged += new System.EventHandler(this.conAppDebug_CheckedChanged);
             // 
             // conDialogOK
             // 

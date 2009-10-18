@@ -30,7 +30,6 @@
 #include <shlwapi.h>
 #include "resource.h"
 #include <wine/debug.h>
-#include <win32k/ntusrtyp.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(userinit);
 
@@ -121,7 +120,7 @@ BOOL IsConsoleShell(VOID)
         NextOption = wcschr(CurrentOption, L' ');
         if (NextOption)
             *NextOption = L'\0';
-        if (_wcsicmp(CurrentOption, L"CONSOLE") == 0)
+        if (wcsicmp(CurrentOption, L"CONSOLE") == 0)
         {
             TRACE("Found 'CONSOLE' boot option\n");
             ret = TRUE;
@@ -134,7 +133,6 @@ cleanup:
     if (ControlKey != NULL)
         RegCloseKey(ControlKey);
     HeapFree(GetProcessHeap(), 0, SystemStartOptions);
-    TRACE("IsConsoleShell() returning %d\n", ret);
     return ret;
 }
 
@@ -152,17 +150,17 @@ BOOL GetShell(
 
     TRACE("(%p, %p)\n", CommandLine, hRootKey);
 
-    rc = RegOpenKeyExW(hRootKey, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
-                       0, KEY_QUERY_VALUE, &hKey);
+    rc = RegOpenKeyEx(hRootKey, REGSTR_PATH_WINLOGON,
+                      0, KEY_QUERY_VALUE, &hKey);
     if (rc == ERROR_SUCCESS)
     {
         Size = MAX_PATH * sizeof(WCHAR);
-        rc = RegQueryValueExW(hKey,
-                              ConsoleShell ? L"ConsoleShell" : L"Shell",
-                              NULL,
-                              &Type,
-                              (LPBYTE)Shell,
-                              &Size);
+        rc = RegQueryValueEx(hKey,
+                             ConsoleShell ? L"ConsoleShell" : L"Shell",
+                             NULL,
+                             &Type,
+                             (LPBYTE)Shell,
+                             &Size);
         if (rc == ERROR_SUCCESS)
         {
             if ((Type == REG_SZ) || (Type == REG_EXPAND_SZ))
@@ -264,6 +262,7 @@ TryToStartShell(
 
     StartAutoApplications(CSIDL_STARTUP);
     StartAutoApplications(CSIDL_COMMON_STARTUP);
+    WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     return TRUE;
@@ -280,14 +279,14 @@ VOID StartShell(VOID)
     /* Try to run shell in user key */
     if (GetShell(Shell, HKEY_CURRENT_USER) && TryToStartShell(Shell))
     {
-        TRACE("Started shell from HKEY_CURRENT_USER\n");
+        TRACE("Failed to start a shell from HKEY_CURRENT_USER\n");
         return;
     }
 
     /* Try to run shell in local machine key */
     if (GetShell(Shell, HKEY_LOCAL_MACHINE) && TryToStartShell(Shell))
     {
-        TRACE("Started shell from HKEY_LOCAL_MACHINE\n");
+        TRACE("Failed to start a shell from HKEY_LOCAL_MACHINE\n");
         return;
     }
 
@@ -401,10 +400,99 @@ VOID SetUserSysColors(VOID)
     RegCloseKey(hKey);
 }
 
-DWORD
-WINAPI
-UpdatePerUserSystemParameters(DWORD dw1, BOOL bEnable);
+static
+VOID LoadUserFontSetting(
+    IN LPWSTR lpValueName,
+    OUT PLOGFONTW pFont)
+{
+    HKEY hKey;
+    LOGFONTW lfTemp;
+    DWORD Type, Size;
+    LONG rc;
 
+    TRACE("(%s, %p)\n", debugstr_w(lpValueName), pFont);
+
+    Size = sizeof(LOGFONTW);
+    rc = RegOpenKeyEx(HKEY_CURRENT_USER, REGSTR_PATH_METRICS,
+                      0, KEY_QUERY_VALUE, &hKey);
+    if (rc != ERROR_SUCCESS)
+    {
+        WARN("RegOpenKeyEx() failed with error %lu\n", rc);
+        return;
+    }
+    rc = RegQueryValueEx(hKey, lpValueName, NULL, &Type, (LPBYTE)&lfTemp, &Size);
+    if (rc != ERROR_SUCCESS || Type != REG_BINARY)
+    {
+        WARN("RegQueryValueEx() failed with error %lu\n", rc);
+        return;
+    }
+    RegCloseKey(hKey);
+    /* FIXME: Check if lfTemp is a valid font */
+    *pFont = lfTemp;
+}
+
+static
+VOID LoadUserMetricSetting(
+    IN LPWSTR lpValueName,
+    OUT INT *pValue)
+{
+    HKEY hKey;
+    DWORD Type, Size;
+    WCHAR strValue[8];
+    LONG rc;
+
+    TRACE("(%s, %p)\n", debugstr_w(lpValueName), pValue);
+
+    Size = sizeof(strValue);
+    rc = RegOpenKeyEx(HKEY_CURRENT_USER, REGSTR_PATH_METRICS,
+                      0, KEY_QUERY_VALUE, &hKey);
+    if (rc != ERROR_SUCCESS)
+    {
+        WARN("RegOpenKeyEx() failed with error %lu\n", rc);
+        return;
+    }
+    rc = RegQueryValueEx(hKey, lpValueName, NULL, &Type, (LPBYTE)&strValue, &Size);
+    if (rc != ERROR_SUCCESS || Type != REG_SZ)
+    {
+        WARN("RegQueryValueEx() failed with error %lu\n", rc);
+        return;
+    }
+    RegCloseKey(hKey);
+    *pValue = StrToInt(strValue);
+}
+
+static
+VOID SetUserMetrics(VOID)
+{
+    NONCLIENTMETRICSW ncmetrics;
+    MINIMIZEDMETRICS mmmetrics;
+
+    TRACE("()\n");
+
+    ncmetrics.cbSize = sizeof(NONCLIENTMETRICSW);
+    mmmetrics.cbSize = sizeof(MINIMIZEDMETRICS);
+    SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICSW), &ncmetrics, 0);
+    SystemParametersInfoW(SPI_GETMINIMIZEDMETRICS, sizeof(MINIMIZEDMETRICS), &mmmetrics, 0);
+
+    LoadUserFontSetting(L"CaptionFont", &ncmetrics.lfCaptionFont);
+    LoadUserFontSetting(L"SmCaptionFont", &ncmetrics.lfSmCaptionFont);
+    LoadUserFontSetting(L"MenuFont", &ncmetrics.lfMenuFont);
+    LoadUserFontSetting(L"StatusFont", &ncmetrics.lfStatusFont);
+    LoadUserFontSetting(L"MessageFont", &ncmetrics.lfMessageFont);
+    /* FIXME: load icon font ? */
+
+    LoadUserMetricSetting(L"BorderWidth", &ncmetrics.iBorderWidth);
+    LoadUserMetricSetting(L"ScrollWidth", &ncmetrics.iScrollWidth);
+    LoadUserMetricSetting(L"ScrollHeight", &ncmetrics.iScrollHeight);
+    LoadUserMetricSetting(L"CaptionWidth", &ncmetrics.iCaptionWidth);
+    LoadUserMetricSetting(L"CaptionHeight", &ncmetrics.iCaptionHeight);
+    LoadUserMetricSetting(L"SmCaptionWidth", &ncmetrics.iSmCaptionWidth);
+    LoadUserMetricSetting(L"SmCaptionHeight", &ncmetrics.iSmCaptionHeight);
+    LoadUserMetricSetting(L"Menuwidth", &ncmetrics.iMenuWidth);
+    LoadUserMetricSetting(L"MenuHeight", &ncmetrics.iMenuHeight);
+
+    SystemParametersInfoW(SPI_SETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICSW), &ncmetrics, 0);
+}
 
 static
 VOID SetUserWallpaper(VOID)
@@ -452,8 +540,8 @@ VOID SetUserSettings(VOID)
 {
     TRACE("()\n");
 
-    UpdatePerUserSystemParameters(1, TRUE);
     SetUserSysColors();
+    SetUserMetrics();
     SetUserWallpaper();
 }
 
@@ -492,9 +580,9 @@ wWinMain(IN HINSTANCE hInst,
          IN LPWSTR lpszCmdLine,
          IN int nCmdShow)
 {
+    NotifyLogon();
     SetUserSettings();
     StartShell();
-    NotifyLogon();
     return 0;
 }
 

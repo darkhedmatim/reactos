@@ -27,7 +27,7 @@ PrintDiskInfo (LPTSTR szDisk)
 	TCHAR szUsed[40];
 	TCHAR szFree[40];
 	DWORD dwSerial;
-	ULONGLONG uliSize;
+	ULARGE_INTEGER uliSize;
 	DWORD dwSecPerCl;
 	DWORD dwBytPerSec;
 	DWORD dwFreeCl;
@@ -35,7 +35,8 @@ PrintDiskInfo (LPTSTR szDisk)
 
 	if (_tcslen (szDisk) < 2 || szDisk[1] != _T(':'))
 	{
-		ConErrResPrintf(STRING_FREE_ERROR1);
+		LoadString(CMD_ModuleHandle, STRING_FREE_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg);
 		return;
 	}
 
@@ -70,21 +71,22 @@ PrintDiskInfo (LPTSTR szDisk)
 		return;
 	}
 
-	uliSize = dwSecPerCl * dwBytPerSec * (ULONGLONG)dwTotCl;
-	ConvertULargeInteger(uliSize, szTotal, 40, TRUE);
+	uliSize.QuadPart = dwSecPerCl * dwBytPerSec * dwTotCl;
+	ConvertULargeInteger (uliSize, szTotal, 40, TRUE);
 
-	uliSize = dwSecPerCl * dwBytPerSec * (ULONGLONG)(dwTotCl - dwFreeCl);
-	ConvertULargeInteger(uliSize, szUsed, 40, TRUE);
+	uliSize.QuadPart = dwSecPerCl * dwBytPerSec * (dwTotCl - dwFreeCl);
+	ConvertULargeInteger (uliSize, szUsed, 40, TRUE);
 
-	uliSize = dwSecPerCl * dwBytPerSec * (ULONGLONG)dwFreeCl;
-	ConvertULargeInteger(uliSize, szFree, 40, TRUE);
+	uliSize.QuadPart = dwSecPerCl * dwBytPerSec * dwFreeCl;
+	ConvertULargeInteger (uliSize, szFree, 40, TRUE);
 
 
-	ConOutResPrintf(STRING_FREE_HELP1, szDrive, szVolume, szSerial, szTotal, szUsed, szFree);
+	LoadString(CMD_ModuleHandle, STRING_FREE_HELP1, szMsg, RC_STRING_MAX_SIZE);
+	ConOutPrintf(szMsg, szDrive, szVolume, szSerial, szTotal, szUsed, szFree);
 }
 
 
-INT CommandFree (LPTSTR param)
+INT CommandFree (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR szParam;
 	TCHAR  szDefPath[MAX_PATH];

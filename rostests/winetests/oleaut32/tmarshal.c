@@ -18,31 +18,93 @@
  */
 
 #define COBJMACROS
-#define CONST_VTABLE
 
 #include <windows.h>
 #include <ocidl.h>
 #include <stdio.h>
 
-#include "wine/test.h"
+#include <wine/test.h>
 
 #include "tmarshal.h"
 #include "tmarshal_dispids.h"
 
 #define ok_ole_success(hr, func) ok(hr == S_OK, #func " failed with error 0x%08lx\n", (unsigned long int)hr)
 
-/* ULL suffix is not portable */
-#define ULL_CONST(dw1, dw2) ((((ULONGLONG)dw1) << 32) | (ULONGLONG)dw2)
+/* Debugging functions from wine/libs/wine/debug.c */
 
-const MYSTRUCT MYSTRUCT_BYVAL = {0x12345678, ULL_CONST(0xdeadbeef, 0x98765432)};
-const MYSTRUCT MYSTRUCT_BYPTR = {0x91827364, ULL_CONST(0x88776655, 0x44332211)};
-const MYSTRUCT MYSTRUCT_ARRAY[5] = {
-    {0x1a1b1c1d, ULL_CONST(0x1e1f1011, 0x12131415)},
-    {0x2a2b2c2d, ULL_CONST(0x2e2f2021, 0x22232425)},
-    {0x3a3b3c3d, ULL_CONST(0x3e3f3031, 0x32333435)},
-    {0x4a4b4c4d, ULL_CONST(0x4e4f4041, 0x42434445)},
-    {0x5a5b5c5d, ULL_CONST(0x5e5f5051, 0x52535455)},
-};
+/* allocate some tmp string space */
+/* FIXME: this is not 100% thread-safe */
+static char *get_tmp_space( int size )
+{
+    static char *list[32];
+    static long pos;
+    char *ret;
+    int idx;
+
+    idx = ++pos % (sizeof(list)/sizeof(list[0]));
+    if ((ret = realloc( list[idx], size ))) list[idx] = ret;
+    return ret;
+}
+
+/* default implementation of wine_dbgstr_wn */
+static const char *default_dbgstr_wn( const WCHAR *str, int n )
+{
+    char *dst, *res;
+
+    if (!HIWORD(str))
+    {
+        if (!str) return "(null)";
+        res = get_tmp_space( 6 );
+        sprintf( res, "#%04x", LOWORD(str) );
+        return res;
+    }
+    if (n == -1) n = lstrlenW(str);
+    if (n < 0) n = 0;
+    else if (n > 200) n = 200;
+    dst = res = get_tmp_space( n * 5 + 7 );
+    *dst++ = 'L';
+    *dst++ = '"';
+    while (n-- > 0)
+    {
+        WCHAR c = *str++;
+        switch (c)
+        {
+        case '\n': *dst++ = '\\'; *dst++ = 'n'; break;
+        case '\r': *dst++ = '\\'; *dst++ = 'r'; break;
+        case '\t': *dst++ = '\\'; *dst++ = 't'; break;
+        case '"':  *dst++ = '\\'; *dst++ = '"'; break;
+        case '\\': *dst++ = '\\'; *dst++ = '\\'; break;
+        default:
+            if (c >= ' ' && c <= 126)
+                *dst++ = (char)c;
+            else
+            {
+                *dst++ = '\\';
+                sprintf(dst,"%04x",c);
+                dst+=4;
+            }
+        }
+    }
+    *dst++ = '"';
+    if (*str)
+    {
+        *dst++ = '.';
+        *dst++ = '.';
+        *dst++ = '.';
+    }
+    *dst = 0;
+    return res;
+}
+
+const char *wine_dbgstr_wn( const WCHAR *s, int n )
+{
+    return default_dbgstr_wn(s, n);
+}
+
+const char *wine_dbgstr_w( const WCHAR *s )
+{
+    return default_dbgstr_wn( s, -1 );
+}
 
 
 #define RELEASEMARSHALDATA WM_USER
@@ -59,7 +121,7 @@ struct host_object_data
 
 static DWORD CALLBACK host_object_proc(LPVOID p)
 {
-    struct host_object_data *data = p;
+    struct host_object_data *data = (struct host_object_data *)p;
     HRESULT hr;
     MSG msg;
 
@@ -148,72 +210,6 @@ static void end_host_object(DWORD tid, HANDLE thread)
     CloseHandle(thread);
 }
 
-static ItestDual TestDual, TestDualDisp;
-
-static HRESULT WINAPI TestDual_QueryInterface(ItestDual *iface, REFIID riid, void **ppvObject)
-{
-    if (IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_IDispatch)) {
-        *ppvObject = &TestDualDisp;
-        return S_OK;
-    }else if(IsEqualGUID(riid, &IID_ItestDual)) {
-        *ppvObject = &TestDual;
-        return S_OK;
-    }
-
-    *ppvObject = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI TestDual_AddRef(ItestDual *iface)
-{
-    return 2;
-}
-
-static ULONG WINAPI TestDual_Release(ItestDual *iface)
-{
-    return 1;
-}
-
-static HRESULT WINAPI TestDual_GetTypeInfoCount(ItestDual *iface, UINT *pctinfo)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI TestDual_GetTypeInfo(ItestDual *iface, UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI TestDual_GetIDsOfNames(ItestDual *iface, REFIID riid, LPOLESTR *rgszNames,
-        UINT cNames, LCID lcid, DISPID *rgDispId)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI TestDual_Invoke(ItestDual *iface, DISPID dispIdMember, REFIID riid, LCID lcid,
-        WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo,
-        UINT *puArgErr)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static ItestDualVtbl TestDualVtbl = {
-    TestDual_QueryInterface,
-    TestDual_AddRef,
-    TestDual_Release,
-    TestDual_GetTypeInfoCount,
-    TestDual_GetTypeInfo,
-    TestDual_GetIDsOfNames,
-    TestDual_Invoke
-};
-
-static ItestDual TestDual = { &TestDualVtbl };
-static ItestDual TestDualDisp = { &TestDualVtbl };
-
 typedef struct Widget
 {
     const IWidgetVtbl *lpVtbl;
@@ -221,7 +217,7 @@ typedef struct Widget
     IUnknown *pDispatchUnknown;
 } Widget;
 
-static HRESULT WINAPI Widget_QueryInterface(
+HRESULT WINAPI Widget_QueryInterface(
     IWidget *iface,
     /* [in] */ REFIID riid,
     /* [iid_is][out] */ void __RPC_FAR *__RPC_FAR *ppvObject)
@@ -239,7 +235,7 @@ static HRESULT WINAPI Widget_QueryInterface(
     }
 }
 
-static ULONG WINAPI Widget_AddRef(
+ULONG WINAPI Widget_AddRef(
     IWidget *iface)
 {
     Widget *This = (Widget *)iface;
@@ -247,7 +243,7 @@ static ULONG WINAPI Widget_AddRef(
     return InterlockedIncrement(&This->refs);
 }
 
-static ULONG WINAPI Widget_Release(
+ULONG WINAPI Widget_Release(
     IWidget *iface)
 {
     Widget *This = (Widget *)iface;
@@ -263,7 +259,7 @@ static ULONG WINAPI Widget_Release(
     return refs;
 }
 
-static HRESULT WINAPI Widget_GetTypeInfoCount(
+HRESULT WINAPI Widget_GetTypeInfoCount(
     IWidget *iface,
     /* [out] */ UINT __RPC_FAR *pctinfo)
 {
@@ -278,7 +274,7 @@ static HRESULT WINAPI Widget_GetTypeInfoCount(
     return hr;
 }
 
-static HRESULT WINAPI Widget_GetTypeInfo(
+HRESULT WINAPI Widget_GetTypeInfo(
     IWidget __RPC_FAR * iface,
     /* [in] */ UINT iTInfo,
     /* [in] */ LCID lcid,
@@ -295,7 +291,7 @@ static HRESULT WINAPI Widget_GetTypeInfo(
     return hr;
 }
 
-static HRESULT WINAPI Widget_GetIDsOfNames(
+HRESULT WINAPI Widget_GetIDsOfNames(
     IWidget __RPC_FAR * iface,
     /* [in] */ REFIID riid,
     /* [size_is][in] */ LPOLESTR __RPC_FAR *rgszNames,
@@ -314,7 +310,7 @@ static HRESULT WINAPI Widget_GetIDsOfNames(
     return hr;
 }
 
-static HRESULT WINAPI Widget_Invoke(
+HRESULT WINAPI Widget_Invoke(
     IWidget __RPC_FAR * iface,
     /* [in] */ DISPID dispIdMember,
     /* [in] */ REFIID riid,
@@ -336,7 +332,7 @@ static HRESULT WINAPI Widget_Invoke(
     return hr;
 }
 
-static HRESULT WINAPI Widget_put_Name(
+HRESULT WINAPI Widget_put_Name(
     IWidget __RPC_FAR * iface,
     /* [in] */ BSTR name)
 {
@@ -344,7 +340,7 @@ static HRESULT WINAPI Widget_put_Name(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_get_Name(
+HRESULT WINAPI Widget_get_Name(
     IWidget __RPC_FAR * iface,
     /* [out] */ BSTR __RPC_FAR *name)
 {
@@ -354,7 +350,7 @@ static HRESULT WINAPI Widget_get_Name(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_DoSomething(
+HRESULT WINAPI Widget_DoSomething(
     IWidget __RPC_FAR * iface,
     /* [in] */ double number,
     /* [out] */ BSTR *str1,
@@ -373,7 +369,7 @@ static HRESULT WINAPI Widget_DoSomething(
     return S_FALSE;
 }
 
-static HRESULT WINAPI Widget_get_State(
+HRESULT WINAPI Widget_get_State(
     IWidget __RPC_FAR * iface,
     /* [retval][out] */ STATE __RPC_FAR *state)
 {
@@ -382,7 +378,7 @@ static HRESULT WINAPI Widget_get_State(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_put_State(
+HRESULT WINAPI Widget_put_State(
     IWidget __RPC_FAR * iface,
     /* [in] */ STATE state)
 {
@@ -390,7 +386,7 @@ static HRESULT WINAPI Widget_put_State(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_Map(
+HRESULT WINAPI Widget_Map(
     IWidget * iface,
     BSTR bstrId,
     BSTR *sValue)
@@ -400,7 +396,7 @@ static HRESULT WINAPI Widget_Map(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_SetOleColor(
+HRESULT WINAPI Widget_SetOleColor(
     IWidget * iface,
     OLE_COLOR val)
 {
@@ -408,7 +404,7 @@ static HRESULT WINAPI Widget_SetOleColor(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_GetOleColor(
+HRESULT WINAPI Widget_GetOleColor(
     IWidget * iface,
     OLE_COLOR *pVal)
 {
@@ -417,7 +413,7 @@ static HRESULT WINAPI Widget_GetOleColor(
     return S_FALSE;
 }
 
-static HRESULT WINAPI Widget_Clone(
+HRESULT WINAPI Widget_Clone(
     IWidget *iface,
     IWidget **ppVal)
 {
@@ -425,7 +421,7 @@ static HRESULT WINAPI Widget_Clone(
     return Widget_QueryInterface(iface, &IID_IWidget, (void **)ppVal);
 }
 
-static HRESULT WINAPI Widget_CloneDispatch(
+HRESULT WINAPI Widget_CloneDispatch(
     IWidget *iface,
     IDispatch **ppVal)
 {
@@ -433,7 +429,7 @@ static HRESULT WINAPI Widget_CloneDispatch(
     return Widget_QueryInterface(iface, &IID_IWidget, (void **)ppVal);
 }
 
-static HRESULT WINAPI Widget_CloneCoclass(
+HRESULT WINAPI Widget_CloneCoclass(
     IWidget *iface,
     ApplicationObject2 **ppVal)
 {
@@ -441,7 +437,7 @@ static HRESULT WINAPI Widget_CloneCoclass(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_Value(
+HRESULT WINAPI Widget_Value(
     IWidget __RPC_FAR * iface,
     VARIANT *value,
     VARIANT *retval)
@@ -454,7 +450,7 @@ static HRESULT WINAPI Widget_Value(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_Array(
+HRESULT WINAPI Widget_Array(
     IWidget * iface,
     SAFEARRAY * values)
 {
@@ -462,7 +458,7 @@ static HRESULT WINAPI Widget_Array(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_VariantArrayPtr(
+HRESULT WINAPI Widget_VariantArrayPtr(
     IWidget * iface,
     SAFEARRAY ** values)
 {
@@ -470,7 +466,7 @@ static HRESULT WINAPI Widget_VariantArrayPtr(
     return S_OK;
 }
 
-static HRESULT WINAPI Widget_Variant(
+void WINAPI Widget_Variant(
     IWidget __RPC_FAR * iface,
     VARIANT var)
 {
@@ -478,10 +474,9 @@ static HRESULT WINAPI Widget_Variant(
     ok(V_VT(&var) == VT_CY, "V_VT(&var) was %d\n", V_VT(&var));
     ok(S(V_CY(&var)).Hi == 0xdababe, "V_CY(&var).Hi was 0x%x\n", S(V_CY(&var)).Hi);
     ok(S(V_CY(&var)).Lo == 0xdeadbeef, "V_CY(&var).Lo was 0x%x\n", S(V_CY(&var)).Lo);
-    return S_OK;
 }
 
-static HRESULT WINAPI Widget_VarArg(
+void WINAPI Widget_VarArg(
     IWidget * iface,
     int numexpect,
     SAFEARRAY * values)
@@ -511,70 +506,21 @@ static HRESULT WINAPI Widget_VarArg(
 
     hr = SafeArrayUnaccessData(values);
     ok(hr == S_OK, "SafeArrayUnaccessData failed with %x\n", hr);
-
-    return S_OK;
 }
 
-static HRESULT WINAPI Widget_StructArgs(
-    IWidget * iface,
-    MYSTRUCT byval,
-    MYSTRUCT *byptr,
-    MYSTRUCT arr[5])
-{
-    ok(memcmp(&byval, &MYSTRUCT_BYVAL, sizeof(MYSTRUCT))==0, "Struct parameter passed by value corrupted\n");
-    ok(memcmp(byptr,  &MYSTRUCT_BYPTR, sizeof(MYSTRUCT))==0, "Struct parameter passed by pointer corrupted\n");
-    ok(memcmp(arr,    MYSTRUCT_ARRAY,  sizeof(MYSTRUCT_ARRAY))==0, "Array of structs corrupted\n");
-    return S_OK;
-}
-
-
-static HRESULT WINAPI Widget_Error(
+HRESULT WINAPI Widget_Error(
     IWidget __RPC_FAR * iface)
 {
     trace("Error()\n");
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI Widget_CloneInterface(
+HRESULT WINAPI Widget_CloneInterface(
     IWidget __RPC_FAR * iface,
     ISomethingFromDispatch **ppVal)
 {
     trace("CloneInterface()\n");
     *ppVal = 0;
-    return S_OK;
-}
-
-static HRESULT WINAPI Widget_put_prop_with_lcid(
-    IWidget* iface, LONG lcid, INT i)
-{
-    trace("put_prop_with_lcid(%08x, %x)\n", lcid, i);
-    ok(lcid == MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), "got lcid %08x\n", lcid);
-    ok(i == 0xcafe, "got %08x\n", i);
-    return S_OK;
-}
-
-static HRESULT WINAPI Widget_get_prop_with_lcid(
-    IWidget* iface, LONG lcid, INT *i)
-{
-    trace("get_prop_with_lcid(%08x, %p)\n", lcid, i);
-    ok(lcid == MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), "got lcid %08x\n", lcid);
-    *i = lcid;
-    return S_OK;
-}
-
-static HRESULT WINAPI Widget_get_prop_int(
-    IWidget* iface, INT *i)
-{
-    trace("get_prop_int(%p)\n", i);
-    *i = -13;
-    return S_OK;
-}
-
-static HRESULT WINAPI Widget_get_prop_uint(
-    IWidget* iface, UINT *i)
-{
-    trace("get_prop_uint(%p)\n", i);
-    *i = 42;
     return S_OK;
 }
 
@@ -603,86 +549,10 @@ static const struct IWidgetVtbl Widget_VTable =
     Widget_VariantArrayPtr,
     Widget_Variant,
     Widget_VarArg,
-    Widget_StructArgs,
     Widget_Error,
-    Widget_CloneInterface,
-    Widget_put_prop_with_lcid,
-    Widget_get_prop_with_lcid,
-    Widget_get_prop_int,
-    Widget_get_prop_uint
+    Widget_CloneInterface
 };
 
-static HRESULT WINAPI StaticWidget_QueryInterface(IStaticWidget *iface, REFIID riid, void **ppvObject)
-{
-    if (IsEqualIID(riid, &IID_IStaticWidget) || IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_IDispatch))
-    {
-        IStaticWidget_AddRef(iface);
-        *ppvObject = iface;
-        return S_OK;
-    }
-
-    *ppvObject = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI StaticWidget_AddRef(IStaticWidget *iface)
-{
-    return 2;
-}
-
-static ULONG WINAPI StaticWidget_Release(IStaticWidget *iface)
-{
-    return 1;
-}
-
-static HRESULT WINAPI StaticWidget_GetTypeInfoCount(IStaticWidget *iface, UINT *pctinfo)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI StaticWidget_GetTypeInfo(IStaticWidget *iface, UINT iTInfo, LCID lcid,
-        ITypeInfo **ppTInfo)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI StaticWidget_GetIDsOfNames(IStaticWidget *iface, REFIID riid, LPOLESTR *rgszNames,
-        UINT cNames, LCID lcid, DISPID *rgDispId)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI StaticWidget_Invoke(IStaticWidget *iface, DISPID dispIdMember, REFIID riid,
-        LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult, EXCEPINFO *pExcepInfo,
-         UINT *puArgErr)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI StaticWidget_TestDual(IStaticWidget *iface, ItestDual *p)
-{
-    trace("TestDual()\n");
-    todo_wine
-    ok(p == &TestDual, "wrong ItestDual\n");
-    return S_OK;
-}
-
-static const IStaticWidgetVtbl StaticWidgetVtbl = {
-    StaticWidget_QueryInterface,
-    StaticWidget_AddRef,
-    StaticWidget_Release,
-    StaticWidget_GetTypeInfoCount,
-    StaticWidget_GetTypeInfo,
-    StaticWidget_GetIDsOfNames,
-    StaticWidget_Invoke,
-    StaticWidget_TestDual
-};
-
-static IStaticWidget StaticWidget = { &StaticWidgetVtbl };
 
 typedef struct KindaEnum
 {
@@ -693,12 +563,10 @@ typedef struct KindaEnum
 static HRESULT register_current_module_typelib(void)
 {
     WCHAR path[MAX_PATH];
-    CHAR pathA[MAX_PATH];
     HRESULT hr;
     ITypeLib *typelib;
 
-    GetModuleFileNameA(NULL, pathA, MAX_PATH);
-    MultiByteToWideChar(CP_ACP, 0, pathA, -1, path, MAX_PATH);
+    GetModuleFileNameW(NULL, path, MAX_PATH);
 
     hr = LoadTypeLib(path, &typelib);
     if (SUCCEEDED(hr))
@@ -709,44 +577,30 @@ static HRESULT register_current_module_typelib(void)
     return hr;
 }
 
-static ITypeInfo *get_type_info(REFIID riid)
+static IWidget *Widget_Create(void)
 {
-    ITypeInfo *pTypeInfo;
-    ITypeLib *pTypeLib;
+    Widget *This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
     HRESULT hr;
+    ITypeLib *pTypeLib;
+
+    This->lpVtbl = &Widget_VTable;
+    This->refs = 1;
 
     hr = LoadRegTypeLib(&LIBID_TestTypelib, 1, 0, LOCALE_NEUTRAL, &pTypeLib);
     ok_ole_success(hr, LoadRegTypeLib);
-    if (FAILED(hr))
-        return NULL;
-
-    hr = ITypeLib_GetTypeInfoOfGuid(pTypeLib, riid, &pTypeInfo);
-    ITypeLib_Release(pTypeLib);
-    ok_ole_success(hr, ITypeLib_GetTypeInfoOfGuid);
-    if (FAILED(hr))
-        return NULL;
-
-    return pTypeInfo;
-}
-
-static IWidget *Widget_Create(void)
-{
-    Widget *This;
-    ITypeInfo *pTypeInfo;
-    HRESULT hr = E_FAIL;
-
-    pTypeInfo = get_type_info(&IID_IWidget);
-    if(!pTypeInfo)
-        return NULL;
-
-    This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
-    This->lpVtbl = &Widget_VTable;
-    This->refs = 1;
-    This->pDispatchUnknown = NULL;
-
-    hr = CreateStdDispatch((IUnknown *)&This->lpVtbl, This, pTypeInfo, &This->pDispatchUnknown);
-    ok_ole_success(hr, CreateStdDispatch);
-    ITypeInfo_Release(pTypeInfo);
+    if (SUCCEEDED(hr))
+    {
+        ITypeInfo *pTypeInfo;
+        hr = ITypeLib_GetTypeInfoOfGuid(pTypeLib, &IID_IWidget, &pTypeInfo);
+        ok_ole_success(hr, ITypeLib_GetTypeInfoOfGuid);
+        if (SUCCEEDED(hr))
+        {
+            This->pDispatchUnknown = NULL;
+            hr = CreateStdDispatch((IUnknown *)&This->lpVtbl, This, pTypeInfo, &This->pDispatchUnknown);
+            ok_ole_success(hr, CreateStdDispatch);
+            ITypeInfo_Release(pTypeInfo);
+        }
+    }
 
     if (SUCCEEDED(hr))
         return (IWidget *)&This->lpVtbl;
@@ -757,7 +611,7 @@ static IWidget *Widget_Create(void)
     }
 }
 
-static HRESULT WINAPI KindaEnum_QueryInterface(
+HRESULT WINAPI KindaEnum_QueryInterface(
     IKindaEnumWidget *iface,
     /* [in] */ REFIID riid,
     /* [iid_is][out] */ void __RPC_FAR *__RPC_FAR *ppvObject)
@@ -775,7 +629,7 @@ static HRESULT WINAPI KindaEnum_QueryInterface(
     }
 }
 
-static ULONG WINAPI KindaEnum_AddRef(
+ULONG WINAPI KindaEnum_AddRef(
     IKindaEnumWidget *iface)
 {
     KindaEnum *This = (KindaEnum *)iface;
@@ -783,7 +637,7 @@ static ULONG WINAPI KindaEnum_AddRef(
     return InterlockedIncrement(&This->refs);
 }
 
-static ULONG WINAPI KindaEnum_Release(
+ULONG WINAPI KindaEnum_Release(
     IKindaEnumWidget *iface)
 {
     KindaEnum *This = (KindaEnum *)iface;
@@ -798,7 +652,7 @@ static ULONG WINAPI KindaEnum_Release(
     return refs;
 }
 
-static HRESULT WINAPI KindaEnum_Next(
+HRESULT WINAPI KindaEnum_Next(
     IKindaEnumWidget *iface,
     /* [out] */ IWidget __RPC_FAR *__RPC_FAR *widget)
 {
@@ -809,20 +663,20 @@ static HRESULT WINAPI KindaEnum_Next(
         return E_OUTOFMEMORY;
 }
 
-static HRESULT WINAPI KindaEnum_Count(
+HRESULT WINAPI KindaEnum_Count(
     IKindaEnumWidget *iface,
-    /* [out] */ ULONG __RPC_FAR *count)
+    /* [out] */ unsigned long __RPC_FAR *count)
 {
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI KindaEnum_Reset(
+HRESULT WINAPI KindaEnum_Reset(
     IKindaEnumWidget *iface)
 {
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI KindaEnum_Clone(
+HRESULT WINAPI KindaEnum_Clone(
     IKindaEnumWidget *iface,
     /* [out] */ IKindaEnumWidget __RPC_FAR *__RPC_FAR *ppenum)
 {
@@ -924,15 +778,12 @@ static void test_typelibmarshal(void)
     DWORD tid;
     BSTR bstr;
     ITypeInfo *pTypeInfo;
-    MYSTRUCT mystruct;
-    MYSTRUCT mystructArray[5];
 
     ok(pKEW != NULL, "Widget creation failed\n");
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IKindaEnumWidget, (IUnknown *)pKEW, MSHLFLAGS_NORMAL, &thread);
-    IKindaEnumWidget_Release(pKEW);
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IKindaEnumWidget, (void **)&pKEW);
@@ -1064,14 +915,6 @@ static void test_typelibmarshal(void)
     hr = IDispatch_Invoke(pDispatch, DISPID_TM_GETOLECOLOR, &IID_NULL, LOCALE_NEUTRAL, DISPATCH_METHOD, &dispparams, &varresult, &excepinfo, NULL);
     ok_ole_success(hr, IDispatch_Invoke);
     VariantClear(&varresult);
-
-    /* call StructArgs (direct) */
-    mystruct = MYSTRUCT_BYPTR;
-    memcpy(mystructArray, MYSTRUCT_ARRAY, sizeof(mystructArray));
-    hr = IWidget_StructArgs(pWidget, MYSTRUCT_BYVAL, &mystruct, mystructArray);
-    todo_wine {
-    ok_ole_success(hr, IWidget_StructArgs);
-    }
 
     /* call Clone */
     dispparams.cNamedArgs = 0;
@@ -1286,59 +1129,6 @@ static void test_typelibmarshal(void)
     hr = IDispatch_Invoke(pDispatch, DISPID_TM_STATE, &IID_NULL, LOCALE_NEUTRAL, DISPATCH_PROPERTYGET, &dispparams, &varresult, &excepinfo, NULL);
     ok(hr == DISP_E_NOTACOLLECTION, "IDispatch_Invoke should have returned DISP_E_NOTACOLLECTION instead of 0x%08x\n", hr);
 
-    /* test propput with lcid */
-
-    /* the lcid passed to the function is the first lcid in the typelib header.
-       Since we don't explicitly set an lcid in the idl, it'll default to US English. */
-    VariantInit(&vararg[0]);
-    V_VT(&vararg[0]) = VT_I4;
-    V_I4(&vararg[0]) = 0xcafe;
-    dispparams.cNamedArgs = 1;
-    dispparams.rgdispidNamedArgs = &dispidNamed;
-    dispparams.cArgs = 1;
-    dispparams.rgvarg = vararg;
-    VariantInit(&varresult);
-    hr = IDispatch_Invoke(pDispatch, DISPID_TM_PROP_WITH_LCID, &IID_NULL, 0x40c, DISPATCH_PROPERTYPUT, &dispparams, &varresult, &excepinfo, NULL);
-todo_wine
-    ok_ole_success(hr, ITypeInfo_Invoke);
-    VariantClear(&varresult);
-
-    /* test propget with lcid */
-    dispparams.cNamedArgs = 0;
-    dispparams.cArgs = 0;
-    dispparams.rgvarg = NULL;
-    dispparams.rgdispidNamedArgs = NULL;
-    hr = IDispatch_Invoke(pDispatch, DISPID_TM_PROP_WITH_LCID, &IID_NULL, 0x40c, DISPATCH_PROPERTYGET, &dispparams, &varresult, &excepinfo, NULL);
-todo_wine
-{
-    ok_ole_success(hr, ITypeInfo_Invoke);
-    ok(V_VT(&varresult) == VT_I4, "got %x\n", V_VT(&varresult));
-    ok(V_I4(&varresult) == 0x409, "got %x\n", V_I4(&varresult));
-}
-    VariantClear(&varresult);
-
-    /* test propget of INT value */
-    dispparams.cNamedArgs = 0;
-    dispparams.cArgs = 0;
-    dispparams.rgvarg = NULL;
-    dispparams.rgdispidNamedArgs = NULL;
-    hr = IDispatch_Invoke(pDispatch, DISPID_TM_PROP_INT, &IID_NULL, 0x40c, DISPATCH_PROPERTYGET, &dispparams, &varresult, &excepinfo, NULL);
-    ok_ole_success(hr, ITypeInfo_Invoke);
-    ok(V_VT(&varresult) == VT_I4, "got %x\n", V_VT(&varresult));
-    ok(V_I4(&varresult) == -13, "got %x\n", V_I4(&varresult));
-    VariantClear(&varresult);
-
-    /* test propget of INT value */
-    dispparams.cNamedArgs = 0;
-    dispparams.cArgs = 0;
-    dispparams.rgvarg = NULL;
-    dispparams.rgdispidNamedArgs = NULL;
-    hr = IDispatch_Invoke(pDispatch, DISPID_TM_PROP_UINT, &IID_NULL, 0x40c, DISPATCH_PROPERTYGET, &dispparams, &varresult, &excepinfo, NULL);
-    ok_ole_success(hr, ITypeInfo_Invoke);
-    ok(V_VT(&varresult) == VT_UI4, "got %x\n", V_VT(&varresult));
-    ok(V_UI4(&varresult) == 42, "got %x\n", V_UI4(&varresult));
-    VariantClear(&varresult);
-
     IDispatch_Release(pDispatch);
     IWidget_Release(pWidget);
 
@@ -1367,40 +1157,9 @@ static void test_DispCallFunc(void)
     V_VT(&varref) = VT_ERROR;
     V_ERROR(&varref) = DISP_E_PARAMNOTFOUND;
     VariantInit(&varresult);
-    hr = DispCallFunc(pWidget, 9*sizeof(void*), CC_STDCALL, VT_UI4, 4, rgvt, rgpvarg, &varresult);
+    hr = DispCallFunc(pWidget, 36, CC_STDCALL, VT_UI4, 4, rgvt, rgpvarg, &varresult);
     ok_ole_success(hr, DispCallFunc);
     VariantClear(&varresult);
-    VariantClear(&vararg[1]);
-    VariantClear(&vararg[2]);
-    IWidget_Release(pWidget);
-}
-
-static void test_StaticWidget(void)
-{
-    ITypeInfo *type_info;
-    DISPPARAMS dispparams;
-    VARIANTARG vararg[4];
-    EXCEPINFO excepinfo;
-    VARIANT varresult;
-    HRESULT hr;
-
-    type_info = get_type_info(&IID_IStaticWidget);
-
-    /* call TestDual */
-    dispparams.cNamedArgs = 0;
-    dispparams.cArgs = 1;
-    dispparams.rgdispidNamedArgs = NULL;
-    dispparams.rgvarg = vararg;
-    V_VT(vararg) = VT_DISPATCH;
-    V_DISPATCH(vararg) = (IDispatch*)&TestDualDisp;
-    VariantInit(&varresult);
-    hr = ITypeInfo_Invoke(type_info, &StaticWidget, DISPID_TM_TESTDUAL, DISPATCH_METHOD,
-            &dispparams, &varresult, &excepinfo, NULL);
-    ok_ole_success(hr, IDispatch_Invoke);
-    ok(V_VT(&varresult) == VT_EMPTY, "vt %x\n", V_VT(&varresult));
-    VariantClear(&varresult);
-
-    ITypeInfo_Release(type_info);
 }
 
 START_TEST(tmarshal)
@@ -1414,11 +1173,6 @@ START_TEST(tmarshal)
 
     test_typelibmarshal();
     test_DispCallFunc();
-    test_StaticWidget();
-
-    hr = UnRegisterTypeLib(&LIBID_TestTypelib, 1, 0, LOCALE_NEUTRAL,
-                           sizeof(void*) == 8 ? SYS_WIN64 : SYS_WIN32);
-    ok_ole_success(hr, UnRegisterTypeLib);
 
     CoUninitialize();
 }

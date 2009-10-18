@@ -348,6 +348,17 @@ typedef enum _RTL_GENERIC_COMPARE_RESULTS
     GenericEqual
 } RTL_GENERIC_COMPARE_RESULTS;
 
+#else
+
+//
+// ACL Query Information Classes
+//
+typedef enum _ACL_INFORMATION_CLASS
+{
+    AclRevisionInformation = 1,
+    AclSizeInformation
+} ACL_INFORMATION_CLASS;
+
 #endif
 
 //
@@ -435,7 +446,7 @@ extern const PRTL_REALLOCATE_STRING_ROUTINE RtlReallocateStringRoutine;
 // Callback for RTL Heap Enumeration
 //
 typedef NTSTATUS
-(NTAPI *PHEAP_ENUMERATION_ROUTINE)(
+(*PHEAP_ENUMERATION_ROUTINE)(
     IN PVOID HeapHandle,
     IN PVOID UserParam
 );
@@ -460,6 +471,7 @@ typedef VOID
 struct _RTL_AVL_TABLE;
 struct _RTL_GENERIC_TABLE;
 struct _RTL_RANGE;
+typedef struct _COMPRESSED_DATA_INFO COMPRESSED_DATA_INFO, *PCOMPRESSED_DATA_INFO;
 
 //
 // Routines and callbacks for the RTL AVL/Generic Table package
@@ -514,7 +526,6 @@ typedef VOID
 //
 // RTL Query Registry callback
 //
-#ifdef NTOS_MODE_USER
 typedef NTSTATUS
 (NTAPI *PRTL_QUERY_REGISTRY_ROUTINE)(
     IN PWSTR ValueName,
@@ -524,7 +535,6 @@ typedef NTSTATUS
     IN PVOID Context,
     IN PVOID EntryContext
 );
-#endif
 
 //
 // RTL Secure Memory callbacks
@@ -670,26 +680,13 @@ typedef struct _RTL_AVL_TABLE
 } RTL_AVL_TABLE, *PRTL_AVL_TABLE;
 
 //
-// RTL Compression Buffer
-//
-typedef struct _COMPRESSED_DATA_INFO {
-    USHORT CompressionFormatAndEngine;
-    UCHAR CompressionUnitShift;
-    UCHAR ChunkShift;
-    UCHAR ClusterShift;
-    UCHAR Reserved;
-    USHORT NumberOfChunks;
-    ULONG CompressedChunkSizes[ANYSIZE_ARRAY];
-} COMPRESSED_DATA_INFO, *PCOMPRESSED_DATA_INFO;
-
-//
 // RtlQueryRegistry Data
 //
 typedef struct _RTL_QUERY_REGISTRY_TABLE
 {
     PRTL_QUERY_REGISTRY_ROUTINE QueryRoutine;
     ULONG Flags;
-    PCWSTR Name;
+    PWSTR Name;
     PVOID EntryContext;
     ULONG DefaultType;
     PVOID DefaultData;
@@ -742,7 +739,7 @@ typedef PVOID PACTIVATION_CONTEXT;
 //
 typedef struct _RTL_ACTIVATION_CONTEXT_STACK_FRAME
 {
-    struct _RTL_ACTIVATION_CONTEXT_STACK_FRAME *Previous;
+    struct __RTL_ACTIVATION_CONTEXT_STACK_FRAME *Previous;
     PACTIVATION_CONTEXT ActivationContext;
     ULONG Flags;
 } RTL_ACTIVATION_CONTEXT_STACK_FRAME,
@@ -759,16 +756,6 @@ typedef struct _RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED
     PVOID Extra4;
 } RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED,
   *PRTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED;
-
-typedef struct _ACTIVATION_CONTEXT_STACK
-{
-    PRTL_ACTIVATION_CONTEXT_STACK_FRAME ActiveFrame;
-    LIST_ENTRY FrameListCache;
-    ULONG Flags;
-    ULONG NextCookieSequenceNumber;
-    ULONG StackId;
-} ACTIVATION_CONTEXT_STACK,
-  *PACTIVATION_CONTEXT_STACK;
 
 #endif
 
@@ -958,11 +945,8 @@ typedef struct _RTL_UNLOAD_EVENT_TRACE
 //
 typedef struct _RTL_HANDLE_TABLE_ENTRY
 {
-    union
-    {
-        ULONG Flags;
-        struct _RTL_HANDLE_TABLE_ENTRY *NextFree;
-    };
+    ULONG Flags;
+    struct _RTL_HANDLE_TABLE_ENTRY *NextFree;
 } RTL_HANDLE_TABLE_ENTRY, *PRTL_HANDLE_TABLE_ENTRY;
 
 typedef struct _RTL_HANDLE_TABLE
@@ -1255,6 +1239,7 @@ typedef struct _NLS_FILE_HEADER
     USHORT UniDefaultChar;
     USHORT TransDefaultChar;
     USHORT TransUniDefaultChar;
+    USHORT DBCSCodePage;
     UCHAR LeadByte[MAXIMUM_LEADBYTES];
 } NLS_FILE_HEADER, *PNLS_FILE_HEADER;
 

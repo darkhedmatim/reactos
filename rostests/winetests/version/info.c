@@ -31,32 +31,18 @@
     ok( (ERROR_PATH_NOT_FOUND == GetLastError()) || \
 	(ERROR_RESOURCE_DATA_NOT_FOUND == GetLastError()) || \
 	(ERROR_FILE_NOT_FOUND == GetLastError()) || \
-	(ERROR_BAD_PATHNAME == GetLastError()) || \
-        (ERROR_SUCCESS == GetLastError()), \
+	(ERROR_BAD_PATHNAME == GetLastError()), \
 	"Last error wrong! ERROR_RESOURCE_DATA_NOT_FOUND/ERROR_BAD_PATHNAME (98)/" \
-	"ERROR_PATH_NOT_FOUND (NT4)/ERROR_FILE_NOT_FOUND (2k3) " \
-        "ERROR_SUCCESS (2k) expected, got %u\n", GetLastError());
+	"ERROR_PATH_NOT_FOUND (NT4)/ERROR_FILE_NOT_FOUND (2k3)" \
+	"expected, got %u\n", GetLastError());
 #define EXPECT_INVALID__NOT_FOUND \
     ok( (ERROR_PATH_NOT_FOUND == GetLastError()) || \
 	(ERROR_RESOURCE_DATA_NOT_FOUND == GetLastError()) || \
 	(ERROR_FILE_NOT_FOUND == GetLastError()) || \
-	(ERROR_INVALID_PARAMETER == GetLastError()) || \
-        (ERROR_SUCCESS == GetLastError()), \
+	(ERROR_INVALID_PARAMETER == GetLastError()), \
 	"Last error wrong! ERROR_RESOURCE_DATA_NOT_FOUND/ERROR_INVALID_PARAMETER (98)/" \
-	"ERROR_PATH_NOT_FOUND (NT4)/ERROR_FILE_NOT_FOUND (2k3) " \
-	"ERROR_SUCCESS (2k) expected, got %u\n", GetLastError());
-
-static void create_file(const CHAR *name)
-{
-    HANDLE file;
-    DWORD written;
-
-    file = CreateFileA(name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-    ok(file != INVALID_HANDLE_VALUE, "Failure to open file %s\n", name);
-    WriteFile(file, name, strlen(name), &written, NULL);
-    WriteFile(file, "\n", strlen("\n"), &written, NULL);
-    CloseHandle(file);
-}
+	"ERROR_PATH_NOT_FOUND (NT4)/ERROR_FILE_NOT_FOUND (2k3)" \
+	"expected, got %u\n", GetLastError());
 
 static void test_info_size(void)
 {   DWORD hdl, retval;
@@ -124,8 +110,7 @@ static void test_info_size(void)
 	retval);
     ok( (ERROR_FILE_NOT_FOUND == GetLastError()) ||
 	(ERROR_RESOURCE_DATA_NOT_FOUND == GetLastError()) ||
-	(MY_LAST_ERROR == GetLastError()) ||
-	(ERROR_SUCCESS == GetLastError()), /* win2k */
+	(MY_LAST_ERROR == GetLastError()),
 	"Last error wrong! ERROR_FILE_NOT_FOUND/ERROR_RESOURCE_DATA_NOT_FOUND "
 	"(XP)/0x%08x (NT4) expected, got %u\n", MY_LAST_ERROR, GetLastError());
 
@@ -167,22 +152,7 @@ static void test_info_size(void)
 	}
     }
     else
-	trace("skipping GetSystemDirectoryA(mypath,..) failed\n");
-
-    create_file("test.txt");
-
-    /* no version info */
-    SetLastError(0xdeadbeef);
-    hdl = 0xcafe;
-    retval = GetFileVersionInfoSizeA("test.txt", &hdl);
-    ok(retval == 0, "Expected 0, got %d\n", retval);
-    ok(hdl == 0, "Expected 0, got %d\n", hdl);
-    ok(GetLastError() == ERROR_RESOURCE_DATA_NOT_FOUND ||
-       GetLastError() == ERROR_BAD_FORMAT || /* win9x */
-       GetLastError() == ERROR_SUCCESS, /* win2k */
-       "Expected ERROR_RESOURCE_DATA_NOT_FOUND, got %d\n", GetLastError());
-
-    DeleteFileA("test.txt");
+	trace("skipping GetModuleFileNameA(NULL,..) failed\n");
 }
 
 static void VersionDwordLong2String(DWORDLONG Version, LPSTR lpszVerString)
@@ -248,13 +218,6 @@ static void test_info(void)
     if (!boolret)
         goto cleanup;
 
-    boolret = VerQueryValueA( pVersionInfo, NULL, (LPVOID *)&pFixedVersionInfo, &uiLength );
-    ok (boolret || GetLastError() == NO_ERROR /* Win98 */,
-       "VerQueryValueA failed: GetLastError = %u\n", GetLastError());
-
-    boolret = VerQueryValueA( pVersionInfo, "", (LPVOID *)&pFixedVersionInfo, &uiLength );
-    ok (boolret, "VerQueryValueA failed: GetLastError = %u\n", GetLastError());
-
     boolret = VerQueryValueA( pVersionInfo, backslash, (LPVOID *)&pFixedVersionInfo, &uiLength );
     ok (boolret, "VerQueryValueA failed: GetLastError = %u\n", GetLastError());
     if (!boolret)
@@ -293,7 +256,6 @@ static void test_32bit_win(void)
     WCHAR mypathW[MAX_PATH];
     char rootA[] = "\\";
     WCHAR rootW[] = { '\\', 0 };
-    WCHAR emptyW[] = { 0 };
     char varfileinfoA[] = "\\VarFileInfo\\Translation";
     WCHAR varfileinfoW[]    = { '\\','V','a','r','F','i','l','e','I','n','f','o',
                                 '\\','T','r','a','n','s','l','a','t','i','o','n', 0 };
@@ -332,7 +294,7 @@ static void test_32bit_win(void)
     GetModuleFileNameW(NULL, mypathW, MAX_PATH);
     if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
     {
-        win_skip("GetModuleFileNameW not existing on this platform, skipping comparison between A- and W-calls\n");
+        trace("GetModuleFileNameW not existing on this platform, skipping comparison between A- and W-calls\n");
         is_unicode_enabled = FALSE;
     }
 
@@ -383,7 +345,7 @@ static void test_32bit_win(void)
 
     if (is_unicode_enabled)
     { 
-        VS_VERSION_INFO_STRUCT32 *vvis = pVersionInfoW;
+        VS_VERSION_INFO_STRUCT32 *vvis = (VS_VERSION_INFO_STRUCT32 *)pVersionInfoW;
         ok ( retvalW == ((vvis->wLength * 2) + 4) || retvalW == (vvis->wLength * 1.5),
              "Structure is not of the correct size\n");
     }
@@ -400,15 +362,6 @@ static void test_32bit_win(void)
 
     if (is_unicode_enabled)
     { 
-        if(0)
-        {   /* This causes Vista and w2k8 to crash */
-            retW = VerQueryValueW( pVersionInfoW, NULL, (LPVOID *)&pBufW, &uiLengthW );
-            ok (retW, "VerQueryValueW failed: GetLastError = %u\n", GetLastError());
-        }
-
-        retW = VerQueryValueW( pVersionInfoW, emptyW, (LPVOID *)&pBufW, &uiLengthW );
-        ok (retW, "VerQueryValueW failed: GetLastError = %u\n", GetLastError());
-
         retW = VerQueryValueW( pVersionInfoW, rootW, (LPVOID *)&pBufW, &uiLengthW );
         ok (retW, "VerQueryValueW failed: GetLastError = %u\n", GetLastError());
         ok ( uiLengthA == sizeof(VS_FIXEDFILEINFO), "Size (%d) doesn't match the size of the VS_FIXEDFILEINFO struct\n", uiLengthA);
@@ -498,13 +451,10 @@ static void test_VerQueryValue(void)
     SetLastError(0xdeadbeef);
     ret = VerQueryValue(ver, "String", (LPVOID*)&p, &len);
     ok(!ret, "VerQueryValue should fail\n");
-    ok(GetLastError() == ERROR_RESOURCE_TYPE_NOT_FOUND ||
-       GetLastError() == 0xdeadbeef /* Win9x, NT4, W2K */,
+    ok(GetLastError() == ERROR_RESOURCE_TYPE_NOT_FOUND,
        "VerQueryValue returned %u\n", GetLastError());
     ok(p == (char *)0xdeadbeef, "expected 0xdeadbeef got %p\n", p);
-    ok(len == 0 ||
-       len == 0xbeef, /* win9x */
-       "expected 0 got %x\n", len);
+    ok(len == 0, "expected 0 got %x\n", len);
 
     p = (char *)0xdeadbeef;
     len = 0xdeadbeef;
@@ -567,13 +517,10 @@ todo_wine ok(len == 0, "VerQueryValue returned %u, expected 0\n", len);
         SetLastError(0xdeadbeef);
         ret = VerQueryValue(ver, buf, (LPVOID*)&p, &len);
         ok(!ret, "VerQueryValue(%s) succeeded\n", buf);
-        ok(GetLastError() == ERROR_RESOURCE_TYPE_NOT_FOUND ||
-           GetLastError() == 0xdeadbeef /* Win9x, NT4, W2K */,
+        ok(GetLastError() == ERROR_RESOURCE_TYPE_NOT_FOUND,
            "VerQueryValue returned %u\n", GetLastError());
         ok(p == (char *)0xdeadbeef, "expected 0xdeadbeef got %p\n", p);
-        ok(len == 0 ||
-           len == 0xbeef, /* win9x */
-           "expected 0 or 0xbeef, got %x\n", len);
+        ok(len == 0, "expected 0 got %x\n", len);
     }
 
     HeapFree(GetProcessHeap(), 0, ver);

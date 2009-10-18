@@ -12,9 +12,6 @@
 
 #include <precomp.h>
 
-#define NDEBUG
-#include <debug.h>
-
 /* GLOBALS *******************************************************************/
 
 extern HANDLE Secur32Heap;
@@ -24,7 +21,7 @@ extern HANDLE Secur32Heap;
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaDeregisterLogonProcess(HANDLE LsaHandle)
 {
    LSASS_REQUEST Request;
@@ -53,17 +50,16 @@ LsaDeregisterLogonProcess(HANDLE LsaHandle)
 /*
  * @unimplemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaConnectUntrusted(PHANDLE LsaHandle)
 {
-  UNIMPLEMENTED;
-  return STATUS_UNSUCCESSFUL;
+  return(STATUS_UNSUCCESSFUL);
 }
 
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaCallAuthenticationPackage(HANDLE LsaHandle,
 			     ULONG AuthenticationPackage,
 			     PVOID ProtocolSubmitBuffer,
@@ -124,7 +120,7 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaFreeReturnBuffer(PVOID Buffer)
 {
    return(RtlFreeHeap(Secur32Heap, 0, Buffer));
@@ -134,7 +130,7 @@ LsaFreeReturnBuffer(PVOID Buffer)
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaLookupAuthenticationPackage(HANDLE LsaHandle,
 			       PLSA_STRING PackageName,
 			       PULONG AuthenticationPackage)
@@ -172,7 +168,7 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaLogonUser(HANDLE LsaHandle,
 	     PLSA_STRING OriginName,
 	     SECURITY_LOGON_TYPE LogonType,
@@ -276,7 +272,7 @@ LsaLogonUser(HANDLE LsaHandle,
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
 			PHANDLE Handle,
 			PLSA_OPERATIONAL_MODE OperationalMode)
@@ -337,54 +333,50 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaEnumerateLogonSessions(
 PULONG LogonSessionCount,
 PLUID * LogonSessionList
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaGetLogonSessionData(
 PLUID LogonId,
 PSECURITY_LOGON_SESSION_DATA * ppLogonSessionData
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaRegisterPolicyChangeNotification(
 POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
 HANDLE NotificationEventHandle
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaUnregisterPolicyChangeNotification(
 POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
 HANDLE NotificationEventHandle
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }

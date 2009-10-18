@@ -21,8 +21,6 @@
 #ifndef __WINE_D3D9TYPES_H
 #define __WINE_D3D9TYPES_H
 
-#pragma pack(push, 4)
-
 /*****************************************************************************
  * Direct 3D v9 #defines
  */
@@ -110,9 +108,6 @@
 #define D3DUSAGE_DYNAMIC            0x00000200L
 #define D3DUSAGE_AUTOGENMIPMAP      0x00000400L
 #define D3DUSAGE_DMAP               0x00004000L
-#ifndef D3D_DISABLE_9EX
-#define D3DUSAGE_TEXTAPI            0x10000000L
-#endif
 
 #define D3DUSAGE_QUERY_FILTER                   0x00020000L
 #define D3DUSAGE_QUERY_LEGACYBUMPMAP            0x00008000L
@@ -823,11 +818,6 @@ typedef enum _D3DFORMAT {
     D3DFMT_D32F_LOCKABLE        =  82,
     D3DFMT_D24FS8               =  83,
 
-#ifndef D3D_DISABLE_9EX
-    D3DFMT_D32_LOCKABLE         =  84,
-    D3DFMT_S8_LOCKABLE          =  85,
-#endif
-
     D3DFMT_VERTEXDATA           = 100,
     D3DFMT_INDEX16              = 101,
     D3DFMT_INDEX32              = 102,
@@ -883,7 +873,7 @@ typedef enum _D3DMULTISAMPLE_TYPE {
     D3DMULTISAMPLE_15_SAMPLES      = 15,
     D3DMULTISAMPLE_16_SAMPLES      = 16,
 
-    D3DMULTISAMPLE_FORCE_DWORD     = 0x7fffffff
+    D3DMULTISAMPLE_FORCE_DWORD     = 0xffffffff
 } D3DMULTISAMPLE_TYPE;
 
 #if 0
@@ -1540,50 +1530,5 @@ typedef struct _D3DVOLUME_DESC {
     UINT                Height;
     UINT                Depth;
 } D3DVOLUME_DESC;
-
-#if !defined(D3D_DISABLE_9EX)
-typedef enum D3DSCANLINEORDERING
-{
-    D3DSCANLINEORDERING_UNKNOWN,
-    D3DSCANLINEORDERING_PROGRESSIVE,
-    D3DSCANLINEORDERING_INTERLACED,
-} D3DSCANLINEORDERING;
-
-
-typedef struct D3DDISPLAYMODEFILTER
-{
-    UINT                Size;
-    D3DFORMAT           Format;
-    D3DSCANLINEORDERING ScanLineOrdering;
-} D3DDISPLAYMODEFILTER;
-
-typedef struct D3DDISPLAYMODEEX
-{
-    UINT                Size;
-    UINT                Width;
-    UINT                Height;
-    UINT                RefreshRate;
-    D3DFORMAT           Format;
-    D3DSCANLINEORDERING ScanLineOrdering;
-} D3DDISPLAYMODEEX;
-
-typedef enum D3DDISPLAYROTATION
-{
-    D3DDISPLAYROTATION_IDENTITY = 1,
-    D3DDISPLAYROTATION_90,
-    D3DDISPLAYROTATION_180,
-    D3DDISPLAYROTATION_270
-} D3DDISPLAYROTATION;
-
-typedef enum _D3DCOMPOSERECTSOP{
-    D3DCOMPOSERECTS_COPY        = 1,
-    D3DCOMPOSERECTS_OR,
-    D3DCOMPOSERECTS_AND,
-    D3DCOMPOSERECTS_NEG,
-    D3DCOMPOSERECTS_FORCE_DWORD = 0x7fffffff
-} D3DCOMPOSERECTSOP;
-#endif /* D3D_DISABLE_9EX */
-
-#pragma pack(pop)
 
 #endif /* __WINE_D3D9TYPES_H */

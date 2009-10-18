@@ -21,20 +21,12 @@ i8042Flush(
 {
 	UCHAR Ignore;
 
-	/* Flush output buffer */
-	while (NT_SUCCESS(i8042ReadData(DeviceExtension, KBD_OBF /* | MOU_OBF*/, &Ignore))) {
-		KeStallExecutionProcessor(50);
-		TRACE_(I8042PRT, "Output data flushed\n");
-	}
-
-	/* Flush input buffer */
-	while (NT_SUCCESS(i8042ReadData(DeviceExtension, KBD_IBF, &Ignore))) {
-		KeStallExecutionProcessor(50);
-		TRACE_(I8042PRT, "Input data flushed\n");
+	while (NT_SUCCESS(i8042ReadData(DeviceExtension, KBD_OBF | MOU_OBF, &Ignore))) {
+		INFO_(I8042PRT, "Data flushed\n"); /* drop */
 	}
 }
 
-BOOLEAN
+VOID
 i8042IsrWritePort(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension,
 	IN UCHAR Value,
@@ -42,9 +34,9 @@ i8042IsrWritePort(
 {
 	if (SelectCmd)
 		if (!i8042Write(DeviceExtension, DeviceExtension->ControlPort, SelectCmd))
-			return FALSE;
+			return;
 
-	return i8042Write(DeviceExtension, DeviceExtension->DataPort, Value);
+	i8042Write(DeviceExtension, DeviceExtension->DataPort, Value);
 }
 
 /*
@@ -127,8 +119,6 @@ i8042SynchReadPort(
 {
 	PPORT_DEVICE_EXTENSION DeviceExtension;
 
-	UNREFERENCED_PARAMETER(WaitForAck);
-
 	DeviceExtension = (PPORT_DEVICE_EXTENSION)Context;
 
 	return i8042ReadDataWait(DeviceExtension, Value);
@@ -199,20 +189,20 @@ i8042Write(
 	IN PUCHAR addr,
 	IN UCHAR data)
 {
-	ULONG Counter;
+	ULONG ResendIterations;
 
 	ASSERT(addr);
 	ASSERT(DeviceExtension->ControlPort != NULL);
 
-	Counter = DeviceExtension->Settings.PollingIterations;
+	ResendIterations = DeviceExtension->Settings.ResendIterations;
 
 	while ((KBD_IBF & READ_PORT_UCHAR(DeviceExtension->ControlPort)) &&
-	       (Counter--))
+	       (ResendIterations--))
 	{
 		KeStallExecutionProcessor(50);
 	}
 
-	if (Counter)
+	if (ResendIterations)
 	{
 		WRITE_PORT_UCHAR(addr, data);
 		INFO_(I8042PRT, "Sent 0x%x to port %p\n", data, addr);

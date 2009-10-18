@@ -19,7 +19,34 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+
+#include "wingdi.h"
+#include "pidl.h"
+#include "shlguid.h"
+#include "enumidlist.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shresdef.h"
+#include "shlwapi.h"
+#include "wine/debug.h"
+#include "debughlp.h"
+#include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
@@ -35,14 +62,14 @@ typedef struct {
     /* both paths are parsible from the desktop */
     LPITEMIDLIST pidlRoot;    /* absolute pidl */
     LPWSTR sName;
-} IGenericSFImpl, *LPIGenericSFImpl;
+} IGenericSFImpl;
 
 static const IShellFolder2Vtbl vt_ShellFolder2;
 static const IPersistFolder2Vtbl vt_PersistFolder2;
 
-static LPIGenericSFImpl __inline impl_from_IPersistFolder2( IPersistFolder2 *iface )
+static inline IGenericSFImpl *impl_from_IPersistFolder2( IPersistFolder2 *iface )
 {
-    return (LPIGenericSFImpl)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpVtblPersistFolder2));
+    return (IGenericSFImpl *)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpVtblPersistFolder2));
 }
 
 
@@ -77,7 +104,7 @@ HRESULT WINAPI ISF_MyComputer_Constructor (IUnknown * pUnkOuter, REFIID riid, LP
 {
     IGenericSFImpl *sf;
     DWORD dwSize;
-    WCHAR szName[MAX_PATH];
+    WCHAR szName[100];
     TRACE ("unkOut=%p %s\n", pUnkOuter, shdebugstr_guid (riid));
 
     if (!ppv)
@@ -94,7 +121,7 @@ HRESULT WINAPI ISF_MyComputer_Constructor (IUnknown * pUnkOuter, REFIID riid, LP
     sf->lpVtblPersistFolder2 = &vt_PersistFolder2;
     sf->pidlRoot = _ILCreateMyComputer ();    /* my qualified pidl */
 
-    if (FAILED (IUnknown_QueryInterface (_IUnknown_ (sf), riid, ppv)))
+    if (!SUCCEEDED (IUnknown_QueryInterface (_IUnknown_ (sf), riid, ppv)))
     {
         IUnknown_Release (_IUnknown_ (sf));
         return E_NOINTERFACE;
@@ -110,10 +137,10 @@ HRESULT WINAPI ISF_MyComputer_Constructor (IUnknown * pUnkOuter, REFIID riid, LP
                     &dwSize) == ERROR_SUCCESS)
     {
         szName[MAX_PATH-1] = 0;
-        sf->sName = SHAlloc((wcslen(szName)+1) * sizeof(WCHAR));
+        sf->sName = SHAlloc((strlenW(szName)+1) * sizeof(WCHAR));
         if (sf->sName)
         {
-            wcscpy( sf->sName, szName );
+            lstrcpyW( sf->sName, szName );
         }
         TRACE("sName %s\n", debugstr_w(sf->sName));
     }
@@ -180,7 +207,7 @@ static ULONG WINAPI ISF_MyComputer_fnRelease (IShellFolder2 * iface)
     {
         TRACE ("-- destroying IShellFolder(%p)\n", This);
         SHFree (This->pidlRoot);
-        LocalFree (This);
+        LocalFree ((HLOCAL) This);
     }
     return refCount;
 }
@@ -212,7 +239,7 @@ static HRESULT WINAPI ISF_MyComputer_fnParseDisplayName (IShellFolder2 *iface,
     {
         szNext = GetNextElementW (lpszDisplayName, szElement, MAX_PATH);
         TRACE ("-- element: %s\n", debugstr_w (szElement));
-        CLSIDFromString (szElement + 2, &clsid);
+        SHCLSIDFromStringW (szElement + 2, &clsid);
         pidlTemp = _ILCreateGuid (PT_GUID, &clsid);
     }
     /* do we have an absolute path name ? */
@@ -424,9 +451,6 @@ static HRESULT WINAPI ISF_MyComputer_fnGetAttributesOf (IShellFolder2 * iface,
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
     HRESULT hr = S_OK;
-    static const DWORD dwComputerAttributes =
-        SFGAO_STORAGE | SFGAO_HASPROPSHEET | SFGAO_STORAGEANCESTOR | SFGAO_CANCOPY |
-        SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_FILESYSTEM | SFGAO_HASSUBFOLDER | SFGAO_CANRENAME | SFGAO_CANDELETE;
 
     TRACE ("(%p)->(cidl=%d apidl=%p mask=%p (0x%08x))\n",
            This, cidl, apidl, rgfInOut, rgfInOut ? *rgfInOut : 0);
@@ -439,8 +463,15 @@ static HRESULT WINAPI ISF_MyComputer_fnGetAttributesOf (IShellFolder2 * iface,
     if (*rgfInOut == 0)
         *rgfInOut = ~0;
 
-    if(cidl == 0) {
-        *rgfInOut &= dwComputerAttributes;
+    if(cidl == 0){
+        IShellFolder *psfParent = NULL;
+        LPCITEMIDLIST rpidl = NULL;
+
+        hr = SHBindToParent(This->pidlRoot, &IID_IShellFolder, (LPVOID*)&psfParent, (LPCITEMIDLIST*)&rpidl);
+        if(SUCCEEDED(hr)) {
+            SHELL32_GetItemAttributes (psfParent, rpidl, rgfInOut);
+            IShellFolder_Release(psfParent);
+        }
     } else {
         while (cidl > 0 && *apidl) {
             pdump (*apidl);
@@ -597,9 +628,9 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDisplayNameOf (IShellFolder2 *iface,
                      * Get the "WantsFORPARSING" flag from the registry
                      */
 
-                    wcscpy (szRegPath, clsidW);
+                    lstrcpyW (szRegPath, clsidW);
                     SHELL32_GUIDToStringW (clsid, &szRegPath[6]);
-                    wcscat (szRegPath, shellfolderW);
+                    lstrcatW (szRegPath, shellfolderW);
                     r = SHGetValueW (HKEY_CLASSES_ROOT, szRegPath,
                                      wantsForParsingW, NULL, NULL, NULL);
                     if (r == ERROR_SUCCESS)
@@ -638,7 +669,7 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDisplayNameOf (IShellFolder2 *iface,
                     /* user friendly name */
 
                     if (_ILIsMyComputer(pidl) && This->sName)
-                        wcscpy(pszPath, This->sName);
+                        strcpyW(pszPath, This->sName);
                     else
                         HCR_GetClassNameW (clsid, pszPath, MAX_PATH);
 
@@ -653,52 +684,24 @@ static HRESULT WINAPI ISF_MyComputer_fnGetDisplayNameOf (IShellFolder2 *iface,
         }
         else if (_ILIsDrive(pidl))
         {
-
             _ILSimpleGetTextW (pidl, pszPath, MAX_PATH);    /* append my own path */
+
             /* long view "lw_name (C:)" */
             if (!(dwFlags & SHGDN_FORPARSING))
             {
+                DWORD dwVolumeSerialNumber, dwMaximumComponetLength, dwFileSystemFlags;
                 WCHAR wszDrive[18] = {0};
-                DWORD dwVolumeSerialNumber, dwMaximumComponentLength, dwFileSystemFlags;
                 static const WCHAR wszOpenBracket[] = {' ','(',0};
                 static const WCHAR wszCloseBracket[] = {')',0};
 
-                lstrcpynW(wszDrive, pszPath, 4);
-                pszPath[0] = L'\0';
-                GetVolumeInformationW (wszDrive, pszPath,
-                           MAX_PATH - 7,
+                GetVolumeInformationW (pszPath, wszDrive,
+                           sizeof(wszDrive)/sizeof(wszDrive[0]) - 6,
                            &dwVolumeSerialNumber,
-                           &dwMaximumComponentLength, &dwFileSystemFlags, NULL, 0);
-                pszPath[MAX_PATH-1] = L'\0';
-                if (!wcslen(pszPath))
-                {
-                    UINT DriveType, ResourceId;
-                    DriveType = GetDriveTypeW(wszDrive);
-                    switch(DriveType)
-                    {
-                        case DRIVE_FIXED:
-                            ResourceId = IDS_DRIVE_FIXED;
-                            break;
-                        case DRIVE_REMOTE:
-                            ResourceId = IDS_DRIVE_NETWORK;
-                            break;
-                        case DRIVE_CDROM:
-                            ResourceId = IDS_DRIVE_CDROM;
-                            break;
-                        default:
-                            ResourceId = 0;
-                    }
-                    if (ResourceId)
-                    {
-                        dwFileSystemFlags = LoadStringW(shell32_hInstance, ResourceId, pszPath, MAX_PATH);
-                        if (dwFileSystemFlags > MAX_PATH - 7)
-                            pszPath[MAX_PATH-7] = L'\0';
-                    }
-                }
-                wcscat (pszPath, wszOpenBracket);
-                wszDrive[2] = L'\0';
-                wcscat (pszPath, wszDrive);
-                wcscat (pszPath, wszCloseBracket);
+                           &dwMaximumComponetLength, &dwFileSystemFlags, NULL, 0);
+                strcatW (wszDrive, wszOpenBracket);
+                lstrcpynW (wszDrive + strlenW(wszDrive), pszPath, 3);
+                strcatW (wszDrive, wszCloseBracket);
+                strcpyW (pszPath, wszDrive);
             }
         }
         else
@@ -747,29 +750,16 @@ static HRESULT WINAPI ISF_MyComputer_fnSetNameOf (
     LPWSTR sName;
     HKEY hKey;
     UINT length;
-    WCHAR szName[30];
 
     TRACE ("(%p)->(%p,pidl=%p,%s,%u,%p)\n", This,
            hwndOwner, pidl, debugstr_w (lpName), dwFlags, pPidlOut);
-
-    if (_ILIsDrive(pidl))
-    {
-       if (_ILSimpleGetTextW(pidl, szName, sizeof(szName)/sizeof(WCHAR)))
-       {
-           SetVolumeLabelW(szName, lpName);
-       }
-       if (pPidlOut)
-           *pPidlOut = _ILCreateDrive(szName);
-       return S_OK;
-    }
-
 
     if (pPidlOut != NULL)
     {
         *pPidlOut = _ILCreateMyComputer();
     }
 
-    length = (wcslen(lpName)+1) * sizeof(WCHAR);
+    length = (strlenW(lpName)+1) * sizeof(WCHAR);
     sName = SHAlloc(length);
 
     if (!sName)
@@ -791,7 +781,7 @@ static HRESULT WINAPI ISF_MyComputer_fnSetNameOf (
         RegCloseKey(hKey);
     }
 
-    wcscpy(sName, lpName);
+    lstrcpyW(sName, lpName);
     SHFree(This->sName);
     This->sName = sName;
     TRACE("result %s\n", debugstr_w(This->sName));
@@ -1003,12 +993,7 @@ static HRESULT WINAPI IMCFldr_PersistFolder2_Initialize (
 {
     IGenericSFImpl *This = impl_from_IPersistFolder2(iface);
     TRACE ("(%p)->(%p)\n", This, pidl);
-
-    if (This->pidlRoot)
-        SHFree((LPVOID)This->pidlRoot);
-
-    This->pidlRoot = ILClone(pidl);
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 /**************************************************************************

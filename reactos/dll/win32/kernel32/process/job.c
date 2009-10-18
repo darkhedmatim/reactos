@@ -23,7 +23,7 @@
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateJobObjectA(LPSECURITY_ATTRIBUTES lpJobAttributes,
                  LPCSTR lpName)
 {
@@ -59,7 +59,7 @@ CreateJobObjectA(LPSECURITY_ATTRIBUTES lpJobAttributes,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateJobObjectW(LPSECURITY_ATTRIBUTES lpJobAttributes,
                  LPCWSTR lpName)
 {
@@ -111,7 +111,7 @@ CreateJobObjectW(LPSECURITY_ATTRIBUTES lpJobAttributes,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 OpenJobObjectW(DWORD dwDesiredAccess,
                BOOL bInheritHandle,
                LPCWSTR lpName)
@@ -139,6 +139,8 @@ OpenJobObjectW(DWORD dwDesiredAccess,
                            dwDesiredAccess,
                            &ObjectAttributes);
 
+  RtlFreeUnicodeString(&JobName);
+
   if(!NT_SUCCESS(Status))
   {
     SetLastErrorByStatus(Status);
@@ -153,7 +155,7 @@ OpenJobObjectW(DWORD dwDesiredAccess,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 OpenJobObjectA(DWORD dwDesiredAccess,
                BOOL bInheritHandle,
                LPCSTR lpName)
@@ -190,7 +192,7 @@ OpenJobObjectA(DWORD dwDesiredAccess,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsProcessInJob(HANDLE ProcessHandle,
                HANDLE JobHandle,
                PBOOL Result)
@@ -213,7 +215,7 @@ IsProcessInJob(HANDLE ProcessHandle,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AssignProcessToJobObject(HANDLE hJob,
                          HANDLE hProcess)
 {
@@ -233,7 +235,7 @@ AssignProcessToJobObject(HANDLE hJob,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 QueryInformationJobObject(HANDLE hJob,
                           JOBOBJECTINFOCLASS JobObjectInformationClass,
                           LPVOID lpJobObjectInformation,
@@ -307,7 +309,7 @@ QueryInformationJobObject(HANDLE hJob,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetInformationJobObject(HANDLE hJob,
                         JOBOBJECTINFOCLASS JobObjectInformationClass,
                         LPVOID lpJobObjectInformation,
@@ -397,7 +399,7 @@ SetInformationJobObject(HANDLE hJob,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 TerminateJobObject(HANDLE hJob,
                    UINT uExitCode)
 {

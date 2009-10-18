@@ -19,7 +19,6 @@
  */
 
 #include "config.h"
-#include "wine/port.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,7 +51,9 @@ void write_resfile(char *outname, resource_t *top)
 
 	fo = fopen(outname, "wb");
 	if(!fo)
-            fatal_perror("Could not open %s", outname);
+	{
+		error("Could not open %s\n", outname);
+	}
 
 	if(win32)
 	{
@@ -68,7 +69,7 @@ void write_resfile(char *outname, resource_t *top)
 		put_word(res, 0);		/* Memory options */
 		put_word(res, 0);		/* Language */
 		put_dword(res, 0);		/* Version */
-		put_dword(res, 0);		/* Characteristics */
+		put_dword(res, 0);		/* Charateristics */
 		ret = fwrite(res->data, 1, res->size, fo);
 		if(ret != res->size)
 		{
@@ -100,6 +101,5 @@ void write_resfile(char *outname, resource_t *top)
 			}
 		}
 	}
-	if (fclose(fo))
-            fatal_perror("Error writing %s", outname);
+	fclose(fo);
 }

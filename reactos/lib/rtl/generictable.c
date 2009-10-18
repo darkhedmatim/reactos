@@ -57,7 +57,7 @@ RtlpFindGenericTableNodeOrParent(IN PRTL_GENERIC_TABLE Table,
             if ((ChildNode = RtlLeftChild(CurrentNode)))
             {
                 /* Continue searching from this node */
-                CurrentNode = ChildNode;
+                ChildNode = CurrentNode;
             }
             else
             {
@@ -72,7 +72,7 @@ RtlpFindGenericTableNodeOrParent(IN PRTL_GENERIC_TABLE Table,
             if ((ChildNode = RtlRightChild(CurrentNode)))
             {
                 /* Continue searching from this node */
-                CurrentNode = ChildNode;
+                ChildNode = CurrentNode;
             }
             else
             {
@@ -390,7 +390,7 @@ RtlEnumerateGenericTableWithoutSplaying(IN PRTL_GENERIC_TABLE Table,
     else
     {
         /* Otherwise, try using the real successor */
-        FoundNode = RtlRealSuccessor(*RestartKey);
+        FoundNode = RtlRealSuccessor(Table->TableRoot);
         if (FoundNode) *RestartKey = FoundNode;
     }
 
@@ -619,7 +619,7 @@ RtlEnumerateGenericTableWithoutSplayingAvl(IN PRTL_AVL_TABLE Table,
                                            IN OUT PVOID *RestartKey)
 {
     /* FIXME! */
-	return NULL;
+	return RtlEnumerateGenericTableWithoutSplayingAvl(Table, RestartKey);
 }
 
 /*

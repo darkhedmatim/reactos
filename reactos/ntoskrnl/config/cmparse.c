@@ -224,7 +224,6 @@ CmpDoCreateChild(IN PHHIVE Hive,
     ULONG StorageType;
     LARGE_INTEGER SystemTime;
     PCM_KEY_CONTROL_BLOCK Kcb;
-    PSECURITY_DESCRIPTOR NewDescriptor;
 
     /* Get the storage type */
     StorageType = Stable;
@@ -286,7 +285,7 @@ CmpDoCreateChild(IN PHHIVE Hive,
     
     /* Setup the key body */
     KeyBody = (PCM_KEY_BODY)(*Object);
-    KeyBody->Type = '20yk';
+    KeyBody->Type = TAG('k', 'y', '0', '2');
     KeyBody->KeyControlBlock = NULL;
 
     /* Check if we had a class */
@@ -340,7 +339,7 @@ CmpDoCreateChild(IN PHHIVE Hive,
                                    *KeyCell,
                                    KeyNode,
                                    ParentKcb,
-                                   0, // CMP_LOCK_HASHES_FOR_KCB,
+                                   CMP_LOCK_HASHES_FOR_KCB,
                                    Name);
     if (!Kcb)
     {
@@ -360,26 +359,6 @@ CmpDoCreateChild(IN PHHIVE Hive,
     
     /* Link it with the KCB */
     EnlistKeyBodyWithKCB(KeyBody, 0);
-
-    /* Assign security */
-    Status = SeAssignSecurity(ParentDescriptor,
-                              AccessState->SecurityDescriptor,
-                              &NewDescriptor,
-                              TRUE,
-                              &AccessState->SubjectSecurityContext,
-                              &CmpKeyObjectType->TypeInfo.GenericMapping,
-                              CmpKeyObjectType->TypeInfo.PoolType);
-    if (NT_SUCCESS(Status))
-    {
-        Status = CmpSecurityMethod(*Object,
-                                   AssignSecurityDescriptor,
-                                   NULL,
-                                   NewDescriptor,
-                                   NULL,
-                                   NULL,
-                                   CmpKeyObjectType->TypeInfo.PoolType,
-                                   &CmpKeyObjectType->TypeInfo.GenericMapping);
-    }
 
 Quickie:
     /* Check if we got here because of failure */
@@ -611,73 +590,37 @@ CmpDoOpen(IN PHHIVE Hive,
     /* If we have a KCB, make sure it's locked */
     //ASSERT(CmpIsKcbLockedExclusive(*CachedKcb));
 
-    /* Check if caller doesn't want to create a KCB */
-    if (ControlFlags & CMP_OPEN_KCB_NO_CREATE)
+    /* Check if this is a symlink */
+    if ((Node->Flags & KEY_SYM_LINK) && !(Attributes & OBJ_OPENLINK))
     {
-        /* Check if this is a symlink */
-        if ((Node->Flags & KEY_SYM_LINK) && !(Attributes & OBJ_OPENLINK))
-        {
-            /* This case for a cached KCB is not implemented yet */
-            ASSERT(FALSE);
-        }
-
-        /* The caller wants to open a cached KCB */
-        if (!CmpReferenceKeyControlBlock(*CachedKcb))
-        {
-            /* Release the registry lock */
-            CmpUnlockRegistry();
-
-            /* Return failure code */
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        /* Our kcb is that one */
-        Kcb = *CachedKcb;
-    }
-    else
-    {
-        /* Check if this is a symlink */
-        if ((Node->Flags & KEY_SYM_LINK) && !(Attributes & OBJ_OPENLINK))
-        {
-            /* Create the KCB for the symlink */
-            Kcb = CmpCreateKeyControlBlock(Hive,
-                                           Cell,
-                                           Node,
-                                           *CachedKcb,
-                                           0,
-                                           KeyName);
-            if (!Kcb)
-            {
-                /* Release registry lock and return failure */
-                CmpUnlockRegistry();
-                return STATUS_INSUFFICIENT_RESOURCES;
-            }
-
-            /* Make sure it's also locked, and set the pointer */
-            //ASSERT(CmpIsKcbLockedExclusive(Kcb));
-            *CachedKcb = Kcb;
-
-            /* Release the registry lock */
-            CmpUnlockRegistry();
-
-            /* Return reparse required */
-            return STATUS_REPARSE;
-        }
-
-        /* Create the KCB. FIXME: Use lock flag */
+        /* Create the KCB for the symlink */
         Kcb = CmpCreateKeyControlBlock(Hive,
                                        Cell,
                                        Node,
                                        *CachedKcb,
                                        0,
                                        KeyName);
-        if (!Kcb)
-        {
-            /* Release registry lock and return failure */
-            CmpUnlockRegistry();
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
+        if (!Kcb) return STATUS_INSUFFICIENT_RESOURCES;
+
+        /* Make sure it's also locked, and set the pointer */
+        //ASSERT(CmpIsKcbLockedExclusive(Kcb));
+        *CachedKcb = Kcb;
+
+        /* Release the registry lock */
+        CmpUnlockRegistry();
+
+        /* Return reparse required */
+        return STATUS_REPARSE;
     }
+
+    /* Create the KCB. FIXME: Use lock flag */
+    Kcb = CmpCreateKeyControlBlock(Hive,
+                                   Cell,
+                                   Node,
+                                   *CachedKcb,
+                                   0,
+                                   KeyName);
+    if (!Kcb) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Make sure it's also locked, and set the pointer */
     //ASSERT(CmpIsKcbLockedExclusive(Kcb));
@@ -701,22 +644,12 @@ CmpDoOpen(IN PHHIVE Hive,
         /* Get the key body and fill it out */
         KeyBody = (PCM_KEY_BODY)(*Object);       
         KeyBody->KeyControlBlock = Kcb;
-        KeyBody->Type = '20yk';
+        KeyBody->Type = TAG('k', 'y', '0', '2');
         KeyBody->ProcessID = PsGetCurrentProcessId();
         KeyBody->NotifyBlock = NULL;
         
         /* Link to the KCB */
         EnlistKeyBodyWithKCB(KeyBody, 0);
-
-        if (!ObCheckObjectAccess(*Object,
-                                 AccessState,
-                                 FALSE,
-                                 AccessMode,
-                                 &Status))
-        {
-            /* Access check failed */
-            ObDereferenceObject(*Object);
-        }
     }
     else
     {
@@ -1035,13 +968,7 @@ CmpBuildHashStackAndLookupCache(IN PCM_KEY_BODY ParseObject,
     /* Return hive and cell data */
     *Hive = (*Kcb)->KeyHive;
     *Cell = (*Kcb)->KeyCell;
-
-    /* Make sure it's not a dead KCB */
-    ASSERT((*Kcb)->RefCount > 0);
-
-    /* Reference it */
-    (VOID)CmpReferenceKeyControlBlock(*Kcb);
-
+    
     /* Return success for now */
     return STATUS_SUCCESS;
 }
@@ -1115,14 +1042,10 @@ CmpParseKey(IN PVOID ParseObject,
     
     /* Check if everything was found cached */
     if (!TotalRemainingSubkeys) ASSERTMSG("Caching not implemented", FALSE);
-
+    
     /* Don't do anything if we're being deleted */
-    if (Kcb->Delete)
-    {
-        Status = STATUS_OBJECT_NAME_NOT_FOUND;
-        goto Quickie;
-    }
-
+    if (Kcb->Delete) return STATUS_OBJECT_NAME_NOT_FOUND;
+    
     /* Check if this is a symlink */
     if (Kcb->Flags & KEY_SYM_LINK)
     {
@@ -1169,12 +1092,8 @@ CmpParseKey(IN PVOID ParseObject,
     
     /* Get the key node */
     Node = (PCM_KEY_NODE)HvGetCell(Hive, Cell);
-    if (!Node)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto Quickie;
-    }
-
+    if (!Node) return STATUS_INSUFFICIENT_RESOURCES;
+    
     /* Start parsing */
     Status = STATUS_NOT_IMPLEMENTED;
     while (TRUE)
@@ -1261,7 +1180,7 @@ CmpParseKey(IN PVOID ParseObject,
                     if (!Kcb) ASSERT(FALSE);
                     
                     /* Dereference the parent and set the new one */
-                    CmpDereferenceKeyControlBlock(ParentKcb);
+                    //CmpDereferenceKeyControlBlock(ParentKcb);
                     ParentKcb = Kcb;
                 }
                 else
@@ -1366,7 +1285,10 @@ CmpParseKey(IN PVOID ParseObject,
                                   &CellToRelease);
                 if (!Node) ASSERT(FALSE);
             }
-
+            
+            /* FIXME: This hack seems required? */
+            RtlInitUnicodeString(&NextName, L"\\REGISTRY");
+            
             /* Do the open */
             Status = CmpDoOpen(Hive,
                                Cell,
@@ -1375,7 +1297,7 @@ CmpParseKey(IN PVOID ParseObject,
                                AccessMode,
                                Attributes,
                                ParseContext,
-                               CMP_OPEN_KCB_NO_CREATE /* | CMP_CREATE_KCB_KCB_LOCKED */,
+                               0,
                                &Kcb,
                                &NextName,
                                Object);
@@ -1397,7 +1319,7 @@ CmpParseKey(IN PVOID ParseObject,
 
     /* Dereference the parent if it exists */
 Quickie:
-    if (ParentKcb) CmpDereferenceKeyControlBlock(ParentKcb);
+    //if (ParentKcb) CmpDereferenceKeyControlBlock(ParentKcb);
     
     /* Unlock the registry */
     CmpUnlockRegistry();

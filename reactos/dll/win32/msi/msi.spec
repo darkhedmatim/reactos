@@ -22,8 +22,8 @@
 26 stdcall MsiDatabaseGetPrimaryKeysW(long wstr ptr)
 27 stdcall MsiDatabaseImportA(str str long)
 28 stdcall MsiDatabaseImportW(wstr wstr long)
-29 stdcall MsiDatabaseMergeA(long long str)
-30 stdcall MsiDatabaseMergeW(long long wstr)
+29 stub MsiDatabaseMergeA
+30 stub MsiDatabaseMergeW
 31 stdcall MsiDatabaseOpenViewA(long str ptr)
 32 stdcall MsiDatabaseOpenViewW(long wstr ptr)
 33 stdcall MsiDoActionA(long str)
@@ -60,10 +60,10 @@
 64 stdcall MsiGetMode(long long)
 65 stdcall MsiGetProductCodeA(str str)
 66 stdcall MsiGetProductCodeW(wstr wstr)
-67 stdcall MsiGetProductInfoA(str str ptr long)
+67 stdcall MsiGetProductInfoA(str str str long)
 68 stub MsiGetProductInfoFromScriptA
 69 stub MsiGetProductInfoFromScriptW
-70 stdcall MsiGetProductInfoW(wstr wstr ptr long)
+70 stdcall MsiGetProductInfoW(wstr wstr wstr long)
 71 stdcall MsiGetProductPropertyA(long str ptr ptr)
 72 stdcall MsiGetProductPropertyW(long wstr ptr ptr)
 73 stdcall MsiGetPropertyA(ptr str ptr ptr)
@@ -77,7 +77,7 @@
 81 stdcall MsiGetUserInfoA(str ptr ptr ptr ptr ptr ptr)
 82 stdcall MsiGetUserInfoW(wstr ptr ptr ptr ptr ptr ptr)
 83 stub MsiInstallMissingComponentA
-84 stdcall MsiInstallMissingComponentW(wstr wstr long)
+84 stub MsiInstallMissingComponentW
 85 stub MsiInstallMissingFileA
 86 stub MsiInstallMissingFileW
 87 stdcall MsiInstallProductA(str str)
@@ -187,8 +187,8 @@
 191 stub MsiInvalidateFeatureCache
 192 stdcall MsiUseFeatureExA(str str long long)
 193 stdcall MsiUseFeatureExW(wstr wstr long long)
-194 stdcall MsiGetFileVersionA(str ptr ptr ptr ptr)
-195 stdcall MsiGetFileVersionW(wstr ptr ptr ptr ptr)
+194 stdcall MsiGetFileVersionA(str str ptr str ptr)
+195 stdcall MsiGetFileVersionW(wstr wstr ptr wstr ptr)
 196 stdcall MsiLoadStringA(long long long long long)
 197 stdcall MsiLoadStringW(long long long long long)
 198 stdcall MsiMessageBoxA(long long long long long long)
@@ -207,8 +207,8 @@
 211 stdcall MsiSourceListAddSourceW(wstr wstr long wstr)
 212 stub MsiSourceListForceResolutionA
 213 stub MsiSourceListForceResolutionW
-214 stdcall MsiIsProductElevatedA(str ptr)
-215 stdcall MsiIsProductElevatedW(wstr ptr)
+214 stub MsiIsProductElevatedA
+215 stub MsiIsProductElevatedW
 216 stdcall MsiGetShortcutTargetA(str ptr ptr ptr)
 217 stdcall MsiGetShortcutTargetW(wstr ptr ptr ptr)
 218 stdcall MsiGetFileHashA(str long ptr)
@@ -232,49 +232,49 @@
 236 stub Migrate10CachedPackagesW
 237 stub MsiRemovePatchesA
 238 stub MsiRemovePatchesW
-239 stdcall MsiApplyMultiplePatchesA(str str str)
-240 stdcall MsiApplyMultiplePatchesW(wstr wstr wstr)
+239 stub MsiApplyMultiplePatchesA
+240 stub MsiApplyMultiplePatchesW
 241 stub MsiExtractPatchXMLDataA
 242 stub MsiExtractPatchXMLDataW
-243 stdcall MsiGetPatchInfoExA(str str str long str ptr ptr)
-244 stdcall MsiGetPatchInfoExW(wstr wstr wstr long wstr ptr ptr)
+243 stub MsiGetPatchInfoExA
+244 stub MsiGetPatchInfoExW
 245 stdcall MsiEnumProductsExA(str str long long ptr ptr ptr ptr)
 246 stdcall MsiEnumProductsExW(wstr wstr long long ptr ptr ptr ptr)
-247 stdcall MsiGetProductInfoExA(str str long str ptr ptr)
-248 stdcall MsiGetProductInfoExW(wstr wstr long wstr ptr ptr)
+247 stub MsiGetProductInfoExA
+248 stub MsiGetProductInfoExW
 249 stdcall MsiQueryComponentStateA(str str long str ptr)
 250 stdcall MsiQueryComponentStateW(wstr wstr long wstr ptr)
 251 stub MsiQueryFeatureStateExA
 252 stub MsiQueryFeatureStateExW
-253 stdcall MsiDeterminePatchSequenceA(str str long long ptr)
-254 stdcall MsiDeterminePatchSequenceW(wstr wstr long long ptr)
+253 stub MsiDeterminePatchSequenceA
+254 stub MsiDeterminePatchSequenceW
 255 stdcall MsiSourceListAddSourceExA(str str long long str long)
 256 stdcall MsiSourceListAddSourceExW(wstr wstr long long wstr long)
-257 stdcall MsiSourceListClearSourceA(str str long long str)
-258 stdcall MsiSourceListClearSourceW(wstr wstr long long wstr)
-259 stdcall MsiSourceListClearAllExA(str str long long)
-260 stdcall MsiSourceListClearAllExW(wstr wstr long long)
+257 stub MsiSourceListClearSourceA
+258 stub MsiSourceListClearSourceW
+259 stub MsiSourceListClearAllExA
+260 stub MsiSourceListClearAllExW
 261 stub MsiSourceListForceResolutionExA
 262 stub MsiSourceListForceResolutionExW
 263 stdcall MsiSourceListEnumSourcesA(str str long long long ptr ptr)
-264 stdcall MsiSourceListEnumSourcesW(wstr wstr long long long ptr ptr)
+264 stub MsiSourceListEnumSourcesW
 265 stdcall MsiSourceListGetInfoA(str str long long str ptr ptr)
 266 stdcall MsiSourceListGetInfoW(wstr wstr long long wstr ptr ptr)
-267 stdcall MsiSourceListSetInfoA(str str long long str str)
+267 stub MsiSourceListSetInfoA
 268 stdcall MsiSourceListSetInfoW(wstr wstr long long wstr wstr)
-269 stdcall MsiEnumPatchesExA(str str long long long ptr ptr ptr ptr ptr)
-270 stdcall MsiEnumPatchesExW(wstr wstr long long long ptr ptr ptr ptr ptr)
-271 stdcall MsiSourceListEnumMediaDisksA(str str long long long ptr ptr ptr ptr ptr)
-272 stdcall MsiSourceListEnumMediaDisksW(wstr wstr long long long ptr ptr ptr ptr ptr)
-273 stdcall MsiSourceListAddMediaDiskA(str str long long long str str)
+269 stub MsiEnumPatchesExA
+270 stub MsiEnumPatchesExW
+271 stub MsiSourceListEnumMediaDisksA
+272 stub MsiSourceListEnumMediaDisksW
+273 stub MsiSourceListAddMediaDiskA
 274 stdcall MsiSourceListAddMediaDiskW(wstr wstr long long long wstr wstr)
 275 stub MsiSourceListClearMediaDiskA
 276 stub MsiSourceListClearMediaDiskW
-277 stdcall MsiDetermineApplicablePatchesA(str long ptr)
-278 stdcall MsiDetermineApplicablePatchesW(wstr long ptr)
+277 stub MsiDetermineApplicablePatchesA
+278 stub MsiDetermineApplicablePatchesW
 279 stub MsiMessageBoxExA
 280 stub MsiMessageBoxExW
-281 stdcall MsiSetExternalUIRecord(ptr long ptr ptr)
+281 stub MsiSetExternalUIRecord
 
 @ stdcall -private DllCanUnloadNow()
 @ stdcall -private DllGetClassObject(ptr ptr ptr)

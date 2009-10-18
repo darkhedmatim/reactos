@@ -13,14 +13,8 @@
 <directory name="keyboard">
 	<xi:include href="keyboard/keyboard.rbuild" />
 </directory>
-<directory name="nls">
-	<xi:include href="nls/nls.rbuild" />
-</directory>
 <directory name="ntdll">
 	<xi:include href="ntdll/ntdll.rbuild" />
-</directory>
-<directory name="shellext">
-	<xi:include href="shellext/shellext.rbuild" />
 </directory>
 <directory name="win32">
 	<xi:include href="win32/win32.rbuild" />

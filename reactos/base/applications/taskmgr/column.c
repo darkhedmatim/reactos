@@ -1,7 +1,7 @@
 /*
  *  ReactOS Task Manager
  *
- *  column.c
+ *  column.cpp
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
  *                2005         Klemens Friedl <frik85@reactos.at>
@@ -24,6 +24,7 @@
 #include <precomp.h>
 
 UINT    ColumnDataHints[COLUMN_NMAX];
+WCHAR       szTemp[256];
 
 #define DECLARE_COLUMN_PRESET(_name, _size, _state) \
     { IDS_TAB_##_name, IDC_##_name, _size, _state },
@@ -56,7 +57,7 @@ const PresetColumnEntry ColumnPresets[COLUMN_NMAX] = {
     DECLARE_COLUMN_PRESET(IOOTHERBYTES,      70, FALSE)
 };
 
-static int          InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem);
+int                 InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem);
 INT_PTR CALLBACK    ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 void AddColumns(void)
@@ -78,7 +79,7 @@ void AddColumns(void)
     UpdateColumnDataHints();
 }
 
-static int InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem)
+int InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem)
 {
     LVCOLUMN  column;
 
@@ -106,7 +107,6 @@ void SaveColumnSettings(void)
     HDITEM        hditem;
     int           i, n;
     WCHAR         text[260];
-    WCHAR         szTemp[256];
     LRESULT       size;
 
     /* Reset column data */

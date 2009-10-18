@@ -72,6 +72,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     case DLL_PROCESS_ATTACH:
         msi_hInstance = hinstDLL;
         DisableThreadLibraryCalls(hinstDLL);
+        msi_dialog_register_class();
         break;
     case DLL_PROCESS_DETACH:
         if (msi_typelib) ITypeLib_Release( msi_typelib );
@@ -201,19 +202,19 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 
     if ( IsEqualCLSID (rclsid, &CLSID_IMsiServerX2) )
     {
-        *ppv = &MsiServer_CF;
+        *ppv = (LPVOID) &MsiServer_CF;
         return S_OK;
     }
 
     if ( IsEqualCLSID (rclsid, &CLSID_IWineMsiRemoteCustomAction) )
     {
-        *ppv = &WineMsiCustomRemote_CF;
+        *ppv = (LPVOID) &WineMsiCustomRemote_CF;
         return S_OK;
     }
 
     if ( IsEqualCLSID (rclsid, &CLSID_IWineMsiRemotePackage) )
     {
-        *ppv = &WineMsiRemotePackage_CF;
+        *ppv = (LPVOID) &WineMsiRemotePackage_CF;
         return S_OK;
     }
 

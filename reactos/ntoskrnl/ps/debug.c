@@ -11,11 +11,22 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
+
+/* GLOBALS *****************************************************************/
+
+/* Thread "Set/Get Context" Context Structure */
+typedef struct _GET_SET_CTX_CONTEXT
+{
+    KAPC Apc;
+    KEVENT Event;
+    KPROCESSOR_MODE Mode;
+    CONTEXT Context;
+} GET_SET_CTX_CONTEXT, *PGET_SET_CTX_CONTEXT;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-#if DBG
+#ifdef DBG
 VOID
 NTAPI
 PspDumpThreads(BOOLEAN IncludeSystem)
@@ -78,10 +89,10 @@ PspDumpThreads(BOOLEAN IncludeSystem)
                     /* Print a new line if there's nothing */
                     if((i % 8) != 0) DbgPrint("\n");
                 }
-
-                /* Move to the next Thread */
-                CurrentThread = CurrentThread->Flink;
             }
+
+            /* Move to the next Thread */
+         CurrentThread = CurrentThread->Flink;
         }
 
         /* Move to the next Process */
@@ -89,6 +100,62 @@ PspDumpThreads(BOOLEAN IncludeSystem)
     }
 }
 #endif
+
+VOID
+NTAPI
+PspGetOrSetContextKernelRoutine(IN PKAPC Apc,
+                                IN OUT PKNORMAL_ROUTINE* NormalRoutine,
+                                IN OUT PVOID* NormalContext,
+                                IN OUT PVOID* SystemArgument1,
+                                IN OUT PVOID* SystemArgument2)
+{
+#if defined(_M_IX86)
+    PGET_SET_CTX_CONTEXT GetSetContext;
+    PKEVENT Event;
+    PCONTEXT Context;
+    PKTHREAD Thread;
+    KPROCESSOR_MODE Mode;
+    PKTRAP_FRAME TrapFrame;
+    PAGED_CODE();
+
+    /* Get the Context Structure */
+    GetSetContext = CONTAINING_RECORD(Apc, GET_SET_CTX_CONTEXT, Apc);
+    Context = &GetSetContext->Context;
+    Event = &GetSetContext->Event;
+    Mode = GetSetContext->Mode;
+    Thread = Apc->SystemArgument2;
+
+    /* Get the trap frame */
+    TrapFrame = (PKTRAP_FRAME)((ULONG_PTR)KeGetCurrentThread()->InitialStack -
+                               sizeof (FX_SAVE_AREA) - sizeof (KTRAP_FRAME));
+
+    /* Sanity check */
+    ASSERT(((TrapFrame->SegCs & MODE_MASK) != KernelMode) ||
+        (TrapFrame->EFlags & EFLAGS_V86_MASK));
+
+    /* Check if it's a set or get */
+    if (SystemArgument1)
+    {
+        /* Get the Context */
+        KeTrapFrameToContext(TrapFrame, NULL, Context);
+    }
+    else
+    {
+        /* Set the Context */
+        KeContextToTrapFrame(Context,
+                             NULL,
+                             TrapFrame,
+                             Context->ContextFlags,
+                             Mode);
+    }
+
+    /* Notify the Native API that we are done */
+    KeSetEvent(Event, IO_NO_INCREMENT, FALSE);
+#else
+    DPRINT1("PspGetOrSetContextKernelRoutine() not implemented!");
+    for (;;);
+#endif
+}
 
 /* PUBLIC FUNCTIONS **********************************************************/
 
@@ -103,10 +170,10 @@ PsGetContextThread(IN PETHREAD Thread,
 {
     GET_SET_CTX_CONTEXT GetSetContext;
     ULONG Size = 0, Flags = 0;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set default ength */
         Size = sizeof(CONTEXT);
@@ -131,12 +198,15 @@ PsGetContextThread(IN PETHREAD Thread,
             ProbeForWrite(ThreadContext, Size, sizeof(ULONG));
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get exception code */
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
+
+    /* Check if we got success */
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Initialize the wait event */
     KeInitializeEvent(&GetSetContext.Event, NotificationEvent, FALSE);
@@ -164,9 +234,6 @@ PsGetContextThread(IN PETHREAD Thread,
 
         /* Leave the guarded region */
         KeLeaveGuardedRegion();
-
-        /* We are done */
-        Status = STATUS_SUCCESS;
     }
     else
     {
@@ -197,17 +264,16 @@ PsGetContextThread(IN PETHREAD Thread,
         }
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Copy the context */
         RtlCopyMemory(ThreadContext, &GetSetContext.Context, Size);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status */
     return Status;
@@ -224,10 +290,10 @@ PsSetContextThread(IN PETHREAD Thread,
 {
     GET_SET_CTX_CONTEXT GetSetContext;
     ULONG Size = 0, Flags = 0;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set default length */
         Size = sizeof(CONTEXT);
@@ -255,12 +321,15 @@ PsSetContextThread(IN PETHREAD Thread,
         /* Copy the context */
         RtlCopyMemory(&GetSetContext.Context, ThreadContext, Size);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get exception code */
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
+
+    /* Check if we got success */
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Initialize the wait event */
     KeInitializeEvent(&GetSetContext.Event, NotificationEvent, FALSE);
@@ -288,9 +357,6 @@ PsSetContextThread(IN PETHREAD Thread,
 
         /* Leave the guarded region */
         KeLeaveGuardedRegion();
-
-        /* We are done */
-        Status = STATUS_SUCCESS;
     }
     else
     {
@@ -343,8 +409,6 @@ NtGetContextThread(IN HANDLE ThreadHandle,
                                        (PVOID*)&Thread,
                                        NULL);
 
-    if (!NT_SUCCESS(Status)) return Status;
-
     /* Make sure it's not a system thread */
     if (Thread->SystemThread)
     {
@@ -379,8 +443,6 @@ NtSetContextThread(IN HANDLE ThreadHandle,
                                        PreviousMode,
                                        (PVOID*)&Thread,
                                        NULL);
-
-    if (!NT_SUCCESS(Status)) return Status;
 
     /* Make sure it's not a system thread */
     if (Thread->SystemThread)

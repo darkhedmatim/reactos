@@ -26,13 +26,14 @@
  */
 
 
-#include "main/api_arrayelt.h"
-#include "main/glheader.h"
-#include "main/imports.h"
-#include "main/context.h"
-#include "main/macros.h"
-#include "main/mtypes.h"
-#include "main/vtxfmt.h"
+#include "api_arrayelt.h"
+#include "glheader.h"
+#include "imports.h"
+#include "context.h"
+#include "macros.h"
+#include "mtypes.h"
+#include "dlist.h"
+#include "vtxfmt.h"
 
 #include "vbo_context.h"
 

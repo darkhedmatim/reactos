@@ -1,20 +1,17 @@
-<group>
-<module name="msxml3" type="win32dll" baseaddress="${BASEADDRESS_MSXML3}" installbase="system32" installname="msxml3.dll" allowwarnings="true" crt="msvcrt">
+<module name="msxml3" type="win32dll" baseaddress="${BASEADDRESS_MSXML3}" installbase="system32" installname="msxml3.dll" allowwarnings="true">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
-	<importlibrary definition="msxml3.spec" />
+	<importlibrary definition="msxml3.spec.def" />
 	<include base="msxml3">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
-	<include base="msxml3" root="intermediate">.</include>
-	<dependency>msxml3_v1</dependency>
+	<define name="__REACTOS__" />
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
-	<redefine name="_WIN32_WINNT">0x601</redefine>
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x600</define>
+	<define name="_WIN32_WINNT">0x601</define>
+	<define name="WINVER">0x501</define>
 	<define name="LIBXML_STATIC" />
-	<compilerflag compilerset="msc">/FIwine/typeof.h</compilerflag>
 	<library>libxml2</library>
-	<library>libxslt</library>
 	<library>wine</library>
-	<library>wineldr</library>
 	<library>urlmon</library>
 	<library>wininet</library>
 	<library>ws2_32</library>
@@ -37,7 +34,6 @@
 	<file>element.c</file>
 	<file>factory.c</file>
 	<file>main.c</file>
-	<file>httprequest.c</file>
 	<file>node.c</file>
 	<file>nodelist.c</file>
 	<file>nodemap.c</file>
@@ -50,17 +46,5 @@
 	<file>uuid.c</file>
 	<file>xmldoc.c</file>
 	<file>xmlelem.c</file>
-	<file>saxreader.c</file>
-	<file>bsc.c</file>
-	<file>cdata.c</file>
-	<file>dispex.c</file>
-	<file>docfrag.c</file>
-	<file>domimpl.c</file>
-	<file>entityref.c</file>
-	<file>version.rc</file>
+	<file>msxml3.spec</file>
 </module>
-<module name="msxml3_v1" type="embeddedtypelib">
-	<dependency>stdole2</dependency>
-	<file>msxml3_v1.idl</file>
-</module>
-</group>

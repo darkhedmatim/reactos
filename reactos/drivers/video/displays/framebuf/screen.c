@@ -20,10 +20,6 @@
 
 #include "framebuf.h"
 
-static LOGFONTW SystemFont = { 16, 7, 0, 0, 700, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, VARIABLE_PITCH | FF_DONTCARE, L"System" };
-static LOGFONTW AnsiVariableFont = { 12, 9, 0, 0, 400, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_STROKE_PRECIS, PROOF_QUALITY, VARIABLE_PITCH | FF_DONTCARE, L"MS Sans Serif" };
-static LOGFONTW AnsiFixedFont = { 12, 9, 0, 0, 400, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_STROKE_PRECIS, PROOF_QUALITY, FIXED_PITCH | FF_DONTCARE, L"Courier" };
-
 /*
  * GetAvailableModes
  *
@@ -122,6 +118,9 @@ IntInitScreenInfo(
    ULONG ModeInfoSize;
    PVIDEO_MODE_INFORMATION ModeInfo, ModeInfoPtr, SelectedMode = NULL;
    VIDEO_COLOR_CAPABILITIES ColorCapabilities;
+   LOGFONTW SystemFont = {16, 7, 0, 0, 700, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, VARIABLE_PITCH | FF_DONTCARE, L"System"};
+   LOGFONTW AnsiVariableFont = {12, 9, 0, 0, 400, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_STROKE_PRECIS, PROOF_QUALITY, VARIABLE_PITCH | FF_DONTCARE, L"MS Sans Serif"};
+   LOGFONTW AnsiFixedFont = {12, 9, 0, 0, 400, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_STROKE_PRECIS, PROOF_QUALITY, FIXED_PITCH | FF_DONTCARE, L"Courier"};
    ULONG Temp;
 
    /*
@@ -160,7 +159,7 @@ IntInitScreenInfo(
       while (ModeCount-- > 0)
       {
          if (ModeInfoPtr->Length > 0 &&
-             pDevMode->dmPelsWidth == ModeInfoPtr->VisScreenWidth &&
+	     pDevMode->dmPelsWidth == ModeInfoPtr->VisScreenWidth &&
              pDevMode->dmPelsHeight == ModeInfoPtr->VisScreenHeight &&
              pDevMode->dmBitsPerPel == (ModeInfoPtr->BitsPerPlane *
                                         ModeInfoPtr->NumberOfPlanes) &&

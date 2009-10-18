@@ -1,5 +1,5 @@
 /*
- * ReactOS Hungarian keyboard layout
+ * ReactOS HUASCII Keyboard layout
  * Copyright (C) 2003 ReactOS
  * License: LGPL, see: LGPL.txt
  *
@@ -329,6 +329,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   vk_to_wchar_master_table,
 
   /* diacritical marks -- currently implemented by wine code */
+  /* English doesn't have any, anyway */
   NULL,
 
   /* Key names */
@@ -344,13 +345,13 @@ ROSDATA KBDTABLES keyboard_layout_table = {
 
   MAKELONG(0,1), /* Version 1.0 */
 
-  /* Ligatures -- Hungarian doesn't have any */
+  /* Ligatures -- English doesn't have any */
   0,
   0,
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 

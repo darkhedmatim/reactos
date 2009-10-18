@@ -20,7 +20,38 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "wingdi.h"
+#include "winuser.h"
+
+#include "ole2.h"
+#include "shlguid.h"
+
+#include "enumidlist.h"
+#include "pidl.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shresdef.h"
+#include "shlwapi.h"
+#include "shellfolder.h"
+#include "wine/debug.h"
+#include "debughlp.h"
+#include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
@@ -47,7 +78,7 @@ typedef struct {
 
     UINT cfShellIDList;    /* clipboardformat for IDropTarget */
     BOOL fAcceptFmt;       /* flag for pending Drop */
-} IGenericSFImpl, *LPIGenericSFImpl;
+} IGenericSFImpl;
 
 static const IUnknownVtbl unkvt;
 static const IShellFolder2Vtbl sfvt;
@@ -55,24 +86,24 @@ static const IPersistFolder3Vtbl vt_FSFldr_PersistFolder3; /* IPersistFolder3 fo
 static const IDropTargetVtbl dtvt;
 static const ISFHelperVtbl shvt;
 
-static LPIGenericSFImpl __inline impl_from_IShellFolder2( IShellFolder2 *iface )
+static inline IGenericSFImpl *impl_from_IShellFolder2( IShellFolder2 *iface )
 {
-    return (LPIGenericSFImpl)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblShellFolder));
+    return (IGenericSFImpl *)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblShellFolder));
 }
 
-static LPIGenericSFImpl __inline impl_from_IPersistFolder3( IPersistFolder3 *iface )
+static inline IGenericSFImpl *impl_from_IPersistFolder3( IPersistFolder3 *iface )
 {
-    return (LPIGenericSFImpl)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblPersistFolder3));
+    return (IGenericSFImpl *)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblPersistFolder3));
 }
 
-static LPIGenericSFImpl __inline impl_from_IDropTarget( IDropTarget *iface )
+static inline IGenericSFImpl *impl_from_IDropTarget( IDropTarget *iface )
 {
-    return (LPIGenericSFImpl)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblDropTarget));
+    return (IGenericSFImpl *)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblDropTarget));
 }
 
-static LPIGenericSFImpl __inline impl_from_ISFHelper( ISFHelper *iface )
+static inline IGenericSFImpl *impl_from_ISFHelper( ISFHelper *iface )
 {
-    return (LPIGenericSFImpl)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblSFHelper));
+    return (IGenericSFImpl *)((char*)iface - FIELD_OFFSET(IGenericSFImpl, lpvtblSFHelper));
 }
 
 
@@ -374,7 +405,7 @@ IShellFolder_fnParseDisplayName (IShellFolder2 * iface,
         /* build the full pathname to the element */
         lstrcpynW(szPath, This->sPathTarget, MAX_PATH - 1);
         PathAddBackslashW(szPath);
-        len = wcslen(szPath);
+        len = lstrlenW(szPath);
         lstrcpynW(szPath + len, szElement, MAX_PATH - len);
 
         /* get the pidl */
@@ -622,17 +653,10 @@ IShellFolder_fnGetUIObjectOf (IShellFolder2 * iface,
 
         if (IsEqualIID (riid, &IID_IContextMenu) && (cidl >= 1)) {
             hr = CDefFolderMenu_Create2(This->pidlRoot, hwndOwner, cidl, apidl, (IShellFolder*)iface, NULL, 0, NULL, (IContextMenu**)&pObj);
-        } else if (IsEqualIID (riid, &IID_IDataObject)){
-			if (cidl >= 1) {
+        } else if (IsEqualIID (riid, &IID_IDataObject) && (cidl >= 1)) {
             pObj = (LPUNKNOWN) IDataObject_Constructor (hwndOwner,
              This->pidlRoot, apidl, cidl);
             hr = S_OK;
-			}
-			else
-			{
-                pObj = (LPUNKNOWN) IDataObject_Constructor (hwndOwner, This->pidlRoot, (LPCITEMIDLIST*)&This->pidlRoot, 1);
-                hr = S_OK;
-			}
         } else if (IsEqualIID (riid, &IID_IExtractIconA) && (cidl == 1)) {
             pidl = ILCombine (This->pidlRoot, apidl[0]);
             pObj = (LPUNKNOWN) IExtractIconA_Constructor (pidl);
@@ -777,7 +801,7 @@ IShellFolder_fnGetDisplayNameOf (IShellFolder2 * iface, LPCITEMIDLIST pidl,
         {
             lstrcpynW(pszPath, This->sPathTarget, MAX_PATH);
             PathAddBackslashW(pszPath);
-            len = wcslen(pszPath);
+            len = lstrlenW(pszPath);
         }
         _ILSimpleGetTextW(pidl, pszPath + len, MAX_PATH + 1 - len);
         if (!_ILIsFolder(pidl)) SHELL_FS_ProcessDisplayFilename(pszPath, dwFlags);
@@ -849,22 +873,12 @@ static HRESULT WINAPI IShellFolder_fnSetNameOf (IShellFolder2 * iface,
     if(!(dwFlags & SHGDN_FORPARSING) && SHELL_FS_HideExtension(szSrc)) {
         WCHAR *ext = PathFindExtensionW(szSrc);
         if(*ext != '\0') {
-            INT len = wcslen(szDest);
+            INT len = strlenW(szDest);
             lstrcpynW(szDest + len, ext, MAX_PATH - len);
         }
     }
 
     TRACE ("src=%s dest=%s\n", debugstr_w(szSrc), debugstr_w(szDest));
-    if (!memcmp(szSrc, szDest, (wcslen(szDest)+1) * sizeof(WCHAR)))
-    {
-        /* src and destination is the same */
-        HRESULT hr = S_OK;
-        if (pPidlOut)
-            hr = _ILCreateFromPathW(szDest, pPidlOut);
-
-        return hr;
-    }
-
 
     if (MoveFileW (szSrc, szDest)) {
         HRESULT hr = S_OK;
@@ -1089,7 +1103,7 @@ next:
          dwFetched) {
             _ILSimpleGetTextW (pidl, wszText, MAX_PATH);
             if (0 == lstrcmpiW (wszText, pwszName)) {
-                _snwprintf (pwszName, uLen, wszFormat, wszNewFolder, i++);
+                snprintfW (pwszName, uLen, wszFormat, wszNewFolder, i++);
                 if (i > 99) {
                     hr = E_FAIL;
                     break;
@@ -1143,7 +1157,7 @@ ISFHelper_fnAddFolder (ISFHelper * iface, HWND hwnd, LPCWSTR pwszName,
          sizeof (wszTempText));
         LoadStringW (shell32_hInstance, IDS_CREATEFOLDER_CAPTION, wszCaption,
          sizeof (wszCaption));
-        swprintf (wszText, wszTempText, wszNewDir);
+        sprintfW (wszText, wszTempText, wszNewDir);
         MessageBoxW (hwnd, wszText, wszCaption, MB_OK | MB_ICONEXCLAMATION);
     }
 
@@ -1163,7 +1177,7 @@ WCHAR *build_paths_list(LPCWSTR wszBasePath, int cidl, LPCITEMIDLIST *pidls)
     int iPathLen;
     int i;
 
-    iPathLen = wcslen(wszBasePath);
+    iPathLen = lstrlenW(wszBasePath);
     wszPathsList = HeapAlloc(GetProcessHeap(), 0, MAX_PATH*sizeof(WCHAR)*cidl+1);
     wszListPos = wszPathsList;
 
@@ -1174,7 +1188,7 @@ WCHAR *build_paths_list(LPCWSTR wszBasePath, int cidl, LPCITEMIDLIST *pidls)
         lstrcpynW(wszListPos, wszBasePath, MAX_PATH);
         /* FIXME: abort if path too long */
         _ILSimpleGetTextW(pidls[i], wszListPos+iPathLen, MAX_PATH-iPathLen);
-        wszListPos += wcslen(wszListPos)+1;
+        wszListPos += lstrlenW(wszListPos)+1;
     }
     *wszListPos=0;
     return wszPathsList;
@@ -1240,7 +1254,7 @@ ISFHelper_fnDeleteItems (ISFHelper * iface, UINT cidl, LPCITEMIDLIST * apidl)
             SHFree(pidl);
         }
 
-        wszCurrentPath += wcslen(wszCurrentPath)+1;
+        wszCurrentPath += lstrlenW(wszCurrentPath)+1;
     }
     HeapFree(GetProcessHeap(), 0, wszPathsList);
     return ret;
@@ -1255,128 +1269,39 @@ static HRESULT WINAPI
 ISFHelper_fnCopyItems (ISFHelper * iface, IShellFolder * pSFFrom, UINT cidl,
                        LPCITEMIDLIST * apidl)
 {
+    UINT i;
     IPersistFolder2 *ppf2 = NULL;
-    WCHAR szSrcPath[MAX_PATH];
-    WCHAR szTargetPath[MAX_PATH];
-    SHFILEOPSTRUCTW op;
-    LPITEMIDLIST pidl;
-    LPWSTR pszSrc, pszTarget, pszSrcList, pszTargetList, pszFileName;
-    int res, length;
-    HRESULT hr;
-    STRRET strRet;
+    char szSrcPath[MAX_PATH],
+      szDstPath[MAX_PATH];
 
     IGenericSFImpl *This = impl_from_ISFHelper(iface);
 
     TRACE ("(%p)->(%p,%u,%p)\n", This, pSFFrom, cidl, apidl);
 
-    hr = IShellFolder_QueryInterface (pSFFrom, &IID_IPersistFolder2, (LPVOID *) & ppf2);
-    if (SUCCEEDED(hr))
-    {
-        if (FAILED(IPersistFolder2_GetCurFolder (ppf2, &pidl)))
-        {
-            IPersistFolder2_Release(ppf2);
-            return E_FAIL;
-        }
-        IPersistFolder2_Release(ppf2);
+    IShellFolder_QueryInterface (pSFFrom, &IID_IPersistFolder2,
+     (LPVOID *) & ppf2);
+    if (ppf2) {
+        LPITEMIDLIST pidl;
 
-        if (FAILED(IShellFolder_GetDisplayNameOf(pSFFrom, pidl, SHGDN_FORPARSING, &strRet)))
-        {
-            SHFree (pidl);
-            return E_FAIL;
-        }
+        if (SUCCEEDED (IPersistFolder2_GetCurFolder (ppf2, &pidl))) {
+            for (i = 0; i < cidl; i++) {
+                SHGetPathFromIDListA (pidl, szSrcPath);
+                PathAddBackslashA (szSrcPath);
+                _ILSimpleGetText (apidl[i], szSrcPath + strlen (szSrcPath),
+                 MAX_PATH);
 
-        if (FAILED(StrRetToBufW(&strRet, pidl, szSrcPath, MAX_PATH)))
-        {
-            SHFree (pidl);
-            return E_FAIL;
-        }
-        SHFree (pidl);
-
-        pszSrc = PathAddBackslashW (szSrcPath);
-
-        wcscpy(szTargetPath, This->sPathTarget);
-        pszTarget = PathAddBackslashW (szTargetPath);
-
-        pszSrcList = build_paths_list(szSrcPath, cidl, apidl);
-        pszTargetList = build_paths_list(szTargetPath, cidl, apidl);
-
-        if (!pszSrcList || !pszTargetList)
-        {
-            if (pszSrcList)
-                HeapFree(GetProcessHeap(), 0, pszSrcList);
-
-            if (pszTargetList)
-                HeapFree(GetProcessHeap(), 0, pszTargetList);
-
-            SHFree (pidl);
-            IPersistFolder2_Release (ppf2);
-            return E_OUTOFMEMORY;
-        }
-        ZeroMemory(&op, sizeof(op));
-        if (!pszSrcList[0])
-        {
-            /* remove trailing backslash */
-            pszSrc--;
-            pszSrc[0] = L'\0';
-            op.pFrom = szSrcPath;
-        }
-        else
-        {
-            op.pFrom = pszSrcList;
-        }
-
-        if (!pszTargetList[0])
-        {
-            /* remove trailing backslash */
-            if (pszTarget - szTargetPath > 3)
-            {
-                pszTarget--;
-                pszTarget[0] = L'\0';
+                if (!WideCharToMultiByte(CP_ACP, 0, This->sPathTarget, -1, szDstPath, MAX_PATH, NULL, NULL))
+                    szDstPath[0] = '\0';
+                PathAddBackslashA (szDstPath);
+                _ILSimpleGetText (apidl[i], szDstPath + strlen (szDstPath),
+                 MAX_PATH);
+                MESSAGE ("would copy %s to %s\n", szSrcPath, szDstPath);
             }
-            else
-            {
-                pszTarget[1] = L'\0';
-            }
-
-            op.pTo = szTargetPath;
+            SHFree (pidl);
         }
-        else
-        {
-            op.pTo = pszTargetList;
-        }
-        op.hwnd = GetActiveWindow();
-        op.wFunc = FO_COPY;
-        op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMMKDIR;
-
-        res = SHFileOperationW(&op);
-
-        if (res == DE_SAMEFILE)
-        {
-            length = wcslen(szTargetPath);
-
-            pszFileName = wcsrchr(pszSrcList, '\\');
-            pszFileName++;
-
-            if (LoadStringW(shell32_hInstance, IDS_COPY_OF, pszTarget, MAX_PATH - length))
-            {
-                wcscat(szTargetPath, L" ");
-            }
-
-            wcscat(szTargetPath, pszFileName);
-            op.pTo = szTargetPath;
-
-            res = SHFileOperationW(&op);
-        }
-
-        HeapFree(GetProcessHeap(), 0, pszSrcList);
-        HeapFree(GetProcessHeap(), 0, pszTargetList);
-
-        if (res)
-            return E_FAIL;
-        else
-            return S_OK;
+        IPersistFolder2_Release (ppf2);
     }
-    return E_FAIL;
+    return S_OK;
 }
 
 static const ISFHelperVtbl shvt =
@@ -1473,7 +1398,7 @@ IFSFldr_PersistFolder3_Initialize (IPersistFolder3 * iface, LPCITEMIDLIST pidl)
 
     /* set my path */
     if (SHGetPathFromIDListW (pidl, wszTemp)) {
-        int len = wcslen(wszTemp);
+        int len = strlenW(wszTemp);
         This->sPathTarget = SHAlloc((len + 1) * sizeof(WCHAR));
         if (!This->sPathTarget)
             return E_OUTOFMEMORY;
@@ -1543,14 +1468,14 @@ IFSFldr_PersistFolder3_InitializeEx (IPersistFolder3 * iface,
         if (ppfti->csidl != -1) {
             if (SHGetSpecialFolderPathW (0, wszTemp, ppfti->csidl,
              ppfti->csidl & CSIDL_FLAG_CREATE)) {
-                int len = wcslen(wszTemp);
+                int len = strlenW(wszTemp);
                 This->sPathTarget = SHAlloc((len + 1) * sizeof(WCHAR));
                 if (!This->sPathTarget)
                     return E_OUTOFMEMORY;
                 memcpy(This->sPathTarget, wszTemp, (len + 1) * sizeof(WCHAR));
             }
         } else if (ppfti->szTargetParsingName[0]) {
-            int len = wcslen(ppfti->szTargetParsingName);
+            int len = strlenW(ppfti->szTargetParsingName);
             This->sPathTarget = SHAlloc((len + 1) * sizeof(WCHAR));
             if (!This->sPathTarget)
                 return E_OUTOFMEMORY;
@@ -1558,7 +1483,7 @@ IFSFldr_PersistFolder3_InitializeEx (IPersistFolder3 * iface,
                    (len + 1) * sizeof(WCHAR));
         } else if (ppfti->pidlTargetFolder) {
             if (SHGetPathFromIDListW(ppfti->pidlTargetFolder, wszTemp)) {
-                int len = wcslen(wszTemp);
+                int len = strlenW(wszTemp);
                 This->sPathTarget = SHAlloc((len + 1) * sizeof(WCHAR));
                 if (!This->sPathTarget)
                     return E_OUTOFMEMORY;

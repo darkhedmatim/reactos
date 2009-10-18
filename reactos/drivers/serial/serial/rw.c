@@ -16,10 +16,7 @@ SerialGetUserBuffer(IN PIRP Irp)
 {
 	ASSERT(Irp);
 
-	if (Irp->MdlAddress)
-		return Irp->MdlAddress;
-	else
-		return Irp->AssociatedIrp.SystemBuffer;
+	return Irp->AssociatedIrp.SystemBuffer;
 }
 
 static VOID
@@ -225,8 +222,8 @@ SerialRead(
 	if (WorkItem)
 	{
 		WorkItemData->IoWorkItem = WorkItem;
-		IoMarkIrpPending(Irp);
 		IoQueueWorkItem(WorkItem, SerialReadWorkItem, DelayedWorkQueue, WorkItemData);
+		IoMarkIrpPending(Irp);
 		return STATUS_PENDING;
 	}
 

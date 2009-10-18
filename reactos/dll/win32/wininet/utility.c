@@ -37,18 +37,9 @@
 
 #include "wine/debug.h"
 #include "internet.h"
+#define CP_UNIXCP CP_THREAD_ACP
 
 WINE_DEFAULT_DEBUG_CHANNEL(wininet);
-
-/* critical section to protect non-reentrant gethostbyname() */
-static CRITICAL_SECTION cs_gethostbyname;
-static CRITICAL_SECTION_DEBUG critsect_debug =
-{
-    0, 0, &cs_gethostbyname,
-    { &critsect_debug.ProcessLocksList, &critsect_debug.ProcessLocksList },
-      0, 0, { (DWORD_PTR)(__FILE__ ": cs_gethostbyname") }
-};
-static CRITICAL_SECTION cs_gethostbyname = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 #define TIME_STRING_LEN  30
 
@@ -81,7 +72,6 @@ time_t ConvertTimeString(LPCWSTR asctime)
     tmpChar[22]='\0';
     tmpChar[25]='\0';
 
-    memset( &t, 0, sizeof(t) );
     t.tm_year = atoiW(tmpChar+12) - 1900;
     t.tm_mday = atoiW(tmpChar+5);
     t.tm_hour = atoiW(tmpChar+17);
@@ -161,24 +151,20 @@ BOOL GetAddress(LPCWSTR lpszServerName, INTERNET_PORT nServerPort,
     name = HeapAlloc(GetProcessHeap(), 0, sz+1);
     WideCharToMultiByte( CP_UNIXCP, 0, lpszServerName, len, name, sz, NULL, NULL );
     name[sz] = 0;
-
-    EnterCriticalSection( &cs_gethostbyname );
     phe = gethostbyname(name);
     HeapFree( GetProcessHeap(), 0, name );
 
     if (NULL == phe)
     {
         TRACE("Failed to get hostname: (%s)\n", debugstr_w(lpszServerName) );
-        LeaveCriticalSection( &cs_gethostbyname );
         return FALSE;
     }
 
     memset(psa,0,sizeof(struct sockaddr_in));
     memcpy((char *)&psa->sin_addr, phe->h_addr, phe->h_length);
     psa->sin_family = phe->h_addrtype;
-    psa->sin_port = htons(nServerPort);
+    psa->sin_port = htons((u_short)nServerPort);
 
-    LeaveCriticalSection( &cs_gethostbyname );
     return TRUE;
 }
 

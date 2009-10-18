@@ -14,7 +14,6 @@
 #include <debug.h>
 
 SIZE_T RtlpAllocDeallocQueryBufferSize = PAGE_SIZE;
-PTEB LdrpTopLevelDllBeingLoadedTeb = NULL;
 
 /* FUNCTIONS ***************************************************************/
 
@@ -64,12 +63,9 @@ RtlpGetMode()
    return UserMode;
 }
 
-/*
- * @implemented
- */
 PPEB
 NTAPI
-RtlGetCurrentPeb(VOID)
+RtlpCurrentPeb(VOID)
 {
     return NtCurrentPeb();
 }
@@ -163,7 +159,7 @@ RtlpFreeMemory(PVOID Mem,
 }
 
 
-#if DBG
+#ifdef DBG
 VOID FASTCALL
 CHECK_PAGED_CODE_RTL(char *file, int line)
 {
@@ -202,13 +198,6 @@ RtlpCaptureStackLimits(IN ULONG_PTR Ebp,
     *StackBegin = (ULONG_PTR)NtCurrentTeb()->Tib.StackLimit;
     *StackEnd = (ULONG_PTR)NtCurrentTeb()->Tib.StackBase;
     return TRUE;
-}
-
-BOOLEAN
-NTAPI
-RtlIsThreadWithinLoaderCallout(VOID)
-{
-    return LdrpTopLevelDllBeingLoadedTeb == NtCurrentTeb();
 }
 
 /* RTL Atom Tables ************************************************************/

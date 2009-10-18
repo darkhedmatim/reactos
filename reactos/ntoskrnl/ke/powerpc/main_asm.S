@@ -1,3 +1,4 @@
+#include <roscfg.h>
 #include <ndk/asm.h>
 
 #define AP_MAGIC (0x12481020)
@@ -32,11 +33,12 @@ _kernel_trap_stack_top:
 KiDoubleFaultStack:	
 	
 	.text
+	.globl NtProcessStartup
 	.globl KiSystemStartup
 	.globl KiRosPrepareForSystemStartup
 	.globl DrawNumber
 	
-KiSystemStartup:
+NtProcessStartup:
     /*
      * Set a normal MSR value
      */

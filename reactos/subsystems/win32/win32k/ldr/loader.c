@@ -39,7 +39,7 @@ extern LIST_ENTRY GlobalDriverListHead;
  * Blatantly stolen from ldr/utils.c in ntdll.  I can't link ntdll from
  * here, though.
  */
-NTSTATUS APIENTRY
+NTSTATUS STDCALL
 LdrGetProcedureAddress (IN PVOID BaseAddress,
                         IN PANSI_STRING Name,
                         IN ULONG Ordinal,
@@ -90,7 +90,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
         Ordinal &= 0x0000FFFF;
         if (Ordinal - ExportDir->Base < ExportDir->NumberOfFunctions)
           {
-             *ProcedureAddress = (PVOID)((ULONG_PTR)BaseAddress + (ULONG_PTR)AddressPtr[Ordinal - ExportDir->Base]);
+             *ProcedureAddress = (PVOID)((ULONG)BaseAddress + (ULONG)AddressPtr[Ordinal - ExportDir->Base]);
              return STATUS_SUCCESS;
           }
         DPRINT1("LdrGetProcedureAddress: Can't resolve symbol @%d\n", Ordinal);
@@ -99,7 +99,7 @@ LdrGetProcedureAddress (IN PVOID BaseAddress,
    return STATUS_PROCEDURE_NOT_FOUND;
 }
 
-PVOID APIENTRY
+PVOID STDCALL
 EngFindImageProcAddress(IN HANDLE Module,
 			IN LPSTR ProcName)
 {
@@ -196,7 +196,7 @@ EngFindImageProcAddress(IN HANDLE Module,
  * @implemented
  */
 HANDLE
-APIENTRY
+STDCALL
 EngLoadImage (LPWSTR DriverName)
 {
 	HANDLE hImageHandle = NULL;
@@ -228,9 +228,8 @@ EngLoadImage (LPWSTR DriverName)
 			DPRINT1("ZwSetSystemInformation failed with Status 0x%lx\n", Status);
 		}
 		else {
-            PDRIVERS DriverInfo;
 			hImageHandle = (HANDLE)GdiDriverInfo.ImageAddress;
-			DriverInfo = ExAllocatePool(PagedPool, sizeof(DRIVERS));
+			PDRIVERS DriverInfo = ExAllocatePool(PagedPool, sizeof(DRIVERS));
 			DriverInfo->DriverName.MaximumLength = GdiDriverInfo.DriverName.MaximumLength;
 			DriverInfo->DriverName.Length = GdiDriverInfo.DriverName.Length;
 			DriverInfo->DriverName.Buffer = ExAllocatePool(PagedPool, GdiDriverInfo.DriverName.MaximumLength);
@@ -243,13 +242,34 @@ EngLoadImage (LPWSTR DriverName)
 	return hImageHandle;
 }
 
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+EngLoadModule(LPWSTR ModuleName)
+{
+  SYSTEM_GDI_DRIVER_INFORMATION GdiDriverInfo;
+  NTSTATUS Status;
+
+  // FIXME: should load as readonly
+
+  RtlInitUnicodeString (&GdiDriverInfo.DriverName, ModuleName);
+  Status = ZwSetSystemInformation (SystemLoadGdiDriverInformation,
+    &GdiDriverInfo, sizeof(SYSTEM_GDI_DRIVER_INFORMATION));
+  if (!NT_SUCCESS(Status)) return NULL;
+
+  return (HANDLE)GdiDriverInfo.ImageAddress;
+}
+
 VOID
-APIENTRY
+STDCALL
 EngUnloadImage ( IN HANDLE hModule )
 {
   NTSTATUS Status;
 
-  DPRINT("hModule 0x%x\n", hModule);
+  DPRINT("hModule 0x%x\n", hModule); 
 
   Status = ZwSetSystemInformation(SystemUnloadGdiDriverInformation,
     &hModule, sizeof(HANDLE));
@@ -272,7 +292,7 @@ EngUnloadImage ( IN HANDLE hModule )
 			  Current = CONTAINING_RECORD(CurrentEntry, DRIVERS, ListEntry);
 
 			  if( Current ) {
-				  if(Current->ImageHandle == hModule) {
+				  if(Current->ImageHandle == hModule) { 
 					  ExFreePool(Current->DriverName.Buffer);
 					  RemoveEntryList(&Current->ListEntry);
 					  ExFreePool(Current);

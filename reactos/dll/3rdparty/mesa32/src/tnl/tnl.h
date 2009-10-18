@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  3.5
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,7 +29,7 @@
 #ifndef _TNL_H
 #define _TNL_H
 
-#include "main/mtypes.h"
+#include "mtypes.h"
 
 
 
@@ -81,8 +82,7 @@ _tnl_draw_prims( GLcontext *ctx,
 		 GLuint min_index,
 		 GLuint max_index);
 
-
 extern void
-_tnl_RasterPos(GLcontext *ctx, const GLfloat vObj[4]);
+_mesa_load_tracked_matrices(GLcontext *ctx);
 
 #endif

@@ -42,9 +42,8 @@ typedef struct tagMSICREATEVIEW
 {
     MSIVIEW          view;
     MSIDATABASE     *db;
-    LPCWSTR          name;
+    LPWSTR           name;
     BOOL             bIsTemp;
-    BOOL             hold;
     column_info     *col_info;
 } MSICREATEVIEW;
 
@@ -61,15 +60,11 @@ static UINT CREATE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
 {
     MSICREATEVIEW *cv = (MSICREATEVIEW*)view;
     MSITABLE *table;
-    BOOL persist = (cv->bIsTemp) ? MSICONDITION_FALSE : MSICONDITION_TRUE;
 
-    TRACE("%p Table %s (%s)\n", cv, debugstr_w(cv->name),
+    TRACE("%p Table %s (%s)\n", cv, debugstr_w(cv->name), 
           cv->bIsTemp?"temporary":"permanent");
 
-    if (cv->bIsTemp && !cv->hold)
-        return ERROR_SUCCESS;
-
-    return msi_create_table( cv->db, cv->name, cv->col_info, persist, &table);
+    return msi_create_table( cv->db, cv->name, cv->col_info, !cv->bIsTemp, &table);
 }
 
 static UINT CREATE_close( struct tagMSIVIEW *view )
@@ -91,11 +86,11 @@ static UINT CREATE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *co
 }
 
 static UINT CREATE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSICREATEVIEW *cv = (MSICREATEVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", cv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", cv, n, name, type );
 
     return ERROR_FUNCTION_FAILED;
 }
@@ -142,12 +137,11 @@ static const MSIVIEWOPS create_ops =
     NULL,
     NULL,
     NULL,
-    NULL,
 };
 
-static UINT check_columns( const column_info *col_info )
+static UINT check_columns( column_info *col_info )
 {
-    const column_info *c1, *c2;
+    column_info *c1, *c2;
 
     /* check for two columns with the same name */
     for( c1 = col_info; c1; c1 = c1->next )
@@ -158,14 +152,13 @@ static UINT check_columns( const column_info *col_info )
     return ERROR_SUCCESS;
 }
 
-UINT CREATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPCWSTR table,
+UINT CREATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPWSTR table,
                         column_info *col_info, BOOL hold )
 {
     MSICREATEVIEW *cv = NULL;
     UINT r;
-    column_info *col;
+    const column_info *col;
     BOOL temp = TRUE;
-    BOOL tempprim = FALSE;
 
     TRACE("%p\n", cv );
 
@@ -178,21 +171,11 @@ UINT CREATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPCWSTR table,
         return ERROR_FUNCTION_FAILED;
 
     for( col = col_info; col; col = col->next )
-    {
-        if (!col->table)
-            col->table = table;
-
         if( !col->temporary )
+        {
             temp = FALSE;
-        else if ( col->type & MSITYPE_KEY )
-            tempprim = TRUE;
-    }
-
-    if ( !temp && tempprim )
-    {
-        msi_free( cv );
-        return ERROR_FUNCTION_FAILED;
-    }
+            break;
+        }
 
     /* fill the structure */
     cv->view.ops = &create_ops;
@@ -201,7 +184,6 @@ UINT CREATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPCWSTR table,
     cv->name = table;
     cv->col_info = col_info;
     cv->bIsTemp = temp;
-    cv->hold = hold;
     *view = (MSIVIEW*) cv;
 
     return ERROR_SUCCESS;

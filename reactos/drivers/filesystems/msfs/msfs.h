@@ -12,7 +12,21 @@
 #include <ntifs.h>
 #include <iotypes.h>
 
-#define DEFAULTAPI NTAPI
+/*
+ * FIXME: GCC doesn't have a working option for defaulting to a calling
+ * convention. It will always default to cdecl. The MS DDK was designed
+ * for compilers which support this option, and thus some of their headers
+ * do not specify STDCALL or NTAPI everywhere. As such, callbacks will be
+ * interpreted as cdecl on gcc, while they should be stdcall. Defining
+ * NTAPI manually won't work either, since msvc will realize that the
+ * two definitions are different. So we have to use something to close
+ * the compatibility gap, until someone fixes gcc.
+ */
+#ifdef _MSC_VER
+#define DEFAULTAPI
+#else
+#define DEFAULTAPI __stdcall
+#endif
 
 typedef struct _MSFS_DEVICE_EXTENSION
 {

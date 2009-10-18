@@ -16,101 +16,24 @@ ExtCreatePen(DWORD dwPenStyle,
              DWORD dwStyleCount,
              CONST DWORD *lpStyle)
 {
-   PVOID lpPackedDIB = NULL;
-   HPEN hPen = NULL;
-   PBITMAPINFO pConvertedInfo = NULL;
-   UINT ConvertedInfoSize = 0, lbStyle;
-   BOOL Hit = FALSE;
-
-   if ((dwPenStyle & PS_STYLE_MASK) == PS_USERSTYLE)
-   {
-      if(!lpStyle)
-      {
-         SetLastError(ERROR_INVALID_PARAMETER);
-         return 0;
-      }
-   } // This is an enhancement and prevents a call to kernel space.
-   else if ((dwPenStyle & PS_STYLE_MASK) == PS_INSIDEFRAME &&
-            (dwPenStyle & PS_TYPE_MASK) != PS_GEOMETRIC)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-   else if ((dwPenStyle & PS_STYLE_MASK) == PS_ALTERNATE &&
-            (dwPenStyle & PS_TYPE_MASK) != PS_COSMETIC)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-   else
-   {
-      if (dwStyleCount || lpStyle)
-      {
-         SetLastError(ERROR_INVALID_PARAMETER);
-         return 0;
-      }
-   }
-
-   lbStyle = lplb->lbStyle;
-
-   if (lplb->lbStyle > BS_HATCHED)   
-   {
-      if (lplb->lbStyle == BS_PATTERN)
-      {
-         pConvertedInfo = (PBITMAPINFO)lplb->lbHatch;
-         if (!pConvertedInfo) return 0;
-      }
-      else
-      {
-         if ((lplb->lbStyle == BS_DIBPATTERN) || (lplb->lbStyle == BS_DIBPATTERNPT))
-         {
-            if (lplb->lbStyle == BS_DIBPATTERN)
-            {
-               lbStyle = BS_DIBPATTERNPT;
-               lpPackedDIB = GlobalLock((HGLOBAL)lplb->lbHatch);
-               if (lpPackedDIB == NULL) return 0;
-            }
-            pConvertedInfo = ConvertBitmapInfo((PBITMAPINFO)lpPackedDIB,
-                                                          lplb->lbColor,
-                                                     &ConvertedInfoSize,
-                                                                   TRUE);
-            Hit = TRUE; // We converted DIB.
-         }
-         else
-            pConvertedInfo = (PBITMAPINFO)lpStyle;
-      }
-   }
-   else
-     pConvertedInfo = (PBITMAPINFO)lplb->lbHatch;
-   
-
-   hPen = NtGdiExtCreatePen(dwPenStyle,
-                               dwWidth,
-                               lbStyle,
-                         lplb->lbColor,
-                         lplb->lbHatch,
-             (ULONG_PTR)pConvertedInfo,
-                          dwStyleCount,
-                       (PULONG)lpStyle,
-                     ConvertedInfoSize,
-                                 FALSE,
-                                  NULL);
-
-
-   if (lplb->lbStyle == BS_DIBPATTERN) GlobalUnlock((HGLOBAL)lplb->lbHatch);
-
-   if (Hit)
-   {
-      if ((PBITMAPINFO)lpPackedDIB != pConvertedInfo)
-         RtlFreeHeap(RtlGetProcessHeap(), 0, pConvertedInfo);
-   }
-   return hPen;
+    /* Call NTGDI (hack... like most of gdi32..sigh) */
+    return NtGdiExtCreatePen(dwPenStyle,
+                             dwWidth,
+                             lplb->lbStyle,
+                             lplb->lbColor,
+                             lplb->lbHatch,
+                             0,
+                             dwStyleCount,
+                             (PULONG)lpStyle,
+                             0,
+                             FALSE,
+                             NULL);
 }
 
 /*
  * @implemented
  */
-HBRUSH WINAPI
+HBRUSH STDCALL
 CreateDIBPatternBrush(
    HGLOBAL hglbDIBPacked,
    UINT fuColorSpec)
@@ -142,7 +65,7 @@ CreateDIBPatternBrush(
 /*
  * @implemented
  */
-HBRUSH WINAPI
+HBRUSH STDCALL
 CreateDIBPatternBrushPt(
    CONST VOID *lpPackedDIB,
    UINT fuColorSpec)
@@ -171,7 +94,7 @@ CreateDIBPatternBrushPt(
  * @implemented
  */
 HBRUSH
-WINAPI
+STDCALL
 CreateHatchBrush(INT fnStyle,
                  COLORREF clrref)
 {
@@ -182,7 +105,7 @@ CreateHatchBrush(INT fnStyle,
  * @implemented
  */
 HBRUSH
-WINAPI
+STDCALL
 CreatePatternBrush(HBITMAP hbmp)
 {
     return NtGdiCreatePatternBrushInternal(hbmp, FALSE, FALSE);
@@ -192,7 +115,7 @@ CreatePatternBrush(HBITMAP hbmp)
  * @implemented
  */
 HBRUSH
-WINAPI
+STDCALL
 CreateSolidBrush(IN COLORREF crColor)
 {
     /* Call Server-Side API */
@@ -202,7 +125,7 @@ CreateSolidBrush(IN COLORREF crColor)
 /*
  * @implemented
  */
-HBRUSH WINAPI
+HBRUSH STDCALL
 CreateBrushIndirect(
    CONST LOGBRUSH *LogBrush)
 {
@@ -257,7 +180,7 @@ CreateBrushIndirect(
 }
 
 BOOL
-WINAPI
+STDCALL
 PatBlt(HDC hdc,
        int nXLeft,
        int nYLeft,
@@ -270,7 +193,7 @@ PatBlt(HDC hdc,
 }
 
 BOOL
-WINAPI
+STDCALL
 PolyPatBlt(IN HDC hdc,
            IN DWORD rop4,
            IN PPOLYPATBLT pPoly,
@@ -286,7 +209,7 @@ PolyPatBlt(IN HDC hdc,
  *
  */
 int
-WINAPI
+STDCALL
 GetROP2(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -298,7 +221,7 @@ GetROP2(HDC hdc)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 SetROP2(HDC hdc,
         int fnDrawMode)
 {
@@ -329,7 +252,7 @@ SetROP2(HDC hdc,
 #endif
  if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return FALSE;
 
- if (NtCurrentTeb()->GdiTebBatch.HDC == hdc)
+ if (NtCurrentTeb()->GdiTebBatch.HDC == (ULONG) hdc)
  {
     if (Dc_Attr->ulDirty_ & DC_MODE_DIRTY)
     {
@@ -349,7 +272,7 @@ SetROP2(HDC hdc,
  *
  */
 BOOL
-WINAPI
+STDCALL
 GetBrushOrgEx(HDC hdc,LPPOINT pt)
 {
   PDC_ATTR Dc_Attr;
@@ -367,7 +290,7 @@ GetBrushOrgEx(HDC hdc,LPPOINT pt)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetBrushOrgEx(HDC hdc,
               int nXOrg,
               int nYOrg,
@@ -402,7 +325,7 @@ SetBrushOrgEx(HDC hdc,
     if ((nXOrg == Dc_Attr->ptlBrushOrigin.x) && (nYOrg == Dc_Attr->ptlBrushOrigin.y))
        return TRUE;
 
-    if(((pTeb->GdiTebBatch.HDC == NULL) || (pTeb->GdiTebBatch.HDC == hdc)) &&
+    if(((pTeb->GdiTebBatch.HDC == 0) || (pTeb->GdiTebBatch.HDC == (ULONG)hdc)) &&
        ((pTeb->GdiTebBatch.Offset + sizeof(GDIBSSETBRHORG)) <= GDIBATCHBUFSIZE) &&
        (!(Dc_Attr->ulDirty_ & DC_DIBSECTION)) )
     {
@@ -417,7 +340,7 @@ SetBrushOrgEx(HDC hdc,
        pgSBO->ptlBrushOrigin = Dc_Attr->ptlBrushOrigin;
        
        pTeb->GdiTebBatch.Offset += sizeof(GDIBSSETBRHORG);
-       pTeb->GdiTebBatch.HDC = hdc;
+       pTeb->GdiTebBatch.HDC = (ULONG)hdc;
        pTeb->GdiBatchCount++;
        DPRINT("Loading the Flush!! COUNT-> %d\n", pTeb->GdiBatchCount);
 
@@ -432,3 +355,4 @@ SetBrushOrgEx(HDC hdc,
  }
  return NtGdiSetBrushOrg(hdc,nXOrg,nYOrg,lppt);
 }
+

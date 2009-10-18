@@ -1,7 +1,7 @@
 /*
  *	RPC Manager
  *
- * Copyright 2001  Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001  Ove Kåven, TransGaming Technologies
  * Copyright 2002  Marcus Meissner
  * Copyright 2005  Mike Hearn, Rob Shearman for CodeWeavers
  *
@@ -242,7 +242,7 @@ static unsigned char * ChannelHooks_ClientFillBuffer(SChannelHookCallInfo *info,
 
         wire_orpc_extent->conformance = (extension_size+7)&~7;
         wire_orpc_extent->size = extension_size;
-        wire_orpc_extent->id = entry->id;
+        memcpy(&wire_orpc_extent->id, &entry->id, sizeof(wire_orpc_extent->id));
         buffer += FIELD_OFFSET(WIRE_ORPC_EXTENT, data[wire_orpc_extent->conformance]);
     }
 
@@ -362,7 +362,7 @@ static unsigned char * ChannelHooks_ServerFillBuffer(SChannelHookCallInfo *info,
 
         wire_orpc_extent->conformance = (extension_size+7)&~7;
         wire_orpc_extent->size = extension_size;
-        wire_orpc_extent->id = entry->id;
+        memcpy(&wire_orpc_extent->id, &entry->id, sizeof(wire_orpc_extent->id));
         buffer += FIELD_OFFSET(WIRE_ORPC_EXTENT, data[wire_orpc_extent->conformance]);
     }
 
@@ -411,7 +411,7 @@ HRESULT RPC_RegisterChannelHook(REFGUID rguid, IChannelHook *hook)
     if (!entry)
         return E_OUTOFMEMORY;
 
-    entry->id = *rguid;
+    memcpy(&entry->id, rguid, sizeof(entry->id));
     entry->hook = hook;
     IChannelHook_AddRef(hook);
 
@@ -440,7 +440,7 @@ static HRESULT WINAPI RpcChannelBuffer_QueryInterface(LPRPCCHANNELBUFFER iface, 
     *ppv = NULL;
     if (IsEqualIID(riid,&IID_IRpcChannelBuffer) || IsEqualIID(riid,&IID_IUnknown))
     {
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
         IUnknown_AddRef(iface);
         return S_OK;
     }
@@ -495,7 +495,7 @@ static HRESULT WINAPI ServerRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
 
     TRACE("(%p)->(%p,%s)\n", This, olemsg, debugstr_guid(riid));
 
-    message_state = msg->Handle;
+    message_state = (struct message_state *)msg->Handle;
     /* restore the binding handle and the real start of data */
     msg->Handle = message_state->binding_handle;
     msg->Buffer = (char *)msg->Buffer - message_state->prefix_data_len;
@@ -522,7 +522,7 @@ static HRESULT WINAPI ServerRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
     else
         status = I_RpcGetBuffer(msg);
 
-    orpcthat = msg->Buffer;
+    orpcthat = (ORPCTHAT *)msg->Buffer;
     msg->Buffer = (char *)msg->Buffer + FIELD_OFFSET(ORPCTHAT, extensions);
 
     orpcthat->flags = ORPCF_NULL /* FIXME? */;
@@ -553,7 +553,7 @@ static HRESULT WINAPI ServerRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
         {
             WIRE_ORPC_EXTENT *wire_orpc_extent = msg->Buffer;
             wire_orpc_extent->conformance = 0;
-            wire_orpc_extent->id = GUID_NULL;
+            memcpy(&wire_orpc_extent->id, &GUID_NULL, sizeof(wire_orpc_extent->id));
             wire_orpc_extent->size = 0;
             msg->Buffer = (char *)msg->Buffer + FIELD_OFFSET(WIRE_ORPC_EXTENT, data[0]);
         }
@@ -568,7 +568,7 @@ static HRESULT WINAPI ServerRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
     /* save away the message state again */
     msg->Handle = message_state;
 
-    TRACE("-- %d\n", status);
+    TRACE("-- %ld\n", status);
 
     return HRESULT_FROM_WIN32(status);
 }
@@ -702,7 +702,7 @@ static HRESULT WINAPI ClientRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
 
     if (status == RPC_S_OK)
     {
-        orpcthis = msg->Buffer;
+        orpcthis = (ORPCTHIS *)msg->Buffer;
         msg->Buffer = (char *)msg->Buffer + FIELD_OFFSET(ORPCTHIS, extensions);
 
         orpcthis->version.MajorVersion = COM_MAJOR_VERSION;
@@ -737,7 +737,7 @@ static HRESULT WINAPI ClientRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
             {
                 WIRE_ORPC_EXTENT *wire_orpc_extent = msg->Buffer;
                 wire_orpc_extent->conformance = 0;
-                wire_orpc_extent->id = GUID_NULL;
+                memcpy(&wire_orpc_extent->id, &GUID_NULL, sizeof(wire_orpc_extent->id));
                 wire_orpc_extent->size = 0;
                 msg->Buffer = (char *)msg->Buffer + FIELD_OFFSET(WIRE_ORPC_EXTENT, data[0]);
             }
@@ -751,7 +751,7 @@ static HRESULT WINAPI ClientRpcChannelBuffer_GetBuffer(LPRPCCHANNELBUFFER iface,
 
     HeapFree(GetProcessHeap(), 0, channel_hook_data);
 
-    TRACE("-- %d\n", status);
+    TRACE("-- %ld\n", status);
 
     return HRESULT_FROM_WIN32(status);
 }
@@ -765,13 +765,13 @@ static HRESULT WINAPI ServerRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
 /* this thread runs an outgoing RPC */
 static DWORD WINAPI rpc_sendreceive_thread(LPVOID param)
 {
-    struct dispatch_params *data = param;
+    struct dispatch_params *data = (struct dispatch_params *) param;
 
     /* Note: I_RpcSendReceive doesn't raise exceptions like the higher-level
      * RPC functions do */
     data->status = I_RpcSendReceive((RPC_MESSAGE *)data->msg);
 
-    TRACE("completed with status 0x%x\n", data->status);
+    TRACE("completed with status 0x%lx\n", data->status);
 
     SetEvent(data->handle);
 
@@ -812,8 +812,8 @@ static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
             wine_dbgstr_longlong(This->oxid));
         return RPC_E_WRONG_THREAD;
     }
-    /* This situation should be impossible in multi-threaded apartments,
-     * because the calling thread isn't re-enterable.
+    /* this situation should be impossible in multi-threaded apartments,
+     * because the calling thread isn't re-entrable.
      * Note: doing a COM call during the processing of a sent message is
      * only disallowed if a client call is already being waited for
      * completion */
@@ -825,7 +825,7 @@ static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
         return RPC_E_CANTCALLOUT_ININPUTSYNCCALL;
     }
 
-    message_state = msg->Handle;
+    message_state = (struct message_state *)msg->Handle;
     /* restore the binding handle and the real start of data */
     msg->Handle = message_state->binding_handle;
     msg->Buffer = (char *)msg->Buffer - message_state->prefix_data_len;
@@ -893,8 +893,12 @@ static HRESULT WINAPI ClientRpcChannelBuffer_SendReceive(LPRPCCHANNELBUFFER ifac
     orpcthat.flags = ORPCF_NULL;
     orpcthat.extensions = NULL;
 
-    TRACE("RPC call status: 0x%x\n", status);
-    if (status != RPC_S_OK)
+    /* for normal RPC calls, faults are returned in first 4 bytes of the
+     * buffer */
+    TRACE("RPC call status: 0x%lx\n", status);
+    if (status == RPC_S_CALL_FAILED)
+        hrFault = *(HRESULT *)olemsg->Buffer;
+    else if (status != RPC_S_OK)
         hr = HRESULT_FROM_WIN32(status);
 
     TRACE("hrFault = 0x%08x\n", hrFault);
@@ -950,7 +954,7 @@ static HRESULT WINAPI ServerRpcChannelBuffer_FreeBuffer(LPRPCCHANNELBUFFER iface
 
     TRACE("(%p)\n", msg);
 
-    message_state = msg->Handle;
+    message_state = (struct message_state *)msg->Handle;
     /* restore the binding handle and the real start of data */
     msg->Handle = message_state->binding_handle;
     msg->Buffer = (char *)msg->Buffer - message_state->prefix_data_len;
@@ -967,7 +971,7 @@ static HRESULT WINAPI ServerRpcChannelBuffer_FreeBuffer(LPRPCCHANNELBUFFER iface
 
     msg->Handle = message_state;
 
-    TRACE("-- %d\n", status);
+    TRACE("-- %ld\n", status);
 
     return HRESULT_FROM_WIN32(status);
 }
@@ -980,7 +984,7 @@ static HRESULT WINAPI ClientRpcChannelBuffer_FreeBuffer(LPRPCCHANNELBUFFER iface
 
     TRACE("(%p)\n", msg);
 
-    message_state = msg->Handle;
+    message_state = (struct message_state *)msg->Handle;
     /* restore the binding handle and the real start of data */
     msg->Handle = message_state->binding_handle;
     msg->Buffer = (char *)msg->Buffer - message_state->prefix_data_len;
@@ -1003,7 +1007,7 @@ static HRESULT WINAPI ClientRpcChannelBuffer_FreeBuffer(LPRPCCHANNELBUFFER iface
         IRpcChannelBuffer_Release(message_state->params.chan);
     HeapFree(GetProcessHeap(), 0, message_state);
 
-    TRACE("-- %d\n", status);
+    TRACE("-- %ld\n", status);
 
     return HRESULT_FROM_WIN32(status);
 }
@@ -1104,7 +1108,7 @@ HRESULT RPC_CreateClientChannel(const OXID *oxid, const IPID *ipid,
 
     if (status != RPC_S_OK)
     {
-        ERR("Couldn't get binding for endpoint %s, status = %d\n", debugstr_w(endpoint), status);
+        ERR("Couldn't get binding for endpoint %s, status = %ld\n", debugstr_w(endpoint), status);
         return HRESULT_FROM_WIN32(status);
     }
 
@@ -1172,14 +1176,14 @@ static HRESULT unmarshal_ORPC_EXTENT_ARRAY(RPC_MESSAGE *msg, const char *end,
 
         msg->Buffer = (char *)msg->Buffer + sizeof(DWORD);
 
-        /* arbitrary limit for security (don't know what native does) */
+        /* arbritary limit for security (don't know what native does) */
         if (extensions->size > 256)
         {
-            ERR("too many extensions: %d\n", extensions->size);
+            ERR("too many extensions: %ld\n", extensions->size);
             return RPC_S_INVALID_BOUND;
         }
 
-        *first_wire_orpc_extent = wire_orpc_extent = msg->Buffer;
+        *first_wire_orpc_extent = wire_orpc_extent = (WIRE_ORPC_EXTENT *)msg->Buffer;
         for (i = 0; i < ((extensions->size+1)&~1); i++)
         {
             if ((const char *)&wire_orpc_extent->data[0] > end)
@@ -1242,7 +1246,7 @@ static HRESULT unmarshal_ORPCTHIS(RPC_MESSAGE *msg, ORPCTHIS *orpcthis,
 
     if (orpcthis->flags & ~(ORPCF_LOCAL|ORPCF_RESERVED1|ORPCF_RESERVED2|ORPCF_RESERVED3|ORPCF_RESERVED4))
     {
-        ERR("invalid flags 0x%x\n", orpcthis->flags & ~(ORPCF_LOCAL|ORPCF_RESERVED1|ORPCF_RESERVED2|ORPCF_RESERVED3|ORPCF_RESERVED4));
+        ERR("invalid flags 0x%lx\n", orpcthis->flags & ~(ORPCF_LOCAL|ORPCF_RESERVED1|ORPCF_RESERVED2|ORPCF_RESERVED3|ORPCF_RESERVED4));
         return RPC_E_INVALID_HEADER;
     }
 
@@ -1285,7 +1289,7 @@ static HRESULT unmarshal_ORPCTHAT(RPC_MESSAGE *msg, ORPCTHAT *orpcthat,
 
     if (orpcthat->flags & ~(ORPCF_LOCAL|ORPCF_RESERVED1|ORPCF_RESERVED2|ORPCF_RESERVED3|ORPCF_RESERVED4))
     {
-        ERR("invalid flags 0x%x\n", orpcthat->flags & ~(ORPCF_LOCAL|ORPCF_RESERVED1|ORPCF_RESERVED2|ORPCF_RESERVED3|ORPCF_RESERVED4));
+        ERR("invalid flags 0x%lx\n", orpcthat->flags & ~(ORPCF_LOCAL|ORPCF_RESERVED1|ORPCF_RESERVED2|ORPCF_RESERVED3|ORPCF_RESERVED4));
         return RPC_E_INVALID_HEADER;
     }
 
@@ -1398,7 +1402,7 @@ void RPC_ExecuteCall(struct dispatch_params *params)
         HeapFree(GetProcessHeap(), 0, original_buffer);
 
 exit_reset_state:
-    message_state = msg->Handle;
+    message_state = (struct message_state *)msg->Handle;
     msg->Handle = message_state->binding_handle;
     msg->Buffer = (char *)msg->Buffer - message_state->prefix_data_len;
     msg->BufferLength += message_state->prefix_data_len;
@@ -1536,7 +1540,7 @@ HRESULT RPC_RegisterInterface(REFIID riid)
                 list_add_tail(&registered_interfaces, &rif->entry);
             else
             {
-                ERR("RpcServerRegisterIfEx failed with error %d\n", status);
+                ERR("RpcServerRegisterIfEx failed with error %ld\n", status);
                 HeapFree(GetProcessHeap(), 0, rif);
                 hr = HRESULT_FROM_WIN32(status);
             }
@@ -1584,7 +1588,7 @@ HRESULT RPC_ResolveOxid(OXID oxid, OXID_INFO *oxid_info)
     oxid_info->ipidRemUnknown.Data1 = 0xffffffff;
     oxid_info->ipidRemUnknown.Data2 = 0xffff;
     oxid_info->ipidRemUnknown.Data3 = 0xffff;
-    memcpy(oxid_info->ipidRemUnknown.Data4, &oxid, sizeof(OXID));
+    memcpy(&oxid_info->ipidRemUnknown.Data4, &oxid, sizeof(OXID));
     oxid_info->psa = NULL /* FIXME */;
 
     return S_OK;
@@ -1847,7 +1851,7 @@ struct local_server_params
 /* FIXME: should call to rpcss instead */
 static DWORD WINAPI local_server_thread(LPVOID param)
 {
-    struct local_server_params * lsp = param;
+    struct local_server_params * lsp = (struct local_server_params *)param;
     HANDLE		hPipe;
     WCHAR 		pipefn[100];
     HRESULT		hres;
@@ -1861,7 +1865,6 @@ static DWORD WINAPI local_server_thread(LPVOID param)
     BOOL multi_use = lsp->multi_use;
     OVERLAPPED ovl;
     HANDLE pipe_event;
-    DWORD  bytes;
 
     TRACE("Starting threader for %s.\n",debugstr_guid(&lsp->clsid));
 
@@ -1904,7 +1907,7 @@ static DWORD WINAPI local_server_thread(LPVOID param)
 
         TRACE("marshalling IClassFactory to client\n");
         
-        hres = IStream_Stat(pStm,&ststg,STATFLAG_NONAME);
+        hres = IStream_Stat(pStm,&ststg,0);
         if (hres) return hres;
 
         seekto.u.LowPart = 0;
@@ -1930,7 +1933,7 @@ static DWORD WINAPI local_server_thread(LPVOID param)
         }
         
         WriteFile(hPipe,buffer,buflen,&res,&ovl);
-        GetOverlappedResult(hPipe, &ovl, &bytes, TRUE);
+        GetOverlappedResult(hPipe, &ovl, NULL, TRUE);
         HeapFree(GetProcessHeap(),0,buffer);
 
         FlushFileBuffers(hPipe);

@@ -56,7 +56,7 @@ IncrementProgressBar(HWND hProgDlg)
     }
 }
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 ProgressDialogProc(HWND hDlg,
                    UINT Message,
                    WPARAM wParam,
@@ -113,7 +113,7 @@ CreateProgressDialog(HWND hParent,
     hProgDlg = CreateDialog(hInstance,
                             MAKEINTRESOURCE(IDD_DLG_PROGRESS),
                             hParent,
-                            ProgressDialogProc);
+                            (DLGPROC)ProgressDialogProc);
     if (hProgDlg != NULL)
     {
         /* write the  info to the progress dialog */

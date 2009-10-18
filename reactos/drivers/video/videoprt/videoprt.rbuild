@@ -1,11 +1,10 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="videoprt" type="kernelmodedriver" installbase="system32/drivers" installname="videoprt.sys">
-	<importlibrary definition="videoprt.spec" />
+	<importlibrary definition="videoprt.def" />
 	<include base="videoprt">.</include>
 	<include base="ntoskrnl">include</include>
 	<define name="_VIDEOPORT_" />
-	<compilerflag compilerset="gcc">-fms-extensions</compilerflag>
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<pch>videoprt.h</pch>
@@ -20,7 +19,6 @@
 	<file>resource.c</file>
 	<file>services.c</file>
 	<file>spinlock.c</file>
-	<file>stubs.c</file>
 	<file>timer.c</file>
 	<file>videoprt.c</file>
 	<file>videoprt.rc</file>

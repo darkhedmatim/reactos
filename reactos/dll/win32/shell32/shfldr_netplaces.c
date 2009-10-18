@@ -20,7 +20,31 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+
+#include "pidl.h"
+#include "enumidlist.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shresdef.h"
+#include "wine/debug.h"
+#include "debughlp.h"
+#include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
@@ -44,23 +68,16 @@ static const IPersistFolder2Vtbl vt_NP_PersistFolder2;
 #define _IPersistFolder2_Offset ((int)(&(((IGenericSFImpl*)0)->lpVtblPersistFolder2)))
 #define _ICOM_THIS_From_IPersistFolder2(class, name) class* This = (class*)(((char*)name)-_IPersistFolder2_Offset);
 
-#define _IUnknown_(This)        ((IUnknown*)&(This)->lpVtbl)
-#define _IShellFolder_(This)    ((IShellFolder*)&(This)->lpVtbl)
-#define _IPersistFolder2_(This) (&(This)->lpVtblPersistFolder2)
+#define _IUnknown_(This)	(IUnknown*)&(This->lpVtbl)
+#define _IShellFolder_(This)	(IShellFolder*)&(This->lpVtbl)
+#define _IPersistFolder2_(This)	(IPersistFolder2*)&(This->lpVtblPersistFolder2)
 
 static shvheader NetworkPlacesSFHeader[] = {
-    {IDS_SHV_COLUMN8, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-    {IDS_SHV_COLUMN13, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10},
-    {IDS_SHV_COLUMN_WORKGROUP, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
-	{IDS_SHV_NETWORKLOCATION, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15}
+    {IDS_SHV_COLUMN1, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 15},
+    {IDS_SHV_COLUMN9, SHCOLSTATE_TYPE_STR | SHCOLSTATE_ONBYDEFAULT, LVCFMT_RIGHT, 10}
 };
 
-#define COLUMN_NAME          0
-#define COLUMN_CATEGORY      1
-#define COLUMN_WORKGROUP     2
-#define COLUMN_NETLOCATION   3
-
-#define NETWORKPLACESSHELLVIEWCOLUMNS 4
+#define NETWORKPLACESSHELLVIEWCOLUMNS 2
 
 /**************************************************************************
 *	ISF_NetworkPlaces_Constructor
@@ -76,7 +93,7 @@ HRESULT WINAPI ISF_NetworkPlaces_Constructor (IUnknown * pUnkOuter, REFIID riid,
     if (pUnkOuter)
         return CLASS_E_NOAGGREGATION;
 
-    sf = HeapAlloc (GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof (IGenericSFImpl));
+    sf = (IGenericSFImpl *) HeapAlloc ( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof (IGenericSFImpl));
     if (!sf)
         return E_OUTOFMEMORY;
 
@@ -85,7 +102,7 @@ HRESULT WINAPI ISF_NetworkPlaces_Constructor (IUnknown * pUnkOuter, REFIID riid,
     sf->lpVtblPersistFolder2 = &vt_NP_PersistFolder2;
     sf->pidlRoot = _ILCreateNetHood();	/* my qualified pidl */
 
-    if (FAILED (IUnknown_QueryInterface (_IUnknown_ (sf), riid, ppv)))
+    if (!SUCCEEDED (IUnknown_QueryInterface (_IUnknown_ (sf), riid, ppv)))
     {
         IUnknown_Release (_IUnknown_ (sf));
         return E_NOINTERFACE;
@@ -192,11 +209,11 @@ static HRESULT WINAPI ISF_NetworkPlaces_fnEnumObjects (IShellFolder2 * iface,
     TRACE ("(%p)->(HWND=%p flags=0x%08x pplist=%p)\n", This,
             hwndOwner, dwFlags, ppEnumIDList);
 
-    *ppEnumIDList = NULL; //IEnumIDList_Constructor();
+    *ppEnumIDList = IEnumIDList_Constructor();
 
     TRACE ("-- (%p)->(new ID List: %p)\n", This, *ppEnumIDList);
- return S_FALSE;
-   // return (*ppEnumIDList) ? S_OK : E_OUTOFMEMORY;
+
+    return (*ppEnumIDList) ? S_OK : E_OUTOFMEMORY;
 }
 
 /**************************************************************************
@@ -255,7 +272,7 @@ static HRESULT WINAPI ISF_NetworkPlaces_fnCreateViewObject (IShellFolder2 * ifac
     HRESULT hr = E_INVALIDARG;
 
     TRACE ("(%p)->(hwnd=%p,%s,%p)\n", This,
-           hwndOwner, shdebugstr_guid (riid), ppvOut);
+            hwndOwner, shdebugstr_guid (riid), ppvOut);
 
     if (!ppvOut)
         return hr;
@@ -292,9 +309,6 @@ static HRESULT WINAPI ISF_NetworkPlaces_fnGetAttributesOf (IShellFolder2 * iface
                UINT cidl, LPCITEMIDLIST * apidl, DWORD * rgfInOut)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    static const DWORD dwNethoodAttributes =
-        SFGAO_STORAGE | SFGAO_HASPROPSHEET | SFGAO_STORAGEANCESTOR | 
-        SFGAO_FILESYSANCESTOR | SFGAO_FOLDER | SFGAO_FILESYSTEM | SFGAO_HASSUBFOLDER | SFGAO_CANRENAME | SFGAO_CANDELETE;
     HRESULT hr = S_OK;
 
     TRACE ("(%p)->(cidl=%d apidl=%p mask=%p (0x%08x))\n", This,
@@ -308,8 +322,17 @@ static HRESULT WINAPI ISF_NetworkPlaces_fnGetAttributesOf (IShellFolder2 * iface
     if (*rgfInOut == 0)
         *rgfInOut = ~0;
 
-    if(cidl == 0) {
-        *rgfInOut = dwNethoodAttributes;
+    if (cidl == 0)
+    {
+        IShellFolder *psfParent = NULL;
+        LPCITEMIDLIST rpidl = NULL;
+
+        hr = SHBindToParent(This->pidlRoot, &IID_IShellFolder, (LPVOID*)&psfParent, (LPCITEMIDLIST*)&rpidl);
+        if(SUCCEEDED(hr))
+        {
+            SHELL32_GetItemAttributes (psfParent, rpidl, rgfInOut);
+            IShellFolder_Release(psfParent);
+        }
     }
     else
     {
@@ -361,7 +384,8 @@ static HRESULT WINAPI ISF_NetworkPlaces_fnGetUIObjectOf (IShellFolder2 * iface,
 
 	if (IsEqualIID (riid, &IID_IContextMenu) && (cidl >= 1))
     {
-        hr = CDefFolderMenu_Create2(This->pidlRoot, hwndOwner, cidl, apidl, (IShellFolder*)iface, NULL, 0, NULL, (IContextMenu**)&pObj);
+	    pObj = (LPUNKNOWN) ISvItemCm_Constructor ((IShellFolder *) iface, This->pidlRoot, apidl, cidl);
+	    hr = S_OK;
 	}
     else if (IsEqualIID (riid, &IID_IDataObject) && (cidl >= 1))
     {
@@ -493,25 +517,6 @@ static HRESULT WINAPI ISF_NetworkPlaces_fnGetDetailsOf (IShellFolder2 * iface,
                LPCITEMIDLIST pidl, UINT iColumn, SHELLDETAILS * psd)
 {
     IGenericSFImpl *This = (IGenericSFImpl *)iface;
-    WCHAR buffer[MAX_PATH] = {0};
-    HRESULT hr = E_FAIL;
-
-    if (iColumn >= NETWORKPLACESSHELLVIEWCOLUMNS)
-        return E_FAIL;
-
-    psd->fmt = NetworkPlacesSFHeader[iColumn].fmt;
-    psd->cxChar = NetworkPlacesSFHeader[iColumn].cxChar;
-    if (pidl == NULL)
-    {
-        psd->str.uType = STRRET_WSTR;
-        if (LoadStringW(shell32_hInstance, NetworkPlacesSFHeader[iColumn].colnameid, buffer, MAX_PATH))
-            hr = SHStrDupW(buffer, &psd->str.u.pOleStr);
-
-        return hr;
-    }
-
-    if (iColumn == COLUMN_NAME)
-        return IShellFolder2_GetDisplayNameOf(iface, pidl, SHGDN_NORMAL, &psd->str);
 
     FIXME ("(%p)->(%p %i %p)\n", This, pidl, iColumn, psd);
 

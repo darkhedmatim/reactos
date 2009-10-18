@@ -31,7 +31,7 @@
 #define LPC_CONNECT_FLAG5 0x00010000
 
 NTSTATUS
-(WINAPI * ConnectPort)(
+(STDCALL * ConnectPort)(
 	OUT	PHANDLE			PortHandle,
 	IN	PUNICODE_STRING		PortName,
 	IN	POBJECT_ATTRIBUTES	ObjectAttributes,
@@ -43,7 +43,7 @@ NTSTATUS
 	);
 
 NTSTATUS
-(WINAPI * QueryObject)(
+(STDCALL * QueryObject)(
 	IN	HANDLE	ObjectHandle,
 	IN	CINT	ObjectInformationClass,
 	OUT	PVOID	ObjectInformation,
@@ -52,7 +52,7 @@ NTSTATUS
 	);
 
 NTSTATUS
-(WINAPI * YieldExecution)(VOID);
+(STDCALL * YieldExecution)(VOID);
 
 #define BUF_SIZE 1024
 #define MAXARG   1000000

@@ -1,4 +1,5 @@
-/*
+/* $Id: page.c 23907 2006-09-04 05:52:23Z arty $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/i386/page.c
@@ -13,7 +14,7 @@
 #include <ntoskrnl.h>
 #include <ppcmmu/mmu.h>
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, MmInitGlobalKernelPageDirectory)
@@ -52,7 +53,7 @@ __inline LARGE_INTEGER PTE_TO_PAGE(ULONG npage)
 /* FUNCTIONS ***************************************************************/
 
 VOID
-NTAPI
+STDCALL
 MiFlushTlbIpiRoutine(PVOID Address)
 {
    if (Address == (PVOID)0xffffffff)
@@ -91,14 +92,14 @@ ProtectToFlags(ULONG flProtect)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 MmCopyMmInfo(PEPROCESS Src,
              PEPROCESS Dest,
              PPHYSICAL_ADDRESS DirectoryTableBase)
 {
     DPRINT("MmCopyMmInfo(Src %x, Dest %x)\n", Src, Dest);
 
-    ASSERT(FALSE);
+    KeBugCheck(0);
 
     return(STATUS_SUCCESS);
 }
@@ -120,12 +121,12 @@ MmInitializeHandBuiltProcess(IN PEPROCESS Process,
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 MmCreateProcessAddressSpace(IN ULONG MinWs,
                             IN PEPROCESS Process,
                             IN PLARGE_INTEGER DirectoryTableBase)
 {
-    ASSERT(FALSE);
+    KeBugCheck(0);
     return TRUE;
 }
 
@@ -180,7 +181,7 @@ MmGetPhysicalAddressProcess(PEPROCESS Process, PVOID Addr)
 /*
  * @implemented
  */
-PHYSICAL_ADDRESS NTAPI
+PHYSICAL_ADDRESS STDCALL
 MmGetPhysicalAddress(PVOID vaddr)
 /*
  * FUNCTION: Returns the physical address corresponding to a virtual address
@@ -302,7 +303,7 @@ MmIsAccessedAndResetAccessPage(PEPROCESS Process, PVOID Address)
     if (Address < MmSystemRangeStart && Process == NULL)
     {
 	DPRINT1("MmIsAccessedAndResetAccessPage is called for user space without a process.\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
 
     info.proc = Process ? (int)Process->UniqueProcessId : 0;
@@ -370,7 +371,7 @@ MmCreateVirtualMappingForKernel(PVOID Address,
     if (Address < MmSystemRangeStart)
     {
 	DPRINT1("MmCreateVirtualMappingForKernel is called for user space\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
 
     Addr = Address;
@@ -383,7 +384,7 @@ MmCreateVirtualMappingForKernel(PVOID Address,
             DPRINT1("Setting physical address but not allowing access at address "
                     "0x%.8X with attributes %x/%x.\n",
                     Addr, Attributes, flProtect);
-            ASSERT(FALSE);
+            KEBUGCHECK(0);
 	}
 	(void)InterlockedExchangeUL(Pt, PFN_TO_PTE(Pages[i]) | Attributes);
 #endif
@@ -401,16 +402,16 @@ MmCreatePageFileMapping(PEPROCESS Process,
     if (Process == NULL && Address < MmSystemRangeStart)
     {
 	DPRINT1("No process\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
     if (Process != NULL && Address >= MmSystemRangeStart)
     {
 	DPRINT1("Setting kernel address with process context\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
     if (SwapEntry & (1 << 31))
     {
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
 
     // XXX arty
@@ -440,13 +441,13 @@ MmCreateVirtualMappingUnsafe(PEPROCESS Process,
 	if (Address < MmSystemRangeStart)
 	{
 	    DPRINT1("No process\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
 	if (PageCount > 0x10000 ||
 	    (ULONG_PTR) Address / PAGE_SIZE + PageCount > 0x100000)
 	{
 	    DPRINT1("Page count to large\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
     }
     else
@@ -454,14 +455,14 @@ MmCreateVirtualMappingUnsafe(PEPROCESS Process,
 	if (Address >= MmSystemRangeStart)
 	{
 	    DPRINT1("Setting kernel address with process context\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
 	if (PageCount > (ULONG_PTR)MmSystemRangeStart / PAGE_SIZE ||
 	    (ULONG_PTR) Address / PAGE_SIZE + PageCount >
 	    (ULONG_PTR)MmSystemRangeStart / PAGE_SIZE)
 	{
 	    DPRINT1("Page Count to large\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
     }
 
@@ -508,7 +509,7 @@ MmCreateVirtualMapping(PEPROCESS Process,
       if (!MmIsUsablePage(Pages[i]))
       {
          DPRINT1("Page at address %x not usable\n", PFN_TO_PTE(Pages[i]));
-         ASSERT(FALSE);
+         KEBUGCHECK(0);
       }
    }
 
@@ -564,7 +565,7 @@ MmSetPageProtect(PEPROCESS Process, PVOID Address, ULONG flProtect)
    Pt = MmGetPageTableForProcess(Process, Address, FALSE);
    if (Pt == NULL)
    {
-       ASSERT(FALSE);
+       KEBUGCHECK(0);
    }
    InterlockedExchange((PLONG)Pt, PAGE_MASK(*Pt) | Attributes | (*Pt & (PA_ACCESSED|PA_DIRTY)));
    MiFlushTlb(Pt, Address);

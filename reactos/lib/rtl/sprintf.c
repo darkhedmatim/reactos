@@ -226,9 +226,7 @@ numberf(char * buf, char * end, double num, int base, int size, int precision, i
     {
         x = num;
 		tmp[i++] = digits[do_div(&x,base)];
-#ifndef _M_ARM // Missing __floatdidf in CeGCC 0.55 -- GCC 4.4
 		num=x;
-#endif
     }
 	if (i > precision)
 		precision = i;
@@ -579,7 +577,7 @@ int __cdecl _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 				flags |= ZEROPAD;
 			}
 			str = number(str, end,
-				(ULONG_PTR) va_arg(args, void *), 16,
+				(unsigned long) va_arg(args, void *), 16,
 				field_width, precision, flags);
 			continue;
 
@@ -693,8 +691,20 @@ int __cdecl _vsnprintf(char *buf, size_t cnt, const char *fmt, va_list args)
 	if (str <= end)
 		*str = '\0';
 	else if (cnt > 0)
+	{
 		/* don't write out a null byte if the buf size is zero */
-		*end = '\0';
+		//*end = '\0';
+	   if (str-buf >cnt )
+       {
+		 *end = '\0';
+       }
+       else
+       {
+           end++;
+          *end = '\0';
+       }
+
+    }
 	return str-buf;
 }
 

@@ -19,7 +19,31 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "shellapi.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "shlobj.h"
+#include "shlguid.h"
+#include "winreg.h"
+#include "winerror.h"
+
+#include "undocshell.h"
+#include "wine/unicode.h"
+#include "shell32_main.h"
+
+#include "wine/debug.h"
+#include "shlwapi.h"
+#include "debughlp.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -27,7 +51,6 @@ extern HRESULT WINAPI IFSFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, L
 
 static const WCHAR sShell32[12] = {'S','H','E','L','L','3','2','.','D','L','L','\0'};
 static const GUID dummy1 = {0xD969A300, 0xE7FF, 0x11d0, {0xA9, 0x3B, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x19} };
-
 /**************************************************************************
  * Default ClassFactory types
  */
@@ -42,7 +65,6 @@ static const struct {
 	{&CLSID_ShellFSFolder,	&IFSFolder_Constructor},
 	{&CLSID_MyComputer,	&ISF_MyComputer_Constructor},
 	{&CLSID_ShellDesktop,	&ISF_Desktop_Constructor},
-	{&CLSID_ShellItem,	&IShellItem_Constructor},
 	{&CLSID_ShellLink,	&IShellLink_Constructor},
 	{&CLSID_DragDropHelper, &IDropTargetHelper_Constructor},
 	{&CLSID_ControlPanel,	&IControlPanel_Constructor},
@@ -53,15 +75,12 @@ static const struct {
 	{&CLSID_FolderShortcut, &FolderShortcut_Constructor},
 #endif
 	{&CLSID_MyDocuments,    &ISF_MyDocuments_Constructor},
-	{&CLSID_NetworkPlaces,  &ISF_NetworkPlaces_Constructor},
-	{&CLSID_FontsFolderShortcut, &ISF_Fonts_Constructor},
+    {&CLSID_NetworkPlaces,  &ISF_NetworkPlaces_Constructor},
 	{&CLSID_Printers,       &ISF_Printers_Constructor},
-	{&CLSID_AdminFolderShortcut, &ISF_AdminTools_Constructor},
 	{&CLSID_RecycleBin,     &RecycleBin_Constructor},
 	{&CLSID_OpenWith,       &SHEOW_Constructor},
 	{&dummy1,               &INewItem_Constructor},
 	{&CLSID_StartMenu,      &StartMenu_Constructor},
-	{&CLSID_MenuBandSite,   &MenuBandSite_Constructor},
 	{NULL,NULL}
 };
 
@@ -77,7 +96,7 @@ DWORD WINAPI __SHGUIDToStringW (REFGUID guid, LPWSTR str)
 			 '2','x','%','0','2','x','%','0','2','x',
 			 '}','\0'};
 
-    return swprintf ( str, sFormat,
+    return wsprintfW ( str, sFormat,
              guid->Data1, guid->Data2, guid->Data3,
              guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3],
              guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7] );
@@ -108,7 +127,7 @@ HRESULT WINAPI SHCoCreateInstance(
 	LPVOID *ppv)
 {
 	DWORD	hres;
-	CLSID	iid;
+	IID	iid;
 	const	CLSID * myclsid = clsid;
 	WCHAR	sKeyName[MAX_PATH];
 	const	WCHAR sCLSID[7] = {'C','L','S','I','D','\\','\0'};
@@ -129,7 +148,7 @@ HRESULT WINAPI SHCoCreateInstance(
 	if (!clsid)
 	{
 	  if (!aclsid) return REGDB_E_CLASSNOTREG;
-	  CLSIDFromString((LPOLESTR)aclsid, &iid);
+	  SHCLSIDFromStringW(aclsid, &iid);
 	  myclsid = &iid;
 	}
 
@@ -138,9 +157,9 @@ HRESULT WINAPI SHCoCreateInstance(
 
 	/* we look up the dll path in the registry */
         __SHGUIDToStringW(myclsid, sClassID);
-	wcscpy(sKeyName, sCLSID);
-	wcscat(sKeyName, sClassID);
-	wcscat(sKeyName, sInProcServer32);
+	lstrcpyW(sKeyName, sCLSID);
+	lstrcatW(sKeyName, sClassID);
+	lstrcatW(sKeyName, sInProcServer32);
 
 	if (ERROR_SUCCESS == RegOpenKeyExW(HKEY_CLASSES_ROOT, sKeyName, 0, KEY_READ, &hKey)) {
 	    dwSize = sizeof(sDllPath);
@@ -524,12 +543,12 @@ void WINAPI DragAcceptFiles(HWND hWnd, BOOL b)
 	LONG exstyle;
 
 	if( !IsWindow(hWnd) ) return;
-	exstyle = GetWindowLongPtrA(hWnd,GWL_EXSTYLE);
+	exstyle = GetWindowLongA(hWnd,GWL_EXSTYLE);
 	if (b)
 	  exstyle |= WS_EX_ACCEPTFILES;
 	else
 	  exstyle &= ~WS_EX_ACCEPTFILES;
-	SetWindowLongPtrA(hWnd,GWL_EXSTYLE,exstyle);
+	SetWindowLongA(hWnd,GWL_EXSTYLE,exstyle);
 }
 
 /*************************************************************************
@@ -664,7 +683,7 @@ UINT WINAPI DragQueryFileW(
 	  }
 	}
 
-	i = wcslen(lpwDrop);
+	i = strlenW(lpwDrop);
 	if ( !lpszwFile) goto end;   /* needed buffer size */
 	lstrcpynW (lpszwFile, lpwDrop, lLength);
 end:

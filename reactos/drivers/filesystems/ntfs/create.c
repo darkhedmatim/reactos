@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/create.c
+ * FILE:             services/fs/ntfs/create.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -41,7 +43,7 @@ NtfsMakeAbsoluteFilename(PFILE_OBJECT pFileObject,
 			 PWSTR *pAbsoluteFilename)
 {
   PWSTR rcName;
-  PNTFS_FCB Fcb;
+  PFCB Fcb;
 
   DPRINT("try related for %S\n", pRelativeFileName);
   Fcb = pFileObject->FsContext;
@@ -82,8 +84,8 @@ NtfsOpenFile(PDEVICE_EXTENSION DeviceExt,
  * FUNCTION: Opens a file
  */
 {
-  PNTFS_FCB ParentFcb;
-  PNTFS_FCB Fcb;
+  PFCB ParentFcb;
+  PFCB Fcb;
   NTSTATUS Status;
   PWSTR AbsFileName = NULL;
 
@@ -203,8 +205,8 @@ NtfsCreateFile(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS NTAPI
-NtfsFsdCreate(PDEVICE_OBJECT DeviceObject,
+NTSTATUS STDCALL
+NtfsCreate(PDEVICE_OBJECT DeviceObject,
 	   PIRP Irp)
 {
   PDEVICE_EXTENSION DeviceExt;

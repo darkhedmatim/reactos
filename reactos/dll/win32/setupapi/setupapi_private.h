@@ -33,7 +33,6 @@
 #include <aclapi.h>
 #include <cfgmgr32.h>
 #include <fdi.h>
-#include <reason.h>
 #include <regstr.h>
 #include <sddl.h>
 #include <setupapi.h>
@@ -42,13 +41,6 @@
 #include <wine/unicode.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
-
-#include <pseh/pseh2.h>
-
-/* This hack definition is necessary as long as setupapi 
-   depends on Wine "compatibility" headers */
-typedef ULONG RESOURCEID;
-typedef RESOURCEID *PRESOURCEID;
 
 #include <pnp_c.h>
 #include "rpc_private.h"
@@ -249,11 +241,11 @@ inline static WCHAR *strdupAtoW( const char *str )
 
 struct inf_file;
 extern const WCHAR *DIRID_get_string( int dirid );
-extern unsigned int PARSER_string_substA( const struct inf_file *file, const WCHAR *text,
-                                          char *buffer, unsigned int size );
-extern unsigned int PARSER_string_substW( const struct inf_file *file, const WCHAR *text,
-                                          WCHAR *buffer, unsigned int size );
 extern const WCHAR *PARSER_get_inf_filename( HINF hinf );
+extern unsigned int PARSER_string_substA( const struct inf_file *file, const WCHAR *text, char *buffer,
+                                          unsigned int size );
+extern unsigned int PARSER_string_substW( const struct inf_file *file, const WCHAR *text, WCHAR *buffer,
+                                          unsigned int size );
 extern WCHAR *PARSER_get_src_root( HINF hinf );
 extern WCHAR *PARSER_get_dest_dir( INFCONTEXT *context );
 
@@ -282,13 +274,6 @@ CreateDeviceInfo(
     IN LPCWSTR InstancePath,
     IN LPCGUID pClassGuid,
     OUT struct DeviceInfo **pDeviceInfo);
-
-LONG
-SETUP_CreateDevicesList(
-    IN OUT struct DeviceInfoSet *list,
-    IN PCWSTR MachineName OPTIONAL,
-    IN CONST GUID *Class OPTIONAL,
-    IN PCWSTR Enumerator OPTIONAL);
 
 /* driver.c */
 

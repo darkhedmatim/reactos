@@ -16,12 +16,9 @@ VOID DGRemoveIRP(
 {
     PLIST_ENTRY ListEntry;
     PDATAGRAM_RECEIVE_REQUEST ReceiveRequest;
-    KIRQL OldIrql;
 
     TI_DbgPrint(MAX_TRACE, ("Called (Cancel IRP %08x for file %08x).\n",
                             Irp, AddrFile));
-
-    KeAcquireSpinLock(&AddrFile->Lock, &OldIrql);
 
     for( ListEntry = AddrFile->ReceiveQueue.Flink; 
          ListEntry != &AddrFile->ReceiveQueue;
@@ -39,8 +36,6 @@ VOID DGRemoveIRP(
             break;
         }
     }
-
-    KeReleaseSpinLock(&AddrFile->Lock, OldIrql);
 
     TI_DbgPrint(MAX_TRACE, ("Done.\n"));
 }
@@ -95,60 +90,58 @@ VOID DGDeliverData(
     {
       PLIST_ENTRY CurrentEntry;
       PDATAGRAM_RECEIVE_REQUEST Current = NULL;
+      BOOLEAN Found;
       PTA_IP_ADDRESS RTAIPAddress;
 
       TI_DbgPrint(MAX_TRACE, ("There is a receive request.\n"));
 
       /* Search receive request list to find a match */
+      Found = FALSE;
       CurrentEntry = AddrFile->ReceiveQueue.Flink;
-      while(CurrentEntry != &AddrFile->ReceiveQueue) {
+      while((CurrentEntry != &AddrFile->ReceiveQueue) && (!Found)) {
           Current = CONTAINING_RECORD(CurrentEntry, DATAGRAM_RECEIVE_REQUEST, ListEntry);
-          CurrentEntry = CurrentEntry->Flink;
-	  if( DstPort == AddrFile->Port &&
-              (AddrIsEqual(DstAddress, &AddrFile->Address) ||
-               AddrIsUnspecified(&AddrFile->Address) ||
-               AddrIsUnspecified(DstAddress))) {
 
+	  if( DstPort == AddrFile->Port ) {
+	      Found = TRUE;
 	      /* Remove the request from the queue */
 	      RemoveEntryList(&Current->ListEntry);
-
-              TI_DbgPrint(MAX_TRACE, ("Suitable receive request found.\n"));
-
-              TI_DbgPrint(MAX_TRACE,
-                           ("Target Buffer: %x, Source Buffer: %x, Size %d\n",
-                            Current->Buffer, DataBuffer, DataSize));
-
-              /* Copy the data into buffer provided by the user */
-	      RtlCopyMemory( Current->Buffer,
-			     DataBuffer,
-			     MIN(Current->BufferSize, DataSize) );
-
-	      RTAIPAddress = (PTA_IP_ADDRESS)Current->ReturnInfo->RemoteAddress;
-	      RTAIPAddress->TAAddressCount = 1;
-	      RTAIPAddress->Address->AddressType = TDI_ADDRESS_TYPE_IP;
-	      RTAIPAddress->Address->Address->sin_port = SrcPort;
-
-	      TI_DbgPrint(MAX_TRACE, ("(A: %08x) Addr %08x Port %04x\n",
-				      RTAIPAddress,
-				      SrcAddress->Address.IPv4Address, SrcPort));
-
-	      RtlCopyMemory( &RTAIPAddress->Address->Address->in_addr,
-			     &SrcAddress->Address.IPv4Address,
-			     sizeof(SrcAddress->Address.IPv4Address) );
-
-              TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
-
-              /* Complete the receive request */
-              if (Current->BufferSize < DataSize)
-                  Current->Complete(Current->Context, STATUS_BUFFER_OVERFLOW, Current->BufferSize);
-              else
-                  Current->Complete(Current->Context, STATUS_SUCCESS, DataSize);
-
-              TcpipAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+	      break;
+	  } else {
+	      CurrentEntry = CurrentEntry->Flink;
 	  }
       }
 
       TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+      if (Found)
+        {
+          TI_DbgPrint(MAX_TRACE, ("Suitable receive request found.\n"));
+
+          TI_DbgPrint(MAX_TRACE,
+                       ("Target Buffer: %x, Source Buffer: %x, Size %d\n",
+                        Current->Buffer, DataBuffer, DataSize));
+
+          /* Copy the data into buffer provided by the user */
+	  RtlCopyMemory( Current->Buffer,
+			 DataBuffer,
+			 DataSize );
+
+	  RTAIPAddress = (PTA_IP_ADDRESS)Current->ReturnInfo->RemoteAddress;
+	  RTAIPAddress->TAAddressCount = 1;
+	  RTAIPAddress->Address->AddressType = TDI_ADDRESS_TYPE_IP;
+	  RTAIPAddress->Address->Address->sin_port = SrcPort;
+
+	  TI_DbgPrint(MAX_TRACE, ("(A: %08x) Addr %08x Port %04x\n",
+				  RTAIPAddress,
+				  SrcAddress->Address.IPv4Address, SrcPort));
+
+	  RtlCopyMemory( &RTAIPAddress->Address->Address->in_addr,
+			 &SrcAddress->Address.IPv4Address,
+			 sizeof(SrcAddress->Address.IPv4Address) );
+
+          /* Complete the receive request */
+          Current->Complete(Current->Context, STATUS_SUCCESS, DataSize);
+        }
     }
   else if (AddrFile->RegisteredReceiveDatagramHandler)
     {
@@ -184,7 +177,6 @@ VOID DGDeliverData(
     }
   else
     {
-      TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
       TI_DbgPrint(MAX_TRACE, ("Discarding datagram.\n"));
     }
 
@@ -259,12 +251,8 @@ NTSTATUS DGReceiveDatagram(
             }
 	    else
             {
-		ReceiveRequest->RemotePort = 0;
-		AddrInitIPv4(&ReceiveRequest->RemoteAddress, 0);
+		ReceiveRequest->RemotePort    = 0;
             }
-
-	    IoMarkIrpPending(Irp);
-
 	    ReceiveRequest->ReturnInfo = ReturnInfo;
 	    ReceiveRequest->Buffer = BufferData;
 	    ReceiveRequest->BufferSize = ReceiveLength;

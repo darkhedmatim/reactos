@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.3
+ * Version:  6.5.3
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -145,7 +145,6 @@ typedef enum prog_opcode {
    OPCODE_NOP = 0,   /*                                      X   */
    OPCODE_ABS,       /*   X        X       1.1               X   */
    OPCODE_ADD,       /*   X        X       X       X         X   */
-   OPCODE_AND,       /*                                          */
    OPCODE_ARA,       /*                    2                     */
    OPCODE_ARL,       /*   X                X                     */
    OPCODE_ARL_NV,    /*                    2                     */
@@ -160,8 +159,6 @@ typedef enum prog_opcode {
    OPCODE_COS,       /*            X       2       X         X   */
    OPCODE_DDX,       /*                            X         X   */
    OPCODE_DDY,       /*                            X         X   */
-   OPCODE_DP2,       /*                            2             */
-   OPCODE_DP2A,      /*                            2             */
    OPCODE_DP3,       /*   X        X       X       X         X   */
    OPCODE_DP4,       /*   X        X       X       X         X   */
    OPCODE_DPH,       /*   X        X       1.1                   */
@@ -176,6 +173,7 @@ typedef enum prog_opcode {
    OPCODE_FLR,       /*   X        X       2       X         X   */
    OPCODE_FRC,       /*   X        X       2       X         X   */
    OPCODE_IF,        /*                                     opt  */
+   OPCODE_INT,       /*                                      X   */
    OPCODE_KIL,       /*            X                             */
    OPCODE_KIL_NV,    /*                            X         X   */
    OPCODE_LG2,       /*   X        X       2       X         X   */
@@ -191,10 +189,6 @@ typedef enum prog_opcode {
    OPCODE_NOISE2,    /*                                      X   */
    OPCODE_NOISE3,    /*                                      X   */
    OPCODE_NOISE4,    /*                                      X   */
-   OPCODE_NOT,       /*                                          */
-   OPCODE_NRM3,      /*                                          */
-   OPCODE_NRM4,      /*                                          */
-   OPCODE_OR,        /*                                          */
    OPCODE_PK2H,      /*                            X             */
    OPCODE_PK2US,     /*                            X             */
    OPCODE_PK4B,      /*                            X             */
@@ -227,23 +221,14 @@ typedef enum prog_opcode {
    OPCODE_TXL,       /*                    3       2         X   */
    OPCODE_TXP,       /*            X                         X   */
    OPCODE_TXP_NV,    /*                    3       X             */
-   OPCODE_TRUNC,     /*                                      X   */
    OPCODE_UP2H,      /*                            X             */
    OPCODE_UP2US,     /*                            X             */
    OPCODE_UP4B,      /*                            X             */
    OPCODE_UP4UB,     /*                            X             */
    OPCODE_X2D,       /*                            X             */
-   OPCODE_XOR,       /*                                          */
    OPCODE_XPD,       /*   X        X                         X   */
    MAX_OPCODE
 } gl_inst_opcode;
-
-
-/**
- * Number of bits for the src/dst register Index field.
- * This limits the size of temp/uniform register files.
- */
-#define INST_INDEX_BITS 10
 
 
 /**
@@ -252,9 +237,7 @@ typedef enum prog_opcode {
 struct prog_src_register
 {
    GLuint File:4;	/**< One of the PROGRAM_* register file values. */
-   GLint Index:(INST_INDEX_BITS+1); /**< Extra bit here for sign bit.
-                                     * May be negative for relative addressing.
-                                     */
+   GLint Index:9;	/**< May be negative for relative addressing. */
    GLuint Swizzle:12;
    GLuint RelAddr:1;
 
@@ -297,10 +280,13 @@ struct prog_src_register
  */
 struct prog_dst_register
 {
-   GLuint File:4;      /**< One of the PROGRAM_* register file values */
-   GLuint Index:INST_INDEX_BITS;  /**< Unsigned, never negative */
+   /**
+    * One of the PROGRAM_* register file values.
+    */
+   GLuint File:4;
+
+   GLuint Index:8;
    GLuint WriteMask:4;
-   GLuint RelAddr:1;
 
    /**
     * \name Conditional destination update control.
@@ -331,7 +317,8 @@ struct prog_dst_register
     */
    GLuint CondSrc:1;
    /*@}*/
-   GLuint pad:28;
+
+   GLuint pad:31;
 };
 
 
@@ -450,17 +437,8 @@ extern struct prog_instruction *
 _mesa_copy_instructions(struct prog_instruction *dest,
                         const struct prog_instruction *src, GLuint n);
 
-extern void
-_mesa_free_instructions(struct prog_instruction *inst, GLuint count);
-
 extern GLuint
 _mesa_num_inst_src_regs(gl_inst_opcode opcode);
-
-extern GLuint
-_mesa_num_inst_dst_regs(gl_inst_opcode opcode);
-
-extern GLboolean
-_mesa_is_tex_instruction(gl_inst_opcode opcode);
 
 extern const char *
 _mesa_opcode_string(gl_inst_opcode opcode);

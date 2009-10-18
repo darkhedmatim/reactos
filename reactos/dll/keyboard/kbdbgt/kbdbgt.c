@@ -1,5 +1,4 @@
 /*
- * Tundzha - Bulgarian keyboard layout
  * Тунджа - Българска клавиатурна позвукова подредба 'явертъ' за РеактОС
  * Copyright (C) 2007 ReactOS
  * License: LGPL, see: LGPL.txt
@@ -280,7 +279,7 @@ ROSDATA VK_TO_WCHARS5 key_to_chars_5mod[] = {
   { '3',   NOCAPS, {'3', '#', WCH_NONE, 0x2116, 0x2116} }, //3#№№
   { '6',   NOCAPS, {'6', '^', WCH_NONE, 0x20AC,0x20AC } }, //6^€€
   { '7',   NOCAPS, {'7', '&', WCH_NONE, 0xA7, 0xA7} }, //7&§§
-  { VK_OEM_7,    NOCAPS, {'\'','\"', WCH_NONE, 0x201e, 0x201C } }, //'"„“
+  { VK_OEM_7,    NOCAPS, {'\'','\"', WCH_NONE, 0x201e, 0x201d } }, //'"„”
   { 0, 0 }
 };
 
@@ -406,7 +405,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   /* Key names */
   (VSC_LPWSTR *)key_names,
   (VSC_LPWSTR *)extended_key_names,
-  // dead_key_names, /* Dead key names */
+//  dead_key_names, /* Dead key names */
   NULL, /* Dead key names */
 
   /* scan code to virtual key maps */
@@ -415,19 +414,19 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   extcode0_to_vk,
   extcode1_to_vk,
 
-  MAKELONG(1,1), /* Version 1.0 */
+  MAKELONG(0,1), /* Version 1.0 */
 
-  /* Ligatures -- Bulgarian doesn't have any */
+  /* Ligatures --  */
   0,
   0,
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 
-INT WINAPI
+INT STDCALL
 DllMain(
   PVOID hinstDll,
   ULONG dwReason,

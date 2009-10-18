@@ -56,7 +56,7 @@ DoDeleteService(PMAIN_WND_INFO Info,
 }
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 DeleteDialogProc(HWND hDlg,
                  UINT message,
                  WPARAM wParam,

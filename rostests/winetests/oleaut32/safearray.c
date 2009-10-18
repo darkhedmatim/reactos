@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
+#include <time.h>
 
 #define COBJMACROS
 #include "wine/test.h"
@@ -146,7 +147,7 @@ static const IRecordInfoVtbl IRecordInfoImpl_VTable =
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
-  IRecordInfoImpl_GetSize,
+  (PVOID)IRecordInfoImpl_GetSize,
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
@@ -275,7 +276,7 @@ static struct {
 static void test_safearray(void)
 {
 	SAFEARRAY 	*a, b, *c;
-	unsigned int 	i, diff;
+	unsigned int 	i;
 	LONG		indices[2];
 	HRESULT 	hres;
 	SAFEARRAYBOUND	bound, bounds[2];
@@ -354,23 +355,14 @@ static void test_safearray(void)
         SafeArrayPtrOfIndex(a, indices, (void **)&ptr1);
         ok(*(WORD *)ptr1 == 0x55aa, "Data not preserved when resizing array\n");
 
-        hres = SafeArrayDestroy(a);
-        ok(hres == S_OK,"SAD faild with hres %x\n", hres);
-
 	bounds[0].cElements = 0;	bounds[0].lLbound =  1;
 	bounds[1].cElements =  2;	bounds[1].lLbound = 23;
     	a = SafeArrayCreate(VT_I4,2,bounds);
     	ok(a != NULL,"SAC(VT_INT32,2,...) with 0 element dim failed.\n");
-
-        hres = SafeArrayDestroy(a);
-        ok(hres == S_OK,"SAD faild with hres %x\n", hres);
 	bounds[0].cElements = 1;	bounds[0].lLbound =  1;
 	bounds[1].cElements = 0;	bounds[1].lLbound = 23;
     	a = SafeArrayCreate(VT_I4,2,bounds);
     	ok(a != NULL,"SAC(VT_INT32,2,...) with 0 element dim failed.\n");
-
-        hres = SafeArrayDestroy(a);
-        ok(hres == S_OK,"SAD faild with hres %x\n", hres);
 
 	bounds[0].cElements = 42;	bounds[0].lLbound =  1;
 	bounds[1].cElements =  2;	bounds[1].lLbound = 23;
@@ -434,28 +426,22 @@ static void test_safearray(void)
 	indices[1] = 23;
 	hres = SafeArrayPtrOfIndex(a, indices, (void**)&ptr2);
 	ok(S_OK == hres,"SAPOI failed [1,23], hres 0x%x\n",hres);
-        diff = ptr2 - ptr1;
-	ok(diff == 8,"ptr difference is not 8, but %d (%p vs %p)\n", diff, ptr2, ptr1);
+	ok(ptr2 - ptr1 == 8,"ptr difference is not 8, but %d (%p vs %p)\n", ptr2-ptr1, ptr2, ptr1);
 
 	indices[0] = 3;
 	indices[1] = 24;
 	hres = SafeArrayPtrOfIndex(a, indices, (void**)&ptr2);
 	ok(S_OK == hres,"SAPOI failed [5,24], hres 0x%x\n",hres);
-        diff = ptr2 - ptr1;
-	ok(diff == 176,"ptr difference is not 176, but %d (%p vs %p)\n", diff, ptr2, ptr1);
+	ok(ptr2 - ptr1 == 176,"ptr difference is not 176, but %d (%p vs %p)\n", ptr2-ptr1, ptr2, ptr1);
 
 	indices[0] = 20;
 	indices[1] = 23;
 	hres = SafeArrayPtrOfIndex(a, indices, (void**)&ptr2);
 	ok(S_OK == hres,"SAPOI failed [20,23], hres 0x%x\n",hres);
-        diff = ptr2 - ptr1;
-	ok(diff == 76,"ptr difference is not 76, but %d (%p vs %p)\n", diff, ptr2, ptr1);
+	ok(ptr2 - ptr1 == 76,"ptr difference is not 76, but %d (%p vs %p)\n", ptr2-ptr1, ptr2, ptr1);
 
 	hres = SafeArrayUnaccessData(a);
 	ok(S_OK == hres, "SAUAD failed with 0x%x\n", hres);
-
-	hres = SafeArrayDestroy(a);
-	ok(hres == S_OK,"SAD faild with hres %x\n", hres);
 
 	for (i=0;i<sizeof(vttypes)/sizeof(vttypes[0]);i++) {
 	if ((i == VT_I8 || i == VT_UI8) && HAVE_OLEAUT32_I8)
@@ -492,8 +478,12 @@ static void test_safearray(void)
         {
             hres = pSafeArrayGetVartype(a, &vt);
             ok(hres == S_OK, "SAGVT of arra y with vt %d failed with %x\n", vttypes[i].vt, hres);
-            /* Windows prior to Vista returns VT_UNKNOWN instead of VT_DISPATCH */
-            ok(broken(vt == VT_UNKNOWN) || vt == vttypes[i].vt, "SAGVT of array with vt %d returned %d\n", vttypes[i].vt, vt);
+            if (vttypes[i].vt == VT_DISPATCH) {
+        		/* Special case. Checked against Windows. */
+		        ok(vt == VT_UNKNOWN, "SAGVT of a        rray with VT_DISPATCH returned not VT_UNKNOWN, but %d\n", vt);
+            } else {
+		        ok(vt == vttypes[i].vt, "SAGVT of array with vt %d returned %d\n", vttypes[i].vt, vt);
+            }
         }
 
 		hres = SafeArrayCopy(a, &c);
@@ -507,8 +497,12 @@ static void test_safearray(void)
         if (pSafeArrayGetVartype) {
             hres = pSafeArrayGetVartype(c, &vt);
             ok(hres == S_OK, "SAGVT of array with vt %d failed with %x\n", vttypes[i].vt, hres);
-            /* Windows prior to Vista returns VT_UNKNOWN instead of VT_DISPATCH */
-            ok(broken(vt == VT_UNKNOWN) || vt == vttypes[i].vt, "SAGVT of array with vt %d returned %d\n", vttypes[i].vt, vt);
+            if (vttypes[i].vt == VT_DISPATCH) {
+                /* Special case. Checked against Windows. */
+                ok(vt == VT_UNKNOWN, "SAGVT of array with VT_DISPATCH returned not VT_UNKNOWN, but %d\n", vt);
+            } else {
+                ok(vt == vttypes[i].vt, "SAGVT of array with vt %d returned %d\n", vttypes[i].vt, vt);
+            }
         }
 
         if (pSafeArrayCopyData) {
@@ -518,9 +512,6 @@ static void test_safearray(void)
             hres = SafeArrayDestroyData(c);
             ok(hres == S_OK,"SADD of copy of array with vt %d failed with hres %x\n", vttypes[i].vt, hres);
         }
-
-		hres = SafeArrayDestroy(c);
-		ok(hres == S_OK,"SAD faild with hres %x\n", hres);
 
 		hres = SafeArrayDestroy(a);
 		ok(hres == S_OK,"SAD of array with vt %d failed with hres %x\n", vttypes[i].vt, hres);
@@ -540,7 +531,6 @@ static void test_safearray(void)
 	ok(hres==S_OK, "CTE VT_ARRAY|VT_UI1 -> VT_BSTR failed with %x\n",hres);
 	ok(V_VT(&v) == VT_BSTR,"CTE VT_ARRAY|VT_UI1 -> VT_BSTR did not return VT_BSTR, but %d.v\n",V_VT(&v));
 	ok(V_BSTR(&v)[0] == 0x6548,"First letter are not 'He', but %x\n", V_BSTR(&v)[0]);
-	VariantClear(&v);
 
 	/* check locking functions */
 	a = SafeArrayCreate(VT_I4, 1, &bound);
@@ -570,6 +560,7 @@ static void test_safearray(void)
 	hres = SafeArrayDestroyDescriptor(a);
 	ok(hres == S_OK,"SADD with data in array failed with hres %x\n",hres);
 
+
 	/* IID functions */
 	/* init a small stack safearray */
     if (pSafeArraySetIID) {
@@ -583,9 +574,6 @@ static void test_safearray(void)
         ok((a->fFeatures & FADF_HAVEIID) == 0,"newly allocated descriptor with SAAD should not have FADF_HAVEIID\n");
         hres = pSafeArraySetIID(a,&iid);
         ok(hres == E_INVALIDARG,"SafeArraySetIID of newly allocated descriptor with SAAD should return E_INVALIDARG, but %x\n",hres);
-
-        hres = SafeArrayDestroyDescriptor(a);
-        ok(hres == S_OK,"SADD failed with hres %x\n",hres);
     }
 
     if (!pSafeArrayAllocDescriptorEx)
@@ -704,9 +692,6 @@ static void test_SafeArrayAllocDestroyDescriptor(void)
 
   hres = SafeArrayAllocData(sa);
   ok(hres == S_OK, "SafeArrayAllocData gave hres 0x%x\n", hres);
-
-  hres = SafeArrayDestroy(sa);
-  ok(hres == S_OK,"SafeArrayDestroy failed with hres %x\n",hres);
 }
 
 static void test_SafeArrayCreateLockDestroy(void)
@@ -823,7 +808,7 @@ static void test_SafeArrayCreateLockDestroy(void)
           ok(hres == S_OK, "Unlock VARTYPE %d (@%d dims) hres 0x%x\n",
              vt, dimension, hres);
 
-          hres = SafeArrayDestroy(sa);
+          hres = SafeArrayDestroyDescriptor(sa);
           ok(hres == S_OK, "destroy VARTYPE %d (@%d dims) hres 0x%x\n",
              vt, dimension, hres);
         }
@@ -843,9 +828,6 @@ static void test_VectorCreateLockDestroy(void)
     return;
   sa = pSafeArrayCreateVector(VT_UI1, 0, 0);
   ok(sa != NULL, "SACV with 0 elements failed.\n");
-
-  hres = SafeArrayDestroy(sa);
-  ok(hres == S_OK, "SafeArrayDestroy failed with hres %x\n",hres);
 
   /* Test all VARTYPES in different lengths */
   for (element = 1; element <= 101; element += 10)
@@ -879,7 +861,7 @@ static void test_VectorCreateLockDestroy(void)
           ok(hres == S_OK, "Unlock VARTYPE %d (@%d elements) failed; hres 0x%x\n",
              vt, element, hres);
 
-          hres = SafeArrayDestroy(sa);
+          hres = SafeArrayDestroyDescriptor(sa);
           ok(hres == S_OK, "destroy VARTYPE %d (@%d elements) failed; hres 0x%x\n",
              vt, element, hres);
         }
@@ -1103,8 +1085,6 @@ static void test_SafeArrayGetPutElement_BSTR(void)
   if (hres == S_OK)
     ok(SysStringLen(value) == SysStringLen(gotvalue), "Got len %d instead of %d\n", SysStringLen(gotvalue), SysStringLen(value));
   SafeArrayDestroy(sa);
-  SysFreeString(value);
-  SysFreeString(gotvalue);
 }
 
 static int tunk_xref = 0;
@@ -1274,7 +1254,7 @@ static void test_SafeArrayCopyData(void)
   /* Fill the source array with some data; it doesn't matter what */
   for (dimension = 0; dimension < size; dimension++)
   {
-    int* data = sa->pvData;
+    int* data = (int*)sa->pvData;
     data[dimension] = dimension;
   }
 
@@ -1420,7 +1400,7 @@ static void test_SafeArrayCreateEx(void)
 
   /* Win32 doesn't care if GetSize fails */
   fail_GetSize = TRUE;
-  sa = pSafeArrayCreateEx(VT_RECORD, 1, sab, iRec);
+  sa = pSafeArrayCreateEx(VT_RECORD, 1, sab, (LPVOID)iRec);
   ok(sa != NULL, "CreateEx (Fail Size) failed\n");
   ok(iRec->ref == START_REF_COUNT + 1, "Wrong iRec refcount %d\n", iRec->ref);
   ok(iRec->sizeCalled == 1, "GetSize called %d times\n", iRec->sizeCalled);
@@ -1437,7 +1417,7 @@ static void test_SafeArrayCreateEx(void)
   iRec->ref = START_REF_COUNT;
   iRec->sizeCalled = 0;
   iRec->clearCalled = 0;
-  sa = pSafeArrayCreateEx(VT_RECORD, 1, sab, iRec);
+  sa = pSafeArrayCreateEx(VT_RECORD, 1, sab, (LPVOID)iRec);
   ok(sa != NULL, "CreateEx (Rec) failed\n");
   ok(iRec->ref == START_REF_COUNT + 1, "Wrong iRec refcount %d\n", iRec->ref);
   ok(iRec->sizeCalled == 1, "GetSize called %d times\n", iRec->sizeCalled);
@@ -1623,7 +1603,6 @@ static void test_SafeArrayChangeTypeEx(void)
     hres = VariantChangeTypeEx(&v2, &v, 0, 0, VT_BSTR);
     ok(hres != S_OK, "CTE VT_ARRAY|VT %d->BSTR succeeded\n", vt);
     VariantClear(&v2);
-    VariantClear(&v);
   }
 
   /* Can't change an array of one type into array of another type , even
@@ -1651,7 +1630,6 @@ static void test_SafeArrayChangeTypeEx(void)
     V_ARRAY(&v) = sa;
     hres = VariantChangeTypeEx(&v2, &v, 0, 0, VT_ARRAY|VT_UI1);
     ok(hres == S_OK, "CTE VT_ARRAY|VT_UI1->VT_ARRAY|VT_UI1 returned %x\n", hres);
-    SafeArrayDestroy(sa);
   }
 
   /* NULL/EMPTY */

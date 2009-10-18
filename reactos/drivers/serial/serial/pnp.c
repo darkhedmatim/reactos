@@ -90,11 +90,6 @@ SerialAddDeviceInternal(
 		Fdo->Flags |= DO_BUFFERED_IO;
 	if (DeviceExtension->LowerDevice->Flags & DO_DIRECT_IO)
 		Fdo->Flags |= DO_DIRECT_IO;
-
-	/* Choose default strategy */
-	if ((Fdo->Flags & (DO_BUFFERED_IO | DO_DIRECT_IO)) == 0)
-		Fdo->Flags |= DO_BUFFERED_IO;
-
 	Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
 	if (pFdo)
 	{
@@ -223,8 +218,7 @@ SerialPnpStartDevice(
 	ComPortBase = ULongToPtr(DeviceExtension->BaseAddress);
 
 	/* Test if we are trying to start the serial port used for debugging */
-    INFO_(SERIAL, "Comparing addresses: KdComPortInUse: %p, ComPortBase: %p\n", KdComPortInUse, ComPortBase);
-	if (KdComPortInUse == ComPortBase)
+	if (*KdComPortInUse == ULongToPtr(DeviceExtension->BaseAddress))
 	{
 		INFO_(SERIAL, "Failing IRP_MN_START_DEVICE as this serial port is used for debugging\n");
 		return STATUS_INSUFFICIENT_RESOURCES;

@@ -46,14 +46,6 @@ static ULONG WINAPI IDirect3DIndexBuffer8Impl_AddRef(LPDIRECT3DINDEXBUFFER8 ifac
 
     TRACE("(%p) : AddRef from %d\n", This, ref - 1);
 
-    if (ref == 1)
-    {
-        IDirect3DDevice8_AddRef(This->parentDevice);
-        wined3d_mutex_lock();
-        IWineD3DBuffer_AddRef(This->wineD3DIndexBuffer);
-        wined3d_mutex_unlock();
-    }
-
     return ref;
 }
 
@@ -64,10 +56,11 @@ static ULONG WINAPI IDirect3DIndexBuffer8Impl_Release(LPDIRECT3DINDEXBUFFER8 ifa
     TRACE("(%p) : ReleaseRef to %d\n", This, ref);
 
     if (ref == 0) {
-        IDirect3DDevice8_Release(This->parentDevice);
-        wined3d_mutex_lock();
-        IWineD3DBuffer_Release(This->wineD3DIndexBuffer);
-        wined3d_mutex_unlock();
+        EnterCriticalSection(&d3d8_cs);
+        IWineD3DIndexBuffer_Release(This->wineD3DIndexBuffer);
+        LeaveCriticalSection(&d3d8_cs);
+        IUnknown_Release(This->parentDevice);
+        HeapFree(GetProcessHeap(), 0, This);
     }
     return ref;
 }
@@ -75,19 +68,12 @@ static ULONG WINAPI IDirect3DIndexBuffer8Impl_Release(LPDIRECT3DINDEXBUFFER8 ifa
 /* IDirect3DIndexBuffer8 IDirect3DResource8 Interface follow: */
 static HRESULT WINAPI IDirect3DIndexBuffer8Impl_GetDevice(LPDIRECT3DINDEXBUFFER8 iface, IDirect3DDevice8 **ppDevice) {
     IDirect3DIndexBuffer8Impl *This = (IDirect3DIndexBuffer8Impl *)iface;
-    IWineD3DDevice *wined3d_device;
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_GetDevice(This->wineD3DIndexBuffer, &wined3d_device);
-    if (SUCCEEDED(hr))
-    {
-        IWineD3DDevice_GetParent(wined3d_device, (IUnknown **)ppDevice);
-        IWineD3DDevice_Release(wined3d_device);
-    }
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IDirect3DResource8Impl_GetDevice((LPDIRECT3DRESOURCE8) This, ppDevice);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
@@ -96,10 +82,9 @@ static HRESULT WINAPI IDirect3DIndexBuffer8Impl_SetPrivateData(LPDIRECT3DINDEXBU
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_SetPrivateData(This->wineD3DIndexBuffer, refguid, pData, SizeOfData, Flags);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IWineD3DIndexBuffer_SetPrivateData(This->wineD3DIndexBuffer, refguid, pData, SizeOfData, Flags);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
@@ -108,10 +93,9 @@ static HRESULT WINAPI IDirect3DIndexBuffer8Impl_GetPrivateData(LPDIRECT3DINDEXBU
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_GetPrivateData(This->wineD3DIndexBuffer, refguid, pData, pSizeOfData);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IWineD3DIndexBuffer_GetPrivateData(This->wineD3DIndexBuffer, refguid, pData, pSizeOfData);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
@@ -120,10 +104,9 @@ static HRESULT WINAPI IDirect3DIndexBuffer8Impl_FreePrivateData(LPDIRECT3DINDEXB
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_FreePrivateData(This->wineD3DIndexBuffer, refguid);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IWineD3DIndexBuffer_FreePrivateData(This->wineD3DIndexBuffer, refguid);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
@@ -132,10 +115,9 @@ static DWORD WINAPI IDirect3DIndexBuffer8Impl_SetPriority(LPDIRECT3DINDEXBUFFER8
     DWORD ret;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    ret = IWineD3DBuffer_SetPriority(This->wineD3DIndexBuffer, PriorityNew);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    ret = IWineD3DIndexBuffer_SetPriority(This->wineD3DIndexBuffer, PriorityNew);
+    LeaveCriticalSection(&d3d8_cs);
     return ret;
 }
 
@@ -144,10 +126,9 @@ static DWORD WINAPI IDirect3DIndexBuffer8Impl_GetPriority(LPDIRECT3DINDEXBUFFER8
     DWORD ret;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    ret = IWineD3DBuffer_GetPriority(This->wineD3DIndexBuffer);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    ret = IWineD3DIndexBuffer_GetPriority(This->wineD3DIndexBuffer);
+    LeaveCriticalSection(&d3d8_cs);
     return ret;
 }
 
@@ -155,16 +136,20 @@ static void WINAPI IDirect3DIndexBuffer8Impl_PreLoad(LPDIRECT3DINDEXBUFFER8 ifac
     IDirect3DIndexBuffer8Impl *This = (IDirect3DIndexBuffer8Impl *)iface;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    IWineD3DBuffer_PreLoad(This->wineD3DIndexBuffer);
-    wined3d_mutex_unlock();
+    EnterCriticalSection(&d3d8_cs);
+    IWineD3DIndexBuffer_PreLoad(This->wineD3DIndexBuffer);
+    LeaveCriticalSection(&d3d8_cs);
 }
 
 static D3DRESOURCETYPE WINAPI IDirect3DIndexBuffer8Impl_GetType(LPDIRECT3DINDEXBUFFER8 iface) {
     IDirect3DIndexBuffer8Impl *This = (IDirect3DIndexBuffer8Impl *)iface;
-    TRACE("(%p)\n", This);
+    D3DRESOURCETYPE type;
+    TRACE("(%p) Relay\n", This);
 
-    return D3DRTYPE_INDEXBUFFER;
+    EnterCriticalSection(&d3d8_cs);
+    type = IWineD3DIndexBuffer_GetType(This->wineD3DIndexBuffer);
+    LeaveCriticalSection(&d3d8_cs);
+    return type;
 }
 
 /* IDirect3DIndexBuffer8 Interface follow: */
@@ -173,10 +158,9 @@ static HRESULT WINAPI IDirect3DIndexBuffer8Impl_Lock(LPDIRECT3DINDEXBUFFER8 ifac
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_Map(This->wineD3DIndexBuffer, OffsetToLock, SizeToLock, ppbData, Flags);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IWineD3DIndexBuffer_Lock(This->wineD3DIndexBuffer, OffsetToLock, SizeToLock, ppbData, Flags);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
@@ -185,35 +169,25 @@ static HRESULT WINAPI IDirect3DIndexBuffer8Impl_Unlock(LPDIRECT3DINDEXBUFFER8 if
     HRESULT hr;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_Unmap(This->wineD3DIndexBuffer);
-    wined3d_mutex_unlock();
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IWineD3DIndexBuffer_Unlock(This->wineD3DIndexBuffer);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
 static HRESULT WINAPI IDirect3DIndexBuffer8Impl_GetDesc(LPDIRECT3DINDEXBUFFER8 iface, D3DINDEXBUFFER_DESC *pDesc) {
     IDirect3DIndexBuffer8Impl *This = (IDirect3DIndexBuffer8Impl *)iface;
     HRESULT hr;
-    WINED3DBUFFER_DESC desc;
     TRACE("(%p) Relay\n", This);
 
-    wined3d_mutex_lock();
-    hr = IWineD3DBuffer_GetDesc(This->wineD3DIndexBuffer, &desc);
-    wined3d_mutex_unlock();
-
-    if (SUCCEEDED(hr)) {
-        pDesc->Format = d3dformat_from_wined3dformat(This->format);
-        pDesc->Type = D3DRTYPE_INDEXBUFFER;
-        pDesc->Usage = desc.Usage;
-        pDesc->Pool = desc.Pool;
-        pDesc->Size = desc.Size;
-    }
-
+    EnterCriticalSection(&d3d8_cs);
+    hr = IWineD3DIndexBuffer_GetDesc(This->wineD3DIndexBuffer, (WINED3DINDEXBUFFER_DESC *) pDesc);
+    LeaveCriticalSection(&d3d8_cs);
     return hr;
 }
 
-static const IDirect3DIndexBuffer8Vtbl Direct3DIndexBuffer8_Vtbl =
+
+const IDirect3DIndexBuffer8Vtbl Direct3DIndexBuffer8_Vtbl =
 {
     /* IUnknown */
     IDirect3DIndexBuffer8Impl_QueryInterface,
@@ -233,39 +207,3 @@ static const IDirect3DIndexBuffer8Vtbl Direct3DIndexBuffer8_Vtbl =
     IDirect3DIndexBuffer8Impl_Unlock,
     IDirect3DIndexBuffer8Impl_GetDesc
 };
-
-static void STDMETHODCALLTYPE d3d8_indexbuffer_wined3d_object_destroyed(void *parent)
-{
-    HeapFree(GetProcessHeap(), 0, parent);
-}
-
-static const struct wined3d_parent_ops d3d8_indexbuffer_wined3d_parent_ops =
-{
-    d3d8_indexbuffer_wined3d_object_destroyed,
-};
-
-HRESULT indexbuffer_init(IDirect3DIndexBuffer8Impl *buffer, IDirect3DDevice8Impl *device,
-        UINT size, DWORD usage, D3DFORMAT format, D3DPOOL pool)
-{
-    HRESULT hr;
-
-    buffer->lpVtbl = &Direct3DIndexBuffer8_Vtbl;
-    buffer->ref = 1;
-    buffer->format = wined3dformat_from_d3dformat(format);
-
-    wined3d_mutex_lock();
-    hr = IWineD3DDevice_CreateIndexBuffer(device->WineD3DDevice, size,
-            usage & WINED3DUSAGE_MASK, (WINED3DPOOL)pool, &buffer->wineD3DIndexBuffer,
-            (IUnknown *)buffer, &d3d8_indexbuffer_wined3d_parent_ops);
-    wined3d_mutex_unlock();
-    if (FAILED(hr))
-    {
-        WARN("Failed to create wined3d buffer, hr %#x.\n", hr);
-        return hr;
-    }
-
-    buffer->parentDevice = (IDirect3DDevice8 *)device;
-    IUnknown_AddRef(buffer->parentDevice);
-
-    return D3D_OK;
-}

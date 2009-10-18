@@ -445,9 +445,6 @@
 
 #include <stdio.h>
 
-int TuiPrintf(const char *format, ... );
-#define printf TuiPrintf
-
 #ifdef lint
 #define NDEBUG			      /* Exits in asserts confuse lint */
 /* LINTLIBRARY */                     /* Don't complain about def, no ref */

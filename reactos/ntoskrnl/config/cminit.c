@@ -464,7 +464,8 @@ CmpOpenHiveFiles(IN PCUNICODE_STRING BaseName,
     /* Check if we don't need to create a log file */
     if (!Extension)
     {
-        /* We're done, close handles */
+        /* We're done, close handles and free buffers */
+        if (NameBuffer) ExFreePool(NameBuffer);
         ObDereferenceObject(Event);
         ZwClose(EventHandle);
         return STATUS_SUCCESS;

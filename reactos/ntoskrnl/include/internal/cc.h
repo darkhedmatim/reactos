@@ -112,11 +112,9 @@ typedef struct _BCB
     ULONG CacheSegmentSize;
     LARGE_INTEGER AllocationSize;
     LARGE_INTEGER FileSize;
-    PCACHE_MANAGER_CALLBACKS Callbacks;
-    PVOID LazyWriteContext;
     KSPIN_LOCK BcbLock;
     ULONG RefCount;
-#if DBG
+#if defined(DBG) || defined(KDBG)
 	BOOLEAN Trace; /* enable extra trace output for this BCB and it's cache segments */
 #endif
 } BCB, *PBCB;
@@ -299,21 +297,15 @@ CcRosRequestCacheSegment(
 
 NTSTATUS
 NTAPI
-CcRosInitializeFileCache(
-    PFILE_OBJECT FileObject,
-    ULONG CacheSegmentSize,
-    PCACHE_MANAGER_CALLBACKS CallBacks,
-    PVOID LazyWriterContext
-);
-
-NTSTATUS
-NTAPI
-CcRosReleaseFileCache(
-    PFILE_OBJECT FileObject
-);
-
-NTSTATUS
-NTAPI
 CcTryToInitializeFileCache(PFILE_OBJECT FileObject);
+
+/*
+ * Macro for generic cache manage bugchecking. Note that this macro assumes
+ * that the file name including extension is always longer than 4 characters.
+ */
+#define KEBUGCHECKCC \
+    KEBUGCHECKEX(CACHE_MANAGER, \
+    (*(ULONG*)(__FILE__ + sizeof(__FILE__) - 4) << 16) | \
+    (__LINE__ & 0xFFFF), 0, 0, 0)
 
 #endif

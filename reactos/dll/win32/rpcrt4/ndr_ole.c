@@ -1,7 +1,7 @@
 /*
  * OLE32 callouts, COM interface marshalling
  *
- * Copyright 2001 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001 Ove Kåven, TransGaming Technologies
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -79,7 +79,7 @@ static HMODULE LoadCOM(void)
 typedef struct RpcStreamImpl
 {
   const IStreamVtbl *lpVtbl;
-  LONG RefCount;
+  DWORD RefCount;
   PMIDL_STUB_MESSAGE pMsg;
   LPDWORD size;
   unsigned char *data;
@@ -95,7 +95,7 @@ static HRESULT WINAPI RpcStream_QueryInterface(LPSTREAM iface,
       IsEqualGUID(&IID_ISequentialStream, riid) ||
       IsEqualGUID(&IID_IStream, riid)) {
     *obj = This;
-    InterlockedIncrement( &This->RefCount );
+    This->RefCount++;
     return S_OK;
   }
   return E_NOINTERFACE;
@@ -104,20 +104,19 @@ static HRESULT WINAPI RpcStream_QueryInterface(LPSTREAM iface,
 static ULONG WINAPI RpcStream_AddRef(LPSTREAM iface)
 {
   RpcStreamImpl *This = (RpcStreamImpl *)iface;
-  return InterlockedIncrement( &This->RefCount );
+  return ++(This->RefCount);
 }
 
 static ULONG WINAPI RpcStream_Release(LPSTREAM iface)
 {
   RpcStreamImpl *This = (RpcStreamImpl *)iface;
-  ULONG ref = InterlockedDecrement( &This->RefCount );
-  if (!ref) {
+  if (!--(This->RefCount)) {
     TRACE("size=%d\n", *This->size);
     This->pMsg->Buffer = This->data + *This->size;
     HeapFree(GetProcessHeap(),0,This);
     return 0;
   }
-  return ref;
+  return This->RefCount;
 }
 
 static HRESULT WINAPI RpcStream_Read(LPSTREAM iface,
@@ -354,7 +353,7 @@ void WINAPI NdrInterfacePointerFree(PMIDL_STUB_MESSAGE pStubMsg,
 /***********************************************************************
  *           NdrOleAllocate [RPCRT4.@]
  */
-void * WINAPI NdrOleAllocate(SIZE_T Size)
+void * WINAPI NdrOleAllocate(size_t Size)
 {
   if (!LoadCOM()) return NULL;
   return COM_MemAlloc(Size);

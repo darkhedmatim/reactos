@@ -5,8 +5,8 @@ STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "ビデオ ドライバのインストール"
 FONT 9, "MS UI Gothic", 0, 0, 0x0
 BEGIN
-  LTEXT "ReactOS セットアップは ReactOS が VMware(R) 内で起動されていることを検出しました。", -1, 117, 8, 140, 24
-  LTEXT "VMware(R) SVGA ドライバをインストールする場合には [次へ] を、インストールしない場合には [キャンセル] をクリックしてください。", -1, 117, 140, 140, 17
+  LTEXT "ReactOS セットアップは ReactOS が VMware(R) 内で起動されていることを検出しました。", -1, 100, 8, 160, 24
+  LTEXT "VMware(R) SVGA ドライバをインストールする場合には [次へ] を、インストールしない場合には [キャンセル] をクリックしてください。", -1, 100, 140, 160, 17
 END
 
 IDD_INSERT_VMWARE_TOOLS DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
@@ -32,7 +32,7 @@ CAPTION "ビデオ ドライバのインストール"
 FONT 9, "MS UI Gothic", 0, 0, 0x0
 BEGIN
   LTEXT "VMware(R) SVGA ドライバのインストールに成功しました。使用したい画面解像度を選択してください:",-1,25,5,225,20
-  PUSHBUTTON "640x480", 1120, 25, 30, 65, 15, BS_AUTORADIOBUTTON
+  PUSHBUTTON "640x480", 540, 25, 30, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "800x600", 1400, 25, 45, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "1024x768", 1792, 25, 60, 65, 15, BS_AUTORADIOBUTTON
   PUSHBUTTON "1152x864", 2016, 25, 75, 65, 15, BS_AUTORADIOBUTTON

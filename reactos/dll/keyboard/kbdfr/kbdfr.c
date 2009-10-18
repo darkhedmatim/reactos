@@ -1,9 +1,9 @@
 /*
- * ReactOS French keyboard layout
+ * ReactOS FRASCII Keyboard layout
  * Copyright (C) 2003 ReactOS
  * License: LGPL, see: LGPL.txt
- * Autors: Jean-Michel Gay, 2003
- *         Pierre Schweitzer, 2007
+ * autor: Jean-Michel Gay 2003
+ *        Pierre Schweitzer 2007
  *
  */
 
@@ -31,8 +31,6 @@
 #define KNUMP    0x800  /* Number-pad */
 #define KNUMS    0xc00  /* Special + number pad */
 #define KMEXT    0x300  /* Multi + ext */
-
-#define SHFT_INVALID 0x0F
 
 /**
  * FIXME : - VK_DIVIDE produces ! instead of /
@@ -169,8 +167,9 @@ ROSDATA VK_TO_BIT modifier_keys[] = {
 ROSDATA MODIFIERS modifier_bits = {
   modifier_keys,
   6,
-  { 0, 1, 2, 4, SHFT_INVALID, SHFT_INVALID, 3 }
-  /* Modifier bit order: NONE, SHIFT, CTRL, ALT, ?, ?, SHIFT-CTRL */
+  { 0, 1, 2, 4,15,15,3 }
+  /* new: Modifier bit order, NONE, SHIFT, CTRL, ALT , ? ,? , shift+control*/
+  /* old: Modifier bit order, NONE, SHIFT, CTRL, ALT */
 };
 
 #define NOCAPS 0
@@ -463,7 +462,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   extcode0_to_vk,
   extcode1_to_vk,
 
-  MAKELONG(1,1), /* Version 1.0 */
+  MAKELONG(0,1), /* Version 1.0 */
 
   /* Ligatures -- French doesn't have any */
   0,
@@ -471,7 +470,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 

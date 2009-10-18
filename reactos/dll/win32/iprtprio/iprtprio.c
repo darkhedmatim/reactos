@@ -21,12 +21,12 @@
 #include "debug.h"
 
 #ifdef __GNUC__
-#define EXPORT WINAPI
+#define EXPORT STDCALL
 #else
 #define EXPORT CALLBACK
 #endif
 
-#if DBG
+#ifdef DBG
 /* See debug.h for debug/trace constants */
 DWORD DebugTraceLevel = MAX_TRACE;
 #endif /* DBG */
@@ -40,7 +40,7 @@ BOOL Initialised = FALSE;
 CRITICAL_SECTION CriticalSection;
 
 /* To make the linker happy */
-//VOID WINAPI KeBugCheck (ULONG	BugCheckCode) {}
+//VOID STDCALL KeBugCheck (ULONG	BugCheckCode) {}
 
 BOOL
 EXPORT

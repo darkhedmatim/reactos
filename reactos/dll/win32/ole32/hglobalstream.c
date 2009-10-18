@@ -151,7 +151,7 @@ static HRESULT WINAPI HGLOBALStreamImpl_QueryInterface(
       IsEqualIID(&IID_ISequentialStream, riid) ||
       IsEqualIID(&IID_IStream, riid))
   {
-    *ppvObject = This;
+    *ppvObject = (IStream*)This;
   }
 
   /*
@@ -397,7 +397,7 @@ static HRESULT WINAPI HGLOBALStreamImpl_Seek(
    */
   if (dlibMove.QuadPart < 0 && newPosition.QuadPart < -dlibMove.QuadPart) return STG_E_INVALIDFUNCTION;
 
-  newPosition.QuadPart += dlibMove.QuadPart;
+  newPosition.QuadPart = RtlLargeIntegerAdd(newPosition.QuadPart, dlibMove.QuadPart);
 
   if (plibNewPosition) *plibNewPosition = newPosition;
   This->currentPosition = newPosition;
@@ -467,16 +467,24 @@ static HRESULT WINAPI HGLOBALStreamImpl_CopyTo(
   TRACE("(%p, %p, %d, %p, %p)\n", iface, pstm,
 	cb.u.LowPart, pcbRead, pcbWritten);
 
+  /*
+   * Sanity check
+   */
   if ( pstm == 0 )
     return STG_E_INVALIDPOINTER;
 
-  totalBytesRead.QuadPart = 0;
-  totalBytesWritten.QuadPart = 0;
+  totalBytesRead.u.LowPart = totalBytesRead.u.HighPart = 0;
+  totalBytesWritten.u.LowPart = totalBytesWritten.u.HighPart = 0;
 
-  while ( cb.QuadPart > 0 )
+  /*
+   * use stack to store data temporarly
+   * there is surely more performant way of doing it, for now this basic
+   * implementation will do the job
+   */
+  while ( cb.u.LowPart > 0 )
   {
-    if ( cb.QuadPart >= sizeof(tmpBuffer) )
-      copySize = sizeof(tmpBuffer);
+    if ( cb.u.LowPart >= 128 )
+      copySize = 128;
     else
       copySize = cb.u.LowPart;
 
@@ -484,7 +492,7 @@ static HRESULT WINAPI HGLOBALStreamImpl_CopyTo(
     if (FAILED(hr))
         break;
 
-    totalBytesRead.QuadPart += bytesRead;
+    totalBytesRead.u.LowPart += bytesRead;
 
     if (bytesRead)
     {
@@ -492,18 +500,29 @@ static HRESULT WINAPI HGLOBALStreamImpl_CopyTo(
         if (FAILED(hr))
             break;
 
-        totalBytesWritten.QuadPart += bytesWritten;
+        totalBytesWritten.u.LowPart += bytesWritten;
     }
 
     if (bytesRead!=copySize)
-      cb.QuadPart = 0;
+      cb.u.LowPart = 0;
     else
-      cb.QuadPart -= bytesRead;
+      cb.u.LowPart -= bytesRead;
   }
 
-  if (pcbRead) pcbRead->QuadPart = totalBytesRead.QuadPart;
-  if (pcbWritten) pcbWritten->QuadPart = totalBytesWritten.QuadPart;
+  /*
+   * Update number of bytes read and written
+   */
+  if (pcbRead)
+  {
+    pcbRead->u.LowPart = totalBytesRead.u.LowPart;
+    pcbRead->u.HighPart = totalBytesRead.u.HighPart;
+  }
 
+  if (pcbWritten)
+  {
+    pcbWritten->u.LowPart = totalBytesWritten.u.LowPart;
+    pcbWritten->u.HighPart = totalBytesWritten.u.HighPart;
+  }
   return hr;
 }
 

@@ -95,8 +95,8 @@
 //
 // Allocates a new message
 //
-FORCEINLINE
 PLPCP_MESSAGE
+FORCEINLINE
 LpcpAllocateFromPortZone(VOID)
 {
     PLPCP_MESSAGE Message;
@@ -124,8 +124,8 @@ LpcpAllocateFromPortZone(VOID)
 //
 // Get the LPC Message associated to the Thread
 //
-FORCEINLINE
 PLPCP_MESSAGE
+FORCEINLINE
 LpcpGetMessageFromThread(IN PETHREAD Thread)
 {
     /* Check if the port flag is set */
@@ -139,8 +139,8 @@ LpcpGetMessageFromThread(IN PETHREAD Thread)
     return (PVOID)((ULONG_PTR)Thread->LpcReplyMessage & ~LPCP_THREAD_FLAGS);
 }
 
-FORCEINLINE
 PLPCP_PORT_OBJECT
+FORCEINLINE
 LpcpGetPortFromThread(IN PETHREAD Thread)
 {
     /* Check if the port flag is set */
@@ -155,8 +155,8 @@ LpcpGetPortFromThread(IN PETHREAD Thread)
     return NULL;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 LpcpSetPortToThread(IN PETHREAD Thread,
                     IN PLPCP_PORT_OBJECT Port)
 {

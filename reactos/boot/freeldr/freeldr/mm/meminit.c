@@ -1,7 +1,6 @@
 /*
  *  FreeLoader
- *  Copyright (C) 2006-2008     Aleksey Bragin  <aleksey@reactos.org>
- *  Copyright (C) 2006-2009     Hervé Poussineau  <hpoussin@reactos.org>
+ *  Copyright (C) 1998-2003  Brian Palmer  <brianp@sginet.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,27 +20,22 @@
 #include <freeldr.h>
 #include <debug.h>
 
-#if DBG
+#ifdef DBG
 typedef struct
 {
-    MEMORY_TYPE Type;
-    PCSTR TypeString;
+	ULONG		Type;
+	UCHAR	TypeString[20];
 } FREELDR_MEMORY_TYPE, *PFREELDR_MEMORY_TYPE;
 
-FREELDR_MEMORY_TYPE MemoryTypeArray[] =
+ULONG				MemoryTypeCount = 5;
+FREELDR_MEMORY_TYPE		MemoryTypeArray[] =
 {
-    { MemoryMaximum, "Unknown memory" },
-    { MemoryExceptionBlock, "Exception block" },
-    { MemorySystemBlock, "System block" },
-    { MemoryFree, "Free memory" },
-    { MemoryBad, "Bad memory" },
-    { MemoryLoadedProgram, "Loaded program" },
-    { MemoryFirmwareTemporary, "Firmware temporary" },
-    { MemoryFirmwarePermanent, "Firmware permanent" },
-    { MemoryFreeContiguous, "Free contiguous memory" },
-    { MemorySpecialMemory, "Special memory" },
+	{ 0, "Unknown Memory" },
+	{ BiosMemoryUsable, "Usable Memory" },
+	{ BiosMemoryReserved, "Reserved Memory" },
+	{ BiosMemoryAcpiReclaim, "ACPI Reclaim Memory" },
+	{ BiosMemoryAcpiNvs, "ACPI NVS Memory" },
 };
-ULONG MemoryTypeCount = sizeof(MemoryTypeArray) / sizeof(MemoryTypeArray[0]);
 #endif
 
 PVOID	PageLookupTableAddress = NULL;
@@ -49,32 +43,41 @@ ULONG		TotalPagesInLookupTable = 0;
 ULONG		FreePagesInLookupTable = 0;
 ULONG		LastFreePageHint = 0;
 
-extern ULONG_PTR	MmHeapPointer;
-extern ULONG_PTR	MmHeapStart;
-
 BOOLEAN MmInitializeMemoryManager(VOID)
 {
-#if DBG
-	MEMORY_DESCRIPTOR* MemoryDescriptor = NULL;
+	BIOS_MEMORY_MAP	BiosMemoryMap[32];
+	ULONG		BiosMemoryMapEntryCount;
+#ifdef DBG
+	ULONG		Index;
 #endif
 
-	DPRINTM(DPRINT_MEMORY, "Initializing Memory Manager.\n");
+	DbgPrint((DPRINT_MEMORY, "Initializing Memory Manager.\n"));
 
-#if DBG
+	RtlZeroMemory(BiosMemoryMap, sizeof(BIOS_MEMORY_MAP) * 32);
+
+	BiosMemoryMapEntryCount = MachGetMemoryMap(BiosMemoryMap, sizeof(BiosMemoryMap) / sizeof(BIOS_MEMORY_MAP));
+
+#ifdef DBG
 	// Dump the system memory map
-	DPRINTM(DPRINT_MEMORY, "System Memory Map (Base Address, Length, Type):\n");
-	while ((MemoryDescriptor = ArcGetMemoryDescriptor(MemoryDescriptor)) != NULL)
+	if (BiosMemoryMapEntryCount != 0)
 	{
-		DPRINTM(DPRINT_MEMORY, "%x\t %x\t %s\n",
-			MemoryDescriptor->BasePage * MM_PAGE_SIZE,
-			MemoryDescriptor->PageCount * MM_PAGE_SIZE,
-			MmGetSystemMemoryMapTypeString(MemoryDescriptor->MemoryType));
+		DbgPrint((DPRINT_MEMORY, "System Memory Map (Base Address, Length, Type):\n"));
+		for (Index=0; Index<BiosMemoryMapEntryCount; Index++)
+		{
+			DbgPrint((DPRINT_MEMORY, "%x%x\t %x%x\t %s\n", BiosMemoryMap[Index].BaseAddress, BiosMemoryMap[Index].Length, MmGetSystemMemoryMapTypeString(BiosMemoryMap[Index].Type)));
+		}
 	}
 #endif
 
+	// If we got the system memory map then fixup invalid entries
+	if (BiosMemoryMapEntryCount != 0)
+	{
+		MmFixupSystemMemoryMap(BiosMemoryMap, &BiosMemoryMapEntryCount);
+	}
+
 	// Find address for the page lookup table
-	TotalPagesInLookupTable = MmGetAddressablePageCountIncludingHoles();
-	PageLookupTableAddress = MmFindLocationForPageLookupTable(TotalPagesInLookupTable);
+	TotalPagesInLookupTable = MmGetAddressablePageCountIncludingHoles(BiosMemoryMap, BiosMemoryMapEntryCount);
+	PageLookupTableAddress = MmFindLocationForPageLookupTable(BiosMemoryMap, BiosMemoryMapEntryCount);
 	LastFreePageHint = TotalPagesInLookupTable;
 
 	if (PageLookupTableAddress == 0)
@@ -87,49 +90,17 @@ BOOLEAN MmInitializeMemoryManager(VOID)
 	}
 
 	// Initialize the page lookup table
-	MmInitPageLookupTable(PageLookupTableAddress, TotalPagesInLookupTable);
+	MmInitPageLookupTable(PageLookupTableAddress, TotalPagesInLookupTable, BiosMemoryMap, BiosMemoryMapEntryCount);
 	MmUpdateLastFreePageHint(PageLookupTableAddress, TotalPagesInLookupTable);
 
 	FreePagesInLookupTable = MmCountFreePagesInLookupTable(PageLookupTableAddress, TotalPagesInLookupTable);
 
-	MmInitializeHeap(PageLookupTableAddress);
-
-	DPRINTM(DPRINT_MEMORY, "Memory Manager initialized. %d pages available.\n", FreePagesInLookupTable);
+	DbgPrint((DPRINT_MEMORY, "Memory Manager initialized. %d pages available.\n", FreePagesInLookupTable));
 	return TRUE;
 }
 
-VOID MmInitializeHeap(PVOID PageLookupTable)
-{
-	ULONG PagesNeeded;
-	ULONG HeapStart;
-
-	// HACK: Make it so it doesn't overlap kernel space
-	MmMarkPagesInLookupTable(PageLookupTableAddress, 0x100, 0xFF, LoaderSystemCode);
-
-	// Find contigious memory block for HEAP:STACK
-	PagesNeeded = HEAP_PAGES + STACK_PAGES;
-	HeapStart = MmFindAvailablePages(PageLookupTable, TotalPagesInLookupTable, PagesNeeded, FALSE);
-
-	// Unapply the hack
-	MmMarkPagesInLookupTable(PageLookupTableAddress, 0x100, 0xFF, LoaderFree);
-
-	if (HeapStart == 0)
-	{
-		UiMessageBox("Critical error: Can't allocate heap!");
-		return;
-	}
-
-	// Initialize BGET
-	bpool(HeapStart << MM_PAGE_SHIFT, PagesNeeded << MM_PAGE_SHIFT);
-
-	// Mark those pages as used
-	MmMarkPagesInLookupTable(PageLookupTableAddress, HeapStart, PagesNeeded, LoaderOsloaderHeap);
-
-	DPRINTM(DPRINT_MEMORY, "Heap initialized, base 0x%08x, pages %d\n", (HeapStart << MM_PAGE_SHIFT), PagesNeeded);
-}
-
-#if DBG
-PCSTR MmGetSystemMemoryMapTypeString(MEMORY_TYPE Type)
+#ifdef DBG
+PUCHAR MmGetSystemMemoryMapTypeString(ULONG Type)
 {
 	ULONG		Index;
 
@@ -147,192 +118,150 @@ PCSTR MmGetSystemMemoryMapTypeString(MEMORY_TYPE Type)
 
 ULONG MmGetPageNumberFromAddress(PVOID Address)
 {
-	return ((ULONG_PTR)Address) / MM_PAGE_SIZE;
+	return ((ULONG)Address) / MM_PAGE_SIZE;
 }
 
-ULONG MmGetAddressablePageCountIncludingHoles(VOID)
+PVOID MmGetEndAddressOfAnyMemory(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MapCount)
 {
-    MEMORY_DESCRIPTOR* MemoryDescriptor = NULL;
-    ULONG EndPage = 0;
+	ULONGLONG		MaxStartAddressSoFar;
+	ULONGLONG		EndAddressOfMemory;
+	ULONG		Index;
 
-    //
-    // Go through the whole memory map to get max address
-    //
-    while ((MemoryDescriptor = ArcGetMemoryDescriptor(MemoryDescriptor)) != NULL)
-    {
-        //
-        // Check if we got a higher end page address
-        //
-        if (MemoryDescriptor->BasePage + MemoryDescriptor->PageCount > EndPage)
-        {
-            //
-            // Yes, remember it
-            //
-            EndPage = MemoryDescriptor->BasePage + MemoryDescriptor->PageCount;
-        }
-    }
+	MaxStartAddressSoFar = 0;
+	EndAddressOfMemory = 0;
+	for (Index=0; Index<MapCount; Index++)
+	{
+		if (MaxStartAddressSoFar <= BiosMemoryMap[Index].BaseAddress)
+		{
+			MaxStartAddressSoFar = BiosMemoryMap[Index].BaseAddress;
+			EndAddressOfMemory = (MaxStartAddressSoFar + BiosMemoryMap[Index].Length);
+			if (EndAddressOfMemory > 0xFFFFFFFF)
+			{
+				EndAddressOfMemory = 0xFFFFFFFF;
+			}
+		}
+	}
 
-    DPRINTM(DPRINT_MEMORY, "MmGetAddressablePageCountIncludingHoles() returning 0x%x\n", EndPage);
+	DbgPrint((DPRINT_MEMORY, "MmGetEndAddressOfAnyMemory() returning 0x%x\n", (ULONG)EndAddressOfMemory));
 
-    return EndPage;
+	return (PVOID)(ULONG)EndAddressOfMemory;
 }
 
-PVOID MmFindLocationForPageLookupTable(ULONG TotalPageCount)
+ULONG MmGetAddressablePageCountIncludingHoles(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MapCount)
 {
-    MEMORY_DESCRIPTOR* MemoryDescriptor = NULL;
-    ULONG PageLookupTableSize;
-    ULONG PageLookupTablePages;
-    ULONG PageLookupTableStartPage = 0;
-    PVOID PageLookupTableMemAddress = NULL;
+	ULONG		PageCount;
+	ULONGLONG		EndAddress;
 
-    //
-    // Calculate how much pages we need to keep the page lookup table
-    //
-    PageLookupTableSize = TotalPageCount * sizeof(PAGE_LOOKUP_TABLE_ITEM);
-    PageLookupTablePages = PageLookupTableSize / MM_PAGE_SIZE;
+	EndAddress = (ULONGLONG)(ULONG)MmGetEndAddressOfAnyMemory(BiosMemoryMap, MapCount);
 
-    //
-    // Search the highest memory block big enough to contain lookup table
-    //
-    while ((MemoryDescriptor = ArcGetMemoryDescriptor(MemoryDescriptor)) != NULL)
-    {
-        //
-        // Is it suitable memory?
-        //
-        if (MemoryDescriptor->MemoryType != MemoryFree)
-        {
-            //
-            // No. Process next descriptor
-            //
-            continue;
-        }
+	// Since MmGetEndAddressOfAnyMemory() won't
+	// return addresses higher than 0xFFFFFFFF
+	// then we need to adjust the end address
+	// to 0x100000000 so we don't get an
+	// off-by-one error
+	if (EndAddress >= 0xFFFFFFFF)
+	{
+		EndAddress = 0x100000000LL;
 
-        //
-        // Is the block big enough?
-        //
-        if (MemoryDescriptor->PageCount < PageLookupTablePages)
-        {
-            //
-            // No. Process next descriptor
-            //
-            continue;
-        }
+		DbgPrint((DPRINT_MEMORY, "MmGetEndAddressOfAnyMemory() returned 0xFFFFFFFF, correcting to be 0x100000000.\n"));
+	}
 
-        //
-        // Is it at a higher address than previous suitable address?
-        //
-        if (MemoryDescriptor->BasePage < PageLookupTableStartPage)
-        {
-            //
-            // No. Process next descriptor
-            //
-            continue;
-        }
+	PageCount = (EndAddress / MM_PAGE_SIZE);
 
-        //
-        // Memory block is more suitable than the previous one
-        //
-        PageLookupTableStartPage = MemoryDescriptor->BasePage;
-        PageLookupTableMemAddress = (PVOID)((ULONG_PTR)
-            (MemoryDescriptor->BasePage + MemoryDescriptor->PageCount) * MM_PAGE_SIZE
-            - PageLookupTableSize);
-    }
+	DbgPrint((DPRINT_MEMORY, "MmGetAddressablePageCountIncludingHoles() returning %d\n", PageCount));
 
-    DPRINTM(DPRINT_MEMORY, "MmFindLocationForPageLookupTable() returning 0x%x\n", PageLookupTableMemAddress);
-
-    return PageLookupTableMemAddress;
+	return PageCount;
 }
 
-VOID MmInitPageLookupTable(PVOID PageLookupTable, ULONG TotalPageCount)
+PVOID MmFindLocationForPageLookupTable(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MapCount)
 {
-    MEMORY_DESCRIPTOR* MemoryDescriptor = NULL;
-    TYPE_OF_MEMORY MemoryMapPageAllocated;
-    ULONG PageLookupTableStartPage;
-    ULONG PageLookupTablePageCount;
+	ULONG					TotalPageCount;
+	ULONG					PageLookupTableSize;
+	PVOID				PageLookupTableMemAddress;
+	int					Index;
+	BIOS_MEMORY_MAP		TempBiosMemoryMap[32];
 
-    DPRINTM(DPRINT_MEMORY, "MmInitPageLookupTable()\n");
+	TotalPageCount = MmGetAddressablePageCountIncludingHoles(BiosMemoryMap, MapCount);
+	PageLookupTableSize = TotalPageCount * sizeof(PAGE_LOOKUP_TABLE_ITEM);
+	PageLookupTableMemAddress = 0;
 
-    //
-    // Mark every page as allocated initially
-    // We will go through and mark pages again according to the memory map
-    // But this will mark any holes not described in the map as allocated
-    //
-    MmMarkPagesInLookupTable(PageLookupTable, 0, TotalPageCount, LoaderFirmwarePermanent);
+	RtlCopyMemory(TempBiosMemoryMap, BiosMemoryMap, sizeof(BIOS_MEMORY_MAP) * 32);
+	MmSortBiosMemoryMap(TempBiosMemoryMap, MapCount);
 
-    //
-    // Parse the whole memory map
-    //
-    while ((MemoryDescriptor = ArcGetMemoryDescriptor(MemoryDescriptor)) != NULL)
-    {
-        //
-        // Convert ARC memory type to loader memory type
-        //
-        switch (MemoryDescriptor->MemoryType)
-        {
-            case MemoryFree:
-            {
-                //
-                // Allocatable memory
-                //
-                MemoryMapPageAllocated = LoaderFree;
-                break;
-            }
-            case MemoryFirmwarePermanent:
-            {
-                //
-                // Firmware permanent memory
-                //
-                MemoryMapPageAllocated = LoaderFirmwarePermanent;
-                break;
-            }
-            case MemoryFirmwareTemporary:
-            {
-                //
-                // Firmware temporary memory
-                //
-                MemoryMapPageAllocated = LoaderFirmwareTemporary;
-                break;
-            }
-            case MemoryLoadedProgram:
-            {
-                //
-                // Bootloader code
-                //
-                MemoryMapPageAllocated = LoaderLoadedProgram;
-                break;
-            }
-            case MemorySpecialMemory:
-            {
-                //
-                // Special reserved memory
-                //
-                MemoryMapPageAllocated = LoaderSpecialMemory;
-                break;
-            }
-            default:
-            {
-                //
-                // Put something sensible here, which won't be overwritten
-                //
-                MemoryMapPageAllocated = LoaderSpecialMemory;
-                break;
-            }
-        }
+	for (Index=(MapCount-1); Index>=0; Index--)
+	{
+		// If this is usable memory with a big enough length
+		// then we'll put our page lookup table here
+		if (TempBiosMemoryMap[Index].Type == BiosMemoryUsable && TempBiosMemoryMap[Index].Length >= PageLookupTableSize)
+		{
+			PageLookupTableMemAddress = (PVOID)(ULONG)(TempBiosMemoryMap[Index].BaseAddress + (TempBiosMemoryMap[Index].Length - PageLookupTableSize));
+			break;
+		}
+	}
 
-        //
-        // Mark used pages in the lookup table
-        //
-        DPRINTM(DPRINT_MEMORY, "Marking pages as type %d: StartPage: %d PageCount: %d\n", MemoryMapPageAllocated, MemoryDescriptor->BasePage, MemoryDescriptor->PageCount);
-        MmMarkPagesInLookupTable(PageLookupTable, MemoryDescriptor->BasePage, MemoryDescriptor->PageCount, MemoryMapPageAllocated);
-    }
+	DbgPrint((DPRINT_MEMORY, "MmFindLocationForPageLookupTable() returning 0x%x\n", PageLookupTableMemAddress));
 
-    //
-    // Mark the pages that the lookup table occupies as reserved
-    //
-    PageLookupTableStartPage = MmGetPageNumberFromAddress(PageLookupTable);
-    PageLookupTablePageCount = MmGetPageNumberFromAddress((PVOID)((ULONG_PTR)PageLookupTable + ROUND_UP(TotalPageCount * sizeof(PAGE_LOOKUP_TABLE_ITEM), MM_PAGE_SIZE))) - PageLookupTableStartPage;
-    DPRINTM(DPRINT_MEMORY, "Marking the page lookup table pages as reserved StartPage: %d PageCount: %d\n", PageLookupTableStartPage, PageLookupTablePageCount);
-    MmMarkPagesInLookupTable(PageLookupTable, PageLookupTableStartPage, PageLookupTablePageCount, LoaderFirmwareTemporary);
+	return PageLookupTableMemAddress;
+}
+
+VOID MmSortBiosMemoryMap(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MapCount)
+{
+	ULONG					Index;
+	ULONG					LoopCount;
+	BIOS_MEMORY_MAP		TempMapItem;
+
+	// Loop once for each entry in the memory map minus one
+	// On each loop iteration go through and sort the memory map
+	for (LoopCount=0; LoopCount<(MapCount-1); LoopCount++)
+	{
+		for (Index=0; Index<(MapCount-1); Index++)
+		{
+			if (BiosMemoryMap[Index].BaseAddress > BiosMemoryMap[Index+1].BaseAddress)
+			{
+				TempMapItem = BiosMemoryMap[Index];
+				BiosMemoryMap[Index] = BiosMemoryMap[Index+1];
+				BiosMemoryMap[Index+1] = TempMapItem;
+			}
+		}
+	}
+}
+
+VOID MmInitPageLookupTable(PVOID PageLookupTable, ULONG TotalPageCount, PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MapCount)
+{
+	ULONG		MemoryMapStartPage;
+	ULONG		MemoryMapEndPage;
+	ULONG		MemoryMapPageCount;
+	ULONG		MemoryMapPageAllocated;
+	ULONG		PageLookupTableStartPage;
+	ULONG		PageLookupTablePageCount;
+	ULONG		Index;
+
+	DbgPrint((DPRINT_MEMORY, "MmInitPageLookupTable()\n"));
+
+	// Mark every page as allocated initially
+	// We will go through and mark pages again according to the memory map
+	// But this will mark any holes not described in the map as allocated
+	MmMarkPagesInLookupTable(PageLookupTable, 0, TotalPageCount, 1);
+
+	for (Index=0; Index<MapCount; Index++)
+	{
+		MemoryMapStartPage = MmGetPageNumberFromAddress((PVOID)(ULONG)BiosMemoryMap[Index].BaseAddress);
+		MemoryMapEndPage = MmGetPageNumberFromAddress((PVOID)(ULONG)(BiosMemoryMap[Index].BaseAddress + BiosMemoryMap[Index].Length - 1));
+		MemoryMapPageCount = (MemoryMapEndPage - MemoryMapStartPage) + 1;
+		MemoryMapPageAllocated = (BiosMemoryMap[Index].Type == BiosMemoryUsable) ? LoaderFree : LoaderFirmwarePermanent;/*BiosMemoryMap[Index].Type*/;
+		DbgPrint((DPRINT_MEMORY, "Marking pages as type %d: StartPage: %d PageCount: %d\n", MemoryMapPageAllocated, MemoryMapStartPage, MemoryMapPageCount));
+		MmMarkPagesInLookupTable(PageLookupTable, MemoryMapStartPage, MemoryMapPageCount, MemoryMapPageAllocated);
+	}
+
+	// Mark the low memory region below 1MB as reserved (256 pages in region)
+	DbgPrint((DPRINT_MEMORY, "Marking the low 1MB region as reserved.\n"));
+	MmMarkPagesInLookupTable(PageLookupTable, 0, 256, LoaderFirmwarePermanent);
+
+	// Mark the pages that the lookup table occupies as reserved
+	PageLookupTableStartPage = MmGetPageNumberFromAddress(PageLookupTable);
+	PageLookupTablePageCount = MmGetPageNumberFromAddress((PVOID)((ULONG_PTR)PageLookupTable + ROUND_UP(TotalPageCount * sizeof(PAGE_LOOKUP_TABLE_ITEM), MM_PAGE_SIZE))) - PageLookupTableStartPage;
+	DbgPrint((DPRINT_MEMORY, "Marking the page lookup table pages as reserved StartPage: %d PageCount: %d\n", PageLookupTableStartPage, PageLookupTablePageCount));
+	MmMarkPagesInLookupTable(PageLookupTable, PageLookupTableStartPage, PageLookupTablePageCount, LoaderFirmwareTemporary);
 }
 
 VOID MmMarkPagesInLookupTable(PVOID PageLookupTable, ULONG StartPage, ULONG PageCount, TYPE_OF_MEMORY PageAllocated)
@@ -342,16 +271,14 @@ VOID MmMarkPagesInLookupTable(PVOID PageLookupTable, ULONG StartPage, ULONG Page
 
 	for (Index=StartPage; Index<(StartPage+PageCount); Index++)
 	{
-#if 0
 		if ((Index <= (StartPage + 16)) || (Index >= (StartPage+PageCount-16)))
 		{
-			DPRINTM(DPRINT_MEMORY, "Index = %d StartPage = %d PageCount = %d\n", Index, StartPage, PageCount);
+			DbgPrint((DPRINT_MEMORY, "Index = %d StartPage = %d PageCount = %d\n", Index, StartPage, PageCount));
 		}
-#endif
 		RealPageLookupTable[Index].PageAllocated = PageAllocated;
 		RealPageLookupTable[Index].PageAllocationLength = (PageAllocated != LoaderFree) ? 1 : 0;
 	}
-	DPRINTM(DPRINT_MEMORY, "MmMarkPagesInLookupTable() Done\n");
+	DbgPrint((DPRINT_MEMORY, "MmMarkPagesInLookupTable() Done\n"));
 }
 
 VOID MmAllocatePagesInLookupTable(PVOID PageLookupTable, ULONG StartPage, ULONG PageCount, TYPE_OF_MEMORY MemoryType)
@@ -361,7 +288,7 @@ VOID MmAllocatePagesInLookupTable(PVOID PageLookupTable, ULONG StartPage, ULONG 
 
 	for (Index=StartPage; Index<(StartPage+PageCount); Index++)
 	{
-		RealPageLookupTable[Index].PageAllocated = MemoryType;
+		RealPageLookupTable[Index].PageAllocated = LoaderSystemCode;
 		RealPageLookupTable[Index].PageAllocationLength = (Index == StartPage) ? PageCount : 0;
 	}
 }
@@ -419,7 +346,7 @@ ULONG MmFindAvailablePages(PVOID PageLookupTable, ULONG TotalPageCount, ULONG Pa
 	}
 	else
 	{
-		DPRINTM(DPRINT_MEMORY, "Alloc low memory, LastFreePageHint %d, TPC %d\n", LastFreePageHint, TotalPageCount);
+		DbgPrint((DPRINT_MEMORY, "Alloc low memory, LastFreePageHint %d, TPC %d\n", LastFreePageHint, TotalPageCount));
 		/* Allocate "low" pages */
 		for (Index=1; Index < LastFreePageHint; Index++)
 		{
@@ -474,6 +401,30 @@ ULONG MmFindAvailablePagesBeforePage(PVOID PageLookupTable, ULONG TotalPageCount
 	}
 
 	return 0;
+}
+
+VOID MmFixupSystemMemoryMap(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG* MapCount)
+{
+	UINT		Index;
+	UINT		Index2;
+
+	// Loop through each entry in the array
+	for (Index=0; Index<*MapCount; Index++)
+	{
+		// If the entry type isn't usable then remove
+		// it from the memory map (this will help reduce
+		// the size of our lookup table)
+		if (BiosMemoryMap[Index].Type != BiosMemoryUsable)
+		{
+			// Slide every entry after this down one
+			for (Index2=Index; Index2<(*MapCount - 1); Index2++)
+			{
+				BiosMemoryMap[Index2] = BiosMemoryMap[Index2 + 1];
+			}
+			(*MapCount)--;
+			Index--;
+		}
+	}
 }
 
 VOID MmUpdateLastFreePageHint(PVOID PageLookupTable, ULONG TotalPageCount)

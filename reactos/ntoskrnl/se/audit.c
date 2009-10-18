@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/se/audit.c
@@ -7,13 +8,12 @@
  * PROGRAMMERS:     Eric Kohl <eric.kohl@t-online.de>
  */
 
-/* INCLUDES *******************************************************************/
+/* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-/* PRIVATE FUNCTIONS***********************************************************/
+/* INTERNAL *****************************************************************/
 
 BOOLEAN
 NTAPI
@@ -62,8 +62,7 @@ SeInitializeProcessAuditName(IN PFILE_OBJECT FileObject,
                                sizeof(LocalNameInfo),
                                &ReturnLength);
     if (((Status == STATUS_BUFFER_OVERFLOW) ||
-         (Status == STATUS_BUFFER_TOO_SMALL) ||
-         (Status == STATUS_INFO_LENGTH_MISMATCH)) &&
+         (Status == STATUS_BUFFER_TOO_SMALL)) &&
         (ReturnLength != sizeof(LocalNameInfo)))
     {
         /* Allocate required size */
@@ -85,7 +84,7 @@ SeInitializeProcessAuditName(IN PFILE_OBJECT FileObject,
         (!(NT_SUCCESS(Status)) || (ReturnLength == sizeof(LocalNameInfo))))
     {
         /* First, free any buffer we might've allocated */
-        ASSERT(FALSE);
+        KEBUGCHECK(0);
         if (ObjectNameInfo) ExFreePool(ObjectNameInfo);
 
         /* Now allocate a temporary one */
@@ -139,7 +138,7 @@ SeLocateProcessImageName(IN PEPROCESS Process,
         {
             /* Set it */
             if (InterlockedCompareExchangePointer(&Process->
-                                                  SeAuditProcessCreationInfo.ImageFileName,
+                                                  SeAuditProcessCreationInfo,
                                                   AuditName,
                                                   NULL))
             {
@@ -153,190 +152,35 @@ SeLocateProcessImageName(IN PEPROCESS Process,
         if (!NT_SUCCESS(Status)) return Status;
     }
 
-    /* Get audit info again, now we have it for sure */
-    AuditName = Process->SeAuditProcessCreationInfo.ImageFileName;
-
     /* Allocate the output string */
     ImageName = ExAllocatePoolWithTag(NonPagedPool,
                                       AuditName->Name.MaximumLength +
                                       sizeof(UNICODE_STRING),
                                       TAG_SEPA);
-    if (!ImageName) return STATUS_NO_MEMORY;
+    if (ImageName)
+    {
+        /* Make a copy of it */
+        RtlCopyMemory(ImageName,
+                      &AuditName->Name,
+                      AuditName->Name.MaximumLength + sizeof(UNICODE_STRING));
 
-    /* Make a copy of it */
-    RtlCopyMemory(ImageName,
-                  &AuditName->Name,
-                  AuditName->Name.MaximumLength + sizeof(UNICODE_STRING));
+        /* Fix up the buffer */
+        ImageName->Buffer = (PWSTR)(ImageName + 1);
 
-    /* Fix up the buffer */
-    ImageName->Buffer = (PWSTR)(ImageName + 1);
-
-    /* Return it */
-    *ProcessImageName = ImageName;
+        /* Return it */
+        *ProcessImageName = ImageName;
+    }
+    else
+    {
+        /* Otherwise, fail */
+        Status = STATUS_NO_MEMORY;
+    }
 
     /* Return status */
     return Status;
 }
 
-/* PUBLIC FUNCTIONS ***********************************************************/
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-SeAuditHardLinkCreation(IN PUNICODE_STRING FileName,
-                        IN PUNICODE_STRING LinkName,
-                        IN BOOLEAN bSuccess)
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-SeAuditingFileEvents(IN BOOLEAN AccessGranted,
-                     IN PSECURITY_DESCRIPTOR SecurityDescriptor)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-SeAuditingFileEventsWithContext(IN BOOLEAN AccessGranted,
-                                IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-                                IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-SeAuditingHardLinkEvents(IN BOOLEAN AccessGranted,
-                         IN PSECURITY_DESCRIPTOR SecurityDescriptor)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-SeAuditingHardLinkEventsWithContext(IN BOOLEAN AccessGranted,
-                                    IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-                                    IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-SeAuditingFileOrGlobalEvents(IN BOOLEAN AccessGranted,
-                             IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-                             IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext)
-{
-	UNIMPLEMENTED;
-	return FALSE;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-SeCloseObjectAuditAlarm(
-                        IN PVOID Object,
-                        IN HANDLE Handle,
-                        IN BOOLEAN PerformAction
-                        )
-{
-	UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID NTAPI
-SeDeleteObjectAuditAlarm(IN PVOID Object,
-                         IN HANDLE Handle)
-{
-    UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-SeOpenObjectAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
-                       IN PVOID Object OPTIONAL,
-                       IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
-                       IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-                       IN PACCESS_STATE AccessState,
-                       IN BOOLEAN ObjectCreated,
-                       IN BOOLEAN AccessGranted,
-                       IN KPROCESSOR_MODE AccessMode,
-                       OUT PBOOLEAN GenerateOnClose)
-{
-    PAGED_CODE();
-    
-    /* Audits aren't done on kernel-mode access */
-    if (AccessMode == KernelMode) return;
-    
-    /* Otherwise, unimplemented! */
-    //UNIMPLEMENTED;
-    return;
-}
-
-/*
- * @unimplemented
- */
-VOID NTAPI
-SeOpenObjectForDeleteAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
-                                IN PVOID Object OPTIONAL,
-                                IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
-                                IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-                                IN PACCESS_STATE AccessState,
-                                IN BOOLEAN ObjectCreated,
-                                IN BOOLEAN AccessGranted,
-                                IN KPROCESSOR_MODE AccessMode,
-                                OUT PBOOLEAN GenerateOnClose)
-{
-    UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-SePrivilegeObjectAuditAlarm(IN HANDLE Handle,
-                            IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
-                            IN ACCESS_MASK DesiredAccess,
-                            IN PPRIVILEGE_SET Privileges,
-                            IN BOOLEAN AccessGranted,
-                            IN KPROCESSOR_MODE CurrentMode)
-{
-	UNIMPLEMENTED;
-}
-
-/* SYSTEM CALLS ***************************************************************/
+/* FUNCTIONS ****************************************************************/
 
 NTSTATUS
 NTAPI
@@ -357,67 +201,238 @@ NtAccessCheckAndAuditAlarm(IN PUNICODE_STRING SubsystemName,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtCloseObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
-                        IN PVOID HandleId,
-                        IN BOOLEAN GenerateOnClose)
+			IN PVOID HandleId,
+			IN BOOLEAN GenerateOnClose)
 {
-    UNIMPLEMENTED;
-    return(STATUS_NOT_IMPLEMENTED);
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtDeleteObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
-                         IN PVOID HandleId,
-                         IN BOOLEAN GenerateOnClose)
+			 IN PVOID HandleId,
+			 IN BOOLEAN GenerateOnClose)
 {
-    UNIMPLEMENTED;
-    return(STATUS_NOT_IMPLEMENTED);
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtOpenObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
-                       IN PVOID HandleId,
-                       IN PUNICODE_STRING ObjectTypeName,
-                       IN PUNICODE_STRING ObjectName,
+		       IN PVOID HandleId,
+		       IN PUNICODE_STRING ObjectTypeName,
+		       IN PUNICODE_STRING ObjectName,
+		       IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+		       IN HANDLE ClientToken,
+		       IN ULONG DesiredAccess,
+		       IN ULONG GrantedAccess,
+		       IN PPRIVILEGE_SET Privileges,
+		       IN BOOLEAN ObjectCreation,
+		       IN BOOLEAN AccessGranted,
+		       OUT PBOOLEAN GenerateOnClose)
+{
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
+}
+
+
+NTSTATUS STDCALL
+NtPrivilegedServiceAuditAlarm(IN PUNICODE_STRING SubsystemName,
+			      IN PUNICODE_STRING ServiceName,
+			      IN HANDLE ClientToken,
+			      IN PPRIVILEGE_SET Privileges,
+			      IN BOOLEAN AccessGranted)
+{
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
+}
+
+
+NTSTATUS STDCALL
+NtPrivilegeObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
+			    IN PVOID HandleId,
+			    IN HANDLE ClientToken,
+			    IN ULONG DesiredAccess,
+			    IN PPRIVILEGE_SET Privileges,
+			    IN BOOLEAN AccessGranted)
+{
+  UNIMPLEMENTED;
+  return(STATUS_NOT_IMPLEMENTED);
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+SeAuditHardLinkCreation(
+	IN PUNICODE_STRING FileName,
+	IN PUNICODE_STRING LinkName,
+	IN BOOLEAN bSuccess
+	)
+{
+	UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+BOOLEAN
+STDCALL
+SeAuditingFileEvents(
+	IN BOOLEAN AccessGranted,
+	IN PSECURITY_DESCRIPTOR SecurityDescriptor
+	)
+{
+	UNIMPLEMENTED;
+	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOLEAN
+STDCALL
+SeAuditingFileEventsWithContext(
+	IN BOOLEAN AccessGranted,
+	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL
+	)
+{
+	UNIMPLEMENTED;
+	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOLEAN
+STDCALL
+SeAuditingHardLinkEvents(
+	IN BOOLEAN AccessGranted,
+	IN PSECURITY_DESCRIPTOR SecurityDescriptor
+	)
+{
+	UNIMPLEMENTED;
+	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOLEAN
+STDCALL
+SeAuditingHardLinkEventsWithContext(
+	IN BOOLEAN AccessGranted,
+	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL
+	)
+{
+	UNIMPLEMENTED;
+	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOLEAN
+STDCALL
+SeAuditingFileOrGlobalEvents(
+	IN BOOLEAN AccessGranted,
+	IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+	IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext
+	)
+{
+	UNIMPLEMENTED;
+	return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+SeCloseObjectAuditAlarm(
+	IN PVOID Object,
+	IN HANDLE Handle,
+	IN BOOLEAN PerformAction
+	)
+{
+	UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+SeDeleteObjectAuditAlarm(IN PVOID Object,
+			 IN HANDLE Handle)
+{
+  UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+NTAPI
+SeOpenObjectAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
+                       IN PVOID Object OPTIONAL,
+                       IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
                        IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-                       IN HANDLE ClientToken,
-                       IN ULONG DesiredAccess,
-                       IN ULONG GrantedAccess,
-                       IN PPRIVILEGE_SET Privileges,
-                       IN BOOLEAN ObjectCreation,
+                       IN PACCESS_STATE AccessState,
+                       IN BOOLEAN ObjectCreated,
                        IN BOOLEAN AccessGranted,
+                       IN KPROCESSOR_MODE AccessMode,
                        OUT PBOOLEAN GenerateOnClose)
 {
-    UNIMPLEMENTED;
-    return(STATUS_NOT_IMPLEMENTED);
+    PAGED_CODE();
+
+    /* Audits aren't done on kernel-mode access */
+    if (AccessMode == KernelMode) return;
+
+    /* Otherwise, unimplemented! */
+    //UNIMPLEMENTED;
+    return;
 }
 
-
-NTSTATUS NTAPI
-NtPrivilegedServiceAuditAlarm(IN PUNICODE_STRING SubsystemName,
-                              IN PUNICODE_STRING ServiceName,
-                              IN HANDLE ClientToken,
-                              IN PPRIVILEGE_SET Privileges,
-                              IN BOOLEAN AccessGranted)
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+SeOpenObjectForDeleteAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
+				IN PVOID Object OPTIONAL,
+				IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
+				IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+				IN PACCESS_STATE AccessState,
+				IN BOOLEAN ObjectCreated,
+				IN BOOLEAN AccessGranted,
+				IN KPROCESSOR_MODE AccessMode,
+				OUT PBOOLEAN GenerateOnClose)
 {
-    UNIMPLEMENTED;
-    return(STATUS_NOT_IMPLEMENTED);
+  UNIMPLEMENTED;
 }
 
-
-NTSTATUS NTAPI
-NtPrivilegeObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
-                            IN PVOID HandleId,
-                            IN HANDLE ClientToken,
-                            IN ULONG DesiredAccess,
-                            IN PPRIVILEGE_SET Privileges,
-                            IN BOOLEAN AccessGranted)
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+SePrivilegeObjectAuditAlarm(
+	IN HANDLE Handle,
+	IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
+	IN ACCESS_MASK DesiredAccess,
+	IN PPRIVILEGE_SET Privileges,
+	IN BOOLEAN AccessGranted,
+	IN KPROCESSOR_MODE CurrentMode
+	)
 {
-    UNIMPLEMENTED;
-    return(STATUS_NOT_IMPLEMENTED);
+	UNIMPLEMENTED;
 }
 
 /* EOF */

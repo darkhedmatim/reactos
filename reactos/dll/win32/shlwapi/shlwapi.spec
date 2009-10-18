@@ -193,7 +193,7 @@
 193 stdcall -noname SHGetCurColorRes()
 194 stdcall -noname SHWaitForSendMessageThread(ptr long)
 195 stdcall -noname SHIsExpandableFolder(ptr ptr)
-196 stdcall -noname DnsRecordSetCompare(ptr ptr ptr ptr) dnsapi.DnsRecordSetCompare
+196 stub -noname DnsRecordSetCompare #stdcall @(ptr ptr ptr ptr) dnsapi.DnsRecordSetCompare
 197 stdcall -noname SHFillRectClr(long ptr long)
 198 stdcall -noname SHSearchMapInt(ptr ptr long long)
 199 stdcall -noname IUnknown_Set(ptr ptr)
@@ -215,9 +215,9 @@
 215 stdcall -noname SHAnsiToUnicode(str ptr long)
 216 stdcall -noname SHAnsiToUnicodeCP(long str ptr long)
 217 stdcall -noname SHUnicodeToAnsi(wstr ptr ptr)
-218 stdcall -noname SHUnicodeToAnsiCP(long wstr ptr long)
+218 stdcall -noname SHUnicodeToAnsiCP(long wstr ptr ptr)
 219 stdcall -noname QISearch(long long long long)
-220 stdcall -noname SHSetDefaultDialogFont(ptr long)
+220 stub -noname SHSetDefaultDialogFont
 221 stdcall -noname SHRemoveDefaultDialogFont(ptr)
 222 stdcall -noname SHGlobalCounterCreate(long)
 223 stdcall -noname SHGlobalCounterGetValue(long)
@@ -228,7 +228,7 @@
 228 stub -noname ZoneCheckUrlA
 229 stub -noname ZoneCheckUrlW
 230 stub -noname ZoneCheckUrlExA
-231 stdcall -noname ZoneCheckUrlExW(wstr ptr long long long long long long)
+231 stub -noname ZoneCheckUrlExW
 232 stub -noname ZoneCheckUrlExCacheA
 233 stub -noname ZoneCheckUrlExCacheW
 234 stub -noname ZoneCheckHost
@@ -280,7 +280,7 @@
 280 stdcall -noname SHRegGetIntW(ptr wstr long)
 281 stdcall -noname SHPackDispParamsV(ptr ptr long ptr)
 282 varargs -noname SHPackDispParams(ptr ptr long)
-283 stdcall -noname IConnectionPoint_InvokeWithCancel(ptr long long long long)
+283 stub -noname IConnectionPoint_InvokeWithCancel
 284 stdcall -noname IConnectionPoint_SimpleInvoke(ptr long ptr)
 285 stdcall -noname IConnectionPoint_OnChanged(ptr long)
 286 varargs -noname IUnknown_CPContainerInvokeParam(ptr ptr long ptr long)
@@ -350,8 +350,8 @@
 350 stdcall -noname GetFileVersionInfoSizeWrapW(wstr ptr)
 351 stdcall -noname GetFileVersionInfoWrapW(wstr long long ptr)
 352 stdcall -noname VerQueryValueWrapW(ptr wstr ptr ptr)
-353 stdcall -noname SHFormatDateTimeA(ptr ptr str long)
-354 stdcall -noname SHFormatDateTimeW(ptr ptr wstr long)
+353 stub -noname SHFormatDateTimeA
+354 stub -noname SHFormatDateTimeW
 355 stdcall -noname IUnknown_EnableModeless(ptr long)
 356 stdcall -noname CreateAllAccessSecurityAttributes(ptr ptr long)
 357 stdcall -noname SHGetNewLinkInfoWrapW(wstr wstr wstr long long)
@@ -429,8 +429,8 @@
 429 stdcall -noname MLIsMLHInstance(long)
 430 stdcall -noname MLSetMLHInstance(long long)
 431 stdcall -noname MLClearMLHInstance(long)
-432 stdcall -noname SHSendMessageBroadcastA(long long long)
-433 stdcall -noname SHSendMessageBroadcastW(long long long)
+432 stub -noname SHSendMessageBroadcastA
+433 stub -noname SHSendMessageBroadcastW
 434 stdcall -noname SendMessageTimeoutWrapW(long long long long long long ptr) user32.SendMessageTimeoutW
 435 stdcall -noname CLSIDFromProgIDWrap(wstr ptr) ole32.CLSIDFromProgID
 436 stdcall -noname CLSIDFromStringWrap(wstr ptr)
@@ -459,7 +459,7 @@
 459 stdcall -noname SHExpandEnvironmentStringsA(str ptr long) kernel32.ExpandEnvironmentStringsA
 460 stdcall -noname SHExpandEnvironmentStringsW(wstr ptr long) kernel32.ExpandEnvironmentStringsW
 461 stdcall -noname SHGetAppCompatFlags(long)
-462 stdcall -noname UrlFixupW(wstr wstr long)
+462 stub -noname UrlFixupW
 463 stub -noname SHExpandEnvironmentStringsForUserA
 464 stub -noname SHExpandEnvironmentStringsForUserW
 465 stub -noname PathUnExpandEnvStringsForUserA
@@ -468,7 +468,7 @@
 468 stub -noname RunIndirectRegCommand
 469 stub -noname RunRegCommand
 470 stub -noname IUnknown_ProfferServiceOld
-471 stdcall -noname SHCreatePropertyBagOnRegKey(long wstr long ptr ptr)
+471 stub -noname SHCreatePropertyBagOnRegKey
 472 stub -noname SHCreatePropertyBagOnProfileSelection
 473 stub -noname SHGetIniStringUTF7W
 474 stub -noname SHSetIniStringUTF7W
@@ -476,8 +476,8 @@
 476 stub -noname SHGetObjectCompatFlags
 477 stub -noname SHCreatePropertyBagOnMemory
 478 stdcall -noname IUnknown_TranslateAcceleratorIO(ptr ptr)
-479 stdcall -noname IUnknown_UIActivateIO(ptr long ptr)
-480 stdcall -noname UrlCrackW(wstr long long ptr) wininet.InternetCrackUrlW
+479 stub -noname IUnknown_UIActivateIO
+480 stub -noname UrlCrackW
 481 stdcall -noname IUnknown_HasFocusIO(ptr)
 482 stub -noname SHMessageBoxHelpA
 483 stub -noname SHMessageBoxHelpW
@@ -508,7 +508,7 @@
 512 stub -noname IStream_ReadPidl
 513 stub -noname IStream_WritePidl
 514 stdcall -noname IUnknown_ProfferService(ptr ptr ptr ptr)
-515 stdcall -noname SHGetViewStatePropertyBag(ptr wstr long ptr ptr)
+515 stub -noname SHGetViewStatePropertyBag
 516 stdcall -noname SKGetValueW(long wstr wstr long long long)
 517 stub -noname SKSetValueW
 518 stub -noname SKDeleteValueW
@@ -643,7 +643,7 @@
 @ stdcall PathQuoteSpacesA (str)
 @ stdcall PathQuoteSpacesW (wstr)
 @ stdcall PathRelativePathToA(ptr str long str long)
-@ stdcall PathRelativePathToW(ptr wstr long wstr long)
+@ stdcall PathRelativePathToW(ptr str long str long)
 @ stdcall PathRemoveArgsA(str)
 @ stdcall PathRemoveArgsW(wstr)
 @ stdcall PathRemoveBackslashA (str)
@@ -700,9 +700,9 @@
 @ stdcall SHGetValueW ( long wstr wstr ptr ptr ptr )
 @ stdcall SHIsLowMemoryMachine(long)
 @ stdcall SHOpenRegStream2A(long str str long)
-@ stdcall SHOpenRegStream2W(long wstr wstr long)
+@ stdcall SHOpenRegStream2W(long wstr str long)
 @ stdcall SHOpenRegStreamA(long str str long)
-@ stdcall SHOpenRegStreamW(long wstr wstr long)
+@ stdcall SHOpenRegStreamW(long wstr str long)
 @ stdcall SHQueryInfoKeyA(long ptr ptr ptr ptr)
 @ stdcall SHQueryInfoKeyW(long ptr ptr ptr ptr)
 @ stdcall SHQueryValueExA(long str ptr ptr ptr ptr)
@@ -738,7 +738,7 @@
 @ stdcall SHRegSetUSValueA ( str str long ptr long long)
 @ stdcall SHRegSetUSValueW ( wstr wstr long ptr long long)
 @ stdcall SHRegWriteUSValueA (long str long ptr long long)
-@ stdcall SHRegWriteUSValueW (long wstr long ptr long long)
+@ stdcall SHRegWriteUSValueW (long str long ptr long long)
 @ stdcall SHRegisterValidateTemplate(wstr long)
 @ stdcall SHReleaseThreadRef()
 @ stdcall SHSetThreadRef (ptr)
@@ -757,7 +757,6 @@
 @ stdcall StrChrA (str long)
 @ stdcall StrChrIA (str long)
 @ stdcall StrChrIW (wstr long)
-@ stdcall StrChrNW(wstr long long)
 @ stdcall StrChrW (wstr long)
 @ stdcall StrCmpIW (wstr wstr)
 @ stdcall StrCmpLogicalW(wstr wstr)
@@ -785,7 +784,7 @@
 @ stdcall StrPBrkW(wstr wstr)
 @ stdcall StrRChrA (str str long)
 @ stdcall StrRChrIA (str str long)
-@ stdcall StrRChrIW (wstr wstr long)
+@ stdcall StrRChrIW (str str long)
 @ stdcall StrRChrW (wstr wstr long)
 @ stdcall StrRStrIA (str str str)
 @ stdcall StrRStrIW (wstr wstr wstr)

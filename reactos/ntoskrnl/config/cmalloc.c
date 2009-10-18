@@ -62,7 +62,7 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
     if (!Kcb->PrivateAlloc)
     {
         /* Free it from the pool */
-        CmpFree(Kcb, 0);
+        ExFreePool(Kcb);
         return;
     }
     
@@ -70,8 +70,9 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
     KeAcquireGuardedMutex(&CmpAllocBucketLock);
     
     /* Sanity check on lock ownership */
-    //ASSERT((CmpIsKcbLockedExclusive(Kcb) == TRUE) ||
-    //       (CmpTestRegistryLockExclusive() == TRUE));
+    ASSERT((GET_HASH_ENTRY(CmpCacheTable, Kcb->ConvKey).Owner ==
+            KeGetCurrentThread()) ||
+           (CmpTestRegistryLockExclusive() == TRUE));
     
     /* Add us to the free list */
     InsertTailList(&CmpFreeKCBListHead, &Kcb->FreeListEntry);
@@ -98,7 +99,7 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
         }
         
         /* Free the page */
-        CmpFree(AllocPage, 0);
+        ExFreePool(AllocPage);
     }
     
     /* Release the lock */
@@ -151,7 +152,7 @@ SearchKcbList:
         }
         
         /* Allocate an allocation page */
-        AllocPage = CmpAllocate(PAGE_SIZE, TRUE, TAG_CM);
+        AllocPage = ExAllocatePoolWithTag(PagedPool, PAGE_SIZE, TAG_CM);
         if (AllocPage)
         {
             /* Set default entries */
@@ -178,9 +179,9 @@ SearchKcbList:
     }
 
     /* Allocate a KCB only */
-    CurrentKcb = CmpAllocate(sizeof(CM_KEY_CONTROL_BLOCK),
-                             TRUE,
-                             TAG_CM);
+    CurrentKcb = ExAllocatePoolWithTag(PagedPool,
+                                       sizeof(CM_KEY_CONTROL_BLOCK),
+                                       TAG_CM);
     if (CurrentKcb)
     {
         /* Set it up */
@@ -231,7 +232,7 @@ SearchList:
     }
     
     /* Allocate an allocation page */
-    AllocPage = CmpAllocate(PAGE_SIZE, TRUE, TAG_CM);
+    AllocPage = ExAllocatePoolWithTag(PagedPool, PAGE_SIZE, TAG_CM);
     if (AllocPage)
     {
         /* Set default entries */
@@ -295,7 +296,7 @@ CmpFreeDelayItem(PVOID Entry)
         }
         
         /* Now free the page */
-        CmpFree(AllocPage, 0);
+        ExFreePool(AllocPage);
     }
     
     /* Release the lock */

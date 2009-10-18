@@ -39,7 +39,7 @@
 /**
  * htmlGetMetaEncoding:
  * @doc:  the document
- * 
+ *
  * Encoding definition lookup in the Meta tags
  *
  * Returns the current encoding as flagged in the HTML source
@@ -126,17 +126,17 @@ found_meta:
 
 found_content:
     encoding = xmlStrstr(content, BAD_CAST"charset=");
-    if (encoding == NULL) 
+    if (encoding == NULL)
 	encoding = xmlStrstr(content, BAD_CAST"Charset=");
-    if (encoding == NULL) 
+    if (encoding == NULL)
 	encoding = xmlStrstr(content, BAD_CAST"CHARSET=");
     if (encoding != NULL) {
 	encoding += 8;
     } else {
 	encoding = xmlStrstr(content, BAD_CAST"charset =");
-	if (encoding == NULL) 
+	if (encoding == NULL)
 	    encoding = xmlStrstr(content, BAD_CAST"Charset =");
-	if (encoding == NULL) 
+	if (encoding == NULL)
 	    encoding = xmlStrstr(content, BAD_CAST"CHARSET =");
 	if (encoding != NULL)
 	    encoding += 9;
@@ -151,7 +151,7 @@ found_content:
  * htmlSetMetaEncoding:
  * @doc:  the document
  * @encoding:  the encoding string
- * 
+ *
  * Sets the current encoding in the Meta tags
  * NOTE: this will not change the document content encoding, just
  * the META flag associated.
@@ -253,9 +253,9 @@ found_meta:
 			if ((!xmlStrcasecmp(attr->name, BAD_CAST"http-equiv"))
 			 && (!xmlStrcasecmp(value, BAD_CAST"Content-Type")))
 			    http = 1;
-			else 
+			else
                         {
-                           if ((value != NULL) && 
+                           if ((value != NULL) &&
 				(!xmlStrcasecmp(attr->name, BAD_CAST"content")))
 			      content = value;
                         }
@@ -299,7 +299,7 @@ static const char* htmlBooleanAttrs[] = {
  * @name:  the name of the attribute to check
  *
  * Determine if a given attribute is a boolean attribute.
- * 
+ *
  * returns: false if the attribute is not boolean, true otherwise.
  */
 int
@@ -316,11 +316,6 @@ htmlIsBooleanAttr(const xmlChar *name)
 }
 
 #ifdef LIBXML_OUTPUT_ENABLED
-/*
- * private routine exported from xmlIO.c
- */
-xmlOutputBufferPtr
-xmlAllocOutputBufferInternal(xmlCharEncodingHandlerPtr encoder);
 /************************************************************************
  *									*
  * 			Output error handlers				*
@@ -353,19 +348,19 @@ htmlSaveErr(int code, xmlNodePtr node, const char *extra)
 
     switch(code) {
         case XML_SAVE_NOT_UTF8:
-	    msg = "string is not in UTF-8\n";
+	    msg = "string is not in UTF-8";
 	    break;
 	case XML_SAVE_CHAR_INVALID:
-	    msg = "invalid character value\n";
+	    msg = "invalid character value";
 	    break;
 	case XML_SAVE_UNKNOWN_ENCODING:
-	    msg = "unknown encoding %s\n";
+	    msg = "unknown encoding %s";
 	    break;
 	case XML_SAVE_NO_DOCTYPE:
-	    msg = "HTML has no DOCTYPE\n";
+	    msg = "HTML has no DOCTYPE";
 	    break;
 	default:
-	    msg = "unexpected error number\n";
+	    msg = "unexpected error number";
     }
     __xmlSimpleError(XML_FROM_OUTPUT, code, node, msg, extra);
 }
@@ -484,7 +479,7 @@ htmlNodeDumpFileFormat(FILE *out, xmlDocPtr doc,
     if (handler == NULL)
 	handler = xmlFindCharEncodingHandler("ascii");
 
-    /* 
+    /*
      * save the content to a temp buffer.
      */
     buf = xmlOutputBufferCreateFile(out, handler);
@@ -511,17 +506,16 @@ htmlNodeDumpFile(FILE *out, xmlDocPtr doc, xmlNodePtr cur) {
 }
 
 /**
- * htmlDocDumpMemoryFormat:
+ * htmlDocDumpMemory:
  * @cur:  the document
  * @mem:  OUT: the memory pointer
  * @size:  OUT: the memory length
- * @format:  should formatting spaces been added
  *
  * Dump an HTML document in memory and return the xmlChar * and it's size.
  * It's up to the caller to free the memory.
  */
 void
-htmlDocDumpMemoryFormat(xmlDocPtr cur, xmlChar**mem, int *size, int format) {
+htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
     xmlOutputBufferPtr buf;
     xmlCharEncodingHandlerPtr handler = NULL;
     const char *encoding;
@@ -558,8 +552,6 @@ htmlDocDumpMemoryFormat(xmlDocPtr cur, xmlChar**mem, int *size, int format) {
 		*size = 0;
 		return;
 	    }
-	} else {
-	    handler = xmlFindCharEncodingHandler(encoding);
 	}
     }
 
@@ -571,15 +563,14 @@ htmlDocDumpMemoryFormat(xmlDocPtr cur, xmlChar**mem, int *size, int format) {
     if (handler == NULL)
 	handler = xmlFindCharEncodingHandler("ascii");
 
-    buf = xmlAllocOutputBufferInternal(handler);
+    buf = xmlAllocOutputBuffer(handler);
     if (buf == NULL) {
 	*mem = NULL;
 	*size = 0;
 	return;
     }
 
-	htmlDocContentDumpFormatOutput(buf, cur, NULL, format);
-
+    htmlDocContentDumpOutput(buf, cur, NULL);
     xmlOutputBufferFlush(buf);
     if (buf->conv != NULL) {
 	*size = buf->conv->use;
@@ -589,20 +580,6 @@ htmlDocDumpMemoryFormat(xmlDocPtr cur, xmlChar**mem, int *size, int format) {
 	*mem = xmlStrndup(buf->buffer->content, *size);
     }
     (void)xmlOutputBufferClose(buf);
-}
-
-/**
- * htmlDocDumpMemory:
- * @cur:  the document
- * @mem:  OUT: the memory pointer
- * @size:  OUT: the memory length
- *
- * Dump an HTML document in memory and return the xmlChar * and it's size.
- * It's up to the caller to free the memory.
- */
-void
-htmlDocDumpMemory(xmlDocPtr cur, xmlChar**mem, int *size) {
-	htmlDocDumpMemoryFormat(cur, mem, size, 1);
 }
 
 
@@ -619,7 +596,7 @@ void xmlNsListDumpOutput(xmlOutputBufferPtr buf, xmlNsPtr cur);
  * @buf:  the HTML buffer output
  * @doc:  the document
  * @encoding:  the encoding string
- * 
+ *
  * TODO: check whether encoding is needed
  *
  * Dump the HTML document DTD, if any.
@@ -641,7 +618,7 @@ htmlDtdDumpOutput(xmlOutputBufferPtr buf, xmlDocPtr doc,
 	if (cur->SystemID != NULL) {
 	    xmlOutputBufferWriteString(buf, " ");
 	    xmlBufferWriteQuotedString(buf->buffer, cur->SystemID);
-	} 
+	}
     }  else if (cur->SystemID != NULL) {
 	xmlOutputBufferWriteString(buf, " SYSTEM ");
 	xmlBufferWriteQuotedString(buf->buffer, cur->SystemID);
@@ -783,10 +760,6 @@ htmlNodeDumpFormatOutput(xmlOutputBufferPtr buf, xmlDocPtr doc,
     if ((cur->type == XML_HTML_DOCUMENT_NODE) ||
         (cur->type == XML_DOCUMENT_NODE)){
 	htmlDocContentDumpOutput(buf, (xmlDocPtr) cur, encoding);
-	return;
-    }
-    if (cur->type == XML_ATTRIBUTE_NODE) {
-        htmlAttrDumpOutput(buf, doc, (xmlAttrPtr) cur, encoding);
 	return;
     }
     if (cur->type == HTML_TEXT_NODE) {
@@ -1053,8 +1026,6 @@ htmlDocDump(FILE *f, xmlDocPtr cur) {
 	    handler = xmlFindCharEncodingHandler(encoding);
 	    if (handler == NULL)
 		return(-1);
-	} else {
-	    handler = xmlFindCharEncodingHandler(encoding);
 	}
     }
 
@@ -1092,7 +1063,7 @@ htmlSaveFile(const char *filename, xmlDocPtr cur) {
 
     if ((cur == NULL) || (filename == NULL))
         return(-1);
-       
+
     xmlInitParser();
 
     encoding = (const char *) htmlGetMetaEncoding(cur);
@@ -1123,7 +1094,7 @@ htmlSaveFile(const char *filename, xmlDocPtr cur) {
     if (handler == NULL)
 	handler = xmlFindCharEncodingHandler("ascii");
 
-    /* 
+    /*
      * save the content to a temp buffer.
      */
     buf = xmlOutputBufferCreateFilename(filename, handler, cur->compression);
@@ -1143,7 +1114,7 @@ htmlSaveFile(const char *filename, xmlDocPtr cur) {
  * @encoding: the document encoding
  *
  * Dump an HTML document to a file using a given encoding.
- * 
+ *
  * returns: the number of byte written or -1 in case of failure.
  */
 int
@@ -1155,7 +1126,7 @@ htmlSaveFileFormat(const char *filename, xmlDocPtr cur,
 
     if ((cur == NULL) || (filename == NULL))
         return(-1);
-       
+
     xmlInitParser();
 
     if (encoding != NULL) {
@@ -1187,7 +1158,7 @@ htmlSaveFileFormat(const char *filename, xmlDocPtr cur,
     if (handler == NULL)
 	handler = xmlFindCharEncodingHandler("ascii");
 
-    /* 
+    /*
      * save the content to a temp buffer.
      */
     buf = xmlOutputBufferCreateFilename(filename, handler, 0);
@@ -1207,7 +1178,7 @@ htmlSaveFileFormat(const char *filename, xmlDocPtr cur,
  *
  * Dump an HTML document to a file using a given encoding
  * and formatting returns/spaces are added.
- * 
+ *
  * returns: the number of byte written or -1 in case of failure.
  */
 int

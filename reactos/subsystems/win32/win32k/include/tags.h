@@ -1,103 +1,72 @@
 #ifndef _WIN32K_TAGS_H
 #define _WIN32K_TAGS_H
 
-#define TAG_STRING      ' RTS' /* string */
-#define TAG_RTLREGISTRY 'vrqR' /* RTL registry */
+#define TAG_STRING	TAG('S', 'T', 'R', ' ') /* string */
 
 /* ntuser */
-#define TAG_MOUSE       'SUOM' /* mouse */
-#define TAG_KEYBOARD    ' DBK' /* keyboard */
-#define TAG_ACCEL       'LCCA' /* accelerator */
-#define TAG_HOOK        'KHNW' /* hook */
-#define TAG_HOTKEY      'KTOH' /* hotkey */
-#define TAG_MENUITEM    'INEM' /* menu item */
-#define TAG_MSG         'GSEM' /* message */
-#define TAG_MSGQ        'QGSM' /* message queue */
-#define TAG_USRMSG      'GSMU' /* user message */
-#define TAG_WNDPROP     'PRPW' /* window property */
-#define TAG_WNAM        'MANW' /* window name */
-#define TAG_WINLIST     'SLNW' /* window handle list */
-#define TAG_WININTLIST  'PINW' /* window internal pos */
-#define TAG_WINPROCLST  'LPNW' /* window proc list */
-#define TAG_SBARINFO    'NIBS' /* scrollbar info */
-#define TAG_TIMER       'RMIT' /* timer entry */
-#define TAG_TIMERTD     'TMIT' /* timer thread dereference list */
-#define TAG_TIMERBMP    'BMIT' /* timers bitmap */
-#define TAG_CALLBACK    'KCBC' /* callback memory */
-#define TAG_WINSTA      'ATSW' /* window station */
-#define TAG_PDCE        'cdsU' /* dce */
-#define TAG_ATTACHINFO  'iasU' /* Attach Info Input */
-#define TAG_INPUT       'yssU' /* Input */
+#define TAG_MOUSE	TAG('M', 'O', 'U', 'S') /* mouse */
+#define TAG_KEYBOARD	TAG('K', 'B', 'D', ' ') /* keyboard */
+#define TAG_ACCEL	TAG('A', 'C', 'C', 'L') /* accelerator */
+#define TAG_HOOK	TAG('W', 'N', 'H', 'K') /* hook */
+#define TAG_HOTKEY	TAG('H', 'O', 'T', 'K') /* hotkey */
+#define TAG_MENUITEM	TAG('M', 'E', 'N', 'I') /* menu item */
+#define TAG_MSG		TAG('M', 'E', 'S', 'G') /* message */
+#define TAG_MSGQ	TAG('M', 'S', 'G', 'Q') /* message queue */
+#define TAG_USRMSG	TAG('U', 'M', 'S', 'G') /* user message */
+#define TAG_WNDPROP	TAG('W', 'P', 'R', 'P') /* window property */
+#define TAG_WNAM	TAG('W', 'N', 'A', 'M') /* window name */
+#define TAG_WINLIST	TAG('W', 'N', 'L', 'S') /* window handle list */
+#define TAG_WININTLIST	TAG('W', 'N', 'I', 'P') /* window internal pos */
+#define TAG_WINPROCLST	TAG('W', 'N', 'P', 'L') /* window proc list */
+#define TAG_SBARINFO	TAG('S', 'B', 'I', 'N') /* scrollbar info */
+#define TAG_TIMER	TAG('T', 'I', 'M', 'R') /* timer entry */
+#define TAG_TIMERTD	TAG('T', 'I', 'M', 'T') /* timer thread dereference list */
+#define TAG_TIMERBMP	TAG('T', 'I', 'M', 'B') /* timers bitmap */
+#define TAG_CALLBACK	TAG('C', 'B', 'C', 'K') /* callback memory */
+#define TAG_WINSTA	TAG('W', 'S', 'T', 'A') /* window station */
+#define TAG_PDCE      TAG('U', 's', 'd', 'c') /* dce */
 
-/* gdi objects from the handle table */
-#define TAG_DC          '1alG' /* dc */
-#define TAG_REGION      '4alG' /* region */
-#define TAG_SURFACE     '5alG' /* bitmap */
-#define TAG_CLIENTOBJ   '60hG'
-#define TAG_PATH        '70hG'
-#define TAG_PALETTE     '8alG'
-#define TAG_ICMLCS      '90hG'
-#define TAG_LFONT       ':alG'
-#define TAG_RFONT       ';0gG' /* correct? */
-#define TAG_PFE         '<0hG'
-#define TAG_PFT         '=0hG' /* correct? */
-#define TAG_ICMCXF      '>0hG' /* correct? */
-#define TAG_SPRITE      '?0hG' /* correct? */
-#define TAG_BRUSH       '@alG'
-#define TAG_UMPD        'A0hG' /* correct? */
-#define TAG_SPACE       'c0hG' /* correct? */
-#define TAG_META        'E0hG' /* correct? */
-#define TAG_EFSTATE     'F0hG' /* correct? */
-#define TAG_BMFD        'G0hG' /* correct? */
-#define TAG_VTFD        'H0hG' /* correct? */
-#define TAG_TTFD        'I0hG' /* correct? */
-#define TAG_RC          'J0hG' /* correct? */
-#define TAG_TEMP        'K0hG' /* correct? */
-#define TAG_DRVOBJ      'L0hG' /* correct? */
-#define TAG_DCIOBJ      'M0hG' /* correct? */
-#define TAG_SPOOL       'N0hG' /* correct? */
-
-/* other gdi objects */
-#define TAG_BEZIER      'RZEB' /* bezier */
-#define TAG_BITMAP      'PMTB' /* bitmap */
-#define TAG_PATBLT      'TLBP' /* patblt */
-#define TAG_CLIP        'PILC' /* clipping */
-#define TAG_COORD       'DROC' /* coords */
-#define TAG_GDIDEV      'vedG' /* gdi dev support*/
-#define TAG_GDIPDEV     'veDG' /* gdi PDev */
-#define TAG_GDIHNDTBLE  'HIDG' /* gdi handle table */
-#define TAG_GDIICM      'mciG' /* gdi Icm */
-#define TAG_DIB         ' BID' /* dib */
-#define TAG_COLORMAP    'MLOC' /* color map */
-#define TAG_SHAPE       'PAHS' /* shape */
-#define TAG_PALETTEMAP  'MLAP' /* palette mapping */
-#define TAG_PRINT       'TNRP' /* print */
-#define TAG_GDITEXT     'OTXT' /* text */
-#define TAG_PENSTYLES   'ytsG' /* pen styles */
+/* objects */
+#define TAG_BEZIER	TAG('B', 'E', 'Z', 'R') /* bezier */
+#define TAG_BITMAP	TAG('B', 'T', 'M', 'P') /* bitmap */
+#define TAG_PATBLT	TAG('P', 'B', 'L', 'T') /* patblt */
+#define TAG_CLIP	TAG('C', 'L', 'I', 'P') /* clipping */
+#define TAG_COORD	TAG('C', 'O', 'R', 'D') /* coords */
+#define TAG_DC		TAG('D', 'C', 'D', 'C') /* dc */
+#define TAG_GDIDEV	TAG('G', 'd', 'e', 'v') /* gdi dev support*/
+#define TAG_GDIPDEV	TAG('G', 'D', 'e', 'v') /* gdi PDev */
+#define TAG_GDIOBJ	TAG('G', 'D', 'I', 'O') /* gdi obj */
+#define TAG_GDIHNDTBLE	TAG('G', 'D', 'I', 'H') /* gdi handle table */
+#define TAG_GDIICM	TAG('G', 'i', 'c', 'm') /* gdi Icm */
+#define TAG_DIB		TAG('D', 'I', 'B', ' ') /* dib */
+#define TAG_COLORMAP	TAG('C', 'O', 'L', 'M') /* color map */
+#define TAG_SHAPE	TAG('S', 'H', 'A', 'P') /* shape */
+#define TAG_PALETTE	TAG('P', 'A', 'L', 'E') /* palette */
+#define TAG_PALETTEMAP	TAG('P', 'A', 'L', 'M') /* palette mapping */
+#define TAG_PATH	TAG('P', 'A', 'T', 'H') /* path */
+#define TAG_PRINT	TAG('P', 'R', 'N', 'T') /* print */
+#define TAG_REGION	TAG('R', 'G', 'N', 'O') /* region */
+#define TAG_GDITEXT	TAG('T', 'X', 'T', 'O') /* text */
+#define TAG_EXTPEN	TAG('X', 'P', 'E', 'N') /* extpen */
 
 /* Eng objects */
-#define TAG_CLIPOBJ     'OPLC' /* clip object */
-#define TAG_DRIVEROBJ   'OVRD' /* driver object */
-#define TAG_DFSM        'msfD' /* Eng event allocation */
-#define TAG_EPATH       'tapG' /* path object */
-#define TAG_FONT        'ETNF' /* font entry */
-#define TAG_FONTOBJ     'tnfG' /* font object */
-#define TAG_WNDOBJ      'ODNW' /* window object */
-#define TAG_XLATEOBJ    'OALX' /* xlate object */
-#define TAG_GSEM        'mesG' /* Gdi Semaphore */
+#define TAG_CLIPOBJ	TAG('C', 'L', 'P', 'O') /* clip object */
+#define TAG_DRIVEROBJ	TAG('D', 'R', 'V', 'O') /* driver object */
+#define TAG_FONT	TAG('F', 'N', 'T', 'E') /* font entry */
+#define TAG_FONTOBJ	TAG('F', 'N', 'T', 'O') /* font object */
+#define TAG_WNDOBJ	TAG('W', 'N', 'D', 'O') /* window object */
+#define TAG_XLATEOBJ	TAG('X', 'L', 'A', 'O') /* xlate object */
+#define TAG_BITMAPOBJ	TAG('B', 'M', 'P', 'O') /* bitmap object */
 
 /* misc */
-#define TAG_DRIVER      'VRDG' /* video drivers */
-#define TAG_FNTFILE     'FTNF' /* font file */
-#define TAG_SSECTPOOL   'PCSS' /* shared section pool */
-#define TAG_PFF         'ffpG' /* physical font file */
+#define TAG_DRIVER	TAG('G', 'D', 'R', 'V') /* video drivers */
+#define TAG_FNTFILE	TAG('F', 'N', 'T', 'F') /* font file */
+#define TAG_SSECTPOOL   TAG('S', 'S', 'C', 'P') /* shared section pool */
+
 
 /* Dx internal tags rember I do not known if it right namees */
-#define TAG_DXPVMLIST   'LPXD' /* pmvlist for the driver */
-#define TAG_DXFOURCC    'OFXD' /* pdwFourCC for the driver */
-#define TAG_DDRAW       '1 hD' 
-#define TAG_DDSURF      '2 hD'
-#define TAG_EDDGBL      'GDDE' /* ? edd_directdraw_global ??*/
+#define TAG_DXPVMLIST TAG('D', 'X', 'P', 'L') /* pmvlist for the driver */
+#define TAG_DXFOURCC TAG('D', 'X', 'F', 'O') /* pdwFourCC for the driver */
 
 
 #endif /* _WIN32K_TAGS_H */

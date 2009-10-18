@@ -59,21 +59,47 @@ NtGdiGetFontFamilyInfo(
     DWORD Size
 );
 
+
+/* Use NtGdiAddFontResourceW */
+int
+STDCALL
+NtGdiAddFontResource(PUNICODE_STRING Filename,
+					 DWORD fl);
+
+
+/* Use NtGdiCreateDIBitmapInternal */
+HBITMAP
+STDCALL
+NtGdiCreateDIBitmap (
+	HDC			hDC,
+	CONST BITMAPINFOHEADER	* bmih,
+	DWORD			Init,
+	CONST VOID		* bInit,
+	CONST BITMAPINFO	* bmi,
+	UINT			Usage
+	);
+
+/* Should be done in user-mode. */
+BOOL
+STDCALL
+NtGdiGetAspectRatioFilterEx(HDC  hDC,
+                                 LPSIZE  AspectRatio);
+
 /* Use NtGdiGetDCPoint with GdiGetViewPortExt */
-BOOL APIENTRY  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
+BOOL STDCALL  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
+BOOL STDCALL  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
+BOOL STDCALL  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
+BOOL STDCALL  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
 NtGdiOffsetViewportOrgEx (
 	HDC	hDC,
 	int	XOffset,
@@ -83,7 +109,7 @@ NtGdiOffsetViewportOrgEx (
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
 NtGdiOffsetWindowOrgEx (
 	HDC	hDC,
 	int	XOffset,
@@ -91,29 +117,9 @@ NtGdiOffsetWindowOrgEx (
 	LPPOINT	Point
 	);
 
-/* Needs to be done in user-mode. */
-BOOL
-APIENTRY
-NtGdiSetViewportOrgEx (
-	HDC	hDC,
-	int	X,
-	int	Y,
-	LPPOINT	Point
-	);
-
-/* Needs to be done in user-mode. */
-BOOL
-APIENTRY
-NtGdiSetWindowOrgEx (
-	HDC	hDC,
-	int	X,
-	int	Y,
-	LPPOINT	Point
-	);
-
 /* Use SetDIBitsToDevice in gdi32. */
 INT
-APIENTRY
+STDCALL
 NtGdiSetDIBits (
 	HDC			hDC,
 	HBITMAP			hBitmap,
@@ -123,6 +129,66 @@ NtGdiSetDIBits (
 	CONST BITMAPINFO	* bmi,
 	UINT			ColorUse
 	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetWindowExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetViewportOrgEx (
+	HDC	hDC,
+	int	X,
+	int	Y,
+	LPPOINT	Point
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetViewportExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
+NtGdiSetWindowOrgEx (
+	HDC	hDC,
+	int	X,
+	int	Y,
+	LPPOINT	Point
+	);
+
+/* Use NtGdiStretchDIBitsInternal. */
+INT
+STDCALL
+NtGdiStretchDIBits (
+	HDC			hDC,
+	INT			XDest,
+	INT			YDest,
+	INT			DestWidth,
+	INT			DestHeight,
+	INT			XSrc,
+	INT			YSrc,
+	INT			SrcWidth,
+	INT			SrcHeight,
+	CONST VOID		* Bits,
+	CONST BITMAPINFO	* BitsInfo,
+	UINT			Usage,
+	DWORD			ROP
+	);
+
 
 #endif /* WIN32K_NTGDI_BAD_INCLUDED */
 

@@ -8,13 +8,14 @@
  *   CSH 01/09-2000 Created
  */
 
+#include <roscfg.h>
 #include <w32api.h>
 #include <ws2_32.h>
 #include <catalog.h>
 #include <handle.h>
 #include <upcall.h>
 
-#if DBG
+#ifdef DBG
 
 /* See debug.h for debug/trace constants */
 //DWORD DebugTraceLevel = MIN_TRACE;
@@ -24,7 +25,7 @@ DWORD DebugTraceLevel = 0;
 #endif /* DBG */
 
 /* To make the linker happy */
-VOID WINAPI KeBugCheck (ULONG BugCheckCode) {}
+VOID STDCALL KeBugCheck (ULONG BugCheckCode) {}
 
 HINSTANCE g_hInstDll;
 HANDLE GlobalHeap;
@@ -39,7 +40,17 @@ INT
 EXPORT
 WSAGetLastError(VOID)
 {
-    return GetLastError();
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
+
+    if (p)
+    {
+        return p->LastErrorValue;
+    }
+    else
+    {
+        /* FIXME: What error code should we use here? Can this even happen? */
+        return ERROR_BAD_ENVIRONMENT;
+    }
 }
 
 
@@ -50,7 +61,10 @@ VOID
 EXPORT
 WSASetLastError(IN INT iError)
 {
-    SetLastError(iError);
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
+
+    if (p)
+        p->LastErrorValue = iError;
 }
 
 
@@ -152,7 +166,7 @@ socket(IN  INT af,
        IN  INT type,
        IN  INT protocol)
 {
-    return WSASocketW(af,
+    return WSASocketA(af,
                       type,
                       protocol,
                       NULL,
@@ -644,7 +658,7 @@ WSAAccept(IN     SOCKET s,
 
     if ( addr )
     {
-#if DBG
+#ifdef DBG
         LPSOCKADDR_IN sa = (LPSOCKADDR_IN)addr;
         WS_DbgPrint(MAX_TRACE,("Returned address: %d %s:%d (len %d)\n",
                                sa->sin_family,
@@ -812,7 +826,7 @@ void free_winsock_thread_block(PWINSOCK_THREAD_BLOCK p)
 }
 
 BOOL
-WINAPI
+STDCALL
 DllMain(HANDLE hInstDll,
         ULONG dwReason,
         LPVOID lpReserved)
@@ -872,6 +886,11 @@ DllMain(HANDLE hInstDll,
 
         case DLL_PROCESS_DETACH:
         {
+            p = NtCurrentTeb()->WinSockData;
+
+            if (p)
+              HeapFree(GlobalHeap, 0, p);
+
             DestroyCatalog();
 
             FreeProviderHandleTable();

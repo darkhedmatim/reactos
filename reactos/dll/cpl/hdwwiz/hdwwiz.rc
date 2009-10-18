@@ -10,11 +10,8 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
 #include <reactos/version.rc>
 
-IDI_CPLICON ICON "resources/applet.ico"
-IDI_WARNINGICON ICON "resources/warning.ico"
-IDI_SEARCHICON ICON "resources/search.ico"
+123 24 DISCARDABLE "manifest.xml"
 
-IDB_WATERMARK BITMAP "resources/watermark.bmp"
-IDB_HEADER BITMAP "resources/header.bmp"
+IDI_CPLICON ICON "resources/applet.ico"
 
 #include "rsrc.rc"

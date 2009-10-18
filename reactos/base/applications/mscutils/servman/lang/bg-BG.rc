@@ -131,7 +131,7 @@ BEGIN
   LTEXT "Описание :", IDC_STATIC, 12, 86, 44, 9
   PUSHBUTTON "Добре", IDOK, 126, 192, 44, 13
   PUSHBUTTON "Отказ", IDCANCEL, 176, 192, 46, 13
-  LTEXT "Допълнителни настройки (натиснете „Помощ“ за подробности)", IDC_STATIC, 10, 151, 134, 9
+  LTEXT "Допълнителни настройки (натиснете 'Помощ' за подробности)", IDC_STATIC, 10, 151, 134, 9
   PUSHBUTTON "Помощ", ID_CREATE_HELP, 10, 192, 44, 13
 END
 
@@ -194,8 +194,6 @@ STRINGTABLE DISCARDABLE
 BEGIN
 /*  IDS_NUM_SERVICES "Num Services: %d" */
   IDS_NUM_SERVICES "Брой услуги: %d"
-  IDS_STOP_DEPENDS "When %s stops, these other services will also stop"
-  IDS_NO_DEPENDS "<No Dependencies>"
   IDS_LICENSE "This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.\r\n\r\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\r\n\r\nYou should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."
 END
 

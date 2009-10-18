@@ -45,7 +45,6 @@ LONG UnattendFormatPartition = 0;
 LONG AutoPartition = 0;
 WCHAR UnattendInstallationDirectory[MAX_PATH];
 PWCHAR SelectedLanguageId;
-WCHAR LocaleID[9];
 WCHAR DefaultLanguage[20];
 WCHAR DefaultKBLayout[20];
 BOOLEAN RepairUpdateFlag = FALSE;
@@ -556,22 +555,15 @@ CheckUnattendedSetup(VOID)
         }
     }
 
-	/* search for LocaleID in the 'Unattend' section*/
-	if (SetupFindFirstLineW (UnattendInf, L"Unattend", L"LocaleID", &Context)){
-		if (INF_GetData (&Context, NULL, &Value)){
-			LONG Id = wcstol(Value, NULL, 16);
-			swprintf(LocaleID,L"%08lx", Id);			
-       }       
-    }
+    SetupCloseInfFile(UnattendInf);
 
-	SetupCloseInfFile(UnattendInf);
-	
     DPRINT("Running unattended setup\n");
 }
 
 VOID
 UpdateKBLayout(VOID)
 {
+    PLIST_ENTRY Entry;
     PGENERIC_LIST_ENTRY ListEntry;
     LPCWSTR pszNewLayout;
 
@@ -580,27 +572,24 @@ UpdateKBLayout(VOID)
     if (LayoutList == NULL)
     {
         LayoutList = CreateKeyboardLayoutList(SetupInf, DefaultKBLayout);
-        if (LayoutList == NULL)
-        {
-            /* FIXME: Handle error! */
-            return;
-        }
     }
 
-    ListEntry = GetFirstListEntry(LayoutList);
+    Entry = LayoutList->ListHead.Flink;
 
     /* Search for default layout (if provided) */
     if (pszNewLayout != NULL)
     {
-        while (ListEntry != NULL)
+        while (Entry != &LayoutList->ListHead)
         {
-            if (!wcscmp(pszNewLayout, GetListEntryUserData(ListEntry)))
+            ListEntry = CONTAINING_RECORD (Entry, GENERIC_LIST_ENTRY, Entry);
+
+            if (!wcscmp(pszNewLayout, ListEntry->UserData))
             {
-                SetCurrentListEntry(LayoutList, ListEntry);
+                LayoutList->CurrentEntry = ListEntry;
                 break;
             }
 
-            ListEntry = GetNextListEntry(ListEntry);
+            Entry = Entry->Flink;
         }
     }
 }
@@ -626,8 +615,6 @@ LanguagePage(PINPUT_RECORD Ir)
                     xScreen - 3,
                     yScreen - 3);
 
-    ScrollToPositionGenericList (LanguageList, GetDefaultLanguageIndex());
-
     MUIDisplayPage(LANGUAGE_PAGE);
 
     while(TRUE)
@@ -637,36 +624,20 @@ LanguagePage(PINPUT_RECORD Ir)
         if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
             (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN))  /* DOWN */
         {
-#if 0
-            SelectedLanguageId = (PWCHAR)GetListEntryUserData(GetCurrentListEntry(LanguageList));
-
-            /* Redraw language selection page in native language */
+#if 0 //Dynamically update user interface
+            SelectedLanguageId = (PWCHAR)LanguageList->CurrentEntry->UserData;
             MUIDisplayPage(LANGUAGE_PAGE);
 #endif
-
             ScrollDownGenericList (LanguageList);
         }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP))  /* UP */
         {
 #if 0
-            SelectedLanguageId = (PWCHAR)GetListEntryUserData(GetCurrentListEntry(LanguageList));
-
-            /* Redraw language selection page in native language */
+            SelectedLanguageId = (PWCHAR)LanguageList->CurrentEntry->UserData;
             MUIDisplayPage(LANGUAGE_PAGE);
 #endif
-
             ScrollUpGenericList (LanguageList);
-        }
-        if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-            (Ir->Event.KeyEvent.wVirtualKeyCode == VK_NEXT))  /* PAGE DOWN */
-        {
-            ScrollPageDownGenericList (LanguageList);
-        }
-        else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-                 (Ir->Event.KeyEvent.wVirtualKeyCode == VK_PRIOR))  /* PAGE UP */
-        {
-            ScrollPageUpGenericList (LanguageList);
         }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -676,7 +647,7 @@ LanguagePage(PINPUT_RECORD Ir)
         }
         else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D)  /* ENTER */
         {
-            SelectedLanguageId = (PWCHAR)GetListEntryUserData(GetCurrentListEntry(LanguageList));
+            SelectedLanguageId = (PWCHAR)LanguageList->CurrentEntry->UserData;
 
             if (wcscmp(SelectedLanguageId, DefaultLanguage))
             {
@@ -713,10 +684,9 @@ SetupStartPage(PINPUT_RECORD Ir)
     INFCONTEXT Context;
     PWCHAR Value;
     UINT ErrorLine;
-    ULONG ReturnSize;
-    PGENERIC_LIST_ENTRY ListEntry;
+    SIZE_T ReturnSize;
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_PLEASEWAIT));
+    CONSOLE_SetStatusText("   Please wait...");
 
 
     /* Check whether a harddisk is available */
@@ -812,43 +782,8 @@ SetupStartPage(PINPUT_RECORD Ir)
         KeyboardList = CreateKeyboardDriverList(SetupInf);
         LayoutList = CreateKeyboardLayoutList(SetupInf, DefaultKBLayout);
         LanguageList = CreateLanguageList(SetupInf, DefaultLanguage);
-		
-		/* new part */
-		
-		wcscpy(SelectedLanguageId,LocaleID);
-		
-				
-		/* first we hack LanguageList */
-		ListEntry = GetFirstListEntry(LanguageList);
 
-		while (ListEntry != NULL)
-		{
-			if (!wcscmp(LocaleID, GetListEntryUserData(ListEntry)))
-			{
-				DPRINT("found %S in LanguageList\n",GetListEntryUserData(ListEntry));
-				SetCurrentListEntry(LanguageList, ListEntry);
-				break;
-			}
-
-			ListEntry = GetNextListEntry(ListEntry);
-		}
-		/* now LayoutList */
-		ListEntry = GetFirstListEntry(LayoutList);
-
-		while (ListEntry != NULL)
-		{
-			if (!wcscmp(LocaleID, GetListEntryUserData(ListEntry)))
-			{
-				DPRINT("found %S in LayoutList\n",GetListEntryUserData(ListEntry));
-				SetCurrentListEntry(LayoutList, ListEntry);
-				break;
-			}
-
-			ListEntry = GetNextListEntry(ListEntry);
-		}
-		SetConsoleCodePage();
-
-		return INSTALL_INTRO_PAGE;
+        return INSTALL_INTRO_PAGE;
     }
 
     return LANGUAGE_PAGE;
@@ -1084,12 +1019,12 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
     MUIDisplayPage(DEVICE_SETTINGS_PAGE);
 
 
-    CONSOLE_SetTextXY(25, 11, GetListEntryText(GetCurrentListEntry((ComputerList))));
-    CONSOLE_SetTextXY(25, 12, GetListEntryText(GetCurrentListEntry((DisplayList))));
-    CONSOLE_SetTextXY(25, 13, GetListEntryText(GetCurrentListEntry((KeyboardList))));
-    CONSOLE_SetTextXY(25, 14, GetListEntryText(GetCurrentListEntry((LayoutList))));
+    CONSOLE_SetTextXY(25, 11, GetGenericListEntry(ComputerList)->Text);
+    CONSOLE_SetTextXY(25, 12, GetGenericListEntry(DisplayList)->Text);
+    CONSOLE_SetTextXY(25, 13, GetGenericListEntry(KeyboardList)->Text);
+    CONSOLE_SetTextXY(25, 14, GetGenericListEntry(LayoutList)->Text);
 
-    CONSOLE_InvertTextXY(24, Line, 48, 1);
+    CONSOLE_InvertTextXY (24, Line, 48, 1);
 
     if (RepairUpdateFlag)
     {
@@ -1103,7 +1038,7 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
         if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
             (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN))  /* DOWN */
         {
-            CONSOLE_NormalTextXY(24, Line, 48, 1);
+            CONSOLE_NormalTextXY (24, Line, 48, 1);
 
             if (Line == 14)
                 Line = 16;
@@ -1112,12 +1047,12 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
             else
                 Line++;
 
-            CONSOLE_InvertTextXY(24, Line, 48, 1);
+            CONSOLE_InvertTextXY (24, Line, 48, 1);
         }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP))  /* UP */
         {
-            CONSOLE_NormalTextXY(24, Line, 48, 1);
+            CONSOLE_NormalTextXY (24, Line, 48, 1);
 
             if (Line == 11)
                 Line = 16;
@@ -1126,7 +1061,7 @@ DeviceSettingsPage(PINPUT_RECORD Ir)
             else
                 Line--;
 
-            CONSOLE_InvertTextXY(24, Line, 48, 1);
+            CONSOLE_InvertTextXY (24, Line, 48, 1);
         }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -1317,7 +1252,7 @@ LayoutSettingsPage(PINPUT_RECORD Ir)
 
     DrawGenericList(LayoutList,
                     2,
-                    18,
+                    15,
                     xScreen - 3,
                     yScreen - 3);
 
@@ -1337,16 +1272,6 @@ LayoutSettingsPage(PINPUT_RECORD Ir)
         {
             ScrollUpGenericList (LayoutList);
         }
-        if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-            (Ir->Event.KeyEvent.wVirtualKeyCode == VK_NEXT))  /* PAGE DOWN */
-        {
-            ScrollPageDownGenericList (LayoutList);
-        }
-        else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
-                 (Ir->Event.KeyEvent.wVirtualKeyCode == VK_PRIOR))  /* PAGE UP */
-        {
-            ScrollPageUpGenericList (LayoutList);
-        }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
         {
@@ -1364,11 +1289,6 @@ LayoutSettingsPage(PINPUT_RECORD Ir)
         else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
         {
             return DEVICE_SETTINGS_PAGE;
-        }
-        else if ((Ir->Event.KeyEvent.uChar.AsciiChar > 0x60) && (Ir->Event.KeyEvent.uChar.AsciiChar < 0x7b))
-        {
-            /* a-z */
-            GenericListKeyPress (LayoutList , Ir->Event.KeyEvent.uChar.AsciiChar);
         }
     }
 
@@ -1407,7 +1327,7 @@ SelectPartitionPage(PINPUT_RECORD Ir)
 
         while (TRUE)
         {
-            CONSOLE_ConInKey(Ir);
+            CONSOLE_ConInKey (Ir);
 
             if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                 (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -1450,11 +1370,11 @@ SelectPartitionPage(PINPUT_RECORD Ir)
         if (PartitionList->CurrentPartition == NULL ||
             PartitionList->CurrentPartition->Unpartitioned == TRUE)
         {
-            CONSOLE_SetStatusText(MUIGetString(STRING_INSTALLCREATEPARTITION));
+            CONSOLE_SetStatusText ("   ENTER = Install   C = Create Partition   F3 = Quit");
         }
         else
         {
-            CONSOLE_SetStatusText(MUIGetString(STRING_INSTALLDELETEPARTITION));
+            CONSOLE_SetStatusText ("   ENTER = Install   D = Delete Partition   F3 = Quit");
         }
 
         CONSOLE_ConInKey(Ir);
@@ -1544,8 +1464,6 @@ DrawInputField(ULONG FieldLength,
 
 
 #define PARTITION_SIZE_INPUT_FIELD_LENGTH 6
-/* Restriction for MaxSize: pow(10, PARTITION_SIZE_INPUT_FIELD_LENGTH)-1 */
-#define PARTITION_MAXSIZE 999999
 
 static VOID
 ShowPartitionSizeInputBox(SHORT Left,
@@ -1577,7 +1495,7 @@ ShowPartitionSizeInputBox(SHORT Left,
     /* Print message */
     coPos.X = Left + 2;
     coPos.Y = Top + 2;
-    strcpy (Buffer, MUIGetString(STRING_PARTITIONSIZE));
+    strcpy (Buffer, "Size of new partition:");
     iLeft = coPos.X + strlen (Buffer) + 1;
     iTop = coPos.Y;
 
@@ -1587,7 +1505,7 @@ ShowPartitionSizeInputBox(SHORT Left,
                                  coPos,
                                  &Written);
 
-    sprintf (Buffer, MUIGetString(STRING_MAXSIZE), MaxSize);
+    sprintf (Buffer, "MB (max. %lu MB)", MaxSize);
     coPos.X = iLeft + PARTITION_SIZE_INPUT_FIELD_LENGTH + 1;
     coPos.Y = iTop;
     WriteConsoleOutputCharacterA(StdOutput,
@@ -1605,7 +1523,7 @@ ShowPartitionSizeInputBox(SHORT Left,
 
     while (TRUE)
     {
-        CONSOLE_ConInKey(&Ir);
+        CONSOLE_ConInKey (&Ir);
 
         if ((Ir.Event.KeyEvent.uChar.AsciiChar == 0x00) &&
             (Ir.Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -1686,15 +1604,15 @@ CreatePartitionPage (PINPUT_RECORD Ir)
     DiskEntry = PartitionList->CurrentDisk;
     PartEntry = PartitionList->CurrentPartition;
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_PLEASEWAIT));
+    CONSOLE_SetStatusText ("   Please wait...");
 
-    CONSOLE_SetTextXY(6, 8, MUIGetString(STRING_CHOOSENEWPARTITION));
+    CONSOLE_SetTextXY (6, 8, "You have chosen to create a new partition on");
 
 #if 0
     if (DiskEntry->DiskSize >= 0x280000000ULL) /* 10 GB */
     {
         DiskSize = (DiskEntry->DiskSize + (1 << 29)) >> 30;
-        Unit = MUIGetString(STRING_GB);
+        Unit = "GB";
     }
     else
 #endif
@@ -1704,13 +1622,13 @@ CreatePartitionPage (PINPUT_RECORD Ir)
         if (DiskSize == 0)
             DiskSize = 1;
 
-        Unit = MUIGetString(STRING_MB);
+        Unit = "MB";
     }
 
     if (DiskEntry->DriverName.Length > 0)
     {
-        CONSOLE_PrintTextXY(6, 10,
-                             MUIGetString(STRING_HDINFOPARTCREATE),
+        CONSOLE_PrintTextXY (6, 10,
+                             "%I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ.",
                              DiskSize,
                              Unit,
                              DiskEntry->DiskNumber,
@@ -1721,8 +1639,8 @@ CreatePartitionPage (PINPUT_RECORD Ir)
     }
     else
     {
-        CONSOLE_PrintTextXY(6, 10,
-                             MUIGetString(STRING_HDDINFOUNK1),
+        CONSOLE_PrintTextXY (6, 10,
+                             "%I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu).",
                              DiskSize,
                              Unit,
                              DiskEntry->DiskNumber,
@@ -1731,22 +1649,19 @@ CreatePartitionPage (PINPUT_RECORD Ir)
                              DiskEntry->Id);
     }
 
-    CONSOLE_SetTextXY(6, 12, MUIGetString(STRING_HDDSIZE));
+    CONSOLE_SetTextXY (6, 12, "Please enter the size of the new partition in megabytes.");
 
 #if 0
-    CONSOLE_PrintTextXY(8, 10, "Maximum size of the new partition is %I64u MB",
+    CONSOLE_PrintTextXY (8, 10, "Maximum size of the new partition is %I64u MB",
                          PartitionList->CurrentPartition->UnpartitionedLength / (1024*1024));
 #endif
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_CREATEPARTITION));
+    CONSOLE_SetStatusText ("   ENTER = Create Partition   ESC = Cancel   F3 = Quit");
 
     PartEntry = PartitionList->CurrentPartition;
     while (TRUE)
     {
         MaxSize = (PartEntry->UnpartitionedLength + (1 << 19)) >> 20;  /* in MBytes (rounded) */
-
-        if (MaxSize > PARTITION_MAXSIZE) MaxSize = PARTITION_MAXSIZE;
-
         ShowPartitionSizeInputBox (12, 14, xScreen - 12, 17, /* left, top, right, bottom */
                                    MaxSize, InputBuffer, &Quit, &Cancel);
 
@@ -1817,7 +1732,6 @@ DeletePartitionPage (PINPUT_RECORD Ir)
     ULONGLONG PartSize;
     PCHAR Unit;
     PCHAR PartType;
-    UCHAR PartNumber;
 
     if (PartitionList == NULL ||
         PartitionList->CurrentDisk == NULL ||
@@ -1829,7 +1743,6 @@ DeletePartitionPage (PINPUT_RECORD Ir)
 
     DiskEntry = PartitionList->CurrentDisk;
     PartEntry = PartitionList->CurrentPartition;
-    PartNumber = PartitionList->CurrentPartitionNumber;
 
     MUIDisplayPage(DELETE_PARTITION_PAGE);
 
@@ -1837,67 +1750,63 @@ DeletePartitionPage (PINPUT_RECORD Ir)
     PartType = NULL;
     if (PartEntry->New == TRUE)
     {
-        PartType = MUIGetString(STRING_UNFORMATTED);
+        PartType = "New (Unformatted)";
     }
     else if (PartEntry->Unpartitioned == FALSE)
     {
-        if ((PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT_12) ||
-            (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT_16) ||
-            (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_HUGE) ||
-            (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_XINT13))
+        if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT_12) ||
+            (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT_16) ||
+            (PartEntry->PartInfo[0].PartitionType == PARTITION_HUGE) ||
+            (PartEntry->PartInfo[0].PartitionType == PARTITION_XINT13))
         {
             PartType = "FAT";
         }
-        else if ((PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT32) ||
-                 (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT32_XINT13))
+        else if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+                 (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
         {
             PartType = "FAT32";
         }
-        else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_EXT2)
-        {
-            PartType = "EXT2";
-        }
-        else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_IFS)
+        else if (PartEntry->PartInfo[0].PartitionType == PARTITION_IFS)
         {
             PartType = "NTFS"; /* FIXME: Not quite correct! */
         }
     }
 
 #if 0
-    if (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart >= 0x280000000LL) /* 10 GB */
+    if (PartEntry->PartInfo[0].PartitionLength.QuadPart >= 0x280000000LL) /* 10 GB */
     {
-        PartSize = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 29)) >> 30;
-        Unit = MUIGetString(STRING_GB);
+        PartSize = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 29)) >> 30;
+        Unit = "GB";
     }
     else
 #endif
-    if (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart >= 0xA00000LL) /* 10 MB */
+    if (PartEntry->PartInfo[0].PartitionLength.QuadPart >= 0xA00000LL) /* 10 MB */
     {
-        PartSize = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 19)) >> 20;
-        Unit = MUIGetString(STRING_MB);
+        PartSize = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 19)) >> 20;
+        Unit = "MB";
     }
     else
     {
-        PartSize = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 9)) >> 10;
-        Unit = MUIGetString(STRING_KB);
+        PartSize = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 9)) >> 10;
+        Unit = "KB";
     }
 
     if (PartType == NULL)
     {
-        CONSOLE_PrintTextXY(6, 10,
-                             MUIGetString(STRING_HDDINFOUNK2),
-                             (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : PartEntry->DriveLetter[PartNumber],
-                             (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : ':',
-                             PartEntry->PartInfo[PartNumber].PartitionType,
+        CONSOLE_PrintTextXY (6, 10,
+                             "   %c%c  Type %lu    %I64u %s",
+                             (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter,
+                             (PartEntry->DriveLetter == 0) ? '-' : ':',
+                             PartEntry->PartInfo[0].PartitionType,
                              PartSize,
                              Unit);
     }
     else
     {
-        CONSOLE_PrintTextXY(6, 10,
+        CONSOLE_PrintTextXY (6, 10,
                              "   %c%c  %s    %I64u %s",
-                             (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : PartEntry->DriveLetter[PartNumber],
-                             (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : ':',
+                             (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter,
+                             (PartEntry->DriveLetter == 0) ? '-' : ':',
                              PartType,
                              PartSize,
                              Unit);
@@ -1907,7 +1816,7 @@ DeletePartitionPage (PINPUT_RECORD Ir)
     if (DiskEntry->DiskSize >= 0x280000000ULL) /* 10 GB */
     {
         DiskSize = (DiskEntry->DiskSize + (1 << 29)) >> 30;
-        Unit = MUIGetString(STRING_GB);
+        Unit = "GB";
     }
     else
 #endif
@@ -1917,13 +1826,13 @@ DeletePartitionPage (PINPUT_RECORD Ir)
         if (DiskSize == 0)
             DiskSize = 1;
 
-        Unit = MUIGetString(STRING_MB);
+        Unit = "MB";
     }
 
     if (DiskEntry->DriverName.Length > 0)
     {
-        CONSOLE_PrintTextXY(6, 12,
-                             MUIGetString(STRING_HDINFOPARTDELETE),
+        CONSOLE_PrintTextXY (6, 12,
+                             "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ.",
                              DiskSize,
                              Unit,
                              DiskEntry->DiskNumber,
@@ -1934,8 +1843,8 @@ DeletePartitionPage (PINPUT_RECORD Ir)
     }
     else
     {
-        CONSOLE_PrintTextXY(6, 12,
-                             MUIGetString(STRING_HDDINFOUNK3),
+        CONSOLE_PrintTextXY (6, 12,
+                             "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu).",
                              DiskSize,
                              Unit,
                              DiskEntry->DiskNumber,
@@ -1946,7 +1855,7 @@ DeletePartitionPage (PINPUT_RECORD Ir)
 
     while (TRUE)
     {
-        CONSOLE_ConInKey(Ir);
+        CONSOLE_ConInKey (Ir);
 
         if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
             (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -1979,7 +1888,6 @@ SelectFileSystemPage (PINPUT_RECORD Ir)
 {
     PDISKENTRY DiskEntry;
     PPARTENTRY PartEntry;
-    UCHAR      PartNumber;
     ULONGLONG DiskSize;
     ULONGLONG PartSize;
     PCHAR DiskUnit;
@@ -1996,75 +1904,70 @@ SelectFileSystemPage (PINPUT_RECORD Ir)
 
     DiskEntry = PartitionList->CurrentDisk;
     PartEntry = PartitionList->CurrentPartition;
-    PartNumber = PartitionList->CurrentPartitionNumber;
 
     /* adjust disk size */
     if (DiskEntry->DiskSize >= 0x280000000ULL) /* 10 GB */
     {
         DiskSize = (DiskEntry->DiskSize + (1 << 29)) >> 30;
-        DiskUnit = MUIGetString(STRING_GB);
+        DiskUnit = "GB";
     }
     else
     {
         DiskSize = (DiskEntry->DiskSize + (1 << 19)) >> 20;
-        DiskUnit = MUIGetString(STRING_MB);
+        DiskUnit = "MB";
     }
 
     /* adjust partition size */
-    if (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart >= 0x280000000LL) /* 10 GB */
+    if (PartEntry->PartInfo[0].PartitionLength.QuadPart >= 0x280000000LL) /* 10 GB */
     {
-        PartSize = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 29)) >> 30;
-        PartUnit = MUIGetString(STRING_GB);
+        PartSize = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 29)) >> 30;
+        PartUnit = "GB";
     }
     else
     {
-        PartSize = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 19)) >> 20;
-        PartUnit = MUIGetString(STRING_MB);
+        PartSize = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 19)) >> 20;
+        PartUnit = "MB";
     }
 
     /* adjust partition type */
-    if ((PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT_12) ||
-        (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT_16) ||
-        (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_HUGE) ||
-        (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_XINT13))
+    if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT_12) ||
+        (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT_16) ||
+        (PartEntry->PartInfo[0].PartitionType == PARTITION_HUGE) ||
+        (PartEntry->PartInfo[0].PartitionType == PARTITION_XINT13))
     {
         PartType = "FAT";
     }
-    else if ((PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT32) ||
-             (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT32_XINT13))
+    else if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+             (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
     {
         PartType = "FAT32";
     }
-    else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_EXT2)
-    {
-        PartType = "EXT2";
-    }
-    else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_IFS)
+    else if (PartEntry->PartInfo[0].PartitionType == PARTITION_IFS)
     {
         PartType = "NTFS"; /* FIXME: Not quite correct! */
     }
-    else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_ENTRY_UNUSED)
+    else if (PartEntry->PartInfo[0].PartitionType == PARTITION_ENTRY_UNUSED)
     {
-        PartType = MUIGetString(STRING_FORMATUNUSED);
+        PartType = "Unused";
     }
     else
     {
-        PartType = MUIGetString(STRING_FORMATUNKNOWN);
+        PartType = "Unknown";
     }
 
     if (PartEntry->AutoCreate == TRUE)
     {
-        CONSOLE_SetTextXY(6, 8, MUIGetString(STRING_NEWPARTITION));
+        CONSOLE_SetTextXY(6, 8, "Setup created a new partition on");
 
 #if 0
         CONSOLE_PrintTextXY(8, 10, "Partition %lu (%I64u %s) %s of",
-                            PartEntry->PartInfo[PartNumber].PartitionNumber,
+                            PartEntry->PartInfo[0].PartitionNumber,
                             PartSize,
                             PartUnit,
                             PartType);
 #endif
 
-        CONSOLE_PrintTextXY(8, 10, MUIGetString(STRING_HDINFOPARTZEROED),
+        CONSOLE_PrintTextXY(8, 10, "Harddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ).",
                             DiskEntry->DiskNumber,
                             DiskSize,
                             DiskUnit,
@@ -2073,42 +1976,42 @@ SelectFileSystemPage (PINPUT_RECORD Ir)
                             DiskEntry->Id,
                             &DiskEntry->DriverName);
 
-        CONSOLE_SetTextXY(6, 12, MUIGetString(STRING_PARTFORMAT));
+        CONSOLE_SetTextXY(6, 12, "This Partition will be formatted next.");
 
 
         PartEntry->AutoCreate = FALSE;
     }
     else if (PartEntry->New == TRUE)
     {
-        CONSOLE_SetTextXY(6, 8, MUIGetString(STRING_NONFORMATTEDPART));
-        CONSOLE_SetTextXY(6, 10, MUIGetString(STRING_PARTFORMAT));
+        CONSOLE_SetTextXY(6, 8, "You chose to install ReactOS on a new or unformatted Partition.");
+        CONSOLE_SetTextXY(6, 10, "This Partition will be formatted next.");
     }
     else
     {
-        CONSOLE_SetTextXY(6, 8, MUIGetString(STRING_INSTALLONPART));
+        CONSOLE_SetTextXY(6, 8, "Setup install ReactOS onto Partition");
 
         if (PartType == NULL)
         {
-            CONSOLE_PrintTextXY(8, 10,
-                                 MUIGetString(STRING_HDDINFOUNK4),
-                                 (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : PartEntry->DriveLetter[PartNumber],
-                                 (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : ':',
-                                 PartEntry->PartInfo[PartNumber].PartitionType,
+            CONSOLE_PrintTextXY (8, 10,
+                                 "%c%c  Type %lu    %I64u %s",
+                                 (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter,
+                                 (PartEntry->DriveLetter == 0) ? '-' : ':',
+                                 PartEntry->PartInfo[0].PartitionType,
                                  PartSize,
                                  PartUnit);
         }
         else
         {
-            CONSOLE_PrintTextXY(8, 10,
+            CONSOLE_PrintTextXY (8, 10,
                                  "%c%c  %s    %I64u %s",
-                                (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : PartEntry->DriveLetter[PartNumber],
-                                (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : ':',
+                                (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter,
+                                (PartEntry->DriveLetter == 0) ? '-' : ':',
                                 PartType,
                                 PartSize,
                                 PartUnit);
         }
 
-        CONSOLE_PrintTextXY(6, 12, MUIGetString(STRING_HDINFOPARTEXISTS),
+        CONSOLE_PrintTextXY(6, 12, "on Harddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ).",
                             DiskEntry->DiskNumber,
                             DiskSize,
                             DiskUnit,
@@ -2151,7 +2054,7 @@ SelectFileSystemPage (PINPUT_RECORD Ir)
 
     while (TRUE)
     {
-        CONSOLE_ConInKey(Ir);
+        CONSOLE_ConInKey (Ir);
 
         if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
             (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -2201,7 +2104,6 @@ FormatPartitionPage (PINPUT_RECORD Ir)
     WCHAR PathBuffer[MAX_PATH];
     PDISKENTRY DiskEntry;
     PPARTENTRY PartEntry;
-    UCHAR PartNum;
     NTSTATUS Status;
 
 #ifndef NDEBUG
@@ -2222,7 +2124,6 @@ FormatPartitionPage (PINPUT_RECORD Ir)
 
     DiskEntry = PartitionList->CurrentDisk;
     PartEntry = PartitionList->CurrentPartition;
-    PartNum = PartitionList->CurrentPartitionNumber;
 
     while(TRUE)
     {
@@ -2243,55 +2144,53 @@ FormatPartitionPage (PINPUT_RECORD Ir)
         }
         else if (Ir->Event.KeyEvent.wVirtualKeyCode == VK_RETURN || IsUnattendedSetup) /* ENTER */
         {
-            CONSOLE_SetStatusText(MUIGetString(STRING_PLEASEWAIT));
+            CONSOLE_SetStatusText ("   Please wait ...");
 
-            if (PartEntry->PartInfo[PartNum].PartitionType == PARTITION_ENTRY_UNUSED)
+            if (PartEntry->PartInfo[0].PartitionType == PARTITION_ENTRY_UNUSED)
             {
                 if (wcscmp(FileSystemList->Selected->FileSystem, L"FAT") == 0)
                 {
-                    if (PartEntry->PartInfo[PartNum].PartitionLength.QuadPart < (4200LL * 1024LL))
+                    if (PartEntry->PartInfo[0].PartitionLength.QuadPart < (4200LL * 1024LL))
                     {
                         /* FAT12 CHS partition (disk is smaller than 4.1MB) */
-                        PartEntry->PartInfo[PartNum].PartitionType = PARTITION_FAT_12;
+                        PartEntry->PartInfo[0].PartitionType = PARTITION_FAT_12;
                     }
-                    else if (PartEntry->PartInfo[PartNum].StartingOffset.QuadPart < (1024LL * 255LL * 63LL * 512LL))
+                    else if (PartEntry->PartInfo[0].StartingOffset.QuadPart < (1024LL * 255LL * 63LL * 512LL))
                     {
                         /* Partition starts below the 8.4GB boundary ==> CHS partition */
 
-                        if (PartEntry->PartInfo[PartNum].PartitionLength.QuadPart < (32LL * 1024LL * 1024LL))
+                        if (PartEntry->PartInfo[0].PartitionLength.QuadPart < (32LL * 1024LL * 1024LL))
                         {
                             /* FAT16 CHS partition (partiton size < 32MB) */
-                            PartEntry->PartInfo[PartNum].PartitionType = PARTITION_FAT_16;
+                            PartEntry->PartInfo[0].PartitionType = PARTITION_FAT_16;
                         }
-                        else if (PartEntry->PartInfo[PartNum].PartitionLength.QuadPart < (512LL * 1024LL * 1024LL))
+                        else if (PartEntry->PartInfo[0].PartitionLength.QuadPart < (512LL * 1024LL * 1024LL))
                         {
                             /* FAT16 CHS partition (partition size < 512MB) */
-                            PartEntry->PartInfo[PartNum].PartitionType = PARTITION_HUGE;
+                            PartEntry->PartInfo[0].PartitionType = PARTITION_HUGE;
                         }
                         else
                         {
                             /* FAT32 CHS partition (partition size >= 512MB) */
-                            PartEntry->PartInfo[PartNum].PartitionType = PARTITION_FAT32;
+                            PartEntry->PartInfo[0].PartitionType = PARTITION_FAT32;
                         }
                     }
                     else
                     {
                         /* Partition starts above the 8.4GB boundary ==> LBA partition */
 
-                        if (PartEntry->PartInfo[PartNum].PartitionLength.QuadPart < (512LL * 1024LL * 1024LL))
+                        if (PartEntry->PartInfo[0].PartitionLength.QuadPart < (512LL * 1024LL * 1024LL))
                         {
                             /* FAT16 LBA partition (partition size < 512MB) */
-                            PartEntry->PartInfo[PartNum].PartitionType = PARTITION_XINT13;
+                            PartEntry->PartInfo[0].PartitionType = PARTITION_XINT13;
                         }
                         else
                         {
                             /* FAT32 LBA partition (partition size >= 512MB) */
-                            PartEntry->PartInfo[PartNum].PartitionType = PARTITION_FAT32_XINT13;
+                            PartEntry->PartInfo[0].PartitionType = PARTITION_FAT32_XINT13;
                         }
                     }
                 }
-                else if (wcscmp(FileSystemList->Selected->FileSystem, L"EXT2") == 0)
-                    PartEntry->PartInfo[PartNum].PartitionType = PARTITION_EXT2;
                 else if (!FileSystemList->Selected->FormatFunc)
                     return QUIT_PAGE;
             }
@@ -2299,7 +2198,7 @@ FormatPartitionPage (PINPUT_RECORD Ir)
             CheckActiveBootPartition (PartitionList);
 
 #ifndef NDEBUG
-            CONSOLE_PrintTextXY(6, 12,
+            CONSOLE_PrintTextXY (6, 12,
                                  "Disk: %I64u  Cylinder: %I64u  Track: %I64u",
                                  DiskEntry->DiskSize,
                                  DiskEntry->CylinderSize,
@@ -2317,7 +2216,7 @@ FormatPartitionPage (PINPUT_RECORD Ir)
                 {
                     for (i = 0; i < 4; i++)
                     {
-                        CONSOLE_PrintTextXY(6, Line,
+                        CONSOLE_PrintTextXY (6, Line,
                                              "%2u:  %2u  %c  %12I64u  %12I64u  %2u  %c",
                                              i,
                                              PartEntry->PartInfo[i].PartitionNumber,
@@ -2352,7 +2251,7 @@ FormatPartitionPage (PINPUT_RECORD Ir)
             swprintf (PathBuffer,
                       L"\\Device\\Harddisk%lu\\Partition%lu",
                       PartitionList->CurrentDisk->DiskNumber,
-                      PartitionList->CurrentPartition->PartInfo[PartNum].PartitionNumber);
+                      PartitionList->CurrentPartition->PartInfo[0].PartitionNumber);
             RtlCreateUnicodeString (&DestinationRootPath,
                                     PathBuffer);
             DPRINT ("DestinationRootPath: %wZ\n", &DestinationRootPath);
@@ -2363,8 +2262,7 @@ FormatPartitionPage (PINPUT_RECORD Ir)
             swprintf (PathBuffer,
                       L"\\Device\\Harddisk%lu\\Partition%lu",
                       PartitionList->ActiveBootDisk->DiskNumber,
-                      PartitionList->ActiveBootPartition->
-                        PartInfo[PartitionList->ActiveBootPartitionNumber].PartitionNumber);
+                      PartitionList->ActiveBootPartition->PartInfo[0].PartitionNumber);
             RtlCreateUnicodeString (&SystemRootPath,
                                     PathBuffer);
             DPRINT ("SystemRootPath: %wZ\n", &SystemRootPath);
@@ -2385,33 +2283,11 @@ FormatPartitionPage (PINPUT_RECORD Ir)
                 CheckActiveBootPartition(PartitionList);
             }
 
-            /* Install MBR if necessary */
-            if (DiskEntry->NoMbr &&
-                DiskEntry->BiosDiskNumber == 0)
-            {
-                wcscpy(PathBuffer, SourceRootPath.Buffer);
-                wcscat(PathBuffer, L"\\loader\\dosmbr.bin");
-
-                DPRINT("Install MBR bootcode: %S ==> %S\n",
-                    PathBuffer, DestinationRootPath.Buffer);
-
-                /* Install MBR bootcode */
-                Status = InstallMbrBootCodeToDisk(PathBuffer, DestinationRootPath.Buffer);
-                if (!NT_SUCCESS (Status))
-                {
-                    DPRINT1("InstallMbrBootCodeToDisk() failed (Status %lx)\n",
-                        Status);
-                    return FALSE;
-                }
-
-                DiskEntry->NoMbr = FALSE;
-            }
-
             if (wcscmp(FileSystemList->Selected->FileSystem, L"FAT") == 0)
             {
                 /* FIXME: Install boot code. This is a hack! */
-                if ((PartEntry->PartInfo[PartNum].PartitionType == PARTITION_FAT32_XINT13) ||
-                    (PartEntry->PartInfo[PartNum].PartitionType == PARTITION_FAT32))
+                if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13) ||
+                    (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32))
                 {
                     wcscpy(PathBuffer, SourceRootPath.Buffer);
                     wcscat(PathBuffer, L"\\loader\\fat32.bin");
@@ -2450,25 +2326,6 @@ FormatPartitionPage (PINPUT_RECORD Ir)
                     }
                 }
             }
-            else if (wcscmp(FileSystemList->Selected->FileSystem, L"EXT2") == 0)
-            {
-                wcscpy(PathBuffer, SourceRootPath.Buffer);
-                wcscat(PathBuffer, L"\\loader\\ext2.bin");
-
-                DPRINT("Install EXT2 bootcode: %S ==> %S\n", PathBuffer,
-                    DestinationRootPath.Buffer);
-                Status = InstallFat32BootCodeToDisk(PathBuffer,
-                    DestinationRootPath.Buffer);
-
-                if (!NT_SUCCESS(Status))
-                {
-                    DPRINT1("InstallFat32BootCodeToDisk() failed with status 0x%08lx\n", Status);
-                    /* FIXME: show an error dialog */
-                    DestroyFileSystemList(FileSystemList);
-                    FileSystemList = NULL;
-                    return QUIT_PAGE;
-                }
-            }
             else if (FileSystemList->Selected->FormatFunc)
             {
                 DestroyFileSystemList(FileSystemList);
@@ -2477,7 +2334,7 @@ FormatPartitionPage (PINPUT_RECORD Ir)
             }
 
 #ifndef NDEBUG
-            CONSOLE_SetStatusText("   Done.  Press any key ...");
+            CONSOLE_SetStatusText ("   Done.  Press any key ...");
             CONSOLE_ConInKey(Ir);
 #endif
 
@@ -2498,7 +2355,6 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
     WCHAR PathBuffer[MAX_PATH];
     CHAR Buffer[MAX_PATH];
     NTSTATUS Status;
-    UCHAR PartNum = PartitionList->CurrentPartitionNumber;
 
     /* FIXME: code duplicated in FormatPartitionPage */
     /* Set DestinationRootPath */
@@ -2506,7 +2362,7 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
     swprintf(PathBuffer,
              L"\\Device\\Harddisk%lu\\Partition%lu",
     PartitionList->CurrentDisk->DiskNumber,
-    PartitionList->CurrentPartition->PartInfo[PartNum].PartitionNumber);
+    PartitionList->CurrentPartition->PartInfo[0].PartitionNumber);
     RtlCreateUnicodeString(&DestinationRootPath, PathBuffer);
     DPRINT("DestinationRootPath: %wZ\n", &DestinationRootPath);
 
@@ -2515,13 +2371,13 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
     swprintf(PathBuffer,
              L"\\Device\\Harddisk%lu\\Partition%lu",
     PartitionList->ActiveBootDisk->DiskNumber,
-    PartitionList->ActiveBootPartition->PartInfo[PartNum].PartitionNumber);
+    PartitionList->ActiveBootPartition->PartInfo[0].PartitionNumber);
     RtlCreateUnicodeString(&SystemRootPath, PathBuffer);
     DPRINT("SystemRootPath: %wZ\n", &SystemRootPath);
 
-    CONSOLE_SetTextXY(6, 8, MUIGetString(STRING_CHECKINGPART));
+    CONSOLE_SetTextXY(6, 8, "Setup is now checking the selected partition.");
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_PLEASEWAIT));
+    CONSOLE_SetStatusText("   Please wait...");
 
     /* WRONG: first filesystem is not necesseraly the one of the current partition! */
     CurrentFileSystem = CONTAINING_RECORD(FileSystemList->ListHead.Flink, FILE_SYSTEM_ITEM, ListEntry);
@@ -2536,7 +2392,7 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
                 CurrentFileSystem->FileSystem);
 
         PopupError(Buffer,
-                   MUIGetString(STRING_QUITCONTINUE),
+                   "F3= Quit  ENTER = Continue",
                    NULL, POPUP_WAIT_NONE);
 
         while(TRUE)
@@ -2567,7 +2423,7 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
                     "(Status 0x%08lx).\n", Status);
 
             PopupError(Buffer,
-                       MUIGetString(STRING_REBOOTCOMPUTER),
+                       "ENTER = Reboot computer",
                        Ir, POPUP_WAIT_ENTER);
 
             return QUIT_PAGE;
@@ -2579,7 +2435,7 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
 
 
 static PAGE_NUMBER
-InstallDirectoryPage1(PWCHAR InstallDir, PDISKENTRY DiskEntry, PPARTENTRY PartEntry, UCHAR PartNum)
+InstallDirectoryPage1(PWCHAR InstallDir, PDISKENTRY DiskEntry, PPARTENTRY PartEntry)
 {
     WCHAR PathBuffer[MAX_PATH];
 
@@ -2603,7 +2459,7 @@ InstallDirectoryPage1(PWCHAR InstallDir, PDISKENTRY DiskEntry, PPARTENTRY PartEn
     swprintf(PathBuffer,
              L"multi(0)disk(0)rdisk(%lu)partition(%lu)",
              DiskEntry->BiosDiskNumber,
-             PartEntry->PartInfo[PartNum].PartitionNumber);
+             PartEntry->PartInfo[0].PartitionNumber);
 
     if (InstallDir[0] != L'\\')
         wcscat(PathBuffer, L"\\");
@@ -2659,7 +2515,7 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
 
     if (IsUnattendedSetup)
     {
-        return(InstallDirectoryPage1 (InstallDir, DiskEntry, PartEntry, PartitionList->CurrentPartitionNumber));
+        return(InstallDirectoryPage1 (InstallDir, DiskEntry, PartEntry));
     }
 
     while(TRUE)
@@ -2676,7 +2532,7 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
         }
         else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x0D) /* ENTER */
         {
-            return (InstallDirectoryPage1 (InstallDir, DiskEntry, PartEntry, PartitionList->CurrentPartitionNumber));
+            return (InstallDirectoryPage1 (InstallDir, DiskEntry, PartEntry));
         }
         else if (Ir->Event.KeyEvent.uChar.AsciiChar == 0x08) /* BACKSPACE */
         {
@@ -2720,8 +2576,8 @@ AddSectionToCopyQueueCab(HINF InfFile,
     if (!SetupFindFirstLineW (InfFile, SectionName, NULL, &FilesContext))
     {
         char Buffer[128];
-        sprintf(Buffer, MUIGetString(STRING_TXTSETUPFAILED), SectionName);
-        PopupError(Buffer, MUIGetString(STRING_REBOOTCOMPUTER), Ir, POPUP_WAIT_ENTER);
+        sprintf(Buffer, "Setup failed to find the '%S' section\nin TXTSETUP.SIF.\n", SectionName);
+        PopupError(Buffer, "ENTER = Reboot computer", Ir, POPUP_WAIT_ENTER);
         return(FALSE);
     }
 
@@ -2797,8 +2653,8 @@ AddSectionToCopyQueue(HINF InfFile,
     if (!SetupFindFirstLineW (InfFile, SectionName, NULL, &FilesContext))
     {
         char Buffer[128];
-        sprintf(Buffer, MUIGetString(STRING_TXTSETUPFAILED), SectionName);
-        PopupError(Buffer, MUIGetString(STRING_REBOOTCOMPUTER), Ir, POPUP_WAIT_ENTER);
+        sprintf(Buffer, "Setup failed to find the '%S' section\nin TXTSETUP.SIF.\n", SectionName);
+        PopupError(Buffer, "ENTER = Reboot computer", Ir, POPUP_WAIT_ENTER);
         return FALSE;
     }
 
@@ -2929,7 +2785,7 @@ PrepareCopyPageInfFile(HINF InfFile,
         {
             MUIDisplayError(ERROR_TXTSETUP_SECTION, Ir, POPUP_WAIT_ENTER);
         }
-
+        
         return FALSE;
     }
 
@@ -3088,9 +2944,18 @@ SetupUpdateMemoryInfo(IN PCOPYCONTEXT CopyContext,
     }
 
     /* Set current values */
-    ProgressSetStep(CopyContext->MemoryBars[0], PerfInfo.PagedPoolPages + PerfInfo.NonPagedPoolPages);
-    ProgressSetStep(CopyContext->MemoryBars[1], PerfInfo.ResidentSystemCachePage);
+    ProgressSetStep(CopyContext->MemoryBars[0], PerfInfo.PagedPoolPages);
+    ProgressSetStep(CopyContext->MemoryBars[1], PerfInfo.NonPagedPoolPages);
     ProgressSetStep(CopyContext->MemoryBars[2], PerfInfo.AvailablePages);
+
+    /* Check if memory dropped below 40%! */
+    if (CopyContext->MemoryBars[2]->Percent <= 40)
+    {
+        /* Wait a while until Mm does its thing */
+        LARGE_INTEGER Interval;
+        Interval.QuadPart = -1 * 15 * 1000 * 100;
+        NtDelayExecution(FALSE, &Interval);
+    }
 }
 
 static UINT CALLBACK
@@ -3108,13 +2973,13 @@ FileCopyCallback(PVOID Context,
         case SPFILENOTIFY_STARTSUBQUEUE:
             CopyContext->TotalOperations = (ULONG)Param2;
             ProgressSetStepCount(CopyContext->ProgressBar,
-                                 CopyContext->TotalOperations);
+            CopyContext->TotalOperations);
             SetupUpdateMemoryInfo(CopyContext, TRUE);
             break;
 
         case SPFILENOTIFY_STARTCOPY:
             /* Display copy message */
-            CONSOLE_SetStatusTextAutoFitX (45 , MUIGetString(STRING_COPYING), (PWSTR)Param1);
+            CONSOLE_SetStatusText("                                                   \xB3 Copying file: %S", (PWSTR)Param1);
             SetupUpdateMemoryInfo(CopyContext, FALSE);
             break;
 
@@ -3133,7 +2998,6 @@ PAGE_NUMBER
 FileCopyPage(PINPUT_RECORD Ir)
 {
     COPYCONTEXT CopyContext;
-    unsigned int mem_bar_width;
 
     MUIDisplayPage(FILE_COPY_PAGE);
 
@@ -3151,38 +3015,34 @@ FileCopyPage(PINPUT_RECORD Ir)
                                                 10,
                                                 24,
                                                 TRUE,
-                                                MUIGetString(STRING_SETUPCOPYINGFILES));
+                                                "Setup is copying files...");
 
-    // fit memory bars to screen width, distribute them uniform
-    mem_bar_width = (xScreen - 26) / 5;
-    mem_bar_width -= mem_bar_width % 2;  // make even
-    /* ATTENTION: The following progress bars are debug stuff, which should not be translated!! */
     /* Create the paged pool progress bar */
     CopyContext.MemoryBars[0] = CreateProgressBar(13,
                                                   40,
-						  13 + mem_bar_width,
+                                                  18,
                                                   43,
-						  13,
+                                                  10,
                                                   44,
                                                   FALSE,
-                                                  "Kernel Pool");
+                                                  "Paged Memory");
 
     /* Create the non paged pool progress bar */
-    CopyContext.MemoryBars[1] = CreateProgressBar((xScreen / 2)- (mem_bar_width / 2),
+    CopyContext.MemoryBars[1] = CreateProgressBar(28,
                                                   40,
-						  (xScreen / 2) + (mem_bar_width / 2),
+                                                  33,
                                                   43,
-                                                  (xScreen / 2)- (mem_bar_width / 2),
+                                                  24,
                                                   44,
                                                   FALSE,
-                                                  "Kernel Cache");
+                                                  "Nonpaged Memory");
 
     /* Create the global memory progress bar */
-    CopyContext.MemoryBars[2] = CreateProgressBar(xScreen - 13 - mem_bar_width,
+    CopyContext.MemoryBars[2] = CreateProgressBar(43,
                                                   40,
-						  xScreen - 13,
+                                                  48,
                                                   43,
-						  xScreen - 13 - mem_bar_width,
+                                                  40,
                                                   44,
                                                   FALSE,
                                                   "Free Memory");
@@ -3242,7 +3102,7 @@ RegistryPage(PINPUT_RECORD Ir)
 #endif
 
     /* Update registry */
-    CONSOLE_SetStatusText(MUIGetString(STRING_REGHIVEUPDATE));
+    CONSOLE_SetStatusText("   Updating registry hives...");
 
     if (!SetupFindFirstLineW(SetupInf, L"HiveInfs.Install", NULL, &InfContext))
     {
@@ -3272,7 +3132,7 @@ RegistryPage(PINPUT_RECORD Ir)
             continue;
         }
 
-        CONSOLE_SetStatusText(MUIGetString(STRING_IMPORTFILE), File);
+        CONSOLE_SetStatusText("   Importing %S...", File);
 
         if (!ImportRegistryFile(File, Section, Delete))
         {
@@ -3284,7 +3144,7 @@ RegistryPage(PINPUT_RECORD Ir)
     } while (SetupFindNextLine (&InfContext, &InfContext));
 
     /* Update display registry settings */
-    CONSOLE_SetStatusText(MUIGetString(STRING_DISPLAYETTINGSUPDATE));
+    CONSOLE_SetStatusText("   Updating display registry settings...");
     if (!ProcessDisplayRegistry(SetupInf, DisplayList))
     {
         MUIDisplayError(ERROR_UPDATE_DISPLAY_SETTINGS, Ir, POPUP_WAIT_ENTER);
@@ -3292,41 +3152,23 @@ RegistryPage(PINPUT_RECORD Ir)
     }
 
     /* Set the locale */
-    CONSOLE_SetStatusText(MUIGetString(STRING_LOCALESETTINGSUPDATE));
+    CONSOLE_SetStatusText("   Updating locale settings...");
     if (!ProcessLocaleRegistry(LanguageList))
     {
         MUIDisplayError(ERROR_UPDATE_LOCALESETTINGS, Ir, POPUP_WAIT_ENTER);
         return QUIT_PAGE;
     }
 
-    /* Add keyboard layouts */
-    CONSOLE_SetStatusText(MUIGetString(STRING_ADDKBLAYOUTS));
-    if (!AddKeyboardLayouts())
+    /* Update keyboard layout settings */
+    CONSOLE_SetStatusText("   Updating keyboard layout settings...");
+    if (!ProcessKeyboardLayoutRegistry(LayoutList))
     {
-        MUIDisplayError(ERROR_ADDING_KBLAYOUTS, Ir, POPUP_WAIT_ENTER);
+        MUIDisplayError(ERROR_UPDATE_KBSETTINGS, Ir, POPUP_WAIT_ENTER);
         return QUIT_PAGE;
     }
 
-    /* Set GeoID */
-
-    if (!SetGeoID(MUIGetGeoID()))
-    {
-        MUIDisplayError(ERROR_UPDATE_GEOID, Ir, POPUP_WAIT_ENTER);
-        return QUIT_PAGE;
-    }
-
-    if (!IsUnattendedSetup){
-        
-       /* Update keyboard layout settings */
-       CONSOLE_SetStatusText(MUIGetString(STRING_KEYBOARDSETTINGSUPDATE));
-       if (!ProcessKeyboardLayoutRegistry(LayoutList))
-       {
-           MUIDisplayError(ERROR_UPDATE_KBSETTINGS, Ir, POPUP_WAIT_ENTER);
-           return QUIT_PAGE;
-       }
-    }
     /* Add codepage information to registry */
-    CONSOLE_SetStatusText(MUIGetString(STRING_CODEPAGEINFOUPDATE));
+    CONSOLE_SetStatusText("   Adding codepage information to registry...");
     if (!AddCodePage())
     {
         MUIDisplayError(ERROR_ADDING_CODEPAGE, Ir, POPUP_WAIT_ENTER);
@@ -3336,7 +3178,7 @@ RegistryPage(PINPUT_RECORD Ir)
     /* Update the mounted devices list */
     SetMountedDeviceValues(PartitionList);
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_DONE));
+    CONSOLE_SetStatusText("   Done...");
 
     return BOOT_LOADER_PAGE;
 }
@@ -3349,22 +3191,9 @@ BootLoaderPage(PINPUT_RECORD Ir)
     BOOLEAN InstallOnFloppy;
     USHORT Line = 12;
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_PLEASEWAIT));
+    CONSOLE_SetStatusText("   Please wait...");
 
-    PartitionType = PartitionList->ActiveBootPartition->
-        PartInfo[PartitionList->ActiveBootPartitionNumber].PartitionType;
-
-    if (IsUnattendedSetup)
-    {
-        if (UnattendMBRInstallType == 0) /* skip MBR installation */
-        {
-            return SUCCESS_PAGE;
-        }
-        else if (UnattendMBRInstallType == 1) /* install on floppy */
-        {
-            return BOOT_LOADER_FLOPPY_PAGE;
-        }
-    }
+    PartitionType = PartitionList->ActiveBootPartition->PartInfo[0].PartitionType;
 
     if (PartitionType == PARTITION_ENTRY_UNUSED)
     {
@@ -3411,14 +3240,24 @@ BootLoaderPage(PINPUT_RECORD Ir)
         return BOOT_LOADER_FLOPPY_PAGE;
     }
 
-    /* Unattended install on hdd? */
-    if (IsUnattendedSetup && UnattendMBRInstallType == 2)
+    if (IsUnattendedSetup)
     {
-        return BOOT_LOADER_HARDDISK_PAGE;
+        if (UnattendMBRInstallType == 0) /* skip MBR installation */
+        {
+            return SUCCESS_PAGE;
+        }
+        else if (UnattendMBRInstallType == 1) /* install on floppy */
+        {
+            return BOOT_LOADER_FLOPPY_PAGE;
+        }
+        else if (UnattendMBRInstallType == 2) /* install on hdd */
+        {
+            return BOOT_LOADER_HARDDISK_PAGE;
+        }
     }
 
     MUIDisplayPage(BOOT_LOADER_PAGE);
-    CONSOLE_InvertTextXY(8, Line, 60, 1);
+    CONSOLE_InvertTextXY (8, Line, 60, 1);
 
     while(TRUE)
     {
@@ -3427,24 +3266,24 @@ BootLoaderPage(PINPUT_RECORD Ir)
         if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
             (Ir->Event.KeyEvent.wVirtualKeyCode == VK_DOWN))  /* DOWN */
         {
-            CONSOLE_NormalTextXY(8, Line, 60, 1);
+            CONSOLE_NormalTextXY (8, Line, 60, 1);
 
             Line++;
             if (Line<12) Line=14;
             if (Line>14) Line=12;
 
-            CONSOLE_InvertTextXY(8, Line, 60, 1);
+            CONSOLE_InvertTextXY (8, Line, 60, 1);
         }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_UP))  /* UP */
         {
-            CONSOLE_NormalTextXY(8, Line, 60, 1);
+            CONSOLE_NormalTextXY (8, Line, 60, 1);
 
             Line--;
             if (Line<12) Line=14;
             if (Line>14) Line=12;
 
-            CONSOLE_InvertTextXY(8, Line, 60, 1);
+            CONSOLE_InvertTextXY (8, Line, 60, 1);
         }
         else if ((Ir->Event.KeyEvent.uChar.AsciiChar == 0x00) &&
                  (Ir->Event.KeyEvent.wVirtualKeyCode == VK_F3))  /* F3 */
@@ -3466,7 +3305,7 @@ BootLoaderPage(PINPUT_RECORD Ir)
             }
             else if (Line == 14)
             {
-                return SUCCESS_PAGE;
+                return SUCCESS_PAGE;;
             }
 
             return BOOT_LOADER_PAGE;
@@ -3527,8 +3366,7 @@ BootLoaderHarddiskPage(PINPUT_RECORD Ir)
     UCHAR PartitionType;
     NTSTATUS Status;
 
-    PartitionType = PartitionList->ActiveBootPartition->
-        PartInfo[PartitionList->ActiveBootPartitionNumber].PartitionType;
+    PartitionType = PartitionList->ActiveBootPartition->PartInfo[0].PartitionType;
     if ((PartitionType == PARTITION_FAT_12) ||
         (PartitionType == PARTITION_FAT_16) ||
         (PartitionType == PARTITION_HUGE) ||
@@ -3611,7 +3449,7 @@ QuitPage(PINPUT_RECORD Ir)
         LanguageList = NULL;
     }
 
-    CONSOLE_SetStatusText(MUIGetString(STRING_REBOOTCOMPUTER2));
+    CONSOLE_SetStatusText("   ENTER = Reboot computer");
 
     while(TRUE)
     {
@@ -3674,9 +3512,9 @@ RunUSetup(VOID)
 
     if (!CONSOLE_Init())
     {
-        PrintString(MUIGetString(STRING_CONSOLEFAIL1));
-        PrintString(MUIGetString(STRING_CONSOLEFAIL2));
-        PrintString(MUIGetString(STRING_CONSOLEFAIL3));
+        PrintString("Unable to open the console\n\n");
+        PrintString("The most common cause of this is using an USB keyboard\n");
+        PrintString("USB keyboards are not fully supported yet\n");
 
         /* Raise a hard error (crash the system/BSOD) */
         NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED,
@@ -3837,6 +3675,10 @@ RunUSetup(VOID)
                 break;
         }
     }
+
+    /// THE FOLLOWING DPRINT IS FOR THE SYSTEM REGRESSION TOOL
+    /// DO NOT REMOVE!!!
+    DPRINT1("SYSREG_CHECKPOINT:USETUP_COMPLETE\n");
 
     FreeConsole();
 

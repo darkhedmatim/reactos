@@ -1,10 +1,14 @@
-/*
- * PROJECT:         ReactOS Session Manager
- * LICENSE:         GPL v2 or later - See COPYING in the top level directory
+/* $Id$
+ *
+ * PROJECT:         ReactOS Operating System
+ * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/smss/initmv.c
  * PURPOSE:         Process the file rename list.
- * PROGRAMMERS:     ReactOS Development Team
+ * PROGRAMMERS:     Dmitry Philippov (shedon@mail.ru)
+ * UPDATE HISTORY:
+ *                  Created 13/08/2006
  */
+
 
 /* INCLUDES ******************************************************************/
 #include "smss.h"
@@ -65,6 +69,8 @@ SmpDeleteFile( IN LPCWSTR lpFileName )
 		FILE_SYNCHRONOUS_IO_NONALERT,
 		NULL,
 		0);
+
+	RtlFreeUnicodeString(&FileNameU);
 
 	if( !NT_SUCCESS(Status) ) {
 		DPRINT("NtCreateFile() failed (Status %lx)\n", Status);
@@ -356,7 +362,7 @@ SmpMoveFile( IN LPCWSTR lpExistingFileName,
 *
 *
 *--*/
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpMoveFilesQueryRoutine(IN PWSTR ValueName,
                          IN ULONG ValueType,
                          IN PVOID ValueData,

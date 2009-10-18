@@ -27,33 +27,48 @@
 #ifndef __GENLIST_H__
 #define __GENLIST_H__
 
-struct _GENERIC_LIST_ENTRY;
-typedef struct _GENERIC_LIST_ENTRY *PGENERIC_LIST_ENTRY;
-struct _GENERIC_LIST;
-typedef struct _GENERIC_LIST *PGENERIC_LIST;
+typedef struct _GENERIC_LIST_ENTRY
+{
+  LIST_ENTRY Entry;
+  PVOID UserData;
+  CHAR Text[1];
+} GENERIC_LIST_ENTRY, *PGENERIC_LIST_ENTRY;
+
+
+typedef struct _GENERIC_LIST
+{
+  LIST_ENTRY ListHead;
+
+  SHORT Left;
+  SHORT Top;
+  SHORT Right;
+  SHORT Bottom;
+
+  PGENERIC_LIST_ENTRY CurrentEntry;
+  PGENERIC_LIST_ENTRY BackupEntry;
+} GENERIC_LIST, *PGENERIC_LIST;
+
+
 
 PGENERIC_LIST
 CreateGenericList(VOID);
 
 VOID
 DestroyGenericList(PGENERIC_LIST List,
-                   BOOLEAN FreeUserData);
+		   BOOLEAN FreeUserData);
 
 BOOLEAN
 AppendGenericListEntry(PGENERIC_LIST List,
-                       PCHAR Text,
-                       PVOID UserData,
-                       BOOLEAN Current);
+		       PCHAR Text,
+		       PVOID UserData,
+		       BOOLEAN Current);
 
 VOID
 DrawGenericList(PGENERIC_LIST List,
-                SHORT Left,
-                SHORT Top,
-                SHORT Right,
-                SHORT Bottom);
-
-VOID
-DrawScrollBarGenericLis(PGENERIC_LIST List);
+		SHORT Left,
+		SHORT Top,
+		SHORT Right,
+		SHORT Bottom);
 
 VOID
 ScrollDownGenericList(PGENERIC_LIST List);
@@ -61,32 +76,8 @@ ScrollDownGenericList(PGENERIC_LIST List);
 VOID
 ScrollUpGenericList(PGENERIC_LIST List);
 
-VOID
-ScrollPageDownGenericList(PGENERIC_LIST List);
-
-VOID
-ScrollPageUpGenericList(PGENERIC_LIST List);
-
-VOID
-ScrollToPositionGenericList (PGENERIC_LIST List, ULONG uIndex);
-
-VOID
-SetCurrentListEntry(PGENERIC_LIST List, PGENERIC_LIST_ENTRY Entry);
-
 PGENERIC_LIST_ENTRY
-GetCurrentListEntry(PGENERIC_LIST List);
-
-PGENERIC_LIST_ENTRY
-GetFirstListEntry(PGENERIC_LIST List);
-
-PGENERIC_LIST_ENTRY
-GetNextListEntry(PGENERIC_LIST_ENTRY Entry);
-
-PVOID
-GetListEntryUserData(PGENERIC_LIST_ENTRY List);
-
-LPCSTR
-GetListEntryText(PGENERIC_LIST_ENTRY List);
+GetGenericListEntry(PGENERIC_LIST List);
 
 VOID
 SaveGenericListState(PGENERIC_LIST List);
