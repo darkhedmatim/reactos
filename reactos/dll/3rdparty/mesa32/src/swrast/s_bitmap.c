@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  6.3
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,21 +28,19 @@
  * \author Brian Paul
  */
 
-#include "main/glheader.h"
-#include "main/bufferobj.h"
-#include "main/image.h"
-#include "main/macros.h"
-#include "main/pixel.h"
+#include "glheader.h"
+#include "bufferobj.h"
+#include "image.h"
+#include "macros.h"
+#include "pixel.h"
 
 #include "s_context.h"
 #include "s_span.h"
 
 
 
-/**
+/*
  * Render a bitmap.
- * Called via ctx->Driver.Bitmap()
- * All parameter error checking will have been done before this is called.
  */
 void
 _swrast_Bitmap( GLcontext *ctx, GLint px, GLint py,
@@ -53,23 +51,57 @@ _swrast_Bitmap( GLcontext *ctx, GLint px, GLint py,
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    GLint row, col;
    GLuint count = 0;
-   SWspan span;
+   struct sw_span span;
 
    ASSERT(ctx->RenderMode == GL_RENDER);
 
-   bitmap = _mesa_map_bitmap_pbo(ctx, unpack, bitmap);
-   if (!bitmap)
-      return;
+   if (unpack->BufferObj->Name) {
+      /* unpack from PBO */
+      GLubyte *buf;
+      if (!_mesa_validate_pbo_access(2, unpack, width, height, 1,
+                                     GL_COLOR_INDEX, GL_BITMAP,
+                                     (GLvoid *) bitmap)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,"glBitmap(invalid PBO access)");
+         return;
+      }
+      buf = (GLubyte *) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
+                                              GL_READ_ONLY_ARB,
+                                              unpack->BufferObj);
+      if (!buf) {
+         /* buffer is already mapped - that's an error */
+         _mesa_error(ctx, GL_INVALID_OPERATION, "glBitmap(PBO is mapped)");
+         return;
+      }
+      bitmap = ADD_POINTERS(buf, bitmap);
+   }
 
    RENDER_START(swrast,ctx);
 
    if (SWRAST_CONTEXT(ctx)->NewState)
       _swrast_validate_derived( ctx );
 
-   INIT_SPAN(span, GL_BITMAP);
-   span.end = width;
-   span.arrayMask = SPAN_XY;
-   _swrast_span_default_attribs(ctx, &span);
+   INIT_SPAN(span, GL_BITMAP, width, 0, SPAN_XY);
+
+   if (ctx->Visual.rgbMode) {
+      span.interpMask |= SPAN_RGBA;
+      span.red   = FloatToFixed(ctx->Current.RasterColor[0] * CHAN_MAXF);
+      span.green = FloatToFixed(ctx->Current.RasterColor[1] * CHAN_MAXF);
+      span.blue  = FloatToFixed(ctx->Current.RasterColor[2] * CHAN_MAXF);
+      span.alpha = FloatToFixed(ctx->Current.RasterColor[3] * CHAN_MAXF);
+      span.redStep = span.greenStep = span.blueStep = span.alphaStep = 0;
+   }
+   else {
+      span.interpMask |= SPAN_INDEX;
+      span.index = FloatToFixed(ctx->Current.RasterIndex);
+      span.indexStep = 0;
+   }
+
+   if (ctx->Depth.Test)
+      _swrast_span_default_z(ctx, &span);
+   if (ctx->Fog.Enabled)
+      _swrast_span_default_fog(ctx, &span);
+   if (ctx->Texture._EnabledCoordUnits)
+      _swrast_span_default_texcoords(ctx, &span);
 
    for (row = 0; row < height; row++) {
       const GLubyte *src = (const GLubyte *) _mesa_image_address2d(unpack,
@@ -134,14 +166,18 @@ _swrast_Bitmap( GLcontext *ctx, GLint px, GLint py,
 
    RENDER_FINISH(swrast,ctx);
 
-   _mesa_unmap_bitmap_pbo(ctx, unpack);
+   if (unpack->BufferObj->Name) {
+      /* done with PBO so unmap it now */
+      ctx->Driver.UnmapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
+                              unpack->BufferObj);
+   }
 }
 
 
 #if 0
 /*
  * XXX this is another way to implement Bitmap.  Use horizontal runs of
- * fragments, initializing the mask array to indicate which fragments to
+ * fragments, initializing the mask array to indicate which fragmens to
  * draw or skip.
  */
 void
@@ -152,7 +188,7 @@ _swrast_Bitmap( GLcontext *ctx, GLint px, GLint py,
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    GLint row, col;
-   SWspan span;
+   struct sw_span span;
 
    ASSERT(ctx->RenderMode == GL_RENDER);
    ASSERT(bitmap);
@@ -162,15 +198,32 @@ _swrast_Bitmap( GLcontext *ctx, GLint px, GLint py,
    if (SWRAST_CONTEXT(ctx)->NewState)
       _swrast_validate_derived( ctx );
 
-   INIT_SPAN(span, GL_BITMAP);
-   span.end = width;
-   span.arrayMask = SPAN_MASK;
-   _swrast_span_default_attribs(ctx, &span);
+   INIT_SPAN(span, GL_BITMAP, width, 0, SPAN_MASK);
 
    /*span.arrayMask |= SPAN_MASK;*/  /* we'll init span.mask[] */
    span.x = px;
    span.y = py;
    /*span.end = width;*/
+   if (ctx->Visual.rgbMode) {
+      span.interpMask |= SPAN_RGBA;
+      span.red   = FloatToFixed(ctx->Current.RasterColor[0] * CHAN_MAXF);
+      span.green = FloatToFixed(ctx->Current.RasterColor[1] * CHAN_MAXF);
+      span.blue  = FloatToFixed(ctx->Current.RasterColor[2] * CHAN_MAXF);
+      span.alpha = FloatToFixed(ctx->Current.RasterColor[3] * CHAN_MAXF);
+      span.redStep = span.greenStep = span.blueStep = span.alphaStep = 0;
+   }
+   else {
+      span.interpMask |= SPAN_INDEX;
+      span.index = FloatToFixed(ctx->Current.RasterIndex);
+      span.indexStep = 0;
+   }
+
+   if (ctx->Depth.Test)
+      _swrast_span_default_z(ctx, &span);
+   if (ctx->Fog.Enabled)
+      _swrast_span_default_fog(ctx, &span);
+   if (ctx->Texture._EnabledCoordUnits)
+      _swrast_span_default_texcoords(ctx, &span);
 
    for (row=0; row<height; row++, span.y++) {
       const GLubyte *src = (const GLubyte *) _mesa_image_address2d(unpack,

@@ -44,11 +44,11 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(sensapi);
 
-static HMODULE SENSAPI_hModule;
+HMODULE SENSAPI_hModule = 0;
 
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-    TRACE("%p,%x,%p\n", hinstDLL, fdwReason, lpvReserved);
+    TRACE("%p,%lx,%p\n", hinstDLL, fdwReason, lpvReserved);
 
     switch (fdwReason) {
         case DLL_PROCESS_ATTACH:

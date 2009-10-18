@@ -27,7 +27,7 @@
 #define S_ACCUM_H
 
 
-#include "main/mtypes.h"
+#include "mtypes.h"
 
 
 extern void

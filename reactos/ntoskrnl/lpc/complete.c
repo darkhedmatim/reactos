@@ -88,7 +88,7 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     KeAcquireGuardedMutex(&LpcpLock);
 
     /* Make sure that the client wants a reply, and this is the right one */
-    if (!(LpcpGetMessageFromThread(ClientThread)) ||
+    if (!(ClientThread->LpcReplyMessage) ||
         !(ReplyMessage->MessageId) ||
         (ClientThread->LpcReplyMessageId != ReplyMessage->MessageId))
     {
@@ -100,7 +100,7 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     }
 
     /* Now get the message and connection message */
-    Message = LpcpGetMessageFromThread(ClientThread);
+    Message = ClientThread->LpcReplyMessage;
     ConnectMessage = (PLPCP_CONNECTION_MESSAGE)(Message + 1);
 
     /* Get the client and connection port as well */
@@ -134,8 +134,8 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     }
 
     /* Set the sizes of our reply message */
-    Message->Request.u1.s1.DataLength = (CSHORT)ConnectionInfoLength +
-                                         sizeof(LPCP_CONNECTION_MESSAGE);
+    Message->Request.u1.s1.DataLength = sizeof(LPCP_CONNECTION_MESSAGE) +
+                                    ConnectionInfoLength;
     Message->Request.u1.s1.TotalLength = sizeof(LPCP_MESSAGE) +
                                      Message->Request.u1.s1.DataLength;
 
@@ -145,7 +145,7 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     Message->Request.ClientId = ReplyMessage->ClientId;
     Message->Request.MessageId = ReplyMessage->MessageId;
     Message->Request.ClientViewSize = 0;
-    RtlCopyMemory(ConnectMessage + 1, ReplyMessage + 1, ConnectionInfoLength);
+    RtlMoveMemory(ConnectMessage + 1, ReplyMessage + 1, ConnectionInfoLength);
 
     /* At this point, if the caller refused the connection, go to cleanup */
     if (!AcceptConnection) goto Cleanup;
@@ -213,10 +213,6 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
             /* Set the view base */
             ConnectMessage->ClientView.ViewRemoteBase = ServerPort->
                                                         ClientSectionBase;
-
-            /* Save and reference the mapping process */
-            ServerPort->MappingProcess = PsGetCurrentProcess();
-            ObReferenceObject(ServerPort->MappingProcess);
         }
         else
         {
@@ -353,12 +349,12 @@ NtCompleteConnectPort(IN HANDLE PortHandle)
     Thread = Port->ClientThread;
 
     /* Make sure it has a reply message */
-    if (!LpcpGetMessageFromThread(Thread))
+    if (!Thread->LpcReplyMessage)
     {
-        /* It doesn't, quit */
+        /* It doesn't, fail */
         KeReleaseGuardedMutex(&LpcpLock);
         ObDereferenceObject(Port);
-        return STATUS_SUCCESS;
+        return STATUS_PORT_DISCONNECTED;
     }
 
     /* Clear the client thread and wake it up */

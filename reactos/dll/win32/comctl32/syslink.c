@@ -117,8 +117,14 @@ static VOID SYSLINK_FreeDocItem (PDOC_ITEM DocItem)
 {
     if(DocItem->Type == slLink)
     {
-        Free(DocItem->u.Link.szID);
-        Free(DocItem->u.Link.szUrl);
+        if (DocItem->u.Link.szID != NULL)
+        {
+            Free(DocItem->u.Link.szID);
+        }
+        if (DocItem->u.Link.szUrl != NULL)
+        {
+            Free(DocItem->u.Link.szUrl);
+        }
     }
 
     /* we don't free Text because it's just a pointer to a character in the
@@ -136,7 +142,7 @@ static PDOC_ITEM SYSLINK_AppendDocItem (SYSLINK_INFO *infoPtr, LPCWSTR Text, UIN
 {
     PDOC_ITEM Item;
 
-    textlen = min(textlen, strlenW(Text));
+    textlen = min(textlen, lstrlenW(Text));
     Item = Alloc(FIELD_OFFSET(DOC_ITEM, Text[textlen + 1]));
     if(Item == NULL)
     {
@@ -286,6 +292,8 @@ CheckParameter:
                             ValidLink = TRUE;
                             taglen++;
                         }
+                        else
+                            tmp++;
                     }
                 }
                 
@@ -470,7 +478,7 @@ CheckParameter:
  * SYSLINK_RepaintLink
  * Repaints a link.
  */
-static VOID SYSLINK_RepaintLink (const SYSLINK_INFO *infoPtr, const DOC_ITEM *DocItem)
+static VOID SYSLINK_RepaintLink (SYSLINK_INFO *infoPtr, PDOC_ITEM DocItem)
 {
     PDOC_TEXTBLOCK bl;
     int n;
@@ -499,7 +507,7 @@ static VOID SYSLINK_RepaintLink (const SYSLINK_INFO *infoPtr, const DOC_ITEM *Do
  * SYSLINK_GetLinkItemByIndex
  * Retrieves a document link by its index
  */
-static PDOC_ITEM SYSLINK_GetLinkItemByIndex (const SYSLINK_INFO *infoPtr, int iLink)
+static PDOC_ITEM SYSLINK_GetLinkItemByIndex (SYSLINK_INFO *infoPtr, int iLink)
 {
     PDOC_ITEM Current = infoPtr->Items;
 
@@ -518,7 +526,7 @@ static PDOC_ITEM SYSLINK_GetLinkItemByIndex (const SYSLINK_INFO *infoPtr, int iL
  * SYSLINK_GetFocusLink
  * Retrieves the link that has the LIS_FOCUSED bit
  */
-static PDOC_ITEM SYSLINK_GetFocusLink (const SYSLINK_INFO *infoPtr, int *LinkId)
+static PDOC_ITEM SYSLINK_GetFocusLink (SYSLINK_INFO *infoPtr, int *LinkId)
 {
     PDOC_ITEM Current = infoPtr->Items;
     int id = 0;
@@ -544,7 +552,7 @@ static PDOC_ITEM SYSLINK_GetFocusLink (const SYSLINK_INFO *infoPtr, int *LinkId)
  * SYSLINK_GetNextLink
  * Gets the next link
  */
-static PDOC_ITEM SYSLINK_GetNextLink (const SYSLINK_INFO *infoPtr, PDOC_ITEM Current)
+static PDOC_ITEM SYSLINK_GetNextLink (SYSLINK_INFO *infoPtr, PDOC_ITEM Current)
 {
     for(Current = (Current != NULL ? Current->Next : infoPtr->Items);
         Current != NULL;
@@ -562,7 +570,7 @@ static PDOC_ITEM SYSLINK_GetNextLink (const SYSLINK_INFO *infoPtr, PDOC_ITEM Cur
  * SYSLINK_GetPrevLink
  * Gets the previous link
  */
-static PDOC_ITEM SYSLINK_GetPrevLink (const SYSLINK_INFO *infoPtr, PDOC_ITEM Current)
+static PDOC_ITEM SYSLINK_GetPrevLink (SYSLINK_INFO *infoPtr, PDOC_ITEM Current)
 {
     if(Current == NULL)
     {
@@ -602,8 +610,8 @@ static PDOC_ITEM SYSLINK_GetPrevLink (const SYSLINK_INFO *infoPtr, PDOC_ITEM Cur
  * SYSLINK_WrapLine
  * Tries to wrap a line.
  */
-static BOOL SYSLINK_WrapLine (LPWSTR Text, WCHAR BreakChar, int *LineLen,
-                             int nFit, LPSIZE Extent)
+static BOOL SYSLINK_WrapLine (HDC hdc, LPWSTR Text, WCHAR BreakChar, int *LineLen,
+                             int nFit, LPSIZE Extent, int Width)
 {
     WCHAR *Current;
 
@@ -641,24 +649,18 @@ static BOOL SYSLINK_WrapLine (LPWSTR Text, WCHAR BreakChar, int *LineLen,
  * SYSLINK_Render
  * Renders the document in memory
  */
-static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
+static VOID SYSLINK_Render (SYSLINK_INFO *infoPtr, HDC hdc)
 {
     RECT rc;
     PDOC_ITEM Current;
     HGDIOBJ hOldFont;
     int x, y, LineHeight;
-    SIZE szDoc;
-
-    szDoc.cx = szDoc.cy = 0;
-
-    rc = *pRect;
+    
+    GetClientRect(infoPtr->Self, &rc);
     rc.right -= SL_RIGHTMARGIN;
     rc.bottom -= SL_BOTTOMMARGIN;
-
-    if(rc.right - SL_LEFTMARGIN < 0)
-        rc.right = MAXLONG;
-    if (rc.bottom - SL_TOPMARGIN < 0)
-        rc.bottom = MAXLONG;
+    
+    if(rc.right - SL_LEFTMARGIN < 0 || rc.bottom - SL_TOPMARGIN < 0) return;
     
     hOldFont = SelectObject(hdc, infoPtr->Font);
     
@@ -673,20 +675,23 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
         PDOC_TEXTBLOCK bl, cbl;
         INT nFit;
         SIZE szDim;
-
+        
         if(Current->nText == 0)
         {
             continue;
         }
-
+        
         tx = Current->Text;
         n = Current->nText;
 
-        Free(Current->Blocks);
-        Current->Blocks = NULL;
+        if (Current->Blocks != NULL)
+        {
+            Free(Current->Blocks);
+            Current->Blocks = NULL;
+        }
         bl = NULL;
         nBlocks = 0;
-
+        
         if(Current->Type == slText)
         {
             SelectObject(hdc, infoPtr->Font);
@@ -716,11 +721,10 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
             {
                 int LineLen = n;
                 BOOL Wrap = FALSE;
-                PDOC_TEXTBLOCK nbl;
                 
                 if(n != 0)
                 {
-                    Wrap = SYSLINK_WrapLine(tx, infoPtr->BreakChar, &LineLen, nFit, &szDim);
+                    Wrap = SYSLINK_WrapLine(hdc, tx, infoPtr->BreakChar, &LineLen, nFit, &szDim, rc.right - x);
 
                     if(LineLen == 0)
                     {
@@ -755,12 +759,30 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                     }
                 }
                 
-                nbl = ReAlloc(bl, (nBlocks + 1) * sizeof(DOC_TEXTBLOCK));
-                if (nbl != NULL)
+                if(bl != NULL)
                 {
-                    bl = nbl;
-                    nBlocks++;
-
+                    PDOC_TEXTBLOCK nbl = ReAlloc(bl, (nBlocks + 1) * sizeof(DOC_TEXTBLOCK));
+                    if (nbl != NULL)
+                    {
+                        bl = nbl;
+                        nBlocks++;
+                    }
+                    else
+                    {
+                        Free(bl);
+                        bl = NULL;
+                        nBlocks = 0;
+                    }
+                }
+                else
+                {
+                    bl = Alloc(sizeof(DOC_TEXTBLOCK));
+                    if (bl != NULL)
+                        nBlocks++;
+                }
+                
+                if(bl != NULL)
+                {
                     cbl = bl + nBlocks - 1;
                     
                     cbl->nChars = LineLen;
@@ -769,12 +791,7 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                     cbl->rc.top = y;
                     cbl->rc.right = x + szDim.cx;
                     cbl->rc.bottom = y + szDim.cy;
-
-                    if (cbl->rc.right > szDoc.cx)
-                        szDoc.cx = cbl->rc.right;
-                    if (cbl->rc.bottom > szDoc.cy)
-                        szDoc.cy = cbl->rc.bottom;
-
+                    
                     if(LineLen != 0)
                     {
                         x += szDim.cx;
@@ -790,10 +807,6 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                 }
                 else
                 {
-                    Free(bl);
-                    bl = NULL;
-                    nBlocks = 0;
-
                     ERR("Failed to alloc DOC_TEXTBLOCK structure!\n");
                     break;
                 }
@@ -813,16 +826,13 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
     }
     
     SelectObject(hdc, hOldFont);
-
-    pRect->right = pRect->left + szDoc.cx;
-    pRect->bottom = pRect->top + szDoc.cy;
 }
 
 /***********************************************************************
  * SYSLINK_Draw
  * Draws the SysLink control.
  */
-static LRESULT SYSLINK_Draw (const SYSLINK_INFO *infoPtr, HDC hdc)
+static LRESULT SYSLINK_Draw (SYSLINK_INFO *infoPtr, HDC hdc)
 {
     RECT rc;
     PDOC_ITEM Current;
@@ -831,7 +841,7 @@ static LRESULT SYSLINK_Draw (const SYSLINK_INFO *infoPtr, HDC hdc)
 
     hOldFont = SelectObject(hdc, infoPtr->Font);
     OldTextColor = SetTextColor(hdc, infoPtr->TextColor);
-    OldBkColor = SetBkColor(hdc, comctl32_color.clrBtnFace);
+    OldBkColor = SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
     
     GetClientRect(infoPtr->Self, &rc);
     rc.right -= SL_RIGHTMARGIN + SL_LEFTMARGIN;
@@ -892,7 +902,7 @@ static LRESULT SYSLINK_Draw (const SYSLINK_INFO *infoPtr, HDC hdc)
  * SYSLINK_Paint
  * Handles the WM_PAINT message.
  */
-static LRESULT SYSLINK_Paint (const SYSLINK_INFO *infoPtr, HDC hdcParam)
+static LRESULT SYSLINK_Paint (SYSLINK_INFO *infoPtr, HDC hdcParam)
 {
     HDC hdc;
     PAINTSTRUCT ps;
@@ -916,7 +926,6 @@ static HFONT SYSLINK_SetFont (SYSLINK_INFO *infoPtr, HFONT hFont, BOOL bRedraw)
     HDC hdc;
     LOGFONTW lf;
     TEXTMETRICW tm;
-    RECT rcClient;
     HFONT hOldFont = infoPtr->Font;
     infoPtr->Font = hFont;
     
@@ -928,27 +937,24 @@ static HFONT SYSLINK_SetFont (SYSLINK_INFO *infoPtr, HFONT hFont, BOOL bRedraw)
     }
 
     /* Render text position and word wrapping in memory */
-    if (GetClientRect(infoPtr->Self, &rcClient))
+    hdc = GetDC(infoPtr->Self);
+    if(hdc != NULL)
     {
-        hdc = GetDC(infoPtr->Self);
-        if(hdc != NULL)
+        /* create a new underline font */
+        if(GetTextMetricsW(hdc, &tm) &&
+           GetObjectW(infoPtr->Font, sizeof(LOGFONTW), &lf))
         {
-            /* create a new underline font */
-            if(GetTextMetricsW(hdc, &tm) &&
-               GetObjectW(infoPtr->Font, sizeof(LOGFONTW), &lf))
-            {
-                lf.lfUnderline = TRUE;
-                infoPtr->LinkFont = CreateFontIndirectW(&lf);
-                infoPtr->BreakChar = tm.tmBreakChar;
-            }
-            else
-            {
-                ERR("Failed to create link font!\n");
-            }
-
-            SYSLINK_Render(infoPtr, hdc, &rcClient);
-            ReleaseDC(infoPtr->Self, hdc);
+            lf.lfUnderline = TRUE;
+            infoPtr->LinkFont = CreateFontIndirectW(&lf);
+            infoPtr->BreakChar = tm.tmBreakChar;
         }
+        else
+        {
+            ERR("Failed to create link font!\n");
+        }
+
+        SYSLINK_Render(infoPtr, hdc);
+        ReleaseDC(infoPtr->Self, hdc);
     }
     
     if(bRedraw)
@@ -965,30 +971,27 @@ static HFONT SYSLINK_SetFont (SYSLINK_INFO *infoPtr, HFONT hFont, BOOL bRedraw)
  */
 static LRESULT SYSLINK_SetText (SYSLINK_INFO *infoPtr, LPCWSTR Text)
 {
+    int textlen;
+
     /* clear the document */
     SYSLINK_ClearDoc(infoPtr);
-
-    if(Text == NULL || *Text == 0)
+    
+    if(Text == NULL || (textlen = lstrlenW(Text)) == 0)
     {
         return TRUE;
     }
-
+    
     /* let's parse the string and create a document */
     if(SYSLINK_ParseText(infoPtr, Text) > 0)
     {
-        RECT rcClient;
-
         /* Render text position and word wrapping in memory */
-        if (GetClientRect(infoPtr->Self, &rcClient))
+        HDC hdc = GetDC(infoPtr->Self);
+        if (hdc != NULL)
         {
-            HDC hdc = GetDC(infoPtr->Self);
-            if (hdc != NULL)
-            {
-                SYSLINK_Render(infoPtr, hdc, &rcClient);
-                ReleaseDC(infoPtr->Self, hdc);
+            SYSLINK_Render(infoPtr, hdc);
+            ReleaseDC(infoPtr->Self, hdc);
 
-                InvalidateRect(infoPtr->Self, NULL, TRUE);
-            }
+            InvalidateRect(infoPtr->Self, NULL, TRUE);
         }
     }
     
@@ -1001,7 +1004,7 @@ static LRESULT SYSLINK_SetText (SYSLINK_INFO *infoPtr, LPCWSTR Text)
  * If no document item is specified, the focus bit will be removed from all links.
  * Returns the previous focused item.
  */
-static PDOC_ITEM SYSLINK_SetFocusLink (const SYSLINK_INFO *infoPtr, const DOC_ITEM *DocItem)
+static PDOC_ITEM SYSLINK_SetFocusLink (SYSLINK_INFO *infoPtr, PDOC_ITEM DocItem)
 {
     PDOC_ITEM Current, PrevFocus = NULL;
     
@@ -1032,7 +1035,7 @@ static PDOC_ITEM SYSLINK_SetFocusLink (const SYSLINK_INFO *infoPtr, const DOC_IT
  *           SYSLINK_SetItem
  * Sets the states and attributes of a link item.
  */
-static LRESULT SYSLINK_SetItem (const SYSLINK_INFO *infoPtr, const LITEM *Item)
+static LRESULT SYSLINK_SetItem (SYSLINK_INFO *infoPtr, PLITEM Item)
 {
     PDOC_ITEM di;
     int nc;
@@ -1078,7 +1081,10 @@ static LRESULT SYSLINK_SetItem (const SYSLINK_INFO *infoPtr, const LITEM *Item)
         }
         else
         {
-            Free(szId);
+            if (szId)
+            {
+                Free(szId);
+            }
 
             ERR("Unable to allocate memory for link url\n");
             return FALSE;
@@ -1087,13 +1093,19 @@ static LRESULT SYSLINK_SetItem (const SYSLINK_INFO *infoPtr, const LITEM *Item)
 
     if(Item->mask & LIF_ITEMID)
     {
-        Free(di->u.Link.szID);
+        if(di->u.Link.szID)
+        {
+            Free(di->u.Link.szID);
+        }
         di->u.Link.szID = szId;
     }
 
     if(Item->mask & LIF_URL)
     {
-        Free(di->u.Link.szUrl);
+        if(di->u.Link.szUrl)
+        {
+            Free(di->u.Link.szUrl);
+        }
         di->u.Link.szUrl = szUrl;
     }
 
@@ -1122,7 +1134,7 @@ static LRESULT SYSLINK_SetItem (const SYSLINK_INFO *infoPtr, const LITEM *Item)
  *           SYSLINK_GetItem
  * Retrieves the states and attributes of a link item.
  */
-static LRESULT SYSLINK_GetItem (const SYSLINK_INFO *infoPtr, PLITEM Item)
+static LRESULT SYSLINK_GetItem (SYSLINK_INFO *infoPtr, PLITEM Item)
 {
     PDOC_ITEM di;
     
@@ -1180,7 +1192,7 @@ static LRESULT SYSLINK_GetItem (const SYSLINK_INFO *infoPtr, PLITEM Item)
  *           SYSLINK_PtInDocItem
  * Determines if a point is in the region of a document item
  */
-static BOOL SYSLINK_PtInDocItem (const DOC_ITEM *DocItem, POINT pt)
+static BOOL SYSLINK_PtInDocItem (PDOC_ITEM DocItem, POINT pt)
 {
     PDOC_TEXTBLOCK bl;
     int n;
@@ -1208,7 +1220,7 @@ static BOOL SYSLINK_PtInDocItem (const DOC_ITEM *DocItem, POINT pt)
  *           SYSLINK_HitTest
  * Determines the link the user clicked on.
  */
-static LRESULT SYSLINK_HitTest (const SYSLINK_INFO *infoPtr, PLHITTESTINFO HitTest)
+static LRESULT SYSLINK_HitTest (SYSLINK_INFO *infoPtr, PLHITTESTINFO HitTest)
 {
     PDOC_ITEM Current;
     int id = 0;
@@ -1252,7 +1264,7 @@ static LRESULT SYSLINK_HitTest (const SYSLINK_INFO *infoPtr, PLHITTESTINFO HitTe
  *           SYSLINK_GetIdealHeight
  * Returns the preferred height of a link at the current control's width.
  */
-static LRESULT SYSLINK_GetIdealHeight (const SYSLINK_INFO *infoPtr)
+static LRESULT SYSLINK_GetIdealHeight (SYSLINK_INFO *infoPtr)
 {
     HDC hdc = GetDC(infoPtr->Self);
     if(hdc != NULL)
@@ -1281,7 +1293,7 @@ static LRESULT SYSLINK_GetIdealHeight (const SYSLINK_INFO *infoPtr)
  *           SYSLINK_SendParentNotify
  * Sends a WM_NOTIFY message to the parent window.
  */
-static LRESULT SYSLINK_SendParentNotify (const SYSLINK_INFO *infoPtr, UINT code, const DOC_ITEM *Link, int iLink)
+static LRESULT SYSLINK_SendParentNotify (SYSLINK_INFO *infoPtr, UINT code, PDOC_ITEM Link, int iLink)
 {
     NMLINK nml;
 
@@ -1310,14 +1322,14 @@ static LRESULT SYSLINK_SendParentNotify (const SYSLINK_INFO *infoPtr, UINT code,
         nml.item.szUrl[0] = 0;
     }
 
-    return SendMessageW(infoPtr->Notify, WM_NOTIFY, nml.hdr.idFrom, (LPARAM)&nml);
+    return SendMessageW(infoPtr->Notify, WM_NOTIFY, (WPARAM)nml.hdr.idFrom, (LPARAM)&nml);
 }
 
 /***********************************************************************
  *           SYSLINK_SetFocus
  * Handles receiving the input focus.
  */
-static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
+static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr, HWND PrevFocusWindow)
 {
     PDOC_ITEM Focus;
     
@@ -1329,8 +1341,10 @@ static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
     if(Focus != NULL)
     {
         SYSLINK_SetFocusLink(infoPtr, Focus);
-        SYSLINK_RepaintLink(infoPtr, Focus);
     }
+    
+    SYSLINK_RepaintLink(infoPtr, Focus);
+    
     return 0;
 }
 
@@ -1338,7 +1352,7 @@ static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
  *           SYSLINK_KillFocus
  * Handles losing the input focus.
  */
-static LRESULT SYSLINK_KillFocus (SYSLINK_INFO *infoPtr)
+static LRESULT SYSLINK_KillFocus (SYSLINK_INFO *infoPtr, HWND NewFocusWindow)
 {
     PDOC_ITEM Focus;
     
@@ -1357,7 +1371,7 @@ static LRESULT SYSLINK_KillFocus (SYSLINK_INFO *infoPtr)
  *           SYSLINK_LinkAtPt
  * Returns a link at the specified position
  */
-static PDOC_ITEM SYSLINK_LinkAtPt (const SYSLINK_INFO *infoPtr, const POINT *pt, int *LinkId, BOOL MustBeEnabled)
+static PDOC_ITEM SYSLINK_LinkAtPt (SYSLINK_INFO *infoPtr, POINT *pt, int *LinkId, BOOL MustBeEnabled)
 {
     PDOC_ITEM Current;
     int id = 0;
@@ -1383,7 +1397,7 @@ static PDOC_ITEM SYSLINK_LinkAtPt (const SYSLINK_INFO *infoPtr, const POINT *pt,
  *           SYSLINK_LButtonDown
  * Handles mouse clicks
  */
-static LRESULT SYSLINK_LButtonDown (SYSLINK_INFO *infoPtr, const POINT *pt)
+static LRESULT SYSLINK_LButtonDown (SYSLINK_INFO *infoPtr, DWORD Buttons, POINT *pt)
 {
     PDOC_ITEM Current, Old;
     int id;
@@ -1409,7 +1423,7 @@ static LRESULT SYSLINK_LButtonDown (SYSLINK_INFO *infoPtr, const POINT *pt)
  *           SYSLINK_LButtonUp
  * Handles mouse clicks
  */
-static LRESULT SYSLINK_LButtonUp (SYSLINK_INFO *infoPtr, const POINT *pt)
+static LRESULT SYSLINK_LButtonUp (SYSLINK_INFO *infoPtr, DWORD Buttons, POINT *pt)
 {
     if(infoPtr->MouseDownID > -1)
     {
@@ -1432,7 +1446,7 @@ static LRESULT SYSLINK_LButtonUp (SYSLINK_INFO *infoPtr, const POINT *pt)
  *           SYSLINK_OnEnter
  * Handles ENTER key events
  */
-static BOOL SYSLINK_OnEnter (const SYSLINK_INFO *infoPtr)
+static BOOL SYSLINK_OnEnter (SYSLINK_INFO *infoPtr)
 {
     if(infoPtr->HasFocus)
     {
@@ -1453,7 +1467,7 @@ static BOOL SYSLINK_OnEnter (const SYSLINK_INFO *infoPtr)
  *           SYSKEY_SelectNextPrevLink
  * Changes the currently focused link
  */
-static BOOL SYSKEY_SelectNextPrevLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
+static BOOL SYSKEY_SelectNextPrevLink (SYSLINK_INFO *infoPtr, BOOL Prev)
 {
     if(infoPtr->HasFocus)
     {
@@ -1474,7 +1488,7 @@ static BOOL SYSKEY_SelectNextPrevLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
             {
                 OldFocus = SYSLINK_SetFocusLink(infoPtr, NewFocus);
 
-                if(OldFocus && OldFocus != NewFocus)
+                if(OldFocus != NewFocus)
                 {
                     SYSLINK_RepaintLink(infoPtr, OldFocus);
                 }
@@ -1491,7 +1505,7 @@ static BOOL SYSKEY_SelectNextPrevLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
  * Determines if there's a next or previous link to decide whether the control
  * should capture the tab key message
  */
-static BOOL SYSLINK_NoNextLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
+static BOOL SYSLINK_NoNextLink (SYSLINK_INFO *infoPtr, BOOL Prev)
 {
     PDOC_ITEM Focus, NewFocus;
 
@@ -1505,33 +1519,6 @@ static BOOL SYSLINK_NoNextLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
 }
 
 /***********************************************************************
- *           SYSLINK_GetIdealSize
- * Calculates the ideal size of a link control at a given maximum width.
- */
-static VOID SYSLINK_GetIdealSize (const SYSLINK_INFO *infoPtr, int cxMaxWidth, LPSIZE lpSize)
-{
-    RECT rc;
-    HDC hdc;
-
-    rc.left = rc.top = rc.bottom = 0;
-    rc.right = cxMaxWidth;
-
-    hdc = GetDC(infoPtr->Self);
-    if (hdc != NULL)
-    {
-        HGDIOBJ hOldFont = SelectObject(hdc, infoPtr->Font);
-
-        SYSLINK_Render(infoPtr, hdc, &rc);
-
-        SelectObject(hdc, hOldFont);
-        ReleaseDC(infoPtr->Self, hdc);
-
-        lpSize->cx = rc.right;
-        lpSize->cy = rc.bottom;
-    }
-}
-
-/***********************************************************************
  *           SysLinkWindowProc
  */
 static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
@@ -1539,7 +1526,7 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
 {
     SYSLINK_INFO *infoPtr;
 
-    TRACE("hwnd=%p msg=%04x wparam=%lx lParam=%lx\n", hwnd, message, wParam, lParam);
+    TRACE("hwnd=%p msg=%04x wparam=%x lParam=%lx\n", hwnd, message, wParam, lParam);
 
     infoPtr = (SYSLINK_INFO *)GetWindowLongPtrW(hwnd, 0);
 
@@ -1571,15 +1558,11 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
 
     case WM_SIZE:
     {
-        RECT rcClient;
-        if (GetClientRect(infoPtr->Self, &rcClient))
+        HDC hdc = GetDC(infoPtr->Self);
+        if(hdc != NULL)
         {
-            HDC hdc = GetDC(infoPtr->Self);
-            if(hdc != NULL)
-            {
-                SYSLINK_Render(infoPtr, hdc, &rcClient);
-                ReleaseDC(infoPtr->Self, hdc);
-            }
+          SYSLINK_Render(infoPtr, hdc);
+          ReleaseDC(infoPtr->Self, hdc);
         }
         return 0;
     }
@@ -1599,14 +1582,14 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         POINT pt;
         pt.x = (short)LOWORD(lParam);
         pt.y = (short)HIWORD(lParam);
-        return SYSLINK_LButtonDown(infoPtr, &pt);
+        return SYSLINK_LButtonDown(infoPtr, wParam, &pt);
     }
     case WM_LBUTTONUP:
     {
         POINT pt;
         pt.x = (short)LOWORD(lParam);
         pt.y = (short)HIWORD(lParam);
-        return SYSLINK_LButtonUp(infoPtr, &pt);
+        return SYSLINK_LButtonUp(infoPtr, wParam, &pt);
     }
     
     case WM_KEYDOWN:
@@ -1684,24 +1667,19 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         return SYSLINK_GetItem(infoPtr, (PLITEM)lParam);
 
     case LM_GETIDEALHEIGHT:
-        if (lParam)
-        {
-            /* LM_GETIDEALSIZE */
-            SYSLINK_GetIdealSize(infoPtr, (int)wParam, (LPSIZE)lParam);
-        }
         return SYSLINK_GetIdealHeight(infoPtr);
 
     case WM_SETFOCUS:
-        return SYSLINK_SetFocus(infoPtr);
+        return SYSLINK_SetFocus(infoPtr, (HWND)wParam);
 
     case WM_KILLFOCUS:
-        return SYSLINK_KillFocus(infoPtr);
+        return SYSLINK_KillFocus(infoPtr, (HWND)wParam);
 
     case WM_ENABLE:
-        infoPtr->Style &= ~WS_DISABLED;
-        infoPtr->Style |= (wParam ? 0 : WS_DISABLED);
-        InvalidateRect (infoPtr->Self, NULL, FALSE);
-        return 0;
+	infoPtr->Style &= ~WS_DISABLED;
+	infoPtr->Style |= (wParam ? 0 : WS_DISABLED);
+	InvalidateRect (infoPtr->Self, NULL, FALSE);
+	return 0;
 
     case WM_STYLECHANGED:
         if (wParam == GWL_STYLE)
@@ -1727,9 +1705,9 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         infoPtr->Items = NULL;
         infoPtr->HasFocus = FALSE;
         infoPtr->MouseDownID = -1;
-        infoPtr->TextColor = comctl32_color.clrWindowText;
-        infoPtr->LinkColor = comctl32_color.clrHighlight;
-        infoPtr->VisitedColor = comctl32_color.clrHighlight;
+        infoPtr->TextColor = GetSysColor(COLOR_WINDOWTEXT);
+        infoPtr->LinkColor = GetSysColor(COLOR_HIGHLIGHT);
+        infoPtr->VisitedColor = GetSysColor(COLOR_HIGHLIGHT);
         infoPtr->BreakChar = ' ';
         TRACE("SysLink Ctrl creation, hwnd=%p\n", hwnd);
         SYSLINK_SetText(infoPtr, ((LPCREATESTRUCTW)lParam)->lpszName);
@@ -1744,15 +1722,11 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         Free (infoPtr);
         return 0;
 
-    case WM_SYSCOLORCHANGE:
-        COMCTL32_RefreshSysColors();
-        return 0;
-
     default:
 HandleDefaultMessage:
-        if ((message >= WM_USER) && (message < WM_APP) && !COMCTL32_IsReflectedMessage(message))
+        if ((message >= WM_USER) && (message < WM_APP))
         {
-            ERR("unknown msg %04x wp=%04lx lp=%08lx\n", message, wParam, lParam );
+	        ERR("unknown msg %04x wp=%04x lp=%08lx\n", message, wParam, lParam );
         }
         return DefWindowProcW(hwnd, message, wParam, lParam);
     }

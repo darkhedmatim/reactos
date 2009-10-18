@@ -22,23 +22,23 @@
 
 #include <precomp.h>
 
-CRITICAL_SECTION                           PerfDataCriticalSection;
-PPERFDATA                                  pPerfDataOld = NULL;    /* Older perf data (saved to establish delta values) */
-PPERFDATA                                  pPerfData = NULL;    /* Most recent copy of perf data */
-ULONG                                      ProcessCountOld = 0;
-ULONG                                      ProcessCount = 0;
-double                                     dbIdleTime;
-double                                     dbKernelTime;
-double                                     dbSystemTime;
-LARGE_INTEGER                              liOldIdleTime = {{0,0}};
-double                                     OldKernelTime = 0;
-LARGE_INTEGER                              liOldSystemTime = {{0,0}};
-SYSTEM_PERFORMANCE_INFORMATION             SystemPerfInfo;
-SYSTEM_BASIC_INFORMATION                   SystemBasicInfo;
-SYSTEM_FILECACHE_INFORMATION               SystemCacheInfo;
-SYSTEM_HANDLE_INFORMATION                  SystemHandleInfo;
-PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION  SystemProcessorTimeInfo = NULL;
-PSID                                       SystemUserSid = NULL;
+CRITICAL_SECTION                 PerfDataCriticalSection;
+PPERFDATA                        pPerfDataOld = NULL;    /* Older perf data (saved to establish delta values) */
+PPERFDATA                        pPerfData = NULL;    /* Most recent copy of perf data */
+ULONG                            ProcessCountOld = 0;
+ULONG                            ProcessCount = 0;
+double                            dbIdleTime;
+double                            dbKernelTime;
+double                            dbSystemTime;
+LARGE_INTEGER                    liOldIdleTime = {{0,0}};
+double                            OldKernelTime = 0;
+LARGE_INTEGER                    liOldSystemTime = {{0,0}};
+SYSTEM_PERFORMANCE_INFORMATION    SystemPerfInfo;
+SYSTEM_BASIC_INFORMATION        SystemBasicInfo;
+SYSTEM_FILECACHE_INFORMATION        SystemCacheInfo;
+SYSTEM_HANDLE_INFORMATION        SystemHandleInfo;
+PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION SystemProcessorTimeInfo = NULL;
+PSID                             SystemUserSid = NULL;
 
 BOOL PerfDataInitialize(void)
 {
@@ -76,36 +76,36 @@ void PerfDataUninitialize(void)
     }
 }
 
-static void SidToUserName(PSID Sid, LPWSTR szBuffer, DWORD BufferSize)
+static void SidToUserName(PSID Sid, LPTSTR szBuffer, DWORD BufferSize)
 {
-    static WCHAR szDomainNameUnused[255];
+    static TCHAR szDomainNameUnused[255]; 
     DWORD DomainNameLen = sizeof(szDomainNameUnused) / sizeof(szDomainNameUnused[0]);
     SID_NAME_USE Use;
 
     if (Sid != NULL)
-        LookupAccountSidW(NULL, Sid, szBuffer, &BufferSize, szDomainNameUnused, &DomainNameLen, &Use);
+        LookupAccountSid(NULL, Sid, szBuffer, &BufferSize, szDomainNameUnused, &DomainNameLen, &Use);
 }
 
 void PerfDataRefresh(void)
 {
-    ULONG                                      ulSize;
-    NTSTATUS                                   status;
-    LPBYTE                                     pBuffer;
-    ULONG                                      BufferSize;
-    PSYSTEM_PROCESS_INFORMATION                pSPI;
-    PPERFDATA                                  pPDOld;
-    ULONG                                      Idx, Idx2;
-    HANDLE                                     hProcess;
-    HANDLE                                     hProcessToken;
-    SYSTEM_PERFORMANCE_INFORMATION             SysPerfInfo;
-    SYSTEM_TIMEOFDAY_INFORMATION               SysTimeInfo;
-    SYSTEM_FILECACHE_INFORMATION               SysCacheInfo;
-    LPBYTE                                     SysHandleInfoData;
-    PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION  SysProcessorTimeInfo;
-    double                                     CurrentKernelTime;
-    PSECURITY_DESCRIPTOR                       ProcessSD;
-    PSID                                       ProcessUser;
-    ULONG                                      Buffer[64]; /* must be 4 bytes aligned! */
+    ULONG                            ulSize;
+    NTSTATUS                          status;
+    LPBYTE                            pBuffer;
+    ULONG                            BufferSize;
+    PSYSTEM_PROCESS_INFORMATION        pSPI;
+    PPERFDATA                        pPDOld;
+    ULONG                            Idx, Idx2;
+    HANDLE                            hProcess;
+    HANDLE                            hProcessToken;
+    SYSTEM_PERFORMANCE_INFORMATION    SysPerfInfo;
+    SYSTEM_TIMEOFDAY_INFORMATION      SysTimeInfo;
+    SYSTEM_FILECACHE_INFORMATION        SysCacheInfo;
+    LPBYTE                            SysHandleInfoData;
+    PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION SysProcessorTimeInfo;
+    double                            CurrentKernelTime;
+    PSECURITY_DESCRIPTOR              ProcessSD;
+    PSID                              ProcessUser;
+    ULONG                             Buffer[64]; /* must be 4 bytes aligned! */
 
     /* Get new system time */
     status = NtQuerySystemInformation(SystemTimeOfDayInformation, &SysTimeInfo, sizeof(SysTimeInfo), 0);
@@ -241,8 +241,7 @@ void PerfDataRefresh(void)
         HeapFree(GetProcessHeap(), 0, pPerfDataOld);
     }
     pPerfDataOld = pPerfData;
-    /* Clear out process perf data structures with HEAP_ZERO_MEMORY flag: */
-    pPerfData = (PPERFDATA)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(PERFDATA) * ProcessCount);
+    pPerfData = (PPERFDATA)HeapAlloc(GetProcessHeap(), 0, sizeof(PERFDATA) * ProcessCount);
     pSPI = (PSYSTEM_PROCESS_INFORMATION)pBuffer;
     for (Idx=0; Idx<ProcessCount; Idx++) {
         /* Get the old perf data for this process (if any) */
@@ -255,16 +254,14 @@ void PerfDataRefresh(void)
             }
         }
 
-        if (pSPI->ImageName.Buffer) {
-            /* Don't assume a UNICODE_STRING Buffer is zero terminated: */
-            int len = pSPI->ImageName.Length / 2;
-            /* Check against max size and allow for terminating zero (already zeroed): */
-            if(len >= MAX_PATH)len=MAX_PATH - 1;
-            wcsncpy(pPerfData[Idx].ImageName, pSPI->ImageName.Buffer, len);
-        } else {
+        /* Clear out process perf data structure */
+        memset(&pPerfData[Idx], 0, sizeof(PERFDATA));
+
+        if (pSPI->ImageName.Buffer)
+            wcscpy(pPerfData[Idx].ImageName, pSPI->ImageName.Buffer);
+        else
             LoadStringW(hInst, IDS_IDLE_PROCESS, pPerfData[Idx].ImageName,
-                       sizeof(pPerfData[Idx].ImageName) / sizeof(pPerfData[Idx].ImageName[0]));
-        }
+                        sizeof(pPerfData[Idx].ImageName) / sizeof(pPerfData[Idx].ImageName[0]));
 
         pPerfData[Idx].ProcessId = pSPI->UniqueProcessId;
 
@@ -294,7 +291,7 @@ void PerfDataRefresh(void)
         pPerfData[Idx].HandleCount = pSPI->HandleCount;
         pPerfData[Idx].ThreadCount = pSPI->NumberOfThreads;
         pPerfData[Idx].SessionId = pSPI->SessionId;
-        pPerfData[Idx].UserName[0] = L'\0';
+        pPerfData[Idx].UserName[0] = _T('\0');
         pPerfData[Idx].USERObjectCount = 0;
         pPerfData[Idx].GDIObjectCount = 0;
         ProcessUser = SystemUserSid;
@@ -371,14 +368,19 @@ ULONG PerfDataGetProcessorSystemUsage(void)
     return (ULONG)dbKernelTime;
 }
 
-BOOL PerfDataGetImageName(ULONG Index, LPWSTR lpImageName, int nMaxCount)
+BOOL PerfDataGetImageName(ULONG Index, LPTSTR lpImageName, int nMaxCount)
 {
-    BOOL  bSuccessful;
+    BOOL    bSuccessful;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
     if (Index < ProcessCount) {
-        wcsncpy(lpImageName, pPerfData[Index].ImageName, nMaxCount);
+        #ifdef _UNICODE
+            wcsncpy(lpImageName, pPerfData[Index].ImageName, nMaxCount);
+        #else
+            WideCharToMultiByte(CP_ACP, 0, pPerfData[Index].ImageName, -1, lpImageName, nMaxCount, NULL, NULL);
+        #endif
+
         bSuccessful = TRUE;
     } else {
         bSuccessful = FALSE;
@@ -389,14 +391,13 @@ BOOL PerfDataGetImageName(ULONG Index, LPWSTR lpImageName, int nMaxCount)
 
 int PerfGetIndexByProcessId(DWORD dwProcessId)
 {
-    int FoundIndex = -1;
-    ULONG Index;
+    int Index, FoundIndex = -1;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
     for (Index = 0; Index < ProcessCount; Index++)
     {
-        if (PtrToUlong(pPerfData[Index].ProcessId) == dwProcessId)
+        if ((DWORD)pPerfData[Index].ProcessId == dwProcessId)
         {
             FoundIndex = Index;
             break;
@@ -410,12 +411,12 @@ int PerfGetIndexByProcessId(DWORD dwProcessId)
 
 ULONG PerfDataGetProcessId(ULONG Index)
 {
-    ULONG  ProcessId;
+    ULONG    ProcessId;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
     if (Index < ProcessCount)
-        ProcessId = PtrToUlong(pPerfData[Index].ProcessId);
+        ProcessId = (ULONG)pPerfData[Index].ProcessId;
     else
         ProcessId = 0;
 
@@ -424,14 +425,19 @@ ULONG PerfDataGetProcessId(ULONG Index)
     return ProcessId;
 }
 
-BOOL PerfDataGetUserName(ULONG Index, LPWSTR lpUserName, int nMaxCount)
+BOOL PerfDataGetUserName(ULONG Index, LPTSTR lpUserName, int nMaxCount)
 {
-    BOOL  bSuccessful;
+    BOOL    bSuccessful;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
     if (Index < ProcessCount) {
-        wcsncpy(lpUserName, pPerfData[Index].UserName, nMaxCount);
+        #ifdef _UNICODE
+            wcsncpy(lpUserName, pPerfData[Index].UserName, nMaxCount);
+        #else
+            WideCharToMultiByte(CP_ACP, 0, pPerfData[Index].UserName, -1, lpUserName, nMaxCount, NULL, NULL);
+        #endif
+
         bSuccessful = TRUE;
     } else {
         bSuccessful = FALSE;
@@ -444,7 +450,7 @@ BOOL PerfDataGetUserName(ULONG Index, LPWSTR lpUserName, int nMaxCount)
 
 ULONG PerfDataGetSessionId(ULONG Index)
 {
-    ULONG  SessionId;
+    ULONG    SessionId;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -460,7 +466,7 @@ ULONG PerfDataGetSessionId(ULONG Index)
 
 ULONG PerfDataGetCPUUsage(ULONG Index)
 {
-    ULONG  CpuUsage;
+    ULONG    CpuUsage;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -476,7 +482,7 @@ ULONG PerfDataGetCPUUsage(ULONG Index)
 
 LARGE_INTEGER PerfDataGetCPUTime(ULONG Index)
 {
-    LARGE_INTEGER  CpuTime = {{0,0}};
+    LARGE_INTEGER    CpuTime = {{0,0}};
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -490,7 +496,7 @@ LARGE_INTEGER PerfDataGetCPUTime(ULONG Index)
 
 ULONG PerfDataGetWorkingSetSizeBytes(ULONG Index)
 {
-    ULONG  WorkingSetSizeBytes;
+    ULONG    WorkingSetSizeBytes;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -506,7 +512,7 @@ ULONG PerfDataGetWorkingSetSizeBytes(ULONG Index)
 
 ULONG PerfDataGetPeakWorkingSetSizeBytes(ULONG Index)
 {
-    ULONG  PeakWorkingSetSizeBytes;
+    ULONG    PeakWorkingSetSizeBytes;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -522,7 +528,7 @@ ULONG PerfDataGetPeakWorkingSetSizeBytes(ULONG Index)
 
 ULONG PerfDataGetWorkingSetSizeDelta(ULONG Index)
 {
-    ULONG  WorkingSetSizeDelta;
+    ULONG    WorkingSetSizeDelta;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -538,7 +544,7 @@ ULONG PerfDataGetWorkingSetSizeDelta(ULONG Index)
 
 ULONG PerfDataGetPageFaultCount(ULONG Index)
 {
-    ULONG  PageFaultCount;
+    ULONG    PageFaultCount;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -554,7 +560,7 @@ ULONG PerfDataGetPageFaultCount(ULONG Index)
 
 ULONG PerfDataGetPageFaultCountDelta(ULONG Index)
 {
-    ULONG  PageFaultCountDelta;
+    ULONG    PageFaultCountDelta;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -570,7 +576,7 @@ ULONG PerfDataGetPageFaultCountDelta(ULONG Index)
 
 ULONG PerfDataGetVirtualMemorySizeBytes(ULONG Index)
 {
-    ULONG  VirtualMemorySizeBytes;
+    ULONG    VirtualMemorySizeBytes;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -586,7 +592,7 @@ ULONG PerfDataGetVirtualMemorySizeBytes(ULONG Index)
 
 ULONG PerfDataGetPagedPoolUsagePages(ULONG Index)
 {
-    ULONG  PagedPoolUsage;
+    ULONG    PagedPoolUsage;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -602,7 +608,7 @@ ULONG PerfDataGetPagedPoolUsagePages(ULONG Index)
 
 ULONG PerfDataGetNonPagedPoolUsagePages(ULONG Index)
 {
-    ULONG  NonPagedPoolUsage;
+    ULONG    NonPagedPoolUsage;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -618,7 +624,7 @@ ULONG PerfDataGetNonPagedPoolUsagePages(ULONG Index)
 
 ULONG PerfDataGetBasePriority(ULONG Index)
 {
-    ULONG  BasePriority;
+    ULONG    BasePriority;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -634,7 +640,7 @@ ULONG PerfDataGetBasePriority(ULONG Index)
 
 ULONG PerfDataGetHandleCount(ULONG Index)
 {
-    ULONG  HandleCount;
+    ULONG    HandleCount;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -650,7 +656,7 @@ ULONG PerfDataGetHandleCount(ULONG Index)
 
 ULONG PerfDataGetThreadCount(ULONG Index)
 {
-    ULONG  ThreadCount;
+    ULONG    ThreadCount;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -666,7 +672,7 @@ ULONG PerfDataGetThreadCount(ULONG Index)
 
 ULONG PerfDataGetUSERObjectCount(ULONG Index)
 {
-    ULONG  USERObjectCount;
+    ULONG    USERObjectCount;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -682,7 +688,7 @@ ULONG PerfDataGetUSERObjectCount(ULONG Index)
 
 ULONG PerfDataGetGDIObjectCount(ULONG Index)
 {
-    ULONG  GDIObjectCount;
+    ULONG    GDIObjectCount;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -698,7 +704,7 @@ ULONG PerfDataGetGDIObjectCount(ULONG Index)
 
 BOOL PerfDataGetIOCounters(ULONG Index, PIO_COUNTERS pIoCounters)
 {
-    BOOL  bSuccessful;
+    BOOL    bSuccessful;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -717,8 +723,8 @@ BOOL PerfDataGetIOCounters(ULONG Index, PIO_COUNTERS pIoCounters)
 
 ULONG PerfDataGetCommitChargeTotalK(void)
 {
-    ULONG  Total;
-    ULONG  PageSize;
+    ULONG    Total;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -734,8 +740,8 @@ ULONG PerfDataGetCommitChargeTotalK(void)
 
 ULONG PerfDataGetCommitChargeLimitK(void)
 {
-    ULONG  Limit;
-    ULONG  PageSize;
+    ULONG    Limit;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -751,8 +757,8 @@ ULONG PerfDataGetCommitChargeLimitK(void)
 
 ULONG PerfDataGetCommitChargePeakK(void)
 {
-    ULONG  Peak;
-    ULONG  PageSize;
+    ULONG    Peak;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -768,10 +774,10 @@ ULONG PerfDataGetCommitChargePeakK(void)
 
 ULONG PerfDataGetKernelMemoryTotalK(void)
 {
-    ULONG  Total;
-    ULONG  Paged;
-    ULONG  NonPaged;
-    ULONG  PageSize;
+    ULONG    Total;
+    ULONG    Paged;
+    ULONG    NonPaged;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -791,8 +797,8 @@ ULONG PerfDataGetKernelMemoryTotalK(void)
 
 ULONG PerfDataGetKernelMemoryPagedK(void)
 {
-    ULONG  Paged;
-    ULONG  PageSize;
+    ULONG    Paged;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -808,8 +814,8 @@ ULONG PerfDataGetKernelMemoryPagedK(void)
 
 ULONG PerfDataGetKernelMemoryNonPagedK(void)
 {
-    ULONG  NonPaged;
-    ULONG  PageSize;
+    ULONG    NonPaged;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -825,8 +831,8 @@ ULONG PerfDataGetKernelMemoryNonPagedK(void)
 
 ULONG PerfDataGetPhysicalMemoryTotalK(void)
 {
-    ULONG  Total;
-    ULONG  PageSize;
+    ULONG    Total;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -842,8 +848,8 @@ ULONG PerfDataGetPhysicalMemoryTotalK(void)
 
 ULONG PerfDataGetPhysicalMemoryAvailableK(void)
 {
-    ULONG  Available;
-    ULONG  PageSize;
+    ULONG    Available;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -859,8 +865,8 @@ ULONG PerfDataGetPhysicalMemoryAvailableK(void)
 
 ULONG PerfDataGetPhysicalMemorySystemCacheK(void)
 {
-    ULONG  SystemCache;
-    ULONG  PageSize;
+    ULONG    SystemCache;
+    ULONG    PageSize;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -874,7 +880,7 @@ ULONG PerfDataGetPhysicalMemorySystemCacheK(void)
 
 ULONG PerfDataGetSystemHandleCount(void)
 {
-    ULONG  HandleCount;
+    ULONG    HandleCount;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -887,8 +893,8 @@ ULONG PerfDataGetSystemHandleCount(void)
 
 ULONG PerfDataGetTotalThreadCount(void)
 {
-    ULONG  ThreadCount = 0;
-    ULONG  i;
+    ULONG    ThreadCount = 0;
+    ULONG    i;
 
     EnterCriticalSection(&PerfDataCriticalSection);
 
@@ -901,18 +907,3 @@ ULONG PerfDataGetTotalThreadCount(void)
 
     return ThreadCount;
 }
-
-BOOL PerfDataGet(ULONG Index, PPERFDATA *lppData)
-{
-    BOOL  bSuccessful = FALSE;
-
-    EnterCriticalSection(&PerfDataCriticalSection);
-    if (Index < ProcessCount)
-    {
-        *lppData = pPerfData + Index;
-        bSuccessful = TRUE;
-    }
-    LeaveCriticalSection(&PerfDataCriticalSection);
-    return bSuccessful;
-}
-

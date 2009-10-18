@@ -9,7 +9,7 @@
 //
 // Define this if you want debugging support
 //
-#define _PS_DEBUG_                                      0x00
+#define _PS_DEBUG_                                      0x01
 
 //
 // These define the Debug Masks Supported
@@ -52,9 +52,9 @@
             "Pointer Count [%p] @%d: %lx\n",                \
             x,                                              \
             __LINE__,                                       \
-            OBJECT_TO_OBJECT_HEADER(x)->PointerCount)
+            OBJECT_TO_OBJECT_HEADER(x)->PointerCount);
 #else
-#define PSTRACE(x, ...) DPRINT(__VA_ARGS__)
+#define PSTRACE(x, ...) DPRINT(__VA_ARGS__);
 #define PSREFTRACE(x)
 #endif
 
@@ -71,17 +71,6 @@
 #define PSP_JOB_SCHEDULING_CLASSES              10
 
 //
-// Thread "Set/Get Context" Context Structure
-//
-typedef struct _GET_SET_CTX_CONTEXT
-{
-    KAPC Apc;
-    KEVENT Event;
-    KPROCESSOR_MODE Mode;
-    CONTEXT Context;
-} GET_SET_CTX_CONTEXT, *PGET_SET_CTX_CONTEXT;
-
-//
 // Initialization Functions
 //
 VOID
@@ -93,7 +82,7 @@ PspShutdownProcessManager(
 BOOLEAN
 NTAPI
 PsInitSystem(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
+    VOID
 );
 
 //
@@ -116,8 +105,7 @@ NTSTATUS
 NTAPI
 PspMapSystemDll(
     IN PEPROCESS Process,
-    OUT PVOID *DllBase,
-    IN BOOLEAN UseLargePages
+    OUT PVOID *DllBase
 );
 
 NTSTATUS
@@ -187,7 +175,7 @@ NTAPI
 PspSetPrimaryToken(
     IN PEPROCESS Process,
     IN HANDLE TokenHandle OPTIONAL,
-    IN PACCESS_TOKEN Token OPTIONAL
+    IN PTOKEN Token OPTIONAL
 );
 
 NTSTATUS
@@ -361,33 +349,6 @@ PsSuspendThread(
     OUT PULONG PreviousCount OPTIONAL
 );
 
-VOID
-NTAPI
-PspGetOrSetContextKernelRoutine(
-    IN PKAPC Apc,
-    IN OUT PKNORMAL_ROUTINE* NormalRoutine,
-    IN OUT PVOID* NormalContext,
-    IN OUT PVOID* SystemArgument1,
-    IN OUT PVOID* SystemArgument2
-);
-
-//
-// Process Quotas
-//
-NTSTATUS
-NTAPI
-PsReturnProcessPageFileQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T Amount
-);
-
-NTSTATUS
-NTAPI
-PsChargeProcessPageFileQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T Amount
-);
-
 //
 // Global data inside the Process Manager
 //
@@ -397,17 +358,21 @@ extern LCID PsDefaultSystemLocaleId;
 extern LIST_ENTRY PspReaperListHead;
 extern WORK_QUEUE_ITEM PspReaperWorkItem;
 extern BOOLEAN PspReaping;
+extern PEPROCESS PsInitialSystemProcess;
 extern PEPROCESS PsIdleProcess;
 extern LIST_ENTRY PsActiveProcessHead;
 extern KGUARDED_MUTEX PspActiveProcessMutex;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern EPROCESS_QUOTA_BLOCK PspDefaultQuotaBlock;
 extern PHANDLE_TABLE PspCidTable;
-extern EX_CALLBACK PspThreadNotifyRoutine[PSP_MAX_CREATE_THREAD_NOTIFY];
-extern EX_CALLBACK PspProcessNotifyRoutine[PSP_MAX_CREATE_PROCESS_NOTIFY];
-extern EX_CALLBACK PspLoadImageNotifyRoutine[PSP_MAX_LOAD_IMAGE_NOTIFY];
+extern PCREATE_THREAD_NOTIFY_ROUTINE
+PspThreadNotifyRoutine[PSP_MAX_CREATE_THREAD_NOTIFY];
+extern PCREATE_PROCESS_NOTIFY_ROUTINE
+PspProcessNotifyRoutine[PSP_MAX_CREATE_PROCESS_NOTIFY];
+extern PLOAD_IMAGE_NOTIFY_ROUTINE
+PspLoadImageNotifyRoutine[PSP_MAX_LOAD_IMAGE_NOTIFY];
 extern PLEGO_NOTIFY_ROUTINE PspLegoNotifyRoutine;
-extern ULONG PspThreadNotifyRoutineCount, PspProcessNotifyRoutineCount;
+extern ULONG PspThreadNotifyRoutineCount;
 extern BOOLEAN PsImageNotifyEnabled;
 extern PKWIN32_PROCESS_CALLOUT PspW32ProcessCallout;
 extern PKWIN32_THREAD_CALLOUT PspW32ThreadCallout;
@@ -422,8 +387,7 @@ extern GENERIC_MAPPING PspJobMapping;
 extern POBJECT_TYPE PsJobType;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern UNICODE_STRING PsNtDllPathName;
-extern LIST_ENTRY PsLoadedModuleList;
-extern ULONG_PTR PsNtosImageBase;
+extern LIST_ENTRY PriorityListHead[MAXIMUM_PRIORITY];
 
 //
 // Inlined Functions

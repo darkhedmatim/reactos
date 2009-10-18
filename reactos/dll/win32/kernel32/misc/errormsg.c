@@ -28,7 +28,7 @@
 
 #define NDEBUG
 
-#include <debug.h>
+#include "../include/debug.h"
 #include "wine/unicode.h"
 
 #define TRACE DPRINT
@@ -104,7 +104,7 @@ static LPSTR load_messageA( HMODULE module, UINT id, WORD lang )
         if (!(buffer = HeapAlloc( GetProcessHeap(), 0, len ))) return NULL;
         memcpy( buffer, mre->Text, len );
     }
-    //TRACE("returning %s\n", wine_dbgstr_a(buffer));
+    TRACE("returning %s\n", wine_dbgstr_a(buffer));
     return buffer;
 }
 
@@ -135,7 +135,7 @@ static LPWSTR load_messageW( HMODULE module, UINT id, WORD lang )
         if (!(buffer = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) ))) return NULL;
         MultiByteToWideChar( CP_ACP, 0, (const char*)mre->Text, -1, buffer, len );
     }
-    //TRACE("returning %s\n", wine_dbgstr_w(buffer));
+    TRACE("returning %s\n", wine_dbgstr_w(buffer));
     return buffer;
 }
 
@@ -172,12 +172,6 @@ DWORD WINAPI FormatMessageA(
         &&((dwFlags & FORMAT_MESSAGE_FROM_SYSTEM)
            || (dwFlags & FORMAT_MESSAGE_FROM_HMODULE))) return 0;
 
-    if (!lpBuffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
-
     if (width && width != FORMAT_MESSAGE_MAX_WIDTH_MASK)
         FIXME("line wrapping (%lu) not supported.\n", width);
     from = NULL;
@@ -193,9 +187,9 @@ DWORD WINAPI FormatMessageA(
     else {
         from = NULL;
         if (dwFlags & FORMAT_MESSAGE_FROM_HMODULE)
-            from = load_messageA( (HMODULE)lpSource, dwMessageId, (WORD)dwLanguageId );
+            from = load_messageA( (HMODULE)lpSource, dwMessageId, dwLanguageId );
         if (!from && (dwFlags & FORMAT_MESSAGE_FROM_SYSTEM))
-            from = load_messageA( kernel32_handle, dwMessageId, (WORD)dwLanguageId );
+            from = load_messageA( kernel32_handle, dwMessageId, dwLanguageId );
 
         if (!from)
         {
@@ -379,7 +373,7 @@ DWORD WINAPI FormatMessageA(
     if (nSize && talloced<nSize) {
         target = HeapReAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,target,nSize);
     }
-    //TRACE("-- %s\n",debugstr_a(target));
+    TRACE("-- %s\n",debugstr_a(target));
     if (dwFlags & FORMAT_MESSAGE_ALLOCATE_BUFFER) {
         *((LPVOID*)lpBuffer) = (LPVOID)LocalAlloc(LMEM_ZEROINIT,max(nSize, talloced));
         memcpy(*(LPSTR*)lpBuffer,target,talloced);
@@ -429,12 +423,6 @@ DWORD WINAPI FormatMessageW(
         &&((dwFlags & FORMAT_MESSAGE_FROM_SYSTEM)
            || (dwFlags & FORMAT_MESSAGE_FROM_HMODULE))) return 0;
 
-    if (!lpBuffer)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
     if (width && width != FORMAT_MESSAGE_MAX_WIDTH_MASK)
         FIXME("line wrapping not supported.\n");
     from = NULL;
@@ -451,9 +439,9 @@ DWORD WINAPI FormatMessageW(
     else {
         from = NULL;
         if (dwFlags & FORMAT_MESSAGE_FROM_HMODULE)
-            from = load_messageW( (HMODULE)lpSource, dwMessageId, (WORD)dwLanguageId );
+            from = load_messageW( (HMODULE)lpSource, dwMessageId, dwLanguageId );
         if (!from && (dwFlags & FORMAT_MESSAGE_FROM_SYSTEM))
-            from = load_messageW( kernel32_handle, dwMessageId,(WORD)dwLanguageId );
+            from = load_messageW( kernel32_handle, dwMessageId, dwLanguageId );
 
         if (!from)
         {
@@ -569,7 +557,7 @@ DWORD WINAPI FormatMessageW(
                                 if (sprintfbuf) {
                                     HeapFree(GetProcessHeap(),0,sprintfbuf);
                                 }
-                                len += 256;
+                                len += 256; 
                                 sprintfbuf=HeapAlloc(GetProcessHeap(),0,len*sizeof(WCHAR));
                                 /* CMF - This makes a BIG assumption about va_list */
                             } while (0 > _vsnwprintf(sprintfbuf, len, fmtstr, (va_list) argliststart));
@@ -648,8 +636,8 @@ DWORD WINAPI FormatMessageW(
 
     HeapFree(GetProcessHeap(),0,target);
     HeapFree(GetProcessHeap(),0,from);
-    //TRACE("ret=%s\n", wine_dbgstr_w((dwFlags & FORMAT_MESSAGE_ALLOCATE_BUFFER) ?
-      //  *(LPWSTR*)lpBuffer : lpBuffer));
+    TRACE("ret=%s\n", wine_dbgstr_w((dwFlags & FORMAT_MESSAGE_ALLOCATE_BUFFER) ?
+        *(LPWSTR*)lpBuffer : lpBuffer));
     return (dwFlags & FORMAT_MESSAGE_ALLOCATE_BUFFER) ?
         strlenW(*(LPWSTR*)lpBuffer):
             strlenW(lpBuffer);

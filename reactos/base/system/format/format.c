@@ -64,7 +64,7 @@ static VOID PrintWin32Error( LPTSTR Message, DWORD ErrorCode )
 					MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 					(LPTSTR)&lpMsgBuf, 0, NULL );
 
-	_tprintf(_T("%s: %s\n"), Message, lpMsgBuf );
+	_tprintf(_T("%S: %S\n"), (LPWSTR)Message, (LPWSTR)lpMsgBuf );
 	LocalFree( lpMsgBuf );
 }
 
@@ -153,7 +153,7 @@ static int ParseCommandLine( int argc, TCHAR *argv[] )
 // can interpret. If we wanted to halt the chkdsk we could return FALSE.
 //
 //----------------------------------------------------------------------
-BOOLEAN WINAPI
+BOOLEAN STDCALL
 FormatExCallback (
 		CALLBACKCOMMAND Command,
 		ULONG Modifier,
@@ -264,7 +264,7 @@ static VOID Usage( LPTSTR ProgramName )
 	LoadString( GetModuleHandle(NULL), STRING_HELP, (LPTSTR) szMsg,RC_STRING_MAX_SIZE);
 	if (!LoadFMIFSEntryPoints())
 	{
-		_tprintf(szMsg, ProgramName, _T(""));
+		_tprintf(szMsg, ProgramName, "");
 		return;
 	}
 
@@ -420,15 +420,17 @@ _tmain(int argc, TCHAR *argv[])
 			}
 		}
 
-		LoadString( GetModuleHandle(NULL), STRING_YN_FORMAT, (LPTSTR) szMsg,RC_STRING_MAX_SIZE);
-		_tprintf(szMsg, RootDirectory[0] );
-
-		LoadString( GetModuleHandle(NULL), STRING_YES_NO_FAQ, (LPTSTR) szMsg,RC_STRING_MAX_SIZE);
-
 		while( 1 ) {
-			_fgetts( input, sizeof(input)/2, stdin );
-			if(_strnicmp(&input[0],&szMsg[0],1) == 0) break;
-			if(_strnicmp(&input[0],&szMsg[1],1) == 0) {
+
+			LoadString( GetModuleHandle(NULL), STRING_YN_FORMAT, (LPTSTR) szMsg,RC_STRING_MAX_SIZE);
+			_tprintf(szMsg, RootDirectory[0] );
+
+			LoadString( GetModuleHandle(NULL), STRING_YES_NO_FAQ, (LPTSTR) szMsg,RC_STRING_MAX_SIZE);
+
+			if(_strnicmp(&input[0],&szMsg[0],1)) break;
+
+			if(_strnicmp(&input[0],&szMsg[1],1) ) {
+
 				_tprintf(_T("\n"));
 				return 0;
 			}

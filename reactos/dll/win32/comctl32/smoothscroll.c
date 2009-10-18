@@ -68,7 +68,7 @@ typedef struct tagSMOOTHSCROLLSTRUCT {
  *     Currently only scrolls ONCE. The comctl32 implementation uses GetTickCount
  *     and what else to do smooth scrolling.
  */
-BOOL WINAPI SmoothScrollWindow( const SMOOTHSCROLLSTRUCT *smooth ) {
+BOOL WINAPI SmoothScrollWindow( SMOOTHSCROLLSTRUCT *smooth ) {
    LPRECT	lpupdaterect = smooth->lpupdaterect;
    HRGN		hrgnupdate = smooth->hrgnupdate;
    RECT		tmprect;

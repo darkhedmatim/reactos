@@ -19,8 +19,6 @@
 
 /* GLOBALS *******************************************************************/
 
-extern HANDLE hApiPort;
-
 HANDLE CsrssApiHeap = (HANDLE) 0;
 
 static unsigned ApiDefinitionsCount = 0;
@@ -35,7 +33,7 @@ CsrApiRegisterDefinitions(PCSRSS_API_DEFINITION NewDefinitions)
   PCSRSS_API_DEFINITION Scan;
   PCSRSS_API_DEFINITION New;
 
-  DPRINT("CSR: %s called\n", __FUNCTION__);
+	DPRINT("CSR: %s called", __FUNCTION__);
 
   NewCount = 0;
   for (Scan = NewDefinitions; 0 != Scan->Handler; Scan++)
@@ -65,20 +63,21 @@ CsrApiRegisterDefinitions(PCSRSS_API_DEFINITION NewDefinitions)
   return STATUS_SUCCESS;
 }
 
-VOID
+VOID 
 FASTCALL
 CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
                   PCSR_API_MESSAGE Request)
 {
+  BOOL Found = FALSE;
   unsigned DefIndex;
   ULONG Type;
-
+  
   DPRINT("CSR: Calling handler for type: %x.\n", Request->Type);
   Type = Request->Type & 0xFFFF; /* FIXME: USE MACRO */
   DPRINT("CSR: API Number: %x ServerID: %x\n",Type, Request->Type >> 16);
 
   /* FIXME: Extract DefIndex instead of looping */
-  for (DefIndex = 0; DefIndex < ApiDefinitionsCount; DefIndex++)
+  for (DefIndex = 0; ! Found && DefIndex < ApiDefinitionsCount; DefIndex++)
     {
       if (ApiDefinitions[DefIndex].Type == Type)
         {
@@ -91,20 +90,21 @@ CsrApiCallHandler(PCSRSS_PROCESS_DATA ProcessData,
             }
           else
             {
-              Request->Status = (ApiDefinitions[DefIndex].Handler)(ProcessData, Request);
+              (ApiDefinitions[DefIndex].Handler)(ProcessData, Request);
+              Found = TRUE;
             }
-          return;
         }
     }
-  DPRINT1("CSR: Unknown request type 0x%x\n", Request->Type);
-  Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
-  Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-  Request->Status = STATUS_INVALID_SYSTEM_SERVICE;
+  if (! Found)
+    {
+      DPRINT1("CSR: Unknown request type 0x%x\n", Request->Type);
+      Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
+      Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
+      Request->Status = STATUS_INVALID_SYSTEM_SERVICE;
+    }
 }
 
-BOOL
-CallHardError(IN PCSRSS_PROCESS_DATA ProcessData,
-              IN PHARDERROR_MSG HardErrorMessage);
+BOOL FASTCALL CallHardError(void);
 
 static
 VOID
@@ -115,15 +115,15 @@ CsrHandleHardError(IN PCSRSS_PROCESS_DATA ProcessData,
     DPRINT1("CSR: received hard error %lx\n", Message->Status);
 
     /* Call the hard error handler in win32csr */
-    (VOID)CallHardError(ProcessData, Message);
+    CallHardError();
 }
 
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
                              IN HANDLE hApiListenPort)
 {
     NTSTATUS Status;
-    HANDLE ServerPort = NULL, ServerThread = NULL;
+    HANDLE ServerPort = (HANDLE) 0;
     PCSRSS_PROCESS_DATA ProcessData = NULL;
     REMOTE_PORT_VIEW LpcRead;
     LpcRead.Length = sizeof(LpcRead);
@@ -132,8 +132,13 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
     DPRINT("CSR: %s: Handling: %p\n", __FUNCTION__, Request);
 
     Status = NtAcceptConnectPort(&ServerPort,
+#ifdef NTLPC
                                  NULL,
                                  Request,
+#else
+                                 hApiListenPort,
+                                 NULL,
+#endif
                                  TRUE,
                                  0,
                                  & LpcRead);
@@ -143,22 +148,17 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
         return Status;
     }
 
-    ProcessData = CsrGetProcessData(Request->ClientId.UniqueProcess);
+    ProcessData = CsrCreateProcessData(Request->ClientId.UniqueProcess);
     if (ProcessData == NULL)
     {
-        ProcessData = CsrCreateProcessData(Request->ClientId.UniqueProcess);
-        if (ProcessData == NULL)
-        {
-            DPRINT1("Unable to allocate or find data for process 0x%x\n",
-                    Request->ClientId.UniqueProcess);
-            Status = STATUS_UNSUCCESSFUL;
-            return Status;
-        }
+        DPRINT1("Unable to allocate or find data for process 0x%x\n",
+                Request->ClientId.UniqueProcess);
+        Status = STATUS_UNSUCCESSFUL;
+        return Status;
     }
 
     ProcessData->CsrSectionViewBase = LpcRead.ViewBase;
     ProcessData->CsrSectionViewSize = LpcRead.ViewSize;
-    ProcessData->ServerCommunicationPort = ServerPort;
 
     Status = NtCompleteConnectPort(ServerPort);
     if (!NT_SUCCESS(Status))
@@ -167,6 +167,8 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
         return Status;
     }
 
+#if !defined(NTLPC) /* ReactOS LPC */
+    HANDLE ServerThread = (HANDLE) 0;
     Status = RtlCreateUserThread(NtCurrentProcess(),
                                  NULL,
                                  FALSE,
@@ -184,6 +186,7 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
     }
 
     NtClose(ServerThread);
+#endif
 
     Status = STATUS_SUCCESS;
     DPRINT("CSR: %s done\n", __FUNCTION__);
@@ -191,7 +194,7 @@ CsrpHandleConnectionRequest (PPORT_MESSAGE Request,
 }
 
 VOID
-WINAPI
+STDCALL
 ClientConnectionThread(HANDLE ServerPort)
 {
     NTSTATUS Status;
@@ -199,27 +202,20 @@ ClientConnectionThread(HANDLE ServerPort)
     PCSR_API_MESSAGE Request = (PCSR_API_MESSAGE)RawRequest;
     PCSR_API_MESSAGE Reply;
     PCSRSS_PROCESS_DATA ProcessData;
-
-    DPRINT("CSR: %s called\n", __FUNCTION__);
+  
+    DPRINT("CSR: %s called", __FUNCTION__);
 
     /* Reply must be NULL at the first call to NtReplyWaitReceivePort */
-    Reply = NULL;
+    Reply = NULL; 
 
     /* Loop and reply/wait for a new message */
     for (;;)
     {
         /* Send the reply and wait for a new request */
-        Status = NtReplyWaitReceivePort(hApiPort,
+        Status = NtReplyWaitReceivePort(ServerPort,
                                         0,
                                         &Reply->Header,
                                         &Request->Header);
-        /* Client died, continue */
-        if (Status == STATUS_INVALID_CID)
-        {
-            Reply = NULL;
-            continue;
-        }
-
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("NtReplyWaitReceivePort failed: %lx\n", Status);
@@ -229,7 +225,7 @@ ClientConnectionThread(HANDLE ServerPort)
         /* If the connection was closed, handle that */
         if (Request->Header.u2.s2.Type == LPC_PORT_CLOSED)
         {
-            DPRINT("Port died, oh well\n");
+            DPRINT1("Port died, oh well\n");
             CsrFreeProcessData( Request->Header.ClientId.UniqueProcess );
             break;
         }
@@ -243,20 +239,12 @@ ClientConnectionThread(HANDLE ServerPort)
 
         if (Request->Header.u2.s2.Type == LPC_CLIENT_DIED)
         {
-            DPRINT("Client died, oh well\n");
+            DPRINT1("Clietn died, oh well\n");
             Reply = NULL;
             continue;
         }
 
-        if ((Request->Header.u2.s2.Type != LPC_ERROR_EVENT) &&
-            (Request->Header.u2.s2.Type != LPC_REQUEST))
-        {
-            DPRINT1("CSR: received message %d\n", Request->Header.u2.s2.Type);
-            Reply = NULL;
-            continue;
-        }
-
-        DPRINT("CSR: Got CSR API: %x [Message Origin: %x]\n",
+        DPRINT("CSR: Got CSR API: %x [Message Origin: %x]\n", 
                 Request->Type,
                 Request->Header.ClientId.UniqueThread);
 
@@ -293,10 +281,51 @@ ClientConnectionThread(HANDLE ServerPort)
     }
 
     /* Close the port and exit the thread */
-    // NtClose(ServerPort);
-
-    DPRINT("CSR: %s done\n", __FUNCTION__);
+    NtClose(ServerPort);
     RtlExitUserThread(STATUS_SUCCESS);
+}
+
+/**********************************************************************
+ * NAME
+ *	ServerApiPortThread/1
+ *
+ * DESCRIPTION
+ * 	Handle connection requests from clients to the port
+ * 	"\Windows\ApiPort".
+ */
+DWORD STDCALL
+ServerApiPortThread (HANDLE hApiListenPort)
+{
+    NTSTATUS Status = STATUS_SUCCESS;
+    BYTE RawRequest[sizeof(PORT_MESSAGE) + sizeof(CSR_CONNECTION_INFO)];
+    PPORT_MESSAGE Request = (PPORT_MESSAGE)RawRequest;
+
+    DPRINT("CSR: %s called", __FUNCTION__);
+
+    for (;;)
+    {
+         REMOTE_PORT_VIEW LpcRead;
+         LpcRead.Length = sizeof(LpcRead);
+
+         Status = NtListenPort (hApiListenPort, Request);
+         if (!NT_SUCCESS(Status))
+         {
+             DPRINT1("CSR: NtListenPort() failed, status=%x\n", Status);
+             break;
+         }
+
+         Status = CsrpHandleConnectionRequest(Request, hApiListenPort);
+         if(!NT_SUCCESS(Status))
+         {
+             DPRINT1("CSR: %s: SmpHandleConnectionRequest failed (Status=0x%08lx)\n",
+                     __FUNCTION__, Status);
+             break;
+         }
+    }
+
+    NtClose(hApiListenPort);
+    NtTerminateThread(NtCurrentThread(), Status);
+    return 0;
 }
 
 /**********************************************************************
@@ -308,88 +337,91 @@ ClientConnectionThread(HANDLE ServerPort)
  * 	"\Windows\SbApiPort". We will accept only one
  * 	connection request (from the SM).
  */
-DWORD WINAPI
+DWORD STDCALL
 ServerSbApiPortThread (HANDLE hSbApiPortListen)
 {
-    HANDLE          hConnectedPort = (HANDLE) 0;
-    PORT_MESSAGE    Request;
-    PVOID           Context = NULL;
-    NTSTATUS        Status = STATUS_SUCCESS;
+	HANDLE          hConnectedPort = (HANDLE) 0;
+	PORT_MESSAGE    Request;
+	PVOID           Context = NULL;
+	NTSTATUS        Status = STATUS_SUCCESS;
     PPORT_MESSAGE Reply = NULL;
 
-    DPRINT("CSR: %s called\n", __FUNCTION__);
+	DPRINT("CSR: %s called\n", __FUNCTION__);
 
     RtlZeroMemory(&Request, sizeof(PORT_MESSAGE));
-    Status = NtListenPort (hSbApiPortListen, & Request);
-
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("CSR: %s: NtListenPort(SB) failed (Status=0x%08lx)\n",
-                __FUNCTION__, Status);
-    } else {
-        DPRINT("-- 1\n");
-        Status = NtAcceptConnectPort(&hConnectedPort,
-                                     NULL,
-                                     &Request,
-                                     TRUE,
-                                     NULL,
-                                     NULL);
-        if(!NT_SUCCESS(Status))
-        {
-            DPRINT1("CSR: %s: NtAcceptConnectPort() failed (Status=0x%08lx)\n",
-                    __FUNCTION__, Status);
-        } else {
-            DPRINT("-- 2\n");
-            Status = NtCompleteConnectPort (hConnectedPort);
-            if(!NT_SUCCESS(Status))
-            {
-                DPRINT1("CSR: %s: NtCompleteConnectPort() failed (Status=0x%08lx)\n",
-                        __FUNCTION__, Status);
-            } else {
-                DPRINT("-- 3\n");
-                /*
-                 * Tell the init thread the SM gave the
-                 * green light for boostrapping.
-                 */
-                Status = NtSetEvent (hBootstrapOk, NULL);
-                if(!NT_SUCCESS(Status))
-                {
-                    DPRINT1("CSR: %s: NtSetEvent failed (Status=0x%08lx)\n",
-                            __FUNCTION__, Status);
-                }
-                /* Wait for messages from the SM */
-                DPRINT("-- 4\n");
-                while (TRUE)
-                {
-                    Status = NtReplyWaitReceivePort(hConnectedPort,
-                                                    Context,
-                                                    Reply,
-                                                    &Request);
-                    if(!NT_SUCCESS(Status))
-                    {
-                        DPRINT1("CSR: %s: NtReplyWaitReceivePort failed (Status=0x%08lx)\n",
-                                __FUNCTION__, Status);
-                        break;
-                    }
-
-                    switch (Request.u2.s2.Type) //fix .h PORT_MESSAGE_TYPE(Request))
-                    {
-                        /* TODO */
-                        default:
-                        DPRINT1("CSR: %s received message (type=%d)\n",
-                                __FUNCTION__, Request.u2.s2.Type);
-                    }
-                    DPRINT("-- 5\n");
-                }
-            }
-        }
-    }
-
-    DPRINT("CSR: %s: terminating!\n", __FUNCTION__);
-    if(hConnectedPort) NtClose (hConnectedPort);
-    NtClose (hSbApiPortListen);
-    NtTerminateThread (NtCurrentThread(), Status);
-    return 0;
+	Status = NtListenPort (hSbApiPortListen, & Request);
+	if (!NT_SUCCESS(Status))
+	{
+		DPRINT1("CSR: %s: NtListenPort(SB) failed (Status=0x%08lx)\n",
+			__FUNCTION__, Status);
+	} else {
+DPRINT("-- 1\n");
+		Status = NtAcceptConnectPort (& hConnectedPort,
+#ifdef NTLPC
+				     NULL,
+                     &Request,
+#else
+				     hSbApiPortListen,
+                     NULL,
+#endif
+   						TRUE,
+   						NULL,
+	   					NULL);
+		if(!NT_SUCCESS(Status))
+		{
+			DPRINT1("CSR: %s: NtAcceptConnectPort() failed (Status=0x%08lx)\n",
+				__FUNCTION__, Status);
+		} else {
+DPRINT("-- 2\n");
+			Status = NtCompleteConnectPort (hConnectedPort);
+			if(!NT_SUCCESS(Status))
+			{
+				DPRINT1("CSR: %s: NtCompleteConnectPort() failed (Status=0x%08lx)\n",
+					__FUNCTION__, Status);
+			} else {
+DPRINT("-- 3\n");
+				
+				/*
+				 * Tell the init thread the SM gave the
+				 * green light for boostrapping.
+				 */
+				Status = NtSetEvent (hBootstrapOk, NULL);
+				if(!NT_SUCCESS(Status))
+				{
+					DPRINT1("CSR: %s: NtSetEvent failed (Status=0x%08lx)\n",
+						__FUNCTION__, Status);
+				}
+				/* Wait for messages from the SM */
+DPRINT("-- 4\n");
+				while (TRUE)
+				{
+					Status = NtReplyWaitReceivePort(hConnectedPort,
+                                      					Context,
+									Reply,
+									& Request);
+					if(!NT_SUCCESS(Status))
+					{
+						DPRINT1("CSR: %s: NtReplyWaitReceivePort failed (Status=0x%08lx)\n",
+							__FUNCTION__, Status);
+						break;
+					}
+					switch (Request.u2.s2.Type)//fix .h PORT_MESSAGE_TYPE(Request))
+					{
+						/* TODO */
+					default:
+						DPRINT1("CSR: %s received message (type=%d)\n",
+							__FUNCTION__, Request.u2.s2.Type);
+					}
+DPRINT("-- 5\n");
+				}
+			}
+		}
+	}
+	DPRINT("CSR: %s: terminating!\n", __FUNCTION__);
+	if(hConnectedPort) NtClose (hConnectedPort);
+	NtClose (hSbApiPortListen);
+	NtTerminateThread (NtCurrentThread(), Status);
+	return 0;
 }
 
 /* EOF */

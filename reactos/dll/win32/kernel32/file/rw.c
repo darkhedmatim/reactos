@@ -12,16 +12,17 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /* FUNCTIONS ****************************************************************/
 
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 WriteFile(IN HANDLE hFile,
           IN LPCVOID lpBuffer,
           IN DWORD nNumberOfBytesToWrite  OPTIONAL,
@@ -30,14 +31,12 @@ WriteFile(IN HANDLE hFile,
 {
    NTSTATUS Status;
 
-   TRACE("WriteFile(hFile %x)\n", hFile);
+   DPRINT("WriteFile(hFile %x)\n", hFile);
 
    if (lpNumberOfBytesWritten != NULL)
      {
         *lpNumberOfBytesWritten = 0;
      }
-
-   hFile = TranslateStdHandle(hFile);
 
    if (IsConsoleHandle(hFile))
      {
@@ -120,7 +119,7 @@ WriteFile(IN HANDLE hFile,
           }
      }
 
-   TRACE("WriteFile() succeeded\n");
+   DPRINT("WriteFile() succeeded\n");
    return TRUE;
 }
 
@@ -128,7 +127,7 @@ WriteFile(IN HANDLE hFile,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 ReadFile(IN HANDLE hFile,
          IN LPVOID lpBuffer,
          IN DWORD nNumberOfBytesToRead,
@@ -137,33 +136,20 @@ ReadFile(IN HANDLE hFile,
 {
    NTSTATUS Status;
 
-   TRACE("ReadFile(hFile %x)\n", hFile);
+   DPRINT("ReadFile(hFile %x)\n", hFile);
 
    if (lpNumberOfBytesRead != NULL)
      {
         *lpNumberOfBytesRead = 0;
      }
 
-   hFile = TranslateStdHandle(hFile);
-
    if (IsConsoleHandle(hFile))
      {
-        if (ReadConsoleA(hFile,
+	return ReadConsoleA(hFile,
                             lpBuffer,
                             nNumberOfBytesToRead,
                             lpNumberOfBytesRead,
-                            NULL))
-          {
-             DWORD dwMode;
-             GetConsoleMode(hFile, &dwMode);
-             if ((dwMode & ENABLE_PROCESSED_INPUT) && *(char *)lpBuffer == 0x1a)
-               {
-                  /* EOF character entered; simulate end-of-file */
-                  *lpNumberOfBytesRead = 0;
-               }
-             return TRUE;
-          }
-        return FALSE;
+                            NULL);
      }
 
    if (lpOverlapped != NULL)
@@ -253,11 +239,11 @@ ReadFile(IN HANDLE hFile,
           }
      }
 
-   TRACE("ReadFile() succeeded\n");
+   DPRINT("ReadFile() succeeded\n");
    return TRUE;
 }
 
-VOID WINAPI
+VOID STDCALL
 ApcRoutine(PVOID ApcContext,
 		struct _IO_STATUS_BLOCK* IoStatusBlock,
 		ULONG Reserved)
@@ -276,7 +262,7 @@ ApcRoutine(PVOID ApcContext,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 WriteFileEx(IN HANDLE hFile,
             IN LPCVOID lpBuffer,
             IN DWORD nNumberOfBytesToWrite  OPTIONAL,
@@ -313,7 +299,7 @@ WriteFileEx(IN HANDLE hFile,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 ReadFileEx(IN HANDLE hFile,
            IN LPVOID lpBuffer,
            IN DWORD nNumberOfBytesToRead  OPTIONAL,

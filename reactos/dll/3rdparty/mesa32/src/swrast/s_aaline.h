@@ -28,6 +28,7 @@
 #define S_AALINE_H
 
 
+#include "mtypes.h"
 #include "swrast.h"
 
 

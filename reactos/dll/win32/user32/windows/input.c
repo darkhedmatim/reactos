@@ -31,10 +31,225 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
+
+
+/* Directory to load key layouts from */
+#define SYSTEMROOT_DIR L"\\SystemRoot\\System32\\"
 
 /* GLOBALS *******************************************************************/
 
+typedef struct __TRACKINGLIST {
+    TRACKMOUSEEVENT tme;
+    POINT pos; /* center of hover rectangle */
+} _TRACKINGLIST;
+
+/* FIXME: move tracking stuff into a per thread data */
+static _TRACKINGLIST tracking_info;
+static UINT_PTR timer;
+static const INT iTimerInterval = 50; /* msec for timer interval */
+
+
+/* LOCALE FUNCTIONS **********************************************************/
+
+/*
+ * Utility function to read a value from the registry more easily.
+ *
+ * IN  PUNICODE_STRING KeyName       -> Name of key to open
+ * IN  PUNICODE_STRING ValueName     -> Name of value to open
+ * OUT PUNICODE_STRING ReturnedValue -> String contained in registry
+ *
+ * Returns NTSTATUS
+ */
+
+static 
+NTSTATUS FASTCALL
+ReadRegistryValue( PUNICODE_STRING KeyName,
+      PUNICODE_STRING ValueName,
+      PUNICODE_STRING ReturnedValue )
+{
+   NTSTATUS Status;
+   HANDLE KeyHandle;
+   OBJECT_ATTRIBUTES KeyAttributes;
+   PKEY_VALUE_PARTIAL_INFORMATION KeyValuePartialInfo;
+   ULONG Length = 0;
+   ULONG ResLength = 0;
+   UNICODE_STRING Temp;
+
+   InitializeObjectAttributes(&KeyAttributes, KeyName, OBJ_CASE_INSENSITIVE,
+                              NULL, NULL);
+   Status = ZwOpenKey(&KeyHandle, KEY_ALL_ACCESS, &KeyAttributes);
+   if( !NT_SUCCESS(Status) )
+   {
+      return Status;
+   }
+
+   Status = ZwQueryValueKey(KeyHandle, ValueName, KeyValuePartialInformation,
+                            0,
+                            0,
+                            &ResLength);
+
+   if( Status != STATUS_BUFFER_TOO_SMALL )
+   {
+      NtClose(KeyHandle);
+      return Status;
+   }
+
+   ResLength += sizeof( *KeyValuePartialInfo );
+   KeyValuePartialInfo = LocalAlloc(LMEM_ZEROINIT, ResLength);
+   Length = ResLength;
+
+   if( !KeyValuePartialInfo )
+   {
+      NtClose(KeyHandle);
+      return STATUS_NO_MEMORY;
+   }
+
+   Status = ZwQueryValueKey(KeyHandle, ValueName, KeyValuePartialInformation,
+                            (PVOID)KeyValuePartialInfo,
+                            Length,
+                            &ResLength);
+
+   if( !NT_SUCCESS(Status) )
+   {
+      NtClose(KeyHandle);
+      LocalFree(KeyValuePartialInfo);
+      return Status;
+   }
+
+   Temp.Length = Temp.MaximumLength = KeyValuePartialInfo->DataLength;
+   Temp.Buffer = (PWCHAR)KeyValuePartialInfo->Data;
+
+   /* At this point, KeyValuePartialInfo->Data contains the key data */
+   RtlInitUnicodeString(ReturnedValue,L"");
+   RtlAppendUnicodeStringToString(ReturnedValue,&Temp);
+
+   LocalFree(KeyValuePartialInfo);
+   NtClose(KeyHandle);
+
+   return Status;
+}
+
+
+static
+HKL FASTCALL
+IntLoadKeyboardLayout( LPCWSTR pwszKLID,
+                       UINT Flags)
+{
+  HANDLE Handle;
+  HINSTANCE KBModule = 0;
+  FARPROC pAddr = 0;
+  DWORD offTable = 0;
+  HKL hKL;
+  NTSTATUS Status;
+  WCHAR LocaleBuffer[16];
+  UNICODE_STRING LayoutKeyName;
+  UNICODE_STRING LayoutValueName;
+  UNICODE_STRING DefaultLocale;
+  UNICODE_STRING LayoutFile;
+  UNICODE_STRING FullLayoutPath;
+  LCID LocaleId;  
+  PWCHAR KeyboardLayoutWSTR;
+  ULONG_PTR layout;
+  LANGID langid;
+
+  layout = (ULONG_PTR) wcstoul(pwszKLID, NULL, 16);
+
+//  LocaleId = GetSystemDefaultLCID();
+
+  LocaleId = (LCID) layout;
+  
+  /* Create the HKL to be used by NtUserLoadKeyboardLayoutEx*/
+  /* 
+   * Microsoft Office expects this value to be something specific
+   * for Japanese and Korean Windows with an IME the value is 0xe001
+   * We should probably check to see if an IME exists and if so then
+   * set this word properly.
+   */
+  langid = PRIMARYLANGID(LANGIDFROMLCID(layout));
+  if (langid == LANG_CHINESE || langid == LANG_JAPANESE || langid == LANG_KOREAN)
+      layout |= 0xe001 << 16; /* FIXME */
+  else
+      layout |= layout << 16;
+
+  DPRINT("Input  = %S\n", pwszKLID );
+
+  DPRINT("DefaultLocale = %lx\n", LocaleId);
+
+  swprintf(LocaleBuffer, L"%08lx", LocaleId);
+
+  DPRINT("DefaultLocale = %S\n", LocaleBuffer);
+  RtlInitUnicodeString(&DefaultLocale, LocaleBuffer);
+
+  RtlInitUnicodeString(&LayoutKeyName,
+                       L"\\REGISTRY\\Machine\\SYSTEM\\CurrentControlSet"
+                       L"\\Control\\KeyboardLayouts\\");
+
+  RtlAppendUnicodeStringToString(&LayoutKeyName,&DefaultLocale);
+
+  RtlInitUnicodeString(&LayoutValueName,L"Layout File");
+
+  Status =  ReadRegistryValue(&LayoutKeyName,&LayoutValueName,&LayoutFile);
+
+  RtlFreeUnicodeString(&LayoutKeyName);
+  
+  DPRINT("Read registry and got %wZ\n", &LayoutFile);
+
+  RtlInitUnicodeString(&FullLayoutPath,SYSTEMROOT_DIR);
+  RtlAppendUnicodeStringToString(&FullLayoutPath,&LayoutFile);
+
+  DPRINT("Loading Keyboard DLL %wZ\n", &FullLayoutPath);
+
+  RtlFreeUnicodeString(&LayoutFile);
+
+  KeyboardLayoutWSTR = LocalAlloc(LMEM_ZEROINIT, 
+                                    FullLayoutPath.Length + sizeof(WCHAR));
+
+  if( !KeyboardLayoutWSTR )
+  {
+     DPRINT1("Couldn't allocate a string for the keyboard layout name.\n");
+     RtlFreeUnicodeString(&FullLayoutPath);
+     return NULL;
+  }
+  memcpy(KeyboardLayoutWSTR,FullLayoutPath.Buffer, FullLayoutPath.Length);
+
+  KeyboardLayoutWSTR[FullLayoutPath.Length / sizeof(WCHAR)] = 0;
+
+  KBModule = LoadLibraryW(KeyboardLayoutWSTR);
+
+  DPRINT( "Load Keyboard Layout: %S\n", KeyboardLayoutWSTR );
+
+  if( !KBModule )
+     DPRINT1( "Load Keyboard Layout: No %wZ\n", &FullLayoutPath );
+
+  pAddr = GetProcAddress( KBModule, (LPCSTR) 1);
+  offTable = (DWORD) pAddr - (DWORD) KBModule; // Weeks to figure this out!
+
+  DPRINT( "Load Keyboard Module Offset: %x\n", offTable );
+
+  FreeLibrary(KBModule);
+
+  Handle = CreateFileW( KeyboardLayoutWSTR,
+                        GENERIC_READ,
+                        FILE_SHARE_READ,
+                        NULL,
+                        OPEN_EXISTING,
+                        0,
+                        NULL);
+
+  hKL = NtUserLoadKeyboardLayoutEx( Handle,
+                                    offTable,
+                                   (HKL) layout,
+                                   &DefaultLocale,
+                                   (UINT) layout,
+                                    Flags);
+
+  NtClose(Handle);
+
+  LocalFree(KeyboardLayoutWSTR);
+  RtlFreeUnicodeString(&FullLayoutPath);
+
+  return hKL;
+}
 
 
 /* FUNCTIONS *****************************************************************/
@@ -44,19 +259,19 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DragDetect(
   HWND hWnd,
   POINT pt)
 {
 #if 0
-  return NtUserDragDetect(hWnd, pt);
+  return NtUserDragDetect(hWnd, pt.x, pt.y);
 #else
   MSG msg;
   RECT rect;
   POINT tmp;
-  ULONG dx = GetSystemMetrics(SM_CXDRAG);
-  ULONG dy = GetSystemMetrics(SM_CYDRAG);
+  ULONG dx = NtUserGetSystemMetrics(SM_CXDRAG);
+  ULONG dy = NtUserGetSystemMetrics(SM_CYDRAG);
 
   rect.left = pt.x - dx;
   rect.right = pt.x + dx;
@@ -67,15 +282,12 @@ DragDetect(
 
   for (;;)
   {
-    while (
-    PeekMessageW(&msg, 0, WM_MOUSEFIRST, WM_MOUSELAST, PM_REMOVE) ||
-    PeekMessageW(&msg, 0, WM_KEYFIRST,   WM_KEYLAST,   PM_REMOVE)
-    )
+    while (PeekMessageW(&msg, 0, WM_MOUSEFIRST, WM_MOUSELAST, PM_REMOVE))
     {
       if (msg.message == WM_LBUTTONUP)
       {
         ReleaseCapture();
-        return FALSE;
+        return 0;
       }
       if (msg.message == WM_MOUSEMOVE)
       {
@@ -84,16 +296,8 @@ DragDetect(
         if (!PtInRect(&rect, tmp))
         {
           ReleaseCapture();
-          return TRUE;
+          return 1;
         }
-      }
-      if (msg.message == WM_KEYDOWN)
-      {
-         if (msg.wParam == VK_ESCAPE)
-         {
-             ReleaseCapture();
-             return TRUE;
-         }
       }
     }
     WaitMessage();
@@ -104,13 +308,35 @@ DragDetect(
 
 
 /*
+ * @unimplemented
+ */
+HKL STDCALL
+ActivateKeyboardLayout(HKL hkl,
+		       UINT Flags)
+{
+  UNIMPLEMENTED;
+  return (HKL)0;
+}
+
+
+/*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
+BlockInput(BOOL fBlockIt)
+{
+  return NtUserBlockInput(fBlockIt);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL STDCALL
 EnableWindow(HWND hWnd,
 	     BOOL bEnable)
 {
-    LONG Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
+    LONG Style = NtUserGetWindowLong(hWnd, GWL_STYLE, FALSE);
     /* check if updating is needed */
     UINT bIsDisabled = (Style & WS_DISABLED);
     if ( (bIsDisabled && bEnable) || (!bIsDisabled && !bEnable) )
@@ -140,11 +366,9 @@ EnableWindow(HWND hWnd,
 /*
  * @implemented
  */
-SHORT WINAPI
+SHORT STDCALL
 GetAsyncKeyState(int vKey)
 {
- if (vKey < 0 || vKey > 256)
-    return 0;
  return (SHORT) NtUserGetAsyncKeyState((DWORD) vKey);
 }
 
@@ -152,7 +376,18 @@ GetAsyncKeyState(int vKey)
 /*
  * @implemented
  */
-HKL WINAPI
+UINT
+STDCALL
+GetDoubleClickTime(VOID)
+{
+  return NtUserGetDoubleClickTime();
+}
+
+
+/*
+ * @implemented
+ */
+HKL STDCALL
 GetKeyboardLayout(DWORD idThread)
 {
   return (HKL)NtUserCallOneParam((DWORD) idThread,  ONEPARAM_ROUTINE_GETKEYBOARDLAYOUT);
@@ -162,7 +397,7 @@ GetKeyboardLayout(DWORD idThread)
 /*
  * @implemented
  */
-UINT WINAPI
+UINT STDCALL
 GetKBCodePage(VOID)
 {
   return GetOEMCP();
@@ -172,7 +407,7 @@ GetKBCodePage(VOID)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 GetKeyNameTextA(LONG lParam,
 		LPSTR lpString,
 		int nSize)
@@ -200,7 +435,7 @@ GetKeyNameTextA(LONG lParam,
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 GetKeyNameTextW(LONG lParam,
 		LPWSTR lpString,
 		int nSize)
@@ -212,7 +447,7 @@ GetKeyNameTextW(LONG lParam,
 /*
  * @implemented
  */
-SHORT WINAPI
+SHORT STDCALL
 GetKeyState(int nVirtKey)
 {
  return (SHORT) NtUserGetKeyState((DWORD) nVirtKey);
@@ -220,13 +455,25 @@ GetKeyState(int nVirtKey)
 
 
 /*
+ * @unimplemented
+ */
+UINT STDCALL
+GetKeyboardLayoutList(int nBuff,
+		      HKL FAR *lpList)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+
+/*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetKeyboardLayoutNameA(LPSTR pwszKLID)
 {
   WCHAR buf[KL_NAMELENGTH];
-
+    
   if (GetKeyboardLayoutNameW(buf))
     return WideCharToMultiByte( CP_ACP, 0, buf, -1, pwszKLID, KL_NAMELENGTH, NULL, NULL ) != 0;
   return FALSE;
@@ -236,7 +483,7 @@ GetKeyboardLayoutNameA(LPSTR pwszKLID)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 {
   return NtUserGetKeyboardLayoutName( pwszKLID );
@@ -246,7 +493,18 @@ GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 /*
  * @implemented
  */
-int WINAPI
+BOOL STDCALL
+GetKeyboardState(PBYTE lpKeyState)
+{
+
+  return (BOOL) NtUserGetKeyboardState((LPBYTE) lpKeyState);
+}
+
+
+/*
+ * @implemented
+ */
+int STDCALL
 GetKeyboardType(int nTypeFlag)
 {
 return (int)NtUserCallOneParam((DWORD) nTypeFlag,  ONEPARAM_ROUTINE_GETKEYBOARDTYPE);
@@ -256,7 +514,7 @@ return (int)NtUserCallOneParam((DWORD) nTypeFlag,  ONEPARAM_ROUTINE_GETKEYBOARDT
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetLastInputInfo(PLASTINPUTINFO plii)
 {
   return NtUserGetLastInputInfo(plii);
@@ -266,35 +524,37 @@ GetLastInputInfo(PLASTINPUTINFO plii)
 /*
  * @implemented
  */
-HKL WINAPI
+HKL STDCALL
 LoadKeyboardLayoutA(LPCSTR pwszKLID,
 		    UINT Flags)
 {
-  return NtUserLoadKeyboardLayoutEx( NULL, 0, NULL, NULL, NULL,
-               strtoul(pwszKLID, NULL, 16),
-               Flags);
+  HKL ret;
+  UNICODE_STRING pwszKLIDW;
+        
+  if (pwszKLID) RtlCreateUnicodeStringFromAsciiz(&pwszKLIDW, pwszKLID);
+  else pwszKLIDW.Buffer = NULL;
+                
+  ret = LoadKeyboardLayoutW(pwszKLIDW.Buffer, Flags);
+  RtlFreeUnicodeString(&pwszKLIDW);
+  return ret;
 }
 
 
 /*
  * @implemented
  */
-HKL WINAPI
+HKL STDCALL
 LoadKeyboardLayoutW(LPCWSTR pwszKLID,
 		    UINT Flags)
 {
-  // Look at revision 25596 to see how it's done in windows.
-  // We will do things our own way. Also be compatible too!
-  return NtUserLoadKeyboardLayoutEx( NULL, 0, NULL, NULL, NULL,
-               wcstoul(pwszKLID, NULL, 16),
-               Flags);
+  return IntLoadKeyboardLayout( pwszKLID, Flags);
 }
 
 
 /*
  * @implemented
  */
-UINT WINAPI
+UINT STDCALL
 MapVirtualKeyA(UINT uCode,
 	       UINT uMapType)
 {
@@ -305,7 +565,7 @@ MapVirtualKeyA(UINT uCode,
 /*
  * @implemented
  */
-UINT WINAPI
+UINT STDCALL
 MapVirtualKeyExA(UINT uCode,
 		 UINT uMapType,
 		 HKL dwhkl)
@@ -317,7 +577,7 @@ MapVirtualKeyExA(UINT uCode,
 /*
  * @implemented
  */
-UINT WINAPI
+UINT STDCALL
 MapVirtualKeyExW(UINT uCode,
 		 UINT uMapType,
 		 HKL dwhkl)
@@ -329,7 +589,7 @@ MapVirtualKeyExW(UINT uCode,
 /*
  * @implemented
  */
-UINT WINAPI
+UINT STDCALL
 MapVirtualKeyW(UINT uCode,
 	       UINT uMapType)
 {
@@ -339,8 +599,8 @@ MapVirtualKeyW(UINT uCode,
 
 /*
  * @implemented
- */
-DWORD WINAPI
+ */ 
+DWORD STDCALL
 OemKeyScan(WORD wOemChar)
 {
   WCHAR p;
@@ -351,7 +611,7 @@ OemKeyScan(WORD wOemChar)
   Vk = VkKeyScanW(p);
   Scan = MapVirtualKeyW((Vk & 0x00ff), 0);
   if(!Scan) return -1;
-  /*
+  /* 
      Page 450-1, MS W2k SuperBible by SAMS. Return, low word has the
      scan code and high word has the shift state.
    */
@@ -362,7 +622,23 @@ OemKeyScan(WORD wOemChar)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
+RegisterHotKey(HWND hWnd,
+	       int id,
+	       UINT fsModifiers,
+	       UINT vk)
+{
+  return (BOOL)NtUserRegisterHotKey(hWnd,
+                                       id,
+                                       fsModifiers,
+                                       vk);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL STDCALL
 SetDoubleClickTime(UINT uInterval)
 {
   return (BOOL)NtUserSystemParametersInfo(SPI_SETDOUBLECLICKTIME,
@@ -375,8 +651,28 @@ SetDoubleClickTime(UINT uInterval)
 /*
  * @implemented
  */
+HWND STDCALL
+SetFocus(HWND hWnd)
+{
+  return NtUserSetFocus(hWnd);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL STDCALL
+SetKeyboardState(LPBYTE lpKeyState)
+{
+ return (BOOL) NtUserSetKeyboardState((LPBYTE)lpKeyState);
+}
+
+
+/*
+ * @implemented
+ */
 BOOL
-WINAPI
+STDCALL
 SwapMouseButton(
   BOOL fSwap)
 {
@@ -387,7 +683,7 @@ SwapMouseButton(
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 ToAscii(UINT uVirtKey,
 	UINT uScanCode,
 	CONST PBYTE lpKeyState,
@@ -401,7 +697,7 @@ ToAscii(UINT uVirtKey,
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 ToAsciiEx(UINT uVirtKey,
 	  UINT uScanCode,
 	  CONST PBYTE lpKeyState,
@@ -423,7 +719,7 @@ ToAsciiEx(UINT uVirtKey,
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 ToUnicode(UINT wVirtKey,
 	  UINT wScanCode,
 	  CONST PBYTE lpKeyState,
@@ -439,7 +735,7 @@ ToUnicode(UINT wVirtKey,
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 ToUnicodeEx(UINT wVirtKey,
 	    UINT wScanCode,
 	    CONST PBYTE lpKeyState,
@@ -453,11 +749,32 @@ ToUnicodeEx(UINT wVirtKey,
 }
 
 
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+UnloadKeyboardLayout(HKL hkl)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
 
 /*
  * @implemented
  */
-SHORT WINAPI
+BOOL STDCALL
+UnregisterHotKey(HWND hWnd,
+		 int id)
+{
+  return (BOOL)NtUserUnregisterHotKey(hWnd, id);
+}
+
+
+/*
+ * @implemented
+ */
+SHORT STDCALL
 VkKeyScanA(CHAR ch)
 {
   WCHAR wChar;
@@ -472,7 +789,7 @@ VkKeyScanA(CHAR ch)
 /*
  * @implemented
  */
-SHORT WINAPI
+SHORT STDCALL
 VkKeyScanExA(CHAR ch,
 	     HKL dwhkl)
 {
@@ -488,29 +805,62 @@ VkKeyScanExA(CHAR ch,
 /*
  * @implemented
  */
-SHORT WINAPI
+SHORT STDCALL
 VkKeyScanExW(WCHAR ch,
 	     HKL dwhkl)
 {
-  return (SHORT) NtUserVkKeyScanEx(ch, dwhkl, TRUE);
+  return (SHORT) NtUserVkKeyScanEx((DWORD) ch,(DWORD) dwhkl,(DWORD)NULL);
 }
 
 
 /*
  * @implemented
  */
-SHORT WINAPI
+SHORT STDCALL
 VkKeyScanW(WCHAR ch)
 {
-  return (SHORT) NtUserVkKeyScanEx(ch, 0, FALSE);
+  return VkKeyScanExW(ch, GetKeyboardLayout(0));
 }
 
+
+/*
+ * @implemented
+ */
+UINT
+STDCALL
+SendInput(
+  UINT nInputs,
+  LPINPUT pInputs,
+  int cbSize)
+{
+  return NtUserSendInput(nInputs, pInputs, cbSize);
+}
+
+/*
+ * Private call for CSRSS
+ */
+VOID
+STDCALL
+PrivateCsrssRegisterPrimitive(VOID)
+{
+  NtUserCallNoParam(NOPARAM_ROUTINE_REGISTER_PRIMITIVE);
+}
+
+/*
+ * Another private call for CSRSS
+ */
+VOID
+STDCALL
+PrivateCsrssAcquireOrReleaseInputOwnership(BOOL Release)
+{
+  NtUserAcquireOrReleaseInputOwnership(Release);
+}
 
 /*
  * @implemented
  */
 VOID
-WINAPI
+STDCALL
 keybd_event(
 	    BYTE bVk,
 	    BYTE bScan,
@@ -536,7 +886,7 @@ keybd_event(
  * @implemented
  */
 VOID
-WINAPI
+STDCALL
 mouse_event(
 	    DWORD dwFlags,
 	    DWORD dx,
@@ -591,33 +941,28 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
     HWND hwnd;
     INT hoverwidth = 0, hoverheight = 0;
     RECT client;
-    PUSER32_TRACKINGLIST ptracking_info;
-
-    ptracking_info = & User32GetThreadData()->tracking_info;
 
     GetCursorPos(&pos);
     hwnd = WindowFromPoint(pos);
 
-    SystemParametersInfoW(SPI_GETMOUSEHOVERWIDTH, 0, &hoverwidth, 0);
-    SystemParametersInfoW(SPI_GETMOUSEHOVERHEIGHT, 0, &hoverheight, 0);
+//    SystemParametersInfoW(SPI_GETMOUSEHOVERWIDTH, 0, &hoverwidth, 0);
+    hoverwidth = 4;
+//    SystemParametersInfoW(SPI_GETMOUSEHOVERHEIGHT, 0, &hoverheight, 0);
+    hoverheight = 4;
 
     /* see if this tracking event is looking for TME_LEAVE and that the */
     /* mouse has left the window */
-    if (ptracking_info->tme.dwFlags & TME_LEAVE)
+    if (tracking_info.tme.dwFlags & TME_LEAVE)
     {
-        if (ptracking_info->tme.hwndTrack != hwnd)
+        if (tracking_info.tme.hwndTrack != hwnd)
         {
-            if (ptracking_info->tme.dwFlags & TME_NONCLIENT)
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
-            }
+            if (tracking_info.tme.dwFlags & TME_NONCLIENT)
+                PostMessageW(tracking_info.tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
             else
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
-            }
+                PostMessageW(tracking_info.tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
 
             /* remove the TME_LEAVE flag */
-            ptracking_info->tme.dwFlags &= ~TME_LEAVE;
+            tracking_info.tme.dwFlags &= ~TME_LEAVE;
         }
         else
         {
@@ -625,35 +970,35 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
             MapWindowPoints(hwnd, NULL, (LPPOINT)&client, 2);
             if (PtInRect(&client, pos))
             {
-                if (ptracking_info->tme.dwFlags & TME_NONCLIENT)
+                if (tracking_info.tme.dwFlags & TME_NONCLIENT)
                 {
-                    PostMessageW(ptracking_info->tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
+                    PostMessageW(tracking_info.tme.hwndTrack, WM_NCMOUSELEAVE, 0, 0);
                     /* remove the TME_LEAVE flag */
-                    ptracking_info->tme.dwFlags &= ~TME_LEAVE;
+                    tracking_info.tme.dwFlags &= ~TME_LEAVE;
                 }
             }
             else
             {
-                if (!(ptracking_info->tme.dwFlags & TME_NONCLIENT))
+                if (!(tracking_info.tme.dwFlags & TME_NONCLIENT))
                 {
-                    PostMessageW(ptracking_info->tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
+                    PostMessageW(tracking_info.tme.hwndTrack, WM_MOUSELEAVE, 0, 0);
                     /* remove the TME_LEAVE flag */
-                    ptracking_info->tme.dwFlags &= ~TME_LEAVE;
+                    tracking_info.tme.dwFlags &= ~TME_LEAVE;
                 }
             }
         }
     }
 
     /* see if we are tracking hovering for this hwnd */
-    if (ptracking_info->tme.dwFlags & TME_HOVER)
+    if (tracking_info.tme.dwFlags & TME_HOVER)
     {
         /* has the cursor moved outside the rectangle centered around pos? */
-        if ((abs(pos.x - ptracking_info->pos.x) > (hoverwidth / 2.0)) ||
-            (abs(pos.y - ptracking_info->pos.y) > (hoverheight / 2.0)))
+        if ((abs(pos.x - tracking_info.pos.x) > (hoverwidth / 2.0)) ||
+            (abs(pos.y - tracking_info.pos.y) > (hoverheight / 2.0)))
         {
             /* record this new position as the current position and reset */
             /* the iHoverTime variable to 0 */
-            ptracking_info->pos = pos;
+            tracking_info.pos = pos;
         }
         else
         {
@@ -661,27 +1006,25 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
             posClient.y = pos.y;
             ScreenToClient(hwnd, &posClient);
 
-            if (ptracking_info->tme.dwFlags & TME_NONCLIENT)
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_NCMOUSEHOVER,
+            if (tracking_info.tme.dwFlags & TME_NONCLIENT)
+                PostMessageW(tracking_info.tme.hwndTrack, WM_NCMOUSEHOVER,
                             get_key_state(), MAKELPARAM( posClient.x, posClient.y ));
-            }
             else
-            {
-                PostMessageW(ptracking_info->tme.hwndTrack, WM_MOUSEHOVER,
+                PostMessageW(tracking_info.tme.hwndTrack, WM_MOUSEHOVER,
                             get_key_state(), MAKELPARAM( posClient.x, posClient.y ));
-            }
 
             /* stop tracking mouse hover */
-            ptracking_info->tme.dwFlags &= ~TME_HOVER;
+            tracking_info.tme.dwFlags &= ~TME_HOVER;
         }
     }
 
     /* stop the timer if the tracking list is empty */
-    if (!(ptracking_info->tme.dwFlags & (TME_HOVER | TME_LEAVE)))
+    if (!(tracking_info.tme.dwFlags & (TME_HOVER | TME_LEAVE)))
     {
-        KillTimer(0, ptracking_info->timer);
-        RtlZeroMemory(ptracking_info,sizeof(USER32_TRACKINGLIST));
+        memset(&tracking_info, 0, sizeof(tracking_info));
+
+        KillTimer(0, timer);
+        timer = 0;
     }
 }
 
@@ -708,17 +1051,16 @@ static void CALLBACK TrackMouseEventProc(HWND hwndUnused, UINT uMsg, UINT_PTR id
  *
  */
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 TrackMouseEvent(
   LPTRACKMOUSEEVENT ptme)
 {
     HWND hwnd;
     POINT pos;
     DWORD hover_time;
-    PUSER32_TRACKINGLIST ptracking_info;
 
     TRACE("%lx, %lx, %p, %lx\n", ptme->cbSize, ptme->dwFlags, ptme->hwndTrack, ptme->dwHoverTime);
 
@@ -728,13 +1070,10 @@ TrackMouseEvent(
         return FALSE;
     }
 
-    ptracking_info = & User32GetThreadData()->tracking_info;
-
     /* fill the TRACKMOUSEEVENT struct with the current tracking for the given hwnd */
     if (ptme->dwFlags & TME_QUERY )
     {
-        *ptme = ptracking_info->tme;
-        ptme->cbSize = sizeof(TRACKMOUSEEVENT);
+        *ptme = tracking_info.tme;
 
         return TRUE; /* return here, TME_QUERY is retrieving information */
     }
@@ -749,50 +1088,47 @@ TrackMouseEvent(
 
     /* if HOVER_DEFAULT was specified replace this with the systems current value */
     if (hover_time == HOVER_DEFAULT || hover_time == 0)
-    {
-        SystemParametersInfoW(SPI_GETMOUSEHOVERTIME, 0, &hover_time, 0);
-    }
+//        SystemParametersInfoW(SPI_GETMOUSEHOVERTIME, 0, &hover_time, 0);
+        hover_time = 400;
 
     GetCursorPos(&pos);
     hwnd = WindowFromPoint(pos);
 
     if (ptme->dwFlags & ~(TME_CANCEL | TME_HOVER | TME_LEAVE | TME_NONCLIENT))
-    {
         FIXME("Unknown flag(s) %08lx\n", ptme->dwFlags & ~(TME_CANCEL | TME_HOVER | TME_LEAVE | TME_NONCLIENT));
-    }
 
     if (ptme->dwFlags & TME_CANCEL)
     {
-        if (ptracking_info->tme.hwndTrack == ptme->hwndTrack)
+        if (tracking_info.tme.hwndTrack == ptme->hwndTrack)
         {
-            ptracking_info->tme.dwFlags &= ~(ptme->dwFlags & ~TME_CANCEL);
+            tracking_info.tme.dwFlags &= ~(ptme->dwFlags & ~TME_CANCEL);
 
             /* if we aren't tracking on hover or leave remove this entry */
-            if (!(ptracking_info->tme.dwFlags & (TME_HOVER | TME_LEAVE)))
+            if (!(tracking_info.tme.dwFlags & (TME_HOVER | TME_LEAVE)))
             {
-                KillTimer(0, ptracking_info->timer);
-                RtlZeroMemory(ptracking_info,sizeof(USER32_TRACKINGLIST));
+                memset(&tracking_info, 0, sizeof(tracking_info));
+
+                KillTimer(0, timer);
+                timer = 0;
             }
         }
     } else {
         if (ptme->hwndTrack == hwnd)
         {
             /* Adding new mouse event to the tracking list */
-            ptracking_info->tme = *ptme;
-            ptracking_info->tme.dwHoverTime = hover_time;
+            tracking_info.tme = *ptme;
+            tracking_info.tme.dwHoverTime = hover_time;
 
             /* Initialize HoverInfo variables even if not hover tracking */
-            ptracking_info->pos = pos;
+            tracking_info.pos = pos;
 
-            if (!ptracking_info->timer)
-            {
-                ptracking_info->timer = SetTimer(0, 0, hover_time, TrackMouseEventProc);
-            }
+            if (!timer)
+                timer = SetTimer(0, 0, hover_time, TrackMouseEventProc);
         }
     }
 
     return TRUE;
-
+ 
 }
 
 /* EOF */

@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #ifndef _WINE_TYPELIB_H
 #define _WINE_TYPELIB_H
@@ -26,6 +26,7 @@
 #include "windef.h"
 #include "winbase.h"
 #include "oleauto.h"
+#include "wine/windef16.h"
 
 #define HELPDLLFLAG (0x0100)
 #define DO_NOT_SEEK (-1)
@@ -78,7 +79,7 @@ typedef struct tagMSFT_Header {
         INT   res44;            /* unknown always: 0x20 (guid hash size?) */
         INT   res48;            /* unknown always: 0x80 (name hash size?) */
         INT   dispatchpos;      /* HREFTYPE to IDispatch, or -1 if no IDispatch */
-/*0x50*/INT   nimpinfos;        /* number of impinfos */
+/*0x50*/INT   res50;            /* is zero becomes one when an interface is derived */
 } MSFT_Header;
 
 /* segments in the type lib file have a structure like this: */
@@ -95,13 +96,13 @@ typedef struct tagMSFT_SegDir {
 /*1*/MSFT_pSeg pTypeInfoTab; /* each type info get an entry of 0x64 bytes */
                              /* (25 ints) */
 /*2*/MSFT_pSeg pImpInfo;     /* table with info for imported types */
-/*3*/MSFT_pSeg pImpFiles;    /* import libraries */
+/*3*/MSFT_pSeg pImpFiles;    /* import libaries */
 /*4*/MSFT_pSeg pRefTab;      /* References table */
-/*5*/MSFT_pSeg pLibtab;      /* always exists, always same size (0x80) */
+/*5*/MSFT_pSeg pLibtab;      /* always exists, alway same size (0x80) */
                              /* hash table w offsets to guid????? */
 /*6*/MSFT_pSeg pGuidTab;     /* all guids are stored here together with  */
                              /* offset in some table???? */
-/*7*/MSFT_pSeg res07;        /* always created, always same size (0x200) */
+/*7*/MSFT_pSeg res07;        /* always created, alway same size (0x200) */
                              /* purpose largely unknown */
 /*8*/MSFT_pSeg pNametab;     /* name tables */
 /*9*/MSFT_pSeg pStringtab;   /* string table */
@@ -119,10 +120,10 @@ typedef struct tagMSFT_SegDir {
 /* base type info data */
 typedef struct tagMSFT_TypeInfoBase {
 /*000*/ INT   typekind;             /*  it is the TKIND_xxx */
-                                    /* some byte alignment stuff */
+                                    /* some byte alignment stuf */
         INT     memoffset;          /* points past the file, if no elements */
         INT     res2;               /* zero if no element, N*0x40 */
-        INT     res3;               /* -1 if no element, (N-1)*0x38 */
+        INT     res3;               /* -1 if no lement, (N-1)*0x38 */
 /*010*/ INT     res4;               /* always? 3 */
         INT     res5;               /* always? zero */
         INT     cElement;           /* counts elements, HI=cVars, LO=cFuncs */
@@ -148,7 +149,7 @@ typedef struct tagMSFT_TypeInfoBase {
 /*050*/ INT     size;           /* size in bytes, at least for structures */
         /* FIXME: name of this field */
         INT     datatype1;      /* position in type description table */
-                                /* or in base interfaces */
+                                /* or in base intefaces */
                                 /* if coclass: offset in reftable */
                                 /* if interface: reference to inherited if */
                                 /* if module: offset to dllname in name table */
@@ -284,7 +285,7 @@ typedef struct {
 			   lower-middle 8 bits are unknown (flags?),
 			   upper 16 bits are hash code */
 } MSFT_NameIntro;
-/* the custom data table directory has entries like this */
+/* the custom data table directory has enties like this */
 typedef struct {
     INT   GuidOffset;
     INT   DataOffset;
@@ -427,28 +428,28 @@ typedef struct {
 /*00*/  WORD cFuncs;
 /*02*/  WORD cVars;
 /*04*/  WORD cImplTypes;
-/*06*/  WORD res06; /* always 0000 */
-/*08*/  WORD funcs_off; /* offset to functions (starting from the member header) */
-/*0a*/  WORD vars_off; /* offset to vars (starting from the member header) */
-/*0c*/  WORD impls_off; /* offset to implemented types (starting from the member header) */
-/*0e*/  WORD funcs_bytes; /* bytes used by function data */
-/*10*/  WORD vars_bytes; /* bytes used by var data */
-/*12*/  WORD impls_bytes; /* bytes used by implemented type data */
+/*06*/  WORD res06;
+/*08*/  WORD res08;
+/*0a*/  WORD res0a;
+/*0c*/  WORD res0c;
+/*0e*/  WORD res0e;
+/*10*/  WORD res10;
+/*12*/  WORD res12;
 /*14*/  WORD tdescalias_vt; /* for TKIND_ALIAS */
-/*16*/  WORD res16; /* always ffff */
-/*18*/  WORD res18; /* always 0000 */
-/*1a*/  WORD res1a; /* always 0000 */
-/*1c*/  WORD simple_alias; /* tdescalias_vt is a vt rather than an offset? */
-/*1e*/  WORD res1e; /* always 0000 */
+/*16*/  WORD res16;
+/*18*/  WORD res18;
+/*1a*/  WORD res1a;
+/*1c*/  WORD res1c;
+/*1e*/  WORD res1e;
 /*20*/  WORD cbSizeInstance;
 /*22*/  WORD cbAlignment;
 /*24*/  WORD res24;
 /*26*/  WORD res26;
 /*28*/  WORD cbSizeVft;
-/*2a*/  WORD res2a; /* always ffff */
-/*2c*/  WORD res2c; /* always ffff */
-/*2e*/  WORD res2e; /* always ffff */
-/*30*/  WORD res30; /* always ffff */
+/*2a*/  WORD res2a;
+/*2c*/  WORD res2c;
+/*2e*/  WORD res2e;
+/*30*/  WORD res30;
 /*32*/  WORD res32;
 /*34*/  WORD res34;
 } SLTG_TypeInfoTail;
@@ -476,7 +477,15 @@ typedef struct {
 #define SLTG_ENUMITEM_MAGIC 0x120a
 
 typedef struct {
-	BYTE magic;	/* 0x4c, 0xcb or 0x8b with optional SLTG_FUNCTION_FLAGS_PRESENT flag */
+/*00*/	WORD vt;	/* vartype, 0xffff marks end. */
+/*02*/	WORD res02;	/* ?, 0xffff marks end */
+} SLTG_AliasItem;
+
+#define SLTG_ALIASITEM_MAGIC 0x001d
+
+
+typedef struct {
+	BYTE magic;	/* 0x4c or 0x6c */
 	BYTE inv;	/* high nibble is INVOKE_KIND, low nibble = 2 */
 	WORD next;	/* byte offset from beginning of group to next fn */
 	WORD name;	/* Offset within name table to name */
@@ -490,7 +499,7 @@ typedef struct {
 			   middle 6 bits */
 	WORD rettype;	/* return type VT_?? or offset to ret type */
 	WORD vtblpos;	/* position in vtbl? */
-	WORD funcflags; /* present if magic & 0x20 */
+	WORD funcflags; /* present if magic == 0x6c */
 /* Param list starts, repeat next two as required */
 #if 0
 	WORD  name;	/* offset to 2nd letter of name */
@@ -498,10 +507,8 @@ typedef struct {
 #endif
 } SLTG_Function;
 
-#define SLTG_FUNCTION_FLAGS_PRESENT 0x20
 #define SLTG_FUNCTION_MAGIC 0x4c
-#define SLTG_DISPATCH_FUNCTION_MAGIC 0xcb
-#define SLTG_STATIC_FUNCTION_MAGIC 0x8b
+#define SLTG_FUNCTION_WITH_FLAGS_MAGIC 0x6c
 
 typedef struct {
 /*00*/	BYTE magic;		/* 0xdf */
@@ -572,19 +579,17 @@ typedef struct {
 
 typedef struct {
   BYTE magic; /* 0x0a */
-  BYTE flags;
+  BYTE typepos;
   WORD next;
   WORD name;
-  WORD byte_offs; /* pos in struct, or offset to const type or const data (if flags & 0x08) */
-  WORD type; /* if flags & 0x02 this is the type, else offset to type */
+  WORD byte_offs; /* pos in struct */
+  WORD type; /* if typepos == 0x02 this is the type, else offset to type */
   DWORD memid;
   WORD helpcontext; /* ?? */
   WORD helpstring; /* ?? */
-  WORD varflags; /* only present if magic & 0x02 */
-} SLTG_Variable;
+} SLTG_RecordItem;
 
-#define SLTG_VAR_MAGIC 0x0a
-#define SLTG_VAR_WITH_FLAGS_MAGIC 0x2a
+#define SLTG_RECORD_MAGIC 0x0a
 
 
 /* CARRAYs look like this
@@ -598,16 +603,9 @@ WORD typeofarray
 HRESULT ITypeInfoImpl_GetInternalFuncDesc( ITypeInfo *iface, UINT index, const FUNCDESC **ppFuncDesc );
 
 extern DWORD _invoke(FARPROC func,CALLCONV callconv, int nrargs, DWORD *args);
+extern void dump_Variant(const VARIANT * pvar);
 
 HRESULT TMARSHAL_DllGetClassObject(REFCLSID rclsid, REFIID iid,LPVOID *ppv);
-
-/* The OLE Automation ProxyStub Interface Class (aka Typelib Marshaler) */
-DEFINE_OLEGUID( CLSID_PSDispatch,    0x00020420, 0x0000, 0x0000 );
-DEFINE_OLEGUID( CLSID_PSEnumVariant, 0x00020421, 0x0000, 0x0000 );
-DEFINE_OLEGUID( CLSID_PSTypeInfo,    0x00020422, 0x0000, 0x0000 );
-DEFINE_OLEGUID( CLSID_PSTypeLib,     0x00020423, 0x0000, 0x0000 );
-DEFINE_OLEGUID( CLSID_PSOAInterface, 0x00020424, 0x0000, 0x0000 );
-DEFINE_OLEGUID( CLSID_PSTypeComp,    0x00020425, 0x0000, 0x0000 );
 
 /*---------------------------END--------------------------------------------*/
 #endif

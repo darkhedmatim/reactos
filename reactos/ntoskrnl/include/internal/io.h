@@ -10,7 +10,7 @@
 //
 // Define this if you want debugging support
 //
-#define _IO_DEBUG_                                      0x00
+#define _IO_DEBUG_                                      0x01
 
 //
 // These define the Debug Masks Supported
@@ -43,13 +43,8 @@
     }
 #endif
 #else
-#define IOTRACE(x, ...) DPRINT(__VA_ARGS__)
+#define IOTRACE(x, ...) DPRINT(__VA_ARGS__);
 #endif
-
-//
-// Registry path to the enumeration root key
-//
-#define ENUM_ROOT L"\\Registry\\Machine\\System\\CurrentControlSet\\Enum"
 
 //
 // Returns the type of METHOD_ used in this IOCTL
@@ -57,34 +52,16 @@
 #define IO_METHOD_FROM_CTL_CODE(c)                      (c & 0x00000003)
 
 //
-// Bugcheck codes for RAM disk booting
+// Packet Types when piggybacking on the IRP Overlay
 //
-//
-// No LoaderXIPRom descriptor was found in the loader memory list
-//
-#define RD_NO_XIPROM_DESCRIPTOR  1
-//
-// Unable to open the RAM disk driver (ramdisk.sys or \Device\Ramdisk)
-//
-#define RD_NO_RAMDISK_DRIVER     2
-//
-// FSCTL_CREATE_RAM_DISK failed
-//
-#define RD_FSCTL_FAILED          3
-//
-// Unable to create GUID string from binary GUID
-//
-#define RD_GUID_CONVERT_FAILED   4
-//
-// Unable to create symbolic link pointing to the RAM disk device
-//
-#define RD_SYMLINK_CREATE_FAILED 5
+#define IrpCompletionPacket                             0x1
+#define IrpMiniCompletionPacket                         0x2
 
 //
 // We can call the Ob Inlined API, it's the same thing
 //
 #define IopAllocateMdlFromLookaside                     \
-    ObpAllocateObjectCreateInfoBuffer
+    ObpAllocateCapturedAttributes
 #define IopFreeMdlFromLookaside                         \
     ObpFreeCapturedAttributes
 
@@ -243,20 +220,10 @@ typedef enum _IOP_TRANSFER_TYPE
 } IOP_TRANSFER_TYPE, *PIOP_TRANSFER_TYPE;
 
 //
-// Packet Types when piggybacking on the IRP Overlay
-//
-typedef enum _COMPLETION_PACKET_TYPE
-    {
-    IopCompletionPacketIrp,
-    IopCompletionPacketMini,
-    IopCompletionPacketQuota
-} COMPLETION_PACKET_TYPE, *PCOMPLETION_PACKET_TYPE;
-
-//
 // Special version of the IRP Overlay used to optimize I/O completion
 // by not using up a separate structure.
 //
-typedef struct _IOP_MINI_COMPLETION_PACKET
+typedef struct _IO_COMPLETION_PACKET
 {
     struct
     {
@@ -267,11 +234,10 @@ typedef struct _IOP_MINI_COMPLETION_PACKET
             ULONG PacketType;
         };
     };
-    PVOID KeyContext;
-    PVOID ApcContext;
-    NTSTATUS IoStatus;
-    ULONG_PTR IoStatusInformation;
-} IOP_MINI_COMPLETION_PACKET, *PIOP_MINI_COMPLETION_PACKET;
+    PVOID Key;
+    PVOID Context;
+    IO_STATUS_BLOCK IoStatus;
+} IO_COMPLETION_PACKET, *PIO_COMPLETION_PACKET;
 
 //
 // I/O Completion Context for IoSetIoCompletionRoutineEx
@@ -292,7 +258,7 @@ typedef struct _IO_WORKITEM
     PDEVICE_OBJECT DeviceObject;
     PIO_WORKITEM_ROUTINE WorkerRoutine;
     PVOID Context;
-} IO_WORKITEM;
+} IO_WORKITEM, *PIO_WORKITEM;
 
 //
 // I/O Wrapper around the Kernel Interrupt
@@ -382,18 +348,6 @@ typedef struct _OPEN_PACKET
     ULONG InternalFlags;
     //PIO_DRIVER_CREATE_CONTEXT DriverCreateContext; Vista only, needs ROS DDK Update
 } OPEN_PACKET, *POPEN_PACKET;
-
-//
-// Parameters packet for Load/Unload work item's context
-//
-typedef struct _LOAD_UNLOAD_PARAMS
-{
-    NTSTATUS Status;
-    PUNICODE_STRING ServiceName;
-    WORK_QUEUE_ITEM WorkItem;
-    KEVENT Event;
-    PDRIVER_OBJECT DriverObject;
-} LOAD_UNLOAD_PARAMS, *PLOAD_UNLOAD_PARAMS;
 
 //
 // List of Bus Type GUIDs
@@ -487,12 +441,6 @@ PnpInit(
     VOID
 );
 
-BOOLEAN
-NTAPI
-PpInitSystem(
-    VOID
-);
-
 VOID
 PnpInit2(
     VOID
@@ -526,7 +474,6 @@ NTSTATUS
 IopCreateDeviceNode(
     IN PDEVICE_NODE ParentNode,
     IN PDEVICE_OBJECT PhysicalDeviceObject,
-    IN PUNICODE_STRING ServiceName,
     OUT PDEVICE_NODE *DeviceNode
 );
 
@@ -558,12 +505,8 @@ IopActionConfigureChildServices(
 NTSTATUS
 IopActionInitChildServices(
     IN PDEVICE_NODE DeviceNode,
-    IN PVOID Context
-);
-
-NTSTATUS
-IopEnumerateDevice(
-    IN PDEVICE_OBJECT DeviceObject
+    IN PVOID Context,
+    IN BOOLEAN BootDrivers
 );
 
 NTSTATUS
@@ -576,7 +519,7 @@ IoDestroyDriverList(
     VOID
 );
 
-NTSTATUS
+NTSTATUS 
 INIT_FUNCTION
 IopInitPlugPlayEvents(VOID);
 
@@ -588,22 +531,9 @@ IopQueueTargetDeviceEvent(
 
 NTSTATUS
 IopInitializePnpServices(
-    IN PDEVICE_NODE DeviceNode);
-
-NTSTATUS
-NTAPI
-IopOpenRegistryKeyEx(
-    PHANDLE KeyHandle,
-    HANDLE ParentKey,
-    PUNICODE_STRING Name,
-    ACCESS_MASK DesiredAccess);
-
-NTSTATUS
-NTAPI
-IopGetRegistryValue(IN HANDLE Handle,
-                    IN PWSTR ValueName,
-                    OUT PKEY_VALUE_FULL_INFORMATION *Information);
-
+    IN PDEVICE_NODE DeviceNode,
+    IN BOOLEAN BootDrivers)
+;
 
 //
 // Initialization Routines
@@ -661,7 +591,7 @@ IopMountVolume(
     OUT PVPB *Vpb
 );
 
-PVOID
+PVOID 
 IoOpenSymlink(
     IN PVOID SymbolicLink
 );
@@ -707,12 +637,6 @@ NTAPI
 IopDereferenceDeviceObject(
     IN PDEVICE_OBJECT DeviceObject,
     IN BOOLEAN ForceUnload
-);
-
-NTSTATUS
-NTAPI
-IoGetRelatedTargetDevice(IN PFILE_OBJECT FileObject,
-                         OUT PDEVICE_OBJECT *DeviceObject
 );
 
 //
@@ -851,7 +775,6 @@ PnpRootDriverEntry(
 
 NTSTATUS
 PnpRootCreateDevice(
-    IN PUNICODE_STRING ServiceName,
     IN OUT PDEVICE_OBJECT *PhysicalDeviceObject
 );
 
@@ -870,19 +793,21 @@ IopInitializeSystemDrivers(
     VOID
 );
 
-NTSTATUS
-NTAPI
-IopCreateDriver(IN PUNICODE_STRING DriverName OPTIONAL,
-                IN PDRIVER_INITIALIZE InitializationFunction,
-                IN PUNICODE_STRING RegistryPath,
-                IN PVOID DllBase,
-                IN ULONG SizeOfImage,
-                OUT PDRIVER_OBJECT *pDriverObject);
-
 VOID
 NTAPI
 IopDeleteDriver(
     IN PVOID ObjectBody
+);
+
+NTSTATUS
+FASTCALL
+IopCreateDriverObject(
+    OUT PDRIVER_OBJECT *DriverObject,
+    IN PUNICODE_STRING ServiceName,
+    IN ULONG CreateAttributes,
+    IN BOOLEAN FileSystemDriver,
+    IN PVOID DriverImageStart,
+    IN ULONG DriverImageSize
 );
 
 NTSTATUS
@@ -900,13 +825,7 @@ IopLoadServiceModule(
     OUT PLDR_DATA_TABLE_ENTRY *ModuleObject
 );
 
-VOID
-NTAPI
-IopLoadUnloadDriver(
-    IN OUT PLOAD_UNLOAD_PARAMS LoadParams
-);
-
-NTSTATUS
+NTSTATUS 
 FASTCALL
 IopInitializeDriverModule(
     IN PDEVICE_NODE DeviceNode,
@@ -938,10 +857,6 @@ IopReinitializeBootDrivers(
 //
 // File Routines
 //
-VOID
-NTAPI
-IopDeleteDevice(IN PVOID ObjectBody);
-
 NTSTATUS
 NTAPI
 IopParseDevice(
@@ -1037,26 +952,16 @@ IopDeleteIoCompletion(
 );
 
 //
-// Ramdisk Routines
-//
-NTSTATUS
-NTAPI
-IopStartRamdisk(
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
-);
-
-//
 // Global I/O Data
 //
 extern POBJECT_TYPE IoCompletionType;
 extern PDEVICE_NODE IopRootDeviceNode;
 extern ULONG IopTraceLevel;
-extern GENERAL_LOOKASIDE IopMdlLookasideList;
+extern NPAGED_LOOKASIDE_LIST IopMdlLookasideList;
 extern GENERIC_MAPPING IopCompletionMapping;
 extern GENERIC_MAPPING IopFileMapping;
 extern POBJECT_TYPE _IoFileObjectType;
 extern HAL_DISPATCH _HalDispatchTable;
-extern LIST_ENTRY IopErrorLogListHead;
 
 //
 // Inlined Functions

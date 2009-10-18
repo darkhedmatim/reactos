@@ -4,13 +4,11 @@
  * FILE:        tools/cabman/mszip.cpp
  * PURPOSE:     CAB codec for MSZIP compressed data
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- *              Colin Finck <mail@colinfinck.de>
  * NOTES:       The ZLIB does the real work. Get the full version
  *              from http://www.cdrom.com/pub/infozip/zlib/
  * REVISIONS:
  *   CSH 21/03-2001 Created
  *   CSH 15/08-2003 Made it portable
- *   CF  04/05-2007 Made it compatible with 64-bit operating systems
  */
 #include <stdio.h>
 #include "mszip.h"
@@ -52,10 +50,10 @@ CMSZipCodec::~CMSZipCodec()
 }
 
 
-ULONG CMSZipCodec::Compress(void* OutputBuffer,
+unsigned long CMSZipCodec::Compress(void* OutputBuffer,
                             void* InputBuffer,
-                            ULONG InputLength,
-                            PULONG OutputLength)
+                            unsigned long InputLength,
+                            unsigned long* OutputLength)
 /*
  * FUNCTION: Compresses data in a buffer
  * ARGUMENTS:
@@ -65,11 +63,11 @@ ULONG CMSZipCodec::Compress(void* OutputBuffer,
  *     OutputLength   = Address of buffer to place size of compressed data
  */
 {
-    PUSHORT Magic;
+    unsigned short* Magic;
 
-    DPRINT(MAX_TRACE, ("InputLength (%u).\n", (UINT)InputLength));
+    DPRINT(MAX_TRACE, ("InputLength (%lu).\n", InputLength));
 
-    Magic  = (PUSHORT)OutputBuffer;
+    Magic  = (unsigned short*)OutputBuffer;
     *Magic = MSZIP_MAGIC;
 
     ZStream.next_in   = (unsigned char*)InputBuffer;
@@ -84,15 +82,13 @@ ULONG CMSZipCodec::Compress(void* OutputBuffer,
                           -MAX_WBITS,
                           8, /* memLevel */
                           Z_DEFAULT_STRATEGY);
-    if (Status != Z_OK)
-    {
+    if (Status != Z_OK) {
         DPRINT(MIN_TRACE, ("deflateInit() returned (%d).\n", Status));
         return CS_NOMEMORY;
     }
 
     Status = deflate(&ZStream, Z_FINISH);
-    if ((Status != Z_OK) && (Status != Z_STREAM_END))
-    {
+    if ((Status != Z_OK) && (Status != Z_STREAM_END)) {
         DPRINT(MIN_TRACE, ("deflate() returned (%d) (%s).\n", Status, ZStream.msg));
         if (Status == Z_MEM_ERROR)
             return CS_NOMEMORY;
@@ -102,8 +98,7 @@ ULONG CMSZipCodec::Compress(void* OutputBuffer,
     *OutputLength = ZStream.total_out + 2;
 
     Status = deflateEnd(&ZStream);
-    if (Status != Z_OK)
-    {
+    if (Status != Z_OK) {
         DPRINT(MIN_TRACE, ("deflateEnd() returned (%d).\n", Status));
         return CS_BADSTREAM;
     }
@@ -112,10 +107,10 @@ ULONG CMSZipCodec::Compress(void* OutputBuffer,
 }
 
 
-ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
+unsigned long CMSZipCodec::Uncompress(void* OutputBuffer,
                               void* InputBuffer,
-                              ULONG InputLength,
-                              PULONG OutputLength)
+                              unsigned long InputLength,
+                              unsigned long* OutputLength)
 /*
  * FUNCTION: Uncompresses data in a buffer
  * ARGUMENTS:
@@ -125,21 +120,20 @@ ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
  *     OutputLength = Address of buffer to place size of uncompressed data
  */
 {
-    USHORT Magic;
+    unsigned short Magic;
 
-    DPRINT(MAX_TRACE, ("InputLength (%u).\n", (UINT)InputLength));
+    DPRINT(MAX_TRACE, ("InputLength (%lu).\n", InputLength));
 
-    Magic = *((PUSHORT)InputBuffer);
+    Magic = *((unsigned short*)InputBuffer);
 
-    if (Magic != MSZIP_MAGIC)
-    {
+    if (Magic != MSZIP_MAGIC) {
         DPRINT(MID_TRACE, ("Bad MSZIP block header magic (0x%X)\n", Magic));
         return CS_BADSTREAM;
     }
-
-    ZStream.next_in   = (unsigned char*)((unsigned long)InputBuffer + 2);
-    ZStream.avail_in  = InputLength - 2;
-    ZStream.next_out  = (unsigned char*)OutputBuffer;
+	
+	ZStream.next_in   = (unsigned char*)((unsigned long)InputBuffer + 2);
+	ZStream.avail_in  = InputLength - 2;
+	ZStream.next_out  = (unsigned char*)OutputBuffer;
     ZStream.avail_out = CAB_BLOCKSIZE + 12;
 
     /* WindowBits is passed < 0 to tell that there is no zlib header.
@@ -148,19 +142,16 @@ ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
      * return Z_STREAM_END.
      */
     Status = inflateInit2(&ZStream, -MAX_WBITS);
-    if (Status != Z_OK)
-    {
+    if (Status != Z_OK) {
         DPRINT(MIN_TRACE, ("inflateInit2() returned (%d).\n", Status));
         return CS_BADSTREAM;
     }
 
     while ((ZStream.total_out < CAB_BLOCKSIZE + 12) &&
-        (ZStream.total_in < InputLength - 2))
-    {
+        (ZStream.total_in < InputLength - 2)) {
         Status = inflate(&ZStream, Z_NO_FLUSH);
         if (Status == Z_STREAM_END) break;
-        if (Status != Z_OK)
-        {
+        if (Status != Z_OK) {
             DPRINT(MIN_TRACE, ("inflate() returned (%d) (%s).\n", Status, ZStream.msg));
             if (Status == Z_MEM_ERROR)
                 return CS_NOMEMORY;
@@ -171,8 +162,7 @@ ULONG CMSZipCodec::Uncompress(void* OutputBuffer,
     *OutputLength = ZStream.total_out;
 
     Status = inflateEnd(&ZStream);
-    if (Status != Z_OK)
-    {
+    if (Status != Z_OK) {
         DPRINT(MIN_TRACE, ("inflateEnd() returned (%d).\n", Status));
         return CS_BADSTREAM;
     }

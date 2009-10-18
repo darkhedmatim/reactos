@@ -63,7 +63,7 @@ CreateBuiltinUsers (HKEY hUsersKey)
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 SamInitializeSAM (VOID)
 {
   DWORD dwDisposition;
@@ -303,7 +303,7 @@ SamInitializeSAM (VOID)
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 SamGetDomainSid (PSID *Sid)
 {
   DPRINT ("SamGetDomainSid() called\n");
@@ -312,7 +312,7 @@ SamGetDomainSid (PSID *Sid)
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 SamSetDomainSid (PSID Sid)
 {
   HKEY hAccountKey;
@@ -352,7 +352,7 @@ SamSetDomainSid (PSID Sid)
 /*
  * ERROR_USER_EXISTS
  */
-BOOL WINAPI
+BOOL STDCALL
 SamCreateUser (PWSTR UserName,
 	       PWSTR UserPassword,
 	       PSID UserSid)
@@ -454,7 +454,7 @@ SamCreateUser (PWSTR UserName,
  * ERROR_WRONG_PASSWORD
  * ERROR_NO_SUCH_USER
  */
-BOOL WINAPI
+BOOL STDCALL
 SamCheckUserPassword (PWSTR UserName,
 		      PWSTR UserPassword)
 {
@@ -530,7 +530,7 @@ SamCheckUserPassword (PWSTR UserName,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 SamGetUserSid (PWSTR UserName,
 	       PSID *Sid)
 {

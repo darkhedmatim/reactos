@@ -122,7 +122,6 @@ ShellPath ShellEntry::create_absolute_pidl() const
 	CONTEXT("ShellEntry::create_absolute_pidl()");
 
 	if (_up)
-	{
 		if (_up->_etype == ET_SHELL) {
 			ShellDirectory* dir = static_cast<ShellDirectory*>(_up);
 
@@ -130,7 +129,7 @@ ShellPath ShellEntry::create_absolute_pidl() const
 				return _pidl.create_absolute_pidl(dir->create_absolute_pidl());
 		} else
 			return _pidl.create_absolute_pidl(_up->create_absolute_pidl());
-	}
+
 	return _pidl;
 }
 
@@ -172,11 +171,7 @@ bool ShellDirectory::get_path(PTSTR path, size_t path_count) const
 
 	SFGAOF attribs = SFGAO_FILESYSTEM;
 
-	// Split pidl into current and parent folder PIDLs
-	ShellPath pidlParent, pidlFolder;
-	_pidl.split(pidlParent, pidlFolder);
-
-	if (FAILED(const_cast<ShellFolder&>(_folder)->GetAttributesOf(1, (LPCITEMIDLIST*)&pidlFolder, &attribs)))
+	if (FAILED(const_cast<ShellFolder&>(_folder)->GetAttributesOf(1, (LPCITEMIDLIST*)&_pidl, &attribs)))
 		return false;
 
 	if (!(attribs & SFGAO_FILESYSTEM))
@@ -404,7 +399,7 @@ void ShellDirectory::read_directory(int scan_flags)
 						attribs |= SFGAO_HASSUBFOLDER;
 						removeable = true;
 					} else if (!(scan_flags & SCAN_DONT_ACCESS)) {
-						SFGAOF attribs2 = SFGAO_READONLY;
+						DWORD attribs2 = SFGAO_READONLY;
 
 						HRESULT hr = _folder->GetAttributesOf(1, (LPCITEMIDLIST*)&pidls[n], &attribs2);
 

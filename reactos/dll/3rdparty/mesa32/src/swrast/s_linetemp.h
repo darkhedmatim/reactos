@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.0
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,9 +31,12 @@
  * The following macros may be defined to indicate what auxillary information
  * must be interplated along the line:
  *    INTERP_Z        - if defined, interpolate Z values
+ *    INTERP_FOG      - if defined, interpolate FOG values
  *    INTERP_RGBA     - if defined, interpolate RGBA values
+ *    INTERP_SPEC     - if defined, interpolate specular RGB values
  *    INTERP_INDEX    - if defined, interpolate color index values
- *    INTERP_ATTRIBS  - if defined, interpolate attribs (texcoords, varying, etc)
+ *    INTERP_TEX      - if defined, interpolate unit 0 texcoords
+ *    INTERP_MULTITEX - if defined, interpolate multi-texcoords
  *
  * When one can directly address pixels in the color buffer the following
  * macros can be defined and used to directly compute pixel addresses during
@@ -67,26 +70,24 @@
 static void
 NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
 {
-   const SWcontext *swrast = SWRAST_CONTEXT(ctx);
-   SWspan span;
+   struct sw_span span;
    GLuint interpFlags = 0;
-   GLint x0 = (GLint) vert0->attrib[FRAG_ATTRIB_WPOS][0];
-   GLint x1 = (GLint) vert1->attrib[FRAG_ATTRIB_WPOS][0];
-   GLint y0 = (GLint) vert0->attrib[FRAG_ATTRIB_WPOS][1];
-   GLint y1 = (GLint) vert1->attrib[FRAG_ATTRIB_WPOS][1];
+   GLint x0 = (GLint) vert0->win[0];
+   GLint x1 = (GLint) vert1->win[0];
+   GLint y0 = (GLint) vert0->win[1];
+   GLint y1 = (GLint) vert1->win[1];
    GLint dx, dy;
    GLint numPixels;
    GLint xstep, ystep;
 #if defined(DEPTH_TYPE)
-   const GLint depthBits = ctx->DrawBuffer->Visual.depthBits;
+   const GLint depthBits = ctx->Visual.depthBits;
    const GLint fixedToDepthShift = depthBits <= 16 ? FIXED_SHIFT : 0;
    struct gl_renderbuffer *zrb = ctx->DrawBuffer->Attachment[BUFFER_DEPTH].Renderbuffer;
 #define FixedToDepth(F)  ((F) >> fixedToDepthShift)
    GLint zPtrXstep, zPtrYstep;
    DEPTH_TYPE *zPtr;
 #elif defined(INTERP_Z)
-   const GLint depthBits = ctx->DrawBuffer->Visual.depthBits;
-/*ctx->Visual.depthBits;*/
+   const GLint depthBits = ctx->Visual.depthBits;
 #endif
 #ifdef PIXEL_ADDRESS
    PIXEL_TYPE *pixelPtr;
@@ -97,13 +98,11 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
    SETUP_CODE
 #endif
 
-   (void) swrast;
-
    /* Cull primitives with malformed coordinates.
     */
    {
-      GLfloat tmp = vert0->attrib[FRAG_ATTRIB_WPOS][0] + vert0->attrib[FRAG_ATTRIB_WPOS][1]
-                  + vert1->attrib[FRAG_ATTRIB_WPOS][0] + vert1->attrib[FRAG_ATTRIB_WPOS][1];
+      GLfloat tmp = vert0->win[0] + vert0->win[1]
+                  + vert1->win[0] + vert1->win[1];
       if (IS_INF_OR_NAN(tmp))
 	 return;
    }
@@ -111,12 +110,8 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
    /*
    printf("%s():\n", __FUNCTION__);
    printf(" (%f, %f, %f) -> (%f, %f, %f)\n",
-          vert0->attrib[FRAG_ATTRIB_WPOS][0],
-          vert0->attrib[FRAG_ATTRIB_WPOS][1],
-          vert0->attrib[FRAG_ATTRIB_WPOS][2],
-          vert1->attrib[FRAG_ATTRIB_WPOS][0],
-          vert1->attrib[FRAG_ATTRIB_WPOS][1],
-          vert1->attrib[FRAG_ATTRIB_WPOS][2]);
+          vert0->win[0], vert0->win[1], vert0->win[2],
+          vert1->win[0], vert1->win[1], vert1->win[2]);
    printf(" (%d, %d, %d) -> (%d, %d, %d)\n",
           vert0->color[0], vert0->color[1], vert0->color[2], 
           vert1->color[0], vert1->color[1], vert1->color[2]);
@@ -155,18 +150,6 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
    dy = y1 - y0;
    if (dx == 0 && dy == 0)
       return;
-
-   /*
-   printf("%s %d,%d  %g %g %g %g  %g %g %g %g\n", __FUNCTION__, dx, dy,
-          vert0->attrib[FRAG_ATTRIB_COL1][0],
-          vert0->attrib[FRAG_ATTRIB_COL1][1],
-          vert0->attrib[FRAG_ATTRIB_COL1][2],
-          vert0->attrib[FRAG_ATTRIB_COL1][3],
-          vert1->attrib[FRAG_ATTRIB_COL1][0],
-          vert1->attrib[FRAG_ATTRIB_COL1][1],
-          vert1->attrib[FRAG_ATTRIB_COL1][2],
-          vert1->attrib[FRAG_ATTRIB_COL1][3]);
-   */
 
 #ifdef DEPTH_TYPE
    zPtr = (DEPTH_TYPE *) zrb->GetPointer(ctx, zrb, x0, y0);
@@ -246,15 +229,33 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
       span.alphaStep = 0;
    }
 #endif
+#ifdef INTERP_SPEC
+   interpFlags |= SPAN_SPEC;
+   if (ctx->Light.ShadeModel == GL_SMOOTH) {
+      span.specRed       = ChanToFixed(vert0->specular[0]);
+      span.specGreen     = ChanToFixed(vert0->specular[1]);
+      span.specBlue      = ChanToFixed(vert0->specular[2]);
+      span.specRedStep   = (ChanToFixed(vert1->specular[0]) - span.specRed) / numPixels;
+      span.specGreenStep = (ChanToFixed(vert1->specular[1]) - span.specBlue) / numPixels;
+      span.specBlueStep  = (ChanToFixed(vert1->specular[2]) - span.specGreen) / numPixels;
+   }
+   else {
+      span.specRed       = ChanToFixed(vert1->specular[0]);
+      span.specGreen     = ChanToFixed(vert1->specular[1]);
+      span.specBlue      = ChanToFixed(vert1->specular[2]);
+      span.specRedStep   = 0;
+      span.specGreenStep = 0;
+      span.specBlueStep  = 0;
+   }
+#endif
 #ifdef INTERP_INDEX
    interpFlags |= SPAN_INDEX;
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
-      span.index = FloatToFixed(vert0->attrib[FRAG_ATTRIB_CI][0]);
-      span.indexStep = FloatToFixed(  vert1->attrib[FRAG_ATTRIB_CI][0]
-                                    - vert0->attrib[FRAG_ATTRIB_CI][0]) / numPixels;
+      span.index = FloatToFixed(vert0->index);
+      span.indexStep = FloatToFixed(vert1->index - vert0->index) / numPixels;
    }
    else {
-      span.index = FloatToFixed(vert1->attrib[FRAG_ATTRIB_CI][0]);
+      span.index = FloatToFixed(vert1->index);
       span.indexStep = 0;
    }
 #endif
@@ -262,54 +263,83 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
    interpFlags |= SPAN_Z;
    {
       if (depthBits <= 16) {
-         span.z = FloatToFixed(vert0->attrib[FRAG_ATTRIB_WPOS][2]) + FIXED_HALF;
-         span.zStep = FloatToFixed(  vert1->attrib[FRAG_ATTRIB_WPOS][2]
-                                   - vert0->attrib[FRAG_ATTRIB_WPOS][2]) / numPixels;
+         span.z = FloatToFixed(vert0->win[2]) + FIXED_HALF;
+         span.zStep = FloatToFixed(vert1->win[2] - vert0->win[2]) / numPixels;
       }
       else {
          /* don't use fixed point */
-         span.z = (GLuint) vert0->attrib[FRAG_ATTRIB_WPOS][2];
-         span.zStep = (GLint) ((  vert1->attrib[FRAG_ATTRIB_WPOS][2]
-                                - vert0->attrib[FRAG_ATTRIB_WPOS][2]) / numPixels);
+         span.z = (GLint) vert0->win[2];
+         span.zStep = (GLint) ((vert1->win[2] - vert0->win[2]) / numPixels);
       }
    }
 #endif
-#if defined(INTERP_ATTRIBS)
+#ifdef INTERP_FOG
+   interpFlags |= SPAN_FOG;
+   span.fog = vert0->fog;
+   span.fogStep = (vert1->fog - vert0->fog) / numPixels;
+#endif
+#ifdef INTERP_TEX
+   interpFlags |= SPAN_TEXTURE;
+   {
+      const GLfloat invw0 = vert0->win[3];
+      const GLfloat invw1 = vert1->win[3];
+      const GLfloat invLen = 1.0F / numPixels;
+      GLfloat ds, dt, dr, dq;
+      span.tex[0][0] = invw0 * vert0->texcoord[0][0];
+      span.tex[0][1] = invw0 * vert0->texcoord[0][1];
+      span.tex[0][2] = invw0 * vert0->texcoord[0][2];
+      span.tex[0][3] = invw0 * vert0->texcoord[0][3];
+      ds = (invw1 * vert1->texcoord[0][0]) - span.tex[0][0];
+      dt = (invw1 * vert1->texcoord[0][1]) - span.tex[0][1];
+      dr = (invw1 * vert1->texcoord[0][2]) - span.tex[0][2];
+      dq = (invw1 * vert1->texcoord[0][3]) - span.tex[0][3];
+      span.texStepX[0][0] = ds * invLen;
+      span.texStepX[0][1] = dt * invLen;
+      span.texStepX[0][2] = dr * invLen;
+      span.texStepX[0][3] = dq * invLen;
+      span.texStepY[0][0] = 0.0F;
+      span.texStepY[0][1] = 0.0F;
+      span.texStepY[0][2] = 0.0F;
+      span.texStepY[0][3] = 0.0F;
+   }
+#endif
+#ifdef INTERP_MULTITEX
+   interpFlags |= SPAN_TEXTURE;
    {
       const GLfloat invLen = 1.0F / numPixels;
-      const GLfloat invw0 = vert0->attrib[FRAG_ATTRIB_WPOS][3];
-      const GLfloat invw1 = vert1->attrib[FRAG_ATTRIB_WPOS][3];
-
-      span.attrStart[FRAG_ATTRIB_WPOS][3] = invw0;
-      span.attrStepX[FRAG_ATTRIB_WPOS][3] = (invw1 - invw0) * invLen;
-      span.attrStepY[FRAG_ATTRIB_WPOS][3] = 0.0;
-
-      ATTRIB_LOOP_BEGIN
-         if (swrast->_InterpMode[attr] == GL_FLAT) {
-            COPY_4V(span.attrStart[attr], vert1->attrib[attr]);
-            ASSIGN_4V(span.attrStepX[attr], 0.0, 0.0, 0.0, 0.0);
-         }
-         else {
-            GLuint c;
-            for (c = 0; c < 4; c++) {
-               float da;
-               span.attrStart[attr][c] = invw0 * vert0->attrib[attr][c];
-               da = (invw1 * vert1->attrib[attr][c]) - span.attrStart[attr][c];
-               span.attrStepX[attr][c] = da * invLen;
-            }
-         }
-         ASSIGN_4V(span.attrStepY[attr], 0.0, 0.0, 0.0, 0.0);
-      ATTRIB_LOOP_END
+      GLuint u;
+      for (u = 0; u < ctx->Const.MaxTextureUnits; u++) {
+         if (ctx->Texture.Unit[u]._ReallyEnabled) {
+            const GLfloat invw0 = vert0->win[3];
+            const GLfloat invw1 = vert1->win[3];
+            GLfloat ds, dt, dr, dq;
+            span.tex[u][0] = invw0 * vert0->texcoord[u][0];
+            span.tex[u][1] = invw0 * vert0->texcoord[u][1];
+            span.tex[u][2] = invw0 * vert0->texcoord[u][2];
+            span.tex[u][3] = invw0 * vert0->texcoord[u][3];
+            ds = (invw1 * vert1->texcoord[u][0]) - span.tex[u][0];
+            dt = (invw1 * vert1->texcoord[u][1]) - span.tex[u][1];
+            dr = (invw1 * vert1->texcoord[u][2]) - span.tex[u][2];
+            dq = (invw1 * vert1->texcoord[u][3]) - span.tex[u][3];
+            span.texStepX[u][0] = ds * invLen;
+            span.texStepX[u][1] = dt * invLen;
+            span.texStepX[u][2] = dr * invLen;
+            span.texStepX[u][3] = dq * invLen;
+            span.texStepY[u][0] = 0.0F;
+            span.texStepY[u][1] = 0.0F;
+            span.texStepY[u][2] = 0.0F;
+            span.texStepY[u][3] = 0.0F;
+	 }
+      }
    }
 #endif
 
-   INIT_SPAN(span, GL_LINE);
-   span.end = numPixels;
-   span.interpMask = interpFlags;
-   span.arrayMask = SPAN_XY;
+   INIT_SPAN(span, GL_LINE, numPixels, interpFlags, SPAN_XY);
 
-   span.facing = swrast->PointLineFacing;
-
+   /* Need these for fragment prog texcoord interpolation */
+   span.w = 1.0F;
+   span.dwdx = 0.0F;
+   span.dwdy = 0.0F;
 
    /*
     * Draw
@@ -324,7 +354,7 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
 
       for (i = 0; i < dx; i++) {
 #ifdef DEPTH_TYPE
-         GLuint Z = FixedToDepth(span.z);
+         GLdepth Z = FixedToDepth(span.z);
 #endif
 #ifdef PLOT
          PLOT( x0, y0 );
@@ -340,7 +370,7 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
 #ifdef PIXEL_ADDRESS
          pixelPtr = (PIXEL_TYPE*) ((GLubyte*) pixelPtr + pixelXstep);
 #endif
-         if (error < 0) {
+         if (error<0) {
             error += errorInc;
          }
          else {
@@ -364,7 +394,7 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
 
       for (i=0;i<dy;i++) {
 #ifdef DEPTH_TYPE
-         GLuint Z = FixedToDepth(span.z);
+         GLdepth Z = FixedToDepth(span.z);
 #endif
 #ifdef PLOT
          PLOT( x0, y0 );
@@ -407,8 +437,11 @@ NAME( GLcontext *ctx, const SWvertex *vert0, const SWvertex *vert1 )
 
 #undef NAME
 #undef INTERP_Z
+#undef INTERP_FOG
 #undef INTERP_RGBA
-#undef INTERP_ATTRIBS
+#undef INTERP_SPEC
+#undef INTERP_TEX
+#undef INTERP_MULTITEX
 #undef INTERP_INDEX
 #undef PIXEL_ADDRESS
 #undef PIXEL_TYPE

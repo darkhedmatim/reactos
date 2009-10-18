@@ -31,9 +31,10 @@ static GENERIC_MAPPING LpcpPortMapping =
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-BOOLEAN
+NTSTATUS
+INIT_FUNCTION
 NTAPI
-LpcInitSystem(VOID)
+LpcpInitSystem(VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;
     UNICODE_STRING Name;
@@ -53,6 +54,7 @@ LpcInitSystem(VOID)
     ObjectTypeInitializer.CloseProcedure = LpcpClosePort;
     ObjectTypeInitializer.DeleteProcedure = LpcpDeletePort;
     ObjectTypeInitializer.ValidAccessMask = PORT_ALL_ACCESS;
+    ObjectTypeInitializer.MaintainTypeList = TRUE;
     ObCreateObjectType(&Name,
                        &ObjectTypeInitializer,
                        NULL,
@@ -65,11 +67,11 @@ LpcInitSystem(VOID)
                                    NULL,
                                    0,
                                    LpcpMaxMessageSize,
-                                   'McpL',
+                                   TAG('L', 'p', 'c', 'M'),
                                    32);
 
     /* We're done */
-    return TRUE;
+    return STATUS_SUCCESS;
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/

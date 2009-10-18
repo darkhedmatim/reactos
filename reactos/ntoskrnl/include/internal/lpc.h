@@ -9,7 +9,7 @@
 //
 // Define this if you want debugging support
 //
-#define _LPC_DEBUG_                                         0x00
+#define _LPC_DEBUG_                                         0x01
 
 //
 // These define the Debug Masks Supported
@@ -45,17 +45,7 @@
         DbgPrint(__VA_ARGS__);                              \
     }
 #endif
-#else
-#define LPCTRACE(x, ...) DPRINT(__VA_ARGS__)
 #endif
-
-//
-// LPC Port/Message Flags
-//
-#define LPCP_THREAD_FLAG_IS_PORT                            1
-#define LPCP_THREAD_FLAG_NO_IMPERSONATION                   2
-#define LPCP_THREAD_FLAGS                                   (LPCP_THREAD_FLAG_IS_PORT | \
-                                                             LPCP_THREAD_FLAG_NO_IMPERSONATION)
 
 //
 // Internal Port Management
@@ -103,8 +93,7 @@ VOID
 NTAPI
 LpcpSaveDataInfoMessage(
     IN PLPCP_PORT_OBJECT Port,
-    IN PLPCP_MESSAGE Message,
-    IN ULONG LockHeld
+    IN PLPCP_MESSAGE Message
 );
 
 //
@@ -119,9 +108,9 @@ LpcExitThread(
 //
 // Initialization functions
 //
-BOOLEAN
+NTSTATUS
 NTAPI
-LpcInitSystem(
+LpcpInitSystem(
     VOID
 );
 

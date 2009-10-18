@@ -6,13 +6,11 @@
 #include <include/window.h>
 
 BOOL FASTCALL
-co_UserRedrawWindow(PWINDOW_OBJECT Wnd, const RECTL* UpdateRect, HRGN UpdateRgn, ULONG Flags);
+co_UserRedrawWindow(PWINDOW_OBJECT Wnd, const RECT* UpdateRect, HRGN UpdateRgn, ULONG Flags);
 VOID FASTCALL
 IntInvalidateWindows(PWINDOW_OBJECT Window, HRGN hRgn, ULONG Flags);
 BOOL FASTCALL
-IntGetPaintMessage(PWINDOW_OBJECT Window, UINT MsgFilterMin, UINT MsgFilterMax, PTHREADINFO Thread,
+IntGetPaintMessage(HWND hWnd, UINT MsgFilterMin, UINT MsgFilterMax, PW32THREAD Thread,
                    MSG *Message, BOOL Remove);
-INT FASTCALL UserRealizePalette(HDC);
-INT FASTCALL co_UserGetUpdateRgn(PWINDOW_OBJECT, HRGN, BOOL);
 
 #endif /* _WIN32K_PAINTING_H */

@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/dirctl.c
+ * FILE:             drivers/fs/ntfs/dirctl.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -477,11 +479,10 @@ CdfsGetBothDirectoryInformation(PFCB Fcb,
 }
 #endif
 
-NTSTATUS
-NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
+static NTSTATUS
+NtfsQueryDirectory(PDEVICE_OBJECT DeviceObject,
+		   PIRP Irp)
 {
-  PIRP Irp;
-  PDEVICE_OBJECT DeviceObject;
   PDEVICE_EXTENSION DeviceExtension;
   LONG BufferLength = 0;
   PUNICODE_STRING SearchPattern = NULL;
@@ -489,8 +490,8 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
   ULONG FileIndex = 0;
   PUCHAR Buffer = NULL;
   PFILE_NAMES_INFORMATION Buffer0 = NULL;
-  PNTFS_FCB Fcb;
-  PNTFS_CCB Ccb;
+  PFCB Fcb;
+  PCCB Ccb;
 //  FCB TempFcb;
   BOOLEAN First = FALSE;
   PIO_STACK_LOCATION Stack;
@@ -499,16 +500,12 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
 
   DPRINT1("NtfsQueryDirectory() called\n");
 
-  ASSERT(IrpContext);
-  Irp = IrpContext->Irp;
-  DeviceObject = IrpContext->DeviceObject;
-
   DeviceExtension = DeviceObject->DeviceExtension;
   Stack = IoGetCurrentIrpStackLocation(Irp);
   FileObject = Stack->FileObject;
 
-  Ccb = (PNTFS_CCB)FileObject->FsContext2;
-  Fcb = (PNTFS_FCB)FileObject->FsContext;
+  Ccb = (PCCB)FileObject->FsContext2;
+  Fcb = (PFCB)FileObject->FsContext;
 
   /* Obtain the callers parameters */
   BufferLength = Stack->Parameters.QueryDirectory.Length;
@@ -519,56 +516,56 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
 
 
   if (SearchPattern != NULL)
-  {
-    if (!Ccb->DirectorySearchPattern)
+    {
+      if (!Ccb->DirectorySearchPattern)
+	{
+	  First = TRUE;
+	  Ccb->DirectorySearchPattern =
+	    ExAllocatePool(NonPagedPool, SearchPattern->Length + sizeof(WCHAR));
+	  if (!Ccb->DirectorySearchPattern)
+	    {
+	      return(STATUS_INSUFFICIENT_RESOURCES);
+	    }
+
+	  memcpy(Ccb->DirectorySearchPattern,
+		 SearchPattern->Buffer,
+		 SearchPattern->Length);
+	  Ccb->DirectorySearchPattern[SearchPattern->Length / sizeof(WCHAR)] = 0;
+	}
+    }
+  else if (!Ccb->DirectorySearchPattern)
     {
       First = TRUE;
-      Ccb->DirectorySearchPattern =
-        ExAllocatePoolWithTag(NonPagedPool, SearchPattern->Length + sizeof(WCHAR), TAG_NTFS);
+      Ccb->DirectorySearchPattern = ExAllocatePool(NonPagedPool, 2 * sizeof(WCHAR));
       if (!Ccb->DirectorySearchPattern)
-      {
-        return(STATUS_INSUFFICIENT_RESOURCES);
-      }
-
-      memcpy(Ccb->DirectorySearchPattern,
-             SearchPattern->Buffer,
-             SearchPattern->Length);
-      Ccb->DirectorySearchPattern[SearchPattern->Length / sizeof(WCHAR)] = 0;
+	{
+	  return(STATUS_INSUFFICIENT_RESOURCES);
+	}
+      Ccb->DirectorySearchPattern[0] = L'*';
+      Ccb->DirectorySearchPattern[1] = 0;
     }
-  }
-  else if (!Ccb->DirectorySearchPattern)
-  {
-    First = TRUE;
-    Ccb->DirectorySearchPattern = ExAllocatePoolWithTag(NonPagedPool, 2 * sizeof(WCHAR), TAG_NTFS);
-    if (!Ccb->DirectorySearchPattern)
-    {
-      return(STATUS_INSUFFICIENT_RESOURCES);
-    }
-    Ccb->DirectorySearchPattern[0] = L'*';
-    Ccb->DirectorySearchPattern[1] = 0;
-  }
   DPRINT("Search pattern '%S'\n", Ccb->DirectorySearchPattern);
 
   /* Determine directory index */
   if (Stack->Flags & SL_INDEX_SPECIFIED)
-  {
-    Ccb->Entry = Ccb->CurrentByteOffset.u.LowPart;
-  }
+    {
+      Ccb->Entry = Ccb->CurrentByteOffset.u.LowPart;
+    }
   else if (First || (Stack->Flags & SL_RESTART_SCAN))
-  {
-    Ccb->Entry = 0;
-  }
+    {
+      Ccb->Entry = 0;
+    }
 
   /* Determine Buffer for result */
   if (Irp->MdlAddress)
-  {
-    Buffer = MmGetSystemAddressForMdl(Irp->MdlAddress);
-  }
+    {
+      Buffer = MmGetSystemAddressForMdl(Irp->MdlAddress);
+    }
   else
-  {
-    Buffer = Irp->UserBuffer;
-  }
-  DPRINT("Buffer=%p tofind=%S\n", Buffer, Ccb->DirectorySearchPattern);
+    {
+      Buffer = Irp->UserBuffer;
+    }
+  DPRINT("Buffer=%x tofind=%S\n", Buffer, Ccb->DirectorySearchPattern);
 #if 0
   TempFcb.ObjectName = TempFcb.PathName;
   while (Status == STATUS_SUCCESS && BufferLength > 0)
@@ -658,14 +655,14 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
 #endif
 
   if (Buffer0)
-  {
-    Buffer0->NextEntryOffset = 0;
-  }
+    {
+      Buffer0->NextEntryOffset = 0;
+    }
 
   if (FileIndex > 0)
-  {
-    Status = STATUS_SUCCESS;
-  }
+    {
+      Status = STATUS_SUCCESS;
+    }
 
 //  return(Status);
   return(STATUS_NO_MORE_FILES);
@@ -673,53 +670,41 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
 
 
 
-NTSTATUS NTAPI
-NtfsFsdDirectoryControl(PDEVICE_OBJECT DeviceObject,
-                        PIRP Irp)
+NTSTATUS STDCALL
+NtfsDirectoryControl(PDEVICE_OBJECT DeviceObject,
+		     PIRP Irp)
 {
-  PNTFS_IRP_CONTEXT IrpContext = NULL;
-  NTSTATUS Status = STATUS_UNSUCCESSFUL;
+  PIO_STACK_LOCATION Stack;
+  NTSTATUS Status;
 
   DPRINT1("NtfsDirectoryControl() called\n");
 
-  FsRtlEnterFileSystem();
-  ASSERT(DeviceObject);
-  ASSERT(Irp);
+  Stack = IoGetCurrentIrpStackLocation(Irp);
 
-  NtfsIsIrpTopLevel(Irp);
-
-  IrpContext = NtfsAllocateIrpContext(DeviceObject, Irp);
-  if (IrpContext)
-  {
-    switch (IrpContext->MinorFunction)
+  switch (Stack->MinorFunction)
     {
       case IRP_MN_QUERY_DIRECTORY:
-        Status = NtfsQueryDirectory(IrpContext);
-        break;
-      
+	Status = NtfsQueryDirectory(DeviceObject,
+				    Irp);
+	break;
+
       case IRP_MN_NOTIFY_CHANGE_DIRECTORY:
-        DPRINT1("IRP_MN_NOTIFY_CHANGE_DIRECTORY\n");
-        Status = STATUS_NOT_IMPLEMENTED;
-        break;
-        
+	DPRINT1("IRP_MN_NOTIFY_CHANGE_DIRECTORY\n");
+	Status = STATUS_NOT_IMPLEMENTED;
+	break;
+
       default:
-        Status = STATUS_INVALID_DEVICE_REQUEST;
-        break;
+	DPRINT1("NTFS: MinorFunction %d\n", Stack->MinorFunction);
+	Status = STATUS_INVALID_DEVICE_REQUEST;
+	break;
     }
-  }
-  else
-    Status = STATUS_INSUFFICIENT_RESOURCES;
-  
+
   Irp->IoStatus.Status = Status;
   Irp->IoStatus.Information = 0;
+
   IoCompleteRequest(Irp, IO_NO_INCREMENT);
-  
-  if (IrpContext)
-    ExFreePoolWithTag(IrpContext, 'PRIN');
-  
-  IoSetTopLevelIrp(NULL);
-  FsRtlExitFileSystem();
-  return Status;
+
+  return(Status);
 }
 
 /* EOF */

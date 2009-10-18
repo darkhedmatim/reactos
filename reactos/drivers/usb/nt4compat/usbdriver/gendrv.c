@@ -142,12 +142,6 @@ gendrv_driver_init(PUSB_DEV_MANAGER dev_mgr, PUSB_DRIVER pdriver)
     pdriver->driver_desc.dev_protocol = 0;      // Protocol Info.
 
     pdriver->driver_ext = usb_alloc_mem(NonPagedPool, sizeof(GENDRV_DRVR_EXTENSION));
-    if (!pdriver->driver_ext)
-    {
-        usb_dbg_print(DBGLVL_MAXIMUM, ("gendrv_driver_init(): memory allocation failed!\n"));
-        return FALSE;
-    }
-
     pdriver->driver_ext_size = sizeof(GENDRV_DRVR_EXTENSION);
 
     RtlZeroMemory(pdriver->driver_ext, pdriver->driver_ext_size);
@@ -277,7 +271,7 @@ gendrv_event_select_driver(PUSB_DEV pdev,       //always null. we do not use thi
 {
     //
     // try to search the registry to find one driver.
-    // if found, create the PDO, load the driver.
+    // if found, create the PDO, load the driver. 
     // and call its AddDevice.
     //
     LONG i;
@@ -308,7 +302,7 @@ gendrv_event_select_driver(PUSB_DEV pdev,       //always null. we do not use thi
     pdrvr_ext = (PGENDRV_DRVR_EXTENSION) pdrvr->driver_ext;
 
     //
-    // well, let's do the hard work to see if there is a class driver
+    // well, let's do the hard work to see if there is a class driver 
     // for this device.
     // in the event routine, we have no need to check if the device is zomb or
     // not, it must be alive there.
@@ -351,12 +345,6 @@ gendrv_event_select_driver(PUSB_DEV pdev,       //always null. we do not use thi
 
     pdev_ext = (PGENDRV_DEVICE_EXTENSION) pdev_obj->DeviceExtension;
     pdev_ext->desc_buf = usb_alloc_mem(NonPagedPool, 512);
-    if (!pdev_ext->desc_buf)
-    {
-        usb_dbg_print(DBGLVL_MAXIMUM, ("gendrv_event_select_driver(): memory allocation failed!\n"));
-        goto ERROR_OUT;
-    }
-
     RtlCopyMemory(pdev_ext->desc_buf, pconfig_desc, 512);
 
     // insert the device to the dev_list
@@ -452,7 +440,6 @@ gendrv_set_cfg_completion(PURB purb, PVOID context)
     {
         unlock_dev(pdev, TRUE);
         KeReleaseSpinLockFromDpcLevel(&dev_mgr->event_list_lock);
-        return;
     }
 
     pevent->flags = USB_EVENT_FLAG_ACTIVE;
@@ -734,7 +721,7 @@ gendrv_if_connect(PDEV_CONNECT_DATA params, DEV_HANDLE if_handle)
 {
     //
     // try to search the registry to find one driver.
-    // if found, create the PDO, load the driver.
+    // if found, create the PDO, load the driver. 
     // and call its AddDevice.
     //
     LONG if_idx, i;
@@ -769,7 +756,7 @@ gendrv_if_connect(PDEV_CONNECT_DATA params, DEV_HANDLE if_handle)
         goto ERROR_OUT;
     }
     // obtain the pointer to the config desc, the dev won't go away in this routine
-    pconfig_desc = pdev->usb_config->pusb_config_desc;  //
+    pconfig_desc = pdev->usb_config->pusb_config_desc;  // 
     usb_unlock_dev(pdev);
     pdev = NULL;
 
@@ -786,7 +773,7 @@ gendrv_if_connect(PDEV_CONNECT_DATA params, DEV_HANDLE if_handle)
         return FALSE;
 
     //
-    // well, let's do the hard work to see if there is a class driver
+    // well, let's do the hard work to see if there is a class driver 
     // for this device.
     //
     i = gendrv_make_key((PUSB_DESC_HEADER) pif_desc);
@@ -828,12 +815,6 @@ gendrv_if_connect(PDEV_CONNECT_DATA params, DEV_HANDLE if_handle)
 
     pdev_ext = (PGENDRV_DEVICE_EXTENSION) pdev_obj->DeviceExtension;
     pdev_ext->desc_buf = usb_alloc_mem(NonPagedPool, 512);
-    if (!pdev_ext->desc_buf)
-    {
-        usb_dbg_print(DBGLVL_MAXIMUM, ("gendrv_if_connect(): memory allocation failed!\n"));
-        goto ERROR_OUT;
-    }
-
     RtlCopyMemory(pdev_ext->desc_buf, pconfig_desc, 512);
     pdev_ext->if_ctx.pif_desc =
         (PUSB_INTERFACE_DESC) & pdev_ext->desc_buf[(PBYTE) pif_desc - (PBYTE) pconfig_desc];
@@ -1007,8 +988,6 @@ gendrv_if_driver_init(PUSB_DEV_MANAGER dev_mgr, PUSB_DRIVER pdriver)
     pdriver->disp_tbl.dev_reserved = NULL;
 
     pdriver->driver_ext = usb_alloc_mem(NonPagedPool, sizeof(GENDRV_DRVR_EXTENSION));
-    if (!pdriver->driver_ext) return FALSE;
-
     pdriver->driver_ext_size = sizeof(GENDRV_DRVR_EXTENSION);
 
     RtlZeroMemory(pdriver->driver_ext, pdriver->driver_ext_size);
@@ -1733,7 +1712,7 @@ gendrv_startio(IN PDEVICE_OBJECT dev_obj, IN PIRP irp)
 
             //
             // we have to register irp before the urb is scheduled to
-            // avoid race condition.
+            // avoid race condition. 
             //
             ASSERT(dev_mgr_register_irp(dev_mgr, irp, purb));
             //
@@ -1741,11 +1720,11 @@ gendrv_startio(IN PDEVICE_OBJECT dev_obj, IN PIRP irp)
             // now the current irp and not in any urb queue. dev_mgr_cancel_irp
             // can not find it and simply return.
             //
-            //      FIXME: there is a time window that the irp is registered and
+            //      FIXME: there is a time window that the irp is registered and 
             // the urb is not queued. In the meantime, the cancel
-            // request may come and cause the irp removed from the irp
+            // request may come and cause the irp removed from the irp 
             // queue while fail to cancel due to urb not in any urb queue .
-            // Thus from that point on, the irp can not be canceled till it
+            // Thus from that point on, the irp can not be canceled till it 
             // is completed or hanging there forever.
             //
             status = usb_submit_urb(dev_mgr, purb);

@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/pageop.c
@@ -11,12 +12,12 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, MmInitializePageOp)
 #endif
-
+ 
 
 /* GLOBALS *******************************************************************/
 
@@ -66,7 +67,7 @@ MmReleasePageOp(PMM_PAGEOP PageOp)
       PrevPageOp = PrevPageOp->Next;
    }
    KeReleaseSpinLock(&MmPageOpHashTableLock, oldIrql);
-   KeBugCheck(MEMORY_MANAGEMENT);
+   KEBUGCHECK(0);
 }
 
 PMM_PAGEOP
@@ -211,7 +212,7 @@ MmGetPageOp(PMEMORY_AREA MArea, HANDLE Pid, PVOID Address,
    if (PageOp == NULL)
    {
       KeReleaseSpinLock(&MmPageOpHashTableLock, oldIrql);
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
       return(NULL);
    }
 
@@ -257,8 +258,6 @@ MmInitializePageOp(VOID)
                                     TAG_MM_PAGEOP,
                                     50);
 }
-
-
 
 
 

@@ -1,5 +1,5 @@
 /*
- * COPYRIGHT:
+ * COPYRIGHT:         
  *-
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -35,13 +35,13 @@
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Unicode Conversion Routines
  * FILE:              lib/rtl/qsort.c
- * PROGRAMMER:        Adapted from CygWin newlib 2000-03-12.
+ * PROGRAMMER:        Adapted from CygWin newlib 2000-03-12.       
  */
 #include <rtl.h>
 
 /* FIXME: these types should be from the default includes */
 
-typedef int (__cdecl* 	_pfunccmp_t) (const void *, const void *);
+typedef int (* 	_pfunccmp_t) (const void *, const void *);
 
 /*
  * Qsort routine from Bentley & McIlroy's "Engineering a Sort Function".
@@ -68,7 +68,7 @@ swapfunc (
 	int	swaptype
 	)
 {
-	if(swaptype <= 1)
+	if(swaptype <= 1) 
 		swapcode(long, a, b, n)
 	else
 		swapcode(char, a, b, n)
@@ -100,7 +100,6 @@ med3 (
 
 /* EXPORTED */
 void
-__cdecl
 qsort (
 	void		* a,
 	size_t		n,
@@ -187,7 +186,7 @@ loop:	SWAPINIT(a, es);
 			)
 		{
 			for (	pl = pm;
-				pl > (char *) a && cmp(pl - es, pl) > 0;
+				pl > (char *) a && cmp(pl - es, pl) > 0; 
 				pl -= es
 				)
 			{
@@ -207,7 +206,7 @@ loop:	SWAPINIT(a, es);
 		qsort(a, r / es, es, cmp);
 	}
 	if ((r = pd - pc) > es)
-	{
+	{ 
 		/* Iterate rather than recurse to save stack space */
 		a = pn - r;
 		n = r / es;

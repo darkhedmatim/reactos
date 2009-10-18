@@ -12,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS ********************************************************************/
 
@@ -22,76 +22,6 @@ LIST_ENTRY ShutdownListHead, LastChanceShutdownListHead;
 KSPIN_LOCK ShutdownListLock;
 
 /* PRIVATE FUNCTIONS **********************************************************/
-
-VOID
-NTAPI
-IopDeleteDevice(IN PVOID ObjectBody)
-{
-    PDEVICE_OBJECT DeviceObject = ObjectBody;
-    PAGED_CODE();
- 
-    /* TODO: Delete Device Node */
-
-    /* Dereference the driver object, referenced in IoCreateDevice */
-    if (DeviceObject->DriverObject)
-        ObDereferenceObject(DeviceObject->DriverObject);
-}
-
-
-PDEVICE_OBJECT
-NTAPI
-IopAttachDeviceToDeviceStackSafe(IN PDEVICE_OBJECT SourceDevice,
-                                 IN PDEVICE_OBJECT TargetDevice,
-                                 OUT PDEVICE_OBJECT *AttachedToDeviceObject OPTIONAL)
-{
-    PDEVICE_OBJECT AttachedDevice;
-    PEXTENDED_DEVOBJ_EXTENSION SourceDeviceExtension;
-
-    /* Get the Attached Device and source extension */
-    AttachedDevice = IoGetAttachedDevice(TargetDevice);
-    SourceDeviceExtension = IoGetDevObjExtension(SourceDevice);
-    ASSERT(SourceDeviceExtension->AttachedTo == NULL);
-
-    /* Make sure that it's in a correct state */
-    if ((AttachedDevice->Flags & DO_DEVICE_INITIALIZING) ||
-        (IoGetDevObjExtension(AttachedDevice)->ExtensionFlags &
-         (DOE_UNLOAD_PENDING |
-          DOE_DELETE_PENDING |
-          DOE_REMOVE_PENDING |
-          DOE_REMOVE_PROCESSED)))
-    {
-        /* Device was unloading or being removed */
-        AttachedDevice = NULL;
-    }
-    else
-    {
-        /* Update atached device fields */
-        AttachedDevice->AttachedDevice = SourceDevice;
-        AttachedDevice->Spare1++;
-
-        /* Update the source with the attached data */
-        SourceDevice->StackSize = AttachedDevice->StackSize + 1;
-        SourceDevice->AlignmentRequirement = AttachedDevice->
-                                             AlignmentRequirement;
-        SourceDevice->SectorSize = AttachedDevice->SectorSize;
-
-        /* Check for pending start flag */
-        if (IoGetDevObjExtension(AttachedDevice)->ExtensionFlags &
-            DOE_START_PENDING)
-        {
-            /* Propagate */
-            IoGetDevObjExtension(SourceDevice)->ExtensionFlags |=
-                DOE_START_PENDING;
-        }
-
-        /* Set the attachment in the device extension */
-        SourceDeviceExtension->AttachedTo = AttachedDevice;
-    }
-
-    /* Return the attached device */
-    if (AttachedToDeviceObject) *AttachedToDeviceObject = AttachedDevice;
-    return AttachedDevice;
-}
 
 VOID
 NTAPI
@@ -137,7 +67,7 @@ IoShutdownRegisteredDevices(VOID)
         }
 
         /* Free the shutdown entry and reset the event */
-        ExFreePoolWithTag(ShutdownEntry, TAG_SHUTDOWN_ENTRY);
+        ExFreePool(ShutdownEntry);
         KeClearEvent(&Event);
 
         /* Go to the next entry */
@@ -163,7 +93,7 @@ IopGetDeviceObjectPointer(IN PUNICODE_STRING ObjectName,
     /* Open the Device */
     InitializeObjectAttributes(&ObjectAttributes,
                                ObjectName,
-                               OBJ_KERNEL_HANDLE,
+                               0,
                                NULL,
                                NULL);
     Status = ZwOpenFile(&FileHandle,
@@ -186,11 +116,10 @@ IopGetDeviceObjectPointer(IN PUNICODE_STRING ObjectName,
         /* Return the requested data */
         *DeviceObject = IoGetRelatedDeviceObject(LocalFileObject);
         *FileObject = LocalFileObject;
+        ZwClose(FileHandle);
     }
 
     /* Close the handle */
-    ZwClose(FileHandle);
-
     return Status;
 }
 
@@ -332,7 +261,7 @@ IopUnloadDevice(IN PDEVICE_OBJECT DeviceObject)
         if (DeviceObject->SecurityDescriptor)
         {
             /* Free it */
-            ExFreePoolWithTag(DeviceObject->SecurityDescriptor, TAG_SD);
+            ExFreePool(DeviceObject->SecurityDescriptor);
         }
 
         /* Remove the device from the list */
@@ -371,13 +300,6 @@ IopUnloadDevice(IN PDEVICE_OBJECT DeviceObject)
 
     /* Unload it */
     if (DriverObject->DriverUnload) DriverObject->DriverUnload(DriverObject);
-
-    /* Make object temporary so it can be deleted */
-    ObMakeTemporaryObject(DriverObject);
-
-    /* Dereference once more, referenced at driver object creation */
-    ObDereferenceObject(DriverObject);
-
 }
 
 VOID
@@ -541,16 +463,14 @@ IopStartNextPacketByKeyEx(IN PDEVICE_OBJECT DeviceObject,
             {
                 /* Start the packet with a key */
                 IopStartNextPacketByKey(DeviceObject,
-                                        (Flags & DOE_SIO_CANCELABLE) ?
-                                        TRUE : FALSE,
+                                        (DOE_SIO_CANCELABLE) ? TRUE : FALSE,
                                         CurrentKey);
             }
             else if (Flags & DOE_SIO_NO_KEY)
             {
                 /* Start the packet */
                 IopStartNextPacket(DeviceObject,
-                                   (Flags & DOE_SIO_CANCELABLE) ?
-                                   TRUE : FALSE);
+                                   (DOE_SIO_CANCELABLE) ? TRUE : FALSE);
             }
         }
 
@@ -572,51 +492,6 @@ IopStartNextPacketByKeyEx(IN PDEVICE_OBJECT DeviceObject,
             break;
         }
     }
-}
-
-NTSTATUS
-NTAPI
-IopGetRelatedTargetDevice(IN PFILE_OBJECT FileObject,
-                          OUT PDEVICE_NODE *DeviceNode)
-{
-    NTSTATUS Status;
-    IO_STACK_LOCATION Stack = {0};
-    IO_STATUS_BLOCK IoStatusBlock;
-    PDEVICE_RELATIONS DeviceRelations;
-    PDEVICE_OBJECT DeviceObject = NULL;
-
-    ASSERT(FileObject);
-
-    /* Get DeviceObject related to given FileObject */
-    DeviceObject = IoGetRelatedDeviceObject(FileObject);
-    if (!DeviceObject) return STATUS_NO_SUCH_DEVICE;
-
-    /* Define input parameters */
-    Stack.Parameters.QueryDeviceRelations.Type = TargetDeviceRelation;
-    Stack.FileObject = FileObject;
-
-    /* Call the driver to query all relations (IRP_MJ_PNP) */
-    Status = IopInitiatePnpIrp(DeviceObject,
-                               &IoStatusBlock,
-                               IRP_MN_QUERY_DEVICE_RELATIONS,
-                               &Stack);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    /* Get returned pointer to DEVICE_RELATIONS */
-    DeviceRelations = (PDEVICE_RELATIONS)IoStatusBlock.Information;
-
-    /* Make sure it's not NULL and contains only one object */
-    ASSERT(DeviceRelations);
-    ASSERT(DeviceRelations->Count == 1);
-
-    /* Finally get the device node */
-    *DeviceNode = IopGetDeviceNode(DeviceRelations->Objects[0]);
-    if (!*DeviceNode) Status = STATUS_NO_SUCH_DEVICE;
-
-    /* Free the DEVICE_RELATIONS structure, it's not needed anymore */
-    ExFreePool(DeviceRelations);
-
-    return Status;
 }
 
 /* PUBLIC FUNCTIONS ***********************************************************/
@@ -661,6 +536,7 @@ IoAttachDevice(PDEVICE_OBJECT SourceDevice,
     Status = IoAttachDeviceToDeviceStackSafe(SourceDevice,
                                              TargetDevice,
                                              AttachedDevice);
+    if (!*AttachedDevice) Status = STATUS_NO_SUCH_DEVICE;
 
     /* Dereference it */
     ObDereferenceObject(FileObject);
@@ -690,17 +566,26 @@ IoAttachDeviceByPointer(IN PDEVICE_OBJECT SourceDevice,
 }
 
 /*
- * @implemented
+ * IoAttachDeviceToDeviceStack
+ *
+ * Status
+ *    @implemented
  */
 PDEVICE_OBJECT
 NTAPI
-IoAttachDeviceToDeviceStack(IN PDEVICE_OBJECT SourceDevice,
-                            IN PDEVICE_OBJECT TargetDevice)
+IoAttachDeviceToDeviceStack(PDEVICE_OBJECT SourceDevice,
+                            PDEVICE_OBJECT TargetDevice)
 {
+    NTSTATUS Status;
+    PDEVICE_OBJECT LocalAttach;
+
     /* Attach it safely */
-    return IopAttachDeviceToDeviceStackSafe(SourceDevice,
-                                            TargetDevice,
-                                            NULL);
+    Status = IoAttachDeviceToDeviceStackSafe(SourceDevice,
+                                             TargetDevice,
+                                             &LocalAttach);
+
+    /* Return it */
+    return LocalAttach;
 }
 
 /*
@@ -710,18 +595,43 @@ NTSTATUS
 NTAPI
 IoAttachDeviceToDeviceStackSafe(IN PDEVICE_OBJECT SourceDevice,
                                 IN PDEVICE_OBJECT TargetDevice,
-                                IN OUT PDEVICE_OBJECT *AttachedToDeviceObject)
+                                OUT PDEVICE_OBJECT *AttachedToDeviceObject)
 {
-    /* Call the internal function */
-    if (!IopAttachDeviceToDeviceStackSafe(SourceDevice,
-                                          TargetDevice,
-                                          AttachedToDeviceObject))
+    PDEVICE_OBJECT AttachedDevice;
+    PEXTENDED_DEVOBJ_EXTENSION SourceDeviceExtension;
+
+    /* Get the Attached Device and source extension */
+    AttachedDevice = IoGetAttachedDevice(TargetDevice);
+    SourceDeviceExtension = IoGetDevObjExtension(SourceDevice);
+
+    /* Make sure that it's in a correct state */
+    if (!IoGetDevObjExtension(AttachedDevice)->ExtensionFlags &
+        (DOE_UNLOAD_PENDING |
+         DOE_DELETE_PENDING |
+         DOE_REMOVE_PENDING |
+         DOE_REMOVE_PROCESSED))
     {
-        /* Nothing found */
-        return STATUS_NO_SUCH_DEVICE;
+        /* Update atached device fields */
+        AttachedDevice->AttachedDevice = SourceDevice;
+        AttachedDevice->Spare1++;
+
+        /* Update the source with the attached data */
+        SourceDevice->StackSize = AttachedDevice->StackSize + 1;
+        SourceDevice->AlignmentRequirement = AttachedDevice->
+                                             AlignmentRequirement;
+        SourceDevice->SectorSize = AttachedDevice->SectorSize;
+
+        /* Set the attachment in the device extension */
+        SourceDeviceExtension->AttachedTo = AttachedDevice;
+    }
+    else
+    {
+        /* Device was unloading or being removed */
+        AttachedDevice = NULL;
     }
 
-    /* Success! */
+    /* Return the attached device */
+    *AttachedToDeviceObject = AttachedDevice;
     return STATUS_SUCCESS;
 }
 
@@ -792,11 +702,7 @@ IoCreateDevice(IN PDRIVER_OBJECT DriverObject,
    }
 
     /* Initialize the Object Attributes */
-    InitializeObjectAttributes(&ObjectAttributes,
-                               DeviceName,
-                               OBJ_KERNEL_HANDLE,
-                               NULL,
-                               NULL);
+    InitializeObjectAttributes(&ObjectAttributes, DeviceName, 0, NULL, NULL);
 
     /* Honor exclusive flag */
     if (Exclusive) ObjectAttributes.Attributes |= OBJ_EXCLUSIVE;
@@ -833,7 +739,7 @@ IoCreateDevice(IN PDRIVER_OBJECT DriverObject,
      * because that's only padding for the DevObjExt and not part of the Object.
      */
     CreatedDeviceObject->Type = IO_TYPE_DEVICE;
-    CreatedDeviceObject->Size = sizeof(DEVICE_OBJECT) + (USHORT)DeviceExtensionSize;
+    CreatedDeviceObject->Size = sizeof(DEVICE_OBJECT) + DeviceExtensionSize;
 
     /* The kernel extension is after the driver internal extension */
     DeviceObjectExtension = (PDEVOBJ_EXTENSION)
@@ -863,19 +769,13 @@ IoCreateDevice(IN PDRIVER_OBJECT DriverObject,
     if (DeviceName) CreatedDeviceObject->Flags |= DO_DEVICE_HAS_NAME;
 
     /* Attach a Vpb for Disks and Tapes, and create the Device Lock */
-    if ((CreatedDeviceObject->DeviceType == FILE_DEVICE_DISK) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_VIRTUAL_DISK) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_CD_ROM) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_TAPE))
+    if (CreatedDeviceObject->DeviceType == FILE_DEVICE_DISK ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_VIRTUAL_DISK ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_CD_ROM ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_TAPE)
     {
         /* Create Vpb */
-        Status = IopCreateVpb(CreatedDeviceObject);
-        if (!NT_SUCCESS(Status))
-        {
-            /* Reference the device object and fail */
-            ObDereferenceObject(DeviceObject);
-            return Status;
-        }
+        IopCreateVpb(CreatedDeviceObject);
 
         /* Initialize Lock Event */
         KeInitializeEvent(&CreatedDeviceObject->DeviceLock,
@@ -903,11 +803,11 @@ IoCreateDevice(IN PDRIVER_OBJECT DriverObject,
     }
 
     /* Create the Device Queue */
-    if ((CreatedDeviceObject->DeviceType == FILE_DEVICE_DISK_FILE_SYSTEM) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_FILE_SYSTEM) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_CD_ROM_FILE_SYSTEM) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_NETWORK_FILE_SYSTEM) ||
-        (CreatedDeviceObject->DeviceType == FILE_DEVICE_TAPE_FILE_SYSTEM))
+    if (CreatedDeviceObject->DeviceType == FILE_DEVICE_DISK_FILE_SYSTEM ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_FILE_SYSTEM ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_CD_ROM_FILE_SYSTEM ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_NETWORK_FILE_SYSTEM ||
+        CreatedDeviceObject->DeviceType == FILE_DEVICE_TAPE_FILE_SYSTEM)
     {
         /* Simple FS Devices, they don't need a real Device Queue */
         InitializeListHead(&CreatedDeviceObject->Queue.ListEntry);
@@ -925,16 +825,20 @@ IoCreateDevice(IN PDRIVER_OBJECT DriverObject,
                             1,
                             (PVOID*)&CreatedDeviceObject,
                             &TempHandle);
-    if (!NT_SUCCESS(Status)) return Status;
+    if (!NT_SUCCESS(Status))
+    {
+        /* Clear the device object and fail */
+        *DeviceObject = NULL;
+        return Status;
+    }
 
     /* Now do the final linking */
     ObReferenceObject(DriverObject);
-    ASSERT((DriverObject->Flags & DRVO_UNLOAD_INVOKED) == 0);
     CreatedDeviceObject->DriverObject = DriverObject;
     IopEditDeviceList(DriverObject, CreatedDeviceObject, IopAdd);
 
     /* Close the temporary handle and return to caller */
-    ObCloseHandle(TempHandle, KernelMode);
+    NtClose(TempHandle);
     *DeviceObject = CreatedDeviceObject;
     return STATUS_SUCCESS;
 }
@@ -1107,10 +1011,8 @@ PDEVICE_OBJECT
 NTAPI
 IoGetDeviceAttachmentBaseRef(IN PDEVICE_OBJECT DeviceObject)
 {
-    /* Reference the lowest attached device */
-    DeviceObject = IopGetLowestDevice(DeviceObject);
-    ObReferenceObject(DeviceObject);
-    return DeviceObject;
+    /* Return the attached Device */
+    return IoGetDevObjExtension(DeviceObject)->AttachedTo;
 }
 
 /*
@@ -1200,20 +1102,16 @@ IoGetLowerDeviceObject(IN PDEVICE_OBJECT DeviceObject)
 
     /* Make sure it's not getting deleted */
     DeviceExtension = IoGetDevObjExtension(DeviceObject);
-    if (!(DeviceExtension->ExtensionFlags & (DOE_UNLOAD_PENDING |
+    if (DeviceExtension->ExtensionFlags & (DOE_UNLOAD_PENDING |
                                            DOE_DELETE_PENDING |
                                            DOE_REMOVE_PENDING |
-                                           DOE_REMOVE_PROCESSED)))
+                                           DOE_REMOVE_PROCESSED))
     {
         /* Get the Lower Device Object */
         LowerDeviceObject = DeviceExtension->AttachedTo;
 
-        /* Check that we got a valid device object */
-        if (LowerDeviceObject)
-        {
-            /* We did so let's reference it */
-            ObReferenceObject(LowerDeviceObject);
-        }
+        /* Reference it */
+        ObReferenceObject(LowerDeviceObject);
     }
 
     /* Return it */
@@ -1221,7 +1119,13 @@ IoGetLowerDeviceObject(IN PDEVICE_OBJECT DeviceObject)
 }
 
 /*
- * @implemented
+ * IoGetRelatedDeviceObject
+ *
+ * Remarks
+ *    See "Windows NT File System Internals", page 633 - 634.
+ *
+ * Status
+ *    @implemented
  */
 PDEVICE_OBJECT
 NTAPI
@@ -1266,7 +1170,7 @@ IoGetRelatedDeviceObject(IN PFILE_OBJECT FileObject)
             {
                 /* FIXME: Unhandled yet */
                 DPRINT1("FOEs not supported\n");
-                ASSERT(FALSE);
+                KEBUGCHECK(0);
             }
         }
 
@@ -1276,26 +1180,6 @@ IoGetRelatedDeviceObject(IN PFILE_OBJECT FileObject)
 
     /* Return the DO we found */
     return DeviceObject;
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
-IoGetRelatedTargetDevice(IN PFILE_OBJECT FileObject,
-                         OUT PDEVICE_OBJECT *DeviceObject)
-{
-    NTSTATUS Status;
-    PDEVICE_NODE DeviceNode = NULL;
-
-    /* Call the internal helper function */
-    Status = IopGetRelatedTargetDevice(FileObject, &DeviceNode);
-    if (NT_SUCCESS(Status) && DeviceNode)
-    {
-        *DeviceObject = DeviceNode->PhysicalDeviceObject;
-    }
-    return Status;
 }
 
 /*
@@ -1419,7 +1303,7 @@ IoUnregisterShutdownNotification(PDEVICE_OBJECT DeviceObject)
             NextEntry = NextEntry->Blink;
 
             /* Free the entry */
-            ExFreePoolWithTag(ShutdownEntry, TAG_SHUTDOWN_ENTRY);
+            ExFreePool(ShutdownEntry);
         }
 
         /* Go to the next entry */
@@ -1443,15 +1327,12 @@ IoUnregisterShutdownNotification(PDEVICE_OBJECT DeviceObject)
             NextEntry = NextEntry->Blink;
 
             /* Free the entry */
-            ExFreePoolWithTag(ShutdownEntry, TAG_SHUTDOWN_ENTRY);
+            ExFreePool(ShutdownEntry);
         }
 
         /* Go to the next entry */
         NextEntry = NextEntry->Flink;
     }
-
-    /* Release the shutdown lock */
-    KeReleaseSpinLock(&ShutdownListLock, OldIrql);
 
     /* Now remove the flag */
     DeviceObject->Flags &= ~DO_SHUTDOWN_REGISTERED;
@@ -1497,7 +1378,7 @@ IoStartNextPacketByKey(IN PDEVICE_OBJECT DeviceObject,
         IopStartNextPacketByKeyEx(DeviceObject,
                                   Key,
                                   DOE_SIO_WITH_KEY |
-                                  (Cancelable ? DOE_SIO_CANCELABLE : 0));
+                                  (Cancelable) ? DOE_SIO_CANCELABLE : 0);
     }
     else
     {
@@ -1526,7 +1407,7 @@ IoStartNextPacket(IN PDEVICE_OBJECT DeviceObject,
         IopStartNextPacketByKeyEx(DeviceObject,
                                   0,
                                   DOE_SIO_NO_KEY |
-                                  (Cancelable ? DOE_SIO_CANCELABLE : 0));
+                                  (Cancelable) ? DOE_SIO_CANCELABLE : 0);
     }
     else
     {
@@ -1592,7 +1473,7 @@ IoStartPacket(IN PDEVICE_OBJECT DeviceObject,
             }
 
             /* Release the cancel lock */
-            IoReleaseCancelSpinLock(CancelIrql);
+            IoReleaseCancelSpinLock(OldIrql);
         }
 
         /* Call the Start I/O function */

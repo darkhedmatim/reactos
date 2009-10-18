@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * History:
  * 05-May-2000 BS	- Added code to support endian conversions. The
@@ -37,10 +37,14 @@
 #include "wrc.h"
 #include "genres.h"
 #include "utils.h"
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
 #include "wine/unicode.h"
 
 /* Fix 64-bit host, re: put_dword */
-#if defined(unix) && defined(__x86_64__)
+#if defined(linux) && defined(__x86_64__)
 typedef unsigned int HOST_DWORD;
 #else
 typedef unsigned long HOST_DWORD;
@@ -51,18 +55,17 @@ typedef unsigned long HOST_DWORD;
 res_t *new_res(void)
 {
 	res_t *r;
-	r = xmalloc(sizeof(res_t));
+	r = (res_t *)xmalloc(sizeof(res_t));
 	r->allocsize = RES_BLOCKSIZE;
 	r->size = 0;
-	r->dataidx = 0;
-	r->data = xmalloc(RES_BLOCKSIZE);
+	r->data = (char *)xmalloc(RES_BLOCKSIZE);
 	return r;
 }
 
 res_t *grow_res(res_t *r, unsigned int add)
 {
 	r->allocsize += add;
-	r->data = xrealloc(r->data, r->allocsize);
+	r->data = (char *)xrealloc(r->data, r->allocsize);
 	return r;
 }
 
@@ -118,7 +121,9 @@ void put_word(res_t *res, unsigned w)
 
 void put_dword(res_t *res, unsigned d)
 {
-	if(res->allocsize - res->size < sizeof(DWORD))
+	assert(sizeof(HOST_DWORD) == 4);
+
+	if(res->allocsize - res->size < sizeof(HOST_DWORD))
 		grow_res(res, RES_BLOCKSIZE);
 	switch(byteorder)
 	{
@@ -142,7 +147,7 @@ void put_dword(res_t *res, unsigned d)
 		res->data[res->size+0] = LOBYTE(LOWORD(d));
 		break;
 	}
-	res->size += sizeof(DWORD);
+	res->size += sizeof(HOST_DWORD);
 }
 
 static void put_pad(res_t *res)
@@ -227,7 +232,7 @@ static void set_dword(res_t *res, int ofs, unsigned d)
  * Remarks	:
  *****************************************************************************
 */
-static DWORD get_dword(res_t *res, int ofs)
+static HOST_DWORD get_dword(res_t *res, int ofs)
 {
 	switch(byteorder)
 	{
@@ -275,7 +280,7 @@ static void string_to_upper(string_t *str)
     }
     else
     {
-        internal_error(__FILE__, __LINE__, "Invalid string type %d\n", str->type);
+        internal_error(__FILE__, __LINE__, "Invalid string type %d", str->type);
     }
 }
 
@@ -316,10 +321,7 @@ static void put_string(res_t *res, const string_t *str, enum str_e type, int ist
         {
             if (!check_unicode_conversion( str, newstr, codepage ))
                 error( "String %s does not convert identically to Unicode and back in codepage %d. "
-                       "Try using a Unicode string instead\n", str->str.cstr, codepage );
-            if (check_valid_utf8( str, codepage ))
-                warning( "string \"%s\" seems to be UTF-8 but codepage %u is in use.\n",
-                         str->str.cstr, codepage );
+                       "Try using a Unicode string instead.", str->str.cstr, codepage );
         }
         if (!isterm) put_word(res, newstr->size);
         for(cnt = 0; cnt < newstr->size; cnt++)
@@ -372,7 +374,7 @@ static void put_name_id(res_t *res, name_id_t *nid, int upcase, const language_t
 	}
 	else
 	{
-		internal_error(__FILE__, __LINE__, "Invalid name_id type %d\n", nid->type);
+		internal_error(__FILE__, __LINE__, "Invalid name_id type %d", nid->type);
 	}
 }
 
@@ -424,7 +426,7 @@ static void put_raw_data(res_t *res, raw_data_t *raw, int offset)
 /*
  *****************************************************************************
  * Function	: put_res_header
- * Syntax	: input_res_header(res_t *res, int type, name_id_t *ntype,
+ * Syntax	: intput_res_header(res_t *res, int type, name_id_t *ntype,
  *				    name_id_t *name, DWORD memopt, lvc_t *lvc)
  *
  * Input	:
@@ -441,7 +443,7 @@ static void put_raw_data(res_t *res, raw_data_t *raw, int offset)
  *****************************************************************************
 */
 static int put_res_header(res_t *res, int type, name_id_t *ntype, name_id_t *name,
-                          DWORD memopt, lvc_t *lvc)
+                          HOST_DWORD memopt, lvc_t *lvc)
 {
 	if(win32)
 	{
@@ -459,8 +461,8 @@ static int put_res_header(res_t *res, int type, name_id_t *ntype, name_id_t *nam
 		put_dword(res, 0);		/* DataVersion */
 		put_word(res, memopt);		/* Memory options */
 		put_lvc(res, lvc);		/* Language, version and characts */
-		set_dword(res, 0*sizeof(DWORD), res->size);	/* Set preliminary resource */
-		set_dword(res, 1*sizeof(DWORD), res->size);	/* Set HeaderSize */
+		set_dword(res, 0*sizeof(HOST_DWORD), res->size);	/* Set preliminary resource */
+		set_dword(res, 1*sizeof(HOST_DWORD), res->size);	/* Set HeaderSize */
 		res->dataidx = res->size;
 		return 0;
 	}
@@ -603,7 +605,7 @@ static res_t *dialog2res(name_id_t *name, dialog_t *dlg)
 			if(ctrl->ctlclass)
 				put_name_id(res, ctrl->ctlclass, TRUE, dlg->lvc.language);
 			else
-				internal_error(__FILE__, __LINE__, "Control has no control-class\n");
+				internal_error(__FILE__, __LINE__, "Control has no control-class");
 			if(ctrl->title)
 				put_name_id(res, ctrl->title, FALSE, dlg->lvc.language);
 			else
@@ -671,10 +673,10 @@ static res_t *dialog2res(name_id_t *name, dialog_t *dlg)
 				else if(ctrl->ctlclass->type == name_str)
 					put_name_id(res, ctrl->ctlclass, FALSE, NULL);
 				else
-					error("Unknown control-class %04x\n", ctrl->ctlclass->name.i_name);
+					error("Unknown control-class %04x", ctrl->ctlclass->name.i_name);
 			}
 			else
-				internal_error(__FILE__, __LINE__, "Control has no control-class\n");
+				internal_error(__FILE__, __LINE__, "Control has no control-class");
 			if(ctrl->title)
 				put_name_id(res, ctrl->title, FALSE, NULL);
 			else
@@ -722,7 +724,7 @@ static res_t *dialogex2res(name_id_t *name, dialogex_t *dlgex)
 	{
 		restag = put_res_header(res, WRC_RT_DIALOG, NULL, name, dlgex->memopt, &(dlgex->lvc));
 
-		/* FIXME: MS doc says that the first word must contain 0xffff
+		/* FIXME: MS doc says thet the first word must contain 0xffff
 		 * and the second 0x0001 to signal a DLGTEMPLATEEX. Borland's
 		 * compiler reverses the two words.
 		 * I don't know which one to choose, but I write it as Mr. B
@@ -755,8 +757,8 @@ static res_t *dialogex2res(name_id_t *name, dialogex_t *dlgex)
 		{
 			put_word(res, dlgex->font->size);
 			put_word(res, dlgex->font->weight);
-			/* FIXME: ? TRUE should be sufficient to say that it's
-			 * italic, but Borland's compiler says it's 0x0101.
+			/* FIXME: ? TRUE should be sufficient to say that its
+			 * italic, but Borland's compiler says its 0x0101.
 			 * I just copy it here, and hope for the best.
 			 */
 			put_word(res, dlgex->font->italic ? 0x0101 : 0);
@@ -778,7 +780,7 @@ static res_t *dialogex2res(name_id_t *name, dialogex_t *dlgex)
 			if(ctrl->ctlclass)
 				put_name_id(res, ctrl->ctlclass, TRUE, dlgex->lvc.language);
 			else
-				internal_error(__FILE__, __LINE__, "Control has no control-class\n");
+				internal_error(__FILE__, __LINE__, "Control has no control-class");
 			if(ctrl->title)
 				put_name_id(res, ctrl->title, FALSE, dlgex->lvc.language);
 			else
@@ -1026,7 +1028,7 @@ static res_t *cursorgroup2res(name_id_t *name, cursor_group_t *curg)
 			put_word(res, cur->planes);
 			put_word(res, cur->bits);
 			/* FIXME: The +4 is the hotspot in the cursor resource.
-			 * However, I could not find this in the documentation.
+			 * However, I cound not find this in the documentation.
 			 * The hotspot bytes must either be included or MS
 			 * doesn't care.
 			 */
@@ -1063,7 +1065,7 @@ static res_t *cursorgroup2res(name_id_t *name, cursor_group_t *curg)
 			put_word(res, cur->planes);
 			put_word(res, cur->bits);
 			/* FIXME: The +4 is the hotspot in the cursor resource.
-			 * However, I could not find this in the documentation.
+			 * However, I cound not find this in the documentation.
 			 * The hotspot bytes must either be included or MS
 			 * doesn't care.
 			 */
@@ -1414,7 +1416,7 @@ static res_t *rcdata2res(name_id_t *name, rcdata_t *rdt)
  * Output	: New .res format structure
  * Description	:
  * Remarks	: The data has been converted to the appropriate endian
- *		  after it was parsed.
+ *		  after is was parsed.
  *****************************************************************************
 */
 static res_t *messagetable2res(name_id_t *name, messagetable_t *msg)
@@ -1451,7 +1453,7 @@ static res_t *stringtable2res(stringtable_t *stt)
 	name_id_t name;
 	int i;
 	int restag;
-	DWORD lastsize = 0;
+	HOST_DWORD lastsize = 0;
 
 	assert(stt != NULL);
 	res = new_res();
@@ -1460,7 +1462,7 @@ static res_t *stringtable2res(stringtable_t *stt)
 	{
 		if(!stt->nentries)
 		{
-			warning("Empty internal stringtable\n");
+			warning("Empty internal stringtable");
 			continue;
 		}
 		name.type = name_ord;
@@ -1597,7 +1599,7 @@ static void versionblock2res(res_t *res, ver_block_t *blk, int level, const lang
 		}
 		else
 		{
-			internal_error(__FILE__, __LINE__, "Invalid value indicator %d in VERSIONINFO\n", val->type);
+			internal_error(__FILE__, __LINE__, "Invalid value indicator %d in VERSIONINFO", val->type);
 		}
 	}
 
@@ -1800,7 +1802,7 @@ char *prep_nid_for_label(const name_id_t *nid)
 			if((unsigned)*sptr < 0x80 && isprint(*sptr & 0xff))
 				buf[i] = *sptr++;
 			else
-				warning("Resourcename (str_unicode) contain unprintable characters or invalid translation, ignored\n");
+				warning("Resourcename (str_unicode) contain unprintable characters or invalid translation, ignored");
 		}
 		buf[i] = '\0';
 	}
@@ -1815,7 +1817,7 @@ char *prep_nid_for_label(const name_id_t *nid)
 			if((unsigned)*cptr < 0x80 && isprint(*cptr & 0xff))
 				buf[i] = *cptr++;
 			else
-				warning("Resourcename (str_char) contain unprintable characters, ignored\n");
+				warning("Resourcename (str_char) contain unprintable characters, ignored");
 		}
 		buf[i] = '\0';
 	}
@@ -1825,7 +1827,7 @@ char *prep_nid_for_label(const name_id_t *nid)
 	}
 	else
 	{
-		internal_error(__FILE__, __LINE__, "Resource name_id with invalid type %d\n", nid->type);
+		internal_error(__FILE__, __LINE__, "Resource name_id with invalid type %d", nid->type);
 	}
 	return buf;
 }
@@ -1853,7 +1855,7 @@ char *make_c_name(const char *base, const name_id_t *nid, const language_t *lan)
 	buf = prep_nid_for_label(nid);
 	nlen = strlen(buf) + strlen(lanbuf);
 	nlen += strlen(base) + 4; /* three time '_' and '\0' */
-	ret = xmalloc(nlen);
+	ret = (char *)xmalloc(nlen);
 	strcpy(ret, "_");
 	strcat(ret, base);
 	strcat(ret, "_");
@@ -2006,7 +2008,7 @@ void resources2res(resource_t *top)
 			    top->binres = anicurico2res(top->name, top->res.ani, top->type);
 			break;
 		default:
-			internal_error(__FILE__, __LINE__, "Unknown resource type encountered %d in binary res generation\n", top->type);
+			internal_error(__FILE__, __LINE__, "Unknown resource type encountered %d in binary res generation", top->type);
 		}
 		top->c_name = make_c_name(get_c_typename(top->type), top->name, top->lan);
 		top = top->next;

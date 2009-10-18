@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id$
  */
 
 #ifndef VIDEOPRT_H
@@ -31,13 +32,22 @@
 #include <ntagp.h>
 #include <ntifs.h>
 #include <ndk/ntndk.h>
-#include <dderror.h>
-#include <windef.h>
+#include <reactos/helper.h>
 
+#define NDEBUG
 #include <debug.h>
 
-#define TAG_VIDEO_PORT  'PDIV'
-#define TAG_VIDEO_PORT_BUFFER  '\0mpV'
+#define TAG_VIDEO_PORT  TAG('V', 'I', 'D', 'P')
+
+#define DPFLTR_IHVVIDEO_ID 80 /* FIXME */
+
+/* ROS Internal. Please deprecate */
+NTHALAPI
+VOID
+NTAPI
+HalReleaseDisplayOwnership(
+    VOID
+);
 
 typedef struct _VIDEO_PORT_ADDRESS_MAPPING
 {
@@ -104,15 +114,6 @@ typedef struct _VIDEO_PORT_DEVICE_EXTENSTION
       VIDEO_PORT_DEVICE_EXTENSION, \
       MiniPortDeviceExtension)
 
-typedef struct _VIDEO_PORT_EVENT
-{
-    /* Public part */
-    ENG_EVENT;
-
-    /* Private part */
-    KEVENT Event;
-} VIDEO_PORT_EVENT, *PVIDEO_PORT_EVENT;
-
 /* agp.c */
 
 NTSTATUS
@@ -165,11 +166,6 @@ IntVideoPortDispatchPower(
    IN PIRP Irp);
 
 NTSTATUS NTAPI
-IntVideoPortDispatchSystemControl(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp);
-
-NTSTATUS NTAPI
 IntVideoPortDispatchWrite(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp);
@@ -206,7 +202,6 @@ IntVideoPortMapPhysicalMemory(
 
 extern ULONG CsrssInitialized;
 extern PKPROCESS Csrss;
-extern ULONG VideoPortDeviceNumber;
 
 VOID FASTCALL
 IntAttachToCSRSS(PKPROCESS *CallingProcess, PKAPC_STATE ApcState);
@@ -226,11 +221,6 @@ IntVideoPortFindAdapter(
    IN PDRIVER_OBJECT DriverObject,
    IN PVIDEO_PORT_DRIVER_EXTENSION DriverExtension,
    IN PDEVICE_OBJECT DeviceObject);
-
-PVOID NTAPI
-IntVideoPortGetProcAddress(
-   IN PVOID HwDeviceExtension,
-   IN PUCHAR FunctionName);
 
 /* int10.c */
 

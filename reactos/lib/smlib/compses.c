@@ -28,14 +28,14 @@
  * 	Success status as handed by the SM reply; otherwise a failure
  * 	status code.
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmCompleteSession (IN HANDLE hSmApiPort,
 		   IN HANDLE hSbApiPort,
 		   IN HANDLE hApiPort)
 {
   NTSTATUS         Status;
   SM_PORT_MESSAGE  SmReqMsg;
-
+    
   DPRINT("SMLIB: %s called\n", __FUNCTION__);
 
   /* Marshal Ses in the LPC message */

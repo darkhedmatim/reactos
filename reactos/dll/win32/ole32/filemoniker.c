@@ -2,7 +2,6 @@
  * FileMonikers implementation
  *
  * Copyright 1999  Noomen Hamza
- * Copyright 2007  Robert Shearman
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <assert.h>
@@ -39,6 +38,10 @@
 #include "compobj_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
+
+const CLSID CLSID_FileMoniker = {
+  0x303, 0, 0, {0xC0, 0, 0, 0, 0, 0, 0, 0x46}
+};
 
 /* filemoniker data structure */
 typedef struct FileMonikerImpl{
@@ -63,8 +66,8 @@ static inline IMoniker *impl_from_IROTData( IROTData *iface )
 }
 
 /* Local function used by filemoniker implementation */
-static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* iface, LPCOLESTR lpszPathName);
-static HRESULT FileMonikerImpl_Destroy(FileMonikerImpl* iface);
+static HRESULT WINAPI FileMonikerImpl_Construct(FileMonikerImpl* iface, LPCOLESTR lpszPathName);
+static HRESULT WINAPI FileMonikerImpl_Destroy(FileMonikerImpl* iface);
 
 /*******************************************************************************
  *        FileMoniker_QueryInterface
@@ -92,7 +95,7 @@ FileMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void** ppvObject)
         *ppvObject = iface;
 
     else if (IsEqualIID(&IID_IROTData, riid))
-        *ppvObject = &This->lpvtbl2;
+        *ppvObject = (IROTData*)&(This->lpvtbl2);
     else if (IsEqualIID(&IID_IMarshal, riid))
     {
         HRESULT hr = S_OK;
@@ -315,7 +318,7 @@ FileMonikerImpl_Load(IMoniker* iface, IStream* pStm)
  *
  * This function saves data of this object. In the beginning I thought
  * that I have just to write the filePath string on Stream. But, when I
- * tested this function with windows program samples, I noticed that it
+ * tested this function with windows programs samples, I noticed that it
  * was not the case. This implementation is based on XP SP2. Other versions
  * of Windows have minor variations.
  *
@@ -328,7 +331,7 @@ FileMonikerImpl_Load(IMoniker* iface, IStream* pStm)
  * 6) If we're only writing the multibyte version, 
  *     write a zero DWORD and finish.
  *
- * 7) DWORD: double-length of the path string type W ("\0" not
+ * 7) DWORD: double-length of the the path string type W ("\0" not
  *    included)
  * 8) WORD constant: 0x3
  * 9) filePath unicode string.
@@ -358,12 +361,12 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
 
     /* write a 0 WORD */
     res=IStream_Write(pStm,&ZERO,sizeof(WORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write length of filePath string ( 0 included )*/
     bytesA = WideCharToMultiByte( CP_ACP, 0, filePathW, -1, NULL, 0, NULL, NULL );
     res=IStream_Write(pStm,&bytesA,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write A string (with '\0') */
     filePathA=HeapAlloc(GetProcessHeap(),0,bytesA);
@@ -372,17 +375,17 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
     WideCharToMultiByte( CP_ACP, 0, filePathW, -1, filePathA, bytesA, NULL, &bUsedDefault);
     res=IStream_Write(pStm,filePathA,bytesA,NULL);
     HeapFree(GetProcessHeap(),0,filePathA);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write a DWORD 0xDEADFFFF */
     res=IStream_Write(pStm,&DEADFFFF,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write 5 zero DWORDs */
     for(i=0;i<5;i++)
     {
         res=IStream_Write(pStm,&ZERO,sizeof(DWORD),NULL);
-        if (FAILED(res)) return res;
+        if (!SUCCEEDED(res)) return res;
     }
 
     /* Write the wide version if:
@@ -414,16 +417,16 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
     /* write bytes needed for the filepathW (without 0) + 6 */
     bytesW = len*sizeof(WCHAR) + 6;
     res=IStream_Write(pStm,&bytesW,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* try again, without the extra 6 */
     bytesW -= 6;
     res=IStream_Write(pStm,&bytesW,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write a WORD 3 */
     res=IStream_Write(pStm,&THREE,sizeof(WORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write W string (no 0) */
     res=IStream_Write(pStm,filePathW,bytesW,NULL);
@@ -456,7 +459,7 @@ FileMonikerImpl_GetSizeMax(IMoniker* iface, ULARGE_INTEGER* pcbSize)
 /******************************************************************************
  *        FileMoniker_Destroy (local function)
  *******************************************************************************/
-HRESULT FileMonikerImpl_Destroy(FileMonikerImpl* This)
+HRESULT WINAPI FileMonikerImpl_Destroy(FileMonikerImpl* This)
 {
     TRACE("(%p)\n",This);
 
@@ -527,7 +530,7 @@ FileMonikerImpl_BindToObject(IMoniker* iface, IBindCtx* pbc, IMoniker* pmkToLeft
         }
         if (pcf!=NULL){
 
-            IClassFactory_CreateInstance(pcf,NULL,&IID_IPersistFile,(void**)&ppf);
+            IClassFactory_CreateInstance(pcf,NULL,&IID_IPersistFile,(void**)ppf);
 
             res=IPersistFile_Load(ppf,This->filePathName,STGM_READ);
 
@@ -560,7 +563,7 @@ FileMonikerImpl_BindToObject(IMoniker* iface, IBindCtx* pbc, IMoniker* pmkToLeft
         /* get the requested interface from the loaded class */
         res= IUnknown_QueryInterface(pObj,riid,ppvResult);
 
-        IBindCtx_RegisterObjectBound(pbc,*ppvResult);
+        IBindCtx_RegisterObjectBound(pbc,(IUnknown*)*ppvResult);
 
         IUnknown_Release(pObj);
     }
@@ -600,7 +603,7 @@ FileMonikerImpl_BindToStorage(IMoniker* iface, IBindCtx* pbc, IMoniker* pmkToLef
             /* get the file name */
             IMoniker_GetDisplayName(iface,pbc,pmkToLeft,&filePath);
 
-            /* verify if the file contains a storage object */
+            /* verifie if the file contains a storage object */
             res=StgIsStorageFile(filePath);
 
             if(res==S_OK){
@@ -640,7 +643,7 @@ static HRESULT WINAPI
 FileMonikerImpl_Reduce(IMoniker* iface, IBindCtx* pbc, DWORD dwReduceHowFar,
                        IMoniker** ppmkToLeft, IMoniker** ppmkReduced)
 {
-    TRACE("(%p,%p,%d,%p,%p)\n",iface,pbc,dwReduceHowFar,ppmkToLeft,ppmkReduced);
+    TRACE("(%p,%p,%ld,%p,%p)\n",iface,pbc,dwReduceHowFar,ppmkToLeft,ppmkReduced);
 
     if (ppmkReduced==NULL)
         return E_POINTER;
@@ -679,7 +682,7 @@ FileMonikerImpl_ComposeWith(IMoniker* iface, IMoniker* pmkRight,
 
     IMoniker_IsSystemMoniker(pmkRight,&mkSys);
 
-    /* check if we have two FileMonikers to compose or not */
+    /* check if we have two filemonikers to compose or not */
     if(mkSys==MKSYS_FILEMONIKER){
 
         CreateBindCtx(0,&bind);
@@ -793,15 +796,13 @@ FileMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
     res = CreateBindCtx(0,&bind);
     if (FAILED(res)) return res;
 
-    res = S_FALSE;
     if (SUCCEEDED(IMoniker_GetDisplayName(pmkOtherMoniker,bind,NULL,&filePath))) {
-	if (!lstrcmpiW(filePath, This->filePathName))
-            res = S_OK;
+	int result = lstrcmpiW(filePath, This->filePathName);
 	CoTaskMemFree(filePath);
+        if ( result == 0 ) return S_OK;
     }
+    return S_FALSE;
 
-    IBindCtx_Release(bind);
-    return res;
 }
 
 /******************************************************************************
@@ -1013,26 +1014,18 @@ FileMonikerImpl_CommonPrefixWith(IMoniker* iface,IMoniker* pmkOther,IMoniker** p
 int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
 {
     static const WCHAR bSlash[] = {'\\',0};
-    LPOLESTR word;
-    int i=0,j,tabIndex=0, ret=0;
+    WCHAR word[MAX_PATH];
+    int i=0,j,tabIndex=0;
     LPOLESTR *strgtable ;
 
     int len=lstrlenW(str);
 
     TRACE("%s, %p\n", debugstr_w(str), *stringTable);
 
-    strgtable = CoTaskMemAlloc(len*sizeof(WCHAR));
+    strgtable =CoTaskMemAlloc(len*sizeof(LPOLESTR));
 
     if (strgtable==NULL)
 	return E_OUTOFMEMORY;
-
-    word = CoTaskMemAlloc((len + 1)*sizeof(WCHAR));
-
-    if (word==NULL)
-    {
-        ret = E_OUTOFMEMORY;
-        goto lend;
-    }
 
     while(str[i]!=0){
 
@@ -1041,10 +1034,7 @@ int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
             strgtable[tabIndex]=CoTaskMemAlloc(2*sizeof(WCHAR));
 
             if (strgtable[tabIndex]==NULL)
-            {
-                ret = E_OUTOFMEMORY;
-                goto lend;
-            }
+	    	return E_OUTOFMEMORY;
 
             strcpyW(strgtable[tabIndex++],bSlash);
 
@@ -1061,10 +1051,7 @@ int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
             strgtable[tabIndex]=CoTaskMemAlloc(sizeof(WCHAR)*(j+1));
 
             if (strgtable[tabIndex]==NULL)
-            {
-                ret = E_OUTOFMEMORY;
-                goto lend;
-            }
+                return E_OUTOFMEMORY;
 
             strcpyW(strgtable[tabIndex++],word);
         }
@@ -1073,21 +1060,7 @@ int FileMonikerImpl_DecomposePath(LPCOLESTR str, LPOLESTR** stringTable)
 
     *stringTable=strgtable;
 
-    ret = tabIndex;
-
-lend:
-    if (ret < 0)
-    {
-        for (i = 0; i < tabIndex; i++)
-            CoTaskMemFree(strgtable[i]);
-
-        CoTaskMemFree(strgtable);
-    }
-
-    if (word)
-        CoTaskMemFree(word);
-
-    return ret;
+    return tabIndex;
 }
 
 /******************************************************************************
@@ -1264,7 +1237,7 @@ FileMonikerROTDataImpl_Release(IROTData* iface)
 }
 
 /******************************************************************************
- *        FileMonikerIROTData_GetComparisonData
+ *        FileMonikerIROTData_GetComparaisonData
  */
 static HRESULT WINAPI
 FileMonikerROTDataImpl_GetComparisonData(IROTData* iface, BYTE* pbData,
@@ -1276,7 +1249,7 @@ FileMonikerROTDataImpl_GetComparisonData(IROTData* iface, BYTE* pbData,
     int i;
     LPWSTR pszFileName;
 
-    TRACE("(%p, %u, %p)\n", pbData, cbMax, pcbData);
+    TRACE("(%p, %lu, %p)\n", pbData, cbMax, pcbData);
 
     *pcbData = sizeof(CLSID) + len * sizeof(WCHAR);
     if (cbMax < *pcbData)
@@ -1333,7 +1306,8 @@ static const IROTDataVtbl VT_ROTDataImpl =
 /******************************************************************************
  *         FileMoniker_Construct (local function)
  */
-static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPathName)
+static HRESULT WINAPI
+FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPathName)
 {
     int nb=0,i;
     int sizeStr=lstrlenW(lpszPathName);
@@ -1344,7 +1318,7 @@ static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPa
 
     TRACE("(%p,%s)\n",This,debugstr_w(lpszPathName));
 
-    /* Initialize the virtual function table. */
+    /* Initialize the virtual fgunction table. */
     This->lpvtbl1      = &VT_FileMonikerImpl;
     This->lpvtbl2      = &VT_ROTDataImpl;
     This->ref          = 0;
@@ -1434,105 +1408,6 @@ HRESULT WINAPI CreateFileMoniker(LPCOLESTR lpszPathName, LPMONIKER * ppmk)
 
     return hr;
 }
-
-/* find a character from a set in reverse without the string having to be null-terminated */
-static inline WCHAR *memrpbrkW(const WCHAR *ptr, size_t n, const WCHAR *accept)
-{
-    const WCHAR *end, *ret = NULL;
-    for (end = ptr + n; ptr < end; ptr++) if (strchrW(accept, *ptr)) ret = ptr;
-    return (WCHAR *)ret;
-}
-
-HRESULT FileMoniker_CreateFromDisplayName(LPBC pbc, LPCOLESTR szDisplayName,
-                                          LPDWORD pchEaten, LPMONIKER *ppmk)
-{
-    LPCWSTR end;
-    static const WCHAR wszSeparators[] = {':','\\','/','!',0};
-
-    for (end = szDisplayName + strlenW(szDisplayName);
-         end && (end != szDisplayName);
-         end = memrpbrkW(szDisplayName, end - szDisplayName, wszSeparators))
-    {
-        HRESULT hr;
-        IRunningObjectTable *rot;
-        IMoniker *file_moniker;
-        LPWSTR file_display_name;
-        LPWSTR full_path_name;
-        DWORD full_path_name_len;
-        int len = end - szDisplayName;
-
-        file_display_name = HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR));
-        if (!file_display_name) return E_OUTOFMEMORY;
-        memcpy(file_display_name, szDisplayName, len * sizeof(WCHAR));
-        file_display_name[len] = '\0';
-
-        hr = CreateFileMoniker(file_display_name, &file_moniker);
-        if (FAILED(hr))
-        {
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            return hr;
-        }
-
-        hr = IBindCtx_GetRunningObjectTable(pbc, &rot);
-        if (FAILED(hr))
-        {
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            IMoniker_Release(file_moniker);
-            return hr;
-        }
-
-        hr = IRunningObjectTable_IsRunning(rot, file_moniker);
-        IRunningObjectTable_Release(rot);
-        if (FAILED(hr))
-        {
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            IMoniker_Release(file_moniker);
-            return hr;
-        }
-        if (hr == S_OK)
-        {
-            TRACE("found running file moniker for %s\n", debugstr_w(file_display_name));
-            *pchEaten = len;
-            *ppmk = file_moniker;
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            return S_OK;
-        }
-
-        full_path_name_len = GetFullPathNameW(file_display_name, 0, NULL, NULL);
-        if (!full_path_name_len)
-        {
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            IMoniker_Release(file_moniker);
-            return MK_E_SYNTAX;
-        }
-        full_path_name = HeapAlloc(GetProcessHeap(), 0, full_path_name_len * sizeof(WCHAR));
-        if (!full_path_name)
-        {
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            IMoniker_Release(file_moniker);
-            return E_OUTOFMEMORY;
-        }
-        GetFullPathNameW(file_display_name, full_path_name_len, full_path_name, NULL);
-
-        if (GetFileAttributesW(full_path_name) == INVALID_FILE_ATTRIBUTES)
-            TRACE("couldn't open file %s\n", debugstr_w(full_path_name));
-        else
-        {
-            TRACE("got file moniker for %s\n", debugstr_w(szDisplayName));
-            *pchEaten = len;
-            *ppmk = file_moniker;
-            HeapFree(GetProcessHeap(), 0, file_display_name);
-            HeapFree(GetProcessHeap(), 0, full_path_name);
-            return S_OK;
-        }
-        HeapFree(GetProcessHeap(), 0, file_display_name);
-        HeapFree(GetProcessHeap(), 0, full_path_name);
-        IMoniker_Release(file_moniker);
-    }
-
-    return MK_E_CANTOPENFILE;
-}
-
 
 static HRESULT WINAPI FileMonikerCF_QueryInterface(LPCLASSFACTORY iface,
                                                   REFIID riid, LPVOID *ppv)

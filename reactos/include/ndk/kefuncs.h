@@ -199,7 +199,7 @@ BOOLEAN
 NTAPI
 KiIpiServiceRoutine(
     IN PKTRAP_FRAME TrapFrame,
-    IN PKEXCEPTION_FRAME ExceptionFrame
+    IN PVOID ExceptionFrame
 );
 
 //
@@ -442,18 +442,18 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtSetIntervalProfile(
-    IN ULONG Interval,
-    IN KPROFILE_SOURCE ClockSource
+    ULONG Interval,
+    KPROFILE_SOURCE ClockSource
 );
 
 NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtSetLdtEntries(
-    IN ULONG Selector1,
-    IN LDT_ENTRY LdtEntry1,
-    IN ULONG Selector2,
-    IN LDT_ENTRY LdtEntry2
+    ULONG Selector1,
+    LDT_ENTRY LdtEntry1,
+    ULONG Selector2,
+    LDT_ENTRY LdtEntry2
 );
 
 NTSYSCALLAPI
@@ -648,18 +648,18 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwSetIntervalProfile(
-    IN ULONG Interval,
-    IN KPROFILE_SOURCE ClockSource
+    ULONG Interval,
+    KPROFILE_SOURCE ClockSource
 );
 
 NTSYSAPI
 NTSTATUS
 NTAPI
 ZwSetLdtEntries(
-    IN ULONG Selector1,
-    IN LDT_ENTRY LdtEntry1,
-    IN ULONG Selector2,
-    IN LDT_ENTRY LdtEntry2
+    ULONG Selector1,
+    LDT_ENTRY LdtEntry1,
+    ULONG Selector2,
+    LDT_ENTRY LdtEntry2
 );
 
 NTSYSAPI

@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,12 +26,12 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/colormac.h"
-#include "main/context.h"
-#include "main/macros.h"
-#include "main/imports.h"
-#include "main/mtypes.h"
+#include "glheader.h"
+#include "colormac.h"
+#include "context.h"
+#include "macros.h"
+#include "imports.h"
+#include "mtypes.h"
 
 #include "math/m_xform.h"
 
@@ -126,7 +126,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
 
-   if (ctx->VertexProgram._Current) 
+   if (ctx->VertexProgram._Enabled) 
       return GL_TRUE;
 
    if (ctx->_NeedEyeCoords) {
@@ -165,7 +165,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
     * the clipmask.
     */
    store->ormask = 0;
-   store->andmask = CLIP_FRUSTUM_BITS;
+   store->andmask = CLIP_ALL_BITS;
 
    if (tnl->NeedNdcCoords) {
       VB->NdcPtr =

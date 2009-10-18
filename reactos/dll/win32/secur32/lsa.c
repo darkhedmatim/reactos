@@ -12,9 +12,6 @@
 
 #include <precomp.h>
 
-#define NDEBUG
-#include <debug.h>
-
 /* GLOBALS *******************************************************************/
 
 extern HANDLE Secur32Heap;
@@ -24,13 +21,13 @@ extern HANDLE Secur32Heap;
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaDeregisterLogonProcess(HANDLE LsaHandle)
 {
    LSASS_REQUEST Request;
    LSASS_REPLY Reply;
    NTSTATUS Status;
-
+      
    Request.Header.u1.s1.DataLength = 0;
    Request.Header.u1.s1.TotalLength = sizeof(LSASS_REQUEST);
    Request.Type = LSASS_REQUEST_DEREGISTER_LOGON_PROCESS;
@@ -41,29 +38,28 @@ LsaDeregisterLogonProcess(HANDLE LsaHandle)
      {
 	return(Status);
      }
-
+   
    if (!NT_SUCCESS(Reply.Status))
      {
 	return(Reply.Status);
      }
-
+   
    return(Status);
 }
 
 /*
  * @unimplemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaConnectUntrusted(PHANDLE LsaHandle)
 {
-  UNIMPLEMENTED;
-  return STATUS_UNSUCCESSFUL;
+  return(STATUS_UNSUCCESSFUL);
 }
 
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaCallAuthenticationPackage(HANDLE LsaHandle,
 			     ULONG AuthenticationPackage,
 			     PVOID ProtocolSubmitBuffer,
@@ -81,10 +77,10 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
 
    Request = (PLSASS_REQUEST)&RawRequest;
    Reply = (PLSASS_REPLY)&RawReply;
-
+   
    Request->Header.u1.s1.DataLength = sizeof(LSASS_REQUEST) + SubmitBufferLength -
      sizeof(PORT_MESSAGE);
-   Request->Header.u1.s1.TotalLength =
+   Request->Header.u1.s1.TotalLength = 
      Request->Header.u1.s1.DataLength + sizeof(PORT_MESSAGE);
    Request->Type = LSASS_REQUEST_CALL_AUTHENTICATION_PACKAGE;
    Request->d.CallAuthenticationPackageRequest.AuthenticationPackage =
@@ -94,7 +90,7 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
    memcpy(Request->d.CallAuthenticationPackageRequest.InBuffer,
 	  ProtocolSubmitBuffer,
 	  SubmitBufferLength);
-
+   
    Status = NtRequestWaitReplyPort(LsaHandle,
 				   &Request->Header,
 				   &Reply->Header);
@@ -102,12 +98,12 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
      {
 	return(Status);
      }
-
+   
    if (!NT_SUCCESS(Reply->Status))
      {
 	return(Reply->Status);
      }
-
+   
    OutBufferSize = Reply->d.CallAuthenticationPackageReply.OutBufferLength;
    *ProtocolReturnBuffer = RtlAllocateHeap(Secur32Heap,
 					   0,
@@ -116,7 +112,7 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
    memcpy(*ProtocolReturnBuffer,
 	  Reply->d.CallAuthenticationPackageReply.OutBuffer,
 	  *ReturnBufferLength);
-
+   
    return(Status);
 }
 
@@ -124,7 +120,7 @@ LsaCallAuthenticationPackage(HANDLE LsaHandle,
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaFreeReturnBuffer(PVOID Buffer)
 {
    return(RtlFreeHeap(Secur32Heap, 0, Buffer));
@@ -134,7 +130,7 @@ LsaFreeReturnBuffer(PVOID Buffer)
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaLookupAuthenticationPackage(HANDLE LsaHandle,
 			       PLSA_STRING PackageName,
 			       PULONG AuthenticationPackage)
@@ -143,14 +139,14 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
    PLSASS_REQUEST Request;
    LSASS_REQUEST RawRequest;
    LSASS_REPLY Reply;
-
+   
    Request = (PLSASS_REQUEST)&RawRequest;
    Request->Header.u1.s1.DataLength = sizeof(LSASS_REQUEST) + PackageName->Length -
      sizeof(PORT_MESSAGE);
    Request->Header.u1.s1.TotalLength = Request->Header.u1.s1.DataLength +
      sizeof(PORT_MESSAGE);
    Request->Type = LSASS_REQUEST_LOOKUP_AUTHENTICATION_PACKAGE;
-
+   
    Status = NtRequestWaitReplyPort(LsaHandle,
 			  &Request->Header,
 			  &Reply.Header);
@@ -162,9 +158,9 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
      {
 	return(Reply.Status);
      }
-
+   
    *AuthenticationPackage = Reply.d.LookupAuthenticationPackageReply.Package;
-
+   
    return(Reply.Status);
 }
 
@@ -172,7 +168,7 @@ LsaLookupAuthenticationPackage(HANDLE LsaHandle,
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaLogonUser(HANDLE LsaHandle,
 	     PLSA_STRING OriginName,
 	     SECURITY_LOGON_TYPE LogonType,
@@ -195,29 +191,29 @@ LsaLogonUser(HANDLE LsaHandle,
    PLSASS_REPLY Reply;
    LSASS_REPLY RawReply;
    NTSTATUS Status;
-
+   
    RequestLength = sizeof(LSASS_REQUEST) - sizeof(PORT_MESSAGE);
    RequestLength = RequestLength + (OriginName->Length * sizeof(WCHAR));
    RequestLength = RequestLength + AuthenticationInformationLength;
-   RequestLength = RequestLength +
+   RequestLength = RequestLength + 
      (LocalGroups->GroupCount * sizeof(SID_AND_ATTRIBUTES));
-
+   
    CurrentLength = 0;
    Request = (PLSASS_REQUEST)&RawMessage;
-
+   
    Request->d.LogonUserRequest.OriginNameLength = OriginName->Length;
    Request->d.LogonUserRequest.OriginName = (PWSTR)&RawMessage + CurrentLength;
    memcpy((PWSTR)&RawMessage + CurrentLength,
 	  OriginName->Buffer,
 	  OriginName->Length * sizeof(WCHAR));
    CurrentLength = CurrentLength + (OriginName->Length * sizeof(WCHAR));
-
+   
    Request->d.LogonUserRequest.LogonType = LogonType;
-
+   
    Request->d.LogonUserRequest.AuthenticationPackage =
      AuthenticationPackage;
-
-   Request->d.LogonUserRequest.AuthenticationInformation =
+   
+   Request->d.LogonUserRequest.AuthenticationInformation = 
      (PVOID)((ULONG_PTR)&RawMessage + CurrentLength);
    Request->d.LogonUserRequest.AuthenticationInformationLength =
      AuthenticationInformationLength;
@@ -225,22 +221,22 @@ LsaLogonUser(HANDLE LsaHandle,
 	  AuthenticationInformation,
 	  AuthenticationInformationLength);
    CurrentLength = CurrentLength + AuthenticationInformationLength;
-
+   
    Request->d.LogonUserRequest.LocalGroupsCount = LocalGroups->GroupCount;
-   Request->d.LogonUserRequest.LocalGroups =
+   Request->d.LogonUserRequest.LocalGroups = 
      (PSID_AND_ATTRIBUTES)&RawMessage + CurrentLength;
    memcpy((PSID_AND_ATTRIBUTES)&RawMessage + CurrentLength,
 	  LocalGroups->Groups,
 	  LocalGroups->GroupCount * sizeof(SID_AND_ATTRIBUTES));
-
+   
    Request->d.LogonUserRequest.SourceContext = *SourceContext;
-
+   
    Request->Type = LSASS_REQUEST_LOGON_USER;
    Request->Header.u1.s1.DataLength = RequestLength - sizeof(PORT_MESSAGE);
    Request->Header.u1.s1.TotalLength = RequestLength + sizeof(PORT_MESSAGE);
-
+   
    Reply = (PLSASS_REPLY)&RawReply;
-
+   
    Status = NtRequestWaitReplyPort(LsaHandle,
 				   &Request->Header,
 				   &Reply->Header);
@@ -250,12 +246,12 @@ LsaLogonUser(HANDLE LsaHandle,
      }
 
    *SubStatus = Reply->d.LogonUserReply.SubStatus;
-
+   
    if (!NT_SUCCESS(Reply->Status))
      {
 	return(Status);
      }
-
+   
    *ProfileBuffer = RtlAllocateHeap(Secur32Heap,
 				    0,
 				  Reply->d.LogonUserReply.ProfileBufferLength);
@@ -265,10 +261,10 @@ LsaLogonUser(HANDLE LsaHandle,
 	  Reply->d.LogonUserReply.ProfileBufferLength);
    *LogonId = Reply->d.LogonUserReply.LogonId;
    *Token = Reply->d.LogonUserReply.Token;
-   memcpy(Quotas,
+   memcpy(Quotas, 
 	  &Reply->d.LogonUserReply.Quotas,
 	  sizeof(Reply->d.LogonUserReply.Quotas));
-
+   
    return(Status);
 }
 
@@ -276,7 +272,7 @@ LsaLogonUser(HANDLE LsaHandle,
 /*
  * @implemented
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
 			PHANDLE Handle,
 			PLSA_OPERATIONAL_MODE OperationalMode)
@@ -300,17 +296,17 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
      {
 	return(Status);
      }
-
+   
    Request.Type = LSASS_REQUEST_REGISTER_LOGON_PROCESS;
-   Request.Header.u1.s1.DataLength = sizeof(LSASS_REQUEST) -
+   Request.Header.u1.s1.DataLength = sizeof(LSASS_REQUEST) - 
      sizeof(PORT_MESSAGE);
    Request.Header.u1.s1.TotalLength = sizeof(LSASS_REQUEST);
-
+   
    Request.d.RegisterLogonProcessRequest.Length = LsaLogonProcessName->Length;
    memcpy(Request.d.RegisterLogonProcessRequest.LogonProcessNameBuffer,
 	  LsaLogonProcessName->Buffer,
 	  Request.d.RegisterLogonProcessRequest.Length);
-
+   
    Status = NtRequestWaitReplyPort(*Handle,
 				   &Request.Header,
 				   &Reply.Header);
@@ -320,16 +316,16 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
 	*Handle = INVALID_HANDLE_VALUE;
 	return(Status);
      }
-
+   
    if (!NT_SUCCESS(Reply.Status))
      {
 	NtClose(*Handle);
 	*Handle = INVALID_HANDLE_VALUE;
 	return(Status);
      }
-
+   
    *OperationalMode = Reply.d.RegisterLogonProcessReply.OperationalMode;
-
+   
    return(Reply.Status);
 }
 
@@ -337,54 +333,50 @@ LsaRegisterLogonProcess(PLSA_STRING LsaLogonProcessName,
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaEnumerateLogonSessions(
 PULONG LogonSessionCount,
 PLUID * LogonSessionList
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaGetLogonSessionData(
 PLUID LogonId,
 PSECURITY_LOGON_SESSION_DATA * ppLogonSessionData
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaRegisterPolicyChangeNotification(
 POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
 HANDLE NotificationEventHandle
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }
 
 /*
  * @unimplemented
  */
 NTSTATUS
-WINAPI
+STDCALL
 LsaUnregisterPolicyChangeNotification(
 POLICY_NOTIFICATION_INFORMATION_CLASS InformationClass,
 HANDLE NotificationEventHandle
 )
 {
-  UNIMPLEMENTED;
-  return FALSE;
+  return(FALSE);
 }

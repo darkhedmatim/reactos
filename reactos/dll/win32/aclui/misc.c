@@ -253,7 +253,7 @@ InvokeObjectPickerDialog(IN IDsObjectPicker *pDsObjectPicker,
 {
     IDataObject *pdo = NULL;
     HRESULT hRet;
-
+    
     hRet = pDsObjectPicker->lpVtbl->InvokeDialog(pDsObjectPicker,
                                                  hwndParent,
                                                  &pdo);
@@ -262,7 +262,7 @@ InvokeObjectPickerDialog(IN IDsObjectPicker *pDsObjectPicker,
         STGMEDIUM stm;
         FORMATETC fe;
 
-        fe.cfFormat = (WORD)RegisterClipboardFormat(CFSTR_DSOP_DS_SELECTION_LIST);
+        fe.cfFormat = RegisterClipboardFormat(CFSTR_DSOP_DS_SELECTION_LIST);
         fe.ptd = NULL;
         fe.dwAspect = DVASPECT_CONTENT;
         fe.lindex = -1;
@@ -327,7 +327,7 @@ InvokeObjectPickerDialog(IN IDsObjectPicker *pDsObjectPicker,
 
         pdo->lpVtbl->Release(pdo);
     }
-
+    
     return hRet;
 }
 

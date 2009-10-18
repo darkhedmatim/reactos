@@ -170,7 +170,6 @@ struct DesktopShellView : public ExtContextMenuHandlerT<SubclassedWindow>
 	typedef ExtContextMenuHandlerT<SubclassedWindow> super;
 
 	DesktopShellView(HWND hwnd, IShellView* pShellView);
-	~DesktopShellView();
 
 	bool	InitDragDrop();
 
@@ -187,6 +186,7 @@ protected:
 
 	void	refresh();
 
+	DesktopDropTarget* _pDropTarget;
 	HWND	_hwndListView;
 	int		_icon_algo;
 };

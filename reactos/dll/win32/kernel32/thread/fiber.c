@@ -10,7 +10,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 typedef struct _FIBER                                      /* Field offsets:  */
 {                                                          /* 32 bit   64 bit */
@@ -84,7 +84,6 @@ ConvertThreadToFiberEx(LPVOID lpParameter,
     }
 
     /* copy some contextual data from the thread to the fiber */
-    pfCurFiber->Parameter = lpParameter;
     pfCurFiber->ExceptionList = pTeb->Tib.ExceptionList;
     pfCurFiber->StackBase = pTeb->Tib.StackBase;
     pfCurFiber->StackLimit = pTeb->Tib.StackLimit;
@@ -252,18 +251,12 @@ VOID
 WINAPI
 BaseFiberStartup(VOID)
 {
-#ifdef _M_IX86
     PFIBER Fiber = GetFiberData();
-
+    
     /* Call the Thread Startup Routine */
     DPRINT1("Starting Fiber\n");
     BaseThreadStartup((LPTHREAD_START_ROUTINE)Fiber->Context.Eax,
                       (LPVOID)Fiber->Context.Ebx);
-#else
-#warning Unknown architecture
-    UNIMPLEMENTED;
-    DbgBreakPoint();
-#endif
 }
 
 /* EOF */

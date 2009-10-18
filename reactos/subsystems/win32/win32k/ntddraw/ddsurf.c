@@ -9,307 +9,157 @@
  */
 
 #include <w32k.h>
+
+#define NDEBUG
 #include <debug.h>
 
-/************************************************************************/
-/* NtGdiDdDestroySurface                                                */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdDestroySurface(HANDLE hSurface, BOOL bRealDestroy)
-{
-    PGD_DXDDDESTROYSURFACE pfnDdDestroySurface = (PGD_DXDDDESTROYSURFACE)gpDxFuncs[DXG_INDEX_DxDdDestroySurface].pfn;
-    
-    if (pfnDdDestroySurface == NULL)
-    {
-        DPRINT1("Warring no pfnDdDestroySurface");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
+#define DdHandleTable GdiHandleTable
 
-    DPRINT1("Calling on dxg.sys pfnDdDestroySurface");
-    return pfnDdDestroySurface(hSurface, bRealDestroy);
+
+/************************************************************************/
+/* NtGdiDdCreateSurface                                                 */
+/* status : untested                                                    */
+/************************************************************************/
+DWORD STDCALL NtGdiDdDestroySurface(
+    HANDLE hSurface,
+    BOOL bRealDestroy
+)
+{	
+	DWORD  ddRVal  = DDHAL_DRIVER_NOTHANDLED;
+	PDD_SURFACE pSurface;
+	PDD_DIRECTDRAW pDirectDraw;	
+	DD_DESTROYSURFACEDATA DestroySurf; 
+	
+	DPRINT1("NtGdiDdDestroySurface\n");
+	
+	pSurface = GDIOBJ_LockObj(DdHandleTable, hSurface, GDI_OBJECT_TYPE_DD_SURFACE);
+	if (pSurface != NULL) 
+	{		    
+		pDirectDraw = GDIOBJ_LockObj(DdHandleTable, pSurface->hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
+		if (pDirectDraw != NULL)
+		{		
+			if (pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_DESTROYSURFACE)			
+			{								
+				//DestroySurf.lpDD = pSurface->Global;
+				DestroySurf.lpDDSurface = hSurface; 
+                
+				/*  FIXME
+				    in parma bRealDestroy 
+				    Specifies how to destroy the surface. Can be one of the following values. 
+                    TRUE   =   Destroy the surface and free video memory.
+                    FALSE  =   Free the video memory but leave the surface in an uninitialized state
+                */
+
+				DestroySurf.DestroySurface = pDirectDraw->Surf.DestroySurface;		
+				ddRVal = pDirectDraw->Surf.DestroySurface(&DestroySurf); 
+			}
+
+			 GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);
+		}
+
+		GDIOBJ_UnlockObjByPtr(DdHandleTable, pSurface);
+	}
+
+    return ddRVal;			
 }
 
-/************************************************************************/
-/* NtGdiDdFlip                                                          */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdFlip(HANDLE hSurfaceCurrent,
-            HANDLE hSurfaceTarget,
-            HANDLE hSurfaceCurrentLeft,
-            HANDLE hSurfaceTargetLeft,
-            PDD_FLIPDATA puFlipData)
-{
-    PGD_DXDDFLIP pfnDdDdFlip = (PGD_DXDDFLIP)gpDxFuncs[DXG_INDEX_DxDdFlip].pfn;
-   
-    if (pfnDdDdFlip == NULL)
-    {
-        DPRINT1("Warring no pfnDdDdFlip");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdDdFlip");
-    return pfnDdDdFlip(hSurfaceCurrent, hSurfaceTarget, hSurfaceCurrentLeft, hSurfaceTargetLeft, puFlipData);
-}
-
-/************************************************************************/
-/* NtGdiDdUnlock                                                        */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdLock(HANDLE hSurface,
-            PDD_LOCKDATA puLockData,
-            HDC hdcClip)
-{
-    PGD_DXDDLOCK pfnDdLock = (PGD_DXDDLOCK)gpDxFuncs[DXG_INDEX_DxDdLock].pfn;
-    
-    if (pfnDdLock == NULL)
-    {
-        DPRINT1("Warring no pfnDdLock");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdLock");
-    return pfnDdLock(hSurface, puLockData, hdcClip);
-}
-
-/************************************************************************/
-/* NtGdiDdunlock                                                        */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdUnlock(HANDLE hSurface, 
-              PDD_UNLOCKDATA puUnlockData)
-{
-    PGD_DXDDUNLOCK pfnDdUnlock = (PGD_DXDDUNLOCK)gpDxFuncs[DXG_INDEX_DxDdUnlock].pfn;
-   
-    if (pfnDdUnlock == NULL)
-    {
-        DPRINT1("Warring no pfnDdUnlock");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdUnlock");
-    return pfnDdUnlock(hSurface, puUnlockData);
-}
-
-/************************************************************************/
-/* NtGdiDdBlt                                                           */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdBlt(HANDLE hSurfaceDest,
-           HANDLE hSurfaceSrc,
-           PDD_BLTDATA puBltData)
-{
-    PGD_DDBLT pfnDdBlt = (PGD_DDBLT)gpDxFuncs[DXG_INDEX_DxDdBlt].pfn;
-    
-    if (pfnDdBlt == NULL)
-    {
-        DPRINT1("Warring no pfnDdBlt");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys DdBlt");
-    return pfnDdBlt(hSurfaceDest,hSurfaceSrc,puBltData);
-}
-
-/************************************************************************/
-/* NtGdiDdSetColorKey                                                   */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdSetColorKey(HANDLE hSurface,
-                   PDD_SETCOLORKEYDATA puSetColorKeyData)
-{
-    PGD_DXDDSETCOLORKEY pfnDdSetColorKey = (PGD_DXDDSETCOLORKEY)gpDxFuncs[DXG_INDEX_DxDdSetColorKey].pfn;
-    
-    if (pfnDdSetColorKey == NULL)
-    {
-        DPRINT1("Warring no pfnDdSetColorKey");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdSetColorKey");
-    return pfnDdSetColorKey(hSurface,puSetColorKeyData);
-
-}
-
-/************************************************************************/
-/* NtGdiDdAddAttachedSurface                                            */
-/************************************************************************/
-
-DWORD
-APIENTRY
-NtGdiDdAddAttachedSurface(HANDLE hSurface,
-                          HANDLE hSurfaceAttached,
-                          PDD_ADDATTACHEDSURFACEDATA puAddAttachedSurfaceData)
-{
-    PGD_DDADDATTACHEDSURFACE pfnDdAddAttachedSurface = (PGD_DDADDATTACHEDSURFACE)gpDxFuncs[DXG_INDEX_DxDdAddAttachedSurface].pfn;
-    
-    if (pfnDdAddAttachedSurface == NULL)
-    {
-        DPRINT1("Warring no pfnDdAddAttachedSurface");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys DdAddAttachedSurface");
-    return pfnDdAddAttachedSurface(hSurface,hSurfaceAttached,puAddAttachedSurfaceData);
-}
-
-/************************************************************************/
-/* NtGdiDdGetBltStatus                                                  */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdGetBltStatus(HANDLE hSurface,
-                    PDD_GETBLTSTATUSDATA puGetBltStatusData)
-{
-    PGD_DXDDGETBLTSTATUS pfnDdGetBltStatus = (PGD_DXDDGETBLTSTATUS)gpDxFuncs[DXG_INDEX_DxDdGetBltStatus].pfn;
-    
-    if (pfnDdGetBltStatus == NULL)
-    {
-        DPRINT1("Warring no pfnDdGetBltStatus");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdGetBltStatus");
-    return pfnDdGetBltStatus(hSurface,puGetBltStatusData);
-}
-
-/************************************************************************/
-/* NtGdiDdGetFlipStatus                                                 */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdGetFlipStatus(HANDLE hSurface,
-                     PDD_GETFLIPSTATUSDATA puGetFlipStatusData)
-{
-    PGD_DXDDGETFLIPSTATUS pfnDdGetFlipStatus = (PGD_DXDDGETFLIPSTATUS)gpDxFuncs[DXG_INDEX_DxDdGetFlipStatus].pfn;
-    
-    if (pfnDdGetFlipStatus == NULL)
-    {
-        DPRINT1("Warring no pfnDdGetFlipStatus");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdGetFlipStatus");
-    return pfnDdGetFlipStatus(hSurface,puGetFlipStatusData);
-}
-
-/************************************************************************/
-/* NtGdiDdUpdateOverlay                                                 */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdUpdateOverlay(HANDLE hSurfaceDestination,
-                     HANDLE hSurfaceSource,
-                     PDD_UPDATEOVERLAYDATA puUpdateOverlayData)
-{
-    PGD_DXDDUPDATEOVERLAY pfnDdUpdateOverlay = (PGD_DXDDUPDATEOVERLAY)gpDxFuncs[DXG_INDEX_DxDdUpdateOverlay].pfn;
-   
-    if (pfnDdUpdateOverlay == NULL)
-    {
-        DPRINT1("Warring no pfnDdUpdateOverlay");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdUpdateOverlay");
-    return pfnDdUpdateOverlay(hSurfaceDestination,hSurfaceSource,puUpdateOverlayData);
-}
-
-/************************************************************************/
-/* NtGdiDdSetOverlayPosition                                            */
-/************************************************************************/
-
-DWORD
-APIENTRY
-NtGdiDdSetOverlayPosition(HANDLE hSurfaceSource,
-                          HANDLE hSurfaceDestination,
-                          PDD_SETOVERLAYPOSITIONDATA puSetOverlayPositionData)
-{
-    PGD_DXDDSETOVERLAYPOSITION pfnDdSetOverlayPosition = (PGD_DXDDSETOVERLAYPOSITION)gpDxFuncs[DXG_INDEX_DxDdSetOverlayPosition].pfn;
-  
-    if (pfnDdSetOverlayPosition == NULL)
-    {
-        DPRINT1("Warring no pfnDdSetOverlayPosition");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling on dxg.sys pfnDdSetOverlayPosition");
-    return pfnDdSetOverlayPosition(hSurfaceSource,hSurfaceDestination,puSetOverlayPositionData);
-}
-
-/************************************************************************/
-/* This is not part of the ddsurface interface but it have              */
-/* deal with the surface                                                */
-/************************************************************************/
 
 
 /************************************************************************/
-/* NtGdiDdAlphaBlt                                                      */
+/* NtGdiDdFlip                                                 */
+/* status : untested                                                    */
 /************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdAlphaBlt(HANDLE hSurfaceDest,
-                HANDLE hSurfaceSrc,
-                PDD_BLTDATA puBltData)
-{
-    PGD_DDALPHABLT pfnDdAlphaBlt = (PGD_DDALPHABLT)gpDxFuncs[DXG_INDEX_DxDdAlphaBlt].pfn;
-   
-    if (pfnDdAlphaBlt == NULL)
-    {
-        DPRINT1("Warring no pfnDdAlphaBlt");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
 
-    DPRINT1("Calling on dxg.sys DdAlphaBlt");
-    return pfnDdAlphaBlt(hSurfaceDest,hSurfaceSrc,puBltData);
-}
-
-/************************************************************************/
-/* NtGdiDdAttachSurface                                                 */
-/************************************************************************/
-BOOL
-APIENTRY
-NtGdiDdAttachSurface(HANDLE hSurfaceFrom,
-                     HANDLE hSurfaceTo
+DWORD STDCALL NtGdiDdFlip(
+    HANDLE hSurfaceCurrent,
+    HANDLE hSurfaceTarget,
+    HANDLE hSurfaceCurrentLeft,
+    HANDLE hSurfaceTargetLeft,
+    PDD_FLIPDATA puFlipData
 )
 {
-    PGD_DDATTACHSURFACE pfnDdAttachSurface = (PGD_DDATTACHSURFACE)gpDxFuncs[DXG_INDEX_DxDdAttachSurface].pfn;
-  
-    if (pfnDdAttachSurface == NULL)
-    {
-        DPRINT1("Warring no pfnDdAttachSurface");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
+	DWORD  ddRVal  = DDHAL_DRIVER_NOTHANDLED;
+	PDD_SURFACE pSurface;
+	PDD_DIRECTDRAW pDirectDraw;			
+	DPRINT1("NtGdiDdFlip\n");
+	
+	/* DO we need looking all surface or is okay for one */
+	pSurface = GDIOBJ_LockObj(DdHandleTable, hSurfaceCurrent, GDI_OBJECT_TYPE_DD_SURFACE);
+	if (pSurface != NULL) 
+	{				
+		pDirectDraw = GDIOBJ_LockObj(DdHandleTable, pSurface->hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 
-    DPRINT1("Calling on dxg.sys pfnDdAttachSurface");
-    return pfnDdAttachSurface(hSurfaceFrom,hSurfaceTo);
+		if (pDirectDraw != NULL)
+		{		
+			if (pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_FLIP)			
+			{		
+				/* FIXME is lpDD typecasted tp driver PEV ?? */ 											
+			    ddRVal = pDirectDraw->Surf.Flip(puFlipData);				
+			}
+
+			GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);
+		}
+
+		GDIOBJ_UnlockObjByPtr(DdHandleTable, pSurface);
+	}
+
+    return ddRVal;				
 }
 
+
+
+
 /************************************************************************/
-/* NtGdiDdUnattachSurface                                               */
+/* NtGdiDdLock                                                          */
+/* status : untested                                                    */
 /************************************************************************/
-/* Note : msdn protypes is VOID APIENTRY NtGdiDdUnattachSurface(HANDLE hSurface, HANDLE hSurfaceAttached)
-          But it say it return either DDHAL_DRIVER_NOTHANDLED or DDHAL_DRIVER_HANDLED
-          so I guess it is a typo in MSDN for this protypes for the info talk against it self
-*/
-DWORD
-APIENTRY
-NtGdiDdUnattachSurface(HANDLE hSurface,
-                       HANDLE hSurfaceAttached)
+
+DWORD STDCALL NtGdiDdLock(
+    HANDLE hSurface,
+    PDD_LOCKDATA puLockData,
+    HDC hdcClip)
 {
-    PGD_DXDDUNATTACHSURFACE pfnDdUnattachSurface = (PGD_DXDDUNATTACHSURFACE)gpDxFuncs[DXG_INDEX_DxDdUnattachSurface].pfn;  
-    if (pfnDdUnattachSurface == NULL)
-    {
-        DPRINT1("Warring no pfnDdUnattachSurface");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
+	DWORD  ddRVal  = DDHAL_DRIVER_NOTHANDLED;
+	PDD_SURFACE pSurface;
+	PDD_DIRECTDRAW pDirectDraw;	
+	
+	DPRINT1("NtGdiDdLock\n");
+		
+	pSurface = GDIOBJ_LockObj(DdHandleTable, hSurface, GDI_OBJECT_TYPE_DD_SURFACE);
+	if (pSurface != NULL) 
+	{				
+		pDirectDraw = GDIOBJ_LockObj(DdHandleTable, pSurface->hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 
-    DPRINT1("Calling on dxg.sys pfnDdUnattachSurface");
-    return pfnDdUnattachSurface(hSurface,hSurfaceAttached);
+		if (pDirectDraw != NULL)
+		{		
+			/* Do we need lock hdc from hdcClip ?? */
+			if (pDirectDraw->Surf.dwFlags & DDHAL_SURFCB32_LOCK)
+			{	
+				/* FIXME is lpDD typecasted tp driver PEV ?? */ 			
+				ddRVal = pDirectDraw->Surf.Lock(puLockData);				
+			}
+
+			GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);
+		}
+
+		GDIOBJ_UnlockObjByPtr(DdHandleTable, pSurface);
+	}
+
+    return ddRVal;				
 }
 
+/*
+00414         PDD_SURFCB_SETCLIPLIST        SetClipList;
+00416         PDD_SURFCB_UNLOCK             Unlock;
+00417         PDD_SURFCB_BLT                Blt;
+00418         PDD_SURFCB_SETCOLORKEY        SetColorKey;
+00419         PDD_SURFCB_ADDATTACHEDSURFACE AddAttachedSurface;
+00420         PDD_SURFCB_GETBLTSTATUS       GetBltStatus;
+00421         PDD_SURFCB_GETFLIPSTATUS      GetFlipStatus;
+00422         PDD_SURFCB_UPDATEOVERLAY      UpdateOverlay;
+00423         PDD_SURFCB_SETOVERLAYPOSITION SetOverlayPosition;
+00424         PVOID                         reserved4;
+00425         PDD_SURFCB_SETPALETTE         SetPalette;
+00426 } DD_SURFACECALLBACKS, *PDD_SURFACECALLBACKS;
+*/
 

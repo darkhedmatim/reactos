@@ -25,7 +25,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(objsel);
 
 LONG dll_refs = 0;
-static HINSTANCE hInstance;
+HINSTANCE hInstance;
 
 /***********************************************************************
  *		DllEntryPoint
@@ -72,7 +72,7 @@ HRESULT WINAPI DllCanUnloadNow(void)
 /**********************************************************************
  * OBJSEL_IDsObjectPicker_Destroy (also IUnknown)
  */
-static VOID OBJSEL_IDsObjectPicker_Destroy(IDsObjectPickerImpl *This)
+static VOID WINAPI OBJSEL_IDsObjectPicker_Destroy(IDsObjectPickerImpl *This)
 {
     HeapFree(GetProcessHeap(),
              0,
@@ -142,7 +142,7 @@ static HRESULT WINAPI OBJSEL_IDsObjectPicker_QueryInterface(
     if (IsEqualGUID(riid, &IID_IUnknown) ||
 	IsEqualGUID(riid, &IID_IDsObjectPicker))
     {
-        *ppvObj = iface;
+	*ppvObj = (LPVOID)iface;
 	OBJSEL_IDsObjectPicker_AddRef(iface);
 	return S_OK;
     }

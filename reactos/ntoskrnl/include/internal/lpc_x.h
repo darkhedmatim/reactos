@@ -45,7 +45,7 @@
         {                                                   \
             /* It's still signaled, so wait on it */        \
             KeWaitForSingleObject(s,                        \
-                                  WrExecutive,              \
+                                  Executive,                \
                                   KernelMode,               \
                                   FALSE,                    \
                                   NULL);                    \
@@ -73,7 +73,7 @@
         {                                                   \
             /* It's still signaled, so wait on it */        \
             KeWaitForSingleObject(s,                        \
-                                  WrExecutive,              \
+                                  Executive,                \
                                   KernelMode,               \
                                   FALSE,                    \
                                   NULL);                    \
@@ -95,8 +95,8 @@
 //
 // Allocates a new message
 //
-FORCEINLINE
 PLPCP_MESSAGE
+FORCEINLINE
 LpcpAllocateFromPortZone(VOID)
 {
     PLPCP_MESSAGE Message;
@@ -119,48 +119,4 @@ LpcpAllocateFromPortZone(VOID)
     /* Release the lock */
     KeReleaseGuardedMutex(&LpcpLock);
     return Message;
-}
-
-//
-// Get the LPC Message associated to the Thread
-//
-FORCEINLINE
-PLPCP_MESSAGE
-LpcpGetMessageFromThread(IN PETHREAD Thread)
-{
-    /* Check if the port flag is set */
-    if (((ULONG_PTR)Thread->LpcReplyMessage) & LPCP_THREAD_FLAG_IS_PORT)
-    {
-        /* The pointer is actually a port, not a message, so return NULL */
-        return NULL;
-    }
-
-    /* Otherwise, this is a message. Return the pointer */
-    return (PVOID)((ULONG_PTR)Thread->LpcReplyMessage & ~LPCP_THREAD_FLAGS);
-}
-
-FORCEINLINE
-PLPCP_PORT_OBJECT
-LpcpGetPortFromThread(IN PETHREAD Thread)
-{
-    /* Check if the port flag is set */
-    if (((ULONG_PTR)Thread->LpcReplyMessage) & LPCP_THREAD_FLAG_IS_PORT)
-    {
-        /* The pointer is actually a port, return it */
-        return (PVOID)((ULONG_PTR)Thread->LpcWaitingOnPort &
-                       ~LPCP_THREAD_FLAGS);
-    }
-
-    /* Otherwise, this is a message. There is nothing to return */
-    return NULL;
-}
-
-FORCEINLINE
-VOID
-LpcpSetPortToThread(IN PETHREAD Thread,
-                    IN PLPCP_PORT_OBJECT Port)
-{
-    /* Set the port object */
-    Thread->LpcWaitingOnPort = (PVOID)(((ULONG_PTR)Port) |
-                                       LPCP_THREAD_FLAG_IS_PORT);
 }

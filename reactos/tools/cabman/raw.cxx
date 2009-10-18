@@ -4,11 +4,9 @@
  * FILE:        tools/cabman/raw.cpp
  * PURPOSE:     CAB codec for uncompressed "raw" data
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- *              Colin Finck <mail@colinfinck.de>
  * REVISIONS:
  *   CSH 21/03-2001 Created
  *   CSH 15/08-2003 Made it portable
- *   CF  04/05-2007 Made it compatible with 64-bit operating systems
  */
 #include "raw.h"
 
@@ -31,10 +29,10 @@ CRawCodec::~CRawCodec()
 }
 
 
-ULONG CRawCodec::Compress(void* OutputBuffer,
-                          void* InputBuffer,
-                          ULONG InputLength,
-                          PULONG OutputLength)
+unsigned long CRawCodec::Compress(void* OutputBuffer,
+    void* InputBuffer,
+    unsigned long InputLength,
+    unsigned long* OutputLength)
 /*
  * FUNCTION: Compresses data in a buffer
  * ARGUMENTS:
@@ -49,10 +47,10 @@ ULONG CRawCodec::Compress(void* OutputBuffer,
     return CS_SUCCESS;
 }
 
-ULONG CRawCodec::Uncompress(void* OutputBuffer,
-                            void* InputBuffer,
-                            ULONG InputLength,
-                            PULONG OutputLength)
+unsigned long CRawCodec::Uncompress(void* OutputBuffer,
+    void* InputBuffer,
+    unsigned long InputLength,
+    unsigned long* OutputLength)
 /*
  * FUNCTION: Uncompresses data in a buffer
  * ARGUMENTS:

@@ -11,7 +11,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* FUNCTIONS ***************************************************************/
 
@@ -157,8 +157,8 @@ HeapExtend(HANDLE hHeap,
 {
     NTSTATUS Status;
 
-    /* Call the RTL API. Gone in Vista, so commented out. */
-    Status = STATUS_NOT_IMPLEMENTED; //RtlExtendHeap(hHeap, dwFlags, BaseAddress, dwBytes);
+    /* Call the RTL API */
+    Status = RtlExtendHeap(hHeap, dwFlags, BaseAddress, dwBytes);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -185,7 +185,7 @@ HeapQueryTagW(HANDLE hHeap,
     return RtlQueryTagHeap(hHeap,
                            dwFlags,
                            wTagIndex,
-                           (BOOLEAN)bResetCounters,
+                           bResetCounters,
                            lpTagInfo);
 }
 
@@ -204,8 +204,8 @@ HeapSummary(HANDLE hHeap,
     /* Fill in the length information */
     Usage.Length = sizeof(Usage);
 
-    /* Call RTL. Gone in Vista, so commented out */
-    Status = STATUS_NOT_IMPLEMENTED; //RtlUsageHeap(hHeap, dwFlags, &Usage);
+    /* Call RTL */
+    Status = RtlUsageHeap(hHeap, dwFlags, &Usage);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -231,8 +231,8 @@ HeapUsage(HANDLE hHeap,
 {
     NTSTATUS Status;
 
-    /* Call RTL. Gone in Vista, so commented out */
-    Status = STATUS_NOT_IMPLEMENTED; //RtlUsageHeap(hHeap, dwFlags, &Usage);
+    /* Call RTL */
+    Status = RtlUsageHeap(hHeap, dwFlags, Usage);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -251,78 +251,16 @@ HeapUsage(HANDLE hHeap,
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
-HeapWalk(HANDLE	hHeap,
+STDCALL
+HeapWalk(HANDLE	 hHeap,
          LPPROCESS_HEAP_ENTRY lpEntry)
 {
-    NTSTATUS Status;
-
-    Status = RtlWalkHeap(hHeap, lpEntry);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-HeapQueryInformation(HANDLE HeapHandle,
-                     HEAP_INFORMATION_CLASS HeapInformationClass,
-                     PVOID HeapInformation OPTIONAL,
-                     SIZE_T HeapInformationLength OPTIONAL,
-                     PSIZE_T ReturnLength OPTIONAL)
-{
-    NTSTATUS Status;
-
-    Status = RtlQueryHeapInformation(HeapHandle,
-                                     HeapInformationClass,
-                                     HeapInformation,
-                                     HeapInformationLength,
-                                     ReturnLength);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-HeapSetInformation(HANDLE HeapHandle,
-                   HEAP_INFORMATION_CLASS HeapInformationClass,
-                   PVOID HeapInformation OPTIONAL,
-                   SIZE_T HeapInformationLength OPTIONAL)
-{
-    NTSTATUS Status;
-
-    Status = RtlSetHeapInformation(HeapHandle,
-                                   HeapInformationClass,
-                                   HeapInformation,
-                                   HeapInformationLength);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
+    /* Not implemented */
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 /* EOF */

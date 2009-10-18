@@ -11,7 +11,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -138,13 +138,6 @@ CreateFileMappingW(HANDLE hFile,
                              flProtect,
                              Attributes,
                              hFile);
-    
-    if (Status == STATUS_OBJECT_NAME_EXISTS)
-    {
-        SetLastError(ERROR_ALREADY_EXISTS);
-        return SectionHandle;
-    }
-
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -152,7 +145,6 @@ CreateFileMappingW(HANDLE hFile,
         return NULL;
     }
 
-    SetLastError(ERROR_SUCCESS);
     /* Return the section */
     return SectionHandle;
 }
@@ -166,12 +158,12 @@ MapViewOfFileEx(HANDLE hFileMappingObject,
                 DWORD dwDesiredAccess,
                 DWORD dwFileOffsetHigh,
                 DWORD dwFileOffsetLow,
-                SIZE_T dwNumberOfBytesToMap,
+                DWORD dwNumberOfBytesToMap,
                 LPVOID lpBaseAddress)
 {
     NTSTATUS Status;
     LARGE_INTEGER SectionOffset;
-    SIZE_T ViewSize;
+    ULONG ViewSize;
     ULONG Protect;
     LPVOID ViewBase;
 
@@ -232,7 +224,7 @@ MapViewOfFile(HANDLE hFileMappingObject,
               DWORD dwDesiredAccess,
               DWORD dwFileOffsetHigh,
               DWORD dwFileOffsetLow,
-              SIZE_T dwNumberOfBytesToMap)
+              DWORD dwNumberOfBytesToMap)
 {
     /* Call the extended API */
     return MapViewOfFileEx(hFileMappingObject,
@@ -248,12 +240,12 @@ MapViewOfFile(HANDLE hFileMappingObject,
  */
 BOOL
 NTAPI
-UnmapViewOfFile(LPCVOID lpBaseAddress)
+UnmapViewOfFile(LPVOID lpBaseAddress)
 {
     NTSTATUS Status;
 
     /* Unmap the section */
-    Status = NtUnmapViewOfSection(NtCurrentProcess(), (PVOID)lpBaseAddress);
+    Status = NtUnmapViewOfSection(NtCurrentProcess(), lpBaseAddress);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -351,7 +343,6 @@ OpenFileMappingW(DWORD dwDesiredAccess,
         return NULL;
     }
 
-    SetLastError(ERROR_SUCCESS);
     /* Otherwise, return the handle */
     return SectionHandle;
 }
@@ -362,20 +353,16 @@ OpenFileMappingW(DWORD dwDesiredAccess,
 BOOL
 NTAPI
 FlushViewOfFile(LPCVOID lpBaseAddress,
-                SIZE_T dwNumberOfBytesToFlush)
+                DWORD dwNumberOfBytesToFlush)
 {
-    SIZE_T NumberOfBytesToFlush;
     NTSTATUS Status;
-    IO_STATUS_BLOCK IoStatusBlock;
-
-    /* Save amount of bytes to flush to a local var */
-    NumberOfBytesToFlush = dwNumberOfBytesToFlush;
+    ULONG NumberOfBytesFlushed;
 
     /* Flush the view */
     Status = NtFlushVirtualMemory(NtCurrentProcess(),
                                   (LPVOID)lpBaseAddress,
-                                  &NumberOfBytesToFlush,
-                                  &IoStatusBlock);
+                                  dwNumberOfBytesToFlush,
+                                  &NumberOfBytesFlushed);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */

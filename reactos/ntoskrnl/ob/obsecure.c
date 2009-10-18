@@ -15,196 +15,6 @@
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-NTSTATUS
-NTAPI
-ObAssignObjectSecurityDescriptor(IN PVOID Object,
-                                 IN PSECURITY_DESCRIPTOR SecurityDescriptor OPTIONAL,
-                                 IN POOL_TYPE PoolType)
-{
-    POBJECT_HEADER ObjectHeader;
-    NTSTATUS Status;
-    PSECURITY_DESCRIPTOR NewSd;
-    PEX_FAST_REF FastRef;
-    PAGED_CODE();
-
-    /* Get the object header */
-    ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-    FastRef = (PEX_FAST_REF)&ObjectHeader->SecurityDescriptor;
-    if (!SecurityDescriptor)
-    {
-        /* Nothing to assign */
-        ExInitializeFastReference(FastRef, NULL);
-        return STATUS_SUCCESS;
-    }
-
-    /* Add it to our internal cache */
-    Status = ObLogSecurityDescriptor(SecurityDescriptor,
-                                     &NewSd,
-                                     MAX_FAST_REFS + 1);
-    if (NT_SUCCESS(Status))
-    {
-        /* Free the old copy */
-        ExFreePoolWithTag(SecurityDescriptor, TAG_SD);
-
-        /* Set the new pointer */
-        ASSERT(NewSd);
-        ExInitializeFastReference(FastRef, NewSd);
-    }
-
-    /* Return status */
-    return Status;
-}
-
-NTSTATUS
-NTAPI
-ObDeassignSecurity(IN OUT PSECURITY_DESCRIPTOR *SecurityDescriptor)
-{
-    EX_FAST_REF FastRef;
-    ULONG_PTR Count;
-    PSECURITY_DESCRIPTOR OldSecurityDescriptor;
-    
-    /* Get the fast reference and capture it */
-    FastRef = *(PEX_FAST_REF)SecurityDescriptor;
-    
-    /* Don't free again later */
-    *SecurityDescriptor = NULL;
-    
-    /* Get the descriptor and reference count */
-    OldSecurityDescriptor = ExGetObjectFastReference(FastRef);
-    Count = ExGetCountFastReference(FastRef);
-    
-    /* Dereference the descriptor */
-    ObDereferenceSecurityDescriptor(OldSecurityDescriptor, Count + 1);
-
-    /* All done */
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-NTAPI
-ObQuerySecurityDescriptorInfo(IN PVOID Object,
-                              IN PSECURITY_INFORMATION SecurityInformation,
-                              OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-                              IN OUT PULONG Length,
-                              IN PSECURITY_DESCRIPTOR *OutputSecurityDescriptor)
-{
-    POBJECT_HEADER ObjectHeader;
-    NTSTATUS Status;
-    PSECURITY_DESCRIPTOR ObjectSd;
-    PAGED_CODE();
-
-    /* Get the object header */
-    ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-
-    /* Get the SD */
-    ObjectSd = ObpReferenceSecurityDescriptor(ObjectHeader);
-
-    /* Query the information */
-    Status = SeQuerySecurityDescriptorInfo(SecurityInformation,
-                                           SecurityDescriptor,
-                                           Length,
-                                           &ObjectSd);
-
-    /* Check if we have an object SD and dereference it, if so */
-    if (ObjectSd) ObDereferenceSecurityDescriptor(ObjectSd, 1);
-
-    /* Return status */
-    return Status;
-}
-
-NTSTATUS
-NTAPI
-ObSetSecurityDescriptorInfo(IN PVOID Object,
-                            IN PSECURITY_INFORMATION SecurityInformation,
-                            IN OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-                            IN OUT PSECURITY_DESCRIPTOR *OutputSecurityDescriptor,
-                            IN POOL_TYPE PoolType,
-                            IN PGENERIC_MAPPING GenericMapping)
-{
-    NTSTATUS Status;
-    POBJECT_HEADER ObjectHeader;
-    PSECURITY_DESCRIPTOR OldDescriptor, NewDescriptor, CachedDescriptor;
-    PEX_FAST_REF FastRef;
-    EX_FAST_REF OldValue;
-    ULONG_PTR Count;
-    PAGED_CODE();
-
-    /* Get the object header */
-    ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
-    while (TRUE)
-    {
-        /* Reference the old descriptor */
-        OldDescriptor = ObpReferenceSecurityDescriptor(ObjectHeader);
-        NewDescriptor = OldDescriptor;
-
-        /* Set the SD information */
-        Status = SeSetSecurityDescriptorInfo(Object,
-                                             SecurityInformation,
-                                             SecurityDescriptor,
-                                             &NewDescriptor,
-                                             PoolType,
-                                             GenericMapping);
-        if (NT_SUCCESS(Status))
-        {
-            /* Now add this to the cache */
-            Status = ObLogSecurityDescriptor(NewDescriptor,
-                                             &CachedDescriptor,
-                                             MAX_FAST_REFS + 1);
-
-            /* Let go of our uncached copy */
-            ExFreePool(NewDescriptor);
-
-            /* Check for success */
-            if (NT_SUCCESS(Status))
-            {
-                /* Do the swap */
-                FastRef = (PEX_FAST_REF)OutputSecurityDescriptor;
-                OldValue = ExCompareSwapFastReference(FastRef,
-                                                      CachedDescriptor,
-                                                      OldDescriptor);
-                
-                /* Get the security descriptor */
-                SecurityDescriptor = ExGetObjectFastReference(OldValue);
-                Count = ExGetCountFastReference(OldValue);
-                
-                /* Make sure the swap worked */
-                if (SecurityDescriptor == OldDescriptor)
-                {
-                    /* Flush waiters */
-                    ObpAcquireObjectLock(ObjectHeader);
-                    ObpReleaseObjectLock(ObjectHeader);
-
-                    /* And dereference the old one */
-                    ObDereferenceSecurityDescriptor(OldDescriptor, Count + 2);
-                    break;
-                }
-                else
-                {
-                    /* Someone changed it behind our back -- try again */
-                    ObDereferenceSecurityDescriptor(OldDescriptor, 1);
-                    ObDereferenceSecurityDescriptor(CachedDescriptor,
-                                                    MAX_FAST_REFS + 1);
-                }
-            }
-            else
-            {
-                /* We failed, dereference the old one */
-                ObDereferenceSecurityDescriptor(OldDescriptor, 1);
-                break;
-            }
-        }
-        else
-        {
-            /* We failed, dereference the old one */
-            if (OldDescriptor) ObDereferenceSecurityDescriptor(OldDescriptor, 1);
-            break;
-        }
-    }
-
-    /* Return status */
-    return Status;
-}
-
 BOOLEAN
 NTAPI
 ObCheckCreateObjectAccess(IN PVOID Object,
@@ -391,7 +201,7 @@ ObpCheckObjectReference(IN PVOID Object,
                                     &AccessState->SubjectSecurityContext,
                                     AccessState->RemainingDesiredAccess |
                                     AccessState->PreviouslyGrantedAccess,
-                                    ((PAUX_ACCESS_DATA)(AccessState->AuxData))->
+                                    ((PAUX_DATA)(AccessState->AuxData))->
                                     PrivilegeSet,
                                     Result,
                                     AccessMode);
@@ -407,7 +217,7 @@ ObpCheckObjectReference(IN PVOID Object,
 /*++
 * @name ObCheckObjectAccess
 *
-*     The ObCheckObjectAccess routine <FILLMEIN>
+*     The ObAssignSecurity routine <FILLMEIN>
 *
 * @param Object
 *        <FILLMEIN>
@@ -624,7 +434,8 @@ ObGetObjectSecurity(IN PVOID Object,
     if (Type->TypeInfo.SecurityProcedure == SeDefaultObjectMethod)
     {
         /* Reference the descriptor */
-        *SecurityDescriptor = ObpReferenceSecurityDescriptor(Header);
+        *SecurityDescriptor =
+            ObpReferenceCachedSecurityDescriptor(Header->SecurityDescriptor);
         return STATUS_SUCCESS;
     }
 
@@ -672,7 +483,7 @@ ObGetObjectSecurity(IN PVOID Object,
     if (!NT_SUCCESS(Status))
     {
         /* Free the descriptor and tell the caller we failed */
-        ExFreePoolWithTag(*SecurityDescriptor, TAG_SEC_QUERY);
+        ExFreePool(*SecurityDescriptor);
         *MemoryAllocated = FALSE;
     }
 
@@ -716,7 +527,7 @@ ObReleaseObjectSecurity(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     else
     {
         /* Otherwise this means we used an internal descriptor */
-        ObDereferenceSecurityDescriptor(SecurityDescriptor, 1);
+        ObpDereferenceCachedSecurityDescriptor(SecurityDescriptor);
     }
 }
 
@@ -804,25 +615,28 @@ NtQuerySecurityObject(IN HANDLE Handle,
     POBJECT_HEADER Header;
     POBJECT_TYPE Type;
     ACCESS_MASK DesiredAccess;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we came from user mode */
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the SD and the length pointer */
             ProbeForWrite(SecurityDescriptor, Length, sizeof(ULONG));
             ProbeForWriteUlong(ResultLength);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail if we got an access violation */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Get the required access rights for the operation */
@@ -855,17 +669,17 @@ NtQuerySecurityObject(IN HANDLE Handle,
     ObDereferenceObject(Object);
 
     /* Protect write with SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Return the needed length */
         *ResultLength = Length;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status */
     return Status;
@@ -900,7 +714,7 @@ NtSetSecurityObject(IN HANDLE Handle,
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PVOID Object;
     SECURITY_DESCRIPTOR_RELATIVE *CapturedDescriptor;
-    ACCESS_MASK DesiredAccess = 0;
+    ACCESS_MASK DesiredAccess;
     NTSTATUS Status;
     PAGED_CODE();
 
@@ -960,11 +774,10 @@ NtSetSecurityObject(IN HANDLE Handle,
         SeReleaseSecurityDescriptor((PSECURITY_DESCRIPTOR)CapturedDescriptor,
                                     PreviousMode,
                                     TRUE);
-
-        /* Now we can dereference the object */
-        ObDereferenceObject(Object);
     }
 
+    /* Now we can dereference the object */
+    ObDereferenceObject(Object);
     return Status;
 }
 
@@ -1016,7 +829,8 @@ ObQueryObjectAuditingByHandle(IN HANDLE Handle,
     if(HandleEntry)
     {
         /* Check if the flag is set */
-        *GenerateOnClose = HandleEntry->ObAttributes & OBJ_AUDIT_OBJECT_CLOSE;
+        *GenerateOnClose = (HandleEntry->ObAttributes &
+                            EX_HANDLE_ENTRY_AUDITONCLOSE) != 0;
 
         /* Unlock the entry */
         ExUnlockHandleTableEntry(HandleTable, HandleEntry);

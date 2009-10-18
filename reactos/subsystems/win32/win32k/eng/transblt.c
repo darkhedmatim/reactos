@@ -32,9 +32,9 @@
 #define NDEBUG
 #include <debug.h>
 
-BOOL APIENTRY
-EngTransparentBlt(SURFOBJ *psoDest,
-		  SURFOBJ *psoSource,
+BOOL STDCALL
+EngTransparentBlt(SURFOBJ *Dest,
+		  SURFOBJ *Source,
 		  CLIPOBJ *Clip,
 		  XLATEOBJ *ColorTranslation,
 		  PRECTL DestRect,
@@ -47,41 +47,28 @@ EngTransparentBlt(SURFOBJ *psoDest,
   INTENG_ENTER_LEAVE EnterLeaveSource, EnterLeaveDest;
   SURFOBJ *InputObj, *OutputObj;
   RECTL OutputRect, InputRect;
-  POINTL Translate;
+  POINTL Translate, InputPoint;
 
-  LONG DstHeight;
-  LONG DstWidth;
-  LONG SrcHeight;
-  LONG SrcWidth;
+  InputRect.left = 0;
+  InputRect.right = DestRect->right - DestRect->left;
+  InputRect.top = 0;
+  InputRect.bottom = DestRect->bottom - DestRect->top;
 
-  InputRect = *SourceRect;
-
-  if(!IntEngEnter(&EnterLeaveSource, psoSource, &InputRect, TRUE, &Translate, &InputObj))
+  if(!IntEngEnter(&EnterLeaveSource, Source, &InputRect, TRUE, &Translate, &InputObj))
   {
     return FALSE;
   }
-  InputRect.left += Translate.x;
-  InputRect.right += Translate.x;
-  InputRect.top += Translate.y;
-  InputRect.bottom += Translate.y;
+
+  InputPoint.x = SourceRect->left + Translate.x;
+  InputPoint.y = SourceRect->top + Translate.y;
 
   OutputRect = *DestRect;
-  if (OutputRect.right < OutputRect.left)
-  {
-    OutputRect.left = DestRect->right;
-    OutputRect.right = DestRect->left;
-  }
-  if (OutputRect.bottom < OutputRect.top)
-  {
-    OutputRect.top = DestRect->bottom;
-    OutputRect.bottom = DestRect->top;
-  }
-    
   if(Clip)
   {
     if(OutputRect.left < Clip->rclBounds.left)
     {
       InputRect.left += Clip->rclBounds.left - OutputRect.left;
+      InputPoint.x += Clip->rclBounds.left - OutputRect.left;
       OutputRect.left = Clip->rclBounds.left;
     }
     if(Clip->rclBounds.right < OutputRect.right)
@@ -92,6 +79,7 @@ EngTransparentBlt(SURFOBJ *psoDest,
     if(OutputRect.top < Clip->rclBounds.top)
     {
       InputRect.top += Clip->rclBounds.top - OutputRect.top;
+      InputPoint.y += Clip->rclBounds.top - OutputRect.top;
       OutputRect.top = Clip->rclBounds.top;
     }
     if(Clip->rclBounds.bottom < OutputRect.bottom)
@@ -109,7 +97,7 @@ EngTransparentBlt(SURFOBJ *psoDest,
     return TRUE;
   }
 
-  if(!IntEngEnter(&EnterLeaveDest, psoDest, &OutputRect, FALSE, &Translate, &OutputObj))
+  if(!IntEngEnter(&EnterLeaveDest, Dest, &OutputRect, FALSE, &Translate, &OutputObj))
   {
     IntEngLeave(&EnterLeaveSource);
     return FALSE;
@@ -122,36 +110,28 @@ EngTransparentBlt(SURFOBJ *psoDest,
 
   ClippingType = (Clip ? Clip->iDComplexity : DC_TRIVIAL);
 
-  DstHeight = OutputRect.bottom - OutputRect.top;
-  DstWidth = OutputRect.right - OutputRect.left;
-  SrcHeight = InputRect.bottom - InputRect.top;
-  SrcWidth = InputRect.right - InputRect.left;
   switch(ClippingType)
   {
     case DC_TRIVIAL:
     {
-      Ret = DibFunctionsForBitmapFormat[psoDest->iBitmapFormat].DIB_TransparentBlt(
-        OutputObj, InputObj, &OutputRect, &InputRect, ColorTranslation, iTransColor);
+      Ret = DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_TransparentBlt(
+        OutputObj, InputObj, &OutputRect, &InputPoint, ColorTranslation, iTransColor);
       break;
     }
     case DC_RECT:
     {
       RECTL ClipRect, CombinedRect;
-      RECTL InputToCombinedRect;
+      POINTL Pt;
 
       ClipRect.left = Clip->rclBounds.left + Translate.x;
       ClipRect.right = Clip->rclBounds.right + Translate.x;
       ClipRect.top = Clip->rclBounds.top + Translate.y;
       ClipRect.bottom = Clip->rclBounds.bottom + Translate.y;
-      if (RECTL_bIntersectRect(&CombinedRect, &OutputRect, &ClipRect))
-      {
-        InputToCombinedRect.top = InputRect.top + (CombinedRect.top - OutputRect.top) * SrcHeight / DstHeight;
-        InputToCombinedRect.bottom = InputRect.top + (CombinedRect.bottom - OutputRect.top) * SrcHeight / DstHeight;
-        InputToCombinedRect.left = InputRect.left + (CombinedRect.left - OutputRect.left) * SrcWidth / DstWidth;
-        InputToCombinedRect.right = InputRect.left + (CombinedRect.right - OutputRect.left) * SrcWidth / DstWidth;
-        Ret = DibFunctionsForBitmapFormat[psoDest->iBitmapFormat].DIB_TransparentBlt(
-          OutputObj, InputObj, &CombinedRect, &InputToCombinedRect, ColorTranslation, iTransColor);
-      }
+      EngIntersectRect(&CombinedRect, &OutputRect, &ClipRect);
+      Pt.x = InputPoint.x + CombinedRect.left - OutputRect.left;
+      Pt.y = InputPoint.y + CombinedRect.top - OutputRect.top;
+      Ret = DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_TransparentBlt(
+        OutputObj, InputObj, &CombinedRect, &Pt, ColorTranslation, iTransColor);
       break;
     }
     case DC_COMPLEX:
@@ -159,16 +139,17 @@ EngTransparentBlt(SURFOBJ *psoDest,
       ULONG Direction, i;
       RECT_ENUM RectEnum;
       BOOL EnumMore;
+      POINTL Pt;
 
       if(OutputObj == InputObj)
       {
-        if(OutputRect.top < InputRect.top)
+        if(OutputRect.top < InputPoint.y)
         {
-          Direction = OutputRect.left < (InputRect.left ? CD_RIGHTDOWN : CD_LEFTDOWN);
+          Direction = OutputRect.left < (InputPoint.x ? CD_RIGHTDOWN : CD_LEFTDOWN);
         }
         else
         {
-          Direction = OutputRect.left < (InputRect.left ? CD_RIGHTUP : CD_LEFTUP);
+          Direction = OutputRect.left < (InputPoint.x ? CD_RIGHTUP : CD_LEFTUP);
         }
       }
       else
@@ -183,25 +164,19 @@ EngTransparentBlt(SURFOBJ *psoDest,
         for (i = 0; i < RectEnum.c; i++)
         {
           RECTL ClipRect, CombinedRect;
-          RECTL InputToCombinedRect;
 
           ClipRect.left = RectEnum.arcl[i].left + Translate.x;
           ClipRect.right = RectEnum.arcl[i].right + Translate.x;
           ClipRect.top = RectEnum.arcl[i].top + Translate.y;
           ClipRect.bottom = RectEnum.arcl[i].bottom + Translate.y;
-          if (RECTL_bIntersectRect(&CombinedRect, &OutputRect, &ClipRect))
+          EngIntersectRect(&CombinedRect, &OutputRect, &ClipRect);
+          Pt.x = InputPoint.x + CombinedRect.left - OutputRect.left;
+          Pt.y = InputPoint.y + CombinedRect.top - OutputRect.top;
+          Ret = DibFunctionsForBitmapFormat[Dest->iBitmapFormat].DIB_TransparentBlt(
+            OutputObj, InputObj, &CombinedRect, &Pt, ColorTranslation, iTransColor);
+          if(!Ret)
           {
-            InputToCombinedRect.top = InputRect.top + (CombinedRect.top - OutputRect.top) * SrcHeight / DstHeight;
-            InputToCombinedRect.bottom = InputRect.top + (CombinedRect.bottom - OutputRect.top) * SrcHeight / DstHeight;
-            InputToCombinedRect.left = InputRect.left + (CombinedRect.left - OutputRect.left) * SrcWidth / DstWidth;
-            InputToCombinedRect.right = InputRect.left + (CombinedRect.right - OutputRect.left) * SrcWidth / DstWidth;
-
-            Ret = DibFunctionsForBitmapFormat[psoDest->iBitmapFormat].DIB_TransparentBlt(
-              OutputObj, InputObj, &CombinedRect, &InputToCombinedRect, ColorTranslation, iTransColor);
-            if(!Ret)
-            {
-              break;
-            }
+            break;
           }
         }
       } while(EnumMore && Ret);
@@ -221,8 +196,8 @@ EngTransparentBlt(SURFOBJ *psoDest,
 }
 
 BOOL FASTCALL
-IntEngTransparentBlt(SURFOBJ *psoDest,
-                     SURFOBJ *psoSource,
+IntEngTransparentBlt(SURFOBJ *DestSurf,
+                     SURFOBJ *SourceSurf,
                      CLIPOBJ *Clip,
                      XLATEOBJ *ColorTranslation,
                      PRECTL DestRect,
@@ -232,20 +207,18 @@ IntEngTransparentBlt(SURFOBJ *psoDest,
 {
   BOOL Ret;
   RECTL OutputRect, InputClippedRect;
-  SURFACE *psurfDest;
-  SURFACE *psurfSource;
-  RECTL InputRect;
-  LONG InputClWidth, InputClHeight, InputWidth, InputHeight;
+  BITMAPOBJ *DestObj;
+  BITMAPOBJ *SourceObj;
 
-  ASSERT(psoDest);
-  ASSERT(psoSource);
+  ASSERT(DestSurf);
+  ASSERT(SourceSurf);
   ASSERT(DestRect);
 
-  psurfDest = CONTAINING_RECORD(psoDest, SURFACE, SurfObj);
-  psurfSource = CONTAINING_RECORD(psoSource, SURFACE, SurfObj);
+  DestObj = CONTAINING_RECORD(DestSurf, BITMAPOBJ, SurfObj);
+  SourceObj = CONTAINING_RECORD(SourceSurf, BITMAPOBJ, SurfObj);
 
-  ASSERT(psurfDest);
-  ASSERT(psurfSource);
+  ASSERT(DestObj);
+  ASSERT(SourceObj);
 
   InputClippedRect = *DestRect;
   if(InputClippedRect.right < InputClippedRect.left)
@@ -259,62 +232,55 @@ IntEngTransparentBlt(SURFOBJ *psoDest,
     InputClippedRect.bottom = DestRect->top;
   }
 
-  InputRect = *SourceRect;
   /* Clip against the bounds of the clipping region so we won't try to write
    * outside the surface */
   if(Clip)
   {
-    if(!RECTL_bIntersectRect(&OutputRect, &InputClippedRect, &Clip->rclBounds))
+    if(!EngIntersectRect(&OutputRect, &InputClippedRect, &Clip->rclBounds))
     {
       return TRUE;
     }
-    /* Update source rect */
-    InputClWidth = InputClippedRect.right - InputClippedRect.left;
-    InputClHeight = InputClippedRect.bottom - InputClippedRect.top;
-    InputWidth = InputRect.right - InputRect.left;
-    InputHeight = InputRect.bottom - InputRect.top;
-
-    InputRect.left += (InputWidth * (OutputRect.left - InputClippedRect.left)) / InputClWidth;
-    InputRect.right -= (InputWidth * (InputClippedRect.right - OutputRect.right)) / InputClWidth;
-    InputRect.top += (InputHeight * (OutputRect.top - InputClippedRect.top)) / InputClHeight;
-    InputRect.bottom -= (InputHeight * (InputClippedRect.bottom - OutputRect.bottom)) / InputClHeight;
+    SourceRect->left += OutputRect.left - DestRect->left;
+    SourceRect->top += OutputRect.top - DestRect->top;
+    SourceRect->right += OutputRect.left - DestRect->left;
+    SourceRect->bottom += OutputRect.top - DestRect->top;
   }
   else
   {
-    OutputRect = InputClippedRect;
+    OutputRect = *DestRect;
   }
 
-  if(psoSource != psoDest)
+  if(SourceSurf != DestSurf)
   {
-    SURFACE_LockBitmapBits(psurfSource);
-    MouseSafetyOnDrawStart(psoSource, InputRect.left, InputRect.top,
-                           InputRect.right, InputRect.bottom);
+    BITMAPOBJ_LockBitmapBits(SourceObj);
+    MouseSafetyOnDrawStart(SourceSurf, SourceRect->left, SourceRect->top,
+                           SourceRect->right, SourceRect->bottom);
   }
-  SURFACE_LockBitmapBits(psurfDest);
-  MouseSafetyOnDrawStart(psoDest, OutputRect.left, OutputRect.top,
+  BITMAPOBJ_LockBitmapBits(DestObj);
+  MouseSafetyOnDrawStart(DestSurf, OutputRect.left, OutputRect.top,
                          OutputRect.right, OutputRect.bottom);
 
-  if(psurfDest->flHooks & HOOK_TRANSPARENTBLT)
+  if(DestObj->flHooks & HOOK_TRANSPARENTBLT)
   {
-    Ret = GDIDEVFUNCS(psoDest).TransparentBlt(
-      psoDest, psoSource, Clip, ColorTranslation, &OutputRect,
-      &InputRect, iTransColor, Reserved);
+    Ret = GDIDEVFUNCS(DestSurf).TransparentBlt(
+      DestSurf, SourceSurf, Clip, ColorTranslation, &OutputRect,
+      SourceRect, iTransColor, Reserved);
   }
   else
     Ret = FALSE;
 
   if(!Ret)
   {
-    Ret = EngTransparentBlt(psoDest, psoSource, Clip, ColorTranslation,
-                            &OutputRect, &InputRect, iTransColor, Reserved);
+    Ret = EngTransparentBlt(DestSurf, SourceSurf, Clip, ColorTranslation,
+                            &OutputRect, SourceRect, iTransColor, Reserved);
   }
 
-  MouseSafetyOnDrawEnd(psoDest);
-  SURFACE_UnlockBitmapBits(psurfDest);
-  if(psoSource != psoDest)
+  MouseSafetyOnDrawEnd(DestSurf);
+  BITMAPOBJ_UnlockBitmapBits(DestObj);
+  if(SourceSurf != DestSurf)
   {
-    MouseSafetyOnDrawEnd(psoSource);
-    SURFACE_UnlockBitmapBits(psurfSource);
+    MouseSafetyOnDrawEnd(SourceSurf);
+    BITMAPOBJ_UnlockBitmapBits(SourceObj);
   }
 
   return Ret;

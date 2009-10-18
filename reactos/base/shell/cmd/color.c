@@ -4,13 +4,13 @@
  *
  *  History:
  *
- *    13-Dec-1998 (Eric Kohl)
+ *    13-Dec-1998 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Started.
  *
- *    19-Jan-1999 (Eric Kohl)
+ *    19-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Unicode ready!
  *
- *    20-Jan-1999 (Eric Kohl)
+ *    20-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Redirection ready!
  *
  *    14-Oct-1999 (Paolo Pantaleo <paolopan@freemail.it>)
@@ -21,6 +21,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_COLOR
 
@@ -30,7 +31,6 @@
 
 VOID SetScreenColor (WORD wColor, BOOL bNoFill)
 {
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	DWORD dwWritten;
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	COORD coPos;
@@ -64,9 +64,9 @@ VOID SetScreenColor (WORD wColor, BOOL bNoFill)
  *
  * internal dir command
  */
-INT CommandColor (LPTSTR rest)
+INT CommandColor (LPTSTR first, LPTSTR rest)
 {
-	WORD wColor;
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 
 	if (_tcsncmp (rest, _T("/?"), 2) == 0)
 	{
@@ -83,23 +83,22 @@ INT CommandColor (LPTSTR rest)
 		SetScreenColor (wColor, FALSE);
 		return 0;
 	}
-
-
+    
+	
 	if ( _tcslen(&rest[0])==1)
-	{
-	  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	{	 
 	  if ( (_tcscmp(&rest[0], _T("0")) >=0 ) && (_tcscmp(&rest[0], _T("9")) <=0 ) )
 	  {
         SetConsoleTextAttribute (hConsole, (WORD)_ttoi(rest));
 		return 0;
-	  }
+	  }	 
 	  else if ( (_tcscmp(&rest[0], _T("a")) >=0 ) && (_tcscmp(&rest[0], _T("f")) <=0 ) )
-	  {
+	  {	   
        SetConsoleTextAttribute (hConsole, (WORD) (rest[0] + 10 - _T('a')) );
 	   return 0;
 	  }
       else if ( (_tcscmp(&rest[0], _T("A")) >=0 ) && (_tcscmp(&rest[0], _T("F")) <=0 ) )
-	  {
+	  {	   
        SetConsoleTextAttribute (hConsole, (WORD) (rest[0] + 10 - _T('A')) );
 	   return 0;
 	  }
@@ -109,20 +108,19 @@ INT CommandColor (LPTSTR rest)
 	}
 
 	if (StringToColor(&wColor, &rest) == FALSE)
-	{
+	{	
 		ConErrResPuts(STRING_COLOR_ERROR2);
 		nErrorLevel = 1;
 		return 1;
 	}
 
-	if (((bc) && (bc->bEcho)) || !bc)
-	{
-		ConErrResPrintf(STRING_COLOR_ERROR3, wColor);
-	}
+	LoadString(CMD_ModuleHandle, STRING_COLOR_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+	ConErrPrintf(szMsg, wColor);
 
 	if ((wColor & 0xF) == (wColor &0xF0) >> 4)
 	{
-		ConErrResPrintf(STRING_COLOR_ERROR4, wColor);
+		LoadString(CMD_ModuleHandle, STRING_COLOR_ERROR4, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg, wColor);
 		nErrorLevel = 1;
 		return 1;
 	}

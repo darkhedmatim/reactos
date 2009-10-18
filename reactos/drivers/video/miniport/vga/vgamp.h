@@ -24,16 +24,12 @@
 /* INCLUDES *******************************************************************/
 
 #ifdef _MSC_VER
-#pragma message ("INVESTIGATE ME")
-#endif
-
-#if 0 //#ifdef _MSC_VER
+#include "dderror.h"
 #include "devioctl.h"
 #else
 #include <ntddk.h>
 #endif
 
-#include "dderror.h"
 #include "miniport.h"
 #include "ntddvdeo.h"
 #include "video.h"
@@ -45,7 +41,7 @@
 void
 InitVGAMode();
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VGAFindAdapter(
    PVOID DeviceExtension,
    PVOID Context,
@@ -53,25 +49,25 @@ VGAFindAdapter(
    PVIDEO_PORT_CONFIG_INFO ConfigInfo,
    PUCHAR Again);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VGAInitialize(
    PVOID DeviceExtension);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VGAStartIO(
    PVOID DeviceExtension,
    PVIDEO_REQUEST_PACKET RequestPacket);
 
-/*static BOOLEAN NTAPI
+/*static BOOLEAN STDCALL
 VGAInterrupt(PVOID DeviceExtension);*/
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VGAResetHw(
    PVOID DeviceExtension,
    ULONG Columns,
    ULONG Rows);
 
-/*static VOID NTAPI
+/*static VOID STDCALL
 VGATimer(PVOID DeviceExtension);*/
 
 /* Mandatory IoControl routines */

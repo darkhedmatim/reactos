@@ -6,25 +6,24 @@
  * PROGRAMMERS: Copyright 2005-2006 Hervé Poussineau (hpoussin@reactos.org)
  */
 
+#define NDEBUG
+#include <debug.h>
+
 #define INITGUID
 #include "sermouse.h"
 
-static DRIVER_UNLOAD DriverUnload;
-static DRIVER_DISPATCH IrpStub;
-DRIVER_INITIALIZE DriverEntry;
-
-static VOID NTAPI
+VOID NTAPI
 DriverUnload(IN PDRIVER_OBJECT DriverObject)
 {
 	// nothing to do here yet
 }
 
-static NTSTATUS NTAPI
+NTSTATUS NTAPI
 IrpStub(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
-	ERR_(SERMOUSE, "Irp stub for major function 0x%lx\n",
+	DPRINT1("Irp stub for major function 0x%lx\n",
 		IoGetCurrentIrpStackLocation(Irp)->MajorFunction);
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return STATUS_NOT_SUPPORTED;
@@ -43,11 +42,11 @@ ReadRegistryEntries(
 
 	ParametersRegistryKey.Length = 0;
 	ParametersRegistryKey.MaximumLength = RegistryPath->Length + sizeof(L"\\Parameters") + sizeof(UNICODE_NULL);
-	ParametersRegistryKey.Buffer = ExAllocatePoolWithTag(PagedPool, ParametersRegistryKey.MaximumLength, SERMOUSE_TAG);
+	ParametersRegistryKey.Buffer = ExAllocatePool(PagedPool, ParametersRegistryKey.MaximumLength);
 	if (!ParametersRegistryKey.Buffer)
 	{
-		WARN_(SERMOUSE, "ExAllocatePoolWithTag() failed\n");
-		return STATUS_NO_MEMORY;
+		DPRINT("ExAllocatePool() failed\n");
+		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 	RtlCopyUnicodeString(&ParametersRegistryKey, RegistryPath);
 	RtlAppendUnicodeToString(&ParametersRegistryKey, L"\\Parameters");
@@ -76,11 +75,10 @@ ReadRegistryEntries(
 	else if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
 	{
 		/* Registry path doesn't exist. Set defaults */
-		DriverExtension->NumberOfButtons = (USHORT)DefaultNumberOfButtons;
+		DriverExtension->NumberOfButtons = DefaultNumberOfButtons;
 		Status = STATUS_SUCCESS;
 	}
 
-	ExFreePoolWithTag(ParametersRegistryKey.Buffer, SERMOUSE_TAG);
 	return Status;
 }
 
@@ -103,7 +101,7 @@ DriverEntry(
 		(PVOID*)&DriverExtension);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(SERMOUSE, "IoAllocateDriverObjectExtension() failed with status 0x%08lx\n", Status);
+		DPRINT("IoAllocateDriverObjectExtension() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 	RtlZeroMemory(DriverExtension, sizeof(SERMOUSE_DRIVER_EXTENSION));
@@ -111,7 +109,7 @@ DriverEntry(
 	Status = ReadRegistryEntries(RegistryPath, DriverExtension);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(SERMOUSE, "ReadRegistryEntries() failed with status 0x%08lx\n", Status);
+		DPRINT("ReadRegistryEntries() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 

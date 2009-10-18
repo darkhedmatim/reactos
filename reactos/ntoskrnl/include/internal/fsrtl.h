@@ -47,7 +47,7 @@
 //
 // Initialization Routines
 //
-BOOLEAN
+VOID
 NTAPI
 FsRtlInitSystem(
     VOID

@@ -30,14 +30,8 @@ DEFINE_GUID(IID_IRegKeySecurity2, 0xc3ccfdb4, 0x6f88, 0x11d2, 0x00a3, 0xce,0x00,
 #endif
 
 /* FIXME: already defined in aclui.h - causing problems when compiling with MSVC/PSDK*/
-#ifdef _MSC_VER
-#pragma message ("INVESTIGATE ME")
-#endif
-
-#if 1 //#ifndef _MSC_VER
 DEFINE_GUID(IID_IEffectivePermission, 0x3853dc76, 0x9f35, 0x407c, 0x0088, 0xa1,0xd1,0x93,0x44,0x36,0x5f,0xbc);
 DEFINE_GUID(IID_ISecurityObjectTypeInfo, 0xfc3066eb, 0x79ef, 0x444b, 0x0091, 0x11,0xd1,0x8a,0x75,0xeb,0xf2,0xfa);
-#endif
 
 /******************************************************************************
    Implementation of the IUnknown methods of CRegKeySecurity
@@ -413,7 +407,7 @@ ISecurityInformation_fnGetSecurity(struct ISecurityInformation *this,
 {
     PCRegKeySecurity obj = impl_from_ISecurityInformation(this);
     LONG ErrorCode;
-
+  
     ErrorCode = GetNamedSecurityInfo(obj->szRegKey,
                                      SE_REGISTRY_KEY,
                                      RequestedInformation,
@@ -769,7 +763,7 @@ CRegKeySecurity_fnConstructor(LPTSTR lpRegKey,
     obj = (PCRegKeySecurity)HeapAlloc(GetProcessHeap(),
                                       HEAP_ZERO_MEMORY,
                                       FIELD_OFFSET(CRegKeySecurity,
-                                                   szRegKey[_tcslen(lpRegKey) + 1]));
+                                                   szRegKey[_tcslen(lpRegKey)]));
     if (obj != NULL)
     {
         obj->ref = 1;

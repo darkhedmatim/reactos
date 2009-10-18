@@ -19,15 +19,15 @@
 int
 InfHostOpenBufferedFile(PHINF InfHandle,
                         void *Buffer,
-                        ULONG BufferSize,
-                        ULONG *ErrorLine)
+                        unsigned long BufferSize,
+                        unsigned long *ErrorLine)
 {
   INFSTATUS Status;
   PINFCACHE Cache;
-  CHAR *FileBuffer;
+  char *FileBuffer;
 
   *InfHandle = NULL;
-  *ErrorLine = (ULONG)-1;
+  *ErrorLine = (unsigned long)-1;
 
   /* Allocate file buffer */
   FileBuffer = MALLOC(BufferSize + 1);
@@ -77,17 +77,17 @@ InfHostOpenBufferedFile(PHINF InfHandle,
 
 int
 InfHostOpenFile(PHINF InfHandle,
-                const CHAR *FileName,
-                ULONG *ErrorLine)
+                const char *FileName,
+                unsigned long *ErrorLine)
 {
   FILE *File;
-  CHAR *FileBuffer;
-  ULONG FileLength;
+  char *FileBuffer;
+  unsigned long FileLength;
   PINFCACHE Cache;
   INFSTATUS Status;
 
   *InfHandle = NULL;
-  *ErrorLine = (ULONG)-1;
+  *ErrorLine = (unsigned long)-1;
 
   /* Open the inf file */
   File = fopen(FileName, "rb");
@@ -100,24 +100,24 @@ InfHostOpenFile(PHINF InfHandle,
   DPRINT("fopen() successful\n");
 
   /* Query file size */
-  if (fseek(File, (size_t)0, SEEK_END))
+  if (fseek(File, 0, SEEK_END))
     {
       DPRINT1("fseek() to EOF failed (errno %d)\n", errno);
       fclose(File);
       return -1;
     }
 
-  FileLength = (ULONG)ftell(File);
-  if ((ULONG) -1 == FileLength)
+  FileLength = ftell(File);
+  if ((unsigned long) -1 == FileLength)
     {
       DPRINT1("ftell() failed (errno %d)\n", errno);
       fclose(File);
       return -1;
     }
-  DPRINT("File size: %u\n", (UINT)FileLength);
+  DPRINT("File size: %lu\n", FileLength);
 
   /* Rewind */
-  if (fseek(File, (size_t)0, SEEK_SET))
+  if (fseek(File, 0, SEEK_SET))
     {
       DPRINT1("fseek() to BOF failed (errno %d)\n", errno);
       fclose(File);
@@ -134,7 +134,7 @@ InfHostOpenFile(PHINF InfHandle,
     }
 
   /* Read file */
-  if (FileLength != fread(FileBuffer, (size_t)1, (size_t)FileLength, File))
+  if (FileLength != fread(FileBuffer, 1, FileLength, File))
     {
       DPRINT1("fread() failed (errno %d)\n", errno);
       fclose(File);

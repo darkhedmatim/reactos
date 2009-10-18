@@ -18,7 +18,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 /*
@@ -48,12 +48,14 @@
 #include <stdarg.h>
 #include "windef.h"
 #include "winbase.h"
+#include "winreg.h"
 #include "winternl.h"
 
 #include "wine/exception.h"
 #include "wine/debug.h"
+#include "excpt.h"
 #include "dbghelp_private.h"
-#include "wine/mscvpdb.h"
+#include "mscvpdb.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(dbghelp_coff);
 
@@ -118,8 +120,7 @@ static int coff_add_file(struct CoffFileSet* coff_files, struct module* module,
     file = coff_files->files + coff_files->nfiles;
     file->startaddr = 0xffffffff;
     file->endaddr   = 0;
-    file->compiland = symt_new_compiland(module, 0,
-                                         source_new(module, NULL, filename));
+    file->compiland = symt_new_compiland(module, filename);
     file->linetab_offset = -1;
     file->linecnt = 0;
     file->entries = NULL;
@@ -173,8 +174,10 @@ BOOL coff_process_info(const struct msc_debug_info* msc_dbg)
 
     coff = (const IMAGE_COFF_SYMBOLS_HEADER*)msc_dbg->root;
 
-    coff_symbols = (const IMAGE_SYMBOL*)((const char *)coff + coff->LvaToFirstSymbol);
-    coff_linetab = (const IMAGE_LINENUMBER*)((const char *)coff + coff->LvaToFirstLinenumber);
+    coff_symbols = (const IMAGE_SYMBOL*)((unsigned int)coff + 
+                                         coff->LvaToFirstSymbol);
+    coff_linetab = (const IMAGE_LINENUMBER*)((unsigned int)coff + 
+                                             coff->LvaToFirstLinenumber);
     coff_strtab = (const char*)(coff_symbols + coff->NumberOfSymbols);
 
     linetab_indx = 0;
@@ -218,15 +221,15 @@ BOOL coff_process_info(const struct msc_debug_info* msc_dbg)
                  */
                 const char* fn;
 
-                fn = source_get(msc_dbg->module,
+                fn = source_get(msc_dbg->module, 
                                 coff_files.files[curr_file_idx].compiland->source);
 
-                TRACE("Duplicating sect from %s: %x %x %x %d %d\n",
+                TRACE("Duplicating sect from %s: %lx %x %x %d %d\n",
                       fn, aux->Section.Length,
                       aux->Section.NumberOfRelocations,
                       aux->Section.NumberOfLinenumbers,
                       aux->Section.Number, aux->Section.Selection);
-                TRACE("More sect %d %s %08x %d %d %d\n",
+                TRACE("More sect %d %s %08lx %d %d %d\n",
                       coff_sym->SectionNumber,
                       coff_get_name(coff_sym, coff_strtab),
                       coff_sym->Value, coff_sym->Type,
@@ -240,7 +243,7 @@ BOOL coff_process_info(const struct msc_debug_info* msc_dbg)
 	    }
             else
 	    {
-                TRACE("New text sect from %s: %x %x %x %d %d\n",
+                TRACE("New text sect from %s: %lx %x %x %d %d\n",
                       source_get(msc_dbg->module, coff_files.files[curr_file_idx].compiland->source),
                       aux->Section.Length,
                       aux->Section.NumberOfRelocations,
@@ -297,8 +300,8 @@ BOOL coff_process_info(const struct msc_debug_info* msc_dbg)
             DWORD base = msc_dbg->sectp[coff_sym->SectionNumber - 1].VirtualAddress;
             nampnt = coff_get_name(coff_sym, coff_strtab);
 
-            TRACE("%d: %s %s\n",
-                  i, wine_dbgstr_longlong(msc_dbg->module->module.BaseOfImage + base + coff_sym->Value),
+            TRACE("%d: %lx %s\n",
+                  i, msc_dbg->module->module.BaseOfImage + base + coff_sym->Value,
                   nampnt);
             TRACE("\tAdding global symbol %s (sect=%s)\n",
                   nampnt, msc_dbg->sectp[coff_sym->SectionNumber - 1].Name);
@@ -342,8 +345,8 @@ BOOL coff_process_info(const struct msc_debug_info* msc_dbg)
              */
             nampnt = coff_get_name(coff_sym, coff_strtab);
 
-            TRACE("%d: %s %s\n",
-                  i, wine_dbgstr_longlong(msc_dbg->module->module.BaseOfImage + base + coff_sym->Value),
+            TRACE("%d: %lx %s\n",
+                  i, msc_dbg->module->module.BaseOfImage + base + coff_sym->Value,
                   nampnt);
             TRACE("\tAdding global data symbol %s\n", nampnt);
 
@@ -437,16 +440,13 @@ BOOL coff_process_info(const struct msc_debug_info* msc_dbg)
 
         for (j = 0; j < coff_files.nfiles; j++)
 	{
-            HeapFree(GetProcessHeap(), 0, coff_files.files[j].entries);
+            if (coff_files.files[j].entries != NULL)
+	    {
+                HeapFree(GetProcessHeap(), 0, coff_files.files[j].entries);
+	    }
 	}
         HeapFree(GetProcessHeap(), 0, coff_files.files);
         msc_dbg->module->module.SymType = SymCoff;
-        /* FIXME: we could have a finer grain here */
-        msc_dbg->module->module.LineNumbers = TRUE;
-        msc_dbg->module->module.GlobalSymbols = TRUE;
-        msc_dbg->module->module.TypeInfo = FALSE;
-        msc_dbg->module->module.SourceIndexed = TRUE;
-        msc_dbg->module->module.Publics = TRUE;
         ret = TRUE;
     }
 

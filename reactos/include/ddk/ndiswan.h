@@ -23,6 +23,10 @@
 #ifndef __NDISWAN_H
 #define __NDISWAN_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "ndis.h"
 
 #ifdef __cplusplus

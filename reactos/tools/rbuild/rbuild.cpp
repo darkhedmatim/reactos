@@ -33,9 +33,8 @@ using std::string;
 using std::vector;
 
 static string BuildSystem;
-static string RootXmlFile;
+static string RootXmlFile = "ReactOS.rbuild";
 static Configuration configuration;
-static std::map<string, string> properties;
 
 bool
 ParseAutomaticDependencySwitch (
@@ -45,13 +44,7 @@ ParseAutomaticDependencySwitch (
 	switch ( switchChar2 )
 	{
 		case 'd':
-			configuration.Dependencies = NoDependencies;
-			break;
-		case 'a':
-			configuration.Dependencies = AutomaticDependencies;
-			break;
-		case 'f':
-			configuration.Dependencies = FullDependencies;
+			configuration.AutomaticDependencies = false;
 			break;
 		case 'm':
 			if ( strlen ( switchStart ) <= 3 )
@@ -82,24 +75,6 @@ ParseCompilationUnitSwitch (
 			break;
 		default:
 			printf ( "Unknown switch -u%c\n",
-			         switchChar2 );
-			return false;
-	}
-	return true;
-}
-
-bool
-ParsePrecompiledHeaderSwitch (
-	char switchChar2,
-	char* switchStart )
-{
-	switch ( switchChar2 )
-	{
-		case 'd':
-			configuration.PrecompiledHeadersEnabled = false;
-			break;
-		default:
-			printf ( "Unknown switch -h%c\n",
 			         switchChar2 );
 			return false;
 	}
@@ -148,7 +123,7 @@ ParseVCProjectSwitch (
 			temp = string (&switchStart[3]);
 			if ( temp.find ("configuration") != string::npos )
 				configuration.UseConfigurationInPath = true;
-
+			
 			if ( temp.find ("version") != string::npos )
 				configuration.UseVSVersionInPath = true;
 			break;
@@ -157,58 +132,6 @@ ParseVCProjectSwitch (
 			         switchChar2 );
 			return false;
 	}
-	return true;
-}
-
-bool
-ParseMingwSwitch ( char* switchStart )
-{
-	switchStart += 2;
-
-	if ( *switchStart == 'c' )
-	{
-		++ switchStart;
-
-		if ( strcmp ( switchStart, "msc" ) == 0 )
-			configuration.Compiler = MicrosoftC;
-		else if ( strcmp ( switchStart, "gcc" ) == 0 )
-			configuration.Compiler = GnuGcc;
-		else
-		{
-			printf ( "Unknown value of -Mc: %s\n", switchStart );
-			return false;
-		}
-	}
-	else if ( *switchStart == 'l' )
-	{
-		++ switchStart;
-
-		if ( strcmp ( switchStart, "mslink" ) == 0 )
-			configuration.Linker = MicrosoftLink;
-		else if ( strcmp ( switchStart, "ld" ) == 0 )
-			configuration.Linker = GnuLd;
-		else
-		{
-			printf ( "Unknown value of -Ml: %s\n", switchStart );
-			return false;
-		}
-	}
-	else if ( strcmp ( switchStart, "microsoft" ) == 0 )
-	{
-		configuration.Compiler = MicrosoftC;
-		configuration.Linker = MicrosoftLink;
-	}
-	else if ( strcmp ( switchStart, "gnu" ) == 0 )
-	{
-		configuration.Compiler = GnuGcc;
-		configuration.Linker = GnuLd;
-	}
-	else
-	{
-		printf ( "Unknown value of -M: %s\n", switchStart );
-		return false;
-	}
-
 	return true;
 }
 
@@ -245,28 +168,6 @@ ParseProxyMakefileSwitch ( char switchChar2 )
 }
 
 bool
-ParseDefineSwitch ( char* switchStart )
-{
-	string s = string ( switchStart + 2 );
-	string::size_type separator =  s.find ( '=' );
-	if ( separator == string::npos || separator == 0 )
-	{
-		printf ( "Invalid define switch: '%s'\n", switchStart );
-		return false;
-	}
-	if ( s.find ( '=', separator + 1 ) != string::npos )
-	{
-		printf ( "Invalid define switch: '%s'\n", switchStart );
-		return false;
-	}
-
-	string var = s.substr ( 0, separator );
-	string val = s.substr ( separator + 1 );
-	properties.insert ( std::pair<string, string> ( var, val ) );
-	return true;
-}
-
-bool
 ParseSwitch ( int argc, char** argv, int index )
 {
 	char switchChar = strlen ( argv[index] ) > 1 ? argv[index][1] : ' ';
@@ -290,11 +191,6 @@ ParseSwitch ( int argc, char** argv, int index )
 			return ParseAutomaticDependencySwitch (
 				switchChar2,
 				argv[index] );
-		case 'h':
-			return ParsePrecompiledHeaderSwitch (
-				switchChar2,
-				argv[index] );
-
 		case 'u':
 			return ParseCompilationUnitSwitch (
 				switchChar2,
@@ -304,12 +200,8 @@ ParseSwitch ( int argc, char** argv, int index )
 			break;
 		case 'm':
 			return ParseMakeSwitch ( switchChar2 );
-		case 'M':
-			return ParseMingwSwitch ( argv[index] );
 		case 'p':
 			return ParseProxyMakefileSwitch ( switchChar2 );
-		case 'D':
-			return ParseDefineSwitch ( argv[index] );
 		default:
 			printf (
 				"Unknown switch -%c\n",
@@ -324,7 +216,7 @@ ParseArguments ( int argc, char** argv )
 {
 	if ( argc < 2 )
 		return false;
-
+	
 	for ( int i = 1; i < argc; i++ )
 	{
 		if ( argv[i][0] == '-' )
@@ -335,7 +227,7 @@ ParseArguments ( int argc, char** argv )
 		else
 			BuildSystem = argv[i];
 	}
-
+	
 	return true;
 }
 
@@ -347,14 +239,13 @@ main ( int argc, char** argv )
 	if ( !ParseArguments ( argc, argv ) )
 	{
 		printf ( "Generates project files for buildsystems\n\n" );
-		printf ( "  rbuild [switches] -r{rootfile.rbuild} buildsystem\n\n" );
+		printf ( "  rbuild [switches] buildsystem\n\n" );
 		printf ( "Switches:\n" );
 		printf ( "  -v            Be verbose.\n" );
 		printf ( "  -c            Clean as you go. Delete generated files as soon as they are not\n" );
 		printf ( "                needed anymore.\n" );
+		printf ( "  -r{file.rbuild}  Name of the root rbuild file. Default is ReactOS.rbuild.\n" );
 		printf ( "  -dd           Disable automatic dependencies.\n" );
-		printf ( "  -da           Enable automatic dependencies.\n" );
-		printf ( "  -df           Enable full dependencies.\n" );
 		printf ( "  -dm{module}   Check only automatic dependencies for this module.\n" );
 		printf ( "  -ud           Disable multiple source files per compilation unit.\n" );
 		printf ( "  -mi           Let make handle creation of install directories. Rbuild will\n" );
@@ -363,35 +254,23 @@ main ( int argc, char** argv )
 		printf ( "                tree.\n" );
 		printf ( "  -vs{version}  Version of MS VS project files. Default is %s.\n", MS_VS_DEF_VERSION );
 		printf ( "  -vo{version|configuration} Adds subdirectory path to the default Intermediate-Outputdirectory.\n" );
-		printf ( "  -Mc{compiler} Compiler to use for mingw backend. Can be one of:\n" );
-		printf ( "                %-10s %s (default)\n", "gcc", "GNU compiler collection (gcc, g++)\n");
-		printf ( "                %-10s %s\n", "msc", "Microsoft Visual C++ (cl)\n");
-		printf ( "  -Ml{compiler} Linker to use for mingw backend. Can be one of:\n" );
-		printf ( "                %-10s %s (default)\n", "ld", "GNU binutils (ld, dlltool)\n");
-		printf ( "                %-10s %s\n", "mslink", "Microsoft Linker (link, lib)\n");
-		printf ( "  -Mmicrosoft   Same as -Mcmsc -Mlmslink\n" );
-		printf ( "  -Mgnu         Same as -Mcgcc -Mlld\n" );
-		printf ( "  -Dvar=val     Set the value of 'var' variable to 'val'.\n" );
 		printf ( "\n" );
 		printf ( "  buildsystem   Target build system. Can be one of:\n" );
-
-		std::map<std::string,Backend::Factory*>::iterator iter;
-		for (iter = Backend::Factory::map_begin(); iter != Backend::Factory::map_end(); iter++)
-		{
-			Backend::Factory *factory = iter->second;
-			printf ( "                %-10s %s\n", factory->Name(), factory->Description());
-		}
+ 
+ 		std::map<std::string,Backend::Factory*>::iterator iter;
+ 		for (iter = Backend::Factory::map_begin(); iter != Backend::Factory::map_end(); iter++)
+ 		{
+ 			Backend::Factory *factory = iter->second;
+ 			printf ( "                %-10s %s\n", factory->Name(), factory->Description());
+ 		}
 		return 1;
 	}
 	try
 	{
-		if ( RootXmlFile.length () == 0 )
-			throw MissingArgumentException ( "-r" );
-
 		string projectFilename ( RootXmlFile );
 
 		printf ( "Reading build files..." );
-		Project project ( configuration, projectFilename, &properties );
+		Project project ( configuration, projectFilename );
 		printf ( "done\n" );
 
 		project.SetBackend ( Backend::Factory::Create (
@@ -399,6 +278,7 @@ main ( int argc, char** argv )
 			project,
 			configuration ) );
 
+		project.WriteConfigurationFile ();
 		project.ExecuteInvocations ();
 		project.GetBackend().Process();
 

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * NOTES:
  *
@@ -42,7 +42,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 /* this code is from SysAllocStringLen (ole2disp.c in oleaut32) */
-static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
+static BSTR WINAPI ERRORINFO_SysAllocString(const OLECHAR* in)
 {
     DWORD  bufferSize;
     DWORD* newBuffer;
@@ -52,7 +52,7 @@ static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
     if (in == NULL)
 	return NULL;
     /*
-     * Find the length of the buffer passed-in, in bytes.
+     * Find the lenth of the buffer passed-in in bytes.
      */
     len = strlenW(in);
     bufferSize = len * sizeof (WCHAR);
@@ -83,10 +83,14 @@ static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
     newBuffer++;
 
     /*
-     * Copy the information in the buffer.  It is not possible to pass 
-     * a NULL pointer here. 
+     * Copy the information in the buffer.
+     * Since it is valid to pass a NULL pointer here, we'll initialize the
+     * buffer to nul if it is the case.
      */
-    memcpy(newBuffer, in, bufferSize);
+    if (in != 0)
+      memcpy(newBuffer, in, bufferSize);
+    else
+      memset(newBuffer, 0, bufferSize);
 
     /*
      * Make sure that there is a nul character at the end of the
@@ -95,11 +99,11 @@ static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
     stringBuffer = (WCHAR*)newBuffer;
     stringBuffer[len] = 0;
 
-    return stringBuffer;
+    return (LPWSTR)stringBuffer;
 }
 
 /* this code is from SysFreeString (ole2disp.c in oleaut32)*/
-static VOID ERRORINFO_SysFreeString(BSTR in)
+static VOID WINAPI ERRORINFO_SysFreeString(BSTR in)
 {
     DWORD* bufferPointer;
 
@@ -163,11 +167,11 @@ static inline ErrorInfoImpl *impl_from_ISupportErrorInfo( ISupportErrorInfo *ifa
 /*
  converts This to an object pointer
  */
-#define _IErrorInfo_(This)              ((IErrorInfo*)&(This)->lpvtei)
-#define _ICreateErrorInfo_(This)        (&(This)->lpvtcei)
-#define _ISupportErrorInfo_(This)       (&(This)->lpvtsei)
+#define _IErrorInfo_(This)		(IErrorInfo*)&(This->lpvtei)
+#define _ICreateErrorInfo_(This)	(ICreateErrorInfo*)&(This->lpvtcei)
+#define _ISupportErrorInfo_(This)	(ISupportErrorInfo*)&(This->lpvtsei)
 
-static IErrorInfo * IErrorInfoImpl_Constructor(void)
+IErrorInfo * IErrorInfoImpl_Constructor(void)
 {
 	ErrorInfoImpl * ei = HeapAlloc(GetProcessHeap(), 0, sizeof(ErrorInfoImpl));
 	if (ei)
@@ -191,7 +195,7 @@ static HRESULT WINAPI IErrorInfoImpl_QueryInterface(
 	VOID**     ppvoid)
 {
 	ErrorInfoImpl *This = impl_from_IErrorInfo(iface);
-	TRACE("(%p)->(%s,%p)\n",This,debugstr_guid(riid),ppvoid);
+	TRACE("(%p)->(\n\tIID:\t%s,%p)\n",This,debugstr_guid(riid),ppvoid);
 
 	*ppvoid = NULL;
 
@@ -222,7 +226,7 @@ static ULONG WINAPI IErrorInfoImpl_AddRef(
  	IErrorInfo* iface)
 {
 	ErrorInfoImpl *This = impl_from_IErrorInfo(iface);
-	TRACE("(%p)->(count=%u)\n",This,This->ref);
+	TRACE("(%p)->(count=%lu)\n",This,This->ref);
 	return InterlockedIncrement(&This->ref);
 }
 
@@ -232,7 +236,7 @@ static ULONG WINAPI IErrorInfoImpl_Release(
 	ErrorInfoImpl *This = impl_from_IErrorInfo(iface);
         ULONG ref = InterlockedDecrement(&This->ref);
 
-	TRACE("(%p)->(count=%u)\n",This,ref+1);
+	TRACE("(%p)->(count=%lu)\n",This,ref+1);
 
 	if (!ref)
 	{
@@ -248,9 +252,9 @@ static HRESULT WINAPI IErrorInfoImpl_GetGUID(
 	GUID * pGUID)
 {
 	ErrorInfoImpl *This = impl_from_IErrorInfo(iface);
-	TRACE("(%p)->(count=%u)\n",This,This->ref);
+	TRACE("(%p)->(count=%lu)\n",This,This->ref);
 	if(!pGUID )return E_INVALIDARG;
-	*pGUID = This->m_Guid;
+	memcpy(pGUID, &This->m_Guid, sizeof(GUID));
 	return S_OK;
 }
 
@@ -354,7 +358,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetGUID(
 {
 	ErrorInfoImpl *This = impl_from_ICreateErrorInfo(iface);
 	TRACE("(%p)->(%s)\n", This, debugstr_guid(rguid));
-	This->m_Guid = *rguid;
+	memcpy(&This->m_Guid,  rguid, sizeof(GUID));
 	return S_OK;
 }
 
@@ -401,7 +405,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetHelpContext(
  	DWORD dwHelpContext)
 {
 	ErrorInfoImpl *This = impl_from_ICreateErrorInfo(iface);
-	TRACE("(%p,%d)\n",This,dwHelpContext);
+	TRACE("(%p,%ld)\n",This,dwHelpContext);
 	This->m_dwHelpContext = dwHelpContext;
 	return S_OK;
 }
@@ -465,18 +469,8 @@ static const ISupportErrorInfoVtbl ISupportErrorInfoImpl_VTable =
 
   ISupportErrorInfoImpl_InterfaceSupportsErrorInfo
 };
-
 /***********************************************************************
  *		CreateErrorInfo (OLE32.@)
- *
- * Creates an object used to set details for an error info object.
- *
- * PARAMS
- *  pperrinfo [O]. Address where error info creation object will be stored.
- *
- * RETURNS
- *  Success: S_OK.
- *  Failure: HRESULT code.
  */
 HRESULT WINAPI CreateErrorInfo(ICreateErrorInfo **pperrinfo)
 {
@@ -493,34 +487,13 @@ HRESULT WINAPI CreateErrorInfo(ICreateErrorInfo **pperrinfo)
 
 /***********************************************************************
  *		GetErrorInfo (OLE32.@)
- *
- * Retrieves the error information object for the current thread.
- *
- * PARAMS
- *  dwReserved [I]. Reserved. Must be zero.
- *  pperrinfo  [O]. Address where error information object will be stored on return.
- *
- * RETURNS
- *  Success: S_OK if an error information object was set for the current thread.
- *           S_FALSE if otherwise.
- *  Failure: E_INVALIDARG if dwReserved is not zero.
- *
- * NOTES
- *  This function causes the current error info object for the thread to be
- *  cleared if one was set beforehand.
  */
 HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 {
-	TRACE("(%d, %p, %p)\n", dwReserved, pperrinfo, COM_CurrentInfo()->errorinfo);
-
-	if (dwReserved)
-	{
-		ERR("dwReserved (0x%x) != 0\n", dwReserved);
-		return E_INVALIDARG;
-	}
+	TRACE("(%ld, %p, %p)\n", dwReserved, pperrinfo, COM_CurrentInfo()->errorinfo);
 
 	if(!pperrinfo) return E_INVALIDARG;
-
+        
 	if (!COM_CurrentInfo()->errorinfo)
 	{
 	   *pperrinfo = NULL;
@@ -536,29 +509,13 @@ HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 
 /***********************************************************************
  *		SetErrorInfo (OLE32.@)
- *
- * Sets the error information object for the current thread.
- *
- * PARAMS
- *  dwReserved [I] Reserved. Must be zero.
- *  perrinfo   [I] Error info object.
- *
- * RETURNS
- *  Success: S_OK.
- *  Failure: E_INVALIDARG if dwReserved is not zero.
  */
 HRESULT WINAPI SetErrorInfo(ULONG dwReserved, IErrorInfo *perrinfo)
 {
 	IErrorInfo * pei;
 
-	TRACE("(%d, %p)\n", dwReserved, perrinfo);
-
-	if (dwReserved)
-	{
-		ERR("dwReserved (0x%x) != 0\n", dwReserved);
-		return E_INVALIDARG;
-	}
-
+	TRACE("(%ld, %p)\n", dwReserved, perrinfo);
+	
 	/* release old errorinfo */
 	pei = COM_CurrentInfo()->errorinfo;
 	if (pei) IErrorInfo_Release(pei);

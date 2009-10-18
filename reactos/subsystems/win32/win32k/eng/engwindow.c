@@ -27,11 +27,8 @@
  *                 16/11/2004: Created
  */
 
-/* TODO: Check how the WNDOBJ implementation should behave with a driver on windows.
-
-   Simple! Use Prop's!
- */
-
+/* TODO: Check how the WNDOBJ implementation should behave with a driver on windows. */
+ 
 #include <w32k.h>
 
 #define NDEBUG
@@ -47,12 +44,12 @@ IntEngWndCallChangeProc(
   IN FLONG   flChanged)
 {
   WNDGDI *WndObjInt = ObjToGDI(pwo, WND);
-
+  
   if (WndObjInt->ChangeProc == NULL)
     {
       return;
     }
-
+  
   /* check flags of the WNDOBJ */
   flChanged &= WndObjInt->Flags;
   if (flChanged == 0)
@@ -88,14 +85,14 @@ IntEngWndUpdateClipObj(
   hVisRgn = VIS_ComputeVisibleRegion(Window, TRUE, TRUE, TRUE);
   if (hVisRgn != NULL)
   {
-    NtGdiOffsetRgn(hVisRgn, Window->Wnd->rcClient.left, Window->Wnd->rcClient.top);
-    visRgn = REGION_LockRgn(hVisRgn);
+    NtGdiOffsetRgn(hVisRgn, Window->ClientRect.left, Window->ClientRect.top);
+    visRgn = RGNDATA_LockRgn(hVisRgn);
     if (visRgn != NULL)
     {
       if (visRgn->rdh.nCount > 0)
       {
-        ClipObj = IntEngCreateClipRegion(visRgn->rdh.nCount, visRgn->Buffer,
-                                         &visRgn->rdh.rcBound);
+        ClipObj = IntEngCreateClipRegion(visRgn->rdh.nCount, (PRECTL)visRgn->Buffer,
+                                         (PRECTL)&visRgn->rdh.rcBound);
         DPRINT("Created visible region with %d rects\n", visRgn->rdh.nCount);
         DPRINT("  BoundingRect: %d, %d  %d, %d\n",
                visRgn->rdh.rcBound.left, visRgn->rdh.rcBound.top,
@@ -110,7 +107,7 @@ IntEngWndUpdateClipObj(
           }
         }
       }
-      REGION_UnlockRgn(visRgn);
+      RGNDATA_UnlockRgn(visRgn);
     }
     else
     {
@@ -125,10 +122,10 @@ IntEngWndUpdateClipObj(
   if (ClipObj == NULL)
   {
     /* Fall back to client rect */
-    ClipObj = IntEngCreateClipRegion(1, &Window->Wnd->rcClient,
-                                     &Window->Wnd->rcClient);
+    ClipObj = IntEngCreateClipRegion(1, (PRECTL)&Window->ClientRect,
+                                     (PRECTL)&Window->ClientRect);
   }
-
+  
   if (ClipObj == NULL)
   {
     DPRINT1("Warning: IntEngCreateClipRegion() failed!\n");
@@ -136,11 +133,11 @@ IntEngWndUpdateClipObj(
   }
 
   RtlCopyMemory(&WndObjInt->WndObj.coClient, ClipObj, sizeof (CLIPOBJ));
-  RtlCopyMemory(&WndObjInt->WndObj.rclClient, &Window->Wnd->rcClient, sizeof (RECT));
+  RtlCopyMemory(&WndObjInt->WndObj.rclClient, &Window->ClientRect, sizeof (RECT));
   OldClipObj = InterlockedExchangePointer(&WndObjInt->ClientClipObj, ClipObj);
   if (OldClipObj != NULL)
     IntEngDeleteClipRegion(OldClipObj);
-
+  
   return TRUE;
 }
 
@@ -156,13 +153,13 @@ IntEngWindowChanged(
   PLIST_ENTRY CurrentEntry;
   WNDGDI *Current;
 
-  ASSERT_IRQL_LESS_OR_EQUAL(PASSIVE_LEVEL);
+  ASSERT_IRQL(PASSIVE_LEVEL);
 
   CurrentEntry = Window->WndObjListHead.Flink;
   while (CurrentEntry != &Window->WndObjListHead)
     {
       Current = CONTAINING_RECORD(CurrentEntry, WNDGDI, ListEntry);
-
+      
       if (Current->WndObj.pvConsumer != NULL)
         {
           /* Update the WNDOBJ */
@@ -172,7 +169,7 @@ IntEngWindowChanged(
               /* Update the clipobj and client rect of the WNDOBJ */
               IntEngWndUpdateClipObj(Current, Window);
               break;
-
+          
             case WOC_DELETE:
               /* FIXME: Should the WNDOBJs be deleted by win32k or by the driver? */
               break;
@@ -180,7 +177,7 @@ IntEngWindowChanged(
 
           /* Call the change proc */
           IntEngWndCallChangeProc(&Current->WndObj, flChanged);
-
+      
           /* HACK: Send WOC_CHANGED after WOC_RGN_CLIENT */
           if (flChanged == WOC_RGN_CLIENT)
             {
@@ -197,7 +194,7 @@ IntEngWindowChanged(
  * @implemented
  */
 WNDOBJ*
-APIENTRY
+STDCALL
 EngCreateWnd(
   SURFOBJ          *pso,
   HWND              hWnd,
@@ -257,9 +254,9 @@ EngCreateWnd(
   InsertTailList(&Window->WndObjListHead, &WndObjInt->ListEntry);
 
   DPRINT("EngCreateWnd: SUCCESS!\n");
-
+  
   RETURN( WndObjUser);
-
+  
 CLEANUP:
 
   if (!calledFromUser){
@@ -274,13 +271,13 @@ CLEANUP:
  * @implemented
  */
 VOID
-APIENTRY
+STDCALL
 EngDeleteWnd(
   IN WNDOBJ *pwo)
 {
   WNDGDI *WndObjInt = ObjToGDI(pwo, WND);
   PWINDOW_OBJECT Window;
-  BOOL calledFromUser;
+  BOOL calledFromUser; 
 
   DPRINT("EngDeleteWnd: pwo = 0x%x\n", pwo);
 
@@ -316,7 +313,7 @@ EngDeleteWnd(
  * @implemented
  */
 BOOL
-APIENTRY
+STDCALL
 WNDOBJ_bEnum(
   IN WNDOBJ  *pwo,
   IN ULONG  cj,
@@ -324,10 +321,10 @@ WNDOBJ_bEnum(
 {
   WNDGDI *WndObjInt = ObjToGDI(pwo, WND);
   BOOL Ret;
-
+  
   DPRINT("WNDOBJ_bEnum: pwo = 0x%x, cj = %d, pul = 0x%x\n", pwo, cj, pul);
   Ret = CLIPOBJ_bEnum(WndObjInt->ClientClipObj, cj, pul);
-
+  
   DPRINT("WNDOBJ_bEnum: Returning %s\n", Ret ? "True" : "False");
   return Ret;
 }
@@ -337,7 +334,7 @@ WNDOBJ_bEnum(
  * @implemented
  */
 ULONG
-APIENTRY
+STDCALL
 WNDOBJ_cEnumStart(
   IN WNDOBJ  *pwo,
   IN ULONG  iType,
@@ -362,7 +359,7 @@ WNDOBJ_cEnumStart(
  * @implemented
  */
 VOID
-APIENTRY
+STDCALL
 WNDOBJ_vSetConsumer(
   IN WNDOBJ  *pwo,
   IN PVOID  pvConsumer)
@@ -370,7 +367,7 @@ WNDOBJ_vSetConsumer(
   BOOL Hack;
 
   DPRINT("WNDOBJ_vSetConsumer: pwo = 0x%x, pvConsumer = 0x%x\n", pwo, pvConsumer);
-
+  
   Hack = (pwo->pvConsumer == NULL);
   pwo->pvConsumer = pvConsumer;
 

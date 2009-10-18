@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: trio.c 3600 2007-04-17 12:44:58Z veillard $
+ * $Id: trio.c,v 1.11 2003/04/03 15:28:27 veillard Exp $
  *
  * Copyright (C) 1998 Bjorn Reese and Daniel Stenberg.
  *
@@ -62,9 +62,7 @@
 #include <limits.h>
 #include <float.h>
 
-#if (defined(__STDC_ISO_10646__) || defined(MB_LEN_MAX) \
-     || defined(USE_MULTIBYTE) || TRIO_WIDECHAR) \
-    && !defined(_WIN32_WCE)
+#if defined(__STDC_ISO_10646__) || defined(MB_LEN_MAX) || defined(USE_MULTIBYTE) || TRIO_WIDECHAR
 # define TRIO_COMPILER_SUPPORTS_MULTIBYTE
 # if !defined(MB_LEN_MAX)
 #  define MB_LEN_MAX 6
@@ -73,10 +71,6 @@
 
 #if (defined(TRIO_COMPILER_MSVC) && (_MSC_VER >= 1100)) || defined(TRIO_COMPILER_BCB)
 # define TRIO_COMPILER_SUPPORTS_MSVC_INT
-#endif
-
-#if defined(_WIN32_WCE)
-#include <wincecompat.h>
 #endif
 
 /*************************************************************************
@@ -98,10 +92,7 @@
 # include <stdarg.h>
 #endif
 #include <stddef.h>
-
-#ifdef HAVE_ERRNO_H
 #include <errno.h>
-#endif
 
 #ifndef NULL
 # define NULL 0
@@ -142,13 +133,9 @@ typedef unsigned long trio_flags_t;
 # include <unistd.h>
 #endif
 #if defined(TRIO_PLATFORM_WIN32)
-# if defined(_WIN32_WCE)
-#  include <wincecompat.h>
-# else
-#  include <io.h>
-#  define read _read
-#  define write _write
-# endif
+# include <io.h>
+# define read _read
+# define write _write
 #endif /* TRIO_PLATFORM_WIN32 */
 
 #if TRIO_WIDECHAR
@@ -256,9 +243,8 @@ typedef trio_longlong_t trio_int64_t;
 # endif
 #endif
 
-#if (!(defined(TRIO_COMPILER_SUPPORTS_C99) \
- || defined(TRIO_COMPILER_SUPPORTS_UNIX01))) \
- && !defined(_WIN32_WCE)
+#if !(defined(TRIO_COMPILER_SUPPORTS_C99) \
+ || defined(TRIO_COMPILER_SUPPORTS_UNIX01))
 # define floorl(x) floor((double)(x))
 # define fmodl(x,y) fmod((double)(x),(double)(y))
 # define powl(x,y) pow((double)(x),(double)(y))
@@ -733,7 +719,7 @@ typedef struct _trio_userdef_t {
  *
  *************************************************************************/
 
-static TRIO_CONST char rcsid[] = "@(#)$Id: trio.c 3600 2007-04-17 12:44:58Z veillard $";
+static TRIO_CONST char rcsid[] = "@(#)$Id: trio.c,v 1.11 2003/04/03 15:28:27 veillard Exp $";
 
 /*
  * Need this to workaround a parser bug in HP C/iX compiler that fails

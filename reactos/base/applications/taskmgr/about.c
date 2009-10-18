@@ -1,7 +1,7 @@
 /*
  *  ReactOS Task Manager
  *
- *  about.c
+ *  about.cpp
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
  *
@@ -22,12 +22,41 @@
 
 #include <precomp.h>
 
+INT_PTR CALLBACK AboutDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+
 void OnAbout(void)
 {
-    TCHAR szTaskmgr[128];
-    HICON taskmgrIcon = LoadIcon(hInst, MAKEINTRESOURCE(IDI_TASKMANAGER));
+    DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hMainWnd, AboutDialogWndProc);
+}
 
-    LoadString(hInst, IDS_APP_TITLE, szTaskmgr, sizeof(szTaskmgr)/sizeof(TCHAR));
-    ShellAbout(hMainWnd, szTaskmgr, 0, taskmgrIcon);
-    DeleteObject(taskmgrIcon);
+INT_PTR CALLBACK
+AboutDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    HWND    hLicenseEditWnd;
+    TCHAR    strLicense[0x1000];
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+
+        hLicenseEditWnd = GetDlgItem(hDlg, IDC_LICENSE_EDIT);
+
+        LoadString(hInst, IDS_LICENSE, strLicense, 0x1000);
+
+        SetWindowText(hLicenseEditWnd, strLicense);
+
+        return TRUE;
+
+    case WM_COMMAND:
+
+        if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return TRUE;
+        }
+
+        break;
+    }
+
+    return 0;
 }

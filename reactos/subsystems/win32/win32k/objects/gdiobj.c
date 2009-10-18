@@ -1,98 +1,107 @@
 /*
- * PROJECT:         ReactOS win32 kernel mode subsystem
- * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            subsystems/win32/win32k/objects/gdiobj.c
- * PURPOSE:         General GDI object manipulation routines
- * PROGRAMMERS:     ...
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998 - 2004 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
+ * GDIOBJ.C - GDI object manipulation routines
+ *
+ * $Id$
  */
 
-/** INCLUDES ******************************************************************/
-
-//#define GDI_DEBUG
-
 #include <w32k.h>
+
 #define NDEBUG
 #include <debug.h>
+
+/* FIXME include right header for KeRosDumpStackFrames */
+VOID
+NTAPI
+KeRosDumpStackFrames(
+    PULONG Frame,
+    ULONG FrameCount
+);
 
 #define GDI_ENTRY_TO_INDEX(ht, e)                                              \
   (((ULONG_PTR)(e) - (ULONG_PTR)&((ht)->Entries[0])) / sizeof(GDI_TABLE_ENTRY))
 #define GDI_HANDLE_GET_ENTRY(HandleTable, h)                                   \
   (&(HandleTable)->Entries[GDI_HANDLE_GET_INDEX((h))])
 
+#define GDIBdyToHdr(body)                                                      \
+  ((PGDIOBJHDR)(body) - 1)
+#define GDIHdrToBdy(hdr)                                                       \
+  (PGDIOBJ)((PGDIOBJHDR)(hdr) + 1)
+
 /* apparently the first 10 entries are never used in windows as they are empty */
 #define RESERVE_ENTRIES_COUNT 10
 
-#define BASE_OBJTYPE_COUNT 32
+typedef struct
+{
+  ULONG Type;
+  ULONG Size;
+  GDICLEANUPPROC CleanupProc;
+} GDI_OBJ_INFO, *PGDI_OBJ_INFO;
+
+/*
+ * Dummy GDI Cleanup Callback
+ */
+static BOOL INTERNAL_CALL
+GDI_CleanupDummy(PVOID ObjectBody)
+{
+  return TRUE;
+}
+
+/* Testing shows that regions are the most used GDIObj type,
+   so put that one first for performance */
+static const
+GDI_OBJ_INFO ObjInfo[] =
+{
+   /* Type */                   /* Size */             /* CleanupProc */
+  {GDI_OBJECT_TYPE_REGION,      sizeof(ROSRGNDATA),    RGNDATA_Cleanup},
+  {GDI_OBJECT_TYPE_BITMAP,      sizeof(BITMAPOBJ),     BITMAP_Cleanup},
+  {GDI_OBJECT_TYPE_DC,          sizeof(DC),            DC_Cleanup},
+  {GDI_OBJECT_TYPE_PALETTE,     sizeof(PALGDI),        PALETTE_Cleanup},
+  {GDI_OBJECT_TYPE_BRUSH,       sizeof(GDIBRUSHOBJ),   BRUSH_Cleanup},
+  {GDI_OBJECT_TYPE_PEN,         sizeof(GDIBRUSHOBJ),   GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_FONT,        sizeof(TEXTOBJ),       GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_DCE,         sizeof(DCE),           DCE_Cleanup},
+  {GDI_OBJECT_TYPE_DIRECTDRAW,  sizeof(DD_DIRECTDRAW), DD_Cleanup},
+  {GDI_OBJECT_TYPE_DD_SURFACE,  sizeof(DD_SURFACE),    DDSURF_Cleanup},
+  {GDI_OBJECT_TYPE_EXTPEN,      0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_METADC,      0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_METAFILE,    0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_ENHMETAFILE, 0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_ENHMETADC,   0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_MEMDC,       0,                     GDI_CleanupDummy},
+  {GDI_OBJECT_TYPE_EMF,         0,                     GDI_CleanupDummy}
+};
+
+#define OBJTYPE_COUNT (sizeof(ObjInfo) / sizeof(ObjInfo[0]))
+
+static LARGE_INTEGER ShortDelay;
 
 #define DelayExecution() \
   DPRINT("%s:%i: Delay\n", __FILE__, __LINE__); \
   KeDelayExecutionThread(KernelMode, FALSE, &ShortDelay)
 
-#include "gdidbg.c"
-
-/* static */ /* FIXME: -fno-unit-at-a-time breaks this */
-BOOL INTERNAL_CALL GDI_CleanupDummy(PVOID ObjectBody);
-
-/** GLOBALS *******************************************************************/
-
-typedef struct
-{
-    BOOL bUseLookaside;
-    ULONG_PTR ulBodySize;
-    ULONG Tag;
-    GDICLEANUPPROC CleanupProc;
-} OBJ_TYPE_INFO, *POBJ_TYPE_INFO;
-
-static const
-OBJ_TYPE_INFO ObjTypeInfo[BASE_OBJTYPE_COUNT] =
-{
-  {0, 0,                     0,                NULL},             /* 00 reserved entry */
-  {1, sizeof(DC),            TAG_DC,           DC_Cleanup},       /* 01 DC */
-  {1, 0,                     0,                NULL},             /* 02 UNUSED1 */
-  {1, 0,                     0,                NULL},             /* 03 UNUSED2 */
-  {1, sizeof(ROSRGNDATA),    TAG_REGION,       REGION_Cleanup},   /* 04 RGN */
-  {1, sizeof(SURFACE),       TAG_SURFACE,      SURFACE_Cleanup},  /* 05 SURFACE */
-  {1, sizeof(CLIENTOBJ),     TAG_CLIENTOBJ,    GDI_CleanupDummy}, /* 06 CLIENTOBJ: METADC,... */
-  {1, sizeof(PATH),          TAG_PATH,         GDI_CleanupDummy}, /* 07 PATH */
-  {1, sizeof(PALETTE),       TAG_PALETTE,      PALETTE_Cleanup},  /* 08 PAL */
-  {1, sizeof(COLORSPACE),    TAG_ICMLCS,       GDI_CleanupDummy}, /* 09 ICMLCS, */
-  {1, sizeof(TEXTOBJ),       TAG_LFONT,        GDI_CleanupDummy}, /* 0a LFONT */
-  {0, 0,                     TAG_RFONT,        NULL},             /* 0b RFONT, unused */
-  {0, 0,                     TAG_PFE,          NULL},             /* 0c PFE, unused */
-  {0, 0,                     TAG_PFT,          NULL},             /* 0d PFT, unused */
-  {0, sizeof(GDICLRXFORM),   TAG_ICMCXF,       GDI_CleanupDummy}, /* 0e ICMCXF, */
-  {0, 0,                     TAG_SPRITE,       NULL},             /* 0f SPRITE, unused */
-  {1, sizeof(BRUSH),         TAG_BRUSH,        BRUSH_Cleanup},    /* 10 BRUSH, PEN, EXTPEN */
-  {0, 0,                     TAG_UMPD,         NULL},             /* 11 UMPD, unused */
-  {0, 0,                     0,                NULL},             /* 12 UNUSED4 */
-  {0, 0,                     TAG_SPACE,        NULL},             /* 13 SPACE, unused */
-  {0, 0,                     0,                NULL},             /* 14 UNUSED5 */
-  {0, 0,                     TAG_META,         NULL},             /* 15 META, unused */
-  {0, 0,                     TAG_EFSTATE,      NULL},             /* 16 EFSTATE, unused */
-  {0, 0,                     TAG_BMFD,         NULL},             /* 17 BMFD, unused */
-  {0, 0,                     TAG_VTFD,         NULL},             /* 18 VTFD, unused */
-  {0, 0,                     TAG_TTFD,         NULL},             /* 19 TTFD, unused */
-  {0, 0,                     TAG_RC,           NULL},             /* 1a RC, unused */
-  {0, 0,                     TAG_TEMP,         NULL},             /* 1b TEMP, unused */
-  {0, sizeof(EDRIVEROBJ),    TAG_DRVOBJ,       DRIVEROBJ_Cleanup},/* 1c DRVOBJ */
-  {0, 0,                     TAG_DCIOBJ,       NULL},             /* 1d DCIOBJ, unused */
-  {0, 0,                     TAG_SPOOL,        NULL},             /* 1e SPOOL, unused */
-  {0, 0,                     0,                NULL},             /* 1f reserved entry */
-};
-
-static LARGE_INTEGER ShortDelay;
-
-/** INTERNAL FUNCTIONS ********************************************************/
-
-/*
- * Dummy GDI Cleanup Callback
- */
-/* static */ /* FIXME: -fno-unit-at-a-time breaks this */
-BOOL INTERNAL_CALL
-GDI_CleanupDummy(PVOID ObjectBody)
-{
-    return TRUE;
-}
+#ifdef GDI_DEBUG
+BOOLEAN STDCALL KiRosPrintAddress(PVOID Address);
+VOID STDCALL KeRosDumpStackFrames(PULONG Frame, ULONG FrameCount);
+ULONG STDCALL KeRosGetStackFrames(PULONG Frames, ULONG FrameCount);
+#endif
 
 /*!
  * Allocate GDI object table.
@@ -101,374 +110,360 @@ GDI_CleanupDummy(PVOID ObjectBody)
 PGDI_HANDLE_TABLE INTERNAL_CALL
 GDIOBJ_iAllocHandleTable(OUT PSECTION_OBJECT *SectionObject)
 {
-    PGDI_HANDLE_TABLE HandleTable = NULL;
-    LARGE_INTEGER htSize;
-    UINT ObjType;
-    ULONG ViewSize = 0;
-    NTSTATUS Status;
+  PGDI_HANDLE_TABLE HandleTable = NULL;
+  LARGE_INTEGER htSize;
+  UINT ObjType;
+  UINT i;
+  ULONG ViewSize = 0;
+  PGDI_TABLE_ENTRY Entry;
+  NTSTATUS Status;
 
-    ASSERT(SectionObject != NULL);
+  ASSERT(SectionObject != NULL);
 
-    htSize.QuadPart = sizeof(GDI_HANDLE_TABLE);
+  htSize.QuadPart = sizeof(GDI_HANDLE_TABLE);
 
-    Status = MmCreateSection((PVOID*)SectionObject,
-                             SECTION_ALL_ACCESS,
-                             NULL,
-                             &htSize,
-                             PAGE_READWRITE,
-                             SEC_COMMIT,
-                             NULL,
-                             NULL);
-    if (!NT_SUCCESS(Status))
-        return NULL;
+  Status = MmCreateSection((PVOID*)SectionObject,
+                           SECTION_ALL_ACCESS,
+                           NULL,
+                           &htSize,
+                           PAGE_READWRITE,
+                           SEC_COMMIT,
+                           NULL,
+                           NULL);
+  if (!NT_SUCCESS(Status))
+      return NULL;
 
-    /* FIXME - use MmMapViewInSessionSpace once available! */
-    Status = MmMapViewInSystemSpace(*SectionObject,
-                                    (PVOID*)&HandleTable,
-                                    &ViewSize);
-    if (!NT_SUCCESS(Status))
-    {
-        ObDereferenceObject(*SectionObject);
-        *SectionObject = NULL;
-        return NULL;
-    }
+  /* FIXME - use MmMapViewInSessionSpace once available! */
+  Status = MmMapViewInSystemSpace(*SectionObject,
+                                  (PVOID*)&HandleTable,
+                                  &ViewSize);
+  if (!NT_SUCCESS(Status))
+  {
+      ObDereferenceObject(*SectionObject);
+      *SectionObject = NULL;
+      return NULL;
+  }
 
-    RtlZeroMemory(HandleTable, sizeof(GDI_HANDLE_TABLE));
+  RtlZeroMemory(HandleTable, sizeof(GDI_HANDLE_TABLE));
 
-    HandleTable->LookasideLists = ExAllocatePoolWithTag(NonPagedPool,
-                                  BASE_OBJTYPE_COUNT * sizeof(PAGED_LOOKASIDE_LIST),
-                                  TAG_GDIHNDTBLE);
-    if (HandleTable->LookasideLists == NULL)
-    {
-        MmUnmapViewInSystemSpace(HandleTable);
-        ObDereferenceObject(*SectionObject);
-        *SectionObject = NULL;
-        return NULL;
-    }
+  /*
+   * initialize the free entry cache
+   */
+  InitializeSListHead(&HandleTable->FreeEntriesHead);
+  Entry = &HandleTable->Entries[RESERVE_ENTRIES_COUNT];
+  for(i = GDI_HANDLE_COUNT - 1; i >= RESERVE_ENTRIES_COUNT; i--)
+  {
+    InterlockedPushEntrySList(&HandleTable->FreeEntriesHead, &HandleTable->FreeEntries[i]);
+  }
 
-    for (ObjType = 0; ObjType < BASE_OBJTYPE_COUNT; ObjType++)
-    {
-        if (ObjTypeInfo[ObjType].bUseLookaside)
-        {
-            ExInitializePagedLookasideList(HandleTable->LookasideLists + ObjType,
-                                           NULL,
-                                           NULL,
-                                           0,
-                                           ObjTypeInfo[ObjType].ulBodySize,
-                                           ObjTypeInfo[ObjType].Tag,
-                                           0);
-        }
-    }
+  HandleTable->LookasideLists = ExAllocatePoolWithTag(NonPagedPool,
+                                                      OBJTYPE_COUNT * sizeof(PAGED_LOOKASIDE_LIST),
+                                                      TAG_GDIHNDTBLE);
+  if(HandleTable->LookasideLists == NULL)
+  {
+    MmUnmapViewInSystemSpace(HandleTable);
+    ObDereferenceObject(*SectionObject);
+    *SectionObject = NULL;
+    return NULL;
+  }
 
-    ShortDelay.QuadPart = -5000LL; /* FIXME - 0.5 ms? */
+  for(ObjType = 0; ObjType < OBJTYPE_COUNT; ObjType++)
+  {
+    ExInitializePagedLookasideList(HandleTable->LookasideLists + ObjType, NULL, NULL, 0,
+                                   ObjInfo[ObjType].Size + sizeof(GDIOBJHDR), TAG_GDIOBJ, 0);
+  }
 
-    HandleTable->FirstFree = 0;
-    HandleTable->FirstUnused = RESERVE_ENTRIES_COUNT;
+  ShortDelay.QuadPart = -5000LL; /* FIXME - 0.5 ms? */
 
-    return HandleTable;
+  return HandleTable;
 }
 
-static void FASTCALL
-LockErrorDebugOutput(HGDIOBJ hObj, PGDI_TABLE_ENTRY Entry, LPSTR Function)
+static __inline PPAGED_LOOKASIDE_LIST
+FindLookasideList(PGDI_HANDLE_TABLE HandleTable,
+                  DWORD ObjectType)
 {
-    if ((Entry->Type & GDI_ENTRY_BASETYPE_MASK) == 0)
+  int Index;
+
+  for (Index = 0; Index < OBJTYPE_COUNT; Index++)
+  {
+    if (ObjInfo[Index].Type == ObjectType)
     {
-        DPRINT1("%s: Attempted to lock object 0x%x that is deleted!\n", Function, hObj);
-        GDIDBG_TRACEDELETER(hObj);
+      return HandleTable->LookasideLists + Index;
     }
-    else if (GDI_HANDLE_GET_REUSECNT(hObj) != GDI_ENTRY_GET_REUSECNT(Entry->Type))
-    {
-        DPRINT1("%s: Attempted to lock object 0x%x, wrong reuse counter (Handle: 0x%x, Entry: 0x%x)\n",
-                Function, hObj, GDI_HANDLE_GET_REUSECNT(hObj), GDI_ENTRY_GET_REUSECNT(Entry->Type));
-    }
-    else if (GDI_HANDLE_GET_TYPE(hObj) != ((Entry->Type << GDI_ENTRY_UPPER_SHIFT) & GDI_HANDLE_TYPE_MASK))
-    {
-        DPRINT1("%s: Attempted to lock object 0x%x, type mismatch (Handle: 0x%x, Entry: 0x%x)\n",
-                Function, hObj, GDI_HANDLE_GET_TYPE(hObj), (Entry->Type << GDI_ENTRY_UPPER_SHIFT) & GDI_HANDLE_TYPE_MASK);
-    }
-    else
-    {
-        DPRINT1("%s: Attempted to lock object 0x%x, something went wrong, typeinfo = 0x%x\n",
-                Function, hObj, Entry->Type);
-    }
-    GDIDBG_TRACECALLER();
+  }
+
+  DPRINT1("Can't find lookaside list for object type 0x%08x\n", ObjectType);
+
+  return NULL;
 }
 
-ULONG
-FASTCALL
-InterlockedPopFreeEntry(VOID)
+static __inline BOOL
+RunCleanupCallback(PGDIOBJ pObj, DWORD ObjectType)
 {
-    ULONG idxFirst, idxNext, idxPrev;
-    PGDI_TABLE_ENTRY pEntry;
-    DWORD PrevProcId;
+  int Index;
 
-    DPRINT("Enter InterLockedPopFreeEntry\n");
-
-    while (TRUE)
+  for (Index = 0; Index < OBJTYPE_COUNT; Index++)
+  {
+    if (ObjInfo[Index].Type == ObjectType)
     {
-        idxFirst = GdiHandleTable->FirstFree;
-
-        if (!idxFirst)
-        {
-            /* Increment FirstUnused and get the new index */
-            idxFirst = InterlockedIncrement((LONG*)&GdiHandleTable->FirstUnused) - 1;
-
-            /* Check if we have entries left */
-            if (idxFirst >= GDI_HANDLE_COUNT)
-            {
-                DPRINT1("No more gdi handles left!\n");
-                return 0;
-            }
-
-            /* Return the old index */
-            return idxFirst;
-        }
-
-        /* Get a pointer to the first free entry */
-        pEntry = GdiHandleTable->Entries + idxFirst;
-
-        /* Try to lock the entry */
-        PrevProcId = InterlockedCompareExchange((LONG*)&pEntry->ProcessId, 1, 0);
-        if (PrevProcId != 0)
-        {
-            /* The entry was locked or not free, wait and start over */
-            DelayExecution();
-            continue;
-        }
-
-        /* Sanity check: is entry really free? */
-        ASSERT(((ULONG_PTR)pEntry->KernelData & ~GDI_HANDLE_INDEX_MASK) == 0);
-
-        /* Try to exchange the FirstFree value */
-        idxNext = (ULONG_PTR)pEntry->KernelData;
-        idxPrev = InterlockedCompareExchange((LONG*)&GdiHandleTable->FirstFree,
-                                             idxNext,
-                                             idxFirst);
-
-        /* Unlock the free entry */
-        (void)InterlockedExchange((LONG*)&pEntry->ProcessId, 0);
-
-        /* If we succeeded, break out of the loop */
-        if (idxPrev == idxFirst)
-        {
-            break;
-        }
+      return ((GDICLEANUPPROC)ObjInfo[Index].CleanupProc)(pObj);
     }
+  }
 
-    return idxFirst;
+  DPRINT1("Can't find cleanup callback for object type 0x%08x\n", ObjectType);
+  return TRUE;
 }
 
-/* Pushes an entry of the handle table to the free list,
-   The entry must be unlocked and the base type field must be 0 */
-VOID
-FASTCALL
-InterlockedPushFreeEntry(ULONG idxToFree)
+static __inline ULONG
+GetObjectSize(DWORD ObjectType)
 {
-    ULONG idxFirstFree, idxPrev;
-    PGDI_TABLE_ENTRY pFreeEntry;
+  int Index;
 
-    DPRINT("Enter InterlockedPushFreeEntry\n");
-
-    pFreeEntry = GdiHandleTable->Entries + idxToFree;
-    ASSERT((pFreeEntry->Type & GDI_ENTRY_BASETYPE_MASK) == 0);
-    ASSERT(pFreeEntry->ProcessId == 0);
-    pFreeEntry->UserData = NULL;
-
-    do
+  for (Index = 0; Index < OBJTYPE_COUNT; Index++)
+  {
+    if (ObjInfo[Index].Type == ObjectType)
     {
-        idxFirstFree = GdiHandleTable->FirstFree;
-        pFreeEntry->KernelData = (PVOID)(ULONG_PTR)idxFirstFree;
-
-        idxPrev = InterlockedCompareExchange((LONG*)&GdiHandleTable->FirstFree,
-                                             idxToFree,
-                                             idxFirstFree);
+      return ObjInfo[Index].Size;
     }
-    while (idxPrev != idxFirstFree);
+  }
+
+  DPRINT1("Can't find size for object type 0x%08x\n", ObjectType);
+  return 0;
 }
 
+#ifdef GDI_DEBUG
 
-BOOL
-INTERNAL_CALL
-GDIOBJ_ValidateHandle(HGDIOBJ hObj, ULONG ObjectType)
+static int leak_reported = 0;
+#define GDI_STACK_LEVELS 12
+static ULONG GDIHandleAllocator[GDI_HANDLE_COUNT][GDI_STACK_LEVELS];
+struct DbgOpenGDIHandle
 {
-    PGDI_TABLE_ENTRY Entry = GDI_HANDLE_GET_ENTRY(GdiHandleTable, hObj);
-    if ((((ULONG_PTR)hObj & GDI_HANDLE_TYPE_MASK) == ObjectType) &&
-        (Entry->Type << GDI_ENTRY_UPPER_SHIFT) == GDI_HANDLE_GET_UPPER(hObj))
-    {
-        HANDLE pid = (HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1);
-        if (pid == NULL || pid == PsGetCurrentProcessId())
-        {
-            return TRUE;
-        }
-    }
-    return FALSE;
-}
+	ULONG idx;
+	int count;
+};
+#define H 1024
+static struct DbgOpenGDIHandle h[H];
 
-POBJ INTERNAL_CALL
-GDIOBJ_AllocObj(UCHAR BaseType)
+void IntDumpHandleTable(PGDI_HANDLE_TABLE HandleTable)
 {
-    POBJ pObject;
+	int i, n = 0, j, k, J;
 
-    ASSERT((BaseType & ~GDIObjTypeTotal) == 0);
-//    BaseType &= GDI_HANDLE_BASETYPE_MASK;
+	if ( leak_reported )
+	{
+		DPRINT1("gdi handle abusers already reported!\n");
+		return;
+	}
 
-    if (ObjTypeInfo[BaseType].bUseLookaside)
-    {
-        PPAGED_LOOKASIDE_LIST LookasideList;
+	leak_reported = 1;
+	DPRINT1("reporting gdi handle abusers:\n");
 
-        LookasideList = GdiHandleTable->LookasideLists + BaseType;
-        pObject = ExAllocateFromPagedLookasideList(LookasideList);
-    }
-    else
-    {
-        pObject = ExAllocatePoolWithTag(PagedPool,
-                                        ObjTypeInfo[BaseType].ulBodySize,
-                                        ObjTypeInfo[BaseType].Tag);
-    }
-
-    if (pObject)
-    {
-        RtlZeroMemory(pObject, ObjTypeInfo[BaseType].ulBodySize);
-    }
-
-    return pObject;
+	/* step through GDI handle table and find out who our culprit is... */
+	for ( i = RESERVE_ENTRIES_COUNT; i < GDI_HANDLE_COUNT; i++ )
+	{
+		for ( j = 0; j < n; j++ )
+		{
+next:
+			J = h[j].idx;
+			for ( k = 0; k < GDI_STACK_LEVELS; k++ )
+			{
+				if ( GDIHandleAllocator[i][k]
+				  != GDIHandleAllocator[J][k] )
+				{
+					if ( ++j == n )
+						goto done;
+					else
+						goto next;
+				}
+			}
+			goto done;
+		}
+done:
+		if ( j < H )
+		{
+			if ( j == n )
+			{
+				h[j].idx = i;
+				h[j].count = 1;
+				n = n + 1;
+			}
+			else
+				h[j].count++;
+		}
+	}
+	/* bubble sort time! weeeeee!! */
+	for ( i = 0; i < n-1; i++ )
+	{
+		if ( h[i].count < h[i+1].count )
+		{
+			struct DbgOpenGDIHandle t;
+			t = h[i+1];
+			h[i+1] = h[i];
+			j = i;
+			while ( j > 0 && h[j-1].count < t.count )
+				j--;
+			h[j] = t;
+		}
+	}
+	/* print the worst offenders... */
+	DbgPrint ( "Worst GDI Handle leak offenders (out of %i unique locations):\n", n );
+	for ( i = 0; i < n && h[i].count > 1; i++ )
+	{
+		int j;
+		DbgPrint ( " %i allocs: ", h[i].count );
+		for ( j = 0; j < GDI_STACK_LEVELS; j++ )
+		{
+			ULONG Addr = GDIHandleAllocator[h[i].idx][j];
+			if ( !KiRosPrintAddress ( (PVOID)Addr ) )
+				DbgPrint ( "<%X>", Addr );
+		}
+		DbgPrint ( "\n" );
+	}
+	if ( i < n && h[i].count == 1 )
+		DbgPrint ( "(list terminated - the remaining entries have 1 allocation only)\n" );
 }
-
+#endif /* GDI_DEBUG */
 
 /*!
  * Allocate memory for GDI object and return handle to it.
  *
  * \param ObjectType - type of object \ref GDI object types
  *
- * \return Pointer to the allocated object, which is locked.
+ * \return Handle of the allocated object.
+ *
+ * \note Use GDIOBJ_Lock() to obtain pointer to the new object.
+ * \todo return the object pointer and lock it by default.
 */
-POBJ INTERNAL_CALL
-GDIOBJ_AllocObjWithHandle(ULONG ObjectType)
+HGDIOBJ INTERNAL_CALL
+#ifdef GDI_DEBUG
+GDIOBJ_AllocObjDbg(PGDI_HANDLE_TABLE HandleTable, const char* file, int line, ULONG ObjectType)
+#else /* !GDI_DEBUG */
+GDIOBJ_AllocObj(PGDI_HANDLE_TABLE HandleTable, ULONG ObjectType)
+#endif /* GDI_DEBUG */
 {
-    PPROCESSINFO W32Process;
-    POBJ  newObject = NULL;
-    HANDLE CurrentProcessId, LockedProcessId;
-    UCHAR TypeIndex;
-    UINT Index;
-    PGDI_TABLE_ENTRY Entry;
-    LONG TypeInfo;
+  PW32PROCESS W32Process;
+  PGDIOBJHDR  newObject;
+  PPAGED_LOOKASIDE_LIST LookasideList;
+  HANDLE CurrentProcessId, LockedProcessId;
+#ifdef GDI_DEBUG
+  ULONG Attempts = 0;
+#endif
 
-    GDIDBG_INITLOOPTRACE();
+  W32Process = PsGetCurrentProcessWin32Process();
+  /* HACK HACK HACK: simplest-possible quota implementation - don't allow a process
+     to take too many GDI objects, itself. */
+  if ( W32Process && W32Process->GDIObjects >= 0x2710 )
+    return NULL;
 
-    W32Process = PsGetCurrentProcessWin32Process();
-    /* HACK HACK HACK: simplest-possible quota implementation - don't allow a process
-       to take too many GDI objects, itself. */
-    if (W32Process && W32Process->GDIHandleCount >= 0x2710)
+  ASSERT(ObjectType != GDI_OBJECT_TYPE_DONTCARE);
+
+  LookasideList = FindLookasideList(HandleTable, ObjectType);
+  if(LookasideList != NULL)
+  {
+    newObject = ExAllocateFromPagedLookasideList(LookasideList);
+    if(newObject != NULL)
     {
-        DPRINT1("Too many objects for process!!!\n");
-        GDIDBG_DUMPHANDLETABLE();
-        return NULL;
-    }
+      PSLIST_ENTRY FreeEntry;
+      PGDI_TABLE_ENTRY Entry;
+      PGDIOBJ ObjectBody;
+      LONG TypeInfo;
 
-    ASSERT(ObjectType != GDI_OBJECT_TYPE_DONTCARE);
+      CurrentProcessId = PsGetCurrentProcessId();
+      LockedProcessId = (HANDLE)((ULONG_PTR)CurrentProcessId | 0x1);
 
-    TypeIndex = GDI_OBJECT_GET_TYPE_INDEX(ObjectType);
+      newObject->LockingThread = NULL;
+      newObject->Locks = 0;
 
-    newObject = GDIOBJ_AllocObj(TypeIndex);
-    if (!newObject)
-    {
-        DPRINT1("Not enough memory to allocate gdi object!\n");
-        return NULL;
-    }
+#ifdef GDI_DEBUG
+      newObject->createdfile = file;
+      newObject->createdline = line;
+      newObject->lockfile = NULL;
+      newObject->lockline = 0;
+#endif
 
-    CurrentProcessId = PsGetCurrentProcessId();
-    LockedProcessId = (HANDLE)((ULONG_PTR)CurrentProcessId | 0x1);
+      ObjectBody = GDIHdrToBdy(newObject);
 
-//    RtlZeroMemory(newObject, ObjTypeInfo[TypeIndex].ulBodySize);
+      RtlZeroMemory(ObjectBody, GetObjectSize(ObjectType));
 
-    /* On Windows the higher 16 bit of the type field don't contain the
-       full type from the handle, but the base type.
-       (type = BRSUH, PEN, EXTPEN, basetype = BRUSH) */
-    TypeInfo = (ObjectType & GDI_HANDLE_BASETYPE_MASK) | (ObjectType >> GDI_ENTRY_UPPER_SHIFT);
+      TypeInfo = (ObjectType & GDI_HANDLE_TYPE_MASK) | (ObjectType >> 16);
 
-    Index = InterlockedPopFreeEntry();
-    if (Index != 0)
-    {
+      FreeEntry = InterlockedPopEntrySList(&HandleTable->FreeEntriesHead);
+      if(FreeEntry != NULL)
+      {
         HANDLE PrevProcId;
+        UINT Index;
 
-        Entry = &GdiHandleTable->Entries[Index];
+        /* calculate the entry from the address of the entry in the free slot array */
+        Index = ((ULONG_PTR)FreeEntry - (ULONG_PTR)&HandleTable->FreeEntries[0]) /
+                sizeof(HandleTable->FreeEntries[0]);
+        Entry = &HandleTable->Entries[Index];
 
 LockHandle:
-        PrevProcId = InterlockedCompareExchangePointer((PVOID*)&Entry->ProcessId, LockedProcessId, 0);
-        if (PrevProcId == NULL)
+        PrevProcId = InterlockedCompareExchangePointer(&Entry->ProcessId, LockedProcessId, 0);
+        if(PrevProcId == NULL)
         {
-            PTHREADINFO Thread = (PTHREADINFO)PsGetCurrentThreadWin32Thread();
-            HGDIOBJ Handle;
+          HGDIOBJ Handle;
 
-            Entry->KernelData = newObject;
+          ASSERT(Entry->KernelData == NULL);
 
-            /* copy the reuse-counter */
-            TypeInfo |= Entry->Type & GDI_ENTRY_REUSE_MASK;
+          Entry->KernelData = ObjectBody;
 
-            /* we found a free entry, no need to exchange this field atomically
-               since we're holding the lock */
-            Entry->Type = TypeInfo;
+          /* copy the reuse-counter */
+          TypeInfo |= Entry->Type & GDI_HANDLE_REUSE_MASK;
 
-            /* Create a handle */
-            Handle = (HGDIOBJ)((Index & 0xFFFF) | (TypeInfo << GDI_ENTRY_UPPER_SHIFT));
+          /* we found a free entry, no need to exchange this field atomically
+             since we're holding the lock */
+          Entry->Type = TypeInfo;
 
-            /* Initialize BaseObject fields */
-            newObject->hHmgr = Handle;
-            newObject->ulShareCount = 0;
-            newObject->cExclusiveLock = 1;
-            newObject->Tid = Thread;
+          /* unlock the entry */
+          (void)InterlockedExchangePointer(&Entry->ProcessId, CurrentProcessId);
 
-            /* unlock the entry */
-            (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, CurrentProcessId);
+#ifdef GDI_DEBUG
+          memset ( GDIHandleAllocator[Index], 0xcd, GDI_STACK_LEVELS * sizeof(ULONG) );
+          KeRosGetStackFrames ( GDIHandleAllocator[Index], GDI_STACK_LEVELS );
+#endif /* GDI_DEBUG */
 
-            GDIDBG_CAPTUREALLOCATOR(Index);
+          if(W32Process != NULL)
+          {
+            InterlockedIncrement(&W32Process->GDIObjects);
+          }
+          Handle = (HGDIOBJ)((Index & 0xFFFF) | (TypeInfo & (GDI_HANDLE_TYPE_MASK | GDI_HANDLE_REUSE_MASK)));
 
-            if (W32Process != NULL)
-            {
-                InterlockedIncrement(&W32Process->GDIHandleCount);
-            }
-
-            DPRINT("GDIOBJ_AllocObj: 0x%x ob: 0x%x\n", Handle, newObject);
-            return newObject;
+          DPRINT("GDIOBJ_AllocObj: 0x%x ob: 0x%x\n", Handle, ObjectBody);
+          return Handle;
         }
         else
         {
-            GDIDBG_TRACELOOP(Index, PrevProcId, CurrentProcessId);
-            /* damn, someone is trying to lock the object even though it doesn't
-               even exist anymore, wait a little and try again!
-               FIXME - we shouldn't loop forever! Give up after some time! */
-            DelayExecution();
-            /* try again */
-            goto LockHandle;
+#ifdef GDI_DEBUG
+          if(++Attempts > 20)
+          {
+            DPRINT1("[%d]Waiting on handle in index 0x%x\n", Attempts, Index);
+          }
+#endif
+          /* damn, someone is trying to lock the object even though it doesn't
+             eve nexist anymore, wait a little and try again!
+             FIXME - we shouldn't loop forever! Give up after some time! */
+          DelayExecution();
+          /* try again */
+          goto LockHandle;
         }
-    }
+      }
 
-    GDIOBJ_FreeObj(newObject, TypeIndex);
-
-    DPRINT1("Failed to insert gdi object into the handle table, no handles left!\n");
-    GDIDBG_DUMPHANDLETABLE();
-
-    return NULL;
-}
-
-
-VOID INTERNAL_CALL
-GDIOBJ_FreeObj(POBJ pObject, UCHAR BaseType)
-{
-    /* Object must not have a handle! */
-    ASSERT(pObject->hHmgr == NULL);
-
-    if (ObjTypeInfo[BaseType].bUseLookaside)
-    {
-        PPAGED_LOOKASIDE_LIST LookasideList;
-
-        LookasideList = GdiHandleTable->LookasideLists + BaseType;
-        ExFreeToPagedLookasideList(LookasideList, pObject);
+      ExFreeToPagedLookasideList(LookasideList, newObject);
+      DPRINT1("Failed to insert gdi object into the handle table, no handles left!\n");
+#ifdef GDI_DEBUG
+      IntDumpHandleTable(HandleTable);
+#endif /* GDI_DEBUG */
     }
     else
     {
-        ExFreePool(pObject);
+      DPRINT1("Not enough memory to allocate gdi object!\n");
     }
+  }
+  else
+  {
+    DPRINT1("Failed to find lookaside list for object type 0x%x\n", ObjectType);
+  }
+  return NULL;
 }
 
 /*!
@@ -480,300 +475,233 @@ GDIOBJ_FreeObj(POBJ pObject, UCHAR BaseType)
  * \return Returns TRUE if succesful.
  * \return Returns FALSE if the cleanup routine returned FALSE or the object doesn't belong
  * to the calling process.
- *
- * \bug This function should return VOID and kill the object no matter what...
 */
 BOOL INTERNAL_CALL
-GDIOBJ_FreeObjByHandle(HGDIOBJ hObj, DWORD ExpectedType)
+#ifdef GDI_DEBUG
+GDIOBJ_FreeObjDbg(PGDI_HANDLE_TABLE HandleTable, const char* file, int line, HGDIOBJ hObj, DWORD ObjectType)
+#else /* !GDI_DEBUG */
+GDIOBJ_FreeObj(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ hObj, DWORD ObjectType)
+#endif /* GDI_DEBUG */
 {
-    PGDI_TABLE_ENTRY Entry;
-    HANDLE ProcessId, LockedProcessId, PrevProcId;
-    ULONG HandleType, HandleUpper, TypeIndex;
-    BOOL Silent;
+  PGDI_TABLE_ENTRY Entry;
+  PPAGED_LOOKASIDE_LIST LookasideList;
+  HANDLE ProcessId, LockedProcessId, PrevProcId;
+  LONG ExpectedType;
+  BOOL Silent;
+#ifdef GDI_DEBUG
+  ULONG Attempts = 0;
+#endif
 
-    GDIDBG_INITLOOPTRACE();
+  DPRINT("GDIOBJ_FreeObj: hObj: 0x%08x\n", hObj);
 
-    DPRINT("GDIOBJ_FreeObj: hObj: 0x%08x\n", hObj);
+  if(GDI_HANDLE_IS_STOCKOBJ(hObj))
+  {
+    DPRINT1("GDIOBJ_FreeObj() failed, can't delete stock object handle: 0x%x !!!\n", hObj);
+#ifdef GDI_DEBUG
+    DPRINT1("-> called from %s:%i\n", file, line);
+#endif
+    return FALSE;
+  }
 
-    if (GDI_HANDLE_IS_STOCKOBJ(hObj))
-    {
-        DPRINT1("GDIOBJ_FreeObj() failed, can't delete stock object handle: 0x%x !!!\n", hObj);
-        GDIDBG_TRACECALLER();
-        return FALSE;
-    }
+  ProcessId = PsGetCurrentProcessId();
+  LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
 
-    ProcessId = PsGetCurrentProcessId();
-    LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
+  Silent = (ObjectType & GDI_OBJECT_TYPE_SILENT);
+  ObjectType &= ~GDI_OBJECT_TYPE_SILENT;
 
-    Silent = (ExpectedType & GDI_OBJECT_TYPE_SILENT);
-    ExpectedType &= ~GDI_OBJECT_TYPE_SILENT;
+  ExpectedType = ((ObjectType != GDI_OBJECT_TYPE_DONTCARE) ? ObjectType : 0);
 
-    HandleType = GDI_HANDLE_GET_TYPE(hObj);
-    HandleUpper = GDI_HANDLE_GET_UPPER(hObj);
-
-    /* Check if we have the requested type */
-    if ( (ExpectedType != GDI_OBJECT_TYPE_DONTCARE &&
-          HandleType != ExpectedType) ||
-         HandleType == 0 )
-    {
-        DPRINT1("Attempted to free object 0x%x of wrong type (Handle: 0x%x, expected: 0x%x)\n",
-                hObj, HandleType, ExpectedType);
-        GDIDBG_TRACECALLER();
-        return FALSE;
-    }
-
-    Entry = GDI_HANDLE_GET_ENTRY(GdiHandleTable, hObj);
+  Entry = GDI_HANDLE_GET_ENTRY(HandleTable, hObj);
 
 LockHandle:
-    /* lock the object, we must not delete global objects, so don't exchange the locking
-       process ID to zero when attempting to lock a global object... */
-    PrevProcId = InterlockedCompareExchangePointer((PVOID*)&Entry->ProcessId, LockedProcessId, ProcessId);
-    if (PrevProcId == ProcessId)
+  /* lock the object, we must not delete global objects, so don't exchange the locking
+     process ID to zero when attempting to lock a global object... */
+  PrevProcId = InterlockedCompareExchangePointer(&Entry->ProcessId, LockedProcessId, ProcessId);
+  if(PrevProcId == ProcessId)
+  {
+    if(Entry->Type != 0 && Entry->KernelData != NULL &&
+       (ExpectedType == 0 || ((Entry->Type << 16) == ExpectedType)) &&
+       (Entry->Type & (GDI_HANDLE_TYPE_MASK | GDI_HANDLE_REUSE_MASK)) ==
+       ((ULONG_PTR)hObj & (GDI_HANDLE_TYPE_MASK | GDI_HANDLE_REUSE_MASK)))
     {
-        if ( (Entry->KernelData != NULL) &&
-             ((Entry->Type << GDI_ENTRY_UPPER_SHIFT) == HandleUpper) &&
-             ((Entry->Type & GDI_ENTRY_BASETYPE_MASK) == (HandleUpper & GDI_ENTRY_BASETYPE_MASK)) )
+      PGDIOBJHDR GdiHdr;
+
+      GdiHdr = GDIBdyToHdr(Entry->KernelData);
+
+      if(GdiHdr->Locks == 0)
+      {
+        BOOL Ret;
+        PW32PROCESS W32Process = PsGetCurrentProcessWin32Process();
+        ULONG Type = Entry->Type << 16;
+
+        /* Clear the type field so when unlocking the handle it gets finally deleted and increment reuse counter */
+        Entry->Type = ((Entry->Type >> GDI_HANDLE_REUSECNT_SHIFT) + 1) << GDI_HANDLE_REUSECNT_SHIFT;
+        Entry->KernelData = NULL;
+
+        /* unlock the handle slot */
+        (void)InterlockedExchangePointer(&Entry->ProcessId, NULL);
+
+        /* push this entry to the free list */
+        InterlockedPushEntrySList(&HandleTable->FreeEntriesHead,
+                                  &HandleTable->FreeEntries[GDI_ENTRY_TO_INDEX(HandleTable, Entry)]);
+
+        if(W32Process != NULL)
         {
-            POBJ Object;
-
-            Object = Entry->KernelData;
-
-            if ((Object->cExclusiveLock == 0 ||
-                Object->Tid == (PTHREADINFO)PsGetCurrentThreadWin32Thread()) &&
-                 Object->ulShareCount == 0)
-            {
-                BOOL Ret;
-                PPROCESSINFO W32Process = PsGetCurrentProcessWin32Process();
-
-                /* Clear the basetype field so when unlocking the handle it gets finally deleted and increment reuse counter */
-                Entry->Type = (Entry->Type + GDI_ENTRY_REUSE_INC) & ~GDI_ENTRY_BASETYPE_MASK;
-
-                /* unlock the handle slot */
-                (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, NULL);
-
-                /* push this entry to the free list */
-                InterlockedPushFreeEntry(GDI_ENTRY_TO_INDEX(GdiHandleTable, Entry));
-
-                Object->hHmgr = NULL;
-
-                if (W32Process != NULL)
-                {
-                    InterlockedDecrement(&W32Process->GDIHandleCount);
-                }
-
-                /* call the cleanup routine. */
-                TypeIndex = GDI_OBJECT_GET_TYPE_INDEX(HandleType);
-                Ret = ObjTypeInfo[TypeIndex].CleanupProc(Object);
-
-                /* Now it's time to free the memory */
-                GDIOBJ_FreeObj(Object, TypeIndex);
-
-                GDIDBG_CAPTUREDELETER(hObj);
-                return Ret;
-            }
-            else if (Object->ulShareCount != 0)
-            {
-                Object->BaseFlags |= BASEFLAG_READY_TO_DIE;
-                DPRINT("Object %p, ulShareCount = %d\n", Object->hHmgr, Object->ulShareCount);
-                //GDIDBG_TRACECALLER();
-                //GDIDBG_TRACESHARELOCKER(GDI_HANDLE_GET_INDEX(hObj));
-                (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-                /* Don't wait on shared locks */
-                return FALSE;
-            }
-            else
-            {
-                /*
-                 * The object is currently locked by another thread, so freeing is forbidden!
-                 */
-                DPRINT1("Object->cExclusiveLock = %d\n", Object->cExclusiveLock);
-                GDIDBG_TRACECALLER();
-                GDIDBG_TRACELOCKER(GDI_HANDLE_GET_INDEX(hObj));
-                (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-                /* do not assert here for it will call again from dxg.sys it being call twice */
-
-                DelayExecution();
-                goto LockHandle;
-            }
+          InterlockedDecrement(&W32Process->GDIObjects);
         }
-        else
+
+        /* call the cleanup routine. */
+        Ret = RunCleanupCallback(GDIHdrToBdy(GdiHdr), Type);
+
+        /* Now it's time to free the memory */
+        LookasideList = FindLookasideList(HandleTable, Type);
+        if(LookasideList != NULL)
         {
-            LockErrorDebugOutput(hObj, Entry, "GDIOBJ_FreeObj");
-            (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
+          ExFreeToPagedLookasideList(LookasideList, GdiHdr);
         }
-    }
-    else if (PrevProcId == LockedProcessId)
-    {
-        GDIDBG_TRACELOOP(hObj, PrevProcId, ProcessId);
 
-        /* the object is currently locked, wait some time and try again.
-           FIXME - we shouldn't loop forever! Give up after some time! */
-        DelayExecution();
-        /* try again */
-        goto LockHandle;
+        return Ret;
+      }
+      else
+      {
+        /*
+         * The object is currently locked, so freeing is forbidden!
+         */
+        DPRINT1("GdiHdr->Locks: %d\n", GdiHdr->Locks);
+#ifdef GDI_DEBUG
+        DPRINT1("Locked from: %s:%d\n", GdiHdr->lockfile, GdiHdr->lockline);
+#endif
+        ASSERT(FALSE);
+      }
     }
     else
     {
-        if (!Silent)
-        {
-            if ((Entry->Type & GDI_ENTRY_BASETYPE_MASK) == 0)
-            {
-                DPRINT1("Attempted to free gdi handle 0x%x that is already deleted!\n", hObj);
-            }
-            else if (((ULONG_PTR)PrevProcId & ~0x1) == 0)
-            {
-                DPRINT1("Attempted to free global gdi handle 0x%x, caller needs to get ownership first!!!\n", hObj);
-            }
-            else
-            {
-                DPRINT1("Attempted to free foreign handle: 0x%x Owner: 0x%x from Caller: 0x%x\n", hObj, (ULONG_PTR)PrevProcId & ~0x1, (ULONG_PTR)ProcessId & ~0x1);
-            }
-            DPRINT1("Type = 0x%lx, KernelData = 0x%p, ProcessId = 0x%p\n", Entry->Type, Entry->KernelData, Entry->ProcessId);
-            GDIDBG_TRACECALLER();
-            GDIDBG_TRACEALLOCATOR(GDI_HANDLE_GET_INDEX(hObj));
-        }
+      if((Entry->Type & ~GDI_HANDLE_REUSE_MASK) != 0)
+      {
+        DPRINT1("Attempted to delete object 0x%x, type mismatch (0x%x : 0x%x)\n", hObj, ObjectType, ExpectedType);
+        KeRosDumpStackFrames(NULL, 20);
+      }
+      else
+      {
+        DPRINT1("Attempted to delete object 0x%x which was already deleted!\n", hObj);
+         KeRosDumpStackFrames(NULL, 20);
+      }
+      (void)InterlockedExchangePointer(&Entry->ProcessId, PrevProcId);
     }
-
-    return FALSE;
-}
-
-BOOL
-FASTCALL
-IsObjectDead(HGDIOBJ hObject)
-{
-    INT Index = GDI_HANDLE_GET_INDEX(hObject);
-    PGDI_TABLE_ENTRY Entry = &GdiHandleTable->Entries[Index];
-    // We check to see if the objects are knocking on deaths door.
-    if ((Entry->Type & GDI_ENTRY_BASETYPE_MASK) != 0)
-        return FALSE;
-    else
+  }
+  else if(PrevProcId == LockedProcessId)
+  {
+#ifdef GDI_DEBUG
+    if(++Attempts > 20)
     {
-        DPRINT1("Object 0x%x currently being destroyed!!!\n",hObject);
-        return TRUE; // return true and move on.
+      DPRINT1("[%d]Waiting on 0x%x\n", Attempts, hObj);
     }
-}
+#endif
+    /* the object is currently locked, wait some time and try again.
+       FIXME - we shouldn't loop forever! Give up after some time! */
+    DelayExecution();
+    /* try again */
+    goto LockHandle;
+  }
+  else
+  {
+    if(!Silent)
+    {
+      if(((ULONG_PTR)PrevProcId & ~0x1) == 0)
+      {
+        DPRINT1("Attempted to free global gdi handle 0x%x, caller needs to get ownership first!!!\n", hObj);
+        KeRosDumpStackFrames(NULL, 20);
+      }
+      else
+      {
+        DPRINT1("Attempted to free foreign handle: 0x%x Owner: 0x%x from Caller: 0x%x\n", hObj, (ULONG_PTR)PrevProcId & ~0x1, (ULONG_PTR)ProcessId & ~0x1);
+        KeRosDumpStackFrames(NULL, 20);
+      }
+#ifdef GDI_DEBUG
+      DPRINT1("-> called from %s:%i\n", file, line);
+#endif
+    }
+  }
 
+  return FALSE;
+}
 
 /*!
  * Delete GDI object
  * \param	hObject object handle
  * \return	if the function fails the returned value is FALSE.
 */
-BOOL
-FASTCALL
-GreDeleteObject(HGDIOBJ hObject)
+BOOL STDCALL
+NtGdiDeleteObject(HGDIOBJ hObject)
 {
-    DPRINT("NtGdiDeleteObject handle 0x%08x\n", hObject);
-    if (!IsObjectDead(hObject))
-    {
-        return NULL != hObject
-               ? GDIOBJ_FreeObjByHandle(hObject, GDI_OBJECT_TYPE_DONTCARE) : FALSE;
-    }
-    else
-    {
-        DPRINT1("Attempt DeleteObject 0x%x currently being destroyed!!!\n",hObject);
-        return TRUE; // return true and move on.
-    }
+  DPRINT("NtGdiDeleteObject handle 0x%08x\n", hObject);
+
+  return NULL != hObject
+         ? GDIOBJ_FreeObj(GdiHandleTable, hObject, GDI_OBJECT_TYPE_DONTCARE) : FALSE;
 }
-
-VOID
-FASTCALL
-IntDeleteHandlesForProcess(struct _EPROCESS *Process, ULONG ObjectType)
-{
-    PGDI_TABLE_ENTRY Entry, End;
-    ULONG Index = RESERVE_ENTRIES_COUNT;
-    HANDLE ProcId;
-    PPROCESSINFO W32Process;
-
-    W32Process = (PPROCESSINFO)Process->Win32Process;
-    ASSERT(W32Process);
-
-    if (W32Process->GDIHandleCount > 0)
-    {
-       ProcId = Process->UniqueProcessId;
-
-    /* FIXME - Instead of building the handle here and delete it using GDIOBJ_FreeObj
-               we should delete it directly here! */
-
-        End = &GdiHandleTable->Entries[GDI_HANDLE_COUNT];
-        for (Entry = &GdiHandleTable->Entries[RESERVE_ENTRIES_COUNT];
-             Entry != End;
-             Entry++, Index++)
-        {
-            /* ignore the lock bit */
-            if ( (HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1) == ProcId)
-            {
-                if ( (Entry->Type & GDI_ENTRY_BASETYPE_MASK) == ObjectType ||
-                     ObjectType == GDI_OBJECT_TYPE_DONTCARE)
-                {
-                    HGDIOBJ ObjectHandle;
-
-                    /* Create the object handle for the entry, the lower(!) 16 bit of the
-                       Type field includes the type of the object including the stock
-                       object flag - but since stock objects don't have a process id we can
-                       simply ignore this fact here. */
-                    ObjectHandle = (HGDIOBJ)(Index | (Entry->Type << GDI_ENTRY_UPPER_SHIFT));
-
-                    if (!GDIOBJ_FreeObjByHandle(ObjectHandle, GDI_OBJECT_TYPE_DONTCARE))
-                    {
-                        DPRINT1("Failed to delete object %p!\n", ObjectHandle);
-                    }
-
-                    if (W32Process->GDIHandleCount == 0)
-                    {
-                        /* there are no more gdi handles for this process, bail */
-                        break;
-                    }
-                }
-            }
-        }
-    }
-}
-
 
 /*!
  * Internal function. Called when the process is destroyed to free the remaining GDI handles.
  * \param	Process - PID of the process that will be destroyed.
 */
 BOOL INTERNAL_CALL
-GDI_CleanupForProcess(struct _EPROCESS *Process)
+GDI_CleanupForProcess (PGDI_HANDLE_TABLE HandleTable, struct _EPROCESS *Process)
 {
-    PEPROCESS CurrentProcess;
-    PPROCESSINFO W32Process;
+  PGDI_TABLE_ENTRY Entry, End;
+  PEPROCESS CurrentProcess;
+  PW32PROCESS W32Process;
+  HANDLE ProcId;
+  ULONG Index = RESERVE_ENTRIES_COUNT;
 
-    DPRINT("Starting CleanupForProcess prochandle %x Pid %d\n", Process, Process->UniqueProcessId);
-    CurrentProcess = PsGetCurrentProcess();
-    if (CurrentProcess != Process)
+  DPRINT("Starting CleanupForProcess prochandle %x Pid %d\n", Process, Process->UniqueProcessId);
+  CurrentProcess = PsGetCurrentProcess();
+  if (CurrentProcess != Process)
     {
-        KeAttachProcess(&Process->Pcb);
+      KeAttachProcess(&Process->Pcb);
+    }
+  W32Process = (PW32PROCESS)Process->Win32Process;
+  ASSERT(W32Process);
+
+  if(W32Process->GDIObjects > 0)
+  {
+    /* FIXME - Instead of building the handle here and delete it using GDIOBJ_FreeObj
+               we should delete it directly here! */
+    ProcId = Process->UniqueProcessId;
+
+    End = &HandleTable->Entries[GDI_HANDLE_COUNT];
+    for(Entry = &HandleTable->Entries[RESERVE_ENTRIES_COUNT];
+        Entry != End;
+        Entry++, Index++)
+    {
+      /* ignore the lock bit */
+      if((HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1) == ProcId && (Entry->Type & ~GDI_HANDLE_REUSE_MASK) != 0)
+      {
+        HGDIOBJ ObjectHandle;
+
+        /* Create the object handle for the entry, the upper 16 bit of the
+           Type field includes the type of the object including the stock
+           object flag - but since stock objects don't have a process id we can
+           simply ignore this fact here. */
+        ObjectHandle = (HGDIOBJ)(Index | (Entry->Type & 0xFFFF0000));
+
+        if(GDIOBJ_FreeObj(HandleTable, ObjectHandle, GDI_OBJECT_TYPE_DONTCARE) &&
+           W32Process->GDIObjects == 0)
+        {
+          /* there are no more gdi handles for this process, bail */
+          break;
+        }
+      }
+    }
+  }
+
+  if (CurrentProcess != Process)
+    {
+      KeDetachProcess();
     }
 
-    W32Process = (PPROCESSINFO)CurrentProcess->Win32Process;
+  DPRINT("Completed cleanup for process %d\n", Process->UniqueProcessId);
 
-    /* Delete objects. Begin with types that are not referenced by other types */
-    IntDeleteHandlesForProcess(Process, GDILoObjType_LO_DC_TYPE);
-    IntDeleteHandlesForProcess(Process, GDILoObjType_LO_BRUSH_TYPE);
-    IntDeleteHandlesForProcess(Process, GDILoObjType_LO_BITMAP_TYPE);
-
-    /* Finally finish with what's left */
-    IntDeleteHandlesForProcess(Process, GDI_OBJECT_TYPE_DONTCARE);
-
-    if (CurrentProcess != Process)
-    {
-        KeDetachProcess();
-    }
-
-#ifdef GDI_DEBUG
-	GdiDbgHTIntegrityCheck();
-#endif
-
-    DPRINT("Completed cleanup for process %d\n", Process->UniqueProcessId);
-    if (W32Process->GDIHandleCount > 0)
-    {
-        DPRINT1("Leaking %d handles!\n", W32Process->GDIHandleCount);
-    }
-
-    return TRUE;
+  return TRUE;
 }
 
 /*!
@@ -784,133 +712,144 @@ GDI_CleanupForProcess(struct _EPROCESS *Process)
  *
  * \note Process can only get pointer to the objects it created or global objects.
  *
- * \todo Get rid of the ExpectedType parameter!
+ * \todo Get rid of the ObjectType parameter!
 */
 PGDIOBJ INTERNAL_CALL
-GDIOBJ_LockObj(HGDIOBJ hObj, DWORD ExpectedType)
+#ifdef GDI_DEBUG
+GDIOBJ_LockObjDbg (PGDI_HANDLE_TABLE HandleTable, const char* file, int line, HGDIOBJ hObj, DWORD ObjectType)
+#else /* !GDI_DEBUG */
+GDIOBJ_LockObj (PGDI_HANDLE_TABLE HandleTable, HGDIOBJ hObj, DWORD ObjectType)
+#endif /* GDI_DEBUG */
 {
-    ULONG HandleIndex;
-    PGDI_TABLE_ENTRY Entry;
-    HANDLE ProcessId, HandleProcessId, LockedProcessId, PrevProcId;
-    POBJ Object = NULL;
-    ULONG HandleType, HandleUpper;
+   USHORT HandleIndex;
+   PGDI_TABLE_ENTRY HandleEntry;
+   HANDLE ProcessId, HandleProcessId, LockedProcessId, PrevProcId;
+   PGDIOBJ Object = NULL;
 
-    HandleIndex = GDI_HANDLE_GET_INDEX(hObj);
-    HandleType = GDI_HANDLE_GET_TYPE(hObj);
-    HandleUpper = GDI_HANDLE_GET_UPPER(hObj);
+   HandleIndex = GDI_HANDLE_GET_INDEX(hObj);
 
-    /* Check that the handle index is valid. */
-    if (HandleIndex >= GDI_HANDLE_COUNT)
-        return NULL;
+   /* Check that the handle index is valid. */
+   if (HandleIndex >= GDI_HANDLE_COUNT)
+      return NULL;
 
-    Entry = &GdiHandleTable->Entries[HandleIndex];
+   HandleEntry = &HandleTable->Entries[HandleIndex];
 
-    /* Check if we have the requested type */
-    if ( (ExpectedType != GDI_OBJECT_TYPE_DONTCARE &&
-          HandleType != ExpectedType) ||
-         HandleType == 0 )
-    {
-        DPRINT1("Attempted to lock object 0x%x of wrong type (Handle: 0x%x, requested: 0x%x)\n",
-                hObj, HandleType, ExpectedType);
-        GDIDBG_TRACECALLER();
-        GDIDBG_TRACEALLOCATOR(hObj);
-        GDIDBG_TRACEDELETER(hObj);
-        return NULL;
-    }
+   ProcessId = (HANDLE)((ULONG_PTR)PsGetCurrentProcessId() & ~1);
+   HandleProcessId = (HANDLE)((ULONG_PTR)HandleEntry->ProcessId & ~1);
+    
+   /* Check for invalid owner. */
+   if (ProcessId != HandleProcessId && HandleProcessId != NULL)
+   {
+      return NULL;
+   }
+   
+   /*
+    * Prevent the thread from being terminated during the locking process.
+    * It would result in undesired effects and inconsistency of the global
+    * handle table.
+    */
 
-    ProcessId = (HANDLE)((ULONG_PTR)PsGetCurrentProcessId() & ~1);
-    HandleProcessId = (HANDLE)((ULONG_PTR)Entry->ProcessId & ~1);
+   KeEnterCriticalRegion();
 
-    /* Check for invalid owner. */
-    if (ProcessId != HandleProcessId && HandleProcessId != NULL)
-    {
-        DPRINT1("Tried to lock object (0x%p) of wrong owner! ProcessId = %p, HandleProcessId = %p\n", hObj, ProcessId, HandleProcessId);
-        GDIDBG_TRACECALLER();
-        GDIDBG_TRACEALLOCATOR(GDI_HANDLE_GET_INDEX(hObj));
-        return NULL;
-    }
+   /*
+    * Loop until we either successfully lock the handle entry & object or
+    * fail some of the check.
+    */
+   
+   for (;;)
+   {
+      /* Lock the handle table entry. */
+      LockedProcessId = (HANDLE)((ULONG_PTR)HandleProcessId | 0x1);
+      PrevProcId = InterlockedCompareExchangePointer(&HandleEntry->ProcessId, 
+                                                     LockedProcessId,
+                                                     HandleProcessId);
 
-    /*
-     * Prevent the thread from being terminated during the locking process.
-     * It would result in undesired effects and inconsistency of the global
-     * handle table.
-     */
+      if (PrevProcId == HandleProcessId)
+      {
+         LONG HandleType = HandleEntry->Type << 16;
 
-    KeEnterCriticalRegion();
+         /*
+          * We're locking an object that belongs to our process or it's a
+          * global object if HandleProcessId is 0 here.
+          */
 
-    /*
-     * Loop until we either successfully lock the handle entry & object or
-     * fail some of the check.
-     */
+         /* FIXME: Check the upper 16-bits of handle number! */
+         if (HandleType != 0 && HandleEntry->KernelData != NULL &&
+             (ObjectType == GDI_OBJECT_TYPE_DONTCARE ||
+              HandleType == ObjectType))
+         {
+            PGDIOBJHDR GdiHdr = GDIBdyToHdr(HandleEntry->KernelData);
+            PETHREAD Thread = PsGetCurrentThread();
 
-    for (;;)
-    {
-        /* Lock the handle table entry. */
-        LockedProcessId = (HANDLE)((ULONG_PTR)HandleProcessId | 0x1);
-        PrevProcId = InterlockedCompareExchangePointer((PVOID*)&Entry->ProcessId,
-                                                        LockedProcessId,
-                                                        HandleProcessId);
-
-        if (PrevProcId == HandleProcessId)
-        {
-            /*
-             * We're locking an object that belongs to our process or it's a
-             * global object if HandleProcessId is 0 here.
-             */
-
-            if ( (Entry->KernelData != NULL) &&
-                 ((Entry->Type << GDI_ENTRY_UPPER_SHIFT) == HandleUpper) )
+            if (GdiHdr->Locks == 0)
             {
-                PTHREADINFO Thread = (PTHREADINFO)PsGetCurrentThreadWin32Thread();
-                Object = Entry->KernelData;
-
-                if (Object->cExclusiveLock == 0)
-                {
-                    Object->Tid = Thread;
-                    Object->cExclusiveLock = 1;
-                    GDIDBG_CAPTURELOCKER(GDI_HANDLE_GET_INDEX(hObj))
-                }
-                else
-                {
-                    if (Object->Tid != Thread)
-                    {
-                        /* Unlock the handle table entry. */
-                        (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-
-                        DelayExecution();
-                        continue;
-                    }
-                    InterlockedIncrement((PLONG)&Object->cExclusiveLock);
-                }
+               GdiHdr->LockingThread = Thread;
+               GdiHdr->Locks = 1;
+#ifdef GDI_DEBUG
+               GdiHdr->lockfile = file;
+               GdiHdr->lockline = line;
+#endif
+               Object = HandleEntry->KernelData;
             }
             else
             {
-                /*
-                 * Debugging code. Report attempts to lock deleted handles and
-                 * locking type mismatches.
-                 */
-                LockErrorDebugOutput(hObj, Entry, "GDIOBJ_LockObj");
+               InterlockedIncrement((PLONG)&GdiHdr->Locks);
+               if (GdiHdr->LockingThread != Thread)
+               {
+                  InterlockedDecrement((PLONG)&GdiHdr->Locks);
+
+                  /* Unlock the handle table entry. */
+                  (void)InterlockedExchangePointer(&HandleEntry->ProcessId, PrevProcId);
+
+                  DelayExecution();
+                  continue;
+               }
+               Object = HandleEntry->KernelData;
             }
-
-            /* Unlock the handle table entry. */
-            (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-
-            break;
-        }
-        else
-        {
+         }
+         else
+         {
             /*
-             * The handle is currently locked, wait some time and try again.
+             * Debugging code. Report attempts to lock deleted handles and
+             * locking type mismatches.
              */
 
-            DelayExecution();
-            continue;
-        }
-    }
+            if ((HandleType & ~GDI_HANDLE_REUSE_MASK) == 0)
+            {
+               DPRINT1("Attempted to lock object 0x%x that is deleted!\n", hObj);
+               KeRosDumpStackFrames(NULL, 20);
+            }
+            else
+            {
+               DPRINT1("Attempted to lock object 0x%x, type mismatch (0x%x : 0x%x)\n",
+                  hObj, HandleType & ~GDI_HANDLE_REUSE_MASK, ObjectType & ~GDI_HANDLE_REUSE_MASK);
 
-    KeLeaveCriticalRegion();
+               KeRosDumpStackFrames(NULL, 20);
+            }
+#ifdef GDI_DEBUG
+            DPRINT1("-> called from %s:%i\n", file, line);
+#endif
+         }
 
-    return Object;
+         /* Unlock the handle table entry. */
+         (void)InterlockedExchangePointer(&HandleEntry->ProcessId, PrevProcId);
+
+         break;
+      }
+      else
+      {
+         /*
+          * The handle is currently locked, wait some time and try again.
+          */
+
+         DelayExecution();
+         continue;
+      }
+   }
+
+   KeLeaveCriticalRegion();
+
+   return Object;
 }
 
 
@@ -923,511 +862,562 @@ GDIOBJ_LockObj(HGDIOBJ hObj, DWORD ExpectedType)
  *
  * \note Process can only get pointer to the objects it created or global objects.
  *
- * \todo Get rid of the ExpectedType parameter!
+ * \todo Get rid of the ObjectType parameter!
 */
 PGDIOBJ INTERNAL_CALL
-GDIOBJ_ShareLockObj(HGDIOBJ hObj, DWORD ExpectedType)
+#ifdef GDI_DEBUG
+GDIOBJ_ShareLockObjDbg (PGDI_HANDLE_TABLE HandleTable, const char* file, int line, HGDIOBJ hObj, DWORD ObjectType)
+#else /* !GDI_DEBUG */
+GDIOBJ_ShareLockObj (PGDI_HANDLE_TABLE HandleTable, HGDIOBJ hObj, DWORD ObjectType)
+#endif /* GDI_DEBUG */
 {
-    ULONG HandleIndex;
-    PGDI_TABLE_ENTRY Entry;
-    HANDLE ProcessId, HandleProcessId, LockedProcessId, PrevProcId;
-    POBJ Object = NULL;
-    ULONG_PTR HandleType, HandleUpper;
+   USHORT HandleIndex;
+   PGDI_TABLE_ENTRY HandleEntry;
+   HANDLE ProcessId, HandleProcessId, LockedProcessId, PrevProcId;
+   PGDIOBJ Object = NULL;
 
-    HandleIndex = GDI_HANDLE_GET_INDEX(hObj);
-    HandleType = GDI_HANDLE_GET_TYPE(hObj);
-    HandleUpper = GDI_HANDLE_GET_UPPER(hObj);
+   HandleIndex = GDI_HANDLE_GET_INDEX(hObj);
 
-    /* Check that the handle index is valid. */
-    if (HandleIndex >= GDI_HANDLE_COUNT)
-        return NULL;
+   /* Check that the handle index is valid. */
+   if (HandleIndex >= GDI_HANDLE_COUNT)
+      return NULL;
 
-    /* Check if we have the requested type */
-    if ( (ExpectedType != GDI_OBJECT_TYPE_DONTCARE &&
-          HandleType != ExpectedType) ||
-         HandleType == 0 )
-    {
-        DPRINT1("Attempted to lock object 0x%x of wrong type (Handle: 0x%x, requested: 0x%x)\n",
-                hObj, HandleType, ExpectedType);
-        return NULL;
-    }
+   HandleEntry = &HandleTable->Entries[HandleIndex];
 
-    Entry = &GdiHandleTable->Entries[HandleIndex];
+   ProcessId = (HANDLE)((ULONG_PTR)PsGetCurrentProcessId() & ~1);
+   HandleProcessId = (HANDLE)((ULONG_PTR)HandleEntry->ProcessId & ~1);
+    
+   /* Check for invalid owner. */
+   if (ProcessId != HandleProcessId && HandleProcessId != NULL)
+   {
+      return NULL;
+   }
+   
+   /*
+    * Prevent the thread from being terminated during the locking process.
+    * It would result in undesired effects and inconsistency of the global
+    * handle table.
+    */
 
-    ProcessId = (HANDLE)((ULONG_PTR)PsGetCurrentProcessId() & ~1);
-    HandleProcessId = (HANDLE)((ULONG_PTR)Entry->ProcessId & ~1);
+   KeEnterCriticalRegion();
 
-    /* Check for invalid owner. */
-    if (ProcessId != HandleProcessId && HandleProcessId != NULL)
-    {
-        return NULL;
-    }
+   /*
+    * Loop until we either successfully lock the handle entry & object or
+    * fail some of the check.
+    */
+   
+   for (;;)
+   {
+      /* Lock the handle table entry. */
+      LockedProcessId = (HANDLE)((ULONG_PTR)HandleProcessId | 0x1);
+      PrevProcId = InterlockedCompareExchangePointer(&HandleEntry->ProcessId, 
+                                                     LockedProcessId,
+                                                     HandleProcessId);
 
-    /*
-     * Prevent the thread from being terminated during the locking process.
-     * It would result in undesired effects and inconsistency of the global
-     * handle table.
-     */
+      if (PrevProcId == HandleProcessId)
+      {
+         LONG HandleType = HandleEntry->Type << 16;
 
-    KeEnterCriticalRegion();
+         /*
+          * We're locking an object that belongs to our process or it's a
+          * global object if HandleProcessId is 0 here.
+          */
 
-    /*
-     * Loop until we either successfully lock the handle entry & object or
-     * fail some of the check.
-     */
+         /* FIXME: Check the upper 16-bits of handle number! */
+         if (HandleType != 0 && HandleEntry->KernelData != NULL &&
+             (ObjectType == GDI_OBJECT_TYPE_DONTCARE ||
+              HandleType == ObjectType))
+         {
+            PGDIOBJHDR GdiHdr = GDIBdyToHdr(HandleEntry->KernelData);
 
-    for (;;)
-    {
-        /* Lock the handle table entry. */
-        LockedProcessId = (HANDLE)((ULONG_PTR)HandleProcessId | 0x1);
-        PrevProcId = InterlockedCompareExchangePointer((PVOID*)&Entry->ProcessId,
-                                                        LockedProcessId,
-                                                        HandleProcessId);
-
-        if (PrevProcId == HandleProcessId)
-        {
-            /*
-             * We're locking an object that belongs to our process or it's a
-             * global object if HandleProcessId is 0 here.
-             */
-
-            if ( (Entry->KernelData != NULL) &&
-                 (HandleUpper == (Entry->Type << GDI_ENTRY_UPPER_SHIFT)) )
+#ifdef GDI_DEBUG
+            if (InterlockedIncrement((PLONG)&GdiHdr->Locks) == 1)
             {
-                Object = (POBJ)Entry->KernelData;
-
-GDIDBG_CAPTURESHARELOCKER(HandleIndex);
-#ifdef GDI_DEBUG3
-                if (InterlockedIncrement((PLONG)&Object->ulShareCount) == 1)
-                {
-                    memset(GDIHandleLocker[HandleIndex], 0x00, GDI_STACK_LEVELS * sizeof(ULONG));
-                    RtlCaptureStackBackTrace(1, GDI_STACK_LEVELS, (PVOID*)GDIHandleShareLocker[HandleIndex], NULL);
-                }
+               GdiHdr->lockfile = file;
+               GdiHdr->lockline = line;
+            }
 #else
-                InterlockedIncrement((PLONG)&Object->ulShareCount);
+            InterlockedIncrement((PLONG)&GdiHdr->Locks);
 #endif
-            }
-            else
-            {
-                /*
-                 * Debugging code. Report attempts to lock deleted handles and
-                 * locking type mismatches.
-                 */
-                LockErrorDebugOutput(hObj, Entry, "GDIOBJ_ShareLockObj");
-            }
-
-            /* Unlock the handle table entry. */
-            (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-
-            break;
-        }
-        else
-        {
+            Object = HandleEntry->KernelData;
+         }
+         else
+         {
             /*
-             * The handle is currently locked, wait some time and try again.
+             * Debugging code. Report attempts to lock deleted handles and
+             * locking type mismatches.
              */
 
-            DelayExecution();
-            continue;
-        }
-    }
-
-    KeLeaveCriticalRegion();
-
-    return Object;
-}
-
-BOOL INTERNAL_CALL
-GDIOBJ_OwnedByCurrentProcess(HGDIOBJ ObjectHandle)
-{
-    PGDI_TABLE_ENTRY Entry;
-    HANDLE ProcessId;
-    BOOL Ret;
-
-    DPRINT("GDIOBJ_OwnedByCurrentProcess: ObjectHandle: 0x%08x\n", ObjectHandle);
-
-    if (!GDI_HANDLE_IS_STOCKOBJ(ObjectHandle))
-    {
-        ProcessId = PsGetCurrentProcessId();
-
-        Entry = GDI_HANDLE_GET_ENTRY(GdiHandleTable, ObjectHandle);
-        Ret = Entry->KernelData != NULL &&
-              (Entry->Type & GDI_ENTRY_BASETYPE_MASK) != 0 &&
-              (HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1) == ProcessId;
-
-        return Ret;
-    }
-
-    return FALSE;
-}
-
-BOOL INTERNAL_CALL
-GDIOBJ_ConvertToStockObj(HGDIOBJ *phObj)
-{
-    /*
-     * FIXME !!!!! THIS FUNCTION NEEDS TO BE FIXED - IT IS NOT SAFE WHEN OTHER THREADS
-     *             MIGHT ATTEMPT TO LOCK THE OBJECT DURING THIS CALL!!!
-     */
-    PGDI_TABLE_ENTRY Entry;
-    HANDLE ProcessId, LockedProcessId, PrevProcId;
-    PTHREADINFO Thread;
-    HGDIOBJ hObj;
-
-    GDIDBG_INITLOOPTRACE();
-
-    ASSERT(phObj);
-    hObj = *phObj;
-
-    DPRINT("GDIOBJ_ConvertToStockObj: hObj: 0x%08x\n", hObj);
-
-    Thread = (PTHREADINFO)PsGetCurrentThreadWin32Thread();
-
-    if (!GDI_HANDLE_IS_STOCKOBJ(hObj))
-    {
-        ProcessId = PsGetCurrentProcessId();
-        LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
-
-        Entry = GDI_HANDLE_GET_ENTRY(GdiHandleTable, hObj);
-
-LockHandle:
-        /* lock the object, we must not convert stock objects, so don't check!!! */
-        PrevProcId = InterlockedCompareExchangePointer((PVOID*)&Entry->ProcessId, LockedProcessId, ProcessId);
-        if (PrevProcId == ProcessId)
-        {
-            LONG NewType, PrevType, OldType;
-
-            /* we're locking an object that belongs to our process. First calculate
-               the new object type including the stock object flag and then try to
-               exchange it.*/
-            /* On Windows the higher 16 bit of the type field don't contain the
-               full type from the handle, but the base type.
-               (type = BRSUH, PEN, EXTPEN, basetype = BRUSH) */
-            OldType = ((ULONG)hObj & GDI_HANDLE_BASETYPE_MASK) | ((ULONG)hObj >> GDI_ENTRY_UPPER_SHIFT);
-            /* We are currently not using bits 24..31 (flags) of the type field, but for compatibility
-               we copy them as we can't get them from the handle */
-            OldType |= Entry->Type & GDI_ENTRY_FLAGS_MASK;
-
-            /* As the object should be a stock object, set it's flag, but only in the lower 16 bits */
-            NewType = OldType | GDI_ENTRY_STOCK_MASK;
-
-            /* Try to exchange the type field - but only if the old (previous type) matches! */
-            PrevType = InterlockedCompareExchange(&Entry->Type, NewType, OldType);
-            if (PrevType == OldType && Entry->KernelData != NULL)
+            if ((HandleType & ~GDI_HANDLE_REUSE_MASK) == 0)
             {
-                PTHREADINFO PrevThread;
-                POBJ Object;
-
-                /* We successfully set the stock object flag.
-                   KernelData should never be NULL here!!! */
-                ASSERT(Entry->KernelData);
-
-                Object = Entry->KernelData;
-
-                PrevThread = Object->Tid;
-                if (Object->cExclusiveLock == 0 || PrevThread == Thread)
-                {
-                    /* dereference the process' object counter */
-                    if (PrevProcId != GDI_GLOBAL_PROCESS)
-                    {
-                        PEPROCESS OldProcess;
-                        PPROCESSINFO W32Process;
-                        NTSTATUS Status;
-
-                        /* FIXME */
-                        Status = PsLookupProcessByProcessId((HANDLE)((ULONG_PTR)PrevProcId & ~0x1), &OldProcess);
-                        if (NT_SUCCESS(Status))
-                        {
-                            W32Process = (PPROCESSINFO)OldProcess->Win32Process;
-                            if (W32Process != NULL)
-                            {
-                                InterlockedDecrement(&W32Process->GDIHandleCount);
-                            }
-                            ObDereferenceObject(OldProcess);
-                        }
-                    }
-
-                    hObj = (HGDIOBJ)((ULONG)(hObj) | GDI_HANDLE_STOCK_MASK);
-                    *phObj = hObj;
-                    Object->hHmgr = hObj;
-
-                    /* remove the process id lock and make it global */
-                    (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, GDI_GLOBAL_PROCESS);
-
-                    /* we're done, successfully converted the object */
-                    return TRUE;
-                }
-                else
-                {
-                    GDIDBG_TRACELOOP(hObj, PrevThread, Thread);
-
-                    /* WTF?! The object is already locked by a different thread!
-                       Release the lock, wait a bit and try again!
-                       FIXME - we should give up after some time unless we want to wait forever! */
-                    (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-
-                    DelayExecution();
-                    goto LockHandle;
-                }
+               DPRINT1("Attempted to lock object 0x%x that is deleted!\n", hObj);
+               KeRosDumpStackFrames(NULL, 20);
             }
             else
             {
-                DPRINT1("Attempted to convert object 0x%x that is deleted! Should never get here!!!\n", hObj);
-                DPRINT1("OldType = 0x%x, Entry->Type = 0x%x, NewType = 0x%x, Entry->KernelData = 0x%x\n", OldType, Entry->Type, NewType, Entry->KernelData);
+               DPRINT1("Attempted to lock object 0x%x, type mismatch (0x%x : 0x%x)\n",
+                  hObj, HandleType & ~GDI_HANDLE_REUSE_MASK, ObjectType & ~GDI_HANDLE_REUSE_MASK);
+
+               KeRosDumpStackFrames(NULL, 20);
             }
-        }
-        else if (PrevProcId == LockedProcessId)
-        {
-            GDIDBG_TRACELOOP(hObj, PrevProcId, ProcessId);
+#ifdef GDI_DEBUG
+            DPRINT1("-> called from %s:%i\n", file, line);
+#endif
+         }
 
-            /* the object is currently locked, wait some time and try again.
-               FIXME - we shouldn't loop forever! Give up after some time! */
-            DelayExecution();
-            /* try again */
-            goto LockHandle;
-        }
-        else
-        {
-            DPRINT1("Attempted to convert invalid handle: 0x%x\n", hObj);
-        }
-    }
+         /* Unlock the handle table entry. */
+         (void)InterlockedExchangePointer(&HandleEntry->ProcessId, PrevProcId);
 
-    return FALSE;
+         break;
+      }
+      else
+      {
+         /*
+          * The handle is currently locked, wait some time and try again.
+          */
+
+         DelayExecution();
+         continue;
+      }
+   }
+
+   KeLeaveCriticalRegion();
+
+   return Object;
+}
+
+
+/*!
+ * Release GDI object. Every object locked by GDIOBJ_LockObj() must be unlocked. You should unlock the object
+ * as soon as you don't need to have access to it's data.
+
+ * \param Object 	Object pointer (as returned by GDIOBJ_LockObj).
+ */
+VOID INTERNAL_CALL
+GDIOBJ_UnlockObjByPtr(PGDI_HANDLE_TABLE HandleTable, PGDIOBJ Object)
+{
+   PGDIOBJHDR GdiHdr = GDIBdyToHdr(Object);
+#ifdef GDI_DEBUG
+   if (InterlockedDecrement((PLONG)&GdiHdr->Locks) == 0)
+   {
+      GdiHdr->lockfile = NULL;
+      GdiHdr->lockline = 0;
+   }
+#else
+   InterlockedDecrement((PLONG)&GdiHdr->Locks);
+#endif
 }
 
 BOOL INTERNAL_CALL
-GDIOBJ_SetOwnership(HGDIOBJ ObjectHandle, PEPROCESS NewOwner)
+GDIOBJ_OwnedByCurrentProcess(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ ObjectHandle)
 {
-    PGDI_TABLE_ENTRY Entry;
-    HANDLE ProcessId, LockedProcessId, PrevProcId;
-    PTHREADINFO Thread;
-    BOOL Ret = TRUE;
+  PGDI_TABLE_ENTRY Entry;
+  HANDLE ProcessId;
+  BOOL Ret;
 
-    GDIDBG_INITLOOPTRACE();
+  DPRINT("GDIOBJ_OwnedByCurrentProcess: ObjectHandle: 0x%08x\n", ObjectHandle);
 
-    DPRINT("GDIOBJ_SetOwnership: hObj: 0x%x, NewProcess: 0x%x\n", ObjectHandle, (NewOwner ? PsGetProcessId(NewOwner) : 0));
+  if(!GDI_HANDLE_IS_STOCKOBJ(ObjectHandle))
+  {
+    ProcessId = PsGetCurrentProcessId();
 
-    Thread = (PTHREADINFO)PsGetCurrentThreadWin32Thread();
+    Entry = GDI_HANDLE_GET_ENTRY(HandleTable, ObjectHandle);
+    Ret = Entry->KernelData != NULL &&
+          (Entry->Type & ~GDI_HANDLE_REUSE_MASK) != 0 &&
+          (HANDLE)((ULONG_PTR)Entry->ProcessId & ~0x1) == ProcessId;
 
-    if (!GDI_HANDLE_IS_STOCKOBJ(ObjectHandle))
-    {
-        ProcessId = PsGetCurrentProcessId();
-        LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
-
-        Entry = GDI_HANDLE_GET_ENTRY(GdiHandleTable, ObjectHandle);
-
-LockHandle:
-        /* lock the object, we must not convert stock objects, so don't check!!! */
-        PrevProcId = InterlockedCompareExchangePointer((PVOID*)&Entry->ProcessId, ProcessId, LockedProcessId);
-        if (PrevProcId == ProcessId)
-        {
-            PTHREADINFO PrevThread;
-
-            if ((Entry->Type & GDI_ENTRY_BASETYPE_MASK) != 0)
-            {
-                POBJ Object = Entry->KernelData;
-
-                PrevThread = Object->Tid;
-                if (Object->cExclusiveLock == 0 || PrevThread == Thread)
-                {
-                    PEPROCESS OldProcess;
-                    PPROCESSINFO W32Process;
-                    NTSTATUS Status;
-
-                    /* dereference the process' object counter */
-                    /* FIXME */
-                    if ((ULONG_PTR)PrevProcId & ~0x1)
-                    {
-                        Status = PsLookupProcessByProcessId((HANDLE)((ULONG_PTR)PrevProcId & ~0x1), &OldProcess);
-                        if (NT_SUCCESS(Status))
-                        {
-                            W32Process = (PPROCESSINFO)OldProcess->Win32Process;
-                            if (W32Process != NULL)
-                            {
-                                InterlockedDecrement(&W32Process->GDIHandleCount);
-                            }
-                            ObDereferenceObject(OldProcess);
-                        }
-                    }
-
-                    if (NewOwner != NULL)
-                    {
-                        ProcessId = PsGetProcessId(NewOwner);
-
-                        /* Increase the new process' object counter */
-                        W32Process = (PPROCESSINFO)NewOwner->Win32Process;
-                        if (W32Process != NULL)
-                        {
-                            InterlockedIncrement(&W32Process->GDIHandleCount);
-                        }
-                    }
-                    else
-                        ProcessId = 0;
-
-                    /* remove the process id lock and change it to the new process id */
-                    (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, ProcessId);
-
-                    /* we're done! */
-                    return Ret;
-                }
-                else
-                {
-                    GDIDBG_TRACELOOP(ObjectHandle, PrevThread, Thread);
-
-                    /* WTF?! The object is already locked by a different thread!
-                       Release the lock, wait a bit and try again! DO reset the pid lock
-                       so we make sure we don't access invalid memory in case the object is
-                       being deleted in the meantime (because we don't have aquired a reference
-                       at this point).
-                       FIXME - we should give up after some time unless we want to wait forever! */
-                    (void)InterlockedExchangePointer((PVOID*)&Entry->ProcessId, PrevProcId);
-
-                    DelayExecution();
-                    goto LockHandle;
-                }
-            }
-            else
-            {
-                DPRINT1("Attempted to change ownership of an object 0x%x currently being destroyed!!!\n", ObjectHandle);
-                DPRINT1("Entry->Type = 0x%lx, Entry->KernelData = 0x%p\n", Entry->Type, Entry->KernelData);
-                Ret = FALSE;
-            }
-        }
-        else if (PrevProcId == LockedProcessId)
-        {
-            GDIDBG_TRACELOOP(ObjectHandle, PrevProcId, ProcessId);
-
-            /* the object is currently locked, wait some time and try again.
-               FIXME - we shouldn't loop forever! Give up after some time! */
-            DelayExecution();
-            /* try again */
-            goto LockHandle;
-        }
-        else if (((ULONG_PTR)PrevProcId & ~0x1) == 0)
-        {
-            /* allow changing ownership of global objects */
-            ProcessId = NULL;
-            LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
-            goto LockHandle;
-        }
-        else if ((HANDLE)((ULONG_PTR)PrevProcId & ~0x1) != PsGetCurrentProcessId())
-        {
-            DPRINT1("Attempted to change ownership of object 0x%x (pid: 0x%x) from pid 0x%x!!!\n", ObjectHandle, (ULONG_PTR)PrevProcId & ~0x1, PsGetCurrentProcessId());
-            Ret = FALSE;
-        }
-        else
-        {
-            DPRINT1("Attempted to change owner of invalid handle: 0x%x\n", ObjectHandle);
-            Ret = FALSE;
-        }
-    }
     return Ret;
+  }
+
+  return FALSE;
 }
 
 BOOL INTERNAL_CALL
-GDIOBJ_CopyOwnership(HGDIOBJ CopyFrom, HGDIOBJ CopyTo)
+GDIOBJ_ConvertToStockObj(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ *hObj)
 {
-    PGDI_TABLE_ENTRY FromEntry;
-    PTHREADINFO Thread;
-    HANDLE FromProcessId, FromLockedProcessId, FromPrevProcId;
-    BOOL Ret = TRUE;
+/*
+ * FIXME !!!!! THIS FUNCTION NEEDS TO BE FIXED - IT IS NOT SAFE WHEN OTHER THREADS
+ *             MIGHT ATTEMPT TO LOCK THE OBJECT DURING THIS CALL!!!
+ */
+  PGDI_TABLE_ENTRY Entry;
+  HANDLE ProcessId, LockedProcessId, PrevProcId;
+  PETHREAD Thread;
+#ifdef GDI_DEBUG
+  ULONG Attempts = 0;
+#endif
 
-    GDIDBG_INITLOOPTRACE();
+  ASSERT(hObj);
 
-    DPRINT("GDIOBJ_CopyOwnership: from: 0x%x, to: 0x%x\n", CopyFrom, CopyTo);
+  DPRINT("GDIOBJ_ConvertToStockObj: hObj: 0x%08x\n", *hObj);
 
-    Thread = (PTHREADINFO)PsGetCurrentThreadWin32Thread();
+  Thread = PsGetCurrentThread();
 
-    if (!GDI_HANDLE_IS_STOCKOBJ(CopyFrom) && !GDI_HANDLE_IS_STOCKOBJ(CopyTo))
+  if(!GDI_HANDLE_IS_STOCKOBJ(*hObj))
+  {
+    ProcessId = PsGetCurrentProcessId();
+    LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
+
+    Entry = GDI_HANDLE_GET_ENTRY(HandleTable, *hObj);
+
+LockHandle:
+    /* lock the object, we must not convert stock objects, so don't check!!! */
+    PrevProcId = InterlockedCompareExchangePointer(&Entry->ProcessId, LockedProcessId, ProcessId);
+    if(PrevProcId == ProcessId)
     {
-        FromEntry = GDI_HANDLE_GET_ENTRY(GdiHandleTable, CopyFrom);
+      LONG NewType, PrevType, OldType;
 
-        FromProcessId = (HANDLE)((ULONG_PTR)FromEntry->ProcessId & ~0x1);
-        FromLockedProcessId = (HANDLE)((ULONG_PTR)FromProcessId | 0x1);
+      /* we're locking an object that belongs to our process. First calculate
+         the new object type including the stock object flag and then try to
+         exchange it.*/
+      NewType = GDI_HANDLE_GET_TYPE(*hObj);
+      NewType |= NewType >> 16;
+      NewType |= (ULONG_PTR)(*hObj) & GDI_HANDLE_REUSE_MASK;
+
+      /* This is the type that the object should have right now, save it */
+      OldType = NewType;
+      /* As the object should be a stock object, set it's flag, but only in the upper 16 bits */
+      NewType |= GDI_HANDLE_STOCK_MASK;
+
+      /* Try to exchange the type field - but only if the old (previous type) matches! */
+      PrevType = InterlockedCompareExchange(&Entry->Type, NewType, OldType);
+      if(PrevType == OldType && Entry->KernelData != NULL)
+      {
+        PETHREAD PrevThread;
+        PGDIOBJHDR GdiHdr;
+
+        /* We successfully set the stock object flag.
+           KernelData should never be NULL here!!! */
+        ASSERT(Entry->KernelData);
+
+        GdiHdr = GDIBdyToHdr(Entry->KernelData);
+
+        PrevThread = GdiHdr->LockingThread;
+        if(GdiHdr->Locks == 0 || PrevThread == Thread)
+        {
+          /* dereference the process' object counter */
+          if(PrevProcId != GDI_GLOBAL_PROCESS)
+          {
+            PEPROCESS OldProcess;
+            PW32PROCESS W32Process;
+            NTSTATUS Status;
+
+            /* FIXME */
+            Status = PsLookupProcessByProcessId((HANDLE)((ULONG_PTR)PrevProcId & ~0x1), &OldProcess);
+            if(NT_SUCCESS(Status))
+            {
+              W32Process = (PW32PROCESS)OldProcess->Win32Process;
+              if(W32Process != NULL)
+              {
+                InterlockedDecrement(&W32Process->GDIObjects);
+              }
+              ObDereferenceObject(OldProcess);
+            }
+          }
+
+          /* remove the process id lock and make it global */
+          (void)InterlockedExchangePointer(&Entry->ProcessId, GDI_GLOBAL_PROCESS);
+
+          *hObj = (HGDIOBJ)((ULONG)(*hObj) | GDI_HANDLE_STOCK_MASK);
+
+          /* we're done, successfully converted the object */
+          return TRUE;
+        }
+        else
+        {
+#ifdef GDI_DEBUG
+          if(++Attempts > 20)
+          {
+            if(GdiHdr->lockfile != NULL)
+            {
+              DPRINT1("[%d]Locked %s:%i by 0x%x (we're 0x%x)\n", Attempts, GdiHdr->lockfile, GdiHdr->lockline, PrevThread, Thread);
+            }
+          }
+#endif
+          /* WTF?! The object is already locked by a different thread!
+             Release the lock, wait a bit and try again!
+             FIXME - we should give up after some time unless we want to wait forever! */
+          (void)InterlockedExchangePointer(&Entry->ProcessId, PrevProcId);
+
+          DelayExecution();
+          goto LockHandle;
+        }
+      }
+      else
+      {
+        DPRINT1("Attempted to convert object 0x%x that is deleted! Should never get here!!!\n", hObj);
+      }
+    }
+    else if(PrevProcId == LockedProcessId)
+    {
+#ifdef GDI_DEBUG
+    if(++Attempts > 20)
+    {
+      DPRINT1("[%d]Waiting on 0x%x\n", Attempts, hObj);
+    }
+#endif
+      /* the object is currently locked, wait some time and try again.
+         FIXME - we shouldn't loop forever! Give up after some time! */
+      DelayExecution();
+      /* try again */
+      goto LockHandle;
+    }
+    else
+    {
+      DPRINT1("Attempted to convert invalid handle: 0x%x\n", hObj);
+    }
+  }
+
+  return FALSE;
+}
+
+void INTERNAL_CALL
+GDIOBJ_SetOwnership(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ ObjectHandle, PEPROCESS NewOwner)
+{
+  PGDI_TABLE_ENTRY Entry;
+  HANDLE ProcessId, LockedProcessId, PrevProcId;
+  PETHREAD Thread;
+#ifdef GDI_DEBUG
+  ULONG Attempts = 0;
+#endif
+
+  DPRINT("GDIOBJ_SetOwnership: hObj: 0x%x, NewProcess: 0x%x\n", ObjectHandle, (NewOwner ? PsGetProcessId(NewOwner) : 0));
+
+  Thread = PsGetCurrentThread();
+
+  if(!GDI_HANDLE_IS_STOCKOBJ(ObjectHandle))
+  {
+    ProcessId = PsGetCurrentProcessId();
+    LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
+
+    Entry = GDI_HANDLE_GET_ENTRY(HandleTable, ObjectHandle);
+
+LockHandle:
+    /* lock the object, we must not convert stock objects, so don't check!!! */
+    PrevProcId = InterlockedCompareExchangePointer(&Entry->ProcessId, ProcessId, LockedProcessId);
+    if(PrevProcId == ProcessId)
+    {
+      PETHREAD PrevThread;
+
+      if((Entry->Type & ~GDI_HANDLE_REUSE_MASK) != 0 && Entry->KernelData != NULL)
+      {
+        PGDIOBJHDR GdiHdr = GDIBdyToHdr(Entry->KernelData);
+
+        PrevThread = GdiHdr->LockingThread;
+        if(GdiHdr->Locks == 0 || PrevThread == Thread)
+        {
+          PEPROCESS OldProcess;
+          PW32PROCESS W32Process;
+          NTSTATUS Status;
+
+          /* dereference the process' object counter */
+          /* FIXME */
+          if((ULONG_PTR)PrevProcId & ~0x1)
+          {
+            Status = PsLookupProcessByProcessId((HANDLE)((ULONG_PTR)PrevProcId & ~0x1), &OldProcess);
+            if(NT_SUCCESS(Status))
+            {
+              W32Process = (PW32PROCESS)OldProcess->Win32Process;
+              if(W32Process != NULL)
+              {
+                InterlockedDecrement(&W32Process->GDIObjects);
+              }
+              ObDereferenceObject(OldProcess);
+            }
+          }
+
+          if(NewOwner != NULL)
+          {
+            ProcessId = PsGetProcessId(NewOwner);
+
+            /* Increase the new process' object counter */
+            W32Process = (PW32PROCESS)NewOwner->Win32Process;
+            if(W32Process != NULL)
+            {
+              InterlockedIncrement(&W32Process->GDIObjects);
+            }
+          }
+          else
+            ProcessId = 0;
+
+          /* remove the process id lock and change it to the new process id */
+          (void)InterlockedExchangePointer(&Entry->ProcessId, ProcessId);
+
+          /* we're done! */
+          return;
+        }
+        else
+        {
+#ifdef GDI_DEBUG
+          if(++Attempts > 20)
+          {
+            if(GdiHdr->lockfile != NULL)
+            {
+              DPRINT1("[%d]Locked from %s:%i by 0x%x (we're 0x%x)\n", Attempts, GdiHdr->lockfile, GdiHdr->lockline, PrevThread, Thread);
+            }
+          }
+#endif
+          /* WTF?! The object is already locked by a different thread!
+             Release the lock, wait a bit and try again! DO reset the pid lock
+             so we make sure we don't access invalid memory in case the object is
+             being deleted in the meantime (because we don't have aquired a reference
+             at this point).
+             FIXME - we should give up after some time unless we want to wait forever! */
+          (void)InterlockedExchangePointer(&Entry->ProcessId, PrevProcId);
+
+          DelayExecution();
+          goto LockHandle;
+        }
+      }
+      else
+      {
+        DPRINT1("Attempted to change ownership of an object 0x%x currently being destroyed!!!\n", ObjectHandle);
+      }
+    }
+    else if(PrevProcId == LockedProcessId)
+    {
+#ifdef GDI_DEBUG
+    if(++Attempts > 20)
+    {
+      DPRINT1("[%d]Waiting on 0x%x\n", Attempts, ObjectHandle);
+    }
+#endif
+      /* the object is currently locked, wait some time and try again.
+         FIXME - we shouldn't loop forever! Give up after some time! */
+      DelayExecution();
+      /* try again */
+      goto LockHandle;
+    }
+    else if(((ULONG_PTR)PrevProcId & ~0x1) == 0)
+    {
+      /* allow changing ownership of global objects */
+      ProcessId = NULL;
+      LockedProcessId = (HANDLE)((ULONG_PTR)ProcessId | 0x1);
+      goto LockHandle;
+    }
+    else if((HANDLE)((ULONG_PTR)PrevProcId & ~0x1) != PsGetCurrentProcessId())
+    {
+      DPRINT1("Attempted to change ownership of object 0x%x (pid: 0x%x) from pid 0x%x!!!\n", ObjectHandle, (ULONG_PTR)PrevProcId & ~0x1, PsGetCurrentProcessId());
+    }
+    else
+    {
+      DPRINT1("Attempted to change owner of invalid handle: 0x%x\n", ObjectHandle);
+    }
+  }
+}
+
+void INTERNAL_CALL
+GDIOBJ_CopyOwnership(PGDI_HANDLE_TABLE HandleTable, HGDIOBJ CopyFrom, HGDIOBJ CopyTo)
+{
+  PGDI_TABLE_ENTRY FromEntry;
+  PETHREAD Thread;
+  HANDLE FromProcessId, FromLockedProcessId, FromPrevProcId;
+#ifdef GDI_DEBUG
+  ULONG Attempts = 0;
+#endif
+
+  DPRINT("GDIOBJ_CopyOwnership: from: 0x%x, to: 0x%x\n", CopyFrom, CopyTo);
+
+  Thread = PsGetCurrentThread();
+
+  if(!GDI_HANDLE_IS_STOCKOBJ(CopyFrom) && !GDI_HANDLE_IS_STOCKOBJ(CopyTo))
+  {
+    FromEntry = GDI_HANDLE_GET_ENTRY(HandleTable, CopyFrom);
+
+    FromProcessId = (HANDLE)((ULONG_PTR)FromEntry->ProcessId & ~0x1);
+    FromLockedProcessId = (HANDLE)((ULONG_PTR)FromProcessId | 0x1);
 
 LockHandleFrom:
-        /* lock the object, we must not convert stock objects, so don't check!!! */
-        FromPrevProcId = InterlockedCompareExchangePointer((PVOID*)&FromEntry->ProcessId, FromProcessId, FromLockedProcessId);
-        if (FromPrevProcId == FromProcessId)
-        {
-            PTHREADINFO PrevThread;
-            POBJ Object;
+    /* lock the object, we must not convert stock objects, so don't check!!! */
+    FromPrevProcId = InterlockedCompareExchangePointer(&FromEntry->ProcessId, FromProcessId, FromLockedProcessId);
+    if(FromPrevProcId == FromProcessId)
+    {
+      PETHREAD PrevThread;
+      PGDIOBJHDR GdiHdr;
 
-            if ((FromEntry->Type & GDI_ENTRY_BASETYPE_MASK) != 0)
+      if((FromEntry->Type & ~GDI_HANDLE_REUSE_MASK) != 0 && FromEntry->KernelData != NULL)
+      {
+        GdiHdr = GDIBdyToHdr(FromEntry->KernelData);
+
+        /* save the pointer to the calling thread so we know it was this thread
+           that locked the object */
+        PrevThread = GdiHdr->LockingThread;
+        if(GdiHdr->Locks == 0 || PrevThread == Thread)
+        {
+          /* now let's change the ownership of the target object */
+
+          if(((ULONG_PTR)FromPrevProcId & ~0x1) != 0)
+          {
+            PEPROCESS ProcessTo;
+            /* FIXME */
+            if(NT_SUCCESS(PsLookupProcessByProcessId((HANDLE)((ULONG_PTR)FromPrevProcId & ~0x1), &ProcessTo)))
             {
-                Object = FromEntry->KernelData;
-
-                /* save the pointer to the calling thread so we know it was this thread
-                   that locked the object */
-                PrevThread = Object->Tid;
-                if (Object->cExclusiveLock == 0 || PrevThread == Thread)
-                {
-                    /* now let's change the ownership of the target object */
-
-                    if (((ULONG_PTR)FromPrevProcId & ~0x1) != 0)
-                    {
-                        PEPROCESS ProcessTo;
-                        /* FIXME */
-                        if (NT_SUCCESS(PsLookupProcessByProcessId((HANDLE)((ULONG_PTR)FromPrevProcId & ~0x1), &ProcessTo)))
-                        {
-                            GDIOBJ_SetOwnership(CopyTo, ProcessTo);
-                            ObDereferenceObject(ProcessTo);
-                        }
-                    }
-                    else
-                    {
-                        /* mark the object as global */
-                        GDIOBJ_SetOwnership(CopyTo, NULL);
-                    }
-
-                    (void)InterlockedExchangePointer((PVOID*)&FromEntry->ProcessId, FromPrevProcId);
-                }
-                else
-                {
-                    GDIDBG_TRACELOOP(CopyFrom, PrevThread, Thread);
-
-                    /* WTF?! The object is already locked by a different thread!
-                       Release the lock, wait a bit and try again! DO reset the pid lock
-                       so we make sure we don't access invalid memory in case the object is
-                       being deleted in the meantime (because we don't have aquired a reference
-                       at this point).
-                       FIXME - we should give up after some time unless we want to wait forever! */
-                    (void)InterlockedExchangePointer((PVOID*)&FromEntry->ProcessId, FromPrevProcId);
-
-                    DelayExecution();
-                    goto LockHandleFrom;
-                }
+              GDIOBJ_SetOwnership(HandleTable, CopyTo, ProcessTo);
+              ObDereferenceObject(ProcessTo);
             }
-            else
-            {
-                DPRINT1("Attempted to copy ownership from an object 0x%x currently being destroyed!!!\n", CopyFrom);
-                Ret = FALSE;
-            }
-        }
-        else if (FromPrevProcId == FromLockedProcessId)
-        {
-            GDIDBG_TRACELOOP(CopyFrom, FromPrevProcId, FromProcessId);
+          }
+          else
+          {
+            /* mark the object as global */
+            GDIOBJ_SetOwnership(HandleTable, CopyTo, NULL);
+          }
 
-            /* the object is currently locked, wait some time and try again.
-               FIXME - we shouldn't loop forever! Give up after some time! */
-            DelayExecution();
-            /* try again */
-            goto LockHandleFrom;
-        }
-        else if ((HANDLE)((ULONG_PTR)FromPrevProcId & ~0x1) != PsGetCurrentProcessId())
-        {
-            /* FIXME - should we really allow copying ownership from objects that we don't even own? */
-            DPRINT1("WARNING! Changing copying ownership of object 0x%x (pid: 0x%x) to pid 0x%x!!!\n", CopyFrom, (ULONG_PTR)FromPrevProcId & ~0x1, PsGetCurrentProcessId());
-            FromProcessId = (HANDLE)((ULONG_PTR)FromPrevProcId & ~0x1);
-            FromLockedProcessId = (HANDLE)((ULONG_PTR)FromProcessId | 0x1);
-            goto LockHandleFrom;
+          (void)InterlockedExchangePointer(&FromEntry->ProcessId, FromPrevProcId);
         }
         else
         {
-            DPRINT1("Attempted to copy ownership from invalid handle: 0x%x\n", CopyFrom);
-            Ret = FALSE;
+#ifdef GDI_DEBUG
+          if(++Attempts > 20)
+          {
+            if(GdiHdr->lockfile != NULL)
+            {
+              DPRINT1("[%d]Locked from %s:%i by 0x%x (we're 0x%x)\n", Attempts, GdiHdr->lockfile, GdiHdr->lockline, PrevThread, Thread);
+            }
+          }
+#endif
+          /* WTF?! The object is already locked by a different thread!
+             Release the lock, wait a bit and try again! DO reset the pid lock
+             so we make sure we don't access invalid memory in case the object is
+             being deleted in the meantime (because we don't have aquired a reference
+             at this point).
+             FIXME - we should give up after some time unless we want to wait forever! */
+          (void)InterlockedExchangePointer(&FromEntry->ProcessId, FromPrevProcId);
+
+          DelayExecution();
+          goto LockHandleFrom;
         }
+      }
+      else
+      {
+        DPRINT1("Attempted to copy ownership from an object 0x%x currently being destroyed!!!\n", CopyFrom);
+      }
     }
-    return Ret;
+    else if(FromPrevProcId == FromLockedProcessId)
+    {
+#ifdef GDI_DEBUG
+    if(++Attempts > 20)
+    {
+      DPRINT1("[%d]Waiting on 0x%x\n", Attempts, CopyFrom);
+    }
+#endif
+      /* the object is currently locked, wait some time and try again.
+         FIXME - we shouldn't loop forever! Give up after some time! */
+      DelayExecution();
+      /* try again */
+      goto LockHandleFrom;
+    }
+    else if((HANDLE)((ULONG_PTR)FromPrevProcId & ~0x1) != PsGetCurrentProcessId())
+    {
+      /* FIXME - should we really allow copying ownership from objects that we don't even own? */
+      DPRINT1("WARNING! Changing copying ownership of object 0x%x (pid: 0x%x) to pid 0x%x!!!\n", CopyFrom, (ULONG_PTR)FromPrevProcId & ~0x1, PsGetCurrentProcessId());
+      FromProcessId = (HANDLE)((ULONG_PTR)FromPrevProcId & ~0x1);
+      FromLockedProcessId = (HANDLE)((ULONG_PTR)FromProcessId | 0x1);
+      goto LockHandleFrom;
+    }
+    else
+    {
+      DPRINT1("Attempted to copy ownership from invalid handle: 0x%x\n", CopyFrom);
+    }
+  }
 }
 
 PVOID INTERNAL_CALL
@@ -1458,330 +1448,6 @@ GDI_MapHandleTable(PSECTION_OBJECT SectionObject, PEPROCESS Process)
         return NULL;
 
     return MappedView;
-}
-
-/** PUBLIC FUNCTIONS **********************************************************/
-
-/*
-  Since Brush/Pen and Region objects are sharable,,, we can just use
-  UserHeapAlloc to allocate the small attribute objects.
-
-   Example Allocating:
-
-    // Save Kernel Space Pointer
-    (PBRUSH)->pBrushAttr = IntGdiAllocObjAttr(GDIObjType_BRUSH_TYPE);
-
-    // Kernel Space to User Space Pointer
-    (PGDI_TABLE_ENTRY)->UserData = pBrushAttr;
-    // Gdi will adjust for heap delta.
-
-   Example Freeing:
-
-    (PGDI_TABLE_ENTRY)->UserData = NULL;      // Zero the user ptr.
-    UserHeapFree((PBRUSH)->pBrushAttr); // Free from kernel ptr.
-    (PBRUSH)->pBrushAttr = NULL;
-
-   Notes:
-    Testing with DC_ATTR works but has drawing difficulties.
-    Base on observation, (Over looking the obvious) we need to supply heap delta
-    to user space gdi. Now, with testing, looks all normal.
-
- */
-PVOID
-FASTCALL
-IntGdiAllocObjAttr(GDIOBJTYPE Type)
-{
-  PVOID pMemAttr = NULL;
-
-  switch( Type )
-  {
-     case GDIObjType_DC_TYPE:
-        pMemAttr = UserHeapAlloc(sizeof(DC_ATTR));
-        if (pMemAttr) RtlZeroMemory(pMemAttr, sizeof(DC_ATTR));
-        break;
-     case GDIObjType_RGN_TYPE:
-        pMemAttr = UserHeapAlloc(sizeof(RGN_ATTR));
-        if (pMemAttr) RtlZeroMemory(pMemAttr, sizeof(RGN_ATTR));
-        break;
-     case GDIObjType_BRUSH_TYPE:
-        pMemAttr = UserHeapAlloc(sizeof(BRUSH_ATTR));
-        if (pMemAttr) RtlZeroMemory(pMemAttr, sizeof(BRUSH_ATTR));
-        break;
-     default:
-        break;
-  }
-  return pMemAttr;
-}
-
-
-BOOL
-FASTCALL
-IntGdiSetBrushOwner(PBRUSH pbr, DWORD OwnerMask)
-{
-  HBRUSH hBR;
-  PEPROCESS Owner = NULL;
-  PGDI_TABLE_ENTRY pEntry = NULL;
-
-  if (!pbr) return FALSE;
-
-  hBR = pbr->BaseObject.hHmgr;
-
-  if (!hBR || (GDI_HANDLE_GET_TYPE(hBR) != GDI_OBJECT_TYPE_BRUSH))
-     return FALSE;
-  else
-  {
-     INT Index = GDI_HANDLE_GET_INDEX((HGDIOBJ)hBR);
-     pEntry = &GdiHandleTable->Entries[Index];
-  }
-
-  if (pbr->flAttrs & GDIBRUSH_IS_GLOBAL)
-  {
-     GDIOBJ_ShareUnlockObjByPtr((POBJ)pbr);
-     return TRUE;
-  }
-
-  if ((OwnerMask == GDI_OBJ_HMGR_PUBLIC) || OwnerMask == GDI_OBJ_HMGR_NONE)
-  {
-     // Set this Brush to inaccessible mode and to an Owner of NONE.
-//     if (OwnerMask == GDI_OBJ_HMGR_NONE) Owner = OwnerMask;
-
-     if (!GDIOBJ_SetOwnership((HGDIOBJ) hBR, Owner))
-        return FALSE;
-
-     // Deny user access to User Data.
-     pEntry->UserData = NULL; // This hBR is inaccessible!
-  }
-
-  if (OwnerMask == GDI_OBJ_HMGR_POWNED)
-  {
-     if (!GDIOBJ_SetOwnership((HGDIOBJ) hBR, PsGetCurrentProcess() ))
-        return FALSE;
-
-     // Allow user access to User Data.
-     pEntry->UserData = pbr->pBrushAttr;
-  }
-  return TRUE;
-}
-
-
-BOOL
-FASTCALL
-IntGdiSetDCOwnerEx( HDC hDC, DWORD OwnerMask, BOOL NoSetBrush)
-{
-  PDC pDC;
-  BOOL Ret = FALSE;
-
-  if (!hDC || (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)) return FALSE;
-
-  if ((OwnerMask == GDI_OBJ_HMGR_PUBLIC) || OwnerMask == GDI_OBJ_HMGR_NONE)
-  {
-     pDC = DC_LockDc ( hDC );
-     MmCopyFromCaller(&pDC->dcattr, pDC->pdcattr, sizeof(DC_ATTR));
-     DC_UnlockDc( pDC );
-
-     DC_FreeDcAttr( hDC );         // Free the dcattr!
-
-     if (!DC_SetOwnership( hDC, NULL )) // This hDC is inaccessible!
-        return Ret;
-  }
-
-  if (OwnerMask == GDI_OBJ_HMGR_POWNED)
-  {
-     pDC = DC_LockDc ( hDC );
-     ASSERT(pDC->pdcattr == &pDC->dcattr);
-     DC_UnlockDc( pDC );
-
-     if (!DC_SetOwnership( hDC, PsGetCurrentProcess() )) return Ret;
-
-     DC_AllocateDcAttr( hDC );      // Allocate new dcattr
-
-     DCU_SynchDcAttrtoUser( hDC );  // Copy data from dc to dcattr
-  }
-
-  if ((OwnerMask != GDI_OBJ_HMGR_NONE) && !NoSetBrush)
-  {
-     pDC = DC_LockDc ( hDC );
-     if (IntGdiSetBrushOwner((PBRUSH)pDC->dclevel.pbrFill, OwnerMask))
-         IntGdiSetBrushOwner((PBRUSH)pDC->dclevel.pbrLine, OwnerMask);
-     DC_UnlockDc( pDC );
-  }
-  return TRUE;
-}
-
-INT
-FASTCALL
-GreGetObjectOwner(HGDIOBJ Handle, GDIOBJTYPE ObjType)
-{
-  INT Ret = GDI_OBJ_HMGR_RESTRICTED;
-
-  if ( GDI_HANDLE_GET_INDEX(Handle) < GDI_HANDLE_COUNT )
-  {
-     PGDI_TABLE_ENTRY pEntry = &GdiHandleTable->Entries[GDI_HANDLE_GET_INDEX(Handle)];
-
-     if (pEntry->ObjectType == ObjType)
-     {
-        if (pEntry->FullUnique == (GDI_HANDLE_GET_UPPER(Handle) >> GDI_ENTRY_UPPER_SHIFT))
-           Ret = pEntry->ProcessId & ~1;
-     }
-  }
-  return Ret;
-}
-
-
-W32KAPI
-HANDLE
-APIENTRY
-NtGdiCreateClientObj(
-    IN ULONG ulType
-)
-{
-    POBJ pObject;
-    HANDLE handle;
-
-    /* Mask out everything that would change the type in a wrong manner */
-    ulType &= (GDI_HANDLE_TYPE_MASK & ~GDI_HANDLE_BASETYPE_MASK);
-
-    /* Allocate a new object */
-    pObject = GDIOBJ_AllocObjWithHandle(GDI_OBJECT_TYPE_CLIOBJ | ulType);
-    if (!pObject)
-    {
-        return NULL;
-    }
-
-    /* get the handle */
-    handle = pObject->hHmgr;
-
-    /* Unlock it */
-    GDIOBJ_UnlockObjByPtr(pObject);
-
-    return handle;
-}
-
-W32KAPI
-BOOL
-APIENTRY
-NtGdiDeleteClientObj(
-    IN HANDLE h
-)
-{
-    /* We first need to get the real type from the handle */
-    ULONG type = GDI_HANDLE_GET_TYPE(h);
-
-    /* Check if it's really a CLIENTOBJ */
-    if ((type & GDI_HANDLE_BASETYPE_MASK) != GDILoObjType_LO_CLIENTOBJ_TYPE)
-    {
-        /* FIXME: SetLastError? */
-        return FALSE;
-    }
-    return GDIOBJ_FreeObjByHandle(h, type);
-}
-
-INT
-FASTCALL
-IntGdiGetObject(IN HANDLE Handle,
-                IN INT cbCount,
-                IN LPVOID lpBuffer)
-{
-  PVOID pGdiObject;
-  INT Result = 0;
-  DWORD dwObjectType;
-
-  pGdiObject = GDIOBJ_LockObj(Handle, GDI_OBJECT_TYPE_DONTCARE);
-  if (!pGdiObject)
-    {
-      SetLastWin32Error(ERROR_INVALID_HANDLE);
-      return 0;
-    }
-
-  dwObjectType = GDIOBJ_GetObjectType(Handle);
-  switch (dwObjectType)
-    {
-      case GDI_OBJECT_TYPE_PEN:
-      case GDI_OBJECT_TYPE_EXTPEN:
-        Result = PEN_GetObject((PBRUSH) pGdiObject, cbCount, (PLOGPEN) lpBuffer); // IntGdiCreatePenIndirect
-        break;
-
-      case GDI_OBJECT_TYPE_BRUSH:
-        Result = BRUSH_GetObject((PBRUSH ) pGdiObject, cbCount, (LPLOGBRUSH)lpBuffer);
-        break;
-
-      case GDI_OBJECT_TYPE_BITMAP:
-        Result = BITMAP_GetObject((SURFACE *) pGdiObject, cbCount, lpBuffer);
-        break;
-      case GDI_OBJECT_TYPE_FONT:
-        Result = FontGetObject((PTEXTOBJ) pGdiObject, cbCount, lpBuffer);
-#if 0
-        // Fix the LOGFONT structure for the stock fonts
-        if (FIRST_STOCK_HANDLE <= Handle && Handle <= LAST_STOCK_HANDLE)
-          {
-            FixStockFontSizeW(Handle, cbCount, lpBuffer);
-          }
-#endif
-        break;
-
-      case GDI_OBJECT_TYPE_PALETTE:
-        Result = PALETTE_GetObject((PPALETTE) pGdiObject, cbCount, lpBuffer);
-        break;
-
-      default:
-        DPRINT1("GDI object type 0x%08x not implemented\n", dwObjectType);
-        break;
-    }
-
-  GDIOBJ_UnlockObjByPtr(pGdiObject);
-
-  return Result;
-}
-
-
-
-W32KAPI
-INT
-APIENTRY
-NtGdiExtGetObjectW(IN HANDLE hGdiObj,
-                   IN INT cbCount,
-                   OUT LPVOID lpBuffer)
-{
-    INT iRetCount = 0;
-    INT cbCopyCount;
-    union
-    {
-        BITMAP bitmap;
-        DIBSECTION dibsection;
-        LOGPEN logpen;
-        LOGBRUSH logbrush;
-        LOGFONTW logfontw;
-        EXTLOGFONTW extlogfontw;
-        ENUMLOGFONTEXDVW enumlogfontexdvw;
-    } Object;
-
-    // Normalize to the largest supported object size
-    cbCount = min((UINT)cbCount, sizeof(Object));
-
-    // Now do the actual call
-    iRetCount = IntGdiGetObject(hGdiObj, cbCount, lpBuffer ? &Object : NULL);
-    cbCopyCount = min((UINT)cbCount, (UINT)iRetCount);
-
-    // Make sure we have a buffer and a copy size
-    if ((cbCopyCount) && (lpBuffer))
-    {
-        // Enter SEH for buffer transfer
-        _SEH2_TRY
-        {
-            // Probe the buffer and copy it
-            ProbeForWrite(lpBuffer, cbCopyCount, sizeof(WORD));
-            RtlCopyMemory(lpBuffer, &Object, cbCopyCount);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            // Clear the return value.
-            // Do *NOT* set last error here!
-            iRetCount = 0;
-        }
-        _SEH2_END;
-    }
-    // Return the count
-    return iRetCount;
 }
 
 /* EOF */

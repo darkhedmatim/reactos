@@ -3,7 +3,7 @@
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
- * FILE:
+ * FILE:                 
  * PURPOSE:              Directx headers
  * PROGRAMMER:           Magnus Olsen (greatlrd)
  *
@@ -17,26 +17,15 @@ extern "C" {
 #endif
 
 #ifndef __NTDDKCOMP__
-
-#ifndef FLATPTR_DEFINED
 typedef ULONG_PTR FLATPTR;
-#define FLATPTR_DEFINED
-#endif
-
 typedef struct _VIDMEM *LPVIDMEM;
-
 #else
-
-#ifndef FLATPTR_DEFINED
 typedef ULONG_PTR FLATPTR;
-#define FLATPTR_DEFINED
-#endif
-
 typedef struct _VIDEOMEMORY *LPVIDMEM;
 #endif
 
 #define SURFACEALIGN_DISCARDABLE 0x00000001
-#define VMEMHEAP_LINEAR 0x00000001
+#define VMEMHEAP_LINEAR 0x00000001 
 #define VMEMHEAP_RECTANGULAR 0x00000002
 #define VMEMHEAP_ALIGNMENT 0x00000004
 
@@ -52,7 +41,7 @@ typedef struct _VMEMR
 {
   struct _VMEMR *next;
   struct _VMEMR *prev;
-
+  
   struct _VMEMR *pUp;
   struct _VMEMR *pDown;
   struct _VMEMR *pLeft;
@@ -112,7 +101,7 @@ typedef struct _VMEMHEAP
     DWORD dwTotalSize;
     FLATPTR fpGARTLin;
     FLATPTR fpGARTDev;
-    DWORD dwCommitedSize;
+    DWORD dwCommitedSize;     
     DWORD dwCoalesceCount;
     HEAPALIGNMENT Alignment;
     DDSCAPSEX ddsCapsEx;
@@ -128,22 +117,17 @@ typedef struct _VMEMHEAP
 
 typedef struct _DD_GETHEAPALIGNMENTDATA
 {
-    ULONG_PTR dwInstance;
+    ULONG_PTR dwInstance; 
     DWORD dwHeap;
     HRESULT ddRVal;
     VOID* GetHeapAlignment;
     HEAPALIGNMENT Alignment;
-} DD_GETHEAPALIGNMENTDATA;
-
-#ifndef DD_GETHEAPALIGNMENTDATA_DECLARED
-typedef DD_GETHEAPALIGNMENTDATA *PDD_GETHEAPALIGNMENTDATA;
-#define DD_GETHEAPALIGNMENTDATA_DECLARED
-#endif
+} DD_GETHEAPALIGNMENTDATA, *PDD_GETHEAPALIGNMENTDATA;
 
 extern void WINAPI VidMemFree( LPVMEMHEAP pvmh, FLATPTR ptr);
 extern FLATPTR WINAPI VidMemAlloc( LPVMEMHEAP pvmh, DWORD width, DWORD height);
 
-extern FLATPTR WINAPI
+extern FLATPTR WINAPI 
        HeapVidMemAllocAligned(
                                LPVIDMEM lpVidMem,
                                DWORD dwWidth,

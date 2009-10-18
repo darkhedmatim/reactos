@@ -59,21 +59,20 @@
 #define	IDC_SEARCH_PROGRAM		0x1016
 #define	IDC_SEARCH				0x1017
 #define	IDC_TERMINATE			0x1018
-#define	IDC_RESTART 			0x1019
 
 #define	IDC_FIRST_MENU			0x3000
 
 
  /// desktop bar window, also known as "system tray"
 struct DesktopBar : public
-#ifdef __REACTOS__
+#ifdef _ROS_
 	TrayIconControllerTemplate<
 				OwnerDrawParent<Window> >
 #else
 	OwnerDrawParent<Window>
 #endif
 {
-#ifdef __REACTOS__
+#ifdef _ROS_
 	typedef TrayIconControllerTemplate<
 				OwnerDrawParent<Window> > super;
 #else
@@ -107,10 +106,10 @@ protected:
 	WindowHandle _hwndrebar;
 	/* Needed to make the StartButton pushed, if it's called by windowskey: SC_TASKLIST command */
 	WindowHandle _hwndStartButton;
-
+	
 	struct StartMenuRoot* _startMenuRoot;
 
-#ifdef __REACTOS__
+#ifdef _ROS_
 	TrayIcon	_trayIcon;
 
 	void	AddTrayIcons();

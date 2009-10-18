@@ -29,8 +29,7 @@
 
 NTSTATUS
 GetSourcePaths(PUNICODE_STRING SourcePath,
-	       PUNICODE_STRING SourceRootPath,
-	       PUNICODE_STRING SourceRootDir);
+	       PUNICODE_STRING SourceRootPath);
 
 #endif /* __DRIVESUP_H__ */
 

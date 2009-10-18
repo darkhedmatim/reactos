@@ -13,16 +13,26 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <stdarg.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
+#include "ole2.h"
+#include "urlmon.h"
 #include "urlmon_main.h"
+
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
 typedef struct {
-    const IInternetProtocolVtbl  *lpIInternetProtocolVtbl;
+    const IInternetProtocolVtbl  *lpInternetProtocolVtbl;
     const IInternetPriorityVtbl  *lpInternetPriorityVtbl;
 
     HANDLE file;
@@ -31,9 +41,10 @@ typedef struct {
     LONG ref;
 } FileProtocol;
 
+#define PROTOCOL(x)  ((IInternetProtocol*)  &(x)->lpInternetProtocolVtbl)
 #define PRIORITY(x)  ((IInternetPriority*)  &(x)->lpInternetPriorityVtbl)
 
-#define PROTOCOL_THIS(iface) DEFINE_THIS(FileProtocol, IInternetProtocol, iface)
+#define PROTOCOL_THIS(iface) DEFINE_THIS(FileProtocol, InternetProtocol, iface)
 
 static HRESULT WINAPI FileProtocol_QueryInterface(IInternetProtocol *iface, REFIID riid, void **ppv)
 {
@@ -67,7 +78,7 @@ static ULONG WINAPI FileProtocol_AddRef(IInternetProtocol *iface)
 {
     FileProtocol *This = PROTOCOL_THIS(iface);
     LONG ref = InterlockedIncrement(&This->ref);
-    TRACE("(%p) ref=%d\n", This, ref);
+    TRACE("(%p) ref=%ld\n", This, ref);
     return ref;
 }
 
@@ -76,12 +87,12 @@ static ULONG WINAPI FileProtocol_Release(IInternetProtocol *iface)
     FileProtocol *This = PROTOCOL_THIS(iface);
     LONG ref = InterlockedDecrement(&This->ref);
 
-    TRACE("(%p) ref=%d\n", This, ref);
+    TRACE("(%p) ref=%ld\n", This, ref);
 
     if(!ref) {
         if(This->file)
             CloseHandle(This->file);
-        heap_free(This);
+        HeapFree(GetProcessHeap(), 0, This);
 
         URLMON_UnlockModule();
     }
@@ -91,42 +102,37 @@ static ULONG WINAPI FileProtocol_Release(IInternetProtocol *iface)
 
 static HRESULT WINAPI FileProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
         IInternetProtocolSink *pOIProtSink, IInternetBindInfo *pOIBindInfo,
-        DWORD grfPI, HANDLE_PTR dwReserved)
+        DWORD grfPI, DWORD dwReserved)
 {
     FileProtocol *This = PROTOCOL_THIS(iface);
     BINDINFO bindinfo;
     DWORD grfBINDF = 0;
     LARGE_INTEGER size;
     DWORD len;
-    LPWSTR url, mime = NULL, file_name;
+    LPWSTR url, mime = NULL;
+    LPCWSTR file_name;
     WCHAR null_char = 0;
     BOOL first_call = FALSE;
     HRESULT hres;
 
     static const WCHAR wszFile[]  = {'f','i','l','e',':'};
 
-    TRACE("(%p)->(%s %p %p %08x %lx)\n", This, debugstr_w(szUrl), pOIProtSink,
+    TRACE("(%p)->(%s %p %p %08lx %ld)\n", This, debugstr_w(szUrl), pOIProtSink,
             pOIBindInfo, grfPI, dwReserved);
-
-    if(!szUrl || strlenW(szUrl) < sizeof(wszFile)/sizeof(WCHAR)
-            || memcmp(szUrl, wszFile, sizeof(wszFile)))
-        return E_INVALIDARG;
 
     memset(&bindinfo, 0, sizeof(bindinfo));
     bindinfo.cbSize = sizeof(BINDINFO);
-    hres = IInternetBindInfo_GetBindInfo(pOIBindInfo, &grfBINDF, &bindinfo);
-    if(FAILED(hres)) {
-        WARN("GetBindInfo failed: %08x\n", hres);
-        return hres;
-    }
+    IInternetBindInfo_GetBindInfo(pOIBindInfo, &grfBINDF, &bindinfo);
 
-    ReleaseBindInfo(&bindinfo);
+    if(lstrlenW(szUrl) < sizeof(wszFile)/sizeof(WCHAR)
+            || memcmp(szUrl, wszFile, sizeof(wszFile)))
+        return MK_E_SYNTAX;
 
     len = lstrlenW(szUrl)+16;
-    url = heap_alloc(len*sizeof(WCHAR));
+    url = HeapAlloc(GetProcessHeap(), 0, len*sizeof(WCHAR));
     hres = CoInternetParseUrl(szUrl, PARSE_ENCODE, 0, url, len, &len, 0);
     if(FAILED(hres)) {
-        heap_free(url);
+        HeapFree(GetProcessHeap(), 0, url);
         return hres;
     }
 
@@ -134,8 +140,6 @@ static HRESULT WINAPI FileProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl
         IInternetProtocolSink_ReportProgress(pOIProtSink, BINDSTATUS_DIRECTBIND, NULL);
 
     if(!This->file) {
-        WCHAR *ptr;
-
         first_call = TRUE;
 
         IInternetProtocolSink_ReportProgress(pOIProtSink, BINDSTATUS_SENDINGREQUEST, &null_char);
@@ -146,16 +150,6 @@ static HRESULT WINAPI FileProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl
         if(*file_name == '/')
             file_name++;
 
-        for(ptr = file_name; *ptr; ptr++) {
-            if(*ptr == '?' || *ptr == '#') {
-                *ptr = 0;
-                break;
-            }
-        }
-
-        if(file_name[1] == '|')
-            file_name[1] = ':';
-
         This->file = CreateFileW(file_name, GENERIC_READ, FILE_SHARE_READ, NULL,
                                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
@@ -163,7 +157,7 @@ static HRESULT WINAPI FileProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl
             This->file = NULL;
             IInternetProtocolSink_ReportResult(pOIProtSink, INET_E_RESOURCE_NOT_FOUND,
                     GetLastError(), NULL);
-            heap_free(url);
+            HeapFree(GetProcessHeap(), 0, url);
             return INET_E_RESOURCE_NOT_FOUND;
         }
 
@@ -180,7 +174,7 @@ static HRESULT WINAPI FileProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl
         }
     }
 
-    heap_free(url);
+    HeapFree(GetProcessHeap(), 0, url);
 
     if(GetFileSizeEx(This->file, &size))
         IInternetProtocolSink_ReportData(pOIProtSink,
@@ -204,7 +198,7 @@ static HRESULT WINAPI FileProtocol_Abort(IInternetProtocol *iface, HRESULT hrRea
         DWORD dwOptions)
 {
     FileProtocol *This = PROTOCOL_THIS(iface);
-    FIXME("(%p)->(%08x %08x)\n", This, hrReason, dwOptions);
+    FIXME("(%p)->(%08lx %08lx)\n", This, hrReason, dwOptions);
     return E_NOTIMPL;
 }
 
@@ -212,7 +206,7 @@ static HRESULT WINAPI FileProtocol_Terminate(IInternetProtocol *iface, DWORD dwO
 {
     FileProtocol *This = PROTOCOL_THIS(iface);
 
-    TRACE("(%p)->(%08x)\n", This, dwOptions);
+    TRACE("(%p)->(%08lx)\n", This, dwOptions);
 
     return S_OK;
 }
@@ -237,16 +231,12 @@ static HRESULT WINAPI FileProtocol_Read(IInternetProtocol *iface, void *pv,
     FileProtocol *This = PROTOCOL_THIS(iface);
     DWORD read = 0;
 
-    TRACE("(%p)->(%p %u %p)\n", This, pv, cb, pcbRead);
-
-    if (pcbRead)
-        *pcbRead = 0;
+    TRACE("(%p)->(%p %lu %p)\n", This, pv, cb, pcbRead);
 
     if(!This->file)
         return INET_E_DATA_NOT_AVAILABLE;
 
-    if (!ReadFile(This->file, pv, cb, &read, NULL))
-        return INET_E_DOWNLOAD_FAILURE;
+    ReadFile(This->file, pv, cb, &read, NULL);
 
     if(pcbRead)
         *pcbRead = read;
@@ -255,10 +245,10 @@ static HRESULT WINAPI FileProtocol_Read(IInternetProtocol *iface, void *pv,
 }
 
 static HRESULT WINAPI FileProtocol_Seek(IInternetProtocol *iface, LARGE_INTEGER dlibMove,
-        DWORD dwOrigin, ULARGE_INTEGER *plibNewPosition)
+        DWORD dwOrgin, ULARGE_INTEGER *plibNewPosition)
 {
     FileProtocol *This = PROTOCOL_THIS(iface);
-    FIXME("(%p)->(%d %d %p)\n", This, dlibMove.u.LowPart, dwOrigin, plibNewPosition);
+    FIXME("(%p)->(%ld %ld %p)\n", This, dlibMove.u.LowPart, dwOrgin, plibNewPosition);
     return E_NOTIMPL;
 }
 
@@ -266,7 +256,7 @@ static HRESULT WINAPI FileProtocol_LockRequest(IInternetProtocol *iface, DWORD d
 {
     FileProtocol *This = PROTOCOL_THIS(iface);
 
-    TRACE("(%p)->(%08x)\n", This, dwOptions);
+    TRACE("(%p)->(%08lx)\n", This, dwOptions);
 
     return S_OK;
 }
@@ -323,7 +313,7 @@ static HRESULT WINAPI FilePriority_SetPriority(IInternetPriority *iface, LONG nP
 {
     FileProtocol *This = PRIORITY_THIS(iface);
 
-    TRACE("(%p)->(%d)\n", This, nPriority);
+    TRACE("(%p)->(%ld)\n", This, nPriority);
 
     This->priority = nPriority;
     return S_OK;
@@ -357,9 +347,9 @@ HRESULT FileProtocol_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
 
     URLMON_LockModule();
 
-    ret = heap_alloc(sizeof(FileProtocol));
+    ret = HeapAlloc(GetProcessHeap(), 0, sizeof(FileProtocol));
 
-    ret->lpIInternetProtocolVtbl = &FileProtocolVtbl;
+    ret->lpInternetProtocolVtbl = &FileProtocolVtbl;
     ret->lpInternetPriorityVtbl = &FilePriorityVtbl;
     ret->file = NULL;
     ret->priority = 0;

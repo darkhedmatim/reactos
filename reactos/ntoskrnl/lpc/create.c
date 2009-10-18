@@ -19,12 +19,11 @@ NTAPI
 LpcpInitializePortQueue(IN PLPCP_PORT_OBJECT Port)
 {
     PLPCP_NONPAGED_PORT_QUEUE MessageQueue;
-    PAGED_CODE();
 
     /* Allocate the queue */
     MessageQueue = ExAllocatePoolWithTag(NonPagedPool,
                                          sizeof(LPCP_NONPAGED_PORT_QUEUE),
-                                         'troP');
+                                         TAG('P', 'o', 'r', 't'));
     if (!MessageQueue) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Set it up */
@@ -49,7 +48,6 @@ LpcpCreatePort(OUT PHANDLE PortHandle,
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
     NTSTATUS Status;
     PLPCP_PORT_OBJECT Port;
-    PAGED_CODE();
     LPCTRACE(LPC_CREATE_DEBUG, "Name: %wZ\n", ObjectAttributes->ObjectName);
 
     /* Create the Object */

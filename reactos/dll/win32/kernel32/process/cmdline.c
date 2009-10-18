@@ -14,7 +14,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 /* GLOBALS ******************************************************************/
@@ -75,7 +75,7 @@ InitCommandLines (VOID)
 /*
  * @implemented
  */
-LPSTR WINAPI GetCommandLineA(VOID)
+LPSTR STDCALL GetCommandLineA(VOID)
 {
 	if (bCommandLineInitialized == FALSE)
 	{
@@ -91,7 +91,7 @@ LPSTR WINAPI GetCommandLineA(VOID)
 /*
  * @implemented
  */
-LPWSTR WINAPI GetCommandLineW (VOID)
+LPWSTR STDCALL GetCommandLineW (VOID)
 {
 	if (bCommandLineInitialized == FALSE)
 	{

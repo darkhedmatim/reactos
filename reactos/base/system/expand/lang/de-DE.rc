@@ -4,13 +4,13 @@
  * By Rouven Wessling 2005 pentiumforever@gmail.com
  */
 
-LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 STRINGTABLE DISCARDABLE
-BEGIN
+{
 
 IDS_Copy, "ReactOS Dateiexpansionsprogramm Version 1.0\n\
 Copyright Victor Schneider 1997\n\n\
-Verwendung: %s Eingabedatei [Ausgabedatei]\n"
+Verwendung: %s infile [outfile]\n"
 
 IDS_FAILS "LZCopy fehlgeschlagen: Rückgabe ist %ld\n"
-END
+}

@@ -22,7 +22,7 @@ NTAPI
 LpcRequestPort(IN PVOID PortObject,
                IN PPORT_MESSAGE LpcMessage)
 {
-    PLPCP_PORT_OBJECT Port = PortObject, QueuePort, ConnectionPort = NULL;
+    PLPCP_PORT_OBJECT Port = (PLPCP_PORT_OBJECT)PortObject, QueuePort;
     ULONG MessageType;
     PLPCP_MESSAGE Message;
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
@@ -42,7 +42,7 @@ LpcRequestPort(IN PVOID PortObject,
             return STATUS_INVALID_PARAMETER;
         }
 
-        /* Mark this as a kernel-mode message only if we really came from it */
+        /* Mark this as a kernel-mode message only if we really came from there */
         if ((PreviousMode == KernelMode) &&
             (LpcMessage->u2.s2.Type & LPC_KERNELMODE_MESSAGE))
         {
@@ -60,8 +60,8 @@ LpcRequestPort(IN PVOID PortObject,
     if (LpcMessage->u2.s2.DataInfoOffset) return STATUS_INVALID_PARAMETER;
 
     /* Validate message sizes */
-    if (((ULONG)LpcMessage->u1.s1.TotalLength > Port->MaxMessageLength) ||
-        ((ULONG)LpcMessage->u1.s1.TotalLength <= (ULONG)LpcMessage->u1.s1.DataLength))
+    if ((LpcMessage->u1.s1.TotalLength > Port->MaxMessageLength) ||
+        (LpcMessage->u1.s1.TotalLength <= LpcMessage->u1.s1.DataLength))
     {
         /* Fail */
         return STATUS_PORT_MESSAGE_TOO_LONG;
@@ -72,7 +72,6 @@ LpcRequestPort(IN PVOID PortObject,
     if (!Message) return STATUS_NO_MEMORY;
 
     /* Clear the context */
-    Message->RepliedToThread = NULL;
     Message->PortContext = NULL;
 
     /* Copy the message */
@@ -97,28 +96,13 @@ LpcRequestPort(IN PVOID PortObject,
             {
                 /* Then copy the context */
                 Message->PortContext = QueuePort->PortContext;
-                ConnectionPort = QueuePort = Port->ConnectionPort;
-                if (!ConnectionPort)
-                {
-                    /* Fail */
-                    LpcpFreeToPortZone(Message, 3);
-                    return STATUS_PORT_DISCONNECTED;
-                }
+                QueuePort = Port->ConnectionPort;
             }
             else if ((Port->Flags & LPCP_PORT_TYPE_MASK) != LPCP_COMMUNICATION_PORT)
             {
                 /* Any other kind of port, use the connection port */
-                ConnectionPort = QueuePort = Port->ConnectionPort;
-                if (!ConnectionPort)
-                {
-                    /* Fail */
-                    LpcpFreeToPortZone(Message, 3);
-                    return STATUS_PORT_DISCONNECTED;
-                }
+                QueuePort = Port->ConnectionPort;
             }
-
-            /* If we have a connection port, reference it */
-            if (ConnectionPort) ObReferenceObject(ConnectionPort);
         }
     }
     else
@@ -142,7 +126,6 @@ LpcRequestPort(IN PVOID PortObject,
         InsertTailList(&QueuePort->MsgQueue.ReceiveHead, &Message->Entry);
 
         /* Release the lock and release the semaphore */
-        KeEnterCriticalRegion();
         KeReleaseGuardedMutex(&LpcpLock);
         LpcpCompleteWait(QueuePort->MsgQueue.Semaphore);
 
@@ -154,286 +137,27 @@ LpcRequestPort(IN PVOID PortObject,
         }
 
         /* We're done */
-        KeLeaveCriticalRegion();
-        if (ConnectionPort) ObDereferenceObject(ConnectionPort);
         LPCTRACE(LPC_SEND_DEBUG, "Port: %p. Message: %p\n", QueuePort, Message);
         return STATUS_SUCCESS;
     }
 
     /* If we got here, then free the message and fail */
-    LpcpFreeToPortZone(Message, 3);
-    if (ConnectionPort) ObDereferenceObject(ConnectionPort);
+    LpcpFreeToPortZone(Message, TRUE);
+    KeReleaseGuardedMutex(&LpcpLock);
     return STATUS_PORT_DISCONNECTED;
 }
 
 /*
-* @implemented
+* @unimplemented
 */
 NTSTATUS
 NTAPI
-LpcRequestWaitReplyPort(IN PVOID PortObject,
-                        IN PPORT_MESSAGE LpcRequest,
-                        OUT PPORT_MESSAGE LpcReply)
+LpcRequestWaitReplyPort(IN PVOID Port,
+                        IN PPORT_MESSAGE LpcMessageRequest,
+                        OUT PPORT_MESSAGE LpcMessageReply)
 {
-    PLPCP_PORT_OBJECT Port, QueuePort, ReplyPort, ConnectionPort = NULL;
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
-    NTSTATUS Status = STATUS_SUCCESS;
-    PLPCP_MESSAGE Message;
-    PETHREAD Thread = PsGetCurrentThread();
-    BOOLEAN Callback = FALSE;
-    PKSEMAPHORE Semaphore;
-    ULONG MessageType;
-    PAGED_CODE();
-
-    Port = (PLPCP_PORT_OBJECT)PortObject;
-
-    LPCTRACE(LPC_SEND_DEBUG,
-             "Port: %p. Messages: %p/%p. Type: %lx\n",
-             Port,
-             LpcRequest,
-             LpcReply,
-             LpcpGetMessageType(LpcRequest));
-
-    /* Check if the thread is dying */
-    if (Thread->LpcExitThreadCalled) return STATUS_THREAD_IS_TERMINATING;
-
-    /* Check if this is an LPC Request */
-    MessageType = LpcpGetMessageType(LpcRequest);
-    switch (MessageType)
-    {
-        /* No type */
-        case 0:
-            
-            /* Assume LPC request */
-            MessageType = LPC_REQUEST;
-            break;
-        
-        /* LPC request callback */
-        case LPC_REQUEST:
-            
-            /* This is a callback */
-            Callback = TRUE;
-            break;
-        
-        /* Anything else */
-        case LPC_CLIENT_DIED:
-        case LPC_PORT_CLOSED:
-        case LPC_EXCEPTION:
-        case LPC_DEBUG_EVENT:
-        case LPC_ERROR_EVENT:
-            
-            /* Nothing to do */
-            break;
-            
-        default:
-            
-            /* Invalid message type */
-            return STATUS_INVALID_PARAMETER;
-    }
-    
-    /* Set the request type */
-    LpcRequest->u2.s2.Type = MessageType;
-
-    /* Validate the message length */
-    if (((ULONG)LpcRequest->u1.s1.TotalLength > Port->MaxMessageLength) ||
-        ((ULONG)LpcRequest->u1.s1.TotalLength <= (ULONG)LpcRequest->u1.s1.DataLength))
-    {
-        /* Fail */
-        return STATUS_PORT_MESSAGE_TOO_LONG;
-    }
-
-    /* Allocate a message from the port zone */
-    Message = LpcpAllocateFromPortZone();
-    if (!Message)
-    {
-        /* Fail if we couldn't allocate a message */
-        return STATUS_NO_MEMORY;
-    }
-
-    /* Check if this is a callback */
-    if (Callback)
-    {
-        /* FIXME: TODO */
-        Semaphore = NULL; // we'd use the Thread Semaphore here
-        ASSERT(FALSE);
-        return STATUS_NOT_IMPLEMENTED;
-    }
-    else
-    {
-        /* No callback, just copy the message */
-        LpcpMoveMessage(&Message->Request,
-                        LpcRequest,
-                        LpcRequest + 1,
-                        0,
-                        &Thread->Cid);
-
-        /* Acquire the LPC lock */
-        KeAcquireGuardedMutex(&LpcpLock);
-
-        /* Right now clear the port context */
-        Message->PortContext = NULL;
-
-        /* Check if this is a not connection port */
-        if ((Port->Flags & LPCP_PORT_TYPE_MASK) != LPCP_CONNECTION_PORT)
-        {
-            /* We want the connected port */
-            QueuePort = Port->ConnectedPort;
-            if (!QueuePort)
-            {
-                /* We have no connected port, fail */
-                LpcpFreeToPortZone(Message, 3);
-                return STATUS_PORT_DISCONNECTED;
-            }
-
-            /* This will be the rundown port */
-            ReplyPort = QueuePort;
-
-            /* Check if this is a communication port */
-            if ((Port->Flags & LPCP_PORT_TYPE_MASK) == LPCP_CLIENT_PORT)
-            {
-                /* Copy the port context and use the connection port */
-                Message->PortContext = QueuePort->PortContext;
-                ConnectionPort = QueuePort = Port->ConnectionPort;
-                if (!ConnectionPort)
-                {
-                    /* Fail */
-                    LpcpFreeToPortZone(Message, 3);
-                    return STATUS_PORT_DISCONNECTED;
-                }
-            }
-            else if ((Port->Flags & LPCP_PORT_TYPE_MASK) !=
-                      LPCP_COMMUNICATION_PORT)
-            {
-                /* Use the connection port for anything but communication ports */
-                ConnectionPort = QueuePort = Port->ConnectionPort;
-                if (!ConnectionPort)
-                {
-                    /* Fail */
-                    LpcpFreeToPortZone(Message, 3);
-                    return STATUS_PORT_DISCONNECTED;
-                }
-            }
-
-            /* Reference the connection port if it exists */
-            if (ConnectionPort) ObReferenceObject(ConnectionPort);
-        }
-        else
-        {
-            /* Otherwise, for a connection port, use the same port object */
-            QueuePort = ReplyPort = Port;
-        }
-
-        /* No reply thread */
-        Message->RepliedToThread = NULL;
-        Message->SenderPort = Port;
-
-        /* Generate the Message ID and set it */
-        Message->Request.MessageId =  LpcpNextMessageId++;
-        if (!LpcpNextMessageId) LpcpNextMessageId = 1;
-        Message->Request.CallbackId = 0;
-
-        /* Set the message ID for our thread now */
-        Thread->LpcReplyMessageId = Message->Request.MessageId;
-        Thread->LpcReplyMessage = NULL;
-
-        /* Insert the message in our chain */
-        InsertTailList(&QueuePort->MsgQueue.ReceiveHead, &Message->Entry);
-        InsertTailList(&ReplyPort->LpcReplyChainHead, &Thread->LpcReplyChain);
-        LpcpSetPortToThread(Thread, Port);
-
-        /* Release the lock and get the semaphore we'll use later */
-        KeEnterCriticalRegion();
-        KeReleaseGuardedMutex(&LpcpLock);
-        Semaphore = QueuePort->MsgQueue.Semaphore;
-
-        /* If this is a waitable port, wake it up */
-        if (QueuePort->Flags & LPCP_WAITABLE_PORT)
-        {
-            /* Wake it */
-            KeSetEvent(&QueuePort->WaitEvent, IO_NO_INCREMENT, FALSE);
-        }
-    }
-
-    /* Now release the semaphore */
-    LpcpCompleteWait(Semaphore);
-    KeLeaveCriticalRegion();
-
-    /* And let's wait for the reply */
-    LpcpReplyWait(&Thread->LpcReplySemaphore, PreviousMode);
-
-    /* Acquire the LPC lock */
-    KeAcquireGuardedMutex(&LpcpLock);
-
-    /* Get the LPC Message and clear our thread's reply data */
-    Message = LpcpGetMessageFromThread(Thread);
-    Thread->LpcReplyMessage = NULL;
-    Thread->LpcReplyMessageId = 0;
-
-    /* Check if we have anything on the reply chain*/
-    if (!IsListEmpty(&Thread->LpcReplyChain))
-    {
-        /* Remove this thread and reinitialize the list */
-        RemoveEntryList(&Thread->LpcReplyChain);
-        InitializeListHead(&Thread->LpcReplyChain);
-    }
-
-    /* Release the lock */
-    KeReleaseGuardedMutex(&LpcpLock);
-
-    /* Check if we got a reply */
-    if (Status == STATUS_SUCCESS)
-    {
-        /* Check if we have a valid message */
-        if (Message)
-        {
-            LPCTRACE(LPC_SEND_DEBUG,
-                     "Reply Messages: %p/%p\n",
-                     &Message->Request,
-                     (&Message->Request) + 1);
-
-            /* Move the message */
-            LpcpMoveMessage(LpcReply,
-                            &Message->Request,
-                            (&Message->Request) + 1,
-                            0,
-                            NULL);
-            
-            /* Acquire the lock */
-            KeAcquireGuardedMutex(&LpcpLock);
-            
-            /* Check if we replied to a thread */
-            if (Message->RepliedToThread)
-            {
-                /* Dereference */
-                ObDereferenceObject(Message->RepliedToThread);
-                Message->RepliedToThread = NULL;
-            }
-
-
-            /* Free the message */
-            LpcpFreeToPortZone(Message, 3);
-        }
-        else
-        {
-            /* We don't have a reply */
-            Status = STATUS_LPC_REPLY_LOST;
-        }
-    }
-    else
-    {
-        /* The wait failed, free the message */
-        if (Message) LpcpFreeToPortZone(Message, 0);
-    }
-
-    /* All done */
-    LPCTRACE(LPC_SEND_DEBUG,
-             "Port: %p. Status: %p\n",
-             Port,
-             Status);
-
-    /* Dereference the connection port */
-    if (ConnectionPort) ObDereferenceObject(ConnectionPort);
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
@@ -457,7 +181,7 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
                        IN PPORT_MESSAGE LpcRequest,
                        IN OUT PPORT_MESSAGE LpcReply)
 {
-    PLPCP_PORT_OBJECT Port, QueuePort, ReplyPort, ConnectionPort = NULL;
+    PLPCP_PORT_OBJECT Port, QueuePort, ReplyPort;
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
     NTSTATUS Status;
     PLPCP_MESSAGE Message;
@@ -498,8 +222,8 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
     MessageType = LpcRequest->u2.s2.Type;
 
     /* Validate the length */
-    if (((ULONG)LpcRequest->u1.s1.DataLength + sizeof(PORT_MESSAGE)) >
-         (ULONG)LpcRequest->u1.s1.TotalLength)
+    if ((LpcRequest->u1.s1.DataLength + sizeof(PORT_MESSAGE)) >
+         LpcRequest->u1.s1.TotalLength)
     {
         /* Fail */
         return STATUS_INVALID_PARAMETER;
@@ -515,8 +239,8 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
     if (!NT_SUCCESS(Status)) return Status;
 
     /* Validate the message length */
-    if (((ULONG)LpcRequest->u1.s1.TotalLength > Port->MaxMessageLength) ||
-        ((ULONG)LpcRequest->u1.s1.TotalLength <= (ULONG)LpcRequest->u1.s1.DataLength))
+    if ((LpcRequest->u1.s1.TotalLength > Port->MaxMessageLength) ||
+        (LpcRequest->u1.s1.TotalLength <= LpcRequest->u1.s1.DataLength))
     {
         /* Fail */
         ObDereferenceObject(Port);
@@ -542,23 +266,11 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
     else
     {
         /* No callback, just copy the message */
-        _SEH2_TRY
-        {
-            /* Copy it */
-            LpcpMoveMessage(&Message->Request,
-                            LpcRequest,
-                            LpcRequest + 1,
-                            MessageType,
-                            &Thread->Cid);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Fail */
-            LpcpFreeToPortZone(Message, 0);
-            ObDereferenceObject(Port);
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
+        LpcpMoveMessage(&Message->Request,
+                        LpcRequest,
+                        LpcRequest + 1,
+                        MessageType,
+                        &Thread->Cid);
 
         /* Acquire the LPC lock */
         KeAcquireGuardedMutex(&LpcpLock);
@@ -574,7 +286,8 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
             if (!QueuePort)
             {
                 /* We have no connected port, fail */
-                LpcpFreeToPortZone(Message, 3);
+                LpcpFreeToPortZone(Message, TRUE);
+                KeReleaseGuardedMutex(&LpcpLock);
                 ObDereferenceObject(Port);
                 return STATUS_PORT_DISCONNECTED;
             }
@@ -586,32 +299,15 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
             if ((Port->Flags & LPCP_PORT_TYPE_MASK) == LPCP_CLIENT_PORT)
             {
                 /* Copy the port context and use the connection port */
-                Message->PortContext = QueuePort->PortContext;
-                ConnectionPort = QueuePort = Port->ConnectionPort;
-                if (!ConnectionPort)
-                {
-                    /* Fail */
-                    LpcpFreeToPortZone(Message, 3);
-                    ObDereferenceObject(Port);
-                    return STATUS_PORT_DISCONNECTED;
-                }
+                Message->PortContext = ReplyPort->PortContext;
+                QueuePort = Port->ConnectionPort;
             }
             else if ((Port->Flags & LPCP_PORT_TYPE_MASK) !=
                       LPCP_COMMUNICATION_PORT)
             {
                 /* Use the connection port for anything but communication ports */
-                ConnectionPort = QueuePort = Port->ConnectionPort;
-                if (!ConnectionPort)
-                {
-                    /* Fail */
-                    LpcpFreeToPortZone(Message, 3);
-                    ObDereferenceObject(Port);
-                    return STATUS_PORT_DISCONNECTED;
-                }
+                QueuePort = Port->ConnectionPort;
             }
-
-            /* Reference the connection port if it exists */
-            if (ConnectionPort) ObReferenceObject(ConnectionPort);
         }
         else
         {
@@ -621,7 +317,6 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
 
         /* No reply thread */
         Message->RepliedToThread = NULL;
-        Message->SenderPort = Port;
 
         /* Generate the Message ID and set it */
         Message->Request.MessageId =  LpcpNextMessageId++;
@@ -635,10 +330,8 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
         /* Insert the message in our chain */
         InsertTailList(&QueuePort->MsgQueue.ReceiveHead, &Message->Entry);
         InsertTailList(&ReplyPort->LpcReplyChainHead, &Thread->LpcReplyChain);
-        LpcpSetPortToThread(Thread, Port);
 
         /* Release the lock and get the semaphore we'll use later */
-        KeEnterCriticalRegion();
         KeReleaseGuardedMutex(&LpcpLock);
         Semaphore = QueuePort->MsgQueue.Semaphore;
 
@@ -652,7 +345,6 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
 
     /* Now release the semaphore */
     LpcpCompleteWait(Semaphore);
-    KeLeaveCriticalRegion();
 
     /* And let's wait for the reply */
     LpcpReplyWait(&Thread->LpcReplySemaphore, PreviousMode);
@@ -661,7 +353,7 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
     KeAcquireGuardedMutex(&LpcpLock);
 
     /* Get the LPC Message and clear our thread's reply data */
-    Message = LpcpGetMessageFromThread(Thread);
+    Message = Thread->LpcReplyMessage;
     Thread->LpcReplyMessage = NULL;
     Thread->LpcReplyMessageId = 0;
 
@@ -688,31 +380,23 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
                      (&Message->Request) + 1);
 
             /* Move the message */
-            _SEH2_TRY
-            {
-                LpcpMoveMessage(LpcReply,
-                                &Message->Request,
-                                (&Message->Request) + 1,
-                                0,
-                                NULL);
-            }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-            {
-                Status = _SEH2_GetExceptionCode();
-            }
-            _SEH2_END;
+            LpcpMoveMessage(LpcReply,
+                            &Message->Request,
+                            (&Message->Request) + 1,
+                            0,
+                            NULL);
 
             /* Check if this is an LPC request with data information */
             if ((LpcpGetMessageType(&Message->Request) == LPC_REQUEST) &&
                 (Message->Request.u2.s2.DataInfoOffset))
             {
                 /* Save the data information */
-                LpcpSaveDataInfoMessage(Port, Message, 0);
+                LpcpSaveDataInfoMessage(Port, Message);
             }
             else
             {
                 /* Otherwise, just free it */
-                LpcpFreeToPortZone(Message, 0);
+                LpcpFreeToPortZone(Message, FALSE);
             }
         }
         else
@@ -723,8 +407,10 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
     }
     else
     {
-        /* The wait failed, free the message */
-        if (Message) LpcpFreeToPortZone(Message, 0);
+        /* The wait failed, free the message while holding the lock */
+        KeAcquireGuardedMutex(&LpcpLock);
+        LpcpFreeToPortZone(Message, TRUE);
+        KeReleaseGuardedMutex(&LpcpLock);
     }
 
     /* All done */
@@ -733,7 +419,6 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
              Port,
              Status);
     ObDereferenceObject(Port);
-    if (ConnectionPort) ObDereferenceObject(ConnectionPort);
     return Status;
 }
 

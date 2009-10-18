@@ -21,7 +21,7 @@
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS welcome/autorun application
  * FILE:        subsys/system/welcome/welcome.c
- * PROGRAMMERS: Eric Kohl
+ * PROGRAMMERS: Eric Kohl (ekohl@rz-online.de)
  *              Casper S. Hornstrup (chorns@users.sourceforge.net)
  *
  * NOTE:
@@ -96,9 +96,9 @@ MainWndProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 /* FUNCTIONS ****************************************************************/
 
 int WINAPI
-_tWinMain(HINSTANCE hInst,
+WinMain(HINSTANCE hInst,
 	HINSTANCE hPrevInstance,
-	LPTSTR lpszCmdLine,
+	LPSTR lpszCmdLine,
 	int nCmdShow)
 {
   WNDCLASSEX wndclass;
@@ -129,7 +129,7 @@ _tWinMain(HINSTANCE hInst,
   wndclass.cbWndExtra = 0;
   wndclass.hInstance = hInstance;
   wndclass.hIcon = hMainIcon;
-  wndclass.hCursor = LoadCursor (NULL, IDC_ARROW);
+  wndclass.hCursor = LoadCursor (NULL, MAKEINTRESOURCE(IDC_ARROW));
   wndclass.hbrBackground = 0;
   wndclass.lpszMenuName = NULL;
   wndclass.lpszClassName = szFrameClass;
@@ -179,7 +179,7 @@ _tWinMain(HINSTANCE hInst,
   rcRightPanel.left = rcLeftPanel.right;
   rcRightPanel.right = ulInnerWidth - 1;
 
-  if (!LoadString(hInstance, (UINT_PTR)MAKEINTRESOURCE(IDS_APPTITLE), szAppTitle, 80))
+  if (!LoadString(hInstance, (UINT)MAKEINTRESOURCE(IDS_APPTITLE), szAppTitle, 80))
     _tcscpy(szAppTitle, TEXT("ReactOS Welcome"));
 
   /* Create main window */
@@ -222,7 +222,7 @@ ButtonSubclassWndProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
   if (uMsg == WM_MOUSEMOVE)
     {
-      i = GetWindowLongPtr(hWnd, GWL_ID);
+      i = GetWindowLong(hWnd, GWL_ID);
       if (nTopic != i)
 	{
 	  nTopic = i;
@@ -386,7 +386,7 @@ OnCreate(HWND hWnd, WPARAM wParam, LPARAM lParam)
 					    rcLeftPanel.right - rcLeftPanel.left,
 					    dwHeight,
 					    hWnd,
-					    (HMENU)IntToPtr(i),
+					    (HMENU)i,
 					    hInstance,
 					    NULL);
 	  hwndDefaultTopic = hwndTopicButton[i];

@@ -31,10 +31,9 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
+
 
 /* FUNCTIONS *****************************************************************/
-
 
 HICON
 ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot)
@@ -94,28 +93,17 @@ ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDe
 HICON
 ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot)
 {
+   /* FIXME - color cursors */
    BYTE BitmapInfoBuffer[sizeof(BITMAPINFOHEADER) + 2 * sizeof(RGBQUAD)];
    BITMAPINFO *bwBIH = (BITMAPINFO *)BitmapInfoBuffer;
-   BITMAPINFO *orgBIH = (BITMAPINFO *)IconImage;
    ICONINFO IconInfo;
+   PVOID XORImageData = ImageData;
 
    IconInfo.fIcon = FALSE;
    IconInfo.xHotspot = xHotspot;
    IconInfo.yHotspot = yHotspot;
 
-   /* Handle the color part of the cursor */
-   if (IconImage->icHeader.biBitCount == 1)
-   {
-      IconInfo.hbmColor = (HBITMAP)0;
-   }
-   else
-   {
-       IconInfo.hbmColor = CreateDIBitmap(hDC, &IconImage->icHeader, CBM_INIT,
-                                          ImageData, (BITMAPINFO*)IconImage,
-                                          DIB_RGB_COLORS);
-   }
-
-   /* Create a BITMAPINFO header for the monochrome part of the cursor */
+   /* Create a BITMAPINFO header for the monocrome part of the icon */
    bwBIH->bmiHeader.biBitCount = 1;
    bwBIH->bmiHeader.biWidth = IconImage->icHeader.biWidth;
    bwBIH->bmiHeader.biHeight = IconImage->icHeader.biHeight;
@@ -138,14 +126,16 @@ ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cx
    bwBIH->bmiColors[1].rgbRed = 0xff;
    bwBIH->bmiColors[1].rgbReserved = 0;
 
-   /* Load the monochrome bitmap */
+   /* Load the AND bitmap */
    IconInfo.hbmMask = CreateDIBitmap(hDC, &bwBIH->bmiHeader, 0,
-                                     ImageData, bwBIH, DIB_RGB_COLORS);
+                                     XORImageData, bwBIH, DIB_RGB_COLORS);
    if (IconInfo.hbmMask)
    {
       SetDIBits(hDC, IconInfo.hbmMask, 0, IconImage->icHeader.biHeight,
-                ImageData, orgBIH, DIB_RGB_COLORS);
+                XORImageData, bwBIH, DIB_RGB_COLORS);
    }
+
+   IconInfo.hbmColor = (HBITMAP)0;
 
    /* Create the icon based on everything we have so far */
    return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
@@ -156,20 +146,17 @@ ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cx
  * @implemented
  */
 HICON
-WINAPI
-CopyIcon(HICON hIcon)
+STDCALL
+CopyIcon(
+  HICON hIcon)
 {
-    HICON hRetIcon = NULL;
-    ICONINFO IconInfo;
+  ICONINFO IconInfo;
 
-    if(GetIconInfo(hIcon, &IconInfo))
-    {
-        hRetIcon = CreateIconIndirect(&IconInfo);
-        DeleteObject(IconInfo.hbmColor);
-        DeleteObject(IconInfo.hbmMask);
-    }
-
-    return hRetIcon;
+  if(NtUserGetCursorIconInfo((HANDLE)hIcon, &IconInfo))
+  {
+    return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
+  }
+  return (HICON)0;
 }
 
 
@@ -177,7 +164,7 @@ CopyIcon(HICON hIcon)
  * @implemented
  */
 HICON
-WINAPI
+STDCALL
 CreateIcon(
   HINSTANCE hInstance,
   int nWidth,
@@ -190,29 +177,18 @@ CreateIcon(
   ICONINFO IconInfo;
 
   IconInfo.fIcon = TRUE;
-  
-  if (cBitsPixel == 1)
-  {
-    nHeight <<= 1;
-  }
+  IconInfo.xHotspot = nWidth / 2;
+  IconInfo.yHotspot = nHeight / 2;
   IconInfo.hbmMask = CreateBitmap(nWidth, nHeight, 1, 1, ANDbits);
   if(!IconInfo.hbmMask)
   {
     return (HICON)0;
   }
-
-  if (cBitsPixel == 1)
+  IconInfo.hbmColor = CreateBitmap(nWidth, nHeight, cPlanes, cBitsPixel, XORbits);
+  if(!IconInfo.hbmColor)
   {
-    IconInfo.hbmColor = (HBITMAP)0;
-  }
-  else
-  {
-    IconInfo.hbmColor = CreateBitmap(nWidth, nHeight, cPlanes, cBitsPixel, XORbits);
-    if(!IconInfo.hbmColor)
-    { 
-       DeleteObject(IconInfo.hbmMask);
-       return (HICON)0;
-    }
+    DeleteObject(IconInfo.hbmMask);
+    return (HICON)0;
   }
 
   return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
@@ -223,14 +199,14 @@ CreateIcon(
  * @implemented
  */
 HICON
-WINAPI
+STDCALL
 CreateIconFromResource(
   PBYTE presbits,
   DWORD dwResSize,
   BOOL fIcon,
   DWORD dwVer)
 {
-  return CreateIconFromResourceEx(presbits, dwResSize, fIcon, dwVer, 0, 0, LR_DEFAULTSIZE|LR_SHARED );
+  return CreateIconFromResourceEx(presbits, dwResSize, fIcon, dwVer, 0, 0, 0);
 }
 
 
@@ -238,7 +214,7 @@ CreateIconFromResource(
  * @implemented
  */
 HICON
-WINAPI
+STDCALL
 CreateIconFromResourceEx(
   PBYTE pbIconBits,
   DWORD cbIconBits,
@@ -266,15 +242,15 @@ CreateIconFromResourceEx(
   }
   */
 
-  TRACE("dwVersion, cxDesired, cyDesired are all ignored in this implementation!\n");
+  DPRINT("dwVersion, cxDesired, cyDesired are all ignored in this implementation!\n");
 
   if (! fIcon)
     {
       wXHotspot = *(WORD*)pbIconBits;
-      pbIconBits += sizeof(WORD);
+      pbIconBits+=sizeof(WORD);
       wYHotspot = *(WORD*)pbIconBits;
-      pbIconBits += sizeof(WORD);
-      cbIconBits -= 2 * sizeof(WORD);
+      pbIconBits+=sizeof(WORD);
+      cbIconBits-=2*sizeof(WORD);
     }
   else
     {
@@ -290,7 +266,7 @@ CreateIconFromResourceEx(
     }
   memcpy(SafeIconImage, pbIconBits, cbIconBits);
 
-  /* take into acount the original height was for both the AND and XOR images */
+  /* take into acount the origonal height was for both the AND and XOR images */
   if(fIcon)
     SafeIconImage->icHeader.biHeight /= 2;
 
@@ -311,8 +287,6 @@ CreateIconFromResourceEx(
   Data = (PBYTE)SafeIconImage + HeaderSize;
 
   /* get a handle to the screen dc, the icon we create is going to be compatable with this */
-  // FIXME!!! This is a victim of the Win32k Initialization BUG!!!!!
-  //hScreenDc = CreateDCW(NULL, NULL, NULL, NULL);
   hScreenDc = CreateCompatibleDC(NULL);
   if (hScreenDc == NULL)
     {
@@ -335,12 +309,11 @@ CreateIconFromResourceEx(
  * @implemented
  */
 HICON
-WINAPI
+STDCALL
 CreateIconIndirect(PICONINFO IconInfo)
 {
   BITMAP ColorBitmap;
   BITMAP MaskBitmap;
-  HBITMAP hbmTemp;
 
   if(!IconInfo)
   {
@@ -352,26 +325,20 @@ CreateIconIndirect(PICONINFO IconInfo)
   {
     return (HICON)0;
   }
-
-  /* Try to get color bitmap */
-  if (GetObjectW(IconInfo->hbmColor, sizeof(BITMAP), &ColorBitmap))
+  /* FIXME - does there really *have* to be a color bitmap? monochrome cursors don't have one */
+  if(IconInfo->hbmColor && !GetObjectW(IconInfo->hbmColor, sizeof(BITMAP), &ColorBitmap))
   {
-     /* Compare size of color and mask bitmap*/
-     if (ColorBitmap.bmWidth != MaskBitmap.bmWidth ||
-        ColorBitmap.bmHeight != MaskBitmap.bmHeight)
-     {
-        ERR("Color and mask size are different!");
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return (HICON)0;
-     }
-     /* Check if color and mask are switched and switch them back */
-     if (MaskBitmap.bmBitsPixel != 1 && ColorBitmap.bmBitsPixel == 1)
-     {
-        hbmTemp = IconInfo->hbmMask;
-        IconInfo->hbmMask = IconInfo->hbmColor;
-        IconInfo->hbmColor = hbmTemp;
-     }
+    return (HICON)0;
   }
+
+  /* FIXME - i doubt this is right (monochrome cursors */
+  /*if(ColorBitmap.bmWidth != MaskBitmap.bmWidth ||
+     ColorBitmap.bmHeight != MaskBitmap.bmWidth)
+  {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return (HICON)0;
+  }*/
+
   return (HICON)NtUserCreateCursorIconHandle(IconInfo, TRUE);
 }
 
@@ -380,11 +347,11 @@ CreateIconIndirect(PICONINFO IconInfo)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DestroyIcon(
   HICON hIcon)
 {
-  return (BOOL)NtUserDestroyCursor((HANDLE)hIcon, 0);
+  return (BOOL)NtUserDestroyCursorIcon((HANDLE)hIcon, 0);
 }
 
 
@@ -392,7 +359,7 @@ DestroyIcon(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DrawIcon(
   HDC hDC,
   int X,
@@ -406,7 +373,7 @@ DrawIcon(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DrawIconEx(
   HDC hdc,
   int xLeft,
@@ -428,12 +395,13 @@ DrawIconEx(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetIconInfo(
   HICON hIcon,
   PICONINFO IconInfo)
 {
-  return NtUserGetIconInfo((HANDLE)hIcon, IconInfo, 0, 0, 0, 0);
+  /* FIXME - copy bitmaps */
+  return (BOOL)NtUserGetCursorIconInfo((HANDLE)hIcon, IconInfo);
 }
 
 
@@ -441,7 +409,7 @@ GetIconInfo(
  * @implemented
  */
 HICON
-WINAPI
+STDCALL
 LoadIconA(
   HINSTANCE hInstance,
   LPCSTR lpIconName)
@@ -454,7 +422,7 @@ LoadIconA(
  * @implemented
  */
 HICON
-WINAPI
+STDCALL
 LoadIconW(
   HINSTANCE hInstance,
   LPCWSTR lpIconName)
@@ -467,255 +435,162 @@ LoadIconW(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 LookupIconIdFromDirectory(
   PBYTE presbits,
   BOOL fIcon)
 {
-    return LookupIconIdFromDirectoryEx(presbits,
-                                       fIcon,
-                                       fIcon ? GetSystemMetrics(SM_CXICON) : GetSystemMetrics(SM_CXCURSOR),
-                                       fIcon ? GetSystemMetrics(SM_CYICON) : GetSystemMetrics(SM_CYCURSOR),
-                                       LR_DEFAULTCOLOR);
+    return LookupIconIdFromDirectoryEx( presbits, fIcon,
+	   fIcon ? GetSystemMetrics(SM_CXICON) : GetSystemMetrics(SM_CXCURSOR),
+	   fIcon ? GetSystemMetrics(SM_CYICON) : GetSystemMetrics(SM_CYCURSOR), LR_DEFAULTCOLOR );
 }
 
+/* Ported from WINE20030408 */
+GRPCURSORICONDIRENTRY*
+CURSORICON_FindBestCursor( GRPCURSORICONDIR *dir, int width, int height, int colors)
+{
+    int i;
+    GRPCURSORICONDIRENTRY *entry, *bestEntry = NULL;
+    UINT iTotalDiff, iXDiff=0, iYDiff=0, iColorDiff;
+    UINT iTempXDiff, iTempYDiff, iTempColorDiff;
 
+    if (dir->idCount < 1)
+    {
+        DPRINT("Empty directory!\n");
+        return NULL;
+    }
+    if (dir->idCount == 1)
+      return &dir->idEntries[0];  /* No choice... */
 
+    /* Find Best Fit */
+    iTotalDiff = 0xFFFFFFFF;
+    iColorDiff = 0xFFFFFFFF;
+    for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
+    {
+		iTempXDiff = abs(width - entry->ResInfo.icon.bWidth);
+		iTempYDiff = abs(height - entry->ResInfo.icon.bHeight);
 
+        if(iTotalDiff > (iTempXDiff + iTempYDiff))
+        {
+            iXDiff = iTempXDiff;
+            iYDiff = iTempYDiff;
+            iTotalDiff = iXDiff + iYDiff;
+        }
+    }
 
+    /* Find Best Colors for Best Fit */
+    for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
+    {
+        if(abs(width - entry->ResInfo.icon.bWidth) == (int) iXDiff &&
+            abs(height - entry->ResInfo.icon.bHeight) == (int) iYDiff)
+        {
+            iTempColorDiff = abs(colors - entry->ResInfo.icon.bColorCount);
+
+            if(iColorDiff > iTempColorDiff)
+        	{
+            	bestEntry = entry;
+                iColorDiff = iTempColorDiff;
+        	}
+        }
+    }
+
+    return bestEntry;
+}
+
+/* Ported from WINE20030408 */
+GRPCURSORICONDIRENTRY*
+CURSORICON_FindBestIcon( GRPCURSORICONDIR *dir, int width, int height, int colorbits)
+{
+    int i;
+    GRPCURSORICONDIRENTRY *entry, *bestEntry = NULL;
+    UINT iTotalDiff, iXDiff=0, iYDiff=0, iColorDiff;
+    UINT iTempXDiff, iTempYDiff, iTempColorDiff;
+
+    if (dir->idCount < 1)
+    {
+        DPRINT("Empty directory!\n");
+        return NULL;
+    }
+    if (dir->idCount == 1)
+      return &dir->idEntries[0];  /* No choice... */
+
+    /* Find Best Fit */
+    iTotalDiff = 0xFFFFFFFF;
+    iColorDiff = 0xFFFFFFFF;
+    for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
+      {
+	iTempXDiff = abs(width - entry->ResInfo.icon.bWidth);
+
+	iTempYDiff = abs(height - entry->ResInfo.icon.bHeight);
+
+        if(iTotalDiff > (iTempXDiff + iTempYDiff))
+        {
+            iXDiff = iTempXDiff;
+            iYDiff = iTempYDiff;
+            iTotalDiff = iXDiff + iYDiff;
+        }
+      }
+
+    /* Find Best Colors for Best Fit */
+    for (i = 0, entry = &dir->idEntries[0]; i < dir->idCount; i++,entry++)
+      {
+        if(abs(width - entry->ResInfo.icon.bWidth) == (int) iXDiff &&
+           abs(height - entry->ResInfo.icon.bHeight) == (int) iYDiff)
+        {
+            iTempColorDiff = abs(colorbits - entry->wBitCount);
+            if(iColorDiff > iTempColorDiff)
+            {
+                bestEntry = entry;
+                iColorDiff = iTempColorDiff;
+            }
+        }
+    }
+
+    return bestEntry;
+}
+
+/* Ported from WINE20030408 */
 /*
- *  The following macro function accounts for the irregularities of
- *   accessing cursor and icon resources in files and resource entries.
+ * @implemented
  */
-typedef BOOL
-(*fnGetCIEntry)(LPVOID dir, int n, int *width, int *height, int *bits );
-
-/**********************************************************************
- *	    CURSORICON_FindBestIcon
- *
- * Find the icon closest to the requested size and number of colors.
- */
-static int
-CURSORICON_FindBestIcon(LPVOID dir,
-                        fnGetCIEntry get_entry,
-                        int Width,
-                        int Height,
-                        int ColorBits)
+INT STDCALL
+LookupIconIdFromDirectoryEx(
+  PBYTE presbits,
+  BOOL fIcon,
+  int cxDesired,
+  int cyDesired,
+  UINT Flags)
 {
-    int i, cx, cy, Bits, BestBits = 0, BestEntry = -1;
-    UINT iTotalDiff, iXDiff=0, iYDiff=0, iColorDiff;
-    UINT iTempXDiff, iTempYDiff, iTempColorDiff;
+   GRPCURSORICONDIR *dir = (GRPCURSORICONDIR*)presbits;
+   UINT retVal = 0;
 
-    /* Find Best Fit */
-    iTotalDiff = 0xFFFFFFFF;
-    iColorDiff = 0xFFFFFFFF;
-    for (i = 0; get_entry(dir, i, &cx, &cy, &Bits); i++ )
-    {
-        iTempXDiff = abs(Width - cx);
-        iTempYDiff = abs(Height - cy);
+   if (dir && !dir->idReserved && (IMAGE_ICON == dir->idType || IMAGE_CURSOR == dir->idType))
+   {
+      GRPCURSORICONDIRENTRY *entry;
+      HDC hdc;
+      int ColorBits;
 
-        if(iTotalDiff > (iTempXDiff + iTempYDiff))
-        {
-            iXDiff = iTempXDiff;
-            iYDiff = iTempYDiff;
-            iTotalDiff = iXDiff + iYDiff;
-        }
-    }
+      hdc = CreateICW(NULL, NULL, NULL, NULL);
+      if (Flags & LR_MONOCHROME)
+      {
+         ColorBits = 1;
+      }
+      else
+      {
+         ColorBits = GetDeviceCaps(hdc, BITSPIXEL);
+         if (ColorBits > 8)
+            ColorBits = 8;
+      }
+      DeleteDC(hdc);
 
-    /* Find Best Colors for Best Fit */
-    for (i = 0; get_entry(dir, i, &cx, &cy, &Bits); i++ )
-    {
-        if(abs(Width - cx) == iXDiff && abs(Height - cy) == iYDiff)
-        {
-            iTempColorDiff = abs(ColorBits - Bits);
-            if(iColorDiff > iTempColorDiff)
-            {
-                BestEntry = i;
-                BestBits = Bits;
-                iColorDiff = iTempColorDiff;
-            }
-        }
-    }
+      entry = CURSORICON_FindBestIcon( dir, cxDesired, cyDesired, ColorBits );
 
-    TRACE("Best Icon: ResId: %d, bits : %d\n", BestEntry, BestBits);
-
-    return BestEntry;
-}
-
-
-
-/**********************************************************************
- *	    CURSORICON_FindBestCursor
- *
- * Find the cursor closest to the requested size.
- * FIXME: parameter 'color' ignored and entries with more than 1 bpp
- *        ignored too
- */
-static int
-CURSORICON_FindBestCursor(LPVOID dir,
-                          fnGetCIEntry get_entry,
-                          int Width,
-                          int Height,
-                          int ColorBits)
-{
-    int i, cx, cy, Bits, BestBits = 0, BestEntry = -1;
-    UINT iTotalDiff, iXDiff=0, iYDiff=0, iColorDiff;
-    UINT iTempXDiff, iTempYDiff, iTempColorDiff;
-
-    /* Find Best Fit */
-    iTotalDiff = 0xFFFFFFFF;
-    iColorDiff = 0xFFFFFFFF;
-    for (i = 0; get_entry(dir, i, &cx, &cy, &Bits); i++ )
-    {
-        iTempXDiff = abs(Width - cx);
-        iTempYDiff = abs(Height - cy);
-
-        if(iTotalDiff > (iTempXDiff + iTempYDiff))
-        {
-            iXDiff = iTempXDiff;
-            iYDiff = iTempYDiff;
-            iTotalDiff = iXDiff + iYDiff;
-        }
-    }
-
-    /* Find Best Colors for Best Fit */
-    for (i = 0; get_entry(dir, i, &cx, &cy, &Bits); i++ )
-    {
-        if(abs(Width - cx) == iXDiff && abs(Height - cy) == iYDiff)
-        {
-            iTempColorDiff = abs(ColorBits - Bits);
-            if(iColorDiff > iTempColorDiff)
-            {
-                BestEntry = i;
-                BestBits = Bits;
-                iColorDiff = iTempColorDiff;
-            }
-        }
-    }
-
-    TRACE("Best Cursor: ResId: %d, bits : %d\n", BestEntry, BestBits);
-
-    return BestEntry;
-}
-
-
-static BOOL
-CURSORICON_GetResIconEntry(LPVOID dir,
-                           int n,
-                           int *Width,
-                           int *Height,
-                           int *Bits)
-{
-    GRPCURSORICONDIR *ResDir = dir;
-    ICONRESDIR *Icon;
-
-    if (ResDir->idCount <= n)
-        return FALSE;
-
-    Icon = &ResDir->idEntries[n].ResInfo.icon;
-    *Width = Icon->bWidth;
-    *Height = Icon->bHeight;
-    *Bits = ResDir->idEntries[n].wBitCount;
-    return TRUE;
-}
-
-static BOOL
-CURSORICON_GetResCursorEntry(LPVOID dir,
-                             int n,
-                             int *Width,
-                             int *Height,
-                             int *Bits)
-{
-    GRPCURSORICONDIR *ResDir = dir;
-    CURSORRESDIR *Cursor;
-
-    if (ResDir->idCount <= n)
-        return FALSE;
-
-    Cursor = &ResDir->idEntries[n].ResInfo.cursor;
-    *Width = Cursor->wWidth;
-    *Height = Cursor->wHeight;
-    *Bits = ResDir->idEntries[n].wBitCount;
-    return TRUE;
-}
-
-static GRPCURSORICONDIRENTRY *
-CURSORICON_FindBestIconRes(GRPCURSORICONDIR * dir,
-                           int Width,
-                           int Height,
-                           int ColorBits)
-{
-    int n;
-    n = CURSORICON_FindBestIcon(dir,
-                                CURSORICON_GetResIconEntry,
-                                Width,
-                                Height,
-                                ColorBits);
-    if (n < 0)
-        return NULL;
-
-    return &dir->idEntries[n];
-}
-
-static GRPCURSORICONDIRENTRY *
-CURSORICON_FindBestCursorRes(GRPCURSORICONDIR *dir,
-                             int Width,
-                             int Height,
-                             int ColorBits)
-{
-    int n;
-    n = CURSORICON_FindBestCursor(dir,
-                                  CURSORICON_GetResCursorEntry,
-                                  Width,
-                                  Height,
-                                  ColorBits);
-    if (n < 0)
-        return NULL;
-
-    return &dir->idEntries[n];
-}
-
-
-INT WINAPI
-LookupIconIdFromDirectoryEx(PBYTE xdir,
-                            BOOL bIcon,
-                            INT width,
-                            INT height,
-                            UINT cFlag)
-{
-    GRPCURSORICONDIR *dir = (GRPCURSORICONDIR*)xdir;
-    UINT retVal = 0;
-
-    GetConnected();
-
-    if(dir && !dir->idReserved && (IMAGE_ICON == dir->idType || IMAGE_CURSOR == dir->idType))
-    {
-        GRPCURSORICONDIRENTRY *entry = NULL;
-        int ColorBits;
-
-        if (cFlag & LR_MONOCHROME)
-        {
-            ColorBits = 1;
-        }
-        else if (cFlag & LR_VGACOLOR)
-        {
-            ColorBits = 4;
-        }
-        else
-        {
-            ColorBits = gpsi->BitsPixel;
-        }
-
-        if(bIcon)
-            entry = CURSORICON_FindBestIconRes(dir, width, height, ColorBits);
-        else
-            entry = CURSORICON_FindBestCursorRes(dir, width, height, 1);
-
-        if (entry)
-            retVal = entry->nID;
-    }
-    else
-        WARN("%s() : Invalid resource directory\n", __FUNCTION__);
-
-    return retVal;
+      if (entry)
+         retVal = entry->nID;
+   }
+   else
+   {
+       DbgPrint("invalid resource directory\n");
+   }
+   return retVal;
 }

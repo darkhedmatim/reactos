@@ -153,7 +153,7 @@ PUCHAR FsRtlLegalAnsiCharacterArray = LegalAnsiCharacterArray;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-BOOLEAN
+VOID
 NTAPI
 FsRtlInitSystem(VOID)
 {
@@ -172,15 +172,13 @@ FsRtlInitSystem(VOID)
     FsRtlPagingIoResources = FsRtlAllocatePoolWithTag(NonPagedPool,
                                                       FSRTL_MAX_RESOURCES *
                                                       sizeof(ERESOURCE),
-                                                      'eRsF');
+                                                      TAG('F', 's', 'R', 'e'));
 
     /* Initialize the Resources */
     for (i = 0; i < FSRTL_MAX_RESOURCES; i++)
     {
         ExInitializeResource(&FsRtlPagingIoResources[i]);
     }
-
-    return TRUE;
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/

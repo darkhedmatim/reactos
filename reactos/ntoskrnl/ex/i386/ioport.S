@@ -167,7 +167,7 @@ _WRITE_REGISTER_BUFFER_UCHAR@12:
     /* Flush posted write buffers */
     lock or [esp+4], ecx
 
-    /* Restore volatiles and return */
+    /* Restole volatiles and return */
     mov edi, edx
     mov esi, eax
     ret 12
@@ -189,7 +189,7 @@ _WRITE_REGISTER_BUFFER_USHORT@12:
     /* Flush posted write buffers */
     lock or [esp+4], ecx
 
-    /* Restore volatiles and return */
+    /* Restole volatiles and return */
     mov edi, edx
     mov esi, eax
     ret 12
@@ -211,7 +211,7 @@ _WRITE_REGISTER_BUFFER_ULONG@12:
     /* Flush posted write buffers */
     lock or [esp+4], ecx
 
-    /* Restore volatiles and return */
+    /* Restole volatiles and return */
     mov edi, edx
     mov esi, eax
     ret 12

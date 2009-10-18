@@ -35,7 +35,7 @@ PCCRL_CONTEXT WINAPI CertCreateCRLContext(DWORD dwCertEncodingType,
     PCRL_INFO crlInfo = NULL;
     DWORD size = 0;
 
-    TRACE("(%08x, %p, %d)\n", dwCertEncodingType, pbCrlEncoded,
+    TRACE("(%08lx, %p, %ld)\n", dwCertEncodingType, pbCrlEncoded,
      cbCrlEncoded);
 
     if ((dwCertEncodingType & CERT_ENCODING_TYPE_MASK) != X509_ASN_ENCODING)
@@ -45,12 +45,12 @@ PCCRL_CONTEXT WINAPI CertCreateCRLContext(DWORD dwCertEncodingType,
     }
     ret = CryptDecodeObjectEx(dwCertEncodingType, X509_CERT_CRL_TO_BE_SIGNED,
      pbCrlEncoded, cbCrlEncoded, CRYPT_DECODE_ALLOC_FLAG, NULL,
-     &crlInfo, &size);
+     (BYTE *)&crlInfo, &size);
     if (ret)
     {
         BYTE *data = NULL;
 
-        crl = Context_CreateDataContext(sizeof(CRL_CONTEXT));
+        crl = (PCRL_CONTEXT)Context_CreateDataContext(sizeof(CRL_CONTEXT));
         if (!crl)
             goto end;
         data = CryptMemAlloc(cbCrlEncoded);
@@ -69,7 +69,7 @@ PCCRL_CONTEXT WINAPI CertCreateCRLContext(DWORD dwCertEncodingType,
     }
 
 end:
-    return crl;
+    return (PCCRL_CONTEXT)crl;
 }
 
 BOOL WINAPI CertAddEncodedCRLToStore(HCERTSTORE hCertStore,
@@ -80,7 +80,7 @@ BOOL WINAPI CertAddEncodedCRLToStore(HCERTSTORE hCertStore,
      pbCrlEncoded, cbCrlEncoded);
     BOOL ret;
 
-    TRACE("(%p, %08x, %p, %d, %08x, %p)\n", hCertStore, dwCertEncodingType,
+    TRACE("(%p, %08lx, %p, %ld, %08lx, %p)\n", hCertStore, dwCertEncodingType,
      pbCrlEncoded, cbCrlEncoded, dwAddDisposition, ppCrlContext);
 
     if (crl)
@@ -110,7 +110,7 @@ static BOOL compare_crl_issued_by(PCCRL_CONTEXT pCrlContext, DWORD dwType,
 
     if (pvPara)
     {
-        PCCERT_CONTEXT issuer = pvPara;
+        PCCERT_CONTEXT issuer = (PCCERT_CONTEXT)pvPara;
 
         ret = CertCompareCertificateName(issuer->dwCertEncodingType,
          &issuer->pCertInfo->Issuer, &pCrlContext->pCrlInfo->Issuer);
@@ -127,7 +127,7 @@ static BOOL compare_crl_existing(PCCRL_CONTEXT pCrlContext, DWORD dwType,
 
     if (pvPara)
     {
-        PCCRL_CONTEXT crl = pvPara;
+        PCCRL_CONTEXT crl = (PCCRL_CONTEXT)pvPara;
 
         ret = CertCompareCertificateName(pCrlContext->dwCertEncodingType,
          &pCrlContext->pCrlInfo->Issuer, &crl->pCrlInfo->Issuer);
@@ -144,7 +144,7 @@ PCCRL_CONTEXT WINAPI CertFindCRLInStore(HCERTSTORE hCertStore,
     PCCRL_CONTEXT ret;
     CrlCompareFunc compare;
 
-    TRACE("(%p, %d, %d, %d, %p, %p)\n", hCertStore, dwCertEncodingType,
+    TRACE("(%p, %ld, %ld, %ld, %p, %p)\n", hCertStore, dwCertEncodingType,
 	 dwFindFlags, dwFindType, pvFindPara, pPrevCrlContext);
 
     switch (dwFindType)
@@ -159,7 +159,7 @@ PCCRL_CONTEXT WINAPI CertFindCRLInStore(HCERTSTORE hCertStore,
         compare = compare_crl_existing;
         break;
     default:
-        FIXME("find type %08x unimplemented\n", dwFindType);
+        FIXME("find type %08lx unimplemented\n", dwFindType);
         compare = NULL;
     }
 
@@ -192,7 +192,7 @@ PCCRL_CONTEXT WINAPI CertGetCRLFromStore(HCERTSTORE hCertStore,
      CERT_STORE_DELTA_CRL_FLAG;
     PCCRL_CONTEXT ret;
 
-    TRACE("(%p, %p, %p, %08x)\n", hCertStore, pIssuerContext, pPrevCrlContext,
+    TRACE("(%p, %p, %p, %08lx)\n", hCertStore, pIssuerContext, pPrevCrlContext,
      *pdwFlags);
 
     if (*pdwFlags & ~supportedFlags)
@@ -234,7 +234,7 @@ PCCRL_CONTEXT WINAPI CertDuplicateCRLContext(PCCRL_CONTEXT pCrlContext)
 
 static void CrlDataContext_Free(void *context)
 {
-    PCRL_CONTEXT crlContext = context;
+    PCRL_CONTEXT crlContext = (PCRL_CONTEXT)context;
 
     CryptMemFree(crlContext->pbCrlEncoded);
     LocalFree(crlContext->pCrlInfo);
@@ -254,10 +254,10 @@ DWORD WINAPI CertEnumCRLContextProperties(PCCRL_CONTEXT pCRLContext,
  DWORD dwPropId)
 {
     PCONTEXT_PROPERTY_LIST properties = Context_GetProperties(
-     pCRLContext, sizeof(CRL_CONTEXT));
+     (void *)pCRLContext, sizeof(CRL_CONTEXT));
     DWORD ret;
 
-    TRACE("(%p, %d)\n", pCRLContext, dwPropId);
+    TRACE("(%p, %ld)\n", pCRLContext, dwPropId);
 
     if (properties)
         ret = ContextPropertyList_EnumPropIDs(properties, dwPropId);
@@ -266,16 +266,16 @@ DWORD WINAPI CertEnumCRLContextProperties(PCCRL_CONTEXT pCRLContext,
     return ret;
 }
 
-static BOOL CRLContext_SetProperty(PCCRL_CONTEXT context, DWORD dwPropId,
-                                   DWORD dwFlags, const void *pvData);
+static BOOL WINAPI CRLContext_SetProperty(void *context, DWORD dwPropId,
+ DWORD dwFlags, const void *pvData);
 
-static BOOL CRLContext_GetHashProp(PCCRL_CONTEXT context, DWORD dwPropId,
+static BOOL CRLContext_GetHashProp(void *context, DWORD dwPropId,
  ALG_ID algID, const BYTE *toHash, DWORD toHashLen, void *pvData,
  DWORD *pcbData)
 {
     BOOL ret = CryptHashCertificate(0, algID, 0, toHash, toHashLen, pvData,
      pcbData);
-    if (ret && pvData)
+    if (ret)
     {
         CRYPT_DATA_BLOB blob = { *pcbData, pvData };
 
@@ -284,15 +284,16 @@ static BOOL CRLContext_GetHashProp(PCCRL_CONTEXT context, DWORD dwPropId,
     return ret;
 }
 
-static BOOL CRLContext_GetProperty(PCCRL_CONTEXT context, DWORD dwPropId,
-                                   void *pvData, DWORD *pcbData)
+static BOOL WINAPI CRLContext_GetProperty(void *context, DWORD dwPropId,
+ void *pvData, DWORD *pcbData)
 {
+    PCCRL_CONTEXT pCRLContext = (PCCRL_CONTEXT)context;
     PCONTEXT_PROPERTY_LIST properties =
      Context_GetProperties(context, sizeof(CRL_CONTEXT));
     BOOL ret;
     CRYPT_DATA_BLOB blob;
 
-    TRACE("(%p, %d, %p, %p)\n", context, dwPropId, pvData, pcbData);
+    TRACE("(%p, %ld, %p, %p)\n", context, dwPropId, pvData, pcbData);
 
     if (properties)
         ret = ContextPropertyList_FindProperty(properties, dwPropId, &blob);
@@ -301,17 +302,20 @@ static BOOL CRLContext_GetProperty(PCCRL_CONTEXT context, DWORD dwPropId,
     if (ret)
     {
         if (!pvData)
+        {
             *pcbData = blob.cbData;
+            ret = TRUE;
+        }
         else if (*pcbData < blob.cbData)
         {
             SetLastError(ERROR_MORE_DATA);
             *pcbData = blob.cbData;
-            ret = FALSE;
         }
         else
         {
             memcpy(pvData, blob.pbData, blob.cbData);
             *pcbData = blob.cbData;
+            ret = TRUE;
         }
     }
     else
@@ -321,12 +325,12 @@ static BOOL CRLContext_GetProperty(PCCRL_CONTEXT context, DWORD dwPropId,
         {
         case CERT_SHA1_HASH_PROP_ID:
             ret = CRLContext_GetHashProp(context, dwPropId, CALG_SHA1,
-                                         context->pbCrlEncoded, context->cbCrlEncoded, pvData,
+             pCRLContext->pbCrlEncoded, pCRLContext->cbCrlEncoded, pvData,
              pcbData);
             break;
         case CERT_MD5_HASH_PROP_ID:
             ret = CRLContext_GetHashProp(context, dwPropId, CALG_MD5,
-                                         context->pbCrlEncoded, context->cbCrlEncoded, pvData,
+             pCRLContext->pbCrlEncoded, pCRLContext->cbCrlEncoded, pvData,
              pcbData);
             break;
         default:
@@ -342,7 +346,7 @@ BOOL WINAPI CertGetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
 {
     BOOL ret;
 
-    TRACE("(%p, %d, %p, %p)\n", pCRLContext, dwPropId, pvData, pcbData);
+    TRACE("(%p, %ld, %p, %p)\n", pCRLContext, dwPropId, pvData, pcbData);
 
     switch (dwPropId)
     {
@@ -367,29 +371,26 @@ BOOL WINAPI CertGetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
         }
         else
         {
-            if (pCRLContext->hCertStore)
-                ret = CertGetStoreProperty(pCRLContext->hCertStore, dwPropId,
-                 pvData, pcbData);
-            else
-                *(DWORD *)pvData = 0;
+            *(DWORD *)pvData =
+             CertStore_GetAccessState(pCRLContext->hCertStore);
             ret = TRUE;
         }
         break;
     default:
-        ret = CRLContext_GetProperty(pCRLContext, dwPropId, pvData,
+        ret = CRLContext_GetProperty((void *)pCRLContext, dwPropId, pvData,
          pcbData);
     }
     return ret;
 }
 
-static BOOL CRLContext_SetProperty(PCCRL_CONTEXT context, DWORD dwPropId,
+static BOOL WINAPI CRLContext_SetProperty(void *context, DWORD dwPropId,
  DWORD dwFlags, const void *pvData)
 {
     PCONTEXT_PROPERTY_LIST properties =
-     Context_GetProperties(context, sizeof(CRL_CONTEXT));
+     Context_GetProperties(context, sizeof(CERT_CONTEXT));
     BOOL ret;
 
-    TRACE("(%p, %d, %08x, %p)\n", context, dwPropId, dwFlags, pvData);
+    TRACE("(%p, %ld, %08lx, %p)\n", context, dwPropId, dwFlags, pvData);
 
     if (!properties)
         ret = FALSE;
@@ -428,10 +429,10 @@ static BOOL CRLContext_SetProperty(PCCRL_CONTEXT context, DWORD dwPropId,
         }
         case CERT_DATE_STAMP_PROP_ID:
             ret = ContextPropertyList_SetProperty(properties, dwPropId,
-             pvData, sizeof(FILETIME));
+             (LPBYTE)pvData, sizeof(FILETIME));
             break;
         default:
-            FIXME("%d: stub\n", dwPropId);
+            FIXME("%ld: stub\n", dwPropId);
             ret = FALSE;
         }
     }
@@ -444,7 +445,7 @@ BOOL WINAPI CertSetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
 {
     BOOL ret;
 
-    TRACE("(%p, %d, %08x, %p)\n", pCRLContext, dwPropId, dwFlags, pvData);
+    TRACE("(%p, %ld, %08lx, %p)\n", pCRLContext, dwPropId, dwFlags, pvData);
 
     /* Handle special cases for "read-only"/invalid prop IDs.  Windows just
      * crashes on most of these, I'll be safer.
@@ -459,7 +460,8 @@ BOOL WINAPI CertSetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
         SetLastError(E_INVALIDARG);
         return FALSE;
     }
-    ret = CRLContext_SetProperty(pCRLContext, dwPropId, dwFlags, pvData);
+    ret = CRLContext_SetProperty((void *)pCRLContext, dwPropId, dwFlags,
+     pvData);
     TRACE("returning %d\n", ret);
     return ret;
 }
@@ -467,11 +469,11 @@ BOOL WINAPI CertSetCRLContextProperty(PCCRL_CONTEXT pCRLContext,
 BOOL WINAPI CertIsValidCRLForCertificate(PCCERT_CONTEXT pCert,
  PCCRL_CONTEXT pCrl, DWORD dwFlags, void *pvReserved)
 {
-    TRACE("(%p, %p, %08x, %p)\n", pCert, pCrl, dwFlags, pvReserved);
+    TRACE("(%p, %p, %08lx, %p)\n", pCert, pCrl, dwFlags, pvReserved);
     return TRUE;
 }
 
-static PCRL_ENTRY CRYPT_FindCertificateInCRL(PCERT_INFO cert, const CRL_INFO *crl)
+static PCRL_ENTRY CRYPT_FindCertificateInCRL(PCERT_INFO cert, PCRL_INFO crl)
 {
     DWORD i;
     PCRL_ENTRY entry = NULL;
@@ -487,7 +489,7 @@ BOOL WINAPI CertFindCertificateInCRL(PCCERT_CONTEXT pCert,
  PCCRL_CONTEXT pCrlContext, DWORD dwFlags, void *pvReserved,
  PCRL_ENTRY *ppCrlEntry)
 {
-    TRACE("(%p, %p, %08x, %p, %p)\n", pCert, pCrlContext, dwFlags, pvReserved,
+    TRACE("(%p, %p, %08lx, %p, %p)\n", pCert, pCrlContext, dwFlags, pvReserved,
      ppCrlEntry);
 
     *ppCrlEntry = CRYPT_FindCertificateInCRL(pCert->pCertInfo,
@@ -501,7 +503,7 @@ BOOL WINAPI CertVerifyCRLRevocation(DWORD dwCertEncodingType,
     DWORD i;
     PCRL_ENTRY entry = NULL;
 
-    TRACE("(%08x, %p, %d, %p)\n", dwCertEncodingType, pCertId, cCrlInfo,
+    TRACE("(%08lx, %p, %ld, %p)\n", dwCertEncodingType, pCertId, cCrlInfo,
      rgpCrlInfo);
 
     for (i = 0; !entry && i < cCrlInfo; i++)
@@ -517,7 +519,10 @@ LONG WINAPI CertVerifyCRLTimeValidity(LPFILETIME pTimeToVerify,
 
     if (!pTimeToVerify)
     {
-        GetSystemTimeAsFileTime(&fileTime);
+        SYSTEMTIME sysTime;
+
+        GetSystemTime(&sysTime);
+        SystemTimeToFileTime(&sysTime, &fileTime);
         pTimeToVerify = &fileTime;
     }
     if ((ret = CompareFileTime(pTimeToVerify, &pCrlInfo->ThisUpdate)) >= 0)

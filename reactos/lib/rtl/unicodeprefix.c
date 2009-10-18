@@ -3,7 +3,7 @@
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Unicode Prefix implementation
  * FILE:              lib/rtl/unicodeprefix.c
- * PROGRAMMER:        Alex Ionescu (alex@relsoft.net)
+ * PROGRAMMER:        Alex Ionescu (alex@relsoft.net) 
  */
 
 /* INCLUDES *****************************************************************/
@@ -25,6 +25,7 @@ typedef USHORT NODE_TYPE_CODE;
 
 /* FUNCTIONS ***************************************************************/
 
+static
 ULONG
 NTAPI
 ComputeUnicodeNameLength(IN PUNICODE_STRING UnicodeName)
@@ -43,6 +44,7 @@ ComputeUnicodeNameLength(IN PUNICODE_STRING UnicodeName)
     return NamesFound;
 }
 
+static
 RTL_GENERIC_COMPARE_RESULTS
 NTAPI
 CompareUnicodeStrings(IN PUNICODE_STRING Prefix,
@@ -55,6 +57,7 @@ CompareUnicodeStrings(IN PUNICODE_STRING Prefix,
     ULONG i;
     WCHAR FoundPrefix, FoundString;
     PWCHAR p, p1;
+    DPRINT("CompareUnicodeStrings: %wZ %wZ\n", String, Prefix);
 
     /* Handle case noticed in npfs when Prefix = '\' and name starts with '\' */
     if ((PrefixLength == 1) &&
@@ -133,7 +136,7 @@ CompareUnicodeStrings(IN PUNICODE_STRING Prefix,
         /* It's not a prefix, and it's shorter, so it's a less */
         return GenericLessThan;
     }
-
+    
     /* Check if the prefix is longer */
     if (PrefixLength > StringLength) return GenericGreaterThan;
 
@@ -154,9 +157,7 @@ RtlFindUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
     PUNICODE_PREFIX_TABLE_ENTRY CurrentEntry, PreviousEntry, Entry, NextEntry;
     PRTL_SPLAY_LINKS SplayLinks;
     RTL_GENERIC_COMPARE_RESULTS Result;
-
-    DPRINT("RtlFindUnicodePrefix(): Table %p, FullName %wZ, "
-        "CaseInsensitive %b\n", PrefixTable, FullName, CaseInsensitiveIndex);
+    DPRINT("RtlFindUnicodePrefix\n");
 
     /* Find out how many names there are */
     NameCount = ComputeUnicodeNameLength(FullName);
@@ -164,7 +165,7 @@ RtlFindUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
     /* Find the right spot where to start looking for this entry */
     PreviousEntry = (PUNICODE_PREFIX_TABLE_ENTRY)PrefixTable;
     CurrentEntry = PreviousEntry->NextPrefixTree;
-    while (CurrentEntry->NameLength > (CSHORT)NameCount)
+    while (CurrentEntry->NameLength > NameCount)
     {
         /* Not a match, move to the next entry */
         PreviousEntry = CurrentEntry;
@@ -174,17 +175,21 @@ RtlFindUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
     /* Loop every entry which has valid entries */
     while (CurrentEntry->NameLength)
     {
+        DPRINT("CurrentEntry->NameLength 0x%x\n", CurrentEntry->NameLength);
+
         /* Get the splay links and loop */
         SplayLinks = &CurrentEntry->Links;
         while (SplayLinks)
         {
             /* Get the entry */
+            DPRINT("SplayLinks %p\n", SplayLinks);
             Entry = CONTAINING_RECORD(SplayLinks,
                                       UNICODE_PREFIX_TABLE_ENTRY,
                                       Links);
 
             /* Do the comparison */
             Result = CompareUnicodeStrings(Entry->Prefix, FullName, 0);
+            DPRINT("Result 0x%x\n", Result);
             if (Result == GenericGreaterThan)
             {
                 /* Prefix is greater, so restart on the left child */
@@ -203,9 +208,10 @@ RtlFindUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
              * NOTE: An index of 0 means case-insensitive(ie, we'll be case
              * insensitive since index 0, ie, all the time)
              */
+            DPRINT("CaseInsensitiveIndex %lx\n", CaseInsensitiveIndex);
             if (!CaseInsensitiveIndex)
             {
-                /*
+                /* 
                  * Check if this entry was a child. We need to return the root,
                  * so if this entry was a child, we'll splay the tree and get
                  * the root, and set the current entry as a child.
@@ -236,6 +242,7 @@ RtlFindUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
                 }
 
                 /* Return the entry */
+                DPRINT("RtlFindUnicodePrefix: %p\n", Entry);
                 return Entry;
             }
 
@@ -251,28 +258,32 @@ RtlFindUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
                     (Result != GenericGreaterThan))
                 {
                     /* This is a positive match, return it */
+                    DPRINT("RtlFindUnicodePrefix: %p\n", NextEntry);
                     return NextEntry;
                 }
 
                 /* No match yet, continue looping the circular list */
                 NextEntry = NextEntry->CaseMatch;
+                DPRINT("NextEntry %p\n", NextEntry);
             } while (NextEntry != Entry);
 
             /*
              * If we got here, then we found a non-case-sensitive match, but
-             * we need to find a case-sensitive match, so we'll just keep
+             * we need to find a case-sensitive match, so we'll just keep 
              * searching the next tree (NOTE: we need to break out for this).
              */
             break;
         }
 
-        /* Splay links exhausted, move to next entry */
+        /* Splay links exausted, move to next entry */
         PreviousEntry = CurrentEntry;
         CurrentEntry = CurrentEntry->NextPrefixTree;
+        DPRINT("CurrentEntry %p\n", CurrentEntry);
     }
 
-    /* If we got here, nothing was found */
-    return NULL;
+	/* If we got here, nothing was found */
+    DPRINT("RtlFindUnicodePrefix: %p\n", NULL);
+	return NULL;
 }
 
 /*
@@ -282,10 +293,7 @@ VOID
 NTAPI
 RtlInitializeUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable)
 {
-    DPRINT("RtlInitializeUnicodePrefix(): Table %p\n",
-        PrefixTable);
-
-    /* Setup the table */
+	/* Setup the table */
     PrefixTable->NameLength = 0;
     PrefixTable->LastNextEntry = NULL;
     PrefixTable->NodeTypeCode = PFX_NTC_TABLE;
@@ -305,22 +313,20 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
     ULONG NameCount;
     RTL_GENERIC_COMPARE_RESULTS Result;
     PRTL_SPLAY_LINKS SplayLinks;
-
-    DPRINT("RtlInsertUnicodePrefix(): Table %p, Prefix %wZ, "
-        "TableEntry %p\n", PrefixTable, Prefix, PrefixTableEntry);
+    DPRINT("RtlInsertUnicodePrefix\n");
 
     /* Find out how many names there are */
     NameCount = ComputeUnicodeNameLength(Prefix);
 
     /* Set up the initial entry data */
-    PrefixTableEntry->NameLength = (CSHORT)NameCount;
+    PrefixTableEntry->NameLength = NameCount;
     PrefixTableEntry->Prefix = Prefix;
     RtlInitializeSplayLinks(&PrefixTableEntry->Links);
 
     /* Find the right spot where to insert this entry */
     PreviousEntry = (PUNICODE_PREFIX_TABLE_ENTRY)PrefixTable;
     CurrentEntry = PreviousEntry->NextPrefixTree;
-    while (CurrentEntry->NameLength > (CSHORT)NameCount)
+    while (CurrentEntry->NameLength > NameCount)
     {
         /* Not a match, move to the next entry */
         PreviousEntry = CurrentEntry;
@@ -328,7 +334,7 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
     }
 
     /* Check if we did find a tree by now */
-    if (CurrentEntry->NameLength != (CSHORT)NameCount)
+    if (CurrentEntry->NameLength != NameCount)
     {
         /* We didn't, so insert a new entry in the list */
         PreviousEntry->NextPrefixTree = PrefixTableEntry;
@@ -339,10 +345,11 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
         PrefixTableEntry->CaseMatch = PrefixTableEntry;
 
         /* Quick return */
+        DPRINT("RtlInsertUnicodePrefix TRUE\n");
         return TRUE;
     }
 
-    /* We found a tree, so start the search loop */
+    /* We found a tree, so star thte search loop */
     Entry = CurrentEntry;
     while (TRUE)
     {
@@ -361,6 +368,7 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
                     (GenericEqual))
                 {
                     /* We must fail the insert: it already exists */
+                    DPRINT("RtlInsertUnicodePrefix FALSE\n");
                     return FALSE;
                 }
 
@@ -376,7 +384,7 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
              */
             PrefixTableEntry->NodeTypeCode = PFX_NTC_CASE_MATCH;
             PrefixTableEntry->NextPrefixTree = NULL;
-
+            
             /* Insert it into the circular list */
             PrefixTableEntry->CaseMatch = Entry->CaseMatch;
             Entry->CaseMatch = PrefixTableEntry;
@@ -413,7 +421,7 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
             if (RtlRightChild(&Entry->Links))
             {
                 /* We do, enter it and restart the loop */
-                SplayLinks = RtlRightChild(&Entry->Links);
+                SplayLinks = RtlLeftChild(&Entry->Links);
                 Entry = CONTAINING_RECORD(SplayLinks,
                                           UNICODE_PREFIX_TABLE_ENTRY,
                                           Links);
@@ -453,7 +461,8 @@ RtlInsertUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
     Entry->NextPrefixTree = NextEntry;
 
     /* Return success */
-    return TRUE;
+    DPRINT("RtlInsertUnicodePrefix TRUE\n");
+	return TRUE;
 }
 
 /*
@@ -465,14 +474,11 @@ RtlNextUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
                      BOOLEAN Restart)
 {
     PRTL_SPLAY_LINKS SplayLinks;
-    PUNICODE_PREFIX_TABLE_ENTRY Entry, CaseMatchEntry = NULL;
-
-    DPRINT("RtlNextUnicodePrefix(): Table %p Restart %b\n",
-        PrefixTable, Restart);
+    PUNICODE_PREFIX_TABLE_ENTRY Entry, CaseMatchEntry;
+    DPRINT("RtlNextUnicodePrefix\n");
 
     /* We might need this entry 2/3rd of the time, so cache it now */
-    if (PrefixTable->LastNextEntry)
-        CaseMatchEntry = PrefixTable->LastNextEntry->CaseMatch;
+    CaseMatchEntry = PrefixTable->LastNextEntry->CaseMatch;
 
     /* Check if this is a restart or if we don't have a last entry */
     if ((Restart) || !(PrefixTable->LastNextEntry))
@@ -528,6 +534,7 @@ RtlNextUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
 
     /* Save this entry as the last one returned, and return it */
     PrefixTable->LastNextEntry = Entry;
+    DPRINT("RtlNextUnicodePrefix: %p\n", Entry);
     return Entry;
 }
 
@@ -541,9 +548,7 @@ RtlRemoveUnicodePrefix(PUNICODE_PREFIX_TABLE PrefixTable,
 {
     PUNICODE_PREFIX_TABLE_ENTRY Entry, RefEntry, NewEntry;
     PRTL_SPLAY_LINKS SplayLinks;
-
-    DPRINT("RtlRemoveUnicodePrefix(): Table %p, TableEntry %p\n",
-        PrefixTable, PrefixTableEntry);
+    DPRINT("RtlRemoveUnicodePrefix\n");
 
     /* Erase the last entry */
     PrefixTable->LastNextEntry = NULL;

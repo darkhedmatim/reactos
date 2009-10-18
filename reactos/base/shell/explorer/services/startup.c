@@ -349,7 +349,6 @@ static BOOL ProcessRunKeys(HKEY hkRoot, LPCWSTR szKeyName, BOOL bDelete,
     {
         printf("Couldn't allocate memory for the value names\n");
 
-        free(szCmdLine);
         res=ERROR_NOT_ENOUGH_MEMORY;
         goto end;
     }
@@ -389,8 +388,6 @@ static BOOL ProcessRunKeys(HKEY hkRoot, LPCWSTR szKeyName, BOOL bDelete,
         printf("Done processing cmd #%ld\n", i);
     }
 
-    free(szValue);
-    free(szCmdLine);
     res=ERROR_SUCCESS;
 
 end:
@@ -419,7 +416,7 @@ static const struct op_mask
     SETUP			= {FALSE, FALSE, FALSE, TRUE, TRUE, TRUE};
 #define DEFAULT SESSION_START
 
-int startup(int argc, const char *argv[])
+int startup(int argc, char *argv[])
 {
     struct op_mask ops; /* Which of the ops do we want to perform? */
     /* First, set the current directory to SystemRoot */

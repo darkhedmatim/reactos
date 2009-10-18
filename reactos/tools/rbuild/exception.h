@@ -39,13 +39,6 @@ private:
 };
 
 
-class MissingArgumentException : public Exception
-{
-public:
-	MissingArgumentException ( const std::string& argument );
-};
-
-
 class InvalidOperationException : public Exception
 {
 public:
@@ -80,12 +73,6 @@ public:
 	std::string Filename;
 };
 
-class InvalidDateException : public Exception
-{
-public:
-	InvalidDateException ( const std::string& filename );
-	std::string Filename;
-};
 
 class RequiredAttributeNotFoundException : public XMLInvalidBuildFileException
 {

@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/rmap.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, MmInitializeRmapList)
@@ -24,7 +25,7 @@ typedef struct _MM_RMAP_ENTRY
    struct _MM_RMAP_ENTRY* Next;
    PEPROCESS Process;
    PVOID Address;
-#if DBG
+#ifdef DBG
    PVOID Caller;
 #endif
 }
@@ -58,7 +59,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
 {
    PMM_RMAP_ENTRY entry;
    PMEMORY_AREA MemoryArea;
-   PMMSUPPORT AddressSpace;
+   PMADDRESS_SPACE AddressSpace;
    ULONG Type;
    PVOID Address;
    PEPROCESS Process;
@@ -81,7 +82,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
    Address = entry->Address;
    if ((((ULONG_PTR)Address) & 0xFFF) != 0)
    {
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    if (Address < MmSystemRangeStart)
    {
@@ -91,7 +92,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
       {
          return Status;
       }
-      AddressSpace = &Process->Vm;
+      AddressSpace = (PMADDRESS_SPACE)&Process->VadRoot;
    }
    else
    {
@@ -119,7 +120,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
    Type = MemoryArea->Type;
    if (Type == MEMORY_AREA_SECTION_VIEW)
    {
-      Offset = (ULONG_PTR)Address - (ULONG_PTR)MemoryArea->StartingAddress
+      Offset = (ULONG_PTR)Address - (ULONG_PTR)MemoryArea->StartingAddress 
                + MemoryArea->Data.SectionData.ViewOffset;
       /*
        * Get or create a pageop
@@ -177,7 +178,7 @@ MmWritePagePhysicalAddress(PFN_TYPE Page)
    }
    else
    {
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    if (Address < MmSystemRangeStart)
    {
@@ -192,7 +193,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
 {
    PMM_RMAP_ENTRY entry;
    PMEMORY_AREA MemoryArea;
-   PMMSUPPORT AddressSpace;
+   PMADDRESS_SPACE AddressSpace;
    ULONG Type;
    PVOID Address;
    PEPROCESS Process;
@@ -211,7 +212,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    Address = entry->Address;
    if ((((ULONG_PTR)Address) & 0xFFF) != 0)
    {
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
 
    if (Address < MmSystemRangeStart)
@@ -222,7 +223,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
       {
          return Status;
       }
-      AddressSpace = &Process->Vm;
+      AddressSpace = (PMADDRESS_SPACE)&Process->VadRoot;
    }
    else
    {
@@ -244,8 +245,8 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    Type = MemoryArea->Type;
    if (Type == MEMORY_AREA_SECTION_VIEW)
    {
-      Offset = (ULONG_PTR)Address - (ULONG_PTR)MemoryArea->StartingAddress
-             + MemoryArea->Data.SectionData.ViewOffset;
+      Offset = (ULONG_PTR)Address - (ULONG_PTR)MemoryArea->StartingAddress 
+             + MemoryArea->Data.SectionData.ViewOffset;;
 
       /*
        * Get or create a pageop
@@ -301,7 +302,7 @@ MmPageOutPhysicalAddress(PFN_TYPE Page)
    }
    else
    {
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    if (Address < MmSystemRangeStart)
    {
@@ -321,7 +322,7 @@ MmSetCleanAllRmaps(PFN_TYPE Page)
    if (current_entry == NULL)
    {
       DPRINT1("MmIsDirtyRmap: No rmaps.\n");
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    while (current_entry != NULL)
    {
@@ -342,7 +343,7 @@ MmSetDirtyAllRmaps(PFN_TYPE Page)
    if (current_entry == NULL)
    {
       DPRINT1("MmIsDirtyRmap: No rmaps.\n");
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    while (current_entry != NULL)
    {
@@ -392,17 +393,13 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
    new_entry = ExAllocateFromNPagedLookasideList(&RmapLookasideList);
    if (new_entry == NULL)
    {
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    new_entry->Address = Address;
    new_entry->Process = (PEPROCESS)Process;
-#if DBG
-#ifdef __GNUC__
+#ifdef DBG
    new_entry->Caller = __builtin_return_address(0);
-#else
-   new_entry->Caller = _ReturnAddress();
-#endif
-#endif
+#endif   
 
    if (MmGetPfnForProcess(Process, Address) != Page)
    {
@@ -410,24 +407,24 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
               "address 0x%.8X\n", Process->UniqueProcessId, Address,
               MmGetPfnForProcess(Process, Address) << PAGE_SHIFT,
               Page << PAGE_SHIFT);
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
 
    ExAcquireFastMutex(&RmapListLock);
    current_entry = MmGetRmapListHeadPage(Page);
    new_entry->Next = current_entry;
-#if DBG
+#ifdef DBG
    while (current_entry)
    {
       if (current_entry->Address == new_entry->Address && current_entry->Process == new_entry->Process)
       {
-          DbgPrint("MmInsertRmap tries to add a second rmap entry for address %p\n    current caller ",
+          DbgPrint("MmInsertRmap tries to add a second rmap entry for address %p\n    current caller ", 
                    current_entry->Address);
-          DbgPrint("%p", new_entry->Caller);
+          KeRosPrintAddress(new_entry->Caller);
           DbgPrint("\n    previous caller ");
-          DbgPrint("%p", current_entry->Caller);
+          KeRosPrintAddress(current_entry->Caller);
           DbgPrint("\n");
-          KeBugCheck(MEMORY_MANAGEMENT);
+          KeBugCheck(0);
       }
       current_entry = current_entry->Next;
    }
@@ -463,7 +460,7 @@ MmDeleteAllRmaps(PFN_TYPE Page, PVOID Context,
    if (current_entry == NULL)
    {
       DPRINT1("MmDeleteAllRmaps: No rmaps.\n");
-      KeBugCheck(MEMORY_MANAGEMENT);
+      KEBUGCHECK(0);
    }
    MmSetRmapListHeadPage(Page, NULL);
    ExReleaseFastMutex(&RmapListLock);
@@ -527,5 +524,5 @@ MmDeleteRmap(PFN_TYPE Page, PEPROCESS Process,
       previous_entry = current_entry;
       current_entry = current_entry->Next;
    }
-   KeBugCheck(MEMORY_MANAGEMENT);
+   KEBUGCHECK(0);
 }

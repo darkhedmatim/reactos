@@ -21,7 +21,6 @@ LpcpFreeConMsg(IN OUT PLPCP_MESSAGE *Message,
                IN PETHREAD CurrentThread)
 {
     PVOID SectionToMap;
-    PLPCP_MESSAGE ReplyMessage;
 
     /* Acquire the LPC lock */
     KeAcquireGuardedMutex(&LpcpLock);
@@ -35,26 +34,17 @@ LpcpFreeConMsg(IN OUT PLPCP_MESSAGE *Message,
     }
 
     /* Check if there's a reply message */
-    ReplyMessage = LpcpGetMessageFromThread(CurrentThread);
-    if (ReplyMessage)
+    if (CurrentThread->LpcReplyMessage)
     {
         /* Get the message */
-        *Message = ReplyMessage;
-
-        /* Check if it's got messages */
-        if (!IsListEmpty(&ReplyMessage->Entry))
-        {
-            /* Clear the list */
-            RemoveEntryList(&ReplyMessage->Entry);
-            InitializeListHead(&ReplyMessage->Entry);
-        }
+        *Message = CurrentThread->LpcReplyMessage;
 
         /* Clear message data */
         CurrentThread->LpcReceivedMessageId = 0;
         CurrentThread->LpcReplyMessage = NULL;
 
         /* Get the connection message and clear the section */
-        *ConnectMessage = (PLPCP_CONNECTION_MESSAGE)(ReplyMessage + 1);
+        *ConnectMessage = (PLPCP_CONNECTION_MESSAGE)(*Message + 1);
         SectionToMap = (*ConnectMessage)->SectionToMap;
         (*ConnectMessage)->SectionToMap = NULL;
     }
@@ -134,7 +124,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
     Status = ObReferenceObjectByName(PortName,
                                      0,
                                      NULL,
-                                     PORT_CONNECT,
+                                     PORT_ALL_ACCESS,
                                      LpcPortObjectType,
                                      PreviousMode,
                                      NULL,
@@ -273,7 +263,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
         /* Map it */
         Status = MmMapViewOfSection(SectionToMap,
                                     PsGetCurrentProcess(),
-                                    &ClientPort->ClientSectionBase,
+                                    &Port->ClientSectionBase,
                                     0,
                                     0,
                                     &SectionOffset,
@@ -295,11 +285,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
         }
 
         /* Update the base */
-        ClientView->ViewBase = ClientPort->ClientSectionBase;
-
-        /* Reference and remember the process */
-        ClientPort->MappingProcess = PsGetCurrentProcess();
-        ObReferenceObject(ClientPort->MappingProcess);
+        ClientView->ViewBase = Port->ClientSectionBase;
     }
     else
     {
@@ -335,7 +321,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
         Message->Request.ClientViewSize = ClientView->ViewSize;
 
         /* Copy the client view and clear the server view */
-        RtlCopyMemory(&ConnectMessage->ClientView,
+        RtlMoveMemory(&ConnectMessage->ClientView,
                       ClientView,
                       sizeof(PORT_VIEW));
         RtlZeroMemory(&ConnectMessage->ServerView, sizeof(REMOTE_PORT_VIEW));
@@ -352,8 +338,8 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
     ConnectMessage->SectionToMap = SectionToMap;
 
     /* Set the data for the connection request message */
-    Message->Request.u1.s1.DataLength = (CSHORT)ConnectionInfoLength + 
-                                         sizeof(LPCP_CONNECTION_MESSAGE);
+    Message->Request.u1.s1.DataLength = sizeof(LPCP_CONNECTION_MESSAGE) +
+                                        ConnectionInfoLength;
     Message->Request.u1.s1.TotalLength = sizeof(LPCP_MESSAGE) +
                                          Message->Request.u1.s1.DataLength;
     Message->Request.u2.s2.Type = LPC_CONNECTION_REQUEST;
@@ -362,7 +348,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
     if (ConnectionInformation)
     {
         /* Copy it in */
-        RtlCopyMemory(ConnectMessage + 1,
+        RtlMoveMemory(ConnectMessage + 1,
                       ConnectionInformation,
                       ConnectionInfoLength);
     }
@@ -374,63 +360,51 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
     if (Port->Flags & LPCP_NAME_DELETED)
     {
         /* Fail the request */
+        KeReleaseGuardedMutex(&LpcpLock);
         Status = STATUS_OBJECT_NAME_NOT_FOUND;
-    }
-    else
-    {
-        /* Associate no thread yet */
-        Message->RepliedToThread = NULL;
-
-        /* Generate the Message ID and set it */
-        Message->Request.MessageId =  LpcpNextMessageId++;
-        if (!LpcpNextMessageId) LpcpNextMessageId = 1;
-        Thread->LpcReplyMessageId = Message->Request.MessageId;
-
-        /* Insert the message into the queue and thread chain */
-        InsertTailList(&Port->MsgQueue.ReceiveHead, &Message->Entry);
-        InsertTailList(&Port->LpcReplyChainHead, &Thread->LpcReplyChain);
-        Thread->LpcReplyMessage = Message;
-
-        /* Now we can finally reference the client port and link it*/
-        ObReferenceObject(ClientPort);
-        ConnectMessage->ClientPort = ClientPort;
-
-        /* Enter a critical region */
-        KeEnterCriticalRegion();
+        goto Cleanup;
     }
 
-    /* Add another reference to the port */
-    ObReferenceObject(Port);
+    /* Associate no thread yet */
+    Message->RepliedToThread = NULL;
+
+    /* Generate the Message ID and set it */
+    Message->Request.MessageId =  LpcpNextMessageId++;
+    if (!LpcpNextMessageId) LpcpNextMessageId = 1;
+    Thread->LpcReplyMessageId = Message->Request.MessageId;
+
+    /* Insert the message into the queue and thread chain */
+    InsertTailList(&Port->MsgQueue.ReceiveHead, &Message->Entry);
+    InsertTailList(&Port->LpcReplyChainHead, &Thread->LpcReplyChain);
+    Thread->LpcReplyMessage = Message;
+
+    /* Now we can finally reference the client port and link it*/
+    ObReferenceObject(ClientPort);
+    ConnectMessage->ClientPort = ClientPort;
 
     /* Release the lock */
     KeReleaseGuardedMutex(&LpcpLock);
+    LPCTRACE(LPC_CONNECT_DEBUG,
+             "Messages: %p/%p. Ports: %p/%p. Status: %lx\n",
+             Message,
+             ConnectMessage,
+             Port,
+             ClientPort,
+             Status);
 
-    /* Check for success */
-    if (NT_SUCCESS(Status))
-    {
-        LPCTRACE(LPC_CONNECT_DEBUG,
-                 "Messages: %p/%p. Ports: %p/%p. Status: %lx\n",
-                 Message,
-                 ConnectMessage,
-                 Port,
-                 ClientPort,
-                 Status);
+    /* If this is a waitable port, set the event */
+    if (Port->Flags & LPCP_WAITABLE_PORT) KeSetEvent(&Port->WaitEvent,
+                                                     1,
+                                                     FALSE);
 
-        /* If this is a waitable port, set the event */
-        if (Port->Flags & LPCP_WAITABLE_PORT) KeSetEvent(&Port->WaitEvent,
-                                                         1,
-                                                         FALSE);
+    /* Release the queue semaphore */
+    LpcpCompleteWait(Port->MsgQueue.Semaphore);
 
-        /* Release the queue semaphore and leave the critical region */
-        LpcpCompleteWait(Port->MsgQueue.Semaphore);
-        KeLeaveCriticalRegion();
+    /* Now wait for a reply */
+    LpcpConnectWait(&Thread->LpcReplySemaphore, PreviousMode);
 
-        /* Now wait for a reply */
-        LpcpConnectWait(&Thread->LpcReplySemaphore, PreviousMode);
-    }
-
-    /* Check for failure */
-    if (!NT_SUCCESS(Status)) goto Cleanup;
+    /* Check if our wait ended in success */
+    if (Status != STATUS_SUCCESS) goto Cleanup;
 
     /* Free the connection message */
     SectionToMap = LpcpFreeConMsg(&Message, &ConnectMessage, Thread);
@@ -458,7 +432,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
             }
 
             /* Return the connection information */
-            RtlCopyMemory(ConnectionInformation,
+            RtlMoveMemory(ConnectionInformation,
                           ConnectMessage + 1,
                           ConnectionInfoLength );
         }
@@ -492,7 +466,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
                 if (ClientView)
                 {
                     /* Copy it back */
-                    RtlCopyMemory(ClientView,
+                    RtlMoveMemory(ClientView,
                                   &ConnectMessage->ClientView,
                                   sizeof(PORT_VIEW));
                 }
@@ -501,7 +475,7 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
                 if (ServerView)
                 {
                     /* Copy it back */
-                    RtlCopyMemory(ServerView,
+                    RtlMoveMemory(ServerView,
                                   &ConnectMessage->ServerView,
                                   sizeof(REMOTE_PORT_VIEW));
                 }
@@ -512,12 +486,8 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
             /* No connection port, we failed */
             if (SectionToMap) ObDereferenceObject(SectionToMap);
 
-            /* Acquire the lock */
-            KeAcquireGuardedMutex(&LpcpLock);
-
             /* Check if it's because the name got deleted */
-            if (!(ClientPort->ConnectionPort) ||
-                (Port->Flags & LPCP_NAME_DELETED))
+            if (Port->Flags & LPCP_NAME_DELETED)
             {
                 /* Set the correct status */
                 Status = STATUS_OBJECT_NAME_NOT_FOUND;
@@ -528,27 +498,19 @@ NtSecureConnectPort(OUT PHANDLE PortHandle,
                 Status = STATUS_PORT_CONNECTION_REFUSED;
             }
 
-            /* Release the lock */
-            KeReleaseGuardedMutex(&LpcpLock);
-
             /* Kill the port */
             ObDereferenceObject(ClientPort);
         }
 
         /* Free the message */
-        LpcpFreeToPortZone(Message, 0);
-    }
-    else
-    {
-        /* No reply message, fail */
-        if (SectionToMap) ObDereferenceObject(SectionToMap);
-        ObDereferenceObject(ClientPort);
-        Status = STATUS_PORT_CONNECTION_REFUSED;
+        LpcpFreeToPortZone(Message, FALSE);
+        return Status;
     }
 
-    /* Return status */
-    ObDereferenceObject(Port);
-    return Status;
+    /* No reply message, fail */
+    if (SectionToMap) ObDereferenceObject(SectionToMap);
+    ObDereferenceObject(ClientPort);
+    return STATUS_PORT_CONNECTION_REFUSED;
 
 Cleanup:
     /* We failed, free the message */
@@ -559,21 +521,20 @@ Cleanup:
     {
         /* Wait on it */
         KeWaitForSingleObject(&Thread->LpcReplySemaphore,
-                              WrExecutive,
                               KernelMode,
+                              Executive,
                               FALSE,
                               NULL);
     }
 
     /* Check if we had a message and free it */
-    if (Message) LpcpFreeToPortZone(Message, 0);
+    if (Message) LpcpFreeToPortZone(Message, FALSE);
 
     /* Dereference other objects */
     if (SectionToMap) ObDereferenceObject(SectionToMap);
     ObDereferenceObject(ClientPort);
 
     /* Return status */
-    ObDereferenceObject(Port);
     return Status;
 }
 

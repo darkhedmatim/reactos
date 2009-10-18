@@ -23,6 +23,10 @@
 #ifndef __NTDDDISK_H
 #define __NTDDDISK_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "ntddstor.h"
 
 #ifdef __cplusplus
@@ -121,23 +125,8 @@ extern "C" {
 #define IOCTL_DISK_REQUEST_STRUCTURE \
   CTL_CODE(IOCTL_DISK_BASE, 0x000f, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-#define IOCTL_DISK_MEDIA_REMOVAL \
-  CTL_CODE(IOCTL_DISK_BASE, 0x0201, METHOD_BUFFERED, FILE_READ_ACCESS)
-
-#define IOCTL_DISK_EJECT_MEDIA \
-  CTL_CODE(IOCTL_DISK_BASE, 0x0202, METHOD_BUFFERED, FILE_READ_ACCESS)
-
-#define IOCTL_DISK_LOAD_MEDIA \
-  CTL_CODE(IOCTL_DISK_BASE, 0x0203, METHOD_BUFFERED, FILE_READ_ACCESS)
-
 #define IOCTL_DISK_RESERVE \
   CTL_CODE(IOCTL_DISK_BASE, 0x0204, METHOD_BUFFERED, FILE_READ_ACCESS)
-
-#define IOCTL_DISK_RELEASE \
-  CTL_CODE(IOCTL_DISK_BASE, 0x0205, METHOD_BUFFERED, FILE_READ_ACCESS)
-
-#define IOCTL_DISK_FIND_NEW_DEVICES \
-  CTL_CODE(IOCTL_DISK_BASE, 0x0206, METHOD_BUFFERED, FILE_READ_ACCESS)
 
 #define IOCTL_DISK_SET_CACHE_INFORMATION \
   CTL_CODE(IOCTL_DISK_BASE, 0x0036, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
@@ -169,8 +158,6 @@ extern "C" {
 #define SMART_SEND_DRIVE_COMMAND \
   CTL_CODE(IOCTL_DISK_BASE, 0x0021, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
-#define IOCTL_DISK_UPDATE_PROPERTIES \
-  CTL_CODE(IOCTL_DISK_BASE, 0x50, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define PARTITION_ENTRY_UNUSED            0x00
 #define PARTITION_FAT_12                  0x01
@@ -311,9 +298,9 @@ typedef struct _DISK_GEOMETRY_EX {
 typedef struct _PARTITION_INFORMATION {
   LARGE_INTEGER  StartingOffset;
   LARGE_INTEGER  PartitionLength;
-  ULONG  HiddenSectors;
-  ULONG  PartitionNumber;
-  UCHAR  PartitionType;
+  DWORD  HiddenSectors;
+  DWORD  PartitionNumber;
+  BYTE  PartitionType;
   BOOLEAN  BootIndicator;
   BOOLEAN  RecognizedPartition;
   BOOLEAN  RewritePartition;
@@ -425,9 +412,9 @@ typedef struct _GET_LENGTH_INFORMATION {
 } GET_LENGTH_INFORMATION, *PGET_LENGTH_INFORMATION;
 
 typedef struct _REASSIGN_BLOCKS {
-  USHORT  Reserved;
-  USHORT  Count;
-  ULONG  BlockNumber[1];
+  WORD  Reserved;
+  WORD  Count;
+  DWORD  BlockNumber[1];
 } REASSIGN_BLOCKS, *PREASSIGN_BLOCKS;
 
 typedef struct _SET_PARTITION_INFORMATION {
@@ -447,7 +434,7 @@ typedef struct _SET_PARTITION_INFORMATION_EX {
 
 typedef struct _VERIFY_INFORMATION {
   LARGE_INTEGER  StartingOffset;
-  ULONG  Length;
+  DWORD  Length;
 } VERIFY_INFORMATION, *PVERIFY_INFORMATION;
 
 typedef enum {
@@ -577,15 +564,6 @@ typedef struct _SENDCMDOUTPARAMS {
 #define DISABLE_SMART                     0xD9
 #define RETURN_SMART_STATUS               0xDA
 #define ENABLE_DISABLE_AUTO_OFFLINE       0xDB
-
-typedef struct _MAPPED_ADDRESS {
-    struct _MAPPED_ADDRESS *NextMappedAddress;
-    PVOID MappedAddress;
-    ULONG NumberOfBytes;
-    LARGE_INTEGER IoAddress;
-    ULONG BusNumber;
-} MAPPED_ADDRESS, *PMAPPED_ADDRESS;
-
 
 #ifdef __cplusplus
 }

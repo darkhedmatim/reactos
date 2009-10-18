@@ -45,7 +45,7 @@ FsRtlDissectDbcs(IN ANSI_STRING Name,
                  OUT PANSI_STRING FirstPart,
                  OUT PANSI_STRING RemainingPart)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -109,7 +109,7 @@ NTAPI
 FsRtlIsDbcsInExpression(IN PANSI_STRING Expression,
                         IN PANSI_STRING Name)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -143,7 +143,7 @@ FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName,
                     IN BOOLEAN PathNamePermissible,
                     IN BOOLEAN LeadingBackslashPermissible)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -171,12 +171,12 @@ FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName,
  *
  *--*/
 BOOLEAN
-NTAPI
+STDCALL
 FsRtlIsHpfsDbcsLegal(IN ANSI_STRING DbcsName,
                      IN BOOLEAN WildCardsPermissible,
                      IN BOOLEAN PathNamePermissible,
                      IN BOOLEAN LeadingBackslashPermissible)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }

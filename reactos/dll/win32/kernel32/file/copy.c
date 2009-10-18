@@ -13,9 +13,10 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /* FUNCTIONS ****************************************************************/
 
@@ -71,11 +72,11 @@ CopyLoop (
 		   switch (ProgressResult)
 		     {
 		     case PROGRESS_CANCEL:
-			TRACE("Progress callback requested cancel\n");
+			DPRINT("Progress callback requested cancel\n");
 			errCode = STATUS_REQUEST_ABORTED;
 			break;
 		     case PROGRESS_STOP:
-			TRACE("Progress callback requested stop\n");
+			DPRINT("Progress callback requested stop\n");
 			errCode = STATUS_REQUEST_ABORTED;
 			*KeepDest = TRUE;
 			break;
@@ -116,7 +117,7 @@ CopyLoop (
 			 }
 		       else
 			 {
-			    WARN("Error 0x%08x reading writing to dest\n", errCode);
+			    DPRINT("Error 0x%08x reading writing to dest\n", errCode);
 			 }
 		    }
 		  else if (!NT_SUCCESS(errCode))
@@ -128,7 +129,7 @@ CopyLoop (
 			 }
 		       else
 			 {
-			    WARN("Error 0x%08x reading from source\n", errCode);
+			    DPRINT("Error 0x%08x reading from source\n", errCode);
 			 }
 		    }
 	       }
@@ -136,7 +137,7 @@ CopyLoop (
 
 	if (! EndOfFileFound && (NULL != pbCancel && *pbCancel))
 	  {
-	  TRACE("User requested cancel\n");
+	  DPRINT("User requested cancel\n");
 	  errCode = STATUS_REQUEST_ABORTED;
 	  }
 
@@ -147,7 +148,7 @@ CopyLoop (
      }
    else
      {
-	TRACE("Error 0x%08x allocating buffer of %d bytes\n", errCode, RegionSize);
+	DPRINT("Error 0x%08x allocating buffer of %d bytes\n", errCode, RegionSize);
      }
 
    return errCode;
@@ -170,7 +171,7 @@ SetLastWriteTime(
 				     FileBasicInformation);
    if (!NT_SUCCESS(errCode))
      {
-	WARN("Error 0x%08x obtaining FileBasicInformation\n", errCode);
+	DPRINT("Error 0x%08x obtaining FileBasicInformation\n", errCode);
      }
    else
      {
@@ -182,7 +183,7 @@ SetLastWriteTime(
 					FileBasicInformation);
 	if (!NT_SUCCESS(errCode))
 	  {
-	     WARN("Error 0x%0x setting LastWriteTime\n", errCode);
+	     DPRINT("Error 0x%0x setting LastWriteTime\n", errCode);
 	  }
      }
 
@@ -194,7 +195,7 @@ SetLastWriteTime(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CopyFileExW (
 	LPCWSTR			lpExistingFileName,
 	LPCWSTR			lpNewFileName,
@@ -215,7 +216,7 @@ CopyFileExW (
 
    FileHandleSource = CreateFileW(lpExistingFileName,
 				  GENERIC_READ,
-				  FILE_SHARE_READ | FILE_SHARE_WRITE,
+				  FILE_SHARE_READ,
 				  NULL,
 				  OPEN_EXISTING,
 				  FILE_ATTRIBUTE_NORMAL|FILE_FLAG_NO_BUFFERING,
@@ -229,7 +230,7 @@ CopyFileExW (
 					 FileStandardInformation);
 	if (!NT_SUCCESS(errCode))
 	  {
-	     TRACE("Status 0x%08x obtaining FileStandardInformation for source\n", errCode);
+	     DPRINT("Status 0x%08x obtaining FileStandardInformation for source\n", errCode);
 	     SetLastErrorByStatus(errCode);
 	  }
 	else
@@ -240,7 +241,7 @@ CopyFileExW (
 					      FileBasicInformation);
 	     if (!NT_SUCCESS(errCode))
 	       {
-		  TRACE("Status 0x%08x obtaining FileBasicInformation for source\n", errCode);
+		  DPRINT("Status 0x%08x obtaining FileBasicInformation for source\n", errCode);
 		  SetLastErrorByStatus(errCode);
 	       }
 	     else
@@ -291,7 +292,7 @@ CopyFileExW (
 		    }
 		  else
 		    {
-		    WARN("Error %d during opening of dest file\n", GetLastError());
+		    DPRINT("Error %d during opening of dest file\n", GetLastError());
 		    }
 	       }
 	  }
@@ -299,7 +300,7 @@ CopyFileExW (
      }
    else
      {
-     WARN("Error %d during opening of source file\n", GetLastError());
+     DPRINT("Error %d during opening of source file\n", GetLastError());
      }
 
    return RC;
@@ -310,7 +311,7 @@ CopyFileExW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CopyFileExA (
 	LPCSTR			lpExistingFileName,
 	LPCSTR			lpNewFileName,
@@ -349,7 +350,7 @@ CopyFileExA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CopyFileA (
 	LPCSTR	lpExistingFileName,
 	LPCSTR	lpNewFileName,
@@ -369,7 +370,7 @@ CopyFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CopyFileW (
 	LPCWSTR	lpExistingFileName,
 	LPCWSTR	lpNewFileName,
@@ -389,7 +390,7 @@ CopyFileW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PrivCopyFileExW (
 	LPCWSTR			lpExistingFileName,
 	LPCWSTR			lpNewFileName,

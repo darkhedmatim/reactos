@@ -163,7 +163,7 @@ typedef struct
 typedef struct
 {
    HANDLE ConsoleHandle;
-   WORD Attrib;
+   CHAR Attrib;
 } CSRSS_SET_ATTRIB, *PCSRSS_SET_ATTRIB;
 
 typedef struct
@@ -180,9 +180,7 @@ typedef struct
 
 typedef struct
 {
-   DWORD Access;
-   DWORD ShareMode;
-   BOOL Inheritable;
+  /* may want to add some parameters here someday */
    HANDLE OutputHandle;  /* handle to newly created screen buffer */
 } CSRSS_CREATE_SCREEN_BUFFER, *PCSRSS_CREATE_SCREEN_BUFFER;
 
@@ -199,12 +197,14 @@ typedef struct
 
 typedef struct
 {
+  HANDLE Console;
   DWORD Length;
   WCHAR Title[0];
 } CSRSS_SET_TITLE, *PCSRSS_SET_TITLE;
 
 typedef struct
 {
+  HANDLE ConsoleHandle;
   DWORD Length;
   WCHAR Title[0];
 } CSRSS_GET_TITLE, *PCSRSS_GET_TITLE;
@@ -312,15 +312,11 @@ typedef struct
 
 typedef struct
 {
-  DWORD Access;
-  BOOL Inheritable;
   HANDLE InputHandle;
 } CSRSS_GET_INPUT_HANDLE, *PCSRSS_GET_INPUT_HANDLE;
 
 typedef struct
 {
-  DWORD Access;
-  BOOL Inheritable;
   HANDLE OutputHandle;
 } CSRSS_GET_OUTPUT_HANDLE, *PCSRSS_GET_OUTPUT_HANDLE;
 
@@ -337,9 +333,7 @@ typedef struct
 typedef struct
 {
   HANDLE Handle;
-  DWORD Access;
-  BOOL Inheritable;
-  DWORD Options;
+  HANDLE ProcessId;
 } CSRSS_DUPLICATE_HANDLE, *PCSRSS_DUPLICATE_HANDLE;
 
 #define CONSOLE_HARDWARE_STATE_GET 0
@@ -418,56 +412,6 @@ typedef struct
   HANDLE InputWaitHandle;
 } CSRSS_GET_INPUT_WAIT_HANDLE, *PCSRSS_GET_INPUT_WAIT_HANDLE;
 
-typedef struct
-{
-    ULONG SourceLength;
-    ULONG ExeLength;
-    ULONG TargetLength;
-} CSRSS_ADD_CONSOLE_ALIAS, *PCSRSS_ADD_CONSOLE_ALIAS;
-
-typedef struct
-{
-    ULONG SourceLength;
-    ULONG ExeLength;
-    ULONG BytesWritten;
-    ULONG TargetBufferLength;
-    PVOID TargetBuffer;
-} CSRSS_GET_CONSOLE_ALIAS, *PCSRSS_GET_CONSOLE_ALIAS;
-
-typedef struct
-{
-  LPWSTR lpExeName;
-  DWORD BytesWritten;
-  DWORD AliasBufferLength;
-  LPWSTR AliasBuffer;
-} CSRSS_GET_ALL_CONSOLE_ALIASES, *PCSRSS_GET_ALL_CONSOLE_ALIAS;
-
-typedef struct
-{
-  LPWSTR lpExeName;
-  DWORD Length;
-} CSRSS_GET_ALL_CONSOLE_ALIASES_LENGTH, *PCSRSS_GET_ALL_CONSOLE_ALIASES_LENGTH;
-
-typedef struct
-{
-  DWORD BytesWritten;
-  DWORD Length;
-  LPWSTR ExeNames;
-}  CSRSS_GET_CONSOLE_ALIASES_EXES, *PCSRSS_GET_CONSOLE_ALIASES_EXES;
-
-typedef struct
-{
-  DWORD Length;
-} CSRSS_GET_CONSOLE_ALIASES_EXES_LENGTH, *PCSRSS_GET_CONSOLE_ALIASES_EXES_LENGTH;
-
-typedef struct
-{
-  DWORD Event;
-  DWORD ProcessGroup;
-} CSRSS_GENERATE_CTRL_EVENT, *PCSRSS_GENERATE_CTRL_EVENT;
-
-
-
 #define CSR_API_MESSAGE_HEADER_SIZE(Type)       (FIELD_OFFSET(CSR_API_MESSAGE, Data) + sizeof(Type))
 #define CSRSS_MAX_WRITE_CONSOLE                 (LPC_MAX_DATA_LENGTH - CSR_API_MESSAGE_HEADER_SIZE(CSRSS_WRITE_CONSOLE))
 #define CSRSS_MAX_WRITE_CONSOLE_OUTPUT_CHAR     (LPC_MAX_DATA_LENGTH - CSR_API_MESSAGE_HEADER_SIZE(CSRSS_WRITE_CONSOLE_OUTPUT_CHAR))
@@ -479,7 +423,6 @@ typedef struct
 
 /* WCHARs, not bytes! */
 #define CSRSS_MAX_TITLE_LENGTH          80
-#define CSRSS_MAX_ALIAS_TARGET_LENGTH   80
 
 #define CREATE_PROCESS                (0x0)
 #define TERMINATE_PROCESS             (0x1)
@@ -537,13 +480,6 @@ typedef struct
 #define GET_INPUT_WAIT_HANDLE	      (0x35)
 #define GET_PROCESS_LIST              (0x36)
 #define START_SCREEN_SAVER            (0x37)
-#define ADD_CONSOLE_ALIAS             (0x38)
-#define GET_CONSOLE_ALIAS             (0x39)
-#define GET_ALL_CONSOLE_ALIASES         (0x3A)
-#define GET_ALL_CONSOLE_ALIASES_LENGTH (0x3B)
-#define GET_CONSOLE_ALIASES_EXES      (0x3C)
-#define GET_CONSOLE_ALIASES_EXES_LENGTH (0x3D)
-#define GENERATE_CTRL_EVENT           (0x3E)
 
 /* Keep in sync with definition below. */
 #define CSRSS_HEADER_SIZE (sizeof(PORT_MESSAGE) + sizeof(ULONG) + sizeof(NTSTATUS))
@@ -609,13 +545,6 @@ typedef struct _CSR_API_MESSAGE
         CSRSS_SET_CONSOLE_OUTPUT_CP SetConsoleOutputCodePage;
         CSRSS_GET_INPUT_WAIT_HANDLE GetConsoleInputWaitHandle;
         CSRSS_GET_PROCESS_LIST GetProcessListRequest;
-        CSRSS_ADD_CONSOLE_ALIAS AddConsoleAlias;
-        CSRSS_GET_CONSOLE_ALIAS GetConsoleAlias;
-        CSRSS_GET_ALL_CONSOLE_ALIASES GetAllConsoleAlias;
-        CSRSS_GET_ALL_CONSOLE_ALIASES_LENGTH GetAllConsoleAliasesLength;
-        CSRSS_GET_CONSOLE_ALIASES_EXES GetConsoleAliasesExes;
-        CSRSS_GET_CONSOLE_ALIASES_EXES_LENGTH GetConsoleAliasesExesLength;
-        CSRSS_GENERATE_CTRL_EVENT GenerateCtrlEvent;
     } Data;
 } CSR_API_MESSAGE, *PCSR_API_MESSAGE;
 
@@ -669,7 +598,7 @@ typedef struct _CSR_API_MESSAGE2
         {
             PVOID CsrCaptureData;
             CSR_API_NUMBER Opcode;
-            ULONG Status;
+            ULONG Status; 
             ULONG Reserved;
             union
             {

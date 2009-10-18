@@ -1,31 +1,31 @@
 /*
  * PROJECT:     ReactOS Timedate Control Panel
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        dll/cpl/timedate/clock.c
+ * FILE:        lib/cpl/timedate/clock.c
  * PURPOSE:     Draws the analog clock
  * COPYRIGHT:   Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
- *              Copyright 2007 Eric Kohl
+ *
  */
 
 /* Code based on clock.c from Programming Windows, Charles Petzold */
 
 #include <timedate.h>
 
-typedef struct _CLOCKDATA
-{
-    HBRUSH hGreyBrush;
-    HPEN hGreyPen;
-    INT cxClient;
-    INT cyClient;
-    SYSTEMTIME stCurrent;
-    SYSTEMTIME stPrevious;
-    BOOL bTimer;
-} CLOCKDATA, *PCLOCKDATA;
-
-
 #define TWOPI (2 * 3.14159)
 
-static const WCHAR szClockWndClass[] = L"ClockWndClass";
+static const TCHAR szClockWndClass[] = TEXT("ClockWndClass");
+
+static HBRUSH hGreyBrush = NULL;
+static HPEN hGreyPen = NULL;
+
+static VOID
+SetIsotropic(HDC hdc, INT cxClient, INT cyClient)
+{
+    /* set isotropic mode */
+     SetMapMode(hdc, MM_ISOTROPIC);
+     /* position axis in centre of window */
+     SetViewportOrgEx(hdc, cxClient / 2,  cyClient / 2, NULL);
+}
 
 static VOID
 RotatePoint(POINT pt[], INT iNum, INT iAngle)
@@ -45,28 +45,24 @@ RotatePoint(POINT pt[], INT iNum, INT iAngle)
      }
 }
 
-
-static INT
-DrawClock(HDC hdc, PCLOCKDATA pClockData)
+static VOID
+DrawClock(HDC hdc)
 {
-     INT iAngle,Radius;
+     INT   iAngle;
      POINT pt[3];
      HBRUSH hBrushOld;
      HPEN hPenOld = NULL;
 
      /* grey brush to fill the dots */
-     hBrushOld = SelectObject(hdc, pClockData->hGreyBrush);
+     hBrushOld = SelectObject(hdc, hGreyBrush);
 
      hPenOld = GetCurrentObject(hdc, OBJ_PEN);
 
-     // TODO: check if this conversion is correct resp. usable
-     Radius = min(pClockData->cxClient,pClockData->cyClient) * 2;
-
-     for (iAngle = 0; iAngle < 360; iAngle += 6)
+     for(iAngle = 0; iAngle < 360; iAngle += 6)
      {
           /* starting coords */
           pt[0].x = 0;
-          pt[0].y = Radius;
+          pt[0].y = 180;
 
           /* rotate start coords */
           RotatePoint(pt, 1, iAngle);
@@ -76,7 +72,7 @@ DrawClock(HDC hdc, PCLOCKDATA pClockData)
           if (iAngle % 5)
           {
                 pt[2].x = pt[2].y = 7;
-                SelectObject(hdc, pClockData->hGreyPen);
+                SelectObject(hdc, hGreyPen);
           }
           else
           {
@@ -91,22 +87,19 @@ DrawClock(HDC hdc, PCLOCKDATA pClockData)
           pt[1].y  = pt[0].y + pt[2].y;
 
           Ellipse(hdc, pt[0].x, pt[0].y, pt[1].x, pt[1].y);
+
      }
 
      SelectObject(hdc, hBrushOld);
      SelectObject(hdc, hPenOld);
-     return Radius;
 }
 
-
 static VOID
-DrawHands(HDC hdc, SYSTEMTIME * pst, BOOL fChange, INT Radius)
+DrawHands(HDC hdc, SYSTEMTIME * pst, BOOL fChange)
 {
-     POINT pt[3][5] = { {{0, (INT)-Radius/6}, {(INT)Radius/9, 0}, 
-	     {0, (INT)Radius/1.8}, {(INT)-Radius/9, 0}, {0, (INT)-Radius/6}},
-     {{0, (INT)-Radius/4.5}, {(INT)Radius/18, 0}, {0, (INT) Radius*0.89}, 
-	     {(INT)-Radius/18, 0}, {0, (INT)-Radius/4.5}},
-     {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, (INT) Radius*0.89}} };
+     static POINT pt[3][5] = { {{0, -30}, {20, 0}, {0, 100}, {-20, 0}, {0, -30}},
+                               {{0, -40}, {10, 0}, {0, 160}, {-10, 0}, {0, -40}},
+                               {{0,   0}, { 0, 0}, {0,   0}, {  0, 0}, {0, 160}} };
      INT i, iAngle[3];
      POINT ptTemp[3][5];
 
@@ -115,12 +108,12 @@ DrawHands(HDC hdc, SYSTEMTIME * pst, BOOL fChange, INT Radius)
      SelectObject(hdc, GetStockObject(WHITE_BRUSH));
 
      iAngle[0] = (pst->wHour * 30) % 360 + pst->wMinute / 2;
-     iAngle[1] = pst->wMinute * 6;
-     iAngle[2] = pst->wSecond * 6;
+     iAngle[1] =  pst->wMinute  *  6;
+     iAngle[2] =  pst->wSecond  *  6;
 
      CopyMemory(ptTemp, pt, sizeof(pt));
 
-     for (i = fChange ? 0 : 2; i < 3; i++)
+     for(i = fChange ? 0 : 2; i < 3; i++)
      {
           RotatePoint(ptTemp[i], 5, iAngle[i]);
 
@@ -135,132 +128,68 @@ ClockWndProc(HWND hwnd,
              WPARAM wParam,
              LPARAM lParam)
 {
-    PCLOCKDATA pClockData;
-    HDC hdc, hdcMem;
-    PAINTSTRUCT ps;
 
-    pClockData = (PCLOCKDATA)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    static INT cxClient, cyClient;
+    static SYSTEMTIME stPrevious;
+    HDC hdc;
+    PAINTSTRUCT ps;
+    SYSTEMTIME st;
 
     switch (uMsg)
     {
         case WM_CREATE:
-            pClockData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CLOCKDATA));
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)pClockData);
-
-            pClockData->hGreyPen = CreatePen(PS_SOLID, 1, RGB(128, 128, 128));
-            pClockData->hGreyBrush = CreateSolidBrush(RGB(128, 128, 128));
-
+        {
+            hGreyPen = CreatePen(PS_SOLID, 1, RGB(128, 128, 128));
+            hGreyBrush = CreateSolidBrush(RGB(128, 128, 128));
             SetTimer(hwnd, ID_TIMER, 1000, NULL);
-            pClockData->bTimer = TRUE;
-            GetLocalTime(&pClockData->stCurrent);
-            pClockData->stPrevious = pClockData->stCurrent;
-            break;
+            GetLocalTime(&st);
+            stPrevious = st;
+        }
+        break;
 
         case WM_SIZE:
-            pClockData->cxClient = LOWORD(lParam);
-            pClockData->cyClient = HIWORD(lParam);
-            break;
+        {
+            cxClient = LOWORD(lParam);
+            cyClient = HIWORD(lParam);
+        }
+        break;
 
         case WM_TIMER:
-            GetLocalTime(&pClockData->stCurrent);
-            InvalidateRect(hwnd, NULL, FALSE);
-            pClockData->stPrevious = pClockData->stCurrent;
-            break;
+        {
+            GetLocalTime(&st);
+
+            InvalidateRect(hwnd, NULL, TRUE);
+
+            stPrevious = st;
+        }
+        break;
 
         case WM_PAINT:
+        {
             hdc = BeginPaint(hwnd, &ps);
 
-            hdcMem = CreateCompatibleDC(hdc);
-            if (hdcMem)
-            {
-                HBITMAP hBmp, hBmpOld;
-                
-                hBmp = CreateCompatibleBitmap(hdc,
-                                              pClockData->cxClient,
-                                              pClockData->cyClient);
-                if (hBmp)
-                {
-                    HBRUSH hWinBrush, hWinBrushOld;
-                    INT oldMap, Radius;
-                    POINT oldOrg;
+            SetIsotropic(hdc, cxClient, cyClient);
 
-                    hBmpOld = SelectObject(hdcMem, hBmp);
-
-                    hWinBrush = GetSysColorBrush(COLOR_BTNFACE);
-                    hWinBrushOld = SelectObject(hdcMem, hWinBrush);
-                    PatBlt(hdcMem,
-                           0,
-                           0,
-                           pClockData->cxClient,
-                           pClockData->cyClient,
-                           PATCOPY);
-
-                    oldMap = SetMapMode(hdcMem, MM_ISOTROPIC);
-                    SetWindowExtEx(hdcMem, 3600, 2700, NULL);
-                    SetViewportExtEx(hdcMem, 800, -600, NULL);
-                    SetViewportOrgEx(hdcMem,
-                                     pClockData->cxClient / 2,
-                                     pClockData->cyClient / 2,
-                                     &oldOrg);
-
-                    Radius = DrawClock(hdcMem, pClockData);
-                    DrawHands(hdcMem, &pClockData->stPrevious, TRUE, Radius);
-
-                    SetMapMode(hdcMem, oldMap);
-                    SetViewportOrgEx(hdcMem, oldOrg.x, oldOrg.y, NULL);
-
-                    BitBlt(hdc,
-                           0,
-                           0,
-                           pClockData->cxClient,
-                           pClockData->cyClient,
-                           hdcMem,
-                           0,
-                           0,
-                           SRCCOPY);
-
-                    SelectObject(hdcMem, hWinBrushOld);
-                    SelectObject(hdcMem, hBmpOld);
-                    DeleteObject(hBmp);
-                }
-
-                DeleteDC(hdcMem);
-            }
+            DrawClock(hdc);
+            DrawHands(hdc, &stPrevious, TRUE);
 
             EndPaint(hwnd, &ps);
-            break;
+        }
+        break;
 
         case WM_DESTROY:
-            DeleteObject(pClockData->hGreyPen);
-            DeleteObject(pClockData->hGreyBrush);
-
-            if (pClockData->bTimer)
-                KillTimer(hwnd, ID_TIMER);
-
-            HeapFree(GetProcessHeap(), 0, pClockData);
-            break;
-
-        case CLM_STOPCLOCK:
-            if (pClockData->bTimer)
-            {
-                KillTimer(hwnd, ID_TIMER);
-                pClockData->bTimer = FALSE;
-            }
-            break;
-
-        case CLM_STARTCLOCK:
-            if (!pClockData->bTimer)
-            {
-                SetTimer(hwnd, ID_TIMER, 1000, NULL);
-                pClockData->bTimer = TRUE;
-            }
-            break;
+        {
+            DeleteObject(hGreyPen);
+            DeleteObject(hGreyBrush);
+            KillTimer(hwnd, ID_TIMER);
+        }
+        break;
 
         default:
-            DefWindowProcW(hwnd,
-                           uMsg,
-                           wParam,
-                           lParam);
+            DefWindowProc(hwnd,
+                          uMsg,
+                          wParam,
+                          lParam);
     }
 
     return TRUE;
@@ -270,22 +199,22 @@ ClockWndProc(HWND hwnd,
 BOOL
 RegisterClockControl(VOID)
 {
-    WNDCLASSEXW wc = {0};
+    WNDCLASSEX wc = {0};
 
-    wc.cbSize = sizeof(WNDCLASSEXW);
+    wc.cbSize = sizeof(WNDCLASSEX);
     wc.lpfnWndProc = ClockWndProc;
     wc.hInstance = hApplet;
-    wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     wc.lpszClassName = szClockWndClass;
 
-    return RegisterClassExW(&wc) != (ATOM)0;
+    return RegisterClassEx(&wc) != (ATOM)0;
 }
 
 
 VOID
 UnregisterClockControl(VOID)
 {
-    UnregisterClassW(szClockWndClass,
-                     hApplet);
+    UnregisterClass(szClockWndClass,
+                    hApplet);
 }

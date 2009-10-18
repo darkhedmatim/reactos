@@ -10,28 +10,34 @@
  */
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /*
  * @implemented
  */
 long
-WINAPI
-_hread(HFILE hFile, LPVOID lpBuffer, long lBytes)
+STDCALL
+_hread(
+	HFILE	hFile,
+	LPVOID	lpBuffer,
+	long	lBytes
+	)
 {
-    DWORD NumberOfBytesRead;
+	DWORD	NumberOfBytesRead;
 
-    if (!ReadFile(LongToHandle(hFile),
-                  lpBuffer,
-                  (DWORD) lBytes,
-                  &NumberOfBytesRead,
-                  NULL))
-    {
-        return HFILE_ERROR;
-    }
-    return NumberOfBytesRead;
+	if ( !ReadFile(
+		(HANDLE) hFile,
+		(LPVOID) lpBuffer,
+		(DWORD) lBytes,
+		& NumberOfBytesRead,
+		NULL) )
+	{
+		return HFILE_ERROR;
+	}
+	return NumberOfBytesRead;
 }
 
 
@@ -39,28 +45,33 @@ _hread(HFILE hFile, LPVOID lpBuffer, long lBytes)
  * @implemented
  */
 long
-WINAPI
-_hwrite(HFILE hFile, LPCSTR lpBuffer, long lBytes)
+STDCALL
+_hwrite (
+	HFILE	hFile,
+	LPCSTR	lpBuffer,
+	long	lBytes
+	)
 {
-    DWORD NumberOfBytesWritten;
+	DWORD	NumberOfBytesWritten;
 
-    if (lBytes == 0)
-    {
-        if (!SetEndOfFile((HANDLE) hFile))
-        {
-            return HFILE_ERROR;
-        }
-        return 0;
-    }
-    if (!WriteFile(LongToHandle(hFile),
-                   (LPVOID) lpBuffer,
-                   (DWORD) lBytes,
-                   &NumberOfBytesWritten,
-                   NULL))
-    {
-        return HFILE_ERROR;
-    }
-    return NumberOfBytesWritten;
+	if (lBytes == 0)
+	{
+		if ( !SetEndOfFile((HANDLE) hFile ) )
+		{
+			return HFILE_ERROR;
+		}
+		return 0;
+	}
+	if ( !WriteFile(
+		(HANDLE) hFile,
+		(LPVOID) lpBuffer,
+		(DWORD) lBytes,
+		& NumberOfBytesWritten,
+		NULL) )
+	{
+		return HFILE_ERROR;
+	}
+	return NumberOfBytesWritten;
 }
 
 
@@ -68,45 +79,40 @@ _hwrite(HFILE hFile, LPCSTR lpBuffer, long lBytes)
  * @implemented
  */
 HFILE
-WINAPI
-_lopen(LPCSTR lpPathName, int iReadWrite)
+STDCALL
+_lopen (
+	LPCSTR	lpPathName,
+	int	iReadWrite
+	)
 {
-    DWORD dwAccess, dwSharing, dwCreation;
+	DWORD dwAccessMask = 0;
+	DWORD dwShareMode = 0;
 
-    if (iReadWrite & OF_CREATE)
-    {
-        dwCreation = CREATE_ALWAYS;
-        dwAccess = GENERIC_READ | GENERIC_WRITE;
-    }
-    else
-    {
-        dwCreation = OPEN_EXISTING;
-        switch(iReadWrite & 0x03)
-        {
-            case OF_READ:      dwAccess = GENERIC_READ; break;
-            case OF_WRITE:     dwAccess = GENERIC_WRITE; break;
-            case OF_READWRITE: dwAccess = GENERIC_READ | GENERIC_WRITE; break;
-            default:           dwAccess = 0; break;
-        }
-    }
+	if ( (iReadWrite & OF_READWRITE ) == OF_READWRITE )
+		dwAccessMask = GENERIC_READ | GENERIC_WRITE;
+	else if ( (iReadWrite & OF_READ ) == OF_READ )
+		dwAccessMask = GENERIC_READ;
+	else if ( (iReadWrite & OF_WRITE ) == OF_WRITE )
+		dwAccessMask = GENERIC_WRITE;
 
-    switch(iReadWrite & 0x70)
-    {
-        case OF_SHARE_EXCLUSIVE:  dwSharing = 0; break;
-        case OF_SHARE_DENY_WRITE: dwSharing = FILE_SHARE_READ; break;
-        case OF_SHARE_DENY_READ:  dwSharing = FILE_SHARE_WRITE; break;
-        case OF_SHARE_DENY_NONE:
-        case OF_SHARE_COMPAT:
-        default:                  dwSharing = FILE_SHARE_READ | FILE_SHARE_WRITE; break;
-    }
+	if ((iReadWrite & OF_SHARE_DENY_READ) == OF_SHARE_DENY_READ)
+		dwShareMode = FILE_SHARE_WRITE;
+	else if ((iReadWrite & OF_SHARE_DENY_WRITE) == OF_SHARE_DENY_WRITE )
+		dwShareMode = FILE_SHARE_READ;
+	else if ((iReadWrite & OF_SHARE_EXCLUSIVE) == OF_SHARE_EXCLUSIVE)
+		dwShareMode = 0;
+	else
+		/* OF_SHARE_DENY_NONE, OF_SHARE_COMPAT and everything else */
+                dwShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
 
-    return (HFILE) CreateFileA(lpPathName,
-                               dwAccess,
-                               dwSharing,
-                               NULL,
-                               dwCreation,
-                               FILE_ATTRIBUTE_NORMAL,
-                               NULL);
+	return (HFILE) CreateFileA(
+			lpPathName,
+			dwAccessMask,
+			dwShareMode,
+			NULL,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL,
+			NULL);
 }
 
 
@@ -114,21 +120,21 @@ _lopen(LPCSTR lpPathName, int iReadWrite)
  * @implemented
  */
 HFILE
-WINAPI
-_lcreat(LPCSTR lpPathName, int iAttribute)
+STDCALL
+_lcreat (
+	LPCSTR	lpPathName,
+	int	iAttribute
+	)
 {
-    HANDLE hFile;
-
-    iAttribute &= FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
-    hFile = CreateFileA(lpPathName,
-                        GENERIC_READ | GENERIC_WRITE,
-                        (FILE_SHARE_READ | FILE_SHARE_WRITE),
-                        NULL,
-                        CREATE_ALWAYS,
-                        iAttribute,
-                        NULL);
-
-    return HandleToLong(hFile);
+	iAttribute &= FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+	return (HFILE) CreateFileA(
+			lpPathName,
+			GENERIC_READ | GENERIC_WRITE,
+			(FILE_SHARE_READ | FILE_SHARE_WRITE),
+			NULL,
+			CREATE_ALWAYS,
+			iAttribute,
+			NULL);
 }
 
 
@@ -136,10 +142,16 @@ _lcreat(LPCSTR lpPathName, int iAttribute)
  * @implemented
  */
 int
-WINAPI
-_lclose(HFILE hFile)
+STDCALL
+_lclose (
+	HFILE	hFile
+	)
 {
-    return CloseHandle(LongToHandle(hFile)) ? 0 : HFILE_ERROR;
+	if (CloseHandle ((HANDLE)hFile))
+	{
+		return 0;
+	}
+	return HFILE_ERROR;
 }
 
 
@@ -147,13 +159,18 @@ _lclose(HFILE hFile)
  * @implemented
  */
 LONG
-WINAPI
-_llseek(HFILE hFile, LONG lOffset, int iOrigin)
+STDCALL
+_llseek(
+	HFILE	hFile,
+	LONG	lOffset,
+	int	iOrigin
+	)
 {
-    return SetFilePointer(LongToHandle(hFile),
-                          lOffset,
-                          NULL,
-                          (DWORD) iOrigin);
+	return SetFilePointer (
+			(HANDLE) hFile,
+			lOffset,
+			NULL,
+			(DWORD) iOrigin);
 }
 
 /* EOF */

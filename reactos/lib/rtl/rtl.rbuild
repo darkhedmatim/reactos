@@ -1,48 +1,59 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../tools/rbuild/project.dtd">
 <module name="rtl" type="staticlibrary">
+	<define name="__USE_W32API" />
 	<define name="_NTOSKRNL_" />
+	<define name="__NO_CTYPE_INLINES" />
 	<define name="NO_RTL_INLINES" />
 	<define name="_NTSYSTEM_" />
 	<define name="_NTDLLBUILD_" />
+	<define name="_SEH_NO_NATIVE_NLG" />
 	<include base="rtl">.</include>
 	<if property="ARCH" value="i386">
 		<directory name="i386">
+			<file>alldiv_asm.s</file>
+			<file>alldvrm_asm.s</file>
+			<file>allmul_asm.s</file>
+			<file>allrem_asm.s</file>
+			<file>allshl_asm.s</file>
+			<file>allshr_asm.s</file>
+			<file>atan_asm.s</file>
+			<file>aulldiv_asm.s</file>
+			<file>aulldvrm_asm.s</file>
+			<file>aullrem_asm.s</file>
+			<file>aullshr_asm.s</file>
+			<file>ceil_asm.s</file>
+			<file>chkstk_asm.s</file>
+			<file>cos_asm.s</file>
 			<file>debug_asm.S</file>
 			<file>except_asm.s</file>
-			<file>except.c</file>
-			<file>interlck.S</file>
+			<file>exception.c</file>
+			<file>fabs_asm.s</file>
+			<file>floor_asm.s</file>
+			<file>ftol_asm.s</file>
+			<file>log_asm.s</file>
+			<file>random_asm.S</file>
 			<file>rtlswap.S</file>
 			<file>rtlmem.s</file>
+			<file>pow_asm.s</file>
 			<file>res_asm.s</file>
+			<file>seh.s</file>
+			<file>sin_asm.s</file>
+			<file>sqrt_asm.s</file>
+			<file>tan_asm.s</file>
 			<file>thread.c</file>
 		</directory>
-	</if>
-	<if property="ARCH" value="powerpc">
-	<directory name="powerpc">
-		<file>debug.c</file>
-		<file>except.c</file>
-		<file>interlocked.c</file>
-		<file>rtlmem.s</file>
-		<file>rtlswap.s</file>
-		<file>thread.c</file>
-	</directory>
-   	</if>
-	<if property="ARCH" value="arm">
-		<directory name="arm">
-			<file>debug_asm.S</file>
-		</directory>
-        <file>mem.c</file>
-        <file>memgen.c</file>
 	</if>
 	<directory name="austin">
 		<file>avl.c</file>
 		<file>tree.c</file>
 	</directory>
 
+	<ifnot property="ARCH" value="i386">
+		<file>memgen.c</file>
+		<file>mem.c</file> 
+	</ifnot>
+
 	<file>access.c</file>
 	<file>acl.c</file>
-	<file>actctx.c</file>
 	<file>atom.c</file>
 	<file>bitmap.c</file>
 	<file>bootdata.c</file>
@@ -61,7 +72,6 @@
 	<file>handle.c</file>
 	<file>heap.c</file>
 	<file>image.c</file>
-	<file>interlck.c</file>
 	<file>message.c</file>
 	<file>largeint.c</file>
 	<file>luid.c</file>
@@ -79,7 +89,6 @@
 	<file>resource.c</file>
 	<file>sd.c</file>
 	<file>security.c</file>
-	<file>slist.c</file>
 	<file>sid.c</file>
 	<file>sprintf.c</file>
 	<file>srw.c</file>
@@ -93,11 +102,6 @@
 	<file>unicodeprefix.c</file>
 	<file>vectoreh.c</file>
 	<file>version.c</file>
-	<file>wait.c</file>
 	<file>workitem.c</file>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38269
 	<pch>rtl.h</pch>
-	-->
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
 </module>

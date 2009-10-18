@@ -5,7 +5,7 @@
  *  History:
  *
  *    06/14/97 (Tim Norman)
- *        changed static var in set() to a cmd_alloc'd space to pass to putenv.
+ *        changed static var in set() to a malloc'd space to pass to putenv.
  *        need to find a better way to do this, since it seems it is wasting
  *        memory when variables are redefined.
  *
@@ -20,14 +20,14 @@
  *    28-Jul-1998 (John P Price <linux-guru@gcfl.net>)
  *        added set_env function to set env. variable without needing set command
  *
- *    09-Dec-1998 (Eric Kohl)
+ *    09-Dec-1998 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Added help text ("/?").
  *
- *    24-Jan-1999 (Eric Kohl)
+ *    24-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Fixed Win32 environment handling.
  *        Unicode and redirection safe!
  *
- *    25-Feb-1999 (Eric Kohl)
+ *    25-Feb-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Fixed little bug.
  *
  *    30-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
@@ -35,6 +35,9 @@
  */
 
 #include <precomp.h>
+#include <malloc.h>
+#include <stdio.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_SET
 
@@ -48,33 +51,14 @@ seta_eval ( LPCTSTR expr );
 static LPCTSTR
 skip_ws ( LPCTSTR p )
 {
-	while (*p && *p <= _T(' '))
-		p++;
-	return p;
+	return p + _tcsspn ( p, _T(" \t") );
 }
 
-/* Used to check for and handle:
- * SET "var=value", SET /P "var=prompt", and SET /P var="prompt" */
-static LPTSTR
-GetQuotedString(TCHAR *p)
+INT cmd_set (LPTSTR cmd, LPTSTR param)
 {
-	TCHAR *end;
-	if (*p == _T('"'))
-	{
-		p = (LPTSTR)skip_ws(p + 1);
-		/* If a matching quote is found, truncate the string */
-		end = _tcsrchr(p, _T('"'));
-		if (end)
-			*end = _T('\0');
-	}
-	return p;
-}
-
-INT cmd_set (LPTSTR param)
-{
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+	INT i;
 	LPTSTR p;
-	LPTSTR lpEnv;
-	LPTSTR lpOutput;
 
 	if ( !_tcsncmp (param, _T("/?"), 2) )
 	{
@@ -82,20 +66,35 @@ INT cmd_set (LPTSTR param)
 		return 0;
 	}
 
-	param = (LPTSTR)skip_ws(param);
+	/* remove escapes */
+	if ( param[0] ) for ( i = 0; param[i+1]; i++ )
+	{
+		if ( param[i] == _T('^') )
+		{
+			memmove ( &param[i], &param[i+1], _tcslen(&param[i]) * sizeof(TCHAR) );
+		}
+	}
 
 	/* if no parameters, show the environment */
 	if (param[0] == _T('\0'))
 	{
+		LPTSTR lpEnv;
+		LPTSTR lpOutput;
+		INT len;
+
 		lpEnv = (LPTSTR)GetEnvironmentStrings ();
 		if (lpEnv)
 		{
 			lpOutput = lpEnv;
 			while (*lpOutput)
 			{
-				if (*lpOutput != _T('='))
-					ConOutPuts(lpOutput);
-				lpOutput += _tcslen(lpOutput) + 1;
+				len = _tcslen(lpOutput);
+				if (len)
+				{
+					if (*lpOutput != _T('='))
+						ConOutPuts (lpOutput);
+					lpOutput += (len + 1);
+				}
 			}
 			FreeEnvironmentStrings (lpEnv);
 		}
@@ -106,42 +105,15 @@ INT cmd_set (LPTSTR param)
 	/* the /A does *NOT* have to be followed by a whitespace */
 	if ( !_tcsnicmp (param, _T("/A"), 2) )
 	{
-		BOOL Success;
-		StripQuotes(param);
-		Success = seta_eval ( skip_ws(param+2) );
+		BOOL Success = seta_eval ( skip_ws(param+2) );
 		if(!Success)
 		{
 			/*might seem random but this is what windows xp does */
 			nErrorLevel = 9165;
 		}
-		return !Success;
+		/* TODO FIXME - what are we supposed to return? */
+		return Success;
 	}
-
-	if (!_tcsnicmp(param, _T("/P"), 2))
-	{
-		TCHAR value[1023];
-		param = GetQuotedString((LPTSTR)skip_ws(param + 2));
-		p = _tcschr(param, _T('='));
-		if (!p)
-		{
-			ConErrResPuts(STRING_SYNTAX_COMMAND_INCORRECT);
-			nErrorLevel = 1;
-			return 1;
-		}
-
-		*p++ = _T('\0');
-		ConOutPrintf(_T("%s"), GetQuotedString(p));
-		ConInString(value, 1023);
-
-		if (!*value || !SetEnvironmentVariable(param, value))
-		{
-			nErrorLevel = 1;
-			return 1;
-		}
-		return 0;
-	}
-
-	param = GetQuotedString(param);
 
 	p = _tcschr (param, _T('='));
 	if (p)
@@ -150,53 +122,43 @@ INT cmd_set (LPTSTR param)
 		if (p == param)
 		{
 			/* handle set =val case */
-			ConErrResPuts(STRING_SYNTAX_COMMAND_INCORRECT);
-			nErrorLevel = 1;
-			return 1;
+			LoadString(CMD_ModuleHandle, STRING_SYNTAX_COMMAND_INCORRECT, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf (szMsg, param);
+			return 0;
 		}
 
-		*p++ = _T('\0');
-		if (!SetEnvironmentVariable(param, *p ? p : NULL))
+		*p = _T('\0');
+		p++;
+		if (*p == _T('\0'))
 		{
-			nErrorLevel = 1;
-			return 1;
+			p = NULL;
 		}
+		SetEnvironmentVariable (param, p);
 	}
 	else
 	{
-		/* display all environment variable with the given prefix */
-		BOOL bFound = FALSE;
+		/* display environment variable */
+		LPTSTR pszBuffer;
+		DWORD dwBuffer;
 
-		while (_istspace(*param) || *param == _T(',') || *param == _T(';'))
-			param++;
-
-		p = _tcsrchr(param, _T(' '));
-		if (!p)
-			p = param + _tcslen(param);
-		*p = _T('\0');
-
-		lpEnv = GetEnvironmentStrings();
-		if (lpEnv)
+		pszBuffer = (LPTSTR)malloc (ENV_BUFFER_SIZE * sizeof(TCHAR));
+		dwBuffer = GetEnvironmentVariable (param, pszBuffer, ENV_BUFFER_SIZE);
+		if (dwBuffer == 0)
 		{
-			lpOutput = lpEnv;
-			while (*lpOutput)
-			{
-				if (!_tcsnicmp(lpOutput, param, p - param))
-				{
-					ConOutPuts(lpOutput);
-					bFound = TRUE;
-				}
-				lpOutput += _tcslen(lpOutput) + 1;
-			}
-			FreeEnvironmentStrings(lpEnv);
+			LoadString(CMD_ModuleHandle, STRING_PATH_ERROR, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf (szMsg, param);
+			return 0;
 		}
-
-		if (!bFound)
+		else if (dwBuffer > ENV_BUFFER_SIZE)
 		{
-			ConErrResPrintf (STRING_PATH_ERROR, param);
-			nErrorLevel = 1;
-			return 1;
+			pszBuffer = (LPTSTR)realloc (pszBuffer, dwBuffer * sizeof (TCHAR));
+			GetEnvironmentVariable (param, pszBuffer, dwBuffer);
 		}
+		ConOutPrintf (_T("%s\n"), pszBuffer);
+
+		free (pszBuffer);
+
+		return 0;
 	}
 
 	return 0;
@@ -232,7 +194,7 @@ seta_identval ( LPCTSTR ident, INT* result )
 		*result = 0;
 		return FALSE;
 	}
-	*result = _tcstol ( identVal, NULL, 0 );
+	*result = _ttoi ( identVal );
 	return TRUE;
 }
 
@@ -285,16 +247,18 @@ seta_unaryTerm ( LPCTSTR* p_, INT* result )
 		p = skip_ws ( p + 1 );
 		if ( !seta_stmt ( &p, &rval ) )
 			return FALSE;
-		if ( *p++ != _T(')') )
+		if ( *p != _T(')') )
 		{
 			ConErrResPuts ( STRING_EXPECTED_CLOSE_PAREN );
 			return FALSE;
 		}
 		*result = rval;
+		p = skip_ws ( p + 1 );
 	}
 	else if ( isdigit(*p) )
 	{
-		*result = _tcstol ( p, (LPTSTR *)&p, 0 );
+		*result = _ttoi ( p );
+		p = skip_ws ( p + _tcsspn ( p, _T("1234567890") ) );
 	}
 	else if ( __iscsymf(*p) )
 	{
@@ -309,7 +273,7 @@ seta_unaryTerm ( LPCTSTR* p_, INT* result )
 		ConErrResPuts ( STRING_EXPECTED_NUMBER_OR_VARIABLE );
 		return FALSE;
 	}
-	*p_ = skip_ws ( p );
+	*p_ = p;
 	return TRUE;
 }
 
@@ -447,7 +411,6 @@ seta_assignment ( LPCTSTR* p_, INT* result )
 	PARSE_IDENT(ident,identlen,p);
 	if ( identlen )
 	{
-		p = skip_ws(p);
 		if ( *p == _T('=') )
 			op = *p, p = skip_ws(p+1);
 		else if ( _tcschr ( _T("*/%+-&^|"), *p ) && p[1] == _T('=') )
@@ -532,8 +495,7 @@ seta_eval ( LPCTSTR p )
 	}
 	if ( !seta_stmt ( &p, &rval ) )
 		return FALSE;
-	if ( !bc )
-		ConOutPrintf ( _T("%i"), rval );
+	ConOutPrintf ( _T("%i"), rval );
 	return TRUE;
 }
 

@@ -829,11 +829,7 @@ struct class *add_class (type, name)
 		user_class_hash = new_hash ();
 
 	if (!tname || !class || !vendor_class_hash || !user_class_hash)
-	{
-		if (tname != NULL)
-			free(tname);
 		return (struct class *)0;
-	}
 
 	memset (class, 0, sizeof *class);
 	strcpy (tname, name);

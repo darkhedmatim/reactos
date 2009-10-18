@@ -122,7 +122,7 @@ typedef struct _USB_HUB_DESCRIPTOR
 	BYTE 	bPwrOn2PwrGood;
 	BYTE 	bHubContrCurrent;
 
-	/* DeviceRemovable and PortPwrCtrlMask want to be variable-length
+	/* DeviceRemovable and PortPwrCtrlMask want to be variable-length 
 	   bitmaps that hold max 256 entries, but for now they're ignored */
 	BYTE 	bitmap[0];
 } USB_HUB_DESCRIPTOR, *PUSB_HUB_DESCRIPTOR;
@@ -179,10 +179,10 @@ typedef struct _HUB_EXTENSION
 
 	USB_HUB_STATUS   			hub_status;
 	USB_PORT_STATUS				port_status;		//working data buf for get port feature
-
+	
 	USB_PORT_STATUS				rh_port1_status; 	//working buf for get rh port1 feature
 	USB_PORT_STATUS				rh_port2_status; 	//working buf for get rh port2 feature
-
+	
 	USB_HUB_DESCRIPTOR			hub_desc;
 
 } HUB_EXTENSION, *PHUB_EXTENSION;
@@ -207,8 +207,8 @@ typedef struct _HUB2_EXTENSION
 
 	USB_HUB_STATUS   			hub_status;
 	USB_PORT_STATUS				port_status;		//working data buf for get port feature
-
-	USB_PORT_STATUS				rh_port_status[ EHCI_MAX_ROOT_PORTS + 1 ]; 	//working buf for get rh ports feature
+	
+	USB_PORT_STATUS				rh_port_status[ EHCI_MAX_ROOT_PORTS ]; 	//working buf for get rh ports feature
 
 	UCHAR						multiple_tt;			// boolean
 	ULONG						tt_status_map[ 4 ];		// bit map to indicate the indexed tt's periodic buffer busy or not

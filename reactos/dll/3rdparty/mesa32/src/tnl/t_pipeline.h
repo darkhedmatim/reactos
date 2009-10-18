@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  3.5
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,7 +31,7 @@
 #ifndef _T_PIPELINE_H_
 #define _T_PIPELINE_H_
 
-#include "main/mtypes.h"
+#include "mtypes.h"
 #include "t_context.h"
 
 extern void _tnl_run_pipeline( GLcontext *ctx );
@@ -51,6 +52,7 @@ extern const struct tnl_pipeline_stage _tnl_fog_coordinate_stage;
 extern const struct tnl_pipeline_stage _tnl_texgen_stage;
 extern const struct tnl_pipeline_stage _tnl_texture_transform_stage;
 extern const struct tnl_pipeline_stage _tnl_point_attenuation_stage;
+extern const struct tnl_pipeline_stage _tnl_arb_vertex_program_stage;
 extern const struct tnl_pipeline_stage _tnl_vertex_program_stage;
 extern const struct tnl_pipeline_stage _tnl_render_stage;
 

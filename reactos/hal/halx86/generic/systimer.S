@@ -18,9 +18,6 @@ _HalpLastPerfCounterHigh:   .long 0
 _HalpPerfCounterLow:        .long 0
 _HalpPerfCounterHigh:       .long 0
 
-_UnhandledMsg:
-    .asciz "\n\x7\x7!!! Unhandled or Unexpected Code at line: %lx!!!\n"
-
 /* FUNCTIONS *****************************************************************/
 
 .globl _KeStallExecutionProcessor@4
@@ -53,34 +50,6 @@ Done:
     /* Return */
     ret 4
 .endfunc
-
-
-.globl _HalpQuery8254Counter@0
-.func HalpQuery8254Counter@0
-_HalpQuery8254Counter@0:
-
-    /* Save EFLAGS and disable interrupts */
-    pushfd
-    cli
-    
-    /* Set timer data */
-    mov al, 0
-    out 0x43, al
-    jmp $+2
-
-    /* Read current timer */
-    in al, 0x40
-    jmp $+2
-    movzx ecx, al
-    in al, 0x40
-    mov ch, al
-
-    /* Return it and restore interrupt state */
-    mov eax, ecx
-    popfd
-    ret
-.endfunc
-
 
 .global _KeQueryPerformanceCounter@4
 .func KeQueryPerformanceCounter@4
@@ -131,9 +100,9 @@ LoopPostInt:
 
     /* Check if someone updated the counter */
     cmp eax, ebx
-    jnz LoopPostInt
+    jne LoopPostInt
     cmp edx, esi
-    jnz LoopPostInt
+    jne LoopPostInt
 
     /* Check if the current 8254 value causes rollover */
     neg ecx
@@ -211,44 +180,31 @@ BelowHigh:
     or ecx, esi
     jz BelowLow
 
-    /* Make sure that the count is still valid */
-    sub ebx, eax
-    sbb esi, edx
-    jnz InvalidCount
-    cmp ebx, _HalpCurrentRollOver
-    jg InvalidCount
-
     /* Fixup the count with the last known value */
     sub eax, ebx
     sbb edx, esi
 
     /* We might have an incoming interrupt, save EFLAGS */
-    mov ecx, [esp]
+    mov esi, [esp]
     popf
 
     /* Check if interrupts were enabled and try again */
-    test ecx, EFLAGS_INTERRUPT_MASK
+    test esi, EFLAGS_INTERRUPT_MASK
     jnz LoopPreInt
 
     /* They're not, continue where we left */
     pushf
     jmp BelowLow
-
-InvalidCount:
-    popf
-    xor eax, eax
-    mov _HalpLastPerfCounterLow, eax
-    mov _HalpLastPerfCounterHigh, eax
-    jmp LoopPreInt
 .endfunc
 
 .globl _HalpClockInterrupt@0
 .func HalpClockInterrupt@0
-TRAP_FIXUPS hci_a, hci_t, DoFixupV86, DoFixupAbios
+V86_hci: V86_TRAP_FIXUP
+Dr_hci:  DR_TRAP_FIXUP
 _HalpClockInterrupt@0:
 
     /* Enter trap */
-    INT_PROLOG hci_a, hci_t, DoPushFakeErrorCode
+    INT_PROLOG hci, DoPushFakeErrorCode
 
     /* Push vector and make stack for IRQL */
     push 0x30

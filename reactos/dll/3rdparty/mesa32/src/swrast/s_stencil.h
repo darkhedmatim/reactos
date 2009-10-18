@@ -27,12 +27,13 @@
 #define S_STENCIL_H
 
 
+#include "mtypes.h"
 #include "swrast.h"
 
 
 
 extern GLboolean
-_swrast_stencil_and_ztest_span(GLcontext *ctx, SWspan *span);
+_swrast_stencil_and_ztest_span(GLcontext *ctx, struct sw_span *span);
 
 
 extern void

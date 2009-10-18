@@ -9,7 +9,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -28,7 +28,7 @@ IoAllocateController(IN PCONTROLLER_OBJECT ControllerObject,
                      IN PVOID Context)
 {
     IO_ALLOCATION_ACTION Result;
-    ASSERT_IRQL_EQUAL(DISPATCH_LEVEL);
+    ASSERT_IRQL(DISPATCH_LEVEL);
 
     /* Initialize the Wait Context Block */
     DeviceObject->Queue.Wcb.DeviceContext = Context;
@@ -36,7 +36,7 @@ IoAllocateController(IN PCONTROLLER_OBJECT ControllerObject,
 
     /* Insert the Device Queue */
     if (!KeInsertDeviceQueue(&ControllerObject->DeviceWaitQueue,
-                             &DeviceObject->Queue.Wcb.WaitQueueEntry))
+                             &DeviceObject->Queue.Wcb.WaitQueueEntry));
     {
         /* Call the execution routine */
         Result = ExecutionRoutine(DeviceObject,
@@ -92,7 +92,7 @@ IoCreateController(IN ULONG Size)
     /* Zero the Object and set its data */
     RtlZeroMemory(Controller, sizeof(CONTROLLER_OBJECT) + Size);
     Controller->Type = IO_TYPE_CONTROLLER;
-    Controller->Size = sizeof(CONTROLLER_OBJECT) + (CSHORT)Size;
+    Controller->Size = sizeof(CONTROLLER_OBJECT) + Size;
     Controller->ControllerExtension = (Controller + 1);
 
     /* Initialize its Queue */

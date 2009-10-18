@@ -1,17 +1,12 @@
 #include <ntifs.h>
 #include <kbdmou.h>
-#include <ntddkbd.h>
+#include <ntddmou.h>
+#include <pseh/pseh.h>
 #include <stdio.h>
-#include <pseh/pseh2.h>
-
-#include <debug.h>
 
 #define MAX_PATH 260
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-#define CLASS_TAG 'CuoM'
-#define DPFLTR_CLASS_NAME_ID DPFLTR_MOUCLASS_ID
 
 typedef enum
 {
@@ -60,8 +55,8 @@ typedef struct _CLASS_DEVICE_EXTENSION
 	LIST_ENTRY ListHead;
 	KSPIN_LOCK ListSpinLock;
 	KSPIN_LOCK SpinLock;
-	PIRP PendingIrp;
-	SIZE_T InputCount;
+	BOOLEAN ReadIsPending;
+	ULONG InputCount;
 	PMOUSE_INPUT_DATA PortData;
 	LPCWSTR DeviceName;
 } CLASS_DEVICE_EXTENSION, *PCLASS_DEVICE_EXTENSION;
@@ -73,10 +68,7 @@ ForwardIrpAndWait(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-DRIVER_DISPATCH ForwardIrpAndForget;
-
-NTSTATUS
-DuplicateUnicodeString(
-	IN ULONG Flags,
-	IN PCUNICODE_STRING SourceString,
-	OUT PUNICODE_STRING DestinationString);
+NTSTATUS NTAPI
+ForwardIrpAndForget(
+	IN PDEVICE_OBJECT DeviceObject,
+	IN PIRP Irp);

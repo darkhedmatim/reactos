@@ -3,7 +3,7 @@
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            ntoskrnl/fsrtl/notify.c
  * PURPOSE:         Change Notifications and Sync for File System Drivers
- * PROGRAMMERS:     Pierre Schweitzer
+ * PROGRAMMERS:     None.
  */
 
 /* INCLUDES ******************************************************************/
@@ -18,34 +18,32 @@
  * @name FsRtlNotifyChangeDirectory
  * @implemented
  *
- * Lets FSD know if changes occures in the specified directory.
- * Directory will be reenumerated. 
+ * FILLME
  *
  * @param NotifySync
- *        Synchronization object pointer
+ *        FILLME
  *
  * @param FsContext
- *        Used to identify the notify structure
+ *        FILLME
  *
  * @param FullDirectoryName
- *        String (A or W) containing the full directory name 
+ *        FILLME
  *
  * @param NotifyList
- *        Notify list pointer (to head)
+ *        FILLME
  *
  * @param WatchTree
- *        True to notify changes in subdirectories too
+ *        FILLME
  *
  * @param CompletionFilter
- *        Used to define types of changes to notify
+ *        FILLME
  *
  * @param NotifyIrp
- *        IRP pointer to complete notify operation. It can be null
+ *        FILLME
  *
  * @return None
  *
- * @remarks This function only redirects to FsRtlNotifyFullChangeDirectory.
- * So, it's better to call the entire function.  
+ * @remarks None
  *
  *--*/
 VOID
@@ -58,16 +56,7 @@ FsRtlNotifyChangeDirectory(IN PNOTIFY_SYNC NotifySync,
                            IN ULONG CompletionFilter,
                            IN PIRP NotifyIrp)
 {
-    FsRtlNotifyFullChangeDirectory(NotifySync,
-                                   NotifyList,
-                                   FsContext,
-                                   FullDirectoryName,
-                                   WatchTree,
-                                   TRUE,
-                                   CompletionFilter,
-                                   NotifyIrp,
-                                   NULL,
-                                   NULL);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -96,7 +85,7 @@ FsRtlNotifyCleanup(IN PNOTIFY_SYNC NotifySync,
                    IN PLIST_ENTRY NotifyList,
                    IN PVOID FsContext)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -157,7 +146,7 @@ FsRtlNotifyFilterChangeDirectory(IN PNOTIFY_SYNC NotifySync,
                                  IN PSECURITY_SUBJECT_CONTEXT SubjectContext OPTIONAL,
                                  IN PFILTER_REPORT_CHANGE FilterCallback OPTIONAL)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -214,7 +203,7 @@ FsRtlNotifyFilterReportChange(IN PNOTIFY_SYNC NotifySync,
                               IN PVOID TargetContext,
                               IN PVOID FilterContext)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -271,7 +260,7 @@ FsRtlNotifyFullChangeDirectory(IN PNOTIFY_SYNC NotifySync,
                                IN PCHECK_FOR_TRAVERSE_ACCESS TraverseCallback OPTIONAL,
                                IN PSECURITY_SUBJECT_CONTEXT SubjectContext OPTIONAL)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -324,7 +313,7 @@ FsRtlNotifyFullReportChange(IN PNOTIFY_SYNC NotifySync,
                             IN ULONG Action,
                             IN PVOID TargetContext)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -345,7 +334,7 @@ VOID
 NTAPI
 FsRtlNotifyInitializeSync(IN PNOTIFY_SYNC *NotifySync)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -382,7 +371,7 @@ FsRtlNotifyReportChange(IN PNOTIFY_SYNC NotifySync,
                         IN PUSHORT FileNamePartLength,
                         IN ULONG FilterMatch)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -404,6 +393,6 @@ VOID
 NTAPI
 FsRtlNotifyUninitializeSync(IN PNOTIFY_SYNC *NotifySync)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 

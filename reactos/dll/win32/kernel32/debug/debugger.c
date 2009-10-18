@@ -10,7 +10,7 @@
 
 #include <k32.h>
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 typedef struct _DBGSS_THREAD_DATA
 {
@@ -232,7 +232,7 @@ ProcessIdToHandle(IN DWORD dwProcessId)
     CLIENT_ID ClientId;
 
     /* If we don't have a PID, look it up */
-    if (dwProcessId == MAXDWORD) dwProcessId = (DWORD)CsrGetProcessId();
+    if (dwProcessId == -1) dwProcessId = (DWORD)CsrGetProcessId();
 
     /* Open a handle to the process */
     ClientId.UniqueThread = NULL;
@@ -447,7 +447,7 @@ DebugSetProcessKillOnExit(IN BOOL KillOnExit)
     if (!NT_SUCCESS(Status))
     {
         /* Fail */
-        SetLastErrorByStatus(Status);
+        SetLastError(Status);
         return FALSE;
     }
 
@@ -492,7 +492,7 @@ WaitForDebugEvent(IN LPDEBUG_EVENT lpDebugEvent,
     }
 
     /* Loop while we keep getting interrupted */
-    do
+    do 
     {
         /* Call the native API */
         Status = DbgUiWaitStateChange(&WaitStateChange, Timeout);

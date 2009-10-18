@@ -14,32 +14,17 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBALS *******************************************************************/
 
-HANDLE WINAPI
+HANDLE STDCALL
 DuplicateConsoleHandle (HANDLE	hConsole,
 			DWORD   dwDesiredAccess,
 			BOOL	bInheritHandle,
 			DWORD	dwOptions);
 
 /* FUNCTIONS *****************************************************************/
-
-HANDLE FASTCALL
-TranslateStdHandle(HANDLE hHandle)
-{
-  PRTL_USER_PROCESS_PARAMETERS Ppb = NtCurrentPeb()->ProcessParameters;
-
-  switch ((ULONG)hHandle)
-    {
-      case STD_INPUT_HANDLE:  return Ppb->StandardInput;
-      case STD_OUTPUT_HANDLE: return Ppb->StandardOutput;
-      case STD_ERROR_HANDLE:  return Ppb->StandardError;
-    }
-
-  return hHandle;
-}
 
 /*
  * @implemented
@@ -48,15 +33,28 @@ BOOL WINAPI
 GetHandleInformation (HANDLE hObject,
 		      LPDWORD lpdwFlags)
 {
+  PRTL_USER_PROCESS_PARAMETERS Ppb;
   OBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo;
   ULONG BytesWritten;
   NTSTATUS Status;
   DWORD Flags;
 
-  hObject = TranslateStdHandle(hObject);
+  Ppb = NtCurrentPeb()->ProcessParameters;
+  switch ((ULONG)hObject)
+  {
+    case STD_INPUT_HANDLE:
+      hObject = Ppb->StandardInput;
+      break;
+    case STD_OUTPUT_HANDLE:
+      hObject = Ppb->StandardOutput;
+      break;
+    case STD_ERROR_HANDLE:
+      hObject = Ppb->StandardError;
+      break;
+  }
 
   Status = NtQueryObject (hObject,
-			  ObjectHandleFlagInformation,
+			  ObjectHandleInformation,
 			  &HandleInfo,
 			  sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
 			  &BytesWritten);
@@ -83,19 +81,32 @@ GetHandleInformation (HANDLE hObject,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetHandleInformation (HANDLE hObject,
 		      DWORD dwMask,
 		      DWORD dwFlags)
 {
+  PRTL_USER_PROCESS_PARAMETERS Ppb;
   OBJECT_HANDLE_ATTRIBUTE_INFORMATION HandleInfo;
   ULONG BytesWritten;
   NTSTATUS Status;
 
-  hObject = TranslateStdHandle(hObject);
+  Ppb = NtCurrentPeb()->ProcessParameters;
+  switch ((ULONG)hObject)
+  {
+    case STD_INPUT_HANDLE:
+      hObject = Ppb->StandardInput;
+      break;
+    case STD_OUTPUT_HANDLE:
+      hObject = Ppb->StandardOutput;
+      break;
+    case STD_ERROR_HANDLE:
+      hObject = Ppb->StandardError;
+      break;
+  }
 
   Status = NtQueryObject (hObject,
-			  ObjectHandleFlagInformation,
+			  ObjectHandleInformation,
 			  &HandleInfo,
 			  sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
 			  &BytesWritten);
@@ -107,7 +118,7 @@ SetHandleInformation (HANDLE hObject,
       HandleInfo.ProtectFromClose = (dwFlags & HANDLE_FLAG_PROTECT_FROM_CLOSE) != 0;
 
     Status = NtSetInformationObject (hObject,
-				     ObjectHandleFlagInformation,
+				     ObjectHandleInformation,
 				     &HandleInfo,
 				     sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION));
     if(!NT_SUCCESS(Status))
@@ -129,7 +140,7 @@ SetHandleInformation (HANDLE hObject,
 /*
  * @implemented
  */
-BOOL WINAPI CloseHandle(HANDLE  hObject)
+BOOL STDCALL CloseHandle(HANDLE  hObject)
 /*
  * FUNCTION: Closes an open object handle
  * PARAMETERS:
@@ -138,9 +149,22 @@ BOOL WINAPI CloseHandle(HANDLE  hObject)
  *          If the function fails, the return value is zero
  */
 {
+   PRTL_USER_PROCESS_PARAMETERS Ppb;
    NTSTATUS Status;
 
-   hObject = TranslateStdHandle(hObject);
+   Ppb = NtCurrentPeb()->ProcessParameters;
+   switch ((ULONG)hObject)
+   {
+     case STD_INPUT_HANDLE:
+       hObject = Ppb->StandardInput;
+       break;
+     case STD_OUTPUT_HANDLE:
+       hObject = Ppb->StandardOutput;
+       break;
+     case STD_ERROR_HANDLE:
+       hObject = Ppb->StandardError;
+       break;
+   }
 
    if (IsConsoleHandle(hObject))
      {
@@ -161,7 +185,7 @@ BOOL WINAPI CloseHandle(HANDLE  hObject)
 /*
  * @implemented
  */
-BOOL WINAPI DuplicateHandle(HANDLE hSourceProcessHandle,
+BOOL STDCALL DuplicateHandle(HANDLE hSourceProcessHandle,
 				HANDLE hSourceHandle,
 				HANDLE hTargetProcessHandle,
 				LPHANDLE lpTargetHandle,
@@ -169,10 +193,23 @@ BOOL WINAPI DuplicateHandle(HANDLE hSourceProcessHandle,
 				BOOL bInheritHandle,
 				DWORD dwOptions)
 {
+   PRTL_USER_PROCESS_PARAMETERS Ppb;
    DWORD SourceProcessId, TargetProcessId;
    NTSTATUS Status;
 
-   hSourceHandle = TranslateStdHandle(hSourceHandle);
+   Ppb = NtCurrentPeb()->ProcessParameters;
+   switch ((ULONG)hSourceHandle)
+   {
+     case STD_INPUT_HANDLE:
+       hSourceHandle = Ppb->StandardInput;
+       break;
+     case STD_OUTPUT_HANDLE:
+       hSourceHandle = Ppb->StandardOutput;
+       break;
+     case STD_ERROR_HANDLE:
+       hSourceHandle = Ppb->StandardError;
+       break;
+   }
 
    if (IsConsoleHandle(hSourceHandle))
    {
@@ -210,7 +247,7 @@ BOOL WINAPI DuplicateHandle(HANDLE hSourceProcessHandle,
 /*
  * @implemented
  */
-UINT WINAPI SetHandleCount(UINT nCount)
+UINT STDCALL SetHandleCount(UINT nCount)
 {
    return(nCount);
 }

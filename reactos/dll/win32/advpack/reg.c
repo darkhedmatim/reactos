@@ -25,6 +25,7 @@
 #include "winerror.h"
 #include "winuser.h"
 #include "winternl.h"
+#include "setupapi.h"
 #include "advpub.h"
 #include "wine/unicode.h"
 #include "wine/debug.h"
@@ -97,7 +98,7 @@ error:
     return FALSE;
 }
 
-static void strentry_atow(const STRENTRYA *aentry, STRENTRYW *wentry)
+static void strentry_atow(STRENTRYA *aentry, STRENTRYW *wentry)
 {
     DWORD name_len, val_len;
 
@@ -170,7 +171,7 @@ HRESULT WINAPI RegInstallA(HMODULE hm, LPCSTR pszSection, const STRTABLEA* pstTa
     return hr;
 }
 
-static HRESULT write_predefined_strings(HMODULE hm, LPCWSTR ini_path)
+static HRESULT write_predefined_strings(HMODULE hm, LPWSTR ini_path)
 {
     WCHAR mod_path[MAX_PATH + 2];
     WCHAR sys_mod_path[MAX_PATH + 2];
@@ -210,7 +211,7 @@ static HRESULT write_predefined_strings(HMODULE hm, LPCWSTR ini_path)
  * substitution table, and executes the INF.
  *
  * PARAMS
- *   hm         [I] Module that contains the REGINST resource.
+ *   hm         [I] Module that contains the REGINST resouce.
  *   pszSection [I] The INF section to execute.
  *   pstTable   [I] Table of string substitutions.
  * 
@@ -220,7 +221,7 @@ static HRESULT write_predefined_strings(HMODULE hm, LPCWSTR ini_path)
  */
 HRESULT WINAPI RegInstallW(HMODULE hm, LPCWSTR pszSection, const STRTABLEW* pstTable)
 {
-    unsigned int i;
+    int i;
     CABINFOW cabinfo;
     WCHAR tmp_ini_path[MAX_PATH];
     HRESULT hr = E_FAIL;
@@ -230,7 +231,7 @@ HRESULT WINAPI RegInstallW(HMODULE hm, LPCWSTR pszSection, const STRTABLEW* pstT
     if(!create_tmp_ini_file(hm, tmp_ini_path))
         return E_FAIL;
 
-    if (write_predefined_strings(hm, tmp_ini_path) != S_OK)
+    if (write_predefined_strings(hm, tmp_ini_path))
         goto done;
 
     /* Write the additional string table */
@@ -323,7 +324,7 @@ HRESULT WINAPI RegSaveRestoreA(HWND hWnd, LPCSTR pszTitleString, HKEY hkBackupKe
     UNICODE_STRING title, root, subkey, value;
     HRESULT hr;
 
-    TRACE("(%p, %s, %p, %s, %s, %s, %d)\n", hWnd, debugstr_a(pszTitleString),
+    TRACE("(%p, %s, %p, %s, %s, %s, %ld)\n", hWnd, debugstr_a(pszTitleString),
           hkBackupKey, debugstr_a(pcszRootKey), debugstr_a(pcszSubKey),
           debugstr_a(pcszValueName), dwFlags);
 
@@ -368,7 +369,7 @@ HRESULT WINAPI RegSaveRestoreW(HWND hWnd, LPCWSTR pszTitleString, HKEY hkBackupK
                                LPCWSTR pcszRootKey, LPCWSTR pcszSubKey,
                                LPCWSTR pcszValueName, DWORD dwFlags)
 {
-    FIXME("(%p, %s, %p, %s, %s, %s, %d): stub\n", hWnd, debugstr_w(pszTitleString),
+    FIXME("(%p, %s, %p, %s, %s, %s, %ld): stub\n", hWnd, debugstr_w(pszTitleString),
           hkBackupKey, debugstr_w(pcszRootKey), debugstr_w(pcszSubKey),
           debugstr_w(pcszValueName), dwFlags);
 
@@ -387,7 +388,7 @@ HRESULT WINAPI RegSaveRestoreOnINFA(HWND hWnd, LPCSTR pszTitle, LPCSTR pszINF,
     UNICODE_STRING title, inf, section;
     HRESULT hr;
 
-    TRACE("(%p, %s, %s, %s, %p, %p, %d)\n", hWnd, debugstr_a(pszTitle),
+    TRACE("(%p, %s, %s, %s, %p, %p, %ld)\n", hWnd, debugstr_a(pszTitle),
           debugstr_a(pszINF), debugstr_a(pszSection),
           hHKLMBackKey, hHKCUBackKey, dwFlags);
 
@@ -430,7 +431,7 @@ HRESULT WINAPI RegSaveRestoreOnINFW(HWND hWnd, LPCWSTR pszTitle, LPCWSTR pszINF,
                                     LPCWSTR pszSection, HKEY hHKLMBackKey,
                                     HKEY hHKCUBackKey, DWORD dwFlags)
 {
-    FIXME("(%p, %s, %s, %s, %p, %p, %d): stub\n", hWnd, debugstr_w(pszTitle),
+    FIXME("(%p, %s, %s, %s, %p, %p, %ld): stub\n", hWnd, debugstr_w(pszTitle),
           debugstr_w(pszINF), debugstr_w(pszSection),
           hHKLMBackKey, hHKCUBackKey, dwFlags);
 

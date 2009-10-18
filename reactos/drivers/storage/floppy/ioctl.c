@@ -31,8 +31,9 @@
  * TODO: Implement format
  */
 
-#include <ntddk.h>
+#define NDEBUG
 #include <debug.h>
+#include <ntddk.h>
 
 #include "floppy.h"
 #include "hardware.h"
@@ -80,7 +81,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
   ULONG Code = Stack->Parameters.DeviceIoControl.IoControlCode;
   BOOLEAN DiskChanged;
 
-  TRACE_(FLOPPY, "DeviceIoctl called\n");
+  DPRINT("floppy: DeviceIoctl called\n");
   Irp->IoStatus.Status = STATUS_SUCCESS;
   Irp->IoStatus.Information = 0;
 
@@ -90,11 +91,11 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
   if(Code == IOCTL_DISK_GET_MEDIA_TYPES)
     {
       PDISK_GEOMETRY Geometry = OutputBuffer;
-      INFO_(FLOPPY, "IOCTL_DISK_GET_MEDIA_TYPES Called\n");
+      DPRINT("floppy: IOCTL_DISK_GET_MEDIA_TYPES Called\n");
 
       if(OutputLength < sizeof(DISK_GEOMETRY))
         {
-	  INFO_(FLOPPY, "IOCTL_DISK_GET_MEDIA_TYPES: insufficient buffer; returning STATUS_INVALID_PARAMETER\n");
+	  DPRINT("floppy: IOCTL_DISK_GET_MEDIA_TYPES: insufficient buffer; returning STATUS_INVALID_PARAMETER\n");
           Irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
 	  IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	  return;
@@ -111,7 +112,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
 
       Irp->IoStatus.Status = STATUS_SUCCESS;
       Irp->IoStatus.Information = sizeof(DISK_GEOMETRY);
-      INFO_(FLOPPY, "Ioctl: completing with STATUS_SUCCESS\n");
+      DPRINT("floppy: Ioctl: completing with STATUS_SUCCESS\n");
       IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
       return;
@@ -128,7 +129,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
    */
   if(DriveInfo->DeviceObject->Flags & DO_VERIFY_VOLUME && !(DriveInfo->DeviceObject->Flags & SL_OVERRIDE_VERIFY_VOLUME))
     {
-      INFO_(FLOPPY, "DeviceIoctl(): completing with STATUS_VERIFY_REQUIRED\n");
+      DPRINT("floppy: DeviceIoctl(): completing with STATUS_VERIFY_REQUIRED\n");
       Irp->IoStatus.Status = STATUS_VERIFY_REQUIRED;
       Irp->IoStatus.Information = 0;
       IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -145,7 +146,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
    */
   if(HwDiskChanged(DriveInfo, &DiskChanged) != STATUS_SUCCESS)
     {
-      WARN_(FLOPPY, "DeviceIoctl(): unable to sense disk change; completing with STATUS_UNSUCCESSFUL\n");
+      DPRINT("floppy: DeviceIoctl(): unable to sense disk change; completing with STATUS_UNSUCCESSFUL\n");
       Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
       Irp->IoStatus.Information = 0;
       IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -155,7 +156,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
 
   if(DiskChanged)
     {
-      INFO_(FLOPPY, "DeviceIoctl(): detected disk changed; signalling media change and completing\n");
+      DPRINT("floppy: DeviceIoctl(): detected disk changed; signalling media change and completing\n");
       SignalMediaChanged(DriveInfo->DeviceObject, Irp);
 
       /*
@@ -178,14 +179,14 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
       {
         UCHAR Status;
 
-        INFO_(FLOPPY, "IOCTL_DISK_IS_WRITABLE Called\n");
+        DPRINT("floppy: IOCTL_DISK_IS_WRITABLE Called\n");
 
         /* This IRP always has 0 information */
         Irp->IoStatus.Information = 0;
 
         if(HwSenseDriveStatus(DriveInfo) != STATUS_SUCCESS)
 	  {
-	    WARN_(FLOPPY, "IoctlDiskIsWritable(): unable to sense drive status\n");
+	    DPRINT("floppy: IoctlDiskIsWritable(): unable to sense drive status\n");
 	    Irp->IoStatus.Status = STATUS_IO_DEVICE_ERROR;
 	    break;
 	  }
@@ -193,7 +194,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
 	/* Now, read the drive's status back */
 	if(HwSenseDriveStatusResult(DriveInfo->ControllerInfo, &Status) != STATUS_SUCCESS)
 	  {
-	    WARN_(FLOPPY, "IoctlDiskIsWritable(): unable to read drive status result\n");
+	    DPRINT("floppy: IoctlDiskIsWritable(): unable to read drive status result\n");
 	    Irp->IoStatus.Status = STATUS_IO_DEVICE_ERROR;
 	    break;
 	  }
@@ -201,7 +202,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
         /* Check to see if the write flag is set. */
         if(Status & SR3_WRITE_PROTECT_STATUS_SIGNAL)
           {
-            INFO_(FLOPPY, "IOCTL_DISK_IS_WRITABLE: disk is write protected\n");
+            DPRINT("floppy: IOCTL_DISK_IS_WRITABLE: disk is write protected\n");
             Irp->IoStatus.Status = STATUS_MEDIA_WRITE_PROTECTED;
           }
         else
@@ -210,7 +211,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
       break;
 
     case IOCTL_DISK_CHECK_VERIFY:
-      INFO_(FLOPPY, "IOCTL_DISK_CHECK_VERIFY called\n");
+      DPRINT("floppy: IOCTL_DISK_CHECK_VERIFY called\n");
       if (OutputLength != 0)
         {
 	  if (OutputLength < sizeof(ULONG))
@@ -234,7 +235,7 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
 
     case IOCTL_DISK_GET_DRIVE_GEOMETRY:
       {
-        INFO_(FLOPPY, "IOCTL_DISK_GET_DRIVE_GEOMETRY Called\n");
+        DPRINT("floppy: IOCTL_DISK_GET_DRIVE_GEOMETRY Called\n");
         if(OutputLength < sizeof(DISK_GEOMETRY))
           {
             Irp->IoStatus.Status = STATUS_INVALID_PARAMETER;
@@ -249,25 +250,23 @@ VOID NTAPI DeviceIoctlPassive(PDRIVE_INFO DriveInfo,
 
     case IOCTL_DISK_FORMAT_TRACKS:
     case IOCTL_DISK_FORMAT_TRACKS_EX:
-      ERR_(FLOPPY, "Format called; not supported yet\n");
-      Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
-      Irp->IoStatus.Information = 0;
+      DPRINT("floppy: Format called; not supported yet\n");
       break;
 
     case IOCTL_DISK_GET_PARTITION_INFO:
-      INFO_(FLOPPY, "IOCTL_DISK_GET_PARTITION_INFO Called; not supported by a floppy driver\n");
-      Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
+      DPRINT("floppy: IOCTL_DISK_GET_PARTITION_INFO Called; not supported\n");
+      Irp->IoStatus.Status = STATUS_NOT_SUPPORTED;
       Irp->IoStatus.Information = 0;
       break;
 
     default:
-      ERR_(FLOPPY, "UNKNOWN IOCTL CODE: 0x%x\n", Code);
+      DPRINT("floppy: UNKNOWN IOCTL CODE: 0x%x\n", Code);
       Irp->IoStatus.Status = STATUS_NOT_SUPPORTED;
       Irp->IoStatus.Information = 0;
       break;
     }
 
-  INFO_(FLOPPY, "ioctl: completing with status 0x%x\n", Irp->IoStatus.Status);
+  DPRINT("floppy: ioctl: completing with status 0x%x\n", Irp->IoStatus.Status);
   IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
   StopMotor(DriveInfo->ControllerInfo);

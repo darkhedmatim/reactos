@@ -30,7 +30,7 @@
  *    @implemented
  */
 
-HSURF APIENTRY
+HSURF DDKAPI
 DrvEnableSurface(
    IN DHPDEV dhpdev)
 {
@@ -129,7 +129,7 @@ DrvEnableSurface(
  *    @implemented
  */
 
-VOID APIENTRY
+VOID DDKAPI
 DrvDisableSurface(
    IN DHPDEV dhpdev)
 {
@@ -164,7 +164,7 @@ DrvDisableSurface(
  *    @implemented
  */
 
-BOOL APIENTRY
+BOOL DDKAPI
 DrvAssertMode(
    IN DHPDEV dhpdev,
    IN BOOL bEnable)

@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <windowsx.h>
+#include <tchar.h>
 #include <stdio.h>
 #include <math.h>
 #include <commctrl.h>
@@ -30,7 +31,6 @@ extern HINSTANCE hApplet;
 
 /* dateandtime.c */
 INT_PTR CALLBACK DateTimePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-BOOL SystemSetLocalTime(LPSYSTEMTIME lpSystemTime);
 
 
 /* timezone.c */
@@ -51,38 +51,15 @@ VOID DisplayWin32Error(DWORD dwErrorCode);
 
 
 /* clock.c */
-#define CLM_STOPCLOCK (WM_USER + 1)
-#define CLM_STARTCLOCK (WM_USER + 2)
-
 BOOL RegisterClockControl(VOID);
 VOID UnregisterClockControl(VOID);
 
 
 /* ntpclient.c */
-// NTP timestamp
-typedef struct _TIMEPACKET
-{
-  DWORD dwInteger;
-  DWORD dwFractional;
-} TIMEPACKET, *PTIMEPACKET;
-
-// NTP packet
-typedef struct _NTPPACKET
-{
-  BYTE LiVnMode;
-  BYTE Stratum;
-  char Poll;
-  char Precision;
-  long RootDelay;
-  long RootDispersion;
-  char ReferenceID[4];
-  TIMEPACKET ReferenceTimestamp;
-  TIMEPACKET OriginateTimestamp;
-  TIMEPACKET ReceiveTimestamp;
-  TIMEPACKET TransmitTimestamp;
-}NTPPACKET, *PNTPPACKET;
-
-ULONG GetServerTime(LPWSTR lpAddress);
+BOOL InitializeConnection(CHAR *szIpAddr);
+VOID DestroyConnection(VOID);
+BOOL SendData(VOID);
+ULONG RecieveData(VOID);
 
 
 /* monthcal.c */
