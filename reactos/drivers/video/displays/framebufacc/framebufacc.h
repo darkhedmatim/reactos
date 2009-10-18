@@ -95,8 +95,10 @@ typedef struct _PDEV
 
 
 
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+
 #define DEVICE_NAME	L"framebuf"
-#define ALLOC_TAG	'FUBF'
+#define ALLOC_TAG	TAG('F','B','U','F')
 
 
 DHPDEV APIENTRY

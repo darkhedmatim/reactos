@@ -59,7 +59,6 @@
         IN PRTL_BITMAP BitMapHeader);
 
     #define RtlCheckBit(BMH,BP) (((((PLONG)(BMH)->Buffer)[(BP) / 32]) >> ((BP) % 32)) & 0x1)
-    #define UNREFERENCED_PARAMETER(P) {(P)=(P);}
 
     #define PKTHREAD PVOID
     #define PKGUARDED_MUTEX PVOID
@@ -88,9 +87,7 @@
     #define CMLTRACE(x, ...) DPRINT(__VA_ARGS__)
     #endif
 
-    #include <ntdef.h>
-    #undef DECLSPEC_IMPORT
-    #define DECLSPEC_IMPORT
+
     #include <ntddk.h>
 #endif
 
@@ -104,17 +101,6 @@
 #ifndef ROUND_UP
 #define ROUND_UP(a,b)        ((((a)+(b)-1)/(b))*(b))
 #define ROUND_DOWN(a,b)      (((a)/(b))*(b))
-#endif
-
-//
-// PAGE_SIZE definition
-//
-#ifndef PAGE_SIZE
-#if defined(TARGET_i386) || defined(TARGET_amd64) || defined(TARGET_arm)
-#define PAGE_SIZE 0x1000
-#else
-#error Local PAGE_SIZE definition required when built as host
-#endif
 #endif
 
 #define TAG_CM 0x68742020

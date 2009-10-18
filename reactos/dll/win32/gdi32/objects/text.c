@@ -1,17 +1,18 @@
 #include "precomp.h"
 
 
+
 /*
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 TextOutA(
 	HDC  hdc,
 	int  nXStart,
 	int  nYStart,
 	LPCSTR  lpString,
-	int  cchString)
+	int  cbString)
 {
         ANSI_STRING StringA;
         UNICODE_STRING StringU;
@@ -24,7 +25,7 @@ TextOutA(
 	} else
 		StringU.Buffer = NULL;
 
-	ret = TextOutW(hdc, nXStart, nYStart, StringU.Buffer, cchString);
+	ret = TextOutW(hdc, nXStart, nYStart, StringU.Buffer, cbString);
 	RtlFreeUnicodeString(&StringU);
 	return ret;
 }
@@ -34,15 +35,15 @@ TextOutA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 TextOutW(
 	HDC  hdc,
 	int  nXStart,
 	int  nYStart,
 	LPCWSTR  lpString,
-	int  cchString)
+	int  cbString)
 {
-  return NtGdiExtTextOutW(hdc, nXStart, nYStart, 0, NULL, (LPWSTR)lpString, cchString, NULL, 0);
+  return NtGdiExtTextOutW(hdc, nXStart, nYStart, 0, NULL, (LPWSTR)lpString, cbString, NULL, 0);
 }
 
 
@@ -50,7 +51,7 @@ TextOutW(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GdiGetCodePage(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -64,7 +65,7 @@ GdiGetCodePage(HDC hdc)
  * @unimplemented
  */
 int
-WINAPI
+STDCALL
 GetTextCharacterExtra(
 	HDC	hDc
 	)
@@ -81,7 +82,7 @@ GetTextCharacterExtra(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 GetTextCharset(HDC hdc)
 {
     /* MSDN docs say this is equivalent */
@@ -90,11 +91,12 @@ GetTextCharset(HDC hdc)
 
 
 
+
 /*
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetTextMetricsA(
 	HDC		hdc,
 	LPTEXTMETRICA	lptm
@@ -107,8 +109,7 @@ GetTextMetricsA(
     return FALSE;
   }
 
-  FONT_TextMetricWToA(&tmwi.TextMetric, lptm);
-  return TRUE;
+  return TextMetricW2A(lptm, &tmwi.TextMetric);
 }
 
 
@@ -116,7 +117,7 @@ GetTextMetricsA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetTextMetricsW(
 	HDC		hdc,
 	LPTEXTMETRICW	lptm
@@ -142,7 +143,7 @@ APIENTRY
 GetTextExtentPointA(
 	HDC		hdc,
 	LPCSTR		lpString,
-	int		cchString,
+	int		cbString,
 	LPSIZE		lpSize
 	)
 {
@@ -153,7 +154,7 @@ GetTextExtentPointA(
 	RtlInitAnsiString(&StringA, (LPSTR)lpString);
 	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 
-        ret = GetTextExtentPointW(hdc, StringU.Buffer, cchString, lpSize);
+        ret = GetTextExtentPointW(hdc, StringU.Buffer, cbString, lpSize);
 
 	RtlFreeUnicodeString(&StringU);
 
@@ -169,11 +170,11 @@ APIENTRY
 GetTextExtentPointW(
 	HDC		hdc,
 	LPCWSTR		lpString,
-	int		cchString,
+	int		cbString,
 	LPSIZE		lpSize
 	)
 {
-  return NtGdiGetTextExtent(hdc, (LPWSTR)lpString, cchString, lpSize, 0);
+  return NtGdiGetTextExtent(hdc, (LPWSTR)lpString, cbString, lpSize, 0);
 }
 
 
@@ -183,13 +184,13 @@ GetTextExtentPointW(
 BOOL
 APIENTRY
 GetTextExtentExPointW(
-	HDC     hdc,
-	LPCWSTR lpszStr,
-	int     cchString,
-	int     nMaxExtent,
-	LPINT   lpnFit,
-	LPINT   alpDx,
-	LPSIZE  lpSize
+	HDC		hdc,
+	LPCWSTR		lpszStr,
+	int		cchString,
+	int		nMaxExtent,
+	LPINT		lpnFit,
+	LPINT		alpDx,
+	LPSIZE		lpSize
 	)
 {
   return NtGdiGetTextExtentExW (
@@ -239,7 +240,7 @@ APIENTRY
 GetTextExtentPoint32A(
 	HDC		hdc,
 	LPCSTR		lpString,
-	int		cchString,
+	int		cbString,
 	LPSIZE		lpSize
 	)
 {
@@ -250,7 +251,7 @@ GetTextExtentPoint32A(
   RtlInitAnsiString(&StringA, (LPSTR)lpString);
   RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 
-  ret = GetTextExtentPoint32W(hdc, StringU.Buffer, cchString, lpSize);
+  ret = GetTextExtentPoint32W(hdc, StringU.Buffer, cbString, lpSize);
 
   RtlFreeUnicodeString(&StringU);
 
@@ -266,18 +267,18 @@ APIENTRY
 GetTextExtentPoint32W(
 	HDC		hdc,
 	LPCWSTR		lpString,
-	int		cchString,
+	int		cbString,
 	LPSIZE		lpSize
 	)
 {
-	return NtGdiGetTextExtent(hdc, (LPWSTR)lpString, cchString, lpSize, 0);
+	return NtGdiGetTextExtent(hdc, (LPWSTR)lpString, cbString, lpSize, 0);
 }
 
 /*
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetTextExtentExPointI(HDC hdc,
                       LPWORD pgiIn,
                       int cgi,
@@ -293,7 +294,7 @@ GetTextExtentExPointI(HDC hdc,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetTextExtentPointI(HDC hdc,
                     LPWORD pgiIn,
                     int cgi,
@@ -306,7 +307,7 @@ GetTextExtentPointI(HDC hdc,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 ExtTextOutA(
 	HDC		hdc,
 	int		X,
@@ -314,7 +315,7 @@ ExtTextOutA(
 	UINT		fuOptions,
 	CONST RECT	*lprc,
 	LPCSTR		lpString,
-	UINT		cchString,
+	UINT		cbCount,
 	CONST INT	*lpDx
 	)
 {
@@ -325,7 +326,7 @@ ExtTextOutA(
 	RtlInitAnsiString(&StringA, (LPSTR)lpString);
 	RtlAnsiStringToUnicodeString(&StringU, &StringA, TRUE);
 
-        ret = ExtTextOutW(hdc, X, Y, fuOptions, lprc, StringU.Buffer, cchString, lpDx);
+        ret = ExtTextOutW(hdc, X, Y, fuOptions, lprc, StringU.Buffer, cbCount, lpDx);
 
 	RtlFreeUnicodeString(&StringU);
 
@@ -337,7 +338,7 @@ ExtTextOutA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 ExtTextOutW(
 	HDC		hdc,
 	int		X,
@@ -345,11 +346,11 @@ ExtTextOutW(
 	UINT		fuOptions,
 	CONST RECT	*lprc,
 	LPCWSTR		lpString,
-	UINT		cchString,
+	UINT		cbCount,
 	CONST INT	*lpDx
 	)
 {
-  return NtGdiExtTextOutW(hdc, X, Y, fuOptions, (LPRECT)lprc, (LPWSTR)lpString, cchString, (LPINT)lpDx, 0);
+  return NtGdiExtTextOutW(hdc, X, Y, fuOptions, (LPRECT)lprc, (LPWSTR)lpString, cbCount, (LPINT)lpDx, 0);
 }
 
 
@@ -379,26 +380,11 @@ GetTextFaceW(HDC hDC,
  * @implemented
  */
 int
-WINAPI
+STDCALL
 GetTextFaceA( HDC hdc, INT count, LPSTR name )
 {
-    INT res;
-    LPWSTR nameW;
-
-    /* Validate parameters */
-    if (name && count <= 0)
-    {
-        /* Set last error and return failure */
-        GdiSetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
-    res = GetTextFaceW(hdc, 0, NULL);
-    nameW = HeapAlloc( GetProcessHeap(), 0, res * 2 );
-    if (nameW == NULL)
-    {
-        return 0;
-    }
+    INT res = GetTextFaceW(hdc, 0, NULL);
+    LPWSTR nameW = HeapAlloc( GetProcessHeap(), 0, res * 2 );
     GetTextFaceW( hdc, res, nameW );
 
     if (name)
@@ -418,7 +404,7 @@ GetTextFaceA( HDC hdc, INT count, LPSTR name )
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 GetTextFaceAliasW(HDC hdc,
                   int cChar,
                   LPWSTR pszOut)
@@ -433,7 +419,7 @@ GetTextFaceAliasW(HDC hdc,
 
 
 BOOL
-WINAPI
+STDCALL
 GetFontResourceInfoW(
     LPCWSTR lpFileName,
     DWORD *pdwBufSize,
@@ -483,7 +469,7 @@ GetFontResourceInfoW(
  * @unimplemented
  */
 int
-WINAPI
+STDCALL
 SetTextCharacterExtra(
 	HDC	hDC,
 	int	CharExtra
@@ -524,7 +510,7 @@ SetTextCharacterExtra(
  *
  */
 UINT
-WINAPI
+STDCALL
 GetTextAlign(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -538,7 +524,7 @@ GetTextAlign(HDC hdc)
  *
  */
 COLORREF
-WINAPI
+STDCALL
 GetTextColor(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -552,7 +538,7 @@ GetTextColor(HDC hdc)
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 SetTextAlign(HDC hdc,
              UINT fMode)
 {
@@ -596,7 +582,7 @@ SetTextAlign(HDC hdc,
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 SetTextColor(
 	HDC hdc,
 	COLORREF crColor
@@ -631,7 +617,7 @@ SetTextColor(
 
   if ( Dc_Attr->crForegroundClr != crColor )
   {
-     Dc_Attr->ulDirty_ |= (DIRTY_TEXT|DIRTY_LINE|DIRTY_FILL);
+     Dc_Attr->ulDirty_ |= DIRTY_TEXT;
      Dc_Attr->crForegroundClr = crColor;
   }
   return OldColor;
@@ -641,7 +627,7 @@ SetTextColor(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetTextJustification(
 	HDC	hdc,
 	int	extra,

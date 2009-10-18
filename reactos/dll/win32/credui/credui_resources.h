@@ -16,14 +16,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <windef.h>
-#include <winuser.h>
-
 #define IDD_CREDDIALOG      100
 #define IDC_USERNAME        101
 #define IDC_PASSWORD        102
 #define IDC_MESSAGE         103
-#define IDC_SAVE            104
+#define IDC_STATIC          104
+#define IDC_SAVE            105
 
 #define IDB_BANNER          200
 

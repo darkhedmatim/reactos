@@ -3,7 +3,6 @@
 <group>
 <module name="msi_winetest" type="win32cui" installbase="bin" installname="msi_winetest.exe" allowwarnings="true">
 	<include base="msi_winetest">.</include>
-    <define name="__ROS_LONG64__" />
 	<file>automation.c</file>
 	<file>db.c</file>
 	<file>format.c</file>

@@ -1,14 +1,18 @@
 #include <ntifs.h>
 #include <ntdddisk.h>
+#include <reactos/helper.h>
 #include <debug.h>
 
+#ifdef __GNUC__
+#include <ccros.h>
+
 #define USE_ROS_CC_AND_FS
-
-#define ROUND_DOWN(n, align) \
-    (((ULONG)n) & ~((align) - 1l))
-
-#define ROUND_UP(n, align) \
-    ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
+#else
+#define KEBUGCHECK KeBugCheck
+#define KEBUGCHECKEX KeBugCheckEx
+#define ROUND_DOWN(N, S) ((N) - ((N) % (S)))
+#define ROUND_UP(N, S) ROUND_DOWN((N) + (S) - 1, (S))
+#endif
 
 #include <pshpack1.h>
 struct _BootSector
@@ -402,10 +406,14 @@ typedef struct _VFATCCB
   UNICODE_STRING SearchPattern;
 } VFATCCB, *PVFATCCB;
 
-#define TAG_CCB  'BCCV'
-#define TAG_FCB  'BCFV'
-#define TAG_IRP  'PRIV'
-#define TAG_VFAT 'TAFV'
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
+
+#define TAG_CCB TAG('V', 'C', 'C', 'B')
+#define TAG_FCB TAG('V', 'F', 'C', 'B')
+#define TAG_IRP TAG('V', 'I', 'R', 'P')
+#define TAG_VFAT TAG('V', 'F', 'A', 'T')
 
 #define ENTRIES_PER_SECTOR (BLOCKSIZE / sizeof(FATDirEntry))
 

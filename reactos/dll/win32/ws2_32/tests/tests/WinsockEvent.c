@@ -6,7 +6,7 @@
 
 static BOOL CloseHandleSuccessCalled = FALSE;
 
-static BOOL WINAPI
+static BOOL STDCALL
 MockCloseHandleSuccess(HANDLE hObject)
 {
   CloseHandleSuccessCalled = TRUE;
@@ -36,7 +36,7 @@ TestWSACloseEventSuccess()
 
 static BOOL CloseHandleFailureCalled = FALSE;
 
-static BOOL WINAPI
+static BOOL STDCALL
 MockCloseHandleFailure(HANDLE hObject)
 {
   CloseHandleFailureCalled = TRUE;

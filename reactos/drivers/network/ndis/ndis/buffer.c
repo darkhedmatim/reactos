@@ -357,7 +357,6 @@ NdisAllocateBuffer(
         (*Buffer)->Next = NULL;
         *Status = NDIS_STATUS_SUCCESS;
     } else {
-        NDIS_DbgPrint(MIN_TRACE, ("IoAllocateMdl failed (%x, %lx)\n", VirtualAddress, Length));
         *Status = NDIS_STATUS_FAILURE;
     }
 }
@@ -402,13 +401,38 @@ NdisAllocatePacket(
  *     PoolHandle = Handle returned by NdisAllocatePacketPool
  */
 {
+    KIRQL OldIrql;
+    PNDIS_PACKET Temp;
     PNDISI_PACKET_POOL Pool = (PNDISI_PACKET_POOL)PoolHandle;
 
-    KeAcquireSpinLock(&Pool->SpinLock.SpinLock, &Pool->SpinLock.OldIrql);
-    NdisDprAllocatePacketNonInterlocked(Status,
-                                        Packet,
-                                        PoolHandle);
-    KeReleaseSpinLock(&Pool->SpinLock.SpinLock, Pool->SpinLock.OldIrql);
+    NDIS_DbgPrint(MAX_TRACE, ("Status (0x%X)  Packet (0x%X)  PoolHandle (0x%X).\n",
+        Status, Packet, PoolHandle));
+
+    *Packet = NULL;
+
+    if (Pool == NULL)
+    {
+        *Status = NDIS_STATUS_FAILURE;
+        return;
+    }
+
+    KeAcquireSpinLock(&Pool->SpinLock.SpinLock, &OldIrql);
+
+    if (Pool->FreeList) {
+        Temp           = Pool->FreeList;
+        Pool->FreeList = (PNDIS_PACKET)Temp->Private.Head;
+
+        KeReleaseSpinLock(&Pool->SpinLock.SpinLock, OldIrql);
+
+        RtlZeroMemory(&Temp->Private, sizeof(NDIS_PACKET_PRIVATE));
+        Temp->Private.Pool = Pool;
+
+        *Packet = Temp;
+        *Status = NDIS_STATUS_SUCCESS;
+    } else {
+        *Status = NDIS_STATUS_RESOURCES;
+        KeReleaseSpinLock(&Pool->SpinLock.SpinLock, OldIrql);
+    }
 }
 
 
@@ -470,7 +494,6 @@ NdisAllocatePacketPoolEx(
 
     if (NumberOfDescriptors > 0xffff)
     {
-        NDIS_DbgPrint(MIN_TRACE, ("Invalid number of descriptors (%lx)\n", NumberOfDescriptors))
         *Status = NDIS_STATUS_RESOURCES;
     }
     else
@@ -478,12 +501,10 @@ NdisAllocatePacketPoolEx(
         NumberOfDescriptors += NumberOfOverflowDescriptors;
         if (NumberOfDescriptors > 0xffff)
         {
-            NDIS_DbgPrint(MIN_TRACE, ("Total number of descriptors > 0xffff (%lx)\n", NumberOfDescriptors));
             NumberOfDescriptors = 0xffff;
         }
 
-        Length = sizeof(NDIS_PACKET) + sizeof(NDIS_PACKET_OOB_DATA) + 
-                 sizeof(NDIS_PACKET_EXTENSION) + ProtocolReservedLength;
+        Length = sizeof(NDIS_PACKET) + ProtocolReservedLength;
         Size   = sizeof(NDISI_PACKET_POOL) + Length * NumberOfDescriptors;
 
         Pool   = ExAllocatePool(NonPagedPool, Size);
@@ -500,16 +521,14 @@ NdisAllocatePacketPoolEx(
                 NextPacket = (PNDIS_PACKET)((ULONG_PTR)Packet + Length);
                 for (i = 1; i < NumberOfDescriptors; i++)
                 {
-                    Packet->Reserved[0]  = (ULONG_PTR)NextPacket;
+                    Packet->Private.Head = (PNDIS_BUFFER)NextPacket;
                     Packet               = NextPacket;
                     NextPacket           = (PNDIS_PACKET)((ULONG_PTR)Packet + Length);
                 }
-                Packet->Reserved[0] = 0;
+                Packet->Private.Head = NULL;
             }
-            else {
-                NDIS_DbgPrint(MIN_TRACE, ("Attempted to allocate a packet pool with 0 descriptors\n"));
+            else
                 Pool->FreeList = NULL;
-            }
 
             *Status     = NDIS_STATUS_SUCCESS;
             *PoolHandle = (PNDIS_HANDLE)Pool;
@@ -559,6 +578,33 @@ NdisBufferVirtualAddress(
  */
 {
     return MmGetSystemAddressForMdl(Buffer);
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisCopyBuffer(
+    OUT PNDIS_STATUS    Status,
+    OUT PNDIS_BUFFER    *Buffer,
+    IN  NDIS_HANDLE     PoolHandle,
+    IN  PVOID           MemoryDescriptor,
+    IN  UINT            Offset,
+    IN  UINT            Length)
+/*
+ * FUNCTION: Returns a new buffer descriptor for a (partial) buffer
+ * ARGUMENTS:
+ *     Status           = Address of a buffer to place status of operation
+ *     Buffer           = Address of a buffer to place new buffer descriptor
+ *     PoolHandle       = Handle returned by NdisAllocateBufferPool
+ *     MemoryDescriptor = Pointer to a memory descriptor (possibly NDIS_BUFFER)
+ *     Offset           = Offset in buffer to start copying
+ *     Length           = Number of bytes to copy
+ */
+{
+    *Status = NDIS_STATUS_FAILURE;
 }
 
 
@@ -664,13 +710,37 @@ NdisDprAllocatePacket(
  *     PoolHandle = Handle returned by NdisAllocatePacketPool
  */
 {
+    PNDIS_PACKET Temp;
     PNDISI_PACKET_POOL Pool = (PNDISI_PACKET_POOL)PoolHandle;
 
+    NDIS_DbgPrint(MAX_TRACE, ("Status (0x%X)  Packet (0x%X)  PoolHandle (0x%X).\n",
+        Status, Packet, PoolHandle));
+
+    *Packet = NULL;
+
+    if (Pool == NULL)
+    {
+        *Status = NDIS_STATUS_FAILURE;
+        return;
+    }
+
     KeAcquireSpinLockAtDpcLevel(&Pool->SpinLock.SpinLock);
-    NdisDprAllocatePacketNonInterlocked(Status,
-                                        Packet,
-                                        PoolHandle);
-    KeReleaseSpinLockFromDpcLevel(&Pool->SpinLock.SpinLock);
+
+    if (Pool->FreeList) {
+        Temp           = Pool->FreeList;
+        Pool->FreeList = (PNDIS_PACKET)Temp->Private.Head;
+
+        KeReleaseSpinLockFromDpcLevel(&Pool->SpinLock.SpinLock);
+
+        RtlZeroMemory(&Temp->Private, sizeof(NDIS_PACKET_PRIVATE));
+        Temp->Private.Pool = Pool;
+
+        *Packet = Temp;
+        *Status = NDIS_STATUS_SUCCESS;
+    } else {
+        *Status = NDIS_STATUS_RESOURCES;
+        KeReleaseSpinLockFromDpcLevel(&Pool->SpinLock.SpinLock);
+    }
 }
 
 
@@ -702,26 +772,19 @@ NdisDprAllocatePacketNonInterlocked(
     if (Pool == NULL)
     {
         *Status = NDIS_STATUS_FAILURE;
-        NDIS_DbgPrint(MIN_TRACE, ("Called passed a bad pool handle\n"));
         return;
     }
 
     if (Pool->FreeList) {
         Temp           = Pool->FreeList;
-        Pool->FreeList = (PNDIS_PACKET)Temp->Reserved[0];
+        Pool->FreeList = (PNDIS_PACKET)Temp->Private.Head;
 
-        RtlZeroMemory(Temp, Pool->PacketLength);
+        RtlZeroMemory(&Temp->Private, sizeof(NDIS_PACKET_PRIVATE));
         Temp->Private.Pool = Pool;
-        Temp->Private.ValidCounts = TRUE;
-        Temp->Private.NdisPacketFlags = fPACKET_ALLOCATED_BY_NDIS;
-        Temp->Private.NdisPacketOobOffset = Pool->PacketLength -
-                                            (sizeof(NDIS_PACKET_OOB_DATA) +
-                                             sizeof(NDIS_PACKET_EXTENSION));
 
         *Packet = Temp;
         *Status = NDIS_STATUS_SUCCESS;
     } else {
-        NDIS_DbgPrint(MIN_TRACE, ("No more free descriptors\n"));
         *Status = NDIS_STATUS_RESOURCES;
     }
 }
@@ -740,11 +803,12 @@ NdisDprFreePacket(
  *     Packet = Pointer to packet to free
  */
 {
-    PNDISI_PACKET_POOL Pool = (PNDISI_PACKET_POOL)Packet->Private.Pool;
+    NDIS_DbgPrint(MAX_TRACE, ("Packet (0x%X).\n", Packet));
 
-    KeAcquireSpinLockAtDpcLevel(&Pool->SpinLock.SpinLock);
-    NdisDprFreePacketNonInterlocked(Packet);
-    KeReleaseSpinLockFromDpcLevel(&Pool->SpinLock.SpinLock);
+    KeAcquireSpinLockAtDpcLevel(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock);
+    Packet->Private.Head           = (PNDIS_BUFFER)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
+    ((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList = Packet;
+    KeReleaseSpinLockFromDpcLevel(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock);
 }
 
 
@@ -763,7 +827,7 @@ NdisDprFreePacketNonInterlocked(
 {
     NDIS_DbgPrint(MAX_TRACE, ("Packet (0x%X).\n", Packet));
 
-    Packet->Reserved[0]          = (ULONG_PTR)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
+    Packet->Private.Head           = (PNDIS_BUFFER)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
     ((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList = Packet;
 }
 
@@ -832,11 +896,14 @@ NdisFreePacket(
  *     Packet = Pointer to packet descriptor
  */
 {
-    PNDISI_PACKET_POOL Pool = (PNDISI_PACKET_POOL)Packet->Private.Pool;
+    KIRQL OldIrql;
 
-    KeAcquireSpinLock(&Pool->SpinLock.SpinLock, &Pool->SpinLock.OldIrql);
-    NdisDprFreePacketNonInterlocked(Packet);
-    KeReleaseSpinLock(&Pool->SpinLock.SpinLock, Pool->SpinLock.OldIrql);
+    NDIS_DbgPrint(MAX_TRACE, ("Packet (0x%X).\n", Packet));
+
+    KeAcquireSpinLock(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock, &OldIrql);
+    Packet->Private.Head           = (PNDIS_BUFFER)((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList;
+    ((NDISI_PACKET_POOL*)Packet->Private.Pool)->FreeList = Packet;
+    KeReleaseSpinLock(&((NDISI_PACKET_POOL*)Packet->Private.Pool)->SpinLock.SpinLock, OldIrql);
 }
 
 
@@ -895,7 +962,6 @@ NdisGetFirstBufferFromPacket(
         *_FirstBufferVA = MmGetSystemAddressForMdl(Buffer);
         Buffer = Buffer->Next;
     } else {
-        NDIS_DbgPrint(MIN_TRACE, ("No buffers linked to this packet\n"));
         *_FirstBufferLength = 0;
         *_FirstBufferVA = NULL;
     }
@@ -908,41 +974,45 @@ NdisGetFirstBufferFromPacket(
     }
 }
 
+
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 EXPORT
-NdisGetFirstBufferFromPacketSafe(
-    IN  PNDIS_PACKET     _Packet,
-    OUT PNDIS_BUFFER     *_FirstBuffer,
-    OUT PVOID            *_FirstBufferVA,
-    OUT PUINT            _FirstBufferLength,
-    OUT PUINT            _TotalBufferLength,
-    IN  MM_PAGE_PRIORITY Priority)
+NdisReturnPackets(
+    IN  PNDIS_PACKET    *PacketsToReturn,
+    IN  UINT            NumberOfPackets)
+/*
+ * FUNCTION: Releases ownership of one or more packets
+ * ARGUMENTS:
+ *     PacketsToReturn = Pointer to an array of pointers to packet descriptors
+ *     NumberOfPackets = Number of pointers in descriptor pointer array
+ */
 {
-    PNDIS_BUFFER Buffer;
-
-    Buffer          = _Packet->Private.Head;
-    *_FirstBuffer   = Buffer;
-
-    if (Buffer != NULL) {
-        *_FirstBufferLength = MmGetMdlByteCount(Buffer);
-        *_FirstBufferVA = MmGetSystemAddressForMdlSafe(Buffer, Priority);
-        Buffer = Buffer->Next;
-    } else {
-        NDIS_DbgPrint(MIN_TRACE, ("No buffers linked to this packet\n"));
-        *_FirstBufferLength = 0;
-        *_FirstBufferVA = NULL;
-    }
-
-    *_TotalBufferLength = *_FirstBufferLength;
-
-    while (Buffer != NULL) {
-        *_TotalBufferLength += MmGetMdlByteCount(Buffer);
-        Buffer = Buffer->Next;
-    }
+    UNIMPLEMENTED
 }
+
+
+/*
+ * @unimplemented
+ */
+UINT
+EXPORT
+NdisPacketPoolUsage(
+    IN  NDIS_HANDLE PoolHandle)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 5.0
+ */
+{
+    UNIMPLEMENTED
+
+    return 0;
+}
+
 
 /*
  * @implemented
@@ -1034,7 +1104,6 @@ NdisUnchainBufferAtBack(
                     &NdisBuffer,
                     NULL);
     if (!NdisBuffer) {
-        NDIS_DbgPrint(MIN_TRACE, ("No buffer to unchain\n"));
         *Buffer = NULL;
         return;
     }
@@ -1083,7 +1152,6 @@ NdisUnchainBufferAtFront(
                     &NdisBuffer,
                     NULL);
     if (!NdisBuffer) {
-        NDIS_DbgPrint(MIN_TRACE, ("No buffer to unchain\n"));
         *Buffer = NULL;
         return;
     }
@@ -1098,228 +1166,6 @@ NdisUnchainBufferAtFront(
     Packet->Private.ValidCounts = FALSE;
 
     *Buffer = NdisBuffer;
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisCopyBuffer(
-    OUT PNDIS_STATUS    Status,
-    OUT PNDIS_BUFFER    *Buffer,
-    IN  NDIS_HANDLE     PoolHandle,
-    IN  PVOID           MemoryDescriptor,
-    IN  UINT            Offset,
-    IN  UINT            Length)
-/*
- * FUNCTION: Returns a new buffer descriptor for a (partial) buffer
- * ARGUMENTS:
- *     Status           = Address of a buffer to place status of operation
- *     Buffer           = Address of a buffer to place new buffer descriptor
- *     PoolHandle       = Handle returned by NdisAllocateBufferPool
- *     MemoryDescriptor = Pointer to a memory descriptor (possibly NDIS_BUFFER)
- *     Offset           = Offset in buffer to start copying
- *     Length           = Number of bytes to copy
- */
-{
-    PVOID CurrentVa = (PUCHAR)(MmGetMdlVirtualAddress((PNDIS_BUFFER)MemoryDescriptor)) + Offset;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called\n"));
-
-    *Buffer = IoAllocateMdl(CurrentVa, Length, FALSE, FALSE, NULL);
-    if (!*Buffer)
-    {
-        NDIS_DbgPrint(MIN_TRACE, ("IoAllocateMdl failed (%x, %lx)\n", CurrentVa, Length));
-        *Status = NDIS_STATUS_FAILURE;
-        return;
-    }
-
-    IoBuildPartialMdl((PNDIS_BUFFER)MemoryDescriptor,
-                      *Buffer,
-                      CurrentVa,
-                      Length);
-
-    (*Buffer)->Next = NULL;
-    *Status = NDIS_STATUS_SUCCESS;
-}
-
-/*
- * @implemented
- */
-NDIS_HANDLE
-EXPORT
-NdisGetPoolFromPacket(
-    IN PNDIS_PACKET  Packet)
-{
-    return Packet->Private.Pool;
-}
-
-/*
- * @implemented
- */
-UINT
-EXPORT
-NdisPacketSize(
-    IN UINT  ProtocolReservedSize)
-{
-    return sizeof(NDIS_PACKET) + sizeof(NDIS_PACKET_OOB_DATA) + 
-                 sizeof(NDIS_PACKET_EXTENSION) + ProtocolReservedSize;
-}
-
-/*
- * @implemented
- */
-PVOID
-EXPORT
-NdisGetPacketCancelId(
-    IN PNDIS_PACKET  Packet)
-{
-    return NDIS_GET_PACKET_CANCEL_ID(Packet);
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisSetPacketCancelId(
-    IN PNDIS_PACKET  Packet,
-    IN PVOID  CancelId)
-{
-    NDIS_SET_PACKET_CANCEL_ID(Packet, CancelId);
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisCopyFromPacketToPacketSafe(
-    IN  PNDIS_PACKET     Destination,
-    IN  UINT             DestinationOffset,
-    IN  UINT             BytesToCopy,
-    IN  PNDIS_PACKET     Source,
-    IN  UINT             SourceOffset,
-    OUT PUINT            BytesCopied,
-    IN  MM_PAGE_PRIORITY Priority)
-{
-    PNDIS_BUFFER SrcBuffer;
-    PNDIS_BUFFER DstBuffer;
-    PUCHAR DstData, SrcData;
-    UINT DstSize, SrcSize;
-    UINT Count, Total;
-
-    *BytesCopied = 0;
-
-    /* Skip DestinationOffset bytes in the destination packet */
-    NdisGetFirstBufferFromPacketSafe(Destination, &DstBuffer, (PVOID*)&DstData, &DstSize, &Total, Priority);
-    if (!DstData || SkipToOffset(DstBuffer, DestinationOffset, &DstData, &DstSize) == 0xFFFFFFFF)
-        return;
-
-    /* Skip SourceOffset bytes in the source packet */
-    NdisGetFirstBufferFromPacketSafe(Source, &SrcBuffer, (PVOID*)&SrcData, &SrcSize, &Total, Priority);
-    if (!SrcData || SkipToOffset(SrcBuffer, SourceOffset, &SrcData, &SrcSize) == 0xFFFFFFFF)
-        return;
-
-    /* Copy the data */
-    for (Total = 0;;) {
-        /* Find out how many bytes we can copy at one time */
-        if (BytesToCopy < SrcSize)
-            Count = BytesToCopy;
-        else
-            Count = SrcSize;
-        if (DstSize < Count)
-            Count = DstSize;
-
-        RtlCopyMemory(DstData, SrcData, Count);
-
-        Total       += Count;
-        BytesToCopy -= Count;
-        if (BytesToCopy == 0)
-            break;
-
-        DstSize -= Count;
-        if (DstSize == 0) {
-            /* No more bytes in destination buffer. Proceed to
-               the next buffer in the destination buffer chain */
-            NdisGetNextBuffer(DstBuffer, &DstBuffer);
-            if (!DstBuffer)
-                break;
-
-            NdisQueryBufferSafe(DstBuffer, (PVOID)&DstData, &DstSize, Priority);
-            if (!DstData)
-                break;
-        }
-
-        SrcSize -= Count;
-        if (SrcSize == 0) {
-            /* No more bytes in source buffer. Proceed to
-               the next buffer in the source buffer chain */
-            NdisGetNextBuffer(SrcBuffer, &SrcBuffer);
-            if (!SrcBuffer)
-                break;
-
-            NdisQueryBufferSafe(SrcBuffer, (PVOID)&SrcData, &SrcSize, Priority);
-            if (!SrcData)
-                break;
-        }
-    }
-
-    *BytesCopied = Total;
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisIMCopySendCompletePerPacketInfo(
-    IN  PNDIS_PACKET    DstPacket,
-    IN  PNDIS_PACKET    SrcPacket)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    /* FIXME: What is the difference between NdisIMCopySendPerPacketInfo and
-     * NdisIMCopySendCompletePerPacketInfo?
-     */
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    RtlCopyMemory(NDIS_PACKET_EXTENSION_FROM_PACKET(DstPacket),
-                  NDIS_PACKET_EXTENSION_FROM_PACKET(SrcPacket),
-                  sizeof(NDIS_PACKET_EXTENSION));
-}
-
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisIMCopySendPerPacketInfo(
-    IN  PNDIS_PACKET    DstPacket,
-    IN  PNDIS_PACKET    SrcPacket)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    /* FIXME: What is the difference between NdisIMCopySendPerPacketInfo and
-     * NdisIMCopySendCompletePerPacketInfo?
-     */
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    RtlCopyMemory(NDIS_PACKET_EXTENSION_FROM_PACKET(DstPacket),
-                  NDIS_PACKET_EXTENSION_FROM_PACKET(SrcPacket),
-                  sizeof(NDIS_PACKET_EXTENSION));
 }
 
 /* EOF */

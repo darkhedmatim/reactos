@@ -167,7 +167,7 @@ static void test_info_size(void)
 	}
     }
     else
-	trace("skipping GetSystemDirectoryA(mypath,..) failed\n");
+	trace("skipping GetModuleFileNameA(NULL,..) failed\n");
 
     create_file("test.txt");
 
@@ -248,13 +248,6 @@ static void test_info(void)
     if (!boolret)
         goto cleanup;
 
-    boolret = VerQueryValueA( pVersionInfo, NULL, (LPVOID *)&pFixedVersionInfo, &uiLength );
-    ok (boolret || GetLastError() == NO_ERROR /* Win98 */,
-       "VerQueryValueA failed: GetLastError = %u\n", GetLastError());
-
-    boolret = VerQueryValueA( pVersionInfo, "", (LPVOID *)&pFixedVersionInfo, &uiLength );
-    ok (boolret, "VerQueryValueA failed: GetLastError = %u\n", GetLastError());
-
     boolret = VerQueryValueA( pVersionInfo, backslash, (LPVOID *)&pFixedVersionInfo, &uiLength );
     ok (boolret, "VerQueryValueA failed: GetLastError = %u\n", GetLastError());
     if (!boolret)
@@ -293,7 +286,6 @@ static void test_32bit_win(void)
     WCHAR mypathW[MAX_PATH];
     char rootA[] = "\\";
     WCHAR rootW[] = { '\\', 0 };
-    WCHAR emptyW[] = { 0 };
     char varfileinfoA[] = "\\VarFileInfo\\Translation";
     WCHAR varfileinfoW[]    = { '\\','V','a','r','F','i','l','e','I','n','f','o',
                                 '\\','T','r','a','n','s','l','a','t','i','o','n', 0 };
@@ -332,7 +324,7 @@ static void test_32bit_win(void)
     GetModuleFileNameW(NULL, mypathW, MAX_PATH);
     if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
     {
-        win_skip("GetModuleFileNameW not existing on this platform, skipping comparison between A- and W-calls\n");
+        trace("GetModuleFileNameW not existing on this platform, skipping comparison between A- and W-calls\n");
         is_unicode_enabled = FALSE;
     }
 
@@ -383,7 +375,7 @@ static void test_32bit_win(void)
 
     if (is_unicode_enabled)
     { 
-        VS_VERSION_INFO_STRUCT32 *vvis = pVersionInfoW;
+        VS_VERSION_INFO_STRUCT32 *vvis = (VS_VERSION_INFO_STRUCT32 *)pVersionInfoW;
         ok ( retvalW == ((vvis->wLength * 2) + 4) || retvalW == (vvis->wLength * 1.5),
              "Structure is not of the correct size\n");
     }
@@ -400,15 +392,6 @@ static void test_32bit_win(void)
 
     if (is_unicode_enabled)
     { 
-        if(0)
-        {   /* This causes Vista and w2k8 to crash */
-            retW = VerQueryValueW( pVersionInfoW, NULL, (LPVOID *)&pBufW, &uiLengthW );
-            ok (retW, "VerQueryValueW failed: GetLastError = %u\n", GetLastError());
-        }
-
-        retW = VerQueryValueW( pVersionInfoW, emptyW, (LPVOID *)&pBufW, &uiLengthW );
-        ok (retW, "VerQueryValueW failed: GetLastError = %u\n", GetLastError());
-
         retW = VerQueryValueW( pVersionInfoW, rootW, (LPVOID *)&pBufW, &uiLengthW );
         ok (retW, "VerQueryValueW failed: GetLastError = %u\n", GetLastError());
         ok ( uiLengthA == sizeof(VS_FIXEDFILEINFO), "Size (%d) doesn't match the size of the VS_FIXEDFILEINFO struct\n", uiLengthA);

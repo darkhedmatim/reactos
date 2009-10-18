@@ -22,9 +22,7 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
-#ifdef HAVE_DIRENT_H
 #include <dirent.h>
-#endif
 #include <fcntl.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -315,12 +313,11 @@ static BOOL import_certs_from_path(LPCSTR path, HCERTSTORE store,
  */
 static BOOL import_certs_from_dir(LPCSTR path, HCERTSTORE store)
 {
-#ifdef HAVE_READDIR
     BOOL ret = FALSE;
     DIR *dir;
 
     TRACE("(%s, %p)\n", debugstr_a(path), store);
-
+    /* UNIX functions = bad for reactos
     dir = opendir(path);
     if (dir)
     {
@@ -339,15 +336,12 @@ static BOOL import_certs_from_dir(LPCSTR path, HCERTSTORE store)
                         ret = TRUE;
                 }
             }
+            closedir(dir);
             CryptMemFree(filebuf);
         }
-        closedir(dir);
     }
+    */
     return ret;
-#else
-    FIXME("not implemented without readdir available\n");
-    return FALSE;
-#endif
 }
 
 /* Opens path, which may be a file or a directory, and imports any certificates
@@ -438,7 +432,6 @@ static const char * const CRYPT_knownLocations[] = {
  "/etc/ssl/certs/ca-certificates.crt",
  "/etc/ssl/certs",
  "/etc/pki/tls/certs/ca-bundle.crt",
- "/usr/local/share/certs/",
 };
 
 static const BYTE authenticode[] = {
@@ -663,7 +656,7 @@ static const BYTE rootcertauthority[] = {
 0xf8,0x04,0x4d,0x30,0x92,0x3d,0x6e,0x21,0x14,0x21,0xc9,0x3d,0xe0,0xc3,0xfd,0x8a,
 0x6b,0x9d,0x4a,0xfd,0xd1,0xa1,0x9d,0x99,0x43,0x77,0x3f,0xb0,0xda };
 
-static const struct CONST_BLOB {
+struct CONST_BLOB {
     const BYTE *pb;
     DWORD       cb;
 } msRootCerts[] = {
@@ -742,6 +735,17 @@ PWINECRYPT_CERTSTORE CRYPT_RootOpenStore(HCRYPTPROV hCryptProv, DWORD dwFlags)
     {
         WARN("root store can't be deleted\n");
         SetLastError(ERROR_ACCESS_DENIED);
+        return NULL;
+    }
+    switch (dwFlags & CERT_SYSTEM_STORE_LOCATION_MASK)
+    {
+    case CERT_SYSTEM_STORE_LOCAL_MACHINE:
+    case CERT_SYSTEM_STORE_CURRENT_USER:
+        break;
+    default:
+        TRACE("location %08x unsupported\n",
+         dwFlags & CERT_SYSTEM_STORE_LOCATION_MASK);
+        SetLastError(E_INVALIDARG);
         return NULL;
     }
     if (!CRYPT_rootStore)

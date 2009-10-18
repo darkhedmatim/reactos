@@ -3,7 +3,6 @@
 <group>
 <module name="mlang_winetest" type="win32cui" installbase="bin" installname="mlang_winetest.exe" allowwarnings="true">
 	<include base="mlang_winetest">.</include>
-    <define name="__ROS_LONG64__" />
 	<file>mlang.c</file>
 	<file>testlist.c</file>
 	<library>wine</library>

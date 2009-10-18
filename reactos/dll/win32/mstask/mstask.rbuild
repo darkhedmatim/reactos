@@ -7,22 +7,20 @@
 	<include base="mstask">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="WINVER">0x600</redefine>
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="WINVER">0x600</define>
+	<define name="_WIN32_WINNT">0x600</define>
 	<file>factory.c</file>
 	<file>mstask_main.c</file>
 	<file>task.c</file>
 	<file>task_scheduler.c</file>
 	<file>task_trigger.c</file>
+	<file>mstask_local.idl</file>
 	<file>rsrc.rc</file>
-	<library>mstask_local_interface</library>
+	<file>mstask.spec</file>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ole32</library>
 	<library>kernel32</library>
 	<library>ntdll</library>
-</module>
-<module name="mstask_local_interface" type="idlinterface">
-	<file>mstask_local.idl</file>
 </module>
 </group>

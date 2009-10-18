@@ -1,6 +1,6 @@
 #if defined(__i386__) || defined(__386__)
 
-#include "main/imports.h"
+#include "imports.h"
 #include "x86sse.h"
 
 #define DISASSEM 0

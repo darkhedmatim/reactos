@@ -51,7 +51,7 @@ VOID
 INIT_FUNCTION
 NTAPI
 MmInitializePagedPool(VOID)
-{   
+{
 	/*
 	 * We are still at a high IRQL level at this point so explicitly commit
 	 * the first page of the paged pool before writing the first block header.
@@ -77,7 +77,7 @@ MmInitializePagedPool(VOID)
  *
  * RETURN VALUE
  */
-PVOID NTAPI
+PVOID STDCALL
 ExAllocatePagedPoolWithTag (IN POOL_TYPE PoolType,
                             IN ULONG  NumberOfBytes,
                             IN ULONG  Tag)
@@ -96,7 +96,7 @@ ExAllocatePagedPoolWithTag (IN POOL_TYPE PoolType,
 	return RPoolAlloc ( MmPagedPool, NumberOfBytes, Tag, align );
 }
 
-VOID NTAPI
+VOID STDCALL
 ExFreePagedPool(IN PVOID Block)
 {
 	ASSERT_IRQL_LESS_OR_EQUAL(APC_LEVEL);

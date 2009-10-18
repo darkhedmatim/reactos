@@ -32,10 +32,17 @@
 #define NDEBUG
 #include <debug.h>
 
+typedef struct _USERMEMHEADER
+  {
+  ULONG Tag;
+  ULONG MemSize;
+  }
+USERMEMHEADER, *PUSERMEMHEADER;
+
 /*
  * @implemented
  */
-PVOID APIENTRY
+PVOID STDCALL
 EngAllocMem(ULONG Flags,
 	    ULONG MemSize,
 	    ULONG Tag)
@@ -55,7 +62,7 @@ EngAllocMem(ULONG Flags,
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngFreeMem(PVOID Mem)
 {
   ExFreePool(Mem);
@@ -64,43 +71,44 @@ EngFreeMem(PVOID Mem)
 /*
  * @implemented
  */
-PVOID APIENTRY
+PVOID STDCALL
 EngAllocUserMem(SIZE_T cj, ULONG Tag)
 {
   PVOID NewMem = NULL;
   NTSTATUS Status;
-  SIZE_T MemSize = cj;
+  SIZE_T MemSize = sizeof(USERMEMHEADER) + cj;
+  PUSERMEMHEADER Header;
 
-  Status = ZwAllocateVirtualMemory(NtCurrentProcess(), &NewMem, 0, &MemSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  Status = ZwAllocateVirtualMemory(NtCurrentProcess(), &NewMem, 0, &MemSize, MEM_COMMIT, PAGE_READWRITE);
 
   if (! NT_SUCCESS(Status))
     {
       return NULL;
     }
 
-  /* TODO: Add allocation info to AVL tree (stored inside W32PROCESS structure) */
+  Header = (PUSERMEMHEADER) NewMem;
+  Header->Tag = Tag;
+  Header->MemSize = cj;
 
-  return NewMem;
+  return (PVOID)(Header + 1);
 }
 
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngFreeUserMem(PVOID pv)
 {
-  PVOID BaseAddress = pv;
-  SIZE_T MemSize = 0;
+  PUSERMEMHEADER Header = ((PUSERMEMHEADER) pv) - 1;
+  SIZE_T MemSize = sizeof(USERMEMHEADER) + Header->MemSize;
 
-  ZwFreeVirtualMemory(NtCurrentProcess(), &BaseAddress, &MemSize, MEM_RELEASE);
-
-  /* TODO: Remove allocation info from AVL tree */
+  ZwFreeVirtualMemory(NtCurrentProcess(), (PVOID *) &Header, &MemSize, MEM_RELEASE);
 }
 
 
 
 PVOID
-APIENTRY
+NTAPI
 HackSecureVirtualMemory(
 	IN PVOID Address,
 	IN SIZE_T Size,
@@ -121,15 +129,15 @@ HackSecureVirtualMemory(
 		return NULL;
 	}
 
-	_SEH2_TRY
+	_SEH_TRY
 	{
 		MmProbeAndLockPages(mdl, UserMode, Operation);
 	}
-	_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+	_SEH_HANDLE
 	{
-		Status = _SEH2_GetExceptionCode();
+		Status = _SEH_GetExceptionCode();
 	}
-	_SEH2_END
+	_SEH_END
 
 	if (!NT_SUCCESS(Status))
 	{
@@ -150,7 +158,7 @@ HackSecureVirtualMemory(
 }
 
 VOID
-APIENTRY
+NTAPI
 HackUnsecureVirtualMemory(
 	IN PVOID  SecureHandle)
 {
@@ -163,7 +171,7 @@ HackUnsecureVirtualMemory(
 /*
  * @implemented
  */
-HANDLE APIENTRY
+HANDLE STDCALL
 EngSecureMem(PVOID Address, ULONG Length)
 {
   return MmSecureVirtualMemory(Address, Length, PAGE_READWRITE);
@@ -172,10 +180,10 @@ EngSecureMem(PVOID Address, ULONG Length)
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngUnsecureMem(HANDLE Mem)
 {
-  MmUnsecureVirtualMemory((PVOID) Mem);
+  return MmUnsecureVirtualMemory((PVOID) Mem);
 }
 
 /* EOF */

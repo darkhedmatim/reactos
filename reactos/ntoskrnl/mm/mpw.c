@@ -23,7 +23,7 @@ BOOLEAN MpwThreadShouldTerminate;
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 MmWriteDirtyPages(ULONG Target, PULONG Actual)
 {
    PFN_TYPE Page;
@@ -52,7 +52,7 @@ MmWriteDirtyPages(ULONG Target, PULONG Actual)
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 MmMpwThreadMain(PVOID Ignored)
 {
    NTSTATUS Status;
@@ -71,7 +71,7 @@ MmMpwThreadMain(PVOID Ignored)
       if (!NT_SUCCESS(Status))
       {
          DbgPrint("MpwThread: Wait failed\n");
-         KeBugCheck(MEMORY_MANAGEMENT);
+         ASSERT(FALSE);
          return(STATUS_UNSUCCESSFUL);
       }
       if (MpwThreadShouldTerminate)

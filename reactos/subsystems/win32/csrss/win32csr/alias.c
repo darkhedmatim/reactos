@@ -11,8 +11,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#define NDEBUG
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
 typedef struct tagALIAS_ENTRY
@@ -104,17 +105,14 @@ IntInsertAliasHeader(PALIAS_HEADER * RootHeader, PALIAS_HEADER NewHeader)
 PALIAS_ENTRY
 IntGetAliasEntry(PALIAS_HEADER Header, LPCWSTR lpSrcName)
 {
-    PALIAS_ENTRY RootHeader;
-
     if (Header == NULL)
         return NULL;
 
-    RootHeader = Header->Data;
+    PALIAS_ENTRY RootHeader = Header->Data;
     while(RootHeader)
     {
-        INT diff;
         DPRINT("IntGetAliasEntry>lpSource %S\n", RootHeader->lpSource);
-        diff = _wcsicmp(RootHeader->lpSource, lpSrcName);
+        INT diff = _wcsicmp(RootHeader->lpSource, lpSrcName);
         if (!diff)
             return RootHeader;
 

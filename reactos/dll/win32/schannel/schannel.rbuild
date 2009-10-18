@@ -13,4 +13,5 @@
 	<file>schannel_main.c</file>
 	<file>usermode.c</file>
 	<file>version.rc</file>
+	<file>schannel.spec</file>
 </module>

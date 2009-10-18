@@ -1,13 +1,11 @@
 #ifndef _WINNLS_H
 #define _WINNLS_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
 #endif
 
 #define GEOID_NOT_AVAILABLE (-1)
@@ -169,14 +167,9 @@ extern "C" {
 #define WC_DEFAULTCHAR       0x0040
 #define WC_ERR_INVALID_CHARS 0x0080
 #define WC_COMPOSITECHECK    0x0200
-#if (WINVER >= 0x0500)
 #define WC_NO_BEST_FIT_CHARS 0x0400
-#endif
 
 #define CP_ACP 0
-#ifdef _WINE
-#define CP_UNIXCP CP_ACP
-#endif
 #define CP_OEMCP 1
 #define CP_MACCP 2
 #define CP_THREAD_ACP 3
@@ -433,6 +426,7 @@ extern "C" {
 #define DATE_LTRREADING 16
 #define DATE_RTLREADING 32
 #define MAP_EXPAND_LIGATURES   0x2000
+#define WC_NO_BEST_FIT_CHARS 1024
 #define CAL_SYEARMONTH 47
 #define CAL_ITWODIGITYEARMAX 48
 #define CAL_NOUSEROVERRIDE LOCALE_NOUSEROVERRIDE
@@ -752,11 +746,6 @@ typedef LPNUMBERFMTA LPNUMBERFMT;
 #endif /* (WINVER >= 0x0500) */
 #endif /* UNICODE */
 #endif /* RC_INVOKED */
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
 #ifdef __cplusplus
 }
 #endif

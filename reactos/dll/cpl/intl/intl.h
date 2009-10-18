@@ -1,8 +1,6 @@
 #ifndef __CPL_INTL_H
 #define __CPL_INTL_H
 
-#include <cpl.h>
-
 #define MAX_FMT_SIZE          30
 #define MAX_STR_SIZE          128
 #define MAX_SAMPLES_STR_SIZE  70
@@ -77,10 +75,7 @@ ReplaceSubStr(LPCTSTR szSourceStr, LPCTSTR szStrToReplace, LPCTSTR szTempl);
 
 LONG
 APIENTRY
-SetupApplet(HWND hwndDlg, LCID lcid);
-
-/* kblayouts.c */
-VOID AddNewKbLayoutsByLcid(LCID Lcid);
+SetupApplet(LCID lcid);
 
 #endif /* __CPL_INTL_H */
 

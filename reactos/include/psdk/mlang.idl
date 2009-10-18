@@ -22,11 +22,8 @@ import "unknwn.idl";
 
 interface IStream;
 
-cpp_quote("#define CPIOD_PEEK          0x40000000")
-cpp_quote("#define CPIOD_FORCE_PROMPT  0x80000000")
-
 /* FIXME: LANGID is defined in winnt.h and mlang.h in the platform SDK */
-cpp_quote("#ifndef _WINNT_H")
+cpp_quote("#ifndef _WINNT_")
 typedef WORD LANGID;
 cpp_quote("#endif")
 
@@ -39,7 +36,7 @@ interface IMLangCodePages : IUnknown
 {
     HRESULT GetCharCodePages(      
         [in] WCHAR chSrc,
-        [out] DWORD *pdwCodePages);
+        DWORD *pdwCodePages);
     HRESULT GetStrCodePages(      
         [in, size_is(cchSrc)] const WCHAR *pszSrc,
         [in] long cchSrc,

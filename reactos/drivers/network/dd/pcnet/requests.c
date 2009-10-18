@@ -83,7 +83,7 @@ static ULONG MiniportOIDList[] =
 
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiniportQueryInformation(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN NDIS_OID Oid,
@@ -139,8 +139,8 @@ MiniportQueryInformation(
 
     case OID_GEN_HARDWARE_STATUS:
         {
+          /* TODO: implement this... */
           GenericULONG = (ULONG)NdisHardwareStatusReady;
-          /* ((Adapter->MediaState == NdisMediaStateConnected) ? NdisHardwareStatusReady : NdisHardwareStatusNotReady); */
           break;
         }
 
@@ -173,7 +173,7 @@ MiniportQueryInformation(
 
     case OID_GEN_LINK_SPEED:
         {
-          GenericULONG = Adapter->MediaSpeed * 10000;
+          GenericULONG = 100000;  /* 10Mbps */
           break;
         }
 
@@ -352,9 +352,9 @@ MiniportQueryInformation(
     {
       if (CopySize > InformationBufferLength)
         {
-          *BytesNeeded = CopySize;
+          *BytesNeeded  = (CopySize - InformationBufferLength);
           *BytesWritten = 0;
-          Status        = NDIS_STATUS_INVALID_LENGTH;
+          Status        = NDIS_STATUS_BUFFER_TOO_SHORT;
         }
       else
         {
@@ -362,11 +362,6 @@ MiniportQueryInformation(
           *BytesWritten = CopySize;
           *BytesNeeded  = CopySize;
          }
-    }
-   else
-    {
-       *BytesWritten = 0;
-       *BytesNeeded = 0;
     }
 
   NdisDprReleaseSpinLock(&Adapter->Lock);
@@ -377,7 +372,7 @@ MiniportQueryInformation(
 }
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiniportSetInformation(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN NDIS_OID Oid,
@@ -422,7 +417,7 @@ MiniportSetInformation(
         if (InformationBufferLength < sizeof(ULONG))
           {
             *BytesRead   = 0;
-            *BytesNeeded = sizeof(ULONG);
+            *BytesNeeded = sizeof(ULONG) - InformationBufferLength;
             Status       = NDIS_STATUS_INVALID_LENGTH;
             break;
           }
@@ -439,7 +434,7 @@ MiniportSetInformation(
             NDIS_PACKET_TYPE_SOURCE_ROUTING)
            )
           {
-            *BytesRead   = sizeof(ULONG);
+            *BytesRead   = 4;
             *BytesNeeded = 0;
             Status       = NDIS_STATUS_NOT_SUPPORTED;
             break;
@@ -458,7 +453,7 @@ MiniportSetInformation(
         if (InformationBufferLength < sizeof(ULONG))
           {
             *BytesRead   = 0;
-            *BytesNeeded = sizeof(ULONG);
+            *BytesNeeded = sizeof(ULONG) - InformationBufferLength;
             Status = NDIS_STATUS_INVALID_LENGTH;
             break;
           }
@@ -466,7 +461,7 @@ MiniportSetInformation(
         NdisMoveMemory(&GenericULONG, InformationBuffer, sizeof(ULONG));
 
         if (GenericULONG > 1500)
-          Status = NDIS_STATUS_INVALID_DATA;
+          Status = NDIS_STATUS_INVALID_LENGTH;
         else
           Adapter->CurrentLookaheadSize = GenericULONG;
 
@@ -479,7 +474,7 @@ MiniportSetInformation(
         if ((InformationBufferLength % 6) != 0)
           {
             *BytesRead   = 0;
-            *BytesNeeded = InformationBufferLength + (InformationBufferLength % 6);
+            *BytesNeeded = 0;
             Status       = NDIS_STATUS_INVALID_LENGTH;
             break;
           }

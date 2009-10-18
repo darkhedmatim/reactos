@@ -6,8 +6,7 @@
 	<include base="riched20">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<compilerflag compilerset="msc">/FIwine/typeof.h</compilerflag>
-	<linkerflag linkerset="ld">-enable-stdcall-fixup</linkerflag>
+	<linkerflag>-enable-stdcall-fixup</linkerflag>
 	<file>caret.c</file>
 	<file>clipboard.c</file>
 	<file>context.c</file>
@@ -22,16 +21,15 @@
 	<file>string.c</file>
 	<file>style.c</file>
 	<file>table.c</file>
-	<file>txthost.c</file>
 	<file>txtsrv.c</file>
 	<file>undo.c</file>
 	<file>wrap.c</file>
 	<file>writer.c</file>
 	<file>version.rc</file>
+	<file>riched20.spec</file>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ole32</library>
-	<library>oleaut32</library>
 	<library>imm32</library>
 	<library>user32</library>
 	<library>gdi32</library>

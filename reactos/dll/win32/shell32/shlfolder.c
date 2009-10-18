@@ -88,7 +88,7 @@ BOOL SHELL32_GetCustomFolderAttribute(
  *
  * PARAMETERS
  *  pszNext [IN] string to get the element from
- *  pszOut  [IN] pointer to buffer which receives string
+ *  pszOut  [IN] pointer to buffer whitch receives string
  *  dwOut   [IN] length of pszOut
  *
  *  RETURNS
@@ -110,7 +110,7 @@ LPCWSTR GetNextElementW (LPCWSTR pszNext, LPWSTR pszOut, DWORD dwOut)
     while (*pszTail && (*pszTail != (WCHAR) '\\'))
 	pszTail++;
 
-    dwCopy = pszTail - pszNext + 1;
+    dwCopy = (const WCHAR *) pszTail - (const WCHAR *) pszNext + 1;
     lstrcpynW (pszOut, pszNext, (dwOut < dwCopy) ? dwOut : dwCopy);
 
     if (*pszTail)
@@ -544,21 +544,5 @@ HRESULT WINAPI SHCreateLinks( HWND hWnd, LPCSTR lpszDir, LPDATAOBJECT lpDataObje
                               UINT uFlags, LPITEMIDLIST *lppidlLinks)
 {
     FIXME("%p %s %p %08x %p\n",hWnd,lpszDir,lpDataObject,uFlags,lppidlLinks);
-    return E_NOTIMPL;
-}
-
-/***********************************************************************
- *  SHOpenFolderAndSelectItems
- *
- *   Unimplemented.
- */
-HRESULT
-WINAPI
-SHOpenFolderAndSelectItems(PCIDLIST_ABSOLUTE pidlFolder,
-                           UINT cidl,
-                           PCUITEMID_CHILD_ARRAY *apidl,
-                           DWORD dwFlags)
-{
-    FIXME("SHOpenFolderAndSelectItems() stub\n");
     return E_NOTIMPL;
 }

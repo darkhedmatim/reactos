@@ -22,8 +22,8 @@ typedef struct _ClipboardElement
 
 typedef struct _CLIPBOARDSYSTEM
 {
-    PTHREADINFO     ClipboardThread;
-    PTHREADINFO     ClipboardOwnerThread;
+    PW32THREAD      ClipboardThread;
+    PW32THREAD      ClipboardOwnerThread;
     PWINDOW_OBJECT  ClipboardWindow;
     PWINDOW_OBJECT  ClipboardViewerWindow;
     PWINDOW_OBJECT  ClipboardOwnerWindow;
@@ -44,7 +44,7 @@ typedef struct _CLIPBOARDSYSTEM
 VOID FASTCALL
 IntClipboardFreeWindow(PWINDOW_OBJECT window);
 
-UINT APIENTRY IntEnumClipboardFormats(UINT format);
+UINT STDCALL IntEnumClipboardFormats(UINT format);
 
 /*
 UINT FASTCALL

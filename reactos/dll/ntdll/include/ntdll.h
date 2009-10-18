@@ -32,7 +32,7 @@
 /* CSRSS Header */
 #include <csrss/csrss.h>
 
-/* PSEH */
-#include <pseh/pseh2.h>
+/* Helper Macros */
+#include <reactos/helper.h>
 
 /* EOF */

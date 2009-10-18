@@ -54,7 +54,7 @@ typedef struct _REPARSE_DATA_BUFFER {
 /*
  * @implemented
  */
-HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
+HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
 			    LPSECURITY_ATTRIBUTES	lpSecurityAttributes,
@@ -85,7 +85,7 @@ HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
 /*
  * @implemented
  */
-HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
+HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
 			    LPSECURITY_ATTRIBUTES	lpSecurityAttributes,
@@ -367,7 +367,7 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
  * @implemented
  */
 BOOLEAN
-WINAPI
+STDCALL
 CreateSymbolicLinkW(IN LPCWSTR lpSymlinkFileName,
                     IN LPCWSTR lpTargetFileName,
                     IN DWORD dwFlags)

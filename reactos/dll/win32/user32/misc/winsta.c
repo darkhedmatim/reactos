@@ -13,11 +13,20 @@
 
 #include <wine/debug.h>
 
+/*
+ * @implemented
+ */
+BOOL STDCALL
+CloseWindowStation(HWINSTA hWinSta)
+{
+  return(NtUserCloseWindowStation(hWinSta));
+}
+
 
 /*
  * @implemented
  */
-HWINSTA WINAPI
+HWINSTA STDCALL
 CreateWindowStationA(LPSTR lpwinsta,
 		     DWORD dwReserved,
 		     ACCESS_MASK dwDesiredAccess,
@@ -51,7 +60,7 @@ CreateWindowStationA(LPSTR lpwinsta,
 /*
  * @implemented
  */
-HWINSTA WINAPI
+HWINSTA STDCALL
 CreateWindowStationW(LPWSTR lpwinsta,
 		     DWORD dwReserved,
 		     ACCESS_MASK dwDesiredAccess,
@@ -88,7 +97,8 @@ EnumNamesW(HWINSTA WindowStation,
     */
    if (NULL == WindowStation && Desktops)
    {
-      WindowStation = GetProcessWindowStation();
+      SetLastError(ERROR_INVALID_HANDLE);
+      return FALSE;
    }
 
    /*
@@ -243,7 +253,7 @@ EnumNamesA(HWINSTA WindowStation,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 EnumWindowStationsA(WINSTAENUMPROCA EnumFunc,
 		    LPARAM Context)
 {
@@ -254,7 +264,7 @@ EnumWindowStationsA(WINSTAENUMPROCA EnumFunc,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 EnumWindowStationsW(WINSTAENUMPROCW EnumFunc,
 		    LPARAM Context)
 {
@@ -265,7 +275,17 @@ EnumWindowStationsW(WINSTAENUMPROCW EnumFunc,
 /*
  * @implemented
  */
-HWINSTA WINAPI
+HWINSTA STDCALL
+GetProcessWindowStation(VOID)
+{
+  return NtUserGetProcessWindowStation();
+}
+
+
+/*
+ * @implemented
+ */
+HWINSTA STDCALL
 OpenWindowStationA(LPSTR lpszWinSta,
 		   BOOL fInherit,
 		   ACCESS_MASK dwDesiredAccess)
@@ -297,7 +317,7 @@ OpenWindowStationA(LPSTR lpszWinSta,
 /*
  * @implemented
  */
-HWINSTA WINAPI
+HWINSTA STDCALL
 OpenWindowStationW(LPWSTR lpszWinSta,
 		   BOOL fInherit,
 		   ACCESS_MASK dwDesiredAccess)
@@ -311,10 +331,20 @@ OpenWindowStationW(LPWSTR lpszWinSta,
 
 
 /*
+ * @implemented
+ */
+BOOL STDCALL
+SetProcessWindowStation(HWINSTA hWinSta)
+{
+  return NtUserSetProcessWindowStation(hWinSta);
+}
+
+
+/*
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 SetWindowStationUser(
   DWORD Unknown1,
   DWORD Unknown2,
@@ -323,6 +353,28 @@ SetWindowStationUser(
   )
 {
   return NtUserSetWindowStationUser(Unknown1, Unknown2, Unknown3, Unknown4);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+LockWindowStation(HWINSTA hWinSta)
+{
+  return NtUserLockWindowStation(hWinSta);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+UnlockWindowStation(HWINSTA hWinSta)
+{
+  return NtUserUnlockWindowStation(hWinSta);
 }
 
 /* EOF */

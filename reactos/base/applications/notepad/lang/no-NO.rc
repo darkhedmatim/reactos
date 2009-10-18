@@ -28,10 +28,8 @@ BEGIN
     "^C", CMD_COPY
     "^F", CMD_SEARCH
     "^G", CMD_GOTO
-    "H", CMD_REPLACE, VIRTKEY, CONTROL
-    "^N", CMD_NEW
+    "H", CMD_REPLACE, VIRTKEY, CONTROL 
     "^O", CMD_OPEN
-    "^P", CMD_PRINT
     "^S", CMD_SAVE
     "^V", CMD_PASTE
     "^X", CMD_CUT
@@ -42,54 +40,54 @@ END
 
 MAIN_MENU MENU
 BEGIN
-    POPUP "&Fil"
-    BEGIN
-        MENUITEM "&Ny\tCtrl+N",                CMD_NEW
-        MENUITEM "&Åpne\tCtrl+O",              CMD_OPEN
-        MENUITEM "&Lagre\tCtrl+S",             CMD_SAVE
-        MENUITEM "Lagre &som...",              CMD_SAVE_AS
-        MENUITEM SEPARATOR
-        MENUITEM "Side &innstillinger...",     CMD_PAGE_SETUP
-        MENUITEM "&Utskrift\tCtrl+P",          CMD_PRINT
-        MENUITEM "U&tskrift innstillinger...", CMD_PRINTER_SETUP
-        MENUITEM SEPARATOR
-        MENUITEM "A&vslutt",                   CMD_EXIT
-    END
-    POPUP "&Rediger"
-    BEGIN
-        MENUITEM "&Angre\tCtrl+Z",        CMD_UNDO
-        MENUITEM SEPARATOR
-        MENUITEM "Klipp &ut\tCtrl+X",     CMD_CUT
-        MENUITEM "&Kopier\tCtrl+C",       CMD_COPY
-        MENUITEM "&Lim inn\tCtrl+V",      CMD_PASTE
-        MENUITEM "&Slett\tDel",           CMD_DELETE
-        MENUITEM SEPARATOR
-        MENUITEM "&Finn...\tCtrl+F",      CMD_SEARCH
-        MENUITEM "Finn &neste\tF3",       CMD_SEARCH_NEXT
-        MENUITEM "Erstatt\tCtrl+H",       CMD_REPLACE
-        MENUITEM "Gå til...\tCtrl+G",     CMD_GOTO
-        MENUITEM SEPARATOR
-        MENUITEM "Merk &alt\tCtrl+A",     CMD_SELECT_ALL
-        MENUITEM "&Klokkeslett/dato\tF5", CMD_TIME_DATE
-    END
-    POPUP "F&ormat"
-    BEGIN
-        MENUITEM "&Tekstbryting", CMD_WRAP
-        MENUITEM "&Skrift...",    CMD_FONT
-    END
-    POPUP "&Vis"
-    BEGIN
-        MENUITEM "Status&linje", CMD_STATUSBAR
-    END
-    POPUP "&Hjelp"
-    BEGIN
-        MENUITEM "&Emner i hjelp",  CMD_HELP_CONTENTS
-        MENUITEM "&Søk",            CMD_HELP_SEARCH
-        MENUITEM "&Hjelp om hjelp", CMD_HELP_ON_HELP
-        MENUITEM SEPARATOR
-        MENUITEM "&Om"              CMD_ABOUT
-        MENUITEM "&Infomasjon",     CMD_ABOUT_WINE
-    END
+	POPUP "&Fil"
+	BEGIN
+		MENUITEM "&Ny...",           CMD_NEW
+		MENUITEM "&Åpne\tCtrl+O",     CMD_OPEN
+		MENUITEM "&Lagre\tCtrl+S",     CMD_SAVE
+		MENUITEM "Lagre &som...",       CMD_SAVE_AS
+		MENUITEM SEPARATOR
+		MENUITEM "Side &Innstillinger...",    CMD_PAGE_SETUP
+		MENUITEM "&Utskrift",            CMD_PRINT
+		MENUITEM "U&tskrift innstillinger...", CMD_PRINTER_SETUP
+		MENUITEM SEPARATOR
+		MENUITEM "A&vslutt",             CMD_EXIT
+	END
+	POPUP "&Rediger"
+	BEGIN
+		MENUITEM "&Angre\tCtrl+Z",     CMD_UNDO
+		MENUITEM SEPARATOR
+		MENUITEM "Klipp &ut\tCtrl+X",      CMD_CUT
+		MENUITEM "&Kopier\tCtrl+C",     CMD_COPY
+		MENUITEM "&Lim inn\tCtrl+V",    CMD_PASTE
+		MENUITEM "&Slett\tDel",      CMD_DELETE
+		MENUITEM SEPARATOR
+		MENUITEM "&Finn...\tCtrl+F",  CMD_SEARCH
+		MENUITEM "Finn &neste\tF3",    CMD_SEARCH_NEXT
+		MENUITEM "Erstatt\tCtrl+H",   CMD_REPLACE
+		MENUITEM "Gå til...\tCtrl+G",  CMD_GOTO
+		MENUITEM SEPARATOR
+		MENUITEM "Merk &alt\tCtrl+A",       CMD_SELECT_ALL
+		MENUITEM "&Klokkeslett/dato\tF5",    CMD_TIME_DATE
+	END
+	POPUP "F&ormat"
+	BEGIN
+		MENUITEM "&Tekstbryting",  CMD_WRAP
+		MENUITEM "&Skrift...",          CMD_FONT
+	END
+	POPUP "&Vis"
+	BEGIN
+		MENUITEM "Status&linje",    CMD_STATUSBAR
+	END
+	POPUP "&Hjelp"
+	BEGIN
+		MENUITEM "&Emner i hjelp",         CMD_HELP_CONTENTS
+		MENUITEM "&Søk",        CMD_HELP_SEARCH
+		MENUITEM "&Hjelp om hjelp",     CMD_HELP_ON_HELP
+		MENUITEM SEPARATOR
+		MENUITEM "&Om"             CMD_ABOUT
+		MENUITEM "&Infomasjon",      CMD_ABOUT_WINE
+	END
 END
 
 /* Dialog `Page setup' */
@@ -99,7 +97,7 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Side innstillinger"
 BEGIN
-LTEXT    "&Topptekst:",  0x140,   10, 07, 40, 15
+LTEXT    "&Header:",  0x140,   10, 07, 40, 15
 EDITTEXT                         0x141,       60, 05,110, 12, WS_BORDER | WS_TABSTOP
 LTEXT    "&Bunntekst:",  0x142,   10, 24, 40, 15
 EDITTEXT                         0x143,       60, 22,110, 12, WS_BORDER | WS_TABSTOP
@@ -203,5 +201,4 @@ STRING_UTF8,                                    "UTF-8"
 STRING_CRLF,                                    "Windows"
 STRING_LF,                                      "Unix"
 STRING_CR,                                      "Mac"
-STRING_LINE_COLUMN,                             "Linje %d, kolonne %d"
 END

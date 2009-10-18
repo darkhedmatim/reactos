@@ -530,9 +530,9 @@ MonitorDlgProc(HWND hwndDlg,
             {
                 case PSN_APPLY:
                 {
-                    SetWindowLongPtr(hwndDlg,
-                                     DWL_MSGRESULT,
-                                     ApplyMonitorChanges(This));
+                    SetWindowLong(hwndDlg,
+                                  DWL_MSGRESULT,
+                                  ApplyMonitorChanges(This));
                     break;
                 }
 
@@ -735,7 +735,7 @@ IDeskMonitor_Constructor(REFIID riid,
     return hRet;
 }
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpvReserved)

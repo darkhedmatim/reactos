@@ -28,6 +28,7 @@
 
 #include <windows.h>
 #include <commctrl.h>
+#include <cpl.h>
 #include <tchar.h>
 #include <stdio.h>
 
@@ -390,7 +391,7 @@ GeneralPageProc(HWND hwndDlg,
                         if (NewLcid == (LCID)CB_ERR)
                             break;
 
-                         SetupApplet(GetParent(hwndDlg), NewLcid);
+                         SetupApplet(NewLcid);
                     }
                     break;
             }
@@ -440,7 +441,6 @@ GeneralPageProc(HWND hwndDlg,
 
                     /* Set new locale */
                     SetNewLocale(NewLcid);
-                    AddNewKbLayoutsByLcid(NewLcid);
                     SetUserGeoID(NewGeoID);
                     SetNonUnicodeLang(hwndDlg, NewLcid);
                 }

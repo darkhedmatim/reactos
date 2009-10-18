@@ -9,7 +9,7 @@
 #define NDEBUG
 #include <debug.h>
 
-static __inline PHCELL CMAPI
+static PHCELL __inline CMAPI
 HvpGetCellHeader(
    PHHIVE RegistryHive,
    HCELL_INDEX CellIndex)
@@ -74,12 +74,11 @@ HvGetCell(
    return (PVOID)(HvpGetCellHeader(RegistryHive, CellIndex) + 1);
 }
 
-static __inline LONG CMAPI
+static LONG __inline CMAPI
 HvpGetCellFullSize(
    PHHIVE RegistryHive,
    PVOID Cell)
 {
-   UNREFERENCED_PARAMETER(RegistryHive);
    return ((PHCELL)Cell - 1)->Size;
 }
 
@@ -89,8 +88,6 @@ HvGetCellSize(IN PHHIVE Hive,
 {
    PHCELL CellHeader;
    LONG Size;
-
-   UNREFERENCED_PARAMETER(Hive);
 
    CellHeader = (PHCELL)Address - 1;
    Size = CellHeader->Size * -1;
@@ -144,7 +141,7 @@ HvIsCellDirty(IN PHHIVE Hive,
    return IsDirty;
 }
 
-static __inline ULONG CMAPI
+static ULONG __inline CMAPI
 HvpComputeFreeListIndex(
    ULONG Size)
 {
@@ -427,7 +424,7 @@ HvReallocateCell(
     * FIXME: Merge with adjacent free cell if possible.
     * FIXME: Implement shrinking.
     */
-   if (Size > (ULONG)OldCellSize)
+   if (Size > OldCellSize)
    {
       NewCellIndex = HvAllocateCell(RegistryHive, Size, Storage, HCELL_NIL);
       if (NewCellIndex == HCELL_NIL)

@@ -29,18 +29,6 @@ ExtCreatePen(DWORD dwPenStyle,
          SetLastError(ERROR_INVALID_PARAMETER);
          return 0;
       }
-   } // This is an enhancement and prevents a call to kernel space.
-   else if ((dwPenStyle & PS_STYLE_MASK) == PS_INSIDEFRAME &&
-            (dwPenStyle & PS_TYPE_MASK) != PS_GEOMETRIC)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
-   }
-   else if ((dwPenStyle & PS_STYLE_MASK) == PS_ALTERNATE &&
-            (dwPenStyle & PS_TYPE_MASK) != PS_COSMETIC)
-   {
-      SetLastError(ERROR_INVALID_PARAMETER);
-      return 0;
    }
    else
    {
@@ -110,7 +98,7 @@ ExtCreatePen(DWORD dwPenStyle,
 /*
  * @implemented
  */
-HBRUSH WINAPI
+HBRUSH STDCALL
 CreateDIBPatternBrush(
    HGLOBAL hglbDIBPacked,
    UINT fuColorSpec)
@@ -142,7 +130,7 @@ CreateDIBPatternBrush(
 /*
  * @implemented
  */
-HBRUSH WINAPI
+HBRUSH STDCALL
 CreateDIBPatternBrushPt(
    CONST VOID *lpPackedDIB,
    UINT fuColorSpec)
@@ -171,7 +159,7 @@ CreateDIBPatternBrushPt(
  * @implemented
  */
 HBRUSH
-WINAPI
+STDCALL
 CreateHatchBrush(INT fnStyle,
                  COLORREF clrref)
 {
@@ -182,7 +170,7 @@ CreateHatchBrush(INT fnStyle,
  * @implemented
  */
 HBRUSH
-WINAPI
+STDCALL
 CreatePatternBrush(HBITMAP hbmp)
 {
     return NtGdiCreatePatternBrushInternal(hbmp, FALSE, FALSE);
@@ -192,7 +180,7 @@ CreatePatternBrush(HBITMAP hbmp)
  * @implemented
  */
 HBRUSH
-WINAPI
+STDCALL
 CreateSolidBrush(IN COLORREF crColor)
 {
     /* Call Server-Side API */
@@ -202,7 +190,7 @@ CreateSolidBrush(IN COLORREF crColor)
 /*
  * @implemented
  */
-HBRUSH WINAPI
+HBRUSH STDCALL
 CreateBrushIndirect(
    CONST LOGBRUSH *LogBrush)
 {
@@ -257,7 +245,7 @@ CreateBrushIndirect(
 }
 
 BOOL
-WINAPI
+STDCALL
 PatBlt(HDC hdc,
        int nXLeft,
        int nYLeft,
@@ -270,7 +258,7 @@ PatBlt(HDC hdc,
 }
 
 BOOL
-WINAPI
+STDCALL
 PolyPatBlt(IN HDC hdc,
            IN DWORD rop4,
            IN PPOLYPATBLT pPoly,
@@ -286,7 +274,7 @@ PolyPatBlt(IN HDC hdc,
  *
  */
 int
-WINAPI
+STDCALL
 GetROP2(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -298,7 +286,7 @@ GetROP2(HDC hdc)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 SetROP2(HDC hdc,
         int fnDrawMode)
 {
@@ -349,7 +337,7 @@ SetROP2(HDC hdc,
  *
  */
 BOOL
-WINAPI
+STDCALL
 GetBrushOrgEx(HDC hdc,LPPOINT pt)
 {
   PDC_ATTR Dc_Attr;
@@ -367,7 +355,7 @@ GetBrushOrgEx(HDC hdc,LPPOINT pt)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetBrushOrgEx(HDC hdc,
               int nXOrg,
               int nYOrg,

@@ -1,189 +1,86 @@
-/*
- * PROJECT:     ReactOS System Regression Testing Utility
- * LICENSE:     GNU GPLv2 or any later version as published by the Free Software Foundation
- * PURPOSE:     Integrated raddr2line tool for getting source references from addresses
- * COPYRIGHT:   Copyright 2008-2009 Christoph von Wittich <christoph_vw@reactos.org>
- *              Copyright 2009 Colin Finck <colin@reactos.org>
- */
-
 #include "sysreg.h"
 
-static void RecurseModuleDirectory(const char* Directory, ModuleListEntry** LastElement)
+bool GetPackagePath(char* Buffer, int BuffSize, char* Module)
 {
-    char* EntryPath;
-    char* Period;
-    DIR* dir;
-    struct dirent* dp;
-    struct stat statbuf;
+    char* ptr;
+    FILE* fp;
+    int i;
 
-    dir = opendir(Directory);
-    if(!dir)
-        return;
-
-    while(dp = readdir(dir))
+    fp = fopen("boot/bootdata/packages/reactos.dff", "r");
+    if (fp)
     {
-        if(*dp->d_name == '.')
-            continue;
-
-        EntryPath = (char*)malloc(strlen(Directory) + strlen(dp->d_name) + 2);
-        strcpy(EntryPath, Directory);
-        strcat(EntryPath, "/");
-        strcat(EntryPath, dp->d_name);
-
-        if(stat(EntryPath, &statbuf) == -1)
+        while(fgets(Buffer, BuffSize,fp))
         {
-            free(EntryPath);
-            continue;
-        }
-
-        if(statbuf.st_mode & S_IFDIR)
-        {
-            RecurseModuleDirectory(EntryPath, LastElement);
-            free(EntryPath);
-        }
-        else
-        {
-            Period = strchr(dp->d_name, '.');
-
-            /* A file needs to have one of the following extensions to be a valid module */
-            if(!Period || (strcasecmp(Period, ".exe") && strcasecmp(Period, ".dll") && strcasecmp(Period, ".sys")))
+            if (strstr(Buffer, Module))
             {
-                free(EntryPath);
-                continue;
+                ptr = strchr(Buffer, ' ');
+                if (ptr)
+                    *ptr = '\0';
+
+                for (i = 0; i < strlen(Buffer); i++)
+                {
+                    if (Buffer[i] == '\\')
+                        Buffer[i] = '/';
+                }
+                fclose(fp);
+                return true;
             }
-
-            (*LastElement)->Next = (ModuleListEntry*)malloc(sizeof(ModuleListEntry));
-            *LastElement = (*LastElement)->Next;
-            (*LastElement)->Next = NULL;
-
-            (*LastElement)->Module = (char*)malloc(strlen(dp->d_name) + 1);
-            strcpy((*LastElement)->Module, dp->d_name);
-            (*LastElement)->Path = EntryPath;
         }
+        fclose(fp);
     }
-
-    closedir(dir);
+    return false;
 }
 
-void InitializeModuleList()
+bool ResolveAddressFromFile(char* Buffer, int BuffSize, char* Data)
 {
-    ModuleListEntry* LastElement;
-
-    ModuleList = (ModuleListEntry*)malloc(sizeof(ModuleListEntry));
-    ModuleList->Next = NULL;
-    LastElement = ModuleList;
-
-    RecurseModuleDirectory(OutputPath, &LastElement);
-}
-
-void CleanModuleList()
-{
-    ModuleListEntry* CurrentElement;
-    ModuleListEntry* PreviousElement;
-
-    CurrentElement = ModuleList->Next;
-
-    while(CurrentElement)
-    {
-        free(CurrentElement->Module);
-        free(CurrentElement->Path);
-
-        PreviousElement = CurrentElement;
-        CurrentElement = CurrentElement->Next;
-        free(PreviousElement);
-    }
-
-    free(ModuleList);
-}
-
-static ModuleListEntry* FindModule(const char* Module)
-{
-    ModuleListEntry* CurrentElement;
-
-    CurrentElement = ModuleList->Next;
-
-    while(CurrentElement)
-    {
-        if(!strcmp(CurrentElement->Module, Module))
-            return CurrentElement;
-
-        CurrentElement = CurrentElement->Next;
-    }
-
-    return NULL;
-}
-
-bool ResolveAddressFromFile(char* Buffer, size_t BufferSize, const char* Data)
-{
-    bool ReturnValue = false;
-    char* Address = NULL;
-    char* AddressStart;
+    char* sep;
+    char* sep2;
+    char Module[32];
+    char Addr[20];
     char Command[256];
-    char* Module = NULL;
-    char* pBuffer;
-    FILE* Process;
-    ModuleListEntry* ModuleEntry;
-    size_t AddressLength;
+    char PkgData[80];
+    char emptystr[] = ""; 
 
-    /* A resolvable backtrace line has to look like this:
-       <abcdefg.dll:123a>
-    */
-    if(*Data != '<')
-        return false;
-
-    AddressStart = strchr(Data, ':');
-
-    if(!AddressStart)
-        return false;
-
-    ++AddressStart;
-    AddressLength = strspn(AddressStart, "1234567890abcdefABCDEF");
-
-    if(!AddressLength || AddressStart[AddressLength] != '>')
-        return false;
-
-    /* Ok, this looks like a backtrace line we can resolve */
-    Module = (char*)malloc(AddressStart - Data - 1);
-    strncpy(Module, Data + 1, AddressStart - Data - 2);
-    Module[AddressStart - Data - 2] = 0;
-
-    Address = (char*)malloc(AddressLength + 1);
-    strncpy(Address, AddressStart, AddressLength);
-    Address[AddressLength] = 0;
-
-    /* Try to find the path to this module */
-    if(ModuleEntry = FindModule(Module))
+    if ((strchr(Data, '>')) && (!strchr(Data, ')')))
     {
-        /* Run raddr2line */
-        sprintf(Command, "%s/tools/rsym/raddr2line %s %s 2>/dev/null", OutputPath, ModuleEntry->Path, Address);
-        Process = popen(Command, "r");
-
-        if(!feof(Process))
+        sep = strchr(Data, ':');
+        if (sep)
         {
-            pBuffer = &Buffer[AddressStart - Data + AddressLength];
-            strncpy(Buffer, Data, pBuffer - Buffer);
+            strncpy(Module, Data + 1, (int) (sep - Data) - 1);
+            Module[(int)(sep-Data)-2] = '\0';
+            sep2 = strchr(Data, '>');
+            strncpy(Addr, Data + (sep - Data + 1), (int) (sep2 - sep) -1);
+            Addr[(int)(sep2- sep)-1] = '\0';   
 
-            *pBuffer++ = ' ';
-            *pBuffer++ = '(';
-
-            if(fgets(pBuffer, BufferSize - (pBuffer - Buffer), Process))
+            if (GetPackagePath(PkgData, sizeof(PkgData), Module))
             {
-                pBuffer += strlen(pBuffer) - 1;
-
-                *pBuffer++ = ')';
-                *pBuffer++ = '>';
-                *pBuffer++ = '\n';
-                *pBuffer = 0;
-
-                ReturnValue = true;
+                const char* outdir = getenv("ROS_OUTPUT");
+                char* ptr;
+                if (!outdir)
+                    outdir = emptystr;
+                sprintf(Command, "%s/tools/raddr2line %s/%s %s 2>&1", 
+                        outdir, outdir, PkgData, Addr);
+                FILE* p = popen(Command, "r");
+                char buf[100] = {'\0'};
+                while(feof(p)==0)
+                {
+                    fgets(buf,100,p);
+                    if (strstr(buf, "error"))
+                        strcpy(buf, "(no debug info)");
+                    ptr = strchr(buf, '\n');
+                    if (ptr)
+                        *ptr = '\0'; 
+                    ptr = strchr(Data, '>');
+                    if (ptr)
+                        *ptr = '\0';
+                    strcpy(Buffer, Data);
+                    strcat(Buffer, " "); 
+                    strcat(Buffer, buf);
+                    strcat(Buffer, ">\n");
+                    return true;
+                }
             }
         }
-
-        pclose(Process);
     }
-
-    free(Module);
-    free(Address);
-
-    return ReturnValue;
+    return false;
 }

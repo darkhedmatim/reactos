@@ -349,7 +349,7 @@ NtOpenProcessTokenEx(IN HANDLE ProcessHandle,
     PACCESS_TOKEN Token;
     HANDLE hToken;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_SECURITY_DEBUG,
             "Process: %p DesiredAccess: %lx\n", ProcessHandle, DesiredAccess);
@@ -358,17 +358,20 @@ NtOpenProcessTokenEx(IN HANDLE ProcessHandle,
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the token handle */
             ProbeForWriteHandle(TokenHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the process token */
@@ -389,17 +392,17 @@ NtOpenProcessTokenEx(IN HANDLE ProcessHandle,
         if (NT_SUCCESS(Status))
         {
             /* Enter SEH for write */
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Return the handle */
                 *TokenHandle = hToken;
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
                 /* Get exception code */
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -935,7 +938,7 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
     PETHREAD Thread;
     PETHREAD ThreadToImpersonate;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_SECURITY_DEBUG,
             "Threads: %p %p\n", ThreadHandle, ThreadToImpersonateHandle);
@@ -944,7 +947,7 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe QoS */
             ProbeForRead(SecurityQualityOfService,
@@ -955,12 +958,15 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
             SafeServiceQoS = *SecurityQualityOfService;
             SecurityQualityOfService = &SafeServiceQoS;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception status */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Reference the thread */

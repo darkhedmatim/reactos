@@ -199,7 +199,7 @@ CPlApplet(HWND hwndCpl,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpReserved)

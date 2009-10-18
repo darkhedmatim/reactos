@@ -13,24 +13,66 @@
 
 #define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
 
+
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetCharacterPlacementA(
+	HDC		hDc,
+	LPCSTR		a1,
+	int		a2,
+	int		a3,
+	LPGCP_RESULTSA	a4,
+	DWORD		a5
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+StartDocA(
+	HDC		hdc,
+	CONST DOCINFOA	*lpdi
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
-PolyTextOutA( HDC hdc, const POLYTEXTA *pptxt, INT cStrings )
+STDCALL
+PolyTextOutA(
+	HDC			hdc,
+	CONST POLYTEXTA		*a1,
+	int			a2
+	)
 {
-    for (; cStrings>0; cStrings--, pptxt++)
-        if (!ExtTextOutA( hdc, pptxt->x, pptxt->y, pptxt->uiFlags, &pptxt->rcl, pptxt->lpstr, pptxt->n, pptxt->pdx ))
-            return FALSE;
-    return TRUE;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetLogColorSpaceA(
 	HCOLORSPACE		a0,
 	LPLOGCOLORSPACEA	a1,
@@ -47,32 +89,16 @@ GetLogColorSpaceA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetICMProfileA(
 	HDC		hdc,
 	LPDWORD pBufSize,
 	LPSTR		pszFilename
 	)
 {
-    WCHAR filenameW[MAX_PATH];
-    DWORD buflen = MAX_PATH;
-    BOOL ret = FALSE;
-
-    if (!hdc || !pBufSize || !pszFilename) return FALSE;
-
-    if (GetICMProfileW(hdc, &buflen, filenameW))
-    {
-        int len = WideCharToMultiByte(CP_ACP, 0, filenameW, -1, NULL, 0, NULL, NULL);
-        if (*pBufSize >= len)
-        {
-            WideCharToMultiByte(CP_ACP, 0, filenameW, -1, pszFilename, *pBufSize, NULL, NULL);
-            ret = TRUE;
-        }
-        else SetLastError(ERROR_INSUFFICIENT_BUFFER);
-        *pBufSize = len;
-    }
-
-    return ret;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -80,7 +106,7 @@ GetICMProfileA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 SetICMProfileA(
 	HDC	a0,
 	LPSTR	a1
@@ -96,7 +122,7 @@ SetICMProfileA(
  * @unimplemented
  */
 int
-WINAPI
+STDCALL
 EnumICMProfilesA(
 	HDC		a0,
 	ICMENUMPROCA	a1,
@@ -123,7 +149,47 @@ EnumICMProfilesA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+wglUseFontBitmapsA(
+	HDC		a0,
+	DWORD		a1,
+	DWORD		a2,
+	DWORD		a3
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+wglUseFontOutlinesA(
+	HDC			a0,
+	DWORD			a1,
+	DWORD			a2,
+	DWORD			a3,
+	FLOAT			a4,
+	FLOAT			a5,
+	int			a6,
+	LPGLYPHMETRICSFLOAT	a7
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 UpdateICMRegKeyA(
 	DWORD	a0,
 	LPSTR	a1,
@@ -140,7 +206,7 @@ UpdateICMRegKeyA(
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetStringBitmapA(HDC hdc,
                  LPSTR psz,
                  BOOL DoCall,

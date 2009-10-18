@@ -23,6 +23,10 @@
 #ifndef __NTDDDISK_H
 #define __NTDDDISK_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "ntddstor.h"
 
 #ifdef __cplusplus
@@ -311,9 +315,9 @@ typedef struct _DISK_GEOMETRY_EX {
 typedef struct _PARTITION_INFORMATION {
   LARGE_INTEGER  StartingOffset;
   LARGE_INTEGER  PartitionLength;
-  ULONG  HiddenSectors;
-  ULONG  PartitionNumber;
-  UCHAR  PartitionType;
+  DWORD  HiddenSectors;
+  DWORD  PartitionNumber;
+  BYTE  PartitionType;
   BOOLEAN  BootIndicator;
   BOOLEAN  RecognizedPartition;
   BOOLEAN  RewritePartition;
@@ -425,9 +429,9 @@ typedef struct _GET_LENGTH_INFORMATION {
 } GET_LENGTH_INFORMATION, *PGET_LENGTH_INFORMATION;
 
 typedef struct _REASSIGN_BLOCKS {
-  USHORT  Reserved;
-  USHORT  Count;
-  ULONG  BlockNumber[1];
+  WORD  Reserved;
+  WORD  Count;
+  DWORD  BlockNumber[1];
 } REASSIGN_BLOCKS, *PREASSIGN_BLOCKS;
 
 typedef struct _SET_PARTITION_INFORMATION {
@@ -447,7 +451,7 @@ typedef struct _SET_PARTITION_INFORMATION_EX {
 
 typedef struct _VERIFY_INFORMATION {
   LARGE_INTEGER  StartingOffset;
-  ULONG  Length;
+  DWORD  Length;
 } VERIFY_INFORMATION, *PVERIFY_INFORMATION;
 
 typedef enum {

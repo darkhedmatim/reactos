@@ -43,7 +43,6 @@
 #include "oledlg_It.rc"
 #include "oledlg_Ja.rc"
 #include "oledlg_Ko.rc"
-#include "oledlg_Lt.rc"
 #include "oledlg_Nl.rc"
 #include "oledlg_No.rc"
 #include "oledlg_Pl.rc"
@@ -53,4 +52,3 @@
 #include "oledlg_Sv.rc"
 #include "oledlg_Tr.rc"
 #include "oledlg_Uk.rc"
-#include "oledlg_Zh.rc"

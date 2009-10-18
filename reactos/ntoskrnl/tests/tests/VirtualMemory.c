@@ -18,7 +18,7 @@
 
 static BOOLEAN MockExFreePoolCalled = FALSE;
 
-static VOID NTAPI
+static VOID STDCALL
 MockExFreePool(PVOID Block)
 {
   _AssertFalse(MockExFreePoolCalled);
@@ -28,7 +28,7 @@ MockExFreePool(PVOID Block)
 
 static BOOLEAN MockMmCreateMdlCalled = FALSE;
 
-static PMDL NTAPI
+static PMDL STDCALL
 MockMmCreateMdl(PMDL Mdl,
   PVOID Base,
   ULONG Length)
@@ -42,7 +42,7 @@ MockMmCreateMdl(PMDL Mdl,
 
 static BOOLEAN MockMmProbeAndLockPagesCalled = FALSE;
 
-static VOID NTAPI
+static VOID STDCALL
 MockMmProbeAndLockPages(PMDL Mdl,
   KPROCESSOR_MODE AccessMode,
   LOCK_OPERATION Operation)
@@ -66,7 +66,7 @@ MockObDereferenceObject(PVOID Object)
 
 static BOOLEAN MockObReferenceObjectByHandleCalled = FALSE;
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 MockObReferenceObjectByHandle(HANDLE Handle,
   ACCESS_MASK DesiredAccess,
   POBJECT_TYPE ObjectType,

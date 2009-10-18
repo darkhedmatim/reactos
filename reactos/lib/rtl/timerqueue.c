@@ -19,6 +19,8 @@
 
 /* FUNCTIONS ***************************************************************/
 
+typedef VOID (CALLBACK *WAITORTIMERCALLBACKFUNC) (PVOID, BOOLEAN );
+
 HANDLE TimerThreadHandle = NULL;
 
 NTSTATUS
@@ -239,7 +241,6 @@ static void WINAPI timer_queue_thread_proc(LPVOID p)
     NtClose(q->event);
     RtlDeleteCriticalSection(&q->cs);
     RtlFreeHeap(RtlGetProcessHeap(), 0, q);
-    RtlExitUserThread(STATUS_SUCCESS);
 }
 
 static void queue_destroy_timer(struct queue_timer *t)
@@ -506,13 +507,10 @@ NTSTATUS WINAPI RtlDeleteTimer(HANDLE TimerQueue, HANDLE Timer,
                                HANDLE CompletionEvent)
 {
     struct queue_timer *t = Timer;
-    struct timer_queue *q;
+    struct timer_queue *q = t->q;
     NTSTATUS status = STATUS_PENDING;
     HANDLE event = NULL;
 
-    if (!Timer)
-        return STATUS_INVALID_PARAMETER_1;
-    q = t->q;
     if (CompletionEvent == INVALID_HANDLE_VALUE)
         status = NtCreateEvent(&event, EVENT_ALL_ACCESS, NULL, FALSE, FALSE);
     else if (CompletionEvent)

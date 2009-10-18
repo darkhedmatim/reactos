@@ -1,12 +1,11 @@
 #ifndef _SHELLAPI_H
 #define _SHELLAPI_H
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4201)
 #endif
 #define WINSHELLAPI DECLSPEC_IMPORT
 #define ABE_LEFT	0
@@ -127,23 +126,9 @@ extern "C" {
 #define SHGFI_SHELLICONSIZE	4
 #define SHGFI_PIDL	8
 #define SHGFI_USEFILEATTRIBUTES	16
-
-typedef struct _SHCREATEPROCESSINFOW
-{
-    DWORD cbSize;
-    ULONG fMask;
-    HWND hwnd;
-    LPCWSTR pszFile;
-    LPCWSTR pszParameters;
-    LPCWSTR pszCurrentDirectory;
-    IN HANDLE hUserToken;
-    IN LPSECURITY_ATTRIBUTES lpProcessAttributes;
-    IN LPSECURITY_ATTRIBUTES lpThreadAttributes;
-    IN BOOL bInheritHandles;
-    IN DWORD dwCreationFlags;
-    IN LPSTARTUPINFOW lpStartupInfo;
-    OUT LPPROCESS_INFORMATION lpProcessInformation;
-} SHCREATEPROCESSINFOW, *PSHCREATEPROCESSINFOW;
+#define SHERB_NOCONFIRMATION 1
+#define SHERB_NOPROGRESSUI 2
+#define SHERB_NOSOUND 4
 
 typedef WORD FILEOP_FLAGS;
 typedef WORD PRINTEROP_FLAGS;
@@ -323,18 +308,6 @@ typedef struct _SHNAMEMAPPINGW {
 #define SHERB_NOPROGRESSUI   0x2
 #define SHERB_NOSOUND        0x4
 
-/******************************************
- * Links
- */
-
-#define SHGNLI_PIDL        0x01
-#define SHGNLI_PREFIXNAME  0x02
-#define SHGNLI_NOUNIQUE    0x04
-#define SHGNLI_NOLNK       0x08
-
-BOOL WINAPI SHGetNewLinkInfoA(LPCSTR,LPCSTR,LPSTR,BOOL*,UINT);
-BOOL WINAPI SHGetNewLinkInfoW(LPCWSTR,LPCWSTR,LPWSTR,BOOL*,UINT);
-
 LPWSTR * WINAPI CommandLineToArgvW(LPCWSTR,int*);
 void WINAPI DragAcceptFiles(HWND,BOOL);
 void WINAPI DragFinish(HDROP);
@@ -361,15 +334,14 @@ BOOL WINAPI ShellExecuteExW(LPSHELLEXECUTEINFOW);
 int WINAPI SHFileOperationA(LPSHFILEOPSTRUCTA);
 int WINAPI SHFileOperationW(LPSHFILEOPSTRUCTW);
 void WINAPI SHFreeNameMappings(HANDLE);
-DWORD_PTR WINAPI SHGetFileInfoA(LPCSTR,DWORD,SHFILEINFOA*,UINT,UINT);
-DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR,DWORD,SHFILEINFOW*,UINT,UINT);
+DWORD WINAPI SHGetFileInfoA(LPCSTR,DWORD,SHFILEINFOA*,UINT,UINT);
+DWORD WINAPI SHGetFileInfoW(LPCWSTR,DWORD,SHFILEINFOW*,UINT,UINT);
 BOOL WINAPI SHGetNewLinkInfoA(LPCSTR,LPCSTR,LPSTR,BOOL*,UINT);
 BOOL WINAPI SHGetNewLinkInfoW(LPCWSTR,LPCWSTR,LPWSTR,BOOL*,UINT);
 HRESULT WINAPI SHQueryRecycleBinA(LPCSTR, LPSHQUERYRBINFO);
 HRESULT WINAPI SHQueryRecycleBinW(LPCWSTR, LPSHQUERYRBINFO);
 HRESULT WINAPI SHEmptyRecycleBinA(HWND,LPCSTR,DWORD);
 HRESULT WINAPI SHEmptyRecycleBinW(HWND,LPCWSTR,DWORD);
-BOOL WINAPI SHCreateProcessAsUserW(PSHCREATEPROCESSINFOW);
 
 #ifdef UNICODE
 #define NOTIFYICONDATA_V1_SIZE NOTIFYICONDATAW_V1_SIZE
@@ -395,7 +367,6 @@ typedef LPSHNAMEMAPPINGW LPSHNAMEMAPPING;
 #define SHGetNewLinkInfo SHGetNewLinkInfoW
 #define SHQueryRecycleBin SHQueryRecycleBinW
 #define SHEmptyRecycleBin SHEmptyRecycleBinW
-#define SHGetNewLinkInfo SHGetNewLinkInfoW
 
 #else
 #define NOTIFYICONDATA_V1_SIZE NOTIFYICONDATAA_V1_SIZE
@@ -421,10 +392,6 @@ typedef LPSHNAMEMAPPINGA LPSHNAMEMAPPING;
 #define SHGetNewLinkInfo SHGetNewLinkInfoA
 #define SHQueryRecycleBin SHQueryRecycleBinA
 #define SHEmptyRecycleBin SHEmptyRecycleBinA
-#define SHGetNewLinkInfo SHGetNewLinkInfoA
-#endif
-#ifdef _MSC_VER
-#pragma warning(pop)
 #endif
 #ifdef __cplusplus
 }

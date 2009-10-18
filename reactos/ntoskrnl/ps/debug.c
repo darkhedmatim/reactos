@@ -15,7 +15,7 @@
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-#if DBG
+#ifdef DBG
 VOID
 NTAPI
 PspDumpThreads(BOOLEAN IncludeSystem)
@@ -103,10 +103,10 @@ PsGetContextThread(IN PETHREAD Thread,
 {
     GET_SET_CTX_CONTEXT GetSetContext;
     ULONG Size = 0, Flags = 0;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set default ength */
         Size = sizeof(CONTEXT);
@@ -131,12 +131,15 @@ PsGetContextThread(IN PETHREAD Thread,
             ProbeForWrite(ThreadContext, Size, sizeof(ULONG));
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get exception code */
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
+
+    /* Check if we got success */
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Initialize the wait event */
     KeInitializeEvent(&GetSetContext.Event, NotificationEvent, FALSE);
@@ -164,9 +167,6 @@ PsGetContextThread(IN PETHREAD Thread,
 
         /* Leave the guarded region */
         KeLeaveGuardedRegion();
-
-        /* We are done */
-        Status = STATUS_SUCCESS;
     }
     else
     {
@@ -197,17 +197,16 @@ PsGetContextThread(IN PETHREAD Thread,
         }
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Copy the context */
         RtlCopyMemory(ThreadContext, &GetSetContext.Context, Size);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status */
     return Status;
@@ -224,10 +223,10 @@ PsSetContextThread(IN PETHREAD Thread,
 {
     GET_SET_CTX_CONTEXT GetSetContext;
     ULONG Size = 0, Flags = 0;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set default length */
         Size = sizeof(CONTEXT);
@@ -255,12 +254,15 @@ PsSetContextThread(IN PETHREAD Thread,
         /* Copy the context */
         RtlCopyMemory(&GetSetContext.Context, ThreadContext, Size);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get exception code */
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
+
+    /* Check if we got success */
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Initialize the wait event */
     KeInitializeEvent(&GetSetContext.Event, NotificationEvent, FALSE);
@@ -288,9 +290,6 @@ PsSetContextThread(IN PETHREAD Thread,
 
         /* Leave the guarded region */
         KeLeaveGuardedRegion();
-
-        /* We are done */
-        Status = STATUS_SUCCESS;
     }
     else
     {

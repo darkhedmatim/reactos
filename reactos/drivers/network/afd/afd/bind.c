@@ -38,7 +38,7 @@ NTSTATUS WarmSocketForBind( PAFD_FCB FCB ) {
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	      PIO_STACK_LOCATION IrpSp) {
     NTSTATUS Status = STATUS_SUCCESS;
@@ -51,7 +51,7 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
     if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
     if( !(BindReq = LockRequest( Irp, IrpSp )) )
 	return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY,
-				       Irp, 0 );
+				       Irp, 0, NULL );
 
     if( FCB->LocalAddress ) ExFreePool( FCB->LocalAddress );
     FCB->LocalAddress = TaCopyTransportAddress( &BindReq->Address );
@@ -62,7 +62,7 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     if( NT_SUCCESS(Status) )
 	FCB->State = SOCKET_STATE_BOUND;
-    else return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    else return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
 
     AFD_DbgPrint(MID_TRACE,("FCB->Flags %x\n", FCB->Flags));
 
@@ -71,7 +71,7 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	TdiBuildConnectionInfo( &FCB->AddressFrom,
 				FCB->LocalAddress );
 
-	if( !FCB->AddressFrom ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0 );
+	if( !FCB->AddressFrom ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0, NULL );
 
 	AFD_DbgPrint(MID_TRACE,("Calling TdiReceiveDatagram\n"));
 
@@ -90,6 +90,6 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	if( Status == STATUS_PENDING ) Status = STATUS_SUCCESS;
     }
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
 }
 

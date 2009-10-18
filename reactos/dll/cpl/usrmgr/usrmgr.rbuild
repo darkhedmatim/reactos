@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="usrmgr" type="win32dll" extension=".cpl" baseaddress="${BASEADDRESS_USRMGR}" installbase="system32" installname="usrmgr.cpl" unicode="yes" crt="msvcrt">
-	<importlibrary definition="usrmgr.spec" />
+<module name="usrmgr" type="win32dll" extension=".cpl" baseaddress="${BASEADDRESS_USRMGR}" installbase="system32" installname="usrmgr.cpl" unicode="yes">
+	<importlibrary definition="usrmgr.def" />
 	<include base="usrmgr">.</include>
 	<library>kernel32</library>
 	<library>advapi32</library>
@@ -10,6 +10,7 @@
 	<library>comctl32</library>
 	<library>ntdll</library>
 	<library>netapi32</library>
+	<library>msvcrt</library>
 	<file>extra.c</file>
 	<file>groupprops.c</file>
 	<file>groups.c</file>

@@ -15,7 +15,5 @@
 	<file>msacm32_main.c</file>
 	<file>pcmconverter.c</file>
 	<file>stream.c</file>
+	<file>msacm32.spec</file>
 </module>
-<directory name="msacm32.drv">
-	<xi:include href="msacm32.drv/msacm32.drv.rbuild" />
-</directory>

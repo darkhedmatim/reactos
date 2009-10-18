@@ -20,7 +20,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 CreateMailslotA(LPCSTR lpName,
 		DWORD nMaxMessageSize,
 		DWORD lReadTimeout,
@@ -47,7 +47,7 @@ CreateMailslotA(LPCSTR lpName,
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 CreateMailslotW(LPCWSTR lpName,
 		DWORD nMaxMessageSize,
 		DWORD lReadTimeout,
@@ -109,11 +109,6 @@ CreateMailslotW(LPCWSTR lpName,
 				 nMaxMessageSize,
 				 &DefaultTimeOut);
 
-   if (Status == STATUS_INVALID_DEVICE_REQUEST || Status == STATUS_NOT_SUPPORTED)
-   {
-       Status = STATUS_OBJECT_NAME_INVALID;
-   }
-
    RtlFreeHeap(RtlGetProcessHeap(),
                0,
                MailslotName.Buffer);
@@ -132,7 +127,7 @@ CreateMailslotW(LPCWSTR lpName,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetMailslotInfo(HANDLE hMailslot,
 		LPDWORD lpMaxMessageSize,
 		LPDWORD lpNextSize,
@@ -170,7 +165,7 @@ GetMailslotInfo(HANDLE hMailslot,
    if (lpReadTimeout != NULL)
      {
 	if (Buffer.ReadTimeout.LowPart == 0 &&
-	    Buffer.ReadTimeout.HighPart == (LONG)0x80000000)
+	    Buffer.ReadTimeout.HighPart == 0x80000000)
 	    *lpReadTimeout = MAILSLOT_WAIT_FOREVER;
 	else
 	    *lpReadTimeout = (DWORD)(Buffer.ReadTimeout.QuadPart / -10000);
@@ -183,7 +178,7 @@ GetMailslotInfo(HANDLE hMailslot,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetMailslotInfo(HANDLE hMailslot,
 		DWORD lReadTimeout)
 {

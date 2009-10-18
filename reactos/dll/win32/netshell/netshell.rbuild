@@ -23,6 +23,7 @@
 	<file>netshell.rc</file>
 	<file>classfactory.c</file>
 	<file>connectmanager.c</file>
+	<file>netshell.spec</file>
 	<file>lanconnectui.c</file>
 	<file>lanstatusui.c</file>
 </module>

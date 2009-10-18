@@ -288,9 +288,8 @@ pCreateToolbar(PMAIN_WND_INFO Info)
 
         hImageList = InitImageList(IDB_PROP,
                                    IDB_RESTART,
-                                   GetSystemMetrics(SM_CXSMICON),
-                                   GetSystemMetrics(SM_CXSMICON),
-                                   IMAGE_BITMAP);
+                                   16,
+                                   16);
         if (hImageList == NULL)
             return FALSE;
 
@@ -433,7 +432,7 @@ MainWndCommand(PMAIN_WND_INFO Info,
             ret = DialogBoxParam(hInstance,
                                  MAKEINTRESOURCE(IDD_DLG_CREATE),
                                  Info->hMainWnd,
-                                 CreateDialogProc,
+                                 (DLGPROC)CreateDialogProc,
                                  (LPARAM)Info);
             if (ret == IDOK)
                 RefreshServiceList(Info);
@@ -449,7 +448,7 @@ MainWndCommand(PMAIN_WND_INFO Info,
                 DialogBoxParam(hInstance,
                                MAKEINTRESOURCE(IDD_DLG_DELETE),
                                Info->hMainWnd,
-                               DeleteDialogProc,
+                               (DLGPROC)DeleteDialogProc,
                                (LPARAM)Info);
             }
             else
@@ -570,7 +569,7 @@ MainWndCommand(PMAIN_WND_INFO Info,
             DialogBox(hInstance,
                       MAKEINTRESOURCE(IDD_ABOUTBOX),
                       Info->hMainWnd,
-                      AboutDialogProc);
+                      (DLGPROC)AboutDialogProc);
             SetFocus(Info->hListView);
         break;
 
@@ -643,14 +642,11 @@ MainWndProc(HWND hwnd,
             if (!InitMainWnd(Info))
                 return -1;
 
-            /* Fill the list-view before showing the main window */
-            RefreshServiceList(Info);
-
             /* Show the window */
             ShowWindow(hwnd,
                        Info->nCmdShow);
 
-            SetFocus(Info->hListView);
+            RefreshServiceList(Info);
         }
         break;
 
@@ -686,16 +682,6 @@ MainWndProc(HWND hwnd,
                     }
 
                     //OpenPropSheet(Info);
-                }
-                break;
-
-                case NM_RETURN:
-                {
-                    SendMessage(hwnd,
-                                WM_COMMAND,
-                                //ID_PROP,
-                                MAKEWPARAM((WORD)ID_PROP, (WORD)0),
-                                0);
                 }
                 break;
 
@@ -904,7 +890,7 @@ CreateMainWindow(LPCTSTR lpCaption,
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
-                                  680,
+                                  650,
                                   450,
                                   NULL,
                                   NULL,

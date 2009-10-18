@@ -28,7 +28,6 @@
 #include "crypt32_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(crypt);
-WINE_DECLARE_DEBUG_CHANNEL(chain);
 
 #define DEFAULT_CYCLE_MODULUS 7
 
@@ -145,7 +144,7 @@ HCERTCHAINENGINE CRYPT_CreateChainEngine(HCERTSTORE root,
         else
             engine->CycleDetectionModulus = DEFAULT_CYCLE_MODULUS;
     }
-    return engine;
+    return (HCERTCHAINENGINE)engine;
 }
 
 BOOL WINAPI CertCreateCertificateChainEngine(PCERT_CHAIN_ENGINE_CONFIG pConfig,
@@ -252,7 +251,7 @@ static void CRYPT_CheckSimpleChainForCycles(PCERT_SIMPLE_CHAIN chain)
     if (cyclicCertIndex)
     {
         chain->rgpElement[cyclicCertIndex]->TrustStatus.dwErrorStatus
-         |= CERT_TRUST_IS_CYCLIC | CERT_TRUST_INVALID_BASIC_CONSTRAINTS;
+         |= CERT_TRUST_IS_CYCLIC;
         /* Release remaining certs */
         for (i = cyclicCertIndex + 1; i < chain->cElement; i++)
             CRYPT_FreeChainElement(chain->rgpElement[i]);
@@ -262,7 +261,7 @@ static void CRYPT_CheckSimpleChainForCycles(PCERT_SIMPLE_CHAIN chain)
 }
 
 /* Checks whether the chain is cyclic by examining the last element's status */
-static inline BOOL CRYPT_IsSimpleChainCyclic(const CERT_SIMPLE_CHAIN *chain)
+static inline BOOL CRYPT_IsSimpleChainCyclic(PCERT_SIMPLE_CHAIN chain)
 {
     if (chain->cElement)
         return chain->rgpElement[chain->cElement - 1]->TrustStatus.dwErrorStatus
@@ -272,7 +271,7 @@ static inline BOOL CRYPT_IsSimpleChainCyclic(const CERT_SIMPLE_CHAIN *chain)
 }
 
 static inline void CRYPT_CombineTrustStatus(CERT_TRUST_STATUS *chainStatus,
- const CERT_TRUST_STATUS *elementStatus)
+ CERT_TRUST_STATUS *elementStatus)
 {
     /* Any error that applies to an element also applies to a chain.. */
     chainStatus->dwErrorStatus |= elementStatus->dwErrorStatus;
@@ -282,7 +281,7 @@ static inline void CRYPT_CombineTrustStatus(CERT_TRUST_STATUS *chainStatus,
     chainStatus->dwInfoStatus |= (elementStatus->dwInfoStatus & 0xfffffff0);
 }
 
-static BOOL CRYPT_AddCertToSimpleChain(const CertificateChainEngine *engine,
+static BOOL CRYPT_AddCertToSimpleChain(PCertificateChainEngine engine,
  PCERT_SIMPLE_CHAIN chain, PCCERT_CONTEXT cert, DWORD subjectInfoStatus)
 {
     BOOL ret = FALSE;
@@ -305,14 +304,8 @@ static BOOL CRYPT_AddCertToSimpleChain(const CertificateChainEngine *engine,
                 chain->rgpElement[chain->cElement - 2]->TrustStatus.dwInfoStatus
                  = subjectInfoStatus;
             /* FIXME: initialize the rest of element */
-            if (!(chain->cElement % engine->CycleDetectionModulus))
-            {
+            if (chain->cElement % engine->CycleDetectionModulus)
                 CRYPT_CheckSimpleChainForCycles(chain);
-                /* Reinitialize the element pointer in case the chain is
-                 * cyclic, in which case the chain is truncated.
-                 */
-                element = chain->rgpElement[chain->cElement - 1];
-            }
             CRYPT_CombineTrustStatus(&chain->TrustStatus,
              &element->TrustStatus);
             ret = TRUE;
@@ -362,7 +355,7 @@ static void CRYPT_CheckRootCert(HCERTCHAINENGINE hRoot,
      CRYPT_VERIFY_CERT_SIGN_SUBJECT_CERT, (void *)root,
      CRYPT_VERIFY_CERT_SIGN_ISSUER_CERT, (void *)root, 0, NULL))
     {
-        TRACE_(chain)("Last certificate's signature is invalid\n");
+        TRACE("Last certificate's signature is invalid\n");
         rootElement->TrustStatus.dwErrorStatus |=
          CERT_TRUST_IS_NOT_SIGNATURE_VALID;
     }
@@ -390,7 +383,7 @@ static BOOL CRYPT_DecodeBasicConstraints(PCCERT_CONTEXT cert,
 
         ret = CryptDecodeObjectEx(X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS,
          ext->Value.pbData, ext->Value.cbData, CRYPT_DECODE_ALLOC_FLAG,
-         NULL, &info, &size);
+         NULL, (LPBYTE)&info, &size);
         if (ret)
         {
             if (info->SubjectType.cbData == 1)
@@ -418,12 +411,8 @@ static BOOL CRYPT_DecodeBasicConstraints(PCCERT_CONTEXT cert,
 }
 
 /* Checks element's basic constraints to see if it can act as a CA, with
- * remainingCAs CAs left in this chain.  A root certificate is assumed to be
- * allowed to be a CA whether or not the basic constraints extension is present,
- * whereas an intermediate CA cert is not.  This matches the expected usage in
- * RFC 3280:  a conforming intermediate CA MUST contain the basic constraints
- * extension.  It also appears to match Microsoft's implementation.
- * Updates chainConstraints with the element's constraints, if:
+ * remainingCAs CAs left in this chain.  Updates chainConstraints with the
+ * element's constraints, if:
  * 1. chainConstraints doesn't have a path length constraint, or
  * 2. element's path length constraint is smaller than chainConstraints's
  * Sets *pathLengthConstraintViolated to TRUE if a path length violation
@@ -433,17 +422,17 @@ static BOOL CRYPT_DecodeBasicConstraints(PCCERT_CONTEXT cert,
  */
 static BOOL CRYPT_CheckBasicConstraintsForCA(PCCERT_CONTEXT cert,
  CERT_BASIC_CONSTRAINTS2_INFO *chainConstraints, DWORD remainingCAs,
- BOOL isRoot, BOOL *pathLengthConstraintViolated)
+ BOOL *pathLengthConstraintViolated)
 {
     BOOL validBasicConstraints;
     CERT_BASIC_CONSTRAINTS2_INFO constraints;
 
     if ((validBasicConstraints = CRYPT_DecodeBasicConstraints(cert,
-     &constraints, isRoot)))
+     &constraints, TRUE)))
     {
         if (!constraints.fCA)
         {
-            TRACE_(chain)("chain element %d can't be a CA\n", remainingCAs + 1);
+            TRACE("chain element %d can't be a CA\n", remainingCAs + 1);
             validBasicConstraints = FALSE;
         }
         else if (constraints.fPathLenConstraint)
@@ -455,7 +444,7 @@ static BOOL CRYPT_CheckBasicConstraintsForCA(PCCERT_CONTEXT cert,
              constraints.dwPathLenConstraint <
              chainConstraints->dwPathLenConstraint)
             {
-                TRACE_(chain)("setting path length constraint to %d\n",
+                TRACE("setting path length constraint to %d\n",
                  chainConstraints->dwPathLenConstraint);
                 chainConstraints->fPathLenConstraint = TRUE;
                 chainConstraints->dwPathLenConstraint =
@@ -466,8 +455,8 @@ static BOOL CRYPT_CheckBasicConstraintsForCA(PCCERT_CONTEXT cert,
     if (chainConstraints->fPathLenConstraint &&
      remainingCAs > chainConstraints->dwPathLenConstraint)
     {
-        TRACE_(chain)("remaining CAs %d exceed max path length %d\n",
-         remainingCAs, chainConstraints->dwPathLenConstraint);
+        TRACE("remaining CAs %d exceed max path length %d\n", remainingCAs,
+         chainConstraints->dwPathLenConstraint);
         validBasicConstraints = FALSE;
         *pathLengthConstraintViolated = TRUE;
     }
@@ -571,13 +560,14 @@ static void CRYPT_FindMatchingNameEntry(const CERT_ALT_NAME_ENTRY *constraint,
  DWORD errorIfFound, DWORD errorIfNotFound)
 {
     DWORD i;
-    BOOL match = FALSE;
+    BOOL defined = FALSE, match = FALSE;
 
     for (i = 0; i < subjectName->cAltEntry; i++)
     {
         if (subjectName->rgAltEntry[i].dwAltNameChoice ==
          constraint->dwAltNameChoice)
         {
+            defined = TRUE;
             switch (constraint->dwAltNameChoice)
             {
             case CERT_ALT_NAME_RFC822_NAME:
@@ -605,6 +595,16 @@ static void CRYPT_FindMatchingNameEntry(const CERT_ALT_NAME_ENTRY *constraint,
             }
         }
     }
+    /* Microsoft's implementation of name constraint checking appears at odds
+     * with RFC 3280:
+     * According to MSDN, CERT_TRUST_HAS_NOT_DEFINED_NAME_CONSTRAINT is set
+     * when a name constraint is present, but that name form is not defined in
+     * the end certificate.  According to RFC 3280, "if no name of the type is
+     * in the certificate, the name is acceptable."
+     * I follow Microsoft here.
+     */
+    if (!defined)
+        *trustErrorStatus |= CERT_TRUST_HAS_NOT_DEFINED_NAME_CONSTRAINT;
     *trustErrorStatus |= match ? errorIfFound : errorIfNotFound;
 }
 
@@ -645,6 +645,10 @@ static void CRYPT_CheckNameConstraints(
         }
         else
         {
+            /* See above comment on CERT_TRUST_HAS_NOT_DEFINED_NAME_CONSTRAINT.
+             * I match Microsoft's implementation here as well.
+             */
+            *trustErrorStatus |= CERT_TRUST_HAS_NOT_DEFINED_NAME_CONSTRAINT;
             if (nameConstraints->cPermittedSubtree)
                 *trustErrorStatus |=
                  CERT_TRUST_HAS_NOT_PERMITTED_NAME_CONSTRAINT;
@@ -720,100 +724,6 @@ static void CRYPT_CheckChainNameConstraints(PCERT_SIMPLE_CHAIN chain)
     }
 }
 
-static void dump_basic_constraints(const CERT_EXTENSION *ext)
-{
-    CERT_BASIC_CONSTRAINTS_INFO *info;
-    DWORD size = 0;
-
-    if (CryptDecodeObjectEx(X509_ASN_ENCODING, szOID_BASIC_CONSTRAINTS,
-     ext->Value.pbData, ext->Value.cbData, CRYPT_DECODE_ALLOC_FLAG,
-     NULL, &info, &size))
-    {
-        TRACE_(chain)("SubjectType: %02x\n", info->SubjectType.pbData[0]);
-        TRACE_(chain)("%s path length constraint\n",
-         info->fPathLenConstraint ? "has" : "doesn't have");
-        TRACE_(chain)("path length=%d\n", info->dwPathLenConstraint);
-        LocalFree(info);
-    }
-}
-
-static void dump_basic_constraints2(const CERT_EXTENSION *ext)
-{
-    CERT_BASIC_CONSTRAINTS2_INFO constraints;
-    DWORD size = sizeof(CERT_BASIC_CONSTRAINTS2_INFO);
-
-    if (CryptDecodeObjectEx(X509_ASN_ENCODING,
-     szOID_BASIC_CONSTRAINTS2, ext->Value.pbData, ext->Value.cbData,
-     0, NULL, &constraints, &size))
-    {
-        TRACE_(chain)("basic constraints:\n");
-        TRACE_(chain)("can%s be a CA\n", constraints.fCA ? "" : "not");
-        TRACE_(chain)("%s path length constraint\n",
-         constraints.fPathLenConstraint ? "has" : "doesn't have");
-        TRACE_(chain)("path length=%d\n", constraints.dwPathLenConstraint);
-    }
-}
-
-static void dump_extension(const CERT_EXTENSION *ext)
-{
-    TRACE_(chain)("%s (%scritical)\n", debugstr_a(ext->pszObjId),
-     ext->fCritical ? "" : "not ");
-    if (!strcmp(ext->pszObjId, szOID_BASIC_CONSTRAINTS))
-        dump_basic_constraints(ext);
-    else if (!strcmp(ext->pszObjId, szOID_BASIC_CONSTRAINTS2))
-        dump_basic_constraints2(ext);
-}
-
-static LPCWSTR filetime_to_str(const FILETIME *time)
-{
-    static WCHAR date[80];
-    WCHAR dateFmt[80]; /* sufficient for all versions of LOCALE_SSHORTDATE */
-    SYSTEMTIME sysTime;
-
-    if (!time) return NULL;
-
-    GetLocaleInfoW(LOCALE_SYSTEM_DEFAULT, LOCALE_SSHORTDATE, dateFmt,
-     sizeof(dateFmt) / sizeof(dateFmt[0]));
-    FileTimeToSystemTime(time, &sysTime);
-    GetDateFormatW(LOCALE_SYSTEM_DEFAULT, 0, &sysTime, dateFmt, date,
-     sizeof(date) / sizeof(date[0]));
-    return date;
-}
-
-static void dump_element(PCCERT_CONTEXT cert)
-{
-    LPWSTR name = NULL;
-    DWORD len, i;
-
-    TRACE_(chain)("%p\n", cert);
-    len = CertGetNameStringW(cert, CERT_NAME_SIMPLE_DISPLAY_TYPE,
-     CERT_NAME_ISSUER_FLAG, NULL, NULL, 0);
-    name = CryptMemAlloc(len * sizeof(WCHAR));
-    if (name)
-    {
-        CertGetNameStringW(cert, CERT_NAME_SIMPLE_DISPLAY_TYPE,
-         CERT_NAME_ISSUER_FLAG, NULL, name, len);
-        TRACE_(chain)("issued by %s\n", debugstr_w(name));
-        CryptMemFree(name);
-    }
-    len = CertGetNameStringW(cert, CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, NULL,
-     NULL, 0);
-    name = CryptMemAlloc(len * sizeof(WCHAR));
-    if (name)
-    {
-        CertGetNameStringW(cert, CERT_NAME_SIMPLE_DISPLAY_TYPE, 0, NULL,
-         name, len);
-        TRACE_(chain)("issued to %s\n", debugstr_w(name));
-        CryptMemFree(name);
-    }
-    TRACE_(chain)("valid from %s to %s\n",
-     debugstr_w(filetime_to_str(&cert->pCertInfo->NotBefore)),
-     debugstr_w(filetime_to_str(&cert->pCertInfo->NotAfter)));
-    TRACE_(chain)("%d extensions\n", cert->pCertInfo->cExtension);
-    for (i = 0; i < cert->pCertInfo->cExtension; i++)
-        dump_extension(&cert->pCertInfo->rgExtension[i]);
-}
-
 static void CRYPT_CheckSimpleChain(PCertificateChainEngine engine,
  PCERT_SIMPLE_CHAIN chain, LPFILETIME time)
 {
@@ -822,25 +732,14 @@ static void CRYPT_CheckSimpleChain(PCertificateChainEngine engine,
     BOOL pathLengthConstraintViolated = FALSE;
     CERT_BASIC_CONSTRAINTS2_INFO constraints = { TRUE, FALSE, 0 };
 
-    TRACE_(chain)("checking chain with %d elements for time %s\n",
-     chain->cElement, debugstr_w(filetime_to_str(time)));
     for (i = chain->cElement - 1; i >= 0; i--)
     {
-        if (TRACE_ON(chain))
-            dump_element(chain->rgpElement[i]->pCertContext);
         if (CertVerifyTimeValidity(time,
          chain->rgpElement[i]->pCertContext->pCertInfo) != 0)
             chain->rgpElement[i]->TrustStatus.dwErrorStatus |=
              CERT_TRUST_IS_NOT_TIME_VALID;
         if (i != 0)
         {
-            BOOL isRoot;
-
-            if (i == chain->cElement - 1)
-                isRoot = CRYPT_IsCertificateSelfSigned(
-                 chain->rgpElement[i]->pCertContext);
-            else
-                isRoot = FALSE;
             /* Check the signature of the cert this issued */
             if (!CryptVerifyCertificateSignatureEx(0, X509_ASN_ENCODING,
              CRYPT_VERIFY_CERT_SIGN_SUBJECT_CERT,
@@ -857,7 +756,7 @@ static void CRYPT_CheckSimpleChain(PCertificateChainEngine engine,
                  CERT_TRUST_INVALID_BASIC_CONSTRAINTS;
             else if (!CRYPT_CheckBasicConstraintsForCA(
              chain->rgpElement[i]->pCertContext, &constraints, i - 1,
-             isRoot, &pathLengthConstraintViolated))
+             &pathLengthConstraintViolated))
                 chain->rgpElement[i]->TrustStatus.dwErrorStatus |=
                  CERT_TRUST_INVALID_BASIC_CONSTRAINTS;
             else if (constraints.fPathLenConstraint &&
@@ -866,16 +765,6 @@ static void CRYPT_CheckSimpleChain(PCertificateChainEngine engine,
                 /* This one's valid - decrement max length */
                 constraints.dwPathLenConstraint--;
             }
-        }
-        if (CRYPT_IsSimpleChainCyclic(chain))
-        {
-            /* If the chain is cyclic, then the path length constraints
-             * are violated, because the chain is infinitely long.
-             */
-            pathLengthConstraintViolated = TRUE;
-            chain->TrustStatus.dwErrorStatus |=
-             CERT_TRUST_IS_PARTIAL_CHAIN |
-             CERT_TRUST_INVALID_BASIC_CONSTRAINTS;
         }
         /* FIXME: check valid usages */
         CRYPT_CombineTrustStatus(&chain->TrustStatus,
@@ -1000,7 +889,8 @@ static PCCERT_CONTEXT CRYPT_GetIssuer(HCERTSTORE store, PCCERT_CONTEXT subject,
         issuer = CertFindCertificateInStore(store,
          subject->dwCertEncodingType, 0, CERT_FIND_SUBJECT_NAME,
          &subject->pCertInfo->Issuer, prevIssuer);
-        *infoStatus = CERT_TRUST_HAS_NAME_MATCH_ISSUER;
+        if (issuer)
+            *infoStatus = CERT_TRUST_HAS_NAME_MATCH_ISSUER;
     }
     return issuer;
 }
@@ -1008,7 +898,7 @@ static PCCERT_CONTEXT CRYPT_GetIssuer(HCERTSTORE store, PCCERT_CONTEXT subject,
 /* Builds a simple chain by finding an issuer for the last cert in the chain,
  * until reaching a self-signed cert, or until no issuer can be found.
  */
-static BOOL CRYPT_BuildSimpleChain(const CertificateChainEngine *engine,
+static BOOL CRYPT_BuildSimpleChain(PCertificateChainEngine engine,
  HCERTSTORE world, PCERT_SIMPLE_CHAIN chain)
 {
     BOOL ret = TRUE;
@@ -1017,13 +907,12 @@ static BOOL CRYPT_BuildSimpleChain(const CertificateChainEngine *engine,
     while (ret && !CRYPT_IsSimpleChainCyclic(chain) &&
      !CRYPT_IsCertificateSelfSigned(cert))
     {
-        PCCERT_CONTEXT issuer = CRYPT_GetIssuer(world, cert, NULL,
-         &chain->rgpElement[chain->cElement - 1]->TrustStatus.dwInfoStatus);
+        DWORD infoStatus;
+        PCCERT_CONTEXT issuer = CRYPT_GetIssuer(world, cert, NULL, &infoStatus);
 
         if (issuer)
         {
-            ret = CRYPT_AddCertToSimpleChain(engine, chain, issuer,
-             chain->rgpElement[chain->cElement - 1]->TrustStatus.dwInfoStatus);
+            ret = CRYPT_AddCertToSimpleChain(engine, chain, issuer, infoStatus);
             /* CRYPT_AddCertToSimpleChain add-ref's the issuer, so free it to
              * close the enumeration that found it
              */
@@ -1032,8 +921,7 @@ static BOOL CRYPT_BuildSimpleChain(const CertificateChainEngine *engine,
         }
         else
         {
-            TRACE_(chain)("Couldn't find issuer, halting chain creation\n");
-            chain->TrustStatus.dwErrorStatus |= CERT_TRUST_IS_PARTIAL_CHAIN;
+            TRACE("Couldn't find issuer, halting chain creation\n");
             break;
         }
     }
@@ -1116,7 +1004,7 @@ static BOOL CRYPT_BuildCandidateChainFromCert(HCERTCHAINENGINE hChainEngine,
 
 /* Makes and returns a copy of chain, up to and including element iElement. */
 static PCERT_SIMPLE_CHAIN CRYPT_CopySimpleChainToElement(
- const CERT_SIMPLE_CHAIN *chain, DWORD iElement)
+ PCERT_SIMPLE_CHAIN chain, DWORD iElement)
 {
     PCERT_SIMPLE_CHAIN copy = CryptMemAlloc(sizeof(CERT_SIMPLE_CHAIN));
 
@@ -1345,7 +1233,7 @@ static PCertificateChain CRYPT_BuildAlternateContextFromChain(
 #define IS_TRUST_ERROR_SET(TrustStatus, bits) \
  (TrustStatus)->dwErrorStatus & (bits)
 
-static DWORD CRYPT_ChainQuality(const CertificateChain *chain)
+static DWORD CRYPT_ChainQuality(PCertificateChain chain)
 {
     DWORD quality = CHAIN_QUALITY_HIGHEST;
 
@@ -1402,7 +1290,7 @@ static PCertificateChain CRYPT_ChooseHighestQualityChain(
 }
 
 static BOOL CRYPT_AddAlternateChainToChain(PCertificateChain chain,
- const CertificateChain *alternate)
+ PCertificateChain alternate)
 {
     BOOL ret;
 
@@ -1427,7 +1315,7 @@ static BOOL CRYPT_AddAlternateChainToChain(PCertificateChain chain,
 }
 
 static PCERT_CHAIN_ELEMENT CRYPT_FindIthElementInChain(
- const CERT_CHAIN_CONTEXT *chain, DWORD i)
+ PCERT_CHAIN_CONTEXT chain, DWORD i)
 {
     DWORD j, iElement;
     PCERT_CHAIN_ELEMENT element = NULL;
@@ -1448,7 +1336,7 @@ typedef struct _CERT_CHAIN_PARA_NO_EXTRA_FIELDS {
 } CERT_CHAIN_PARA_NO_EXTRA_FIELDS, *PCERT_CHAIN_PARA_NO_EXTRA_FIELDS;
 
 static void CRYPT_VerifyChainRevocation(PCERT_CHAIN_CONTEXT chain,
- LPFILETIME pTime, const CERT_CHAIN_PARA *pChainPara, DWORD chainFlags)
+ LPFILETIME pTime, PCERT_CHAIN_PARA pChainPara, DWORD chainFlags)
 {
     DWORD cContext;
 
@@ -1567,7 +1455,12 @@ BOOL WINAPI CertGetCertificateChain(HCERTCHAINENGINE hChainEngine,
         SetLastError(ERROR_INVALID_DATA);
         return FALSE;
     }
-
+    if (pChainPara->cbSize != sizeof(CERT_CHAIN_PARA_NO_EXTRA_FIELDS) &&
+     pChainPara->cbSize != sizeof(CERT_CHAIN_PARA))
+    {
+        SetLastError(E_INVALIDARG);
+        return FALSE;
+    }
     if (!hChainEngine)
         hChainEngine = CRYPT_GetDefaultChainEngine();
     /* FIXME: what about HCCE_LOCAL_MACHINE? */
@@ -1902,7 +1795,7 @@ BOOL WINAPI CertVerifyCertificateChainPolicy(LPCSTR szPolicyOID,
             set = CryptInitOIDFunctionSet(
              CRYPT_OID_VERIFY_CERTIFICATE_CHAIN_POLICY_FUNC, 0);
         CryptGetOIDFunctionAddress(set, X509_ASN_ENCODING, szPolicyOID, 0,
-         (void **)&verifyPolicy, &hFunc);
+         (void **)&verifyPolicy, hFunc);
     }
     if (verifyPolicy)
         ret = verifyPolicy(szPolicyOID, pChainContext, pPolicyPara,

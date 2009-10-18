@@ -171,9 +171,8 @@ void Context_CopyProperties(const void *to, const void *from,
 {
     PCONTEXT_PROPERTY_LIST toProperties, fromProperties;
 
-    toProperties = Context_GetProperties(to, contextSize);
-    fromProperties = Context_GetProperties(from, contextSize);
-    assert(toProperties && fromProperties);
+    toProperties = Context_GetProperties((void *)to, contextSize);
+    fromProperties = Context_GetProperties((void *)from, contextSize);
     ContextPropertyList_Copy(toProperties, fromProperties);
 }
 
@@ -201,19 +200,19 @@ struct ContextList *ContextList_Create(
     return list;
 }
 
-static inline struct list *ContextList_ContextToEntry(const struct ContextList *list,
+static inline struct list *ContextList_ContextToEntry(struct ContextList *list,
  const void *context)
 {
     struct list *ret;
 
     if (context)
-        ret = Context_GetExtra(context, list->contextSize);
+        ret = (struct list *)Context_GetExtra(context, list->contextSize);
     else
         ret = NULL;
     return ret;
 }
 
-static inline void *ContextList_EntryToContext(const struct ContextList *list,
+static inline void *ContextList_EntryToContext(struct ContextList *list,
  struct list *entry)
 {
     return (LPBYTE)entry - sizeof(LINK_CONTEXT) - list->contextSize;
@@ -288,7 +287,7 @@ void ContextList_Delete(struct ContextList *list, void *context)
     list->contextInterface->free(context);
 }
 
-static void ContextList_Empty(struct ContextList *list)
+void ContextList_Empty(struct ContextList *list)
 {
     struct list *entry, *next;
 

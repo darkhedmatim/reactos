@@ -22,7 +22,7 @@ extern NPAGED_LOOKASIDE_LIST iBcbLookasideList;
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 CcMapData (IN PFILE_OBJECT FileObject,
 	   IN PLARGE_INTEGER FileOffset,
 	   IN ULONG Length,
@@ -106,7 +106,7 @@ CcMapData (IN PFILE_OBJECT FileObject,
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CcPinMappedData (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
@@ -123,7 +123,7 @@ CcPinMappedData (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CcPinRead (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
@@ -147,7 +147,7 @@ CcPinRead (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CcPreparePinWrite (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
@@ -172,7 +172,7 @@ CcPreparePinWrite (
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 CcSetDirtyPinnedData (IN PVOID Bcb,
 		      IN PLARGE_INTEGER Lsn)
 {
@@ -184,7 +184,7 @@ CcSetDirtyPinnedData (IN PVOID Bcb,
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 CcUnpinData (IN PVOID Bcb)
 {
   PINTERNAL_BCB iBcb = Bcb;
@@ -200,7 +200,7 @@ CcUnpinData (IN PVOID Bcb)
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcUnpinDataForThread (
 	IN	PVOID			Bcb,
 	IN	ERESOURCE_THREAD	ResourceThreadId
@@ -213,7 +213,7 @@ CcUnpinDataForThread (
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 CcRepinBcb (
 	IN	PVOID	Bcb
 	)
@@ -226,7 +226,7 @@ CcRepinBcb (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcUnpinRepinnedBcb (
 	IN	PVOID			Bcb,
 	IN	BOOLEAN			WriteThrough,

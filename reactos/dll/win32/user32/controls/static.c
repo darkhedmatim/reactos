@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * NOTES
  *
@@ -53,10 +53,10 @@ static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintRectfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintIconfn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintBitmapfn( HWND hwnd, HDC hdc, DWORD style );
-static void STATIC_PaintEnhMetafn( HWND hwnd, HDC hdc, DWORD style );
+//static void STATIC_PaintEnhMetafn( HWND hwnd, HDC hdc, DWORD style );
 static void STATIC_PaintEtchedfn( HWND hwnd, HDC hdc, DWORD style );
-//static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-//static LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 static COLORREF color_3dshadow, color_3ddkshadow, color_3dhighlight;
 
@@ -68,7 +68,7 @@ static COLORREF color_3dshadow, color_3ddkshadow, color_3dhighlight;
 
 typedef void (*pfPaint)( HWND hwnd, HDC hdc, DWORD style );
 
-static const pfPaint staticPaintFunc[SS_TYPEMASK+1] =
+static pfPaint staticPaintFunc[SS_TYPEMASK+1] =
 {
     STATIC_PaintTextfn,      /* SS_LEFT */
     STATIC_PaintTextfn,      /* SS_CENTER */
@@ -85,7 +85,7 @@ static const pfPaint staticPaintFunc[SS_TYPEMASK+1] =
     STATIC_PaintTextfn,      /* SS_LEFTNOWORDWRAP */
     STATIC_PaintOwnerDrawfn, /* SS_OWNERDRAW */
     STATIC_PaintBitmapfn,    /* SS_BITMAP */
-    STATIC_PaintEnhMetafn,   /* SS_ENHMETAFILE */
+    NULL,                    /* STATIC_PaintEnhMetafn, SS_ENHMETAFILE */
     STATIC_PaintEtchedfn,    /* SS_ETCHEDHORZ */
     STATIC_PaintEtchedfn,    /* SS_ETCHEDVERT */
     STATIC_PaintEtchedfn,    /* SS_ETCHEDFRAME */
@@ -95,51 +95,36 @@ static const pfPaint staticPaintFunc[SS_TYPEMASK+1] =
 /*********************************************************************
  * static class descriptor
  */
-static const WCHAR staticW[] = {'S','t','a','t','i','c',0};
 const struct builtin_class_descr STATIC_builtin_class =
 {
-    staticW,             /* name */
+#ifdef __REACTOS__
+    L"Static",            /* name */
+    CS_DBLCLKS | CS_PARENTDC, /* style  */
+    (WNDPROC) StaticWndProcW,                  /* procW */
+    (WNDPROC) StaticWndProcA,                  /* procA */
+    STATIC_EXTRA_BYTES,                        /* extra */
+    (LPCWSTR) IDC_ARROW,                        /* cursor */ /* FIXME Wine uses IDC_ARROWA */
+    0                                          /* brush */
+#else
+    "Static",            /* name */
     CS_DBLCLKS | CS_PARENTDC, /* style  */
     StaticWndProcA,      /* procA */
     StaticWndProcW,      /* procW */
     STATIC_EXTRA_BYTES,  /* extra */
     IDC_ARROW,           /* cursor */
     0                    /* brush */
+#endif
 };
 
-/* REACTOS ONLY */
 static __inline void set_ui_state( HWND hwnd, LONG flags )
 {
-    SetWindowLongPtrW( hwnd, UISTATE_GWL_OFFSET, flags );
+    SetWindowLongW( hwnd, UISTATE_GWL_OFFSET, flags );
 }
 
 static __inline LONG get_ui_state( HWND hwnd )
 {
     return GetWindowLongPtrW( hwnd, UISTATE_GWL_OFFSET );
 }
-
-/* Retrieve the UI state for the control */
-static BOOL STATIC_update_uistate(HWND hwnd, BOOL unicode)
-{
-    LONG flags, prevflags;
-
-    if (unicode)
-        flags = DefWindowProcW(hwnd, WM_QUERYUISTATE, 0, 0);
-    else
-        flags = DefWindowProcA(hwnd, WM_QUERYUISTATE, 0, 0);
-
-    prevflags = get_ui_state(hwnd);
-
-    if (prevflags != flags)
-    {
-        set_ui_state(hwnd, flags);
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
-/* END REACTOS ONLY */
 
 static void setup_clipping(HWND hwnd, HDC hdc, HRGN *orig)
 {
@@ -167,6 +152,27 @@ static void restore_clipping(HDC hdc, HRGN hrgn)
     SelectClipRgn(hdc, hrgn);
     if (hrgn != NULL)
         DeleteObject(hrgn);
+}
+
+/* Retrieve the UI state for the control */
+static BOOL STATIC_update_uistate(HWND hwnd, BOOL unicode)
+{
+    LONG flags, prevflags;
+
+    if (unicode)
+        flags = DefWindowProcW(hwnd, WM_QUERYUISTATE, 0, 0);
+    else
+        flags = DefWindowProcA(hwnd, WM_QUERYUISTATE, 0, 0);
+
+    prevflags = get_ui_state(hwnd);
+
+    if (prevflags != flags)
+    {
+        set_ui_state(hwnd, flags);
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 /***********************************************************************
@@ -245,7 +251,6 @@ static HBITMAP STATIC_SetBitmap( HWND hwnd, HBITMAP hBitmap, DWORD style )
             SetWindowPos( hwnd, 0, 0, 0, bm.bmWidth, bm.bmHeight,
                           SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER );
         }
-
     }
     return hOldBitmap;
 }
@@ -255,15 +260,15 @@ static HBITMAP STATIC_SetBitmap( HWND hwnd, HBITMAP hBitmap, DWORD style )
  *
  * Set the enhanced metafile for an SS_ENHMETAFILE control.
  */
-static HENHMETAFILE STATIC_SetEnhMetaFile( HWND hwnd, HENHMETAFILE hEnhMetaFile, DWORD style )
-{
-    if ((style & SS_TYPEMASK) != SS_ENHMETAFILE) return 0;
-    if (hEnhMetaFile && GetObjectType(hEnhMetaFile) != OBJ_ENHMETAFILE) {
-        WARN("hEnhMetaFile != 0, but it's not an enhanced metafile\n");
-        return 0;
-    }
-    return (HENHMETAFILE)SetWindowLongPtrW( hwnd, HICON_GWL_OFFSET, (LONG_PTR)hEnhMetaFile );
-}
+//static HENHMETAFILE STATIC_SetEnhMetaFile( HWND hwnd, HENHMETAFILE hEnhMetaFile, DWORD style )
+//{
+//    if ((style & SS_TYPEMASK) != SS_ENHMETAFILE) return 0;
+//    if (hEnhMetaFile && GetObjectType(hEnhMetaFile) != OBJ_ENHMETAFILE) {
+//        WARN("hEnhMetaFile != 0, but it's not an enhanced metafile\n");
+//        return 0;
+//    }
+//    return (HENHMETAFILE)SetWindowLongPtrW( hwnd, HICON_GWL_OFFSET, (LONG_PTR)hEnhMetaFile );
+//}
 
 /***********************************************************************
  *           STATIC_GetImage
@@ -311,7 +316,7 @@ static HICON STATIC_LoadIconA( HWND hwnd, LPCSTR name, DWORD style )
         /* Windows doesn't try to load a standard cursor,
            probably because most IDs for standard cursors conflict
            with the IDs for standard icons anyway */
-        return hicon;
+    return hicon;
     }
 }
 
@@ -392,14 +397,14 @@ static HBRUSH STATIC_SendWmCtlColorStatic(HWND hwnd, HDC hdc)
     HBRUSH hBrush;
     HWND parent = GetParent(hwnd);
 
-    if (!parent) parent = hwnd;
-    hBrush = (HBRUSH) SendMessageW( parent,
+    if(!parent) parent = hwnd;
+    hBrush = (HBRUSH) SendMessageW( GetParent(hwnd),
                     WM_CTLCOLORSTATIC, (WPARAM)hdc, (LPARAM)hwnd );
     if (!hBrush) /* did the app forget to call DefWindowProc ? */
     {
         /* FIXME: DefWindowProc should return different colors if a
                   manifest is present */
-        hBrush = (HBRUSH)DefWindowProcW( parent, WM_CTLCOLORSTATIC,
+        hBrush = (HBRUSH)DefWindowProcW(GetParent(hwnd), WM_CTLCOLORSTATIC,
                                         (WPARAM)hdc, (LPARAM)hwnd);
     }
     return hBrush;
@@ -436,11 +441,11 @@ static BOOL hasTextStyle( DWORD style )
 /***********************************************************************
  *           StaticWndProc_common
  */
-LRESULT WINAPI StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
+static LRESULT StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
                                      LPARAM lParam, BOOL unicode )
 {
     LRESULT lResult = 0;
-    LONG full_style = GetWindowLongPtrW( hwnd, GWL_STYLE );
+    LONG full_style = GetWindowLongW( hwnd, GWL_STYLE );
     LONG style = full_style & SS_TYPEMASK;
 
     switch (uMsg)
@@ -515,8 +520,8 @@ LRESULT WINAPI StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
             LPCWSTR textW;
 
             if (full_style & SS_SUNKEN)
-                SetWindowLongPtrW( hwnd, GWL_EXSTYLE,
-                                   GetWindowLongPtrW( hwnd, GWL_EXSTYLE ) | WS_EX_STATICEDGE );
+                SetWindowLongW( hwnd, GWL_EXSTYLE,
+                                GetWindowLongW( hwnd, GWL_EXSTYLE ) | WS_EX_STATICEDGE );
 
             if(unicode)
             {
@@ -617,20 +622,17 @@ LRESULT WINAPI StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
     case STM_SETIMAGE:
         switch(wParam) {
 	case IMAGE_BITMAP:
-	    if (style != SS_BITMAP) return 0;
 	    lResult = (LRESULT)STATIC_SetBitmap( hwnd, (HBITMAP)lParam, full_style );
 	    break;
-	case IMAGE_ENHMETAFILE:
-	    if (style != SS_ENHMETAFILE) return 0;
-	    lResult = (LRESULT)STATIC_SetEnhMetaFile( hwnd, (HENHMETAFILE)lParam, full_style );
-	    break;
+//	case IMAGE_ENHMETAFILE:
+//	    lResult = (LRESULT)STATIC_SetEnhMetaFile( hwnd, (HENHMETAFILE)lParam, full_style );
+//	    break;
 	case IMAGE_ICON:
 	case IMAGE_CURSOR:
-	    if (style != SS_ICON) return 0;
 	    lResult = (LRESULT)STATIC_SetIcon( hwnd, (HICON)lParam, full_style );
 	    break;
 	default:
-	    FIXME("STM_SETIMAGE: Unhandled type %lx\n", wParam);
+	    FIXME("STM_SETIMAGE: Unhandled type %x\n", wParam);
 	    break;
 	}
         STATIC_TryPaintFcn( hwnd, full_style );
@@ -666,7 +668,7 @@ LRESULT WINAPI StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam,
 /***********************************************************************
  *           StaticWndProcA
  */
-LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow( hWnd )) return 0;
     return StaticWndProc_common(hWnd, uMsg, wParam, lParam, FALSE);
@@ -675,7 +677,7 @@ LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 /***********************************************************************
  *           StaticWndProcW
  */
-LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow( hWnd )) return 0;
     return StaticWndProc_common(hWnd, uMsg, wParam, lParam, TRUE);
@@ -709,7 +711,7 @@ static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style )
     RECT rc;
     HBRUSH hBrush;
     HFONT hFont, hOldFont = NULL;
-    WORD wFormat;
+    DWORD wFormat;
     INT len, buf_size;
     WCHAR *text;
 
@@ -741,9 +743,6 @@ static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style )
         return;
     }
 
-    if (GetWindowLongW( hwnd, GWL_EXSTYLE ) & WS_EX_RIGHT)
-        wFormat = DT_RIGHT | (wFormat & ~(DT_LEFT | DT_CENTER));
-
     if (style & SS_NOPREFIX)
         wFormat |= DT_NOPREFIX;
     else if (get_ui_state(hwnd) & UISF_HIDEACCEL)
@@ -764,7 +763,7 @@ static void STATIC_PaintTextfn( HWND hwnd, HDC hdc, DWORD style )
     }
 
     if ((hFont = (HFONT)GetWindowLongPtrW( hwnd, HFONT_GWL_OFFSET )))
-        hOldFont = SelectObject( hdc, hFont );
+        hOldFont = (HFONT)SelectObject( hdc, hFont );
 
     /* SS_SIMPLE controls: WM_CTLCOLORSTATIC is sent, but the returned
                            brush is not used */
@@ -910,7 +909,7 @@ static void STATIC_PaintBitmapfn(HWND hwnd, HDC hdc, DWORD style )
             if (brush.lbStyle == BS_SOLID)
                 SetBkColor(hdc, brush.lbColor);
         }
-        GetClientRect(hwnd, &rcClient);
+            GetClientRect(hwnd, &rcClient);
         if (style & SS_CENTERIMAGE)
         {
             INT x, y;
@@ -929,26 +928,32 @@ static void STATIC_PaintBitmapfn(HWND hwnd, HDC hdc, DWORD style )
         SelectObject(hMemDC, oldbitmap);
         DeleteDC(hMemDC);
     }
-}
-
-
-static void STATIC_PaintEnhMetafn(HWND hwnd, HDC hdc, DWORD style )
-{
-    HENHMETAFILE hEnhMetaFile;
-    RECT rc;
-    HBRUSH hbrush;
-
-    GetClientRect(hwnd, &rc);
-    hbrush = STATIC_SendWmCtlColorStatic(hwnd, hdc);
-    FillRect(hdc, &rc, hbrush);
-    if ((hEnhMetaFile = (HENHMETAFILE)GetWindowLongPtrW( hwnd, HICON_GWL_OFFSET )))
+    else
     {
-        /* The control's current font is not selected into the
-           device context! */
-        if (GetObjectType(hEnhMetaFile) == OBJ_ENHMETAFILE)
-            PlayEnhMetaFile(hdc, hEnhMetaFile, &rc);
+        RECT rcClient;
+        GetClientRect( hwnd, &rcClient );
+        FillRect( hdc, &rcClient, hbrush );
     }
 }
+
+
+//static void STATIC_PaintEnhMetafn(HWND hwnd, HDC hdc, DWORD style )
+//{
+//    HENHMETAFILE hEnhMetaFile;
+//    RECT rc;
+//    HBRUSH hbrush;
+//
+//    GetClientRect(hwnd, &rc);
+//    hbrush = STATIC_SendWmCtlColorStatic(hwnd, hdc);
+//    FillRect(hdc, &rc, hbrush);
+//    if ((hEnhMetaFile = (HENHMETAFILE)GetWindowLongPtrW( hwnd, HICON_GWL_OFFSET )))
+//    {
+//        /* The control's current font is not selected into the
+//           device context! */
+//        if (GetObjectType(hEnhMetaFile) == OBJ_ENHMETAFILE)
+//            PlayEnhMetaFile(hdc, hEnhMetaFile, &rc);
+//    }
+//}
 
 
 static void STATIC_PaintEtchedfn( HWND hwnd, HDC hdc, DWORD style )

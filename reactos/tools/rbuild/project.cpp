@@ -298,11 +298,6 @@ Project::ProcessXML ( const string& path )
 	assert(att);
 	makefile = Environment::GetAutomakeFile ( att->value );
 
-	att = node->GetAttribute ( "allowwarnings", false );
-	allowWarningsSet = att != NULL;
-	if ( att != NULL )
-		allowWarnings = att->value == "true";
-
 	size_t i;
 	for ( i = 0; i < node->subElements.size (); i++ )
 	{
@@ -311,7 +306,6 @@ Project::ProcessXML ( const string& path )
 	}
 
 	non_if_data.ProcessXML ();
-	host_non_if_data.ProcessXML ();
 
 	non_if_data.ExtractModules( modules );
 
@@ -330,48 +324,6 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
                                 const string& path,
                                 ParseContext& parseContext )
 {
-	const XMLAttribute* att;
-
-	att = e.GetAttribute ( "compilerset", false );
-
-	if ( att )
-	{
-		CompilerSet compilerSet;
-
-		if ( att->value == "msc" )
-			compilerSet = MicrosoftC;
-		else if ( att->value == "gcc" )
-			compilerSet = GnuGcc;
-		else
-			throw InvalidAttributeValueException (
-				e.location,
-				"compilerset",
-				att->value );
-
-		if ( compilerSet != configuration.Compiler )
-			return;
-	}
-
-	att = e.GetAttribute ( "linkerset", false );
-
-	if ( att )
-	{
-		LinkerSet linkerSet;
-
-		if ( att->value == "mslink" )
-			linkerSet = MicrosoftLink;
-		else if ( att->value == "ld" )
-			linkerSet = GnuLd;
-		else
-			throw InvalidAttributeValueException (
-				e.location,
-				"linkerset",
-				att->value );
-
-		if ( linkerSet != configuration.Linker )
-			return;
-	}
-
 	bool subs_invalid = false;
 
 	string subpath(path);
@@ -407,26 +359,14 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 	}
 	else if ( e.name == "include" )
 	{
-		const XMLAttribute* host = e.GetAttribute("host", false);
 		Include* include = new Include ( *this, &e );
-
-		if(host && host->value == "true")
-			host_non_if_data.includes.push_back(include);
-		else
-			non_if_data.includes.push_back ( include );
-
+		non_if_data.includes.push_back ( include );
 		subs_invalid = true;
 	}
-	else if ( e.name == "define" || e.name == "redefine" )
+	else if ( e.name == "define" )
 	{
-		const XMLAttribute* host = e.GetAttribute("host", false);
 		Define* define = new Define ( *this, e );
-
-		if(host && host->value == "true")
-			host_non_if_data.defines.push_back(define);
-		else
-			non_if_data.defines.push_back ( define );
-
+		non_if_data.defines.push_back ( define );
 		subs_invalid = true;
 	}
 	else if ( e.name == "compilerflag" )
@@ -446,17 +386,13 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 		name = e.GetAttribute ( "property", true );
 		assert( name );
 		const Property *property = LookupProperty( name->value );
-		const string *PropertyValue;
-		const string EmptyString;
-
-		if (property)
+		if ( !property )
 		{
-			PropertyValue = &property->value;
-		}
-		else
-		{
-			// Property does not exist, treat it as being empty
-			PropertyValue = &EmptyString;
+			// Property not found
+			throw InvalidOperationException ( __FILE__,
+			                                  __LINE__,
+			                                  "Test on unknown property '%s' at %s",
+			                                  name->value.c_str (), e.location.c_str () );
 		}
 
 		const XMLAttribute* value;
@@ -464,7 +400,7 @@ Project::ProcessXMLSubElement ( const XMLElement& e,
 		assert( value );
 
 		bool negate = ( e.name == "ifnot" );
-		bool equality = ( *PropertyValue == value->value );
+		bool equality = ( property->value == value->value );
 		if ( equality == negate )
 		{
 			// Failed, skip this element
@@ -516,26 +452,4 @@ const std::string&
 Project::GetProjectFilename () const
 {
 	return xmlfile;
-}
-
-std::string
-Project::GetCompilerSet () const
-{
-	switch ( configuration.Compiler )
-	{
-	case GnuGcc: return "gcc";
-	case MicrosoftC: return "msc";
-	default: assert ( false );
-	}
-}
-
-std::string
-Project::GetLinkerSet () const
-{
-	switch ( configuration.Linker )
-	{
-	case GnuLd: return "ld";
-	case MicrosoftLink: return "mslink";
-	default: assert ( false );
-	}
 }

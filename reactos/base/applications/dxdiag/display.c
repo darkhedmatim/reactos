@@ -8,7 +8,6 @@
  */
 
 #include "precomp.h"
-#include <d3d9.h>
 #include <initguid.h>
 #include <devguid.h>
 
@@ -380,13 +379,9 @@ DisplayPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             switch(LOWORD(wParam))
             {
                 case IDC_BUTTON_TESTDD:
-                case IDC_BUTTON_TEST3D:
                     GetWindowRect(pContext->hMainDialog, &rect);
                     /* FIXME log result errors */
-                    if (IDC_BUTTON_TESTDD == LOWORD(wParam))
-                        DDTests();
-                    else if (IDC_BUTTON_TEST3D == LOWORD(wParam))
-                        D3DTests();
+                    DDTests();
                     SetWindowPos(pContext->hMainDialog, NULL, rect.left, rect.top, rect.right, rect.bottom, SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSIZE | SWP_NOZORDER);
                     break;
             }

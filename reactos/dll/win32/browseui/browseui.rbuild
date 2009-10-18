@@ -7,7 +7,7 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<include base="explorer_new">.</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<library>wine</library>
 	<library>ole32</library>
 	<library>user32</library>
@@ -21,4 +21,5 @@
 	<file>browseui_main.c</file>
 	<file>regsvr.c</file>
 	<file>version.rc</file>
+	<file>browseui.spec</file>
 </module>

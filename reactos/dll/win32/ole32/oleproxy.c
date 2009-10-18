@@ -2,7 +2,7 @@
  *	OLE32 proxy/stub handler
  *
  *  Copyright 2002  Marcus Meissner
- *  Copyright 2001  Ove KÃ¥ven, TransGaming Technologies
+ *  Copyright 2001  Ove Kåven, TransGaming Technologies
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,10 +36,31 @@
 #include "objbase.h"
 #include "ole2.h"
 #include "rpc.h"
+#include "rpcproxy.h"
 
 #include "compobj_private.h"
 #include "moniker.h"
-#include "comcat.h"
+
+#include "wine/debug.h"
+
+WINE_DEFAULT_DEBUG_CHANNEL(ole);
+
+static CStdPSFactoryBuffer PSFactoryBuffer;
+
+CSTDSTUBBUFFERRELEASE(&PSFactoryBuffer)
+
+extern const ExtendedProxyFileInfo dcom_ProxyFileInfo;
+extern const ExtendedProxyFileInfo ole32_objidl_ProxyFileInfo;
+extern const ExtendedProxyFileInfo ole32_oleidl_ProxyFileInfo;
+extern const ExtendedProxyFileInfo ole32_unknwn_ProxyFileInfo;
+
+static const ProxyFileInfo *OLE32_ProxyFileList[] = {
+  &dcom_ProxyFileInfo,
+  &ole32_objidl_ProxyFileInfo,
+  &ole32_oleidl_ProxyFileInfo,
+  &ole32_unknwn_ProxyFileInfo,
+  NULL
+};
 
 /***********************************************************************
  *           DllGetClassObject [OLE32.@]
@@ -67,8 +88,7 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID iid,LPVOID *ppv)
         return ClassMonikerCF_Create(iid, ppv);
     if (IsEqualCLSID(rclsid, &CLSID_PointerMoniker))
         return PointerMonikerCF_Create(iid, ppv);
-    if (IsEqualGUID(rclsid, &CLSID_StdComponentCategoriesMgr))
-        return ComCatCF_Create(iid, ppv);
 
-    return OLE32_DllGetClassObject(rclsid, iid, ppv);
+    return NdrDllGetClassObject(rclsid, iid, ppv, OLE32_ProxyFileList,
+                                &CLSID_PSFactoryBuffer, &PSFactoryBuffer);
 }

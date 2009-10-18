@@ -27,8 +27,8 @@
  */
 #define MAX_ELEM_LEN 64 /* Max length of country/language/CP string */
 
-unsigned char _mbctype[257] = { 0 };
-int g_mbcp_is_multibyte = 0;
+unsigned char MSVCRT_mbctype[257] = { 0 };
+static int g_mbcp_is_multibyte = 0;
 
 /* It seems that the data about valid trail bytes is not available from kernel32
  * so we have to store is here. The format is the same as for lead bytes in CPINFO */
@@ -150,7 +150,7 @@ static void remap_synonym(char *name)
   size_t i;
   for (i = 0; i < sizeof(_country_synonyms)/sizeof(char*); i += 2 )
   {
-    if (!_stricmp(_country_synonyms[i],name))
+    if (!strcasecmp(_country_synonyms[i],name))
     {
       TRACE(":Mapping synonym %s to %s\n",name,_country_synonyms[i+1]);
       name[0] = _country_synonyms[i+1][0];
@@ -172,7 +172,7 @@ static int compare_info(LCID lcid, DWORD flags, char* buff, const char* cmp)
   if (!buff[0] || !cmp[0])
     return 0;
   /* Partial matches are allowed, e.g. "Germ" matches "Germany" */
-  return !_strnicmp(cmp, buff, strlen(cmp));
+  return !strncasecmp(cmp, buff, strlen(cmp));
 }
 
 
@@ -234,8 +234,7 @@ find_best_locale_proc(HMODULE hModule, LPCSTR type, LPCSTR name, WORD LangID, LO
     res->match_flags = flags;
     res->found_lang_id = LangID;
   }
-  if ((flags & (FOUND_LANGUAGE | FOUND_COUNTRY | FOUND_CODEPAGE)) ==
-        (FOUND_LANGUAGE | FOUND_COUNTRY | FOUND_CODEPAGE))
+  if (flags & (FOUND_LANGUAGE & FOUND_COUNTRY & FOUND_CODEPAGE))
   {
     TRACE(":found exact locale match\n");
     return STOP_LOOKING;
@@ -272,12 +271,12 @@ static LCID MSVCRT_locale_to_LCID(locale_search_t* locale)
       else
       {
         /* Special codepage values: OEM & ANSI */
-        if (_stricmp(locale->search_codepage,"OCP"))
+        if (strcasecmp(locale->search_codepage,"OCP"))
         {
           GetLocaleInfoA(lcid, LOCALE_IDEFAULTCODEPAGE,
                          locale->found_codepage, MAX_ELEM_LEN);
         }
-        if (_stricmp(locale->search_codepage,"ACP"))
+        if (strcasecmp(locale->search_codepage,"ACP"))
         {
           GetLocaleInfoA(lcid, LOCALE_IDEFAULTANSICODEPAGE,
                          locale->found_codepage, MAX_ELEM_LEN);
@@ -317,7 +316,7 @@ static void msvcrt_set_ctype(unsigned int codepage, LCID lcid)
   {
     int i;
     char str[3];
-    unsigned char *traverse = cp.LeadByte;
+    unsigned char *traverse = (unsigned char *)cp.LeadByte;
 
     memset(MSVCRT_current_ctype, 0, sizeof(MSVCRT__ctype));
     MSVCRT___lc_codepage = codepage;
@@ -388,8 +387,8 @@ char *setlocale(int category, const char *locale)
   {
     MSVCRT_current_lc_all[0] = 'C';
     MSVCRT_current_lc_all[1] = '\0';
-    MSVCRT___lc_codepage = GetACP();
-    MSVCRT___lc_collate_cp = GetACP();
+    MSVCRT___lc_codepage = 1252;
+    MSVCRT___lc_collate_cp = 1252;
 
     switch (category) {
     case MSVCRT_LC_ALL:
@@ -594,7 +593,7 @@ const struct map_cntr {
 	{"united states", "united states"},
 	{"united-states", "united states"},
 	{"us", "united states"},
-	{"usa", "united states"}
+	{"usa" "united states"}
 };
 
 
@@ -672,13 +671,13 @@ int CDECL _setmbcp(int cp)
   }
 
   /* setup the _mbctype */
-  memset(_mbctype, 0, sizeof(_mbctype));
+  memset(MSVCRT_mbctype, 0, sizeof(MSVCRT_mbctype));
 
   bytes = cpi.LeadByte;
   while (bytes[0] || bytes[1])
   {
     for (i = bytes[0]; i <= bytes[1]; i++)
-      _mbctype[i + 1] |= _M1;
+      MSVCRT_mbctype[i + 1] |= _M1;
     bytes += 2;
   }
 
@@ -699,7 +698,7 @@ int CDECL _setmbcp(int cp)
         while (bytes[0] || bytes[1])
         {
           for (i = bytes[0]; i <= bytes[1]; i++)
-            _mbctype[i + 1] |= _M2;
+            MSVCRT_mbctype[i + 1] |= _M2;
           bytes += 2;
         }
         break;
@@ -714,7 +713,7 @@ int CDECL _setmbcp(int cp)
    */
   charcount = 0;
   for (i = 0; i < 256; i++)
-    if (!(_mbctype[i + 1] & _M1))
+    if (!(MSVCRT_mbctype[i + 1] & _M1))
       bufA[charcount++] = i;
 
   ret = MultiByteToWideChar(newcp, 0, bufA, charcount, bufW, charcount);
@@ -725,12 +724,12 @@ int CDECL _setmbcp(int cp)
 
   curr_type = chartypes;
   for (i = 0; i < 256; i++)
-    if (!(_mbctype[i + 1] & _M1))
+    if (!(MSVCRT_mbctype[i + 1] & _M1))
     {
 	if ((*curr_type) & C1_UPPER)
-	    _mbctype[i + 1] |= _SBUP;
+	    MSVCRT_mbctype[i + 1] |= _SBUP;
 	if ((*curr_type) & C1_LOWER)
-	    _mbctype[i + 1] |= _SBLOW;
+	    MSVCRT_mbctype[i + 1] |= _SBLOW;
 	curr_type++;
     }
 
@@ -742,9 +741,9 @@ int CDECL _setmbcp(int cp)
      * also faster execution.
      */
     for (i = 161; i <= 165; i++)
-      _mbctype[i + 1] |= _MP;
+      MSVCRT_mbctype[i + 1] |= _MP;
     for (i = 166; i <= 223; i++)
-      _mbctype[i + 1] |= _MS;
+      MSVCRT_mbctype[i + 1] |= _MS;
   }
 
   MSVCRT___lc_collate_cp = MSVCRT___lc_codepage = newcp;
@@ -803,15 +802,7 @@ void *_Gettnames(void)
  */
 void __lconv_init(void)
 {
-  char Char = (char) UCHAR_MAX;
-
-  TRACE("__lconv_init()\n");
-
-  _lconv.int_frac_digits = Char;
-  _lconv.frac_digits = Char;
-  _lconv.p_sep_by_space = _lconv.n_sep_by_space = Char;
-  _lconv.p_cs_precedes = _lconv.n_cs_precedes = Char;
-  _lconv.p_sign_posn = _lconv.n_sign_posn = Char;
+  FIXME(" stub\n");
 }
 
 

@@ -67,13 +67,10 @@ Dict *dictNewDict( void *frame,
 /* really __gl_dictListDeleteDict */
 void dictDeleteDict( Dict *dict )
 {
-  DictNode *node, *next;
+  DictNode *node;
 
-  node = dict->head.next;
-  while(node != &dict->head) {
-    next = node->next;
+  for( node = dict->head.next; node != &dict->head; node = node->next ) {
     memFree( node );
-    node = next;
   }
   memFree( dict );
 }

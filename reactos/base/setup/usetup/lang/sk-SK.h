@@ -1,7 +1,7 @@
 /* TRANSLATOR:  M rio KaŸm r /Mario Kacmar/ aka Kario (kario@szm.sk)
  * DATE OF TR:  22-01-2008
  * Encoding  :  Latin II (852)
- * LastChange:  20-06-2009
+ * LastChange:  15-06-08
  */
 
 #ifndef LANG_SK_SK_H__
@@ -370,34 +370,34 @@ static MUI_ENTRY skSKDevicePageEntries[] =
         TEXT_STYLE_NORMAL
     },
     {
-        24,
+        8,
         11,
-        "PoŸ¡taŸ:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "        PoŸ¡taŸ:",
+        TEXT_STYLE_NORMAL
     },
     {
-        24,
+        8,
         12,
-        "Monitor:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "        Monitor:",
+        TEXT_STYLE_NORMAL,
     },
     {
-        24,
+        8,
         13,
-        "Kl vesnica:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "     Kl vesnica:",
+        TEXT_STYLE_NORMAL
     },
     {
-        24,
+        8,
         14,
-        "Rozlo§enie kl.:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        " Rozlo§enie kl.:",
+        TEXT_STYLE_NORMAL
     },
     {
-        24,
+        8,
         16,
-        "Akceptovaœ:",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_RIGHT
+        "     Akceptovaœ:",
+        TEXT_STYLE_NORMAL
     },
     {
         25,
@@ -842,6 +842,7 @@ static MUI_ENTRY skSKSelectPartitionEntries[] =
         0,
         "PoŸkajte, pros¡m ...",
         TEXT_TYPE_STATUS | TEXT_PADDING_BIG
+
     },
     {
         0,
@@ -949,19 +950,19 @@ static MUI_ENTRY skSKFileCopyEntries[] =
         11,
         12,
         "PoŸkajte, pros¡m, kìm Inçtal tor skop¡ruje s£bory do inçtalaŸn‚ho",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        TEXT_STYLE_NORMAL
     },
     {
         30,
         13,
         "prieŸinka pre ReactOS.",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        TEXT_STYLE_NORMAL
     },
     {
         20,
         14,
         "DokonŸenie m“§e trvaœ nieko–ko min£t.",
-        TEXT_STYLE_NORMAL | TEXT_ALIGN_CENTER
+        TEXT_STYLE_NORMAL
     },
     {
         50,
@@ -1215,7 +1216,7 @@ static MUI_ENTRY skSKDeletePartitionEntries[] =
     {
         6,
         8,
-        "Vybrali ste si odstr nenie oblasti",
+        "Vybrali Ste si odstr nenie oblasti",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1323,8 +1324,7 @@ MUI_ERROR skSKErrorEntries[] =
     },
     {
         //ERROR_WRITE_BOOT,
-        "Inçtal toru sa nepodarilo nainçtalovaœ zav dzac¡ k¢d s£borov‚ho\n"
-        "syst‚mu FAT na syst‚mov£ part¡ciu.",
+        "Setup failed to install FAT bootcode on the system partition.",
         "ENTER = Reçtart poŸ¡taŸa"
     },
     {
@@ -1349,13 +1349,12 @@ MUI_ERROR skSKErrorEntries[] =
     },
     {
         //ERROR_WARN_PARTITION,
-//          "Inçtal tor zistil, §e najmenej jeden pevnì disk obsahuje nekompatibiln£\n"
-          "Inçtal tor naçiel najmenej na jednom pevnom disku nekompatibiln£\n"
-          "tabu–ku oblast¡, s ktorou sa ned  spr vne zaobch dzaœ!\n"
+          "Setup found that at least one harddisk contains an incompatible\n"
+          "partition table that can not be handled properly!\n"
           "\n"
           "Vytvorenie alebo odstr nenie oblast¡ m“§e zniŸiœ tabu–ku oblast¡.\n"
           "\n"
-          "  \x07  StlaŸte F3 pre skonŸenie inçtal cie.\n"
+          "  \x07  StlaŸte F3 pre skonŸenie inçtal cie."
           "  \x07  StlaŸte ENTER pre pokraŸovanie.",
           "F3 = SkonŸiœ  ENTER = PokraŸovaœ"
     },
@@ -1376,8 +1375,7 @@ MUI_ERROR skSKErrorEntries[] =
     },
     {
         //ERROR_INSTALL_BOOTCODE,
-        "Inçtal toru sa nepodarilo nainçtalovaœ zav dzac¡ k¢d s£borov‚ho\n"
-        "syst‚mu FAT na syst‚mov£ part¡ciu.",
+        "Setup failed to install the FAT bootcode on the system partition.",
         "ENTER = Reçtart poŸ¡taŸa"
     },
     {
@@ -1481,11 +1479,6 @@ MUI_ERROR skSKErrorEntries[] =
     {
         //ERROR_ADDING_KBLAYOUTS,
         "Inçtal tor zlyhal pri prid van¡ rozlo§en¡ kl vesnice do registrov.\n"
-        "ENTER = Reçtart poŸ¡taŸa"
-    },
-    {
-        //ERROR_UPDATE_GEOID,
-        "Inçtal tor nemohol nastaviœ geo id.\n"
         "ENTER = Reçtart poŸ¡taŸa"
     },
     {
@@ -1606,7 +1599,7 @@ MUI_STRING skSKStrings[] =
     {STRING_PARTITIONSIZE,
      "Ve–kosœ novej oblasti:"},
     {STRING_CHOOSENEWPARTITION,
-     "Zvolili ste vytvorenie novej oblasti na"},
+     "Zvolili Ste vytvorenie novej oblasti na"},
     {STRING_HDDSIZE,
     "Zadajte, pros¡m, ve–kosœ novej oblasti v megabajtoch."},
     {STRING_CREATEPARTITION,
@@ -1614,7 +1607,7 @@ MUI_STRING skSKStrings[] =
     {STRING_PARTFORMAT,
     "T to oblasœ sa bude form tovaœ ako Ôalçia."},
     {STRING_NONFORMATTEDPART,
-    "Zvolili ste inçtal ciu syst‚mu ReactOS na nov£ alebo nenaform tovan£ oblasœ."},
+    "Zvolili Ste inçtal ciu syst‚mu ReactOS na nov£ alebo nenaform tovan£ oblasœ."},
     {STRING_INSTALLONPART,
     "Inçtal tor nainçtaluje syst‚m ReactOS na oblasœ"},
     {STRING_CHECKINGPART,

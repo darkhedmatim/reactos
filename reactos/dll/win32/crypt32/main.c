@@ -33,16 +33,14 @@
 WINE_DEFAULT_DEBUG_CHANNEL(crypt);
 
 static HCRYPTPROV hDefProv;
-HINSTANCE hInstance;
 
-BOOL WINAPI DllMain(HINSTANCE hInst, DWORD fdwReason, PVOID pvReserved)
+BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, PVOID pvReserved)
 {
     switch (fdwReason)
     {
         case DLL_PROCESS_ATTACH:
-            hInstance = hInst;
-            DisableThreadLibraryCalls(hInst);
-            crypt_oid_init();
+            DisableThreadLibraryCalls(hInstance);
+            crypt_oid_init(hInstance);
             break;
         case DLL_PROCESS_DETACH:
             crypt_oid_free();
@@ -179,7 +177,7 @@ HCRYPTPROV WINAPI I_CryptGetDefaultCryptProv(DWORD reserved)
     if (reserved)
     {
         SetLastError(E_INVALIDARG);
-        return 0;
+        return (HCRYPTPROV)0;
     }
     ret = CRYPT_GetDefaultProvider();
     CryptContextAddRef(ret, NULL, 0);
@@ -244,4 +242,14 @@ ASN1encoding_t WINAPI I_CryptGetAsn1Encoder(HCRYPTASN1MODULE x)
 {
     FIXME("(%08x): stub\n", x);
     return NULL;
+}
+
+BOOL WINAPI CryptFormatObject(DWORD dwCertEncodingType, DWORD dwFormatType,
+ DWORD dwFormatStrType, void *pFormatStruct, LPCSTR lpszStructType,
+ const BYTE *pbEncoded, DWORD cbEncoded, void *pbFormat, DWORD *pcbFormat)
+{
+    FIXME("(%08x, %d, %d, %p, %s, %p, %d, %p, %p): stub\n",
+     dwCertEncodingType, dwFormatType, dwFormatStrType, pFormatStruct,
+     debugstr_a(lpszStructType), pbEncoded, cbEncoded, pbFormat, pcbFormat);
+    return FALSE;
 }

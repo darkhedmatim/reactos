@@ -17,7 +17,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetAclInformation(PACL pAcl,
                   LPVOID pAclInformation,
                   DWORD nAclInformationLength,
@@ -43,7 +43,7 @@ GetAclInformation(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 InitializeAcl(PACL pAcl,
               DWORD nAclLength,
               DWORD dwAclRevision)
@@ -67,7 +67,7 @@ InitializeAcl(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsValidAcl(PACL pAcl)
 {
     return RtlValidAcl (pAcl);
@@ -78,7 +78,7 @@ IsValidAcl(PACL pAcl)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetAclInformation(PACL pAcl,
                   LPVOID pAclInformation,
                   DWORD nAclInformationLength,
@@ -106,7 +106,7 @@ SetAclInformation(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAccessAllowedAce(PACL pAcl,
                     DWORD dwAceRevision,
                     DWORD AccessMask,
@@ -131,7 +131,7 @@ AddAccessAllowedAce(PACL pAcl,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AddAccessAllowedAceEx(PACL pAcl,
                       DWORD dwAceRevision,
                       DWORD AceFlags,
@@ -159,7 +159,7 @@ AddAccessAllowedAceEx(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAccessAllowedObjectAce(PACL pAcl,
                           DWORD dwAceRevision,
                           DWORD AceFlags,
@@ -191,7 +191,7 @@ AddAccessAllowedObjectAce(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAccessDeniedAce(PACL pAcl,
                    DWORD dwAceRevision,
                    DWORD AccessMask,
@@ -216,7 +216,7 @@ AddAccessDeniedAce(PACL pAcl,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AddAccessDeniedAceEx(PACL pAcl,
                      DWORD dwAceRevision,
                      DWORD AceFlags,
@@ -244,7 +244,7 @@ AddAccessDeniedAceEx(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAccessDeniedObjectAce(PACL pAcl,
                          DWORD dwAceRevision,
                          DWORD AceFlags,
@@ -276,7 +276,7 @@ AddAccessDeniedObjectAce(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAce(PACL pAcl,
        DWORD dwAceRevision,
        DWORD dwStartingAceIndex,
@@ -304,7 +304,7 @@ AddAce(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAuditAccessAce(PACL pAcl,
                   DWORD dwAceRevision,
                   DWORD dwAccessMask,
@@ -333,7 +333,7 @@ AddAuditAccessAce(PACL pAcl,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AddAuditAccessAceEx(PACL pAcl,
                     DWORD dwAceRevision,
                     DWORD AceFlags,
@@ -365,7 +365,7 @@ AddAuditAccessAceEx(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AddAuditAccessObjectAce(PACL pAcl,
                         DWORD dwAceRevision,
                         DWORD AceFlags,
@@ -430,7 +430,7 @@ AddMandatoryAce(IN OUT PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteAce(PACL pAcl,
           DWORD dwAceIndex)
 {
@@ -452,7 +452,7 @@ DeleteAce(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindFirstFreeAce(PACL pAcl,
                  LPVOID *pAce)
 {
@@ -465,7 +465,7 @@ FindFirstFreeAce(PACL pAcl,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetAce(PACL pAcl,
        DWORD dwAceIndex,
        LPVOID *pAce)
@@ -489,7 +489,7 @@ GetAce(PACL pAcl,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetInheritanceSourceW(LPWSTR pObjectName,
                       SE_OBJECT_TYPE ObjectType,
                       SECURITY_INFORMATION SecurityInfo,
@@ -527,7 +527,7 @@ GetInheritanceSourceW(LPWSTR pObjectName,
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 GetInheritanceSourceA(LPSTR pObjectName,
                       SE_OBJECT_TYPE ObjectType,
                       SECURITY_INFORMATION SecurityInfo,
@@ -549,7 +549,7 @@ GetInheritanceSourceA(LPSTR pObjectName,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 FreeInheritedFromArray(PINHERITED_FROMW pInheritArray,
                        USHORT AceCnt,
                        PFN_OBJECT_MGR_FUNCTS pfnArray  OPTIONAL)
@@ -573,7 +573,7 @@ FreeInheritedFromArray(PINHERITED_FROMW pInheritArray,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 SetEntriesInAclW(ULONG cCountOfExplicitEntries,
                  PEXPLICIT_ACCESS_W pListOfExplicitEntries,
                  PACL OldAcl,
@@ -729,7 +729,15 @@ InternalTrusteeAToW(IN PTRUSTEE_A pTrusteeA,
                                             StrBuf,
                                             BufferSize) == 0)
                     {
-                        goto ConvertErr;
+ConvertErr:
+                        ErrorCode = GetLastError();
+
+                        /* cleanup */
+                        RtlFreeHeap(RtlGetProcessHeap(),
+                                    0,
+                                    *pTrusteeW);
+
+                        return ErrorCode;
                     }
                     oan->ptstrName = StrBuf;
                 }
@@ -749,16 +757,6 @@ NothingToConvert:
             break;
         }
     }
-
-    return ErrorCode;
-
-ConvertErr:
-    ErrorCode = GetLastError();
-
-    /* cleanup */
-    RtlFreeHeap(RtlGetProcessHeap(),
-                0,
-                *pTrusteeW);
 
     return ErrorCode;
 }
@@ -932,7 +930,15 @@ InternalExplicitAccessAToW(IN ULONG cCountOfExplicitEntries,
                                                     StrBuf,
                                                     BufferSize) == 0)
                             {
-                                goto ConvertErr;
+ConvertErr:
+                                ErrorCode = GetLastError();
+
+                                /* cleanup */
+                                RtlFreeHeap(RtlGetProcessHeap(),
+                                            0,
+                                            peaw);
+
+                                return ErrorCode;
                             }
                             oan->ptstrName = StrBuf;
 
@@ -967,16 +973,6 @@ RawTrusteeCopy:
     }
 
     return ErrorCode;
-
-ConvertErr:
-    ErrorCode = GetLastError();
-
-    /* cleanup */
-    RtlFreeHeap(RtlGetProcessHeap(),
-                0,
-                peaw);
-
-    return ErrorCode;
 }
 
 
@@ -984,7 +980,7 @@ ConvertErr:
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 SetEntriesInAclA(ULONG cCountOfExplicitEntries,
                  PEXPLICIT_ACCESS_A pListOfExplicitEntries,
                  PACL OldAcl,
@@ -1017,7 +1013,7 @@ SetEntriesInAclA(ULONG cCountOfExplicitEntries,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetExplicitEntriesFromAclW(PACL pacl,
                            PULONG pcCountOfExplicitEntries,
                            PEXPLICIT_ACCESS_W *pListOfExplicitEntries)
@@ -1041,7 +1037,7 @@ GetExplicitEntriesFromAclW(PACL pacl,
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 GetEffectiveRightsFromAclW(IN PACL pacl,
                            IN PTRUSTEE_W pTrustee,
                            OUT PACCESS_MASK pAccessRights)
@@ -1055,7 +1051,7 @@ GetEffectiveRightsFromAclW(IN PACL pacl,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetEffectiveRightsFromAclA(IN PACL pacl,
                            IN PTRUSTEE_A pTrustee,
                            OUT PACCESS_MASK pAccessRights)
@@ -1085,7 +1081,7 @@ GetEffectiveRightsFromAclA(IN PACL pacl,
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 GetAuditedPermissionsFromAclW(IN PACL pacl,
                               IN PTRUSTEE_W pTrustee,
                               OUT PACCESS_MASK pSuccessfulAuditedRights,
@@ -1100,7 +1096,7 @@ GetAuditedPermissionsFromAclW(IN PACL pacl,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetAuditedPermissionsFromAclA(IN PACL pacl,
                               IN PTRUSTEE_A pTrustee,
                               OUT PACCESS_MASK pSuccessfulAuditedRights,

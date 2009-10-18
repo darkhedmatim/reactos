@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="input" type="win32dll" extension=".dll" baseaddress="${BASEADDRESS_INPUT}" installbase="system32" installname="input.dll" unicode="yes">
-	<importlibrary definition="input.spec" />
+	<importlibrary definition="input.def" />
 	<include base="input">.</include>
 	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>user32</library>
 	<library>comctl32</library>
+	<library>msvcrt</library>
 	<library>gdi32</library>
 	<file>input.c</file>
 	<file>settings.c</file>

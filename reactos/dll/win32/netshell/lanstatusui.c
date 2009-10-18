@@ -336,7 +336,7 @@ AddIPAddressToListView(
         {
             ZeroMemory(&li, sizeof(LVITEMW));
             li.mask = LVIF_TEXT;
-            li.iItem = Index;
+            li.iItem = ListView_GetItemCount(hDlgCtrl);
             li.iSubItem = 0;
             li.pszText = L"";
             li.iItem = SendMessageW(hDlgCtrl, LVM_INSERTITEMW, 0, (LPARAM)&li);
@@ -346,7 +346,7 @@ AddIPAddressToListView(
         {
             li.pszText = szBuffer;
             li.iSubItem = 1;
-            li.iItem = Index++;
+            li.iItem = ListView_GetItemCount(hDlgCtrl);
             SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&li);
         }
         SubIndex++;
@@ -365,7 +365,7 @@ InsertItemToListView(
     ZeroMemory(&li, sizeof(LVITEMW));
     li.mask = LVIF_TEXT;
     li.iItem = ListView_GetItemCount(hDlgCtrl);
-    if (LoadStringW(netshell_hInstance, ResId, szBuffer, sizeof(szBuffer)/sizeof(WCHAR)))
+    if (LoadStringW(netshell_hInstance, IDS_PHYSICAL_ADDRESS, szBuffer, sizeof(szBuffer)/sizeof(WCHAR)))
     {
         li.pszText = szBuffer;
         return (INT)SendMessageW(hDlgCtrl, LVM_INSERTITEMW, 0, (LPARAM)&li);
@@ -398,7 +398,7 @@ LANStatusUiDetailsDlg(
 
             hDlgCtrl = GetDlgItem(hwndDlg, IDC_DETAILS);
             InsertColumnToListView(hDlgCtrl, IDS_PROPERTY, 0, 80);
-            InsertColumnToListView(hDlgCtrl, IDS_VALUE, 1, 80);
+            InsertColumnToListView(hDlgCtrl, IDS_VALUE, 0, 80);
 
             dwSize = 0;
             pCurAdapter = NULL;
@@ -429,11 +429,9 @@ LANStatusUiDetailsDlg(
             {
                 li.iItem = InsertItemToListView(hDlgCtrl, IDS_PHYSICAL_ADDRESS);
                 if (li.iItem >= 0)
-                {
-                    swprintf(szBuffer, L"%02x-%02x-%02x-%02x-%02x-%02x",pCurAdapter->Address[0], pCurAdapter->Address[1],
-                             pCurAdapter->Address[2], pCurAdapter->Address[3], pCurAdapter->Address[4], pCurAdapter->Address[5]);
-                    SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&li);
-                }
+                    if (MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pCurAdapter->Address, -1, szBuffer, sizeof(szBuffer)/sizeof(WCHAR)))
+                        SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&li);
+
                 li.iItem = InsertItemToListView(hDlgCtrl, IDS_IP_ADDRESS);
                 if (li.iItem >= 0)
                     if (MultiByteToWideChar(CP_ACP, 0, pCurAdapter->IpAddressList.IpAddress.String, -1, szBuffer, sizeof(szBuffer)/sizeof(WCHAR)))
@@ -445,11 +443,10 @@ LANStatusUiDetailsDlg(
                         SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&li);
 
                 li.iItem = InsertItemToListView(hDlgCtrl, IDS_DEF_GATEWAY);
-                if (li.iItem >= 0 && pCurAdapter->GatewayList.IpAddress.String[0] != '0')
-                {
-                    if (MultiByteToWideChar(CP_ACP, 0, pCurAdapter->GatewayList.IpAddress.String, -1, szBuffer, sizeof(szBuffer)/sizeof(WCHAR)))
+                if (li.iItem >= 0)
+                    if (MultiByteToWideChar(CP_ACP, 0, pCurAdapter->DhcpServer.IpAddress.String, -1, szBuffer, sizeof(szBuffer)/sizeof(WCHAR)))
                         SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&li);
-                }
+
 #if 0
                 li.iItem = InsertItemToListView(hDlgCtrl, IDS_LEASE_OBTAINED);
                 li.iItem = InsertItemToListView(hDlgCtrl, IDS_LEASE_EXPIRES);
@@ -481,12 +478,6 @@ LANStatusUiDetailsDlg(
 #endif
             CoTaskMemFree(pAdapterInfo);
             break;
-        case WM_COMMAND:
-            if (LOWORD(wParam) == IDC_CLOSE)
-            {
-                EndDialog(hwndDlg, FALSE);
-                break;
-            }
     }
     return FALSE;
 }
@@ -532,12 +523,10 @@ LANStatusUiAdvancedDlg(
             SendDlgItemMessageW(hwndDlg, IDC_DETAILSSUBNET, WM_SETTEXT, 0, (LPARAM)szBuffer);
 
             dwIpAddr = ntohl(pContext->Gateway);
-            if (dwIpAddr)
-            {
-                swprintf(szBuffer, L"%u.%u.%u.%u", FIRST_IPADDRESS(dwIpAddr), SECOND_IPADDRESS(dwIpAddr),
-                         THIRD_IPADDRESS(dwIpAddr), FOURTH_IPADDRESS(dwIpAddr));
-                SendDlgItemMessageW(hwndDlg, IDC_DETAILSGATEWAY, WM_SETTEXT, 0, (LPARAM)szBuffer);
-            }
+            swprintf(szBuffer, L"%u.%u.%u.%u", FIRST_IPADDRESS(dwIpAddr), SECOND_IPADDRESS(dwIpAddr),
+                     THIRD_IPADDRESS(dwIpAddr), FOURTH_IPADDRESS(dwIpAddr));
+            SendDlgItemMessageW(hwndDlg, IDC_DETAILSGATEWAY, WM_SETTEXT, 0, (LPARAM)szBuffer);
+
             return TRUE;
         case WM_COMMAND:
             if (LOWORD(wParam) == IDC_DETAILS)
@@ -555,157 +544,6 @@ LANStatusUiAdvancedDlg(
     }
     return FALSE;
 }
-
-BOOL
-FindNetworkAdapter(HDEVINFO hInfo, SP_DEVINFO_DATA *pDevInfo, LPWSTR pGuid)
-{
-    DWORD dwIndex, dwSize;
-    HKEY hSubKey;
-    WCHAR szNetCfg[50];
-    WCHAR szDetail[200] = L"SYSTEM\\CurrentControlSet\\Control\\Class\\";
-
-    dwIndex = 0;
-    do
-    {
-
-        ZeroMemory(pDevInfo, sizeof(SP_DEVINFO_DATA));
-        pDevInfo->cbSize = sizeof(SP_DEVINFO_DATA);
-
-        /* get device info */
-        if (!SetupDiEnumDeviceInfo(hInfo, dwIndex++, pDevInfo))
-            break;
-
-        /* get device software registry path */
-        if (!SetupDiGetDeviceRegistryPropertyW(hInfo, pDevInfo, SPDRP_DRIVER, NULL, (LPBYTE)&szDetail[39], sizeof(szDetail)/sizeof(WCHAR) - 40, &dwSize))
-            break;
-
-        /* open device registry key */
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, szDetail, 0, KEY_READ, &hSubKey) != ERROR_SUCCESS)
-            break;
-
-        /* query NetCfgInstanceId for current device */
-        dwSize = sizeof(szNetCfg);
-        if (RegQueryValueExW(hSubKey, L"NetCfgInstanceId", NULL, NULL, (LPBYTE)szNetCfg, &dwSize) != ERROR_SUCCESS)
-        {
-            RegCloseKey(hSubKey);
-            break;
-        }
-        RegCloseKey(hSubKey);
-        if (!_wcsicmp(pGuid, szNetCfg))
-        {
-            return TRUE;
-        }
-    }
-    while(TRUE);
-
-    return FALSE;
-}
-
-
-
-VOID
-DisableNetworkAdapter(INetConnection * pNet, LANSTATUSUI_CONTEXT * pContext, HWND hwndDlg)
-{
-    HKEY hKey;
-    NETCON_PROPERTIES * pProperties;
-    LPOLESTR pDisplayName;
-    WCHAR szPath[200];
-    DWORD dwSize, dwType;
-    LPWSTR pPnp;
-    HDEVINFO hInfo;
-    SP_DEVINFO_DATA DevInfo;
-    SP_PROPCHANGE_PARAMS PropChangeParams;
-    BOOL bClose = FALSE;
-    NOTIFYICONDATAW nid;
-
-    if (FAILED(INetConnection_GetProperties(pNet, &pProperties)))
-        return;
-
-
-    hInfo = SetupDiGetClassDevsW(&GUID_DEVCLASS_NET, NULL, NULL, DIGCF_PRESENT );
-    if (!hInfo)
-    {
-        NcFreeNetconProperties(pProperties);
-        return;
-    }
-
-    if (FAILED(StringFromCLSID(&pProperties->guidId, &pDisplayName)))
-    {
-        NcFreeNetconProperties(pProperties);
-        SetupDiDestroyDeviceInfoList(hInfo);
-        return;
-    }
-    NcFreeNetconProperties(pProperties);
-
-    if (FindNetworkAdapter(hInfo, &DevInfo, pDisplayName))
-    {
-        PropChangeParams.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
-        PropChangeParams.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE; //;
-        PropChangeParams.StateChange = DICS_DISABLE;
-        PropChangeParams.Scope = DICS_FLAG_CONFIGSPECIFIC;
-        PropChangeParams.HwProfile = 0;
-
-        if (SetupDiSetClassInstallParams(hInfo, &DevInfo, &PropChangeParams.ClassInstallHeader, sizeof(SP_PROPCHANGE_PARAMS)))
-        {
-            if (SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, hInfo, &DevInfo))
-                bClose = TRUE;
-        }
-    }
-    SetupDiDestroyDeviceInfoList(hInfo);
-
-    swprintf(szPath, L"SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}\\%s\\Connection", pDisplayName);
-    CoTaskMemFree(pDisplayName);
-
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, szPath, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
-        return;
-
-    dwSize = 0;
-    if (RegQueryValueExW(hKey, L"PnpInstanceID", NULL, &dwType, NULL, &dwSize) != ERROR_SUCCESS || dwType != REG_SZ)
-    {
-        RegCloseKey(hKey);
-        return;
-    }
-
-    pPnp = (LPWSTR)CoTaskMemAlloc(dwSize);
-    if (!pPnp)
-    {
-        RegCloseKey(hKey);
-        return;
-    }
-
-    if (RegQueryValueExW(hKey, L"PnpInstanceID", NULL, &dwType, (LPBYTE)pPnp, &dwSize) != ERROR_SUCCESS)
-    {
-        CoTaskMemFree(pPnp);
-        RegCloseKey(hKey);
-        return;
-    }
-    RegCloseKey(hKey);
-
-    swprintf(szPath, L"System\\CurrentControlSet\\Hardware Profiles\\Current\\System\\CurrentControlSet\\Enum\\%s", pPnp);
-    CoTaskMemFree(pPnp);
-
-    if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, szPath, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
-        return;
-
-    dwSize = 1; /* enable = 0, disable = 1 */
-    RegSetValueExW(hKey, L"CSConfigFlags", 0, REG_DWORD, (LPBYTE)&dwSize, sizeof(DWORD));
-    RegCloseKey(hKey);
-
-    if (!bClose)
-       return;
-
-    PropSheet_PressButton(GetParent(hwndDlg), PSBTN_CANCEL);
-    ZeroMemory(&nid, sizeof(nid));
-    nid.cbSize = sizeof(nid);
-    nid.uID = pContext->uID;
-    nid.hWnd = pContext->hwndDlg;
-    nid.uFlags = NIF_STATE;
-    nid.dwState = NIS_HIDDEN;
-    nid.dwStateMask = NIS_HIDDEN;
-
-    Shell_NotifyIconW(NIM_MODIFY, &nid);
-}
-
 
 INT_PTR
 CALLBACK
@@ -742,7 +580,8 @@ LANStatusUiDlg(
             }
             else if (LOWORD(wParam) == IDC_ENDISABLE)
             {
-                DisableNetworkAdapter(pContext->pNet, pContext, hwndDlg);
+                //FIXME
+                // disable network adapter
                 break;
             }
         case WM_NOTIFY:
@@ -750,7 +589,7 @@ LANStatusUiDlg(
             if (lppsn->hdr.code == PSN_APPLY || lppsn->hdr.code == PSN_RESET)
             {
                 pContext = (LANSTATUSUI_CONTEXT*)GetWindowLongPtr(hwndDlg, DWLP_USER);
-                SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
+                SetWindowLong(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
                 pContext->hwndDlg = NULL;
                 return TRUE;
             }

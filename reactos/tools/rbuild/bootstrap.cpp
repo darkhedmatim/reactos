@@ -63,13 +63,14 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case ObjectLibrary:
 		case Iso:
 		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
 		case Test:
 		case RpcServer:
 		case RpcClient:
 		case RpcProxy:
 		case Alias:
 		case IdlHeader:
-		case IdlInterface:
 		case MessageHeader:
 		case EmbeddedTypeLib:
 		case ElfExecutable:

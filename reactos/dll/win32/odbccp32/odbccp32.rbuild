@@ -12,5 +12,6 @@
 	<library>uuid</library>
 	<library>ntdll</library>
 	<file>odbccp32.c</file>
+	<file>odbccp32.spec</file>
 </module>
 </group>

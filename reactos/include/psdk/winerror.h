@@ -1,5 +1,8 @@
 #ifndef _WINERROR_H
 #define _WINERROR_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #define FACILITY_NULL                         0
 #define FACILITY_RPC                          1
@@ -267,7 +270,7 @@
 #define ERROR_INVALID_EA_NAME                              254
 #define ERROR_EA_LIST_INCONSISTENT                         255
 #ifndef WAIT_TIMEOUT /* also in winbase.h */
-#define WAIT_TIMEOUT 258
+#define WAIT_TIMEOUT 258L
 #endif
 #define ERROR_NO_MORE_ITEMS                                259
 #define ERROR_CANNOT_COPY                                  266

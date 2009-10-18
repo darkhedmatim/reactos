@@ -400,13 +400,17 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				fprintf ( OUT, ";" );
 
 			string unescaped = *it1;
-			fprintf ( OUT, "%s", _replace_str(unescaped, "\"","").c_str() );
+			defines.erase(unescaped);
+			const string& escaped = _replace_str(unescaped, "\"","");
+
+			defines.insert(escaped);
+			fprintf ( OUT, "%s", escaped.c_str() );
 		}
 		fprintf ( OUT, "\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tForcedIncludeFiles=\"%s\"\r\n", "warning.h");
 		fprintf ( OUT, "\t\t\t\tMinimalRebuild=\"%s\"\r\n", speed ? "TRUE" : "FALSE" );
 		fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"0\"\r\n" );
-		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 3 : 2 );	// 3=/MDd 2=/MD
+		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 1 : 5 );	// 1=/MTd 5=/MT
 		fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"FALSE\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tEnableFunctionLevelLinking=\"FALSE\"\r\n" );
 
@@ -467,7 +471,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			fprintf ( OUT, "\t\t\t<Tool\r\n" );
 			fprintf ( OUT, "\t\t\t\tName=\"VCLinkerTool\"\r\n" );
-			if (module.GetEntryPoint(false) == "0" && sys == false)
+			if (module.GetEntryPoint(false) == "0")
 				fprintf ( OUT, "AdditionalOptions=\"/noentry\"" );
 
 			if (configuration.VSProjectVersion == "9.00")
@@ -540,10 +544,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 			if ( sys )
 			{
-				if (module.GetEntryPoint(false) == "0")
-					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /noentry /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
-				else
-					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
+				fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tIgnoreAllDefaultLibraries=\"TRUE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tGenerateManifest=\"FALSE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tSubSystem=\"%d\"\r\n", 3 );

@@ -38,7 +38,7 @@
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CopyRect(LPRECT lprcDst,
          CONST RECT *lprcSrc)
 {
@@ -54,7 +54,7 @@ CopyRect(LPRECT lprcDst,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EqualRect(CONST RECT *lprc1,
           CONST RECT *lprc2)
 {
@@ -70,7 +70,7 @@ EqualRect(CONST RECT *lprc1,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 InflateRect(LPRECT rect,
             int dx,
             int dy)
@@ -87,7 +87,7 @@ InflateRect(LPRECT rect,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IntersectRect(LPRECT lprcDst,
               CONST RECT *lprcSrc1,
               CONST RECT *lprcSrc2)
@@ -113,7 +113,7 @@ IntersectRect(LPRECT lprcDst,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsRectEmpty(CONST RECT *lprc)
 {
     return((lprc->left >= lprc->right) || (lprc->top >= lprc->bottom));
@@ -124,7 +124,7 @@ IsRectEmpty(CONST RECT *lprc)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 OffsetRect(LPRECT rect,
            int dx,
            int dy)
@@ -144,7 +144,7 @@ OffsetRect(LPRECT rect,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PtInRect(CONST RECT *lprc,
          POINT pt)
 {
@@ -153,7 +153,7 @@ PtInRect(CONST RECT *lprc,
 }
 
 BOOL
-WINAPI
+STDCALL
 SetRect(LPRECT lprc,
         int xLeft,
         int yTop,
@@ -172,7 +172,7 @@ SetRect(LPRECT lprc,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetRectEmpty(LPRECT lprc)
 {
     lprc->left = lprc->right = lprc->top = lprc->bottom = 0;
@@ -184,7 +184,7 @@ SetRectEmpty(LPRECT lprc)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SubtractRect(LPRECT lprcDst,
              CONST RECT *lprcSrc1,
              CONST RECT *lprcSrc2)
@@ -227,7 +227,7 @@ SubtractRect(LPRECT lprcDst,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 UnionRect(LPRECT lprcDst,
           CONST RECT *lprcSrc1,
           CONST RECT *lprcSrc2)

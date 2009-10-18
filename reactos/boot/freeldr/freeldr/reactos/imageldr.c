@@ -1,5 +1,6 @@
 #include <freeldr.h>
 #include <debug.h>
+#undef DbgPrint
 
 extern BOOLEAN FrLdrBootType;
 
@@ -65,7 +66,7 @@ LdrPEGetOrLoadModule(IN PCHAR ModuleName,
 
 ULONG_PTR
 NTAPI
-FrLdrLoadModule(PFILE ModuleImage,
+FrLdrLoadModule(FILE *ModuleImage,
                 LPCSTR ModuleName,
                 PULONG ModuleSize)
 {
@@ -177,7 +178,7 @@ FrLdrCloseModule(ULONG_PTR ModuleBase,
     if (ModuleData) {
         
         /* Make sure this is the right module and that it hasn't been closed */
-        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == MAXULONG_PTR)) {
+        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == (ULONG_PTR)-1)) {
             
             /* Close the Module */
             ModuleData->ModEnd = ModuleData->ModStart + ModuleSize;
@@ -435,7 +436,7 @@ LdrPEFixupImports(IN PVOID DllBase,
 
 PVOID
 NTAPI
-FrLdrReadAndMapImage(IN PFILE Image,
+FrLdrReadAndMapImage(IN FILE *Image,
                      IN PCHAR Name,
                      IN ULONG ImageType)
 {
@@ -445,15 +446,13 @@ FrLdrReadAndMapImage(IN PFILE Image,
     PIMAGE_NT_HEADERS NtHeader;
     PIMAGE_SECTION_HEADER Section;
     NTSTATUS Status = STATUS_SUCCESS;
-    PLOADER_MODULE pModule;
 
     /* Try to see, maybe it's loaded already */
-    if ((pModule = LdrGetModuleObject(Name)) != NULL)
+    if (LdrGetModuleObject(Name) != NULL)
     {
-        /* It's loaded, return LoadBase */
-        ImageBase = (PVOID)pModule->ModStart;
-        LoadBase = RVA(ImageBase, -KSEG0_BASE);
-        return LoadBase;
+        /* It's loaded, return NULL. It would be wise to return
+         correct LoadBase, but it seems to be ignored almost everywhere */
+        return NULL;
     }
 
     /* Set the virtual (image) and physical (load) addresses */
@@ -482,11 +481,6 @@ FrLdrReadAndMapImage(IN PFILE Image,
 
     /* Get image headers */
     NtHeader = RtlImageNtHeader(ReadBuffer);
-    if (!NtHeader)
-    {
-	DbgPrint("Failed to read image (bad PE signature) %s\n", Name);
-	return NULL;
-    }
 
     /* Allocate memory for the driver */
     ImageSize = NtHeader->OptionalHeader.SizeOfImage;
@@ -549,12 +543,6 @@ FrLdrReadAndMapImage(IN PFILE Image,
                               Section[i].Misc.VirtualSize);
             }
         }
-        else
-        {
-            DbgPrint("Section %s in %s doesn't fit: VA: %lx, Size: %lx\n", 
-                      Section[i].Name, Name, Section[i].VirtualAddress,
-                      Section[i].Misc.VirtualSize);
-        }
     }
 
     /* Calculate Difference between Real Base and Compiled Base*/
@@ -563,11 +551,7 @@ FrLdrReadAndMapImage(IN PFILE Image,
                                       (ULONG_PTR)LoadBase,
                                       "FreeLdr",
                                       STATUS_SUCCESS,
-#ifdef _M_AMD64
-                                      STATUS_SUCCESS, // allow stripped files
-#else
                                       STATUS_UNSUCCESSFUL,
-#endif
                                       STATUS_UNSUCCESSFUL);
     if (!NT_SUCCESS(Status))
     {
@@ -674,7 +658,7 @@ FrLdrReMapImage(IN PVOID Base,
 
 PVOID
 NTAPI
-FrLdrMapImage(IN PFILE Image,
+FrLdrMapImage(IN FILE *Image,
               IN PCHAR Name,
               IN ULONG ImageType)
 {

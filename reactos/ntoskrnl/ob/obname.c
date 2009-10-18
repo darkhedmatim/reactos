@@ -100,8 +100,7 @@ ObpCreateDosDevicesDirectory(VOID)
     /* FIXME: Hack Hack! */
     ObSystemDeviceMap = ExAllocatePoolWithTag(NonPagedPool,
                                               sizeof(*ObSystemDeviceMap),
-                                              'mDbO');
-    if (!ObSystemDeviceMap) return STATUS_INSUFFICIENT_RESOURCES;
+                                              TAG('O', 'b', 'D', 'm'));
     RtlZeroMemory(ObSystemDeviceMap, sizeof(*ObSystemDeviceMap));
 
     /* Return status */
@@ -283,6 +282,7 @@ ObpLookupObjectName(IN HANDLE RootHandle OPTIONAL,
     POBJECT_HEADER ObjectHeader;
     UNICODE_STRING ComponentName, RemainingName;
     BOOLEAN Reparse = FALSE, SymLink = FALSE;
+    PDEVICE_MAP DeviceMap = NULL;
     POBJECT_DIRECTORY Directory = NULL, ParentDirectory = NULL, RootDirectory;
     POBJECT_DIRECTORY ReferencedDirectory = NULL, ReferencedParentDirectory = NULL;
     KIRQL CalloutIrql;
@@ -497,7 +497,13 @@ ObpLookupObjectName(IN HANDLE RootHandle OPTIONAL,
         else
         {
 ParseFromRoot:
-            /* FIXME: Check if we have a device map */
+            /* Check if we have a device map */
+            if (DeviceMap)
+            {
+                /* Dereference it */
+                //ObfDereferenceDeviceMap(DeviceMap);
+                DeviceMap = NULL;
+            }
 
             /* Check if this is a possible DOS name */
             if (!((ULONG_PTR)(ObjectName->Buffer) & 7))

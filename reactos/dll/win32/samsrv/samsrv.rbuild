@@ -7,4 +7,5 @@
 	<library>kernel32</library>
 	<file>samsrv.c</file>
 	<file>samsrv.rc</file>
+	<file>samsrv.spec</file>
 </module>

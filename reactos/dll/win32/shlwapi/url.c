@@ -118,7 +118,7 @@ static const unsigned char HashDataLookup[256] = {
 
 static DWORD get_scheme_code(LPCWSTR scheme, DWORD scheme_len)
 {
-    unsigned int i;
+    int i;
 
     for(i=0; i < sizeof(shlwapi_schemes)/sizeof(shlwapi_schemes[0]); i++) {
         if(scheme_len == strlenW(shlwapi_schemes[i].scheme_name)
@@ -128,6 +128,19 @@ static DWORD get_scheme_code(LPCWSTR scheme, DWORD scheme_len)
 
     return URL_SCHEME_UNKNOWN;
 }
+
+static BOOL URL_JustLocation(LPCWSTR str)
+{
+    while(*str && (*str == '/')) str++;
+    if (*str) {
+        while (*str && ((*str == '-') ||
+                        (*str == '.') ||
+			isalnumW(*str))) str++;
+        if (*str == '/') return FALSE;
+    }
+    return TRUE;
+}
+
 
 /*************************************************************************
  *      @	[SHLWAPI.1]
@@ -301,8 +314,8 @@ HRESULT WINAPI UrlCanonicalizeW(LPCWSTR pszUrl, LPWSTR pszCanonicalized,
     HRESULT hr = S_OK;
     DWORD EscapeFlags;
     LPWSTR lpszUrlCpy, wk1, wk2, mp, mp2, root;
-    INT state;
-    DWORD nByteLen, nLen, nWkLen;
+    INT nByteLen, state;
+    DWORD nLen, nWkLen;
     WCHAR slash = '/';
 
     static const WCHAR wszFile[] = {'f','i','l','e',':'};
@@ -319,7 +332,7 @@ HRESULT WINAPI UrlCanonicalizeW(LPCWSTR pszUrl, LPWSTR pszCanonicalized,
         return S_OK;
     }
 
-    nByteLen = (strlenW(pszUrl) + 1) * sizeof(WCHAR); /* length in bytes */
+    nByteLen = (lstrlenW(pszUrl) + 1) * sizeof(WCHAR); /* length in bytes */
     lpszUrlCpy = HeapAlloc(GetProcessHeap(), 0,
                            INTERNET_MAX_URL_LENGTH * sizeof(WCHAR));
 
@@ -595,6 +608,7 @@ HRESULT WINAPI UrlCombineW(LPCWSTR pszBase, LPCWSTR pszRelative,
     DWORD len, res1, res2, process_case = 0;
     LPWSTR work, preliminary, mbase, mrelative;
     static const WCHAR myfilestr[] = {'f','i','l','e',':','/','/','/','\0'};
+    static const WCHAR single_slash[] = {'/','\0'};
     HRESULT ret;
 
     TRACE("(base %s, Relative %s, Combine size %d, flags %08x)\n",
@@ -754,8 +768,14 @@ HRESULT WINAPI UrlCombineW(LPCWSTR pszBase, LPCWSTR pszRelative,
 	strcatW(preliminary, mrelative);
 	break;
 
-    case 2:  /* case where pszRelative replaces scheme, and location */
+    case 2:  /*
+	      * Same as case 1, but if URL_PLUGGABLE_PROTOCOL was specified
+	      * and pszRelative starts with "//", then append a "/"
+	      */
 	strcpyW(preliminary, mrelative);
+	if (!(dwFlags & URL_PLUGGABLE_PROTOCOL) &&
+	    URL_JustLocation(relative.pszSuffix))
+	    strcatW(preliminary, single_slash);
 	break;
 
     case 3:  /*
@@ -1569,7 +1589,7 @@ static HRESULT URL_GuessScheme(LPCWSTR pszIn, LPWSTR pszOut, LPDWORD pcchOut)
 	index++;
     }
     RegCloseKey(newkey);
-    return E_FAIL;
+    return -1;
 }
 
 static HRESULT URL_ApplyDefault(LPCWSTR pszIn, LPWSTR pszOut, LPDWORD pcchOut)
@@ -1632,7 +1652,7 @@ HRESULT WINAPI UrlApplySchemeW(LPCWSTR pszIn, LPWSTR pszOut, LPDWORD pcchOut, DW
     if (res1) {
 	/* no scheme in input, need to see if we need to guess */
 	if (dwFlags & URL_APPLY_GUESSSCHEME) {
-	    if ((ret = URL_GuessScheme(pszIn, pszOut, pcchOut)) != E_FAIL)
+	    if ((ret = URL_GuessScheme(pszIn, pszOut, pcchOut)) != -1)
 		return ret;
 	}
     }
@@ -2381,36 +2401,4 @@ HRESULT WINAPI MLBuildResURLW(LPCWSTR lpszLibName, HMODULE hMod, DWORD dwFlags,
     }
   }
   return hRet;
-}
-
-/***********************************************************************
- *             UrlFixupW [SHLWAPI.462]
- *
- * Checks the scheme part of a URL and attempts to correct misspellings.
- *
- * PARAMS
- *  lpszUrl           [I] Pointer to the URL to be corrected
- *  lpszTranslatedUrl [O] Pointer to a buffer to store corrected URL
- *  dwMaxChars        [I] Maximum size of corrected URL
- *
- * RETURNS
- *  success: S_OK if URL corrected or already correct
- *  failure: S_FALSE if unable to correct / COM error code if other error
- *
- */
-HRESULT WINAPI UrlFixupW(LPCWSTR url, LPWSTR translatedUrl, DWORD maxChars)
-{
-    DWORD srcLen;
-
-    FIXME("(%s,%p,%d) STUB\n", debugstr_w(url), translatedUrl, maxChars);
-
-    if (!url)
-        return E_FAIL;
-
-    srcLen = lstrlenW(url);
-
-    /* For now just copy the URL directly */
-    lstrcpynW(translatedUrl, url, (maxChars < srcLen) ? maxChars : srcLen);
-
-    return S_OK;
 }

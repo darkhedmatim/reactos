@@ -12,7 +12,7 @@
 #define NDEBUG
 #include <debug.h>
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpObjectDirectoryQueryRoutine(PWSTR ValueName,
 			      ULONG ValueType,
 			      PVOID ValueData,

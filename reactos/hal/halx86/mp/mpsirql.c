@@ -15,13 +15,13 @@
 #define NDEBUG
 #include <debug.h>
 
-/* GLOBALS ******************************************************************/
+/* GLOBALS ******************************************************************/;
 
 
 /* FUNCTIONS ****************************************************************/
 
 #undef KeGetCurrentIrql
-KIRQL NTAPI KeGetCurrentIrql (VOID)
+KIRQL STDCALL KeGetCurrentIrql (VOID)
 /*
  * PURPOSE: Returns the current irq level
  * RETURNS: The current irq level
@@ -30,7 +30,7 @@ KIRQL NTAPI KeGetCurrentIrql (VOID)
   KIRQL irql;
   ULONG Flags;
 
-  Flags = __readeflags();
+  Ke386SaveFlags(Flags);
   _disable();
 
   irql = __readfsbyte(FIELD_OFFSET(KPCR, Irql));
@@ -59,7 +59,7 @@ VOID KeSetCurrentIrql (KIRQL NewIrql)
     DPRINT1 ("NewIrql %x\n", NewIrql);
     ASSERT(FALSE);
   }
-  Flags = __readeflags();
+  Ke386SaveFlags(Flags);
   _disable();
   __writefsbyte(FIELD_OFFSET(KPCR, Irql), NewIrql);
   if (Flags & EFLAGS_INTERRUPT_MASK)
@@ -79,7 +79,7 @@ HalpLowerIrql(KIRQL NewIrql, BOOLEAN FromHalEndSystemInterrupt)
       APICWrite(APIC_TPR, IRQL2TPR (NewIrql) & APIC_TPR_PRI);
       return;
     }
-  Flags = __readeflags();
+  Ke386SaveFlags(Flags);
   if (KeGetCurrentIrql() > APC_LEVEL)
     {
       KeSetCurrentIrql (DISPATCH_LEVEL);
@@ -160,7 +160,7 @@ KfLowerIrql (KIRQL	NewIrql)
  * NOTES
  */
 #undef KeLowerIrql
-VOID NTAPI
+VOID STDCALL
 KeLowerIrql (KIRQL NewIrql)
 {
   KfLowerIrql (NewIrql);
@@ -190,7 +190,7 @@ KfRaiseIrql (KIRQL	NewIrql)
   KIRQL OldIrql;
   ULONG Flags;
  
-  Flags = __readeflags();
+  Ke386SaveFlags(Flags);
   _disable();
 
   OldIrql = KeGetCurrentIrql ();
@@ -234,7 +234,7 @@ KfRaiseIrql (KIRQL	NewIrql)
  *	Calls KfRaiseIrql
  */
 #undef KeRaiseIrql
-VOID NTAPI
+VOID STDCALL
 KeRaiseIrql (KIRQL	NewIrql,
 	PKIRQL	OldIrql)
 {
@@ -259,7 +259,7 @@ KeRaiseIrql (KIRQL	NewIrql,
  *	Calls KfRaiseIrql
  */
 
-KIRQL NTAPI
+KIRQL STDCALL
 KeRaiseIrqlToDpcLevel (VOID)
 {
   return KfRaiseIrql (DISPATCH_LEVEL);
@@ -283,14 +283,14 @@ KeRaiseIrqlToDpcLevel (VOID)
  *	Calls KfRaiseIrql
  */
 
-KIRQL NTAPI
+KIRQL STDCALL
 KeRaiseIrqlToSynchLevel (VOID)
 {
   return KfRaiseIrql (CLOCK2_LEVEL);
 }
 
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalBeginSystemInterrupt (KIRQL Irql,
 			 ULONG Vector,
 			 PKIRQL OldIrql)
@@ -304,7 +304,7 @@ HalBeginSystemInterrupt (KIRQL Irql,
     ASSERT(FALSE);
   }
 
-  Flags = __readeflags();
+  Ke386SaveFlags(Flags);
   if (Flags & EFLAGS_INTERRUPT_MASK)
   {
      DPRINT1("HalBeginSystemInterrupt was called with interrupt's enabled\n");
@@ -317,7 +317,7 @@ HalBeginSystemInterrupt (KIRQL Irql,
 }
 
 
-VOID NTAPI
+VOID STDCALL
 HalEndSystemInterrupt (KIRQL Irql,
 		       ULONG Unknown2)
 /*
@@ -325,7 +325,7 @@ HalEndSystemInterrupt (KIRQL Irql,
  */
 {
   ULONG Flags;
-  Flags = __readeflags();
+  Ke386SaveFlags(Flags);
 
   if (Flags & EFLAGS_INTERRUPT_MASK)
   {
@@ -336,7 +336,7 @@ HalEndSystemInterrupt (KIRQL Irql,
   HalpLowerIrql (Irql, TRUE);
 }
   
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalDisableSystemInterrupt (ULONG Vector,
 			   KIRQL Irql)
 {
@@ -358,7 +358,7 @@ HalDisableSystemInterrupt (ULONG Vector,
 }
 
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalEnableSystemInterrupt (ULONG Vector,
 			  KIRQL Irql,
 			  KINTERRUPT_MODE InterruptMode)

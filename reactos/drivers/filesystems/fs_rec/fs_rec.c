@@ -76,7 +76,7 @@ FsRecLoadFileSystem(IN PDEVICE_OBJECT DeviceObject,
 
 DRIVER_DISPATCH FsRecCreate;
 NTSTATUS
-NTAPI
+STDCALL
 FsRecCreate(IN PDEVICE_OBJECT DeviceObject,
             IN PIRP Irp)
 {
@@ -105,7 +105,7 @@ FsRecCreate(IN PDEVICE_OBJECT DeviceObject,
 
 DRIVER_DISPATCH FsRecClose;
 NTSTATUS
-NTAPI
+STDCALL
 FsRecClose(IN PDEVICE_OBJECT DeviceObject,
            IN PIRP Irp)
 {
@@ -118,7 +118,7 @@ FsRecClose(IN PDEVICE_OBJECT DeviceObject,
 
 DRIVER_DISPATCH FsRecFsControl;
 NTSTATUS
-NTAPI
+STDCALL
 FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
                IN PIRP Irp)
 {
@@ -173,7 +173,7 @@ FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
 
 DRIVER_UNLOAD FsRecUnload;
 VOID
-NTAPI
+STDCALL
 FsRecUnload(IN PDRIVER_OBJECT DriverObject)
 {
     PAGED_CODE();
@@ -190,7 +190,7 @@ FsRecUnload(IN PDRIVER_OBJECT DriverObject)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 FsRecRegisterFs(IN PDRIVER_OBJECT DriverObject,
                 IN PDEVICE_OBJECT ParentObject OPTIONAL,
                 OUT PDEVICE_OBJECT *NewDeviceObject OPTIONAL,

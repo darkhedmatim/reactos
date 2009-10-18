@@ -15,6 +15,7 @@
 /* GLOBALS *******************************************************************/
 
 WORK_QUEUE_ITEM CmpDelayDerefKCBWorkItem;
+LIST_ENTRY CmpFreeDelayItemsListHead;
 
 ULONG CmpDelayedCloseSize = 2048;
 ULONG CmpDelayedCloseElements;

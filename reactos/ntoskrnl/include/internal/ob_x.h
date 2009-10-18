@@ -17,16 +17,16 @@
 
 #define OBP_NAME_LOOKASIDE_MAX_SIZE 248
 
-FORCEINLINE
 ULONG
+FORCEINLINE
 ObpSelectObjectLockSlot(IN POBJECT_HEADER ObjectHeader)
 {
     /* We have 4 locks total, this will return a 0-index slot */
     return (((ULONG_PTR)ObjectHeader) >> 8) & 3;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpAcquireObjectLock(IN POBJECT_HEADER ObjectHeader)
 {
     ULONG Slot;
@@ -43,8 +43,8 @@ ObpAcquireObjectLock(IN POBJECT_HEADER ObjectHeader)
     ExAcquireResourceExclusiveLite(&ObjectType->ObjectLocks[Slot], TRUE);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpAcquireObjectLockShared(IN POBJECT_HEADER ObjectHeader)
 {
     ULONG Slot;
@@ -61,8 +61,8 @@ ObpAcquireObjectLockShared(IN POBJECT_HEADER ObjectHeader)
     ExAcquireResourceSharedLite(&ObjectType->ObjectLocks[Slot], TRUE);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpReleaseObjectLock(IN POBJECT_HEADER ObjectHeader)
 {
     ULONG Slot;
@@ -79,8 +79,8 @@ ObpReleaseObjectLock(IN POBJECT_HEADER ObjectHeader)
     ASSERT(KeGetCurrentIrql() <= APC_LEVEL);
 }
 
-FORCEINLINE
 POBJECT_HEADER_NAME_INFO
+FORCEINLINE
 ObpReferenceNameInfo(IN POBJECT_HEADER ObjectHeader)
 {
     POBJECT_HEADER_NAME_INFO ObjectNameInfo;
@@ -120,8 +120,8 @@ ObpReferenceNameInfo(IN POBJECT_HEADER ObjectHeader)
     return ObjectNameInfo;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpDereferenceNameInfo(IN POBJECT_HEADER_NAME_INFO HeaderNameInfo)
 {
     POBJECT_DIRECTORY Directory;
@@ -151,8 +151,8 @@ ObpDereferenceNameInfo(IN POBJECT_HEADER_NAME_INFO HeaderNameInfo)
     }
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpAcquireDirectoryLockShared(IN POBJECT_DIRECTORY Directory,
                                IN POBP_LOOKUP_CONTEXT Context)
 {
@@ -167,8 +167,8 @@ ObpAcquireDirectoryLockShared(IN POBJECT_DIRECTORY Directory,
     Context->LockStateSignature = OBP_LOCK_STATE_POST_ACQUISITION_SHARED;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpAcquireDirectoryLockExclusive(IN POBJECT_DIRECTORY Directory,
                                   IN POBP_LOOKUP_CONTEXT Context)
 {
@@ -187,8 +187,8 @@ ObpAcquireDirectoryLockExclusive(IN POBJECT_DIRECTORY Directory,
     Context->DirectoryLocked = TRUE;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpReleaseDirectoryLock(IN POBJECT_DIRECTORY Directory,
                          IN POBP_LOOKUP_CONTEXT Context)
 {
@@ -198,8 +198,8 @@ ObpReleaseDirectoryLock(IN POBJECT_DIRECTORY Directory,
     KeLeaveCriticalRegion();
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpInitializeLookupContext(IN POBP_LOOKUP_CONTEXT Context)
 {
     /* Initialize a null context */
@@ -209,8 +209,8 @@ ObpInitializeLookupContext(IN POBP_LOOKUP_CONTEXT Context)
     Context->LockStateSignature = OBP_LOCK_STATE_INITIALIZED;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpReleaseLookupContextObject(IN POBP_LOOKUP_CONTEXT Context)
 {
     POBJECT_HEADER ObjectHeader;
@@ -232,8 +232,8 @@ ObpReleaseLookupContextObject(IN POBP_LOOKUP_CONTEXT Context)
     }
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpReleaseLookupContext(IN POBP_LOOKUP_CONTEXT Context)
 {
     /* Check if we came back with the directory locked */
@@ -249,8 +249,8 @@ ObpReleaseLookupContext(IN POBP_LOOKUP_CONTEXT Context)
     ObpReleaseLookupContextObject(Context);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpEnterObjectTypeMutex(IN POBJECT_TYPE ObjectType)
 {
     /* Sanity check */
@@ -261,8 +261,8 @@ ObpEnterObjectTypeMutex(IN POBJECT_TYPE ObjectType)
     ExAcquireResourceExclusiveLite(&ObjectType->Mutex, TRUE);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpLeaveObjectTypeMutex(IN POBJECT_TYPE ObjectType)
 {
     /* Enter a critical region and acquire the resource */
@@ -273,8 +273,8 @@ ObpLeaveObjectTypeMutex(IN POBJECT_TYPE ObjectType)
     ASSERT(KeGetCurrentIrql() <= APC_LEVEL);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpReleaseObjectCreateInformation(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo)
 {
     /* Check if we have a security descriptor */
@@ -288,8 +288,8 @@ ObpReleaseObjectCreateInformation(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo
     }
 }
 
-FORCEINLINE
 PVOID
+FORCEINLINE
 ObpAllocateObjectCreateInfoBuffer(IN PP_NPAGED_LOOKASIDE_NUMBER Type)
 {
     PVOID Buffer;
@@ -325,8 +325,8 @@ ObpAllocateObjectCreateInfoBuffer(IN PP_NPAGED_LOOKASIDE_NUMBER Type)
     return Buffer;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpFreeCapturedAttributes(IN PVOID Buffer,
                           IN PP_NPAGED_LOOKASIDE_NUMBER Type)
 {
@@ -369,8 +369,8 @@ ObpFreeCapturedAttributes(IN PVOID Buffer,
     }
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpFreeObjectCreateInformation(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo)
 {
     /* First release the attributes, then free them from the lookaside list */
@@ -379,16 +379,16 @@ ObpFreeObjectCreateInformation(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo)
 }
 
 #if DBG
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpCalloutStart(IN PKIRQL CalloutIrql)
 {
     /* Save the callout IRQL */
     *CalloutIrql = KeGetCurrentIrql();
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpCalloutEnd(IN KIRQL CalloutIrql,
               IN PCHAR Procedure,
               IN POBJECT_TYPE ObjectType,
@@ -406,16 +406,16 @@ ObpCalloutEnd(IN KIRQL CalloutIrql,
     }
 }
 #else
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpCalloutStart(IN PKIRQL CalloutIrql)
 {
     /* No-op */
     UNREFERENCED_PARAMETER(CalloutIrql);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ObpCalloutEnd(IN KIRQL CalloutIrql,
               IN PCHAR Procedure,
               IN POBJECT_TYPE ObjectType,

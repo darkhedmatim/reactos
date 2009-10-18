@@ -160,7 +160,7 @@ NtReplyWaitReceivePortEx(IN HANDLE PortHandle,
 {
     PLPCP_PORT_OBJECT Port, ReceivePort, ConnectionPort = NULL;
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode(), WaitMode = PreviousMode;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PLPCP_MESSAGE Message;
     PETHREAD Thread = PsGetCurrentThread(), WakeupThread;
     PLPCP_CONNECTION_MESSAGE ConnectMessage;
@@ -178,7 +178,7 @@ NtReplyWaitReceivePortEx(IN HANDLE PortHandle,
 
     if (KeGetPreviousMode() == UserMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             if (ReplyMessage != NULL)
             {
@@ -197,13 +197,17 @@ NtReplyWaitReceivePortEx(IN HANDLE PortHandle,
             if (PortContext != NULL)
                 ProbeForWritePointer(PortContext);
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             DPRINT1("SEH crash [1]\n");
-            DbgBreakPoint();
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+	    DbgBreakPoint();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if pointer was invalid */
+        if (!NT_SUCCESS(Status))
+            return Status;
     }
     else
     {
@@ -423,7 +427,7 @@ NtReplyWaitReceivePortEx(IN HANDLE PortHandle,
     Thread->LpcReceivedMessageId = Message->Request.MessageId;
     Thread->LpcReceivedMsgIdValid = TRUE;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if this was a connection request */
         if (LpcpGetMessageType(&Message->Request) == LPC_CONNECTION_REQUEST)
@@ -488,13 +492,13 @@ NtReplyWaitReceivePortEx(IN HANDLE PortHandle,
             ASSERT(FALSE);
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         DPRINT1("SEH crash [2]\n");
         DbgBreakPoint();
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Check if we have a message pointer here */
     if (Message)

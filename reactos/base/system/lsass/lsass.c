@@ -37,6 +37,23 @@
 #define NDEBUG
 #include <debug.h>
 
+static VOID CALLBACK
+ServiceMain(DWORD argc, LPTSTR *argv);
+
+static SERVICE_TABLE_ENTRY ServiceTable[2] =
+{
+	{TEXT("NetLogon"), ServiceMain},
+	{NULL, NULL}
+};
+
+static VOID CALLBACK
+ServiceMain(
+	IN DWORD argc,
+	IN LPWSTR *argv)
+{
+	DPRINT("ServiceMain() called\n");
+}
+
 INT WINAPI
 wWinMain(
 	IN HINSTANCE hInstance,
@@ -68,6 +85,8 @@ wWinMain(
 #endif
 
 	/* FIXME: More initialization */
+
+	StartServiceCtrlDispatcher(ServiceTable);
 
 	DPRINT("  Done...\n");
 

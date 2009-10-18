@@ -3,7 +3,6 @@
 <group>
 <module name="netapi32_winetest" type="win32cui" installbase="bin" installname="netapi32_winetest.exe" allowwarnings="true">
 	<include base="netapi32_winetest">.</include>
-    <define name="__ROS_LONG64__" />
 	<file>access.c</file>
 	<file>apibuf.c</file>
 	<file>ds.c</file>

@@ -22,8 +22,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(desktop);
 
-BOOL WINAPI SetShellWindowEx(HWND, HWND);
-
 #define SHDESK_TAG 0x4b534544
 
 static const WCHAR szProgmanClassName[] = {'P','r','o','g','m','a','n'};
@@ -255,15 +253,6 @@ Fail:
     return This;
 }
 
-static HWND
-SHDESK_FindDesktopListView (SHDESK *This)
-{
-    return FindWindowExW(This->hWndShellView,
-                         NULL,
-                         WC_LISTVIEW,
-                         NULL);
-}
-
 static BOOL
 SHDESK_CreateDeskWnd(SHDESK *This)
 {
@@ -285,9 +274,6 @@ SHDESK_CreateDeskWnd(SHDESK *This)
     hRet = IShellView_CreateViewWindow(This->DesktopView, NULL, &fs, ShellBrowser, &rcClient, &This->hWndShellView);
     if (!SUCCEEDED(hRet))
         return FALSE;
-
-    SetShellWindowEx (This->hWnd,
-                      SHDESK_FindDesktopListView (This));
 
     return TRUE;
 }
@@ -410,10 +396,10 @@ SHDESK_SendControlMsg(IShellBrowser *iface, UINT id, UINT uMsg, WPARAM wParam, L
                                    id);
     if (hWnd != NULL)
     {
-        *pret = SendMessageW(hWnd,
-                             uMsg,
-                             wParam,
-                             lParam);
+        *pret = SendMessage(hWnd,
+                            uMsg,
+                            wParam,
+                            lParam);
         return S_OK;
     }
 
@@ -552,12 +538,12 @@ SHDESK_MessageLoop(SHDESK *This)
     MSG Msg;
     BOOL bRet;
 
-    while ((bRet = GetMessageW(&Msg, NULL, 0, 0)) != 0)
+    while ((bRet = GetMessage(&Msg, NULL, 0, 0)) != 0)
     {
         if (bRet != -1)
         {
             TranslateMessage(&Msg);
-            DispatchMessageW(&Msg);
+            DispatchMessage(&Msg);
         }
     }
 
@@ -684,7 +670,7 @@ RegisterProgmanWindowClass(VOID)
     wcProgman.cbWndExtra = sizeof(PSHDESK);
     wcProgman.hInstance = shell32_hInstance;
     wcProgman.hIcon = NULL;
-    wcProgman.hCursor = LoadCursorW(NULL,
+    wcProgman.hCursor = LoadCursor(NULL,
                                    IDC_ARROW);
     wcProgman.hbrBackground = (HBRUSH)(COLOR_BACKGROUND + 1);
     wcProgman.lpszMenuName = NULL;
@@ -732,7 +718,7 @@ HANDLE WINAPI SHCreateDesktop(IShellDesktop *ShellDesk)
         rcDesk.left, rcDesk.top, rcDesk.right, rcDesk.bottom,
         NULL, NULL, shell32_hInstance, (LPVOID)ShellDesk);
     if (hWndDesk != NULL)
-        return (HANDLE)GetWindowLongPtrW(hWndDesk, 0);
+        return (HANDLE)GetWindowLongPtr(hWndDesk, 0);
 
     return NULL;
 }

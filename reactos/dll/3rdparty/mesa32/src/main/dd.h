@@ -111,11 +111,6 @@ struct dd_function_table {
 
 
    /**
-    * Execute glRasterPos, updating the ctx->Current.Raster fields
-    */
-   void (*RasterPos)( GLcontext *ctx, const GLfloat v[4] );
-
-   /**
     * \name Image-related functions
     */
    /*@{*/
@@ -822,11 +817,9 @@ struct dd_function_table {
     */
    /*@{*/
    struct gl_query_object * (*NewQueryObject)(GLcontext *ctx, GLuint id);
-   void (*DeleteQuery)(GLcontext *ctx, struct gl_query_object *q);
-   void (*BeginQuery)(GLcontext *ctx, struct gl_query_object *q);
-   void (*EndQuery)(GLcontext *ctx, struct gl_query_object *q);
-   void (*CheckQuery)(GLcontext *ctx, struct gl_query_object *q);
-   void (*WaitQuery)(GLcontext *ctx, struct gl_query_object *q);
+   void (*BeginQuery)(GLcontext *ctx, GLenum target,
+                      struct gl_query_object *q);
+   void (*EndQuery)(GLcontext *ctx, GLenum target, struct gl_query_object *q);
    /*@}*/
 
 
@@ -919,9 +912,9 @@ struct dd_function_table {
    void (*ValidateTnlModule)( GLcontext *ctx, GLuint new_state );
 
 
-#define PRIM_OUTSIDE_BEGIN_END   (GL_POLYGON+1)
-#define PRIM_INSIDE_UNKNOWN_PRIM (GL_POLYGON+2)
-#define PRIM_UNKNOWN             (GL_POLYGON+3)
+#define PRIM_OUTSIDE_BEGIN_END   GL_POLYGON+1
+#define PRIM_INSIDE_UNKNOWN_PRIM GL_POLYGON+2
+#define PRIM_UNKNOWN             GL_POLYGON+3
 
    /**
     * Set by the driver-supplied T&L engine.  

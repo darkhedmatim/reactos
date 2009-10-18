@@ -4,7 +4,7 @@
  *Copyright 2002-2003 Jason Edmeades
  *Copyright 2002-2003 Raphael Junqueira
  *Copyright 2005 Oliver Stieber
- *Copyright 2007-2008 Stefan DÃ¶singer for CodeWeavers
+ *Copyright 2007-2008 Stefan Dösinger for CodeWeavers
  *
  *This library is free software; you can redistribute it and/or
  *modify it under the terms of the GNU Lesser General Public
@@ -27,8 +27,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(d3d);
 WINE_DECLARE_DEBUG_CHANNEL(fps);
 
-static void WINAPI IWineGDISwapChainImpl_Destroy(IWineD3DSwapChain *iface)
-{
+static void WINAPI IWineGDISwapChainImpl_Destroy(IWineD3DSwapChain *iface, D3DCB_DESTROYSURFACEFN D3DCB_DestroyRenderback) {
     IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
     WINED3DDISPLAYMODE mode;
 
@@ -39,19 +38,17 @@ static void WINAPI IWineGDISwapChainImpl_Destroy(IWineD3DSwapChain *iface)
     /* release the ref to the front and back buffer parents */
     if(This->frontBuffer) {
         IWineD3DSurface_SetContainer(This->frontBuffer, 0);
-        if (IWineD3DSurface_Release(This->frontBuffer) > 0)
-        {
-            WARN("(%p) Something's still holding the front buffer\n",This);
+        if(D3DCB_DestroyRenderback(This->frontBuffer) > 0) {
+            FIXME("(%p) Something's still holding the front buffer\n",This);
         }
     }
 
     if(This->backBuffer) {
-        UINT i;
+        int i;
         for(i = 0; i < This->presentParms.BackBufferCount; i++) {
             IWineD3DSurface_SetContainer(This->backBuffer[i], 0);
-            if (IWineD3DSurface_Release(This->backBuffer[i]) > 0)
-            {
-                WARN("(%p) Something's still holding the back buffer\n",This);
+            if(D3DCB_DestroyRenderback(This->backBuffer[i]) > 0) {
+                FIXME("(%p) Something's still holding the back buffer\n",This);
             }
         }
         HeapFree(GetProcessHeap(), 0, This->backBuffer);
@@ -62,7 +59,7 @@ static void WINAPI IWineGDISwapChainImpl_Destroy(IWineD3DSwapChain *iface)
      * this will be the original desktop resolution. In case of d3d7 this will be a NOP because ddraw sets the resolution
      * before starting up Direct3D, thus orig_width and orig_height will be equal to the modes in the presentation params
      */
-    if(This->presentParms.Windowed == FALSE && This->presentParms.AutoRestoreDisplayMode) {
+    if(This->presentParms.Windowed == FALSE) {
         mode.Width = This->orig_width;
         mode.Height = This->orig_height;
         mode.RefreshRate = 0;
@@ -83,8 +80,7 @@ static void WINAPI IWineGDISwapChainImpl_Destroy(IWineD3DSwapChain *iface)
  *  rc: Rectangle to copy
  *
  *****************************************************************************/
-void x11_copy_to_screen(IWineD3DSwapChainImpl *This, const RECT *rc)
-{
+void x11_copy_to_screen(IWineD3DSwapChainImpl *This, LPRECT rc) {
     IWineD3DSurfaceImpl *front = (IWineD3DSurfaceImpl *) This->frontBuffer;
 
     if(front->resource.usage & WINED3DUSAGE_RENDERTARGET) {
@@ -239,6 +235,18 @@ static HRESULT WINAPI IWineGDISwapChainImpl_Present(IWineD3DSwapChain *iface, CO
 
     x11_copy_to_screen(This, NULL);
 
+    return WINED3D_OK;
+}
+
+/* FIXME: This should not be needed, the base version is OK */
+HRESULT WINAPI IWineGDIBaseSwapChainImpl_GetDisplayMode(IWineD3DSwapChain *iface, WINED3DDISPLAYMODE*pMode) {
+    IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
+    IWineD3DDeviceImpl *device = This->wineD3DDevice;
+
+    pMode->Width = device->ddraw_width;
+    pMode->Height = device->ddraw_height;
+    pMode->Format = device->ddraw_format;
+    pMode->RefreshRate = 0;
     return WINED3D_OK;
 }
 

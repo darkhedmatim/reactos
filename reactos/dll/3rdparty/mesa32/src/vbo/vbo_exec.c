@@ -32,6 +32,7 @@
 #include "main/context.h"
 #include "main/macros.h"
 #include "main/mtypes.h"
+#include "main/dlist.h"
 #include "main/vtxfmt.h"
 
 #include "vbo_context.h"

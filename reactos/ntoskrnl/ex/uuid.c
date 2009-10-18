@@ -220,7 +220,7 @@ NTAPI
 ExpInitLuid(VOID)
 {
     LUID DummyLuidValue = SYSTEM_LUID;
-
+    
     LuidValue.u.HighPart = DummyLuidValue.HighPart;
     LuidValue.u.LowPart = DummyLuidValue.LowPart;
     LuidIncrement.QuadPart = 1;
@@ -232,21 +232,20 @@ NTAPI
 ExpAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 {
     LARGE_INTEGER NewLuid, PrevLuid;
-
+    
     /* atomically increment the luid */
     do
     {
         PrevLuid = LuidValue;
         NewLuid = RtlLargeIntegerAdd(PrevLuid,
                                      LuidIncrement);
-    } while(ExInterlockedCompareExchange64(&LuidValue.QuadPart,
-                                           &NewLuid.QuadPart,
-                                           &PrevLuid.QuadPart,
-                                           NULL) != PrevLuid.QuadPart);
-
+    } while(ExfInterlockedCompareExchange64(&LuidValue.QuadPart,
+                                            &NewLuid.QuadPart,
+                                            &PrevLuid.QuadPart) != PrevLuid.QuadPart);
+    
     LocallyUniqueId->LowPart = NewLuid.u.LowPart;
     LocallyUniqueId->HighPart = NewLuid.u.HighPart;
-
+    
     return STATUS_SUCCESS;
 }
 
@@ -254,44 +253,49 @@ ExpAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtAllocateLocallyUniqueId(OUT LUID *LocallyUniqueId)
 {
     LUID NewLuid;
     KPROCESSOR_MODE PreviousMode;
-    NTSTATUS Status;
-
+    NTSTATUS Status = STATUS_SUCCESS;
+    
     PAGED_CODE();
-
+    
     PreviousMode = ExGetPreviousMode();
-
+    
     if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWrite(LocallyUniqueId,
                           sizeof(LUID),
                           sizeof(ULONG));
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if(!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
-
+    
     Status = ExpAllocateLocallyUniqueId(&NewLuid);
-
-    _SEH2_TRY
+    
+    _SEH_TRY
     {
         *LocallyUniqueId = NewLuid;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
-
+    _SEH_END;
+    
     return Status;
 }
 

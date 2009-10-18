@@ -37,10 +37,10 @@ NTSTATUS AddGenericHeaderIPv4(
     TI_DbgPrint(MID_TRACE, ("Packet: %x NdisPacket %x\n",
 			    IPPacket, IPPacket->NdisPacket));
 
-    BufferSize = sizeof(IPv4_HEADER) + ExtraLength;
+    BufferSize = MaxLLHeaderSize + sizeof(IPv4_HEADER) + ExtraLength;
 
     GetDataPtr( IPPacket->NdisPacket,
-		0,
+		MaxLLHeaderSize,
 		(PCHAR *)&IPPacket->Header,
 		&IPPacket->ContigSize );
 
@@ -59,7 +59,7 @@ NTSTATUS AddGenericHeaderIPv4(
     /* Length of header and data */
     IPHeader->TotalLength = WH2N((USHORT)IPPacket->TotalSize);
     /* Identification */
-    IPHeader->Id = (USHORT)Random();
+    IPHeader->Id = 0;
     /* One fragment at offset 0 */
     IPHeader->FlagsFragOfs = 0;
     /* Time-to-Live is 128 */
@@ -107,13 +107,15 @@ NTSTATUS BuildRawIpPacket(
 
     /* FIXME: Assumes IPv4 */
     IPInitializePacket(Packet, IP_ADDRESS_V4);
+    if (!Packet)
+	return STATUS_INSUFFICIENT_RESOURCES;
 
     Packet->TotalSize = sizeof(IPv4_HEADER) + DataLen;
 
     /* Prepare packet */
     Status = AllocatePacketWithBuffer( &Packet->NdisPacket,
 				       NULL,
-				       Packet->TotalSize );
+				       Packet->TotalSize + MaxLLHeaderSize );
 
     if( !NT_SUCCESS(Status) ) return Status;
 
@@ -126,7 +128,7 @@ NTSTATUS BuildRawIpPacket(
 	Status = AddGenericHeaderIPv4
             (RemoteAddress, RemotePort,
              LocalAddress, LocalPort, Packet, DataLen,
-             IPPROTO_RAW,
+             IPPROTO_ICMP, /* XXX Figure out a better way to do this */
              0, (PVOID *)&Payload );
 	break;
     case IP_ADDRESS_V6:
@@ -153,8 +155,6 @@ NTSTATUS BuildRawIpPacket(
 			    (PCHAR)Packet->Data - (PCHAR)Packet->Header));
 
     RtlCopyMemory( Packet->Data, DataBuffer, DataLen );
-
-    Packet->Flags |= IP_PACKET_FLAG_RAW;
 
     TI_DbgPrint(MID_TRACE, ("Displaying packet\n"));
 
@@ -189,7 +189,7 @@ NTSTATUS RawIPSendDatagram(
 {
     IP_PACKET Packet;
     PTA_IP_ADDRESS RemoteAddressTa = (PTA_IP_ADDRESS)ConnInfo->RemoteAddress;
-    IP_ADDRESS RemoteAddress,  LocalAddress;
+    IP_ADDRESS RemoteAddress;
     USHORT RemotePort;
     NTSTATUS Status;
     PNEIGHBOR_CACHE_ENTRY NCE;
@@ -210,25 +210,10 @@ NTSTATUS RawIPSendDatagram(
 	return STATUS_UNSUCCESSFUL;
     }
 
-    TI_DbgPrint(MID_TRACE,("About to get route to destination\n"));
-
-    if(!(NCE = RouteGetRouteToDestination( &RemoteAddress )))
-	return STATUS_NETWORK_UNREACHABLE;
-
-    LocalAddress = AddrFile->Address;
-    if (AddrIsUnspecified(&LocalAddress))
-    {
-        /* If the local address is unspecified (0),
-         * then use the unicast address of the
-         * interface we're sending over
-         */
-        LocalAddress = NCE->Interface->Unicast;
-    }
-
     Status = BuildRawIpPacket( &Packet,
                                &RemoteAddress,
                                RemotePort,
-                               &LocalAddress,
+                               &AddrFile->Address,
                                AddrFile->Port,
                                BufferData,
                                DataSize );
@@ -236,13 +221,14 @@ NTSTATUS RawIPSendDatagram(
     if( !NT_SUCCESS(Status) )
 	return Status;
 
+    TI_DbgPrint(MID_TRACE,("About to get route to destination\n"));
+
+    if(!(NCE = RouteGetRouteToDestination( &RemoteAddress )))
+	return STATUS_UNSUCCESSFUL;
+
     TI_DbgPrint(MID_TRACE,("About to send datagram\n"));
 
-    if (!NT_SUCCESS(Status = IPSendDatagram( &Packet, NCE, RawIpSendPacketComplete, NULL )))
-    {
-        FreeNdisPacket(Packet.NdisPacket);
-        return Status;
-    }
+    IPSendDatagram( &Packet, NCE, RawIpSendPacketComplete, NULL );
 
     TI_DbgPrint(MID_TRACE,("Leaving\n"));
 
@@ -332,7 +318,7 @@ NTSTATUS RawIPStartup(VOID)
 #endif
 
   /* Register this protocol with IP layer */
-  IPRegisterProtocol(IPPROTO_RAW, RawIpReceive);
+  IPRegisterProtocol(IPPROTO_ICMP, RawIpReceive);
 
   return STATUS_SUCCESS;
 }
@@ -346,7 +332,7 @@ NTSTATUS RawIPShutdown(VOID)
  */
 {
   /* Deregister this protocol with IP layer */
-  IPRegisterProtocol(IPPROTO_RAW, NULL);
+  IPRegisterProtocol(IPPROTO_ICMP, NULL);
 
   return STATUS_SUCCESS;
 }

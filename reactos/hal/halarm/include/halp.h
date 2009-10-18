@@ -14,4 +14,9 @@
 #include <peripherals/pl190.h>
 #include <peripherals/sp804.h>
 
+//
+// WDK Hack
+//
+#define KdComPortInUse          _KdComPortInUse
+
 #endif /* __INTERNAL_HAL_HAL_H */

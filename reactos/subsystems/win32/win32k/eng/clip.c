@@ -34,8 +34,8 @@
 
 static __inline int
 CompareRightDown(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -70,8 +70,8 @@ CompareRightDown(
 
 static __inline int
 CompareRightUp(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -106,8 +106,8 @@ CompareRightUp(
 
 static __inline int
 CompareLeftDown(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -142,8 +142,8 @@ CompareLeftDown(
 
 static __inline int
 CompareLeftUp(
-    const RECTL *r1,
-    const RECTL *r2)
+    const PRECT r1,
+    const PRECT r2)
 {
     int Cmp;
 
@@ -177,8 +177,8 @@ CompareLeftUp(
 
 static __inline int
 CompareSpans(
-    const SPAN *Span1,
-    const SPAN *Span2)
+    const PSPAN Span1,
+    const PSPAN Span2)
 {
     int Cmp;
 
@@ -271,7 +271,7 @@ IntEngCreateClipRegion(ULONG count, PRECTL pRect, PRECTL rcBounds)
 /*
  * @implemented
  */
-CLIPOBJ * APIENTRY
+CLIPOBJ * STDCALL
 EngCreateClip(VOID)
 {
     CLIPGDI *Clip = EngAllocMem(FL_ZERO_MEMORY, sizeof(CLIPGDI), TAG_CLIPOBJ);
@@ -286,7 +286,7 @@ EngCreateClip(VOID)
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngDeleteClip(CLIPOBJ *ClipRegion)
 {
     EngFreeMem(ObjToGDI(ClipRegion, CLIP));
@@ -295,7 +295,7 @@ EngDeleteClip(CLIPOBJ *ClipRegion)
 /*
  * @implemented
  */
-ULONG APIENTRY
+ULONG STDCALL
 CLIPOBJ_cEnumStart(
     IN CLIPOBJ* ClipObj,
     IN BOOL ShouldDoAll,
@@ -356,7 +356,7 @@ CLIPOBJ_cEnumStart(
 /*
  * @implemented
  */
-BOOL APIENTRY
+BOOL STDCALL
 CLIPOBJ_bEnum(
     IN CLIPOBJ* ClipObj,
     IN ULONG ObjSize,
@@ -406,21 +406,18 @@ ClipobjToSpans(
 
     ASSERT(Boundary->top <= Boundary->bottom && Boundary->left <= Boundary->right);
 
-    *Count = Boundary->bottom - Boundary->top;
-    if (*Count > 0)
-    {
-        *Spans = ExAllocatePoolWithTag(PagedPool, *Count * sizeof(SPAN), TAG_CLIP);
-        if (NULL == *Spans)
-        {
-            *Count = 0;
-            return FALSE;
-        }
-    }
-
+    *Spans = NULL;
     if (NULL == ClipRegion || DC_TRIVIAL == ClipRegion->iDComplexity)
     {
+        *Count = Boundary->bottom - Boundary->top;
         if (0 != *Count)
         {
+            *Spans = ExAllocatePoolWithTag(PagedPool, *Count * sizeof(SPAN), TAG_CLIP);
+            if (NULL == *Spans)
+            {
+                *Count = 0;
+                return FALSE;
+            }
             for (i = 0; i < Boundary->bottom - Boundary->top; i++)
             {
                 (*Spans)[i].X = Boundary->left;
@@ -428,6 +425,7 @@ ClipobjToSpans(
                 (*Spans)[i].Width = Boundary->right - Boundary->left;
             }
         }
+
       return TRUE;
     }
 
@@ -449,7 +447,7 @@ ClipobjToSpans(
             {
                 if (NULL != *Spans)
                 {
-                    ExFreePoolWithTag(*Spans, TAG_CLIP);
+                    ExFreePool(*Spans);
                     *Spans = NULL;
                 }
                 *Count = 0;
@@ -463,7 +461,7 @@ ClipobjToSpans(
                 {
                     *dest++ = *src++;
                 }
-                ExFreePoolWithTag(*Spans, TAG_CLIP);
+                ExFreePool(*Spans);
             }
             *Spans = NewSpans;
         }

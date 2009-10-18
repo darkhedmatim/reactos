@@ -245,7 +245,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
     PCHAR PartialString = NULL, BiosVersion;
     CHAR CpuString[48];
     PVOID BaseAddress = NULL;
-    LARGE_INTEGER ViewBase = {{0, 0}};
+    LARGE_INTEGER ViewBase = {{0}};
     ULONG_PTR VideoRomBase;
     PCHAR CurrentVersion;
     extern UNICODE_STRING KeRosProcessorName, KeRosBiosDate, KeRosBiosVersion;
@@ -428,19 +428,19 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                 else
                 {
                     /* Check if we have extended CPUID that supports name ID */
-                    CPUID(0x80000000, &ExtendedId, &Dummy, &Dummy, &Dummy);
+                    Ki386Cpuid(0x80000000, &ExtendedId, &Dummy, &Dummy, &Dummy);
                     if (ExtendedId >= 0x80000004)
                     {
-                        /* Do all the CPUIDs required to get the full name */
+                        /* Do all the CPUIDs requred to get the full name */
                         PartialString = CpuString;
                         for (ExtendedId = 2; ExtendedId <= 4; ExtendedId++)
                         {
                             /* Do the CPUID and save the name string */
-                            CPUID(0x80000000 | ExtendedId,
-                                  (PULONG)PartialString,
-                                  (PULONG)PartialString + 1,
-                                  (PULONG)PartialString + 2,
-                                  (PULONG)PartialString + 3);
+                            Ki386Cpuid(0x80000000 | ExtendedId,
+                                       (PULONG)PartialString,
+                                       (PULONG)PartialString + 1,
+                                       (PULONG)PartialString + 2,
+                                       (PULONG)PartialString + 3);
 
                             /* Go to the next name string */
                             PartialString += 16;

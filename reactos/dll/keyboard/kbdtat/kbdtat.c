@@ -380,19 +380,19 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   extcode0_to_vk,
   extcode1_to_vk,
 
-  MAKELONG(1,1), /* Version 1.0 */
+  MAKELONG(0,1), /* Version 1.0 */
 
-  /* Ligatures -- Tatar doesn't have any */
+  /* Ligatures -- Russian doesn't have any */
   0,
   0,
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 
-INT WINAPI
+INT STDCALL
 DllMain(
   PVOID hinstDll,
   ULONG dwReason,

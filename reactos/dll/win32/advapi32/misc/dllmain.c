@@ -17,7 +17,7 @@ extern BOOL RegInitialize(VOID);
 extern BOOL RegCleanup(VOID);
 extern VOID UnloadNtMarta(VOID);
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDll,
     DWORD dwReason,
     LPVOID reserved)

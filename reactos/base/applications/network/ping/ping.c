@@ -14,6 +14,19 @@
 
 #define NDEBUG
 
+#ifndef _MSC_VER
+
+/* Should be in the header files somewhere (exported by ntdll.dll) */
+long atol(const char *str);
+
+#ifndef __int64
+typedef long long __int64;
+#endif
+
+char * _i64toa(__int64 value, char *string, int radix);
+
+#endif /* _MSC_VER */
+
 /* General ICMP constants */
 #define ICMP_MINSIZE        8     /* Minimum ICMP packet size */
 #define ICMP_MAXSIZE        65535 /* Maximum ICMP packet size */
@@ -221,7 +234,7 @@ static BOOL ParseCmdline(int argc, char* argv[])
                     if (DataSize > ICMP_MAXSIZE - sizeof(ICMP_ECHO_PACKET))
                     {
                         printf("Bad value for option -l, valid range is from 0 to %d.\n",
-                            ICMP_MAXSIZE - (int)sizeof(ICMP_ECHO_PACKET));
+                            ICMP_MAXSIZE - sizeof(ICMP_ECHO_PACKET));
                         return FALSE;
                    }
                     break;
@@ -437,14 +450,6 @@ static BOOL DecodeResponse(PCHAR buffer, UINT size, PSOCKADDR_IN from)
         return FALSE;
     }
 
-    if (from->sin_addr.s_addr != Target.sin_addr.s_addr)
-    {
-#ifndef NDEBUG
-        printf("Bad source address (%s should be %s)\n", inet_ntoa(from->sin_addr), inet_ntoa(Target.sin_addr));
-#endif /* !NDEBUG */
-        return FALSE;
-    }
-
     QueryTime(&LargeTime);
 
     RelativeTime.QuadPart = (LargeTime.QuadPart - Icmp->Timestamp.QuadPart);
@@ -462,7 +467,7 @@ static BOOL DecodeResponse(PCHAR buffer, UINT size, PSOCKADDR_IN from)
 
 
     printf("Reply from %s: bytes=%d time%s%s TTL=%d\n", inet_ntoa(from->sin_addr),
-      size - IphLength - (int)sizeof(ICMP_ECHO_PACKET), Sign, Time, IpHeader->TTL);
+      size - IphLength - sizeof(ICMP_ECHO_PACKET), Sign, Time, IpHeader->TTL);
     if (RelativeTime.QuadPart < MinRTT.QuadPart || !MinRTTSet)
     {
         MinRTT.QuadPart = RelativeTime.QuadPart;
@@ -551,40 +556,44 @@ static BOOL Ping(VOID)
     Timeval.tv_sec  = Timeout / 1000;
     Timeval.tv_usec = Timeout % 1000;
 
-    do {
-        Status = select(0, &Fds, NULL, NULL, &Timeval);
-        if ((Status != SOCKET_ERROR) && (Status != 0))
-        {
-            Length = sizeof(From);
-            Status = recvfrom(IcmpSock, Buffer, Size, 0, &From, &Length);
+    Status = select(0, &Fds, NULL, NULL, &Timeval);
+    if ((Status != SOCKET_ERROR) && (Status != 0))
+    {
+        Length = sizeof(From);
+        Status = recvfrom(IcmpSock, Buffer, Size, 0, &From, &Length);
 
 #ifndef NDEBUG
-            printf("Received packet\n");
-            DisplayBuffer(Buffer, Status);
-            printf("\n");
+        printf("Received packet\n");
+        DisplayBuffer(Buffer, Status);
+        printf("\n");
 #endif /* !NDEBUG */
-        }
-        else
-            LostCount++;
-        if (Status == SOCKET_ERROR)
+    }
+    else
+        LostCount++;
+    if (Status == SOCKET_ERROR)
+    {
+        if (WSAGetLastError() != WSAETIMEDOUT)
         {
-            if (WSAGetLastError() != WSAETIMEDOUT)
-            {
-                printf("Could not receive data (%d).\n", WSAGetLastError());
-                GlobalFree(Buffer);
-                return FALSE;
-            }
-            Status = 0;
-        }
-
-        if (Status == 0)
-        {
-            printf("Request timed out.\n");
+            printf("Could not receive data (%d).\n", WSAGetLastError());
             GlobalFree(Buffer);
-            return TRUE;
+            return FALSE;
         }
+        Status = 0;
+    }
 
-    } while (!DecodeResponse(Buffer, Status, (PSOCKADDR_IN)&From));
+    if (Status == 0)
+    {
+        printf("Request timed out.\n");
+        GlobalFree(Buffer);
+        return TRUE;
+    }
+
+    if (!DecodeResponse(Buffer, Status, (PSOCKADDR_IN)&From))
+    {
+        /* FIXME: Wait again as it could be another ICMP message type */
+        printf("Request timed out (incomplete datagram received).\n");
+        LostCount++;
+    }
 
     GlobalFree(Buffer);
     return TRUE;

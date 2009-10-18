@@ -25,7 +25,7 @@ LIST_ENTRY UnknownGroupListHead;
 
 DWORD
 ScmSetServiceGroup(PSERVICE lpService,
-                   LPCWSTR lpGroupName)
+                   LPWSTR lpGroupName)
 {
     PLIST_ENTRY GroupEntry;
     PSERVICE_GROUP lpGroup;
@@ -77,7 +77,7 @@ ScmSetServiceGroup(PSERVICE lpService,
 }
 
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CreateGroupOrderListRoutine(PWSTR ValueName,
                             ULONG ValueType,
                             PVOID ValueData,
@@ -126,7 +126,7 @@ CreateGroupOrderListRoutine(PWSTR ValueName,
 }
 
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CreateGroupListRoutine(PWSTR ValueName,
                        ULONG ValueType,
                        PVOID ValueData,

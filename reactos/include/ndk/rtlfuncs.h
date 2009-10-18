@@ -77,8 +77,8 @@ InsertTailList(
     ListHead->Blink = Entry;
 }
 
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 IsListEmpty(
     IN const LIST_ENTRY * ListHead
 )
@@ -195,14 +195,14 @@ RtlConvertUlongToLuid(ULONG Ulong)
 #if DBG
 
 #define ASSERT( exp ) \
-    ((void)((!(exp)) ? \
+    ((!(exp)) ? \
         (RtlAssert( #exp, __FILE__, __LINE__, NULL ),FALSE) : \
-        TRUE))
+        TRUE)
 
 #define ASSERTMSG( msg, exp ) \
-    ((void)((!(exp)) ? \
+    ((!(exp)) ? \
         (RtlAssert( #exp, __FILE__, __LINE__, msg ),FALSE) : \
-        TRUE))
+        TRUE)
 
 #else
 
@@ -428,7 +428,6 @@ RtlRaiseException(
     IN PEXCEPTION_RECORD ExceptionRecord
 );
 
-DECLSPEC_NORETURN
 NTSYSAPI
 VOID
 NTAPI
@@ -481,7 +480,7 @@ NTAPI
 RtlAllocateHeap(
     IN HANDLE HeapHandle,
     IN ULONG Flags,
-    IN SIZE_T Size
+    IN ULONG Size
 );
 
 NTSYSAPI
@@ -539,7 +538,7 @@ RtlExtendHeap(
     IN HANDLE Heap,
     IN ULONG Flags,
     IN PVOID P,
-    IN SIZE_T Size
+    IN ULONG Size
 );
 
 NTSYSAPI
@@ -646,7 +645,7 @@ RtlSetUserFlagsHeap(
 );
 
 NTSYSAPI
-SIZE_T
+ULONG
 NTAPI
 RtlSizeHeap(
     IN PVOID HeapHandle,
@@ -670,7 +669,7 @@ RtlWalkHeap(
     IN HANDLE HeapHandle,
     IN PVOID HeapEntry
 );
-
+    
 #define RtlGetProcessHeap() (NtCurrentPeb()->ProcessHeap)
 
 //
@@ -1097,8 +1096,6 @@ RtlMapGenericMask(
     PGENERIC_MAPPING GenericMapping
 );
 
-#ifdef NTOS_MODE_USER
-
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -1108,8 +1105,6 @@ RtlQueryInformationAcl(
     ULONG InformationLength,
     ACL_INFORMATION_CLASS InformationClass
 );
-
-#endif
 
 NTSYSAPI
 VOID
@@ -1180,8 +1175,6 @@ RtlSetGroupSecurityDescriptor(
     IN BOOLEAN GroupDefaulted
 );
 
-#ifdef NTOS_MODE_USER
-
 NTSYSAPI
 NTSTATUS
 NTAPI
@@ -1191,8 +1184,6 @@ RtlSetInformationAcl(
     ULONG InformationLength,
     ACL_INFORMATION_CLASS InformationClass
 );
-
-#endif
 
 NTSYSAPI
 NTSTATUS
@@ -1370,8 +1361,6 @@ RtlCharToInteger(
 //
 // Byte Swap Functions
 //
-#ifdef NTOS_MODE_USER
-
 #if (defined(_M_IX86) && (_MSC_FULL_VER > 13009037)) || \
     ((defined(_M_AMD64) || \
      defined(_M_IA64)) && (_MSC_FULL_VER > 13009175))
@@ -1386,15 +1375,8 @@ unsigned __int64 __cdecl _byteswap_uint64(unsigned __int64);
 #define RtlUlongByteSwap(_x) _byteswap_ulong((_x))
 #define RtlUlonglongByteSwap(_x) _byteswap_uint64((_x))
 
-#elif defined (__GNUC__)
-
-#define RtlUshortByteSwap(_x) _byteswap_ushort((USHORT)(_x))
-#define RtlUlongByteSwap(_x) _byteswap_ulong((_x))
-#define RtlUlonglongByteSwap(_x) _byteswap_uint64((_x))
-
 #else
 
-#if (NTDDI_VERSION >= NTDDI_WIN2K)
 NTSYSAPI
 USHORT
 FASTCALL
@@ -1409,10 +1391,8 @@ NTSYSAPI
 ULONGLONG
 FASTCALL
 RtlUlonglongByteSwap(IN ULONGLONG Source);
-#endif
 
 #endif
-#endif // NTOS_MODE_USER
 
 //
 // Unicode->Ansi String Functions
@@ -1745,7 +1725,7 @@ NTSYSAPI
 BOOLEAN
 NTAPI
 RtlIsTextUnicode(
-    PVOID Buffer,
+    LPCVOID Buffer,
     INT Length,
     INT *Flags
 );
@@ -2013,11 +1993,6 @@ RtlInitializeContext(
 );
 
 NTSYSAPI
-BOOLEAN
-NTAPI
-RtlIsThreadWithinLoaderCallout(VOID);
-
-NTSYSAPI
 PRTL_USER_PROCESS_PARAMETERS
 NTAPI
 RtlNormalizeProcessParams(IN PRTL_USER_PROCESS_PARAMETERS ProcessParameters);
@@ -2082,15 +2057,6 @@ NTAPI
 RtlQueueWorkItem(
     IN WORKERCALLBACKFUNC Function,
     IN PVOID Context OPTIONAL,
-    IN ULONG Flags
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlSetIoCompletionCallback(
-    IN HANDLE FileHandle,
-    IN PIO_APC_ROUTINE Callback,
     IN ULONG Flags
 );
 
@@ -2666,7 +2632,7 @@ DbgBreakPoint(
     VOID
 );
 
-VOID
+NTSTATUS
 NTAPI
 DbgLoadImageSymbols(
     IN PANSI_STRING Name,
@@ -2857,15 +2823,6 @@ LdrRelocateImageWithBias(
 #ifdef NTOS_MODE_USER
 
 NTSYSAPI
-NTSTATUS
-NTAPI
-RtlActivateActivationContext(
-    IN ULONG Unknown,
-    IN HANDLE Handle,
-    OUT PULONG_PTR Cookie
-);
-
-NTSYSAPI
 VOID
 NTAPI
 RtlAddRefActivationContext(
@@ -2886,14 +2843,6 @@ NTSTATUS
 NTAPI
 RtlAllocateActivationContextStack(
     IN PVOID *Context
-);
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlCreateActivationContext(
-    OUT PHANDLE Handle,
-    IN OUT PVOID ReturnedData
 );
 
 NTSYSAPI
@@ -2944,11 +2893,11 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlFindActivationContextSectionString(
-    IN ULONG dwFlags,
-    IN const GUID *ExtensionGuid,
+    IN PVOID Unknown0,
+    IN PVOID Unknown1,
     IN ULONG SectionType,
     IN PUNICODE_STRING SectionName,
-    IN OUT PVOID ReturnedData
+    IN PVOID Unknown2
 );
 
 NTSYSAPI

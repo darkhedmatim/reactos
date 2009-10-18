@@ -2,7 +2,7 @@
  * SHLWAPI ordinal functions
  *
  * Copyright 1997 Marcus Meissner
- *           1998 JÃ¼rgen Schmied
+ *           1998 Jürgen Schmied
  *           2001-2003 Jon Griffiths
  *
  * This library is free software; you can redistribute it and/or
@@ -76,9 +76,10 @@ BOOL    WINAPI SHAboutInfoW(LPWSTR,DWORD);
  *
  * Internal implemetation of SHLWAPI_11.
  */
-static HANDLE SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
-                                      DWORD dwSrcProcId, DWORD dwAccess,
-                                      DWORD dwOptions)
+static
+HANDLE WINAPI SHLWAPI_DupSharedHandle(HANDLE hShared, DWORD dwDstProcId,
+                                       DWORD dwSrcProcId, DWORD dwAccess,
+                                       DWORD dwOptions)
 {
   HANDLE hDst, hSrc;
   DWORD dwMyProcId = GetCurrentProcessId();
@@ -1250,10 +1251,12 @@ BOOL WINAPI SHIsSameObject(IUnknown* lpInt1, IUnknown* lpInt2)
   if (lpInt1 == lpInt2)
     return TRUE;
 
-  if (FAILED(IUnknown_QueryInterface(lpInt1, &IID_IUnknown, &lpUnknown1)))
+  if (!SUCCEEDED(IUnknown_QueryInterface(lpInt1, &IID_IUnknown,
+                                       (LPVOID *)&lpUnknown1)))
     return FALSE;
 
-  if (FAILED(IUnknown_QueryInterface(lpInt2, &IID_IUnknown, &lpUnknown2)))
+  if (!SUCCEEDED(IUnknown_QueryInterface(lpInt2, &IID_IUnknown,
+                                       (LPVOID *)&lpUnknown2)))
     return FALSE;
 
   if (lpUnknown1 == lpUnknown2)
@@ -1472,43 +1475,6 @@ HRESULT WINAPI IUnknown_QueryService(IUnknown* lpUnknown, REFGUID sid, REFIID ri
     IUnknown_Release(pService);
   }
   return hRet;
-}
-
-/*************************************************************************
- *      @	[SHLWAPI.479]
- *
- * Call an object's UIActivateIO method.
- *
- * PARAMS
- *  unknown  [I] Object to call the UIActivateIO method on
- *  activate [I] Parameter for UIActivateIO call
- *  msg      [I] Parameter for UIActivateIO call
- *
- * RETURNS
- *  Success: Value of UI_ActivateIO call
- *  Failure: An HRESULT error code
- *
- * NOTES
- *  unknown is expected to support the IInputObject interface.
- */
-HRESULT WINAPI IUnknown_UIActivateIO(IUnknown *unknown, BOOL activate, LPMSG msg)
-{
-    IInputObject* object = NULL;
-    HRESULT ret;
-
-    if (!unknown)
-        return E_FAIL;
-
-    /* Get an IInputObject interface from the object */
-    ret = IUnknown_QueryInterface(unknown, &IID_IInputObject, (LPVOID*) &object);
-
-    if (ret == S_OK)
-    {
-        ret = IInputObject_UIActivateIO(object, activate, msg);
-        IUnknown_Release(object);
-    }
-
-    return ret;
 }
 
 /*************************************************************************
@@ -2271,7 +2237,7 @@ HRESULT WINAPI QISearch(
 		if (IsEqualIID(riid, xmove->refid)) {
 		    a_vtbl = (IUnknown*)(xmove->indx + (LPBYTE)w);
 		    TRACE("matched, returning (%p)\n", a_vtbl);
-                    *ppv = a_vtbl;
+		    *ppv = (LPVOID)a_vtbl;
 		    IUnknown_AddRef(a_vtbl);
 		    return S_OK;
 		}
@@ -2281,7 +2247,7 @@ HRESULT WINAPI QISearch(
 	    if (IsEqualIID(riid, &IID_IUnknown)) {
 		a_vtbl = (IUnknown*)(x->indx + (LPBYTE)w);
 		TRACE("returning first for IUnknown (%p)\n", a_vtbl);
-                *ppv = a_vtbl;
+		*ppv = (LPVOID)a_vtbl;
 		IUnknown_AddRef(a_vtbl);
 		return S_OK;
 	    }
@@ -2292,25 +2258,6 @@ HRESULT WINAPI QISearch(
 
 	TRACE("-- 0x%08x\n", ret);
 	return ret;
-}
-
-/*************************************************************************
- * @ [SHLWAPI.220]
- *
- * Set the Font for a window and the "PropDlgFont" property of the parent window.
- *
- * PARAMS
- *  hWnd [I] Parent Window to set the property
- *  id   [I] Index of child Window to set the Font
- *
- * RETURNS
- *  Success: S_OK
- *
- */
-HRESULT WINAPI SHSetDefaultDialogFont(HWND hWnd, INT id)
-{
-    FIXME("(%p, %d) stub\n", hWnd, id);
-    return S_OK;
 }
 
 /*************************************************************************
@@ -2574,7 +2521,7 @@ DWORD WINAPI SHGetRestriction(LPCWSTR lpSubKey, LPCWSTR lpSubName, LPCWSTR lpVal
 	if (retval != ERROR_SUCCESS)
 	  return 0;
 
-        SHGetValueW(hKey, lpSubName, lpValue, NULL, &retval, &datsize);
+	SHGetValueW(hKey, lpSubName, lpValue, NULL, (LPBYTE)&retval, &datsize);
 	RegCloseKey(hKey);
 	return retval;
 }
@@ -2653,7 +2600,7 @@ HRESULT WINAPI SHWeakQueryInterface(
 
 	*ppv = NULL;
 	if(pUnk && pInner) {
-            hret = IUnknown_QueryInterface(pInner, riid, ppv);
+	    hret = IUnknown_QueryInterface(pInner, riid, (LPVOID*)ppv);
 	    if (SUCCEEDED(hret)) IUnknown_Release(pUnk);
 	}
 	TRACE("-- 0x%08x\n", hret);
@@ -2851,7 +2798,7 @@ HRESULT WINAPI SHInvokeDefaultCommand(HWND hWnd, IShellFolder* lpFolder, LPCITEM
  *
  * _SHPackDispParamsV
  */
-HRESULT WINAPI SHPackDispParamsV(DISPPARAMS *params, VARIANTARG *args, UINT cnt, __ms_va_list valist)
+HRESULT WINAPI SHPackDispParamsV(DISPPARAMS *params, VARIANTARG *args, UINT cnt, va_list valist)
 {
   VARIANTARG *iter;
 
@@ -2905,12 +2852,14 @@ HRESULT WINAPI SHPackDispParamsV(DISPPARAMS *params, VARIANTARG *args, UINT cnt,
  */
 HRESULT WINAPIV SHPackDispParams(DISPPARAMS *params, VARIANTARG *args, UINT cnt, ...)
 {
-  __ms_va_list valist;
+  va_list valist;
   HRESULT hres;
 
-  __ms_va_start(valist, cnt);
+  va_start(valist, cnt);
+
   hres = SHPackDispParamsV(params, args, cnt, valist);
-  __ms_va_end(valist);
+
+  va_end(valist);
   return hres;
 }
 
@@ -2949,26 +2898,6 @@ static HRESULT SHLWAPI_InvokeByIID(
 
   return S_OK;
 }
-
-/*************************************************************************
- *  IConnectionPoint_InvokeWithCancel   [SHLWAPI.283]
- */
-HRESULT WINAPI IConnectionPoint_InvokeWithCancel( IConnectionPoint* iCP,
-                                                  DISPID dispId, DISPPARAMS* dispParams,
-                                                  DWORD unknown1, DWORD unknown2 )
-{
-    IID iid;
-    HRESULT result;
-
-    FIXME("(%p)->(0x%x %p %x %x) partial stub\n", iCP, dispId, dispParams, unknown1, unknown2);
-
-    result = IConnectionPoint_GetConnectionInterface(iCP, &iid);
-    if (SUCCEEDED(result))
-        result = SHLWAPI_InvokeByIID(iCP, &iid, dispId, dispParams);
-
-    return result;
-}
-
 
 /*************************************************************************
  *      @	[SHLWAPI.284]
@@ -3056,7 +2985,7 @@ HRESULT WINAPIV IUnknown_CPContainerInvokeParam(
   IConnectionPoint *iCP;
   IConnectionPointContainer *iCPC;
   DISPPARAMS dispParams = {buffer, NULL, cParams, 0};
-  __ms_va_list valist;
+  va_list valist;
 
   if (!container)
     return E_NOINTERFACE;
@@ -3070,9 +2999,9 @@ HRESULT WINAPIV IUnknown_CPContainerInvokeParam(
   if(FAILED(result))
       return result;
 
-  __ms_va_start(valist, cParams);
+  va_start(valist, cParams);
   SHPackDispParamsV(&dispParams, buffer, cParams, valist);
-  __ms_va_end(valist);
+  va_end(valist);
 
   result = SHLWAPI_InvokeByIID(iCP, riid, dispId, &dispParams);
   IConnectionPoint_Release(iCP);
@@ -3598,7 +3527,7 @@ HRESULT WINAPI SHIShellFolder_EnumObjects(LPSHELLFOLDER lpFolder, HWND hwnd, SHC
 }
 
 /* INTERNAL: Map from HLS color space to RGB */
-static WORD ConvertHue(int wHue, WORD wMid1, WORD wMid2)
+static WORD WINAPI ConvertHue(int wHue, WORD wMid1, WORD wMid2)
 {
   wHue = wHue > 240 ? wHue - 240 : wHue < 0 ? wHue + 240 : wHue;
 
@@ -3744,33 +3673,9 @@ DWORD WINAPI MLClearMLHInstance(DWORD x)
 }
 
 /*************************************************************************
- * @ [SHLWAPI.432]
- *
- * See SHSendMessageBroadcastW
- *
- */
-DWORD WINAPI SHSendMessageBroadcastA(UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    return SendMessageTimeoutA(HWND_BROADCAST, uMsg, wParam, lParam,
-                               SMTO_ABORTIFHUNG, 2000, NULL);
-}
-
-/*************************************************************************
- * @ [SHLWAPI.433]
- *
- * A wrapper for sending Broadcast Messages to all top level Windows
- *
- */
-DWORD WINAPI SHSendMessageBroadcastW(UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    return SendMessageTimeoutW(HWND_BROADCAST, uMsg, wParam, lParam,
-                               SMTO_ABORTIFHUNG, 2000, NULL);
-}
-
-/*************************************************************************
  *      @	[SHLWAPI.436]
  *
- * Convert a Unicode string CLSID into a CLSID.
+ * Convert an Unicode string CLSID into a CLSID.
  *
  * PARAMS
  *  idstr      [I]   string containing a CLSID in text form
@@ -4222,7 +4127,7 @@ BOOL WINAPI SHSkipJunction(IBindCtx *pbc, const CLSID *pclsid)
   {
     IUnknown* lpUnk;
 
-    if (SUCCEEDED(IBindCtx_GetObjectParam(pbc, szSkipBinding, &lpUnk)))
+    if (SUCCEEDED(IBindCtx_GetObjectParam(pbc, (LPOLESTR)szSkipBinding, &lpUnk)))
     {
       CLSID clsid;
 
@@ -4364,10 +4269,10 @@ INT WINAPIV ShellMessageBoxWrapW(HINSTANCE hInstance, HWND hWnd, LPCWSTR lpText,
     WCHAR szText[100], szTitle[100];
     LPCWSTR pszText = szText, pszTitle = szTitle;
     LPWSTR pszTemp;
-    __ms_va_list args;
+    va_list args;
     int ret;
 
-    __ms_va_start(args, uType);
+    va_start(args, uType);
 
     TRACE("(%p,%p,%p,%p,%08x)\n", hInstance, hWnd, lpText, lpCaption, uType);
 
@@ -4384,10 +4289,10 @@ INT WINAPIV ShellMessageBoxWrapW(HINSTANCE hInstance, HWND hWnd, LPCWSTR lpText,
     FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_STRING,
                    pszText, 0, 0, (LPWSTR)&pszTemp, 0, &args);
 
-    __ms_va_end(args);
+    va_end(args);
 
     ret = MessageBoxW(hWnd, pszTemp, pszTitle, uType);
-    LocalFree(pszTemp);
+    LocalFree((HLOCAL)pszTemp);
     return ret;
 }
 
@@ -4568,132 +4473,4 @@ free_sids:
     HeapFree(GetProcessHeap(), 0, sidlist);
 
     return psd;
-}
-
-/***********************************************************************
- *             SHCreatePropertyBagOnRegKey [SHLWAPI.471]
- *
- * Creates a property bag from a registry key
- *
- * PARAMS
- *  hKey       [I] Handle to the desired registry key
- *  subkey     [I] Name of desired subkey, or NULL to open hKey directly
- *  grfMode    [I] Optional flags
- *  riid       [I] IID of requested property bag interface
- *  ppv        [O] Address to receive pointer to the new interface
- *
- * RETURNS
- *  success: 0
- *  failure: error code
- *
- */
-HRESULT WINAPI SHCreatePropertyBagOnRegKey (HKEY hKey, LPCWSTR subkey,
-    DWORD grfMode, REFIID riid, void **ppv)
-{
-    FIXME("%p %s %d %s %p STUB\n", hKey, debugstr_w(subkey), grfMode,
-          debugstr_guid(riid), ppv);
-
-    return E_NOTIMPL;
-}
-
-/***********************************************************************
- *             SHGetViewStatePropertyBag [SHLWAPI.515]
- *
- * Retrieves a property bag in which the view state information of a folder
- * can be stored.
- *
- * PARAMS
- *  pidl        [I] PIDL of the folder requested
- *  bag_name    [I] Name of the property bag requested
- *  flags       [I] Optional flags
- *  riid        [I] IID of requested property bag interface
- *  ppv         [O] Address to receive pointer to the new interface
- *
- * RETURNS
- *  success: S_OK
- *  failure: error code
- *
- */
-HRESULT WINAPI SHGetViewStatePropertyBag(LPCITEMIDLIST pidl, LPWSTR bag_name,
-    DWORD flags, REFIID riid, void **ppv)
-{
-    FIXME("%p %s %d %s %p STUB\n", pidl, debugstr_w(bag_name), flags,
-          debugstr_guid(riid), ppv);
-
-    return E_NOTIMPL;
-}
-
-/***********************************************************************
- *             SHFormatDateTimeW [SHLWAPI.354]
- *
- * Produces a string representation of a time.
- *
- * PARAMS
- *  fileTime   [I] Pointer to FILETIME structure specifying the time
- *  flags      [I] Flags specifying the desired output
- *  buf        [O] Pointer to buffer for output
- *  bufSize    [I] Number of characters that can be contained in buffer
- *
- * RETURNS
- *  success: number of characters written to the buffer
- *  failure: 0
- *
- */
-INT WINAPI SHFormatDateTimeW(const FILETIME UNALIGNED *fileTime, DWORD *flags,
-    LPWSTR buf, UINT bufSize)
-{
-    FIXME("%p %p %s %d STUB\n", fileTime, flags, debugstr_w(buf), bufSize);
-    return 0;
-}
-
-/***********************************************************************
- *             SHFormatDateTimeA [SHLWAPI.353]
- *
- * See SHFormatDateTimeW.
- *
- */
-INT WINAPI SHFormatDateTimeA(const FILETIME UNALIGNED *fileTime, DWORD *flags,
-    LPCSTR buf, UINT bufSize)
-{
-    WCHAR *bufW;
-    DWORD buflenW, convlen;
-    INT retval;
-
-    if (!buf || !bufSize)
-        return 0;
-
-    buflenW = bufSize;
-    bufW = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR) * buflenW);
-    retval = SHFormatDateTimeW(fileTime, flags, bufW, buflenW);
-
-    if (retval != 0)
-        convlen = WideCharToMultiByte(CP_ACP, 0, bufW, -1, (LPSTR) buf, bufSize, NULL, NULL);
-
-    HeapFree(GetProcessHeap(), 0, bufW);
-    return retval;
-}
-
-/***********************************************************************
- *             ZoneCheckUrlExW [SHLWAPI.231]
- *
- * Checks the details of the security zone for the supplied site. (?)
- *
- * PARAMS
- *
- *  szURL   [I] Pointer to the URL to check
- *
- *  Other parameters currently unknown.
- *
- * RETURNS
- *  unknown
- */
-
-INT WINAPI ZoneCheckUrlExW(LPWSTR szURL, PVOID pUnknown, DWORD dwUnknown2,
-    DWORD dwUnknown3, DWORD dwUnknown4, DWORD dwUnknown5, DWORD dwUnknown6,
-    DWORD dwUnknown7)
-{
-    FIXME("(%s,%p,%x,%x,%x,%x,%x,%x) STUB\n", debugstr_w(szURL), pUnknown, dwUnknown2,
-        dwUnknown3, dwUnknown4, dwUnknown5, dwUnknown6, dwUnknown7);
-
-    return 0;
 }

@@ -42,7 +42,7 @@ GetLayoutCount(LPTSTR szLang)
     HKEY hKey;
     TCHAR szLayoutID[3 + 1], szPreload[CCH_LAYOUT_ID + 1], szLOLang[MAX_PATH];
     DWORD dwIndex = 0, dwType, dwSize;
-    UINT Count = 0, i, j;
+    INT Count = 0, i, j;
 
     if (RegOpenKeyEx(HKEY_CURRENT_USER, _T("Keyboard Layout\\Preload"),
         0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
@@ -106,39 +106,14 @@ AddNewLayout(HWND hwndDlg)
                 return;
             }
 
-            if (_tcscmp(LangID, pts) != 0)
+            if (GetLayoutName(LangID, Layout))
             {
-                if (!GetLayoutName(pts, Layout))
+                if ((SendMessage(hLayoutList, CB_SELECTSTRING, (WPARAM) -1, (LPARAM)Layout) != CB_ERR)&&
+                    (GetLayoutCount(Lang) >= 1))
                 {
-                    RegCloseKey(hKey);
-                    return;
-                }
-            }
-            else
-            {
-                if (!GetLayoutName(LangID, Layout))
-                {
-                    RegCloseKey(hKey);
-                    return;
-                }
-            }
-
-            if (SendMessage(hLayoutList, CB_SELECTSTRING, (WPARAM) -1, (LPARAM)Layout) != CB_ERR)
-            {
-                if (GetLayoutCount(Lang) >= 1)
-                {
-                    wsprintf(SubPath, _T("d%03d%s"), GetLayoutCount(Lang), Lang);
-                }
-                else if ((_tcscmp(LangID, pts) != 0) && (GetLayoutCount(Lang) == 0))
-                {
-                    wsprintf(SubPath, _T("d%03d%s"), 0, Lang);
+                    wsprintf(SubPath, _T("d%03d%s"), GetLayoutCount(Lang)-1, Lang);
                 }
                 else SubPath[0] = '\0';
-            }
-            else
-            {
-                RegCloseKey(hKey);
-                return;
             }
 
             if (_tcslen(SubPath) != 0)
@@ -188,11 +163,9 @@ CreateKeyboardLayoutList(HWND hItemsList)
 
         while (RegEnumKeyEx(hKey, dwIndex, szLayoutID, &dwSize, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
         {
-            INT iIndex;
-
             GetLayoutName(szLayoutID, KeyName);
 
-            iIndex = (INT) SendMessage(hItemsList, CB_ADDSTRING, 0, (LPARAM)KeyName);
+            INT iIndex = (INT) SendMessage(hItemsList, CB_ADDSTRING, 0, (LPARAM)KeyName);
 
             pstrLayoutID = (PTSTR)HeapAlloc(hProcessHeap, 0, sizeof(szLayoutID));
             lstrcpy(pstrLayoutID, szLayoutID);

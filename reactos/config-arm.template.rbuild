@@ -15,25 +15,19 @@
 
 <!--
 	Sub-architecture (board) to build for. Specify one of:
-		kurobox versatile omap3
+		kurobox versatile
 		
 -->
-<property name="SARCH" value="omap3" />
+<property name="SARCH" value="versatile" />
 
 
 <!--
-	Generate instructions for this CPU type. Specify one of:
-		armv5te armv7-a
+	Which CPU ReactOS should be optimized for. Specify one of:
+		armv5te
 
-	See GCC manual for more CPU names.
+	See GCC manual for more CPU names and which CPUs GCC can optimize for.
 -->
-<property name="OARCH" value="armv7-a" />
-
-
-<!--
-	Which CPU ReactOS should be optimized for. See GCC manual for CPU names.
--->
-<property name="TUNE" value="" />
+<property name="OARCH" value="armv5te" />
 
 
 <!--
@@ -55,7 +49,8 @@
 
 
 <!--
-	Whether to compile for debugging.
+	Whether to compile for debugging. No compiler optimizations will be
+	performed.
 -->
 <property name="DBG" value="1" />
 

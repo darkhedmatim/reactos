@@ -4,14 +4,13 @@
 	<module name="rpcrt4_winetest_server" type="rpcserver" allowwarnings="true">
 		<file>server.idl</file>
 	</module>
-	<module name="rpcrt4_winetest_client" type="rpcclient" allowwarnings="true">
+	<module name="rpcrt4_winetest_client" type="rpcclient">
 		<file>server.idl</file>
 	</module>
 	<module name="rpcrt4_winetest" type="win32cui" installbase="bin" installname="rpcrt4_winetest.exe" allowwarnings="true">
 		<include base="rpcrt4_winetest">.</include>
 		<include root="intermediate" base="rpcrt4_winetest">.</include>
-		<define name="__ROS_LONG64__" />
-		<redefine name="_WIN32_WINNT">0x0500</redefine>
+		<define name="__USE_W32API" />
 		<library>wine</library>
 		<library>pseh</library>
 		<library>ole32</library>
@@ -26,7 +25,6 @@
 		<file>ndr_marshall.c</file>
 		<file>rpc.c</file>
 		<file>rpc_async.c</file>
-		<file>rpc_protseq.c</file>
 		<file>server.c</file>
 		<file>testlist.c</file>
 	</module>

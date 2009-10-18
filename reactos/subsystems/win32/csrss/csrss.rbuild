@@ -6,10 +6,10 @@
 		<include base="csrss">include</include>
 		<include base="ReactOS">include/reactos/subsys</include>
 		<include base="ReactOS">include/reactos/drivers</include>
-		<compilerflag compilerset="gcc">-fms-extensions</compilerflag>
 		<library>nt</library>
 		<library>ntdll</library>
 		<library>smdll</library>
+		<library>msvcrt</library>
 		<directory name="api">
 			<file>handle.c</file>
 			<file>process.c</file>

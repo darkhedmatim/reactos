@@ -227,7 +227,7 @@ CreateEnhMetaFileA(
 #if 0
 /* Previous implementation in win32k */
 HDC
-WINAPI
+STDCALL
 NtGdiCreateEnhMetaFile(HDC  hDCRef,
                            LPCWSTR  File,
                            CONST LPRECT  Rect,

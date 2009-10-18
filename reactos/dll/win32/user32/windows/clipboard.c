@@ -27,7 +27,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 OpenClipboard(HWND hWndNewOwner)
 {
     BOOL ret = NtUserOpenClipboard(hWndNewOwner, 0);
@@ -37,8 +37,41 @@ OpenClipboard(HWND hWndNewOwner)
 /*
  * @implemented
  */
+BOOL
+STDCALL
+CloseClipboard(VOID)
+{
+    BOOL ret;
+    ret = NtUserCloseClipboard();
+    return ret;
+}
+
+/*
+ * @implemented
+ */
+INT
+STDCALL
+CountClipboardFormats(VOID)
+{
+    INT ret = NtUserCountClipboardFormats();
+    return ret;
+}
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+EmptyClipboard(VOID)
+{
+    return NtUserEmptyClipboard();
+}
+
+/*
+ * @implemented
+ */
 UINT
-WINAPI
+STDCALL
 EnumClipboardFormats(UINT format)
 {
     UINT ret = NtUserCallOneParam(format, ONEPARAM_ROUTINE_ENUMCLIPBOARDFORMATS);
@@ -49,7 +82,7 @@ EnumClipboardFormats(UINT format)
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 GetClipboardData(UINT uFormat)
 {
     HGLOBAL hGlobal = NULL;
@@ -83,7 +116,7 @@ GetClipboardData(UINT uFormat)
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 GetClipboardFormatNameA(UINT format,
                         LPSTR lpszFormatName,
                         int cchMaxCount)
@@ -124,7 +157,7 @@ GetClipboardFormatNameA(UINT format,
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 GetClipboardFormatNameW(UINT format,
                         LPWSTR lpszFormatName,
                         INT cchMaxCount)
@@ -143,9 +176,71 @@ GetClipboardFormatNameW(UINT format,
 /*
  * @implemented
  */
+HWND
+STDCALL
+GetClipboardOwner(VOID)
+{
+    return NtUserGetClipboardOwner();
+}
+
+/*
+ * @implemented
+ */
+DWORD
+STDCALL
+GetClipboardSequenceNumber(VOID)
+{
+    return NtUserGetClipboardSequenceNumber();
+}
+
+/*
+ * @implemented
+ */
+HWND
+STDCALL
+GetClipboardViewer(VOID)
+{
+    return NtUserGetClipboardViewer();
+}
+
+/*
+ * @implemented
+ */
+HWND
+STDCALL
+GetOpenClipboardWindow(VOID)
+{
+    return NtUserGetOpenClipboardWindow();
+}
+
+/*
+ * @implemented
+ */
+INT
+STDCALL
+GetPriorityClipboardFormat(UINT *paFormatPriorityList, INT cFormats)
+{
+    INT ret = NtUserGetPriorityClipboardFormat(paFormatPriorityList, cFormats);
+    return ret;
+}
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+IsClipboardFormatAvailable(UINT format)
+{
+    BOOL ret = NtUserIsClipboardFormatAvailable(format);
+    return ret;
+}
+
+/*
+ * @implemented
+ */
 
 UINT
-WINAPI
+STDCALL
 RegisterClipboardFormatA(LPCSTR lpszFormat)
 {
     UINT ret = 0;
@@ -178,7 +273,7 @@ RegisterClipboardFormatA(LPCSTR lpszFormat)
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 RegisterClipboardFormatW(LPCWSTR lpszFormat)
 {
     UINT ret = 0;
@@ -229,7 +324,7 @@ renderLocale(DWORD Locale)
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 SetClipboardData(UINT uFormat, HANDLE hMem)
 {
     DWORD size;
@@ -283,10 +378,31 @@ SetClipboardData(UINT uFormat, HANDLE hMem)
 }
 
 /*
+ * @implemented
+ */
+HWND
+STDCALL
+SetClipboardViewer(HWND hWndNewViewer)
+{
+    return NtUserSetClipboardViewer(hWndNewViewer);
+}
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+ChangeClipboardChain(HWND hWndRemove,
+                     HWND hWndNewNext)
+{
+    return NtUserChangeClipboardChain(hWndRemove, hWndNewNext);
+}
+
+/*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 AddClipboardFormatListener(HWND hwnd)
 {
     UNIMPLEMENTED;
@@ -296,7 +412,7 @@ AddClipboardFormatListener(HWND hwnd)
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 RemoveClipboardFormatListener(HWND hwnd)
 {
     UNIMPLEMENTED;
@@ -307,7 +423,7 @@ RemoveClipboardFormatListener(HWND hwnd)
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetUpdatedClipboardFormats(PUINT lpuiFormats,
                            UINT cFormats,
                            PUINT pcFormatsOut)

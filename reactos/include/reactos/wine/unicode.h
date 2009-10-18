@@ -2,8 +2,6 @@
 #define _WINE_UNICODE_H
 
 #include <stdarg.h>
-#include <stdlib.h>
-#include <wchar.h>
 
 #include <windef.h>
 #include <winbase.h>
@@ -42,14 +40,9 @@
 #define vsprintfW vswprintf
 #define snprintfW _snwprintf
 #define vsnprintfW _vsnwprintf
-#define isprintW iswprint
 
 #ifndef WINE_UNICODE_API
-# if defined(_MSC_VER)
-#  define WINE_UNICODE_API __declspec(dllimport)
-# else
-#  define WINE_UNICODE_API __attribute__((dllimport))
-# endif
+#define WINE_UNICODE_API __attribute__((dllimport))
 #endif
 
 #ifndef __VALIST
@@ -59,6 +52,12 @@
 #define __VALIST char*
 #endif
 #endif /* defined __VALIST  */
+
+int __cdecl _wtoi (const wchar_t *);
+long __cdecl _wtol (const wchar_t *);
+int __cdecl swprintf (wchar_t*, const wchar_t*, ...);
+int __cdecl _snwprintf (wchar_t*, size_t, const wchar_t*, ...);
+int __cdecl _vsnwprintf (wchar_t*, size_t, const wchar_t*, __VALIST);
 
 static __inline WCHAR *strpbrkW( const WCHAR *str, const WCHAR *accept )
 {

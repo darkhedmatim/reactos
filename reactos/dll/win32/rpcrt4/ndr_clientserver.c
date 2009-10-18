@@ -1,7 +1,7 @@
 /*
  * MIDL proxy/stub stuff
  *
- * Copyright 2002 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2002 Ove Kåven, TransGaming Technologies
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -232,7 +232,7 @@ RPC_STATUS RPC_ENTRY NdrMapCommAndFaultStatus( PMIDL_STUB_MESSAGE pStubMsg,
                                                ULONG *pFaultStatus,
                                                RPC_STATUS Status )
 {
-    TRACE("(%p, %p, %p, %d)\n", pStubMsg, pCommStatus, pFaultStatus, Status);
+    TRACE("(%p, %p, %p, %ld)\n", pStubMsg, pCommStatus, pFaultStatus, Status);
 
     switch (Status)
     {

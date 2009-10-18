@@ -267,8 +267,8 @@ static void SetStyle(IShellViewImpl * This, DWORD dwAdd, DWORD dwRemove)
 
 	TRACE("(%p)\n", This);
 
-	tmpstyle = GetWindowLongPtrW(This->hWndList, GWL_STYLE);
-	SetWindowLongPtrW(This->hWndList, GWL_STYLE, dwAdd | (tmpstyle & ~dwRemove));
+	tmpstyle = GetWindowLongW(This->hWndList, GWL_STYLE);
+	SetWindowLongW(This->hWndList, GWL_STYLE, dwAdd | (tmpstyle & ~dwRemove));
 }
 
 /**********************************************************
@@ -835,8 +835,6 @@ static HRESULT ShellView_OpenSelectedItems(IShellViewImpl * This)
 	static UINT CF_IDLIST = 0;
 	HRESULT hr;
 	IDataObject* selection;
-	IContextMenu * cm;
-	HMENU hmenu;
 	FORMATETC fetc;
 	STGMEDIUM stgm;
 	LPIDA pIDList;
@@ -845,70 +843,14 @@ static HRESULT ShellView_OpenSelectedItems(IShellViewImpl * This)
 	LPCWSTR parent_dir = NULL;
 	SFGAOF attribs;
 	int i;
-	CMINVOKECOMMANDINFOEX ici;
-	MENUITEMINFOW info;
 
 	if (0 == ShellView_GetSelections(This))
 	{
 	  return S_OK;
 	}
-
-	hr = IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl,
-	                                (LPCITEMIDLIST*)This->apidl, &IID_IContextMenu,
-	                                0, (LPVOID *)&cm);
-
-	if (SUCCEEDED(hr))
-	{
-		hmenu = CreatePopupMenu();
-		if (hmenu)
-		{
-			if (SUCCEEDED(IContextMenu_QueryContextMenu( cm, hmenu, 0, 0x20, 0x7fff, CMF_DEFAULTONLY)))
-			{
-				INT def = -1, n = GetMenuItemCount(hmenu);
-
-				for ( i = 0; i < n; i++ )
-				{
-					memset( &info, 0, sizeof info );
-					info.cbSize = sizeof info;
-					info.fMask = MIIM_FTYPE | MIIM_STATE | MIIM_ID;
-					if (GetMenuItemInfoW( hmenu, i, TRUE, &info))
-					{
-						if (info.fState & MFS_DEFAULT)
-						{
-							def = info.wID;
-							break;
-						}
-					}
-				}
-				if (def != -1)
-				{
-					memset( &ici, 0, sizeof ici );
-					ici.cbSize = sizeof ici;
-					ici.lpVerb = MAKEINTRESOURCEA( def );
-					ici.hwnd = This->hWnd;
-
-					if (IContextMenu_InvokeCommand(cm, (LPCMINVOKECOMMANDINFO) &ici ) == S_OK)
-					{
-						IContextMenu_Release(cm);
-						DestroyMenu( hmenu );
-						return S_OK;
-					}
-				}
-				
-			}
-			DestroyMenu( hmenu );
-		}
-		IContextMenu_Release(cm);
-	}
-
-
-
 	hr = IShellFolder_GetUIObjectOf(This->pSFParent, This->hWnd, This->cidl,
 	                                (LPCITEMIDLIST*)This->apidl, &IID_IDataObject,
 	                                0, (LPVOID *)&selection);
-
-
-
 	if (FAILED(hr))
 	  return hr;
 
@@ -1450,8 +1392,8 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 
 	          if (pds)
 	          {
-	            DWORD dwEffect2;
-		    DoDragDrop(pda, pds, dwEffect, &dwEffect2);
+	            DWORD dwEffect;
+		    DoDragDrop(pda, pds, dwEffect, &dwEffect);
 		  }
 	          IDataObject_Release(pda);
 	      }

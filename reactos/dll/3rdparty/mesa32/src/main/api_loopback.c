@@ -31,6 +31,7 @@
 
 #include "glheader.h"
 #include "macros.h"
+#include "colormac.h"
 #include "api_loopback.h"
 #include "mtypes.h"
 #include "glapi/glapi.h"

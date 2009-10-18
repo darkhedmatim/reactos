@@ -14,7 +14,7 @@
  * @implemented
  */
 int
-WINAPI
+STDCALL
 lstrcmpA(LPCSTR lpString1, LPCSTR lpString2)
 {
     int Result;
@@ -37,7 +37,7 @@ lstrcmpA(LPCSTR lpString1, LPCSTR lpString2)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 lstrcmpiA(LPCSTR lpString1, LPCSTR lpString2)
 {
     int Result;
@@ -60,7 +60,7 @@ lstrcmpiA(LPCSTR lpString1, LPCSTR lpString2)
  * @implemented
  */
 LPSTR
-WINAPI
+STDCALL
 lstrcpynA(LPSTR lpString1, LPCSTR lpString2, int iMaxLength)
 {
     LPSTR d = lpString1;
@@ -68,7 +68,7 @@ lstrcpynA(LPSTR lpString1, LPCSTR lpString2, int iMaxLength)
     UINT count = iMaxLength;
     LPSTR Ret = NULL;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         while ((count > 1) && *s)
         {
@@ -81,10 +81,8 @@ lstrcpynA(LPSTR lpString1, LPCSTR lpString2, int iMaxLength)
 
         Ret = lpString1;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -94,20 +92,18 @@ lstrcpynA(LPSTR lpString1, LPCSTR lpString2, int iMaxLength)
  * @implemented
  */
 LPSTR
-WINAPI
+STDCALL
 lstrcpyA(LPSTR lpString1, LPCSTR lpString2)
 {
     LPSTR Ret = NULL;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         memmove(lpString1, lpString2, strlen(lpString2) + 1);
         Ret = lpString1;
      }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -117,19 +113,17 @@ lstrcpyA(LPSTR lpString1, LPCSTR lpString2)
  * @implemented
  */
 LPSTR
-WINAPI
+STDCALL
 lstrcatA(LPSTR lpString1, LPCSTR lpString2)
 {
     LPSTR Ret = NULL;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         Ret = strcat(lpString1, lpString2);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -139,19 +133,17 @@ lstrcatA(LPSTR lpString1, LPCSTR lpString2)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 lstrlenA(LPCSTR lpString)
 {
     INT Ret = 0;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         Ret = strlen(lpString);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -161,7 +153,7 @@ lstrlenA(LPCSTR lpString)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 lstrcmpW(LPCWSTR lpString1, LPCWSTR lpString2)
 {
     int Result;
@@ -185,7 +177,7 @@ lstrcmpW(LPCWSTR lpString1, LPCWSTR lpString2)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 lstrcmpiW(LPCWSTR lpString1, LPCWSTR lpString2)
 {
     int Result;
@@ -209,7 +201,7 @@ lstrcmpiW(LPCWSTR lpString1, LPCWSTR lpString2)
  * @implemented
  */
 LPWSTR
-WINAPI
+STDCALL
 lstrcpynW(LPWSTR lpString1, LPCWSTR lpString2, int iMaxLength)
 {
     LPWSTR d = lpString1;
@@ -217,7 +209,7 @@ lstrcpynW(LPWSTR lpString1, LPCWSTR lpString2, int iMaxLength)
     UINT count = iMaxLength;
     LPWSTR Ret = NULL;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         while ((count > 1) && *s)
         {
@@ -230,10 +222,8 @@ lstrcpynW(LPWSTR lpString1, LPCWSTR lpString2, int iMaxLength)
 
         Ret = lpString1;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -243,19 +233,17 @@ lstrcpynW(LPWSTR lpString1, LPCWSTR lpString2, int iMaxLength)
  * @implemented
  */
 LPWSTR
-WINAPI
+STDCALL
 lstrcpyW(LPWSTR lpString1, LPCWSTR lpString2)
 {
     LPWSTR Ret = NULL;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         Ret = wcscpy(lpString1, lpString2);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -265,19 +253,17 @@ lstrcpyW(LPWSTR lpString1, LPCWSTR lpString2)
  * @implemented
  */
 LPWSTR
-WINAPI
+STDCALL
 lstrcatW(LPWSTR lpString1, LPCWSTR lpString2)
 {
     LPWSTR Ret = NULL;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         Ret = wcscat(lpString1, lpString2);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }
@@ -287,19 +273,17 @@ lstrcatW(LPWSTR lpString1, LPCWSTR lpString2)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 lstrlenW(LPCWSTR lpString)
 {
     INT Ret = 0;
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         Ret = wcslen(lpString);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
+    _SEH_HANDLE
+    _SEH_END;
 
     return Ret;
 }

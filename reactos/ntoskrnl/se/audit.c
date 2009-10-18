@@ -139,7 +139,7 @@ SeLocateProcessImageName(IN PEPROCESS Process,
         {
             /* Set it */
             if (InterlockedCompareExchangePointer(&Process->
-                                                  SeAuditProcessCreationInfo.ImageFileName,
+                                                  SeAuditProcessCreationInfo,
                                                   AuditName,
                                                   NULL))
             {
@@ -153,26 +153,29 @@ SeLocateProcessImageName(IN PEPROCESS Process,
         if (!NT_SUCCESS(Status)) return Status;
     }
 
-    /* Get audit info again, now we have it for sure */
-    AuditName = Process->SeAuditProcessCreationInfo.ImageFileName;
-
     /* Allocate the output string */
     ImageName = ExAllocatePoolWithTag(NonPagedPool,
                                       AuditName->Name.MaximumLength +
                                       sizeof(UNICODE_STRING),
                                       TAG_SEPA);
-    if (!ImageName) return STATUS_NO_MEMORY;
+    if (ImageName)
+    {
+        /* Make a copy of it */
+        RtlCopyMemory(ImageName,
+                      &AuditName->Name,
+                      AuditName->Name.MaximumLength + sizeof(UNICODE_STRING));
 
-    /* Make a copy of it */
-    RtlCopyMemory(ImageName,
-                  &AuditName->Name,
-                  AuditName->Name.MaximumLength + sizeof(UNICODE_STRING));
+        /* Fix up the buffer */
+        ImageName->Buffer = (PWSTR)(ImageName + 1);
 
-    /* Fix up the buffer */
-    ImageName->Buffer = (PWSTR)(ImageName + 1);
-
-    /* Return it */
-    *ProcessImageName = ImageName;
+        /* Return it */
+        *ProcessImageName = ImageName;
+    }
+    else
+    {
+        /* Otherwise, fail */
+        Status = STATUS_NO_MEMORY;
+    }
 
     /* Return status */
     return Status;
@@ -184,7 +187,7 @@ SeLocateProcessImageName(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 SeAuditHardLinkCreation(IN PUNICODE_STRING FileName,
                         IN PUNICODE_STRING LinkName,
                         IN BOOLEAN bSuccess)
@@ -196,7 +199,7 @@ SeAuditHardLinkCreation(IN PUNICODE_STRING FileName,
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeAuditingFileEvents(IN BOOLEAN AccessGranted,
                      IN PSECURITY_DESCRIPTOR SecurityDescriptor)
 {
@@ -208,7 +211,7 @@ SeAuditingFileEvents(IN BOOLEAN AccessGranted,
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeAuditingFileEventsWithContext(IN BOOLEAN AccessGranted,
                                 IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                                 IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL)
@@ -221,7 +224,7 @@ SeAuditingFileEventsWithContext(IN BOOLEAN AccessGranted,
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeAuditingHardLinkEvents(IN BOOLEAN AccessGranted,
                          IN PSECURITY_DESCRIPTOR SecurityDescriptor)
 {
@@ -233,7 +236,7 @@ SeAuditingHardLinkEvents(IN BOOLEAN AccessGranted,
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeAuditingHardLinkEventsWithContext(IN BOOLEAN AccessGranted,
                                     IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                                     IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext OPTIONAL)
@@ -246,7 +249,7 @@ SeAuditingHardLinkEventsWithContext(IN BOOLEAN AccessGranted,
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeAuditingFileOrGlobalEvents(IN BOOLEAN AccessGranted,
                              IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                              IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext)
@@ -259,7 +262,7 @@ SeAuditingFileOrGlobalEvents(IN BOOLEAN AccessGranted,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 SeCloseObjectAuditAlarm(
                         IN PVOID Object,
                         IN HANDLE Handle,
@@ -272,7 +275,7 @@ SeCloseObjectAuditAlarm(
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 SeDeleteObjectAuditAlarm(IN PVOID Object,
                          IN HANDLE Handle)
 {
@@ -307,7 +310,7 @@ SeOpenObjectAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 SeOpenObjectForDeleteAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
                                 IN PVOID Object OPTIONAL,
                                 IN PUNICODE_STRING AbsoluteObjectName OPTIONAL,
@@ -325,7 +328,7 @@ SeOpenObjectForDeleteAuditAlarm(IN PUNICODE_STRING ObjectTypeName,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 SePrivilegeObjectAuditAlarm(IN HANDLE Handle,
                             IN PSECURITY_SUBJECT_CONTEXT SubjectContext,
                             IN ACCESS_MASK DesiredAccess,
@@ -357,7 +360,7 @@ NtAccessCheckAndAuditAlarm(IN PUNICODE_STRING SubsystemName,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtCloseObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
                         IN PVOID HandleId,
                         IN BOOLEAN GenerateOnClose)
@@ -367,7 +370,7 @@ NtCloseObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtDeleteObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
                          IN PVOID HandleId,
                          IN BOOLEAN GenerateOnClose)
@@ -377,7 +380,7 @@ NtDeleteObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtOpenObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
                        IN PVOID HandleId,
                        IN PUNICODE_STRING ObjectTypeName,
@@ -396,7 +399,7 @@ NtOpenObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtPrivilegedServiceAuditAlarm(IN PUNICODE_STRING SubsystemName,
                               IN PUNICODE_STRING ServiceName,
                               IN HANDLE ClientToken,
@@ -408,7 +411,7 @@ NtPrivilegedServiceAuditAlarm(IN PUNICODE_STRING SubsystemName,
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtPrivilegeObjectAuditAlarm(IN PUNICODE_STRING SubsystemName,
                             IN PVOID HandleId,
                             IN HANDLE ClientToken,

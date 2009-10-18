@@ -51,7 +51,7 @@ int WINAPI _tWinMain( HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR cmdline, int 
     wc.hInstance = hInst;
     wc.hIcon = LoadIcon( hInst, MAKEINTRESOURCE(IDI_WINEMINE) );
     wc.hCursor = LoadCursor( NULL, (LPCTSTR)IDI_APPLICATION );
-    wc.hbrBackground = GetSysColorBrush(COLOR_BTNFACE);
+    wc.hbrBackground = (HBRUSH) GetStockObject( LTGRAY_BRUSH );
     wc.lpszMenuName = MAKEINTRESOURCE(IDM_WINEMINE);
     wc.lpszClassName = szAppName;
 

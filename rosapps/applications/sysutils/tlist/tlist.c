@@ -63,14 +63,14 @@ void PsaiFree(void *ptr)
  NtFreeVirtualMemory(NtCurrentProcess(), &ptr, &nSize, MEM_RELEASE);
 }
 
-int WINAPI PrintBanner (VOID)
+int STDCALL PrintBanner (VOID)
 {
   printf ("ReactOS "KERNEL_RELEASE_STR" T(ask)List\n");
   printf ("Copyright (c) 2000,2001 Emanuele Aliberti\n\n");
   return EXIT_SUCCESS;
 }
 
-int WINAPI PrintSynopsys (int nRetVal)
+int STDCALL PrintSynopsys (int nRetVal)
 {
   PrintBanner ();
   printf ("Usage: tlist [-t | PID | -l]\n\n"
@@ -80,7 +80,7 @@ int WINAPI PrintSynopsys (int nRetVal)
   return nRetVal;
 }
 
-int WINAPI PrintLicense (VOID)
+int STDCALL PrintLicense (VOID)
 {
   PrintBanner ();
   printf (
@@ -100,13 +100,13 @@ int WINAPI PrintLicense (VOID)
   return EXIT_SUCCESS;
 }
 
-BOOL WINAPI AcquirePrivileges (VOID)
+BOOL STDCALL AcquirePrivileges (VOID)
 {
   /* TODO: implement it */
   return TRUE;
 }
 
-int WINAPI
+int STDCALL
 ProcessHasDescendants (
   HANDLE                      Pid,
   PSYSTEM_PROCESS_INFORMATION pInfo
@@ -132,7 +132,7 @@ ProcessHasDescendants (
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 GetProcessInfo (
   PSYSTEM_PROCESS_INFORMATION pInfo,
   LPWSTR                      * Module,
@@ -144,7 +144,7 @@ GetProcessInfo (
       return TRUE;
 }
 
-int WINAPI PrintProcessInfoDepth (
+int STDCALL PrintProcessInfoDepth (
   PSYSTEM_PROCESS_INFORMATION pInfo,
   LONG                        Depth
   )
@@ -165,7 +165,7 @@ int WINAPI PrintProcessInfoDepth (
   return EXIT_SUCCESS;
 }
 
-int WINAPI
+int STDCALL
 PrintProcessAndDescendants (
   PSYSTEM_PROCESS_INFORMATION pInfo,
   PSYSTEM_PROCESS_INFORMATION pInfoBase,
@@ -209,7 +209,7 @@ PrintProcessAndDescendants (
   return EXIT_SUCCESS;
 }
 
-int WINAPI PrintProcessList (BOOL DisplayTree)
+int STDCALL PrintProcessList (BOOL DisplayTree)
 {
   PSYSTEM_PROCESS_INFORMATION pInfo = NULL;
   PSYSTEM_PROCESS_INFORMATION pInfoBase = NULL;
@@ -251,7 +251,7 @@ int WINAPI PrintProcessList (BOOL DisplayTree)
 }
 
 
-int WINAPI PrintThreads (PSYSTEM_PROCESS_INFORMATION pInfo)
+int STDCALL PrintThreads (PSYSTEM_PROCESS_INFORMATION pInfo)
 {
   ULONG                               i = 0;
   NTSTATUS                            Status = STATUS_SUCCESS;
@@ -320,13 +320,13 @@ int WINAPI PrintThreads (PSYSTEM_PROCESS_INFORMATION pInfo)
   return EXIT_SUCCESS;
 }
 
-int WINAPI PrintModules (VOID)
+int STDCALL PrintModules (VOID)
 {
 	/* TODO */
 	return EXIT_SUCCESS;
 }
 
-PSYSTEM_PROCESS_INFORMATION WINAPI
+PSYSTEM_PROCESS_INFORMATION STDCALL
 GetProcessInfoPid (
   PSYSTEM_PROCESS_INFORMATION pInfoBase,
   HANDLE                       Pid
@@ -349,7 +349,7 @@ GetProcessInfoPid (
   return NULL;
 }
 
-int WINAPI PrintProcess (char * PidStr)
+int STDCALL PrintProcess (char * PidStr)
 {
   NTSTATUS                    Status = 0;
   HANDLE                      hProcess = 0;

@@ -213,7 +213,7 @@ _marshal_interface(marshal_state *buf, REFIID riid, LPUNKNOWN pUnk) {
 	goto fail;
     }
     
-    hres = IStream_Stat(pStm,&ststg,STATFLAG_NONAME);
+    hres = IStream_Stat(pStm,&ststg,0);
     if (hres) {
         ERR("Stream stat failed\n");
         goto fail;
@@ -254,7 +254,7 @@ fail:
 static HRESULT WINAPI
 PSFacBuf_QueryInterface(LPPSFACTORYBUFFER iface, REFIID iid, LPVOID *ppv) {
     if (IsEqualIID(iid,&IID_IPSFactoryBuffer)||IsEqualIID(iid,&IID_IUnknown)) {
-        *ppv = iface;
+	*ppv = (LPVOID)iface;
 	/* No ref counting, static class */
 	return S_OK;
     }
@@ -299,7 +299,7 @@ _get_typeinfo_for_iid(REFIID riid, ITypeInfo**ti) {
 	return E_FAIL;
     }
     RegCloseKey(ikey);
-    sprintf(typelibkey,"Typelib\\%s\\%s\\0\\win%u",tlguid,ver,(sizeof(void*) == 8) ? 64 : 32);
+    sprintf(typelibkey,"Typelib\\%s\\%s\\0\\win32",tlguid,ver);
     tlfnlen = sizeof(tlfn);
     if (RegQueryValueA(HKEY_CLASSES_ROOT,typelibkey,tlfn,&tlfnlen)) {
 	ERR("Could not get typelib fn?\n");
@@ -410,7 +410,7 @@ TMProxyImpl_QueryInterface(LPRPCPROXYBUFFER iface, REFIID riid, LPVOID *ppv)
 {
     TRACE("()\n");
     if (IsEqualIID(riid,&IID_IUnknown)||IsEqualIID(riid,&IID_IRpcProxyBuffer)) {
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
         IRpcProxyBuffer_AddRef(iface);
         return S_OK;
     }
@@ -606,15 +606,10 @@ serialize_param(
     marshal_state	*buf)
 {
     HRESULT hres = S_OK;
-    VARTYPE vartype;
 
     TRACE("(tdesc.vt %s)\n",debugstr_vt(tdesc->vt));
 
-    vartype = tdesc->vt;
-    if ((vartype & 0xf000) == VT_ARRAY)
-        vartype = VT_SAFEARRAY;
-
-    switch (vartype) {
+    switch (tdesc->vt) {
     case VT_EMPTY: /* nothing. empty variant for instance */
 	return S_OK;
     case VT_I8:
@@ -924,16 +919,11 @@ deserialize_param(
     marshal_state	*buf)
 {
     HRESULT hres = S_OK;
-    VARTYPE vartype;
 
     TRACE("vt %s at %p\n",debugstr_vt(tdesc->vt),arg);
 
-    vartype = tdesc->vt;
-    if ((vartype & 0xf000) == VT_ARRAY)
-        vartype = VT_SAFEARRAY;
-
     while (1) {
-	switch (vartype) {
+	switch (tdesc->vt) {
 	case VT_EMPTY:
 	    if (debugout) TRACE_(olerelay)("<empty>\n");
 	    return S_OK;
@@ -1430,8 +1420,8 @@ xCall(LPVOID retptr, int method, TMProxyImpl *tpinfo /*, args */)
 	TRACE_(olerelay)("(");
     }
 
-    SysFreeString(iname);
-    SysFreeString(fname);
+    if (iname) SysFreeString(iname);
+    if (fname) SysFreeString(fname);
 
     memset(&buf,0,sizeof(buf));
 
@@ -1646,7 +1636,7 @@ static HRESULT WINAPI TMarshalDispatchChannel_QueryInterface(LPRPCCHANNELBUFFER 
     *ppv = NULL;
     if (IsEqualIID(riid,&IID_IRpcChannelBuffer) || IsEqualIID(riid,&IID_IUnknown))
     {
-        *ppv = iface;
+        *ppv = (LPVOID)iface;
         IUnknown_AddRef(iface);
         return S_OK;
     }
@@ -1937,8 +1927,8 @@ PSFacBuf_CreateProxy(
 
     if (hres == S_OK)
     {
-        *ppv = proxy;
-        *ppProxy = (IRpcProxyBuffer *)&(proxy->lpvtbl2);
+        *ppv		= (LPVOID)proxy;
+        *ppProxy		= (IRpcProxyBuffer *)&(proxy->lpvtbl2);
         IUnknown_AddRef((IUnknown *)*ppv);
         return S_OK;
     }
@@ -1962,7 +1952,7 @@ static HRESULT WINAPI
 TMStubImpl_QueryInterface(LPRPCSTUBBUFFER iface, REFIID riid, LPVOID *ppv)
 {
     if (IsEqualIID(riid,&IID_IRpcStubBuffer)||IsEqualIID(riid,&IID_IUnknown)){
-        *ppv = iface;
+	*ppv = (LPVOID)iface;
 	IRpcStubBuffer_AddRef(iface);
 	return S_OK;
     }
@@ -2090,7 +2080,7 @@ TMStubImpl_Invoke(
         goto exit;
     }
 
-    SysFreeString (iname);
+    if (iname) SysFreeString (iname);
 
     /* Need them for hack below */
     memset(names,0,sizeof(names));

@@ -666,7 +666,7 @@ VideoPortInitialize(
             ExAllocatePoolWithTag(
                PagedPool,
                DriverExtension->RegistryPath.MaximumLength,
-               'RTSU');
+               TAG('U', 'S', 'T', 'R'));
          if (DriverExtension->RegistryPath.Buffer == NULL)
          {
             RtlInitUnicodeString(&DriverExtension->RegistryPath, NULL);
@@ -856,7 +856,7 @@ VideoPortGetRegistryParameters(
       UNIMPLEMENTED;
    }
 
-   return NO_ERROR;
+   return ERROR_SUCCESS;
 }
 
 /*
@@ -884,7 +884,7 @@ VideoPortSetRegistryParameters(
       ValueData,
       ValueLength);
 
-   if (Status != NO_ERROR)
+   if (Status != ERROR_SUCCESS)
      WARN_(VIDEOPRT, "VideoPortSetRegistryParameters error 0x%x\n", Status);
 
    return Status;
@@ -1045,12 +1045,12 @@ VideoPortSynchronizeExecution(
       case VpHighPriority:
          OldIrql = KeGetCurrentIrql();
          if (OldIrql < SYNCH_LEVEL)
-            KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
+            OldIrql = KfRaiseIrql(SYNCH_LEVEL);
 
          Ret = (*SynchronizeRoutine)(Context);
 
          if (OldIrql < SYNCH_LEVEL)
-            KeLowerIrql(OldIrql);
+            KfLowerIrql(OldIrql);
          break;
 
       default:
@@ -1078,7 +1078,7 @@ VideoPortEnumerateChildren(
    UCHAR ChildDescriptor[256];
    ULONG ChildId;
    ULONG Unused;
-   UINT i;
+   INT i;
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
    if (DeviceExtension->DriverExtension->InitializationData.HwGetVideoChildDescriptor == NULL)
@@ -1155,7 +1155,7 @@ VideoPortEnumerateChildren(
 #ifndef NDEBUG
       if (ChildType == Monitor)
       {
-         UINT j;
+         INT j;
          PUCHAR p = ChildDescriptor;
          INFO_(VIDEOPRT, "Monitor device enumerated! (ChildId = 0x%x)\n", ChildId);
          for (j = 0; j < sizeof (ChildDescriptor); j += 8)

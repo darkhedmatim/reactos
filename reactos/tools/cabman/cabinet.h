@@ -48,6 +48,8 @@
 
 /* Debugging */
 
+#define DBG
+
 #define NORMAL_MASK    0x000000FF
 #define SPECIAL_MASK   0xFFFFFF00
 #define MIN_TRACE      0x00000001
@@ -56,7 +58,7 @@
 
 #define DEBUG_MEMORY   0x00000100
 
-#if DBG
+#ifdef DBG
 
 extern ULONG DebugTraceLevel;
 

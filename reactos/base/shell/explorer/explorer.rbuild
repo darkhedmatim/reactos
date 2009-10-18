@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
 <group xmlns:xi="http://www.w3.org/2001/XInclude">
-<module name="explorer" type="win32gui" installname="explorer.exe" unicode="yes">
+<module name="explorer" type="win32gui" installname="explorer.exe" allowwarnings="true" unicode="yes">
+	<compilerflag compiler="cpp">-Wno-non-virtual-dtor</compilerflag>
 	<include base="explorer">.</include>
 	<define name="WIN32" />
 	<define name="__WINDRES__" />
@@ -63,7 +64,6 @@
 	<file>explorer.cpp</file>
 	<file>i386-stub-win32.c</file>
 	<file>explorer.rc</file>
-	<linkerflag>--enable-stdcall-fixup</linkerflag>
 </module>
 <installfile installbase=".">explorer-cfg-template.xml</installfile>
 <directory name="notifyhook">

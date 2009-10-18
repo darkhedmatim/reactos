@@ -144,17 +144,35 @@ typedef struct
 } FATX_DIRENTRY, * PFATX_DIRENTRY;
 #include <poppack.h>
 
-typedef struct _FAT_VOLUME_INFO *PFAT_VOLUME_INFO;
-
 typedef struct
 {
-	UCHAR	Attributes;		/* File attributes */
 	ULONG	FileSize;		/* File size */
 	ULONG	FilePointer;		/* File pointer */
 	ULONG*	FileFatChain;		/* File fat chain array */
 	ULONG	DriveNumber;
-	PFAT_VOLUME_INFO	Volume;
 } FAT_FILE_INFO, * PFAT_FILE_INFO;
+
+
+
+BOOLEAN	FatOpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector, ULONGLONG PartitionSectorCount);
+ULONG	FatDetermineFatType(PFAT_BOOTSECTOR FatBootSector, ULONG PartitionSectorCount);
+PVOID	FatBufferDirectory(ULONG DirectoryStartCluster, ULONG* EntryCountPointer, BOOLEAN RootDirectory);
+BOOLEAN	FatSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG EntryCount, PCHAR FileName, PFAT_FILE_INFO FatFileInfoPointer);
+BOOLEAN	FatLookupFile(PCSTR FileName, PFAT_FILE_INFO FatFileInfoPointer);
+void	FatParseShortFileName(PCHAR Buffer, PDIRENTRY DirEntry);
+BOOLEAN	FatGetFatEntry(ULONG Cluster, ULONG* ClusterPointer);
+FILE*	FatOpenFile(PCSTR FileName);
+ULONG	FatCountClustersInChain(ULONG StartCluster);
+ULONG*	FatGetClusterChainArray(ULONG StartCluster);
+BOOLEAN	FatReadCluster(ULONG ClusterNumber, PVOID Buffer);
+BOOLEAN	FatReadClusterChain(ULONG StartClusterNumber, ULONG NumberOfClusters, PVOID Buffer);
+BOOLEAN	FatReadPartialCluster(ULONG ClusterNumber, ULONG StartingOffset, ULONG Length, PVOID Buffer);
+BOOLEAN	FatReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
+ULONG		FatGetFileSize(FILE *FileHandle);
+VOID	FatSetFilePointer(FILE *FileHandle, ULONG NewFilePointer);
+ULONG		FatGetFilePointer(FILE *FileHandle);
+BOOLEAN	FatReadVolumeSectors(ULONG DriveNumber, ULONG SectorNumber, ULONG SectorCount, PVOID Buffer);
+
 
 #define	ATTR_NORMAL		0x00
 #define	ATTR_READONLY	0x01
@@ -173,6 +191,6 @@ typedef struct
 
 #define ISFATX(FT) ((FT) == FATX16 || (FT) == FATX32)
 
-const DEVVTBL* FatMount(ULONG DeviceId);
+extern const FS_VTBL FatVtbl;
 
 #endif // #defined __FAT_H

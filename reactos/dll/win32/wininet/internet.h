@@ -23,6 +23,9 @@
 #ifndef _WINE_INTERNET_H_
 #define _WINE_INTERNET_H_
 
+/* ReactOS-specific definitions */
+#define CP_UNIXCP   CP_THREAD_ACP
+
 #ifndef __WINE_CONFIG_H
 # error You must include config.h to use this header
 #endif
@@ -51,10 +54,6 @@
 #define closesocket close
 #define ioctlsocket ioctl
 #endif /* __MINGW32__ */
-
-/* ReactOS-specific definitions */
-#undef CP_UNIXCP
-#define CP_UNIXCP   CP_THREAD_ACP
 
 /* used for netconnection.c stuff */
 typedef struct

@@ -18,20 +18,9 @@
 #define NDEBUG
 #include <debug.h>
 
-/* PRIVATE FUNCTIONS *********************************************************/
-
-VOID
-NTAPI
-HaliHaltSystem(VOID)
-{
-    /* Disable interrupts and halt the CPU */
-    _disable();
-    __halt();
-}
-
 /* FUNCTIONS *****************************************************************/
 
-VOID NTAPI
+VOID STDCALL
 HalInitializeProcessor(ULONG ProcessorNumber,
                        PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
@@ -66,7 +55,7 @@ HalInitializeProcessor(ULONG ProcessorNumber,
    //HalpCalibrateStallExecution();
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalAllProcessorsStarted (VOID)
 {
     ULONG CPUs = 0, i;

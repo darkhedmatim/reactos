@@ -22,27 +22,27 @@ typedef PIO_STACK_LOCATION PEXTENDED_IO_STACK_LOCATION;
 /*************************************************************************
 * Prototypes for the file sfsdinit.c
 *************************************************************************/
-extern NTSTATUS NTAPI DriverEntry(
+extern NTSTATUS STDCALL DriverEntry(
 	PDRIVER_OBJECT			DriverObject,		// created by the I/O sub-system
 	PUNICODE_STRING			RegistryPath);		// path to the registry key
 
-extern void NTAPI Ext2FsdInitializeFunctionPointers(
+extern void STDCALL Ext2FsdInitializeFunctionPointers(
 	PDRIVER_OBJECT			DriverObject);		// created by the I/O sub-system
 
 
-extern VOID NTAPI Ext2QueueHandlerThread(
+extern VOID STDCALL Ext2QueueHandlerThread(
 	IN PVOID				StartContext);
 												
 /*************************************************************************
 * Prototypes for the file fsctrl.c
 *************************************************************************/
 
-extern NTSTATUS NTAPI Ext2FileSystemControl(
+extern NTSTATUS STDCALL Ext2FileSystemControl(
     IN PDEVICE_OBJECT		DeviceObject,
     IN PIRP					Irp
     );
 
-extern NTSTATUS NTAPI Ext2VerifyVolume (
+extern NTSTATUS STDCALL Ext2VerifyVolume (
 	IN PIRP					Irp,
 	IN PIO_STACK_LOCATION	IrpSp );
 
@@ -50,16 +50,16 @@ extern NTSTATUS NTAPI Ext2VerifyVolume (
 /*************************************************************************
 * Prototypes for the file create.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Create(
+extern NTSTATUS STDCALL Ext2Create(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP						Irp);			// I/O Request Packet
 
-extern NTSTATUS NTAPI Ext2CommonCreate(
+extern NTSTATUS STDCALL Ext2CommonCreate(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp,
 BOOLEAN						FirstAttempt );
 
-extern NTSTATUS NTAPI Ext2OpenVolume(
+extern NTSTATUS STDCALL Ext2OpenVolume(
 	PtrExt2VCB				PtrVCB,				// volume to be opened
 	PtrExt2IrpContext		PtrIrpContext,		// IRP context
 	PIRP					PtrIrp,				// original/user IRP
@@ -67,7 +67,7 @@ extern NTSTATUS NTAPI Ext2OpenVolume(
 	PIO_SECURITY_CONTEXT	PtrSecurityContext,	// caller's context (incl access)
 	PFILE_OBJECT			PtrNewFileObject);	// I/O Mgr. created file object
 
-extern NTSTATUS NTAPI Ext2OpenRootDirectory(
+extern NTSTATUS STDCALL Ext2OpenRootDirectory(
 	PtrExt2VCB				PtrVCB,					// volume to be opened
 	PtrExt2IrpContext		PtrIrpContext,			// IRP context
 	PIRP					PtrIrp,					// original/user IRP
@@ -75,90 +75,90 @@ extern NTSTATUS NTAPI Ext2OpenRootDirectory(
 	PIO_SECURITY_CONTEXT	PtrSecurityContext,		// caller's context (incl access)
 	PFILE_OBJECT			PtrNewFileObject);		// I/O Mgr. created file object
 
-extern void NTAPI Ext2InitializeFCB(
+extern void STDCALL Ext2InitializeFCB(
 	PtrExt2FCB				PtrNewFCB,		// FCB structure to be initialized
 	PtrExt2VCB				PtrVCB,			// logical volume (VCB) pointer
 	PtrExt2ObjectName		PtrObjectName,	// name of the object
 	uint32					Flags,			// is this a file/directory, etc.
 	PFILE_OBJECT			PtrFileObject);// optional file object to be initialized
 
-extern PtrExt2FCB	NTAPI Ext2LocateChildFCBInCore(
+extern PtrExt2FCB	STDCALL Ext2LocateChildFCBInCore(
 	PtrExt2VCB				PtrVCB,	
 	PUNICODE_STRING			PtrName, 
 	ULONG					ParentInodeNo );
 
-extern PtrExt2FCB	NTAPI Ext2LocateFCBInCore(
+extern PtrExt2FCB	STDCALL Ext2LocateFCBInCore(
 	PtrExt2VCB				PtrVCB,	
 	ULONG					InodeNo );
 
 
-extern ULONG	NTAPI Ext2LocateFileInDisk(
+extern ULONG	STDCALL Ext2LocateFileInDisk(
 	PtrExt2VCB				PtrVCB,
 	PUNICODE_STRING			PtrCurrentName, 
 	PtrExt2FCB				PtrParentFCB, 
 	ULONG					*Type );
 
-extern ULONG NTAPI Ext2CreateFile(
+extern ULONG STDCALL Ext2CreateFile(
 	PtrExt2IrpContext		PtrIrpContext,
 	PtrExt2VCB				PtrVCB,
 	PUNICODE_STRING			PtrName, 
 	PtrExt2FCB				PtrParentFCB,
 	ULONG					Type);
 
-extern BOOLEAN NTAPI Ext2OverwriteFile(
+extern BOOLEAN STDCALL Ext2OverwriteFile(
 	PtrExt2FCB				PtrFCB,
 	PtrExt2IrpContext		PtrIrpContext);
 
-extern BOOLEAN NTAPI Ext2SupersedeFile(
+extern BOOLEAN STDCALL Ext2SupersedeFile(
 	PtrExt2FCB				PtrFCB,
 	PtrExt2IrpContext		PtrIrpContext);
 
 /*************************************************************************
 * Prototypes for the file misc.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2InitializeZones(
+extern NTSTATUS STDCALL Ext2InitializeZones(
 void);
 
-extern void NTAPI Ext2DestroyZones(
+extern void STDCALL Ext2DestroyZones(
 void);
 
-extern BOOLEAN NTAPI Ext2IsIrpTopLevel(
+extern BOOLEAN STDCALL Ext2IsIrpTopLevel(
 PIRP							Irp);					// the IRP sent to our dispatch routine
 
-extern long NTAPI Ext2ExceptionFilter(
+extern long STDCALL Ext2ExceptionFilter(
 PtrExt2IrpContext			PtrIrpContext,
 PEXCEPTION_POINTERS		PtrExceptionPointers);
 
-extern NTSTATUS NTAPI Ext2ExceptionHandler(
+extern NTSTATUS STDCALL Ext2ExceptionHandler(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP							Irp);
 
-extern void NTAPI Ext2LogEvent(
+extern void STDCALL Ext2LogEvent(
 NTSTATUS						Ext2EventLogId,	// the Ext2 private message id
 NTSTATUS						RC);					// any NT error code we wish to log ...
 
-extern PtrExt2ObjectName NTAPI Ext2AllocateObjectName(
+extern PtrExt2ObjectName STDCALL Ext2AllocateObjectName(
 void);
 
-extern void NTAPI Ext2ReleaseObjectName(
+extern void STDCALL Ext2ReleaseObjectName(
 PtrExt2ObjectName			PtrObjectName);
 
-extern PtrExt2CCB NTAPI Ext2AllocateCCB(
+extern PtrExt2CCB STDCALL Ext2AllocateCCB(
 void );
 
-extern PtrExt2FCB NTAPI Ext2GetUsedFCB( 
+extern PtrExt2FCB STDCALL Ext2GetUsedFCB( 
 PtrExt2VCB					PtrVCB );
 
-extern BOOLEAN NTAPI Ext2CloseClosableFCB( 
+extern BOOLEAN STDCALL Ext2CloseClosableFCB( 
 PtrExt2FCB					PtrFCB );
 
-extern void NTAPI Ext2ReleaseCCB(
+extern void STDCALL Ext2ReleaseCCB(
 PtrExt2CCB					PtrCCB);
 
-extern PtrExt2FCB NTAPI Ext2AllocateFCB(
+extern PtrExt2FCB STDCALL Ext2AllocateFCB(
 void);
 
-extern NTSTATUS NTAPI Ext2CreateNewFCB(
+extern NTSTATUS STDCALL Ext2CreateNewFCB(
 PtrExt2FCB					*ReturnedFCB,
 LARGE_INTEGER				AllocationSize,
 LARGE_INTEGER				EndOfFile,
@@ -166,106 +166,106 @@ PFILE_OBJECT				PtrFileObject,
 PtrExt2VCB					PtrVCB,
 PtrExt2ObjectName			PtrObjectName);
 
-extern NTSTATUS NTAPI Ext2CreateNewCCB(
+extern NTSTATUS STDCALL Ext2CreateNewCCB(
 PtrExt2CCB				*ReturnedCCB,
 PtrExt2FCB				PtrFCB,
 PFILE_OBJECT			PtrFileObject);
 
-extern void NTAPI Ext2ReleaseFCB(
+extern void STDCALL Ext2ReleaseFCB(
 PtrExt2FCB					PtrFCB);
 
-extern PtrExt2FileLockInfo NTAPI Ext2AllocateByteLocks(
+extern PtrExt2FileLockInfo STDCALL Ext2AllocateByteLocks(
 void);
 
-extern void NTAPI Ext2ReleaseByteLocks(
+extern void STDCALL Ext2ReleaseByteLocks(
 PtrExt2FileLockInfo		PtrByteLocks);
 
-extern PtrExt2IrpContext NTAPI Ext2AllocateIrpContext(
+extern PtrExt2IrpContext STDCALL Ext2AllocateIrpContext(
 PIRP							Irp,
 PDEVICE_OBJECT				PtrTargetDeviceObject);
 
-extern void NTAPI Ext2ReleaseIrpContext(
+extern void STDCALL Ext2ReleaseIrpContext(
 PtrExt2IrpContext			PtrIrpContext);
 
-extern NTSTATUS NTAPI Ext2PostRequest(
+extern NTSTATUS STDCALL Ext2PostRequest(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp);
 
-extern void NTAPI Ext2CommonDispatch(
+extern void STDCALL Ext2CommonDispatch(
 void						*Context);	// actually an IRPContext structure
 
-extern void NTAPI Ext2InitializeVCB(
+extern void STDCALL Ext2InitializeVCB(
 PDEVICE_OBJECT				PtrVolumeDeviceObject,
 PDEVICE_OBJECT				PtrTargetDeviceObject,
 PVPB						PtrVPB,
 PLARGE_INTEGER				AllocationSize);
 
-extern void NTAPI Ext2CompleteRequest(
+extern void STDCALL Ext2CompleteRequest(
     IN PIRP					Irp OPTIONAL,
     IN NTSTATUS				Status
     );
 
-extern NTSTATUS NTAPI Ext2DenyAccess( 
+extern NTSTATUS STDCALL Ext2DenyAccess( 
 	IN PIRP Irp 
 	);
-extern NTSTATUS NTAPI Ext2GetFCB_CCB_VCB_FromFileObject(
+extern NTSTATUS STDCALL Ext2GetFCB_CCB_VCB_FromFileObject(
 	IN PFILE_OBJECT			PtrFileObject,
 	OUT PtrExt2FCB				*PPtrFCB,
 	OUT PtrExt2CCB				*PPtrCCB,
 	OUT PtrExt2VCB				*PPtrVCB	);
 
-extern void NTAPI Ext2CopyUnicodeString( 
+extern void STDCALL Ext2CopyUnicodeString( 
 	IN OUT PUNICODE_STRING  PtrDestinationString, 
 	IN PUNICODE_STRING PtrSourceString );
 
-extern void NTAPI Ext2CopyWideCharToUnicodeString( 
+extern void STDCALL Ext2CopyWideCharToUnicodeString( 
 	IN OUT PUNICODE_STRING  PtrDestinationString, 
 	IN PCWSTR PtrSourceString );
 
-extern void NTAPI Ext2CopyCharToUnicodeString( 
+extern void STDCALL Ext2CopyCharToUnicodeString( 
 	IN OUT PUNICODE_STRING  PtrDestinationString, 
 	IN PCSTR PtrSourceString,
 	IN USHORT SourceStringLength );
 
-extern void NTAPI Ext2CopyZCharToUnicodeString( 
+extern void STDCALL Ext2CopyZCharToUnicodeString( 
 	IN OUT PUNICODE_STRING  PtrDestinationString, 
 	IN PCSTR PtrSourceString );
 
-extern void NTAPI Ext2DeallocateUnicodeString( 
+extern void STDCALL Ext2DeallocateUnicodeString( 
 	PUNICODE_STRING		PtrUnicodeString );
 
-extern void NTAPI Ext2ZerooutUnicodeString(
+extern void STDCALL Ext2ZerooutUnicodeString(
 	PUNICODE_STRING		PtrUnicodeString );
 
-extern BOOLEAN NTAPI Ext2SaveBCB(
+extern BOOLEAN STDCALL Ext2SaveBCB(
 	PtrExt2IrpContext	PtrIrpContext,
 	PBCB				PtrBCB,
 	PFILE_OBJECT		PtrFileObject);
 
-extern BOOLEAN NTAPI Ext2FlushSavedBCBs(
+extern BOOLEAN STDCALL Ext2FlushSavedBCBs(
 	PtrExt2IrpContext	PtrIrpContext);
 
-extern BOOLEAN NTAPI AssertBCB(
+extern BOOLEAN STDCALL AssertBCB(
 	PBCB				PtrBCB);
 
-extern ULONG NTAPI Ext2Align(
+extern ULONG STDCALL Ext2Align(
 	ULONG				NumberToBeAligned, 
 	ULONG				Alignment);
 
-extern LONGLONG NTAPI Ext2Align64(
+extern LONGLONG STDCALL Ext2Align64(
 	LONGLONG			NumberToBeAligned, 
 	LONGLONG			Alignment);
 
-extern ULONG NTAPI Ext2GetCurrentTime();
+extern ULONG STDCALL Ext2GetCurrentTime();
 
 /*************************************************************************
 * Prototypes for the file cleanup.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Cleanup(
+extern NTSTATUS STDCALL Ext2Cleanup(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP							Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonCleanup(
+extern NTSTATUS	STDCALL Ext2CommonCleanup(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp,
 BOOLEAN						FirstAttempt );
@@ -273,11 +273,11 @@ BOOLEAN						FirstAttempt );
 /*************************************************************************
 * Prototypes for the file close.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Close(
+extern NTSTATUS STDCALL Ext2Close(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP							Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonClose(
+extern NTSTATUS	STDCALL Ext2CommonClose(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp,
 BOOLEAN						FirstAttempt );
@@ -285,24 +285,24 @@ BOOLEAN						FirstAttempt );
 /*************************************************************************
 * Prototypes for the file read.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Read(
+extern NTSTATUS STDCALL Ext2Read(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP							Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonRead(
+extern NTSTATUS	STDCALL Ext2CommonRead(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP				      	PtrIrp,
 BOOLEAN						FirstAttempt );
 
-extern void * NTAPI Ext2GetCallersBuffer(
+extern void * STDCALL Ext2GetCallersBuffer(
 PIRP						PtrIrp);
 
-extern NTSTATUS NTAPI Ext2LockCallersBuffer(
+extern NTSTATUS STDCALL Ext2LockCallersBuffer(
 PIRP						PtrIrp,
 BOOLEAN						IsReadOperation,
 uint32						Length);
 
-extern void NTAPI Ext2MdlComplete(
+extern void STDCALL Ext2MdlComplete(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp,
 PIO_STACK_LOCATION			PtrIoStackLocation,
@@ -311,57 +311,57 @@ BOOLEAN						ReadCompletion);
 /*************************************************************************
 * Prototypes for the file write.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Write(
+extern NTSTATUS STDCALL Ext2Write(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP							Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonWrite(
+extern NTSTATUS	STDCALL Ext2CommonWrite(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP				      	PtrIrp);
 
-extern void NTAPI Ext2DeferredWriteCallBack (
+extern void STDCALL Ext2DeferredWriteCallBack (
 void							*Context1,			// Should be PtrIrpContext
 void							*Context2);			// Should be PtrIrp
 
 /*************************************************************************
 * Prototypes for the file fileinfo.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2FileInfo(
+extern NTSTATUS STDCALL Ext2FileInfo(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP						Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonFileInfo(
+extern NTSTATUS	STDCALL Ext2CommonFileInfo(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp);
 
-extern NTSTATUS	NTAPI Ext2GetBasicInformation(
+extern NTSTATUS	STDCALL Ext2GetBasicInformation(
 	PtrExt2FCB					PtrFCB,
 	PFILE_BASIC_INFORMATION		PtrBuffer,
 	long						*PtrReturnedLength);
 
-extern NTSTATUS	NTAPI Ext2GetStandardInformation(
+extern NTSTATUS	STDCALL Ext2GetStandardInformation(
 	PtrExt2FCB					PtrFCB,
 	PFILE_STANDARD_INFORMATION	PtrStdInformation,
 	long						*PtrReturnedLength);
 
-extern NTSTATUS NTAPI Ext2GetNetworkOpenInformation(
+extern NTSTATUS STDCALL Ext2GetNetworkOpenInformation(
 	PtrExt2FCB						PtrFCB,
 	PFILE_NETWORK_OPEN_INFORMATION	PtrNetworkOpenInformation,
 	long							*PtrReturnedLength );
 
-extern NTSTATUS	NTAPI Ext2GetFullNameInformation(
+extern NTSTATUS	STDCALL Ext2GetFullNameInformation(
 	PtrExt2FCB				PtrFCB,
 	PtrExt2CCB				PtrCCB,
 	PFILE_NAME_INFORMATION	PtrNameInformation,
 	long					*PtrReturnedLength);
 
-extern NTSTATUS	NTAPI Ext2SetBasicInformation(
+extern NTSTATUS	STDCALL Ext2SetBasicInformation(
 	PtrExt2IrpContext			PtrIrpContext,
 	PtrExt2FCB					PtrFCB,
 	PFILE_OBJECT				PtrFileObject,
 	PFILE_BASIC_INFORMATION		PtrFileInformation );
 
-extern NTSTATUS	NTAPI Ext2SetDispositionInformation(
+extern NTSTATUS	STDCALL Ext2SetDispositionInformation(
 PtrExt2FCB					PtrFCB,
 PtrExt2CCB					PtrCCB,
 PtrExt2VCB					PtrVCB,
@@ -370,7 +370,7 @@ PtrExt2IrpContext			PtrIrpContext,
 PIRP							PtrIrp,
 PFILE_DISPOSITION_INFORMATION	PtrBuffer);
 
-extern NTSTATUS	NTAPI Ext2SetAllocationInformation(
+extern NTSTATUS	STDCALL Ext2SetAllocationInformation(
 PtrExt2FCB					PtrFCB,
 PtrExt2CCB					PtrCCB,
 PtrExt2VCB					PtrVCB,
@@ -382,24 +382,24 @@ PFILE_ALLOCATION_INFORMATION	PtrBuffer);
 /*************************************************************************
 * Prototypes for the file flush.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Flush(
+extern NTSTATUS STDCALL Ext2Flush(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP							Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonFlush(
+extern NTSTATUS	STDCALL Ext2CommonFlush(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP							PtrIrp);
 
-extern void NTAPI Ext2FlushAFile(
+extern void STDCALL Ext2FlushAFile(
 PtrExt2NTRequiredFCB		PtrReqdFCB,
 PIO_STATUS_BLOCK			PtrIoStatus);
 
-extern void NTAPI Ext2FlushLogicalVolume(
+extern void STDCALL Ext2FlushLogicalVolume(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP							PtrIrp,
 PtrExt2VCB					PtrVCB);
 
-extern NTSTATUS NTAPI Ext2FlushCompletion(
+extern NTSTATUS STDCALL Ext2FlushCompletion(
 PDEVICE_OBJECT				PtrDeviceObject,
 PIRP							PtrIrp,
 PVOID							Context);
@@ -407,15 +407,15 @@ PVOID							Context);
 /*************************************************************************
 * Prototypes for the file dircntrl.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2DirControl(
+extern NTSTATUS STDCALL Ext2DirControl(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP							Irp);					// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonDirControl(
+extern NTSTATUS	STDCALL Ext2CommonDirControl(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP							PtrIrp);
 
-extern NTSTATUS	NTAPI Ext2QueryDirectory(
+extern NTSTATUS	STDCALL Ext2QueryDirectory(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp,
 PEXTENDED_IO_STACK_LOCATION			PtrIoStackLocation,
@@ -423,7 +423,7 @@ PFILE_OBJECT				PtrFileObject,
 PtrExt2FCB					PtrFCB,
 PtrExt2CCB					PtrCCB);
 
-extern NTSTATUS	NTAPI Ext2NotifyChangeDirectory(
+extern NTSTATUS	STDCALL Ext2NotifyChangeDirectory(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp,
 PEXTENDED_IO_STACK_LOCATION		PtrIoStackLocation,
@@ -434,41 +434,41 @@ PtrExt2CCB					PtrCCB);
 /*************************************************************************
 * Prototypes for the file devcntrl.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2DeviceControl(
+extern NTSTATUS STDCALL Ext2DeviceControl(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP						Irp);					// I/O Request Packet
 
-extern NTSTATUS NTAPI Ext2CommonDeviceControl(
+extern NTSTATUS STDCALL Ext2CommonDeviceControl(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp);
 
-extern NTSTATUS NTAPI Ext2DevIoctlCompletion(
+extern NTSTATUS STDCALL Ext2DevIoctlCompletion(
 PDEVICE_OBJECT				PtrDeviceObject,
 PIRP						PtrIrp,
 void						*Context);
 
-extern NTSTATUS NTAPI Ext2HandleQueryPath(
+extern NTSTATUS STDCALL Ext2HandleQueryPath(
 void						*BufferPointer);
 
 /*************************************************************************
 * Prototypes for the file shutdown.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2Shutdown(
+extern NTSTATUS STDCALL Ext2Shutdown(
 PDEVICE_OBJECT				DeviceObject,		// the logical volume device object
 PIRP						Irp);			// I/O Request Packet
 
-extern NTSTATUS	NTAPI Ext2CommonShutdown(
+extern NTSTATUS	STDCALL Ext2CommonShutdown(
 PtrExt2IrpContext			PtrIrpContext,
 PIRP						PtrIrp);
 
 /*************************************************************************
 * Prototypes for the file volinfo.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2QueryVolInfo(
+extern NTSTATUS STDCALL Ext2QueryVolInfo(
 PDEVICE_OBJECT				DeviceObject,	// the logical volume device object
 PIRP						Irp);			// I/O Request Packet
 
-NTSTATUS NTAPI Ext2SetVolInfo(
+NTSTATUS STDCALL Ext2SetVolInfo(
 	IN PDEVICE_OBJECT		DeviceObject,	// the logical volume device object
 	IN PIRP					Irp);			// I/O Request Packet
 
@@ -476,7 +476,7 @@ NTSTATUS NTAPI Ext2SetVolInfo(
 /*************************************************************************
 * Prototypes for the file fastio.c
 *************************************************************************/
-extern BOOLEAN NTAPI Ext2FastIoCheckIfPossible(
+extern BOOLEAN STDCALL Ext2FastIoCheckIfPossible(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN ULONG							Length,
@@ -486,7 +486,7 @@ IN BOOLEAN						CheckForReadOperation,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoRead(
+extern BOOLEAN STDCALL Ext2FastIoRead(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN ULONG							Length,
@@ -496,7 +496,7 @@ OUT PVOID						Buffer,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoWrite(
+extern BOOLEAN STDCALL Ext2FastIoWrite(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN ULONG							Length,
@@ -506,21 +506,21 @@ OUT PVOID						Buffer,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoQueryBasicInfo(
+extern BOOLEAN STDCALL Ext2FastIoQueryBasicInfo(
 IN PFILE_OBJECT					FileObject,
 IN BOOLEAN							Wait,
 OUT PFILE_BASIC_INFORMATION	Buffer,
 OUT PIO_STATUS_BLOCK 			IoStatus,
 IN PDEVICE_OBJECT					DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoQueryStdInfo(
+extern BOOLEAN STDCALL Ext2FastIoQueryStdInfo(
 IN PFILE_OBJECT						FileObject,
 IN BOOLEAN								Wait,
 OUT PFILE_STANDARD_INFORMATION 	Buffer,
 OUT PIO_STATUS_BLOCK 				IoStatus,
 IN PDEVICE_OBJECT						DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoLock(
+extern BOOLEAN STDCALL Ext2FastIoLock(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN PLARGE_INTEGER				Length,
@@ -531,7 +531,7 @@ BOOLEAN							ExclusiveLock,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoUnlockSingle(
+extern BOOLEAN STDCALL Ext2FastIoUnlockSingle(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN PLARGE_INTEGER				Length,
@@ -540,50 +540,50 @@ ULONG								Key,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoUnlockAll(
+extern BOOLEAN STDCALL Ext2FastIoUnlockAll(
 IN PFILE_OBJECT				FileObject,
 PEPROCESS						ProcessId,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoUnlockAllByKey(
+extern BOOLEAN STDCALL Ext2FastIoUnlockAllByKey(
 IN PFILE_OBJECT				FileObject,
-PVOID						ProcessId,
+PEPROCESS						ProcessId,
 ULONG								Key,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern void NTAPI Ext2FastIoAcqCreateSec(
+extern void STDCALL Ext2FastIoAcqCreateSec(
 IN PFILE_OBJECT				FileObject);
 
-extern void NTAPI Ext2FastIoRelCreateSec(
+extern void STDCALL Ext2FastIoRelCreateSec(
 IN PFILE_OBJECT				FileObject);
 
-extern BOOLEAN NTAPI Ext2AcqLazyWrite(
+extern BOOLEAN STDCALL Ext2AcqLazyWrite(
 IN PVOID							Context,
 IN BOOLEAN						Wait);
 
-extern void NTAPI Ext2RelLazyWrite(
+extern void STDCALL Ext2RelLazyWrite(
 IN PVOID							Context);
 
-extern BOOLEAN NTAPI Ext2AcqReadAhead(
+extern BOOLEAN STDCALL Ext2AcqReadAhead(
 IN PVOID							Context,
 IN BOOLEAN						Wait);
 
-extern void NTAPI Ext2RelReadAhead(
+extern void STDCALL Ext2RelReadAhead(
 IN PVOID							Context);
 
 // the remaining are only valid under NT Version 4.0 and later
 #if(_WIN32_WINNT >= 0x0400)
 
-extern BOOLEAN NTAPI Ext2FastIoQueryNetInfo(
+extern BOOLEAN STDCALL Ext2FastIoQueryNetInfo(
 IN PFILE_OBJECT									FileObject,
 IN BOOLEAN											Wait,
 OUT PFILE_NETWORK_OPEN_INFORMATION 			Buffer,
 OUT PIO_STATUS_BLOCK 							IoStatus,
 IN PDEVICE_OBJECT									DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoMdlRead(
+extern BOOLEAN STDCALL Ext2FastIoMdlRead(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN ULONG							Length,
@@ -592,12 +592,12 @@ OUT PMDL							*MdlChain,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoMdlReadComplete(
+extern BOOLEAN STDCALL Ext2FastIoMdlReadComplete(
 IN PFILE_OBJECT				FileObject,
 OUT PMDL							MdlChain,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoPrepareMdlWrite(
+extern BOOLEAN STDCALL Ext2FastIoPrepareMdlWrite(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 IN ULONG							Length,
@@ -606,28 +606,28 @@ OUT PMDL							*MdlChain,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern BOOLEAN NTAPI Ext2FastIoMdlWriteComplete(
+extern BOOLEAN STDCALL Ext2FastIoMdlWriteComplete(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				FileOffset,
 OUT PMDL							MdlChain,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern NTSTATUS NTAPI Ext2FastIoAcqModWrite(
+extern NTSTATUS STDCALL Ext2FastIoAcqModWrite(
 IN PFILE_OBJECT				FileObject,
 IN PLARGE_INTEGER				EndingOffset,
 OUT PERESOURCE					*ResourceToRelease,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern NTSTATUS NTAPI Ext2FastIoRelModWrite(
+extern NTSTATUS STDCALL Ext2FastIoRelModWrite(
 IN PFILE_OBJECT				FileObject,
 IN PERESOURCE					ResourceToRelease,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern NTSTATUS NTAPI Ext2FastIoAcqCcFlush(
+extern NTSTATUS STDCALL Ext2FastIoAcqCcFlush(
 IN PFILE_OBJECT				FileObject,
 IN PDEVICE_OBJECT				DeviceObject);
 
-extern NTSTATUS NTAPI Ext2FastIoRelCcFlush(
+extern NTSTATUS STDCALL Ext2FastIoRelCcFlush(
 IN PFILE_OBJECT				FileObject,
 IN PDEVICE_OBJECT				DeviceObject);
 
@@ -636,13 +636,13 @@ IN PDEVICE_OBJECT				DeviceObject);
 /*************************************************************************
 * Prototypes for the file DiskIO.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2ReadLogicalBlocks(
+extern NTSTATUS STDCALL Ext2ReadLogicalBlocks(
 PDEVICE_OBJECT		PtrTargetDeviceObject,	//	the Target Device Object
 VOID				*Buffer,				//	The Buffer that takes the data read in
 LARGE_INTEGER		StartLogicalBlock,		//	The logical block from which reading is to start
 unsigned int		NoOfLogicalBlocks);		//	The no. of logical blocks to be read
 
-extern NTSTATUS NTAPI Ext2ReadPhysicalBlocks(
+extern NTSTATUS STDCALL Ext2ReadPhysicalBlocks(
 	PDEVICE_OBJECT		PtrTargetDeviceObject,	//	the Target Device Object
 	VOID				*Buffer,				//	The Buffer that takes the data read in
 	LARGE_INTEGER		StartBlock,		//	The Physical block from which reading is to start
@@ -652,32 +652,32 @@ extern NTSTATUS NTAPI Ext2ReadPhysicalBlocks(
 * Prototypes for the file metadata.c
 *************************************************************************/
 
-extern void NTAPI Ext2InitializeFCBInodeInfo (
+extern void STDCALL Ext2InitializeFCBInodeInfo (
 	PtrExt2FCB	PtrFCB );
 
-extern NTSTATUS NTAPI Ext2ReadInode(
+extern NTSTATUS STDCALL Ext2ReadInode(
 	PtrExt2VCB			PtrVcb,			//	the Volume Control Block
 	uint32				InodeNo,		//	The Inode no
 	PEXT2_INODE			PtrInode );		//	The Inode Buffer
 
-extern NTSTATUS NTAPI Ext2WriteInode(
+extern NTSTATUS STDCALL Ext2WriteInode(
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2VCB			PtrVcb,			//	the Volume Control Block
 	uint32				InodeNo,		//	The Inode no
 	PEXT2_INODE			PtrInode		//	The Inode Buffer
 	);					
 
-extern ULONG NTAPI Ext2AllocInode( 
+extern ULONG STDCALL Ext2AllocInode( 
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2VCB			PtrVCB,
 	ULONG				ParentINodeNo );
 
-extern BOOLEAN NTAPI Ext2DeallocInode( 
+extern BOOLEAN STDCALL Ext2DeallocInode( 
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2VCB			PtrVCB,
 	ULONG				INodeNo );
 
-extern BOOLEAN NTAPI Ext2MakeNewDirectoryEntry( 
+extern BOOLEAN STDCALL Ext2MakeNewDirectoryEntry( 
 	PtrExt2IrpContext	PtrIrpContext,		//	The Irp context
 	PtrExt2FCB			PtrParentFCB,		//	Parent Folder FCB
 	PFILE_OBJECT		PtrFileObject,		//	Parent Folder Object
@@ -685,54 +685,54 @@ extern BOOLEAN NTAPI Ext2MakeNewDirectoryEntry(
 	ULONG				Type,				//	The type of the new entry
 	ULONG				NewInodeNo);		//	The inode no of the new entry...
 
-extern BOOLEAN NTAPI Ext2FreeDirectoryEntry(
+extern BOOLEAN STDCALL Ext2FreeDirectoryEntry(
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2FCB			PtrParentFCB,
 	PUNICODE_STRING		PtrName);
 
-extern BOOLEAN NTAPI Ext2AddBlockToFile(
+extern BOOLEAN STDCALL Ext2AddBlockToFile(
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2VCB			PtrVCB,
 	PtrExt2FCB			PtrFCB,
 	PFILE_OBJECT		PtrFileObject,
 	BOOLEAN				UpdateFileSize);
 
-extern BOOLEAN NTAPI Ext2ReleaseDataBlocks(
+extern BOOLEAN STDCALL Ext2ReleaseDataBlocks(
 	PtrExt2FCB			PtrFCB,
 	PtrExt2IrpContext	PtrIrpContext);
 
-extern BOOLEAN NTAPI Ext2TruncateFileAllocationSize(
+extern BOOLEAN STDCALL Ext2TruncateFileAllocationSize(
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2FCB			PtrFCB,
 	PFILE_OBJECT		PtrFileObject,
 	PLARGE_INTEGER		PtrAllocationSize );
 
-extern ULONG NTAPI Ext2AllocBlock( 
+extern ULONG STDCALL Ext2AllocBlock( 
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2VCB			PtrVCB,
 	ULONG				Count);
 
-extern BOOLEAN NTAPI Ext2DeallocBlock( 
+extern BOOLEAN STDCALL Ext2DeallocBlock( 
 	PtrExt2IrpContext	PtrIrpContext,
 	PtrExt2VCB			PtrVCB,
 	ULONG				BlockNo);
 
-extern BOOLEAN NTAPI Ext2UpdateFileSize(
+extern BOOLEAN STDCALL Ext2UpdateFileSize(
 	PtrExt2IrpContext	PtrIrpContext,
 	PFILE_OBJECT		PtrFileObject,
 	PtrExt2FCB			PtrFCB);
 
 
-extern BOOLEAN NTAPI Ext2DeleteFile(
+extern BOOLEAN STDCALL Ext2DeleteFile(
 	PtrExt2FCB			PtrFCB,
 	PtrExt2IrpContext	PtrIrpContext);
 
-extern BOOLEAN NTAPI Ext2IsDirectoryEmpty(
+extern BOOLEAN STDCALL Ext2IsDirectoryEmpty(
 	PtrExt2FCB			PtrFCB,
 	PtrExt2CCB			PtrCCB,
 	PtrExt2IrpContext	PtrIrpContext);
 
-extern NTSTATUS NTAPI Ext2RenameOrLinkFile( 
+extern NTSTATUS STDCALL Ext2RenameOrLinkFile( 
 	PtrExt2FCB					PtrSourceFCB, 
 	PFILE_OBJECT				PtrSourceFileObject,	
 	PtrExt2IrpContext			PtrIrpContext,
@@ -741,7 +741,7 @@ extern NTSTATUS NTAPI Ext2RenameOrLinkFile(
 /*************************************************************************
 * Prototypes for the file io.c
 *************************************************************************/
-extern NTSTATUS NTAPI Ext2PassDownSingleReadWriteIRP(
+extern NTSTATUS STDCALL Ext2PassDownSingleReadWriteIRP(
 	PtrExt2IrpContext	PtrIrpContext,
 	PIRP				PtrIrp, 
 	PtrExt2VCB			PtrVCB,
@@ -749,7 +749,7 @@ extern NTSTATUS NTAPI Ext2PassDownSingleReadWriteIRP(
 	uint32				ReadWriteLength, 
 	BOOLEAN				SynchronousIo);
 
-extern NTSTATUS NTAPI Ext2PassDownMultiReadWriteIRP( 
+extern NTSTATUS STDCALL Ext2PassDownMultiReadWriteIRP( 
 	PEXT2_IO_RUN			PtrIoRuns, 
 	UINT					Count, 
 	ULONG					TotalReadWriteLength,
@@ -757,24 +757,24 @@ extern NTSTATUS NTAPI Ext2PassDownMultiReadWriteIRP(
 	PtrExt2FCB				PtrFCB,
 	BOOLEAN					SynchronousIo);
 
-extern NTSTATUS NTAPI Ext2SingleSyncCompletionRoutine(
+extern NTSTATUS STDCALL Ext2SingleSyncCompletionRoutine(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
     IN PVOID Contxt
     );
 
-extern NTSTATUS NTAPI Ext2SingleAsyncCompletionRoutine (
+extern NTSTATUS STDCALL Ext2SingleAsyncCompletionRoutine (
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
     IN PVOID Contxt
     );
 
-extern NTSTATUS NTAPI Ext2MultiSyncCompletionRoutine(
+extern NTSTATUS STDCALL Ext2MultiSyncCompletionRoutine(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
     IN PVOID Contxt);
 
-extern NTSTATUS NTAPI Ext2MultiAsyncCompletionRoutine(
+extern NTSTATUS STDCALL Ext2MultiAsyncCompletionRoutine(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
     IN PVOID Contxt);

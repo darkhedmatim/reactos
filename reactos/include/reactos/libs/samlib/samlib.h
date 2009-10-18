@@ -26,25 +26,25 @@
 #define __SAMLIB_H_INCLUDED__
 
 
-BOOL WINAPI
+BOOL STDCALL
 SamInitializeSAM (VOID);
 
-BOOL WINAPI
+BOOL STDCALL
 SamGetDomainSid (PSID *Sid);
 
-BOOL WINAPI
+BOOL STDCALL
 SamSetDomainSid (PSID Sid);
 
-BOOL WINAPI
+BOOL STDCALL
 SamCreateUser (PWSTR UserName,
 	       PWSTR UserPassword,
 	       PSID UserSid);
 
-BOOL WINAPI
+BOOL STDCALL
 SamCheckUserPassword (PWSTR UserName,
 		      PWSTR UserPassword);
 
-BOOL WINAPI
+BOOL STDCALL
 SamGetUserSid (PWSTR UserName,
 	       PSID *Sid);
 

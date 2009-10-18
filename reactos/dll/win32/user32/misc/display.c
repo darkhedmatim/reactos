@@ -45,7 +45,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 EnumDisplayDevicesA(
   LPCSTR lpDevice,
   DWORD iDevNum,
@@ -101,7 +101,7 @@ EnumDisplayDevicesA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplayDevicesW(
   LPCWSTR lpDevice,
   DWORD iDevNum,
@@ -127,7 +127,7 @@ EnumDisplayDevicesW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplayMonitors(
   HDC hdc,
   LPCRECT lprcClip,
@@ -201,7 +201,7 @@ EnumDisplayMonitors(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsExA(
     LPCSTR lpszDeviceName,
     DWORD iModeNum,
@@ -242,14 +242,17 @@ EnumDisplaySettingsExA(
     COPYS(dmDeviceName, CCHDEVICENAME );
     COPYN(dmSpecVersion);
     COPYN(dmDriverVersion);
-    switch (lpDevMode->dmSize)
+    switch (DevModeW.dmSize)
     {
-        case SIZEOF_DEVMODEA_300:
-        case SIZEOF_DEVMODEA_400:
-        case SIZEOF_DEVMODEA_500:
-             break;
-        default:
+        case SIZEOF_DEVMODEW_300:
             lpDevMode->dmSize = SIZEOF_DEVMODEA_300;
+            break;
+        case SIZEOF_DEVMODEW_400:
+            lpDevMode->dmSize = SIZEOF_DEVMODEA_400;
+            break;
+        case SIZEOF_DEVMODEW_500:
+        default: /* FIXME what to do??? */
+            lpDevMode->dmSize = SIZEOF_DEVMODEA_500;
             break;
     }
     COPYN(dmDriverExtra);
@@ -273,7 +276,7 @@ EnumDisplaySettingsExA(
     COPYN(dmDisplayFlags); // aka dmNup
     COPYN(dmDisplayFrequency);
 
-    if (lpDevMode->dmSize <= SIZEOF_DEVMODEW_300)
+    if (DevModeW.dmSize <= SIZEOF_DEVMODEW_300)
         return TRUE; // we're done with 0x300 fields
 
     COPYN(dmICMMethod);
@@ -283,7 +286,7 @@ EnumDisplaySettingsExA(
     COPYN(dmReserved1);
     COPYN(dmReserved2);
 
-    if (lpDevMode->dmSize <= SIZEOF_DEVMODEW_400)
+    if (DevModeW.dmSize <= SIZEOF_DEVMODEW_400)
         return TRUE; // we're done with 0x400 fields
 
     COPYN(dmPanningWidth);
@@ -297,7 +300,7 @@ EnumDisplaySettingsExA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsA(
   LPCSTR lpszDeviceName,
   DWORD iModeNum,
@@ -311,7 +314,7 @@ EnumDisplaySettingsA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsExW(
     LPCWSTR lpszDeviceName,
     DWORD iModeNum,
@@ -337,7 +340,7 @@ EnumDisplaySettingsExW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsW(
   LPCWSTR lpszDeviceName,
   DWORD iModeNum,
@@ -351,7 +354,7 @@ EnumDisplaySettingsW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetMonitorInfoA(
   HMONITOR hMonitor,
   LPMONITORINFO lpmi)
@@ -394,7 +397,7 @@ GetMonitorInfoA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetMonitorInfoW(
   HMONITOR hMonitor,
   LPMONITORINFO lpmi)
@@ -407,7 +410,7 @@ GetMonitorInfoW(
  * @implemented
  */
 HMONITOR
-WINAPI
+STDCALL
 MonitorFromPoint(
 	IN POINT ptPoint,
 	IN DWORD dwFlags )
@@ -420,7 +423,7 @@ MonitorFromPoint(
  * @implemented
  */
 HMONITOR
-WINAPI
+STDCALL
 MonitorFromRect(
 	IN LPCRECT lpcRect,
 	IN DWORD dwFlags )
@@ -433,7 +436,7 @@ MonitorFromRect(
  * @implemented
  */
 HMONITOR
-WINAPI
+STDCALL
 MonitorFromWindow(
 	IN HWND hWnd,
 	IN DWORD dwFlags )
@@ -446,7 +449,7 @@ MonitorFromWindow(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsExA(
   LPCSTR lpszDeviceName,
   LPDEVMODEA lpDevMode,
@@ -477,9 +480,6 @@ ChangeDisplaySettingsExA(
 
   rc = NtUserChangeDisplaySettings ( pDeviceName, pDevModeW, hwnd, dwflags, lParam );
 
-  if (pDevModeW != NULL)
-    RtlFreeHeap(GetProcessHeap(), 0, pDevModeW);
-
   if (lpszDeviceName != NULL)
     RtlFreeUnicodeString ( &DeviceName );
 
@@ -491,13 +491,11 @@ ChangeDisplaySettingsExA(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsA(
   LPDEVMODEA lpDevMode,
   DWORD dwflags)
 {
-  if(lpDevMode)
-    lpDevMode->dmDriverExtra = 0;
   return ChangeDisplaySettingsExA ( NULL, lpDevMode, NULL, dwflags, 0 );
 }
 
@@ -506,7 +504,7 @@ ChangeDisplaySettingsA(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsExW(
   LPCWSTR lpszDeviceName,
   LPDEVMODEW lpDevMode,
@@ -533,12 +531,10 @@ ChangeDisplaySettingsExW(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsW(
   LPDEVMODEW lpDevMode,
   DWORD dwflags)
 {
-  if(lpDevMode)
-    lpDevMode->dmDriverExtra = 0; 
   return ChangeDisplaySettingsExW ( NULL, lpDevMode, NULL, dwflags, 0 );
 }

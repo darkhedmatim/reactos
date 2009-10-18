@@ -7,6 +7,7 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
+#define __NO_CTYPE_INLINES
 #include <ctype.h>
 #include <ws2_32.h>
 #include <winbase.h>
@@ -381,7 +382,7 @@ WSAStringToAddressA(IN     LPSTR AddressString,
 
 
 /*
- * @implemented
+ * @implement
  */
 INT
 EXPORT
@@ -395,15 +396,14 @@ WSAStringToAddressW(IN      LPWSTR AddressString,
     int res=0;
     LONG inetaddr = 0;
     LPWSTR *bp=NULL;
-    SOCKADDR_IN *sockaddr;
 
-    if (!lpAddressLength || !lpAddress || !AddressString)
-    {
-        WSASetLastError(WSAEINVAL);
+    SOCKADDR_IN *sockaddr = (SOCKADDR_IN *) lpAddress;
+
+    if (!lpAddressLength || !lpAddress)
         return SOCKET_ERROR;
-    }
 
-    sockaddr = (SOCKADDR_IN *) lpAddress;
+    if (AddressString==NULL)
+        return WSAEINVAL;
 
     /* Set right adress family */
     if (lpProtocolInfo!=NULL)
@@ -421,40 +421,45 @@ WSAStringToAddressW(IN      LPWSTR AddressString,
         }
         else
         {
-            // translate ip string to ip
-
-            /* rest sockaddr.sin_addr.s_addr
-                   for we need to be sure it is zero when we come to while */
-            memset(lpAddress,0,sizeof(SOCKADDR_IN));
-
-            /* Set right adress family */
-            sockaddr->sin_family = AF_INET;
-
-            /* Get port number */
-            pos = wcscspn(AddressString,L":") + 1;
-
-            if (pos < (int)wcslen(AddressString))
-                sockaddr->sin_port = wcstol(&AddressString[pos],
-                                            bp,
-                                            10);
-
+            if (!lpAddress)
+                res = WSAEINVAL;
             else
-                sockaddr->sin_port = 0;
-
-            /* Get ip number */
-            pos=0;
-            inetaddr=0;
-
-            while (pos < (int)wcslen(AddressString))
             {
-                inetaddr = (inetaddr<<8) + ((UCHAR)wcstol(&AddressString[pos],
-                                                          bp,
-                                                          10));
-                pos += wcscspn( &AddressString[pos],L".") +1 ;
-            }
+                // translate now ip string to ip
 
-            res = 0;
-            sockaddr->sin_addr.s_addr = inetaddr;
+                /* rest sockaddr.sin_addr.s_addr
+                   for we need to be sure it is zero when we come to while */
+                memset(lpAddress,0,sizeof(SOCKADDR_IN));
+
+                /* Set right adress family */
+                sockaddr->sin_family = AF_INET;
+
+                /* Get port number */
+                pos = wcscspn(AddressString,L":") + 1;
+
+                if (pos < (int)wcslen(AddressString))
+                    sockaddr->sin_port = wcstol(&AddressString[pos],
+                                                bp,
+                                                10);
+
+                else
+                    sockaddr->sin_port = 0;
+
+                /* Get ip number */
+                pos=0;
+                inetaddr=0;
+
+                while (pos < (int)wcslen(AddressString))
+                {
+                    inetaddr = (inetaddr<<8) + ((UCHAR)wcstol(&AddressString[pos],
+                                                              bp,
+                                                              10));
+                    pos += wcscspn( &AddressString[pos],L".") +1 ;
+                }
+
+                res = 0;
+                sockaddr->sin_addr.s_addr = inetaddr;
+            }
 
         }
     }
@@ -631,9 +636,8 @@ struct hostent defined in w32api/include/winsock2.h
 
 void free_servent(struct servent* s)
 {
-    char* next;
     HFREE(s->s_name);
-    next = s->s_aliases[0];
+    char* next = s->s_aliases[0];
     while(next) { HFREE(next); next++; }
     s->s_port = 0;
     HFREE(s->s_proto);
@@ -660,11 +664,10 @@ gethostbyname(IN  CONST CHAR FAR* name)
     DNS_STATUS dns_status = {0};
     /* include/WinDNS.h -- look up DNS_RECORD on MSDN */
     PDNS_RECORD dp = 0;
-    PWINSOCK_THREAD_BLOCK p;
 
     addr = GH_INVALID;
 
-    p = NtCurrentTeb()->WinSockData;
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
 
     if( !p )
     {
@@ -1511,7 +1514,7 @@ getaddrinfo(const char FAR * nodename,
         ai->ai_family = PF_INET;
         ai->ai_addrlen = sizeof(struct sockaddr_in);
         ai->ai_addr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ai->ai_addrlen);
-        sin = (struct sockaddr_in *)ai->ai_addr;
+        sin = (struct sockaddr_in *)ret->ai_addr;
         sin->sin_family = AF_INET;
         sin->sin_port = port;
         if (hints)
@@ -1528,7 +1531,6 @@ getaddrinfo(const char FAR * nodename,
             if (ai->ai_protocol == 0)
                 ai->ai_protocol = hints->ai_protocol;
         }
-        ret = ai;
     }
 
     if (ret == NULL)

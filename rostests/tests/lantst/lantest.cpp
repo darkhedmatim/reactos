@@ -59,7 +59,7 @@ int byte_till_end( char *Packet, int PktLen ) {
 #define ETYPE_ARP  WH2N(0x0806)
 
 extern "C"
-NTSTATUS NTAPI NtCreateFile(
+NTSTATUS STDCALL NtCreateFile(
     PHANDLE FileHandle,
     ACCESS_MASK DesiredAccess,
     POBJECT_ATTRIBUTES ObjectAttributes,

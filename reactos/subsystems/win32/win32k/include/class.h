@@ -13,7 +13,7 @@ typedef struct _WNDPROC_INFO
     BOOL IsUnicode;
 } WNDPROC_INFO, *PWNDPROC_INFO;
 
-static __inline BOOL
+static BOOL __inline
 IsCallProcHandle(IN WNDPROC lpWndProc)
 {
     /* FIXME - check for 64 bit architectures... */
@@ -21,78 +21,75 @@ IsCallProcHandle(IN WNDPROC lpWndProc)
 }
 
 WNDPROC
-GetCallProcHandle(IN PCALLPROCDATA CallProc);
+GetCallProcHandle(IN PCALLPROC CallProc);
 
 VOID
 DestroyCallProc(IN PDESKTOPINFO Desktop,
-                IN OUT PCALLPROCDATA CallProc);
+                IN OUT PCALLPROC CallProc);
 
-PCALLPROCDATA
+PCALLPROC
 CloneCallProc(IN PDESKTOPINFO Desktop,
-              IN PCALLPROCDATA CallProc);
+              IN PCALLPROC CallProc);
 
-PCALLPROCDATA
+PCALLPROC
 CreateCallProc(IN PDESKTOPINFO Desktop,
                IN WNDPROC WndProc,
                IN BOOL Unicode,
-               IN PPROCESSINFO pi);
+               IN PW32PROCESSINFO pi);
 
 BOOL
 UserGetCallProcInfo(IN HANDLE hCallProc,
                     OUT PWNDPROC_INFO wpInfo);
 
 void FASTCALL
-DestroyProcessClasses(PPROCESSINFO Process );
+DestroyProcessClasses(PW32PROCESS Process );
 
-PCLS
-IntReferenceClass(IN OUT PCLS BaseClass,
-                  IN OUT PCLS *ClassLink,
+PWINDOWCLASS
+IntReferenceClass(IN OUT PWINDOWCLASS BaseClass,
+                  IN OUT PWINDOWCLASS *ClassLink,
                   IN PDESKTOP Desktop);
 
 VOID
-IntDereferenceClass(IN OUT PCLS Class,
+IntDereferenceClass(IN OUT PWINDOWCLASS Class,
                     IN PDESKTOPINFO Desktop,
-                    IN PPROCESSINFO pi);
+                    IN PW32PROCESSINFO pi);
 
 RTL_ATOM
 UserRegisterClass(IN CONST WNDCLASSEXW* lpwcx,
                   IN PUNICODE_STRING ClassName,
                   IN PUNICODE_STRING MenuName,
-                  IN DWORD fnID,
+                  IN HANDLE hMenu,
+                  IN WNDPROC wpExtra,
                   IN DWORD dwFlags);
 
 BOOL
 UserUnregisterClass(IN PUNICODE_STRING ClassName,
-                    IN HINSTANCE hInstance,
-                    OUT PCLSMENUNAME pClassMenuName);
+                    IN HINSTANCE hInstance);
 
 ULONG_PTR
-UserGetClassLongPtr(IN PCLS Class,
+UserGetClassLongPtr(IN PWINDOWCLASS Class,
                     IN INT Index,
                     IN BOOL Ansi);
 
 RTL_ATOM
 IntGetClassAtom(IN PUNICODE_STRING ClassName,
                 IN HINSTANCE hInstance  OPTIONAL,
-                IN PPROCESSINFO pi  OPTIONAL,
-                OUT PCLS *BaseClass  OPTIONAL,
-                OUT PCLS **Link  OPTIONAL);
+                IN PW32PROCESSINFO pi  OPTIONAL,
+                OUT PWINDOWCLASS *BaseClass  OPTIONAL,
+                OUT PWINDOWCLASS **Link  OPTIONAL);
 
-PCLS
-FASTCALL
-IntCreateClass(IN CONST WNDCLASSEXW* lpwcx,
-               IN PUNICODE_STRING ClassName,
-               IN PUNICODE_STRING MenuName,
-               IN DWORD fnID,
-               IN DWORD dwFlags,
-               IN PDESKTOP Desktop,
-               IN PPROCESSINFO pi);
+PCALLPROC
+UserFindCallProc(IN PWINDOWCLASS Class,
+                 IN WNDPROC WndProc,
+                 IN BOOL bUnicode);
 
-BOOL FASTCALL UserRegisterSystemClasses(VOID);
+BOOL
+UserRegisterSystemClasses(IN ULONG Count,
+                          IN PREGISTER_SYSCLASS SystemClasses);
 
 VOID
-UserAddCallProcToClass(IN OUT PCLS Class,
-                       IN PCALLPROCDATA CallProc);
+UserAddCallProcToClass(IN OUT PWINDOWCLASS Class,
+                       IN PCALLPROC CallProc);
 
 BOOL
 IntGetAtomFromStringOrAtom(IN PUNICODE_STRING ClassName,
@@ -101,10 +98,6 @@ IntGetAtomFromStringOrAtom(IN PUNICODE_STRING ClassName,
 BOOL
 IntCheckProcessDesktopClasses(IN PDESKTOP Desktop,
                               IN BOOL FreeOnFailure);
-
-BOOL FASTCALL LookupFnIdToiCls(int, int * );
-WNDPROC FASTCALL IntGetClassWndProc(PCLS, BOOL);
-ULONG_PTR FASTCALL UserGetCPD(PVOID,GETCPD,ULONG_PTR);
 
 #endif /* _WIN32K_CLASS_H */
 

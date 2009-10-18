@@ -13,126 +13,68 @@ namespace AbstractPipe
     {
         MODE_CLIENT = 0x00000000,
         MODE_SERVER = 0x00000001,
+        MODE_AUTO   = 0x00000002
     }
 
-    public class NamedPipe : Pipe, NPipe
+    public class NamedPipe : Pipe
     {
         public const int PIPE_SIZE = 1024;
 
         private PipeStream ioStream; /* stream for io operations */
         private String wCommand; /* buffer of a single command line */
         private List<String> cmdList; /*list of commands pending to be written */
-        private bool bClientConn;
-        private Thread waitThread;
-        private NamedPipeServerStream sStream;
-        private NamedPipeClientStream cStream;
 
-        public event EventHandler ClientConnectedEvent;
-        public event EventHandler ClientDisconnectedEvent;
         public event PipeReceiveEventHandler PipeReceiveEvent;
         public event PipeErrorEventHandler PipeErrorEvent;
 
         private static ManualResetEvent newWriteData = new ManualResetEvent(false);
-
-        public bool IsClientConnected
-        {
-            get { return bClientConn; }
-        }
 
         public NamedPipe()
         {
             cmdList = new List<string>();
         }
 
-        private void signalConnected()
-        {
-            bClientConn = true;
-            if (ClientConnectedEvent != null)
-            {
-                ClientConnectedEvent(this, EventArgs.Empty);
-            }
-        }
-
-        private void signalDisconnected()
-        {
-            bClientConn = false;
-            if (ClientDisconnectedEvent != null)
-            {
-                ClientDisconnectedEvent(this, EventArgs.Empty);
-            }
-        }
-
-        private void WaitForConnection()
-        {
-            try
-            {
-                sStream.WaitForConnection();
-
-                if (sStream.IsConnected)
-                {
-                    ioStream = sStream;
-                    signalConnected();
-                }
-            }
-            catch (IOException)
-            {
-                /* Pipe got killed externally */
-            }
-        }
-
-        public void CreateServerPipe(string name)
+        public bool CreateServerPipe(string name)
         {
             /* create a pipe and wait for a client */
-            sStream = new NamedPipeServerStream(name, PipeDirection.InOut, 1, 
+            NamedPipeServerStream sStream = new NamedPipeServerStream(name, PipeDirection.InOut, 1, 
                 PipeTransmissionMode.Byte, PipeOptions.Asynchronous, PIPE_SIZE, PIPE_SIZE);
+            sStream.WaitForConnection();
 
-            waitThread = new Thread(WaitForConnection);
-            waitThread.Start();
-        }
-
-        private void WaitForServer()
-        {
-            while (true)
+            if (sStream.IsConnected)
             {
-                try
-                {
-                    cStream.Connect(10);
-                }
-                catch (TimeoutException)
-                {
-                    /* Dismiss timeout, will try again */
-                }
-                catch (Exception)
-                {
-                    /* Pipe was killed externally */
-                    return;
-                }
-                if (cStream.IsConnected)
-                {
-                    ioStream = cStream;
-                    signalConnected();
-                    return;
-                }
-                Thread.Sleep(500);
+                ioStream = sStream;
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
-
+       
         public bool CreateClientPipe(string name)
         {
-            /* Try to connect as a client */
+            /* try to connect as a client */
             /* (QEMU -serial pipe or VMware in pipe server mode) */
             try
             {
-                cStream = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+                NamedPipeClientStream cStream = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+                cStream.Connect(100);
+
+                if (cStream.IsConnected)
+                {
+                    ioStream = cStream;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
             catch (Exception)
             {
-                /* Pipe couldn't be created */
                 return false;
             }
-            waitThread = new Thread(WaitForServer);
-            waitThread.Start();
-            return true;
         }
 
         public bool CreatePipe(string name, ConnectionMode mode)
@@ -143,13 +85,36 @@ namespace AbstractPipe
             }
             switch (mode)
             {
+                case ConnectionMode.MODE_AUTO:
+                    //check if pipe exists, if not create server pipe, wait certain time, check if pipe...
+                    //TODO: server-client lookup should time out
+                    while (true)
+                    {
+                        if (CreateClientPipe(name))
+                        {
+                            break;
+                        }
+                        if (CreateServerPipe(name))
+                        {
+                            break;
+                        }
+                    }
+                    return true; 
+
                 case ConnectionMode.MODE_CLIENT:
-                    CreateClientPipe(name);
+                    while (!CreateClientPipe(name)) ;
+                    
+                    /* pipe open, everything fine */
                     return true;
 
                 case ConnectionMode.MODE_SERVER:
-                    CreateServerPipe(name);
-                    return true;
+                    if (CreateServerPipe(name))
+                    {
+                        /* wait for a client*/
+                        
+                        return true;
+                    }
+                    break;
             }
             return false;
         }
@@ -158,63 +123,38 @@ namespace AbstractPipe
         {
             if (ioStream != null)
                 ioStream.Close();
-
-            bClientConn = false;
-
-            /* Wake up the write thread so it can die */
-            newWriteData.Set();
-
-            /* Close connection streams */
-            if (waitThread != null)
-            {
-                if (sStream != null)
-                {
-                    sStream.Close();
-                }
-                else if (cStream != null)
-                {
-                    cStream.Close();
-                }
-            }
         }
 
         public void WriteLoop()
         {
-            if (!bClientConn)
+            try
             {
-                if (PipeErrorEvent != null)
-                    PipeErrorEvent.Invoke(this, new PipeErrorEventArgs("Client not connected"));
-            }
-            else
-            {
-                try
+                while (true)
                 {
-                    while (bClientConn)
+                    if (cmdList.Count > 0)
                     {
-                        if (cmdList.Count > 0)
-                        {
-                            byte[] wBuf = new byte[cmdList[0].Length];
-                            UTF8Encoding.UTF8.GetBytes(cmdList[0], 0, cmdList[0].Length, wBuf, 0);
+                        byte[] wBuf = new byte[cmdList[0].Length];
+                        UTF8Encoding.UTF8.GetBytes(cmdList[0], 0, cmdList[0].Length, wBuf, 0);
 
-                            ioStream.Write(wBuf, 0, cmdList[0].Length);
+                        ioStream.Write(wBuf, 0, cmdList[0].Length);
 
-                            /* remove written data from commandlist */
-                            cmdList.RemoveAt(0);
-                        }
-                        else if (cmdList.Count == 0)
-                        {
-                            /* wait until new data is signaled */
-                            newWriteData.Reset();
-                            newWriteData.WaitOne();
-                        }
+                        /* remove written data from commandlist */
+                        cmdList.RemoveAt(0);
+                    }
+                    else if (cmdList.Count == 0)
+                    {
+                        /* wait until new data is signaled */
+                        newWriteData.Reset();
+                        newWriteData.WaitOne();
                     }
                 }
-                catch (Exception e)
-                {
-                    if (PipeErrorEvent != null)
-                        PipeErrorEvent.Invoke(this, new PipeErrorEventArgs(e.Message));
-                }
             }
+            catch (Exception e)
+            {
+                if (PipeErrorEvent != null)
+                    PipeErrorEvent.Invoke(this, new PipeErrorEventArgs(e.Message));
+            }
+
         }
 
         public void ReadLoop()
@@ -222,40 +162,27 @@ namespace AbstractPipe
             byte[] buf = new byte[PIPE_SIZE];
             int read = 0;
 
-            if (!bClientConn)
+            try
             {
-                if (PipeErrorEvent != null)
-                    PipeErrorEvent.Invoke(this, new PipeErrorEventArgs("Client not connected"));
-            }
-            else
-            {
-                try
+                while(true)
                 {
-                    while (bClientConn)
+                    read = ioStream.Read(buf, 0, PIPE_SIZE);
+                    if (read > 0)
                     {
-                        read = ioStream.Read(buf, 0, PIPE_SIZE);
-                        if (read > 0)
-                        {
-                            if (PipeReceiveEvent != null)
-                                PipeReceiveEvent.Invoke(this, new PipeReceiveEventArgs(UTF8Encoding.UTF8.GetString(buf, 0, read)));
-                        }
-                        else
-                        {
-                            /* 
-                             * Connecion closed!
-                             * We'll hijack this thread and use it to set up our pipe server again.
-                             * This thread will terminate once the connection is set up, it does not block.
-                            */
-                            signalDisconnected();
-                            break;
-                        }
+                        if (PipeReceiveEvent != null)
+                            PipeReceiveEvent.Invoke(this, new PipeReceiveEventArgs(UTF8Encoding.UTF8.GetString(buf, 0, read)));
+                    }
+                    else
+                    {
+                        /* connecion closed */
+                        break;
                     }
                 }
-                catch (Exception e)
-                {
-                    if (PipeErrorEvent != null)
-                        PipeErrorEvent.Invoke(this, new PipeErrorEventArgs(e.Message));
-                }
+            }
+            catch (Exception e)
+            {
+                if (PipeErrorEvent != null)
+                    PipeErrorEvent.Invoke(this, new PipeErrorEventArgs(e.Message));
             }
         }
 
@@ -264,11 +191,14 @@ namespace AbstractPipe
             /* only forward a complete line */
             wCommand += str;
 
-            cmdList.Add(wCommand);
-            wCommand = null;
+            if (str[str.Length-1] == '\r')
+            {
+                cmdList.Add(wCommand);
+                wCommand = null;
 
-            /* wake up the write thread */
-            newWriteData.Set();
+                /* wake up the write thread */
+                newWriteData.Set();
+            }
             return true;
         }
     }

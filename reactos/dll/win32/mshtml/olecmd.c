@@ -52,7 +52,7 @@ void do_ns_command(NSContainer *This, const char *cmd, nsICommandParams *nsparam
         return;
     }
 
-    nsres = nsICommandManager_DoCommand(cmdmgr, cmd, nsparam, This->doc->window->nswindow);
+    nsres = nsICommandManager_DoCommand(cmdmgr, cmd, nsparam, NULL);
     if(NS_FAILED(nsres))
         ERR("DoCommand(%s) failed: %08x\n", debugstr_a(cmd), nsres);
 
@@ -583,6 +583,9 @@ static HRESULT exec_editmode(HTMLDocument *This, DWORD cmdexecopt, VARIANT *in, 
                     debugstr_w(hostinfo.pchHostCss), debugstr_w(hostinfo.pchHostNS));
     }
 
+    if(This->nscontainer)
+        set_ns_editmode(This->nscontainer);
+
     update_doc(This, UPDATE_UI);
 
     if(This->mon) {
@@ -607,17 +610,12 @@ static HRESULT exec_editmode(HTMLDocument *This, DWORD cmdexecopt, VARIANT *in, 
         return hres;
 
     if(This->ui_active) {
+        RECT rcBorderWidths;
+
         if(This->ip_window)
             call_set_active_object(This->ip_window, NULL);
         if(This->hostui)
             IDocHostUIHandler_HideUI(This->hostui);
-    }
-
-    if(This->nscontainer)
-        set_ns_editmode(This->nscontainer);
-
-    if(This->ui_active) {
-        RECT rcBorderWidths;
 
         if(This->hostui)
             IDocHostUIHandler_ShowUI(This->hostui, DOCHOSTUITYPE_AUTHOR, ACTOBJ(This), CMDTARGET(This),

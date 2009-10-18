@@ -30,7 +30,7 @@ NTSTATUS CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg);
  * @unimplemented
  */
 LARGE_INTEGER
-NTAPI
+STDCALL
 CcGetDirtyPages (
 	IN	PVOID			LogHandle,
 	IN	PDIRTY_PAGE_ROUTINE	DirtyPageRoutine,
@@ -48,7 +48,7 @@ CcGetDirtyPages (
  * @implemented
  */
 PFILE_OBJECT
-NTAPI
+STDCALL
 CcGetFileObjectFromBcb (
 	IN	PVOID	Bcb
 	)
@@ -61,7 +61,7 @@ CcGetFileObjectFromBcb (
  * @unimplemented
  */
 LARGE_INTEGER
-NTAPI
+STDCALL
 CcGetLsnForFileObject (
 	IN	PFILE_OBJECT	FileObject,
 	OUT	PLARGE_INTEGER	OldestLsn OPTIONAL
@@ -77,7 +77,7 @@ CcGetLsnForFileObject (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcInitializeCacheMap (
 	IN	PFILE_OBJECT			FileObject,
 	IN	PCC_FILE_SIZES			FileSizes,
@@ -99,7 +99,7 @@ CcInitializeCacheMap (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CcIsThereDirtyData (
 	IN	PVPB	Vpb
 	)
@@ -112,7 +112,7 @@ CcIsThereDirtyData (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CcPurgeCacheSection (
 	IN	PSECTION_OBJECT_POINTERS	SectionObjectPointer,
 	IN	PLARGE_INTEGER			FileOffset OPTIONAL,
@@ -128,7 +128,7 @@ CcPurgeCacheSection (
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 CcSetFileSizes (IN PFILE_OBJECT FileObject,
 		IN PCC_FILE_SIZES FileSizes)
 {
@@ -219,7 +219,7 @@ CcSetFileSizes (IN PFILE_OBJECT FileObject,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcSetLogHandleForFile (
 	IN	PFILE_OBJECT	FileObject,
 	IN	PVOID		LogHandle,
@@ -233,7 +233,7 @@ CcSetLogHandleForFile (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CcUninitializeCacheMap (
 	IN	PFILE_OBJECT			FileObject,
 	IN	PLARGE_INTEGER			TruncateSize OPTIONAL,

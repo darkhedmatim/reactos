@@ -10,4 +10,5 @@
 	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>cryptdll.c</file>
+	<file>cryptdll.spec</file>
 </module>

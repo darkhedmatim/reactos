@@ -3,10 +3,8 @@
 <group>
 <module name="ole32_winetest" type="win32cui" installbase="bin" installname="ole32_winetest.exe" allowwarnings="true">
 	<include base="ole32_winetest">.</include>
-    <define name="__ROS_LONG64__" />
 	<file>clipboard.c</file>
 	<file>compobj.c</file>
-	<file>defaulthandler.c</file>
 	<file>dragdrop.c</file>
 	<file>errorinfo.c</file>
 	<file>hglobalstream.c</file>

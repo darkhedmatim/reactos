@@ -11,7 +11,7 @@
 #include "tdi_proto.h"
 #include "tdiconn.h"
 #include "debug.h"
-#include "pseh/pseh2.h"
+#include "pseh/pseh.h"
 
 /* Lock a method_neither request so it'll be available from DISPATCH_LEVEL */
 PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
@@ -24,11 +24,11 @@ PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
 		       FALSE,
 		       NULL );
     if( Irp->MdlAddress ) {
-	_SEH2_TRY {
-	    MmProbeAndLockPages( Irp->MdlAddress, Irp->RequestorMode, IoModifyAccess );
-	} _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+	_SEH_TRY {
+	    MmProbeAndLockPages( Irp->MdlAddress, KernelMode, IoModifyAccess );
+	} _SEH_HANDLE {
 	    LockFailed = TRUE;
-	} _SEH2_END;
+	} _SEH_END;
 
 	if( LockFailed ) {
 	    IoFreeMdl( Irp->MdlAddress );
@@ -43,7 +43,7 @@ PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
 	    IoFreeMdl( Irp->MdlAddress );
 	    Irp->MdlAddress = NULL;
 	    return NULL;
-	}
+	}    
 
 	return IrpSp->Parameters.DeviceIoControl.Type3InputBuffer;
     } else return NULL;
@@ -69,63 +69,62 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
 			 BOOLEAN Write, BOOLEAN LockAddress ) {
     UINT i;
     /* Copy the buffer array so we don't lose it */
-    UINT Lock = LockAddress ? 2 : 0;
+    UINT Lock = (LockAddress && AddressLen) ? 2 : 0;
     UINT Size = sizeof(AFD_WSABUF) * (Count + Lock);
     PAFD_WSABUF NewBuf = ExAllocatePool( PagedPool, Size * 2 );
+    PMDL NewMdl;
     BOOLEAN LockFailed = FALSE;
-    PAFD_MAPBUF MapBuf;
 
     AFD_DbgPrint(MID_TRACE,("Called(%08x)\n", NewBuf));
 
     if( NewBuf ) {
-        RtlZeroMemory(NewBuf, Size * 2);
+	PAFD_MAPBUF MapBuf = (PAFD_MAPBUF)(NewBuf + Count + Lock);
 
-	MapBuf = (PAFD_MAPBUF)(NewBuf + Count + Lock);
-
-        _SEH2_TRY {
+        _SEH_TRY {
             RtlCopyMemory( NewBuf, Buf, sizeof(AFD_WSABUF) * Count );
             if( LockAddress ) {
-                if (AddressBuf && AddressLen) {
-                    NewBuf[Count].buf = AddressBuf;
-                    NewBuf[Count].len = *AddressLen;
-                    NewBuf[Count + 1].buf = (PVOID)AddressLen;
-                    NewBuf[Count + 1].len = sizeof(*AddressLen);
-                }
-                Count += 2;
+                NewBuf[Count].buf = AddressBuf;
+                NewBuf[Count].len = *AddressLen;
+                Count++;
+                NewBuf[Count].buf = (PVOID)AddressLen;
+                NewBuf[Count].len = sizeof(*AddressLen);
+                Count++;
             }
-        } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+        } _SEH_HANDLE {
             AFD_DbgPrint(MIN_TRACE,("Access violation copying buffer info "
                                     "from userland (%x %x)\n",
                                     Buf, AddressLen));
             ExFreePool( NewBuf );
-            _SEH2_YIELD(return NULL);
-        } _SEH2_END;
+            _SEH_YIELD(return NULL);
+        } _SEH_END;
 
 	for( i = 0; i < Count; i++ ) {
 	    AFD_DbgPrint(MID_TRACE,("Locking buffer %d (%x:%d)\n",
 				    i, NewBuf[i].buf, NewBuf[i].len));
 
-	    if( NewBuf[i].buf && NewBuf[i].len ) {
-		MapBuf[i].Mdl = IoAllocateMdl( NewBuf[i].buf,
-					       NewBuf[i].len,
-					       FALSE,
-					       FALSE,
-					       NULL );
+	    if( NewBuf[i].len ) {
+		NewMdl = IoAllocateMdl( NewBuf[i].buf,
+					NewBuf[i].len,
+					FALSE,
+					FALSE,
+					NULL );
 	    } else {
 		MapBuf[i].Mdl = NULL;
 		continue;
 	    }
 
-	    AFD_DbgPrint(MID_TRACE,("NewMdl @ %x\n", MapBuf[i].Mdl));
+	    AFD_DbgPrint(MID_TRACE,("NewMdl @ %x\n", NewMdl));
+
+	    MapBuf[i].Mdl = NewMdl;
 
 	    if( MapBuf[i].Mdl ) {
 		AFD_DbgPrint(MID_TRACE,("Probe and lock pages\n"));
-		_SEH2_TRY {
+		_SEH_TRY {
 		    MmProbeAndLockPages( MapBuf[i].Mdl, KernelMode,
 				         Write ? IoModifyAccess : IoReadAccess );
-		} _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+		} _SEH_HANDLE {
 		    LockFailed = TRUE;
-		} _SEH2_END;
+		} _SEH_END;
 		AFD_DbgPrint(MID_TRACE,("MmProbeAndLock finished\n"));
 
 		if( LockFailed ) {
@@ -137,7 +136,7 @@ PAFD_WSABUF LockBuffers( PAFD_WSABUF Buf, UINT Count,
 	    } else {
 		ExFreePool( NewBuf );
 		return NULL;
-	    }
+	    }     
 	}
     }
 
@@ -188,9 +187,6 @@ PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount ) {
 	      	 (PVOID*)&FileObjects[i].Handle,
 	      	 NULL );
 	}
-
-        if( !NT_SUCCESS(Status) )
-            FileObjects[i].Handle = 0;
     }
 
     if( !NT_SUCCESS(Status) ) {
@@ -265,7 +261,7 @@ UINT SocketAcquireStateLock( PAFD_FCB FCB ) {
 }
 
 VOID SocketStateUnlock( PAFD_FCB FCB ) {
-#if DBG
+#ifdef DBG
     PVOID CurrentThread = KeGetCurrentThread();
 #endif
     ASSERT(FCB->LockCount > 0);
@@ -289,13 +285,25 @@ VOID SocketStateUnlock( PAFD_FCB FCB ) {
 
 NTSTATUS NTAPI UnlockAndMaybeComplete
 ( PAFD_FCB FCB, NTSTATUS Status, PIRP Irp,
-  UINT Information ) {
+  UINT Information,
+  PIO_COMPLETION_ROUTINE Completion ) {
+
     Irp->IoStatus.Status = Status;
     Irp->IoStatus.Information = Information;
-    if ( Irp->MdlAddress ) UnlockRequest( Irp, IoGetCurrentIrpStackLocation( Irp ) );
-    (void)IoSetCancelRoutine(Irp, NULL);
-    SocketStateUnlock( FCB );
-    IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
+
+    if( Status == STATUS_PENDING ) {
+	/* We should firstly mark this IRP as pending, because
+	   otherwise it may be completed by StreamSocketConnectComplete()
+	   before we return from SocketStateUnlock(). */
+	IoMarkIrpPending( Irp );
+	SocketStateUnlock( FCB );
+    } else {
+	if ( Irp->MdlAddress ) UnlockRequest( Irp, IoGetCurrentIrpStackLocation( Irp ) );
+	SocketStateUnlock( FCB );
+	if( Completion )
+	    Completion( FCB->DeviceExt->DeviceObject, Irp, FCB );
+	IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
+    }
     return Status;
 }
 
@@ -313,8 +321,16 @@ NTSTATUS LostSocket( PIRP Irp ) {
 NTSTATUS LeaveIrpUntilLater( PAFD_FCB FCB, PIRP Irp, UINT Function ) {
     InsertTailList( &FCB->PendingIrpList[Function],
 		    &Irp->Tail.Overlay.ListEntry );
-    IoMarkIrpPending(Irp);
-    (void)IoSetCancelRoutine(Irp, AfdCancelHandler);
+    return UnlockAndMaybeComplete( FCB, STATUS_PENDING, Irp, 0, NULL );
+}
+
+VOID SocketCalloutEnter( PAFD_FCB FCB ) {
+    ASSERT(FCB->Locked);
+    FCB->Critical = TRUE;
     SocketStateUnlock( FCB );
-    return STATUS_PENDING;
+}
+
+VOID SocketCalloutLeave( PAFD_FCB FCB ) {
+    FCB->Critical = FALSE;
+    SocketAcquireStateLock( FCB );
 }

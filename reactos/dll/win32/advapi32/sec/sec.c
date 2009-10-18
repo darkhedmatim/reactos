@@ -20,7 +20,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                              PSECURITY_DESCRIPTOR_CONTROL pControl,
                              LPDWORD lpdwRevision)
@@ -44,7 +44,7 @@ GetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                           LPBOOL lpbDaclPresent,
                           PACL *pDacl,
@@ -75,7 +75,7 @@ GetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                            PSID *pGroup,
                            LPBOOL lpbGroupDefaulted)
@@ -102,7 +102,7 @@ GetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                            PSID *pOwner,
                            LPBOOL lpbOwnerDefaulted)
@@ -129,7 +129,7 @@ GetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
                                PUCHAR RMControl)
 {
@@ -145,7 +145,7 @@ GetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                           LPBOOL lpbSaclPresent,
                           PACL *pSacl,
@@ -176,7 +176,7 @@ GetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 InitializeSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                              DWORD dwRevision)
 {
@@ -198,7 +198,7 @@ InitializeSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsValidSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor)
 {
     BOOLEAN Result;
@@ -215,7 +215,7 @@ IsValidSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MakeAbsoluteSD(PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
                PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
                LPDWORD lpdwAbsoluteSecurityDescriptorSize,
@@ -255,7 +255,7 @@ MakeAbsoluteSD(PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MakeAbsoluteSD2(IN OUT PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
                 OUT LPDWORD lpdwBufferSize)
 {
@@ -277,7 +277,7 @@ MakeAbsoluteSD2(IN OUT PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MakeSelfRelativeSD(PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
                    PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
                    LPDWORD lpdwBufferLength)
@@ -301,13 +301,13 @@ MakeSelfRelativeSD(PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                              SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
                              SECURITY_DESCRIPTOR_CONTROL ControlBitsToSet)
 {
     NTSTATUS Status;
-    
+
     Status = RtlSetControlSecurityDescriptor(pSecurityDescriptor,
                                              ControlBitsOfInterest,
                                              ControlBitsToSet);
@@ -325,7 +325,7 @@ SetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                           BOOL bDaclPresent,
                           PACL pDacl,
@@ -351,7 +351,7 @@ SetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                            PSID pGroup,
                            BOOL bGroupDefaulted)
@@ -375,7 +375,7 @@ SetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                            PSID pOwner,
                            BOOL bOwnerDefaulted)
@@ -399,7 +399,7 @@ SetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 SetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
                                PUCHAR RMControl)
 {
@@ -414,7 +414,7 @@ SetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
                           BOOL bSaclPresent,
                           PACL pSacl,
@@ -482,7 +482,7 @@ SetSecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 ConvertToAutoInheritPrivateObjectSecurity(IN PSECURITY_DESCRIPTOR ParentDescriptor,
                                           IN PSECURITY_DESCRIPTOR CurrentSecurityDescriptor,
                                           OUT PSECURITY_DESCRIPTOR* NewSecurityDescriptor,
@@ -499,7 +499,7 @@ ConvertToAutoInheritPrivateObjectSecurity(IN PSECURITY_DESCRIPTOR ParentDescript
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 BuildSecurityDescriptorW(IN PTRUSTEE_W pOwner  OPTIONAL,
                          IN PTRUSTEE_W pGroup  OPTIONAL,
                          IN ULONG cCountOfAccessEntries,
@@ -519,7 +519,7 @@ BuildSecurityDescriptorW(IN PTRUSTEE_W pOwner  OPTIONAL,
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 BuildSecurityDescriptorA(IN PTRUSTEE_A pOwner  OPTIONAL,
                          IN PTRUSTEE_A pGroup  OPTIONAL,
                          IN ULONG cCountOfAccessEntries,
@@ -541,6 +541,7 @@ BuildSecurityDescriptorA(IN PTRUSTEE_A pOwner  OPTIONAL,
 BOOL WINAPI DecryptFileW(LPCWSTR lpFileName, DWORD dwReserved)
 {
     FIXME("%s(%S) not implemented!\n", __FUNCTION__, lpFileName);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return TRUE;
 }
 
@@ -577,6 +578,7 @@ BOOL WINAPI
 EncryptFileW(LPCWSTR lpFileName)
 {
     FIXME("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     return TRUE;
 }
 
@@ -603,6 +605,38 @@ EncryptFileA(LPCSTR lpFileName)
     if (FileName.Buffer != NULL)
         RtlFreeUnicodeString(&FileName);
     return ret;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL WINAPI
+ConvertSecurityDescriptorToStringSecurityDescriptorW(PSECURITY_DESCRIPTOR pSecurityDescriptor,
+                                                     DWORD dword,
+                                                     SECURITY_INFORMATION SecurityInformation,
+                                                     LPWSTR *lpwstr,
+                                                     PULONG pulong)
+{
+    FIXME("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL WINAPI
+ConvertSecurityDescriptorToStringSecurityDescriptorA(PSECURITY_DESCRIPTOR pSecurityDescriptor,
+                                                     DWORD dword,
+                                                     SECURITY_INFORMATION SecurityInformation,
+                                                     LPSTR *lpstr,
+                                                     PULONG pulong)
+{
+    FIXME("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 /* EOF */

@@ -435,7 +435,7 @@ RtlAcquireResourceExclusive@8
 RtlAcquireResourceShared@8
 RtlAcquireSRWLockExclusive@4
 RtlAcquireSRWLockShared@4
-RtlActivateActivationContext@12
+;RtlActivateActivationContext
 ;RtlActivateActivationContextEx
 RtlActivateActivationContextUnsafeFast@8
 RtlAddAccessAllowedAce@16
@@ -520,7 +520,7 @@ RtlCopySidAndAttributesArray@28
 RtlCopyString@8
 RtlCopyUnicodeString@8
 RtlCreateAcl@12
-RtlCreateActivationContext@8
+;RtlCreateActivationContext
 ;RtlCreateAndSetSD
 RtlCreateAtomTable@8
 ;RtlCreateBootStatusDataFile
@@ -748,7 +748,7 @@ RtlIsGenericTableEmpty@4
 RtlIsGenericTableEmptyAvl@4
 RtlIsNameLegalDOS8Dot3@12
 RtlIsTextUnicode@12
-RtlIsThreadWithinLoaderCallout@0
+;RtlIsThreadWithinLoaderCallout
 RtlIsValidHandle@8
 RtlIsValidIndexHandle@12
 RtlLargeIntegerAdd@16
@@ -827,7 +827,7 @@ RtlQueueWorkItem@12
 RtlRaiseException@4
 RtlRaiseStatus@4
 RtlRandom@4
-RtlRandomEx@4
+RtlRandomEx=RtlRandom@4
 RtlReAllocateHeap@16
 ;RtlReadMemoryStream
 ;RtlReadOutOfProcessMemoryStream
@@ -869,7 +869,7 @@ RtlSetEnvironmentVariable@12
 RtlSetGroupSecurityDescriptor@12
 RtlSetHeapInformation@16
 RtlSetInformationAcl@16
-RtlSetIoCompletionCallback@12
+;RtlSetIoCompletionCallback
 RtlSetLastWin32Error@4
 RtlSetLastWin32ErrorAndNtStatusFromNtStatus@4
 ;RtlSetMemoryStreamSize

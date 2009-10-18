@@ -48,13 +48,12 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winhttp.h"
-#include "wincrypt.h"
-
-#include "winhttp_private.h"
 
 /* to avoid conflicts with the Unix socket headers */
 #define USE_WS_PREFIX
 #include "winsock2.h"
+
+#include "winhttp_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(winhttp);
 
@@ -84,7 +83,6 @@ static void *libssl_handle;
 static void *libcrypto_handle;
 
 static SSL_METHOD *method;
-static SSL_CTX *ctx;
 
 #define MAKE_FUNCPTR(f) static typeof(f) * p##f
 
@@ -92,6 +90,7 @@ MAKE_FUNCPTR( SSL_library_init );
 MAKE_FUNCPTR( SSL_load_error_strings );
 MAKE_FUNCPTR( SSLv23_method );
 MAKE_FUNCPTR( SSL_CTX_new );
+MAKE_FUNCPTR( SSL_CTX_free );
 MAKE_FUNCPTR( SSL_new );
 MAKE_FUNCPTR( SSL_free );
 MAKE_FUNCPTR( SSL_set_fd );
@@ -108,15 +107,14 @@ MAKE_FUNCPTR( SSL_CTX_set_default_verify_paths );
 MAKE_FUNCPTR( BIO_new_fp );
 MAKE_FUNCPTR( ERR_get_error );
 MAKE_FUNCPTR( ERR_error_string );
-MAKE_FUNCPTR( i2d_X509 );
 #undef MAKE_FUNCPTR
 
 #endif
 
+#if 0
 /* translate a unix error code into a winsock error code */
 static int sock_get_error( int err )
 {
-#if !defined(__MINGW32__) && !defined (_MSC_VER)
     switch (err)
     {
         case EINTR:             return WSAEINTR;
@@ -176,9 +174,11 @@ static int sock_get_error( int err )
 #endif
     default: errno = err; perror( "sock_set_error" ); return WSAEFAULT;
     }
-#endif
     return err;
 }
+#else
+#define sock_get_error(x) WSAGetLastError()
+#endif
 
 BOOL netconn_init( netconn_t *conn, BOOL secure )
 {
@@ -210,6 +210,7 @@ BOOL netconn_init( netconn_t *conn, BOOL secure )
     LOAD_FUNCPTR( SSL_load_error_strings );
     LOAD_FUNCPTR( SSLv23_method );
     LOAD_FUNCPTR( SSL_CTX_new );
+    LOAD_FUNCPTR( SSL_CTX_free );
     LOAD_FUNCPTR( SSL_new );
     LOAD_FUNCPTR( SSL_free );
     LOAD_FUNCPTR( SSL_set_fd );
@@ -234,7 +235,6 @@ BOOL netconn_init( netconn_t *conn, BOOL secure )
     LOAD_FUNCPTR( BIO_new_fp );
     LOAD_FUNCPTR( ERR_get_error );
     LOAD_FUNCPTR( ERR_error_string );
-    LOAD_FUNCPTR( i2d_X509 );
 #undef LOAD_FUNCPTR
 
     pSSL_library_init();
@@ -242,6 +242,8 @@ BOOL netconn_init( netconn_t *conn, BOOL secure )
     pBIO_new_fp( stderr, BIO_NOCLOSE );
 
     method = pSSLv23_method();
+    conn->ssl_ctx = pSSL_CTX_new( method );
+
 #else
     WARN("SSL support not compiled in.\n");
     set_last_error( ERROR_WINHTTP_SECURE_CHANNEL_ERROR );
@@ -312,14 +314,13 @@ BOOL netconn_secure_connect( netconn_t *conn )
     X509 *cert;
     long res;
 
-    ctx = pSSL_CTX_new( method );
-    if (!pSSL_CTX_set_default_verify_paths( ctx ))
+    if (!pSSL_CTX_set_default_verify_paths( conn->ssl_ctx ))
     {
         ERR("SSL_CTX_set_default_verify_paths failed: %s\n", pERR_error_string( pERR_get_error(), 0 ));
         set_last_error( ERROR_OUTOFMEMORY );
         return FALSE;
     }
-    if (!(conn->ssl_conn = pSSL_new( ctx )))
+    if (!(conn->ssl_conn = pSSL_new( conn->ssl_ctx )))
     {
         ERR("SSL_new failed: %s\n", pERR_error_string( pERR_get_error(), 0 ));
         set_last_error( ERROR_OUTOFMEMORY );
@@ -467,7 +468,11 @@ BOOL netconn_query_data_available( netconn_t *conn, DWORD *available )
         return TRUE;
     }
 #ifdef FIONREAD
-    if (!(ret = ioctlsocket( conn->socket, FIONREAD, &unread ))) *available = unread;
+    if (!(ret = ioctlsocket( conn->socket, FIONREAD, &unread )))
+    {
+        TRACE("%d bytes of queued, but unread data\n", unread);
+        *available += unread;
+    }
 #endif
     return TRUE;
 }
@@ -486,8 +491,8 @@ BOOL netconn_get_next_line( netconn_t *conn, char *buffer, DWORD *buflen )
 #ifdef SONAME_LIBSSL
         long timeout;
 
-        timeout = pSSL_CTX_get_timeout( ctx );
-        pSSL_CTX_set_timeout( ctx, DEFAULT_RECEIVE_TIMEOUT );
+        timeout = pSSL_CTX_get_timeout( conn->ssl_ctx );
+        pSSL_CTX_set_timeout( conn->ssl_ctx, DEFAULT_RECEIVE_TIMEOUT );
 
         while (recvd < *buflen)
         {
@@ -504,7 +509,7 @@ BOOL netconn_get_next_line( netconn_t *conn, char *buffer, DWORD *buflen )
             }
             if (buffer[recvd] != '\r') recvd++;
         }
-        pSSL_CTX_set_timeout( ctx, timeout );
+        pSSL_CTX_set_timeout( conn->ssl_ctx, timeout );
         if (ret)
         {
             buffer[recvd++] = 0;
@@ -562,7 +567,7 @@ DWORD netconn_set_timeout( netconn_t *netconn, BOOL send, int value )
     tv.tv_sec = value / 1000;
     tv.tv_usec = (value % 1000) * 1000;
 
-    if ((res = setsockopt( netconn->socket, SOL_SOCKET, send ? SO_SNDTIMEO : SO_RCVTIMEO, (void*)&tv, sizeof(tv) ) == -1))
+    if ((res = setsockopt( netconn->socket, SOL_SOCKET, send ? SO_SNDTIMEO : SO_RCVTIMEO, &tv, sizeof(tv) ) == -1))
     {
         WARN("setsockopt failed (%s)\n", strerror( errno ));
         return sock_get_error( errno );
@@ -590,7 +595,7 @@ BOOL netconn_resolve( WCHAR *hostnameW, INTERNET_PORT port, struct sockaddr_in *
     heap_free( hostname );
     if (ret != 0)
     {
-        TRACE("failed to get address of %s (%s)\n", debugstr_w(hostnameW), gai_strerror(ret));
+        TRACE("failed to get address of %s (%s)\n", debugstr_a(hostname), gai_strerror(ret));
         return FALSE;
     }
     memset( sa, 0, sizeof(struct sockaddr_in) );
@@ -606,59 +611,16 @@ BOOL netconn_resolve( WCHAR *hostnameW, INTERNET_PORT port, struct sockaddr_in *
     heap_free( hostname );
     if (!he)
     {
-        TRACE("failed to get address of %s (%d)\n", debugstr_w(hostnameW), h_errno);
+        TRACE("failed to get address of %s (%d)\n", debugstr_a(hostname), h_errno);
         LeaveCriticalSection( &cs_gethostbyname );
         return FALSE;
     }
     memset( sa, 0, sizeof(struct sockaddr_in) );
-    memcpy( &sa->sin_addr, he->h_addr, he->h_length );
+    memcpy( (char *)&sa->sin_addr, he->h_addr, he->h_length );
     sa->sin_family = he->h_addrtype;
     sa->sin_port = htons( port );
 
     LeaveCriticalSection( &cs_gethostbyname );
 #endif
     return TRUE;
-}
-
-const void *netconn_get_certificate( netconn_t *conn )
-{
-#ifdef SONAME_LIBSSL
-    X509 *cert;
-    unsigned char *buffer, *p;
-    int len;
-    BOOL malloc = FALSE;
-    const CERT_CONTEXT *ret;
-
-    if (!conn->secure) return NULL;
-
-    if (!(cert = pSSL_get_peer_certificate( conn->ssl_conn ))) return NULL;
-    p = NULL;
-    if ((len = pi2d_X509( cert, &p )) < 0) return NULL;
-    /*
-     * SSL 0.9.7 and above malloc the buffer if it is null.
-     * however earlier version do not and so we would need to alloc the buffer.
-     *
-     * see the i2d_X509 man page for more details.
-     */
-    if (!p)
-    {
-        if (!(buffer = heap_alloc( len ))) return NULL;
-        p = buffer;
-        len = pi2d_X509( cert, &p );
-    }
-    else
-    {
-        buffer = p;
-        malloc = TRUE;
-    }
-
-    ret = CertCreateCertificateContext( X509_ASN_ENCODING, buffer, len );
-
-    if (malloc) free( buffer );
-    else heap_free( buffer );
-
-    return ret;
-#else
-    return NULL;
-#endif
 }

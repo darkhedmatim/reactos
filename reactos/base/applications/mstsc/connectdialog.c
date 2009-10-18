@@ -989,7 +989,7 @@ OnMainCreate(HWND hwnd,
             if (CreateDialogParamW(hInst,
                                    MAKEINTRESOURCEW(IDD_GENERAL),
                                    pInfo->hTab,
-                                   GeneralDlgProc,
+                                   (DLGPROC)GeneralDlgProc,
                                    (LPARAM)pInfo))
             {
                 WCHAR str[256];
@@ -1004,7 +1004,7 @@ OnMainCreate(HWND hwnd,
             if (CreateDialogParamW(hInst,
                                    MAKEINTRESOURCEW(IDD_DISPLAY),
                                    pInfo->hTab,
-                                   DisplayDlgProc,
+                                   (DLGPROC)DisplayDlgProc,
                                    (LPARAM)pInfo))
             {
                 WCHAR str[256];
@@ -1049,7 +1049,7 @@ static void Cleanup(PINFO pInfo)
     }
 }
 
-static INT_PTR CALLBACK
+static BOOL CALLBACK
 DlgProc(HWND hDlg,
         UINT Message,
         WPARAM wParam,
@@ -1246,6 +1246,6 @@ OpenRDPConnectDialog(HINSTANCE hInstance,
     return (DialogBoxParamW(hInst,
                             MAKEINTRESOURCEW(IDD_CONNECTDIALOG),
                             NULL,
-                            DlgProc,
+                            (DLGPROC)DlgProc,
                             (LPARAM)pRdpSettings) == IDOK);
 }

@@ -13,7 +13,7 @@
 
 
 PDD_SURFACE_LOCAL
-NTAPI
+STDCALL
 DxDdLockDirectDrawSurface(HANDLE hDdSurface)
 {
    PEDD_SURFACE pEDDSurface = NULL;
@@ -29,7 +29,7 @@ DxDdLockDirectDrawSurface(HANDLE hDdSurface)
 }
 
 BOOL
-NTAPI
+STDCALL
 DxDdUnlockDirectDrawSurface(PDD_SURFACE_LOCAL pSurface)
 {
     BOOL retVal = FALSE;

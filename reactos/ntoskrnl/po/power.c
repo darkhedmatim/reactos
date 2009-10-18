@@ -217,84 +217,6 @@ PoInitializePrcb(IN PKPRCB Prcb)
 /* PUBLIC FUNCTIONS **********************************************************/
 
 /*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-PoCancelDeviceNotify(IN PVOID NotifyBlock)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-PoRegisterDeviceNotify(OUT PVOID Unknown0,
-                       IN ULONG Unknown1,
-                       IN ULONG Unknown2,
-                       IN ULONG Unknown3,
-                       IN PVOID Unknown4,
-                       IN PVOID Unknown5)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoShutdownBugCheck(IN BOOLEAN LogError,
-                   IN ULONG BugCheckCode,
-                   IN ULONG_PTR BugCheckParameter1,
-                   IN ULONG_PTR BugCheckParameter2,
-                   IN ULONG_PTR BugCheckParameter3,
-                   IN ULONG_PTR BugCheckParameter4)
-{
-    DPRINT1("PoShutdownBugCheck called\n");
-
-    /* FIXME: Log error if requested */
-    /* FIXME: Initiate a shutdown */
-
-    /* Bugcheck the system */
-    KeBugCheckEx(BugCheckCode,
-                 BugCheckParameter1,
-                 BugCheckParameter2,
-                 BugCheckParameter3,
-                 BugCheckParameter4);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-PoRequestShutdownEvent(OUT PVOID *Event)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoSetHiberRange(IN PVOID HiberContext,
-                IN ULONG Flags,
-                IN OUT PVOID StartPage,
-                IN ULONG Length,
-                IN ULONG PageTag)
-{
-    UNIMPLEMENTED;
-    return;
-}
-
-/*
  * @implemented
  */
 NTSTATUS
@@ -526,7 +448,7 @@ NtPowerInformation(IN POWER_INFORMATION_LEVEL PowerInformationLevel,
 
             /* Just zero the struct (and thus set BatteryState->BatteryPresent = FALSE) */
             RtlZeroMemory(BatteryState, sizeof(SYSTEM_BATTERY_STATE));
-            BatteryState->EstimatedTime = MAXULONG;
+            BatteryState->EstimatedTime = (ULONG)-1;
 
             Status = STATUS_SUCCESS;
             break;
@@ -588,54 +510,6 @@ NTAPI
 NtSetThreadExecutionState(IN EXECUTION_STATE esFlags,
                           OUT EXECUTION_STATE *PreviousFlags)
 {
-    PKTHREAD Thread = KeGetCurrentThread();
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
-    EXECUTION_STATE PreviousState;
-    PAGED_CODE();
-
-    /* Validate flags */
-    if (esFlags & ~(ES_CONTINUOUS | ES_USER_PRESENT))
-    {
-        /* Fail the request */
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Check for user parameters */
-    if (PreviousMode != KernelMode)
-    {
-        /* Protect the probes */
-        _SEH2_TRY
-        {
-            /* Check if the pointer is valid */
-            ProbeForWriteUlong(PreviousFlags);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* It isn't -- fail */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
-    }
-
-    /* Save the previous state, always masking in the continous flag */
-    PreviousState = Thread->PowerState | ES_CONTINUOUS;
-
-    /* Check if we need to update the power state */
-    if (esFlags & ES_CONTINUOUS) Thread->PowerState = esFlags;
-
-    /* Protect the write back to user mode */
-    _SEH2_TRY
-    {
-        /* Return the previous flags */
-        *PreviousFlags = PreviousState;
-    }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
-    {
-        /* Something's wrong, fail */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
-
-    /* All is good */
-    return STATUS_SUCCESS;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }

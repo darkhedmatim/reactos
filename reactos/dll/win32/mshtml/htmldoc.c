@@ -27,12 +27,10 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "ole2.h"
-#include "perhist.h"
 
 #include "wine/debug.h"
 
 #include "mshtml_private.h"
-#include "htmlevent.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
@@ -130,12 +128,6 @@ static HRESULT WINAPI HTMLDocument_QueryInterface(IHTMLDocument2 *iface, REFIID 
     }else if(IsEqualGUID(&DIID_DispHTMLDocument, riid)) {
         TRACE("(%p)->(DIID_DispHTMLDocument %p)\n", This, ppvObject);
         *ppvObject = HTMLDOC(This);
-    }else if(IsEqualGUID(&IID_ISupportErrorInfo, riid)) {
-        TRACE("(%p)->(IID_ISupportErrorInfo %p)\n", This, ppvObject);
-        *ppvObject = SUPPERRINFO(This);
-    }else if(IsEqualGUID(&IID_IPersistHistory, riid)) {
-        TRACE("(%p)->(IID_IPersistHistory %p)\n", This, ppvObject);
-        *ppvObject = PERSISTHIST(This);
     }else if(IsEqualGUID(&CLSID_CMarkup, riid)) {
         FIXME("(%p)->(CLSID_CMarkup %p)\n", This, ppvObject);
         return E_NOINTERFACE;
@@ -144,9 +136,6 @@ static HRESULT WINAPI HTMLDocument_QueryInterface(IHTMLDocument2 *iface, REFIID 
         return E_NOINTERFACE;
     }else if(IsEqualGUID(&IID_IPersistPropertyBag, riid)) {
         TRACE("(%p)->(IID_IPersistPropertyBag %p) returning NULL\n", This, ppvObject);
-        return E_NOINTERFACE;
-    }else if(IsEqualGUID(&IID_IMarshal, riid)) {
-        TRACE("(%p)->(IID_IMarshal %p) returning NULL\n", This, ppvObject);
         return E_NOINTERFACE;
     }else if(dispex_query_interface(&This->dispex, riid, ppvObject)) {
         return *ppvObject ? S_OK : E_NOINTERFACE;
@@ -208,25 +197,19 @@ static ULONG WINAPI HTMLDocument_Release(IHTMLDocument2 *iface)
         if(This->window)
             IHTMLWindow2_Release(HTMLWINDOW2(This->window));
 
-        if(This->event_target)
-            release_event_target(This->event_target);
-
         heap_free(This->mime);
         detach_selection(This);
         detach_ranges(This);
         release_nodes(This);
-        release_dispex(&This->dispex);
 
         ConnectionPointContainer_Destroy(&This->cp_container);
 
-        if(This->nsdoc) {
-            remove_mutation_observer(This->nscontainer, This->nsdoc);
-            nsIDOMHTMLDocument_Release(This->nsdoc);
-        }
         if(This->nscontainer)
             NSContainer_Release(This->nscontainer);
 
         heap_free(This);
+
+        UNLOCK_MODULE();
     }
 
     return ref;
@@ -280,60 +263,78 @@ static HRESULT WINAPI HTMLDocument_get_Script(IHTMLDocument2 *iface, IDispatch *
 static HRESULT WINAPI HTMLDocument_get_all(IHTMLDocument2 *iface, IHTMLElementCollection **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
+    nsIDOMDocument *nsdoc = NULL;
     nsIDOMElement *nselem = NULL;
     nsresult nsres;
 
     TRACE("(%p)->(%p)\n", This, p);
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsres = nsIDOMHTMLDocument_GetDocumentElement(This->nsdoc, &nselem);
-    if(NS_FAILED(nsres)) {
-        ERR("GetDocumentElement failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    if(nselem) {
-        *p = create_all_collection(get_node(This, (nsIDOMNode*)nselem, TRUE), TRUE);
-        nsIDOMElement_Release(nselem);
-    }else {
+    if(!This->nscontainer) {
         *p = NULL;
+        return S_OK;
     }
 
+    nsres = nsIWebNavigation_GetDocument(This->nscontainer->navigation, &nsdoc);
+    if(NS_FAILED(nsres))
+        ERR("GetDocument failed: %08x\n", nsres);
+
+    if(nsdoc) {
+        nsres = nsIDOMHTMLDocument_GetDocumentElement(nsdoc, &nselem);
+        if(NS_FAILED(nsres))
+            ERR("GetDocumentElement failed: %08x\n", nsres);
+    }
+
+    if(!nselem) {
+        *p = NULL;
+        return S_OK;
+    }
+
+    *p = create_all_collection(get_node(This, (nsIDOMNode*)nselem, TRUE));
+
+    nsIDOMElement_Release(nselem);
     return S_OK;
 }
 
 static HRESULT WINAPI HTMLDocument_get_body(IHTMLDocument2 *iface, IHTMLElement **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
+    nsIDOMDocument *nsdoc;
+    nsIDOMHTMLDocument *nshtmldoc;
     nsIDOMHTMLElement *nsbody = NULL;
     HTMLDOMNode *node;
     nsresult nsres;
 
     TRACE("(%p)->(%p)\n", This, p);
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
+    *p = NULL;
 
-    nsres = nsIDOMHTMLDocument_GetBody(This->nsdoc, &nsbody);
+    if(!This->nscontainer)
+        return S_OK;
+
+    nsres = nsIWebNavigation_GetDocument(This->nscontainer->navigation, &nsdoc);
     if(NS_FAILED(nsres)) {
+        ERR("GetDocument failed: %08x\n", nsres);
+        return S_OK;
+    }
+
+    if(NS_FAILED(nsres) || !nsdoc) 
+        return S_OK;
+
+    nsIDOMDocument_QueryInterface(nsdoc, &IID_nsIDOMHTMLDocument, (void**)&nshtmldoc);
+    nsIDOMDocument_Release(nsdoc);
+
+    nsres = nsIDOMHTMLDocument_GetBody(nshtmldoc, &nsbody);
+    nsIDOMHTMLDocument_Release(nshtmldoc);
+
+    if(NS_FAILED(nsres) || !nsbody) {
         TRACE("Could not get body: %08x\n", nsres);
-        return E_UNEXPECTED;
+        return S_OK;
     }
 
-    if(nsbody) {
-        node = get_node(This, (nsIDOMNode*)nsbody, TRUE);
-        nsIDOMHTMLElement_Release(nsbody);
+    node = get_node(This, (nsIDOMNode*)nsbody, TRUE);
+    nsIDOMHTMLElement_Release(nsbody);
 
-        IHTMLDOMNode_QueryInterface(HTMLDOMNODE(node), &IID_IHTMLElement, (void**)p);
-    }else {
-        *p = NULL;
-    }
+    IHTMLDOMNode_QueryInterface(HTMLDOMNODE(node), &IID_IHTMLElement, (void**)p);
 
     TRACE("*p = %p\n", *p);
     return S_OK;
@@ -349,178 +350,63 @@ static HRESULT WINAPI HTMLDocument_get_activeElement(IHTMLDocument2 *iface, IHTM
 static HRESULT WINAPI HTMLDocument_get_images(IHTMLDocument2 *iface, IHTMLElementCollection **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsIDOMHTMLCollection *nscoll = NULL;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    *p = NULL;
-
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsres = nsIDOMHTMLDocument_GetImages(This->nsdoc, &nscoll);
-    if(NS_FAILED(nsres)) {
-        ERR("GetImages failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    if(nscoll) {
-        *p = create_collection_from_htmlcol(This, (IUnknown*)HTMLDOC(This), nscoll);
-        nsIDOMElement_Release(nscoll);
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_applets(IHTMLDocument2 *iface, IHTMLElementCollection **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsIDOMHTMLCollection *nscoll = NULL;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    *p = NULL;
-
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsres = nsIDOMHTMLDocument_GetApplets(This->nsdoc, &nscoll);
-    if(NS_FAILED(nsres)) {
-        ERR("GetApplets failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    if(nscoll) {
-        *p = create_collection_from_htmlcol(This, (IUnknown*)HTMLDOC(This), nscoll);
-        nsIDOMElement_Release(nscoll);
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_links(IHTMLDocument2 *iface, IHTMLElementCollection **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsIDOMHTMLCollection *nscoll = NULL;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    *p = NULL;
-
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsres = nsIDOMHTMLDocument_GetLinks(This->nsdoc, &nscoll);
-    if(NS_FAILED(nsres)) {
-        ERR("GetLinks failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    if(nscoll) {
-        *p = create_collection_from_htmlcol(This, (IUnknown*)HTMLDOC(This), nscoll);
-        nsIDOMElement_Release(nscoll);
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_forms(IHTMLDocument2 *iface, IHTMLElementCollection **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsIDOMHTMLCollection *nscoll = NULL;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    *p = NULL;
-
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsres = nsIDOMHTMLDocument_GetForms(This->nsdoc, &nscoll);
-    if(NS_FAILED(nsres)) {
-        ERR("GetForms failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    if(nscoll) {
-        *p = create_collection_from_htmlcol(This, (IUnknown*)HTMLDOC(This), nscoll);
-        nsIDOMElement_Release(nscoll);
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_anchors(IHTMLDocument2 *iface, IHTMLElementCollection **p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsIDOMHTMLCollection *nscoll = NULL;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    *p = NULL;
-
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsres = nsIDOMHTMLDocument_GetAnchors(This->nsdoc, &nscoll);
-    if(NS_FAILED(nsres)) {
-        ERR("GetAnchors failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    if(nscoll) {
-        *p = create_collection_from_htmlcol(This, (IUnknown*)HTMLDOC(This), nscoll);
-        nsIDOMElement_Release(nscoll);
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_title(IHTMLDocument2 *iface, BSTR v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
+    nsIDOMHTMLDocument *nshtmldoc;
+    nsIDOMDocument *nsdoc;
     nsAString nsstr;
     nsresult nsres;
 
     TRACE("(%p)->(%s)\n", This, debugstr_w(v));
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
+    if(!This->nscontainer)
+        return E_FAIL;
+
+    nsres = nsIWebNavigation_GetDocument(This->nscontainer->navigation, &nsdoc);
+    if(NS_FAILED(nsres) || !nsdoc) {
+        ERR("GetDocument failed: %08x\n", nsres);
+        return E_FAIL;
     }
 
+    nsIDOMDocument_QueryInterface(nsdoc, &IID_nsIDOMHTMLDocument, (void**)&nshtmldoc);
+    nsIDOMDocument_Release(nsdoc);
+
     nsAString_Init(&nsstr, v);
-    nsres = nsIDOMHTMLDocument_SetTitle(This->nsdoc, &nsstr);
+    nsres = nsIDOMHTMLDocument_SetTitle(nshtmldoc, &nsstr);
+    nsIDOMHTMLDocument_Release(nshtmldoc);
     nsAString_Finish(&nsstr);
     if(NS_FAILED(nsres))
         ERR("SetTitle failed: %08x\n", nsres);
@@ -531,30 +417,36 @@ static HRESULT WINAPI HTMLDocument_put_title(IHTMLDocument2 *iface, BSTR v)
 static HRESULT WINAPI HTMLDocument_get_title(IHTMLDocument2 *iface, BSTR *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
+    nsIDOMHTMLDocument *nshtmldoc;
+    nsIDOMDocument *nsdoc;
     const PRUnichar *ret;
     nsAString nsstr;
     nsresult nsres;
 
     TRACE("(%p)->(%p)\n", This, p);
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
+    if(!This->nscontainer)
+        return E_FAIL;
 
-
-    nsAString_Init(&nsstr, NULL);
-    nsres = nsIDOMHTMLDocument_GetTitle(This->nsdoc, &nsstr);
-    if (NS_SUCCEEDED(nsres)) {
-        nsAString_GetData(&nsstr, &ret);
-        *p = SysAllocString(ret);
-    }
-    nsAString_Finish(&nsstr);
-
-    if(NS_FAILED(nsres)) {
-        ERR("GetTitle failed: %08x\n", nsres);
+    nsres = nsIWebNavigation_GetDocument(This->nscontainer->navigation, &nsdoc);
+    if(NS_FAILED(nsres) || !nsdoc) {
+        ERR("GetDocument failed: %08x\n", nsres);
         return E_FAIL;
     }
+
+    nsIDOMDocument_QueryInterface(nsdoc, &IID_nsIDOMHTMLDocument, (void**)&nshtmldoc);
+    nsIDOMDocument_Release(nsdoc);
+
+    nsAString_Init(&nsstr, NULL);
+
+    nsres = nsIDOMHTMLDocument_GetTitle(nshtmldoc, &nsstr);
+    nsIDOMHTMLDocument_Release(nshtmldoc);
+    if (NS_FAILED(nsres))
+        ERR("GetTitle failed: %08x\n", nsres);
+
+    nsAString_GetData(&nsstr, &ret);
+    *p = SysAllocString(ret);
+    nsAString_Finish(&nsstr);
 
     return S_OK;
 }
@@ -576,15 +468,8 @@ static HRESULT WINAPI HTMLDocument_put_designMode(IHTMLDocument2 *iface, BSTR v)
 static HRESULT WINAPI HTMLDocument_get_designMode(IHTMLDocument2 *iface, BSTR *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    static WCHAR szOff[] = {'O','f','f',0};
-    FIXME("(%p)->(%p) always returning Off\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    *p = SysAllocString(szOff);
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_selection(IHTMLDocument2 *iface, IHTMLSelectionObject **p)
@@ -901,40 +786,51 @@ static HRESULT WINAPI HTMLDocument_get_nameProp(IHTMLDocument2 *iface, BSTR *p)
     return E_NOTIMPL;
 }
 
-static HRESULT document_write(HTMLDocument *This, SAFEARRAY *psarray, BOOL ln)
+static HRESULT WINAPI HTMLDocument_write(IHTMLDocument2 *iface, SAFEARRAY *psarray)
 {
+    HTMLDocument *This = HTMLDOC_THIS(iface);
+    nsIDOMDocument *domdoc;
+    nsIDOMHTMLDocument *nsdoc;
     nsAString nsstr;
     VARIANT *var;
-    ULONG i, argc;
+    int i;
     nsresult nsres;
     HRESULT hres;
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
+    TRACE("(%p)->(%p)\n", iface, psarray);
 
     if(psarray->cDims != 1) {
         FIXME("cDims=%d\n", psarray->cDims);
         return E_INVALIDARG;
     }
 
+    if(!This->nscontainer)
+        return S_OK;
+
+    nsres = nsIWebNavigation_GetDocument(This->nscontainer->navigation, &domdoc);
+    if(NS_FAILED(nsres)) {
+        ERR("GetDocument failed: %08x\n", nsres);
+        return S_OK;
+    }
+
+    nsres = nsIDOMDocument_QueryInterface(domdoc, &IID_nsIDOMHTMLDocument, (void**)&nsdoc);
+    nsIDOMDocument_Release(domdoc);
+    if(NS_FAILED(nsres))
+        return S_OK;
+
     hres = SafeArrayAccessData(psarray, (void**)&var);
     if(FAILED(hres)) {
         WARN("SafeArrayAccessData failed: %08x\n", hres);
+        nsIDOMHTMLDocument_Release(nsdoc);
         return hres;
     }
 
     nsAString_Init(&nsstr, NULL);
 
-    argc = psarray->rgsabound[0].cElements;
-    for(i=0; i < argc; i++) {
+    for(i=0; i < psarray->rgsabound[0].cElements; i++) {
         if(V_VT(var+i) == VT_BSTR) {
             nsAString_SetData(&nsstr, V_BSTR(var+i));
-            if(!ln || i != argc-1)
-                nsres = nsIDOMHTMLDocument_Write(This->nsdoc, &nsstr);
-            else
-                nsres = nsIDOMHTMLDocument_Writeln(This->nsdoc, &nsstr);
+            nsres = nsIDOMHTMLDocument_Write(nsdoc, &nsstr);
             if(NS_FAILED(nsres))
                 ERR("Write failed: %08x\n", nsres);
         }else {
@@ -944,78 +840,31 @@ static HRESULT document_write(HTMLDocument *This, SAFEARRAY *psarray, BOOL ln)
 
     nsAString_Finish(&nsstr);
     SafeArrayUnaccessData(psarray);
+    nsIDOMHTMLDocument_Release(nsdoc);
 
     return S_OK;
-}
-
-static HRESULT WINAPI HTMLDocument_write(IHTMLDocument2 *iface, SAFEARRAY *psarray)
-{
-    HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", iface, psarray);
-
-    return document_write(This, psarray, FALSE);
 }
 
 static HRESULT WINAPI HTMLDocument_writeln(IHTMLDocument2 *iface, SAFEARRAY *psarray)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, psarray);
-
-    return document_write(This, psarray, TRUE);
+    FIXME("(%p)->(%p)\n", This, psarray);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_open(IHTMLDocument2 *iface, BSTR url, VARIANT name,
                         VARIANT features, VARIANT replace, IDispatch **pomWindowResult)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsresult nsres;
-
-    static const WCHAR text_htmlW[] = {'t','e','x','t','/','h','t','m','l',0};
-
-    TRACE("(%p)->(%s %s %s %s %p)\n", This, debugstr_w(url), debugstr_variant(&name),
-          debugstr_variant(&features), debugstr_variant(&replace), pomWindowResult);
-
-    if(!This->nsdoc) {
-        ERR("!nsdoc\n");
-        return E_NOTIMPL;
-    }
-
-    if(!url || strcmpW(url, text_htmlW) || V_VT(&name) != VT_ERROR
-       || V_VT(&features) != VT_ERROR || V_VT(&replace) != VT_ERROR)
-        FIXME("unsupported args\n");
-
-    nsres = nsIDOMHTMLDocument_Open(This->nsdoc);
-    if(NS_FAILED(nsres)) {
-        ERR("Open failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    *pomWindowResult = (IDispatch*)HTMLWINDOW2(This->window);
-    IHTMLWindow2_AddRef(HTMLWINDOW2(This->window));
-    return S_OK;
+    FIXME("(%p)->(%s %p)\n", This, debugstr_w(url), pomWindowResult);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_close(IHTMLDocument2 *iface)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    nsresult nsres;
-
-    TRACE("(%p)\n", This);
-
-    if(!This->nsdoc) {
-        ERR("!nsdoc\n");
-        return E_NOTIMPL;
-    }
-
-    nsres = nsIDOMHTMLDocument_Close(This->nsdoc);
-    if(NS_FAILED(nsres)) {
-        ERR("Close failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    return S_OK;
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_clear(IHTMLDocument2 *iface)
@@ -1093,6 +942,7 @@ static HRESULT WINAPI HTMLDocument_createElement(IHTMLDocument2 *iface, BSTR eTa
                                                  IHTMLElement **newElem)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
+    nsIDOMDocument *nsdoc;
     nsIDOMElement *nselem;
     HTMLElement *elem;
     nsAString tag_str;
@@ -1100,14 +950,12 @@ static HRESULT WINAPI HTMLDocument_createElement(IHTMLDocument2 *iface, BSTR eTa
 
     TRACE("(%p)->(%s %p)\n", This, debugstr_w(eTag), newElem);
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
+    nsIWebNavigation_GetDocument(This->nscontainer->navigation, &nsdoc);
 
     nsAString_Init(&tag_str, eTag);
-    nsres = nsIDOMDocument_CreateElement(This->nsdoc, &tag_str, &nselem);
+    nsres = nsIDOMDocument_CreateElement(nsdoc, &tag_str, &nselem);
     nsAString_Finish(&tag_str);
+    nsIDOMDocument_Release(nsdoc);
     if(NS_FAILED(nsres)) {
         ERR("CreateElement failed: %08x\n", nsres);
         return E_FAIL;
@@ -1166,37 +1014,29 @@ static HRESULT WINAPI HTMLDocument_get_ondblclick(IHTMLDocument2 *iface, VARIANT
 static HRESULT WINAPI HTMLDocument_put_onkeyup(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_KEYUP, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onkeyup(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_KEYUP, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onkeydown(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_KEYDOWN, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onkeydown(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_KEYDOWN, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onkeypress(IHTMLDocument2 *iface, VARIANT v)
@@ -1272,19 +1112,15 @@ static HRESULT WINAPI HTMLDocument_get_onmouseout(IHTMLDocument2 *iface, VARIANT
 static HRESULT WINAPI HTMLDocument_put_onmouseover(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)\n", This);
-
-    return set_doc_event(This, EVENTID_MOUSEOVER, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onmouseover(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_MOUSEOVER, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onreadystatechange(IHTMLDocument2 *iface, VARIANT v)
@@ -1346,44 +1182,36 @@ static HRESULT WINAPI HTMLDocument_get_onrowenter(IHTMLDocument2 *iface, VARIANT
 static HRESULT WINAPI HTMLDocument_put_ondragstart(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_DRAGSTART, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_ondragstart(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_DRAGSTART, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onselectstart(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_SELECTSTART, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onselectstart(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_SELECTSTART, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLDocument_elementFromPoint(IHTMLDocument2 *iface, LONG x, LONG y,
+static HRESULT WINAPI HTMLDocument_elementFromPoint(IHTMLDocument2 *iface, long x, long y,
                                                         IHTMLElement **elementHit)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    FIXME("(%p)->(%d %d %p)\n", This, x, y, elementHit);
+    FIXME("(%p)->(%ld %ld %p)\n", This, x, y, elementHit);
     return E_NOTIMPL;
 }
 
@@ -1404,24 +1232,30 @@ static HRESULT WINAPI HTMLDocument_get_styleSheets(IHTMLDocument2 *iface,
     HTMLDocument *This = HTMLDOC_THIS(iface);
     nsIDOMStyleSheetList *nsstylelist;
     nsIDOMDocumentStyle *nsdocstyle;
+    nsIDOMDocument *nsdoc;
     nsresult nsres;
 
     TRACE("(%p)->(%p)\n", This, p);
 
     *p = NULL;
 
-    if(!This->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
+    if(!This->nscontainer)
+        return S_OK;
+
+    nsres = nsIWebNavigation_GetDocument(This->nscontainer->navigation, &nsdoc);
+    if(NS_FAILED(nsres)) {
+        ERR("GetDocument failed: %08x\n", nsres);
+        return S_OK;
     }
 
-    nsIDOMHTMLDocument_QueryInterface(This->nsdoc, &IID_nsIDOMDocumentStyle, (void**)&nsdocstyle);
-    nsres = nsIDOMDocumentStyle_GetStyleSheets(nsdocstyle, &nsstylelist);
+    if(NS_FAILED(nsres) || !nsdoc)
+        return S_OK;
+
+    nsIDOMDocument_QueryInterface(nsdoc, &IID_nsIDOMDocumentStyle, (void**)&nsdocstyle);
+    nsIDOMDocument_Release(nsdoc);
+
+    nsIDOMDocumentStyle_GetStyleSheets(nsdocstyle, &nsstylelist);
     nsIDOMDocumentStyle_Release(nsdocstyle);
-    if(NS_FAILED(nsres)) {
-        ERR("GetStyleSheets failed: %08x\n", nsres);
-        return E_FAIL;
-    }
 
     *p = HTMLStyleSheetsCollection_Create(nsstylelist);
     nsIDOMDocumentStyle_Release(nsstylelist);
@@ -1465,11 +1299,11 @@ static HRESULT WINAPI HTMLDocument_toString(IHTMLDocument2 *iface, BSTR *String)
 }
 
 static HRESULT WINAPI HTMLDocument_createStyleSheet(IHTMLDocument2 *iface, BSTR bstrHref,
-                                            LONG lIndex, IHTMLStyleSheet **ppnewStyleSheet)
+                                            long lIndex, IHTMLStyleSheet **ppnewStyleSheet)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
 
-    FIXME("(%p)->(%s %d %p) semi-stub\n", This, debugstr_w(bstrHref), lIndex, ppnewStyleSheet);
+    FIXME("(%p)->(%s %ld %p) semi-stub\n", This, debugstr_w(bstrHref), lIndex, ppnewStyleSheet);
 
     *ppnewStyleSheet = HTMLStyleSheet_Create(NULL);
     return S_OK;
@@ -1592,39 +1426,6 @@ static const IHTMLDocument2Vtbl HTMLDocumentVtbl = {
     HTMLDocument_get_onerrorupdate,
     HTMLDocument_toString,
     HTMLDocument_createStyleSheet
-};
-
-#define SUPPINFO_THIS(iface) DEFINE_THIS(HTMLDocument, SupportErrorInfo, iface)
-
-static HRESULT WINAPI SupportErrorInfo_QueryInterface(ISupportErrorInfo *iface, REFIID riid, void **ppv)
-{
-    HTMLDocument *This = SUPPINFO_THIS(iface);
-    return IHTMLDocument_QueryInterface(HTMLDOC(This), riid, ppv);
-}
-
-static ULONG WINAPI SupportErrorInfo_AddRef(ISupportErrorInfo *iface)
-{
-    HTMLDocument *This = SUPPINFO_THIS(iface);
-    return IHTMLDocument_AddRef(HTMLDOC(This));
-}
-
-static ULONG WINAPI SupportErrorInfo_Release(ISupportErrorInfo *iface)
-{
-    HTMLDocument *This = SUPPINFO_THIS(iface);
-    return IHTMLDocument_Release(HTMLDOC(This));
-}
-
-static HRESULT WINAPI SupportErrorInfo_InterfaceSupportsErrorInfo(ISupportErrorInfo *iface, REFIID riid)
-{
-    FIXME("(%p)->(%s)\n", iface, debugstr_guid(riid));
-    return S_FALSE;
-}
-
-static const ISupportErrorInfoVtbl SupportErrorInfoVtbl = {
-    SupportErrorInfo_QueryInterface,
-    SupportErrorInfo_AddRef,
-    SupportErrorInfo_Release,
-    SupportErrorInfo_InterfaceSupportsErrorInfo
 };
 
 #define DISPEX_THIS(iface) DEFINE_THIS(HTMLDocument, IDispatchEx, iface)
@@ -1790,103 +1591,53 @@ static dispex_static_data_t HTMLDocument_dispex = {
     HTMLDocument_iface_tids
 };
 
-static HRESULT alloc_doc(HTMLDocument **ret)
-{
-    HTMLDocument *doc;
-
-    doc = heap_alloc_zero(sizeof(HTMLDocument));
-    doc->lpHTMLDocument2Vtbl = &HTMLDocumentVtbl;
-    doc->lpIDispatchExVtbl = &DocDispatchExVtbl;
-    doc->lpSupportErrorInfoVtbl = &SupportErrorInfoVtbl;
-    doc->ref = 1;
-    doc->readystate = READYSTATE_UNINITIALIZED;
-    doc->scriptmode = SCRIPTMODE_GECKO;
-
-    list_init(&doc->bindings);
-    list_init(&doc->script_hosts);
-    list_init(&doc->selection_list);
-    list_init(&doc->range_list);
-
-    HTMLDocument_HTMLDocument3_Init(doc);
-    HTMLDocument_HTMLDocument5_Init(doc);
-    HTMLDocument_Persist_Init(doc);
-    HTMLDocument_OleCmd_Init(doc);
-    HTMLDocument_OleObj_Init(doc);
-    HTMLDocument_View_Init(doc);
-    HTMLDocument_Window_Init(doc);
-    HTMLDocument_Service_Init(doc);
-    HTMLDocument_Hlink_Init(doc);
-
-    ConnectionPointContainer_Init(&doc->cp_container, (IUnknown*)HTMLDOC(doc));
-    ConnectionPoint_Init(&doc->cp_propnotif, &doc->cp_container, &IID_IPropertyNotifySink);
-    ConnectionPoint_Init(&doc->cp_htmldocevents, &doc->cp_container, &DIID_HTMLDocumentEvents);
-    ConnectionPoint_Init(&doc->cp_htmldocevents2, &doc->cp_container, &DIID_HTMLDocumentEvents2);
-
-    init_dispex(&doc->dispex, (IUnknown*)HTMLDOC(doc), &HTMLDocument_dispex);
-
-    *ret = doc;
-    return S_OK;
-}
-
-HRESULT create_doc_from_nsdoc(nsIDOMHTMLDocument *nsdoc, HTMLDocument **ret)
-{
-    HTMLDocument *doc;
-    HRESULT hres;
-
-    hres = alloc_doc(&doc);
-    if(FAILED(hres))
-        return hres;
-
-    nsIDOMHTMLDocument_AddRef(nsdoc);
-    doc->nsdoc = nsdoc;
-
-    hres = HTMLWindow_Create(doc, NULL, &doc->window);
-    if(FAILED(hres)) {
-        IHTMLDocument_Release(HTMLDOC(doc));
-        return hres;
-    }
-
-    *ret = doc;
-    return S_OK;
-}
-
 HRESULT HTMLDocument_Create(IUnknown *pUnkOuter, REFIID riid, void** ppvObject)
 {
-    HTMLDocument *doc;
-    nsIDOMWindow *nswindow = NULL;
+    HTMLDocument *ret;
     HRESULT hres;
 
     TRACE("(%p %s %p)\n", pUnkOuter, debugstr_guid(riid), ppvObject);
 
-    hres = alloc_doc(&doc);
-    if(FAILED(hres))
-        return hres;
+    ret = heap_alloc_zero(sizeof(HTMLDocument));
+    ret->lpHTMLDocument2Vtbl = &HTMLDocumentVtbl;
+    ret->lpIDispatchExVtbl = &DocDispatchExVtbl;
+    ret->ref = 0;
+    ret->readystate = READYSTATE_UNINITIALIZED;
 
-    hres = IHTMLDocument_QueryInterface(HTMLDOC(doc), riid, ppvObject);
-    IHTMLDocument_Release(HTMLDOC(doc));
-    if(FAILED(hres))
-        return hres;
+    list_init(&ret->bindings);
+    list_init(&ret->script_hosts);
+    list_init(&ret->selection_list);
+    list_init(&ret->range_list);
 
-    doc->nscontainer = NSContainer_Create(doc, NULL);
-    update_nsdocument(doc);
-
-    if(doc->nscontainer) {
-        nsresult nsres;
-
-        nsres = nsIWebBrowser_GetContentDOMWindow(doc->nscontainer->webbrowser, &nswindow);
-        if(NS_FAILED(nsres))
-            ERR("GetContentDOMWindow failed: %08x\n", nsres);
-    }
-
-    hres = HTMLWindow_Create(doc, nswindow, &doc->window);
-    if(nswindow)
-        nsIDOMWindow_Release(nswindow);
+    hres = IHTMLDocument_QueryInterface(HTMLDOC(ret), riid, ppvObject);
     if(FAILED(hres)) {
-        IHTMLDocument_Release(HTMLDOC(doc));
+        heap_free(ret);
         return hres;
     }
+
+    LOCK_MODULE();
+
+    HTMLDocument_HTMLDocument3_Init(ret);
+    HTMLDocument_HTMLDocument5_Init(ret);
+    HTMLDocument_Persist_Init(ret);
+    HTMLDocument_OleCmd_Init(ret);
+    HTMLDocument_OleObj_Init(ret);
+    HTMLDocument_View_Init(ret);
+    HTMLDocument_Window_Init(ret);
+    HTMLDocument_Service_Init(ret);
+    HTMLDocument_Hlink_Init(ret);
+
+    ConnectionPointContainer_Init(&ret->cp_container, (IUnknown*)HTMLDOC(ret));
+    ConnectionPoint_Init(&ret->cp_propnotif, &ret->cp_container, &IID_IPropertyNotifySink);
+    ConnectionPoint_Init(&ret->cp_htmldocevents, &ret->cp_container, &DIID_HTMLDocumentEvents);
+    ConnectionPoint_Init(&ret->cp_htmldocevents2, &ret->cp_container, &DIID_HTMLDocumentEvents2);
+
+    init_dispex(&ret->dispex, (IUnknown*)HTMLDOC(ret), &HTMLDocument_dispex);
+
+    ret->nscontainer = NSContainer_Create(ret, NULL);
+    ret->window = HTMLWindow_Create(ret);
 
     get_thread_hwnd();
 
-    return S_OK;
+    return hres;
 }

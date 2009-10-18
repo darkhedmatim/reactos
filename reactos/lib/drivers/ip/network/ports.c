@@ -15,9 +15,10 @@ NTSTATUS PortsStartup( PPORT_SET PortSet,
 		   UINT PortsToManage ) {
     PortSet->StartingPort = StartingPort;
     PortSet->PortsToOversee = PortsToManage;
-
+    PortSet->LastAllocatedPort = PortSet->StartingPort +
+                                 PortSet->PortsToOversee - 1;
     PortSet->ProtoBitBuffer =
-	exAllocatePool( NonPagedPool, (PortSet->PortsToOversee + 7) / 8 );
+	PoolAllocateBuffer( (PortSet->PortsToOversee + 7) / 8 );
     if(!PortSet->ProtoBitBuffer) return STATUS_INSUFFICIENT_RESOURCES;
     RtlInitializeBitMap( &PortSet->ProtoBitmap,
 			 PortSet->ProtoBitBuffer,
@@ -28,30 +29,22 @@ NTSTATUS PortsStartup( PPORT_SET PortSet,
 }
 
 VOID PortsShutdown( PPORT_SET PortSet ) {
-    exFreePool( PortSet->ProtoBitBuffer );
+    PoolFreeBuffer( PortSet->ProtoBitBuffer );
 }
 
 VOID DeallocatePort( PPORT_SET PortSet, ULONG Port ) {
     Port = htons(Port);
     ASSERT(Port >= PortSet->StartingPort);
     ASSERT(Port < PortSet->StartingPort + PortSet->PortsToOversee);
-
-    ExAcquireFastMutex( &PortSet->Mutex );
     RtlClearBits( &PortSet->ProtoBitmap, Port - PortSet->StartingPort, 1 );
-    ExReleaseFastMutex( &PortSet->Mutex );
 }
 
 BOOLEAN AllocatePort( PPORT_SET PortSet, ULONG Port ) {
     BOOLEAN Clear;
 
     Port = htons(Port);
-
-    if ((Port < PortSet->StartingPort) ||
-        (Port >= PortSet->StartingPort + PortSet->PortsToOversee))
-    {
-       return FALSE;
-    }
-
+    ASSERT(Port >= PortSet->StartingPort);
+    ASSERT(Port < PortSet->StartingPort + PortSet->PortsToOversee);
     Port -= PortSet->StartingPort;
 
     ExAcquireFastMutex( &PortSet->Mutex );
@@ -64,41 +57,64 @@ BOOLEAN AllocatePort( PPORT_SET PortSet, ULONG Port ) {
 
 ULONG AllocateAnyPort( PPORT_SET PortSet ) {
     ULONG AllocatedPort;
+    ULONG Next;
+
+    if (PortSet->StartingPort + PortSet->PortsToOversee <=
+        PortSet->LastAllocatedPort + 1) {
+	Next = PortSet->StartingPort;
+    } else {
+	Next = PortSet->LastAllocatedPort + 1;
+    }
+    Next -= PortSet->StartingPort;
 
     ExAcquireFastMutex( &PortSet->Mutex );
-    AllocatedPort = RtlFindClearBits( &PortSet->ProtoBitmap, 1, 0 );
+    AllocatedPort = RtlFindClearBits( &PortSet->ProtoBitmap, 1, Next );
     if( AllocatedPort != (ULONG)-1 ) {
 	RtlSetBit( &PortSet->ProtoBitmap, AllocatedPort );
 	AllocatedPort += PortSet->StartingPort;
-	ExReleaseFastMutex( &PortSet->Mutex );
-	return htons(AllocatedPort);
+	PortSet->LastAllocatedPort = AllocatedPort;
     }
     ExReleaseFastMutex( &PortSet->Mutex );
 
-    return -1;
+    AllocatedPort = htons(AllocatedPort);
+
+    ASSERT(AllocatedPort >= PortSet->StartingPort);
+    ASSERT(AllocatedPort < PortSet->StartingPort + PortSet->PortsToOversee);
+
+    return AllocatedPort;
 }
 
 ULONG AllocatePortFromRange( PPORT_SET PortSet, ULONG Lowest, ULONG Highest ) {
     ULONG AllocatedPort;
+    ULONG Next;
 
-    if ((Lowest < PortSet->StartingPort) ||
-        (Highest >= PortSet->StartingPort + PortSet->PortsToOversee))
-    {
-        return -1;
+    if (PortSet->StartingPort + PortSet->PortsToOversee <=
+        PortSet->LastAllocatedPort + 1) {
+	Next = PortSet->StartingPort;
+    } else {
+	Next = PortSet->LastAllocatedPort + 1;
     }
-
+    if (Next < Lowest || Highest <= Next) {
+	Next = Lowest;
+    }
+    Next -= PortSet->StartingPort;
     Lowest -= PortSet->StartingPort;
     Highest -= PortSet->StartingPort;
 
     ExAcquireFastMutex( &PortSet->Mutex );
-    AllocatedPort = RtlFindClearBits( &PortSet->ProtoBitmap, 1, Lowest );
-    if( AllocatedPort != (ULONG)-1 && AllocatedPort <= Highest) {
+    AllocatedPort = RtlFindClearBits( &PortSet->ProtoBitmap, 1, Next );
+    if( AllocatedPort != (ULONG)-1 && AllocatedPort >= Lowest &&
+        AllocatedPort <= Highest) {
 	RtlSetBit( &PortSet->ProtoBitmap, AllocatedPort );
 	AllocatedPort += PortSet->StartingPort;
-	ExReleaseFastMutex( &PortSet->Mutex );
-	return htons(AllocatedPort);
+	PortSet->LastAllocatedPort = AllocatedPort;
     }
     ExReleaseFastMutex( &PortSet->Mutex );
 
-    return -1;
+    AllocatedPort = htons(AllocatedPort);
+
+    ASSERT(AllocatedPort >= PortSet->StartingPort);
+    ASSERT(AllocatedPort < PortSet->StartingPort + PortSet->PortsToOversee);
+
+    return AllocatedPort;
 }

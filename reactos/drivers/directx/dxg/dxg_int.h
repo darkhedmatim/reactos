@@ -1,3 +1,4 @@
+
 /* DDK/NDK/SDK Headers */
 #include <ddk/ntddk.h>
 #include <ddk/ntddmou.h>
@@ -10,30 +11,28 @@
 #define STARTF_USESIZE 2
 #define STARTF_USEPOSITION 4
 #define INTERNAL_CALL NTAPI
-#define NT_BUILD_ENVIRONMENT
 
 #include <stdarg.h>
 #include <windef.h>
 #include <winerror.h>
 #include <wingdi.h>
 #include <winddi.h>
+#include <winuser.h>
 #include <prntfont.h>
 #include <dde.h>
+#include <wincon.h>
 
-/* DXG treats this as opaque */
-typedef PVOID PDC;
-typedef PVOID PW32THREAD;
-
-typedef struct _DD_BASEOBJECT
-{
-  HGDIOBJ     hHmgr;
-  ULONG       ulShareCount;
-  USHORT      cExclusiveLock;
-  USHORT      BaseFlags;
-  PW32THREAD  Tid;
-} DD_BASEOBJECT, *PDD_BASEOBJECT;
+/* Public Win32K Headers */
+#include <win32k/ntusrtyp.h>
+#include <win32k/ntuser.h>
+#include <win32k/ntgdityp.h>
+#include <win32k/ntgdihdl.h>
+#include <win32.h>
+#include <gdiobj.h>
+#include <dc.h>
 
 #include <drivers/directx/directxint.h>
+
 #include <drivers/directx/dxg.h>
 #include <drivers/directx/dxeng.h>
 
@@ -75,7 +74,7 @@ typedef struct _EDD_SURFACE_LOCAL
 /* exported functions */
 NTSTATUS NTAPI DriverEntry(IN PVOID Context1, IN PVOID Context2);
 NTSTATUS NTAPI GsDriverEntry(IN PVOID Context1, IN PVOID Context2);
-NTSTATUS APIENTRY DxDdCleanupDxGraphics(VOID);
+NTSTATUS APIENTRY DxDdCleanupDxGraphics();
 
 /* Global pointers */
 extern ULONG gcSizeDdHmgr;
@@ -91,16 +90,16 @@ extern PEPROCESS gpepSession;
 extern PLARGE_INTEGER gpLockShortDelay;
 
 /* Driver list export functions */
-DWORD NTAPI DxDxgGenericThunk(ULONG_PTR ulIndex, ULONG_PTR ulHandle, SIZE_T *pdwSizeOfPtr1, PVOID pvPtr1, SIZE_T *pdwSizeOfPtr2, PVOID pvPtr2);
-DWORD NTAPI DxDdIoctl(ULONG ulIoctl, PVOID pBuffer, ULONG ulBufferSize);
-PDD_SURFACE_LOCAL NTAPI DxDdLockDirectDrawSurface(HANDLE hDdSurface);
-BOOL NTAPI DxDdUnlockDirectDrawSurface(PDD_SURFACE_LOCAL pSurface);
+DWORD STDCALL DxDxgGenericThunk(ULONG_PTR ulIndex, ULONG_PTR ulHandle, SIZE_T *pdwSizeOfPtr1, PVOID pvPtr1, SIZE_T *pdwSizeOfPtr2, PVOID pvPtr2);
+DWORD STDCALL DxDdIoctl(ULONG ulIoctl, PVOID pBuffer, ULONG ulBufferSize);
+PDD_SURFACE_LOCAL STDCALL DxDdLockDirectDrawSurface(HANDLE hDdSurface);
+BOOL STDCALL DxDdUnlockDirectDrawSurface(PDD_SURFACE_LOCAL pSurface);
 
 /* Internal functions */
 BOOL FASTCALL VerifyObjectOwner(PDD_ENTRY pEntry);
-BOOL FASTCALL DdHmgCreate(VOID);
-BOOL FASTCALL DdHmgDestroy(VOID);
-PVOID FASTCALL DdHmgLock(HANDLE DdHandle, UCHAR ObjectType, BOOLEAN LockOwned);
+BOOL FASTCALL DdHmgCreate();
+BOOL FASTCALL DdHmgDestroy();
+PVOID FASTCALL DdHmgLock( HANDLE DdHandle, UCHAR ObjectType,  BOOLEAN LockOwned);
 
 /* define stuff */
 #define drvDxEngLockDC          gpEngFuncs[DXENG_INDEX_DxEngLockDC]

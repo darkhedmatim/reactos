@@ -68,16 +68,15 @@ GpStatus WINGDIPAPI GdipDisposeImageAttributes(GpImageAttributes *imageattr)
 GpStatus WINGDIPAPI GdipSetImageAttributesColorKeys(GpImageAttributes *imageattr,
     ColorAdjustType type, BOOL enableFlag, ARGB colorLow, ARGB colorHigh)
 {
-    TRACE("(%p,%u,%i,%08x,%08x)\n", imageattr, type, enableFlag, colorLow, colorHigh);
+    static int calls;
 
-    if(!imageattr || type >= ColorAdjustTypeCount)
+    if(!imageattr)
         return InvalidParameter;
 
-    imageattr->colorkeys[type].enabled = enableFlag;
-    imageattr->colorkeys[type].low = colorLow;
-    imageattr->colorkeys[type].high = colorHigh;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipSetImageAttributesColorMatrix(GpImageAttributes *imageattr,

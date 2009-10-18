@@ -4,7 +4,6 @@
  * Copyright 2002-2005 Jason Edmeades
  * Copyright 2002-2005 Raphael Junqueira
  * Copyright 2005 Oliver Stieber
- * Copyright 2009 Henri Verbeet for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,86 +24,11 @@
 #include "wined3d_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(d3d_texture);
-
-#define GLINFO_LOCATION (*gl_info)
-
-static void volumetexture_internal_preload(IWineD3DBaseTexture *iface, enum WINED3DSRGB srgb)
-{
-    /* Override the IWineD3DResource Preload method. */
-    IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
-    IWineD3DDeviceImpl *device = This->resource.wineD3DDevice;
-    const struct wined3d_gl_info *gl_info = &device->adapter->gl_info;
-    BOOL srgb_mode = This->baseTexture.is_srgb;
-    BOOL srgb_was_toggled = FALSE;
-    unsigned int i;
-
-    TRACE("(%p) : About to load texture.\n", This);
-
-    if (!device->isInDraw)
-    {
-        ActivateContext(device, NULL, CTXUSAGE_RESOURCELOAD);
-    }
-    else if (GL_SUPPORT(EXT_TEXTURE_SRGB) && This->baseTexture.bindCount > 0)
-    {
-        srgb_mode = device->stateBlock->samplerState[This->baseTexture.sampler][WINED3DSAMP_SRGBTEXTURE];
-        srgb_was_toggled = This->baseTexture.is_srgb != srgb_mode;
-        This->baseTexture.is_srgb = srgb_mode;
-    }
-
-    /* If the texture is marked dirty or the srgb sampler setting has changed
-     * since the last load then reload the volumes. */
-    if (This->baseTexture.texture_rgb.dirty)
-    {
-        for (i = 0; i < This->baseTexture.levels; ++i)
-        {
-            IWineD3DVolume_LoadTexture(This->volumes[i], i, srgb_mode);
-        }
-    }
-    else if (srgb_was_toggled)
-    {
-        for (i = 0; i < This->baseTexture.levels; ++i)
-        {
-            volume_add_dirty_box(This->volumes[i], NULL);
-            IWineD3DVolume_LoadTexture(This->volumes[i], i, srgb_mode);
-        }
-    }
-    else
-    {
-        TRACE("(%p) Texture not dirty, nothing to do.\n", iface);
-    }
-
-    /* No longer dirty */
-    This->baseTexture.texture_rgb.dirty = FALSE;
-}
-
-static void volumetexture_cleanup(IWineD3DVolumeTextureImpl *This)
-{
-    unsigned int i;
-
-    TRACE("(%p) : Cleaning up.\n", This);
-
-    for (i = 0; i < This->baseTexture.levels; ++i)
-    {
-        IWineD3DVolume *volume = This->volumes[i];
-
-        if (volume)
-        {
-            /* Cleanup the container. */
-            IWineD3DVolume_SetContainer(volume, NULL);
-            IWineD3DVolume_Release(volume);
-        }
-    }
-    basetexture_cleanup((IWineD3DBaseTexture *)This);
-}
-
-#undef GLINFO_LOCATION
+#define GLINFO_LOCATION This->resource.wineD3DDevice->adapter->gl_info
 
 /* *******************************************
    IWineD3DTexture IUnknown parts follow
    ******************************************* */
-
-#define GLINFO_LOCATION This->resource.wineD3DDevice->adapter->gl_info
-
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_QueryInterface(IWineD3DVolumeTexture *iface, REFIID riid, LPVOID *ppobj)
 {
     IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
@@ -133,11 +57,8 @@ static ULONG WINAPI IWineD3DVolumeTextureImpl_Release(IWineD3DVolumeTexture *ifa
     ULONG ref;
     TRACE("(%p) : Releasing from %d\n", This, This->resource.ref);
     ref = InterlockedDecrement(&This->resource.ref);
-    if (!ref)
-    {
-        volumetexture_cleanup(This);
-        This->resource.parent_ops->wined3d_object_destroyed(This->resource.parent);
-        HeapFree(GetProcessHeap(), 0, This);
+    if (ref == 0) {
+        IWineD3DVolumeTexture_Destroy(iface, D3DCB_DefaultDestroyVolume);
     }
     return ref;
 }
@@ -146,31 +67,70 @@ static ULONG WINAPI IWineD3DVolumeTextureImpl_Release(IWineD3DVolumeTexture *ifa
    IWineD3DVolumeTexture IWineD3DResource parts follow
    **************************************************** */
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_GetDevice(IWineD3DVolumeTexture *iface, IWineD3DDevice** ppDevice) {
-    return resource_get_device((IWineD3DResource *)iface, ppDevice);
+    return IWineD3DResourceImpl_GetDevice((IWineD3DResource *)iface, ppDevice);
 }
 
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_SetPrivateData(IWineD3DVolumeTexture *iface, REFGUID refguid, CONST void* pData, DWORD SizeOfData, DWORD Flags) {
-    return resource_set_private_data((IWineD3DResource *)iface, refguid, pData, SizeOfData, Flags);
+    return IWineD3DResourceImpl_SetPrivateData((IWineD3DResource *)iface, refguid, pData, SizeOfData, Flags);
 }
 
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_GetPrivateData(IWineD3DVolumeTexture *iface, REFGUID refguid, void* pData, DWORD* pSizeOfData) {
-    return resource_get_private_data((IWineD3DResource *)iface, refguid, pData, pSizeOfData);
+    return IWineD3DResourceImpl_GetPrivateData((IWineD3DResource *)iface, refguid, pData, pSizeOfData);
 }
 
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_FreePrivateData(IWineD3DVolumeTexture *iface, REFGUID refguid) {
-    return resource_free_private_data((IWineD3DResource *)iface, refguid);
+    return IWineD3DResourceImpl_FreePrivateData((IWineD3DResource *)iface, refguid);
 }
 
 static DWORD WINAPI IWineD3DVolumeTextureImpl_SetPriority(IWineD3DVolumeTexture *iface, DWORD PriorityNew) {
-    return resource_set_priority((IWineD3DResource *)iface, PriorityNew);
+    return IWineD3DResourceImpl_SetPriority((IWineD3DResource *)iface, PriorityNew);
 }
 
 static DWORD WINAPI IWineD3DVolumeTextureImpl_GetPriority(IWineD3DVolumeTexture *iface) {
-    return resource_get_priority((IWineD3DResource *)iface);
+    return IWineD3DResourceImpl_GetPriority((IWineD3DResource *)iface);
 }
 
 static void WINAPI IWineD3DVolumeTextureImpl_PreLoad(IWineD3DVolumeTexture *iface) {
-    volumetexture_internal_preload((IWineD3DBaseTexture *) iface, SRGB_ANY);
+    /* Overrider the IWineD3DResource Preload method */
+    int i;
+    IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
+    IWineD3DDeviceImpl *device = This->resource.wineD3DDevice;
+    BOOL srgb_mode = This->baseTexture.is_srgb;
+    BOOL srgb_was_toggled = FALSE;
+
+    TRACE("(%p) : About to load texture\n", This);
+
+    if(!device->isInDraw) {
+        ActivateContext(device, device->lastActiveRenderTarget, CTXUSAGE_RESOURCELOAD);
+    } else if (GL_SUPPORT(EXT_TEXTURE_SRGB) && This->baseTexture.bindCount > 0) {
+        srgb_mode = device->stateBlock->samplerState[This->baseTexture.sampler][WINED3DSAMP_SRGBTEXTURE];
+        srgb_was_toggled = This->baseTexture.is_srgb != srgb_mode;
+        This->baseTexture.is_srgb = srgb_mode;
+    }
+    ENTER_GL();
+    /* If the texture is marked dirty or the srgb sampler setting has changed since the last load then reload the surfaces */
+    if (This->baseTexture.dirty) {
+        for (i = 0; i < This->baseTexture.levels; i++)
+            IWineD3DVolume_LoadTexture(This->volumes[i], i, srgb_mode);
+    } else if (srgb_was_toggled) {
+        if (This->baseTexture.srgb_mode_change_count < 20)
+            ++This->baseTexture.srgb_mode_change_count;
+        else
+            FIXME("Volumetexture (%p) has been reloaded at least 20 times due to WINED3DSAMP_SRGBTEXTURE changes on it\'s sampler\n", This);
+
+        for (i = 0; i < This->baseTexture.levels; i++) {
+            IWineD3DVolume_AddDirtyBox(This->volumes[i], NULL);
+            IWineD3DVolume_LoadTexture(This->volumes[i], i, srgb_mode);
+        }
+    } else {
+        TRACE("(%p) Texture not dirty, nothing to do\n" , iface);
+    }
+    LEAVE_GL();
+
+    /* No longer dirty */
+    This->baseTexture.dirty = FALSE;
+
+    return ;
 }
 
 static void WINAPI IWineD3DVolumeTextureImpl_UnLoad(IWineD3DVolumeTexture *iface) {
@@ -186,59 +146,57 @@ static void WINAPI IWineD3DVolumeTextureImpl_UnLoad(IWineD3DVolumeTexture *iface
         IWineD3DVolume_UnLoad(This->volumes[i]);
     }
 
-    basetexture_unload((IWineD3DBaseTexture *)iface);
+    IWineD3DBaseTextureImpl_UnLoad((IWineD3DBaseTexture *) iface);
 }
 
 static WINED3DRESOURCETYPE WINAPI IWineD3DVolumeTextureImpl_GetType(IWineD3DVolumeTexture *iface) {
-    return resource_get_type((IWineD3DResource *)iface);
+    return IWineD3DResourceImpl_GetType((IWineD3DResource *)iface);
 }
 
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_GetParent(IWineD3DVolumeTexture *iface, IUnknown **pParent) {
-    return resource_get_parent((IWineD3DResource *)iface, pParent);
+    return IWineD3DResourceImpl_GetParent((IWineD3DResource *)iface, pParent);
 }
 
 /* ******************************************************
    IWineD3DVolumeTexture IWineD3DBaseTexture parts follow
    ****************************************************** */
 static DWORD WINAPI IWineD3DVolumeTextureImpl_SetLOD(IWineD3DVolumeTexture *iface, DWORD LODNew) {
-    return basetexture_set_lod((IWineD3DBaseTexture *)iface, LODNew);
+    return IWineD3DBaseTextureImpl_SetLOD((IWineD3DBaseTexture *)iface, LODNew);
 }
 
 static DWORD WINAPI IWineD3DVolumeTextureImpl_GetLOD(IWineD3DVolumeTexture *iface) {
-    return basetexture_get_lod((IWineD3DBaseTexture *)iface);
+    return IWineD3DBaseTextureImpl_GetLOD((IWineD3DBaseTexture *)iface);
 }
 
 static DWORD WINAPI IWineD3DVolumeTextureImpl_GetLevelCount(IWineD3DVolumeTexture *iface) {
-    return basetexture_get_level_count((IWineD3DBaseTexture *)iface);
+    return IWineD3DBaseTextureImpl_GetLevelCount((IWineD3DBaseTexture *)iface);
 }
 
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_SetAutoGenFilterType(IWineD3DVolumeTexture *iface, WINED3DTEXTUREFILTERTYPE FilterType) {
-  return basetexture_set_autogen_filter_type((IWineD3DBaseTexture *)iface, FilterType);
+  return IWineD3DBaseTextureImpl_SetAutoGenFilterType((IWineD3DBaseTexture *)iface, FilterType);
 }
 
 static WINED3DTEXTUREFILTERTYPE WINAPI IWineD3DVolumeTextureImpl_GetAutoGenFilterType(IWineD3DVolumeTexture *iface) {
-  return basetexture_get_autogen_filter_type((IWineD3DBaseTexture *)iface);
+  return IWineD3DBaseTextureImpl_GetAutoGenFilterType((IWineD3DBaseTexture *)iface);
 }
 
 static void WINAPI IWineD3DVolumeTextureImpl_GenerateMipSubLevels(IWineD3DVolumeTexture *iface) {
-    basetexture_generate_mipmaps((IWineD3DBaseTexture *)iface);
+    IWineD3DBaseTextureImpl_GenerateMipSubLevels((IWineD3DBaseTexture *)iface);
 }
 
 /* Internal function, No d3d mapping */
 static BOOL WINAPI IWineD3DVolumeTextureImpl_SetDirty(IWineD3DVolumeTexture *iface, BOOL dirty) {
-    return basetexture_set_dirty((IWineD3DBaseTexture *)iface, dirty);
+    return IWineD3DBaseTextureImpl_SetDirty((IWineD3DBaseTexture *)iface, dirty);
 }
 
 static BOOL WINAPI IWineD3DVolumeTextureImpl_GetDirty(IWineD3DVolumeTexture *iface) {
-    return basetexture_get_dirty((IWineD3DBaseTexture *)iface);
+    return IWineD3DBaseTextureImpl_GetDirty((IWineD3DBaseTexture *)iface);
 }
 
-/* Context activation is done by the caller. */
-static HRESULT WINAPI IWineD3DVolumeTextureImpl_BindTexture(IWineD3DVolumeTexture *iface, BOOL srgb) {
+static HRESULT WINAPI IWineD3DVolumeTextureImpl_BindTexture(IWineD3DVolumeTexture *iface) {
     IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
-    BOOL dummy;
     TRACE("(%p) : relay to BaseTexture\n", This);
-    return basetexture_bind((IWineD3DBaseTexture *)iface, srgb, &dummy);
+    return IWineD3DBaseTextureImpl_BindTexture((IWineD3DBaseTexture *)iface);
 }
 
 static UINT WINAPI IWineD3DVolumeTextureImpl_GetTextureDimensions(IWineD3DVolumeTexture *iface) {
@@ -254,16 +212,40 @@ static BOOL WINAPI IWineD3DVolumeTextureImpl_IsCondNP2(IWineD3DVolumeTexture *if
     return FALSE;
 }
 
+static void WINAPI IWineD3DVolumeTextureImpl_ApplyStateChanges(IWineD3DVolumeTexture *iface,
+                                                        const DWORD textureStates[WINED3D_HIGHEST_TEXTURE_STATE + 1],
+                                                        const DWORD samplerStates[WINED3D_HIGHEST_SAMPLER_STATE + 1]) {
+    IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
+    TRACE("(%p) : nothing to do, passing to base texture\n", This);
+    IWineD3DBaseTextureImpl_ApplyStateChanges((IWineD3DBaseTexture *)iface, textureStates, samplerStates);
+}
+
+
 /* *******************************************
    IWineD3DVolumeTexture IWineD3DVolumeTexture parts follow
    ******************************************* */
+static void WINAPI IWineD3DVolumeTextureImpl_Destroy(IWineD3DVolumeTexture *iface, D3DCB_DESTROYVOLUMEFN D3DCB_DestroyVolume) {
+    IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
+    int i;
+    TRACE("(%p) : Cleaning up\n",This);
+    for (i = 0; i < This->baseTexture.levels; i++) {
+        if (This->volumes[i] != NULL) {
+            /* Cleanup the container */
+            IWineD3DVolume_SetContainer(This->volumes[i], 0);
+            D3DCB_DestroyVolume(This->volumes[i]);
+        }
+    }
+    IWineD3DBaseTextureImpl_CleanUp((IWineD3DBaseTexture *) iface);
+    HeapFree(GetProcessHeap(), 0, This);
+}
+
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_GetLevelDesc(IWineD3DVolumeTexture *iface, UINT Level,WINED3DVOLUME_DESC *pDesc) {
     IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
     if (Level < This->baseTexture.levels) {
         TRACE("(%p) Level (%d)\n", This, Level);
         return IWineD3DVolume_GetDesc(This->volumes[Level], pDesc);
     } else {
-        WARN("(%p) Level (%d)\n", This, Level);
+        FIXME("(%p) Level (%d)\n", This, Level);
     }
     return WINED3D_OK;
 }
@@ -274,7 +256,7 @@ static HRESULT WINAPI IWineD3DVolumeTextureImpl_GetVolumeLevel(IWineD3DVolumeTex
       IWineD3DVolume_AddRef(*ppVolumeLevel);
       TRACE("(%p) -> level(%d) returning volume@%p\n", This, Level, *ppVolumeLevel);
     } else {
-      WARN("(%p) Level(%d) overflow Levels(%d)\n", This, Level, This->baseTexture.levels);
+      FIXME("(%p) Level(%d) overflow Levels(%d)\n", This, Level, This->baseTexture.levels);
       return WINED3DERR_INVALIDCALL;
     }
     return WINED3D_OK;
@@ -312,15 +294,12 @@ static HRESULT WINAPI IWineD3DVolumeTextureImpl_UnlockBox(IWineD3DVolumeTexture 
 
 static HRESULT WINAPI IWineD3DVolumeTextureImpl_AddDirtyBox(IWineD3DVolumeTexture *iface, CONST WINED3DBOX* pDirtyBox) {
     IWineD3DVolumeTextureImpl *This = (IWineD3DVolumeTextureImpl *)iface;
-    This->baseTexture.texture_rgb.dirty = TRUE;
-    This->baseTexture.texture_srgb.dirty = TRUE;
+    This->baseTexture.dirty = TRUE;
     TRACE("(%p) : dirtyfication of volume Level (0)\n", This);
-    volume_add_dirty_box(This->volumes[0], pDirtyBox);
-
-    return WINED3D_OK;
+    return IWineD3DVolume_AddDirtyBox(This->volumes[0], pDirtyBox);
 }
 
-static const IWineD3DVolumeTextureVtbl IWineD3DVolumeTexture_Vtbl =
+const IWineD3DVolumeTextureVtbl IWineD3DVolumeTexture_Vtbl =
 {
     /* IUnknown */
     IWineD3DVolumeTextureImpl_QueryInterface,
@@ -350,104 +329,12 @@ static const IWineD3DVolumeTextureVtbl IWineD3DVolumeTexture_Vtbl =
     IWineD3DVolumeTextureImpl_BindTexture,
     IWineD3DVolumeTextureImpl_GetTextureDimensions,
     IWineD3DVolumeTextureImpl_IsCondNP2,
+    IWineD3DVolumeTextureImpl_ApplyStateChanges,
     /* volume texture */
+    IWineD3DVolumeTextureImpl_Destroy,
     IWineD3DVolumeTextureImpl_GetLevelDesc,
     IWineD3DVolumeTextureImpl_GetVolumeLevel,
     IWineD3DVolumeTextureImpl_LockBox,
     IWineD3DVolumeTextureImpl_UnlockBox,
     IWineD3DVolumeTextureImpl_AddDirtyBox
 };
-
-HRESULT volumetexture_init(IWineD3DVolumeTextureImpl *texture, UINT width, UINT height,
-        UINT depth, UINT levels, IWineD3DDeviceImpl *device, DWORD usage, WINED3DFORMAT format,
-        WINED3DPOOL pool, IUnknown *parent, const struct wined3d_parent_ops *parent_ops)
-{
-    const struct wined3d_gl_info *gl_info = &device->adapter->gl_info;
-    const struct GlPixelFormatDesc *format_desc = getFormatDescEntry(format, gl_info);
-    UINT tmp_w, tmp_h, tmp_d;
-    unsigned int i;
-    HRESULT hr;
-
-    /* TODO: It should only be possible to create textures for formats
-     * that are reported as supported. */
-    if (WINED3DFMT_UNKNOWN >= format)
-    {
-        WARN("(%p) : Texture cannot be created with a format of WINED3DFMT_UNKNOWN.\n", texture);
-        return WINED3DERR_INVALIDCALL;
-    }
-
-    if (!gl_info->supported[EXT_TEXTURE3D])
-    {
-        WARN("(%p) : Texture cannot be created - no volume texture support.\n", texture);
-        return WINED3DERR_INVALIDCALL;
-    }
-
-    /* Calculate levels for mip mapping. */
-    if (usage & WINED3DUSAGE_AUTOGENMIPMAP)
-    {
-        if (!gl_info->supported[SGIS_GENERATE_MIPMAP])
-        {
-            WARN("No mipmap generation support, returning D3DERR_INVALIDCALL.\n");
-            return WINED3DERR_INVALIDCALL;
-        }
-
-        if (levels > 1)
-        {
-            WARN("D3DUSAGE_AUTOGENMIPMAP is set, and level count > 1, returning D3DERR_INVALIDCALL.\n");
-            return WINED3DERR_INVALIDCALL;
-        }
-
-        levels = 1;
-    }
-    else if (!levels)
-    {
-        levels = wined3d_log2i(max(max(width, height), depth)) + 1;
-        TRACE("Calculated levels = %u.\n", levels);
-    }
-
-    texture->lpVtbl = &IWineD3DVolumeTexture_Vtbl;
-
-    hr = basetexture_init((IWineD3DBaseTextureImpl *)texture, levels, WINED3DRTYPE_VOLUMETEXTURE,
-            device, 0, usage, format_desc, pool, parent, parent_ops);
-    if (FAILED(hr))
-    {
-        WARN("Failed to initialize basetexture, returning %#x.\n", hr);
-        return hr;
-    }
-
-    /* Is NP2 support for volumes needed? */
-    texture->baseTexture.pow2Matrix[0] = 1.0f;
-    texture->baseTexture.pow2Matrix[5] = 1.0f;
-    texture->baseTexture.pow2Matrix[10] = 1.0f;
-    texture->baseTexture.pow2Matrix[15] = 1.0f;
-
-    /* Generate all the surfaces. */
-    tmp_w = width;
-    tmp_h = height;
-    tmp_d = depth;
-
-    for (i = 0; i < texture->baseTexture.levels; ++i)
-    {
-        /* Create the volume. */
-        hr = IWineD3DDeviceParent_CreateVolume(device->device_parent, parent,
-                tmp_w, tmp_h, tmp_d, format, pool, usage, &texture->volumes[i]);
-        if (FAILED(hr))
-        {
-            ERR("Creating a volume for the volume texture failed, hr %#x.\n", hr);
-            texture->volumes[i] = NULL;
-            volumetexture_cleanup(texture);
-            return hr;
-        }
-
-        /* Set its container to this texture. */
-        IWineD3DVolume_SetContainer(texture->volumes[i], (IWineD3DBase *)texture);
-
-        /* Calculate the next mipmap level. */
-        tmp_w = max(1, tmp_w >> 1);
-        tmp_h = max(1, tmp_h >> 1);
-        tmp_d = max(1, tmp_d >> 1);
-    }
-    texture->baseTexture.internal_preload = volumetexture_internal_preload;
-
-    return WINED3D_OK;
-}

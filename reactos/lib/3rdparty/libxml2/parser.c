@@ -4142,9 +4142,6 @@ get_more:
                     line = ctxt->input->line;
                     col = ctxt->input->col;
 		}
-                /* something really bad happened in the SAX callback */
-                if (ctxt->instate != XML_PARSER_CONTENT)
-                    return;
 	    }
 	    ctxt->input->cur = in;
 	    if (*in == 0xD) {
@@ -4225,9 +4222,6 @@ xmlParseCharDataComplex(xmlParserCtxtPtr ctxt, int cdata) {
 		}
 	    }
 	    nbchar = 0;
-            /* something really bad happened in the SAX callback */
-            if (ctxt->instate != XML_PARSER_CONTENT)
-                return;
 	}
 	count++;
 	if (count > 50) {
@@ -7047,11 +7041,9 @@ xmlParseEntityRef(xmlParserCtxtPtr ctxt) {
     /*
      * Predefined entites override any extra definition
      */
-    if ((ctxt->options & XML_PARSE_OLDSAX) == 0) {
-        ent = xmlGetPredefinedEntity(name);
-        if (ent != NULL)
-            return(ent);
-    }
+    ent = xmlGetPredefinedEntity(name);
+    if (ent != NULL)
+        return(ent);
 
     /*
      * Increate the number of entity references parsed
@@ -7065,9 +7057,6 @@ xmlParseEntityRef(xmlParserCtxtPtr ctxt) {
     if (ctxt->sax != NULL) {
 	if (ctxt->sax->getEntity != NULL)
 	    ent = ctxt->sax->getEntity(ctxt->userData, name);
-	if ((ctxt->wellFormed == 1 ) && (ent == NULL) && 
-	    (ctxt->options & XML_PARSE_OLDSAX))
-	    ent = xmlGetPredefinedEntity(name);
 	if ((ctxt->wellFormed == 1 ) && (ent == NULL) &&
 	    (ctxt->userData==ctxt)) {
 	    ent = xmlSAX2GetEntity(ctxt, name);
@@ -7140,7 +7129,6 @@ xmlParseEntityRef(xmlParserCtxtPtr ctxt) {
      */
     else if ((ctxt->instate == XML_PARSER_ATTRIBUTE_VALUE) &&
 	     (ent != NULL) && (ent->content != NULL) &&
-	     (ent->etype != XML_INTERNAL_PREDEFINED_ENTITY) &&
 	     (xmlStrchr(ent->content, '<'))) {
 	xmlFatalErrMsgStr(ctxt, XML_ERR_LT_IN_ATTRIBUTE,
     "'<' in entity '%s' is not allowed in attributes values\n", name);
@@ -7227,7 +7215,6 @@ xmlParseStringEntityRef(xmlParserCtxtPtr ctxt, const xmlChar ** str) {
     }
     if (*ptr != ';') {
 	xmlFatalErr(ctxt, XML_ERR_ENTITYREF_SEMICOL_MISSING, NULL);
-        xmlFree(name);
 	*str = ptr;
 	return(NULL);
     }
@@ -7237,14 +7224,9 @@ xmlParseStringEntityRef(xmlParserCtxtPtr ctxt, const xmlChar ** str) {
     /*
      * Predefined entites override any extra definition
      */
-    if ((ctxt->options & XML_PARSE_OLDSAX) == 0) {
-        ent = xmlGetPredefinedEntity(name);
-        if (ent != NULL) {
-            xmlFree(name);
-            *str = ptr;
-            return(ent);
-        }
-    }
+    ent = xmlGetPredefinedEntity(name);
+    if (ent != NULL)
+        return(ent);
 
     /*
      * Increate the number of entity references parsed
@@ -7258,8 +7240,6 @@ xmlParseStringEntityRef(xmlParserCtxtPtr ctxt, const xmlChar ** str) {
     if (ctxt->sax != NULL) {
 	if (ctxt->sax->getEntity != NULL)
 	    ent = ctxt->sax->getEntity(ctxt->userData, name);
-	if ((ent == NULL) && (ctxt->options & XML_PARSE_OLDSAX))
-	    ent = xmlGetPredefinedEntity(name);
 	if ((ent == NULL) && (ctxt->userData==ctxt)) {
 	    ent = xmlSAX2GetEntity(ctxt, name);
 	}
@@ -7328,7 +7308,6 @@ xmlParseStringEntityRef(xmlParserCtxtPtr ctxt, const xmlChar ** str) {
      */
     else if ((ctxt->instate == XML_PARSER_ATTRIBUTE_VALUE) &&
 	     (ent != NULL) && (ent->content != NULL) &&
-	     (ent->etype != XML_INTERNAL_PREDEFINED_ENTITY) &&
 	     (xmlStrchr(ent->content, '<'))) {
 	xmlFatalErrMsgStr(ctxt, XML_ERR_LT_IN_ATTRIBUTE,
      "'<' in entity '%s' is not allowed in attributes values\n",
@@ -14221,10 +14200,6 @@ xmlCtxtUseOptionsInternal(xmlParserCtxtPtr ctxt, int options, const char *encodi
     if (options & XML_PARSE_HUGE) {
 	ctxt->options |= XML_PARSE_HUGE;
         options -= XML_PARSE_HUGE;
-    }
-    if (options & XML_PARSE_OLDSAX) {
-	ctxt->options |= XML_PARSE_OLDSAX;
-        options -= XML_PARSE_OLDSAX;
     }
     ctxt->linenumbers = 1;
     return (options);

@@ -56,7 +56,7 @@ SmpSetClientInitialized (PSM_CLIENT_DATA Client)
  *
  * NOTE: call it holding SmpClientDirectory.Lock only
  */
-static INT NTAPI SmpGetFirstFreeClientEntry (VOID)
+static INT STDCALL SmpGetFirstFreeClientEntry (VOID)
 {
 	INT ClientIndex = 0;
 
@@ -122,7 +122,7 @@ SmpLookupClient (USHORT SubsystemId)
  * WARNING
  * 	SmpClientDirectory.Lock must be held by the caller.
  */
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpDestroyClientObject (PSM_CLIENT_DATA Client, NTSTATUS DestroyReason)
 {
 	DPRINT("SM:%s(%p,%08lx) called\n", __FUNCTION__, Client, DestroyReason);
@@ -146,7 +146,7 @@ SmpDestroyClientObject (PSM_CLIENT_DATA Client, NTSTATUS DestroyReason)
  * RETURN VALUES
  *	NTSTATUS
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 			     OUT PSM_CLIENT_DATA  * ClientData)
 {
@@ -273,7 +273,7 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
  * 	Lookup the subsystem server descriptor given the process ID
  * 	of the subsystem server process.
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmCompleteClientInitialization (ULONG ProcessId)
 {
 	NTSTATUS  Status = STATUS_NOT_FOUND;
@@ -301,7 +301,7 @@ SmCompleteClientInitialization (ULONG ProcessId)
 /**********************************************************************
  * 	SmpDestroyClientByClientIndex/1				PRIVATE
  */
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpDestroyClientByClientIndex (INT ClientIndex)
 {
 	NTSTATUS         Status = STATUS_SUCCESS;
@@ -344,7 +344,7 @@ SmpDestroyClientByClientIndex (INT ClientIndex)
  * RETURN VALUE
  * 	NONE.
  */
-static VOID NTAPI SmpTimeoutCandidateClient (PVOID x)
+static VOID STDCALL SmpTimeoutCandidateClient (PVOID x)
 {
 	NTSTATUS       Status = STATUS_SUCCESS;
 	HANDLE         CandidateClientProcessHandle = (HANDLE) x;
@@ -390,7 +390,7 @@ static VOID NTAPI SmpTimeoutCandidateClient (PVOID x)
  *
  *
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
@@ -435,7 +435,7 @@ SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
 			SmpClientDirectory.CandidateClient->ServerProcess =
 				(HANDLE) ProcessInfo->ProcessHandle;
 			SmpClientDirectory.CandidateClient->ServerProcessId =
-				(DWORD_PTR) ProcessInfo->ClientId.UniqueProcess;
+				(ULONG) ProcessInfo->ClientId.UniqueProcess;
 			/*
 			 * Copy the program name
 			 */
@@ -480,7 +480,7 @@ SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
  * 	2. kill client process
  * 	3. release resources
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmDestroyClient (ULONG SubsystemId)
 {
 	NTSTATUS  Status = STATUS_SUCCESS;

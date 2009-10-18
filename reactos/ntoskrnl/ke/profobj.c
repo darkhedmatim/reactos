@@ -23,7 +23,7 @@ ULONG KiProfileTimeInterval = 78125; /* Default resolution 7.8ms (sysinternals) 
 /* FUNCTIONS *****************************************************************/
 
 VOID
-NTAPI
+STDCALL
 KeInitializeProfile(PKPROFILE Profile,
                     PKPROCESS Process,
                     PVOID ImageBase,
@@ -47,22 +47,21 @@ KeInitializeProfile(PKPROFILE Profile,
 }
 
 VOID
-NTAPI
+STDCALL
 KeStartProfile(PKPROFILE Profile,
                PVOID Buffer)
 {
     KIRQL OldIrql;
     PKPROFILE_SOURCE_OBJECT SourceBuffer;
     PKPROFILE_SOURCE_OBJECT CurrentSource;
-    BOOLEAN FreeBuffer = TRUE, SourceFound = FALSE;
+    BOOLEAN FreeBuffer = TRUE, SourceFound = FALSE;;
     PKPROCESS ProfileProcess;
     PLIST_ENTRY NextEntry;
 
     /* Allocate a buffer first, before we raise IRQL */
     SourceBuffer = ExAllocatePoolWithTag(NonPagedPool,
                                           sizeof(KPROFILE_SOURCE_OBJECT),
-                                          'forP');
-    if (!SourceBuffer) return;
+                                          TAG('P', 'r', 'o', 'f'));
     RtlZeroMemory(SourceBuffer, sizeof(KPROFILE_SOURCE_OBJECT));
 
     /* Raise to PROFILE_LEVEL */
@@ -137,7 +136,7 @@ KeStartProfile(PKPROFILE Profile,
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 KeStopProfile(PKPROFILE Profile)
 {
     KIRQL OldIrql;
@@ -195,7 +194,7 @@ KeStopProfile(PKPROFILE Profile)
 }
 
 ULONG
-NTAPI
+STDCALL
 KeQueryIntervalProfile(KPROFILE_SOURCE ProfileSource)
 {
     /* Check if this is the timer profile */
@@ -217,7 +216,7 @@ KeQueryIntervalProfile(KPROFILE_SOURCE ProfileSource)
 }
 
 VOID
-NTAPI
+STDCALL
 KeSetIntervalProfile(KPROFILE_SOURCE ProfileSource,
                      ULONG Interval)
 {
@@ -240,7 +239,7 @@ KeSetIntervalProfile(KPROFILE_SOURCE ProfileSource,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeProfileInterrupt(PKTRAP_FRAME TrapFrame)
 {
     /* Called from HAL for Timer Profiling */
@@ -248,7 +247,7 @@ KeProfileInterrupt(PKTRAP_FRAME TrapFrame)
 }
 
 VOID
-NTAPI
+STDCALL
 KiParseProfileList(IN PKTRAP_FRAME TrapFrame,
                    IN KPROFILE_SOURCE Source,
                    IN PLIST_ENTRY ListHead)
@@ -256,10 +255,6 @@ KiParseProfileList(IN PKTRAP_FRAME TrapFrame,
     PULONG BucketValue;
     PKPROFILE Profile;
     PLIST_ENTRY NextEntry;
-    ULONG_PTR ProgramCounter;
-
-    /* Get the Program Counter */
-    ProgramCounter = KeGetTrapFramePc(TrapFrame);
 
     /* Loop the List */
     for (NextEntry = ListHead->Flink;
@@ -270,17 +265,21 @@ KiParseProfileList(IN PKTRAP_FRAME TrapFrame,
         Profile = CONTAINING_RECORD(NextEntry, KPROFILE, ProfileListEntry);
 
         /* Check if the source is good, and if it's within the range */
+#ifdef _M_IX86
         if ((Profile->Source != Source) ||
-            (ProgramCounter < (ULONG_PTR)Profile->RangeBase) ||
-            (ProgramCounter > (ULONG_PTR)Profile->RangeLimit))
+            (TrapFrame->Eip < (ULONG_PTR)Profile->RangeBase) ||
+            (TrapFrame->Eip > (ULONG_PTR)Profile->RangeLimit))
         {
             continue;
         }
 
-        /* Get the Pointer to the Bucket Value representing this Program Counter */
+        /* Get the Pointer to the Bucket Value representing this EIP */
         BucketValue = (PULONG)((((ULONG_PTR)Profile->Buffer +
-                               (ProgramCounter - (ULONG_PTR)Profile->RangeBase))
+                               (TrapFrame->Eip - (ULONG_PTR)Profile->RangeBase))
                                 >> Profile->BucketShift) &~ 0x3);
+#elif defined(_M_PPC)
+    // XXX arty
+#endif
 
         /* Increment the value */
         ++BucketValue;
@@ -298,7 +297,7 @@ KiParseProfileList(IN PKTRAP_FRAME TrapFrame,
  *         shifting like we specified. -- Alex
  */
 VOID
-NTAPI
+STDCALL
 KeProfileInterruptWithSource(IN PKTRAP_FRAME TrapFrame,
                              IN KPROFILE_SOURCE Source)
 {
@@ -313,7 +312,7 @@ KeProfileInterruptWithSource(IN PKTRAP_FRAME TrapFrame,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 KeSetProfileIrql(IN KIRQL ProfileIrql)
 {
     /* Set the IRQL at which Profiling will run */

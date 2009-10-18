@@ -84,10 +84,8 @@ static ULONG WINAPI OmNavigator_Release(IOmNavigator *iface)
 
     TRACE("(%p) ref=%d\n", This, ref);
 
-    if(!ref) {
-        release_dispex(&This->dispex);
+    if(!ref)
         heap_free(This);
-    }
 
     return ref;
 }
@@ -141,62 +139,22 @@ static HRESULT WINAPI OmNavigator_get_appCodeName(IOmNavigator *iface, BSTR *p)
 static HRESULT WINAPI OmNavigator_get_appName(IOmNavigator *iface, BSTR *p)
 {
     OmNavigator *This = OMNAVIGATOR_THIS(iface);
-
-    static const WCHAR app_nameW[] =
-        {'M','i','c','r','o','s','o','f','t',' ',
-         'I','n','t','e','r','n','e','t',' ',
-         'E','x','p','l','o','r','e','r',0};
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    *p = SysAllocString(app_nameW);
-    if(!*p)
-        return E_OUTOFMEMORY;
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OmNavigator_get_appVersion(IOmNavigator *iface, BSTR *p)
 {
     OmNavigator *This = OMNAVIGATOR_THIS(iface);
-
-    /* FIXME: Should we return something smarter? */
-    static const WCHAR app_verW[] =
-        {'4','.','0',' ','(','c','o','m','p','a','t','i','b','l','e',';',
-         ' ','M','S','I','E',' ','7','.','0',';',
-         ' ','W','i','n','d','o','w','s',' ','N','T',' ','5','.','1',';',
-         ' ','M','o','z','i','l','l','a','/','4','.','0',')',0};
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    *p = SysAllocString(app_verW);
-    if(!*p)
-        return E_OUTOFMEMORY;
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OmNavigator_get_userAgent(IOmNavigator *iface, BSTR *p)
 {
     OmNavigator *This = OMNAVIGATOR_THIS(iface);
-    char user_agent[512];
-    DWORD size;
-    HRESULT hres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    size = sizeof(user_agent);
-    hres = ObtainUserAgentString(0, user_agent, &size);
-    if(FAILED(hres))
-        return hres;
-
-    size = MultiByteToWideChar(CP_ACP, 0, user_agent, -1, NULL, 0);
-    *p = SysAllocStringLen(NULL, size-1);
-    if(!*p)
-        return E_OUTOFMEMORY;
-
-    MultiByteToWideChar(CP_ACP, 0, user_agent, -1, *p, size);
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OmNavigator_javaEnabled(IOmNavigator *iface, VARIANT_BOOL *enabled)
@@ -244,16 +202,8 @@ static HRESULT WINAPI OmNavigator_get_opsProfile(IOmNavigator *iface, IHTMLOpsPr
 static HRESULT WINAPI OmNavigator_toString(IOmNavigator *iface, BSTR *String)
 {
     OmNavigator *This = OMNAVIGATOR_THIS(iface);
-
-    static const WCHAR objectW[] = {'[','o','b','j','e','c','t',']',0};
-
-    TRACE("(%p)->(%p)\n", This, String);
-
-    if(!String)
-        return E_INVALIDARG;
-
-    *String = SysAllocString(objectW);
-    return *String ? S_OK : E_OUTOFMEMORY;
+    FIXME("(%p)->(%p)\n", This, String);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OmNavigator_get_cpuClass(IOmNavigator *iface, BSTR *p)
@@ -288,15 +238,11 @@ static HRESULT WINAPI OmNavigator_get_platform(IOmNavigator *iface, BSTR *p)
 {
     OmNavigator *This = OMNAVIGATOR_THIS(iface);
 
-#ifdef _WIN64
-    static const WCHAR platformW[] = {'W','i','n','6','4',0};
-#else
-    static const WCHAR platformW[] = {'W','i','n','3','2',0};
-#endif
+    static const WCHAR win32W[] = {'W','i','n','3','2',0};
 
     TRACE("(%p)->(%p)\n", This, p);
 
-    *p = SysAllocString(platformW);
+    *p = SysAllocString(win32W);
     return S_OK;
 }
 
@@ -307,7 +253,7 @@ static HRESULT WINAPI OmNavigator_get_appMinorVersion(IOmNavigator *iface, BSTR 
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI OmNavigator_get_connectionSpeed(IOmNavigator *iface, LONG *p)
+static HRESULT WINAPI OmNavigator_get_connectionSpeed(IOmNavigator *iface, long *p)
 {
     OmNavigator *This = OMNAVIGATOR_THIS(iface);
     FIXME("(%p)->(%p)\n", This, p);
@@ -366,7 +312,7 @@ static const tid_t OmNavigator_iface_tids[] = {
 };
 static dispex_static_data_t OmNavigator_dispex = {
     NULL,
-    DispHTMLNavigator_tid,
+    IOmNavigator_tid,
     NULL,
     OmNavigator_iface_tids
 };

@@ -180,7 +180,7 @@ static UINT WHERE_get_row( struct tagMSIVIEW *view, UINT row, MSIRECORD **rec )
     if (r != ERROR_SUCCESS)
         return r;
 
-    return wv->table->ops->get_row(wv->table, row, rec);
+    return wv->table->ops->get_row(view, row, rec);
 }
 
 static UINT WHERE_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UINT mask )
@@ -490,17 +490,16 @@ static UINT WHERE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *col
 }
 
 static UINT WHERE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", wv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", wv, n, name, type );
 
     if( !wv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return wv->table->ops->get_column_info( wv->table, n, name,
-                                            type, temporary );
+    return wv->table->ops->get_column_info( wv->table, n, name, type );
 }
 
 static UINT WHERE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
@@ -586,7 +585,6 @@ static const MSIVIEWOPS where_ops =
     NULL,
     NULL,
     WHERE_sort,
-    NULL,
 };
 
 static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr *cond,
@@ -601,7 +599,7 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
         if( r == ERROR_SUCCESS )
         {
             UINT type = 0;
-            r = table->ops->get_column_info( table, val, NULL, &type, NULL );
+            r = table->ops->get_column_info( table, val, NULL, &type );
             if( r == ERROR_SUCCESS )
             {
                 if (type&MSITYPE_STRING)

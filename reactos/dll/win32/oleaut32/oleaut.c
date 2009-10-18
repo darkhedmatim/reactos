@@ -41,6 +41,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 static BOOL BSTR_bCache = TRUE; /* Cache allocations to minimise alloc calls? */
 
+HMODULE OLEAUT32_hModule = NULL;
+
 /******************************************************************************
  * BSTR  {OLEAUT32}
  *
@@ -266,7 +268,7 @@ BSTR WINAPI SysAllocStringLen(const OLECHAR *str, unsigned int len)
     stringBuffer = (WCHAR*)newBuffer;
     stringBuffer[len] = '\0';
 
-    return stringBuffer;
+    return (LPWSTR)stringBuffer;
 }
 
 /******************************************************************************
@@ -417,7 +419,8 @@ INT WINAPI SysReAllocString(LPBSTR old,LPCOLESTR str)
     /*
      * Make sure we free the old string.
      */
-    SysFreeString(*old);
+    if (*old!=NULL)
+      SysFreeString(*old);
 
     /*
      * Allocate the new string
@@ -694,8 +697,7 @@ HRESULT WINAPI OleTranslateColor(
   return S_OK;
 }
 
-extern HRESULT WINAPI OLEAUTPS_DllGetClassObject(REFCLSID, REFIID, LPVOID *) DECLSPEC_HIDDEN;
-extern BOOL WINAPI OLEAUTPS_DllMain(HINSTANCE, DWORD, LPVOID) DECLSPEC_HIDDEN;
+extern HRESULT OLEAUTPS_DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv);
 
 extern void _get_STDFONT_CF(LPVOID *);
 extern void _get_STDPIC_CF(LPVOID *);
@@ -706,7 +708,7 @@ static HRESULT WINAPI PSDispatchFacBuf_QueryInterface(IPSFactoryBuffer *iface, R
         IsEqualIID(riid, &IID_IPSFactoryBuffer))
     {
         IUnknown_AddRef(iface);
-        *ppv = iface;
+        *ppv = (void *)iface;
         return S_OK;
     }
     return E_NOINTERFACE;
@@ -829,7 +831,18 @@ HRESULT WINAPI DllCanUnloadNow(void)
  */
 BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
 {
-    return OLEAUTPS_DllMain( hInstDll, fdwReason, lpvReserved );
+  TRACE("(%p,%d,%p)\n", hInstDll, fdwReason, lpvReserved);
+
+  switch (fdwReason) {
+  case DLL_PROCESS_ATTACH:
+    DisableThreadLibraryCalls(hInstDll);
+    OLEAUT32_hModule = hInstDll;
+    break;
+  case DLL_PROCESS_DETACH:
+    break;
+  };
+
+  return TRUE;
 }
 
 /***********************************************************************

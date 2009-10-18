@@ -18,7 +18,6 @@
 #include <malloc.h>
 #include <math.h>
 #include <limits.h>
-#include <io.h>
 
 #include <sys/stat.h>
 #include <sys/locking.h>
@@ -28,6 +27,7 @@
 #define WIN32_NO_STATUS
 #include <windows.h>
 #include <ndk/ntndk.h>
+#include <reactos/helper.h>
 
 #if !defined(_MSC_VER)
   #include <stdint.h>
@@ -37,13 +37,9 @@
 
 /* kernelmode libcnt should not include Wine-debugging crap */
 #ifndef _LIBCNT_
-#define WINE_NO_TRACE_MSGS
 #include "wine/debug.h"
-#ifndef __WINE_DEBUG_CHANNEL__
 WINE_DEFAULT_DEBUG_CHANNEL(msvcrt);
-#endif
 #else
-#define NDEBUG
 #include <debug.h>
 #define TRACE DPRINT
 #define WARN DPRINT1
@@ -58,7 +54,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(msvcrt);
 #include <internal/mbstring.h>
 #include <internal/mtdll.h>
 #include <internal/rterror.h>
-#include <internal/time.h>
 #include <internal/tls.h>
 #include <internal/printf.h>
 

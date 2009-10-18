@@ -318,7 +318,7 @@ START_TEST(change)
     HMODULE hntdll = GetModuleHandle("ntdll");
     if (!hntdll)
     {
-        win_skip("not running on NT, skipping test\n");
+        skip("not running on NT, skipping test\n");
         return;
     }
 
@@ -329,7 +329,7 @@ START_TEST(change)
 
     if (!pNtNotifyChangeDirectoryFile || !pNtCancelIoFile)
     {
-        win_skip("missing functions, skipping test\n");
+        skip("missing functions, skipping test\n");
         return;
     }
 

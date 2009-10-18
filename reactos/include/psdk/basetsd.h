@@ -1,10 +1,7 @@
 #ifndef _BASETSD_H
 #define _BASETSD_H
-
-#if !defined(__ROS_LONG64__)
-#ifdef __WINESRC__
-#define __ROS_LONG64__
-#endif
+#if __GNUC__ >=3
+#pragma GCC system_header
 #endif
 
 #ifdef __GNUC__
@@ -35,7 +32,6 @@
 #define ULongToPtr( ul )  ((VOID*)(ULONG_PTR)((unsigned long)ul))
 #endif /* !_WIN64 */
 
-#define UlongToHandle(ul) ULongToHandle(ul)
 #define UlongToPtr(ul) ULongToPtr(ul)
 #define UintToPtr(ui) UIntToPtr(ui)
 #define MAXUINT_PTR  (~((UINT_PTR)0))
@@ -47,10 +43,6 @@
 #define MAXUHALF_PTR ((UHALF_PTR)~0)
 #define MAXHALF_PTR  ((HALF_PTR)(MAXUHALF_PTR >> 1))
 #define MINHALF_PTR  (~MAXHALF_PTR)
-
-#define MAXUINT      ((UINT)~((UINT)0))
-
-#define MAXULONGLONG ((ULONGLONG)~((ULONGLONG)0))
 
 #ifndef RC_INVOKED
 #ifdef __cplusplus
@@ -104,13 +96,8 @@ static inline void* ULongToPtr( const unsigned long ul )
     { return( (void*)(ULONG_PTR)ul ); }
 #endif /* !__midl */
 #else /*  !_WIN64 */
-#if !defined(__ROS_LONG64__)
 typedef int INT_PTR, *PINT_PTR;
 typedef unsigned int UINT_PTR, *PUINT_PTR;
-#else
-typedef long INT_PTR, *PINT_PTR;
-typedef unsigned long UINT_PTR, *PUINT_PTR;
-#endif
 
 #ifndef LONG_PTR_DEFINED
 #define LONG_PTR_DEFINED
@@ -137,8 +124,6 @@ typedef unsigned __int64 ULONG64, *PULONG64;
 typedef unsigned __int64 DWORD64, *PDWORD64;
 typedef unsigned __int64 UINT64,  *PUINT64;
 
-typedef signed char INT8, *PINT8;
-typedef unsigned char UINT8, *PUINT8;
 typedef signed short INT16, *PINT16;
 typedef unsigned short UINT16, *PUINT16;
 

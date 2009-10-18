@@ -164,8 +164,6 @@ FAT16FindAndMarkAvailableCluster(PDEVICE_EXTENSION DeviceExt,
           *Block = 0xffff;
           CcSetDirtyPinnedData(Context, NULL);
           CcUnpinData(Context);
-          if (DeviceExt->AvailableClustersValid)
-            InterlockedDecrement((PLONG)&DeviceExt->AvailableClusters);
           return(STATUS_SUCCESS);
         }
 
@@ -229,8 +227,6 @@ FAT12FindAndMarkAvailableCluster(PDEVICE_EXTENSION DeviceExt, PULONG Cluster)
 	       *CBlock = (*CBlock & 0xf) | 0xfff0;
 	     CcSetDirtyPinnedData(Context, NULL);
 	     CcUnpinData(Context);
-	     if (DeviceExt->AvailableClustersValid)
-	       InterlockedDecrement((PLONG)&DeviceExt->AvailableClusters);
 	     return(STATUS_SUCCESS);
 	   }
     }
@@ -285,8 +281,6 @@ FAT32FindAndMarkAvailableCluster (PDEVICE_EXTENSION DeviceExt, PULONG Cluster)
           *Block = 0x0fffffff;
           CcSetDirtyPinnedData(Context, NULL);
           CcUnpinData(Context);
-          if (DeviceExt->AvailableClustersValid)
-            InterlockedDecrement((PLONG)&DeviceExt->AvailableClusters);
           return(STATUS_SUCCESS);
         }
 

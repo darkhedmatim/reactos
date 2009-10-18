@@ -66,10 +66,10 @@ HRESULT WINAPI SHRegGetCLSIDKeyW(REFGUID,LPCWSTR,BOOL,BOOL,PHKEY);
  * Function:  Return the proper registry key from the HUSKEY structure
  *            also allow special predefined values.
  */
-static HKEY REG_GetHKEYFromHUSKEY(HUSKEY hUSKey, BOOL which)
+static HKEY WINAPI REG_GetHKEYFromHUSKEY(HUSKEY hUSKey, BOOL which)
 {
-        HKEY test = hUSKey;
-        LPSHUSKEY mihk = hUSKey;
+        HKEY test = (HKEY) hUSKey;
+        LPSHUSKEY mihk = (LPSHUSKEY) hUSKey;
 
 	if ((test == HKEY_CLASSES_ROOT)        ||
 	    (test == HKEY_CURRENT_CONFIG)      ||
@@ -174,7 +174,7 @@ LONG WINAPI SHRegOpenUSKeyW(LPCWSTR Path, REGSAM AccessType, HUSKEY hRelativeUSK
 
     TRACE("HUSKEY=%p\n", hKey);
     if (phNewUSKey)
-        *phNewUSKey = hKey;
+        *phNewUSKey = (HUSKEY)hKey;
     return ERROR_SUCCESS;
 }
 
@@ -190,7 +190,7 @@ LONG WINAPI SHRegOpenUSKeyW(LPCWSTR Path, REGSAM AccessType, HUSKEY hRelativeUSK
 LONG WINAPI SHRegCloseUSKey(
         HUSKEY hUSKey) /* [I] Key to close */
 {
-    LPSHUSKEY hKey = hUSKey;
+    LPSHUSKEY hKey = (LPSHUSKEY)hUSKey;
     LONG ret = ERROR_SUCCESS;
 
     if (hKey->HKCUkey)
@@ -393,8 +393,8 @@ LONG WINAPI SHRegQueryUSValueA(
 	if (ret != ERROR_SUCCESS) {
 	    if (pvDefaultData && (dwDefaultDataSize != 0)) {
 		maxmove = (dwDefaultDataSize >= *pcbData) ? *pcbData : dwDefaultDataSize;
-                src = pvDefaultData;
-                dst = pvData;
+		src = (CHAR*)pvDefaultData;
+		dst = (CHAR*)pvData;
 		for(i=0; i<maxmove; i++) *dst++ = *src++;
 		*pcbData = maxmove;
 		TRACE("setting default data\n");
@@ -444,8 +444,8 @@ LONG WINAPI SHRegQueryUSValueW(
 	if (ret != ERROR_SUCCESS) {
 	    if (pvDefaultData && (dwDefaultDataSize != 0)) {
 		maxmove = (dwDefaultDataSize >= *pcbData) ? *pcbData : dwDefaultDataSize;
-                src = pvDefaultData;
-                dst = pvData;
+		src = (CHAR*)pvDefaultData;
+		dst = (CHAR*)pvData;
 		for(i=0; i<maxmove; i++) *dst++ = *src++;
 		*pcbData = maxmove;
 		TRACE("setting default data\n");
@@ -934,7 +934,7 @@ LONG  WINAPI SHRegWriteUSValueW(HUSKEY hUSKey, LPCWSTR pszValue, DWORD dwType,
                                 LPVOID pvData, DWORD cbData, DWORD dwFlags)
 {
     DWORD dummy;
-    LPSHUSKEY hKey = hUSKey;
+    LPSHUSKEY hKey = (LPSHUSKEY)hUSKey;
     LONG ret = ERROR_SUCCESS;
 
     TRACE("(%p,%s,%d,%p,%d,%d)\n", hUSKey, debugstr_w(pszValue),
@@ -1398,21 +1398,21 @@ DWORD WINAPI SHQueryValueExA( HKEY hKey, LPCSTR lpszValue,
       char cNull = '\0';
       nBytesToAlloc = dwUnExpDataLen;
 
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
       RegQueryValueExA (hKey, lpszValue, lpReserved, NULL, (LPBYTE)szData, &nBytesToAlloc);
       dwExpDataLen = ExpandEnvironmentStringsA(szData, &cNull, 1);
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
     else
     {
       nBytesToAlloc = (lstrlenA(pvData)+1) * sizeof (CHAR);
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
       lstrcpyA(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsA(szData, pvData, *pcbData / sizeof(CHAR));
       if (dwExpDataLen > *pcbData) dwRet = ERROR_MORE_DATA;
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
   }
 
@@ -1459,21 +1459,21 @@ DWORD WINAPI SHQueryValueExW(HKEY hKey, LPCWSTR lpszValue,
       WCHAR cNull = '\0';
       nBytesToAlloc = dwUnExpDataLen;
 
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
       RegQueryValueExW (hKey, lpszValue, lpReserved, NULL, (LPBYTE)szData, &nBytesToAlloc);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, &cNull, 1);
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
     else
     {
       nBytesToAlloc = (lstrlenW(pvData) + 1) * sizeof(WCHAR);
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
       lstrcpyW(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, pvData, *pcbData/sizeof(WCHAR) );
       if (dwExpDataLen > *pcbData) dwRet = ERROR_MORE_DATA;
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
   }
 
@@ -2242,7 +2242,7 @@ DWORD WINAPI SHCopyKeyW(HKEY hKeySrc, LPCWSTR lpszSrcSubKey, HKEY hKeyDst, DWORD
   DWORD dwKeyCount = 0, dwValueCount = 0, dwMaxKeyLen = 0;
   DWORD  dwMaxValueLen = 0, dwMaxDataLen = 0, i;
   BYTE buff[1024];
-  LPVOID lpBuff = buff;
+  LPVOID lpBuff = (LPVOID)buff;
   WCHAR szName[MAX_PATH], *lpszName = szName;
   DWORD dwRet = S_OK;
 

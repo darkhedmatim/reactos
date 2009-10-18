@@ -14,7 +14,7 @@ typedef struct
     NetCfgComponentItem * pProtocol;
 } INetCfgImpl, *LPINetCfgImpl;
 
-static __inline LPINetCfgImpl impl_from_INetCfgLock(INetCfgLock *iface)
+static LPINetCfgImpl __inline impl_from_INetCfgLock(INetCfgLock *iface)
 {
     return (INetCfgImpl*)((char *)iface - FIELD_OFFSET(INetCfgImpl, lpVtblLock));
 }
@@ -22,7 +22,7 @@ static __inline LPINetCfgImpl impl_from_INetCfgLock(INetCfgLock *iface)
 
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgLock_fnQueryInterface(
     INetCfgLock * iface,
     REFIID iid,
@@ -34,7 +34,7 @@ INetCfgLock_fnQueryInterface(
 
 
 ULONG
-WINAPI
+STDCALL
 INetCfgLock_fnAddRef(
     INetCfgLock * iface)
 {
@@ -44,7 +44,7 @@ INetCfgLock_fnAddRef(
 }
 
 ULONG
-WINAPI
+STDCALL
 INetCfgLock_fnRelease(
     INetCfgLock * iface)
 {
@@ -53,7 +53,7 @@ INetCfgLock_fnRelease(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgLock_fnAcquireWriteLock(
     INetCfgLock * iface,
     DWORD cmsTimeout,
@@ -102,7 +102,7 @@ INetCfgLock_fnAcquireWriteLock(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgLock_fnReleaseWriteLock(
     INetCfgLock * iface)
 {
@@ -119,7 +119,7 @@ INetCfgLock_fnReleaseWriteLock(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgLock_fnIsWriteLocked(
     INetCfgLock * iface,
     LPWSTR *ppszwClientDescription)
@@ -430,7 +430,7 @@ FindNetworkComponent(
 {
     while(pHead)
     {
-        if (!_wcsicmp(pHead->szId, pszwComponentId))
+        if (!wcsicmp(pHead->szId, pszwComponentId))
         {
             return INetCfgComponent_Constructor(NULL, &IID_INetCfgComponent, (LPVOID*)pComponent, pHead, iface);
         }
@@ -500,7 +500,7 @@ INetCfg_fnRelease(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnInitialize(
     INetCfg * iface,
     PVOID pReserved)
@@ -533,58 +533,8 @@ INetCfg_fnInitialize(
     return S_OK;
 }
 
-VOID
-ApplyOrCancelChanges(
-    NetCfgComponentItem *pHead,
-    const CLSID * lpClassGUID,
-    BOOL bApply)
-{
-    HKEY hKey;
-    WCHAR szName[200];
-    LPOLESTR pszGuid;
-
-    while(pHead)
-    {
-        if (pHead->bChanged)
-        {
-            if (IsEqualGUID(lpClassGUID, &GUID_DEVCLASS_NET))
-            {
-                if (bApply)
-                {
-                    if (StringFromCLSID(&pHead->InstanceId, &pszGuid) == NOERROR)
-                    {
-                        swprintf(szName, L"SYSTEM\\CurrentControlSet\\Control\\Network\\%s", pszGuid);
-                        CoTaskMemFree(pszGuid);
-
-                        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, szName, 0, KEY_READ, &hKey) == ERROR_SUCCESS)
-                        {
-                            RegSetValueExW(hKey, NULL, 0, REG_SZ, (LPBYTE)pHead->szDisplayName, (wcslen(pHead->szDisplayName)+1) * sizeof(WCHAR));
-                            RegCloseKey(hKey);
-                        }
-                    }
-                }
-            }
-            else if (pHead->pNCCC)
-            {
-                if (bApply)
-                {
-                    INetCfgComponentControl_ApplyRegistryChanges(pHead->pNCCC);
-                    //FIXME 
-                    // implement INetCfgPnpReconfigCallback and pass it to
-                    //INetCfgComponentControl_ApplyPnpChanges(pHead->pNCCC, NULL);
-                }
-                else
-                {
-                    INetCfgComponentControl_CancelChanges(pHead->pNCCC);
-                }
-            }
-        }
-        pHead = pHead->pNext;
-    }
-}
-
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnUninitialize(
     INetCfg * iface)
 {
@@ -598,7 +548,7 @@ INetCfg_fnUninitialize(
 
 
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnApply(
     INetCfg * iface)
 {
@@ -607,16 +557,12 @@ INetCfg_fnApply(
     if (!This->bInitialized)
         return NETCFG_E_NOT_INITIALIZED;
 
-    ApplyOrCancelChanges(This->pNet, &GUID_DEVCLASS_NET, TRUE);
-    ApplyOrCancelChanges(This->pClient, &GUID_DEVCLASS_NETCLIENT, TRUE);
-    ApplyOrCancelChanges(This->pService, &GUID_DEVCLASS_NETSERVICE, TRUE);
-    ApplyOrCancelChanges(This->pProtocol, &GUID_DEVCLASS_NETTRANS, TRUE);
 
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnCancel(
     INetCfg * iface)
 {
@@ -625,15 +571,11 @@ INetCfg_fnCancel(
     if (!This->bInitialized)
         return NETCFG_E_NOT_INITIALIZED;
 
-    ApplyOrCancelChanges(This->pClient, &GUID_DEVCLASS_NETCLIENT, FALSE);
-    ApplyOrCancelChanges(This->pService, &GUID_DEVCLASS_NETSERVICE, FALSE);
-    ApplyOrCancelChanges(This->pProtocol, &GUID_DEVCLASS_NETTRANS, FALSE);
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnEnumComponents(
     INetCfg * iface,
     const GUID *pguidClass,
@@ -658,7 +600,7 @@ INetCfg_fnEnumComponents(
 
 
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnFindComponent(
     INetCfg * iface,
     LPCWSTR pszwComponentId,
@@ -686,7 +628,7 @@ INetCfg_fnFindComponent(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfg_fnQueryNetCfgClass(
     INetCfg * iface,
     const GUID *pguidClass,

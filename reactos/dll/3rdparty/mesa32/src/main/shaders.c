@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.3
+ * Version:  7.1
  *
  * Copyright (C) 2004-2008  Brian Paul   All Rights Reserved.
  *
@@ -233,23 +233,13 @@ _mesa_GetObjectParameterivARB(GLhandleARB object, GLenum pname, GLint *params)
    GET_CURRENT_CONTEXT(ctx);
    /* Implement in terms of GetProgramiv, GetShaderiv */
    if (ctx->Driver.IsProgram(ctx, object)) {
-      if (pname == GL_OBJECT_TYPE_ARB) {
-	 *params = GL_PROGRAM_OBJECT_ARB;
-      }
-      else {
-	 ctx->Driver.GetProgramiv(ctx, object, pname, params);
-      }
+      ctx->Driver.GetProgramiv(ctx, object, pname, params);
    }
    else if (ctx->Driver.IsShader(ctx, object)) {
-      if (pname == GL_OBJECT_TYPE_ARB) {
-	 *params = GL_SHADER_OBJECT_ARB;
-      }
-      else {
-	 ctx->Driver.GetShaderiv(ctx, object, pname, params);
-      }
+      ctx->Driver.GetShaderiv(ctx, object, pname, params);
    }
    else {
-      _mesa_error(ctx, GL_INVALID_VALUE, "glGetObjectParameterivARB");
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glGetObjectParameterivARB");
    }
 }
 

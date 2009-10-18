@@ -317,13 +317,6 @@ typedef struct
 #define __AHSHIFT  3  /* don't change! */
 #define __AHINCR   (1 << __AHSHIFT)
 
-
-typedef struct tagSYSLEVEL
-{
-    CRITICAL_SECTION crst;
-    INT              level;
-} SYSLEVEL;
-
 /* undocumented functions */
 WORD        WINAPI AllocCStoDSAlias16(WORD);
 WORD        WINAPI AllocDStoCSAlias16(WORD);
@@ -527,7 +520,7 @@ BOOL16      WINAPI WritePrivateProfileStruct16(LPCSTR,LPCSTR,LPVOID,UINT16,LPCST
 BOOL16      WINAPI WriteProfileSection16(LPCSTR,LPCSTR);
 
 /* Some optimizations */
-static inline LPVOID WINAPI MapSL( SEGPTR segptr )
+extern inline LPVOID WINAPI MapSL( SEGPTR segptr )
 {
     return (char *)wine_ldt_copy.base[SELECTOROF(segptr) >> __AHSHIFT] + OFFSETOF(segptr);
 }

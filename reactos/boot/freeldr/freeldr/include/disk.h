@@ -20,7 +20,6 @@
 #ifndef __DISK_H
 #define __DISK_H
 
-#include <reactos/rosioctl.h>
 
 typedef struct _GEOMETRY
 {
@@ -80,7 +79,7 @@ typedef struct _MASTER_BOOT_RECORD
 #include <poppack.h>
 
 //
-// Partition type defines (of PSDK)
+// Partition type defines
 //
 #define PARTITION_ENTRY_UNUSED          0x00      // Entry unused
 #define PARTITION_FAT_12                0x01      // 12-bit FAT entries
@@ -90,6 +89,7 @@ typedef struct _MASTER_BOOT_RECORD
 #define PARTITION_EXTENDED              0x05      // Extended partition entry
 #define PARTITION_HUGE                  0x06      // Huge partition MS-DOS V4
 #define PARTITION_IFS                   0x07      // IFS Partition
+#define PARTITION_OS2BOOTMGR            0x0A      // OS/2 Boot Manager/OPUS/Coherent swap
 #define PARTITION_FAT32                 0x0B      // FAT32
 #define PARTITION_FAT32_XINT13          0x0C      // FAT32 using extended int13 services
 #define PARTITION_XINT13                0x0E      // Win95 partition using extended int13 services
@@ -98,20 +98,22 @@ typedef struct _MASTER_BOOT_RECORD
 #define PARTITION_PREP                  0x41      // PowerPC Reference Platform (PReP) Boot Partition
 #define PARTITION_LDM                   0x42      // Logical Disk Manager partition
 #define PARTITION_UNIX                  0x63      // Unix
+#define PARTITION_LINUX_SWAP			0x82      // Linux Swap Partition
+#define PARTITION_EXT2					0x83      // Linux Ext2/Ext3
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
 // i386 BIOS Disk Functions (i386disk.c)
 //
 ///////////////////////////////////////////////////////////////////////////////////////
-#if defined(__i386__) || defined(_M_AMD64)
+#ifdef __i386__
 
 BOOLEAN	DiskResetController(ULONG DriveNumber);
 BOOLEAN	DiskInt13ExtensionsSupported(ULONG DriveNumber);
 //VOID	DiskStopFloppyMotor(VOID);
 BOOLEAN	DiskGetExtendedDriveParameters(ULONG DriveNumber, PVOID Buffer, USHORT BufferSize);
 
-#endif // defined __i386__ || defined(_M_AMD64)
+#endif // defined __i386__
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
@@ -127,7 +129,15 @@ VOID	DiskStopFloppyMotor(VOID);	// Implemented in i386disk.c
 extern ULONG BootDrive;
 extern ULONG BootPartition;
 
+BOOLEAN DiskGetBootVolume(PULONG DriveNumber, PULONGLONG StartSector,
+                          PULONGLONG SectorCount, int *FsType);
+BOOLEAN DiskGetSystemVolume(char *SystemPath, char *RemainingPath,
+                            PULONG Device, PULONG DriveNumber,
+                            PULONGLONG StartSector,
+                            PULONGLONG SectorCount, int *FsType);
 BOOLEAN DiskGetBootPath(char *BootPath, unsigned Size);
+VOID DiskGetBootDevice(PULONG BootDevice);
+BOOLEAN DiskBootingFromFloppy(VOID);
 BOOLEAN DiskNormalizeSystemPath(char *SystemPath, unsigned Size);
 
 

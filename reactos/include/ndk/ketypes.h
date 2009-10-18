@@ -43,16 +43,6 @@ Author:
 // Processor Architectures
 //
 #define PROCESSOR_ARCHITECTURE_INTEL    0
-#define PROCESSOR_ARCHITECTURE_MIPS     1
-#define PROCESSOR_ARCHITECTURE_ALPHA    2
-#define PROCESSOR_ARCHITECTURE_PPC      3
-#define PROCESSOR_ARCHITECTURE_SHX      4
-#define PROCESSOR_ARCHITECTURE_ARM      5
-#define PROCESSOR_ARCHITECTURE_IA64     6
-#define PROCESSOR_ARCHITECTURE_ALPHA64  7
-#define PROCESSOR_ARCHITECTURE_MSIL     8
-#define PROCESSOR_ARCHITECTURE_AMD64    9
-#define PROCESSOR_ARCHITECTURE_UNKNOWN  0xFFFF
 
 //
 // Object Type Mask for Kernel Dispatcher Objects
@@ -116,6 +106,11 @@ Author:
 #else
 #define KINTERRUPT_DISPATCH_CODES       106
 #endif
+
+//
+// Get KPCR
+//
+#define KeGetPcr()                      PCR
 
 #ifdef NTOS_MODE_USER
 
@@ -547,17 +542,6 @@ typedef enum _KAPC_ENVIRONMENT
 } KAPC_ENVIRONMENT;
 
 //
-// CPU Cache Types 	 
-// 	 
-typedef enum _PROCESSOR_CACHE_TYPE 	 
-{
-    CacheUnified, 	 
-    CacheInstruction, 	 
-    CacheData, 	 
-    CacheTrace, 	 
-} PROCESSOR_CACHE_TYPE;
-
-//
 // PRCB DPC Data
 //
 typedef struct _KDPC_DATA
@@ -576,18 +560,6 @@ typedef struct _PP_LOOKASIDE_LIST
     struct _GENERAL_LOOKASIDE *P;
     struct _GENERAL_LOOKASIDE *L;
 } PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
-
-//
-// CPU Cache Descriptor 	 
-// 	 
-typedef struct _CACHE_DESCRIPTOR 	 
-{
-    UCHAR Level; 	 
-    UCHAR Associativity; 	 
-    USHORT LineSize; 	 
-    ULONG Size; 	 
-    PROCESSOR_CACHE_TYPE Type; 	 
-} CACHE_DESCRIPTOR, *PCACHE_DESCRIPTOR;
 
 //
 // Architectural Types
@@ -626,7 +598,7 @@ typedef struct _KPROFILE
     PVOID RangeLimit;
     ULONG BucketShift;
     PVOID Buffer;
-    ULONG_PTR Segment;
+    PVOID Segment;
     KAFFINITY Affinity;
     KPROFILE_SOURCE Source;
     BOOLEAN Started;
@@ -667,7 +639,7 @@ typedef struct _KINTERRUPT
     ULONGLONG Rsvd1;
 #endif
     ULONG DispatchCode[KINTERRUPT_DISPATCH_CODES];
-} KINTERRUPT;
+} KINTERRUPT, *PKINTERRUPT;
 
 //
 // Kernel Event Pair Object
@@ -944,7 +916,7 @@ typedef struct _KTHREAD
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     PVOID MdlForLockedteb;
 #endif
-} KTHREAD;
+} KTHREAD, *PKTHREAD;
 
 #define ASSERT_THREAD(object) \
     ASSERT((((object)->DispatcherHeader.Type & KOBJECT_TYPE_MASK) == ThreadObject))
@@ -1006,7 +978,7 @@ typedef struct _KPROCESS
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONGLONG CycleTime;
 #endif
-} KPROCESS;
+} KPROCESS, *PKPROCESS;
 
 #define ASSERT_PROCESS(object) \
     ASSERT((((object)->Header.Type & KOBJECT_TYPE_MASK) == ProcessObject))

@@ -22,7 +22,7 @@ VOID
 NTAPI
 Ki386VdmEnablePentiumExtentions(VOID)
 {
-    DPRINT("VME detected but not yet supported\n");
+    DPRINT1("VME detected but not yet supported\n");
 }
 
 VOID
@@ -120,21 +120,25 @@ VdmpInitialize(PVOID ControlData)
         return Status;
     }
 
-    /* Enter SEH */
-    _SEH2_TRY
+    /* Now, copy the first physical pagee into the first virtual page */
+    _SEH_TRY
     {
-        /* Copy the first physical page into the first virtual page */
         RtlMoveMemory(NullAddress, BaseAddress, ViewSize);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Fail */
+        /* Get the status */
+        Status = _SEH_GetExceptionCode();
+    }
+    _SEH_END;
+
+    if (!NT_SUCCESS(Status))
+    {
         DPRINT1("Couldn't copy first page (%x)\n", Status);
         ZwClose(PhysMemHandle);
         ZwUnmapViewOfSection(NtCurrentProcess(), BaseAddress);
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        return Status;
     }
-    _SEH2_END;
 
     /* Close physical memory section handle */
     ZwClose(PhysMemHandle);

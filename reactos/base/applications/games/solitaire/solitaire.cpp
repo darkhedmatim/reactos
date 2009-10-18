@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "resource.h"
-#include "cardlib.h"
+#include "cardlib/cardlib.h"
 
 #include "solitaire.h"
 
@@ -19,8 +19,7 @@ TCHAR szAppName[128];
 TCHAR MsgQuit[128];
 TCHAR MsgAbout[128];
 TCHAR MsgWin[128];
-TCHAR MsgDeal[128];
-DWORD dwOptions = OPTION_THREE_CARDS;
+DWORD dwOptions = 8;
 
 CardWindow SolWnd;
 
@@ -136,7 +135,6 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPTSTR szCmdLine, int iCm
     LoadString(hInst, IDS_SOL_ABOUT, MsgAbout, sizeof(MsgAbout) / sizeof(MsgAbout[0]));
     LoadString(hInst, IDS_SOL_QUIT, MsgQuit, sizeof(MsgQuit) / sizeof(MsgQuit[0]));
     LoadString(hInst, IDS_SOL_WIN, MsgWin, sizeof(MsgWin) / sizeof(MsgWin[0]));
-    LoadString(hInst, IDS_SOL_DEAL, MsgDeal, sizeof(MsgDeal) / sizeof(MsgDeal[0]));
 
     //Window class for the main application parent window
     wndclass.style            = 0;//CS_HREDRAW | CS_VREDRAW;
@@ -196,13 +194,11 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPTSTR szCmdLine, int iCm
 
     SaveSettings();
 
-    try { throw 0; } catch (int i) { } /* HACK */
-
     return msg.wParam;
 }
 
 
-INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK OptionsDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -360,7 +356,7 @@ CardImageWndProc(HWND hwnd,
 }
 
 
-INT_PTR CALLBACK CardBackDlgProc(HWND hDlg,
+BOOL CALLBACK CardBackDlgProc(HWND hDlg,
                               UINT uMsg,
                               WPARAM wParam,
                               LPARAM lParam)
@@ -479,13 +475,6 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
             // Force the window to process WM_GETMINMAXINFO again
             GetWindowRect(hwndStatus, &rcStatus);
             nStatusHeight = rcStatus.bottom - rcStatus.top;
-
-            // Hide status bar if options say so
-            if (!(dwOptions & OPTION_SHOW_STATUS))
-            {
-                ShowWindow(hwndStatus, SW_HIDE);
-            }
-
             SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOZORDER);
 
             NewGame();
@@ -506,7 +495,8 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
             if (dwOptions & OPTION_SHOW_STATUS)
             {
                 MoveWindow(SolWnd, 0, 0, nWidth, nHeight - nStatusHeight, TRUE);
-                MoveWindow(hwndStatus, 0, nHeight - nStatusHeight, nWidth, nStatusHeight, TRUE);
+                MoveWindow(hwndStatus, 0, nHeight - nStatusHeight, nWidth, nHeight, TRUE);
+                SendMessage(hwndStatus, WM_SIZE, wParam, lParam);
             }
             else
             {
@@ -587,6 +577,5 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 
     return DefWindowProc (hwnd, iMsg, wParam, lParam);
 }
-
 
 

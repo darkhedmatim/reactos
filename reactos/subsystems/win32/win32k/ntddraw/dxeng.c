@@ -101,7 +101,7 @@ DxEngDispUniq()
 *
 *--*/
 BOOL
-APIENTRY
+STDCALL
 DxEngGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
 {
     DPRINT1("ReactX Calling : DxEngGetDeviceGammaRamp\n");
@@ -126,7 +126,7 @@ DxEngGetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp)
 *
 *--*/
 PDC
-APIENTRY
+STDCALL
 DxEngLockDC(HDC hDC)
 {
     DPRINT1("ReactX Calling : DxEngLockDC\n");
@@ -151,7 +151,7 @@ DxEngLockDC(HDC hDC)
 *
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngUnlockDC(PDC pDC)
 {
     DPRINT1("ReactX Calling : DxEngUnlockDC\n");
@@ -175,7 +175,7 @@ DxEngUnlockDC(PDC pDC)
 *SystemResourcesList
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngLockShareSem()
 {
     DPRINT1("ReactX Calling : DxEngLockShareSem\n");
@@ -198,7 +198,7 @@ DxEngLockShareSem()
 *
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngUnlockShareSem()
 {
     DPRINT1("ReactX Calling : DxEngUnlockShareSem\n");
@@ -229,7 +229,7 @@ DxEngUnlockShareSem()
 *
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp, BOOL Test)
 {
     DPRINT1("ReactX Calling : DxEngSetDeviceGammaRamp\n");
@@ -265,7 +265,7 @@ DxEngSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp, BOOL Test)
 * DxEGShDevData_OpenRefs     Retrieve the pdevOpenRefs counter
 * DxEGShDevData_palette      See if the device RC_PALETTE is set
 * DxEGShDevData_ldev         ATM we do not support the Loader Device driver structure
-* DxEGShDevData_GDev         Retrieve the device pGraphicsDevice
+* DxEGShDevData_GDev         Retrieve the device pGraphicsDev
 * DxEGShDevData_clonedev     Retrieve the device PDEV_CLONE_DEVICE flag is set or not
 *
 * @return
@@ -276,12 +276,12 @@ DxEngSetDeviceGammaRamp(HDEV hPDev, PGAMMARAMP Ramp, BOOL Test)
 *
 *--*/
 DWORD_PTR
-APIENTRY
+STDCALL
 DxEngGetHdevData(HDEV hDev,
                  DXEGSHDEVDATA Type)
 {
     DWORD_PTR retVal = 0;
-    PPDEVOBJ PDev = (PPDEVOBJ)hDev;
+    PGDIDEVICE PDev = (PGDIDEVICE)hDev;
 
     DPRINT1("ReactX Calling : DxEngGetHdevData DXEGSHDEVDATA : %ld\n", Type);
 
@@ -302,15 +302,15 @@ DxEngGetHdevData(HDEV hDev,
         break;
       case DxEGShDevData_DitherFmt:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_DitherFmt\n");
-        retVal = (DWORD_PTR) PDev->devinfo.iDitherFormat;
+        retVal = (DWORD_PTR) PDev->DevInfo.iDitherFormat;
         break;
       case DxEGShDevData_FxCaps:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_FxCaps\n");
-        retVal = (DWORD_PTR) PDev->devinfo.flGraphicsCaps;
+        retVal = (DWORD_PTR) PDev->DevInfo.flGraphicsCaps;
         break;
       case DxEGShDevData_FxCaps2:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_FxCaps2\n");
-        retVal = (DWORD_PTR) PDev->devinfo.flGraphicsCaps2;
+        retVal = (DWORD_PTR) PDev->DevInfo.flGraphicsCaps2;
         break;
       case DxEGShDevData_DrvFuncs:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_DrvFuncs\n");
@@ -318,7 +318,7 @@ DxEngGetHdevData(HDEV hDev,
         break;
       case DxEGShDevData_dhpdev:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_dhpdev\n");
-        retVal = (DWORD_PTR) PDev->dhpdev; // DHPDEV
+        retVal = (DWORD_PTR) PDev->hPDev; // DHPDEV
         break;
       case DxEGShDevData_eddg:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_eddg\n");
@@ -354,7 +354,7 @@ DxEngGetHdevData(HDEV hDev,
         break;
       case DxEGShDevData_palette:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_palette\n");
-        retVal = (DWORD_PTR) PDev->gdiinfo.flRaster & RC_PALETTE;
+        retVal = (DWORD_PTR) PDev->GDIInfo.flRaster & RC_PALETTE;
         break;
       case DxEGShDevData_ldev:
           DPRINT1("DxEGShDevData_ldev not supported yet\n");
@@ -363,7 +363,7 @@ DxEngGetHdevData(HDEV hDev,
         break;
       case DxEGShDevData_GDev:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_GDev\n");
-        retVal = (DWORD_PTR) PDev->pGraphicsDevice; // P"GRAPHICS_DEVICE"
+        retVal = (DWORD_PTR) PDev->pGraphicsDev; // P"GRAPHICS_DEVICE"
         break;
       case DxEGShDevData_clonedev:
         DPRINT1("requested DXEGSHDEVDATA DxEGShDevData_clonedev\n");
@@ -405,7 +405,7 @@ DxEngGetHdevData(HDEV hDev,
 *
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngSetHdevData(HDEV hDev,
                  DXEGSHDEVDATA Type,
                  DWORD_PTR Data)
@@ -416,7 +416,7 @@ DxEngSetHdevData(HDEV hDev,
 
     if ( Type == DxEGShDevData_dd_nCount )
     {
-        ((PPDEVOBJ)hDev)->DxDd_nCount = Data;
+        ((PGDIDEVICE)hDev)->DxDd_nCount = Data;
         retVal = TRUE; // Set
     }
     return retVal;
@@ -430,7 +430,7 @@ DxEngSetHdevData(HDEV hDev,
 * DC states depending on what value is passed in its second parameter:
 * 1. If the DC is full screen
 * 2. Get Complexity of visible region
-* 3. Get Driver hdev, which is ppdev
+* 3. Get Driver hdev, which is pPDev
 *
 * @param HDC hdc
 * The DC handle
@@ -438,7 +438,7 @@ DxEngSetHdevData(HDEV hDev,
 * @param DWORD type
 * value 1 = Is DC fullscreen
 * value 2 = Get Complexity of visible region.
-* value 3 = Get Driver hdev, which is a ppdev.
+* value 3 = Get Driver hdev, which is a pPDev.
 *
 * @return
 * Return one of the type values
@@ -448,7 +448,7 @@ DxEngSetHdevData(HDEV hDev,
 *
 *--*/
 DWORD_PTR
-APIENTRY
+STDCALL
 DxEngGetDCState(HDC hDC,
                 DWORD type)
 {
@@ -462,7 +462,7 @@ DxEngGetDCState(HDC hDC,
         switch (type)
         {
             case 1:
-                retVal = (DWORD_PTR) pDC->fs & DC_FLAG_FULLSCREEN;
+                retVal = (DWORD_PTR) pDC->DC_Flags & DC_FLAG_FULLSCREEN;
                 break;
             case 2:
                 UNIMPLEMENTED;
@@ -470,7 +470,7 @@ DxEngGetDCState(HDC hDC,
             case 3:
             {
                 /* Return the HDEV of this DC. */
-                retVal = (DWORD_PTR) pDC->ppdev;
+                retVal = (DWORD_PTR) pDC->pPDev;
                 break;
             }
             default:
@@ -514,7 +514,7 @@ DxEngIncDispUniq()
 * The function DxEngLockHdev lock the internal PDEV
 *
 * @param HDEV type
-* it is a pointer to win32k internal pdev struct known as PPDEVOBJ
+* it is a pointer to win32k internal pdev struct known as PGDIDEVICE
 
 * @return
 * This function returns TRUE no matter what.
@@ -524,17 +524,17 @@ DxEngIncDispUniq()
 *
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngLockHdev(HDEV hDev)
 {
-    PPDEVOBJ ppdev = (PPDEVOBJ)hDev;
+    PGDIDEVICE pPDev = (PGDIDEVICE)hDev;
     PERESOURCE Resource;
 
     DPRINT1("ReactX Calling : DxEngLockHdev \n");
 
     DPRINT1("hDev                   : 0x%08lx\n",hDev);
 
-    Resource = ppdev->hsemDevLock;
+    Resource = pPDev->hsemDevLock;
 
     if (Resource)
     {
@@ -551,7 +551,7 @@ DxEngLockHdev(HDEV hDev)
 * The function DxEngUnlockHdev unlock the internal PDEV
 *
 * @param HDEV type
-* it is a pointer to win32k internal pdev struct known as PPDEVOBJ
+* it is a pointer to win32k internal pdev struct known as PGDIDEVICE
 
 * @return
 * This function returns TRUE no matter what.
@@ -561,11 +561,11 @@ DxEngLockHdev(HDEV hDev)
 *
 *--*/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngUnlockHdev(HDEV hDev)
 {
-    PPDEVOBJ ppdev = (PPDEVOBJ)hDev;
-    PERESOURCE Resource = ppdev->hsemDevLock;
+    PGDIDEVICE pPDev = (PGDIDEVICE)hDev;
+    PERESOURCE Resource = pPDev->hsemDevLock;
 
     DPRINT1("ReactX Calling : DxEngUnlockHdev \n");
 
@@ -582,10 +582,10 @@ DxEngUnlockHdev(HDEV hDev)
 /* DxEngReferenceHdev                                                   */
 /************************************************************************/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngReferenceHdev(HDEV hDev)
 {
-    IntGdiReferencePdev((PPDEVOBJ) hDev);
+    IntGdiReferencePdev((PGDIDEVICE) hDev);;
     /* ALWAYS return true */
     return TRUE;
 }
@@ -596,7 +596,7 @@ DxEngReferenceHdev(HDEV hDev)
 
 /* Notes : Check see if termal server got a connections or not */
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngNUIsTermSrv()
 {
     /* FIXME ReactOS does not suport terminal server yet, we can not check if we got a connections or not */
@@ -639,7 +639,7 @@ DxEngVisRgnUniq()
 /************************************************************************/
 /* Enumerate all drivers in win32k */
 HDEV *
-APIENTRY
+STDCALL
 DxEngEnumerateHdev(HDEV *hdev)
 {
     /* FIXME Enumerate all drivers in win32k */
@@ -651,7 +651,7 @@ DxEngEnumerateHdev(HDEV *hdev)
 /* DxEngCreateMemoryDC                                                  */
 /************************************************************************/
 HDC
-APIENTRY
+STDCALL
 DxEngCreateMemoryDC(HDEV hDev)
 {
     return IntGdiCreateDisplayDC(hDev, DC_TYPE_MEMORY, FALSE);
@@ -660,7 +660,7 @@ DxEngCreateMemoryDC(HDEV hDev)
 /************************************************************************/
 /* DxEngScreenAccessCheck                                               */
 /************************************************************************/
-DWORD APIENTRY DxEngScreenAccessCheck()
+DWORD STDCALL DxEngScreenAccessCheck()
 {
     UNIMPLEMENTED;
 
@@ -672,10 +672,10 @@ DWORD APIENTRY DxEngScreenAccessCheck()
 /* DxEngIsHdevLockedByCurrentThread                                     */
 /************************************************************************/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngIsHdevLockedByCurrentThread(HDEV hDev)
 {   // base on EngIsSemaphoreOwnedByCurrentThread w/o the Ex call.
-    PERESOURCE pSem = ((PPDEVOBJ)hDev)->hsemDevLock;
+    PERESOURCE pSem = ((PGDIDEVICE)hDev)->hsemDevLock;
     return pSem->OwnerEntry.OwnerThread == (ERESOURCE_THREAD)PsGetCurrentThread();
 }
 
@@ -684,10 +684,10 @@ DxEngIsHdevLockedByCurrentThread(HDEV hDev)
 /* DxEngUnreferenceHdev                                                 */
 /************************************************************************/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngUnreferenceHdev(HDEV hDev)
 {
-    IntGdiUnreferencePdev((PPDEVOBJ) hDev, 0);
+    IntGdiUnreferencePdev((PGDIDEVICE) hDev, 0);
     return TRUE; // Always true.
 }
 
@@ -695,17 +695,30 @@ DxEngUnreferenceHdev(HDEV hDev)
 /* DxEngGetDesktopDC                                                    */
 /************************************************************************/
 HDC
-APIENTRY
+STDCALL
 DxEngGetDesktopDC(ULONG DcType, BOOL EmptyDC, BOOL ValidatehWnd)
 {
-    return UserGetDesktopDC(DcType, EmptyDC, ValidatehWnd);
+    PWINDOW_OBJECT DesktopObject = 0;
+    HDC DesktopHDC = 0;
+
+    if (DcType == DC_TYPE_DIRECT)
+    {        
+        DesktopObject = UserGetDesktopWindow();
+        DesktopHDC = (HDC)UserGetWindowDC(DesktopObject);
+    }
+    else
+    {
+        UNIMPLEMENTED;
+    }
+
+    return DesktopHDC;
 }
 
 /************************************************************************/
 /* DxEngDeleteDC                                                        */
 /************************************************************************/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngDeleteDC(HDC hdc, BOOL Force)
 {
    return IntGdiDeleteDC(hdc, Force);
@@ -715,7 +728,7 @@ DxEngDeleteDC(HDC hdc, BOOL Force)
 /* DxEngCleanDC                                                         */
 /************************************************************************/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngCleanDC(HDC hdc)
 {
     return IntGdiCleanDC(hdc);
@@ -724,7 +737,7 @@ DxEngCleanDC(HDC hdc)
 /************************************************************************/
 /* DxEngSetDCOwner                                                      */
 /************************************************************************/
-BOOL APIENTRY DxEngSetDCOwner(HGDIOBJ hObject, DWORD OwnerMask)
+BOOL STDCALL DxEngSetDCOwner(HGDIOBJ hObject, DWORD OwnerMask)
 {
     DPRINT1("ReactX Calling : DxEngSetDCOwner \n");
 
@@ -735,7 +748,7 @@ BOOL APIENTRY DxEngSetDCOwner(HGDIOBJ hObject, DWORD OwnerMask)
 /* DxEngSetDCState                                                      */
 /************************************************************************/
 BOOLEAN
-APIENTRY
+STDCALL
 DxEngSetDCState(HDC hDC, DWORD SetType, DWORD Set)
 {
    BOOLEAN Ret = FALSE;
@@ -746,9 +759,9 @@ DxEngSetDCState(HDC hDC, DWORD SetType, DWORD Set)
       if (SetType == 1)
       {   
         if ( Set )
-            pDC->fs |= DC_FLAG_FULLSCREEN;
+            pDC->DC_Flags |= DC_FLAG_FULLSCREEN;
         else
-            pDC->fs &= ~DC_FLAG_FULLSCREEN;
+            pDC->DC_Flags &= ~DC_FLAG_FULLSCREEN;
         Ret = TRUE;
       }
       DC_UnlockDc(pDC);
@@ -760,7 +773,7 @@ DxEngSetDCState(HDC hDC, DWORD SetType, DWORD Set)
 /************************************************************************/
 /* DxEngSelectBitmap                                                    */
 /************************************************************************/
-DWORD APIENTRY DxEngSelectBitmap(DWORD x1, DWORD x2)
+DWORD STDCALL DxEngSelectBitmap(DWORD x1, DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -769,7 +782,7 @@ DWORD APIENTRY DxEngSelectBitmap(DWORD x1, DWORD x2)
 /************************************************************************/
 /* DxEngSetBitmapOwner                                                  */
 /************************************************************************/
-DWORD APIENTRY DxEngSetBitmapOwner(DWORD x1, DWORD x2)
+DWORD STDCALL DxEngSetBitmapOwner(DWORD x1, DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -778,7 +791,7 @@ DWORD APIENTRY DxEngSetBitmapOwner(DWORD x1, DWORD x2)
 /************************************************************************/
 /* DxEngDeleteSurface                                                   */
 /************************************************************************/
-DWORD APIENTRY DxEngDeleteSurface(DWORD x1)
+DWORD STDCALL DxEngDeleteSurface(DWORD x1)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -787,7 +800,7 @@ DWORD APIENTRY DxEngDeleteSurface(DWORD x1)
 /************************************************************************/
 /* DxEngGetSurfaceData                                                  */
 /************************************************************************/
-DWORD APIENTRY DxEngGetSurfaceData(DWORD x1, DWORD x2)
+DWORD STDCALL DxEngGetSurfaceData(DWORD x1, DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -796,7 +809,7 @@ DWORD APIENTRY DxEngGetSurfaceData(DWORD x1, DWORD x2)
 /************************************************************************/
 /* DxEngAltLockSurface                                                  */
 /************************************************************************/
-DWORD APIENTRY DxEngAltLockSurface(DWORD x1)
+DWORD STDCALL DxEngAltLockSurface(DWORD x1)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -805,7 +818,7 @@ DWORD APIENTRY DxEngAltLockSurface(DWORD x1)
 /************************************************************************/
 /* DxEngUploadPaletteEntryToSurface                                     */
 /************************************************************************/
-DWORD APIENTRY DxEngUploadPaletteEntryToSurface(DWORD x1, DWORD x2,DWORD x3, DWORD x4)
+DWORD STDCALL DxEngUploadPaletteEntryToSurface(DWORD x1, DWORD x2,DWORD x3, DWORD x4)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -814,7 +827,7 @@ DWORD APIENTRY DxEngUploadPaletteEntryToSurface(DWORD x1, DWORD x2,DWORD x3, DWO
 /************************************************************************/
 /* DxEngMarkSurfaceAsDirectDraw                                         */
 /************************************************************************/
-DWORD APIENTRY DxEngMarkSurfaceAsDirectDraw(DWORD x1, DWORD x2)
+DWORD STDCALL DxEngMarkSurfaceAsDirectDraw(DWORD x1, DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -823,7 +836,7 @@ DWORD APIENTRY DxEngMarkSurfaceAsDirectDraw(DWORD x1, DWORD x2)
 /************************************************************************/
 /* DxEngSelectPaletteToSurface                                          */
 /************************************************************************/
-DWORD APIENTRY DxEngSelectPaletteToSurface(DWORD x1, DWORD x2)
+DWORD STDCALL DxEngSelectPaletteToSurface(DWORD x1, DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -832,7 +845,7 @@ DWORD APIENTRY DxEngSelectPaletteToSurface(DWORD x1, DWORD x2)
 /************************************************************************/
 /* DxEngSyncPaletteTableWithDevice                                      */
 /************************************************************************/
-DWORD APIENTRY DxEngSyncPaletteTableWithDevice(DWORD x1, DWORD x2)
+DWORD STDCALL DxEngSyncPaletteTableWithDevice(DWORD x1, DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -841,7 +854,7 @@ DWORD APIENTRY DxEngSyncPaletteTableWithDevice(DWORD x1, DWORD x2)
 /************************************************************************/
 /* DxEngSetPaletteState                                                 */
 /************************************************************************/
-DWORD APIENTRY DxEngSetPaletteState(DWORD x1, DWORD x2, DWORD x3)
+DWORD STDCALL DxEngSetPaletteState(DWORD x1, DWORD x2, DWORD x3)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -851,7 +864,7 @@ DWORD APIENTRY DxEngSetPaletteState(DWORD x1, DWORD x2, DWORD x3)
 /* DxEngGetRedirectionBitmap                                            */
 /************************************************************************/
 DWORD
-APIENTRY
+STDCALL
 DxEngGetRedirectionBitmap(DWORD x1)
 {
     return FALSE; // Normal return.
@@ -860,7 +873,7 @@ DxEngGetRedirectionBitmap(DWORD x1)
 /************************************************************************/
 /* DxEngLoadImage                                                       */
 /************************************************************************/
-DWORD APIENTRY DxEngLoadImage(DWORD x1,DWORD x2)
+DWORD STDCALL DxEngLoadImage(DWORD x1,DWORD x2)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -869,7 +882,7 @@ DWORD APIENTRY DxEngLoadImage(DWORD x1,DWORD x2)
 /************************************************************************/
 /* DxEngSpTearDownSprites                                               */
 /************************************************************************/
-DWORD APIENTRY DxEngSpTearDownSprites(DWORD x1, DWORD x2, DWORD x3)
+DWORD STDCALL DxEngSpTearDownSprites(DWORD x1, DWORD x2, DWORD x3)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -878,7 +891,7 @@ DWORD APIENTRY DxEngSpTearDownSprites(DWORD x1, DWORD x2, DWORD x3)
 /************************************************************************/
 /* DxEngSpUnTearDownSprites                                             */
 /************************************************************************/
-DWORD APIENTRY DxEngSpUnTearDownSprites(DWORD x1, DWORD x2, DWORD x3)
+DWORD STDCALL DxEngSpUnTearDownSprites(DWORD x1, DWORD x2, DWORD x3)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -887,7 +900,7 @@ DWORD APIENTRY DxEngSpUnTearDownSprites(DWORD x1, DWORD x2, DWORD x3)
 /************************************************************************/
 /* DxEngSpSpritesVisible                                                */
 /************************************************************************/
-DWORD APIENTRY DxEngSpSpritesVisible(DWORD x1)
+DWORD STDCALL DxEngSpSpritesVisible(DWORD x1)
 {
     UNIMPLEMENTED;
     return FALSE;

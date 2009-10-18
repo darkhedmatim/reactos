@@ -19,8 +19,6 @@
  *
  */
 
-#include "epm_c.h"
-
 #define EPM_PROTOCOL_DNET_NSP		0x04
 #define EPM_PROTOCOL_OSI_TP4  		0x05
 #define EPM_PROTOCOL_OSI_CLNS 		0x06
@@ -49,6 +47,10 @@
 #define EPM_PROTOCOL_NULL			0x21
 
 #include <pshpack1.h>
+
+typedef unsigned char u_int8;
+typedef unsigned short u_int16;
+typedef unsigned int u_int32;
 
 typedef struct
 {

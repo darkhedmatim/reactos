@@ -61,16 +61,16 @@ CharLowerA(LPSTR str)
         return (LPSTR)(UINT_PTR)(BYTE)ch;
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         CharLowerBuffA( str, strlen(str) );
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         SetLastError( ERROR_INVALID_PARAMETER );
         return NULL;
     }
-    _SEH2_END;
+    _SEH_END;
 
     return str;
 }
@@ -261,16 +261,16 @@ LPSTR WINAPI CharUpperA(LPSTR str)
         return (LPSTR)(UINT_PTR)(BYTE)ch;
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         CharUpperBuffA( str, strlen(str) );
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         SetLastError( ERROR_INVALID_PARAMETER );
         return NULL;
     }
-    _SEH2_END;
+    _SEH_END;
 
     return str;
 }
@@ -339,7 +339,7 @@ IsCharAlphaA(CHAR Ch)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsCharAlphaNumericA(CHAR Ch)
 {
     WCHAR WCh;
@@ -352,7 +352,7 @@ IsCharAlphaNumericA(CHAR Ch)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsCharAlphaNumericW(WCHAR Ch)
 {
     return (GetC1Type(Ch) & (C1_ALPHA|C1_DIGIT)) != 0;

@@ -74,22 +74,31 @@ static UINT	CBitHeight, CBitWidth;
 #define COMBO_EDITBUTTONSPACE()  0
 #define EDIT_CONTROL_PADDING()   1
 
-//static LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-//static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 
 /*********************************************************************
  * combo class descriptor
  */
-static const WCHAR comboboxW[] = {'C','o','m','b','o','B','o','x',0};
 const struct builtin_class_descr COMBO_builtin_class =
 {
-    comboboxW,            /* name */
+#ifdef __REACTOS__
+    L"ComboBox",           /* name */
+    CS_PARENTDC | CS_VREDRAW | CS_HREDRAW | CS_DBLCLKS, /* style  */
+    (WNDPROC) ComboWndProcW,        /* procW */
+    (WNDPROC) ComboWndProcA,        /* procA */
+    sizeof(HEADCOMBO *),  /* extra */
+    (LPCWSTR) IDC_ARROW,            /* cursor */
+    0                     /* brush */
+#else
+    "ComboBox",           /* name */
     CS_PARENTDC | CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW, /* style  */
     ComboWndProcA,        /* procA */
     ComboWndProcW,        /* procW */
     sizeof(HEADCOMBO *),  /* extra */
     IDC_ARROW,            /* cursor */
     0                     /* brush */
+#endif
 };
 
 
@@ -158,18 +167,18 @@ static LRESULT COMBO_NCCreate(HWND hwnd, LONG style)
        /* some braindead apps do try to use scrollbar/border flags */
 
 	lphc->dwStyle = style & ~(WS_BORDER | WS_HSCROLL | WS_VSCROLL);
-        SetWindowLongPtrW( hwnd, GWL_STYLE, style & ~(WS_BORDER | WS_HSCROLL | WS_VSCROLL) );
+        SetWindowLongW( hwnd, GWL_STYLE, style & ~(WS_BORDER | WS_HSCROLL | WS_VSCROLL) );
 
 	/*
 	 * We also have to remove the client edge style to make sure
 	 * we don't end-up with a non client area.
 	 */
-        SetWindowLongPtrW( hwnd, GWL_EXSTYLE,
-                        GetWindowLongPtrW( hwnd, GWL_EXSTYLE ) & ~WS_EX_CLIENTEDGE );
+        SetWindowLongW( hwnd, GWL_EXSTYLE,
+                        GetWindowLongW( hwnd, GWL_EXSTYLE ) & ~WS_EX_CLIENTEDGE );
 
 	if( !(style & (CBS_OWNERDRAWFIXED | CBS_OWNERDRAWVARIABLE)) )
               lphc->dwStyle |= CBS_HASSTRINGS;
-	if( !(GetWindowLongPtrW( hwnd, GWL_EXSTYLE ) & WS_EX_NOPARENTNOTIFY) )
+	if( !(GetWindowLongW( hwnd, GWL_EXSTYLE ) & WS_EX_NOPARENTNOTIFY) )
 	      lphc->wState |= CBF_NOTIFY;
 
         TRACE("[%p], style = %08x\n", lphc, lphc->dwStyle );
@@ -435,11 +444,14 @@ static void CBCalcPlacement(
   if (lprEdit->right < lprEdit->left)
     lprEdit->right = lprEdit->left;
 
-  TRACE("\ttext\t= (%s)\n", wine_dbgstr_rect(lprEdit));
+  TRACE("\ttext\t= (%ld,%ld-%ld,%ld)\n",
+	lprEdit->left, lprEdit->top, lprEdit->right, lprEdit->bottom);
 
-  TRACE("\tbutton\t= (%s)\n", wine_dbgstr_rect(lprButton));
+  TRACE("\tbutton\t= (%ld,%ld-%ld,%ld)\n",
+	lprButton->left, lprButton->top, lprButton->right, lprButton->bottom);
 
-  TRACE("\tlbox\t= (%s)\n", wine_dbgstr_rect(lprLB));
+  TRACE("\tlbox\t= (%ld,%ld-%ld,%ld)\n",
+	lprLB->left, lprLB->top, lprLB->right, lprLB->bottom );
 }
 
 /***********************************************************************
@@ -482,20 +494,20 @@ static LRESULT COMBO_WindowPosChanging(
     /*
      * Resizing a combobox has another side effect, it resizes the dropped
      * rectangle as well. However, it does it only if the new height for the
-     * combobox is more than the height it should have. In other words,
+     * combobox is different from the height it should have. In other words,
      * if the application resizing the combobox only had the intention to resize
      * the actual control, for example, to do the layout of a dialog that is
      * resized, the height of the dropdown is not changed.
      */
-    if (posChanging->cy > newComboHeight)
+    if (posChanging->cy != newComboHeight)
     {
-	TRACE("posChanging->cy=%d, newComboHeight=%d, oldbot=%d, oldtop=%d\n",
+	TRACE("posChanging->cy=%d, newComboHeight=%d, oldbot=%ld, oldtop=%ld\n",
 	      posChanging->cy, newComboHeight, lphc->droppedRect.bottom,
 	      lphc->droppedRect.top);
       lphc->droppedRect.bottom = lphc->droppedRect.top + posChanging->cy - newComboHeight;
 
+      posChanging->cy = newComboHeight;
     }
-    posChanging->cy = newComboHeight;
   }
 
   return 0;
@@ -771,7 +783,7 @@ static void CBPaintText(
 	 clipRegion=NULL;
        }
 
-       if (!IsWindowEnabled(lphc->self)) itemState |= ODS_DISABLED;
+       if (!IsWindowEnabled(lphc->self) & WS_DISABLED) itemState |= ODS_DISABLED;
 
        dis.CtlType	= ODT_COMBOBOX;
        dis.CtlID	= ctlid;
@@ -886,9 +898,16 @@ static HBRUSH COMBO_PrepareColors(
   }
   else
   {
-      /* FIXME: In which cases WM_CTLCOLORLISTBOX should be sent? */
+    if (lphc->wState & CBF_EDIT)
+    {
       hBkgBrush = (HBRUSH)SendMessageW(lphc->owner, WM_CTLCOLOREDIT,
 				       (WPARAM)hDC, (LPARAM)lphc->self );
+    }
+    else
+    {
+      hBkgBrush = (HBRUSH)SendMessageW(lphc->owner, WM_CTLCOLORLISTBOX,
+				       (WPARAM)hDC, (LPARAM)lphc->self );
+    }
   }
 
   /*
@@ -1042,8 +1061,8 @@ static void CBUpdateEdit( LPHEADCOMBO lphc , INT index )
  */
 static void CBDropDown( LPHEADCOMBO lphc )
 {
-    HMONITOR monitor;
-    MONITORINFO mon_info;
+   HMONITOR monitor;
+   MONITORINFO mon_info;
    RECT rect,r;
    int nItems = 0;
    int nDroppedHeight;
@@ -1109,7 +1128,7 @@ static void CBDropDown( LPHEADCOMBO lphc )
       {
             if (nItems < 5)
                 nDroppedHeight = (nItems+1)*nIHeight;
-            else if (nDroppedHeight < 6*nIHeight)
+            else
                 nDroppedHeight = 6*nIHeight;
       }
    }
@@ -1214,7 +1233,7 @@ BOOL COMBO_FlipListbox( LPHEADCOMBO lphc, BOOL ok, BOOL bRedrawButton )
  */
 static void CBRepaintButton( LPHEADCOMBO lphc )
    {
-  InvalidateRect(lphc->self, &lphc->buttonRect, TRUE);
+  NtUserInvalidateRect(lphc->self, &lphc->buttonRect, TRUE);
   UpdateWindow(lphc->self);
 }
 
@@ -1233,7 +1252,9 @@ static void COMBO_SetFocus( LPHEADCOMBO lphc )
        /* lphc->wState |= CBF_FOCUSED;  */
 
        if( !(lphc->wState & CBF_EDIT) )
-	 InvalidateRect(lphc->self, &lphc->textRect, TRUE);
+       {
+            NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
+       }
 
        CB_NOTIFY( lphc, CBN_SETFOCUS );
        lphc->wState |= CBF_FOCUSED;
@@ -1255,11 +1276,11 @@ static void COMBO_KillFocus( LPHEADCOMBO lphc )
            if( CB_GETTYPE(lphc) == CBS_DROPDOWNLIST )
                SendMessageW(lphc->hWndLBox, LB_CARETOFF, 0, 0);
 
- 	   lphc->wState &= ~CBF_FOCUSED;
+           lphc->wState &= ~CBF_FOCUSED;
 
            /* redraw text */
-	   if( !(lphc->wState & CBF_EDIT) )
-	     InvalidateRect(lphc->self, &lphc->textRect, TRUE);
+           if( !(lphc->wState & CBF_EDIT) )
+                NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
 
            CB_NOTIFY( lphc, CBN_KILLFOCUS );
        }
@@ -1277,12 +1298,12 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
 
        switch( HIWORD(wParam) >> 8 )
        {
-	   case (EN_SETFOCUS >> 8):
+        case (EN_SETFOCUS >> 8):
 
                TRACE("[%p]: edit [%p] got focus\n", lphc->self, lphc->hWndEdit );
 
-		COMBO_SetFocus( lphc );
-	        break;
+               COMBO_SetFocus( lphc );
+               break;
 
 	   case (EN_KILLFOCUS >> 8):
 
@@ -1345,15 +1366,7 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
 
                 TRACE("[%p]: lbox selection change [%x]\n", lphc->self, lphc->wState );
 
-                /* do not roll up if selection is being tracked
-                 * by arrow keys in the dropdown listbox */
-                if (!(lphc->wState & CBF_NOROLLUP))
-                {
-                    CBRollUp( lphc, (HIWORD(wParam) == LBN_SELCHANGE), TRUE );
-                }
-                else lphc->wState &= ~CBF_NOROLLUP;
-
-		CB_NOTIFY( lphc, CBN_SELCHANGE );
+                CB_NOTIFY( lphc, CBN_SELCHANGE );
 
 		if( HIWORD(wParam) == LBN_SELCHANGE)
 		{
@@ -1366,11 +1379,17 @@ static LRESULT COMBO_Command( LPHEADCOMBO lphc, WPARAM wParam, HWND hWnd )
 		       SendMessageW(lphc->hWndEdit, EM_SETSEL, 0, (LPARAM)(-1));
 		   }
 		   else
-                   {
-		       InvalidateRect(lphc->self, &lphc->textRect, TRUE);
-                       UpdateWindow(lphc->self);
-                   }
+		       NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
 		}
+
+		/* do not roll up if selection is being tracked
+		 * by arrowkeys in the dropdown listbox */
+                if( ((lphc->wState & CBF_DROPPED) && !(lphc->wState & CBF_NOROLLUP)) )
+                {
+                   CBRollUp( lphc, (HIWORD(wParam) == LBN_SELCHANGE), TRUE );
+                }
+		else lphc->wState &= ~CBF_NOROLLUP;
+
                 break;
 
 	   case LBN_SETFOCUS:
@@ -1680,7 +1699,7 @@ static LRESULT COMBO_SelectString( LPHEADCOMBO lphc, INT start, LPARAM pText, BO
        CBUpdateEdit( lphc, index );
      else
      {
-       InvalidateRect(lphc->self, &lphc->textRect, TRUE);
+       NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
      }
    }
    return (LRESULT)index;
@@ -1835,9 +1854,11 @@ static char *strdupA(LPCSTR str)
 
 /***********************************************************************
  *           ComboWndProc_common
+ *
+ * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/shellcc/platform/commctls/comboboxes/comboboxes.asp
  */
-LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
-                                  WPARAM wParam, LPARAM lParam, BOOL unicode )
+static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
+                                    WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
       LPHEADCOMBO lphc = (LPHEADCOMBO)GetWindowLongPtrW( hwnd, 0 );
 
@@ -1913,7 +1934,7 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
         /* fall through */
 	case WM_SIZE:
 	        if( lphc->hWndLBox &&
-		  !(lphc->wState & CBF_NORESIZE) ) COMBO_Size( lphc, message == WM_SIZE );
+                  !(lphc->wState & CBF_NORESIZE) ) COMBO_Size( lphc, message == WM_SIZE );
 		return  TRUE;
 	case WM_SETFONT:
 		COMBO_Font( lphc, (HFONT)wParam, (BOOL)lParam );
@@ -1928,14 +1949,22 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
 		return  TRUE;
 	case WM_KILLFOCUS:
             {
+#ifdef __REACTOS__
+                HWND hwndFocus = (HWND)wParam;
+#else
                 HWND hwndFocus = WIN_GetFullHandle( (HWND)wParam );
+#endif
 		if( !hwndFocus ||
 		    (hwndFocus != lphc->hWndEdit && hwndFocus != lphc->hWndLBox ))
 		    COMBO_KillFocus( lphc );
 		return  TRUE;
             }
 	case WM_COMMAND:
+#ifdef __REACTOS__
+		return  COMBO_Command( lphc, wParam, (HWND)lParam);
+#else
 		return  COMBO_Command( lphc, wParam, WIN_GetFullHandle( (HWND)lParam ) );
+#endif
 	case WM_GETTEXT:
             return unicode ? COMBO_GetTextW( lphc, wParam, (LPWSTR)lParam )
                            : COMBO_GetTextA( lphc, wParam, (LPSTR)lParam );
@@ -1980,7 +2009,7 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
 		EnableWindow( lphc->hWndLBox, (BOOL)wParam );
 
 		/* Force the control to repaint when the enabled state changes. */
-		InvalidateRect(lphc->self, NULL, TRUE);
+		NtUserInvalidateRect(lphc->self, NULL, TRUE);
 		return  TRUE;
 	case WM_SETREDRAW:
 		if( wParam )
@@ -2010,11 +2039,11 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
 		   CBRollUp( lphc, wParam == VK_RETURN, FALSE );
 		   return TRUE;
 		}
-               else if ((wParam == VK_F4) && !(lphc->wState & CBF_EUI))
-               {
-                  COMBO_FlipListbox( lphc, FALSE, FALSE );
-                  return TRUE;
-               }
+		else if ((wParam == VK_F4) && !(lphc->wState & CBF_EUI))
+		{
+		   COMBO_FlipListbox( lphc, FALSE, FALSE );
+		   return TRUE;
+		}
 
 		if( lphc->wState & CBF_EDIT )
 		    hwndTarget = lphc->hWndEdit;
@@ -2165,7 +2194,7 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
                     SendMessageW(lphc->hWndEdit, WM_SETTEXT, 0, (LPARAM)empty_stringW);
 		}
                 else
-                    InvalidateRect(lphc->self, NULL, TRUE);
+                    NtUserInvalidateRect(lphc->self, NULL, TRUE);
 		return  TRUE;
 	case CB_INITSTORAGE:
 		return SendMessageW(lphc->hWndLBox, LB_INITSTORAGE, wParam, lParam);
@@ -2192,13 +2221,9 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
 		lParam = (LPARAM)MapSL(lParam);
 		if( lParam )
 		{
-                    RECT r;
-                    RECT16 *r16 = (RECT16 *)lParam;
-                    CBGetDroppedControlRect( lphc, &r );
-                    r16->left   = r.left;
-                    r16->top    = r.top;
-                    r16->right  = r.right;
-                    r16->bottom = r.bottom;
+		    RECT	r;
+		    CBGetDroppedControlRect( lphc, &r );
+		    CONV_RECT32TO16( &r, (LPRECT16)lParam );
 		}
 		return  CB_OKAY;
 #endif
@@ -2258,7 +2283,7 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
 		if( lphc->wState & CBF_EDIT )
 		    CBUpdateEdit( lphc, (INT)wParam );
 		else
-		    InvalidateRect(lphc->self, &lphc->textRect, TRUE);
+		    NtUserInvalidateRect(lphc->self, &lphc->textRect, TRUE);
 		lphc->wState &= ~CBF_SELCHANGE;
 	        return  lParam;
 #ifndef __REACTOS__
@@ -2327,9 +2352,10 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
 		return  (lphc->wState & CBF_EUI) ? TRUE : FALSE;
 	case CB_GETCOMBOBOXINFO:
 		return COMBO_GetComboBoxInfo(lphc, (COMBOBOXINFO *)lParam);
-	case CB_LIMITTEXT:
-		if( lphc->wState & CBF_EDIT )
-			return SendMessageW(lphc->hWndEdit, EM_LIMITTEXT, wParam, lParam);
+        case CB_LIMITTEXT:
+                if( lphc->wState & CBF_EDIT )
+                   return SendMessageW(lphc->hWndEdit, EM_LIMITTEXT, wParam, lParam);
+                break;
 
     case WM_UPDATEUISTATE:
         if (unicode)
@@ -2361,7 +2387,7 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
  * This is just a wrapper for the real ComboWndProc which locks/unlocks
  * window structs.
  */
-LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow(hwnd)) return 0;
     return ComboWndProc_common( hwnd, message, wParam, lParam, FALSE );
@@ -2370,7 +2396,7 @@ LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 /***********************************************************************
  *           ComboWndProcW
  */
-LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow(hwnd)) return 0;
     return ComboWndProc_common( hwnd, message, wParam, lParam, TRUE );

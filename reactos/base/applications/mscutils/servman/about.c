@@ -9,7 +9,7 @@
 
 #include "precomp.h"
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)

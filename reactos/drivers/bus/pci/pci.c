@@ -16,16 +16,16 @@
 #include <debug.h>
 
 static DRIVER_DISPATCH PciDispatchDeviceControl;
-static NTSTATUS NTAPI PciDispatchDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
+static NTSTATUS STDCALL PciDispatchDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 static DRIVER_ADD_DEVICE PciAddDevice;
-static NTSTATUS NTAPI PciAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceObject);
+static NTSTATUS STDCALL PciAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceObject);
 
 static DRIVER_DISPATCH PciPowerControl;
-static NTSTATUS NTAPI PciPowerControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
+static NTSTATUS STDCALL PciPowerControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 static DRIVER_DISPATCH PciPnpControl;
-static NTSTATUS NTAPI PciPnpControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
+static NTSTATUS STDCALL PciPnpControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 
 #ifdef  ALLOC_PRAGMA
@@ -44,7 +44,7 @@ PPCI_DRIVER_EXTENSION DriverExtension = NULL;
 /*** PRIVATE *****************************************************************/
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciDispatchDeviceControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -52,7 +52,6 @@ PciDispatchDeviceControl(
   PIO_STACK_LOCATION IrpSp;
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(DeviceObject);
   DPRINT("Called. IRP is at (0x%X)\n", Irp);
 
   Irp->IoStatus.Information = 0;
@@ -80,7 +79,7 @@ PciDispatchDeviceControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciPnpControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -111,7 +110,7 @@ PciPnpControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciPowerControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -140,7 +139,7 @@ PciPowerControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciAddDevice(
   IN PDRIVER_OBJECT DriverObject,
   IN PDEVICE_OBJECT PhysicalDeviceObject)
@@ -182,14 +181,13 @@ PciAddDevice(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath)
 {
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(RegistryPath);
   DPRINT("Peripheral Component Interconnect Bus Driver\n");
 
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = PciDispatchDeviceControl;

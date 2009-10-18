@@ -27,7 +27,7 @@
 #include "ph.h"
 #include "RegistryKey.h"
 
-static const TCHAR *g_ppszHiveNames[] =
+static TCHAR *g_ppszHiveNames[] =
 {
   _T("HKEY_CLASSES_ROOT"),
   _T("HKEY_CURRENT_USER"),

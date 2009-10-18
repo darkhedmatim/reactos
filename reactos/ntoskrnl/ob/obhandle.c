@@ -20,7 +20,7 @@
 PHANDLE_TABLE ObpKernelHandleTable = NULL;
 ULONG ObpAccessProtectCloseBit = MAXIMUM_ALLOWED;
 
-#define TAG_OB_HANDLE 'dHbO'
+#define TAG_OB_HANDLE TAG('O', 'b', 'H', 'd')
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -52,35 +52,6 @@ ObDereferenceProcessHandleTable(IN PEPROCESS Process)
 {
     /* Release the process lock */
     ExReleaseRundownProtection(&Process->RundownProtect);
-}
-
-ULONG
-NTAPI
-ObGetProcessHandleCount(IN PEPROCESS Process)
-{
-    ULONG HandleCount;
-    PHANDLE_TABLE HandleTable;
-
-    ASSERT(Process);
-
-    /* Ensure the handle table doesn't go away while we use it */
-    HandleTable = ObReferenceProcessHandleTable(Process);
-
-    if (HandleTable != NULL)
-    {
-        /* Count the number of handles the process has */
-        HandleCount = HandleTable->HandleCount;
-
-        /* Let the handle table go */
-        ObDereferenceProcessHandleTable(Process);
-    }
-    else
-    {
-        /* No handle table, no handles */
-        HandleCount = 0;
-    }
-
-    return HandleCount;
 }
 
 NTSTATUS
@@ -792,7 +763,7 @@ ObpCloseHandleTableEntry(IN PHANDLE_TABLE HandleTable,
 NTSTATUS
 NTAPI
 ObpIncrementHandleCount(IN PVOID Object,
-                        IN PACCESS_STATE AccessState OPTIONAL,
+                        IN PACCESS_STATE AccessState,
                         IN KPROCESSOR_MODE AccessMode,
                         IN ULONG HandleAttributes,
                         IN PEPROCESS Process,
@@ -3221,7 +3192,7 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
     PEPROCESS SourceProcess, TargetProcess, Target;
     HANDLE hTarget;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Duplicating handle: %lx for %lx into %lx.\n",
             __FUNCTION__,
@@ -3233,18 +3204,19 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
     if ((TargetHandle) && (PreviousMode != KernelMode))
     {
         /* Enter SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the handle and assume failure */
             ProbeForWriteHandle(TargetHandle);
             *TargetHandle = NULL;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception status */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Now reference the input handle */
@@ -3298,17 +3270,17 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
     if (TargetHandle)
     {
         /* Protect the write to user mode */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write the new handle */
             *TargetHandle = hTarget;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
             /* Otherwise, get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Dereference the processes */

@@ -424,8 +424,8 @@ static HRESULT WINAPI ISF_AdminTools_fnGetDisplayNameOf (IShellFolder2 * iface,
         if ((GET_SHGDN_RELATION (dwFlags) == SHGDN_NORMAL) &&
             (GET_SHGDN_FOR (dwFlags) & SHGDN_FORPARSING))
             wcscpy(pszPath, This->szTarget);
-        else if (!HCR_GetClassNameW(&CLSID_AdminFolderShortcut, pszPath, MAX_PATH))
-            hr = E_FAIL;
+        else
+            HCR_GetClassNameW(&CLSID_AdminFolderShortcut, pszPath, MAX_PATH);
     }
     else if (_ILIsPidlSimple(pidl))
     {
@@ -436,23 +436,12 @@ static HRESULT WINAPI ISF_AdminTools_fnGetDisplayNameOf (IShellFolder2 * iface,
             wcscpy(pszPath, This->szTarget);
             pOffset = PathAddBackslashW(pszPath);
             if (pOffset)
-            {
-                if (!_ILSimpleGetTextW(pidl, pOffset, MAX_PATH + 1 - (pOffset - pszPath)))
-                    hr = E_FAIL;
-            }
-            else
-                hr = E_FAIL;
+                _ILSimpleGetTextW(pidl, pOffset, MAX_PATH + 1 - (pOffset - pszPath));
         }
         else
-        {
-            if (_ILSimpleGetTextW(pidl, pszPath, MAX_PATH + 1))
-            {
-                if (SHELL_FS_HideExtension(pszPath))
-                    PathRemoveExtensionW(pszPath);
-            }
-            else
-                hr = E_FAIL;
-        }
+       {
+           _ILSimpleGetTextW(pidl, pszPath, MAX_PATH + 1);
+       }
     }
     else if (_ILIsSpecialFolder(pidl)) 
     {
@@ -460,10 +449,10 @@ static HRESULT WINAPI ISF_AdminTools_fnGetDisplayNameOf (IShellFolder2 * iface,
 
         if (bSimplePidl) 
         {
-            if (!_ILSimpleGetTextW(pidl, pszPath, MAX_PATH))
-                hr = E_FAIL;
-        }
-        else if ((dwFlags & SHGDN_FORPARSING) && !bSimplePidl) 
+            _ILSimpleGetTextW(pidl, pszPath, MAX_PATH);
+        } 
+
+        if ((dwFlags & SHGDN_FORPARSING) && !bSimplePidl) 
         {
             int len = 0;
 
@@ -484,11 +473,11 @@ static HRESULT WINAPI ISF_AdminTools_fnGetDisplayNameOf (IShellFolder2 * iface,
     {
         strRet->uType = STRRET_WSTR;
         strRet->u.pOleStr = pszPath;
-        TRACE ("-- (%p)->(%s,0x%08x)\n", This, debugstr_w(strRet->u.pOleStr), hr);
     }
     else
         CoTaskMemFree(pszPath);
 
+    TRACE ("-- (%p)->(%s,0x%08x)\n", This, debugstr_w(strRet->u.pOleStr), hr);
     return hr;
 }
 

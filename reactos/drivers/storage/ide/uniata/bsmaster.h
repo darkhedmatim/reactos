@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2002-2008 Alexandr A. Telyatnikov (Alter)
+Copyright (c) 2002-2005 Alexandr A. Telyatnikov (Alter)
 
 Module Name:
     bsmaster.h
@@ -31,7 +31,7 @@ Notes:
 Revision History:
 
     Code was created by
-         Alter, Copyright (c) 2002-2008
+         Alter, Copyright (c) 2002-2007
 
     Some definitions were taken from FreeBSD 4.3-4.6 ATA driver by
          Søren Schmidt, Copyright (c) 1998,1999,2000,2001
@@ -520,8 +520,6 @@ typedef struct _IDE_AHCI_PORT_REGISTERS {
 
 } IDE_AHCI_PORT_REGISTERS, *PIDE_AHCI_PORT_REGISTERS;
 
-#define IDX_AHCI_P_CLB                    (FIELD_OFFSET(IDE_AHCI_PORT_REGISTERS, CLB))
-#define IDX_AHCI_P_FB                     (FIELD_OFFSET(IDE_AHCI_PORT_REGISTERS, FB))
 #define IDX_AHCI_P_IS                     (FIELD_OFFSET(IDE_AHCI_PORT_REGISTERS, IS))
 #define IDX_AHCI_P_CI                     (FIELD_OFFSET(IDE_AHCI_PORT_REGISTERS, CI))
 
@@ -546,7 +544,6 @@ typedef struct _IDE_AHCI_PRD_ENTRY {
 } IDE_AHCI_PRD_ENTRY, *PIDE_AHCI_PRD_ENTRY;
 
 #define ATA_AHCI_DMA_ENTRIES		(PAGE_SIZE/2/sizeof(IDE_AHCI_PRD_ENTRY))   /* 128 */
-#define ATA_AHCI_MAX_TAGS		32
 
 typedef struct _IDE_AHCI_CMD {
     UCHAR              cfis[64];
@@ -560,21 +557,7 @@ typedef struct _IDE_AHCI_CMD_LIST {
     USHORT             prd_length;     /* PRD entries */
     ULONG              bytecount;
     ULONGLONG          cmd_table_phys; /* 128byte aligned */
-    ULONG              Reserved[4];
 } IDE_AHCI_CMD_LIST, *PIDE_AHCI_CMD_LIST;
-
-typedef struct _IDE_AHCI_RCV_FIS {
-    UCHAR              dsfis[28];
-    UCHAR              Reserved1[4];
-    UCHAR              psfis[24];
-    UCHAR              Reserved2[8];
-    UCHAR              rfis[24];
-    UCHAR              Reserved3[4];
-    ULONG              SDBFIS;
-    UCHAR              ufis[64];
-    UCHAR              Reserved4[96];
-} IDE_AHCI_RCV_FIS, *PIDE_AHCI_RCV_FIS;
-
 
 #define IsBusMaster(pciData) \
     ( ((pciData)->Command & (PCI_ENABLE_BUS_MASTER/* | PCI_ENABLE_IO_SPACE*/)) == \
@@ -909,7 +892,7 @@ typedef struct _HW_DEVICE_EXTENSION {
     ULONG NumberChannels;
     ULONG NumberLuns;
     ULONG FirstChannelToCheck;
-#if 0
+#if 1
     HW_LU_EXTENSION lun[IDE_MAX_LUN];
     HW_CHANNEL chan[AHCI_MAX_PORT/*IDE_MAX_CHAN*/];
 #else
@@ -987,7 +970,7 @@ typedef struct _HW_DEVICE_EXTENSION {
     BOOLEAN        opt_AtapiDmaRawRead;      // default TRUE
     BOOLEAN        opt_AtapiDmaReadWrite;    // default TRUE
 
-    PCCH           FullDevName;
+    PCHAR          FullDevName;
 
 } HW_DEVICE_EXTENSION, *PHW_DEVICE_EXTENSION;
 
@@ -1009,7 +992,6 @@ extern ULONG         MCACount;
 //extern const CHAR retry_Udma[MAX_RETRIES+1];
 
 extern VOID
-NTAPI
 UniataEnumBusMasterController(
     IN PVOID DriverObject,
     PVOID Argument2
@@ -1035,15 +1017,6 @@ UniataFindCompatBusMasterController2(
     OUT PBOOLEAN Again
     );
 
-#define UNIATA_ALLOCATE_NEW_LUNS  0x00
-
-extern BOOLEAN
-NTAPI
-UniataAllocateLunExt(
-    PHW_DEVICE_EXTENSION  deviceExtension,
-    ULONG NewNumberChannels
-    );
-
 extern ULONG DDKAPI
 UniataFindBusMasterController(
     IN PVOID HwDeviceExtension,
@@ -1065,19 +1038,16 @@ UniataFindFakeBusMasterController(
     );
 
 extern NTSTATUS
-NTAPI
 UniataConnectIntr2(
     IN PVOID HwDeviceExtension
     );
 
 extern NTSTATUS
-NTAPI
 UniataDisconnectIntr2(
     IN PVOID HwDeviceExtension
     );
 
 extern ULONG
-NTAPI
 ScsiPortGetBusDataByOffset(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -1092,7 +1062,6 @@ ScsiPortGetBusDataByOffset(
 #define PCISLOTNUM_NOT_SPECIFIED   (0xffffffffL)
 
 extern ULONG
-NTAPI
 AtapiFindListedDev(
     PBUSMASTER_CONTROLLER_INFORMATION BusMasterAdapters,
     ULONG     lim,
@@ -1103,7 +1072,6 @@ AtapiFindListedDev(
     );
 
 extern ULONG
-NTAPI
 AtapiFindDev(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -1114,7 +1082,6 @@ AtapiFindDev(
     );
 
 extern VOID
-NTAPI
 AtapiDmaAlloc(
     IN PVOID HwDeviceExtension,
     IN PPORT_CONFIGURATION_INFORMATION ConfigInfo,
@@ -1122,7 +1089,6 @@ AtapiDmaAlloc(
     );
 
 extern BOOLEAN
-NTAPI
 AtapiDmaSetup(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1133,7 +1099,6 @@ AtapiDmaSetup(
     );
 
 extern BOOLEAN
-NTAPI
 AtapiDmaPioSync(
     PVOID  HwDeviceExtension,
     PSCSI_REQUEST_BLOCK Srb,
@@ -1142,14 +1107,12 @@ AtapiDmaPioSync(
     );
 
 extern BOOLEAN
-NTAPI
 AtapiDmaDBSync(
     PHW_CHANNEL chan,
     PSCSI_REQUEST_BLOCK Srb
     );
 
 extern VOID
-NTAPI
 AtapiDmaStart(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1158,7 +1121,6 @@ AtapiDmaStart(
     );
 
 extern UCHAR
-NTAPI
 AtapiDmaDone(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1167,7 +1129,6 @@ AtapiDmaDone(
     );
 
 extern VOID
-NTAPI
 AtapiDmaReinit(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG ldev,
@@ -1175,22 +1136,20 @@ AtapiDmaReinit(
     );
 
 extern VOID
-NTAPI
 AtapiDmaInit__(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG ldev
     );
 
 extern VOID
-NTAPI
 AtapiDmaInit(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
     IN ULONG lChannel,          // logical channel,
                                // is always 0 except simplex-only controllers
-    IN SCHAR apiomode,
-    IN SCHAR wdmamode,
-    IN SCHAR udmamode
+    IN CHAR apiomode,
+    IN CHAR wdmamode,
+    IN CHAR udmamode
     );
 
 extern BOOLEAN NTAPI
@@ -1202,16 +1161,6 @@ AtapiInterrupt2(
 extern PDRIVER_OBJECT SavedDriverObject;
 
 extern BOOLEAN
-NTAPI
-UniataChipDetectChannels(
-    IN PVOID HwDeviceExtension,
-    IN PPCI_COMMON_CONFIG pciData, // optional
-    IN ULONG DeviceNumber,
-    IN PPORT_CONFIGURATION_INFORMATION ConfigInfo
-    );
-
-extern BOOLEAN
-NTAPI
 UniataChipDetect(
     IN PVOID HwDeviceExtension,
     IN PPCI_COMMON_CONFIG pciData, // optional
@@ -1221,7 +1170,6 @@ UniataChipDetect(
     );
 
 extern BOOLEAN
-NTAPI
 AtapiChipInit(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1229,7 +1177,6 @@ AtapiChipInit(
     );
 
 extern ULONG
-NTAPI
 AtapiGetIoRange(
     IN PVOID HwDeviceExtension,
     IN PPORT_CONFIGURATION_INFORMATION ConfigInfo,
@@ -1482,7 +1429,6 @@ AtapiReadBuffer2(
 }
 
 BOOLEAN
-NTAPI
 AtapiReadChipConfig(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1490,7 +1436,6 @@ AtapiReadChipConfig(
     );
 
 VOID
-NTAPI
 UniataForgetDevice(
     PHW_LU_EXTENSION   LunExt
     );

@@ -201,13 +201,13 @@ PspComputeQuantumAndPriority(IN PEPROCESS Process,
     if (Mode == PsProcessPriorityForeground)
     {
         /* Set the memory priority and use priority separation */
-        MemoryPriority = MEMORY_PRIORITY_FOREGROUND;
+        MemoryPriority = 2;
         i = PsPrioritySeparation;
     }
     else
     {
         /* Set the background memory priority and no separation */
-        MemoryPriority = MEMORY_PRIORITY_BACKGROUND;
+        MemoryPriority = 0;
         i = 0;
     }
 
@@ -379,8 +379,6 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     BOOLEAN Result, SdAllocated;
     PSECURITY_DESCRIPTOR SecurityDescriptor;
     SECURITY_SUBJECT_CONTEXT SubjectContext;
-    BOOLEAN NeedsPeb = FALSE;
-    INITIAL_PEB InitialPeb;
     PAGED_CODE();
     PSTRACE(PS_PROCESS_DEBUG,
             "ProcessHandle: %p Parent: %p\n", ProcessHandle, ParentProcess);
@@ -453,7 +451,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     /* Check if we have a parent */
     if (Parent)
     {
-        /* Inherit PID and Hard Error Processing */
+        /* Ineherit PID and Hard Error Processing */
         Process->InheritedFromUniqueProcessId = Parent->UniqueProcessId;
         Process->DefaultHardErrorProcessing = Parent->
                                               DefaultHardErrorProcessing;
@@ -556,7 +554,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     Process->SectionObject = SectionObject;
 
     /* Set default exit code */
-    Process->ExitStatus = STATUS_PENDING;
+    Process->ExitStatus = STATUS_TIMEOUT;
 
     /* Check if this is the initial process being built */
     if (Parent)
@@ -637,27 +635,17 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
                                                  SeAuditProcessCreationInfo.
                                                  ImageFileName);
         if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-        
-        //
-        // We need a PEB
-        //
-        NeedsPeb = TRUE;
     }
     else if (Parent)
     {
         /* Check if this is a child of the system process */
         if (Parent != PsInitialSystemProcess)
         {
-            //
-            // We need a PEB
-            //
-            NeedsPeb = TRUE;
-
             /* This is a clone! */
             ASSERTMSG("No support for cloning yet\n", FALSE);
         }
         else
-        {           
+        {
             /* This is the initial system process */
             Flags &= ~PS_LARGE_PAGES;
             Status = MmInitializeProcessAddressSpace(Process,
@@ -671,7 +659,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
             Process->SeAuditProcessCreationInfo.ImageFileName =
                 ExAllocatePoolWithTag(PagedPool,
                                       sizeof(OBJECT_NAME_INFORMATION),
-                                      'aPeS');
+                                      TAG('S', 'e', 'P', 'a'));
             if (!Process->SeAuditProcessCreationInfo.ImageFileName)
             {
                 /* Fail */
@@ -714,34 +702,11 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     }
 
     /* Create PEB only for User-Mode Processes */
-    if ((Parent) && (NeedsPeb))
+    if (Parent)
     {
-        //
-        // Set up the initial PEB
-        //
-        RtlZeroMemory(&InitialPeb, sizeof(INITIAL_PEB));
-        InitialPeb.Mutant = (HANDLE)-1;
-        InitialPeb.ImageUsesLargePages = 0; // FIXME: Not yet supported
-        
-        //
-        // Create it only if we have an image section
-        //
-        if (SectionHandle)
-        {
-            //
-            // Create it
-            //
-            Status = MmCreatePeb(Process, &InitialPeb, &Process->Peb);
-            if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-        }
-        else
-        {
-            //
-            // We have to clone it
-            //
-            ASSERTMSG("No support for cloning yet\n", FALSE);
-        }
-
+        /* Create it */
+        Status = MmCreatePeb(Process);
+        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
     }
 
     /* The process can now be activated */
@@ -845,20 +810,17 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     KeQuerySystemTime(&Process->CreateTime);
 
     /* Protect against bad user-mode pointer */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Save the process handle */
        *ProcessHandle = hProcess;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Get the exception code */
-       Status = _SEH2_GetExceptionCode();
+       Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
-
-    /* Run the Notification Routines */
-    PspRunCreateProcessNotifyRoutines(Process, TRUE);
+    _SEH_END;
 
 CleanupWithRef:
     /*
@@ -1282,26 +1244,27 @@ NtCreateProcessEx(OUT PHANDLE ProcessHandle,
                   IN HANDLE ExceptionPort OPTIONAL,
                   IN BOOLEAN InJob)
 {
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    KPROCESSOR_MODE PreviousMode  = ExGetPreviousMode();
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_PROCESS_DEBUG,
             "ParentProcess: %p Flags: %lx\n", ParentProcess, Flags);
 
     /* Check if we came from user mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe process handle */
             ProbeForWriteHandle(ProcessHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure there's a parent process */
@@ -1380,7 +1343,7 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
     BOOLEAN HasObjectName = FALSE;
     PETHREAD Thread = NULL;
     PEPROCESS Process = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ACCESS_STATE AccessState;
     AUX_ACCESS_DATA AuxData;
     PAGED_CODE();
@@ -1391,7 +1354,7 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the thread handle */
             ProbeForWriteHandle(ProcessHandle);
@@ -1415,12 +1378,13 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
             HasObjectName = (ObjectAttributes->ObjectName != NULL);
             Attributes = ObjectAttributes->Attributes;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -1525,17 +1489,17 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
     if (NT_SUCCESS(Status))
     {
         /* Use SEH for write back */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write back the handle */
             *ProcessHandle = hProcess;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
             /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */

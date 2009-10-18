@@ -23,10 +23,10 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/imports.h"
-#include "main/macros.h"
+#include "glheader.h"
+#include "context.h"
+#include "imports.h"
+#include "macros.h"
 
 #include "s_context.h"
 #include "s_logic.h"

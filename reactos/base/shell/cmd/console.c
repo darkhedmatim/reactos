@@ -49,6 +49,17 @@ VOID ConInEnable (VOID)
 }
 
 
+VOID ConInDummy (VOID)
+{
+	HANDLE hInput = GetStdHandle (STD_INPUT_HANDLE);
+	INPUT_RECORD dummy;
+	DWORD  dwRead;
+
+	if (hInput == INVALID_HANDLE_VALUE)
+		WARN ("Invalid input handle!!!\n");
+	ReadConsoleInput (hInput, &dummy, 1, &dwRead);
+}
+
 VOID ConInFlush (VOID)
 {
 	FlushConsoleInputBuffer (GetStdHandle (STD_INPUT_HANDLE));
@@ -77,14 +88,15 @@ VOID ConInKey (PINPUT_RECORD lpBuffer)
 VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 {
 	DWORD dwOldMode;
-	DWORD dwRead = 0;
+	DWORD dwRead;
 	HANDLE hFile;
 
 	LPTSTR p;
+	DWORD  i;
 	PCHAR pBuf;
 
 #ifdef _UNICODE
-	pBuf = (PCHAR)cmd_alloc(dwLength - 1);
+	pBuf = (PCHAR)cmd_alloc(dwLength);
 #else
 	pBuf = lpInput;
 #endif
@@ -94,13 +106,13 @@ VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 
 	SetConsoleMode (hFile, ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
 
-	ReadFile (hFile, (PVOID)pBuf, dwLength - 1, &dwRead, NULL);
+	ReadFile (hFile, (PVOID)pBuf, dwLength, &dwRead, NULL);
 
 #ifdef _UNICODE
-	MultiByteToWideChar(InputCodePage, 0, pBuf, dwRead, lpInput, dwLength - 1);
-	cmd_free(pBuf);
+	MultiByteToWideChar(  InputCodePage, 0, pBuf, dwLength + 1, lpInput, dwLength + 1);
 #endif
-	for (p = lpInput; *p; p++)
+	p = lpInput;
+	for (i = 0; i < dwRead; i++, p++)
 	{
 		if (*p == _T('\x0d'))
 		{
@@ -109,64 +121,68 @@ VOID ConInString (LPTSTR lpInput, DWORD dwLength)
 		}
 	}
 
+#ifdef _UNICODE
+	cmd_free(pBuf);
+#endif
+
 	SetConsoleMode (hFile, dwOldMode);
 }
 
-static VOID ConWrite(TCHAR *str, DWORD len, DWORD nStdHandle)
+static VOID ConChar(TCHAR c, DWORD nStdHandle)
 {
 	DWORD dwWritten;
-	HANDLE hOutput = GetStdHandle(nStdHandle);
-
-	if (WriteConsole(hOutput, str, len, &dwWritten, NULL))
-		return;
-
-	/* We're writing to a file or pipe instead of the console. Convert the
-	 * string from TCHARs to the desired output format, if the two differ */
-	if (bUnicodeOutput)
-	{
-#ifndef _UNICODE
-		WCHAR *buffer = cmd_alloc(len * sizeof(WCHAR));
-		if (!buffer)
-		{
-			error_out_of_memory();
-			return;
-		}
-		len = MultiByteToWideChar(OutputCodePage, 0, str, len, buffer, len, NULL, NULL);
-		str = (PVOID)buffer;
-#endif
-		WriteFile(hOutput, str, len * sizeof(WCHAR), &dwWritten, NULL);
-#ifndef _UNICODE
-		cmd_free(buffer);
-#endif
-	}
-	else
-	{
+	CHAR cc;
 #ifdef _UNICODE
-		CHAR *buffer = cmd_alloc(len * MB_LEN_MAX * sizeof(CHAR));
-		if (!buffer)
-		{
-			error_out_of_memory();
-			return;
-		}
-		len = WideCharToMultiByte(OutputCodePage, 0, str, len, buffer, len * MB_LEN_MAX, NULL, NULL);
-		str = (PVOID)buffer;
+	CHAR as[2];
+	WCHAR ws[2];
+	ws[0] = c;
+	ws[1] = 0;
+	WideCharToMultiByte( OutputCodePage, 0, ws, 2, as, 2, NULL, NULL);
+	cc = as[0];
+#else
+	cc = c;
 #endif
-		WriteFile(hOutput, str, len, &dwWritten, NULL);
-#ifdef _UNICODE
-		cmd_free(buffer);
-#endif
-	}
+	WriteFile (GetStdHandle (nStdHandle),
+	           &cc,
+	           1,
+	           &dwWritten,
+	           NULL);
 }
 
 VOID ConOutChar (TCHAR c)
 {
-	ConWrite(&c, 1, STD_OUTPUT_HANDLE);
+	ConChar(c, STD_OUTPUT_HANDLE);
 }
 
 VOID ConPuts(LPTSTR szText, DWORD nStdHandle)
 {
-	ConWrite(szText, _tcslen(szText), nStdHandle);
-	ConWrite(_T("\n"), 1, nStdHandle);
+	DWORD dwWritten;
+    HANDLE hStdHandle;
+	PCHAR pBuf;
+	INT len;
+
+	len = _tcslen(szText);
+#ifdef _UNICODE
+	pBuf = cmd_alloc(len + 1);
+	len = WideCharToMultiByte( OutputCodePage, 0, szText, len + 1, pBuf, len + 1, NULL, NULL) - 1;
+#else
+	pBuf = szText;
+#endif
+    hStdHandle = GetStdHandle(nStdHandle);
+
+	WriteFile (hStdHandle,
+	           pBuf,
+	           len,
+	           &dwWritten,
+	           NULL);
+	WriteFile (hStdHandle,
+	           _T("\n"),
+	           1,
+	           &dwWritten,
+	           NULL);
+#ifdef _UNICODE
+	cmd_free(pBuf);
+#endif
 }
 
 VOID ConOutResPaging(BOOL NewPage, UINT resID)
@@ -192,8 +208,29 @@ VOID ConOutPuts (LPTSTR szText)
 
 VOID ConPrintf(LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
 {
+	INT len;
+	PCHAR pBuf;
 	TCHAR szOut[OUTPUT_BUFFER_SIZE];
-	ConWrite(szOut, _vstprintf(szOut, szFormat, arg_ptr), nStdHandle);
+	DWORD dwWritten;
+
+	len = _vstprintf (szOut, szFormat, arg_ptr);
+#ifdef _UNICODE
+	pBuf = cmd_alloc(len + 1);
+	len = WideCharToMultiByte( OutputCodePage, 0, szOut, len + 1, pBuf, len + 1, NULL, NULL) - 1;
+#else
+	pBuf = szOut;
+#endif
+
+	WriteFile (GetStdHandle (nStdHandle),
+	           pBuf,
+	           len,
+	           &dwWritten,
+	           NULL);
+
+
+#ifdef _UNICODE
+	cmd_free(pBuf);
+#endif
 }
 
 INT ConPrintfPaging(BOOL NewPage, LPTSTR szFormat, va_list arg_ptr, DWORD nStdHandle)
@@ -362,7 +399,7 @@ INT ConOutPrintfPaging (BOOL NewPage, LPTSTR szFormat, ...)
 
 VOID ConErrChar (TCHAR c)
 {
-	ConWrite(&c, 1, STD_ERROR_HANDLE);
+	ConChar(c, STD_ERROR_HANDLE);
 }
 
 
@@ -413,7 +450,7 @@ VOID GetCursorXY (PSHORT x, PSHORT y)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	GetConsoleScreenBufferInfo (GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	GetConsoleScreenBufferInfo (hConsole, &csbi);
 
 	*x = csbi.dwCursorPosition.X;
 	*y = csbi.dwCursorPosition.Y;
@@ -424,7 +461,7 @@ SHORT GetCursorX (VOID)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	GetConsoleScreenBufferInfo (GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	GetConsoleScreenBufferInfo (hConsole, &csbi);
 
 	return csbi.dwCursorPosition.X;
 }
@@ -434,7 +471,7 @@ SHORT GetCursorY (VOID)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	GetConsoleScreenBufferInfo (GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	GetConsoleScreenBufferInfo (hConsole, &csbi);
 
 	return csbi.dwCursorPosition.Y;
 }
@@ -444,11 +481,7 @@ VOID GetScreenSize (PSHORT maxx, PSHORT maxy)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	if (!GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
-	{
-		csbi.dwSize.X = 80;
-		csbi.dwSize.Y = 25;
-	}
+	GetConsoleScreenBufferInfo (hConsole, &csbi);
 
 	if (maxx)
 		*maxx = csbi.dwSize.X;

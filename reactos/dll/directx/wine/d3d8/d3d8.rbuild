@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
-<module name="d3d8" type="win32dll" installbase="system32" installname="d3d8.dll" unicode="yes">
+<module name="d3d8" type="win32dll" installbase="system32" installname="d3d8.dll" allowwarnings ="true" unicode="yes">
 	<importlibrary definition="d3d8.spec" />
 	<include base="d3d8">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
@@ -10,16 +10,20 @@
 	<library>uuid</library>
 	<library>wine</library>
 	<library>user32</library>
+	<library>opengl32</library>
 	<library>gdi32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>wined3d</library>
 
+	<file>basetexture.c</file>
 	<file>cubetexture.c</file>
 	<file>d3d8_main.c</file>
 	<file>device.c</file>
 	<file>directx.c</file>
 	<file>indexbuffer.c</file>
 	<file>pixelshader.c</file>
+	<file>resource.c</file>
 	<file>stateblock.c</file>
 	<file>surface.c</file>
 	<file>swapchain.c</file>
@@ -30,6 +34,4 @@
 	<file>volume.c</file>
 	<file>volumetexture.c</file>
 	<file>version.rc</file>
-
-	<dependency>wineheaders</dependency>
 </module>

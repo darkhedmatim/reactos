@@ -119,21 +119,3 @@ HRESULT     WINAPI OleRegEnumFormatEtc (
 
     return E_NOTIMPL;
 }
-
-/***********************************************************************
- *              CoGetCallerTID        [OLE32.@]
- */
-HRESULT WINAPI CoGetCallerTID(LPDWORD lpdwTID)
-{
-  FIXME("stub!\n");
-  return E_NOTIMPL;
-}
-
-/***********************************************************************
- *              CoGetCurrentLogicalThreadId        [OLE32.@]
- */
-HRESULT WINAPI CoGetCurrentLogicalThreadId(GUID *pguid)
-{
-  FIXME(": stub\n");
-  return E_NOTIMPL;
-}

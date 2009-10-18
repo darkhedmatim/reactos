@@ -10,4 +10,5 @@
 	<library>netapi32</library>
 	<file>modemui.c</file>
 	<file>modemui.rc</file>
+	<file>modemui.spec</file>
 </module>

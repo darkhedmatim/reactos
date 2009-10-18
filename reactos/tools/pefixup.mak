@@ -23,11 +23,11 @@ PEFIXUP_HOST_LFLAGS = $(TOOLS_LFLAGS)
 pefixup: $(PEFIXUP_TARGET)
 
 $(PEFIXUP_TARGET): $(PEFIXUP_OBJECTS) | $(PEFIXUP_OUT)
-	$(ECHO_HOSTLD)
+	$(ECHO_LD)
 	${host_gcc} $(PEFIXUP_OBJECTS) $(PEFIXUP_HOST_LFLAGS) -o $@
 
 $(PEFIXUP_INT_)pefixup.o: $(PEFIXUP_BASE_)pefixup.c | $(PEFIXUP_INT)
-	$(ECHO_HOSTCC)
+	$(ECHO_CC)
 	${host_gcc} $(PEFIXUP_HOST_CFLAGS) -c $< -o $@
 
 .PHONY: pefixup_clean

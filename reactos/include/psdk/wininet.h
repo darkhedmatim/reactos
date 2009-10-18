@@ -540,7 +540,6 @@ BOOLAPI InternetUnlockRequestFile(HANDLE);
 #define INTERNET_OPTION_ERROR_MASK              62
 #define INTERNET_OPTION_FROM_CACHE_TIMEOUT      63
 #define INTERNET_OPTION_BYPASS_EDITED_ENTRY     64
-#define INTERNET_OPTION_HTTP_DECODING           65
 #define INTERNET_OPTION_DIAGNOSTIC_SOCKET_INFO  67
 #define INTERNET_OPTION_CODEPAGE                68
 #define INTERNET_OPTION_CACHE_TIMESTAMPS        69
@@ -571,10 +570,6 @@ BOOLAPI InternetUnlockRequestFile(HANDLE);
 
 #define INTERNET_OPTION_PROXY_SETTINGS_CHANGED  95
 #define INTERNET_OPTION_DATAFILE_EXT            96
-
-#define INTERNET_OPTION_CODEPAGE_PATH           100
-#define INTERNET_OPTION_CODEPAGE_EXTRA          101
-#define INTERNET_OPTION_IDN                     102
 
 #define INTERNET_FIRST_OPTION                   INTERNET_OPTION_CALLBACK
 #define INTERNET_LAST_OPTION                    INTERNET_OPTION_DATAFILE_EXT
@@ -1286,8 +1281,8 @@ BOOLAPI HttpQueryInfoW(HINTERNET ,DWORD ,LPVOID ,LPDWORD ,LPDWORD);
 
 BOOLAPI InternetClearAllPerSiteCookieDecisions(VOID);
 
-BOOLAPI InternetEnumPerSiteCookieDecisionA(LPSTR,ULONG *,ULONG *,ULONG);
-BOOLAPI InternetEnumPerSiteCookieDecisionW(LPWSTR,ULONG *,ULONG *,ULONG);
+BOOLAPI InternetEnumPerSiteCookieDecisionA(LPSTR,unsigned long *,unsigned long *,unsigned long);
+BOOLAPI InternetEnumPerSiteCookieDecisionW(LPWSTR,unsigned long *,unsigned long *,unsigned long);
 #define InternetEnumPerSiteCookieDecision WINELIB_NAME_AW(InternetEnumPerSiteCookieDecision)
 
 #define INTERNET_COOKIE_IS_SECURE       0x00000001
@@ -1309,8 +1304,8 @@ DWORD WINAPI InternetSetCookieExA(LPCSTR,LPCSTR,LPCSTR,DWORD,DWORD_PTR);
 DWORD WINAPI InternetSetCookieExW(LPCWSTR,LPCWSTR,LPCWSTR,DWORD,DWORD_PTR);
 #define InternetSetCookieEx WINELIB_NAME_AW(InternetSetCookieEx)
 
-BOOLAPI InternetGetPerSiteCookieDecisionA(LPCSTR,ULONG *);
-BOOLAPI InternetGetPerSiteCookieDecisionW(LPCWSTR,ULONG *);
+BOOLAPI InternetGetPerSiteCookieDecisionA(LPCSTR,unsigned long *);
+BOOLAPI InternetGetPerSiteCookieDecisionW(LPCWSTR,unsigned long *);
 #define InternetGetPerSiteCookieDecision WINELIB_NAME_AW(InternetGetPerSiteCookieDecision)
 
 BOOLAPI InternetSetPerSiteCookieDecisionA(LPCSTR,DWORD);

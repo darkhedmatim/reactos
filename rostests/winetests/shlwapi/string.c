@@ -35,11 +35,6 @@
     ok(ret == val, "Unexpected value of '" #expr "': " #fmt " instead of " #val "\n", ret); \
 } while (0);
 
-#define expect_eq2(expr, val1, val2, type, fmt) do { \
-    type ret = expr; \
-    ok(ret == val1 || ret == val2, "Unexpected value of '" #expr "': " #fmt " instead of " #val1 " or " #val2 "\n", ret); \
-} while (0);
-
 static BOOL    (WINAPI *pIntlStrEqWorkerA)(BOOL,LPCSTR,LPCSTR,int);
 static BOOL    (WINAPI *pIntlStrEqWorkerW)(BOOL,LPCWSTR,LPCWSTR,int);
 static DWORD   (WINAPI *pSHAnsiToAnsi)(LPCSTR,LPSTR,int);
@@ -203,8 +198,9 @@ static void test_StrChrA(void)
   for (count = 32; count < 128; count++)
   {
     LPSTR result = StrChrA(string+32, count);
-    INT pos = result - string;
-    ok(pos == count, "found char '%c' in wrong place: got %d, expected %d\n", count, pos, count);
+    ok(result - string == count,
+        "found char '%c' in wrong place: got %d, expected %d\n",
+        count, result - string, count);
   }
 
   for (count = 32; count < 128; count++)
@@ -339,8 +335,9 @@ static void test_StrRChrW(void)
   for (count = 32; count < 128; count++)
   {
     LPWSTR result = StrRChrW(string+32, NULL, count);
-    INT pos = result - string;
-    ok(pos == count, "found char %d in wrong place: got %d, expected %d\n", count, pos, count);
+    ok(result - string == count,
+        "found char %d in wrong place: got %d, expected %d\n",
+        count, result - string, count);
   }
 
   for (count = 32; count < 128; count++)
@@ -484,7 +481,7 @@ static void test_StrDupA(void)
     if (lpszStr)
     {
       ok(!strcmp(result->byte_size_64, lpszStr), "Copied string wrong\n");
-      LocalFree(lpszStr);
+      LocalFree((HLOCAL)lpszStr);
     }
     result++;
   }
@@ -494,7 +491,7 @@ static void test_StrDupA(void)
    */
   lpszStr = StrDupA(NULL);
   ok(lpszStr == NULL || *lpszStr == '\0', "NULL string returned %p\n", lpszStr);
-  LocalFree(lpszStr);
+  LocalFree((HLOCAL)lpszStr);
 }
 
 static void test_StrFormatByteSize64A(void)
@@ -504,7 +501,7 @@ static void test_StrFormatByteSize64A(void)
 
   if (!pStrFormatByteSize64A)
   {
-    win_skip("StrFormatByteSize64A() is not available\n");
+    skip("StrFormatByteSize64A() is not available. Tests skipped\n");
     return;
   }
 
@@ -528,7 +525,7 @@ static void test_StrFormatKBSizeW(void)
 
   if (!pStrFormatKBSizeW)
   {
-    win_skip("StrFormatKBSizeW() is not available\n");
+    skip("StrFormatKBSizeW() is not available. Tests skipped\n");
     return;
   }
 
@@ -550,7 +547,7 @@ static void test_StrFormatKBSizeA(void)
 
   if (!pStrFormatKBSizeA)
   {
-    win_skip("StrFormatKBSizeA() is not available\n");
+    skip("StrFormatKBSizeA() is not available. Tests skipped\n");
     return;
   }
 
@@ -596,7 +593,7 @@ static void test_StrCmpA(void)
     ok(!pStrIsIntlEqualA(TRUE, str1, str2, 5), "StrIsIntlEqualA(TRUE,...) isn't case-sensitive\n");
   }
   else
-    win_skip("StrIsIntlEqualA() is not available\n");
+    skip("StrIsIntlEqualA() is not available. Tests skipped\n");
 
   if (pIntlStrEqWorkerA)
   {
@@ -604,7 +601,7 @@ static void test_StrCmpA(void)
     ok(!pIntlStrEqWorkerA(TRUE, str1, str2, 5), "pIntlStrEqWorkerA(TRUE,...) isn't case-sensitive\n");
   }
   else
-    win_skip("IntlStrEqWorkerA() is not available\n");
+    skip("IntlStrEqWorkerA() is not available. Tests skipped\n");
 }
 
 static void test_StrCmpW(void)
@@ -623,7 +620,7 @@ static void test_StrCmpW(void)
     ok(!pStrIsIntlEqualW(TRUE, str1, str2, 5), "StrIsIntlEqualW(TRUE,...) isn't case-sensitive\n");
   }
   else
-    win_skip("StrIsIntlEqualW() is not available\n");
+    skip("StrIsIntlEqualW() is not available. Tests skipped\n");
 
   if (pIntlStrEqWorkerW)
   {
@@ -631,7 +628,7 @@ static void test_StrCmpW(void)
     ok(!pIntlStrEqWorkerW(TRUE, str1, str2, 5), "IntlStrEqWorkerW(TRUE,...) isn't case-sensitive\n");
   }
   else
-    win_skip("IntlStrEqWorkerW() is not available\n");
+    skip("IntlStrEqWorkerW() is not available. Tests skipped\n");
 }
 
 static WCHAR *CoDupStrW(const char* src)
@@ -652,7 +649,7 @@ static void test_StrRetToBSTR(void)
 
     if (!pStrRetToBSTR)
     {
-        win_skip("StrRetToBSTR() is not available\n");
+        skip("StrRetToBSTR() is not available. Tests skipped\n");
         return;
     }
 
@@ -662,14 +659,16 @@ static void test_StrRetToBSTR(void)
     ret = pStrRetToBSTR(&strret, NULL, &bstr);
     ok(ret == S_OK && bstr && !strcmpW(bstr, szTestW),
        "STRRET_WSTR: dup failed, ret=0x%08x, bstr %p\n", ret, bstr);
-    SysFreeString(bstr);
+    if (bstr)
+      SysFreeString(bstr);
 
     strret.uType = STRRET_CSTR;
     lstrcpyA(U(strret).cStr, "Test");
     ret = pStrRetToBSTR(&strret, NULL, &bstr);
     ok(ret == S_OK && bstr && !strcmpW(bstr, szTestW),
        "STRRET_CSTR: dup failed, ret=0x%08x, bstr %p\n", ret, bstr);
-    SysFreeString(bstr);
+    if (bstr)
+      SysFreeString(bstr);
 
     strret.uType = STRRET_OFFSET;
     U(strret).uOffset = 1;
@@ -677,7 +676,8 @@ static void test_StrRetToBSTR(void)
     ret = pStrRetToBSTR(&strret, iidl, &bstr);
     ok(ret == S_OK && bstr && !strcmpW(bstr, szTestW),
        "STRRET_OFFSET: dup failed, ret=0x%08x, bstr %p\n", ret, bstr);
-    SysFreeString(bstr);
+    if (bstr)
+      SysFreeString(bstr);
 
     /* Native crashes if str is NULL */
 }
@@ -690,7 +690,7 @@ static void test_StrCpyNXA(void)
 
   if (!pStrCpyNXA)
   {
-    win_skip("StrCpyNXA() is not available\n");
+    skip("StrCpyNXA() is not available. Tests skipped\n");
     return;
   }
 
@@ -711,7 +711,7 @@ static void test_StrCpyNXW(void)
 
   if (!pStrCpyNXW)
   {
-    win_skip("StrCpyNXW() is not available\n");
+    skip("StrCpyNXW() is not available. Tests skipped\n");
     return;
   }
 
@@ -768,7 +768,7 @@ static void test_SHAnsiToAnsi(void)
 
   if (!pSHAnsiToAnsi)
   {
-    win_skip("SHAnsiToAnsi() is not available\n");
+    skip("SHAnsiToAnsi() is not available. Tests skipped\n");
     return;
   }
 
@@ -789,7 +789,7 @@ static void test_SHUnicodeToUnicode(void)
 
   if (!pSHUnicodeToUnicode)
   {
-    win_skip("SHUnicodeToUnicode() is not available\n");
+    skip("SHUnicodeToUnicode() is not available. Tests skipped\n");
     return;
   }
 
@@ -829,7 +829,7 @@ static void test_StrXXX_overflows(void)
         expect_eq(buf[100], '\xbf', CHAR, "%x");
     }
     else
-        win_skip("StrCatBuffA() is not available\n");
+        skip("StrCatBuffA() is not available. Tests skipped\n");
 
     memset(wbuf, 0xbf, sizeof(wbuf));
     expect_eq(StrCpyNW(wbuf, wstr1, 10), wbuf, PWCHAR, "%p");
@@ -843,53 +843,53 @@ static void test_StrXXX_overflows(void)
         expect_eq(wbuf[100], (WCHAR)0xbfbf, WCHAR, "%x");
     }
     else
-        win_skip("StrCatBuffW() is not available\n");
+        skip("StrCatBuffW() is not available. Tests skipped\n");
 
     if (pStrRetToBufW)
     {
         memset(wbuf, 0xbf, sizeof(wbuf));
         strret.uType = STRRET_WSTR;
         U(strret).pOleStr = StrDupW(wstr1);
-        expect_eq2(pStrRetToBufW(&strret, NULL, wbuf, 10), S_OK, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER) /* Vista */, HRESULT, "%x");
+        expect_eq(pStrRetToBufW(&strret, NULL, wbuf, 10), S_OK, HRESULT, "%x");
         expect_eq(wbuf[9], 0, WCHAR, "%x");
         expect_eq(wbuf[10], (WCHAR)0xbfbf, WCHAR, "%x");
     }
     else
-        win_skip("StrRetToBufW() is not available\n");
+        skip("StrRetToBufW() is not available. Tests skipped\n");
 
     if (pStrRetToBufA)
     {
         memset(buf, 0xbf, sizeof(buf));
         strret.uType = STRRET_CSTR;
         StrCpyN(U(strret).cStr, str1, MAX_PATH);
-        expect_eq2(pStrRetToBufA(&strret, NULL, buf, 10), S_OK, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER) /* Vista */, HRESULT, "%x");
+        expect_eq(pStrRetToBufA(&strret, NULL, buf, 10), S_OK, HRESULT, "%x");
         expect_eq(buf[9], 0, CHAR, "%x");
         expect_eq(buf[10], (CHAR)0xbf, CHAR, "%x");
     }
     else
-        win_skip("StrRetToBufA() is not available\n");
+        skip("StrRetToBufA() is not available. Tests skipped\n");
 
     if (pwnsprintfA)
     {
         memset(buf, 0xbf, sizeof(buf));
         ret = pwnsprintfA(buf, 10, "%s", str1);
-        ok(broken(ret == 9) || ret == -1 /* Vista */, "Unexpected wsnprintfA return %d, expected 9 or -1\n", ret);
+        todo_wine ok(ret == 9, "Unexpected wsnprintfA return %d, expected 9\n", ret);
         expect_eq(buf[9], 0, CHAR, "%x");
         expect_eq(buf[10], (CHAR)0xbf, CHAR, "%x");
     }
     else
-        win_skip("wnsprintfA() is not available\n");
+        skip("wnsprintfA() is not available. Tests skipped\n");
 
     if (pwnsprintfW)
     {
         memset(wbuf, 0xbf, sizeof(wbuf));
         ret = pwnsprintfW(wbuf, 10, fmt, wstr1);
-        ok(broken(ret == 9) || ret == -1 /* Vista */, "Unexpected wsnprintfW return %d, expected 9 or -1\n", ret);
+        todo_wine ok(ret == 9, "Unexpected wsnprintfW return %d, expected 9\n", ret);
         expect_eq(wbuf[9], 0, WCHAR, "%x");
         expect_eq(wbuf[10], (WCHAR)0xbfbf, WCHAR, "%x");
     }
     else
-        win_skip("wnsprintfW() is not available\n");
+        skip("wnsprintfW() is not available. Tests skipped\n");
 }
 
 START_TEST(string)

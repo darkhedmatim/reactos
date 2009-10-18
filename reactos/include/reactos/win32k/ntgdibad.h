@@ -60,20 +60,20 @@ NtGdiGetFontFamilyInfo(
 );
 
 /* Use NtGdiGetDCPoint with GdiGetViewPortExt */
-BOOL APIENTRY  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
+BOOL STDCALL  NtGdiGetViewportExtEx(HDC  hDC, LPSIZE viewportExt);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
+BOOL STDCALL  NtGdiGetViewportOrgEx(HDC  hDC, LPPOINT viewportOrg);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
+BOOL STDCALL  NtGdiGetWindowExtEx(HDC  hDC, LPSIZE windowExt);
 
 /* Needs to be done in user-mode. */
-BOOL APIENTRY  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
+BOOL STDCALL  NtGdiGetWindowOrgEx(HDC  hDC, LPPOINT windowOrg);
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
 NtGdiOffsetViewportOrgEx (
 	HDC	hDC,
 	int	XOffset,
@@ -83,7 +83,7 @@ NtGdiOffsetViewportOrgEx (
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
 NtGdiOffsetWindowOrgEx (
 	HDC	hDC,
 	int	XOffset,
@@ -93,7 +93,17 @@ NtGdiOffsetWindowOrgEx (
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
+NtGdiSetWindowExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
 NtGdiSetViewportOrgEx (
 	HDC	hDC,
 	int	X,
@@ -103,7 +113,17 @@ NtGdiSetViewportOrgEx (
 
 /* Needs to be done in user-mode. */
 BOOL
-APIENTRY
+STDCALL
+NtGdiSetViewportExtEx (
+	HDC	hDC,
+	int	XExtent,
+	int	YExtent,
+	LPSIZE	Size
+	);
+
+/* Needs to be done in user-mode. */
+BOOL
+STDCALL
 NtGdiSetWindowOrgEx (
 	HDC	hDC,
 	int	X,
@@ -113,7 +133,7 @@ NtGdiSetWindowOrgEx (
 
 /* Use SetDIBitsToDevice in gdi32. */
 INT
-APIENTRY
+STDCALL
 NtGdiSetDIBits (
 	HDC			hDC,
 	HBITMAP			hBitmap,

@@ -29,7 +29,7 @@ HANDLE hSmApiPort = (HANDLE) 0;
  *	Register with itself for ImageSubsystemId
  *	(programmatically).
  */
-NTSTATUS NTAPI SmRegisterInternalSubsystem (LPWSTR PgmName,
+NTSTATUS STDCALL SmRegisterInternalSubsystem (LPWSTR PgmName,
 					      USHORT ImageSubsystemId,
 					      PHANDLE ApiPort)
 {
@@ -41,8 +41,8 @@ NTSTATUS NTAPI SmRegisterInternalSubsystem (LPWSTR PgmName,
 
 	RtlZeroMemory (& ProcessInfo, sizeof ProcessInfo);
 	ProcessInfo.Size = sizeof ProcessInfo;
-	ProcessInfo.ProcessHandle = (HANDLE) UlongToPtr(SmSsProcessId);
-	ProcessInfo.ClientId.UniqueProcess = (HANDLE) UlongToPtr(SmSsProcessId);
+	ProcessInfo.ProcessHandle = (HANDLE) SmSsProcessId;
+	ProcessInfo.ClientId.UniqueProcess = (HANDLE) SmSsProcessId;
 	DPRINT("SM: %s: ProcessInfo.ProcessHandle=%p\n",
 		__FUNCTION__,ProcessInfo.ProcessHandle);
 	Status = SmCreateClient (& ProcessInfo, PgmName);

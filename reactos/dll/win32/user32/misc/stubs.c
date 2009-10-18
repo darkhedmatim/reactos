@@ -18,8 +18,79 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 /*
  * @unimplemented
  */
+BOOL
+STDCALL
+AttachThreadInput(
+  DWORD idAttach,
+  DWORD idAttachTo,
+  BOOL fAttach)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+GetMouseMovePointsEx(
+  UINT cbSize,
+  LPMOUSEMOVEPOINT lppt,
+  LPMOUSEMOVEPOINT lpptBuf,
+  int nBufPoints,
+  DWORD resolution)
+{
+    if((cbSize != sizeof(MOUSEMOVEPOINT)) || (nBufPoints < 0) || (nBufPoints > 64))
+	{
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return -1;
+    }
+
+    if(!lppt || !lpptBuf)
+	{
+        SetLastError(ERROR_NOACCESS);
+        return -1;
+    }
+
+    UNIMPLEMENTED;
+
+    SetLastError(ERROR_POINT_NOT_FOUND);
+    return -1;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+LockWindowUpdate(
+  HWND hWndLock)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+LockWorkStation(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
 DWORD
-WINAPI
+STDCALL
 WaitForInputIdle(
   HANDLE hProcess,
   DWORD dwMilliseconds)
@@ -38,7 +109,7 @@ WaitForInputIdle(
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
 SetDebugErrorLevel( DWORD dwLevel )
 {
     DbgPrint("(%ld): stub\n", dwLevel);
@@ -49,7 +120,7 @@ SetDebugErrorLevel( DWORD dwLevel )
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetAppCompatFlags(HTASK hTask)
 {
     PCLIENTINFO pci = GetWin32ClientInfo();
@@ -61,7 +132,7 @@ GetAppCompatFlags(HTASK hTask)
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetAppCompatFlags2(HTASK hTask)
 {
     PCLIENTINFO pci = GetWin32ClientInfo();
@@ -73,7 +144,7 @@ GetAppCompatFlags2(HTASK hTask)
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetInternalWindowPos(
 		     HWND hwnd,
 		     LPRECT rectWnd,
@@ -95,7 +166,7 @@ GetInternalWindowPos(
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
 LoadLocalFonts ( VOID )
 {
   UNIMPLEMENTED;
@@ -105,7 +176,7 @@ LoadLocalFonts ( VOID )
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
 LoadRemoteFonts ( VOID )
 {
   UNIMPLEMENTED;
@@ -115,18 +186,62 @@ LoadRemoteFonts ( VOID )
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
+SetInternalWindowPos(
+		     HWND    hwnd,
+		     UINT    showCmd,
+		     LPRECT  rect,
+		     LPPOINT pt
+		     )
+{
+  UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
 RegisterSystemThread ( DWORD flags, DWORD reserved )
 {
   UNIMPLEMENTED;
 }
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+RegisterTasklist ( DWORD x )
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+DragObject(
+	   HWND    hwnd1,
+	   HWND    hwnd2,
+	   UINT    u1,
+	   DWORD   dw1,
+	   HCURSOR hc1
+	   )
+{
+  return NtUserDragObject(hwnd1, hwnd2, u1, dw1, hc1);
+}
+
+
 
 
 /*
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 UserRealizePalette ( HDC hDC )
 {
   return NtUserCallOneParam((DWORD) hDC, ONEPARAM_ROUTINE_REALIZEPALETTE);
@@ -223,7 +338,7 @@ SetSysColorsTemp(const COLORREF *pPens,
  * @unimplemented
  */
 HDESK
-WINAPI
+STDCALL
 GetInputDesktop ( VOID )
 {
   UNIMPLEMENTED;
@@ -234,7 +349,7 @@ GetInputDesktop ( VOID )
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetAccCursorInfo ( PCURSORINFO pci )
 {
   UNIMPLEMENTED;
@@ -245,7 +360,7 @@ GetAccCursorInfo ( PCURSORINFO pci )
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 ClientThreadSetup ( VOID )
 {
   UNIMPLEMENTED;
@@ -256,7 +371,7 @@ ClientThreadSetup ( VOID )
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetRawInputDeviceInfoW(
     HANDLE hDevice,
     UINT uiCommand,
@@ -271,7 +386,7 @@ GetRawInputDeviceInfoW(
  * @unimplemented
  */
 LONG
-WINAPI
+STDCALL
 CsrBroadcastSystemMessageExW(
     DWORD dwflags,
     LPDWORD lpdwRecipients,
@@ -288,7 +403,7 @@ CsrBroadcastSystemMessageExW(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetRawInputDeviceInfoA(
     HANDLE hDevice,
     UINT uiCommand,
@@ -303,7 +418,7 @@ GetRawInputDeviceInfoA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 AlignRects(LPRECT rect, DWORD b, DWORD c, DWORD d)
 {
   UNIMPLEMENTED;
@@ -314,7 +429,7 @@ AlignRects(LPRECT rect, DWORD b, DWORD c, DWORD d)
  * @unimplemented
  */
 LRESULT
-WINAPI
+STDCALL
 DefRawInputProc(
     PRAWINPUT* paRawInput,
     INT nInput,
@@ -328,7 +443,7 @@ DefRawInputProc(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetRawInputBuffer(
     PRAWINPUT pData,
     PUINT pcbSize,
@@ -342,7 +457,7 @@ GetRawInputBuffer(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetRawInputData(
     HRAWINPUT hRawInput,
     UINT uiCommand,
@@ -358,7 +473,7 @@ GetRawInputData(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetRawInputDeviceList(
     PRAWINPUTDEVICELIST pRawInputDeviceList,
     PUINT puiNumDevices,
@@ -376,7 +491,7 @@ GetRawInputDeviceList(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetRegisteredRawInputDevices(
     PRAWINPUTDEVICE pRawInputDevices,
     PUINT puiNumDevices,
@@ -390,7 +505,7 @@ GetRegisteredRawInputDevices(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 PrintWindow(
     HWND hwnd,
     HDC hdcBlt,
@@ -404,7 +519,7 @@ PrintWindow(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 RegisterRawInputDevices(
     PCRAWINPUTDEVICE pRawInputDevices,
     UINT uiNumDevices,
@@ -417,7 +532,9 @@ RegisterRawInputDevices(
 /*
  * @unimplemented
  */
-BOOL WINAPI DisplayExitWindowsWarnings(ULONG flags)
+UINT
+STDCALL
+WINNLSGetIMEHotkey( HWND hwnd)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -426,7 +543,9 @@ BOOL WINAPI DisplayExitWindowsWarnings(ULONG flags)
 /*
  * @unimplemented
  */
-BOOL WINAPI ReasonCodeNeedsBugID(ULONG reasoncode)
+BOOL
+STDCALL
+WINNLSEnableIME( HWND hwnd, BOOL enable)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -435,7 +554,9 @@ BOOL WINAPI ReasonCodeNeedsBugID(ULONG reasoncode)
 /*
  * @unimplemented
  */
-BOOL WINAPI ReasonCodeNeedsComment(ULONG reasoncode)
+BOOL
+STDCALL
+WINNLSGetEnableStatus( HWND hwnd)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -444,7 +565,9 @@ BOOL WINAPI ReasonCodeNeedsComment(ULONG reasoncode)
 /*
  * @unimplemented
  */
-BOOL WINAPI CtxInitUser32(VOID)
+BOOL
+STDCALL
+IMPSetIMEW( HWND hwnd, LPIMEPROW ime)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -453,7 +576,9 @@ BOOL WINAPI CtxInitUser32(VOID)
 /*
  * @unimplemented
  */
-BOOL WINAPI EnterReaderModeHelper(HWND hwnd)
+BOOL
+STDCALL
+IMPQueryIMEW( LPIMEPROW ime)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -462,15 +587,9 @@ BOOL WINAPI EnterReaderModeHelper(HWND hwnd)
 /*
  * @unimplemented
  */
-VOID WINAPI InitializeLpkHooks(FARPROC *hookfuncs)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-WORD WINAPI InitializeWin32EntryTable(UCHAR* EntryTablePlus0x1000)
+BOOL
+STDCALL
+IMPGetIMEW( HWND hwnd, LPIMEPROW ime)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -479,7 +598,9 @@ WORD WINAPI InitializeWin32EntryTable(UCHAR* EntryTablePlus0x1000)
 /*
  * @unimplemented
  */
-BOOL WINAPI IsServerSideWindow(HWND wnd)
+BOOL
+STDCALL
+IMPSetIMEA( HWND hwnd, LPIMEPROA ime)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -488,7 +609,9 @@ BOOL WINAPI IsServerSideWindow(HWND wnd)
 /*
  * @unimplemented
  */
-HKL WINAPI LoadKeyboardLayoutEx(DWORD unknown,LPCWSTR pwszKLID,UINT Flags) //1st parameter unknown
+BOOL
+STDCALL
+IMPQueryIMEA( LPIMEPROA ime)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -497,23 +620,9 @@ HKL WINAPI LoadKeyboardLayoutEx(DWORD unknown,LPCWSTR pwszKLID,UINT Flags) //1st
 /*
  * @unimplemented
  */
-VOID WINAPI AllowForegroundActivation(VOID)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID WINAPI ShowStartGlass(DWORD unknown)
-{
-  UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-BOOL WINAPI DdeGetQualityOfService(HWND hWnd, DWORD Reserved, PSECURITY_QUALITY_OF_SERVICE pqosPrev)
+BOOL
+STDCALL
+IMPGetIMEA( HWND hwnd, LPIMEPROA ime)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -522,16 +631,9 @@ BOOL WINAPI DdeGetQualityOfService(HWND hWnd, DWORD Reserved, PSECURITY_QUALITY_
 /*
  * @unimplemented
  */
-BOOL WINAPI SetProcessDPIAware(VOID)
-{
-    UNIMPLEMENTED;
-    return TRUE;
-}
-
-/*
- * @unimplemented
- */
-BOOL WINAPI CliImmSetHotKey(DWORD dwID, UINT uModifiers, UINT uVirtualKey, HKL hKl)
+LRESULT
+STDCALL
+SendIMEMessageExW(HWND hwnd,LPARAM lparam)
 {
   UNIMPLEMENTED;
   return FALSE;
@@ -540,16 +642,143 @@ BOOL WINAPI CliImmSetHotKey(DWORD dwID, UINT uModifiers, UINT uVirtualKey, HKL h
 /*
  * @unimplemented
  */
-DWORD WINAPI GetMenuIndex(HMENU hMenu, HMENU hSubMenu)
+LRESULT
+STDCALL
+SendIMEMessageExA(HWND hwnd, LPARAM lparam)
 {
   UNIMPLEMENTED;
-  return 0;
+  return FALSE;
 }
 
 /*
  * @unimplemented
  */
-DWORD WINAPI UserRegisterWowHandlers(PVOID Unknown1, PVOID Unknown2)
+BOOL STDCALL DisplayExitWindowsWarnings(ULONG flags)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL ReasonCodeNeedsBugID(ULONG reasoncode)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL ReasonCodeNeedsComment(ULONG reasoncode)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL CtxInitUser32(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL EnterReaderModeHelper(HWND hwnd)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL InitializeLpkHooks(FARPROC *hookfuncs)
+{
+  UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+WORD STDCALL InitializeWin32EntryTable(UCHAR* EntryTablePlus0x1000)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL IsServerSideWindow(HWND wnd)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+typedef BOOL (CALLBACK *THEME_HOOK_FUNC) (DWORD state,PVOID arg2); //return type and 2nd parameter unknown
+/*
+ * @unimplemented
+ */
+BOOL STDCALL RegisterUserApiHook(HINSTANCE instance,THEME_HOOK_FUNC proc)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL UnregisterUserApiHook(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+HKL STDCALL LoadKeyboardLayoutEx(DWORD unknown,LPCWSTR pwszKLID,UINT Flags) //1st parameter unknown
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL AllowForegroundActivation(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL ShowStartGlass(DWORD unknown)
+{
+  UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL DdeGetQualityOfService(HWND hWnd, DWORD Reserved, PSECURITY_QUALITY_OF_SERVICE pqosPrev)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD STDCALL User32InitializeImmEntryTable(PVOID p)
 {
   UNIMPLEMENTED;
   return 0;

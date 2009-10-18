@@ -93,7 +93,7 @@ typedef struct EnumMonikerImpl
 
 
 /* IEnumMoniker Local functions*/
-static HRESULT EnumMonikerImpl_CreateEnumROTMoniker(InterfaceList *moniker_list,
+static HRESULT WINAPI EnumMonikerImpl_CreateEnumROTMoniker(InterfaceList *moniker_list,
     ULONG pos, IEnumMoniker **ppenumMoniker);
 
 static IrotHandle get_irot_handle(void)
@@ -316,7 +316,7 @@ RunningObjectTableImpl_QueryInterface(IRunningObjectTable* iface,
 
     if (IsEqualIID(&IID_IUnknown, riid) ||
         IsEqualIID(&IID_IRunningObjectTable, riid))
-        *ppvObject = This;
+        *ppvObject = (IRunningObjectTable*)This;
 
     if ((*ppvObject)==0)
         return E_NOINTERFACE;
@@ -340,9 +340,9 @@ RunningObjectTableImpl_AddRef(IRunningObjectTable* iface)
 }
 
 /***********************************************************************
- *        RunningObjectTable_Destroy
+ *        RunningObjectTable_Initialize
  */
-static HRESULT
+static HRESULT WINAPI
 RunningObjectTableImpl_Destroy(void)
 {
     struct list *cursor, *cursor2;
@@ -414,7 +414,7 @@ RunningObjectTableImpl_Release(IRunningObjectTable* iface)
  * grfFlags       [in] Registration options 
  * punkObject     [in] the object being registered
  * pmkObjectName  [in] the moniker of the object being registered
- * pdwRegister    [out] the value identifying the registration
+ * pdwRegister    [in] the value identifying the registration
  */
 static HRESULT WINAPI
 RunningObjectTableImpl_Register(IRunningObjectTable* iface, DWORD grfFlags,
@@ -1291,10 +1291,10 @@ static HRESULT WINAPI EnumMonikerImpl_QueryInterface(IEnumMoniker* iface,REFIID 
     *ppvObject = NULL;
 
     if (IsEqualIID(&IID_IUnknown, riid))
-        *ppvObject = This;
+        *ppvObject = (IEnumMoniker*)This;
     else
         if (IsEqualIID(&IID_IEnumMoniker, riid))
-            *ppvObject = This;
+            *ppvObject = (IEnumMoniker*)This;
 
     if ((*ppvObject)==NULL)
         return E_NOINTERFACE;
@@ -1344,7 +1344,7 @@ static ULONG   WINAPI EnumMonikerImpl_Release(IEnumMoniker* iface)
     return ref;
 }
 /***********************************************************************
- *        EnumMoniker_Next
+ *        EnmumMoniker_Next
  */
 static HRESULT   WINAPI EnumMonikerImpl_Next(IEnumMoniker* iface, ULONG celt, IMoniker** rgelt, ULONG * pceltFetched)
 {
@@ -1379,7 +1379,7 @@ static HRESULT   WINAPI EnumMonikerImpl_Next(IEnumMoniker* iface, ULONG celt, IM
 }
 
 /***********************************************************************
- *        EnumMoniker_Skip
+ *        EnmumMoniker_Skip
  */
 static HRESULT   WINAPI EnumMonikerImpl_Skip(IEnumMoniker* iface, ULONG celt)
 {
@@ -1396,7 +1396,7 @@ static HRESULT   WINAPI EnumMonikerImpl_Skip(IEnumMoniker* iface, ULONG celt)
 }
 
 /***********************************************************************
- *        EnumMoniker_Reset
+ *        EnmumMoniker_Reset
  */
 static HRESULT   WINAPI EnumMonikerImpl_Reset(IEnumMoniker* iface)
 {
@@ -1410,7 +1410,7 @@ static HRESULT   WINAPI EnumMonikerImpl_Reset(IEnumMoniker* iface)
 }
 
 /***********************************************************************
- *        EnumMoniker_Clone
+ *        EnmumMoniker_Clone
  */
 static HRESULT   WINAPI EnumMonikerImpl_Clone(IEnumMoniker* iface, IEnumMoniker ** ppenum)
 {
@@ -1463,7 +1463,7 @@ static const IEnumMonikerVtbl VT_EnumMonikerImpl =
  *        Used by EnumRunning to create the structure and EnumClone
  *	  to copy the structure
  */
-static HRESULT EnumMonikerImpl_CreateEnumROTMoniker(InterfaceList *moniker_list,
+static HRESULT WINAPI EnumMonikerImpl_CreateEnumROTMoniker(InterfaceList *moniker_list,
                                                  ULONG current_pos,
                                                  IEnumMoniker **ppenumMoniker)
 {
@@ -1660,7 +1660,7 @@ HRESULT MonikerMarshal_Create(IMoniker *inner, IUnknown **outer)
     return S_OK;
 }
 
-void * __RPC_USER MIDL_user_allocate(SIZE_T size)
+void * __RPC_USER MIDL_user_allocate(size_t size)
 {
     return HeapAlloc(GetProcessHeap(), 0, size);
 }

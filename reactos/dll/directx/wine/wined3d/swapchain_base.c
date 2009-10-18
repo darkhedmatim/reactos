@@ -4,7 +4,7 @@
  *Copyright 2002-2003 Jason Edmeades
  *Copyright 2002-2003 Raphael Junqueira
  *Copyright 2005 Oliver Stieber
- *Copyright 2007-2008 Stefan DÃ¶singer for CodeWeavers
+ *Copyright 2007-2008 Stefan Dösinger for CodeWeavers
  *
  *This library is free software; you can redistribute it and/or
  *modify it under the terms of the GNU Lesser General Public
@@ -59,7 +59,7 @@ ULONG WINAPI IWineD3DBaseSwapChainImpl_Release(IWineD3DSwapChain *iface) {
     refCount = InterlockedDecrement(&This->ref);
     TRACE("(%p) : ReleaseRef to %d\n", This, refCount);
     if (refCount == 0) {
-        IWineD3DSwapChain_Destroy(iface);
+        IWineD3DSwapChain_Destroy(iface, D3DCB_DefaultDestroySurface);
     }
     return refCount;
 }
@@ -95,15 +95,15 @@ HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetBackBuffer(IWineD3DSwapChain *iface,
 
     if (iBackBuffer > This->presentParms.BackBufferCount - 1) {
         TRACE("Back buffer count out of range\n");
-        /* Native d3d9 doesn't set NULL here, just as wine's d3d9. But set it
-         * here in wined3d to avoid problems in other libs
-         */
+        /* Native d3d9 doesn't set NULL here, just as wine's d3d9. But set it here
+        * in wined3d to avoid problems in other libs
+        */
         *ppBackBuffer = NULL;
         return WINED3DERR_INVALIDCALL;
     }
 
-    /* Return invalid if there is no backbuffer array, otherwise it will crash when ddraw is
-     * used (there This->backBuffer is always NULL). We need this because this function has
+    /* Return invalid if there is no backbufferarray, otherwise it will crash when ddraw is
+     * used (there This->backBuffer is allways NULL). We need this because this function have
      * to be called from IWineD3DStateBlockImpl_InitStartupStateBlock to get the default
      * scissorrect dimensions. */
     if( !This->backBuffer ) {
@@ -122,14 +122,13 @@ HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetBackBuffer(IWineD3DSwapChain *iface,
 
 HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetRasterStatus(IWineD3DSwapChain *iface, WINED3DRASTER_STATUS *pRasterStatus) {
     IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
-    static BOOL warned;
+    static BOOL showFixmes = TRUE;
     pRasterStatus->InVBlank = TRUE;
     pRasterStatus->ScanLine = 0;
     /* No openGL equivalent */
-    if (!warned)
-    {
+    if(showFixmes) {
         FIXME("(%p) : stub (once)\n", This);
-        warned = TRUE;
+        showFixmes = FALSE;
     }
     return WINED3D_OK;
 }

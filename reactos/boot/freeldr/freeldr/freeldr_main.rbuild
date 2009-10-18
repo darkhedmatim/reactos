@@ -4,9 +4,13 @@
 	<include base="freeldr_main">include</include>
 	<include base="ntoskrnl">include</include>
 	<define name="_NTHAL_" />
-	<group compilerset="gcc">
-		<compilerflag>-fno-inline</compilerflag>
-		<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
-	</group>
+	<compilerflag>-fno-inline</compilerflag>
+	<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
 	<file>bootmgr.c</file>
+	<file>drivemap.c</file>
+	<file>miscboot.c</file>
+	<file>options.c</file>
+	<file>linuxboot.c</file>
+	<file>oslist.c</file>
+	<file>custom.c</file>
 </module>

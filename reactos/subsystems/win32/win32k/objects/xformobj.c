@@ -28,8 +28,7 @@ C_ASSERT(sizeof(FIX) == sizeof(LONG));
 /*
  * Inline helper to calculate pfo1 * pfo2 + pfo3 * pfo4
  */
-FORCEINLINE
-VOID
+VOID FORCEINLINE
 MulAdd(
     PFLOATOBJ pfoDest,
     PFLOATOBJ pfo1,
@@ -49,8 +48,7 @@ MulAdd(
 /*
  * Inline helper to calculate pfo1 * l2 + pfo3 * l4
  */
-FORCEINLINE
-VOID
+VOID FORCEINLINE
 MulAddLong(
     PFLOATOBJ pfoDest,
     PFLOATOBJ pfo1,
@@ -70,8 +68,7 @@ MulAddLong(
 /*
  * Inline helper to calculate pfo1 * pfo2 - pfo3 * pfo4
  */
-FORCEINLINE
-VOID
+VOID FORCEINLINE
 MulSub(
     PFLOATOBJ pfoDest,
     PFLOATOBJ pfo1,
@@ -91,8 +88,7 @@ MulSub(
 /*
  * Inline helper to get the complexity hint from flAccel
  */
-FORCEINLINE
-ULONG
+ULONG FORCEINLINE
 HintFromAccel(ULONG flAccel)
 {
     switch (flAccel & (MX_NOTRANSLATE |  MX_IDENTITYSCALE | MX_SCALE))
@@ -409,7 +405,7 @@ XFORMOBJ_bXformFixPoints(
 
 // www.osr.com/ddk/graphics/gdifncs_0s2v.htm
 ULONG
-APIENTRY
+NTAPI
 XFORMOBJ_iGetXform(
     IN XFORMOBJ *pxo,
     OUT XFORML *pxform)
@@ -437,7 +433,7 @@ XFORMOBJ_iGetXform(
 
 // www.osr.com/ddk/graphics/gdifncs_5ig7.htm
 ULONG
-APIENTRY
+NTAPI
 XFORMOBJ_iGetFloatObjXform(
     IN XFORMOBJ *pxo,
     OUT FLOATOBJ_XFORM *pxfo)
@@ -465,7 +461,7 @@ XFORMOBJ_iGetFloatObjXform(
 
 // www.osr.com/ddk/graphics/gdifncs_027b.htm
 BOOL
-APIENTRY
+NTAPI
 XFORMOBJ_bApplyXform(
     IN XFORMOBJ  *pxo,
     IN ULONG  iMode,

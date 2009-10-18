@@ -49,7 +49,7 @@ SepInitExports(VOID)
     SepExports.SeSystemEnvironmentPrivilege = SeSystemEnvironmentPrivilege;
     SepExports.SeChangeNotifyPrivilege = SeChangeNotifyPrivilege;
     SepExports.SeRemoteShutdownPrivilege = SeRemoteShutdownPrivilege;
-
+    
     SepExports.SeNullSid = SeNullSid;
     SepExports.SeWorldSid = SeWorldSid;
     SepExports.SeLocalSid = SeLocalSid;
@@ -72,11 +72,11 @@ SepInitExports(VOID)
     SepExports.SeAuthenticatedUsersSid = SeAuthenticatedUsersSid;
     SepExports.SeRestrictedSid = SeRestrictedSid;
     SepExports.SeAnonymousLogonSid = SeAnonymousLogonSid;
-
+    
     SepExports.SeUndockPrivilege = SeUndockPrivilege;
     SepExports.SeSyncAgentPrivilege = SeSyncAgentPrivilege;
     SepExports.SeEnableDelegationPrivilege = SeEnableDelegationPrivilege;
-
+    
     SeExports = &SepExports;
     return TRUE;
 }
@@ -86,26 +86,24 @@ BOOLEAN
 NTAPI
 SepInitializationPhase0(VOID)
 {
-    PAGED_CODE();
-
     ExpInitLuid();
     if (!SepInitSecurityIDs()) return FALSE;
     if (!SepInitDACLs()) return FALSE;
     if (!SepInitSDs()) return FALSE;
     SepInitPrivileges();
     if (!SepInitExports()) return FALSE;
-
+    
     /* Initialize the subject context lock */
     ExInitializeResource(&SepSubjectContextLock);
-
+    
     /* Initialize token objects */
     SepInitializeTokenImplementation();
-
+    
     /* Clear impersonation info for the idle thread */
     PsGetCurrentThread()->ImpersonationInfo = NULL;
     PspClearCrossThreadFlag(PsGetCurrentThread(),
                             CT_ACTIVE_IMPERSONATION_INFO_BIT);
-
+    
     /* Initialize the boot token */
     ObInitializeFastReference(&PsGetCurrentProcess()->Token, NULL);
     ObInitializeFastReference(&PsGetCurrentProcess()->Token,
@@ -119,7 +117,7 @@ SepInitializationPhase1(VOID)
 {
     NTSTATUS Status;
     PAGED_CODE();
-
+    
     /* Insert the system token into the tree */
     Status = ObInsertObject((PVOID)(PsGetCurrentProcess()->Token.Value &
                                     ~MAX_FAST_REFS),
@@ -129,7 +127,7 @@ SepInitializationPhase1(VOID)
                             NULL,
                             NULL);
     ASSERT(NT_SUCCESS(Status));
-
+    
     /* FIXME: TODO \\ Security directory */
     return TRUE;
 }
@@ -142,17 +140,17 @@ SeInitSystem(VOID)
     switch (ExpInitializationPhase)
     {
         case 0:
-
+            
             /* Do Phase 0 */
             return SepInitializationPhase0();
-
+            
         case 1:
-
+            
             /* Do Phase 1 */
             return SepInitializationPhase1();
-
+            
         default:
-
+            
             /* Don't know any other phase! Bugcheck! */
             KeBugCheckEx(UNEXPECTED_INITIALIZATION_CALL,
                          0,
@@ -172,7 +170,7 @@ SeInitSRM(VOID)
     HANDLE DirectoryHandle;
     HANDLE EventHandle;
     NTSTATUS Status;
-
+    
     /* Create '\Security' directory */
     RtlInitUnicodeString(&Name,
                          L"\\Security");
@@ -189,7 +187,7 @@ SeInitSRM(VOID)
         DPRINT1("Failed to create 'Security' directory!\n");
         return FALSE;
     }
-
+    
     /* Create 'LSA_AUTHENTICATION_INITALIZED' event */
     RtlInitUnicodeString(&Name,
                          L"\\LSA_AUTHENTICATION_INITALIZED");
@@ -209,12 +207,12 @@ SeInitSRM(VOID)
         NtClose(DirectoryHandle);
         return FALSE;
     }
-
+    
     ZwClose(EventHandle);
     ZwClose(DirectoryHandle);
-
+    
     /* FIXME: Create SRM port and listener thread */
-
+    
     return TRUE;
 }
 
@@ -230,16 +228,16 @@ SeDefaultObjectMethod(IN PVOID Object,
                       IN PGENERIC_MAPPING GenericMapping)
 {
     PAGED_CODE();
-
+    
     /* Select the operation type */
     switch (OperationType)
     {
             /* Setting a new descriptor */
         case SetSecurityDescriptor:
-
+            
             /* Sanity check */
             ASSERT((PoolType == PagedPool) || (PoolType == NonPagedPool));
-
+            
             /* Set the information */
             return ObSetSecurityDescriptorInfo(Object,
                                                SecurityInformation,
@@ -247,33 +245,33 @@ SeDefaultObjectMethod(IN PVOID Object,
                                                OldSecurityDescriptor,
                                                PoolType,
                                                GenericMapping);
-
+            
         case QuerySecurityDescriptor:
-
+            
             /* Query the information */
             return ObQuerySecurityDescriptorInfo(Object,
                                                  SecurityInformation,
                                                  SecurityDescriptor,
                                                  ReturnLength,
                                                  OldSecurityDescriptor);
-
+            
         case DeleteSecurityDescriptor:
-
+            
             /* De-assign it */
             return ObDeassignSecurity(OldSecurityDescriptor);
-
+            
         case AssignSecurityDescriptor:
-
+            
             /* Assign it */
             ObAssignObjectSecurityDescriptor(Object, SecurityDescriptor, PoolType);
             return STATUS_SUCCESS;
-
+            
         default:
-
+            
             /* Bug check */
             KeBugCheckEx(SECURITY_SYSTEM, 0, STATUS_INVALID_PARAMETER, 0, 0);
     }
-
+    
     /* Should never reach here */
     ASSERT(FALSE);
     return STATUS_SUCCESS;
@@ -286,14 +284,14 @@ SepSidInToken(PACCESS_TOKEN _Token,
 {
     ULONG i;
     PTOKEN Token = (PTOKEN)_Token;
-
+    
     PAGED_CODE();
-
+    
     if (Token->UserAndGroupCount == 0)
     {
         return FALSE;
     }
-
+    
     for (i=0; i<Token->UserAndGroupCount; i++)
     {
         if (RtlEqualSid(Sid, Token->UserAndGroups[i].Sid))
@@ -302,21 +300,21 @@ SepSidInToken(PACCESS_TOKEN _Token,
             {
                 return TRUE;
             }
-
+            
             return FALSE;
         }
     }
-
+    
     return FALSE;
 }
 
 
-VOID NTAPI
+VOID STDCALL
 SeQuerySecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
                           OUT PACCESS_MASK DesiredAccess)
 {
     *DesiredAccess = 0;
-
+    
     if (SecurityInformation & (OWNER_SECURITY_INFORMATION |
                                GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION))
     {
@@ -328,12 +326,12 @@ SeQuerySecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
     }
 }
 
-VOID NTAPI
+VOID STDCALL
 SeSetSecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
                         OUT PACCESS_MASK DesiredAccess)
 {
     *DesiredAccess = 0;
-
+    
     if (SecurityInformation & (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
     {
         *DesiredAccess |= WRITE_OWNER;
@@ -353,7 +351,7 @@ SeSetSecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
               IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext,
               IN BOOLEAN SubjectContextLocked,
@@ -376,7 +374,7 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     PSID Sid;
     NTSTATUS Status;
     PAGED_CODE();
-
+    
     /* Check if this is kernel mode */
     if (AccessMode == KernelMode)
     {
@@ -393,12 +391,12 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
             /* Give the desired and previous access */
             *GrantedAccess = DesiredAccess | PreviouslyGrantedAccess;
         }
-
+        
         /* Success */
         *AccessStatus = STATUS_SUCCESS;
         return TRUE;
     }
-
+    
     /* Check if we didn't get an SD */
     if (!SecurityDescriptor)
     {
@@ -406,7 +404,7 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         *AccessStatus = STATUS_ACCESS_DENIED;
         return FALSE;
     }
-
+    
     /* Check for invalid impersonation */
     if ((SubjectSecurityContext->ClientToken) &&
         (SubjectSecurityContext->ImpersonationLevel < SecurityImpersonation))
@@ -414,7 +412,7 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         *AccessStatus = STATUS_BAD_IMPERSONATION_LEVEL;
         return FALSE;
     }
-
+    
     /* Check for no access desired */
     if (!DesiredAccess)
     {
@@ -425,31 +423,31 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
             *AccessStatus = STATUS_ACCESS_DENIED;
             return FALSE;
         }
-
+        
         /* Return the previous access only */
         *GrantedAccess = PreviouslyGrantedAccess;
         *AccessStatus = STATUS_SUCCESS;
         *Privileges = NULL;
         return TRUE;
     }
-
+    
     /* Acquire the lock if needed */
     if (!SubjectContextLocked) SeLockSubjectContext(SubjectSecurityContext);
-
+    
     /* Map given accesses */
     RtlMapGenericMask(&DesiredAccess, GenericMapping);
     if (PreviouslyGrantedAccess)
         RtlMapGenericMask(&PreviouslyGrantedAccess, GenericMapping);
-
-
-
+    
+    
+    
     CurrentAccess = PreviouslyGrantedAccess;
-
-
-
+    
+    
+    
     Token = SubjectSecurityContext->ClientToken ?
     SubjectSecurityContext->ClientToken : SubjectSecurityContext->PrimaryToken;
-
+    
     /* Get the DACL */
     Status = RtlGetDaclSecurityDescriptor(SecurityDescriptor,
                                           &Present,
@@ -461,11 +459,11 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         {
             SeUnlockSubjectContext(SubjectSecurityContext);
         }
-
+        
         *AccessStatus = Status;
         return FALSE;
     }
-
+    
     /* RULE 1: Grant desired access if the object is unprotected */
     if (Present == TRUE && Dacl == NULL)
     {
@@ -473,18 +471,18 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         {
             SeUnlockSubjectContext(SubjectSecurityContext);
         }
-
+        
         *GrantedAccess = DesiredAccess;
         *AccessStatus = STATUS_SUCCESS;
         return TRUE;
     }
-
+    
     CurrentAccess = PreviouslyGrantedAccess;
-
+    
     /* RULE 2: Check token for 'take ownership' privilege */
     Privilege.Luid = SeTakeOwnershipPrivilege;
     Privilege.Attributes = SE_PRIVILEGE_ENABLED;
-
+    
     if (SepPrivilegeCheck(Token,
                           &Privilege,
                           1,
@@ -499,13 +497,13 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
             {
                 SeUnlockSubjectContext(SubjectSecurityContext);
             }
-
+            
             *GrantedAccess = CurrentAccess;
             *AccessStatus = STATUS_SUCCESS;
             return TRUE;
         }
     }
-
+    
     /* RULE 3: Check whether the token is the owner */
     Status = RtlGetOwnerSecurityDescriptor(SecurityDescriptor,
                                            &Sid,
@@ -517,11 +515,11 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         {
             SeUnlockSubjectContext(SubjectSecurityContext);
         }
-
+        
         *AccessStatus = Status;
         return FALSE;
     }
-
+    
     if (Sid && SepSidInToken(Token, Sid))
     {
         CurrentAccess |= (READ_CONTROL | WRITE_DAC);
@@ -532,13 +530,13 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
             {
                 SeUnlockSubjectContext(SubjectSecurityContext);
             }
-
+            
             *GrantedAccess = CurrentAccess;
             *AccessStatus = STATUS_SUCCESS;
             return TRUE;
         }
     }
-
+    
     /* Fail if DACL is absent */
     if (Present == FALSE)
     {
@@ -546,12 +544,12 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         {
             SeUnlockSubjectContext(SubjectSecurityContext);
         }
-
+        
         *GrantedAccess = 0;
         *AccessStatus = STATUS_ACCESS_DENIED;
         return FALSE;
     }
-
+    
     /* RULE 4: Grant rights according to the DACL */
     CurrentAce = (PACE)(Dacl + 1);
     for (i = 0; i < Dacl->AceCount; i++)
@@ -565,13 +563,13 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                 {
                     SeUnlockSubjectContext(SubjectSecurityContext);
                 }
-
+                
                 *GrantedAccess = 0;
                 *AccessStatus = STATUS_ACCESS_DENIED;
                 return FALSE;
             }
         }
-
+        
         else if (CurrentAce->Header.AceType == ACCESS_ALLOWED_ACE_TYPE)
         {
             if (SepSidInToken(Token, Sid))
@@ -587,17 +585,17 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         }
         CurrentAce = (PACE)((ULONG_PTR)CurrentAce + CurrentAce->Header.AceSize);
     }
-
+    
     if (SubjectContextLocked == FALSE)
     {
         SeUnlockSubjectContext(SubjectSecurityContext);
     }
-
+    
     DPRINT("CurrentAccess %08lx\n DesiredAccess %08lx\n",
            CurrentAccess, DesiredAccess);
-
+    
     *GrantedAccess = CurrentAccess & DesiredAccess;
-
+    
     if (DesiredAccess & MAXIMUM_ALLOWED)
     {
         *GrantedAccess = CurrentAccess;
@@ -621,48 +619,33 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
 
 /* SYSTEM CALLS ***************************************************************/
 
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
+NTSTATUS STDCALL
 NtAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
               IN HANDLE TokenHandle,
               IN ACCESS_MASK DesiredAccess,
               IN PGENERIC_MAPPING GenericMapping,
-              OUT PPRIVILEGE_SET PrivilegeSet OPTIONAL,
-              IN OUT PULONG PrivilegeSetLength,
+              OUT PPRIVILEGE_SET PrivilegeSet,
+              OUT PULONG ReturnLength,
               OUT PACCESS_MASK GrantedAccess,
               OUT PNTSTATUS AccessStatus)
 {
-    SECURITY_SUBJECT_CONTEXT SubjectSecurityContext;
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
+    SECURITY_SUBJECT_CONTEXT SubjectSecurityContext = {0};
+    KPROCESSOR_MODE PreviousMode;
     PTOKEN Token;
     NTSTATUS Status;
+    
     PAGED_CODE();
-
-    /* Check if this is kernel mode */
+    
+    DPRINT("NtAccessCheck() called\n");
+    
+    PreviousMode = KeGetPreviousMode();
     if (PreviousMode == KernelMode)
     {
-        /* Check if kernel wants everything */
-        if (DesiredAccess & MAXIMUM_ALLOWED)
-        {
-            /* Give it */
-            *GrantedAccess = GenericMapping->GenericAll;
-            *GrantedAccess |= (DesiredAccess &~ MAXIMUM_ALLOWED);
-        }
-        else
-        {
-            /* Just give the desired access */
-            *GrantedAccess = DesiredAccess;
-        }
-
-        /* Success */
+        *GrantedAccess = DesiredAccess;
         *AccessStatus = STATUS_SUCCESS;
         return STATUS_SUCCESS;
     }
-
-    /* Reference the token */
+    
     Status = ObReferenceObjectByHandle(TokenHandle,
                                        TOKEN_QUERY,
                                        SepTokenObjectType,
@@ -674,42 +657,56 @@ NtAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         DPRINT1("Failed to reference token (Status %lx)\n", Status);
         return Status;
     }
-
+    
     /* Check token type */
     if (Token->TokenType != TokenImpersonation)
     {
         DPRINT1("No impersonation token\n");
         ObDereferenceObject(Token);
-        return STATUS_ACCESS_DENIED;
+        return STATUS_ACCESS_VIOLATION;
     }
-
-    /* Set up the subject context, and lock it */
+    
+    /* Check impersonation level */
+    if (Token->ImpersonationLevel < SecurityAnonymous)
+    {
+        DPRINT1("Invalid impersonation level\n");
+        ObDereferenceObject(Token);
+        return STATUS_ACCESS_VIOLATION;
+    }
+    
     SubjectSecurityContext.ClientToken = Token;
     SubjectSecurityContext.ImpersonationLevel = Token->ImpersonationLevel;
-    SubjectSecurityContext.PrimaryToken = NULL;
-    SubjectSecurityContext.ProcessAuditId = NULL;
+    
+    /* Lock subject context */
     SeLockSubjectContext(&SubjectSecurityContext);
-
-    /* Now perform the access check */
-    SeAccessCheck(SecurityDescriptor,
-                  &SubjectSecurityContext,
-                  TRUE,
-                  DesiredAccess,
-                  0,
-                  &PrivilegeSet, //FIXME
-                  GenericMapping,
-                  PreviousMode,
-                  GrantedAccess,
-                  AccessStatus);
-
-    /* Unlock subject context and dereference the token */
+    
+    if (SeAccessCheck(SecurityDescriptor,
+                      &SubjectSecurityContext,
+                      TRUE,
+                      DesiredAccess,
+                      0,
+                      &PrivilegeSet,
+                      GenericMapping,
+                      PreviousMode,
+                      GrantedAccess,
+                      AccessStatus))
+    {
+        Status = *AccessStatus;
+    }
+    else
+    {
+        Status = STATUS_ACCESS_DENIED;
+    }
+    
+    /* Unlock subject context */
     SeUnlockSubjectContext(&SubjectSecurityContext);
+    
     ObDereferenceObject(Token);
-
-    /* Check succeeded */
-    return STATUS_SUCCESS;
+    
+    DPRINT("NtAccessCheck() done\n");
+    
+    return Status;
 }
-
 
 NTSTATUS
 NTAPI

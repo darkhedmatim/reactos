@@ -52,7 +52,7 @@ __inline LARGE_INTEGER PTE_TO_PAGE(ULONG npage)
 /* FUNCTIONS ***************************************************************/
 
 VOID
-NTAPI
+STDCALL
 MiFlushTlbIpiRoutine(PVOID Address)
 {
    if (Address == (PVOID)0xffffffff)
@@ -91,7 +91,7 @@ ProtectToFlags(ULONG flProtect)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 MmCopyMmInfo(PEPROCESS Src,
              PEPROCESS Dest,
              PPHYSICAL_ADDRESS DirectoryTableBase)
@@ -120,7 +120,7 @@ MmInitializeHandBuiltProcess(IN PEPROCESS Process,
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 MmCreateProcessAddressSpace(IN ULONG MinWs,
                             IN PEPROCESS Process,
                             IN PLARGE_INTEGER DirectoryTableBase)
@@ -180,7 +180,7 @@ MmGetPhysicalAddressProcess(PEPROCESS Process, PVOID Addr)
 /*
  * @implemented
  */
-PHYSICAL_ADDRESS NTAPI
+PHYSICAL_ADDRESS STDCALL
 MmGetPhysicalAddress(PVOID vaddr)
 /*
  * FUNCTION: Returns the physical address corresponding to a virtual address

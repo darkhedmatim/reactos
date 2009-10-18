@@ -362,23 +362,24 @@ NtOpenDirectoryObject(OUT PHANDLE DirectoryHandle,
 {
     HANDLE Directory;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we need to do any probing */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the return handle */
             ProbeForWriteHandle(DirectoryHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the error code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the directory object */
@@ -391,17 +392,17 @@ NtOpenDirectoryObject(OUT PHANDLE DirectoryHandle,
                                 &Directory);
     if (NT_SUCCESS(Status))
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write back the handle to the caller */
             *DirectoryHandle = Directory;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return the status to the caller */
@@ -464,7 +465,7 @@ NtQueryDirectoryObject(IN HANDLE DirectoryHandle,
     POBJECT_DIRECTORY Directory;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     ULONG SkipEntries = 0;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PVOID LocalBuffer;
     POBJECT_DIRECTORY_INFORMATION DirectoryInfo;
     ULONG Length, TotalLength;
@@ -484,7 +485,7 @@ NtQueryDirectoryObject(IN HANDLE DirectoryHandle,
     /* Check if we need to do any probing */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the buffer (assuming it will hold Unicode characters) */
             ProbeForWrite(Buffer, BufferLength, sizeof(WCHAR));
@@ -496,12 +497,13 @@ NtQueryDirectoryObject(IN HANDLE DirectoryHandle,
             /* Probe the return length if the caller specified one */
             if (ReturnLength) ProbeForWriteUlong(ReturnLength);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else if (!RestartScan)
     {
@@ -677,7 +679,7 @@ Quickie:
         *Context = CurrentEntry;
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Copy the buffer */
         RtlCopyMemory(Buffer,
@@ -688,12 +690,11 @@ Quickie:
         /* Check if the caller requested the return length and return it*/
         if (ReturnLength) *ReturnLength = TotalLength;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
-        /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Unlock the directory */
     ObpReleaseDirectoryLock(Directory, &LookupContext);
@@ -735,23 +736,24 @@ NtCreateDirectoryObject(OUT PHANDLE DirectoryHandle,
     POBJECT_DIRECTORY Directory;
     HANDLE NewHandle;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we need to do any probing */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the return handle */
             ProbeForWriteHandle(DirectoryHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the error code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Create the object */
@@ -780,17 +782,17 @@ NtCreateDirectoryObject(OUT PHANDLE DirectoryHandle,
                             &NewHandle);
 
     /* Enter SEH to protect write */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Return the handle back to the caller */
         *DirectoryHandle = NewHandle;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status to caller */
     return Status;

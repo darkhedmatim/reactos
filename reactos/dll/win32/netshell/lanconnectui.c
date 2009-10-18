@@ -32,12 +32,12 @@ typedef struct
     LONG ref;
 }INetConnectionPropertyUiImpl, *LPINetConnectionPropertyUiImpl;
 
-static __inline LPINetConnectionPropertyUiImpl impl_from_NetLanConnectionUiInfo(INetLanConnectionUiInfo *iface)
+static LPINetConnectionPropertyUiImpl __inline impl_from_NetLanConnectionUiInfo(INetLanConnectionUiInfo *iface)
 {
     return (LPINetConnectionPropertyUiImpl)((char *)iface - FIELD_OFFSET(INetConnectionPropertyUiImpl, lpLanConUiInfoVtbl));
 }
 
-static __inline LPINetConnectionPropertyUiImpl impl_from_NetConnectionConnectUi(INetConnectionConnectUi *iface)
+static LPINetConnectionPropertyUiImpl __inline impl_from_NetConnectionConnectUi(INetConnectionConnectUi *iface)
 {
     return (LPINetConnectionPropertyUiImpl)((char *)iface - FIELD_OFFSET(INetConnectionPropertyUiImpl, lpNetConnectionConnectUi));
 }
@@ -97,7 +97,7 @@ GetINetCfgComponent(INetCfg * pNCfg, INetConnectionPropertyUiImpl * This, INetCf
        hr = INetCfgComponent_GetDisplayName(pNCg, &pName);
        if (SUCCEEDED(hr))
        {
-           if (!_wcsicmp(pName, This->pProperties->pszwDeviceName))
+           if (!wcsicmp(pName, This->pProperties->pszwDeviceName))
            {
                *pOut = pNCg;
                IEnumNetCfgComponent_Release(pEnumCfg);
@@ -307,11 +307,7 @@ LANPropertiesUIDlg(
     PNET_ITEM pItem;
     INetConnectionPropertyUiImpl * This;
     LPPSHNOTIFY lppsn;
-    DWORD dwShowIcon;
     HRESULT hr;
-    WCHAR szKey[200];
-    LPOLESTR pStr;
-    HKEY hKey;
 
     switch(uMsg)
     {
@@ -330,31 +326,14 @@ LANPropertiesUIDlg(
                 if (This->pNCfg)
                 {
                     hr = INetCfg_Apply(This->pNCfg);
-                    if (FAILED(hr))
+                    if (SUCCEEDED(hr))
+                        return PSNRET_NOERROR;
+                    else
                         return PSNRET_INVALID;
                 }
-
-                if (SendDlgItemMessageW(hwndDlg, IDC_SHOWTASKBAR, BM_GETCHECK, 0, 0) == BST_CHECKED)
-                    dwShowIcon = 1;
-                else
-                    dwShowIcon = 0;
-
-
-                if (StringFromCLSID(&This->pProperties->guidId, &pStr) == ERROR_SUCCESS)
-                {
-                    swprintf(szKey, L"SYSTEM\\CurrentControlSet\\Control\\Network\\{4D36E972-E325-11CE-BFC1-08002BE10318}\\%s\\Connection", pStr);
-                    CoTaskMemFree(pStr);
-                    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, szKey, 0, KEY_WRITE, &hKey) == ERROR_SUCCESS)
-                    {
-                        RegSetValueExW(hKey, L"ShowIcon", 0, REG_DWORD, (LPBYTE)&dwShowIcon, sizeof(DWORD));
-                        RegCloseKey(hKey);
-                    }
-                }
-
                 return PSNRET_NOERROR;
             }
-#if 0
-            else if (lppsn->hdr.code == PSN_CANCEL)
+            else if (lppsn->hdr.code == PSN_APPLY)
             {
                 This = (INetConnectionPropertyUiImpl*)GetWindowLongPtr(hwndDlg, DWLP_USER);
                 if (This->pNCfg)
@@ -367,7 +346,6 @@ LANPropertiesUIDlg(
                 }
                 return PSNRET_NOERROR;
             }
-#endif
             if (lppl->hdr.code == LVN_ITEMCHANGING)
             {
                     ZeroMemory(&li, sizeof(li));
@@ -573,7 +551,7 @@ static const INetConnectionPropertyUi2Vtbl vt_NetConnectionPropertyUi =
 
 static
 HRESULT
-WINAPI
+STDCALL
 INetLanConnectionUiInfo_fnQueryInterface(
     INetLanConnectionUiInfo * iface,
     REFIID iid,
@@ -585,7 +563,7 @@ INetLanConnectionUiInfo_fnQueryInterface(
 
 static
 ULONG
-WINAPI
+STDCALL
 INetLanConnectionUiInfo_fnAddRef(
     INetLanConnectionUiInfo * iface)
 {
@@ -595,7 +573,7 @@ INetLanConnectionUiInfo_fnAddRef(
 
 static
 ULONG
-WINAPI
+STDCALL
 INetLanConnectionUiInfo_fnRelease(
     INetLanConnectionUiInfo * iface)
 {
@@ -605,7 +583,7 @@ INetLanConnectionUiInfo_fnRelease(
 
 static
 HRESULT
-WINAPI
+STDCALL
 INetLanConnectionUiInfo_fnGetDeviceGuid(
     INetLanConnectionUiInfo * iface,
     GUID * pGuid)
@@ -625,7 +603,7 @@ static const INetLanConnectionUiInfoVtbl vt_NetLanConnectionUiInfo =
 
 static
 HRESULT
-WINAPI
+STDCALL
 INetConnectionConnectUi_fnQueryInterface(
     INetConnectionConnectUi * iface,
     REFIID iid,
@@ -637,7 +615,7 @@ INetConnectionConnectUi_fnQueryInterface(
 
 static
 ULONG
-WINAPI
+STDCALL
 INetConnectionConnectUi_fnAddRef(
     INetConnectionConnectUi * iface)
 {
@@ -647,7 +625,7 @@ INetConnectionConnectUi_fnAddRef(
 
 static
 ULONG
-WINAPI
+STDCALL
 INetConnectionConnectUi_fnRelease(
     INetConnectionConnectUi * iface)
 {
@@ -657,7 +635,7 @@ INetConnectionConnectUi_fnRelease(
 
 static
 HRESULT
-WINAPI
+STDCALL
 INetConnectionConnectUi_fnSetConnection(
     INetConnectionConnectUi * iface,
     INetConnection* pCon)
@@ -676,7 +654,7 @@ INetConnectionConnectUi_fnSetConnection(
 
 static
 HRESULT
-WINAPI
+STDCALL
 INetConnectionConnectUi_fnConnect(
     INetConnectionConnectUi * iface,
     HWND hwndParent,
@@ -698,7 +676,7 @@ INetConnectionConnectUi_fnConnect(
 
 static
 HRESULT
-WINAPI
+STDCALL
 INetConnectionConnectUi_fnDisconnect(
     INetConnectionConnectUi * iface,
     HWND hwndParent,

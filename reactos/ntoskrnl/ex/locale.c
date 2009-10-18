@@ -29,7 +29,7 @@ LCID PsDefaultThreadLocaleId = LANGIDFROMLCID(0x00000409);
 NTSTATUS
 NTAPI
 ExpGetCurrentUserUILanguage(IN PWSTR MuiName,
-                            OUT LANGID* LanguageId)
+                            OUT PLANGID LanguageId)
 {
     UCHAR ValueBuffer[256];
     PKEY_VALUE_PARTIAL_INFORMATION ValueInfo;
@@ -166,7 +166,7 @@ NtQueryDefaultLocale(IN BOOLEAN UserProfile,
     PAGED_CODE();
 
     /* Enter SEH for probing */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we came from user mode */
         if (KeGetPreviousMode() != KernelMode)
@@ -187,12 +187,12 @@ NtQueryDefaultLocale(IN BOOLEAN UserProfile,
             *DefaultLocaleId = PsDefaultSystemLocaleId;
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Get exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status */
     return Status;
@@ -313,13 +313,13 @@ NtSetDefaultLocale(IN BOOLEAN UserProfile,
  */
 NTSTATUS
 NTAPI
-NtQueryInstallUILanguage(OUT LANGID* LanguageId)
+NtQueryInstallUILanguage(OUT PLANGID LanguageId)
 {
     NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Enter SEH for probing */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we came from user mode */
         if (KeGetPreviousMode() != KernelMode)
@@ -331,12 +331,12 @@ NtQueryInstallUILanguage(OUT LANGID* LanguageId)
         /* Return it */
         *LanguageId = PsInstallUILanguageId;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Get exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status */
     return Status;
@@ -347,13 +347,13 @@ NtQueryInstallUILanguage(OUT LANGID* LanguageId)
  */
 NTSTATUS
 NTAPI
-NtQueryDefaultUILanguage(OUT LANGID* LanguageId)
+NtQueryDefaultUILanguage(OUT PLANGID LanguageId)
 {
     NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Enter SEH for probing */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we came from user mode */
         if (KeGetPreviousMode() != KernelMode)
@@ -370,12 +370,12 @@ NtQueryDefaultUILanguage(OUT LANGID* LanguageId)
             *LanguageId = PsInstallUILanguageId;
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Get exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status */
     return Status;

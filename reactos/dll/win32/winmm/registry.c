@@ -27,6 +27,7 @@ BOOL LoadRegistryMMEDrivers(char* key)
     INT driver_count = 0;
     INT driver_index = 0;
     HKEY drivers_key;
+    BOOL ret;
 
     DWORD value_name_length = 256;
     char value_name[value_name_length];
@@ -48,7 +49,7 @@ BOOL LoadRegistryMMEDrivers(char* key)
                          &value_name_length,
                          NULL,
                          &value_type,
-                         (LPBYTE)value_data,
+                         value_data,
                          &value_data_length) == ERROR_SUCCESS )
     {
         BOOL valid_driver = FALSE;
@@ -73,25 +74,25 @@ BOOL LoadRegistryMMEDrivers(char* key)
                 is_mapper = TRUE;
                 driver_count ++;
             }
-            else if ( ! _strnicmp("wave", value_name, 4) )
+            else if ( ! strnicmp("wave", value_name, 4) )
             {
                 TRACE("Found a Wave driver: %s\n", value_data);
                 valid_driver = TRUE;
                 driver_count ++;
             }
-            else if ( ! _strnicmp("midi", value_name, 4) )
+            else if ( ! strnicmp("midi", value_name, 4) )
             {
                 TRACE("Found a MIDI driver: %s\n", value_data);
                 valid_driver = TRUE;
                 driver_count ++;
             }
-            else if ( ! _strnicmp("mixer", value_name, 5) )
+            else if ( ! strnicmp("mixer", value_name, 5) )
             {
                 TRACE("Found a mixer driver: %s\n", value_data);
                 valid_driver = TRUE;
                 driver_count ++;
             }
-            else if ( ! _strnicmp("aux", value_name, 4) )
+            else if ( ! strnicmp("aux", value_name, 4) )
             {
                 TRACE("Found an aux driver: %s\n", value_data);
                 valid_driver = TRUE;

@@ -19,7 +19,7 @@
 
 /*  --------------------------------------------------------  DEFINES  */
 
-#define TAG_FCB 'BCFV'
+#define TAG_FCB TAG('V', 'F', 'C', 'B')
 
 /*  --------------------------------------------------------  PUBLICS  */
 
@@ -332,7 +332,7 @@ vfatFCBInitializeCacheFromVolume (PVCB  vcb, PVFATFCB  fcb)
 
 	CcInitializeCacheMap(fileObject,
 		(PCC_FILE_SIZES)(&fcb->RFCB.AllocationSize),
-		TRUE,
+		FALSE,
 		&VfatGlobalData->CacheMgrCallbacks,
 		fcb);
 

@@ -16,7 +16,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AdjustTokenGroups(HANDLE TokenHandle,
                   BOOL ResetToDefault,
                   PTOKEN_GROUPS NewState,
@@ -45,7 +45,7 @@ AdjustTokenGroups(HANDLE TokenHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AdjustTokenPrivileges(HANDLE TokenHandle,
                       BOOL DisableAllPrivileges,
                       PTOKEN_PRIVILEGES NewState,
@@ -83,7 +83,7 @@ AdjustTokenPrivileges(HANDLE TokenHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetTokenInformation(HANDLE TokenHandle,
                     TOKEN_INFORMATION_CLASS TokenInformationClass,
                     LPVOID TokenInformation,
@@ -110,7 +110,7 @@ GetTokenInformation(HANDLE TokenHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetTokenInformation(HANDLE TokenHandle,
                     TOKEN_INFORMATION_CLASS TokenInformationClass,
                     LPVOID TokenInformation,
@@ -135,21 +135,19 @@ SetTokenInformation(HANDLE TokenHandle,
 /*
  * @implemented
  */
-BOOL
-WINAPI
-AccessCheck(IN PSECURITY_DESCRIPTOR pSecurityDescriptor,
-            IN HANDLE ClientToken,
-            IN DWORD DesiredAccess,
-            IN PGENERIC_MAPPING GenericMapping,
-            OUT PPRIVILEGE_SET PrivilegeSet OPTIONAL,
-            IN OUT LPDWORD PrivilegeSetLength,
-            OUT LPDWORD GrantedAccess,
-            OUT LPBOOL AccessStatus)
+BOOL STDCALL
+AccessCheck(PSECURITY_DESCRIPTOR pSecurityDescriptor,
+            HANDLE ClientToken,
+            DWORD DesiredAccess,
+            PGENERIC_MAPPING GenericMapping,
+            PPRIVILEGE_SET PrivilegeSet,
+            LPDWORD PrivilegeSetLength,
+            LPDWORD GrantedAccess,
+            LPBOOL AccessStatus)
 {
     NTSTATUS Status;
-    NTSTATUS NtAccessStatus;
+    NTSTATUS AccessStat;
 
-    /* Do the access check */
     Status = NtAccessCheck(pSecurityDescriptor,
                            ClientToken,
                            DesiredAccess,
@@ -157,30 +155,22 @@ AccessCheck(IN PSECURITY_DESCRIPTOR pSecurityDescriptor,
                            PrivilegeSet,
                            (PULONG)PrivilegeSetLength,
                            (PACCESS_MASK)GrantedAccess,
-                           &NtAccessStatus);
-
-    /* See if the access check operation succeeded */
+                           &AccessStat);
     if (!NT_SUCCESS(Status))
     {
-        /* Check failed */
         SetLastError(RtlNtStatusToDosError(Status));
         return FALSE;
     }
 
-    /* Now check the access status  */
-    if (!NT_SUCCESS(NtAccessStatus))
+    if (!NT_SUCCESS(AccessStat))
     {
-        /* Access denied */
-        SetLastError(RtlNtStatusToDosError(NtAccessStatus));
+        SetLastError(RtlNtStatusToDosError(Status));
         *AccessStatus = FALSE;
-    }
-    else
-    {
-        /* Access granted */
-        *AccessStatus = TRUE;
+        return TRUE;
     }
 
-    /* Check succeeded */
+    *AccessStatus = TRUE;
+
     return TRUE;
 }
 
@@ -188,7 +178,7 @@ AccessCheck(IN PSECURITY_DESCRIPTOR pSecurityDescriptor,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 OpenProcessToken(HANDLE ProcessHandle,
                  DWORD DesiredAccess,
                  PHANDLE TokenHandle)
@@ -211,7 +201,7 @@ OpenProcessToken(HANDLE ProcessHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 OpenThreadToken(HANDLE ThreadHandle,
                 DWORD DesiredAccess,
                 BOOL OpenAsSelf,
@@ -236,7 +226,7 @@ OpenThreadToken(HANDLE ThreadHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetThreadToken(IN PHANDLE ThreadHandle  OPTIONAL,
                IN HANDLE TokenHandle)
 {
@@ -262,7 +252,7 @@ SetThreadToken(IN PHANDLE ThreadHandle  OPTIONAL,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 DuplicateTokenEx(IN HANDLE ExistingTokenHandle,
                  IN DWORD dwDesiredAccess,
                  IN LPSECURITY_ATTRIBUTES lpTokenAttributes  OPTIONAL,
@@ -317,7 +307,7 @@ DuplicateTokenEx(IN HANDLE ExistingTokenHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 DuplicateToken(IN HANDLE ExistingTokenHandle,
                IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
                OUT PHANDLE DuplicateTokenHandle)
@@ -334,12 +324,12 @@ DuplicateToken(IN HANDLE ExistingTokenHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 CheckTokenMembership(IN HANDLE ExistingTokenHandle,
                      IN PSID SidToCheck,
                      OUT PBOOL IsMember)
 {
-    PISECURITY_DESCRIPTOR SecurityDescriptor = NULL;
+    PSECURITY_DESCRIPTOR SecurityDescriptor = NULL;
     ACCESS_MASK GrantedAccess;
     struct
     {
@@ -520,7 +510,7 @@ Cleanup:
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 IsTokenRestricted(HANDLE TokenHandle)
 {
     ULONG RetLength;
@@ -584,7 +574,7 @@ AllocAndReadRestrictedSids:
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 CreateRestrictedToken(HANDLE TokenHandle,
                       DWORD Flags,
                       DWORD DisableSidCount,

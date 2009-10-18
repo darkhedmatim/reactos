@@ -153,7 +153,6 @@ extern PVOID KeRaiseUserExceptionDispatcher;
 extern UCHAR KiDebugRegisterTrapOffsets[9];
 extern UCHAR KiDebugRegisterContextOffsets[9];
 extern ULONG KeTimeIncrement;
-extern ULONG KeTimeAdjustment;
 extern ULONG_PTR KiBugCheckData[5];
 extern ULONG KiFreezeFlag;
 extern ULONG KiDPCTimeout;
@@ -168,8 +167,8 @@ extern ULONG KiDPCTimeout;
 {                                                                           \
     (Header)->Type = t;                                                     \
     (Header)->Absolute = 0;                                                 \
-    (Header)->Size = s;                                                     \
     (Header)->Inserted = 0;                                                 \
+    (Header)->Size = s;                                                     \
     (Header)->SignalState = State;                                          \
     InitializeListHead(&((Header)->WaitListHead));                          \
 }
@@ -191,29 +190,6 @@ extern ULONG KiDPCTimeout;
 #define SIZE_OF_FX_REGISTERS 32
 
 /* INTERNAL KERNEL FUNCTIONS ************************************************/
-
-VOID
-NTAPI
-CPUID(
-    IN ULONG InfoType,
-    OUT PULONG CpuInfoEax,
-    OUT PULONG CpuInfoEbx,
-    OUT PULONG CpuInfoEcx,
-    OUT PULONG CpuInfoEdx
-);
-
-LONGLONG
-FASTCALL
-RDMSR(
-    IN ULONG Register
-);
-
-VOID
-NTAPI
-WRMSR(
-    IN ULONG Register,
-    IN LONGLONG Value
-);
 
 /* Finds a new thread to run */
 NTSTATUS
@@ -268,7 +244,7 @@ FASTCALL
 KiExitDispatcher(KIRQL OldIrql);
 
 VOID
-FASTCALL
+NTAPI
 KiDeferredReadyThread(IN PKTHREAD Thread);
 
 PKTHREAD
@@ -296,18 +272,18 @@ KiSelectNextThread(
     IN PKPRCB Prcb
 );
 
+VOID
+NTAPI
+CPUID(
+    OUT ULONG CpuInfo[4],
+    IN ULONG InfoType
+);
+
 BOOLEAN
 FASTCALL
 KiInsertTimerTable(
     IN PKTIMER Timer,
     IN ULONG Hand
-);
-
-VOID
-FASTCALL
-KiTimerListExpire(
-    IN PLIST_ENTRY ExpiredListHead,
-    IN KIRQL OldIrql
 );
 
 BOOLEAN
@@ -328,15 +304,7 @@ KiCompleteTimer(
 
 VOID
 FASTCALL
-KiAcquireGuardedMutex(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
-);
-
-VOID
-FASTCALL
-KiAcquireFastMutex(
-    IN PFAST_MUTEX FastMutex
-);
+KiAcquireGuardedMutexContented(PKGUARDED_MUTEX GuardedMutex);
 
 /* gate.c **********************************************************************/
 
@@ -359,33 +327,10 @@ KeWaitForGate(
 /* ipi.c ********************************************************************/
 
 VOID
-FASTCALL
-KiIpiSend(
+NTAPI
+KiIpiSendRequest(
     KAFFINITY TargetSet,
     ULONG IpiRequest
-);
-
-VOID
-NTAPI
-KiIpiSendPacket(
-    IN KAFFINITY TargetProcessors,
-    IN PKIPI_WORKER WorkerFunction,
-    IN PKIPI_BROADCAST_WORKER BroadcastFunction,
-    IN ULONG_PTR Context,
-    IN PULONG Count
-);
-
-VOID
-FASTCALL
-KiIpiSignalPacketDone(
-    IN PKIPI_CONTEXT PacketContext
-);
-
-VOID
-FASTCALL
-KiIpiSignalPacketDoneAndStall(
-    IN PKIPI_CONTEXT PacketContext,
-    IN volatile PULONG ReverseStall
 );
 
 /* next file ***************************************************************/
@@ -494,16 +439,6 @@ KeInitThread(
     IN PCONTEXT Context,
     IN PVOID Teb,
     IN PKPROCESS Process
-);
-
-VOID
-NTAPI
-KiInitializeContextThread(
-    PKTHREAD Thread,
-    PKSYSTEM_ROUTINE SystemRoutine,
-    PKSTART_ROUTINE StartRoutine,
-    PVOID StartContext,
-    PCONTEXT Context
 );
 
 VOID
@@ -751,11 +686,6 @@ VOID
 FASTCALL
 KiActivateWaiterQueue(IN PKQUEUE Queue);
 
-ULONG
-NTAPI
-KeQueryRuntimeProcess(IN PKPROCESS Process,
-                      OUT PULONG UserTime);
-
 /* INITIALIZATION FUNCTIONS *************************************************/
 
 BOOLEAN
@@ -816,7 +746,6 @@ KeTrapFrameToContext(
     IN OUT PCONTEXT Context
 );
 
-DECLSPEC_NORETURN
 VOID
 NTAPI
 KeBugCheckWithTf(
@@ -1018,6 +947,12 @@ KiInitMachineDependent(VOID);
 VOID
 NTAPI
 KiI386PentiumLockErrataFixup(VOID);
+
+VOID
+WRMSR(
+    IN ULONG Register,
+    IN LONGLONG Value
+);
 
 BOOLEAN
 NTAPI

@@ -60,7 +60,7 @@ static BOOL streams_set_table_size(MSISTREAMSVIEW *sv, UINT size)
     if (size >= sv->max_streams)
     {
         sv->max_streams *= 2;
-        sv->streams = msi_realloc_zero(sv->streams, sv->max_streams * sizeof(STREAM *));
+        sv->streams = msi_realloc(sv->streams, sv->max_streams * sizeof(STREAM *));
         if (!sv->streams)
             return FALSE;
     }
@@ -209,19 +209,14 @@ done:
     return r;
 }
 
-static UINT STREAMS_insert_row(struct tagMSIVIEW *view, MSIRECORD *rec, UINT row, BOOL temporary)
+static UINT STREAMS_insert_row(struct tagMSIVIEW *view, MSIRECORD *rec, BOOL temporary)
 {
     MSISTREAMSVIEW *sv = (MSISTREAMSVIEW *)view;
 
     if (!streams_set_table_size(sv, ++sv->num_rows))
         return ERROR_FUNCTION_FAILED;
 
-    if (row == -1)
-        row = sv->num_rows - 1;
-
-    /* FIXME have to readjust rows */
-
-    return STREAMS_set_row(view, row, rec, 0);
+    return STREAMS_set_row(view, sv->num_rows - 1, rec, 0);
 }
 
 static UINT STREAMS_delete_row(struct tagMSIVIEW *view, UINT row)
@@ -254,15 +249,15 @@ static UINT STREAMS_get_dimensions(struct tagMSIVIEW *view, UINT *rows, UINT *co
     return ERROR_SUCCESS;
 }
 
-static UINT STREAMS_get_column_info(struct tagMSIVIEW *view, UINT n,
-                                    LPWSTR *name, UINT *type, BOOL *temporary)
+static UINT STREAMS_get_column_info(struct tagMSIVIEW *view,
+                                    UINT n, LPWSTR *name, UINT *type)
 {
     LPCWSTR name_ptr = NULL;
 
     static const WCHAR Name[] = {'N','a','m','e',0};
     static const WCHAR Data[] = {'D','a','t','a',0};
 
-    TRACE("(%p, %d, %p, %p, %p)\n", view, n, name, type, temporary);
+    TRACE("(%p, %d, %p, %p)\n", view, n, name, type);
 
     if (n == 0 || n > NUM_STREAMS_COLS)
         return ERROR_INVALID_PARAMETER;
@@ -285,9 +280,6 @@ static UINT STREAMS_get_column_info(struct tagMSIVIEW *view, UINT n,
         *name = strdupW(name_ptr);
         if (!*name) return ERROR_FUNCTION_FAILED;
     }
-
-    if (temporary)
-        *temporary = FALSE;
 
     return ERROR_SUCCESS;
 }
@@ -335,7 +327,7 @@ static UINT streams_modify_assign(struct tagMSIVIEW *view, MSIRECORD *rec)
     if (r == ERROR_SUCCESS)
         return streams_modify_update(view, rec);
 
-    return STREAMS_insert_row(view, rec, -1, FALSE);
+    return STREAMS_insert_row(view, rec, FALSE);
 }
 
 static UINT STREAMS_modify(struct tagMSIVIEW *view, MSIMODIFY eModifyMode, MSIRECORD *rec, UINT row)
@@ -351,7 +343,7 @@ static UINT STREAMS_modify(struct tagMSIVIEW *view, MSIMODIFY eModifyMode, MSIRE
         break;
 
     case MSIMODIFY_INSERT:
-        r = STREAMS_insert_row(view, rec, -1, FALSE);
+        r = STREAMS_insert_row(view, rec, FALSE);
         break;
 
     case MSIMODIFY_UPDATE:
@@ -387,7 +379,7 @@ static UINT STREAMS_delete(struct tagMSIVIEW *view)
 
     for (i = 0; i < sv->num_rows; i++)
     {
-        if (sv->streams[i] && sv->streams[i]->stream)
+        if (sv->streams[i]->stream)
             IStream_Release(sv->streams[i]->stream);
         msi_free(sv->streams[i]);
     }
@@ -446,7 +438,6 @@ static const MSIVIEWOPS streams_ops =
     NULL,
     NULL,
     NULL,
-    NULL,
 };
 
 static INT add_streams_to_table(MSISTREAMSVIEW *sv)
@@ -462,7 +453,7 @@ static INT add_streams_to_table(MSISTREAMSVIEW *sv)
         return -1;
 
     sv->max_streams = 1;
-    sv->streams = msi_alloc_zero(sizeof(STREAM *));
+    sv->streams = msi_alloc(sizeof(STREAM *));
     if (!sv->streams)
         return -1;
 
@@ -472,9 +463,6 @@ static INT add_streams_to_table(MSISTREAMSVIEW *sv)
         hr = IEnumSTATSTG_Next(stgenum, 1, &stat, &size);
         if (FAILED(hr) || !size)
             break;
-
-        if (stat.type != STGTY_STREAM)
-            continue;
 
         /* table streams are not in the _Streams table */
         if (*stat.pwcsName == 0x4840)
@@ -523,10 +511,7 @@ UINT STREAMS_CreateView(MSIDATABASE *db, MSIVIEW **view)
     sv->db = db;
     rows = add_streams_to_table(sv);
     if (rows < 0)
-    {
-        msi_free( sv );
         return ERROR_FUNCTION_FAILED;
-    }
     sv->num_rows = rows;
 
     *view = (MSIVIEW *)sv;

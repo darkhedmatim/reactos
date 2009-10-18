@@ -356,7 +356,7 @@ SmpMoveFile( IN LPCWSTR lpExistingFileName,
 *
 *
 *--*/
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpMoveFilesQueryRoutine(IN PWSTR ValueName,
                          IN ULONG ValueType,
                          IN PVOID ValueData,

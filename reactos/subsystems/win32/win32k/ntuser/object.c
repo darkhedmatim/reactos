@@ -27,7 +27,7 @@
 #define NDEBUG
 #include <debug.h>
 
-//int usedHandles=0;
+int usedHandles=0;
 PUSER_HANDLE_TABLE gHandleTable = NULL;
 
 
@@ -55,14 +55,14 @@ __inline static PUSER_HANDLE_ENTRY alloc_user_entry(PUSER_HANDLE_TABLE ht)
 {
    PUSER_HANDLE_ENTRY entry;
 
-   DPRINT("handles used %i\n",gpsi->cHandleEntries);
+   DPRINT("handles used %i\n",usedHandles);
 
    if (ht->freelist)
    {
       entry = ht->freelist;
       ht->freelist = entry->ptr;
 
-      gpsi->cHandleEntries++;
+      usedHandles++;
       return entry;
    }
 
@@ -70,9 +70,9 @@ __inline static PUSER_HANDLE_ENTRY alloc_user_entry(PUSER_HANDLE_TABLE ht)
    {
 /**/
       int i, iFree = 0, iWindow = 0, iMenu = 0, iCursorIcon = 0,
-          iHook = 0, iCallProc = 0, iAccel = 0, iMonitor = 0, iTimer = 0;
+          iHook = 0, iCallProc = 0, iAccel = 0, iMonitor = 0;
  /**/
-      DPRINT1("Out of user handles! Used -> %i, NM_Handle -> %d\n", gpsi->cHandleEntries, ht->nb_handles);
+      DPRINT1("Out of user handles! Used -> %i, NM_Handle -> %d\n", usedHandles, ht->nb_handles);
 //#if 0
       for(i = 0; i < ht->nb_handles; i++)
       {
@@ -102,15 +102,12 @@ __inline static PUSER_HANDLE_ENTRY alloc_user_entry(PUSER_HANDLE_TABLE ht)
            case otMonitor:
             iMonitor++;
             break;
-           case otTimer:
-            iTimer++;
-            break;
            default:
             break;
          }
       }
-      DPRINT1("Handle Count by Type:\n Free = %d Window = %d Menu = %d CursorIcon = %d Hook = %d\n CallProc = %d Accel = %d Monitor = %d Timer = %d\n",
-      iFree, iWindow, iMenu, iCursorIcon, iHook, iCallProc, iAccel, iMonitor, iTimer );
+      DPRINT1("Handle Count by Type:\n Free = %d Window = %d Menu = %d CursorIcon = %d Hook = %d\n CallProc = %d Accel = %d Monitor = %d\n",
+      iFree, iWindow, iMenu, iCursorIcon, iHook, iCallProc, iAccel, iMonitor );
 //#endif
       return NULL;
 #if 0
@@ -131,7 +128,7 @@ __inline static PUSER_HANDLE_ENTRY alloc_user_entry(PUSER_HANDLE_TABLE ht)
 
    entry->generation = 1;
 
-   gpsi->cHandleEntries++;
+   usedHandles++;
 
    return entry;
 }
@@ -154,7 +151,7 @@ __inline static void *free_user_entry(PUSER_HANDLE_TABLE ht, PUSER_HANDLE_ENTRY 
    entry->pi = NULL;
    ht->freelist  = entry;
 
-   gpsi->cHandleEntries--;
+   usedHandles--;
 
    return ret;
 }
@@ -382,12 +379,12 @@ BOOL FASTCALL UserDereferenceObject(PVOID obj)
    if (!hdr->destroyed && hdr->RefCount == 0)
    {
       hdr->RefCount++; // BOUNCE!!!!!
-      DPRINT1("warning! Dereference to zero without deleting! Obj -> 0x%x\n", obj);
+      DPRINT1("warning! Dereference to zero without deleting!\n");
    }
 
    if (hdr->RefCount == 0 && hdr->destroyed)
    {
-//      DPRINT1("info: something destroyed bcaise of deref, in use=%i\n",gpsi->cHandleEntries);
+//      DPRINT1("info: something destroyed bcaise of deref, in use=%i\n",usedHandles);
 
       memset(hdr, 0x55, sizeof(USER_OBJECT_HEADER));
 
@@ -402,7 +399,7 @@ BOOL FASTCALL UserDereferenceObject(PVOID obj)
 
 
 
-BOOL FASTCALL UserCreateHandleTable(VOID)
+BOOL FASTCALL UserCreateHandleTable()
 {
 
    PVOID mem;

@@ -37,7 +37,7 @@ typedef struct _SERVICE
 /*  BOOLEAN ServiceRunning;*/	// needed ??
 } SERVICE, *PSERVICE;
 
-#define TAG_RTLREGISTRY 'vrqR'
+#define TAG_RTLREGISTRY TAG('R', 'q', 'r', 'v')
 
 /* GLOBALS ********************************************************************/
 
@@ -53,7 +53,7 @@ IopDisplayLoadingMessage(PVOID ServiceName,
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 IopGetGroupOrderList(PWSTR ValueName,
 		     ULONG ValueType,
 		     PVOID ValueData,
@@ -95,7 +95,7 @@ IopGetGroupOrderList(PWSTR ValueName,
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 IopCreateGroupListEntry(PWSTR ValueName,
 			ULONG ValueType,
 			PVOID ValueData,
@@ -146,13 +146,12 @@ IopCreateGroupListEntry(PWSTR ValueName,
 }
 
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 IopCreateServiceListEntry(PUNICODE_STRING ServiceName)
 {
   RTL_QUERY_REGISTRY_TABLE QueryTable[7];
   PSERVICE Service;
   NTSTATUS Status;
-  ULONG DefaultTag = MAXULONG;
 
   DPRINT("ServiceName: '%wZ'\n", ServiceName);
 
@@ -192,9 +191,6 @@ IopCreateServiceListEntry(PUNICODE_STRING ServiceName)
   QueryTable[5].Name = L"Tag";
   QueryTable[5].Flags = RTL_QUERY_REGISTRY_DIRECT;
   QueryTable[5].EntryContext = &Service->Tag;
-  QueryTable[5].DefaultData = &DefaultTag;
-  QueryTable[5].DefaultType = REG_DWORD;
-  QueryTable[5].DefaultLength = sizeof(DefaultTag);
 
   Status = RtlQueryRegistryValues(RTL_REGISTRY_SERVICES,
 				  ServiceName->Buffer,

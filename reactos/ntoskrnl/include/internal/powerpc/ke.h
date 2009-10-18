@@ -21,6 +21,10 @@
 
 #include <ndk/powerpc/ketypes.h>
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 /* Possible values for KTHREAD's NpxState */
 #define KPCR_BASE 0xff000000
 #define NPX_STATE_INVALID   0x01
@@ -35,39 +39,96 @@ typedef struct _KIRQ_TRAPFRAME
 
 extern ULONG KePPCCacheAlignment;
 
-#define IMAGE_FILE_MACHINE_ARCHITECTURE IMAGE_FILE_MACHINE_POWERPC
+struct _KPCR;
+VOID
+KiInitializeGdt(struct _KPCR* Pcr);
+VOID
+KiPPCApplicationProcessorInitializeTSS(VOID);
+VOID
+KiPPCBootInitializeTSS(VOID);
+VOID
+KiGdtPrepareForApplicationProcessorInit(ULONG Id);
+VOID
+KiPPCInitializeLdt(VOID);
+VOID
+KiPPCSetProcessorFeatures(VOID);
+ULONG KeAllocateGdtSelector(ULONG Desc[2]);
+VOID KeFreeGdtSelector(ULONG Entry);
 
-//#define KD_BREAKPOINT_TYPE
-//#define KD_BREAKPOINT_SIZE
-//#define KD_BREAKPOINT_VALUE
+#ifdef CONFIG_SMP
+#define LOCK "isync ; "
+#else
+#define LOCK ""
+#endif
 
-//
-// Macros for getting and setting special purpose registers in portable code
-//
-#define KeGetContextPc(Context) \
-    ((Context)->Dr0)
 
-#define KeSetContextPc(Context, ProgramCounter) \
-    ((Context)->Dr0 = (ProgramCounter))
+static inline LONG KePPCTestAndClearBit(ULONG BitPos, volatile PULONG Addr)
+{
+    ULONG OldValue, NewValue;
 
-#define KeGetTrapFramePc(TrapFrame) \
-    ((TrapFrame)->Dr0)
+    __asm__ __volatile__ ("lwarx %0,0,%1"
+                          : "=r" (OldValue), "=r" (*Addr)
+                          :
+                          : "memory");
 
-#define KeGetContextReturnRegister(Context) \
-    ((Context)->Gpr3)
+    NewValue = OldValue & ~(1<<BitPos);
 
-#define KeSetContextReturnRegister(Context, ReturnValue) \
-    ((Context)->Gpr3 = (ReturnValue))
+    __asm__ __volatile__ ("stwcx. %0,0,%3\n\t"
+                          "beq success\n\t"
+                          "add    %2,0,%1\n"
+                          "success:\n\t"
+                          "isync\n\t"
+                          : "=r" (NewValue), "=r" (OldValue)
+                          : "w" (NewValue), "w" (*Addr)
+                          : "memory");
 
-//
-// Returns the Interrupt State from a Trap Frame.
-// ON = TRUE, OFF = FALSE
-//
-//#define KeGetTrapFrameInterruptState(TrapFrame) \
+    return NewValue & (1 << BitPos);
+}
+
+static inline LONG KePPCTestAndSetBit(ULONG BitPos, volatile PULONG Addr)
+{
+    ULONG OldValue, NewValue;
+
+    __asm__ __volatile__ ("lwarx %0,0,%1"
+                          : "=r" (OldValue), "=r" (*Addr)
+                          :
+                          : "memory");
+
+    NewValue = OldValue | (1<<BitPos);
+
+    __asm__ __volatile__ ("stwcx. %0,0,%3\n\t"
+                          "beq success\n\t"
+                          "add    %2,0,%1\n"
+                          "success:\n\t"
+                          "isync\n\t"
+                          : "=r" (NewValue), "=r" (OldValue)
+                          : "w" (NewValue), "w" (*Addr)
+                          : "memory");
+
+    return NewValue & (1 << BitPos);
+}
 
 #define KePPCRdmsr(msr,val1,val2) __asm__ __volatile__("mfmsr 3")
 
 #define KePPCWrmsr(msr,val1,val2) __asm__ __volatile__("mtmsr 3")
+
+
+#define KePPCDisableInterrupts() \
+__asm__ __volatile__("mfmsr 0\n\t" \
+                     "li    8,0x7fff\n\t" \
+                     "and   0,8,0\n\t" \
+                     "mtmsr 0\n\t")
+
+#define KePPCEnableInterrupts() \
+ __asm__ __volatile__("mfmsr 0\n\t" \
+                      "lis    8,0x8000@ha\n\t" \
+                      "or    0,8,0\n\t" \
+                      "mtmsr 0\n\t")
+
+#define KePPCHaltProcessor()
+
+#define KeArchEraseFlags()
+#define KeArchDisableInterrupts() KePPCDisableInterrupts()
 
 #define PPC_MIN_CACHE_LINE_SIZE 32
 
@@ -77,17 +138,49 @@ FORCEINLINE struct _KPCR * NTHALAPI KeGetCurrentKPCR(
     return (struct _KPCR *)__readfsdword(0x1c);
 }
 
+VOID
+STDCALL
+KePPCInitThreadWithContext(
+	PKTHREAD Thread,
+	PKSYSTEM_ROUTINE SystemRoutine,
+	PKSTART_ROUTINE StartRoutine,
+	PVOID StartContext,
+	PCONTEXT Context);
+
+VOID
+STDCALL
+KeApplicationProcessorInitDispatcher(
+  VOID);
+
+VOID
+STDCALL
+KeCreateApplicationProcessorIdleThread(
+  ULONG Id);
+
+static VOID KePPCFnInit()
+{
+    __asm__("mfmsr 0\n\tori 0,0,0x2000\n\tmtmsr 0");
+}
+
 #ifdef _NTOSKRNL_ /* FIXME: Move flags above to NDK instead of here */
 VOID
-NTAPI
+STDCALL
 KiThreadStartup(PKSYSTEM_ROUTINE SystemRoutine,
                 PKSTART_ROUTINE StartRoutine,
                 PVOID StartContext,
                 BOOLEAN UserThread,
                 KTRAP_FRAME TrapFrame);
 #endif
+VOID
+NTAPI
+KiSaveProcessorControlState(OUT PKPROCESSOR_STATE ProcessorState);
 
 #endif /* __ASM__ */
+
+#define KeArchFnInit() KePPCFnInit()
+#define KeArchHaltProcessor() KePPCHaltProcessor()
+#define KeArchInitThreadWithContext(Thread,SystemRoutine,StartRoutine,StartContext,Context) \
+  KePPCInitThreadWithContext(Thread,SystemRoutine,StartRoutine,StartContext,Context)
 
 #endif /* __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H */
 

@@ -10,7 +10,7 @@
 #define NDEBUG
 #include "usbhub.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubCreate(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -23,7 +23,7 @@ UsbhubCreate(
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubClose(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
@@ -36,7 +36,7 @@ UsbhubClose(
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubCleanup(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)

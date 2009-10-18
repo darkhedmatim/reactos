@@ -226,7 +226,7 @@ UsbhubPdoQueryDeviceText(
 	}
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubPnpPdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)

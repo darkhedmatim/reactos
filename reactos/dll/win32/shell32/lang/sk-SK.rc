@@ -1,7 +1,7 @@
 /* TRANSLATOR :  M·rio KaËm·r /Mario Kacmar/ aka Kario (kario@szm.sk)
  * NOTE       :  partially translated
  * TRANSLATED :  26-12-2007
- * LAST CHANGE:  20-09-2009
+ * LAST CHANGE:  18-09-2008
  */   
 
 /*
@@ -161,7 +161,7 @@ BEGIN
 	ICON "", 12297, 7, 11, 18, 20, WS_VISIBLE
 	LTEXT "Zadajte n·zov programu, prieËinka, dokumentu alebo internetovÈho zdroja a systÈm ReactOS ho otvorÌ.", 12289, 36, 11, 182, 18
 	LTEXT "&Otvoriù:", 12305, 7, 39, 24, 10
-	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
 	DEFPUSHBUTTON "OK", IDOK, 36, 63, 59, 14, WS_TABSTOP
 	PUSHBUTTON "Zruöiù", IDCANCEL, 98, 63, 59, 14, WS_TABSTOP
 	PUSHBUTTON "&Prehæad·vaù...", 12288, 160, 63, 59, 14, WS_TABSTOP
@@ -276,33 +276,33 @@ STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "VöeobecnÈ"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-	EDITTEXT 14000, 40, 20, 190, 14, ES_LEFT|WS_BORDER|WS_GROUP
+	EDITTEXT 14001, 40, 20, 190, 14, ES_LEFT|WS_BORDER|WS_GROUP
 	LTEXT "Typ:", -1, 15, 55, 40, 10
-	LTEXT "", 14001, 110, 55, 100, 10
+	LTEXT "", 14002, 110, 55, 100, 10
 
 	LTEXT "SystÈm s˙borov:", -1, 15, 70, 100, 10
-	LTEXT "", 14002, 110, 70, 100, 10
+	LTEXT "", 14003, 110, 70, 100, 10
 
 	CONTROL "", 14013, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 90, 10, 10
 	LTEXT "VyuûitÈ miesto:", -1, 25, 90, 120, 10
-	LTEXT "", 14003, 110, 90, 120, 10
-	LTEXT "", 14004, 200, 90, 40, 10
+	LTEXT "", 14004, 110, 90, 120, 10
+	LTEXT "", 14005, 200, 90, 40, 10
 
 	CONTROL "", 14014, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 105, 10, 10
 	LTEXT "VoænÈ miesto:", -1, 25, 105, 70, 10
-	LTEXT "", 14005, 110, 105, 120, 10
-	LTEXT "", 14006, 200, 105, 40, 10
+	LTEXT "", 14006, 110, 105, 120, 10
+	LTEXT "", 14007, 200, 105, 40, 10
 
 	LTEXT "Kapacita:", -1, 25, 125, 80, 10
-	LTEXT "", 14007, 110, 125, 120, 10
-	LTEXT "", 14008, 200, 125, 40, 10
+	LTEXT "", 14008, 110, 125, 120, 10
+	LTEXT "", 14009, 200, 125, 40, 10
 
 	CONTROL "", 14015, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 20, 140, 200, 20
 
-	LTEXT "Jednotka %s", 14009, 100, 170, 45, 10
-	PUSHBUTTON "&»istenie disku", 14010, 180, 175, 50, 15, WS_TABSTOP
-	CHECKBOX "Uöetriù miesto na disku &kompresiou jednotky", 14011, 10, 205, 180, 10, WS_DISABLED
-	CHECKBOX "&Povoliù indexovanie pre tento disk, a zr˝chliù tak hæadanie s˙borov", 14012, 10, 220, 225, 10, WS_DISABLED
+	LTEXT "Jednotka %s", 14010, 100, 170, 45, 10
+	PUSHBUTTON "&»istenie disku", 14011, 180, 175, 50, 15, WS_TABSTOP
+	CHECKBOX "Uöetriù miesto na disku &kompresiou jednotky", 14012, 15, 205, 180, 10, WS_DISABLED
+	CHECKBOX "&Povoliù indexovanie pre tento disk, a zr˝chliù tak hæadanie s˙borov", 14012, 15, 220, 220, 10, WS_DISABLED
 END
 
 DRIVE_EXTRA_DLG DIALOGEX 0, 0, 240, 230
@@ -421,15 +421,15 @@ STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION
 CAPTION "Typy s˙borov"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-LTEXT "RegistrovanÈ &typy s˙borov:", -1, 7, 10, 70, 10
+LTEXT "Registered file &types:", -1, 7, 10, 70, 10
 CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
-PUSHBUTTON "&Nov˝", 14001, 120, 110, 50, 14, WS_TABSTOP
-PUSHBUTTON "O&dstr·niù", 14002, 180, 110, 50, 14, WS_TABSTOP
-GROUPBOX "Podrobnosti o prÌpone '%s'", 14003, 7, 130, 249, 70 //Details for '%s' extension
+PUSHBUTTON "&New", 14001, 120, 110, 50, 14, WS_TABSTOP
+PUSHBUTTON "&Delete", 14002, 180, 110, 50, 14, WS_TABSTOP
+GROUPBOX "Details for '%s' extension", 14003, 7, 130, 249, 70
 LTEXT "Opens with:", -1, 12, 140, 40, 10
 //ICON
 LTEXT "Appname", 14005, 100, 140, 40, 10
-PUSHBUTTON "&Zmeniù...", 14006, 180, 140, 50, 14, WS_TABSTOP
+PUSHBUTTON "&Change...", 14006, 180, 140, 50, 14, WS_TABSTOP
 LTEXT "Files with extension '%s' are of type '%s'. To\nchange settings that affect all '%s' files, click\nAdvanced.", 14007, 12, 155, 160, 30
 PUSHBUTTON "Ad&vanced", 14008, 180, 175, 50, 14, WS_TABSTOP
 END
@@ -646,7 +646,7 @@ BEGIN
 	IDS_RESTORE                 "&Obnoviù"
 	IDS_FORMATDRIVE             "Form·tovaù..."
 	IDS_RENAME                  "Premenovaù"
-	IDS_INSERT                  "Vloûiù"
+	IDS_INSERT                  "Insert"
 
 	IDS_CREATEFOLDER_DENIED     "Nie je moûnÈ vytvoriù nov˝ prieËinok: PrÌstup zamietnut˝."
 	IDS_CREATEFOLDER_CAPTION    "Chyba poËas vytv·rania novÈho prieËinka"
@@ -725,12 +725,12 @@ BEGIN
 	IDS_OPEN_WITH_FILTER        "SpustiteænÈ s˙bory\0*.exe\0"
 	IDS_DIRECTORY               "PrieËinok"
 	IDS_VIRTUAL_DRIVER          "Virtual Device Driver"
-	IDS_BAT_FILE                "D·vkov˝ s˙bor systÈmu ReactOS"
-	IDS_CMD_FILE                "PrÌkazov˝ skript systÈmu ReactOS"
+	IDS_BAT_FILE                "ReactOS Batch File"
+	IDS_CMD_FILE                "ReactOS Command Script"
 	IDS_COM_FILE                "DOS aplik·cia"
 	IDS_CPL_FILE                "Poloûka ovl·dacieho panela"
 	IDS_CUR_FILE                "Kurzor"
-	IDS_DLL_FILE                "RozöÌrenie aplik·cie"
+	IDS_DLL_FILE                "Application Extension"
 	IDS_DRV_FILE                "Ovl·daË zariadenia"
 	IDS_EXE_FILE                "Aplik·cia"
 	IDS_FON_FILE                "S˙bor pÌsma"
@@ -754,5 +754,4 @@ BEGIN
 	IDS_INSTALLNEWFONT          "&Nainötalovaù novÈ pÌsmo..."
 
 	IDS_DEFAULT_CLUSTER_SIZE    "Predvolen· alokaËn· veækosù" //Default allocation size
-	IDS_COPY_OF                 "KÛpia" //Copy of
 END

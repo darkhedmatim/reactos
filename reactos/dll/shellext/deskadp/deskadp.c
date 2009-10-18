@@ -421,9 +421,9 @@ DisplayAdapterDlgProc(HWND hwndDlg,
             {
                 case PSN_APPLY:
                 {
-                    SetWindowLongPtr(hwndDlg,
-                                     DWL_MSGRESULT,
-                                     ApplyDisplayAdapterChanges(This));
+                    SetWindowLong(hwndDlg,
+                                  DWL_MSGRESULT,
+                                  ApplyDisplayAdapterChanges(This));
                     break;
                 }
 
@@ -610,7 +610,7 @@ IDeskDisplayAdapter_Constructor(REFIID riid,
     return hRet;
 }
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpvReserved)

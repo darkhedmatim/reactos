@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <tchar.h>
 
-size_t _tcsnlen(const _TCHAR * str, size_t count)
+int _tcsnlen(const _TCHAR * str, size_t count)
 {
  const _TCHAR * s;
 

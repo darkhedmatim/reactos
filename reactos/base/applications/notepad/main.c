@@ -91,7 +91,7 @@ static int NOTEPAD_MenuCommand(WPARAM wParam)
     case CMD_ABOUT:            DialogBox(GetModuleHandle(NULL),
                                          MAKEINTRESOURCE(IDD_ABOUTBOX),
                                          Globals.hMainWnd,
-                                         AboutDialogProc);
+                                         (DLGPROC) AboutDialogProc);
                                break;
     case CMD_ABOUT_WINE:       DIALOG_HelpAboutWine(); break;
 
@@ -302,7 +302,6 @@ LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 { 
     switch (msg)
     {
-        case WM_KEYDOWN:
         case WM_KEYUP:
         {
             switch (wParam)

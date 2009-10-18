@@ -29,7 +29,6 @@ _KiDoubleFaultStack:
 /* FUNCTIONS *****************************************************************/
 
 .text
-.globl _KiSystemStartup
 .func KiSystemStartup
 _KiSystemStartup:
 

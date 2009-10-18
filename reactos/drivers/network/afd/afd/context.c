@@ -12,7 +12,7 @@
 #include "tdiconn.h"
 #include "debug.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdGetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp ) {
     NTSTATUS Status = STATUS_INVALID_PARAMETER;
@@ -33,10 +33,10 @@ AfdGetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdSetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp ) {
     PFILE_OBJECT FileObject = IrpSp->FileObject;
@@ -52,7 +52,7 @@ AfdSetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     FCB->Context = ExAllocatePool( PagedPool,
 	                           IrpSp->Parameters.DeviceIoControl.InputBufferLength );
 
-    if( !FCB->Context ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0 );
+    if( !FCB->Context ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0, NULL );
 
     FCB->ContextSize = IrpSp->Parameters.DeviceIoControl.InputBufferLength;
 
@@ -60,5 +60,5 @@ AfdSetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		   IrpSp->Parameters.DeviceIoControl.Type3InputBuffer,
 		   FCB->ContextSize );
 
-    return UnlockAndMaybeComplete( FCB, STATUS_SUCCESS, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, STATUS_SUCCESS, Irp, 0, NULL );
 }

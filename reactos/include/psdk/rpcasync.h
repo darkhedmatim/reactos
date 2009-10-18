@@ -18,10 +18,6 @@
 #ifndef __WINE_RPCASYNC_H
 #define __WINE_RPCASYNC_H
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
-#endif
 
 typedef struct tagRPC_ERROR_ENUM_HANDLE
 {
@@ -189,10 +185,6 @@ RPCRTAPI int        RPC_ENTRY I_RpcExceptionFilter(ULONG);
 
 #ifdef __cplusplus
 }
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(pop)
 #endif
 
 #endif

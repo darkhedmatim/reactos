@@ -308,7 +308,7 @@ GITCF_QueryInterface(LPCLASSFACTORY iface,REFIID riid, LPVOID *ppv)
   if (IsEqualIID(riid,&IID_IUnknown) ||
       IsEqualIID(riid,&IID_IGlobalInterfaceTable))
   {
-    *ppv = iface;
+    *ppv = (LPVOID)iface;
     return S_OK;
   }
   return E_NOINTERFACE;

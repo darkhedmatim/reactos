@@ -256,7 +256,6 @@ LpcRequestWaitReplyPort(IN PVOID PortObject,
         /* FIXME: TODO */
         Semaphore = NULL; // we'd use the Thread Semaphore here
         ASSERT(FALSE);
-        return STATUS_NOT_IMPLEMENTED;
     }
     else
     {
@@ -542,23 +541,26 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
     else
     {
         /* No callback, just copy the message */
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Copy it */
             LpcpMoveMessage(&Message->Request,
                             LpcRequest,
                             LpcRequest + 1,
                             MessageType,
                             &Thread->Cid);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Fail */
+            Status = _SEH_GetExceptionCode();
+        }
+        _SEH_END;
+
+        if (!NT_SUCCESS(Status))
+        {
             LpcpFreeToPortZone(Message, 0);
             ObDereferenceObject(Port);
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            return Status;
         }
-        _SEH2_END;
 
         /* Acquire the LPC lock */
         KeAcquireGuardedMutex(&LpcpLock);
@@ -688,7 +690,7 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
                      (&Message->Request) + 1);
 
             /* Move the message */
-            _SEH2_TRY
+            _SEH_TRY
             {
                 LpcpMoveMessage(LpcReply,
                                 &Message->Request,
@@ -696,11 +698,11 @@ NtRequestWaitReplyPort(IN HANDLE PortHandle,
                                 0,
                                 NULL);
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
 
             /* Check if this is an LPC request with data information */
             if ((LpcpGetMessageType(&Message->Request) == LPC_REQUEST) &&

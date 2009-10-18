@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="msiexec" type="win32gui" installbase="system32" installname="msiexec.exe">
+<module name="msiexec" type="win32gui" installbase="system32" installname="msiexec.exe" allowwarnings="true">
 	<include base="msiexec">.</include>
 	<include base="ReactOS">include/wine</include>
-	<define name="__WINESRC__" />
 	<library>uuid</library>
 	<library>wine</library>
 	<library>ntdll</library>

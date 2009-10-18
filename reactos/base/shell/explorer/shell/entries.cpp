@@ -96,8 +96,6 @@ Entry::Entry(const Entry& other)
  // free a directory entry
 Entry::~Entry()
 {
-	free_subentries();
-
 	if (_icon_id > ICID_NONE)
 		g_Globals._icon_cache.free_icon(_icon_id);
 

@@ -31,11 +31,10 @@ int _tmain(int argc, TCHAR ** argv)
 		return -1;
 	}
 
-	if (_tcsstr(argv[1], "--winetest") && (argc == 3))
+	if (_tcsstr(argv[1], "--winetest") && (argc == 3)) 
 	{
 		char   psBuffer[128];
 		char   psBuffer2[128];
-		char   *nlptr2;
 		char   cmd[255];
 		char   test[300];
 		FILE   *pPipe;
@@ -61,10 +60,9 @@ int _tmain(int argc, TCHAR ** argv)
 					{
 						while(fgets(psBuffer2, 128, pPipe2))
 						{
-							nlptr2 = strchr(psBuffer2, '\n');
+							char *nlptr2 = strchr(psBuffer2, '\n');
 							if (nlptr2)
 								*nlptr2 = '\0';
-							puts(psBuffer2);
 							OutputDebugStringA(psBuffer2);
 						}
 						_pclose(pPipe2);
@@ -74,7 +72,7 @@ int _tmain(int argc, TCHAR ** argv)
 			_pclose(pPipe);
 		}
 	}
-	else if (_tcsstr(argv[1], "--process") && (argc == 3))
+	else if (_tcsstr(argv[1], "--process") && (argc == 3)) 
 	{
 		char   psBuffer[128];
 		FILE   *pPipe;
@@ -84,7 +82,6 @@ int _tmain(int argc, TCHAR ** argv)
 		{
 			while(fgets(psBuffer, 128, pPipe))
 			{
-				puts(psBuffer);
 				OutputDebugStringA(psBuffer);
 			}
 			_pclose(pPipe);
@@ -115,7 +112,6 @@ int _tmain(int argc, TCHAR ** argv)
 			}
 			offset++;
 		}
-		_putts(buf);
 		OutputDebugString(buf);
 		HeapFree(GetProcessHeap(), 0, buf);
 	}

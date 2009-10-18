@@ -27,7 +27,7 @@ GetTraceLoggerHandle(
 )
 {
     DPRINT1("GetTraceLoggerHandle stub()\n");
-    return (TRACEHANDLE)-1;
+    return (TRACEHANDLE)INVALID_HANDLE_VALUE;
 }
 
 

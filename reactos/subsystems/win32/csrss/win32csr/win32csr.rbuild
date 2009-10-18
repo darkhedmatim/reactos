@@ -7,14 +7,16 @@
 	<include base="ReactOS">include/reactos/subsys</include>
 	<include base="ReactOS">include/reactos/drivers</include>
 	<include base="console">.</include>
-	<compilerflag compilerset="gcc">-fms-extensions</compilerflag>
+	<define name="_DISABLE_TIDENTS" />
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>advapi32</library>
-	<library>win32ksys</library>
 	<library>psapi</library>
+	<library>msvcrt</library>
+	<library>psapi</library>
+	<library>shell32</library>
 	<pch>w32csr.h</pch>
 	<file>alias.c</file>
 	<file>conio.c</file>

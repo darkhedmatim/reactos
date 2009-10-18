@@ -49,7 +49,7 @@ KiContinue(IN PCONTEXT Context,
     if (KeGetCurrentIrql() < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
 
     /* Set up SEH to validate the context */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check the previous mode */
         if (PreviousMode != KernelMode)
@@ -69,12 +69,12 @@ KiContinue(IN PCONTEXT Context,
                                  KernelMode);
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Save the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Lower the IRQL if needed */
     if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
@@ -95,13 +95,15 @@ KiRaiseException(IN PEXCEPTION_RECORD ExceptionRecord,
     CONTEXT LocalContext;
     EXCEPTION_RECORD LocalExceptionRecord;
     ULONG ParameterCount, Size;
+    NTSTATUS Status = STATUS_SUCCESS;
 
-    /* Check if we need to probe */
-    if (PreviousMode != KernelMode)
+    /* Set up SEH */
+    _SEH_TRY
     {
-        /* Set up SEH */
-        _SEH2_TRY
+        /* Check the previous mode */
+        if (PreviousMode != KernelMode)
         {
+#if 0
             /* Probe the context */
             ProbeForRead(Context, sizeof(CONTEXT), sizeof(ULONG));
 
@@ -110,13 +112,14 @@ KiRaiseException(IN PEXCEPTION_RECORD ExceptionRecord,
                          FIELD_OFFSET(EXCEPTION_RECORD, NumberParameters) +
                          sizeof(ULONG),
                          sizeof(ULONG));
-
+#endif
             /* Validate the maximum parameters */
             if ((ParameterCount = ExceptionRecord->NumberParameters) >
                 EXCEPTION_MAXIMUM_PARAMETERS)
             {
                 /* Too large */
-                _SEH2_YIELD(return STATUS_INVALID_PARAMETER);
+                Status = STATUS_INVALID_PARAMETER;
+                _SEH_LEAVE;
             }
 
             /* Probe the entire parameters now*/
@@ -133,17 +136,14 @@ KiRaiseException(IN PEXCEPTION_RECORD ExceptionRecord,
             /* Update the parameter count */
             ExceptionRecord->NumberParameters = ParameterCount;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Don't fail silently */
-            DPRINT1("KiRaiseException: Failed to Probe\n");
-            DbgBreakPoint();
-
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
     }
+    _SEH_HANDLE
+    {
+        /* Get the exception code */
+        Status = _SEH_GetExceptionCode();
+    }
+    _SEH_END;
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Convert the context record */
     KeContextToTrapFrame(Context,
@@ -160,8 +160,8 @@ KiRaiseException(IN PEXCEPTION_RECORD ExceptionRecord,
                         PreviousMode,
                         SearchFrames);
 
-    /* We are done */
-    return STATUS_SUCCESS;
+    /* Return the status */
+    return Status;
 }
 
 /* EOF */

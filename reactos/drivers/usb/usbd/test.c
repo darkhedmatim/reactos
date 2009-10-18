@@ -2,7 +2,7 @@
 #include <windows.h>
 #include <usbdi.h>
 
-typedef ULONG NTAPI
+typedef ULONG STDCALL
 (*USBD_GetInterfaceLengthTYPE)(
     PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor,
     PUCHAR BufferEnd

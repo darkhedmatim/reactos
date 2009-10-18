@@ -6,4 +6,5 @@
 	<library>wine</library>
 	<library>kernel32</library>
 	<file>mprapi.c</file>
+	<file>mprapi.spec</file>
 </module>

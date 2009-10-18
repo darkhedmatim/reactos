@@ -4,6 +4,8 @@
 MUI_LAYOUTS enUSLayouts[] =
 {
     { L"0409", L"00000409" },
+    { L"0410", L"00000410" },
+    { L"040A", L"0000040A" },
     { NULL, NULL }
 };
 
@@ -1345,7 +1347,7 @@ MUI_ERROR enUSErrorEntries[] =
           "\n"
           "Creating or deleting partitions can destroy the partition table.\n"
           "\n"
-          "  \x07  Press F3 to quit Setup.\n"
+          "  \x07  Press F3 to quit Setup."
           "  \x07  Press ENTER to continue.",
           "F3= Quit  ENTER = Continue"
     },
@@ -1473,15 +1475,11 @@ MUI_ERROR enUSErrorEntries[] =
         "ENTER = Reboot computer"
     },
     {
-        //ERROR_UPDATE_GEOID,
-        "Setup could not set the geo id.\n"
-        "ENTER = Reboot computer"
-    },
-    {
         NULL,
         NULL
     }
 };
+
 
 MUI_PAGE enUSPages[] =
 {

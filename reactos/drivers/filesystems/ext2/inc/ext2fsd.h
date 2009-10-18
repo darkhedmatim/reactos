@@ -31,8 +31,23 @@
 //	Some type definitions...
 //	These are used later...
 
-typedef unsigned int    UINT;
-typedef unsigned char   BYTE;
+typedef unsigned char	UCHAR;
+typedef unsigned int	UINT;
+typedef UCHAR			BYTE;
+typedef UCHAR			BOOLEAN;        // winnt
+typedef BOOLEAN *		PBOOLEAN;       // winnt
+typedef void *			PVOID64;		// winnt
+typedef long			LONG;
+typedef LONG			HRESULT;
+
+
+#if defined(_M_IX86)
+#define FASTCALL _fastcall
+#else
+#define FASTCALL
+#endif
+
+
 
 // Common include files - should be in the include dir of the MS supplied IFS Kit
 #include	<ntifs.h>
@@ -115,8 +130,9 @@ extern Ext2Data				Ext2GlobalData;
 }
 
 #ifdef EXT2_POOL_WITH_TAG
+	#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 	#define Ext2AllocatePool(PoolType,NumberOfBytes)	\
-		ExAllocatePoolWithTag( PoolType, NumberOfBytes, '2txE' ) 
+		ExAllocatePoolWithTag( PoolType, NumberOfBytes, TAG ( 'E','x','t','2' ) ) 
 #else
 	#define Ext2AllocatePool(PoolType,NumberOfBytes)	\
 		ExAllocatePool( PoolType, NumberOfBytes ) 
@@ -157,7 +173,7 @@ extern Ext2Data				Ext2GlobalData;
 //
 //	The permitted DebugTrace types...
 //
-#define PERMITTED_DEBUG_TRACE_TYPES		DEBUG_TRACE_NONE
+#define PERMITTED_DEBUG_TRACE_TYPES		/* DEBUG_TRACE_TRIPLE */ DEBUG_TRACE_ALL
 /*
 #define PERMITTED_DEBUG_TRACE_TYPES		DEBUG_TRACE_ERROR | DEBUG_TRACE_IRP_ENTRY |		\
 										DEBUG_TRACE_FILE_NAME |	DEBUG_TRACE_SPECIAL	|	\

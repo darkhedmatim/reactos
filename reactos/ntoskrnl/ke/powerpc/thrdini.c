@@ -50,11 +50,11 @@ typedef struct _KKINIT_FRAME
 
 VOID
 NTAPI
-KiInitializeContextThread(IN PKTHREAD Thread,
-                          IN PKSYSTEM_ROUTINE SystemRoutine,
-                          IN PKSTART_ROUTINE StartRoutine,
-                          IN PVOID StartContext,
-                          IN PCONTEXT ContextPointer)
+KePPCInitThreadWithContext(IN PKTHREAD Thread,
+                           IN PKSYSTEM_ROUTINE SystemRoutine,
+                           IN PKSTART_ROUTINE StartRoutine,
+                           IN PVOID StartContext,
+                           IN PCONTEXT ContextPointer)
 {
     PFX_SAVE_AREA FxSaveArea;
     PKSTART_FRAME StartFrame;
@@ -181,7 +181,7 @@ KiInitializeContextThread(IN PKTHREAD Thread,
     /* And set up the Context Switch Frame */
     CtxSwitchFrame->RetAddr = KiThreadStartup;
     CtxSwitchFrame->ApcBypassDisable = TRUE;
-    CtxSwitchFrame->ExceptionList = EXCEPTION_CHAIN_END;
+    CtxSwitchFrame->ExceptionList = EXCEPTION_CHAIN_END;;
 
     /* Save back the new value of the kernel stack. */
     Thread->KernelStack = (PVOID)CtxSwitchFrame;

@@ -711,7 +711,6 @@ const struct sbcs_table cptable_864 =
 {
     { 864, 1, 0x003f, 0x003f, "OEM Arabic" },
     cp2uni,
-    cp2uni,
     uni2cp_low,
     uni2cp_high
 };

@@ -140,7 +140,7 @@ BOOLEAN						FirstAttempt )
 			{
 				DebugTrace( DEBUG_TRACE_FILE_OBJ, "###### File Pointer 0x%LX [Cleanup]", PtrFileObject);
 			}
-			try_return();
+			try_return( RC );
 		}
 		
 
@@ -345,7 +345,7 @@ BOOLEAN						FirstAttempt )
 			CompleteIrp = TRUE;
 		}
 		
-		try_return();
+		try_return( RC );
 
 		try_exit:	NOTHING;
 

@@ -179,7 +179,7 @@ _tWinMain(HINSTANCE hInst,
   rcRightPanel.left = rcLeftPanel.right;
   rcRightPanel.right = ulInnerWidth - 1;
 
-  if (!LoadString(hInstance, (UINT_PTR)MAKEINTRESOURCE(IDS_APPTITLE), szAppTitle, 80))
+  if (!LoadString(hInstance, (UINT)MAKEINTRESOURCE(IDS_APPTITLE), szAppTitle, 80))
     _tcscpy(szAppTitle, TEXT("ReactOS Welcome"));
 
   /* Create main window */
@@ -222,7 +222,7 @@ ButtonSubclassWndProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
   if (uMsg == WM_MOUSEMOVE)
     {
-      i = GetWindowLongPtr(hWnd, GWL_ID);
+      i = GetWindowLong(hWnd, GWL_ID);
       if (nTopic != i)
 	{
 	  nTopic = i;
@@ -386,7 +386,7 @@ OnCreate(HWND hWnd, WPARAM wParam, LPARAM lParam)
 					    rcLeftPanel.right - rcLeftPanel.left,
 					    dwHeight,
 					    hWnd,
-					    (HMENU)IntToPtr(i),
+					    (HMENU)i,
 					    hInstance,
 					    NULL);
 	  hwndDefaultTopic = hwndTopicButton[i];

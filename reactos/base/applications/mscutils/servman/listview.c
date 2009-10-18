@@ -14,13 +14,13 @@ VOID
 SetListViewStyle(HWND hListView,
                  DWORD View)
 {
-    DWORD Style = GetWindowLongPtr(hListView, GWL_STYLE);
+    DWORD Style = GetWindowLong(hListView, GWL_STYLE);
 
     if ((Style & LVS_TYPEMASK) != View)
     {
-        SetWindowLongPtr(hListView,
-                         GWL_STYLE,
-                         (Style & ~LVS_TYPEMASK) | View);
+        SetWindowLong(hListView,
+                      GWL_STYLE,
+                      (Style & ~LVS_TYPEMASK) | View);
     }
 }
 
@@ -174,14 +174,11 @@ ChangeListViewText(PMAIN_WND_INFO Info,
 
                 lpServiceConfig = GetServiceConfig(pService->lpServiceName);
 
-                if (lpServiceConfig)
+                switch (lpServiceConfig->dwStartType)
                 {
-                    switch (lpServiceConfig->dwStartType)
-                    {
-                        case 2: StringId = IDS_SERVICES_AUTO; break;
-                        case 3: StringId = IDS_SERVICES_MAN; break;
-                        case 4: StringId = IDS_SERVICES_DIS; break;
-                    }
+                    case 2: StringId = IDS_SERVICES_AUTO; break;
+                    case 3: StringId = IDS_SERVICES_MAN; break;
+                    case 4: StringId = IDS_SERVICES_DIS; break;
                 }
 
                 if (StringId)

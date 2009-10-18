@@ -87,7 +87,6 @@ INT cmd_move (LPTSTR param)
 {
 	LPTSTR *arg;
 	INT argc, i, nFiles;
-	LPTSTR pszDest;
 	TCHAR szDestPath[MAX_PATH];
 	TCHAR szFullDestPath[MAX_PATH];
 	TCHAR szSrcDirPath[MAX_PATH];
@@ -138,69 +137,74 @@ INT cmd_move (LPTSTR param)
 	}
 
 	nErrorLevel = 0;
-	arg = splitspace(param, &argc);
+	arg = split (param, &argc, FALSE);
+	nFiles = argc;
 
 	/* read options */
 	for (i = 0; i < argc; i++)
 	{
-		if (!_tcsicmp(arg[i], _T("/N")))
-			dwFlags |= MOVE_NOTHING;
-		else if (!_tcsicmp(arg[i], _T("/Y")))
-			dwFlags |= MOVE_OVER_YES;
-		else if (!_tcsicmp(arg[i], _T("/-Y")))
-			dwFlags |= MOVE_OVER_NO;
-		else
-			break;
+		if (*arg[i] == _T('/'))
+		{
+			if (_tcslen(arg[i]) >= 2)
+			{
+				switch (_totupper(arg[i][1]))
+				{
+				case _T('N'):
+					dwFlags |= MOVE_NOTHING;
+					break;
+				
+				case _T('Y'):
+					dwFlags |= MOVE_OVER_YES;
+					break;
+				
+				case _T('-'):
+					dwFlags |= MOVE_OVER_NO;
+					break;
+				}
+			}
+			nFiles--;
+		}
 	}
-	nFiles = argc - i;
-
-	if (nFiles < 1)
+	
+	if (nFiles < 2)
 	{
-		/* there must be at least one pathspec */
-		error_req_param_missing();
-		freep(arg);
+		/* there must be at least two pathspecs */
+		error_req_param_missing ();
 		return 1;
 	}
-
-	if (nFiles > 2)
-	{
-		/* there are more than two pathspecs */
-		error_too_many_parameters(param);
-		freep(arg);
-		return 1;
-	}
-
-	/* If no destination is given, default to current directory */
-	pszDest = (nFiles == 1) ? _T(".") : arg[i + 1];
-
+	
 	/* check for wildcards in source and destination */
-	if (_tcschr(pszDest, _T('*')) != NULL || _tcschr(pszDest, _T('?')) != NULL)
+	if (_tcschr (arg[argc - 1], _T('*')) != NULL || _tcschr (arg[argc - 1], _T('?')) != NULL)
 	{
 		/* '*'/'?' in dest, this doesnt happen.  give folder name instead*/
-		error_invalid_parameter_format(pszDest);
-		freep(arg);
+		error_invalid_parameter_format(arg[argc - 1]);
 		return 1;
 	}
-	if (_tcschr(arg[i], _T('*')) != NULL || _tcschr(arg[i], _T('?')) != NULL)
+	if (_tcschr (arg[argc - 2], _T('*')) != NULL || _tcschr (arg[argc - 2], _T('?')) != NULL)
 	{
 		dwMoveStatusFlags |= MOVE_SOURCE_HAS_WILD;
 	}
 	
 	
 	/* get destination */
-	GetFullPathName (pszDest, MAX_PATH, szDestPath, NULL);
+	GetFullPathName (arg[argc - 1], MAX_PATH, szDestPath, NULL);
 	TRACE ("Destination: %s\n", debugstr_aw(szDestPath));
 	
 	/* get source folder */
-	GetFullPathName(arg[i], MAX_PATH, szSrcDirPath, &pszFile);
-	if (pszFile != NULL)
-		*pszFile = _T('\0');
+	GetDirectory(arg[argc - 2], szSrcDirPath, 1);
+	GetFullPathName(szSrcDirPath, MAX_PATH, szSrcPath, &pszFile);
+	_tcscpy(szSrcDirPath,szSrcPath);
+	/* we need following check to see if source happens to be directly given directory
+	and if it is then rip off last directory part so that there won't be any clashes with codes after this point */
+	GetFullPathName(arg[argc - 2], MAX_PATH, szSrcPath, &pszFile);
+	if (_tcscmp(szSrcDirPath,szSrcPath) == 0)
+		szSrcDirPath[pszFile - szSrcPath] = _T('\0');
 	TRACE ("Source Folder: %s\n", debugstr_aw(szSrcDirPath));
 	
-	hFile = FindFirstFile (arg[i], &findBuffer);
+	hFile = FindFirstFile (arg[argc - 2], &findBuffer);
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-		ErrorMessage (GetLastError (), arg[i]);
+		ErrorMessage (GetLastError (), arg[argc - 2]);
 		freep (arg);
 		return 1;
 		
@@ -223,14 +227,22 @@ INT cmd_move (LPTSTR param)
 	}
 	
 	OnlyOneFile = TRUE;
+	_tcscpy(szSrcPath,szSrcDirPath);
+	/*check to see if there is an ending slash, if not add one*/
+	if(szSrcPath[_tcslen(szSrcPath) -  1] != _T('\\'))
+		_tcscat (szSrcPath, _T("\\"));
+	_tcscat(szSrcPath,findBuffer.cFileName);
+	TRACE ("Source Path: %s\n", debugstr_aw(szSrcPath));
 	/* check if there can be found files as files have first priority */
-	if (findBuffer.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-		dwMoveStatusFlags |= MOVE_SOURCE_IS_DIR;
-	else
-		dwMoveStatusFlags |= MOVE_SOURCE_IS_FILE;
+	if (IsExistingFile(szSrcPath)) dwMoveStatusFlags |= MOVE_SOURCE_IS_FILE;
+	else dwMoveStatusFlags |= MOVE_SOURCE_IS_DIR;
 	while(OnlyOneFile && FindNextFile(hFile,&findBuffer))
 	{
-		if (!(findBuffer.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+		_tcscpy(szSrcPath,szSrcDirPath);
+		if(szSrcPath[_tcslen(szSrcPath) -  1] != _T('\\'))
+			_tcscat (szSrcPath, _T("\\"));
+		_tcscat(szSrcPath,findBuffer.cFileName);
+		if (IsExistingFile(szSrcPath))
 		{
 			ConOutPrintf(_T(""));
 			if (dwMoveStatusFlags & MOVE_SOURCE_IS_FILE) OnlyOneFile = FALSE;
@@ -246,10 +258,10 @@ INT cmd_move (LPTSTR param)
 	TRACE ("Do we have only one file: %s\n", OnlyOneFile ? "TRUE" : "FALSE");
 
 	/* we have to start again to be sure we don't miss any files or folders*/
-	hFile = FindFirstFile (arg[i], &findBuffer);
+	hFile = FindFirstFile (arg[argc - 2], &findBuffer);
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-		ErrorMessage (GetLastError (), arg[i]);
+		ErrorMessage (GetLastError (), arg[argc - 2]);
 		freep (arg);
 		return 1;
 		
@@ -272,7 +284,7 @@ INT cmd_move (LPTSTR param)
 	}
 	
 	/* check if source and destination paths are on different volumes */
-	if (szSrcDirPath[0] != szDestPath[0])
+	if (szSrcPath[0] != szDestPath[0])
 		dwMoveStatusFlags |= MOVE_PATHS_ON_DIF_VOL;
 	
 	/* move it */
@@ -366,7 +378,7 @@ INT cmd_move (LPTSTR param)
 			!OnlyOneFile)
 		{
 			/*source has many files but there is only one destination file*/
-			error_invalid_parameter_format(pszDest);
+			error_invalid_parameter_format(arg[argc - 1]);
 			FindClose(hFile);
 			freep (arg);
 			return 1;

@@ -2,7 +2,7 @@
  //
  // XML storage C++ classes version 1.3
  //
- // Copyright (c) 2004, 2005, 2006, 2007, 2008, 2009 Martin Fuchs <martin-fuchs@gmx.net>
+ // Copyright (c) 2004, 2005, 2006, 2007, 2008 Martin Fuchs <martin-fuchs@gmx.net>
  //
 
  /// \file xmlstorage.cpp
@@ -37,13 +37,12 @@
 
 */
 
-#include <precomp.h>
-
 #ifndef XS_NO_COMMENT
-#define XS_NO_COMMENT	// no #pragma comment(lib, ...) statements in .lib files to enable static linking
+#define XS_NO_COMMENT	// no #pragma comment(lib, ...) statements in .lib files
 #endif
 
 //#include "xmlstorage.h"
+#include <precomp.h>
 
 
 namespace XMLStorage {
@@ -281,17 +280,15 @@ XMLNode* XMLNode::create_relative(const XPath& xpath)
 	XMLNode* node = this;
 
 	for(XPath::const_iterator it=xpath.begin(); it!=xpath.end(); ++it) {
-		XMLNode* child = it->find(node);
+		XMLNode* child = it->find(this);
 
 		if (!child) {
 			child = new XMLNode(it->_child_name);
-			node->add_child(child);
+			add_child(child);
 
 			if (!it->_attr_name.empty())
 				(*this)[it->_attr_name] = it->_attr_value;
 		}
-
-		node = child;
 	}
 
 	return node;
@@ -305,14 +302,13 @@ int XMLNode::count(XPath::const_iterator from, const XPath::const_iterator& to) 
 	int n = 0;
 
 	for(XMLNode::Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
-		if (elem.matches(**it, n)) {
+		if (elem.matches(**it, n))
 			if (from != to)
 				 // iterate deeper
 				cnt += (*it)->count(from, to);
 			else
 				 // increment match counter
 				++cnt;
-		}
 
 	return cnt;
 }
@@ -378,7 +374,7 @@ std::string EncodeXMLString(const XS_String& str, bool cdata)
 
 	if (cdata) {
 		 // encode the whole string in a CDATA section
-		std::string ret = CDATA_START;
+		std::string ret = "<![CDATA[";
 
 #ifdef XS_STRING_UTF8
 		ret += str;
@@ -386,7 +382,7 @@ std::string EncodeXMLString(const XS_String& str, bool cdata)
 		ret += get_utf8(str);
 #endif
 
-		ret += CDATA_END;
+		ret += "]]>";
 
 		return ret;
 	} else if (l <= BUFFER_LEN) {
@@ -475,16 +471,9 @@ std::string EncodeXMLString(const XS_String& str, bool cdata)
 }
 
  /// decode XML string literals
-XS_String DecodeXMLString(const std::string& str)
+XS_String DecodeXMLString(const XS_String& str)
 {
-#ifdef XS_STRING_UTF8
-	const XS_String& str_utf8 = str;
-#else
-	XS_String str_utf8;
-	assign_utf8(str_utf8, str.c_str(), str.length());
-#endif
-
-	LPCXSSTR s = str_utf8.c_str();
+	LPCXSSTR s = str.c_str();
 	LPXSSTR buffer = (LPXSSTR)alloca(sizeof(XS_CHAR)*XS_len(s));
 	LPXSSTR o = buffer;
 
@@ -508,7 +497,7 @@ XS_String DecodeXMLString(const std::string& str)
 			} else	//@@ maybe decode "&#xx;" special characters
 				*o++ = *p;
 		} else if (*p=='<' && !XS_nicmp(p+1,XS_TEXT("![CDATA["),8)) {
-			LPCXSSTR e = XS_strstr(p+9, XS_TEXT(CDATA_END));
+			LPCXSSTR e = XS_strstr(p+9, XS_TEXT("]]>"));
 			if (e) {
 				p += 9;
 				size_t l = e - p;
@@ -525,7 +514,7 @@ XS_String DecodeXMLString(const std::string& str)
 
 
  /// write node with children tree to output stream using original white space
-void XMLNode::original_write_worker(std::ostream& out) const
+void XMLNode::write_worker(std::ostream& out) const
 {
 	out << _leading << '<' << EncodeXMLString(*this);
 
@@ -533,15 +522,10 @@ void XMLNode::original_write_worker(std::ostream& out) const
 		out << ' ' << EncodeXMLString(it->first) << "=\"" << EncodeXMLString(it->second) << "\"";
 
 	if (!_children.empty() || !_content.empty()) {
-		out << '>';
-
-		if (_cdata_content)
-			out << CDATA_START << _content << CDATA_END;
-		else
-			out << _content;
+		out << '>' << _content;
 
 		for(Children::const_iterator it=_children.begin(); it!=_children.end(); ++it)
-			(*it)->original_write_worker(out);
+			(*it)->write_worker(out);
 
 		out << _end_leading << "</" << EncodeXMLString(*this) << '>';
 	} else
@@ -635,9 +619,7 @@ void XMLNode::smart_write_worker(std::ostream& out, const XMLFormat& format, int
 	else {
 		out << '>';
 
-		if (_cdata_content)
-			out << CDATA_START << _content << CDATA_END;
-		else if (!*content)
+		if (!*content)
 			out << format._endl;
 		else
 			out << content;
@@ -864,7 +846,7 @@ void XMLReaderBase::StartElementHandler(const XS_String& name, const XMLNode::At
 		if (!isspace((unsigned char)p[-1]))
 			break;
 
-	if (p != s) {
+	if (p != s)
 		if (_pos->_children.empty()) {	// no children in last node?
 			if (_last_tag == TAG_START)
 				_pos->_content.append(s, p-s);
@@ -874,7 +856,6 @@ void XMLReaderBase::StartElementHandler(const XS_String& name, const XMLNode::At
 				p = s;
 		} else
 			_pos->_children.back()->_trailing.append(s, p-s);
-	}
 
 	std::string leading;
 
@@ -902,28 +883,23 @@ void XMLReaderBase::EndElementHandler()
 	const char* e = s + _content.length();
 	const char* p;
 
-	if (!strncmp(s,CDATA_START,9) && !strncmp(e-3,CDATA_END,3)) {
+	if (!strncmp(s,"<![CDATA[",9) && !strncmp(e-3,"]]>",3)) {
 		s += 9;
 		p = (e-=3);
-
-		_pos->_cdata_content = true;
 	} else {
 		 // search for content end leaving only white space for _end_leading
 		for(p=e; p>s; --p)
 			if (!isspace((unsigned char)p[-1]))
 				break;
-
-		_pos->_cdata_content = false;
 	}
 
-	if (p != s) {
+	if (p != s)
 		if (_pos->_children.empty())	// no children in current node?
 			_pos->_content.append(s, p-s);
 		else if (_last_tag == TAG_START)
 			_pos->_content.append(s, p-s);
 		else
 			_pos->_children.back()->_trailing.append(s, p-s);
-	}
 
 	if (p != e)
 		_pos->_end_leading.assign(p, e-p);
@@ -992,10 +968,9 @@ void XMLWriter::write_pre(StackEntry& entry)
 	if (_format._pretty >= PRETTY_LINEFEED)
 		_out << _format._endl;
 
-	if (_format._pretty == PRETTY_INDENT) {
+	if (_format._pretty == PRETTY_INDENT)
 		for(size_t i=_stack.size(); --i>0; )
 			_out << XML_INDENT_SPACE;
-	}
 
 	_out << '<' << EncodeXMLString(entry._node_name);
 	//entry._state = PRE;
@@ -1024,10 +999,9 @@ void XMLWriter::write_post(StackEntry& entry)
 		if (_format._pretty>=PRETTY_LINEFEED && entry._content.empty())
 			_out << _format._endl;
 
-		if (_format._pretty==PRETTY_INDENT && entry._content.empty()) {
+		if (_format._pretty==PRETTY_INDENT && entry._content.empty())
 			for(size_t i=_stack.size(); --i>0; )
 				_out << XML_INDENT_SPACE;
-		}
 
 		_out << "</" << EncodeXMLString(entry._node_name) << ">";
 	} else {

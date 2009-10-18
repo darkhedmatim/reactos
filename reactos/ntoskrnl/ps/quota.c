@@ -108,7 +108,7 @@ PsInitializeQuotaSystem(VOID)
 }
 
 VOID
-NTAPI
+STDCALL
 PspInheritQuota(PEPROCESS Process, PEPROCESS ParentProcess)
 {
     if (ParentProcess != NULL)
@@ -126,7 +126,7 @@ PspInheritQuota(PEPROCESS Process, PEPROCESS ParentProcess)
 }
 
 VOID
-NTAPI
+STDCALL
 PspDestroyQuotaBlock(PEPROCESS Process)
 {
     PEPROCESS_QUOTA_BLOCK QuotaBlock = Process->QuotaBlock;
@@ -159,7 +159,7 @@ PsChargeProcessPageFileQuota(IN PEPROCESS Process,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 PsChargePoolQuota(IN PEPROCESS Process,
                   IN POOL_TYPE PoolType,
                   IN SIZE_T Amount)
@@ -184,7 +184,7 @@ PsChargePoolQuota(IN PEPROCESS Process,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PsChargeProcessNonPagedPoolQuota(IN PEPROCESS Process,
                                  IN SIZE_T Amount)
 {
@@ -196,7 +196,7 @@ PsChargeProcessNonPagedPoolQuota(IN PEPROCESS Process,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PsChargeProcessPagedPoolQuota(IN PEPROCESS Process,
                               IN SIZE_T Amount)
 {
@@ -208,7 +208,7 @@ PsChargeProcessPagedPoolQuota(IN PEPROCESS Process,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 PsChargeProcessPoolQuota(IN PEPROCESS Process,
                          IN POOL_TYPE PoolType,
                          IN SIZE_T Amount)
@@ -230,7 +230,7 @@ PsChargeProcessPoolQuota(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsReturnPoolQuota(IN PEPROCESS Process,
                   IN POOL_TYPE PoolType,
                   IN SIZE_T Amount)
@@ -257,7 +257,7 @@ PsReturnPoolQuota(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsReturnProcessNonPagedPoolQuota(IN PEPROCESS Process,
                                  IN SIZE_T Amount)
 {
@@ -275,7 +275,7 @@ PsReturnProcessNonPagedPoolQuota(IN PEPROCESS Process,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsReturnProcessPagedPoolQuota(IN PEPROCESS Process,
                               IN SIZE_T Amount)
 {

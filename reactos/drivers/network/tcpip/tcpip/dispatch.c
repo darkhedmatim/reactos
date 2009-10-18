@@ -10,7 +10,7 @@
  */
 
 #include "precomp.h"
-#include <pseh/pseh2.h>
+#include <pseh/pseh.h>
 
 NTSTATUS DispPrepareIrpForCancel(
     PTRANSPORT_CONTEXT Context,
@@ -27,17 +27,12 @@ NTSTATUS DispPrepareIrpForCancel(
  */
 {
     KIRQL OldIrql;
-    PIO_STACK_LOCATION IrpSp;
-    PTRANSPORT_CONTEXT TransContext;
 
     TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
-    IrpSp       = IoGetCurrentIrpStackLocation(Irp);
-    TransContext = (PTRANSPORT_CONTEXT)IrpSp->FileObject->FsContext;
-
     IoAcquireCancelSpinLock(&OldIrql);
 
-    if (!Irp->Cancel && !TransContext->CancelIrps) {
+    if (!Irp->Cancel) {
         (void)IoSetCancelRoutine(Irp, CancelRoutine);
         IoReleaseCancelSpinLock(OldIrql);
 
@@ -86,6 +81,15 @@ VOID DispDataRequestComplete(
 
     (void)IoSetCancelRoutine(Irp, NULL);
 
+    if (Irp->Cancel || TranContext->CancelIrps) {
+        /* The IRP has been cancelled */
+
+        TI_DbgPrint(DEBUG_IRP, ("IRP is cancelled.\n"));
+
+        Status = STATUS_CANCELLED;
+        Count  = 0;
+    }
+
     IoReleaseCancelSpinLock(OldIrql);
 
     Irp->IoStatus.Status      = Status;
@@ -97,16 +101,22 @@ VOID DispDataRequestComplete(
 			    Irp->IoStatus.Information));
     TI_DbgPrint(DEBUG_IRP, ("Completing IRP at (0x%X).\n", Irp));
 
-    IRPFinish(Irp, Status);
+    IRPFinish(Irp, Irp->IoStatus.Status);
 
     TI_DbgPrint(DEBUG_IRP, ("Done Completing IRP\n"));
 }
+
+typedef struct _DISCONNECT_TYPE {
+    UINT Type;
+    PVOID Context;
+    PIRP Irp;
+    PFILE_OBJECT FileObject;
+} DISCONNECT_TYPE, *PDISCONNECT_TYPE;
 
 VOID DispDoDisconnect( PVOID Data ) {
     PDISCONNECT_TYPE DisType = (PDISCONNECT_TYPE)Data;
 
     TI_DbgPrint(DEBUG_IRP, ("PostCancel: DoDisconnect\n"));
-    TcpipRecursiveMutexEnter(&TCPLock, TRUE);
     TCPDisconnect
 	( DisType->Context,
 	  DisType->Type,
@@ -114,12 +124,9 @@ VOID DispDoDisconnect( PVOID Data ) {
 	  NULL,
 	  DispDataRequestComplete,
 	  DisType->Irp );
-    TcpipRecursiveMutexLeave(&TCPLock);
     TI_DbgPrint(DEBUG_IRP, ("PostCancel: DoDisconnect done\n"));
 
     DispDataRequestComplete(DisType->Irp, STATUS_CANCELLED, 0);
-
-    exFreePool(DisType);
 }
 
 VOID NTAPI DispCancelRequest(
@@ -136,7 +143,9 @@ VOID NTAPI DispCancelRequest(
     PTRANSPORT_CONTEXT TranContext;
     PFILE_OBJECT FileObject;
     UCHAR MinorFunction;
-    PDISCONNECT_TYPE DisType;
+    DISCONNECT_TYPE DisType;
+    PVOID WorkItem;
+    /*NTSTATUS Status = STATUS_SUCCESS;*/
 
     TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
@@ -150,7 +159,7 @@ VOID NTAPI DispCancelRequest(
     Irp->IoStatus.Status = STATUS_CANCELLED;
     Irp->IoStatus.Information = 0;
 
-#if DBG
+#ifdef DBG
     if (!Irp->Cancel)
         TI_DbgPrint(MIN_TRACE, ("Irp->Cancel is FALSE, should be TRUE.\n"));
 #endif
@@ -159,19 +168,17 @@ VOID NTAPI DispCancelRequest(
     switch(MinorFunction) {
     case TDI_SEND:
     case TDI_RECEIVE:
-        DisType = exAllocatePool(NonPagedPool, sizeof(DISCONNECT_TYPE));
-        if (DisType)
-        {
-	    DisType->Type = TDI_DISCONNECT_RELEASE |
-	       ((MinorFunction == TDI_RECEIVE) ? TDI_DISCONNECT_ABORT : 0);
-	    DisType->Context = TranContext->Handle.ConnectionContext;
-	    DisType->Irp = Irp;
+	DisType.Type = TDI_DISCONNECT_RELEASE |
+	    ((MinorFunction == TDI_RECEIVE) ? TDI_DISCONNECT_ABORT : 0);
+	DisType.Context = TranContext->Handle.ConnectionContext;
+	DisType.Irp = Irp;
+	DisType.FileObject = FileObject;
 
-	    TCPRemoveIRP( TranContext->Handle.ConnectionContext, Irp );
+	TCPRemoveIRP( TranContext->Handle.ConnectionContext, Irp );
 
-            if (!ChewCreate(DispDoDisconnect, DisType))
-                exFreePool(DisType);
-        }
+	if( !ChewCreate( &WorkItem, sizeof(DISCONNECT_TYPE),
+			 DispDoDisconnect, &DisType ) )
+	    ASSERT(0);
 
 	IoReleaseCancelSpinLock(Irp->CancelIrql);
         return;
@@ -181,8 +188,6 @@ VOID NTAPI DispCancelRequest(
             TI_DbgPrint(MIN_TRACE, ("TDI_SEND_DATAGRAM, but no address file.\n"));
             break;
         }
-
-        DGRemoveIRP(TranContext->Handle.AddressHandle, Irp);
         break;
 
     case TDI_RECEIVE_DATAGRAM:
@@ -194,17 +199,13 @@ VOID NTAPI DispCancelRequest(
         DGRemoveIRP(TranContext->Handle.AddressHandle, Irp);
         break;
 
-    case TDI_CONNECT:
-        TCPRemoveIRP(TranContext->Handle.ConnectionContext, Irp);
-        break;
-
     default:
         TI_DbgPrint(MIN_TRACE, ("Unknown IRP. MinorFunction (0x%X).\n", MinorFunction));
         break;
     }
 
     IoReleaseCancelSpinLock(Irp->CancelIrql);
-    IRPFinish(Irp, STATUS_CANCELLED);
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
     TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
@@ -235,24 +236,20 @@ VOID NTAPI DispCancelListenRequest(
 
     TI_DbgPrint(DEBUG_IRP, ("IRP at (0x%X).\n", Irp));
 
-#if DBG
+#ifdef DBG
     if (!Irp->Cancel)
         TI_DbgPrint(MIN_TRACE, ("Irp->Cancel is FALSE, should be TRUE.\n"));
 #endif
 
     /* Try canceling the request */
     Connection = (PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
-
-    TCPRemoveIRP(Connection, Irp);
-
     TCPAbortListenForSocket(
 	    Connection->AddressFile->Listener,
 	    Connection );
 
     IoReleaseCancelSpinLock(Irp->CancelIrql);
 
-    Irp->IoStatus.Information = 0;
-    IRPFinish(Irp, STATUS_CANCELLED);
+    DispDataRequestComplete(Irp, STATUS_CANCELLED, 0);
 
     TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
@@ -392,39 +389,33 @@ NTSTATUS DispTdiConnect(
   TranContext = IrpSp->FileObject->FsContext;
   if (!TranContext) {
     TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
   Connection = (PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
   if (!Connection) {
     TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
   Parameters = (PTDI_REQUEST_KERNEL)&IrpSp->Parameters;
 
-  Status = DispPrepareIrpForCancel(TranContext->Handle.ConnectionContext,
-                                   Irp,
-                                   DispCancelRequest);
-
-  if (NT_SUCCESS(Status)) {
-      Status = TCPConnect(
-          TranContext->Handle.ConnectionContext,
-          Parameters->RequestConnectionInformation,
-          Parameters->ReturnConnectionInformation,
-          DispDataRequestComplete,
-          Irp );
-  }
+  Status = TCPConnect(
+      TranContext->Handle.ConnectionContext,
+      Parameters->RequestConnectionInformation,
+      Parameters->ReturnConnectionInformation,
+      DispDataRequestComplete,
+      Irp );
 
 done:
-  TcpipRecursiveMutexLeave( &TCPLock );
-
   if (Status != STATUS_PENDING) {
       DispDataRequestComplete(Irp, Status, 0);
   } else
       IoMarkIrpPending(Irp);
+
+  TcpipRecursiveMutexLeave( &TCPLock );
 
   TI_DbgPrint(MAX_TRACE, ("TCP Connect returned %08x\n", Status));
 
@@ -469,12 +460,6 @@ NTSTATUS DispTdiDisassociateAddress(
     return STATUS_INVALID_PARAMETER;
   }
 
-  /* Remove this connection from the address file */
-  Connection->AddressFile->Connection = NULL;
-
-  /* Remove the address file from this connection */
-  Connection->AddressFile = NULL;
-
   return STATUS_SUCCESS;
 }
 
@@ -507,14 +492,14 @@ NTSTATUS DispTdiDisconnect(
   TranContext = IrpSp->FileObject->FsContext;
   if (!TranContext) {
     TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
   Connection = (PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
   if (!Connection) {
     TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-    Status = STATUS_INVALID_PARAMETER;
+    Status = STATUS_INVALID_CONNECTION;
     goto done;
   }
 
@@ -527,12 +512,12 @@ NTSTATUS DispTdiDisconnect(
       Irp );
 
 done:
-   TcpipRecursiveMutexLeave( &TCPLock );
-
    if (Status != STATUS_PENDING) {
        DispDataRequestComplete(Irp, Status, 0);
    } else
        IoMarkIrpPending(Irp);
+
+  TcpipRecursiveMutexLeave( &TCPLock );
 
   TI_DbgPrint(MAX_TRACE, ("TCP Disconnect returned %08x\n", Status));
 
@@ -568,7 +553,7 @@ NTSTATUS DispTdiListen(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -576,7 +561,7 @@ NTSTATUS DispTdiListen(
   if (Connection == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -584,19 +569,17 @@ NTSTATUS DispTdiListen(
 
   TI_DbgPrint(MIN_TRACE, ("Connection->AddressFile: %x\n",
 			  Connection->AddressFile ));
-  ASSERT(Connection->AddressFile);
-
-  Status = DispPrepareIrpForCancel
-      (TranContext->Handle.ConnectionContext,
-       Irp,
-       (PDRIVER_CANCEL)DispCancelListenRequest);
+  if( Connection->AddressFile ) {
+      TI_DbgPrint(MIN_TRACE, ("Connection->AddressFile->Listener: %x\n",
+			      Connection->AddressFile->Listener));
+  }
 
   /* Listening will require us to create a listening socket and store it in
    * the address file.  It will be signalled, and attempt to complete an irp
    * when a new connection arrives. */
   /* The important thing to note here is that the irp we'll complete belongs
    * to the socket to be accepted onto, not the listener */
-  if( NT_SUCCESS(Status) && !Connection->AddressFile->Listener ) {
+  if( !Connection->AddressFile->Listener ) {
       Connection->AddressFile->Listener =
 	  TCPAllocateConnectionEndpoint( NULL );
 
@@ -617,6 +600,12 @@ NTSTATUS DispTdiListen(
 	  Status = TCPListen( Connection->AddressFile->Listener, 1024 );
 	  /* BACKLOG */
   }
+  if( NT_SUCCESS(Status) ) {
+      Status = DispPrepareIrpForCancel
+          (TranContext->Handle.ConnectionContext,
+           Irp,
+           (PDRIVER_CANCEL)DispCancelListenRequest);
+  }
 
   if( NT_SUCCESS(Status) ) {
       Status = TCPAccept
@@ -628,12 +617,12 @@ NTSTATUS DispTdiListen(
   }
 
 done:
-  TcpipRecursiveMutexLeave( &TCPLock );
-
   if (Status != STATUS_PENDING) {
       DispDataRequestComplete(Irp, Status, 0);
   } else
       IoMarkIrpPending(Irp);
+
+  TcpipRecursiveMutexLeave( &TCPLock );
 
   TI_DbgPrint(MID_TRACE,("Leaving %x\n", Status));
 
@@ -656,20 +645,16 @@ NTSTATUS DispTdiQueryInformation(
   PTDI_REQUEST_KERNEL_QUERY_INFORMATION Parameters;
   PTRANSPORT_CONTEXT TranContext;
   PIO_STACK_LOCATION IrpSp;
-  NTSTATUS Status;
 
   TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
   Parameters = (PTDI_REQUEST_KERNEL_QUERY_INFORMATION)&IrpSp->Parameters;
 
-  TcpipRecursiveMutexEnter( &TCPLock, TRUE );
-
   TranContext = IrpSp->FileObject->FsContext;
   if (!TranContext) {
     TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-    TcpipRecursiveMutexLeave(&TCPLock);
-    return STATUS_INVALID_PARAMETER;
+    return STATUS_INVALID_CONNECTION;
   }
 
   switch (Parameters->QueryType)
@@ -679,51 +664,49 @@ NTSTATUS DispTdiQueryInformation(
         PTDI_ADDRESS_INFO AddressInfo;
         PADDRESS_FILE AddrFile;
         PTA_IP_ADDRESS Address;
-        PCONNECTION_ENDPOINT Endpoint = NULL;
 
+        AddressInfo = (PTDI_ADDRESS_INFO)MmGetSystemAddressForMdl(Irp->MdlAddress);
+
+        switch ((ULONG)IrpSp->FileObject->FsContext2) {
+          case TDI_TRANSPORT_ADDRESS_FILE:
+            AddrFile = (PADDRESS_FILE)TranContext->Handle.AddressHandle;
+            break;
+
+          case TDI_CONNECTION_FILE:
+            AddrFile =
+              ((PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext)->
+              AddressFile;
+            break;
+
+          default:
+            TI_DbgPrint(MIN_TRACE, ("Invalid transport context\n"));
+            return STATUS_INVALID_PARAMETER;
+        }
+
+        if (!AddrFile) {
+          TI_DbgPrint(MID_TRACE, ("No address file object.\n"));
+          return STATUS_INVALID_PARAMETER;
+        }
 
         if (MmGetMdlByteCount(Irp->MdlAddress) <
             (FIELD_OFFSET(TDI_ADDRESS_INFO, Address.Address[0].Address) +
              sizeof(TDI_ADDRESS_IP))) {
           TI_DbgPrint(MID_TRACE, ("MDL buffer too small.\n"));
-          TcpipRecursiveMutexLeave(&TCPLock);
-          return STATUS_BUFFER_TOO_SMALL;
+          return STATUS_BUFFER_OVERFLOW;
         }
 
-        AddressInfo = (PTDI_ADDRESS_INFO)MmGetSystemAddressForMdl(Irp->MdlAddress);
-		Address = (PTA_IP_ADDRESS)&AddressInfo->Address;
+        Address = (PTA_IP_ADDRESS)&AddressInfo->Address;
+        Address->TAAddressCount = 1;
+        Address->Address[0].AddressLength = TDI_ADDRESS_LENGTH_IP;
+        Address->Address[0].AddressType = TDI_ADDRESS_TYPE_IP;
+        Address->Address[0].Address[0].sin_port = AddrFile->Port;
+        Address->Address[0].Address[0].in_addr =
+          AddrFile->Address.Address.IPv4Address;
+        RtlZeroMemory(
+          &Address->Address[0].Address[0].sin_zero,
+          sizeof(Address->Address[0].Address[0].sin_zero));
 
-        switch ((ULONG)IrpSp->FileObject->FsContext2) {
-          case TDI_TRANSPORT_ADDRESS_FILE:
-            AddrFile = (PADDRESS_FILE)TranContext->Handle.AddressHandle;
-
-			Address->TAAddressCount = 1;
-			Address->Address[0].AddressLength = TDI_ADDRESS_LENGTH_IP;
-			Address->Address[0].AddressType = TDI_ADDRESS_TYPE_IP;
-			Address->Address[0].Address[0].sin_port = AddrFile->Port;
-			Address->Address[0].Address[0].in_addr = AddrFile->Address.Address.IPv4Address;
-			RtlZeroMemory(
-				&Address->Address[0].Address[0].sin_zero,
-				sizeof(Address->Address[0].Address[0].sin_zero));
-			TcpipRecursiveMutexLeave(&TCPLock);
-			return STATUS_SUCCESS;
-
-          case TDI_CONNECTION_FILE:
-            Endpoint =
-				(PCONNECTION_ENDPOINT)TranContext->Handle.ConnectionContext;
-			TCPGetSockAddress( Endpoint, (PTRANSPORT_ADDRESS)Address, FALSE );
-			DbgPrint("Returning socket address %x\n", Address->Address[0].Address[0].in_addr);
-			RtlZeroMemory(
-				&Address->Address[0].Address[0].sin_zero,
-				sizeof(Address->Address[0].Address[0].sin_zero));
-			TcpipRecursiveMutexLeave(&TCPLock);
-			return STATUS_SUCCESS;
-
-          default:
-            TI_DbgPrint(MIN_TRACE, ("Invalid transport context\n"));
-            TcpipRecursiveMutexLeave(&TCPLock);
-            return STATUS_INVALID_PARAMETER;
-        }
+        return STATUS_SUCCESS;
       }
 
     case TDI_QUERY_CONNECTION_INFO:
@@ -732,21 +715,12 @@ NTSTATUS DispTdiQueryInformation(
         PADDRESS_FILE AddrFile;
         PCONNECTION_ENDPOINT Endpoint = NULL;
 
-        if (MmGetMdlByteCount(Irp->MdlAddress) <
-            (FIELD_OFFSET(TDI_CONNECTION_INFORMATION, RemoteAddress) +
-             sizeof(PVOID))) {
-          TI_DbgPrint(MID_TRACE, ("MDL buffer too small (ptr).\n"));
-          TcpipRecursiveMutexLeave(&TCPLock);
-          return STATUS_BUFFER_TOO_SMALL;
-        }
-
         AddressInfo = (PTDI_CONNECTION_INFORMATION)
           MmGetSystemAddressForMdl(Irp->MdlAddress);
 
         switch ((ULONG)IrpSp->FileObject->FsContext2) {
           case TDI_TRANSPORT_ADDRESS_FILE:
             AddrFile = (PADDRESS_FILE)TranContext->Handle.AddressHandle;
-            Endpoint = AddrFile ? AddrFile->Connection : NULL;
             break;
 
           case TDI_CONNECTION_FILE:
@@ -756,24 +730,25 @@ NTSTATUS DispTdiQueryInformation(
 
           default:
             TI_DbgPrint(MIN_TRACE, ("Invalid transport context\n"));
-            TcpipRecursiveMutexLeave(&TCPLock);
             return STATUS_INVALID_PARAMETER;
         }
 
         if (!Endpoint) {
           TI_DbgPrint(MID_TRACE, ("No connection object.\n"));
-          TcpipRecursiveMutexLeave(&TCPLock);
           return STATUS_INVALID_PARAMETER;
         }
 
-        Status = TCPGetSockAddress( Endpoint, AddressInfo->RemoteAddress, TRUE );
+        if (MmGetMdlByteCount(Irp->MdlAddress) <
+            (FIELD_OFFSET(TDI_CONNECTION_INFORMATION, RemoteAddress) +
+             sizeof(PVOID))) {
+          TI_DbgPrint(MID_TRACE, ("MDL buffer too small (ptr).\n"));
+          return STATUS_BUFFER_OVERFLOW;
+        }
 
-        TcpipRecursiveMutexLeave(&TCPLock);
-        return Status;
+        return TCPGetPeerAddress( Endpoint, AddressInfo->RemoteAddress );
       }
   }
 
-  TcpipRecursiveMutexLeave(&TCPLock);
   return STATUS_NOT_IMPLEMENTED;
 }
 
@@ -792,7 +767,7 @@ NTSTATUS DispTdiReceive(
   PTDI_REQUEST_KERNEL_RECEIVE ReceiveInfo;
   PTRANSPORT_CONTEXT TranContext;
   NTSTATUS Status;
-  ULONG BytesReceived = 0;
+  ULONG BytesReceived;
 
   TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
@@ -805,14 +780,14 @@ NTSTATUS DispTdiReceive(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
   if (TranContext->Handle.ConnectionContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -836,12 +811,12 @@ NTSTATUS DispTdiReceive(
     }
 
 done:
-  TcpipRecursiveMutexLeave( &TCPLock );
-
   if (Status != STATUS_PENDING) {
       DispDataRequestComplete(Irp, Status, BytesReceived);
   } else
       IoMarkIrpPending(Irp);
+
+  TcpipRecursiveMutexLeave( &TCPLock );
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
@@ -864,7 +839,7 @@ NTSTATUS DispTdiReceiveDatagram(
   PTRANSPORT_CONTEXT TranContext;
   TDI_REQUEST Request;
   NTSTATUS Status;
-  ULONG BytesReceived = 0;
+  ULONG BytesReceived;
 
   TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
@@ -877,7 +852,7 @@ NTSTATUS DispTdiReceiveDatagram(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -893,7 +868,7 @@ NTSTATUS DispTdiReceiveDatagram(
 
   if (NT_SUCCESS(Status))
     {
-	PVOID DataBuffer;
+	PCHAR DataBuffer;
 	UINT BufferSize;
 
 	NdisQueryBuffer( (PNDIS_BUFFER)Irp->MdlAddress,
@@ -914,12 +889,12 @@ NTSTATUS DispTdiReceiveDatagram(
     }
 
 done:
-   TcpipRecursiveMutexLeave( &TCPLock );
-
    if (Status != STATUS_PENDING) {
        DispDataRequestComplete(Irp, Status, BytesReceived);
    } else
        IoMarkIrpPending(Irp);
+
+  TcpipRecursiveMutexLeave( &TCPLock );
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
@@ -941,7 +916,7 @@ NTSTATUS DispTdiSend(
   PTDI_REQUEST_KERNEL_SEND SendInfo;
   PTRANSPORT_CONTEXT TranContext;
   NTSTATUS Status;
-  ULONG BytesSent = 0;
+  ULONG BytesSent;
 
   TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
@@ -954,14 +929,14 @@ NTSTATUS DispTdiSend(
   if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
   if (TranContext->Handle.ConnectionContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("No connection endpoint file object.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -973,7 +948,7 @@ NTSTATUS DispTdiSend(
   TI_DbgPrint(MID_TRACE,("TCPIP<<< Got an MDL: %x\n", Irp->MdlAddress));
   if (NT_SUCCESS(Status))
     {
-	PVOID Data;
+	PCHAR Data;
 	UINT Len;
 
 	NdisQueryBuffer( Irp->MdlAddress, &Data, &Len );
@@ -990,12 +965,12 @@ NTSTATUS DispTdiSend(
     }
 
 done:
-   TcpipRecursiveMutexLeave( &TCPLock );
-
    if (Status != STATUS_PENDING) {
        DispDataRequestComplete(Irp, Status, BytesSent);
    } else
        IoMarkIrpPending(Irp);
+
+  TcpipRecursiveMutexLeave( &TCPLock );
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
@@ -1030,7 +1005,7 @@ NTSTATUS DispTdiSendDatagram(
     if (TranContext == NULL)
     {
       TI_DbgPrint(MID_TRACE, ("Bad transport context.\n"));
-      Status = STATUS_INVALID_PARAMETER;
+      Status = STATUS_INVALID_CONNECTION;
       goto done;
     }
 
@@ -1045,7 +1020,7 @@ NTSTATUS DispTdiSendDatagram(
         (PDRIVER_CANCEL)DispCancelRequest);
 
     if (NT_SUCCESS(Status)) {
-	PVOID DataBuffer;
+	PCHAR DataBuffer;
 	UINT BufferSize;
 
 	TI_DbgPrint(MID_TRACE,("About to query buffer %x\n", Irp->MdlAddress));
@@ -1060,7 +1035,7 @@ NTSTATUS DispTdiSendDatagram(
 		    ("About to call send routine %x\n",
 		     (*((PADDRESS_FILE)Request.Handle.AddressHandle)->Send)));
 
-        if( (*((PADDRESS_FILE)Request.Handle.AddressHandle)->Send != NULL) )
+        if( (*((PADDRESS_FILE)Request.Handle.AddressHandle)->Send) )
             Status = (*((PADDRESS_FILE)Request.Handle.AddressHandle)->Send)(
                 Request.Handle.AddressHandle,
                 DgramInfo->SendDatagramInformation,
@@ -1072,12 +1047,12 @@ NTSTATUS DispTdiSendDatagram(
     }
 
 done:
-    TcpipRecursiveMutexLeave( &TCPLock );
-
     if (Status != STATUS_PENDING) {
         DispDataRequestComplete(Irp, Status, Irp->IoStatus.Information);
     } else
         IoMarkIrpPending(Irp);
+
+    TcpipRecursiveMutexLeave( &TCPLock );
 
     TI_DbgPrint(DEBUG_IRP, ("Leaving.\n"));
 
@@ -1299,7 +1274,7 @@ VOID DispTdiQueryInformationExComplete(
     QueryContext->Irp->IoStatus.Information = ByteCount;
     QueryContext->Irp->IoStatus.Status      = Status;
 
-    exFreePool(QueryContext);
+    ExFreePool(QueryContext);
 }
 
 
@@ -1362,9 +1337,9 @@ NTSTATUS DispTdiQueryInformationEx(
             IrpSp->Parameters.DeviceIoControl.Type3InputBuffer;
         OutputBuffer = Irp->UserBuffer;
 
-        QueryContext = exAllocatePool(NonPagedPool, sizeof(TI_QUERY_CONTEXT));
+        QueryContext = ExAllocatePool(NonPagedPool, sizeof(TI_QUERY_CONTEXT));
         if (QueryContext) {
-	    _SEH2_TRY {
+	    _SEH_TRY {
                 InputMdl = IoAllocateMdl(InputBuffer,
                     sizeof(TCP_REQUEST_QUERY_INFORMATION_EX),
                     FALSE, TRUE, NULL);
@@ -1388,9 +1363,9 @@ NTSTATUS DispTdiQueryInformationEx(
                         InputBuffer, sizeof(TCP_REQUEST_QUERY_INFORMATION_EX));
                 } else
                     Status = STATUS_INSUFFICIENT_RESOURCES;
-            } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
-                Status = _SEH2_GetExceptionCode();
-            } _SEH2_END;
+            } _SEH_HANDLE {
+                Status = _SEH_GetExceptionCode();
+            } _SEH_END;
 
             if (NT_SUCCESS(Status)) {
                 Size = MmGetMdlByteCount(OutputMdl);
@@ -1425,7 +1400,7 @@ NTSTATUS DispTdiQueryInformationEx(
                 IoFreeMdl(OutputMdl);
             }
 
-            exFreePool(QueryContext);
+            ExFreePool(QueryContext);
         } else
             Status = STATUS_INSUFFICIENT_RESOURCES;
     } else if( InputBufferLength ==
@@ -1438,10 +1413,10 @@ NTSTATUS DispTdiQueryInformationEx(
 
 	Size = 0;
 
-        QueryContext = exAllocatePool(NonPagedPool, sizeof(TI_QUERY_CONTEXT));
+        QueryContext = ExAllocatePool(NonPagedPool, sizeof(TI_QUERY_CONTEXT));
         if (!QueryContext) return STATUS_INSUFFICIENT_RESOURCES;
 
-	_SEH2_TRY {
+	_SEH_TRY {
 	    InputMdl = IoAllocateMdl(InputBuffer,
 				     sizeof(TCP_REQUEST_QUERY_INFORMATION_EX),
 				     FALSE, TRUE, NULL);
@@ -1451,14 +1426,14 @@ NTSTATUS DispTdiQueryInformationEx(
 
 	    InputMdlLocked = TRUE;
 	    Status = STATUS_SUCCESS;
-	} _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+	} _SEH_HANDLE {
 	    TI_DbgPrint(MAX_TRACE, ("Failed to acquire client buffer\n"));
-	    Status = _SEH2_GetExceptionCode();
-	} _SEH2_END;
+	    Status = _SEH_GetExceptionCode();
+	} _SEH_END;
 
 	if( !NT_SUCCESS(Status) || !InputMdl ) {
 	    if( InputMdl ) IoFreeMdl( InputMdl );
-	    exFreePool(QueryContext);
+	    ExFreePool(QueryContext);
 	    return Status;
 	}
 
@@ -1571,7 +1546,6 @@ NTSTATUS DispTdiSetIPAddress( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
             IF->Unicast.Address.IPv4Address = IpAddrChange->Address;
             IF->Netmask.Type = IP_ADDRESS_V4;
             IF->Netmask.Address.IPv4Address = IpAddrChange->Netmask;
-            IF->Broadcast.Type = IP_ADDRESS_V4;
 	    IF->Broadcast.Address.IPv4Address =
 		IF->Unicast.Address.IPv4Address |
 		~IF->Netmask.Address.IPv4Address;
@@ -1606,8 +1580,6 @@ NTSTATUS DispTdiDeleteIPAddress( PIRP Irp, PIO_STACK_LOCATION IrpSp ) {
             IF->Unicast.Address.IPv4Address = 0;
             IF->Netmask.Type = IP_ADDRESS_V4;
             IF->Netmask.Address.IPv4Address = 0;
-            IF->Broadcast.Type = IP_ADDRESS_V4;
-            IF->Broadcast.Address.IPv4Address = 0;
             Status = STATUS_SUCCESS;
         }
     } EndFor(IF);

@@ -78,17 +78,11 @@ struct hash_table_elt
     struct hash_table_elt*      next;
 };
 
-struct hash_table_bucket
-{
-    struct hash_table_elt*      first;
-    struct hash_table_elt*      last;
-};
-
 struct hash_table
 {
     unsigned                    num_elts;
     unsigned                    num_buckets;
-    struct hash_table_bucket*   buckets;
+    struct hash_table_elt**     buckets;
     struct pool*                pool;
 };
 
@@ -96,6 +90,7 @@ void     hash_table_init(struct pool* pool, struct hash_table* ht,
                          unsigned num_buckets);
 void     hash_table_destroy(struct hash_table* ht);
 void     hash_table_add(struct hash_table* ht, struct hash_table_elt* elt);
+void*    hash_table_find(const struct hash_table* ht, const char* name);
 unsigned hash_table_hash(const char* name, unsigned num_buckets);
 
 struct hash_table_iter
@@ -308,8 +303,7 @@ enum module_type
     DMT_UNKNOWN,        /* for lookup, not actually used for a module */
     DMT_ELF,            /* a real ELF shared module */
     DMT_PE,             /* a native or builtin PE module */
-    DMT_PDB,            /* .PDB file */
-    DMT_DBG,            /* .DBG file */
+    DMT_PDB,            /* PDB file */
 };
 
 struct process;
@@ -478,11 +472,6 @@ extern BOOL         pe_load_debug_directory(const struct process* pcs,
                                             const IMAGE_SECTION_HEADER* sectp, DWORD nsect,
                                             const IMAGE_DEBUG_DIRECTORY* dbg, int nDbg);
 extern BOOL         pdb_fetch_file_info(struct pdb_lookup* pdb_lookup);
-
-/* path.c */
-extern BOOL         path_find_symbol_file(const struct process* pcs, PCSTR full_path,
-                                          const GUID* guid, DWORD dw1, DWORD dw2, PSTR buffer,
-                                          BOOL* is_unmatched);
 
 /* pe_module.c */
 extern BOOL         pe_load_nt_header(HANDLE hProc, DWORD base, IMAGE_NT_HEADERS* nth);

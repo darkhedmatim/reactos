@@ -148,24 +148,6 @@ private:
 	                    bool verbose );
 };
 
-enum DependenciesType
-{
-	NoDependencies,
-	AutomaticDependencies,
-	FullDependencies
-};
-
-enum CompilerSet
-{
-	GnuGcc,
-	MicrosoftC
-};
-
-enum LinkerSet
-{
-	GnuLd,
-	MicrosoftLink
-};
 
 class Configuration
 {
@@ -174,7 +156,7 @@ public:
 	~Configuration ();
 	bool Verbose;
 	bool CleanAsYouGo;
-	DependenciesType Dependencies;
+	bool AutomaticDependencies;
 	bool CheckDependenciesForModuleOnly;
 	bool CompilationUnitsEnabled;
 	bool PrecompiledHeadersEnabled;
@@ -186,8 +168,6 @@ public:
 	bool MakeHandlesInstallDirectories;
 	bool GenerateProxyMakefilesInSourceTree;
 	bool InstallFiles;
-	CompilerSet Compiler;
-	LinkerSet Linker;
 };
 
 class Environment
@@ -256,9 +236,6 @@ public:
 	std::vector<InstallFile*> installfiles;
 	std::map<std::string, Module*> modules;
 	IfableData non_if_data;
-	IfableData host_non_if_data;
-	bool allowWarnings;
-	bool allowWarningsSet;
 
 	Project ( const Configuration& configuration,
 	          const std::string& filename,
@@ -274,8 +251,6 @@ public:
 	const std::string& GetProjectFilename () const;
 	std::string ResolveProperties ( const std::string& s ) const;
 	const Property* LookupProperty ( const std::string& name ) const;
-	std::string GetCompilerSet () const;
-	std::string GetLinkerSet () const;
 private:
 	std::string ResolveNextProperty ( const std::string& s ) const;
 	void ReadXml ();
@@ -314,7 +289,8 @@ enum ModuleType
 	BootProgram,
 	Win32SCR,
 	IdlHeader,
-	IdlInterface,
+	IsoRegTest,
+	LiveIsoRegTest,
 	EmbeddedTypeLib,
 	ElfExecutable,
 	RpcProxy,
@@ -335,15 +311,9 @@ enum HostType
 
 enum CompilerType
 {
+	CompilerTypeDontCare,
 	CompilerTypeCC,
-	CompilerTypeCXX,
 	CompilerTypeCPP,
-	CompilerTypeAS,
-	CompilerTypeMIDL,
-	CompilerTypeRC,
-	CompilerTypeNASM,
-
-	CompilerTypesCount
 };
 
 class FileLocation
@@ -375,7 +345,6 @@ public:
 	std::string buildtype;
 	ModuleType type;
 	ImportLibrary* importLibrary;
-	ImportLibrary* delayImportLibrary;
 	Metadata* metadata;
 	Bootsector* bootSector;
 	bool mangledSymbols;
@@ -390,7 +359,6 @@ public:
 	std::vector<CompilerFlag*> compilerFlags;
 	std::vector<LinkerFlag*> linkerFlags;
 	std::vector<StubbedComponent*> stubbedComponents;
-	std::vector<CDFile*> cdfiles;
 	LinkerScript* linkerScript;
 	PchFile* pch;
 	bool cplusplus;
@@ -399,9 +367,6 @@ public:
 	bool allowWarnings;
 	bool enabled;
 	bool isStartupLib;
-	bool isCRT;
-	std::string CRT;
-	bool dynamicCRT;
 	FileLocation *output; // "path/foo.exe"
 	FileLocation *dependency; // "path/foo.exe" or "path/libfoo.a"
 	FileLocation *install;
@@ -426,59 +391,21 @@ public:
 	bool HasFileWithExtension ( const IfableData&, const std::string& extension ) const;
 	void InvokeModule () const;
 	void ProcessXML ();
-	std::string GetDllName() const;
 private:
 	void SetImportLibrary ( ImportLibrary* importLibrary );
-	void SetDelayImportLibrary ( ImportLibrary* importLibrary );
 	DirectoryLocation GetTargetDirectoryTree () const;
 	std::string GetDefaultModuleExtension () const;
 	std::string GetDefaultModuleEntrypoint () const;
 	std::string GetDefaultModuleBaseaddress () const;
-	std::string GetDefaultModuleCRT () const;
-	bool GetDefaultModuleIsCRT () const;
 	std::string entrypoint;
 	void ProcessXMLSubElement ( const XMLElement& e,
 	                            DirectoryLocation directory,
 	                            const std::string& relative_path,
 	                            ParseContext& parseContext );
-	bool GetBooleanAttribute ( const XMLElement& moduleNode,
-	                           const char * name,
-	                           bool default_value = false );
 };
 
-class ToolsetDirective
-{
-private:
-	bool enabled;
 
-protected:
-	void ParseToolsets ( const Project& project, const XMLElement& node );
-
-public:
-	virtual ~ToolsetDirective() { }
-	bool IsEnabled () const;
-};
-
-class CompilerDirective
-{
-private:
-	std::bitset<CompilerTypesCount> compilersSet;
-	bool enabled;
-
-protected:
-	void ParseCompilers ( const XMLElement& node, const std::string& defaultValue );
-
-public:
-	CompilerDirective (): enabled ( true ) { }
-	virtual ~CompilerDirective() { }
-	void SetCompiler ( CompilerType compiler );
-	void UnsetCompiler ( CompilerType compiler );
-	void SetAllCompilers ();
-	void UnsetAllCompilers ();
-	bool IsCompilerSet ( CompilerType compiler ) const;
-};
-
-class Include: public CompilerDirective, public ToolsetDirective
+class Include
 {
 public:
 	FileLocation *directory;
@@ -498,21 +425,19 @@ private:
 	const XMLElement* node;
 	const Module* module;
 	DirectoryLocation GetDefaultDirectoryTree ( const Module* module ) const;
-	void Initialize ();
 };
 
 
-class Define: public CompilerDirective, public ToolsetDirective
+class Define
 {
 public:
 	const Project& project;
 	const Module* module;
 	const XMLElement* node;
 	std::string name;
-	std::string arguments;
 	std::string value;
 	std::string backend;
-	bool redefine;
+	bool overridable;
 
 	Define ( const Project& project,
 	         const XMLElement& defineNode );
@@ -522,8 +447,7 @@ public:
 	Define ( const Project& project,
 	         const Module* module,
 	         const std::string& name_,
-	         const std::string& backend_ = "",
-	         bool redefine_ = false );
+	         const std::string& backend_ = "" );
 	~Define();
 	void ProcessXML();
 private:
@@ -558,7 +482,6 @@ public:
 	const Module& module;
 	std::string name;
 	const Module* importedModule;
-	bool delayimp;
 
 	Library ( const XMLElement& _node,
 	          const Module& _module,
@@ -659,23 +582,22 @@ public:
 	const Module* module;
 	std::string dllname;
 	FileLocation *source;
-	FileLocation *target;
 
 	ImportLibrary ( const Project& project,
 	                const XMLElement& node,
-	                const Module* module,
-	                bool delayimp );
+	                const Module* module );
 	~ImportLibrary ();
 };
 
 
-class CompilerFlag: public CompilerDirective, public ToolsetDirective
+class CompilerFlag
 {
 public:
 	const Project& project;
 	const Module* module;
 	const XMLElement& node;
 	std::string flag;
+	CompilerType compiler;
 
 	CompilerFlag ( const Project& project,
 	               const XMLElement& compilerFlagNode );
@@ -689,7 +611,7 @@ private:
 };
 
 
-class LinkerFlag: public ToolsetDirective
+class LinkerFlag
 {
 public:
 	const Project& project;

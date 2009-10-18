@@ -83,7 +83,7 @@ NTSTATUS NTAPI Ext2ReadInode (
 			DebugTrace(DEBUG_TRACE_MISC,   "&&&&&& Invalid Inode no. Group no %d - too big", GroupNo );
 			DebugTrace(DEBUG_TRACE_MISC,   "Only %d groups available on disk", PtrVcb->NoOfGroups );
 			RC = STATUS_UNSUCCESSFUL;
-			try_return();
+			try_return( RC );
 		}
 
 		//if( PtrVcb->InodeTableBlock[ GroupNo ] == 0 )
@@ -91,7 +91,7 @@ NTSTATUS NTAPI Ext2ReadInode (
 		{
 			DebugTrace(DEBUG_TRACE_MISC,   "&&&&&& Inode Table Group Invalid - Group no %d ", GroupNo );
 			RC = STATUS_UNSUCCESSFUL;
-			try_return();
+			try_return( RC );
 		}
 
 		//	Inode numbers start at 1 and not from 0
@@ -102,9 +102,9 @@ NTSTATUS NTAPI Ext2ReadInode (
 		NumberOfBytesToRead = sizeof(EXT2_INODE);	//	LogicalBlockSize;
 
 		VolumeByteOffset.QuadPart = PtrVcb->PtrGroupDescriptors[ GroupNo ].InodeTablesBlock
-				* LogicalBlockSize + Index * PtrVcb->InodeSize;
+				* LogicalBlockSize + Index * sizeof(EXT2_INODE);
 		//VolumeByteOffset.QuadPart = PtrVcb->InodeTableBlock[ GroupNo ] * LogicalBlockSize +
-		//	Index * PtrVcb->InodeSize;
+		//	Index * sizeof(EXT2_INODE);
 		
 		TempOffset.QuadPart = Ext2Align64( VolumeByteOffset.QuadPart, LogicalBlockSize );
 		if( TempOffset.QuadPart != VolumeByteOffset.QuadPart )
@@ -135,7 +135,7 @@ NTSTATUS NTAPI Ext2ReadInode (
 			(PVOID*)&PtrPinnedReadBuffer )) 
 		{
 			RC = STATUS_UNSUCCESSFUL;
-			try_return();
+			try_return( RC );
 		}
 		else
 		{
@@ -736,14 +736,14 @@ NTSTATUS NTAPI Ext2WriteInode(
 			DebugTrace(DEBUG_TRACE_MISC,   "&&&&&& Invalid Inode no. Group no %d - too big", GroupNo );
 			DebugTrace(DEBUG_TRACE_MISC,   "Only %d groups available on disk", PtrVcb->NoOfGroups );
 			RC = STATUS_UNSUCCESSFUL;
-			try_return();
+			try_return( RC );
 		}
 
 		if( PtrVcb->PtrGroupDescriptors[ GroupNo ].InodeTablesBlock == 0 )
 		{
 			DebugTrace(DEBUG_TRACE_MISC,   "&&&&&& Inode Table Group Invalid - Group no %d ", GroupNo );
 			RC = STATUS_UNSUCCESSFUL;
-			try_return();
+			try_return( RC );
 		}
 
 		Index = ( InodeNo - 1 ) - ( GroupNo * PtrVcb->InodesPerGroup );
@@ -752,7 +752,7 @@ NTSTATUS NTAPI Ext2WriteInode(
 		NumberOfBytesToRead = sizeof(EXT2_INODE);
 
 		VolumeByteOffset.QuadPart = PtrVcb->PtrGroupDescriptors[ GroupNo ].InodeTablesBlock
-				* LogicalBlockSize + Index * PtrVcb->InodeSize;
+				* LogicalBlockSize + Index * sizeof(EXT2_INODE);
 		
 		TempOffset.QuadPart = Ext2Align64( VolumeByteOffset.QuadPart, LogicalBlockSize );
 		if( TempOffset.QuadPart != VolumeByteOffset.QuadPart )
@@ -781,7 +781,7 @@ NTSTATUS NTAPI Ext2WriteInode(
 					(PVOID*)&PtrPinnedBuffer ) )
 		{
 			RC = STATUS_UNSUCCESSFUL;
-			try_return();
+			try_return( RC );
 		}
 		else
 		{

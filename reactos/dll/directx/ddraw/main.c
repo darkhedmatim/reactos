@@ -13,6 +13,9 @@
 #include "rosdraw.h"
 HMODULE hDllModule = 0;
 
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
+
 CRITICAL_SECTION ddcs;
 
 // This function is exported by the dll
@@ -23,8 +26,8 @@ typedef struct
     LPVOID lpContext;
 } DirectDrawEnumerateProcData;
 
-BOOL
-CALLBACK
+BOOL 
+CALLBACK 
 TranslateCallbackA(GUID *lpGUID,
                    LPSTR lpDriverDescription,
                    LPSTR lpDriverName,
@@ -96,7 +99,7 @@ DirectDrawCreate (LPGUID lpGUID,
     */
 
     DX_WINDBG_trace();
-     _SEH2_TRY
+     _SEH_TRY
     {
         /* check if pUnkOuter is null or not */
         if (pUnkOuter)
@@ -108,10 +111,10 @@ DirectDrawCreate (LPGUID lpGUID,
             retVal = Create_DirectDraw (lpGUID, (LPDIRECTDRAW*)lplpDD, &IID_IDirectDraw, FALSE);
         }
      }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
@@ -150,7 +153,7 @@ DirectDrawCreateEx(LPGUID lpGUID,
     */
     DX_WINDBG_trace();
 
-     _SEH2_TRY
+     _SEH_TRY
     {
         /* check see if pUnkOuter is null or not */
         if (pUnkOuter)
@@ -169,16 +172,16 @@ DirectDrawCreateEx(LPGUID lpGUID,
 
         /* Create our DirectDraw interface */
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
 
-HRESULT
-WINAPI
+HRESULT 
+WINAPI 
 DirectDrawEnumerateA( LPDDENUMCALLBACKA lpCallback,
                      LPVOID lpContext)
 {
@@ -294,7 +297,7 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
 
    for more info about this command see msdn documentation
 
-    The buffer start with D3DHAL_DP2COMMAND struct afer that follows either one struct or
+    The buffer start with D3DHAL_DP2COMMAND struct afer that follows either one struct or 
     no struct at at all
     example for command D3DDP2OP_VIEWPORTINFO
 

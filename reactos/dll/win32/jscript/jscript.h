@@ -28,12 +28,8 @@
 #include "dispex.h"
 #include "activscp.h"
 
-#include "resource.h"
-
 #include "wine/unicode.h"
 #include "wine/list.h"
-
-#define JSCRIPT_ERROR 0x800A0000
 
 typedef struct _script_ctx_t script_ctx_t;
 typedef struct _exec_ctx_t exec_ctx_t;
@@ -62,8 +58,6 @@ jsheap_t *jsheap_mark(jsheap_t*);
 
 typedef struct DispatchEx DispatchEx;
 
-extern HINSTANCE jscript_hinstance;
-
 #define PROPF_ARGMASK 0x00ff
 #define PROPF_METHOD  0x0100
 #define PROPF_ENUM    0x0200
@@ -73,8 +67,6 @@ typedef enum {
     JSCLASS_NONE,
     JSCLASS_ARRAY,
     JSCLASS_BOOLEAN,
-    JSCLASS_DATE,
-    JSCLASS_ERROR,
     JSCLASS_FUNCTION,
     JSCLASS_GLOBAL,
     JSCLASS_MATH,
@@ -130,29 +122,12 @@ DispatchEx *iface_to_jsdisp(IUnknown*);
 
 HRESULT disp_call(IDispatch*,DISPID,LCID,WORD,DISPPARAMS*,VARIANT*,jsexcept_t*,IServiceProvider*);
 HRESULT jsdisp_call_value(DispatchEx*,LCID,WORD,DISPPARAMS*,VARIANT*,jsexcept_t*,IServiceProvider*);
-HRESULT jsdisp_call(DispatchEx*,DISPID,LCID,WORD,DISPPARAMS*,VARIANT*,jsexcept_t*,IServiceProvider*);
-HRESULT jsdisp_call_name(DispatchEx*,const WCHAR*,LCID,WORD,DISPPARAMS*,VARIANT*,jsexcept_t*,IServiceProvider*);
 HRESULT disp_propget(IDispatch*,DISPID,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
 HRESULT disp_propput(IDispatch*,DISPID,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
-HRESULT jsdisp_propget(DispatchEx*,DISPID,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
 HRESULT jsdisp_propput_name(DispatchEx*,const WCHAR*,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
 HRESULT jsdisp_propput_idx(DispatchEx*,DWORD,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
-HRESULT jsdisp_propget_name(DispatchEx*,LPCWSTR,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
-HRESULT jsdisp_propget_idx(DispatchEx*,DWORD,LCID,VARIANT*,jsexcept_t*,IServiceProvider*);
-HRESULT jsdisp_get_id(DispatchEx*,const WCHAR*,DWORD,DISPID*);
-HRESULT jsdisp_delete_idx(DispatchEx*,DWORD);
 
-HRESULT create_builtin_function(script_ctx_t*,builtin_invoke_t,const builtin_info_t*,DWORD,
-        DispatchEx*,DispatchEx**);
-HRESULT Function_value(DispatchEx*,LCID,WORD,DISPPARAMS*,VARIANT*,jsexcept_t*,IServiceProvider*);
-
-HRESULT throw_eval_error(script_ctx_t*,jsexcept_t*,UINT,const WCHAR*);
-HRESULT throw_range_error(script_ctx_t*,jsexcept_t*,UINT,const WCHAR*);
-HRESULT throw_reference_error(script_ctx_t*,jsexcept_t*,UINT,const WCHAR*);
-HRESULT throw_syntax_error(script_ctx_t*,jsexcept_t*,UINT,const WCHAR*);
-HRESULT throw_type_error(script_ctx_t*,jsexcept_t*,UINT,const WCHAR*);
-HRESULT throw_uri_error(script_ctx_t*,jsexcept_t*,UINT,const WCHAR*);
-
+HRESULT create_builtin_function(script_ctx_t*,builtin_invoke_t,DWORD,DispatchEx*,DispatchEx**);
 
 HRESULT create_object(script_ctx_t*,DispatchEx*,DispatchEx**);
 HRESULT create_math(script_ctx_t*,DispatchEx**);
@@ -162,13 +137,7 @@ HRESULT create_string(script_ctx_t*,const WCHAR*,DWORD,DispatchEx**);
 HRESULT create_bool(script_ctx_t*,VARIANT_BOOL,DispatchEx**);
 HRESULT create_number(script_ctx_t*,VARIANT*,DispatchEx**);
 
-typedef enum {
-    NO_HINT,
-    HINT_STRING,
-    HINT_NUMBER
-} hint_t;
-
-HRESULT to_primitive(script_ctx_t*,VARIANT*,jsexcept_t*,VARIANT*, hint_t);
+HRESULT to_primitive(script_ctx_t*,VARIANT*,jsexcept_t*,VARIANT*);
 HRESULT to_boolean(VARIANT*,VARIANT_BOOL*);
 HRESULT to_number(script_ctx_t*,VARIANT*,jsexcept_t*,VARIANT*);
 HRESULT to_integer(script_ctx_t*,VARIANT*,jsexcept_t*,VARIANT*);
@@ -180,7 +149,6 @@ HRESULT to_object(exec_ctx_t*,VARIANT*,IDispatch**);
 typedef struct named_item_t {
     IDispatch *disp;
     DWORD flags;
-    LPWSTR name;
 
     struct named_item_t *next;
 } named_item_t;
@@ -191,7 +159,6 @@ struct _script_ctx_t {
     SCRIPTSTATE state;
     exec_ctx_t *exec_ctx;
     named_item_t *named_items;
-    IActiveScriptSite *site;
     LCID lcid;
 
     jsheap_t tmp_heap;
@@ -201,14 +168,6 @@ struct _script_ctx_t {
     DispatchEx *function_constr;
     DispatchEx *array_constr;
     DispatchEx *bool_constr;
-    DispatchEx *date_constr;
-    DispatchEx *error_constr;
-    DispatchEx *eval_error_constr;
-    DispatchEx *range_error_constr;
-    DispatchEx *reference_error_constr;
-    DispatchEx *syntax_error_constr;
-    DispatchEx *type_error_constr;
-    DispatchEx *uri_error_constr;
     DispatchEx *number_constr;
     DispatchEx *object_constr;
     DispatchEx *regexp_constr;
@@ -223,25 +182,20 @@ static inline void script_addref(script_ctx_t *ctx)
 }
 
 HRESULT init_global(script_ctx_t*);
-HRESULT init_function_constr(script_ctx_t*,DispatchEx*);
-HRESULT create_object_prototype(script_ctx_t*,DispatchEx**);
+HRESULT init_function_constr(script_ctx_t*);
 
-HRESULT create_array_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
-HRESULT create_bool_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
-HRESULT create_date_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
-HRESULT init_error_constr(script_ctx_t*,DispatchEx*);
-HRESULT create_number_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
-HRESULT create_object_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
-HRESULT create_regexp_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
-HRESULT create_string_constr(script_ctx_t*,DispatchEx*,DispatchEx**);
+HRESULT create_array_constr(script_ctx_t*,DispatchEx**);
+HRESULT create_bool_constr(script_ctx_t*,DispatchEx**);
+HRESULT create_number_constr(script_ctx_t*,DispatchEx**);
+HRESULT create_object_constr(script_ctx_t*,DispatchEx**);
+HRESULT create_regexp_constr(script_ctx_t*,DispatchEx**);
+HRESULT create_string_constr(script_ctx_t*,DispatchEx**);
 
 typedef struct {
     const WCHAR *str;
     DWORD len;
 } match_result_t;
 
-HRESULT regexp_match_next(DispatchEx*,BOOL,const WCHAR*,DWORD,const WCHAR**,match_result_t**,
-        DWORD*,DWORD*,match_result_t*);
 HRESULT regexp_match(DispatchEx*,const WCHAR*,DWORD,BOOL,match_result_t**,DWORD*);
 
 static inline VARIANT *get_arg(DISPPARAMS *dp, DWORD i)
@@ -254,21 +208,6 @@ static inline DWORD arg_cnt(const DISPPARAMS *dp)
     return dp->cArgs - dp->cNamedArgs;
 }
 
-static inline BOOL is_class(DispatchEx *jsdisp, jsclass_t class)
-{
-    return jsdisp->builtin_info->class == class;
-}
-
-static inline BOOL is_num_vt(enum VARENUM vt)
-{
-    return vt == VT_I4 || vt == VT_R8;
-}
-
-static inline DOUBLE num_val(const VARIANT *v)
-{
-    return V_VT(v) == VT_I4 ? V_I4(v) : V_R8(v);
-}
-
 static inline void num_set_val(VARIANT *v, DOUBLE d)
 {
     if(d == (DOUBLE)(INT)d) {
@@ -278,35 +217,6 @@ static inline void num_set_val(VARIANT *v, DOUBLE d)
         V_VT(v) = VT_R8;
         V_R8(v) = d;
     }
-}
-
-static inline void num_set_nan(VARIANT *v)
-{
-    V_VT(v) = VT_R8;
-#ifdef NAN
-    V_R8(v) = NAN;
-#else
-    V_UI8(v) = (ULONGLONG)0x7ff80000<<32;
-#endif
-}
-
-static inline DOUBLE ret_nan()
-{
-    VARIANT v;
-    num_set_nan(&v);
-    return V_R8(&v);
-}
-
-static inline void num_set_inf(VARIANT *v, BOOL positive)
-{
-    V_VT(v) = VT_R8;
-#ifdef INFINITY
-    V_R8(v) = positive ? INFINITY : -INFINITY;
-#else
-    V_UI8(v) = (ULONGLONG)0x7ff00000<<32;
-    if(!positive)
-        V_R8(v) = -V_R8(v);
-#endif
 }
 
 const char *debugstr_variant(const VARIANT*);

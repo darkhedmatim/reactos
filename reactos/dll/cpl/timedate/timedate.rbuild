@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="timedate" type="win32dll" extension=".cpl" baseaddress="${BASEADDRESS_TIMEDATE}" installbase="system32" installname="timedate.cpl" unicode="yes">
-	<importlibrary definition="timedate.spec" />
+	<importlibrary definition="timedate.def" />
 	<include base="timedate">.</include>
 	<library>kernel32</library>
 	<library>advapi32</library>
@@ -10,6 +10,7 @@
 	<library>comctl32</library>
 	<library>ws2_32</library>
 	<library>iphlpapi</library>
+	<library>msvcrt</library>
 	<file>clock.c</file>
 	<file>dateandtime.c</file>
 	<file>internettime.c</file>

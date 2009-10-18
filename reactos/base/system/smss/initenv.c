@@ -44,7 +44,7 @@ SmpSetEnvironmentVariable(IN PVOID Context,
 }
 
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpEnvironmentQueryRoutine(IN PWSTR ValueName,
                            IN ULONG ValueType,
                            IN PVOID ValueData,

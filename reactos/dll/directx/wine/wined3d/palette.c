@@ -1,8 +1,8 @@
-/*              DirectDraw - IDirectPalette base interface
+/*		DirectDraw - IDirectPalette base interface
  *
  * Copyright 1997-2000 Marcus Meissner
  * Copyright 2000-2001 TransGaming Technologies Inc.
- * Copyright 2006 Stefan DÃ¶singer for CodeWeavers
+ * Copyright 2006 Stefan Dösinger for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,6 +22,7 @@
 #include "winerror.h"
 #include "wine/debug.h"
 
+#include <assert.h>
 #include <string.h>
 
 #include "wined3d_private.h"
@@ -77,9 +78,7 @@ DWORD IWineD3DPaletteImpl_Size(DWORD dwFlags) {
         case WINEDDPCAPS_2BIT: return 4;
         case WINEDDPCAPS_4BIT: return 16;
         case WINEDDPCAPS_8BIT: return 256;
-        default:
-            FIXME("Unhandled size bits %#x.\n", dwFlags & SIZE_BITS);
-            return 256;
+        default: assert(0); return 256;
     }
 }
 
@@ -106,8 +105,7 @@ static HRESULT  WINAPI IWineD3DPaletteImpl_GetEntries(IWineD3DPalette *iface, DW
     return WINED3D_OK;
 }
 
-static HRESULT  WINAPI IWineD3DPaletteImpl_SetEntries(IWineD3DPalette *iface,
-        DWORD Flags, DWORD Start, DWORD Count, const PALETTEENTRY *PalEnt)
+static HRESULT  WINAPI IWineD3DPaletteImpl_SetEntries(IWineD3DPalette *iface, DWORD Flags, DWORD Start, DWORD Count, PALETTEENTRY *PalEnt)
 {
     IWineD3DPaletteImpl *This = (IWineD3DPaletteImpl *)iface;
     IWineD3DResourceImpl *res;

@@ -134,13 +134,13 @@ BOOLEAN InitUARTMode(ULONG BasePort);
     Prototypes for functions in settings.c :
 */
 
-NTSTATUS NTAPI EnumDeviceKeys(
+NTSTATUS STDCALL EnumDeviceKeys(
     IN PUNICODE_STRING RegistryPath,
     IN PWSTR SubKey,
     IN PREGISTRY_CALLBACK_ROUTINE Callback,
     IN PVOID Context);
 
-NTSTATUS NTAPI LoadSettings(
+NTSTATUS STDCALL LoadSettings(
     IN  PWSTR ValueName,
     IN  ULONG ValueType,
     IN  PVOID ValueData,
@@ -148,7 +148,7 @@ NTSTATUS NTAPI LoadSettings(
     IN  PVOID Context,
     IN  PVOID EntryContext);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath);
 

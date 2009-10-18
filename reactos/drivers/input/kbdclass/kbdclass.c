@@ -354,7 +354,7 @@ CreateClassDeviceObject(
 			&DeviceNameU,
 			FILE_DEVICE_KEYBOARD,
 			FILE_DEVICE_SECURE_OPEN,
-			FALSE,
+			TRUE,
 			&Fdo);
 		if (NT_SUCCESS(Status))
 			goto cleanup;
@@ -439,18 +439,18 @@ FillEntries(
 	}
 	else
 	{
-		_SEH2_TRY
+		_SEH_TRY
 		{
 			RtlCopyMemory(
 				Irp->UserBuffer,
 				DataStart,
 				NumberOfEntries * sizeof(KEYBOARD_INPUT_DATA));
 		}
-		_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+		_SEH_HANDLE
 		{
-			Status = _SEH2_GetExceptionCode();
+			Status = _SEH_GetExceptionCode();
 		}
-		_SEH2_END;
+		_SEH_END;
 	}
 
 	return Status;
@@ -649,7 +649,7 @@ ClassAddDevice(
 		NULL,
 		Pdo->DeviceType,
 		Pdo->Characteristics & FILE_DEVICE_SECURE_OPEN ? FILE_DEVICE_SECURE_OPEN : 0,
-		FALSE,
+		TRUE,
 		&Fdo);
 	if (!NT_SUCCESS(Status))
 	{
@@ -845,7 +845,7 @@ SearchForLegacyDrivers(
 {
 	UNICODE_STRING DeviceMapKeyU = RTL_CONSTANT_STRING(L"\\REGISTRY\\MACHINE\\HARDWARE\\DEVICEMAP");
 	PCLASS_DRIVER_EXTENSION DriverExtension;
-	UNICODE_STRING PortBaseName = { 0, 0, NULL };
+	UNICODE_STRING PortBaseName = {0, };
 	PKEY_VALUE_BASIC_INFORMATION KeyValueInformation = NULL;
 	OBJECT_ATTRIBUTES ObjectAttributes;
 	HANDLE hDeviceMapKey = (HANDLE)-1;
@@ -939,10 +939,6 @@ SearchForLegacyDrivers(
 			/* FIXME: Log the error */
 			WARN_(CLASS_NAME, "ClassAddDevice() failed with status 0x%08lx\n", Status);
 		}
-
-		/* A special hack for 1st stage setup: manually send start device to i8042prt */
-		if (IsFirstStageSetup())
-			Send8042StartDevice(DriverObject, PortDeviceObject);
 	}
 
 cleanup:

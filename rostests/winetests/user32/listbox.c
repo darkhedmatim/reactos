@@ -44,13 +44,13 @@ static const char * const strings[4] = {
   "Fourth added which is very long because at some time we only had a 256 byte character buffer and that was overflowing in one of those applications that had a common dialog file open box and tried to add a 300 characters long custom filter string which of course the code did not like and crashed. Just make sure this string is longer than 256 characters."
 };
 
-static const char BAD_EXTENSION[] = "*.badtxt";
+static const char BAD_EXTENSION[] = "*.txtbad";
 
 static HWND
 create_listbox (DWORD add_style, HWND parent)
 {
   HWND handle;
-  INT_PTR ctl_id=0;
+  int ctl_id=0;
   if (parent)
     ctl_id=1;
   handle=CreateWindow ("LISTBOX", "TestList",
@@ -59,10 +59,10 @@ create_listbox (DWORD add_style, HWND parent)
                             parent, (HMENU)ctl_id, NULL, 0);
 
   assert (handle);
-  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) strings[0]);
-  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) strings[1]);
-  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) strings[2]);
-  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) strings[3]);
+  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) (LPCTSTR) strings[0]);
+  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) (LPCTSTR) strings[1]);
+  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) (LPCTSTR) strings[2]);
+  SendMessage (handle, LB_ADDSTRING, 0, (LPARAM) (LPCTSTR) strings[3]);
 
 #ifdef VISIBLE
   ShowWindow (handle, SW_SHOW);
@@ -103,8 +103,8 @@ buttonpress (HWND handle, WORD x, WORD y)
   LPARAM lp=x+(y<<16);
 
   WAIT;
-  SendMessage (handle, WM_LBUTTONDOWN, MK_LBUTTON, lp);
-  SendMessage (handle, WM_LBUTTONUP, 0, lp);
+  SendMessage (handle, WM_LBUTTONDOWN, (WPARAM) MK_LBUTTON, lp);
+  SendMessage (handle, WM_LBUTTONUP  , (WPARAM) 0         , lp);
   REDRAW;
 }
 
@@ -254,9 +254,7 @@ static LRESULT WINAPI main_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                rc_client.left, rc_client.top, rc_client.right, rc_client.bottom);
         GetClipBox(dis->hDC, &rc_clip);
         trace("clip rect (%d,%d-%d,%d)\n", rc_clip.left, rc_clip.top, rc_clip.right, rc_clip.bottom);
-        ok(EqualRect(&rc_client, &rc_clip) || IsRectEmpty(&rc_clip),
-           "client rect of the listbox should be equal to the clip box,"
-           "or the clip box should be empty\n");
+        ok(EqualRect(&rc_client, &rc_clip), "client rect of the listbox should be equal to the clip box\n");
 
         trace("rcItem (%d,%d-%d,%d)\n", dis->rcItem.left, dis->rcItem.top,
                dis->rcItem.right, dis->rcItem.bottom);
@@ -287,7 +285,7 @@ static void test_ownerdraw(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandle(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursor(0, IDC_ARROW);
+    cls.hCursor = LoadCursor(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "main_window_class";
@@ -458,18 +456,18 @@ static void test_itemfrompoint(void)
     HWND hList = CreateWindow( "ListBox", "list test",
                                WS_VISIBLE|WS_POPUP|LBS_NOINTEGRALHEIGHT,
                                1, 1, 600, 100, NULL, NULL, NULL, NULL );
-    ULONG r, id;
+    LONG r, id;
     RECT rc;
 
-    /* For an empty listbox win2k returns 0x1ffff, win98 returns 0x10000, nt4 returns 0xffffffff */
+    /* For an empty listbox win2k returns 0x1ffff, win98 returns 0x10000 */
     r = SendMessage(hList, LB_ITEMFROMPOINT, 0, MAKELPARAM( /* x */ 30, /* y */ 30 ));
-    ok( r == 0x1ffff || r == 0x10000 || r == 0xffffffff, "ret %x\n", r );
+    ok( r == 0x1ffff || r == 0x10000, "ret %x\n", r );
 
     r = SendMessage(hList, LB_ITEMFROMPOINT, 0, MAKELPARAM( 700, 30 ));
-    ok( r == 0x1ffff || r == 0x10000 || r == 0xffffffff, "ret %x\n", r );
+    ok( r == 0x1ffff || r == 0x10000, "ret %x\n", r );
 
     r = SendMessage(hList, LB_ITEMFROMPOINT, 0, MAKELPARAM( 30, 300 ));
-    ok( r == 0x1ffff || r == 0x10000 || r == 0xffffffff, "ret %x\n", r );
+    ok( r == 0x1ffff || r == 0x10000, "ret %x\n", r );
 
     id = SendMessage( hList, LB_ADDSTRING, 0, (LPARAM) "hi");
     ok( id == 0, "item id wrong\n");
@@ -480,8 +478,7 @@ static void test_itemfrompoint(void)
     ok( r == 0x1, "ret %x\n", r );
 
     r = SendMessage(hList, LB_ITEMFROMPOINT, 0, MAKELPARAM( /* x */ 30, /* y */ 601 ));
-    ok( r == 0x10001 || broken(r == 1), /* nt4 */
-        "ret %x\n", r );
+    ok( r == 0x10001, "ret %x\n", r );
 
     /* Resize control so that below assertions about sizes are valid */
     r = SendMessage( hList, LB_GETITEMRECT, 0, (LPARAM)&rc);
@@ -518,20 +515,16 @@ static void test_itemfrompoint(void)
     ok( r == 1, "ret %x\n", r);
 
     r = SendMessage( hList, LB_ITEMFROMPOINT, 0, MAKELPARAM(1000, 10) );
-    ok( r == 0x10001 || broken(r == 1), /* nt4 */
-        "ret %x\n", r );
+    ok( r == 0x10001, "ret %x\n", r );
 
     r = SendMessage( hList, LB_ITEMFROMPOINT, 0, MAKELPARAM(10, -10) );
-    ok( r == 0x10001 || broken(r == 1), /* nt4 */
-        "ret %x\n", r );
+    ok( r == 0x10001, "ret %x\n", r );
 
     r = SendMessage( hList, LB_ITEMFROMPOINT, 0, MAKELPARAM(10, 100) );
-    ok( r == 0x10005 || broken(r == 5), /* nt4 */
-        "item %x\n", r );
+    ok( r == 0x10005, "item %x\n", r );
 
     r = SendMessage( hList, LB_ITEMFROMPOINT, 0, MAKELPARAM(10, 200) );
-    ok( r == 0x10005 || broken(r == 5), /* nt4 */
-        "item %x\n", r );
+    ok( r == 0x10005, "item %x\n", r );
 
     DestroyWindow( hList );
 }
@@ -557,19 +550,17 @@ static void test_listbox_item_data(void)
     DestroyWindow( hList );
 }
 
-static void test_listbox_LB_DIR(void)
+static void test_listbox_LB_DIR()
 {
     HWND hList;
     int res, itemCount;
     int itemCount_justFiles;
     int itemCount_justDrives;
     int itemCount_allFiles;
-    int itemCount_allDirs;
     int i;
     char pathBuffer[MAX_PATH];
     char * p;
     char driveletter;
-    const char *wildcard = "*";
     HANDLE file;
 
     file = CreateFileA( "wtest1.tmp.c", GENERIC_READ|GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL );
@@ -588,15 +579,9 @@ static void test_listbox_LB_DIR(void)
     /* Test for standard usage */
 
     /* This should list all the files in the test directory. */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, 0, (LPARAM)pathBuffer);
-    if (res == -1)  /* "*" wildcard doesn't work on win9x */
-    {
-        wildcard = "*.*";
-        strcpy(pathBuffer, wildcard);
-        res = SendMessage(hList, LB_DIR, 0, (LPARAM)pathBuffer);
-    }
     ok (res >= 0, "SendMessage(LB_DIR, 0, *) failed - 0x%08x\n", GetLastError());
 
     /* There should be some content in the listbox */
@@ -649,7 +634,7 @@ static void test_listbox_LB_DIR(void)
     }
 
     /* Test DDL_DIRECTORY */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DIRECTORY, (LPARAM)pathBuffer);
     ok (res > 0, "SendMessage(LB_DIR, DDL_DIRECTORY, *) failed - 0x%08x\n", GetLastError());
@@ -658,10 +643,9 @@ static void test_listbox_LB_DIR(void)
      * All files plus "[..]"
      */
     itemCount = SendMessage(hList, LB_GETCOUNT, 0, 0);
-    itemCount_allDirs = itemCount - itemCount_allFiles;
-    ok (itemCount > itemCount_allFiles,
-        "SendMessage(LB_DIR, DDL_DIRECTORY, *) filled with %d entries, expected > %d\n",
-        itemCount, itemCount_allFiles);
+    ok (itemCount == itemCount_allFiles + 1,
+        "SendMessage(LB_DIR, DDL_DIRECTORY, *) filled with %d entries, expected %d\n",
+        itemCount, itemCount_allFiles + 1);
     ok(res + 1 == itemCount,
         "SendMessage(LB_DIR, DDL_DIRECTORY, *) returned incorrect index (expected %d got %d)!\n",
         itemCount - 1, res);
@@ -707,10 +691,10 @@ static void test_listbox_LB_DIR(void)
 
 
     /* Test DDL_DRIVES|DDL_EXCLUSIVE */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DRIVES|DDL_EXCLUSIVE, (LPARAM)pathBuffer);
-    ok (res >= 0, "SendMessage(LB_DIR, DDL_DRIVES|DDL_EXCLUSIVE, *)  failed - 0x%08x\n", GetLastError());
+    ok (res > 0, "SendMessage(LB_DIR, DDL_DRIVES|DDL_EXCLUSIVE, *)  failed - 0x%08x\n", GetLastError());
 
     /* There should be some content in the listbox. In particular, there should
      * be at least one element before, since the string "[-c-]" should
@@ -754,7 +738,7 @@ static void test_listbox_LB_DIR(void)
         itemCount_justFiles, itemCount_justDrives);
 
     /* Test DDL_DRIVES. */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DRIVES, (LPARAM)pathBuffer);
     ok (res > 0, "SendMessage(LB_DIR, DDL_DRIVES, *)  failed - 0x%08x\n", GetLastError());
@@ -766,9 +750,9 @@ static void test_listbox_LB_DIR(void)
      */
     itemCount = SendMessage(hList, LB_GETCOUNT, 0, 0);
     ok (itemCount == itemCount_justDrives + itemCount_allFiles,
-        "SendMessage(LB_DIR, DDL_DRIVES, *) filled with %d entries, expected %d\n",
+        "SendMessage(LB_DIR, DDL_DRIVES, w*.c) filled with %d entries, expected %d\n",
         itemCount, itemCount_justDrives + itemCount_allFiles);
-    ok(res + 1 == itemCount, "SendMessage(LB_DIR, DDL_DRIVES, *) returned incorrect index!\n");
+    ok(res + 1 == itemCount, "SendMessage(LB_DIR, DDL_DRIVES, w*.c) returned incorrect index!\n");
 
     /* This tests behavior when no files match the wildcard */
     strcpy(pathBuffer, BAD_EXTENSION);
@@ -817,7 +801,7 @@ static void test_listbox_LB_DIR(void)
 
 
     /* Test DDL_DIRECTORY|DDL_DRIVES. This does *not* imply DDL_EXCLUSIVE */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DIRECTORY|DDL_DRIVES, (LPARAM)pathBuffer);
     ok (res > 0, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES, *) failed - 0x%08x\n", GetLastError());
@@ -826,9 +810,9 @@ static void test_listbox_LB_DIR(void)
      * be exactly the number of plain files, plus the number of mapped drives.
      */
     itemCount = SendMessage(hList, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_allFiles + itemCount_justDrives + itemCount_allDirs,
+    ok (itemCount == itemCount_allFiles + itemCount_justDrives + 1,
         "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES) filled with %d entries, expected %d\n",
-        itemCount, itemCount_allFiles + itemCount_justDrives + itemCount_allDirs);
+        itemCount, itemCount_allFiles + itemCount_justDrives + 1);
     ok(res + 1 == itemCount, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES, w*.c) returned incorrect index!\n");
 
     /* Every single item in the control should start with a w and end in .c,
@@ -892,23 +876,21 @@ static void test_listbox_LB_DIR(void)
     }
 
     /* Test DDL_DIRECTORY|DDL_EXCLUSIVE. */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DIRECTORY|DDL_EXCLUSIVE, (LPARAM)pathBuffer);
-    ok (res != -1, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_EXCLUSIVE, *) failed err %u\n", GetLastError());
+    ok (res == 0, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_EXCLUSIVE, *) failed - 0x%08x\n", GetLastError());
 
+    /* There should be exactly one element: "[..]" */
     itemCount = SendMessage(hList, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_allDirs,
+    ok (itemCount == 1,
         "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_EXCLUSIVE) filled with %d entries, expected %d\n",
-        itemCount, itemCount_allDirs);
+        itemCount, 1);
     ok(res + 1 == itemCount, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_EXCLUSIVE, *) returned incorrect index!\n");
 
-    if (itemCount && GetCurrentDirectoryA( MAX_PATH, pathBuffer ) > 3)  /* there's no [..] in drive root */
-    {
-        memset(pathBuffer, 0, MAX_PATH);
-        SendMessage(hList, LB_GETTEXT, 0, (LPARAM)pathBuffer);
-        ok( !strcmp(pathBuffer, "[..]"), "First element is not [..]\n");
-    }
+    memset(pathBuffer, 0, MAX_PATH);
+    SendMessage(hList, LB_GETTEXT, 0, (LPARAM)pathBuffer);
+    ok( !strcmp(pathBuffer, "[..]"), "First (and only) element is not [..]\n");
 
     /* This tests behavior when no files match the wildcard */
     strcpy(pathBuffer, BAD_EXTENSION);
@@ -934,16 +916,16 @@ static void test_listbox_LB_DIR(void)
         itemCount, 0);
 
     /* Test DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE. */
-    strcpy(pathBuffer, wildcard);
+    strcpy(pathBuffer, "*");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE, (LPARAM)pathBuffer);
     ok (res > 0, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE, w*.c,) failed - 0x%08x\n", GetLastError());
 
     /* There should be no plain files on the listbox */
     itemCount = SendMessage(hList, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_justDrives + itemCount_allDirs,
+    ok (itemCount == itemCount_justDrives + 1,
         "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE) filled with %d entries, expected %d\n",
-        itemCount, itemCount_justDrives + itemCount_allDirs);
+        itemCount, itemCount_justDrives + 1);
     ok(res + 1 == itemCount, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE, w*.c) returned incorrect index!\n");
 
     for (i = 0; i < itemCount; i++) {
@@ -954,8 +936,7 @@ static void test_listbox_LB_DIR(void)
         if (sscanf(pathBuffer, "[-%c-]", &driveletter) == 1) {
             ok( driveletter >= 'a' && driveletter <= 'z', "Drive letter not in range a..z, got ascii %d\n", driveletter);
         } else {
-            ok( pathBuffer[0] == '[' && pathBuffer[strlen(pathBuffer)-1] == ']',
-                "Element %d (%s) does not fit expected [...]\n", i, pathBuffer);
+            ok( !strcmp(pathBuffer, "[..]"), "Element %d (%s) does not fit expected [..]\n", i, pathBuffer);
         }
     }
 
@@ -973,7 +954,7 @@ static void test_listbox_LB_DIR(void)
     strcpy(pathBuffer, "w*.c");
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
     res = SendMessage(hList, LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE, (LPARAM)pathBuffer);
-    ok (res >= 0, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE, w*.c,) failed - 0x%08x\n", GetLastError());
+    ok (res > 0, "SendMessage(LB_DIR, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE, w*.c,) failed - 0x%08x\n", GetLastError());
 
     /* There should be no plain files on the listbox, and no [..], since it does not fit w*.c */
     itemCount = SendMessage(hList, LB_GETCOUNT, 0, 0);
@@ -1065,7 +1046,6 @@ static void test_listbox_dlgdir(void)
     HINSTANCE hInst;
     HWND hWnd;
     int res, itemCount;
-    int itemCount_allDirs;
     int itemCount_justFiles;
     int itemCount_justDrives;
     int i;
@@ -1145,14 +1125,13 @@ static void test_listbox_dlgdir(void)
     ok (res == 1, "DlgDirList(*.c, DDL_DIRECTORY) failed - 0x%08x\n", GetLastError());
 
     /* There should be some content in the listbox. In particular, there should
-     * be exactly more elements than before, since the directories should
+     * be exactly one more element than before, since the string "[..]" should
      * have been added.
      */
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    itemCount_allDirs = itemCount - itemCount_justFiles;
-    ok (itemCount >= itemCount_justFiles,
-        "DlgDirList(DDL_DIRECTORY) filled with %d entries, expected > %d\n",
-        itemCount, itemCount_justFiles);
+    ok (itemCount == itemCount_justFiles + 1,
+        "DlgDirList(DDL_DIRECTORY) filled with %d entries, expected %d\n",
+        itemCount, itemCount_justFiles + 1);
 
     /* Every single item in the control should start with a w and end in .c,
      * except for the "[..]" string, which should appear exactly as it is.
@@ -1161,7 +1140,7 @@ static void test_listbox_dlgdir(void)
         memset(pathBuffer, 0, MAX_PATH);
         SendMessage(g_listBox, LB_GETTEXT, i, (LPARAM)pathBuffer);
         p = pathBuffer + strlen(pathBuffer);
-        ok( (pathBuffer[0] == '[' && pathBuffer[strlen(pathBuffer)-1] == ']') ||
+        ok( !strcmp(pathBuffer, "[..]") ||
             ((pathBuffer[0] == 'w' || pathBuffer[0] == 'W') &&
             (*(p-1) == 'c' || *(p-1) == 'C') &&
             (*(p-2) == '.')), "Element %d (%s) does not fit requested w*.c\n", i, pathBuffer);
@@ -1174,15 +1153,13 @@ static void test_listbox_dlgdir(void)
     ok (res == 1, "DlgDirList(%s, DDL_DIRECTORY) returned %d expected 1\n", BAD_EXTENSION, res);
 
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_allDirs,
-        "DlgDirList() incorrectly filled the listbox! (expected %d got %d)\n",
-        itemCount_allDirs, itemCount);
+    ok (itemCount == 1, "DlgDirList() incorrectly filled the listbox! (expected 1 got %d)\n",
+        itemCount);
     for (i = 0; i < itemCount; i++) {
         memset(pathBuffer, 0, MAX_PATH);
         SendMessage(g_listBox, LB_GETTEXT, i, (LPARAM)pathBuffer);
         p = pathBuffer + strlen(pathBuffer);
-        ok( pathBuffer[0] == '[' && pathBuffer[strlen(pathBuffer)-1] == ']',
-            "Element %d (%s) does not fit requested [...]\n", i, pathBuffer);
+        ok( !strcmp(pathBuffer, "[..]"), "Element %d (%s) does not fit requested [..]\n", i, pathBuffer);
     }
 
 
@@ -1239,9 +1216,9 @@ static void test_listbox_dlgdir(void)
      * plus one "[..]"
      */
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_justFiles + itemCount_justDrives + itemCount_allDirs,
+    ok (itemCount == itemCount_justFiles + itemCount_justDrives + 1,
         "DlgDirList(DDL_DIRECTORY|DDL_DRIVES) filled with %d entries, expected %d\n",
-        itemCount, itemCount_justFiles + itemCount_justDrives + itemCount_allDirs);
+        itemCount, itemCount_justFiles + itemCount_justDrives + 1);
 
     /* Every single item in the control should start with a w and end in .c,
      * except for the "[..]" string, which should appear exactly as it is,
@@ -1255,7 +1232,7 @@ static void test_listbox_dlgdir(void)
         if (sscanf(pathBuffer, "[-%c-]", &driveletter) == 1) {
             ok( driveletter >= 'a' && driveletter <= 'z', "Drive letter not in range a..z, got ascii %d\n", driveletter);
         } else {
-            ok( (pathBuffer[0] == '[' && pathBuffer[strlen(pathBuffer)-1] == ']') ||
+            ok( !strcmp(pathBuffer, "[..]") ||
                 ((pathBuffer[0] == 'w' || pathBuffer[0] == 'W') &&
                 (*(p-1) == 'c' || *(p-1) == 'C') &&
                 (*(p-2) == '.')), "Element %d (%s) does not fit requested w*.c\n", i, pathBuffer);
@@ -1269,9 +1246,9 @@ static void test_listbox_dlgdir(void)
     ok (res == 1, "DlgDirList(%s, DDL_DIRECTORY|DDL_DRIVES) returned %d expected 1\n", BAD_EXTENSION, res);
 
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_justDrives + itemCount_allDirs,
+    ok (itemCount == itemCount_justDrives + 1,
         "DlgDirList() incorrectly filled the listbox! (expected %d got %d)\n",
-        itemCount_justDrives + itemCount_allDirs, itemCount);
+        itemCount_justDrives + 1, itemCount);
 
 
 
@@ -1283,16 +1260,14 @@ static void test_listbox_dlgdir(void)
 
     /* There should be exactly one element: "[..]" */
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_allDirs,
+    ok (itemCount == 1,
         "DlgDirList(DDL_DIRECTORY|DDL_EXCLUSIVE) filled with %d entries, expected %d\n",
-        itemCount, itemCount_allDirs);
+        itemCount, 1);
 
-    if (itemCount && GetCurrentDirectoryA( MAX_PATH, pathBuffer ) > 3)  /* there's no [..] in drive root */
-    {
-        memset(pathBuffer, 0, MAX_PATH);
-        SendMessage(g_listBox, LB_GETTEXT, 0, (LPARAM)pathBuffer);
-        ok( !strcmp(pathBuffer, "[..]"), "First (and only) element is not [..]\n");
-    }
+    memset(pathBuffer, 0, MAX_PATH);
+    SendMessage(g_listBox, LB_GETTEXT, 0, (LPARAM)pathBuffer);
+    ok( !strcmp(pathBuffer, "[..]"), "First (and only) element is not [..]\n");
+
 
     /* Test behavior when no files match the wildcard */
     strcpy(pathBuffer, BAD_EXTENSION);
@@ -1301,7 +1276,7 @@ static void test_listbox_dlgdir(void)
     ok (res == 1, "DlgDirList(%s, DDL_DIRECTORY|DDL_EXCLUSIVE) returned %d expected 1\n", BAD_EXTENSION, res);
 
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_allDirs, "DlgDirList() incorrectly filled the listbox!\n");
+    ok (itemCount == 1, "DlgDirList() incorrectly filled the listbox!\n");
 
 
     /* Test DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE. */
@@ -1312,9 +1287,9 @@ static void test_listbox_dlgdir(void)
 
     /* There should be no plain files on the listbox */
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_justDrives + itemCount_allDirs,
+    ok (itemCount == itemCount_justDrives + 1,
         "DlgDirList(DDL_DIRECTORY|DDL_EXCLUSIVE) filled with %d entries, expected %d\n",
-        itemCount, itemCount_justDrives + itemCount_allDirs);
+        itemCount, itemCount_justDrives + 1);
 
     for (i = 0; i < itemCount; i++) {
         memset(pathBuffer, 0, MAX_PATH);
@@ -1324,8 +1299,7 @@ static void test_listbox_dlgdir(void)
         if (sscanf(pathBuffer, "[-%c-]", &driveletter) == 1) {
             ok( driveletter >= 'a' && driveletter <= 'z', "Drive letter not in range a..z, got ascii %d\n", driveletter);
         } else {
-            ok( pathBuffer[0] == '[' && pathBuffer[strlen(pathBuffer)-1] == ']',
-                "Element %d (%s) does not fit expected [...]\n", i, pathBuffer);
+            ok( !strcmp(pathBuffer, "[..]"), "Element %d (%s) does not fit expected [..]\n", i, pathBuffer);
         }
     }
 
@@ -1336,8 +1310,7 @@ static void test_listbox_dlgdir(void)
     ok (res == 1, "DlgDirList(%s, DDL_DIRECTORY|DDL_DRIVES|DDL_EXCLUSIVE) returned %d expected 1\n", BAD_EXTENSION, res);
 
     itemCount = SendMessage(g_listBox, LB_GETCOUNT, 0, 0);
-    ok (itemCount == itemCount_justDrives + itemCount_allDirs,
-        "DlgDirList() incorrectly filled the listbox!\n");
+    ok (itemCount == itemCount_justDrives + 1, "DlgDirList() incorrectly filled the listbox!\n");
 
 
     /* Now test DlgDirSelectEx() in normal operation */

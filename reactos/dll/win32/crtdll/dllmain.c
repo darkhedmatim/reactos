@@ -103,7 +103,7 @@ HANDLE hHeap = NULL;        /* handle for heap */
 /* LIBRARY ENTRY POINT ********************************************************/
 
 BOOL
-WINAPI
+STDCALL
 DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 {
     switch (dwReason)

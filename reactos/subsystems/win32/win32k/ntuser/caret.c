@@ -123,7 +123,7 @@ IntQueryCaretBlinkRate(VOID)
    if(!NT_SUCCESS(Status) || (KeyValuePartialInfo->Type != REG_SZ))
    {
       NtClose(KeyHandle);
-      ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+      ExFreePool(KeyValuePartialInfo);
       return 0;
    }
 
@@ -137,7 +137,7 @@ IntQueryCaretBlinkRate(VOID)
       Val = 0;
    }
 
-   ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+   ExFreePool(KeyValuePartialInfo);
    NtClose(KeyHandle);
 
    return (UINT)Val;
@@ -312,7 +312,7 @@ BOOL FASTCALL co_UserShowCaret(PWINDOW_OBJECT Window OPTIONAL)
 /* SYSCALLS *****************************************************************/
 
 BOOL
-APIENTRY
+STDCALL
 NtUserCreateCaret(
    HWND hWnd,
    HBITMAP hBitmap,
@@ -355,14 +355,6 @@ NtUserCreateCaret(
    }
    else
    {
-      if (nWidth == 0)
-      {
-          nWidth = UserGetSystemMetrics(SM_CXBORDER);
-      }
-      if (nHeight == 0)
-      {
-          nHeight = UserGetSystemMetrics(SM_CYBORDER);
-      }
       ThreadQueue->CaretInfo->Bitmap = (HBITMAP)0;
       ThreadQueue->CaretInfo->Size.cx = nWidth;
       ThreadQueue->CaretInfo->Size.cy = nHeight;
@@ -379,7 +371,7 @@ CLEANUP:
 }
 
 UINT
-APIENTRY
+STDCALL
 NtUserGetCaretBlinkTime(VOID)
 {
    DECLARE_RETURN(UINT);
@@ -396,7 +388,7 @@ CLEANUP:
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserGetCaretPos(
    LPPOINT lpPoint)
 {
@@ -427,7 +419,7 @@ CLEANUP:
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserShowCaret(HWND hWnd OPTIONAL)
 {
    PWINDOW_OBJECT Window = NULL;
@@ -458,7 +450,7 @@ CLEANUP:
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserHideCaret(HWND hWnd OPTIONAL)
 {
    PWINDOW_OBJECT Window = NULL;

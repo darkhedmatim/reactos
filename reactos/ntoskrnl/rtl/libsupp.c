@@ -13,7 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_ATMT 'TotA' /* Atom table */
+#define TAG_ATMT TAG('A', 't', 'o', 'T') /* Atom table */
 
 extern ULONG NtGlobalFlag;
 
@@ -38,7 +38,7 @@ RtlInitializeRangeListPackage(VOID)
                                    NULL,
                                    POOL_COLD_ALLOCATION,
                                    sizeof(RTL_RANGE_ENTRY),
-                                   'elRR',
+                                   TAG('R', 'R', 'l', 'e'),
                                    16);
 }
 
@@ -59,14 +59,14 @@ RtlpSetInDbgPrint(IN BOOLEAN NewValue)
 }
 
 KPROCESSOR_MODE
-NTAPI
+STDCALL
 RtlpGetMode()
 {
    return KernelMode;
 }
 
 PVOID
-NTAPI
+STDCALL
 RtlpAllocateMemory(ULONG Bytes,
                    ULONG Tag)
 {
@@ -76,11 +76,11 @@ RtlpAllocateMemory(ULONG Bytes,
 }
 
 
-#define TAG_USTR        'RTSU'
-#define TAG_ASTR        'RTSA'
-#define TAG_OSTR        'RTSO'
+#define TAG_USTR        TAG('U', 'S', 'T', 'R')
+#define TAG_ASTR        TAG('A', 'S', 'T', 'R')
+#define TAG_OSTR        TAG('O', 'S', 'T', 'R')
 VOID
-NTAPI
+STDCALL
 RtlpFreeMemory(PVOID Mem,
                ULONG Tag)
 {
@@ -93,7 +93,7 @@ RtlpFreeMemory(PVOID Mem,
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlAcquirePebLock(VOID)
 {
 
@@ -102,14 +102,14 @@ RtlAcquirePebLock(VOID)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 RtlReleasePebLock(VOID)
 {
 
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 LdrShutdownThread(VOID)
 {
     return STATUS_SUCCESS;
@@ -117,14 +117,14 @@ LdrShutdownThread(VOID)
 
 
 PPEB
-NTAPI
+STDCALL
 RtlGetCurrentPeb(VOID)
 {
    return ((PEPROCESS)(KeGetCurrentThread()->ApcState.Process))->Peb;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlDeleteHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
@@ -133,7 +133,7 @@ RtlDeleteHeapLock(
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlEnterHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
@@ -142,7 +142,7 @@ RtlEnterHeapLock(
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlInitializeHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
@@ -151,7 +151,7 @@ RtlInitializeHeapLock(
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 RtlLeaveHeapLock(
     PRTL_CRITICAL_SECTION CriticalSection)
 {
@@ -159,7 +159,7 @@ RtlLeaveHeapLock(
     return STATUS_SUCCESS;
 }
 
-#if DBG
+#ifdef DBG
 VOID FASTCALL
 CHECK_PAGED_CODE_RTL(char *file, int line)
 {
@@ -313,7 +313,7 @@ RtlWalkFrameChain(OUT PVOID *Callers,
     }
 
     /* Use a SEH block for maximum protection */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we want the user-mode stack frame */
         if (Flags == 1)
@@ -341,8 +341,6 @@ RtlWalkFrameChain(OUT PVOID *Callers,
             Stack = TrapFrame->Ebp;
 #elif defined(_M_PPC)
             Stack = TrapFrame->Gpr1;
-#else
-#error Unknown architecture
 #endif
 
             /* Validate them */
@@ -400,12 +398,12 @@ RtlWalkFrameChain(OUT PVOID *Callers,
             Stack = NewStack;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* No index */
         i = 0;
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return frames parsed */
     return i;
@@ -518,36 +516,29 @@ RtlpCreateAtomHandle(PRTL_ATOM_TABLE AtomTable, PRTL_ATOM_TABLE_ENTRY Entry)
    HANDLE Handle;
    USHORT HandleIndex;
 
-   /* Initialize ex handle table entry */
    ExEntry.Object = Entry;
    ExEntry.GrantedAccess = 0x1; /* FIXME - valid handle */
 
-   /* Create ex handle */
    Handle = ExCreateHandle(AtomTable->ExHandleTable,
-                           &ExEntry);
-   if (!Handle) return FALSE;
-
-   /* Calculate HandleIndex (by getting rid of the first two bits) */
-   HandleIndex = (USHORT)((ULONG_PTR)Handle >> 2);
-
-   /* Index must be less than 0xC000 */
-   if (HandleIndex >= 0xC000)
+                                &ExEntry);
+   if (Handle != NULL)
    {
-       /* Destroy ex handle */
-       ExDestroyHandle(AtomTable->ExHandleTable,
-                       Handle,
-                       NULL);
+      HandleIndex = (USHORT)((ULONG_PTR)Handle >> 2);
+      /* FIXME - Handle Indexes >= 0xC000 ?! */
+      if ((ULONG_PTR)HandleIndex >> 2 < 0xC000)
+      {
+         Entry->HandleIndex = HandleIndex;
+         Entry->Atom = 0xC000 + HandleIndex;
 
-       /* Return failure */
-       return FALSE;
+         return TRUE;
+      }
+      else
+         ExDestroyHandle(AtomTable->ExHandleTable,
+                         Handle,
+                         NULL);
    }
 
-   /* Initialize atom table entry */
-   Entry->HandleIndex = HandleIndex;
-   Entry->Atom = 0xC000 + HandleIndex;
-
-   /* Return success */
-   return TRUE;
+   return FALSE;
 }
 
 PRTL_ATOM_TABLE_ENTRY

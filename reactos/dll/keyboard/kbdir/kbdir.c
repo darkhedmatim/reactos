@@ -419,7 +419,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   extcode0_to_vk,
   extcode1_to_vk,
 
-  MAKELONG(1,1), /* Version 1.0 */
+  MAKELONG(0,1), /* Version 1.0 */
 
   /* Ligatures */
   0,
@@ -427,11 +427,11 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 
-INT WINAPI
+INT STDCALL
 DllMain(
   PVOID hinstDll,
   ULONG dwReason,

@@ -9,7 +9,7 @@
 //
 // Define this if you want debugging support
 //
-#define _OB_DEBUG_                                      0x00
+#define _OB_DEBUG_                                      0x01
 
 //
 // These define the Debug Masks Supported
@@ -71,6 +71,12 @@
     (HANDLE)((ULONG_PTR)(Handle) | KERNEL_HANDLE_FLAG)
 
 //
+// Returns the number of handles in a handle table
+//
+#define ObpGetHandleCountByHandleTable(HandleTable)     \
+    ((PHANDLE_TABLE)HandleTable)->HandleCount
+
+//
 // Converts from an EXHANDLE object to a POBJECT_HEADER
 //
 #define ObpGetHandleObject(x)                           \
@@ -118,7 +124,7 @@ typedef struct _SECURITY_DESCRIPTOR_HEADER
     LIST_ENTRY Link;
     ULONG RefCount;
     ULONG FullHash;
-    QUAD SecurityDescriptor;
+    QUAD SecurityDescriptor;    
 } SECURITY_DESCRIPTOR_HEADER, *PSECURITY_DESCRIPTOR_HEADER;
 
 //
@@ -142,7 +148,7 @@ typedef union
 //
 // Private Temporary Buffer for Lookup Routines
 //
-#define TAG_OB_TEMP_STORAGE 'tSbO'
+#define TAG_OB_TEMP_STORAGE TAG('O', 'b', 'S', 't')
 typedef struct _OB_TEMP_BUFFER
 {
     ACCESS_STATE LocalAccessState;
@@ -562,15 +568,6 @@ ObpCaptureObjectCreateInformation(
     IN BOOLEAN AllocateFromLookaside,
     IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     OUT PUNICODE_STRING ObjectName
-);
-
-//
-// Miscellanea
-//
-ULONG
-NTAPI
-ObGetProcessHandleCount(
-    IN PEPROCESS Process
 );
 
 //

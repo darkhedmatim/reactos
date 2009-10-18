@@ -7,14 +7,16 @@
  */
 
 /* INCLUDES ******************************************************************/
-#define NDEBUG
+
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
 /* Not defined in any header file */
-extern VOID WINAPI PrivateCsrssManualGuiCheck(LONG Check);
-extern VOID WINAPI PrivateCsrssInitialized();
-extern VOID WINAPI InitializeAppSwitchHook();
+extern VOID STDCALL PrivateCsrssManualGuiCheck(LONG Check);
+extern VOID STDCALL PrivateCsrssInitialized();
+extern VOID STDCALL InitializeAppSwitchHook();
 
 /* GLOBALS *******************************************************************/
 
@@ -86,7 +88,7 @@ static CSRSS_OBJECT_DEFINITION Win32CsrObjectDefinitions[] =
 
 /* FUNCTIONS *****************************************************************/
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HANDLE hDll,
 	DWORD dwReason,
 	LPVOID lpReserved)
@@ -172,7 +174,7 @@ Win32CsrEnumProcesses(CSRSS_ENUM_PROCESS_PROC EnumProc,
   return (CsrExports.CsrEnumProcessesProc)(EnumProc, Context);
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 Win32CsrInitComplete(void)
 {
   PrivateCsrssInitialized();
@@ -180,7 +182,7 @@ Win32CsrInitComplete(void)
   return TRUE;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
                   IN PHARDERROR_MSG HardErrorMessage)
 {
@@ -386,7 +388,7 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
 
             CaptionText = (LPSTR)RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, CaptionSize);
             RtlCopyMemory(CaptionText, MessageA.Buffer+1, CaptionSize-1);
-            CaptionSize += 2; // "}\r\n" - 3
+            CaptionSize += 3; // "}\r\n" - 3
 
             szxCaptionText = (LPWSTR)RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(wchar_t)*CaptionSize+ClientFileNameU.MaximumLength+128);
             if( ClientFileNameU.Buffer ) {
@@ -576,7 +578,7 @@ Win32CsrHardError(IN PCSRSS_PROCESS_DATA ProcessData,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
                        PCSRSS_OBJECT_DEFINITION *ObjectDefinitions,
                        CSRPLUGIN_INIT_COMPLETE_PROC *InitComplete,
@@ -584,11 +586,8 @@ Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
                        PCSRSS_EXPORTED_FUNCS Exports,
                        HANDLE CsrssApiHeap)
 {
-  NTSTATUS Status;
   CsrExports = *Exports;
   Win32CsrApiHeap = CsrssApiHeap;
-
-  Status = NtUserInitialize(0 ,NULL, NULL);
 
   PrivateCsrssManualGuiCheck(0);
   CsrInitConsoleSupport();

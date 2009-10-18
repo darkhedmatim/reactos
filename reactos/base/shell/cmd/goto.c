@@ -38,6 +38,7 @@
 
 INT cmd_goto (LPTSTR param)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	LPTSTR tmp, tmp2;
 	LONG   lNewPosHigh = 0;
 
@@ -57,8 +58,8 @@ INT cmd_goto (LPTSTR param)
 
 	if (*param == _T('\0'))
 	{
-		ConErrResPrintf(STRING_GOTO_ERROR1);
-		ExitBatch();
+		LoadString(CMD_ModuleHandle, STRING_GOTO_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+		ExitBatch(szMsg);
 		return 1;
 	}
 
@@ -116,7 +117,7 @@ INT cmd_goto (LPTSTR param)
 	}
 
 	ConErrResPrintf(STRING_GOTO_ERROR2, param);
-	ExitBatch();
+	ExitBatch(NULL);
 	return 1;
 }
 

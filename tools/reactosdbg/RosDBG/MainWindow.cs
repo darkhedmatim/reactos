@@ -1,15 +1,13 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.Reflection;
-using System.Diagnostics;
-using WeifenLuo.WinFormsUI.Docking;
 using AbstractPipe;
 using DebugProtocol;
 using KDBGProtocol;
@@ -21,221 +19,28 @@ namespace RosDBG
 
     public partial class MainWindow : Form, IShell
     {
-        private RegisterView m_RegView = new RegisterView();
-        private BackTrace m_BackTrace = new BackTrace();
-        private RawTraffic m_RawTraffic = new RawTraffic();
-        private Locals m_Locals = new Locals();
-        private MemoryWindow m_MemoryWindow = new MemoryWindow();
-        private ProcThread m_ProcThread = new ProcThread();
-        private Modules m_Modules = new Modules(); 
-
-        private bool mRunning;
-        private DebugConnection.Mode mConnectionMode;
-        private ulong mCurrentEip;
-        private string mSourceRoot = Settings.SourceDirectory, mCurrentFile;
-        private int mCurrentLine;
-        private DebugConnection mConnection = new DebugConnection();
-        private SymbolContext mSymbolContext;
+        Point mMousePosition;
+        bool mRunning;
+        DebugConnection.Mode mConnectionMode;
+        ulong mCurrentEip;
+        string mSourceRoot = Settings.SourceDirectory, mCurrentFile;
+        int mCurrentLine;
+        DebugConnection mConnection = new DebugConnection();
+        SymbolContext mSymbolContext;
         Dictionary<uint, Module> mModules = new Dictionary<uint, Module>();
-        private Dictionary<string, SourceView> mSourceFiles = new Dictionary<string, SourceView>();
-
-        //public event CopyEventHandler CopyEvent;
+        Dictionary<string, SourceView> mSourceFiles = new Dictionary<string, SourceView>();
+        public event CopyEventHandler CopyEvent;
+        
+        public DebugConnection DebugConnection
+        {
+            get { return mConnection; }
+        }
 
         public MainWindow()
         {
             InitializeComponent();
-
-            // Setup the logger
-            RosDiagnostics.SetupLogger();
-
-            RosDiagnostics.DebugTrace(RosDiagnostics.TraceType.Info, "Initialising application");
-
             mSymbolContext = new SymbolContext();
-
-            RegisterControl(m_RegView);
-            RegisterControl(m_BackTrace);
-            RegisterControl(m_RawTraffic);
-            RegisterControl(m_Locals);
-            RegisterControl(m_MemoryWindow);
-            RegisterControl(m_ProcThread);
-            RegisterControl(m_Modules);
-
-            m_Locals.Show(dockPanel, DockState.DockRight);
-            m_RegView.Show(dockPanel, DockState.DockRight);
-            m_BackTrace.Show(dockPanel, DockState.DockBottom);
-            m_RawTraffic.Show(dockPanel);
-            m_Modules.Show(dockPanel);
-            m_ProcThread.Show(dockPanel);
-            ReactOSWeb web = new ReactOSWeb();
-            web.Show(dockPanel);
-        }
-
-        void ComposeTitleString()
-        {
-            FocusAddress(mCurrentEip);
-
-            string mode;
-            switch (mConnectionMode)
-            {
-                case DebugConnection.Mode.ClosedMode: mode = "Closed"; break;
-                case DebugConnection.Mode.PipeMode:   mode = "Pipe";   break;
-                case DebugConnection.Mode.SerialMode: mode = "Serial"; break;
-                case DebugConnection.Mode.SocketMode: mode = "Socket"; break;
-                default: mode = "Unknown"; break;
-            }
-
-            toolStripStatusConnectionMode.Text = mode;
-            if (mConnectionMode == DebugConnection.Mode.ClosedMode)
-            {
-                toolStripStatusConnected.ForeColor = Color.Crimson;
-                toolStripStatusConnected.Text = "Not connected";
-            }
-            else
-            {
-                if (mRunning)
-                {
-                    toolStripStatusConnected.ForeColor = Color.Green;
-                    toolStripStatusConnected.Text = "Debug";
-                }
-                else
-                {
-                    toolStripStatusConnected.ForeColor = Color.Yellow;
-                    toolStripStatusConnected.Text = "Waiting";
-                }
-            }
-
-            if (mCurrentFile.CompareTo("unknown") != 0)
-            {
-                toolStripStatusSourceLocation.Visible = true;
-                toolStripStatusSourceLocationFile.Text = mCurrentFile;
-                toolStripStatusSourceLocationLine.Text = mCurrentLine.ToString();
-                toolStripStatusSourceLocationColon.Visible = true;
-            }
-            else
-            {
-                toolStripStatusSourceLocation.Visible = false;
-                toolStripStatusSourceLocationFile.Text = string.Empty;
-                toolStripStatusSourceLocationLine.Text = string.Empty;
-                toolStripStatusSourceLocationColon.Visible = false;
-            }
-        }
-
-        void DebugModuleChangedEvent(object sender, DebugModuleChangedEventArgs args)
-        {
-            Module themod;
-            if (!mModules.TryGetValue(args.ModuleAddr, out themod) ||
-                themod.ShortName != args.ModuleName.ToLower())
-            {
-                mModules[args.ModuleAddr] = new Module(args.ModuleAddr, args.ModuleName);
-                mSymbolContext.LoadModule(args.ModuleName, args.ModuleAddr);
-            }
-            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
-        }
-
-        void DebugRunningChangeEvent(object sender, DebugRunningChangeEventArgs args)
-        {
-            mRunning = args.Running;
-            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
-            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "UpdateDebuggerMenu"));
-        }
-
-        void DebugConnectionModeChangedEvent(object sender, DebugConnectionModeChangedEventArgs args)
-        {
-            mConnectionMode = args.Mode;
-            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
-        }
-
-        void DebugRegisterChangeEvent(object sender, DebugRegisterChangeEventArgs args)
-        {
-            mCurrentEip = args.Registers.Eip;
-            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
-        }
-
-        protected override void OnLoad(EventArgs e)
-        {
-            base.OnLoad(e);
-            mSymbolContext.Initialize();
-            mConnection.DebugConnectionModeChangedEvent += DebugConnectionModeChangedEvent;
-            mConnection.DebugRunningChangeEvent += DebugRunningChangeEvent;
-            mConnection.DebugRegisterChangeEvent += DebugRegisterChangeEvent;
-            mConnection.DebugModuleChangedEvent += DebugModuleChangedEvent;
-            ComposeTitleString();
-            mSymbolContext.ReactosOutputPath = Settings.OutputDirectory;
-        }
-
-        public void RegisterControl(Control ctrl)
-        {
-            IUseDebugConnection usedbg = ctrl as IUseDebugConnection;
-            if (usedbg != null)
-                usedbg.SetDebugConnection(mConnection);
-            IUseSymbols usesym = ctrl as IUseSymbols;
-            if (usesym != null)
-                usesym.SetSymbolProvider(mSymbolContext);
-            IUseShell useshell = ctrl as IUseShell;
-            if (useshell != null)
-                useshell.SetShell(this);
-        }
-
-        private void OpenFile(object sender, EventArgs e)
-        {
-            OpenFileDialog fileDialog = new OpenFileDialog();
-            fileDialog.Filter = "Sourcefiles (*.c;*.cpp)|*.c;*.cpp";
-            if (fileDialog.ShowDialog() == DialogResult.OK)
-            {
-                OpenSourceFile(fileDialog.FileName);
-            }
-        }
-
-        private void ExitToolsStripMenuItem_Click(object sender, EventArgs e)
-        {
-            this.Close();
-        }
-
-        private void ToolBarToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            toolStrip.Visible = toolBarToolStripMenuItem.Checked;
-        }
-
-        private void StatusBarToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            statusStrip.Visible = statusBarToolStripMenuItem.Checked;
-        }
-
-        private void MainWindowMDI_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            RosDiagnostics.DebugTrace(RosDiagnostics.TraceType.Info, "Closing application");
-            mConnection.Close(true);
-            SaveWindowSettings();
-        }
-
-        void UpdateDebuggerMenu()
-        {
-            if (mConnection.ConnectionMode == DebugConnection.Mode.ClosedMode)
-            {
-                breakToolStripMenuItem.Enabled = false;
-                nextToolStripMenuItem.Enabled = false;
-                stepToolStripMenuItem.Enabled = false;
-                continueToolStripMenuItem.Enabled = false;
-                continueToolStripButton.Enabled = false;
-                breakToolStripButton.Enabled = false;
-            }
-            else
-            {
-                breakToolStripMenuItem.Enabled = mRunning;
-                breakToolStripButton.Enabled = mRunning;
-                nextToolStripMenuItem.Enabled = !mRunning;
-                stepToolStripMenuItem.Enabled = !mRunning;
-                continueToolStripMenuItem.Enabled = !mRunning;
-                continueToolStripButton.Enabled = !mRunning;
-            }
-        }
-
-        public void FocusAddress(ulong eipToFocus)
-        {
-            KeyValuePair<string, int> fileline = mSymbolContext.GetFileAndLine(eipToFocus);
-            mCurrentFile = fileline.Key;
-            mCurrentLine = fileline.Value;
-            TryToDisplaySource();
+            RegisterSubwindows(Assembly.GetExecutingAssembly());
         }
 
         void Rehighlight(SourceView vw)
@@ -262,26 +67,191 @@ namespace RosDBG
                 {
                     theSourceView = new SourceView(Path.GetFileName(FileName));
                     mSourceFiles[FileName] = theSourceView;
+                    AddTab(theSourceView);
                     theSourceView.SourceFile = FileName;
                     Rehighlight(theSourceView);
-                    theSourceView.Show(dockPanel);  
                 }
             }
         }
 
-        public DebugConnection DebugConnection
+        public void FocusAddress(ulong eipToFocus)
         {
-            get { return mConnection; }
+            KeyValuePair<string, int> fileline = mSymbolContext.GetFileAndLine(eipToFocus);
+            mCurrentFile = fileline.Key;
+            mCurrentLine = fileline.Value;
+            TryToDisplaySource();
+        }
+
+        void ComposeTitleString()
+        {
+            FocusAddress(mCurrentEip);
+            RunStatus.Text = "ConnectionMode: " + mConnectionMode + " - Running: " + mRunning + " - Source Location: " + mCurrentFile + ":" + mCurrentLine;
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            mSymbolContext.Initialize();
+            mConnection.DebugConnectionModeChangedEvent += DebugConnectionModeChangedEvent;
+            mConnection.DebugRunningChangeEvent += DebugRunningChangeEvent;
+            mConnection.DebugRegisterChangeEvent += DebugRegisterChangeEvent;
+            mConnection.DebugModuleChangedEvent += DebugModuleChangedEvent;
+            ComposeTitleString();
+            mSymbolContext.ReactosOutputPath = Settings.OutputDirectory;
+        }
+
+        void CanCopyChanged(object sender, CanCopyChangedEventArgs args)
+        {
+            copyToolStripMenuItem.Enabled = args.Enabled;   
+        }
+
+        void DebugModuleChangedEvent(object sender, DebugModuleChangedEventArgs args)
+        {
+            Module themod;
+            if (!mModules.TryGetValue(args.ModuleAddr, out themod) ||
+                themod.ShortName != args.ModuleName.ToLower())
+            {
+                mModules[args.ModuleAddr] = new Module(args.ModuleAddr, args.ModuleName);
+                mSymbolContext.LoadModule(args.ModuleName, args.ModuleAddr);
+            }
+            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
+        }
+
+        void DebugRunningChangeEvent(object sender, DebugRunningChangeEventArgs args)
+        {
+            mRunning = args.Running;
+            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
+        }
+
+        void DebugConnectionModeChangedEvent(object sender, DebugConnectionModeChangedEventArgs args)
+        {
+            mConnectionMode = args.Mode;
+            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
+        }
+
+        void DebugRegisterChangeEvent(object sender, DebugRegisterChangeEventArgs args)
+        {
+            mCurrentEip = args.Registers.Eip;
+            Invoke(Delegate.CreateDelegate(typeof(NoParamsDelegate), this, "ComposeTitleString"));
+        }
+
+        public void RegisterSubwindows(Assembly a)
+        {
+            foreach (Type t in a.GetTypes())
+            {
+                object[] debugAttribute = t.GetCustomAttributes(typeof(DebugControlAttribute), false);
+                if (debugAttribute.Length > 0)
+                {
+                    Type x = t;
+                    EventHandler create =
+                        delegate(object sender, EventArgs args)
+                        {
+                            Control ctrl = (Control)x.GetConstructor(Type.EmptyTypes).Invoke(new object[] { });
+                            IUseDebugConnection usedbg = ctrl as IUseDebugConnection;
+                            if (usedbg != null)
+                                usedbg.SetDebugConnection(mConnection);
+                            IUseSymbols usesym = ctrl as IUseSymbols;
+                            if (usesym != null)
+                                usesym.SetSymbolProvider(mSymbolContext);
+                            IUseShell useshell = ctrl as IUseShell;
+                            if (useshell != null)
+                                useshell.SetShell(this);
+                            AddTab(ctrl);
+                        };
+                    Control c = (Control)x.GetConstructor(Type.EmptyTypes).Invoke(new object[] { });
+                    NewWindowItem.DropDownItems.Add( c.Tag != null ? c.Tag.ToString() : t.Name, null, create);
+
+                    object[] buildNow = t.GetCustomAttributes(typeof(BuildAtStartupAttribute), false);
+                    if (buildNow.Length > 0)
+                        create(this, new EventArgs());
+                }
+            }
+        }
+
+        public void AddTab(Control ctrl)
+        {
+            SuspendLayout();
+            TabPage tp = new TabPage(ctrl.Text);
+            tp.Controls.Add(ctrl);
+            tp.Text = ctrl.Tag != null ? ctrl.Tag.ToString() : ctrl.GetType().Name;
+            ctrl.Dock = DockStyle.Fill;
+            WorkTabs.Controls.Add(tp);
+
+            if (ctrl.GetType() == typeof(SourceView))
+                ((SourceView)ctrl).CanCopyChangedEvent += CanCopyChanged;
+            else if (ctrl.GetType() == typeof(RawTraffic))
+                ((RawTraffic)ctrl).CanCopyChangedEvent += CanCopyChanged;
+
+            ResumeLayout();
+        }
+
+        public Control RemoveCurrentTab()
+        {
+            TabPage tp = (TabPage)WorkTabs.SelectedTab;
+            if (tp == null || tp.Controls.Count < 1) return null;
+            Control current = tp.Controls[0];
+            WorkTabs.Controls.Remove(tp);
+            return current;
+        }
+
+        private void closeCurrentTabToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Control ctrl = RemoveCurrentTab();
+            if (ctrl != null) ctrl.Dispose();
+        }
+
+        private void detachCurrentTabToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Control ctrl = RemoveCurrentTab();
+            if (ctrl != null)
+            {
+                HostWindow hw = new HostWindow();
+                hw.Content = ctrl;
+                hw.RedockControlEvent += RedockControlEventFired;
+                hw.Show();
+            }
+        }
+
+        void RedockControlEventFired(object sender, RedockControlEventArgs args)
+        {
+            AddTab(args.Control);
+        }
+
+        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        // Fixup various editing tools ...
+        private void Interaction_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == 13)
+            {
+                TextBox tb = (TextBox)sender;
+                e.Handled = true;
+                string command = tb.Text;
+                tb.Text = "";
+                if (InteractiveInputEvent != null)
+                    InteractiveInputEvent(sender, new InteractiveInputEventArgs(this, command));
+            }
+        }
+
+        public delegate void InteractiveInputEventHandler(object sender, InteractiveInputEventArgs args);
+        public event InteractiveInputEventHandler InteractiveInputEvent;
+
+        private void connectTCPIPToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            TCPTargetSelect targetSelect = new TCPTargetSelect();
+            if (targetSelect.ShowDialog() == DialogResult.OK)
+            {
+                mConnection.Close();
+                mConnection.StartTCP(targetSelect.Host, targetSelect.Port);
+            }
         }
 
         private void breakToolStripMenuItem_Click(object sender, EventArgs e)
         {
             mConnection.Break();
-        }
-
-        private void continueToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            mConnection.Go();
         }
 
         private void stepToolStripMenuItem_Click(object sender, EventArgs e)
@@ -294,207 +264,125 @@ namespace RosDBG
             mConnection.Next();
         }
 
-        private void contentsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void continueToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            ReactOSWeb Help = new ReactOSWeb("Help", "http://www.reactos.org/wiki/index.php/ReactOS_Remote_Debugger");
-            Help.Show(dockPanel);  
+            mConnection.Go();
         }
 
-        private void optionsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void symbolDirectoryToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Settings.ShowSettings();
             mSourceRoot = Settings.SourceDirectory;
             mSymbolContext.ReactosOutputPath = Settings.OutputDirectory;
         }
 
-        private void consoleToolStripMenuItem_Click(object sender, EventArgs e)
+        private void connectSerialToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            m_RawTraffic.Show(dockPanel);
-        }
-
-        private void connectToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (mConnection.ConnectionMode == DebugConnection.Mode.ClosedMode)
-            {
-                Connect newConnection = new Connect();
-                if (newConnection.ShowDialog() == DialogResult.OK)
-                {
-                    mConnection.Close();
-                    switch (newConnection.Type)
-                    {
-                        case Connect.ConnectionType.Serial:
-                            mConnection.StartSerial(newConnection.ComPort, newConnection.Baudrate);
-                            break;
-                        case Connect.ConnectionType.Pipe:
-                            mConnection.StartPipe(newConnection.PipeName, newConnection.PipeMode);
-                            break;
-                        case Connect.ConnectionType.Socket:
-                            mConnection.StartTCP(newConnection.Host, newConnection.Port);
-                            break;
-                    }
-                    if (mConnection.ConnectionMode != DebugConnection.Mode.ClosedMode)
-                    {
-                        connectToolStripMenuItem.Text = "&Disconnect";
-                    }
-                }
-            }
-            else
+            SerialTargetSelect targetSelect = new SerialTargetSelect();
+            if (targetSelect.ShowDialog() == DialogResult.OK)
             {
                 mConnection.Close();
-                UpdateDebuggerMenu();
-                connectToolStripMenuItem.Text = "&Connect";
+                mConnection.StartSerial(targetSelect.Port, targetSelect.Baudrate);
             }
         }
 
-        private void memoryToolStripMenuItem_Click(object sender, EventArgs e)
+        private void openSourceFileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            m_MemoryWindow.Show(dockPanel);
-        }
-
-        private void webbrowserToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ReactOSWeb web = new ReactOSWeb();
-            web.Show(dockPanel); 
-        }
-
-        private void registerToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            m_RegView.Show(dockPanel, DockState.DockRight);
-        }
-
-        private void localsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            m_Locals.Show(dockPanel, DockState.DockRight);
-        }
-
-        private void procThreadToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            m_ProcThread.Show(dockPanel);
-        }
-
-        private void modulesToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            m_Modules.Show(dockPanel);
-        }
-
-        private void backtraceToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            m_BackTrace.Show(dockPanel, DockState.DockBottom);
-        }
-
-        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ((ToolWindow)dockPanel.ActiveDocument.DockHandler.Form).Save(
-                ((ToolWindow)dockPanel.ActiveDocument.DockHandler.Form).GetDocumentName());
-        }
-
-        private void SaveAsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ((ToolWindow)dockPanel.ActiveDocument.DockHandler.Form).SaveAs(
-                ((ToolWindow)dockPanel.ActiveDocument.DockHandler.Form).GetDocumentName());
-        }
-
-        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            AboutDlg about = new AboutDlg();
-            about.ShowDialog(this); 
-        }
-
-        private void dockPanel_ActiveDocumentChanged(object sender, EventArgs e)
-        {
-            try
+            OpenFileDialog fileDialog = new OpenFileDialog();
+            fileDialog.Filter = "Sourcefiles (*.c;*.cpp)|*.c;*.cpp";
+            if (fileDialog.ShowDialog() == DialogResult.OK)
             {
-                ToolWindow Wnd = (ToolWindow)dockPanel.ActiveDocument.DockHandler.Form;
-
-                saveToolStripButton.Enabled = Wnd.IsCmdEnabled(ToolWindow.Commands.Save);
-                saveToolStripMenuItem.Enabled = Wnd.IsCmdEnabled(ToolWindow.Commands.Save);
-                saveAsToolStripMenuItem.Enabled = Wnd.IsCmdEnabled(ToolWindow.Commands.SaveAs);
-                printToolStripButton.Enabled = Wnd.IsCmdEnabled(ToolWindow.Commands.Print);
-                printToolStripMenuItem.Enabled = Wnd.IsCmdEnabled(ToolWindow.Commands.Print);
-            }
-            catch (NullReferenceException ex)
-            {
-                RosDiagnostics.DebugTrace(RosDiagnostics.TraceType.Exception, "Null reference : " + ex.Message);
-            }
-            catch (Exception)
-            {
-                RosDiagnostics.DebugTrace(RosDiagnostics.TraceType.Exception, "Unexpected error");
+                OpenSourceFile(fileDialog.FileName);
+                WorkTabs.SelectTab(WorkTabs.TabCount - 1);   
             }
         }
 
-        private void printToolStripMenuItem_Click(object sender, EventArgs e)
+        private void WorkTabs_MouseClick(object sender, MouseEventArgs e)
         {
-            ((ToolWindow)dockPanel.ActiveDocument.DockHandler.Form).Print(true);
-        }
-
-        private void printToolStripButton_Click(object sender, EventArgs e)
-        {
-            ((ToolWindow)dockPanel.ActiveDocument.DockHandler.Form).Print(false);
-        }
-
-        private void externalToolsToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            ExtTools exTools = new ExtTools();
-            if (exTools.ShowDialog(this) == DialogResult.OK)
+            switch (e.Button) 
             {
-                Settings.Save();
-                UpdateExternalToolsMenu();
-            }
-        }
-
-        private void UpdateExternalToolsMenu()
-        {
-            int i = 0;
-            bool bFirst = true;
-            while (true)
-            {
-                if ((toolsMenu.DropDownItems[i].Tag != null) && 
-                    (toolsMenu.DropDownItems[i].Tag.ToString() == "tool"))
-                    toolsMenu.DropDownItems.Remove(toolsMenu.DropDownItems[i]);
-                else
-                    i++;
-                if (i >= toolsMenu.DropDownItems.Count - 1)
+                case MouseButtons.Right:
+                    contextMenuTabStrip.Show(WorkTabs.PointToScreen(e.Location));
+                    mMousePosition = e.Location;
+                    break;
+                case MouseButtons.Middle:
+                    SelectTabFromPosition(e.Location);
+                    closeCurrentTabToolStripMenuItem_Click(this, null);
+                    break;
+                default:
                     break;
             }
-            if (Settings.ExternalTools != null)
+        }
+
+        private void SelectTabFromPosition(Point Position)
+        {
+            for (int i = 0; i < WorkTabs.TabCount; i++)
             {
-                foreach (object o in Settings.ExternalTools)
+                if (WorkTabs.GetTabRect(i).Contains(Position))
                 {
-                    ToolStripMenuItem item = new ToolStripMenuItem(o.ToString(), null,
-                        new System.EventHandler(this.LaunchExternalToolToolStripMenuItem_Click),
-                        ((ExternalTool)o).Path);
-                    item.Tag = "tool";
-                    toolsMenu.DropDownItems.Insert(bFirst ? 0 : 1, item);
-                    bFirst = false;
+                    if (WorkTabs.SelectedIndex != i)
+                        WorkTabs.SelectTab(i);
+                    break;
                 }
             }
         }
 
-        private void MainWindow_Load(object sender, EventArgs e)
+        private void closeToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            UpdateExternalToolsMenu();
+            SelectTabFromPosition(mMousePosition);
+            closeCurrentTabToolStripMenuItem_Click(this, null);
         }
 
-        private void LaunchExternalToolToolStripMenuItem_Click(object sender, EventArgs e)
+        private void helpToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            try
-            {
-                Process.Start(((ToolStripMenuItem)sender).Name);
-            }
-            catch (Exception)
-            {
+            ReactOSWeb Help = new ReactOSWeb("Help", "http://www.reactos.org/wiki/index.php/ReactOSDbg");
+            AddTab(Help);
+            WorkTabs.SelectTab(WorkTabs.TabCount - 1);   
+        }
 
+        private void connectPipeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            PipeTargetSelect targetSelect = new PipeTargetSelect();
+            if (targetSelect.ShowDialog() == DialogResult.OK)
+            {
+                mConnection.Close();
+                mConnection.StartPipe(targetSelect.PipeName, targetSelect.PipeMode);
             }
         }
-        private void SaveWindowSettings()
-        {
-            RosDBG.Properties.Settings.Default.Size = this.Size;
-            RosDBG.Properties.Settings.Default.Location = this.Location;
-            RosDBG.Properties.Settings.Default.WindowState = this.WindowState;
-            RosDBG.Properties.Settings.Default.Save();
 
+        private void copyToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (CopyEvent != null)
+                CopyEvent(this, new CopyEventArgs(WorkTabs.SelectedTab.Controls[0]));
         }
 
     }
 
+    public class InteractiveInputEventArgs : EventArgs
+    {
+        string mCommand;
+        public string Command { get { return mCommand; } }
+        public InteractiveInputEventArgs(object sender, string cmd) { mCommand = cmd; }
+    }
+
+    public class CanCopyChangedEventArgs : EventArgs
+    {
+        public readonly bool Enabled;
+        public CanCopyChangedEventArgs(bool enabled)
+        {
+            Enabled = enabled;
+        }
+    }
+
+    public class CopyEventArgs : EventArgs
+    {
+        public readonly object Obj;
+        public CopyEventArgs(object obj)
+        {
+            Obj = obj;
+        }
+    }
+
+    public delegate void CanCopyChangedEventHandler(object sender, CanCopyChangedEventArgs args);
+    public delegate void CopyEventHandler(object sender, CopyEventArgs args);
 }

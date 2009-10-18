@@ -3,5 +3,6 @@
 	<include base="sfc">.</include>
 	<library>kernel32</library>
 	<file>sfc.c</file>
+	<file>sfc.spec</file>
 	<pch>precomp.h</pch>
 </module>

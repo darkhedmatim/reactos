@@ -167,11 +167,3 @@ inet_ntop (int af,
 
     return 0;
 }
-
-int fcntl(int fd,
-          int cmd,
-          long arg)
-{
-    // Stub
-    return 0;
-}

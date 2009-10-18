@@ -43,7 +43,7 @@ IntGetProp(HWND hWnd, ATOM Atom)
 {
   PLIST_ENTRY ListEntry, temp;
   PPROPERTY Property;
-  PWND pWnd;
+  PWINDOW pWnd;
   int i;
 
   pWnd = ValidateHwnd(hWnd);
@@ -69,7 +69,7 @@ IntGetProp(HWND hWnd, ATOM Atom)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsA(HWND hWnd, PROPENUMPROCA lpEnumFunc)
 {
   PPROPLISTITEM pli, i;
@@ -136,7 +136,7 @@ EnumPropsA(HWND hWnd, PROPENUMPROCA lpEnumFunc)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsExA(HWND hWnd, PROPENUMPROCEXA lpEnumFunc, LPARAM lParam)
 {
   PPROPLISTITEM pli, i;
@@ -203,7 +203,7 @@ EnumPropsExA(HWND hWnd, PROPENUMPROCEXA lpEnumFunc, LPARAM lParam)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsExW(HWND hWnd, PROPENUMPROCEXW lpEnumFunc, LPARAM lParam)
 {
   PPROPLISTITEM pli, i;
@@ -270,7 +270,7 @@ EnumPropsExW(HWND hWnd, PROPENUMPROCEXW lpEnumFunc, LPARAM lParam)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsW(HWND hWnd, PROPENUMPROCW lpEnumFunc)
 {
   PPROPLISTITEM pli, i;
@@ -337,7 +337,7 @@ EnumPropsW(HWND hWnd, PROPENUMPROCW lpEnumFunc)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 GetPropA(HWND hWnd, LPCSTR lpString)
 {
   PWSTR lpWString;
@@ -365,7 +365,7 @@ GetPropA(HWND hWnd, LPCSTR lpString)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 GetPropW(HWND hWnd, LPCWSTR lpString)
 {
   ATOM Atom;
@@ -388,7 +388,7 @@ GetPropW(HWND hWnd, LPCWSTR lpString)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 RemovePropA(HWND hWnd, LPCSTR lpString)
 {
   PWSTR lpWString;
@@ -417,7 +417,7 @@ RemovePropA(HWND hWnd, LPCSTR lpString)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 RemovePropW(HWND hWnd,
 	    LPCWSTR lpString)
 {
@@ -437,7 +437,7 @@ RemovePropW(HWND hWnd,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetPropA(HWND hWnd, LPCSTR lpString, HANDLE hData)
 {
   PWSTR lpWString;
@@ -466,7 +466,7 @@ SetPropA(HWND hWnd, LPCSTR lpString, HANDLE hData)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetPropW(HWND hWnd, LPCWSTR lpString, HANDLE hData)
 {
   ATOM Atom;

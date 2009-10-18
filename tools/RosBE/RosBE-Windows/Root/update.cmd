@@ -3,168 +3,272 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/update.cmd
 :: PURPOSE:     RosBE Updater.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2008 Daniel Reimer <reimer.daniel@freenet.de>
 ::
-
+::
 @echo off
+
+setlocal
+setlocal enableextensions
+setlocal enabledelayedexpansion
 
 if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
 if %_ROSBE_DEBUG% == 1 (
     @echo on
 )
-
-setlocal enabledelayedexpansion
+::
+:: Set Title
+::
 title Updating...
 
+::
 :: The Update Server.
-set _ROSBE_URL=http://dreimer.dr.funpic.org/rosbe
+::
+set _ROSBE_URL=http://mitglied.lycos.de/reimerdaniel/rosbe
 
-:: Save the recent dir to cd back there at the end.
-set _ROSBE_OPATH=%CD%
+::
+:: Default Variables.
+::
+set _ROSBE_OPATH=%~dp0
+set _ROSBE_OPATH=%_ROSBE_OPATH:~0,-1%
+set _ROSBE_CMDS=yes
+set _ROSBE_GCC=yes
+set _ROSBE_TOOLS=yes
 
-if not exist "%_ROSBE_BASEDIR%\Tools\7z.exe" (
-    cd /d "%_ROSBE_BASEDIR%\Tools"
-    wget.exe -N --ignore-length --no-verbose %_ROSBE_URL%/7z.exe 1> NUL 2> NUL
-    cd /d %_ROSBE_OPATH%
-)
-
-cd /d %_ROSBE_BASEDIR%
-
-:: First check for a new Updater
-for %%F in (update.cmd) do set _ROSBE_UPDDATE=%%~tF
-"Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/update.cmd 1> NUL 2> NUL
-for %%F in (update.cmd) do set _ROSBE_UPDDATE2=%%~tF
-if !_ROSBE_UPDDATE! NEQ !_ROSBE_UPDDATE2! (
-    cls
-    echo Updater got updated and needs to be restarted.
-    goto :EOC
-)
-
-:: Get to the Updates Subfolder.
-if not exist "%APPDATA%\RosBE\Updates" mkdir "%APPDATA%\RosBE\Updates" 1> NUL 2> NUL
-cd /d "%APPDATA%\RosBE\Updates"
-
-:: Parse the args.
+::
+:: Update the Vars if the params say so.
+::
 if "%1" == "" (
-    set _ROSBE_MULTIUPD=1
-    set _ROSBE_STATCOUNT=1
-    call :WHILE
-) else if /i "%1" == "reset" (
-    del /F /Q "%APPDATA%\RosBE\Updates\*.*" 1> NUL 2> NUL
-    del /F /Q "%APPDATA%\RosBE\Updates\tmp\*.*" 1> NUL 2> NUL
-) else if /i "%1" == "nr" (
-    set _ROSBE_STATCOUNT=%2
-    call :UPDCHECK
-) else if /i "%1" == "delete" (
-    set _ROSBE_STATCOUNT=%2
-    del /F /Q "%APPDATA%\RosBE\Updates\%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.*" 1> NUL 2> NUL
-    del /F /Q "%APPDATA%\RosBE\Updates\tmp\%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.*" 1> NUL 2> NUL
-) else if /i "%1" == "info" (
-    set _ROSBE_STATCOUNT=%2
-    cd tmp
-    if not exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-        "%_ROSBE_BASEDIR%\Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt 1> NUL 2> NUL
-        if exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-            type "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt"
-        ) else (
-            echo ERROR: This Update does not seem to exist or the Internet connection is not working correctly.
-            goto :EOC
-        )
-    )
-    cd..
-del /F /Q tmp\*.* 1> NUL 2> NUL
-) else if /i "%1" == "status" (
-    set _ROSBE_STATCOUNT=1
-    if not exist "tmp" mkdir tmp 1> NUL 2> NUL
-    copy *.txt .\tmp\. 1> NUL 2> NUL
-    call :WHILE2
-    del /F /Q tmp\*.* 1> NUL 2> NUL
-    if not "%_ROSBE_UPDATES%" == "" (
-        echo Following Updates available: %_ROSBE_UPDATES%
-    ) else (
-        echo RosBE is up to Date.
-    )
-) else (
-    echo Unknown parameter specified. Try 'help update'.
-)
-goto :EOC
-
-:UPDCHECK
-cd /d "%APPDATA%\RosBE\Updates"
-
-if exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-    goto :EOF
+    goto :next
 )
 
-if not exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-    "%_ROSBE_BASEDIR%\Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt 1> NUL 2> NUL
+if "%1" == "nocmds" (
+    set _ROSBE_CMDS=no
+    goto :p1
+)
+if "%1" == "nogcc" (
+    set _ROSBE_GCC=no
+    goto :p1
+)
+if "%1" == "notools" (
+    set _ROSBE_TOOLS=no
+    goto :p1
 )
 
-if exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-    type "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt"
-    echo.
-    echo Install?
-    set /p YESNO="(yes), (no)"
-    if /i "!YESNO!"=="yes" goto :updyes
-    if /i "!YESNO!"=="y" goto :updyes
-    goto :no
-    :updyes
-        if not exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.7z" (
-            "%_ROSBE_BASEDIR%\Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.7z 1> NUL 2> NUL
-        )
-        if exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.7z" (
-            del /F /Q "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!\*.*" 1>NUL 2>NUL
-            "%_ROSBE_BASEDIR%\Tools\7z.exe" x "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.7z"
-            cd "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!"
-            call "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.cmd"
-            goto :EOF
-        ) else (
-            echo ERROR: This Update does not seem to exist or the Internet connection is not working correctly.
-            goto :EOF
-        )
-        goto :EOF
-    :no
-        echo Do you want to be asked again to install this update?
-        set /p YESNO="(yes), (no)"
-        if /i "!YESNO!"=="yes" goto :yesagain
-        if /i "!YESNO!"=="y" goto :yesagain
-        goto :EOF
-        :yesagain
-        del "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" 1> NUL 2> NUL
-        goto :EOF
-    )
-) else (
-    if not "%_ROSBE_MULTIUPD%" == "1" (
-        echo ERROR: This Update does not seem to exist or the Internet connection is not working correctly.
-    )
-    set _ROSBE_STATCOUNT=9
-    goto :EOF
+cls
+echo Unknown first parameter specified. Exiting.
+goto :EOU
+
+:p1
+
+if "%2" == "" (
+    goto :next
 )
-goto :EOF
 
-:WHILE
-    if "!_ROSBE_STATCOUNT!" == "10" GOTO :OUT
-    call :UPDCHECK
-    set /a _ROSBE_STATCOUNT+=1
-    GOTO :WHILE
+if "%2" == "nocmds" (
+    set _ROSBE_CMDS=no
+    goto :p2
+)
+if "%2" == "nogcc" (
+    set _ROSBE_GCC=no
+    goto :p2
+)
+if "%2" == "notools" (
+    set _ROSBE_TOOLS=no
+    goto :p2
+)
 
-:WHILE2
-    if "!_ROSBE_STATCOUNT!" == "10" GOTO :OUT
-    cd tmp
-    if not exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-        "%_ROSBE_BASEDIR%\Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt 1> NUL 2> NUL
-        if exist "%_ROSBE_VERSION%-!_ROSBE_STATCOUNT!.txt" (
-            set _ROSBE_UPDATES=!_ROSBE_UPDATES! !_ROSBE_STATCOUNT!
-        ) else (
-            set _ROSBE_STATCOUNT=9
-        )
+cls
+echo Unknown second parameter specified. Exiting.
+goto :EOU
+
+:p2
+
+if "%3" == "" (
+    goto :next
+)
+
+if "%3" == "nocmds" (
+    set _ROSBE_CMDS=no
+    goto :next
+)
+if "%3" == "nogcc" (
+    set _ROSBE_GCC=no
+    goto :next
+)
+if "%3" == "notools" (
+    set _ROSBE_TOOLS=no
+    goto :next
+)
+
+cls
+echo Unknown third parameter specified. Exiting.
+goto :EOU
+
+:next
+
+cd /d "%_ROSBE_BASEDIR%"
+
+if %_ROSBE_CMDS% == yes (
+    ::
+    :: First check for a new Updater
+    ::
+    for %%F in (update.cmd) do set _ROSBE_UPDDATE=%%~tF
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/update.cmd
+    for %%F in (update.cmd) do set _ROSBE_UPDDATE2=%%~tF
+
+    if !_ROSBE_UPDDATE! NEQ !_ROSBE_UPDDATE2! (
+        cls
+        echo Updater got updated and needs to be restarted.
+        goto :EOU
     )
-    cd..
-    set /a _ROSBE_STATCOUNT+=1
-    GOTO :WHILE2
+    ::
+    :: PS1 Files.
+    ::
+    if exist "Build.ps1" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Build.ps1
+    )
+    if exist "Clean.ps1" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Clean.ps1
+    )
+    if exist "Help.ps1" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Help.ps1
+    )
+    if exist "MinGW.ps1" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/MinGW.ps1
+    )
+    if exist "RosBE.ps1" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/RosBE.ps1
+    )
+    if exist "rosbe-gcc-env.ps1" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/rosbe-gcc-env.ps1
+    )
 
-:EOC
+    ::
+    :: Options Files.
+    ::
+    if exist "options.cmd" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/options.cmd
+    )
+
+    ::
+    :: SVN Files.
+    ::
+    if exist "sSVN.cmd" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/sSVN.cmd
+    )
+
+    ::
+    :: SCut Files.
+    ::
+    if exist "scut.cmd" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/scut.cmd
+    )
+
+    ::
+    :: RelAddr2Line Files.
+    ::
+    if exist "reladdr2line.cmd" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/reladdr2line.cmd
+    )
+
+    ::
+    :: Other Tools Files.
+    ::
+    if exist "Config.cmd" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Config.cmd
+    )
+    if exist "chdefdir.cmd" (
+        "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/chdefdir.cmd
+    )
+
+    ::
+    :: Default Files.
+    ::
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Build.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/ChangeLog.txt
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/chdefgcc.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Clean.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Help.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/LICENSE.TXT
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/MinGW.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/mingw.ico
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/MinGW.mac
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/README.pdf
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/RosBE.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/rosbe.ico
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/RosBE.mac
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/rosbe-gcc-env.cmd
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/TimeDate.cmd
+)
+
+if %_ROSBE_GCC% == yes (
+    ::
+    :: Add Dates into Vars and load GCC packages if needed.
+    ::
+    if exist GCC.7z (
+        for %%F in (GCC.7z) do set _ROSBE_GCCDATE=%%~tF
+    )
+
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/GCC.7z
+
+    ::
+    :: Add the maybe Updated Dates to another Var.
+    ::
+    for %%F in (GCC.7z) do set _ROSBE_GCCDATE2=%%~tF
+
+    ::
+    :: Extract GCC.
+    ::
+    if !_ROSBE_GCCDATE! NEQ !_ROSBE_GCCDATE2! (
+        "Tools\7z.exe" x GCC.7z "%_ROSBE_BASEDIR%\4.1.3"
+    )
+)
+if %_ROSBE_TOOLS% == yes (
+    ::
+    :: Add Dates into Vars and load Tool SRC packages if needed.
+    ::
+    if exist Tools.7z (
+        for %%F in (Tools.7z) do set _ROSBE_TOOLSDATE=%%~tF
+    )
+
+    "Tools\wget.exe" -N --ignore-length --no-verbose %_ROSBE_URL%/Tools.7z
+
+    ::
+    :: Add the maybe Updated Dates to another Var.
+    ::
+    for %%F in (Tools.7z) do set _ROSBE_TOOLSDATE2=%%~tF
+
+    if !_ROSBE_TOOLSDATE! NEQ !_ROSBE_TOOLSDATE2! (
+        "Tools\7z.exe" x Tools.7z "%TEMP%"
+        ::
+        :: Build the tools
+        ::
+        make -f %TEMP%\makefile
+        copy %TEMP%\*.exe "%_ROSBE_BASEDIR%\Tools"
+    )
+)
+
+:EOU
+
 cd /d "%_ROSBE_OPATH%"
-title ReactOS Build Environment %_ROSBE_VERSION%
-:OUT
-endlocal & set _ROSBE_UPDATES=%_ROSBE_UPDATES% & set _ROSBE_STATCOUNT=%_ROSBE_STATCOUNT%
+
+::
+:: Unload Vars.
+::
+set _ROSBE_URL=
+set _ROSBE_GCCDATE=
+set _ROSBE_TOOLSDATE=
+set _ROSBE_GCCDATE2=
+set _ROSBE_TOOLSDATE2=
+set _ROSBE_CMDS=
+set _ROSBE_GCC=
+set _ROSBE_TOOLS=
+set _ROSBE_OPATH=
+set _ROSBE_UPDDATE=
+set _ROSBE_UPDDATE2=
+
+
+if defined _ROSBE_VERSION (
+    title ReactOS Build Environment %_ROSBE_VERSION%
+)

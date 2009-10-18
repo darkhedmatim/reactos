@@ -26,6 +26,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(sxs);
 
+
 /***********************************************************************
  *             DllMain   (SXS.@)
  *
@@ -41,10 +42,4 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         break;
     }
     return TRUE;
-}
-
-HRESULT WINAPI CreateAssemblyCache(DWORD unimplemented, DWORD dwReserved)
-{
-    FIXME("%u %u stub\n", unimplemented, dwReserved);
-    return E_NOTIMPL;
 }

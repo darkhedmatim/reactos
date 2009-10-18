@@ -171,7 +171,7 @@ FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName,
  *
  *--*/
 BOOLEAN
-NTAPI
+STDCALL
 FsRtlIsHpfsDbcsLegal(IN ANSI_STRING DbcsName,
                      IN BOOLEAN WildCardsPermissible,
                      IN BOOLEAN PathNamePermissible,

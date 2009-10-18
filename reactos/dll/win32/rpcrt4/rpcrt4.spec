@@ -99,7 +99,7 @@
 @ stub MesBufferHandleReset
 @ stdcall MesDecodeBufferHandleCreate(ptr long ptr)
 @ stdcall MesDecodeIncrementalHandleCreate(ptr ptr ptr)
-@ stdcall MesEncodeDynBufferHandleCreate(ptr ptr ptr)
+@ stub MesEncodeDynBufferHandleCreate
 @ stdcall MesEncodeFixedBufferHandleCreate(ptr long ptr ptr)
 @ stdcall MesEncodeIncrementalHandleCreate(ptr ptr ptr ptr)
 @ stdcall MesHandleFree(ptr)
@@ -203,7 +203,7 @@
 @ stub NdrGetSimpleTypeBufferSize # wxp
 @ stub NdrGetSimpleTypeMemorySize # wxp
 @ stub NdrGetTypeFlags # wxp
-@ stdcall NdrGetUserMarshalInfo(ptr long ptr)
+@ stub NdrGetUserMarshallInfo
 @ stub NdrHardStructBufferSize #(ptr ptr ptr)
 @ stub NdrHardStructFree #(ptr ptr ptr)
 @ stub NdrHardStructMarshall #(ptr ptr ptr)
@@ -363,7 +363,7 @@
 @ stdcall RpcBindingVectorFree(ptr)
 @ stdcall RpcCancelAsyncCall(ptr long) RpcAsyncCancelCall
 @ stdcall RpcCancelThread(ptr)
-@ stdcall RpcCancelThreadEx(ptr long)
+@ stub RpcCancelThreadEx
 @ stub RpcCertGeneratePrincipalNameA
 @ stub RpcCertGeneratePrincipalNameW
 @ stdcall RpcCompleteAsyncCall(ptr ptr) RpcAsyncCompleteCall
@@ -399,13 +399,13 @@
 @ stdcall RpcMgmtInqIfIds(ptr ptr)
 @ stub RpcMgmtInqServerPrincNameA
 @ stub RpcMgmtInqServerPrincNameW
-@ stdcall RpcMgmtInqStats(ptr ptr)
+@ stub RpcMgmtInqStats
 @ stdcall RpcMgmtIsServerListening(ptr)
 @ stub RpcMgmtSetAuthorizationFn
 @ stdcall RpcMgmtSetCancelTimeout(long)
 @ stdcall RpcMgmtSetComTimeout(ptr long)
 @ stdcall RpcMgmtSetServerStackSize(long)
-@ stdcall RpcMgmtStatsVectorFree(ptr)
+@ stub RpcMgmtStatsVectorFree
 @ stdcall RpcMgmtStopServerListening(ptr)
 @ stdcall RpcMgmtWaitServerListen()
 @ stub RpcNetworkInqProtseqsA

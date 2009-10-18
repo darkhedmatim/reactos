@@ -109,15 +109,15 @@ INT_PTR CALLBACK PickIconProc(HWND hwndDlg,
     WCHAR szText[MAX_PATH], szTitle[100], szFilter[100];
     OPENFILENAMEW ofn = {0};
 
-    PPICK_ICON_CONTEXT pIconContext = (PPICK_ICON_CONTEXT)GetWindowLongPtr(hwndDlg, DWLP_USER);
+    PPICK_ICON_CONTEXT pIconContext = (PPICK_ICON_CONTEXT)GetWindowLong(hwndDlg, DWLP_USER);
 
     switch(uMsg)
     {
     case WM_INITDIALOG:
         pIconContext = (PPICK_ICON_CONTEXT)lParam;
-        SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG)pIconContext);
+        SetWindowLong(hwndDlg, DWLP_USER, (LONG)pIconContext);
         pIconContext->hDlgCtrl = GetDlgItem(hwndDlg, IDC_PICKICON_LIST);
-        EnumResourceNamesW(pIconContext->hLibrary, RT_ICON, EnumPickIconResourceProc, (LPARAM)pIconContext);
+        EnumResourceNamesW(pIconContext->hLibrary, MAKEINTRESOURCEW(RT_ICON), EnumPickIconResourceProc, (LPARAM)pIconContext);
         if (PathUnExpandEnvStringsW(pIconContext->szName, szText, MAX_PATH))
             SendDlgItemMessageW(hwndDlg, IDC_EDIT_PATH, WM_SETTEXT, 0, (LPARAM)szText);
         else
@@ -174,7 +174,7 @@ INT_PTR CALLBACK PickIconProc(HWND hwndDlg,
                 FreeLibrary(pIconContext->hLibrary);
                 pIconContext->hLibrary = hLibrary;
                 wcscpy(pIconContext->szName, szText);
-                EnumResourceNamesW(pIconContext->hLibrary, RT_ICON, EnumPickIconResourceProc, (LPARAM)pIconContext);
+                EnumResourceNamesW(pIconContext->hLibrary, MAKEINTRESOURCEW(RT_ICON), EnumPickIconResourceProc, (LPARAM)pIconContext);
                 if (PathUnExpandEnvStringsW(pIconContext->szName, szText, MAX_PATH))
                     SendDlgItemMessageW(hwndDlg, IDC_EDIT_PATH, WM_SETTEXT, 0, (LPARAM)szText);
                 else
@@ -338,11 +338,9 @@ static INT_PTR CALLBACK RunDlgProc (HWND hwnd, UINT message, WPARAM wParam, LPAR
                             {
                             char * ptr;
                             strcpy(pdir, psz);
-                            ptr = strrchr(pdir + 4, '\\');
+                            ptr = strrchr(pdir, '\\');
                             if(ptr)
                                 ptr[0] = '\0';
-                            else
-                                pdir[3] = '\0';
                             }
                         if (ShellExecuteA(NULL, "open", psz, NULL, pdir, SW_SHOWNORMAL) < (HINSTANCE)33)
                             {
@@ -607,10 +605,10 @@ int WINAPI RestartDialogEx(HWND hWndOwner, LPCWSTR lpwstrReason, DWORD uFlags, D
 }
 
 /*************************************************************************
- * LogoffWindowsDialog  [SHELL32.54]
+ * LogoffWindowsDialog                          [SHELL32.54]
  */
 
-int WINAPI LogoffWindowsDialog(HWND hWndOwner)
+int WINAPI LogoffWindowsDialog(DWORD uFlags)
 {
    UNIMPLEMENTED;
    ExitWindowsEx(EWX_LOGOFF, 0);

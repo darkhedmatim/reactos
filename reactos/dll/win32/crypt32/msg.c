@@ -46,7 +46,7 @@ typedef BOOL (*CryptMsgUpdateFunc)(HCRYPTMSG hCryptMsg, const BYTE *pbData,
 typedef BOOL (*CryptMsgControlFunc)(HCRYPTMSG hCryptMsg, DWORD dwFlags,
  DWORD dwCtrlType, const void *pvCtrlPara);
 
-static BOOL CRYPT_DefaultMsgControl(HCRYPTMSG hCryptMsg, DWORD dwFlags,
+BOOL CRYPT_DefaultMsgControl(HCRYPTMSG hCryptMsg, DWORD dwFlags,
  DWORD dwCtrlType, const void *pvCtrlPara)
 {
     TRACE("(%p, %08x, %d, %p)\n", hCryptMsg, dwFlags, dwCtrlType, pvCtrlPara);
@@ -109,7 +109,7 @@ static const BYTE empty_data_content[] = { 0x04,0x00 };
 
 static void CDataEncodeMsg_Close(HCRYPTMSG hCryptMsg)
 {
-    CDataEncodeMsg *msg = hCryptMsg;
+    CDataEncodeMsg *msg = (CDataEncodeMsg *)hCryptMsg;
 
     if (msg->bare_content != empty_data_content)
         LocalFree(msg->bare_content);
@@ -191,7 +191,7 @@ static BOOL CRYPT_EncodeDataContentInfoHeader(CDataEncodeMsg *msg,
 static BOOL CDataEncodeMsg_Update(HCRYPTMSG hCryptMsg, const BYTE *pbData,
  DWORD cbData, BOOL fFinal)
 {
-    CDataEncodeMsg *msg = hCryptMsg;
+    CDataEncodeMsg *msg = (CDataEncodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     if (msg->base.state == MsgStateFinalized)
@@ -320,7 +320,7 @@ static BOOL CRYPT_CopyParam(void *pvData, DWORD *pcbData, const void *src,
 static BOOL CDataEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
  DWORD dwIndex, void *pvData, DWORD *pcbData)
 {
-    CDataEncodeMsg *msg = hCryptMsg;
+    CDataEncodeMsg *msg = (CDataEncodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     switch (dwParamType)
@@ -372,7 +372,7 @@ static HCRYPTMSG CDataEncodeMsg_Open(DWORD dwFlags, const void *pvMsgEncodeInfo,
         msg->bare_content_len = sizeof(empty_data_content);
         msg->bare_content = (LPBYTE)empty_data_content;
     }
-    return msg;
+    return (HCRYPTMSG)msg;
 }
 
 typedef struct _CHashEncodeMsg
@@ -385,7 +385,7 @@ typedef struct _CHashEncodeMsg
 
 static void CHashEncodeMsg_Close(HCRYPTMSG hCryptMsg)
 {
-    CHashEncodeMsg *msg = hCryptMsg;
+    CHashEncodeMsg *msg = (CHashEncodeMsg *)hCryptMsg;
 
     CryptMemFree(msg->data.pbData);
     CryptDestroyHash(msg->hash);
@@ -444,7 +444,7 @@ static BOOL CRYPT_EncodePKCSDigestedData(CHashEncodeMsg *msg, void *pvData,
 static BOOL CHashEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
  DWORD dwIndex, void *pvData, DWORD *pcbData)
 {
-    CHashEncodeMsg *msg = hCryptMsg;
+    CHashEncodeMsg *msg = (CHashEncodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     TRACE("(%p, %d, %d, %p, %p)\n", hCryptMsg, dwParamType, dwIndex,
@@ -487,7 +487,8 @@ static BOOL CHashEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
         break;
     }
     case CMSG_COMPUTED_HASH_PARAM:
-        ret = CryptGetHashParam(msg->hash, HP_HASHVAL, pvData, pcbData, 0);
+        ret = CryptGetHashParam(msg->hash, HP_HASHVAL, (BYTE *)pvData, pcbData,
+         0);
         break;
     case CMSG_VERSION_PARAM:
         if (msg->base.state != MsgStateFinalized)
@@ -511,7 +512,7 @@ static BOOL CHashEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
 static BOOL CHashEncodeMsg_Update(HCRYPTMSG hCryptMsg, const BYTE *pbData,
  DWORD cbData, BOOL fFinal)
 {
-    CHashEncodeMsg *msg = hCryptMsg;
+    CHashEncodeMsg *msg = (CHashEncodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     TRACE("(%p, %p, %d, %d)\n", hCryptMsg, pbData, cbData, fFinal);
@@ -554,7 +555,8 @@ static HCRYPTMSG CHashEncodeMsg_Open(DWORD dwFlags, const void *pvMsgEncodeInfo,
  LPSTR pszInnerContentObjID, PCMSG_STREAM_INFO pStreamInfo)
 {
     CHashEncodeMsg *msg;
-    const CMSG_HASHED_ENCODE_INFO *info = pvMsgEncodeInfo;
+    const CMSG_HASHED_ENCODE_INFO *info =
+     (const CMSG_HASHED_ENCODE_INFO *)pvMsgEncodeInfo;
     HCRYPTPROV prov;
     ALG_ID algID;
 
@@ -590,7 +592,7 @@ static HCRYPTMSG CHashEncodeMsg_Open(DWORD dwFlags, const void *pvMsgEncodeInfo,
             msg = NULL;
         }
     }
-    return msg;
+    return (HCRYPTMSG)msg;
 }
 
 typedef struct _CMSG_SIGNER_ENCODE_INFO_WITH_CMS
@@ -1084,7 +1086,7 @@ static BOOL CSignedMsgData_UpdateAuthenticatedAttributes(
 
                 ret = CryptEncodeObjectEx(X509_ASN_ENCODING, PKCS_ATTRIBUTES,
                  &msg_data->info->rgSignerInfo[i].AuthAttrs,
-                 CRYPT_ENCODE_ALLOC_FLAG, NULL, &encodedAttrs, &size);
+                 CRYPT_ENCODE_ALLOC_FLAG, NULL, (LPBYTE)&encodedAttrs, &size);
                 if (ret)
                 {
                     ret = CryptHashData(
@@ -1167,17 +1169,15 @@ static BOOL CSignedMsgData_Update(CSignedMsgData *msg_data,
 typedef struct _CSignedEncodeMsg
 {
     CryptMsgBase    base;
-    LPSTR           innerOID;
     CRYPT_DATA_BLOB data;
     CSignedMsgData  msg_data;
 } CSignedEncodeMsg;
 
 static void CSignedEncodeMsg_Close(HCRYPTMSG hCryptMsg)
 {
-    CSignedEncodeMsg *msg = hCryptMsg;
+    CSignedEncodeMsg *msg = (CSignedEncodeMsg *)hCryptMsg;
     DWORD i;
 
-    CryptMemFree(msg->innerOID);
     CryptMemFree(msg->data.pbData);
     CRYPT_FreeBlobArray((BlobArray *)&msg->msg_data.info->cCertEncoded);
     CRYPT_FreeBlobArray((BlobArray *)&msg->msg_data.info->cCrlEncoded);
@@ -1191,7 +1191,7 @@ static void CSignedEncodeMsg_Close(HCRYPTMSG hCryptMsg)
 static BOOL CSignedEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
  DWORD dwIndex, void *pvData, DWORD *pcbData)
 {
-    CSignedEncodeMsg *msg = hCryptMsg;
+    CSignedEncodeMsg *msg = (CSignedEncodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     switch (dwParamType)
@@ -1227,46 +1227,32 @@ static BOOL CSignedEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
     case CMSG_BARE_CONTENT_PARAM:
     {
         CRYPT_SIGNED_INFO info;
-        BOOL freeContent = FALSE;
+        char oid_rsa_data[] = szOID_RSA_data;
 
         info = *msg->msg_data.info;
-        if (!msg->innerOID || !strcmp(msg->innerOID, szOID_RSA_data))
+        /* Quirk:  OID is only encoded messages if an update has happened */
+        if (msg->base.state != MsgStateInit)
+            info.content.pszObjId = oid_rsa_data;
+        else
+            info.content.pszObjId = NULL;
+        if (msg->data.cbData)
         {
-            char oid_rsa_data[] = szOID_RSA_data;
+            CRYPT_DATA_BLOB blob = { msg->data.cbData, msg->data.pbData };
 
-            /* Quirk:  OID is only encoded messages if an update has happened */
-            if (msg->base.state != MsgStateInit)
-                info.content.pszObjId = oid_rsa_data;
-            else
-                info.content.pszObjId = NULL;
-            if (msg->data.cbData)
-            {
-                CRYPT_DATA_BLOB blob = { msg->data.cbData, msg->data.pbData };
-
-                ret = CryptEncodeObjectEx(X509_ASN_ENCODING, X509_OCTET_STRING,
-                 &blob, CRYPT_ENCODE_ALLOC_FLAG, NULL,
-                 &info.content.Content.pbData, &info.content.Content.cbData);
-                freeContent = TRUE;
-            }
-            else
-            {
-                info.content.Content.cbData = 0;
-                info.content.Content.pbData = NULL;
-                ret = TRUE;
-            }
+            ret = CryptEncodeObjectEx(X509_ASN_ENCODING, X509_OCTET_STRING,
+             &blob, CRYPT_ENCODE_ALLOC_FLAG, NULL,
+             &info.content.Content.pbData, &info.content.Content.cbData);
         }
         else
         {
-            info.content.pszObjId = msg->innerOID;
-            info.content.Content.cbData = msg->data.cbData;
-            info.content.Content.pbData = msg->data.pbData;
+            info.content.Content.cbData = 0;
+            info.content.Content.pbData = NULL;
             ret = TRUE;
         }
         if (ret)
         {
             ret = CRYPT_AsnEncodeCMSSignedInfo(&info, pvData, pcbData);
-            if (freeContent)
-                LocalFree(info.content.Content.pbData);
+            LocalFree(info.content.Content.pbData);
         }
         break;
     }
@@ -1299,7 +1285,7 @@ static BOOL CSignedEncodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
 static BOOL CSignedEncodeMsg_Update(HCRYPTMSG hCryptMsg, const BYTE *pbData,
  DWORD cbData, BOOL fFinal)
 {
-    CSignedEncodeMsg *msg = hCryptMsg;
+    CSignedEncodeMsg *msg = (CSignedEncodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     if (msg->base.state == MsgStateFinalized)
@@ -1340,10 +1326,11 @@ static BOOL CSignedEncodeMsg_Update(HCRYPTMSG hCryptMsg, const BYTE *pbData,
 }
 
 static HCRYPTMSG CSignedEncodeMsg_Open(DWORD dwFlags,
- const void *pvMsgEncodeInfo, LPCSTR pszInnerContentObjID,
+ const void *pvMsgEncodeInfo, LPSTR pszInnerContentObjID,
  PCMSG_STREAM_INFO pStreamInfo)
 {
-    const CMSG_SIGNED_ENCODE_INFO_WITH_CMS *info = pvMsgEncodeInfo;
+    const CMSG_SIGNED_ENCODE_INFO_WITH_CMS *info =
+     (const CMSG_SIGNED_ENCODE_INFO_WITH_CMS *)pvMsgEncodeInfo;
     DWORD i;
     CSignedEncodeMsg *msg;
 
@@ -1354,7 +1341,7 @@ static HCRYPTMSG CSignedEncodeMsg_Open(DWORD dwFlags,
         return NULL;
     }
     if (info->cbSize == sizeof(CMSG_SIGNED_ENCODE_INFO_WITH_CMS) &&
-     info->cAttrCertEncoded)
+     info->rgAttrCertEncoded)
     {
         FIXME("CMSG_SIGNED_ENCODE_INFO with CMS fields unsupported\n");
         return NULL;
@@ -1370,22 +1357,9 @@ static HCRYPTMSG CSignedEncodeMsg_Open(DWORD dwFlags,
         CryptMsgBase_Init((CryptMsgBase *)msg, dwFlags, pStreamInfo,
          CSignedEncodeMsg_Close, CSignedEncodeMsg_GetParam,
          CSignedEncodeMsg_Update, CRYPT_DefaultMsgControl);
-        if (pszInnerContentObjID)
-        {
-            msg->innerOID = CryptMemAlloc(strlen(pszInnerContentObjID) + 1);
-            if (msg->innerOID)
-                strcpy(msg->innerOID, pszInnerContentObjID);
-            else
-                ret = FALSE;
-        }
-        else
-            msg->innerOID = NULL;
         msg->data.cbData = 0;
         msg->data.pbData = NULL;
-        if (ret)
-            msg->msg_data.info = CryptMemAlloc(sizeof(CRYPT_SIGNED_INFO));
-        else
-            msg->msg_data.info = NULL;
+        msg->msg_data.info = CryptMemAlloc(sizeof(CRYPT_SIGNED_INFO));
         if (msg->msg_data.info)
         {
             memset(msg->msg_data.info, 0, sizeof(CRYPT_SIGNED_INFO));
@@ -1507,7 +1481,7 @@ typedef struct _CDecodeMsg
 
 static void CDecodeMsg_Close(HCRYPTMSG hCryptMsg)
 {
-    CDecodeMsg *msg = hCryptMsg;
+    CDecodeMsg *msg = (CDecodeMsg *)hCryptMsg;
 
     if (msg->base.open_flags & CMSG_CRYPT_RELEASE_CONTEXT_FLAG)
         CryptReleaseContext(msg->crypt_prov, 0);
@@ -1553,14 +1527,15 @@ static BOOL CDecodeMsg_CopyData(CRYPT_DATA_BLOB *blob, const BYTE *pbData,
     return ret;
 }
 
-static BOOL CDecodeMsg_DecodeDataContent(CDecodeMsg *msg, const CRYPT_DER_BLOB *blob)
+static BOOL CDecodeMsg_DecodeDataContent(CDecodeMsg *msg, CRYPT_DER_BLOB *blob)
 {
     BOOL ret;
     CRYPT_DATA_BLOB *data;
     DWORD size;
 
     ret = CryptDecodeObjectEx(X509_ASN_ENCODING, X509_OCTET_STRING,
-     blob->pbData, blob->cbData, CRYPT_DECODE_ALLOC_FLAG, NULL, &data, &size);
+     blob->pbData, blob->cbData, CRYPT_DECODE_ALLOC_FLAG, NULL, (LPBYTE)&data,
+     &size);
     if (ret)
     {
         ret = ContextPropertyList_SetProperty(msg->properties,
@@ -1613,7 +1588,7 @@ static inline void CRYPT_FixUpAlgorithmID(CRYPT_ALGORITHM_IDENTIFIER *id)
 }
 
 static BOOL CDecodeMsg_DecodeHashedContent(CDecodeMsg *msg,
- const CRYPT_DER_BLOB *blob)
+ CRYPT_DER_BLOB *blob)
 {
     BOOL ret;
     CRYPT_DIGESTED_DATA *digestedData;
@@ -1699,7 +1674,7 @@ static BOOL CDecodeMsg_DecodeContent(CDecodeMsg *msg, CRYPT_DER_BLOB *blob,
 
         ret = CryptDecodeObjectEx(X509_ASN_ENCODING, PKCS_CONTENT_INFO,
          msg->msg_data.pbData, msg->msg_data.cbData, CRYPT_DECODE_ALLOC_FLAG,
-         NULL, &info, &size);
+         NULL, (LPBYTE)&info, &size);
         if (ret)
         {
             if (!strcmp(info->pszObjId, szOID_RSA_data))
@@ -1748,13 +1723,15 @@ static BOOL CDecodeMsg_FinalizeHashedContent(CDecodeMsg *msg,
         {
             /* Unlike for non-detached messages, the data were never stored as
              * the content param, but were saved in msg->detached_data instead.
+             * Set the content property with the detached data so the data may
+             * be hashed.
              */
-            content.pbData = msg->detached_data.pbData;
-            content.cbData = msg->detached_data.cbData;
+            ContextPropertyList_SetProperty(msg->properties,
+             CMSG_CONTENT_PARAM, msg->detached_data.pbData,
+             msg->detached_data.cbData);
         }
-        else
-            ret = ContextPropertyList_FindProperty(msg->properties,
-             CMSG_CONTENT_PARAM, &content);
+        ret = ContextPropertyList_FindProperty(msg->properties,
+         CMSG_CONTENT_PARAM, &content);
         if (ret)
             ret = CryptHashData(msg->u.hash, content.pbData, content.cbData, 0);
     }
@@ -1798,7 +1775,7 @@ static BOOL CDecodeMsg_FinalizeSignedContent(CDecodeMsg *msg,
 
                 ret = CryptDecodeObjectEx(X509_ASN_ENCODING,
                  X509_OCTET_STRING, content->pbData, content->cbData,
-                 CRYPT_DECODE_ALLOC_FLAG, NULL, &blob, &size);
+                 CRYPT_DECODE_ALLOC_FLAG, NULL, (LPBYTE)&blob, &size);
                 if (ret)
                 {
                     ret = CSignedMsgData_Update(&msg->u.signed_data,
@@ -1835,7 +1812,7 @@ static BOOL CDecodeMsg_FinalizeContent(CDecodeMsg *msg, CRYPT_DER_BLOB *blob)
 static BOOL CDecodeMsg_Update(HCRYPTMSG hCryptMsg, const BYTE *pbData,
  DWORD cbData, BOOL fFinal)
 {
-    CDecodeMsg *msg = hCryptMsg;
+    CDecodeMsg *msg = (CDecodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     TRACE("(%p, %p, %d, %d)\n", hCryptMsg, pbData, cbData, fFinal);
@@ -1935,7 +1912,7 @@ static BOOL CDecodeHashMsg_GetParam(CDecodeMsg *msg, DWORD dwParamType,
         {
             ret = CRYPT_CopyParam(pvData, pcbData, blob.pbData, blob.cbData);
             if (ret && pvData)
-                CRYPT_FixUpAlgorithmID(pvData);
+                CRYPT_FixUpAlgorithmID((CRYPT_ALGORITHM_IDENTIFIER *)pvData);
         }
         else
             SetLastError(CRYPT_E_INVALID_MSG_TYPE);
@@ -1995,7 +1972,8 @@ static inline void CRYPT_CopyAttributes(CRYPT_ATTRIBUTES *out,
     {
         DWORD i;
 
-        *nextData = POINTER_ALIGN_DWORD_PTR(*nextData);
+        if ((*nextData - (LPBYTE)0) % sizeof(DWORD_PTR))
+            *nextData += (*nextData - (LPBYTE)0) % sizeof(DWORD_PTR);
         out->rgAttr = (CRYPT_ATTRIBUTE *)*nextData;
         *nextData += in->cAttr * sizeof(CRYPT_ATTRIBUTE);
         for (i = 0; i < in->cAttr; i++)
@@ -2011,7 +1989,8 @@ static inline void CRYPT_CopyAttributes(CRYPT_ATTRIBUTES *out,
                 DWORD j;
 
                 out->rgAttr[i].cValue = in->rgAttr[i].cValue;
-                *nextData = POINTER_ALIGN_DWORD_PTR(*nextData);
+                if ((*nextData - (LPBYTE)0) % sizeof(DWORD_PTR))
+                    *nextData += (*nextData - (LPBYTE)0) % sizeof(DWORD_PTR);
                 out->rgAttr[i].rgValue = (PCRYPT_DATA_BLOB)*nextData;
                 *nextData += in->rgAttr[i].cValue * sizeof(CRYPT_DATA_BLOB);
                 for (j = 0; j < in->rgAttr[i].cValue; j++)
@@ -2031,13 +2010,15 @@ static DWORD CRYPT_SizeOfAttributes(const CRYPT_ATTRIBUTES *attr)
         if (attr->rgAttr[i].pszObjId)
             size += strlen(attr->rgAttr[i].pszObjId) + 1;
         /* align pointer */
-        size = ALIGN_DWORD_PTR(size);
+        if (size % sizeof(DWORD_PTR))
+            size += size % sizeof(DWORD_PTR);
         size += attr->rgAttr[i].cValue * sizeof(CRYPT_DATA_BLOB);
         for (j = 0; j < attr->rgAttr[i].cValue; j++)
             size += attr->rgAttr[i].rgValue[j].cbData;
     }
     /* align pointer again to be conservative */
-    size = ALIGN_DWORD_PTR(size);
+    if (size % sizeof(DWORD_PTR))
+        size += size % sizeof(DWORD_PTR);
     return size;
 }
 
@@ -2115,7 +2096,8 @@ static BOOL CRYPT_CopySignerInfo(void *pvData, DWORD *pcbData,
     size += in->HashEncryptionAlgorithm.Parameters.cbData;
     size += in->EncryptedHash.cbData;
     /* align pointer */
-    size = ALIGN_DWORD_PTR(size);
+    if (size % sizeof(DWORD_PTR))
+        size += size % sizeof(DWORD_PTR);
     size += CRYPT_SizeOfAttributes(&in->AuthAttrs);
     size += CRYPT_SizeOfAttributes(&in->UnauthAttrs);
     if (!pvData)
@@ -2132,7 +2114,7 @@ static BOOL CRYPT_CopySignerInfo(void *pvData, DWORD *pcbData,
     else
     {
         LPBYTE nextData = (BYTE *)pvData + sizeof(CMSG_SIGNER_INFO);
-        CMSG_SIGNER_INFO *out = pvData;
+        CMSG_SIGNER_INFO *out = (CMSG_SIGNER_INFO *)pvData;
 
         ret = TRUE;
         out->dwVersion = in->dwVersion;
@@ -2153,7 +2135,9 @@ static BOOL CRYPT_CopySignerInfo(void *pvData, DWORD *pcbData,
             CRYPT_CopyAlgorithmId(&out->HashEncryptionAlgorithm,
              &in->HashEncryptionAlgorithm, &nextData);
             CRYPT_CopyBlob(&out->EncryptedHash, &in->EncryptedHash, &nextData);
-            nextData = POINTER_ALIGN_DWORD_PTR(nextData);
+            /* align pointer */
+            if ((nextData - (LPBYTE)0) % sizeof(DWORD_PTR))
+                nextData += (nextData - (LPBYTE)0) % sizeof(DWORD_PTR);
             CRYPT_CopyAttributes(&out->AuthAttrs, &in->AuthAttrs, &nextData);
             CRYPT_CopyAttributes(&out->UnauthAttrs, &in->UnauthAttrs, &nextData);
         }
@@ -2185,7 +2169,8 @@ static BOOL CRYPT_CopyCMSSignerInfo(void *pvData, DWORD *pcbData,
     size += in->HashEncryptionAlgorithm.Parameters.cbData;
     size += in->EncryptedHash.cbData;
     /* align pointer */
-    size = ALIGN_DWORD_PTR(size);
+    if (size % sizeof(DWORD_PTR))
+        size += size % sizeof(DWORD_PTR);
     size += CRYPT_SizeOfAttributes(&in->AuthAttrs);
     size += CRYPT_SizeOfAttributes(&in->UnauthAttrs);
     if (!pvData)
@@ -2202,7 +2187,7 @@ static BOOL CRYPT_CopyCMSSignerInfo(void *pvData, DWORD *pcbData,
     else
     {
         LPBYTE nextData = (BYTE *)pvData + sizeof(CMSG_CMS_SIGNER_INFO);
-        CMSG_CMS_SIGNER_INFO *out = pvData;
+        CMSG_CMS_SIGNER_INFO *out = (CMSG_CMS_SIGNER_INFO *)pvData;
 
         out->dwVersion = in->dwVersion;
         out->SignerId.dwIdChoice = in->SignerId.dwIdChoice;
@@ -2220,7 +2205,9 @@ static BOOL CRYPT_CopyCMSSignerInfo(void *pvData, DWORD *pcbData,
         CRYPT_CopyAlgorithmId(&out->HashEncryptionAlgorithm,
          &in->HashEncryptionAlgorithm, &nextData);
         CRYPT_CopyBlob(&out->EncryptedHash, &in->EncryptedHash, &nextData);
-        nextData = POINTER_ALIGN_DWORD_PTR(nextData);
+        /* align pointer */
+        if ((nextData - (LPBYTE)0) % sizeof(DWORD_PTR))
+            nextData += (nextData - (LPBYTE)0) % sizeof(DWORD_PTR);
         CRYPT_CopyAttributes(&out->AuthAttrs, &in->AuthAttrs, &nextData);
         CRYPT_CopyAttributes(&out->UnauthAttrs, &in->UnauthAttrs, &nextData);
         ret = TRUE;
@@ -2261,7 +2248,7 @@ static BOOL CRYPT_CopySignerCertInfo(void *pvData, DWORD *pcbData,
     else
     {
         LPBYTE nextData = (BYTE *)pvData + sizeof(CERT_INFO);
-        CERT_INFO *out = pvData;
+        CERT_INFO *out = (CERT_INFO *)pvData;
 
         memset(out, 0, sizeof(CERT_INFO));
         if (in->SignerId.dwIdChoice == CERT_ID_ISSUER_SERIAL_NUMBER)
@@ -2302,7 +2289,7 @@ static BOOL CDecodeSignedMsg_GetParam(CDecodeMsg *msg, DWORD dwParamType,
                 ret = CryptDecodeObjectEx(X509_ASN_ENCODING, X509_OCTET_STRING,
                  msg->u.signed_data.info->content.Content.pbData,
                  msg->u.signed_data.info->content.Content.cbData,
-                 CRYPT_DECODE_ALLOC_FLAG, NULL, &blob, &size);
+                 CRYPT_DECODE_ALLOC_FLAG, NULL, (LPBYTE)&blob, &size);
                 if (ret)
                 {
                     ret = CRYPT_CopyParam(pvData, pcbData, blob->pbData,
@@ -2410,20 +2397,6 @@ static BOOL CDecodeSignedMsg_GetParam(CDecodeMsg *msg, DWORD dwParamType,
         else
             SetLastError(CRYPT_E_INVALID_MSG_TYPE);
         break;
-    case CMSG_ENCODED_SIGNER:
-        if (msg->u.signed_data.info)
-        {
-            if (dwIndex >= msg->u.signed_data.info->cSignerInfo)
-                SetLastError(CRYPT_E_INVALID_INDEX);
-            else
-                ret = CryptEncodeObjectEx(
-                 X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, CMS_SIGNER_INFO,
-                 &msg->u.signed_data.info->rgSignerInfo[dwIndex], 0, NULL,
-                 pvData, pcbData);
-        }
-        else
-            SetLastError(CRYPT_E_INVALID_MSG_TYPE);
-        break;
     case CMSG_ATTR_CERT_COUNT_PARAM:
         if (msg->u.signed_data.info)
         {
@@ -2463,7 +2436,7 @@ static BOOL CDecodeSignedMsg_GetParam(CDecodeMsg *msg, DWORD dwParamType,
 static BOOL CDecodeMsg_GetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
  DWORD dwIndex, void *pvData, DWORD *pcbData)
 {
-    CDecodeMsg *msg = hCryptMsg;
+    CDecodeMsg *msg = (CDecodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     switch (msg->type)
@@ -2583,11 +2556,6 @@ static BOOL CDecodeSignedMsg_VerifySignature(CDecodeMsg *msg, PCERT_INFO info)
     BOOL ret = FALSE;
     DWORD i;
 
-    if (!msg->u.signed_data.signerHandles)
-    {
-        SetLastError(NTE_BAD_SIGNATURE);
-        return FALSE;
-    }
     for (i = 0; !ret && i < msg->u.signed_data.info->cSignerInfo; i++)
     {
         PCMSG_CMS_SIGNER_INFO signerInfo =
@@ -2630,19 +2598,18 @@ static BOOL CDecodeSignedMsg_VerifySignatureEx(CDecodeMsg *msg,
         SetLastError(ERROR_INVALID_PARAMETER);
     else if (para->dwSignerIndex >= msg->u.signed_data.info->cSignerInfo)
         SetLastError(CRYPT_E_SIGNER_NOT_FOUND);
-    else if (!msg->u.signed_data.signerHandles)
-        SetLastError(NTE_BAD_SIGNATURE);
     else
     {
         switch (para->dwSignerType)
         {
         case CMSG_VERIFY_SIGNER_PUBKEY:
             ret = CDecodeSignedMsg_VerifySignatureWithKey(msg,
-             para->hCryptProv, para->dwSignerIndex, para->pvSigner);
+             para->hCryptProv, para->dwSignerIndex,
+             (PCERT_PUBLIC_KEY_INFO)para->pvSigner);
             break;
         case CMSG_VERIFY_SIGNER_CERT:
         {
-            PCCERT_CONTEXT cert = para->pvSigner;
+            PCCERT_CONTEXT cert = (PCCERT_CONTEXT)para->pvSigner;
 
             ret = CDecodeSignedMsg_VerifySignatureWithKey(msg, para->hCryptProv,
              para->dwSignerIndex, &cert->pCertInfo->SubjectPublicKeyInfo);
@@ -2659,7 +2626,7 @@ static BOOL CDecodeSignedMsg_VerifySignatureEx(CDecodeMsg *msg,
 static BOOL CDecodeMsg_Control(HCRYPTMSG hCryptMsg, DWORD dwFlags,
  DWORD dwCtrlType, const void *pvCtrlPara)
 {
-    CDecodeMsg *msg = hCryptMsg;
+    CDecodeMsg *msg = (CDecodeMsg *)hCryptMsg;
     BOOL ret = FALSE;
 
     switch (dwCtrlType)
@@ -2752,7 +2719,7 @@ HCRYPTMSG WINAPI CryptMsgDuplicate(HCRYPTMSG hCryptMsg)
 
     if (hCryptMsg)
     {
-        CryptMsgBase *msg = hCryptMsg;
+        CryptMsgBase *msg = (CryptMsgBase *)hCryptMsg;
 
         InterlockedIncrement(&msg->ref);
     }
@@ -2765,7 +2732,7 @@ BOOL WINAPI CryptMsgClose(HCRYPTMSG hCryptMsg)
 
     if (hCryptMsg)
     {
-        CryptMsgBase *msg = hCryptMsg;
+        CryptMsgBase *msg = (CryptMsgBase *)hCryptMsg;
 
         if (InterlockedDecrement(&msg->ref) == 0)
         {
@@ -2781,7 +2748,7 @@ BOOL WINAPI CryptMsgClose(HCRYPTMSG hCryptMsg)
 BOOL WINAPI CryptMsgUpdate(HCRYPTMSG hCryptMsg, const BYTE *pbData,
  DWORD cbData, BOOL fFinal)
 {
-    CryptMsgBase *msg = hCryptMsg;
+    CryptMsgBase *msg = (CryptMsgBase *)hCryptMsg;
 
     TRACE("(%p, %p, %d, %d)\n", hCryptMsg, pbData, cbData, fFinal);
 
@@ -2791,7 +2758,7 @@ BOOL WINAPI CryptMsgUpdate(HCRYPTMSG hCryptMsg, const BYTE *pbData,
 BOOL WINAPI CryptMsgGetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
  DWORD dwIndex, void *pvData, DWORD *pcbData)
 {
-    CryptMsgBase *msg = hCryptMsg;
+    CryptMsgBase *msg = (CryptMsgBase *)hCryptMsg;
 
     TRACE("(%p, %d, %d, %p, %p)\n", hCryptMsg, dwParamType, dwIndex,
      pvData, pcbData);
@@ -2801,7 +2768,7 @@ BOOL WINAPI CryptMsgGetParam(HCRYPTMSG hCryptMsg, DWORD dwParamType,
 BOOL WINAPI CryptMsgControl(HCRYPTMSG hCryptMsg, DWORD dwFlags,
  DWORD dwCtrlType, const void *pvCtrlPara)
 {
-    CryptMsgBase *msg = hCryptMsg;
+    CryptMsgBase *msg = (CryptMsgBase *)hCryptMsg;
 
     TRACE("(%p, %08x, %d, %p)\n", hCryptMsg, dwFlags, dwCtrlType,
      pvCtrlPara);
@@ -2933,61 +2900,4 @@ BOOL WINAPI CryptMsgVerifyCountersignatureEncodedEx(HCRYPTPROV_LEGACY hCryptProv
      dwEncodingType, pbSignerInfo, cbSignerInfo, pbSignerInfoCountersignature,
      cbSignerInfoCountersignature, dwSignerType, pvSigner, dwFlags, pvReserved);
     return FALSE;
-}
-
-BOOL WINAPI CryptMsgEncodeAndSignCTL(DWORD dwMsgEncodingType,
- PCTL_INFO pCtlInfo, PCMSG_SIGNED_ENCODE_INFO pSignInfo, DWORD dwFlags,
- BYTE *pbEncoded, DWORD *pcbEncoded)
-{
-    BOOL ret;
-    BYTE *pbCtlContent;
-    DWORD cbCtlContent;
-
-    TRACE("(%08x, %p, %p, %08x, %p, %p)\n", dwMsgEncodingType, pCtlInfo,
-     pSignInfo, dwFlags, pbEncoded, pcbEncoded);
-
-    if (dwFlags)
-    {
-        FIXME("unimplemented for flags %08x\n", dwFlags);
-        return FALSE;
-    }
-    if ((ret = CryptEncodeObjectEx(dwMsgEncodingType, PKCS_CTL, pCtlInfo,
-     CRYPT_ENCODE_ALLOC_FLAG, NULL, &pbCtlContent, &cbCtlContent)))
-    {
-        ret = CryptMsgSignCTL(dwMsgEncodingType, pbCtlContent, cbCtlContent,
-         pSignInfo, dwFlags, pbEncoded, pcbEncoded);
-        LocalFree(pbCtlContent);
-    }
-    return ret;
-}
-
-BOOL WINAPI CryptMsgSignCTL(DWORD dwMsgEncodingType, BYTE *pbCtlContent,
- DWORD cbCtlContent, PCMSG_SIGNED_ENCODE_INFO pSignInfo, DWORD dwFlags,
- BYTE *pbEncoded, DWORD *pcbEncoded)
-{
-    static char oid_ctl[] = szOID_CTL;
-    BOOL ret;
-    HCRYPTMSG msg;
-
-    TRACE("(%08x, %p, %d, %p, %08x, %p, %p)\n", dwMsgEncodingType,
-     pbCtlContent, cbCtlContent, pSignInfo, dwFlags, pbEncoded, pcbEncoded);
-
-    if (dwFlags)
-    {
-        FIXME("unimplemented for flags %08x\n", dwFlags);
-        return FALSE;
-    }
-    msg = CryptMsgOpenToEncode(dwMsgEncodingType, 0, CMSG_SIGNED, pSignInfo,
-     oid_ctl, NULL);
-    if (msg)
-    {
-        ret = CryptMsgUpdate(msg, pbCtlContent, cbCtlContent, TRUE);
-        if (ret)
-            ret = CryptMsgGetParam(msg, CMSG_CONTENT_PARAM, 0, pbEncoded,
-             pcbEncoded);
-        CryptMsgClose(msg);
-    }
-    else
-        ret = FALSE;
-    return ret;
 }

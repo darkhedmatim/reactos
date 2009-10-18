@@ -354,7 +354,7 @@ RtlSetEnvironmentVariable(PWSTR *Environment,
    }
 
 found:
-   if (Value != NULL && Value->Buffer != NULL)
+   if (Value != NULL)
    {
       hole_len = tail - hole;
       /* calculate new environment size */
@@ -368,7 +368,7 @@ found:
          /* enlarge environment size */
          /* check the size of available memory */
          new_size += (env_len - hole_len) * sizeof(WCHAR);
-         new_size = ROUND_UP(new_size, PAGE_SIZE);
+         new_size = ROUNDUP(new_size, PAGE_SIZE);
          mbi.RegionSize = 0;
          DPRINT("new_size %lu\n", new_size);
 
@@ -472,6 +472,10 @@ found:
          memmove(head,
                  tail,
                  (env_end - tail) * sizeof(WCHAR));
+      }
+      else
+      {
+         Status = STATUS_VARIABLE_NOT_FOUND;
       }
    }
 

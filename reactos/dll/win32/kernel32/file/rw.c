@@ -21,7 +21,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 WriteFile(IN HANDLE hFile,
           IN LPCVOID lpBuffer,
           IN DWORD nNumberOfBytesToWrite  OPTIONAL,
@@ -128,7 +128,7 @@ WriteFile(IN HANDLE hFile,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 ReadFile(IN HANDLE hFile,
          IN LPVOID lpBuffer,
          IN DWORD nNumberOfBytesToRead,
@@ -148,22 +148,11 @@ ReadFile(IN HANDLE hFile,
 
    if (IsConsoleHandle(hFile))
      {
-        if (ReadConsoleA(hFile,
+	return ReadConsoleA(hFile,
                             lpBuffer,
                             nNumberOfBytesToRead,
                             lpNumberOfBytesRead,
-                            NULL))
-          {
-             DWORD dwMode;
-             GetConsoleMode(hFile, &dwMode);
-             if ((dwMode & ENABLE_PROCESSED_INPUT) && *(char *)lpBuffer == 0x1a)
-               {
-                  /* EOF character entered; simulate end-of-file */
-                  *lpNumberOfBytesRead = 0;
-               }
-             return TRUE;
-          }
-        return FALSE;
+                            NULL);
      }
 
    if (lpOverlapped != NULL)
@@ -257,7 +246,7 @@ ReadFile(IN HANDLE hFile,
    return TRUE;
 }
 
-VOID WINAPI
+VOID STDCALL
 ApcRoutine(PVOID ApcContext,
 		struct _IO_STATUS_BLOCK* IoStatusBlock,
 		ULONG Reserved)
@@ -276,7 +265,7 @@ ApcRoutine(PVOID ApcContext,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 WriteFileEx(IN HANDLE hFile,
             IN LPCVOID lpBuffer,
             IN DWORD nNumberOfBytesToWrite  OPTIONAL,
@@ -313,7 +302,7 @@ WriteFileEx(IN HANDLE hFile,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 ReadFileEx(IN HANDLE hFile,
            IN LPVOID lpBuffer,
            IN DWORD nNumberOfBytesToRead  OPTIONAL,

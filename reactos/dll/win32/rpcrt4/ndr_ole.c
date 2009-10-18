@@ -1,7 +1,7 @@
 /*
  * OLE32 callouts, COM interface marshalling
  *
- * Copyright 2001 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001 Ove Kåven, TransGaming Technologies
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -354,7 +354,7 @@ void WINAPI NdrInterfacePointerFree(PMIDL_STUB_MESSAGE pStubMsg,
 /***********************************************************************
  *           NdrOleAllocate [RPCRT4.@]
  */
-void * WINAPI NdrOleAllocate(SIZE_T Size)
+void * WINAPI NdrOleAllocate(size_t Size)
 {
   if (!LoadCOM()) return NULL;
   return COM_MemAlloc(Size);

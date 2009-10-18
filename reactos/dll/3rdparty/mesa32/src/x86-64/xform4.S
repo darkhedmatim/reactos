@@ -29,22 +29,7 @@
 .text
 
 .align 16
-.globl _mesa_x86_64_cpuid
-_mesa_x86_64_cpuid:
-	pushq	%rbx
-	movl	(%rdi), %eax
-	movl	8(%rdi), %ecx
 
-	cpuid
-
-	movl	%ebx, 4(%rdi)
-	movl	%eax, (%rdi)
-	movl	%ecx, 8(%rdi)
-	movl	%edx, 12(%rdi)
-	popq	%rbx
-	ret
-
-.align 16
 .globl _mesa_x86_64_transform_points4_general
 _mesa_x86_64_transform_points4_general:
 /*
@@ -219,8 +204,8 @@ p4_identity_done:
 
 	
 .align 16
-.globl _mesa_3dnow_transform_points4_3d_no_rot
-_mesa_3dnow_transform_points4_3d_no_rot:
+.globl _mesa_x86_64_transform_points4_3d_no_rot
+_mesa_x86_64_transform_points4_3d_no_rot:
 
 	movl V4F_COUNT(%rdx), %ecx	/* count */
 	movzx V4F_STRIDE(%rdx), %eax	/* stride */
@@ -283,8 +268,8 @@ p4_3d_no_rot_done:
 
 	
 .align 16
-.globl _mesa_3dnow_transform_points4_perspective
-_mesa_3dnow_transform_points4_perspective:
+.globl _mesa_x86_64_transform_points4_perspective
+_mesa_x86_64_transform_points4_perspective:
 
 	movl V4F_COUNT(%rdx), %ecx	/* count */
 	movzx V4F_STRIDE(%rdx), %eax	/* stride */
@@ -349,8 +334,8 @@ p4_perspective_done:
 	ret
 
 .align 16
-.globl _mesa_3dnow_transform_points4_2d_no_rot
-_mesa_3dnow_transform_points4_2d_no_rot:
+.globl _mesa_x86_64_transform_points4_2d_no_rot
+_mesa_x86_64_transform_points4_2d_no_rot:
 
 	movl V4F_COUNT(%rdx), %ecx	/* count */
 	movzx V4F_STRIDE(%rdx), %eax	/* stride */
@@ -404,8 +389,8 @@ p4_2d_no_rot_done:
 
 	
 .align 16
-.globl _mesa_3dnow_transform_points4_2d
-_mesa_3dnow_transform_points4_2d:
+.globl _mesa_x86_64_transform_points4_2d
+_mesa_x86_64_transform_points4_2d:
 
 	movl V4F_COUNT(%rdx), %ecx	/* count */
 	movzx V4F_STRIDE(%rdx), %eax	/* stride */

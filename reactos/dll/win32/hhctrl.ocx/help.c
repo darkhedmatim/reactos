@@ -115,9 +115,7 @@ BOOL NavigateToChm(HHInfo *info, LPCWSTR file, LPCWSTR index)
     LPWSTR ptr;
 
     static const WCHAR url_format[] =
-        {'m','k',':','@','M','S','I','T','S','t','o','r','e',':','%','s',':',':','%','s','%','s',0};
-    static const WCHAR slash[] = {'/',0};
-    static const WCHAR empty[] = {0};
+        {'m','k',':','@','M','S','I','T','S','t','o','r','e',':','%','s',':',':','%','s',0};
 
     TRACE("%p %s %s\n", info, debugstr_w(file), debugstr_w(index));
 
@@ -129,7 +127,7 @@ BOOL NavigateToChm(HHInfo *info, LPCWSTR file, LPCWSTR index)
         return FALSE;
     }
 
-    wsprintfW(buf, url_format, full_path, (!index || index[0] == '/') ? empty : slash, index);
+    wsprintfW(buf, url_format, full_path, index);
 
     /* FIXME: HACK */
     if((ptr = strchrW(buf, '#')))
@@ -827,7 +825,7 @@ static BOOL HH_CreateHelpWindow(HHInfo *info)
 
     /* Read in window parameters if available */
     if (info->WinType.fsValidMembers & HHWIN_PARAM_STYLES)
-        dwStyles = info->WinType.dwStyles | WS_OVERLAPPEDWINDOW;
+        dwStyles = info->WinType.dwStyles;
     else
         dwStyles = WS_OVERLAPPEDWINDOW | WS_VISIBLE |
                    WS_CLIPSIBLINGS | WS_CLIPCHILDREN;

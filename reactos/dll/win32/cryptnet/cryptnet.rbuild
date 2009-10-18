@@ -13,5 +13,6 @@
 	<library>wininet</library>
 	<library>ntdll</library>
 	<file>cryptnet_main.c</file>
+	<file>cryptnet.spec</file>
 </module>
 </group>

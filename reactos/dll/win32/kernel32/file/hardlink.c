@@ -22,7 +22,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 CreateHardLinkW(LPCWSTR lpFileName,
                 LPCWSTR lpExistingFileName,
                 LPSECURITY_ATTRIBUTES lpSecurityAttributes)
@@ -194,7 +194,7 @@ CreateHardLinkW(LPCWSTR lpFileName,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 CreateHardLinkA(LPCSTR lpFileName,
                 LPCSTR lpExistingFileName,
                 LPSECURITY_ATTRIBUTES lpSecurityAttributes)

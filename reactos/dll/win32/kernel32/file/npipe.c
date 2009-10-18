@@ -55,7 +55,7 @@ CreateNamedPipeA(LPCSTR lpName,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateNamedPipeW(LPCWSTR lpName,
                  DWORD dwOpenMode,
                  DWORD dwPipeMode,
@@ -952,7 +952,7 @@ GetNamedPipeHandleStateA(HANDLE hNamedPipe,
                          LPSTR lpUserName,
                          DWORD nMaxUserNameSize)
 {
-    UNICODE_STRING UserNameW = { 0, 0, NULL };
+    UNICODE_STRING UserNameW = {0};
     ANSI_STRING UserNameA;
     BOOL Ret;
 
@@ -1069,7 +1069,7 @@ PeekNamedPipe(HANDLE hNamedPipe,
     NTSTATUS Status;
 
     /* Calculate the buffer space that we'll need and allocate it */
-    BufferSize = nBufferSize + sizeof(FILE_PIPE_PEEK_BUFFER);
+    BufferSize = nBufferSize + FIELD_OFFSET(FILE_PIPE_PEEK_BUFFER, Data[0]);
     Buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, BufferSize);
     if (Buffer == NULL)
     {

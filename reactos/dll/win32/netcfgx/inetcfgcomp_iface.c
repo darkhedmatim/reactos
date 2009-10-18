@@ -7,6 +7,7 @@ typedef struct
     LONG  ref;
     NetCfgComponentItem * pItem;
     INetCfgComponentPropertyUi * pProperty;
+    INetCfgComponentControl * pNCCC;
     INetCfg * pNCfg;
 }INetCfgComponentImpl;
 
@@ -19,8 +20,10 @@ typedef struct
     INetCfg * pNCfg;
 }IEnumNetCfgComponentImpl;
 
+
+
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnQueryInterface(
     INetCfgComponent * iface,
     REFIID iid,
@@ -40,8 +43,9 @@ INetCfgComponent_fnQueryInterface(
     return E_NOINTERFACE;
 }
 
+
 ULONG
-WINAPI
+STDCALL
 INetCfgComponent_fnAddRef(
     INetCfgComponent * iface)
 {
@@ -52,7 +56,7 @@ INetCfgComponent_fnAddRef(
 }
 
 ULONG
-WINAPI
+STDCALL
 INetCfgComponent_fnRelease(
     INetCfgComponent * iface)
 {
@@ -67,7 +71,7 @@ INetCfgComponent_fnRelease(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetDisplayName(
     INetCfgComponent * iface,
     LPWSTR * ppszwDisplayName)
@@ -99,7 +103,7 @@ INetCfgComponent_fnGetDisplayName(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnSetDisplayName(
     INetCfgComponent * iface,
     LPCWSTR ppszwDisplayName)
@@ -131,7 +135,7 @@ INetCfgComponent_fnSetDisplayName(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetHelpText(
     INetCfgComponent * iface,
     LPWSTR * ppszwHelpText)
@@ -163,7 +167,7 @@ INetCfgComponent_fnGetHelpText(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetId(
     INetCfgComponent * iface,
     LPWSTR * ppszwId)
@@ -185,7 +189,7 @@ INetCfgComponent_fnGetId(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetCharacteristics(
     INetCfgComponent * iface,
     DWORD * pdwCharacteristics)
@@ -201,7 +205,7 @@ INetCfgComponent_fnGetCharacteristics(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetInstanceGuid(
     INetCfgComponent * iface,
     GUID * pGuid)
@@ -216,7 +220,7 @@ INetCfgComponent_fnGetInstanceGuid(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetPnpDevNodeId(
     INetCfgComponent * iface,
     LPWSTR * ppszwDevNodeId)
@@ -240,7 +244,7 @@ INetCfgComponent_fnGetPnpDevNodeId(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetClassGuid(
     INetCfgComponent * iface,
     GUID * pGuid)
@@ -255,7 +259,7 @@ INetCfgComponent_fnGetClassGuid(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetBindName(
     INetCfgComponent * iface,
     LPWSTR * ppszwBindName)
@@ -277,7 +281,7 @@ INetCfgComponent_fnGetBindName(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnGetDeviceStatus(
     INetCfgComponent * iface,
     ULONG * pStatus)
@@ -296,7 +300,7 @@ INetCfgComponent_fnGetDeviceStatus(
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnOpenParamKey(
     INetCfgComponent * iface,
     HKEY * phkey)
@@ -416,13 +420,13 @@ CreateNotificationObject(
         return hr;
     }
     This->pProperty = pNCCPU;
-    This->pItem->pNCCC = pNCCC;
+    This->pNCCC = pNCCC;
 
     return S_OK;
 }
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_fnRaisePropertyUi(
     INetCfgComponent * iface,
     IN HWND  hwndParent,
@@ -442,10 +446,9 @@ INetCfgComponent_fnRaisePropertyUi(
          hr = CreateNotificationObject(This,iface, pUnk);
          if (FAILED(hr))
              return hr;
+         if (dwFlags == NCRP_QUERY_PROPERTY_UI)
+             return S_OK;
     }
-
-    if (dwFlags == NCRP_QUERY_PROPERTY_UI)
-        return S_OK;
 
     dwDefPages = 0;
     Pages = 0;
@@ -464,14 +467,20 @@ INetCfgComponent_fnRaisePropertyUi(
     pinfo.pszCaption = This->pItem->szDisplayName;
 
     iResult = PropertySheetW(&pinfo);
+
     CoTaskMemFree(hppages);
-    if (iResult > 0)
+    if (iResult < 0)
     {
-        /* indicate that settings should be stored */
-        This->pItem->bChanged = TRUE;
+        //FIXME
+        INetCfgComponentControl_CancelChanges(This->pNCCC);
+        return E_ABORT;
+    }
+    else
+    {
+        //FIXME
+        INetCfgComponentControl_ApplyRegistryChanges(This->pNCCC);
         return S_OK;
     }
-    return S_FALSE;
 }
 static const INetCfgComponentVtbl vt_NetCfgComponent =
 {
@@ -493,7 +502,7 @@ static const INetCfgComponentVtbl vt_NetCfgComponent =
 };
 
 HRESULT
-WINAPI
+STDCALL
 INetCfgComponent_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv, NetCfgComponentItem * pItem, INetCfg * pNCfg)
 {
     INetCfgComponentImpl *This;
@@ -527,7 +536,7 @@ INetCfgComponent_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv, N
  */
 
 HRESULT
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnQueryInterface(
     IEnumNetCfgComponent * iface,
     REFIID iid,
@@ -549,7 +558,7 @@ IEnumNetCfgComponent_fnQueryInterface(
 
 
 ULONG
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnAddRef(
     IEnumNetCfgComponent * iface)
 {
@@ -560,7 +569,7 @@ IEnumNetCfgComponent_fnAddRef(
 }
 
 ULONG
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnRelease(
     IEnumNetCfgComponent * iface)
 {
@@ -571,7 +580,7 @@ IEnumNetCfgComponent_fnRelease(
 }
 
 HRESULT
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnNext(
     IEnumNetCfgComponent * iface,
     ULONG celt,
@@ -601,7 +610,7 @@ IEnumNetCfgComponent_fnNext(
 }
 
 HRESULT
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnSkip(
     IEnumNetCfgComponent * iface,
     ULONG celt)
@@ -621,7 +630,7 @@ IEnumNetCfgComponent_fnSkip(
 }
 
 HRESULT
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnReset(
     IEnumNetCfgComponent * iface)
 {
@@ -632,7 +641,7 @@ IEnumNetCfgComponent_fnReset(
 }
 
 HRESULT
-WINAPI
+STDCALL
 IEnumNetCfgComponent_fnClone(
     IEnumNetCfgComponent * iface,
     IEnumNetCfgComponent **ppenum)
@@ -652,7 +661,7 @@ static const IEnumNetCfgComponentVtbl vt_EnumNetCfgComponent =
 };
 
 HRESULT
-WINAPI
+STDCALL
 IEnumNetCfgComponent_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv, NetCfgComponentItem * pItem, INetCfg * pNCfg)
 {
     IEnumNetCfgComponentImpl *This;

@@ -58,8 +58,7 @@
 #  endif
 #endif
 /* Small ReactOS hack */
-#undef fpclassify
-#define fpclassify _fpclass
+#define fpclassify fpclass
 #include <assert.h>
 
 #if defined(TRIO_DOCUMENTATION)
@@ -214,7 +213,6 @@ TRIO_ARGS2((number, has_mantissa),
   return is_special_quantity;
 }
 
-#if 0
 /*
  * trio_is_negative
  */
@@ -232,7 +230,6 @@ TRIO_ARGS1((number),
   }
   return is_negative;
 }
-#endif
 
 #endif /* USE_IEEE_754 */
 

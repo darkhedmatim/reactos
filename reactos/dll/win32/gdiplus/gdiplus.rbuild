@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
-<module name="gdiplus" type="win32dll" baseaddress="${BASEADDRESS_GDIPLUS}" installbase="system32" installname="gdiplus.dll" allowwarnings="true" crt="msvcrt">
+<module name="gdiplus" type="win32dll" baseaddress="${BASEADDRESS_GDIPLUS}" installbase="system32" installname="gdiplus.dll" allowwarnings="true">
 	<importlibrary definition="gdiplus.spec" />
 	<include base="gdiplus">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
@@ -19,6 +19,7 @@
 	<file>pen.c</file>
 	<file>region.c</file>
 	<file>stringformat.c</file>
+	<file>gdiplus.spec</file>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>shlwapi</library>
@@ -27,7 +28,6 @@
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>kernel32</library>
-	<library>windowscodecs</library>
 	<library>ntdll</library>
 </module>
 </group>

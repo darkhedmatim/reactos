@@ -18,6 +18,8 @@ ULONG CmpHashTableSize = 2048;
 PCM_KEY_HASH_TABLE_ENTRY CmpCacheTable;
 PCM_NAME_HASH_TABLE_ENTRY CmpNameCacheTable;
 
+BOOLEAN CmpHoldLazyFlush;
+
 /* FUNCTIONS *****************************************************************/
 
 VOID
@@ -30,7 +32,7 @@ CmpInitializeCache(VOID)
     Length = CmpHashTableSize * sizeof(CM_KEY_HASH_TABLE_ENTRY);
     
     /* Allocate it */
-    CmpCacheTable = CmpAllocate(Length, TRUE, TAG_CM);
+    CmpCacheTable = ExAllocatePoolWithTag(PagedPool, Length, TAG_CM);
     if (!CmpCacheTable)
     {
         /* Take the system down */
@@ -51,7 +53,7 @@ CmpInitializeCache(VOID)
     Length = CmpHashTableSize * sizeof(CM_NAME_HASH_TABLE_ENTRY);
     
     /* Now allocate the name cache table */
-    CmpNameCacheTable = CmpAllocate(Length, TRUE, TAG_CM);
+    CmpNameCacheTable = ExAllocatePoolWithTag(PagedPool, Length, TAG_CM);
     if (!CmpNameCacheTable)
     {
         /* Take the system down */
@@ -173,16 +175,15 @@ CmpGetNameControlBlock(IN PUNICODE_STRING NodeName)
     Length = NodeName->Length / sizeof(WCHAR);
     for (i = 0; i < (NodeName->Length / sizeof(WCHAR)); i++)
     {
-        /* Check if this is a 16-bit character */
-        if (NodeName->Buffer[i] > (UCHAR)-1)
+        /* Check if this is a valid character */
+        if (*NodeName->Buffer > (UCHAR)-1)
         {
             /* This is the actual size, and we know we're not compressed */
             Length = NodeName->Length;
             IsCompressed = FALSE;
-            break;
         }
     }
-
+    
     /* Lock the NCB entry */
     CmpAcquireNcbLockExclusiveByKey(ConvKey);
 
@@ -194,7 +195,7 @@ CmpGetNameControlBlock(IN PUNICODE_STRING NodeName)
         Ncb = CONTAINING_RECORD(HashEntry, CM_NAME_CONTROL_BLOCK, NameHash);
 
         /* Check if the hash matches */
-        if ((ConvKey == HashEntry->ConvKey) && (Length == Ncb->NameLength))
+        if ((ConvKey = HashEntry->ConvKey) && (Length = Ncb->NameLength))
         {
             /* Assume success */
             Found = TRUE;
@@ -241,28 +242,29 @@ CmpGetNameControlBlock(IN PUNICODE_STRING NodeName)
         /* Go to the next hash */
         HashEntry = HashEntry->NextHash;
     }
-
+    
     /* Check if we didn't find it */
     if (!Found)
     {
         /* Allocate one */
         NcbSize = FIELD_OFFSET(CM_NAME_CONTROL_BLOCK, Name) + Length;
-        Ncb = CmpAllocate(NcbSize, TRUE, TAG_CM);
+        Ncb = ExAllocatePoolWithTag(PagedPool, NcbSize, TAG_CM);
         if (!Ncb)
         {
             /* Release the lock and fail */
             CmpReleaseNcbLockByKey(ConvKey);
             return NULL;
         }
-
+        
         /* Clear it out */
         RtlZeroMemory(Ncb, NcbSize);
-
+        
         /* Check if the name was compressed */
         if (IsCompressed)
         {
             /* Copy the compressed name */
-            for (i = 0; i < NodeName->Length / sizeof(WCHAR); i++)
+            Ncb->Compressed = TRUE;
+            for (i = 0; i < Length; i++)
             {
                 /* Copy Unicode to ANSI */
                 ((PCHAR)Ncb->Name)[i] = (CHAR)RtlUpcaseUnicodeChar(NodeName->Buffer[i]);
@@ -271,25 +273,25 @@ CmpGetNameControlBlock(IN PUNICODE_STRING NodeName)
         else
         {
             /* Copy the name directly */
-            for (i = 0; i < NodeName->Length / sizeof(WCHAR); i++)
+            Ncb->Compressed = FALSE;
+            for (i = 0; i < Length; i++)
             {
                 /* Copy each unicode character */
                 Ncb->Name[i] = RtlUpcaseUnicodeChar(NodeName->Buffer[i]);
             }
         }
-
+            
         /* Setup the rest of the NCB */
-        Ncb->Compressed = IsCompressed;
         Ncb->ConvKey = ConvKey;
         Ncb->RefCount++;
         Ncb->NameLength = Length;
-
+        
         /* Insert the name in the hash table */
         HashEntry = &Ncb->NameHash;
         HashEntry->NextHash = GET_HASH_ENTRY(CmpNameCacheTable, ConvKey).Entry;
         GET_HASH_ENTRY(CmpNameCacheTable, ConvKey).Entry = HashEntry;
     }
-
+    
     /* Release NCB lock */
     CmpReleaseNcbLockByKey(ConvKey);
 
@@ -341,7 +343,7 @@ CmpDereferenceNameControlBlockWithLock(IN PCM_NAME_CONTROL_BLOCK Ncb)
         }
 
         /* Found it, now free it */
-        CmpFree(Ncb, 0);
+        ExFreePool(Ncb);
     }
 
     /* Release the lock */
@@ -444,12 +446,12 @@ CmpCleanUpKcbValueCache(IN PCM_KEY_CONTROL_BLOCK Kcb)
             if (CMP_IS_CELL_CACHED(CachedList[i]))
             {
                 /* Free it */
-                CmpFree((PVOID)CMP_GET_CACHED_CELL(CachedList[i]), 0);
+                ExFreePool((PVOID)CMP_GET_CACHED_CELL(CachedList[i]));
             }
         }
 
         /* Now free the list */
-        CmpFree((PVOID)CMP_GET_CACHED_CELL(Kcb->ValueCache.ValueList), 0);
+        ExFreePool((PVOID)CMP_GET_CACHED_CELL(Kcb->ValueCache.ValueList));
         Kcb->ValueCache.ValueList = HCELL_NIL;
     }
     else if (Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND)
@@ -488,7 +490,7 @@ CmpCleanUpKcbCacheWithLock(IN PCM_KEY_CONTROL_BLOCK Kcb,
     CmpDereferenceNameControlBlockWithLock(Kcb->NameBlock);
 
     /* Check if we have an index hint block and free it */
-    if (Kcb->ExtFlags & CM_KCB_SUBKEY_HINT) CmpFree(Kcb->IndexHint, 0);
+    if (Kcb->ExtFlags & CM_KCB_SUBKEY_HINT) ExFreePool(Kcb->IndexHint);
 
     /* Check if we were already deleted */
     Parent = Kcb->ParentKcb;
@@ -527,7 +529,7 @@ CmpCleanUpSubKeyInfo(IN PCM_KEY_CONTROL_BLOCK Kcb)
         if (Kcb->ExtFlags & (CM_KCB_SUBKEY_HINT))
         {
             /* Kill it */
-            CmpFree(Kcb->IndexHint, 0);
+            ExFreePool(Kcb->IndexHint);
         }
         
         /* Remove subkey flags */
@@ -535,18 +537,18 @@ CmpCleanUpSubKeyInfo(IN PCM_KEY_CONTROL_BLOCK Kcb)
     }
 
     /* Check if there's no linked cell */
-    if (Kcb->KeyCell == HCELL_NIL)
+	if (Kcb->KeyCell == HCELL_NIL)
     {
         /* Make sure it's a delete */
-        ASSERT(Kcb->Delete);
-        KeyNode = NULL;
-    }
+		ASSERT(Kcb->Delete);
+		KeyNode = NULL;
+	}
     else
     {
         /* Get the key node */
-        KeyNode = (PCM_KEY_NODE)HvGetCell(Kcb->KeyHive, Kcb->KeyCell);
-    }
-
+	    KeyNode = (PCM_KEY_NODE)HvGetCell(Kcb->KeyHive, Kcb->KeyCell);
+	}
+    
     /* Check if we got the node */
     if (!KeyNode)
     {
@@ -559,7 +561,7 @@ CmpCleanUpSubKeyInfo(IN PCM_KEY_CONTROL_BLOCK Kcb)
         Kcb->ExtFlags &= ~CM_KCB_INVALID_CACHED_INFO;
         Kcb->SubKeyCount = KeyNode->SubKeyCounts[Stable] +
                            KeyNode->SubKeyCounts[Volatile];
-
+        
         /* Release the cell */
         HvReleaseCell(Kcb->KeyHive, Kcb->KeyCell);
     }
@@ -863,12 +865,12 @@ CmpCreateKeyControlBlock(IN PHHIVE Hive,
     }
 
     /* Check if this is a KCB inside a frozen hive */
-    if ((Kcb) && (((PCMHIVE)Hive)->Frozen) && (!(Kcb->Flags & KEY_SYM_LINK)))
+	if ((Kcb) && (((PCMHIVE)Hive)->Frozen) && (!(Kcb->Flags & KEY_SYM_LINK)))
     {
         /* Don't add these to the delay close */
-        Kcb->ExtFlags |= CM_KCB_NO_DELAY_CLOSE;
+		Kcb->ExtFlags |= CM_KCB_NO_DELAY_CLOSE;
     }
-
+        
     /* Sanity check */
     ASSERT((!Kcb) || (Kcb->Delete == FALSE));
 
@@ -929,9 +931,9 @@ CmpConstructName(IN PCM_KEY_CONTROL_BLOCK Kcb)
     }
 
     /* Allocate the unicode string now */
-    KeyName = CmpAllocate(NameLength + sizeof(UNICODE_STRING),
-                          TRUE,
-                          TAG_CM);
+    KeyName = ExAllocatePoolWithTag(PagedPool,
+                                    NameLength + sizeof(UNICODE_STRING),
+                                    TAG_CM);
 
     if (!KeyName) return NULL;
 
@@ -952,7 +954,7 @@ CmpConstructName(IN PCM_KEY_CONTROL_BLOCK Kcb)
             MyKcb->ExtFlags & CM_KCB_KEY_NON_EXIST)
         {
             /* Failure */
-            CmpFree(KeyName, 0);
+            ExFreePool(KeyName);
             return NULL;
         }
 
@@ -965,7 +967,7 @@ CmpConstructName(IN PCM_KEY_CONTROL_BLOCK Kcb)
             if (!KeyNode)
             {
                 /* Failure */
-                CmpFree(KeyName, 0);
+                ExFreePool(KeyName);
                 return NULL;
             }
         }

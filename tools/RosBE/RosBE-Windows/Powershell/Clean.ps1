@@ -3,14 +3,16 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/Clean.ps1
 # PURPOSE:     Clean the ReactOS source directory.
-# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2008 Daniel Reimer <reimer.daniel@freenet.de>
 #
 #
 
 $host.ui.RawUI.WindowTitle = "Cleaning..."
 
 function remlog {
+    #
     # Check if we have any logs to clean, if so, clean them.
+    #
     if (Test-Path "$_ROSBE_LOGDIR") {
         "Cleaning build logs..."
         $null = (Remove-Item -path "$_ROSBE_LOGDIR\*.txt" -force)
@@ -21,47 +23,92 @@ function remlog {
 }
 
 function rembin {
+    #
     # Check if we have something to clean, if so, clean it.
+    #
 
-    # Apply modified obj and out paths for deletion.
-
-    if ("$_ROSBE_OBJPATH" -eq "") {
-        $OBJCLEANPATH = "$_ROSBE_ROSSOURCEDIR\obj-$ENV:ROS_ARCH"
-    } else {
-        $OBJCLEANPATH = "$_ROSBE_OBJPATH"
-    }
-
-    if ("$_ROSBE_OUTPATH" -eq "") {
-        $OUTCLEANPATH = "$_ROSBE_ROSSOURCEDIR\output-$ENV:ROS_ARCH"
-    } else {
-        $OUTCLEANPATH = "$_ROSBE_OUTPATH"
-    }
-
-    if ("$ENV:ROS_ARCH" -eq "i386") {
-        $MAKEFILE = "$_ROSBE_ROSSOURCEDIR\makefile.auto"
-    } else {
-        $MAKEFILE = "$_ROSBE_ROSSOURCEDIR\makefile-$ENV:ROS_ARCH.auto"
-    }
-
-    if (Test-Path "$MAKEFILE") {
-        $null = (Remove-Item "$MAKEFILE" -force)
-    }
-
-    if (Test-Path "$OBJCLEANPATH\.") {
-        "Cleaning ReactOS $ENV:ROS_ARCH source directory..."
-        if (Test-Path "$OBJCLEANPATH\.") {
-            $null = (Remove-Item "$OBJCLEANPATH" -recurse -force)
+    if ($ENV:ROS_ARCH -eq "arm") {
+        if (Test-Path "obj-arm") {
+            "Cleaning ReactOS source directory..."
+            #
+            # Remove directories/makefile.auto created by the build.
+            #
+            if (Test-Path "obj-arm") {
+                $null = (Remove-Item "obj-arm" -recurse -force)
+            }
+            if (Test-Path "output-arm") {
+                $null = (Remove-Item "output-arm" -recurse -force)
+            }
+            if (Test-Path "makefile-arm.auto") {
+                $null = (Remove-Item "makefile-arm.auto" -force)
+            }
+            "Done cleaning ReactOS source directory."
+        } else {
+            "ERROR: There is no compiler output to clean."
         }
-        if (Test-Path "$OUTCLEANPATH\.") {
-            $null = (Remove-Item "$OUTCLEANPATH" -recurse -force)
-        }
-        "Done cleaning ReactOS $ENV:ROS_ARCH source directory."
-    } else {
-        "ERROR: There is no $ENV:ROS_ARCH compiler output to clean."
     }
-
-    if (Test-Path "$_ROSBE_ROSSOURCEDIR\reactos") {
-        $null = (Remove-Item "$_ROSBE_ROSSOURCEDIR\reactos" -recurse -force)
+    if ($ENV:ROS_ARCH -eq "ppc") {
+        if (Test-Path "obj-ppc") {
+            "Cleaning ReactOS source directory..."
+            #
+            # Remove directories/makefile.auto created by the build.
+            #
+            if (Test-Path "obj-ppc") {
+                $null = (Remove-Item "obj-ppc" -recurse -force)
+            }
+            if (Test-Path "output-ppc") {
+                $null = (Remove-Item "output-ppc" -recurse -force)
+            }
+            if (Test-Path "makefile-ppc.auto") {
+                $null = (Remove-Item "makefile-ppc.auto" -force)
+            }
+            "Done cleaning ReactOS source directory."
+        } else {
+            "ERROR: There is no compiler output to clean."
+        }
+    }
+    if ($ENV:ROS_ARCH -eq "amd64") {
+        if (Test-Path "obj-amd64") {
+            "Cleaning ReactOS source directory..."
+            #
+            # Remove directories/makefile.auto created by the build.
+            #
+            if (Test-Path "obj-amd64") {
+                $null = (Remove-Item "obj-amd64" -recurse -force)
+            }
+            if (Test-Path "output-amd64") {
+                $null = (Remove-Item "output-amd64" -recurse -force)
+            }
+            if (Test-Path "makefile-amd64.auto") {
+                $null = (Remove-Item "makefile-amd64.auto" -force)
+            }
+            "Done cleaning ReactOS source directory."
+        } else {
+            "ERROR: There is no compiler output to clean."
+        }
+    }
+    if ($ENV:ROS_ARCH -eq $null) {
+        if (Test-Path "obj-i386") {
+            "Cleaning ReactOS source directory..."
+            #
+            # Remove directories/makefile.auto created by the build.
+            #
+            if (Test-Path "obj-i386") {
+                $null = (Remove-Item "obj-i386" -recurse -force)
+            }
+            if (Test-Path "output-i386") {
+                $null = (Remove-Item "output-i386" -recurse -force)
+            }
+            if (Test-Path "makefile.auto") {
+                $null = (Remove-Item "makefile.auto" -force)
+            }
+            "Done cleaning ReactOS source directory."
+        } else {
+            "ERROR: There is no compiler output to clean."
+        }
+    }
+    if (Test-Path "reactos") {
+        $null = (Remove-Item "reactos" -recurse -force)
     }
 }
 
@@ -74,22 +121,16 @@ if ("$args" -eq "") {
     rembin
     end
 }
-elseif ("$args" -eq "logs") {
+if ("$args" -eq "logs") {
     remlog
     end
 }
-elseif ("$args" -eq "all") {
+if ("$args" -eq "all") {
     rembin
     remlog
     end
 }
-elseif ("$args" -ne "") {
-    $argindex = 0
-    while ( "$($args[$argindex])" -ne "") {
-        $cl = "$($args[$argindex])" + "_clean"
-        make $cl
-        $argindex += 1
-    }
-    remove-variable cl
+if ("$args" -ne "") {
+    "Unknown parameter specified. Try ''help [COMMAND]''."
     end
 }

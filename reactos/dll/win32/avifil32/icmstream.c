@@ -1,5 +1,5 @@
 /*
- * Copyright 2002 Michael GÃ¼nnewig
+ * Copyright 2002 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -393,7 +393,7 @@ static HRESULT WINAPI ICMStream_fnReadFormat(IAVIStream *iface, LONG pos,
       return hr;
   }
 
-  lpbi = AVIStreamGetFrame(This->pg, pos);
+  lpbi = (LPBITMAPINFOHEADER)AVIStreamGetFrame(This->pg, pos);
   if (lpbi == NULL)
     return AVIERR_MEMORY;
 
@@ -538,7 +538,7 @@ static HRESULT WINAPI ICMStream_fnSetFormat(IAVIStream *iface, LONG pos,
     }
   } else {
     /* format change -- check that's only the palette */
-    LPBITMAPINFOHEADER lpbi = format;
+    LPBITMAPINFOHEADER lpbi = (LPBITMAPINFOHEADER)format;
 
     if (lpbi->biSize != This->lpbiInput->biSize ||
 	lpbi->biWidth != This->lpbiInput->biWidth ||
@@ -611,7 +611,7 @@ static HRESULT WINAPI ICMStream_fnRead(IAVIStream *iface, LONG start,
   /* compress or decompress? */
   if (This->hic == NULL) {
     /* decompress */
-    lpbi = AVIStreamGetFrame(This->pg, start);
+    lpbi = (LPBITMAPINFOHEADER)AVIStreamGetFrame(This->pg, start);
     if (lpbi == NULL)
       return AVIERR_MEMORY;
 
@@ -634,7 +634,7 @@ static HRESULT WINAPI ICMStream_fnRead(IAVIStream *iface, LONG start,
     while (start > This->lCurrent) {
       HRESULT hr;
 
-      lpbi = AVIStreamGetFrame(This->pg, ++This->lCurrent);
+      lpbi = (LPBITMAPINFOHEADER)AVIStreamGetFrame(This->pg, ++This->lCurrent);
       if (lpbi == NULL) {
 	AVIFILE_Reset(This);
 	return AVIERR_MEMORY;
@@ -821,14 +821,14 @@ static HRESULT AVIFILE_EncodeFrame(IAVIStreamImpl *This,
 
   do {
     DWORD   idxCkid = 0;
-    DWORD   res;
+    HRESULT hr;
 
-    res = ICCompress(This->hic,icmFlags,This->lpbiCur,This->lpCur,lpbi,lpBits,
-		     &idxCkid, &idxFlags, This->lCurrent, dwRequest, dwCurQual,
-		     noPrev ? NULL:This->lpbiPrev, noPrev ? NULL:This->lpPrev);
-    if (res == ICERR_NEWPALETTE) {
+    hr = ICCompress(This->hic,icmFlags,This->lpbiCur,This->lpCur,lpbi,lpBits,
+		    &idxCkid, &idxFlags, This->lCurrent, dwRequest, dwCurQual,
+		    noPrev ? NULL:This->lpbiPrev, noPrev ? NULL:This->lpPrev);
+    if (hr == ICERR_NEWPALETTE) {
       FIXME(": codec has changed palette -- unhandled!\n");
-    } else if (res != ICERR_OK)
+    } else if (hr != ICERR_OK)
       return AVIERR_COMPRESSOR;
 
     /* need to check for framesize */
@@ -902,7 +902,7 @@ static HRESULT AVIFILE_OpenGetFrame(IAVIStreamImpl *This)
   assert(This->lpbiOutput == NULL);
 
   /* get input format */
-  lpbi = AVIStreamGetFrame(This->pg, This->sInfo.dwStart);
+  lpbi = (LPBITMAPINFOHEADER)AVIStreamGetFrame(This->pg, This->sInfo.dwStart);
   if (lpbi == NULL)
     return AVIERR_MEMORY;
 

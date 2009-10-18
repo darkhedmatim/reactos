@@ -101,7 +101,7 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
   if (!refCount)
   {
     IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
-    LocalFree(This->lpszPath);
+    LocalFree((HLOCAL)This->lpszPath);
     CloseHandle(This->hFile);
     HeapFree(GetProcessHeap(), 0, This);
   }

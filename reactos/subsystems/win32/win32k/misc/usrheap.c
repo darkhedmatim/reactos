@@ -23,12 +23,12 @@
 #include <debug.h>
 
 
-static NTSTATUS APIENTRY
+static NTSTATUS NTAPI
 IntUserHeapCommitRoutine(IN PVOID Base,
                          IN OUT PVOID *CommitAddress,
                          IN OUT PSIZE_T CommitSize)
 {
-    PPROCESSINFO W32Process;
+    PW32PROCESS W32Process;
     PW32HEAP_USER_MAPPING Mapping;
     PVOID UserBase = NULL;
     NTSTATUS Status;

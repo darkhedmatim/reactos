@@ -114,6 +114,12 @@ PCONFIGURATION_COMPONENT_DATA PpcPrepHwDetect() {
   /* Create the 'System' key */
   FldrCreateSystemKey(&SystemKey);
 
+  /* Set empty component information */
+  FldrSetComponentInformation(SystemKey,
+                              0x0,
+                              0x0,
+                              0xFFFFFFFF);
+  
   printf("DetectHardware() Done\n");
   return SystemKey;
 }

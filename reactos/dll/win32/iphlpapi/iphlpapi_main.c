@@ -48,8 +48,6 @@
 #include "resinfo.h"
 #include "route.h"
 #include "wine/debug.h"
-#include "dhcpcsdk.h"
-#include "dhcp/rosdhcp_public.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(iphlpapi);
 
@@ -102,11 +100,10 @@ DWORD getInterfaceGatewayByIndex(DWORD index)
 {
    DWORD ndx, retVal = 0, numRoutes = getNumRoutes();
    RouteTable *table = getRouteTable();
-   if (!table) return 0;
 
     for (ndx = 0; ndx < numRoutes; ndx++)
     {
-        if ((table->routes[ndx].ifIndex == (index)) && (table->routes[ndx].dest == 0))
+        if ((table->routes[ndx].ifIndex == (index - 1)) && (table->routes[ndx].dest == 0))
             retVal = table->routes[ndx].gateway;
     }
     HeapFree(GetProcessHeap(), 0, table);
@@ -646,12 +643,9 @@ DWORD WINAPI GetAdaptersInfo(PIP_ADAPTER_INFO pAdapterInfo, PULONG pOutBufLen)
               DWORD addrLen = sizeof(ptr->Address), type;
               const char *ifname =
                   getInterfaceNameByIndex(table->indexes[ndx]);
-              if (!ifname) {
-                  ret = ERROR_OUTOFMEMORY;
-                  break;
-              }
 
               /* on Win98 this is left empty, but whatever */
+
               strncpy(ptr->AdapterName,ifname,sizeof(ptr->AdapterName));
               consumeInterfaceName(ifname);
               ptr->AdapterName[MAX_ADAPTER_NAME_LENGTH] = '\0';
@@ -910,9 +904,8 @@ DWORD WINAPI GetIfTable(PMIB_IFTABLE pIfTable, PULONG pdwSize, BOOL bOrder)
     ret = ERROR_INVALID_PARAMETER;
   else {
     DWORD numInterfaces = getNumInterfaces();
-    ULONG size;
     TRACE("GetIfTable: numInterfaces = %d\n", (int)numInterfaces);
-    size = sizeof(MIB_IFTABLE) + (numInterfaces - 1) * sizeof(MIB_IFROW);
+    ULONG size = sizeof(MIB_IFTABLE) + (numInterfaces - 1) * sizeof(MIB_IFROW);
 
     if (!pIfTable || *pdwSize < size) {
       *pdwSize = size;
@@ -976,9 +969,8 @@ DWORD WINAPI GetInterfaceInfo(PIP_INTERFACE_INFO pIfTable, PULONG dwOutBufLen)
     ret = ERROR_INVALID_PARAMETER;
   else {
     DWORD numNonLoopbackInterfaces = getNumNonLoopbackInterfaces();
-    ULONG size;
     TRACE("numNonLoopbackInterfaces == 0x%x\n", numNonLoopbackInterfaces);
-    size = sizeof(IP_INTERFACE_INFO) + (numNonLoopbackInterfaces) *
+    ULONG size = sizeof(IP_INTERFACE_INFO) + (numNonLoopbackInterfaces) *
      sizeof(IP_ADAPTER_INDEX_MAP);
 
     if (!pIfTable || *dwOutBufLen < size) {
@@ -987,9 +979,9 @@ DWORD WINAPI GetInterfaceInfo(PIP_INTERFACE_INFO pIfTable, PULONG dwOutBufLen)
     }
     else {
       InterfaceIndexTable *table = getNonLoopbackInterfaceIndexTable();
+      TRACE("table->numIndexes == 0x%x\n", table->numIndexes);
 
       if (table) {
-        TRACE("table->numIndexes == 0x%x\n", table->numIndexes);
         size = sizeof(IP_INTERFACE_INFO) + (table->numIndexes) *
          sizeof(IP_ADAPTER_INDEX_MAP);
         if (*dwOutBufLen < size) {
@@ -1261,45 +1253,45 @@ static int IpNetTableSorter(const void *a, const void *b)
  */
 DWORD WINAPI GetIpNetTable(PMIB_IPNETTABLE pIpNetTable, PULONG pdwSize, BOOL bOrder)
 {
-  DWORD ret = NO_ERROR;
+  DWORD ret;
 
-  TRACE("pIpNetTable %p, pdwSize %p, bOrder %d\n", pIpNetTable, pdwSize,
+  TRACE("pIpNetTable %p, pdwSize %p, bOrder %ld\n", pIpNetTable, pdwSize,
    (DWORD)bOrder);
   if (!pdwSize)
     ret = ERROR_INVALID_PARAMETER;
   else {
     DWORD numEntries = getNumArpEntries();
-    ULONG size = sizeof(MIB_IPNETTABLE);
+    ULONG size = sizeof(MIB_IPNETTABLE) + (numEntries - 1) *
+     sizeof(MIB_IPNETROW);
 
-    if (numEntries > 1)
-      size += (numEntries - 1) * sizeof(MIB_IPNETROW);
     if (!pIpNetTable || *pdwSize < size) {
       *pdwSize = size;
       ret = ERROR_INSUFFICIENT_BUFFER;
     }
     else {
       PMIB_IPNETTABLE table = getArpTable();
+
       if (table) {
-        size = sizeof(MIB_IPNETTABLE);
-        if (table->dwNumEntries > 1)
-          size += (table->dwNumEntries - 1) * sizeof(MIB_IPNETROW);
+        size = sizeof(MIB_IPNETTABLE) + (table->dwNumEntries - 1) *
+         sizeof(MIB_IPNETROW);
         if (*pdwSize < size) {
           *pdwSize = size;
           ret = ERROR_INSUFFICIENT_BUFFER;
         }
         else {
-          *pdwSize = size;
           memcpy(pIpNetTable, table, size);
           if (bOrder)
             qsort(pIpNetTable->table, pIpNetTable->dwNumEntries,
              sizeof(MIB_IPNETROW), IpNetTableSorter);
           ret = NO_ERROR;
         }
-        HeapFree(GetProcessHeap(), 0, table);
+        free(table);
       }
+      else
+        ret = ERROR_OUTOFMEMORY;
     }
   }
-  TRACE("returning %d\n", ret);
+  TRACE("returning %ld\n", ret);
   return ret;
 }
 
@@ -1375,7 +1367,7 @@ DWORD WINAPI GetNetworkParams(PFIXED_INFO pFixedInfo, PULONG pOutBufLen)
   if (!resInfo)
     return ERROR_OUTOFMEMORY;
 
-  size = sizeof(FIXED_INFO) + (resInfo->riCount > 1 ? (resInfo->riCount-1) *
+  size = sizeof(FIXED_INFO) + (resInfo->riCount > 0 ? (resInfo->riCount  - 1) *
    sizeof(IP_ADDR_STRING) : 0);
   if (!pFixedInfo || *pOutBufLen < size) {
     *pOutBufLen = size;
@@ -1391,40 +1383,25 @@ DWORD WINAPI GetNetworkParams(PFIXED_INFO pFixedInfo, PULONG pOutBufLen)
 
   TRACE("GetComputerNameExA: %s\n", pFixedInfo->DomainName);
 
-  if (resInfo->riCount > 0) 
-  {
-    CopyMemory(&pFixedInfo->DnsServerList, resInfo->DnsList, sizeof(IP_ADDR_STRING));
-    if (resInfo->riCount > 1)
-    {
-      IP_ADDR_STRING *pSrc = resInfo->DnsList->Next;
-      IP_ADDR_STRING *pTarget = (struct _IP_ADDR_STRING*)((char*)pFixedInfo + sizeof(FIXED_INFO));
+  if (resInfo->riCount > 0) {
+    PIP_ADDR_STRING ptr;
+    int i;
 
-      pFixedInfo->DnsServerList.Next = pTarget;
-
-      do
-      {
-        CopyMemory(pTarget, pSrc, sizeof(IP_ADDR_STRING));
-        resInfo->riCount--;
-        if (resInfo->riCount > 1)
-        {
-          pTarget->Next = (IP_ADDR_STRING*)((char*)pTarget + sizeof(IP_ADDR_STRING));
-          pTarget = pTarget->Next;
-          pSrc = pSrc->Next;
-        }
-        else
-        {
-          pTarget->Next = NULL;
-          break;
-        }
-      }
-      while(TRUE);
-    }
-    else
-    {
-      pFixedInfo->DnsServerList.Next = NULL;
+    for (i = 0, ptr = &pFixedInfo->DnsServerList; i < resInfo->riCount && ptr;
+     i++, ptr = ptr->Next) {
+        struct sockaddr_in *addr_v4 =
+            (struct sockaddr_in *)&resInfo->riAddressList[i];
+        toIPAddressString
+            (addr_v4->sin_addr.s_addr,
+             ptr->IpAddress.String);
+      if (i == resInfo->riCount - 1)
+        ptr->Next = NULL;
+      else if (i == 0)
+        ptr->Next = (PIP_ADDR_STRING)((LPBYTE)pFixedInfo + sizeof(FIXED_INFO));
+      else
+        ptr->Next = (PIP_ADDR_STRING)((PBYTE)ptr + sizeof(IP_ADDR_STRING));
     }
   }
-
   pFixedInfo->NodeType = HYBRID_NODETYPE;
   regReturn = RegOpenKeyExA(HKEY_LOCAL_MACHINE,
    "SYSTEM\\CurrentControlSet\\Services\\VxD\\MSTCP", 0, KEY_READ, &hKey);
@@ -1513,7 +1490,7 @@ static void CreateNameServerListEnumNamesFunc( PWCHAR Interface, PWCHAR Server, 
      Context->uSizeRequired += sizeof(IP_ADDR_STRING);
      if (Context->uSizeAvailable >= Context->uSizeRequired)
      {
-         pNext = (IP_ADDR_STRING*)(((char*)Context->pLastAddr) + sizeof(IP_ADDR_STRING));
+         pNext = ((char*)Context->pLastAddr) + sizeof(IP_ADDR_STRING);
          WideCharToMultiByte(CP_ACP, 0, Server, -1, pNext->IpAddress.String, 16, NULL, NULL);
          pNext->IpAddress.String[15] = '\0';
          Context->pLastAddr->Next = pNext;
@@ -1534,12 +1511,6 @@ DWORD WINAPI GetPerAdapterInfo(ULONG IfIndex, PIP_PER_ADAPTER_INFO pPerAdapterIn
 
   if (!pOutBufLen)
     return ERROR_INVALID_PARAMETER;
-
-  if (!pPerAdapterInfo || *pOutBufLen < sizeof(IP_PER_ADAPTER_INFO))
-  {
-    *pOutBufLen = sizeof(IP_PER_ADAPTER_INFO);
-    return ERROR_BUFFER_OVERFLOW;
-  }
 
   ifName = getInterfaceNameByIndex(IfIndex);
   if (!ifName)
@@ -1673,60 +1644,58 @@ static int TcpTableSorter(const void *a, const void *b)
 /******************************************************************
  *    GetTcpTable (IPHLPAPI.@)
  *
- * Get the table of active TCP connections.
  *
  * PARAMS
- *  pTcpTable [Out]    buffer for TCP connections table
- *  pdwSize   [In/Out] length of output buffer
- *  bOrder    [In]     whether to order the table
+ *
+ *  pTcpTable [In/Out]
+ *  pdwSize [In/Out]
+ *  bOrder [In]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * NOTES
- *  If pdwSize is less than required, the function will return 
- *  ERROR_INSUFFICIENT_BUFFER, and *pdwSize will be set to 
- *  the required byte size.
- *  If bOrder is true, the returned table will be sorted, first by
- *  local address and port number, then by remote address and port
- *  number.
+ *  DWORD
+ *
  */
 DWORD WINAPI GetTcpTable(PMIB_TCPTABLE pTcpTable, PDWORD pdwSize, BOOL bOrder)
 {
-  DWORD ret = NO_ERROR;
+  DWORD ret;
 
-  TRACE("pTcpTable %p, pdwSize %p, bOrder %d\n", pTcpTable, pdwSize,
+  TRACE("pTcpTable %p, pdwSize %p, bOrder %ld\n", pTcpTable, pdwSize,
    (DWORD)bOrder);
   if (!pdwSize)
     ret = ERROR_INVALID_PARAMETER;
   else {
     DWORD numEntries = getNumTcpEntries();
-    DWORD size = sizeof(MIB_TCPTABLE);
+    ULONG size = sizeof(MIB_TCPTABLE) + (numEntries - 1) * sizeof(MIB_TCPROW);
 
-    if (numEntries > 1)
-      size += (numEntries - 1) * sizeof(MIB_TCPROW);
     if (!pTcpTable || *pdwSize < size) {
       *pdwSize = size;
       ret = ERROR_INSUFFICIENT_BUFFER;
     }
     else {
-      PMIB_TCPTABLE pTcpTable = getTcpTable();
-	  if (pTcpTable)
-      {
-        size = sizeof(MIB_TCPTABLE);
-        if (pTcpTable->dwNumEntries > 1)
-          size += (pTcpTable->dwNumEntries - 1) * sizeof(MIB_TCPROW);
-        *pdwSize = size;
+      PMIB_TCPTABLE table = getTcpTable();
 
-	    if (bOrder)
-          qsort(pTcpTable->table, pTcpTable->dwNumEntries,
-               sizeof(MIB_TCPROW), TcpTableSorter);
-        ret = NO_ERROR;
-	  }
-   	}
+      if (table) {
+        size = sizeof(MIB_TCPTABLE) + (table->dwNumEntries - 1) *
+         sizeof(MIB_TCPROW);
+        if (*pdwSize < size) {
+          *pdwSize = size;
+          ret = ERROR_INSUFFICIENT_BUFFER;
+        }
+        else {
+          memcpy(pTcpTable, table, size);
+          if (bOrder)
+            qsort(pTcpTable->table, pTcpTable->dwNumEntries,
+             sizeof(MIB_TCPROW), TcpTableSorter);
+          ret = NO_ERROR;
+        }
+        free(table);
+      }
+      else
+        ret = ERROR_OUTOFMEMORY;
+    }
   }
-  TRACE("returning %d\n", ret);
+  TRACE("returning %ld\n", ret);
   return ret;
 }
 
@@ -1853,20 +1822,16 @@ DWORD WINAPI GetUdpTable(PMIB_UDPTABLE pUdpTable, PDWORD pdwSize, BOOL bOrder)
 /******************************************************************
  *    GetUniDirectionalAdapterInfo (IPHLPAPI.@)
  *
- * This is a Win98-only function to get information on "unidirectional"
- * adapters.  Since this is pretty nonsensical in other contexts, it
- * never returns anything.
  *
  * PARAMS
- *  pIPIfInfo   [Out] buffer for adapter infos
- *  dwOutBufLen [Out] length of the output buffer
+ *
+ *  pIPIfInfo [In/Out]
+ *  dwOutBufLen [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns ERROR_NOT_SUPPORTED.
+ *  DWORD
+ *
  */
 DWORD WINAPI GetUniDirectionalAdapterInfo(PIP_UNIDIRECTIONAL_ADAPTER_ADDRESS pIPIfInfo, PULONG dwOutBufLen)
 {
@@ -1879,105 +1844,66 @@ DWORD WINAPI GetUniDirectionalAdapterInfo(PIP_UNIDIRECTIONAL_ADAPTER_ADDRESS pIP
 /******************************************************************
  *    IpReleaseAddress (IPHLPAPI.@)
  *
- * Release an IP obtained through DHCP,
  *
  * PARAMS
- *  AdapterInfo [In] adapter to release IP address
+ *
+ *  AdapterInfo [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
+ *
+ *  DWORD
  *
  */
 DWORD WINAPI IpReleaseAddress(PIP_ADAPTER_INDEX_MAP AdapterInfo)
 {
-  COMM_DHCP_REPLY Reply;
-  COMM_DHCP_REQ Request;
-  DWORD BytesRead;
-
-  Request.AdapterIndex = AdapterInfo->Index;
-  Request.Type = DhcpReqReleaseIpAddress;
-
   TRACE("AdapterInfo %p\n", AdapterInfo);
-
-  if (CallNamedPipe(DHCP_PIPE_NAME,
-                    &Request,
-                    sizeof(Request),
-                    &Reply,
-                    sizeof(Reply),
-                    &BytesRead,
-                    NMPWAIT_USE_DEFAULT_WAIT))
-  {
-      if (Reply.Reply)
-          return NO_ERROR;
-
-      return ERROR_INVALID_PARAMETER;
-  }
-
-  return ERROR_PROC_NOT_FOUND;
+  /* not a stub, never going to support this (and I never mark an adapter as
+     DHCP enabled, see GetAdaptersInfo, so this should never get called) */
+  return ERROR_NOT_SUPPORTED;
 }
 
 
 /******************************************************************
  *    IpRenewAddress (IPHLPAPI.@)
  *
- * Renew an IP obtained through DHCP.
  *
  * PARAMS
- *  AdapterInfo [In] adapter to renew IP address
+ *
+ *  AdapterInfo [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
+ *
+ *  DWORD
+ *
  */
 DWORD WINAPI IpRenewAddress(PIP_ADAPTER_INDEX_MAP AdapterInfo)
 {
-  COMM_DHCP_REPLY Reply;
-  COMM_DHCP_REQ Request;
-  DWORD BytesRead;
-
-  Request.AdapterIndex = AdapterInfo->Index;
-  Request.Type = DhcpReqRenewIpAddress;
-
   TRACE("AdapterInfo %p\n", AdapterInfo);
-
-  if (CallNamedPipe(DHCP_PIPE_NAME,
-                    &Request,
-                    sizeof(Request),
-                    &Reply,
-                    sizeof(Reply),
-                    &BytesRead,
-                    NMPWAIT_USE_DEFAULT_WAIT))
-  {
-      if (Reply.Reply)
-          return NO_ERROR;
-
-      return ERROR_INVALID_PARAMETER;
-  }
-
-  return ERROR_PROC_NOT_FOUND;
+  /* not a stub, never going to support this (and I never mark an adapter as
+     DHCP enabled, see GetAdaptersInfo, so this should never get called) */
+  return ERROR_NOT_SUPPORTED;
 }
 
 
 /******************************************************************
  *    NotifyAddrChange (IPHLPAPI.@)
  *
- * Notify caller whenever the ip-interface map is changed.
  *
  * PARAMS
- *  Handle     [Out] handle usable in asynchronous notification
- *  overlapped [In]  overlapped structure that notifies the caller
+ *
+ *  Handle [In/Out]
+ *  overlapped [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns ERROR_NOT_SUPPORTED.
+ *  DWORD
+ *
  */
 DWORD WINAPI NotifyAddrChange(PHANDLE Handle, LPOVERLAPPED overlapped)
 {
-  FIXME("(Handle %p, overlapped %p): stub\n", Handle, overlapped);
+  TRACE("Handle %p, overlapped %p\n", Handle, overlapped);
+  FIXME(":stub\n");
+  /* marking Win2K+ functions not supported */
   return ERROR_NOT_SUPPORTED;
 }
 
@@ -1985,22 +1911,22 @@ DWORD WINAPI NotifyAddrChange(PHANDLE Handle, LPOVERLAPPED overlapped)
 /******************************************************************
  *    NotifyRouteChange (IPHLPAPI.@)
  *
- * Notify caller whenever the ip routing table is changed.
  *
  * PARAMS
- *  Handle     [Out] handle usable in asynchronous notification
- *  overlapped [In]  overlapped structure that notifies the caller
+ *
+ *  Handle [In/Out]
+ *  overlapped [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns ERROR_NOT_SUPPORTED.
+ *  DWORD
+ *
  */
 DWORD WINAPI NotifyRouteChange(PHANDLE Handle, LPOVERLAPPED overlapped)
 {
-  FIXME("(Handle %p, overlapped %p): stub\n", Handle, overlapped);
+  TRACE("Handle %p, overlapped %p\n", Handle, overlapped);
+  FIXME(":stub\n");
+  /* marking Win2K+ functions not supported */
   return ERROR_NOT_SUPPORTED;
 }
 
@@ -2008,25 +1934,25 @@ DWORD WINAPI NotifyRouteChange(PHANDLE Handle, LPOVERLAPPED overlapped)
 /******************************************************************
  *    SendARP (IPHLPAPI.@)
  *
- * Send an ARP request.
  *
  * PARAMS
- *  DestIP     [In]     attempt to obtain this IP
- *  SrcIP      [In]     optional sender IP address
- *  pMacAddr   [Out]    buffer for the mac address
- *  PhyAddrLen [In/Out] length of the output buffer
+ *
+ *  DestIP [In]
+ *  SrcIP [In]
+ *  pMacAddr [In/Out]
+ *  PhyAddrLen [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns ERROR_NOT_SUPPORTED.
+ *  DWORD
+ *
  */
 DWORD WINAPI SendARP(IPAddr DestIP, IPAddr SrcIP, PULONG pMacAddr, PULONG PhyAddrLen)
 {
-  FIXME("(DestIP 0x%08x, SrcIP 0x%08x, pMacAddr %p, PhyAddrLen %p): stub\n",
-   DestIP, SrcIP, pMacAddr, PhyAddrLen);
+  TRACE("DestIP 0x%08lx, SrcIP 0x%08lx, pMacAddr %p, PhyAddrLen %p\n", DestIP,
+   SrcIP, pMacAddr, PhyAddrLen);
+  FIXME(":stub\n");
+  /* marking Win2K+ functions not supported */
   return ERROR_NOT_SUPPORTED;
 }
 
@@ -2034,25 +1960,24 @@ DWORD WINAPI SendARP(IPAddr DestIP, IPAddr SrcIP, PULONG pMacAddr, PULONG PhyAdd
 /******************************************************************
  *    SetIfEntry (IPHLPAPI.@)
  *
- * Set the administrative status of an interface.
  *
  * PARAMS
- *  pIfRow [In] dwAdminStatus member specifies the new status.
+ *
+ *  pIfRow [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns ERROR_NOT_SUPPORTED.
+ *  DWORD
+ *
  */
 DWORD WINAPI SetIfEntry(PMIB_IFROW pIfRow)
 {
-  FIXME("(pIfRow %p): stub\n", pIfRow);
-  /* this is supposed to set an interface administratively up or down.
+  TRACE("pIfRow %p\n", pIfRow);
+  /* this is supposed to set an administratively interface up or down.
      Could do SIOCSIFFLAGS and set/clear IFF_UP, but, not sure I want to, and
      this sort of down is indistinguishable from other sorts of down (e.g. no
      link). */
+  FIXME(":stub\n");
   return ERROR_NOT_SUPPORTED;
 }
 
@@ -2060,14 +1985,14 @@ DWORD WINAPI SetIfEntry(PMIB_IFROW pIfRow)
 /******************************************************************
  *    SetIpForwardEntry (IPHLPAPI.@)
  *
- * Modify an existing route.
  *
  * PARAMS
- *  pRoute [In] route with the new information
+ *
+ *  pRoute [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
+ *
+ *  DWORD
  *
  */
 DWORD WINAPI SetIpForwardEntry(PMIB_IPFORWARDROW pRoute)
@@ -2079,113 +2004,111 @@ DWORD WINAPI SetIpForwardEntry(PMIB_IPFORWARDROW pRoute)
 /******************************************************************
  *    SetIpNetEntry (IPHLPAPI.@)
  *
- * Modify an existing ARP entry.
  *
  * PARAMS
- *  pArpEntry [In] ARP entry with the new information
+ *
+ *  pArpEntry [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns NO_ERROR.
+ *  DWORD
+ *
  */
 DWORD WINAPI SetIpNetEntry(PMIB_IPNETROW pArpEntry)
 {
-  FIXME("(pArpEntry %p): stub\n", pArpEntry);
+  TRACE("pArpEntry %p\n", pArpEntry);
   /* same as CreateIpNetEntry here, could use SIOCSARP, not sure I want to */
-  return 0;
+  FIXME(":stub\n");
+  return (DWORD) 0;
 }
 
 
 /******************************************************************
  *    SetIpStatistics (IPHLPAPI.@)
  *
- * Toggle IP forwarding and det the default TTL value.
  *
  * PARAMS
- *  pIpStats [In] IP statistics with the new information
+ *
+ *  pIpStats [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns NO_ERROR.
+ *  DWORD
+ *
  */
 DWORD WINAPI SetIpStatistics(PMIB_IPSTATS pIpStats)
 {
-  FIXME("(pIpStats %p): stub\n", pIpStats);
-  return 0;
+  TRACE("pIpStats %p\n", pIpStats);
+  FIXME(":stub\n");
+  return (DWORD) 0;
 }
 
 
 /******************************************************************
  *    SetIpTTL (IPHLPAPI.@)
  *
- * Set the default TTL value.
  *
  * PARAMS
- *  nTTL [In] new TTL value
+ *
+ *  nTTL [In]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns NO_ERROR.
+ *  DWORD
+ *
  */
 DWORD WINAPI SetIpTTL(UINT nTTL)
 {
-  FIXME("(nTTL %d): stub\n", nTTL);
-  return 0;
+  TRACE("nTTL %d\n", nTTL);
+  /* could echo nTTL > /proc/net/sys/net/ipv4/ip_default_ttl, not sure I
+     want to.  Could map EACCESS to ERROR_ACCESS_DENIED, I suppose */
+  FIXME(":stub\n");
+  return (DWORD) 0;
 }
 
 
 /******************************************************************
  *    SetTcpEntry (IPHLPAPI.@)
  *
- * Set the state of a TCP connection.
  *
  * PARAMS
- *  pTcpRow [In] specifies connection with new state
+ *
+ *  pTcpRow [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns NO_ERROR.
+ *  DWORD
+ *
  */
 DWORD WINAPI SetTcpEntry(PMIB_TCPROW pTcpRow)
 {
-  FIXME("(pTcpRow %p): stub\n", pTcpRow);
-  return 0;
+  TRACE("pTcpRow %p\n", pTcpRow);
+  FIXME(":stub\n");
+  return (DWORD) 0;
 }
 
 
 /******************************************************************
  *    UnenableRouter (IPHLPAPI.@)
  *
- * Decrement the IP-forwarding reference count. Turn off IP-forwarding
- * if it reaches zero.
  *
  * PARAMS
- *  pOverlapped     [In/Out] should be the same as in EnableRouter()
- *  lpdwEnableCount [Out]    optional, receives reference count
+ *
+ *  pOverlapped [In/Out]
+ *  lpdwEnableCount [In/Out]
  *
  * RETURNS
- *  Success: NO_ERROR
- *  Failure: error code from winerror.h
  *
- * FIXME
- *  Stub, returns ERROR_NOT_SUPPORTED.
+ *  DWORD
+ *
  */
 DWORD WINAPI UnenableRouter(OVERLAPPED * pOverlapped, LPDWORD lpdwEnableCount)
 {
-  FIXME("(pOverlapped %p, lpdwEnableCount %p): stub\n", pOverlapped,
-   lpdwEnableCount);
+  TRACE("pOverlapped %p, lpdwEnableCount %p\n", pOverlapped, lpdwEnableCount);
+  FIXME(":stub\n");
+  /* could echo "0" > /proc/net/sys/net/ipv4/ip_forward, not sure I want to
+     could map EACCESS to ERROR_ACCESS_DENIED, I suppose
+     marking Win2K+ functions not supported */
   return ERROR_NOT_SUPPORTED;
 }
 
@@ -2211,15 +2134,10 @@ PIP_ADAPTER_ORDER_MAP WINAPI GetAdapterOrderMap(VOID)
 /*
  * @unimplemented
  */
-DWORD WINAPI GetAdaptersAddresses(ULONG Family,ULONG Flags,PVOID Reserved,PIP_ADAPTER_ADDRESSES pAdapterAddresses,PULONG pOutBufLen)
+DWORD WINAPI GetAdaptersAddresses(ULONG Family,DWORD Flags,PVOID Reserved,PIP_ADAPTER_ADDRESSES pAdapterAddresses,PULONG pOutBufLen)
 {
-    if (!pOutBufLen) return ERROR_INVALID_PARAMETER;
-    if (!pAdapterAddresses || *pOutBufLen == 0)
-      return ERROR_BUFFER_OVERFLOW;
-    if (Reserved) return ERROR_INVALID_PARAMETER;
-
     FIXME(":stub\n");
-    return ERROR_NO_DATA;
+    return 0L;
 }
 
 /*
@@ -2258,49 +2176,4 @@ DWORD WINAPI GetIcmpStatisticsEx(PMIB_ICMP_EX pStats,DWORD dwFamily)
     return 0L;
 }
 
-/******************************************************************
- *    GetIfTable2 (IPHLPAPI.@)
- *
- * PARAMS
- *  pIfTable [In/Out]
- */
- 
-NETIOAPI_API WINAPI GetIfTable2(PMIB_IF_TABLE2 *pIfTable)
-{
-    UNIMPLEMENTED;
-    return ERROR_NOT_SUPPORTED;
-}
 
-/******************************************************************
- *    GetIfEntry2 (IPHLPAPI.@)
- *
- * PARAMS
- *  pIfRow [In/Out]
- */
-NETIOAPI_API WINAPI GetIfEntry2(IN OUT PMIB_IF_ROW2 pIfRow)
-{
-  TRACE("pIfRow %p\n", pIfRow);
-  if (!pIfRow)
-    return ERROR_INVALID_PARAMETER;
-    
-  UNIMPLEMENTED;
-  return ERROR_NOT_SUPPORTED;
-}
-
-DWORD WINAPI
-SetIpForwardEntryToStack(PMIB_IPFORWARDROW pRoute)
-{
-    FIXME("SetIpForwardEntryToStack() stub\n");
-    return 0L;
-}
-
-DWORD WINAPI
-NhGetInterfaceNameFromDeviceGuid(DWORD dwUnknown1,
-                                 DWORD dwUnknown2,
-                                 DWORD dwUnknown3,
-                                 DWORD dwUnknown4,
-                                 DWORD dwUnknown5)
-{
-    FIXME("NhGetInterfaceNameFromDeviceGuid() stub\n");
-    return 0L;
-}

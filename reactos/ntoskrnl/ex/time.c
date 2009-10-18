@@ -190,20 +190,22 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Verify the time pointers */
             NewSystemTime = ProbeForReadLargeInteger(SystemTime);
             if(PreviousTime) ProbeForWriteLargeInteger(PreviousTime);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* If the pointers were invalid, bail out */
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -212,7 +214,7 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
     }
 
     /* Make sure we have permission to change the time */
-    if (!SeSinglePrivilegeCheck(SeSystemtimePrivilege, PreviousMode))
+    if(!SeSinglePrivilegeCheck(SeSystemtimePrivilege, PreviousMode))
     {
         DPRINT1("NtSetSystemTime: Caller requires the "
                 "SeSystemtimePrivilege privilege!\n");
@@ -228,20 +230,19 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
     KeSetSystemTime(&NewSystemTime, &OldSystemTime, FALSE, NULL);
 
     /* Check if caller wanted previous time */
-    if (PreviousTime)
+    if(PreviousTime)
     {
         /* Enter SEH Block for return */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return the previous time */
             *PreviousTime = OldSystemTime;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */
@@ -263,9 +264,9 @@ NtQuerySystemTime(OUT PLARGE_INTEGER SystemTime)
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Verify the time pointer */
             ProbeForWriteLargeInteger(SystemTime);
@@ -277,12 +278,11 @@ NtQuerySystemTime(OUT PLARGE_INTEGER SystemTime)
              */
             KeQuerySystemTime(SystemTime);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
     else
     {

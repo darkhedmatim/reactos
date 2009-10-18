@@ -36,8 +36,6 @@ WINE_DEFAULT_DEBUG_CHANNEL (gdiplus);
 static const REAL mm_per_inch = 25.4;
 static const REAL inch_per_point = 1.0/72.0;
 
-static GpFontCollection installedFontCollection = {0};
-
 static inline REAL get_dpi (void)
 {
     REAL dpi;
@@ -155,8 +153,6 @@ GpStatus WINGDIPAPI GdipCreateFont(GDIPCONST GpFontFamily *fontFamily,
 
     (*font)->unit = unit;
     (*font)->emSize = emSize;
-    (*font)->height = tmw->ntmSizeEM;
-    (*font)->line_spacing = tmw->tmAscent + tmw->tmDescent + tmw->tmExternalLeading;
 
     return Ok;
 }
@@ -195,12 +191,8 @@ GpStatus WINGDIPAPI GdipCreateFontFromLogfontW(HDC hdc,
     oldfont = SelectObject(hdc, hfont);
     GetTextMetricsW(hdc, &textmet);
 
-    (*font)->lfw.lfHeight = -(textmet.tmHeight-textmet.tmInternalLeading);
+    (*font)->lfw.lfHeight = -textmet.tmHeight;
     (*font)->lfw.lfWeight = textmet.tmWeight;
-    (*font)->lfw.lfCharSet = textmet.tmCharSet;
-
-    (*font)->height = 1; /* FIXME: need NEWTEXTMETRIC.ntmSizeEM here */
-    (*font)->line_spacing = textmet.tmAscent + textmet.tmDescent + textmet.tmExternalLeading;
 
     SelectObject(hdc, oldfont);
     DeleteObject(hfont);
@@ -226,7 +218,9 @@ GpStatus WINGDIPAPI GdipCreateFontFromLogfontA(HDC hdc,
     if(!MultiByteToWideChar(CP_ACP, 0, lfa->lfFaceName, -1, lfw.lfFaceName, LF_FACESIZE))
         return GenericError;
 
-    return GdipCreateFontFromLogfontW(hdc, &lfw, font);
+    GdipCreateFontFromLogfontW(hdc, &lfw, font);
+
+    return Ok;
 }
 
 /*******************************************************************************
@@ -257,7 +251,7 @@ GpStatus WINGDIPAPI GdipCreateFontFromDC(HDC hdc, GpFont **font)
     if(!font)
         return InvalidParameter;
 
-    hfont = GetCurrentObject(hdc, OBJ_FONT);
+    hfont = (HFONT)GetCurrentObject(hdc, OBJ_FONT);
     if(!hfont)
         return GenericError;
 
@@ -301,7 +295,7 @@ GpStatus WINGDIPAPI GdipGetFamily(GpFont *font, GpFontFamily **family)
  *
  * RETURNS
  *  SUCCESS: Ok
- *  FAILURE: InvalidParameter (font or size was NULL)
+ *  FAILURE: InvalidParamter (font or size was NULL)
  *
  * NOTES
  *  Size returned is actually emSize -- not internal size used for drawing.
@@ -369,29 +363,6 @@ GpStatus WINGDIPAPI GdipGetFontUnit(GpFont *font, Unit *unit)
     if (!(font && unit)) return InvalidParameter;
 
     *unit = font->unit;
-
-    return Ok;
-}
-
-/*******************************************************************************
- * GdipGetLogFontA [GDIPLUS.@]
- */
-GpStatus WINGDIPAPI GdipGetLogFontA(GpFont *font, GpGraphics *graphics,
-    LOGFONTA *lfa)
-{
-    GpStatus status;
-    LOGFONTW lfw;
-
-    TRACE("(%p, %p, %p)\n", font, graphics, lfa);
-
-    status = GdipGetLogFontW(font, graphics, &lfw);
-    if(status != Ok)
-        return status;
-
-    memcpy(lfa, &lfw, FIELD_OFFSET(LOGFONTA,lfFaceName) );
-
-    if(!WideCharToMultiByte(CP_ACP, 0, lfw.lfFaceName, -1, lfa->lfFaceName, LF_FACESIZE, NULL, NULL))
-        return GenericError;
 
     return Ok;
 }
@@ -473,31 +444,15 @@ GpStatus WINGDIPAPI GdipGetFontHeight(GDIPCONST GpFont *font,
  */
 GpStatus WINGDIPAPI GdipGetFontHeightGivenDPI(GDIPCONST GpFont *font, REAL dpi, REAL *height)
 {
-    REAL font_height;
-
     TRACE("%p (%s), %f, %p\n", font,
             debugstr_w(font->lfw.lfFaceName), dpi, height);
 
     if (!(font && height)) return InvalidParameter;
 
-    font_height = font->line_spacing * (font->emSize / font->height);
-
     switch (font->unit)
     {
         case UnitPixel:
-            *height = font_height;
-            break;
-        case UnitPoint:
-            *height = font_height * dpi * inch_per_point;
-            break;
-        case UnitInch:
-            *height = font_height * dpi;
-            break;
-        case UnitDocument:
-            *height = font_height * (dpi / 300.0);
-            break;
-        case UnitMillimeter:
-            *height = font_height * (dpi / mm_per_inch);
+            *height = font->emSize;
             break;
         default:
             FIXME("Unhandled unit type: %d\n", font->unit);
@@ -712,7 +667,8 @@ GpStatus WINGDIPAPI GdipGetEmHeight(GDIPCONST GpFontFamily *family, INT style, U
 {
     if (!(family && EmHeight)) return InvalidParameter;
 
-    TRACE("%p (%s), %d, %p\n", family, debugstr_w(family->FamilyName), style, EmHeight);
+    TRACE("%p (%s), %d, %p, stub!\n", family,
+            debugstr_w(family->FamilyName), style, EmHeight);
 
     *EmHeight = family->tmw.ntmSizeEM;
 
@@ -737,16 +693,11 @@ GpStatus WINGDIPAPI GdipGetEmHeight(GDIPCONST GpFontFamily *family, INT style, U
 GpStatus WINGDIPAPI GdipGetLineSpacing(GDIPCONST GpFontFamily *family,
         INT style, UINT16* LineSpacing)
 {
-    TRACE("%p, %d, %p\n", family, style, LineSpacing);
+    if (!(family && LineSpacing)) return InvalidParameter;
 
-    if (!(family && LineSpacing))
-        return InvalidParameter;
+    FIXME("stub!\n");
 
-    if (style) FIXME("ignoring style\n");
-
-    *LineSpacing = family->tmw.tmAscent + family->tmw.tmDescent + family->tmw.tmExternalLeading;
-
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipIsStyleAvailable(GDIPCONST GpFontFamily* family,
@@ -834,18 +785,12 @@ GpStatus WINGDIPAPI GdipGetGenericFontFamilySansSerif(GpFontFamily **nativeFamil
  */
 GpStatus WINGDIPAPI GdipNewPrivateFontCollection(GpFontCollection** fontCollection)
 {
-    TRACE("%p\n", fontCollection);
+    FIXME("stub %p\n", fontCollection);
 
     if (!fontCollection)
         return InvalidParameter;
 
-    *fontCollection = GdipAlloc(sizeof(GpFontCollection));
-    if (!*fontCollection) return OutOfMemory;
-
-    (*fontCollection)->FontFamilies = NULL;
-    (*fontCollection)->count = 0;
-    (*fontCollection)->allocated = 0;
-    return Ok;
+    return NotImplemented;
 }
 
 /*****************************************************************************
@@ -853,17 +798,12 @@ GpStatus WINGDIPAPI GdipNewPrivateFontCollection(GpFontCollection** fontCollecti
  */
 GpStatus WINGDIPAPI GdipDeletePrivateFontCollection(GpFontCollection **fontCollection)
 {
-    INT i;
-
-    TRACE("%p\n", fontCollection);
+    FIXME("stub %p\n", fontCollection);
 
     if (!fontCollection)
         return InvalidParameter;
 
-    for (i = 0; i < (*fontCollection)->count; i++) GdipFree((*fontCollection)->FontFamilies[i]);
-    GdipFree(*fontCollection);
-
-    return Ok;
+    return NotImplemented;
 }
 
 /*****************************************************************************
@@ -881,32 +821,17 @@ GpStatus WINGDIPAPI GdipPrivateAddFontFile(GpFontCollection* fontCollection,
 }
 
 /*****************************************************************************
- * GdipPrivateAddMemoryFont [GDIPLUS.@]
- */
-GpStatus WINGDIPAPI GdipPrivateAddMemoryFont(GpFontCollection* fontCollection,
-        GDIPCONST void* memory, INT length)
-{
-    FIXME("%p, %p, %d\n", fontCollection, memory, length);
-
-    if (!(fontCollection && memory && length))
-        return InvalidParameter;
-
-    return Ok;
-}
-
-/*****************************************************************************
  * GdipGetFontCollectionFamilyCount [GDIPLUS.@]
  */
 GpStatus WINGDIPAPI GdipGetFontCollectionFamilyCount(
         GpFontCollection* fontCollection, INT* numFound)
 {
-    TRACE("%p, %p\n", fontCollection, numFound);
+    FIXME("stub: %p, %p\n", fontCollection, numFound);
 
     if (!(fontCollection && numFound))
         return InvalidParameter;
 
-    *numFound = fontCollection->count;
-    return Ok;
+    return NotImplemented;
 }
 
 /*****************************************************************************
@@ -916,93 +841,11 @@ GpStatus WINGDIPAPI GdipGetFontCollectionFamilyList(
         GpFontCollection* fontCollection, INT numSought,
         GpFontFamily* gpfamilies[], INT* numFound)
 {
-    INT i;
-
-    TRACE("%p, %d, %p, %p\n", fontCollection, numSought, gpfamilies, numFound);
+    FIXME("stub: %p, %d, %p, %p\n", fontCollection, numSought, gpfamilies,
+            numFound);
 
     if (!(fontCollection && gpfamilies && numFound))
         return InvalidParameter;
 
-    for (i = 0; i < numSought && i < fontCollection->count; i++)
-    {
-        gpfamilies[i] = fontCollection->FontFamilies[i];
-    }
-    *numFound = i;
-    return Ok;
-}
-
-void free_installed_fonts(void)
-{
-    while (installedFontCollection.count)
-        GdipDeleteFontFamily(installedFontCollection.FontFamilies[--installedFontCollection.count]);
-    HeapFree(GetProcessHeap(), 0, installedFontCollection.FontFamilies);
-    installedFontCollection.FontFamilies = NULL;
-    installedFontCollection.allocated = 0;
-}
-
-static INT CALLBACK add_font_proc(const LOGFONTW *lfw, const TEXTMETRICW *ntm,
-        DWORD type, LPARAM lParam)
-{
-    GpFontCollection* fonts = (GpFontCollection*)lParam;
-    int i;
-
-    /* skip duplicates */
-    for (i=0; i<fonts->count; i++)
-        if (strcmpiW(lfw->lfFaceName, fonts->FontFamilies[i]->FamilyName) == 0)
-            return 1;
-
-    if (fonts->allocated == fonts->count)
-    {
-        INT new_alloc_count = fonts->allocated+50;
-        GpFontFamily** new_family_list = HeapAlloc(GetProcessHeap(), 0, new_alloc_count*sizeof(void*));
-
-        if (!new_family_list)
-            return 0;
-
-        memcpy(new_family_list, fonts->FontFamilies, fonts->count*sizeof(void*));
-        HeapFree(GetProcessHeap(), 0, fonts->FontFamilies);
-        fonts->FontFamilies = new_family_list;
-        fonts->allocated = new_alloc_count;
-    }
-
-    if (GdipCreateFontFamilyFromName(lfw->lfFaceName, NULL, &fonts->FontFamilies[fonts->count]) == Ok)
-        fonts->count++;
-    else
-        return 0;
-
-    return 1;
-}
-
-GpStatus WINGDIPAPI GdipNewInstalledFontCollection(
-        GpFontCollection** fontCollection)
-{
-    TRACE("(%p)\n",fontCollection);
-
-    if (!fontCollection)
-        return InvalidParameter;
-
-    if (installedFontCollection.count == 0)
-    {
-        HDC hdc;
-        LOGFONTW lfw;
-
-        hdc = GetDC(0);
-
-        lfw.lfCharSet = DEFAULT_CHARSET;
-        lfw.lfFaceName[0] = 0;
-        lfw.lfPitchAndFamily = 0;
-
-        if (!EnumFontFamiliesExW(hdc, &lfw, add_font_proc, (LPARAM)&installedFontCollection, 0))
-        {
-            free_installed_fonts();
-            ReleaseDC(0, hdc);
-            return OutOfMemory;
-        }
-
-        ReleaseDC(0, hdc);
-    }
-
-    *fontCollection = &installedFontCollection;
-
-    return Ok;
+    return NotImplemented;
 }

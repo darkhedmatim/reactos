@@ -261,8 +261,6 @@ static void set_parsecomplete(HTMLDocument *doc)
     call_property_onchanged(&doc->cp_propnotif, 1005);
     call_explorer_69(doc);
 
-    /* FIXME: IE7 calls EnableModelless(TRUE), EnableModelless(FALSE) and sets interactive state here */
-
     doc->readystate = READYSTATE_INTERACTIVE;
     call_property_onchanged(&doc->cp_propnotif, DISPID_READYSTATE);
 
@@ -365,20 +363,6 @@ static void process_task(task_t *task)
     }
 }
 
-static void call_timer_disp(IDispatch *disp)
-{
-    DISPPARAMS dp = {NULL, NULL, 0, 0};
-    EXCEPINFO ei;
-    VARIANT res;
-    HRESULT hres;
-
-    V_VT(&res) = VT_EMPTY;
-    memset(&ei, 0, sizeof(ei));
-    hres = IDispatch_Invoke(disp, DISPID_VALUE, &IID_NULL, 0, DISPATCH_METHOD, &dp, &res, &ei, NULL);
-    TRACE("ret %08x %s\n", hres, debugstr_variant(&res));
-    VariantClear(&res);
-}
-
 static LRESULT process_timer(void)
 {
     thread_data_t *thread_data = get_thread_data(TRUE);
@@ -409,7 +393,7 @@ static LRESULT process_timer(void)
             release_task_timer(thread_data->thread_hwnd, timer);
         }
 
-        call_timer_disp(disp);
+        call_disp_func(doc, disp);
 
         IDispatch_Release(disp);
     }
@@ -478,19 +462,11 @@ thread_data_t *get_thread_data(BOOL create)
 {
     thread_data_t *thread_data;
 
-    if(mshtml_tls == TLS_OUT_OF_INDEXES) {
-        DWORD tls;
-
-        if(!create)
+    if(!mshtml_tls) {
+        if(create)
+            mshtml_tls = TlsAlloc();
+        else
             return NULL;
-
-        tls = TlsAlloc();
-        if(tls == TLS_OUT_OF_INDEXES)
-            return NULL;
-
-        tls = InterlockedCompareExchange((LONG*)&mshtml_tls, tls, TLS_OUT_OF_INDEXES);
-        if(tls != mshtml_tls)
-            TlsFree(tls);
     }
 
     thread_data = TlsGetValue(mshtml_tls);

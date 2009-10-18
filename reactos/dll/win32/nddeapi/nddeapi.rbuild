@@ -7,4 +7,5 @@
         <library>kernel32</library>
         <library>ntdll</library>
         <file>nddeapi.c</file>
+        <file>nddeapi.spec</file>
 </module>

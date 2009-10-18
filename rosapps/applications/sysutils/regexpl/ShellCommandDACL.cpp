@@ -139,7 +139,7 @@ CheckDACLArgument:
   rConsole.Write(_T("\\"));
   rConsole.Write(Key.GetKeyName());
   rConsole.Write(_T("\n"));
-  PISECURITY_DESCRIPTOR pSecurityDescriptor = NULL;
+  PSECURITY_DESCRIPTOR pSecurityDescriptor = NULL;
   TCHAR *pchName = NULL, *pchDomainName = NULL;
   try
   {
@@ -147,7 +147,7 @@ CheckDACLArgument:
     if (nError != ERROR_SUCCESS)
       throw nError;
 
-    pSecurityDescriptor = (PISECURITY_DESCRIPTOR) new unsigned char [dwSecurityDescriptorLength];
+    pSecurityDescriptor = (PSECURITY_DESCRIPTOR) new unsigned char [dwSecurityDescriptorLength];
     DWORD dwSecurityDescriptorLength1 = dwSecurityDescriptorLength;
     nError = Key.GetSecurityDescriptor((SECURITY_INFORMATION)DACL_SECURITY_INFORMATION,pSecurityDescriptor,&dwSecurityDescriptorLength1);
     if (nError != ERROR_SUCCESS)

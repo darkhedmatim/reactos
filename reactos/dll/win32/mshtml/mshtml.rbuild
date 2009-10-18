@@ -7,7 +7,6 @@
 	<include base="mshtml">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
 	<file>conpoint.c</file>
 	<file>dispex.c</file>
 	<file>editor.c</file>
@@ -15,17 +14,13 @@
 	<file>htmlanchor.c</file>
 	<file>htmlbody.c</file>
 	<file>htmlcomment.c</file>
-	<file>htmlcurstyle.c</file>
 	<file>htmldoc.c</file>
 	<file>htmldoc3.c</file>
 	<file>htmldoc5.c</file>
 	<file>htmlelem.c</file>
 	<file>htmlelem2.c</file>
-	<file>htmlelem3.c</file>
-	<file>htmlelemcol.c</file>
 	<file>htmlevent.c</file>
 	<file>htmlgeneric.c</file>
-	<file>htmliframe.c</file>
 	<file>htmlimg.c</file>
 	<file>htmlinput.c</file>
 	<file>htmllocation.c</file>
@@ -34,11 +29,8 @@
 	<file>htmlscript.c</file>
 	<file>htmlselect.c</file>
 	<file>htmlstyle.c</file>
-	<file>htmlstyle2.c</file>
-	<file>htmlstyle3.c</file>
 	<file>htmlstylesheet.c</file>
 	<file>htmltable.c</file>
-	<file>htmltablerow.c</file>
 	<file>htmltextarea.c</file>
 	<file>htmltextcont.c</file>
 	<file>htmltextnode.c</file>
@@ -46,7 +38,6 @@
 	<file>install.c</file>
 	<file>loadopts.c</file>
 	<file>main.c</file>
-	<file>mutation.c</file>
 	<file>navigate.c</file>
 	<file>nsembed.c</file>
 	<file>nsevents.c</file>
@@ -66,6 +57,7 @@
 	<file>view.c</file>
 	<file>rsrc.rc</file>
 	<include base="mshtml" root="intermediate">.</include>
+	<file>mshtml.spec</file>
 	<library>wine</library>
 	<library>strmiids</library>
 	<library>uuid</library>
@@ -77,7 +69,6 @@
 	<library>gdi32</library>
 	<library>advapi32</library>
 	<library>kernel32</library>
-	<library>wininet</library>
 	<library>ntdll</library>
 	<dependency>mshtml_nsiface_header</dependency>
 </module>

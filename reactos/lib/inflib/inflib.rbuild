@@ -3,6 +3,7 @@
 <group>
 <module name="inflib" type="staticlibrary">
 	<include base="inflib">.</include>
+	<define name="__NO_CTYPE_INLINES" />
 	<file>infcore.c</file>
 	<file>infget.c</file>
 	<file>infput.c</file>
@@ -12,14 +13,14 @@
 </module>
 <module name="inflibhost" type="hoststaticlibrary" allowwarnings="true">
 	<include base="inflibhost">.</include>
+	<include base="ReactOS">include/reactos</include>
 	<define name="__NO_CTYPE_INLINES" />
-	<group compilerset="gcc">
-		<compilerflag>-Wpointer-arith</compilerflag>
-		<compilerflag>-Wconversion</compilerflag>
-		<compilerflag>-Wstrict-prototypes</compilerflag>
-		<compilerflag>-Wmissing-prototypes</compilerflag>
-	</group>
+	<compilerflag>-Wpointer-arith</compilerflag>
+	<compilerflag>-Wconversion</compilerflag>
+	<compilerflag>-Wstrict-prototypes</compilerflag>
+	<compilerflag>-Wmissing-prototypes</compilerflag>
 	<define name="INFLIB_HOST" />
+	<include base="ReactOS">include</include>
 	<file>infcore.c</file>
 	<file>infget.c</file>
 	<file>infput.c</file>

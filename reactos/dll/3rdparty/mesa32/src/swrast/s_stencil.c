@@ -23,9 +23,9 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/imports.h"
+#include "glheader.h"
+#include "context.h"
+#include "imports.h"
 
 #include "s_context.h"
 #include "s_depth.h"
@@ -997,12 +997,10 @@ stencil_and_ztest_pixels( GLcontext *ctx, SWspan *span, GLuint face )
 GLboolean
 _swrast_stencil_and_ztest_span(GLcontext *ctx, SWspan *span)
 {
-   const GLuint face = (span->facing == 0) ? 0 : ctx->Stencil._BackFace;
-
    if (span->arrayMask & SPAN_XY)
-      return stencil_and_ztest_pixels(ctx, span, face);
+      return stencil_and_ztest_pixels(ctx, span, span->facing);
    else
-      return stencil_and_ztest_span(ctx, span, face);
+      return stencil_and_ztest_span(ctx, span, span->facing);
 }
 
 

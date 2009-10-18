@@ -2453,6 +2453,7 @@ xmlCanonicPath(const xmlChar *path)
  */
 #if defined(_WIN32) && !defined(__CYGWIN__)    
     int len = 0;
+    int i = 0;
     xmlChar *p = NULL;
 #endif
     xmlURIPtr uri;
@@ -2521,7 +2522,7 @@ path_processing:
     len = xmlStrlen(path);
     if ((len > 2) && IS_WINDOWS_PATH(path)) {
         /* make the scheme 'file' */
-	uri->scheme = (char*)xmlStrdup(BAD_CAST "file");
+	uri->scheme = xmlStrdup(BAD_CAST "file");
 	/* allocate space for leading '/' + path + string terminator */
 	uri->path = xmlMallocAtomic(len + 2);
 	if (uri->path == NULL) {
@@ -2530,15 +2531,15 @@ path_processing:
 	}
 	/* Put in leading '/' plus path */
 	uri->path[0] = '/';
-	p = (xmlChar *)uri->path + 1;
-	strncpy((char *)p, (const char *)path, len + 1);
+	p = uri->path + 1;
+	strncpy(p, path, len + 1);
     } else {
-	uri->path = (char*)xmlStrdup(path);
+	uri->path = xmlStrdup(path);
 	if (uri->path == NULL) {
 	    xmlFreeURI(uri);
 	    return(NULL);
 	}
-	p = (xmlChar *)uri->path;
+	p = uri->path;
     }
     /* Now change all occurences of '\' to '/' */
     while (*p != '\0') {

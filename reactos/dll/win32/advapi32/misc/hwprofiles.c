@@ -27,7 +27,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
  *
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetCurrentHwProfileA(LPHW_PROFILE_INFOA lpHwProfileInfo)
 {
     HW_PROFILE_INFOW ProfileInfo;
@@ -83,7 +83,7 @@ GetCurrentHwProfileA(LPHW_PROFILE_INFOA lpHwProfileInfo)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 GetCurrentHwProfileW(LPHW_PROFILE_INFOW lpHwProfileInfo)
 {
     WCHAR szKeyName[256];

@@ -4,7 +4,7 @@
 <module name="user32_winetest" type="win32cui" installbase="bin" installname="user32_winetest.exe" allowwarnings="true">
     <include base="user32_winetest">.</include>
     <include base="ReactOS">include/reactos/wine</include>
-    <define name="__ROS_LONG64__" />
+    <define name="__USE_W32API" />
     <library>ntdll</library>
     <library>user32</library>
     <library>gdi32</library>

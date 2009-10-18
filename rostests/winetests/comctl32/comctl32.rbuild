@@ -3,13 +3,11 @@
 <group>
 <module name="comctl32_winetest" type="win32cui" installbase="bin" installname="comctl32_winetest.exe" allowwarnings="true">
 	<include base="comctl32_winetest">.</include>
-	<define name="__ROS_LONG64__" />
 	<file>comboex.c</file>
 	<file>datetime.c</file>
 	<file>dpa.c</file>
 	<file>header.c</file>
 	<file>imagelist.c</file>
-	<file>ipaddress.c</file>
 	<file>listview.c</file>
 	<file>misc.c</file>
 	<file>monthcal.c</file>

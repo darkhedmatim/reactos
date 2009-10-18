@@ -37,6 +37,7 @@ typedef signed int bfd_signed_vma;
 #define ATTRIBUTE_UNUSED
 extern int sprintf(char *str, const char *format, ...);
 #define sprintf_vma(BUF, VMA) sprintf(BUF, "0x%X", VMA)
+#define _setjmp setjmp
 struct disassemble_info;
 
 int
@@ -62,20 +63,20 @@ KdbpNopPrintDisasm(void* Ignored, const char* fmt, ...)
   return(0);
 }
 
-static int
+int static
 KdbpReadMemory(unsigned int Addr, unsigned char* Data, unsigned int Length,
 	       struct disassemble_info * Ignored)
 {
   return KdbpSafeReadMemory(Data, (void *)Addr, Length); /* 0 means no error */
 }
 
-static void
+void static
 KdbpMemoryError(int Status, unsigned int Addr,
 	        struct disassemble_info * Ignored)
 {
 }
 
-static void
+void static
 KdbpPrintAddressInCode(unsigned int Addr, struct disassemble_info * Ignored)
 {
   if (!KdbSymPrintAddress((void*)Addr))
@@ -84,7 +85,7 @@ KdbpPrintAddressInCode(unsigned int Addr, struct disassemble_info * Ignored)
     }
 }
 
-static void
+void static
 KdbpNopPrintAddress(unsigned int Addr, struct disassemble_info * Ignored)
 {
 }

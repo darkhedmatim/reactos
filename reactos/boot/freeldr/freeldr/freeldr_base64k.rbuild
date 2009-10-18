@@ -4,10 +4,8 @@
 	<include base="freeldr_base64k">include</include>
 	<include base="ntoskrnl">include</include>
 	<define name="_NTHAL_" />
-	<group compilerset="gcc">
-		<compilerflag>-fno-inline</compilerflag>
-		<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
-	</group>
+	<compilerflag>-fno-inline</compilerflag>
+	<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
 	<directory name="arch">
 		<if property="ARCH" value="i386">
 			<directory name="i386">
@@ -19,15 +17,6 @@
 				<file>i386trap.S</file>
 				<file>int386.S</file>
 				<file>linux.S</file>
-				<file>mb.S</file>
-			</directory>
-		</if>
-		<if property="ARCH" value="amd64">
-			<directory name="amd64">
-				<file>drvmap.S</file>
-				<file>i386cpu.S</file>
-				<file>i386idt.S</file>
-				<file>i386trap.S</file>
 				<file>mb.S</file>
 			</directory>
 		</if>

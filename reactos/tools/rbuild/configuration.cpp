@@ -24,7 +24,7 @@ Configuration::Configuration ()
 {
 	Verbose = false;
 	CleanAsYouGo = false;
-	Dependencies = AutomaticDependencies;
+	AutomaticDependencies = true;
 	CheckDependenciesForModuleOnly = false;
 	CompilationUnitsEnabled = true;
 	PrecompiledHeadersEnabled = true;
@@ -33,8 +33,6 @@ Configuration::Configuration ()
 	InstallFiles = false;
 	UseConfigurationInPath = false;
 	UseVSVersionInPath = false;
-	Compiler = GnuGcc;
-	Linker = GnuLd;
 }
 
 Configuration::~Configuration ()

@@ -46,6 +46,22 @@ UCHAR KiDebugRegisterTrapOffsets[9] =
 
 /* FUNCTIONS *****************************************************************/
 
+_SEH_DEFINE_LOCALS(KiCopyInfo)
+{
+    volatile EXCEPTION_RECORD SehExceptRecord;
+};
+
+_SEH_FILTER(KiCopyInformation)
+{
+    _SEH_ACCESS_LOCALS(KiCopyInfo);
+
+    /* Copy the exception records and return to the handler */
+    RtlCopyMemory((PVOID)&_SEH_VAR(SehExceptRecord),
+                  _SEH_GetExceptionPointers()->ExceptionRecord,
+                  sizeof(EXCEPTION_RECORD));
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 VOID
 INIT_FUNCTION
 NTAPI
@@ -124,7 +140,7 @@ KiRecordDr7(OUT PULONG Dr7Ptr,
             NewMask |= DR_MASK(DR7_OVERRIDE_V);
 
             /* Set DR7 override */
-            *Dr7Ptr |= DR7_OVERRIDE_MASK;
+            *DrMask |= DR7_OVERRIDE_MASK;
         }
         else
         {
@@ -831,7 +847,10 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                     IN BOOLEAN FirstChance)
 {
     CONTEXT Context;
+    ULONG_PTR Stack, NewStack;
+    ULONG Size;
     EXCEPTION_RECORD LocalExceptRecord;
+    _SEH_DECLARE_LOCALS(KiCopyInfo);
 
     /* Increase number of Exception Dispatches */
     KeGetCurrentPrcb()->KeExceptionDispatchCount++;
@@ -928,19 +947,11 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
         /* User mode exception, was it first-chance? */
         if (FirstChance)
         {
-            /* 
-             * Break into the kernel debugger unless a user mode debugger
-             * is present or user mode exceptions are ignored, unless this is
-             * a breakpoint or a debug service in which case we have to
-             * handle it.
-             */
-            if ((!(PsGetCurrentProcess()->DebugPort) &&
-                 !(KdIgnoreUmExceptions)) ||
-                 (KdIsThisAKdTrap(ExceptionRecord,
-                                  &Context,
-                                  PreviousMode)))
+            /* Make sure a debugger is present, and ignore user-mode if requested */
+            if ((KiDebugRoutine) &&
+                (!(PsGetCurrentProcess()->DebugPort)))
             {
-                /* Call the kernel debugger */
+                /* Call the debugger */
                 if (KiDebugRoutine(TrapFrame,
                                    ExceptionFrame,
                                    ExceptionRecord,
@@ -954,15 +965,12 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
             }
 
             /* Forward exception to user mode debugger */
-            if (DbgkForwardException(ExceptionRecord, TRUE, FALSE)) return;
+            if (DbgkForwardException(ExceptionRecord, TRUE, FALSE)) goto Exit;
 
             /* Set up the user-stack */
 DispatchToUser:
-            _SEH2_TRY
+            _SEH_TRY
             {
-                ULONG Size;
-                ULONG_PTR Stack, NewStack;
-
                 /* Make sure we have a valid SS and that this isn't V86 mode */
                 if ((TrapFrame->HardwareSegSs != (KGDT_R3_DATA | RPL_MASK)) ||
                     (TrapFrame->EFlags & EFLAGS_V86_MASK))
@@ -1014,38 +1022,38 @@ DispatchToUser:
                 TrapFrame->Eip = (ULONG)KeUserExceptionDispatcher;
 
                 /* Dispatch exception to user-mode */
-                _SEH2_YIELD(return);
+                _SEH_YIELD(return);
             }
-            _SEH2_EXCEPT((RtlCopyMemory(&LocalExceptRecord, _SEH2_GetExceptionInformation()->ExceptionRecord, sizeof(EXCEPTION_RECORD)), EXCEPTION_EXECUTE_HANDLER))
+            _SEH_EXCEPT(KiCopyInformation)
             {
                 /* Check if we got a stack overflow and raise that instead */
-                if ((NTSTATUS)LocalExceptRecord.ExceptionCode ==
+                if (_SEH_VAR(SehExceptRecord).ExceptionCode ==
                     STATUS_STACK_OVERFLOW)
                 {
                     /* Copy the exception address and record */
-                    LocalExceptRecord.ExceptionAddress =
+                    _SEH_VAR(SehExceptRecord).ExceptionAddress =
                         ExceptionRecord->ExceptionAddress;
                     RtlCopyMemory(ExceptionRecord,
-                                  (PVOID)&LocalExceptRecord,
+                                  (PVOID)&_SEH_VAR(SehExceptRecord),
                                   sizeof(EXCEPTION_RECORD));
 
                     /* Do the exception again */
-                    _SEH2_YIELD(goto DispatchToUser);
+                    _SEH_YIELD(goto DispatchToUser);
                 }
             }
-            _SEH2_END;
+            _SEH_END;
         }
 
         /* Try second chance */
-        if (DbgkForwardException(ExceptionRecord, TRUE, TRUE))
+        if (DbgkForwardException(ExceptionRecord, TRUE, FALSE))
         {
             /* Handled, get out */
-            return;
+            goto Exit;
         }
         else if (DbgkForwardException(ExceptionRecord, FALSE, TRUE))
         {
             /* Handled, get out */
-            return;
+            goto Exit;
         }
 
         /* 3rd strike, kill the process */
@@ -1069,6 +1077,7 @@ Handled:
                          TrapFrame,
                          Context.ContextFlags,
                          PreviousMode);
+Exit:
     return;
 }
 
@@ -1079,22 +1088,24 @@ NTSTATUS
 NTAPI
 KeRaiseUserException(IN NTSTATUS ExceptionCode)
 {
+    NTSTATUS Status = STATUS_SUCCESS;
     ULONG OldEip;
     PTEB Teb = KeGetCurrentThread()->Teb;
     PKTRAP_FRAME TrapFrame = KeGetCurrentThread()->TrapFrame;
 
     /* Make sure we can access the TEB */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set the exception code */
         Teb->ExceptionCode = ExceptionCode;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Save exception code */
+        Status = ExceptionCode;
     }
-    _SEH2_END;
+    _SEH_END;
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Get the old EIP */
     OldEip = TrapFrame->Eip;

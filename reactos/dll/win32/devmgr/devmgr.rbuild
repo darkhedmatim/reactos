@@ -1,4 +1,4 @@
-<module name="devmgr" type="win32dll" baseaddress="${BASEADDRESS_DEVENUM}" installbase="system32" installname="devmgr.dll" unicode="yes">
+<module name="devmgr" type="win32dll" baseaddress="${BASEADDRESS_DEVENUM}" installbase="system32" installname="devmgr.dll" allowwarnings="true" unicode="yes">
 	<include base="devmgr">.</include>
 	<importlibrary definition="devmgr.spec" />
 	<library>kernel32</library>
@@ -12,5 +12,6 @@
 	<file>hwpage.c</file>
 	<file>misc.c</file>
 	<file>stubs.c</file>
+	<file>devmgr.spec</file>
 	<pch>precomp.h</pch>
 </module>

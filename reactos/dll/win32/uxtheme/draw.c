@@ -52,18 +52,19 @@ extern ATOM atDialogThemeEnabled;
 HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD dwFlags)
 {
     static const WCHAR szTab[] = { 'T','a','b',0 };
-    BOOL res;
+    HRESULT hr;
 
     TRACE("(%p,0x%08x\n", hwnd, dwFlags);
-    res = SetPropW (hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled), 
+    hr = SetPropW (hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled), 
         (HANDLE)(dwFlags|0x80000000)); 
         /* 0x80000000 serves as a "flags set" flag */
-    if (!res)
-          return HRESULT_FROM_WIN32(GetLastError());
+    if (FAILED(hr))
+          return hr;
     if (dwFlags & ETDT_USETABTEXTURE)
         return SetWindowTheme (hwnd, NULL, szTab);
     else
         return SetWindowTheme (hwnd, NULL, NULL);
+    return S_OK;
  }
 
 /***********************************************************************
@@ -100,7 +101,7 @@ HRESULT WINAPI DrawThemeParentBackground(HWND hwnd, HDC hdc, RECT *prc)
         hParent = hwnd;
     if(prc) {
         CopyRect(&rt, prc);
-        MapWindowPoints(hwnd, hParent, (LPPOINT)&rt, 2);
+        MapWindowPoints(hwnd, NULL, (LPPOINT)&rt, 2);
         
         clip = CreateRectRgn(0,0,1,1);
         hasClip = GetClipRgn(hdc, clip);
@@ -110,8 +111,8 @@ HRESULT WINAPI DrawThemeParentBackground(HWND hwnd, HDC hdc, RECT *prc)
             IntersectClipRect(hdc, prc->left, prc->top, prc->right, prc->bottom);
     }
     else {
-        GetClientRect(hwnd, &rt);
-        MapWindowPoints(hwnd, hParent, (LPPOINT)&rt, 2);
+        GetClientRect(hParent, &rt);
+        MapWindowPoints(hParent, NULL, (LPPOINT)&rt, 2);
     }
 
     OffsetViewportOrgEx(hdc, -rt.left, -rt.top, &org);
@@ -1177,8 +1178,8 @@ static HRESULT draw_diag_edge (HDC hdc, HTHEME theme, int part, int state,
             + (LTRBOuterMono[uType & (BDR_INNER|BDR_OUTER)] != -1 ? 1 : 0);
 
     /* Init some vars */
-    OuterPen = InnerPen = GetStockObject(NULL_PEN);
-    SavePen = SelectObject(hdc, InnerPen);
+    OuterPen = InnerPen = (HPEN)GetStockObject(NULL_PEN);
+    SavePen = (HPEN)SelectObject(hdc, InnerPen);
     spx = spy = epx = epy = 0; /* Satisfy the compiler... */
 
     /* Determine the colors of the edges */
@@ -1373,8 +1374,8 @@ static HRESULT draw_diag_edge (HDC hdc, HTHEME theme, int part, int state,
         HPEN hpsave;
         HPEN hp = get_edge_pen ((uFlags & BF_MONO) ? EDGE_WINDOW : EDGE_FILL, 
             theme, part, state);
-        hbsave = SelectObject(hdc, hb);
-        hpsave = SelectObject(hdc, hp);
+        hbsave = (HBRUSH)SelectObject(hdc, hb);
+        hpsave = (HPEN)SelectObject(hdc, hp);
         Polygon(hdc, Points, 4);
         SelectObject(hdc, hbsave);
         SelectObject(hdc, hpsave);
@@ -1426,8 +1427,8 @@ static HRESULT draw_rect_edge (HDC hdc, HTHEME theme, int part, int state,
                       && !(uFlags & (BF_FLAT|BF_MONO)) ) ? E_FAIL : S_OK;
 
     /* Init some vars */
-    LTInnerPen = LTOuterPen = RBInnerPen = RBOuterPen = GetStockObject(NULL_PEN);
-    SavePen = SelectObject(hdc, LTInnerPen);
+    LTInnerPen = LTOuterPen = RBInnerPen = RBOuterPen = (HPEN)GetStockObject(NULL_PEN);
+    SavePen = (HPEN)SelectObject(hdc, LTInnerPen);
 
     /* Determine the colors of the edges */
     if(uFlags & BF_MONO)

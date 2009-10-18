@@ -27,7 +27,7 @@
  */
 
 #include "assyntax.h"
-#include "glapi/glapioffsets.h"
+#include "glapioffsets.h"
 
 #if defined(STDCALL_API)
 # if defined(USE_MGL_NAMESPACE)

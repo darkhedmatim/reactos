@@ -44,6 +44,7 @@
 #include "header.h"
 
 /* future options to reserve characters for: */
+/* a = alignment of structures */
 /* A = ACF input filename */
 /* J = do not search standard include path */
 /* O = generate interpreted stubs */
@@ -52,36 +53,31 @@
 static const char usage[] =
 "Usage: widl [options...] infile.idl\n"
 "   or: widl [options...] --dlldata-only name1 [name2...]\n"
-"   -a n               Set structure alignment to 'n'\n"
-"   -b arch            Set the target architecture\n"
-"   -c                 Generate client stub\n"
-"   -C file            Name of client stub file (default is infile_c.c)\n"
-"   -d n               Set debug level to 'n'\n"
-"   -D id[=val]        Define preprocessor identifier id=val\n"
-"   --dlldata=file     Name of the dlldata file (default is dlldata.c)\n"
-"   -E                 Preprocess only\n"
-"   -h                 Generate headers\n"
-"   -H file            Name of header file (default is infile.h)\n"
-"   -I path            Set include search dir to path (multiple -I allowed)\n"
-"   --local-stubs=file Write empty stubs for call_as/local methods to file\n"
-"   -m32, -m64         Set the kind of typelib to build (Win32 or Win64)\n"
-"   -N                 Do not preprocess input\n"
-"   --oldnames         Use old naming conventions\n"
-"   -p                 Generate proxy\n"
-"   -P file            Name of proxy file (default is infile_p.c)\n"
-"   --prefix-all=p     Prefix names of client stubs / server functions with 'p'\n"
+"   -c          Generate client stub\n"
+"   -C file     Name of client stub file (default is infile_c.c)\n"
+"   -d n        Set debug level to 'n'\n"
+"   -D id[=val] Define preprocessor identifier id=val\n"
+"   --dlldata=file  Name of the dlldata file (default is dlldata.c)\n"
+"   -E          Preprocess only\n"
+"   -h          Generate headers\n"
+"   -H file     Name of header file (default is infile.h)\n"
+"   -I path     Set include search dir to path (multiple -I allowed)\n"
+"   --local-stubs=file  Write empty stubs for call_as/local methods to file\n"
+"   -N          Do not preprocess input\n"
+"   --oldnames  Use old naming conventions\n"
+"   -p          Generate proxy\n"
+"   -P file     Name of proxy file (default is infile_p.c)\n"
+"   --prefix-all=p  Prefix names of client stubs / server functions with 'p'\n"
 "   --prefix-client=p  Prefix names of client stubs with 'p'\n"
 "   --prefix-server=p  Prefix names of server functions with 'p'\n"
-"   -s                 Generate server stub\n"
-"   -S file            Name of server stub file (default is infile_s.c)\n"
-"   -t                 Generate typelib\n"
-"   -T file            Name of typelib file (default is infile.tlb)\n"
-"   -u                 Generate interface identifiers file\n"
-"   -U file            Name of interface identifiers file (default is infile_i.c)\n"
-"   -V                 Print version and exit\n"
-"   -W                 Enable pedantic warnings\n"
-"   --win32            Only generate 32-bit code\n"
-"   --win64            Only generate 64-bit code\n"
+"   -s          Generate server stub\n"
+"   -S file     Name of server stub file (default is infile_s.c)\n"
+"   -t          Generate typelib\n"
+"   -T file     Name of typelib file (default is infile.tlb)\n"
+"   -u          Generate interface identifiers file\n"
+"   -U file     Name of interface identifiers file (default is infile_i.c)\n"
+"   -V          Print version and exit\n"
+"   -W          Enable pedantic warnings\n"
 "Debug level 'n' is a bitmask with following meaning:\n"
 "    * 0x01 Tell which resource is parsed (verbose mode)\n"
 "    * 0x02 Dump internal structures\n"
@@ -94,6 +90,7 @@ static const char usage[] =
 static const char version_string[] = "Wine IDL Compiler version " PACKAGE_VERSION "\n"
 			"Copyright 2002 Ove Kaaven\n";
 
+int win32 = 1;
 int debuglevel = DEBUGLEVEL_NONE;
 int parser_debug, yy_flex_debug;
 
@@ -109,9 +106,6 @@ int do_idfile = 0;
 int do_dlldata = 0;
 int no_preprocess = 0;
 int old_names = 0;
-int do_win32 = 1;
-int do_win64 = 1;
-int packing = 8;
 
 char *input_name;
 char *header_name;
@@ -134,10 +128,9 @@ const char *prefix_server = "";
 int line_number = 1;
 
 FILE *header;
+FILE *local_stubs;
+FILE *proxy;
 FILE *idfile;
-
-size_t pointer_size = 0;
-syskind_t typelib_kind = sizeof(void*) == 8 ? SYS_WIN64 : SYS_WIN32;
 
 time_t now;
 
@@ -148,13 +141,11 @@ enum {
     LOCAL_STUBS_OPTION,
     PREFIX_ALL_OPTION,
     PREFIX_CLIENT_OPTION,
-    PREFIX_SERVER_OPTION,
-    WIN32_OPTION,
-    WIN64_OPTION
+    PREFIX_SERVER_OPTION
 };
 
 static const char short_options[] =
-    "a:b:cC:d:D:EhH:I:m:NpP:sS:tT:uU:VW";
+    "cC:d:D:EhH:I:NpP:sS:tT:uU:VW";
 static const struct option long_options[] = {
     { "dlldata", 1, 0, DLLDATA_OPTION },
     { "dlldata-only", 0, 0, DLLDATA_ONLY_OPTION },
@@ -163,8 +154,6 @@ static const struct option long_options[] = {
     { "prefix-all", 1, 0, PREFIX_ALL_OPTION },
     { "prefix-client", 1, 0, PREFIX_CLIENT_OPTION },
     { "prefix-server", 1, 0, PREFIX_SERVER_OPTION },
-    { "win32", 0, 0, WIN32_OPTION },
-    { "win64", 0, 0, WIN64_OPTION },
     { 0, 0, 0, 0 }
 };
 
@@ -185,7 +174,7 @@ static char *make_token(const char *name)
   token = xstrdup(name);
   for (i=0; token[i]; i++) {
     if (!isalnum(token[i])) token[i] = '_';
-    else token[i] = toupper(token[i]);
+    else token[i] = tolower(token[i]);
   }
   return token;
 }
@@ -197,75 +186,6 @@ static char *dup_basename_token(const char *name, const char *ext)
     /* map invalid characters to '_' */
     for (p = ret; *p; p++) if (!isalnum(*p)) *p = '_';
     return ret;
-}
-
-static void add_widl_version_define(void)
-{
-    unsigned int version;
-    const char *p = PACKAGE_VERSION;
-
-    /* major */
-    version = atoi(p) * 0x10000;
-    p = strchr(p, '.');
-
-    /* minor */
-    if (p)
-    {
-        version += atoi(p + 1) * 0x100;
-        p = strchr(p + 1, '.');
-    }
-
-    /* build */
-    if (p)
-        version += atoi(p + 1);
-
-    if (version != 0)
-    {
-        char version_str[11];
-        snprintf(version_str, sizeof(version_str), "0x%x", version);
-        wpp_add_define("__WIDL__", version_str);
-    }
-    else
-        wpp_add_define("__WIDL__", NULL);
-}
-
-/* set the target platform */
-static void set_target( const char *target )
-{
-    static const struct
-    {
-        const char *name;
-        syskind_t   kind;
-    } cpu_names[] =
-    {
-        { "i386",    SYS_WIN32 },
-        { "i486",    SYS_WIN32 },
-        { "i586",    SYS_WIN32 },
-        { "i686",    SYS_WIN32 },
-        { "i786",    SYS_WIN32 },
-        { "x86_64",  SYS_WIN64 },
-        { "sparc",   SYS_WIN32 },
-        { "alpha",   SYS_WIN32 },
-        { "powerpc", SYS_WIN32 }
-    };
-
-    unsigned int i;
-    char *p, *spec = xstrdup( target );
-
-    /* target specification is in the form CPU-MANUFACTURER-OS or CPU-MANUFACTURER-KERNEL-OS */
-
-    if (!(p = strchr( spec, '-' ))) error( "Invalid target specification '%s'\n", target );
-    *p++ = 0;
-    for (i = 0; i < sizeof(cpu_names)/sizeof(cpu_names[0]); i++)
-    {
-        if (!strcmp( cpu_names[i].name, spec ))
-        {
-            typelib_kind = cpu_names[i].kind;
-            free( spec );
-            return;
-        }
-    }
-    error( "Unrecognized CPU '%s'\n", spec );
 }
 
 /* clean things up when aborting on a signal */
@@ -285,14 +205,14 @@ static void set_everything(int x)
   do_dlldata = x;
 }
 
-void start_cplusplus_guard(FILE *fp)
+static void start_cplusplus_guard(FILE *fp)
 {
   fprintf(fp, "#ifdef __cplusplus\n");
   fprintf(fp, "extern \"C\" {\n");
   fprintf(fp, "#endif\n\n");
 }
 
-void end_cplusplus_guard(FILE *fp)
+static void end_cplusplus_guard(FILE *fp)
 {
   fprintf(fp, "#ifdef __cplusplus\n");
   fprintf(fp, "}\n");
@@ -359,13 +279,13 @@ static char *eat_space(char *s)
   return s;
 }
 
-void write_dlldata(const statement_list_t *stmts)
+void write_dlldata(ifref_list_t *ifaces)
 {
   struct list filenames = LIST_INIT(filenames);
   filename_node_t *node;
   FILE *dlldata;
 
-  if (!do_dlldata || !need_proxy_file(stmts))
+  if (!do_dlldata || !need_proxy_file(ifaces))
     return;
 
   dlldata = fopen(dlldata_name, "r");
@@ -413,65 +333,6 @@ void write_dlldata(const statement_list_t *stmts)
   free_filename_nodes(&filenames);
 }
 
-static void write_id_data_stmts(const statement_list_t *stmts)
-{
-  const statement_t *stmt;
-  if (stmts) LIST_FOR_EACH_ENTRY( stmt, stmts, const statement_t, entry )
-  {
-    if (stmt->type == STMT_TYPE)
-    {
-      const type_t *type = stmt->u.type;
-      if (type_get_type(type) == TYPE_INTERFACE)
-      {
-        const UUID *uuid;
-        if (!is_object(type->attrs) && !is_attr(type->attrs, ATTR_DISPINTERFACE))
-          continue;
-        uuid = get_attrp(type->attrs, ATTR_UUID);
-        write_guid(idfile, is_attr(type->attrs, ATTR_DISPINTERFACE) ? "DIID" : "IID",
-                   type->name, uuid);
-      }
-      else if (type_get_type(type) == TYPE_COCLASS)
-      {
-        const UUID *uuid = get_attrp(type->attrs, ATTR_UUID);
-        write_guid(idfile, "CLSID", type->name, uuid);
-      }
-    }
-    else if (stmt->type == STMT_LIBRARY)
-    {
-      const UUID *uuid = get_attrp(stmt->u.lib->attrs, ATTR_UUID);
-      write_guid(idfile, "LIBID", stmt->u.lib->name, uuid);
-      write_id_data_stmts(stmt->u.lib->stmts);
-    }
-  }
-}
-
-void write_id_data(const statement_list_t *stmts)
-{
-  if (!do_idfile) return;
-
-  idfile_token = make_token(idfile_name);
-
-  idfile = fopen(idfile_name, "w");
-  if (! idfile) {
-    error("Could not open %s for output\n", idfile_name);
-    return;
-  }
-
-  fprintf(idfile, "/*** Autogenerated by WIDL %s ", PACKAGE_VERSION);
-  fprintf(idfile, "from %s - Do not edit ***/\n\n", input_name);
-  fprintf(idfile, "#include <rpc.h>\n");
-  fprintf(idfile, "#include <rpcndr.h>\n\n");
-  fprintf(idfile, "#include <initguid.h>\n\n");
-  start_cplusplus_guard(idfile);
-
-  write_id_data_stmts(stmts);
-
-  fprintf(idfile, "\n");
-  end_cplusplus_guard(idfile);
-
-  fclose(idfile);
-}
-
 int main(int argc,char *argv[])
 {
   extern char* optarg;
@@ -514,22 +375,6 @@ int main(int argc,char *argv[])
     case PREFIX_SERVER_OPTION:
       prefix_server = xstrdup(optarg);
       break;
-    case WIN32_OPTION:
-      do_win32 = 1;
-      do_win64 = 0;
-      break;
-    case WIN64_OPTION:
-      do_win32 = 0;
-      do_win64 = 1;
-      break;
-    case 'a':
-      packing = strtol(optarg, NULL, 0);
-      if(packing != 2 && packing != 4 && packing != 8)
-          error("Packing must be one of 2, 4 or 8\n");
-      break;
-    case 'b':
-      set_target( optarg );
-      break;
     case 'c':
       do_everything = 0;
       do_client = 1;
@@ -556,11 +401,6 @@ int main(int argc,char *argv[])
       break;
     case 'I':
       wpp_add_include_path(optarg);
-      break;
-    case 'm':
-      if (!strcmp( optarg, "32" )) typelib_kind = SYS_WIN32;
-      else if (!strcmp( optarg, "64" )) typelib_kind = SYS_WIN64;
-      else error( "Invalid -m argument '%s'\n", optarg );
       break;
     case 'N':
       no_preprocess = 1;
@@ -681,7 +521,7 @@ int main(int argc,char *argv[])
   if (do_client) client_token = dup_basename_token(client_name,"_c.c");
   if (do_server) server_token = dup_basename_token(server_name,"_s.c");
 
-  add_widl_version_define();
+  wpp_add_cmdline_define("__WIDL__");
 
   atexit(rm_tempfile);
   if (!no_preprocess)
@@ -711,10 +551,76 @@ int main(int argc,char *argv[])
     }
   }
 
-  header_token = make_token(header_name);
+  if(do_header) {
+    header_token = make_token(header_name);
+
+    if(!(header = fopen(header_name, "w"))) {
+      fprintf(stderr, "Could not open %s for output\n", header_name);
+      return 1;
+    }
+    fprintf(header, "/*** Autogenerated by WIDL %s from %s - Do not edit ***/\n", PACKAGE_VERSION, input_name);
+    fprintf(header, "#include <rpc.h>\n" );
+    fprintf(header, "#include <rpcndr.h>\n\n" );
+    fprintf(header, "#ifndef __%s__\n", header_token);
+    fprintf(header, "#define __%s__\n", header_token);
+    start_cplusplus_guard(header);
+  }
+
+  if (local_stubs_name) {
+    local_stubs = fopen(local_stubs_name, "w");
+    if (!local_stubs) {
+      fprintf(stderr, "Could not open %s for output\n", local_stubs_name);
+      return 1;
+    }
+    fprintf(local_stubs, "/* call_as/local stubs for %s */\n\n", input_name);
+    fprintf(local_stubs, "#include <objbase.h>\n");
+    fprintf(local_stubs, "#include \"%s\"\n\n", header_name);
+  }
+
+  if (do_idfile) {
+    idfile_token = make_token(idfile_name);
+
+    idfile = fopen(idfile_name, "w");
+    if (! idfile) {
+      fprintf(stderr, "Could not open %s for output\n", idfile_name);
+      return 1;
+    }
+
+    fprintf(idfile, "/*** Autogenerated by WIDL %s ", PACKAGE_VERSION);
+    fprintf(idfile, "from %s - Do not edit ***/\n\n", input_name);
+    fprintf(idfile, "#include <rpc.h>\n");
+    fprintf(idfile, "#include <rpcndr.h>\n\n");
+    fprintf(idfile, "#include <initguid.h>\n\n");
+    start_cplusplus_guard(idfile);
+  }
 
   init_types();
   ret = parser_parse();
+
+  if(do_header) {
+    fprintf(header, "/* Begin additional prototypes for all interfaces */\n");
+    fprintf(header, "\n");
+    write_user_types();
+    write_generic_handle_routines();
+    write_context_handle_rundowns();
+    fprintf(header, "\n");
+    fprintf(header, "/* End additional prototypes */\n");
+    fprintf(header, "\n");
+    end_cplusplus_guard(header);
+    fprintf(header, "#endif /* __%s__ */\n", header_token);
+    fclose(header);
+  }
+
+  if (local_stubs) {
+    fclose(local_stubs);
+  }
+
+  if (do_idfile) {
+    fprintf(idfile, "\n");
+    end_cplusplus_guard(idfile);
+
+    fclose(idfile);
+  }
 
   fclose(parser_in);
 

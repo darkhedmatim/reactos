@@ -72,24 +72,26 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
     PKSEMAPHORE Semaphore;
     HANDLE hSemaphore;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Check handle pointer */
             ProbeForWriteHandle(SemaphoreHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure the counts make sense */
@@ -129,20 +131,19 @@ NtCreateSemaphore(OUT PHANDLE SemaphoreHandle,
                                 &hSemaphore);
 
         /* Check for success */
-        if (NT_SUCCESS(Status))
+        if(NT_SUCCESS(Status))
         {
             /* Enter SEH Block for return */
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Return the handle */
                 *SemaphoreHandle = hSemaphore;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
-                /* Get the exception code */
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -161,24 +162,26 @@ NtOpenSemaphore(OUT PHANDLE SemaphoreHandle,
 {
     HANDLE hSemaphore;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Check handle pointer */
             ProbeForWriteHandle(SemaphoreHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -191,20 +194,19 @@ NtOpenSemaphore(OUT PHANDLE SemaphoreHandle,
                                 &hSemaphore);
 
     /* Check for success */
-    if (NT_SUCCESS(Status))
+    if(NT_SUCCESS(Status))
     {
         /* Enter SEH Block for return */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return the handle */
             *SemaphoreHandle = hSemaphore;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return Status */
@@ -220,11 +222,11 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
                  IN SEMAPHORE_INFORMATION_CLASS SemaphoreInformationClass,
                  OUT PVOID SemaphoreInformation,
                  IN ULONG SemaphoreInformationLength,
-                 OUT PULONG ReturnLength OPTIONAL)
+                 OUT PULONG ReturnLength  OPTIONAL)
 {
     PKSEMAPHORE Semaphore;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check buffers and class validity */
@@ -236,7 +238,7 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
                                          SemaphoreInformationLength,
                                          ReturnLength,
                                          PreviousMode);
-    if (!NT_SUCCESS(Status))
+    if(!NT_SUCCESS(Status))
     {
         /* Invalid buffers */
         DPRINT("NtQuerySemaphore() failed, Status: 0x%x\n", Status);
@@ -252,10 +254,10 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
                                        NULL);
 
     /* Check for success */
-    if (NT_SUCCESS(Status))
+    if(NT_SUCCESS(Status))
     {
         /* Entry SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             PSEMAPHORE_BASIC_INFORMATION BasicInfo =
                 (PSEMAPHORE_BASIC_INFORMATION)SemaphoreInformation;
@@ -265,14 +267,13 @@ NtQuerySemaphore(IN HANDLE SemaphoreHandle,
             BasicInfo->MaximumCount = Semaphore->Limit;
 
             /* Return the length */
-            if (ReturnLength) *ReturnLength = sizeof(*BasicInfo);
+            if(ReturnLength) *ReturnLength = sizeof(*BasicInfo);
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
 
         /* Dereference the Object */
         ObDereferenceObject(Semaphore);
@@ -293,24 +294,26 @@ NtReleaseSemaphore(IN HANDLE SemaphoreHandle,
 {
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PKSEMAPHORE Semaphore;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if ((PreviousCount) && (PreviousMode != KernelMode))
+    if((PreviousCount) && (PreviousMode != KernelMode))
     {
         /* Entry SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Make sure the state pointer is valid */
             ProbeForWriteLong(PreviousCount);
          }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure count makes sense */
@@ -332,7 +335,7 @@ NtReleaseSemaphore(IN HANDLE SemaphoreHandle,
     if (NT_SUCCESS(Status))
     {
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Release the semaphore */
             LONG PrevCount = KeReleaseSemaphore(Semaphore,
@@ -341,16 +344,14 @@ NtReleaseSemaphore(IN HANDLE SemaphoreHandle,
                                                 FALSE);
 
             /* Return the old count if requested */
-            if (PreviousCount) *PreviousCount = PrevCount;
+            if(PreviousCount) *PreviousCount = PrevCount;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
 
-        /* Dereference the Semaphore */
         ObDereferenceObject(Semaphore);
     }
 

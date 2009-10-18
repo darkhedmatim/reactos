@@ -21,6 +21,10 @@
 #ifndef __WINWLX_H
 #define __WINWLX_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -633,7 +637,7 @@ struct _WLX_DISPATCH_VERSION_1_4
 /* non-GINA notification DLLs*/
 
 typedef
-DWORD (CALLBACK *PFNMSGECALLBACK)(
+DWORD (*PFNMSGECALLBACK)(
 	BOOL bVerbose,
 	LPWSTR lpMessage);
 

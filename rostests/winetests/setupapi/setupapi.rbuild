@@ -3,7 +3,7 @@
 <group>
 <module name="setupapi_winetest" type="win32cui" installbase="bin" installname="setupapi_winetest.exe" allowwarnings="true">
     <include base="setupapi_winetest">.</include>
-    <define name="__ROS_LONG64__" />
+    <define name="__USE_W32API" />
     <library>ntdll</library>
     <library>kernel32</library>
     <library>advapi32</library>

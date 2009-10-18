@@ -50,7 +50,6 @@ struct gl_uniform
    const char *Name;        /**< Null-terminated string */
    GLint VertPos;
    GLint FragPos;
-   GLboolean Initialized;   /**< For debug.  Has this uniform been set? */
 #if 0
    GLenum DataType;         /**< GL_FLOAT, GL_FLOAT_VEC2, etc */
    GLuint Size;             /**< Number of components (1..4) */
@@ -75,7 +74,7 @@ _mesa_new_uniform_list(void);
 extern void
 _mesa_free_uniform_list(struct gl_uniform_list *list);
 
-extern struct gl_uniform *
+extern GLboolean
 _mesa_append_uniform(struct gl_uniform_list *list,
                      const char *name, GLenum target, GLuint progPos);
 

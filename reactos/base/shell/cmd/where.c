@@ -141,7 +141,7 @@ SearchForExecutableSingle (LPCTSTR pFileName, LPTSTR pFullName, LPTSTR pPathExt,
 BOOL
 SearchForExecutable (LPCTSTR pFileName, LPTSTR pFullName)
 {
-	static TCHAR pszDefaultPathExt[] = _T(".com;.exe;.bat;.cmd");
+	static TCHAR pszDefaultPathExt[] = _T(".COM;.EXE;.BAT;.CMD");
 	LPTSTR pszPathExt, pszPath;
 	LPTSTR pCh;
 	DWORD  dwBuffer;
@@ -154,15 +154,10 @@ SearchForExecutable (LPCTSTR pFileName, LPTSTR pFullName)
 	{
 		pszPathExt = (LPTSTR)cmd_realloc (pszPathExt, dwBuffer * sizeof (TCHAR));
 		GetEnvironmentVariable (_T("PATHEXT"), pszPathExt, dwBuffer);
-		_tcslwr(pszPathExt);
 	}
 	else if (0 == dwBuffer)
 	{
 		_tcscpy(pszPathExt, pszDefaultPathExt);
-	}
-	else
-	{
-		_tcslwr(pszPathExt);
 	}
 
 	/* Check if valid directly on specified path */

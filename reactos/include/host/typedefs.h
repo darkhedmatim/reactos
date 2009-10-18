@@ -40,31 +40,40 @@
 #define OPTIONAL
 
 #define FALSE 0
-#define TRUE  1
+#define TRUE (!(FALSE))
+
+/* FIXME: this value is target specific, host tools MUST not use it
+ * and this line has to be removed */
+#define PAGE_SIZE 4096
 
 #define ANYSIZE_ARRAY 1
 
-/* Basic types
-   Emulate a LLP64 memory model using a LP64 compiler */
-typedef void VOID, *PVOID;
-typedef char CHAR, CCHAR, *PCHAR, *PSTR;
+/* Type definitions */
+typedef void VOID, *PVOID, *HANDLE;
+typedef HANDLE HKEY, *PHKEY;
+typedef unsigned char UCHAR, *PUCHAR, BYTE, *LPBYTE;
+typedef char CHAR, *PCHAR, *PSTR;
+typedef const char CCHAR;
 typedef const char *PCSTR, *LPCSTR;
-typedef unsigned char UCHAR, *PUCHAR, BYTE, *LPBYTE, BOOLEAN, *PBOOLEAN;
 typedef short SHORT, *PSHORT;
-typedef unsigned short USHORT, *PUSHORT, WORD, *PWORD, *LPWORD, WCHAR, *PWCHAR, *PWSTR, *LPWSTR;
-typedef const unsigned short *PCWSTR, *LPCWSTR;
-typedef int INT, LONG, *PLONG, *LPLONG, BOOL;
-typedef unsigned int UINT, *PUINT, *LPUINT, ULONG, *PULONG, DWORD, *LPDWORD;
-typedef long LONG_PTR, *PLONG_PTR, INT_PTR, *PINT_PTR;
-typedef unsigned long ULONG_PTR, DWORD_PTR, *PULONG_PTR, UINT_PTR, *PUINT_PTR;
+typedef unsigned short USHORT, *PUSHORT;
+typedef unsigned short WORD, *PWORD, *LPWORD;
+typedef int LONG, *PLONG, *LPLONG;
+typedef unsigned int ULONG, *PULONG, DWORD, *LPDWORD;
 typedef long long LONGLONG;
 typedef unsigned long long ULONGLONG;
-
-/* Derived types */
-typedef PVOID HANDLE, HKEY, *PHKEY;
-typedef INT NTSTATUS, POOL_TYPE;
-typedef LONG HRESULT;
+typedef int INT;
+typedef unsigned int UINT, *PUINT, *LPUINT, UINT_PTR, *PUINT_PTR;
+typedef UCHAR BOOLEAN, *PBOOLEAN;
+typedef int BOOL;
+typedef long int LONG_PTR, *PLONG_PTR;
+typedef long unsigned int ULONG_PTR, DWORD_PTR, *PULONG_PTR;
 typedef ULONG_PTR SIZE_T, *PSIZE_T;
+typedef unsigned short WCHAR, *PWCHAR, *PWSTR, *LPWSTR;
+typedef const unsigned short *PCWSTR, *LPCWSTR;
+typedef int NTSTATUS;
+typedef int POOL_TYPE;
+typedef LONG HRESULT;
 
 #define MAXUSHORT USHRT_MAX
 
@@ -153,8 +162,8 @@ InsertTailList(
     ListHead->Blink = Entry;
 }
 
-static __inline
 BOOLEAN
+static __inline
 IsListEmpty(
             IN const LIST_ENTRY * ListHead
             )
@@ -217,14 +226,8 @@ typedef const UNICODE_STRING *PCUNICODE_STRING;
 #define MAKEWORD(a,b)           ((WORD)(((BYTE)(a))|(((WORD)((BYTE)(b)))<<8)))
 #define MAKELONG(a,b)           ((LONG)(((WORD)(a))|(((DWORD)((WORD)(b)))<<16)))
 
-#define MAXULONG 0xFFFFFFFF
-
 #define NT_SUCCESS(x)           ((x)>=0)
-#if !defined(__GNUC__)
-#define FIELD_OFFSET(t,f)       ((LONG)(LONG_PTR)&(((t*) 0)->f))
-#else
-#define FIELD_OFFSET(t,f)       ((LONG)__builtin_offsetof(t,f))
-#endif
+#define FIELD_OFFSET(t,f)       ((LONG_PTR)&(((t*)0)->f))
 #define RTL_CONSTANT_STRING(s)  { sizeof(s)-sizeof((s)[0]), sizeof(s), s }
 #define CONTAINING_RECORD(address, type, field)  ((type *)(((ULONG_PTR)address) - (ULONG_PTR)(&(((type *)0)->field))))
 

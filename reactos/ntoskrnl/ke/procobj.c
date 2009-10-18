@@ -96,9 +96,6 @@ KiAttachProcess(IN PKTHREAD Thread,
 
         /* Release lock */
         KiReleaseApcLockFromDpcLevel(ApcLock);
-        
-        /* Make sure that we are in the right page directory (ReactOS Mm Hack) */
-        MiSyncForProcessAttach(Thread, (PEPROCESS)Process);
 
         /* Swap Processes */
         KiSwapProcess(Process, SavedApcState->Process);
@@ -281,7 +278,7 @@ KeSetPriorityAndQuantumProcess(IN PKPROCESS Process,
     if (Process->BasePriority == Priority) return Process->BasePriority;
 
     /* If the caller gave priority 0, normalize to 1 */
-    if (!Priority) Priority = LOW_PRIORITY + 1;
+    if (!LOW_PRIORITY) Priority = LOW_PRIORITY + 1;
 
     /* Lock the process */
     KiAcquireProcessLock(Process, &ProcessLock);
@@ -538,7 +535,7 @@ KeDetachProcess(VOID)
     KiReleaseApcLockFromDpcLevel(&ApcLock);
 
     /* Swap Processes */
-    KiSwapProcess(Thread->ApcState.Process, Process);
+    KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
 
     /* Exit the dispatcher */
     KiExitDispatcher(ApcLock.OldIrql);
@@ -575,6 +572,9 @@ KeStackAttachProcess(IN PKPROCESS Process,
     PKTHREAD Thread = KeGetCurrentThread();
     ASSERT_PROCESS(Process);
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+
+    /* Make sure that we are in the right page directory (ReactOS Mm Hack) */
+    MiSyncForProcessAttach(Thread, (PEPROCESS)Process);
 
     /* Crash system if DPC is being executed! */
     if (KeIsExecutingDpc())
@@ -705,7 +705,7 @@ KeUnstackDetachProcess(IN PRKAPC_STATE ApcState)
     KiReleaseApcLockFromDpcLevel(&ApcLock);
 
     /* Swap Processes */
-    KiSwapProcess(Thread->ApcState.Process, Process);
+    KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
 
     /* Exit the dispatcher */
     KiExitDispatcher(ApcLock.OldIrql);
@@ -717,54 +717,6 @@ KeUnstackDetachProcess(IN PRKAPC_STATE ApcState)
         Thread->ApcState.KernelApcPending = TRUE;
         HalRequestSoftwareInterrupt(APC_LEVEL);
     }
-}
-
-/*
- * @implemented
- */
-ULONG
-NTAPI
-KeQueryRuntimeProcess(IN PKPROCESS Process,
-                      OUT PULONG UserTime)
-{
-    ULONG TotalUser, TotalKernel;
-    KLOCK_QUEUE_HANDLE ProcessLock;
-    PLIST_ENTRY NextEntry, ListHead;
-    PKTHREAD Thread;
-
-    ASSERT_PROCESS(Process);
-
-    /* Initialize user and kernel times */
-    TotalUser = Process->UserTime;
-    TotalKernel = Process->KernelTime;
-
-    /* Lock the process */
-    KiAcquireProcessLock(Process, &ProcessLock);
-
-    /* Loop all child threads and sum up their times */
-    ListHead = &Process->ThreadListHead;
-    NextEntry = ListHead->Flink;
-    while (ListHead != NextEntry)
-    {
-        /* Get the thread */
-        Thread = CONTAINING_RECORD(NextEntry, KTHREAD, ThreadListEntry);
-
-        /* Sum up times */
-        TotalKernel += Thread->KernelTime;
-        TotalUser += Thread->UserTime;
-
-        /* Go to the next one */
-        NextEntry = NextEntry->Flink;
-    }
-
-    /* Release lock */
-    KiReleaseProcessLock(&ProcessLock);
-
-    /* Return the user time */
-    *UserTime = TotalUser;
-
-    /* Return the kernel time */
-    return TotalKernel;
 }
 
 /*

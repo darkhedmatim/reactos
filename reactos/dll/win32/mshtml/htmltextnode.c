@@ -32,12 +32,12 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
-struct HTMLDOMTextNode {
+typedef struct {
     HTMLDOMNode node;
     const IHTMLDOMTextNodeVtbl   *lpIHTMLDOMTextNodeVtbl;
-};
+} HTMLDOMTextNode;
 
-#define HTMLTEXT(x)  (&(x)->lpIHTMLDOMTextNodeVtbl)
+#define HTMLTEXT(x)  ((IHTMLDOMTextNode*)  &(x)->lpIHTMLDOMTextNodeVtbl)
 
 #define HTMLTEXT_THIS(iface) DEFINE_THIS(HTMLDOMTextNode, IHTMLDOMTextNode, iface)
 
@@ -68,14 +68,16 @@ static ULONG WINAPI HTMLDOMTextNode_Release(IHTMLDOMTextNode *iface)
 static HRESULT WINAPI HTMLDOMTextNode_GetTypeInfoCount(IHTMLDOMTextNode *iface, UINT *pctinfo)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
-    return IDispatchEx_GetTypeInfoCount(DISPATCHEX(&This->node.dispex), pctinfo);
+    FIXME("(%p)->(%p)\n", This, pctinfo);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDOMTextNode_GetTypeInfo(IHTMLDOMTextNode *iface, UINT iTInfo,
                                               LCID lcid, ITypeInfo **ppTInfo)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
-    return IDispatchEx_GetTypeInfo(DISPATCHEX(&This->node.dispex), iTInfo, lcid, ppTInfo);
+    FIXME("(%p)->(%u %u %p)\n", This, iTInfo, lcid, ppTInfo);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDOMTextNode_GetIDsOfNames(IHTMLDOMTextNode *iface, REFIID riid,
@@ -83,7 +85,9 @@ static HRESULT WINAPI HTMLDOMTextNode_GetIDsOfNames(IHTMLDOMTextNode *iface, REF
                                                 LCID lcid, DISPID *rgDispId)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
-    return IDispatchEx_GetIDsOfNames(DISPATCHEX(&This->node.dispex), riid, rgszNames, cNames, lcid, rgDispId);
+    FIXME("(%p)->(%s %p %u %u %p)\n", This, debugstr_guid(riid), rgszNames, cNames,
+                                        lcid, rgDispId);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDOMTextNode_Invoke(IHTMLDOMTextNode *iface, DISPID dispIdMember,
@@ -91,8 +95,9 @@ static HRESULT WINAPI HTMLDOMTextNode_Invoke(IHTMLDOMTextNode *iface, DISPID dis
                             VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
-    return IDispatchEx_Invoke(DISPATCHEX(&This->node.dispex), dispIdMember, riid, lcid, wFlags, pDispParams,
-            pVarResult, pExcepInfo, puArgErr);
+    FIXME("(%p)->(%d %s %d %d %p %p %p %p)\n", This, dispIdMember, debugstr_guid(riid),
+          lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDOMTextNode_put_data(IHTMLDOMTextNode *iface, BSTR v)
@@ -116,17 +121,17 @@ static HRESULT WINAPI HTMLDOMTextNode_toString(IHTMLDOMTextNode *iface, BSTR *St
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLDOMTextNode_get_length(IHTMLDOMTextNode *iface, LONG *p)
+static HRESULT WINAPI HTMLDOMTextNode_get_length(IHTMLDOMTextNode *iface, long *p)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
     FIXME("(%p)->(%p)\n", This, p);
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLDOMTextNode_splitText(IHTMLDOMTextNode *iface, LONG offset, IHTMLDOMNode **pRetNode)
+static HRESULT WINAPI HTMLDOMTextNode_splitText(IHTMLDOMTextNode *iface, long offset, IHTMLDOMNode **pRetNode)
 {
     HTMLDOMTextNode *This = HTMLTEXT_THIS(iface);
-    FIXME("(%p)->(%d %p)\n", This, offset, pRetNode);
+    FIXME("(%p)->(%ld %p)\n", This, offset, pRetNode);
     return E_NOTIMPL;
 }
 
@@ -149,7 +154,7 @@ static const IHTMLDOMTextNodeVtbl HTMLDOMTextNodeVtbl = {
 
 #define HTMLTEXT_NODE_THIS(iface) DEFINE_THIS2(HTMLDOMTextNode, node, iface)
 
-static HRESULT HTMLDOMTextNode_QI(HTMLDOMNode *iface, REFIID riid, void **ppv)
+HRESULT HTMLDOMTextNode_QI(HTMLDOMNode *iface, REFIID riid, void **ppv)
 {
     HTMLDOMTextNode *This = HTMLTEXT_NODE_THIS(iface);
 
@@ -166,7 +171,7 @@ static HRESULT HTMLDOMTextNode_QI(HTMLDOMNode *iface, REFIID riid, void **ppv)
     return S_OK;
 }
 
-static void HTMLDOMTextNode_destructor(HTMLDOMNode *iface)
+void HTMLDOMTextNode_destructor(HTMLDOMNode *iface)
 {
     HTMLDOMTextNode *This = HTMLTEXT_NODE_THIS(iface);
 

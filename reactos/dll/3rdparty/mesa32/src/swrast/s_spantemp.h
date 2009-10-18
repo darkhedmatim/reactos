@@ -43,7 +43,7 @@
  * ignored otherwise.
  */
 
-#include "main/macros.h"
+#include "macros.h"
 
 
 #ifdef CI_MODE

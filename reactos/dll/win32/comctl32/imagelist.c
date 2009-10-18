@@ -6,7 +6,6 @@
  *  Copyright 2001, 2004 Michael Stefaniuc
  *  Copyright 2001 Charles Loep for CodeWeavers
  *  Copyright 2002 Dimitrie O. Paun
- *  Copyright 2009 Owen Rudge for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -156,7 +155,7 @@ static inline void imagelist_copy_images( HIMAGELIST himl, HDC hdcSrc, HDC hdcDe
  *     This function CANNOT be used to reduce the number of images.
  */
 static void
-IMAGELIST_InternalExpandBitmaps (HIMAGELIST himl, INT nImageCount, INT cy)
+IMAGELIST_InternalExpandBitmaps (HIMAGELIST himl, INT nImageCount, INT cx, INT cy)
 {
     HDC     hdcBitmap;
     HBITMAP hbmNewBitmap, hbmNull;
@@ -167,14 +166,15 @@ IMAGELIST_InternalExpandBitmaps (HIMAGELIST himl, INT nImageCount, INT cy)
         && (himl->cy >= cy))
 	return;
 
+    if (cx == 0) cx = himl->cx;
     nNewCount = himl->cCurImage + nImageCount + himl->cGrow;
 
-    imagelist_get_bitmap_size(himl, nNewCount, himl->cx, &sz);
+    imagelist_get_bitmap_size(himl, nNewCount, cx, &sz);
 
     TRACE("Create expanded bitmaps : himl=%p x=%d y=%d count=%d\n", himl, sz.cx, cy, nNewCount);
     hdcBitmap = CreateCompatibleDC (0);
 
-    hbmNewBitmap = ImageList_CreateImage(hdcBitmap, himl, nNewCount, himl->cx);
+    hbmNewBitmap = ImageList_CreateImage(hdcBitmap, himl, nNewCount, cx);
 
     if (hbmNewBitmap == 0)
         ERR("creating new image bitmap (x=%d y=%d)!\n", sz.cx, cy);
@@ -243,12 +243,12 @@ ImageList_Add (HIMAGELIST himl,	HBITMAP hbmImage, HBITMAP hbmMask)
     if (!is_valid(himl))
         return -1;
 
-    if (!GetObjectW(hbmImage, sizeof(BITMAP), &bmp))
+    if (!GetObjectW(hbmImage, sizeof(BITMAP), (LPVOID)&bmp))
         return -1;
 
     nImageCount = bmp.bmWidth / himl->cx;
 
-    IMAGELIST_InternalExpandBitmaps (himl, nImageCount, bmp.bmHeight);
+    IMAGELIST_InternalExpandBitmaps (himl, nImageCount, bmp.bmWidth, bmp.bmHeight);
 
     hdcBitmap = CreateCompatibleDC(0);
 
@@ -350,7 +350,7 @@ ImageList_AddMasked (HIMAGELIST himl, HBITMAP hBitmap, COLORREF clrMask)
     else
 	nImageCount = 0;
 
-    IMAGELIST_InternalExpandBitmaps (himl, nImageCount, bmp.bmHeight);
+    IMAGELIST_InternalExpandBitmaps (himl, nImageCount, bmp.bmWidth, bmp.bmHeight);
 
     nIndex = himl->cCurImage;
     himl->cCurImage += nImageCount;
@@ -598,7 +598,7 @@ ImageList_Create (INT cx, INT cy, UINT flags,
 
     TRACE("(%d %d 0x%x %d %d)\n", cx, cy, flags, cInitial, cGrow);
 
-    himl = Alloc (sizeof(struct _IMAGELIST));
+    himl = (HIMAGELIST)Alloc (sizeof(struct _IMAGELIST));
     if (!himl)
         return NULL;
 
@@ -658,11 +658,11 @@ ImageList_Create (INT cx, INT cy, UINT flags,
         himl->hbmMask = 0;
 
     /* create blending brushes */
-    hbmTemp = CreateBitmap (8, 8, 1, 1, aBitBlend25);
+    hbmTemp = CreateBitmap (8, 8, 1, 1, &aBitBlend25);
     himl->hbrBlend25 = CreatePatternBrush (hbmTemp);
     DeleteObject (hbmTemp);
 
-    hbmTemp = CreateBitmap (8, 8, 1, 1, aBitBlend50);
+    hbmTemp = CreateBitmap (8, 8, 1, 1, &aBitBlend50);
     himl->hbrBlend50 = CreatePatternBrush (hbmTemp);
     DeleteObject (hbmTemp);
 
@@ -1212,7 +1212,7 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
 	/* Create the blend Mask */
     	hOldBitmap = SelectObject(hBlendMaskDC, hBlendMaskBmp);
 	hBlendBrush = fStyle & ILD_BLEND50 ? himl->hbrBlend50 : himl->hbrBlend25;
-        hOldBrush = SelectObject(hBlendMaskDC, hBlendBrush);
+    	hOldBrush = (HBRUSH) SelectObject(hBlendMaskDC, hBlendBrush);
     	PatBlt(hBlendMaskDC, 0, 0, cx, cy, PATCOPY);
     	SelectObject(hBlendMaskDC, hOldBrush);
 
@@ -1225,7 +1225,7 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
 	/* now apply blend to the current image given the BlendMask */
         if (clrBlend == CLR_DEFAULT) clrBlend = GetSysColor (COLOR_HIGHLIGHT);
         else if (clrBlend == CLR_NONE) clrBlend = GetTextColor (pimldp->hdcDst);
-	hOldBrush = SelectObject (hImageDC, CreateSolidBrush(clrBlend));
+	hOldBrush = (HBRUSH) SelectObject (hImageDC, CreateSolidBrush(clrBlend));
 	BitBlt (hImageDC, 0, 0, cx, cy, hBlendMaskDC, 0, 0, 0xB8074A); /* PSDPxax */
 	DeleteObject(SelectObject(hImageDC, hOldBrush));
 	SelectObject(hBlendMaskDC, hOldBitmap);
@@ -1730,14 +1730,14 @@ ImageList_LoadImageW (HINSTANCE hi, LPCWSTR lpbmp, INT cx, INT cGrow,
             DeleteObject (handle);
             return NULL;
         }
-        ImageList_AddMasked (himl, handle, clrMask);
+        ImageList_AddMasked (himl, (HBITMAP)handle, clrMask);
     }
     else if ((uType == IMAGE_ICON) || (uType == IMAGE_CURSOR)) {
         ICONINFO ii;
         BITMAP bmp;
 
         GetIconInfo (handle, &ii);
-        GetObjectW (ii.hbmColor, sizeof(BITMAP), &bmp);
+        GetObjectW (ii.hbmColor, sizeof(BITMAP), (LPVOID)&bmp);
         himl = ImageList_Create (bmp.bmWidth, bmp.bmHeight,
                                  ILC_MASK | ILC_COLOR, 1, cGrow);
         if (!himl) {
@@ -1899,7 +1899,7 @@ static int DIB_GetDIBImageBytes( int width, int height, int depth )
 
 
 /* helper for ImageList_Read, see comments below */
-static BOOL _read_bitmap(HDC hdcIml, LPSTREAM pstm)
+static BOOL _read_bitmap(HIMAGELIST himl, HDC hdcIml, LPSTREAM pstm)
 {
     BITMAPFILEHEADER	bmfh;
     int bitsperpixel, palspace;
@@ -1908,13 +1908,13 @@ static BOOL _read_bitmap(HDC hdcIml, LPSTREAM pstm)
     int                result = FALSE;
     LPBYTE             bits = NULL;
 
-    if (FAILED(IStream_Read ( pstm, &bmfh, sizeof(bmfh), NULL)))
+    if (!SUCCEEDED(IStream_Read ( pstm, &bmfh, sizeof(bmfh), NULL)))
         return FALSE;
 
     if (bmfh.bfType != (('M'<<8)|'B'))
         return FALSE;
 
-    if (FAILED(IStream_Read ( pstm, &bmi->bmiHeader, sizeof(bmi->bmiHeader), NULL)))
+    if (!SUCCEEDED(IStream_Read ( pstm, &bmi->bmiHeader, sizeof(bmi->bmiHeader), NULL)))
         return FALSE;
 
     if ((bmi->bmiHeader.biSize != sizeof(bmi->bmiHeader)))
@@ -1933,13 +1933,13 @@ static BOOL _read_bitmap(HDC hdcIml, LPSTREAM pstm)
     bmi->bmiHeader.biSizeImage = DIB_GetDIBImageBytes(bmi->bmiHeader.biWidth, bmi->bmiHeader.biHeight, bitsperpixel);
 
     /* read the palette right after the end of the bitmapinfoheader */
-    if (palspace && FAILED(IStream_Read(pstm, bmi->bmiColors, palspace, NULL)))
+    if (palspace && !SUCCEEDED(IStream_Read(pstm, bmi->bmiColors, palspace, NULL)))
 	goto error;
 
     bits = Alloc(bmi->bmiHeader.biSizeImage);
     if (!bits)
         goto error;
-    if (FAILED(IStream_Read(pstm, bits, bmi->bmiHeader.biSizeImage, NULL)))
+    if (!SUCCEEDED(IStream_Read(pstm, bits, bmi->bmiHeader.biSizeImage, NULL)))
         goto error;
 
     if (!StretchDIBits(hdcIml, 0, 0, bmi->bmiHeader.biWidth, bmi->bmiHeader.biHeight,
@@ -1992,7 +1992,7 @@ HIMAGELIST WINAPI ImageList_Read (LPSTREAM pstm)
 
     TRACE("%p\n", pstm);
 
-    if (FAILED(IStream_Read (pstm, &ilHead, sizeof(ILHEAD), NULL)))
+    if (!SUCCEEDED(IStream_Read (pstm, &ilHead, sizeof(ILHEAD), NULL)))
 	return NULL;
     if (ilHead.usMagic != (('L' << 8) | 'I'))
 	return NULL;
@@ -2006,14 +2006,14 @@ HIMAGELIST WINAPI ImageList_Read (LPSTREAM pstm)
     if (!himl)
 	return NULL;
 
-    if (!_read_bitmap(himl->hdcImage, pstm))
+    if (!_read_bitmap(himl, himl->hdcImage, pstm))
     {
 	WARN("failed to read bitmap from stream\n");
 	return NULL;
     }
     if (ilHead.flags & ILC_MASK)
     {
-        if (!_read_bitmap(himl->hdcMask, pstm))
+        if (!_read_bitmap(himl, himl->hdcMask, pstm))
         {
             WARN("failed to read mask bitmap from stream\n");
 	    return NULL;
@@ -2196,7 +2196,7 @@ ImageList_Replace (HIMAGELIST himl, INT i, HBITMAP hbmImage,
         return FALSE;
     }
 
-    if (!GetObjectW(hbmImage, sizeof(BITMAP), &bmp))
+    if (!GetObjectW(hbmImage, sizeof(BITMAP), (LPVOID)&bmp))
         return FALSE;
 
     hdcImage = CreateCompatibleDC (0);
@@ -2291,7 +2291,7 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT nIndex, HICON hIcon)
         return -1;
     }
 
-    ret = GetObjectW (ii.hbmMask, sizeof(BITMAP), &bmp);
+    ret = GetObjectW (ii.hbmMask, sizeof(BITMAP), (LPVOID)&bmp);
     if (!ret) {
         ERR("couldn't get mask bitmap info\n");
         if (ii.hbmColor)
@@ -2304,7 +2304,7 @@ ImageList_ReplaceIcon (HIMAGELIST himl, INT nIndex, HICON hIcon)
 
     if (nIndex == -1) {
         if (himl->cCurImage + 1 > himl->cMaxImage)
-            IMAGELIST_InternalExpandBitmaps (himl, 1, 0);
+            IMAGELIST_InternalExpandBitmaps (himl, 1, 0, 0);
 
         nIndex = himl->cCurImage;
         himl->cCurImage++;
@@ -2686,7 +2686,7 @@ _write_bitmap(HBITMAP hBitmap, LPSTREAM pstm)
     HDC xdc;
     BOOL result = FALSE;
 
-    if (!GetObjectW(hBitmap, sizeof(BITMAP), &bm))
+    if (!GetObjectW(hBitmap, sizeof(BITMAP), (LPVOID)&bm))
         return FALSE;
 
     bitCount = bm.bmBitsPixel == 1 ? 1 : 24;
@@ -2740,7 +2740,7 @@ _write_bitmap(HBITMAP hBitmap, LPSTREAM pstm)
 	inf->bmiColors[1].rgbRed = inf->bmiColors[1].rgbGreen = inf->bmiColors[1].rgbBlue = 0xff;
     }
 
-    if(FAILED(IStream_Write(pstm, data, totalSize, NULL)))
+    if(!SUCCEEDED(IStream_Write(pstm, data, totalSize, NULL)))
 	goto failed;
 
     result = TRUE;
@@ -2796,7 +2796,7 @@ ImageList_Write (HIMAGELIST himl, LPSTREAM pstm)
     TRACE("cx %u, cy %u, flags 0x04%x, cCurImage %u, cMaxImage %u\n",
           ilHead.cx, ilHead.cy, ilHead.flags, ilHead.cCurImage, ilHead.cMaxImage);
 
-    if(FAILED(IStream_Write(pstm, &ilHead, sizeof(ILHEAD), NULL)))
+    if(!SUCCEEDED(IStream_Write(pstm, &ilHead, sizeof(ILHEAD), NULL)))
 	return FALSE;
 
     /* write the bitmap */
@@ -2905,48 +2905,4 @@ UINT WINAPI
 ImageList_SetColorTable (HIMAGELIST himl, UINT uStartIndex, UINT cEntries, CONST RGBQUAD * prgb)
 {
     return SetDIBColorTable(himl->hdcImage, uStartIndex, cEntries, prgb);
-}
-
-/*************************************************************************
- * ImageList_CoCreateInstance [COMCTL32.@]
- *
- * Creates a new imagelist instance and returns an interface pointer to it.
- *
- * PARAMS
- *     rclsid      [I] A reference to the CLSID (CLSID_ImageList).
- *     punkOuter   [I] Pointer to IUnknown interface for aggregation, if desired
- *     riid        [I] Identifier of the requested interface.
- *     ppv         [O] Returns the address of the pointer requested, or NULL.
- *
- * RETURNS
- *     Success: S_OK.
- *     Failure: Error value.
- */
-HRESULT WINAPI
-ImageList_CoCreateInstance (REFCLSID rclsid, const IUnknown *punkOuter, REFIID riid, void **ppv)
-{
-    FIXME("STUB: %s %p %s %p\n", debugstr_guid(rclsid), punkOuter, debugstr_guid(riid), ppv);
-    return E_NOINTERFACE;
-}
-
-/*************************************************************************
- * HIMAGELIST_QueryInterface [COMCTL32.@]
- *
- * Returns a pointer to an IImageList or IImageList2 object for the given
- * HIMAGELIST.
- *
- * PARAMS
- *     himl        [I] Image list handle.
- *     riid        [I] Identifier of the requested interface.
- *     ppv         [O] Returns the address of the pointer requested, or NULL.
- *
- * RETURNS
- *     Success: S_OK.
- *     Failure: Error value.
- */
-HRESULT WINAPI
-HIMAGELIST_QueryInterface (HIMAGELIST himl, REFIID riid, void **ppv)
-{
-    FIXME("STUB: %p %s %p\n", himl, debugstr_guid(riid), ppv);
-    return E_NOINTERFACE;
 }

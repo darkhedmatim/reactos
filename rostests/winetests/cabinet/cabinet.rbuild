@@ -3,7 +3,6 @@
 <group>
 <module name="cabinet_winetest" type="win32cui" installbase="bin" installname="cabinet_winetest.exe" allowwarnings="true">
 	<include base="cabinet_winetest">.</include>
-    <define name="__ROS_LONG64__" />
 	<file>extract.c</file>
 	<file>fdi.c</file>
 	<file>testlist.c</file>

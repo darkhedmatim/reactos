@@ -3,7 +3,7 @@
 
 int main()
 {
-   PBYTE Base;
+   PVOID Base;
    PVOID Ret;
 
    Base = VirtualAlloc(NULL,

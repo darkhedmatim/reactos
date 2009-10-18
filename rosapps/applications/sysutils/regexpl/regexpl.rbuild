@@ -26,6 +26,7 @@
 	<file>ShellCommandValue.cpp</file>
 	<file>ShellCommandVersion.cpp</file>
 	<file>ShellCommandsLinkedList.cpp</file>
+	<file>CrtSupplement.c</file>
 	<file>TextHistory.cpp</file>
 	<file>Completion.cpp</file>
 	<file>Pattern.cpp</file>

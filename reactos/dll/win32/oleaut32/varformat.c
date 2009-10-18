@@ -462,7 +462,7 @@ static inline const BYTE *VARIANT_GetNamedFormat(LPCWSTR lpszFormat)
   LPCNAMED_FORMAT fmt;
 
   key.name = lpszFormat;
-  fmt = bsearch(&key, VARIANT_NamedFormats,
+  fmt = (LPCNAMED_FORMAT)bsearch(&key, VARIANT_NamedFormats,
                                  sizeof(VARIANT_NamedFormats)/sizeof(NAMED_FORMAT),
                                  sizeof(NAMED_FORMAT), FormatCompareFn);
   return fmt ? fmt->format : NULL;
@@ -1305,17 +1305,11 @@ static HRESULT VARIANT_FormatNumber(LPVARIANT pVarIn, LPOLESTR lpszFormat,
           else
           {
             rgbDig[have_int + need_frac] = 0;
-            if (exponent < 0)
-              exponent++;
-            else
-              have_int++;
+            have_int++;
           }
         }
         else
           (*prgbDig)++;
-        /* We converted trailing digits to zeroes => have_frac has changed */
-        while (have_frac > 0 && rgbDig[have_int + have_frac - 1] == 0)
-          have_frac--;
       }
     }
     TRACE("have_int=%d,need_int=%d,have_frac=%d,need_frac=%d,pad=%d,exp=%d\n",
@@ -1397,7 +1391,7 @@ VARIANT_FormatNumber_Bool:
       break;
 
     case FMT_NUM_DECIMAL:
-      if ((np.dwOutFlags & NUMPRS_NEG) && !(dwState & NUM_WROTE_SIGN) && !header->starts[1])
+      if ((np.dwOutFlags & NUMPRS_NEG) && !(dwState & NUM_WROTE_SIGN))
       {
         /* last chance for a negative sign in the .# case */
         TRACE("write negative sign\n");
@@ -1482,7 +1476,7 @@ VARIANT_FormatNumber_Bool:
       {
         int count, count_max, position;
 
-        if ((np.dwOutFlags & NUMPRS_NEG) && !(dwState & NUM_WROTE_SIGN) && !header->starts[1])
+        if ((np.dwOutFlags & NUMPRS_NEG) && !(dwState & NUM_WROTE_SIGN))
         {
           TRACE("write negative sign\n");
           localeValue = LOCALE_SNEGATIVESIGN;
@@ -1538,6 +1532,7 @@ VARIANT_FormatNumber_Bool:
           }
         }
         count = min(count_max, pad);
+        count_max -= count;
         pad -= count;
         TRACE("write %d whole trailing 0's\n", count);
         while (count--)

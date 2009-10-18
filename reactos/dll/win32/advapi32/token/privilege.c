@@ -17,7 +17,7 @@
  *
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 PrivilegeCheck(HANDLE ClientToken,
                PPRIVILEGE_SET RequiredPrivileges,
                LPBOOL pfResult)

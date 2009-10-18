@@ -142,8 +142,6 @@ bool zero_blocks(PEXT2_FILESYS fs, ULONG blk, ULONG num,
         if (!buf)
         {
             DPRINT1("Mke2fs: while allocating zeroizing buffer");
-            if (ret_blk)
-                *ret_blk = blk;
             return false;
         }
         memset(buf, 0, fs->blocksize * STRIDE_LENGTH);
@@ -814,10 +812,6 @@ Ext2Format(
     /* File Sys Structure */
     EXT2_FILESYS     FileSys;
     ULONG Percent;
-    ULONG rsv;
-    ULONG blocks;
-    ULONG start;
-    ULONG ret_blk;
 
 
     Callback(PROGRESS, 0, (PVOID)&Percent);
@@ -891,7 +885,7 @@ Ext2Format(
      * kludgy hack of using the UUID to derive a random jitter value.
      */
     {
-        ULONG i, val;
+        int i, val;
 
         for (i = 0, val = 0 ; i < sizeof(Ext2Sb.s_uuid); i++)
             val += Ext2Sb.s_uuid[i];
@@ -921,8 +915,10 @@ Ext2Format(
     }
 
     /* rsv must be a power of two (64kB is MD RAID sb alignment) */
-    rsv = 65536 / FileSys.blocksize;
-    blocks = Ext2Sb.s_blocks_count;
+    ULONG rsv = 65536 / FileSys.blocksize;
+    ULONG blocks = Ext2Sb.s_blocks_count;
+    ULONG start;
+    ULONG ret_blk;
 
 #ifdef ZAP_BOOTBLOCK
     zap_sector(&FileSys, 0, 2);

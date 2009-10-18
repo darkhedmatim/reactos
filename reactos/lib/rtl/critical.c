@@ -117,15 +117,12 @@ RtlpWaitForCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
     DPRINT("Waiting on Critical Section Event: %p %p\n",
             CriticalSection,
             CriticalSection->LockSemaphore);
-
-    if (CriticalSection->DebugInfo)
-        CriticalSection->DebugInfo->EntryCount++;
+    CriticalSection->DebugInfo->EntryCount++;
 
     for (;;) {
 
         /* Increase the number of times we've had contention */
-        if (CriticalSection->DebugInfo)
-            CriticalSection->DebugInfo->ContentionCount++;
+        CriticalSection->DebugInfo->ContentionCount++;
 
         /* Wait on the Event */
         Status = NtWaitForSingleObject(CriticalSection->LockSemaphore,
@@ -361,21 +358,14 @@ RtlDeleteCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
     /* Protect List */
     RtlEnterCriticalSection(&RtlCriticalSectionLock);
 
-    if (CriticalSection->DebugInfo)
-    {
-        /* Remove it from the list */
-        RemoveEntryList(&CriticalSection->DebugInfo->ProcessLocksList);
-        RtlZeroMemory(CriticalSection->DebugInfo, sizeof(RTL_CRITICAL_SECTION_DEBUG));
-    }
+    /* Remove it from the list */
+    RemoveEntryList(&CriticalSection->DebugInfo->ProcessLocksList);
 
     /* Unprotect */
     RtlLeaveCriticalSection(&RtlCriticalSectionLock);
 
-    if (CriticalSection->DebugInfo)
-    {
-        /* Free it */
-        RtlpFreeDebugInfo(CriticalSection->DebugInfo);
-    }
+    /* Free it */
+    RtlpFreeDebugInfo(CriticalSection->DebugInfo);
 
     /* Wipe it out */
     RtlZeroMemory(CriticalSection, sizeof(RTL_CRITICAL_SECTION));

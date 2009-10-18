@@ -7,7 +7,7 @@
 	<include base="objsel">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<library>wine</library>
 	<library>ole32</library>
 	<library>user32</library>
@@ -19,5 +19,6 @@
 	<file>objsel.c</file>
 	<file>regsvr.c</file>
 	<file>objsel.rc</file>
+	<file>objsel.spec</file>
 </module>
 </group>

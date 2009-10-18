@@ -123,7 +123,7 @@ VideoPortEnableInterrupt(IN PVOID HwDeviceExtension)
       0,
       DeviceExtension->InterruptLevel);
 
-   return Status ? NO_ERROR : ERROR_INVALID_PARAMETER;
+   return Status ? NO_ERROR : ERROR_INVALID_ACCESS;
 }
 
 /*
@@ -144,5 +144,5 @@ VideoPortDisableInterrupt(IN PVOID HwDeviceExtension)
       DeviceExtension->InterruptVector,
       0);
 
-   return Status ? NO_ERROR : ERROR_INVALID_PARAMETER;
+   return Status ? NO_ERROR : ERROR_INVALID_ACCESS;
 }

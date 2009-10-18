@@ -180,9 +180,6 @@ BOOLEAN						FirstAttempt)
 	UNICODE_STRING			AbsolutePathName;
 	UNICODE_STRING			RenameLinkTargetFileName;
 
-    /* Silence GCC warnings */
-    RtlZeroMemory(&RelatedObjectName, sizeof(UNICODE_STRING));
-
 
 	ASSERT(PtrIrpContext);
 	ASSERT(PtrIrp);
@@ -203,7 +200,7 @@ BOOLEAN						FirstAttempt)
 			//	Asynchronous processing required...
 			RC = Ext2PostRequest(PtrIrpContext, PtrIrp);
 			DeferredProcessing = TRUE;
-			try_return();
+			try_return(RC);
 		}
 
 		// Obtaining the parameters specified by the user.
@@ -262,7 +259,7 @@ BOOLEAN						FirstAttempt)
 		if (PtrIrp->Overlay.AllocationSize.HighPart) 
 		{
 			RC = STATUS_INVALID_PARAMETER;
-			try_return();
+			try_return(RC);
 		}
 
 		// Getting a pointer to the supplied security context
@@ -327,7 +324,7 @@ BOOLEAN						FirstAttempt)
 		//	Verify Volume...
 		//	if (!NT_SUCCESS(RC = Ext2VerifyVolume(PtrVCB))) 
 		//	{
-		//		try_return();
+		//		try_return(RC);
 		//	}
 
 		// If the volume has been locked, fail the request
@@ -336,7 +333,7 @@ BOOLEAN						FirstAttempt)
 		{
 			DebugTrace(DEBUG_TRACE_MISC,   "Volume locked. Failing Create", 0 );
 			RC = STATUS_ACCESS_DENIED;
-			try_return();
+			try_return(RC);
 		}
 
 
@@ -351,34 +348,34 @@ BOOLEAN						FirstAttempt)
 			if ((OpenTargetDirectory) || (PtrExtAttrBuffer)) 
 			{
 				RC = STATUS_INVALID_PARAMETER;
-				try_return();
+				try_return(RC);
 			}
 
 			if (DirectoryOnlyRequested) 
 			{
 				// a volume is not a directory
 				RC = STATUS_NOT_A_DIRECTORY;
-				try_return();
+				try_return(RC);
 			}
 
 			if ((RequestedDisposition != FILE_OPEN) && (RequestedDisposition != FILE_OPEN_IF)) 
 			{
 				// cannot create a new volume, I'm afraid ...
 				RC = STATUS_ACCESS_DENIED;
-				try_return();
+				try_return(RC);
 			}
 			DebugTrace(DEBUG_TRACE_MISC,   "Volume open requested", 0 );
 			RC = Ext2OpenVolume(PtrVCB, PtrIrpContext, PtrIrp, ShareAccess, PtrSecurityContext, PtrNewFileObject);
 			ReturnedInformation = PtrIrp->IoStatus.Information;
 
-			try_return();
+			try_return(RC);
 		}
 
 		if (OpenByFileId) 
 		{
 			DebugTrace(DEBUG_TRACE_MISC, "Open by File Id requested", 0 );
 			RC = STATUS_ACCESS_DENIED;
-			try_return();
+			try_return(RC);
 		}
 
 		// Relative path name specified...
@@ -389,20 +386,20 @@ BOOLEAN						FirstAttempt)
 			{
 				// we must have a directory as the "related" object
 				RC = STATUS_INVALID_PARAMETER;
-				try_return();
+				try_return(RC);
 			}
 
 			//	Performing validity checks...
 			if ((RelatedObjectName.Length == 0) || (RelatedObjectName.Buffer[0] != L'\\')) 
 			{
 				RC = STATUS_INVALID_PARAMETER;
-				try_return();
+				try_return(RC);
 			}
 
 			if ((TargetObjectName.Length != 0) && (TargetObjectName.Buffer[0] == L'\\')) 
 			{
 				RC = STATUS_INVALID_PARAMETER;
-				try_return();
+				try_return(RC);
 			}
 
 			// Creating an absolute path-name.
@@ -411,7 +408,7 @@ BOOLEAN						FirstAttempt)
 				if (!(AbsolutePathName.Buffer = Ext2AllocatePool(PagedPool, AbsolutePathName.MaximumLength ))) 
 				{
 					RC = STATUS_INSUFFICIENT_RESOURCES;
-					try_return();
+					try_return(RC);
 				}
 
 				RtlZeroMemory(AbsolutePathName.Buffer, AbsolutePathName.MaximumLength);
@@ -432,14 +429,14 @@ BOOLEAN						FirstAttempt)
 			if (TargetObjectName.Buffer[0] != L'\\') 
 			{
 				RC = STATUS_INVALID_PARAMETER;
-				try_return();
+				try_return(RC);
 			}
 
 			{
 				AbsolutePathName.MaximumLength = TargetObjectName.Length;
 				if (!(AbsolutePathName.Buffer = Ext2AllocatePool(PagedPool, AbsolutePathName.MaximumLength ))) {
 					RC = STATUS_INSUFFICIENT_RESOURCES;
-					try_return();
+					try_return(RC);
 				}
 
 				RtlZeroMemory(AbsolutePathName.Buffer, AbsolutePathName.MaximumLength);
@@ -459,12 +456,12 @@ BOOLEAN						FirstAttempt)
 				 (RequestedDisposition == FILE_OVERWRITE_IF)) 
 			{
 				RC = STATUS_FILE_IS_A_DIRECTORY;
-				try_return();
+				try_return(RC);
 			}
 
 			RC = Ext2OpenRootDirectory(PtrVCB, PtrIrpContext, PtrIrp, ShareAccess, PtrSecurityContext, PtrNewFileObject);
 			DebugTrace(DEBUG_TRACE_MISC,   " === Root directory opened", 0 );
-			try_return();
+			try_return(RC);
 		}
 
 
@@ -565,7 +562,7 @@ BOOLEAN						FirstAttempt)
 						//	Can have only a directory in the middle of the path...
 						//
 						RC = STATUS_OBJECT_PATH_NOT_FOUND;
-						try_return();
+						try_return( RC );
 					}
 				}
 				else	//	searching on the disk...
@@ -603,7 +600,7 @@ BOOLEAN						FirstAttempt)
 							if(	!CurrInodeNo )
 							{
 								RC = STATUS_OBJECT_PATH_NOT_FOUND;
-								try_return();
+								try_return( RC );
 							}
 							// Set the allocation size for the object is specified
 							//IoSetShareAccess(DesiredAccess, ShareAccess, PtrNewFileObject, &(PtrNewFCB->FCBShareAccess));
@@ -650,7 +647,7 @@ BOOLEAN						FirstAttempt)
 						else
 						{
 							RC = STATUS_OBJECT_PATH_NOT_FOUND;
-							try_return();
+							try_return( RC );
 						}
 					}
 
@@ -663,7 +660,7 @@ BOOLEAN						FirstAttempt)
 							//	Can have only a directory in the middle of the path...
 							//
 							RC = STATUS_OBJECT_PATH_NOT_FOUND;
-							try_return();
+							try_return( RC );
 						}
 
 						PtrCurrFileObject = NULL;
@@ -684,7 +681,7 @@ BOOLEAN						FirstAttempt)
 						{
 							ReturnedInformation = FILE_EXISTS;
 							RC = STATUS_OBJECT_NAME_COLLISION;
-							try_return();
+							try_return(RC);
 						}
 						
 						//	Is this the type of file I was looking for?
@@ -695,18 +692,18 @@ BOOLEAN						FirstAttempt)
 							//	Deny access!
 							//	Cannot open a special file...
 							RC = STATUS_ACCESS_DENIED;
-							try_return();
+							try_return( RC );
 
 						}
 						if( DirectoryOnlyRequested && Type != EXT2_FT_DIR )
 						{
 							RC = STATUS_NOT_A_DIRECTORY;
-							try_return();
+							try_return( RC );
 						}
 						if( FileOnlyRequested && Type == EXT2_FT_DIR )
 						{
 							RC = STATUS_FILE_IS_A_DIRECTORY;
-							try_return();
+							try_return(RC);
 						}
 
 						PtrCurrFileObject = PtrNewFileObject;
@@ -736,7 +733,7 @@ BOOLEAN						FirstAttempt)
 							PtrObjectName  )  )  )
 						{
 							RC = STATUS_INSUFFICIENT_RESOURCES;
-							try_return();
+							try_return(RC);
 						}
 
 						if( Type == EXT2_FT_DIR )
@@ -784,7 +781,7 @@ BOOLEAN						FirstAttempt)
 				  (RequestedDisposition == FILE_OVERWRITE) || (RequestedDisposition == FILE_OVERWRITE_IF ))) 
 			{
 				RC = STATUS_FILE_IS_A_DIRECTORY;
-				try_return();
+				try_return(RC);
 			}
 		
 			
@@ -801,7 +798,7 @@ BOOLEAN						FirstAttempt)
 												&(PtrNewFCB->FCBShareAccess), TRUE))) 
 				{
 					// Ext2CloseCCB(PtrNewCCB);
-					try_return();
+					try_return(RC);
 				}
 			} 
 			else 
@@ -1011,7 +1008,7 @@ PFILE_OBJECT			PtrNewFileObject)		// I/O Mgr. created file object
 		if (!(PtrCCB = Ext2AllocateCCB())) 
 		{
 			RC = STATUS_INSUFFICIENT_RESOURCES;
-			try_return();
+			try_return(RC);
 		}
 
 		// initialize the CCB

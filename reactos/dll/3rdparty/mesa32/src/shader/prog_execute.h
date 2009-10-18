@@ -25,8 +25,6 @@
 #ifndef PROG_EXECUTE_H
 #define PROG_EXECUTE_H
 
-#include "main/config.h"
-
 
 typedef void (*FetchTexelLodFunc)(GLcontext *ctx, const GLfloat texcoord[4],
                                   GLfloat lambda, GLuint unit, GLfloat color[4]);
@@ -36,6 +34,10 @@ typedef void (*FetchTexelDerivFunc)(GLcontext *ctx, const GLfloat texcoord[4],
                                     const GLfloat texdy[4],
                                     GLfloat lodBias,
                                     GLuint unit, GLfloat color[4]);
+
+
+/** The larger of VERT_RESULT_MAX, FRAG_RESULT_MAX */
+#define MAX_PROGRAM_OUTPUTS VERT_RESULT_MAX
 
 
 /**

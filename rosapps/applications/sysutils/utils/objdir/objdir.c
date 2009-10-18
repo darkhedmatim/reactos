@@ -28,7 +28,7 @@
 
 static
 PCHAR
-WINAPI
+STDCALL
 RawUszAsz (
 	PWCHAR	szU,
 	PCHAR	szA
@@ -44,7 +44,7 @@ RawUszAsz (
 
 static
 PWCHAR
-WINAPI
+STDCALL
 RawAszUsz (
 	PCHAR	szA,
 	PWCHAR	szW
@@ -60,7 +60,7 @@ RawAszUsz (
 
 static
 const char *
-WINAPI
+STDCALL
 StatusToName (NTSTATUS Status)
 {
 	static char RawValue [16];
@@ -94,7 +94,7 @@ StatusToName (NTSTATUS Status)
 
 
 BOOL
-WINAPI
+STDCALL
 ExpandSymbolicLink (
 	IN	PUNICODE_STRING	DirectoryName,
 	IN	PUNICODE_STRING	SymbolicLinkName,
@@ -167,7 +167,7 @@ ExpandSymbolicLink (
 
 
 BOOL
-WINAPI
+STDCALL
 ListDirectory (
 	IN	PUNICODE_STRING	DirectoryNameW,
 	IN	BOOL		Recurse

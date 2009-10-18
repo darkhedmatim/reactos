@@ -2,7 +2,6 @@
  *
  * Copyright 2007 Jeff Latimer
  * Copyright 2007 Andrey Turkin
- * Copyright 2008 Jeff Zaroyko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,6 +26,7 @@
 #include <stdarg.h>
 
 #include "ntstatus.h"
+
 /* Define WIN32_NO_STATUS so MSVC does not give us duplicate macro
  * definition errors when we get to winnt.h
  */
@@ -39,12 +39,9 @@
 #define IO_COMPLETION_ALL_ACCESS 0x001F0003
 #endif
 
-static NTSTATUS (WINAPI *pRtlFreeUnicodeString)( PUNICODE_STRING );
 static VOID     (WINAPI *pRtlInitUnicodeString)( PUNICODE_STRING, LPCWSTR );
-static BOOL     (WINAPI *pRtlDosPathNameToNtPathName_U)( LPCWSTR, PUNICODE_STRING, PWSTR*, CURDIR* );
 static NTSTATUS (WINAPI *pNtCreateMailslotFile)( PHANDLE, ULONG, POBJECT_ATTRIBUTES, PIO_STATUS_BLOCK,
                                        ULONG, ULONG, ULONG, PLARGE_INTEGER );
-static NTSTATUS (WINAPI *pNtDeleteFile)(POBJECT_ATTRIBUTES ObjectAttributes);
 static NTSTATUS (WINAPI *pNtReadFile)(HANDLE hFile, HANDLE hEvent,
                                       PIO_APC_ROUTINE apc, void* apc_user,
                                       PIO_STATUS_BLOCK io_status, void* buffer, ULONG length,
@@ -69,7 +66,6 @@ static inline BOOL is_signaled( HANDLE obj )
 }
 
 #define PIPENAME "\\\\.\\pipe\\ntdll_tests_file.c"
-#define TEST_BUF_LEN 3
 
 static BOOL create_pipe( HANDLE *read, HANDLE *write, ULONG flags, ULONG size )
 {
@@ -108,7 +104,7 @@ static long get_pending_msgs(HANDLE h)
     NTSTATUS res;
     ULONG a, req;
 
-    res = pNtQueryIoCompletion( h, IoCompletionBasicInformation, &a, sizeof(a), &req );
+    res = pNtQueryIoCompletion( h, IoCompletionBasicInformation, (PVOID)&a, sizeof(a), &req );
     ok( res == STATUS_SUCCESS, "NtQueryIoCompletion failed: %x\n", res );
     if (res != STATUS_SUCCESS) return -1;
     ok( req == sizeof(a), "Unexpected response size: %x\n", req );
@@ -138,68 +134,6 @@ static void WINAPI apc( void *arg, IO_STATUS_BLOCK *iosb, ULONG reserved )
            iosb, U(*iosb).Status, iosb->Information );
     (*count)++;
     ok( !reserved, "reserved is not 0: %x\n", reserved );
-}
-
-static void delete_file_test(void)
-{
-    NTSTATUS ret;
-    OBJECT_ATTRIBUTES attr;
-    UNICODE_STRING nameW;
-    WCHAR pathW[MAX_PATH];
-    WCHAR pathsubW[MAX_PATH];
-    static const WCHAR testdirW[] = {'n','t','d','e','l','e','t','e','f','i','l','e',0};
-    static const WCHAR subdirW[]  = {'\\','s','u','b',0};
-
-    ret = GetTempPathW(MAX_PATH, pathW);
-    if (!ret)
-    {
-	ok(0, "couldn't get temp dir\n");
-	return;
-    }
-    if (ret + sizeof(testdirW)/sizeof(WCHAR)-1 + sizeof(subdirW)/sizeof(WCHAR)-1 >= MAX_PATH)
-    {
-	ok(0, "MAX_PATH exceeded in constructing paths\n");
-	return;
-    }
-
-    lstrcatW(pathW, testdirW);
-    lstrcpyW(pathsubW, pathW);
-    lstrcatW(pathsubW, subdirW);
-
-    ret = CreateDirectoryW(pathW, NULL);
-    ok(ret == TRUE, "couldn't create directory ntdeletefile\n");
-    if (!pRtlDosPathNameToNtPathName_U(pathW, &nameW, NULL, NULL))
-    {
-	ok(0,"RtlDosPathNametoNtPathName_U failed\n");
-	return;
-    }
-
-    attr.Length = sizeof(attr);
-    attr.RootDirectory = 0;
-    attr.Attributes = OBJ_CASE_INSENSITIVE;
-    attr.ObjectName = &nameW;
-    attr.SecurityDescriptor = NULL;
-    attr.SecurityQualityOfService = NULL;
-
-    /* test NtDeleteFile on an empty directory */
-    ret = pNtDeleteFile(&attr);
-    ok(ret == STATUS_SUCCESS, "NtDeleteFile should succeed in removing an empty directory\n");
-    ret = RemoveDirectoryW(pathW);
-    ok(ret == FALSE, "expected to fail removing directory, NtDeleteFile should have removed it\n");
-
-    /* test NtDeleteFile on a non-empty directory */
-    ret = CreateDirectoryW(pathW, NULL);
-    ok(ret == TRUE, "couldn't create directory ntdeletefile ?!\n");
-    ret = CreateDirectoryW(pathsubW, NULL);
-    ok(ret == TRUE, "couldn't create directory subdir\n");
-    ret = pNtDeleteFile(&attr);
-    ok(ret == STATUS_SUCCESS, "expected NtDeleteFile to ret STATUS_SUCCESS\n");
-    ret = RemoveDirectoryW(pathsubW);
-    ok(ret == TRUE, "expected to remove directory ntdeletefile\\sub\n");
-    ret = RemoveDirectoryW(pathW);
-    ok(ret == TRUE, "expected to remove directory ntdeletefile, NtDeleteFile failed.\n");
-
-    pRtlFreeUnicodeString( &nameW );
 }
 
 static void read_file_test(void)
@@ -377,9 +311,7 @@ static void read_file_test(void)
     offset.QuadPart = 0;
     ResetEvent( event );
     status = pNtReadFile( handle, event, apc, &apc_count, &iosb, buffer, strlen(text) + 10, &offset, NULL );
-    ok( status == STATUS_SUCCESS ||
-        status == STATUS_PENDING, /* vista */
-        "wrong status %x\n", status );
+    ok( status == STATUS_SUCCESS, "wrong status %x\n", status );
     ok( U(iosb).Status == STATUS_SUCCESS, "wrong status %x\n", U(iosb).Status );
     ok( iosb.Information == strlen(text), "wrong info %lu\n", iosb.Information );
     ok( is_signaled( event ), "event is signaled\n" );
@@ -393,25 +325,13 @@ static void read_file_test(void)
     iosb.Information = 0xdeadbeef;
     offset.QuadPart = strlen(text) + 2;
     status = pNtReadFile( handle, event, apc, &apc_count, &iosb, buffer, 2, &offset, NULL );
-    if (status == STATUS_PENDING)  /* vista */
-    {
-        ok( U(iosb).Status == STATUS_END_OF_FILE, "wrong status %x\n", U(iosb).Status );
-        ok( iosb.Information == 0, "wrong info %lu\n", iosb.Information );
-        ok( is_signaled( event ), "event is signaled\n" );
-        ok( !apc_count, "apc was called\n" );
-        SleepEx( 1, TRUE ); /* alertable sleep */
-        ok( apc_count == 1, "apc was not called\n" );
-    }
-    else
-    {
-        ok( status == STATUS_END_OF_FILE, "wrong status %x\n", status );
-        ok( U(iosb).Status == 0xdeadbabe, "wrong status %x\n", U(iosb).Status );
-        ok( iosb.Information == 0xdeadbeef, "wrong info %lu\n", iosb.Information );
-        ok( !is_signaled( event ), "event is signaled\n" );
-        ok( !apc_count, "apc was called\n" );
-        SleepEx( 1, TRUE ); /* alertable sleep */
-        ok( !apc_count, "apc was called\n" );
-    }
+    ok( status == STATUS_END_OF_FILE, "wrong status %x\n", status );
+    ok( U(iosb).Status == 0xdeadbabe, "wrong status %x\n", U(iosb).Status );
+    ok( iosb.Information == 0xdeadbeef, "wrong info %lu\n", iosb.Information );
+    ok( !is_signaled( event ), "event is signaled\n" );
+    ok( !apc_count, "apc was called\n" );
+    SleepEx( 1, TRUE ); /* alertable sleep */
+    ok( !apc_count, "apc was called\n" );
     CloseHandle( handle );
 
     /* now a non-overlapped file */
@@ -421,9 +341,7 @@ static void read_file_test(void)
     iosb.Information = 0xdeadbeef;
     offset.QuadPart = 0;
     pNtWriteFile( handle, event, apc, &apc_count, &iosb, text, strlen(text), &offset, NULL );
-    ok( status == STATUS_END_OF_FILE ||
-        status == STATUS_PENDING,  /* vista */
-        "wrong status %x\n", status );
+    ok( status == STATUS_END_OF_FILE, "wrong status %x\n", status );
     ok( U(iosb).Status == STATUS_SUCCESS, "wrong status %x\n", U(iosb).Status );
     ok( iosb.Information == strlen(text), "wrong info %lu\n", iosb.Information );
     ok( is_signaled( event ), "event is signaled\n" );
@@ -485,8 +403,7 @@ static void nt_mailslot_test(void)
 
     pRtlInitUnicodeString(&str, buffer1);
     InitializeObjectAttributes(&attr, &str, OBJ_CASE_INSENSITIVE, 0, NULL);
-    CreateOptions = MailslotQuota = MaxMessageSize = 0;
-    DesiredAccess = GENERIC_READ;
+    DesiredAccess = CreateOptions = MailslotQuota = MaxMessageSize = 0;
 
     /*
      * Check for NULL pointer handling
@@ -494,20 +411,15 @@ static void nt_mailslot_test(void)
     rc = pNtCreateMailslotFile(NULL, DesiredAccess,
          &attr, &IoStatusBlock, CreateOptions, MailslotQuota, MaxMessageSize,
          &TimeOut);
-    ok( rc == STATUS_ACCESS_VIOLATION ||
-        rc == STATUS_INVALID_PARAMETER, /* win2k3 */
-        "rc = %x not STATUS_ACCESS_VIOLATION or STATUS_INVALID_PARAMETER\n", rc);
+    ok( rc == STATUS_ACCESS_VIOLATION, "rc = %x not c0000005 STATUS_ACCESS_VIOLATION\n", rc);
 
     /*
      * Test to see if the Timeout can be NULL
      */
-    hslot = (HANDLE)0xdeadbeef;
     rc = pNtCreateMailslotFile(&hslot, DesiredAccess,
          &attr, &IoStatusBlock, CreateOptions, MailslotQuota, MaxMessageSize,
          NULL);
-    ok( rc == STATUS_SUCCESS ||
-        rc == STATUS_INVALID_PARAMETER, /* win2k3 */
-        "rc = %x not STATUS_SUCCESS or STATUS_INVALID_PARAMETER\n", rc);
+    ok( rc == STATUS_SUCCESS, "rc = %x not STATUS_SUCCESS\n", rc);
     ok( hslot != 0, "Handle is invalid\n");
 
     if  ( rc == STATUS_SUCCESS ) rc = pNtClose(hslot);
@@ -539,9 +451,7 @@ static void nt_mailslot_test(void)
     rc = pNtCreateMailslotFile(&hslot, DesiredAccess,
          &attr, &IoStatusBlock, CreateOptions, MailslotQuota, MaxMessageSize,
          &TimeOut);
-    ok( rc == STATUS_OBJECT_PATH_SYNTAX_BAD ||
-        rc == STATUS_INVALID_PARAMETER,
-        "rc = %x not STATUS_OBJECT_PATH_SYNTAX_BAD or STATUS_INVALID_PARAMETER\n", rc);
+    ok( rc == STATUS_OBJECT_PATH_SYNTAX_BAD, "rc = %x not c000003b STATUS_OBJECT_PATH_SYNTAX_BAD\n", rc);
 
     if  (rc == STATUS_SUCCESS) pNtClose(hslot);
 
@@ -552,7 +462,7 @@ static void nt_mailslot_test(void)
     rc = pNtCreateMailslotFile(&hslot, DesiredAccess,
          &attr, &IoStatusBlock, CreateOptions, MailslotQuota, MaxMessageSize,
          &TimeOut);
-    ok( rc == STATUS_SUCCESS, "Create MailslotFile failed rc = %x\n", rc);
+    ok( rc == STATUS_SUCCESS, "Create MailslotFile failed rc = %x %u\n", rc, GetLastError());
     ok( hslot != 0, "Handle is invalid\n");
 
     rc = pNtClose(hslot);
@@ -616,7 +526,7 @@ static void test_iocp_fileio(HANDLE h)
     if (hPipeClt != INVALID_HANDLE_VALUE)
     {
         OVERLAPPED o = {0,};
-        BYTE send_buf[TEST_BUF_LEN], recv_buf[TEST_BUF_LEN];
+        BYTE buf[3];
         DWORD read;
         long count;
 
@@ -624,14 +534,12 @@ static void test_iocp_fileio(HANDLE h)
         ok( res == STATUS_SUCCESS, "NtSetInformationFile failed: %x\n", res );
         ok( U(iosb).Status == STATUS_SUCCESS, "iosb.Status invalid: %x\n", U(iosb).Status );
 
-        memset( send_buf, 0, TEST_BUF_LEN );
-        memset( recv_buf, 0xde, TEST_BUF_LEN );
         count = get_pending_msgs(h);
         ok( !count, "Unexpected msg count: %ld\n", count );
-        ReadFile( hPipeSrv, recv_buf, TEST_BUF_LEN, &read, &o);
+        ReadFile( hPipeSrv, buf, 3, &read, &o);
         count = get_pending_msgs(h);
         ok( !count, "Unexpected msg count: %ld\n", count );
-        WriteFile( hPipeClt, send_buf, TEST_BUF_LEN, &read, NULL );
+        WriteFile( hPipeClt, buf, 3, &read, NULL );
 
         if (get_msg(h))
         {
@@ -639,17 +547,14 @@ static void test_iocp_fileio(HANDLE h)
             ok( ioSb.Information == 3, "Invalid ioSb.Information: %ld\n", ioSb.Information );
             ok( U(ioSb).Status == STATUS_SUCCESS, "Invalid ioSb.Status: %x\n", U(ioSb).Status);
             ok( completionValue == (ULONG_PTR)&o, "Invalid completion value: %lx\n", completionValue );
-            ok( !memcmp( send_buf, recv_buf, TEST_BUF_LEN ), "Receive buffer (%x %x %x) did not match send buffer (%x %x %x)\n", recv_buf[0], recv_buf[1], recv_buf[2], send_buf[0], send_buf[1], send_buf[2] );
         }
         count = get_pending_msgs(h);
         ok( !count, "Unexpected msg count: %ld\n", count );
 
-        memset( send_buf, 0, TEST_BUF_LEN );
-        memset( recv_buf, 0xde, TEST_BUF_LEN );
-        WriteFile( hPipeClt, send_buf, 2, &read, NULL );
+        WriteFile( hPipeClt, buf, 2, &read, NULL );
         count = get_pending_msgs(h);
         ok( !count, "Unexpected msg count: %ld\n", count );
-        ReadFile( hPipeSrv, recv_buf, 2, &read, &o);
+        ReadFile( hPipeSrv, buf, 2, &read, &o);
         count = get_pending_msgs(h);
         ok( count == 1, "Unexpected msg count: %ld\n", count );
         if (get_msg(h))
@@ -658,10 +563,9 @@ static void test_iocp_fileio(HANDLE h)
             ok( ioSb.Information == 2, "Invalid ioSb.Information: %ld\n", ioSb.Information );
             ok( U(ioSb).Status == STATUS_SUCCESS, "Invalid ioSb.Status: %x\n", U(ioSb).Status);
             ok( completionValue == (ULONG_PTR)&o, "Invalid completion value: %lx\n", completionValue );
-            ok( !memcmp( send_buf, recv_buf, 2 ), "Receive buffer (%x %x) did not match send buffer (%x %x)\n", recv_buf[0], recv_buf[1], send_buf[0], send_buf[1] );
         }
 
-        ReadFile( hPipeSrv, recv_buf, TEST_BUF_LEN, &read, &o);
+        ReadFile( hPipeSrv, buf, sizeof(buf), &read, &o);
         CloseHandle( hPipeSrv );
         count = get_pending_msgs(h);
         ok( count == 1, "Unexpected msg count: %ld\n", count );
@@ -705,11 +609,8 @@ START_TEST(file)
         return;
     }
 
-    pRtlFreeUnicodeString   = (void *)GetProcAddress(hntdll, "RtlFreeUnicodeString");
     pRtlInitUnicodeString   = (void *)GetProcAddress(hntdll, "RtlInitUnicodeString");
-    pRtlDosPathNameToNtPathName_U = (void *)GetProcAddress(hntdll, "RtlDosPathNameToNtPathName_U");
     pNtCreateMailslotFile   = (void *)GetProcAddress(hntdll, "NtCreateMailslotFile");
-    pNtDeleteFile           = (void *)GetProcAddress(hntdll, "NtDeleteFile");
     pNtReadFile             = (void *)GetProcAddress(hntdll, "NtReadFile");
     pNtWriteFile            = (void *)GetProcAddress(hntdll, "NtWriteFile");
     pNtClose                = (void *)GetProcAddress(hntdll, "NtClose");
@@ -720,7 +621,6 @@ START_TEST(file)
     pNtSetIoCompletion      = (void *)GetProcAddress(hntdll, "NtSetIoCompletion");
     pNtSetInformationFile   = (void *)GetProcAddress(hntdll, "NtSetInformationFile");
 
-    delete_file_test();
     read_file_test();
     nt_mailslot_test();
     test_iocompletion();

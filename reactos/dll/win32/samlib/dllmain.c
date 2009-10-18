@@ -42,7 +42,7 @@
 
 /* FUNCTIONS *****************************************************************/
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain (HINSTANCE hInstance,
 	 DWORD dwReason,
 	 LPVOID lpReserved)

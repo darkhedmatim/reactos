@@ -1,3 +1,4 @@
+/* $Id: 3dnow_normal.S,v 1.10 2006/04/17 18:58:24 krh Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -29,7 +30,6 @@
 
 #ifdef USE_3DNOW_ASM
 
-#include "assyntax.h"
 #include "matypes.h"
 #include "norm_args.h"
 

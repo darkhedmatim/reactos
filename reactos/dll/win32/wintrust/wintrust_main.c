@@ -33,30 +33,11 @@
 #include "mscat.h"
 #include "objbase.h"
 #include "winuser.h"
-#include "cryptdlg.h"
-#include "cryptuiapi.h"
 #include "wintrust_priv.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(wintrust);
 
-
-/* Utility functions */
-void * WINAPI WINTRUST_Alloc(DWORD cb)
-{
-    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cb);
-}
-
-static void* WINTRUST_ReAlloc(void *ptr, DWORD cb) __WINE_ALLOC_SIZE(2);
-static void* WINTRUST_ReAlloc(void *ptr, DWORD cb)
-{
-    return HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ptr, cb);
-}
-
-void WINAPI WINTRUST_Free(void *p)
-{
-    HeapFree(GetProcessHeap(), 0, p);
-}
 
 /***********************************************************************
  *		DllMain  (WINTRUST.@)
@@ -107,9 +88,15 @@ static DWORD WINTRUST_ExecuteSteps(const struct wintrust_step *steps,
     return err;
 }
 
-static CRYPT_PROVIDER_DATA *WINTRUST_AllocateProviderData(void)
+static LONG WINTRUST_DefaultVerify(HWND hwnd, GUID *actionID,
+ WINTRUST_DATA *data)
 {
+    DWORD err = ERROR_SUCCESS, numSteps = 0;
     CRYPT_PROVIDER_DATA *provData;
+    BOOL ret;
+    struct wintrust_step verifySteps[5];
+
+    TRACE("(%p, %s, %p)\n", hwnd, debugstr_guid(actionID), data);
 
     provData = WINTRUST_Alloc(sizeof(CRYPT_PROVIDER_DATA));
     if (!provData)
@@ -131,69 +118,6 @@ static CRYPT_PROVIDER_DATA *WINTRUST_AllocateProviderData(void)
     if (!provData->psPfns)
         goto oom;
     provData->psPfns->cbStruct = sizeof(CRYPT_PROVIDER_FUNCTIONS);
-    return provData;
-
-oom:
-    if (provData)
-    {
-        WINTRUST_Free(provData->padwTrustStepErrors);
-        WINTRUST_Free(provData->u.pPDSip);
-        WINTRUST_Free(provData->psPfns);
-        WINTRUST_Free(provData);
-    }
-    return NULL;
-}
-
-/* Adds trust steps for each function in psPfns.  Assumes steps has at least
- * 5 entries.  Returns the number of steps added.
- */
-static DWORD WINTRUST_AddTrustStepsFromFunctions(struct wintrust_step *steps,
- const CRYPT_PROVIDER_FUNCTIONS *psPfns)
-{
-    DWORD numSteps = 0;
-
-    if (psPfns->pfnInitialize)
-    {
-        steps[numSteps].func = psPfns->pfnInitialize;
-        steps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_WVTINIT;
-    }
-    if (psPfns->pfnObjectTrust)
-    {
-        steps[numSteps].func = psPfns->pfnObjectTrust;
-        steps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_OBJPROV;
-    }
-    if (psPfns->pfnSignatureTrust)
-    {
-        steps[numSteps].func = psPfns->pfnSignatureTrust;
-        steps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_SIGPROV;
-    }
-    if (psPfns->pfnCertificateTrust)
-    {
-        steps[numSteps].func = psPfns->pfnCertificateTrust;
-        steps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_CERTPROV;
-    }
-    if (psPfns->pfnFinalPolicy)
-    {
-        steps[numSteps].func = psPfns->pfnFinalPolicy;
-        steps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_POLICYPROV;
-    }
-    return numSteps;
-}
-
-static LONG WINTRUST_DefaultVerify(HWND hwnd, GUID *actionID,
- WINTRUST_DATA *data)
-{
-    DWORD err = ERROR_SUCCESS, numSteps = 0;
-    CRYPT_PROVIDER_DATA *provData;
-    BOOL ret;
-    struct wintrust_step verifySteps[5];
-
-    TRACE("(%p, %s, %p)\n", hwnd, debugstr_guid(actionID), data);
-
-    provData = WINTRUST_AllocateProviderData();
-    if (!provData)
-        return ERROR_OUTOFMEMORY;
-
     ret = WintrustLoadFunctionPointers(actionID, provData->psPfns);
     if (!ret)
     {
@@ -201,7 +125,7 @@ static LONG WINTRUST_DefaultVerify(HWND hwnd, GUID *actionID,
         goto error;
     }
 
-    data->hWVTStateData = provData;
+    data->hWVTStateData = (HANDLE)provData;
     provData->pWintrustData = data;
     if (hwnd == INVALID_HANDLE_VALUE)
         provData->hWndParent = GetDesktopWindow();
@@ -210,11 +134,36 @@ static LONG WINTRUST_DefaultVerify(HWND hwnd, GUID *actionID,
     provData->pgActionID = actionID;
     WintrustGetRegPolicyFlags(&provData->dwRegPolicySettings);
 
-    numSteps = WINTRUST_AddTrustStepsFromFunctions(verifySteps,
-     provData->psPfns);
+    if (provData->psPfns->pfnInitialize)
+    {
+        verifySteps[numSteps].func = provData->psPfns->pfnInitialize;
+        verifySteps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_WVTINIT;
+    }
+    if (provData->psPfns->pfnObjectTrust)
+    {
+        verifySteps[numSteps].func = provData->psPfns->pfnObjectTrust;
+        verifySteps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_OBJPROV;
+    }
+    if (provData->psPfns->pfnSignatureTrust)
+    {
+        verifySteps[numSteps].func = provData->psPfns->pfnSignatureTrust;
+        verifySteps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_SIGPROV;
+    }
+    if (provData->psPfns->pfnCertificateTrust)
+    {
+        verifySteps[numSteps].func = provData->psPfns->pfnCertificateTrust;
+        verifySteps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_CERTPROV;
+    }
+    if (provData->psPfns->pfnFinalPolicy)
+    {
+        verifySteps[numSteps].func = provData->psPfns->pfnFinalPolicy;
+        verifySteps[numSteps++].error_index = TRUSTERROR_STEP_FINAL_POLICYPROV;
+    }
     err = WINTRUST_ExecuteSteps(verifySteps, numSteps, provData);
     goto done;
 
+oom:
+    err = ERROR_OUTOFMEMORY;
 error:
     if (provData)
     {
@@ -232,7 +181,7 @@ static LONG WINTRUST_DefaultClose(HWND hwnd, GUID *actionID,
  WINTRUST_DATA *data)
 {
     DWORD err = ERROR_SUCCESS;
-    CRYPT_PROVIDER_DATA *provData = data->hWVTStateData;
+    CRYPT_PROVIDER_DATA *provData = (CRYPT_PROVIDER_DATA *)data->hWVTStateData;
 
     TRACE("(%p, %s, %p)\n", hwnd, debugstr_guid(actionID), data);
 
@@ -271,7 +220,8 @@ static LONG WINTRUST_PublishedSoftware(HWND hwnd, GUID *actionID,
     /* Undocumented: the published software action is passed a path,
      * and pSIPClientData points to a WIN_TRUST_SUBJECT_FILE.
      */
-    LPWIN_TRUST_SUBJECT_FILE subjectFile = data->pSIPClientData;
+    LPWIN_TRUST_SUBJECT_FILE subjectFile =
+     (LPWIN_TRUST_SUBJECT_FILE)data->pSIPClientData;
     WINTRUST_FILE_INFO fileInfo = { sizeof(fileInfo), 0 };
 
     TRACE("subjectFile->hFile: %p\n", subjectFile->hFile);
@@ -283,185 +233,6 @@ static LONG WINTRUST_PublishedSoftware(HWND hwnd, GUID *actionID,
     wintrust_data.dwUIChoice = WTD_UI_NONE;
 
     return WINTRUST_DefaultVerifyAndClose(hwnd, actionID, &wintrust_data);
-}
-
-/* Sadly, the function to load the cert for the CERT_CERTIFICATE_ACTION_VERIFY
- * action is not stored in the registry and is located in wintrust, not in
- * cryptdlg along with the rest of the implementation (verified by running the
- * action with a native wintrust.dll.)
- */
-static HRESULT WINAPI WINTRUST_CertVerifyObjTrust(CRYPT_PROVIDER_DATA *data)
-{
-    BOOL ret;
-
-    TRACE("(%p)\n", data);
-
-    if (!data->padwTrustStepErrors)
-        return S_FALSE;
-
-    switch (data->pWintrustData->dwUnionChoice)
-    {
-    case WTD_CHOICE_BLOB:
-        if (data->pWintrustData->u.pBlob &&
-         WVT_IS_CBSTRUCT_GT_MEMBEROFFSET(WINTRUST_BLOB_INFO,
-         data->pWintrustData->u.pBlob->cbStruct, pbMemObject) &&
-         data->pWintrustData->u.pBlob->cbMemObject ==
-         sizeof(CERT_VERIFY_CERTIFICATE_TRUST) &&
-         data->pWintrustData->u.pBlob->pbMemObject)
-        {
-            CERT_VERIFY_CERTIFICATE_TRUST *pCert =
-             (CERT_VERIFY_CERTIFICATE_TRUST *)
-             data->pWintrustData->u.pBlob->pbMemObject;
-
-            if (pCert->cbSize == sizeof(CERT_VERIFY_CERTIFICATE_TRUST) &&
-             pCert->pccert)
-            {
-                CRYPT_PROVIDER_SGNR signer = { sizeof(signer), { 0 } };
-                DWORD i;
-                SYSTEMTIME sysTime;
-
-                /* Add a signer with nothing but the time to verify, so we can
-                 * add a cert to it
-                 */
-                GetSystemTime(&sysTime);
-                SystemTimeToFileTime(&sysTime, &signer.sftVerifyAsOf);
-                ret = data->psPfns->pfnAddSgnr2Chain(data, FALSE, 0, &signer);
-                if (!ret)
-                    goto error;
-                ret = data->psPfns->pfnAddCert2Chain(data, 0, FALSE, 0,
-                 pCert->pccert);
-                if (!ret)
-                    goto error;
-                for (i = 0; ret && i < pCert->cRootStores; i++)
-                    ret = data->psPfns->pfnAddStore2Chain(data,
-                     pCert->rghstoreRoots[i]);
-                for (i = 0; ret && i < pCert->cStores; i++)
-                    ret = data->psPfns->pfnAddStore2Chain(data,
-                     pCert->rghstoreCAs[i]);
-                for (i = 0; ret && i < pCert->cTrustStores; i++)
-                    ret = data->psPfns->pfnAddStore2Chain(data,
-                     pCert->rghstoreTrust[i]);
-            }
-            else
-            {
-                SetLastError(ERROR_INVALID_PARAMETER);
-                ret = FALSE;
-            }
-        }
-        else
-        {
-            SetLastError(ERROR_INVALID_PARAMETER);
-            ret = FALSE;
-        }
-        break;
-    default:
-        FIXME("unimplemented for %d\n", data->pWintrustData->dwUnionChoice);
-        SetLastError(ERROR_INVALID_PARAMETER);
-        ret = FALSE;
-    }
-
-error:
-    if (!ret)
-        data->padwTrustStepErrors[TRUSTERROR_STEP_FINAL_OBJPROV] =
-         GetLastError();
-    TRACE("returning %d (%08x)\n", ret ? S_OK : S_FALSE,
-     data->padwTrustStepErrors[TRUSTERROR_STEP_FINAL_OBJPROV]);
-    return ret ? S_OK : S_FALSE;
-}
-
-static LONG WINTRUST_CertVerify(HWND hwnd, GUID *actionID,
- WINTRUST_DATA *data)
-{
-    DWORD err = ERROR_SUCCESS, numSteps = 0;
-    CRYPT_PROVIDER_DATA *provData;
-    BOOL ret;
-    struct wintrust_step verifySteps[5];
-
-    TRACE("(%p, %s, %p)\n", hwnd, debugstr_guid(actionID), data);
-
-    provData = WINTRUST_AllocateProviderData();
-    if (!provData)
-        return ERROR_OUTOFMEMORY;
-
-    ret = WintrustLoadFunctionPointers(actionID, provData->psPfns);
-    if (!ret)
-    {
-        err = GetLastError();
-        goto error;
-    }
-    if (!provData->psPfns->pfnObjectTrust)
-        provData->psPfns->pfnObjectTrust = WINTRUST_CertVerifyObjTrust;
-    /* Not sure why, but native skips the policy check */
-    provData->psPfns->pfnCertCheckPolicy = NULL;
-
-    data->hWVTStateData = provData;
-    provData->pWintrustData = data;
-    if (hwnd == INVALID_HANDLE_VALUE)
-        provData->hWndParent = GetDesktopWindow();
-    else
-        provData->hWndParent = hwnd;
-    provData->pgActionID = actionID;
-    WintrustGetRegPolicyFlags(&provData->dwRegPolicySettings);
-
-    numSteps = WINTRUST_AddTrustStepsFromFunctions(verifySteps,
-     provData->psPfns);
-    err = WINTRUST_ExecuteSteps(verifySteps, numSteps, provData);
-    goto done;
-
-error:
-    if (provData)
-    {
-        WINTRUST_Free(provData->padwTrustStepErrors);
-        WINTRUST_Free(provData->u.pPDSip);
-        WINTRUST_Free(provData->psPfns);
-        WINTRUST_Free(provData);
-    }
-done:
-    TRACE("returning %08x\n", err);
-    return err;
-}
-
-static LONG WINTRUST_CertVerifyAndClose(HWND hwnd, GUID *actionID,
- WINTRUST_DATA *data)
-{
-    LONG err;
-
-    TRACE("(%p, %s, %p)\n", hwnd, debugstr_guid(actionID), data);
-
-    err = WINTRUST_CertVerify(hwnd, actionID, data);
-    WINTRUST_DefaultClose(hwnd, actionID, data);
-    TRACE("returning %08x\n", err);
-    return err;
-}
-
-static LONG WINTRUST_CertActionVerify(HWND hwnd, GUID *actionID,
- WINTRUST_DATA *data)
-{
-    DWORD stateAction;
-    LONG err = ERROR_SUCCESS;
-
-    if (WVT_ISINSTRUCT(WINTRUST_DATA, data->cbStruct, dwStateAction))
-        stateAction = data->dwStateAction;
-    else
-    {
-        TRACE("no dwStateAction, assuming WTD_STATEACTION_IGNORE\n");
-        stateAction = WTD_STATEACTION_IGNORE;
-    }
-    switch (stateAction)
-    {
-    case WTD_STATEACTION_IGNORE:
-        err = WINTRUST_CertVerifyAndClose(hwnd, actionID, data);
-        break;
-    case WTD_STATEACTION_VERIFY:
-        err = WINTRUST_CertVerify(hwnd, actionID, data);
-        break;
-    case WTD_STATEACTION_CLOSE:
-        err = WINTRUST_DefaultClose(hwnd, actionID, data);
-        break;
-    default:
-        FIXME("unimplemented for %d\n", data->dwStateAction);
-    }
-    return err;
 }
 
 static void dump_file_info(WINTRUST_FILE_INFO *pFile)
@@ -599,9 +370,8 @@ LONG WINAPI WinVerifyTrust( HWND hwnd, GUID *ActionID, LPVOID ActionData )
     static const GUID generic_verify_v2 = WINTRUST_ACTION_GENERIC_VERIFY_V2;
     static const GUID generic_cert_verify = WINTRUST_ACTION_GENERIC_CERT_VERIFY;
     static const GUID generic_chain_verify = WINTRUST_ACTION_GENERIC_CHAIN_VERIFY;
-    static const GUID cert_action_verify = CERT_CERTIFICATE_ACTION_VERIFY;
     LONG err = ERROR_SUCCESS;
-    WINTRUST_DATA *actionData = ActionData;
+    WINTRUST_DATA *actionData = (WINTRUST_DATA *)ActionData;
 
     TRACE("(%p, %s, %p)\n", hwnd, debugstr_guid(ActionID), ActionData);
     dump_wintrust_data(ActionData);
@@ -609,12 +379,8 @@ LONG WINAPI WinVerifyTrust( HWND hwnd, GUID *ActionID, LPVOID ActionData )
     /* Support for known old-style callers: */
     if (IsEqualGUID(ActionID, &published_software))
         err = WINTRUST_PublishedSoftware(hwnd, ActionID, ActionData);
-    else if (IsEqualGUID(ActionID, &cert_action_verify))
-        err = WINTRUST_CertActionVerify(hwnd, ActionID, ActionData);
     else
     {
-        DWORD stateAction;
-
         /* Check known actions to warn of possible problems */
         if (!IsEqualGUID(ActionID, &unknown) &&
          !IsEqualGUID(ActionID, &generic_verify_v2) &&
@@ -622,14 +388,7 @@ LONG WINAPI WinVerifyTrust( HWND hwnd, GUID *ActionID, LPVOID ActionData )
          !IsEqualGUID(ActionID, &generic_chain_verify))
             WARN("unknown action %s, default behavior may not be right\n",
              debugstr_guid(ActionID));
-        if (WVT_ISINSTRUCT(WINTRUST_DATA, actionData->cbStruct, dwStateAction))
-            stateAction = actionData->dwStateAction;
-        else
-        {
-            TRACE("no dwStateAction, assuming WTD_STATEACTION_IGNORE\n");
-            stateAction = WTD_STATEACTION_IGNORE;
-        }
-        switch (stateAction)
+        switch (actionData->dwStateAction)
         {
         case WTD_STATEACTION_IGNORE:
             err = WINTRUST_DefaultVerifyAndClose(hwnd, ActionID, ActionData);
@@ -726,7 +485,7 @@ CRYPT_PROVIDER_PRIVDATA *WINAPI WTHelperGetProvPrivateDataFromChain(
 CRYPT_PROVIDER_DATA * WINAPI WTHelperProvDataFromStateData(HANDLE hStateData)
 {
     TRACE("%p\n", hStateData);
-    return hStateData;
+    return (CRYPT_PROVIDER_DATA *)hStateData;
 }
 
 /***********************************************************************
@@ -751,92 +510,6 @@ HANDLE WINAPI WTHelperGetFileHandle(WINTRUST_DATA *data)
         return data->u.pFile->hFile;
     else
         return INVALID_HANDLE_VALUE;
-}
-
-static BOOL WINAPI WINTRUST_enumUsages(PCCRYPT_OID_INFO pInfo, void *pvArg)
-{
-    PCCRYPT_OID_INFO **usages = pvArg;
-    DWORD cUsages;
-    BOOL ret;
-
-    if (!*usages)
-    {
-        cUsages = 0;
-        *usages = WINTRUST_Alloc(2 * sizeof(PCCRYPT_OID_INFO));
-    }
-    else
-    {
-        PCCRYPT_OID_INFO *ptr;
-
-        /* Count the existing usages.
-         * FIXME: make sure the new usage doesn't duplicate any in the list?
-         */
-        for (cUsages = 0, ptr = *usages; *ptr; ptr++, cUsages++)
-            ;
-        *usages = WINTRUST_ReAlloc(*usages,
-         (cUsages + 2) * sizeof(PCCRYPT_OID_INFO));
-    }
-    if (*usages)
-    {
-        (*usages)[cUsages] = pInfo;
-        (*usages)[cUsages + 1] = NULL;
-        ret = TRUE;
-    }
-    else
-    {
-        SetLastError(ERROR_OUTOFMEMORY);
-        ret = FALSE;
-    }
-    return ret;
-}
-
-/***********************************************************************
- *		WTHelperGetKnownUsages(WINTRUST.@)
- *
- * Enumerates the known enhanced key usages as an array of PCCRYPT_OID_INFOs.
- *
- * PARAMS
- *  action      [In]     1 => allocate and return known usages, 2 => free previously
- *                       allocated usages.
- *  usages      [In/Out] If action == 1, *usages is set to an array of
- *                       PCCRYPT_OID_INFO *.  The array is terminated with a NULL
- *                       pointer.
- *                       If action == 2, *usages is freed.
- *
- * RETURNS
- *  TRUE on success, FALSE on failure.
- */
-BOOL WINAPI WTHelperGetKnownUsages(DWORD action, PCCRYPT_OID_INFO **usages)
-{
-    BOOL ret;
-
-    TRACE("(%d, %p)\n", action, usages);
-
-    if (!usages)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    if (action == 1)
-    {
-        *usages = NULL;
-        ret = CryptEnumOIDInfo(CRYPT_ENHKEY_USAGE_OID_GROUP_ID, 0, usages,
-         WINTRUST_enumUsages);
-    }
-    else if (action == 2)
-    {
-        WINTRUST_Free(*usages);
-        *usages = NULL;
-        ret = TRUE;
-    }
-    else
-    {
-        WARN("unknown action %d\n", action);
-        SetLastError(ERROR_INVALID_PARAMETER);
-        ret = FALSE;
-    }
-    return ret;
 }
 
 static const WCHAR Software_Publishing[] = {
@@ -906,12 +579,24 @@ BOOL WINAPI WintrustSetRegPolicyFlags( DWORD dwPolicyFlags)
 }
 
 /* Utility functions */
+void * WINAPI WINTRUST_Alloc(DWORD cb)
+{
+    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cb);
+}
+
+void * WINAPI WINTRUST_ReAlloc(void *ptr, DWORD cb)
+{
+    return HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ptr, cb);
+}
+
+void WINAPI WINTRUST_Free(void *p)
+{
+    HeapFree(GetProcessHeap(), 0, p);
+}
 
 BOOL WINAPI WINTRUST_AddStore(CRYPT_PROVIDER_DATA *data, HCERTSTORE store)
 {
     BOOL ret = FALSE;
-
-    TRACE("(%p, %p)\n", data, store);
 
     if (data->chStores)
         data->pahStores = WINTRUST_ReAlloc(data->pahStores,
@@ -935,8 +620,6 @@ BOOL WINAPI WINTRUST_AddSgnr(CRYPT_PROVIDER_DATA *data,
  BOOL fCounterSigner, DWORD idxSigner, CRYPT_PROVIDER_SGNR *sgnr)
 {
     BOOL ret = FALSE;
-
-    TRACE("(%p, %d, %d, %p)\n", data, fCounterSigner, idxSigner, sgnr);
 
     if (sgnr->cbStruct > sizeof(CRYPT_PROVIDER_SGNR))
     {
@@ -988,9 +671,6 @@ BOOL WINAPI WINTRUST_AddCert(CRYPT_PROVIDER_DATA *data, DWORD idxSigner,
  BOOL fCounterSigner, DWORD idxCounterSigner, PCCERT_CONTEXT pCert2Add)
 {
     BOOL ret = FALSE;
-
-    TRACE("(%p, %d, %d, %d, %p)\n", data, idxSigner, fCounterSigner,
-     idxSigner, pCert2Add);
 
     if (fCounterSigner)
     {
@@ -1060,37 +740,4 @@ BOOL WINAPI WINTRUST_AddPrivData(CRYPT_PROVIDER_DATA *data,
     else
         SetLastError(ERROR_OUTOFMEMORY);
     return ret;
-}
-
-/***********************************************************************
- *		OpenPersonalTrustDBDialog (WINTRUST.@)
- *
- * Opens the certificate manager dialog, showing only the stores that
- * contain trusted software publishers.
- *
- * PARAMS
- *  hwnd [I] handle of parent window
- *
- * RETURNS
- *  TRUE if the dialog could be opened, FALSE if not.
- */
-BOOL WINAPI OpenPersonalTrustDBDialog(HWND hwnd)
-{
-    CRYPTUI_CERT_MGR_STRUCT uiCertMgr;
-
-    uiCertMgr.dwSize = sizeof(uiCertMgr);
-    uiCertMgr.hwndParent = hwnd;
-    uiCertMgr.dwFlags = CRYPTUI_CERT_MGR_PUBLISHER_TAB;
-    uiCertMgr.pwszTitle = NULL;
-    uiCertMgr.pszInitUsageOID = NULL;
-    return CryptUIDlgCertMgr(&uiCertMgr);
-}
-
-/***********************************************************************
- *		WTHelperCertCheckValidSignature
- */
-HRESULT WINAPI WTHelperCertCheckValidSignature(CRYPT_PROVIDER_DATA *pProvData)
-{
-    FIXME("Stub\n");
-    return S_OK;
 }

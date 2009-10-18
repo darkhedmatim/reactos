@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
-<module name="rsaenh" type="win32dll" baseaddress="${BASEADDRESS_RSAENH}" installbase="system32" installname="rsaenh.dll" allowwarnings="true" crt="msvcrt">
+<module name="rsaenh" type="win32dll" baseaddress="${BASEADDRESS_RSAENH}" installbase="system32" installname="rsaenh.dll" allowwarnings="true">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
 	<importlibrary definition="rsaenh.spec" />
 	<include base="rsaenh">.</include>
@@ -18,6 +18,7 @@
 	<file>rsa.c</file>
 	<file>rsaenh.c</file>
 	<file>version.rc</file>
+	<file>rsaenh.spec</file>
 	<library>wine</library>
 	<library>crypt32</library>
 	<library>advapi32</library>

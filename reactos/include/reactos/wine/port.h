@@ -150,16 +150,14 @@ struct statfs;
 
 /* Macros to define assembler functions somewhat portably */
 
-#if defined(__GNUC__) && !defined(__INTERIX) && !defined(__MINGW32__) && !defined(__CYGWIN__) && !defined(__APPLE__)
+#ifdef __GNUC__
 # define __ASM_GLOBAL_FUNC(name,code) \
-      __asm__( ".text\n\t" \
-               ".align 4\n\t" \
+      __asm__( ".align 4\n\t" \
                ".globl " __ASM_NAME(#name) "\n\t" \
                __ASM_FUNC(#name) "\n" \
                __ASM_NAME(#name) ":\n\t" \
-               code \
-               "\n\t.previous" );
-#else  /* defined(__GNUC__) && !defined(__MINGW32__) && !defined(__APPLE__)  */
+               code );
+#else  /* __GNUC__ */
 # define __ASM_GLOBAL_FUNC(name,code) \
       void __asm_dummy_##name(void) { \
           asm( ".align 4\n\t" \
@@ -244,6 +242,10 @@ extern int getopt_long_only (int ___argc, char *const *___argv,
 size_t getpagesize(void);
 #endif  /* HAVE_GETPAGESIZE */
 
+#ifndef HAVE_GETTID
+pid_t gettid(void);
+#endif /* HAVE_GETTID */
+
 #ifndef HAVE_LSTAT
 int lstat(const char *file_name, struct stat *buf);
 #endif /* HAVE_LSTAT */
@@ -324,7 +326,7 @@ extern int spawnvp(int mode, const char *cmdname, const char * const argv[]);
 
 /* Interlocked functions */
 
-#if defined(_MSC_VER) || (defined(__i386__) && defined(__GNUC__) && !defined(WINE_PORT_NO_INTERLOCKED))
+#if defined(__i386__) && defined(__GNUC__) && !defined(WINE_PORT_NO_INTERLOCKED)
 
 #define interlocked_cmpxchg InterlockedCompareExchange
 #define interlocked_cmpxchg_ptr InterlockedCompareExchangePtr

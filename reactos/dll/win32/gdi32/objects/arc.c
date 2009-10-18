@@ -56,7 +56,7 @@ Arc(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 AngleArc(HDC   hDC,
          int   X,
          int   Y,
@@ -196,7 +196,7 @@ Chord(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 Pie(
 	HDC	hDC,
 	int	a1,

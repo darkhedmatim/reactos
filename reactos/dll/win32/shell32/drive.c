@@ -296,11 +296,6 @@ GetFreeBytesShare(LARGE_INTEGER TotalNumberOfFreeBytes, LARGE_INTEGER TotalNumbe
 {
    LARGE_INTEGER Temp, Result, Remainder;
 
-   if (TotalNumberOfFreeBytes.QuadPart == 0LL)
-   {
-      return ConvertUlongToLargeInteger(0);
-   }
-
    Temp = LargeIntegerDivide(TotalNumberOfBytes, ConvertUlongToLargeInteger(100), &Remainder);
    if (Temp.QuadPart >= TotalNumberOfFreeBytes.QuadPart)
    {
@@ -327,8 +322,7 @@ PaintStaticControls(HWND hwndDlg, LPDRAWITEMSTRUCT drawItem)
          FillRect(drawItem->hDC, &drawItem->rcItem, hBrush);
          DeleteObject((HGDIOBJ)hBrush);
       }
-   }
-   else if (drawItem->CtlID == 14014)
+   }else if (drawItem->CtlID == 14014)
    {
       hBrush = CreateSolidBrush(RGB(255, 0, 255));
       if (hBrush)
@@ -349,7 +343,7 @@ PaintStaticControls(HWND hwndDlg, LPDRAWITEMSTRUCT drawItem)
       hBlueBrush = CreateSolidBrush(RGB(0, 0, 255));
       hMagBrush = CreateSolidBrush(RGB(255, 0, 255));
 
-      SendDlgItemMessageW(hwndDlg, 14006, WM_GETTEXT, 20, (LPARAM)szBuffer);
+      SendDlgItemMessageW(hwndDlg, 14007, WM_GETTEXT, 20, (LPARAM)szBuffer);
       Result.QuadPart = _wtoi(szBuffer);
 
       CopyRect(&rect, &drawItem->rcItem);
@@ -386,15 +380,15 @@ InitializeGeneralDriveDialog(HWND hwndDlg, WCHAR * szDrive)
    if (ret)
    {
       /* set volume label */
-      SendDlgItemMessageW(hwndDlg, 14000, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szVolumeName);
+      SendDlgItemMessageW(hwndDlg, 14001, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szVolumeName);
 
       /* set filesystem type */
-      SendDlgItemMessageW(hwndDlg, 14002, WM_SETTEXT, (WPARAM)NULL, (LPARAM)FileSystemName);
+      SendDlgItemMessageW(hwndDlg, 14003, WM_SETTEXT, (WPARAM)NULL, (LPARAM)FileSystemName);
 
    }
 
    DriveType = GetDriveTypeW(szDrive);
-   if (DriveType == DRIVE_FIXED || DriveType == DRIVE_CDROM)
+   if (DriveType == DRIVE_FIXED)
    {
 
       if(GetDiskFreeSpaceExW(szDrive, &FreeBytesAvailable, (PULARGE_INTEGER)&TotalNumberOfBytes, (PULARGE_INTEGER)&TotalNumberOfFreeBytes))
@@ -411,46 +405,39 @@ InitializeGeneralDriveDialog(HWND hwndDlg, WCHAR * szDrive)
          {
             ret = DeviceIoControl(hVolume, IOCTL_DISK_GET_LENGTH_INFO, NULL, 0, (LPVOID)&TotalNumberOfBytes, sizeof(ULARGE_INTEGER), &BytesReturned, NULL);
             if (ret && StrFormatByteSizeW(LengthInformation.Length.QuadPart, szResult, sizeof(szResult) / sizeof(WCHAR)))
-               SendDlgItemMessageW(hwndDlg, 14007, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
+               SendDlgItemMessageW(hwndDlg, 14008, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
 
             CloseHandle(hVolume);
          }
          TRACE("szResult %s hVOlume %p ret %d LengthInformation %ul Bytesreturned %d\n", debugstr_w(szResult), hVolume, ret, LengthInformation.Length.QuadPart, BytesReturned);
 #else
             if (ret && StrFormatByteSizeW(TotalNumberOfBytes.QuadPart, szResult, sizeof(szResult) / sizeof(WCHAR)))
-               SendDlgItemMessageW(hwndDlg, 14007, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
+               SendDlgItemMessageW(hwndDlg, 14008, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
 #endif
 
          if (StrFormatByteSizeW(TotalNumberOfBytes.QuadPart - FreeBytesAvailable.QuadPart, szResult, sizeof(szResult) / sizeof(WCHAR)))
-             SendDlgItemMessageW(hwndDlg, 14003, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
+             SendDlgItemMessageW(hwndDlg, 14004, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
 
          if (StrFormatByteSizeW(FreeBytesAvailable.QuadPart, szResult, sizeof(szResult) / sizeof(WCHAR)))
-             SendDlgItemMessageW(hwndDlg, 14005, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
+             SendDlgItemMessageW(hwndDlg, 14006, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szResult);
 
          Result = GetFreeBytesShare(TotalNumberOfFreeBytes, TotalNumberOfBytes);
          /* set free bytes percentage */
          swprintf(szResult, L"%02d%%", Result.QuadPart);
-         SendDlgItemMessageW(hwndDlg, 14006, WM_SETTEXT, (WPARAM)0, (LPARAM)szResult);
+         SendDlgItemMessageW(hwndDlg, 14007, WM_SETTEXT, (WPARAM)0, (LPARAM)szResult);
          /* store used share amount */
          Result = LargeIntegerSubtract(ConvertUlongToLargeInteger(100), Result);
          swprintf(szResult, L"%02d%%", Result.QuadPart);
-         SendDlgItemMessageW(hwndDlg, 14004, WM_SETTEXT, (WPARAM)0, (LPARAM)szResult);
-         if (DriveType == DRIVE_FIXED)
-         {
-            if (LoadStringW(shell32_hInstance, IDS_DRIVE_FIXED, szBuffer, sizeof(szBuffer) / sizeof(WCHAR)))
-               SendDlgItemMessageW(hwndDlg, 14001, WM_SETTEXT, (WPARAM)0, (LPARAM)szBuffer);
-         }
-         else /* DriveType == DRIVE_CDROM) */
-         {
-            if (LoadStringW(shell32_hInstance, IDS_DRIVE_CDROM, szBuffer, sizeof(szBuffer) / sizeof(WCHAR)))
-               SendDlgItemMessageW(hwndDlg, 14001, WM_SETTEXT, (WPARAM)0, (LPARAM)szBuffer);
-         }
+         SendDlgItemMessageW(hwndDlg, 14005, WM_SETTEXT, (WPARAM)0, (LPARAM)szResult);
+         if (LoadStringW(shell32_hInstance, IDS_DRIVE_FIXED, szBuffer, sizeof(szBuffer) / sizeof(WCHAR)))
+             SendDlgItemMessageW(hwndDlg, 14002, WM_SETTEXT, (WPARAM)0, (LPARAM)szBuffer);
+
       }
    }
    /* set drive description */
-   SendDlgItemMessageW(hwndDlg, 14009, WM_GETTEXT, (WPARAM)50, (LPARAM)szFormat);
+   SendDlgItemMessageW(hwndDlg, 14010, WM_GETTEXT, (WPARAM)50, (LPARAM)szFormat);
    swprintf(szBuffer, szFormat, szDrive);
-   SendDlgItemMessageW(hwndDlg, 14009, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szBuffer);
+   SendDlgItemMessageW(hwndDlg, 14010, WM_SETTEXT, (WPARAM)NULL, (LPARAM)szBuffer);
 }
 
 
@@ -491,7 +478,7 @@ DriveGeneralDlg(
         }
         break;
     case WM_COMMAND:
-        if (LOWORD(wParam) == 14010) /* Disk Cleanup */
+        if (LOWORD(wParam) == 14011)
         {
            lpstr = (WCHAR*)GetWindowLongPtr(hwndDlg, DWLP_USER);
            ZeroMemory( &si, sizeof(si) );
@@ -512,7 +499,7 @@ DriveGeneralDlg(
         }
     case WM_NOTIFY:
         lppsn = (LPPSHNOTIFY) lParam;
-        if (LOWORD(wParam) == 14000)
+        if (LOWORD(wParam) == 14001)
         {
            if (HIWORD(wParam) == EN_CHANGE)
            {
@@ -522,13 +509,13 @@ DriveGeneralDlg(
         }
         if (lppsn->hdr.code == PSN_APPLY)
         {
-           lpstr = (LPWSTR)GetWindowLongPtr(hwndDlg, DWLP_USER);
-           if (lpstr && SendDlgItemMessageW(hwndDlg, 14000, WM_GETTEXT, sizeof(szPath)/sizeof(WCHAR), (LPARAM)szPath))
+           lpstr = (LPWSTR)GetWindowLong(hwndDlg, DWLP_USER);
+           if (lpstr && SendDlgItemMessageW(hwndDlg, 14001, WM_GETTEXT, sizeof(szPath)/sizeof(WCHAR), (LPARAM)szPath))
            {
               szPath[(sizeof(szPath)/sizeof(WCHAR))-1] = L'\0';
               SetVolumeLabelW(lpstr, szPath);
            }
-           SetWindowLongPtr( hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR );
+           SetWindowLong( hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR );
            return TRUE;
         }
         break;
@@ -663,12 +650,11 @@ struct
 {
    LPSTR resname;
    DLGPROC dlgproc;
-   UINT DriveType;
 } PropPages[] =
 {
-    { "DRIVE_GENERAL_DLG", DriveGeneralDlg, -1},
-    { "DRIVE_EXTRA_DLG", DriveExtraDlg, DRIVE_FIXED},
-    { "DRIVE_HARDWARE_DLG", DriveHardwareDlg, -1},
+    { "DRIVE_GENERAL_DLG", DriveGeneralDlg },
+    { "DRIVE_EXTRA_DLG", DriveExtraDlg },
+    { "DRIVE_HARDWARE_DLG", DriveHardwareDlg },
 };
 
 HRESULT
@@ -692,10 +678,9 @@ SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * 
    PROPSHEETHEADERW psh;
    BOOL ret;
    UINT i;
-   WCHAR szName[MAX_PATH+6];
+   WCHAR szName[MAX_PATH];
    DWORD dwMaxComponent, dwFileSysFlags;
    IDataObject * pDataObj = NULL;
-   UINT DriveType;
 
    ZeroMemory(&psh, sizeof(PROPSHEETHEADERW));
    psh.dwSize = sizeof(PROPSHEETHEADERW);
@@ -703,6 +688,7 @@ SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * 
    psh.hwndParent = NULL;
    psh.nStartPage = 0;
    psh.phpage = hpsp;
+
 
    if (GetVolumeInformationW(drive, szName, sizeof(szName)/sizeof(WCHAR), NULL, &dwMaxComponent,
                              &dwFileSysFlags, NULL, 0))
@@ -714,8 +700,8 @@ SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * 
           /* FIXME
            * check if disk is a really a local hdd 
            */
-          i = LoadStringW(shell32_hInstance, IDS_DRIVE_FIXED, szName, sizeof(szName)/sizeof(WCHAR)-6);
-          if (i > 0 && i < (sizeof(szName)/sizeof(WCHAR)) - 6)
+          i = LoadStringW(shell32_hInstance, IDS_DRIVE_FIXED, szName, sizeof(szName)/sizeof(WCHAR));
+          if (i > 0 && i < (sizeof(szName)/sizeof(WCHAR)) + 6)
           {
               szName[i] = L' ';
               szName[i+1] = L'(';
@@ -726,20 +712,15 @@ SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * 
       }
    }
 
-   DriveType = GetDriveTypeW(drive);
    for (i = 0; i < DRIVE_PROPERTY_PAGES; i++)
    {
-       if (PropPages[i].DriveType == (UINT)-1 || (PropPages[i].DriveType != (UINT)-1 &&  PropPages[i].DriveType == DriveType))
+       HPROPSHEETPAGE hprop = SH_CreatePropertySheetPage(PropPages[i].resname, PropPages[i].dlgproc, (LPARAM)drive, NULL);
+       if (hprop)
        {
-           HPROPSHEETPAGE hprop = SH_CreatePropertySheetPage(PropPages[i].resname, PropPages[i].dlgproc, (LPARAM)drive, NULL);
-           if (hprop)
-           {
-              hpsp[psh.nPages] = hprop;
-              psh.nPages++;
-           }
+          hpsp[psh.nPages] = hprop;
+          psh.nPages++;
        }
    }
-
    if (SHCreateDataObject(pidlFolder, 1, apidl, NULL, &IID_IDataObject, (void**)&pDataObj) == S_OK)
    {
        hpsx = SHCreatePropSheetExtArrayEx(HKEY_CLASSES_ROOT, L"Drive", MAX_PROPERTY_SHEET_PAGE-DRIVE_PROPERTY_PAGES, pDataObj);
@@ -948,8 +929,6 @@ InitializeFormatDriveDlg(HWND hwndDlg, PFORMAT_DRIVE_CONTEXT pContext)
     HWND hDlgCtrl;
 
     Length = GetWindowTextW(hwndDlg, szText, sizeof(szText)/sizeof(WCHAR));
-    if (Length < 0)
-        Length = 0;
     szDrive[0] = pContext->Drive + L'A';
     if (GetVolumeInformationW(szDrive, &szText[Length+1], (sizeof(szText)/sizeof(WCHAR))- Length - 2, &dwSerial, &dwMaxComp, &dwFileSys, szFs, sizeof(szFs)/sizeof(WCHAR)))
     {

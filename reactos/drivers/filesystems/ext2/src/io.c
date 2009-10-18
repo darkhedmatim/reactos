@@ -76,7 +76,7 @@ NTSTATUS NTAPI Ext2PassDownMultiReadWriteIRP(
 			if ( !PtrSyncEvent )
 			{
 				RC = STATUS_INSUFFICIENT_RESOURCES;
-				try_return();
+				try_return ( RC );
 			}
 			KeInitializeEvent( PtrSyncEvent, SynchronizationEvent, FALSE );
 		}
@@ -87,7 +87,7 @@ NTSTATUS NTAPI Ext2PassDownMultiReadWriteIRP(
 		if ( !PtrIoContext )
 		{
 			RC = STATUS_INSUFFICIENT_RESOURCES;
-			try_return();
+			try_return ( RC );
 		}
 
 		RtlZeroMemory( PtrIoContext, sizeof(EXT2_IO_CONTEXT) );
@@ -184,7 +184,7 @@ NTSTATUS NTAPI Ext2PassDownMultiReadWriteIRP(
 		}
 
 		for( i = 0; i < Count; i++ ) {
-                    // DbgPrint("PASSING DOWN IRP %d TO TARGET DEVICE\n", i);
+                    DbgPrint("PASSING DOWN IRP %d TO TARGET DEVICE\n", i);
                     IoCallDriver( PtrVCB->TargetDeviceObject, PtrIoRuns[ i].PtrAssociatedIrp );
                 }
 
@@ -194,17 +194,17 @@ NTSTATUS NTAPI Ext2PassDownMultiReadWriteIRP(
 			//	Synchronous IO 
 			//	Wait for the IO to complete...
 			//
-			DbgPrint("DEADLY WAIT (%d)\n", KeGetCurrentIrql());
+                    DbgPrint("DEADLY WAIT (%d)\n", KeGetCurrentIrql());
 			KeWaitForSingleObject( PtrSyncEvent,
 				Executive, KernelMode, FALSE, (PLARGE_INTEGER)NULL );
                         DbgPrint("DEADLY WAIT DONE\n");
-			try_return();
+			try_return ( RC );
 		}
 		else
 		{
 			//	Asynchronous IO...
 			RC = STATUS_PENDING;
-			try_return();
+			try_return ( RC );
 		}
 	
 		try_exit:	NOTHING;
@@ -259,7 +259,7 @@ NTSTATUS NTAPI Ext2PassDownSingleReadWriteIRP(
 			if ( !PtrSyncEvent )
 			{
 				RC = STATUS_INSUFFICIENT_RESOURCES;
-				try_return();
+				try_return ( RC );
 			}
 			KeInitializeEvent( PtrSyncEvent, SynchronizationEvent, FALSE );
 		}
@@ -271,7 +271,7 @@ NTSTATUS NTAPI Ext2PassDownSingleReadWriteIRP(
 		if ( !PtrIoContext )
 		{
 			RC = STATUS_INSUFFICIENT_RESOURCES;
-			try_return();
+			try_return ( RC );
 		}
 
 		RtlZeroMemory( PtrIoContext, sizeof(EXT2_IO_CONTEXT) );

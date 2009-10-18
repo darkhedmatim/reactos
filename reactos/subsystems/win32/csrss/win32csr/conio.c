@@ -8,8 +8,9 @@
 
 /* INCLUDES ******************************************************************/
 
-#define NDEBUG
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -132,7 +133,7 @@ CsrInitConsoleScreenBuffer(PCSRSS_CONSOLE Console,
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CsrInitConsole(PCSRSS_CONSOLE Console)
 {
   NTSTATUS Status;
@@ -184,7 +185,7 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
     }
   /* init screen buffer with defaults */
   NewBuffer->CursorInfo.bVisible = TRUE;
-  NewBuffer->CursorInfo.dwSize = CSR_DEFAULT_CURSOR_SIZE;
+  NewBuffer->CursorInfo.dwSize = 5;
   /* make console active, and insert into console list */
   Console->ActiveBuffer = (PCSRSS_SCREEN_BUFFER) NewBuffer;
 
@@ -679,7 +680,7 @@ CSR_API(CsrReadConsole)
   return Status;
 }
 
-__inline BOOLEAN ConioGetIntersection(
+BOOLEAN __inline ConioGetIntersection(
   RECT *Intersection,
   RECT *Rect1,
   RECT *Rect2)
@@ -705,7 +706,7 @@ __inline BOOLEAN ConioGetIntersection(
   return TRUE;
 }
 
-__inline BOOLEAN ConioGetUnion(
+BOOLEAN __inline ConioGetUnion(
   RECT *Union,
   RECT *Rect1,
   RECT *Rect2)
@@ -893,7 +894,7 @@ CSR_API(CsrWriteConsole)
   return Status;
 }
 
-VOID WINAPI
+VOID STDCALL
 ConioDeleteScreenBuffer(Object_t *Object)
 {
   PCSRSS_SCREEN_BUFFER Buffer = (PCSRSS_SCREEN_BUFFER) Object;
@@ -913,7 +914,7 @@ ConioDrawConsole(PCSRSS_CONSOLE Console)
 }
 
 
-VOID WINAPI
+VOID STDCALL
 ConioDeleteConsole(Object_t *Object)
 {
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) Object;
@@ -945,7 +946,7 @@ ConioDeleteConsole(Object_t *Object)
   HeapFree(Win32CsrApiHeap, 0, Console);
 }
 
-VOID WINAPI
+VOID STDCALL
 CsrInitConsoleSupport(VOID)
 {
   DPRINT("CSR: CsrInitConsoleSupport()\n");
@@ -1086,7 +1087,7 @@ ConioGetShiftState(PBYTE KeyState)
   return ssOut;
 }
 
-VOID WINAPI
+VOID STDCALL
 ConioProcessKey(MSG *msg, PCSRSS_CONSOLE Console, BOOL TextMode)
 {
   static BYTE KeyState[256] = { 0 };
@@ -1995,7 +1996,7 @@ CSR_API(CsrCreateScreenBuffer)
       else
         {
           Buff->CursorInfo.bVisible = TRUE;
-          Buff->CursorInfo.dwSize = CSR_DEFAULT_CURSOR_SIZE;
+          Buff->CursorInfo.dwSize = 5;
         }
 
       if (Buff->MaxX == 0)
@@ -2970,16 +2971,14 @@ CSR_API(CsrSetConsoleCodePage)
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
   if (IsValidCodePage(Request->Data.SetConsoleCodePage.CodePage))
     {
       Console->CodePage = Request->Data.SetConsoleCodePage.CodePage;
       ConioUnlockConsole(Console);
       return STATUS_SUCCESS;
     }
-
   ConioUnlockConsole(Console);
-  return STATUS_INVALID_PARAMETER;
+  return STATUS_UNSUCCESSFUL;
 }
 
 CSR_API(CsrGetConsoleOutputCodePage)
@@ -3017,16 +3016,14 @@ CSR_API(CsrSetConsoleOutputCodePage)
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
   if (IsValidCodePage(Request->Data.SetConsoleOutputCodePage.CodePage))
     {
       Console->OutputCodePage = Request->Data.SetConsoleOutputCodePage.CodePage;
       ConioUnlockConsole(Console);
       return STATUS_SUCCESS;
     }
-
   ConioUnlockConsole(Console);
-  return STATUS_INVALID_PARAMETER;
+  return STATUS_UNSUCCESSFUL;
 }
 
 CSR_API(CsrGetProcessList)

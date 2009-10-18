@@ -12,6 +12,10 @@
 		<xi:include href="chklib/chklib.rbuild" />
 	</directory>
 
+	<directory name="dosfsck">
+		<xi:include href="dosfsck/dosfsck.rbuild" />
+	</directory>
+
 	<directory name="gettype">
 		<xi:include href="gettype/gettype.rbuild" />
 	</directory>
@@ -38,10 +42,6 @@
 
 	<directory name="regexpl">
 		<xi:include href="regexpl/regexpl.rbuild" />
-	</directory>
-
-	<directory name="rosddt">
-		<xi:include href="rosddt/rosddt.rbuild" />
 	</directory>
 
 	<directory name="screenshot">

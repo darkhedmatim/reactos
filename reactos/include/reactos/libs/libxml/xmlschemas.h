@@ -92,7 +92,7 @@ typedef xmlSchema *xmlSchemaPtr;
  *
  * Signature of an error callback from an XSD validation
  */
-typedef void (XMLCDECL *xmlSchemaValidityErrorFunc) (void *ctx, const char *msg, ...) ATTRIBUTE_PRINTF(2,3);
+typedef void (XMLCDECL *xmlSchemaValidityErrorFunc) (void *ctx, const char *msg, ...);
 
 /**
  * xmlSchemaValidityWarningFunc:
@@ -102,7 +102,7 @@ typedef void (XMLCDECL *xmlSchemaValidityErrorFunc) (void *ctx, const char *msg,
  *
  * Signature of a warning callback from an XSD validation
  */
-typedef void (XMLCDECL *xmlSchemaValidityWarningFunc) (void *ctx, const char *msg, ...) ATTRIBUTE_PRINTF(2,3);
+typedef void (XMLCDECL *xmlSchemaValidityWarningFunc) (void *ctx, const char *msg, ...);
 
 /**
  * A schemas validation context

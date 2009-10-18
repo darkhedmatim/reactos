@@ -26,7 +26,7 @@ typedef struct
 } INetConnectionImpl, *LPINetConnectionImpl;
 
 
-static __inline LPINetConnectionManagerImpl impl_from_EnumNetConnection(IEnumNetConnection *iface)
+static LPINetConnectionManagerImpl __inline impl_from_EnumNetConnection(IEnumNetConnection *iface)
 {
     return (LPINetConnectionManagerImpl)((char *)iface - FIELD_OFFSET(INetConnectionManagerImpl, lpVtblNetConnection));
 }
@@ -527,7 +527,7 @@ GetAdapterIndexFromNetCfgInstanceId(PIP_ADAPTER_INFO pAdapterInfo, LPWSTR szNetC
         {
             szBuffer[(sizeof(szBuffer)/sizeof(WCHAR))-1] = L'\0';
         }
-        if (!_wcsicmp(szBuffer, szNetCfg))
+        if (!wcsicmp(szBuffer, szNetCfg))
         {
             *pIndex = pCurrentAdapter->Index;
             return TRUE;

@@ -3,7 +3,7 @@
 <group>
 <module name="kernel32_winetest" type="win32cui" installbase="bin" installname="kernel32_winetest.exe" allowwarnings="true">
     <include base="kernel32_winetest">.</include>
-    <define name="__ROS_LONG64__" />
+    <define name="__USE_W32API" />
     <library>ntdll</library>
     <library>kernel32</library>
     <library>advapi32</library>

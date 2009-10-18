@@ -516,7 +516,7 @@ DECL_WINELIB_TYPE_AW(TEXTRANGE)
 
 typedef struct _editstream
 {
-    DWORD_PTR		dwCookie;
+    DWORD		dwCookie;
     DWORD		dwError;
     EDITSTREAMCALLBACK	pfnCallback;
 } EDITSTREAM;
@@ -622,7 +622,7 @@ typedef enum tagKHYPH
 typedef struct hyphresult
 {
     KHYPH      khyph;
-    LONG       ichHyph;
+    long       ichHyph;
     WCHAR      chHyph;
 } HYPHRESULT;
 
@@ -630,7 +630,7 @@ typedef struct tagHyphenateInfo
 {
     SHORT      cbSize;
     SHORT      dxHyphenateZone;
-    void       (WINAPI* pfnHyphenate)(WCHAR*, LANGID, LONG, HYPHRESULT*);
+    void       (WINAPI* pfnHyphenate)(WCHAR*, LANGID, long, HYPHRESULT*);
 } HYPHENATEINFO;
 
 typedef struct _msgfilter {
@@ -712,7 +712,7 @@ typedef struct _imecomptext {
     DWORD      flags;
 } IMECOMPTEXT;
 
-void WINAPI HyphenateProc(WCHAR*, LANGID, LONG, HYPHRESULT*);
+void WINAPI HyphenateProc(WCHAR*, LANGID, long, HYPHRESULT*);
 
 #define SF_TEXT		      0x00000001
 #define SF_RTF		      0x00000002

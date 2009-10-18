@@ -34,6 +34,9 @@
 
 /* STATIC FUNCTIONS **********************************************************/
 
+/* FUNCTIONS *****************************************************************/
+
+static
 PPROPERTY FASTCALL
 IntGetProp(PWINDOW_OBJECT Window, ATOM Atom)
 {
@@ -53,50 +56,7 @@ IntGetProp(PWINDOW_OBJECT Window, ATOM Atom)
    return(NULL);
 }
 
-BOOL FASTCALL
-IntRemoveProp(PWINDOW_OBJECT Window, ATOM Atom)
-{
-   PPROPERTY Prop;
-   HANDLE Data;
-   Prop = IntGetProp(Window, Atom);
-
-   if (Prop == NULL)
-   {
-      return FALSE;
-   }
-   Data = Prop->Data;
-   RemoveEntryList(&Prop->PropListEntry);
-   UserHeapFree(Prop);
-   Window->Wnd->PropListItems--;
-   return TRUE;
-}
-
-BOOL FASTCALL
-IntSetProp(PWINDOW_OBJECT pWnd, ATOM Atom, HANDLE Data)
-{
-   PPROPERTY Prop;
-
-   Prop = IntGetProp(pWnd, Atom);
-
-   if (Prop == NULL)
-   {
-      Prop = UserHeapAlloc(sizeof(PROPERTY));
-      if (Prop == NULL)
-      {
-         return FALSE;
-      }
-      Prop->Atom = Atom;
-      InsertTailList(&pWnd->Wnd->PropListHead, &Prop->PropListEntry);
-      pWnd->Wnd->PropListItems++;
-   }
-
-   Prop->Data = Data;
-   return TRUE;
-}
-
-/* FUNCTIONS *****************************************************************/
-
-NTSTATUS APIENTRY
+NTSTATUS STDCALL
 NtUserBuildPropList(HWND hWnd,
                     LPVOID Buffer,
                     DWORD BufferSize,
@@ -169,7 +129,7 @@ CLEANUP:
    END_CLEANUP;
 }
 
-HANDLE APIENTRY
+HANDLE STDCALL
 NtUserRemoveProp(HWND hWnd, ATOM Atom)
 {
    PWINDOW_OBJECT Window;
@@ -204,7 +164,33 @@ CLEANUP:
    END_CLEANUP;
 }
 
-BOOL APIENTRY
+
+static
+BOOL FASTCALL
+IntSetProp(PWINDOW_OBJECT pWnd, ATOM Atom, HANDLE Data)
+{
+   PPROPERTY Prop;
+
+   Prop = IntGetProp(pWnd, Atom);
+
+   if (Prop == NULL)
+   {
+      Prop = UserHeapAlloc(sizeof(PROPERTY));
+      if (Prop == NULL)
+      {
+         return FALSE;
+      }
+      Prop->Atom = Atom;
+      InsertTailList(&pWnd->Wnd->PropListHead, &Prop->PropListEntry);
+      pWnd->Wnd->PropListItems++;
+   }
+
+   Prop->Data = Data;
+   return TRUE;
+}
+
+
+BOOL STDCALL
 NtUserSetProp(HWND hWnd, ATOM Atom, HANDLE Data)
 {
    PWINDOW_OBJECT Window;

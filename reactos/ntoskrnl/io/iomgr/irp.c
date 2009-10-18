@@ -253,7 +253,7 @@ IopCompleteRequest(IN PKAPC Apc,
             FileObject);
 
     /* Sanity check */
-    ASSERT(Irp->IoStatus.Status != (NTSTATUS)0xFFFFFFFF);
+    ASSERT(Irp->IoStatus.Status != 0xFFFFFFFF);
 
     /* Check if we have a file object */
     if (*SystemArgument2)
@@ -286,7 +286,7 @@ IopCompleteRequest(IN PKAPC Apc,
         if (Irp->Flags & IRP_DEALLOCATE_BUFFER)
         {
             /* Deallocate it */
-            ExFreePool(Irp->AssociatedIrp.SystemBuffer);
+            ExFreePoolWithTag(Irp->AssociatedIrp.SystemBuffer, TAG_SYS_BUF);
         }
     }
 
@@ -323,16 +323,16 @@ IopCompleteRequest(IN PKAPC Apc,
         }
 
         /* Use SEH to make sure we don't write somewhere invalid */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /*  Save the IOSB Information */
             *Irp->UserIosb = Irp->IoStatus;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
             /* Ignore any error */
         }
-        _SEH2_END;
+        _SEH_END;
 
         /* Check if we have an event or a file object */
         if (Irp->UserEvent)
@@ -393,29 +393,6 @@ IopCompleteRequest(IN PKAPC Apc,
             }
         }
 
-        /* Update transfer count for everything but create operation */
-        if (!(Irp->Flags & IRP_CREATE_OPERATION))
-        {
-            if (Irp->Flags & IRP_WRITE_OPERATION)
-            {
-                /* Update write transfer count */
-                IopUpdateTransferCount(IopWriteTransfer,
-                                       (ULONG)Irp->IoStatus.Information);
-            }
-            else if (Irp->Flags & IRP_READ_OPERATION)
-            {
-                /* Update read transfer count */
-                IopUpdateTransferCount(IopReadTransfer,
-                                       (ULONG)Irp->IoStatus.Information);
-            }
-            else
-            {
-                /* Update other transfer count */
-                IopUpdateTransferCount(IopOtherTransfer,
-                                       (ULONG)Irp->IoStatus.Information);
-            }
-        }
-
         /* Now that we've signaled the events, de-associate the IRP */
         IopUnQueueIrpFromThread(Irp);
 
@@ -442,7 +419,7 @@ IopCompleteRequest(IN PKAPC Apc,
         {
             /* We have an I/O Completion setup... create the special Overlay */
             Irp->Tail.CompletionKey = Key;
-            Irp->Tail.Overlay.PacketType = IopCompletionPacketIrp;
+            Irp->Tail.Overlay.PacketType = IrpCompletionPacket;
             KeInsertQueue(Port, &Irp->Tail.Overlay.ListEntry);
         }
         else
@@ -542,8 +519,6 @@ IoAllocateIrp(IN CCHAR StackSize,
     /* Set Charge Quota Flag */
     if (ChargeQuota) Flags |= IRP_QUOTA_CHARGED;
 
-    /* FIXME: Implement Lookaside Floats */
-    
     /* Figure out which Lookaside List to use */
     if ((StackSize <= 8) && (ChargeQuota == FALSE))
     {
@@ -604,6 +579,9 @@ IoAllocateIrp(IN CCHAR StackSize,
     }
     else
     {
+        /* We have an IRP from Lookaside */
+        if (ChargeQuota) Flags |= IRP_LOOKASIDE_ALLOCATION;
+
         /* In this case there is no charge quota */
         Flags &= ~IRP_QUOTA_CHARGED;
     }
@@ -699,7 +677,7 @@ IoBuildAsynchronousFsdRequest(IN ULONG MajorFunction,
             }
 
 			/* Probe and Lock */
-			_SEH2_TRY
+			_SEH_TRY
 			{
 				/* Do the probe */
 				MmProbeAndLockPages(Irp->MdlAddress,
@@ -707,16 +685,17 @@ IoBuildAsynchronousFsdRequest(IN ULONG MajorFunction,
 									MajorFunction == IRP_MJ_READ ?
 									IoWriteAccess : IoReadAccess);
 			}
-			_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+			_SEH_HANDLE
 			{
 				/* Free the IRP and its MDL */
 				IoFreeMdl(Irp->MdlAddress);
 				IoFreeIrp(Irp);
-
-                /* Fail */
-				_SEH2_YIELD(return NULL);
+				Irp = NULL;
 			}
-			_SEH2_END;
+			_SEH_END;
+		
+            /* This is how we know if we failed during the probe */
+            if (!Irp) return NULL;
         }
         else
         {
@@ -890,7 +869,7 @@ IoBuildDeviceIoControlRequest(IN ULONG IoControlCode,
                 }
 
                 /* Probe and Lock */
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     /* Do the probe */
                     MmProbeAndLockPages(Irp->MdlAddress,
@@ -899,7 +878,7 @@ IoBuildDeviceIoControlRequest(IN ULONG IoControlCode,
                                         METHOD_IN_DIRECT ?
                                         IoReadAccess : IoWriteAccess);
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
                     /* Free the MDL */
                     IoFreeMdl(Irp->MdlAddress);
@@ -907,11 +886,12 @@ IoBuildDeviceIoControlRequest(IN ULONG IoControlCode,
                     /* Free the input buffer and IRP */
                     if (InputBuffer) ExFreePool(Irp->AssociatedIrp.SystemBuffer);
                     IoFreeIrp(Irp);
-
-                    /* Fail */
-                    _SEH2_YIELD(return NULL);
+                    Irp = NULL;
                 }
-                _SEH2_END;
+                _SEH_END;
+
+                /* This is how we know if probing failed */
+                if (!Irp) return NULL;
             }
             break;
 
@@ -996,7 +976,7 @@ IoCancelIrp(IN PIRP Irp)
     Irp->Cancel = TRUE;
 
     /* Clear the cancel routine and get the old one */
-    CancelRoutine = (PVOID)IoSetCancelRoutine(Irp, NULL);
+    CancelRoutine = IoSetCancelRoutine(Irp, NULL);
     if (CancelRoutine)
     {
         /* We had a routine, make sure the IRP isn't completed */
@@ -1204,7 +1184,7 @@ IofCompleteRequest(IN PIRP Irp,
     ASSERT(Irp->Type == IO_TYPE_IRP);
     ASSERT(!Irp->CancelRoutine);
     ASSERT(Irp->IoStatus.Status != STATUS_PENDING);
-    ASSERT(Irp->IoStatus.Status != (NTSTATUS)0xFFFFFFFF);
+    ASSERT(Irp->IoStatus.Status != 0xFFFFFFFF);
 
     /* Get the last stack */
     LastStackPtr = (PIO_STACK_LOCATION)(Irp + 1);

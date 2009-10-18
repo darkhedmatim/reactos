@@ -59,7 +59,7 @@ BEGIN
     PUSHBUTTON "V&olume...", IDC_VOLUME2_BTN, 85,115,70,15
     PUSHBUTTON "Avan&cé...", IDC_ADV1_BTN, 160,115,70,15
     GROUPBOX "Lecture de la musique MIDI", -1, 7,145,230,60
-    ICON IDI_MIDICON, IDI_MIDICON, 15,158,32,32
+    ICON IDI_CPLICON, IDI_CPLICON, 15,158,32,32
     LTEXT "Périphérique par dé&faut :",-1,50,158,80,17
     COMBOBOX IDC_DEVICE_MIDI_LIST, 50, 168, 180, 46, CBS_DROPDOWNLIST
     PUSHBUTTON "Volu&me...", IDC_VOLUME3_BTN, 85,185,70,15
@@ -234,7 +234,6 @@ BEGIN
     IDS_CPLNAME "Son et périphériques audio"
     IDS_CPLDESCRIPTION "Change le modèle de sons de votre ordinateur, ou configure les paramètres de vos hauts-parleurs et de vos périphériques d'enregistrement."
     IDS_NO_SOUND "(Aucun)"
-	IDS_NO_DEVICES "No Devices"
 
     5825 "Erreur programme"
     5826 "Fermeture programme"
@@ -265,5 +264,4 @@ BEGIN
     5851 "Menu démarrer"
     5852 "Déconnexion ReactOS"
     5853 "Connexion ReactOS"
-	5854 "ReactOS Explorer"
 END

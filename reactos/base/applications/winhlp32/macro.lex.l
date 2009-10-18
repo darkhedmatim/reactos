@@ -25,17 +25,12 @@
 %{
 #include "config.h"
 #include <assert.h>
-#include <stdarg.h>
 
 #ifndef HAVE_UNISTD_H
 #define YY_NO_UNISTD_H
 #endif
 
-#include "windef.h"
-#include "winbase.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "winhelp.h"
+#include "macro.h"
 
 #include "wine/debug.h"
 
@@ -48,7 +43,6 @@ struct lex_data {
     unsigned quote_stk_idx;
     LPSTR    cache_string[32];
     int      cache_used;
-    WINHELP_WINDOW* window;
 };
 static struct lex_data* lex_data = NULL;
 
@@ -272,7 +266,7 @@ static int MACRO_CallVoidFunc(FARPROC fn, const char* args)
     return 1;
 }
 
-BOOL MACRO_ExecuteMacro(WINHELP_WINDOW* window, LPCSTR macro)
+BOOL MACRO_ExecuteMacro(LPCSTR macro)
 {
     struct lex_data     curr_lex_data, *prev_lex_data;
     BOOL ret = TRUE;
@@ -285,7 +279,6 @@ BOOL MACRO_ExecuteMacro(WINHELP_WINDOW* window, LPCSTR macro)
 
     memset(lex_data, 0, sizeof(*lex_data));
     lex_data->macroptr = macro;
-    lex_data->window = WINHELP_GrabWindow(window);
 
     while ((t = yylex()) != EMPTY)
     {
@@ -300,15 +293,13 @@ BOOL MACRO_ExecuteMacro(WINHELP_WINDOW* window, LPCSTR macro)
             break;
         default:
             WINE_WARN("got unexpected type %s\n", ts(t));
-            YY_FLUSH_BUFFER;
-            ret = FALSE;
-            goto done;
+            return 0;
         }
         switch (t = yylex())
         {
         case EMPTY:     goto done;
         case ';':       break;
-        default:        ret = FALSE; YY_FLUSH_BUFFER; goto done;
+        default:        ret = FALSE; goto done;
         }
     }
 
@@ -316,14 +307,8 @@ done:
     for (t = 0; t < lex_data->cache_used; t++)
         HeapFree(GetProcessHeap(), 0, lex_data->cache_string[t]);
     lex_data = prev_lex_data;
-    WINHELP_ReleaseWindow(window);
 
     return ret;
-}
-
-WINHELP_WINDOW* MACRO_CurrentWindow(void)
-{
-    return lex_data ? lex_data->window : Globals.active_win;
 }
 
 #ifndef yywrap

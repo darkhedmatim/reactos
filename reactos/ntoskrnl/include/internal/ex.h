@@ -18,9 +18,9 @@ extern ERESOURCE ExpFirmwareTableResource;
 extern LIST_ENTRY ExpFirmwareTableProviderListHead;
 extern BOOLEAN ExpIsWinPEMode;
 extern LIST_ENTRY ExpSystemResourcesList;
-extern ULONG ExpAnsiCodePageDataOffset, ExpOemCodePageDataOffset;
-extern ULONG ExpUnicodeCaseTableDataOffset;
-extern PVOID ExpNlsSectionPointer;
+ULONG ExpAnsiCodePageDataOffset, ExpOemCodePageDataOffset;
+ULONG ExpUnicodeCaseTableDataOffset;
+PVOID ExpNlsSectionPointer;
 extern CHAR NtBuildLab[];
 extern ULONG CmNtCSDVersion;
 extern ULONG NtGlobalFlag;
@@ -92,10 +92,9 @@ typedef struct
 #define MAX_HIGH_INDEX      (MID_LEVEL_ENTRIES * MID_LEVEL_ENTRIES * LOW_LEVEL_ENTRIES)
 
 //
-// Detect old GCC
+// Detect GCC
 //
-#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ < 40300) || \
-    (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ == 40303) 
+#ifdef __GNUC__
 
 #define DEFINE_WAIT_BLOCK(x)                                \
     struct _AlignHack                                       \
@@ -117,16 +116,6 @@ typedef struct
     EX_PUSH_LOCK_WAIT_BLOCK WaitBlockBuffer;                \
     PEX_PUSH_LOCK_WAIT_BLOCK x = &WaitBlockBuffer;
 
-#endif
-
-#ifdef _WIN64
-#define ExpChangeRundown(x, y, z) InterlockedCompareExchange64((PLONGLONG)x, y, z)
-#define ExpChangePushlock(x, y, z) InterlockedCompareExchangePointer((PVOID*)x, (PVOID)y, (PVOID)z)
-#define ExpSetRundown(x, y) InterlockedExchange64((PLONGLONG)x, y)
-#else
-#define ExpChangeRundown(x, y, z) PtrToUlong(InterlockedCompareExchange((PLONG)x, PtrToLong(y), PtrToLong(z)))
-#define ExpChangePushlock(x, y, z) LongToPtr(InterlockedCompareExchange((PLONG)x, PtrToLong(y), PtrToLong(z)))
-#define ExpSetRundown(x, y) InterlockedExchange((PLONG)x, y)
 #endif
 
 /* INITIALIZATION FUNCTIONS *************************************************/
@@ -440,247 +429,48 @@ LONG
 NTAPI
 ExSystemExceptionFilter(VOID);
 
+static __inline _SEH_FILTER(_SEH_ExSystemExceptionFilter)
+{
+    return ExSystemExceptionFilter();
+}
+
 /* CALLBACKS *****************************************************************/
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ExDoCallBack(IN OUT PEX_CALLBACK Callback,
              IN PVOID Context,
              IN PVOID Argument1,
              IN PVOID Argument2)
 {
-    PEX_CALLBACK_ROUTINE_BLOCK CallbackBlock;
+    PEX_CALLBACK_ROUTINE_BLOCK CallbackRoutineBlock;
     PEX_CALLBACK_FUNCTION Function;
 
     /* Reference the block */
-    CallbackBlock = ExReferenceCallBackBlock(Callback);
-    if (CallbackBlock)
+    CallbackRoutineBlock = ExReferenceCallBackBlock(Callback);
+    if (CallbackRoutineBlock)
     {
         /* Get the function */
-        Function = ExGetCallBackBlockRoutine(CallbackBlock);
+        Function = ExGetCallBackBlockRoutine(CallbackRoutineBlock);
 
         /* Do the callback */
         Function(Context, Argument1, Argument2);
 
         /* Now dereference it */
-        ExDereferenceCallBackBlock(Callback, CallbackBlock);
+        ExDereferenceCallBackBlock(Callback, CallbackRoutineBlock);
     }
-}
-
-/* FAST REFS ******************************************************************/
-
-FORCEINLINE
-PVOID
-ExGetObjectFastReference(IN EX_FAST_REF FastRef)
-{
-    /* Return the unbiased pointer */
-    return (PVOID)(FastRef.Value & ~MAX_FAST_REFS);
-}
-
-FORCEINLINE
-ULONG
-ExGetCountFastReference(IN EX_FAST_REF FastRef)
-{
-    /* Return the reference count */
-    return FastRef.RefCnt;
-}
-
-FORCEINLINE
-VOID
-ExInitializeFastReference(OUT PEX_FAST_REF FastRef,
-                          IN OPTIONAL PVOID Object)
-{
-    /* Sanity check */
-    ASSERT((((ULONG_PTR)Object) & MAX_FAST_REFS) == 0);
-    
-    /* Check if an object is being set */
-    if (!Object)
-    {
-        /* Clear the field */
-        FastRef->Object = NULL;
-    }
-    else
-    {
-        /* Otherwise, we assume the object was referenced and is ready */
-        FastRef->Value = (ULONG_PTR)Object | MAX_FAST_REFS;
-    }
-}
-
-FORCEINLINE
-EX_FAST_REF
-ExAcquireFastReference(IN OUT PEX_FAST_REF FastRef)
-{
-    EX_FAST_REF OldValue, NewValue;
-    
-    /* Start reference loop */
-    for (;;)
-    {
-        /* Get the current reference count */
-        OldValue = *FastRef;
-        if (OldValue.RefCnt)
-        {
-            /* Increase the reference count */
-            NewValue.Value = OldValue.Value - 1;
-            NewValue.Object = ExpChangePushlock(&FastRef->Object,
-                                                NewValue.Object,
-                                                OldValue.Object);
-            if (NewValue.Object != OldValue.Object) continue;
-        }
-        
-        /* We are done */
-        break;
-    }
-    
-    /* Return the old value */
-    return OldValue;
-}
-
-FORCEINLINE
-BOOLEAN
-ExInsertFastReference(IN OUT PEX_FAST_REF FastRef,
-                      IN PVOID Object)
-{
-    EX_FAST_REF OldValue, NewValue;
-    
-    /* Sanity checks */
-    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
-    
-    /* Start update loop */
-    for (;;)
-    {
-        /* Get the current reference count */
-        OldValue = *FastRef;
-        
-        /* Check if the current count is too high or if the pointer changed */
-        if (((OldValue.RefCnt + MAX_FAST_REFS) > MAX_FAST_REFS) ||
-            ((OldValue.Value &~ MAX_FAST_REFS) != (ULONG_PTR)Object))
-        {
-            /* Fail */
-            return FALSE;
-        }
-        
-        /* Update the reference count */
-        NewValue.Value = OldValue.Value + MAX_FAST_REFS;
-        NewValue.Object = ExpChangePushlock(&FastRef->Object,
-                                            NewValue.Object,
-                                            OldValue.Object);
-        if (NewValue.Object != OldValue.Object) continue;
-        
-        /* We are done */
-        break;
-    }
-    
-    /* Return success */
-    return TRUE;   
-}
-
-FORCEINLINE
-BOOLEAN
-ExReleaseFastReference(IN PEX_FAST_REF FastRef,
-                       IN PVOID Object)
-{
-    EX_FAST_REF OldValue, NewValue;
-    
-    /* Sanity checks */
-    ASSERT(Object != NULL);
-    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
-    
-    /* Start reference loop */
-    for (;;)
-    {
-        /* Get the current reference count */
-        OldValue = *FastRef;
-        
-        /* Check if we're full if if the pointer changed */
-        if ((OldValue.Value ^ (ULONG_PTR)Object) >= MAX_FAST_REFS) return FALSE;
-            
-        /* Decrease the reference count */
-        NewValue.Value = OldValue.Value + 1;
-        NewValue.Object = ExpChangePushlock(&FastRef->Object,
-                                            NewValue.Object,
-                                            OldValue.Object);
-        if (NewValue.Object != OldValue.Object) continue;
-        
-        /* We are done */
-        break;
-    }
-    
-    /* Return success */
-    return TRUE;
-}
-
-FORCEINLINE
-EX_FAST_REF
-ExSwapFastReference(IN PEX_FAST_REF FastRef,
-                    IN PVOID Object)
-{
-    EX_FAST_REF NewValue, OldValue;
-    
-    /* Sanity check */
-    ASSERT((((ULONG_PTR)Object) & MAX_FAST_REFS) == 0);
-    
-    /* Check if an object is being set */
-    if (!Object)
-    {
-        /* Clear the field */
-        NewValue.Object = NULL;
-    }
-    else
-    {
-        /* Otherwise, we assume the object was referenced and is ready */
-        NewValue.Value = (ULONG_PTR)Object | MAX_FAST_REFS;
-    }
-    
-    /* Update the object */
-    OldValue.Object = InterlockedExchangePointer(&FastRef->Object, NewValue.Object);
-    return OldValue;
-}
-
-FORCEINLINE
-EX_FAST_REF
-ExCompareSwapFastReference(IN PEX_FAST_REF FastRef,
-                           IN PVOID Object,
-                           IN PVOID OldObject)
-{
-    EX_FAST_REF OldValue, NewValue;
-    
-    /* Sanity check and start swap loop */
-    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
-    for (;;)
-    {
-        /* Get the current value */
-        OldValue = *FastRef;
-        
-        /* Make sure there's enough references to swap */
-        if (!((OldValue.Value ^ (ULONG_PTR)OldObject) <= MAX_FAST_REFS)) break;
-        
-        /* Check if we have an object to swap */
-        if (Object)
-        {
-            /* Set up the value with maximum fast references */
-            NewValue.Value = (ULONG_PTR)Object | MAX_FAST_REFS;
-        }
-        else
-        {
-            /* Write the object address itself (which is empty) */
-            NewValue.Value = (ULONG_PTR)Object;
-        }
-        
-        /* Do the actual compare exchange */
-        NewValue.Object = ExpChangePushlock(&FastRef->Object,
-                                            NewValue.Object,
-                                            OldValue.Object);
-        if (NewValue.Object != OldValue.Object) continue;
-        
-        /* All done */
-        break;
-    }
-    
-    /* Return the old value */
-    return OldValue;
 }
 
 /* RUNDOWN *******************************************************************/
+
+#ifdef _WIN64
+#define ExpChangeRundown(x, y, z) InterlockedCompareExchange64((PLONGLONG)x, y, z)
+#define ExpSetRundown(x, y) InterlockedExchange64((PLONGLONG)x, y)
+#else
+#define ExpChangeRundown(x, y, z) InterlockedCompareExchange((PLONG)x, PtrToLong(y), PtrToLong(z))
+#define ExpChangePushlock(x, y, z) LongToPtr(InterlockedCompareExchange((PLONG)x, PtrToLong(y), PtrToLong(z)))
+#define ExpSetRundown(x, y) InterlockedExchange((PLONG)x, y)
+#endif
 
 /*++
  * @name ExfAcquireRundownProtection
@@ -699,8 +489,8 @@ ExCompareSwapFastReference(IN PEX_FAST_REF FastRef,
  *          function.
  *
  *--*/
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 _ExAcquireRundownProtection(IN PEX_RUNDOWN_REF RunRef)
 {
     ULONG_PTR Value, NewValue;
@@ -740,8 +530,8 @@ _ExAcquireRundownProtection(IN PEX_RUNDOWN_REF RunRef)
  *          function.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 _ExReleaseRundownProtection(IN PEX_RUNDOWN_REF RunRef)
 {
     ULONG_PTR Value, NewValue;
@@ -783,8 +573,8 @@ _ExReleaseRundownProtection(IN PEX_RUNDOWN_REF RunRef)
  * @remarks This is the internal macro for system use only.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 _ExInitializeRundownProtection(IN PEX_RUNDOWN_REF RunRef)
 {
     /* Set the count to zero */
@@ -807,8 +597,8 @@ _ExInitializeRundownProtection(IN PEX_RUNDOWN_REF RunRef)
  *          necessary, then the slow path is taken through the exported function.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 _ExWaitForRundownProtectionRelease(IN PEX_RUNDOWN_REF RunRef)
 {
     ULONG_PTR Value;
@@ -837,8 +627,8 @@ _ExWaitForRundownProtectionRelease(IN PEX_RUNDOWN_REF RunRef)
  * @remarks This is the internal macro for system use only.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 _ExRundownCompleted(IN PEX_RUNDOWN_REF RunRef)
 {
     /* Sanity check */
@@ -887,8 +677,8 @@ ExWaitForUnblockPushLock(
  * @remarks None.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExInitializePushLock(IN PULONG_PTR PushLock)
 {
     /* Set the value to 0 */
@@ -914,8 +704,8 @@ ExInitializePushLock(IN PULONG_PTR PushLock)
  *          This macro should usually be paired up with KeAcquireCriticalRegion.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
 {
     /* Try acquiring the lock */
@@ -948,8 +738,8 @@ ExAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
 *          This macro should usually be paired up with KeAcquireCriticalRegion.
 *
 *--*/
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 ExTryToAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
 {
     /* Try acquiring the lock */
@@ -983,8 +773,8 @@ ExTryToAcquirePushLockExclusive(PEX_PUSH_LOCK PushLock)
  *          This macro should usually be paired up with KeAcquireCriticalRegion.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExAcquirePushLockShared(PEX_PUSH_LOCK PushLock)
 {
     EX_PUSH_LOCK NewValue;
@@ -1018,8 +808,8 @@ ExAcquirePushLockShared(PEX_PUSH_LOCK PushLock)
  *          to simply set the lock bit and remove any other bits.
  *
  *--*/
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 ExConvertPushLockSharedToExclusive(IN PEX_PUSH_LOCK PushLock)
 {
     EX_PUSH_LOCK OldValue;
@@ -1057,8 +847,8 @@ ExConvertPushLockSharedToExclusive(IN PEX_PUSH_LOCK PushLock)
  *          Callers of ExWaitOnPushLock must be running at IRQL <= APC_LEVEL.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExWaitOnPushLock(PEX_PUSH_LOCK PushLock)
 {
     /* Check if we're locked */
@@ -1092,8 +882,8 @@ ExWaitOnPushLock(PEX_PUSH_LOCK PushLock)
  *          This macro should usually be paired up with KeLeaveCriticalRegion.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExReleasePushLockShared(PEX_PUSH_LOCK PushLock)
 {
     EX_PUSH_LOCK OldValue;
@@ -1132,8 +922,8 @@ ExReleasePushLockShared(PEX_PUSH_LOCK PushLock)
  *          This macro should usually be paired up with KeLeaveCriticalRegion.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExReleasePushLockExclusive(PEX_PUSH_LOCK PushLock)
 {
     EX_PUSH_LOCK OldValue;
@@ -1143,8 +933,8 @@ ExReleasePushLockExclusive(PEX_PUSH_LOCK PushLock)
     ASSERT(PushLock->Waiting || PushLock->Shared == 0);
 
     /* Unlock the pushlock */
-    OldValue.Value = InterlockedExchangeAddSizeT((PSIZE_T)PushLock,
-                                                 -(SIZE_T)EX_PUSH_LOCK_LOCK);
+    OldValue.Value = InterlockedExchangeAddSizeT((PLONG)PushLock,
+                                                 -(LONG)EX_PUSH_LOCK_LOCK);
 
     /* Sanity checks */
     ASSERT(OldValue.Locked);
@@ -1177,8 +967,8 @@ ExReleasePushLockExclusive(PEX_PUSH_LOCK PushLock)
  *          This macro should usually be paired up with KeLeaveCriticalRegion.
  *
  *--*/
-FORCEINLINE
 VOID
+FORCEINLINE
 ExReleasePushLock(PEX_PUSH_LOCK PushLock)
 {
     EX_PUSH_LOCK OldValue = *PushLock;
@@ -1207,146 +997,6 @@ ExReleasePushLock(PEX_PUSH_LOCK PushLock)
         /* We have waiters, use the long path */
         ExfReleasePushLock(PushLock);
     }
-}
-
-/* FAST MUTEX INLINES *********************************************************/
-
-FORCEINLINE
-VOID
-_ExAcquireFastMutexUnsafe(IN PFAST_MUTEX FastMutex)
-{
-    PKTHREAD Thread = KeGetCurrentThread();
-    
-    /* Sanity check */
-    ASSERT((KeGetCurrentIrql() == APC_LEVEL) ||
-           (Thread->CombinedApcDisable != 0) ||
-           (Thread->Teb == NULL) ||
-           (Thread->Teb >= (PTEB)MM_SYSTEM_RANGE_START));
-    ASSERT(FastMutex->Owner != Thread);
-    
-    /* Decrease the count */
-    if (InterlockedDecrement(&FastMutex->Count))
-    {
-        /* Someone is still holding it, use slow path */
-        KiAcquireFastMutex(FastMutex);
-    }
-    
-    /* Set the owner */
-    FastMutex->Owner = Thread;
-}
-
-FORCEINLINE
-VOID
-_ExReleaseFastMutexUnsafe(IN OUT PFAST_MUTEX FastMutex)
-{
-    ASSERT((KeGetCurrentIrql() == APC_LEVEL) ||
-           (KeGetCurrentThread()->CombinedApcDisable != 0) ||
-           (KeGetCurrentThread()->Teb == NULL) ||
-           (KeGetCurrentThread()->Teb >= (PTEB)MM_SYSTEM_RANGE_START));
-    ASSERT(FastMutex->Owner == KeGetCurrentThread());
-    
-    /* Erase the owner */
-    FastMutex->Owner = NULL;
-    
-    /* Increase the count */
-    if (InterlockedIncrement(&FastMutex->Count) <= 0)
-    {
-        /* Someone was waiting for it, signal the waiter */
-        KeSetEventBoostPriority(&FastMutex->Gate, NULL);
-    }
-}
-
-FORCEINLINE
-VOID
-_ExAcquireFastMutex(IN PFAST_MUTEX FastMutex)
-{
-    KIRQL OldIrql;
-    ASSERT(KeGetCurrentIrql() <= APC_LEVEL);
-    
-    /* Raise IRQL to APC */
-    KeRaiseIrql(APC_LEVEL, &OldIrql);
-    
-    /* Decrease the count */
-    if (InterlockedDecrement(&FastMutex->Count))
-    {
-        /* Someone is still holding it, use slow path */
-        KiAcquireFastMutex(FastMutex);
-    }
-    
-    /* Set the owner and IRQL */
-    FastMutex->Owner = KeGetCurrentThread();
-    FastMutex->OldIrql = OldIrql;
-}
-
-FORCEINLINE
-VOID
-_ExReleaseFastMutex(IN OUT PFAST_MUTEX FastMutex)
-{
-    KIRQL OldIrql;
-    ASSERT(KeGetCurrentIrql() == APC_LEVEL);
-    
-    /* Erase the owner */
-    FastMutex->Owner = NULL;
-    OldIrql = (KIRQL)FastMutex->OldIrql;
-    
-    /* Increase the count */
-    if (InterlockedIncrement(&FastMutex->Count) <= 0)
-    {
-        /* Someone was waiting for it, signal the waiter */
-        KeSetEventBoostPriority(&FastMutex->Gate, NULL);
-    }
-    
-    /* Lower IRQL back */
-    KeLowerIrql(OldIrql);
-}
-
-FORCEINLINE
-BOOLEAN
-_ExTryToAcquireFastMutex(IN OUT PFAST_MUTEX FastMutex)
-{
-    KIRQL OldIrql;
-    ASSERT(KeGetCurrentIrql() <= APC_LEVEL);
-    
-    /* Raise to APC_LEVEL */
-    KeRaiseIrql(APC_LEVEL, &OldIrql);
-    
-    /* Check if we can quickly acquire it */
-    if (InterlockedCompareExchange(&FastMutex->Count, 0, 1) == 1)
-    {
-        /* We have, set us as owners */
-        FastMutex->Owner = KeGetCurrentThread();
-        FastMutex->OldIrql = OldIrql;
-        return TRUE;
-    }
-    else
-    {
-        /* Acquire attempt failed */
-        KeLowerIrql(OldIrql);
-        YieldProcessor();
-        return FALSE;
-    }
-}
-
-FORCEINLINE
-VOID
-_ExEnterCriticalRegionAndAcquireFastMutexUnsafe(IN OUT PFAST_MUTEX FastMutex)
-{
-    /* Enter the Critical Region */
-    KeEnterCriticalRegion();
-
-    /* Acquire the mutex unsafely */
-    _ExAcquireFastMutexUnsafe(FastMutex);
-}
-
-FORCEINLINE
-VOID
-_ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(IN OUT PFAST_MUTEX FastMutex)
-{
-    /* Release the mutex unsafely */
-    _ExReleaseFastMutexUnsafe(FastMutex);
-
-    /* Leave the critical region */
-    KeLeaveCriticalRegion();
 }
 
 /* OTHER FUNCTIONS **********************************************************/

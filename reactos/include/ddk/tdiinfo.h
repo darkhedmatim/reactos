@@ -23,6 +23,10 @@
 #ifndef __TDIINFO_H
 #define __TDIINFO_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -93,8 +97,8 @@ typedef struct _TCP_REQUEST_QUERY_INFORMATION_EX32 {
 
 typedef struct _TCP_REQUEST_SET_INFORMATION_EX {
   TDIObjectID  ID;
-  unsigned int BufferSize;
-  unsigned char Buffer[1];
+  UINT  BufferSize;
+  UCHAR  Buffer[1];
 } TCP_REQUEST_SET_INFORMATION_EX, *PTCP_REQUEST_SET_INFORMATION_EX;
 
 #ifdef __cplusplus

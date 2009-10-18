@@ -26,17 +26,13 @@
 /* INCLUDES *******************************************************************/
 
 #ifdef _MSC_VER
-#pragma message ("INVESTIGATE ME")
-#endif
-
-#if 0 //#ifdef _MSC_VER
+#include "dderror.h"
 #include "devioctl.h"
 #define PAGE_SIZE 4096
 #else
 #include <ntddk.h>
 #endif
 
-#include "dderror.h"
 #include "miniport.h"
 #include "ntddvdeo.h"
 #include "video.h"
@@ -75,7 +71,7 @@ typedef struct
   PHYSICAL_ADDRESS PhysFrameBufferStart;
 } XBOXVMP_DEVICE_EXTENSION, *PXBOXVMP_DEVICE_EXTENSION;
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 XboxVmpFindAdapter(
    IN PVOID HwDeviceExtension,
    IN PVOID HwContext,
@@ -83,27 +79,27 @@ XboxVmpFindAdapter(
    IN OUT PVIDEO_PORT_CONFIG_INFO ConfigInfo,
    OUT PUCHAR Again);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 XboxVmpInitialize(PVOID HwDeviceExtension);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 XboxVmpStartIO(
    PVOID HwDeviceExtension,
    PVIDEO_REQUEST_PACKET RequestPacket);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 XboxVmpResetHw(
    PVOID DeviceExtension,
    ULONG Columns,
    ULONG Rows);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 XboxVmpGetPowerState(
    PVOID HwDeviceExtension,
    ULONG HwId,
    PVIDEO_POWER_MANAGEMENT VideoPowerControl);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 XboxVmpSetPowerState(
    PVOID HwDeviceExtension,
    ULONG HwId,

@@ -14,27 +14,29 @@
 
 /* FUNCTIONS *****************************************************************/
 
-VOID
-NTAPI
+VOID STDCALL
 KiHaltProcessorDpcRoutine(IN PKDPC Dpc,
-                          IN PVOID DeferredContext,
-                          IN PVOID SystemArgument1,
-                          IN PVOID SystemArgument2)
+			  IN PVOID DeferredContext,
+			  IN PVOID SystemArgument1,
+			  IN PVOID SystemArgument2)
 {
-    KIRQL OldIrql;
-    if (DeferredContext)
-    {
-        ExFreePool(DeferredContext);
-    }
-
-    while (TRUE)
-    {
-        KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
-        HalHaltSystem();
-    }
+   KIRQL OldIrql;
+   if (DeferredContext)
+     {
+       ExFreePool(DeferredContext);
+     }
+   while (TRUE)
+     {
+       KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
+#if defined(_M_X86)
+       Ke386HaltProcessor();
+#else
+       HalProcessorIdle();
+#endif
+     }
 }
 
-VOID NTAPI
+VOID STDCALL
 ShutdownThreadMain(PVOID Context)
 {
    SHUTDOWN_ACTION Action = (SHUTDOWN_ACTION)Context;
@@ -131,10 +133,6 @@ ShutdownThreadMain(PVOID Context)
        "<Place your Ad here>\n"
     };
    LARGE_INTEGER Now;
-#ifdef CONFIG_SMP
-	LONG i;
-	KIRQL OldIrql;
-#endif
 
    /* Run the thread on the boot processor */
    KeSetSystemAffinityThread(1);
@@ -162,6 +160,7 @@ ShutdownThreadMain(PVOID Context)
    PspShutdownProcessManager();
 
    CmShutdownSystem();
+   MiShutdownMemoryManager();
    IoShutdownRegisteredFileSystems();
    IoShutdownRegisteredDevices();
 
@@ -174,6 +173,9 @@ ShutdownThreadMain(PVOID Context)
         HalReturnToFirmware (FIRMWARE_OFF);
 #else
 #ifdef CONFIG_SMP
+        LONG i;
+	KIRQL OldIrql;
+
 	OldIrql = KeRaiseIrqlToDpcLevel();
         /* Halt all other processors */
 	for (i = 0; i < KeNumberProcessors; i++)
@@ -188,7 +190,7 @@ ShutdownThreadMain(PVOID Context)
 		KeInitializeDpc(Dpc, KiHaltProcessorDpcRoutine, (PVOID)Dpc);
 		KeSetTargetProcessorDpc(Dpc, i);
 		KeInsertQueueDpc(Dpc, NULL, NULL);
-		KiIpiSend(1 << i, IPI_DPC);
+		KiIpiSendRequest(1 << i, IPI_DPC);
 	      }
 	  }
         KeLowerIrql(OldIrql);
@@ -213,7 +215,7 @@ ShutdownThreadMain(PVOID Context)
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtSetSystemPowerState(IN POWER_ACTION SystemAction,
 		      IN SYSTEM_POWER_STATE MinSystemState,
 		      IN ULONG Flags)
@@ -225,7 +227,7 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtShutdownSystem(IN SHUTDOWN_ACTION Action)
 {
    NTSTATUS Status;

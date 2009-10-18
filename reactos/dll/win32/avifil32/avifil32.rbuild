@@ -7,7 +7,7 @@
 	<include base="avifil32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<file>acmstream.c</file>
 	<file>api.c</file>
 	<file>avifile.c</file>
@@ -20,6 +20,7 @@
 	<file>tmpfile.c</file>
 	<file>wavfile.c</file>
 	<file>rsrc.rc</file>
+	<file>avifil32.spec</file>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>msacm32</library>

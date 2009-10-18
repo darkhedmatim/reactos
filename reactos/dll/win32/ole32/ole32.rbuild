@@ -7,11 +7,8 @@
 	<include base="ole32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<define name="_OLE32_" />
-	<define name="ENTRY_PREFIX">OLE32_</define>
-	<define name="PROXY_CLSID">CLSID_PSFactoryBuffer</define>
-	<define name="REGISTER_PROXY_DLL" />
 	<define name="COM_NO_WINDOWS_H" />
 	<library>wine</library>
 	<library>advapi32</library>
@@ -28,7 +25,6 @@
 	<file>bindctx.c</file>
 	<file>classmoniker.c</file>
 	<file>clipboard.c</file>
-	<file>comcat.c</file>
 	<file>compobj.c</file>
 	<file>compositemoniker.c</file>
 	<file>datacache.c</file>
@@ -64,8 +60,7 @@
 	<file>dcom.idl</file>
 	<file>irot.idl</file>
 	<include base="ole32" root="intermediate">.</include>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<file>ole32.spec</file>
 </module>
 <module name="ole32_irot_server" type="rpcserver">
 	<file>irot.idl</file>
@@ -77,9 +72,6 @@
 	<define name="_OLE32_" />
 	<define name="COM_NO_WINDOWS_H" />
 	<define name="__WINESRC__" />
-	<define name="ENTRY_PREFIX">OLE32_</define>
-	<define name="PROXY_CLSID">CLSID_PSFactoryBuffer</define>
-	<define name="REGISTER_PROXY_DLL"/>
 	<file>dcom.idl</file>
 	<file>ole32_unknwn.idl</file>
 	<file>ole32_objidl.idl</file>

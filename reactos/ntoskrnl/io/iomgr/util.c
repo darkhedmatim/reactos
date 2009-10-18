@@ -169,8 +169,6 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
     ULONG NextEaBufferOffset;
     LONG IntEaLength;
 
-    PAGED_CODE();
-
     /* Lenght of the rest. Inital equal to EaLength */
     IntEaLength = EaLength;
 
@@ -211,7 +209,7 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
                      */
                     NextEaBufferOffset = ((NextEaBufferOffset + 3) & ~3);
                     if ((EaBufferEnd->NextEntryOffset == NextEaBufferOffset) &&
-                        ((LONG)EaBufferEnd->NextEntryOffset > 0))
+                        (EaBufferEnd->NextEntryOffset>0))
                     {
                         /* Rest of buffer must be greater then the
                            next offset */

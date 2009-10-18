@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS CRT library
- * FILE:        lib/sdk/crt/time/strtime.c
+ * PROJECT:     ReactOS system libraries
+ * FILE:        lib/msvcrt/time/strtime.c
  * PURPOSE:     Fills a buffer with a formatted date representation
  * PROGRAMER:   Ariadne
  * UPDATE HISTORY:
@@ -12,12 +12,18 @@
 /*
  * @implemented
  */
-wchar_t* _wstrdate(wchar_t* date)
+wchar_t* _wstrdate(wchar_t* datestr)
 {
-   static const WCHAR format[] = { 'M','M','\'','/','\'','d','d','\'','/','\'','y','y',0 };
+    time_t t;
+    struct tm* d;
+    wchar_t* dt = (wchar_t*)datestr;
 
-   GetDateFormatW(LOCALE_NEUTRAL, 0, NULL, format, (LPWSTR)date, 9);
-
-   return date;
-
+    if (datestr == NULL) {
+        __set_errno(EINVAL);
+        return NULL;
+    }
+    t = time(NULL);
+    d = localtime(&t);
+    swprintf(dt,L"%d/%d/%d",d->tm_mday,d->tm_mon+1,d->tm_year);
+    return dt;
 }

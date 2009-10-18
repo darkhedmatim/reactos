@@ -115,9 +115,6 @@ _mesa_initialize_context( GLcontext *ctx,
                           void *driverContext );
 
 extern void
-_mesa_initialize_context_extra(GLcontext *ctx);
-
-extern void
 _mesa_free_context_data( GLcontext *ctx );
 
 extern void

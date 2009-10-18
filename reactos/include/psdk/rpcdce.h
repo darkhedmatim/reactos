@@ -54,14 +54,14 @@ typedef RPC_BINDING_HANDLE handle_t;
 
 typedef struct _RPC_BINDING_VECTOR
 {
-  ULONG Count;
+  unsigned long Count;
   RPC_BINDING_HANDLE BindingH[1];
 } RPC_BINDING_VECTOR;
 #define rpc_binding_vector_t RPC_BINDING_VECTOR
 
 typedef struct _UUID_VECTOR
 {
-  ULONG Count;
+  unsigned long Count;
   UUID *Uuid[1];
 } UUID_VECTOR;
 #define uuid_vector_t UUID_VECTOR
@@ -75,15 +75,9 @@ typedef struct _RPC_IF_ID
 
 typedef struct
 {
-  ULONG Count;
+  unsigned long Count;
   RPC_IF_ID *IfId[1];
 } RPC_IF_ID_VECTOR;
-
-typedef struct
-{
-  unsigned int Count;
-  ULONG Stats[1];
-} RPC_STATS_VECTOR;
 
 typedef I_RPC_HANDLE *RPC_EP_INQ_HANDLE;
 
@@ -190,71 +184,71 @@ typedef I_RPC_HANDLE *RPC_EP_INQ_HANDLE;
 #define RPC_C_HTTP_AUTHN_SCHEME_NEGOTIATE   0x10
 
 typedef RPC_STATUS RPC_ENTRY RPC_IF_CALLBACK_FN( RPC_IF_HANDLE InterfaceUuid, void *Context );
-typedef void (__RPC_USER *RPC_AUTH_KEY_RETRIEVAL_FN)( void *Arg, unsigned char *ServerPrincName, unsigned long KeyVer, void **Key, RPC_STATUS *Status );
+typedef void (__RPC_USER *RPC_AUTH_KEY_RETRIEVAL_FN)();
 
 typedef struct _RPC_POLICY
 {
   unsigned int  Length;
-  ULONG EndpointFlags;
-  ULONG NICFlags;
+  unsigned long EndpointFlags;
+  unsigned long NICFlags;
 } RPC_POLICY,  *PRPC_POLICY;
 
 typedef struct _SEC_WINNT_AUTH_IDENTITY_W
 {
     unsigned short* User;
-    ULONG UserLength;
+    unsigned long UserLength;
     unsigned short* Domain;
-    ULONG DomainLength;
+    unsigned long DomainLength;
     unsigned short* Password;
-    ULONG PasswordLength;
-    ULONG Flags;
+    unsigned long PasswordLength;
+    unsigned long Flags;
 } SEC_WINNT_AUTH_IDENTITY_W, *PSEC_WINNT_AUTH_IDENTITY_W;
 
 typedef struct _SEC_WINNT_AUTH_IDENTITY_A
 {
     unsigned char* User;
-    ULONG UserLength;
+    unsigned long UserLength;
     unsigned char* Domain;
-    ULONG DomainLength;
+    unsigned long DomainLength;
     unsigned char* Password;
-    ULONG PasswordLength;
-    ULONG Flags;
+    unsigned long PasswordLength;
+    unsigned long Flags;
 } SEC_WINNT_AUTH_IDENTITY_A, *PSEC_WINNT_AUTH_IDENTITY_A;
 
 typedef struct _RPC_HTTP_TRANSPORT_CREDENTIALS_W
 {
     SEC_WINNT_AUTH_IDENTITY_W *TransportCredentials;
-    ULONG Flags;
-    ULONG AuthenticationTarget;
-    ULONG NumberOfAuthnSchemes;
-    ULONG *AuthnSchemes;
+    unsigned long Flags;
+    unsigned long AuthenticationTarget;
+    unsigned long NumberOfAuthnSchemes;
+    unsigned long *AuthnSchemes;
     unsigned short *ServerCertificateSubject;
 } RPC_HTTP_TRANSPORT_CREDENTIALS_W, *PRPC_HTTP_TRANSPORT_CREDENTIALS_W;
 
 typedef struct _RPC_HTTP_TRANSPORT_CREDENTIALS_A
 {
     SEC_WINNT_AUTH_IDENTITY_A *TransportCredentials;
-    ULONG Flags;
-    ULONG AuthenticationTarget;
-    ULONG NumberOfAuthnSchemes;
-    ULONG *AuthnSchemes;
+    unsigned long Flags;
+    unsigned long AuthenticationTarget;
+    unsigned long NumberOfAuthnSchemes;
+    unsigned long *AuthnSchemes;
     unsigned char *ServerCertificateSubject;
 } RPC_HTTP_TRANSPORT_CREDENTIALS_A, *PRPC_HTTP_TRANSPORT_CREDENTIALS_A;
 
 typedef struct _RPC_SECURITY_QOS {
-    ULONG Version;
-    ULONG Capabilities;
-    ULONG IdentityTracking;
-    ULONG ImpersonationType;
+    unsigned long Version;
+    unsigned long Capabilities;
+    unsigned long IdentityTracking;
+    unsigned long ImpersonationType;
 } RPC_SECURITY_QOS, *PRPC_SECURITY_QOS;
 
 typedef struct _RPC_SECURITY_QOS_V2_W
 {
-    ULONG Version;
-    ULONG Capabilities;
-    ULONG IdentityTracking;
-    ULONG ImpersonationType;
-    ULONG AdditionalSecurityInfoType;
+    unsigned long Version;
+    unsigned long Capabilities;
+    unsigned long IdentityTracking;
+    unsigned long ImpersonationType;
+    unsigned long AdditionalSecurityInfoType;
     union
     {
         RPC_HTTP_TRANSPORT_CREDENTIALS_W *HttpCredentials;
@@ -263,11 +257,11 @@ typedef struct _RPC_SECURITY_QOS_V2_W
 
 typedef struct _RPC_SECURITY_QOS_V2_A
 {
-    ULONG Version;
-    ULONG Capabilities;
-    ULONG IdentityTracking;
-    ULONG ImpersonationType;
-    ULONG AdditionalSecurityInfoType;
+    unsigned long Version;
+    unsigned long Capabilities;
+    unsigned long IdentityTracking;
+    unsigned long ImpersonationType;
+    unsigned long AdditionalSecurityInfoType;
     union
     {
         RPC_HTTP_TRANSPORT_CREDENTIALS_A *HttpCredentials;
@@ -305,7 +299,7 @@ RPC_STATUS RPC_ENTRY DceErrorInqTextW(RPC_STATUS e, RPC_WSTR buffer);
 
 RPCRTAPI DECLSPEC_NORETURN void RPC_ENTRY
   RpcRaiseException( RPC_STATUS exception );
-
+        
 RPCRTAPI RPC_STATUS RPC_ENTRY
   RpcBindingCopy( RPC_BINDING_HANDLE SourceBinding, RPC_BINDING_HANDLE* DestinationBinding );
 
@@ -394,9 +388,6 @@ RPCRTAPI RPC_STATUS RPC_ENTRY
   RpcMgmtWaitServerListen( void );
 
 RPCRTAPI RPC_STATUS RPC_ENTRY
-  RpcMgmtInqStats( RPC_BINDING_HANDLE Binding, RPC_STATS_VECTOR **Statistics );
-
-RPCRTAPI RPC_STATUS RPC_ENTRY
   RpcMgmtStopServerListening( RPC_BINDING_HANDLE Binding );
 
 RPCRTAPI RPC_STATUS RPC_ENTRY
@@ -414,9 +405,6 @@ RPCRTAPI RPC_STATUS RPC_ENTRY
 
 RPCRTAPI RPC_STATUS RPC_ENTRY
   RpcMgmtSetServerStackSize( ULONG ThreadStackSize );
-
-RPCRTAPI RPC_STATUS RPC_ENTRY
-RpcMgmtStatsVectorFree( RPC_STATS_VECTOR **StatsVector );
 
 RPCRTAPI RPC_STATUS RPC_ENTRY
   RpcServerRegisterIf( RPC_IF_HANDLE IfSpec, UUID* MgrTypeUuid, RPC_MGR_EPV* MgrEpv );

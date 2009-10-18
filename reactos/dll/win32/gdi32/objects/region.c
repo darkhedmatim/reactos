@@ -90,8 +90,7 @@ MirrorRgnByWidth(HRGN hRgn, INT Width, HRGN *phRgn)
         if ( GetRegionData(hRgn, cRgnDSize, pRgnData) )
         {
            HRGN hRgnex;
-           UINT i;
-           INT SaveL = pRgnData->rdh.rcBound.left;
+           INT i, SaveL = pRgnData->rdh.rcBound.left;
            pRgnData->rdh.rcBound.left = Width - pRgnData->rdh.rcBound.right;
            pRgnData->rdh.rcBound.right = Width - SaveL;
            if (pRgnData->rdh.nCount > 0)
@@ -111,7 +110,7 @@ MirrorRgnByWidth(HRGN hRgn, INT Width, HRGN *phRgn)
               if (phRgn) phRgn = (HRGN *)hRgnex;
               else
               {
-                 CombineRgn(hRgn, hRgnex, 0, RGN_COPY); 
+                 CombineRgn(hRgn, hRgnex, *phRgn, RGN_COPY); 
                  DeleteObject(hRgnex);
               }
               Ret = 1;
@@ -124,7 +123,7 @@ MirrorRgnByWidth(HRGN hRgn, INT Width, HRGN *phRgn)
 }
 
 INT
-WINAPI
+STDCALL
 MirrorRgnDC(HDC hdc, HRGN hRgn, HRGN *phRgn)
 {
   if (!GdiIsHandleValid((HGDIOBJ) hdc) ||
@@ -203,7 +202,7 @@ CreateRectRgnIndirect(
  * @implemented
  */
 HRGN
-WINAPI
+STDCALL
 ExtCreateRegion(
 	CONST XFORM *	lpXform,
 	DWORD		nCount,
@@ -227,7 +226,7 @@ ExtCreateRegion(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 GetClipRgn(
         HDC     hdc,
         HRGN    hrgn
@@ -245,7 +244,7 @@ GetClipRgn(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 GetMetaRgn(HDC hdc,
            HRGN hrgn)
 {
@@ -256,7 +255,7 @@ GetMetaRgn(HDC hdc,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MirrorRgn(HWND hwnd, HRGN hrgn)
 {
   RECT Rect;
@@ -267,7 +266,7 @@ MirrorRgn(HWND hwnd, HRGN hrgn)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 SelectClipRgn(
         HDC     hdc,
         HRGN    hrgn
@@ -280,7 +279,7 @@ SelectClipRgn(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetRectRgn(HRGN hrgn,
            int nLeftRect,
            int nTopRect,
@@ -329,7 +328,7 @@ SetRectRgn(HRGN hrgn,
  * @implemented
  */
 int
-WINAPI
+STDCALL
 SetMetaRgn( HDC hDC )
 {
  if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_DC)

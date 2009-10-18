@@ -200,7 +200,7 @@ NotWin32K:
     /* Increase total syscall count */
     inc dword ptr PCR[KPCR_SYSTEM_CALLS]
 
-#if DBG
+#ifdef DBG
     /* Increase per-syscall count */
     mov ecx, [edi+SERVICE_DESCRIPTOR_COUNT]
     jecxz NoCountTable
@@ -239,7 +239,7 @@ CopyParams:
     call ebx
 
 AfterSysCall:
-#if DBG
+#ifdef DBG
     /* Make sure the user-mode call didn't return at elevated IRQL */
     test byte ptr [ebp+KTRAP_FRAME_CS], MODE_MASK
     jz SkipCheck
@@ -377,7 +377,7 @@ BadStack:
     push 0
     jmp _KiTrap6
 
-#if DBG
+#ifdef DBG
 InvalidIrql:
     /* Save current IRQL */
     push PCR[KPCR_IRQL]
@@ -781,7 +781,7 @@ _KiTrap3:
     TRAP_PROLOG kit3_a, kit3_t
 
     /* Set status code */
-    mov eax, STATUS_SUCCESS
+    mov eax, 0 //STATUS_SUCCESS
 
     /* Check for V86 */
 PrepareInt3:
@@ -1338,6 +1338,7 @@ BogusTrap:
 .globl _KiTrap8
 .func KiTrap8
 _KiTrap8:
+
     /* Can't really do too much */
     mov eax, 8
     jmp _KiSystemFatalException
@@ -1510,7 +1511,6 @@ NotV86:
     cmp eax, offset CheckPrivilegedInstruction
     jbe KmodeGpf
     cmp eax, offset CheckPrivilegedInstruction2
-    jae KmodeGpf
 
     /* FIXME: TODO */
     UNHANDLED_PATH
@@ -1924,14 +1924,14 @@ _KiTrap14:
 NoFixUp:
     mov edi, cr2
 
-    /* REACTOS Mm Hack of Doom */
+    /* ROS HACK: Sometimes we get called with INTS DISABLED! WTF? */
     test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
     je HandlePf
 
     /* Enable interrupts and check if we got here with interrupts disabled */
     sti
-    /* test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
-    jz IllegalState */
+    test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
+    jz IllegalState
 
 HandlePf:
     /* Send trap frame and check if this is kernel-mode or usermode */
@@ -2533,81 +2533,8 @@ TRAP_FIXUPS kit_a, kit_t, DoFixupV86, DoFixupAbios
 .func KiChainedDispatch2ndLvl@0
 _KiChainedDispatch2ndLvl@0:
 
-NextSharedInt:
-    /* Raise IRQL if necessary */
-    mov cl, [edi+KINTERRUPT_SYNCHRONIZE_IRQL]
-    cmp cl, [edi+KINTERRUPT_IRQL]
-    je 1f
-    call @KfRaiseIrql@4
-
-1:
-    /* Acquire the lock */
-    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
-GetIntLock2:
-    ACQUIRE_SPINLOCK(esi, IntSpin2)
-
-    /* Make sure that this interrupt isn't storming */
-    VERIFY_INT kid2
-
-    /* Save the tick count */
-    mov esi, _KeTickCount
-
-    /* Call the ISR */
-    mov eax, [edi+KINTERRUPT_SERVICE_CONTEXT]
-    push eax
-    push edi
-    call [edi+KINTERRUPT_SERVICE_ROUTINE]
-
-    /* Save the ISR result */
-    mov bl, al
-
-    /* Check if the ISR timed out */
-    add esi, _KiISRTimeout
-    cmp _KeTickCount, esi
-    jnc ChainedIsrTimeout
-
-ReleaseLock2:
-    /* Release the lock */
-    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
-    RELEASE_SPINLOCK(esi)
-
-    /* Lower IRQL if necessary */
-    mov cl, [edi+KINTERRUPT_IRQL]
-    cmp cl, [edi+KINTERRUPT_SYNCHRONIZE_IRQL]
-    je 1f
-    call @KfLowerIrql@4
-
-1:
-    /* Check if the interrupt is handled */
-    or bl, bl
-    jnz 1f
-
-    /* Try the next shared interrupt handler */
-    mov eax, [edi+KINTERRUPT_INTERRUPT_LIST_HEAD]
-    lea edi, [eax-KINTERRUPT_INTERRUPT_LIST_HEAD]
-    jmp NextSharedInt
-
-1:
-    ret
-
-#ifdef CONFIG_SMP
-IntSpin2:
-    SPIN_ON_LOCK(esi, GetIntLock2)
-#endif
-
-ChainedIsrTimeout:
-    /* Print warning message */
-    push [edi+KINTERRUPT_SERVICE_ROUTINE]
-    push offset _IsrTimeoutMsg
-    call _DbgPrint
-    add esp,8
-
-    /* Break into debugger, then continue */
-    int 3
-    jmp ReleaseLock2
-
-    /* Cleanup verification */
-    VERIFY_INT_END kid2, 0
+    /* Not yet supported */
+    UNHANDLED_PATH
 .endfunc
 
 .func KiChainedDispatch@0
@@ -2672,8 +2599,8 @@ _KiInterruptDispatch@0:
     jz SpuriousInt
 
     /* Acquire the lock */
-    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
 GetIntLock:
+    mov esi, [edi+KINTERRUPT_ACTUAL_LOCK]
     ACQUIRE_SPINLOCK(esi, IntSpin)
 
     /* Make sure that this interrupt isn't storming */
@@ -2736,25 +2663,11 @@ _KeSynchronizeExecution@12:
     /* Go to DIRQL */
     mov cl, [ebx+KINTERRUPT_SYNCHRONIZE_IRQL]
     call @KfRaiseIrql@4
-    push eax
-
-#ifdef CONFIG_SMP
-    /* Acquire the interrupt spinlock FIXME: Write this in assembly */
-    mov ecx, [ebx+KINTERRUPT_ACTUAL_LOCK]
-    call @KefAcquireSpinLockAtDpcLevel@4
-#endif
 
     /* Call the routine */
+    push eax
     push [esp+20]
     call [esp+20]
-
-#ifdef CONFIG_SMP
-    /* Release the interrupt spinlock FIXME: Write this in assembly */
-    push eax
-    mov ecx, [ebx+KINTERRUPT_ACTUAL_LOCK]
-    call @KefReleaseSpinLockFromDpcLevel@4
-    pop eax
-#endif
 
     /* Lower IRQL */
     mov ebx, eax
@@ -2765,33 +2678,4 @@ _KeSynchronizeExecution@12:
     mov eax, ebx
     pop ebx
     ret 12
-.endfunc
-
-/*++
- * Kii386SpinOnSpinLock 
- *
- *     FILLMEIN
- *
- * Params:
- *     SpinLock - FILLMEIN
- *
- *     Flags - FILLMEIN
- *
- * Returns:
- *     None.
- *
- * Remarks:
- *     FILLMEIN
- *
- *--*/
-.globl _Kii386SpinOnSpinLock@8
-.func Kii386SpinOnSpinLock@8
-_Kii386SpinOnSpinLock@8:
-
-#ifdef CONFIG_SMP
-    /* FIXME: TODO */
-    int 3
-#endif
-
-    ret 8
 .endfunc

@@ -1,16 +1,12 @@
 #ifndef _WINIOCTL_H
 #define _WINIOCTL_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4201)
-#pragma warning(disable:4820)
-#endif
-
 #define HIST_NO_OF_BUCKETS               24
 #define HISTOGRAM_BUCKET_SIZE            sizeof(HISTOGRAM_BUCKET)
 #define DISK_HISTOGRAM_SIZE              sizeof(DISK_HISTOGRAM)
@@ -558,11 +554,6 @@ typedef struct {
     ((t&PARTITION_NTFT)&&((t&~VALID_NTFT)==PARTITION_XINT13_EXTENDED))||\
     ((t&~PARTITION_NTFT)==PARTITION_EXTENDED)||\
     ((t&~PARTITION_NTFT)==PARTITION_XINT13_EXTENDED))
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
 #ifdef __cplusplus
 }
 #endif

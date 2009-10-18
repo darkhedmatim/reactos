@@ -8,12 +8,13 @@
 
 /* INCLUDES ******************************************************************/
 
-#define NDEBUG
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
 /* Not defined in any header file */
-extern VOID WINAPI PrivateCsrssManualGuiCheck(LONG Check);
+extern VOID STDCALL PrivateCsrssManualGuiCheck(LONG Check);
 
 /* GLOBALS *******************************************************************/
 
@@ -375,11 +376,11 @@ GuiConsoleOpenUserSettings(PGUI_CONSOLE_DATA GuiData, DWORD ProcessId, PHKEY hSu
           while((ptr = wcschr(szProcessName, L'\\')))
             ptr[0] = L'_';
 
-          swprintf(szBuffer, L"Console\\%%SystemRoot%%%S", &szProcessName[wLength]);
+          swprintf(szBuffer, L"Console\\\%SystemRoot\%%S", &szProcessName[wLength]);
           DPRINT("#3 Path : %S\n", szBuffer);
           if (RegOpenKeyExW(hKey, szBuffer, 0, samDesired, hSubKey) == ERROR_SUCCESS)
             {
-              swprintf(GuiData->szProcessName, L"%%SystemRoot%%%S", &szProcessName[wLength]);
+              swprintf(GuiData->szProcessName, L"\%SystemRoot\%%S", &szProcessName[wLength]);
               RegCloseKey(hKey);
               return TRUE;
             }
@@ -627,7 +628,7 @@ GuiConsoleUseDefaults(PCSRSS_CONSOLE Console, PGUI_CONSOLE_DATA GuiData, PCSRSS_
       Buffer->MaxX = 80;
       Buffer->MaxY = 25;
       Buffer->CursorInfo.bVisible = TRUE;
-      Buffer->CursorInfo.dwSize = CSR_DEFAULT_CURSOR_SIZE;
+      Buffer->CursorInfo.dwSize = 5;
     }
 }
 
@@ -1061,7 +1062,7 @@ GuiIntDrawRegion(PCSRSS_SCREEN_BUFFER Buff, PGUI_CONSOLE_DATA GuiData, HWND Wnd,
   InvalidateRect(Wnd, &RegionRect, FALSE);
 }
 
-static VOID WINAPI
+static VOID STDCALL
 GuiDrawRegion(PCSRSS_CONSOLE Console, RECT *Region)
 {
   PGUI_CONSOLE_DATA GuiData = (PGUI_CONSOLE_DATA) Console->PrivateData;
@@ -1085,7 +1086,7 @@ GuiInvalidateCell(PCSRSS_SCREEN_BUFFER Buff, PGUI_CONSOLE_DATA GuiData, HWND Wnd
   GuiIntDrawRegion(Buff, GuiData, Wnd, &CellRect);
 }
 
-static VOID WINAPI
+static VOID STDCALL
 GuiWriteStream(PCSRSS_CONSOLE Console, RECT *Region, LONG CursorStartX, LONG CursorStartY,
                UINT ScrolledLines, CHAR *Buffer, UINT Length)
 {
@@ -1153,7 +1154,7 @@ GuiWriteStream(PCSRSS_CONSOLE Console, RECT *Region, LONG CursorStartX, LONG Cur
     }
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 GuiSetCursorInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
 {
   RECT UpdateRect;
@@ -1170,7 +1171,7 @@ GuiSetCursorInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
   return TRUE;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 GuiSetScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff, UINT OldCursorX, UINT OldCursorY)
 {
   RECT UpdateRect;
@@ -1194,7 +1195,7 @@ GuiSetScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff, UINT OldCurs
   return TRUE;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 GuiUpdateScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
 {
     PGUI_CONSOLE_DATA GuiData = (PGUI_CONSOLE_DATA) Console->PrivateData;
@@ -1928,7 +1929,7 @@ GuiConsoleNotifyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
 }
 
-static DWORD WINAPI
+static DWORD STDCALL
 GuiConsoleGuiThread(PVOID Data)
 {
   MSG msg;
@@ -1998,7 +1999,7 @@ GuiInit(VOID)
   wc.hInstance = (HINSTANCE) GetModuleHandleW(NULL);
   wc.hIcon = LoadIconW(GetModuleHandleW(L"win32csr"), MAKEINTRESOURCEW(1));
   wc.hCursor = LoadCursorW(NULL, (LPCWSTR) IDC_ARROW);
-  wc.hbrBackground = CreateSolidBrush(RGB(0,0,0));
+  wc.hbrBackground = NULL;
   wc.lpszMenuName = NULL;
   wc.cbClsExtra = 0;
   wc.cbWndExtra = 0;
@@ -2014,13 +2015,13 @@ GuiInit(VOID)
   return TRUE;
 }
 
-static VOID WINAPI
+static VOID STDCALL
 GuiInitScreenBuffer(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buffer)
 {
   Buffer->DefaultAttrib = DEFAULT_ATTRIB;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 GuiChangeTitle(PCSRSS_CONSOLE Console)
 {
   PWCHAR Buffer, Title;
@@ -2048,7 +2049,7 @@ GuiChangeTitle(PCSRSS_CONSOLE Console)
   return TRUE;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 GuiChangeIcon(PCSRSS_CONSOLE Console, HICON hWindowIcon)
 {
   SendMessageW(Console->hWindow, WM_SETICON, ICON_BIG, (LPARAM)hWindowIcon);
@@ -2057,7 +2058,7 @@ GuiChangeIcon(PCSRSS_CONSOLE Console, HICON hWindowIcon)
   return TRUE;
 }
 
-static VOID WINAPI
+static VOID STDCALL
 GuiCleanupConsole(PCSRSS_CONSOLE Console)
 {
   SendMessageW(NotifyWnd, PM_DESTROY_CONSOLE, 0, (LPARAM) Console);

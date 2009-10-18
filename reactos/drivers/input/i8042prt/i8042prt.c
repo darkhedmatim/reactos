@@ -387,8 +387,6 @@ IrpStub(
 {
 	NTSTATUS Status = Irp->IoStatus.Status;
 
-	UNREFERENCED_PARAMETER(DeviceObject);
-
 	/* Do nothing */
 	ASSERT(FALSE);
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -401,6 +399,7 @@ i8042DeviceControl(
 	IN PIRP Irp)
 {
 	PFDO_DEVICE_EXTENSION DeviceExtension;
+	NTSTATUS Status;
 
 	TRACE_(I8042PRT, "i8042DeviceControl(%p %p)\n", DeviceObject, Irp);
 	DeviceExtension = (PFDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -413,6 +412,8 @@ i8042DeviceControl(
 		default:
 			return IrpStub(DeviceObject, Irp);
 	}
+
+	return Status;
 }
 
 static NTSTATUS NTAPI

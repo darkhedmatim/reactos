@@ -191,7 +191,7 @@ BOOL WINAPI VDMModuleNext( HANDLE         handle,
   return FALSE;
 }
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain( IN HINSTANCE hinstDLL,
          IN DWORD     dwReason,
          IN LPVOID    lpvReserved )

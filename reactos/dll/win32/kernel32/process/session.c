@@ -9,9 +9,6 @@
  *     2001-12-07 created
  */
 #include <k32.h>
-#include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32session);
 
 DWORD ActiveConsoleSessionId = 0;
 
@@ -19,10 +16,9 @@ DWORD ActiveConsoleSessionId = 0;
 /*
  * @unimplemented
  */
-DWORD WINAPI
+DWORD STDCALL
 DosPathToSessionPathW (DWORD SessionID, LPWSTR InPath, LPWSTR * OutPath)
 {
-    UNIMPLEMENTED;
 	return 0;
 }
 
@@ -39,18 +35,17 @@ DosPathToSessionPathW (DWORD SessionID, LPWSTR InPath, LPWSTR * OutPath)
  *
  * @unimplemented
  */
-DWORD WINAPI
+DWORD STDCALL
 DosPathToSessionPathA (DWORD SessionId, LPSTR InPath, LPSTR * OutPath)
 {
 	//DosPathToSessionPathW (SessionId,InPathW,OutPathW);
-    UNIMPLEMENTED;
 	return 0;
 }
 
 /*
  * @implemented
  */
-BOOL WINAPI ProcessIdToSessionId (IN  DWORD dwProcessId,
+BOOL STDCALL ProcessIdToSessionId (IN  DWORD dwProcessId,
 				   OUT DWORD* pSessionId)
 {
   PROCESS_SESSION_INFORMATION SessionInformation;
@@ -97,7 +92,7 @@ BOOL WINAPI ProcessIdToSessionId (IN  DWORD dwProcessId,
 /*
  * @implemented
  */
-DWORD WINAPI
+DWORD STDCALL
 WTSGetActiveConsoleSessionId (VOID)
 {
 	return ActiveConsoleSessionId;

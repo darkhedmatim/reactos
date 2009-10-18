@@ -61,25 +61,27 @@ NtCreateEventPair(OUT PHANDLE EventPairHandle,
     PKEVENT_PAIR EventPair;
     HANDLE hEventPair;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     DPRINT("NtCreateEventPair: 0x%p\n", EventPairHandle);
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Check handle pointer */
             ProbeForWriteHandle(EventPairHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Create the Object */
@@ -95,7 +97,7 @@ NtCreateEventPair(OUT PHANDLE EventPairHandle,
                             (PVOID*)&EventPair);
 
     /* Check for Success */
-    if (NT_SUCCESS(Status))
+    if(NT_SUCCESS(Status))
     {
         /* Initalize the Event */
         DPRINT("Initializing EventPair\n");
@@ -109,21 +111,18 @@ NtCreateEventPair(OUT PHANDLE EventPairHandle,
                                  NULL,
                                  &hEventPair);
 
-        /* Check for success */
-        if (NT_SUCCESS(Status))
+        /* Check for success and return handle */
+        if(NT_SUCCESS(Status))
         {
-            /* Enter SEH */
-            _SEH2_TRY
+            _SEH_TRY
             {
-                /* Return the handle */
                 *EventPairHandle = hEventPair;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
-                /* Get the exception code */
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -139,24 +138,26 @@ NtOpenEventPair(OUT PHANDLE EventPairHandle,
 {
     HANDLE hEventPair;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Check handle pointer */
             ProbeForWriteHandle(EventPairHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -168,21 +169,18 @@ NtOpenEventPair(OUT PHANDLE EventPairHandle,
                                 NULL,
                                 &hEventPair);
 
-    /* Check for success */
-    if (NT_SUCCESS(Status))
+    /* Check for success and return handle */
+    if(NT_SUCCESS(Status))
     {
-        /* Enter SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Return the handle */
             *EventPairHandle = hEventPair;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */

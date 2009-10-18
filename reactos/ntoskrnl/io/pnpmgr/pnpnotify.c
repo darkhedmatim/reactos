@@ -61,11 +61,6 @@ IopNotifyPlugPlayNotification(
 				PagedPool,
 				sizeof(DEVICE_INTERFACE_CHANGE_NOTIFICATION),
 				TAG_PNP_NOTIFY);
-			if (!NotificationInfos)
-			{
-				KeReleaseGuardedMutex(&PnpNotifyListLock);
-				return;
-			}
 			NotificationInfos->Version = 1;
 			NotificationInfos->Size = sizeof(DEVICE_INTERFACE_CHANGE_NOTIFICATION);
 			RtlCopyMemory(&NotificationInfos->Event, Event, sizeof(GUID));
@@ -80,11 +75,6 @@ IopNotifyPlugPlayNotification(
 				PagedPool,
 				sizeof(HWPROFILE_CHANGE_NOTIFICATION),
 				TAG_PNP_NOTIFY);
-			if (!NotificationInfos)
-			{
-				KeReleaseGuardedMutex(&PnpNotifyListLock);
-				return;
-			}
 			NotificationInfos->Version = 1;
 			NotificationInfos->Size = sizeof(HWPROFILE_CHANGE_NOTIFICATION);
 			RtlCopyMemory(&NotificationInfos->Event, Event, sizeof(GUID));
@@ -97,11 +87,6 @@ IopNotifyPlugPlayNotification(
 				PagedPool,
 				sizeof(TARGET_DEVICE_REMOVAL_NOTIFICATION),
 				TAG_PNP_NOTIFY);
-			if (!NotificationInfos)
-			{
-				KeReleaseGuardedMutex(&PnpNotifyListLock);
-				return;
-			}
 			NotificationInfos->Version = 1;
 			NotificationInfos->Size = sizeof(TARGET_DEVICE_REMOVAL_NOTIFICATION);
 			RtlCopyMemory(&NotificationInfos->Event, Event, sizeof(GUID));
@@ -111,7 +96,6 @@ IopNotifyPlugPlayNotification(
 		default:
 		{
 			DPRINT1("IopNotifyPlugPlayNotification(): unknown EventCategory 0x%x UNIMPLEMENTED\n", EventCategory);
-			KeReleaseGuardedMutex(&PnpNotifyListLock);
 			return;
 		}
 	}

@@ -62,7 +62,7 @@ MsfsRead(PDEVICE_OBJECT DeviceObject,
                                    UserRequest,
                                    KernelMode,
                                    FALSE,
-                                   &Fcb->TimeOut);
+                                   NULL); /* FIXME: handle timeout */
     if ((NT_SUCCESS(Status)) && (Fcb->MessageCount > 0))
     {
         /* copy current message into buffer */

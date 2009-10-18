@@ -113,33 +113,6 @@ ExEnumHandleTable(
     OUT PHANDLE Handle OPTIONAL
 );
 
-//
-// Resource Functions
-//
-PVOID
-NTAPI
-ExEnterCriticalRegionAndAcquireResourceExclusive(
-    IN PERESOURCE Resource
-);
-
-PVOID
-NTAPI
-ExEnterCriticalRegionAndAcquireResourceShared(
-    IN PERESOURCE Resource
-);
-
-PVOID
-NTAPI
-ExEnterCriticalRegionAndAcquireSharedWaitForExclusive(
-    IN PERESOURCE Resource
-);
-
-VOID
-FASTCALL
-ExReleaseResourceAndLeaveCriticalRegion(
-    IN PERESOURCE Resource
-);
-
 #endif
 
 //
@@ -336,7 +309,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtQueryDefaultUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSCALLAPI
@@ -365,7 +338,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtQueryInstallUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSCALLAPI
@@ -799,7 +772,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwQueryDefaultUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSAPI
@@ -828,7 +801,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwQueryInstallUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSAPI

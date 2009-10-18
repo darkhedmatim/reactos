@@ -4,8 +4,7 @@
 <module name="msvcrt_winetest" type="win32cui" installbase="bin" installname="msvcrt_winetest.exe" allowwarnings="true">
 	<include base="msvcrt_winetest">.</include>
 	<include base="msvcrt">include/reactos/wine/msvcrt</include>
-	<define name="__ROS_LONG64__" />
-	<define name="_CRT_NONSTDC_NO_DEPRECATE" />
+	<define name="__USE_W32API" />
 	<library>kernel32</library>
 	<library>msvcrt</library>
 	<file>cpp.c</file>

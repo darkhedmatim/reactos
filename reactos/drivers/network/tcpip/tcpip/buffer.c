@@ -238,7 +238,7 @@ UINT CopyPacketToBufferChain(
         return 0;
 
     /* Skip SrcOffset bytes in the source packet */
-    NdisGetFirstBufferFromPacket(SrcPacket, &SrcBuffer, (PVOID)&SrcData, &SrcSize, &Total);
+    NdisGetFirstBufferFromPacket(SrcPacket, &SrcBuffer, &SrcData, &SrcSize, &Total);
     if (SkipToOffset(SrcBuffer, SrcOffset, &SrcData, &SrcSize) == -1)
         return 0;
 
@@ -318,7 +318,7 @@ NDIS_STATUS PrependPacket( PNDIS_PACKET Packet, PCHAR Data, UINT Length,
     PCHAR NewBuf;
 
     if( Copy ) {
-	NewBuf = exAllocatePool( NonPagedPool, Length );
+	NewBuf = ExAllocatePool( NonPagedPool, Length );
 	if( !NewBuf ) return NDIS_STATUS_RESOURCES;
 	RtlCopyMemory( NewBuf, Data, Length );
     } else NewBuf = Data;
@@ -350,21 +350,25 @@ NDIS_STATUS AllocatePacketWithBufferX( PNDIS_PACKET *NdisPacket,
     NDIS_STATUS Status;
     PCHAR NewData;
 
-    NewData = exAllocatePool( NonPagedPool, Len );
+    NewData = ExAllocatePool( NonPagedPool, Len );
     if( !NewData ) return NDIS_STATUS_RESOURCES;
+    TrackWithTag(EXALLOC_TAG, NewData, File, Line);
 
     if( Data ) RtlCopyMemory(NewData, Data, Len);
 
     NdisAllocatePacket( &Status, &Packet, GlobalPacketPool );
     if( Status != NDIS_STATUS_SUCCESS ) {
-	exFreePool( NewData );
+	UntrackFL( File, Line, NewData );
+	ExFreePool( NewData );
 	return Status;
     }
     TrackWithTag(NDIS_PACKET_TAG, Packet, File, Line);
 
     NdisAllocateBuffer( &Status, &Buffer, GlobalBufferPool, NewData, Len );
     if( Status != NDIS_STATUS_SUCCESS ) {
-	exFreePool( NewData );
+	UntrackFL( File, Line, NewData );
+	ExFreePool( NewData );
+	UntrackFL( File, Line, Packet );
 	FreeNdisPacket( Packet );
 	return Status;
     }
@@ -400,13 +404,14 @@ VOID FreeNdisPacketX
         NdisGetNextBuffer(Buffer, &NextBuffer);
         NdisQueryBuffer(Buffer, &Data, &Length);
 	TI_DbgPrint(DEBUG_PBUFFER, ("Freeing ndis buffer (0x%X)\n", Buffer));
-	UntrackFL(File,Line,Buffer,NDIS_BUFFER_TAG);
+	UntrackFL(File,Line,Buffer);
         NdisFreeBuffer(Buffer);
 	TI_DbgPrint(DEBUG_PBUFFER, ("Freeing exal buffer (0x%X)\n", Data));
-        exFreePool(Data);
+	UntrackFL(File,Line,Data);
+        ExFreePool(Data);
     }
 
     /* Finally free the NDIS packet discriptor */
-    UntrackFL(File,Line,Packet,NDIS_PACKET_TAG);
+    UntrackFL(File,Line,Packet);
     NdisFreePacket(Packet);
 }

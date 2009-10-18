@@ -1,7 +1,7 @@
 /*
  * RPC binding API
  *
- * Copyright 2001 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001 Ove Kåven, TransGaming Technologies
  * Copyright 2003 Mike Hearn
  * Copyright 2004 Filip Navara
  * Copyright 2006 CodeWeavers
@@ -435,7 +435,7 @@ static RPC_WSTR unescape_string_binding_componentW(
 {
   RPC_WSTR component, p;
 
-  if (len == -1) len = strlenW(string_binding);
+  if (len == -1) len = strlen((const char *)string_binding);
 
   component = HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(*component));
   if (!component) return NULL;
@@ -1372,7 +1372,7 @@ BOOL RpcQualityOfService_IsEqual(const RpcQualityOfService *qos1, const RpcQuali
     if (!qos1 || !qos2)
         return FALSE;
 
-    TRACE("qos1 = { %d %d %d %d }, qos2 = { %d %d %d %d }\n",
+    TRACE("qos1 = { %ld %ld %ld %ld }, qos2 = { %ld %ld %ld %ld }\n",
         qos1->qos->Capabilities, qos1->qos->IdentityTracking,
         qos1->qos->ImpersonationType, qos1->qos->AdditionalSecurityInfoType,
         qos2->qos->Capabilities, qos2->qos->IdentityTracking,
@@ -1517,14 +1517,14 @@ RpcBindingSetAuthInfoExA( RPC_BINDING_HANDLE Binding, RPC_CSTR ServerPrincName,
   {
       RPC_STATUS status;
 
-      TRACE("SecurityQos { Version=%d, Capabilities=0x%x, IdentityTracking=%d, ImpersonationLevel=%d",
+      TRACE("SecurityQos { Version=%ld, Capabilties=0x%lx, IdentityTracking=%ld, ImpersonationLevel=%ld",
             SecurityQos->Version, SecurityQos->Capabilities, SecurityQos->IdentityTracking, SecurityQos->ImpersonationType);
       if (SecurityQos->Version >= 2)
       {
           const RPC_SECURITY_QOS_V2_A *SecurityQos2 = (const RPC_SECURITY_QOS_V2_A *)SecurityQos;
-          TRACE(", AdditionalSecurityInfoType=%d", SecurityQos2->AdditionalSecurityInfoType);
+          TRACE(", AdditionalSecurityInfoType=%ld", SecurityQos2->AdditionalSecurityInfoType);
           if (SecurityQos2->AdditionalSecurityInfoType == RPC_C_AUTHN_INFO_TYPE_HTTP)
-              TRACE(", { %p, 0x%x, %d, %d, %p, %s }",
+              TRACE(", { %p, 0x%lx, %ld, %ld, %p, %s }",
                     SecurityQos2->u.HttpCredentials->TransportCredentials,
                     SecurityQos2->u.HttpCredentials->Flags,
                     SecurityQos2->u.HttpCredentials->AuthenticationTarget,
@@ -1647,14 +1647,14 @@ RpcBindingSetAuthInfoExW( RPC_BINDING_HANDLE Binding, RPC_WSTR ServerPrincName, 
   {
       RPC_STATUS status;
 
-      TRACE("SecurityQos { Version=%d, Capabilities=0x%x, IdentityTracking=%d, ImpersonationLevel=%d",
+      TRACE("SecurityQos { Version=%ld, Capabilties=0x%lx, IdentityTracking=%ld, ImpersonationLevel=%ld",
             SecurityQos->Version, SecurityQos->Capabilities, SecurityQos->IdentityTracking, SecurityQos->ImpersonationType);
       if (SecurityQos->Version >= 2)
       {
           const RPC_SECURITY_QOS_V2_W *SecurityQos2 = (const RPC_SECURITY_QOS_V2_W *)SecurityQos;
-          TRACE(", AdditionalSecurityInfoType=%d", SecurityQos2->AdditionalSecurityInfoType);
+          TRACE(", AdditionalSecurityInfoType=%ld", SecurityQos2->AdditionalSecurityInfoType);
           if (SecurityQos2->AdditionalSecurityInfoType == RPC_C_AUTHN_INFO_TYPE_HTTP)
-              TRACE(", { %p, 0x%x, %d, %d, %p, %s }",
+              TRACE(", { %p, 0x%lx, %ld, %ld, %p, %s }",
                     SecurityQos2->u.HttpCredentials->TransportCredentials,
                     SecurityQos2->u.HttpCredentials->Flags,
                     SecurityQos2->u.HttpCredentials->AuthenticationTarget,

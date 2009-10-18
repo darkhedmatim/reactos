@@ -18,15 +18,15 @@
 
 VOID OpenBitPlane();
 VOID CloseBitPlane();
-VOID LoadFont(PUCHAR Bitplane, PUCHAR FontBitfield);
+VOID LoadFont(PBYTE Bitplane, PUCHAR FontBitfield);
 
 /* FUNCTIONS ****************************************************************/
 
 VOID
-ScrLoadFontTable(UINT32 CodePage)
+ScrLoadFontTable(UINT CodePage)
 {
     PHYSICAL_ADDRESS BaseAddress;
-    PUCHAR Bitplane;
+    PBYTE Bitplane;
     PUCHAR FontBitfield = NULL;
     NTSTATUS Status = STATUS_SUCCESS;
 
@@ -38,7 +38,7 @@ ScrLoadFontTable(UINT32 CodePage)
 
         /* get pointer to video memory */
         BaseAddress.QuadPart = BITPLANE_BASE;
-        Bitplane = (PUCHAR)MmMapIoSpace (BaseAddress, 0xFFFF, MmNonCached);
+        Bitplane = (PBYTE)MmMapIoSpace (BaseAddress, 0xFFFF, MmNonCached);
 
         Status = ExtractFont(CodePage, FontBitfield);
         if (NT_SUCCESS(Status))
@@ -54,7 +54,7 @@ ScrLoadFontTable(UINT32 CodePage)
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-NTSTATUS ExtractFont(UINT32 CodePage, PUCHAR FontBitField)
+NTSTATUS ExtractFont(UINT CodePage, PUCHAR FontBitField)
 {
     BOOLEAN            bFoundFile = FALSE;
     HANDLE             Handle;
@@ -68,7 +68,7 @@ NTSTATUS ExtractFont(UINT32 CodePage, PUCHAR FontBitField)
     CFFILE             CabFile;
     ULONG              CabFileOffset = 0;
     LARGE_INTEGER      ByteOffset;
-    WCHAR              SourceBuffer[_MAX_PATH] = {L'\0'};
+    WCHAR              SourceBuffer[MAX_PATH] = {L'\0'};
 
     if(KeGetCurrentIrql() != PASSIVE_LEVEL)
         return STATUS_INVALID_DEVICE_STATE;
@@ -90,7 +90,7 @@ NTSTATUS ExtractFont(UINT32 CodePage, PUCHAR FontBitField)
         return(Status);
 
     SourceName.Length = 0;
-    SourceName.MaximumLength = _MAX_PATH * sizeof(WCHAR);
+    SourceName.MaximumLength = MAX_PATH * sizeof(WCHAR);
     SourceName.Buffer = SourceBuffer;
 
     Status = ZwQuerySymbolicLinkObject(Handle,
@@ -143,7 +143,7 @@ NTSTATUS ExtractFont(UINT32 CodePage, PUCHAR FontBitField)
 
                         if(NT_SUCCESS(Status))
                         {
-                            if(!bFoundFile && (UINT32)atoi(FileName) == CodePage)
+                            if(!bFoundFile && atoi(FileName) == CodePage)
                             {
                                 // We got the correct file.
                                 // Save the offset and loop through the rest of the file table to find the position, where the actual data starts.
@@ -231,9 +231,9 @@ CloseBitPlane()
 }
 
 VOID
-LoadFont(PUCHAR Bitplane, PUCHAR FontBitfield)
+LoadFont(PBYTE Bitplane, PUCHAR FontBitfield)
 {
-    UINT32 i,j;
+    UINT i,j;
 
     for (i=0; i<256; i++)
     {

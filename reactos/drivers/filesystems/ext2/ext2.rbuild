@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="ext2fs" type="kernelmodedriver" installbase="system32/drivers" installname="ext2.sys">
+<module name="ext2fs" type="kernelmodedriver" installbase="system32/drivers" installname="ext2.sys" allowwarnings="true">
 	<bootstrap installbase="$(CDOUTPUT)" />
 	<include base="ext2fs">inc</include>
-	<compilerflag compilerset="msc">/wd4003</compilerflag>
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<directory name="src">

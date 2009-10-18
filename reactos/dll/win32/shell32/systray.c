@@ -104,7 +104,6 @@ BOOL WINAPI Shell_NotifyIconW(DWORD dwMessage, PNOTIFYICONDATAW nid)
     HWND tray;
     COPYDATASTRUCT cds;
     char *buffer = NULL;
-    BOOL ret;
 
     TRACE("dwMessage = %d, nid->cbSize=%d\n", dwMessage, nid->cbSize);
 
@@ -170,11 +169,7 @@ BOOL WINAPI Shell_NotifyIconW(DWORD dwMessage, PNOTIFYICONDATAW nid)
         GetBitmapBits(iconinfo.hbmMask, cbMaskBits, buffer);
         buffer += cbMaskBits;
         GetBitmapBits(iconinfo.hbmColor, cbColourBits, buffer);
-
-        /* Reset pointer to allocated block so it can be freed later.
-         * Note that cds.lpData cannot be passed to HeapFree since it
-         * points to nid when no icon info is found. */
-        buffer = cds.lpData;
+        buffer += cbColourBits;
 
         DeleteObject(iconinfo.hbmMask);
         DeleteObject(iconinfo.hbmColor);
@@ -186,11 +181,11 @@ noicon:
         cds.lpData = nid;
     }
 
-    ret = SendMessageW(tray, WM_COPYDATA, (WPARAM)nid->hWnd, (LPARAM)&cds);
+    SendMessageW(tray, WM_COPYDATA, (WPARAM)nid->hWnd, (LPARAM)&cds);
 
     /* FIXME: if statement only needed because we don't support interprocess
      * icon handles */
     HeapFree(GetProcessHeap(), 0, buffer);
 
-    return ret;
+    return TRUE;
 }

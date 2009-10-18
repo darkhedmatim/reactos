@@ -1,7 +1,7 @@
 
 #define GetCode(X) printf("%s\n", DDErrorString(X));
 
-const CHAR* DDErrorString (HRESULT hResult)
+PCHAR DDErrorString (HRESULT hResult)
 {
 	switch (hResult)
 	{

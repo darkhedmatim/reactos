@@ -262,8 +262,7 @@ static void test_storage_stream(void)
     r = IStorage_CreateStream(stg, NULL, STGM_SHARE_EXCLUSIVE | STGM_READWRITE, 0, 0, &stm );
     ok(r==STG_E_INVALIDNAME, "IStorage->CreateStream wrong error\n");
     r = IStorage_CreateStream(stg, longname, STGM_SHARE_EXCLUSIVE | STGM_READWRITE, 0, 0, &stm );
-    ok(r==STG_E_INVALIDNAME || broken(r==S_OK) /* nt4 */,
-       "IStorage->CreateStream wrong error, got %d GetLastError()=%d\n", r, GetLastError());
+    ok(r==STG_E_INVALIDNAME, "IStorage->CreateStream wrong error, got %d GetLastError()=%d\n", r, GetLastError());
     r = IStorage_CreateStream(stg, stmname, STGM_READWRITE, 0, 0, &stm );
     ok(r==STG_E_INVALIDFLAG, "IStorage->CreateStream wrong error\n");
     r = IStorage_CreateStream(stg, stmname, STGM_READ, 0, 0, &stm );
@@ -803,56 +802,6 @@ static void test_storage_refcount(void)
     DeleteFileW(filename);
 }
 
-static void test_writeclassstg(void)
-{
-    static const WCHAR szPrefix[] = { 's','t','g',0 };
-    static const WCHAR szDot[] = { '.',0 };
-    WCHAR filename[MAX_PATH];
-    IStorage *stg = NULL;
-    HRESULT r;
-    CLSID temp_cls;
-
-    if(!GetTempFileNameW(szDot, szPrefix, 0, filename))
-        return;
-
-    DeleteFileW(filename);
-
-    /* create the file */
-    r = StgCreateDocfile( filename, STGM_CREATE | STGM_SHARE_EXCLUSIVE |
-                            STGM_READWRITE, 0, &stg);
-    ok(r==S_OK, "StgCreateDocfile failed\n");
-
-    r = ReadClassStg( NULL, NULL );
-    ok(r == E_INVALIDARG, "ReadClassStg should return E_INVALIDARG instead of 0x%08X\n", r);
-
-    r = ReadClassStg( stg, NULL );
-    ok(r == E_INVALIDARG, "ReadClassStg should return E_INVALIDARG instead of 0x%08X\n", r);
-
-    temp_cls.Data1 = 0xdeadbeef;
-    r = ReadClassStg( stg, &temp_cls );
-    ok(r == S_OK, "ReadClassStg failed with 0x%08X\n", r);
-
-    ok(IsEqualCLSID(&temp_cls, &CLSID_NULL), "ReadClassStg returned wrong clsid\n");
-
-    r = WriteClassStg( NULL, NULL );
-    ok(r == E_INVALIDARG, "WriteClassStg should return E_INVALIDARG instead of 0x%08X\n", r);
-
-    r = WriteClassStg( stg, NULL );
-    ok(r == STG_E_INVALIDPOINTER, "WriteClassStg should return STG_E_INVALIDPOINTER instead of 0x%08X\n", r);
-
-    r = WriteClassStg( stg, &test_stg_cls );
-    ok( r == S_OK, "WriteClassStg failed with 0x%08X\n", r);
-
-    r = ReadClassStg( stg, &temp_cls );
-    ok( r == S_OK, "ReadClassStg failed with 0x%08X\n", r);
-    ok(IsEqualCLSID(&temp_cls, &test_stg_cls), "ReadClassStg returned wrong clsid\n");
-
-    r = IStorage_Release( stg );
-    ok (r == 0, "storage not released\n");
-
-    DeleteFileW(filename);
-}
-
 static void test_streamenum(void)
 {
     static const WCHAR szPrefix[] = { 's','t','g',0 };
@@ -1054,66 +1003,65 @@ struct access_res
 {
     BOOL gothandle;
     DWORD lasterr;
-    BOOL ignore;
 };
 
 static const struct access_res create[16] =
 {
-    { TRUE, ERROR_SUCCESS, TRUE },
-    { TRUE, ERROR_SUCCESS, TRUE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { TRUE, ERROR_SUCCESS, TRUE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { TRUE, ERROR_SUCCESS, TRUE }
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { TRUE, ERROR_SUCCESS },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { TRUE, ERROR_SUCCESS },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { TRUE, ERROR_SUCCESS }
 };
 
 static const struct access_res create_commit[16] =
 {
-    { TRUE, ERROR_SUCCESS, TRUE },
-    { TRUE, ERROR_SUCCESS, TRUE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { TRUE, ERROR_SUCCESS, TRUE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { FALSE, ERROR_SHARING_VIOLATION, FALSE },
-    { TRUE, ERROR_SUCCESS, TRUE }
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { TRUE, ERROR_SUCCESS },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { TRUE, ERROR_SUCCESS },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { FALSE, ERROR_SHARING_VIOLATION },
+    { TRUE, ERROR_SUCCESS }
 };
 
 static const struct access_res create_close[16] =
 {
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
-    { TRUE, ERROR_SUCCESS, FALSE },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
+    { TRUE, ERROR_SUCCESS },
     { TRUE, ERROR_SUCCESS }
 };
 
@@ -1133,9 +1081,6 @@ static void _test_file_access(LPCSTR file, const struct access_res *ares, DWORD 
 
         for (j = 0; j < 4; j++)
         {
-            if (ares[idx].ignore)
-                continue;
-
             if (j == 0) share = 0;
             if (j == 1) share = FILE_SHARE_READ;
             if (j == 2) share = FILE_SHARE_WRITE;
@@ -1151,8 +1096,7 @@ static void _test_file_access(LPCSTR file, const struct access_res *ares, DWORD 
                line, idx, ares[idx].gothandle,
                (hfile != INVALID_HANDLE_VALUE));
 
-            ok(lasterr == ares[idx].lasterr ||
-               broken(lasterr == 0xdeadbeef) /* win9x */,
+            ok(lasterr == ares[idx].lasterr,
                "(%d, lasterr, %d): Expected %d, got %d\n",
                line, idx, ares[idx].lasterr, lasterr);
 
@@ -1279,5 +1223,4 @@ START_TEST(storage32)
     test_transact();
     test_ReadClassStm();
     test_access();
-    test_writeclassstg();
 }

@@ -44,24 +44,64 @@
 #include "typelib.h"
 #include "widltypes.h"
 #include "typelib_struct.h"
-#include "typetree.h"
+
+int in_typelib = 0;
 
 static typelib_t *typelib;
 
+type_t *duptype(type_t *t, int dupname)
+{
+  type_t *d = alloc_type();
+
+  *d = *t;
+  if (dupname && t->name)
+    d->name = xstrdup(t->name);
+
+  d->orig = t;
+  return d;
+}
+
+type_t *alias(type_t *t, const char *name)
+{
+  type_t *a = duptype(t, 0);
+
+  a->name = xstrdup(name);
+  a->kind = TKIND_ALIAS;
+  a->attrs = NULL;
+  a->declarray = FALSE;
+
+  return a;
+}
+
 int is_ptr(const type_t *t)
 {
-    return type_get_type(t) == TYPE_POINTER;
+  unsigned char c = t->type;
+  return c == RPC_FC_RP
+      || c == RPC_FC_UP
+      || c == RPC_FC_FP
+      || c == RPC_FC_OP;
 }
 
 int is_array(const type_t *t)
 {
-    return type_get_type(t) == TYPE_ARRAY;
+    switch (t->type)
+    {
+    case RPC_FC_SMFARRAY:
+    case RPC_FC_LGFARRAY:
+    case RPC_FC_SMVARRAY:
+    case RPC_FC_LGVARRAY:
+    case RPC_FC_CARRAY:
+    case RPC_FC_CVARRAY:
+    case RPC_FC_BOGUS_ARRAY:
+        return TRUE;
+    default:
+        return FALSE;
+    }
 }
 
 /* List of oleauto types that should be recognized by name.
- * (most of) these seem to be intrinsic types in mktyplib.
- * This table MUST be alphabetically sorted on the kw field.
- */
+ * (most of) these seem to be intrinsic types in mktyplib. */
+
 static const struct oatype {
   const char *kw;
   unsigned short vt;
@@ -107,22 +147,12 @@ static unsigned short builtin_vt(const type_t *t)
     return kwp->vt;
   }
   if (is_string_type (t->attrs, t))
-  {
-    const type_t *elem_type;
-    if (is_array(t))
-      elem_type = type_array_get_element(t);
-    else
-      elem_type = type_pointer_get_ref(t);
-    if (type_get_type(elem_type) == TYPE_BASIC)
-    {
-      switch (type_basic_get_type(elem_type))
+    switch (t->ref->type)
       {
-      case TYPE_BASIC_CHAR: return VT_LPSTR;
-      case TYPE_BASIC_WCHAR: return VT_LPWSTR;
+      case RPC_FC_CHAR: return VT_LPSTR;
+      case RPC_FC_WCHAR: return VT_LPWSTR;
       default: break;
       }
-    }
-  }
   return 0;
 }
 
@@ -142,109 +172,109 @@ unsigned short get_type_vt(type_t *t)
     if (vt) return vt;
   }
 
-  if (type_is_alias(t) && is_attr(t->attrs, ATTR_PUBLIC))
+  if (t->kind == TKIND_ALIAS && t->attrs)
     return VT_USERDEFINED;
 
-  switch (type_get_type(t)) {
-  case TYPE_BASIC:
-    switch (type_basic_get_type(t)) {
-    case TYPE_BASIC_BYTE:
-      return VT_UI1;
-    case TYPE_BASIC_CHAR:
-    case TYPE_BASIC_INT8:
-      if (type_basic_get_sign(t) > 0)
-        return VT_UI1;
-      else
-        return VT_I1;
-    case TYPE_BASIC_WCHAR:
-      return VT_I2; /* mktyplib seems to parse wchar_t as short */
-    case TYPE_BASIC_INT16:
-      if (type_basic_get_sign(t) > 0)
-        return VT_UI2;
-      else
-        return VT_I2;
-    case TYPE_BASIC_INT:
-      if (type_basic_get_sign(t) > 0)
-        return VT_UINT;
-      else
-        return VT_INT;
-    case TYPE_BASIC_INT32:
-    case TYPE_BASIC_ERROR_STATUS_T:
-      if (type_basic_get_sign(t) > 0)
-        return VT_UI4;
-      else
-        return VT_I4;
-    case TYPE_BASIC_INT64:
-    case TYPE_BASIC_HYPER:
-      if (type_basic_get_sign(t) > 0)
-        return VT_UI8;
-      else
-        return VT_I8;
-    case TYPE_BASIC_FLOAT:
-      return VT_R4;
-    case TYPE_BASIC_DOUBLE:
-      return VT_R8;
-    case TYPE_BASIC_HANDLE:
-      error("handles can't be used in typelibs\n");
-    }
-    break;
-
-  case TYPE_POINTER:
-    return VT_PTR;
-
-  case TYPE_ARRAY:
-    if (type_array_is_decl_as_ptr(t))
+  switch (t->type) {
+  case RPC_FC_BYTE:
+  case RPC_FC_USMALL:
+    return VT_UI1;
+  case RPC_FC_CHAR:
+  case RPC_FC_SMALL:
+    return VT_I1;
+  case RPC_FC_WCHAR:
+    return VT_I2; /* mktyplib seems to parse wchar_t as short */
+  case RPC_FC_SHORT:
+    return VT_I2;
+  case RPC_FC_USHORT:
+    return VT_UI2;
+  case RPC_FC_LONG:
+    if (match(t->name, "int")) return VT_INT;
+    return VT_I4;
+  case RPC_FC_ULONG:
+    if (match(t->name, "int")) return VT_UINT;
+    return VT_UI4;
+  case RPC_FC_HYPER:
+    if (t->sign < 0) return VT_UI8;
+    if (match(t->name, "MIDL_uhyper")) return VT_UI8;
+    return VT_I8;
+  case RPC_FC_FLOAT:
+    return VT_R4;
+  case RPC_FC_DOUBLE:
+    return VT_R8;
+  case RPC_FC_RP:
+  case RPC_FC_UP:
+  case RPC_FC_OP:
+  case RPC_FC_FP:
+  case RPC_FC_CARRAY:
+  case RPC_FC_CVARRAY:
+    if(t->ref)
     {
-      if (match(type_array_get_element(t)->name, "SAFEARRAY"))
+      if (match(t->ref->name, "SAFEARRAY"))
         return VT_SAFEARRAY;
+      return VT_PTR;
     }
-    else
-      error("get_type_vt: array types not supported\n");
-    return VT_PTR;
 
-  case TYPE_INTERFACE:
+    error("get_type_vt: unknown-deref-type: %d\n", t->ref->type);
+    break;
+  case RPC_FC_IP:
     if(match(t->name, "IUnknown"))
       return VT_UNKNOWN;
     if(match(t->name, "IDispatch"))
       return VT_DISPATCH;
     return VT_USERDEFINED;
 
-  case TYPE_ENUM:
-  case TYPE_STRUCT:
-  case TYPE_COCLASS:
-  case TYPE_MODULE:
-  case TYPE_UNION:
-  case TYPE_ENCAPSULATED_UNION:
+  case RPC_FC_ENUM16:
+  case RPC_FC_STRUCT:
+  case RPC_FC_PSTRUCT:
+  case RPC_FC_CSTRUCT:
+  case RPC_FC_CPSTRUCT:
+  case RPC_FC_CVSTRUCT:
+  case RPC_FC_BOGUS_STRUCT:
     return VT_USERDEFINED;
-
-  case TYPE_VOID:
-    return VT_VOID;
-
-  case TYPE_ALIAS:
-    /* aliases should be filtered out by the type_get_type call above */
-    assert(0);
-    break;
-
-  case TYPE_FUNCTION:
-    error("get_type_vt: functions not supported\n");
-    break;
+  case 0:
+    return t->kind == TKIND_PRIMITIVE ? VT_VOID : VT_USERDEFINED;
+  default:
+    error("get_type_vt: unknown type: 0x%02x\n", t->type);
   }
   return 0;
 }
 
-void start_typelib(typelib_t *typelib_type)
+void start_typelib(char *name, attr_list_t *attrs)
 {
+    in_typelib++;
     if (!do_typelib) return;
 
-    typelib = typelib_type;
+    typelib = xmalloc(sizeof(*typelib));
+    typelib->name = xstrdup(name);
     typelib->filename = xstrdup(typelib_name);
+    typelib->attrs = attrs;
+    list_init( &typelib->entries );
+    list_init( &typelib->importlibs );
+
+    if (is_attr(attrs, ATTR_POINTERDEFAULT))
+        pointer_default = get_attrv(attrs, ATTR_POINTERDEFAULT);
 }
 
 void end_typelib(void)
 {
+    in_typelib--;
     if (!typelib) return;
 
     create_msft_typelib(typelib);
+    pointer_default = RPC_FC_UP;
+    return;
+}
+
+void add_typelib_entry(type_t *t)
+{
+    typelib_entry_t *entry;
+    if (!typelib) return;
+
+    chat("add kind %i: %s\n", t->kind, t->name);
+    entry = xmalloc(sizeof(*entry));
+    entry->type = t;
+    list_add_tail( &typelib->entries, &entry->entry );
 }
 
 static void tlb_read(int fd, void *buf, int count)
@@ -329,10 +359,10 @@ static void read_importlib(importlib_t *importlib)
 
     file_name = wpp_find_include(importlib->name, NULL);
     if(file_name) {
-        fd = open(file_name, O_RDONLY | O_BINARY );
+        fd = open(file_name, O_RDONLY | O_BINARY);
         free(file_name);
     }else {
-        fd = open(importlib->name, O_RDONLY | O_BINARY );
+        fd = open(importlib->name, O_RDONLY | O_BINARY);
     }
 
     if(fd < 0)

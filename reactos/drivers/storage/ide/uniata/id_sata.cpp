@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 UCHAR
-NTAPI
 UniataSataConnect(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel          // logical channel
@@ -62,7 +61,6 @@ UniataSataConnect(
 } // end UniataSataConnect()
 
 UCHAR
-NTAPI
 UniataSataPhyEnable(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel          // logical channel
@@ -120,7 +118,6 @@ UniataSataPhyEnable(
 } // end UniataSataPhyEnable()
 
 BOOLEAN
-NTAPI
 UniataSataClearErr(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel,          // logical channel
@@ -137,7 +134,7 @@ UniataSataClearErr(
     //if(ChipFlags & UNIATA_SATA) {
 
         SStatus.Reg = AtapiReadPort4(chan, IDX_SATA_SStatus);
-        SError.Reg  = AtapiReadPort4(chan, IDX_SATA_SError); 
+        SError.Reg  = AtapiReadPort4(chan, IDX_SATA_SError);
 
         if(SStatus.Reg) {
             KdPrint2((PRINT_PREFIX "  SStatus %x\n", SStatus.Reg));
@@ -165,7 +162,6 @@ UniataSataClearErr(
 } // end UniataSataClearErr()
 
 BOOLEAN
-NTAPI
 UniataSataEvent(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel,          // logical channel
@@ -201,21 +197,19 @@ UniataSataEvent(
 } // end UniataSataEvent()
 
 BOOLEAN
-NTAPI
 UniataAhciInit(
     IN PVOID HwDeviceExtension
     )
 {
     PHW_DEVICE_EXTENSION deviceExtension = (PHW_DEVICE_EXTENSION)HwDeviceExtension;
     ULONG version;
-    ULONG c, i, n;
+    ULONG c;
     PHW_CHANNEL chan;
     ULONG offs;
     ULONG BaseMemAddress;
     ULONG PI;
     ULONG CAP;
     BOOLEAN MemIo;
-    ULONGLONG base;
 
     /* reset AHCI controller */
     AtapiWritePortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_GHC,
@@ -231,11 +225,9 @@ UniataAhciInit(
         AtapiReadPortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_GHC) | AHCI_GHC_AE);
 
     CAP = AtapiReadPortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_CAP);
-    PI = AtapiReadPortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_PI);
     /* get the number of HW channels */
-    for(i=PI, n=0; i; n++, i=i>>1);
     deviceExtension->NumberChannels =
-        max((CAP & AHCI_CAP_NOP_MASK)+1, n);
+        (CAP & AHCI_CAP_NOP_MASK)+1;
     if(CAP & AHCI_CAP_S64A) {
         KdPrint2((PRINT_PREFIX "  AHCI 64bit\n"));
         deviceExtension->Host64 = TRUE;
@@ -250,6 +242,7 @@ UniataAhciInit(
         AtapiReadPortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_GHC) | AHCI_GHC_IE);
 
     version = AtapiReadPortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_VS);
+    PI = AtapiReadPortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, IDX_AHCI_PI);
     KdPrint2((PRINT_PREFIX "  AHCI version %x%x.%x%x controller with %d ports (mask %x) detected\n",
 		  (version >> 24) & 0xff, (version >> 16) & 0xff,
 		  (version >> 8) & 0xff, version & 0xff, deviceExtension->NumberChannels, PI));
@@ -288,24 +281,6 @@ UniataAhciInit(
         chan->RegTranslation[IDX_SATA_SActive].Addr   = BaseMemAddress + offs + FIELD_OFFSET(IDE_AHCI_PORT_REGISTERS, SACT);
         chan->RegTranslation[IDX_SATA_SActive].MemIo  = MemIo;
 
-        AtapiDmaAlloc(HwDeviceExtension, NULL, c);
-
-        base = chan->AHCI_CL_PhAddr;
-        if(!base) {
-            KdPrint2((PRINT_PREFIX "  AHCI buffer allocation failed\n"));
-            return FALSE;
-        }
-        AtapiWritePortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, offs + IDX_AHCI_P_CLB,
-            (ULONG)(base & 0xffffffff));
-        AtapiWritePortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, offs + IDX_AHCI_P_CLB + 4,
-            (ULONG)((base >> 32) & 0xffffffff));
-
-        base = chan->AHCI_CL_PhAddr + ATA_AHCI_MAX_TAGS;
-        AtapiWritePortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, offs + IDX_AHCI_P_FB,
-            (ULONG)(base & 0xffffffff));
-        AtapiWritePortEx4(NULL, (ULONG)&deviceExtension->BaseIoAHCI_0, offs + IDX_AHCI_P_FB + 4,
-            (ULONG)((base >> 32) & 0xffffffff));
-
         chan->ChannelCtrlFlags |= CTRFLAGS_NO_SLAVE;
     }
 
@@ -313,7 +288,6 @@ UniataAhciInit(
 } // end UniataAhciInit()
 
 UCHAR
-NTAPI
 UniataAhciStatus(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel
@@ -373,7 +347,6 @@ UniataAhciStatus(
 } // end UniataAhciStatus()
 
 ULONG
-NTAPI
 UniataAhciSetupFIS(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG DeviceNumber,
@@ -394,13 +367,6 @@ UniataAhciSetupFIS(
     i = 0;
     plba = (PUCHAR)&lba;
 
-    if((AtaCommandFlags[command] & ATA_CMD_FLAG_LBAIOsupp) &&
-       CheckIfBadBlock(&(deviceExtension->lun[ldev]), lba, count)) {
-        KdPrint3((PRINT_PREFIX ": artificial bad block, lba %#I64x count %#x\n", lba, count));
-        return IDE_STATUS_ERROR;
-        //return SRB_STATUS_ERROR;
-    }
-
     /* translate command into 48bit version */
     if ((lba >= ATA_MAX_LBA28 || count > 256) &&
         deviceExtension->lun[ldev].IdentifyData.FeaturesSupport.Address48) {
@@ -412,43 +378,36 @@ UniataAhciSetupFIS(
         }
     }
 
-    fis[0] = 0x27;  /* host to device */
-    fis[1] = 0x80;  /* command FIS (note PM goes here) */
-    fis[2] = command;
-    fis[3] = (UCHAR)feature;
+    fis[i++] = 0x27;  /* host to device */
+    fis[i++] = 0x80;  /* command FIS (note PM goes here) */
+    fis[i++] = command;
+    fis[i++] = (UCHAR)feature;
 
-    fis[4] = plba[0];
-    fis[5] = plba[1];
-    fis[6] = plba[2];
-    fis[7] = IDE_USE_LBA | (DeviceNumber ? IDE_DRIVE_2 : IDE_DRIVE_1);
+    fis[i++] = plba[0];
+    fis[i++] = plba[1];
+    fis[i++] = plba[2];
+    fis[i] = IDE_USE_LBA | (DeviceNumber ? IDE_DRIVE_2 : IDE_DRIVE_1);
     if ((lba >= ATA_MAX_LBA28 || count > 256) &&
         deviceExtension->lun[ldev].IdentifyData.FeaturesSupport.Address48) {
         i++;
     } else {
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4333) // right shift by too large amount, data loss
-#endif
-        fis[7] |= (plba[3] >> 24) & 0x0f;
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+        fis[i++] |= (plba[3] >> 24) & 0x0f;
     }
 
-    fis[8] = plba[3];
-    fis[9] = plba[4];
-    fis[10] = plba[5]; 
-    fis[11] = (UCHAR)(feature>>8) & 0xff;
+    fis[i++] = plba[3];
+    fis[i++] = plba[4];
+    fis[i++] = plba[5]; 
+    fis[i++] = (UCHAR)(feature>>8) & 0xff;
 
-    fis[12] = (UCHAR)count & 0xff;
-    fis[13] = (UCHAR)(count>>8) & 0xff;
-    fis[14] = 0x00;
-    fis[15] = IDE_DC_A_4BIT;
+    fis[i++] = (UCHAR)count & 0xff;
+    fis[i++] = (UCHAR)(count>>8) & 0xff;
+    fis[i++] = 0x00;
+    fis[i++] = IDE_DC_A_4BIT;
 
-    fis[16] = 0x00;
-    fis[17] = 0x00;
-    fis[18] = 0x00;
-    fis[19] = 0x00;
-    return 20;
+    fis[i++] = 0x00;
+    fis[i++] = 0x00;
+    fis[i++] = 0x00;
+    fis[i++] = 0x00;
+    return i;
 } // end UniataAhciSetupFIS()
 

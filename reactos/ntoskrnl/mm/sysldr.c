@@ -13,7 +13,6 @@
 #include <debug.h>
 
 /* GCC's incompetence strikes again */
-__inline
 VOID
 sprintf_nt(IN PCHAR Buffer,
            IN PCHAR Format,
@@ -29,7 +28,7 @@ sprintf_nt(IN PCHAR Buffer,
 
 LIST_ENTRY PsLoadedModuleList;
 KSPIN_LOCK PsLoadedModuleSpinLock;
-ULONG_PTR PsNtosImageBase;
+ULONG PsNtosImageBase;
 KMUTANT MmSystemLoadLock;
 extern ULONG NtGlobalFlag;
 
@@ -44,7 +43,7 @@ MiCacheImageSymbols(IN PVOID BaseAddress)
     PAGED_CODE();
 
     /* Make sure it's safe to access the image */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Get the debug directory */
         DebugDirectory = RtlImageDirectoryEntryToData(BaseAddress,
@@ -52,11 +51,11 @@ MiCacheImageSymbols(IN PVOID BaseAddress)
                                                       IMAGE_DIRECTORY_ENTRY_DEBUG,
                                                       &DebugSize);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Nothing */
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return the directory */
     return DebugDirectory;
@@ -95,7 +94,7 @@ MiLoadImageSection(IN OUT PVOID *SectionPtr,
     PVOID Base = NULL;
     SIZE_T ViewSize = 0;
     KAPC_STATE ApcState;
-    LARGE_INTEGER SectionOffset = {{0, 0}};
+    LARGE_INTEGER SectionOffset = {{0}};
     BOOLEAN LoadSymbols = FALSE;
     ULONG DriverSize;
     PVOID DriverBase;
@@ -282,7 +281,7 @@ MiFindExportedRoutineByName(IN PVOID DllBase,
     Function = (PVOID)((ULONG_PTR)DllBase + ExportTable[Ordinal]);
 
     /* We found it! */
-    ASSERT(!(Function > (PVOID)ExportDirectory) &&
+    ASSERT((Function > (PVOID)ExportDirectory) &&
            (Function < (PVOID)((ULONG_PTR)ExportDirectory + ExportSize)));
     return Function;
 }
@@ -1334,7 +1333,7 @@ MiInitializeLoadedModuleList(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     LdrEntry = CONTAINING_RECORD(NextEntry,
                                  LDR_DATA_TABLE_ENTRY,
                                  InLoadOrderLinks);
-    PsNtosImageBase = (ULONG_PTR)LdrEntry->DllBase;
+    PsNtosImageBase = (ULONG)LdrEntry->DllBase;
 
     /* Loop the loader block */
     while (NextEntry != ListHead)

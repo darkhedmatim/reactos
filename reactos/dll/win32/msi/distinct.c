@@ -205,17 +205,16 @@ static UINT DISTINCT_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *
 }
 
 static UINT DISTINCT_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSIDISTINCTVIEW *dv = (MSIDISTINCTVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", dv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", dv, n, name, type );
 
     if( !dv->table )
          return ERROR_FUNCTION_FAILED;
 
-    return dv->table->ops->get_column_info( dv->table, n, name,
-                                            type, temporary );
+    return dv->table->ops->get_column_info( dv->table, n, name, type );
 }
 
 static UINT DISTINCT_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
@@ -297,7 +296,6 @@ static const MSIVIEWOPS distinct_ops =
     NULL,
     NULL,
     DISTINCT_sort,
-    NULL,
 };
 
 UINT DISTINCT_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table )

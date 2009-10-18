@@ -16,18 +16,13 @@
  *
  */
 
-#if defined(__GNUC__)
-#include <gcc_float.h>
-#elif defined(_MSC_VER)
-#include <msc_float.h>
-#else
-#error
-#endif
+#include_next<float.h>
 
 #ifndef _MINGW_FLOAT_H_
 #define _MINGW_FLOAT_H_
 
-#include <crtdefs.h>
+/* All the headers include this file. */
+#include <_mingw.h>
 
 /*
  * Functions and definitions for controlling the FPU.
@@ -153,4 +148,6 @@ _CRTIMP int __cdecl __MINGW_NOTHROW _isnan (double);
 
 #endif	/* Not __STRICT_ANSI__ */
 
-#endif /* _MINGW_FLOAT_H_ */
+#endif /* _FLOAT_H_ */
+
+

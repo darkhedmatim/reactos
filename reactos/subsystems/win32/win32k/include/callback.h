@@ -3,7 +3,7 @@
 
 #include <include/win32.h>
 
-LRESULT APIENTRY
+LRESULT STDCALL
 co_IntCallWindowProc(WNDPROC Proc,
                   BOOLEAN IsAnsiProc,
                   HWND Wnd,
@@ -12,7 +12,7 @@ co_IntCallWindowProc(WNDPROC Proc,
                   LPARAM lParam,
                   INT lParamBufferSize);
 
-VOID APIENTRY
+VOID STDCALL
 co_IntCallSentMessageCallback(SENDASYNCPROC CompletionCallback,
 			    HWND hWnd,
 			    UINT Msg,
@@ -20,13 +20,13 @@ co_IntCallSentMessageCallback(SENDASYNCPROC CompletionCallback,
 			    LRESULT Result);
 
 
-HMENU APIENTRY
+HMENU STDCALL
 co_IntLoadSysMenuTemplate();
 
-BOOL APIENTRY
+BOOL STDCALL
 co_IntLoadDefaultCursors(VOID);
 
-LRESULT APIENTRY
+LRESULT STDCALL
 co_IntCallHookProc(INT HookId,
                 INT Code,
                 WPARAM wParam,
@@ -35,7 +35,7 @@ co_IntCallHookProc(INT HookId,
                 BOOLEAN Ansi,
                 PUNICODE_STRING ModuleName);
 
-LRESULT APIENTRY
+LRESULT STDCALL
 co_IntCallEventProc(HWINEVENTHOOK hook,
                            DWORD event,
                              HWND hwnd,
@@ -53,9 +53,5 @@ IntCbAllocateMemory(ULONG Size);
 
 VOID FASTCALL
 IntCbFreeMemory(PVOID Data);
-
-HMENU APIENTRY co_IntCallLoadMenu(HINSTANCE,PUNICODE_STRING);
-
-NTSTATUS APIENTRY co_IntClientThreadSetup(VOID);
 
 #endif /* _WIN32K_CALLBACK_H */

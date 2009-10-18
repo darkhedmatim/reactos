@@ -30,7 +30,7 @@ static DWORD dwResumeCount = 1;
 
 
 PSERVICE
-ScmGetServiceEntryByName(LPCWSTR lpServiceName)
+ScmGetServiceEntryByName(LPWSTR lpServiceName)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
@@ -59,7 +59,7 @@ ScmGetServiceEntryByName(LPCWSTR lpServiceName)
 
 
 PSERVICE
-ScmGetServiceEntryByDisplayName(LPCWSTR lpDisplayName)
+ScmGetServiceEntryByDisplayName(LPWSTR lpDisplayName)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
@@ -117,13 +117,13 @@ ScmGetServiceEntryByResumeCount(DWORD dwResumeCount)
 
 
 PSERVICE
-ScmGetServiceEntryByClientHandle(HANDLE Handle)
+ScmGetServiceEntryByClientHandle(ULONG Handle)
 {
     PLIST_ENTRY ServiceEntry;
     PSERVICE CurrentService;
 
     DPRINT("ScmGetServiceEntryByClientHandle() called\n");
-    DPRINT("looking for %p\n", Handle);
+    DPRINT("looking for %lu\n", Handle);
 
     ServiceEntry = ServiceListHead.Flink;
     while (ServiceEntry != &ServiceListHead)
@@ -148,7 +148,7 @@ ScmGetServiceEntryByClientHandle(HANDLE Handle)
 
 
 DWORD
-ScmCreateNewServiceRecord(LPCWSTR lpServiceName,
+ScmCreateNewServiceRecord(LPWSTR lpServiceName,
                           PSERVICE *lpServiceRecord)
 {
     PSERVICE lpService = NULL;
@@ -225,7 +225,7 @@ ScmDeleteServiceRecord(PSERVICE lpService)
 
 
 static DWORD
-CreateServiceListEntry(LPCWSTR lpServiceName,
+CreateServiceListEntry(LPWSTR lpServiceName,
                        HKEY hServiceKey)
 {
     PSERVICE lpService = NULL;
@@ -446,46 +446,6 @@ ScmDeleteMarkedServices(VOID)
 }
 
 
-VOID
-WaitForLSA(VOID)
-{
-    HANDLE hEvent;
-    DWORD dwError;
-
-    DPRINT("WaitForLSA() called\n");
-
-    hEvent = CreateEventW(NULL,
-                          TRUE,
-                          FALSE,
-                          L"LSA_RPC_SERVER_ACTIVE");
-    if (hEvent == NULL)
-    {
-        dwError = GetLastError();
-        DPRINT1("Failed to create the notication event (Error %lu)\n", dwError);
-
-        if (dwError == ERROR_ALREADY_EXISTS)
-        {
-            hEvent = OpenEventW(SYNCHRONIZE,
-                                FALSE,
-                                L"LSA_RPC_SERVER_ACTIVE");
-            if (hEvent != NULL)
-            {
-               DPRINT1("Could not open the notification event!\n");
-               return;
-            }
-        }
-    }
-
-    DPRINT("Wait for LSA!\n");
-    WaitForSingleObject(hEvent, INFINITE);
-    DPRINT("LSA is available!\n");
-
-    CloseHandle(hEvent);
-
-    DPRINT("WaitForLSA() done\n");
-}
-
-
 DWORD
 ScmCreateServiceDatabase(VOID)
 {
@@ -555,9 +515,6 @@ ScmCreateServiceDatabase(VOID)
     }
 
     RegCloseKey(hServicesKey);
-
-    /* Wait for LSA */
-    WaitForLSA();
 
     /* Delete services that are marked for delete */
     ScmDeleteMarkedServices();
@@ -727,7 +684,7 @@ ScmControlService(PSERVICE Service,
     ControlPacket->dwSize = TotalLength;
     wcscpy(&ControlPacket->szArguments[0], Service->lpServiceName);
 
-    /* Send the control packet */
+    /* Send the start command */
     WriteFile(Service->ControlPipeHandle,
               ControlPacket,
               sizeof(SCM_CONTROL_PACKET) + (TotalLength * sizeof(WCHAR)),

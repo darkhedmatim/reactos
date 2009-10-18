@@ -112,17 +112,11 @@
 #        will go from 80 to 40MB, memory usage from 58 to 38MB and the install CD
 #        from 18 to 13MB. The variable defaults to no.
 #
-#    ROS_GENERATE_RSYM
-#        This variable controls generation of RSYM symbol data. The value can be
-#        either yes (to generate symbol data) or no. The variable defaults to yes.
-#
 #    ROS_RBUILDFLAGS
 #        Pass parameters to rbuild.
 #            -v           Be verbose.
 #            -c           Clean as you go. Delete generated files as soon as they are not needed anymore.
 #            -dd          Disable automatic dependencies.
-#            -da          Enable automatic dependencies.
-#            -df          Enable full dependencies.
 #            -dm{module}  Check only automatic dependencies for this module.
 #            -hd          Disable precompiled headers.
 #            -mi          Let make handle creation of install directories. Rbuild will not generate the directories.
@@ -220,23 +214,17 @@ ifeq ($(HALFVERBOSEECHO),yes)
   ECHO_BUILDNO =@echo $(QUOTE)[BUILDNO]  $@$(QUOTE)
   ECHO_INVOKE  =@echo $(QUOTE)[INVOKE]   $<$(QUOTE)
   ECHO_PCH     =@echo $(QUOTE)[PCH]      $@$(QUOTE)
-  ECHO_CPP     =@echo $(QUOTE)[CPP]      $@$(QUOTE)
   ECHO_CC      =@echo $(QUOTE)[CC]       $<$(QUOTE)
-  ECHO_HOSTCC  =@echo $(QUOTE)[HOST-CC]  $<$(QUOTE)
   ECHO_CL      =@echo $(QUOTE)[CL]       $<$(QUOTE)
-  ECHO_AS      =@echo $(QUOTE)[AS]       $<$(QUOTE)
+  ECHO_GAS     =@echo $(QUOTE)[GAS]      $<$(QUOTE)
   ECHO_NASM    =@echo $(QUOTE)[NASM]     $<$(QUOTE)
   ECHO_AR      =@echo $(QUOTE)[AR]       $@$(QUOTE)
-  ECHO_HOSTAR  =@echo $(QUOTE)[HOST-AR]  $@$(QUOTE)
   ECHO_WINEBLD =@echo $(QUOTE)[WINEBLD]  $@$(QUOTE)
   ECHO_WRC     =@echo $(QUOTE)[WRC]      $@$(QUOTE)
-  ECHO_RC      =@echo $(QUOTE)[RC]       $@$(QUOTE)
-  ECHO_CVTRES  =@echo $(QUOTE)[CVTRES]   $@$(QUOTE)
   ECHO_WIDL    =@echo $(QUOTE)[WIDL]     $@$(QUOTE)
   ECHO_BIN2RES =@echo $(QUOTE)[BIN2RES]  $<$(QUOTE)
   ECHO_DLLTOOL =@echo $(QUOTE)[DLLTOOL]  $@$(QUOTE)
   ECHO_LD      =@echo $(QUOTE)[LD]       $@$(QUOTE)
-  ECHO_HOSTLD  =@echo $(QUOTE)[HOST-LD]  $@$(QUOTE)
   ECHO_LINK    =@echo $(QUOTE)[LINK]     $@$(QUOTE)
   ECHO_NM      =@echo $(QUOTE)[NM]       $@$(QUOTE)
   ECHO_OBJDUMP =@echo $(QUOTE)[OBJDUMP]  $@$(QUOTE)
@@ -252,29 +240,22 @@ ifeq ($(HALFVERBOSEECHO),yes)
   ECHO_GENDIB  =@echo $(QUOTE)[GENDIB]   $@$(QUOTE)
   ECHO_STRIP   =@echo $(QUOTE)[STRIP]    $@$(QUOTE)
   ECHO_RGENSTAT=@echo $(QUOTE)[RGENSTAT] $@$(QUOTE)
-  ECHO_DEPENDS =@echo $(QUOTE)[DEPENDS]  $<$(QUOTE)
 else
   ECHO_CP      =
   ECHO_MKDIR   =
   ECHO_BUILDNO =
   ECHO_INVOKE  =
   ECHO_PCH     =
-  ECHO_CPP     =
   ECHO_CC      =
-  ECHO_HOSTCC  =
-  ECHO_AS      =
+  ECHO_GAS     =
   ECHO_NASM    =
   ECHO_AR      =
-  ECHO_HOSTAR  =
   ECHO_WINEBLD =
   ECHO_WRC     =
-  ECHO_RC      =
-  ECHO_CVTRES  =
   ECHO_WIDL    =
   ECHO_BIN2RES =
   ECHO_DLLTOOL =
   ECHO_LD      =
-  ECHO_HOSTLD  =
   ECHO_NM      =
   ECHO_OBJDUMP =
   ECHO_RBUILD  =
@@ -289,7 +270,6 @@ else
   ECHO_GENDIB  =
   ECHO_STRIP   =
   ECHO_RGENSTAT=
-  ECHO_DEPENDS =
 endif
 
 # Set host compiler/linker
@@ -323,7 +303,6 @@ ifeq ($(TARGET_CPP),)
 endif
 gcc = $(Q)$(TARGET_CC)
 gpp = $(Q)$(TARGET_CPP)
-gas = $(Q)$(TARGET_CC) -x assembler-with-cpp
 ld = $(Q)$(PREFIX_)ld
 nm = $(Q)$(PREFIX_)nm
 objdump = $(Q)$(PREFIX_)objdump
@@ -332,6 +311,8 @@ objcopy = $(Q)$(PREFIX_)objcopy
 dlltool = $(Q)$(PREFIX_)dlltool
 strip = $(Q)$(PREFIX_)strip
 windres = $(Q)$(PREFIX_)windres
+cl = $(Q)cl -nologo
+link = $(Q)link -nologo
 
 # Set utilities
 ifeq ($(OSTYPE),msys)

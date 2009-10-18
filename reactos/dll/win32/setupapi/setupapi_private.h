@@ -33,7 +33,6 @@
 #include <aclapi.h>
 #include <cfgmgr32.h>
 #include <fdi.h>
-#include <reason.h>
 #include <regstr.h>
 #include <sddl.h>
 #include <setupapi.h>
@@ -42,13 +41,6 @@
 #include <wine/unicode.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
-
-#include <pseh/pseh2.h>
-
-/* This hack definition is necessary as long as setupapi 
-   depends on Wine "compatibility" headers */
-typedef ULONG RESOURCEID;
-typedef RESOURCEID *PRESOURCEID;
 
 #include <pnp_c.h>
 #include "rpc_private.h"
@@ -282,13 +274,6 @@ CreateDeviceInfo(
     IN LPCWSTR InstancePath,
     IN LPCGUID pClassGuid,
     OUT struct DeviceInfo **pDeviceInfo);
-
-LONG
-SETUP_CreateDevicesList(
-    IN OUT struct DeviceInfoSet *list,
-    IN PCWSTR MachineName OPTIONAL,
-    IN CONST GUID *Class OPTIONAL,
-    IN PCWSTR Enumerator OPTIONAL);
 
 /* driver.c */
 

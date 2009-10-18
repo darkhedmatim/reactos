@@ -1,3 +1,4 @@
+#define STDCALL __stdcall
 #include <d3d9.h>
 #include <ddraw.h>
 #include <d3dnthal.h>

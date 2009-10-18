@@ -221,6 +221,8 @@ Ext2MountVolume (
 	
 	PEXT2_GROUP_DESCRIPTOR	PtrGroupDescriptor = NULL;
 
+	PEXT2_INODE			PtrInode = NULL;
+
 	// Inititalising variables
 	
 	PtrVPB = IrpSp->Parameters.MountVolume.Vpb;
@@ -255,7 +257,7 @@ Ext2MountVolume (
 		DebugTrace(DEBUG_TRACE_MOUNT, "OEM[%s]", BootSector->Oem);
 		if (BootSector->Oem[0])
 		{
-		    try_return();
+		    try_return (STATUS_WRONG_VOLUME);
 		}
 
 		//	Allocating memory for reading in Super Block...
@@ -297,7 +299,7 @@ Ext2MountVolume (
                     (PDEVICE_OBJECT *)&PtrVolumeDeviceObject)) //	The Volume Device Object
 					) 
 			{
-	            try_return();
+	            try_return( Status );
 			}
 
 			//	
@@ -368,14 +370,6 @@ Ext2MountVolume (
 			PtrVCB->NoOfGroups = ( SuperBlock->s_blocks_count - SuperBlock->s_first_data_block 
 								+ SuperBlock->s_blocks_per_group - 1 ) 
 								/ SuperBlock->s_blocks_per_group;
-			if( SuperBlock->s_rev_level )
-			{
-				PtrVCB->InodeSize = SuperBlock->s_inode_size;
-			}
-			else
-			{
-				PtrVCB->InodeSize = sizeof( EXT2_INODE );
-			}
 
 			PtrVCB->PtrGroupDescriptors = Ext2AllocatePool( NonPagedPool, sizeof( Ext2GroupDescriptors ) * PtrVCB->NoOfGroups  );
 			
@@ -450,7 +444,7 @@ Ext2MountVolume (
 			PtrRootFileObject = IoCreateStreamFileObject(NULL, TargetDeviceObject );
 			if( !PtrRootFileObject )
 			{
-				try_return();
+				try_return( Status );
 			}
 			//
 			//	Associate the file stream with the Volume parameter block...
@@ -473,13 +467,13 @@ Ext2MountVolume (
 				ZeroSize.QuadPart = 0;
 				if ( !NT_SUCCESS( Ext2CreateNewFCB( 
 						&PtrVCB->PtrRootDirectoryFCB,	//	Root FCB
-						ZeroSize,			//	AllocationSize,
-						ZeroSize,			//	EndOfFile,
-						PtrRootFileObject,		//	The Root Dircetory File Object
+						ZeroSize,						//	AllocationSize,
+						ZeroSize,						//	EndOfFile,
+						PtrRootFileObject,				//	The Root Dircetory File Object
 						PtrVCB,
 						PtrObjectName  )  )  )
 				{
-					try_return();
+					try_return( Status );
 				}
 				
 

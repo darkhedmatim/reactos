@@ -1,7 +1,7 @@
 /*
  * NDR -Oi,-Oif,-Oicf Interpreter
  *
- * Copyright 2001 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001 Ove Kåven, TransGaming Technologies
  * Copyright 2003-5 Robert Shearman (for CodeWeavers)
  *
  * This library is free software; you can redistribute it and/or
@@ -107,7 +107,7 @@ void WINAPI NdrRpcSmSetClientToOsf(PMIDL_STUB_MESSAGE pMessage)
 #endif
 }
 
-static void dump_RPC_FC_PROC_PF(PARAM_ATTRIBUTES param_attributes)
+static void WINAPI dump_RPC_FC_PROC_PF(PARAM_ATTRIBUTES param_attributes)
 {
     if (param_attributes.MustSize) TRACE(" MustSize");
     if (param_attributes.MustFree) TRACE(" MustFree");
@@ -123,7 +123,7 @@ static void dump_RPC_FC_PROC_PF(PARAM_ATTRIBUTES param_attributes)
     if (param_attributes.ServerAllocSize) TRACE(" ServerAllocSize = %d", param_attributes.ServerAllocSize * 8);
 }
 
-static void dump_INTERPRETER_OPT_FLAGS(INTERPRETER_OPT_FLAGS Oi2Flags)
+static void WINAPI dump_INTERPRETER_OPT_FLAGS(INTERPRETER_OPT_FLAGS Oi2Flags)
 {
     if (Oi2Flags.ServerMustSize) TRACE(" ServerMustSize");
     if (Oi2Flags.ClientMustSize) TRACE(" ClientMustSize");
@@ -583,7 +583,12 @@ LONG_PTR WINAPIV NdrClientCall2(PMIDL_STUB_DESC pStubDesc, PFORMAT_STRING pForma
 
     TRACE("pStubDesc %p, pFormat %p, ...\n", pStubDesc, pFormat);
 
-    TRACE("NDR Version: 0x%x\n", pStubDesc->Version);
+    /* Later NDR language versions probably won't be backwards compatible */
+    if (pStubDesc->Version > 0x50002)
+    {
+        FIXME("Incompatible stub description version: 0x%x\n", pStubDesc->Version);
+        RpcRaiseException(RPC_X_WRONG_STUB_VERSION);
+    }
 
     if (pProcHeader->Oi_flags & RPC_FC_PROC_OIF_RPCFLAGS)
     {
@@ -1288,7 +1293,12 @@ LONG WINAPI NdrStubCall2(
     pFormat = pServerInfo->ProcString + pServerInfo->FmtStringOffset[pRpcMsg->ProcNum];
     pProcHeader = (const NDR_PROC_HEADER *)&pFormat[0];
 
-    TRACE("NDR Version: 0x%x\n", pStubDesc->Version);
+    /* Later NDR language versions probably won't be backwards compatible */
+    if (pStubDesc->Version > 0x50002)
+    {
+        FIXME("Incompatible stub description version: 0x%x\n", pStubDesc->Version);
+        RpcRaiseException(RPC_X_WRONG_STUB_VERSION);
+    }
 
     /* create the full pointer translation tables, if requested */
     if (pProcHeader->Oi_flags & RPC_FC_PROC_OIF_FULLPTR)

@@ -57,7 +57,7 @@ typedef struct
 INT_PTR CALLBACK HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 ATOM
-WINAPI
+STDCALL
 RegisterHexEditorClass(HINSTANCE hInstance)
 {
   WNDCLASSEX WndClass;
@@ -76,7 +76,7 @@ RegisterHexEditorClass(HINSTANCE hInstance)
 }
 
 BOOL
-WINAPI
+STDCALL
 UnregisterHexEditorClass(HINSTANCE hInstance)
 {
   return UnregisterClass(HEX_EDIT_CLASS_NAME, hInstance);
@@ -126,7 +126,7 @@ HEXEDIT_Update(PHEXEDIT_DATA hed)
   INT bufsize, cvislines;
 
   GetClientRect(hed->hWndSelf, &rcClient);
-  hed->style = GetWindowLongPtr(hed->hWndSelf, GWL_STYLE);
+  hed->style = GetWindowLong(hed->hWndSelf, GWL_STYLE);
 
   bufsize = (hed->hBuffer ? (INT) LocalSize(hed->hBuffer) : 0);
   hed->nLines = max(bufsize / hed->ColumnsPerLine, 1);

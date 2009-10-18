@@ -216,7 +216,7 @@ SepFindPrimaryGroupAndDefaultOwner(PTOKEN Token,
 
 
 NTSTATUS
-NTAPI
+STDCALL
 SepDuplicateToken(PTOKEN Token,
                   POBJECT_ATTRIBUTES ObjectAttributes,
                   BOOLEAN EffectiveOnly,
@@ -247,10 +247,7 @@ SepDuplicateToken(PTOKEN Token,
         DPRINT1("ObCreateObject() failed (Status %lx)\n");
         return(Status);
     }
-
-    /* Zero out the buffer */
-    RtlZeroMemory(AccessToken, sizeof(TOKEN));
-
+    
     Status = ZwAllocateLocallyUniqueId(&AccessToken->TokenId);
     if (!NT_SUCCESS(Status))
     {
@@ -267,6 +264,7 @@ SepDuplicateToken(PTOKEN Token,
     
     AccessToken->TokenLock = &SepTokenLock;
     
+    AccessToken->TokenInUse = 0;
     AccessToken->TokenType  = TokenType;
     AccessToken->ImpersonationLevel = Level;
     RtlCopyLuid(&AccessToken->AuthenticationId, &Token->AuthenticationId);
@@ -287,7 +285,7 @@ SepDuplicateToken(PTOKEN Token,
     AccessToken->UserAndGroups =
     (PSID_AND_ATTRIBUTES)ExAllocatePoolWithTag(PagedPool,
                                                uLength,
-                                               'uKOT');
+                                               TAG('T', 'O', 'K', 'u'));
     
     EndMem = &AccessToken->UserAndGroups[AccessToken->UserAndGroupCount];
     
@@ -314,7 +312,7 @@ SepDuplicateToken(PTOKEN Token,
         AccessToken->Privileges =
         (PLUID_AND_ATTRIBUTES)ExAllocatePoolWithTag(PagedPool,
                                                     uLength,
-                                                    'pKOT');
+                                                    TAG('T', 'O', 'K', 'p'));
         
         for (i = 0; i < AccessToken->PrivilegeCount; i++)
         {
@@ -329,10 +327,14 @@ SepDuplicateToken(PTOKEN Token,
             AccessToken->DefaultDacl =
             (PACL) ExAllocatePoolWithTag(PagedPool,
                                          Token->DefaultDacl->AclSize,
-                                         'kDOT');
+                                         TAG('T', 'O', 'K', 'd'));
             memcpy(AccessToken->DefaultDacl,
                    Token->DefaultDacl,
                    Token->DefaultDacl->AclSize);
+        }
+        else
+        {
+            AccessToken->DefaultDacl = 0;
         }
     }
     
@@ -420,7 +422,7 @@ SeIsTokenChild(IN PTOKEN Token,
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 SeCopyClientToken(IN PACCESS_TOKEN Token,
                   IN SECURITY_IMPERSONATION_LEVEL Level,
                   IN KPROCESSOR_MODE PreviousMode,
@@ -447,7 +449,7 @@ SeCopyClientToken(IN PACCESS_TOKEN Token,
     return(Status);
 }
 
-VOID NTAPI
+VOID STDCALL
 SepDeleteToken(PVOID ObjectBody)
 {
     PTOKEN AccessToken = (PTOKEN)ObjectBody;
@@ -511,7 +513,7 @@ SeAssignPrimaryToken(IN PEPROCESS Process,
 }
 
 PTOKEN
-NTAPI
+STDCALL
 SepCreateSystemProcessToken(VOID)
 {
     NTSTATUS Status;
@@ -547,9 +549,6 @@ SepCreateSystemProcessToken(VOID)
     {
         return NULL;
     }
-
-    /* Zero out the buffer */
-    RtlZeroMemory(AccessToken, sizeof(TOKEN));
     
     Status = ExpAllocateLocallyUniqueId(&AccessToken->TokenId);
     if (!NT_SUCCESS(Status))
@@ -576,6 +575,8 @@ SepCreateSystemProcessToken(VOID)
     
     AccessToken->TokenType = TokenPrimary;
     AccessToken->ImpersonationLevel = SecurityDelegation;
+    AccessToken->TokenSource.SourceIdentifier.LowPart = 0;
+    AccessToken->TokenSource.SourceIdentifier.HighPart = 0;
     memcpy(AccessToken->TokenSource.SourceName, "SeMgr\0\0\0", 8);
     AccessToken->ExpirationTime.QuadPart = -1;
     AccessToken->UserAndGroupCount = 4;
@@ -589,7 +590,7 @@ SepCreateSystemProcessToken(VOID)
     AccessToken->UserAndGroups =
     (PSID_AND_ATTRIBUTES)ExAllocatePoolWithTag(PagedPool,
                                                uSize,
-                                               'uKOT');
+                                               TAG('T', 'O', 'K', 'u'));
     SidArea = &AccessToken->UserAndGroups[AccessToken->UserAndGroupCount];
     
     i = 0;
@@ -621,7 +622,7 @@ SepCreateSystemProcessToken(VOID)
     AccessToken->Privileges =
     (PLUID_AND_ATTRIBUTES)ExAllocatePoolWithTag(PagedPool,
                                                 uSize,
-                                                'pKOT');
+                                                TAG('T', 'O', 'K', 'p'));
     
     i = 0;
     AccessToken->Privileges[i].Attributes = SE_PRIVILEGE_ENABLED_BY_DEFAULT|SE_PRIVILEGE_ENABLED;
@@ -700,7 +701,7 @@ SepCreateSystemProcessToken(VOID)
     AccessToken->DefaultDacl =
     (PACL) ExAllocatePoolWithTag(PagedPool,
                                  uSize,
-                                 'kDOT');
+                                 TAG('T', 'O', 'K', 'd'));
     Status = RtlCreateAcl(AccessToken->DefaultDacl, uSize, ACL_REVISION);
     if ( NT_SUCCESS(Status) )
     {
@@ -727,7 +728,7 @@ SepCreateSystemProcessToken(VOID)
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 SeFilterToken(IN PACCESS_TOKEN ExistingToken,
               IN ULONG Flags,
               IN PTOKEN_GROUPS SidsToDisable OPTIONAL,
@@ -743,7 +744,7 @@ SeFilterToken(IN PACCESS_TOKEN ExistingToken,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 SeQueryInformationToken(IN PACCESS_TOKEN Token,
                         IN TOKEN_INFORMATION_CLASS TokenInformationClass,
                         OUT PVOID *TokenInformation)
@@ -756,7 +757,7 @@ SeQueryInformationToken(IN PACCESS_TOKEN Token,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 SeQuerySessionIdToken(IN PACCESS_TOKEN Token,
                       IN PULONG pSessionId)
 {
@@ -767,7 +768,7 @@ SeQuerySessionIdToken(IN PACCESS_TOKEN Token,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SeQueryAuthenticationIdToken(IN PACCESS_TOKEN Token,
                              OUT PLUID LogonId)
 {
@@ -783,7 +784,7 @@ SeQueryAuthenticationIdToken(IN PACCESS_TOKEN Token,
  * @implemented
  */
 SECURITY_IMPERSONATION_LEVEL
-NTAPI
+STDCALL
 SeTokenImpersonationLevel(IN PACCESS_TOKEN Token)
 {
     PAGED_CODE();
@@ -795,7 +796,7 @@ SeTokenImpersonationLevel(IN PACCESS_TOKEN Token)
 /*
  * @implemented
  */
-TOKEN_TYPE NTAPI
+TOKEN_TYPE STDCALL
 SeTokenType(IN PACCESS_TOKEN Token)
 {
     PAGED_CODE();
@@ -808,7 +809,7 @@ SeTokenType(IN PACCESS_TOKEN Token)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeTokenIsAdmin(IN PACCESS_TOKEN Token)
 {
     PAGED_CODE();
@@ -819,7 +820,7 @@ SeTokenIsAdmin(IN PACCESS_TOKEN Token)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeTokenIsRestricted(IN PACCESS_TOKEN Token)
 {
     PAGED_CODE();
@@ -830,7 +831,7 @@ SeTokenIsRestricted(IN PACCESS_TOKEN Token)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 SeTokenIsWriteRestricted(IN PACCESS_TOKEN Token)
 {
     PAGED_CODE();
@@ -842,7 +843,7 @@ SeTokenIsWriteRestricted(IN PACCESS_TOKEN Token)
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtQueryInformationToken(IN HANDLE TokenHandle,
                         IN TOKEN_INFORMATION_CLASS TokenInformationClass,
                         OUT PVOID TokenInformation,
@@ -896,7 +897,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 RequiredLength = sizeof(TOKEN_USER) +
                 RtlLengthSid(Token->UserAndGroups[0].Sid);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -918,11 +919,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -935,7 +936,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 RequiredLength = sizeof(tg->GroupCount) +
                 RtlLengthSidAndAttributes(Token->UserAndGroupCount - 1, &Token->UserAndGroups[1]);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -963,11 +964,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -980,7 +981,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 RequiredLength = sizeof(tp->PrivilegeCount) +
                 (Token->PrivilegeCount * sizeof(LUID_AND_ATTRIBUTES));
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -999,11 +1000,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1017,7 +1018,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 SidLen = RtlLengthSid(Token->UserAndGroups[Token->DefaultOwnerIndex].Sid);
                 RequiredLength = sizeof(TOKEN_OWNER) + SidLen;
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1036,11 +1037,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1054,7 +1055,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 SidLen = RtlLengthSid(Token->PrimaryGroup);
                 RequiredLength = sizeof(TOKEN_PRIMARY_GROUP) + SidLen;
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1073,11 +1074,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1094,7 +1095,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                     RequiredLength += Token->DefaultDacl->AclSize;
                 }
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1120,11 +1121,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1136,7 +1137,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 DPRINT("NtQueryInformationToken(TokenSource)\n");
                 RequiredLength = sizeof(TOKEN_SOURCE);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1152,11 +1153,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1168,7 +1169,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 DPRINT("NtQueryInformationToken(TokenType)\n");
                 RequiredLength = sizeof(TOKEN_TYPE);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1184,11 +1185,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1200,7 +1201,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 DPRINT("NtQueryInformationToken(TokenImpersonationLevel)\n");
                 RequiredLength = sizeof(SECURITY_IMPERSONATION_LEVEL);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1216,11 +1217,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1232,7 +1233,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 DPRINT("NtQueryInformationToken(TokenStatistics)\n");
                 RequiredLength = sizeof(TOKEN_STATISTICS);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1257,11 +1258,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1273,7 +1274,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 DPRINT("NtQueryInformationToken(TokenOrigin)\n");
                 RequiredLength = sizeof(TOKEN_ORIGIN);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1290,11 +1291,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1312,7 +1313,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 RequiredLength = sizeof(tg->GroupCount) +
                 RtlLengthSidAndAttributes(Token->RestrictedSidCount, Token->RestrictedSids);
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     if(TokenInformationLength >= RequiredLength)
                     {
@@ -1340,11 +1341,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                         *ReturnLength = RequiredLength;
                     }
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
                 break;
             }
@@ -1365,7 +1366,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                 
                 if(NT_SUCCESS(Status))
                 {
-                    _SEH2_TRY
+                    _SEH_TRY
                     {
                         /* buffer size was already verified, no need to check here again */
                         *(PULONG)TokenInformation = SessionId;
@@ -1375,11 +1376,11 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
                             *ReturnLength = sizeof(ULONG);
                         }
                     }
-                    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                    _SEH_HANDLE
                     {
-                        Status = _SEH2_GetExceptionCode();
+                        Status = _SEH_GetExceptionCode();
                     }
-                    _SEH2_END;
+                    _SEH_END;
                 }
                 
                 break;
@@ -1404,7 +1405,7 @@ NtQueryInformationToken(IN HANDLE TokenHandle,
  *  TokenOrigin, TokenDefaultDacl
  */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtSetInformationToken(IN HANDLE TokenHandle,
                       IN TOKEN_INFORMATION_CLASS TokenInformationClass,
                       OUT PVOID TokenInformation,
@@ -1413,7 +1414,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
     PTOKEN Token;
     KPROCESSOR_MODE PreviousMode;
     ULONG NeededAccess = TOKEN_ADJUST_DEFAULT;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     
     PAGED_CODE();
     
@@ -1453,31 +1454,36 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                 if(TokenInformationLength >= sizeof(TOKEN_OWNER))
                 {
                     PTOKEN_OWNER to = (PTOKEN_OWNER)TokenInformation;
-                    PSID InputSid = NULL, CapturedSid;
+                    PSID InputSid = NULL;
                     
-                    _SEH2_TRY
+                    _SEH_TRY
                     {
                         InputSid = to->Owner;
                     }
-                    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                    _SEH_HANDLE
                     {
-                        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                        Status = _SEH_GetExceptionCode();
                     }
-                    _SEH2_END;
+                    _SEH_END;
                     
-                    Status = SepCaptureSid(InputSid,
-                                           PreviousMode,
-                                           PagedPool,
-                                           FALSE,
-                                           &CapturedSid);
                     if(NT_SUCCESS(Status))
                     {
-                        RtlCopySid(RtlLengthSid(CapturedSid),
-                                   Token->UserAndGroups[Token->DefaultOwnerIndex].Sid,
-                                   CapturedSid);
-                        SepReleaseSid(CapturedSid,
-                                      PreviousMode,
-                                      FALSE);
+                        PSID CapturedSid;
+                        
+                        Status = SepCaptureSid(InputSid,
+                                               PreviousMode,
+                                               PagedPool,
+                                               FALSE,
+                                               &CapturedSid);
+                        if(NT_SUCCESS(Status))
+                        {
+                            RtlCopySid(RtlLengthSid(CapturedSid),
+                                       Token->UserAndGroups[Token->DefaultOwnerIndex].Sid,
+                                       CapturedSid);
+                            SepReleaseSid(CapturedSid,
+                                          PreviousMode,
+                                          FALSE);
+                        }
                     }
                 }
                 else
@@ -1492,31 +1498,36 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                 if(TokenInformationLength >= sizeof(TOKEN_PRIMARY_GROUP))
                 {
                     PTOKEN_PRIMARY_GROUP tpg = (PTOKEN_PRIMARY_GROUP)TokenInformation;
-                    PSID InputSid = NULL, CapturedSid;
+                    PSID InputSid = NULL;
                     
-                    _SEH2_TRY
+                    _SEH_TRY
                     {
                         InputSid = tpg->PrimaryGroup;
                     }
-                    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                    _SEH_HANDLE
                     {
-                        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                        Status = _SEH_GetExceptionCode();
                     }
-                    _SEH2_END;
+                    _SEH_END;
                     
-                    Status = SepCaptureSid(InputSid,
-                                           PreviousMode,
-                                           PagedPool,
-                                           FALSE,
-                                           &CapturedSid);
                     if(NT_SUCCESS(Status))
                     {
-                        RtlCopySid(RtlLengthSid(CapturedSid),
-                                   Token->PrimaryGroup,
-                                   CapturedSid);
-                        SepReleaseSid(CapturedSid,
-                                      PreviousMode,
-                                      FALSE);
+                        PSID CapturedSid;
+                        
+                        Status = SepCaptureSid(InputSid,
+                                               PreviousMode,
+                                               PagedPool,
+                                               FALSE,
+                                               &CapturedSid);
+                        if(NT_SUCCESS(Status))
+                        {
+                            RtlCopySid(RtlLengthSid(CapturedSid),
+                                       Token->PrimaryGroup,
+                                       CapturedSid);
+                            SepReleaseSid(CapturedSid,
+                                          PreviousMode,
+                                          FALSE);
+                        }
                     }
                 }
                 else
@@ -1533,45 +1544,48 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                     PTOKEN_DEFAULT_DACL tdd = (PTOKEN_DEFAULT_DACL)TokenInformation;
                     PACL InputAcl = NULL;
                     
-                    _SEH2_TRY
+                    _SEH_TRY
                     {
                         InputAcl = tdd->DefaultDacl;
                     }
-                    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                    _SEH_HANDLE
                     {
-                        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                        Status = _SEH_GetExceptionCode();
                     }
-                    _SEH2_END;
-
-                    if(InputAcl != NULL)
+                    _SEH_END;
+                    
+                    if(NT_SUCCESS(Status))
                     {
-                        PACL CapturedAcl;
-
-                        /* capture and copy the dacl */
-                        Status = SepCaptureAcl(InputAcl,
-                                               PreviousMode,
-                                               PagedPool,
-                                               TRUE,
-                                               &CapturedAcl);
-                        if(NT_SUCCESS(Status))
+                        if(InputAcl != NULL)
                         {
-                            /* free the previous dacl if present */
+                            PACL CapturedAcl;
+                            
+                            /* capture and copy the dacl */
+                            Status = SepCaptureAcl(InputAcl,
+                                                   PreviousMode,
+                                                   PagedPool,
+                                                   TRUE,
+                                                   &CapturedAcl);
+                            if(NT_SUCCESS(Status))
+                            {
+                                /* free the previous dacl if present */
+                                if(Token->DefaultDacl != NULL)
+                                {
+                                    ExFreePool(Token->DefaultDacl);
+                                }
+                                
+                                /* set the new dacl */
+                                Token->DefaultDacl = CapturedAcl;
+                            }
+                        }
+                        else
+                        {
+                            /* clear and free the default dacl if present */
                             if(Token->DefaultDacl != NULL)
                             {
                                 ExFreePool(Token->DefaultDacl);
+                                Token->DefaultDacl = NULL;
                             }
-
-                            /* set the new dacl */
-                            Token->DefaultDacl = CapturedAcl;
-                        }
-                    }
-                    else
-                    {
-                        /* clear and free the default dacl if present */
-                        if(Token->DefaultDacl != NULL)
-                        {
-                            ExFreePool(Token->DefaultDacl);
-                            Token->DefaultDacl = NULL;
                         }
                     }
                 }
@@ -1586,25 +1600,28 @@ NtSetInformationToken(IN HANDLE TokenHandle,
             {
                 ULONG SessionId = 0;
                 
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     /* buffer size was already verified, no need to check here again */
                     SessionId = *(PULONG)TokenInformation;
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
                 
-                if(!SeSinglePrivilegeCheck(SeTcbPrivilege,
-                                           PreviousMode))
+                if(NT_SUCCESS(Status))
                 {
-                    Status = STATUS_PRIVILEGE_NOT_HELD;
-                    break;
+                    if(!SeSinglePrivilegeCheck(SeTcbPrivilege,
+                                               PreviousMode))
+                    {
+                        Status = STATUS_PRIVILEGE_NOT_HELD;
+                        break;
+                    }
+                    
+                    Token->SessionId = SessionId;
                 }
-
-                Token->SessionId = SessionId;
                 break;
             }
                 
@@ -1630,7 +1647,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
  * is correct either. -Gunnar
  * This is true. EffectiveOnly overrides SQOS.EffectiveOnly. - IAI
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtDuplicateToken(IN HANDLE ExistingTokenHandle,
                  IN ACCESS_MASK DesiredAccess,
                  IN POBJECT_ATTRIBUTES ObjectAttributes  OPTIONAL,
@@ -1644,24 +1661,28 @@ NtDuplicateToken(IN HANDLE ExistingTokenHandle,
     PTOKEN NewToken;
     PSECURITY_QUALITY_OF_SERVICE CapturedSecurityQualityOfService;
     BOOLEAN QoSPresent;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     
     PAGED_CODE();
     
     PreviousMode = KeGetPreviousMode();
     
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWriteHandle(NewTokenHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if(!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
     
     Status = SepCaptureSecurityQualityOfService(ObjectAttributes,
@@ -1705,15 +1726,15 @@ NtDuplicateToken(IN HANDLE ExistingTokenHandle,
             
             if (NT_SUCCESS(Status))
             {
-                _SEH2_TRY
+                _SEH_TRY
                 {
                     *NewTokenHandle = hToken;
                 }
-                _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+                _SEH_HANDLE
                 {
-                    Status = _SEH2_GetExceptionCode();
+                    Status = _SEH_GetExceptionCode();
                 }
-                _SEH2_END;
+                _SEH_END;
             }
         }
     }
@@ -1726,7 +1747,7 @@ NtDuplicateToken(IN HANDLE ExistingTokenHandle,
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtAdjustGroupsToken(IN HANDLE TokenHandle,
                     IN BOOLEAN ResetToDefault,
                     IN PTOKEN_GROUPS NewState,
@@ -1741,7 +1762,7 @@ NtAdjustGroupsToken(IN HANDLE TokenHandle,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtAdjustPrivilegesToken (IN HANDLE TokenHandle,
                          IN BOOLEAN DisableAllPrivileges,
                          IN PTOKEN_PRIVILEGES NewState,
@@ -1919,7 +1940,7 @@ NtAdjustPrivilegesToken (IN HANDLE TokenHandle,
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtCreateToken(OUT PHANDLE TokenHandle,
               IN ACCESS_MASK DesiredAccess,
               IN POBJECT_ATTRIBUTES ObjectAttributes,
@@ -1943,8 +1964,8 @@ NtCreateToken(OUT PHANDLE TokenHandle,
     ULONG i;
     KPROCESSOR_MODE PreviousMode;
     ULONG nTokenPrivileges = 0;
-    LARGE_INTEGER LocalExpirationTime = {{0, 0}};
-    NTSTATUS Status;
+    LARGE_INTEGER LocalExpirationTime = {{0}};
+    NTSTATUS Status = STATUS_SUCCESS;
     
     PAGED_CODE();
     
@@ -1952,7 +1973,7 @@ NtCreateToken(OUT PHANDLE TokenHandle,
     
     if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWriteHandle(TokenHandle);
             ProbeForRead(AuthenticationId,
@@ -1982,12 +2003,16 @@ NtCreateToken(OUT PHANDLE TokenHandle,
                          sizeof(ULONG));
             nTokenPrivileges = TokenPrivileges->PrivilegeCount;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if(!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
     else
     {
@@ -2017,9 +2042,6 @@ NtCreateToken(OUT PHANDLE TokenHandle,
         DPRINT1("ObCreateObject() failed (Status %lx)\n");
         return(Status);
     }
-
-    /* Zero out the buffer */
-    RtlZeroMemory(AccessToken, sizeof(TOKEN));
     
     AccessToken->TokenLock = &SepTokenLock;
     
@@ -2036,6 +2058,8 @@ NtCreateToken(OUT PHANDLE TokenHandle,
     
     AccessToken->UserAndGroupCount = TokenGroups->GroupCount + 1;
     AccessToken->PrivilegeCount    = TokenPrivileges->PrivilegeCount;
+    AccessToken->UserAndGroups     = 0;
+    AccessToken->Privileges        = 0;
     
     AccessToken->TokenType = TokenType;
     AccessToken->ImpersonationLevel = ((PSECURITY_QUALITY_OF_SERVICE)
@@ -2055,7 +2079,7 @@ NtCreateToken(OUT PHANDLE TokenHandle,
     AccessToken->UserAndGroups =
     (PSID_AND_ATTRIBUTES)ExAllocatePoolWithTag(PagedPool,
                                                uLength,
-                                               'uKOT');
+                                               TAG('T', 'O', 'K', 'u'));
     
     EndMem = &AccessToken->UserAndGroups[AccessToken->UserAndGroupCount];
     
@@ -2091,21 +2115,21 @@ NtCreateToken(OUT PHANDLE TokenHandle,
         AccessToken->Privileges =
         (PLUID_AND_ATTRIBUTES)ExAllocatePoolWithTag(PagedPool,
                                                     uLength,
-                                                    'pKOT');
+                                                    TAG('T', 'O', 'K', 'p'));
         
         if (PreviousMode != KernelMode)
         {
-            _SEH2_TRY
+            _SEH_TRY
             {
                 RtlCopyMemory(AccessToken->Privileges,
                               TokenPrivileges->Privileges,
                               nTokenPrivileges * sizeof(LUID_AND_ATTRIBUTES));
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
         else
         {
@@ -2120,7 +2144,7 @@ NtCreateToken(OUT PHANDLE TokenHandle,
         AccessToken->DefaultDacl =
         (PACL) ExAllocatePoolWithTag(PagedPool,
                                      TokenDefaultDacl->DefaultDacl->AclSize,
-                                     'kDOT');
+                                     TAG('T', 'O', 'K', 'd'));
         memcpy(AccessToken->DefaultDacl,
                TokenDefaultDacl->DefaultDacl,
                TokenDefaultDacl->DefaultDacl->AclSize);
@@ -2139,15 +2163,15 @@ NtCreateToken(OUT PHANDLE TokenHandle,
     
     if (NT_SUCCESS(Status))
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             *TokenHandle = hToken;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
     
     return Status;
@@ -2157,7 +2181,7 @@ NtCreateToken(OUT PHANDLE TokenHandle,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
                     IN ACCESS_MASK DesiredAccess,
                     IN BOOLEAN OpenAsSelf,
@@ -2174,24 +2198,28 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
     SECURITY_DESCRIPTOR SecurityDescriptor;
     PACL Dacl = NULL;
     KPROCESSOR_MODE PreviousMode;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     
     PAGED_CODE();
     
     PreviousMode = ExGetPreviousMode();
     
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWriteHandle(TokenHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if(!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
     
     /*
@@ -2211,7 +2239,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
                                           &ImpersonationLevel);
     if (Token == NULL)
     {
-        ObDereferenceObject(Thread);
+        ObfDereferenceObject(Thread);
         return STATUS_NO_TOKEN;
     }
     
@@ -2219,7 +2247,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
     
     if (ImpersonationLevel == SecurityAnonymous)
     {
-        ObDereferenceObject(Token);
+        ObfDereferenceObject(Token);
         return STATUS_CANT_OPEN_ANONYMOUS;
     }
     
@@ -2239,7 +2267,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
                                            (PVOID*)&Thread, NULL);
         if (!NT_SUCCESS(Status))
         {
-            ObDereferenceObject(Token);
+            ObfDereferenceObject(Token);
             if (OpenAsSelf)
             {
                 PsRestoreImpersonation(PsGetCurrentThread(), &ImpersonationState);
@@ -2250,11 +2278,11 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
         PrimaryToken = PsReferencePrimaryToken(Thread->ThreadsProcess);
         Status = SepCreateImpersonationTokenDacl(Token, PrimaryToken, &Dacl);
         ASSERT(FALSE);
-        ObDereferenceObject(PrimaryToken);
-        ObDereferenceObject(Thread);
+        ObfDereferenceObject(PrimaryToken);
+        ObfDereferenceObject(Thread);
         if (!NT_SUCCESS(Status))
         {
-            ObDereferenceObject(Token);
+            ObfDereferenceObject(Token);
             if (OpenAsSelf)
             {
                 PsRestoreImpersonation(PsGetCurrentThread(), &ImpersonationState);
@@ -2276,7 +2304,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
         ExFreePool(Dacl);
         if (!NT_SUCCESS(Status))
         {
-            ObDereferenceObject(Token);
+            ObfDereferenceObject(Token);
             if (OpenAsSelf)
             {
                 PsRestoreImpersonation(PsGetCurrentThread(), &ImpersonationState);
@@ -2295,7 +2323,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
                                        PreviousMode, &hToken);
     }
     
-    ObDereferenceObject(Token);
+    ObfDereferenceObject(Token);
     
     if (OpenAsSelf)
     {
@@ -2304,15 +2332,15 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
     
     if(NT_SUCCESS(Status))
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             *TokenHandle = hToken;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
     
     return Status;
@@ -2321,7 +2349,7 @@ NtOpenThreadTokenEx(IN HANDLE ThreadHandle,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtOpenThreadToken(IN HANDLE ThreadHandle,
                   IN ACCESS_MASK DesiredAccess,
                   IN BOOLEAN OpenAsSelf,
@@ -2345,7 +2373,7 @@ NtCompareTokens(IN HANDLE FirstTokenHandle,
     KPROCESSOR_MODE PreviousMode;
     PTOKEN FirstToken, SecondToken;
     BOOLEAN IsEqual;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     
     PAGED_CODE();
     
@@ -2353,16 +2381,18 @@ NtCompareTokens(IN HANDLE FirstTokenHandle,
     
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWriteBoolean(Equal);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if (!NT_SUCCESS(Status))
+            return Status;
     }
     
     Status = ObReferenceObjectByHandle(FirstTokenHandle,
@@ -2400,15 +2430,15 @@ NtCompareTokens(IN HANDLE FirstTokenHandle,
     
     if (NT_SUCCESS(Status))
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             *Equal = IsEqual;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
     
     return Status;
@@ -2431,7 +2461,7 @@ NtFilterToken(IN HANDLE ExistingTokenHandle,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtImpersonateAnonymousToken(IN HANDLE Thread)
 {
     UNIMPLEMENTED;

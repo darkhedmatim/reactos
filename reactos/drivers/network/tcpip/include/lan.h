@@ -92,14 +92,14 @@ NDIS_STATUS LANUnregisterAdapter(
 NTSTATUS LANRegisterProtocol(
     PNDIS_STRING Name);
 
-VOID NTAPI
-LANUnregisterProtocol(VOID);
+VOID LANUnregisterProtocol(
+    VOID);
 
 VOID LANStartup();
 VOID LANShutdown();
 
 NTSTATUS TcpipLanGetDwordOid( PIP_INTERFACE Interface, NDIS_OID Oid,
-                              PULONG Result );
+                              PDWORD Result );
 
 NDIS_STATUS NDISCall(
     PLAN_ADAPTER Adapter,

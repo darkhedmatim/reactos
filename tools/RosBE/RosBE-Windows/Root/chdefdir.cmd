@@ -4,44 +4,55 @@
 :: FILE:        Root/chdefdir.cmd
 :: PURPOSE:     Tool to change the current working ReactOS source directory
 ::              in RosBE.
-:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2007 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
-::                             Colin Finck <colin@reactos.org>
 ::
-
+::
 @echo off
 if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
 if %_ROSBE_DEBUG% == 1 (
     @echo on
 )
 
-setlocal enabledelayedexpansion
 title Change the current working ReactOS source directory...
 
+::
 :: Parse the command line arguments.
+::
 if "%1" == "" (
-    set /p SOURCEDIR="Please enter a ReactOS source directory, or 'previous': "
-
-    if "!SOURCEDIR!" == "" (
-        echo ERROR: You must enter a ReactOS source directory, or 'previous'.
-        goto :EOC
-    )
+    call :INTERACTIVE
 ) else (
-    set SOURCEDIR=%1
+    set _1=%1
 )
-
-if /i "%SOURCEDIR%" == "previous" (
+if /i "%_1%" == "previous" (
     popd
 ) else (
-    if not exist "%SOURCEDIR%\." (
+    if not exist "%_1%\." (
         echo ERROR: The path specified doesn't seem to exist.
         goto :EOC
     )
-
-    pushd %SOURCEDIR%
+    pushd %_1%
 )
+set _ROSBE_ROSSOURCEDIR=%CD%
+goto :EOC
+
+::
+:: If Parameters were set, parse them, if not, ask the user to add them.
+::
+:INTERACTIVE
+    set /p _1="Please enter a ReactOS source directory, or 'previous': "
+    if "%_1%" == "" (
+        echo ERROR: You must enter a ReactOS source directory, or 'previous'.
+        goto :EOC
+    )
+goto :EOF
 
 :EOC
-title ReactOS Build Environment %_ROSBE_VERSION%
-endlocal & set _ROSBE_ROSSOURCEDIR=%CD%
-cd /d %_ROSBE_ROSSOURCEDIR%
+if defined _ROSBE_VERSION (
+    title ReactOS Build Environment %_ROSBE_VERSION%
+)
+
+::
+:: Unload all used Vars.
+::
+set _1=

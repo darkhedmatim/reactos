@@ -34,44 +34,6 @@ extern "C" {
 #include <shtypes.h>
 #include <shobjidl.h>
 
-typedef struct
-{
-    DWORD         dwSize;
-    DWORD         dwMask;
-    SHELLVIEWID*  pvid;
-    LPSTR         pszWebViewTemplate;
-    DWORD         cchWebViewTemplate;
-    LPSTR         pszWebViewTemplateVersion;
-    LPSTR         pszInfoTip;
-    DWORD         cchInfoTip;
-    CLSID*        pclsid;
-    DWORD         dwFlags;
-    LPSTR         pszIconFile;
-    DWORD         cchIconFile;
-    int           iIconIndex;
-    LPSTR         pszLogo;
-    DWORD         cchLogo;
-} SHFOLDERCUSTOMSETTINGSA, *LPSHFOLDERCUSTOMSETTINGSA;
-
-typedef struct
-{
-    DWORD         dwSize;
-    DWORD         dwMask;
-    SHELLVIEWID*  pvid;
-    LPWSTR        pszWebViewTemplate;
-    DWORD         cchWebViewTemplate;
-    LPWSTR        pszWebViewTemplateVersion;
-    LPWSTR        pszInfoTip;
-    DWORD         cchInfoTip;
-    CLSID*        pclsid;
-    DWORD         dwFlags;
-    LPWSTR        pszIconFile;
-    DWORD         cchIconFile;
-    int           iIconIndex;
-    LPWSTR        pszLogo;
-    DWORD         cchLogo;
-} SHFOLDERCUSTOMSETTINGSW, *LPSHFOLDERCUSTOMSETTINGSW;
-
 #ifndef HPSXA_DEFINED
 #define HPSXA_DEFINED
 DECLARE_HANDLE(HPSXA);
@@ -148,7 +110,6 @@ typedef struct
 	UINT aoffset[1];
 } CIDA, *LPIDA;
 
-#define CFSTR_SHELLIDLISTA      "Shell IDList Array"      /* CF_IDLIST */
 #define CFSTR_SHELLIDLISTOFFSET "Shell Object Offsets"    /* CF_OBJECTPOSITIONS */
 #define CFSTR_NETRESOURCES      "Net Resource"            /* CF_NETRESOURCE */
 
@@ -1243,8 +1204,8 @@ HRESULT WINAPI SHGetRealIDL(IShellFolder *psf, LPCITEMIDLIST pidlSimple, LPITEMI
 * SHCreateDirectory API
 */
 DWORD WINAPI SHCreateDirectory(HWND, LPCWSTR);
-int WINAPI SHCreateDirectoryExA(HWND, LPCSTR, LPSECURITY_ATTRIBUTES);
-int WINAPI SHCreateDirectoryExW(HWND, LPCWSTR, LPSECURITY_ATTRIBUTES);
+int WINAPI SHCreateDirectoryExA(HWND, LPCSTR, const SECURITY_ATTRIBUTES*);
+int WINAPI SHCreateDirectoryExW(HWND, LPCWSTR, const SECURITY_ATTRIBUTES*);
 
 /****************************************************************************
 * SHGetSpecialFolderLocation API
@@ -1598,25 +1559,6 @@ DECLARE_INTERFACE_(IInitializeObject, IUnknown)//, "4622AD16-FF23-11d0-8D34-00A0
 #define IInitializeObject_Initialize(T) (T)->lpVtbl->Initialize(T)
 #endif
 
-
-#define INTERFACE   IShellIconOverlayIdentifier
-
-DEFINE_GUID(IID_IShellIconOverlayIdentifier, 0x0c6c4200L, 0xc589, 0x11d0, 0x99, 0x9a, 0x00, 0xc0, 0x4f, 0xd6, 0x55, 0xe1);
-DECLARE_INTERFACE_(IShellIconOverlayIdentifier, IUnknown)
-{
-    STDMETHOD(QueryInterface) (THIS_ REFIID riid, void **ppv) PURE;
-    STDMETHOD_(ULONG,AddRef) (THIS)  PURE;
-    STDMETHOD_(ULONG,Release) (THIS) PURE;
-
-    STDMETHOD (IsMemberOf)(THIS_ LPCWSTR pwszPath, DWORD dwAttrib) PURE;
-    STDMETHOD (GetOverlayInfo)(THIS_ LPWSTR pwszIconFile, int cchMax, int * pIndex, DWORD * pdwFlags) PURE;
-    STDMETHOD (GetPriority)(THIS_ int * pIPriority) PURE;
-};
-
-#define ISIOI_ICONFILE  0x00000001
-#define ISIOI_ICONINDEX 0x00000002
-
-#undef INTERFACE
 
 /*****************************************************************************
  * IBanneredBar interface

@@ -78,11 +78,11 @@ ULONG_PTR
 NTAPI
 MiFlushTlbIpiRoutine(ULONG_PTR Address)
 {
-   if (Address == MAXULONGLONG)
+   if (Address == (ULONG_PTR)-1)
    {
       KeFlushCurrentTb();
    }
-   else if (Address == MAXULONGLONG-1)
+   else if (Address == (ULONG_PTR)-2)
    {
       KeFlushCurrentTb();
    }
@@ -341,7 +341,7 @@ MmInitializeHandBuiltProcess(IN PEPROCESS Process,
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 MmCreateProcessAddressSpace(IN ULONG MinWs,
                             IN PEPROCESS Process,
                             IN PLARGE_INTEGER DirectoryTableBase)
@@ -2072,7 +2072,7 @@ MmSetPageProtect(PEPROCESS Process, PVOID Address, ULONG flProtect)
 /*
  * @implemented
  */
-PHYSICAL_ADDRESS NTAPI
+PHYSICAL_ADDRESS STDCALL
 MmGetPhysicalAddress(PVOID vaddr)
 /*
  * FUNCTION: Returns the physical address corresponding to a virtual address

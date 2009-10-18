@@ -20,15 +20,6 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
 
  HANDLE hspool = NULL;
 
- if ( !ghSpooler && !LoadTheSpoolerDrv())
- {
-    DPRINT1("WinSpooler.Drv Did not load!\n");
- }
- else
- {
-    DPRINT("WinSpooler.Drv Loaded! hMod -> 0x%x\n", ghSpooler);
- }
-
  if ((!lpwszDevice) && (!lpwszDriver))
  {
      Default = FALSE;  // Ask Win32k to set Default device.
@@ -36,7 +27,7 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
  }
  else
  {
-    if ((lpwszDevice) && (wcslen(lpwszDevice) != 0))  // First
+    if (lpwszDevice) // First
     {
       if (!_wcsnicmp(lpwszDevice, L"\\\\.\\DISPLAY",11)) Display = TRUE;
       RtlInitUnicodeString(&Device, lpwszDevice);
@@ -64,7 +55,6 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
                      (PDEVMODEW) lpInitData,
                      (lpwszOutput ? &Output : NULL),
                       iType,             // DCW 0 and ICW 1.
-                      Display,
                       hspool,
                      (PVOID) NULL,       // NULL for now.
                      (PVOID) &UMdhpdev );
@@ -93,7 +83,7 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateCompatibleDC ( HDC hdc)
 {
  HDC rhDC;
@@ -116,7 +106,7 @@ CreateCompatibleDC ( HDC hdc)
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateDCA (
 	LPCSTR		lpszDriver,
 	LPCSTR		lpszDevice,
@@ -180,7 +170,7 @@ CreateDCA (
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateDCW (
 	LPCWSTR		lpwszDriver,
 	LPCWSTR		lpwszDevice,
@@ -201,7 +191,7 @@ CreateDCW (
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateICW(
 	LPCWSTR		lpszDriver,
 	LPCWSTR		lpszDevice,
@@ -221,7 +211,7 @@ CreateICW(
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateICA(
 	LPCSTR		lpszDriver,
 	LPCSTR		lpszDevice,
@@ -272,41 +262,29 @@ CreateICA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteDC(HDC hDC)
 {
   BOOL Ret = TRUE;
-  PLDC pLDC = NULL;
-  HANDLE hPrinter = NULL;
-  ULONG hType = GDI_HANDLE_GET_TYPE(hDC);
+#if 0
+  PDC_ATTR Dc_Attr;
+  PLDC pLDC;
 
-  pLDC = GdiGetLDC(hDC);
+  if (!GdiGetHandleUserData((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return FALSE;
 
-  if (hType != GDILoObjType_LO_DC_TYPE)
-  {
+  if ( Dc_Attr )
+    {
+      pLDC = Dc_Attr->pvLDC;
 
-     if ( !pLDC || hType == GDILoObjType_LO_METADC16_TYPE)
-     {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-     }
-     if (pLDC->Flags & LDC_INIT_DOCUMENT) AbortDoc(hDC);
-     if (pLDC->hPrinter)
-     {
-        DocumentEventEx(NULL, pLDC->hPrinter, hDC, DOCUMENTEVENT_DELETEDC, 0, NULL, 0, NULL);
-        hPrinter = pLDC->hPrinter;
-        pLDC->hPrinter = NULL;
-     }
-  }
-
+      if ( pLDC )
+        {
+          DPRINT1("Delete the Local DC structure\n");
+          LocalFree( pLDC );
+        }
+    }
+#endif
   Ret = NtGdiDeleteObjectApp(hDC);
 
-  if (Ret && pLDC )
-  {
-     DPRINT1("Delete the Local DC structure\n");
-     LocalFree( pLDC );
-  }
-  if (hPrinter) fpClosePrinter(hPrinter);
   return Ret;
 }
 
@@ -314,7 +292,7 @@ DeleteDC(HDC hDC)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteObject(HGDIOBJ hObject)
 {
   UINT Type = 0;
@@ -394,7 +372,7 @@ DeleteObject(HGDIOBJ hObject)
 }
 
 INT
-WINAPI
+STDCALL
 GetArcDirection( HDC hdc )
 {
   return GetDCDWord( hdc, GdiGetArcDirection, 0);
@@ -402,7 +380,7 @@ GetArcDirection( HDC hdc )
 
 
 INT
-WINAPI
+STDCALL
 SetArcDirection( HDC hdc, INT nDirection )
 {
   return GetAndSetDCDWord( hdc, GdiGetSetArcDirection, nDirection, 0, 0, 0 );
@@ -410,7 +388,7 @@ SetArcDirection( HDC hdc, INT nDirection )
 
 
 HGDIOBJ
-WINAPI
+STDCALL
 GetDCObject( HDC hDC, INT iType)
 {
  if((iType == GDI_OBJECT_TYPE_BRUSH) ||
@@ -451,7 +429,7 @@ GetDCObject( HDC hDC, INT iType)
  *
  */
 HGDIOBJ
-WINAPI
+STDCALL
 GetCurrentObject(HDC hdc,
                  UINT uObjectType)
 {
@@ -492,7 +470,7 @@ GetCurrentObject(HDC hdc,
  *
  */
 int
-WINAPI
+STDCALL
 GetDeviceCaps(HDC hDC,
               int i)
 {
@@ -527,6 +505,11 @@ GetDeviceCaps(HDC hDC,
   }
   else
   {
+     // HAX!!!!
+     // Due to winlogon process/thread mapping issues we have this hax!
+     //
+     return NtGdiGetDeviceCaps(hDC,i);
+
      if (!GdiGetHandleUserData((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr))
         return 0;
      if (!(Dc_Attr->ulDirty_ & DC_PRIMARY_DISPLAY) )
@@ -660,7 +643,7 @@ GetDeviceCaps(HDC hDC,
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetRelAbs(
          HDC  hdc,
          DWORD dwIgnore
@@ -674,7 +657,7 @@ GetRelAbs(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 SetRelAbs(
 	HDC hdc,
 	INT Mode
@@ -688,7 +671,7 @@ SetRelAbs(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetAndSetDCDWord( HDC hDC, INT u, DWORD dwIn, DWORD Unk1, DWORD Unk2, DWORD Unk3 )
 {
   BOOL Ret = TRUE;
@@ -727,7 +710,7 @@ GetAndSetDCDWord( HDC hDC, INT u, DWORD dwIn, DWORD Unk1, DWORD Unk2, DWORD Unk3
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetDCDWord( HDC hDC, INT u, DWORD Result )
 {
   BOOL Ret = NtGdiGetDCDword( hDC, u, (DWORD*) &u );
@@ -740,7 +723,7 @@ GetDCDWord( HDC hDC, INT u, DWORD Result )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetAspectRatioFilterEx(
                 HDC hdc,
                 LPSIZE lpAspectRatio
@@ -754,7 +737,7 @@ GetAspectRatioFilterEx(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetDCOrgEx(
     HDC hdc,
     LPPOINT lpPoint
@@ -768,7 +751,7 @@ GetDCOrgEx(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 GetDCOrg(
     HDC hdc
     )
@@ -830,14 +813,14 @@ GetNonFontObject(HGDIOBJ hGdiObj, int cbSize, LPVOID lpBuffer)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 GetObjectA(HGDIOBJ hGdiObj, int cbSize, LPVOID lpBuffer)
 {
   ENUMLOGFONTEXDVW LogFont;
   DWORD dwType;
   INT Result = 0;
 
-  dwType = GDI_HANDLE_GET_TYPE(hGdiObj);
+  dwType = GDI_HANDLE_GET_TYPE(hGdiObj);;
 
   if(dwType == GDI_OBJECT_TYPE_COLORSPACE) //Stays here, processes struct A
   {
@@ -896,7 +879,7 @@ GetObjectA(HGDIOBJ hGdiObj, int cbSize, LPVOID lpBuffer)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 GetObjectW(HGDIOBJ hGdiObj, int cbSize, LPVOID lpBuffer)
 {
   DWORD dwType = GDI_HANDLE_GET_TYPE(hGdiObj);
@@ -928,7 +911,7 @@ GetObjectW(HGDIOBJ hGdiObj, int cbSize, LPVOID lpBuffer)
     }
     // Poorly written apps are not ReactOS problem!
     // We fix it here if the size is larger than the default size.
-    if( cbSize > (int)sizeof(ENUMLOGFONTEXDVW) ) cbSize = sizeof(ENUMLOGFONTEXDVW);
+    if( cbSize > sizeof(ENUMLOGFONTEXDVW) ) cbSize = sizeof(ENUMLOGFONTEXDVW);
 
     Result = NtGdiExtGetObjectW(hGdiObj, cbSize, lpBuffer); // Should handle the copy.
 
@@ -947,7 +930,7 @@ GetObjectW(HGDIOBJ hGdiObj, int cbSize, LPVOID lpBuffer)
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 GetDCBrushColor(
 	HDC hdc
 )
@@ -955,14 +938,14 @@ GetDCBrushColor(
   PDC_ATTR Dc_Attr;
 
   if (!GdiGetHandleUserData((HGDIOBJ) hdc, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return CLR_INVALID;
-  return (COLORREF) Dc_Attr->ulBrushClr;
+  return (COLORREF) Dc_Attr->ulPenClr;
 }
 
 /*
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 GetDCPenColor(
 	HDC hdc
 )
@@ -977,7 +960,7 @@ GetDCPenColor(
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 SetDCBrushColor(
 	HDC hdc,
 	COLORREF crColor
@@ -1005,7 +988,7 @@ SetDCBrushColor(
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 SetDCPenColor(
 	HDC hdc,
 	COLORREF crColor
@@ -1034,7 +1017,7 @@ SetDCPenColor(
  *
  */
 COLORREF
-WINAPI
+STDCALL
 GetBkColor(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1046,7 +1029,7 @@ GetBkColor(HDC hdc)
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 SetBkColor(
 	HDC hdc,
 	COLORREF crColor
@@ -1081,7 +1064,7 @@ SetBkColor(
 
   if ( Dc_Attr->crBackgroundClr != crColor )
   {
-     Dc_Attr->ulDirty_ |= (DIRTY_BACKGROUND|DIRTY_LINE|DIRTY_FILL);
+     Dc_Attr->ulDirty_ |= DIRTY_LINE;
      Dc_Attr->crBackgroundClr = crColor;
   }
   return OldColor;
@@ -1092,7 +1075,7 @@ SetBkColor(
  *
  */
 int
-WINAPI
+STDCALL
 GetBkMode(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1105,7 +1088,7 @@ GetBkMode(HDC hdc)
  *
  */
 int
-WINAPI
+STDCALL
 SetBkMode(HDC hdc,
               int iBkMode)
 {
@@ -1144,7 +1127,7 @@ SetBkMode(HDC hdc,
  *
  */
 int
-WINAPI
+STDCALL
 GetPolyFillMode(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1156,7 +1139,7 @@ GetPolyFillMode(HDC hdc)
  * @unimplemented
  */
 int
-WINAPI
+STDCALL
 SetPolyFillMode(HDC hdc,
                 int iPolyFillMode)
 {
@@ -1204,7 +1187,7 @@ SetPolyFillMode(HDC hdc,
  *
  */
 int
-WINAPI
+STDCALL
 GetGraphicsMode(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1216,7 +1199,7 @@ GetGraphicsMode(HDC hdc)
  * @unimplemented
  */
 int
-WINAPI
+STDCALL
 SetGraphicsMode(HDC hdc,
                 int iMode)
 {
@@ -1254,7 +1237,7 @@ SetGraphicsMode(HDC hdc,
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 ResetDCW(
 	HDC		hdc,
 	CONST DEVMODEW	*lpInitData
@@ -1269,7 +1252,7 @@ ResetDCW(
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 ResetDCA(
 	HDC		hdc,
 	CONST DEVMODEA	*lpInitData
@@ -1288,8 +1271,22 @@ ResetDCA(
 /*
  * @implemented
  */
+int
+STDCALL
+StartDocW(
+	HDC		hdc,
+	CONST DOCINFOW	*a1
+	)
+{
+	return NtGdiStartDoc ( hdc, (DOCINFOW *)a1, NULL, 0);
+}
+
+
+/*
+ * @implemented
+ */
 DWORD
-WINAPI
+STDCALL
 GetObjectType(
 	HGDIOBJ h
 	)
@@ -1381,12 +1378,12 @@ GetStockObject(
 }
 
 /* FIXME: include correct header */
-HPALETTE WINAPI NtUserSelectPalette(HDC  hDC,
+HPALETTE STDCALL NtUserSelectPalette(HDC  hDC,
                             HPALETTE  hpal,
                             BOOL  ForceBackground);
 
 HPALETTE
-WINAPI
+STDCALL
 SelectPalette(
     HDC hDC,
     HPALETTE hPal,
@@ -1420,7 +1417,7 @@ SelectPalette(
  *
  */
 int
-WINAPI
+STDCALL
 GetMapMode(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1432,7 +1429,7 @@ GetMapMode(HDC hdc)
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 SetMapMode(
 	HDC hdc,
 	INT Mode
@@ -1465,7 +1462,7 @@ SetMapMode(
  *
  */
 int
-WINAPI
+STDCALL
 GetStretchBltMode(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1477,7 +1474,7 @@ GetStretchBltMode(HDC hdc)
  * @implemented
  */
 int
-WINAPI
+STDCALL
 SetStretchBltMode(HDC hdc, int iStretchMode)
 {
   INT oSMode;
@@ -1519,7 +1516,7 @@ SetStretchBltMode(HDC hdc, int iStretchMode)
  * @implemented
  */
 HFONT
-WINAPI
+STDCALL
 GetHFONT(HDC hdc)
 {
   PDC_ATTR Dc_Attr;
@@ -1533,13 +1530,12 @@ GetHFONT(HDC hdc)
  *
  */
 HGDIOBJ
-WINAPI
+STDCALL
 SelectObject(HDC hDC,
              HGDIOBJ hGdiObj)
 {
     PDC_ATTR pDc_Attr;
-    HGDIOBJ hOldObj = NULL;
-    UINT uType;
+//    HGDIOBJ hOldObj = NULL;
 //    PTEB pTeb;
 
     if(!GdiGetHandleUserData(hDC, GDI_OBJECT_TYPE_DC, (PVOID)&pDc_Attr))
@@ -1554,7 +1550,7 @@ SelectObject(HDC hDC,
         return NULL;
     }
 
-    uType = GDI_HANDLE_GET_TYPE(hGdiObj);
+    UINT uType = GDI_HANDLE_GET_TYPE(hGdiObj);
 
     switch (uType)
     {
@@ -1565,30 +1561,29 @@ SelectObject(HDC hDC,
             return NtGdiSelectBitmap(hDC, hGdiObj);
 
         case GDI_OBJECT_TYPE_BRUSH:
+#if 0 // enable this when support is ready in win32k
             hOldObj = pDc_Attr->hbrush;
             pDc_Attr->ulDirty_ |= DC_BRUSH_DIRTY;
             pDc_Attr->hbrush = hGdiObj;
             return hOldObj;
-//            return NtGdiSelectBrush(hDC, hGdiObj);
+#endif
+            return NtGdiSelectBrush(hDC, hGdiObj);
 
         case GDI_OBJECT_TYPE_PEN:
         case GDI_OBJECT_TYPE_EXTPEN:
+#if 0 // enable this when support is ready in win32k
             hOldObj = pDc_Attr->hpen;
             pDc_Attr->ulDirty_ |= DC_PEN_DIRTY;
             pDc_Attr->hpen = hGdiObj;
             return hOldObj;
-//            return NtGdiSelectPen(hDC, hGdiObj);
+#endif
+            return NtGdiSelectPen(hDC, hGdiObj);
 
         case GDI_OBJECT_TYPE_FONT:
-            hOldObj = pDc_Attr->hlfntNew;
-            if (hOldObj == hGdiObj) return hOldObj;
 #if 0
-            pDc_Attr->ulDirty_ &= ~SLOW_WIDTHS;
-            pDc_Attr->ulDirty_ |= DIRTY_CHARSET;
-            pDc_Attr->hlfntNew = hGdiObj;
             pTeb = NtCurrentTeb();
             if (((pTeb->GdiTebBatch.HDC == 0) ||
-                 (pTeb->GdiTebBatch.HDC == hDC)) &&
+                 (pTeb->GdiTebBatch.HDC == (ULONG)hDC)) &&
                 ((pTeb->GdiTebBatch.Offset + sizeof(GDIBSOBJECT)) <= GDIBATCHBUFSIZE) &&
                (!(pDc_Attr->ulDirty_ & DC_DIBSECTION)))
             {
@@ -1599,15 +1594,14 @@ SelectObject(HDC hDC,
               pgO->hgdiobj = hGdiObj;
 
               pTeb->GdiTebBatch.Offset += sizeof(GDIBSOBJECT);
-              pTeb->GdiTebBatch.HDC = hDC;
+              pTeb->GdiTebBatch.HDC = (ULONG)hDC;
               pTeb->GdiBatchCount++;
               if (pTeb->GdiBatchCount >= GDI_BatchLimit) NtGdiFlush();
-              return hOldObj;
+              return pDc_Attr->hlfntNew;
             }
 #endif
             // default for select object font
             return NtGdiSelectFont(hDC, hGdiObj);
-
 #if 0
         case GDI_OBJECT_TYPE_METADC:
             return MFDRV_SelectObject( hDC, hGdiObj); 

@@ -22,7 +22,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#include <pshpack2.h>
 typedef struct
 {
 	UCHAR		PacketSize;				// 00h - Size of packet (10h or 18h)
@@ -35,8 +34,7 @@ typedef struct
 									//       used if DWORD at 04h is FFFFh:FFFFh
 									//       Commented since some earlier BIOSes refuse to work with
 									//       such extended structure
-} I386_DISK_ADDRESS_PACKET, *PI386_DISK_ADDRESS_PACKET;
-#include <poppack.h>
+} PACKED I386_DISK_ADDRESS_PACKET, *PI386_DISK_ADDRESS_PACKET;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // FUNCTIONS
@@ -47,7 +45,7 @@ static BOOLEAN PcDiskResetController(ULONG DriveNumber)
 	REGS	RegsIn;
 	REGS	RegsOut;
 
-	DPRINTM(DPRINT_DISK, "PcDiskResetController(0x%x) DISK OPERATION FAILED -- RESETTING CONTROLLER\n", DriveNumber);
+	DbgPrint((DPRINT_DISK, "PcDiskResetController(0x%x) DISK OPERATION FAILED -- RESETTING CONTROLLER\n", DriveNumber));
 
 	// BIOS Int 13h, function 0 - Reset disk system
 	// AH = 00h
@@ -72,7 +70,7 @@ static BOOLEAN PcDiskReadLogicalSectorsLBA(ULONG DriveNumber, ULONGLONG SectorNu
 	ULONG							RetryCount;
 	PI386_DISK_ADDRESS_PACKET	Packet = (PI386_DISK_ADDRESS_PACKET)(BIOSCALLBUFFER);
 
-	DPRINTM(DPRINT_DISK, "PcDiskReadLogicalSectorsLBA() DriveNumber: 0x%x SectorNumber: %I64d SectorCount: %d Buffer: 0x%x\n", DriveNumber, SectorNumber, SectorCount, Buffer);
+	DbgPrint((DPRINT_DISK, "PcDiskReadLogicalSectorsLBA() DriveNumber: 0x%x SectorNumber: %I64d SectorCount: %d Buffer: 0x%x\n", DriveNumber, SectorNumber, SectorCount, Buffer));
 
 	// BIOS int 0x13, function 42h - IBM/MS INT 13 Extensions - EXTENDED READ
 	RegsIn.b.ah = 0x42;					// Subfunction 42h
@@ -139,7 +137,7 @@ static BOOLEAN PcDiskReadLogicalSectorsCHS(ULONG DriveNumber, ULONGLONG SectorNu
 	REGS		RegsOut;
 	ULONG			RetryCount;
 
-	DPRINTM(DPRINT_DISK, "PcDiskReadLogicalSectorsCHS()\n");
+	DbgPrint((DPRINT_DISK, "PcDiskReadLogicalSectorsCHS()\n"));
 
 	//
 	// Get the drive geometry
@@ -271,11 +269,11 @@ static BOOLEAN PcDiskInt13ExtensionsSupported(ULONG DriveNumber)
 	REGS	RegsIn;
 	REGS	RegsOut;
 
-	DPRINTM(DPRINT_DISK, "PcDiskInt13ExtensionsSupported()\n");
+	DbgPrint((DPRINT_DISK, "PcDiskInt13ExtensionsSupported()\n"));
 
 	if (DriveNumber == LastDriveNumber)
 	{
-		DPRINTM(DPRINT_DISK, "Using cached value %s for drive 0x%x\n", LastSupported ? "TRUE" : "FALSE", DriveNumber);
+		DbgPrint((DPRINT_DISK, "Using cached value %s for drive 0x%x\n", LastSupported ? "TRUE" : "FALSE", DriveNumber));
 		return LastSupported;
 	}
 
@@ -354,7 +352,7 @@ static BOOLEAN PcDiskInt13ExtensionsSupported(ULONG DriveNumber)
 BOOLEAN PcDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULONG SectorCount, PVOID Buffer)
 {
 
-	DPRINTM(DPRINT_DISK, "PcDiskReadLogicalSectors() DriveNumber: 0x%x SectorNumber: %I64d SectorCount: %d Buffer: 0x%x\n", DriveNumber, SectorNumber, SectorCount, Buffer);
+	DbgPrint((DPRINT_DISK, "PcDiskReadLogicalSectors() DriveNumber: 0x%x SectorNumber: %I64d SectorCount: %d Buffer: 0x%x\n", DriveNumber, SectorNumber, SectorCount, Buffer));
 
 	//
 	// Check to see if it is a fixed disk drive
@@ -363,7 +361,7 @@ BOOLEAN PcDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULON
 	//
 	if ((DriveNumber >= 0x80) && PcDiskInt13ExtensionsSupported(DriveNumber))
 	{
-		DPRINTM(DPRINT_DISK, "Using Int 13 Extensions for read. PcDiskInt13ExtensionsSupported(%d) = %s\n", DriveNumber, PcDiskInt13ExtensionsSupported(DriveNumber) ? "TRUE" : "FALSE");
+		DbgPrint((DPRINT_DISK, "Using Int 13 Extensions for read. PcDiskInt13ExtensionsSupported(%d) = %s\n", DriveNumber, PcDiskInt13ExtensionsSupported(DriveNumber) ? "TRUE" : "FALSE"));
 
 		//
 		// LBA is easy, nothing to calculate
@@ -387,7 +385,7 @@ PcDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY Geometry)
   REGS RegsOut;
   ULONG Cylinders;
 
-  DPRINTM(DPRINT_DISK, "DiskGetDriveGeometry()\n");
+  DbgPrint((DPRINT_DISK, "DiskGetDriveGeometry()\n"));
 
   /* BIOS Int 13h, function 08h - Get drive parameters
    * AH = 08h

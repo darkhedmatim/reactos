@@ -317,7 +317,7 @@ typedef struct _ROS_MAP_REGISTER_ENTRY
    ULONG Counter;
 } ROS_MAP_REGISTER_ENTRY, *PROS_MAP_REGISTER_ENTRY;
 
-typedef struct _ADAPTER_OBJECT {
+struct _ADAPTER_OBJECT {
    /*
     * New style DMA object definition. The fact that it is at the beginning
     * of the ADAPTER_OBJECT structure allows us to easily implement the
@@ -367,16 +367,16 @@ typedef struct _GROW_WORK_ITEM {
 
 #define MAP_BASE_SW_SG 1
 
-PADAPTER_OBJECT NTAPI
+PADAPTER_OBJECT STDCALL
 HalpDmaAllocateMasterAdapter(VOID);
 
-PDMA_ADAPTER NTAPI
+PDMA_ADAPTER STDCALL
 HalpGetDmaAdapter(
    IN PVOID Context,
    IN PDEVICE_DESCRIPTION DeviceDescription,
    OUT PULONG NumberOfMapRegisters);
 
-ULONG NTAPI
+ULONG STDCALL
 HalpDmaGetDmaAlignment(
    PADAPTER_OBJECT AdapterObject);
 

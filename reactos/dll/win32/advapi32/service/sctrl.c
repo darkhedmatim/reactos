@@ -20,6 +20,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(advapi);
 
 /* TYPES *********************************************************************/
 
+VOID HandleBind(VOID);
+
 typedef struct _ACTIVE_SERVICE
 {
     CLIENT_HANDLE hService;
@@ -40,6 +42,7 @@ typedef struct _ACTIVE_SERVICE
 
 /* GLOBALS *******************************************************************/
 
+extern handle_t BindingHandle;
 static DWORD dwActiveServiceCount = 0;
 static PACTIVE_SERVICE lpActiveServices = NULL;
 
@@ -416,7 +419,7 @@ ScServiceDispatcher(HANDLE hPipe,
  *
  * @implemented
  */
-SERVICE_STATUS_HANDLE WINAPI
+SERVICE_STATUS_HANDLE STDCALL
 RegisterServiceCtrlHandlerA(LPCSTR lpServiceName,
                             LPHANDLER_FUNCTION lpHandlerProc)
 {
@@ -445,7 +448,7 @@ RegisterServiceCtrlHandlerA(LPCSTR lpServiceName,
  *
  * @implemented
  */
-SERVICE_STATUS_HANDLE WINAPI
+SERVICE_STATUS_HANDLE STDCALL
 RegisterServiceCtrlHandlerW(LPCWSTR lpServiceName,
                             LPHANDLER_FUNCTION lpHandlerProc)
 {
@@ -471,7 +474,7 @@ RegisterServiceCtrlHandlerW(LPCWSTR lpServiceName,
  *
  * @implemented
  */
-SERVICE_STATUS_HANDLE WINAPI
+SERVICE_STATUS_HANDLE STDCALL
 RegisterServiceCtrlHandlerExA(LPCSTR lpServiceName,
                               LPHANDLER_FUNCTION_EX lpHandlerProc,
                               LPVOID lpContext)
@@ -502,7 +505,7 @@ RegisterServiceCtrlHandlerExA(LPCSTR lpServiceName,
  *
  * @implemented
  */
-SERVICE_STATUS_HANDLE WINAPI
+SERVICE_STATUS_HANDLE STDCALL
 RegisterServiceCtrlHandlerExW(LPCWSTR lpServiceName,
                               LPHANDLER_FUNCTION_EX lpHandlerProc,
                               LPVOID lpContext)
@@ -532,8 +535,8 @@ RegisterServiceCtrlHandlerExW(LPCWSTR lpServiceName,
  *
  * @implemented
  */
-BOOL WINAPI
-I_ScSetServiceBitsA(SERVICE_STATUS_HANDLE hServiceStatus,
+BOOL STDCALL
+I_ScSetServiceBitsA(SC_RPC_HANDLE hServiceStatus,
                     DWORD dwServiceBits,
                     BOOL bSetBitsOn,
                     BOOL bUpdateImmediately,
@@ -541,21 +544,24 @@ I_ScSetServiceBitsA(SERVICE_STATUS_HANDLE hServiceStatus,
 {
     BOOL bResult;
 
-    RpcTryExcept
+    HandleBind();
+
+    _SEH_TRY
     {
         /* Call to services.exe using RPC */
-        bResult = RI_ScSetServiceBitsA((RPC_SERVICE_STATUS_HANDLE)hServiceStatus,
+        bResult = RI_ScSetServiceBitsA(BindingHandle,
+                                       (SC_RPC_HANDLE)hServiceStatus,
                                        dwServiceBits,
                                        bSetBitsOn,
                                        bUpdateImmediately,
                                        lpString);
     }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         SetLastError(ScmRpcStatusToWinError(RpcExceptionCode()));
         bResult = FALSE;
     }
-    RpcEndExcept;
+    _SEH_END;
 
     return bResult;
 }
@@ -568,8 +574,8 @@ I_ScSetServiceBitsA(SERVICE_STATUS_HANDLE hServiceStatus,
  *
  * @implemented
  */
-BOOL WINAPI
-I_ScSetServiceBitsW(SERVICE_STATUS_HANDLE hServiceStatus,
+BOOL STDCALL
+I_ScSetServiceBitsW(SC_RPC_HANDLE hServiceStatus,
                     DWORD dwServiceBits,
                     BOOL bSetBitsOn,
                     BOOL bUpdateImmediately,
@@ -577,21 +583,24 @@ I_ScSetServiceBitsW(SERVICE_STATUS_HANDLE hServiceStatus,
 {
     BOOL bResult;
 
-    RpcTryExcept
+    HandleBind();
+
+    _SEH_TRY
     {
         /* Call to services.exe using RPC */
-        bResult = RI_ScSetServiceBitsW((RPC_SERVICE_STATUS_HANDLE)hServiceStatus,
+        bResult = RI_ScSetServiceBitsW(BindingHandle,
+                                       (SC_RPC_HANDLE)hServiceStatus,
                                        dwServiceBits,
                                        bSetBitsOn,
                                        bUpdateImmediately,
                                        lpString);
     }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         SetLastError(ScmRpcStatusToWinError(RpcExceptionCode()));
         bResult = FALSE;
     }
-    RpcEndExcept;
+    _SEH_END;
 
     return bResult;
 }
@@ -602,7 +611,7 @@ I_ScSetServiceBitsW(SERVICE_STATUS_HANDLE hServiceStatus,
  *
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetServiceBits(SERVICE_STATUS_HANDLE hServiceStatus,
                DWORD dwServiceBits,
                BOOL bSetBitsOn,
@@ -621,7 +630,7 @@ SetServiceBits(SERVICE_STATUS_HANDLE hServiceStatus,
  *
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
                  LPSERVICE_STATUS lpServiceStatus)
 {
@@ -630,8 +639,11 @@ SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
     TRACE("SetServiceStatus() called\n");
     TRACE("hServiceStatus %lu\n", hServiceStatus);
 
+    HandleBind();
+
     /* Call to services.exe using RPC */
-    dwError = RSetServiceStatus((RPC_SERVICE_STATUS_HANDLE)hServiceStatus,
+    dwError = RSetServiceStatus(BindingHandle,
+                                (SC_RPC_HANDLE)hServiceStatus,
                                 lpServiceStatus);
     if (dwError != ERROR_SUCCESS)
     {
@@ -651,8 +663,8 @@ SetServiceStatus(SERVICE_STATUS_HANDLE hServiceStatus,
  *
  * @implemented
  */
-BOOL WINAPI
-StartServiceCtrlDispatcherA(const SERVICE_TABLE_ENTRYA * lpServiceStartTable)
+BOOL STDCALL
+StartServiceCtrlDispatcherA(LPSERVICE_TABLE_ENTRYA lpServiceStartTable)
 {
     ULONG i;
     HANDLE hPipe;
@@ -741,8 +753,8 @@ StartServiceCtrlDispatcherA(const SERVICE_TABLE_ENTRYA * lpServiceStartTable)
  *
  * @implemented
  */
-BOOL WINAPI
-StartServiceCtrlDispatcherW(const SERVICE_TABLE_ENTRYW * lpServiceStartTable)
+BOOL STDCALL
+StartServiceCtrlDispatcherW(LPSERVICE_TABLE_ENTRYW lpServiceStartTable)
 {
     ULONG i;
     HANDLE hPipe;

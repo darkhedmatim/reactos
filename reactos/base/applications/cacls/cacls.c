@@ -529,6 +529,7 @@ _tmain(int argc, const TCHAR *argv[])
         WIN32_FIND_DATA FindData;
         HANDLE hFind;
         DWORD LastError;
+        BOOL ContinueAccessDenied = FALSE;
 
         if (argc > 2)
         {
@@ -571,7 +572,8 @@ _tmain(int argc, const TCHAR *argv[])
                         {
                             LastError = GetLastError();
 
-                            if (LastError == ERROR_ACCESS_DENIED)
+                            if (LastError == ERROR_ACCESS_DENIED &&
+                                ContinueAccessDenied)
                             {
                                 PrintErrorMessage(LastError);
                             }

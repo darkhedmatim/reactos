@@ -7,7 +7,6 @@
 	<include base="comctl32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
 	<file>animate.c</file>
 	<file>comboex.c</file>
 	<file>comctl32undoc.c</file>
@@ -33,7 +32,6 @@
 	<file>string.c</file>
 	<file>syslink.c</file>
 	<file>tab.c</file>
-	<file>theme_button.c</file>
 	<file>theme_combo.c</file>
 	<file>theme_dialog.c</file>
 	<file>theme_edit.c</file>
@@ -45,6 +43,7 @@
 	<file>treeview.c</file>
 	<file>updown.c</file>
 	<file>rsrc.rc</file>
+	<file>comctl32.spec</file>
 	<library>wine</library>
 	<library>user32</library>
 	<library>gdi32</library>

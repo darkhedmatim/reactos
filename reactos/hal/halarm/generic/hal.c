@@ -21,13 +21,13 @@
 #undef KeRaiseIrql
 #undef KeReleaseSpinLock
 
-#define READ_REGISTER_ULONG(r) (*((volatile ULONG * const)(r)))
-#define WRITE_REGISTER_ULONG(r, v) (*((volatile ULONG *)(r)) = (v))
+#define READ_REGISTER_ULONG(r) (*(volatile ULONG * const)(r))
+#define WRITE_REGISTER_ULONG(r, v) (*(volatile ULONG *)(r) = (v))
 
 /* DATA **********************************************************************/
 
 ULONG HalpCurrentTimeIncrement, HalpNextTimeIncrement, HalpNextIntervalCount;
-PUCHAR KdComPortInUse;
+ULONG _KdComPortInUse = 0;
 
 ULONG HalpIrqlTable[HIGH_LEVEL + 1] =
 {
@@ -120,7 +120,7 @@ VOID
 NTAPI
 HalStopProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    KeBugCheck(0);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -131,7 +131,7 @@ VOID
 NTAPI
 HalStartProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    KeBugCheck(0);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -142,7 +142,7 @@ ULONG_PTR
 NTAPI
 HalSetProfileInterval(IN ULONG_PTR Interval)
 {
-    KeBugCheck(0);
+    KEBUGCHECK(0);
     return Interval;
 }
 

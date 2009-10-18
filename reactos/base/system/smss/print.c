@@ -12,7 +12,7 @@
 #define NDEBUG
 #include <debug.h>
 
-VOID NTAPI DisplayString(LPCWSTR lpwString)
+VOID STDCALL DisplayString(LPCWSTR lpwString)
 {
    UNICODE_STRING us;
 
@@ -20,7 +20,7 @@ VOID NTAPI DisplayString(LPCWSTR lpwString)
    NtDisplayString (&us);
 }
 
-VOID NTAPI PrintString (char* fmt, ...)
+VOID STDCALL PrintString (char* fmt, ...)
 {
    char buffer[512];
    va_list ap;

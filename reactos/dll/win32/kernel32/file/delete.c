@@ -22,7 +22,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteFileA (
 	LPCSTR	lpFileName
 	)
@@ -40,7 +40,7 @@ DeleteFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteFileW (
 	LPCWSTR	lpFileName
 	)

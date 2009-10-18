@@ -186,7 +186,7 @@ InternalCopyFindDataA(LPWIN32_FIND_DATAA            lpFindFileData,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 InternalFindNextFile (
     HANDLE	hFindFile,
     PUNICODE_STRING SearchPattern,
@@ -292,7 +292,7 @@ NeedMoreData:
 
         if (FoundFile != NULL)
         {
-            _SEH2_TRY
+            _SEH_TRY
             {
                 if (bUnicode)
                 {
@@ -305,10 +305,10 @@ NeedMoreData:
                                           FoundFile);
                 }
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
             }
-            _SEH2_END;
+            _SEH_END;
         }
 
         if (Locked)
@@ -334,7 +334,7 @@ NeedMoreData:
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 InternalFindFirstFile (
     LPCWSTR	lpFileName,
     BOOLEAN DirectoryOnly,
@@ -554,7 +554,7 @@ InternalFindFirstFile (
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileA (
 	LPCSTR			lpFileName,
 	LPWIN32_FIND_DATAA	lpFindFileData
@@ -573,7 +573,7 @@ FindFirstFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextFileA (
 	HANDLE hFindFile,
 	LPWIN32_FIND_DATAA lpFindFileData)
@@ -589,7 +589,7 @@ FindNextFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindClose (
 	HANDLE	hFindFile
 	)
@@ -646,7 +646,7 @@ FindClose (
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileW (
 	LPCWSTR			lpFileName,
 	LPWIN32_FIND_DATAW	lpFindFileData
@@ -664,7 +664,7 @@ FindFirstFileW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextFileW (
 	HANDLE			hFindFile,
 	LPWIN32_FIND_DATAW	lpFindFileData
@@ -681,7 +681,7 @@ FindNextFileW (
  * @unimplemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileExW (LPCWSTR               lpFileName,
                   FINDEX_INFO_LEVELS    fInfoLevelId,
                   LPVOID                lpFindFileData,
@@ -717,7 +717,7 @@ FindFirstFileExW (LPCWSTR               lpFileName,
  * @unimplemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileExA (
 	LPCSTR			lpFileName,
 	FINDEX_INFO_LEVELS	fInfoLevelId,

@@ -301,7 +301,7 @@ static ULONG IsolatePnPCards(VOID)
 
   DPRINT("Called\n");
 
-	IsaPnPReadPort = (PUCHAR)(ISAPNP_MIN_READ_PORT - READ_DATA_PORT_STEP);
+	IsaPnPReadPort = (PUCHAR)ISAPNP_MIN_READ_PORT;
   if (!IsolateReadDataPortSelect()) {
     DPRINT("Could not set read data port\n");
 		return 0;
@@ -340,6 +340,7 @@ static ULONG IsolatePnPCards(VOID)
 			goto next;
 		}
 		if (iteration == 1) {
+			IsaPnPReadPort += READ_DATA_PORT_STEP;
       if (!IsolateReadDataPortSelect()) {
         DPRINT("Could not set read data port\n");
 				return 0;
@@ -1573,7 +1574,7 @@ ISAPNPStopDevice(
 
 static DRIVER_DISPATCH ISAPNPDispatchOpenClose;
 static NTSTATUS
-NTAPI
+STDCALL
 ISAPNPDispatchOpenClose(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -1589,7 +1590,7 @@ ISAPNPDispatchOpenClose(
 
 static DRIVER_DISPATCH ISAPNPDispatchReadWrite;
 static NTSTATUS
-NTAPI
+STDCALL
 ISAPNPDispatchReadWrite(
   IN PDEVICE_OBJECT PhysicalDeviceObject,
   IN PIRP Irp)
@@ -1605,7 +1606,7 @@ ISAPNPDispatchReadWrite(
 
 static DRIVER_DISPATCH ISAPNPDispatchDeviceControl;
 static NTSTATUS
-NTAPI
+STDCALL
 ISAPNPDispatchDeviceControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -1637,7 +1638,7 @@ ISAPNPDispatchDeviceControl(
 
 static DRIVER_DISPATCH ISAPNPControl;
 static NTSTATUS
-NTAPI
+STDCALL
 ISAPNPControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -1661,12 +1662,6 @@ ISAPNPControl(
     Status = ISAPNPStopDevice(DeviceObject, Irp, IrpSp);
     break;
 
-  case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
-    /* Nothing to do here */
-    DPRINT("IRP_MN_FILTER_RESOURCE_REQUIREMENTS\n");
-    Status = Irp->IoStatus.Status;
-    break;
-
   default:
     DPRINT("Unknown IOCTL 0x%X\n", IrpSp->MinorFunction);
     Status = STATUS_NOT_IMPLEMENTED;
@@ -1685,7 +1680,7 @@ ISAPNPControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 ISAPNPAddDevice(
   IN PDRIVER_OBJECT DriverObject,
   IN PDEVICE_OBJECT PhysicalDeviceObject)
@@ -1726,7 +1721,7 @@ ISAPNPAddDevice(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath)

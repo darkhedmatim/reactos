@@ -11,7 +11,7 @@
 #include <wsahelp.h>
 #include <rtlfuncs.h>
 
-#define EXPORT WINAPI
+#define EXPORT STDCALL
 
 #define DD_TCP_DEVICE_NAME      L"\\Device\\Tcp"
 #define DD_UDP_DEVICE_NAME      L"\\Device\\Udp"

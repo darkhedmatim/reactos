@@ -34,17 +34,7 @@
 
 /* FUNCTIONS *****************************************************************/
 
-#ifndef NDEBUG
-
-#ifdef assert
-#undef assert
-#endif
-
-#define assert(e) ((e) ? (void)0 : _font_assert(#e, __FILE__, __LINE__))
-
-#endif
-
-void _font_assert(const char *msg, const char *file, int line)
+void _assert(const char *msg, const char *file, int line)
 {
   /* Assertion failed at foo.c line 45: x<y */
   DbgPrint("Assertion failed at %s line %d: %s\n", file, line, msg);
@@ -56,7 +46,7 @@ void _font_assert(const char *msg, const char *file, int line)
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 TabbedTextOutA(
   HDC hDC,
   int X,
@@ -186,7 +176,7 @@ static LONG TEXT_TabbedTextOut( HDC hdc, INT x, INT y, LPCWSTR lpstr,
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 TabbedTextOutW(
   HDC hDC,
   int X,
@@ -205,7 +195,7 @@ TabbedTextOutW(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetTabbedTextExtentA(
   HDC hDC,
   LPCSTR lpString,
@@ -233,7 +223,7 @@ GetTabbedTextExtentA(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetTabbedTextExtentW(
   HDC hDC,
   LPCWSTR lpString,
@@ -676,10 +666,9 @@ static void TEXT_SkipChars (int *new_count, const WCHAR **new_str,
         assert (max >= n);
         max -= n;
         while (n--)
-        {
             if (*start_str++ == PREFIX && max--)
                 start_str++;
-        }
+            else;
         start_count -= (start_str - str_on_entry);
     }
     else
@@ -737,6 +726,7 @@ static int TEXT_Reprefix (const WCHAR *str, unsigned int ns,
             str++;
             ns--;
         }
+        else;
         i++;
     }
     return result;
@@ -1048,7 +1038,7 @@ static void TEXT_DrawUnderscore (HDC hdc, int x, int y, const WCHAR *str, int of
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
              LPRECT rect, UINT flags, LPDRAWTEXTPARAMS dtp )
 {
@@ -1236,7 +1226,7 @@ DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
  * @implemented
  */
 /* WINE synced 22-May-2006 */
-int WINAPI
+int STDCALL
 DrawTextExA( HDC hdc, LPSTR str, INT count,
              LPRECT rect, UINT flags, LPDRAWTEXTPARAMS dtp )
 {
@@ -1295,7 +1285,7 @@ DrawTextExA( HDC hdc, LPSTR str, INT count,
  *
  * @implemented
  */
-int WINAPI
+int STDCALL
 DrawTextW( HDC hdc, LPCWSTR str, INT count, LPRECT rect, UINT flags )
 {
     DRAWTEXTPARAMS dtp;
@@ -1314,7 +1304,7 @@ DrawTextW( HDC hdc, LPCWSTR str, INT count, LPRECT rect, UINT flags )
  *
  * @implemented
  */
-int WINAPI
+int STDCALL
 DrawTextA( HDC hdc, LPCSTR str, INT count, LPRECT rect, UINT flags )
 {
     DRAWTEXTPARAMS dtp;

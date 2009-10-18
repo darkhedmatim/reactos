@@ -1,12 +1,11 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
-<module name="dbghelp" type="win32dll" baseaddress="${BASEADDRESS_DBGHELP}" installbase="system32" installname="dbghelp.dll" allowwarnings="true" crt="msvcrt">
+<module name="dbghelp" type="win32dll" baseaddress="${BASEADDRESS_DBGHELP}" installbase="system32" installname="dbghelp.dll" allowwarnings="true">
 	<importlibrary definition="dbghelp.spec" />
 	<include base="dbghelp">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
 	<define name="HAVE_REGEX_H" />
 	<file>coff.c</file>
 	<file>dbghelp.c</file>
@@ -20,18 +19,17 @@
 	<file>path.c</file>
 	<file>pe_module.c</file>
 	<file>regex.c</file>
-	<file>rosstubs.c</file>
 	<file>source.c</file>
 	<file>stabs.c</file>
 	<file>stack.c</file>
 	<file>storage.c</file>
 	<file>symbol.c</file>
 	<file>type.c</file>
+	<file>dbghelp.spec</file>
 	<library>wine</library>
 	<library>psapi</library>
 	<library>kernel32</library>
 	<library>version</library>
 	<library>ntdll</library>
-	<library>pseh</library>
 </module>
 </group>

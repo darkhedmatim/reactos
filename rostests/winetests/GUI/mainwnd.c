@@ -18,125 +18,12 @@ WCHAR szPipeName[] = L"\\\\.\\pipe\\winetest_pipe";
 
 typedef int (_cdecl *RUNTEST)(char **);
 
-DWORD WINAPI
-PipeReadThread(LPVOID lpParam)
+
+VOID
+CreateClientProcess(PMAIN_WND_INFO pInfo,
+                    LPWSTR lpExePath)
 {
-    PMAIN_WND_INFO pInfo;
-    HWND hList, hEdit;
-    DWORD dwRead;
-    CHAR chBuf[BUFSIZE];
-    BOOL bSuccess = FALSE;
-    LVITEMA item;
-    INT count;
 
-    pInfo = (PMAIN_WND_INFO)lpParam;
-
-    hList = GetDlgItem(pInfo->hMainWnd, IDC_LIST);
-    hEdit = GetDlgItem(pInfo->hMainWnd, IDC_OUTPUT);
-
-    ZeroMemory(&item, sizeof(LVITEMA));
-    item.mask = LVIF_TEXT;
-
-    while (TRUE)
-    {
-        dwRead = 0;
-        bSuccess = ReadFile(pInfo->hStdOutRd,
-                            chBuf,
-                            BUFSIZE,
-                            &dwRead,
-                            NULL);
-        if(!bSuccess || dwRead == 0)
-            break;
-
-        chBuf[dwRead] = 0;
-
-        count = GetWindowTextLengthA(hEdit);
-        SendMessageA(hEdit, EM_SETSEL, (WPARAM)count, (LPARAM)count);
-        SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)chBuf);
-
-        //item.iItem = ListView_GetItemCount(hList);
-        //item.pszText = chBuf;
-        //SendMessage(hEdit, LVM_INSERTITEMA, 0, (LPARAM)&item);
-    }
-
-    return 0;
-}
-
-
-DWORD WINAPI
-CreateClientProcess(PMAIN_WND_INFO pInfo)
-{
-    SECURITY_ATTRIBUTES sa;
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-    BOOL bSuccess = FALSE;
-
-    //
-    // Set up the security attributes
-    //
-    sa.nLength= sizeof(SECURITY_ATTRIBUTES);
-    sa.lpSecurityDescriptor = NULL;
-    sa.bInheritHandle = TRUE;
-
-    //
-    // Create a pipe for the child process's STDOUT
-    //
-    if (!CreatePipe(&pInfo->hStdOutRd,
-                    &pInfo->hStdOutWr,
-                    &sa,
-                    0))
-    {
-        return FALSE;
-    }
-
-    //
-    // Ensure the read handle to the pipe for STDOUT is not inherited
-    //
-    if (!SetHandleInformation(pInfo->hStdOutRd,
-                              HANDLE_FLAG_INHERIT,
-                              0))
-    {
-        return FALSE;
-    }
-
-    ZeroMemory(&si, sizeof(STARTUPINFO));
-    si.cb = sizeof(STARTUPINFO);
-    si.hStdError = pInfo->hStdOutWr;
-    si.hStdOutput = pInfo->hStdOutWr;
-    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    si.dwFlags |= STARTF_USESTDHANDLES;
-
-    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
-
-    bSuccess = CreateProcessW(pInfo->lpCmdLine,
-                              NULL,
-                              NULL,
-                              NULL,
-                              TRUE,
-                              0,//CREATE_SUSPENDED,
-                              NULL,
-                              NULL,
-                              &si,
-                              &pi);
-    if (bSuccess)
-    {
-        //
-        // Create thread to handle pipe input from child processes
-        //
-        pInfo->hPipeThread = CreateThread(NULL,
-                                          0,
-                                          PipeReadThread,
-                                          pInfo,
-                                          0,
-                                          NULL);
-
-        WaitForSingleObject(pi.hProcess, INFINITE);
-
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-    }
-
-    return bSuccess;
 }
 
 
@@ -191,6 +78,7 @@ RunSelectedTest(PMAIN_WND_INFO pInfo)
 {
     HWND hRunCmd;
     WCHAR szTextCmd[MAX_RUN_CMD];
+    LPWSTR lpExePath;
     INT sel;
 
     hRunCmd = GetDlgItem(pInfo->hMainWnd, IDC_TESTSELECTION);
@@ -206,22 +94,13 @@ RunSelectedTest(PMAIN_WND_INFO pInfo)
                          sel,
                          (LPARAM)szTextCmd) != CB_ERR)
         {
-            pInfo->lpCmdLine = (LPWSTR)SendMessage(hRunCmd,
-                                                   CB_GETITEMDATA,
-                                                   0,
-                                                   0);
-            if (pInfo->lpCmdLine)
+            lpExePath = (LPWSTR)SendMessage(hRunCmd,
+                                            CB_GETITEMDATA,
+                                            0,
+                                            0);
+            if (lpExePath)
             {
-                //
-                // Create a new thread to create the client process
-                // and recieve any ouput via stdout
-                //
-                CreateThread(NULL,
-                             0,
-                             CreateClientProcess,
-                             pInfo,
-                             0,
-                             NULL);
+                CreateClientProcess(pInfo, lpExePath);
             }
         }
     }
@@ -240,14 +119,14 @@ AddTestToCombo(PMAIN_WND_INFO pInfo)
         SendMessageW(hRunCmd,
                      CB_INSERTSTRING,
                      0,
-                     (LPARAM)pInfo->SelectedTest.szName);
+                     (LPARAM)pInfo->SelectedTest.szRunString);
 
-        len = (wcslen(pInfo->SelectedTest.szRunCmd) + 1) * sizeof(WCHAR);
+        len = (wcslen(pInfo->SelectedTest.szSelectedExe) + 1) * sizeof(WCHAR);
         lpExePath = HeapAlloc(GetProcessHeap(), 0, len);
         if (lpExePath)
         {
             wcsncpy(lpExePath,
-                    pInfo->SelectedTest.szRunCmd,
+                    pInfo->SelectedTest.szSelectedExe,
                     len / sizeof(WCHAR));
         }
 
@@ -382,6 +261,7 @@ wWinMain(HINSTANCE hInst,
 {
     INITCOMMONCONTROLSEX iccx;
     PMAIN_WND_INFO pInfo;
+    HANDLE hThread;
     INT Ret = -1;
 
     UNREFERENCED_PARAMETER(hPrev);

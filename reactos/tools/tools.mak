@@ -33,22 +33,21 @@ XML_SSPRINTF_OBJECTS = \
 	$(addprefix $(INTERMEDIATE_), $(XML_SSPRINTF_SOURCES:.cpp=.o))
 
 $(TOOLS_INT_)ssprintf.o: $(TOOLS_BASE_)ssprintf.cpp $(XML_SSPRINTF_HEADERS) | $(TOOLS_INT)
-	$(ECHO_HOSTCC)
+	$(ECHO_CC)
 	${host_gpp} $(TOOLS_CPPFLAGS) -c $< -o $@
 
 $(TOOLS_INT_)xml.o: $(TOOLS_BASE_)xml.cpp $(XML_SSPRINTF_HEADERS) | $(TOOLS_INT)
-	$(ECHO_HOSTCC)
+	$(ECHO_CC)
 	${host_gpp} $(TOOLS_CPPFLAGS) -c $< -o $@
 
 include tools/bin2c.mak
 include tools/buildno/buildno.mak
 include tools/gendib/gendib.mak
-include tools/rsym/log2lines.mak
-include tools/nci/nci.mak
 ifeq ($(ARCH),powerpc)
 include tools/ofw_interface/ofw_interface.mak
 endif
+include tools/nci/nci.mak
 include tools/pefixup.mak
-include tools/rsym/raddr2line.mak
+include tools/raddr2line.mak
 include tools/rbuild/rbuild.mak
-include tools/rsym/rsym.mak
+include tools/rsym.mak

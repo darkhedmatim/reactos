@@ -135,11 +135,11 @@ MsqPostMessage(PUSER_MESSAGE_QUEUE MessageQueue,
 	       MSG* Msg, BOOLEAN FreeLParam, DWORD MessageBits);
 VOID FASTCALL
 MsqPostQuitMessage(PUSER_MESSAGE_QUEUE MessageQueue, ULONG ExitCode);
-BOOLEAN APIENTRY
+BOOLEAN STDCALL
 co_MsqFindMessage(IN PUSER_MESSAGE_QUEUE MessageQueue,
 	       IN BOOLEAN Hardware,
 	       IN BOOLEAN Remove,
-	       IN PWINDOW_OBJECT Window,
+	       IN HWND Wnd,
 	       IN UINT MsgFilterLow,
 	       IN UINT MsgFilterHigh,
 	       OUT PUSER_MESSAGE* Message);
@@ -158,7 +158,7 @@ MsqInitializeImpl(VOID);
 BOOLEAN FASTCALL
 co_MsqDispatchOneSentMessage(PUSER_MESSAGE_QUEUE MessageQueue);
 NTSTATUS FASTCALL
-co_MsqWaitForNewMessages(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT WndFilter,
+co_MsqWaitForNewMessages(PUSER_MESSAGE_QUEUE MessageQueue, HWND WndFilter,
                       UINT MsgFilterMin, UINT MsgFilterMax);
 VOID FASTCALL
 MsqSendNotifyMessage(PUSER_MESSAGE_QUEUE MessageQueue,
@@ -197,8 +197,6 @@ MsqPostHotKeyMessage(PVOID Thread, HWND hWnd, WPARAM wParam, LPARAM lParam);
 VOID FASTCALL
 MsqInsertSystemMessage(MSG* Msg);
 BOOL FASTCALL
-MsqIsClkLck(LPMSG Msg, BOOL Remove);
-BOOL FASTCALL
 MsqIsDblClk(LPMSG Msg, BOOL Remove);
 HWND FASTCALL
 MsqSetStateWindow(PUSER_MESSAGE_QUEUE MessageQueue, ULONG Type, HWND hWnd);
@@ -206,8 +204,8 @@ MsqSetStateWindow(PUSER_MESSAGE_QUEUE MessageQueue, ULONG Type, HWND hWnd);
 __inline BOOL MsqIsSignaled( PUSER_MESSAGE_QUEUE queue );
 __inline VOID MsqSetQueueBits( PUSER_MESSAGE_QUEUE queue, WORD bits );
 __inline VOID MsqClearQueueBits( PUSER_MESSAGE_QUEUE queue, WORD bits );
-BOOL APIENTRY IntInitMessagePumpHook();
-BOOL APIENTRY IntUninitMessagePumpHook();
+BOOL STDCALL IntInitMessagePumpHook();
+BOOL STDCALL IntUninitMessagePumpHook();
 #define MAKE_LONG(x, y) ((((y) & 0xFFFF) << 16) | ((x) & 0xFFFF))
 
 PHOOKTABLE FASTCALL MsqGetHooks(PUSER_MESSAGE_QUEUE Queue);
@@ -215,7 +213,7 @@ VOID FASTCALL MsqSetHooks(PUSER_MESSAGE_QUEUE Queue, PHOOKTABLE Hooks);
 
 LPARAM FASTCALL MsqSetMessageExtraInfo(LPARAM lParam);
 LPARAM FASTCALL MsqGetMessageExtraInfo(VOID);
-VOID APIENTRY MsqRemoveWindowMessagesFromQueue(PVOID pWindow); /* F*(&$ headers, will be gone in the rewrite! */
+VOID STDCALL MsqRemoveWindowMessagesFromQueue(PVOID pWindow); /* F*(&$ headers, will be gone in the rewrite! */
 
 #define IntLockHardwareMessageQueue(MsgQueue) \
   KeWaitForMutexObject(&(MsgQueue)->HardwareLock, UserRequest, KernelMode, FALSE, NULL)
@@ -264,11 +262,11 @@ MsqKillTimer(PUSER_MESSAGE_QUEUE MessageQueue, HWND Wnd,
              UINT_PTR IDEvent, UINT Msg);
 BOOLEAN FASTCALL
 MsqGetTimerMessage(PUSER_MESSAGE_QUEUE MessageQueue,
-                   PWINDOW_OBJECT WindowFilter, UINT MsgFilterMin, UINT MsgFilterMax,
+                   HWND WndFilter, UINT MsgFilterMin, UINT MsgFilterMax,
                    MSG *Msg, BOOLEAN Restart);
 BOOLEAN FASTCALL
 MsqGetFirstTimerExpiry(PUSER_MESSAGE_QUEUE MessageQueue,
-                       PWINDOW_OBJECT WndFilter, UINT MsgFilterMin, UINT MsgFilterMax,
+                       HWND WndFilter, UINT MsgFilterMin, UINT MsgFilterMax,
                        PLARGE_INTEGER FirstTimerExpiry);
 VOID FASTCALL
 MsqRemoveTimersWindow(PUSER_MESSAGE_QUEUE MessageQueue, HWND Wnd);

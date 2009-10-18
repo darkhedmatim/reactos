@@ -3,9 +3,10 @@
         <include base="pdh">.</include>
         <include base="ReactOS">include/reactos/wine</include>
         <define name="__WINESRC__" />
-        <redefine name="_WIN32_WINNT">0x600</redefine>
+        <define name="_WIN32_WINNT">0x600</define>
         <library>wine</library>
         <library>kernel32</library>
         <library>ntdll</library>
         <file>pdh_main.c</file>
+        <file>pdh.spec</file>
 </module>

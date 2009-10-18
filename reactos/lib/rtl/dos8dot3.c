@@ -83,7 +83,7 @@ RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
    DPRINT("StrLength: %lu\n", StrLength);
 
    /* Find last dot in Name */
-   DotPos = StrLength;
+   DotPos = 0;
    for (i = 0; i < StrLength; i++)
    {
       if (Name->Buffer[i] == L'.')
@@ -92,6 +92,10 @@ RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
       }
    }
 
+   if (DotPos == 0)
+   {
+      DotPos = i;
+   }
    DPRINT("DotPos: %lu\n", DotPos);
 
    /* Copy name (6 valid characters max) */

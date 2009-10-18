@@ -20,7 +20,7 @@
  *
  * @unimplemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AbortSystemShutdownW(LPCWSTR lpMachineName)
 {
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -33,7 +33,7 @@ AbortSystemShutdownW(LPCWSTR lpMachineName)
  *
  * @unimplemented
  */
-BOOL WINAPI
+BOOL STDCALL
 AbortSystemShutdownA(LPCSTR lpMachineName)
 {
     ANSI_STRING MachineNameA;
@@ -61,7 +61,7 @@ AbortSystemShutdownA(LPCSTR lpMachineName)
  *
  * @unimplemented
  */
-BOOL WINAPI
+BOOL STDCALL
 InitiateSystemShutdownW(LPWSTR lpMachineName,
                         LPWSTR lpMessage,
                         DWORD dwTimeout,
@@ -94,7 +94,7 @@ InitiateSystemShutdownW(LPWSTR lpMachineName,
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 InitiateSystemShutdownA(LPSTR lpMachineName,
                         LPSTR lpMessage,
                         DWORD dwTimeout,
@@ -108,9 +108,6 @@ InitiateSystemShutdownA(LPSTR lpMachineName,
     NTSTATUS        Status;
     INT         LastError;
     BOOL        rv;
-
-	MachineNameW.Buffer = NULL;
-	MessageW.Buffer = NULL;
 
     if (lpMachineName)
     {
@@ -129,7 +126,7 @@ InitiateSystemShutdownA(LPSTR lpMachineName,
         Status = RtlAnsiStringToUnicodeString(&MessageW, &MessageA, TRUE);
         if (STATUS_SUCCESS != Status)
         {
-            if (MachineNameW.Buffer)
+            if (MachineNameW.Length)
             {
                 RtlFreeUnicodeString(&MachineNameW);
             }

@@ -197,7 +197,7 @@ ExpInitNls(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     HANDLE NlsSection;
     PVOID SectionBase = NULL;
     ULONG ViewSize = 0;
-    LARGE_INTEGER SectionOffset = {{0, 0}};
+    LARGE_INTEGER SectionOffset = {{0}};
     PLIST_ENTRY ListHead, NextEntry;
     PMEMORY_ALLOCATION_DESCRIPTOR MdBlock;
     ULONG NlsTablesEncountered = 0;
@@ -235,7 +235,7 @@ ExpInitNls(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
         /* Allocate the a new buffer since loader memory will be freed */
         ExpNlsTableBase = ExAllocatePoolWithTag(NonPagedPool,
                                                 ExpNlsTableSize,
-                                                'iltR');
+                                                TAG('R', 't', 'l', 'i'));
         if (!ExpNlsTableBase) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
 
         /* Copy the codepage data in its new location. */
@@ -324,7 +324,7 @@ ExpInitNls(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     RtlCopyMemory(SectionBase, ExpNlsTableBase, ExpNlsTableSize);
 
     /* Free the previously allocated buffer and set the new location */
-    ExFreePoolWithTag(ExpNlsTableBase, 'iltR');
+    ExFreePoolWithTag(ExpNlsTableBase, TAG('R', 't', 'l', 'i'));
     ExpNlsTableBase = SectionBase;
 
     /* Initialize the NLS Tables */
@@ -466,7 +466,7 @@ ExpLoadInitialProcess(IN PINIT_BUFFER InitBuffer,
 
     /* Make sure the buffer is a valid string which within the given length */
     if ((NtInitialUserProcessBufferType != REG_SZ) ||
-        ((NtInitialUserProcessBufferLength != MAXULONG) &&
+        ((NtInitialUserProcessBufferLength != -1) &&
          ((NtInitialUserProcessBufferLength < sizeof(WCHAR)) ||
           (NtInitialUserProcessBufferLength >
            sizeof(NtInitialUserProcessBuffer) - sizeof(WCHAR)))))
@@ -1188,7 +1188,7 @@ ExpInitializeExecutive(IN ULONG Cpu,
     KeServiceDescriptorTable[0].Count =
         ExAllocatePoolWithTag(NonPagedPool,
                               KiServiceLimit * sizeof(ULONG),
-                              'llaC');
+                              TAG('C', 'a', 'l', 'l'));
 
     /* Use it for the shadow table too */
     KeServiceDescriptorTableShadow[0].Count = KeServiceDescriptorTable[0].Count;
@@ -1226,8 +1226,21 @@ ExpInitializeExecutive(IN ULONG Cpu,
     SharedUserData->NtMinorVersion = NtMinorVersion;
 
     /* Set the machine type */
-    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_ARCHITECTURE;
-    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_ARCHITECTURE;
+#if defined(_X86_)
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_I386;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_I386;
+#elif defined(_PPC_) // <3 Arty
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_POWERPC;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_POWERPC;
+#elif defined(_MIPS_)
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_R4000;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_R4000;
+#elif defined(_ARM_)
+    SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_ARM;
+    SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_ARM;
+#else
+#error "Unsupported ReactOS Target"
+#endif
 }
 
 VOID
@@ -1256,7 +1269,7 @@ Phase1InitializationDiscard(IN PVOID Context)
     /* Allocate the initialization buffer */
     InitBuffer = ExAllocatePoolWithTag(NonPagedPool,
                                        sizeof(INIT_BUFFER),
-                                       'tinI');
+                                       TAG('I', 'n', 'i', 't'));
     if (!InitBuffer)
     {
         /* Bugcheck */
@@ -1416,7 +1429,7 @@ Phase1InitializationDiscard(IN PVOID Context)
         if (!ExpRealTimeIsUniversal)
         {
             /* Check if we don't have a valid bias */
-            if (ExpLastTimeZoneBias == MAXULONG)
+            if (ExpLastTimeZoneBias == -1)
             {
                 /* Reset */
                 ResetBias = TRUE;

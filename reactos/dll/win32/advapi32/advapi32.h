@@ -11,7 +11,6 @@
 /* INCLUDES ******************************************************************/
 
 /* C Headers */
-#include <limits.h>
 #include <stdio.h>
 
 /* PSDK/NDK Headers */
@@ -71,7 +70,7 @@ typedef struct _NTMARTA
     /* 2E8 */PVOID GetAccessForTrustee;
     /* 2EC */PVOID GetExplicitEntries;
     /* 2F0 */
-    DWORD (WINAPI *RewriteGetNamedRights)(LPWSTR pObjectName,
+    DWORD (STDCALL *RewriteGetNamedRights)(LPWSTR pObjectName,
                                            SE_OBJECT_TYPE ObjectType,
                                            SECURITY_INFORMATION SecurityInfo,
                                            PSID* ppsidOwner,
@@ -81,13 +80,13 @@ typedef struct _NTMARTA
                                            PSECURITY_DESCRIPTOR* ppSecurityDescriptor);
 
     /* 2F4 */
-    DWORD (WINAPI *RewriteSetNamedRights)(LPWSTR pObjectName,
+    DWORD (STDCALL *RewriteSetNamedRights)(LPWSTR pObjectName,
                                            SE_OBJECT_TYPE ObjectType,
                                            SECURITY_INFORMATION SecurityInfo,
                                            PSECURITY_DESCRIPTOR pSecurityDescriptor);
 
     /*2F8*/
-    DWORD (WINAPI *RewriteGetHandleRights)(HANDLE handle,
+    DWORD (STDCALL *RewriteGetHandleRights)(HANDLE handle,
                                             SE_OBJECT_TYPE ObjectType,
                                             SECURITY_INFORMATION SecurityInfo,
                                             PSID* ppsidOwner,
@@ -97,24 +96,24 @@ typedef struct _NTMARTA
                                             PSECURITY_DESCRIPTOR* ppSecurityDescriptor);
 
     /* 2FC */
-    DWORD (WINAPI *RewriteSetHandleRights)(HANDLE handle,
+    DWORD (STDCALL *RewriteSetHandleRights)(HANDLE handle,
                                             SE_OBJECT_TYPE ObjectType,
                                             SECURITY_INFORMATION SecurityInfo,
                                             PSECURITY_DESCRIPTOR pSecurityDescriptor);
 
     /* 300 */
-    DWORD (WINAPI *RewriteSetEntriesInAcl)(ULONG cCountOfExplicitEntries,
+    DWORD (STDCALL *RewriteSetEntriesInAcl)(ULONG cCountOfExplicitEntries,
                                             PEXPLICIT_ACCESS_W pListOfExplicitEntries,
                                             PACL OldAcl,
                                             PACL* NewAcl);
 
     /* 304 */
-    DWORD (WINAPI *RewriteGetExplicitEntriesFromAcl)(PACL pacl,
+    DWORD (STDCALL *RewriteGetExplicitEntriesFromAcl)(PACL pacl,
                                                       PULONG pcCountOfExplicitEntries,
                                                       PEXPLICIT_ACCESS_W* pListOfExplicitEntries);
 
     /* 308 */
-    DWORD (WINAPI *TreeResetNamedSecurityInfo)(LPWSTR pObjectName,
+    DWORD (STDCALL *TreeResetNamedSecurityInfo)(LPWSTR pObjectName,
                                                 SE_OBJECT_TYPE ObjectType,
                                                 SECURITY_INFORMATION SecurityInfo,
                                                 PSID pOwner,
@@ -126,7 +125,7 @@ typedef struct _NTMARTA
                                                 PROG_INVOKE_SETTING ProgressInvokeSetting,
                                                 PVOID Args);
     /* 30C */
-    DWORD (WINAPI *GetInheritanceSource)(LPWSTR pObjectName,
+    DWORD (STDCALL *GetInheritanceSource)(LPWSTR pObjectName,
                                           SE_OBJECT_TYPE ObjectType,
                                           SECURITY_INFORMATION SecurityInfo,
                                           BOOL Container,
@@ -138,7 +137,7 @@ typedef struct _NTMARTA
                                           PINHERITED_FROMW pInheritArray);
 
     /* 310 */
-    DWORD (WINAPI *FreeIndexArray)(PINHERITED_FROMW pInheritArray,
+    DWORD (STDCALL *FreeIndexArray)(PINHERITED_FROMW pInheritArray,
                                     USHORT AceCnt,
                                     PFN_OBJECT_MGR_FUNCTS pfnArray  OPTIONAL);
 } NTMARTA, *PNTMARTA;

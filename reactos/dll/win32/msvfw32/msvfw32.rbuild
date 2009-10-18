@@ -6,11 +6,11 @@
 	<include base="msvfw32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
 	<file>mciwnd.c</file>
 	<file>msvideo_main.c</file>
 	<file>drawdib.c</file>
 	<file>rsrc.rc</file>
+	<file>msvfw32.spec</file>
 	<library>wine</library>
 	<library>winmm</library>
 	<library>version</library>

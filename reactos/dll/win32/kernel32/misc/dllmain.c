@@ -30,7 +30,7 @@ BOOL ConsoleInitialized = FALSE;
 
 static BOOL DllInitialized = FALSE;
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HANDLE hInst,
 	DWORD dwReason,
 	LPVOID lpReserved);
@@ -42,12 +42,12 @@ RTL_CRITICAL_SECTION ConsoleLock;
 extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
 extern __declspec(noreturn) VOID CALLBACK ConsoleControlDispatcher(DWORD CodeAndFlag);
 
-extern BOOL FASTCALL NlsInit(VOID);
-extern VOID FASTCALL NlsUninit(VOID);
+extern BOOL FASTCALL NlsInit();
+extern VOID FASTCALL NlsUninit();
 BOOLEAN InWindows = FALSE;
 
 HANDLE
-WINAPI
+STDCALL
 DuplicateConsoleHandle(HANDLE hConsole,
                        DWORD dwDesiredAccess,
                        BOOL	bInheritHandle,
@@ -119,7 +119,7 @@ BaseProcessInitPostImport(VOID)
 }
 
 BOOL
-WINAPI
+STDCALL
 BasepInitConsole(VOID)
 {
     CSR_API_MESSAGE Request;
@@ -233,7 +233,7 @@ BasepInitConsole(VOID)
 
 
 BOOL
-WINAPI
+STDCALL
 DllMain(HANDLE hDll,
         DWORD dwReason,
         LPVOID lpReserved)

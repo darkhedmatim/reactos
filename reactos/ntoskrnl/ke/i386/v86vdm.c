@@ -74,7 +74,7 @@ Ke386CallBios(IN ULONG Int,
     /* Allocate VDM structure */
     VdmProcessObjects = ExAllocatePoolWithTag(NonPagedPool,
                                               sizeof(VDM_PROCESS_OBJECTS),
-                                              '  eK');
+                                              TAG('K', 'e', ' ', ' '));
     if (!VdmProcessObjects) return STATUS_NO_MEMORY;
 
     /* Set it up */
@@ -120,38 +120,4 @@ Ke386CallBios(IN ULONG Int,
     return STATUS_SUCCESS;
 }
 
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-Ke386IoSetAccessProcess(IN PKPROCESS Process,
-                        IN ULONG Flag)
-{
-    UNIMPLEMENTED;
-    return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-Ke386SetIoAccessMap(IN ULONG Flag,
-                    IN PVOID IopmBuffer)
-{
-    UNIMPLEMENTED;
-    return FALSE;
-}
-
-/*
- * @unimplemented
- */
-BOOLEAN
-NTAPI
-Ke386QueryIoAccessMap(IN ULONG Flag,
-                      IN PVOID IopmBuffer)
-{
-    UNIMPLEMENTED;
-    return FALSE;
-}
+/* EOF */

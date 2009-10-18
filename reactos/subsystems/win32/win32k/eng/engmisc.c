@@ -23,13 +23,13 @@
 #define NDEBUG
 #include <debug.h>
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
-            SURFOBJ *psoDest,
+            SURFOBJ *DestSurf,
             RECTL *DestRect,
             BOOL ReadOnly,
             POINTL *Translate,
-            SURFOBJ **ppsoOutput)
+            SURFOBJ **OutputSurf)
 {
   LONG Exchange;
   SIZEL BitmapSize;
@@ -51,12 +51,12 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     DestRect->bottom = Exchange;
     }
 
-  if (NULL != psoDest && STYPE_BITMAP != psoDest->iType &&
-      (NULL == psoDest->pvScan0 || 0 == psoDest->lDelta))
+  if (NULL != DestSurf && STYPE_BITMAP != DestSurf->iType &&
+      (NULL == DestSurf->pvScan0 || 0 == DestSurf->lDelta))
     {
     /* Driver needs to support DrvCopyBits, else we can't do anything */
-    SURFACE *psurfDest = CONTAINING_RECORD(psoDest, SURFACE, SurfObj);
-    if (!(psurfDest->flHooks & HOOK_COPYBITS))
+    BITMAPOBJ *DestBmp = CONTAINING_RECORD(DestSurf, BITMAPOBJ, SurfObj);
+    if (!(DestBmp->flHooks & HOOK_COPYBITS))
     {
       return FALSE;
     }
@@ -64,9 +64,9 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     /* Allocate a temporary bitmap */
     BitmapSize.cx = DestRect->right - DestRect->left;
     BitmapSize.cy = DestRect->bottom - DestRect->top;
-    Width = DIB_GetDIBWidthBytes(BitmapSize.cx, BitsPerFormat(psoDest->iBitmapFormat));
+    Width = DIB_GetDIBWidthBytes(BitmapSize.cx, BitsPerFormat(DestSurf->iBitmapFormat));
     EnterLeave->OutputBitmap = EngCreateBitmap(BitmapSize, Width,
-                                               psoDest->iBitmapFormat,
+                                               DestSurf->iBitmapFormat,
                                                BMF_TOPDOWN | BMF_NOZEROINIT, NULL);
 
     if (!EnterLeave->OutputBitmap)
@@ -75,12 +75,7 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
       return FALSE;
       }
 
-    *ppsoOutput = EngLockSurface((HSURF)EnterLeave->OutputBitmap);
-    if (*ppsoOutput == NULL)
-    {
-      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
-      return FALSE;
-    }
+    *OutputSurf = EngLockSurface((HSURF)EnterLeave->OutputBitmap);
 
     EnterLeave->DestRect.left = 0;
     EnterLeave->DestRect.top = 0;
@@ -94,43 +89,37 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
         ClippedDestRect.left -= SrcPoint.x;
         SrcPoint.x = 0;
       }
-    if (psoDest->sizlBitmap.cx < SrcPoint.x + ClippedDestRect.right - ClippedDestRect.left)
+    if (DestSurf->sizlBitmap.cx < SrcPoint.x + ClippedDestRect.right - ClippedDestRect.left)
       {
-        ClippedDestRect.right = ClippedDestRect.left + psoDest->sizlBitmap.cx - SrcPoint.x;
+        ClippedDestRect.right = ClippedDestRect.left + DestSurf->sizlBitmap.cx - SrcPoint.x;
       }
     if (SrcPoint.y < 0)
       {
         ClippedDestRect.top -= SrcPoint.y;
         SrcPoint.y = 0;
       }
-    if (psoDest->sizlBitmap.cy < SrcPoint.y + ClippedDestRect.bottom - ClippedDestRect.top)
+    if (DestSurf->sizlBitmap.cy < SrcPoint.y + ClippedDestRect.bottom - ClippedDestRect.top)
       {
-        ClippedDestRect.bottom = ClippedDestRect.top + psoDest->sizlBitmap.cy - SrcPoint.y;
+        ClippedDestRect.bottom = ClippedDestRect.top + DestSurf->sizlBitmap.cy - SrcPoint.y;
       }
     EnterLeave->TrivialClipObj = EngCreateClip();
-    if (EnterLeave->TrivialClipObj == NULL)
-    {
-      EngUnlockSurface(*ppsoOutput);
-      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
-      return FALSE;
-    }
     EnterLeave->TrivialClipObj->iDComplexity = DC_TRIVIAL;
-    if (ClippedDestRect.left < (*ppsoOutput)->sizlBitmap.cx &&
+    if (ClippedDestRect.left < (*OutputSurf)->sizlBitmap.cx &&
         0 <= ClippedDestRect.right &&
-        SrcPoint.x < psoDest->sizlBitmap.cx &&
-        ClippedDestRect.top <= (*ppsoOutput)->sizlBitmap.cy &&
+        SrcPoint.x < DestSurf->sizlBitmap.cx &&
+        ClippedDestRect.top <= (*OutputSurf)->sizlBitmap.cy &&
         0 <= ClippedDestRect.bottom &&
-        SrcPoint.y < psoDest->sizlBitmap.cy &&
-        ! GDIDEVFUNCS(psoDest).CopyBits(
-                                        *ppsoOutput, psoDest,
+        SrcPoint.y < DestSurf->sizlBitmap.cy &&
+        ! GDIDEVFUNCS(DestSurf).CopyBits(
+                                        *OutputSurf, DestSurf,
                                         EnterLeave->TrivialClipObj, NULL,
                                         &ClippedDestRect, &SrcPoint))
       {
-          EngDeleteClip(EnterLeave->TrivialClipObj);
-          EngFreeMem((*ppsoOutput)->pvBits);
-          EngUnlockSurface(*ppsoOutput);
-          EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
-          return FALSE;
+      EngDeleteClip(EnterLeave->TrivialClipObj);
+      EngFreeMem((*OutputSurf)->pvBits);
+      EngUnlockSurface(*OutputSurf);
+      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
+      return FALSE;
       }
     EnterLeave->DestRect.left = DestRect->left;
     EnterLeave->DestRect.top = DestRect->top;
@@ -143,35 +132,34 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
     {
     Translate->x = 0;
     Translate->y = 0;
-    *ppsoOutput = psoDest;
+    *OutputSurf = DestSurf;
     }
 
-  if (NULL != *ppsoOutput)
+  if (NULL != *OutputSurf)
   {
-    SURFACE* psurfOutput = CONTAINING_RECORD(*ppsoOutput, SURFACE, SurfObj);
-    if (0 != (psurfOutput->flHooks & HOOK_SYNCHRONIZE))
+    BITMAPOBJ* OutputBmp = CONTAINING_RECORD(*OutputSurf, BITMAPOBJ, SurfObj);
+    if (0 != (OutputBmp->flHooks & HOOK_SYNCHRONIZE))
     {
-      if (NULL != GDIDEVFUNCS(*ppsoOutput).SynchronizeSurface)
+      if (NULL != GDIDEVFUNCS(*OutputSurf).SynchronizeSurface)
         {
-          GDIDEVFUNCS(*ppsoOutput).SynchronizeSurface(*ppsoOutput, DestRect, 0);
+          GDIDEVFUNCS(*OutputSurf).SynchronizeSurface(*OutputSurf, DestRect, 0);
         }
-      else if (STYPE_BITMAP == (*ppsoOutput)->iType
-               && NULL != GDIDEVFUNCS(*ppsoOutput).Synchronize)
+      else if (STYPE_BITMAP == (*OutputSurf)->iType
+               && NULL != GDIDEVFUNCS(*OutputSurf).Synchronize)
         {
-          GDIDEVFUNCS(*ppsoOutput).Synchronize((*ppsoOutput)->dhpdev, DestRect);
+          GDIDEVFUNCS(*OutputSurf).Synchronize((*OutputSurf)->dhpdev, DestRect);
         }
     }
   }
-  else return FALSE;
 
-  EnterLeave->DestObj = psoDest;
-  EnterLeave->OutputObj = *ppsoOutput;
+  EnterLeave->DestObj = DestSurf;
+  EnterLeave->OutputObj = *OutputSurf;
   EnterLeave->ReadOnly = ReadOnly;
 
   return TRUE;
 }
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
 {
   POINTL SrcPoint;
@@ -232,7 +220,21 @@ IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
   return Result;
 }
 
-HANDLE APIENTRY
+HANDLE STDCALL
+EngGetCurrentProcessId(VOID)
+{
+  /* http://www.osr.com/ddk/graphics/gdifncs_5ovb.htm */
+  return PsGetCurrentProcessId();
+}
+
+HANDLE STDCALL
+EngGetCurrentThreadId(VOID)
+{
+  /* http://www.osr.com/ddk/graphics/gdifncs_25rb.htm */
+  return PsGetCurrentThreadId();
+}
+
+HANDLE STDCALL
 EngGetProcessHandle(VOID)
 {
   /* http://www.osr.com/ddk/graphics/gdifncs_3tif.htm
@@ -247,60 +249,7 @@ EngGetCurrentCodePage(OUT PUSHORT OemCodePage,
                       OUT PUSHORT AnsiCodePage)
 {
     /* Forward to kernel */
-    RtlGetDefaultCodePage(AnsiCodePage, OemCodePage);
+    return RtlGetDefaultCodePage(AnsiCodePage, OemCodePage);
 }
-
-BOOL
-APIENTRY
-EngQuerySystemAttribute(
-   IN ENG_SYSTEM_ATTRIBUTE CapNum,
-   OUT PDWORD pCapability)
-{
-    SYSTEM_BASIC_INFORMATION sbi;
-    SYSTEM_PROCESSOR_INFORMATION spi;
-
-    switch (CapNum)
-    {
-        case EngNumberOfProcessors:
-            NtQuerySystemInformation(SystemBasicInformation,
-                                     &sbi,
-                                     sizeof(SYSTEM_BASIC_INFORMATION),
-                                     NULL);
-            *pCapability = sbi.NumberOfProcessors;
-            return TRUE;
-
-        case EngProcessorFeature:
-            NtQuerySystemInformation(SystemProcessorInformation,
-                                     &spi,
-                                     sizeof(SYSTEM_PROCESSOR_INFORMATION),
-                                     NULL);
-            *pCapability = spi.ProcessorFeatureBits;
-            return TRUE;
-
-        default:
-            break;
-    }
-
-    return FALSE;
-}
-
-ULONGLONG
-APIENTRY
-EngGetTickCount(VOID)
-{
-    ULONG Multiplier;
-    LARGE_INTEGER TickCount;
-
-    /* Get the multiplier and current tick count */
-    KeQueryTickCount(&TickCount);
-    Multiplier = SharedUserData->TickCountMultiplier;
-
-    /* Convert to milliseconds and return */
-    return (Int64ShrlMod32(UInt32x32To64(Multiplier, TickCount.LowPart), 24) +
-            (Multiplier * (TickCount.HighPart << 8)));
-}
-
-
-
 
 /* EOF */

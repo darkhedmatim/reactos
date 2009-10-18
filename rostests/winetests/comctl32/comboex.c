@@ -183,13 +183,6 @@ static void test_WM_LBUTTONDOWN(void)
     WCHAR buffer[3];
     static const UINT choices[] = {8,9,10,11,12,14,16,18,20,22,24,26,28,36,48,72};
     static const WCHAR stringFormat[] = {'%','2','d','\0'};
-    BOOL (WINAPI *pGetComboBoxInfo)(HWND, PCOMBOBOXINFO);
-
-    pGetComboBoxInfo = (void*)GetProcAddress(GetModuleHandleA("user32.dll"), "GetComboBoxInfo");
-    if (!pGetComboBoxInfo){
-        win_skip("GetComboBoxInfo is not available\n");
-        return;
-    }
 
     hComboEx = CreateWindowExA(0, WC_COMBOBOXEXA, NULL,
             WS_VISIBLE|WS_CHILD|CBS_DROPDOWN, 0, 0, 200, 150,
@@ -212,7 +205,7 @@ static void test_WM_LBUTTONDOWN(void)
     hEdit = (HWND)SendMessage(hComboEx, CBEM_GETEDITCONTROL, 0, 0);
 
     cbInfo.cbSize = sizeof(COMBOBOXINFO);
-    result = pGetComboBoxInfo(hCombo, &cbInfo);
+    result = SendMessage(hCombo, CB_GETCOMBOBOXINFO, 0, (LPARAM)&cbInfo);
     ok(result, "Failed to get combobox info structure. LastError=%d\n",
        GetLastError());
     hList = cbInfo.hwndList;
@@ -228,8 +221,7 @@ static void test_WM_LBUTTONDOWN(void)
     result = SendMessage(hCombo, WM_LBUTTONDOWN, 0, MAKELPARAM(x, y));
     ok(result, "WM_LBUTTONDOWN was not processed. LastError=%d\n",
        GetLastError());
-    ok(GetFocus() == hCombo ||
-       broken(GetFocus() != hCombo), /* win98 */
+    ok(GetFocus() == hCombo,
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
     ok(SendMessage(hComboEx, CB_GETDROPPEDSTATE, 0, 0),
@@ -240,8 +232,7 @@ static void test_WM_LBUTTONDOWN(void)
     result = SendMessage(hCombo, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     ok(result, "WM_LBUTTONUP was not processed. LastError=%d\n",
        GetLastError());
-    ok(GetFocus() == hCombo ||
-       broken(GetFocus() != hCombo), /* win98 */
+    ok(GetFocus() == hCombo,
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
 
@@ -253,16 +244,14 @@ static void test_WM_LBUTTONDOWN(void)
     result = SendMessage(hList, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
     ok(!result, "WM_MOUSEMOVE was not processed. LastError=%d\n",
        GetLastError());
-    ok(GetFocus() == hCombo ||
-       broken(GetFocus() != hCombo), /* win98 */
+    ok(GetFocus() == hCombo,
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
 
     result = SendMessage(hList, WM_LBUTTONDOWN, 0, MAKELPARAM(x, y));
     ok(!result, "WM_LBUTTONDOWN was not processed. LastError=%d\n",
        GetLastError());
-    ok(GetFocus() == hCombo ||
-       broken(GetFocus() != hCombo), /* win98 */
+    ok(GetFocus() == hCombo,
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
     ok(SendMessage(hComboEx, CB_GETDROPPEDSTATE, 0, 0),
@@ -271,19 +260,13 @@ static void test_WM_LBUTTONDOWN(void)
     result = SendMessage(hList, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     ok(!result, "WM_LBUTTONUP was not processed. LastError=%d\n",
        GetLastError());
-    todo_wine ok(GetFocus() == hEdit ||
-       broken(GetFocus() == hCombo), /* win98 */
+    todo_wine ok(GetFocus() == hEdit,
        "Focus not on ComboBoxEx's Edit Control, instead on %p\n",
        GetFocus());
-
-    result = SendMessage(hCombo, CB_GETDROPPEDSTATE, 0, 0);
-    ok(!result ||
-       broken(result != 0), /* win98 */
+    ok(!SendMessage(hCombo, CB_GETDROPPEDSTATE, 0, 0),
        "The dropdown list should have been rolled up.\n");
     idx = SendMessage(hComboEx, CB_GETCURSEL, 0, 0);
-    ok(idx == 4 ||
-       broken(idx == -1), /* win98 */
-       "Current Selection: expected %d, got %d\n", 4, idx);
+    ok(idx == 4, "Current Selection: expected %d, got %d\n", 4, idx);
 
     DestroyWindow(hComboEx);
 }
@@ -314,7 +297,7 @@ static int init(void)
     pInitCommonControlsEx = (void*)GetProcAddress(hComctl32, "InitCommonControlsEx");
     if (!pInitCommonControlsEx)
     {
-        win_skip("InitCommonControlsEx() is missing. Skipping the tests\n");
+        skip("InitCommonControlsEx() is missing. Skipping the tests\n");
         return 0;
     }
     iccex.dwSize = sizeof(iccex);
@@ -351,7 +334,6 @@ static void cleanup(void)
         DispatchMessageA(&msg);
     }
     
-    DestroyWindow(hComboExParentWnd);
     UnregisterClassA(ComboExTestClass, GetModuleHandleA(NULL));
 }
 

@@ -10,6 +10,7 @@
 #include <dhcpcsdk.h>
 #include <stdio.h>
 #include <io.h>
+#include <setjmp.h>
 #include "stdint.h"
 #include "predec.h"
 #include <dhcp/rosdhcp_public.h>
@@ -24,23 +25,8 @@
 #define DHCP_REBOOT_TIMEOUT 300
 #define DHCP_PANIC_TIMEOUT DHCP_REBOOT_TIMEOUT * 3
 #define DHCP_BACKOFF_MAX 300
-#define DHCP_DEFAULT_LEASE_TIME 43200 /* 12 hours */
 #define _PATH_DHCLIENT_PID "\\systemroot\\system32\\drivers\\etc\\dhclient.pid"
 typedef void *VOIDPTR;
-
-#ifndef _SSIZE_T_DEFINED
-#define _SSIZE_T_DEFINED
-#undef ssize_t
-#ifdef _WIN64
-#if defined(__GNUC__) && defined(__STRICT_ANSI__)
-  typedef int ssize_t __attribute__ ((mode (DI)));
-#else
-  typedef __int64 ssize_t;
-#endif
-#else
-  typedef int ssize_t;
-#endif
-#endif
 
 typedef u_int32_t uintTIME;
 #define TIME uintTIME
@@ -54,7 +40,6 @@ typedef void (*handler_t) PROTO ((struct packet *));
 typedef struct _DHCP_ADAPTER {
     LIST_ENTRY     ListEntry;
     MIB_IFROW      IfMib;
-    MIB_IPFORWARDROW RouterMib;
     MIB_IPADDRROW  IfAddr;
     SOCKADDR       Address;
     ULONG NteContext,NteInstance;
@@ -72,14 +57,9 @@ typedef DWORD (*PipeSendFunc)( COMM_DHCP_REPLY *Reply );
 #define srandom srand
 
 void AdapterInit(VOID);
-BOOLEAN AdapterDiscover(VOID);
-void AdapterStop(VOID);
 HANDLE PipeInit(VOID);
-extern PDHCP_ADAPTER AdapterGetFirst();
-extern PDHCP_ADAPTER AdapterGetNext(PDHCP_ADAPTER);
 extern PDHCP_ADAPTER AdapterFindIndex( unsigned int AdapterIndex );
 extern PDHCP_ADAPTER AdapterFindInfo( struct interface_info *info );
-extern PDHCP_ADAPTER AdapterFindByHardwareAddress( u_int8_t haddr[16], u_int8_t hlen );
 extern VOID ApiInit();
 extern VOID ApiLock();
 extern VOID ApiUnlock();

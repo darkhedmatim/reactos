@@ -241,7 +241,7 @@ static VOID
 UpdatePrefDlgControls(PPREFERENCES_CONTEXT Context,
                       DWORD LineID)
 {
-    INT OldID, MixerID = 0;
+    UINT OldID, MixerID = 0;
     INT DeviceCbIndex;
 
     /* select the mixer */
@@ -381,8 +381,8 @@ DlgPreferencesProc(HWND hwndDlg,
                 {
                     if (HIWORD(wParam) == CBN_SELCHANGE)
                     {
-                        INT LineID;
-                        INT Index;
+                        DWORD LineID;
+                        DWORD Index;
 
                         Index = SendDlgItemMessage(hwndDlg,
                                                    IDC_LINE,
@@ -429,7 +429,7 @@ DlgPreferencesProc(HWND hwndDlg,
                 case IDC_OTHER:
                 {
                     INT LineCbIndex;
-                    INT LineID;
+                    DWORD LineID;
 
                     EnableWindow(GetDlgItem(hwndDlg,
                                             IDC_LINE),

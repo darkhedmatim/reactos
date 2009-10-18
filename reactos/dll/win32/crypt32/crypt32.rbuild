@@ -1,16 +1,15 @@
-<module name="crypt32" type="win32dll" baseaddress="${BASEADDRESS_CRYPT32}" installbase="system32" installname="crypt32.dll" allowwarnings="true" crt="msvcrt">
+<module name="crypt32" type="win32dll" baseaddress="${BASEADDRESS_CRYPT32}" installbase="system32" installname="crypt32.dll" allowwarnings="true">
 	<importlibrary definition="crypt32.spec" />
 	<include base="crypt32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<library>wine</library>
 	<library>user32</library>
 	<library>advapi32</library>
 	<library>kernel32</library>
 	<library>ntdll</library>
 	<library>imagehlp</library>
-	<library>pseh</library>
 	<file>base64.c</file>
 	<file>cert.c</file>
 	<file>chain.c</file>
@@ -36,7 +35,5 @@
 	<file>ctl.c</file>
 	<file>message.c</file>
 	<file>crypt32.rc</file>
-	<file>version.rc</file>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<file>crypt32.spec</file>
 </module>

@@ -12,15 +12,17 @@
 #include "tdiconn.h"
 #include "debug.h"
 
-static NTSTATUS SatisfyAccept( PAFD_DEVICE_EXTENSION DeviceExt,
+static VOID SatisfyAccept( PAFD_DEVICE_EXTENSION DeviceExt,
                            PIRP Irp,
                            PFILE_OBJECT NewFileObject,
 		                   PAFD_TDI_OBJECT_QELT Qelt ) {
     PAFD_FCB FCB = NewFileObject->FsContext;
     NTSTATUS Status;
 
-    if( !SocketAcquireStateLock( FCB ) )
-        return LostSocket( Irp );
+    if( !SocketAcquireStateLock( FCB ) ) { 
+        LostSocket( Irp );
+        return;
+    }
 
     /* Transfer the connection to the new socket, launch the opening read */
     AFD_DbgPrint(MID_TRACE,("Completing a real accept (FCB %x)\n", FCB));
@@ -36,10 +38,21 @@ static NTSTATUS SatisfyAccept( PAFD_DEVICE_EXTENSION DeviceExt,
     else
 	Status = MakeSocketIntoConnection( FCB );
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    if( NT_SUCCESS(Status) ) {
+	FCB->PollState |= AFD_EVENT_SEND;
+	PollReeval( DeviceExt, NewFileObject );
+    }
+
+    if( Irp->MdlAddress ) UnlockRequest( Irp, IoGetCurrentIrpStackLocation( Irp ) );
+    
+    Irp->IoStatus.Information = 0;
+    Irp->IoStatus.Status = Status;
+    IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
+
+    SocketStateUnlock( FCB );
 }
 
-static NTSTATUS SatisfyPreAccept( PIRP Irp, PAFD_TDI_OBJECT_QELT Qelt ) {
+static VOID SatisfyPreAccept( PIRP Irp, PAFD_TDI_OBJECT_QELT Qelt ) {
     PAFD_RECEIVED_ACCEPT_DATA ListenReceive =
 	(PAFD_RECEIVED_ACCEPT_DATA)Irp->AssociatedIrp.SystemBuffer;
     PTA_IP_ADDRESS IPAddr;
@@ -60,9 +73,7 @@ static NTSTATUS SatisfyPreAccept( PIRP Irp, PAFD_TDI_OBJECT_QELT Qelt ) {
 	if( Irp->MdlAddress ) UnlockRequest( Irp, IoGetCurrentIrpStackLocation( Irp ) );
 	Irp->IoStatus.Status = STATUS_NO_MEMORY;
 	Irp->IoStatus.Information = 0;
-        (void)IoSetCancelRoutine(Irp, NULL);
 	IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
-        return STATUS_NO_MEMORY;
     }
 
     AFD_DbgPrint(MID_TRACE,("IPAddr->TAAddressCount %d\n",
@@ -80,9 +91,7 @@ static NTSTATUS SatisfyPreAccept( PIRP Irp, PAFD_TDI_OBJECT_QELT Qelt ) {
 
     Irp->IoStatus.Information = ((PCHAR)&IPAddr[1]) - ((PCHAR)ListenReceive);
     Irp->IoStatus.Status = STATUS_SUCCESS;
-    (void)IoSetCancelRoutine(Irp, NULL);
     IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
-    return STATUS_SUCCESS;
 }
 
 static NTSTATUS NTAPI ListenComplete
@@ -92,48 +101,20 @@ static NTSTATUS NTAPI ListenComplete
     NTSTATUS Status = STATUS_SUCCESS;
     PAFD_FCB FCB = (PAFD_FCB)Context;
     PAFD_TDI_OBJECT_QELT Qelt;
-    PLIST_ENTRY NextIrpEntry, QeltEntry;
-    PIRP NextIrp;
 
-    if( !SocketAcquireStateLock( FCB ) )
-        return STATUS_FILE_CLOSED;
+    if( !SocketAcquireStateLock( FCB ) ) return STATUS_FILE_CLOSED;
 
     FCB->ListenIrp.InFlightRequest = NULL;
 
+    if( Irp->Cancel ) {
+        SocketStateUnlock( FCB );
+	return STATUS_CANCELLED;
+    }
+
     if( FCB->State == SOCKET_STATE_CLOSED ) {
-        /* Cleanup our IRP queue because the FCB is being destroyed */
-        while( !IsListEmpty( &FCB->PendingIrpList[FUNCTION_PREACCEPT] ) ) {
-	       NextIrpEntry = RemoveHeadList(&FCB->PendingIrpList[FUNCTION_PREACCEPT]);
-	       NextIrp = CONTAINING_RECORD(NextIrpEntry, IRP, Tail.Overlay.ListEntry);
-	       NextIrp->IoStatus.Status = STATUS_FILE_CLOSED;
-	       NextIrp->IoStatus.Information = 0;
-	       if( NextIrp->MdlAddress ) UnlockRequest( NextIrp, IoGetCurrentIrpStackLocation( NextIrp ) );
-               (void)IoSetCancelRoutine(NextIrp, NULL);
-	       IoCompleteRequest( NextIrp, IO_NETWORK_INCREMENT );
-        }
-
-        /* Free all pending connections */
-        while( !IsListEmpty( &FCB->PendingConnections ) ) {
-               QeltEntry = RemoveHeadList(&FCB->PendingConnections);
-               Qelt = CONTAINING_RECORD(QeltEntry, AFD_TDI_OBJECT_QELT, ListEntry);
-               ExFreePool(Qelt);
-        }
-
-        /* Free ConnectionReturnInfo and ConnectionCallInfo */
-        if (FCB->ListenIrp.ConnectionReturnInfo)
-        {
-            ExFreePool(FCB->ListenIrp.ConnectionReturnInfo);
-            FCB->ListenIrp.ConnectionReturnInfo = NULL;
-        }
-
-        if (FCB->ListenIrp.ConnectionCallInfo)
-        {
-            ExFreePool(FCB->ListenIrp.ConnectionCallInfo);
-            FCB->ListenIrp.ConnectionCallInfo = NULL;
-        }
-
 	SocketStateUnlock( FCB );
-	return STATUS_FILE_CLOSED;
+	DestroySocket( FCB );
+	return STATUS_SUCCESS;
     }
 
     AFD_DbgPrint(MID_TRACE,("Completing listen request.\n"));
@@ -141,6 +122,9 @@ static NTSTATUS NTAPI ListenComplete
 
     Qelt = ExAllocatePool( NonPagedPool, sizeof(*Qelt) );
     if( !Qelt ) {
+	/* Is this correct? */
+	TdiCloseDevice( FCB->Connection.Handle,
+			FCB->Connection.Object );
 	Status = STATUS_NO_MEMORY;
     } else {
         UINT AddressType =
@@ -175,26 +159,15 @@ static NTSTATUS NTAPI ListenComplete
 				 ListEntry ) );
     }
 
-    if( FCB->ListenIrp.ConnectionCallInfo ) {
-        ExFreePool( FCB->ListenIrp.ConnectionCallInfo );
-        FCB->ListenIrp.ConnectionCallInfo = NULL;
-    }
-
-    if( FCB->ListenIrp.ConnectionReturnInfo ) {
-        ExFreePool( FCB->ListenIrp.ConnectionReturnInfo );
-        FCB->ListenIrp.ConnectionReturnInfo = NULL;
-    }
-
+    if( FCB->ListenIrp.ConnectionCallInfo ) ExFreePool( FCB->ListenIrp.ConnectionCallInfo );
+    if( FCB->ListenIrp.ConnectionReturnInfo ) ExFreePool( FCB->ListenIrp.ConnectionReturnInfo );
     FCB->NeedsNewListen = TRUE;
 
     /* Trigger a select return if appropriate */
     if( !IsListEmpty( &FCB->PendingConnections ) ) {
 	FCB->PollState |= AFD_EVENT_ACCEPT;
-    } else {
-	FCB->PollState &= ~AFD_EVENT_ACCEPT;
+	PollReeval( FCB->DeviceExt, FCB->FileObject );
     }
-
-    PollReeval( FCB->DeviceExt, FCB->FileObject );
 
     SocketStateUnlock( FCB );
 
@@ -214,12 +187,12 @@ NTSTATUS AfdListenSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     if( !(ListenReq = LockRequest( Irp, IrpSp )) )
 	return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp,
-				       0 );
+				       0, NULL );
 
     if( FCB->State != SOCKET_STATE_BOUND ) {
 	Status = STATUS_INVALID_PARAMETER;
 	AFD_DbgPrint(MID_TRACE,("Could not listen an unbound socket\n"));
-	return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+	return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
     }
 
     FCB->DelayedAccept = ListenReq->UseDelayedAcceptance;
@@ -230,7 +203,7 @@ NTSTATUS AfdListenSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     AFD_DbgPrint(MID_TRACE,("Status from warmsocket %x\n", Status));
 
-    if( !NT_SUCCESS(Status) ) return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    if( !NT_SUCCESS(Status) ) return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
 
     TdiBuildNullConnectionInfo
 	( &FCB->ListenIrp.ConnectionCallInfo,
@@ -240,21 +213,7 @@ NTSTATUS AfdListenSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	  FCB->LocalAddress->Address[0].AddressType );
 
     if( !FCB->ListenIrp.ConnectionReturnInfo || !FCB->ListenIrp.ConnectionCallInfo )
-    {
-        if (FCB->ListenIrp.ConnectionReturnInfo)
-        {
-            ExFreePool(FCB->ListenIrp.ConnectionReturnInfo);
-            FCB->ListenIrp.ConnectionReturnInfo = NULL;
-        }
-
-        if (FCB->ListenIrp.ConnectionCallInfo)
-        {
-            ExFreePool(FCB->ListenIrp.ConnectionCallInfo);
-            FCB->ListenIrp.ConnectionCallInfo = NULL;
-        }
-
-	return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0 );
-    }
+	return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0, NULL );
 
     FCB->State = SOCKET_STATE_LISTENING;
 
@@ -266,21 +225,17 @@ NTSTATUS AfdListenSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			ListenComplete,
 			FCB );
 
-    if( Status == STATUS_PENDING )
+    if( NT_SUCCESS(Status) || Status == STATUS_PENDING )
 	Status = STATUS_SUCCESS;
 
-    if (NT_SUCCESS(Status))
-        FCB->NeedsNewListen = FALSE;
-
     AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
 }
 
 NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			   PIO_STACK_LOCATION IrpSp ) {
     PFILE_OBJECT FileObject = IrpSp->FileObject;
     PAFD_FCB FCB = FileObject->FsContext;
-    NTSTATUS Status;
 
     AFD_DbgPrint(MID_TRACE,("Called\n"));
 
@@ -290,22 +245,18 @@ NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	PLIST_ENTRY PendingConn = FCB->PendingConnections.Flink;
 
 	/* We have a pending connection ... complete this irp right away */
-	Status = SatisfyPreAccept
+	SatisfyPreAccept
 	    ( Irp,
 	      CONTAINING_RECORD
 	      ( PendingConn, AFD_TDI_OBJECT_QELT, ListEntry ) );
 
 	AFD_DbgPrint(MID_TRACE,("Completed a wait for accept\n"));
 
-        if ( IsListEmpty( &FCB->PendingConnections ) )
-             FCB->PollState &= ~AFD_EVENT_ACCEPT;
-        else
-             FCB->PollState |= AFD_EVENT_ACCEPT;
-
+        FCB->PollState &= ~AFD_EVENT_ACCEPT;
         PollReeval( FCB->DeviceExt, FCB->FileObject );
 
 	SocketStateUnlock( FCB );
-	return Status;
+	return Irp->IoStatus.Status;
     } else {
 	AFD_DbgPrint(MID_TRACE,("Holding\n"));
 
@@ -327,6 +278,8 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
 
+    FCB->EventsFired &= ~AFD_EVENT_ACCEPT;
+
     if( FCB->NeedsNewListen ) {
 	AFD_DbgPrint(MID_TRACE,("ADDRESSFILE: %x\n", FCB->AddressFile.Handle));
 
@@ -334,29 +287,11 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	Status = WarmSocketForConnection( FCB );
 
 	if( Status == STATUS_SUCCESS ) {
-            TdiBuildNullConnectionInfo
-	      ( &FCB->ListenIrp.ConnectionCallInfo,
-	        FCB->LocalAddress->Address[0].AddressType );
-            TdiBuildNullConnectionInfo
-	      ( &FCB->ListenIrp.ConnectionReturnInfo,
-                FCB->LocalAddress->Address[0].AddressType );
+	    TdiBuildNullConnectionInfo
+		( &FCB->ListenIrp.ConnectionReturnInfo,
+		  FCB->LocalAddress->Address[0].AddressType );
 
-            if( !FCB->ListenIrp.ConnectionReturnInfo || !FCB->ListenIrp.ConnectionCallInfo )
-            {
-                if (FCB->ListenIrp.ConnectionReturnInfo)
-                {
-                    ExFreePool(FCB->ListenIrp.ConnectionReturnInfo);
-                    FCB->ListenIrp.ConnectionReturnInfo = NULL;
-                }
-
-                if (FCB->ListenIrp.ConnectionCallInfo)
-                {
-                    ExFreePool(FCB->ListenIrp.ConnectionCallInfo);
-                    FCB->ListenIrp.ConnectionCallInfo = NULL;
-                }
-
-	        return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0 );
-            }
+	    if( !FCB->ListenIrp.ConnectionReturnInfo ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0, NULL );
 
 	    Status = TdiListen( &FCB->ListenIrp.InFlightRequest,
 				FCB->Connection.Object,
@@ -365,15 +300,8 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 				&FCB->ListenIrp.Iosb,
 				ListenComplete,
 				FCB );
-
-            if( Status == STATUS_PENDING )
-                Status = STATUS_SUCCESS;
-
-            if( !NT_SUCCESS(Status) )
-                return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
-
-	    FCB->NeedsNewListen = FALSE;
-	} else return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+	} else return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
+	FCB->NeedsNewListen = FALSE;
     }
 
     for( PendingConn = FCB->PendingConnections.Flink;
@@ -399,13 +327,13 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		  (PVOID *)&NewFileObject,
 		  NULL );
 
-            if( !NT_SUCCESS(Status) ) return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+            if( !NT_SUCCESS(Status) ) UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL );
 
             ASSERT(NewFileObject != FileObject);
             ASSERT(NewFileObject->FsContext != FCB);
 
 	    /* We have a pending connection ... complete this irp right away */
-	    Status = SatisfyAccept( DeviceExt, Irp, NewFileObject, PendingConnObj );
+	    SatisfyAccept( DeviceExt, Irp, NewFileObject, PendingConnObj );
 
 	    ObDereferenceObject( NewFileObject );
 
@@ -415,16 +343,13 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
 	    if( IsListEmpty( &FCB->PendingConnections ) ) {
 		FCB->PollState &= ~AFD_EVENT_ACCEPT;
-	    } else {
-		FCB->PollState |= AFD_EVENT_ACCEPT;
-            }
-
-	    PollReeval( FCB->DeviceExt, FCB->FileObject );
+		PollReeval( FCB->DeviceExt, FCB->FileObject );
+	    }
 
 	    SocketStateUnlock( FCB );
-	    return Status;
+	    return Irp->IoStatus.Status;
 	}
     }
 
-    return UnlockAndMaybeComplete( FCB, STATUS_UNSUCCESSFUL, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, STATUS_UNSUCCESSFUL, Irp, 0, NULL );
 }

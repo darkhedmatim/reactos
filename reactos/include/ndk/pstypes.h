@@ -172,25 +172,6 @@ Author:
                                                  31)
 
 //
-// Job Limit Flags
-//
-#define JOB_OBJECT_LIMIT_WORKINGSET             0x1
-#define JOB_OBJECT_LIMIT_PROCESS_TIME           0x2
-#define JOB_OBJECT_LIMIT_JOB_TIME               0x4
-#define JOB_OBJECT_LIMIT_ACTIVE_PROCESS         0x8
-#define JOB_OBJECT_LIMIT_AFFINITY               0x10
-#define JOB_OBJECT_LIMIT_PRIORITY_CLASS         0x20
-#define JOB_OBJECT_LIMIT_PRESERVE_JOB_TIME      0x40
-#define JOB_OBJECT_LIMIT_SCHEDULING_CLASS       0x80
-#define JOB_OBJECT_LIMIT_PROCESS_MEMORY         0x100
-#define JOB_OBJECT_LIMIT_JOB_MEMORY             0x200
-#define JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION 0x400
-#define JOB_OBJECT_LIMIT_BREAKAWAY_OK           0x800
-#define JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK    0x1000
-#define JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE      0x2000
-
-
-//
 // Cross Thread Flags
 //
 #define CT_TERMINATED_BIT                       0x1
@@ -587,53 +568,23 @@ typedef struct _PEB_FREE_BLOCK
 } PEB_FREE_BLOCK, *PPEB_FREE_BLOCK;
 
 //
-// Initial PEB
-//
-typedef struct _INITIAL_PEB
-{
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
-    union
-    {
-        BOOLEAN BitField;
-#if (NTDDI_VERSION >= NTDDI_WS03)
-        struct
-        {
-            BOOLEAN ImageUsesLargePages:1;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-            BOOLEAN IsProtectedProcess:1;
-            BOOLEAN IsLegacyProcess:1;
-            BOOLEAN SpareBits:5;
-#else
-            BOOLEAN SpareBits:7;
-#endif
-        };
-#else
-        BOOLEAN SpareBool;
-#endif
-    };
-    HANDLE Mutant;
-} INITIAL_PEB, *PINITIAL_PEB;
-
-//
 // Process Environment Block (PEB)
 //
 typedef struct _PEB
 {
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
+    UCHAR InheritedAddressSpace;
+    UCHAR ReadImageFileExecOptions;
+    UCHAR BeingDebugged;
 #if (NTDDI_VERSION >= NTDDI_WS03)
     struct
     {
-        BOOLEAN ImageUsesLargePages:1;
+        UCHAR ImageUsesLargePages:1;
     #if (NTDDI_VERSION >= NTDDI_LONGHORN)
-        BOOLEAN IsProtectedProcess:1;
-        BOOLEAN IsLegacyProcess:1;
-        BOOLEAN SpareBits:5;
+        UCHAR IsProtectedProcess:1;
+        UCHAR IsLegacyProcess:1;
+        UCHAR SpareBits:5;
     #else
-        BOOLEAN SpareBits:7;
+        UCHAR SpareBits:7;
     #endif
     };
 #else
@@ -1066,6 +1017,7 @@ typedef struct _PSP_RATE_APC
 typedef struct _ETHREAD
 {
     KTHREAD Tcb;
+    PVOID Padding;
     LARGE_INTEGER CreateTime;
     union
     {
@@ -1107,7 +1059,7 @@ typedef struct _ETHREAD
 #endif
     PPS_IMPERSONATION_INFORMATION ImpersonationInfo;
     LIST_ENTRY IrpList;
-    ULONG_PTR TopLevelIrp;
+    ULONG TopLevelIrp;
     PDEVICE_OBJECT DeviceToVerify;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     PPSP_RATE_APC RateControlApc;
@@ -1217,7 +1169,7 @@ typedef struct _ETHREAD
     KSEMAPHORE AlpcWaitSemaphore;
     ULONG CacheManagerCount;
 #endif
-} ETHREAD;
+} ETHREAD, *PETHREAD;
 
 //
 // Executive Process (EPROCESS)
@@ -1409,7 +1361,7 @@ typedef struct _EPROCESS
     UCHAR PriorityClass;
     MM_AVL_TABLE VadRoot;
     ULONG Cookie;
-} EPROCESS;
+} EPROCESS, *PEPROCESS;
 
 //
 // Job Token Filter Data

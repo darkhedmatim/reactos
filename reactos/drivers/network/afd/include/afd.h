@@ -13,11 +13,6 @@
 #define _AFD_H
 
 #include <ntddk.h>
-#include <ntifs.h>
-#include <ndk/obtypes.h>
-#include <ndk/obfuncs.h>
-#include <ndk/mmtypes.h>
-#include <ndk/mmfuncs.h>
 #include <tdi.h>
 #include <tdikrnl.h>
 #include <tdiinfo.h>
@@ -117,7 +112,7 @@ typedef struct IPADDR_ENTRY {
  * We do this in order to get some storage for the locked handle table
  * Maybe I'll use some tail item in the irp instead */
 #define AFD_HANDLES(x) ((PAFD_HANDLE)(x)->Exclusive)
-#define SET_AFD_HANDLES(x,y) (((x)->Exclusive) = (ULONG_PTR)(y))
+#define SET_AFD_HANDLES(x,y) (((x)->Exclusive) = (ULONG)(y))
 
 typedef struct _AFD_MAPBUF {
     PVOID BufferAddress;
@@ -178,7 +173,7 @@ typedef struct _AFD_STORED_DATAGRAM {
 
 typedef struct _AFD_FCB {
     BOOLEAN Locked, Critical, Overread;
-    UINT State, Flags, BlockingMode, GroupID, GroupType;
+    UINT State, Flags;
     KIRQL OldIrql;
     UINT LockCount;
     PVOID CurrentThread;
@@ -196,6 +191,7 @@ typedef struct _AFD_FCB {
     KEVENT StateLockedEvent;
     PKEVENT EventSelect;
     DWORD EventSelectTriggers;
+    DWORD EventsFired;
     UNICODE_STRING TdiDeviceName;
     PVOID Context;
     DWORD PollState;
@@ -208,7 +204,7 @@ typedef struct _AFD_FCB {
 /* bind.c */
 
 NTSTATUS WarmSocketForBind( PAFD_FCB FCB );
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	      PIO_STACK_LOCATION IrpSp);
 
@@ -216,36 +212,28 @@ AfdBindSocket(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
 NTSTATUS MakeSocketIntoConnection( PAFD_FCB FCB );
 NTSTATUS WarmSocketForConnection( PAFD_FCB FCB );
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdStreamSocketConnect(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		       PIO_STACK_LOCATION IrpSp);
 
 /* context.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdGetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp );
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdSetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp );
 
 /* info.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	    PIO_STACK_LOCATION IrpSp );
 
-NTSTATUS NTAPI
-AfdSetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-	    PIO_STACK_LOCATION IrpSp );
-
-NTSTATUS NTAPI
-AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                PIO_STACK_LOCATION IrpSp );
-
-NTSTATUS NTAPI
-AfdGetPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                PIO_STACK_LOCATION IrpSp );
+NTSTATUS STDCALL
+AfdGetSockOrPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
+                      PIO_STACK_LOCATION IrpSp, BOOLEAN Local );
 
 /* listen.c */
 NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
@@ -266,21 +254,22 @@ VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count, BOOL Address );
 UINT SocketAcquireStateLock( PAFD_FCB FCB );
 NTSTATUS NTAPI UnlockAndMaybeComplete
 ( PAFD_FCB FCB, NTSTATUS Status, PIRP Irp,
-  UINT Information );
+  UINT Information,
+  PIO_COMPLETION_ROUTINE Completion );
 VOID SocketStateUnlock( PAFD_FCB FCB );
 NTSTATUS LostSocket( PIRP Irp );
 PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount );
 VOID UnlockHandles( PAFD_HANDLE HandleArray, UINT HandleCount );
 PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp );
 VOID UnlockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp );
+VOID SocketCalloutEnter( PAFD_FCB FCB );
+VOID SocketCalloutLeave( PAFD_FCB FCB );
 
 /* main.c */
 
 VOID OskitDumpBuffer( PCHAR Buffer, UINT Len );
 NTSTATUS LeaveIrpUntilLater( PAFD_FCB FCB, PIRP Irp, UINT Function );
 VOID DestroySocket( PAFD_FCB FCB );
-VOID NTAPI AfdCancelHandler(PDEVICE_OBJECT DeviceObject,
-                 PIRP Irp);
 
 /* read.c */
 
@@ -294,32 +283,27 @@ NTSTATUS NTAPI PacketSocketRecvComplete
   PIRP Irp,
   PVOID Context );
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdConnectedSocketReadData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			   PIO_STACK_LOCATION IrpSp, BOOLEAN Short);
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdPacketSocketReadData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			PIO_STACK_LOCATION IrpSp );
 
 /* select.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdSelect( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	   PIO_STACK_LOCATION IrpSp );
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdEventSelect( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		PIO_STACK_LOCATION IrpSp );
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdEnumEvents( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp );
 VOID PollReeval( PAFD_DEVICE_EXTENSION DeviceObject, PFILE_OBJECT FileObject );
 VOID KillSelectsForFCB( PAFD_DEVICE_EXTENSION DeviceExt,
                         PFILE_OBJECT FileObject, BOOLEAN ExclusiveOnly );
-VOID ZeroEvents( PAFD_HANDLE HandleArray,
-		 UINT HandleCount );
-VOID SignalSocket(
-   PAFD_ACTIVE_POLL Poll OPTIONAL, PIRP _Irp OPTIONAL,
-   PAFD_POLL_INFO PollReq, NTSTATUS Status);
 
 /* tdi.c */
 
@@ -385,10 +369,10 @@ NTSTATUS TdiSendDatagram(
 
 /* write.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdConnectedSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			    PIO_STACK_LOCATION IrpSp, BOOLEAN Short);
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdPacketSocketWriteData(PDEVICE_OBJECT DeviceObject, PIRP Irp,
 			 PIO_STACK_LOCATION IrpSp);
 

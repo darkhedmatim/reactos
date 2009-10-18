@@ -66,7 +66,7 @@ MmReleasePageOp(PMM_PAGEOP PageOp)
       PrevPageOp = PrevPageOp->Next;
    }
    KeReleaseSpinLock(&MmPageOpHashTableLock, oldIrql);
-   KeBugCheck(MEMORY_MANAGEMENT);
+   ASSERT(FALSE);
 }
 
 PMM_PAGEOP
@@ -211,7 +211,7 @@ MmGetPageOp(PMEMORY_AREA MArea, HANDLE Pid, PVOID Address,
    if (PageOp == NULL)
    {
       KeReleaseSpinLock(&MmPageOpHashTableLock, oldIrql);
-      KeBugCheck(MEMORY_MANAGEMENT);
+      ASSERT(FALSE);
       return(NULL);
    }
 

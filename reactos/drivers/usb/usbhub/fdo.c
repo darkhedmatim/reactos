@@ -224,7 +224,7 @@ ByeBye:
 	return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubPnpFdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)

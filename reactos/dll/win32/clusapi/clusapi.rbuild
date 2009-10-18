@@ -9,4 +9,5 @@
 	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>clusapi.c</file>
+	<file>clusapi.spec</file>
 </module>

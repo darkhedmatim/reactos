@@ -14,56 +14,10 @@
 #include <debug.h>
 
 
-SHORT
-FASTCALL
-IntGdiGetLanguageID(VOID)
-{
-  HANDLE KeyHandle;
-  ULONG Size = sizeof(WCHAR) * (MAX_PATH + 12);
-  OBJECT_ATTRIBUTES ObAttr;
-//  http://support.microsoft.com/kb/324097
-  ULONG Ret = 0x409; // English
-  PVOID KeyInfo;
-  UNICODE_STRING Language;
-  
-  RtlInitUnicodeString( &Language,
-    L"\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Nls\\Language");
-
-  InitializeObjectAttributes( &ObAttr,
-                            &Language,
-                 OBJ_CASE_INSENSITIVE,
-                                 NULL,
-                                 NULL);
-
-  if ( NT_SUCCESS(ZwOpenKey(&KeyHandle, KEY_READ, &ObAttr)))
-  {
-     KeyInfo = ExAllocatePoolWithTag(PagedPool, Size, TAG_STRING);
-     if ( KeyInfo )
-     {
-        RtlInitUnicodeString(&Language, L"Default");
-
-        if ( NT_SUCCESS(ZwQueryValueKey( KeyHandle,
-                                         &Language,
-                        KeyValuePartialInformation,
-                                           KeyInfo,
-                                              Size,
-                                             &Size)) )
-      {
-        RtlInitUnicodeString(&Language, (PVOID)((char *)KeyInfo + 12));
-        RtlUnicodeStringToInteger(&Language, 16, &Ret);
-      }
-      ExFreePoolWithTag(KeyInfo, TAG_STRING);
-    }
-    ZwClose(KeyHandle);
-  }
-  DPRINT("Language ID = %x\n",Ret);
-  return (SHORT) Ret;
-}
-
 /*
  * @unimplemented
  */
-DWORD APIENTRY
+DWORD STDCALL
 NtUserGetThreadState(
    DWORD Routine)
 {
@@ -91,36 +45,11 @@ NtUserGetThreadState(
          /* FIXME should use UserEnterShared */
          RETURN( (DWORD)IntGetCapture());
       case THREADSTATE_PROGMANWINDOW:
-         RETURN( (DWORD)GetW32ThreadInfo()->pDeskInfo->hProgmanWindow);
+         RETURN( (DWORD)GetW32ThreadInfo()->Desktop->hProgmanWindow);
       case THREADSTATE_TASKMANWINDOW:
-         RETURN( (DWORD)GetW32ThreadInfo()->pDeskInfo->hTaskManWindow);
+         RETURN( (DWORD)GetW32ThreadInfo()->Desktop->hTaskManWindow);
       case THREADSTATE_ACTIVEWINDOW:
          RETURN ( (DWORD)UserGetActiveWindow());
-      case THREADSTATE_INSENDMESSAGE:
-         {
-           DWORD Ret = ISMEX_NOSEND;
-           PUSER_MESSAGE_QUEUE MessageQueue = 
-                ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->MessageQueue;
-           DPRINT1("THREADSTATE_INSENDMESSAGE\n");
-
-           if (!IsListEmpty(&MessageQueue->SentMessagesListHead))
-           {
-             Ret = ISMEX_SEND;
-           }
-           else if (!IsListEmpty(&MessageQueue->NotifyMessagesListHead))
-           {
-           /* FIXME Need to set message flag when in callback mode with notify */
-             Ret = ISMEX_NOTIFY;
-           }
-           /* FIXME Need to set message flag if replied to or ReplyMessage */
-           RETURN( Ret);           
-         }
-      case THREADSTATE_GETMESSAGETIME: 
-         /* FIXME Needs more work! */
-         RETURN( ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->timeLast);
-
-      case THREADSTATE_GETINPUTSTATE:
-         RETURN( HIWORD(IntGetQueueStatus(FALSE)) & (QS_KEY | QS_MOUSEBUTTON));
    }
    RETURN( 0);
 
@@ -132,24 +61,39 @@ CLEANUP:
 
 
 UINT
-APIENTRY
+STDCALL
 NtUserGetDoubleClickTime(VOID)
 {
    UINT Result;
+   NTSTATUS Status;
+   PWINSTATION_OBJECT WinStaObject;
+   PSYSTEM_CURSORINFO CurInfo;
+   DECLARE_RETURN(UINT);
 
    DPRINT("Enter NtUserGetDoubleClickTime\n");
    UserEnterShared();
 
-   // FIXME: Check if this works on non-interactive winsta
-   Result = gspv.iDblClickTime;
+   Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+                                           KernelMode,
+                                           0,
+                                           &WinStaObject);
+   if (!NT_SUCCESS(Status))
+      RETURN( (DWORD)FALSE);
 
-   DPRINT("Leave NtUserGetDoubleClickTime, ret=%i\n", Result);
+   CurInfo = IntGetSysCursorInfo(WinStaObject);
+   Result = CurInfo->DblClickSpeed;
+
+   ObDereferenceObject(WinStaObject);
+   RETURN( Result);
+
+CLEANUP:
+   DPRINT("Leave NtUserGetDoubleClickTime, ret=%i\n",_ret_);
    UserLeave();
-   return Result;
+   END_CLEANUP;
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserGetGUIThreadInfo(
    DWORD idThread, /* if NULL use foreground thread */
    LPGUITHREADINFO lpgui)
@@ -254,13 +198,13 @@ CLEANUP:
 
 
 DWORD
-APIENTRY
+STDCALL
 NtUserGetGuiResources(
    HANDLE hProcess,
    DWORD uiFlags)
 {
    PEPROCESS Process;
-   PPROCESSINFO W32Process;
+   PW32PROCESS W32Process;
    NTSTATUS Status;
    DWORD Ret = 0;
    DECLARE_RETURN(DWORD);
@@ -281,7 +225,7 @@ NtUserGetGuiResources(
       RETURN( 0);
    }
 
-   W32Process = (PPROCESSINFO)Process->Win32Process;
+   W32Process = (PW32PROCESS)Process->Win32Process;
    if(!W32Process)
    {
       ObDereferenceObject(Process);
@@ -293,12 +237,12 @@ NtUserGetGuiResources(
    {
       case GR_GDIOBJECTS:
          {
-            Ret = (DWORD)W32Process->GDIHandleCount;
+            Ret = (DWORD)W32Process->GDIObjects;
             break;
          }
       case GR_USEROBJECTS:
          {
-            Ret = (DWORD)W32Process->UserHandleCount;
+            Ret = (DWORD)W32Process->UserObjects;
             break;
          }
       default:
@@ -351,7 +295,7 @@ IntSafeCopyUnicodeString(PUNICODE_STRING Dest,
       Status = MmCopyFromCaller(Dest->Buffer, Src, Dest->Length);
       if(!NT_SUCCESS(Status))
       {
-         ExFreePoolWithTag(Dest->Buffer, TAG_STRING);
+         ExFreePool(Dest->Buffer);
          Dest->Buffer = NULL;
          return Status;
       }
@@ -398,7 +342,7 @@ IntSafeCopyUnicodeStringTerminateNULL(PUNICODE_STRING Dest,
       Status = MmCopyFromCaller(Dest->Buffer, Src, Dest->Length);
       if(!NT_SUCCESS(Status))
       {
-         ExFreePoolWithTag(Dest->Buffer, TAG_STRING);
+         ExFreePool(Dest->Buffer);
          Dest->Buffer = NULL;
          return Status;
       }
@@ -445,69 +389,111 @@ IntFreeNULLTerminatedFromUnicodeString(PWSTR NullTerminated, PUNICODE_STRING Uni
    }
 }
 
-PPROCESSINFO
+PW32PROCESSINFO
 GetW32ProcessInfo(VOID)
 {
-    return (PPROCESSINFO)PsGetCurrentProcessWin32Process();
-}
+    PW32PROCESSINFO pi;
+    PW32PROCESS W32Process = PsGetCurrentProcessWin32Process();
 
-PTHREADINFO
-GetW32ThreadInfo(VOID)
-{
-    PTEB Teb;
-    PPROCESSINFO ppi;
-    PCLIENTINFO pci;
-    PTHREADINFO pti = PsGetCurrentThreadWin32Thread();
-
-    if (pti == NULL)
+    if (W32Process == NULL)
     {
         /* FIXME - temporary hack for system threads... */
         return NULL;
     }
-    /* initialize it */
-    pti->ppi = ppi = GetW32ProcessInfo();
 
-    pti->pcti = &pti->cti; // FIXME Need to set it in desktop.c!
-
-    if (pti->Desktop != NULL)
+    if (W32Process->ProcessInfo == NULL)
     {
-       pti->pDeskInfo = pti->Desktop->DesktopInfo;
-    }
-    else
-    {
-       pti->pDeskInfo = NULL;
-    }
-    /* update the TEB */
-    Teb = NtCurrentTeb();
-    pci = GetWin32ClientInfo();
-    pti->pClientInfo = pci;
-    _SEH2_TRY
-    {
-        ProbeForWrite( Teb,
-                       sizeof(TEB),
-                       sizeof(ULONG));
-
-        Teb->Win32ThreadInfo = (PW32THREAD) pti;
-
-        pci->pClientThreadInfo = NULL; // FIXME Need to set it in desktop.c!
-        pci->ppi = ppi;
-        pci->fsHooks = pti->fsHooks;
-        if (pti->KeyboardLayout) pci->hKL = pti->KeyboardLayout->hkl;
-        /* CI may not have been initialized. */
-        if (!pci->pDeskInfo && pti->pDeskInfo)
+        pi = UserHeapAlloc(sizeof(W32PROCESSINFO));
+        if (pi != NULL)
         {
-           if (!pci->ulClientDelta) pci->ulClientDelta = DesktopHeapGetUserDelta();
+            RtlZeroMemory(pi,
+                          sizeof(W32PROCESSINFO));
 
-           pci->pDeskInfo = (PVOID)((ULONG_PTR)pti->pDeskInfo - pci->ulClientDelta);
+            /* initialize it */
+            pi->UserHandleTable = gHandleTable;
+            pi->hUserHeap = W32Process->HeapMappings.KernelMapping;
+            pi->UserHeapDelta = (ULONG_PTR)W32Process->HeapMappings.KernelMapping -
+                                (ULONG_PTR)W32Process->HeapMappings.UserMapping;
+            pi->psi = gpsi;
+
+            if (InterlockedCompareExchangePointer(&W32Process->ProcessInfo,
+                                                  pi,
+                                                  NULL) != NULL)
+            {
+                UserHeapFree(pi);
+            }
+        }
+        else
+        {
+            SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        SetLastNtError(_SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
 
-    return pti;
+    return W32Process->ProcessInfo;
+}
+
+PW32THREADINFO
+GetW32ThreadInfo(VOID)
+{
+    PTEB Teb;
+    PW32THREADINFO ti;
+    PCLIENTINFO ci;
+    PTHREADINFO W32Thread = PsGetCurrentThreadWin32Thread();
+
+    if (W32Thread == NULL)
+    {
+        /* FIXME - temporary hack for system threads... */
+        return NULL;
+    }
+
+    /* allocate a THREADINFO structure if neccessary */
+    if (W32Thread->ThreadInfo == NULL)
+    {
+        ti = UserHeapAlloc(sizeof(W32THREADINFO));
+        if (ti != NULL)
+        {
+            RtlZeroMemory(ti,
+                          sizeof(W32THREADINFO));
+
+            /* initialize it */
+            ti->kpi = GetW32ProcessInfo();
+            ti->pi = UserHeapAddressToUser(ti->kpi);
+            ti->Hooks = W32Thread->Hooks;
+            if (W32Thread->Desktop != NULL)
+            {
+                ti->Desktop = W32Thread->Desktop->DesktopInfo;
+            }
+            else
+            {
+                ti->Desktop = NULL;
+            }
+
+            W32Thread->ThreadInfo = ti;
+            /* update the TEB */
+            Teb = NtCurrentTeb();
+            ci = GetWin32ClientInfo();
+            _SEH_TRY
+            {
+                ProbeForWrite(Teb,
+                              sizeof(TEB),
+                              sizeof(ULONG));
+
+                Teb->Win32ThreadInfo = UserHeapAddressToUser(W32Thread->ThreadInfo);
+                ci->pClientThreadInfo = &ti->ClientThreadInfo;
+            }
+            _SEH_HANDLE
+            {
+                SetLastNtError(_SEH_GetExceptionCode());
+            }
+            _SEH_END;
+        }
+        else
+        {
+            SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
+        }
+    }
+
+    return W32Thread->ThreadInfo;
 }
 
 

@@ -1,5 +1,4 @@
-<group>
-<module name="shell32" type="win32dll" baseaddress="${BASEADDRESS_SHELL32}" installbase="system32" installname="shell32.dll" crt="msvcrt">
+<module name="shell32" type="win32dll" baseaddress="${BASEADDRESS_SHELL32}" installbase="system32" installname="shell32.dll">
 	<autoregister infsection="OleControlDlls" type="Both" />
 	<importlibrary definition="shell32.spec" />
 	<include base="shell32">.</include>
@@ -7,8 +6,7 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="_SHELL32_" />
 	<define name="COM_NO_WINDOWS_H" />
-	<define name="_WINE" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>recyclebin</library>
@@ -46,7 +44,6 @@
 	<file>pidl.c</file>
 	<file>regsvr.c</file>
 	<file>shell32_main.c</file>
-	<file>shellitem.c</file>
 	<file>shelllink.c</file>
 	<file>shellole.c</file>
 	<file>shellord.c</file>
@@ -72,8 +69,8 @@
 	<file>shpolicy.c</file>
 	<file>shv_def_cmenu.c</file>
 	<file>startmenu.c</file>
-	<file>stubs.c</file>
 	<file>ros-systray.c</file>
+	<file>shell32.spec</file>
 	<file>fprop.c</file>
 	<file>drive.c</file>
 	<file>she_ocmenu.c</file>
@@ -81,7 +78,3 @@
 	<file>folder_options.c</file>
 	<file>shell32.rc</file>
 </module>
-<module name="shobjidl_local_interface" type="idlinterface">
-	<file>shobjidl_local.idl</file>
-</module>
-</group>

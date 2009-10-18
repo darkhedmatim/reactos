@@ -17,7 +17,7 @@
 /* FUNCTIONS *****************************************************************/
 
 VOID
-NTAPI
+STDCALL
 KdpBochsDebugPrint(IN PCH Message,
                    IN ULONG Length)
 {
@@ -35,7 +35,7 @@ KdpBochsDebugPrint(IN PCH Message,
 }
 
 VOID
-NTAPI
+STDCALL
 KdpBochsInit(PKD_DISPATCH_TABLE DispatchTable,
              ULONG BootPhase)
 {

@@ -17,10 +17,10 @@ typedef struct _RPC_STRING {
     [size_is(MaximumLength), length_is(Length)] LPSTR Buffer;
 } RPC_STRING, *PRPC_STRING;
 
-typedef [context_handle] PVOID IELF_HANDLE;
+typedef /*[context_handle]*/ unsigned long IELF_HANDLE;
 typedef IELF_HANDLE *PIELF_HANDLE;
-typedef [handle, unique] LPWSTR EVENTLOG_HANDLE_W;
-typedef [handle, unique] LPSTR EVENTLOG_HANDLE_A;
+typedef /*[handle, unique]*/ LPWSTR EVENTLOG_HANDLE_W;
+typedef /*[handle, unique]*/ LPSTR EVENTLOG_HANDLE_A;
 
 typedef struct _RPC_CLIENT_ID {
     DWORD UniqueProcess;
@@ -40,41 +40,65 @@ interface eventlog
 {
     /* Function 0 */
     NTSTATUS ElfrClearELFW(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in, unique] PRPC_UNICODE_STRING BackupFileName);
 
     /* Function 1 */
      NTSTATUS ElfrBackupELFW(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in, unique] PRPC_UNICODE_STRING BackupFileName);
 
     /* Function 2 */
     NTSTATUS ElfrCloseEL(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in, out] IELF_HANDLE *LogHandle);
 
     /* Function 3 */
     NTSTATUS ElfrDeregisterEventSource(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in, out] IELF_HANDLE *LogHandle);
 
     /* Function 4 */
     NTSTATUS ElfrNumberOfRecords(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [out] DWORD *NumberOfRecords);
 
     /* Function 5 */
     NTSTATUS ElfrOldestRecord(
+#ifndef __midl
+        handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [out] DWORD *OldestRecordNumber);
 
     /* Function 6 */
     NTSTATUS ElfrChangeNotify(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE *LogHandle,
         [in] RPC_CLIENT_ID ClientId,
         [in] DWORD Event);
 
     /* Function 7 */
     NTSTATUS ElfrOpenELW(
-        [in, unique] EVENTLOG_HANDLE_W UNCServerName, /* FIXME */
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
+        [in] EVENTLOG_HANDLE_W UNCServerName,
         [in] PRPC_UNICODE_STRING ModuleName,
         [in] PRPC_UNICODE_STRING RegModuleName,
         [in] DWORD MajorVersion,
@@ -83,7 +107,10 @@ interface eventlog
 
     /* Function 8 */
     NTSTATUS ElfrRegisterEventSourceW(
-        [in, unique] EVENTLOG_HANDLE_W UNCServerName, /* FIXME */
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
+        [in] EVENTLOG_HANDLE_W UNCServerName,
         [in] PRPC_UNICODE_STRING ModuleName,
         [in] PRPC_UNICODE_STRING RegModuleName,
         [in] DWORD MajorVersion,
@@ -92,7 +119,10 @@ interface eventlog
 
     /* Function 9 */
     NTSTATUS ElfrOpenBELW(
-        [in, unique] EVENTLOG_HANDLE_W UNCServerName, /* FIXME */
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
+        [in] EVENTLOG_HANDLE_W UNCServerName,
         [in] PRPC_UNICODE_STRING BackupFileName,
         [in] DWORD MajorVersion,
         [in] DWORD MinorVersion,
@@ -100,6 +130,9 @@ interface eventlog
 
     /* Function 10 */
     NTSTATUS ElfrReadELW(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in] DWORD ReadFlags,
         [in] DWORD RecordOffset,
@@ -110,6 +143,9 @@ interface eventlog
 
     /* Function 11 */
     NTSTATUS ElfrReportEventW(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in] DWORD Time,
         [in] USHORT EventType,
@@ -127,17 +163,26 @@ interface eventlog
 
     /* Function 12 */
     NTSTATUS ElfrClearELFA(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in, unique] PRPC_STRING BackupFileName);
 
     /* Function 13 */
      NTSTATUS ElfrBackupELFA(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in, unique] PRPC_STRING BackupFileName);
 
     /* Function 14 */
     NTSTATUS ElfrOpenELA(
-        [in, unique] EVENTLOG_HANDLE_A UNCServerName, /* FIXME */
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
+        [in] EVENTLOG_HANDLE_A UNCServerName,
         [in] PRPC_STRING ModuleName,
         [in] PRPC_STRING RegModuleName,
         [in] DWORD MajorVersion,
@@ -146,7 +191,10 @@ interface eventlog
 
     /* Function 15 */
     NTSTATUS ElfrRegisterEventSourceA(
-        [in, unique] EVENTLOG_HANDLE_A UNCServerName, /* FIXME */
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
+        [in] EVENTLOG_HANDLE_A UNCServerName,
         [in] PRPC_STRING ModuleName,
         [in] PRPC_STRING RegModuleName,
         [in] DWORD MajorVersion,
@@ -155,7 +203,10 @@ interface eventlog
 
     /* Function 16 */
     NTSTATUS ElfrOpenBELA(
-        [in, unique] EVENTLOG_HANDLE_A UNCServerName, /* FIXME */
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
+        [in] EVENTLOG_HANDLE_A UNCServerName,
         [in] PRPC_STRING BackupFileName,
         [in] DWORD MajorVersion,
         [in] DWORD MinorVersion,
@@ -163,6 +214,9 @@ interface eventlog
 
     /* Function 17 */
     NTSTATUS ElfrReadELA(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in] DWORD ReadFlags,
         [in] DWORD RecordOffset,
@@ -173,6 +227,9 @@ interface eventlog
 
     /* Function 18 */
     NTSTATUS ElfrReportEventA(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in] DWORD Time,
         [in] USHORT EventType,
@@ -211,6 +268,9 @@ interface eventlog
 
     /* Function 22 */
     NTSTATUS ElfrGetLogInformation(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in] DWORD InfoLevel,
         [out, size_is(cbBufSize)] BYTE *Buffer,
@@ -219,10 +279,16 @@ interface eventlog
 
     /* Function 23 */
     NTSTATUS ElfrFlushEL(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle);
 
     /* Function 24 */
     NTSTATUS ElfrReportEventAndSourceW(
+#ifndef __midl
+        [in] handle_t BindingHandle,
+#endif
         [in] IELF_HANDLE LogHandle,
         [in] DWORD Time,
         [in] USHORT EventType,

@@ -18,7 +18,7 @@
 
 /* GLOBALS *******************************************************************/
 
-HANDLE WINAPI
+HANDLE STDCALL
 DuplicateConsoleHandle (HANDLE	hConsole,
 			DWORD   dwDesiredAccess,
 			BOOL	bInheritHandle,
@@ -83,7 +83,7 @@ GetHandleInformation (HANDLE hObject,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetHandleInformation (HANDLE hObject,
 		      DWORD dwMask,
 		      DWORD dwFlags)
@@ -129,7 +129,7 @@ SetHandleInformation (HANDLE hObject,
 /*
  * @implemented
  */
-BOOL WINAPI CloseHandle(HANDLE  hObject)
+BOOL STDCALL CloseHandle(HANDLE  hObject)
 /*
  * FUNCTION: Closes an open object handle
  * PARAMETERS:
@@ -161,7 +161,7 @@ BOOL WINAPI CloseHandle(HANDLE  hObject)
 /*
  * @implemented
  */
-BOOL WINAPI DuplicateHandle(HANDLE hSourceProcessHandle,
+BOOL STDCALL DuplicateHandle(HANDLE hSourceProcessHandle,
 				HANDLE hSourceHandle,
 				HANDLE hTargetProcessHandle,
 				LPHANDLE lpTargetHandle,
@@ -210,7 +210,7 @@ BOOL WINAPI DuplicateHandle(HANDLE hSourceProcessHandle,
 /*
  * @implemented
  */
-UINT WINAPI SetHandleCount(UINT nCount)
+UINT STDCALL SetHandleCount(UINT nCount)
 {
    return(nCount);
 }

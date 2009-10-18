@@ -15,17 +15,6 @@
 LONG HalpActiveProcessors;
 KAFFINITY HalpDefaultInterruptAffinity;
 
-/* PRIVATE FUNCTIONS *********************************************************/
-
-VOID
-NTAPI
-HaliHaltSystem(VOID)
-{
-    /* Disable interrupts and halt the CPU */
-    _disable();
-    __halt();
-}
-
 /* FUNCTIONS *****************************************************************/
 
 /*
@@ -81,7 +70,7 @@ HalProcessorIdle(VOID)
 {
     /* Enable interrupts and halt the processor */
     _enable();
-    __halt();
+    Ke386HaltProcessor();
 }
 
 /*

@@ -17,6 +17,7 @@
 #include <ntddvol.h>
 #include <mountdev.h>
 #include <mountmgr.h>
+#include <helper.h>
 #include <ketypes.h>
 #include <iotypes.h>
 #include <rtlfuncs.h>
@@ -493,7 +494,7 @@ RamdiskCreateDiskDevice(IN PRAMDISK_BUS_EXTENSION DeviceExtension,
         Length = GuidString.Length + 32;
         Buffer = ExAllocatePoolWithTag(NonPagedPool,
                                        Length,
-                                       'dmaR');
+                                       TAG('R', 'a', 'm', 'd'));
         if (!Buffer)
         {
             //
@@ -542,7 +543,7 @@ RamdiskCreateDiskDevice(IN PRAMDISK_BUS_EXTENSION DeviceExtension,
             SymbolicLinkName.Length = GuidString.Length + 34;
             Buffer = ExAllocatePoolWithTag(NonPagedPool,
                                            SymbolicLinkName.MaximumLength,
-                                           'dmaR');
+                                           TAG('R', 'a', 'm', 'd'));
             SymbolicLinkName.Buffer = Buffer;
             if (Buffer)
             {
@@ -618,7 +619,7 @@ RamdiskCreateDiskDevice(IN PRAMDISK_BUS_EXTENSION DeviceExtension,
         DiskLength = Input->DiskLength;
 		ExInitializeFastMutex(&DriveExtension->DiskListLock);
 	    IoInitializeRemoveLock(&DriveExtension->RemoveLock,
-                               'dmaR',
+                               TAG('R', 'a', 'm', 'd'),
                                0,
                                1);
         DriveExtension->DriveDeviceName = DeviceName;
@@ -1012,8 +1013,7 @@ RamdiskWorkerThread(IN PDEVICE_OBJECT DeviceObject,
         IoReleaseRemoveLock(&DeviceExtension->RemoveLock, Irp);
         Irp->IoStatus.Status = Status;
         Irp->IoStatus.Information = 0;
-        IoCompleteRequest(Irp, IO_DISK_INCREMENT);
-        return;
+        return IoCompleteRequest(Irp, IO_DISK_INCREMENT);
     }
     
     //
@@ -1021,7 +1021,7 @@ RamdiskWorkerThread(IN PDEVICE_OBJECT DeviceObject,
     //
     Irp->IoStatus.Status = Status;
     Irp->IoStatus.Information = 0;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return IoCompleteRequest(Irp, IO_NO_INCREMENT);
 }
 
 NTSTATUS
@@ -1199,7 +1199,7 @@ RamdiskGetPartitionInfo(IN PIRP Irp,
     NTSTATUS Status;
     PPARTITION_INFORMATION PartitionInfo;
     PVOID BaseAddress;
-    LARGE_INTEGER Zero = {{0, 0}};
+    LARGE_INTEGER Zero = {{0}};
     ULONG Length;
     PIO_STACK_LOCATION IoStackLocation;
     
@@ -1811,7 +1811,7 @@ RamdiskQueryDeviceRelations(IN DEVICE_RELATION_TYPE Type,
                                                             Objects) +
                                                FinalCount *
                                                sizeof(PDEVICE_OBJECT),
-                                               'dmaR');
+                                               TAG('R', 'a', 'm', 'd'));
     if (!OurDeviceRelations)
     {
         //
@@ -2231,7 +2231,7 @@ RamdiskAddDevice(IN PDRIVER_OBJECT DriverObject,
 	    DeviceExtension->Type = RamdiskBus;
 		ExInitializeFastMutex(&DeviceExtension->DiskListLock);
 	    IoInitializeRemoveLock(&DeviceExtension->RemoveLock,
-                               'dmaR',
+                               TAG('R', 'a', 'm', 'd'),
                                0,
                                1);
 		InitializeListHead(&DeviceExtension->DiskList);
@@ -2308,7 +2308,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
     PCHAR BootDeviceName, CommandLine;
     PDEVICE_OBJECT PhysicalDeviceObject = NULL;
     NTSTATUS Status;
-    DPRINT("RAM Disk Driver Initialized\n");
+    DPRINT1("RAM Disk Driver Initialized\n");
     
     //
     // Query ramdisk parameters
@@ -2322,7 +2322,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
     DriverRegistryPath.Buffer = ExAllocatePoolWithTag(PagedPool,
                                                       RegistryPath->Length +
                                                       sizeof(WCHAR),
-                                                      'dmaR');
+                                                      TAG('R', 'a', 'm', 'd'));
     if (!DriverRegistryPath.Buffer) return STATUS_INSUFFICIENT_RESOURCES;
     RtlCopyUnicodeString(&DriverRegistryPath, RegistryPath);
     

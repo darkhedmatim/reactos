@@ -79,7 +79,7 @@ typedef struct _CRYPT_DIGESTED_DATA
     CRYPT_HASH_BLOB            hash;
 } CRYPT_DIGESTED_DATA;
 
-BOOL CRYPT_AsnEncodePKCSDigestedData(const CRYPT_DIGESTED_DATA *digestedData,
+BOOL CRYPT_AsnEncodePKCSDigestedData(CRYPT_DIGESTED_DATA *digestedData,
  void *pvData, DWORD *pcbData);
 
 typedef struct _CRYPT_SIGNED_INFO
@@ -123,9 +123,7 @@ BOOL CRYPT_AsnDecodePKCSDigestedData(const BYTE *pbEncoded, DWORD cbEncoded,
  */
 HCRYPTPROV CRYPT_GetDefaultProvider(void);
 
-HINSTANCE hInstance;
-
-void crypt_oid_init(void);
+void crypt_oid_init(HINSTANCE hinst);
 void crypt_oid_free(void);
 void crypt_sip_free(void);
 void root_store_free(void);
@@ -287,13 +285,6 @@ BOOL CRYPT_ReadSerializedStoreFromFile(HANDLE file, HCERTSTORE store);
 void CRYPT_FixKeyProvInfoPointers(PCRYPT_KEY_PROV_INFO info);
 
 /**
- *  String functions
- */
-
-DWORD cert_name_to_str_with_indent(DWORD dwCertEncodingType, DWORD indent,
- PCERT_NAME_BLOB pName, DWORD dwStrType, LPWSTR psz, DWORD csz);
-
-/**
  *  Context functions
  */
 
@@ -379,15 +370,8 @@ void *ContextList_Enum(struct ContextList *list, void *pPrev);
 
 void ContextList_Delete(struct ContextList *list, void *context);
 
+void ContextList_Empty(struct ContextList *list);
+
 void ContextList_Free(struct ContextList *list);
-
-/**
- *  Utilities.
- */
-
-/* Align up to a DWORD_PTR boundary
- */
-#define ALIGN_DWORD_PTR(x) (((x) + sizeof(DWORD_PTR) - 1) & ~(sizeof(DWORD_PTR) - 1))
-#define POINTER_ALIGN_DWORD_PTR(p) ((LPVOID)ALIGN_DWORD_PTR((DWORD_PTR)(p)))
 
 #endif

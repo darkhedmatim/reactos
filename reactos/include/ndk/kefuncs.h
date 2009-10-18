@@ -133,6 +133,11 @@ KeAcquireInStackQueuedSpinLockRaiseToSynch(
     IN PKLOCK_QUEUE_HANDLE LockHandle
 );
 
+KIRQL
+FASTCALL
+KeAcquireSpinLockRaiseToSynch(
+    IN OUT PKSPIN_LOCK SpinLock
+);
 
 //
 // Interrupt Functions
@@ -195,11 +200,17 @@ KeIsExecutingDpc(
     VOID
 );
 
+VOID
+NTAPI
+KeFlushQueuedDpcs(
+    VOID
+);
+
 BOOLEAN
 NTAPI
 KiIpiServiceRoutine(
     IN PKTRAP_FRAME TrapFrame,
-    IN PKEXCEPTION_FRAME ExceptionFrame
+    IN PVOID ExceptionFrame
 );
 
 //

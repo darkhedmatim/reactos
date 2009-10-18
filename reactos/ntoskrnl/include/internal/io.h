@@ -10,7 +10,7 @@
 //
 // Define this if you want debugging support
 //
-#define _IO_DEBUG_                                      0x00
+#define _IO_DEBUG_                                      0x01
 
 //
 // These define the Debug Masks Supported
@@ -43,7 +43,7 @@
     }
 #endif
 #else
-#define IOTRACE(x, ...) DPRINT(__VA_ARGS__)
+#define IOTRACE(x, ...) DPRINT(__VA_ARGS__);
 #endif
 
 //
@@ -79,6 +79,12 @@
 // Unable to create symbolic link pointing to the RAM disk device
 //
 #define RD_SYMLINK_CREATE_FAILED 5
+
+//
+// Packet Types when piggybacking on the IRP Overlay
+//
+#define IrpCompletionPacket                             0x1
+#define IrpMiniCompletionPacket                         0x2
 
 //
 // We can call the Ob Inlined API, it's the same thing
@@ -243,20 +249,10 @@ typedef enum _IOP_TRANSFER_TYPE
 } IOP_TRANSFER_TYPE, *PIOP_TRANSFER_TYPE;
 
 //
-// Packet Types when piggybacking on the IRP Overlay
-//
-typedef enum _COMPLETION_PACKET_TYPE
-    {
-    IopCompletionPacketIrp,
-    IopCompletionPacketMini,
-    IopCompletionPacketQuota
-} COMPLETION_PACKET_TYPE, *PCOMPLETION_PACKET_TYPE;
-
-//
 // Special version of the IRP Overlay used to optimize I/O completion
 // by not using up a separate structure.
 //
-typedef struct _IOP_MINI_COMPLETION_PACKET
+typedef struct _IO_COMPLETION_PACKET
 {
     struct
     {
@@ -267,11 +263,10 @@ typedef struct _IOP_MINI_COMPLETION_PACKET
             ULONG PacketType;
         };
     };
-    PVOID KeyContext;
-    PVOID ApcContext;
-    NTSTATUS IoStatus;
-    ULONG_PTR IoStatusInformation;
-} IOP_MINI_COMPLETION_PACKET, *PIOP_MINI_COMPLETION_PACKET;
+    PVOID Key;
+    PVOID Context;
+    IO_STATUS_BLOCK IoStatus;
+} IO_COMPLETION_PACKET, *PIO_COMPLETION_PACKET;
 
 //
 // I/O Completion Context for IoSetIoCompletionRoutineEx
@@ -292,7 +287,7 @@ typedef struct _IO_WORKITEM
     PDEVICE_OBJECT DeviceObject;
     PIO_WORKITEM_ROUTINE WorkerRoutine;
     PVOID Context;
-} IO_WORKITEM;
+} IO_WORKITEM, *PIO_WORKITEM;
 
 //
 // I/O Wrapper around the Kernel Interrupt
@@ -709,12 +704,6 @@ IopDereferenceDeviceObject(
     IN BOOLEAN ForceUnload
 );
 
-NTSTATUS
-NTAPI
-IoGetRelatedTargetDevice(IN PFILE_OBJECT FileObject,
-                         OUT PDEVICE_OBJECT *DeviceObject
-);
-
 //
 // IRP Routines
 //
@@ -938,10 +927,6 @@ IopReinitializeBootDrivers(
 //
 // File Routines
 //
-VOID
-NTAPI
-IopDeleteDevice(IN PVOID ObjectBody);
-
 NTSTATUS
 NTAPI
 IopParseDevice(
@@ -1051,7 +1036,7 @@ IopStartRamdisk(
 extern POBJECT_TYPE IoCompletionType;
 extern PDEVICE_NODE IopRootDeviceNode;
 extern ULONG IopTraceLevel;
-extern GENERAL_LOOKASIDE IopMdlLookasideList;
+extern NPAGED_LOOKASIDE_LIST IopMdlLookasideList;
 extern GENERIC_MAPPING IopCompletionMapping;
 extern GENERIC_MAPPING IopFileMapping;
 extern POBJECT_TYPE _IoFileObjectType;

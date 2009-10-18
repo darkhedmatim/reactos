@@ -46,12 +46,6 @@ void dump_region(HRGN hrgn);
 
 static HWND (WINAPI *pGetAncestor)(HWND,UINT);
 static BOOL (WINAPI *pGetWindowInfo)(HWND,WINDOWINFO*);
-static UINT (WINAPI *pGetWindowModuleFileNameA)(HWND,LPSTR,UINT);
-static BOOL (WINAPI *pGetLayeredWindowAttributes)(HWND,COLORREF*,BYTE*,DWORD*);
-static BOOL (WINAPI *pSetLayeredWindowAttributes)(HWND,COLORREF,BYTE,DWORD);
-static BOOL (WINAPI *pGetMonitorInfoA)(HMONITOR,LPMONITORINFO);
-static HMONITOR (WINAPI *pMonitorFromPoint)(POINT,DWORD);
-static int  (WINAPI *pGetWindowRgnBox)(HWND,LPRECT);
 
 static BOOL test_lbuttondown_flag;
 static HWND hwndMessage;
@@ -64,22 +58,12 @@ static DWORD our_pid;
 
 #define COUNTOF(arr) (sizeof(arr)/sizeof(arr[0]))
 
-static void dump_minmax_info( const MINMAXINFO *minmax )
-{
-    trace("Reserved=%d,%d MaxSize=%d,%d MaxPos=%d,%d MinTrack=%d,%d MaxTrack=%d,%d\n",
-          minmax->ptReserved.x, minmax->ptReserved.y,
-          minmax->ptMaxSize.x, minmax->ptMaxSize.y,
-          minmax->ptMaxPosition.x, minmax->ptMaxPosition.y,
-          minmax->ptMinTrackSize.x, minmax->ptMinTrackSize.y,
-          minmax->ptMaxTrackSize.x, minmax->ptMaxTrackSize.y);
-}
-
 /* try to make sure pending X events have been processed before continuing */
 static void flush_events( BOOL remove_messages )
 {
     MSG msg;
     int diff = 200;
-    int min_timeout = 100;
+    int min_timeout = 50;
     DWORD time = GetTickCount() + diff;
 
     while (diff > 0)
@@ -88,7 +72,7 @@ static void flush_events( BOOL remove_messages )
         if (remove_messages)
             while (PeekMessage( &msg, 0, 0, 0, PM_REMOVE )) DispatchMessage( &msg );
         diff = time - GetTickCount();
-        min_timeout = 50;
+        min_timeout = 10;
     }
 }
 
@@ -116,16 +100,6 @@ static void check_parents( HWND hwnd, HWND ga_parent, HWND gwl_parent, HWND get_
         res = pGetAncestor( hwnd, GA_ROOTOWNER );
         ok( res == ga_root_owner, "Wrong result for GA_ROOTOWNER %p expected %p\n", res, ga_root_owner );
     }
-}
-
-static BOOL ignore_message( UINT message )
-{
-    /* these are always ignored */
-    return (message >= 0xc000 ||
-            message == WM_GETICON ||
-            message == WM_GETOBJECT ||
-            message == WM_TIMECHANGE ||
-            message == WM_DEVICECHANGE);
 }
 
 static BOOL CALLBACK EnumChildProc( HWND hwndChild, LPARAM lParam)
@@ -167,10 +141,8 @@ static void test_parent_owner(void)
     SetLastError(0xdeadbeef);
     test = CreateWindowExA(0, "ToolWindowClass", "Tool window 1",
                            WS_CHILD, 0, 0, 100, 100, 0, 0, 0, NULL );
+    ok( GetLastError() == ERROR_TLW_WITH_WSCHILD, "CreateWindowExA should call SetLastError\n" );
     ok( !test, "WS_CHILD without parent created\n" );
-    ok( GetLastError() == ERROR_TLW_WITH_WSCHILD ||
-        broken(GetLastError() == 0xdeadbeef), /* win9x */
-        "CreateWindowExA error %u\n", GetLastError() );
 
     /* desktop window */
     check_parents( desktop, 0, 0, 0, 0, 0, 0 );
@@ -578,8 +550,14 @@ static LRESULT WINAPI main_window_procA(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 	{
 	    MINMAXINFO* minmax = (MINMAXINFO *)lparam;
 
-	    trace("WM_GETMINMAXINFO: hwnd %p, %08lx, %08lx\n", hwnd, wparam, lparam);
-            dump_minmax_info( minmax );
+	    trace("hwnd %p, WM_GETMINMAXINFO, %08lx, %08lx\n", hwnd, wparam, lparam);
+            trace("ptReserved (%d,%d), ptMaxSize (%d,%d), ptMaxPosition (%d,%d)\n"
+                  "	  ptMinTrackSize (%d,%d), ptMaxTrackSize (%d,%d)\n",
+		  minmax->ptReserved.x, minmax->ptReserved.y,
+		  minmax->ptMaxSize.x, minmax->ptMaxSize.y,
+		  minmax->ptMaxPosition.x, minmax->ptMaxPosition.y,
+		  minmax->ptMinTrackSize.x, minmax->ptMinTrackSize.y,
+		  minmax->ptMaxTrackSize.x, minmax->ptMaxTrackSize.y);
 	    SetWindowLongPtrA(hwnd, GWLP_USERDATA, 0x20031021);
 	    break;
 	}
@@ -587,7 +565,8 @@ static LRESULT WINAPI main_window_procA(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 	{
 	    BOOL is_win9x = GetWindowLongPtrW(hwnd, GWLP_WNDPROC) == 0;
 	    WINDOWPOS *winpos = (WINDOWPOS *)lparam;
-	    trace("main: WM_WINDOWPOSCHANGING %p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
+	    trace("main: WM_WINDOWPOSCHANGING\n");
+	    trace("%p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
 		   winpos->hwnd, winpos->hwndInsertAfter,
 		   winpos->x, winpos->y, winpos->cx, winpos->cy, winpos->flags);
 	    if (!(winpos->flags & SWP_NOMOVE))
@@ -607,7 +586,8 @@ static LRESULT WINAPI main_window_procA(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 	{
             RECT rc1, rc2;
 	    WINDOWPOS *winpos = (WINDOWPOS *)lparam;
-	    trace("main: WM_WINDOWPOSCHANGED %p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
+	    trace("main: WM_WINDOWPOSCHANGED\n");
+	    trace("%p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
 		   winpos->hwnd, winpos->hwndInsertAfter,
 		   winpos->x, winpos->y, winpos->cx, winpos->cy, winpos->flags);
 	    ok(winpos->x >= -32768 && winpos->x <= 32767, "bad winpos->x %d\n", winpos->x);
@@ -617,21 +597,22 @@ static LRESULT WINAPI main_window_procA(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 	    ok(winpos->cy >= 0 && winpos->cy <= 32767, "bad winpos->cy %d\n", winpos->cy);
 
             GetWindowRect(hwnd, &rc1);
+            trace("window: (%d,%d)-(%d,%d)\n", rc1.left, rc1.top, rc1.right, rc1.bottom);
             SetRect(&rc2, winpos->x, winpos->y, winpos->x + winpos->cx, winpos->y + winpos->cy);
             /* note: winpos coordinates are relative to parent */
             MapWindowPoints(GetParent(hwnd), 0, (LPPOINT)&rc2, 2);
+            trace("pos: (%d,%d)-(%d,%d)\n", rc2.left, rc2.top, rc2.right, rc2.bottom);
             if (0)
             {
             /* Uncomment this once the test succeeds in all cases */
-            ok(EqualRect(&rc1, &rc2), "rects do not match (%d,%d-%d,%d) / (%d,%d-%d,%d)\n",
-               rc1.left, rc1.top, rc1.right, rc1.bottom, rc2.left, rc2.top, rc2.right, rc2.bottom );
+            ok(EqualRect(&rc1, &rc2), "rects do not match\n");
+            }
 
             GetClientRect(hwnd, &rc2);
             DefWindowProcA(hwnd, WM_NCCALCSIZE, 0, (LPARAM)&rc1);
             MapWindowPoints(0, hwnd, (LPPOINT)&rc1, 2);
             ok(EqualRect(&rc1, &rc2), "rects do not match (%d,%d-%d,%d) / (%d,%d-%d,%d)\n",
                rc1.left, rc1.top, rc1.right, rc1.bottom, rc2.left, rc2.top, rc2.right, rc2.bottom );
-            }
 	    break;
 	}
 	case WM_NCCREATE:
@@ -670,7 +651,13 @@ static LRESULT WINAPI tool_window_procA(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 	    MINMAXINFO* minmax = (MINMAXINFO *)lparam;
 
 	    trace("hwnd %p, WM_GETMINMAXINFO, %08lx, %08lx\n", hwnd, wparam, lparam);
-            dump_minmax_info( minmax );
+            trace("ptReserved (%d,%d), ptMaxSize (%d,%d), ptMaxPosition (%d,%d)\n"
+                  "	  ptMinTrackSize (%d,%d), ptMaxTrackSize (%d,%d)\n",
+		  minmax->ptReserved.x, minmax->ptReserved.y,
+		  minmax->ptMaxSize.x, minmax->ptMaxSize.y,
+		  minmax->ptMaxPosition.x, minmax->ptMaxPosition.y,
+		  minmax->ptMinTrackSize.x, minmax->ptMinTrackSize.y,
+		  minmax->ptMaxTrackSize.x, minmax->ptMaxTrackSize.y);
 	    SetWindowLongPtrA(hwnd, GWLP_USERDATA, 0x20031021);
 	    break;
 	}
@@ -704,7 +691,7 @@ static BOOL RegisterWindowClasses(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "MainWindowClass";
@@ -717,7 +704,7 @@ static BOOL RegisterWindowClasses(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "ToolWindowClass";
@@ -727,34 +714,34 @@ static BOOL RegisterWindowClasses(void)
     return TRUE;
 }
 
-static void verify_window_info(const char *hook, HWND hwnd, const WINDOWINFO *info)
+static void verify_window_info(HWND hwnd, const WINDOWINFO *info)
 {
     RECT rcWindow, rcClient;
     DWORD status;
 
-    ok(IsWindow(hwnd), "bad window handle %p in hook %s\n", hwnd, hook);
+    ok(IsWindow(hwnd), "bad window handle\n");
 
     GetWindowRect(hwnd, &rcWindow);
-    ok(EqualRect(&rcWindow, &info->rcWindow), "wrong rcWindow for %p in hook %s\n", hwnd, hook);
+    ok(EqualRect(&rcWindow, &info->rcWindow), "wrong rcWindow\n");
 
     GetClientRect(hwnd, &rcClient);
     /* translate to screen coordinates */
     MapWindowPoints(hwnd, 0, (LPPOINT)&rcClient, 2);
-    ok(EqualRect(&rcClient, &info->rcClient), "wrong rcClient for %p in hook %s\n", hwnd, hook);
+    ok(EqualRect(&rcClient, &info->rcClient), "wrong rcClient\n");
 
     ok(info->dwStyle == (DWORD)GetWindowLongA(hwnd, GWL_STYLE),
-       "wrong dwStyle: %08x != %08x for %p in hook %s\n",
-       info->dwStyle, GetWindowLongA(hwnd, GWL_STYLE), hwnd, hook);
-    /* Windows reports some undocumented exstyles in WINDOWINFO, but
-     * doesn't return them in GetWindowLong(hwnd, GWL_EXSTYLE).
+       "wrong dwStyle: %08x != %08x\n", info->dwStyle, GetWindowLongA(hwnd, GWL_STYLE));
+    /* Windows reports a not documented exstyle 0x800 in WINDOWINFO, but
+     * doesn't return it in GetWindowLong(hwnd, GWL_EXSTYLE).
      */
-    ok((info->dwExStyle & ~0xe0000800) == (DWORD)GetWindowLongA(hwnd, GWL_EXSTYLE),
-       "wrong dwExStyle: %08x != %08x for %p in hook %s\n",
-       info->dwExStyle, GetWindowLongA(hwnd, GWL_EXSTYLE), hwnd, hook);
+    ok((info->dwExStyle & ~0x800) == (DWORD)GetWindowLongA(hwnd, GWL_EXSTYLE),
+       "wrong dwExStyle: %08x != %08x\n", info->dwExStyle, GetWindowLongA(hwnd, GWL_EXSTYLE));
     status = (GetActiveWindow() == hwnd) ? WS_ACTIVECAPTION : 0;
-    if (GetForegroundWindow())
-        ok(info->dwWindowStatus == status, "wrong dwWindowStatus: %04x != %04x active %p fg %p in hook %s\n",
-           info->dwWindowStatus, status, GetActiveWindow(), GetForegroundWindow(), hook);
+    ok(info->dwWindowStatus == status, "wrong dwWindowStatus: %04x != %04x\n",
+       info->dwWindowStatus, status);
+
+    trace("rcWindow: %d,%d - %d,%d\n", rcWindow.left, rcWindow.top, rcWindow.right, rcWindow.bottom);
+    trace("rcClient: %d,%d - %d,%d\n", rcClient.left, rcClient.top, rcClient.right, rcClient.bottom);
 
     /* win2k and XP return broken border info in GetWindowInfo most of
      * the time, so there is no point in testing it.
@@ -767,11 +754,10 @@ static void verify_window_info(const char *hook, HWND hwnd, const WINDOWINFO *in
     ok(info->cyWindowBorders == border,
        "wrong cyWindowBorders %d != %d\n", info->cyWindowBorders, border);
 #endif
-    ok(info->atomWindowType == GetClassLongA(hwnd, GCW_ATOM), "wrong atomWindowType for %p in hook %s\n",
-       hwnd, hook);
+    ok(info->atomWindowType == GetClassLongA(hwnd, GCW_ATOM), "wrong atomWindowType\n");
     ok(info->wCreatorVersion == 0x0400 /* NT4, Win2000, XP, Win2003 */ ||
        info->wCreatorVersion == 0x0500 /* Vista */,
-       "wrong wCreatorVersion %04x for %p in hook %s\n", info->wCreatorVersion, hwnd, hook);
+       "wrong wCreatorVersion %04x\n", info->wCreatorVersion);
 }
 
 static void FixedAdjustWindowRectEx(RECT* rc, LONG style, BOOL menu, LONG exstyle)
@@ -795,14 +781,15 @@ static void test_nonclient_area(HWND hwnd)
     RECT rc_window, rc_client, rc;
     BOOL menu;
     BOOL is_win9x = GetWindowLongPtrW(hwnd, GWLP_WNDPROC) == 0;
-    LRESULT ret;
 
     style = GetWindowLongA(hwnd, GWL_STYLE);
     exstyle = GetWindowLongA(hwnd, GWL_EXSTYLE);
     menu = !(style & WS_CHILD) && GetMenu(hwnd) != 0;
 
     GetWindowRect(hwnd, &rc_window);
+    trace("window: (%d,%d)-(%d,%d)\n", rc_window.left, rc_window.top, rc_window.right, rc_window.bottom);
     GetClientRect(hwnd, &rc_client);
+    trace("client: (%d,%d)-(%d,%d)\n", rc_client.left, rc_client.top, rc_client.right, rc_client.bottom);
 
     /* avoid some cases when things go wrong */
     if (IsRectEmpty(&rc_window) || IsRectEmpty(&rc_client) ||
@@ -812,23 +799,15 @@ static void test_nonclient_area(HWND hwnd)
     MapWindowPoints(hwnd, 0, (LPPOINT)&rc, 2);
     FixedAdjustWindowRectEx(&rc, style, menu, exstyle);
 
-    ok(EqualRect(&rc, &rc_window),
-       "window rect does not match: style:exstyle=0x%08x:0x%08x, menu=%d, win=(%d,%d)-(%d,%d), calc=(%d,%d)-(%d,%d)\n",
-       style, exstyle, menu, rc_window.left, rc_window.top, rc_window.right, rc_window.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    trace("calc window: (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rc, &rc_window), "window rect does not match: style:exstyle=0x%08x:0x%08x, menu=%d\n", style, exstyle, menu);
 
 
     CopyRect(&rc, &rc_window);
     DefWindowProcA(hwnd, WM_NCCALCSIZE, 0, (LPARAM)&rc);
     MapWindowPoints(0, hwnd, (LPPOINT)&rc, 2);
-    ok(EqualRect(&rc, &rc_client),
-       "client rect does not match: style:exstyle=0x%08x:0x%08x, menu=%d client=(%d,%d)-(%d,%d), calc=(%d,%d)-(%d,%d)\n",
-       style, exstyle, menu, rc_client.left, rc_client.top, rc_client.right, rc_client.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
-
-    /* NULL rectangle shouldn't crash */
-    ret = DefWindowProcA(hwnd, WM_NCCALCSIZE, 0, 0);
-    ok(ret == 0, "NULL rectangle returned %ld instead of 0\n", ret);
+    trace("calc client: (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rc, &rc_client), "client rect does not match: style:exstyle=0x%08x:0x%08x, menu=%d\n", style, exstyle, menu);
 
     /* Win9x doesn't like WM_NCCALCSIZE with synthetic data and crashes */;
     if (is_win9x)
@@ -839,14 +818,14 @@ static void test_nonclient_area(HWND hwnd)
     CopyRect(&rc_window, &rc_client);
     MapWindowPoints(hwnd, 0, (LPPOINT)&rc_window, 2);
     FixedAdjustWindowRectEx(&rc_window, style, menu, exstyle);
+    trace("calc window: (%d,%d)-(%d,%d)\n",
+	rc_window.left, rc_window.top, rc_window.right, rc_window.bottom);
 
     CopyRect(&rc, &rc_window);
     DefWindowProcA(hwnd, WM_NCCALCSIZE, 0, (LPARAM)&rc);
     MapWindowPoints(0, hwnd, (LPPOINT)&rc, 2);
-    ok(EqualRect(&rc, &rc_client),
-       "synthetic rect does not match: style:exstyle=0x%08x:0x%08x, menu=%d, client=(%d,%d)-(%d,%d), calc=(%d,%d)-(%d,%d)\n",
-       style, exstyle, menu, rc_client.left, rc_client.top, rc_client.right, rc_client.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    trace("calc client: (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rc, &rc_client), "synthetic rect does not match: style:exstyle=0x%08x:0x%08x, menu=%d\n", style, exstyle, menu);
 }
 
 static LRESULT CALLBACK cbt_hook_proc(int nCode, WPARAM wParam, LPARAM lParam) 
@@ -863,88 +842,13 @@ static LRESULT CALLBACK cbt_hook_proc(int nCode, WPARAM wParam, LPARAM lParam)
 	"HCBT_SYSCOMMAND",
 	"HCBT_SETFOCUS" };
     const char *code_name = (nCode >= 0 && nCode <= HCBT_SETFOCUS) ? CBT_code_name[nCode] : "Unknown";
-    HWND hwnd = (HWND)wParam;
 
-    switch (nCode)
+    trace("CBT: %d (%s), %08lx, %08lx\n", nCode, code_name, wParam, lParam);
+
+    /* on HCBT_DESTROYWND window state is undefined */
+    if (nCode != HCBT_DESTROYWND && IsWindow((HWND)wParam))
     {
-    case HCBT_CREATEWND:
-	{
-	    static const RECT rc_null;
-	    RECT rc;
-	    LONG style;
-	    CBT_CREATEWNDA *createwnd = (CBT_CREATEWNDA *)lParam;
-            trace("HCBT_CREATEWND: hwnd %p, parent %p, style %08x\n",
-		  hwnd, createwnd->lpcs->hwndParent, createwnd->lpcs->style);
-	    ok(createwnd->hwndInsertAfter == HWND_TOP, "hwndInsertAfter should be always HWND_TOP\n");
-
-            if (pGetWindowInfo)
-            {
-                WINDOWINFO info;
-                info.cbSize = sizeof(WINDOWINFO);
-                ok(pGetWindowInfo(hwnd, &info), "GetWindowInfo should not fail\n");
-                verify_window_info(code_name, hwnd, &info);
-            }
-
-	    /* WS_VISIBLE should be turned off yet */
-	    style = createwnd->lpcs->style & ~WS_VISIBLE;
-	    ok(style == GetWindowLongA(hwnd, GWL_STYLE),
-		"style of hwnd and style in the CREATESTRUCT do not match: %08x != %08x\n",
-		GetWindowLongA(hwnd, GWL_STYLE), style);
-
-            if (0)
-            {
-            /* Uncomment this once the test succeeds in all cases */
-	    if ((style & (WS_CHILD|WS_POPUP)) == WS_CHILD)
-	    {
-		ok(GetParent(hwnd) == hwndMessage,
-		   "wrong result from GetParent %p: message window %p\n",
-		   GetParent(hwnd), hwndMessage);
-	    }
-	    else
-		ok(!GetParent(hwnd), "GetParent should return 0 at this point\n");
-
-	    ok(!GetWindow(hwnd, GW_OWNER), "GW_OWNER should be set to 0 at this point\n");
-            }
-            if (0)
-            {
-	    /* while NT assigns GW_HWNDFIRST/LAST some values at this point,
-	     * Win9x still has them set to 0.
-	     */
-	    ok(GetWindow(hwnd, GW_HWNDFIRST) != 0, "GW_HWNDFIRST should not be set to 0 at this point\n");
-	    ok(GetWindow(hwnd, GW_HWNDLAST) != 0, "GW_HWNDLAST should not be set to 0 at this point\n");
-            }
-	    ok(!GetWindow(hwnd, GW_HWNDPREV), "GW_HWNDPREV should be set to 0 at this point\n");
-	    ok(!GetWindow(hwnd, GW_HWNDNEXT), "GW_HWNDNEXT should be set to 0 at this point\n");
-
-            if (0)
-            {
-            /* Uncomment this once the test succeeds in all cases */
-	    if (pGetAncestor)
-	    {
-		ok(pGetAncestor(hwnd, GA_PARENT) == hwndMessage, "GA_PARENT should be set to hwndMessage at this point\n");
-		ok(pGetAncestor(hwnd, GA_ROOT) == hwnd,
-		   "GA_ROOT is set to %p, expected %p\n", pGetAncestor(hwnd, GA_ROOT), hwnd);
-
-		if ((style & (WS_CHILD|WS_POPUP)) == WS_CHILD)
-		    ok(pGetAncestor(hwnd, GA_ROOTOWNER) == hwndMessage,
-		       "GA_ROOTOWNER should be set to hwndMessage at this point\n");
-		else
-		    ok(pGetAncestor(hwnd, GA_ROOTOWNER) == hwnd,
-		       "GA_ROOTOWNER is set to %p, expected %p\n", pGetAncestor(hwnd, GA_ROOTOWNER), hwnd);
-            }
-
-	    ok(GetWindowRect(hwnd, &rc), "GetWindowRect failed\n");
-	    ok(EqualRect(&rc, &rc_null), "window rect should be set to 0 HCBT_CREATEWND\n");
-	    ok(GetClientRect(hwnd, &rc), "GetClientRect failed\n");
-	    ok(EqualRect(&rc, &rc_null), "client rect should be set to 0 on HCBT_CREATEWND\n");
-            }
-	    break;
-	}
-    case HCBT_MOVESIZE:
-    case HCBT_MINMAX:
-    case HCBT_ACTIVATE:
-    case HCBT_SETFOCUS:
-	if (pGetWindowInfo && IsWindow(hwnd))
+	if (pGetWindowInfo)
 	{
 	    WINDOWINFO info;
 
@@ -953,16 +857,78 @@ static LRESULT CALLBACK cbt_hook_proc(int nCode, WPARAM wParam, LPARAM lParam)
 	     * WinXP do not check it at all.
 	     */
 	    info.cbSize = sizeof(WINDOWINFO);
-	    ok(pGetWindowInfo(hwnd, &info), "GetWindowInfo should not fail\n");
-	    verify_window_info(code_name, hwnd, &info);
+	    ok(pGetWindowInfo((HWND)wParam, &info), "GetWindowInfo should not fail\n");
+	    verify_window_info((HWND)wParam, &info);
 	}
-        break;
-    /* on HCBT_DESTROYWND window state is undefined */
-    case HCBT_DESTROYWND:
-        trace( "HCBT_DESTROYWND: hwnd %p\n", hwnd );
-        break;
-    default:
-        break;
+    }
+
+    switch (nCode)
+    {
+	case HCBT_CREATEWND:
+	{
+	    static const RECT rc_null;
+	    RECT rc;
+	    LONG style;
+	    CBT_CREATEWNDA *createwnd = (CBT_CREATEWNDA *)lParam;
+            trace("HCBT_CREATEWND: hwnd %p, parent %p, style %08x\n",
+		  (HWND)wParam, createwnd->lpcs->hwndParent, createwnd->lpcs->style);
+	    ok(createwnd->hwndInsertAfter == HWND_TOP, "hwndInsertAfter should be always HWND_TOP\n");
+
+	    /* WS_VISIBLE should be turned off yet */
+	    style = createwnd->lpcs->style & ~WS_VISIBLE;
+	    ok(style == GetWindowLongA((HWND)wParam, GWL_STYLE),
+		"style of hwnd and style in the CREATESTRUCT do not match: %08x != %08x\n",
+		GetWindowLongA((HWND)wParam, GWL_STYLE), style);
+
+            if (0)
+            {
+            /* Uncomment this once the test succeeds in all cases */
+	    if ((style & (WS_CHILD|WS_POPUP)) == WS_CHILD)
+	    {
+		ok(GetParent((HWND)wParam) == hwndMessage,
+		   "wrong result from GetParent %p: message window %p\n",
+		   GetParent((HWND)wParam), hwndMessage);
+	    }
+	    else
+		ok(!GetParent((HWND)wParam), "GetParent should return 0 at this point\n");
+
+	    ok(!GetWindow((HWND)wParam, GW_OWNER), "GW_OWNER should be set to 0 at this point\n");
+            }
+            if (0)
+            {
+	    /* while NT assigns GW_HWNDFIRST/LAST some values at this point,
+	     * Win9x still has them set to 0.
+	     */
+	    ok(GetWindow((HWND)wParam, GW_HWNDFIRST) != 0, "GW_HWNDFIRST should not be set to 0 at this point\n");
+	    ok(GetWindow((HWND)wParam, GW_HWNDLAST) != 0, "GW_HWNDLAST should not be set to 0 at this point\n");
+            }
+	    ok(!GetWindow((HWND)wParam, GW_HWNDPREV), "GW_HWNDPREV should be set to 0 at this point\n");
+	    ok(!GetWindow((HWND)wParam, GW_HWNDNEXT), "GW_HWNDNEXT should be set to 0 at this point\n");
+
+            if (0)
+            {
+            /* Uncomment this once the test succeeds in all cases */
+	    if (pGetAncestor)
+	    {
+		ok(pGetAncestor((HWND)wParam, GA_PARENT) == hwndMessage, "GA_PARENT should be set to hwndMessage at this point\n");
+		ok(pGetAncestor((HWND)wParam, GA_ROOT) == (HWND)wParam,
+		   "GA_ROOT is set to %p, expected %p\n", pGetAncestor((HWND)wParam, GA_ROOT), (HWND)wParam);
+
+		if ((style & (WS_CHILD|WS_POPUP)) == WS_CHILD)
+		    ok(pGetAncestor((HWND)wParam, GA_ROOTOWNER) == hwndMessage,
+		       "GA_ROOTOWNER should be set to hwndMessage at this point\n");
+		else
+		    ok(pGetAncestor((HWND)wParam, GA_ROOTOWNER) == (HWND)wParam,
+		       "GA_ROOTOWNER is set to %p, expected %p\n", pGetAncestor((HWND)wParam, GA_ROOTOWNER), (HWND)wParam);
+            }
+
+	    ok(GetWindowRect((HWND)wParam, &rc), "GetWindowRect failed\n");
+	    ok(EqualRect(&rc, &rc_null), "window rect should be set to 0 HCBT_CREATEWND\n");
+	    ok(GetClientRect((HWND)wParam, &rc), "GetClientRect failed\n");
+	    ok(EqualRect(&rc, &rc_null), "client rect should be set to 0 on HCBT_CREATEWND\n");
+            }
+	    break;
+	}
     }
 
     return CallNextHookEx(hhook, nCode, wParam, lParam);
@@ -997,24 +963,16 @@ static void test_shell_window(void)
         DWORD pid;
         HANDLE hProcess;
 
-        GetWindowThreadProcessId(shellWindow, &pid);
-        hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-        if (!hProcess)
-        {
-            skip( "cannot get access to shell process\n" );
-            return;
-        }
-
-        SetLastError(0xdeadbeef);
         ret = DestroyWindow(shellWindow);
         error = GetLastError();
 
         ok(!ret, "DestroyWindow(shellWindow)\n");
         /* passes on Win XP, but not on Win98 */
-        ok(error==ERROR_ACCESS_DENIED || error == 0xdeadbeef,
-           "got %u after DestroyWindow(shellWindow)\n", error);
+        ok(error==ERROR_ACCESS_DENIED, "ERROR_ACCESS_DENIED after DestroyWindow(shellWindow)\n");
 
         /* close old shell instance */
+        GetWindowThreadProcessId(shellWindow, &pid);
+        hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
         ret = TerminateProcess(hProcess, 0);
         ok(ret, "termination of previous shell process failed: GetLastError()=%d\n", GetLastError());
         WaitForSingleObject(hProcess, INFINITE);    /* wait for termination */
@@ -1104,11 +1062,10 @@ static void test_shell_window(void)
 
 static char mdi_lParam_test_message[] = "just a test string";
 
-static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
+static void test_MDI_create(HWND parent, HWND mdi_client, INT first_id)
 {
     MDICREATESTRUCTA mdi_cs;
     HWND mdi_child;
-    INT_PTR id;
     static const WCHAR classW[] = {'M','D','I','_','c','h','i','l','d','_','C','l','a','s','s','_','1',0};
     static const WCHAR titleW[] = {'M','D','I',' ','c','h','i','l','d',0};
     BOOL isWin9x = FALSE;
@@ -1124,16 +1081,14 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     mdi_cs.lParam = (LPARAM)mdi_lParam_test_message;
     mdi_child = (HWND)SendMessageA(mdi_client, WM_MDICREATE, 0, (LPARAM)&mdi_cs);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
     mdi_cs.style = 0x7fffffff; /* without WS_POPUP */
     mdi_child = (HWND)SendMessageA(mdi_client, WM_MDICREATE, 0, (LPARAM)&mdi_cs);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1146,8 +1101,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     else
     {
         ok(mdi_child != 0, "MDI child creation failed\n");
-        id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-        ok(id == first_id, "wrong child id %ld\n", id);
+        ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1168,8 +1122,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     }
     else
     {
-        id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-        ok(id == first_id, "wrong child id %ld\n", id);
+        ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1181,8 +1134,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                  mdi_client, GetModuleHandle(0),
                                  (LPARAM)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1193,8 +1145,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                  mdi_client, GetModuleHandle(0),
                                  (LPARAM)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1211,8 +1162,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     else
     {
         ok(mdi_child != 0, "MDI child creation failed\n");
-        id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-        ok(id == first_id, "wrong child id %ld\n", id);
+        ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1234,8 +1184,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     }
     else
     {
-        id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-        ok(id == first_id, "wrong child id %ld\n", id);
+        ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1245,10 +1194,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1257,10 +1205,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1269,7 +1216,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     if (GetWindowLongA(mdi_client, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
     {
         ok(!mdi_child, "MDI child with WS_POPUP and with MDIS_ALLCHILDSTYLES should fail\n");
@@ -1277,8 +1224,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     else
     {
         ok(mdi_child != 0, "MDI child creation failed\n");
-        id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-        ok(id == first_id, "wrong child id %ld\n", id);
+        ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1290,7 +1236,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     if (!mdi_child)
     {
         if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
@@ -1300,8 +1246,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     }
     else
     {
-        id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-        ok(id == first_id, "wrong child id %ld\n", id);
+        ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == first_id, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1314,7 +1259,7 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 parent, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
         ok(!mdi_child, "WS_EX_MDICHILD with a not MDIClient parent should fail\n");
     }
 
@@ -1323,10 +1268,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == 0, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == 0, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     DestroyWindow(mdi_child);
 
     mdi_child = CreateWindowExA(0, "MDI_child_Class_2", "MDI child",
@@ -1334,10 +1278,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == 0, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == 0, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     DestroyWindow(mdi_child);
 
     /* maximized child */
@@ -1346,10 +1289,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == 0, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == 0, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     DestroyWindow(mdi_child);
 
     trace("Creating maximized child with a caption\n");
@@ -1358,10 +1300,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == 0, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == 0, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     DestroyWindow(mdi_child);
 
     trace("Creating maximized child with a caption and a thick frame\n");
@@ -1370,10 +1311,9 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 mdi_client, 0, GetModuleHandle(0),
-                                mdi_lParam_test_message);
+                                (LPVOID)mdi_lParam_test_message);
     ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == 0, "wrong child id %ld\n", id);
+    ok(GetWindowLongPtrA(mdi_child, GWLP_ID) == 0, "wrong child id %d\n", GetWindowLongPtrA(mdi_child, GWLP_ID));
     DestroyWindow(mdi_child);
 }
 
@@ -1411,7 +1351,7 @@ static LRESULT WINAPI mdi_child_wnd_proc_1(HWND hwnd, UINT msg, WPARAM wparam, L
         case WM_CREATE:
         {
             CREATESTRUCTA *cs = (CREATESTRUCTA *)lparam;
-            MDICREATESTRUCTA *mdi_cs = cs->lpCreateParams;
+            MDICREATESTRUCTA *mdi_cs = (MDICREATESTRUCTA *)cs->lpCreateParams;
 
             ok(cs->dwExStyle & WS_EX_MDICHILD, "WS_EX_MDICHILD should be set\n");
             ok(mdi_cs->lParam == (LPARAM)mdi_lParam_test_message, "wrong mdi_cs->lParam\n");
@@ -1481,7 +1421,17 @@ static LRESULT WINAPI mdi_child_wnd_proc_1(HWND hwnd, UINT msg, WPARAM wparam, L
                 style &= ~WS_BORDER; /* WS_CAPTION = WS_DLGFRAME | WS_BORDER */
             AdjustWindowRectEx(&rc, style, 0, exstyle);
             trace("MDI child: calculated max window size = (%d x %d)\n", rc.right-rc.left, rc.bottom-rc.top);
-            dump_minmax_info( minmax );
+
+            trace("ptReserved = (%d,%d)\n"
+                  "ptMaxSize = (%d,%d)\n"
+                  "ptMaxPosition = (%d,%d)\n"
+                  "ptMinTrackSize = (%d,%d)\n"
+                  "ptMaxTrackSize = (%d,%d)\n",
+                  minmax->ptReserved.x, minmax->ptReserved.y,
+                  minmax->ptMaxSize.x, minmax->ptMaxSize.y,
+                  minmax->ptMaxPosition.x, minmax->ptMaxPosition.y,
+                  minmax->ptMinTrackSize.x, minmax->ptMinTrackSize.y,
+                  minmax->ptMaxTrackSize.x, minmax->ptMaxTrackSize.y);
 
             ok(minmax->ptMaxSize.x == rc.right - rc.left, "default width of maximized child %d != %d\n",
                minmax->ptMaxSize.x, rc.right - rc.left);
@@ -1490,8 +1440,17 @@ static LRESULT WINAPI mdi_child_wnd_proc_1(HWND hwnd, UINT msg, WPARAM wparam, L
 
             DefMDIChildProcA(hwnd, msg, wparam, lparam);
 
-            trace("DefMDIChildProc returned:\n");
-            dump_minmax_info( minmax );
+            trace("DefMDIChildProc returned:\n"
+                  "ptReserved = (%d,%d)\n"
+                  "ptMaxSize = (%d,%d)\n"
+                  "ptMaxPosition = (%d,%d)\n"
+                  "ptMinTrackSize = (%d,%d)\n"
+                  "ptMaxTrackSize = (%d,%d)\n",
+                  minmax->ptReserved.x, minmax->ptReserved.y,
+                  minmax->ptMaxSize.x, minmax->ptMaxSize.y,
+                  minmax->ptMaxPosition.x, minmax->ptMaxPosition.y,
+                  minmax->ptMinTrackSize.x, minmax->ptMinTrackSize.y,
+                  minmax->ptMaxTrackSize.x, minmax->ptMaxTrackSize.y);
 
             MDI_ChildGetMinMaxInfo(client, hwnd, &my_minmax);
             ok(minmax->ptMaxSize.x == my_minmax.ptMaxSize.x, "default width of maximized child %d != %d\n",
@@ -1526,8 +1485,8 @@ static LRESULT WINAPI mdi_child_wnd_proc_2(HWND hwnd, UINT msg, WPARAM wparam, L
         {
             CREATESTRUCTA *cs = (CREATESTRUCTA *)lparam;
 
-            trace("%s: x %d, y %d, cx %d, cy %d\n", (msg == WM_NCCREATE) ? "WM_NCCREATE" : "WM_CREATE",
-                cs->x, cs->y, cs->cx, cs->cy);
+            trace("%s\n", (msg == WM_NCCREATE) ? "WM_NCCREATE" : "WM_CREATE");
+            trace("x %d, y %d, cx %d, cy %d\n", cs->x, cs->y, cs->cx, cs->cy);
 
             ok(!(cs->dwExStyle & WS_EX_MDICHILD), "WS_EX_MDICHILD should not be set\n");
             ok(cs->lpCreateParams == mdi_lParam_test_message, "wrong cs->lpCreateParams\n");
@@ -1556,17 +1515,30 @@ static LRESULT WINAPI mdi_child_wnd_proc_2(HWND hwnd, UINT msg, WPARAM wparam, L
             MINMAXINFO *minmax = (MINMAXINFO *)lparam;
             LONG style, exstyle;
 
+            trace("WM_GETMINMAXINFO\n");
+
             style = GetWindowLongA(hwnd, GWL_STYLE);
             exstyle = GetWindowLongA(hwnd, GWL_EXSTYLE);
 
             GetClientRect(parent, &rc);
-            trace("WM_GETMINMAXINFO: parent %p client size = (%d x %d)\n", parent, rc.right, rc.bottom);
+            trace("parent %p client size = (%d x %d)\n", parent, rc.right, rc.bottom);
 
             GetClientRect(parent, &rc);
             if ((style & WS_CAPTION) == WS_CAPTION)
                 style &= ~WS_BORDER; /* WS_CAPTION = WS_DLGFRAME | WS_BORDER */
             AdjustWindowRectEx(&rc, style, 0, exstyle);
-            dump_minmax_info( minmax );
+            trace("calculated max child window size = (%d x %d)\n", rc.right-rc.left, rc.bottom-rc.top);
+
+            trace("ptReserved = (%d,%d)\n"
+                  "ptMaxSize = (%d,%d)\n"
+                  "ptMaxPosition = (%d,%d)\n"
+                  "ptMinTrackSize = (%d,%d)\n"
+                  "ptMaxTrackSize = (%d,%d)\n",
+                  minmax->ptReserved.x, minmax->ptReserved.y,
+                  minmax->ptMaxSize.x, minmax->ptMaxSize.y,
+                  minmax->ptMaxPosition.x, minmax->ptMaxPosition.y,
+                  minmax->ptMinTrackSize.x, minmax->ptMinTrackSize.y,
+                  minmax->ptMaxTrackSize.x, minmax->ptMaxTrackSize.y);
 
             ok(minmax->ptMaxSize.x == rc.right - rc.left, "default width of maximized child %d != %d\n",
                minmax->ptMaxSize.x, rc.right - rc.left);
@@ -1581,19 +1553,18 @@ static LRESULT WINAPI mdi_child_wnd_proc_2(HWND hwnd, UINT msg, WPARAM wparam, L
             RECT rc1, rc2;
 
             GetWindowRect(hwnd, &rc1);
+            trace("window: (%d,%d)-(%d,%d)\n", rc1.left, rc1.top, rc1.right, rc1.bottom);
             SetRect(&rc2, winpos->x, winpos->y, winpos->x + winpos->cx, winpos->y + winpos->cy);
             /* note: winpos coordinates are relative to parent */
             MapWindowPoints(GetParent(hwnd), 0, (LPPOINT)&rc2, 2);
-            ok(EqualRect(&rc1, &rc2), "rects do not match, window=(%d,%d)-(%d,%d) pos=(%d,%d)-(%d,%d)\n",
-               rc1.left, rc1.top, rc1.right, rc1.bottom,
-               rc2.left, rc2.top, rc2.right, rc2.bottom);
+            trace("pos: (%d,%d)-(%d,%d)\n", rc2.left, rc2.top, rc2.right, rc2.bottom);
+            ok(EqualRect(&rc1, &rc2), "rects do not match\n");
+
             GetWindowRect(hwnd, &rc1);
             GetClientRect(hwnd, &rc2);
             DefWindowProcA(hwnd, WM_NCCALCSIZE, 0, (LPARAM)&rc1);
             MapWindowPoints(0, hwnd, (LPPOINT)&rc1, 2);
-            ok(EqualRect(&rc1, &rc2), "rects do not match, window=(%d,%d)-(%d,%d) client=(%d,%d)-(%d,%d)\n",
-               rc1.left, rc1.top, rc1.right, rc1.bottom,
-               rc2.left, rc2.top, rc2.right, rc2.bottom);
+            ok(EqualRect(&rc1, &rc2), "rects do not match\n");
         }
         /* fall through */
         case WM_WINDOWPOSCHANGING:
@@ -1601,17 +1572,19 @@ static LRESULT WINAPI mdi_child_wnd_proc_2(HWND hwnd, UINT msg, WPARAM wparam, L
             WINDOWPOS *winpos = (WINDOWPOS *)lparam;
             WINDOWPOS my_winpos = *winpos;
 
-            trace("%s: %p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
-                  (msg == WM_WINDOWPOSCHANGING) ? "WM_WINDOWPOSCHANGING" : "WM_WINDOWPOSCHANGED",
+            trace("%s\n", (msg == WM_WINDOWPOSCHANGING) ? "WM_WINDOWPOSCHANGING" : "WM_WINDOWPOSCHANGED");
+            trace("%p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
                   winpos->hwnd, winpos->hwndInsertAfter,
                   winpos->x, winpos->y, winpos->cx, winpos->cy, winpos->flags);
 
             DefWindowProcA(hwnd, msg, wparam, lparam);
 
-            ok(!memcmp(&my_winpos, winpos, sizeof(WINDOWPOS)),
-               "DefWindowProc should not change WINDOWPOS: %p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
+            trace("%p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
                   winpos->hwnd, winpos->hwndInsertAfter,
                   winpos->x, winpos->y, winpos->cx, winpos->cy, winpos->flags);
+
+            ok(!memcmp(&my_winpos, winpos, sizeof(WINDOWPOS)),
+               "DefWindowProc should not change WINDOWPOS values\n");
 
             return 1;
         }
@@ -1642,7 +1615,7 @@ static LRESULT WINAPI mdi_main_wnd_procA(HWND hwnd, UINT msg, WPARAM wparam, LPA
                                           /* tests depend on a not zero MDIClient size */
                                          0, 0, rc.right, rc.bottom,
                                          hwnd, 0, GetModuleHandle(0),
-                                         &client_cs);
+                                         (LPVOID)&client_cs);
             assert(mdi_client);
             test_MDI_create(hwnd, mdi_client, client_cs.idFirstChild);
             DestroyWindow(mdi_client);
@@ -1654,7 +1627,7 @@ static LRESULT WINAPI mdi_main_wnd_procA(HWND hwnd, UINT msg, WPARAM wparam, LPA
                                           /* tests depend on a not zero MDIClient size */
                                          0, 0, rc.right, rc.bottom,
                                          hwnd, 0, GetModuleHandle(0),
-                                         &client_cs);
+                                         (LPVOID)&client_cs);
             assert(mdi_client);
             test_MDI_create(hwnd, mdi_client, client_cs.idFirstChild);
             DestroyWindow(mdi_client);
@@ -1720,7 +1693,7 @@ static BOOL mdi_RegisterWindowClasses(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "MDI_parent_Class";
@@ -1765,9 +1738,9 @@ static void test_icons(void)
 {
     WNDCLASSEXA cls;
     HWND hwnd;
-    HICON icon = LoadIconA(0, IDI_APPLICATION);
-    HICON icon2 = LoadIconA(0, IDI_QUESTION);
-    HICON small_icon = LoadImageA(0, IDI_APPLICATION, IMAGE_ICON,
+    HICON icon = LoadIconA(0, (LPSTR)IDI_APPLICATION);
+    HICON icon2 = LoadIconA(0, (LPSTR)IDI_QUESTION);
+    HICON small_icon = LoadImageA(0, (LPSTR)IDI_APPLICATION, IMAGE_ICON,
                                   GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_SHARED );
     HICON res;
 
@@ -1777,9 +1750,9 @@ static void test_icons(void)
     cls.cbClsExtra = 0;
     cls.cbWndExtra = 0;
     cls.hInstance = 0;
-    cls.hIcon = LoadIconA(0, IDI_HAND);
+    cls.hIcon = LoadIconA(0, (LPSTR)IDI_HAND);
     cls.hIconSm = small_icon;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "IconWindowClass";
@@ -1926,8 +1899,7 @@ static void test_SetMenu(HWND parent)
     /* test whether we can destroy a menu assigned to a window */
     retok = DestroyMenu(hMenu);
     ok( retok, "DestroyMenu error %d\n", GetLastError());
-    retok = IsMenu(hMenu);
-    ok(!retok || broken(retok) /* nt4 */, "menu handle should be not valid after DestroyMenu\n");
+    ok(!IsMenu(hMenu), "menu handle should be not valid after DestroyMenu\n");
     ret = GetMenu(parent);
     /* This test fails on Win9x */
     if (!is_win9x)
@@ -2000,7 +1972,7 @@ static void test_SetMenu(HWND parent)
 static void test_window_tree(HWND parent, const DWORD *style, const int *order, int total)
 {
     HWND child[5], hwnd;
-    INT_PTR i;
+    int i;
 
     assert(total <= 5);
 
@@ -2021,7 +1993,7 @@ static void test_window_tree(HWND parent, const DWORD *style, const int *order, 
         else
             child[i] = CreateWindowExA(0, "static", "", style[i], 0,0,10,10,
                                        parent, (HMENU)i, 0, NULL);
-        trace("child[%ld] = %p\n", i, child[i]);
+        trace("child[%d] = %p\n", i, child[i]);
         ok(child[i] != 0, "CreateWindowEx failed to create child window\n");
     }
 
@@ -2032,8 +2004,8 @@ static void test_window_tree(HWND parent, const DWORD *style, const int *order, 
 
     for (i = 0; i < total; i++)
     {
-        trace("hwnd[%ld] = %p\n", i, hwnd);
-        ok(child[order[i]] == hwnd, "Z order of child #%ld is wrong\n", i);
+        trace("hwnd[%d] = %p\n", i, hwnd);
+        ok(child[order[i]] == hwnd, "Z order of child #%d is wrong\n", i);
 
         hwnd = GetWindow(hwnd, GW_HWNDNEXT);
     }
@@ -2087,10 +2059,8 @@ static void check_z_order_debug(HWND hwnd, HWND next, HWND prev, HWND owner,
 
     test = GetWindow(hwnd, GW_HWNDNEXT);
     /* skip foreign windows */
-    while (test && test != next &&
-           (GetWindowThreadProcessId(test, NULL) != our_pid ||
-            UlongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)) != GetModuleHandle(0) ||
-            GetWindow(test, GW_OWNER) == next))
+    while (test && (GetWindowThreadProcessId(test, NULL) != our_pid ||
+                    ULongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)) != GetModuleHandle(0)))
     {
         /*trace("skipping next %p (%p)\n", test, UlongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)));*/
         test = GetWindow(test, GW_HWNDNEXT);
@@ -2099,10 +2069,8 @@ static void check_z_order_debug(HWND hwnd, HWND next, HWND prev, HWND owner,
 
     test = GetWindow(hwnd, GW_HWNDPREV);
     /* skip foreign windows */
-    while (test && test != prev &&
-           (GetWindowThreadProcessId(test, NULL) != our_pid ||
-            UlongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)) != GetModuleHandle(0) ||
-            GetWindow(test, GW_OWNER) == hwnd))
+    while (test && (GetWindowThreadProcessId(test, NULL) != our_pid ||
+                    ULongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)) != GetModuleHandle(0)))
     {
         /*trace("skipping prev %p (%p)\n", test, UlongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)));*/
         test = GetWindow(test, GW_HWNDPREV);
@@ -2229,23 +2197,9 @@ static void test_vis_rgn( HWND hwnd )
     ReleaseDC( hwnd, hdc );
 }
 
-static LRESULT WINAPI set_focus_on_activate_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
-{
-    if (msg == WM_ACTIVATE && LOWORD(wp) == WA_ACTIVE)
-    {
-        HWND child = GetWindow(hwnd, GW_CHILD);
-        ok(child != 0, "couldn't find child window\n");
-        SetFocus(child);
-        ok(GetFocus() == child, "Focus should be on child %p\n", child);
-        return 0;
-    }
-    return DefWindowProc(hwnd, msg, wp, lp);
-}
-
 static void test_SetFocus(HWND hwnd)
 {
     HWND child;
-    WNDPROC old_wnd_proc;
 
     /* check if we can set focus to non-visible windows */
 
@@ -2292,50 +2246,22 @@ static void test_SetFocus(HWND hwnd)
     ok( GetFocus() == child, "Focus should still be on child %p\n", child );
     EnableWindow(hwnd, TRUE);
 
-    ok( GetActiveWindow() == hwnd, "parent window %p should be active\n", hwnd);
-    ShowWindow(hwnd, SW_SHOWMINIMIZED);
-    ok( GetActiveWindow() == hwnd, "parent window %p should be active\n", hwnd);
-todo_wine
-    ok( GetFocus() != child, "Focus should not be on child %p\n", child );
-    ok( GetFocus() != hwnd, "Focus should not be on parent %p\n", hwnd );
-    ShowWindow(hwnd, SW_RESTORE);
-    ok( GetActiveWindow() == hwnd, "parent window %p should be active\n", hwnd);
-    ok( GetFocus() == hwnd, "Focus should be on parent %p\n", hwnd );
-    ShowWindow(hwnd, SW_SHOWMINIMIZED);
-    ok( GetActiveWindow() == hwnd, "parent window %p should be active\n", hwnd);
-    ok( GetFocus() != child, "Focus should not be on child %p\n", child );
-todo_wine
-    ok( GetFocus() != hwnd, "Focus should not be on parent %p\n", hwnd );
-    old_wnd_proc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)set_focus_on_activate_proc);
-    ShowWindow(hwnd, SW_RESTORE);
-    ok( GetActiveWindow() == hwnd, "parent window %p should be active\n", hwnd);
-todo_wine
-    ok( GetFocus() == child, "Focus should be on child %p, not %p\n", child, GetFocus() );
-
-    SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)old_wnd_proc);
-
     DestroyWindow( child );
 }
 
-#define check_wnd_state(a,b,c,d) check_wnd_state_(__FILE__,__LINE__,a,b,c,d)
-static void check_wnd_state_(const char *file, int line,
-                             HWND active, HWND foreground, HWND focus, HWND capture)
+static void check_wnd_state(HWND active, HWND foreground, HWND focus, HWND capture)
 {
-    ok_(file, line)(active == GetActiveWindow(), "GetActiveWindow() = %p\n", GetActiveWindow());
-    /* only check foreground if it belongs to the current thread */
-    /* foreground can be moved to a different app pretty much at any time */
-    if (foreground && GetForegroundWindow() &&
-        GetWindowThreadProcessId(GetForegroundWindow(), NULL) == GetCurrentThreadId())
-        ok_(file, line)(foreground == GetForegroundWindow(), "GetForegroundWindow() = %p\n", GetForegroundWindow());
-    ok_(file, line)(focus == GetFocus(), "GetFocus() = %p\n", GetFocus());
-    ok_(file, line)(capture == GetCapture(), "GetCapture() = %p\n", GetCapture());
+    ok(active == GetActiveWindow(), "GetActiveWindow() = %p\n", GetActiveWindow());
+    if (foreground)
+	ok(foreground == GetForegroundWindow(), "GetForegroundWindow() = %p\n", GetForegroundWindow());
+    ok(focus == GetFocus(), "GetFocus() = %p\n", GetFocus());
+    ok(capture == GetCapture(), "GetCapture() = %p\n", GetCapture());
 }
 
 static void test_SetActiveWindow(HWND hwnd)
 {
     HWND hwnd2;
 
-    flush_events( TRUE );
     ShowWindow(hwnd, SW_HIDE);
     SetFocus(0);
     SetActiveWindow(0);
@@ -2348,12 +2274,10 @@ static void test_SetActiveWindow(HWND hwnd)
 
     hwnd2 = SetActiveWindow(0);
     ok(hwnd2 == hwnd, "SetActiveWindow returned %p instead of %p\n", hwnd2, hwnd);
-    if (!GetActiveWindow())  /* doesn't always work on vista */
-    {
-        check_wnd_state(0, 0, 0, 0);
-        hwnd2 = SetActiveWindow(hwnd);
-        ok(hwnd2 == 0, "SetActiveWindow returned %p instead of 0\n", hwnd2);
-    }
+    check_wnd_state(0, 0, 0, 0);
+
+    hwnd2 = SetActiveWindow(hwnd);
+    ok(hwnd2 == 0, "SetActiveWindow returned %p instead of 0\n", hwnd2);
     check_wnd_state(hwnd, hwnd, hwnd, 0);
 
     SetWindowPos(hwnd,0,0,0,0,0,SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_HIDEWINDOW);
@@ -2393,7 +2317,6 @@ static void test_SetForegroundWindow(HWND hwnd)
     BOOL ret;
     HWND hwnd2;
 
-    flush_events( TRUE );
     ShowWindow(hwnd, SW_HIDE);
     SetFocus(0);
     SetActiveWindow(0);
@@ -2406,25 +2329,16 @@ static void test_SetForegroundWindow(HWND hwnd)
 
     hwnd2 = SetActiveWindow(0);
     ok(hwnd2 == hwnd, "SetActiveWindow(0) returned %p instead of %p\n", hwnd2, hwnd);
-    if (GetActiveWindow() == hwnd)  /* doesn't always work on vista */
-        check_wnd_state(hwnd, hwnd, hwnd, 0);
-    else
-        check_wnd_state(0, 0, 0, 0);
+    check_wnd_state(0, 0, 0, 0);
 
     ret = SetForegroundWindow(hwnd);
-    if (!ret)
-    {
-        skip( "SetForegroundWindow not working\n" );
-        return;
-    }
+    ok(ret, "SetForegroundWindow returned FALSE instead of TRUE\n");
     check_wnd_state(hwnd, hwnd, hwnd, 0);
 
     SetLastError(0xdeadbeef);
     ret = SetForegroundWindow(0);
     ok(!ret, "SetForegroundWindow returned TRUE instead of FALSE\n");
-    ok(GetLastError() == ERROR_INVALID_WINDOW_HANDLE ||
-       broken(GetLastError() == 0xdeadbeef),  /* win9x */
-       "got error %d expected ERROR_INVALID_WINDOW_HANDLE\n", GetLastError());
+    ok(GetLastError() == ERROR_INVALID_WINDOW_HANDLE, "got error %d expected ERROR_INVALID_WINDOW_HANDLE\n", GetLastError());
     check_wnd_state(hwnd, hwnd, hwnd, 0);
 
     SetWindowPos(hwnd,0,0,0,0,0,SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_HIDEWINDOW);
@@ -2444,9 +2358,9 @@ static void test_SetForegroundWindow(HWND hwnd)
 
     /*trace("testing SetForegroundWindow on an invisible window %p\n", hwnd);*/
     ret = SetForegroundWindow(hwnd);
-    ok(ret || broken(!ret), /* win98 */ "SetForegroundWindow returned FALSE instead of TRUE\n");
+    ok(ret, "SetForegroundWindow returned FALSE instead of TRUE\n");
     check_wnd_state(hwnd, hwnd, hwnd, 0);
-
+    
     ShowWindow(hwnd, SW_SHOW);
     check_wnd_state(hwnd, hwnd, hwnd, 0);
 
@@ -2526,10 +2440,7 @@ static LRESULT WINAPI button_hook_proc(HWND button, UINT msg, WPARAM wparam, LPA
 
 static void test_capture_1(void)
 {
-    HWND button, capture, oldFocus, oldActive;
-
-    oldFocus = GetFocus();
-    oldActive = GetActiveWindow();
+    HWND button, capture;
 
     capture = GetCapture();
     ok(capture == 0, "GetCapture() = %p\n", capture);
@@ -2547,16 +2458,14 @@ static void test_capture_1(void)
     check_wnd_state(button, 0, button, button);
 
     DestroyWindow(button);
-    check_wnd_state(oldActive, 0, oldFocus, 0);
+    check_wnd_state(0, 0, 0, 0);
 }
 
 static void test_capture_2(void)
 {
-    HWND button, hwnd, capture, oldFocus, oldActive;
+    HWND button, hwnd, capture;
 
-    oldFocus = GetFocus();
-    oldActive = GetActiveWindow();
-    check_wnd_state(oldActive, 0, oldFocus, 0);
+    check_wnd_state(0, 0, 0, 0);
 
     button = CreateWindowExA(0, "button", NULL, WS_POPUP | WS_VISIBLE, 0, 0, 10, 10, 0, 0, 0, NULL);
     assert(button);
@@ -2606,7 +2515,7 @@ static void test_capture_2(void)
     check_wnd_state(button, button, button, 0);
 
     DestroyWindow(button);
-    check_wnd_state(oldActive, 0, oldFocus, 0);
+    check_wnd_state(0, 0, 0, 0);
 }
 
 static void test_capture_3(HWND hwnd1, HWND hwnd2)
@@ -2634,24 +2543,12 @@ static void test_capture_3(HWND hwnd1, HWND hwnd2)
     ok (ret, "releasecapture did not return TRUE after second try.\n");
 }
 
-/* PeekMessage wrapper that ignores the messages we don't care about */
-static BOOL peek_message( MSG *msg )
-{
-    BOOL ret;
-    do
-    {
-        ret = PeekMessageA(msg, 0, 0, 0, PM_REMOVE);
-    } while (ret && (msg->message == WM_TIMER || ignore_message(msg->message)));
-    return ret;
-}
-
 static void test_keyboard_input(HWND hwnd)
 {
     MSG msg;
     BOOL ret;
 
-    flush_events( TRUE );
-    SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE|SWP_SHOWWINDOW);
+    ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
     flush_events( TRUE );
 
@@ -2663,31 +2560,25 @@ static void test_keyboard_input(HWND hwnd)
     flush_events( TRUE );
 
     PostMessageA(hwnd, WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok( ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == hwnd, "wrong focus window %p\n", GetFocus());
 
     PostThreadMessageA(GetCurrentThreadId(), WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(!msg.hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == hwnd, "wrong focus window %p\n", GetFocus());
 
     keybd_event(VK_SPACE, 0, 0, 0);
-    if (!peek_message(&msg))
-    {
-        skip( "keybd_event didn't work, skipping keyboard test\n" );
-        return;
-    }
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     SetFocus(0);
@@ -2696,47 +2587,26 @@ static void test_keyboard_input(HWND hwnd)
     flush_events( TRUE );
 
     PostMessageA(hwnd, WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == 0, "wrong focus window %p\n", GetFocus());
 
     PostThreadMessageA(GetCurrentThreadId(), WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(!msg.hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == 0, "wrong focus window %p\n", GetFocus());
 
     keybd_event(VK_SPACE, 0, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_SYSKEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
-}
-
-static BOOL wait_for_message( MSG *msg )
-{
-    BOOL ret;
-
-    for (;;)
-    {
-        ret = peek_message(msg);
-        if (ret)
-        {
-            if (msg->message == WM_PAINT) DispatchMessage(msg);
-            else break;
-        }
-        else if (MsgWaitForMultipleObjects( 0, NULL, FALSE, 100, QS_ALLINPUT ) == WAIT_TIMEOUT) break;
-    }
-    if (!ret) msg->message = 0;
-    return ret;
 }
 
 static void test_mouse_input(HWND hwnd)
@@ -2751,7 +2621,6 @@ static void test_mouse_input(HWND hwnd)
 
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
-    SetWindowPos( hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE );
 
     GetWindowRect(hwnd, &rc);
     trace("main window %p: (%d,%d)-(%d,%d)\n", hwnd, rc.left, rc.top, rc.right, rc.bottom);
@@ -2762,7 +2631,6 @@ static void test_mouse_input(HWND hwnd)
     assert(popup != 0);
     ShowWindow(popup, SW_SHOW);
     UpdateWindow(popup);
-    SetWindowPos( popup, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE );
 
     GetWindowRect(popup, &rc);
     trace("popup window %p: (%d,%d)-(%d,%d)\n", popup, rc.left, rc.top, rc.right, rc.bottom);
@@ -2773,25 +2641,16 @@ static void test_mouse_input(HWND hwnd)
 
     SetCursorPos(x, y);
     GetCursorPos(&pt);
-    if (x != pt.x || y != pt.y)
-    {
-        skip( "failed to set mouse position, skipping mouse input tests\n" );
-        goto done;
-    }
+    ok(x == pt.x && y == pt.y, "wrong cursor pos (%d,%d), expected (%d,%d)\n", pt.x, pt.y, x, y);
 
     flush_events( TRUE );
 
-    /* Check that setting the same position may generate WM_MOUSEMOVE */
+    /* Check that setting the same position will generate WM_MOUSEMOVE */
     SetCursorPos(x, y);
     msg.message = 0;
-    ret = peek_message(&msg);
-    if (ret)
-    {
-        ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n",
-           msg.hwnd, msg.message);
-        ok(msg.pt.x == x && msg.pt.y == y, "wrong message coords (%d,%d)/(%d,%d)\n",
-           x, y, msg.pt.x, msg.pt.y);
-    }
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
+    ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n", msg.hwnd, msg.message);
+    ok(msg.pt.x == x && msg.pt.y == y, "wrong message coords (%d,%d)/(%d,%d)\n", x, y, msg.pt.x, msg.pt.y);
 
     /* force the system to update its internal queue mouse position,
      * otherwise it won't generate relative mouse movements below.
@@ -2801,37 +2660,31 @@ static void test_mouse_input(HWND hwnd)
 
     msg.message = 0;
     mouse_event(MOUSEEVENTF_MOVE, 1, 1, 0, 0);
-    flush_events( FALSE );
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
+    ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n", msg.hwnd, msg.message);
     /* FIXME: SetCursorPos in Wine generates additional WM_MOUSEMOVE message */
-    while (PeekMessageA(&msg, 0, 0, 0, PM_REMOVE))
-    {
-        if (msg.message == WM_TIMER || ignore_message(msg.message)) continue;
-        ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE,
-           "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    }
-    ret = peek_message(&msg);
+    if (PeekMessageA(&msg, 0, 0, 0, PM_REMOVE))
+        ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n", msg.hwnd, msg.message);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     mouse_event(MOUSEEVENTF_MOVE, -1, -1, 0, 0);
     ShowWindow(popup, SW_HIDE);
-    ret = wait_for_message( &msg );
-    if (ret)
-        ok(msg.hwnd == hwnd && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n", msg.hwnd, msg.message);
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
+    ok(msg.hwnd == hwnd && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n", msg.hwnd, msg.message);
     flush_events( TRUE );
 
     mouse_event(MOUSEEVENTF_MOVE, 1, 1, 0, 0);
     ShowWindow(hwnd, SW_HIDE);
-    ret = wait_for_message( &msg );
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
     flush_events( TRUE );
 
     /* test mouse clicks */
 
     ShowWindow(hwnd, SW_SHOW);
-    SetWindowPos( hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE );
     flush_events( TRUE );
     ShowWindow(popup, SW_SHOW);
-    SetWindowPos( popup, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE );
     flush_events( TRUE );
 
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
@@ -2839,37 +2692,35 @@ static void test_mouse_input(HWND hwnd)
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 
-    ret = wait_for_message( &msg );
-    if (!ret)
-    {
-        skip( "simulating mouse click doesn't work, skipping mouse button tests\n" );
-        goto done;
-    }
-    if (msg.message == WM_MOUSEMOVE)  /* win2k has an extra WM_MOUSEMOVE here */
-    {
-        ret = wait_for_message( &msg );
-        ok(ret, "no message available\n");
-    }
-
+    ok(PeekMessageA(&msg, 0, 0, 0, 0), "no message available\n");
+    ok(msg.hwnd == popup && msg.message == WM_LBUTTONDOWN, "hwnd %p/%p message %04x\n",
+       msg.hwnd, popup, msg.message);
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONDOWN, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
 
-    ret = wait_for_message( &msg );
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, 0), "no message available\n");
+    ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
+       msg.hwnd, popup, msg.message);
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
 
-    ret = wait_for_message( &msg );
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, 0), "no message available\n");
+    ok(msg.hwnd == popup && msg.message == WM_LBUTTONDBLCLK, "hwnd %p/%p message %04x\n",
+       msg.hwnd, popup, msg.message);
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONDBLCLK, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
 
-    ret = wait_for_message( &msg );
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, 0), "no message available\n");
+    ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
+       msg.hwnd, popup, msg.message);
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
 
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok(!ret, "message %04x available\n", msg.message);
 
     ShowWindow(popup, SW_HIDE);
@@ -2880,12 +2731,10 @@ static void test_mouse_input(HWND hwnd)
     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
 
-    ret = wait_for_message( &msg );
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_LBUTTONDOWN, "hwnd %p/%p message %04x\n",
        msg.hwnd, hwnd, msg.message);
-    ret = wait_for_message( &msg );
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
        msg.hwnd, hwnd, msg.message);
 
@@ -2893,14 +2742,13 @@ static void test_mouse_input(HWND hwnd)
     SendMessageA(hwnd, WM_COMMAND, (WPARAM)popup, 0);
     test_lbuttondown_flag = FALSE;
 
-    ret = wait_for_message( &msg );
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONDOWN, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
-    ok(peek_message(&msg), "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
-    ok(peek_message(&msg), "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
 
     /* Test WM_MOUSEACTIVATE */
 #define TEST_MOUSEACTIVATE(A,B)                                                          \
@@ -2932,7 +2780,6 @@ static void test_mouse_input(HWND hwnd)
     TEST_MOUSEACTIVATE(HTCLOSE,MA_ACTIVATE);
     TEST_MOUSEACTIVATE(HTHELP,MA_ACTIVATE);
 
-done:
     /* Clear any messages left behind by WM_MOUSEACTIVATE tests */
     flush_events( TRUE );
 
@@ -2978,13 +2825,13 @@ static void test_validatergn(HWND hwnd)
 
 static void nccalchelper(HWND hwnd, INT x, INT y, RECT *prc)
 {
-    RECT rc;
     MoveWindow( hwnd, 0, 0, x, y, 0);
     GetWindowRect( hwnd, prc);
-    rc = *prc;
+    trace("window rect is %d,%d - %d,%d\n",
+            prc->left,prc->top,prc->right,prc->bottom);
     DefWindowProcA(hwnd, WM_NCCALCSIZE, 0, (LPARAM)prc);
-    trace("window rect is %d,%d - %d,%d, nccalc rect is %d,%d - %d,%d\n",
-          rc.left,rc.top,rc.right,rc.bottom, prc->left,prc->top,prc->right,prc->bottom);
+    trace("nccalc rect is %d,%d - %d,%d\n",
+            prc->left,prc->top,prc->right,prc->bottom);
 }
 
 static void test_nccalcscroll(HWND parent)
@@ -3123,7 +2970,7 @@ static LRESULT WINAPI StyleCheckProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM 
     case WM_NCCREATE:
     case WM_CREATE:
         lpcs = (LPCREATESTRUCT)lparam;
-        lpss = lpcs->lpCreateParams;
+        lpss = (LPSTYLESTRUCT)lpcs->lpCreateParams;
         if (lpss)
         {
             if ((lpcs->dwExStyle & WS_EX_DLGMODALFRAME) ||
@@ -3216,59 +3063,6 @@ static void test_window_styles(void)
     check_window_style(WS_CHILD, WS_EX_DLGMODALFRAME|WS_EX_STATICEDGE, WS_CHILD, WS_EX_STATICEDGE|WS_EX_WINDOWEDGE|WS_EX_DLGMODALFRAME);
     check_window_style(WS_CAPTION, WS_EX_STATICEDGE, WS_CLIPSIBLINGS|WS_CAPTION, WS_EX_STATICEDGE|WS_EX_WINDOWEDGE);
     check_window_style(0, WS_EX_APPWINDOW, WS_CLIPSIBLINGS|WS_CAPTION, WS_EX_APPWINDOW|WS_EX_WINDOWEDGE);
-}
-
-static void test_scrollwindow( HWND hwnd)
-{
-    HDC hdc;
-    RECT rc, rc2, rc3;
-    COLORREF colr;
-
-    ShowWindow( hwnd, SW_SHOW);
-    UpdateWindow( hwnd);
-    flush_events( TRUE );
-    GetClientRect( hwnd, &rc);
-    hdc = GetDC( hwnd);
-    /* test ScrollWindow(Ex) with no clip rectangle */
-    /* paint the lower half of the window black */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    FillRect( hdc, &rc2, GetStockObject(BLACK_BRUSH));
-    /* paint the upper half of the window white */
-    rc2.bottom = rc2.top;
-    rc2.top =0;
-    FillRect( hdc, &rc2, GetStockObject(WHITE_BRUSH));
-    /* scroll lower half up */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    ScrollWindowEx( hwnd, 0, - rc2.top, &rc2, NULL, NULL, NULL, SW_ERASE);
-    flush_events(FALSE);
-    /* expected: black should have scrolled to the upper half */
-    colr = GetPixel( hdc, (rc2.left+rc2.right)/ 2,  rc2.bottom / 4 );
-    ok ( colr == 0, "pixel should be black, color is %08x\n", colr);
-    /* Repeat that test of ScrollWindow(Ex) now with clip rectangle */
-    /* paint the lower half of the window black */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    FillRect( hdc, &rc2, GetStockObject(BLACK_BRUSH));
-    /* paint the upper half of the window white */
-    rc2.bottom = rc2.top;
-    rc2.top =0;
-    FillRect( hdc, &rc2, GetStockObject(WHITE_BRUSH));
-    /* scroll lower half up */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    rc3 = rc;
-    rc3.left = rc3.right / 4;
-    rc3.right -= rc3.right / 4;
-    ScrollWindowEx( hwnd, 0, - rc2.top, &rc2, &rc3, NULL, NULL, SW_ERASE);
-    flush_events(FALSE);
-    /* expected: black should have scrolled to the upper half */
-    colr = GetPixel( hdc, (rc2.left+rc2.right)/ 2,  rc2.bottom / 4 );
-    ok ( colr == 0, "pixel should be black, color is %08x\n", colr);
-
-    /* clean up */
-    ReleaseDC( hwnd, hdc);
 }
 
 static void test_scrollvalidate( HWND parent)
@@ -3425,12 +3219,7 @@ static void test_scroll(void)
         100, 100, 200, 200, 0, 0, 0, NULL);
     /* horizontal */
     ret = GetScrollRange( hwnd, SB_HORZ, &min, &max);
-    if (!ret)  /* win9x */
-    {
-        win_skip( "GetScrollRange doesn't work\n" );
-        DestroyWindow( hwnd);
-        return;
-    }
+    ok( ret, "GetScrollRange returns FALSE\n");
     ok( min == 0, "minimum scroll pos is %d (should be zero)\n", min);
     ok( max == 0, "maximum scroll pos is %d (should be zero)\n", min);
     si.cbSize = sizeof( si);
@@ -3513,6 +3302,8 @@ static void test_scrolldc( HWND parent)
     SetRectRgn( tmprgn, 25, 35, 35, 75);
     CombineRgn(exprgn, exprgn, tmprgn, RGN_OR);
     ok(EqualRgn(exprgn, hrgn), "wrong update region\n");
+    colr = GetPixel( hdc, 80, 80);
+    ok ( colr == 0, "pixel should be black, color is %08x\n", colr);
     trace("update rect: %d,%d - %d,%d\n",
            rcu.left, rcu.top, rcu.right, rcu.bottom);
     if (winetest_debug > 0) dump_region(hrgn);
@@ -3530,17 +3321,9 @@ static void test_params(void)
     INT rc;
 
     /* Just a param check */
-    if (pGetMonitorInfoA)
-    {
-        SetLastError(0xdeadbeef);
-        rc = GetWindowText(hwndMain2, NULL, 1024);
-        ok( rc==0, "GetWindowText: rc=%d err=%d\n",rc,GetLastError());
-    }
-    else
-    {
-        /* Skips actually on Win95 and NT4 */
-        win_skip("Test would crash on Win95\n");
-    }
+    SetLastError(0xdeadbeef);
+    rc = GetWindowText(hwndMain2, NULL, 1024);
+    ok( rc==0, "GetWindowText: rc=%d err=%d\n",rc,GetLastError());
 
     SetLastError(0xdeadbeef);
     hwnd=CreateWindow("LISTBOX", "TestList",
@@ -3548,12 +3331,10 @@ static void test_params(void)
                       0, 0, 100, 100,
                       NULL, (HMENU)1, NULL, 0);
 
-    ok(!hwnd || broken(hwnd != NULL), /* w2k3 sp2 */
-       "CreateWindow with invalid menu handle should fail\n");
-    if (!hwnd)
-        ok(GetLastError() == ERROR_INVALID_MENU_HANDLE || /* NT */
-           GetLastError() == 0xdeadbeef, /* Win9x */
-           "wrong last error value %d\n", GetLastError());
+    ok(!hwnd, "CreateWindow with invalid menu handle should fail\n");
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE || /* NT */
+       GetLastError() == 0xdeadbeef, /* Win9x */
+       "wrong last error value %d\n", GetLastError());
 }
 
 static void test_AWRwindow(LPCSTR class, LONG style, LONG exStyle, BOOL menu)
@@ -3705,7 +3486,7 @@ static void test_redrawnow(void)
    cls.cbWndExtra = 0;
    cls.hInstance = GetModuleHandleA(0);
    cls.hIcon = 0;
-   cls.hCursor = LoadCursorA(0, IDC_ARROW);
+   cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
    cls.hbrBackground = GetStockObject(WHITE_BRUSH);
    cls.lpszMenuName = NULL;
    cls.lpszClassName = "RedrawWindowClass";
@@ -3722,8 +3503,7 @@ static void test_redrawnow(void)
    ShowWindow(hwndMain, SW_SHOW);
    ok( WMPAINT_count == 0, "Multiple unexpected WM_PAINT calls %d\n", WMPAINT_count);
    RedrawWindow(hwndMain, NULL,NULL,RDW_UPDATENOW | RDW_ALLCHILDREN);
-   ok( WMPAINT_count == 1 || broken(WMPAINT_count == 0), /* sometimes on win9x */
-       "Multiple unexpected WM_PAINT calls %d\n", WMPAINT_count);
+   ok( WMPAINT_count == 1, "Multiple unexpected WM_PAINT calls %d\n", WMPAINT_count);
    redrawComplete = TRUE;
    ok( WMPAINT_count < 10, "RedrawWindow (RDW_UPDATENOW) never completed (%d)\n", WMPAINT_count);
 
@@ -3753,19 +3533,18 @@ static LRESULT WINAPI parentdc_window_procA(HWND hwnd, UINT msg, WPARAM wparam, 
     switch (msg)
     {
     case WM_PAINT:
+        trace("doing WM_PAINT on %p\n", hwnd);
         GetClientRect(hwnd, &rc);
         CopyRect(&t->client, &rc);
+        trace("client rect (%d, %d)-(%d, %d)\n", rc.left, rc.top, rc.right, rc.bottom);
         GetWindowRect(hwnd, &rc);
-        trace("WM_PAINT: hwnd %p, client rect (%d,%d)-(%d,%d), window rect (%d,%d)-(%d,%d)\n", hwnd,
-              t->client.left, t->client.top, t->client.right, t->client.bottom,
-              rc.left, rc.top, rc.right, rc.bottom);
+        trace("window rect (%d, %d)-(%d, %d)\n", rc.left, rc.top, rc.right, rc.bottom);
         BeginPaint(hwnd, &ps);
         CopyRect(&t->paint, &ps.rcPaint);
         GetClipBox(ps.hdc, &rc);
         CopyRect(&t->clip, &rc);
-        trace("clip rect (%d,%d)-(%d,%d), paint rect (%d,%d)-(%d,%d)\n",
-              rc.left, rc.top, rc.right, rc.bottom,
-              ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
+        trace("clip rect (%d, %d)-(%d, %d)\n", rc.left, rc.top, rc.right, rc.bottom);
+        trace("paint rect (%d, %d)-(%d, %d)\n", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -3876,7 +3655,7 @@ static void test_csparentdc(void)
    clsMain.cbWndExtra = 0;
    clsMain.hInstance = GetModuleHandleA(0);
    clsMain.hIcon = 0;
-   clsMain.hCursor = LoadCursorA(0, IDC_ARROW);
+   clsMain.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
    clsMain.hbrBackground = GetStockObject(WHITE_BRUSH);
    clsMain.lpszMenuName = NULL;
    clsMain.lpszClassName = "ParentDcMainWindowClass";
@@ -3892,7 +3671,7 @@ static void test_csparentdc(void)
    cls.cbWndExtra = 0;
    cls.hInstance = GetModuleHandleA(0);
    cls.hIcon = 0;
-   cls.hCursor = LoadCursorA(0, IDC_ARROW);
+   cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
    cls.hbrBackground = GetStockObject(WHITE_BRUSH);
    cls.lpszMenuName = NULL;
    cls.lpszClassName = "ParentDcWindowClass";
@@ -3916,7 +3695,6 @@ static void test_csparentdc(void)
    ShowWindow(hwndMain, SW_SHOW);
    ShowWindow(hwnd1, SW_SHOW);
    ShowWindow(hwnd2, SW_SHOW);
-   SetWindowPos(hwndMain, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
    flush_events( TRUE );
 
    zero_parentdc_test(&test_answer);
@@ -4120,7 +3898,7 @@ static LRESULT CALLBACK minmax_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM l
 }
 
 static int expected_cx, expected_cy;
-static RECT expected_rect, broken_rect;
+static RECT expected_rect;
 
 static LRESULT CALLBACK winsizes_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -4142,16 +3920,10 @@ static LRESULT CALLBACK winsizes_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         GetWindowRect( hwnd, &rect );
         trace( "hwnd %p msg %x size %dx%d rect %d,%d-%d,%d\n",
                hwnd, msg, cs->cx, cs->cy, rect.left, rect.top, rect.right, rect.bottom );
-        ok( cs->cx == expected_cx || broken(cs->cx == (short)expected_cx),
-            "wrong x size %d/%d\n", cs->cx, expected_cx );
-        ok( cs->cy == expected_cy || broken(cs->cy == (short)expected_cy),
-            "wrong y size %d/%d\n", cs->cy, expected_cy );
-        ok( (rect.right - rect.left == expected_rect.right - expected_rect.left &&
-             rect.bottom - rect.top == expected_rect.bottom - expected_rect.top) ||
-            broken( rect.right - rect.left == broken_rect.right - broken_rect.left &&
-                    rect.bottom - rect.top == broken_rect.bottom - broken_rect.top) ||
-            broken( rect.right - rect.left == (short)broken_rect.right - (short)broken_rect.left &&
-                    rect.bottom - rect.top == (short)broken_rect.bottom - (short)broken_rect.top),
+        ok( cs->cx == expected_cx, "wrong x size %d/%d\n", cs->cx, expected_cx );
+        ok( cs->cy == expected_cy, "wrong y size %d/%d\n", cs->cy, expected_cy );
+        ok( rect.right - rect.left == expected_rect.right - expected_rect.left &&
+            rect.bottom - rect.top == expected_rect.bottom - expected_rect.top,
             "wrong rect %d,%d-%d,%d / %d,%d-%d,%d\n",
             rect.left, rect.top, rect.right, rect.bottom,
             expected_rect.left, expected_rect.top, expected_rect.right, expected_rect.bottom );
@@ -4184,15 +3956,10 @@ static void test_CreateWindow(void)
     ok(GetMenu(window) == (HMENU)menu, "GetMenu error %d\n", GetLastError())
 
 #define expect_style(window, style)\
-    ok((ULONG)GetWindowLong(window, GWL_STYLE) == (style), "expected style %x != %x\n", (LONG)(style), GetWindowLong(window, GWL_STYLE))
+    ok(GetWindowLong(window, GWL_STYLE) == (style), "expected style %x != %x\n", (LONG)(style), GetWindowLong(window, GWL_STYLE))
 
 #define expect_ex_style(window, ex_style)\
-    ok((ULONG)GetWindowLong(window, GWL_EXSTYLE) == (ex_style), "expected ex_style %x != %x\n", (LONG)(ex_style), GetWindowLong(window, GWL_EXSTYLE))
-
-#define expect_gle_broken_9x(gle)\
-    ok(GetLastError() == gle ||\
-       broken(GetLastError() == 0xdeadbeef),\
-       "IsMenu set error %d\n", GetLastError())
+    ok(GetWindowLong(window, GWL_EXSTYLE) == (ex_style), "expected ex_style %x != %x\n", (LONG)(ex_style), GetWindowLong(window, GWL_EXSTYLE))
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4250,7 +4017,7 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4264,7 +4031,7 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4278,7 +4045,7 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4292,16 +4059,14 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     /* WS_CHILD | WS_POPUP */
     SetLastError(0xdeadbeef);
     hwnd = CreateWindowEx(WS_EX_APPWINDOW, "static", NULL, WS_CHILD | WS_POPUP,
                            0, 0, 100, 100, parent, (HMENU)1, 0, NULL);
-    ok(!hwnd || broken(hwnd != 0 /* Win9x */), "CreateWindowEx should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
-    if (hwnd)
-        DestroyWindow(hwnd);
+    ok(!hwnd, "CreateWindowEx should fail\n");
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4315,15 +4080,13 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     SetLastError(0xdeadbeef);
     hwnd = CreateWindowEx(WS_EX_APPWINDOW, "static", NULL, WS_CHILD | WS_POPUP | WS_CAPTION,
                            0, 0, 100, 100, parent, (HMENU)1, 0, NULL);
-    ok(!hwnd || broken(hwnd != 0 /* Win9x */), "CreateWindowEx should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
-    if (hwnd)
-        DestroyWindow(hwnd);
+    ok(!hwnd, "CreateWindowEx should fail\n");
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4337,15 +4100,13 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     SetLastError(0xdeadbeef);
     hwnd = CreateWindowEx(0, "static", NULL, WS_CHILD | WS_POPUP,
                            0, 0, 100, 100, parent, (HMENU)1, 0, NULL);
-    ok(!hwnd || broken(hwnd != 0 /* Win9x */), "CreateWindowEx should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
-    if (hwnd)
-        DestroyWindow(hwnd);
+    ok(!hwnd, "CreateWindowEx should fail\n");
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4359,15 +4120,13 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     SetLastError(0xdeadbeef);
     hwnd = CreateWindowEx(0, "static", NULL, WS_CHILD | WS_POPUP | WS_CAPTION,
                            0, 0, 100, 100, parent, (HMENU)1, 0, NULL);
-    ok(!hwnd || broken(hwnd != 0 /* Win9x */), "CreateWindowEx should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
-    if (hwnd)
-        DestroyWindow(hwnd);
+    ok(!hwnd, "CreateWindowEx should fail\n");
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     hmenu = CreateMenu();
     assert(hmenu != 0);
@@ -4381,7 +4140,7 @@ static void test_CreateWindow(void)
     DestroyWindow(hwnd);
     SetLastError(0xdeadbeef);
     ok(!IsMenu(hmenu), "IsMenu should fail\n");
-    expect_gle_broken_9x(ERROR_INVALID_MENU_HANDLE);
+    ok(GetLastError() == ERROR_INVALID_MENU_HANDLE, "IsMenu set error %d\n", GetLastError());
 
     /* test child window sizing */
     cls.style = 0;
@@ -4390,7 +4149,7 @@ static void test_CreateWindow(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandle(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "MinMax_WndClass";
@@ -4445,17 +4204,15 @@ static void test_CreateWindow(void)
 
     expected_cx = expected_cy = 200000;
     SetRect( &expected_rect, 0, 0, 200000, 200000 );
-    broken_rect = expected_rect;
     hwnd = CreateWindowExA(0, "Sizes_WndClass", NULL, WS_CHILD, 300000, 300000, 200000, 200000, parent, 0, 0, NULL);
     ok( hwnd != 0, "creation failed err %u\n", GetLastError());
     GetClientRect( hwnd, &rc );
-    ok( rc.right == 200000 || broken(rc.right == (short)200000), "invalid rect right %u\n", rc.right );
-    ok( rc.bottom == 200000 || broken(rc.bottom == (short)200000), "invalid rect bottom %u\n", rc.bottom );
+    ok( rc.right == 200000, "invalid rect right %u\n", rc.right );
+    ok( rc.bottom == 200000, "invalid rect bottom %u\n", rc.bottom );
     DestroyWindow(hwnd);
 
     expected_cx = expected_cy = -10;
     SetRect( &expected_rect, 0, 0, 0, 0 );
-    SetRect( &broken_rect, 0, 0, -10, -10 );
     hwnd = CreateWindowExA(0, "Sizes_WndClass", NULL, WS_CHILD, -20, -20, -10, -10, parent, 0, 0, NULL);
     ok( hwnd != 0, "creation failed err %u\n", GetLastError());
     GetClientRect( hwnd, &rc );
@@ -4465,39 +4222,11 @@ static void test_CreateWindow(void)
 
     expected_cx = expected_cy = -200000;
     SetRect( &expected_rect, 0, 0, 0, 0 );
-    SetRect( &broken_rect, 0, 0, -200000, -200000 );
     hwnd = CreateWindowExA(0, "Sizes_WndClass", NULL, WS_CHILD, -300000, -300000, -200000, -200000, parent, 0, 0, NULL);
     ok( hwnd != 0, "creation failed err %u\n", GetLastError());
     GetClientRect( hwnd, &rc );
     ok( rc.right == 0, "invalid rect right %u\n", rc.right );
     ok( rc.bottom == 0, "invalid rect bottom %u\n", rc.bottom );
-    DestroyWindow(hwnd);
-
-    /* we need a parent at 0,0 so that child coordinates match */
-    DestroyWindow(parent);
-    parent = CreateWindowEx(0, "MinMax_WndClass", NULL, WS_POPUP, 0, 0, 100, 100, 0, 0, 0, NULL);
-    ok(parent != 0, "CreateWindowEx error %d\n", GetLastError());
-
-    expected_cx = 100;
-    expected_cy = 0x7fffffff;
-    SetRect( &expected_rect, 10, 10, 110, 0x7fffffff );
-    SetRect( &broken_rect, 10, 10, 110, 0x7fffffffU + 10 );
-    hwnd = CreateWindowExA(0, "Sizes_WndClass", NULL, WS_CHILD, 10, 10, 100, 0x7fffffff, parent, 0, 0, NULL);
-    ok( hwnd != 0, "creation failed err %u\n", GetLastError());
-    GetClientRect( hwnd, &rc );
-    ok( rc.right == 100, "invalid rect right %u\n", rc.right );
-    ok( rc.bottom == 0x7fffffff - 10 || broken(rc.bottom == 0), "invalid rect bottom %u\n", rc.bottom );
-    DestroyWindow(hwnd);
-
-    expected_cx = 0x7fffffff;
-    expected_cy = 0x7fffffff;
-    SetRect( &expected_rect, 20, 10, 0x7fffffff, 0x7fffffff );
-    SetRect( &broken_rect, 20, 10, 0x7fffffffU + 20, 0x7fffffffU + 10 );
-    hwnd = CreateWindowExA(0, "Sizes_WndClass", NULL, WS_CHILD, 20, 10, 0x7fffffff, 0x7fffffff, parent, 0, 0, NULL);
-    ok( hwnd != 0, "creation failed err %u\n", GetLastError());
-    GetClientRect( hwnd, &rc );
-    ok( rc.right == 0x7fffffff - 20 || broken(rc.right == 0), "invalid rect right %u\n", rc.right );
-    ok( rc.bottom == 0x7fffffff - 10 || broken(rc.bottom == 0), "invalid rect bottom %u\n", rc.bottom );
     DestroyWindow(hwnd);
 
     /* top level window */
@@ -4515,7 +4244,6 @@ static void test_CreateWindow(void)
     UnregisterClass("MinMax_WndClass", GetModuleHandle(0));
     UnregisterClass("Sizes_WndClass", GetModuleHandle(0));
 
-#undef expect_gle_broken_9x
 #undef expect_menu
 #undef expect_style
 #undef expect_ex_style
@@ -4550,7 +4278,7 @@ static void test_SetWindowLong(void)
 
     SetLastError(0xdeadbeef);
     retval = SetWindowLongPtr(hwndMain, GWLP_WNDPROC, 0);
-    ok((WNDPROC)retval == main_window_procA || broken(!retval), /* win9x */
+    ok((WNDPROC)retval == main_window_procA,
         "SetWindowLongPtr on invalid window proc should have returned address of main_window_procA instead of 0x%lx\n", retval);
     ok(GetLastError() == 0xdeadbeef, "SetWindowLongPtr shouldn't have set the last error, instead of setting it to %d\n", GetLastError());
     retval = GetWindowLongPtr(hwndMain, GWLP_WNDPROC);
@@ -4597,9 +4325,7 @@ static void test_ShowWindow(void)
     ok(!(style & WS_MINIMIZE), "window should not be minimized\n");
     ok(!(style & WS_MAXIMIZE), "window should not be maximized\n");
     GetWindowRect(hwnd, &rc);
-    ok(EqualRect(&rcMain, &rc), "expected (%d,%d)-(%d,%d), got (%d,%d)-(%d,%d)\n",
-       rcMain.left, rcMain.top, rcMain.right, rcMain.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rcMain, &rc), "rects should match\n");
 
     ret = ShowWindow(hwnd, SW_SHOW);
     ok(!ret, "not expected ret: %lu\n", ret);
@@ -4609,9 +4335,7 @@ static void test_ShowWindow(void)
     ok(!(style & WS_MINIMIZE), "window should not be minimized\n");
     ok(!(style & WS_MAXIMIZE), "window should not be maximized\n");
     GetWindowRect(hwnd, &rc);
-    ok(EqualRect(&rcMain, &rc), "expected (%d,%d)-(%d,%d), got (%d,%d)-(%d,%d)\n",
-       rcMain.left, rcMain.top, rcMain.right, rcMain.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rcMain, &rc), "rects should match\n");
 
     ret = ShowWindow(hwnd, SW_MINIMIZE);
     ok(ret, "not expected ret: %lu\n", ret);
@@ -4631,9 +4355,7 @@ static void test_ShowWindow(void)
     ok(!(style & WS_MINIMIZE), "window should not be minimized\n");
     ok(!(style & WS_MAXIMIZE), "window should not be maximized\n");
     GetWindowRect(hwnd, &rc);
-    ok(EqualRect(&rcMain, &rc), "expected (%d,%d)-(%d,%d), got (%d,%d)-(%d,%d)\n",
-       rcMain.left, rcMain.top, rcMain.right, rcMain.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rcMain, &rc), "rects should match\n");
 
     ret = EnableWindow(hwnd, FALSE);
     ok(!ret, "not expected ret: %lu\n", ret);
@@ -4648,9 +4370,7 @@ static void test_ShowWindow(void)
     ok(!(style & WS_MINIMIZE), "window should not be minimized\n");
     ok(!(style & WS_MAXIMIZE), "window should not be maximized\n");
     GetWindowRect(hwnd, &rc);
-    ok(EqualRect(&rcMain, &rc), "expected (%d,%d)-(%d,%d), got (%d,%d)-(%d,%d)\n",
-       rcMain.left, rcMain.top, rcMain.right, rcMain.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rcMain, &rc), "rects should match\n");
 
     ret = DefWindowProc(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
     ok(!ret, "not expected ret: %lu\n", ret);
@@ -4660,9 +4380,7 @@ static void test_ShowWindow(void)
     ok(!(style & WS_MINIMIZE), "window should not be minimized\n");
     ok(!(style & WS_MAXIMIZE), "window should not be maximized\n");
     GetWindowRect(hwnd, &rc);
-    ok(EqualRect(&rcMain, &rc), "expected (%d,%d)-(%d,%d), got (%d,%d)-(%d,%d)\n",
-       rcMain.left, rcMain.top, rcMain.right, rcMain.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rcMain, &rc), "rects should match\n");
 
     ret = ShowWindow(hwnd, SW_MINIMIZE);
     ok(ret, "not expected ret: %lu\n", ret);
@@ -4692,9 +4410,7 @@ static void test_ShowWindow(void)
     ok(!(style & WS_MINIMIZE), "window should not be minimized\n");
     ok(!(style & WS_MAXIMIZE), "window should not be maximized\n");
     GetWindowRect(hwnd, &rc);
-    ok(EqualRect(&rcMain, &rc), "expected (%d,%d)-(%d,%d), got (%d,%d)-(%d,%d)\n",
-       rcMain.left, rcMain.top, rcMain.right, rcMain.bottom,
-       rc.left, rc.top, rc.right, rc.bottom);
+    ok(EqualRect(&rcMain, &rc), "rects should match\n");
 
     ret = DefWindowProc(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
     ok(!ret, "not expected ret: %lu\n", ret);
@@ -4801,7 +4517,7 @@ static void test_GetUpdateRect(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = classNameA;
@@ -4886,7 +4602,10 @@ static LRESULT CALLBACK TestExposedRegion_WndProc(HWND hwnd, UINT msg, WPARAM wP
         if(waitResult != WAIT_TIMEOUT)
         {
             GetUpdateRect(hwnd, &updateRect, FALSE);
-            ok(IsRectEmpty(&updateRect), "Exposed rect should be empty\n");
+todo_wine
+{
+            ok(!IsRectEmpty(&updateRect), "Exposed rect should not be empty\n");
+}
         }
 
         return 1;
@@ -4912,832 +4631,38 @@ static void test_Expose(void)
     DestroyWindow(mw);
 }
 
-static LRESULT CALLBACK TestNCRedraw_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    static UINT ncredrawflags;
-    PAINTSTRUCT ps;
-
-    switch(msg)
-    {
-    case WM_CREATE:
-        ncredrawflags = *(UINT *) (((CREATESTRUCT *)lParam)->lpCreateParams);
-        return 0;
-    case WM_NCPAINT:
-        RedrawWindow(hwnd, NULL, NULL, ncredrawflags);
-        break;
-    case WM_PAINT:
-        BeginPaint(hwnd, &ps);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-static void run_NCRedrawLoop(UINT flags)
-{
-    HWND hwnd;
-    MSG msg;
-
-    UINT loopcount = 0;
-
-    hwnd = CreateWindowA("TestNCRedrawClass", "MainWindow",
-                         WS_OVERLAPPEDWINDOW, 0, 0, 200, 100,
-                         NULL, NULL, 0, &flags);
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-    while(PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE) != 0)
-    {
-        if (msg.message == WM_PAINT) loopcount++;
-        if (loopcount >= 100) break;
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT);
-    }
-    if (flags == (RDW_INVALIDATE | RDW_FRAME))
-        todo_wine ok(loopcount < 100, "Detected infinite WM_PAINT loop (%x).\n", flags);
-    else
-        ok(loopcount < 100, "Detected infinite WM_PAINT loop (%x).\n", flags);
-    DestroyWindow(hwnd);
-}
-
-static void test_NCRedraw(void)
-{
-    WNDCLASSA wndclass;
-
-    wndclass.lpszClassName = "TestNCRedrawClass";
-    wndclass.style = CS_HREDRAW | CS_VREDRAW;
-    wndclass.lpfnWndProc = TestNCRedraw_WndProc;
-    wndclass.cbClsExtra = 0;
-    wndclass.cbWndExtra = 0;
-    wndclass.hInstance = 0;
-    wndclass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wndclass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wndclass.hbrBackground = GetStockObject(WHITE_BRUSH);
-    wndclass.lpszMenuName = NULL;
-
-    RegisterClassA(&wndclass);
-
-    run_NCRedrawLoop(RDW_INVALIDATE | RDW_FRAME);
-    run_NCRedrawLoop(RDW_INVALIDATE);
-}
-
-static void test_GetWindowModuleFileName(void)
-{
-    HWND hwnd;
-    HINSTANCE hinst;
-    UINT ret1, ret2;
-    char buf1[MAX_PATH], buf2[MAX_PATH];
-
-    if (!pGetWindowModuleFileNameA)
-    {
-        win_skip("GetWindowModuleFileNameA is not available\n");
-        return;
-    }
-
-    hwnd = CreateWindowExA(0, "static", NULL, WS_POPUP, 0,0,0,0, 0, 0, 0, NULL);
-    assert(hwnd);
-
-    hinst = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
-    ok(hinst == 0 || broken(hinst == GetModuleHandle(0)), /* win9x */ "expected 0, got %p\n", hinst);
-
-    buf1[0] = 0;
-    SetLastError(0xdeadbeef);
-    ret1 = GetModuleFileName(hinst, buf1, sizeof(buf1));
-    ok(ret1, "GetModuleFileName error %u\n", GetLastError());
-
-    buf2[0] = 0;
-    SetLastError(0xdeadbeef);
-    ret2 = pGetWindowModuleFileNameA(hwnd, buf2, sizeof(buf2));
-    ok(ret2 || broken(!ret2), /* nt4 sp 3 */
-       "GetWindowModuleFileNameA error %u\n", GetLastError());
-
-    if (ret2)
-    {
-        ok(ret1 == ret2 || broken(ret2 == ret1 + 1), /* win98 */ "%u != %u\n", ret1, ret2);
-        ok(!strcmp(buf1, buf2), "%s != %s\n", buf1, buf2);
-    }
-    hinst = GetModuleHandle(0);
-
-    SetLastError(0xdeadbeef);
-    ret2 = GetModuleFileName(hinst, buf2, ret1 - 2);
-    ok(ret2 == ret1 - 2 || broken(ret2 == ret1 - 3), /* win98 */
-       "expected %u, got %u\n", ret1 - 2, ret2);
-    ok(GetLastError() == 0xdeadbeef /* XP */ ||
-       GetLastError() == ERROR_INSUFFICIENT_BUFFER, /* win2k3, vista */
-       "expected 0xdeadbeef or ERROR_INSUFFICIENT_BUFFER, got %u\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret2 = GetModuleFileName(hinst, buf2, 0);
-    ok(!ret2, "GetModuleFileName should return 0\n");
-    ok(GetLastError() == 0xdeadbeef /* XP */ ||
-       GetLastError() == ERROR_INSUFFICIENT_BUFFER, /* win2k3, vista */
-       "expected 0xdeadbeef or ERROR_INSUFFICIENT_BUFFER, got %u\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret2 = pGetWindowModuleFileNameA(hwnd, buf2, ret1 - 2);
-    ok(ret2 == ret1 - 2 || broken(ret2 == ret1 - 3) /* win98 */ || broken(!ret2), /* nt4 sp3 */
-       "expected %u, got %u\n", ret1 - 2, ret2);
-    ok(GetLastError() == 0xdeadbeef /* XP */ ||
-       GetLastError() == ERROR_INSUFFICIENT_BUFFER, /* win2k3, vista */
-       "expected 0xdeadbeef or ERROR_INSUFFICIENT_BUFFER, got %u\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret2 = pGetWindowModuleFileNameA(hwnd, buf2, 0);
-    ok(!ret2, "expected 0, got %u\n", ret2);
-    ok(GetLastError() == 0xdeadbeef /* XP */ ||
-       GetLastError() == ERROR_INSUFFICIENT_BUFFER, /* win2k3, vista */
-       "expected 0xdeadbeef or ERROR_INSUFFICIENT_BUFFER, got %u\n", GetLastError());
-
-    DestroyWindow(hwnd);
-
-    buf2[0] = 0;
-    hwnd = (HWND)0xdeadbeef;
-    SetLastError(0xdeadbeef);
-    ret1 = pGetWindowModuleFileNameA(hwnd, buf1, sizeof(buf1));
-    ok(!ret1, "expected 0, got %u\n", ret1);
-    ok(GetLastError() == ERROR_INVALID_WINDOW_HANDLE || broken(GetLastError() == 0xdeadbeef), /* win9x */
-       "expected ERROR_INVALID_WINDOW_HANDLE, got %u\n", GetLastError());
-
-    hwnd = FindWindow("Shell_TrayWnd", NULL);
-    ok(IsWindow(hwnd) || broken(!hwnd), "got invalid tray window %p\n", hwnd);
-    SetLastError(0xdeadbeef);
-    ret1 = pGetWindowModuleFileNameA(hwnd, buf1, sizeof(buf1));
-    ok(!ret1 || broken(ret1), /* win98 */ "expected 0, got %u\n", ret1);
-
-    if (!ret1)  /* inter-process GetWindowModuleFileName works on win9x, so don't test the desktop there */
-    {
-        ret1 = GetModuleFileName(0, buf1, sizeof(buf1));
-        hwnd = GetDesktopWindow();
-        ok(IsWindow(hwnd), "got invalid desktop window %p\n", hwnd);
-        SetLastError(0xdeadbeef);
-        ret2 = pGetWindowModuleFileNameA(hwnd, buf2, sizeof(buf2));
-        ok(!ret2 ||
-           ret1 == ret2 || /* vista */
-           broken(ret2),  /* some win98 return user.exe as file name */
-           "expected 0 or %u, got %u %s\n", ret1, ret2, buf2);
-    }
-}
-
-static void test_hwnd_message(void)
-{
-    static const WCHAR mainwindowclassW[] = {'M','a','i','n','W','i','n','d','o','w','C','l','a','s','s',0};
-    static const WCHAR message_windowW[] = {'m','e','s','s','a','g','e',' ','w','i','n','d','o','w',0};
-
-    HWND parent = 0, hwnd, found;
-    RECT rect;
-
-    /* HWND_MESSAGE is not supported below w2k, but win9x return != 0
-       on CreateWindowExA and crash later in the test.
-       Use UNICODE here to fail on win9x */
-    hwnd = CreateWindowExW(0, mainwindowclassW, message_windowW, WS_CAPTION | WS_VISIBLE,
-                           100, 100, 200, 200, HWND_MESSAGE, 0, 0, NULL);
-    if (!hwnd)
-    {
-        win_skip("CreateWindowExW with parent HWND_MESSAGE failed\n");
-        return;
-    }
-
-    ok( !GetParent(hwnd), "GetParent should return 0 for message only windows\n" );
-    if (pGetAncestor)
-    {
-        char buffer[100];
-        HWND root, desktop = GetDesktopWindow();
-
-        parent = pGetAncestor(hwnd, GA_PARENT);
-        ok(parent != 0, "GetAncestor(GA_PARENT) should not return 0 for message windows\n");
-        ok(parent != desktop, "GetAncestor(GA_PARENT) should not return desktop for message windows\n");
-        root = pGetAncestor(hwnd, GA_ROOT);
-        ok(root == hwnd, "GetAncestor(GA_ROOT) should return hwnd for message windows\n");
-        ok( !pGetAncestor(parent, GA_PARENT) || broken(pGetAncestor(parent, GA_PARENT) != 0), /* win2k */
-            "parent shouldn't have parent %p\n", pGetAncestor(parent, GA_PARENT) );
-        trace("parent %p root %p desktop %p\n", parent, root, desktop);
-        if (!GetClassNameA( parent, buffer, sizeof(buffer) )) buffer[0] = 0;
-        ok( !lstrcmpi( buffer, "Message" ), "wrong parent class '%s'\n", buffer );
-        GetWindowRect( parent, &rect );
-        ok( rect.left == 0 && rect.right == 100 && rect.top == 0 && rect.bottom == 100,
-            "wrong parent rect %d,%d-%d,%d\n", rect.left, rect.top, rect.right, rect.bottom );
-    }
-    GetWindowRect( hwnd, &rect );
-    ok( rect.left == 100 && rect.right == 300 && rect.top == 100 && rect.bottom == 300,
-        "wrong window rect %d,%d-%d,%d\n", rect.left, rect.top, rect.right, rect.bottom );
-
-    /* test FindWindow behavior */
-
-    found = FindWindowExA( 0, 0, 0, "message window" );
-    ok( found == hwnd, "didn't find message window %p/%p\n", found, hwnd );
-    SetLastError(0xdeadbeef);
-    found = FindWindowExA( GetDesktopWindow(), 0, 0, "message window" );
-    ok( found == 0, "found message window %p/%p\n", found, hwnd );
-    ok( GetLastError() == 0xdeadbeef, "expected deadbeef, got %d\n", GetLastError() );
-    if (parent)
-    {
-        found = FindWindowExA( parent, 0, 0, "message window" );
-        ok( found == hwnd, "didn't find message window %p/%p\n", found, hwnd );
-    }
-
-    /* test IsChild behavior */
-
-    if (parent) ok( !IsChild( parent, hwnd ), "HWND_MESSAGE is child of top window\n" );
-
-    /* test IsWindowVisible behavior */
-
-    ok( !IsWindowVisible( hwnd ), "HWND_MESSAGE window is visible\n" );
-    if (parent) ok( !IsWindowVisible( parent ), "HWND_MESSAGE parent is visible\n" );
-
-    DestroyWindow(hwnd);
-}
-
-static void test_layered_window(void)
-{
-    HWND hwnd;
-    COLORREF key = 0;
-    BYTE alpha = 0;
-    DWORD flags = 0;
-    BOOL ret;
-
-    if (!pGetLayeredWindowAttributes || !pSetLayeredWindowAttributes)
-    {
-        win_skip( "layered windows not supported\n" );
-        return;
-    }
-    hwnd = CreateWindowExA(0, "MainWindowClass", "message window", WS_CAPTION,
-                           100, 100, 200, 200, 0, 0, 0, NULL);
-    assert( hwnd );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( !ret, "GetLayeredWindowAttributes should fail on non-layered window\n" );
-    ret = pSetLayeredWindowAttributes( hwnd, 0, 0, LWA_ALPHA );
-    ok( !ret, "SetLayeredWindowAttributes should fail on non-layered window\n" );
-    SetWindowLong( hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( !ret, "GetLayeredWindowAttributes should fail on layered but not initialized window\n" );
-    ret = pSetLayeredWindowAttributes( hwnd, 0x123456, 44, LWA_ALPHA );
-    ok( ret, "SetLayeredWindowAttributes should succeed on layered window\n" );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( ret, "GetLayeredWindowAttributes should succeed on layered window\n" );
-    ok( key == 0x123456 || key == 0, "wrong color key %x\n", key );
-    ok( alpha == 44, "wrong alpha %u\n", alpha );
-    ok( flags == LWA_ALPHA, "wrong flags %x\n", flags );
-
-    /* clearing WS_EX_LAYERED resets attributes */
-    SetWindowLong( hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( !ret, "GetLayeredWindowAttributes should fail on no longer layered window\n" );
-    SetWindowLong( hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( !ret, "GetLayeredWindowAttributes should fail on layered but not initialized window\n" );
-    ret = pSetLayeredWindowAttributes( hwnd, 0x654321, 22, LWA_COLORKEY | LWA_ALPHA );
-    ok( ret, "SetLayeredWindowAttributes should succeed on layered window\n" );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( ret, "GetLayeredWindowAttributes should succeed on layered window\n" );
-    ok( key == 0x654321, "wrong color key %x\n", key );
-    ok( alpha == 22, "wrong alpha %u\n", alpha );
-    ok( flags == (LWA_COLORKEY | LWA_ALPHA), "wrong flags %x\n", flags );
-
-    ret = pSetLayeredWindowAttributes( hwnd, 0x888888, 33, LWA_COLORKEY );
-    ok( ret, "SetLayeredWindowAttributes should succeed on layered window\n" );
-    alpha = 0;
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( ret, "GetLayeredWindowAttributes should succeed on layered window\n" );
-    ok( key == 0x888888, "wrong color key %x\n", key );
-    /* alpha not changed on vista if LWA_ALPHA is not set */
-    ok( alpha == 22 || alpha == 33, "wrong alpha %u\n", alpha );
-    ok( flags == LWA_COLORKEY, "wrong flags %x\n", flags );
-
-    /* color key may or may not be changed without LWA_COLORKEY */
-    ret = pSetLayeredWindowAttributes( hwnd, 0x999999, 44, 0 );
-    ok( ret, "SetLayeredWindowAttributes should succeed on layered window\n" );
-    alpha = 0;
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( ret, "GetLayeredWindowAttributes should succeed on layered window\n" );
-    ok( key == 0x888888 || key == 0x999999, "wrong color key %x\n", key );
-    ok( alpha == 22 || alpha == 44, "wrong alpha %u\n", alpha );
-    ok( flags == 0, "wrong flags %x\n", flags );
-
-    /* default alpha and color key is 0 */
-    SetWindowLong( hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED );
-    SetWindowLong( hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED );
-    ret = pSetLayeredWindowAttributes( hwnd, 0x222222, 55, 0 );
-    ok( ret, "SetLayeredWindowAttributes should succeed on layered window\n" );
-    ret = pGetLayeredWindowAttributes( hwnd, &key, &alpha, &flags );
-    ok( ret, "GetLayeredWindowAttributes should succeed on layered window\n" );
-    ok( key == 0 || key == 0x222222, "wrong color key %x\n", key );
-    ok( alpha == 0 || alpha == 55, "wrong alpha %u\n", alpha );
-    ok( flags == 0, "wrong flags %x\n", flags );
-
-    DestroyWindow( hwnd );
-}
-
-static MONITORINFO mi;
-
-static LRESULT CALLBACK fullscreen_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
-{
-    switch (msg)
-    {
-        case WM_NCCREATE:
-        {
-            CREATESTRUCTA *cs = (CREATESTRUCTA *)lp;
-            trace("WM_NCCREATE: rect %d,%d-%d,%d\n", cs->x, cs->y, cs->cx, cs->cy);
-            ok(cs->x == mi.rcMonitor.left && cs->y == mi.rcMonitor.top &&
-               cs->cx == mi.rcMonitor.right && cs->cy == mi.rcMonitor.bottom,
-               "expected %d,%d-%d,%d, got %d,%d-%d,%d\n",
-               mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-               cs->x, cs->y, cs->cx, cs->cy);
-            break;
-        }
-        case WM_GETMINMAXINFO:
-        {
-            MINMAXINFO *minmax = (MINMAXINFO *)lp;
-            dump_minmax_info(minmax);
-            ok(minmax->ptMaxPosition.x <= mi.rcMonitor.left, "%d <= %d\n", minmax->ptMaxPosition.x, mi.rcMonitor.left);
-            ok(minmax->ptMaxPosition.y <= mi.rcMonitor.top, "%d <= %d\n", minmax->ptMaxPosition.y, mi.rcMonitor.top);
-            ok(minmax->ptMaxSize.x >= mi.rcMonitor.right, "%d >= %d\n", minmax->ptMaxSize.x, mi.rcMonitor.right);
-            ok(minmax->ptMaxSize.y >= mi.rcMonitor.bottom, "%d >= %d\n", minmax->ptMaxSize.y, mi.rcMonitor.bottom);
-            break;
-        }
-    }
-    return DefWindowProc(hwnd, msg, wp, lp);
-}
-
-static void test_fullscreen(void)
-{
-    static const DWORD t_style[] = {
-        WS_OVERLAPPED, WS_POPUP, WS_CHILD, WS_THICKFRAME, WS_DLGFRAME
-    };
-    static const DWORD t_ex_style[] = {
-        0, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW
-    };
-    WNDCLASS cls;
-    HWND hwnd;
-    int i, j;
-    POINT pt;
-    RECT rc;
-    HMONITOR hmon;
-    LRESULT ret;
-
-    if (!pGetMonitorInfoA || !pMonitorFromPoint)
-    {
-        win_skip("GetMonitorInfoA or MonitorFromPoint are not available on this platform\n");
-        return;
-    }
-
-    pt.x = pt.y = 0;
-    SetLastError(0xdeadbeef);
-    hmon = pMonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
-    ok(hmon != 0, "MonitorFromPoint error %u\n", GetLastError());
-
-    mi.cbSize = sizeof(mi);
-    SetLastError(0xdeadbeef);
-    ret = pGetMonitorInfoA(hmon, &mi);
-    ok(ret, "GetMonitorInfo error %u\n", GetLastError());
-    trace("monitor (%d,%d-%d,%d), work (%d,%d-%d,%d)\n",
-        mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-        mi.rcWork.left, mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom);
-
-    cls.style = 0;
-    cls.lpfnWndProc = fullscreen_wnd_proc;
-    cls.cbClsExtra = 0;
-    cls.cbWndExtra = 0;
-    cls.hInstance = GetModuleHandle(0);
-    cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
-    cls.hbrBackground = GetStockObject(WHITE_BRUSH);
-    cls.lpszMenuName = NULL;
-    cls.lpszClassName = "fullscreen_class";
-    RegisterClass(&cls);
-
-    for (i = 0; i < sizeof(t_style)/sizeof(t_style[0]); i++)
-    {
-        DWORD style, ex_style;
-
-        /* avoid a WM interaction */
-        assert(!(t_style[i] & WS_VISIBLE));
-
-        for (j = 0; j < sizeof(t_ex_style)/sizeof(t_ex_style[0]); j++)
-        {
-            int fixup;
-
-            style = t_style[i];
-            ex_style = t_ex_style[j];
-
-            hwnd = CreateWindowExA(ex_style, "fullscreen_class", NULL, style,
-                                   mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-                                   GetDesktopWindow(), 0, GetModuleHandle(0), NULL);
-            ok(hwnd != 0, "%d: CreateWindowExA(%#x/%#x) failed\n", i, ex_style, style);
-            GetWindowRect(hwnd, &rc);
-            trace("%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            ok(rc.left <= mi.rcMonitor.left && rc.top <= mi.rcMonitor.top &&
-               rc.right >= mi.rcMonitor.right && rc.bottom >= mi.rcMonitor.bottom,
-               "%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            DestroyWindow(hwnd);
-
-            style = t_style[i] | WS_MAXIMIZE;
-            hwnd = CreateWindowExA(ex_style, "fullscreen_class", NULL, style,
-                                   mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-                                   GetDesktopWindow(), 0, GetModuleHandle(0), NULL);
-            ok(hwnd != 0, "%d: CreateWindowExA(%#x/%#x) failed\n", i, ex_style, style);
-            GetWindowRect(hwnd, &rc);
-            trace("%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            ok(rc.left <= mi.rcMonitor.left && rc.top <= mi.rcMonitor.top &&
-               rc.right >= mi.rcMonitor.right && rc.bottom >= mi.rcMonitor.bottom,
-               "%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            DestroyWindow(hwnd);
-
-            style = t_style[i] | WS_MAXIMIZE | WS_CAPTION;
-            hwnd = CreateWindowExA(ex_style, "fullscreen_class", NULL, style,
-                                   mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-                                   GetDesktopWindow(), 0, GetModuleHandle(0), NULL);
-            ok(hwnd != 0, "%d: CreateWindowExA(%#x/%#x) failed\n", i, ex_style, style);
-            GetWindowRect(hwnd, &rc);
-            trace("%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            ok(rc.left <= mi.rcMonitor.left && rc.top <= mi.rcMonitor.top &&
-               rc.right >= mi.rcMonitor.right && rc.bottom >= mi.rcMonitor.bottom,
-               "%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            DestroyWindow(hwnd);
-
-            style = t_style[i] | WS_CAPTION | WS_MAXIMIZEBOX;
-            hwnd = CreateWindowExA(ex_style, "fullscreen_class", NULL, style,
-                                   mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-                                   GetDesktopWindow(), 0, GetModuleHandle(0), NULL);
-            ok(hwnd != 0, "%d: CreateWindowExA(%#x/%#x) failed\n", i, ex_style, style);
-            GetWindowRect(hwnd, &rc);
-            trace("%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            ok(rc.left <= mi.rcMonitor.left && rc.top <= mi.rcMonitor.top &&
-               rc.right >= mi.rcMonitor.right && rc.bottom >= mi.rcMonitor.bottom,
-               "%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            DestroyWindow(hwnd);
-
-            style = t_style[i] | WS_MAXIMIZE | WS_CAPTION | WS_MAXIMIZEBOX;
-            hwnd = CreateWindowExA(ex_style, "fullscreen_class", NULL, style,
-                                   mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-                                   GetDesktopWindow(), 0, GetModuleHandle(0), NULL);
-            ok(hwnd != 0, "%d: CreateWindowExA(%#x/%#x) failed\n", i, ex_style, style);
-            GetWindowRect(hwnd, &rc);
-            trace("%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            /* Windows makes a maximized window slightly larger (to hide the borders?) */
-            fixup = min(abs(rc.left), abs(rc.top));
-            InflateRect(&rc, -fixup, -fixup);
-            ok(rc.left >= mi.rcWork.left && rc.top <= mi.rcWork.top &&
-               rc.right <= mi.rcWork.right && rc.bottom <= mi.rcWork.bottom,
-               "%#x/%#x: window rect %d,%d-%d,%d must be in %d,%d-%d,%d\n",
-               ex_style, style, rc.left, rc.top, rc.right, rc.bottom,
-               mi.rcWork.left, mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom);
-            DestroyWindow(hwnd);
-
-            style = t_style[i] | WS_MAXIMIZE | WS_MAXIMIZEBOX;
-            hwnd = CreateWindowExA(ex_style, "fullscreen_class", NULL, style,
-                                   mi.rcMonitor.left, mi.rcMonitor.top, mi.rcMonitor.right, mi.rcMonitor.bottom,
-                                   GetDesktopWindow(), 0, GetModuleHandle(0), NULL);
-            ok(hwnd != 0, "%d: CreateWindowExA(%#x/%#x) failed\n", i, ex_style, style);
-            GetWindowRect(hwnd, &rc);
-            trace("%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            /* Windows makes a maximized window slightly larger (to hide the borders?) */
-            fixup = min(abs(rc.left), abs(rc.top));
-            InflateRect(&rc, -fixup, -fixup);
-            if (style & (WS_CHILD | WS_POPUP))
-                ok(rc.left <= mi.rcMonitor.left && rc.top <= mi.rcMonitor.top &&
-                   rc.right >= mi.rcMonitor.right && rc.bottom >= mi.rcMonitor.bottom,
-                   "%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            else
-                ok(rc.left >= mi.rcWork.left && rc.top <= mi.rcWork.top &&
-                   rc.right <= mi.rcWork.right && rc.bottom <= mi.rcWork.bottom,
-                   "%#x/%#x: window rect %d,%d-%d,%d\n", ex_style, style, rc.left, rc.top, rc.right, rc.bottom);
-            DestroyWindow(hwnd);
-        }
-    }
-
-    UnregisterClass("fullscreen_class", GetModuleHandle(0));
-}
-
-static BOOL test_thick_child_got_minmax;
-static const char * test_thick_child_name;
-static LONG test_thick_child_style;
-static LONG test_thick_child_exStyle;
-
-static LRESULT WINAPI test_thick_child_size_winproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
-{
-    MINMAXINFO* minmax;
-    int expectedMinTrackX;
-    int expectedMinTrackY;
-    int actualMinTrackX;
-    int actualMinTrackY;
-    int expectedMaxTrackX;
-    int expectedMaxTrackY;
-    int actualMaxTrackX;
-    int actualMaxTrackY;
-    int expectedMaxSizeX;
-    int expectedMaxSizeY;
-    int actualMaxSizeX;
-    int actualMaxSizeY;
-    int expectedPosX;
-    int expectedPosY;
-    int actualPosX;
-    int actualPosY;
-    LONG adjustedStyle;
-    RECT rect;
-    switch (msg)
-    {
-        case WM_GETMINMAXINFO:
-        {
-            minmax = (MINMAXINFO *)lparam;
-            trace("hwnd %p, WM_GETMINMAXINFO, %08lx, %08lx\n", hwnd, wparam, lparam);
-            dump_minmax_info( minmax );
-
-            test_thick_child_got_minmax = TRUE;
-
-
-            adjustedStyle = test_thick_child_style;
-            if ((adjustedStyle & WS_CAPTION) == WS_CAPTION)
-                adjustedStyle &= ~WS_BORDER; /* WS_CAPTION = WS_DLGFRAME | WS_BORDER */
-            GetClientRect(GetParent(hwnd), &rect);
-            AdjustWindowRectEx(&rect, adjustedStyle, FALSE, test_thick_child_exStyle);
-
-            if (test_thick_child_style & (WS_DLGFRAME | WS_BORDER))
-            {
-                expectedMinTrackX = GetSystemMetrics(SM_CXMINTRACK);
-                expectedMinTrackY = GetSystemMetrics(SM_CYMINTRACK);
-            }
-            else
-            {
-                expectedMinTrackX = -2 * rect.left;
-                expectedMinTrackY = -2 * rect.top;
-            }
-            actualMinTrackX =  minmax->ptMinTrackSize.x;
-            actualMinTrackY =  minmax->ptMinTrackSize.y;
-
-            ok(actualMinTrackX == expectedMinTrackX && actualMinTrackY == expectedMinTrackY,
-                "expected minTrack %dx%d, actual minTrack %dx%d for %s\n",
-                expectedMinTrackX, expectedMinTrackY, actualMinTrackX, actualMinTrackY,
-                test_thick_child_name);
-
-            actualMaxTrackX = minmax->ptMaxTrackSize.x;
-            actualMaxTrackY = minmax->ptMaxTrackSize.y;
-            expectedMaxTrackX = GetSystemMetrics(SM_CXMAXTRACK);
-            expectedMaxTrackY = GetSystemMetrics(SM_CYMAXTRACK);
-            ok(actualMaxTrackX == expectedMaxTrackX &&  actualMaxTrackY == expectedMaxTrackY,
-                "expected maxTrack %dx%d, actual maxTrack %dx%d for %s\n",
-                 expectedMaxTrackX, expectedMaxTrackY, actualMaxTrackX, actualMaxTrackY,
-                test_thick_child_name);
-
-            expectedMaxSizeX = rect.right - rect.left;
-            expectedMaxSizeY = rect.bottom - rect.top;
-            actualMaxSizeX = minmax->ptMaxSize.x;
-            actualMaxSizeY = minmax->ptMaxSize.y;
-
-            ok(actualMaxSizeX == expectedMaxSizeX &&  actualMaxSizeY == expectedMaxSizeY,
-                "expected maxSize %dx%d, actual maxSize %dx%d for %s\n",
-                expectedMaxSizeX, expectedMaxSizeY, actualMaxSizeX, actualMaxSizeY,
-                test_thick_child_name);
-
-
-            expectedPosX = rect.left;
-            expectedPosY = rect.top;
-            actualPosX = minmax->ptMaxPosition.x;
-            actualPosY = minmax->ptMaxPosition.y;
-            ok(actualPosX == expectedPosX && actualPosY == expectedPosY,
-                "expected maxPosition (%d/%d), actual maxPosition (%d/%d) for %s\n",
-                expectedPosX, expectedPosY, actualPosX, actualPosY, test_thick_child_name);
-
-            break;
-        }
-    }
-
-    return DefWindowProcA(hwnd, msg, wparam, lparam);
-}
-
-#define NUMBER_OF_THICK_CHILD_TESTS 16
-static void test_thick_child_size(HWND parentWindow)
-{
-    BOOL success;
-    RECT childRect;
-    RECT adjustedParentRect;
-    HWND childWindow;
-    LONG childWidth;
-    LONG childHeight;
-    LONG expectedWidth;
-    LONG expectedHeight;
-    WNDCLASSA cls;
-    LPCTSTR className = "THICK_CHILD_CLASS";
-    int i;
-    LONG adjustedStyle;
-    static const LONG styles[NUMBER_OF_THICK_CHILD_TESTS] = {
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER,
-        WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER,
-    };
-
-    static const LONG exStyles[NUMBER_OF_THICK_CHILD_TESTS] = {
-        0,
-        0,
-        0,
-        0,
-        WS_EX_DLGMODALFRAME,
-        WS_EX_DLGMODALFRAME,
-        WS_EX_DLGMODALFRAME,
-        WS_EX_DLGMODALFRAME,
-        WS_EX_STATICEDGE,
-        WS_EX_STATICEDGE,
-        WS_EX_STATICEDGE,
-        WS_EX_STATICEDGE,
-        WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME,
-        WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME,
-        WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME,
-        WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME,
-    };
-    static const char *styleName[NUMBER_OF_THICK_CHILD_TESTS] = {
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME, exstyle= WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME exstyle= WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER exstyle= WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER exstyle= WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME exstyle= WS_EX_STATICEDGE",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME exstyle= WS_EX_STATICEDGE",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER exstyle= WS_EX_STATICEDGE",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER exstyle= WS_EX_STATICEDGE",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME, exstyle= WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME exstyle= WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_DLGFRAME | WS_BORDER exstyle= WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME",
-        "style=WS_CHILD | WS_VISIBLE | WS_THICKFRAME | WS_BORDER exstyle= WS_EX_STATICEDGE | WS_EX_DLGMODALFRAME",
-    };
-
-    cls.style = 0;
-    cls.lpfnWndProc = test_thick_child_size_winproc;
-    cls.cbClsExtra = 0;
-    cls.cbWndExtra = 0;
-    cls.hInstance = GetModuleHandleA(0);
-    cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
-    cls.hbrBackground = GetStockObject(WHITE_BRUSH);
-    cls.lpszMenuName = NULL;
-    cls.lpszClassName = className;
-    SetLastError(0xdeadbeef);
-    ok(RegisterClassA(&cls),"RegisterClassA failed, error: %u\n", GetLastError());
-
-    for(i = 0; i < NUMBER_OF_THICK_CHILD_TESTS; i++)
-    {
-        test_thick_child_name = styleName[i];
-        test_thick_child_style = styles[i];
-        test_thick_child_exStyle = exStyles[i];
-        test_thick_child_got_minmax = FALSE;
-
-        SetLastError(0xdeadbeef);
-        childWindow = CreateWindowEx( exStyles[i], className, "", styles[i],  0, 0, 0, 0, parentWindow, 0,  GetModuleHandleA(0),  NULL );
-        ok(childWindow != NULL, "Failed to create child window, error: %u\n", GetLastError());
-
-        ok(test_thick_child_got_minmax, "Got no WM_GETMINMAXINFO\n");
-
-        SetLastError(0xdeadbeef);
-        success = GetWindowRect(childWindow, &childRect);
-        ok(success,"GetWindowRect call failed, error: %u\n", GetLastError());
-        childWidth = childRect.right - childRect.left;
-        childHeight = childRect.bottom - childRect.top;
-
-        adjustedStyle = styles[i];
-        if ((adjustedStyle & WS_CAPTION) == WS_CAPTION)
-            adjustedStyle &= ~WS_BORDER; /* WS_CAPTION = WS_DLGFRAME | WS_BORDER */
-        GetClientRect(GetParent(childWindow), &adjustedParentRect);
-        AdjustWindowRectEx(&adjustedParentRect, adjustedStyle, FALSE, test_thick_child_exStyle);
-
-
-        if (test_thick_child_style & (WS_DLGFRAME | WS_BORDER))
-        {
-            expectedWidth = GetSystemMetrics(SM_CXMINTRACK);
-            expectedHeight = GetSystemMetrics(SM_CYMINTRACK);
-        }
-        else
-        {
-            expectedWidth = -2 * adjustedParentRect.left;
-            expectedHeight = -2 * adjustedParentRect.top;
-        }
-
-        ok((childWidth == expectedWidth) && (childHeight == expectedHeight),
-            "size of window (%s) is wrong: expected size %dx%d != actual size %dx%d\n",
-            test_thick_child_name, expectedWidth, expectedHeight, childWidth, childHeight);
-
-        SetLastError(0xdeadbeef);
-        success = DestroyWindow(childWindow);
-        ok(success,"DestroyWindow call failed, error: %u\n", GetLastError());
-    }
-    ok(UnregisterClass(className, GetModuleHandleA(0)),"UnregisterClass call failed\n");
-}
-
-static void test_handles( HWND full_hwnd )
-{
-    HWND hwnd = full_hwnd;
-    BOOL ret;
-    RECT rect;
-
-    SetLastError( 0xdeadbeef );
-    ret = GetWindowRect( hwnd, &rect );
-    ok( ret, "GetWindowRect failed for %p err %u\n", hwnd, GetLastError() );
-
-#ifdef _WIN64
-    if ((ULONG_PTR)full_hwnd >> 32)
-        hwnd = (HWND)((ULONG_PTR)full_hwnd & ~0u);
-    else
-        hwnd = (HWND)((ULONG_PTR)full_hwnd | ((ULONG_PTR)~0u << 32));
-    SetLastError( 0xdeadbeef );
-    ret = GetWindowRect( hwnd, &rect );
-    ok( ret, "GetWindowRect failed for %p err %u\n", hwnd, GetLastError() );
-
-    hwnd = (HWND)(((ULONG_PTR)full_hwnd & ~0u) | ((ULONG_PTR)0x1234 << 32));
-    SetLastError( 0xdeadbeef );
-    ret = GetWindowRect( hwnd, &rect );
-    ok( ret, "GetWindowRect failed for %p err %u\n", hwnd, GetLastError() );
-
-    hwnd = (HWND)(((ULONG_PTR)full_hwnd & 0xffff) | ((ULONG_PTR)0x9876 << 16));
-    SetLastError( 0xdeadbeef );
-    ret = GetWindowRect( hwnd, &rect );
-    ok( !ret, "GetWindowRect succeeded for %p\n", hwnd );
-    ok( GetLastError() == ERROR_INVALID_WINDOW_HANDLE, "wrong error %u\n", GetLastError() );
-
-    hwnd = (HWND)(((ULONG_PTR)full_hwnd & 0xffff) | ((ULONG_PTR)0x12345678 << 16));
-    SetLastError( 0xdeadbeef );
-    ret = GetWindowRect( hwnd, &rect );
-    ok( !ret, "GetWindowRect succeeded for %p\n", hwnd );
-    ok( GetLastError() == ERROR_INVALID_WINDOW_HANDLE, "wrong error %u\n", GetLastError() );
-#endif
-}
-
-static void test_winregion(void)
-{
-    HWND hwnd;
-    RECT r;
-    int ret;
-    HRGN hrgn;
-
-    if (!pGetWindowRgnBox)
-    {
-        win_skip("GetWindowRgnBox not supported\n");
-        return;
-    }
-
-    hwnd = CreateWindowExA(0, "static", NULL, WS_VISIBLE, 10, 10, 10, 10, NULL, 0, 0, NULL);
-    /* NULL prect */
-    SetLastError(0xdeadbeef);
-    ret = pGetWindowRgnBox(hwnd, NULL);
-    ok( ret == ERROR, "Expected ERROR, got %d\n", ret);
-    ok( GetLastError() == 0xdeadbeef, "Expected , got %d\n", GetLastError());
-
-    hrgn = CreateRectRgn(2, 3, 10, 15);
-    ok( hrgn != NULL, "Region creation failed\n");
-    if (hrgn)
-    {
-        SetWindowRgn(hwnd, hrgn, FALSE);
-
-        SetLastError(0xdeadbeef);
-        ret = pGetWindowRgnBox(hwnd, NULL);
-        ok( ret == ERROR, "Expected ERROR, got %d\n", ret);
-        ok( GetLastError() == 0xdeadbeef, "Expected , got %d\n", GetLastError());
-
-        r.left = r.top = r.right = r.bottom = 0;
-        ret = pGetWindowRgnBox(hwnd, &r);
-        ok( ret == SIMPLEREGION, "Expected SIMPLEREGION, got %d\n", ret);
-        ok( r.left == 2 && r.top == 3 && r.right == 10 && r.bottom == 15,
-           "Expected (2,3,10,15), got (%d,%d,%d,%d)\n", r.left, r.top,
-                                                            r.right, r.bottom);
-        DeleteObject(hrgn);
-    }
-    DestroyWindow(hwnd);
-}
-
 START_TEST(win)
 {
-    HMODULE user32 = GetModuleHandleA( "user32.dll" );
-    pGetAncestor = (void *)GetProcAddress( user32, "GetAncestor" );
-    pGetWindowInfo = (void *)GetProcAddress( user32, "GetWindowInfo" );
-    pGetWindowModuleFileNameA = (void *)GetProcAddress( user32, "GetWindowModuleFileNameA" );
-    pGetLayeredWindowAttributes = (void *)GetProcAddress( user32, "GetLayeredWindowAttributes" );
-    pSetLayeredWindowAttributes = (void *)GetProcAddress( user32, "SetLayeredWindowAttributes" );
-    pGetMonitorInfoA = (void *)GetProcAddress( user32,  "GetMonitorInfoA" );
-    pMonitorFromPoint = (void *)GetProcAddress( user32,  "MonitorFromPoint" );
-    pGetWindowRgnBox = (void *)GetProcAddress( user32, "GetWindowRgnBox" );
+    pGetAncestor = (void *)GetProcAddress( GetModuleHandleA("user32.dll"), "GetAncestor" );
+    pGetWindowInfo = (void *)GetProcAddress( GetModuleHandleA("user32.dll"), "GetWindowInfo" );
+
+    hwndMain = CreateWindowExA(0, "static", NULL, 0, 0, 0, 0, 0, HWND_MESSAGE, 0, 0, NULL);
+    if (hwndMain)
+    {
+        ok(!GetParent(hwndMain), "GetParent should return 0 for message only windows\n");
+        if (pGetAncestor)
+        {
+            hwndMessage = pGetAncestor(hwndMain, GA_PARENT);
+            ok(hwndMessage != 0, "GetAncestor(GA_PARENT) should not return 0 for message only windows\n");
+            trace("hwndMessage %p\n", hwndMessage);
+        }
+        DestroyWindow(hwndMain);
+    }
+    else
+        trace("CreateWindowExA with parent HWND_MESSAGE failed\n");
 
     if (!RegisterWindowClasses()) assert(0);
 
     hhook = SetWindowsHookExA(WH_CBT, cbt_hook_proc, 0, GetCurrentThreadId());
-    if (!hhook) win_skip( "Cannot set CBT hook, skipping some tests\n" );
+    assert(hhook);
 
     hwndMain = CreateWindowExA(/*WS_EX_TOOLWINDOW*/ 0, "MainWindowClass", "Main window",
                                WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
                                WS_MAXIMIZEBOX | WS_POPUP,
                                100, 100, 200, 200,
                                0, 0, GetModuleHandle(0), NULL);
+    test_nonclient_area(hwndMain);
+
     hwndMain2 = CreateWindowExA(/*WS_EX_TOOLWINDOW*/ 0, "MainWindowClass", "Main window 2",
                                 WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
                                 WS_MAXIMIZEBOX | WS_POPUP,
@@ -5749,12 +4674,8 @@ START_TEST(win)
     our_pid = GetWindowThreadProcessId(hwndMain, NULL);
 
     /* Add the tests below this line */
-    test_thick_child_size(hwndMain);
-    test_fullscreen();
-    test_hwnd_message();
-    test_nonclient_area(hwndMain);
     test_params();
-    test_GetWindowModuleFileName();
+
     test_capture_1();
     test_capture_2();
     test_capture_3(hwndMain, hwndMain2);
@@ -5762,6 +4683,7 @@ START_TEST(win)
     test_CreateWindow();
     test_parent_owner();
     test_SetParent();
+    test_shell_window();
 
     test_mdi();
     test_icons();
@@ -5769,7 +4691,7 @@ START_TEST(win)
     test_SetMenu(hwndMain);
     test_SetFocus(hwndMain);
     test_SetActiveWindow(hwndMain);
-    test_NCRedraw();
+    test_SetForegroundWindow(hwndMain);
 
     test_children_zorder(hwndMain);
     test_popup_zorder(hwndMain2, hwndMain);
@@ -5777,7 +4699,6 @@ START_TEST(win)
     test_mouse_input(hwndMain);
     test_validatergn(hwndMain);
     test_nccalcscroll( hwndMain);
-    test_scrollwindow( hwndMain);
     test_scrollvalidate( hwndMain);
     test_scrolldc( hwndMain);
     test_scroll();
@@ -5790,19 +4711,10 @@ START_TEST(win)
     test_csparentdc();
     test_SetWindowLong();
     test_ShowWindow();
-    if (0) test_gettext(); /* crashes on NT4 */
+    test_gettext();
     test_GetUpdateRect();
     test_Expose();
-    test_layered_window();
-
-    test_SetForegroundWindow(hwndMain);
-    test_shell_window();
-    test_handles( hwndMain );
-    test_winregion();
 
     /* add the tests above this line */
-    if (hhook) UnhookWindowsHookEx(hhook);
-
-    DestroyWindow(hwndMain2);
-    DestroyWindow(hwndMain);
+    UnhookWindowsHookEx(hhook);
 }

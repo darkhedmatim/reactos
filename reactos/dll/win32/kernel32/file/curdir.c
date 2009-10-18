@@ -36,7 +36,7 @@ UNICODE_STRING WindowsDirectory;
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetCurrentDirectoryA (
 	DWORD	nBufferLength,
 	LPSTR	lpBuffer
@@ -62,7 +62,7 @@ GetCurrentDirectoryA (
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetCurrentDirectoryW (
 	DWORD	nBufferLength,
 	LPWSTR	lpBuffer
@@ -82,7 +82,7 @@ GetCurrentDirectoryW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetCurrentDirectoryA (
 	LPCSTR	lpPathName
 	)
@@ -102,7 +102,7 @@ SetCurrentDirectoryA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetCurrentDirectoryW (
 	LPCWSTR	lpPathName
 	)
@@ -130,7 +130,7 @@ SetCurrentDirectoryW (
  * NOTE: Windows returns a dos/short (8.3) path
  */
 DWORD
-WINAPI
+STDCALL
 GetTempPathA (
 	DWORD	nBufferLength,
 	LPSTR	lpBuffer
@@ -160,7 +160,7 @@ GetTempPathA (
  * ripped from wine
  */
 DWORD
-WINAPI
+STDCALL
 GetTempPathW (
 	DWORD	count,
    LPWSTR   path
@@ -212,7 +212,7 @@ GetTempPathW (
          path[0] = 0; /* avoid returning ambiguous "X:" */
    }
 
-   TRACE("GetTempPathW returning %u, %S\n", ret, path);
+   TRACE("GetTempPathW returning %u, %s\n", ret, path);
    return ret;
 
 }
@@ -222,7 +222,7 @@ GetTempPathW (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemDirectoryA (
 	LPSTR	lpBuffer,
 	UINT	uSize
@@ -236,7 +236,7 @@ GetSystemDirectoryA (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemDirectoryW (
 	LPWSTR	lpBuffer,
 	UINT	uSize
@@ -265,7 +265,7 @@ GetSystemDirectoryW (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetWindowsDirectoryA (
 	LPSTR	lpBuffer,
 	UINT	uSize
@@ -279,7 +279,7 @@ GetWindowsDirectoryA (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetWindowsDirectoryW (
 	LPWSTR	lpBuffer,
 	UINT	uSize
@@ -309,7 +309,7 @@ GetWindowsDirectoryW (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWindowsDirectoryA(
 	LPSTR	lpBuffer,
 	UINT	uSize
@@ -322,7 +322,7 @@ GetSystemWindowsDirectoryA(
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWindowsDirectoryW(
 	LPWSTR	lpBuffer,
 	UINT	uSize
@@ -335,7 +335,7 @@ GetSystemWindowsDirectoryW(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWow64DirectoryW(
     LPWSTR lpBuffer,
     UINT uSize
@@ -354,7 +354,7 @@ GetSystemWow64DirectoryW(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWow64DirectoryA(
     LPSTR lpBuffer,
     UINT uSize

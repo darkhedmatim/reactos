@@ -97,7 +97,6 @@ static BOOL check_ini_file_attr(LPSTR filename)
 
 static void test_AddDelBackupEntry(void)
 {
-    BOOL ret;
     HRESULT res;
     CHAR path[MAX_PATH];
     CHAR windir[MAX_PATH];
@@ -133,13 +132,8 @@ static void test_AddDelBackupEntry(void)
     /* create the INF file */
     res = pAddDelBackupEntry("one\0two\0three\0", "c:\\", "basename", AADBE_ADD_ENTRY);
     ok(res == S_OK, "Expected S_OK, got %d\n", res);
-    if (GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES)
-    {
-        ok(check_ini_file_attr(path), "Expected ini file to be hidden\n");
-        ok(DeleteFileA(path), "Expected path to exist\n");
-    }
-    else
-        win_skip("Test file could not be created\n");
+    ok(check_ini_file_attr(path), "Expected ini file to be hidden\n");
+    ok(DeleteFileA(path), "Expected path to exist\n");
 
     lstrcpyA(path, CURR_DIR);
     lstrcatA(path, "\\backup\\basename.INI");
@@ -171,41 +165,38 @@ static void test_AddDelBackupEntry(void)
     res = pAddDelBackupEntry("one\0three\0", NULL, "basename", AADBE_DEL_ENTRY);
     SetFileAttributesA(path, FILE_ATTRIBUTE_NORMAL);
     ok(res == S_OK, "Expected S_OK, got %d\n", res);
-    ret = DeleteFileA(path);
-    ok(ret == TRUE ||
-       broken(ret == FALSE), /* win98 */
-       "Expected path to exist\n");
+    ok(DeleteFileA(path), "Expected path to exist\n");
 }
 
 /* the FCI callbacks */
 
-static void * CDECL mem_alloc(ULONG cb)
+static void *mem_alloc(ULONG cb)
 {
     return HeapAlloc(GetProcessHeap(), 0, cb);
 }
 
-static void CDECL mem_free(void *memory)
+static void mem_free(void *memory)
 {
     HeapFree(GetProcessHeap(), 0, memory);
 }
 
-static BOOL CDECL get_next_cabinet(PCCAB pccab, ULONG  cbPrevCab, void *pv)
+static BOOL get_next_cabinet(PCCAB pccab, ULONG  cbPrevCab, void *pv)
 {
     return TRUE;
 }
 
-static LONG CDECL progress(UINT typeStatus, ULONG cb1, ULONG cb2, void *pv)
+static long progress(UINT typeStatus, ULONG cb1, ULONG cb2, void *pv)
 {
     return 0;
 }
 
-static int CDECL file_placed(PCCAB pccab, char *pszFile, LONG cbFile,
-                             BOOL fContinuation, void *pv)
+static int file_placed(PCCAB pccab, char *pszFile, long cbFile,
+                       BOOL fContinuation, void *pv)
 {
     return 0;
 }
 
-static INT_PTR CDECL fci_open(char *pszFile, int oflag, int pmode, int *err, void *pv)
+static INT_PTR fci_open(char *pszFile, int oflag, int pmode, int *err, void *pv)
 {
     HANDLE handle;
     DWORD dwAccess = 0;
@@ -229,7 +220,7 @@ static INT_PTR CDECL fci_open(char *pszFile, int oflag, int pmode, int *err, voi
     return (INT_PTR)handle;
 }
 
-static UINT CDECL fci_read(INT_PTR hf, void *memory, UINT cb, int *err, void *pv)
+static UINT fci_read(INT_PTR hf, void *memory, UINT cb, int *err, void *pv)
 {
     HANDLE handle = (HANDLE)hf;
     DWORD dwRead;
@@ -241,7 +232,7 @@ static UINT CDECL fci_read(INT_PTR hf, void *memory, UINT cb, int *err, void *pv
     return dwRead;
 }
 
-static UINT CDECL fci_write(INT_PTR hf, void *memory, UINT cb, int *err, void *pv)
+static UINT fci_write(INT_PTR hf, void *memory, UINT cb, int *err, void *pv)
 {
     HANDLE handle = (HANDLE)hf;
     DWORD dwWritten;
@@ -253,7 +244,7 @@ static UINT CDECL fci_write(INT_PTR hf, void *memory, UINT cb, int *err, void *p
     return dwWritten;
 }
 
-static int CDECL fci_close(INT_PTR hf, int *err, void *pv)
+static int fci_close(INT_PTR hf, int *err, void *pv)
 {
     HANDLE handle = (HANDLE)hf;
     ok(CloseHandle(handle), "Failed to CloseHandle\n");
@@ -261,7 +252,7 @@ static int CDECL fci_close(INT_PTR hf, int *err, void *pv)
     return 0;
 }
 
-static LONG CDECL fci_seek(INT_PTR hf, LONG dist, int seektype, int *err, void *pv)
+static long fci_seek(INT_PTR hf, long dist, int seektype, int *err, void *pv)
 {
     HANDLE handle = (HANDLE)hf;
     DWORD ret;
@@ -272,7 +263,7 @@ static LONG CDECL fci_seek(INT_PTR hf, LONG dist, int seektype, int *err, void *
     return ret;
 }
 
-static int CDECL fci_delete(char *pszFile, int *err, void *pv)
+static int fci_delete(char *pszFile, int *err, void *pv)
 {
     BOOL ret = DeleteFileA(pszFile);
     ok(ret, "Failed to DeleteFile %s\n", pszFile);
@@ -280,7 +271,7 @@ static int CDECL fci_delete(char *pszFile, int *err, void *pv)
     return 0;
 }
 
-static BOOL CDECL get_temp_file(char *pszTempName, int cbTempName, void *pv)
+static BOOL get_temp_file(char *pszTempName, int cbTempName, void *pv)
 {
     LPSTR tempname;
 
@@ -299,8 +290,8 @@ static BOOL CDECL get_temp_file(char *pszTempName, int cbTempName, void *pv)
     return FALSE;
 }
 
-static INT_PTR CDECL get_open_info(char *pszName, USHORT *pdate, USHORT *ptime,
-                                   USHORT *pattribs, int *err, void *pv)
+static INT_PTR get_open_info(char *pszName, USHORT *pdate, USHORT *ptime,
+                             USHORT *pattribs, int *err, void *pv)
 {
     BY_HANDLE_FILE_INFORMATION finfo;
     FILETIME filetime;

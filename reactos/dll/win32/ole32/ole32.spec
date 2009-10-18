@@ -22,10 +22,10 @@
 @ stdcall CoFreeUnusedLibraries()
 @ stdcall CoFreeUnusedLibrariesEx(long long)
 @ stdcall CoGetCallContext(ptr ptr)
-@ stdcall CoGetCallerTID(ptr)
+@ stub CoGetCallerTID
 @ stdcall CoGetClassObject(ptr long ptr ptr ptr)
 @ stdcall CoGetContextToken(ptr)
-@ stdcall CoGetCurrentLogicalThreadId(ptr)
+@ stub CoGetCurrentLogicalThreadId
 @ stdcall CoGetCurrentProcess()
 @ stub CoGetInstanceFromFile      #@ stdcall (ptr ptr ptr long wstr long ptr) return 0,ERR_NOTIMPLEMENTED
 @ stub CoGetInstanceFromIStorage  #@ stdcall (ptr ptr ptr long ptr long ptr) return 0,ERR_NOTIMPLEMENTED
@@ -57,7 +57,6 @@
 @ stub CoQueryReleaseObject
 @ stdcall CoRegisterChannelHook(ptr ptr)
 @ stdcall CoRegisterClassObject(ptr ptr long long ptr)
-@ stdcall CoRegisterInitializeSpy(ptr ptr)
 @ stdcall CoRegisterMallocSpy (ptr)
 @ stdcall CoRegisterMessageFilter(ptr ptr)
 @ stdcall CoRegisterPSClsid(ptr ptr)
@@ -68,12 +67,11 @@
 @ stdcall CoResumeClassObjects()
 @ stdcall CoRevertToSelf()
 @ stdcall CoRevokeClassObject(long)
-@ stdcall CoRevokeInitializeSpy(double)
 @ stdcall CoRevokeMallocSpy()
 @ stdcall CoSetProxyBlanket(ptr long long wstr long long ptr long)
 @ stdcall CoSetState(ptr)
 @ stdcall CoSuspendClassObjects()
-@ stdcall CoSwitchCallContext(ptr ptr)
+@ stub CoSwitchCallContext
 @ stdcall CoTaskMemAlloc(long)
 @ stdcall CoTaskMemFree(ptr)
 @ stdcall CoTaskMemRealloc(ptr long)
@@ -138,10 +136,6 @@
 @ stdcall HGLOBAL_UserMarshal(ptr ptr ptr)
 @ stdcall HGLOBAL_UserSize(ptr long ptr)
 @ stdcall HGLOBAL_UserUnmarshal(ptr ptr ptr)
-@ stdcall HICON_UserFree(ptr ptr)
-@ stdcall HICON_UserMarshal(ptr ptr ptr)
-@ stdcall HICON_UserSize(ptr long ptr)
-@ stdcall HICON_UserUnmarshal(ptr ptr ptr)
 @ stdcall HMENU_UserFree(ptr ptr)
 @ stdcall HMENU_UserMarshal(ptr ptr ptr)
 @ stdcall HMENU_UserSize(ptr long ptr)
@@ -180,10 +174,10 @@
 @ stub OleConvertOLESTREAMToIStorageEx
 @ stdcall OleCreate(ptr ptr long ptr ptr ptr ptr)
 @ stdcall OleCreateDefaultHandler(ptr ptr ptr ptr)
-@ stdcall OleCreateEmbeddingHelper(ptr ptr long ptr ptr ptr)
+@ stub OleCreateEmbeddingHelper
 @ stub OleCreateEx
 @ stdcall OleCreateFromData(ptr ptr long ptr ptr ptr ptr)
-@ stdcall OleCreateFromDataEx(ptr ptr long long long ptr ptr ptr ptr ptr ptr ptr)
+@ stub OleCreateFromDataEx
 @ stdcall OleCreateFromFile(ptr ptr ptr long ptr ptr ptr ptr)
 @ stub OleCreateFromFileEx
 @ stdcall OleCreateLink(ptr ptr long ptr ptr ptr ptr)

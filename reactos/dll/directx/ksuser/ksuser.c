@@ -20,8 +20,6 @@
 
 
 #include "ksuser.h"
-#define NDEBUG
-#include <debug.h>
 
 NTSTATUS NTAPI  KsiCreateObjectType( HANDLE hHandle, PVOID guidstr, PVOID Buffer, ULONG BufferSize, ACCESS_MASK DesiredAccess, PHANDLE phHandle);
 
@@ -34,40 +32,8 @@ KsiCreateObjectType( HANDLE hHandle,
                      ACCESS_MASK DesiredAccess,
                      PHANDLE phHandle)
 {
-    NTSTATUS Status;
-    ULONG Length;
-    ULONG TotalSize;
-    LPWSTR pStr;
-    UNICODE_STRING ObjectName;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    IO_STATUS_BLOCK IoStatusBlock;
-
-    Length = wcslen(IID);
-
-    TotalSize = (Length * sizeof(WCHAR)) + BufferSize + 4 * sizeof(WCHAR);
-
-    pStr = HeapAlloc(GetProcessHeap(), 0, TotalSize);
-    if (!pStr)
-        return STATUS_INSUFFICIENT_RESOURCES;
-    pStr[0] = L'\\';
-    wcscpy(&pStr[1], (LPWSTR)IID);
-    pStr[Length+1] = L'\\';
-    memcpy(&pStr[Length+2], Buffer, BufferSize);
-    pStr[Length+3+(BufferSize/sizeof(WCHAR))] = L'\0';
-
-    RtlInitUnicodeString(&ObjectName, pStr);
-    ObjectName.Length = ObjectName.MaximumLength = TotalSize;
-
-    InitializeObjectAttributes(&ObjectAttributes, &ObjectName, OBJ_CASE_INSENSITIVE, hHandle, NULL);
-
-    Status = NtCreateFile(phHandle, DesiredAccess, &ObjectAttributes, &IoStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL, 0, 1, 0, NULL, 0);
-    HeapFree(GetProcessHeap(), 0, pStr);
-    if (!NT_SUCCESS(Status))
-    {
-        *phHandle = INVALID_HANDLE_VALUE;
-        Status = RtlNtStatusToDosError(Status);
-    }
-    return Status;
+    UNIMPLEMENTED
+    return 0;
 }
 
 /*++
@@ -177,7 +143,7 @@ KsCreateClock(HANDLE ConnectionHandle,
 *--*/
 
 KSDDKAPI
-DWORD
+NTSTATUS
 NTAPI
 KsCreatePin(HANDLE FilterHandle,
             PKSPIN_CONNECT Connect,
@@ -187,7 +153,10 @@ KsCreatePin(HANDLE FilterHandle,
     ULONG BufferSize = sizeof(KSPIN_CONNECT);
     PKSDATAFORMAT DataFormat = ((PKSDATAFORMAT) ( ((ULONG)Connect) + ((ULONG)sizeof(KSPIN_CONNECT)) ) );
 
-    BufferSize += DataFormat->FormatSize;
+    if (DataFormat->Flags &  KSDATAFORMAT_ATTRIBUTES)
+    {
+        BufferSize += (ROUND_UP(DataFormat->FormatSize,sizeof(LONGLONG)) + DataFormat->FormatSize);
+    }
 
     return KsiCreateObjectType(FilterHandle,
                                KSSTRING_Pin,

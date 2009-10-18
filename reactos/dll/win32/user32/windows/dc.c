@@ -34,16 +34,50 @@
 
 /* FUNCTIONS *****************************************************************/
 
+/*
+ * @implemented
+ */
+HDC
+STDCALL
+GetDC(HWND hWnd)
+{
+    return NtUserGetDC(hWnd);
+}
+
+
+/*
+ * @implemented
+ */
+HDC
+STDCALL
+GetDCEx(HWND hWnd,
+        HRGN hrgnClip,
+        DWORD flags)
+{
+    return NtUserGetDCEx(hWnd, hrgnClip, flags);
+}
+
+
+/*
+ * @implemented
+ */
+HDC
+STDCALL
+GetWindowDC(HWND hWnd)
+{
+    return (HDC)NtUserGetWindowDC(hWnd);
+}
+
 
 BOOL
-WINAPI
+STDCALL
 GdiReleaseDC(HDC hdc);
 
 /*
  * @implemented
  */
 int
-WINAPI
+STDCALL
 ReleaseDC(HWND hWnd,
           HDC hDC)
 {
@@ -62,7 +96,7 @@ ReleaseDC(HWND hWnd,
  * @implemented
  */
 HWND
-WINAPI
+STDCALL
 WindowFromDC(HDC hDC)
 {
     return NtUserWindowFromDC(hDC);

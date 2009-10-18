@@ -6,7 +6,7 @@
 	<include base="comcat">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<library>wine</library>
 	<library>ole32</library>
 	<library>user32</library>
@@ -15,5 +15,11 @@
 	<library>uuid</library>
 	<library>ntdll</library>
 	<file>comcat_main.c</file>
+	<file>factory.c</file>
+	<file>information.c</file>
+	<file>manager.c</file>
+	<file>register.c</file>
+	<file>regsvr.c</file>
 	<file>version.rc</file>
+	<file>comcat.spec</file>
 </module>

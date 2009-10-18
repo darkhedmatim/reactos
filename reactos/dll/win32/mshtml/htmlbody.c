@@ -42,62 +42,7 @@ typedef struct {
     nsIDOMHTMLBodyElement *nsbody;
 } HTMLBodyElement;
 
-#define HTMLBODY(x)  (&(x)->lpHTMLBodyElementVtbl)
-
-static const WCHAR aquaW[] = {'a','q','u','a',0};
-static const WCHAR blackW[] = {'b','l','a','c','k',0};
-static const WCHAR blueW[] = {'b','l','u','e',0};
-static const WCHAR fuchsiaW[] = {'f','u','s','h','s','i','a',0};
-static const WCHAR grayW[] = {'g','r','a','y',0};
-static const WCHAR greenW[] = {'g','r','e','e','n',0};
-static const WCHAR limeW[] = {'l','i','m','e',0};
-static const WCHAR maroonW[] = {'m','a','r','o','o','n',0};
-static const WCHAR navyW[] = {'n','a','v','y',0};
-static const WCHAR oliveW[] = {'o','l','i','v','e',0};
-static const WCHAR purpleW[] = {'p','u','r','p','l','e',0};
-static const WCHAR redW[] = {'r','e','d',0};
-static const WCHAR silverW[] = {'s','i','l','v','e','r',0};
-static const WCHAR tealW[] = {'t','e','a','l',0};
-static const WCHAR whiteW[] = {'w','h','i','t','e',0};
-static const WCHAR yellowW[] = {'y','e','l','l','o','w',0};
-
-static const struct {
-    LPCWSTR keyword;
-    const WCHAR hexstr[8];
-} keyword_table[] = {
-    {aquaW,     {'#','0','0','f','f','f','f',0}},
-    {blackW,    {'#','0','0','0','0','0','0',0}},
-    {blueW,     {'#','0','0','0','0','f','f',0}},
-    {fuchsiaW,  {'#','f','f','0','0','f','f',0}},
-    {grayW,     {'#','8','0','8','0','8','0',0}},
-    {greenW,    {'#','0','0','8','0','0','0',0}},
-    {limeW,     {'#','0','0','f','f','0','0',0}},
-    {maroonW,   {'#','8','0','0','0','0','0',0}},
-    {navyW,     {'#','0','0','0','0','8','0',0}},
-    {oliveW,    {'#','8','0','8','0','0','0',0}},
-    {purpleW,   {'#','8','0','0','0','8','0',0}},
-    {redW,      {'#','f','f','0','0','0','0',0}},
-    {silverW,   {'#','c','0','c','0','c','0',0}},
-    {tealW,     {'#','0','0','8','0','8','0',0}},
-    {whiteW,    {'#','f','f','f','f','f','f',0}},
-    {yellowW,   {'#','f','f','f','f','0','0',0}}
-};
-
-static BSTR nscolor_to_str(LPCWSTR color)
-{
-    int i;
-
-    if(!color || *color == '#')
-        return SysAllocString(color);
-
-    for(i=0; i < sizeof(keyword_table)/sizeof(keyword_table[0]); i++) {
-        if(!strcmpiW(color, keyword_table[i].keyword))
-            return SysAllocString(keyword_table[i].hexstr);
-    }
-
-    WARN("unknown color %s\n", debugstr_w(color));
-    return SysAllocString(color);
-}
+#define HTMLBODY(x)  ((IHTMLBodyElement*)  &(x)->lpHTMLBodyElementVtbl)
 
 static BOOL variant_to_nscolor(const VARIANT *v, nsAString *nsstr)
 {
@@ -195,23 +140,8 @@ static HRESULT WINAPI HTMLBodyElement_Invoke(IHTMLBodyElement *iface, DISPID dis
 static HRESULT WINAPI HTMLBodyElement_put_background(IHTMLBodyElement *iface, BSTR v)
 {
     HTMLBodyElement *This = HTMLBODY_THIS(iface);
-    HRESULT hr = S_OK;
-    nsAString nsstr;
-    nsresult nsres;
-
-    TRACE("(%p)->(%s)\n", This, debugstr_w(v));
-
-    nsAString_Init(&nsstr, v);
-
-    nsres = nsIDOMHTMLBodyElement_SetBackground(This->nsbody, &nsstr);
-    if(!NS_SUCCEEDED(nsres))
-    {
-        hr = E_FAIL;
-    }
-
-    nsAString_Finish(&nsstr);
-
-    return hr;
+    FIXME("(%p)->(%s)\n", This, debugstr_w(v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLBodyElement_get_background(IHTMLBodyElement *iface, BSTR *p)
@@ -327,89 +257,29 @@ static HRESULT WINAPI HTMLBodyElement_get_noWrap(IHTMLBodyElement *iface, VARIAN
 static HRESULT WINAPI HTMLBodyElement_put_bgColor(IHTMLBodyElement *iface, VARIANT v)
 {
     HTMLBodyElement *This = HTMLBODY_THIS(iface);
-    nsAString strColor;
-    nsresult nsres;
-
-    TRACE("(%p)->()\n", This);
-
-    if(!variant_to_nscolor(&v, &strColor))
-        return S_OK;
-
-    nsres = nsIDOMHTMLBodyElement_SetBgColor(This->nsbody, &strColor);
-    nsAString_Finish(&strColor);
-    if(NS_FAILED(nsres))
-        ERR("SetBgColor failed: %08x\n", nsres);
-
-    return S_OK;
+    FIXME("(%p)->()\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLBodyElement_get_bgColor(IHTMLBodyElement *iface, VARIANT *p)
 {
     HTMLBodyElement *This = HTMLBODY_THIS(iface);
-    nsAString strColor;
-    nsresult nsres;
-    const PRUnichar *color;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsAString_Init(&strColor, NULL);
-    nsres = nsIDOMHTMLBodyElement_GetBgColor(This->nsbody, &strColor);
-    if(NS_FAILED(nsres))
-        ERR("SetBgColor failed: %08x\n", nsres);
-
-    nsAString_GetData(&strColor, &color);
-
-    V_VT(p) = VT_BSTR;
-    V_BSTR(p) = nscolor_to_str(color);
-
-    nsAString_Finish(&strColor);
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLBodyElement_put_text(IHTMLBodyElement *iface, VARIANT v)
 {
     HTMLBodyElement *This = HTMLBODY_THIS(iface);
-    nsAString text;
-    nsresult nsres;
-
-    TRACE("(%p)->(v%d)\n", This, V_VT(&v));
-
-    if(!variant_to_nscolor(&v, &text))
-        return S_OK;
-
-    nsres = nsIDOMHTMLBodyElement_SetText(This->nsbody, &text);
-    nsAString_Finish(&text);
-
-    return S_OK;
+    FIXME("(%p)->()\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLBodyElement_get_text(IHTMLBodyElement *iface, VARIANT *p)
 {
     HTMLBodyElement *This = HTMLBODY_THIS(iface);
-    nsAString text;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsAString_Init(&text, NULL);
-
-    V_VT(p) = VT_BSTR;
-    V_BSTR(p) = NULL;
-
-    nsres = nsIDOMHTMLBodyElement_GetText(This->nsbody, &text);
-    if(NS_SUCCEEDED(nsres))
-    {
-        const PRUnichar *sText;
-        nsAString_GetData(&text, &sText);
-
-        V_VT(p) = VT_BSTR;
-        V_BSTR(p) = SysAllocString(sText);
-    }
-
-    nsAString_Finish(&text);
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLBodyElement_put_link(IHTMLBodyElement *iface, VARIANT v)
@@ -599,34 +469,30 @@ static HRESULT WINAPI HTMLBodyElement_get_onbeforeunload(IHTMLBodyElement *iface
 static HRESULT WINAPI HTMLBodyElement_createTextRange(IHTMLBodyElement *iface, IHTMLTxtRange **range)
 {
     HTMLBodyElement *This = HTMLBODY_THIS(iface);
-    nsIDOMDocumentRange *nsdocrange;
     nsIDOMRange *nsrange = NULL;
-    nsresult nsres;
 
     TRACE("(%p)->(%p)\n", This, range);
 
-    if(!This->textcont.element.node.doc->nsdoc) {
-        WARN("No nsdoc\n");
-        return E_UNEXPECTED;
-    }
+    if(This->textcont.element.node.doc->nscontainer) {
+        nsIDOMDocument *nsdoc;
+        nsIDOMDocumentRange *nsdocrange;
+        nsresult nsres;
 
-    nsres = nsIDOMDocument_QueryInterface(This->textcont.element.node.doc->nsdoc, &IID_nsIDOMDocumentRange,
-            (void**)&nsdocrange);
-    if(NS_FAILED(nsres)) {
-        ERR("Could not get nsIDOMDocumentRabge iface: %08x\n", nsres);
-        return E_FAIL;
-    }
+        nsIWebNavigation_GetDocument(This->textcont.element.node.doc->nscontainer->navigation, &nsdoc);
+        nsIDOMDocument_QueryInterface(nsdoc, &IID_nsIDOMDocumentRange, (void**)&nsdocrange);
+        nsIDOMDocument_Release(nsdoc);
 
-    nsres = nsIDOMDocumentRange_CreateRange(nsdocrange, &nsrange);
-    if(NS_SUCCEEDED(nsres)) {
-        nsres = nsIDOMRange_SelectNodeContents(nsrange, This->textcont.element.node.nsnode);
-        if(NS_FAILED(nsres))
-            ERR("SelectNodeContents failed: %08x\n", nsres);
-    }else {
-        ERR("CreateRange failed: %08x\n", nsres);
-    }
+        nsres = nsIDOMDocumentRange_CreateRange(nsdocrange, &nsrange);
+        if(NS_SUCCEEDED(nsres)) {
+            nsres = nsIDOMRange_SelectNodeContents(nsrange, This->textcont.element.node.nsnode);
+            if(NS_FAILED(nsres))
+                ERR("SelectNodeContents failed: %08x\n", nsres);
+        }else {
+            ERR("CreateRange failed: %08x\n", nsres);
+        }
 
-    nsIDOMDocumentRange_Release(nsdocrange);
+        nsIDOMDocumentRange_Release(nsdocrange);
+    }
 
     *range = HTMLTxtRange_Create(This->textcont.element.node.doc, nsrange);
     return S_OK;
@@ -728,6 +594,7 @@ static const NodeImplVtbl HTMLBodyElementImplVtbl = {
 static const tid_t HTMLBodyElement_iface_tids[] = {
     IHTMLBodyElement_tid,
     IHTMLBodyElement2_tid,
+    IHTMLControlElement_tid,
     IHTMLDOMNode_tid,
     IHTMLDOMNode2_tid,
     IHTMLElement_tid,

@@ -105,7 +105,7 @@ RPC_STATUS WINAPI MesIncrementalHandleReset(
     handle_t Handle, void *UserState, MIDL_ES_ALLOC AllocFn,
     MIDL_ES_WRITE WriteFn, MIDL_ES_READ ReadFn, MIDL_ES_CODE Operation)
 {
-    MIDL_ES_MESSAGE *pEsMsg = Handle;
+    MIDL_ES_MESSAGE *pEsMsg = (MIDL_ES_MESSAGE *)Handle;
 
     TRACE("(%p, %p, %p, %p, %p, %d)\n", Handle, UserState, AllocFn,
         WriteFn, ReadFn, Operation);
@@ -156,18 +156,7 @@ RPC_STATUS RPC_ENTRY MesEncodeFixedBufferHandleCreate(
 
     *pHandle = (handle_t)pEsMsg;
 
-    return RPC_S_OK;
-}
-
-/***********************************************************************
- *            MesEncodeDynBufferHandleCreate [RPCRT4.@]
- */
-RPC_STATUS RPC_ENTRY MesEncodeDynBufferHandleCreate(char **ppBuffer,
-        ULONG *pEncodedSize, handle_t *pHandle)
-{
-    FIXME("%p %p %p stub\n", ppBuffer, pEncodedSize, pHandle);
-    return RPC_S_OK;
-}
+    return RPC_S_OK;}
 
 /***********************************************************************
  *            MesDecodeBufferHandleCreate [RPCRT4.@]
@@ -324,7 +313,7 @@ void WINAPIV NdrMesProcEncodeDecode(handle_t Handle, const MIDL_STUB_DESC * pStu
 {
     /* pointer to start of stack where arguments start */
     RPC_MESSAGE rpcMsg;
-    MIDL_ES_MESSAGE *pEsMsg = Handle;
+    MIDL_ES_MESSAGE *pEsMsg = (MIDL_ES_MESSAGE *)Handle;
     /* size of stack */
     unsigned short stack_size;
     /* header for procedure string */

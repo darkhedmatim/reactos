@@ -1,7 +1,7 @@
 /*
  * RPC messages
  *
- * Copyright 2001-2002 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001-2002 Ove Kåven, TransGaming Technologies
  * Copyright 2004 Filip Navara
  * Copyright 2006 CodeWeavers
  *
@@ -321,7 +321,7 @@ NCA_STATUS RPC2NCA_STATUS(RPC_STATUS status)
     }
 }
 
-static RPC_STATUS NCA2RPC_STATUS(NCA_STATUS status)
+RPC_STATUS NCA2RPC_STATUS(NCA_STATUS status)
 {
     switch (status)
     {
@@ -606,7 +606,7 @@ static RPC_STATUS RPCRT4_ClientAuthorize(RpcConnection *conn, SecBuffer *in,
       }
   }
 
-  TRACE("cbBuffer = %d\n", out->cbBuffer);
+  TRACE("cbBuffer = %ld\n", out->cbBuffer);
 
   if (!continue_needed)
   {
@@ -687,7 +687,7 @@ RPC_STATUS RPCRT4_Send(RpcConnection *Connection, RpcPktHdr *Header,
 }
 
 /* validates version and frag_len fields */
-static RPC_STATUS RPCRT4_ValidateCommonHeader(const RpcPktCommonHdr *hdr)
+RPC_STATUS RPCRT4_ValidateCommonHeader(const RpcPktCommonHdr *hdr)
 {
   DWORD hdr_length;
 
@@ -720,7 +720,7 @@ static RPC_STATUS RPCRT4_ValidateCommonHeader(const RpcPktCommonHdr *hdr)
  * 
  * Receive a fragment from a connection.
  */
-static RPC_STATUS RPCRT4_receive_fragment(RpcConnection *Connection, RpcPktHdr **Header, void **Payload)
+RPC_STATUS RPCRT4_receive_fragment(RpcConnection *Connection, RpcPktHdr **Header, void **Payload)
 {
   RPC_STATUS status;
   DWORD hdr_length;
@@ -1005,10 +1005,7 @@ RPC_STATUS WINAPI I_RpcNegotiateTransferSyntax(PRPC_MESSAGE pMsg)
   TRACE("(%p)\n", pMsg);
 
   if (!bind || bind->server)
-  {
-    ERR("no binding\n");
     return RPC_S_INVALID_BINDING;
-  }
 
   /* if we already have a connection, we don't need to negotiate again */
   if (!pMsg->ReservedForRuntime)
@@ -1068,10 +1065,7 @@ RPC_STATUS WINAPI I_RpcGetBuffer(PRPC_MESSAGE pMsg)
   TRACE("(%p): BufferLength=%d\n", pMsg, pMsg->BufferLength);
 
   if (!bind)
-  {
-    ERR("no binding\n");
     return RPC_S_INVALID_BINDING;
-  }
 
   pMsg->Buffer = I_RpcAllocate(pMsg->BufferLength);
   TRACE("Buffer=%p\n", pMsg->Buffer);
@@ -1124,11 +1118,7 @@ RPC_STATUS WINAPI I_RpcFreeBuffer(PRPC_MESSAGE pMsg)
 
   TRACE("(%p) Buffer=%p\n", pMsg, pMsg->Buffer);
 
-  if (!bind)
-  {
-    ERR("no binding\n");
-    return RPC_S_INVALID_BINDING;
-  }
+  if (!bind) return RPC_S_INVALID_BINDING;
 
   if (pMsg->ReservedForRuntime)
   {
@@ -1279,7 +1269,7 @@ RPC_STATUS WINAPI I_RpcReceive(PRPC_MESSAGE pMsg)
   conn = pMsg->ReservedForRuntime;
   status = RPCRT4_Receive(conn, &hdr, pMsg);
   if (status != RPC_S_OK) {
-    WARN("receive failed with error %x\n", status);
+    WARN("receive failed with error %lx\n", status);
     goto fail;
   }
 

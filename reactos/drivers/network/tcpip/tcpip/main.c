@@ -48,7 +48,7 @@ VOID TiWriteErrorLog(
  *     DumpData         = Pointer to dump data for the log entry
  */
 {
-#if 0
+#ifdef _MSC_VER
     PIO_ERROR_LOG_PACKET LogEntry;
     UCHAR EntrySize;
     ULONG StringSize;
@@ -131,7 +131,7 @@ CP
 #endif
 CP
   /* Allocate resources here. We release them again if something failed */
-  Context = exAllocatePool(NonPagedPool, sizeof(TRANSPORT_CONTEXT));
+  Context = ExAllocatePool(NonPagedPool, sizeof(TRANSPORT_CONTEXT));
   if (!Context) {
     TI_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
     return STATUS_INSUFFICIENT_RESOURCES;
@@ -169,7 +169,7 @@ CP
 	  TI_DbgPrint(MIN_TRACE, ("AddressType: %\n",
 				  Address->Address[0].AddressType));
       }
-      exFreePool(Context);
+      PoolFreeBuffer(Context);
       return STATUS_INVALID_PARAMETER;
     }
 CP
@@ -186,12 +186,12 @@ CP
       Status = TiGetProtocolNumber(&IrpSp->FileObject->FileName, &Protocol);
       if (!NT_SUCCESS(Status)) {
         TI_DbgPrint(MIN_TRACE, ("Raw IP protocol number is invalid.\n"));
-        exFreePool(Context);
+        PoolFreeBuffer(Context);
         return STATUS_INVALID_PARAMETER;
       }
     } else {
       TI_DbgPrint(MIN_TRACE, ("Invalid device object at (0x%X).\n", DeviceObject));
-      exFreePool(Context);
+      PoolFreeBuffer(Context);
       return STATUS_INVALID_PARAMETER;
     }
 CP
@@ -213,7 +213,7 @@ CP
 
     if (EaInfo->EaValueLength < sizeof(PVOID)) {
       TI_DbgPrint(MIN_TRACE, ("Parameters are invalid.\n"));
-      exFreePool(Context);
+      PoolFreeBuffer(Context);
       return STATUS_INVALID_PARAMETER;
     }
 
@@ -221,7 +221,7 @@ CP
 
     if (DeviceObject != TCPDeviceObject) {
       TI_DbgPrint(MIN_TRACE, ("Bad device object.\n"));
-      exFreePool(Context);
+      PoolFreeBuffer(Context);
       return STATUS_INVALID_PARAMETER;
     }
 
@@ -244,14 +244,13 @@ CP
   }
 
   if (!NT_SUCCESS(Status))
-    exFreePool(Context);
+    PoolFreeBuffer(Context);
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status = (0x%X).\n", Status));
 
   Irp->IoStatus.Status = Status;
   return Status;
 }
-
 
 /*
  * FUNCTION: Releases resources used by a file object
@@ -263,7 +262,7 @@ CP
  * NOTES:
  *     This function does not pend
  */
-NTSTATUS TiCloseFileObject(
+NTSTATUS TiCleanupFileObject(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp)
 {
@@ -271,6 +270,7 @@ NTSTATUS TiCloseFileObject(
   PTRANSPORT_CONTEXT Context;
   TDI_REQUEST Request;
   NTSTATUS Status;
+  KIRQL OldIrql;
 
   IrpSp   = IoGetCurrentIrpStackLocation(Irp);
   Context = IrpSp->FileObject->FsContext;
@@ -278,6 +278,12 @@ NTSTATUS TiCloseFileObject(
     TI_DbgPrint(MIN_TRACE, ("Parameters are invalid.\n"));
     return STATUS_INVALID_PARAMETER;
   }
+
+  IoAcquireCancelSpinLock(&OldIrql);
+
+  Context->CancelIrps = TRUE;
+
+  IoReleaseCancelSpinLock(OldIrql);
 
   switch ((ULONG_PTR)IrpSp->FileObject->FsContext2) {
   case TDI_TRANSPORT_ADDRESS_FILE:
@@ -296,9 +302,16 @@ NTSTATUS TiCloseFileObject(
     break;
 
   default:
-    DbgPrint("Unknown type %d\n", (ULONG_PTR)IrpSp->FileObject->FsContext2);
+    /* This should never happen */
+
+    TI_DbgPrint(MIN_TRACE, ("Unknown transport context.\n"));
+
+    IoAcquireCancelSpinLock(&OldIrql);
+    Context->CancelIrps = FALSE;
+    IoReleaseCancelSpinLock(OldIrql);
+
     Status = STATUS_INVALID_PARAMETER;
-    break;
+
   }
 
   Irp->IoStatus.Status = Status;
@@ -307,7 +320,7 @@ NTSTATUS TiCloseFileObject(
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 TiDispatchOpenClose(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -324,7 +337,7 @@ TiDispatchOpenClose(
   NTSTATUS Status;
   PTRANSPORT_CONTEXT Context;
 
-  IRPRemember(Irp, __FILE__, __LINE__);
+  RIRP(Irp);
 
 //  DbgPrint("Called. DeviceObject is at (0x%X), IRP is at (0x%X).\n", DeviceObject, Irp);
 
@@ -339,7 +352,15 @@ TiDispatchOpenClose(
   /* Close an address file, connection endpoint, or control connection */
   case IRP_MJ_CLOSE:
     Context = (PTRANSPORT_CONTEXT)IrpSp->FileObject->FsContext;
-	Status = TiCloseFileObject(DeviceObject, Irp);
+    if (Context)
+        PoolFreeBuffer(Context);
+    Status = STATUS_SUCCESS;
+    break;
+
+  /* Release resources bound to an address file, connection endpoint,
+     or control connection */
+  case IRP_MJ_CLEANUP:
+    Status = TiCleanupFileObject(DeviceObject, Irp);
     break;
 
   default:
@@ -366,10 +387,10 @@ TiDispatchInternal(
  */
 {
   NTSTATUS Status;
-  BOOLEAN Complete = TRUE;
+  BOOL Complete = TRUE;
   PIO_STACK_LOCATION IrpSp;
 
-  IRPRemember(Irp, __FILE__, __LINE__);
+  RIRP(Irp);
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
@@ -452,6 +473,8 @@ TiDispatchInternal(
 
   if( Complete )
       IRPFinish( Irp, Status );
+  else
+      Irp->IoStatus.Status = Status;
 
   return Status;
 }
@@ -473,7 +496,7 @@ TiDispatch(
   NTSTATUS Status;
   PIO_STACK_LOCATION IrpSp;
 
-  IRPRemember(Irp, __FILE__, __LINE__);
+  RIRP(Irp);
 
   IrpSp  = IoGetCurrentIrpStackLocation(Irp);
 
@@ -481,7 +504,7 @@ TiDispatch(
 
   Irp->IoStatus.Information = 0;
 
-#if 0
+#ifdef _MSC_VER
   Status = TdiMapUserRequest(DeviceObject, Irp, IrpSp);
   if (NT_SUCCESS(Status)) {
     TiDispatchInternal(DeviceObject, Irp);
@@ -526,7 +549,7 @@ TiDispatch(
 }
 
 
-VOID NTAPI TiUnload(
+VOID STDCALL TiUnload(
   PDRIVER_OBJECT DriverObject)
 /*
  * FUNCTION: Unloads the driver
@@ -534,7 +557,7 @@ VOID NTAPI TiUnload(
  *     DriverObject = Pointer to driver object created by the system
  */
 {
-#if DBG
+#ifdef DBG
   KIRQL OldIrql;
 
   TcpipAcquireSpinLock(&AddressFileListLock, &OldIrql);
@@ -558,10 +581,12 @@ VOID NTAPI TiUnload(
   TCPShutdown();
   UDPShutdown();
   RawIPShutdown();
-  ICMPShutdown();
 
   /* Shutdown network level protocol subsystem */
   IPShutdown();
+
+  /* Shutdown the lan worker */
+  LANShutdown();
 
   /* Free NDIS buffer descriptors */
   if (GlobalBufferPool)
@@ -586,12 +611,12 @@ VOID NTAPI TiUnload(
     IoDeleteDevice(IPDeviceObject);
 
   if (EntityList)
-    exFreePool(EntityList);
+    PoolFreeBuffer(EntityList);
 
   TI_DbgPrint(MAX_TRACE, ("Leaving.\n"));
 }
 
-VOID NTAPI IPTimeoutDpcFn(
+VOID STDCALL IPTimeoutDpcFn(
     PKDPC Dpc,
     PVOID DeferredContext,
     PVOID SystemArgument1,
@@ -608,7 +633,7 @@ VOID NTAPI IPTimeoutDpcFn(
  */
 {
     if( !IpWorkItemQueued ) {
-	ExQueueWorkItem( &IpWorkItem, DelayedWorkQueue );
+	ExQueueWorkItem( &IpWorkItem, CriticalWorkQueue );
 	IpWorkItemQueued = TRUE;
     }
 }
@@ -638,6 +663,10 @@ DriverEntry(
   TI_DbgPrint(MAX_TRACE, ("Called.\n"));
 
   TrackingInit();
+  TrackTag(NDIS_BUFFER_TAG);
+  TrackTag(NDIS_PACKET_TAG);
+  TrackTag(FBSD_MALLOC);
+  TrackTag(EXALLOC_TAG);
 
   /* TdiInitialize() ? */
 
@@ -688,7 +717,7 @@ DriverEntry(
 
   /* Setup network layer and transport layer entities */
   KeInitializeSpinLock(&EntityListLock);
-  EntityList = exAllocatePool(NonPagedPool, sizeof(TDIEntityID) * MAX_TDI_ENTITIES );
+  EntityList = ExAllocatePool(NonPagedPool, sizeof(TDIEntityID) * MAX_TDI_ENTITIES );
   if (!EntityList) {
     TI_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
     ChewShutdown();
@@ -699,7 +728,17 @@ DriverEntry(
     return STATUS_INSUFFICIENT_RESOURCES;
   }
 
-  EntityCount = 0;
+  EntityList[0].tei_entity   = CL_NL_ENTITY;
+  EntityList[0].tei_instance = 0;
+  EntityList[0].context      = 0;
+  EntityList[0].info_req     = InfoNetworkLayerTdiQueryEx;
+  EntityList[0].info_set     = InfoNetworkLayerTdiSetEx;
+  EntityList[1].tei_entity   = CL_TL_ENTITY;
+  EntityList[1].tei_instance = 0;
+  EntityList[1].context      = 0;
+  EntityList[1].info_req     = InfoTransportLayerTdiQueryEx;
+  EntityList[1].info_set     = InfoTransportLayerTdiSetEx;
+  EntityCount = 2;
   EntityMax   = MAX_TDI_ENTITIES;
 
   /* Allocate NDIS packet descriptors */
@@ -710,7 +749,7 @@ DriverEntry(
     IoDeleteDevice(RawIPDeviceObject);
     IoDeleteDevice(UDPDeviceObject);
     IoDeleteDevice(TCPDeviceObject);
-    exFreePool(EntityList);
+    ExFreePool(EntityList);
     return STATUS_INSUFFICIENT_RESOURCES;
   }
 
@@ -722,7 +761,7 @@ DriverEntry(
     IoDeleteDevice(RawIPDeviceObject);
     IoDeleteDevice(UDPDeviceObject);
     IoDeleteDevice(TCPDeviceObject);
-    exFreePool(EntityList);
+    ExFreePool(EntityList);
     NdisFreePacketPool(GlobalPacketPool);
     return STATUS_INSUFFICIENT_RESOURCES;
   }
@@ -751,7 +790,7 @@ DriverEntry(
         IoDeleteDevice(RawIPDeviceObject);
         IoDeleteDevice(UDPDeviceObject);
         IoDeleteDevice(TCPDeviceObject);
-        exFreePool(EntityList);
+        ExFreePool(EntityList);
         NdisFreePacketPool(GlobalPacketPool);
         NdisFreeBufferPool(GlobalBufferPool);
 	return Status;
@@ -766,7 +805,7 @@ DriverEntry(
         IoDeleteDevice(RawIPDeviceObject);
         IoDeleteDevice(UDPDeviceObject);
         IoDeleteDevice(TCPDeviceObject);
-        exFreePool(EntityList);
+        ExFreePool(EntityList);
         NdisFreePacketPool(GlobalPacketPool);
         NdisFreeBufferPool(GlobalBufferPool);
 	return Status;
@@ -782,27 +821,63 @@ DriverEntry(
         IoDeleteDevice(RawIPDeviceObject);
         IoDeleteDevice(UDPDeviceObject);
         IoDeleteDevice(TCPDeviceObject);
-        exFreePool(EntityList);
+        ExFreePool(EntityList);
         NdisFreePacketPool(GlobalPacketPool);
         NdisFreeBufferPool(GlobalBufferPool);
 	return Status;
   }
 
-  Status = ICMPStartup();
-  if( !NT_SUCCESS(Status) ) {
-        TCPShutdown();
-        UDPShutdown();
-        RawIPShutdown();
-        IPShutdown();
-        ChewShutdown();
-        IoDeleteDevice(IPDeviceObject);
-        IoDeleteDevice(RawIPDeviceObject);
-        IoDeleteDevice(UDPDeviceObject);
-        IoDeleteDevice(TCPDeviceObject);
-        exFreePool(EntityList);
-        NdisFreePacketPool(GlobalPacketPool);
-        NdisFreeBufferPool(GlobalBufferPool);
-	return Status;
+  /* Initialize the lan worker */
+  LANStartup();
+
+  /* Register protocol with NDIS */
+  /* This used to be IP_DEVICE_NAME but the DDK says it has to match your entry in the SCM */
+  Status = LANRegisterProtocol(&strNdisDeviceName);
+  if (!NT_SUCCESS(Status)) {
+	  TI_DbgPrint(MIN_TRACE,("Failed to register protocol with NDIS; status 0x%x\n", Status));
+	  TiWriteErrorLog(
+      DriverObject,
+      EVENT_TRANSPORT_REGISTER_FAILED,
+      TI_ERROR_DRIVERENTRY,
+      Status,
+      NULL,
+      0,
+      NULL);
+    LANShutdown();
+    TCPShutdown();
+    UDPShutdown();
+    RawIPShutdown();
+    IPShutdown();
+    ChewShutdown();
+    IoDeleteDevice(IPDeviceObject);
+    IoDeleteDevice(RawIPDeviceObject);
+    IoDeleteDevice(UDPDeviceObject);
+    IoDeleteDevice(TCPDeviceObject);
+    ExFreePool(EntityList);
+    NdisFreePacketPool(GlobalPacketPool);
+    NdisFreeBufferPool(GlobalBufferPool);
+    return Status;
+  }
+
+  /* Open loopback adapter */
+  Status = LoopRegisterAdapter(NULL, NULL);
+  if (!NT_SUCCESS(Status)) {
+    TI_DbgPrint(MIN_TRACE, ("Failed to create loopback adapter. Status (0x%X).\n", Status));
+    LANShutdown();
+    TCPShutdown();
+    UDPShutdown();
+    RawIPShutdown();
+    IPShutdown();
+    ChewShutdown();
+    IoDeleteDevice(IPDeviceObject);
+    IoDeleteDevice(RawIPDeviceObject);
+    IoDeleteDevice(UDPDeviceObject);
+    IoDeleteDevice(TCPDeviceObject);
+    ExFreePool(EntityList);
+    NdisFreePacketPool(GlobalPacketPool);
+    NdisFreeBufferPool(GlobalBufferPool);
+    LANUnregisterProtocol();
+    return Status;
   }
 
   /* Use direct I/O */
@@ -814,6 +889,7 @@ DriverEntry(
   /* Initialize the driver object with this driver's entry points */
   DriverObject->MajorFunction[IRP_MJ_CREATE]  = TiDispatchOpenClose;
   DriverObject->MajorFunction[IRP_MJ_CLOSE]   = TiDispatchOpenClose;
+  DriverObject->MajorFunction[IRP_MJ_CLEANUP] = TiDispatchOpenClose;
   DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = TiDispatchInternal;
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = TiDispatch;
 
@@ -830,64 +906,17 @@ DriverEntry(
   DueTime.QuadPart = -(LONGLONG)IP_TIMEOUT * 10000;
   KeSetTimerEx(&IPTimer, DueTime, IP_TIMEOUT, &IPTimeoutDpc);
 
-  /* Open loopback adapter */
-  Status = LoopRegisterAdapter(NULL, NULL);
-  if (!NT_SUCCESS(Status)) {
-    TI_DbgPrint(MIN_TRACE, ("Failed to create loopback adapter. Status (0x%X).\n", Status));
-    TCPShutdown();
-    UDPShutdown();
-    RawIPShutdown();
-    IPShutdown();
-    ChewShutdown();
-    IoDeleteDevice(IPDeviceObject);
-    IoDeleteDevice(RawIPDeviceObject);
-    IoDeleteDevice(UDPDeviceObject);
-    IoDeleteDevice(TCPDeviceObject);
-    exFreePool(EntityList);
-    NdisFreePacketPool(GlobalPacketPool);
-    NdisFreeBufferPool(GlobalBufferPool);
-    return Status;
-  }
-
-  /* Register protocol with NDIS */
-  /* This used to be IP_DEVICE_NAME but the DDK says it has to match your entry in the SCM */
-  Status = LANRegisterProtocol(&strNdisDeviceName);
-  if (!NT_SUCCESS(Status)) {
-	  TI_DbgPrint(MIN_TRACE,("Failed to register protocol with NDIS; status 0x%x\n", Status));
-	  TiWriteErrorLog(
-      DriverObject,
-      EVENT_TRANSPORT_REGISTER_FAILED,
-      TI_ERROR_DRIVERENTRY,
-      Status,
-      NULL,
-      0,
-      NULL);
-    TCPShutdown();
-    UDPShutdown();
-    RawIPShutdown();
-    IPShutdown();
-    ChewShutdown();
-    IoDeleteDevice(IPDeviceObject);
-    IoDeleteDevice(RawIPDeviceObject);
-    IoDeleteDevice(UDPDeviceObject);
-    IoDeleteDevice(TCPDeviceObject);
-    exFreePool(EntityList);
-    NdisFreePacketPool(GlobalPacketPool);
-    NdisFreeBufferPool(GlobalBufferPool);
-    return Status;
-  }
-
   return STATUS_SUCCESS;
 }
 
 
 VOID NTAPI
 IPAddInterface(
-	ULONG   Unknown0,
-	ULONG   Unknown1,
-	ULONG   Unknown2,
-	ULONG   Unknown3,
-	ULONG   Unknown4)
+	DWORD	Unknown0,
+	DWORD	Unknown1,
+	DWORD	Unknown2,
+	DWORD	Unknown3,
+	DWORD	Unknown4)
 {
     UNIMPLEMENTED
 }
@@ -895,7 +924,7 @@ IPAddInterface(
 
 VOID NTAPI
 IPDelInterface(
-	ULONG   Unknown0)
+	DWORD	Unknown0)
 {
     UNIMPLEMENTED
 }
@@ -903,8 +932,8 @@ IPDelInterface(
 
 VOID NTAPI
 LookupRoute(
-	ULONG   Unknown0,
-	ULONG   Unknown1)
+	DWORD	Unknown0,
+	DWORD	Unknown1)
 {
     UNIMPLEMENTED
 }

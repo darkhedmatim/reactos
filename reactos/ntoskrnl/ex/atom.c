@@ -13,7 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_ATOM 'motA'
+#define TAG_ATOM TAG('A', 't', 'o', 'm')
 
 /* GLOBALS ****************************************************************/
 
@@ -90,9 +90,9 @@ NtAddAtom(IN PWSTR AtomName,
           OUT PRTL_ATOM Atom)
 {
     PRTL_ATOM_TABLE AtomTable = ExpGetGlobalAtomTable();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    LPWSTR CapturedName;
+    LPWSTR CapturedName = NULL;
     ULONG CapturedSize;
     RTL_ATOM SafeAtom;
     PAGED_CODE();
@@ -107,15 +107,12 @@ NtAddAtom(IN PWSTR AtomName,
         DPRINT1("Atom name too long\n");
         return STATUS_INVALID_PARAMETER;
     }
-    
-    /* Re-use the given name if kernel mode or no atom name */
-    CapturedName = AtomName;
 
     /* Check if we're called from user-mode*/
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Check if we have a name */
             if (AtomName)
@@ -145,30 +142,37 @@ NtAddAtom(IN PWSTR AtomName,
                 if (Atom) ProbeForWriteUshort(Atom);
             }
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+    }
+    else
+    {
+        /* Simplify code and re-use one variable */
+        if (AtomName) CapturedName = AtomName;
     }
 
-    /* Call the runtime function */
-    Status = RtlAddAtomToAtomTable(AtomTable, CapturedName, &SafeAtom);
-    if (NT_SUCCESS(Status) && (Atom))
+    /* Make sure probe worked */
+    if (NT_SUCCESS(Status))
     {
-        /* Success and caller wants the atom back.. .enter SEH */
-        _SEH2_TRY
+        /* Call the runtime function */
+        Status = RtlAddAtomToAtomTable(AtomTable, CapturedName, &SafeAtom);
+        if (NT_SUCCESS(Status) && (Atom))
         {
-            /* Return the atom */
-            *Atom = SafeAtom;
+            /* Success and caller wants the atom back.. .enter SEH */
+            _SEH_TRY
+            {
+                /* Return the atom */
+                *Atom = SafeAtom;
+            }
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
+            {
+                Status = _SEH_GetExceptionCode();
+            }
+            _SEH_END;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
-        {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
     }
 
     /* If we captured anything, free it */
@@ -240,7 +244,7 @@ NtFindAtom(IN PWSTR AtomName,
            OUT PRTL_ATOM Atom)
 {
     PRTL_ATOM_TABLE AtomTable = ExpGetGlobalAtomTable();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     LPWSTR CapturedName = NULL;
     ULONG CapturedSize;
@@ -257,15 +261,12 @@ NtFindAtom(IN PWSTR AtomName,
         DPRINT1("Atom name too long\n");
         return STATUS_INVALID_PARAMETER;
     }
-    
-    /* Re-use the given name if kernel mode or no atom name */
-    CapturedName = AtomName;
 
     /* Check if we're called from user-mode*/
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Check if we have a name */
             if (AtomName)
@@ -295,29 +296,37 @@ NtFindAtom(IN PWSTR AtomName,
                 if (Atom) ProbeForWriteUshort(Atom);
             }
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+    }
+    else
+    {
+        /* Simplify code and re-use one variable */
+        if (AtomName) CapturedName = AtomName;
     }
 
-    /* Call the runtime function */
-    Status = RtlLookupAtomInAtomTable(AtomTable, CapturedName, &SafeAtom);
-    if (NT_SUCCESS(Status) && (Atom))
+    /* Make sure probe worked */
+    if (NT_SUCCESS(Status))
     {
-        /* Success and caller wants the atom back.. .enter SEH */
-        _SEH2_TRY
+        /* Call the runtime function */
+        Status = RtlLookupAtomInAtomTable(AtomTable, CapturedName, &SafeAtom);
+        if (NT_SUCCESS(Status) && (Atom))
         {
-            /* Return the atom */
-            *Atom = SafeAtom;
+            /* Success and caller wants the atom back.. .enter SEH */
+            _SEH_TRY
+            {
+                /* Return the atom */
+                *Atom = SafeAtom;
+            }
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
+            {
+                Status = _SEH_GetExceptionCode();
+            }
+            _SEH_END;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
-        {
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
     }
 
     /* If we captured anything, free it */
@@ -379,7 +388,7 @@ NtQueryInformationAtom(RTL_ATOM Atom,
 
     PreviousMode = ExGetPreviousMode();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Probe the parameters */
         if (PreviousMode != KernelMode)
@@ -407,7 +416,7 @@ NtQueryInformationAtom(RTL_ATOM Atom,
                     /* Fail */
                     DPRINT1("Buffer too small\n");
                     Status = STATUS_INFO_LENGTH_MISMATCH;
-                    _SEH2_LEAVE;
+                    _SEH_LEAVE;
                 }
 
                 /* Prepare query */
@@ -442,7 +451,7 @@ NtQueryInformationAtom(RTL_ATOM Atom,
                     /* Fail */
                     DPRINT1("Buffer too small\n");
                     Status = STATUS_INFO_LENGTH_MISMATCH;
-                    _SEH2_LEAVE;
+                    _SEH_LEAVE;
                 }
 
                 /* Query the data */
@@ -472,11 +481,11 @@ NtQueryInformationAtom(RTL_ATOM Atom,
             *ReturnLength = RequiredLength;
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return to caller */
     return Status;

@@ -119,7 +119,6 @@ BEGIN
     "#include ""explorer-it.rc""\r\n"
     "#include ""explorer-jp.rc""\r\n"
     "#include ""explorer-ko.rc""\r\n"
-    "#include ""explorer-ko.rc""\r\n"
     "#include ""explorer-nl.rc""\r\n"
     "#include ""explorer-no.rc""\r\n"
     "#include ""explorer-pl.rc""\r\n"
@@ -227,7 +226,6 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE "explorer.exe.ma
 #include "explorer-id.rc"
 #include "explorer-it.rc"
 #include "explorer-jp.rc"
-#include "explorer-ko.rc"
 #include "explorer-nl.rc"
 #include "explorer-no.rc"
 #include "explorer-pl.rc"
@@ -247,4 +245,5 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE "explorer.exe.ma
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
+
 

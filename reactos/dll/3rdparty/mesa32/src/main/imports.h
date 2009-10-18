@@ -325,8 +325,7 @@ static INLINE int iround(float f)
 }
 #define IROUND(x)  iround(x)
 #elif defined(USE_X86_ASM) && defined(__GNUC__) && defined(__i386__) && \
-			(!(defined(__BEOS__) || defined(__HAIKU__))  || \
-			(__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)))
+			(!defined(__BEOS__) || (__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)))
 static INLINE int iround(float f)
 {
    int r;
@@ -334,7 +333,7 @@ static INLINE int iround(float f)
    return r;
 }
 #define IROUND(x)  iround(x)
-#elif defined(USE_X86_ASM) && defined(_MSC_VER)
+#elif defined(USE_X86_ASM) && defined(__MSC__) && defined(__WIN32__)
 static INLINE int iround(float f)
 {
    int r;
@@ -463,16 +462,6 @@ static INLINE int iceil(float f)
 #endif
 
 
-/**
- * Is x a power of two?
- */
-static INLINE int
-_mesa_is_pow_two(int x)
-{
-   return !(x & (x - 1));
-}
-
-
 /***
  *** UNCLAMPED_FLOAT_TO_UBYTE: clamp float to [0,1] and map to ubyte in [0,255]
  *** CLAMPED_FLOAT_TO_UBYTE: map float known to be in [0,1] to ubyte in [0,255]
@@ -482,10 +471,10 @@ _mesa_is_pow_two(int x)
 /* This function/macro is sensitive to precision.  Test very carefully
  * if you change it!
  */
-#define UNCLAMPED_FLOAT_TO_UBYTE(UB, F_)					\
+#define UNCLAMPED_FLOAT_TO_UBYTE(UB, F)					\
         do {								\
            fi_type __tmp;						\
-           __tmp.f = (F_);						\
+           __tmp.f = (F);						\
            if (__tmp.i < 0)						\
               UB = (GLubyte) 0;						\
            else if (__tmp.i >= IEEE_0996)				\
@@ -495,10 +484,10 @@ _mesa_is_pow_two(int x)
               UB = (GLubyte) __tmp.i;					\
            }								\
         } while (0)
-#define CLAMPED_FLOAT_TO_UBYTE(UB, F_)					\
+#define CLAMPED_FLOAT_TO_UBYTE(UB, F)					\
         do {								\
            fi_type __tmp;						\
-           __tmp.f = (F_) * (255.0F/256.0F) + 32768.0F;			\
+           __tmp.f = (F) * (255.0F/256.0F) + 32768.0F;			\
            UB = (GLubyte) __tmp.i;					\
         } while (0)
 #else
@@ -768,14 +757,8 @@ _mesa_strtod( const char *s, char **end );
 extern int
 _mesa_sprintf( char *str, const char *fmt, ... );
 
-extern int
-_mesa_snprintf( char *str, size_t size, const char *fmt, ... );
-
 extern void
 _mesa_printf( const char *fmtString, ... );
-
-extern void
-_mesa_fprintf( FILE *f, const char *fmtString, ... );
 
 extern int 
 _mesa_vsprintf( char *str, const char *fmt, va_list args );

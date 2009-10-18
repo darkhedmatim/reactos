@@ -28,7 +28,7 @@ static BOOL can_activate_window( HWND hwnd )
     LONG style;
 
     if (!hwnd) return FALSE;
-    style = GetWindowLongPtrW( hwnd, GWL_STYLE );
+    style = GetWindowLongW( hwnd, GWL_STYLE );
     if (!(style & WS_VISIBLE)) return FALSE;
     if ((style & (WS_POPUP|WS_CHILD)) == WS_CHILD) return FALSE;
     return !(style & WS_DISABLED);
@@ -41,12 +41,12 @@ static BOOL can_activate_window( HWND hwnd )
  *  Activates window other than pWnd.
  */
 void
-WINAPI
+STDCALL
 WinPosActivateOtherWindow(HWND hwnd)
 {
     HWND hwndTo, fg;
 
-    if ((GetWindowLongPtrW( hwnd, GWL_STYLE ) & WS_POPUP) && (hwndTo = GetWindow( hwnd, GW_OWNER )))
+    if ((GetWindowLongW( hwnd, GWL_STYLE ) & WS_POPUP) && (hwndTo = GetWindow( hwnd, GW_OWNER )))
     {
         hwndTo = GetAncestor( hwndTo, GA_ROOT );
         if (can_activate_window( hwndTo )) goto done;
@@ -71,7 +71,7 @@ WinPosActivateOtherWindow(HWND hwnd)
 
 
 
-UINT WINAPI
+UINT STDCALL
 WinPosGetMinMaxInfo(HWND hWnd, POINT* MaxSize, POINT* MaxPos,
 		  POINT* MinTrack, POINT* MaxTrack)
 {
@@ -96,17 +96,25 @@ WinPosGetMinMaxInfo(HWND hWnd, POINT* MaxSize, POINT* MaxPos,
 /*
  * @implemented
  */
-HWND WINAPI
+HWND STDCALL
 GetActiveWindow(VOID)
 {
   return (HWND)NtUserGetThreadState(THREADSTATE_ACTIVEWINDOW);
 }
 
+/*
+ * @implemented
+ */
+HWND STDCALL
+SetActiveWindow(HWND hWnd)
+{
+  return(NtUserSetActiveWindow(hWnd));
+}
 
 /*
  * @unimplemented
  */
-UINT WINAPI
+UINT STDCALL
 ArrangeIconicWindows(HWND hWnd)
 {
   return NtUserCallHwndLock( hWnd, HWNDLOCK_ROUTINE_ARRANGEICONICWINDOWS);

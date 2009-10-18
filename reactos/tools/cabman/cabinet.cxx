@@ -64,7 +64,7 @@ static bool _ReadFileData(FILEHANDLE handle, void* buffer, ULONG size, PULONG by
 #ifndef CAB_READ_ONLY
 
 #if 0
-#if DBG
+#ifdef DBG
 
 void DumpBuffer(void* Buffer, ULONG Size)
 {
@@ -2055,19 +2055,9 @@ ULONG CCabinet::AddFile(char* FileName)
         return CAB_STATUS_CANNOT_READ;
     }
 
-    if (GetFileTimes(SrcFile, FileNode) != CAB_STATUS_SUCCESS)
-    {
-        DPRINT(MIN_TRACE, ("Cannot read file times.\n"));
-        FreeMemory(NewFileName);
-        return CAB_STATUS_CANNOT_READ;
-    }
+    GetFileTimes(SrcFile, FileNode);
 
-    if (GetAttributesOnFile(FileNode) != CAB_STATUS_SUCCESS)
-    {
-        DPRINT(MIN_TRACE, ("Cannot read file attributes.\n"));
-        FreeMemory(NewFileName);
-        return CAB_STATUS_CANNOT_READ;
-    }
+    GetAttributesOnFile(FileNode);
 
     CloseFile(SrcFile);
 
@@ -3656,8 +3646,7 @@ ULONG CCabinet::GetFileTimes(FILEHANDLE FileHandle, PCFFILE_NODE File)
         strcpy(buf, File->FileName);
     else
     {
-        if (!getcwd(buf, sizeof(buf)))
-            return CAB_STATUS_CANNOT_READ;
+        getcwd(buf, sizeof(buf));
         strcat(buf, DIR_SEPARATOR_STRING);
         strcat(buf, File->FileName);
     }
@@ -3700,8 +3689,7 @@ ULONG CCabinet::GetAttributesOnFile(PCFFILE_NODE File)
         strcpy(buf, File->FileName);
     else
     {
-        if (!getcwd(buf, sizeof(buf)))
-            return CAB_STATUS_CANNOT_READ;
+        getcwd(buf, sizeof(buf));
         strcat(buf, DIR_SEPARATOR_STRING);
         strcat(buf, File->FileName);
     }

@@ -2,10 +2,11 @@
 <!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
 <group xmlns:xi="http://www.w3.org/2001/XInclude">
 	<module name="halmp" type="kernelmodedll" entrypoint="0">
-		<importlibrary base="hal" definition="hal.pspec" />
+		<importlibrary base="hal" definition="hal.spec" />
 		<bootstrap installbase="$(CDOUTPUT)" />
 		<include>include</include>
 		<include base="ntoskrnl">include</include>
+		<define name="_DISABLE_TIDENTS" />
 		<define name="CONFIG_SMP" />
 		<define name="_NTHAL_" />
 		<library>hal_generic</library>

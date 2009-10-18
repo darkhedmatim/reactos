@@ -16,7 +16,7 @@
 
 /* GLOBALS *******************************************************************/
 
-LIST_ENTRY PspReaperListHead = { NULL, NULL };
+LIST_ENTRY PspReaperListHead = {0};
 WORK_QUEUE_ITEM PspReaperWorkItem;
 LARGE_INTEGER ShortTime = {{-10 * 100 * 1000, -1}};
 
@@ -778,7 +778,7 @@ PspExitThread(IN NTSTATUS ExitStatus)
         ObFastDereferenceObject(&CurrentProcess->Token, PrimaryToken);
 
         /* Check if this is a VDM Process and rundown the VDM DPCs if so */
-        if (CurrentProcess->VdmObjects) { /* VdmRundownDpcs(CurrentProcess); */ }
+        if (CurrentProcess->VdmObjects);// VdmRundownDpcs(CurrentProcess);
 
         /* Kill the process in the Object Manager */
         ObKillProcess(CurrentProcess);
@@ -969,7 +969,6 @@ PspTerminateThreadByPointer(IN PETHREAD Thread,
 
     /* Allocate the APC */
     Apc = ExAllocatePoolWithTag(NonPagedPool, sizeof(KAPC), TAG_TERMINATE_APC);
-    if (!Apc) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Set the Terminated Flag */
     Flags = Thread->CrossThreadFlags | CT_TERMINATED_BIT;
@@ -992,6 +991,7 @@ PspTerminateThreadByPointer(IN PETHREAD Thread,
         if (!KeInsertQueueApc(Apc, Apc, NULL, 2))
         {
             /* The APC was already in the queue, fail */
+            ExFreePool(Apc);
             Status = STATUS_UNSUCCESSFUL;
         }
         else
@@ -1299,7 +1299,7 @@ NtRegisterThreadTerminatePort(IN HANDLE PortHandle)
     /* Allocate the Port and make sure it suceeded */
     TerminationPort = ExAllocatePoolWithTag(NonPagedPool,
                                             sizeof(TERMINATION_PORT),
-                                            '=TsP');
+                                            TAG('P', 's', 'T', '='));
     if(TerminationPort)
     {
         /* Associate the Port */

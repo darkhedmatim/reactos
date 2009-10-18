@@ -47,7 +47,6 @@ typedef enum tagMSICOSTTREE
 
 typedef enum tagMSIMODIFY
 {
-    MSIMODIFY_SEEK = -1,
     MSIMODIFY_REFRESH = 0,
     MSIMODIFY_INSERT = 1,
     MSIMODIFY_UPDATE = 2,

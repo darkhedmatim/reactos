@@ -207,18 +207,22 @@ SeCaptureLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Src,
     /* probe the buffer */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForRead(Src,
                          BufferSize,
                          sizeof(ULONG));
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if (!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
     
     /* allocate enough memory or check if the provided buffer is
@@ -237,24 +241,24 @@ SeCaptureLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Src,
         *Dest = ExAllocatePool(PoolType,
                                BufferSize);
         
-        if (*Dest == NULL)
+        if (&Dest == NULL)
         {
             return STATUS_INSUFFICIENT_RESOURCES;
         }
     }
     
     /* copy the array to the buffer */
-    _SEH2_TRY
+    _SEH_TRY
     {
         RtlCopyMemory(*Dest,
                       Src,
                       BufferSize);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
     
     if (!NT_SUCCESS(Status) && AllocatedMem == NULL)
     {
@@ -285,7 +289,7 @@ SeReleaseLuidAndAttributesArray (PLUID_AND_ATTRIBUTES Privilege,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 SeAppendPrivileges(PACCESS_STATE AccessState,
                    PPRIVILEGE_SET Privileges)
 {
@@ -297,7 +301,7 @@ SeAppendPrivileges(PACCESS_STATE AccessState,
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 SeFreePrivileges(IN PPRIVILEGE_SET Privileges)
 {
     UNIMPLEMENTED;
@@ -306,7 +310,7 @@ SeFreePrivileges(IN PPRIVILEGE_SET Privileges)
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 SePrivilegeCheck (PPRIVILEGE_SET Privileges,
                   PSECURITY_SUBJECT_CONTEXT SubjectContext,
                   KPROCESSOR_MODE PreviousMode)
@@ -338,7 +342,7 @@ SePrivilegeCheck (PPRIVILEGE_SET Privileges,
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 SeSinglePrivilegeCheck (IN LUID PrivilegeValue,
                         IN KPROCESSOR_MODE PreviousMode)
 {
@@ -375,7 +379,7 @@ SeSinglePrivilegeCheck (IN LUID PrivilegeValue,
 
 /* SYSTEM CALLS ***************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtPrivilegeCheck (IN HANDLE ClientToken,
                   IN PPRIVILEGE_SET RequiredPrivileges,
                   OUT PBOOLEAN Result)
@@ -387,7 +391,7 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
     ULONG Length;
     BOOLEAN CheckResult;
     KPROCESSOR_MODE PreviousMode;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     
     PAGED_CODE();
     
@@ -396,7 +400,7 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
     /* probe the buffers */
     if (PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWrite(RequiredPrivileges,
                           FIELD_OFFSET(PRIVILEGE_SET,
@@ -411,7 +415,8 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
                              Privilege[PrivilegeCount]) /
                 sizeof(RequiredPrivileges->Privilege[0]) != PrivilegeCount)
             {
-                _SEH2_YIELD(return STATUS_INVALID_PARAMETER);
+                Status = STATUS_INVALID_PARAMETER;
+                _SEH_LEAVE;
             }
             
             /* probe all of the array */
@@ -422,12 +427,16 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
             
             ProbeForWriteBoolean(Result);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        
+        if (!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
     else
     {
@@ -480,7 +489,7 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
     ObDereferenceObject (Token);
     
     /* return the array */
-    _SEH2_TRY
+    _SEH_TRY
     {
         RtlCopyMemory(RequiredPrivileges->Privilege,
                       Privileges,
@@ -488,11 +497,11 @@ NtPrivilegeCheck (IN HANDLE ClientToken,
         *Result = CheckResult;
         Status = STATUS_SUCCESS;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
     
     SeReleaseLuidAndAttributesArray (Privileges,
                                      PreviousMode,

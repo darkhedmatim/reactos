@@ -54,6 +54,8 @@ extern	BOOLEAN			IniFileSectionInitialized;
 extern	ULONG					IniFileSectionCount;
 extern	ULONG					IniFileSettingCount;
 
+PFILE	IniOpenIniFile();
+
 BOOLEAN	IniParseFile(PCHAR IniFileData, ULONG IniFileSize);
 ULONG		IniGetNextLineSize(PCHAR IniFileData, ULONG IniFileSize, ULONG CurrentOffset);
 ULONG		IniGetNextLine(PCHAR IniFileData, ULONG IniFileSize, PCHAR Buffer, ULONG BufferSize, ULONG CurrentOffset);

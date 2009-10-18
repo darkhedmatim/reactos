@@ -115,7 +115,6 @@ BOOLEAN						FirstAttempt )
 	PtrExt2VCB				PtrVCB = NULL;
 	PtrExt2NTRequiredFCB	PtrReqdFCB = NULL;
 	PERESOURCE				PtrResourceAcquired = NULL;
-	PERESOURCE				PtrPagingIoResourceAcquired = NULL;
 
 	BOOLEAN					CompleteIrp = TRUE;
 	BOOLEAN					PostRequest = FALSE;
@@ -143,7 +142,7 @@ BOOLEAN						FirstAttempt )
 			{
 				DebugTrace( DEBUG_TRACE_SPECIAL, "###### File Pointer 0x%LX [Close]", PtrFileObject);
 			}
-			try_return();
+			try_return( RC );
 		}
 
 		// Get the FCB and CCB pointers
@@ -181,11 +180,10 @@ BOOLEAN						FirstAttempt )
 		{
 			DebugTrace(DEBUG_TRACE_FILE_OBJ, "###### File Pointer 0x%LX [Close]", PtrFileObject);
 		}
-
 		i = 1;
 		while( !AcquiredVCB )
 		{
-			DebugTraceState( "VCB       AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]", PtrVCB->VCBResource.ActiveCount, PtrVCB->VCBResource.NumberOfExclusiveWaiters, PtrVCB->VCBResource.NumberOfSharedWaiters );
+			DebugTraceState( "VCB       AC:0x%LX   SW:0x%LX   EX:0x%LX   [Close]", PtrVCB->VCBResource.ActiveCount, PtrVCB->VCBResource.NumberOfExclusiveWaiters, PtrVCB->VCBResource.NumberOfSharedWaiters );
 			if(! ExAcquireResourceExclusiveLite( &(PtrVCB->VCBResource), FALSE ) )
 			{
 				DebugTrace(DEBUG_TRACE_MISC,   "*** VCB Acquisition FAILED [Close]", 0);
@@ -233,14 +231,13 @@ BOOLEAN						FirstAttempt )
 			{
 				DebugTrace(DEBUG_TRACE_FILE_OBJ,  "###### File Pointer 0x%LX [Close]", PtrFileObject);
 			}
-
-			PtrReqdFCB = &PtrFCB->NTRequiredFCB;
-
 			i = 1;
 			while( !PtrResourceAcquired )
 			{
-				DebugTraceState( "FCBMain   AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]", PtrReqdFCB->MainResource.ActiveCount, PtrReqdFCB->MainResource.NumberOfExclusiveWaiters, PtrReqdFCB->MainResource.NumberOfSharedWaiters );
-				if(! ExAcquireResourceExclusiveLite( &(PtrReqdFCB->MainResource), FALSE ) )
+				PtrReqdFCB = &(PtrFCB->NTRequiredFCB);
+
+				DebugTraceState( "FCBMain   AC:0x%LX   SW:0x%LX   EX:0x%LX   [Close]", PtrReqdFCB->MainResource.ActiveCount, PtrReqdFCB->MainResource.NumberOfExclusiveWaiters, PtrReqdFCB->MainResource.NumberOfSharedWaiters );
+				if(! ExAcquireResourceExclusiveLite( &(PtrFCB->NTRequiredFCB.MainResource ), FALSE ) )
 				{
 					DebugTrace(DEBUG_TRACE_MISC,   "*** FCB Acquisition FAILED [Close]", 0);
 					if( BlockForResource && i != 1000 )
@@ -264,40 +261,7 @@ BOOLEAN						FirstAttempt )
 				else
 				{
 					DebugTrace(DEBUG_TRACE_MISC,  "*** FCB acquired [Close]", 0);
-					PtrResourceAcquired = & ( PtrReqdFCB->MainResource );
-				}
-				i *= 10;
-			}
-
-			i = 1;
-			while( !PtrPagingIoResourceAcquired )
-			{
-				DebugTraceState( "FCBPaging   AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]", PtrReqdFCB->PagingIoResource.ActiveCount, PtrReqdFCB->PagingIoResource.NumberOfExclusiveWaiters, PtrReqdFCB->PagingIoResource.NumberOfSharedWaiters );
-				if(! ExAcquireResourceExclusiveLite( &(PtrReqdFCB->PagingIoResource), FALSE ) )
-				{
-					DebugTrace(DEBUG_TRACE_MISC,   "*** FCB Acquisition FAILED [Close]", 0);
-					if( BlockForResource && i != 1000 )
-					{
-						LARGE_INTEGER Delay;
-						
-						// KeSetPriorityThread( PsGetCurrentThread(), LOW_REALTIME_PRIORITY );
-
-						Delay.QuadPart = -500 * i;
-						KeDelayExecutionThread( KernelMode, FALSE, &Delay );
-						DebugTrace(DEBUG_TRACE_MISC,  "*** Retrying... after 50 * %ld ms [Close]", i);
-					}
-					else
-					{
-						if( i == 1000 )
-							DebugTrace(DEBUG_TRACE_MISC,  "*** Reposting... [Close]", 0 );
-						PostRequest = TRUE;
-						try_return( RC = STATUS_PENDING );
-					}
-				}
-				else
-				{
-					DebugTrace(DEBUG_TRACE_MISC,  "*** FCB acquired [Close]", 0);
-					PtrPagingIoResourceAcquired = & ( PtrReqdFCB->PagingIoResource );
+					PtrResourceAcquired = & ( PtrFCB->NTRequiredFCB.MainResource );
 				}
 				i *= 10;
 			}
@@ -408,22 +372,11 @@ BOOLEAN						FirstAttempt )
 					DebugTrace(DEBUG_TRACE_MISC,  "^^^^^Deleting FCB  [Close]", 0);
 					RemoveEntryList( &PtrFCB->NextFCB );
 
-					if ( PtrPagingIoResourceAcquired )
-					{
-						Ext2ReleaseResource(PtrPagingIoResourceAcquired);
-						DebugTraceState( "Resource     AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]",
-							PtrPagingIoResourceAcquired->ActiveCount, 
-							PtrPagingIoResourceAcquired->NumberOfExclusiveWaiters, 
-							PtrPagingIoResourceAcquired->NumberOfSharedWaiters );
-
-						PtrPagingIoResourceAcquired = NULL;
-					}
-
 					if ( PtrResourceAcquired ) 
 					{
 						Ext2ReleaseResource(PtrResourceAcquired);
 						DebugTrace(DEBUG_TRACE_MISC,  "*** FCB Released [Close]", 0);
-						DebugTraceState( "Resource     AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]",
+						DebugTraceState( "Resource     AC:0x%LX   SW:0x%LX   EX:0x%LX   [Close]", 
 							PtrResourceAcquired->ActiveCount, 
 							PtrResourceAcquired->NumberOfExclusiveWaiters, 
 							PtrResourceAcquired->NumberOfSharedWaiters );
@@ -432,9 +385,8 @@ BOOLEAN						FirstAttempt )
 						{
 							DebugTrace(DEBUG_TRACE_FILE_OBJ, "###### File Pointer 0x%LX [Close]", PtrFileObject);
 						}
-						PtrResourceAcquired = NULL;
+						PtrResourceAcquired = FALSE;
 					}
-
 					Ext2ReleaseFCB( PtrFCB );
 				}
 
@@ -448,29 +400,18 @@ BOOLEAN						FirstAttempt )
 			DebugTrace(DEBUG_TRACE_MISC,   "VCB Close Requested !!!", 0);
 			CompleteIrp = TRUE;
 		}
-		try_return();
+		try_return( RC );
 		
 		try_exit:	NOTHING;
 
 	} 
 	finally 
 	{
-		if ( PtrPagingIoResourceAcquired )
-		{
-			Ext2ReleaseResource(PtrPagingIoResourceAcquired);
-			DebugTraceState( "Resource     AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]",
-				PtrPagingIoResourceAcquired->ActiveCount,
-				PtrPagingIoResourceAcquired->NumberOfExclusiveWaiters,
-				PtrPagingIoResourceAcquired->NumberOfSharedWaiters );
-
-			PtrPagingIoResourceAcquired = NULL;
-		}
-
 		if ( PtrResourceAcquired ) 
 		{
 			Ext2ReleaseResource(PtrResourceAcquired);
 			DebugTrace(DEBUG_TRACE_MISC,  "*** FCB Released [Close]", 0);
-			DebugTraceState( "Resource     AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]",
+			DebugTraceState( "Resource     AC:0x%LX   SW:0x%LX   EX:0x%LX   [Close]", 
 				PtrResourceAcquired->ActiveCount, 
 				PtrResourceAcquired->NumberOfExclusiveWaiters, 
 				PtrResourceAcquired->NumberOfSharedWaiters );
@@ -479,14 +420,14 @@ BOOLEAN						FirstAttempt )
 			{
 				DebugTrace(DEBUG_TRACE_FILE_OBJ, "###### File Pointer 0x%LX [Close]", PtrFileObject);
 			}
-			PtrResourceAcquired = NULL;
+			PtrResourceAcquired = FALSE;
 		}
 
 		if (AcquiredVCB) 
 		{
 			ASSERT(PtrVCB);
 			Ext2ReleaseResource(&(PtrVCB->VCBResource));
-			DebugTraceState( "VCB       AC:0x%LX   EX:0x%LX   SW:0x%LX   [Close]", PtrVCB->VCBResource.ActiveCount, PtrVCB->VCBResource.NumberOfExclusiveWaiters, PtrVCB->VCBResource.NumberOfSharedWaiters );
+			DebugTraceState( "VCB       AC:0x%LX   SW:0x%LX   EX:0x%LX   [Close]", PtrVCB->VCBResource.ActiveCount, PtrVCB->VCBResource.NumberOfExclusiveWaiters, PtrVCB->VCBResource.NumberOfSharedWaiters );
 			DebugTrace(DEBUG_TRACE_MISC,   "*** VCB Released [Close]", 0);
 
 			AcquiredVCB = FALSE;

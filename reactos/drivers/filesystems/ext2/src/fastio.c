@@ -593,7 +593,7 @@ IN PDEVICE_OBJECT				DeviceObject)
 *************************************************************************/
 BOOLEAN NTAPI Ext2FastIoUnlockAllByKey(
 IN PFILE_OBJECT				FileObject,
-PVOID						ProcessId,
+PEPROCESS						ProcessId,
 ULONG								Key,
 OUT PIO_STATUS_BLOCK			IoStatus,
 IN PDEVICE_OBJECT				DeviceObject)

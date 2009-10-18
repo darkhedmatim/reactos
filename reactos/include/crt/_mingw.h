@@ -1,39 +1,112 @@
-/**
- * This file has no copyright assigned and is placed in the Public Domain.
- * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+/*
+ * _mingw.h
+ *
+ * Mingw specific macros included by ALL include files.
+ *
+ * This file is part of the Mingw32 package.
+ *
+ * Contributors:
+ *  Created by Mumit Khan  <khan@xraylith.wisc.edu>
+ *
+ *  THIS SOFTWARE IS NOT COPYRIGHTED
+ *
+ *  This source code is offered for use in the public domain. You may
+ *  use, modify or distribute it freely.
+ *
+ *  This code is distributed in the hope that it will be useful but
+ *  WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
+ *  DISCLAIMED. This includes but is not limited to warranties of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
  */
 
-#ifndef _INC_MINGW
-#define _INC_MINGW
+#ifndef __MINGW_H
+#define __MINGW_H
 
-#define _INTEGRAL_MAX_BITS 64
-
-#ifndef MINGW64
-#define MINGW64
-#define MINGW64_VERSION	1.0
-#define MINGW64_VERSION_MAJOR	1
-#define MINGW64_VERSION_MINOR	0
-#define MINGW64_VERSION_STATE	"alpha"
+#if __GNUC__ >= 3
+#pragma GCC system_header
 #endif
 
-#ifdef _WIN64
-#ifdef __stdcall
-#undef __stdcall
-#endif
-#define __stdcall
-#endif
+/* These are defined by the user (or the compiler)
+   to specify how identifiers are imported from a DLL.
 
-#ifdef __GNUC__
- /* These compilers do support __declspec */
-# if !defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__CYGWIN32__)
-#  define __declspec(x) __attribute__((x))
+   __DECLSPEC_SUPPORTED    Defined if dllimport attribute is supported.
+   __MINGW_IMPORT          The attribute definition to specify imported
+                           variables/functions.
+   _CRTIMP                 As above.  For MS compatibility.
+   __MINGW32_VERSION       Runtime version.
+   __MINGW32_MAJOR_VERSION Runtime major version.
+   __MINGW32_MINOR_VERSION Runtime minor version.
+   __MINGW32_BUILD_DATE    Runtime build date.
+
+   Other macros:
+
+   __int64                 define to be long long. Using a typedef doesn't
+                           work for "unsigned __int64"
+
+   All headers should include this first, and then use __DECLSPEC_SUPPORTED
+   to choose between the old ``__imp__name'' style or __MINGW_IMPORT
+   style declarations.  */
+
+/* Try to avoid problems with outdated checks for GCC __attribute__ support.  */
+#undef __attribute__
+
+#ifndef __GNUC__
+# ifndef __MINGW_IMPORT
+#  define __MINGW_IMPORT  __declspec(dllimport)
 # endif
-#endif
-
-#ifdef _MSC_VER
-#define __restrict__ /* nothing */
-#endif
+# ifndef _CRTIMP
+#  define _CRTIMP  __declspec(dllimport)
+# endif
+# define __DECLSPEC_SUPPORTED
+# define __attribute__(x) /* nothing */
+#else /* __GNUC__ */
+# ifdef __declspec
+#  ifndef __MINGW_IMPORT
+   /* Note the extern. This is needed to work around GCC's
+      limitations in handling dllimport attribute.  */
+#   define __MINGW_IMPORT  extern __attribute__ ((__dllimport__))
+#  endif
+#  ifndef _CRTIMP
+#   ifdef __USE_CRTIMP
+#    define _CRTIMP  __attribute__ ((dllimport))
+#   else
+#    define _CRTIMP
+#   endif
+#  endif
+#  define __DECLSPEC_SUPPORTED
+# else /* __declspec */
+#  undef __DECLSPEC_SUPPORTED
+#  undef __MINGW_IMPORT
+#  ifndef _CRTIMP
+#   define _CRTIMP
+#  endif
+# endif /* __declspec */
+# ifndef __cdecl
+#  define __cdecl __attribute__ ((__cdecl__))
+# endif
+# ifndef __stdcall
+#  define __stdcall __attribute__ ((__stdcall__))
+# endif
+# ifndef __int64
+#  define __int64 long long
+# endif
+# ifndef __int32
+#  define __int32 long
+# endif
+# ifndef __int16
+#  define __int16 short
+# endif
+# ifndef __int8
+#  define __int8 char
+# endif
+# ifndef __small
+#  define __small char
+# endif
+# ifndef __hyper
+#  define __hyper long long
+# endif
+#endif /* __GNUC__ */
 
 #if defined (__GNUC__) && defined (__GNUC_MINOR__)
 #define __MINGW_GNUC_PREREQ(major, minor) \
@@ -43,23 +116,13 @@
 #define __MINGW_GNUC_PREREQ(major, minor)  0
 #endif
 
-#if defined (_MSC_VER)
-#define __MINGW_MSC_PREREQ(major, minor) ((major * 100 + minor * 10) >= _MSC_VER)
-#else
-#define __MINGW_MSC_PREREQ(major, minor) 0
-#endif
-
-#define USE___UUIDOF	0
-
 #ifdef __cplusplus
 # define __CRT_INLINE inline
-#elif defined(_MSC_VER)
-# define __CRT_INLINE __inline
-#elif defined(__GNUC__)
-# if ( __MINGW_GNUC_PREREQ(4, 3)  &&  __STDC_VERSION__ >= 199901L)
-#  define __CRT_INLINE extern inline __attribute__((__always_inline__,__gnu_inline__))
+#else
+# if __GNUC_STDC_INLINE__
+#  define __CRT_INLINE extern inline __attribute__((__gnu_inline__))
 # else
-#  define __CRT_INLINE extern __inline__ __attribute__((__always_inline__))
+#  define __CRT_INLINE extern __inline__
 # endif
 #endif
 
@@ -73,24 +136,9 @@
 # endif
 #endif
 
-#ifdef __cplusplus
-# define __unaligned
-#else
-# ifdef __GNUC__
-#  define __unaligned
-# elif defined(_MSC_VER) && !defined(_M_IA64) && !defined(_M_AMD64)
-#  define __unaligned
-# else
-#  define __unaligned
-# endif
-#endif
-
 #ifdef __GNUC__
 #define __MINGW_ATTRIB_NORETURN __attribute__ ((__noreturn__))
 #define __MINGW_ATTRIB_CONST __attribute__ ((__const__))
-#elif __MINGW_MSC_PREREQ(12, 0)
-#define __MINGW_ATTRIB_NORETURN __declspec(noreturn)
-#define __MINGW_ATTRIB_CONST
 #else
 #define __MINGW_ATTRIB_NORETURN
 #define __MINGW_ATTRIB_CONST
@@ -99,9 +147,6 @@
 #if __MINGW_GNUC_PREREQ (3, 0)
 #define __MINGW_ATTRIB_MALLOC __attribute__ ((__malloc__))
 #define __MINGW_ATTRIB_PURE __attribute__ ((__pure__))
-#elif __MINGW_MSC_PREREQ(14, 0)
-#define __MINGW_ATTRIB_MALLOC __declspec(noalias) __declspec(restrict)
-#define __MINGW_ATTRIB_PURE
 #else
 #define __MINGW_ATTRIB_MALLOC
 #define __MINGW_ATTRIB_PURE
@@ -118,76 +163,37 @@
 
 #if  __MINGW_GNUC_PREREQ (3, 1)
 #define __MINGW_ATTRIB_DEPRECATED __attribute__ ((__deprecated__))
-#elif __MINGW_MSC_PREREQ(12, 0)
-#define __MINGW_ATTRIB_DEPRECATED __declspec(deprecated)
 #else
 #define __MINGW_ATTRIB_DEPRECATED
-#endif
-
+#endif /* GNUC >= 3.1 */
+ 
 #if  __MINGW_GNUC_PREREQ (3, 3)
 #define __MINGW_NOTHROW __attribute__ ((__nothrow__))
-#elif __MINGW_MSC_PREREQ(12, 0) && defined (__cplusplus)
-#define __MINGW_NOTHROW __declspec(nothrow)
 #else
 #define __MINGW_NOTHROW
-#endif
-
-/* TODO: Mark (almost) all CRT functions as __MINGW_NOTHROW.  This will
-allow GCC to optimize away some EH unwind code, at least in DW2 case.  */
+#endif /* GNUC >= 3.3 */
 
 #ifndef __MSVCRT_VERSION__
 /*  High byte is the major version, low byte is the minor. */
-# define __MSVCRT_VERSION__ 0x0700
+# define __MSVCRT_VERSION__ 0x0600
 #endif
 
-//#ifndef WINVER
-//#define WINVER 0x0502
-//#endif
-
-//#ifndef _WIN32_WINNT
-//#define _WIN32_WINNT 0x502
-//#endif
-
-#ifdef __GNUC__
-#define __int8 char
-#define __int16 short
-#define __int32 int
-#define __int64 long long
+#ifndef _SIZE_T_DEFINED
+#define _SIZE_T_DEFINED
+#undef size_t
 #ifdef _WIN64
-   typedef int __int128 __attribute__ ((mode (TI)));
-# endif
-# define __ptr32
-# define __ptr64
-# define __forceinline extern __inline __attribute((always_inline))
-#endif
-
-#ifdef __cplusplus
-#ifndef __nothrow
-#define __nothrow __declspec(nothrow)
+#if defined(__GNUC__) && defined(__STRICT_ANSI__)
+  typedef unsigned int size_t __attribute__ ((mode (DI)));
+#else
+  typedef unsigned __int64 size_t;
 #endif
 #else
-#ifndef __nothrow
-#define __nothrow
+  typedef unsigned int size_t;
 #endif
 #endif
 
-#ifdef _WIN64
-#undef USE_MINGW_SETJMP_TWO_ARGS
-#define USE_MINGW_SETJMP_TWO_ARGS
-#endif
+#define __MINGW32_VERSION 3.13
+#define __MINGW32_MAJOR_VERSION 3
+#define __MINGW32_MINOR_VERSION 13
 
-/* Diable deprecation for now! */
-#define _CRT_SECURE_NO_DEPRECATE
-#define _CRT_SECURE_NO_DEPRECATE_CORE
-#ifdef __WINESRC__
-#define _CRT_NONSTDC_NO_DEPRECATE
-#endif
-
-#define __crt_typefix(ctype)
-
-#ifndef _CRT_UNUSED
-#define _CRT_UNUSED(x) (void)x
-#endif
-
-#endif /* !_INC_MINGW */
-
+#endif /* __MINGW_H */

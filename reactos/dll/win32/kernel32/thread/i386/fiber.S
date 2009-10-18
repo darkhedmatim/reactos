@@ -17,7 +17,7 @@
 
 _SwitchToFiber@4:
     /* Get the TEB */
-    mov edx, fs:[TEB_SELF]
+    mov edx, fs:[KGDT_R3_TEB]
     
     /* Get the Fiber */
     mov eax, [edx+TEB_FIBER_DATA]

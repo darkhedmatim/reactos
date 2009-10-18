@@ -20,27 +20,21 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <string.h>
 #include "wine/debug.h"
 #include "shdocvw.h"
-#include "htiframe.h"
-#include "idispids.h"
-#include "mshtmdid.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shdocvw);
-
-/* shlwapi.dll */
-HWND WINAPI SHSetParentHwnd(HWND hWnd, HWND hWndParent);
 
 static ATOM shell_embedding_atom = 0;
 
 static LRESULT resize_window(WebBrowser *This, LONG width, LONG height)
 {
-    if(This->doc_host.hwnd)
-        SetWindowPos(This->doc_host.hwnd, NULL, 0, 0, width, height,
+    if(This->doc_view_hwnd)
+        SetWindowPos(This->doc_view_hwnd, NULL, 0, 0, width, height,
                      SWP_NOZORDER | SWP_NOACTIVATE);
 
     return 0;
@@ -62,11 +56,9 @@ static LRESULT WINAPI shell_embedding_proc(HWND hwnd, UINT msg, WPARAM wParam, L
     switch(msg) {
     case WM_SIZE:
         return resize_window(This, LOWORD(lParam), HIWORD(lParam));
-    case WM_DOCHOSTTASK:
-        return process_dochost_task(&This->doc_host, lParam);
     }
 
-    return DefWindowProcW(hwnd, msg, wParam, lParam);
+    return DefWindowProcA(hwnd, msg, wParam, lParam);
 }
 
 static void create_shell_embedding_hwnd(WebBrowser *This)
@@ -84,7 +76,7 @@ static void create_shell_embedding_hwnd(WebBrowser *This)
             CS_DBLCLKS,
             shell_embedding_proc,
             0, 0 /* native uses 8 */, NULL, NULL, NULL,
-            (HBRUSH)(COLOR_WINDOW + 1), NULL,
+            (HBRUSH)COLOR_WINDOWFRAME, NULL,
             wszShellEmbedding,
             NULL
         };
@@ -99,160 +91,10 @@ static void create_shell_embedding_hwnd(WebBrowser *This)
         IOleInPlaceSite_Release(inplace);
     }
 
-    This->doc_host.frame_hwnd = This->shell_embedding_hwnd = CreateWindowExW(
-            WS_EX_WINDOWEDGE,
-            wszShellEmbedding, wszShellEmbedding,
-            WS_CLIPSIBLINGS | WS_CLIPCHILDREN
-            | (parent ? WS_CHILD | WS_TABSTOP : WS_POPUP | WS_MAXIMIZEBOX),
-            0, 0, 0, 0, parent,
-            NULL, shdocvw_hinstance, This);
-
-    TRACE("parent=%p hwnd=%p\n", parent, This->shell_embedding_hwnd);
-}
-
-static HRESULT activate_inplace(WebBrowser *This, IOleClientSite *active_site)
-{
-    HWND parent_hwnd;
-    HRESULT hres;
-
-    if(This->inplace)
-        return S_OK;
-
-    if(!active_site)
-        return E_INVALIDARG;
-
-    hres = IOleClientSite_QueryInterface(active_site, &IID_IOleInPlaceSite,
-                                         (void**)&This->inplace);
-    if(FAILED(hres)) {
-        WARN("Could not get IOleInPlaceSite\n");
-        return hres;
-    }
-
-    hres = IOleInPlaceSite_CanInPlaceActivate(This->inplace);
-    if(hres != S_OK) {
-        WARN("CanInPlaceActivate returned: %08x\n", hres);
-        IOleInPlaceSite_Release(This->inplace);
-        return E_FAIL;
-    }
-
-    hres = IOleInPlaceSite_GetWindow(This->inplace, &parent_hwnd);
-    if(SUCCEEDED(hres))
-        SHSetParentHwnd(This->shell_embedding_hwnd, parent_hwnd);
-
-    IOleInPlaceSite_OnInPlaceActivate(This->inplace);
-
-    IOleInPlaceSite_GetWindowContext(This->inplace, &This->doc_host.frame, &This->uiwindow,
-                                     &This->pos_rect, &This->clip_rect,
-                                     &This->frameinfo);
-
-    SetWindowPos(This->shell_embedding_hwnd, NULL,
-                 This->pos_rect.left, This->pos_rect.top,
-                 This->pos_rect.right-This->pos_rect.left,
-                 This->pos_rect.bottom-This->pos_rect.top,
-                 SWP_NOZORDER | SWP_SHOWWINDOW);
-
-    if(This->client) {
-        IOleContainer *container;
-
-        IOleClientSite_ShowObject(This->client);
-
-        hres = IOleClientSite_GetContainer(This->client, &container);
-        if(SUCCEEDED(hres)) {
-            if(This->container)
-                IOleContainer_Release(This->container);
-            This->container = container;
-        }
-    }
-
-    if(This->doc_host.frame)
-        IOleInPlaceFrame_GetWindow(This->doc_host.frame, &This->frame_hwnd);
-
-    return S_OK;
-}
-
-static HRESULT activate_ui(WebBrowser *This, IOleClientSite *active_site)
-{
-    HRESULT hres;
-
-    static const WCHAR wszitem[] = {'i','t','e','m',0};
-
-    if(This->inplace)
-    {
-        if(This->shell_embedding_hwnd)
-            ShowWindow(This->shell_embedding_hwnd, SW_SHOW);
-        return S_OK;
-    }
-
-    hres = activate_inplace(This, active_site);
-    if(FAILED(hres))
-        return hres;
-
-    IOleInPlaceSite_OnUIActivate(This->inplace);
-
-    if(This->doc_host.frame)
-        IOleInPlaceFrame_SetActiveObject(This->doc_host.frame, ACTIVEOBJ(This), wszitem);
-    if(This->uiwindow)
-        IOleInPlaceUIWindow_SetActiveObject(This->uiwindow, ACTIVEOBJ(This), wszitem);
-
-    if(This->doc_host.frame)
-        IOleInPlaceFrame_SetMenu(This->doc_host.frame, NULL, NULL, This->shell_embedding_hwnd);
-
-    SetFocus(This->shell_embedding_hwnd);
-
-    return S_OK;
-}
-
-static HRESULT get_client_disp_property(IOleClientSite *client, DISPID dispid, VARIANT *res)
-{
-    IDispatch *disp = NULL;
-    DISPPARAMS dispparams = {NULL, 0};
-    HRESULT hres;
-
-    VariantInit(res);
-
-    if(!client)
-        return S_OK;
-
-    hres = IOleClientSite_QueryInterface(client, &IID_IDispatch, (void**)&disp);
-    if(FAILED(hres)) {
-        TRACE("Could not get IDispatch\n");
-        return hres;
-    }
-
-    hres = IDispatch_Invoke(disp, dispid, &IID_NULL, LOCALE_SYSTEM_DEFAULT,
-            DISPATCH_PROPERTYGET, &dispparams, res, NULL, NULL);
-
-    IDispatch_Release(disp);
-
-    return hres;
-}
-
-static HRESULT on_offlineconnected_change(WebBrowser *This)
-{
-    VARIANT offline;
-
-    get_client_disp_property(This->client, DISPID_AMBIENT_OFFLINEIFNOTCONNECTED, &offline);
-
-    if(V_VT(&offline) == VT_BOOL)
-        IWebBrowser2_put_Offline(WEBBROWSER2(This), V_BOOL(&offline));
-    else if(V_VT(&offline) != VT_EMPTY)
-        WARN("wrong V_VT(silent) %d\n", V_VT(&offline));
-
-    return S_OK;
-}
-
-static HRESULT on_silent_change(WebBrowser *This)
-{
-    VARIANT silent;
-
-    get_client_disp_property(This->client, DISPID_AMBIENT_SILENT, &silent);
-
-    if(V_VT(&silent) == VT_BOOL)
-        IWebBrowser2_put_Silent(WEBBROWSER2(This), V_BOOL(&silent));
-    else if(V_VT(&silent) != VT_EMPTY)
-        WARN("wrong V_VT(silent) %d\n", V_VT(&silent));
-
-    return S_OK;
+    This->shell_embedding_hwnd = CreateWindowExW(0, wszShellEmbedding, wszShellEmbedding,
+         WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_TABSTOP | WS_MAXIMIZEBOX,
+         0, 0, 0, 0, parent,
+         NULL, shdocvw_hinstance, This);
 }
 
 /**********************************************************************
@@ -282,70 +124,27 @@ static ULONG WINAPI OleObject_Release(IOleObject *iface)
 static HRESULT WINAPI OleObject_SetClientSite(IOleObject *iface, LPOLECLIENTSITE pClientSite)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    IOleContainer *container;
-    HRESULT hres;
 
     TRACE("(%p)->(%p)\n", This, pClientSite);
 
     if(This->client == pClientSite)
         return S_OK;
 
-    if(This->doc_host.hwnd) {
-        DestroyWindow(This->doc_host.hwnd);
-        This->doc_host.hwnd = NULL;
-    }
-    if(This->shell_embedding_hwnd) {
+    if(This->doc_view_hwnd)
+        DestroyWindow(This->doc_view_hwnd);
+    if(This->shell_embedding_hwnd)
         DestroyWindow(This->shell_embedding_hwnd);
-        This->shell_embedding_hwnd = NULL;
-    }
-
-    if(This->inplace) {
-        IOleInPlaceSite_Release(This->inplace);
-        This->inplace = NULL;
-    }
-
-    if(This->doc_host.hostui) {
-        IDocHostUIHandler_Release(This->doc_host.hostui);
-        This->doc_host.hostui = NULL;
-    }
 
     if(This->client)
         IOleClientSite_Release(This->client);
 
     This->client = pClientSite;
-
-    if(!pClientSite) {
-        if(This->doc_host.document)
-            deactivate_document(&This->doc_host);
+    if(!pClientSite)
         return S_OK;
-    }
 
     IOleClientSite_AddRef(pClientSite);
 
-    IOleClientSite_QueryInterface(This->client, &IID_IDispatch,
-                                  (void**)&This->doc_host.client_disp);
-
-    IOleClientSite_QueryInterface(This->client, &IID_IDocHostUIHandler,
-                                  (void**)&This->doc_host.hostui);
-
-    hres = IOleClientSite_GetContainer(This->client, &container);
-    if(SUCCEEDED(hres)) {
-        ITargetContainer *target_container;
-
-        hres = IOleContainer_QueryInterface(container, &IID_ITargetContainer,
-                                            (void**)&target_container);
-        if(SUCCEEDED(hres)) {
-            FIXME("Unsupported ITargetContainer\n");
-            ITargetContainer_Release(target_container);
-        }
-
-        IOleContainer_Release(container);
-    }
-
     create_shell_embedding_hwnd(This);
-
-    on_offlineconnected_change(This);
-    on_silent_change(This);
 
     return S_OK;
 }
@@ -370,24 +169,21 @@ static HRESULT WINAPI OleObject_SetHostNames(IOleObject *iface, LPCOLESTR szCont
         LPCOLESTR szContainerObj)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-
-    TRACE("(%p)->(%s, %s)\n", This, debugstr_w(szContainerApp), debugstr_w(szContainerObj));
-
-    /* We have nothing to do here. */
-    return S_OK;
+    FIXME("(%p)->(%s, %s)\n", This, debugstr_w(szContainerApp), debugstr_w(szContainerObj));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OleObject_Close(IOleObject *iface, DWORD dwSaveOption)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    FIXME("(%p)->(%d)\n", This, dwSaveOption);
+    FIXME("(%p)->(%ld)\n", This, dwSaveOption);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OleObject_SetMoniker(IOleObject *iface, DWORD dwWhichMoniker, IMoniker* pmk)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    FIXME("(%p)->(%d, %p)\n", This, dwWhichMoniker, pmk);
+    FIXME("(%p)->(%ld, %p)\n", This, dwWhichMoniker, pmk);
     return E_NOTIMPL;
 }
 
@@ -395,7 +191,7 @@ static HRESULT WINAPI OleObject_GetMoniker(IOleObject *iface, DWORD dwAssign,
         DWORD dwWhichMoniker, LPMONIKER *ppmk)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    FIXME("(%p)->(%d, %d, %p)\n", This, dwAssign, dwWhichMoniker, ppmk);
+    FIXME("(%p)->(%ld, %ld, %p)\n", This, dwAssign, dwWhichMoniker, ppmk);
     return E_NOTIMPL;
 }
 
@@ -403,7 +199,7 @@ static HRESULT WINAPI OleObject_InitFromData(IOleObject *iface, LPDATAOBJECT pDa
         BOOL fCreation, DWORD dwReserved)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    FIXME("(%p)->(%p, %d, %d)\n", This, pDataObject, fCreation, dwReserved);
+    FIXME("(%p)->(%p, %d, %ld)\n", This, pDataObject, fCreation, dwReserved);
     return E_NOTIMPL;
 }
 
@@ -411,7 +207,7 @@ static HRESULT WINAPI OleObject_GetClipboardData(IOleObject *iface, DWORD dwRese
         LPDATAOBJECT *ppDataObject)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    FIXME("(%p)->(%d, %p)\n", This, dwReserved, ppDataObject);
+    FIXME("(%p)->(%ld, %p)\n", This, dwReserved, ppDataObject);
     return E_NOTIMPL;
 }
 
@@ -419,28 +215,83 @@ static HRESULT WINAPI OleObject_DoVerb(IOleObject *iface, LONG iVerb, struct tag
         LPOLECLIENTSITE pActiveSite, LONG lindex, HWND hwndParent, LPCRECT lprcPosRect)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
+    HRESULT hres;
 
-    TRACE("(%p)->(%d %p %p %d %p %p)\n", This, iVerb, lpmsg, pActiveSite, lindex, hwndParent,
+    static const WCHAR wszitem[] = {'i','t','e','m',0};
+
+    TRACE("(%p)->(%ld %p %p %ld %p %p)\n", This, iVerb, lpmsg, pActiveSite, lindex, hwndParent,
             lprcPosRect);
 
     switch (iVerb)
     {
     case OLEIVERB_SHOW:
-        TRACE("OLEIVERB_SHOW\n");
-        return activate_ui(This, pActiveSite);
-    case OLEIVERB_UIACTIVATE:
-        TRACE("OLEIVERB_UIACTIVATE\n");
-        return activate_ui(This, pActiveSite);
-    case OLEIVERB_INPLACEACTIVATE:
+    case OLEIVERB_INPLACEACTIVATE: {
+        IOleInPlaceSite *inplace;
+
         TRACE("OLEIVERB_INPLACEACTIVATE\n");
-        return activate_inplace(This, pActiveSite);
-    case OLEIVERB_HIDE:
-        TRACE("OLEIVERB_HIDE\n");
-        if(This->shell_embedding_hwnd)
-            ShowWindow(This->shell_embedding_hwnd, SW_HIDE);
+
+        if(!pActiveSite)
+            return E_INVALIDARG;
+
+        hres = IOleClientSite_QueryInterface(pActiveSite, &IID_IOleInPlaceSite, (void**)&inplace);
+        if(FAILED(hres)) {
+            WARN("Could not get IOleInPlaceSite\n");
+            return hres;
+        }
+
+        hres = IOleInPlaceSite_CanInPlaceActivate(inplace);
+        if(hres != S_OK) {
+            WARN("CanInPlaceActivate returned: %08lx\n", hres);
+            IOleInPlaceSite_Release(inplace);
+            return E_FAIL;
+        }
+
+        hres = IOleInPlaceSite_GetWindow(inplace, &This->iphwnd);
+        if(FAILED(hres))
+            This->iphwnd = hwndParent;
+
+        IOleInPlaceSite_OnInPlaceActivate(inplace);
+
+        IOleInPlaceSite_GetWindowContext(inplace, &This->frame, &This->uiwindow,
+                                         &This->pos_rect, &This->clip_rect,
+                                         &This->frameinfo);
+
+
+        if(iVerb == OLEIVERB_INPLACEACTIVATE)
+            IOleInPlaceSite_Release(inplace);
+
+        SetWindowPos(This->shell_embedding_hwnd, NULL,
+                     This->pos_rect.left, This->pos_rect.top,
+                     This->pos_rect.right-This->pos_rect.left,
+                     This->pos_rect.bottom-This->pos_rect.top,
+                     SWP_NOZORDER | SWP_SHOWWINDOW);
+
+        if(This->client) {
+            IOleClientSite_ShowObject(This->client);
+            IOleClientSite_GetContainer(This->client, &This->container);
+        }
+
+        if(This->frame)
+            IOleInPlaceFrame_GetWindow(This->frame, &This->frame_hwnd);
+
+        if(iVerb == OLEIVERB_INPLACEACTIVATE)
+            return S_OK;
+
+        TRACE("OLEIVERB_SHOW\n");
+
+        IOleInPlaceSite_OnUIActivate(inplace);
+        IOleInPlaceSite_Release(inplace);
+
+        IOleInPlaceFrame_SetActiveObject(This->frame, ACTIVEOBJ(This), wszitem);
+
+        /* TODO:
+         * IOleInPlaceFrmae_SetMenu
+         */
+
         return S_OK;
+    }
     default:
-        FIXME("stub for %d\n", iVerb);
+        FIXME("stub for %ld\n", iVerb);
         break;
     }
 
@@ -479,30 +330,22 @@ static HRESULT WINAPI OleObject_GetUserType(IOleObject *iface, DWORD dwFormOfTyp
         LPOLESTR* pszUserType)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    TRACE("(%p, %d, %p)\n", This, dwFormOfType, pszUserType);
+    TRACE("(%p, %ld, %p)\n", This, dwFormOfType, pszUserType);
     return OleRegGetUserType(&CLSID_WebBrowser, dwFormOfType, pszUserType);
 }
 
 static HRESULT WINAPI OleObject_SetExtent(IOleObject *iface, DWORD dwDrawAspect, SIZEL *psizel)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-
-    TRACE("(%p)->(%x %p)\n", This, dwDrawAspect, psizel);
-
-    /* Tests show that dwDrawAspect is ignored */
-    This->extent = *psizel;
-    return S_OK;
+    FIXME("(%p)->(%lx %p)\n", This, dwDrawAspect, psizel);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OleObject_GetExtent(IOleObject *iface, DWORD dwDrawAspect, SIZEL *psizel)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-
-    TRACE("(%p)->(%x, %p)\n", This, dwDrawAspect, psizel);
-
-    /* Tests show that dwDrawAspect is ignored */
-    *psizel = This->extent;
-    return S_OK;
+    FIXME("(%p)->(%lx, %p)\n", This, dwDrawAspect, psizel);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OleObject_Advise(IOleObject *iface, IAdviseSink *pAdvSink,
@@ -516,7 +359,7 @@ static HRESULT WINAPI OleObject_Advise(IOleObject *iface, IAdviseSink *pAdvSink,
 static HRESULT WINAPI OleObject_Unadvise(IOleObject *iface, DWORD dwConnection)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
-    FIXME("(%p)->(%d)\n", This, dwConnection);
+    FIXME("(%p)->(%ld)\n", This, dwConnection);
     return E_NOTIMPL;
 }
 
@@ -530,11 +373,14 @@ static HRESULT WINAPI OleObject_EnumAdvise(IOleObject *iface, IEnumSTATDATA **pp
 static HRESULT WINAPI OleObject_GetMiscStatus(IOleObject *iface, DWORD dwAspect, DWORD *pdwStatus)
 {
     WebBrowser *This = OLEOBJ_THIS(iface);
+    HRESULT hres;
 
-    TRACE("(%p)->(%x, %p)\n", This, dwAspect, pdwStatus);
+    TRACE("(%p)->(%lx, %p)\n", This, dwAspect, pdwStatus);
 
-    *pdwStatus = OLEMISC_SETCLIENTSITEFIRST|OLEMISC_ACTIVATEWHENVISIBLE|OLEMISC_INSIDEOUT
-        |OLEMISC_CANTLINKINSIDE|OLEMISC_RECOMPOSEONRESIZE;
+    hres = OleRegGetMiscStatus(&CLSID_WebBrowser, dwAspect, pdwStatus);
+
+    if (FAILED(hres))
+        *pdwStatus = 0;
 
     return S_OK;
 }
@@ -605,9 +451,22 @@ static HRESULT WINAPI OleInPlaceObject_GetWindow(IOleInPlaceObject *iface, HWND*
 {
     WebBrowser *This = INPLACEOBJ_THIS(iface);
 
-    TRACE("(%p)->(%p)\n", This, phwnd);
+    FIXME("(%p)->(%p)\n", This, phwnd);
 
-    *phwnd = This->shell_embedding_hwnd;
+#if 0
+    /* Create a fake window to fool MFC into believing that we actually
+     * have an implemented browser control.  Avoids the assertion.
+     */
+    HWND hwnd;
+    hwnd = CreateWindowA("BUTTON", "Web Control",
+                        WS_HSCROLL | WS_VSCROLL | WS_OVERLAPPEDWINDOW,
+                        CW_USEDEFAULT, CW_USEDEFAULT, 600,
+                        400, NULL, NULL, NULL, NULL);
+
+    *phwnd = hwnd;
+    TRACE ("Returning hwnd = %d\n", hwnd);
+#endif
+
     return S_OK;
 }
 
@@ -623,13 +482,7 @@ static HRESULT WINAPI OleInPlaceObject_InPlaceDeactivate(IOleInPlaceObject *ifac
 {
     WebBrowser *This = INPLACEOBJ_THIS(iface);
     FIXME("(%p)\n", This);
-
-    if(This->inplace) {
-        IOleInPlaceSite_Release(This->inplace);
-        This->inplace = NULL;
-    }
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OleInPlaceObject_UIDeactivate(IOleInPlaceObject *iface)
@@ -645,11 +498,6 @@ static HRESULT WINAPI OleInPlaceObject_SetObjectRects(IOleInPlaceObject *iface,
     WebBrowser *This = INPLACEOBJ_THIS(iface);
 
     TRACE("(%p)->(%p %p)\n", This, lprcPosRect, lprcClipRect);
-
-    This->pos_rect = *lprcPosRect;
-
-    if(lprcClipRect)
-        This->clip_rect = *lprcClipRect;
 
     if(This->shell_embedding_hwnd) {
         SetWindowPos(This->shell_embedding_hwnd, NULL,
@@ -712,10 +560,7 @@ static ULONG WINAPI OleControl_Release(IOleControl *iface)
 static HRESULT WINAPI OleControl_GetControlInfo(IOleControl *iface, LPCONTROLINFO pCI)
 {
     WebBrowser *This = CONTROL_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, pCI);
-
-    /* Tests show that this function should be not implemented */
+    FIXME("(%p)->(%p)\n", This, pCI);
     return E_NOTIMPL;
 }
 
@@ -729,24 +574,7 @@ static HRESULT WINAPI OleControl_OnMnemonic(IOleControl *iface, struct tagMSG *p
 static HRESULT WINAPI OleControl_OnAmbientPropertyChange(IOleControl *iface, DISPID dispID)
 {
     WebBrowser *This = CONTROL_THIS(iface);
-
-    TRACE("(%p)->(%d)\n", This, dispID);
-
-    switch(dispID) {
-    case DISPID_UNKNOWN:
-        /* Unknown means multiple properties changed, so check them all.
-         * BUT the Webbrowser OleControl object doesn't appear to do this.
-         */
-        return S_OK;
-    case DISPID_AMBIENT_DLCONTROL:
-        return S_OK;
-    case DISPID_AMBIENT_OFFLINEIFNOTCONNECTED:
-        return on_offlineconnected_change(This);
-    case DISPID_AMBIENT_SILENT:
-        return on_silent_change(This);
-    }
-
-    FIXME("Unknown dispID %d\n", dispID);
+    FIXME("(%p)->(%ld)\n", This, dispID);
     return E_NOTIMPL;
 }
 
@@ -860,105 +688,25 @@ static const IOleInPlaceActiveObjectVtbl OleInPlaceActiveObjectVtbl = {
     InPlaceActiveObject_EnableModeless
 };
 
-#define OLECMD_THIS(iface) DEFINE_THIS(WebBrowser, OleCommandTarget, iface)
-
-static HRESULT WINAPI WBOleCommandTarget_QueryInterface(IOleCommandTarget *iface,
-        REFIID riid, void **ppv)
-{
-    WebBrowser *This = OLECMD_THIS(iface);
-    return IWebBrowser2_QueryInterface(WEBBROWSER(This), riid, ppv);
-}
-
-static ULONG WINAPI WBOleCommandTarget_AddRef(IOleCommandTarget *iface)
-{
-    WebBrowser *This = OLECMD_THIS(iface);
-    return IWebBrowser2_AddRef(WEBBROWSER(This));
-}
-
-static ULONG WINAPI WBOleCommandTarget_Release(IOleCommandTarget *iface)
-{
-    WebBrowser *This = OLECMD_THIS(iface);
-    return IWebBrowser2_Release(WEBBROWSER(This));
-}
-
-static HRESULT WINAPI WBOleCommandTarget_QueryStatus(IOleCommandTarget *iface,
-        const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT *pCmdText)
-{
-    WebBrowser *This = OLECMD_THIS(iface);
-    IOleCommandTarget *cmdtrg;
-    HRESULT hres;
-
-    TRACE("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
-          pCmdText);
-
-    if(!This->doc_host.document)
-        return 0x80040104;
-
-    /* NOTE: There are probably some commands that we should handle here
-     * instead of forwarding to document object. */
-
-    hres = IUnknown_QueryInterface(This->doc_host.document, &IID_IOleCommandTarget, (void**)&cmdtrg);
-    if(FAILED(hres))
-        return hres;
-
-    hres = IOleCommandTarget_QueryStatus(cmdtrg, pguidCmdGroup, cCmds, prgCmds, pCmdText);
-    IOleCommandTarget_Release(cmdtrg);
-
-    return hres;
-}
-
-static HRESULT WINAPI WBOleCommandTarget_Exec(IOleCommandTarget *iface,
-        const GUID *pguidCmdGroup, DWORD nCmdID, DWORD nCmdexecopt, VARIANT *pvaIn,
-        VARIANT *pvaOut)
-{
-    WebBrowser *This = OLECMD_THIS(iface);
-    FIXME("(%p)->(%s %d %d %p %p)\n", This, debugstr_guid(pguidCmdGroup), nCmdID,
-          nCmdexecopt, pvaIn, pvaOut);
-    return E_NOTIMPL;
-}
-
-#undef OLECMD_THIS
-
-static const IOleCommandTargetVtbl OleCommandTargetVtbl = {
-    WBOleCommandTarget_QueryInterface,
-    WBOleCommandTarget_AddRef,
-    WBOleCommandTarget_Release,
-    WBOleCommandTarget_QueryStatus,
-    WBOleCommandTarget_Exec
-};
-
 void WebBrowser_OleObject_Init(WebBrowser *This)
 {
-    DWORD dpi_x;
-    DWORD dpi_y;
-    HDC hdc;
-
-    /* default aspect ratio is 96dpi / 96dpi */
-    hdc = GetDC(0);
-    dpi_x = GetDeviceCaps(hdc, LOGPIXELSX);
-    dpi_y = GetDeviceCaps(hdc, LOGPIXELSY);
-    ReleaseDC(0, hdc);
-
     This->lpOleObjectVtbl              = &OleObjectVtbl;
     This->lpOleInPlaceObjectVtbl       = &OleInPlaceObjectVtbl;
     This->lpOleControlVtbl             = &OleControlVtbl;
     This->lpOleInPlaceActiveObjectVtbl = &OleInPlaceActiveObjectVtbl;
-    This->lpOleCommandTargetVtbl     = &OleCommandTargetVtbl;
 
     This->client = NULL;
-    This->inplace = NULL;
     This->container = NULL;
+    This->iphwnd = NULL;
     This->frame_hwnd = NULL;
+    This->frame = NULL;
     This->uiwindow = NULL;
     This->shell_embedding_hwnd = NULL;
 
     memset(&This->pos_rect, 0, sizeof(RECT));
     memset(&This->clip_rect, 0, sizeof(RECT));
     memset(&This->frameinfo, 0, sizeof(OLEINPLACEFRAMEINFO));
-
-    /* Default size is 50x20 pixels, in himetric units */
-    This->extent.cx = MulDiv( 50, 2540, dpi_x );
-    This->extent.cy = MulDiv( 20, 2540, dpi_y );
+    This->frameinfo.cb = sizeof(OLEINPLACEFRAMEINFO);
 }
 
 void WebBrowser_OleObject_Destroy(WebBrowser *This)
@@ -967,6 +715,8 @@ void WebBrowser_OleObject_Destroy(WebBrowser *This)
         IOleObject_SetClientSite(OLEOBJ(This), NULL);
     if(This->container)
         IOleContainer_Release(This->container);
+    if(This->frame)
+        IOleInPlaceFrame_Release(This->frame);
     if(This->uiwindow)
         IOleInPlaceUIWindow_Release(This->uiwindow);
 }

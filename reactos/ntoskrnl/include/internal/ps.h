@@ -9,7 +9,7 @@
 //
 // Define this if you want debugging support
 //
-#define _PS_DEBUG_                                      0x00
+#define _PS_DEBUG_                                      0x01
 
 //
 // These define the Debug Masks Supported
@@ -52,9 +52,9 @@
             "Pointer Count [%p] @%d: %lx\n",                \
             x,                                              \
             __LINE__,                                       \
-            OBJECT_TO_OBJECT_HEADER(x)->PointerCount)
+            OBJECT_TO_OBJECT_HEADER(x)->PointerCount);
 #else
-#define PSTRACE(x, ...) DPRINT(__VA_ARGS__)
+#define PSTRACE(x, ...) DPRINT(__VA_ARGS__);
 #define PSREFTRACE(x)
 #endif
 
@@ -423,7 +423,7 @@ extern POBJECT_TYPE PsJobType;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern UNICODE_STRING PsNtDllPathName;
 extern LIST_ENTRY PsLoadedModuleList;
-extern ULONG_PTR PsNtosImageBase;
+extern ULONG PsNtosImageBase;
 
 //
 // Inlined Functions
