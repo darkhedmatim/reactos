@@ -17,7 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-LANGUAGE LANG_HUNGARIAN, SUBLANG_DEFAULT
+LANGUAGE LANG_HUNGARIAN, SUBLANG_NEUTRAL
 
 STRINGTABLE
 BEGIN
@@ -45,5 +45,4 @@ BEGIN
     IDS_HISTORY        "Local Settings\\History"
     IDS_COOKIES        "Cookies"
     IDS_PROGRAMFILES   "%SystemDrive%\\Program Files"
-    IDS_COMMONFILES    "Common Files"
 END

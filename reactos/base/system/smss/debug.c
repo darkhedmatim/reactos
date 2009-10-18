@@ -1,12 +1,28 @@
-/*
- * PROJECT:         ReactOS Session Manager
- * LICENSE:         GPL v2 or later - See COPYING in the top level directory
- * FILE:            base/system/smss/debug.c
- * PURPOSE:         Debug messages switch and router.
- * PROGRAMMERS:     ReactOS Development Team
+/* $Id$
+ *
+ * debug.c - Session Manager debug messages switch and router
+ * 
+ * ReactOS Operating System
+ * 
+ * --------------------------------------------------------------------
+ *
+ * This software is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.LIB. If not, write
+ * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
+ * MA 02139, USA.  
+ *
+ * --------------------------------------------------------------------
  */
-
-/* INCLUDES ******************************************************************/
 #include "smss.h"
 
 #define NDEBUG
@@ -21,12 +37,12 @@ HANDLE hSmDbgApiPort = (HANDLE) 0;
 
 /* FUNCTIONS *********************************************************/
 
-static VOID NTAPI
+static VOID STDCALL
 DbgSsApiPortThread (PVOID dummy)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PORT_MESSAGE	Request ;
-
+    
     RtlZeroMemory(&Request, sizeof(PORT_MESSAGE));
 	while (TRUE)
 	{
@@ -41,12 +57,12 @@ DbgSsApiPortThread (PVOID dummy)
 	NtTerminateThread(NtCurrentThread(),Status);
 }
 
-static VOID NTAPI
+static VOID STDCALL
 DbgUiApiPortThread (PVOID dummy)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PORT_MESSAGE	Request;
-
+    
     RtlZeroMemory(&Request, sizeof(PORT_MESSAGE));
 	while (TRUE)
 	{
@@ -61,17 +77,17 @@ DbgUiApiPortThread (PVOID dummy)
 	NtTerminateThread(NtCurrentThread(),Status);
 }
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpCreatePT (IN OUT PHANDLE hPort,
 	     IN     LPWSTR  wcPortName,
 	     IN     ULONG   ulMaxDataSize,
 	     IN     ULONG   ulMaxMessageSize,
 	     IN     ULONG   ulPoolCharge OPTIONAL,
-	     IN     VOID    (NTAPI * procServingThread)(PVOID) OPTIONAL,
+	     IN     VOID    (STDCALL * procServingThread)(PVOID) OPTIONAL,
 	     IN OUT PHANDLE phServingThread OPTIONAL)
 {
 	NTSTATUS          Status = STATUS_SUCCESS;
-	UNICODE_STRING    PortName = { 0, 0, NULL };
+	UNICODE_STRING    PortName = {0};
 	OBJECT_ATTRIBUTES ObjectAttributes;
 	HANDLE            Thread = (HANDLE) 0;
 	CLIENT_ID         Cid = {0, 0};

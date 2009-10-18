@@ -1,20 +1,18 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/iskpun.c
+ * FILE:        lib/msvcrt/mbstring/iskpun.c
  * PURPOSE:
- * PROGRAMER:
+ * PROGRAMER:   Ariadne
  * UPDATE HISTORY:
- *              12/04/99: Ariadne Created
- *              05/30/08: Samuel Serapion adapted  from PROJECT C Library
- *
+ *              12/04/99: Created
  */
-
-#include <precomp.h>
+#include <mbctype.h>
+#include <internal/mbstring.h>
 /*
  * @implemented
  */
 int _ismbbkpunct( unsigned int c )
 {
-  return (_mbctype[c & 0xff] & _MKPNCT);
+  return ((_mbctype+1)[(unsigned char)(c)] & (_KNJ_P));
 }

@@ -13,9 +13,9 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
 
 /* FUNCTIONS ****************************************************************/
 
@@ -25,7 +25,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
  * FIXME: is reading the module imports the only way of discerning
  *        old Windows binaries from OS/2 ones ? At least it seems so...
  */
-static DWORD WINAPI
+static DWORD STDCALL
 InternalIsOS2OrOldWin(HANDLE hFile, IMAGE_DOS_HEADER *mz, IMAGE_OS2_HEADER *ne)
 {
   DWORD CurPos;
@@ -38,7 +38,7 @@ InternalIsOS2OrOldWin(HANDLE hFile, IMAGE_DOS_HEADER *mz, IMAGE_OS2_HEADER *ne)
   CurPos = SetFilePointer(hFile, 0, NULL, FILE_CURRENT);
 
   /* read modref table */
-  if((SetFilePointer(hFile, mz->e_lfanew + ne->ne_modtab, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) ||
+  if((SetFilePointer(hFile, mz->e_lfanew + ne->ne_modtab, NULL, FILE_BEGIN) == (DWORD)-1) ||
      (!(modtab = HeapAlloc(GetProcessHeap(), 0, ne->ne_cmod * sizeof(WORD)))) ||
      (!(ReadFile(hFile, modtab, ne->ne_cmod * sizeof(WORD), &Read, NULL))) ||
      (Read != (DWORD)ne->ne_cmod * sizeof(WORD)))
@@ -47,7 +47,7 @@ InternalIsOS2OrOldWin(HANDLE hFile, IMAGE_DOS_HEADER *mz, IMAGE_OS2_HEADER *ne)
   }
 
   /* read imported names table */
-  if((SetFilePointer(hFile, mz->e_lfanew + ne->ne_imptab, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) ||
+  if((SetFilePointer(hFile, mz->e_lfanew + ne->ne_imptab, NULL, FILE_BEGIN) == (DWORD)-1) ||
      (!(nametab = HeapAlloc(GetProcessHeap(), 0, ne->ne_enttab - ne->ne_imptab))) ||
      (!(ReadFile(hFile, nametab, ne->ne_enttab - ne->ne_imptab, &Read, NULL))) ||
      (Read != (DWORD)ne->ne_enttab - ne->ne_imptab))
@@ -68,7 +68,7 @@ InternalIsOS2OrOldWin(HANDLE hFile, IMAGE_DOS_HEADER *mz, IMAGE_OS2_HEADER *ne)
   }
 
   broken:
-  WARN("InternalIsOS2OrOldWin(): Binary file seems to be broken\n");
+  DPRINT("InternalIsOS2OrOldWin(): Binary file seems to be broken\n");
 
   done:
   HeapFree(GetProcessHeap(), 0, modtab);
@@ -77,7 +77,7 @@ InternalIsOS2OrOldWin(HANDLE hFile, IMAGE_DOS_HEADER *mz, IMAGE_OS2_HEADER *ne)
   return Ret;
 }
 
-static DWORD WINAPI
+static DWORD STDCALL
 InternalGetBinaryType(HANDLE hFile)
 {
   union
@@ -100,7 +100,7 @@ InternalGetBinaryType(HANDLE hFile)
   char magic[4];
   DWORD Read;
 
-  if((SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) ||
+  if((SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == (DWORD)-1) ||
      (!ReadFile(hFile, &Header, sizeof(Header), &Read, NULL) ||
       (Read != sizeof(Header))))
   {
@@ -143,7 +143,7 @@ InternalGetBinaryType(HANDLE hFile)
      * This will tell us if there is more header information
      * to read or not.
      */
-    if((SetFilePointer(hFile, Header.mz.e_lfanew, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) ||
+    if((SetFilePointer(hFile, Header.mz.e_lfanew, NULL, FILE_BEGIN) == (DWORD)-1) ||
        (!ReadFile(hFile, magic, sizeof(magic), &Read, NULL) ||
         (Read != sizeof(magic))))
     {
@@ -204,7 +204,7 @@ InternalGetBinaryType(HANDLE hFile)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetBinaryTypeW (
     LPCWSTR lpApplicationName,
     LPDWORD lpBinaryType
@@ -288,7 +288,7 @@ GetBinaryTypeW (
     }
   }
 
-  ERR("Invalid binary type returned!\n", BinType);
+  DPRINT1("Invalid binary type returned!\n", BinType);
   return FALSE;
 }
 
@@ -297,7 +297,7 @@ GetBinaryTypeW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetBinaryTypeA (
     LPCSTR  lpApplicationName,
     LPDWORD lpBinaryType

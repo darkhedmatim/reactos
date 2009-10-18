@@ -81,7 +81,6 @@ enum ICON_ID {
 	ICID_COMPUTER,
 	ICID_LOGOFF,
     ICID_SHUTDOWN,
-    ICID_RESTART,
 	ICID_BOOKMARK,
     ICID_MINIMIZE,
     ICID_CONTROLPAN,
@@ -108,7 +107,6 @@ struct Icon {
 
 	int		get_sysiml_idx() const {return _itype==IT_SYSCACHE? _sys_idx: -1;}
 	HICON	get_hicon() const {return _itype!=IT_SYSCACHE? _hicon: 0;}
-	ICON_TYPE get_icontype() const { return _itype; }
 
 	bool	destroy() {if (_itype == IT_DYNAMIC) {DestroyIcon(_hicon); return true;} else return false;}
 
@@ -127,7 +125,6 @@ struct SysCacheIcon : public Icon {
 struct IconCache {
 	IconCache() : _himlSys_small(0) {}
 
-	virtual ~IconCache();
 	void	init();
 
 	const Icon&	extract(LPCTSTR path, ICONCACHE_FLAGS flags=ICF_NORMAL);
@@ -235,7 +232,7 @@ typedef Desktop DesktopRef;
 #endif
 
 
-#define	DESKTOP_COUNT	2
+#define	DESKTOP_COUNT	4
 
 struct Desktops : public vector<DesktopRef>
 {

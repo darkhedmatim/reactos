@@ -31,6 +31,7 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
+#include "winnls.h"
 #include "wine/debug.h"
 #include "ole2.h"
 #include "wine/unicode.h"
@@ -80,7 +81,7 @@ static HRESULT WINAPI ClassMoniker_QueryInterface(IMoniker* iface,REFIID riid,vo
         *ppvObject = iface;
     }
     else if (IsEqualIID(&IID_IROTData, riid))
-        *ppvObject = &This->lpVtblRotData;
+        *ppvObject = (IROTData*)&(This->lpVtblRotData);
     else if (IsEqualIID(&IID_IMarshal, riid))
     {
         HRESULT hr = S_OK;
@@ -116,7 +117,7 @@ static ULONG WINAPI ClassMoniker_AddRef(IMoniker* iface)
 /******************************************************************************
  *        ClassMoniker_Destroy (local function)
  *******************************************************************************/
-static HRESULT ClassMoniker_Destroy(ClassMoniker* This)
+static HRESULT WINAPI ClassMoniker_Destroy(ClassMoniker* This)
 {
     TRACE("(%p)\n",This);
 
@@ -627,9 +628,9 @@ static ULONG WINAPI ClassMonikerROTData_Release(IROTData* iface)
 }
 
 /******************************************************************************
- *        ClassMonikerIROTData_GetComparisonData
+ *        ClassMonikerIROTData_GetComparaisonData
  ******************************************************************************/
-static HRESULT WINAPI ClassMonikerROTData_GetComparisonData(IROTData* iface,
+static HRESULT WINAPI ClassMonikerROTData_GetComparaisonData(IROTData* iface,
                                                          BYTE* pbData,
                                                          ULONG cbMax,
                                                          ULONG* pcbData)
@@ -687,13 +688,13 @@ static const IROTDataVtbl ROTDataVtbl =
     ClassMonikerROTData_QueryInterface,
     ClassMonikerROTData_AddRef,
     ClassMonikerROTData_Release,
-    ClassMonikerROTData_GetComparisonData
+    ClassMonikerROTData_GetComparaisonData
 };
 
 /******************************************************************************
  *         ClassMoniker_Construct (local function)
  *******************************************************************************/
-static HRESULT ClassMoniker_Construct(ClassMoniker* This, REFCLSID rclsid)
+static HRESULT WINAPI ClassMoniker_Construct(ClassMoniker* This, REFCLSID rclsid)
 {
     TRACE("(%p,%s)\n",This,debugstr_guid(rclsid));
 

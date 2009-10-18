@@ -1,5 +1,5 @@
 /*
- * Copyright 2002 Michael GÃ¼nnewig
+ * Copyright 2002 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,15 +25,16 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winerror.h"
-#include "ole2.h"
 
-#include "initguid.h"
+#include "ole2.h"
 #include "vfw.h"
-#include "avifile_private.h"
 
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(avifile);
+
+#include "initguid.h"
+#include "avifile_private.h"
 
 HMODULE AVIFILE_hModule   = NULL;
 
@@ -77,7 +78,7 @@ static HRESULT AVIFILE_CreateClassFactory(const CLSID *pclsid, const IID *riid,
 
   pClassFactory->lpVtbl    = &iclassfact;
   pClassFactory->dwRef     = 0;
-  pClassFactory->clsid     = *pclsid;
+  memcpy(&pClassFactory->clsid, pclsid, sizeof(pClassFactory->clsid));
 
   hr = IClassFactory_QueryInterface((IClassFactory*)pClassFactory, riid, ppv);
   if (FAILED(hr)) {
@@ -208,7 +209,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
   switch (fdwReason) {
   case DLL_PROCESS_ATTACH:
     DisableThreadLibraryCalls(hInstDll);
-    AVIFILE_hModule = hInstDll;
+    AVIFILE_hModule = (HMODULE)hInstDll;
     break;
   case DLL_PROCESS_DETACH:
     break;

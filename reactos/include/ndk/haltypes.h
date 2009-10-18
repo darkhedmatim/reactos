@@ -223,10 +223,11 @@ extern NTSYSAPI HAL_PRIVATE_DISPATCH HalPrivateDispatchTable;
 //
 // HAL Exports
 //
-extern PUCHAR NTHALAPI KdComPortInUse;
+#ifndef _NTHAL_
+extern PUCHAR *KdComPortInUse;
+#endif
 
 #endif
 #endif
-
 
 

@@ -1,6 +1,5 @@
 # Makefile for Mesa for VMS
-# contributed by Jouk Jansen  joukj@hrem.nano.tudelft.nl
-# Date last revision : 7 March 2007
+# contributed by Jouk Jansen  joukj@hrem.stm.tudelft.nl
 
 all :
 	set default [.main]
@@ -23,5 +22,5 @@ all :
 	$(MMS)$(MMSQUALIFIERS)
 	set default [-.swrast_setup]
 	$(MMS)$(MMSQUALIFIERS)
-	set default [-.vbo]
+	set default [-.array_cache]
 	$(MMS)$(MMSQUALIFIERS)

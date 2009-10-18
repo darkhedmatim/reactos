@@ -29,10 +29,6 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include "resource.h"
-#include <wine/debug.h>
-#include <win32k/ntusrtyp.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(userinit);
 
 #define CMP_MAGIC  0x01234567
 
@@ -42,151 +38,113 @@ WINE_DEFAULT_DEBUG_CHANNEL(userinit);
 
 static LONG
 ReadRegSzKey(
-    IN HKEY hKey,
-    IN LPCWSTR pszKey,
-    OUT LPWSTR* pValue)
+	IN HKEY hKey,
+	IN LPCWSTR pszKey,
+	OUT LPWSTR* pValue)
 {
-    LONG rc;
-    DWORD dwType;
-    DWORD cbData = 0;
-    LPWSTR Value;
+	LONG rc;
+	DWORD dwType;
+	DWORD cbData = 0;
+	LPWSTR Value;
 
-    TRACE("(%p, %s, %p)\n", hKey, debugstr_w(pszKey), pValue);
+	rc = RegQueryValueExW(hKey, pszKey, NULL, &dwType, NULL, &cbData);
+	if (rc != ERROR_SUCCESS)
+		return rc;
+	if (dwType != REG_SZ)
+		return ERROR_FILE_NOT_FOUND;
+	Value = (WCHAR*) HeapAlloc(GetProcessHeap(), 0, cbData + sizeof(WCHAR));
+	if (!Value)
+		return ERROR_NOT_ENOUGH_MEMORY;
+	rc = RegQueryValueExW(hKey, pszKey, NULL, NULL, (LPBYTE)Value, &cbData);
+	if (rc != ERROR_SUCCESS)
+	{
+		HeapFree(GetProcessHeap(), 0, Value);
+		return rc;
+	}
+	/* NULL-terminate the string */
+	Value[cbData / sizeof(WCHAR)] = '\0';
 
-    rc = RegQueryValueExW(hKey, pszKey, NULL, &dwType, NULL, &cbData);
-    if (rc != ERROR_SUCCESS)
-    {
-        WARN("RegQueryValueEx(%s) failed with error %lu\n", debugstr_w(pszKey), rc);
-        return rc;
-    }
-    if (dwType != REG_SZ)
-    {
-        WARN("Wrong registry data type (%u vs %u)\n", dwType, REG_SZ);
-        return ERROR_FILE_NOT_FOUND;
-    }
-    Value = (WCHAR*) HeapAlloc(GetProcessHeap(), 0, cbData + sizeof(WCHAR));
-    if (!Value)
-    {
-        WARN("No memory\n");
-        return ERROR_NOT_ENOUGH_MEMORY;
-    }
-    rc = RegQueryValueExW(hKey, pszKey, NULL, NULL, (LPBYTE)Value, &cbData);
-    if (rc != ERROR_SUCCESS)
-    {
-        WARN("RegQueryValueEx(%s) failed with error %lu\n", debugstr_w(pszKey), rc);
-        HeapFree(GetProcessHeap(), 0, Value);
-        return rc;
-    }
-    /* NULL-terminate the string */
-    Value[cbData / sizeof(WCHAR)] = '\0';
-
-    *pValue = Value;
-    return ERROR_SUCCESS;
+	*pValue = Value;
+	return ERROR_SUCCESS;
 }
 
 static
-BOOL IsConsoleShell(VOID)
+BOOL IsConsoleShell(void)
 {
-    HKEY ControlKey = NULL;
-    LPWSTR SystemStartOptions = NULL;
-    LPWSTR CurrentOption, NextOption; /* Pointers into SystemStartOptions */
-    LONG rc;
-    BOOL ret = FALSE;
+	HKEY ControlKey = NULL;
+	LPWSTR SystemStartOptions = NULL;
+	LPWSTR CurrentOption, NextOption; /* Pointers into SystemStartOptions */
+	LONG rc;
+	BOOL ret = FALSE;
 
-    TRACE("()\n");
+	rc = RegOpenKeyEx(
+		HKEY_LOCAL_MACHINE,
+		REGSTR_PATH_CURRENT_CONTROL_SET,
+		0,
+		KEY_QUERY_VALUE,
+		&ControlKey);
 
-    rc = RegOpenKeyEx(
-        HKEY_LOCAL_MACHINE,
-        REGSTR_PATH_CURRENT_CONTROL_SET,
-        0,
-        KEY_QUERY_VALUE,
-        &ControlKey);
-    if (rc != ERROR_SUCCESS)
-    {
-        WARN("RegOpenKeyEx() failed with error %lu\n", rc);
-        goto cleanup;
-    }
+	rc = ReadRegSzKey(ControlKey, L"SystemStartOptions", &SystemStartOptions);
+	if (rc != ERROR_SUCCESS)
+		goto cleanup;
 
-    rc = ReadRegSzKey(ControlKey, L"SystemStartOptions", &SystemStartOptions);
-    if (rc != ERROR_SUCCESS)
-    {
-        WARN("ReadRegSzKey() failed with error %lu\n", rc);
-        goto cleanup;
-    }
-
-    /* Check for CONSOLE in SystemStartOptions */
-    CurrentOption = SystemStartOptions;
-    while (CurrentOption)
-    {
-        NextOption = wcschr(CurrentOption, L' ');
-        if (NextOption)
-            *NextOption = L'\0';
-        if (_wcsicmp(CurrentOption, L"CONSOLE") == 0)
-        {
-            TRACE("Found 'CONSOLE' boot option\n");
-            ret = TRUE;
-            goto cleanup;
-        }
-        CurrentOption = NextOption ? NextOption + 1 : NULL;
-    }
+	/* Check for CMDCONS in SystemStartOptions */
+	CurrentOption = SystemStartOptions;
+	while (CurrentOption)
+	{
+		NextOption = wcschr(CurrentOption, L' ');
+		if (NextOption)
+			*NextOption = L'\0';
+		if (wcsicmp(CurrentOption, L"CMDCONS") == 0)
+		{
+			ret = TRUE;
+			goto cleanup;
+		}
+		CurrentOption = NextOption ? NextOption + 1 : NULL;
+	}
 
 cleanup:
-    if (ControlKey != NULL)
-        RegCloseKey(ControlKey);
-    HeapFree(GetProcessHeap(), 0, SystemStartOptions);
-    TRACE("IsConsoleShell() returning %d\n", ret);
-    return ret;
+	if (ControlKey != NULL)
+		RegCloseKey(ControlKey);
+	HeapFree(GetProcessHeap(), 0, SystemStartOptions);
+	return ret;
 }
 
 static
-BOOL GetShell(
-    OUT WCHAR *CommandLine, /* must be at least MAX_PATH long */
-    IN HKEY hRootKey)
+BOOL GetShell(WCHAR *CommandLine, HKEY hRootKey)
 {
-    HKEY hKey;
-    DWORD Type, Size;
-    WCHAR Shell[MAX_PATH];
-    BOOL Ret = FALSE;
-    BOOL ConsoleShell = IsConsoleShell();
-    LONG rc;
+  HKEY hKey;
+  DWORD Type, Size;
+  WCHAR Shell[MAX_PATH];
+  BOOL Ret = FALSE;
+  BOOL ConsoleShell = IsConsoleShell();
 
-    TRACE("(%p, %p)\n", CommandLine, hRootKey);
-
-    rc = RegOpenKeyExW(hRootKey, L"Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
-                       0, KEY_QUERY_VALUE, &hKey);
-    if (rc == ERROR_SUCCESS)
+  if(RegOpenKeyEx(hRootKey,
+                  L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon", /* FIXME: should be REGSTR_PATH_WINLOGON */
+                  0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+  {
+    Size = MAX_PATH * sizeof(WCHAR);
+    if(RegQueryValueEx(hKey,
+                       ConsoleShell ? L"ConsoleShell" : L"Shell",
+                       NULL,
+                       &Type,
+                       (LPBYTE)Shell,
+                       &Size) == ERROR_SUCCESS)
     {
-        Size = MAX_PATH * sizeof(WCHAR);
-        rc = RegQueryValueExW(hKey,
-                              ConsoleShell ? L"ConsoleShell" : L"Shell",
-                              NULL,
-                              &Type,
-                              (LPBYTE)Shell,
-                              &Size);
-        if (rc == ERROR_SUCCESS)
-        {
-            if ((Type == REG_SZ) || (Type == REG_EXPAND_SZ))
-            {
-                TRACE("Found command line %s\n", debugstr_w(Shell));
-                wcscpy(CommandLine, Shell);
-                Ret = TRUE;
-            }
-            else
-                WARN("Wrong type %lu (expected %u or %u)\n", Type, REG_SZ, REG_EXPAND_SZ);
-        }
-        else
-            WARN("RegQueryValueEx() failed with error %lu\n", rc);
-        RegCloseKey(hKey);
+      if((Type == REG_SZ) || (Type == REG_EXPAND_SZ))
+      {
+        wcscpy(CommandLine, Shell);
+        Ret = TRUE;
+      }
     }
-    else
-        WARN("RegOpenKeyEx() failed with error %lu\n", rc);
+    RegCloseKey(hKey);
+  }
 
-    return Ret;
+  return Ret;
 }
 
 static VOID
-StartAutoApplications(
-    IN INT clsid)
+StartAutoApplications(int clsid)
 {
     WCHAR szPath[MAX_PATH] = {0};
     HRESULT hResult;
@@ -195,266 +153,305 @@ StartAutoApplications(
     SHELLEXECUTEINFOW ExecInfo;
     size_t len;
 
-    TRACE("(%d)\n", clsid);
-
     hResult = SHGetFolderPathW(NULL, clsid, NULL, SHGFP_TYPE_CURRENT, szPath);
     len = wcslen(szPath);
     if (!SUCCEEDED(hResult) || len == 0)
     {
-        WARN("SHGetFolderPath() failed with error %lu\n", GetLastError());
-        return;
+      return;
     }
 
     wcscat(szPath, L"\\*");
     hFind = FindFirstFileW(szPath, &findData);
     if (hFind == INVALID_HANDLE_VALUE)
     {
-        WARN("FindFirstFile(%s) failed with error %lu\n", debugstr_w(szPath), GetLastError());
-        return;
+      return;
     }
     szPath[len] = L'\0';
 
     do
     {
-        if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (findData.nFileSizeHigh || findData.nFileSizeLow))
-        {
-            memset(&ExecInfo, 0x0, sizeof(SHELLEXECUTEINFOW));
-            ExecInfo.cbSize = sizeof(ExecInfo);
-            ExecInfo.lpVerb = L"open";
-            ExecInfo.lpFile = findData.cFileName;
-            ExecInfo.lpDirectory = szPath;
-            TRACE("Executing %s in directory %s\n",
-                debugstr_w(findData.cFileName), debugstr_w(szPath));
-            ShellExecuteExW(&ExecInfo);
-        }
-    } while (FindNextFileW(hFind, &findData));
+      if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (findData.nFileSizeHigh || findData.nFileSizeLow))
+      {
+        memset(&ExecInfo, 0x0, sizeof(SHELLEXECUTEINFOW));
+        ExecInfo.cbSize = sizeof(ExecInfo);
+        ExecInfo.lpVerb = L"open";
+        ExecInfo.lpFile = findData.cFileName;
+        ExecInfo.lpDirectory = szPath;
+        ShellExecuteExW(&ExecInfo);
+      }
+    }while(FindNextFileW(hFind, &findData));
     FindClose(hFind);
 }
 
+
 static BOOL
-TryToStartShell(
-    IN LPCWSTR Shell)
+TryToStartShell(LPCWSTR Shell)
 {
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-    WCHAR ExpandedShell[MAX_PATH];
+  STARTUPINFO si;
+  PROCESS_INFORMATION pi;
+  WCHAR ExpandedShell[MAX_PATH];
 
-    TRACE("(%s)\n", debugstr_w(Shell));
+  ZeroMemory(&si, sizeof(STARTUPINFO));
+  si.cb = sizeof(STARTUPINFO);
+  ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
 
-    ZeroMemory(&si, sizeof(STARTUPINFO));
-    si.cb = sizeof(STARTUPINFO);
-    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+  ExpandEnvironmentStrings(Shell, ExpandedShell, MAX_PATH);
 
-    ExpandEnvironmentStrings(Shell, ExpandedShell, MAX_PATH);
+  if(!CreateProcess(NULL,
+                   ExpandedShell,
+                   NULL,
+                   NULL,
+                   FALSE,
+                   NORMAL_PRIORITY_CLASS,
+                   NULL,
+                   NULL,
+                   &si,
+                   &pi))
+    return FALSE;
 
-    if (!CreateProcess(NULL,
-                      ExpandedShell,
-                      NULL,
-                      NULL,
-                      FALSE,
-                      NORMAL_PRIORITY_CLASS,
-                      NULL,
-                      NULL,
-                      &si,
-                      &pi))
-    {
-        WARN("CreateProcess() failed with error %lu\n", GetLastError());
-        return FALSE;
-    }
-
-    StartAutoApplications(CSIDL_STARTUP);
-    StartAutoApplications(CSIDL_COMMON_STARTUP);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    return TRUE;
+  StartAutoApplications(CSIDL_STARTUP);
+  StartAutoApplications(CSIDL_COMMON_STARTUP);
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  CloseHandle(pi.hProcess);
+  CloseHandle(pi.hThread);
+  return TRUE;
 }
 
 static
-VOID StartShell(VOID)
+void StartShell(void)
 {
-    WCHAR Shell[MAX_PATH];
-    TCHAR szMsg[RC_STRING_MAX_SIZE];
+  WCHAR Shell[MAX_PATH];
+  TCHAR szMsg[RC_STRING_MAX_SIZE];
 
-    TRACE("()\n");
+  /* Try to run shell in user key */
+  if (GetShell(Shell, HKEY_CURRENT_USER) && TryToStartShell(Shell))
+    return;
 
-    /* Try to run shell in user key */
-    if (GetShell(Shell, HKEY_CURRENT_USER) && TryToStartShell(Shell))
+  /* Try to run shell in local machine key */
+  if (GetShell(Shell, HKEY_LOCAL_MACHINE) && TryToStartShell(Shell))
+    return;
+
+  /* Try default shell */
+  if (IsConsoleShell())
     {
-        TRACE("Started shell from HKEY_CURRENT_USER\n");
-        return;
-    }
-
-    /* Try to run shell in local machine key */
-    if (GetShell(Shell, HKEY_LOCAL_MACHINE) && TryToStartShell(Shell))
-    {
-        TRACE("Started shell from HKEY_LOCAL_MACHINE\n");
-        return;
-    }
-
-    /* Try default shell */
-    if (IsConsoleShell())
-    {
-        if (GetSystemDirectory(Shell, MAX_PATH - 8))
-            wcscat(Shell, L"\\cmd.exe");
-        else
-            wcscpy(Shell, L"cmd.exe");
+      if(GetSystemDirectory(Shell, MAX_PATH - 8))
+        wcscat(Shell, L"\\cmd.exe");
+      else
+        wcscpy(Shell, L"cmd.exe");
     }
     else
     {
-        if (GetWindowsDirectory(Shell, MAX_PATH - 13))
-            wcscat(Shell, L"\\explorer.exe");
-        else
-            wcscpy(Shell, L"explorer.exe");
+      if(GetWindowsDirectory(Shell, MAX_PATH - 13))
+        wcscat(Shell, L"\\explorer.exe");
+      else
+        wcscpy(Shell, L"explorer.exe");
     }
-    if (!TryToStartShell(Shell))
-    {
-        WARN("Failed to start default shell %s\n", debugstr_w(Shell));
-        LoadString( GetModuleHandle(NULL), STRING_USERINIT_FAIL, szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
-        MessageBox(0, szMsg, NULL, 0);
-    }
+  if (!TryToStartShell(Shell))
+  {
+    LoadString( GetModuleHandle(NULL), STRING_USERINIT_FAIL, szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
+    MessageBox(0, szMsg, NULL, 0);
+  }
 }
 
-const WCHAR g_RegColorNames[][32] = {
-    L"Scrollbar",             /* 00 = COLOR_SCROLLBAR */
-    L"Background",            /* 01 = COLOR_DESKTOP */
-    L"ActiveTitle",           /* 02 = COLOR_ACTIVECAPTION  */
-    L"InactiveTitle",         /* 03 = COLOR_INACTIVECAPTION */
-    L"Menu",                  /* 04 = COLOR_MENU */
-    L"Window",                /* 05 = COLOR_WINDOW */
-    L"WindowFrame",           /* 06 = COLOR_WINDOWFRAME */
-    L"MenuText",              /* 07 = COLOR_MENUTEXT */
-    L"WindowText",            /* 08 = COLOR_WINDOWTEXT */
-    L"TitleText",             /* 09 = COLOR_CAPTIONTEXT */
-    L"ActiveBorder",          /* 10 = COLOR_ACTIVEBORDER */
-    L"InactiveBorder",        /* 11 = COLOR_INACTIVEBORDER */
-    L"AppWorkSpace",          /* 12 = COLOR_APPWORKSPACE */
-    L"Hilight",               /* 13 = COLOR_HIGHLIGHT */
-    L"HilightText",           /* 14 = COLOR_HIGHLIGHTTEXT */
-    L"ButtonFace",            /* 15 = COLOR_BTNFACE */
-    L"ButtonShadow",          /* 16 = COLOR_BTNSHADOW */
-    L"GrayText",              /* 17 = COLOR_GRAYTEXT */
-    L"ButtonText",            /* 18 = COLOR_BTNTEXT */
-    L"InactiveTitleText",     /* 19 = COLOR_INACTIVECAPTIONTEXT */
-    L"ButtonHilight",         /* 20 = COLOR_BTNHIGHLIGHT */
-    L"ButtonDkShadow",        /* 21 = COLOR_3DDKSHADOW */
-    L"ButtonLight",           /* 22 = COLOR_3DLIGHT */
-    L"InfoText",              /* 23 = COLOR_INFOTEXT */
-    L"InfoWindow",            /* 24 = COLOR_INFOBK */
-    L"ButtonAlternateFace",   /* 25 = COLOR_ALTERNATEBTNFACE */
-    L"HotTrackingColor",      /* 26 = COLOR_HOTLIGHT */
-    L"GradientActiveTitle",   /* 27 = COLOR_GRADIENTACTIVECAPTION */
-    L"GradientInactiveTitle", /* 28 = COLOR_GRADIENTINACTIVECAPTION */
-    L"MenuHilight",           /* 29 = COLOR_MENUHILIGHT */
-    L"MenuBar"                /* 30 = COLOR_MENUBAR */
+WCHAR g_RegColorNames[][32] =
+  {L"Scrollbar",            /* 00 = COLOR_SCROLLBAR */
+  L"Background",            /* 01 = COLOR_DESKTOP */
+  L"ActiveTitle",           /* 02 = COLOR_ACTIVECAPTION  */
+  L"InactiveTitle",         /* 03 = COLOR_INACTIVECAPTION */
+  L"Menu",                  /* 04 = COLOR_MENU */
+  L"Window",                /* 05 = COLOR_WINDOW */
+  L"WindowFrame",           /* 06 = COLOR_WINDOWFRAME */
+  L"MenuText",              /* 07 = COLOR_MENUTEXT */
+  L"WindowText",            /* 08 = COLOR_WINDOWTEXT */
+  L"TitleText",             /* 09 = COLOR_CAPTIONTEXT */
+  L"ActiveBorder",          /* 10 = COLOR_ACTIVEBORDER */
+  L"InactiveBorder",        /* 11 = COLOR_INACTIVEBORDER */
+  L"AppWorkSpace",          /* 12 = COLOR_APPWORKSPACE */
+  L"Hilight",               /* 13 = COLOR_HIGHLIGHT */
+  L"HilightText",           /* 14 = COLOR_HIGHLIGHTTEXT */
+  L"ButtonFace",            /* 15 = COLOR_BTNFACE */
+  L"ButtonShadow",          /* 16 = COLOR_BTNSHADOW */
+  L"GrayText",              /* 17 = COLOR_GRAYTEXT */
+  L"ButtonText",            /* 18 = COLOR_BTNTEXT */
+  L"InactiveTitleText",     /* 19 = COLOR_INACTIVECAPTIONTEXT */
+  L"ButtonHilight",         /* 20 = COLOR_BTNHIGHLIGHT */
+  L"ButtonDkShadow",        /* 21 = COLOR_3DDKSHADOW */
+  L"ButtonLight",           /* 22 = COLOR_3DLIGHT */
+  L"InfoText",              /* 23 = COLOR_INFOTEXT */
+  L"InfoWindow",            /* 24 = COLOR_INFOBK */
+  L"ButtonAlternateFace",   /* 25 = COLOR_ALTERNATEBTNFACE */
+  L"HotTrackingColor",      /* 26 = COLOR_HOTLIGHT */
+  L"GradientActiveTitle",   /* 27 = COLOR_GRADIENTACTIVECAPTION */
+  L"GradientInactiveTitle", /* 28 = COLOR_GRADIENTINACTIVECAPTION */
+  L"MenuHilight",           /* 29 = COLOR_MENUHILIGHT */
+  L"MenuBar"                /* 30 = COLOR_MENUBAR */
 };
 #define NUM_SYSCOLORS (sizeof(g_RegColorNames) / sizeof(g_RegColorNames[0]))
 
 static
-COLORREF StrToColorref(
-    IN LPWSTR lpszCol)
+COLORREF StrToColorref(LPWSTR lpszCol)
 {
-    BYTE rgb[3];
+  BYTE rgb[3];
 
-    TRACE("(%s)\n", debugstr_w(lpszCol));
-
-    rgb[0] = StrToIntW(lpszCol);
-    lpszCol = StrChrW(lpszCol, L' ') + 1;
-    rgb[1] = StrToIntW(lpszCol);
-    lpszCol = StrChrW(lpszCol, L' ') + 1;
-    rgb[2] = StrToIntW(lpszCol);
-    return RGB(rgb[0], rgb[1], rgb[2]);
+  rgb[0] = StrToIntW(lpszCol);
+  lpszCol = StrChrW(lpszCol, L' ') + 1;
+  rgb[1] = StrToIntW(lpszCol);
+  lpszCol = StrChrW(lpszCol, L' ') + 1;
+  rgb[2] = StrToIntW(lpszCol);
+  return RGB(rgb[0], rgb[1], rgb[2]);
 }
 
 static
-VOID SetUserSysColors(VOID)
+void SetUserSysColors(void)
 {
-    HKEY hKey;
-    INT i;
-    WCHAR szColor[20];
-    DWORD Type, Size;
-    COLORREF crColor;
-    LONG rc;
+  HKEY hKey;
+  INT i;
+  WCHAR szColor[20];
+  DWORD Type, Size;
+  COLORREF crColor;
 
-    TRACE("()\n");
-
-    rc = RegOpenKeyEx(HKEY_CURRENT_USER, REGSTR_PATH_COLORS,
-                      0, KEY_QUERY_VALUE, &hKey);
-    if (rc != ERROR_SUCCESS)
+  if(!RegOpenKeyEx(HKEY_CURRENT_USER,
+                  L"Control Panel\\Colors",
+                  0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+  {
+    return;
+  }
+  for(i = 0; i < NUM_SYSCOLORS; i++)
+  {
+    Size = sizeof(szColor);
+    if(RegQueryValueEx(hKey, g_RegColorNames[i], NULL, &Type,
+        (LPBYTE)szColor, &Size) == ERROR_SUCCESS && Type == REG_SZ)
     {
-        WARN("RegOpenKeyEx() failed with error %lu\n", rc);
-        return;
+      crColor = StrToColorref(szColor);
+      SetSysColors(1, &i, &crColor);
     }
-    for(i = 0; i < NUM_SYSCOLORS; i++)
-    {
-        Size = sizeof(szColor);
-        rc = RegQueryValueEx(hKey, g_RegColorNames[i], NULL, &Type,
-                             (LPBYTE)szColor, &Size);
-        if (rc == ERROR_SUCCESS && Type == REG_SZ)
-        {
-            crColor = StrToColorref(szColor);
-            SetSysColors(1, &i, &crColor);
-        }
-        else
-            WARN("RegQueryValueEx(%s) failed with error %lu\n",
-                debugstr_w(g_RegColorNames[i]), rc);
-    }
-    RegCloseKey(hKey);
+  }
+  RegCloseKey(hKey);
+  return;
 }
 
-DWORD
-WINAPI
-UpdatePerUserSystemParameters(DWORD dw1, BOOL bEnable);
+static
+void LoadUserFontSetting(LPWSTR lpValueName, PLOGFONTW pFont)
+{
+  HKEY hKey;
+  LOGFONTW lfTemp;
+  DWORD Type, Size;
+  INT error;
 
+  Size = sizeof(LOGFONTW);
+  if(!RegOpenKeyEx(HKEY_CURRENT_USER,
+                  L"Control Panel\\Desktop\\WindowMetrics",
+                  0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+  {
+    return;
+  }
+  error = RegQueryValueEx(hKey, lpValueName, NULL, &Type, (LPBYTE)&lfTemp, &Size);
+  if ((error != ERROR_SUCCESS) || (Type != REG_BINARY))
+  {
+    return;
+  }
+  RegCloseKey(hKey);
+  /* FIXME: Check if lfTemp is a valid font */
+  *pFont = lfTemp;
+  return;
+}
 
 static
-VOID SetUserWallpaper(VOID)
+void LoadUserMetricSetting(LPWSTR lpValueName, INT *pValue)
 {
-    HKEY hKey;
-    DWORD Type, Size;
-    WCHAR szWallpaper[MAX_PATH + 1];
-    LONG rc;
+  HKEY hKey;
+  DWORD Type, Size;
+  INT ret;
+  WCHAR strValue[8];
 
-    TRACE("()\n");
+  Size = sizeof(strValue);
+  if(!RegOpenKeyEx(HKEY_CURRENT_USER,
+                  L"Control Panel\\Desktop\\WindowMetrics",
+                  0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+  {
+    return;
+  }
+  ret = RegQueryValueEx(hKey, lpValueName, NULL, &Type, (LPBYTE)&strValue, &Size);
+  if ((ret != ERROR_SUCCESS) || (Type != REG_SZ))
+  {
+    return;
+  }
+  RegCloseKey(hKey);
+  *pValue = StrToInt(strValue);
+  return;
+}
 
-    rc = RegOpenKeyEx(HKEY_CURRENT_USER, REGSTR_PATH_DESKTOP,
-                      0, KEY_QUERY_VALUE, &hKey);
-    if (rc == ERROR_SUCCESS)
+static
+void SetUserMetrics(void)
+{
+  NONCLIENTMETRICSW ncmetrics;
+  MINIMIZEDMETRICS mmmetrics;
+
+  ncmetrics.cbSize = sizeof(NONCLIENTMETRICSW);
+  mmmetrics.cbSize = sizeof(MINIMIZEDMETRICS);
+  SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICSW), &ncmetrics, 0);
+  SystemParametersInfoW(SPI_GETMINIMIZEDMETRICS, sizeof(MINIMIZEDMETRICS), &mmmetrics, 0);
+
+  LoadUserFontSetting(L"CaptionFont", &ncmetrics.lfCaptionFont);
+  LoadUserFontSetting(L"SmCaptionFont", &ncmetrics.lfSmCaptionFont);
+  LoadUserFontSetting(L"MenuFont", &ncmetrics.lfMenuFont);
+  LoadUserFontSetting(L"StatusFont", &ncmetrics.lfStatusFont);
+  LoadUserFontSetting(L"MessageFont", &ncmetrics.lfMessageFont);
+  /* FIXME: load icon font ? */
+
+  LoadUserMetricSetting(L"BorderWidth", &ncmetrics.iBorderWidth);
+  LoadUserMetricSetting(L"ScrollWidth", &ncmetrics.iScrollWidth);
+  LoadUserMetricSetting(L"ScrollHeight", &ncmetrics.iScrollHeight);
+  LoadUserMetricSetting(L"CaptionWidth", &ncmetrics.iCaptionWidth);
+  LoadUserMetricSetting(L"CaptionHeight", &ncmetrics.iCaptionHeight);
+  LoadUserMetricSetting(L"SmCaptionWidth", &ncmetrics.iSmCaptionWidth);
+  LoadUserMetricSetting(L"SmCaptionHeight", &ncmetrics.iSmCaptionHeight);
+  LoadUserMetricSetting(L"Menuwidth", &ncmetrics.iMenuWidth);
+  LoadUserMetricSetting(L"MenuHeight", &ncmetrics.iMenuHeight);
+
+  SystemParametersInfoW(SPI_SETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICSW), &ncmetrics, 0);
+
+  return;
+}
+
+static
+void SetUserWallpaper(void)
+{
+  HKEY hKey;
+  DWORD Type, Size;
+  WCHAR szWallpaper[MAX_PATH + 1];
+
+  if(RegOpenKeyEx(HKEY_CURRENT_USER,
+                  REGSTR_PATH_DESKTOP,
+                  0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+  {
+    Size = sizeof(szWallpaper);
+    if(RegQueryValueEx(hKey,
+                       L"Wallpaper",
+                       NULL,
+                       &Type,
+                       (LPBYTE)szWallpaper,
+                       &Size) == ERROR_SUCCESS
+       && Type == REG_SZ)
     {
-        Size = sizeof(szWallpaper);
-        rc = RegQueryValueEx(hKey,
-                             L"Wallpaper",
-                             NULL,
-                             &Type,
-                             (LPBYTE)szWallpaper,
-                             &Size);
-        if (rc == ERROR_SUCCESS && Type == REG_SZ)
-        {
-            ExpandEnvironmentStrings(szWallpaper, szWallpaper, MAX_PATH);
-            TRACE("Using wallpaper %s\n", debugstr_w(szWallpaper));
-
-            /* Load and change the wallpaper */
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, szWallpaper, SPIF_SENDCHANGE);
-        }
-        else
-        {
-            /* remove the wallpaper */
-            TRACE("No wallpaper set in registry (error %lu)\n", rc);
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, NULL, SPIF_SENDCHANGE);
-        }
-        RegCloseKey(hKey);
+      /* Load and change the wallpaper */
+      SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, szWallpaper, SPIF_SENDCHANGE);
     }
     else
-        WARN("RegOpenKeyEx() failed with error %lu\n", rc);
+    {
+      /* remove the wallpaper */
+      SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, NULL, SPIF_SENDCHANGE);
+    }
+    RegCloseKey(hKey);
+  }
 }
 
 static
-VOID SetUserSettings(VOID)
+void SetUserSettings(void)
 {
-    TRACE("()\n");
-
-    UpdatePerUserSystemParameters(1, TRUE);
-    SetUserSysColors();
-    SetUserWallpaper();
+  SetUserSysColors();
+  SetUserMetrics();
+  SetUserWallpaper();
 }
 
 typedef DWORD (WINAPI *PCMP_REPORT_LOGON)(DWORD, DWORD);
@@ -465,37 +462,33 @@ NotifyLogon(VOID)
     HINSTANCE hModule;
     PCMP_REPORT_LOGON CMP_Report_LogOn;
 
-    TRACE("()\n");
-
     hModule = LoadLibrary(L"setupapi.dll");
     if (hModule)
     {
         CMP_Report_LogOn = (PCMP_REPORT_LOGON)GetProcAddress(hModule, "CMP_Report_LogOn");
         if (CMP_Report_LogOn)
             CMP_Report_LogOn(CMP_MAGIC, GetCurrentProcessId());
-        else
-            WARN("GetProcAddress() failed\n");
 
         FreeLibrary(hModule);
     }
-    else
-        WARN("LoadLibrary() failed with error %lu\n", GetLastError());
 }
+
+
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4100)
 #endif /* _MSC_VER */
 
 int WINAPI
-wWinMain(IN HINSTANCE hInst,
-         IN HINSTANCE hPrevInstance,
-         IN LPWSTR lpszCmdLine,
-         IN int nCmdShow)
+WinMain(HINSTANCE hInst,
+        HINSTANCE hPrevInstance,
+        LPSTR lpszCmdLine,
+        int nCmdShow)
 {
-    SetUserSettings();
-    StartShell();
-    NotifyLogon();
-    return 0;
+  NotifyLogon();
+  SetUserSettings();
+  StartShell();
+  return 0;
 }
 
 /* EOF */

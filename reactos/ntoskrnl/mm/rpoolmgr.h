@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/RPoolMgr.h
@@ -249,7 +250,7 @@ RPoolRemoveFree ( PR_POOL pool, PR_FREE Item )
 		ASSERT ( pool->FirstFree == Item );
 		pool->FirstFree = Item->NextFree;
 	}
-#if DBG
+#ifdef DBG
 	Item->NextFree = Item->PrevFree = (PR_FREE)(ULONG_PTR)0xDEADBEEF;
 #endif//DBG
 }
@@ -290,7 +291,7 @@ RFreeInit ( void* memory )
 #endif//R_FREEMAGIC
 	block->Status = 0;
 	RFreeFillStack ( block );
-#if DBG
+#ifdef DBG
 	block->PrevFree = block->NextFree = (PR_FREE)(ULONG_PTR)0xDEADBEEF;
 #endif//DBG
 	return block;
@@ -426,12 +427,12 @@ RUsedRedZoneCheck ( PR_POOL pool, PR_USED pUsed, char* Addr, const char* file, i
 
 	ASSERT ( Addr >= (char*)pool->UserBase && Addr < ((char*)pool->UserBase + pool->UserSize - 16) );
 #ifdef R_MAGIC
-	if ( pUsed->UsedMagic == R_FREE_MAGIC )
+	if ( pUsed->UsedMagic == MM_PPOOL_FREEMAGIC )
 	{
 		pUsed->UserSize = 0; // just to keep from confusion, MmpBadBlock() doesn't return...
 		RiBadBlock ( pUsed, Addr, "double-free", file, line, 0 );
 	}
-	if ( pUsed->UsedMagic != R_USED_MAGIC )
+	if ( pUsed->UsedMagic != MM_PPOOL_USEDMAGIC )
 	{
 		RiBadBlock ( pUsed, Addr, "bad magic", file, line, 0 );
 	}
@@ -649,13 +650,13 @@ RiUsedInit ( PR_USED Block, rulong Tag )
 {
 	Block->Status = 1;
 	RUsedFillStack ( Block );
-#ifdef R_MAGIC
+#if R_MAGIC
 	Block->UsedMagic = R_USED_MAGIC;
 #endif//R_MAGIC
 	//ASSERT_SIZE ( Block->Size );
 
 	// now add the block to the used block list
-#if DBG
+#ifdef DBG
 	Block->NextUsed = (PR_USED)(ULONG_PTR)0xDEADBEEF;
 #endif//R_USED_LIST
 
@@ -673,7 +674,7 @@ RiUsedInitRedZone ( PR_USED Block, rulong UserSize )
 	Block->UserSize = UserSize;
 	memset ( Addr - R_RZ, R_RZ_LOVALUE, R_RZ );
 	memset ( Addr + Block->UserSize, R_RZ_HIVALUE, R_RZ );
-#if DBG
+#ifdef DBG
 	memset ( Addr, 0xCD, UserSize );
 #endif//DBG
 }
@@ -977,7 +978,7 @@ RPoolQueryTag ( void* Addr )
 {
 	PR_USED Block = RBodyToHdr(Addr);
 	// TODO FIXME - should we validate params?
-#ifdef R_MAGIC
+#if R_MAGIC
 	if ( Block->UsedMagic != R_USED_MAGIC )
 		return 0xDEADBEEF;
 #endif//R_MAGIC

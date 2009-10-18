@@ -118,7 +118,7 @@ extern KTSS KiBootTss;
 #endif
 extern UCHAR P0BootStack[];
 extern UCHAR KiDoubleFaultStack[];
-extern EX_PUSH_LOCK KernelAddressSpaceLock;
+extern FAST_MUTEX KernelAddressSpaceLock;
 extern ULONG KiMaximumDpcQueueDepth;
 extern ULONG KiMinimumDpcRate;
 extern ULONG KiAdjustDpcThreshold;
@@ -142,7 +142,6 @@ extern KEVENT KiSwapEvent;
 extern PKPRCB KiProcessorBlock[];
 extern ULONG KiMask32Array[MAXIMUM_PRIORITY];
 extern ULONG KiIdleSummary;
-extern VOID __cdecl KiTrap19(VOID);
 extern VOID __cdecl KiTrap8(VOID);
 extern VOID __cdecl KiTrap2(VOID);
 extern VOID __cdecl KiFastCallEntry(VOID);
@@ -153,10 +152,8 @@ extern PVOID KeRaiseUserExceptionDispatcher;
 extern UCHAR KiDebugRegisterTrapOffsets[9];
 extern UCHAR KiDebugRegisterContextOffsets[9];
 extern ULONG KeTimeIncrement;
-extern ULONG KeTimeAdjustment;
 extern ULONG_PTR KiBugCheckData[5];
 extern ULONG KiFreezeFlag;
-extern ULONG KiDPCTimeout;
 
 /* MACROS *************************************************************************/
 
@@ -168,11 +165,15 @@ extern ULONG KiDPCTimeout;
 {                                                                           \
     (Header)->Type = t;                                                     \
     (Header)->Absolute = 0;                                                 \
-    (Header)->Size = s;                                                     \
     (Header)->Inserted = 0;                                                 \
+    (Header)->Size = s;                                                     \
     (Header)->SignalState = State;                                          \
     InitializeListHead(&((Header)->WaitListHead));                          \
 }
+
+#define KEBUGCHECKWITHTF(a,b,c,d,e,f) \
+    DbgPrint("KeBugCheckWithTf at %s:%i\n",__FILE__,__LINE__), \
+             KeBugCheckWithTf(a,b,c,d,e,f)
 
 /* Tells us if the Timer or Event is a Syncronization or Notification Object */
 #define TIMER_OR_EVENT_TYPE 0x7L
@@ -191,29 +192,6 @@ extern ULONG KiDPCTimeout;
 #define SIZE_OF_FX_REGISTERS 32
 
 /* INTERNAL KERNEL FUNCTIONS ************************************************/
-
-VOID
-NTAPI
-CPUID(
-    IN ULONG InfoType,
-    OUT PULONG CpuInfoEax,
-    OUT PULONG CpuInfoEbx,
-    OUT PULONG CpuInfoEcx,
-    OUT PULONG CpuInfoEdx
-);
-
-LONGLONG
-FASTCALL
-RDMSR(
-    IN ULONG Register
-);
-
-VOID
-NTAPI
-WRMSR(
-    IN ULONG Register,
-    IN LONGLONG Value
-);
 
 /* Finds a new thread to run */
 NTSTATUS
@@ -268,20 +246,8 @@ FASTCALL
 KiExitDispatcher(KIRQL OldIrql);
 
 VOID
-FASTCALL
+NTAPI
 KiDeferredReadyThread(IN PKTHREAD Thread);
-
-PKTHREAD
-FASTCALL
-KiIdleSchedule(
-    IN PKPRCB Prcb
-);
-
-VOID
-FASTCALL
-KiProcessDeferredReadyList(
-    IN PKPRCB Prcb
-);
 
 KAFFINITY
 FASTCALL
@@ -296,18 +262,18 @@ KiSelectNextThread(
     IN PKPRCB Prcb
 );
 
+VOID
+NTAPI
+CPUID(
+    OUT ULONG CpuInfo[4],
+    IN ULONG InfoType
+);
+
 BOOLEAN
 FASTCALL
 KiInsertTimerTable(
     IN PKTIMER Timer,
     IN ULONG Hand
-);
-
-VOID
-FASTCALL
-KiTimerListExpire(
-    IN PLIST_ENTRY ExpiredListHead,
-    IN KIRQL OldIrql
 );
 
 BOOLEAN
@@ -328,15 +294,7 @@ KiCompleteTimer(
 
 VOID
 FASTCALL
-KiAcquireGuardedMutex(
-    IN OUT PKGUARDED_MUTEX GuardedMutex
-);
-
-VOID
-FASTCALL
-KiAcquireFastMutex(
-    IN PFAST_MUTEX FastMutex
-);
+KiAcquireGuardedMutexContented(PKGUARDED_MUTEX GuardedMutex);
 
 /* gate.c **********************************************************************/
 
@@ -359,33 +317,10 @@ KeWaitForGate(
 /* ipi.c ********************************************************************/
 
 VOID
-FASTCALL
-KiIpiSend(
+NTAPI
+KiIpiSendRequest(
     KAFFINITY TargetSet,
     ULONG IpiRequest
-);
-
-VOID
-NTAPI
-KiIpiSendPacket(
-    IN KAFFINITY TargetProcessors,
-    IN PKIPI_WORKER WorkerFunction,
-    IN PKIPI_BROADCAST_WORKER BroadcastFunction,
-    IN ULONG_PTR Context,
-    IN PULONG Count
-);
-
-VOID
-FASTCALL
-KiIpiSignalPacketDone(
-    IN PKIPI_CONTEXT PacketContext
-);
-
-VOID
-FASTCALL
-KiIpiSignalPacketDoneAndStall(
-    IN PKIPI_CONTEXT PacketContext,
-    IN volatile PULONG ReverseStall
 );
 
 /* next file ***************************************************************/
@@ -397,7 +332,7 @@ KeFindNextRightSetAffinity(
     IN ULONG Set
 );
 
-VOID
+VOID 
 NTAPI
 DbgBreakPointNoBugCheck(VOID);
 
@@ -494,16 +429,6 @@ KeInitThread(
     IN PCONTEXT Context,
     IN PVOID Teb,
     IN PKPROCESS Process
-);
-
-VOID
-NTAPI
-KiInitializeContextThread(
-    PKTHREAD Thread,
-    PKSYSTEM_ROUTINE SystemRoutine,
-    PKSTART_ROUTINE StartRoutine,
-    PVOID StartContext,
-    PCONTEXT Context
 );
 
 VOID
@@ -610,7 +535,7 @@ KeInitializeProcess(
     struct _KPROCESS *Process,
     KPRIORITY Priority,
     KAFFINITY Affinity,
-    PULONG DirectoryTableBase,
+    PLARGE_INTEGER DirectoryTableBase,
     IN BOOLEAN Enable
 );
 
@@ -751,11 +676,6 @@ VOID
 FASTCALL
 KiActivateWaiterQueue(IN PKQUEUE Queue);
 
-ULONG
-NTAPI
-KeQueryRuntimeProcess(IN PKPROCESS Process,
-                      OUT PULONG UserTime);
-
 /* INITIALIZATION FUNCTIONS *************************************************/
 
 BOOLEAN
@@ -776,7 +696,7 @@ KiInitializeBugCheck(VOID);
 
 VOID
 NTAPI
-KiSystemStartupReal(
+KiSystemStartup(
     IN PLOADER_PARAMETER_BLOCK LoaderBlock
 );
 
@@ -816,34 +736,20 @@ KeTrapFrameToContext(
     IN OUT PCONTEXT Context
 );
 
-DECLSPEC_NORETURN
 VOID
 NTAPI
 KeBugCheckWithTf(
     ULONG BugCheckCode,
-    ULONG_PTR BugCheckParameter1,
-    ULONG_PTR BugCheckParameter2,
-    ULONG_PTR BugCheckParameter3,
-    ULONG_PTR BugCheckParameter4,
+    ULONG BugCheckParameter1,
+    ULONG BugCheckParameter2,
+    ULONG BugCheckParameter3,
+    ULONG BugCheckParameter4,
     PKTRAP_FRAME Tf
 );
 
 VOID
 NTAPI
 KeFlushCurrentTb(VOID);
-
-BOOLEAN
-NTAPI
-KeInvalidateAllCaches(VOID);
-
-VOID
-FASTCALL
-KeZeroPages(IN PVOID Address,
-            IN ULONG Size);
-
-BOOLEAN
-FASTCALL
-KeInvalidAccessAllowed(IN PVOID TrapInformation OPTIONAL);
 
 VOID
 NTAPI
@@ -917,26 +823,10 @@ KiInitializeMachineType(
     VOID
 );
 
-//
-// We need to do major portability work
-//
-#ifdef _M_IX86
 VOID
 NTAPI
 KiFlushNPXState(
     IN FLOATING_SAVE_AREA *SaveArea
-);
-#endif
-
-VOID
-NTAPI
-KiSetupStackAndInitializeKernel(
-    IN PKPROCESS InitProcess,
-    IN PKTHREAD InitThread,
-    IN PVOID IdleStack,
-    IN PKPRCB Prcb,
-    IN CCHAR Number,
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
 );
 
 VOID
@@ -1019,6 +909,12 @@ VOID
 NTAPI
 KiI386PentiumLockErrataFixup(VOID);
 
+VOID
+WRMSR(
+    IN ULONG Register,
+    IN LONGLONG Value
+);
+
 BOOLEAN
 NTAPI
 KeFreezeExecution(IN PKTRAP_FRAME TrapFrame,
@@ -1031,54 +927,6 @@ KeThawExecution(IN BOOLEAN Enable);
 BOOLEAN
 NTAPI
 KeDisableInterrupts(
-    VOID
-);
-
-VOID
-FASTCALL
-KeAcquireQueuedSpinLockAtDpcLevel(
-    IN OUT PKSPIN_LOCK_QUEUE LockQueue
-);
-
-VOID
-FASTCALL
-KeReleaseQueuedSpinLockFromDpcLevel(
-    IN OUT PKSPIN_LOCK_QUEUE LockQueue
-);
-
-VOID
-NTAPI
-KiRestoreProcessorControlState(
-    IN PKPROCESSOR_STATE ProcessorState
-);
-
-VOID
-NTAPI
-KiSaveProcessorControlState(
-    OUT PKPROCESSOR_STATE ProcessorState
-);
-
-VOID
-FASTCALL
-KiRetireDpcList(
-    IN PKPRCB Prcb
-);
-
-VOID
-NTAPI
-KiQuantumEnd(
-    VOID
-);
-
-VOID
-KiSystemService(
-    IN PKTHREAD Thread,
-    IN PKTRAP_FRAME TrapFrame,
-    IN ULONG Instruction
-);
-
-VOID
-KiIdleLoop(
     VOID
 );
 

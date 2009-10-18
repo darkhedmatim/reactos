@@ -39,10 +39,10 @@
 
 #ifndef GLX_USE_APPLEGL
 
-#include "main/glheader.h"
-#include "glapi/glapi.h"
-#include "glapi/glapitable.h"
-#include "glapi/glthread.h"
+#include "glheader.h"
+#include "glapi.h"
+#include "glapitable.h"
+#include "glthread.h"
 
 
 #if !(defined(USE_X86_ASM) || defined(USE_X86_64_ASM) || defined(USE_SPARC_ASM))
@@ -87,8 +87,8 @@
 #define GLAPIENTRY
 #endif
 
-#include "glapi/dispatch.h"
-#include "glapi/glapitemp.h"
+#include "dispatch.h"
+#include "glapitemp.h"
 
 #endif /* USE_X86_ASM */
 

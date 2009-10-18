@@ -37,20 +37,17 @@
 #define NDEBUG
 #include "mkhive.h"
 
-#define REG_DATA_SIZE_MASK                 0x7FFFFFFF
-#define REG_DATA_IN_OFFSET                 0x80000000
-
-static CMHIVE RootHive;
+static EREGISTRY_HIVE RootHive;
 static MEMKEY RootKey;
-CMHIVE DefaultHive;  /* \Registry\User\.DEFAULT */
-CMHIVE SamHive;      /* \Registry\Machine\SAM */
-CMHIVE SecurityHive; /* \Registry\Machine\SECURITY */
-CMHIVE SoftwareHive; /* \Registry\Machine\SOFTWARE */
-CMHIVE SystemHive;   /* \Registry\Machine\SYSTEM */
+EREGISTRY_HIVE DefaultHive;  /* \Registry\User\.DEFAULT */
+EREGISTRY_HIVE SamHive;      /* \Registry\Machine\SAM */
+EREGISTRY_HIVE SecurityHive; /* \Registry\Machine\SECURITY */
+EREGISTRY_HIVE SoftwareHive; /* \Registry\Machine\SOFTWARE */
+EREGISTRY_HIVE SystemHive;   /* \Registry\Machine\SYSTEM */
 
 static MEMKEY
 CreateInMemoryStructure(
-	IN PCMHIVE RegistryHive,
+	IN PEREGISTRY_HIVE RegistryHive,
 	IN HCELL_INDEX KeyCellOffset,
 	IN PCUNICODE_STRING KeyName)
 {
@@ -68,8 +65,6 @@ CreateInMemoryStructure(
 	Key->ValueCount = 0;
 
 	Key->NameSize = KeyName->Length;
-	/* FIXME: It's not enough to allocate this way, because later
-	          this memory gets overwritten with bigger names */
 	Key->Name = malloc (Key->NameSize);
 	if (!Key->Name)
 		return NULL;
@@ -81,7 +76,7 @@ CreateInMemoryStructure(
 
 	Key->RegistryHive = RegistryHive;
 	Key->KeyCellOffset = KeyCellOffset;
-	Key->KeyCell = (PCM_KEY_NODE)HvGetCell (&RegistryHive->Hive, Key->KeyCellOffset);
+	Key->KeyCell = HvGetCell (&RegistryHive->Hive, Key->KeyCellOffset);
 	if (!Key->KeyCell)
 	{
 		free(Key);
@@ -127,7 +122,7 @@ RegpOpenOrCreateKey(
 	LocalKeyName = (PWSTR)KeyName;
 	for (;;)
 	{
-		End = (PWSTR) utf16_wcschr(LocalKeyName, '\\');
+		End = (PWSTR) xwcschr(LocalKeyName, '\\');
 		if (End)
 		{
 			KeyString.Buffer = LocalKeyName;
@@ -137,11 +132,8 @@ RegpOpenOrCreateKey(
 		else
 			RtlInitUnicodeString(&KeyString, LocalKeyName);
 
-		/* Redirect from 'CurrentControlSet' to 'ControlSet001' */
-		if (!utf16_wcsncmp(LocalKeyName, L"CurrentControlSet", 17) &&
-                           ParentKey->NameSize == 12 &&
-                           !memcmp(ParentKey->Name, L"SYSTEM", 12))
-			RtlInitUnicodeString(&KeyString, L"ControlSet001");
+		while (ParentKey->DataType == REG_LINK)
+			ParentKey = ParentKey->LinkedKey;
 
 		/* Check subkey in memory structure */
 		Ptr = ParentKey->SubKeyList.Flink;
@@ -367,10 +359,10 @@ RegSetValueExW(
 		return ERROR_UNSUCCESSFUL;
 
 	/* Get size of the allocated cellule (if any) */
-	if (!(ValueCell->DataLength & REG_DATA_IN_OFFSET) &&
-		(ValueCell->DataLength & REG_DATA_SIZE_MASK) != 0)
+	if (!(ValueCell->DataSize & REG_DATA_IN_OFFSET) &&
+		(ValueCell->DataSize & REG_DATA_SIZE_MASK) != 0)
 	{
-		DataCell = HvGetCell(&Key->RegistryHive->Hive, ValueCell->Data);
+		DataCell = HvGetCell(&Key->RegistryHive->Hive, ValueCell->DataOffset);
 		if (!DataCell)
 			return ERROR_UNSUCCESSFUL;
 		DataCellSize = -HvGetCellSize(&Key->RegistryHive->Hive, DataCell);
@@ -384,14 +376,14 @@ RegSetValueExW(
 	if (cbData <= sizeof(HCELL_INDEX))
 	{
 		/* If data size <= sizeof(HCELL_INDEX) then store data in the data offset */
-		DPRINT("ValueCell->DataLength %u\n", ValueCell->DataLength);
+		DPRINT("ValueCell->DataSize %lu\n", ValueCell->DataSize);
 		if (DataCell)
-			HvFreeCell(&Key->RegistryHive->Hive, ValueCell->Data);
+			HvFreeCell(&Key->RegistryHive->Hive, ValueCell->DataOffset);
 
-		RtlCopyMemory(&ValueCell->Data, lpData, cbData);
-		ValueCell->DataLength = (ULONG)(cbData | REG_DATA_IN_OFFSET);
-		ValueCell->Type = dwType;
-		HvMarkCellDirty(&Key->RegistryHive->Hive, ValueCellOffset, FALSE);
+		RtlCopyMemory(&ValueCell->DataOffset, lpData, cbData);
+		ValueCell->DataSize = (ULONG)(cbData | REG_DATA_IN_OFFSET);
+		ValueCell->DataType = dwType;
+		HvMarkCellDirty(&Key->RegistryHive->Hive, ValueCellOffset);
 	}
 	else
 	{
@@ -401,33 +393,33 @@ RegSetValueExW(
 			 * data block and allocate a new one. */
 			HCELL_INDEX NewOffset;
 
-			DPRINT("ValueCell->DataLength %u\n", ValueCell->DataLength);
+			DPRINT("ValueCell->DataSize %lu\n", ValueCell->DataSize);
 
-			NewOffset = HvAllocateCell(&Key->RegistryHive->Hive, cbData, Stable, HCELL_NIL);
-			if (NewOffset == HCELL_NIL)
+			NewOffset = HvAllocateCell(&Key->RegistryHive->Hive, cbData, HvStable);
+			if (NewOffset == HCELL_NULL)
 			{
-				DPRINT("HvAllocateCell() failed with status 0x%08x\n", Status);
+				DPRINT("HvAllocateCell() failed with status 0x%08lx\n", Status);
 				return ERROR_UNSUCCESSFUL;
 			}
 
 			if (DataCell)
-				HvFreeCell(&Key->RegistryHive->Hive, ValueCell->Data);
+				HvFreeCell(&Key->RegistryHive->Hive, ValueCell->DataOffset);
 
-			ValueCell->Data = NewOffset;
-			DataCell = (PVOID)HvGetCell(&Key->RegistryHive->Hive, NewOffset);
+			ValueCell->DataOffset = NewOffset;
+			DataCell = HvGetCell(&Key->RegistryHive->Hive, NewOffset);
 		}
 
 		/* Copy new contents to cellule */
 		RtlCopyMemory(DataCell, lpData, cbData);
-		ValueCell->DataLength = (ULONG)(cbData & REG_DATA_SIZE_MASK);
-		ValueCell->Type = dwType;
-		HvMarkCellDirty(&Key->RegistryHive->Hive, ValueCell->Data, FALSE);
-		HvMarkCellDirty(&Key->RegistryHive->Hive, ValueCellOffset, FALSE);
+		ValueCell->DataSize = (ULONG)(cbData & REG_DATA_SIZE_MASK);
+		ValueCell->DataType = dwType;
+		HvMarkCellDirty(&Key->RegistryHive->Hive, ValueCell->DataOffset);
+		HvMarkCellDirty(&Key->RegistryHive->Hive, ValueCellOffset);
 	}
 
-	HvMarkCellDirty(&Key->RegistryHive->Hive, Key->KeyCellOffset, FALSE);
+	HvMarkCellDirty(&Key->RegistryHive->Hive, Key->KeyCellOffset);
 
-	DPRINT("Return status 0x%08x\n", Status);
+	DPRINT("Return status 0x%08lx\n", Status);
 	return Status;
 }
 
@@ -571,7 +563,7 @@ RegDeleteValueA(
 static BOOL
 ConnectRegistry(
 	IN HKEY RootKey,
-	IN PCMHIVE HiveToConnect,
+	IN PEREGISTRY_HIVE HiveToConnect,
 	IN LPCWSTR Path)
 {
 	NTSTATUS Status;
@@ -581,7 +573,7 @@ ConnectRegistry(
 	Status = CmiInitializeTempHive(HiveToConnect);
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT1("CmiInitializeTempHive() failed with status 0x%08x\n", Status);
+		DPRINT1("CmiInitializeTempHive() failed with status 0x%08lx\n", Status);
 		return FALSE;
 	}
 
@@ -594,9 +586,32 @@ ConnectRegistry(
 		return FALSE;
 
 	NewKey->RegistryHive = HiveToConnect;
-	NewKey->KeyCellOffset = HiveToConnect->Hive.BaseBlock->RootCell;
-	NewKey->KeyCell = (PCM_KEY_NODE)HvGetCell (&HiveToConnect->Hive, NewKey->KeyCellOffset);
+	NewKey->KeyCellOffset = HiveToConnect->Hive.HiveHeader->RootCell;
+	NewKey->KeyCell = HvGetCell (&HiveToConnect->Hive, NewKey->KeyCellOffset);
 	return TRUE;
+}
+
+static BOOL
+MyExportBinaryHive (PCHAR FileName,
+		  PEREGISTRY_HIVE RootHive)
+{
+	FILE *File;
+	BOOL ret;
+
+	/* Create new hive file */
+	File = fopen (FileName, "w+b");
+	if (File == NULL)
+	{
+		printf("    Error creating/opening file\n");
+		return FALSE;
+	}
+
+	fseek (File, 0, SEEK_SET);
+
+	RootHive->HiveHandle = (HANDLE)File;
+	ret = HvWriteHive(&RootHive->Hive);
+	fclose (File);
+	return ret;
 }
 
 LIST_ENTRY CmiHiveListHead;
@@ -606,20 +621,20 @@ RegInitializeRegistry(VOID)
 {
 	UNICODE_STRING RootKeyName = RTL_CONSTANT_STRING(L"\\");
 	NTSTATUS Status;
-	HKEY ControlSetKey;
+	HKEY ControlSetKey, LinkKey;
 
 	InitializeListHead(&CmiHiveListHead);
 
 	Status = CmiInitializeTempHive(&RootHive);
 	if (!NT_SUCCESS(Status))
 	{
-		DPRINT1("CmiInitializeTempHive() failed with status 0x%08x\n", Status);
+		DPRINT1("CmiInitializeTempHive() failed with status 0x%08lx\n", Status);
 		return;
 	}
 
 	RootKey = CreateInMemoryStructure(
 		&RootHive,
-		RootHive.Hive.BaseBlock->RootCell,
+		RootHive.Hive.HiveHeader->RootCell,
 		&RootKeyName);
 
 	/* Create DEFAULT key */
@@ -652,11 +667,16 @@ RegInitializeRegistry(VOID)
 		&SystemHive,
 		L"Registry\\Machine\\SYSTEM");
 
-	/* Create 'ControlSet001' key */
+	/* Create link 'CurrentControlSet' --> 'ControlSet001' */
 	RegCreateKeyW(
 		NULL,
 		L"Registry\\Machine\\SYSTEM\\ControlSet001",
 		&ControlSetKey);
+	RegCreateKeyW(
+		NULL,
+		L"Registry\\Machine\\SYSTEM\\CurrentControlSet",
+		&LinkKey);
+	RegSetValueExW(LinkKey, NULL, 0, REG_LINK, (PCHAR)&ControlSetKey, sizeof(PVOID));
 }
 
 /* EOF */

@@ -1,3 +1,4 @@
+#include <roscfg.h>
 #include "../../include/precomp.h"
 #include "regtests.h"
 

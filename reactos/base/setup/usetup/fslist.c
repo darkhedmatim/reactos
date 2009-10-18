@@ -138,7 +138,7 @@ DrawFileSystemList(
     PLIST_ENTRY ListEntry;
     PFILE_SYSTEM_ITEM Item;
     COORD coPos;
-    DWORD Written;
+    ULONG Written;
     ULONG Index = 0;
     CHAR Buffer[70];
 
@@ -163,12 +163,12 @@ DrawFileSystemList(
         if (Item->FileSystem)
         {
             if (Item->QuickFormat)
-                sprintf(Buffer, MUIGetString(STRING_FORMATDISK1), Item->FileSystem);
+                sprintf(Buffer, " Format partition as %S file system (quick format) ", Item->FileSystem);
             else
-                sprintf(Buffer, MUIGetString(STRING_FORMATDISK2), Item->FileSystem);
+                sprintf(Buffer, " Format partition as %S file system ", Item->FileSystem);
         }
         else
-            sprintf(Buffer, MUIGetString(STRING_KEEPFORMAT));
+            sprintf(Buffer, " Keep current file system (no changes) ");
 
         if (ListEntry == &List->Selected->ListEntry)
             CONSOLE_SetInvertedTextXY(List->Left,

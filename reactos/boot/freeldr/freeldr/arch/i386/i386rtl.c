@@ -19,7 +19,7 @@
 
 #include <freeldr.h>
 
-void PcBeep(void)
+void beep(void)
 {
 	sound(700);
 	delay(200);

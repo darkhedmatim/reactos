@@ -13,7 +13,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* the character type contains the C1_* flags in the low 12 bits */
 /* and the C2_* type in the high 4 bits */
@@ -1821,7 +1821,7 @@ static const unsigned short CharTypeTable[] =
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetStringTypeExW (
     LCID Locale,
     DWORD InfoType,
@@ -1839,7 +1839,7 @@ GetStringTypeExW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetStringTypeExA (
     LCID  Locale,
     DWORD InfoType,
@@ -1856,7 +1856,7 @@ GetStringTypeExA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetStringTypeW (
     DWORD InfoType,
     LPCWSTR Src,
@@ -1961,7 +1961,7 @@ GetStringTypeW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetStringTypeA (
     LCID Locale,
     DWORD InfoType,

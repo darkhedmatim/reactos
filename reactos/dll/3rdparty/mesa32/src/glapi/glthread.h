@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.2
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -62,12 +62,6 @@
 
 #ifndef GLTHREAD_H
 #define GLTHREAD_H
-
-
-#if defined(USE_MGL_NAMESPACE)
-#define _glapi_Dispatch _mglapi_Dispatch
-#endif
-
 
 
 #if (defined(PTHREADS) || defined(SOLARIS_THREADS) ||\
@@ -169,11 +163,12 @@ typedef HANDLE _glthread_Thread;
 
 typedef CRITICAL_SECTION _glthread_Mutex;
 
-#define _glthread_DECLARE_STATIC_MUTEX(name)  /*static*/ _glthread_Mutex name = {0,0,0,0,0,0}
-#define _glthread_INIT_MUTEX(name)  InitializeCriticalSection(&name)
-#define _glthread_DESTROY_MUTEX(name)  DeleteCriticalSection(&name)
-#define _glthread_LOCK_MUTEX(name)  EnterCriticalSection(&name)
-#define _glthread_UNLOCK_MUTEX(name)  LeaveCriticalSection(&name)
+/* XXX need to really implement mutex-related macros */
+#define _glthread_DECLARE_STATIC_MUTEX(name)  static _glthread_Mutex name = 0
+#define _glthread_INIT_MUTEX(name)  (void) name
+#define _glthread_DESTROY_MUTEX(name)  (void) name
+#define _glthread_LOCK_MUTEX(name)  (void) name
+#define _glthread_UNLOCK_MUTEX(name)  (void) name
 
 #endif /* WIN32_THREADS */
 
@@ -225,20 +220,8 @@ typedef xmutex_rec _glthread_Mutex;
  */
 #ifdef BEOS_THREADS
 
-/* Problem with OS.h and this file on haiku */
-#ifndef __HAIKU__
 #include <kernel/OS.h>
-#endif
-
 #include <support/TLS.h>
-
-/* The only two typedefs required here
- * this is cause of the OS.h problem
- */
-#ifdef __HAIKU__
-typedef int32 thread_id;
-typedef int32 sem_id;
-#endif
 
 typedef struct {
    int32        key;
@@ -271,11 +254,11 @@ typedef benaphore _glthread_Mutex;
  * THREADS not defined
  */
 
-typedef int _glthread_TSD;
+typedef GLuint _glthread_TSD;
 
-typedef int _glthread_Thread;
+typedef GLuint _glthread_Thread;
 
-typedef int _glthread_Mutex;
+typedef GLuint _glthread_Mutex;
 
 #define _glthread_DECLARE_STATIC_MUTEX(name)  static _glthread_Mutex name = 0
 
@@ -309,10 +292,6 @@ _glthread_GetTSD(_glthread_TSD *);
 
 extern void
 _glthread_SetTSD(_glthread_TSD *, void *);
-
-#if !defined __GNUC__ || __GNUC__ < 3
-#  define __builtin_expect(x, y) x
-#endif
 
 #if defined(GLX_USE_TLS)
 

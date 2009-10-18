@@ -15,9 +15,10 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 #define SYMLINK_FLAG_RELATIVE   1
 
@@ -54,7 +55,7 @@ typedef struct _REPARSE_DATA_BUFFER {
 /*
  * @implemented
  */
-HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
+HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
 			    LPSECURITY_ATTRIBUTES	lpSecurityAttributes,
@@ -65,7 +66,7 @@ HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
    PWCHAR FileNameW;
    HANDLE FileHandle;
 
-   TRACE("CreateFileA(lpFileName %s)\n",lpFileName);
+   DPRINT("CreateFileA(lpFileName %s)\n",lpFileName);
 
    if (!(FileNameW = FilenameA2W(lpFileName, FALSE)))
       return INVALID_HANDLE_VALUE;
@@ -85,7 +86,7 @@ HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
 /*
  * @implemented
  */
-HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
+HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
 			    LPSECURITY_ATTRIBUTES	lpSecurityAttributes,
@@ -99,10 +100,11 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
    HANDLE FileHandle;
    NTSTATUS Status;
    ULONG FileAttributes, Flags = 0;
+   CSR_API_MESSAGE Request;
    PVOID EaBuffer = NULL;
    ULONG EaLength = 0;
 
-   TRACE("CreateFileW(lpFileName %S)\n",lpFileName);
+   DPRINT("CreateFileW(lpFileName %S)\n",lpFileName);
 
    /* validate & translate the creation disposition */
    switch (dwCreationDisposition)
@@ -131,16 +133,6 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
         SetLastError(ERROR_INVALID_PARAMETER);
         return (INVALID_HANDLE_VALUE);
      }
-
-   /* check for console input/output */
-   if (0 == _wcsicmp(L"CONOUT$", lpFileName)
-       || 0 == _wcsicmp(L"CONIN$", lpFileName))
-   {
-      return OpenConsoleW(lpFileName,
-                          dwDesiredAccess, 
-                          lpSecurityAttributes ? lpSecurityAttributes->bInheritHandle : FALSE,
-                          FILE_SHARE_READ | FILE_SHARE_WRITE);
-   }
 
   /* validate & translate the flags */
 
@@ -196,18 +188,56 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
 
    /* FILE_FLAG_POSIX_SEMANTICS is handled later */
 
+   /* check for console output */
+   if (0 == _wcsicmp(L"CONOUT$", lpFileName))
+   {
+      /* FIXME: Send required access rights to Csrss */
+      Status = CsrClientCallServer(&Request,
+			           NULL,
+			           MAKE_CSR_API(GET_OUTPUT_HANDLE, CSR_NATIVE),
+			           sizeof(CSR_API_MESSAGE));
+      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Request.Status))
+      {
+         SetLastErrorByStatus(Status);
+	 return INVALID_HANDLE_VALUE;
+      }
+      else
+      {
+         return Request.Data.GetOutputHandleRequest.OutputHandle;
+      }
+   }
+
+   /* check for console input */
+   if (0 == _wcsicmp(L"CONIN$", lpFileName))
+   {
+      /* FIXME: Send required access rights to Csrss */
+      Status = CsrClientCallServer(&Request,
+			           NULL,
+			           MAKE_CSR_API(GET_INPUT_HANDLE, CSR_NATIVE),
+			           sizeof(CSR_API_MESSAGE));
+      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Request.Status))
+      {
+         SetLastErrorByStatus(Status);
+	 return INVALID_HANDLE_VALUE;
+      }
+      else
+      {
+         return Request.Data.GetInputHandleRequest.InputHandle;
+      }
+   }
+
    /* validate & translate the filename */
    if (!RtlDosPathNameToNtPathName_U (lpFileName,
 				      &NtPathU,
 				      NULL,
 				      NULL))
    {
-     WARN("Invalid path\n");
+     DPRINT("Invalid path\n");
      SetLastError(ERROR_PATH_NOT_FOUND);
      return INVALID_HANDLE_VALUE;
    }
 
-   TRACE("NtPathU \'%wZ\'\n", &NtPathU);
+   DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
 
    if (hTemplateFile != NULL)
    {
@@ -367,7 +397,7 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
  * @implemented
  */
 BOOLEAN
-WINAPI
+STDCALL
 CreateSymbolicLinkW(IN LPCWSTR lpSymlinkFileName,
                     IN LPCWSTR lpTargetFileName,
                     IN DWORD dwFlags)

@@ -69,8 +69,6 @@ protected:
 public:
 	virtual ~Backend();
 
-	virtual std::string GetFullName ( const FileLocation& file ) const;
-	virtual std::string GetFullPath ( const FileLocation& file ) const;
 	virtual void Process () = 0;
 	Project& ProjectNode;
 	Configuration& configuration;

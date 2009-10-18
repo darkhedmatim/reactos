@@ -56,7 +56,7 @@ typedef struct {
 	DWORD SpyedAllocationsLeft; /* number of spyed allocations left */
 	BOOL SpyReleasePending;     /* CoRevokeMallocSpy called with spyed allocations left*/
         LPVOID * SpyedBlocks;       /* root of the table */
-        DWORD SpyedBlockTableLength;/* size of the table*/
+        int SpyedBlockTableLength;  /* size of the table*/
 } _Malloc32;
 
 /* this is the static object instance */
@@ -73,7 +73,7 @@ static CRITICAL_SECTION_DEBUG critsect_debug =
 static CRITICAL_SECTION IMalloc32_SpyCS = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 /* resize the old table */
-static int SetSpyedBlockTableLength ( DWORD NewLength )
+static int SetSpyedBlockTableLength ( int NewLength )
 {
 	LPVOID *NewSpyedBlocks;
 
@@ -103,9 +103,7 @@ static int AddMemoryLocation(LPVOID * pMem)
             Current++;
 	    if (Current >= Malloc32.SpyedBlocks + Malloc32.SpyedBlockTableLength) {
 	        /* no more space in table, grow it */
-                DWORD old_length = Malloc32.SpyedBlockTableLength;
 	        if (!SetSpyedBlockTableLength( Malloc32.SpyedBlockTableLength + 0x1000 )) return 0;
-                Current = Malloc32.SpyedBlocks + old_length;
 	    }
 	};
 
@@ -116,7 +114,7 @@ static int AddMemoryLocation(LPVOID * pMem)
         return 1;
 }
 
-static int RemoveMemoryLocation(LPCVOID pMem)
+static int RemoveMemoryLocation(LPVOID * pMem)
 {
         LPVOID * Current;
 
@@ -148,7 +146,7 @@ static HRESULT WINAPI IMalloc_fnQueryInterface(LPMALLOC iface,REFIID refiid,LPVO
 	TRACE("(%s,%p)\n",debugstr_guid(refiid),obj);
 
 	if (IsEqualIID(&IID_IUnknown,refiid) || IsEqualIID(&IID_IMalloc,refiid)) {
-		*obj = &Malloc32;
+		*obj = (LPMALLOC)&Malloc32;
 		return S_OK;
 	}
 	return E_NOINTERFACE;
@@ -383,7 +381,7 @@ static HRESULT WINAPI IMallocSpy_fnQueryInterface(LPMALLOCSPY iface,REFIID refii
 	TRACE("(%s,%p)\n",debugstr_guid(refiid),obj);
 
 	if (IsEqualIID(&IID_IUnknown,refiid) || IsEqualIID(&IID_IMallocSpy,refiid)) {
-		*obj = &MallocSpy;
+		*obj = (LPMALLOC)&MallocSpy;
 		return S_OK;
 	}
 	return E_NOINTERFACE;
@@ -640,7 +638,7 @@ HRESULT WINAPI CoRegisterMallocSpy(LPMALLOCSPY pMallocSpy)
 /***********************************************************************
  *           CoRevokeMallocSpy  [OLE32.@]
  *
- * Revokes a previously registered object that receives notifications on memory
+ * Revokes a previousl registered object that receives notifications on memory
  * allocations and frees.
  *
  * PARAMS

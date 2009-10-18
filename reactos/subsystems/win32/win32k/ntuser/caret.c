@@ -40,7 +40,7 @@ co_IntHideCaret(PTHRDCARETINFO CaretInfo)
 }
 
 BOOL FASTCALL
-co_IntDestroyCaret(PTHREADINFO Win32Thread)
+co_IntDestroyCaret(PW32THREAD Win32Thread)
 {
    PUSER_MESSAGE_QUEUE ThreadQueue;
    ThreadQueue = (PUSER_MESSAGE_QUEUE)Win32Thread->MessageQueue;
@@ -61,8 +61,7 @@ BOOL FASTCALL
 IntSetCaretBlinkTime(UINT uMSeconds)
 {
    /* Don't save the new value to the registry! */
-   PTHREADINFO pti = PsGetCurrentThreadWin32Thread();
-   PWINSTATION_OBJECT WinStaObject = pti->Desktop->WindowStation;
+   PWINSTATION_OBJECT WinStaObject = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
 
    /* windows doesn't do this check */
    if((uMSeconds < MIN_CARETBLINKRATE) || (uMSeconds > MAX_CARETBLINKRATE))
@@ -123,7 +122,7 @@ IntQueryCaretBlinkRate(VOID)
    if(!NT_SUCCESS(Status) || (KeyValuePartialInfo->Type != REG_SZ))
    {
       NtClose(KeyHandle);
-      ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+      ExFreePool(KeyValuePartialInfo);
       return 0;
    }
 
@@ -137,7 +136,7 @@ IntQueryCaretBlinkRate(VOID)
       Val = 0;
    }
 
-   ExFreePoolWithTag(KeyValuePartialInfo, TAG_STRING);
+   ExFreePool(KeyValuePartialInfo);
    NtClose(KeyHandle);
 
    return (UINT)Val;
@@ -147,12 +146,10 @@ static
 UINT FASTCALL
 IntGetCaretBlinkTime(VOID)
 {
-   PTHREADINFO pti;
    PWINSTATION_OBJECT WinStaObject;
    UINT Ret;
 
-   pti = PsGetCurrentThreadWin32Thread();
-   WinStaObject = pti->Desktop->WindowStation;
+   WinStaObject = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
 
    Ret = WinStaObject->CaretBlinkRate;
    if(!Ret)
@@ -174,11 +171,8 @@ IntGetCaretBlinkTime(VOID)
 BOOL FASTCALL
 co_IntSetCaretPos(int X, int Y)
 {
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
-
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    if(ThreadQueue->CaretInfo->hWnd)
    {
@@ -200,11 +194,8 @@ co_IntSetCaretPos(int X, int Y)
 BOOL FASTCALL
 IntSwitchCaretShowing(PVOID Info)
 {
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
-
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    if(ThreadQueue->CaretInfo->hWnd)
    {
@@ -221,11 +212,8 @@ static
 VOID FASTCALL
 co_IntDrawCaret(HWND hWnd)
 {
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
-
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    if(ThreadQueue->CaretInfo->hWnd && ThreadQueue->CaretInfo->Visible &&
          ThreadQueue->CaretInfo->Showing)
@@ -240,7 +228,6 @@ co_IntDrawCaret(HWND hWnd)
 
 BOOL FASTCALL co_UserHideCaret(PWINDOW_OBJECT Window OPTIONAL)
 {
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
 
    if (Window) ASSERT_REFS_CO(Window);
@@ -251,8 +238,7 @@ BOOL FASTCALL co_UserHideCaret(PWINDOW_OBJECT Window OPTIONAL)
       return FALSE;
    }
 
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    if(Window && ThreadQueue->CaretInfo->hWnd != Window->hSelf)
    {
@@ -275,7 +261,6 @@ BOOL FASTCALL co_UserHideCaret(PWINDOW_OBJECT Window OPTIONAL)
 
 BOOL FASTCALL co_UserShowCaret(PWINDOW_OBJECT Window OPTIONAL)
 {
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
 
    if (Window) ASSERT_REFS_CO(Window);
@@ -286,8 +271,7 @@ BOOL FASTCALL co_UserShowCaret(PWINDOW_OBJECT Window OPTIONAL)
       return FALSE;
    }
 
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    if(Window && ThreadQueue->CaretInfo->hWnd != Window->hSelf)
    {
@@ -312,7 +296,7 @@ BOOL FASTCALL co_UserShowCaret(PWINDOW_OBJECT Window OPTIONAL)
 /* SYSCALLS *****************************************************************/
 
 BOOL
-APIENTRY
+STDCALL
 NtUserCreateCaret(
    HWND hWnd,
    HBITMAP hBitmap,
@@ -320,7 +304,6 @@ NtUserCreateCaret(
    int nHeight)
 {
    PWINDOW_OBJECT Window;
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
    DECLARE_RETURN(BOOL);
 
@@ -338,8 +321,7 @@ NtUserCreateCaret(
       RETURN(FALSE);
    }
 
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    if (ThreadQueue->CaretInfo->Visible)
    {
@@ -355,14 +337,6 @@ NtUserCreateCaret(
    }
    else
    {
-      if (nWidth == 0)
-      {
-          nWidth = UserGetSystemMetrics(SM_CXBORDER);
-      }
-      if (nHeight == 0)
-      {
-          nHeight = UserGetSystemMetrics(SM_CYBORDER);
-      }
       ThreadQueue->CaretInfo->Bitmap = (HBITMAP)0;
       ThreadQueue->CaretInfo->Size.cx = nWidth;
       ThreadQueue->CaretInfo->Size.cy = nHeight;
@@ -379,7 +353,7 @@ CLEANUP:
 }
 
 UINT
-APIENTRY
+STDCALL
 NtUserGetCaretBlinkTime(VOID)
 {
    DECLARE_RETURN(UINT);
@@ -396,11 +370,10 @@ CLEANUP:
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserGetCaretPos(
    LPPOINT lpPoint)
 {
-   PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
    NTSTATUS Status;
    DECLARE_RETURN(BOOL);
@@ -408,8 +381,7 @@ NtUserGetCaretPos(
    DPRINT("Enter NtUserGetCaretPos\n");
    UserEnterShared();
 
-   pti = PsGetCurrentThreadWin32Thread();
-   ThreadQueue = pti->MessageQueue;
+   ThreadQueue = (PUSER_MESSAGE_QUEUE)PsGetCurrentThreadWin32Thread()->MessageQueue;
 
    Status = MmCopyToCaller(lpPoint, &(ThreadQueue->CaretInfo->Pos), sizeof(POINT));
    if(!NT_SUCCESS(Status))
@@ -426,9 +398,11 @@ CLEANUP:
    END_CLEANUP;
 }
 
+
+
 BOOL
-APIENTRY
-NtUserShowCaret(HWND hWnd OPTIONAL)
+STDCALL
+NtUserShowCaret(HWND hWnd OPTIONAL, BOOL bShow)
 {
    PWINDOW_OBJECT Window = NULL;
    USER_REFERENCE_ENTRY Ref;
@@ -444,46 +418,18 @@ NtUserShowCaret(HWND hWnd OPTIONAL)
    }
 
    if (Window) UserRefObjectCo(Window, &Ref);
-
-   ret = co_UserShowCaret(Window);
-
+   
+   if (bShow)
+      ret = co_UserShowCaret(Window);
+   else
+      ret = co_UserHideCaret(Window);
+      
    if (Window) UserDerefObjectCo(Window);
 
    RETURN(ret);
 
 CLEANUP:
    DPRINT("Leave NtUserShowCaret, ret=%i\n",_ret_);
-   UserLeave();
-   END_CLEANUP;
-}
-
-BOOL
-APIENTRY
-NtUserHideCaret(HWND hWnd OPTIONAL)
-{
-   PWINDOW_OBJECT Window = NULL;
-   USER_REFERENCE_ENTRY Ref;
-   DECLARE_RETURN(BOOL);
-   BOOL ret;
-
-   DPRINT("Enter NtUserHideCaret\n");
-   UserEnterExclusive();
-
-   if(hWnd && !(Window = UserGetWindowObject(hWnd)))
-   {
-      RETURN(FALSE);
-   }
-
-   if (Window) UserRefObjectCo(Window, &Ref);
-
-   ret = co_UserHideCaret(Window);
-
-   if (Window) UserDerefObjectCo(Window);
-
-   RETURN(ret);
-
-CLEANUP:
-   DPRINT("Leave NtUserHideCaret, ret=%i\n",_ret_);
    UserLeave();
    END_CLEANUP;
 }

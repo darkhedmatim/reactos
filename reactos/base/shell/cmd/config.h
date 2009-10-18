@@ -9,8 +9,14 @@
  *
  */
 
+/* Define only if used under ReactOS */
+#define __REACTOS__
+
 #ifndef _CONFIG_H_INCLUDED_
 #define _CONFIG_H_INCLUDED_
+
+/* Define to enable debugging code */
+//#define _DEBUG
 
 #define WIN32_LEAN_AND_MEAN
 
@@ -50,7 +56,6 @@
 #ifdef NT4_INTERNAL_COMMANDS
 #define INCLUDE_CMD_ACTIVATE
 #endif
-#define INCLUDE_CMD_ASSOC
 #define INCLUDE_CMD_ATTRIB
 #define INCLUDE_CMD_CHCP
 #define INCLUDE_CMD_CHDIR
@@ -66,7 +71,6 @@
 #define INCLUDE_CMD_LABEL
 #define INCLUDE_CMD_MEMORY
 #define INCLUDE_CMD_MKDIR
-#define INCLUDE_CMD_MKLINK
 #define INCLUDE_CMD_MOVE
 #ifdef NT4_INTERNAL_COMMANDS
 #define INCLUDE_CMD_MSGBOX
@@ -75,7 +79,6 @@
 #define INCLUDE_CMD_PROMPT
 #define INCLUDE_CMD_RMDIR
 #define INCLUDE_CMD_RENAME
-#define INCLUDE_CMD_REPLACE
 #define INCLUDE_CMD_SCREEN
 #define INCLUDE_CMD_SET
 #define INCLUDE_CMD_START

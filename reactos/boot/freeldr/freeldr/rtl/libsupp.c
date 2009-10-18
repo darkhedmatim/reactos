@@ -20,7 +20,7 @@
 
 #include <freeldr.h>
 
-#if DBG
+#ifdef DBG
 VOID FASTCALL
 CHECK_PAGED_CODE_RTL(char *file, int line)
 {
@@ -29,18 +29,18 @@ CHECK_PAGED_CODE_RTL(char *file, int line)
 #endif
 
 PVOID
-NTAPI
+STDCALL
 RtlpAllocateMemory(ULONG Bytes,
                    ULONG Tag)
 {
-	return MmHeapAlloc(Bytes);
+	return MmAllocateMemory(Bytes);
 }
 
 
 VOID
-NTAPI
+STDCALL
 RtlpFreeMemory(PVOID Mem,
                ULONG Tag)
 {
-	MmHeapFree(Mem);
+	return MmFreeMemory(Mem);
 }

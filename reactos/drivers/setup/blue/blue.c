@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
  * FILE:                 services/dd/blue/blue.c
@@ -18,8 +19,7 @@ typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES;
 #include <wincon.h>
 #include <blue/ntddblue.h>
 #include <ndk/inbvfuncs.h>
-//#include <intrin.h>
-#include "blue.h"
+#include <intrin.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -31,6 +31,41 @@ NTAPI
 HalQueryDisplayOwnership(
     VOID
 );
+
+/* DEFINITIONS ***************************************************************/
+
+#define VIDMEM_BASE        0xb8000
+
+#define CRTC_COMMAND       ((PUCHAR)0x3d4)
+#define CRTC_DATA          ((PUCHAR)0x3d5)
+
+#define CRTC_COLUMNS       0x01
+#define CRTC_OVERFLOW      0x07
+#define CRTC_ROWS          0x12
+#define CRTC_SCANLINES     0x09
+#define CRTC_CURSORSTART   0x0a
+#define CRTC_CURSOREND     0x0b
+#define CRTC_CURSORPOSHI   0x0e
+#define CRTC_CURSORPOSLO   0x0f
+
+#define ATTRC_WRITEREG     ((PUCHAR)0x3c0)
+#define ATTRC_READREG      ((PUCHAR)0x3c1)
+#define ATTRC_INPST1       ((PUCHAR)0x3da)
+
+#define TAB_WIDTH          8
+
+#define MISC         (PUCHAR)0x3c2
+#define SEQ          (PUCHAR)0x3c4
+#define SEQDATA      (PUCHAR)0x3c5
+#define CRTC         (PUCHAR)0x3d4
+#define CRTCDATA     (PUCHAR)0x3d5
+#define GRAPHICS     (PUCHAR)0x3ce
+#define GRAPHICSDATA (PUCHAR)0x3cf
+#define ATTRIB       (PUCHAR)0x3c0
+#define STATUS       (PUCHAR)0x3da
+#define PELMASK      (PUCHAR)0x3c6
+#define PELINDEX     (PUCHAR)0x3c8
+#define PELDATA      (PUCHAR)0x3c9
 
 /* NOTES ******************************************************************/
 /*
@@ -102,7 +137,7 @@ static const UCHAR DefaultPalette[] =
 static VOID FASTCALL
 ScrSetRegisters(const VGA_REGISTERS *Registers)
 {
-    UINT32 i;
+    UINT i;
 
     /* Update misc output register */
     WRITE_PORT_UCHAR(MISC, Registers->Misc);
@@ -220,17 +255,16 @@ ScrAcquireOwnership(PDEVICE_EXTENSION DeviceExtension)
     DeviceExtension->Rows = 30;
 #endif
 
-    DPRINT ("%d Columns  %d Rows %d Scanlines\n",
+    DPRINT1 ("%d Columns  %d Rows %d Scanlines\n",
             DeviceExtension->Columns,
             DeviceExtension->Rows,
             DeviceExtension->ScanLines);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
 
-static DRIVER_DISPATCH ScrCreate;
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScrCreate(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
 {
@@ -239,7 +273,7 @@ ScrCreate(PDEVICE_OBJECT DeviceObject,
     NTSTATUS Status;
 
     DeviceExtension = DeviceObject->DeviceExtension;
-
+    
     ScrAcquireOwnership(DeviceExtension);
 
     /* get pointer to video memory */
@@ -263,8 +297,8 @@ ScrCreate(PDEVICE_OBJECT DeviceObject,
     return (Status);
 }
 
-static DRIVER_DISPATCH ScrWrite;
-static NTSTATUS NTAPI
+
+static NTSTATUS STDCALL
 ScrWrite(PDEVICE_OBJECT DeviceObject,
 	 PIRP Irp)
 {
@@ -405,8 +439,8 @@ ScrWrite(PDEVICE_OBJECT DeviceObject,
     return (Status);
 }
 
-static DRIVER_DISPATCH ScrIoControl;
-static NTSTATUS NTAPI
+
+static NTSTATUS STDCALL
 ScrIoControl(PDEVICE_OBJECT DeviceObject,
 	     PIRP Irp)
 {
@@ -626,6 +660,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
           offset = (Buf->dwCoord.Y * DeviceExtension->Columns * 2) +
                    (Buf->dwCoord.X * 2);
 
+          CHECKPOINT
 
           for (dwCount = 0; dwCount < Buf->nLength; dwCount++)
             {
@@ -691,7 +726,7 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
         {
           PCONSOLE_DRAW ConsoleDraw;
           PUCHAR Src, Dest;
-          UINT32 SrcDelta, DestDelta, i, Offset;
+          UINT SrcDelta, DestDelta, i, Offset;
 
           ConsoleDraw = (PCONSOLE_DRAW) MmGetSystemAddressForMdl(Irp->MdlAddress);
           Src = (PUCHAR) (ConsoleDraw + 1);
@@ -722,18 +757,6 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
         }
         break;
 
-      case IOCTL_CONSOLE_LOADFONT:
-          {
-              UINT32 CodePage = (UINT32)*(PULONG)Irp->AssociatedIrp.SystemBuffer;
-
-              // Upload a font for the codepage if needed
-              ScrLoadFontTable(CodePage);
-
-              Irp->IoStatus.Information = 0;
-              Status = STATUS_SUCCESS;
-          }
-          break;
-
       default:
         Status = STATUS_NOT_IMPLEMENTED;
     }
@@ -744,8 +767,8 @@ ScrIoControl(PDEVICE_OBJECT DeviceObject,
   return Status;
 }
 
-static DRIVER_DISPATCH ScrDispatch;
-static NTSTATUS NTAPI
+
+static NTSTATUS STDCALL
 ScrDispatch(PDEVICE_OBJECT DeviceObject,
 	    PIRP Irp)
 {
@@ -774,7 +797,7 @@ ScrDispatch(PDEVICE_OBJECT DeviceObject,
 /*
  * Module entry point
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
     PDEVICE_OBJECT DeviceObject;

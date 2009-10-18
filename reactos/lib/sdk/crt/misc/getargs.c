@@ -24,7 +24,7 @@ extern wchar_t **__winitenv;
 
 extern HANDLE hHeap;
 
-char* strndup(char* name, size_t len)
+char* strndup(char* name, int len)
 {
    char *s = malloc(len + 1);
    if (s != NULL)
@@ -35,7 +35,7 @@ char* strndup(char* name, size_t len)
    return s;
 }
 
-wchar_t* wcsndup(wchar_t* name, size_t len)
+wchar_t* wcsndup(wchar_t* name, int len)
 {
    wchar_t *s = malloc((len + 1) * sizeof(wchar_t));
    if (s != NULL)
@@ -192,18 +192,7 @@ void __getmainargs(int* argc, char*** argv, char*** env, int expand_wildcards, i
    ignorespace = 0;
    doexpand = expand_wildcards;
 
-   if (__argv && _environ)
-   {
-      *argv = __argv;
-      *env = _environ;
-      *argc = __argc;
-      return;
-   }
-
-   __argc = 0;
-
    len = strlen(_acmdln);
-
 
    while (_acmdln[i])
    {
@@ -272,16 +261,6 @@ void __wgetmainargs(int* argc, wchar_t*** wargv, wchar_t*** wenv,
    afterlastspace = 0;
    ignorespace = 0;
    doexpand = expand_wildcards;
-
-   if (__wargv && __winitenv)
-   {
-      *wargv = __wargv;
-      *wenv = __winitenv;
-      *argc = __argc;
-      return;
-   }
-
-   __argc = 0;
 
    len = wcslen(_wcmdln);
 
@@ -363,3 +342,9 @@ wchar_t*** __p___wargv(void)
 }
 
 
+#if 0
+int _chkstk(void)
+{
+   return 0;
+}
+#endif

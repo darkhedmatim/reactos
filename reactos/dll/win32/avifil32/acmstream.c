@@ -1,5 +1,5 @@
 /*
- * Copyright 2002 Michael GÃ¼nnewig
+ * Copyright 2002 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -467,7 +467,7 @@ static HRESULT WINAPI ACMStream_fnRead(IAVIStream *iface, LONG start,
     if (This->acmStreamHdr.pbSrc == NULL)
       This->acmStreamHdr.pbSrc = HeapAlloc(GetProcessHeap(), 0, size);
     else
-      This->acmStreamHdr.pbSrc = HeapReAlloc(GetProcessHeap(), 0, This->acmStreamHdr.pbSrc, size);
+      This->acmStreamHdr.pbDst = HeapReAlloc(GetProcessHeap(), 0, This->acmStreamHdr.pbSrc, size);
     if (This->acmStreamHdr.pbSrc == NULL)
       return AVIERR_MEMORY;
     This->acmStreamHdr.dwSrcUser = size;
@@ -729,7 +729,7 @@ static HRESULT AVIFILE_OpenCompressor(IAVIStreamImpl *This)
   This->sInfo.dwQuality    = (DWORD)ICQUALITY_DEFAULT;
   SetRectEmpty(&This->sInfo.rcFrame);
 
-  /* convert positions and sizes to output format */
+  /* convert positions ansd sizes to output format */
   CONVERT_STREAM_to_THIS(&This->sInfo.dwStart);
   CONVERT_STREAM_to_THIS(&This->sInfo.dwLength);
   CONVERT_STREAM_to_THIS(&This->sInfo.dwSuggestedBufferSize);

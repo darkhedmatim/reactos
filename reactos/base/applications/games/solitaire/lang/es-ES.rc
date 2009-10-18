@@ -1,78 +1,97 @@
 /*
  * PROJECT:     Solitaire
  * LICENSE:     Freeware, permission to use under Public Domain
- * FILE:        base/applications/games/solitaire/lang/es-ES.rc
+ * FILE:        base/applications/games/solitaire/en.rc
  * PURPOSE:     Spanish Language File for Solitaire
  * PROGRAMMERS: Daniel "EmuandCo" Reimer (reimer.daniel@freenet.de)
- * ACTUALIZADO: Javier Remacha - 13/01/09
  */
 #include "resource.h"
 
+#define APSTUDIO_READONLY_SYMBOLS
+
+/* winemaker: #include "afxres.h" */
+/* winemaker:warning: 'afxres.h' is an MFC specific header. Replacing it with 'winres.h' */
+#include "winres.h"
+
+/////
+
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////
+// Spanish (Spain) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
+#ifdef _WIN32
 LANGUAGE LANG_SPANISH, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
 
+/////
+// Dialog
 
-/* Dialogs */
-
-IDD_OPTIONS DIALOGEX DISCARDABLE 0, 0, 186, 118
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_SHELLFONT
-CAPTION "Opciones"
+IDD_DIALOG1 DIALOGEX DISCARDABLE  0, 0, 186, 95
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialogo"
 FONT 8, "MS Shell Dlg"
+EXSTYLE DS_SHELLFONT
 BEGIN
-    GROUPBOX        "Cartas", -1, 7, 7, 65, 40
-    AUTORADIOBUTTON "Sacar &Una", IDC_OPT_DRAWONE, 14, 19, 52, 10, WS_GROUP | WS_TABSTOP
-    AUTORADIOBUTTON "Sacar &Tres", IDC_OPT_DRAWTHREE, 14, 32, 52, 10
-
-    AUTOCHECKBOX    "&Mostrar tiempo", IDC_OPT_SHOWTIME, 7 ,51 ,65 ,10, WS_TABSTOP | WS_DISABLED
-    AUTOCHECKBOX    "&Barra de estado", IDC_OPT_STATUSBAR, 7, 66, 64, 10, WS_TABSTOP
-
-    DEFPUSHBUTTON   "Aceptar", IDOK, 35, 97, 50, 14
-    PUSHBUTTON      "Cancelar", IDCANCEL, 101, 97, 50, 14
+    DEFPUSHBUTTON   "Aceptar",IDOK,129,7,50,14
+    PUSHBUTTON      "Cancelar",IDCANCEL,129,24,50,14
 END
 
 
-IDD_CARDBACK DIALOGEX 6, 6, 186, 104
-CAPTION "Seleccionar el reverso"
-FONT 8, "MS Shell Dlg"
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_SHELLFONT
+/////
+// DESIGNINFO
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
 BEGIN
-    CONTROL       "", IDC_CARDBACK1, "Static", SS_NOTIFY, 4, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK2, "Static", SS_NOTIFY, 34, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK3, "Static", SS_NOTIFY, 64, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK4, "Static", SS_NOTIFY, 94, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK5, "Static", SS_NOTIFY, 124, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK6, "Static", SS_NOTIFY, 154, 7, 26, 32 
-    CONTROL       "", IDC_CARDBACK7, "Static", SS_NOTIFY, 4, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK8, "Static", SS_NOTIFY, 34, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK9, "Static", SS_NOTIFY, 64, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK10, "Static", SS_NOTIFY, 94, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK11, "Static", SS_NOTIFY, 124, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK12, "Static", SS_NOTIFY, 154, 46, 26, 32
-    DEFPUSHBUTTON "Aceptar", IDOK, 66, 84, 54, 13
-    PUSHBUTTON    "Cancelar", IDCANCEL, 126, 84, 54, 13
+    IDD_DIALOG1, DIALOGEX
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 88
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+#ifdef APSTUDIO_INVOKED
+
+/////
+// TEXTINCLUDE
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
 END
 
-
-/* Strings */
-
-STRINGTABLE
+2 TEXTINCLUDE DISCARDABLE 
 BEGIN
-    IDS_SOL_NAME    "Solitario"
-    IDS_SOL_ABOUT   "Solitario por J Brown\n\nCardLib version 1.0."
-    IDS_SOL_QUIT    "¿Finalizar el juego actual?"
-    IDS_SOL_WIN     "Felicidades, ¡¡Has ganado!!"
-    IDS_SOL_DEAL    "¿Repartir de nuevo?"
+    "#include ""winres.h""\r\n"
+    "\0"
 END
 
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
 
-/* Menus */
+#endif    // APSTUDIO_INVOKED
 
-IDR_MENU1 MENU DISCARDABLE
+
+/////
+// Menu
+
+IDR_MENU1 MENU DISCARDABLE 
 BEGIN
     POPUP "&Juego"
     BEGIN
         MENUITEM "&Repartir\tF2",                   IDM_GAME_NEW
         MENUITEM SEPARATOR
-        MENUITEM "&Barajas...",                    IDM_GAME_DECK
+        MENUITEM "&Barajar...",                    IDM_GAME_DECK
         MENUITEM "&Opciones...",                 IDM_GAME_OPTIONS
         MENUITEM SEPARATOR
         MENUITEM "&Salir",                       IDM_GAME_EXIT
@@ -84,11 +103,26 @@ BEGIN
     END
 END
 
+/////
+// Accelerator
 
-/* Accelerator */
-
-IDR_ACCELERATOR1 ACCELERATORS DISCARDABLE
+IDR_ACCELERATOR1 ACCELERATORS DISCARDABLE 
 BEGIN
     VK_F1,          IDM_HELP_CONTENTS,      VIRTKEY, NOINVERT
     VK_F2,          IDM_GAME_NEW,           VIRTKEY, NOINVERT
 END
+
+
+/////
+// Icon
+
+IDI_ICON1               ICON    DISCARDABLE     "solitaire.ico"
+#endif    // Spanish (Spain) resources
+
+/////
+
+
+#ifndef APSTUDIO_INVOKED
+
+/////
+#endif    // not APSTUDIO_INVOKED

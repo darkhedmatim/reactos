@@ -19,27 +19,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <stdarg.h>
-
-#include "windef.h"
-#include "winbase.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "commdlg.h"
-#include "cderr.h"
-#include "wine/debug.h"
+#include <precomp.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
-
-#include "cdlg.h"
-
 
 HINSTANCE	COMDLG32_hInstance = 0;
 
 static DWORD COMDLG32_TlsIndex = TLS_OUT_OF_INDEXES;
 
-static HINSTANCE	SHELL32_hInstance;
-static HINSTANCE	SHFOLDER_hInstance;
+HINSTANCE	SHELL32_hInstance = 0;
+HINSTANCE	SHFOLDER_hInstance = 0;
 
 /* ITEMIDLIST */
 LPITEMIDLIST (WINAPI *COMDLG32_PIDL_ILClone) (LPCITEMIDLIST);
@@ -47,11 +36,11 @@ LPITEMIDLIST (WINAPI *COMDLG32_PIDL_ILCombine)(LPCITEMIDLIST,LPCITEMIDLIST);
 LPITEMIDLIST (WINAPI *COMDLG32_PIDL_ILGetNext)(LPITEMIDLIST);
 BOOL (WINAPI *COMDLG32_PIDL_ILRemoveLastID)(LPCITEMIDLIST);
 BOOL (WINAPI *COMDLG32_PIDL_ILIsEqual)(LPCITEMIDLIST, LPCITEMIDLIST);
-UINT (WINAPI *COMDLG32_PIDL_ILGetSize)(LPCITEMIDLIST);
 
 /* SHELL */
 LPVOID (WINAPI *COMDLG32_SHAlloc)(DWORD);
 DWORD (WINAPI *COMDLG32_SHFree)(LPVOID);
+BOOL (WINAPI *COMDLG32_SHGetFolderPathA)(HWND,int,HANDLE,DWORD,LPSTR);
 BOOL (WINAPI *COMDLG32_SHGetFolderPathW)(HWND,int,HANDLE,DWORD,LPWSTR);
 
 /***********************************************************************
@@ -63,17 +52,17 @@ BOOL (WINAPI *COMDLG32_SHGetFolderPathW)(HWND,int,HANDLE,DWORD,LPWSTR);
  *	FALSE if sibling could not be loaded or instantiated twice, TRUE
  *	otherwise.
  */
-static const char GPA_string[] = "Failed to get entry point %s for hinst = %p\n";
+static const char * GPA_string = "Failed to get entry point %s for hinst = 0x%08x\n";
 #define GPA(dest, hinst, name) \
 	if(!(dest = (void*)GetProcAddress(hinst,name)))\
 	{ \
-	  ERR(GPA_string, debugstr_a(name), hinst); \
+	  ERR((LPSTR)GPA_string, debugstr_a(name), hinst); \
 	  return FALSE; \
 	}
 
 BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD Reason, LPVOID Reserved)
 {
-	TRACE("(%p, %d, %p)\n", hInstance, Reason, Reserved);
+	TRACE("(%p, %ld, %p)\n", hInstance, Reason, Reserved);
 
 	switch(Reason)
 	{
@@ -83,18 +72,30 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD Reason, LPVOID Reserved)
 
 		SHELL32_hInstance = GetModuleHandleA("SHELL32.DLL");
 
+		if (!SHELL32_hInstance)
+		{
+			ERR("loading of shell32 failed\n");
+			return FALSE;
+		}
+
 		/* ITEMIDLIST */
 		GPA(COMDLG32_PIDL_ILIsEqual, SHELL32_hInstance, (LPCSTR)21L);
 		GPA(COMDLG32_PIDL_ILCombine, SHELL32_hInstance, (LPCSTR)25L);
 		GPA(COMDLG32_PIDL_ILGetNext, SHELL32_hInstance, (LPCSTR)153L);
 		GPA(COMDLG32_PIDL_ILClone, SHELL32_hInstance, (LPCSTR)18L);
 		GPA(COMDLG32_PIDL_ILRemoveLastID, SHELL32_hInstance, (LPCSTR)17L);
-		GPA(COMDLG32_PIDL_ILGetSize, SHELL32_hInstance, (LPCSTR)152L);
 
 		/* SHELL */
 
 		GPA(COMDLG32_SHAlloc, SHELL32_hInstance, (LPCSTR)196L);
 		GPA(COMDLG32_SHFree, SHELL32_hInstance, (LPCSTR)195L);
+		/* for the first versions of shell32 SHGetFolderPathA is in SHFOLDER.DLL */
+		COMDLG32_SHGetFolderPathA = (void*)GetProcAddress(SHELL32_hInstance,"SHGetFolderPathA");
+		if (!COMDLG32_SHGetFolderPathA)
+		{
+		  SHFOLDER_hInstance = LoadLibraryA("SHFOLDER.DLL");
+		  GPA(COMDLG32_SHGetFolderPathA, SHFOLDER_hInstance,"SHGetFolderPathA");
+		}
 
 		/* for the first versions of shell32 SHGetFolderPathW is in SHFOLDER.DLL */
 		COMDLG32_SHGetFolderPathW = (void*)GetProcAddress(SHELL32_hInstance,"SHGetFolderPathW");
@@ -142,7 +143,7 @@ LPVOID COMDLG32_AllocMem(
  */
 void COMDLG32_SetCommDlgExtendedError(DWORD err)
 {
-	TRACE("(%08x)\n", err);
+	TRACE("(%08lx)\n", err);
         if (COMDLG32_TlsIndex == TLS_OUT_OF_INDEXES)
 	  COMDLG32_TlsIndex = TlsAlloc();
 	if (COMDLG32_TlsIndex != TLS_OUT_OF_INDEXES)

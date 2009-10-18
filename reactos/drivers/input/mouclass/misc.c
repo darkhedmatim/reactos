@@ -1,15 +1,13 @@
-/*
+/* 
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Mouse class driver
  * FILE:            drivers/input/mouclass/misc.c
  * PURPOSE:         Misceallenous operations
- *
+ * 
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
 #include "mouclass.h"
-
-static IO_COMPLETION_ROUTINE ForwardIrpAndWaitCompletion;
 
 static NTSTATUS NTAPI
 ForwardIrpAndWaitCompletion(
@@ -30,16 +28,16 @@ ForwardIrpAndWait(
 	PDEVICE_OBJECT LowerDevice;
 	KEVENT Event;
 	NTSTATUS Status;
-
+	
 	ASSERT(!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO);
 	LowerDevice = ((PPORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->LowerDevice;
-
+	
 	KeInitializeEvent(&Event, NotificationEvent, FALSE);
 	IoCopyCurrentIrpStackLocationToNext(Irp);
-
-	TRACE_(CLASS_NAME, "Calling lower device %p\n", LowerDevice);
+	
+	DPRINT("Calling lower device %p [%wZ]\n", LowerDevice, &LowerDevice->DriverObject->DriverName);
 	IoSetCompletionRoutine(Irp, ForwardIrpAndWaitCompletion, &Event, TRUE, TRUE, TRUE);
-
+	
 	Status = IoCallDriver(LowerDevice, Irp);
 	if (Status == STATUS_PENDING)
 	{
@@ -47,7 +45,7 @@ ForwardIrpAndWait(
 		if (NT_SUCCESS(Status))
 			Status = Irp->IoStatus.Status;
 	}
-
+	
 	return Status;
 }
 
@@ -57,10 +55,10 @@ ForwardIrpAndForget(
 	IN PIRP Irp)
 {
 	PDEVICE_OBJECT LowerDevice;
-
+	
 	ASSERT(!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO);
 	LowerDevice = ((PPORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->LowerDevice;
-
+	
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(LowerDevice, Irp);
 }
@@ -81,7 +79,7 @@ DuplicateUnicodeString(
 
 
 	if ((SourceString->Length == 0)
-	 && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE |
+	 && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE | 
 	               RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING)))
 	{
 		DestinationString->Length = 0;
@@ -95,7 +93,7 @@ DuplicateUnicodeString(
 		if (Flags & RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE)
 			DestMaxLength += sizeof(UNICODE_NULL);
 
-		DestinationString->Buffer = ExAllocatePoolWithTag(PagedPool, DestMaxLength, CLASS_TAG);
+		DestinationString->Buffer = ExAllocatePool(PagedPool, DestMaxLength);
 		if (DestinationString->Buffer == NULL)
 			return STATUS_NO_MEMORY;
 

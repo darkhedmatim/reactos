@@ -1,4 +1,4 @@
-#ifndef _DMDLS_
+ifndef _DMDLS_
 #define _DMDLS_
 
 #include "dls1.h"
@@ -20,7 +20,7 @@ typedef long PERCENT;
 typedef LONGLONG REFERENCE_TIME;
 typedef REFERENCE_TIME *LPREFERENCE_TIME;
 
-#ifndef MAKEFOURCC
+#ifndef MAKE_FOURCC
   #define MAKEFOURCC(ch0, ch1, ch2, ch3) ((DWORD)(BYTE)(ch0) | ((DWORD)(BYTE)(ch1) << 8) | ((DWORD)(BYTE)(ch2) << 16) | ((DWORD)(BYTE)(ch3) << 24 ))
   typedef DWORD           FOURCC;
 #endif
@@ -132,7 +132,7 @@ typedef struct _DMUS_WAVE
 typedef struct _DMUS_WAVEDATA
 {
   ULONG cbSize;
-  BYTE byData[DMUS_MIN_DATA_SIZE];
+  BYTE byData[DMUS_MIN_DATA_SIZE]; 
 } DMUS_WAVEDATA;
 
 typedef struct _DMUS_ARTICULATION

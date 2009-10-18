@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Storage Stack
  * FILE:            drivers/storage/scsiport/scsiport.c
@@ -36,9 +37,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#ifndef NDEBUG
 #define NDEBUG
-#endif
 #include <debug.h>
 
 #include "scsiport_int.h"
@@ -58,31 +57,25 @@ SpiGetPciConfigData(IN PDRIVER_OBJECT DriverObject,
                     IN ULONG BusNumber,
                     IN OUT PPCI_SLOT_NUMBER NextSlotNumber);
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScsiPortCreateClose(IN PDEVICE_OBJECT DeviceObject,
 		    IN PIRP Irp);
 
-static DRIVER_DISPATCH ScsiPortDispatchScsi;
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScsiPortDispatchScsi(IN PDEVICE_OBJECT DeviceObject,
 		     IN PIRP Irp);
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScsiPortDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 		      IN PIRP Irp);
 
-static DRIVER_STARTIO ScsiPortStartIo;
-static VOID NTAPI
+static VOID STDCALL
 ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
 		IN PIRP Irp);
 
-static BOOLEAN NTAPI
+static BOOLEAN STDCALL
 ScsiPortStartPacket(IN OUT PVOID Context);
 
-IO_ALLOCATION_ACTION
-NTAPI
-SpiAdapterControl(PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                  PVOID MapRegisterBase, PVOID Context);
 
 static PSCSI_PORT_LUN_EXTENSION
 SpiAllocateLunExtension (IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension);
@@ -92,11 +85,6 @@ SpiGetLunExtension (IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
 		    IN UCHAR PathId,
 		    IN UCHAR TargetId,
 		    IN UCHAR Lun);
-
-static PSCSI_REQUEST_BLOCK_INFO
-SpiAllocateSrbStructures(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
-                         PSCSI_PORT_LUN_EXTENSION LunExtension,
-                         PSCSI_REQUEST_BLOCK Srb);
 
 static NTSTATUS
 SpiSendInquiry (IN PDEVICE_OBJECT DeviceObject,
@@ -110,32 +98,25 @@ SpiGetInquiryData (IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
 		   IN PIRP Irp);
 
 static PSCSI_REQUEST_BLOCK_INFO
-SpiGetSrbData(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
+SpiGetSrbData(IN PVOID DeviceExtension,
               IN UCHAR PathId,
               IN UCHAR TargetId,
               IN UCHAR Lun,
               IN UCHAR QueueTag);
 
-static BOOLEAN NTAPI
+static BOOLEAN STDCALL
 ScsiPortIsr(IN PKINTERRUPT Interrupt,
 	    IN PVOID ServiceContext);
 
-static VOID NTAPI
+static VOID STDCALL
 ScsiPortDpcForIsr(IN PKDPC Dpc,
 		  IN PDEVICE_OBJECT DpcDeviceObject,
 		  IN PIRP DpcIrp,
 		  IN PVOID DpcContext);
 
-static VOID NTAPI
+static VOID STDCALL
 ScsiPortIoTimer(PDEVICE_OBJECT DeviceObject,
 		PVOID Context);
-
-IO_ALLOCATION_ACTION
-NTAPI
-ScsiPortAllocateAdapterChannel(IN PDEVICE_OBJECT DeviceObject,
-                               IN PIRP Irp,
-                               IN PVOID MapRegisterBase,
-                               IN PVOID Context);
 
 static NTSTATUS
 SpiBuildDeviceMap (PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
@@ -148,23 +129,22 @@ static VOID
 SpiSendRequestSense(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                     IN PSCSI_REQUEST_BLOCK Srb);
 
-static IO_COMPLETION_ROUTINE SpiCompletionRoutine;
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SpiCompletionRoutine(PDEVICE_OBJECT DeviceObject,
                      PIRP Irp,
                      PVOID Context);
 
 static VOID
-NTAPI
+STDCALL
 SpiProcessCompletedRequest(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                            IN PSCSI_REQUEST_BLOCK_INFO SrbInfo,
                            OUT PBOOLEAN NeedToCallStartIo);
 
-VOID NTAPI
+VOID STDCALL
 SpiGetNextRequestFromLun(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                          IN PSCSI_PORT_LUN_EXTENSION LunExtension);
 
-VOID NTAPI
+VOID STDCALL
 SpiMiniportTimerDpc(IN struct _KDPC *Dpc,
                     IN PVOID DeviceObject,
                     IN PVOID SystemArgument1,
@@ -177,7 +157,7 @@ SpiCreatePortConfig(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                     PPORT_CONFIGURATION_INFORMATION ConfigInfo,
                     BOOLEAN FirstCall);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SpQueryDeviceCallout(IN PVOID  Context,
                      IN PUNICODE_STRING  PathName,
                      IN INTERFACE_TYPE  BusType,
@@ -213,10 +193,6 @@ static NTSTATUS
 SpiHandleAttachRelease(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                        PIRP Irp);
 
-static NTSTATUS
-SpiAllocateCommonBuffer(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension, ULONG NonCachedSize);
-
-
 
 /* FUNCTIONS *****************************************************************/
 
@@ -241,7 +217,7 @@ SpiAllocateCommonBuffer(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension, ULONG NonCa
  * 	Status.
  */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(IN PDRIVER_OBJECT DriverObject,
 	    IN PUNICODE_STRING RegistryPath)
 {
@@ -294,120 +270,25 @@ ScsiDebugPrint(IN ULONG DebugPrintLevel,
     DbgPrint(Buffer);
 }
 
-/* An internal helper function for ScsiPortCompleteRequest */
-VOID
-NTAPI
-SpiCompleteRequest(IN PVOID HwDeviceExtension,
-                   IN PSCSI_REQUEST_BLOCK_INFO SrbInfo,
-                   IN UCHAR SrbStatus)
-{
-    PSCSI_REQUEST_BLOCK Srb;
-
-    /* Get current SRB */
-    Srb = SrbInfo->Srb;
-
-    /* Return if there is no SRB or it is not active */
-    if (!Srb || !(Srb->SrbFlags & SRB_FLAGS_IS_ACTIVE)) return;
-
-    /* Set status */
-    Srb->SrbStatus = SrbStatus;
-
-    /* Set data transfered to 0 */
-    Srb->DataTransferLength = 0;
-
-    /* Notify */
-    ScsiPortNotification(RequestComplete,
-                         HwDeviceExtension,
-                         Srb);
-}
 
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 ScsiPortCompleteRequest(IN PVOID HwDeviceExtension,
-                        IN UCHAR PathId,
-                        IN UCHAR TargetId,
-                        IN UCHAR Lun,
-                        IN UCHAR SrbStatus)
+			IN UCHAR PathId,
+			IN UCHAR TargetId,
+			IN UCHAR Lun,
+			IN UCHAR SrbStatus)
 {
-    PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
-    PSCSI_PORT_LUN_EXTENSION LunExtension;
-    PSCSI_REQUEST_BLOCK_INFO SrbInfo;
-    PLIST_ENTRY ListEntry;
-    ULONG BusNumber;
-    ULONG Target;
-
-    DPRINT("ScsiPortCompleteRequest() called\n");
-
-    DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
-                                        SCSI_PORT_DEVICE_EXTENSION,
-                                        MiniPortDeviceExtension);
-
-    /* Go through all buses */
-    for (BusNumber = 0; BusNumber < 8; BusNumber++)
-    {
-        /* Go through all targets */
-        for (Target = 0; Target < DeviceExtension->MaxTargedIds; Target++)
-        {
-            /* Get logical unit list head */
-            LunExtension = DeviceExtension->LunExtensionList[Target % 8];
-
-            /* Go through all logical units */
-            while (LunExtension)
-            {
-                /* Now match what caller asked with what we are at now */
-                if ((PathId == SP_UNTAGGED || PathId == LunExtension->PathId) &&
-                    (TargetId == SP_UNTAGGED || TargetId == LunExtension->TargetId) &&
-                    (Lun == SP_UNTAGGED || Lun == LunExtension->Lun))
-                {
-                    /* Yes, that's what caller asked for. Complete abort requests */
-                    if (LunExtension->CompletedAbortRequests)
-                    {
-                        /* TODO: Save SrbStatus in this request */
-                        DPRINT1("Completing abort request without setting SrbStatus!\n");
-
-                        /* Issue a notification request */
-                        ScsiPortNotification(RequestComplete,
-                                             HwDeviceExtension,
-                                             LunExtension->CompletedAbortRequests);
-                    }
-
-                    /* Complete the request using our helper */
-                    SpiCompleteRequest(HwDeviceExtension,
-                                       &LunExtension->SrbInfo,
-                                       SrbStatus);
-
-                    /* Go through the queue and complete everything there too */
-                    ListEntry = LunExtension->SrbInfo.Requests.Flink;
-                    while (ListEntry != &LunExtension->SrbInfo.Requests)
-                    {
-                        /* Get the actual SRB info entry */
-                        SrbInfo = CONTAINING_RECORD(ListEntry,
-                                                    SCSI_REQUEST_BLOCK_INFO,
-                                                    Requests);
-
-                        /* Complete it */
-                        SpiCompleteRequest(HwDeviceExtension,
-                                           SrbInfo,
-                                           SrbStatus);
-
-                        /* Advance to the next request in queue */
-                        ListEntry = SrbInfo->Requests.Flink;
-                    }
-                }
-
-                /* Advance to the next one */
-                LunExtension = LunExtension->Next;
-            }
-        }
-    }
+  DPRINT("ScsiPortCompleteRequest()\n");
+  UNIMPLEMENTED;
 }
 
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 ScsiPortFlushDma(IN PVOID HwDeviceExtension)
 {
   DPRINT("ScsiPortFlushDma()\n");
@@ -418,7 +299,7 @@ ScsiPortFlushDma(IN PVOID HwDeviceExtension)
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 ScsiPortFreeDeviceBase(IN PVOID HwDeviceExtension,
 		       IN PVOID MappedAddress)
 {
@@ -430,6 +311,7 @@ ScsiPortFreeDeviceBase(IN PVOID HwDeviceExtension,
     DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
                                         SCSI_PORT_DEVICE_EXTENSION,
                                         MiniPortDeviceExtension);
+
 
     /* Initialize our pointers */
     NextMa = DeviceExtension->MappedAddressList;
@@ -470,7 +352,7 @@ ScsiPortFreeDeviceBase(IN PVOID HwDeviceExtension,
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 ScsiPortGetBusData(IN PVOID DeviceExtension,
 		   IN ULONG BusDataType,
 		   IN ULONG SystemIoBusNumber,
@@ -478,49 +360,18 @@ ScsiPortGetBusData(IN PVOID DeviceExtension,
 		   IN PVOID Buffer,
 		   IN ULONG Length)
 {
-    DPRINT("ScsiPortGetBusData()\n");
-
-    if (Length)
-    {
-        /* If Length is non-zero, just forward the call to
-        HalGetBusData() function */
-        return HalGetBusData(BusDataType,
-                             SystemIoBusNumber,
-                             SlotNumber,
-                             Buffer,
-                             Length);
-    }
-
-    /* We have a more complex case here */
-    UNIMPLEMENTED;
-    return 0;
+  return(HalGetBusData(BusDataType,
+		       SystemIoBusNumber,
+		       SlotNumber,
+		       Buffer,
+		       Length));
 }
+
 
 /*
  * @implemented
  */
-ULONG NTAPI
-ScsiPortSetBusDataByOffset(IN PVOID DeviceExtension,
-                           IN ULONG BusDataType,
-                           IN ULONG SystemIoBusNumber,
-                           IN ULONG SlotNumber,
-                           IN PVOID Buffer,
-                           IN ULONG Offset,
-                           IN ULONG Length)
-{
-    DPRINT("ScsiPortSetBusDataByOffset()\n");
-    return HalSetBusDataByOffset(BusDataType,
-                                 SystemIoBusNumber,
-                                 SlotNumber,
-                                 Buffer,
-                                 Offset,
-                                 Length);
-}
-
-/*
- * @implemented
- */
-PVOID NTAPI
+PVOID STDCALL
 ScsiPortGetDeviceBase(IN PVOID HwDeviceExtension,
 		      IN INTERFACE_TYPE BusType,
 		      IN ULONG SystemIoBusNumber,
@@ -558,8 +409,8 @@ ScsiPortGetDeviceBase(IN PVOID HwDeviceExtension,
                                  NumberOfBytes,
                                  FALSE);
 
-    DeviceBase = ExAllocatePoolWithTag(NonPagedPool,
-                                sizeof(MAPPED_ADDRESS), TAG_SCSIPORT);
+    DeviceBase = ExAllocatePool(NonPagedPool,
+                                sizeof(MAPPED_ADDRESS));
 
     if (DeviceBase == NULL)
         return MappedAddress;
@@ -577,9 +428,9 @@ ScsiPortGetDeviceBase(IN PVOID HwDeviceExtension,
 }
 
 /*
- * @unimplemented
+ * @implemented
  */
-PVOID NTAPI
+PVOID STDCALL
 ScsiPortGetLogicalUnit(IN PVOID HwDeviceExtension,
 		       IN UCHAR PathId,
 		       IN UCHAR TargetId,
@@ -620,75 +471,103 @@ ScsiPortGetLogicalUnit(IN PVOID HwDeviceExtension,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-SCSI_PHYSICAL_ADDRESS NTAPI
+SCSI_PHYSICAL_ADDRESS STDCALL
 ScsiPortGetPhysicalAddress(IN PVOID HwDeviceExtension,
-                           IN PSCSI_REQUEST_BLOCK Srb OPTIONAL,
-                           IN PVOID VirtualAddress,
-                           OUT ULONG *Length)
+			   IN PSCSI_REQUEST_BLOCK Srb OPTIONAL,
+			   IN PVOID VirtualAddress,
+			   OUT ULONG *Length)
 {
-    PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
-    SCSI_PHYSICAL_ADDRESS PhysicalAddress;
-    ULONG BufferLength = 0;
-    ULONG Offset;
-    PSCSI_SG_ADDRESS SGList;
-    PSCSI_REQUEST_BLOCK_INFO SrbInfo;
+  PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
+  SCSI_PHYSICAL_ADDRESS PhysicalAddress;
+  SCSI_PHYSICAL_ADDRESS NextPhysicalAddress;
+  ULONG BufferLength = 0;
+  ULONG Offset;
+  PVOID EndAddress;
 
-    DPRINT("ScsiPortGetPhysicalAddress(%p %p %p %p)\n",
-        HwDeviceExtension, Srb, VirtualAddress, Length);
+  DPRINT("ScsiPortGetPhysicalAddress(%p %p %p %p)\n",
+	 HwDeviceExtension, Srb, VirtualAddress, Length);
 
-    DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
-                                        SCSI_PORT_DEVICE_EXTENSION,
-                                        MiniPortDeviceExtension);
+  DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
+				      SCSI_PORT_DEVICE_EXTENSION,
+				      MiniPortDeviceExtension);
 
-    if (Srb == NULL || Srb->SenseInfoBuffer == VirtualAddress)
+  *Length = 0;
+
+  if (Srb == NULL)
     {
-        /* Simply look it up in the allocated common buffer */
-        Offset = (PUCHAR)VirtualAddress - (PUCHAR)DeviceExtension->SrbExtensionBuffer;
+      if ((ULONG_PTR)DeviceExtension->VirtualAddress > (ULONG_PTR)VirtualAddress)
+	{
+	  PhysicalAddress.QuadPart = 0ULL;
+	  return PhysicalAddress;
+	}
 
-        BufferLength = DeviceExtension->CommonBufferLength - Offset;
-        PhysicalAddress.QuadPart = DeviceExtension->PhysicalAddress.QuadPart + Offset;
+      Offset = (ULONG_PTR)VirtualAddress - (ULONG_PTR)DeviceExtension->VirtualAddress;
+      if (Offset >= DeviceExtension->CommonBufferLength)
+	{
+	  PhysicalAddress.QuadPart = 0ULL;
+	  return PhysicalAddress;
+	}
+
+      PhysicalAddress.QuadPart =
+	DeviceExtension->PhysicalAddress.QuadPart + (ULONGLONG)Offset;
+      BufferLength = DeviceExtension->CommonBufferLength - Offset;
     }
-    else if (DeviceExtension->MapRegisters)
+  else
     {
-        /* Scatter-gather list must be used */
-        SrbInfo = SpiGetSrbData(DeviceExtension,
-                               Srb->PathId,
-                               Srb->TargetId,
-                               Srb->Lun,
-                               Srb->QueueTag);
+      EndAddress = (PVOID)((ULONG_PTR)Srb->DataBuffer + Srb->DataTransferLength);
+      if (VirtualAddress == NULL)
+	{
+	  VirtualAddress = Srb->DataBuffer;
+	}
+      else if (VirtualAddress < Srb->DataBuffer || VirtualAddress >= EndAddress)
+	{
+	  PhysicalAddress.QuadPart = 0LL;
+	  return PhysicalAddress;
+	}
 
-        SGList = SrbInfo->ScatterGather;
+      PhysicalAddress = MmGetPhysicalAddress(VirtualAddress);
+      if (PhysicalAddress.QuadPart == 0LL)
+	{
+	  return PhysicalAddress;
+	}
 
-        /* Find needed item in the SG list */
-        Offset = (PCHAR)VirtualAddress - (PCHAR)Srb->DataBuffer;
-        while (Offset >= SGList->Length)
-        {
-            Offset -= SGList->Length;
-            SGList++;
-        }
-
-        /* We're done, store length and physical address */
-        BufferLength = SGList->Length - Offset;
-        PhysicalAddress.QuadPart = SGList->PhysicalAddress.QuadPart + Offset;
+      Offset = (ULONG_PTR)VirtualAddress & (PAGE_SIZE - 1);
+#if 1
+      /* 
+       * FIXME:
+       *   MmGetPhysicalAddress doesn't return the offset within the page.
+       *   We must set the correct offset.
+       */
+      PhysicalAddress.u.LowPart = (PhysicalAddress.u.LowPart & ~(PAGE_SIZE - 1)) + Offset;
+#endif
+      BufferLength += PAGE_SIZE - Offset;
+      while ((ULONG_PTR)VirtualAddress + BufferLength < (ULONG_PTR)EndAddress)
+	{
+	  NextPhysicalAddress = MmGetPhysicalAddress((PVOID)((ULONG_PTR)VirtualAddress + BufferLength));
+	  if (PhysicalAddress.QuadPart + (ULONGLONG)BufferLength != NextPhysicalAddress.QuadPart)
+	    {
+	      break;
+	    }
+	  BufferLength += PAGE_SIZE;
+	}
+      if ((ULONG_PTR)VirtualAddress + BufferLength >= (ULONG_PTR)EndAddress)
+	{
+	  BufferLength = (ULONG_PTR)EndAddress - (ULONG_PTR)VirtualAddress;
+	}
     }
-    else
-    {
-        /* Nothing */
-        *Length = 0;
-        PhysicalAddress.QuadPart = (LONGLONG)(SP_UNINITIALIZED_VALUE);
-    }
 
-    *Length = BufferLength;
-    return PhysicalAddress;
+  *Length = BufferLength;
+
+  return PhysicalAddress;
 }
 
 
 /*
  * @unimplemented
  */
-PSCSI_REQUEST_BLOCK NTAPI
+PSCSI_REQUEST_BLOCK STDCALL
 ScsiPortGetSrb(IN PVOID DeviceExtension,
 	       IN UCHAR PathId,
 	       IN UCHAR TargetId,
@@ -704,211 +583,102 @@ ScsiPortGetSrb(IN PVOID DeviceExtension,
 /*
  * @implemented
  */
-PVOID NTAPI
+PVOID STDCALL
 ScsiPortGetUncachedExtension(IN PVOID HwDeviceExtension,
 			     IN PPORT_CONFIGURATION_INFORMATION ConfigInfo,
 			     IN ULONG NumberOfBytes)
 {
-    PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
-    DEVICE_DESCRIPTION DeviceDescription;
-    ULONG MapRegistersCount;
-    NTSTATUS Status;
+  PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
+  DEVICE_DESCRIPTION DeviceDescription;
 
-    DPRINT("ScsiPortGetUncachedExtension(%p %p %lu)\n",
-        HwDeviceExtension, ConfigInfo, NumberOfBytes);
+  DPRINT("ScsiPortGetUncachedExtension(%p %p %lu)\n",
+	 HwDeviceExtension, ConfigInfo, NumberOfBytes);
 
-    DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
-                                        SCSI_PORT_DEVICE_EXTENSION,
-                                        MiniPortDeviceExtension);
+  DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
+				      SCSI_PORT_DEVICE_EXTENSION,
+				      MiniPortDeviceExtension);
 
-    /* Check for allocated common DMA buffer */
-    if (DeviceExtension->SrbExtensionBuffer != NULL)
+  /* Check for allocated common DMA buffer */
+  if (DeviceExtension->VirtualAddress != NULL)
     {
-        DPRINT1("The HBA has already got a common DMA buffer!\n");
-        return NULL;
+      DPRINT1("The HBA has already got a common DMA buffer!\n");
+      return NULL;
     }
 
-    /* Check for DMA adapter object */
-    if (DeviceExtension->AdapterObject == NULL)
+  /* Check for DMA adapter object */
+  if (DeviceExtension->AdapterObject == NULL)
     {
-        /* Initialize DMA adapter description */
-        RtlZeroMemory(&DeviceDescription, sizeof(DEVICE_DESCRIPTION));
+      /* Initialize DMA adapter description */
+      RtlZeroMemory(&DeviceDescription,
+		    sizeof(DEVICE_DESCRIPTION));
+      DeviceDescription.Version = DEVICE_DESCRIPTION_VERSION;
+      DeviceDescription.Master = ConfigInfo->Master;
+      DeviceDescription.ScatterGather = ConfigInfo->ScatterGather;
+      DeviceDescription.DemandMode = ConfigInfo->DemandMode;
+      DeviceDescription.Dma32BitAddresses = ConfigInfo->Dma32BitAddresses;
+      DeviceDescription.BusNumber = ConfigInfo->SystemIoBusNumber;
+      DeviceDescription.DmaChannel = ConfigInfo->DmaChannel;
+      DeviceDescription.InterfaceType = ConfigInfo->AdapterInterfaceType;
+      DeviceDescription.DmaWidth = ConfigInfo->DmaWidth;
+      DeviceDescription.DmaSpeed = ConfigInfo->DmaSpeed;
+      DeviceDescription.MaximumLength = ConfigInfo->MaximumTransferLength;
+      DeviceDescription.DmaPort = ConfigInfo->DmaPort;
 
-        DeviceDescription.Version = DEVICE_DESCRIPTION_VERSION;
-        DeviceDescription.Master = ConfigInfo->Master;
-        DeviceDescription.ScatterGather = ConfigInfo->ScatterGather;
-        DeviceDescription.DemandMode = ConfigInfo->DemandMode;
-        DeviceDescription.Dma32BitAddresses = ConfigInfo->Dma32BitAddresses;
-        DeviceDescription.BusNumber = ConfigInfo->SystemIoBusNumber;
-        DeviceDescription.DmaChannel = ConfigInfo->DmaChannel;
-        DeviceDescription.InterfaceType = ConfigInfo->AdapterInterfaceType;
-        DeviceDescription.DmaWidth = ConfigInfo->DmaWidth;
-        DeviceDescription.DmaSpeed = ConfigInfo->DmaSpeed;
-        DeviceDescription.MaximumLength = ConfigInfo->MaximumTransferLength;
-        DeviceDescription.DmaPort = ConfigInfo->DmaPort;
-
-        /* Get a DMA adapter object */
-        DeviceExtension->AdapterObject =
-            HalGetAdapter(&DeviceDescription, &MapRegistersCount);
-
-        /* Fail in case of error */
-        if (DeviceExtension->AdapterObject == NULL)
-        {
-            DPRINT1("HalGetAdapter() failed\n");
-            return NULL;
-        }
-
-        /* Set number of physical breaks */
-        if (ConfigInfo->NumberOfPhysicalBreaks != 0 &&
-            MapRegistersCount > ConfigInfo->NumberOfPhysicalBreaks)
-        {
-            DeviceExtension->PortCapabilities.MaximumPhysicalPages =
-                ConfigInfo->NumberOfPhysicalBreaks;
-        }
-        else
-        {
-            DeviceExtension->PortCapabilities.MaximumPhysicalPages = MapRegistersCount;
-        }
+      /* Get a DMA adapter object */
+      DeviceExtension->AdapterObject = HalGetAdapter(&DeviceDescription,
+						     &DeviceExtension->MapRegisterCount);
+      if (DeviceExtension->AdapterObject == NULL)
+	{
+	  DPRINT1("HalGetAdapter() failed\n");
+	  return NULL;
+	}
     }
 
-    /* Update auto request sense feature */
-    DeviceExtension->SupportsAutoSense = ConfigInfo->AutoRequestSense;
-
-    /* Update Srb extension size */
-    if (DeviceExtension->SrbExtensionSize != ConfigInfo->SrbExtensionSize)
-        DeviceExtension->SrbExtensionSize = ConfigInfo->SrbExtensionSize;
-
-    /* Update Srb extension alloc flag */
-    if (ConfigInfo->AutoRequestSense || DeviceExtension->SrbExtensionSize)
-        DeviceExtension->NeedSrbExtensionAlloc = TRUE;
-
-    /* Allocate a common DMA buffer */
-    Status = SpiAllocateCommonBuffer(DeviceExtension, NumberOfBytes);
-
-    if (!NT_SUCCESS(Status))
+  /* Allocate a common DMA buffer */
+  DeviceExtension->CommonBufferLength =
+    NumberOfBytes + DeviceExtension->SrbExtensionSize;
+  DeviceExtension->VirtualAddress =
+    HalAllocateCommonBuffer(DeviceExtension->AdapterObject,
+			    DeviceExtension->CommonBufferLength,
+			    &DeviceExtension->PhysicalAddress,
+			    FALSE);
+  if (DeviceExtension->VirtualAddress == NULL)
     {
-        DPRINT1("SpiAllocateCommonBuffer() failed with Status = 0x%08X!\n", Status);
-        return NULL;
+      DPRINT1("HalAllocateCommonBuffer() failed!\n");
+      DeviceExtension->CommonBufferLength = 0;
+      return NULL;
     }
 
-    return DeviceExtension->NonCachedExtension;
+  return (PVOID)((ULONG_PTR)DeviceExtension->VirtualAddress +
+                 DeviceExtension->SrbExtensionSize);
 }
-
-static NTSTATUS
-SpiAllocateCommonBuffer(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension, ULONG NonCachedSize)
-{
-    PVOID *SrbExtension, CommonBuffer;
-    ULONG CommonBufferLength, BufSize;
-
-    /* If size is 0, set it to 16 */
-    if (!DeviceExtension->SrbExtensionSize)
-        DeviceExtension->SrbExtensionSize = 16;
-
-    /* Calculate size */
-    BufSize = DeviceExtension->SrbExtensionSize;
-
-    /* Add autosense data size if needed */
-    if (DeviceExtension->SupportsAutoSense)
-        BufSize += sizeof(SENSE_DATA);
-
-
-    /* Round it */
-    BufSize = (BufSize + sizeof(LONGLONG) - 1) & ~(sizeof(LONGLONG) - 1);
-
-    /* Sum up into the total common buffer length, and round it to page size */
-    CommonBufferLength =
-        ROUND_TO_PAGES(NonCachedSize + BufSize * DeviceExtension->RequestsNumber);
-
-    /* Allocate it */
-    if (!DeviceExtension->AdapterObject)
-    {
-        /* From nonpaged pool if there is no DMA */
-        CommonBuffer = ExAllocatePoolWithTag(NonPagedPool, CommonBufferLength, TAG_SCSIPORT);
-    }
-    else
-    {
-        /* Perform a full request since we have a DMA adapter*/
-        CommonBuffer = HalAllocateCommonBuffer(DeviceExtension->AdapterObject,
-            CommonBufferLength,
-            &DeviceExtension->PhysicalAddress,
-            FALSE );
-    }
-
-    /* Fail in case of error */
-    if (!CommonBuffer)
-        return STATUS_INSUFFICIENT_RESOURCES;
-
-    /* Zero it */
-    RtlZeroMemory(CommonBuffer, CommonBufferLength);
-
-    /* Store its size in Device Extension */
-    DeviceExtension->CommonBufferLength = CommonBufferLength;
-
-    /* SrbExtension buffer is located at the beginning of the buffer */
-    DeviceExtension->SrbExtensionBuffer = CommonBuffer;
-
-    /* Non-cached extension buffer is located at the end of
-       the common buffer */
-    if (NonCachedSize)
-    {
-        CommonBufferLength -=  NonCachedSize;
-        DeviceExtension->NonCachedExtension = (PUCHAR)CommonBuffer + CommonBufferLength;
-    }
-    else
-    {
-        DeviceExtension->NonCachedExtension = NULL;
-    }
-
-    if (DeviceExtension->NeedSrbExtensionAlloc)
-    {
-        /* Look up how many SRB data structures we need */
-        DeviceExtension->SrbDataCount = CommonBufferLength / BufSize;
-
-        /* Initialize the free SRB extensions list */
-        SrbExtension = (PVOID *)CommonBuffer;
-        DeviceExtension->FreeSrbExtensions = SrbExtension;
-
-        /* Fill the remainding pointers (if we have more than 1 SRB) */
-        while (CommonBufferLength >= 2 * BufSize)
-        {
-            *SrbExtension = (PVOID*)((PCHAR)SrbExtension + BufSize);
-            SrbExtension = *SrbExtension;
-
-            CommonBufferLength -= BufSize;
-        }
-    }
-
-    return STATUS_SUCCESS;
-}
-
 
 
 /*
  * @implemented
  */
-PVOID NTAPI
+PVOID STDCALL
 ScsiPortGetVirtualAddress(IN PVOID HwDeviceExtension,
-                          IN SCSI_PHYSICAL_ADDRESS PhysicalAddress)
+			  IN SCSI_PHYSICAL_ADDRESS PhysicalAddress)
 {
-    PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
-    ULONG Offset;
+  PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
+  ULONG Offset;
 
-    DPRINT("ScsiPortGetVirtualAddress(%p %I64x)\n",
-        HwDeviceExtension, PhysicalAddress.QuadPart);
+  DPRINT("ScsiPortGetVirtualAddress(%p %I64x)\n",
+	 HwDeviceExtension, PhysicalAddress.QuadPart);
 
-    DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
-                                        SCSI_PORT_DEVICE_EXTENSION,
-                                        MiniPortDeviceExtension);
+  DeviceExtension = CONTAINING_RECORD(HwDeviceExtension,
+				      SCSI_PORT_DEVICE_EXTENSION,
+				      MiniPortDeviceExtension);
 
-    if (DeviceExtension->PhysicalAddress.QuadPart > PhysicalAddress.QuadPart)
-        return NULL;
+  if (DeviceExtension->PhysicalAddress.QuadPart > PhysicalAddress.QuadPart)
+    return NULL;
 
-    Offset = (ULONG)(PhysicalAddress.QuadPart - DeviceExtension->PhysicalAddress.QuadPart);
+  Offset = (ULONG)(PhysicalAddress.QuadPart - DeviceExtension->PhysicalAddress.QuadPart);
+  if (Offset >= DeviceExtension->CommonBufferLength)
+    return NULL;
 
-    if (Offset >= DeviceExtension->CommonBufferLength)
-        return NULL;
-
-    return (PVOID)((ULONG_PTR)DeviceExtension->SrbExtensionBuffer + Offset);
+  return (PVOID)((ULONG_PTR)DeviceExtension->VirtualAddress + Offset);
 }
 
 static VOID
@@ -931,7 +701,7 @@ SpiInitOpenKeys(PCONFIGURATION_INFO ConfigInfo, PUNICODE_STRING RegistryPath)
 
     if (!NT_SUCCESS(Status))
     {
-        DPRINT("Unable to open driver's registry key %wZ, status 0x%08x\n", RegistryPath, Status);
+        DPRINT1("Unable to open driver's registry key %wZ, status 0x%08x\n", RegistryPath, Status);
         ConfigInfo->ServiceKey = NULL;
     }
 
@@ -960,21 +730,18 @@ SpiInitOpenKeys(PCONFIGURATION_INFO ConfigInfo, PUNICODE_STRING RegistryPath)
         }
     }
 
-    if (ConfigInfo->ServiceKey != NULL)
-    {
-        /* Open the Device key */
-        RtlInitUnicodeString(&KeyName, L"Device");
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &KeyName,
-                                   OBJ_CASE_INSENSITIVE,
-                                   ConfigInfo->ServiceKey,
-                                   NULL);
+    /* Open the Device key */
+    RtlInitUnicodeString(&KeyName, L"Device");
+    InitializeObjectAttributes(&ObjectAttributes,
+                               &KeyName,
+                               OBJ_CASE_INSENSITIVE,
+                               ConfigInfo->ServiceKey,
+                               NULL);
 
-        /* We don't check for failure here - not needed */
-        ZwOpenKey(&ConfigInfo->DeviceKey,
-                  KEY_READ,
-                  &ObjectAttributes);
-    }
+    /* We don't check for failure here - not needed */
+    ZwOpenKey(&ConfigInfo->DeviceKey,
+              KEY_READ,
+              &ObjectAttributes);
 }
 
 
@@ -1007,7 +774,7 @@ SpiInitOpenKeys(PCONFIGURATION_INFO ConfigInfo, PUNICODE_STRING RegistryPath)
  * @implemented
  */
 
-ULONG NTAPI
+ULONG STDCALL
 ScsiPortInitialize(IN PVOID Argument1,
 		   IN PVOID Argument2,
 		   IN struct _HW_INITIALIZATION_DATA *HwInitializationData,
@@ -1071,15 +838,12 @@ ScsiPortInitialize(IN PVOID Argument1,
     /* Zero the internal configuration info structure */
     RtlZeroMemory(&ConfigInfo, sizeof(CONFIGURATION_INFO));
 
-    /* Zero starting slot number */
-    SlotNumber.u.AsULONG = 0;
-
     /* Allocate space for access ranges */
     if (HwInitializationData->NumberOfAccessRanges)
     {
         ConfigInfo.AccessRanges =
-            ExAllocatePoolWithTag(PagedPool,
-            HwInitializationData->NumberOfAccessRanges * sizeof(ACCESS_RANGE), TAG_SCSIPORT);
+            ExAllocatePool(PagedPool,
+            HwInitializationData->NumberOfAccessRanges * sizeof(ACCESS_RANGE));
 
         /* Fail if failed */
         if (ConfigInfo.AccessRanges == NULL)
@@ -1187,16 +951,13 @@ CreatePortConfig:
                                      FirstConfigCall);
 
         if (!NT_SUCCESS(Status))
-        {
-            DPRINT("SpiCreatePortConfig() failed with Status 0x%08X\n", Status);
             break;
-        }
 
         /* Allocate and initialize port configuration info */
         PortConfigSize = (sizeof(PORT_CONFIGURATION_INFORMATION) +
                           HwInitializationData->NumberOfAccessRanges *
                           sizeof(ACCESS_RANGE) + 7) & ~7;
-        DeviceExtension->PortConfig = ExAllocatePoolWithTag(NonPagedPool, PortConfigSize, TAG_SCSIPORT);
+        DeviceExtension->PortConfig = ExAllocatePool(NonPagedPool, PortConfigSize);
 
         /* Fail if failed */
         if (DeviceExtension->PortConfig == NULL)
@@ -1253,7 +1014,7 @@ CreatePortConfig:
                                    HwInitializationData,
                                    PortConfig,
                                    RegistryPath,
-                                   ConfigInfo.BusNumber,
+                                   BusNumber,
                                    &SlotNumber))
           {
               /* Continue to the next bus, nothing here */
@@ -1429,8 +1190,9 @@ CreatePortConfig:
           DeviceExtension->SupportsAutoSense = PortConfig->AutoRequestSense;
           DeviceExtension->NeedSrbExtensionAlloc = TRUE;
 
-          /* Allocate common buffer */
-          Status = SpiAllocateCommonBuffer(DeviceExtension, 0);
+          //Status = STATUS_UNSUCCESFUL;
+          /* TODO: Allocate common buffer */
+          ASSERT(FALSE);
 
           /* Check for failure */
           if (!NT_SUCCESS(Status))
@@ -1449,7 +1211,7 @@ CreatePortConfig:
               Count = DeviceExtension->RequestsNumber * 2;
 
           /* Allocate the data */
-          SrbData = ExAllocatePoolWithTag(NonPagedPool, Count * sizeof(SCSI_REQUEST_BLOCK_INFO), TAG_SCSIPORT);
+          SrbData = ExAllocatePool(NonPagedPool, Count * sizeof(SCSI_REQUEST_BLOCK_INFO));
           if (SrbData == NULL)
               return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -1632,9 +1394,9 @@ CreatePortConfig:
       IoStartTimer(PortDeviceObject);
 
       /* Initialize bus scanning information */
-      DeviceExtension->BusesConfig = ExAllocatePoolWithTag(PagedPool,
+      DeviceExtension->BusesConfig = ExAllocatePool(PagedPool,
           sizeof(PSCSI_BUS_SCAN_INFO) * DeviceExtension->PortConfig->NumberOfBuses
-          + sizeof(ULONG), TAG_SCSIPORT);
+          + sizeof(ULONG));
 
       if (!DeviceExtension->BusesConfig)
       {
@@ -1649,7 +1411,7 @@ CreatePortConfig:
           + sizeof(ULONG));
 
       /* Store number of buses there */
-      DeviceExtension->BusesConfig->NumberOfBuses = (UCHAR)DeviceExtension->BusNum;
+      DeviceExtension->BusesConfig->NumberOfBuses = DeviceExtension->BusNum;
 
       /* Scan the adapter for devices */
       SpiScanAdapter(DeviceExtension);
@@ -1699,7 +1461,7 @@ CreatePortConfig:
     if (ConfigInfo.Parameter != NULL)
         ExFreePool(ConfigInfo.Parameter);
 
-    DPRINT("ScsiPortInitialize() done, Status = 0x%08X, DeviceFound = %d!\n",
+    DPRINT("ScsiPortInitialize() done, Status = 0x%08X, DeviceFound = %b!\n",
         Status, DeviceFound);
 
     return (DeviceFound == FALSE) ? Status : STATUS_SUCCESS;
@@ -1733,7 +1495,7 @@ SpiCleanupAfterInit(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
 
             LunInfo = DeviceExtension->BusesConfig->BusScanInfo[Bus]->LunInfo;
 
-            while (LunInfo)
+            while (!LunInfo)
             {
                 /* Free current, but save pointer to the next one */
                 Ptr = LunInfo->Next;
@@ -1765,7 +1527,7 @@ SpiCleanupAfterInit(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
 
     /* Free common buffer (if it exists) */
     if (DeviceExtension->SrbExtensionBuffer != NULL &&
-        DeviceExtension->CommonBufferLength != 0)
+        DeviceExtension->CommonBufferSize != 0)
     {
             if (!DeviceExtension->AdapterObject)
             {
@@ -1773,11 +1535,13 @@ SpiCleanupAfterInit(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
             }
             else
             {
+#if 0
                 HalFreeCommonBuffer(DeviceExtension->AdapterObject,
-                                    DeviceExtension->CommonBufferLength,
-                                    DeviceExtension->PhysicalAddress,
+                                    DeviceExtension->CommonBufferSize,
+                                    DeviceExtension->PhysicalCommonBuffer,
                                     DeviceExtension->SrbExtensionBuffer,
                                     FALSE);
+#endif
             }
     }
 
@@ -1802,10 +1566,12 @@ SpiCleanupAfterInit(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
     IoDeleteDevice(DeviceExtension->DeviceObject);
 }
 
+
+
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 ScsiPortIoMapTransfer(IN PVOID HwDeviceExtension,
 		      IN PSCSI_REQUEST_BLOCK Srb,
 		      IN PVOID LogicalAddress,
@@ -1815,10 +1581,11 @@ ScsiPortIoMapTransfer(IN PVOID HwDeviceExtension,
   UNIMPLEMENTED;
 }
 
+
 /*
  * @unimplemented
  */
-VOID NTAPI
+VOID STDCALL
 ScsiPortLogError(IN PVOID HwDeviceExtension,
 		 IN PSCSI_REQUEST_BLOCK Srb OPTIONAL,
 		 IN UCHAR PathId,
@@ -1839,10 +1606,11 @@ ScsiPortLogError(IN PVOID HwDeviceExtension,
   DPRINT("ScsiPortLogError() done\n");
 }
 
+
 /*
  * @implemented
  */
-VOID NTAPI
+VOID STDCALL
 ScsiPortMoveMemory(OUT PVOID Destination,
 		   IN PVOID Source,
 		   IN ULONG Length)
@@ -1934,84 +1702,72 @@ ScsiPortNotification(IN SCSI_NOTIFICATION_TYPE NotificationType,
         DeviceExtension->InterruptData.Flags |= SCSI_PORT_NEXT_REQUEST_READY;
         break;
 
-    case NextLuRequest:
-        {
-            UCHAR PathId;
-            UCHAR TargetId;
-            UCHAR Lun;
-            PSCSI_PORT_LUN_EXTENSION LunExtension;
+      case NextLuRequest:
+	{
+	  UCHAR PathId;
+	  UCHAR TargetId;
+	  UCHAR Lun;
 
-            PathId = (UCHAR) va_arg (ap, int);
-            TargetId = (UCHAR) va_arg (ap, int);
-            Lun = (UCHAR) va_arg (ap, int);
+	  PathId = (UCHAR) va_arg (ap, int);
+	  TargetId = (UCHAR) va_arg (ap, int);
+	  Lun = (UCHAR) va_arg (ap, int);
 
-            DPRINT("Notify: NextLuRequest(PathId %u  TargetId %u  Lun %u)\n",
-                PathId, TargetId, Lun);
+	  DPRINT1 ("Notify: NextLuRequest(PathId %u  TargetId %u  Lun %u)\n",
+		   PathId, TargetId, Lun);
+	  /* FIXME: Implement it! */
+          ASSERT(FALSE);
 
-            /* Mark it in the flags field */
-            DeviceExtension->InterruptData.Flags |= SCSI_PORT_NEXT_REQUEST_READY;
+//	  DeviceExtension->IrpFlags |= IRP_FLAG_NEXT;
+//	  DeviceExtension->IrpFlags |= IRP_FLAG_NEXT_LU;
 
-            /* Get the LUN extension */
-            LunExtension = SpiGetLunExtension(DeviceExtension,
-                                              PathId,
-                                              TargetId,
-                                              Lun);
-
-            /* If returned LunExtension is NULL, break out */
-            if (!LunExtension) break;
-
-            /* This request should not be processed if */
-            if ((LunExtension->ReadyLun) ||
-                (LunExtension->SrbInfo.Srb))
-            {
-                /* Nothing to do here */
-                break;
-            }
-
-            /* Add this LUN to the list */
-            LunExtension->ReadyLun = DeviceExtension->InterruptData.ReadyLun;
-            DeviceExtension->InterruptData.ReadyLun = LunExtension;
-          }
-          break;
+	  /* Hack! */
+//	  DeviceExtension->IrpFlags |= IRP_FLAG_NEXT;
+	}
+	break;
 
       case ResetDetected:
-          DPRINT("Notify: ResetDetected\n");
-          /* Add RESET flags */
-          DeviceExtension->InterruptData.Flags |=
-                SCSI_PORT_RESET | SCSI_PORT_RESET_REPORTED;
-          break;
+	DPRINT1("Notify: ResetDetected\n");
+	/* FIXME: ??? */
+	break;
 
-      case CallDisableInterrupts:
-          DPRINT1("UNIMPLEMENTED SCSI Notification called: CallDisableInterrupts!\n");
-          break;
-
-      case CallEnableInterrupts:
-          DPRINT1("UNIMPLEMENTED SCSI Notification called: CallEnableInterrupts!\n");
-          break;
-
-      case RequestTimerCall:
-          DPRINT1("UNIMPLEMENTED SCSI Notification called: RequestTimerCall!\n");
-          break;
-
-      case BusChangeDetected:
-          DPRINT1("UNIMPLEMENTED SCSI Notification called: BusChangeDetected!\n");
-          break;
-      
       default:
-	DPRINT1 ("Unsupported notification from WMI: %lu\n", NotificationType);
+	DPRINT1 ("Unsupported notification %lu\n", NotificationType);
 	break;
     }
 
-    va_end(ap);
+  va_end(ap);
 
     /* Request a DPC after we're done with the interrupt */
     DeviceExtension->InterruptData.Flags |= SCSI_PORT_NOTIFICATION_NEEDED;
 }
 
+
 /*
  * @implemented
  */
-BOOLEAN NTAPI
+ULONG STDCALL
+ScsiPortSetBusDataByOffset(IN PVOID DeviceExtension,
+			   IN ULONG BusDataType,
+			   IN ULONG SystemIoBusNumber,
+			   IN ULONG SlotNumber,
+			   IN PVOID Buffer,
+			   IN ULONG Offset,
+			   IN ULONG Length)
+{
+  DPRINT("ScsiPortSetBusDataByOffset()\n");
+  return(HalSetBusDataByOffset(BusDataType,
+			       SystemIoBusNumber,
+			       SlotNumber,
+			       Buffer,
+			       Offset,
+			       Length));
+}
+
+
+/*
+ * @implemented
+ */
+BOOLEAN STDCALL
 ScsiPortValidateRange(IN PVOID HwDeviceExtension,
 		      IN INTERFACE_TYPE BusType,
 		      IN ULONG SystemIoBusNumber,
@@ -2165,7 +1921,7 @@ SpiConfigToResource(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     FullSize = sizeof(CM_RESOURCE_LIST) + (ListLength - 1) *
         sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
 
-    ResourceList = (PCM_RESOURCE_LIST)ExAllocatePoolWithTag(PagedPool, FullSize, TAG_SCSIPORT);
+    ResourceList = (PCM_RESOURCE_LIST)ExAllocatePool(PagedPool, FullSize);
 
     if (!ResourceList)
         return NULL;
@@ -2300,7 +2056,6 @@ SpiGetPciConfigData(IN PDRIVER_OBJECT DriverObject,
 
     DPRINT ("SpiGetPciConfiguration() called\n");
 
-	RtlZeroMemory(&ResourceList, sizeof(PCM_RESOURCE_LIST));
     SlotNumber.u.AsULONG = 0;
 
     /* Loop through all devices */
@@ -2320,12 +2075,10 @@ SpiGetPciConfigData(IN PDRIVER_OBJECT DriverObject,
                                      &PciConfig,
                                      sizeof(ULONG));
 
-            /* If result of HalGetBusData is 0, then the bus is wrong */
-            if (DataSize == 0)
+            /* There is nothing there */
+            if (DataSize < sizeof(ULONG))
                 return FALSE;
 
-            /* If result is PCI_INVALID_VENDORID, then this device has no more
-               "Functions" */
             if (PciConfig.VendorID == PCI_INVALID_VENDORID)
                 break;
 
@@ -2409,7 +2162,7 @@ SpiGetPciConfigData(IN PDRIVER_OBJECT DriverObject,
  * 	Status.
  */
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScsiPortCreateClose(IN PDEVICE_OBJECT DeviceObject,
                    IN PIRP Irp)
 {
@@ -2521,7 +2274,7 @@ SpiHandleAttachRelease(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
  *	NTSTATUS
  */
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScsiPortDispatchScsi(IN PDEVICE_OBJECT DeviceObject,
 		     IN PIRP Irp)
 {
@@ -2762,13 +2515,13 @@ ScsiPortDispatchScsi(IN PDEVICE_OBJECT DeviceObject,
  *	NTSTATUS
  */
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 ScsiPortDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 		      IN PIRP Irp)
 {
     PIO_STACK_LOCATION Stack;
     PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
-    NTSTATUS Status = STATUS_SUCCESS;
+    NTSTATUS Status = STATUS_SUCCESS;;
 
     DPRINT("ScsiPortDeviceControl()\n");
 
@@ -2785,7 +2538,7 @@ ScsiPortDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 	  DPRINT("  IOCTL_SCSI_GET_DUMP_POINTERS\n");
 	  DumpPointers = (PDUMP_POINTERS)Irp->AssociatedIrp.SystemBuffer;
 	  DumpPointers->DeviceObject = DeviceObject;
-
+	  
 	  Irp->IoStatus.Information = sizeof(DUMP_POINTERS);
 	}
 	break;
@@ -2822,14 +2575,6 @@ ScsiPortDeviceControl(IN PDEVICE_OBJECT DeviceObject,
           Status = SpiGetInquiryData(DeviceExtension, Irp);
           break;
 
-      case IOCTL_SCSI_MINIPORT:
-          DPRINT1("IOCTL_SCSI_MINIPORT unimplemented!\n");
-          break;
-
-      case IOCTL_SCSI_PASS_THROUGH:
-          DPRINT1("IOCTL_SCSI_PASS_THROUGH unimplemented!\n");
-          break;
-
       default:
 	DPRINT1("  unknown ioctl code: 0x%lX\n",
 	       Stack->Parameters.DeviceIoControl.IoControlCode);
@@ -2844,7 +2589,7 @@ ScsiPortDeviceControl(IN PDEVICE_OBJECT DeviceObject,
 }
 
 
-static VOID NTAPI
+static VOID STDCALL
 ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
 		IN PIRP Irp)
 {
@@ -2854,7 +2599,6 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
     PSCSI_REQUEST_BLOCK Srb;
     PSCSI_REQUEST_BLOCK_INFO SrbInfo;
     LONG CounterResult;
-    NTSTATUS Status;
 
     DPRINT("ScsiPortStartIo() called!\n");
 
@@ -2877,21 +2621,9 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
     if (DeviceExtension->NeedSrbDataAlloc ||
         DeviceExtension->NeedSrbExtensionAlloc)
     {
-        /* Allocate them */
-        SrbInfo = SpiAllocateSrbStructures(DeviceExtension,
-                                           LunExtension,
-                                           Srb);
-
-        /* Couldn't alloc one or both data structures, return */
-        if (SrbInfo == NULL)
-        {
-            /* We have to call IoStartNextPacket, because this request
-               was not started */
-            if (LunExtension->Flags & LUNEX_REQUEST_PENDING)
-                IoStartNextPacket(DeviceObject, FALSE);
-
-            return;
-        }
+        /* TODO: Implement */
+        ASSERT(FALSE);
+        SrbInfo = NULL;
     }
     else
     {
@@ -2927,7 +2659,7 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
         // Store the MDL virtual address in SrbInfo structure
         SrbInfo->DataOffset = MmGetMdlVirtualAddress(Irp->MdlAddress);
 
-        if (DeviceExtension->MapBuffers)
+        if (DeviceExtension->MapBuffers && Irp->MdlAddress)
         {
             /* Calculate offset within DataBuffer */
             SrbInfo->DataOffset = MmGetSystemAddressForMdl(Irp->MdlAddress);
@@ -2946,6 +2678,7 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
 
         if (DeviceExtension->MapRegisters)
         {
+#if 0
             /* Calculate number of needed map registers */
             SrbInfo->NumberOfMapRegisters = ADDRESS_AND_SIZE_TO_SPAN_PAGES(
                     Srb->DataBuffer,
@@ -2976,6 +2709,9 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
 
             /* Control goes to SpiAdapterControl */
             return;
+#else
+            ASSERT(FALSE);
+#endif
         }
     }
 
@@ -2986,16 +2722,22 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
         DeviceExtension->AdapterObject != NULL &&
         !DeviceExtension->MapRegisters)
     {
+#if 0
         IoAllocateAdapterChannel(
             DeviceExtension->AdapterObject,
             DeviceObject,
             DeviceExtension->PortCapabilities.MaximumPhysicalPages,
-            ScsiPortAllocateAdapterChannel,
+            ScsiPortAllocationRoutine,
             LunExtension
             );
 
         return;
+#else
+        /* TODO: DMA is not implemented yet */
+        ASSERT(FALSE);
+#endif
     }
+
 
     KeAcquireSpinLockAtDpcLevel(&DeviceExtension->SpinLock);
 
@@ -3011,18 +2753,14 @@ ScsiPortStartIo(IN PDEVICE_OBJECT DeviceObject,
 
         IoCompleteRequest(Irp, IO_NO_INCREMENT);
     }
-    else
-    {
-        /* Release the spinlock only */
-        KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-    }
 
+    KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
 
     DPRINT("ScsiPortStartIo() done\n");
 }
 
 
-static BOOLEAN NTAPI
+static BOOLEAN STDCALL
 ScsiPortStartPacket(IN OUT PVOID Context)
 {
     PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
@@ -3030,7 +2768,6 @@ ScsiPortStartPacket(IN OUT PVOID Context)
     PSCSI_REQUEST_BLOCK Srb;
     PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)Context;
     PSCSI_PORT_LUN_EXTENSION LunExtension;
-    PSCSI_REQUEST_BLOCK_INFO SrbInfo;
     BOOLEAN Result;
     BOOLEAN StartTimer;
 
@@ -3080,6 +2817,8 @@ ScsiPortStartPacket(IN OUT PVOID Context)
         /* Is this an abort request? */
         if (Srb->Function == SRB_FUNCTION_ABORT_COMMAND)
         {
+            PSCSI_REQUEST_BLOCK_INFO SrbInfo;
+
             /* Get pointer to SRB info structure */
             SrbInfo = SpiGetSrbData(DeviceExtension,
                                     Srb->PathId,
@@ -3152,13 +2891,8 @@ ScsiPortStartPacket(IN OUT PVOID Context)
         /* If it's tagged - special thing */
         if (Srb->QueueTag != SP_UNTAGGED)
         {
-            SrbInfo = &DeviceExtension->SrbInfo[Srb->QueueTag - 1];
-
-            /* Chek for consistency */
-            ASSERT(SrbInfo->Requests.Blink == NULL);
-
-            /* Insert it into the list of requests */
-            InsertTailList(&LunExtension->SrbInfo.Requests, &SrbInfo->Requests);
+            /* TODO: Support tagged requests */
+            ASSERT(FALSE);
         }
     }
 
@@ -3174,90 +2908,6 @@ ScsiPortStartPacket(IN OUT PVOID Context)
         IoRequestDpc(DeviceExtension->DeviceObject, NULL, NULL);
 
     return Result;
-}
-
-IO_ALLOCATION_ACTION
-NTAPI
-SpiAdapterControl(PDEVICE_OBJECT DeviceObject,
-                  PIRP Irp,
-                  PVOID MapRegisterBase,
-                  PVOID Context)
-{
-    PSCSI_REQUEST_BLOCK Srb;
-    PSCSI_SG_ADDRESS ScatterGatherList;
-    KIRQL CurrentIrql;
-    PIO_STACK_LOCATION IrpStack;
-    ULONG TotalLength = 0;
-    PSCSI_REQUEST_BLOCK_INFO SrbInfo;
-    PSCSI_PORT_DEVICE_EXTENSION DeviceExtension;
-    PUCHAR DataVA;
-    BOOLEAN WriteToDevice;
-
-    /* Get pointers to SrbInfo and DeviceExtension */
-    SrbInfo = (PSCSI_REQUEST_BLOCK_INFO)Context;
-    DeviceExtension = DeviceObject->DeviceExtension;
-
-    /* Get pointer to SRB */
-    IrpStack = IoGetCurrentIrpStackLocation(Irp);
-    Srb = (PSCSI_REQUEST_BLOCK)IrpStack->Parameters.Others.Argument1;
-
-    /* Depending on the map registers number, we allocate
-       either from NonPagedPool, or from our static list */
-    if (SrbInfo->NumberOfMapRegisters > MAX_SG_LIST)
-    {
-        SrbInfo->ScatterGather = ExAllocatePoolWithTag(
-            NonPagedPool, SrbInfo->NumberOfMapRegisters * sizeof(SCSI_SG_ADDRESS), TAG_SCSIPORT);
-
-        if (SrbInfo->ScatterGather == NULL)
-            ASSERT(FALSE);
-
-        Srb->SrbFlags |= SRB_FLAGS_SGLIST_FROM_POOL;
-    }
-    else
-    {
-        SrbInfo->ScatterGather = SrbInfo->ScatterGatherList;
-    }
-
-    /* Use chosen SG list source */
-    ScatterGatherList = SrbInfo->ScatterGather;
-
-    /* Save map registers base */
-    SrbInfo->BaseOfMapRegister = MapRegisterBase;
-
-    /* Determine WriteToDevice flag */
-    WriteToDevice = Srb->SrbFlags & SRB_FLAGS_DATA_OUT ? TRUE : FALSE;
-
-    /* Get virtual address of the data buffer */
-    DataVA = (PUCHAR)MmGetMdlVirtualAddress(Irp->MdlAddress) +
-                ((PCHAR)Srb->DataBuffer - SrbInfo->DataOffset);
-
-    /* Build the actual SG list */
-    while (TotalLength < Srb->DataTransferLength)
-    {
-        if (!ScatterGatherList)
-            break;
-
-        ScatterGatherList->Length = Srb->DataTransferLength - TotalLength;
-        ScatterGatherList->PhysicalAddress = IoMapTransfer(NULL,
-                                                           Irp->MdlAddress,
-                                                           MapRegisterBase,
-                                                           DataVA + TotalLength,
-                                                           &ScatterGatherList->Length,
-                                                           WriteToDevice);
-
-        TotalLength += ScatterGatherList->Length;
-        ScatterGatherList++;
-    }
-
-    /* Schedule an active request */
-    InterlockedIncrement(&DeviceExtension->ActiveRequestCounter );
-    KeAcquireSpinLock(&DeviceExtension->SpinLock, &CurrentIrql);
-    KeSynchronizeExecution(DeviceExtension->Interrupt,
-                           ScsiPortStartPacket,
-                           DeviceObject);
-    KeReleaseSpinLock(&DeviceExtension->SpinLock, CurrentIrql);
-
-    return DeallocateObjectKeepRegisters;
 }
 
 static PSCSI_PORT_LUN_EXTENSION
@@ -3276,7 +2926,7 @@ SpiAllocateLunExtension (IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
     LunExtensionSize += sizeof(SCSI_PORT_LUN_EXTENSION);
     DPRINT("LunExtensionSize %lu\n", LunExtensionSize);
 
-    LunExtension = ExAllocatePoolWithTag(NonPagedPool, LunExtensionSize, TAG_SCSIPORT);
+    LunExtension = ExAllocatePool(NonPagedPool, LunExtensionSize);
     if (LunExtension == NULL)
     {
         DPRINT1("Out of resources!\n");
@@ -3335,155 +2985,6 @@ SpiGetLunExtension (IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     return NULL;
 }
 
-static PSCSI_REQUEST_BLOCK_INFO
-SpiAllocateSrbStructures(PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
-                         PSCSI_PORT_LUN_EXTENSION LunExtension,
-                         PSCSI_REQUEST_BLOCK Srb)
-{
-    PCHAR SrbExtension;
-    PSCSI_REQUEST_BLOCK_INFO SrbInfo;
-
-    /* Spinlock must be held while this function executes */
-    KeAcquireSpinLockAtDpcLevel(&DeviceExtension->SpinLock);
-
-    /* Allocate SRB data structure */
-    if (DeviceExtension->NeedSrbDataAlloc)
-    {
-        /* Treat the abort request in a special way */
-        if (Srb->Function == SRB_FUNCTION_ABORT_COMMAND)
-        {
-            SrbInfo = SpiGetSrbData(DeviceExtension,
-                                    Srb->PathId,
-                                    Srb->TargetId,
-                                    Srb->Lun,
-                                    Srb->QueueTag);
-        }
-        else if (Srb->SrbFlags &
-                 (SRB_FLAGS_QUEUE_ACTION_ENABLE | SRB_FLAGS_NO_QUEUE_FREEZE) &&
-                 !(Srb->SrbFlags & SRB_FLAGS_DISABLE_DISCONNECT)
-                 )
-        {
-            /* Do not process tagged commands if need request sense is set */
-            if (LunExtension->Flags & LUNEX_NEED_REQUEST_SENSE)
-            {
-                ASSERT(!(LunExtension->Flags & LUNEX_REQUEST_PENDING));
-
-                LunExtension->PendingRequest = Srb->OriginalRequest;
-                LunExtension->Flags |= LUNEX_REQUEST_PENDING | SCSI_PORT_LU_ACTIVE;
-
-                /* Relese the spinlock and return */
-                KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-                return NULL;
-            }
-
-            ASSERT(LunExtension->SrbInfo.Srb == NULL);
-            SrbInfo = DeviceExtension->FreeSrbInfo;
-
-            if (SrbInfo == NULL)
-            {
-                /* No SRB structures left in the list. We have to leave
-                   and wait while we are called again */
-
-                DeviceExtension->Flags |= SCSI_PORT_REQUEST_PENDING;
-                KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-                return NULL;
-            }
-
-            DeviceExtension->FreeSrbInfo = (PSCSI_REQUEST_BLOCK_INFO)SrbInfo->Requests.Flink;
-
-            /* QueueTag must never be 0, so +1 to it */
-            Srb->QueueTag = (UCHAR)(SrbInfo - DeviceExtension->SrbInfo) + 1;
-        }
-        else
-        {
-            /* Usual untagged command */
-            if (
-                (!IsListEmpty(&LunExtension->SrbInfo.Requests) ||
-                LunExtension->Flags & LUNEX_NEED_REQUEST_SENSE) &&
-                !(Srb->SrbFlags & SRB_FLAGS_BYPASS_FROZEN_QUEUE)
-                )
-            {
-                /* Mark it as pending and leave */
-                ASSERT(!(LunExtension->Flags & LUNEX_REQUEST_PENDING));
-                LunExtension->Flags |= LUNEX_REQUEST_PENDING | SCSI_PORT_LU_ACTIVE;
-                LunExtension->PendingRequest = Srb->OriginalRequest;
-
-                KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-                return(NULL);
-            }
-
-            Srb->QueueTag = SP_UNTAGGED;
-            SrbInfo = &LunExtension->SrbInfo;
-        }
-    }
-    else
-    {
-        Srb->QueueTag = SP_UNTAGGED;
-        SrbInfo = &LunExtension->SrbInfo;
-    }
-
-    /* Allocate SRB extension structure */
-    if (DeviceExtension->NeedSrbExtensionAlloc)
-    {
-        /* Check the list of free extensions */
-        SrbExtension = DeviceExtension->FreeSrbExtensions;
-
-        /* If no free extensions... */
-        if (SrbExtension == NULL)
-        {
-            /* Free SRB data */
-            if (Srb->Function != SRB_FUNCTION_ABORT_COMMAND &&
-                Srb->QueueTag != SP_UNTAGGED)
-            {
-                SrbInfo->Requests.Blink = NULL;
-                SrbInfo->Requests.Flink = (PLIST_ENTRY)DeviceExtension->FreeSrbInfo;
-                DeviceExtension->FreeSrbInfo = SrbInfo;
-            }
-
-            /* Return, in order to be called again later */
-            DeviceExtension->Flags |= SCSI_PORT_REQUEST_PENDING;
-            KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-            return NULL;
-        }
-
-        /* Remove that free SRB extension from the list (since
-           we're going to use it) */
-        DeviceExtension->FreeSrbExtensions = *((PVOID *)SrbExtension);
-
-        /* Spinlock can be released now */
-        KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-
-        Srb->SrbExtension = SrbExtension;
-
-        if (Srb->SenseInfoBuffer != NULL &&
-            DeviceExtension->SupportsAutoSense)
-        {
-            /* Store pointer to the SenseInfo buffer */
-            SrbInfo->SaveSenseRequest = Srb->SenseInfoBuffer;
-
-            /* Does data fit the buffer? */
-            if (Srb->SenseInfoBufferLength > sizeof(SENSE_DATA))
-            {
-                /* No, disabling autosense at all */
-                Srb->SrbFlags |= SRB_FLAGS_DISABLE_AUTOSENSE;
-            }
-            else
-            {
-                /* Yes, update the buffer pointer */
-                Srb->SenseInfoBuffer = SrbExtension + DeviceExtension->SrbExtensionSize;
-            }
-        }
-    }
-    else
-    {
-        /* Cleanup... */
-        Srb->SrbExtension = NULL;
-        KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
-    }
-
-    return SrbInfo;
-}
-
 
 static NTSTATUS
 SpiSendInquiry (IN PDEVICE_OBJECT DeviceObject,
@@ -3508,16 +3009,13 @@ SpiSendInquiry (IN PDEVICE_OBJECT DeviceObject,
 
     DeviceExtension = (PSCSI_PORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
-    InquiryBuffer = ExAllocatePoolWithTag (NonPagedPool, INQUIRYDATABUFFERSIZE, TAG_SCSIPORT);
+    InquiryBuffer = ExAllocatePool (NonPagedPool, INQUIRYDATABUFFERSIZE);
     if (InquiryBuffer == NULL)
         return STATUS_INSUFFICIENT_RESOURCES;
 
-    SenseBuffer = ExAllocatePoolWithTag (NonPagedPool, SENSE_BUFFER_SIZE, TAG_SCSIPORT);
+    SenseBuffer = ExAllocatePool (NonPagedPool, SENSE_BUFFER_SIZE);
     if (SenseBuffer == NULL)
-    {
-        ExFreePool(InquiryBuffer);
         return STATUS_INSUFFICIENT_RESOURCES;
-    }
 
     while (KeepTrying)
     {
@@ -3731,7 +3229,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
         else
         {
             /* We need to allocate this buffer */
-            BusScanInfo = ExAllocatePoolWithTag(NonPagedPool, sizeof(SCSI_BUS_SCAN_INFO), TAG_SCSIPORT);
+            BusScanInfo = ExAllocatePool(NonPagedPool, sizeof(SCSI_BUS_SCAN_INFO));
 
             if (!BusScanInfo)
             {
@@ -3753,7 +3251,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
         }
 
         /* Create LUN information structure */
-        LunInfo = ExAllocatePoolWithTag(PagedPool, sizeof(SCSI_LUN_INFO), TAG_SCSIPORT);
+        LunInfo = ExAllocatePool(PagedPool, sizeof(SCSI_LUN_INFO));
 
         if (LunInfo == NULL)
         {
@@ -3799,7 +3297,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
             /* Scan all logical units */
             for (Lun = 0; Lun < SCSI_MAXIMUM_LOGICAL_UNITS; Lun++)
             {
-                if ((!LunExtension) || (!LunInfo))
+                if (!LunExtension)
                     break;
 
                 /* Add extension to the list */
@@ -3808,9 +3306,9 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
                 DeviceExtension->LunExtensionList[Hint] = LunExtension;
 
                 /* Fill Path, Target, Lun fields */
-                LunExtension->PathId = LunInfo->PathId = (UCHAR)Bus;
-                LunExtension->TargetId = LunInfo->TargetId = (UCHAR) Target;
-                LunExtension->Lun = LunInfo->Lun = (UCHAR)Lun;
+                LunExtension->PathId = LunInfo->PathId = Bus;
+                LunExtension->TargetId = LunInfo->TargetId = Target;
+                LunExtension->Lun = LunInfo->Lun = Lun;
 
                 /* Set flag to prevent race conditions */
                 LunExtension->Flags |= SCSI_PORT_SCAN_IN_PROGRESS;
@@ -3833,7 +3331,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
                     /* Check if this device is unsupported */
                     if (InquiryData->DeviceTypeQualifier == DEVICE_QUALIFIER_NOT_SUPPORTED)
                     {
-                        DeviceExtension->LunExtensionList[Hint] =
+                        DeviceExtension->LunExtensionList[Hint] = 
                             DeviceExtension->LunExtensionList[Hint]->Next;
 
                         continue;
@@ -3859,7 +3357,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
                     LunInfo->DeviceObject = DeviceExtension->DeviceObject;
 
                     /* Allocate another buffer */
-                    LunInfo = ExAllocatePoolWithTag(PagedPool, sizeof(SCSI_LUN_INFO), TAG_SCSIPORT);
+                    LunInfo = ExAllocatePool(PagedPool, sizeof(SCSI_LUN_INFO));
 
                     if (!LunInfo)
                     {
@@ -3877,7 +3375,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
                 else
                 {
                     /* Remove this LUN from the list */
-                    DeviceExtension->LunExtensionList[Hint] =
+                    DeviceExtension->LunExtensionList[Hint] = 
                         DeviceExtension->LunExtensionList[Hint]->Next;
 
                     /* Decide whether we are continuing or not */
@@ -3897,7 +3395,7 @@ SpiScanAdapter(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension)
             ExFreePool(LunInfo);
 
         /* Sum what we found */
-        BusScanInfo->LogicalUnitsCount += (UCHAR) DevicesFound;
+        BusScanInfo->LogicalUnitsCount += DevicesFound;
         DPRINT("    Found %d devices on bus %d\n", DevicesFound, Bus);
     }
 
@@ -3941,7 +3439,7 @@ SpiGetInquiryData(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     /* Calculate data size */
     Length = sizeof(SCSI_ADAPTER_BUS_INFO) + (BusCount - 1) *
         sizeof(SCSI_BUS_DATA);
-
+    
     Length += InquiryDataSize * LunCount;
 
     /* Check, if all data is going to fit into provided buffer */
@@ -4021,7 +3519,7 @@ SpiGetInquiryData(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
 }
 
 static PSCSI_REQUEST_BLOCK_INFO
-SpiGetSrbData(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
+SpiGetSrbData(IN PVOID DeviceExtension,
               IN UCHAR PathId,
               IN UCHAR TargetId,
               IN UCHAR Lun,
@@ -4046,11 +3544,9 @@ SpiGetSrbData(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     }
     else
     {
-        /* Make sure the tag is valid, if it is - return the data */
-        if (QueueTag > DeviceExtension->SrbDataCount || QueueTag < 1)
-            return NULL;
-        else
-            return &DeviceExtension->SrbInfo[QueueTag -1];
+        /* TODO: Implement when we have it */
+        ASSERT(FALSE);
+        return NULL;
     }
 }
 
@@ -4068,7 +3564,7 @@ SpiSendRequestSense(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     DPRINT("SpiSendRequestSense() entered, InitialSrb %p\n", InitialSrb);
 
     /* Allocate Srb */
-    Srb = ExAllocatePoolWithTag(NonPagedPool, sizeof(SCSI_REQUEST_BLOCK) + sizeof(PVOID), TAG_SCSIPORT);
+    Srb = ExAllocatePool(NonPagedPool, sizeof(SCSI_REQUEST_BLOCK) + sizeof(PVOID));
     RtlZeroMemory(Srb, sizeof(SCSI_REQUEST_BLOCK));
 
     /* Allocate IRP */
@@ -4086,12 +3582,6 @@ SpiSendRequestSense(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                            TRUE,
                            TRUE,
                            TRUE);
-
-    if (!Srb)
-    {
-        DPRINT("SpiSendRequestSense() failed, Srb %p\n", Srb);
-        return;
-    }
 
     IrpStack = IoGetNextIrpStackLocation(Irp);
     IrpStack->MajorFunction = IRP_MJ_SCSI;
@@ -4159,7 +3649,7 @@ SpiSendRequestSense(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
 
 static
 VOID
-NTAPI
+STDCALL
 SpiProcessCompletedRequest(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                            IN PSCSI_REQUEST_BLOCK_INFO SrbInfo,
                            OUT PBOOLEAN NeedToCallStartIo)
@@ -4195,6 +3685,7 @@ SpiProcessCompletedRequest(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                              FALSE);
         }
     }
+
 
     /* Flush adapter if needed */
     if (SrbInfo->BaseOfMapRegister)
@@ -4312,7 +3803,7 @@ SpiProcessCompletedRequest(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
             KeReleaseSpinLockFromDpcLevel(&DeviceExtension->SpinLock);
         }
 
-        DPRINT("IoCompleting request IRP 0x%p\n", Irp);
+        DPRINT("IoCompleting request IRP 0x%08X\n", Irp);
 
         IoCompleteRequest(Irp, IO_DISK_INCREMENT);
 
@@ -4476,7 +3967,7 @@ Error:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 SpiCompletionRoutine(PDEVICE_OBJECT DeviceObject,
                      PIRP Irp,
                      PVOID Context)
@@ -4522,7 +4013,7 @@ SpiCompletionRoutine(PDEVICE_OBJECT DeviceObject,
 
     if (Irp->MdlAddress != NULL)
     {
-		MmUnlockPages(Irp->MdlAddress);
+        MmUnlockPages(Irp->MdlAddress);
         IoFreeMdl(Irp->MdlAddress);
         Irp->MdlAddress = NULL;
     }
@@ -4531,7 +4022,9 @@ SpiCompletionRoutine(PDEVICE_OBJECT DeviceObject,
     return STATUS_MORE_PROCESSING_REQUIRED;
 }
 
-static BOOLEAN NTAPI
+
+
+static BOOLEAN STDCALL
 ScsiPortIsr(IN PKINTERRUPT Interrupt,
             IN PVOID ServiceContext)
 {
@@ -4561,7 +4054,7 @@ ScsiPortIsr(IN PKINTERRUPT Interrupt,
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 SpiSaveInterruptData(IN PVOID Context)
 {
     PSCSI_PORT_SAVE_INTERRUPT InterruptContext = Context;
@@ -4679,7 +4172,7 @@ SpiSaveInterruptData(IN PVOID Context)
 }
 
 VOID
-NTAPI
+STDCALL
 SpiGetNextRequestFromLun(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                          IN PSCSI_PORT_LUN_EXTENSION LunExtension)
 {
@@ -4786,7 +4279,7 @@ SpiGetNextRequestFromLun(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
 //    IN PIRP           DpcIrp
 //    IN PVOID          DpcContext
 //
-static VOID NTAPI
+static VOID STDCALL
 ScsiPortDpcForIsr(IN PKDPC Dpc,
 		  IN PDEVICE_OBJECT DpcDeviceObject,
 		  IN PIRP DpcIrp,
@@ -4804,8 +4297,6 @@ ScsiPortDpcForIsr(IN PKDPC Dpc,
 
     /* We need to acquire spinlock */
     KeAcquireSpinLockAtDpcLevel(&DeviceExtension->SpinLock);
-
-	RtlZeroMemory(&InterruptData, sizeof(SCSI_PORT_INTERRUPT_DATA));
 
 TryAgain:
 
@@ -4986,7 +4477,7 @@ TryAgain:
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 SpiProcessTimeout(PVOID ServiceContext)
 {
     PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)ServiceContext;
@@ -5032,7 +4523,7 @@ SpiProcessTimeout(PVOID ServiceContext)
 
 
 BOOLEAN
-NTAPI
+STDCALL
 SpiResetBus(PVOID ServiceContext)
 {
     PRESETBUS_PARAMS ResetParams = (PRESETBUS_PARAMS)ServiceContext;
@@ -5065,7 +4556,7 @@ SpiResetBus(PVOID ServiceContext)
 //    IN  PVOID           Context       the Controller extension for the
 //                                      controller the device is on
 //
-static VOID NTAPI
+static VOID STDCALL
 ScsiPortIoTimer(PDEVICE_OBJECT DeviceObject,
                 PVOID Context)
 {
@@ -5413,9 +4904,9 @@ SpiBuildDeviceMap (PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
 	  for (Lun = 0; Lun < SCSI_MAXIMUM_LOGICAL_UNITS; Lun++)
 	    {
 	      LunExtension = SpiGetLunExtension(DeviceExtension,
-						(UCHAR)BusNumber,
-						(UCHAR)Target,
-						(UCHAR)Lun);
+						BusNumber,
+						Target,
+						Lun);
 	      if (LunExtension != NULL)
 		{
 		  if (Target != CurrentTarget)
@@ -5589,14 +5080,13 @@ ByeBye:
 }
 
 VOID
-NTAPI
+STDCALL
 SpiMiniportTimerDpc(IN struct _KDPC *Dpc,
                     IN PVOID DeviceObject,
                     IN PVOID SystemArgument1,
                     IN PVOID SystemArgument2)
 {
     DPRINT1("Miniport timer DPC\n");
-    ASSERT(FALSE);
 }
 
 static NTSTATUS
@@ -5724,15 +5214,11 @@ TryNextAd:
             else
             {
                 /* Info was not found, exit */
-                DPRINT1("ZwOpenKey() failed with Status=0x%08X\n", Status);
                 return STATUS_DEVICE_DOES_NOT_EXIST;
             }
         }
-        else
-        {
-            DPRINT1("ZwOpenKey() failed with Status=0x%08X\n", Status);
-        }
     }
+
 
     /* Look at device params */
     Key = NULL;
@@ -5860,6 +5346,7 @@ SpiParseDeviceInfo(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     ANSI_STRING AnsiString;
     NTSTATUS Status = STATUS_SUCCESS;
 
+
     KeyValueInformation = (PKEY_VALUE_FULL_INFORMATION) Buffer;
 
     /* Loop through all values in the device node */
@@ -5986,8 +5473,8 @@ SpiParseDeviceInfo(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
                 ExFreePool(InternalConfigInfo->Parameter);
 
             /* Allocate it */
-            InternalConfigInfo->Parameter = ExAllocatePoolWithTag(NonPagedPool,
-                                                           KeyValueInformation->DataLength, TAG_SCSIPORT);
+            InternalConfigInfo->Parameter = ExAllocatePool(NonPagedPool,
+                                                           KeyValueInformation->DataLength);
 
             if (InternalConfigInfo->Parameter != NULL)
             {
@@ -6180,8 +5667,9 @@ SpiParseDeviceInfo(IN PSCSI_PORT_DEVICE_EXTENSION DeviceExtension,
     }
 }
 
+
 NTSTATUS
-NTAPI
+STDCALL
 SpQueryDeviceCallout(IN PVOID  Context,
                      IN PUNICODE_STRING  PathName,
                      IN INTERFACE_TYPE  BusType,
@@ -6201,31 +5689,7 @@ SpQueryDeviceCallout(IN PVOID  Context,
     return STATUS_SUCCESS;
 }
 
-IO_ALLOCATION_ACTION
-NTAPI
-ScsiPortAllocateAdapterChannel(IN PDEVICE_OBJECT DeviceObject,
-                               IN PIRP Irp,
-                               IN PVOID MapRegisterBase,
-                               IN PVOID Context)
-{
-    KIRQL Irql;
-    PSCSI_PORT_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
 
-    /* Guard access with the spinlock */
-    KeAcquireSpinLock(&DeviceExtension->SpinLock, &Irql);
-
-    /* Save MapRegisterBase we've got here */
-    DeviceExtension->MapRegisterBase = MapRegisterBase;
-
-    /* Start pending request */
-    KeSynchronizeExecution(DeviceExtension->Interrupt,
-        ScsiPortStartPacket, DeviceObject);
-
-    /* Release spinlock we took */
-    KeReleaseSpinLock(&DeviceExtension->SpinLock, Irql);
-
-    return KeepObject;
-}
 
 static
 NTSTATUS
@@ -6236,7 +5700,7 @@ SpiStatusSrbToNt(UCHAR SrbStatus)
     case SRB_STATUS_TIMEOUT:
     case SRB_STATUS_COMMAND_TIMEOUT:
         return STATUS_IO_TIMEOUT;
-
+    
     case SRB_STATUS_BAD_SRB_BLOCK_LENGTH:
     case SRB_STATUS_BAD_FUNCTION:
         return STATUS_INVALID_DEVICE_REQUEST;
@@ -6265,7 +5729,7 @@ SpiStatusSrbToNt(UCHAR SrbStatus)
 /*
  * @implemented
  */
-ULONG NTAPI
+ULONG STDCALL
 ScsiPortConvertPhysicalAddressToUlong(IN SCSI_PHYSICAL_ADDRESS Address)
 {
   DPRINT("ScsiPortConvertPhysicalAddressToUlong()\n");

@@ -46,8 +46,8 @@ typedef struct _FTMarshalImpl {
 	IUnknown *pUnkOuter;
 } FTMarshalImpl;
 
-#define _IFTMUnknown_(This) ((IUnknown*)&(This)->lpVtbl)
-#define _IFTMarshal_(This)  (&(This)->lpvtblFTM)
+#define _IFTMUnknown_(This)(IUnknown*)&(This->lpVtbl)
+#define _IFTMarshal_(This) (IMarshal*)&(This->lpvtblFTM)
 
 static inline FTMarshalImpl *impl_from_IMarshal( IMarshal *iface )
 {
@@ -110,7 +110,7 @@ FTMarshalImpl_QueryInterface (LPMARSHAL iface, REFIID riid, LPVOID * ppv)
 
     FTMarshalImpl *This = impl_from_IMarshal(iface);
 
-    TRACE ("(%p)->(%s,%p)\n", This, debugstr_guid (riid), ppv);
+    TRACE ("(%p)->(\n\tIID:\t%s,%p)\n", This, debugstr_guid (riid), ppv);
     return IUnknown_QueryInterface (This->pUnkOuter, riid, ppv);
 }
 
@@ -141,9 +141,9 @@ FTMarshalImpl_GetUnmarshalClass (LPMARSHAL iface, REFIID riid, void *pv, DWORD d
     TRACE("(%s, %p, 0x%x, %p, 0x%x, %p)\n", debugstr_guid(riid), pv,
         dwDestContext, pvDestContext, mshlflags, pCid);
     if (dwDestContext == MSHCTX_INPROC || dwDestContext == MSHCTX_CROSSCTX)
-        *pCid = CLSID_InProcFreeMarshaler;
+        memcpy(pCid, &CLSID_InProcFreeMarshaler, sizeof(CLSID_InProcFreeMarshaler));
     else
-        *pCid = CLSID_DfMarshal;
+        memcpy(pCid, &CLSID_DfMarshal, sizeof(CLSID_InProcFreeMarshaler));
     return S_OK;
 }
 

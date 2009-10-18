@@ -50,7 +50,7 @@ LRESULT CALLBACK TestWndProc(
    }
 }
 
-int WINAPI WinMain(
+int STDCALL WinMain(
     HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
     LPSTR lpCmdLine,

@@ -10,14 +10,14 @@
  */
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
 
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 FindCloseChangeNotification (HANDLE hChangeHandle)
 {
    NTSTATUS Status = NtClose(hChangeHandle);
@@ -35,7 +35,7 @@ FindCloseChangeNotification (HANDLE hChangeHandle)
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstChangeNotificationA (
 	LPCSTR	lpPathName,
 	BOOL	bWatchSubtree,
@@ -57,7 +57,7 @@ FindFirstChangeNotificationA (
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstChangeNotificationW (
 	LPCWSTR	lpPathName,
 	BOOL	bWatchSubtree,
@@ -92,7 +92,12 @@ FindFirstChangeNotificationW (
                         &ObjectAttributes,
                         &IoStatus,
                         FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-                        FILE_DIRECTORY_FILE | FILE_OPEN_FOR_BACKUP_INTENT);
+                        FILE_DIRECTORY_FILE);
+
+   /*
+   FIXME: I think we should use FILE_OPEN_FOR_BACKUP_INTENT. See M$ Q188321
+   -Gunnar
+   */
 
    RtlFreeHeap(RtlGetProcessHeap(),
                0,
@@ -117,7 +122,6 @@ FindFirstChangeNotificationW (
                                         (BOOLEAN)bWatchSubtree);
    if (!NT_SUCCESS(Status))
    {
-      NtClose(hDir);
       SetLastErrorByStatus(Status);
       return INVALID_HANDLE_VALUE;
    }
@@ -130,7 +134,7 @@ FindFirstChangeNotificationW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextChangeNotification (
 	HANDLE	hChangeHandle
 	)
@@ -160,7 +164,7 @@ FindNextChangeNotification (
 
 
 extern VOID
-(WINAPI ApcRoutine)(PVOID ApcContext,
+(STDCALL ApcRoutine)(PVOID ApcContext,
       struct _IO_STATUS_BLOCK* IoStatusBlock,
       ULONG Reserved);
 
@@ -169,7 +173,7 @@ extern VOID
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 ReadDirectoryChangesW(
     HANDLE hDirectory,
     LPVOID lpBuffer OPTIONAL,
@@ -181,61 +185,23 @@ ReadDirectoryChangesW(
     LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine /* OPTIONAL???????? */
     )
 {
-   PVOID CompletionRoutine;
    NTSTATUS Status;
    IO_STATUS_BLOCK IoStatus;
-   HANDLE EventHandle;
-   PIO_APC_ROUTINE IoApcRoutine;
 
    if (lpOverlapped )
-   {
-      if (lpCompletionRoutine)
-      {
-          CompletionRoutine = (PVOID) lpCompletionRoutine;
-          EventHandle = NULL;
-          IoApcRoutine = ApcRoutine;
-      }
-      else
-      {
-          if (((ULONG_PTR) lpOverlapped->hEvent & 1) == 0)
-              CompletionRoutine = (PVOID) lpOverlapped;
-          else
-              CompletionRoutine = NULL;
-
-          EventHandle = lpOverlapped->hEvent;
-          IoApcRoutine = NULL;
-      }
-
       lpOverlapped->Internal = STATUS_PENDING;
-   }
-   else
-   {
-       EventHandle = NULL;
-       IoApcRoutine = NULL;
-       CompletionRoutine = NULL;
-   }
 
    Status = NtNotifyChangeDirectoryFile(
       hDirectory,
-      EventHandle,
-      IoApcRoutine,
-      CompletionRoutine, /* ApcContext */
-      lpOverlapped ? (PIO_STATUS_BLOCK)lpOverlapped->Internal : &IoStatus,
+      lpOverlapped ? lpOverlapped->hEvent : NULL,
+      lpCompletionRoutine ? ApcRoutine : NULL, /* ApcRoutine OPTIONAL???? */
+      lpCompletionRoutine, /* ApcContext */
+      lpOverlapped ? (PIO_STATUS_BLOCK)lpOverlapped : &IoStatus,
       lpBuffer,
       nBufferLength,
       dwNotifyFilter,
       (BOOLEAN)bWatchSubtree
       );
-
-   if ((Status == STATUS_PENDING) && (!lpOverlapped))
-   {
-       Status = NtWaitForSingleObject(hDirectory, FALSE, NULL);
-
-       if (NT_SUCCESS(Status))
-       {
-           Status = IoStatus.Status;
-       }
-   }
 
    if (!NT_SUCCESS(Status))
    {

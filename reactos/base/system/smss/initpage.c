@@ -1,12 +1,27 @@
 /*
- * PROJECT:         ReactOS Session Manager
- * LICENSE:         GPL v2 or later - See COPYING in the top level directory
- * FILE:            base/system/smss/initpage.c
- * PURPOSE:         Paging file support.
- * PROGRAMMERS:     ReactOS Development Team
+ * initpage.c - 
+ * 
+ * ReactOS Operating System
+ * 
+ * --------------------------------------------------------------------
+ *
+ * This software is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.LIB. If not, write
+ * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
+ * MA 02139, USA.  
+ *
+ * --------------------------------------------------------------------
  */
-
-/* INCLUDES ******************************************************************/
 #include "smss.h"
 
 #define NDEBUG
@@ -14,7 +29,7 @@
 
 #define GIGABYTE (1024 * 1024 * 1024) /* One Gigabyte */
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpPagingFilesQueryRoutine(PWSTR ValueName,
                            ULONG ValueType,
                            PVOID ValueData,
@@ -68,8 +83,8 @@ SmpPagingFilesQueryRoutine(PWSTR ValueName,
 
   /* If there is only a file name or if initial and max are both 0
    * the system will pick the sizes.  Then it makes intial the size of phyical memory
-   * and makes max the size of 1.5 * initial.  If there isnt enough free space then it will
-   * fall back to intial 20% of free space and max 25%.  There is a max of 1 gig before
+   * and makes max the size of 1.5 * initial.  If there isnt enough free space then it will 
+   * fall back to intial 20% of free space and max 25%.  There is a max of 1 gig before 
    * it doesnt make it bigger. */
   if ((InitialSize.QuadPart == 0 && MaximumSize.QuadPart == 0) || p == NULL)
     {
@@ -85,8 +100,8 @@ SmpPagingFilesQueryRoutine(PWSTR ValueName,
       /* Make sure the path that is given for the file actually has the drive in it.
       At this point if there is not file name, no sizes will be set therefore no page
       file will be created */
-      if (wcslen(ValueString) <= 3 ||
-          ValueString[1] != L':' ||
+      if (wcslen(ValueString) <= 3 || 
+          ValueString[1] != L':' || 
           ValueString[2] != L'\\')
         {
           DPRINT1("Invalid path for pagefile.\n");
@@ -103,7 +118,7 @@ SmpPagingFilesQueryRoutine(PWSTR ValueName,
           goto Cleanup;
         }
       DPRINT("PageSize: %d, PhysicalPages: %d, TotalMem: %d\n", SysBasicInfo.PageSize, SysBasicInfo.NumberOfPhysicalPages, (SysBasicInfo.NumberOfPhysicalPages * SysBasicInfo.PageSize) / 1024);
-
+      
       InitialSize.QuadPart = SysBasicInfo.NumberOfPhysicalPages *
                              SysBasicInfo.PageSize;
       MaximumSize.QuadPart = InitialSize.QuadPart * 2;
@@ -171,8 +186,8 @@ SmpPagingFilesQueryRoutine(PWSTR ValueName,
           goto Cleanup;
         }
 
-      FreeBytes.QuadPart = FileFsSize.BytesPerSector *
-                           FileFsSize.SectorsPerAllocationUnit *
+      FreeBytes.QuadPart = FileFsSize.BytesPerSector * 
+                           FileFsSize.SectorsPerAllocationUnit * 
                            FileFsSize.AvailableAllocationUnits.QuadPart;
 
       DPRINT("Free bytes: %I64d   Inital Size based on memory: %I64d \n",FreeBytes.QuadPart,InitialSize.QuadPart);
@@ -181,7 +196,7 @@ SmpPagingFilesQueryRoutine(PWSTR ValueName,
       if (InitialSize.QuadPart > (FreeBytes.QuadPart / 4) || InitialSize.QuadPart == 0)
         {
           DPRINT("Inital Size took more then 25%% of free space\n");
-          /* Set by percentage of free space
+          /* Set by percentage of free space 
           * intial is 20%, and max is 25% */
           InitialSize.QuadPart = FreeBytes.QuadPart / 5;
           MaximumSize.QuadPart = FreeBytes.QuadPart / 4;

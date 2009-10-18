@@ -2,16 +2,26 @@
 #include <kbdmou.h>
 #include <ntddkbd.h>
 #include <stdio.h>
-#include <pseh/pseh2.h>
 
-#include <debug.h>
+#if defined(__GNUC__)
+  #include <pseh/pseh.h>
+  #include <debug.h>
+#elif defined(_MSC_VER)
+  #define DPRINT1 DbgPrint("(%s:%d) ", __FILE__, __LINE__), DbgPrint
+  #define CHECKPOINT1 DbgPrint("(%s:%d)\n", __FILE__, __LINE__)
+  #define DPRINT
+  #define CHECKPOINT
+  #define _SEH_TRY __try
+  #define _SEH_HANDLE __except(1)
+  #define _SEH_END
+  #define _SEH_GetExceptionCode() GetExceptionCode()
+#else
+  #error Unknown compiler!
+#endif
 
 #define MAX_PATH 260
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-#define CLASS_TAG 'CdbK'
-#define DPFLTR_CLASS_NAME_ID DPFLTR_KBDCLASS_ID
 
 typedef enum
 {
@@ -60,7 +70,7 @@ typedef struct _CLASS_DEVICE_EXTENSION
 	LIST_ENTRY ListHead;
 	KSPIN_LOCK ListSpinLock;
 	KSPIN_LOCK SpinLock;
-	PIRP PendingIrp;
+	BOOLEAN ReadIsPending;
 	SIZE_T InputCount;
 	PKEYBOARD_INPUT_DATA PortData;
 	LPCWSTR DeviceName;
@@ -73,20 +83,13 @@ ForwardIrpAndWait(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-DRIVER_DISPATCH ForwardIrpAndForget;
+NTSTATUS NTAPI
+ForwardIrpAndForget(
+	IN PDEVICE_OBJECT DeviceObject,
+	IN PIRP Irp);
 
 NTSTATUS
 DuplicateUnicodeString(
 	IN ULONG Flags,
 	IN PCUNICODE_STRING SourceString,
 	OUT PUNICODE_STRING DestinationString);
-
-/* setup.c */
-BOOLEAN
-IsFirstStageSetup(
-	VOID);
-
-VOID NTAPI
-Send8042StartDevice(
-	IN PDRIVER_OBJECT DriverObject,
-	IN PDEVICE_OBJECT Pdo);

@@ -14,11 +14,13 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdio.h>
 
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
 #include "wine/test.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -30,36 +32,18 @@
 #include "shlwapi.h"
 #include "shtypes.h"
 
-#define expect_eq(expr, val, type, fmt) do { \
-    type ret = expr; \
-    ok(ret == val, "Unexpected value of '" #expr "': " #fmt " instead of " #val "\n", ret); \
-} while (0);
-
-#define expect_eq2(expr, val1, val2, type, fmt) do { \
-    type ret = expr; \
-    ok(ret == val1 || ret == val2, "Unexpected value of '" #expr "': " #fmt " instead of " #val1 " or " #val2 "\n", ret); \
-} while (0);
-
-static BOOL    (WINAPI *pIntlStrEqWorkerA)(BOOL,LPCSTR,LPCSTR,int);
-static BOOL    (WINAPI *pIntlStrEqWorkerW)(BOOL,LPCWSTR,LPCWSTR,int);
-static DWORD   (WINAPI *pSHAnsiToAnsi)(LPCSTR,LPSTR,int);
-static DWORD   (WINAPI *pSHUnicodeToUnicode)(LPCWSTR,LPWSTR,int);
-static LPSTR   (WINAPI *pStrCatBuffA)(LPSTR,LPCSTR,INT);
-static LPWSTR  (WINAPI *pStrCatBuffW)(LPWSTR,LPCWSTR,INT);
+static HMODULE hShlwapi;
 static LPSTR   (WINAPI *pStrCpyNXA)(LPSTR,LPCSTR,int);
 static LPWSTR  (WINAPI *pStrCpyNXW)(LPWSTR,LPCWSTR,int);
-static LPSTR   (WINAPI *pStrFormatByteSize64A)(LONGLONG,LPSTR,UINT);
-static LPSTR   (WINAPI *pStrFormatKBSizeA)(LONGLONG,LPSTR,UINT);
-static LPWSTR  (WINAPI *pStrFormatKBSizeW)(LONGLONG,LPWSTR,UINT);
-static BOOL    (WINAPI *pStrIsIntlEqualA)(BOOL,LPCSTR,LPCSTR,int);
-static BOOL    (WINAPI *pStrIsIntlEqualW)(BOOL,LPCWSTR,LPCWSTR,int);
 static HRESULT (WINAPI *pStrRetToBSTR)(STRRET*,void*,BSTR*);
-static HRESULT (WINAPI *pStrRetToBufA)(STRRET*,LPCITEMIDLIST,LPSTR,UINT);
-static HRESULT (WINAPI *pStrRetToBufW)(STRRET*,LPCITEMIDLIST,LPWSTR,UINT);
-static INT     (WINAPIV *pwnsprintfA)(LPSTR,INT,LPCSTR, ...);
-static INT     (WINAPIV *pwnsprintfW)(LPWSTR,INT,LPCWSTR, ...);
+static DWORD   (WINAPI *pSHAnsiToAnsi)(LPCSTR,LPSTR,int);
+static DWORD   (WINAPI *pSHUnicodeToUnicode)(LPCWSTR,LPWSTR,int);
+static BOOL    (WINAPI *pStrIsIntlEqualA)(BOOL,LPCSTR,LPCSTR,int);
+static BOOL    (WINAPI *pIntlStrEqWorkerA)(BOOL,LPCSTR,LPCSTR,int);
+static BOOL    (WINAPI *pStrIsIntlEqualW)(BOOL,LPCWSTR,LPCWSTR,int);
+static BOOL    (WINAPI *pIntlStrEqWorkerW)(BOOL,LPCWSTR,LPCWSTR,int);
 
-static int strcmpW(const WCHAR *str1, const WCHAR *str2)
+static inline int strcmpW(const WCHAR *str1, const WCHAR *str2)
 {
     while (*str1 && (*str1 == *str2)) { str1++; str2++; }
     return *str1 - *str2;
@@ -203,8 +187,9 @@ static void test_StrChrA(void)
   for (count = 32; count < 128; count++)
   {
     LPSTR result = StrChrA(string+32, count);
-    INT pos = result - string;
-    ok(pos == count, "found char '%c' in wrong place: got %d, expected %d\n", count, pos, count);
+    ok(result - string == count,
+        "found char '%c' in wrong place: got %d, expected %d\n",
+        count, result - string, count);
   }
 
   for (count = 32; count < 128; count++)
@@ -339,8 +324,9 @@ static void test_StrRChrW(void)
   for (count = 32; count < 128; count++)
   {
     LPWSTR result = StrRChrW(string+32, NULL, count);
-    INT pos = result - string;
-    ok(pos == count, "found char %d in wrong place: got %d, expected %d\n", count, pos, count);
+    ok(result - string == count,
+        "found char %d in wrong place: got %d, expected %d\n",
+        count, result - string, count);
   }
 
   for (count = 32; count < 128; count++)
@@ -484,7 +470,7 @@ static void test_StrDupA(void)
     if (lpszStr)
     {
       ok(!strcmp(result->byte_size_64, lpszStr), "Copied string wrong\n");
-      LocalFree(lpszStr);
+      LocalFree((HLOCAL)lpszStr);
     }
     result++;
   }
@@ -494,7 +480,6 @@ static void test_StrDupA(void)
    */
   lpszStr = StrDupA(NULL);
   ok(lpszStr == NULL || *lpszStr == '\0', "NULL string returned %p\n", lpszStr);
-  LocalFree(lpszStr);
 }
 
 static void test_StrFormatByteSize64A(void)
@@ -502,18 +487,12 @@ static void test_StrFormatByteSize64A(void)
   char szBuff[256];
   const StrFormatSizeResult* result = StrFormatSize_results;
 
-  if (!pStrFormatByteSize64A)
-  {
-    win_skip("StrFormatByteSize64A() is not available\n");
-    return;
-  }
-
   while(result->value)
   {
-    pStrFormatByteSize64A(result->value, szBuff, 256);
+    StrFormatByteSize64A(result->value, szBuff, 256);
 
     ok(!strcmp(result->byte_size_64, szBuff),
-        "Formatted %x%08x wrong: got %s, expected %s\n",
+        "Formatted %lx%08lx wrong: got %s, expected %s\n",
        (LONG)(result->value >> 32), (LONG)result->value, szBuff, result->byte_size_64);
 
     result++;
@@ -526,18 +505,12 @@ static void test_StrFormatKBSizeW(void)
   char szBuff[256];
   const StrFormatSizeResult* result = StrFormatSize_results;
 
-  if (!pStrFormatKBSizeW)
-  {
-    win_skip("StrFormatKBSizeW() is not available\n");
-    return;
-  }
-
   while(result->value)
   {
-    pStrFormatKBSizeW(result->value, szBuffW, 256);
+    StrFormatKBSizeW(result->value, szBuffW, 256);
     WideCharToMultiByte(0,0,szBuffW,-1,szBuff,sizeof(szBuff)/sizeof(WCHAR),0,0);
     ok(!strcmp(result->kb_size, szBuff),
-        "Formatted %x%08x wrong: got %s, expected %s\n",
+        "Formatted %lx%08lx wrong: got %s, expected %s\n",
        (LONG)(result->value >> 32), (LONG)result->value, szBuff, result->kb_size);
     result++;
   }
@@ -548,18 +521,12 @@ static void test_StrFormatKBSizeA(void)
   char szBuff[256];
   const StrFormatSizeResult* result = StrFormatSize_results;
 
-  if (!pStrFormatKBSizeA)
-  {
-    win_skip("StrFormatKBSizeA() is not available\n");
-    return;
-  }
-
   while(result->value)
   {
-    pStrFormatKBSizeA(result->value, szBuff, 256);
+    StrFormatKBSizeA(result->value, szBuff, 256);
 
     ok(!strcmp(result->kb_size, szBuff),
-        "Formatted %x%08x wrong: got %s, expected %s\n",
+        "Formatted %lx%08lx wrong: got %s, expected %s\n",
        (LONG)(result->value >> 32), (LONG)result->value, szBuff, result->kb_size);
     result++;
   }
@@ -574,7 +541,7 @@ static void test_StrFromTimeIntervalA(void)
   {
     StrFromTimeIntervalA(szBuff, 256, result->ms, result->digits);
 
-    ok(!strcmp(result->time_interval, szBuff), "Formatted %d %d wrong\n",
+    ok(!strcmp(result->time_interval, szBuff), "Formatted %ld %d wrong\n",
        result->ms, result->digits);
     result++;
   }
@@ -590,21 +557,20 @@ static void test_StrCmpA(void)
   ok(!ChrCmpIA('b', 'B'), "ChrCmpIA is not case-insensitive\n");
   ok(ChrCmpIA('a', 'z'), "ChrCmpIA believes that a == z!\n");
 
-  if (pStrIsIntlEqualA)
-  {
-    ok(pStrIsIntlEqualA(FALSE, str1, str2, 5), "StrIsIntlEqualA(FALSE,...) isn't case-insensitive\n");
-    ok(!pStrIsIntlEqualA(TRUE, str1, str2, 5), "StrIsIntlEqualA(TRUE,...) isn't case-sensitive\n");
-  }
-  else
-    win_skip("StrIsIntlEqualA() is not available\n");
+  pStrIsIntlEqualA = (void *)GetProcAddress(hShlwapi, "StrIsIntlEqualA");
+  pIntlStrEqWorkerA = (void *)GetProcAddress(hShlwapi, "IntlStrEqWorkerA");
 
-  if (pIntlStrEqWorkerA)
-  {
-    ok(pIntlStrEqWorkerA(FALSE, str1, str2, 5), "IntlStrEqWorkerA(FALSE,...) isn't case-insensitive\n");
-    ok(!pIntlStrEqWorkerA(TRUE, str1, str2, 5), "pIntlStrEqWorkerA(TRUE,...) isn't case-sensitive\n");
-  }
-  else
-    win_skip("IntlStrEqWorkerA() is not available\n");
+  if (!pStrIsIntlEqualA)
+    return;
+
+  ok(pStrIsIntlEqualA(FALSE, str1, str2, 5), "StrIsIntlEqualA(FALSE,...) isn't case-insensitive\n");
+  ok(!pStrIsIntlEqualA(TRUE, str1, str2, 5), "StrIsIntlEqualA(TRUE,...) isn't case-sensitive\n");
+
+  if (!pIntlStrEqWorkerA)
+    return;
+
+  ok(pIntlStrEqWorkerA(FALSE, str1, str2, 5), "IntlStrEqWorkerA(FALSE,...) isn't case-insensitive\n");
+  ok(!pIntlStrEqWorkerA(TRUE, str1, str2, 5), "pIntlStrEqWorkerA(TRUE,...) isn't case-sensitive\n");
 }
 
 static void test_StrCmpW(void)
@@ -617,27 +583,26 @@ static void test_StrCmpW(void)
   ok(!ChrCmpIW('b', 'B'), "ChrCmpIW is not case-insensitive\n");
   ok(ChrCmpIW('a', 'z'), "ChrCmpIW believes that a == z!\n");
 
-  if (pStrIsIntlEqualW)
-  {
-    ok(pStrIsIntlEqualW(FALSE, str1, str2, 5), "StrIsIntlEqualW(FALSE,...) isn't case-insensitive\n");
-    ok(!pStrIsIntlEqualW(TRUE, str1, str2, 5), "StrIsIntlEqualW(TRUE,...) isn't case-sensitive\n");
-  }
-  else
-    win_skip("StrIsIntlEqualW() is not available\n");
+  pStrIsIntlEqualW = (void *)GetProcAddress(hShlwapi, "StrIsIntlEqualW");
+  pIntlStrEqWorkerW = (void *)GetProcAddress(hShlwapi, "IntlStrEqWorkerW");
 
-  if (pIntlStrEqWorkerW)
-  {
-    ok(pIntlStrEqWorkerW(FALSE, str1, str2, 5), "IntlStrEqWorkerW(FALSE,...) isn't case-insensitive\n");
-    ok(!pIntlStrEqWorkerW(TRUE, str1, str2, 5), "IntlStrEqWorkerW(TRUE,...) isn't case-sensitive\n");
-  }
-  else
-    win_skip("IntlStrEqWorkerW() is not available\n");
+  if (!pStrIsIntlEqualW)
+    return;
+
+  ok(pStrIsIntlEqualW(FALSE, str1, str2, 5), "StrIsIntlEqualW(FALSE,...) isn't case-insensitive\n");
+  ok(!pStrIsIntlEqualW(TRUE, str1, str2, 5), "StrIsIntlEqualW(TRUE,...) isn't case-sensitive\n");
+
+  if (!pIntlStrEqWorkerW)
+    return;
+
+  ok(pIntlStrEqWorkerW(FALSE, str1, str2, 5), "IntlStrEqWorkerW(FALSE,...) isn't case-insensitive\n");
+  ok(!pIntlStrEqWorkerW(TRUE, str1, str2, 5), "IntlStrEqWorkerW(TRUE,...) isn't case-sensitive\n");
 }
 
 static WCHAR *CoDupStrW(const char* src)
 {
   INT len = MultiByteToWideChar(CP_ACP, 0, src, -1, NULL, 0);
-  WCHAR* szTemp = CoTaskMemAlloc(len * sizeof(WCHAR));
+  WCHAR* szTemp = (WCHAR*)CoTaskMemAlloc(len * sizeof(WCHAR));
   MultiByteToWideChar(CP_ACP, 0, src, -1, szTemp, len);
   return szTemp;
 }
@@ -650,34 +615,34 @@ static void test_StrRetToBSTR(void)
     STRRET strret;
     HRESULT ret;
 
-    if (!pStrRetToBSTR)
-    {
-        win_skip("StrRetToBSTR() is not available\n");
-        return;
-    }
+    pStrRetToBSTR = (void *)GetProcAddress(hShlwapi, "StrRetToBSTR");
+    if (!pStrRetToBSTR) return;
 
     strret.uType = STRRET_WSTR;
-    U(strret).pOleStr = CoDupStrW("Test");
+    strret.u.pOleStr = CoDupStrW("Test");
     bstr = 0;
     ret = pStrRetToBSTR(&strret, NULL, &bstr);
     ok(ret == S_OK && bstr && !strcmpW(bstr, szTestW),
-       "STRRET_WSTR: dup failed, ret=0x%08x, bstr %p\n", ret, bstr);
-    SysFreeString(bstr);
+       "STRRET_WSTR: dup failed, ret=0x%08lx, bstr %p\n", ret, bstr);
+    if (bstr)
+      SysFreeString(bstr);
 
     strret.uType = STRRET_CSTR;
-    lstrcpyA(U(strret).cStr, "Test");
+    lstrcpyA(strret.u.cStr, "Test");
     ret = pStrRetToBSTR(&strret, NULL, &bstr);
     ok(ret == S_OK && bstr && !strcmpW(bstr, szTestW),
-       "STRRET_CSTR: dup failed, ret=0x%08x, bstr %p\n", ret, bstr);
-    SysFreeString(bstr);
+       "STRRET_CSTR: dup failed, ret=0x%08lx, bstr %p\n", ret, bstr);
+    if (bstr)
+      SysFreeString(bstr);
 
     strret.uType = STRRET_OFFSET;
-    U(strret).uOffset = 1;
+    strret.u.uOffset = 1;
     strcpy((char*)&iidl, " Test");
     ret = pStrRetToBSTR(&strret, iidl, &bstr);
     ok(ret == S_OK && bstr && !strcmpW(bstr, szTestW),
-       "STRRET_OFFSET: dup failed, ret=0x%08x, bstr %p\n", ret, bstr);
-    SysFreeString(bstr);
+       "STRRET_OFFSET: dup failed, ret=0x%08lx, bstr %p\n", ret, bstr);
+    if (bstr)
+      SysFreeString(bstr);
 
     /* Native crashes if str is NULL */
 }
@@ -688,11 +653,9 @@ static void test_StrCpyNXA(void)
   LPSTR lpszRes;
   char dest[8];
 
+  pStrCpyNXA = (void *)GetProcAddress(hShlwapi, (LPSTR)399);
   if (!pStrCpyNXA)
-  {
-    win_skip("StrCpyNXA() is not available\n");
     return;
-  }
 
   memset(dest, '\n', sizeof(dest));
   lpszRes = pStrCpyNXA(dest, lpSrc, sizeof(dest)/sizeof(dest[0]));
@@ -709,56 +672,15 @@ static void test_StrCpyNXW(void)
   LPWSTR lpszRes;
   WCHAR dest[8];
 
+  pStrCpyNXW = (void *)GetProcAddress(hShlwapi, (LPSTR)400);
   if (!pStrCpyNXW)
-  {
-    win_skip("StrCpyNXW() is not available\n");
     return;
-  }
 
   memcpy(dest, lpInit, sizeof(lpInit));
   lpszRes = pStrCpyNXW(dest, lpSrc, sizeof(dest)/sizeof(dest[0]));
   ok(lpszRes == dest + 5 && !memcmp(dest, lpRes, sizeof(dest)),
-       "StrCpyNXW: expected %p, \"hello\\0\\n\\n\", got %p, \"%d,%d,%d,%d,%d,%d,%d,%d\"\n",
+       "StrCpyNXA: expected %p, \"hello\\0\\n\\n\", got %p, \"%d,%d,%d,%d,%d,%d,%d,%d\"\n",
        dest + 5, lpszRes, dest[0], dest[1], dest[2], dest[3], dest[4], dest[5], dest[6], dest[7]);
-}
-
-#define check_strrstri(type, str, pos, needle, exp) \
-    ret##type = StrRStrI##type(str, str+pos, needle); \
-    ok(ret##type == (exp), "Type " #type ", expected %p but got %p (string base %p)\n", \
-    (exp), ret##type, str);
-
-static void test_StrRStrI(void)
-{
-    static const CHAR szTest[] = "yAxxxxAy";
-    static const CHAR szTest2[] = "ABABABAB";
-    static const WCHAR wszTest[] = {'y','A','x','x','x','x','A','y',0};
-    static const WCHAR wszTest2[] = {'A','B','A','B','A','B','A','B',0};
-
-    static const WCHAR wszPattern1[] = {'A',0};
-    static const WCHAR wszPattern2[] = {'a','X',0};
-    static const WCHAR wszPattern3[] = {'A','y',0};
-    static const WCHAR wszPattern4[] = {'a','b',0};
-    LPWSTR retW;
-    LPSTR retA;
-    
-    check_strrstri(A, szTest, 4, "A", szTest+1);
-    check_strrstri(A, szTest, 4, "aX", szTest+1);
-    check_strrstri(A, szTest, 4, "Ay", NULL);
-    check_strrstri(W, wszTest, 4, wszPattern1, wszTest+1);
-    check_strrstri(W, wszTest, 4, wszPattern2, wszTest+1);
-    check_strrstri(W, wszTest, 4, wszPattern3, NULL);
-
-    check_strrstri(A, szTest2, 4, "ab", szTest2+2);
-    check_strrstri(A, szTest2, 3, "ab", szTest2+2);
-    check_strrstri(A, szTest2, 2, "ab", szTest2);
-    check_strrstri(A, szTest2, 1, "ab", szTest2);
-    check_strrstri(A, szTest2, 0, "ab", NULL);
-    check_strrstri(W, wszTest2, 4, wszPattern4, wszTest2+2);
-    check_strrstri(W, wszTest2, 3, wszPattern4, wszTest2+2);
-    check_strrstri(W, wszTest2, 2, wszPattern4, wszTest2);
-    check_strrstri(W, wszTest2, 1, wszPattern4, wszTest2);
-    check_strrstri(W, wszTest2, 0, wszPattern4, NULL);
-
 }
 
 static void test_SHAnsiToAnsi(void)
@@ -766,16 +688,14 @@ static void test_SHAnsiToAnsi(void)
   char dest[8];
   DWORD dwRet;
 
+  pSHAnsiToAnsi = (void *)GetProcAddress(hShlwapi, (LPSTR)345);
   if (!pSHAnsiToAnsi)
-  {
-    win_skip("SHAnsiToAnsi() is not available\n");
     return;
-  }
 
   memset(dest, '\n', sizeof(dest));
   dwRet = pSHAnsiToAnsi("hello", dest, sizeof(dest)/sizeof(dest[0]));
   ok(dwRet == 6 && !memcmp(dest, "hello\0\n\n", sizeof(dest)),
-     "SHAnsiToAnsi: expected 6, \"hello\\0\\n\\n\", got %d, \"%d,%d,%d,%d,%d,%d,%d,%d\"\n",
+     "SHAnsiToAnsi: expected 6, \"hello\\0\\n\\n\", got %ld, \"%d,%d,%d,%d,%d,%d,%d,%d\"\n",
      dwRet, dest[0], dest[1], dest[2], dest[3], dest[4], dest[5], dest[6], dest[7]);
 }
 
@@ -787,140 +707,24 @@ static void test_SHUnicodeToUnicode(void)
   WCHAR dest[8];
   DWORD dwRet;
 
+  pSHUnicodeToUnicode = (void *)GetProcAddress(hShlwapi, (LPSTR)346);
   if (!pSHUnicodeToUnicode)
-  {
-    win_skip("SHUnicodeToUnicode() is not available\n");
     return;
-  }
 
   memcpy(dest, lpInit, sizeof(lpInit));
   dwRet = pSHUnicodeToUnicode(lpSrc, dest, sizeof(dest)/sizeof(dest[0]));
   ok(dwRet == 6 && !memcmp(dest, lpRes, sizeof(dest)),
-     "SHUnicodeToUnicode: expected 6, \"hello\\0\\n\\n\", got %d, \"%d,%d,%d,%d,%d,%d,%d,%d\"\n",
+     "SHUnicodeToUnicode: expected 6, \"hello\\0\\n\\n\", got %ld, \"%d,%d,%d,%d,%d,%d,%d,%d\"\n",
      dwRet, dest[0], dest[1], dest[2], dest[3], dest[4], dest[5], dest[6], dest[7]);
-}
-
-static void test_StrXXX_overflows(void)
-{
-    CHAR str1[2*MAX_PATH+1], buf[2*MAX_PATH];
-    WCHAR wstr1[2*MAX_PATH+1], wbuf[2*MAX_PATH];
-    const WCHAR fmt[] = {'%','s',0};
-    STRRET strret;
-    int ret;
-    int i;
-
-    for (i=0; i<2*MAX_PATH; i++)
-    {
-        str1[i] = '0'+(i%10);
-        wstr1[i] = '0'+(i%10);
-    }
-    str1[2*MAX_PATH] = 0;
-    wstr1[2*MAX_PATH] = 0;
-
-    memset(buf, 0xbf, sizeof(buf));
-    expect_eq(StrCpyNA(buf, str1, 10), buf, PCHAR, "%p");
-    expect_eq(buf[9], 0, CHAR, "%x");
-    expect_eq(buf[10], '\xbf', CHAR, "%x");
-
-    if (pStrCatBuffA)
-    {
-        expect_eq(pStrCatBuffA(buf, str1, 100), buf, PCHAR, "%p");
-        expect_eq(buf[99], 0, CHAR, "%x");
-        expect_eq(buf[100], '\xbf', CHAR, "%x");
-    }
-    else
-        win_skip("StrCatBuffA() is not available\n");
-
-    memset(wbuf, 0xbf, sizeof(wbuf));
-    expect_eq(StrCpyNW(wbuf, wstr1, 10), wbuf, PWCHAR, "%p");
-    expect_eq(wbuf[9], 0, WCHAR, "%x");
-    expect_eq(wbuf[10], (WCHAR)0xbfbf, WCHAR, "%x");
-
-    if (pStrCatBuffW)
-    {
-        expect_eq(pStrCatBuffW(wbuf, wstr1, 100), wbuf, PWCHAR, "%p");
-        expect_eq(wbuf[99], 0, WCHAR, "%x");
-        expect_eq(wbuf[100], (WCHAR)0xbfbf, WCHAR, "%x");
-    }
-    else
-        win_skip("StrCatBuffW() is not available\n");
-
-    if (pStrRetToBufW)
-    {
-        memset(wbuf, 0xbf, sizeof(wbuf));
-        strret.uType = STRRET_WSTR;
-        U(strret).pOleStr = StrDupW(wstr1);
-        expect_eq2(pStrRetToBufW(&strret, NULL, wbuf, 10), S_OK, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER) /* Vista */, HRESULT, "%x");
-        expect_eq(wbuf[9], 0, WCHAR, "%x");
-        expect_eq(wbuf[10], (WCHAR)0xbfbf, WCHAR, "%x");
-    }
-    else
-        win_skip("StrRetToBufW() is not available\n");
-
-    if (pStrRetToBufA)
-    {
-        memset(buf, 0xbf, sizeof(buf));
-        strret.uType = STRRET_CSTR;
-        StrCpyN(U(strret).cStr, str1, MAX_PATH);
-        expect_eq2(pStrRetToBufA(&strret, NULL, buf, 10), S_OK, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER) /* Vista */, HRESULT, "%x");
-        expect_eq(buf[9], 0, CHAR, "%x");
-        expect_eq(buf[10], (CHAR)0xbf, CHAR, "%x");
-    }
-    else
-        win_skip("StrRetToBufA() is not available\n");
-
-    if (pwnsprintfA)
-    {
-        memset(buf, 0xbf, sizeof(buf));
-        ret = pwnsprintfA(buf, 10, "%s", str1);
-        ok(broken(ret == 9) || ret == -1 /* Vista */, "Unexpected wsnprintfA return %d, expected 9 or -1\n", ret);
-        expect_eq(buf[9], 0, CHAR, "%x");
-        expect_eq(buf[10], (CHAR)0xbf, CHAR, "%x");
-    }
-    else
-        win_skip("wnsprintfA() is not available\n");
-
-    if (pwnsprintfW)
-    {
-        memset(wbuf, 0xbf, sizeof(wbuf));
-        ret = pwnsprintfW(wbuf, 10, fmt, wstr1);
-        ok(broken(ret == 9) || ret == -1 /* Vista */, "Unexpected wsnprintfW return %d, expected 9 or -1\n", ret);
-        expect_eq(wbuf[9], 0, WCHAR, "%x");
-        expect_eq(wbuf[10], (WCHAR)0xbfbf, WCHAR, "%x");
-    }
-    else
-        win_skip("wnsprintfW() is not available\n");
 }
 
 START_TEST(string)
 {
-  HMODULE hShlwapi;
-  TCHAR thousandDelim[8];
-  TCHAR decimalDelim[8];
   CoInitialize(0);
 
-  GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_STHOUSAND, thousandDelim, 8);
-  GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, decimalDelim, 8);
-
   hShlwapi = GetModuleHandleA("shlwapi");
-  pIntlStrEqWorkerA = (void *)GetProcAddress(hShlwapi, "IntlStrEqWorkerA");
-  pIntlStrEqWorkerW = (void *)GetProcAddress(hShlwapi, "IntlStrEqWorkerW");
-  pSHAnsiToAnsi = (void *)GetProcAddress(hShlwapi, (LPSTR)345);
-  pSHUnicodeToUnicode = (void *)GetProcAddress(hShlwapi, (LPSTR)346);
-  pStrCatBuffA = (void *)GetProcAddress(hShlwapi, "StrCatBuffA");
-  pStrCatBuffW = (void *)GetProcAddress(hShlwapi, "StrCatBuffW");
-  pStrCpyNXA = (void *)GetProcAddress(hShlwapi, (LPSTR)399);
-  pStrCpyNXW = (void *)GetProcAddress(hShlwapi, (LPSTR)400);
-  pStrFormatByteSize64A = (void *)GetProcAddress(hShlwapi, "StrFormatByteSize64A");
-  pStrFormatKBSizeA = (void *)GetProcAddress(hShlwapi, "StrFormatKBSizeA");
-  pStrFormatKBSizeW = (void *)GetProcAddress(hShlwapi, "StrFormatKBSizeW");
-  pStrIsIntlEqualA = (void *)GetProcAddress(hShlwapi, "StrIsIntlEqualA");
-  pStrIsIntlEqualW = (void *)GetProcAddress(hShlwapi, "StrIsIntlEqualW");
-  pStrRetToBSTR = (void *)GetProcAddress(hShlwapi, "StrRetToBSTR");
-  pStrRetToBufA = (void *)GetProcAddress(hShlwapi, "StrRetToBufA");
-  pStrRetToBufW = (void *)GetProcAddress(hShlwapi, "StrRetToBufW");
-  pwnsprintfA = (void *)GetProcAddress(hShlwapi, "wnsprintfA");
-  pwnsprintfW = (void *)GetProcAddress(hShlwapi, "wnsprintfW");
+  if (!hShlwapi)
+     return;
 
   test_StrChrA();
   test_StrChrW();
@@ -934,29 +738,23 @@ START_TEST(string)
   test_StrToIntExA();
   test_StrToIntExW();
   test_StrDupA();
-  if (lstrcmp(thousandDelim, ",")==0 && lstrcmp(decimalDelim, ".")==0)
+  if (0)
   {
-    /* these tests are locale-dependent */
+    /* this test fails on locales which do not use '.' as a decimal separator */
     test_StrFormatByteSize64A();
+
+    /* this test fails on locales which do not use '.' as a decimal separator */
     test_StrFormatKBSizeA();
+
+    /* FIXME: Awaiting NLS fixes in kernel before these succeed */
     test_StrFormatKBSizeW();
   }
-
-  /* language-dependent test */
-  if (PRIMARYLANGID(GetUserDefaultLangID()) != LANG_ENGLISH)
-    trace("Skipping StrFromTimeInterval test for non English language\n");
-  else
-    test_StrFromTimeIntervalA();
-
+  test_StrFromTimeIntervalA();
   test_StrCmpA();
   test_StrCmpW();
   test_StrRetToBSTR();
   test_StrCpyNXA();
   test_StrCpyNXW();
-  test_StrRStrI();
   test_SHAnsiToAnsi();
   test_SHUnicodeToUnicode();
-  test_StrXXX_overflows();
-
-  CoUninitialize();
 }

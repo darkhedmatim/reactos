@@ -4,9 +4,6 @@
 #include <ntifs.h>
 #include <wdmguid.h>
 #include <stdio.h>
-#include <ntddk.h>
-
-#define TAG_PCI '0ICP'
 
 typedef struct _PCI_DEVICE
 {
@@ -96,7 +93,7 @@ typedef struct _FDO_DEVICE_EXTENSION
 /* Driver extension associated with PCI driver */
 typedef struct _PCI_DRIVER_EXTENSION
 {
-  //
+  // 
   LIST_ENTRY BusListHead;
   // Lock for namespace bus list
   KSPIN_LOCK BusListLock;
@@ -152,12 +149,6 @@ PciCreateDeviceLocationString(
   PUNICODE_STRING DeviceLocation,
   PPCI_DEVICE Device);
 
-NTSTATUS
-PciDuplicateUnicodeString(
-  IN ULONG Flags,
-  IN PCUNICODE_STRING SourceString,
-  OUT PUNICODE_STRING DestinationString);
-
 /* pdo.c */
 
 NTSTATUS
@@ -171,7 +162,7 @@ PdoPowerControl(
   PIRP Irp);
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath);

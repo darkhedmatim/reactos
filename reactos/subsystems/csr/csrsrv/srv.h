@@ -4,16 +4,16 @@
 /* PSDK/NDK Headers */
 #define NTOS_MODE_USER
 #include <stdio.h>
-#define WIN32_NO_STATUS
 #include <windows.h>
 #include <winnt.h>
 #include <ndk/ntndk.h>
+#include <helper.h>
 
 /* CSR Header */
 #include <csr/server.h>
 
 /* PSEH for SEH Support */
-#include <pseh/pseh2.h>
+#include <pseh/pseh.h>
 
 /* DEFINES *******************************************************************/
 
@@ -49,9 +49,6 @@
 #define SB_PORT_NAME        L"SbAbiPort"
 #define CSR_PORT_NAME       L"ApiPort"
 #define UNICODE_PATH_SEP    L"\\"
-
-#define ROUND_UP(n, align) ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
-#define ROUND_DOWN(n, align) (((ULONG)n) & ~((align) - 1l))
 
 /* DATA **********************************************************************/
 
@@ -123,10 +120,6 @@ CsrSbApiPortInitialize(VOID);
 BOOLEAN
 NTAPI
 CsrSbCreateSession(IN PSB_API_MESSAGE ApiMessage);
-
-BOOLEAN
-NTAPI
-CsrSbTerminateSession(IN PSB_API_MESSAGE ApiMessage);
 
 BOOLEAN
 NTAPI
@@ -347,11 +340,7 @@ CsrDestroyProcess(
     IN NTSTATUS ExitStatus
 );
 
-LONG
-NTAPI
-CsrUnhandledExceptionFilter(
-    IN PEXCEPTION_POINTERS ExceptionInfo
-);
+_SEH_FILTER(CsrUnhandledExceptionFilter);
 
 VOID
 NTAPI

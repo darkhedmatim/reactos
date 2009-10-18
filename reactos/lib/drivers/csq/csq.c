@@ -25,9 +25,7 @@
  */
 /* $Id$ */
 
-#include <ntdef.h>
-#undef DECLSPEC_IMPORT
-#define DECLSPEC_IMPORT
+#include <ntddk.h>
 #include <ntifs.h>
 
 

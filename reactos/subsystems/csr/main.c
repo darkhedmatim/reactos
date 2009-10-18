@@ -28,7 +28,6 @@
 
 /* INCLUDES ******************************************************************/
 
-#define WIN32_NO_STATUS
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
@@ -68,9 +67,6 @@ _main(int argc,
     KPRIORITY BasePriority = (8 + 1) + 4;
     NTSTATUS Status;
     ULONG Response;
-    UNREFERENCED_PARAMETER(envp);
-    UNREFERENCED_PARAMETER(DebugFlag);
-
 
     /* Set the Priority */
     NtSetInformationProcess(NtCurrentProcess(),
@@ -83,7 +79,7 @@ _main(int argc,
                                      ProcessUserModeIOPL,
                                      NULL,
                                      0);
-    if (!NT_SUCCESS(Status))
+    if (NT_SUCCESS(Status))
     {
         /* Raise a hard error */
         DPRINT1("CSRSS: Could not raise IOPL: %x\n", Status);

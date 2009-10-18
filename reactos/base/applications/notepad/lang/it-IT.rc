@@ -23,85 +23,83 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 
 ID_ACCEL ACCELERATORS
-BEGIN
+{
     "^A", CMD_SELECT_ALL
     "^C", CMD_COPY
     "^F", CMD_SEARCH
     "^G", CMD_GOTO
-    "H", CMD_REPLACE, VIRTKEY, CONTROL
-    "^N", CMD_NEW
+    "H", CMD_REPLACE, VIRTKEY, CONTROL 
     "^O", CMD_OPEN
-    "^P", CMD_PRINT
     "^S", CMD_SAVE
     "^V", CMD_PASTE
     "^X", CMD_CUT
     "^Z", CMD_UNDO
     VK_F3, CMD_SEARCH_NEXT, VIRTKEY
     VK_F5, CMD_TIME_DATE, VIRTKEY
-END
+}
 
 MAIN_MENU MENU
 BEGIN
-    POPUP "&File"
-    BEGIN
-        MENUITEM "&Nuovo\tCtrl+N",               CMD_NEW
-        MENUITEM "&Apri...\tCtrl+O",             CMD_OPEN
-        MENUITEM "&Salva\tCtrl+S",               CMD_SAVE
-        MENUITEM "Sal&va con nome...",           CMD_SAVE_AS
-        MENUITEM SEPARATOR
-        MENUITEM "S&tampa\tCtrl+P",              CMD_PRINT
-        MENUITEM "I&mposta pagina...",           CMD_PAGE_SETUP
-        MENUITEM "&Configurazione stampante...", CMD_PRINTER_SETUP
-        MENUITEM SEPARATOR
-        MENUITEM "&Esci",                        CMD_EXIT
-    END
-    POPUP "&Modifica"
-    BEGIN
-        MENUITEM "&Annulla\tCtrl+Z",         CMD_UNDO
-        MENUITEM SEPARATOR
-        MENUITEM "&Taglia\tCtrl+X",          CMD_CUT
-        MENUITEM "&Copia\tCtrl+C",           CMD_COPY
-        MENUITEM "I&ncolla\tCtrl+V",         CMD_PASTE
-        MENUITEM "E&limina\tDel",            CMD_DELETE
-        MENUITEM SEPARATOR
-        MENUITEM "Tr&ova\tCtrl+F",           CMD_SEARCH
-        MENUITEM "T&rova successivo\tF3",    CMD_SEARCH_NEXT
-        MENUITEM "Sostituisci\tCtrl+H",      CMD_REPLACE
-        MENUITEM "Vai a...\tCtrl+G",         CMD_GOTO
-        MENUITEM SEPARATOR
-        MENUITEM "Sele&ziona tutto\tCtrl+A", CMD_SELECT_ALL
-        MENUITEM "Ora/&Data\tF5",            CMD_TIME_DATE
-    END
-    POPUP "F&ormato"
-    BEGIN
-        MENUITEM "&A capo automatico",    CMD_WRAP
-        MENUITEM "&Imposta carattere...", CMD_FONT
-    END
-    POPUP "&Visualizza"
-    BEGIN
-        MENUITEM "&Barra di stato", CMD_STATUSBAR
-    END
-    POPUP "&?"
-    BEGIN
-        MENUITEM "&Guida in linea",             CMD_HELP_CONTENTS
-        MENUITEM "&Trova...",                   CMD_HELP_SEARCH
-        MENUITEM "&Aiuto sulla Guida",          CMD_HELP_ON_HELP
-        MENUITEM SEPARATOR
-        MENUITEM "Informazioni &su blocco note" CMD_ABOUT
-        MENUITEM "Inf&o...",                    CMD_ABOUT_WINE
-    END
+	POPUP "&File" 
+	BEGIN
+		MENUITEM "&Nuovo",           CMD_NEW
+		MENUITEM "&Apri...\tCtrl+O",     CMD_OPEN
+		MENUITEM "&Salva\tCtrl+S",     CMD_SAVE
+		MENUITEM "Sal&va con nome...",       CMD_SAVE_AS
+		MENUITEM SEPARATOR
+		MENUITEM "S&tampa",            CMD_PRINT
+		MENUITEM "I&mposta pagina...",    CMD_PAGE_SETUP
+		MENUITEM "&Configurazione stampante...", CMD_PRINTER_SETUP
+		MENUITEM SEPARATOR
+		MENUITEM "&Esci",             CMD_EXIT
+	END
+	POPUP "&Modifica" 
+	BEGIN
+		MENUITEM "&Annulla\tCtrl+Z",      CMD_UNDO
+		MENUITEM SEPARATOR
+		MENUITEM "&Taglia\tCtrl+X",       CMD_CUT
+		MENUITEM "&Copia\tCtrl+C",        CMD_COPY
+		MENUITEM "I&ncolla\tCtrl+V",      CMD_PASTE
+		MENUITEM "E&limina\tDel",         CMD_DELETE
+		MENUITEM SEPARATOR
+		MENUITEM "Tr&ova\tCtrl+F",   	  CMD_SEARCH
+		MENUITEM "T&rova successivo\tF3", CMD_SEARCH_NEXT
+		MENUITEM "Sostituisci\tCtrl+H",   CMD_REPLACE
+		MENUITEM "Vai a...\tCtrl+G",      CMD_GOTO
+		MENUITEM SEPARATOR
+		MENUITEM "Sele&ziona tutto\tCtrl+A",       CMD_SELECT_ALL
+		MENUITEM "Ora/&Data\tF5",    CMD_TIME_DATE
+	END
+	POPUP "F&ormato"
+	BEGIN
+		MENUITEM "&A capo automatico",    CMD_WRAP
+		MENUITEM "&Imposta carattere...", CMD_FONT
+	END
+	POPUP "&Visualizza"
+	BEGIN
+		MENUITEM "&Barra di stato",    CMD_STATUSBAR
+	END
+	POPUP "&?" 
+	BEGIN
+		MENUITEM "&Guida in linea",         CMD_HELP_CONTENTS
+		MENUITEM "&Trova...",        CMD_HELP_SEARCH
+		MENUITEM "&Aiuto sulla Guida",     CMD_HELP_ON_HELP
+		MENUITEM SEPARATOR
+		MENUITEM "Informazioni &su blocco note"             CMD_ABOUT
+		MENUITEM "Inf&o...",      CMD_ABOUT_WINE
+	END
 END
 
 /* Dialog `Page setup' */
 
-DIALOG_PAGESETUP DIALOGEX 0, 0, 225, 95
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+DIALOG_PAGESETUP DIALOG 0, 0, 225, 95
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Imposta pagina"
-BEGIN
+{
 LTEXT    "&Intestazione:",  0x140,   10, 07, 40, 15
 EDITTEXT                         0x141,       60, 05,110, 12, WS_BORDER | WS_TABSTOP
 LTEXT    "&Piè di pagina:",  0x142,   10, 24, 40, 15
@@ -120,35 +118,35 @@ EDITTEXT /*STRING_PAGESETUP_BOTTOMVALUE,*/ 0x150,    130, 73, 35, 11, WS_CHILD |
 DEFPUSHBUTTON "OK",         IDOK,                   180,  3, 40, 15, WS_TABSTOP
 PUSHBUTTON    "Annulla",     IDCANCEL,               180, 21, 40, 15, WS_TABSTOP
 PUSHBUTTON    "&Aiuto",       IDHELP,                180, 39, 40, 15, WS_TABSTOP
-END
+}
 
 /* Dialog `Encoding' */
-DIALOG_ENCODING DIALOGEX 0, 0, 256, 44
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
+DIALOG_ENCODING DIALOG 0, 0, 256, 44
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS | 
     WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Codifica"
-BEGIN
+{
 COMBOBOX        ID_ENCODING,54,0,156,80,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
 LTEXT           "Codifica:",0x155,5,2,41,12
 COMBOBOX        ID_EOLN,54,18,156,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 LTEXT           "Fine linea:",0x156,5,20,41,12
-END
+}
 
 /* Dialog 'Go To' */
-DIALOG_GOTO DIALOGEX 0,0,165,50
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+DIALOG_GOTO DIALOG 0,0,165,50
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Vai a riga"
-BEGIN
+{
 EDITTEXT        ID_LINENUMBER,54,10,106,12,WS_CHILD | WS_BORDER | WS_TABSTOP
 LTEXT           "Numero di riga:",0x155,5,12,41,12,WS_CHILD | WS_TABSTOP | ES_NUMBER
 DEFPUSHBUTTON   "OK", IDOK, 75, 30, 40, 15, WS_CHILD | WS_TABSTOP
 PUSHBUTTON      "Annulla", IDCANCEL, 120, 30, 40, 15, WS_CHILD | WS_TABSTOP
-END
+}
 
-IDD_ABOUTBOX DIALOGEX DISCARDABLE  22,16,284,170
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+IDD_ABOUTBOX DIALOG DISCARDABLE  22,16,284,170
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 CAPTION "Informazioni su blocco note ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -168,7 +166,7 @@ BEGIN
 END
 
 STRINGTABLE DISCARDABLE
-BEGIN
+{
 STRING_PAGESETUP_HEADERVALUE,   "&n"        /* FIXME */
 STRING_PAGESETUP_FOOTERVALUE,   "Pagina &s"   /* FIXME */
 STRING_PAGESETUP_LEFTVALUE,             "20 mm"     /* FIXME */
@@ -206,5 +204,4 @@ STRING_UTF8,                                    "UTF-8"
 STRING_CRLF,                                    "Windows"
 STRING_LF,                                      "Unix"
 STRING_CR,                                      "Mac"
-STRING_LINE_COLUMN,                             "Linea %d, colonna %d"
-END
+}

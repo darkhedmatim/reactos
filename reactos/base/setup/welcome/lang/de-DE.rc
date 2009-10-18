@@ -4,12 +4,12 @@
  * German (Austria) resources by Klemens Friedl (frik85 at hotmail dot com)
  */
 
-LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 
 /* String Tables */
 
 /* Default settings */
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_APPTITLE            "ReactOS - Willkommen"
     IDS_DEFAULTTOPICTITLE   "ReactOS"

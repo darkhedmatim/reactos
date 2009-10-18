@@ -1,3 +1,4 @@
+/* $Id: sse_normal.S,v 1.5 2005/01/04 14:33:47 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -31,7 +32,6 @@
   */
 
 #ifdef USE_SSE_ASM
-#include "assyntax.h"
 #include "matypes.h"
 #include "norm_args.h"
 
@@ -254,8 +254,4 @@ LLBL(K_G3TNNRR_finish):
 	POP_L	( ESI )
 	RET
 #undef FRAME_OFFSET
-#endif
-	
-#if defined (__ELF__) && defined (__linux__)
-	.section .note.GNU-stack,"",%progbits
 #endif

@@ -23,6 +23,10 @@
 #ifndef __USBIOCTL_H
 #define __USBIOCTL_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "usb100.h"
 #include "usbiodef.h"
 
@@ -233,7 +237,7 @@ typedef enum _USB_HUB_NODE {
 	UsbMIParent
 } USB_HUB_NODE;
 
-typedef VOID NTAPI
+typedef VOID STDCALL
 (*USB_IDLE_CALLBACK)(
   PVOID  Context);
 

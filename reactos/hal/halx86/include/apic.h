@@ -5,11 +5,7 @@
 #ifndef __INTERNAL_HAL_APIC_H
 #define __INTERNAL_HAL_APIC_H
 
-#ifdef _M_AMD64
-#define APIC_DEFAULT_BASE     0xfffffffffee00000ULL;
-#else
 #define APIC_DEFAULT_BASE     0xFEE00000    /* Default Local APIC Base Register Address */
-#endif
 
 /* APIC Register Address Map */
 #define APIC_ID      0x0020 /* Local APIC ID Register (R/W) */
@@ -97,10 +93,34 @@
 
 #define APIC_LVT_VECTOR   		  (0xFF << 0)   /* Vector */
 #define APIC_LVT_DS       		  (0x1 << 12)   /* Delivery Status */
-#define APIC_LVT_REMOTE_IRR		  (0x1 << 14)	/* Remote IRR */
-#define APIC_LVT_LEVEL_TRIGGER		  (0x1 << 15)	/* Lvel Triggered */
-#define APIC_LVT_MASKED			  (0x1 << 16)   /* Mask */
-#define APIC_LVT_PERIODIC		  (0x1 << 17)   /* Timer Mode */
+#define APIC_LVT_REMOTE_IRR		  (0x1 << 14)		/* Remote IRR */
+#define APIC_LVT_LEVEL_TRIGGER	(0x1 << 15)		/* Lvel Triggered */
+#define APIC_LVT_MASKED   	    (0x1 << 16)   /* Mask */
+#define APIC_LVT_PERIODIC 	  	(0x1 << 17)   /* Timer Mode */
+
+#define APIC_LVT3_DM        (0x7 << 8)
+#define APIC_LVT3_IIPP      (0x1 << 13)
+#define APIC_LVT3_TM        (0x1 << 15)
+#define APIC_LVT3_MASKED    (0x1 << 16)
+#define APIC_LVT3_OS        (0x1 << 17)
+
+#define APIC_TDCR_TMBASE   (0x1 << 2)
+#define APIC_TDCR_MASK     0x0F
+#define APIC_TDCR_2        0x00
+#define APIC_TDCR_4        0x01
+#define APIC_TDCR_8        0x02
+#define APIC_TDCR_16       0x03
+#define APIC_TDCR_32       0x08
+#define APIC_TDCR_64       0x09
+#define APIC_TDCR_128      0x0A
+#define APIC_TDCR_1        0x0B
+
+#define APIC_LVT_VECTOR   		  (0xFF << 0)   /* Vector */
+#define APIC_LVT_DS       		  (0x1 << 12)   /* Delivery Status */
+#define APIC_LVT_REMOTE_IRR		  (0x1 << 14)		/* Remote IRR */
+#define APIC_LVT_LEVEL_TRIGGER	(0x1 << 15)		/* Lvel Triggered */
+#define APIC_LVT_MASKED   	    (0x1 << 16)   /* Mask */
+#define APIC_LVT_PERIODIC 	  	(0x1 << 17)   /* Timer Mode */
 
 #define APIC_LVT3_DM        (0x7 << 8)
 #define APIC_LVT3_IIPP      (0x1 << 13)
@@ -165,92 +185,30 @@ typedef struct _CPU_INFO
 } CPU_INFO, *PCPU_INFO;
 
 extern ULONG CPUCount;			/* Total number of CPUs */
-extern ULONG BootCPU;			/* Bootstrap processor */
+extern ULONG BootCPU;					/* Bootstrap processor */
 extern ULONG OnlineCPUs;		/* Bitmask of online CPUs */
 extern CPU_INFO CPUMap[MAX_CPU];	/* Map of all CPUs in the system */
-extern PULONG APICBase;			/* Virtual address of local APIC */
-extern ULONG lastregr[MAX_CPU];		/* For debugging */
-extern ULONG lastvalr[MAX_CPU];
-extern ULONG lastregw[MAX_CPU];
-extern ULONG lastvalw[MAX_CPU];
 
 /* Prototypes */
-VOID APICSendIPI(ULONG Target, ULONG Mode);
+
+__inline VOID APICWrite(ULONG Offset, ULONG Value);
+__inline ULONG APICRead(ULONG Offset);
+VOID APICSendIPI(ULONG Target, ULONG Mode); 
 VOID APICSetup(VOID);
 VOID HaliInitBSP(VOID);
 VOID APICSyncArbIDs(VOID);
+__inline VOID APICSendEOI(VOID);
 VOID APICCalibrateTimer(ULONG CPU);
 VOID HaliStartApplicationProcessor(ULONG Cpu, ULONG Stack);
-
-static __inline ULONG _APICRead(ULONG Offset)
-{
-    PULONG p;
-
-    p = (PULONG)((ULONG_PTR)APICBase + Offset);
-    return *p;
-}
-
-#if 0
-static __inline VOID APICWrite(ULONG Offset,
-                               ULONG Value)
-{
-    PULONG p;
-
-    p = (PULONG)((ULONG_PTR)APICBase + Offset);
-
-    *p = Value;
-}
-#else
-static __inline VOID APICWrite(ULONG Offset,
-                               ULONG Value)
-{
-    PULONG p;
-    ULONG CPU = (_APICRead(APIC_ID) & APIC_ID_MASK) >> 24;
-
-    lastregw[CPU] = Offset;
-    lastvalw[CPU] = Value;
-
-    p = (PULONG)((ULONG_PTR)APICBase + Offset);
-
-    *p = Value;
-}
-#endif
-
-#if 0 
-static __inline ULONG APICRead(ULONG Offset)
-{
-    PULONG p;
-
-    p = (PULONG)((ULONG_PTR)APICBase + Offset);
-    return *p;
-}
-#else
-static __inline ULONG APICRead(ULONG Offset)
-{
-    PULONG p;
-    ULONG CPU = (_APICRead(APIC_ID) & APIC_ID_MASK) >> 24;
-
-    lastregr[CPU] = Offset;
-    lastvalr[CPU] = 0;
-
-    p = (PULONG)((ULONG_PTR)APICBase + Offset);
-
-    lastvalr[CPU] = *p;
-    return lastvalr[CPU];
-}
-#endif
 
 static __inline ULONG ThisCPU(VOID)
 {
     return (APICRead(APIC_ID) & APIC_ID_MASK) >> 24;
 }
 
-static __inline VOID APICSendEOI(VOID)
-{
-    // Send the EOI
-    APICWrite(APIC_EOI, 0);
-}
 
-#endif /* __INTERNAL_HAL_APIC_H */
+#endif
+
 
 /* EOF */
+

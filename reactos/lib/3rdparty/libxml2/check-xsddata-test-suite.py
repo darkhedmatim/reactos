@@ -16,7 +16,7 @@ quiet = 1
 #
 # the testsuite description
 #
-CONF=os.path.join(os.path.dirname(__file__), "test/xsdtest/xsdtestsuite.xml")
+CONF="test/xsdtest/xsdtestsuite.xml"
 LOG="check-xsddata-test-suite.log"
 
 log = open(LOG, "w")

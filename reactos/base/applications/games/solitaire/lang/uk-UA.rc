@@ -1,70 +1,91 @@
 /*
  * PROJECT:     Solitaire
  * LICENSE:     Freeware, permission to use under Public Domain
- * FILE:        base/applications/games/solitaire/lang/uk-UA.rc
+ * FILE:        base/applications/games/solitaire/uk.rc
  * PURPOSE:     Ukraianian Language File for Solitaire
  * TRANSLATOR:  Artem Reznikov
  */
 #include "resource.h"
 
+#define APSTUDIO_READONLY_SYMBOLS
+
+/* winemaker: #include "afxres.h" */
+/* winemaker:warning: 'afxres.h' is an MFC specific header. Replacing it with 'winres.h' */
+#include "winres.h"
+
+/////
+
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////
+// Ukraianian resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
+#ifdef _WIN32
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
+#pragma code_page(1251)
+#endif //_WIN32
 
+/////
+// Dialog
 
-/* Dialogs */
-
-IDD_OPTIONS DIALOGEX DISCARDABLE 0, 0, 186, 118
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_SHELLFONT
-CAPTION "Параметри"
+IDD_DIALOG1 DIALOGEX DISCARDABLE  0, 0, 186, 95
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
 FONT 8, "MS Shell Dlg"
+EXSTYLE DS_SHELLFONT
 BEGIN
-    GROUPBOX        "Карти", -1, 7, 7, 65, 40
-    AUTORADIOBUTTON "&По одній", IDC_OPT_DRAWONE, 14, 19, 52, 10, WS_GROUP | WS_TABSTOP
-    AUTORADIOBUTTON "П&о три", IDC_OPT_DRAWTHREE, 14, 32, 52, 10
-
-    AUTOCHECKBOX    "&Гра за часом", IDC_OPT_SHOWTIME, 7 ,51 ,65 ,10, WS_TABSTOP | WS_DISABLED
-    AUTOCHECKBOX    "&Рядок стану", IDC_OPT_STATUSBAR, 7, 66, 64, 10, WS_TABSTOP
-
-    DEFPUSHBUTTON   "OK", IDOK, 35, 97, 50, 14
-    PUSHBUTTON      "Скасувати", IDCANCEL, 101, 97, 50, 14
-END
-
-IDD_CARDBACK DIALOGEX 6, 6, 186, 104
-CAPTION "Вибрати сорочку"
-FONT 8, "MS Shell Dlg"
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_SHELLFONT
-BEGIN
-    CONTROL       "", IDC_CARDBACK1, "Static", SS_NOTIFY, 4, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK2, "Static", SS_NOTIFY, 34, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK3, "Static", SS_NOTIFY, 64, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK4, "Static", SS_NOTIFY, 94, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK5, "Static", SS_NOTIFY, 124, 7, 26, 32
-    CONTROL       "", IDC_CARDBACK6, "Static", SS_NOTIFY, 154, 7, 26, 32 
-    CONTROL       "", IDC_CARDBACK7, "Static", SS_NOTIFY, 4, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK8, "Static", SS_NOTIFY, 34, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK9, "Static", SS_NOTIFY, 64, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK10, "Static", SS_NOTIFY, 94, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK11, "Static", SS_NOTIFY, 124, 46, 26, 32
-    CONTROL       "", IDC_CARDBACK12, "Static", SS_NOTIFY, 154, 46, 26, 32
-    DEFPUSHBUTTON "OK", IDOK, 66, 84, 54, 13
-    PUSHBUTTON    "Скасувати", IDCANCEL, 126, 84, 54, 13
+    DEFPUSHBUTTON   "OK",IDOK,129,7,50,14
+    PUSHBUTTON      "Скасувати",IDCANCEL,129,24,50,14
 END
 
 
-/* Strings */
+/////
+// DESIGNINFO
 
-STRINGTABLE
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
 BEGIN
-    IDS_SOL_NAME    "Косинка"
-    IDS_SOL_ABOUT   "Косинка від J Brown\n\nCardLib версії 1.0."
-    IDS_SOL_QUIT    "Вийти з поточної гри?"
-    IDS_SOL_WIN     "Вітання, Ви виграли!!"
-    IDS_SOL_DEAL    "Deal again?"
+    IDD_DIALOG1, DIALOGEX
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 88
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+#ifdef APSTUDIO_INVOKED
+
+/////
+// TEXTINCLUDE
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
 END
 
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""winres.h""\r\n"
+    "\0"
+END
 
-/* Menus */
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
 
-IDR_MENU1 MENU DISCARDABLE
+#endif    // APSTUDIO_INVOKED
+
+
+/////
+// Menu
+
+IDR_MENU1 MENU DISCARDABLE 
 BEGIN
     POPUP "&Гра"
     BEGIN
@@ -82,11 +103,26 @@ BEGIN
     END
 END
 
+/////
+// Accelerator
 
-/* Accelerators */
-
-IDR_ACCELERATOR1 ACCELERATORS DISCARDABLE
+IDR_ACCELERATOR1 ACCELERATORS DISCARDABLE 
 BEGIN
     VK_F1,          IDM_HELP_CONTENTS,      VIRTKEY, NOINVERT
     VK_F2,          IDM_GAME_NEW,           VIRTKEY, NOINVERT
 END
+
+
+/////
+// Icon
+
+IDI_ICON1               ICON    DISCARDABLE     "solitaire.ico"
+#endif    // Ukraianian resources
+
+/////
+
+
+#ifndef APSTUDIO_INVOKED
+
+/////
+#endif    // not APSTUDIO_INVOKED

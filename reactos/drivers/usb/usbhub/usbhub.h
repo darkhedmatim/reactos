@@ -6,7 +6,7 @@
 #include "../miniport/usb_wrapper.h"
 #include "../usbport/hub.h"
 
-#define USB_HUB_TAG 'hbsu'
+#define USB_HUB_TAG TAG('u','s','b','h')
 
 typedef struct _HUB_DEVICE_EXTENSION
 {
@@ -15,7 +15,7 @@ typedef struct _HUB_DEVICE_EXTENSION
 	PDEVICE_OBJECT LowerDevice;
 
 	PDEVICE_OBJECT Children[USB_MAXCHILDREN];
-
+	
 	/* Fields valid only when IsFDO == FALSE */
 	UNICODE_STRING DeviceId;          // REG_SZ
 	UNICODE_STRING InstanceId;        // REG_SZ
@@ -25,23 +25,23 @@ typedef struct _HUB_DEVICE_EXTENSION
 } HUB_DEVICE_EXTENSION, *PHUB_DEVICE_EXTENSION;
 
 /* createclose.c */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubCreate(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubClose(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubCleanup(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
 /* fdo.c */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubPnpFdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
@@ -57,7 +57,7 @@ ForwardIrpAndWait(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ForwardIrpAndForget(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);
@@ -74,7 +74,7 @@ UsbhubInitMultiSzString(
 	... /* list of PCSZ */);
 
 /* pdo.c */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 UsbhubPnpPdo(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp);

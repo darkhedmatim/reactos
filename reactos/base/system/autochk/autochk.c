@@ -9,15 +9,15 @@
 
 /* INCLUDES *****************************************************************/
 
+//#define NDEBUG
+#include <debug.h>
+
 #include <stdio.h>
 #define WIN32_NO_STATUS
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 #include <fmifs/fmifs.h>
-
-#define NDEBUG
-#include <debug.h>
 
 /* DEFINES ******************************************************************/
 
@@ -73,7 +73,7 @@ OpenDirectory(
     InitializeObjectAttributes(
         &ObjectAttributes,
         &NtPathU,
-        OBJ_CASE_INSENSITIVE,
+        Write ? FILE_WRITE_ATTRIBUTES : FILE_READ_ATTRIBUTES,
         NULL,
         NULL);
 
@@ -144,10 +144,10 @@ GetFileSystem(
 }
 
 // This is based on SysInternal's ChkDsk app
-static BOOLEAN NTAPI
+static BOOLEAN CALLBACK
 ChkdskCallback(
     IN CALLBACKCOMMAND Command,
-    IN ULONG Modifier,
+    IN DWORD Modifier,
     IN PVOID Argument)
 {
     PDWORD      Percent;
@@ -243,24 +243,16 @@ static PVOID
 LoadProvider(
     IN PWCHAR FileSystem)
 {
-    UNICODE_STRING ProviderDll;
+    UNICODE_STRING ProviderDll = RTL_CONSTANT_STRING(L"ufat.dll");
     PVOID BaseAddress;
     NTSTATUS Status;
 
     /* FIXME: add more providers here */
 
-    if (wcscmp(FileSystem, L"NTFS") == 0)
+    if (wcscmp(FileSystem, L"FAT") != 0
+     && wcscmp(FileSystem, L"FAT32") != 0)
     {
-      RtlInitUnicodeString(&ProviderDll, L"untfs.dll");
-    }
-    else if (wcscmp(FileSystem, L"FAT") == 0
-             || wcscmp(FileSystem, L"FAT32") == 0)
-    {
-      RtlInitUnicodeString(&ProviderDll, L"ufat.dll");
-    }
-    else
-    {
-      return NULL;
+        return NULL;
     }
 
     Status = LdrLoadDll(NULL, NULL, &ProviderDll, &BaseAddress);
@@ -277,7 +269,6 @@ CheckVolume(
     ANSI_STRING ChkdskFunctionName = RTL_CONSTANT_STRING("ChkdskEx");
     PVOID Provider;
     CHKDSKEX ChkdskFunc;
-    WCHAR NtDrivePath[64];
     UNICODE_STRING DrivePathU;
     NTSTATUS Status;
 
@@ -294,7 +285,7 @@ CheckVolume(
 
     /* Load the provider which will do the chkdsk */
     Provider = LoadProvider(FileSystem);
-    if (Provider == NULL)
+    if (!NT_SUCCESS(Status))
     {
         DPRINT1("LoadProvider() failed\n");
         PrintString("  Unable to verify a %S volume\n", FileSystem);
@@ -316,11 +307,7 @@ CheckVolume(
 
     /* Call provider */
     //PrintString("  Verifying volume %S\n", DrivePath);
-    swprintf(NtDrivePath, L"\\??\\");
-    wcscat(NtDrivePath, DrivePath);
-    NtDrivePath[wcslen(NtDrivePath)-1] = 0;
-    RtlInitUnicodeString(&DrivePathU, NtDrivePath);
-
+    RtlInitUnicodeString(&DrivePathU, DrivePath);
     Status = ChkdskFunc(&DrivePathU,
                         TRUE, // FixErrors
                         TRUE, // Verbose

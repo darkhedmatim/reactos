@@ -41,7 +41,7 @@ static HRESULT WINAPI OBJSEL_IClassFactory_QueryInterface(
     if (IsEqualGUID(riid, &IID_IUnknown) ||
 	IsEqualGUID(riid, &IID_IClassFactory))
     {
-        *ppvObj = iface;
+	*ppvObj = (LPVOID)iface;
 	IClassFactory_AddRef(iface);
 	return S_OK;
     }

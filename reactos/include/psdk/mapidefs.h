@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef MAPIDEFS_H
@@ -24,8 +24,9 @@
 #endif
 
 #include <winerror.h>
+#ifndef _OBJBASE_H_
 #include <objbase.h>
-#include <stddef.h>
+#endif
 
 /* Some types from other headers */
 #ifndef __LHANDLE
@@ -218,7 +219,7 @@ typedef struct _MAPIUID
 #define MVI_FLAG    (MV_FLAG|MV_INSTANCE)
 #define MVI_PROP(t) ((t)|MVI_FLAG)
 
-#ifndef WINE_NO_UNICODE_MACROS
+#ifndef __WINESRC__
 # ifdef UNICODE
 # define PT_TSTRING      PT_UNICODE
 # define PT_MV_TSTRING   (MV_FLAG|PT_UNICODE)
@@ -434,7 +435,7 @@ typedef struct _SRowSet
 typedef struct _SPropProblem
 {
     ULONG ulIndex;   /* Index of the property */
-    ULONG ulPropTag; /* Property tag of the property */
+    ULONG ulPropTag; /* Proprty tag of the property */
     SCODE scode;     /* Error code of the problem */
 } SPropProblem, *LPSPropProblem;
 

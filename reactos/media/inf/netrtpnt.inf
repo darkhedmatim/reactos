@@ -18,17 +18,17 @@ DefaultDestDir = 12
 %RealtekMfg% = RealtekMfg
 
 [RealtekMfg]
-%PCI\VEN_10EC&DEV_8029.DeviceDesc% = NE2000_Inst.ndi,PCI\VEN_10EC&DEV_8029
+%PCI\VEN_10EC&DEV_8029.DeviceDesc% = NE2000_Inst,PCI\VEN_10EC&DEV_8029
 
 ;---------------------------- NE2000 DRIVER -----------------------------
 
-[NE2000_Inst.ndi.NT]
-Characteristics = 0x4 ; NCF_PHYSICAL
-BusType = 5 ; PCIBus
+[NE2000_Inst.NT]
 AddReg = NE2000_AddReg.NT
 CopyFiles = NE2000_CopyFiles.NT
 
 [NE2000_AddReg.NT]
+HKR,,Characteristics,0x00010001,0x00000004 ; NCF_PHYSICAL
+HKR,,BusType,0x00000000,"5"
 HKR,,Port,0x00000000,"c100"
 HKR,,Irq,0x00000000,"B"
 HKR,,NetworkAddress,0x00000000,"001122334455"
@@ -36,7 +36,7 @@ HKR,,NetworkAddress,0x00000000,"001122334455"
 [NE2000_CopyFiles.NT]
 ne2000.sys
 
-[NE2000_Inst.ndi.NT.Services]
+[NE2000_Inst.NT.Services]
 AddService = ne2000, 0x00000002, ne2000_Service_Inst
 
 [ne2000_Service_Inst]

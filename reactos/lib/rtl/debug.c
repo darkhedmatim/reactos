@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Run-Time Library
- * FILE:            lib/rtl/debug.c
+ * FILE:            ntoskrnl/rtl/dbgprint.c
  * PURPOSE:         Debug Print and Prompt routines
  * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
  *                  Royce Mitchel III
@@ -57,12 +57,13 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
     NTSTATUS Status;
     ANSI_STRING DebugString;
     CHAR Buffer[512];
-    ULONG Length, PrefixLength;
+    PCHAR pBuffer = Buffer;
+    ULONG pBufferSize = sizeof(Buffer);
+    ULONG Length;
     EXCEPTION_RECORD ExceptionRecord;
 
     /* Check if we should print it or not */
-    if ((ComponentId != MAXULONG) &&
-        !(NtQueryDebugFilterState(ComponentId, Level)))
+    if (ComponentId != -1 && !NtQueryDebugFilterState(ComponentId, Level))
     {
         /* This message is masked */
         return STATUS_SUCCESS;
@@ -71,32 +72,36 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
     /* For user mode, don't recursively DbgPrint */
     if (RtlpSetInDbgPrint(TRUE)) return STATUS_SUCCESS;
 
-    /* Guard against incorrect pointers */
-    _SEH2_TRY
+    /* Initialize the length to 8 */
+    DebugString.Length = 0;
+
+    /* Handle the prefix */
+    if (Prefix && *Prefix)
     {
-        /* Get the length and normalize it */
-        PrefixLength = strlen(Prefix);
-        if (PrefixLength > sizeof(Buffer)) PrefixLength = sizeof(Buffer);
+        /* Get the length */
+        DebugString.Length = strlen(Prefix);
+
+        /* Normalize it */
+        if(DebugString.Length > sizeof(Buffer))
+        {
+            DebugString.Length = sizeof(Buffer);
+        }
 
         /* Copy it */
-        strncpy(Buffer, Prefix, PrefixLength);
+        strncpy(Buffer, Prefix, DebugString.Length);
 
-        /* Do the printf */
-        Length = _vsnprintf(Buffer + PrefixLength,
-                            sizeof(Buffer) - PrefixLength,
-                            Format,
-                            ap);
+        /* Set the pointer and update the size */
+        pBuffer = &Buffer[DebugString.Length];
+        pBufferSize -= DebugString.Length;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        /* Fail */
-        Length = PrefixLength = 0;
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
+
+    /* Setup the ANSI String */
+    DebugString.Buffer = Buffer;
+    DebugString.MaximumLength = sizeof(Buffer);
+    Length = _vsnprintf(pBuffer, pBufferSize, Format, ap);
 
     /* Check if we went past the buffer */
-    if (Length == MAXULONG)
+    if (Length == -1)
     {
         /* Terminate it if we went over-board */
         Buffer[sizeof(Buffer) - 1] = '\n';
@@ -104,15 +109,9 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
         /* Put maximum */
         Length = sizeof(Buffer);
     }
-    else
-    {
-        /* Add the prefix */
-        Length += PrefixLength;
-    }
 
-    /* Build the string */
-    DebugString.Length = Length;
-    DebugString.Buffer = Buffer;
+    /* Update length */
+    DebugString.Length += (USHORT)Length;
 
     /* First, let the debugger know as well */
     if (RtlpCheckForActiveDebugger(FALSE))
@@ -186,7 +185,7 @@ vDbgPrintEx(IN ULONG ComponentId,
             IN va_list ap)
 {
     /* Call the internal routine that also handles ControlC */
-    return vDbgPrintExWithPrefixInternal("",
+    return vDbgPrintExWithPrefixInternal(NULL,
                                          ComponentId,
                                          Level,
                                          Format,
@@ -202,19 +201,17 @@ __cdecl
 DbgPrint(PCCH Format,
          ...)
 {
-    ULONG n;
     va_list ap;
 
     /* Call the internal routine that also handles ControlC */
     va_start(ap, Format);
-    n = vDbgPrintExWithPrefixInternal("",
-                                      -1,
-                                      DPFLTR_ERROR_LEVEL,
-                                      Format,
-                                      ap,
-                                      TRUE);
+    return vDbgPrintExWithPrefixInternal(NULL,
+                                         -1,
+                                         DPFLTR_ERROR_LEVEL,
+                                         Format,
+                                         ap,
+                                         TRUE);
     va_end(ap);
-    return n;
 }
 
 /*
@@ -227,19 +224,17 @@ DbgPrintEx(IN ULONG ComponentId,
            IN PCCH Format,
            ...)
 {
-    ULONG n;
     va_list ap;
 
     /* Call the internal routine that also handles ControlC */
     va_start(ap, Format);
-    n = vDbgPrintExWithPrefixInternal("",
-                                      ComponentId,
-                                      Level,
-                                      Format,
-                                      ap,
-                                      TRUE);
+    return vDbgPrintExWithPrefixInternal(NULL,
+                                         ComponentId,
+                                         Level,
+                                         Format,
+                                         ap,
+                                         TRUE);
     va_end(ap);
-    return n;
 }
 
 /*
@@ -250,19 +245,16 @@ __cdecl
 DbgPrintReturnControlC(PCH Format,
                        ...)
 {
-    ULONG n;
     va_list ap;
 
     /* Call the internal routine that also handles ControlC */
     va_start(ap, Format);
-    n = vDbgPrintExWithPrefixInternal("",
-                                      -1,
-                                      DPFLTR_ERROR_LEVEL,
-                                      Format,
-                                      ap,
-                                      FALSE);
-    va_end(ap);
-    return n;
+    return vDbgPrintExWithPrefixInternal(NULL,
+                                         -1,
+                                         DPFLTR_ERROR_LEVEL,
+                                         Format,
+                                         ap,
+                                         FALSE);
 }
 
 /*
@@ -317,11 +309,11 @@ DbgSetDebugFilterState(IN ULONG ComponentId,
 /*
  * @implemented
  */
-VOID
+NTSTATUS
 NTAPI
 DbgLoadImageSymbols(IN PANSI_STRING Name,
                     IN PVOID Base,
-                    IN ULONG_PTR ProcessId)
+                    IN ULONG ProcessId)
 {
     PIMAGE_NT_HEADERS NtHeader;
     KD_SYMBOLS_INFO SymbolInfo;
@@ -346,6 +338,7 @@ DbgLoadImageSymbols(IN PANSI_STRING Name,
 
     /* Load the symbols */
     DebugService2(Name, &SymbolInfo, BREAKPOINT_LOAD_SYMBOLS);
+    return STATUS_SUCCESS;
 }
 
 /*
@@ -367,3 +360,5 @@ DbgUnLoadImageSymbols(IN PANSI_STRING Name,
     /* Load the symbols */
     DebugService2(Name, &SymbolInfo, BREAKPOINT_UNLOAD_SYMBOLS);
 }
+
+/* EOF */

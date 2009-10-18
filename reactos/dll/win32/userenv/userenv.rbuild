@@ -1,6 +1,10 @@
 <module name="userenv" type="win32dll" baseaddress="${BASEADDRESS_USERENV}" installbase="system32" installname="userenv.dll">
-	<importlibrary definition="userenv.spec" />
+	<importlibrary definition="userenv.def" />
 	<include base="userenv">.</include>
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x0500</define>
+	<define name="_WIN32_WINNT">0x0600</define>
+	<define name="WINVER">0x0600</define>
 	<library>uuid</library>
 	<library>ntdll</library>
 	<library>kernel32</library>

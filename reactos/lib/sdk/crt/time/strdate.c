@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS CRT library
- * FILE:        lib/sdk/crt/time/strtime.c
+ * PROJECT:     ReactOS system libraries
+ * FILE:        lib/msvcrt/time/strtime.c
  * PURPOSE:     Fills a buffer with a formatted date representation
  * PROGRAMER:   Ariadne
  * UPDATE HISTORY:
@@ -12,12 +12,18 @@
 /*
  * @implemented
  */
-char* _strdate(char* date)
+char* _strdate(char* datestr)
 {
-   static const char format[] = "MM'/'dd'/'yy";
+    time_t t;
+    struct tm* d;
+    char* dt = (char*)datestr;
 
-   GetDateFormatA(LOCALE_NEUTRAL, 0, NULL, format, date, 9);
-
-   return date;
-
+    if (datestr == NULL) {
+        __set_errno(EINVAL);
+        return NULL;
+    }
+    t = time(NULL);
+    d = localtime(&t);
+    sprintf(dt,"%d/%d/%d",d->tm_mday,d->tm_mon+1,d->tm_year);
+    return dt;
 }

@@ -3,17 +3,10 @@
 HANDLE test_NtGdiDdCreateDirectDrawObject();
 void test_NtGdiDdDeleteDirectDrawObject(HANDLE hDirectDrawLocal);
 void test_NtGdiDdQueryDirectDrawObject( HANDLE hDirectDrawLocal);
-void test_NtGdiDdGetScanLine(HANDLE hDirectDrawLocal);
-void test_NtGdiDdWaitForVerticalBlank(HANDLE hDirectDrawLocal);
-void test_NtGdiDdCanCreateSurface(HANDLE hDirectDrawLocal);
-
 
 void dump_halinfo(DD_HALINFO *pHalInfo, char *text);
 void dump_CallBackFlags(DWORD *pCallBackFlags, char *text);
-void dump_D3dCallbacks(D3DNTHAL_CALLBACKS *puD3dCallbacks, char *text);
-void dump_D3dDriverData(D3DNTHAL_GLOBALDRIVERDATA *puD3dDriverData, char *text);
-void dump_D3dBufferCallbacks(DD_D3DBUFCALLBACKS *puD3dCallbacks, char *text);
-void dump_D3dTextureFormats(DDSURFACEDESC *puD3dTextureFormats, int dwNum, char *text);
+
 
 
 

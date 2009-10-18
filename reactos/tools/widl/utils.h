@@ -33,25 +33,13 @@ char *xstrdup(const char *str);
 #define __attribute__(X)
 #endif
 
-void parser_error(const char *s) __attribute__((noreturn));
-int parser_warning(const char *s, ...) __attribute__((format (printf, 1, 2)));
-void error_loc(const char *s, ...) __attribute__((format (printf, 1, 2))) __attribute__((noreturn));
-void error(const char *s, ...) __attribute__((format (printf, 1, 2))) __attribute__((noreturn));
-void error_loc_info(const loc_info_t *, const char *s, ...) __attribute__((format (printf, 2, 3))) __attribute__((noreturn));
+int yyerror(const char *s, ...) __attribute__((format (printf, 1, 2)));
+int yywarning(const char *s, ...) __attribute__((format (printf, 1, 2)));
+void internal_error(const char *file, int line, const char *s, ...) __attribute__((format (printf, 3, 4)));
+void error(const char *s, ...) __attribute__((format (printf, 1, 2)));
 void warning(const char *s, ...) __attribute__((format (printf, 1, 2)));
-void warning_loc_info(const loc_info_t *, const char *s, ...) __attribute__((format (printf, 2, 3)));
 void chat(const char *s, ...) __attribute__((format (printf, 1, 2)));
 
 char *dup_basename(const char *name, const char *ext);
-size_t widl_getline(char **linep, size_t *lenp, FILE *fp);
-
-UUID *parse_uuid(const char *u);
-int is_valid_uuid(const char *s);
-
-/* typelibs expect the minor version to be stored in the higher bits and
- * major to be stored in the lower bits */
-#define MAKEVERSION(major, minor) ((((minor) & 0xffff) << 16) | ((major) & 0xffff))
-#define MAJORVERSION(version) ((version) & 0xffff)
-#define MINORVERSION(version) (((version) >> 16) & 0xffff)
 
 #endif

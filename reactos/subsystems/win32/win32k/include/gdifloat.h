@@ -1,9 +1,6 @@
 #ifndef __WIN32K_FLOAT_H
 #define __WIN32K_FLOAT_H
 
-
-#include <reactos/win32k/ntgdityp.h>
-#include <reactos/win32k/ntgdihdl.h>
 #include "dc.h"
 #include "math.h"
 #include <ft2build.h>
@@ -23,28 +20,22 @@ static __inline INT GDI_ROUND(FLOAT val)
    return (int)floor(val + 0.5);
 }
 
-
-/* FIXME: Do not use the fpu in kernel on x86, use FLOATOBJ_Xxx api instead
- * Performs a world-to-viewport transformation on the specified point (which
+/* Performs a world-to-viewport transformation on the specified point (which
  * is in floating point format).
  */
 static __inline void INTERNAL_LPTODP_FLOAT(DC *dc, FLOAT_POINT *point)
 {
     FLOAT x, y;
-    XFORM xformWorld2Vport;
-    
-    MatrixS2XForm(&xformWorld2Vport, &dc->dclevel.mxWorldToDevice);
 
     /* Perform the transformation */
     x = point->x;
     y = point->y;
-    point->x = x * xformWorld2Vport.eM11 +
-               y * xformWorld2Vport.eM21 +
-	          xformWorld2Vport.eDx;
-
-    point->y = x * xformWorld2Vport.eM12 +
-               y * xformWorld2Vport.eM22 +
-	          xformWorld2Vport.eDy;
+    point->x = x * dc->w.xformWorld2Vport.eM11 +
+               y * dc->w.xformWorld2Vport.eM21 +
+	       dc->w.xformWorld2Vport.eDx;
+    point->y = x * dc->w.xformWorld2Vport.eM12 +
+               y * dc->w.xformWorld2Vport.eM22 +
+	       dc->w.xformWorld2Vport.eDy;
 }
 
 /* Performs a viewport-to-world transformation on the specified point (which
@@ -89,26 +80,24 @@ static __inline void INTERNAL_LPTODP(DC *dc, LPPOINT point)
 
 #define MulDiv( x, y, z ) EngMulDiv( x, y, z )
 
-#define XDPTOLP(pdcattr,tx) \
-    (MulDiv(((tx)-(pdcattr)->ptlViewportOrg.x), (pdcattr)->szlWindowExt.cx, (pdcattr)->szlViewportExt.cx) + (pdcattr)->ptlWindowOrg.x)
-#define YDPTOLP(pdcattr,ty) \
-    (MulDiv(((ty)-(pdcattr)->ptlViewportOrg.y), (pdcattr)->szlWindowExt.cy, (pdcattr)->szlViewportExt.cy) + (pdcattr)->ptlWindowOrg.y)
-#define XLPTODP(pdcattr,tx) \
-    (MulDiv(((tx)-(pdcattr)->ptlWindowOrg.x), (pdcattr)->szlViewportExt.cx, (pdcattr)->szlWindowExt.cx) + (pdcattr)->ptlViewportOrg.x)
-#define YLPTODP(pdcattr,ty) \
-    (MulDiv(((ty)-(pdcattr)->ptlWindowOrg.y), (pdcattr)->szlViewportExt.cy, (pdcattr)->szlWindowExt.cy) + (pdcattr)->ptlViewportOrg.y)
+#define XDPTOLP(dc,x) \
+    (MulDiv(((x)-(dc)->vportOrgX), (dc)->wndExtX, (dc)->vportExtX) + (dc)->wndOrgX)
+#define YDPTOLP(dc,y) \
+    (MulDiv(((y)-(dc)->vportOrgY), (dc)->wndExtY, (dc)->vportExtY) + (dc)->wndOrgY)
+#define XLPTODP(dc,x) \
+    (MulDiv(((x)-(dc)->wndOrgX), (dc)->vportExtX, (dc)->wndExtX) + (dc)->vportOrgX)
+#define YLPTODP(dc,y) \
+    (MulDiv(((y)-(dc)->wndOrgY), (dc)->vportExtY, (dc)->wndExtY) + (dc)->vportOrgY)
 
   /* Device <-> logical size conversion */
 
-#define XDSTOLS(pdcattr,tx) \
-    MulDiv((tx), (pdcattr)->szlWindowExt.cx, (pdcattr)->szlViewportExt.cx)
-#define YDSTOLS(DC_Attr,ty) \
-    MulDiv((ty), (pdcattr)->szlWindowExt.cy, (pdcattr)->szlViewportExt.cy)
-#define XLSTODS(pdcattr,tx) \
-    MulDiv((tx), (pdcattr)->szlViewportExt.cx, (pdcattr)->szlWindowExt.cx)
-#define YLSTODS(pdcattr,ty) \
-    MulDiv((ty), (pdcattr)->szlViewportExt.cy, (pdcattr)->szlWindowExt.cy)
+#define XDSTOLS(dc,x) \
+    MulDiv((x), (dc)->wndExtX, (dc)->vportExtX)
+#define YDSTOLS(dc,y) \
+    MulDiv((y), (dc)->wndExtY, (dc)->vportExtY)
+#define XLSTODS(dc,x) \
+    MulDiv((x), (dc)->vportExtX, (dc)->wndExtX)
+#define YLSTODS(dc,y) \
+    MulDiv((y), (dc)->vportExtY, (dc)->wndExtY)
 
 #endif
-
-

@@ -19,20 +19,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include "windef.h"
-#include "winbase.h"
-#include "winnls.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "commdlg.h"
-#include "dlgs.h"
-#include "wine/debug.h"
-#include "cderr.h"
+#include <precomp.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
 
@@ -47,8 +34,8 @@ static const WCHAR chooseFontW[] = {'C','H','O','O','S','E','_','F','O','N','T',
 static HIMAGELIST himlTT = 0;
 #define TTBITMAP_XSIZE 20 /* x-size of the bitmaps */
 
-static INT_PTR CALLBACK FormatCharDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-static INT_PTR CALLBACK FormatCharDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK FormatCharDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK FormatCharDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 /* There is a table here of all charsets, and the sample text for each.
  * There is a second table that translates a charset into an index into
@@ -88,7 +75,7 @@ static const WCHAR stIso88594[]={'A','a','B','b',0}; /* ISO-8859-4 */
 static const WCHAR stIso885910[]={'A','a','B','b',0}; /* ISO-8859-10 */
 static const WCHAR stCeltic[]={'A','a','B','b',0};/* Celtic */
 
-static const WCHAR * const sample_lang_text[]={
+static const WCHAR *sample_lang_text[]={
     stWestern,stSymbol,stShiftJis,stHangul,stGB2312,
     stBIG5,stGreek,stTurkish,stHebrew,stArabic,
     stBaltic,stVietname,stCyrillic,stEastEur,stThai,
@@ -150,7 +137,7 @@ static const struct {
 
 void _dump_cf_flags(DWORD cflags)
 {
-    unsigned int i;
+    int i;
 
     for (i = 0; i < sizeof(cfflags)/sizeof(cfflags[0]); i++)
         if (cfflags[i].mask & cflags)
@@ -182,7 +169,7 @@ BOOL WINAPI ChooseFontW(LPCHOOSEFONTW lpChFont)
 
     if ( (lpChFont->Flags&CF_ENABLETEMPLATEHANDLE)!=0 )
     {
-        template=lpChFont->hInstance;
+        template=(LPCVOID)lpChFont->hInstance;
     } else
     {
         if ( (lpChFont->Flags&CF_ENABLETEMPLATE)!=0 )
@@ -223,7 +210,7 @@ BOOL WINAPI ChooseFontW(LPCHOOSEFONTW lpChFont)
 /***********************************************************************
  *           ChooseFontA   (COMDLG32.@)
  *
- * See ChooseFontW.
+ * See ChosseFontW.
  */
 BOOL WINAPI ChooseFontA(LPCHOOSEFONTA lpChFont)
 {
@@ -236,7 +223,7 @@ BOOL WINAPI ChooseFontA(LPCHOOSEFONTA lpChFont)
 
     if ( (lpChFont->Flags&CF_ENABLETEMPLATEHANDLE)!=0 )
     {
-        template=lpChFont->hInstance;
+        template=(LPCVOID)lpChFont->hInstance;
     } else
     {
         if ( (lpChFont->Flags&CF_ENABLETEMPLATE)!=0 )
@@ -287,7 +274,7 @@ static const COLORREF textcolors[TEXT_COLORS]=
 /***********************************************************************
  *                          CFn_HookCallChk32                 [internal]
  */
-static BOOL CFn_HookCallChk32(const CHOOSEFONTW *lpcf)
+static BOOL CFn_HookCallChk32(LPCHOOSEFONTW lpcf)
 {
     if (lpcf)
         if(lpcf->Flags & CF_ENABLEHOOK)
@@ -300,7 +287,7 @@ static BOOL CFn_HookCallChk32(const CHOOSEFONTW *lpcf)
  *              AddFontFamily                               [internal]
  */
 INT AddFontFamily(const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *lpNTM,
-        UINT nFontType, const CHOOSEFONTW *lpcf, HWND hwnd, LPCFn_ENUMSTRUCT e)
+        UINT nFontType, LPCHOOSEFONTW lpcf, HWND hwnd, LPCFn_ENUMSTRUCT e)
 {
     int i;
     WORD w;
@@ -341,7 +328,7 @@ static INT WINAPI FontFamilyEnumProc(const ENUMLOGFONTEXW *lpElfex,
 {
     LPCFn_ENUMSTRUCT e;
     e=(LPCFn_ENUMSTRUCT)lParam;
-    return AddFontFamily( lpElfex, (const NEWTEXTMETRICEXW *) metrics,
+    return AddFontFamily( lpElfex, (NEWTEXTMETRICEXW *) metrics,
             dwFontType, e->lpcf32w, e->hWnd1, e);
 }
 
@@ -357,20 +344,24 @@ static int SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTW *lplf)
     {
         int italic;
         int weight;
-        UINT resId;
+        const WCHAR *stname;
     };
+    static const WCHAR strRegular[]    = {'R','e','g','u','l','a','r',0};
+    static const WCHAR strItalic[]     = {'I','t','a','l','i','c',0};
+    static const WCHAR strBold[]       = {'B','o','l','d',0};
+    static const WCHAR strBoldItalic[] = {'B','o','l','d',' ','I','t','a','l','i','c',0};
     static const struct FONTSTYLE fontstyles[FSTYLES]={
-        { 0, FW_NORMAL, IDS_FONT_REGULAR },
-        { 1, FW_NORMAL, IDS_FONT_ITALIC },
-        { 0, FW_BOLD,   IDS_FONT_BOLD },
-        { 1, FW_BOLD,   IDS_FONT_BOLD_ITALIC }
+        { 0, FW_NORMAL, strRegular },
+        { 1, FW_NORMAL, strItalic },
+        { 0, FW_BOLD,   strBold },
+        { 1, FW_BOLD,   strBoldItalic }
     };
     HFONT hf;
     TEXTMETRICW tm;
     int i,j;
     LOGFONTW lf;
 
-    lf = *lplf;
+    memcpy(&lf, lplf, sizeof(LOGFONTW));
 
     for (i=0;i<FSTYLES;i++)
     {
@@ -382,16 +373,13 @@ static int SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTW *lplf)
         hf=SelectObject(hdc,hf);
         DeleteObject(hf);
                 /* font successful created ? */
-        if (((fontstyles[i].weight == FW_NORMAL && tm.tmWeight <= FW_MEDIUM) ||
-             (fontstyles[i].weight == FW_BOLD && tm.tmWeight > FW_MEDIUM)) &&
+        if (tm.tmWeight==fontstyles[i].weight &&
             ((tm.tmItalic != 0)==fontstyles[i].italic))
         {
-            WCHAR name[64];
-            LoadStringW(COMDLG32_hInstance, fontstyles[i].resId, name, 64);
-            j=SendMessageW(hwnd,CB_ADDSTRING,0,(LPARAM)name );
+            j=SendMessageW(hwnd,CB_ADDSTRING,0,(LPARAM)fontstyles[i].stname );
             if (j==CB_ERR) return 1;
             j=SendMessageW(hwnd, CB_SETITEMDATA, j,
-                           MAKELONG(tm.tmWeight,fontstyles[i].italic));
+                           MAKELONG(fontstyles[i].weight,fontstyles[i].italic));
             if (j==CB_ERR) return 1;
         }
     }
@@ -401,7 +389,7 @@ static int SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTW *lplf)
 /*************************************************************************
  *              AddFontSizeToCombo3                           [internal]
  */
-static int AddFontSizeToCombo3(HWND hwnd, UINT h, const CHOOSEFONTW *lpcf)
+static int AddFontSizeToCombo3(HWND hwnd, UINT h, LPCHOOSEFONTW lpcf)
 {
     int j;
     WCHAR buffer[20];
@@ -425,10 +413,10 @@ static int AddFontSizeToCombo3(HWND hwnd, UINT h, const CHOOSEFONTW *lpcf)
 /*************************************************************************
  *              SetFontSizesToCombo3                           [internal]
  */
-static int SetFontSizesToCombo3(HWND hwnd, const CHOOSEFONTW *lpcf)
+static int SetFontSizesToCombo3(HWND hwnd, LPCHOOSEFONTW lpcf)
 {
     static const BYTE sizes[]={6,7,8,9,10,11,12,14,16,18,20,22,24,26,28,36,48,72};
-    unsigned int i;
+    int i;
 
     for (i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++)
         if (AddFontSizeToCombo3(hwnd, sizes[i], lpcf)) return 1;
@@ -438,7 +426,7 @@ static int SetFontSizesToCombo3(HWND hwnd, const CHOOSEFONTW *lpcf)
 /*************************************************************************
  *              CFn_GetDC                           [internal]
  */
-static inline HDC CFn_GetDC(const CHOOSEFONTW *lpcf)
+static inline HDC CFn_GetDC(LPCHOOSEFONTW lpcf)
 {
     HDC ret = ((lpcf->Flags & CF_PRINTERFONTS) && lpcf->hDC) ?
         lpcf->hDC :
@@ -450,7 +438,7 @@ static inline HDC CFn_GetDC(const CHOOSEFONTW *lpcf)
 /*************************************************************************
  *              CFn_ReleaseDC                           [internal]
  */
-static inline void CFn_ReleaseDC(const CHOOSEFONTW *lpcf, HDC hdc)
+static inline void CFn_ReleaseDC(LPCHOOSEFONTW lpcf, HDC hdc)
 {
         if(!((lpcf->Flags & CF_PRINTERFONTS) && lpcf->hDC))
             ReleaseDC(0, hdc);
@@ -460,7 +448,7 @@ static inline void CFn_ReleaseDC(const CHOOSEFONTW *lpcf, HDC hdc)
  *                 AddFontStyle                          [internal]
  */
 INT AddFontStyle( const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *lpNTM,
-                UINT nFontType, const CHOOSEFONTW *lpcf, HWND hcmb2, HWND hcmb3,
+                UINT nFontType, LPCHOOSEFONTW lpcf, HWND hcmb2, HWND hcmb3,
                 HWND hDlg, BOOL iswin16)
 {
     int i;
@@ -469,7 +457,7 @@ INT AddFontStyle( const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *lpNTM,
     HDC hdc;
 
     TRACE("(nFontType=%d)\n",nFontType);
-    TRACE("  %s h=%d w=%d e=%d o=%d wg=%d i=%d u=%d s=%d"
+    TRACE("  %s h=%ld w=%ld e=%ld o=%ld wg=%ld i=%d u=%d s=%d"
             " ch=%d op=%d cp=%d q=%d pf=%xh\n",
             debugstr_w(lplf->lfFaceName),lplf->lfHeight,lplf->lfWidth,
             lplf->lfEscapement,lplf->lfOrientation,
@@ -601,7 +589,7 @@ LRESULT CFn_WMInitDialog(HWND hDlg, WPARAM wParam, LPARAM lParam,
     HCURSOR hcursor=SetCursor(LoadCursorW(0,(LPWSTR)IDC_WAIT));
     static const WCHAR strColorName[] = {'[','c','o','l','o','r',' ','n','a','m','e',']',0};
 
-    SetPropW(hDlg, strWineFontData, lpcf);
+    SetPropW(hDlg, strWineFontData, (HANDLE)lpcf);
     lpxx=lpcf->lpLogFont;
     TRACE("WM_INITDIALOG lParam=%08lX\n", lParam);
 
@@ -615,21 +603,10 @@ LRESULT CFn_WMInitDialog(HWND hDlg, WPARAM wParam, LPARAM lParam,
         himlTT = ImageList_LoadImageW( COMDLG32_hInstance, MAKEINTRESOURCEW(38),
                 TTBITMAP_XSIZE, 0, CLR_DEFAULT, IMAGE_BITMAP, 0);
 
-    /* Set effect flags */
-    if((lpcf->Flags & CF_EFFECTS) && (lpcf->Flags & CF_INITTOLOGFONTSTRUCT))
-    {
-        if(lpxx->lfUnderline)
-            CheckDlgButton(hDlg, chx2, TRUE);
-        if(lpxx->lfStrikeOut)
-            CheckDlgButton(hDlg, chx1, TRUE);
-    }
-
     if (!(lpcf->Flags & CF_SHOWHELP) || !IsWindow(lpcf->hwndOwner))
         ShowWindow(GetDlgItem(hDlg,pshHelp),SW_HIDE);
     if (!(lpcf->Flags & CF_APPLY))
         ShowWindow(GetDlgItem(hDlg,psh3),SW_HIDE);
-    if (lpcf->Flags & CF_NOSCRIPTSEL)
-        EnableWindow(GetDlgItem(hDlg,cmb5),FALSE);
     if (lpcf->Flags & CF_EFFECTS)
     {
         for (i=0;i<TEXT_COLORS;i++)
@@ -718,15 +695,6 @@ LRESULT CFn_WMInitDialog(HWND hDlg, WPARAM wParam, LPARAM lParam,
         SendDlgItemMessageW(hDlg,cmb1,CB_SETCURSEL,0,0);
         SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb1, CBN_SELCHANGE),
                 (LPARAM)GetDlgItem(hDlg,cmb1));
-        SendDlgItemMessageW(hDlg,cmb2,CB_SETCURSEL,0,0);
-        SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb2, CBN_SELCHANGE),
-                (LPARAM)GetDlgItem(hDlg,cmb1));
-        SendDlgItemMessageW(hDlg,cmb3,CB_SETCURSEL,0,0);
-        SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb3, CBN_SELCHANGE),
-                (LPARAM)GetDlgItem(hDlg,cmb3));
-        SendDlgItemMessageW(hDlg,cmb5,CB_SETCURSEL,0,0);
-        SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb5, CBN_SELCHANGE),
-                (LPARAM)GetDlgItem(hDlg,cmb5));
     }
     if ((lpcf->Flags & CF_USESTYLE) && lpcf->lpszStyle)
     {
@@ -887,7 +855,7 @@ LRESULT CFn_WMCommand(HWND hDlg, WPARAM wParam, LPARAM lParam,
     HDC hdc;
     LPLOGFONTW lpxx=lpcf->lpLogFont;
 
-    TRACE("WM_COMMAND wParam=%08X lParam=%08lX\n", (LONG)wParam, lParam);
+    TRACE("WM_COMMAND wParam=%08lX lParam=%08lX\n", (LONG)wParam, lParam);
     switch (LOWORD(wParam))
     {
     case cmb1:
@@ -961,7 +929,7 @@ LRESULT CFn_WMCommand(HWND hDlg, WPARAM wParam, LPARAM lParam,
                    call back with the extra FONTTYPE_...  bits added */
                 lpxx->lfPitchAndFamily = HIWORD(l) >> 8;
             }
-            lstrcpynW(lpxx->lfFaceName, str, sizeof(lpxx->lfFaceName)/sizeof(lpxx->lfFaceName[0]));
+            lstrcpyW(lpxx->lfFaceName,str);
             i=SendDlgItemMessageW(hDlg, cmb2, CB_GETCURSEL, 0, 0);
             if (i!=CB_ERR)
             {
@@ -1072,7 +1040,7 @@ static LRESULT CFn_WMDestroy(HWND hwnd, WPARAM wParam, LPARAM lParam, LPCHOOSEFO
                         LF_FACESIZE, lpcfa->lpLogFont->lfFaceName, LF_FACESIZE, 0, 0);
 
     if((lpcfw->Flags & CF_USESTYLE) && lpcfw->lpszStyle) {
-        len = WideCharToMultiByte(CP_ACP, 0, lpcfw->lpszStyle, -1, NULL, 0, 0, 0);
+        len = WideCharToMultiByte(CP_ACP, 0, lpcfw->lpszStyle, -1, NULL, -1, 0, 0);
         WideCharToMultiByte(CP_ACP, 0, lpcfw->lpszStyle, -1, lpcfa->lpszStyle, len, 0, 0);
         HeapFree(GetProcessHeap(), 0, lpcfw->lpszStyle);
     }
@@ -1084,7 +1052,7 @@ static LRESULT CFn_WMDestroy(HWND hwnd, WPARAM wParam, LPARAM lParam, LPCHOOSEFO
     return TRUE;
 }
 
-LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam, const CHOOSEFONTW *lpcf)
+LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam, LPCHOOSEFONTW lpcf)
 {
     WINDOWINFO info;
 
@@ -1100,7 +1068,7 @@ LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam, const CHOOSEFONTW *
         MapWindowPoints( 0, hDlg, (LPPOINT) &info.rcWindow, 2);
         hdc = BeginPaint( hDlg, &ps );
 
-        TRACE("erase %d, rect=(%d,%d)-(%d,%d)\n", ps.fErase,
+        TRACE("erase %d, rect=(%ld,%ld)-(%ld,%ld)\n", ps.fErase,
               ps.rcPaint.left, ps.rcPaint.top,
               ps.rcPaint.right, ps.rcPaint.bottom);
 
@@ -1146,7 +1114,7 @@ INT_PTR CALLBACK FormatCharDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam,
     int len;
 
     if (uMsg!=WM_INITDIALOG) {
-        lpcfw = GetPropW(hDlg, strWineFontData);
+        lpcfw = (LPCHOOSEFONTW)GetPropW(hDlg, strWineFontData);
         if (!lpcfw)
             return FALSE;
         if (CFn_HookCallChk32(lpcfw))
@@ -1209,7 +1177,7 @@ INT_PTR CALLBACK FormatCharDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam,
 
     if (uMsg!=WM_INITDIALOG)
     {
-        lpcf= GetPropW(hDlg, strWineFontData);
+        lpcf=(LPCHOOSEFONTW)GetPropW(hDlg, strWineFontData);
         if (!lpcf)
             return FALSE;
         if (CFn_HookCallChk32(lpcf))

@@ -21,7 +21,7 @@ VOID
 NTAPI
 HalStopProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -32,7 +32,7 @@ VOID
 NTAPI
 HalStartProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -43,6 +43,6 @@ ULONG_PTR
 NTAPI
 HalSetProfileInterval(IN ULONG_PTR Interval)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return Interval;
 }

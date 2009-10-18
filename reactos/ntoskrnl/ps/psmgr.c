@@ -10,10 +10,9 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 extern ULONG ExpInitializationPhase;
-extern BOOLEAN SysThreadCreated;
 
 GENERIC_MAPPING PspProcessMapping =
 {
@@ -59,7 +58,7 @@ BOOLEAN PspDoingGiveBacks;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
-USHORT
+ULONG
 NTAPI
 NameToOrdinal(IN PCHAR Name,
               IN PVOID DllBase,
@@ -219,14 +218,13 @@ PspLookupKernelUserEntryPoints(VOID)
 NTSTATUS
 NTAPI
 PspMapSystemDll(IN PEPROCESS Process,
-                IN PVOID *DllBase,
-                IN BOOLEAN UseLargePages)
+                IN PVOID *DllBase)
 {
     NTSTATUS Status;
-    LARGE_INTEGER Offset = {{0, 0}};
+    LARGE_INTEGER Offset = {{0}};
     SIZE_T ViewSize = 0;
     PVOID ImageBase = 0;
-    
+
     /* Map the System DLL */
     Status = MmMapViewOfSection(PspSystemDllSection,
                                 Process,
@@ -238,12 +236,7 @@ PspMapSystemDll(IN PEPROCESS Process,
                                 ViewShare,
                                 0,
                                 PAGE_READWRITE);
-    if (Status != STATUS_SUCCESS)
-    {
-        /* Normalize status code */
-        Status = STATUS_CONFLICTING_ADDRESSES;
-    }
-    
+
     /* Write the image base and return status */
     if (DllBase) *DllBase = ImageBase;
     return Status;
@@ -278,7 +271,7 @@ PsLocateSystemDll(VOID)
         KeBugCheckEx(PROCESS1_INITIALIZATION_FAILED, Status, 2, 0, 0);
     }
 
-    /* Check if the image is valid */
+    /* FIXME: Check if the image is valid */
     Status = MmCheckSystemImage(FileHandle, TRUE);
     if (Status == STATUS_IMAGE_CHECKSUM_MISMATCH)
     {
@@ -323,7 +316,7 @@ PsLocateSystemDll(VOID)
     }
 
     /* Map it */
-    Status = PspMapSystemDll(PsGetCurrentProcess(), &PspSystemDllBase, FALSE);
+    Status = PspMapSystemDll(PsGetCurrentProcess(), &PspSystemDllBase);
     if (!NT_SUCCESS(Status))
     {
         /* Failed, bugcheck */
@@ -356,11 +349,6 @@ PspInitializeSystemDll(VOID)
         /* Failed, bugcheck */
         KeBugCheckEx(PROCESS1_INITIALIZATION_FAILED, Status, 8, 0, 0);
     }
-
-#ifdef _WINKD_
-    /* Let KD know we are done */
-    KdUpdateDataBlock();
-#endif
 
     /* Return status */
     return Status;
@@ -448,7 +436,7 @@ PspInitPhase0(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     /* Now multiply limits by 1MB */
     PspDefaultPagedLimit <<= 20;
     PspDefaultNonPagedLimit <<= 20;
-    if (PspDefaultPagefileLimit != MAXULONG) PspDefaultPagefileLimit <<= 20;
+    if (PspDefaultPagefileLimit != -1) PspDefaultPagefileLimit <<= 20;
 
     /* Initialize the Active Process List */
     InitializeListHead(&PsActiveProcessHead);
@@ -587,7 +575,6 @@ PspInitPhase0(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
                               (PVOID*)&SysThread,
                               NULL);
     ZwClose(SysThreadHandle);
-    SysThreadCreated = TRUE;
 
     /* Return success */
     return TRUE;

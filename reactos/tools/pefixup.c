@@ -39,7 +39,6 @@ typedef unsigned char BYTE, *PBYTE;
 typedef unsigned short WORD;
 typedef unsigned int DWORD;
 typedef int LONG;
-typedef long LONG_PTR;
 
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
 #define IMAGE_SIZEOF_SHORT_NAME 8
@@ -47,7 +46,7 @@ typedef long LONG_PTR;
 #define IMAGE_NT_SIGNATURE 0x00004550
 #define IMAGE_SCN_MEM_DISCARDABLE 0x2000000
 #define IMAGE_SCN_MEM_NOT_PAGED 0x8000000
-#define FIELD_OFFSET(t,f) ((LONG)(LONG_PTR)&(((t*)0)->f))
+#define FIELD_OFFSET(t,f) ((LONG)&(((t*)0)->f))
 #define IMAGE_FIRST_SECTION(h) ((PIMAGE_SECTION_HEADER) ((unsigned long)h+FIELD_OFFSET(IMAGE_NT_HEADERS,OptionalHeader)+((PIMAGE_NT_HEADERS)(h))->FileHeader.SizeOfOptionalHeader))
 #define IMAGE_DIRECTORY_ENTRY_EXPORT 0
 
@@ -202,7 +201,7 @@ void *rva_to_ptr(DWORD rva)
    unsigned int i;
 
    for (i = 0, section_header = IMAGE_FIRST_SECTION(nt_header);
-        i < dtohl(nt_header->FileHeader.NumberOfSections);
+        i < dtohl(nt_header->OptionalHeader.NumberOfRvaAndSizes);
         i++, section_header++)
    {
       if (rva >= dtohl(section_header->VirtualAddress) &&
@@ -230,7 +229,6 @@ int main(int argc, char **argv)
 {
    int fd_in, fd_out;
    long len;
-   char hdrbuf[4] = { }, elfhdr[4] = { '\177', 'E', 'L', 'F' };
    PIMAGE_SECTION_HEADER section_header;
    PIMAGE_DATA_DIRECTORY data_dir;
    unsigned int i;
@@ -279,13 +277,6 @@ int main(int argc, char **argv)
       return 1;
    }
 
-   /*
-    * PowerPC ReactOS uses elf, so doesn't need pefixup
-    */
-   len = read(fd_in, hdrbuf, sizeof(elfhdr));
-   if (!memcmp(hdrbuf, elfhdr, sizeof(elfhdr)))
-      return 0;
-
    len = lseek(fd_in, 0, SEEK_END);
    if (len < sizeof(IMAGE_DOS_HEADER))
    {
@@ -319,7 +310,7 @@ int main(int argc, char **argv)
 
    dos_header = (PIMAGE_DOS_HEADER)buffer;
    nt_header = (PIMAGE_NT_HEADERS)(buffer + dtohl(dos_header->e_lfanew));
-
+   
    if (dtohs(dos_header->e_magic) != IMAGE_DOS_SIGNATURE ||
        dtohl(nt_header->Signature) != IMAGE_NT_SIGNATURE)
    {

@@ -99,13 +99,13 @@ ACPIEnumerateDevices(
 /* fdo.c */
 
 NTSTATUS
-NTAPI
+STDCALL
 FdoPnpControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp);
 
 NTSTATUS
-NTAPI
+STDCALL
 FdoPowerControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp);
@@ -113,13 +113,13 @@ FdoPowerControl(
 /* pdo.c */
 
 NTSTATUS
-NTAPI
+STDCALL
 PdoPnpControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp);
 
 NTSTATUS
-NTAPI
+STDCALL
 PdoPowerControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp);

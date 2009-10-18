@@ -21,27 +21,15 @@
 #define __FREELDR_H
 
 #define UINT64_C(val) val##ULL
-#define RVA(m, b) ((PVOID)((ULONG_PTR)(b) + (ULONG_PTR)(m)))
 
-#define ROUND_DOWN(n, align) \
-    (((ULONG)n) & ~((align) - 1l))
-
-#define ROUND_UP(n, align) \
-    ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
-
-#define NTOSAPI
-#define printf TuiPrintf
-#include <ntddk.h>
-#include <ioaccess.h>
-#include <arc/arc.h>
-#include <ketypes.h>
-#include <mmtypes.h>
-#include <ndk/asm.h>
-#include <ndk/rtlfuncs.h>
-#include <ndk/ldrtypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#define NTOSAPI
+#include <ntddk.h>
+#include <arc/arc.h>
+#include <ketypes.h>
+#include <mmtypes.h>
 #include <rosldr.h>
 #include <arch.h>
 #include <rtl.h>
@@ -55,44 +43,37 @@
 #include <inifile.h>
 #include <inffile.h>
 #include <video.h>
-#include <ramdisk.h>
+#include <portio.h>
+/* NDK, needed for ReactOS/Windows loaders */
+#include <ndk/rtlfuncs.h>
+#include <ndk/ldrtypes.h>
 #include <reactos.h>
 #include <registry.h>
 #include <winldr.h>
+#include <fsrec.h>
 /* file system headers */
 #include <fs/ext2.h>
 #include <fs/fat.h>
 #include <fs/ntfs.h>
 #include <fs/iso.h>
 /* ui support */
-#include <ui/gui.h>
-#include <ui/minitui.h>
-#include <ui/noui.h>
 #include <ui/tui.h>
+#include <ui/gui.h>
 /* arch files */
-#if defined(_M_IX86)
+#ifdef _X86_
 #include <arch/i386/hardware.h>
 #include <arch/i386/i386.h>
 #include <arch/i386/machpc.h>
 #include <arch/i386/machxbox.h>
 #include <internal/i386/intrin_i.h>
 #include <internal/i386/ke.h>
-#elif defined(_M_PPC)
-#include <arch/powerpc/hardware.h>
-#elif defined(_M_ARM)
-#include <arch/arm/hardware.h>
-#elif defined(_M_MIPS)
+#elif _MIPS_
 #include <arch/mips/arcbios.h>
-#elif defined(_M_AMD64)
-#include <arch/amd64/hardware.h>
-#include <arch/amd64/machpc.h>
 #endif
 /* misc files */
 #include <keycodes.h>
 #include <ver.h>
 #include <cmdline.h>
-#include <bget.h>
-#include <winerror.h>
 /* Needed by boot manager */
 #include <bootmgr.h>
 #include <oslist.h>
@@ -103,16 +84,15 @@
 /* Externals */
 #include <reactos/rossym.h>
 #include <reactos/buildno.h>
+#include <reactos/helper.h>
 /* Needed if debuging is enabled */
 #include <comm.h>
-/* Swap */
-#include <bytesex.h>
+
+#define Ke386EraseFlags(x)     __asm__ __volatile__("pushl $0 ; popfl\n")
+
+extern BOOLEAN UserInterfaceUp;	/* Tells us if the user interface is displayed */
 
 VOID BootMain(LPSTR CmdLine);
 VOID RunLoader(VOID);
-
-/* Special hack for ReactOS setup OS type */
-VOID LoadReactOSSetup(VOID);
-VOID LoadReactOSSetup2(VOID);
 
 #endif  // defined __FREELDR_H

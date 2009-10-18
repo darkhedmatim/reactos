@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!DOCTYPE project SYSTEM "tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<group>
 <directory name="drawcaption">
 	<xi:include href="drawcaption/drawcaption.rbuild" />
 </directory>

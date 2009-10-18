@@ -41,7 +41,7 @@
 
 DesktopBar::DesktopBar(HWND hwnd)
  :	super(hwnd),
-#ifdef __REACTOS__
+#ifdef _ROS_
 	_trayIcon(hwnd, ID_TRAY_VOLUME)
 #else
 	WM_TASKBARCREATED(RegisterWindowMessage(WINMSG_TASKBARCREATED))
@@ -93,7 +93,6 @@ LRESULT DesktopBar::Init(LPCREATESTRUCT pcs)
 	 // create start button
 	ResString start_str(IDS_START);
 	WindowCanvas canvas(_hwnd);
-	FontSelection font(canvas, GetStockFont(ANSI_VAR_FONT));
 	RECT rect = {0, 0};
 	DrawText(canvas, start_str, -1, &rect, DT_SINGLELINE|DT_CALCRECT);
 	int start_btn_width = rect.right+16+8;
@@ -102,14 +101,13 @@ LRESULT DesktopBar::Init(LPCREATESTRUCT pcs)
 
 	 // create "Start" button
 	HWND hwndStart = Button(_hwnd, start_str, 1, 1, start_btn_width, REBARBAND_HEIGHT, IDC_START, WS_VISIBLE|WS_CHILD|BS_OWNERDRAW);
-	SetWindowFont(hwndStart, GetStockFont(ANSI_VAR_FONT), FALSE);
 	new StartButton(hwndStart);
-
+	
 	/* Save the handle to the window, needed for push-state handling */
 	_hwndStartButton = hwndStart;
-
+	
 	 // disable double clicks
-	SetClassLongPtr(hwndStart, GCL_STYLE, GetClassLongPtr(hwndStart, GCL_STYLE) & ~CS_DBLCLKS);
+	SetClassLong(hwndStart, GCL_STYLE, GetClassLong(hwndStart, GCL_STYLE) & ~CS_DBLCLKS);
 
 	 // create task bar
 	_hwndTaskBar = TaskBar::Create(_hwnd);
@@ -147,13 +145,13 @@ LRESULT DesktopBar::Init(LPCREATESTRUCT pcs)
 	rbBand.cyMaxChild = (ULONG)-1;
 	rbBand.cyMinChild = REBARBAND_HEIGHT;
 	rbBand.cyIntegral = REBARBAND_HEIGHT + 3;	//@@ OK?
+	rbBand.cxMinChild = rbBand.cyIntegral * 3;
 	rbBand.fStyle = RBBS_VARIABLEHEIGHT|RBBS_GRIPPERALWAYS|RBBS_HIDETITLE;
 
 	TCHAR QuickLaunchBand[] = _T("Quicklaunch");
 	rbBand.lpText = QuickLaunchBand;
 	rbBand.hwndChild = _hwndQuickLaunch;
-	rbBand.cx = 100;
-	rbBand.cxMinChild = 100;
+	rbBand.cx = 250;
 	rbBand.wID = IDW_QUICKLAUNCHBAR;
 	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 
@@ -161,7 +159,6 @@ LRESULT DesktopBar::Init(LPCREATESTRUCT pcs)
 	rbBand.lpText = TaskbarBand;
 	rbBand.hwndChild = _hwndTaskBar;
 	rbBand.cx = 200;	//pcs->cx-_taskbar_pos-quicklaunch_width-(notifyarea_width+1);
-	rbBand.cxMinChild = 50;
 	rbBand.wID = IDW_TASKTOOLBAR;
 	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 #endif
@@ -170,8 +167,7 @@ LRESULT DesktopBar::Init(LPCREATESTRUCT pcs)
 	RegisterHotkeys();
 
 	 // prepare Startmenu, but hide it for now
-	_startMenuRoot = GET_WINDOW(StartMenuRoot, StartMenuRoot::Create(_hwndStartButton, STARTMENUROOT_ICON_SIZE));
-	_startMenuRoot->_hwndStartButton = _hwndStartButton;
+	_startMenuRoot = GET_WINDOW(StartMenuRoot, StartMenuRoot::Create(_hwnd, STARTMENUROOT_ICON_SIZE));
 
 	return 0;
 }
@@ -318,12 +314,9 @@ LRESULT DesktopBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		return ProcessCopyData((COPYDATASTRUCT*)lparam);
 
 	  case WM_CONTEXTMENU: {
-  		POINTS p;
-		p.x = LOWORD(lparam);
-		p.y = HIWORD(lparam);
 		PopupMenu menu(IDM_DESKTOPBAR);
 		SetMenuDefaultItem(menu, 0, MF_BYPOSITION);
-		menu.TrackPopupMenu(_hwnd, p);
+		menu.TrackPopupMenu(_hwnd, MAKEPOINTS(lparam));
 		break;}
 
 	  case PM_GET_LAST_ACTIVE:
@@ -409,11 +402,11 @@ int DesktopBar::Command(int id, int code)
 		break;
 
 	  case ID_ABOUT_EXPLORER:
-		explorer_about(g_Globals._hwndDesktop);
+		explorer_about(_hwnd);
 		break;
 
 	  case ID_DESKTOPBAR_SETTINGS:
-		ExplorerPropertySheet(g_Globals._hwndDesktop);
+		ExplorerPropertySheet(_hwnd);
 		break;
 
 	  case ID_MINIMIZE_ALL:
@@ -429,7 +422,9 @@ int DesktopBar::Command(int id, int code)
 		break;
 
 	  case ID_SWITCH_DESKTOP_1:
-	  case ID_SWITCH_DESKTOP_1+1: {
+	  case ID_SWITCH_DESKTOP_1+1:
+	  case ID_SWITCH_DESKTOP_1+2:
+	  case ID_SWITCH_DESKTOP_1+3: {
 		int desktop_idx = id - ID_SWITCH_DESKTOP_1;
 
 		g_Globals._desktops.SwitchToDesktop(desktop_idx);
@@ -438,7 +433,7 @@ int DesktopBar::Command(int id, int code)
 			PostMessage(_hwndQuickLaunch, PM_UPDATE_DESKTOP, desktop_idx, 0);
 		break;}
 
-#ifdef __REACTOS__
+#ifdef _ROS_
 	  case ID_TRAY_VOLUME:
 		launch_file(_hwnd, TEXT("sndvol32.exe"), SW_SHOWNORMAL);	// launch volume control application
 		break;
@@ -464,7 +459,7 @@ void DesktopBar::ShowStartMenu()
 	if (_startMenuRoot)
 	{
 		// set the Button, if not set
-		if (!Button_GetState(_hwndStartButton))
+		if (!Button_GetState(_hwndStartButton)) 
 			Button_SetState(_hwndStartButton, TRUE);
 
  		_startMenuRoot->TrackStartmenu();
@@ -527,7 +522,7 @@ void DesktopBar::ControlResize(WPARAM wparam, LPARAM lparam)
 }
 
 
-#ifdef __REACTOS__
+#ifdef _ROS_
 
 void DesktopBar::AddTrayIcons()
 {

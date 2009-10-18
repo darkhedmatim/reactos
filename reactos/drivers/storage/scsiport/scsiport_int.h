@@ -14,12 +14,10 @@
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
 #endif
 
-#define TAG_SCSIPORT 'ISCS'
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 
 /* Defines how many logical unit arrays will be in a device extension */
 #define LUS_NUMBER 8
-
-#define MAX_SG_LIST 17
 
 /* Flags */
 #define SCSI_PORT_DEVICE_BUSY         0x0001
@@ -86,12 +84,6 @@ typedef struct _SCSI_PORT_DEVICE_BASE
   ULONG SystemIoBusNumber;
 } SCSI_PORT_DEVICE_BASE, *PSCSI_PORT_DEVICE_BASE;
 
-typedef struct _SCSI_SG_ADDRESS
-{
-    PHYSICAL_ADDRESS PhysicalAddress;
-    ULONG Length;
-} SCSI_SG_ADDRESS, *PSCSI_SG_ADDRESS;
-
 typedef struct _SCSI_REQUEST_BLOCK_INFO
 {
     LIST_ENTRY Requests;
@@ -106,10 +98,6 @@ typedef struct _SCSI_REQUEST_BLOCK_INFO
     ULONG NumberOfMapRegisters;
 
     struct _SCSI_REQUEST_BLOCK_INFO *CompletedRequests;
-
-    /* Scatter-gather list */
-    PSCSI_SG_ADDRESS ScatterGather;
-    SCSI_SG_ADDRESS ScatterGatherList[MAX_SG_LIST];
 } SCSI_REQUEST_BLOCK_INFO, *PSCSI_REQUEST_BLOCK_INFO;
 
 typedef struct _SCSI_PORT_LUN_EXTENSION
@@ -237,6 +225,7 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
 
   SCSI_PORT_INTERRUPT_DATA InterruptData;
 
+  ULONG CommonBufferSize;
   /* SRB extension stuff*/
   ULONG SrbExtensionSize;
   PVOID SrbExtensionBuffer;
@@ -277,6 +266,7 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
   BOOLEAN ReceiveEvent;
 
   PHYSICAL_ADDRESS PhysicalAddress;
+  PVOID VirtualAddress;
   ULONG CommonBufferLength;
   ULONG InterruptLevel;
   ULONG IoAddress;

@@ -27,12 +27,12 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_CLS
 
-INT cmd_cls (LPTSTR param)
+INT cmd_cls (LPTSTR cmd, LPTSTR param)
 {
-	HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	COORD coPos;
 	DWORD dwWritten;
@@ -43,22 +43,19 @@ INT cmd_cls (LPTSTR param)
 		return 0;
 	}
 
-	if (GetConsoleScreenBufferInfo(hOutput, &csbi))
-	{
-		coPos.X = 0;
-		coPos.Y = 0;
-		FillConsoleOutputAttribute(hOutput, csbi.wAttributes,
-		                           csbi.dwSize.X * csbi.dwSize.Y,
-		                           coPos, &dwWritten);
-		FillConsoleOutputCharacter(hOutput, _T(' '),
-		                           csbi.dwSize.X * csbi.dwSize.Y,
-		                           coPos, &dwWritten);
-		SetConsoleCursorPosition(hOutput, coPos);
-	}
-	else
-	{
-		ConOutChar(_T('\f'));
-	}
+	GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+	coPos.X = 0;
+	coPos.Y = 0;
+	FillConsoleOutputAttribute(hConsole, wColor,
+	                           csbi.dwSize.X * csbi.dwSize.Y,
+	                           coPos, &dwWritten);
+	FillConsoleOutputCharacter(hConsole, _T(' '),
+	                           csbi.dwSize.X * csbi.dwSize.Y,
+	                           coPos, &dwWritten);
+	SetConsoleCursorPosition(hConsole, coPos);
+
+	bIgnoreEcho = TRUE;
 
 	return 0;
 }

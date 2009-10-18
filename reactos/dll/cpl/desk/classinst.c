@@ -7,10 +7,10 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#include "desk.h"
-
 //#define NDEBUG
 #include <debug.h>
+
+#include "desk.h"
 
 DWORD WINAPI
 DisplayClassInstaller(
@@ -119,7 +119,7 @@ DisplayClassInstaller(
 	}
 	rc = RegCreateKeyEx(
 		hDriverKey, L"Settings",
-		0, NULL, REG_OPTION_NON_VOLATILE,
+		0, NULL, REG_OPTION_NON_VOLATILE, 
 #if _WIN32_WINNT >= 0x502
 		KEY_READ | KEY_WRITE,
 #else

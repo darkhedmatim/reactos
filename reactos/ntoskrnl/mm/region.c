@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/region.c
@@ -11,11 +12,11 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
-static VOID
+VOID static
 InsertAfterEntry(PLIST_ENTRY Previous,
                  PLIST_ENTRY Entry)
 /*
@@ -30,10 +31,10 @@ InsertAfterEntry(PLIST_ENTRY Previous,
    Previous->Flink = Entry;
 }
 
-static PMM_REGION
+PMM_REGION static
 MmSplitRegion(PMM_REGION InitialRegion, PVOID InitialBaseAddress,
               PVOID StartAddress, ULONG Length, ULONG NewType,
-              ULONG NewProtect, PMMSUPPORT AddressSpace,
+              ULONG NewProtect, PMADDRESS_SPACE AddressSpace,
               PMM_ALTER_REGION_FUNC AlterFunc)
 {
    PMM_REGION NewRegion1;
@@ -105,7 +106,7 @@ MmSplitRegion(PMM_REGION InitialRegion, PVOID InitialBaseAddress,
 
 NTSTATUS
 NTAPI
-MmAlterRegion(PMMSUPPORT AddressSpace, PVOID BaseAddress,
+MmAlterRegion(PMADDRESS_SPACE AddressSpace, PVOID BaseAddress,
               PLIST_ENTRY RegionListHead, PVOID StartAddress, ULONG Length,
               ULONG NewType, ULONG NewProtect, PMM_ALTER_REGION_FUNC AlterFunc)
 {
@@ -245,8 +246,6 @@ MmInitializeRegion(PLIST_ENTRY RegionListHead, ULONG Length, ULONG Type,
 
    Region = ExAllocatePoolWithTag(NonPagedPool, sizeof(MM_REGION),
                                   TAG_MM_REGION);
-   if (!Region) return;
-
    Region->Type = Type;
    Region->Protect = Protect;
    Region->Length = Length;

@@ -10,7 +10,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-#include <debug.h>
+#include <internal/debug.h>
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -29,7 +29,7 @@ IopCreateEvent(IN PUNICODE_STRING EventName,
     /* Initialize the object attributes */
     InitializeObjectAttributes(&ObjectAttributes,
                                EventName,
-                               OBJ_OPENIF | OBJ_KERNEL_HANDLE,
+                               OBJ_OPENIF,
                                NULL,
                                NULL);
 

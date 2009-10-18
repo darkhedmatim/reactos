@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_SHELLFOLDER_HELP_H
@@ -37,7 +37,6 @@ DEFINE_GUID(IID_ISFHelper, 0x1fe68efbL, 0x1874, 0x9812, 0x56, 0xdc, 0x00, 0x00, 
 /*****************************************************************************
  * ISFHelper interface
  */
-#undef INTERFACE
 
 #define INTERFACE ISFHelper
 DECLARE_INTERFACE_(ISFHelper,IUnknown)
@@ -47,8 +46,8 @@ DECLARE_INTERFACE_(ISFHelper,IUnknown)
     STDMETHOD_(ULONG,AddRef)(THIS) PURE;
     STDMETHOD_(ULONG,Release)(THIS) PURE;
     /*** ISFHelper methods ***/
-    STDMETHOD(GetUniqueName)(THIS_ LPWSTR  lpName, UINT  uLen) PURE;
-    STDMETHOD(AddFolder)(THIS_ HWND  hwnd, LPCWSTR  lpName, LPITEMIDLIST * ppidlOut) PURE;
+    STDMETHOD(GetUniqueName)(THIS_ LPSTR  lpName, UINT  uLen) PURE;
+    STDMETHOD(AddFolder)(THIS_ HWND  hwnd, LPCSTR  lpName, LPITEMIDLIST * ppidlOut) PURE;
     STDMETHOD(DeleteItems)(THIS_ UINT  cidl, LPCITEMIDLIST * apidl) PURE;
     STDMETHOD(CopyItems)(THIS_ IShellFolder * pSFFrom, UINT  cidl, LPCITEMIDLIST * apidl) PURE;
 };

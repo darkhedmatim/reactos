@@ -57,7 +57,7 @@ typedef struct
 INT_PTR CALLBACK HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 ATOM
-WINAPI
+STDCALL
 RegisterHexEditorClass(HINSTANCE hInstance)
 {
   WNDCLASSEX WndClass;
@@ -76,7 +76,7 @@ RegisterHexEditorClass(HINSTANCE hInstance)
 }
 
 BOOL
-WINAPI
+STDCALL
 UnregisterHexEditorClass(HINSTANCE hInstance)
 {
   return UnregisterClass(HEX_EDIT_CLASS_NAME, hInstance);
@@ -126,7 +126,7 @@ HEXEDIT_Update(PHEXEDIT_DATA hed)
   INT bufsize, cvislines;
 
   GetClientRect(hed->hWndSelf, &rcClient);
-  hed->style = GetWindowLongPtr(hed->hWndSelf, GWL_STYLE);
+  hed->style = GetWindowLong(hed->hWndSelf, GWL_STYLE);
 
   bufsize = (hed->hBuffer ? (INT) LocalSize(hed->hBuffer) : 0);
   hed->nLines = max(bufsize / hed->ColumnsPerLine, 1);
@@ -869,7 +869,6 @@ INT_PTR CALLBACK
 HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   PHEXEDIT_DATA hed;
-  POINTS p;
 
   hed = (PHEXEDIT_DATA)(LONG_PTR)GetWindowLongPtr(hWnd, (DWORD_PTR)0);
   switch(uMsg)
@@ -890,11 +889,7 @@ HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       return HEXEDIT_WM_SIZE(hed, (DWORD)wParam, LOWORD(lParam), HIWORD(lParam));
 
     case WM_LBUTTONDOWN:
-    {
-      p.x = LOWORD(lParam);
-      p.y = HIWORD(lParam);
-      return HEXEDIT_WM_LBUTTONDOWN(hed, (INT)wParam, p);
-    }
+      return HEXEDIT_WM_LBUTTONDOWN(hed, (INT)wParam, MAKEPOINTS(lParam));
 
     case WM_MOUSEWHEEL:
     {
@@ -905,9 +900,7 @@ HexEditWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       delta -= (SHORT)HIWORD(wParam);
       if(abs(delta) >= WHEEL_DELTA && nScrollLines != 0)
       {
-        p.x = LOWORD(lParam);
-        p.y = HIWORD(lParam);
-        return HEXEDIT_WM_MOUSEWHEEL(hed, nScrollLines * (delta / WHEEL_DELTA), LOWORD(wParam), &p);
+        return HEXEDIT_WM_MOUSEWHEEL(hed, nScrollLines * (delta / WHEEL_DELTA), LOWORD(wParam), &MAKEPOINTS(lParam));
       }
       break;
     }

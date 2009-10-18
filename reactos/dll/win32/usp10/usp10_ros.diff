@@ -1,25 +1,22 @@
 Index: usp10.c
 ===================================================================
---- usp10.c	(revision 34385)
+--- usp10.c	(revision 25776)
 +++ usp10.c	(working copy)
-@@ -1726,3 +1726,10 @@
-     for (i = 0; i < nbchars; i++) widths[i] = glyph_width[i];
-     return S_OK;
- }
-+
-+
-+VOID WINAPI LpkPresent()   
-+{   
-+    /* FIXME */   
-+    ERR("LPK: %s is unimplemented, please try again later.\n", __FUNCTION__);   
-+} 
-Index: usp10.spec
-===================================================================
---- usp10.spec	(revision 34385)
-+++ usp10.spec	(working copy)
-@@ -1,4 +1,4 @@
--@ stub LpkPresent
-+@ stdcall LpkPresent()
- @ stdcall ScriptApplyDigitSubstitution(ptr ptr ptr)
- @ stub ScriptApplyLogicalWidth
- @ stdcall ScriptBreak(ptr long ptr ptr)
+@@ -35,6 +35,8 @@
+ #include "wine/debug.h"
+ #include "wine/unicode.h"
+ 
++DWORD STDCALL GetGlyphIndicesW( HDC hdc, LPCWSTR lpstr, int c, LPWORD pgi, DWORD fl);
++BOOL  STDCALL GetCharABCWidthsI(HDC hdc, UINT giFirst, UINT cgi, LPWORD pgi, LPABC lpabc);
+ /**
+  * some documentation here:
+  *   http://www.microsoft.com/typography/developers/uniscribe/uniscribe.htm
+@@ -1241,7 +1243,7 @@
+     TRACE("\n");
+ 
+     if  (!psa->fNoGlyphIndex) {                                         /* Glyph translate */
+-        if (!(GetGlyphIndicesW(get_cache_hdc(psc), pwcChars, cChars, pwOutGlyphs, 0)))
++        if (!(GetGlyphIndicesW((HDC)get_cache_hdc(psc), (LPCWSTR) pwcChars, (int)cChars, (LPWORD) pwOutGlyphs,(DWORD) 0)))
+             return S_FALSE;
+ 
+         TRACE("After:  ");

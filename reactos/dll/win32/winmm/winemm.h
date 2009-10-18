@@ -275,14 +275,14 @@ MMRESULT        MIDI_StreamOpen(HMIDISTRM* lphMidiStrm, LPUINT lpuDeviceID,
                                 DWORD cMidi, DWORD_PTR dwCallback,
                                 DWORD_PTR dwInstance, DWORD fdwOpen, BOOL bFrom32);
 UINT            WAVE_Open(HANDLE* lphndl, UINT uDeviceID, UINT uType,
-                          LPCWAVEFORMATEX lpFormat, DWORD_PTR dwCallback,
+                          LPCWAVEFORMATEX lpFormat, DWORD_PTR dwCallback, 
                           DWORD_PTR dwInstance, DWORD dwFlags, BOOL bFrom32);
 
 HMMIO           MMIO_Open(LPSTR szFileName, MMIOINFO* refmminfo,
                           DWORD dwOpenFlags, enum mmioProcType type);
 LPMMIOPROC      MMIO_InstallIOProc(FOURCC fccIOProc, LPMMIOPROC pIOProc,
                                    DWORD dwFlags, enum mmioProcType type);
-LRESULT         MMIO_SendMessage(HMMIO hmmio, UINT uMessage, LPARAM lParam1,
+LRESULT         MMIO_SendMessage(HMMIO hmmio, UINT uMessage, LPARAM lParam1, 
                                  LPARAM lParam2, enum mmioProcType type);
 LPWINE_MMIO     MMIO_Get(HMMIO h);
 
@@ -315,14 +315,3 @@ extern  void            (WINAPI *pFnRestoreThunkLock)(DWORD);
  */
 #define WINE_GDF_EXIST	0x80000000
 #define WINE_GDF_16BIT	0x10000000
-
-/* Modification to take into account Windows NT's registry format */
-
-#define NT_MME_DRIVERS32_KEY \
-    "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Drivers32"
-
-#define NT_MME_DRIVERS_KEY \
-    "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Drivers"
-
-INT LoadRegistryMMEDrivers(char* key);
-BOOL MMDRV_Install(LPCSTR drvRegName, LPCSTR drvFileName, BOOL bIsMapper);

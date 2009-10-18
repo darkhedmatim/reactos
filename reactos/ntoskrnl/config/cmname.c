@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -16,97 +17,9 @@
 
 /* FUNCTIONS *****************************************************************/
 
-USHORT
-NTAPI
-CmpCopyName(IN PHHIVE Hive,
-            IN PWCHAR Destination,
-            IN PUNICODE_STRING Source)
-{
-    ULONG i;
-
-    /* Check for old hives */
-    if (Hive->Version == 1)
-    {
-        /* Just copy the source directly */
-        RtlCopyMemory(Destination, Source->Buffer, Source->Length);
-        return Source->Length;
-    }
-
-    /* For new versions, check for compressed name */
-    for (i = 0; i < (Source->Length / sizeof(WCHAR)); i++)
-    {
-        /* Check if the name is non compressed */
-        if (Source->Buffer[i] > (UCHAR)-1)
-        {
-            /* Do the copy */
-            RtlCopyMemory(Destination, Source->Buffer, Source->Length);
-            return Source->Length;
-        }
-
-        /* Copy this character */
-        ((PCHAR)Destination)[i] = (CHAR)(Source->Buffer[i]);
-    }
-
-    /* Compressed name, return length */
-    return Source->Length / sizeof(WCHAR);
-}
-
-VOID
-NTAPI
-CmpCopyCompressedName(IN PWCHAR Destination,
-                      IN ULONG DestinationLength,
-                      IN PWCHAR Source,
-                      IN ULONG SourceLength)
-{
-    ULONG i, Length;
-
-    /* Get the actual length to copy */
-    Length = min(DestinationLength / sizeof(WCHAR), SourceLength);
-    for (i = 0; i < Length; i++)
-    {
-        /* Copy each character */
-        Destination[i] = (WCHAR)((PCHAR)Source)[i];
-    }
-}
-
-USHORT
-NTAPI
-CmpNameSize(IN PHHIVE Hive,
-            IN PUNICODE_STRING Name)
-{
-    ULONG i;
-
-    /* For old hives, just retun the length */
-    if (Hive->Version == 1) return Name->Length;
-
-    /* For new versions, check for compressed name */
-    for (i = 0; i < (Name->Length / sizeof(WCHAR)); i++)
-    {
-        /* Check if the name is non compressed */
-        if (Name->Buffer[i] > (UCHAR)-1) return Name->Length;
-    }
-
-    /* Compressed name, return length */
-    return Name->Length / sizeof(WCHAR);
-}
-
-USHORT
-NTAPI
-CmpCompressedNameSize(IN PWCHAR Name,
-                      IN ULONG Length)
-{
-    /*
-     * Don't remove this: compressed names are "opaque" and just because
-     * the current implementation turns them into ansi-names doesn't mean
-     * that it will remain that way forever, so -never- assume this code
-     * below internally!
-     */
-    return (USHORT)Length * sizeof(WCHAR);
-}
-
 LONG
 NTAPI
-CmpCompareCompressedName(IN PCUNICODE_STRING SearchName,
+CmpCompareCompressedName(IN PUNICODE_STRING SearchName,
                          IN PWCHAR CompressedName,
                          IN ULONG NameLength)
 {

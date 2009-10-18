@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * History:
  * 24-Apr-2000 BS	- Started from scratch to restructure everything
@@ -38,6 +38,8 @@
  *		|  {ws} # {ws} endif {ws} \n
  *		|  {ws} # {ws} include {ws} < {anytext} > \n
  *		|  {ws} # {ws} include {ws} " {anytext} " \n
+ *		|  {ws} # {ws} include_next {ws} < {anytext} > \n
+ *		|  {ws} # {ws} include_next {ws} " {anytext} " \n
  *		|  {ws} # {ws} define {ws} {anytext} \n
  *		|  {ws} # {ws} define( {arglist} ) {ws} {expansion} \n
  *		|  {ws} # {ws} pragma {ws} {anytext} \n
@@ -126,8 +128,8 @@
  */
 %option stack
 %option 8bit never-interactive
-%option noinput nounput
-%option prefix="ppy_"
+%option nounput
+%option prefix="pp"
 
 %x pp_pp
 %x pp_eol
@@ -156,27 +158,11 @@ cident	[a-zA-Z_][0-9a-zA-Z_]*
 ul	[uUlL]|[uUlL][lL]|[lL][uU]|[lL][lL][uU]|[uU][lL][lL]|[lL][uU][lL]
 
 %{
-#include "config.h"
-#include "wine/port.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
-#include <errno.h>
-#include <limits.h>
-
-#ifndef LLONG_MAX
-# define LLONG_MAX  ((long long)0x7fffffff << 32 | 0xffffffff)
-# define LLONG_MIN  (-LLONG_MAX - 1)
-#endif
-#ifndef ULLONG_MAX
-# define ULLONG_MAX ((long long)0xffffffff << 32 | 0xffffffff)
-#endif
-
-#ifndef HAVE_UNISTD_H
-#define YY_NO_UNISTD_H
-#endif
 
 #include "wpp_private.h"
 #include "ppy.tab.h"
@@ -196,7 +182,7 @@ ul	[uUlL]|[uUlL][lL]|[lL][uU]|[lL][lL][uU]|[uU][lL][lL]|[lL][uU][lL]
 /*
  * Always update the current character position within a line
  */
-#define YY_USER_ACTION	pp_status.char_number+=ppy_leng;
+#define YY_USER_ACTION	pp_status.char_number+=ppleng;
 
 /*
  * Buffer management for includes and expansions
@@ -215,6 +201,7 @@ typedef struct bufferstackentry {
 	/* Include management */
         include_state_t incl;
 	char 		*include_filename;
+	int 		pass_data;
 } bufferstackentry_t;
 
 #define ALLOCBLOCKSIZE	(1 << 10)	/* Allocate these chunks at a time for string-buffers */
@@ -247,6 +234,7 @@ typedef struct macexpstackentry {
 static void newline(int);
 static int make_number(int radix, YYSTYPE *val, const char *str, int len);
 static void put_buffer(const char *s, int len);
+static int is_c_h_include(char *fname, int quoted);
 /* Buffer management */
 static void push_buffer(pp_entry_t *ppp, char *filename, char *incname, int pop);
 static bufferstackentry_t *pop_buffer(void);
@@ -284,6 +272,8 @@ static int macexpstackidx = 0;
 
 static bufferstackentry_t bufferstack[MAXBUFFERSTACK];
 static int bufferstackidx = 0;
+
+static int pass_data=1;
 
 /*
  * Global variables
@@ -325,6 +315,7 @@ includelogicentry_t *pp_includelogiclist = NULL;
 	 * Scan for the preprocessor directives
 	 */
 <pp_pp>{ws}*include{ws}*	if(yy_top_state() != pp_ignore) {yy_pp_state(pp_inc); return tINCLUDE;} else {yy_pp_state(pp_eol);}
+<pp_pp>{ws}*include_next{ws}*	if(yy_top_state() != pp_ignore) {yy_pp_state(pp_inc); return tINCLUDE_NEXT;} else {yy_pp_state(pp_eol);}
 <pp_pp>{ws}*define{ws}*		yy_pp_state(yy_current_state() != pp_ignore ? pp_def : pp_eol);
 <pp_pp>{ws}*error{ws}*		yy_pp_state(pp_eol);	if(yy_top_state() != pp_ignore) return tERROR;
 <pp_pp>{ws}*warning{ws}*	yy_pp_state(pp_eol);	if(yy_top_state() != pp_ignore) return tWARNING;
@@ -339,22 +330,22 @@ includelogicentry_t *pp_includelogiclist = NULL;
 <pp_pp>{ws}*endif{ws}*		yy_pp_state(pp_endif);  return tENDIF;
 <pp_pp>{ws}*line{ws}*		if(yy_top_state() != pp_ignore) {yy_pp_state(pp_line); return tLINE;} else {yy_pp_state(pp_eol);}
 <pp_pp>{ws}+			if(yy_top_state() != pp_ignore) {yy_pp_state(pp_line); return tGCCLINE;} else {yy_pp_state(pp_eol);}
-<pp_pp>{ws}*[a-z]+		ppy_error("Invalid preprocessor token '%s'", ppy_text);
+<pp_pp>{ws}*[a-z]+		pperror("Invalid preprocessor token '%s'", pptext);
 <pp_pp>\r?\n			newline(1); yy_pop_state(); return tNL;	/* This could be the null-token */
 <pp_pp>\\\r?\n			newline(0);
-<pp_pp>\\\r?			ppy_error("Preprocessor junk '%s'", ppy_text);
-<pp_pp>.			return *ppy_text;
+<pp_pp>\\\r?			pperror("Preprocessor junk '%s'", pptext);
+<pp_pp>.			return *pptext;
 
 	/*
 	 * Handle #include and #line
 	 */
-<pp_line>[0-9]+			return make_number(10, &ppy_lval, ppy_text, ppy_leng);
-<pp_inc>\<			new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_iqs);
-<pp_inc,pp_line>\"		new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_dqs);
+<pp_line>[0-9]+			return make_number(10, &pplval, pptext, ppleng);
+<pp_inc>\<			new_string(); add_string(pptext, ppleng); yy_push_state(pp_iqs);
+<pp_inc,pp_line>\"		new_string(); add_string(pptext, ppleng); yy_push_state(pp_dqs);
 <pp_inc,pp_line>{ws}+		;
 <pp_inc,pp_line>\n		newline(1); yy_pop_state(); return tNL;
 <pp_inc,pp_line>\\\r?\n		newline(0);
-<pp_inc,pp_line>(\\\r?)|(.)	ppy_error(yy_current_state() == pp_inc ? "Trailing junk in #include" : "Trailing junk in #line");
+<pp_inc,pp_line>(\\\r?)|(.)	pperror(yy_current_state() == pp_inc ? "Trailing junk in #include" : "Trailing junk in #line");
 
 	/*
 	 * Ignore all input when a false clause is parsed
@@ -371,11 +362,11 @@ includelogicentry_t *pp_includelogiclist = NULL;
 	 * Note: tIDENT is handled below.
 	 */
 
-<pp_if>0[0-7]*{ul}?		return make_number(8, &ppy_lval, ppy_text, ppy_leng);
-<pp_if>0[0-7]*[8-9]+{ul}?	ppy_error("Invalid octal digit");
-<pp_if>[1-9][0-9]*{ul}?		return make_number(10, &ppy_lval, ppy_text, ppy_leng);
-<pp_if>0[xX][0-9a-fA-F]+{ul}?	return make_number(16, &ppy_lval, ppy_text, ppy_leng);
-<pp_if>0[xX]			ppy_error("Invalid hex number");
+<pp_if>0[0-7]*{ul}?		return make_number(8, &pplval, pptext, ppleng);
+<pp_if>0[0-7]*[8-9]+{ul}?	pperror("Invalid octal digit");
+<pp_if>[1-9][0-9]*{ul}?		return make_number(10, &pplval, pptext, ppleng);
+<pp_if>0[xX][0-9a-fA-F]+{ul}?	return make_number(16, &pplval, pptext, ppleng);
+<pp_if>0[xX]			pperror("Invalid hex number");
 <pp_if>defined			yy_push_state(pp_defined); return tDEFINED;
 <pp_if>"<<"			return tLSHIFT;
 <pp_if>">>"			return tRSHIFT;
@@ -387,21 +378,21 @@ includelogicentry_t *pp_includelogiclist = NULL;
 <pp_if>">="			return tGTE;
 <pp_if>\n			newline(1); yy_pop_state(); return tNL;
 <pp_if>\\\r?\n			newline(0);
-<pp_if>\\\r?			ppy_error("Junk in conditional expression");
+<pp_if>\\\r?			pperror("Junk in conditional expression");
 <pp_if>{ws}+			;
-<pp_if>\'			new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_sqs);
-<pp_if>\"			ppy_error("String constants not allowed in conditionals");
-<pp_if>.			return *ppy_text;
+<pp_if>\'			new_string(); add_string(pptext, ppleng); yy_push_state(pp_sqs);
+<pp_if>\"			pperror("String constants not allowed in conditionals");
+<pp_if>.			return *pptext;
 
 	/*
 	 * Handle #ifdef, #ifndef and #undef
 	 * to get only an untranslated/unexpanded identifier
 	 */
-<pp_ifd>{cident}	ppy_lval.cptr = pp_xstrdup(ppy_text); return tIDENT;
+<pp_ifd>{cident}	pplval.cptr = pp_xstrdup(pptext); return tIDENT;
 <pp_ifd>{ws}+		;
 <pp_ifd>\n		newline(1); yy_pop_state(); return tNL;
 <pp_ifd>\\\r?\n		newline(0);
-<pp_ifd>(\\\r?)|(.)	ppy_error("Identifier expected");
+<pp_ifd>(\\\r?)|(.)	pperror("Identifier expected");
 
 	/*
 	 * Handle #else and #endif.
@@ -409,18 +400,18 @@ includelogicentry_t *pp_includelogiclist = NULL;
 <pp_endif>{ws}+		;
 <pp_endif>\n		newline(1); yy_pop_state(); return tNL;
 <pp_endif>\\\r?\n	newline(0);
-<pp_endif>.		ppy_error("Garbage after #else or #endif.");
+<pp_endif>.		pperror("Garbage after #else or #endif.");
 
 	/*
 	 * Handle the special 'defined' keyword.
 	 * This is necessary to get the identifier prior to any
 	 * substitutions.
 	 */
-<pp_defined>{cident}		yy_pop_state(); ppy_lval.cptr = pp_xstrdup(ppy_text); return tIDENT;
+<pp_defined>{cident}		yy_pop_state(); pplval.cptr = pp_xstrdup(pptext); return tIDENT;
 <pp_defined>{ws}+		;
-<pp_defined>(\()|(\))		return *ppy_text;
+<pp_defined>(\()|(\))		return *pptext;
 <pp_defined>\\\r?\n		newline(0);
-<pp_defined>(\\.)|(\n)|(.)	ppy_error("Identifier expected");
+<pp_defined>(\\.)|(\n)|(.)	pperror("Identifier expected");
 
 	/*
 	 * Handle #error, #warning, #pragma and #ident.
@@ -428,17 +419,17 @@ includelogicentry_t *pp_includelogiclist = NULL;
 	 * will act appropriately.
 	 * Comments are stripped from the literal text.
 	 */
-<pp_eol>[^/\\\n]+		if(yy_top_state() != pp_ignore) { ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL; }
-<pp_eol>\/[^/\\\n*]*		if(yy_top_state() != pp_ignore) { ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL; }
-<pp_eol>(\\\r?)|(\/[^/*])	if(yy_top_state() != pp_ignore) { ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL; }
+<pp_eol>[^/\\\n]+		if(yy_top_state() != pp_ignore) { pplval.cptr = pp_xstrdup(pptext); return tLITERAL; }
+<pp_eol>\/[^/\\\n*]*		if(yy_top_state() != pp_ignore) { pplval.cptr = pp_xstrdup(pptext); return tLITERAL; }
+<pp_eol>(\\\r?)|(\/[^/*])	if(yy_top_state() != pp_ignore) { pplval.cptr = pp_xstrdup(pptext); return tLITERAL; }
 <pp_eol>\n			newline(1); yy_pop_state(); if(yy_current_state() != pp_ignore) { return tNL; }
 <pp_eol>\\\r?\n			newline(0);
 
 	/*
 	 * Handle left side of #define
 	 */
-<pp_def>{cident}\(		ppy_lval.cptr = pp_xstrdup(ppy_text); ppy_lval.cptr[ppy_leng-1] = '\0'; yy_pp_state(pp_macro);  return tMACRO;
-<pp_def>{cident}		ppy_lval.cptr = pp_xstrdup(ppy_text); yy_pp_state(pp_define); return tDEFINE;
+<pp_def>{cident}\(		pplval.cptr = pp_xstrdup(pptext); pplval.cptr[ppleng-1] = '\0'; yy_pp_state(pp_macro);  return tMACRO;
+<pp_def>{cident}		pplval.cptr = pp_xstrdup(pptext); yy_pp_state(pp_define); return tDEFINE;
 <pp_def>{ws}+			;
 <pp_def>\\\r?\n			newline(0);
 <pp_def>(\\\r?)|(\n)|(.)	perror("Identifier expected");
@@ -446,39 +437,39 @@ includelogicentry_t *pp_includelogiclist = NULL;
 	/*
 	 * Scan the substitution of a define
 	 */
-<pp_define>[^'"/\\\n]+		ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL;
-<pp_define>(\\\r?)|(\/[^/*])	ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL;
-<pp_define>\\\r?\n{ws}+		newline(0); ppy_lval.cptr = pp_xstrdup(" "); return tLITERAL;
+<pp_define>[^'"/\\\n]+		pplval.cptr = pp_xstrdup(pptext); return tLITERAL;
+<pp_define>(\\\r?)|(\/[^/*])	pplval.cptr = pp_xstrdup(pptext); return tLITERAL;
+<pp_define>\\\r?\n{ws}+		newline(0); pplval.cptr = pp_xstrdup(" "); return tLITERAL;
 <pp_define>\\\r?\n		newline(0);
 <pp_define>\n			newline(1); yy_pop_state(); return tNL;
-<pp_define>\'			new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_sqs);
-<pp_define>\"			new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_dqs);
+<pp_define>\'			new_string(); add_string(pptext, ppleng); yy_push_state(pp_sqs);
+<pp_define>\"			new_string(); add_string(pptext, ppleng); yy_push_state(pp_dqs);
 
 	/*
 	 * Scan the definition macro arguments
 	 */
 <pp_macro>\){ws}*		yy_pp_state(pp_mbody); return tMACROEND;
 <pp_macro>{ws}+			;
-<pp_macro>{cident}		ppy_lval.cptr = pp_xstrdup(ppy_text); return tIDENT;
+<pp_macro>{cident}		pplval.cptr = pp_xstrdup(pptext); return tIDENT;
 <pp_macro>,			return ',';
 <pp_macro>"..."			return tELIPSIS;
-<pp_macro>(\\\r?)|(\n)|(.)|(\.\.?)	ppy_error("Argument identifier expected");
+<pp_macro>(\\\r?)|(\n)|(.)|(\.\.?)	pperror("Argument identifier expected");
 <pp_macro>\\\r?\n		newline(0);
 
 	/*
 	 * Scan the substitution of a macro
 	 */
-<pp_mbody>[^a-zA-Z0-9'"#/\\\n]+	ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL;
-<pp_mbody>{cident}		ppy_lval.cptr = pp_xstrdup(ppy_text); return tIDENT;
+<pp_mbody>[^a-zA-Z0-9'"#/\\\n]+	pplval.cptr = pp_xstrdup(pptext); return tLITERAL;
+<pp_mbody>{cident}		pplval.cptr = pp_xstrdup(pptext); return tIDENT;
 <pp_mbody>\#\#			return tCONCAT;
 <pp_mbody>\#			return tSTRINGIZE;
-<pp_mbody>[0-9][^'"#/\\\n]*	ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL;
-<pp_mbody>(\\\r?)|(\/[^/*'"#\\\n]*)	ppy_lval.cptr = pp_xstrdup(ppy_text); return tLITERAL;
-<pp_mbody>\\\r?\n{ws}+		newline(0); ppy_lval.cptr = pp_xstrdup(" "); return tLITERAL;
+<pp_mbody>[0-9][^'"#/\\\n]*	pplval.cptr = pp_xstrdup(pptext); return tLITERAL;
+<pp_mbody>(\\\r?)|(\/[^/*'"#\\\n]*)	pplval.cptr = pp_xstrdup(pptext); return tLITERAL;
+<pp_mbody>\\\r?\n{ws}+		newline(0); pplval.cptr = pp_xstrdup(" "); return tLITERAL;
 <pp_mbody>\\\r?\n		newline(0);
 <pp_mbody>\n			newline(1); yy_pop_state(); return tNL;
-<pp_mbody>\'			new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_sqs);
-<pp_mbody>\"			new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_dqs);
+<pp_mbody>\'			new_string(); add_string(pptext, ppleng); yy_push_state(pp_sqs);
+<pp_mbody>\"			new_string(); add_string(pptext, ppleng); yy_push_state(pp_dqs);
 
 	/*
 	 * Macro expansion text scanning.
@@ -499,7 +490,7 @@ includelogicentry_t *pp_includelogiclist = NULL;
 		macexpstackentry_t *mac = pop_macro();
 		yy_pop_state();
 		put_buffer(mac->ppp->ident, strlen(mac->ppp->ident));
-		put_buffer(ppy_text, ppy_leng);
+		put_buffer(pptext, ppleng);
 		free_macro(mac);
 	}
 
@@ -509,7 +500,7 @@ includelogicentry_t *pp_includelogiclist = NULL;
 	 */
 <pp_macscan>\(	{
 		if(++MACROPARENTHESES() > 1)
-			add_text_to_macro(ppy_text, ppy_leng);
+			add_text_to_macro(pptext, ppleng);
 	}
 <pp_macscan>\)	{
 		if(--MACROPARENTHESES() == 0)
@@ -518,19 +509,19 @@ includelogicentry_t *pp_includelogiclist = NULL;
 			macro_add_arg(1);
 		}
 		else
-			add_text_to_macro(ppy_text, ppy_leng);
+			add_text_to_macro(pptext, ppleng);
 	}
 <pp_macscan>,		{
 		if(MACROPARENTHESES() > 1)
-			add_text_to_macro(ppy_text, ppy_leng);
+			add_text_to_macro(pptext, ppleng);
 		else
 			macro_add_arg(0);
 	}
-<pp_macscan>\"		new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_dqs);
-<pp_macscan>\'		new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_sqs);
+<pp_macscan>\"		new_string(); add_string(pptext, ppleng); yy_push_state(pp_dqs);
+<pp_macscan>\'		new_string(); add_string(pptext, ppleng); yy_push_state(pp_sqs);
 <pp_macscan>"/*"	yy_push_state(pp_comment); add_text_to_macro(" ", 1);
-<pp_macscan>\n		pp_status.line_number++; pp_status.char_number = 1; add_text_to_macro(ppy_text, ppy_leng);
-<pp_macscan>([^/(),\\\n"']+)|(\/[^/*(),\\\n'"]*)|(\\\r?)|(.)	add_text_to_macro(ppy_text, ppy_leng);
+<pp_macscan>\n		pp_status.line_number++; pp_status.char_number = 1; add_text_to_macro(pptext, ppleng);
+<pp_macscan>([^/(),\\\n"']+)|(\/[^/*(),\\\n'"]*)|(\\\r?)|(.)	add_text_to_macro(pptext, ppleng);
 <pp_macscan>\\\r?\n	newline(0);
 
 	/*
@@ -545,18 +536,18 @@ includelogicentry_t *pp_includelogiclist = NULL;
 	 * Remove C++ style comment (almost all start-conditions)
 	 */
 <INITIAL,pp_pp,pp_ignore,pp_eol,pp_inc,pp_if,pp_ifd,pp_endif,pp_defined,pp_def,pp_define,pp_macro,pp_mbody,pp_macscan,RCINCL>"//"[^\n]*	{
-		if(ppy_text[ppy_leng-1] == '\\')
-			ppy_warning("C++ style comment ends with an escaped newline (escape ignored)");
+		if(pptext[ppleng-1] == '\\')
+			ppwarning("C++ style comment ends with an escaped newline (escape ignored)");
 	}
 
 	/*
 	 * Single, double and <> quoted constants
 	 */
-<INITIAL,pp_macexp>\"		pp_incl_state.seen_junk++; new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_dqs);
-<INITIAL,pp_macexp>\'		pp_incl_state.seen_junk++; new_string(); add_string(ppy_text, ppy_leng); yy_push_state(pp_sqs);
-<pp_dqs>[^"\\\n]+		add_string(ppy_text, ppy_leng);
+<INITIAL,pp_macexp>\"		pp_incl_state.seen_junk++; new_string(); add_string(pptext, ppleng); yy_push_state(pp_dqs);
+<INITIAL,pp_macexp>\'		pp_incl_state.seen_junk++; new_string(); add_string(pptext, ppleng); yy_push_state(pp_sqs);
+<pp_dqs>[^"\\\n]+		add_string(pptext, ppleng);
 <pp_dqs>\"			{
-		add_string(ppy_text, ppy_leng);
+		add_string(pptext, ppleng);
 		yy_pop_state();
 		switch(yy_current_state())
 		{
@@ -566,35 +557,37 @@ includelogicentry_t *pp_includelogiclist = NULL;
 		case pp_inc:
 		case RCINCL:
 			if (yy_current_state()==RCINCL) yy_pop_state();
-			ppy_lval.cptr = get_string();
+			pplval.cptr = get_string();
 			return tDQSTRING;
 		case pp_line:
-			ppy_lval.cptr = get_string();
+			pplval.cptr = get_string();
+			if (is_c_h_include(pplval.cptr, 1)) pass_data=0;
+			else pass_data=1;
 			return tDQSTRING;
 		default:
 			put_string();
 		}
 	}
-<pp_sqs>[^'\\\n]+		add_string(ppy_text, ppy_leng);
+<pp_sqs>[^'\\\n]+		add_string(pptext, ppleng);
 <pp_sqs>\'			{
-		add_string(ppy_text, ppy_leng);
+		add_string(pptext, ppleng);
 		yy_pop_state();
 		switch(yy_current_state())
 		{
 		case pp_if:
 		case pp_define:
 		case pp_mbody:
-			ppy_lval.cptr = get_string();
+			pplval.cptr = get_string();
 			return tSQSTRING;
 		default:
 			put_string();
 		}
 	}
-<pp_iqs>[^\>\\\n]+		add_string(ppy_text, ppy_leng);
+<pp_iqs>[^\>\\\n]+		add_string(pptext, ppleng);
 <pp_iqs>\>			{
-		add_string(ppy_text, ppy_leng);
+		add_string(pptext, ppleng);
 		yy_pop_state();
-		ppy_lval.cptr = get_string();
+		pplval.cptr = get_string();
 		return tIQSTRING;
 	}
 <pp_dqs>\\\r?\n		{
@@ -617,15 +610,15 @@ includelogicentry_t *pp_includelogiclist = NULL;
 			newline(0);
 			break;
 		default:
-			add_string(ppy_text, ppy_leng);
+			add_string(pptext, ppleng);
 			newline(-1);
 		}
 	}
-<pp_iqs,pp_dqs,pp_sqs>\\.	add_string(ppy_text, ppy_leng);
+<pp_iqs,pp_dqs,pp_sqs>\\.	add_string(pptext, ppleng);
 <pp_iqs,pp_dqs,pp_sqs>\n	{
 		newline(1);
-		add_string(ppy_text, ppy_leng);
-		ppy_warning("Newline in string constant encounterd (started line %d)", string_start());
+		add_string(pptext, ppleng);
+		ppwarning("Newline in string constant encounterd (started line %d)", string_start());
 	}
 
 	/*
@@ -634,22 +627,22 @@ includelogicentry_t *pp_includelogiclist = NULL;
 <INITIAL,pp_if,pp_inc,pp_macexp>{cident}	{
 		pp_entry_t *ppp;
 		pp_incl_state.seen_junk++;
-		if(!(ppp = pplookup(ppy_text)))
+		if(!(ppp = pplookup(pptext)))
 		{
 			if(yy_current_state() == pp_inc)
-				ppy_error("Expected include filename");
+				pperror("Expected include filename");
 
 			if(yy_current_state() == pp_if)
 			{
-				ppy_lval.cptr = pp_xstrdup(ppy_text);
+				pplval.cptr = pp_xstrdup(pptext);
 				return tIDENT;
 			}
 			else {
-				if((yy_current_state()==INITIAL) && (strcasecmp(ppy_text,"RCINCLUDE")==0)){
+				if((yy_current_state()==INITIAL) && (strcasecmp(pptext,"RCINCLUDE")==0)){
 					yy_push_state(RCINCL);
 					return tRCINCLUDE;
 				}
-				else put_buffer(ppy_text, ppy_leng);
+				else put_buffer(pptext, ppleng);
 			}
 		}
 		else if(!ppp->expanding)
@@ -670,27 +663,26 @@ includelogicentry_t *pp_includelogiclist = NULL;
 				pp_internal_error(__FILE__, __LINE__, "Invalid define type %d\n", ppp->type);
 			}
 		}
-		else put_buffer(ppy_text, ppy_leng);
 	}
 
 	/*
 	 * Everything else that needs to be passed and
 	 * newline and continuation handling
 	 */
-<INITIAL,pp_macexp>[^a-zA-Z_#'"/\\\n \r\t\f\v]+|(\/|\\)[^a-zA-Z_/*'"\\\n \r\t\v\f]*	pp_incl_state.seen_junk++; put_buffer(ppy_text, ppy_leng);
-<INITIAL,pp_macexp>{ws}+	put_buffer(ppy_text, ppy_leng);
+<INITIAL,pp_macexp>[^a-zA-Z_#'"/\\\n \r\t\f\v]+|(\/|\\)[^a-zA-Z_/*'"\\\n \r\t\v\f]*	pp_incl_state.seen_junk++; put_buffer(pptext, ppleng);
+<INITIAL,pp_macexp>{ws}+	put_buffer(pptext, ppleng);
 <INITIAL>\n			newline(1);
 <INITIAL>\\\r?\n		newline(0);
-<INITIAL>\\\r?			pp_incl_state.seen_junk++; put_buffer(ppy_text, ppy_leng);
+<INITIAL>\\\r?			pp_incl_state.seen_junk++; put_buffer(pptext, ppleng);
 
 	/*
 	 * Special catcher for macro argmument expansion to prevent
 	 * newlines to propagate to the output or admin.
 	 */
-<pp_macexp>(\n)|(.)|(\\\r?(\n|.))	put_buffer(ppy_text, ppy_leng);
+<pp_macexp>(\n)|(.)|(\\\r?(\n|.))	put_buffer(pptext, ppleng);
 
 <RCINCL>[A-Za-z0-9_\.\\/]+ {
-		ppy_lval.cptr=pp_xstrdup(ppy_text);
+		pplval.cptr=pp_xstrdup(pptext);
         	yy_pop_state();
 		return tRCINCLUDEPATH;
 	}
@@ -698,26 +690,26 @@ includelogicentry_t *pp_includelogiclist = NULL;
 <RCINCL>{ws}+ ;
 
 <RCINCL>\"		{
-		new_string(); add_string(ppy_text,ppy_leng);yy_push_state(pp_dqs);
+		new_string(); add_string(pptext,ppleng);yy_push_state(pp_dqs);
 	}
 
 	/*
 	 * This is a 'catch-all' rule to discover errors in the scanner
 	 * in an orderly manner.
 	 */
-<*>.		pp_incl_state.seen_junk++; ppy_warning("Unmatched text '%c' (0x%02x); please report\n", isprint(*ppy_text & 0xff) ? *ppy_text : ' ', *ppy_text);
+<*>.		pp_incl_state.seen_junk++; ppwarning("Unmatched text '%c' (0x%02x); please report\n", isprint(*pptext & 0xff) ? *pptext : ' ', *pptext);
 
 <<EOF>>	{
 		YY_BUFFER_STATE b = YY_CURRENT_BUFFER;
 		bufferstackentry_t *bep = pop_buffer();
 
 		if((!bep && pp_get_if_depth()) || (bep && pp_get_if_depth() != bep->if_depth))
-			ppy_warning("Unmatched #if/#endif at end of file");
+			ppwarning("Unmatched #if/#endif at end of file");
 
 		if(!bep)
 		{
 			if(YY_START != INITIAL)
-				ppy_error("Unexpected end of file during preprocessing");
+				pperror("Unexpected end of file during preprocessing");
 			yyterminate();
 		}
 		else if(bep->should_pop == 2)
@@ -726,7 +718,7 @@ includelogicentry_t *pp_includelogiclist = NULL;
 			mac = pop_macro();
 			expand_macro(mac);
 		}
-		ppy__delete_buffer(b);
+		pp_delete_buffer(b);
 	}
 
 %%
@@ -736,8 +728,8 @@ includelogicentry_t *pp_includelogiclist = NULL;
  **************************************************************************
  */
 
-#ifndef ppy_wrap
-int ppy_wrap(void)
+#ifndef ppwrap
+int ppwrap(void)
 {
 	return 1;
 }
@@ -800,7 +792,6 @@ static int make_number(int radix, YYSTYPE *val, const char *str, int len)
 	int is_ll = 0;
 	int is_u  = 0;
 	char ext[4];
-	long l;
 
 	ext[3] = '\0';
 	ext[2] = toupper(str[len-1]);
@@ -808,7 +799,7 @@ static int make_number(int radix, YYSTYPE *val, const char *str, int len)
 	ext[0] = len > 2 ? toupper(str[len-3]) : ' ';
 
 	if(!strcmp(ext, "LUL"))
-		ppy_error("Invalid constant suffix");
+		pperror("Invalid constant suffix");
 	else if(!strcmp(ext, "LLU") || !strcmp(ext, "ULL"))
 	{
 		is_ll++;
@@ -833,63 +824,26 @@ static int make_number(int radix, YYSTYPE *val, const char *str, int len)
 	}
 
 	if(is_ll)
+		pp_internal_error(__FILE__, __LINE__, "long long constants not implemented yet");
+
+	if(is_u && is_l)
 	{
-/* Assume as in the declaration of wrc_ull_t and wrc_sll_t */
-#ifdef HAVE_LONG_LONG
-		if (is_u)
-		{
-			errno = 0;
-			val->ull = strtoull(str, NULL, radix);
-			if (val->ull == ULLONG_MAX && errno == ERANGE)
-				ppy_error("integer constant %s is too large\n", str);
-			return tULONGLONG;
-		}
-		else
-		{
-			errno = 0;
-			val->sll = strtoll(str, NULL, radix);
-			if ((val->sll == LLONG_MIN || val->sll == LLONG_MAX) && errno == ERANGE)
-				ppy_error("integer constant %s is too large\n", str);
-			return tSLONGLONG;
-		}
-#else
-		pp_internal_error(__FILE__, __LINE__, "long long constants not supported on this platform");
-#endif
-	}
-	else if(is_u && is_l)
-	{
-		errno = 0;
 		val->ulong = strtoul(str, NULL, radix);
-		if (val->ulong == ULONG_MAX && errno == ERANGE)
-			ppy_error("integer constant %s is too large\n", str);
 		return tULONG;
 	}
 	else if(!is_u && is_l)
 	{
-		errno = 0;
 		val->slong = strtol(str, NULL, radix);
-		if ((val->slong == LONG_MIN || val->slong == LONG_MAX) && errno == ERANGE)
-			ppy_error("integer constant %s is too large\n", str);
 		return tSLONG;
 	}
 	else if(is_u && !is_l)
 	{
-		unsigned long ul;
-		errno = 0;
-		ul = strtoul(str, NULL, radix);
-		if ((ul == ULONG_MAX && errno == ERANGE) || (ul > UINT_MAX))
-			ppy_error("integer constant %s is too large\n", str);
-		val->uint = (unsigned int)ul;
+		val->uint = (unsigned int)strtoul(str, NULL, radix);
 		return tUINT;
 	}
 
 	/* Else it must be an int... */
-	errno = 0;
-	l = strtol(str, NULL, radix);
-	if (((l == LONG_MIN || l == LONG_MAX) && errno == ERANGE) ||
-		(l > INT_MAX) || (l < INT_MIN))
-		ppy_error("integer constant %s is too large\n", str);
-	val->sint = (int)l;
+	val->sint = (int)strtol(str, NULL, radix);
 	return tSINT;
 }
 
@@ -969,7 +923,7 @@ static void add_text(const char *str, int len)
 		curdef_alloc += (len + ALLOCBLOCKSIZE-1) & ~(ALLOCBLOCKSIZE-1);
 		curdef_text = pp_xrealloc(curdef_text, curdef_alloc * sizeof(curdef_text[0]));
 		if(curdef_alloc > 65536)
-			ppy_warning("Reallocating macro-expansion buffer larger than 64kB");
+			ppwarning("Reallocating macro-expansion buffer larger than 64kB");
 	}
 	memcpy(&curdef_text[curdef_idx], str, len);
 	curdef_idx += len;
@@ -1085,7 +1039,7 @@ static void expand_macro(macexpstackentry_t *mep)
 	assert(ppp->expanding == 0);
 
 	if((ppp->nargs >= 0 && nargs != ppp->nargs) || (ppp->nargs < 0 && nargs < -ppp->nargs))
-		ppy_error("Too %s macro arguments (%d)", nargs < abs(ppp->nargs) ? "few" : "many", nargs);
+		pperror("Too %s macro arguments (%d)", nargs < abs(ppp->nargs) ? "few" : "many", nargs);
 
 	for(n = 0; n < nargs; n++)
 		nnl += mep->nnls[n];
@@ -1154,7 +1108,7 @@ static void new_string(void)
 {
 #ifdef DEBUG
 	if(strbuf_idx)
-		ppy_warning("new_string: strbuf_idx != 0");
+		ppwarning("new_string: strbuf_idx != 0");
 #endif
 	strbuf_idx = 0;
 	str_startline = pp_status.line_number;
@@ -1169,7 +1123,7 @@ static void add_string(const char *str, int len)
 		strbuf_alloc += (len + ALLOCBLOCKSIZE-1) & ~(ALLOCBLOCKSIZE-1);
 		strbuffer = pp_xrealloc(strbuffer, strbuf_alloc * sizeof(strbuffer[0]));
 		if(strbuf_alloc > 65536)
-			ppy_warning("Reallocating string buffer larger than 64kB");
+			ppwarning("Reallocating string buffer larger than 64kB");
 	}
 	memcpy(&strbuffer[strbuf_idx], str, len);
 	strbuf_idx += len;
@@ -1207,7 +1161,7 @@ static int string_start(void)
  */
 static void push_buffer(pp_entry_t *ppp, char *filename, char *incname, int pop)
 {
-	if(ppy_debug)
+	if(ppdebug)
 		printf("push_buffer(%d): %p %p %p %d\n", bufferstackidx, ppp, filename, incname, pop);
 	if(bufferstackidx >= MAXBUFFERSTACK)
 		pp_internal_error(__FILE__, __LINE__, "Buffer stack overflow");
@@ -1223,12 +1177,13 @@ static void push_buffer(pp_entry_t *ppp, char *filename, char *incname, int pop)
 	bufferstack[bufferstackidx].ncontinuations	= ncontinuations;
 	bufferstack[bufferstackidx].incl		= pp_incl_state;
 	bufferstack[bufferstackidx].include_filename	= incname;
+	bufferstack[bufferstackidx].pass_data		= pass_data;
 
 	if(ppp)
 		ppp->expanding = 1;
 	else if(filename)
 	{
-		/* These will track the ppy_error to the correct file and line */
+		/* These will track the pperror to the correct file and line */
 		pp_status.line_number = 1;
 		pp_status.char_number = 1;
 		pp_status.input  = filename;
@@ -1259,8 +1214,8 @@ static bufferstackentry_t *pop_buffer(void)
 		ncontinuations = bufferstack[bufferstackidx].ncontinuations;
 		if(!bufferstack[bufferstackidx].should_pop)
 		{
-			fclose(ppy_in);
-			fprintf(ppy_out, "# %d \"%s\" 2\n", pp_status.line_number, pp_status.input);
+			fclose(ppin);
+			fprintf(ppout, "# %d \"%s\" 2\n", pp_status.line_number, pp_status.input);
 
 			/* We have EOF, check the include logic */
 			if(pp_incl_state.state == 2 && !pp_incl_state.seen_junk && pp_incl_state.ppp)
@@ -1280,16 +1235,18 @@ static bufferstackentry_t *pop_buffer(void)
 					if(pp_status.debug)
 						fprintf(stderr, "pop_buffer: %s:%d: includelogic added, include_ppp='%s', file='%s'\n", pp_status.input, pp_status.line_number, pp_incl_state.ppp, iep->filename);
 				}
-				else
+				else if(bufferstack[bufferstackidx].include_filename)
 					free(bufferstack[bufferstackidx].include_filename);
 			}
-			free(pp_incl_state.ppp);
+			if(pp_incl_state.ppp)
+				free(pp_incl_state.ppp);
 			pp_incl_state	= bufferstack[bufferstackidx].incl;
+			pass_data	= bufferstack[bufferstackidx].pass_data;
 
 		}
 	}
 
-	if(ppy_debug)
+	if(ppdebug)
 		printf("pop_buffer(%d): %p %p (%d, %d, %d) %p %d\n",
 			bufferstackidx,
 			bufferstack[bufferstackidx].bufferstate,
@@ -1300,7 +1257,7 @@ static bufferstackentry_t *pop_buffer(void)
 			bufferstack[bufferstackidx].filename,
 			bufferstack[bufferstackidx].should_pop);
 
-        ppy__switch_to_buffer(bufferstack[bufferstackidx].bufferstate);
+	pp_switch_to_buffer(bufferstack[bufferstackidx].bufferstate);
 
 	if(bufferstack[bufferstackidx].should_pop)
 	{
@@ -1323,7 +1280,7 @@ static bufferstackentry_t *pop_buffer(void)
 static void push_macro(pp_entry_t *ppp)
 {
 	if(macexpstackidx >= MAXMACEXPSTACK)
-		ppy_error("Too many nested macros");
+		pperror("Too many nested macros");
 
 	macexpstack[macexpstackidx] = pp_xmalloc(sizeof(macexpstack[0][0]));
         memset( macexpstack[macexpstackidx], 0, sizeof(macexpstack[0][0]));
@@ -1349,9 +1306,12 @@ static void free_macro(macexpstackentry_t *mep)
 
 	for(i = 0; i < mep->nargs; i++)
 		free(mep->args[i]);
-	free(mep->args);
-	free(mep->nnls);
-	free(mep->curarg);
+	if(mep->args)
+		free(mep->args);
+	if(mep->nnls)
+		free(mep->nnls);
+	if(mep->curarg)
+		free(mep->curarg);
 	free(mep);
 }
 
@@ -1440,8 +1400,10 @@ static void put_buffer(const char *s, int len)
 {
 	if(top_macro())
 		add_text_to_macro(s, len);
-	else
-           fwrite(s, 1, len, ppy_out);
+	else {
+           if(pass_data)
+           fwrite(s, 1, len, ppout);
+        }
 }
 
 
@@ -1450,6 +1412,15 @@ static void put_buffer(const char *s, int len)
  * Include management
  *-------------------------------------------------------------------------
  */
+static int is_c_h_include(char *fname, int quoted)
+{
+	int sl=strlen(fname);
+	if (sl < 2 + 2 * quoted) return 0;
+	if ((toupper(fname[sl-1-quoted])!='H') && (toupper(fname[sl-1-quoted])!='C')) return 0;
+	if (fname[sl-2-quoted]!='.') return 0;
+	return 1;
+}
+
 void pp_do_include(char *fname, int type)
 {
 	char *newpath;
@@ -1472,26 +1443,28 @@ void pp_do_include(char *fname, int type)
 	n = strlen(fname);
 
 	if(n <= 2)
-		ppy_error("Empty include filename");
+		pperror("Empty include filename");
 
 	/* Undo the effect of the quotation */
 	fname[n-1] = '\0';
 
-	if((ppy_in = pp_open_include(fname+1, type ? pp_status.input : NULL, &newpath)) == NULL)
-		ppy_error("Unable to open include file %s", fname+1);
+	if((ppin = pp_open_include(fname+1, type ? pp_status.input : NULL, &newpath, type)) == NULL)
+		pperror("Unable to open include file %s", fname+1);
 
 	fname[n-1] = *fname;	/* Redo the quotes */
 	push_buffer(NULL, newpath, fname, 0);
 	pp_incl_state.seen_junk = 0;
 	pp_incl_state.state = 0;
 	pp_incl_state.ppp = NULL;
+	if (is_c_h_include(newpath, 0)) pass_data=0;
+	else pass_data=1;
 
 	if(pp_status.debug)
-		fprintf(stderr, "pp_do_include: %s:%d: include_state=%d, include_ppp='%s', include_ifdepth=%d\n",
-                        pp_status.input, pp_status.line_number, pp_incl_state.state, pp_incl_state.ppp, pp_incl_state.ifdepth);
-        ppy__switch_to_buffer(ppy__create_buffer(ppy_in, YY_BUF_SIZE));
+		fprintf(stderr, "pp_do_include: %s:%d: include_state=%d, include_ppp='%s', include_ifdepth=%d ,pass_data=%d\n",
+                        pp_status.input, pp_status.line_number, pp_incl_state.state, pp_incl_state.ppp, pp_incl_state.ifdepth, pass_data);
+	pp_switch_to_buffer(pp_create_buffer(ppin, YY_BUF_SIZE));
 
-	fprintf(ppy_out, "# 1 \"%s\" 1%s\n", newpath, type ? "" : " 3");
+	fprintf(ppout, "# 1 \"%s\" 1%s\n", newpath, type ? "" : " 3");
 }
 
 /*

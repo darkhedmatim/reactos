@@ -1,34 +1,20 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/ismbpun.c
- * PURPOSE:
- * PROGRAMER:   
- * UPDATE HISTORY:
- *              05/30/08: Samuel Serapion adapted from PROJECT C Library
- *
- */
-
-#include <precomp.h>
 #include <mbstring.h>
 
 /*
- * @implemented
+ * FIXME not correct
+ *
+ * @unimplemented
  */
-size_t _mbsspn (const unsigned char *str1, const unsigned char *str2)
+size_t _mbsspn(const unsigned char *s1, const unsigned char *s2)
 {
-    int c;
-    unsigned char *ptr;
-    const unsigned char *save = str1;
+  const unsigned char *p = s1, *spanp;
+  char c, sc;
 
-    while ((c = _mbsnextc (str1))) {
-
-	if ((ptr = _mbschr (str2, c)) == 0)
-	    break;
-
-	str1 = _mbsinc ((unsigned char *) str1);
-
-    }
-
-    return str1 - save;
+ cont:
+  c = *p++;
+  for (spanp = s2; (sc = *spanp++) != 0;)
+    if (sc == c)
+      goto cont;
+  return (size_t)(p - 1) - (size_t)s1;
+// - (char *)s1);
 }

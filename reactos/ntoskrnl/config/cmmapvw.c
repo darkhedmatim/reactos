@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -29,3 +30,4 @@ CmpInitHiveViewList(IN PCMHIVE Hive)
     Hive->PinnedViews = 0;
     Hive->UseCount = 0;
 }
+

@@ -3,7 +3,7 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 #ifdef _WIN32
-LANGUAGE LANG_ITALIAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_ITALIAN, SUBLANG_ITALIAN
 #pragma code_page(1252)
 #endif //_WIN32
 
@@ -161,8 +161,22 @@ END
 // Dialog
 //
 
-IDD_TASKMGR_DIALOG DIALOGEX DISCARDABLE  0, 0, 264, 246
-STYLE DS_SHELLFONT | DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
+IDD_ABOUTBOX DIALOG DISCARDABLE  22, 17, 259, 210
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+CAPTION "Informazioni su Task Manager"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    CONTROL         "Task Manager v1.0\nCopyright (C) 1999 - 2001\nby Brian Palmer (brianp@reactos.org)",
+                    IDC_STATIC,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,53,28,
+                    122,26
+    DEFPUSHBUTTON   "OK",IDOK,183,189,44,14,WS_GROUP
+    ICON            IDI_TASKMANAGER,IDC_STATIC,19,30,20,20
+    EDITTEXT        IDC_LICENSE_EDIT,53,63,174,107,ES_MULTILINE |
+                    ES_READONLY | WS_VSCROLL
+END
+
+IDD_TASKMGR_DIALOG DIALOG DISCARDABLE  0, 0, 264, 246
+STYLE DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
     WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU |
     WS_THICKFRAME
 CAPTION "Task Manager"
@@ -172,90 +186,90 @@ BEGIN
     CONTROL         "Tab1",IDC_TAB,"SysTabControl32",WS_TABSTOP,3,3,257,228
 END
 
-IDD_APPLICATION_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+IDD_APPLICATION_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_APPLIST,"SysListView32",LVS_REPORT |
                     LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,7,7,233,177
-    PUSHBUTTON      "&Nuovo processo...",IDC_NEWTASK,172,188,68,14
-    PUSHBUTTON      "&Passa a",IDC_SWITCHTO,100,188,68,14,WS_DISABLED
-    PUSHBUTTON      "&Termina processo",IDC_ENDTASK,28,188,68,14,WS_DISABLED
+    PUSHBUTTON      "&Nuovo processo...",IDC_NEWTASK,187,189,53,14
+    PUSHBUTTON      "&Passa A",IDC_SWITCHTO,131,189,53,14,WS_DISABLED
+    PUSHBUTTON      "&Termina processo",IDC_ENDTASK,75,189,53,14,WS_DISABLED
 END
 
-IDD_PROCESS_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+IDD_PROCESS_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_PROCESSLIST,"SysListView32",LVS_REPORT |
-                    LVS_SINGLESEL | LVS_SHOWSELALWAYS |
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_OWNERDATA |
                     WS_BORDER | WS_TABSTOP,7,7,233,177
     PUSHBUTTON      "&Termina Processo",IDC_ENDPROCESS,171,189,69,14
     CONTROL         "&Mostra i processi di tutti gli utenti",IDC_SHOWALLPROCESSES,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,191,117,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,191,111,10
 END
 
 //IDD_PERFORMANCE_PAGE DIALOGEX 0, 0, 247, 210
 IDD_PERFORMANCE_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX        "Uso CPU",IDC_CPU_USAGE_FRAME,5,5,60,54,0,WS_EX_TRANSPARENT
+    GROUPBOX        "Uso CPU",IDC_CPU_USAGE_FRAME,5,5,60,54,WS_TABSTOP, WS_EX_TRANSPARENT
     GROUPBOX        "Uso MEM",IDC_MEM_USAGE_FRAME,5,63,60,54,BS_LEFTTEXT, WS_EX_TRANSPARENT
     GROUPBOX        "Totali",IDC_TOTALS_FRAME,5,122,111,39,0,WS_EX_TRANSPARENT
     GROUPBOX        "Carico scritture (K)",IDC_COMMIT_CHARGE_FRAME,5,166,111,39,0,WS_EX_TRANSPARENT
-    GROUPBOX        "Memoria fisica (K)",IDC_PHYSICAL_MEMORY_FRAME,126,122,116,39,0,WS_EX_TRANSPARENT
-    GROUPBOX        "Memoria del Kernel (K)",IDC_KERNEL_MEMORY_FRAME,126,166,116,39,0,WS_EX_TRANSPARENT
-    LTEXT           "Handle",IDS_TOTALS_HANDLE_COUNT,12,131,27,8
-    LTEXT           "Thread",IDS_TOTALS_THREAD_COUNT,12,140,27,8
-    LTEXT           "Processi",IDS_TOTALS_PROCESS_COUNT,12,149,34,8
+    GROUPBOX        "Memoria fisica (K)",IDC_PHYSICAL_MEMORY_FRAME,131,122,111,39,0,WS_EX_TRANSPARENT
+    GROUPBOX        "Memoria del Kernel (K)",IDC_KERNEL_MEMORY_FRAME,131,166,111,39,0,WS_EX_TRANSPARENT
+    LTEXT           "Handles",IDS_TOTALS_HANDLE_COUNT,12,131,27,8
+    LTEXT           "Threads",IDS_TOTALS_THREAD_COUNT,12,140,27,8
+    LTEXT           "Processes",IDS_TOTALS_PROCESS_COUNT,12,149,34,8
     EDITTEXT        IDC_TOTALS_HANDLE_COUNT,65,131,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_TOTALS_THREAD_COUNT,65,140,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_TOTALS_PROCESS_COUNT,65,149,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Totale",IDS_COMMIT_CHARGE_TOTAL,12,175,27,8
-    LTEXT           "Limite",IDS_COMMIT_CHARGE_LIMIT,12,184,21,8,NOT WS_BORDER
+    LTEXT           "Limite",IDS_COMMIT_CHARGE_LIMIT,12,184,15,8
     LTEXT           "Picco",IDS_COMMIT_CHARGE_PEAK,12,193,34,8
     EDITTEXT        IDC_COMMIT_CHARGE_TOTAL,65,174,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_COMMIT_CHARGE_LIMIT,65,184,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_COMMIT_CHARGE_PEAK,65,193,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
-    LTEXT           "Totale",IDS_PHYSICAL_MEMORY_TOTAL,132,131,27,8
-    LTEXT           "Disponibile",IDS_PHYSICAL_MEMORY_AVAILABLE,132,140,35,8
-    LTEXT           "Cache sistema",IDS_PHYSICAL_MEMORY_SYSTEM_CACHE,132,149,52,8
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
+    LTEXT           "Totale",IDS_PHYSICAL_MEMORY_TOTAL,137,131,27,8
+    LTEXT           "Disponibile",IDS_PHYSICAL_MEMORY_AVAILABLE,137,140,30,8
+    LTEXT           "Cache di sistema",IDS_PHYSICAL_MEMORY_SYSTEM_CACHE,137,149,46,8
     EDITTEXT        IDC_PHYSICAL_MEMORY_TOTAL,185,131,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_PHYSICAL_MEMORY_AVAILABLE,185,140,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_PHYSICAL_MEMORY_SYSTEM_CACHE,185,149,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
-    LTEXT           "Totale",IDS_KERNEL_MEMORY_TOTAL,132,174,27,8
-    LTEXT           "Paginata",IDS_KERNEL_MEMORY_PAGED,132,184,31,8
-    LTEXT           "Non paginata",IDS_KERNEL_MEMORY_NONPAGED,132,193,48,8
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
+    LTEXT           "Totale",IDS_KERNEL_MEMORY_TOTAL,137,174,27,8
+    LTEXT           "Paginata",IDS_KERNEL_MEMORY_PAGED,137,184,21,8
+    LTEXT           "Non Paginata",IDS_KERNEL_MEMORY_NONPAGED,137,193,34,8
     EDITTEXT        IDC_KERNEL_MEMORY_TOTAL,185,174,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_KERNEL_MEMORY_PAGED,185,184,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_KERNEL_MEMORY_NONPAGED,185,193,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     GROUPBOX        "Storico uso CPU",IDC_CPU_USAGE_HISTORY_FRAME,74,5,168,54,0,WS_EX_TRANSPARENT
     GROUPBOX        "Storico uso Memoria",IDC_MEMORY_USAGE_HISTORY_FRAME,74,63,168,54,0,WS_EX_TRANSPARENT
-    PUSHBUTTON      "Visualizzazione uso CPU",IDC_CPU_USAGE_GRAPH,12,17,47,37,NOT WS_TABSTOP,
+    PUSHBUTTON      "Visualizzazione uso CPU",IDC_CPU_USAGE_GRAPH,12,17,47,37,0,
 		    WS_EX_CLIENTEDGE
-    PUSHBUTTON      "Visualizzazione uso MEM",IDC_MEM_USAGE_GRAPH,12,75,47,37,NOT WS_TABSTOP,
+    PUSHBUTTON      "Visualizzazione uso MEM",IDC_MEM_USAGE_GRAPH,12,75,47,37,0,
                     WS_EX_CLIENTEDGE
     PUSHBUTTON      "Storico uso CPU",IDC_CPU_USAGE_HISTORY_GRAPH,81,17,
-                    153,37,NOT WS_TABSTOP,WS_EX_CLIENTEDGE
+                    153,37,0,WS_EX_CLIENTEDGE
     PUSHBUTTON      "Storico uso MEM",IDC_MEM_USAGE_HISTORY_GRAPH,81,75,
-                    153,37,NOT WS_TABSTOP,WS_EX_CLIENTEDGE
+                    153,37,0,WS_EX_CLIENTEDGE
 END
 
-IDD_DEBUG_CHANNELS_DIALOG DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_DEBUG_CHANNELS_DIALOG DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Debug Channels"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -265,8 +279,8 @@ BEGIN
     PUSHBUTTON      "Chiudi",IDOK,171,189,69,14
 END
 
-IDD_AFFINITY_DIALOG DIALOGEX DISCARDABLE  0, 0, 231, 154
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_AFFINITY_DIALOG DIALOG DISCARDABLE  0, 0, 231, 154
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Processor Affinity"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -340,8 +354,8 @@ BEGIN
                     WS_DISABLED | WS_TABSTOP,175,119,41,10
 END
 
-IDD_COLUMNS_DIALOG DIALOGEX DISCARDABLE  0, 0, 195, 199
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_COLUMNS_DIALOG DIALOG DISCARDABLE  0, 0, 195, 199
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Selezione Colonne"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -350,17 +364,17 @@ BEGIN
     LTEXT           "Seleziona le colonne che saranno visibili nella pagina dei processi di Task Manager.",
                     IDC_STATIC,7,7,181,17
     CONTROL         "&Nome immagine",IDC_IMAGENAME,"Button",BS_AUTOCHECKBOX |
-                    WS_DISABLED | WS_TABSTOP,7,28,65,10
+                    WS_DISABLED | WS_TABSTOP,7,28,56,10
     CONTROL         "&PID (Process Identifier)",IDC_PID,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,7,39,88,10
     CONTROL         "Uso &CPU",IDC_CPUUSAGE,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,50,53,10
     CONTROL         "T&empo CPU",IDC_CPUTIME,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,61,53,10
+                    WS_TABSTOP,7,61,48,10
     CONTROL         "Uso &Memoria",IDC_MEMORYUSAGE,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,72,63,10
     CONTROL         "Incrementi uso Memoria",IDC_MEMORYUSAGEDELTA,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,83,89,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,83,82,10
     CONTROL         "Picco uso Memory",IDC_PEAKMEMORYUSAGE,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,7,94,82,10
     CONTROL         "Page &Faults",IDC_PAGEFAULTS,"Button",BS_AUTOCHECKBOX |
@@ -370,31 +384,31 @@ BEGIN
     CONTROL         "Letture I/O",IDC_IOREADS,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,127,49,10
     CONTROL         "Letture I/O Bytes",IDC_IOREADBYTES,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,138,69,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,138,65,10
     CONTROL         "ID &Sessione",IDC_SESSIONID,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,149,50,10
     CONTROL         "&Nome utente",IDC_USERNAME,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,160,57,10
-    CONTROL         "Increm. Page F&ault",IDC_PAGEFAULTSDELTA,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,107,28,77,10
+                    WS_TABSTOP,7,160,51,10
+    CONTROL         "Incrementi Page F&ault",IDC_PAGEFAULTSDELTA,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,28,72,10
     CONTROL         "Dimensione Memoria &Virtuale",IDC_VIRTUALMEMORYSIZE,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,107,39,77,10
     CONTROL         "Pool Pa&ginato",IDC_PAGEDPOOL,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,107,50,61,10
+                    WS_TABSTOP,107,50,53,10
     CONTROL         "Pool N&on-paginato",IDC_NONPAGEDPOOL,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,107,61,73,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,61,67,10
     CONTROL         "P&riorità base",IDC_BASEPRIORITY,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,107,72,55,10
     CONTROL         "Numero &Handle",IDC_HANDLECOUNT,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,107,83,65,10
+                    WS_TABSTOP,107,83,59,10
     CONTROL         "Numero &Thread",IDC_THREADCOUNT,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,107,94,65,10
+                    WS_TABSTOP,107,94,59,10
     CONTROL         "Oggetti GDI",IDC_GDIOBJECTS,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,107,105,55,10
     CONTROL         "Scritture I/O",IDC_IOWRITES,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,107,116,53,10
+                    WS_TABSTOP,107,116,49,10
     CONTROL         "Scritture I/O Byte",IDC_IOWRITEBYTES,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,107,127,69,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,107,127,65,10
     CONTROL         "Altro I/O",IDC_IOOTHER,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,107,138,46,10
     CONTROL         "Altro I/O  Bytes",IDC_IOOTHERBYTES,"Button",
@@ -547,7 +561,7 @@ STRINGTABLE DISCARDABLE
 BEGIN
     ID_VIEW_UPDATESPEED_PAUSED "Non aggiorna automaticamente"
     ID_WINDOWS_TILEHORIZONTALLY
-                            "Affianca le finestre orizzontalmente sul desktop"
+                            "Affianca le finestre orizontalmente sul desktop"
     ID_WINDOWS_TILEVERTICALLY "Affianca le finestre verticalmente sul desktop"
     ID_WINDOWS_MINIMIZE     "Minimizza le finestre"
     ID_WINDOWS_MAXIMIZE     "Massimizza le finestre"
@@ -588,6 +602,7 @@ BEGIN
     ID_PROCESS_PAGE_SETPRIORITY_BELOWNORMAL
                             "Assegna al processo la classe di priorità BELOW NORMAL"
     ID_PROCESS_PAGE_SETPRIORITY_LOW "Assegna al processo la classe di priorità LOW"
+  IDS_LICENSE "Questo programma è software libero; puoi distribuirlo e/o modificarlo nei termini di licenza di 'GNU General Public License' come pubblicata dalla 'Free Software Foundation'; entrambe le versioni 2 della Licenza, o (a vostra scelta) qualunque versione successiva.\r\n\r\nQuesto programma è distribuito con l'augurio che sia utile, ma PRIVO DI OGNI GARANZIA; privo anche della garanzia implicita di COMMERCIABILITÀ o UTILIZZABILITÀ PER UNO SPECIFICO USO. Vedi la 'GNU General Public License' per ulteriori dettagli.\r\n\r\nVoi dovreste aver ricevuto una copia della 'GNU General Public License' assieme a questo programma; se non è cosi' scrivete a 'Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA'."
 END
 
 
@@ -650,7 +665,7 @@ BEGIN
     IDS_STATUS_CPUUSAGE           "Uso CPU: %3d%%"
     IDS_STATUS_PROCESSES          "Processi: %d"
     IDS_Not_Responding            "Non risponde"
-    IDS_Running                   "In esecuzione"
+    IDS_Running                   "In esecuzione"  
 END
 
 
@@ -668,5 +683,4 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
 

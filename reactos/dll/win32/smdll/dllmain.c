@@ -8,7 +8,7 @@
 
 #include <windows.h>
 
-BOOL WINAPI DllMainCRTStartup(HANDLE hinstDll, DWORD fdwReason, LPVOID fImpLoad)
+BOOL STDCALL DllMainCRTStartup(HANDLE hinstDll, DWORD fdwReason, LPVOID fImpLoad)
 {
   return TRUE;
 }

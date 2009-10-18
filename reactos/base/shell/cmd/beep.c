@@ -25,11 +25,12 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_BEEP
 
 
-INT cmd_beep (LPTSTR param)
+INT cmd_beep (LPTSTR cmd, LPTSTR param)
 {
 	if (_tcsncmp (param, _T("/?"), 2) == 0)
 	{

@@ -34,32 +34,38 @@ CDFile::ReplaceVariable ( const string& name,
 		return path;
 }
 
-CDFile::~CDFile ()
+CDFile::CDFile ( const Project& project_,
+	             const XMLElement& cdfileNode,
+	             const string& path )
+	: project ( project_ ),
+	  node ( cdfileNode )
 {
-	delete source;
-	delete target;
+	const XMLAttribute* att = node.GetAttribute ( "base", false );
+	if ( att != NULL )
+		base = ReplaceVariable ( "$(CDOUTPUT)", Environment::GetCdOutputPath (), att->value );
+	else
+		base = "";
+
+	att = node.GetAttribute ( "nameoncd", false );
+	if ( att != NULL )
+		nameoncd = att->value;
+	else
+		nameoncd = node.value;
+	name = node.value;
+	this->path = path;
 }
 
-CDFile::CDFile ( const Project& project,
-                 const XMLElement& cdfileNode,
-                 const string& path )
-	: XmlNode ( project, cdfileNode )
+CDFile::~CDFile ()
 {
-	const XMLAttribute* att = cdfileNode.GetAttribute ( "installbase", false );
-	string target_relative_directory;
-	if ( att != NULL )
-		target_relative_directory = ReplaceVariable ( "$(CDOUTPUT)", Environment::GetCdOutputPath (), att->value );
-	else
-		target_relative_directory = "";
+}
 
-	const XMLAttribute* nameoncd = cdfileNode.GetAttribute ( "nameoncd", false );
+string
+CDFile::GetPath () const
+{
+	return path + sSep + name;
+}
 
-	source = new FileLocation ( SourceDirectory,
-	                            path,
-	                            cdfileNode.value,
-	                            &cdfileNode );
-	target = new FileLocation ( OutputDirectory,
-	                            target_relative_directory,
-	                            nameoncd ? nameoncd->value : cdfileNode.value,
-	                            &cdfileNode );
+void
+CDFile::ProcessXML()
+{
 }

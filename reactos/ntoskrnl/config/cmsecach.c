@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -29,7 +30,7 @@ CmpInitSecurityCache(IN PCMHIVE Hive)
     Hive->SecurityCache = NULL;
 
     /* Loop every security hash */
-    for (i = 0; i < CMP_SECURITY_HASH_LISTS; i++)
+    for (i = 0; i < 64; i++)
     {
         /* Initialize it */
         InitializeListHead(&Hive->SecurityHash[i]);

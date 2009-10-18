@@ -20,6 +20,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_CHOICE
 
@@ -100,8 +101,9 @@ IsKeyInString (LPTSTR lpString, TCHAR cKey, BOOL bCaseSensitive)
 
 
 INT
-CommandChoice (LPTSTR param)
+CommandChoice (LPTSTR cmd, LPTSTR param)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	LPTSTR lpOptions;
 	TCHAR Options[6];
 	LPTSTR lpText    = NULL;
@@ -207,7 +209,8 @@ CommandChoice (LPTSTR param)
 			}
 			else if (arg[i][0] == _T('/'))
 			{
-				ConErrResPrintf(STRING_CHOICE_ERROR_OPTION, arg[i]);
+				LoadString(CMD_ModuleHandle, STRING_CHOICE_ERROR_OPTION, szMsg, RC_STRING_MAX_SIZE);
+				ConErrPrintf(szMsg, arg[i]);
 				freep (arg);
 				return 1;
 			}
@@ -225,7 +228,7 @@ CommandChoice (LPTSTR param)
 
 		for (i = 1; (unsigned)i < _tcslen (lpOptions); i++)
 			ConOutPrintf (_T(",%c"), lpOptions[i]);
-
+     
 		ConOutPrintf (_T("]?"));
 	}
 
@@ -246,7 +249,7 @@ CommandChoice (LPTSTR param)
 			                     bCaseSensitive);
 
 			if (val >= 0)
-			{
+			{        
 				ConOutPrintf (_T("%c\n"), lpOptions[val]);
 
 				nErrorLevel = val + 1;
@@ -258,7 +261,9 @@ CommandChoice (LPTSTR param)
 		}
 
 		freep (arg);
-		TRACE ("ErrorLevel: %d\n", nErrorLevel);
+#ifdef _DEBUG
+		DebugPrintf (_T("ErrorLevel: %d\n"), nErrorLevel);
+#endif /* _DEBUG */
 		return 0;
 	}
 
@@ -271,19 +276,25 @@ loop:
 	switch (GCret)
 	{
 		case GC_TIMEOUT:
-			TRACE ("GC_TIMEOUT\n");
-			TRACE ("elapsed %d msecs\n", GetTickCount () - clk);
+#ifdef _DEBUG
+			DebugPrintf (_T("GC_TIMEOUT\n"));
+			DebugPrintf (_T("elapsed %d msecs\n"), GetTickCount () - clk);
+#endif /* _DEBUG */
 			break;
 
 		case GC_NOKEY:
-			TRACE ("GC_NOKEY\n");
-			TRACE ("elapsed %d msecs\n", GetTickCount () - clk);
+#ifdef _DEBUG
+			DebugPrintf(_T("GC_NOKEY\n"));
+			DebugPrintf(_T("elapsed %d msecs\n"), GetTickCount () - clk);
+#endif /* _DEBUG */
 			goto loop;
 
 		case GC_KEYREAD:
-			TRACE ("GC_KEYREAD\n");
-			TRACE ("elapsed %d msecs\n", GetTickCount () - clk);
-			TRACE ("read %c", Ch);
+#ifdef _DEBUG
+			DebugPrintf(_T("GC_KEYREAD\n"));
+			DebugPrintf(_T("elapsed %d msecs\n"), GetTickCount () - clk);
+			DebugPrintf(_T("read %c"), Ch);
+#endif /* _DEBUG */
 			if ((val=IsKeyInString(lpOptions,Ch,bCaseSensitive))==-1)
 			{
 				Beep (440, 50);
@@ -293,8 +304,10 @@ loop:
 			break;
 	}
 
-	TRACE ("exiting wait loop after %d msecs\n",
+#ifdef _DEBUG
+	DebugPrintf(_T("exiting wait loop after %d msecs\n"),
 	            GetTickCount () - clk);
+#endif /* _DEBUG */
 
 	val = IsKeyInString (lpOptions, cDefault, bCaseSensitive);
 	ConOutPrintf (_T("%c\n"), lpOptions[val]);
@@ -303,7 +316,9 @@ loop:
 
 	freep (arg);
 
-	TRACE ("ErrorLevel: %d\n", nErrorLevel);
+#ifdef _DEBUG
+	DebugPrintf (_T("ErrorLevel: %d\n"), nErrorLevel);
+#endif /* _DEBUG */
 
 	return 0;
 }

@@ -2,7 +2,8 @@
     ReactOS Kernel-Mode COM
     IUnknown implementations
 
-    This file is in the public domain.
+    LICENSE
+        Please see COPYING in the top-level directory for license information.
 
     AUTHORS
         Andrew Greenwood
@@ -89,22 +90,22 @@ class CUnknown : public INonDelegatingUnknown
     : CUnknown(outer_unknown) \
     { }
 
-#else   /* Not C++ - this is probably very buggy... */
+#else   /* Not C++ */
 
-NTSTATUS
 STDMETHODCALLTYPE
+NTSTATUS
 Unknown_QueryInterface(
     IUnknown* this,
     IN  REFIID refiid,
     OUT PVOID* output);
 
-ULONG
 STDMETHODCALLTYPE
+ULONG
 Unknown_AddRef(
     IUnknown* unknown_this);
 
-ULONG
 STDMETHODCALLTYPE
+ULONG
 Unknown_Release(
     IUnknown* unknown_this);
 
@@ -161,8 +162,8 @@ typedef struct CUnknown
     Custom "new" and "delete" C++ operators
 */
 
-#ifndef _NEW_DELETE_OPERATORS_
-#define _NEW_DELETE_OPERATORS_
+#ifndef ALLOCATION_OPERATORS_DEFINED
+#define ALLOCATION_OPERATORS_DEFINED
 
 inline PVOID
 KCOM_New(

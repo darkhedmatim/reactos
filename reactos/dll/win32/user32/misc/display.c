@@ -31,7 +31,6 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
 #define SIZEOF_DEVMODEA_300 124
 #define SIZEOF_DEVMODEA_400 148
@@ -45,7 +44,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 EnumDisplayDevicesA(
   LPCSTR lpDevice,
   DWORD iDevNum,
@@ -62,14 +61,13 @@ EnumDisplayDevicesA(
       return FALSE;
     }
 
-  RtlZeroMemory(&DisplayDeviceW, sizeof(DISPLAY_DEVICEW));
-  DisplayDeviceW.cb = sizeof(DISPLAY_DEVICEW);
+  DisplayDeviceW.cb = sizeof(DISPLAY_DEVICEW);  
   rc = NtUserEnumDisplayDevices (
     &Device,
     iDevNum,
     &DisplayDeviceW,
     dwFlags );
-  if (rc)
+  if (!rc)
     {
       /* Copy result from DisplayDeviceW to lpDisplayDevice */
       lpDisplayDevice->StateFlags = DisplayDeviceW.StateFlags;
@@ -101,7 +99,7 @@ EnumDisplayDevicesA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplayDevicesW(
   LPCWSTR lpDevice,
   DWORD iDevNum,
@@ -127,7 +125,7 @@ EnumDisplayDevicesW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplayMonitors(
   HDC hdc,
   LPCRECT lprcClip,
@@ -170,8 +168,6 @@ EnumDisplayMonitors(
   if (iCount <= 0)
     {
       /* FIXME: SetLastError() */
-      HeapFree(hHeap, 0, hMonitorList);
-      HeapFree(hHeap, 0, pRectList);
       return FALSE;
     }
 
@@ -191,8 +187,7 @@ EnumDisplayMonitors(
       if (!lpfnEnum(hMonitor, hMonitorDC, pMonitorRect, dwData))
         break;
     }
-  HeapFree(hHeap, 0, hMonitorList);
-  HeapFree(hHeap, 0, pRectList);
+
   return TRUE;
 }
 
@@ -201,95 +196,91 @@ EnumDisplayMonitors(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsExA(
-    LPCSTR lpszDeviceName,
-    DWORD iModeNum,
-    LPDEVMODEA lpDevMode,
-    DWORD dwFlags)
+  LPCSTR lpszDeviceName,
+  DWORD iModeNum,
+  LPDEVMODEA lpDevMode,
+  DWORD dwFlags)
 {
-    NTSTATUS Status;
-    UNICODE_STRING usDeviceName, *pusDeviceName = NULL;
-    DEVMODEW DevModeW;
+  BOOL rc;
+  UNICODE_STRING DeviceName;
+  DEVMODEW lpDevModeW;
 
-    if (lpszDeviceName)
+  if ( !RtlCreateUnicodeStringFromAsciiz ( &DeviceName, (PCSZ)lpszDeviceName ) )
     {
-        if (!RtlCreateUnicodeStringFromAsciiz(&usDeviceName, (PCSZ)lpszDeviceName))
-        {
-            SetLastError(ERROR_OUTOFMEMORY);
-            return FALSE;
-        }
-        pusDeviceName = &usDeviceName;
+      SetLastError ( ERROR_OUTOFMEMORY );
+      return FALSE;
     }
 
-    memset(&DevModeW,0, sizeof(DEVMODEW));
-    DevModeW.dmSize = sizeof(DEVMODEW);
+  memset(&lpDevModeW,0,sizeof(DEVMODEW));
+  lpDevModeW.dmSize = sizeof(DEVMODEW);
+ 
+  rc = NtUserEnumDisplaySettings ( &DeviceName, iModeNum, &lpDevModeW,
+                                   dwFlags );
+  if (!rc)
+    goto done;
 
-    Status = NtUserEnumDisplaySettings(pusDeviceName, iModeNum, &DevModeW, dwFlags);
-
-    if (pusDeviceName)
+#define COPYS(f,len) WideCharToMultiByte( CP_THREAD_ACP, 0, lpDevModeW.f, len, (LPSTR)lpDevMode->f, len, NULL, NULL )
+#define COPYN(f) lpDevMode->f = lpDevModeW.f
+  COPYS(dmDeviceName, CCHDEVICENAME );
+  COPYN(dmSpecVersion);
+  COPYN(dmDriverVersion);
+  switch ( lpDevModeW.dmSize )
     {
-        RtlFreeUnicodeString (&usDeviceName);
+    case SIZEOF_DEVMODEW_300:
+      lpDevMode->dmSize = SIZEOF_DEVMODEA_300;
+      break;
+    case SIZEOF_DEVMODEW_400:
+      lpDevMode->dmSize = SIZEOF_DEVMODEA_400;
+      break;
+    case SIZEOF_DEVMODEW_500:
+    default: /* FIXME what to do??? */
+      lpDevMode->dmSize = SIZEOF_DEVMODEA_500;
+      break;
     }
+  COPYN(dmDriverExtra);
+  COPYN(dmFields);
+  COPYN(dmPosition.x);
+  COPYN(dmPosition.y);
+  COPYN(dmScale);
+  COPYN(dmCopies);
+  COPYN(dmDefaultSource);
+  COPYN(dmPrintQuality);
+  COPYN(dmColor);
+  COPYN(dmDuplex);
+  COPYN(dmYResolution);
+  COPYN(dmTTOption);
+  COPYN(dmCollate);
+  COPYS(dmFormName,CCHFORMNAME);
+  COPYN(dmLogPixels);
+  COPYN(dmBitsPerPel);
+  COPYN(dmPelsWidth);
+  COPYN(dmPelsHeight);
+  COPYN(dmDisplayFlags); // aka dmNup
+  COPYN(dmDisplayFrequency);
 
-    if (!NT_SUCCESS(Status))
-    {
-        return FALSE;
-    }
+  if ( lpDevModeW.dmSize <= SIZEOF_DEVMODEW_300 )
+    goto done; // we're done with 0x300 fields
 
-#define COPYS(f,len) WideCharToMultiByte( CP_THREAD_ACP, 0, DevModeW.f, len, (LPSTR)lpDevMode->f, len, NULL, NULL )
-#define COPYN(f) lpDevMode->f = DevModeW.f
-    COPYS(dmDeviceName, CCHDEVICENAME );
-    COPYN(dmSpecVersion);
-    COPYN(dmDriverVersion);
-    switch (lpDevMode->dmSize)
-    {
-        case SIZEOF_DEVMODEA_300:
-        case SIZEOF_DEVMODEA_400:
-        case SIZEOF_DEVMODEA_500:
-             break;
-        default:
-            lpDevMode->dmSize = SIZEOF_DEVMODEA_300;
-            break;
-    }
-    COPYN(dmDriverExtra);
-    COPYN(dmFields);
-    COPYN(dmPosition.x);
-    COPYN(dmPosition.y);
-    COPYN(dmScale);
-    COPYN(dmCopies);
-    COPYN(dmDefaultSource);
-    COPYN(dmPrintQuality);
-    COPYN(dmColor);
-    COPYN(dmDuplex);
-    COPYN(dmYResolution);
-    COPYN(dmTTOption);
-    COPYN(dmCollate);
-    COPYS(dmFormName,CCHFORMNAME);
-    COPYN(dmLogPixels);
-    COPYN(dmBitsPerPel);
-    COPYN(dmPelsWidth);
-    COPYN(dmPelsHeight);
-    COPYN(dmDisplayFlags); // aka dmNup
-    COPYN(dmDisplayFrequency);
+  COPYN(dmICMMethod);
+  COPYN(dmICMIntent);
+  COPYN(dmMediaType);
+  COPYN(dmDitherType);
+  COPYN(dmReserved1);
+  COPYN(dmReserved2);
 
-    if (lpDevMode->dmSize <= SIZEOF_DEVMODEW_300)
-        return TRUE; // we're done with 0x300 fields
+  if ( lpDevModeW.dmSize <= SIZEOF_DEVMODEW_400 )
+    goto done; // we're done with 0x400 fields
 
-    COPYN(dmICMMethod);
-    COPYN(dmICMIntent);
-    COPYN(dmMediaType);
-    COPYN(dmDitherType);
-    COPYN(dmReserved1);
-    COPYN(dmReserved2);
+  COPYN(dmPanningWidth);
+  COPYN(dmPanningHeight);
 
-    if (lpDevMode->dmSize <= SIZEOF_DEVMODEW_400)
-        return TRUE; // we're done with 0x400 fields
+done:
+  RtlFreeUnicodeString ( &DeviceName );
 
-    COPYN(dmPanningWidth);
-    COPYN(dmPanningHeight);
 
-    return TRUE;
+  return rc;
 }
 
 
@@ -297,7 +288,7 @@ EnumDisplaySettingsExA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsA(
   LPCSTR lpszDeviceName,
   DWORD iModeNum,
@@ -311,25 +302,21 @@ EnumDisplaySettingsA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsExW(
-    LPCWSTR lpszDeviceName,
-    DWORD iModeNum,
-    LPDEVMODEW lpDevMode,
-    DWORD dwFlags)
+  LPCWSTR lpszDeviceName,
+  DWORD iModeNum,
+  LPDEVMODEW lpDevMode,
+  DWORD dwFlags)
 {
-    NTSTATUS Status;
-    UNICODE_STRING usDeviceName, *pusDeviceName = NULL;
+  BOOL rc;
+  UNICODE_STRING DeviceName;
 
-    if (lpszDeviceName)
-    {
-        RtlInitUnicodeString(&usDeviceName, lpszDeviceName);
-        pusDeviceName = &usDeviceName;
-    }
+  RtlInitUnicodeString ( &DeviceName, lpszDeviceName );
 
-    Status = NtUserEnumDisplaySettings(pusDeviceName, iModeNum, lpDevMode, dwFlags);
+  rc = NtUserEnumDisplaySettings ( &DeviceName, iModeNum, lpDevMode, dwFlags );
 
-    return NT_SUCCESS(Status);
+  return rc;
 }
 
 
@@ -337,7 +324,7 @@ EnumDisplaySettingsExW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EnumDisplaySettingsW(
   LPCWSTR lpszDeviceName,
   DWORD iModeNum,
@@ -351,7 +338,7 @@ EnumDisplaySettingsW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetMonitorInfoA(
   HMONITOR hMonitor,
   LPMONITORINFO lpmi)
@@ -381,7 +368,7 @@ GetMonitorInfoA(
                                 NULL, NULL);
       if (res == 0)
         {
-          WARN("WideCharToMultiByte() failed!\n");
+          DPRINT("WideCharToMultiByte() failed!\n");
           return FALSE;
         }
     }
@@ -394,7 +381,7 @@ GetMonitorInfoA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetMonitorInfoW(
   HMONITOR hMonitor,
   LPMONITORINFO lpmi)
@@ -407,7 +394,7 @@ GetMonitorInfoW(
  * @implemented
  */
 HMONITOR
-WINAPI
+STDCALL
 MonitorFromPoint(
 	IN POINT ptPoint,
 	IN DWORD dwFlags )
@@ -420,7 +407,7 @@ MonitorFromPoint(
  * @implemented
  */
 HMONITOR
-WINAPI
+STDCALL
 MonitorFromRect(
 	IN LPCRECT lpcRect,
 	IN DWORD dwFlags )
@@ -433,7 +420,7 @@ MonitorFromRect(
  * @implemented
  */
 HMONITOR
-WINAPI
+STDCALL
 MonitorFromWindow(
 	IN HWND hWnd,
 	IN DWORD dwFlags )
@@ -446,7 +433,7 @@ MonitorFromWindow(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsExA(
   LPCSTR lpszDeviceName,
   LPDEVMODEA lpDevMode,
@@ -477,9 +464,6 @@ ChangeDisplaySettingsExA(
 
   rc = NtUserChangeDisplaySettings ( pDeviceName, pDevModeW, hwnd, dwflags, lParam );
 
-  if (pDevModeW != NULL)
-    RtlFreeHeap(GetProcessHeap(), 0, pDevModeW);
-
   if (lpszDeviceName != NULL)
     RtlFreeUnicodeString ( &DeviceName );
 
@@ -491,13 +475,11 @@ ChangeDisplaySettingsExA(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsA(
   LPDEVMODEA lpDevMode,
   DWORD dwflags)
 {
-  if(lpDevMode)
-    lpDevMode->dmDriverExtra = 0;
   return ChangeDisplaySettingsExA ( NULL, lpDevMode, NULL, dwflags, 0 );
 }
 
@@ -506,7 +488,7 @@ ChangeDisplaySettingsA(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsExW(
   LPCWSTR lpszDeviceName,
   LPDEVMODEW lpDevMode,
@@ -533,12 +515,10 @@ ChangeDisplaySettingsExW(
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 ChangeDisplaySettingsW(
   LPDEVMODEW lpDevMode,
   DWORD dwflags)
 {
-  if(lpDevMode)
-    lpDevMode->dmDriverExtra = 0; 
   return ChangeDisplaySettingsExW ( NULL, lpDevMode, NULL, dwflags, 0 );
 }

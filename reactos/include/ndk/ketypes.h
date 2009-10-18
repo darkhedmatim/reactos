@@ -43,16 +43,6 @@ Author:
 // Processor Architectures
 //
 #define PROCESSOR_ARCHITECTURE_INTEL    0
-#define PROCESSOR_ARCHITECTURE_MIPS     1
-#define PROCESSOR_ARCHITECTURE_ALPHA    2
-#define PROCESSOR_ARCHITECTURE_PPC      3
-#define PROCESSOR_ARCHITECTURE_SHX      4
-#define PROCESSOR_ARCHITECTURE_ARM      5
-#define PROCESSOR_ARCHITECTURE_IA64     6
-#define PROCESSOR_ARCHITECTURE_ALPHA64  7
-#define PROCESSOR_ARCHITECTURE_MSIL     8
-#define PROCESSOR_ARCHITECTURE_AMD64    9
-#define PROCESSOR_ARCHITECTURE_UNKNOWN  0xFFFF
 
 //
 // Object Type Mask for Kernel Dispatcher Objects
@@ -64,6 +54,11 @@ Author:
 // Dispatcher Priority increments
 //
 #define THREAD_ALERT_INCREMENT          2
+
+//
+// User Shared Data in Kernel-Mode
+//
+#define KI_USER_SHARED_DATA             0xffdf0000
 
 //
 // Physical memory offset of KUSER_SHARED_DATA
@@ -107,6 +102,17 @@ Author:
 //
 #define KI_EXCEPTION_INTERNAL           0x10000000
 #define KI_EXCEPTION_ACCESS_VIOLATION   (KI_EXCEPTION_INTERNAL | 0x04)
+
+//
+// KPCR Access for non-IA64 builds
+//
+#define K0IPCR                          ((ULONG_PTR)(KIP0PCRADDRESS))
+#define PCR                             ((volatile KPCR * const)K0IPCR)
+#if !defined(CONFIG_SMP) && !defined(NT_BUILD)
+#define KeGetPcr()                      PCR
+#else
+#define KeGetPcr()                      ((volatile KPCR * const)__readfsdword(0x1C))
+#endif
 
 //
 // Number of dispatch codes supported by KINTERRUPT
@@ -283,42 +289,9 @@ typedef enum _KTHREAD_STATE
     Transition,
     DeferredReady,
 #if (NTDDI_VERSION >= NTDDI_WS03)
-    GateWait
+    GateWait,
 #endif
 } KTHREAD_STATE, *PKTHREAD_STATE;
-
-//
-// Kernel Object Types
-//
-typedef enum _KOBJECTS
-{
-    EventNotificationObject = 0,
-    EventSynchronizationObject = 1,
-    MutantObject = 2,
-    ProcessObject = 3,
-    QueueObject = 4,
-    SemaphoreObject = 5,
-    ThreadObject = 6,
-    GateObject = 7,
-    TimerNotificationObject = 8,
-    TimerSynchronizationObject = 9,
-    Spare2Object = 10,
-    Spare3Object = 11,
-    Spare4Object = 12,
-    Spare5Object = 13,
-    Spare6Object = 14,
-    Spare7Object = 15,
-    Spare8Object = 16,
-    Spare9Object = 17,
-    ApcObject = 18,
-    DpcObject = 19,
-    DeviceQueueObject = 20,
-    EventPairObject = 21,
-    InterruptObject = 22,
-    ProfileObject = 23,
-    ThreadedDpcObject = 24,
-    MaximumKernelObject = 25
-} KOBJECTS;
 
 //
 // Adjust reasons
@@ -547,14 +520,14 @@ typedef enum _KAPC_ENVIRONMENT
 } KAPC_ENVIRONMENT;
 
 //
-// CPU Cache Types 	 
-// 	 
-typedef enum _PROCESSOR_CACHE_TYPE 	 
+// CPU Cache Types
+//
+typedef enum _PROCESSOR_CACHE_TYPE
 {
-    CacheUnified, 	 
-    CacheInstruction, 	 
-    CacheData, 	 
-    CacheTrace, 	 
+    CacheUnified,
+    CacheInstruction,
+    CacheData,
+    CacheTrace,
 } PROCESSOR_CACHE_TYPE;
 
 //
@@ -563,7 +536,7 @@ typedef enum _PROCESSOR_CACHE_TYPE
 typedef struct _KDPC_DATA
 {
     LIST_ENTRY DpcListHead;
-    ULONG_PTR DpcLock;
+    ULONG DpcLock;
     volatile ULONG DpcQueueDepth;
     ULONG DpcCount;
 } KDPC_DATA, *PKDPC_DATA;
@@ -578,15 +551,15 @@ typedef struct _PP_LOOKASIDE_LIST
 } PP_LOOKASIDE_LIST, *PPP_LOOKASIDE_LIST;
 
 //
-// CPU Cache Descriptor 	 
-// 	 
-typedef struct _CACHE_DESCRIPTOR 	 
+// CPU Cache Descriptor
+//
+typedef struct _CACHE_DESCRIPTOR
 {
-    UCHAR Level; 	 
-    UCHAR Associativity; 	 
-    USHORT LineSize; 	 
-    ULONG Size; 	 
-    PROCESSOR_CACHE_TYPE Type; 	 
+    UCHAR Level;
+    UCHAR Associativity;
+    USHORT LineSize;
+    ULONG Size;
+    PROCESSOR_CACHE_TYPE Type;
 } CACHE_DESCRIPTOR, *PCACHE_DESCRIPTOR;
 
 //
@@ -626,7 +599,7 @@ typedef struct _KPROFILE
     PVOID RangeLimit;
     ULONG BucketShift;
     PVOID Buffer;
-    ULONG_PTR Segment;
+    ULONG Segment;
     KAFFINITY Affinity;
     KPROFILE_SOURCE Source;
     BOOLEAN Started;
@@ -667,7 +640,7 @@ typedef struct _KINTERRUPT
     ULONGLONG Rsvd1;
 #endif
     ULONG DispatchCode[KINTERRUPT_DISPATCH_CODES];
-} KINTERRUPT;
+} KINTERRUPT, *PKINTERRUPT;
 
 //
 // Kernel Event Pair Object
@@ -695,6 +668,39 @@ typedef struct _KEXECUTE_OPTIONS
 } KEXECUTE_OPTIONS, *PKEXECUTE_OPTIONS;
 
 //
+// Kernel Object Types
+//
+typedef enum _KOBJECTS
+{
+    EventNotificationObject = 0,
+    EventSynchronizationObject = 1,
+    MutantObject = 2,
+    ProcessObject = 3,
+    QueueObject = 4,
+    SemaphoreObject = 5,
+    ThreadObject = 6,
+    GateObject = 7,
+    TimerNotificationObject = 8,
+    TimerSynchronizationObject = 9,
+    Spare2Object = 10,
+    Spare3Object = 11,
+    Spare4Object = 12,
+    Spare5Object = 13,
+    Spare6Object = 14,
+    Spare7Object = 15,
+    Spare8Object = 16,
+    Spare9Object = 17,
+    ApcObject = 18,
+    DpcObject = 19,
+    DeviceQueueObject = 20,
+    EventPairObject = 21,
+    InterruptObject = 22,
+    ProfileObject = 23,
+    ThreadedDpcObject = 24,
+    MaximumKernelObject = 25
+} KOBJECTS;
+
+//
 // Kernel Thread (KTHREAD)
 //
 typedef struct _KTHREAD
@@ -703,7 +709,6 @@ typedef struct _KTHREAD
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONGLONG CycleTime;
     ULONG HighCycleTime;
-    ULONGLONG QuantumTarget;
 #else
     LIST_ENTRY MutantListHead;
 #endif
@@ -736,26 +741,8 @@ typedef struct _KTHREAD
         PKWAIT_BLOCK WaitBlockList;
         PKGATE GateObject;
     };
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    union
-    {
-        struct
-        {
-            ULONG KernelStackResident:1;
-            ULONG ReadyTransition:1;
-            ULONG ProcessReadyQueue:1;
-            ULONG WaitNext:1;
-            ULONG SystemAffinityActive:1;
-            ULONG Alertable:1;
-            ULONG GdiFlushActive:1;
-            ULONG Reserved:25;
-        };
-        LONG MiscFlags;
-    };
-#else
     BOOLEAN Alertable;
     BOOLEAN WaitNext;
-#endif
     UCHAR WaitReason;
     SCHAR Priority;
     BOOLEAN EnableStackSwap;
@@ -809,11 +796,7 @@ typedef struct _KTHREAD
         struct
         {
             UCHAR WaitBlockFill0[23];
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-            UCHAR IdealProcessor;
-#else
             BOOLEAN SystemAffinityActive;
-#endif
         };
         struct
         {
@@ -839,22 +822,31 @@ typedef struct _KTHREAD
     PVOID CallbackStack;
     PVOID ServiceTable;
     UCHAR ApcStateIndex;
-#if (NTDDI_VERSION < NTDDI_LONGHORN)
     UCHAR IdealProcessor;
-#endif
     BOOLEAN Preempted;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     BOOLEAN CalloutActive;
 #else
     BOOLEAN ProcessReadyQueue;
-    BOOLEAN KernelStackResident;
 #endif
+    BOOLEAN KernelStackResident;
     SCHAR BasePriority;
     SCHAR PriorityDecrement;
     CHAR Saturation;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONG SystemCallNumber;
-    ULONG Spare2;
+    union
+    {
+        struct
+        {
+            ULONG Reserved0:1;
+            ULONG ReadyTransition:1;
+            ULONG ProcessReadyQueue:1;
+            ULONG Reserved2:1;
+            ULONG Reserved3:28;
+        };
+        LONG MiscFlags;
+    };
 #endif
     KAFFINITY UserAffinity;
     struct _KPROCESS *Process;
@@ -960,7 +952,7 @@ typedef struct _KPROCESS
     ULONG DirectoryTableBase;
     ULONG Unused0;
 #else
-    ULONG DirectoryTableBase[2];
+    LARGE_INTEGER DirectoryTableBase;
 #endif
 #if defined(_M_IX86)
     KGDTENTRY LdtDescriptor;
@@ -1006,7 +998,7 @@ typedef struct _KPROCESS
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     ULONGLONG CycleTime;
 #endif
-} KPROCESS;
+} KPROCESS, *PKPROCESS;
 
 #define ASSERT_PROCESS(object) \
     ASSERT((((object)->Header.Type & KOBJECT_TYPE_MASK) == ProcessObject))

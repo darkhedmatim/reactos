@@ -113,7 +113,7 @@ startTimer(void)
  *           message about the timing performed; format is a printf
  *           type argument
  */
-static void XMLCDECL
+static void
 endTimer(const char *fmt, ...)
 {
     long msec;
@@ -149,7 +149,7 @@ startTimer(void)
 {
     begin = clock();
 }
-static void XMLCDECL
+static void
 endTimer(const char *fmt, ...)
 {
     long msec;
@@ -178,7 +178,7 @@ startTimer(void)
      * Do nothing
      */
 }
-static void XMLCDECL
+static void
 endTimer(char *format, ...)
 {
     /*
@@ -200,7 +200,7 @@ endTimer(char *format, ...)
 /*
  * empty SAX block
  */
-static xmlSAXHandler emptySAXHandlerStruct = {
+xmlSAXHandler emptySAXHandlerStruct = {
     NULL, /* internalSubset */
     NULL, /* isStandalone */
     NULL, /* hasInternalSubset */
@@ -235,7 +235,7 @@ static xmlSAXHandler emptySAXHandlerStruct = {
     NULL  /* xmlStructuredErrorFunc */
 };
 
-static xmlSAXHandlerPtr emptySAXHandler = &emptySAXHandlerStruct;
+xmlSAXHandlerPtr emptySAXHandler = &emptySAXHandlerStruct;
 extern xmlSAXHandlerPtr debugSAXHandler;
 
 /************************************************************************
@@ -773,7 +773,7 @@ commentDebug(void *ctx ATTRIBUTE_UNUSED, const xmlChar *value)
  * Display and format a warning messages, gives file, line, position and
  * extra parameters.
  */
-static void XMLCDECL
+static void
 warningDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
 {
     va_list args;
@@ -796,7 +796,7 @@ warningDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
  * Display and format a error messages, gives file, line, position and
  * extra parameters.
  */
-static void XMLCDECL
+static void
 errorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
 {
     va_list args;
@@ -819,7 +819,7 @@ errorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
  * Display and format a fatalError messages, gives file, line, position and
  * extra parameters.
  */
-static void XMLCDECL
+static void
 fatalErrorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
 {
     va_list args;
@@ -833,7 +833,7 @@ fatalErrorDebug(void *ctx ATTRIBUTE_UNUSED, const char *msg, ...)
     va_end(args);
 }
 
-static xmlSAXHandler debugSAXHandlerStruct = {
+xmlSAXHandler debugSAXHandlerStruct = {
     internalSubsetDebug,
     isStandaloneDebug,
     hasInternalSubsetDebug,
@@ -957,7 +957,7 @@ endElementNsDebug(void *ctx ATTRIBUTE_UNUSED,
 	fprintf(stdout, ", '%s')\n", (char *) URI);
 }
 
-static xmlSAXHandler debugSAX2HandlerStruct = {
+xmlSAXHandler debugSAX2HandlerStruct = {
     internalSubsetDebug,
     isStandaloneDebug,
     hasInternalSubsetDebug,
@@ -992,7 +992,7 @@ static xmlSAXHandler debugSAX2HandlerStruct = {
     NULL
 };
 
-static xmlSAXHandlerPtr debugSAX2Handler = &debugSAX2HandlerStruct;
+xmlSAXHandlerPtr debugSAX2Handler = &debugSAX2HandlerStruct;
 
 /************************************************************************
  *									*

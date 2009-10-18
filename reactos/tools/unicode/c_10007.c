@@ -711,7 +711,6 @@ const struct sbcs_table cptable_10007 =
 {
     { 10007, 1, 0x003f, 0x003f, "Mac Cyrillic" },
     cp2uni,
-    cp2uni,
     uni2cp_low,
     uni2cp_high
 };

@@ -23,6 +23,10 @@
 #ifndef __IDE_H
 #define __IDE_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -268,7 +272,7 @@ PciIdeXSetBusData(
   IN ULONG ConfigDataOffset,
   IN ULONG BufferLength);
 
-/* Bit field values for
+/* Bit field values for 
  * PCIIDE_TRANSFER_MODE_SELECT.DeviceTransferModeSupported and
  * IDE_CONTROLLER_PROPERTIES.SupportedTransferMode
  */

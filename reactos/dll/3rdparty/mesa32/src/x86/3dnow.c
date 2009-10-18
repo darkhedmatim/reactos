@@ -1,3 +1,4 @@
+/* $Id: 3dnow.c,v 1.23 2003/03/29 16:38:37 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -28,15 +29,15 @@
  * Holger Waechtler <holger@akaflieg.extern.tu-berlin.de>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 
 #include "3dnow.h"
 #include "common_x86_macros.h"
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
 #include "math/m_debug.h"
 #endif
 
@@ -83,7 +84,7 @@ void _mesa_init_3dnow_transform_asm( void )
    ASSIGN_NORM_GROUP( 3dnow );
    */
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
    _math_test_all_transform_functions( "3DNow!" );
    _math_test_all_normal_transform_functions( "3DNow!" );
 #endif

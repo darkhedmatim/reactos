@@ -26,22 +26,18 @@
  * REVISION HISTORY:
  */
 
-/* INCLUDES *****************************************************************/
-
 #include <w32k.h>
 
 #define NDEBUG
 #include <debug.h>
 
-/* FUNCTIONS *****************************************************************/
-
 BOOL
-APIENTRY
+STDCALL
 EngRestoreFloatingPointState ( IN VOID *Buffer )
 {
   NTSTATUS Status;
   Status = KeRestoreFloatingPointState((PKFLOATING_SAVE)Buffer);
-  if (!NT_SUCCESS(Status))
+  if (Status != STATUS_SUCCESS)
     {
       return FALSE;
     }
@@ -49,9 +45,9 @@ EngRestoreFloatingPointState ( IN VOID *Buffer )
 }
 
 ULONG
-APIENTRY
+STDCALL
 EngSaveFloatingPointState(OUT VOID  *Buffer,
-     IN ULONG  BufferSize)
+			  IN ULONG  BufferSize)
 {
   KFLOATING_SAVE TempBuffer;
   NTSTATUS Status;
@@ -60,9 +56,9 @@ EngSaveFloatingPointState(OUT VOID  *Buffer,
       /* Check for floating point support. */
       Status = KeSaveFloatingPointState(&TempBuffer);
       if (Status != STATUS_SUCCESS)
- {
-   return(0);
- }
+	{
+	  return(0);
+	}
       KeRestoreFloatingPointState(&TempBuffer);
       return(sizeof(KFLOATING_SAVE));
     }
@@ -77,3 +73,5 @@ EngSaveFloatingPointState(OUT VOID  *Buffer,
     }
   return TRUE;
 }
+
+

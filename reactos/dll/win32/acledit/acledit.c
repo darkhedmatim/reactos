@@ -16,7 +16,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-/* $Id: acledit.c 35011 2008-08-01 16:29:40Z sginsberg $
+/* $Id$
  *
  * PROJECT:         ReactOS Access Control List Editor
  * FILE:            lib/acledit/acledit.c
@@ -36,7 +36,7 @@
 HINSTANCE hDllInstance;
 
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(
 	HINSTANCE hinstDLL,
 	DWORD     dwReason,

@@ -29,56 +29,72 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 /*
  * Perform CALL command.
+ *
+ * Allocate a new batch context and add it to the current chain.
+ * Call parsecommandline passing in our param string
+ * If No batch file was opened then remove our newly allocted
+ * context block.
  */
 
-INT cmd_call (LPTSTR param)
+INT cmd_call (LPTSTR cmd, LPTSTR param)
 {
-	TCHAR line[CMDLINE_LENGTH + 1];
-	TCHAR *first;
-	BOOL bInQuote = FALSE;
+	LPBATCH_CONTEXT n = NULL;
 
-	TRACE ("cmd_call: (\'%s\')\n", debugstr_aw(param));
+#ifdef _DEBUG
+	DebugPrintf (_T("cmd_call: (\'%s\',\'%s\')\n"), cmd, param);
+#endif
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
 		ConOutResPaging(TRUE,STRING_CALL_HELP);
 		return 0;
 	}
 
-	/* Do a second round of %-variable substitutions */
-	if (!SubstituteVars(param, line, _T('%')))
-		return nErrorLevel = 1;
+    nErrorLevel = 0;
 
-	/* Find start and end of first word */
-	first = line;
-	while (_istspace(*first))
-		first++;
+	n = (LPBATCH_CONTEXT)malloc (sizeof (BATCH_CONTEXT));
 
-	for (param = first; *param; param++)
+	if (n == NULL)
 	{
-		if (!bInQuote && (_istspace(*param) || _tcschr(_T(",;="), *param)))
-			break;
-		bInQuote ^= (*param == _T('"'));
+		error_out_of_memory ();
+		return 1;
 	}
 
-	/* Separate first word from rest of line */
-	memmove(param + 1, param, (_tcslen(param) + 1) * sizeof(TCHAR));
-	*param++ = _T('\0');
+	n->prev = bc;
+	bc = n;
 
-	if (*first == _T(':') && (bc))
+	bc->hBatchFile = INVALID_HANDLE_VALUE;
+	bc->params = NULL;
+	bc->shiftlevel = 0;
+	bc->forvar = 0;        /* HBP004 */
+	bc->forproto = NULL;   /* HBP004 */
+	ParseCommandLine (param);
+	if (bc->prev)
 	{
-		/* CALL :label - call a subroutine of the current batch file */
-		while (*param == _T(' '))
-			param++;
-		nErrorLevel = Batch(bc->BatchFilePath, first, param, NULL);
-		return nErrorLevel;
+		_tcscpy(bc->In, bc->prev->In);
+		_tcscpy(bc->Out, bc->prev->Out);
+		_tcscpy(bc->Err, bc->prev->Err);
+	}
+	else
+	{
+		bc->In[0] = _T('\0');
+		bc->Out[0] = _T('\0');
+		bc->Err[0] = _T('\0');
+	}
+	
+
+	/* Wasn't a batch file so remove conext */
+	if (bc->hBatchFile == INVALID_HANDLE_VALUE)
+	{
+		bc = bc->prev;
+		free (n);
 	}
 
-	nErrorLevel = DoCommand(first, param, NULL);
-	return nErrorLevel;
+	return 0;
 }
 
 /* EOF */

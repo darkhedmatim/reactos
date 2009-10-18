@@ -13,13 +13,8 @@
 #ifdef WIN32
 #include <io.h>
 #include <dos.h>
-#include <windows.h>
-int __cdecl strcasecmp (const char * __sz1, const char * __sz2)
-	{return _stricmp (__sz1, __sz2);}
 #else
-#if !defined(__FreeBSD__) && !defined(__APPLE__)
 #include <sys/io.h>
-#endif
 #include <errno.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -59,7 +54,7 @@ static FILE *out;
 static FILE *file_handle = NULL;
 static char *file_buffer = NULL;
 static unsigned int file_size = 0;
-static unsigned int file_pointer = 0;
+static int file_pointer = 0;
 static char tagname[200];
 static PAPI_INFO api_info_list = NULL;
 
@@ -69,9 +64,9 @@ convert_path(char* origpath)
 {
    char* newpath;
    int i;
-
+   
    newpath = strdup(origpath);
-
+   
    i = 0;
    while (newpath[i] != 0)
      {
@@ -86,8 +81,8 @@ convert_path(char* origpath)
 	  {
 	     newpath[i] = '\\';
 	  }
-#endif
-#endif
+#endif	
+#endif	
 	i++;
      }
    return(newpath);
@@ -97,7 +92,7 @@ static char*
 path_to_url(char* path)
 {
    int i;
-
+      
    i = 0;
    while (path[i] != 0)
      {
@@ -553,11 +548,7 @@ process_directory (char *path, char *cvspath)
                 }
               else
                 {
-                  if (!getcwd(buf, sizeof(buf)))
-                    {
-                      printf("Can't get CWD: %s\n", strerror(errno));
-                      return;
-                    }
+                  getcwd(buf, sizeof(buf));
                   strcat(buf, DIR_SEPARATOR_STRING);
                   strcat(buf, path);
                   strcat(buf, entry->d_name);
@@ -584,7 +575,7 @@ process_directory (char *path, char *cvspath)
                 {
                   continue;
                 }
-
+  
               parse_file(buf, cvspath, entry->d_name);
            }
       }
@@ -615,11 +606,7 @@ process_directory (char *path, char *cvspath)
             }
           else
             {
-              if (!getcwd(buf, sizeof(buf)))
-                {
-                  printf("Can't get CWD: %s\n", strerror(errno));
-                  return;
-                }
+              getcwd(buf, sizeof(buf));
               strcat(buf, DIR_SEPARATOR_STRING);
               strcat(buf, path);
               strcat(buf, entry->d_name);
@@ -752,7 +739,7 @@ read_input_file(char *input_file)
   PAPI_INFO api_info;
   PAPI_INFO next_api_info;
   char *buffer;
-  unsigned int size;
+  int size;
   int len;
 
   in = fopen(input_file, "rb");
@@ -879,7 +866,7 @@ int main(int argc, char **argv)
   char *input_file;
   char *output_file;
 
-  if (argc != 3)
+  if (argc < 2)
   {
     puts(HELP);
     return 1;

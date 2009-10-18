@@ -9,7 +9,7 @@
 
 #include <timedate.h>
 
-static const WCHAR szMonthCalWndClass[] = L"MonthCalWnd";
+static const TCHAR szMonthCalWndClass[] = TEXT("MonthCalWnd");
 
 #define MONTHCAL_HEADERBG   COLOR_INACTIVECAPTION
 #define MONTHCAL_HEADERFG   COLOR_INACTIVECAPTIONTEXT
@@ -35,7 +35,7 @@ typedef struct _MONTHCALWND
     WORD Year;
     WORD FirstDayOfWeek;
     BYTE Days[6][7];
-    WCHAR Week[7];
+    TCHAR Week[7];
     SIZE CellSize;
     SIZE ClientSize;
 
@@ -62,30 +62,17 @@ MonthCalNotifyControlParent(IN PMONTHCALWND infoPtr,
         LPNMHDR pnmh = (LPNMHDR)data;
 
         pnmh->hwndFrom = infoPtr->hSelf;
-        pnmh->idFrom = GetWindowLongPtrW(infoPtr->hSelf,
-                                         GWLP_ID);
+        pnmh->idFrom = GetWindowLongPtr(infoPtr->hSelf,
+                                        GWLP_ID);
         pnmh->code = code;
 
-        Ret = SendMessageW(infoPtr->hNotify,
-                           WM_NOTIFY,
-                           (WPARAM)pnmh->idFrom,
-                           (LPARAM)pnmh);
+        Ret = SendMessage(infoPtr->hNotify,
+                          WM_NOTIFY,
+                          (WPARAM)pnmh->idFrom,
+                          (LPARAM)pnmh);
     }
 
     return Ret;
-}
-
-/*
- * for the year range 1..9999
- * return 1 if is leap year otherwise 0
- */
-static WORD LeapYear(IN WORD Year)
-{
-	return 
-#ifdef WITH_1752
-		(Year <= 1752) ? !(Year % 4) :
-#endif	       
-		!(Year % 4) && ((Year % 100) || !(Year % 400));
 }
 
 static WORD
@@ -95,16 +82,9 @@ MonthCalMonthLength(IN WORD Month,
     const BYTE MonthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
 
     if(Month == 2)
-        return MonthDays[Month - 1] + LeapYear(Year);
+        return MonthDays[Month - 1] + ((Year % 400 == 0) ? 1 : ((Year % 100 != 0) && (Year % 4 == 0)) ? 1 : 0);
     else
-    {
-#ifdef WITH_1752
-        if ((Year == 1752) && (Month == 9))
-	   return 19; // special case: September 1752 has no 3rd-13th
-	else
-#endif
-     	   return MonthDays[Month - 1];
-    }
+        return MonthDays[Month - 1];
 }
 
 static WORD
@@ -132,13 +112,13 @@ MonthCalDayOfWeek(IN PMONTHCALWND infoPtr,
 static WORD
 MonthCalFirstDayOfWeek(VOID)
 {
-    WCHAR szBuf[2] = {0};
+    TCHAR szBuf[2] = {0};
     WORD Ret = 0;
 
-    if (GetLocaleInfoW(LOCALE_USER_DEFAULT,
-                       LOCALE_IFIRSTDAYOFWEEK,
-                       szBuf,
-                       sizeof(szBuf) / sizeof(szBuf[0])) != 0)
+    if (GetLocaleInfo(LOCALE_USER_DEFAULT,
+                      LOCALE_IFIRSTDAYOFWEEK,
+                      szBuf,
+                      sizeof(szBuf) / sizeof(szBuf[0])) != 0)
     {
         Ret = (WORD)(szBuf[0] - TEXT('0'));
     }
@@ -154,7 +134,7 @@ MonthCalValidDate(IN WORD Day,
     if (Month < 1 || Month > 12 ||
         Day == 0 || Day > MonthCalMonthLength(Month,
                                               Year) ||
-        Year < 1899 || Year > 9999)
+        Year < 1980 || Year > 2099)
     {
         return FALSE;
     }
@@ -213,7 +193,7 @@ MonthCalUpdate(IN PMONTHCALWND infoPtr)
         rcClient.left = 0;
         rcClient.top = infoPtr->CellSize.cy;
         rcClient.right = infoPtr->ClientSize.cx;
-        rcClient.bottom = infoPtr->ClientSize.cy;
+        rcClient.bottom = infoPtr->ClientSize.cy - rcClient.top;
 
         InvalidateRect(infoPtr->hSelf,
                        &rcClient,
@@ -254,14 +234,14 @@ MonthCalSetupDayTimer(IN PMONTHCALWND infoPtr)
 static VOID
 MonthCalReload(IN PMONTHCALWND infoPtr)
 {
-    WCHAR szBuf[64];
+    TCHAR szBuf[64];
     UINT i;
 
-    infoPtr->UIState = (DWORD)SendMessageW(GetAncestor(infoPtr->hSelf,
-                                                       GA_PARENT),
-                                            WM_QUERYUISTATE,
-                                            0,
-                                            0);
+    infoPtr->UIState = (DWORD)SendMessage(GetAncestor(infoPtr->hSelf,
+                                                      GA_PARENT),
+                                           WM_QUERYUISTATE,
+                                           0,
+                                           0);
 
     /* cache the configuration */
     infoPtr->FirstDayOfWeek = MonthCalFirstDayOfWeek();
@@ -269,13 +249,15 @@ MonthCalReload(IN PMONTHCALWND infoPtr)
     infoPtr->hbHeader = GetSysColorBrush(infoPtr->Enabled ? MONTHCAL_HEADERBG : MONTHCAL_DISABLED_HEADERBG);
     infoPtr->hbSelection = GetSysColorBrush(infoPtr->Enabled ? MONTHCAL_SELBG : MONTHCAL_DISABLED_SELBG);
 
-    for (i = 0; i < 7; i++)
+    for (i = 0;
+         i < 7;
+         i++)
     {
-        if (GetLocaleInfoW(LOCALE_USER_DEFAULT,
-                           LOCALE_SABBREVDAYNAME1 +
-                               ((i + infoPtr->FirstDayOfWeek) % 7),
-                           szBuf,
-                           sizeof(szBuf) / sizeof(szBuf[0])) != 0)
+        if (GetLocaleInfo(LOCALE_USER_DEFAULT,
+                          LOCALE_SABBREVDAYNAME1 +
+                              ((i + infoPtr->FirstDayOfWeek) % 7),
+                          szBuf,
+                          sizeof(szBuf) / sizeof(szBuf[0])) != 0)
         {
             infoPtr->Week[i] = szBuf[0];
         }
@@ -509,11 +491,11 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
                 rcCell.right = rcCell.left + infoPtr->CellSize.cx;
 
                 /* write the first letter of each weekday */
-                DrawTextW(hDC,
-                          &infoPtr->Week[x],
-                          1,
-                          &rcCell,
-                          DT_SINGLELINE | DT_NOPREFIX | DT_CENTER | DT_VCENTER);
+                DrawText(hDC,
+                         &infoPtr->Week[x],
+                         1,
+                         &rcCell,
+                         DT_SINGLELINE | DT_NOPREFIX | DT_CENTER | DT_VCENTER);
             }
 
             SetTextColor(hDC,
@@ -524,7 +506,7 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
             if (crOldCtrlText == CLR_INVALID)
             {
                 crOldCtrlText = SetTextColor(hDC,
-                                             GetSysColor(infoPtr->Enabled ? MONTHCAL_CTRLFG : MONTHCAL_DISABLED_CTRLFG));
+                                             infoPtr->Enabled ? MONTHCAL_CTRLFG : MONTHCAL_DISABLED_CTRLFG);
             }
 
             for (x = prcUpdate->left / infoPtr->CellSize.cx;
@@ -539,21 +521,21 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
                 /* write the day number */
                 if (Day != 0 && Day < 100)
                 {
-                    WCHAR szDay[3];
+                    TCHAR szDay[3];
                     INT szDayLen;
                     RECT rcText;
                     SIZE TextSize;
 
-                    szDayLen = swprintf(szDay,
-                                         L"%lu",
+                    szDayLen = _stprintf(szDay,
+                                         TEXT("%lu"),
                                          Day);
 
-                    if (GetTextExtentPoint32W(hDC,
-                                              szDay,
-                                              szDayLen,
-                                              &TextSize))
+                    if (GetTextExtentPoint32(hDC,
+                                             szDay,
+                                             szDayLen,
+                                             &TextSize))
                     {
-                        RECT rcHighlight = { 0, 0, 0, 0 };
+                        RECT rcHighlight = {0};
 
                         rcText.left = rcCell.left + (infoPtr->CellSize.cx / 2) - (TextSize.cx / 2);
                         rcText.top = rcCell.top + (infoPtr->CellSize.cy / 2) - (TextSize.cy / 2);
@@ -562,20 +544,7 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
 
                         if (Day == infoPtr->Day)
                         {
-                            SIZE TextSel;
-
-                            TextSel.cx = (infoPtr->CellSize.cx * 2) / 3;
-                            TextSel.cy = (infoPtr->CellSize.cy * 3) / 4;
-
-                            if (TextSel.cx < rcText.right - rcText.left)
-                                TextSel.cx = rcText.right - rcText.left;
-                            if (TextSel.cy < rcText.bottom - rcText.top)
-                                TextSel.cy = rcText.bottom - rcText.top;
-
-                            rcHighlight.left = rcCell.left + (infoPtr->CellSize.cx / 2) - (TextSel.cx / 2);
-                            rcHighlight.right = rcHighlight.left + TextSel.cx;
-                            rcHighlight.top = rcCell.top + (infoPtr->CellSize.cy / 2) - (TextSel.cy / 2);
-                            rcHighlight.bottom = rcHighlight.top + TextSel.cy;
+                            rcHighlight = rcText;
 
                             InflateRect(&rcHighlight,
                                         GetSystemMetrics(SM_CXFOCUSBORDER),
@@ -599,11 +568,11 @@ FailNoHighlight:
                             crOldText = CLR_INVALID;
                         }
 
-                        TextOutW(hDC,
-                                 rcText.left,
-                                 rcText.top,
-                                 szDay,
-                                 szDayLen);
+                        TextOut(hDC,
+                                rcText.left,
+                                rcText.top,
+                                szDay,
+                                szDayLen);
 
                         if (Day == infoPtr->Day && crOldText != CLR_INVALID)
                         {
@@ -691,8 +660,8 @@ MonthCalWndProc(IN HWND hwnd,
     PMONTHCALWND infoPtr;
     LRESULT Ret = 0;
 
-    infoPtr = (PMONTHCALWND)GetWindowLongPtrW(hwnd,
-                                              0);
+    infoPtr = (PMONTHCALWND)GetWindowLongPtr(hwnd,
+                                             0);
 
     if (infoPtr == NULL && uMsg != WM_CREATE)
     {
@@ -844,12 +813,12 @@ MonthCalWndProc(IN HWND hwnd,
                 case VK_TAB:
                 {
                     /* change the UI status */
-                    SendMessageW(GetAncestor(hwnd,
-                                             GA_PARENT),
-                                 WM_CHANGEUISTATE,
-                                 MAKEWPARAM(UIS_INITIALIZE,
-                                            0),
-                                 0);
+                    SendMessage(GetAncestor(hwnd,
+                                            GA_PARENT),
+                                WM_CHANGEUISTATE,
+                                MAKEWPARAM(UIS_INITIALIZE,
+                                           0),
+                                0);
                     break;
                 }
             }
@@ -876,14 +845,7 @@ MonthCalWndProc(IN HWND hwnd,
 
         case WM_UPDATEUISTATE:
         {
-            DWORD OldUIState;
-
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
-
-            OldUIState = infoPtr->UIState;
+            DWORD OldUIState = infoPtr->UIState;
             switch (LOWORD(wParam))
             {
                 case UIS_SET:
@@ -1053,9 +1015,9 @@ MonthCalWndProc(IN HWND hwnd,
                 break;
             }
 
-            SetWindowLongPtrW(hwnd,
-                              0,
-                              (LONG_PTR)infoPtr);
+            SetWindowLongPtr(hwnd,
+                             0,
+                             (LONG_PTR)infoPtr);
 
             ZeroMemory(infoPtr,
                        sizeof(MONTHCALWND));
@@ -1076,19 +1038,19 @@ MonthCalWndProc(IN HWND hwnd,
             HeapFree(GetProcessHeap(),
                      0,
                      infoPtr);
-            SetWindowLongPtrW(hwnd,
-                              0,
-                              (DWORD_PTR)NULL);
+            SetWindowLongPtr(hwnd,
+                             0,
+                             (DWORD_PTR)NULL);
             break;
         }
 
         default:
         {
 HandleDefaultMessage:
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
+            Ret = DefWindowProc(hwnd,
+                                uMsg,
+                                wParam,
+                                lParam);
             break;
         }
     }
@@ -1099,23 +1061,23 @@ HandleDefaultMessage:
 BOOL
 RegisterMonthCalControl(IN HINSTANCE hInstance)
 {
-    WNDCLASSW wc = {0};
+    WNDCLASS wc = {0};
 
     wc.style = CS_DBLCLKS;
     wc.lpfnWndProc = MonthCalWndProc;
     wc.cbWndExtra = sizeof(PMONTHCALWND);
     wc.hInstance = hInstance;
-    wc.hCursor = LoadCursorW(NULL,
-                             (LPWSTR)IDC_ARROW);
+    wc.hCursor = LoadCursor(NULL,
+                            (LPWSTR)IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(MONTHCAL_CTRLBG + 1);
     wc.lpszClassName = szMonthCalWndClass;
 
-    return RegisterClassW(&wc) != 0;
+    return RegisterClass(&wc) != 0;
 }
 
 VOID
 UnregisterMonthCalControl(IN HINSTANCE hInstance)
 {
-    UnregisterClassW(szMonthCalWndClass,
-                     hInstance);
+    UnregisterClass(szMonthCalWndClass,
+                    hInstance);
 }

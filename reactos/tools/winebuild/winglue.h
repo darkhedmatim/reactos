@@ -1,14 +1,22 @@
 #ifndef _WINGLUE_H
 #define _WINGLUE_H
 
-#include <host/typedefs.h>
+typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned long DWORD;
+typedef unsigned short WCHAR;
+#if defined(_WIN64)
+typedef unsigned __int64 UINT_PTR;
+#else
+typedef unsigned int UINT_PTR;
+#endif
+
+#define LOBYTE(w)	((BYTE)(w))
+#define HIBYTE(w)	((BYTE)(((WORD)(w)>>8)&0xFF))
 
 #define DLL_PROCESS_ATTACH 1
 #define DLL_PROCESS_DETACH 0
 
-#define IMAGE_FILE_EXECUTABLE_IMAGE	2
-#define IMAGE_FILE_LARGE_ADDRESS_AWARE	32
-#define IMAGE_FILE_32BIT_MACHINE	256
 #define IMAGE_FILE_DLL	8192
 #define IMAGE_SUBSYSTEM_NATIVE		1
 #define IMAGE_SUBSYSTEM_WINDOWS_GUI	2
@@ -20,7 +28,6 @@
 #define IMAGE_FILE_MACHINE_POWERPC      0x01f0
 #define IMAGE_FILE_MACHINE_AMD64        0x8664
 #define IMAGE_NT_SIGNATURE 0x00004550
-#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT 0x0100
 #define IMAGE_SIZEOF_NT_OPTIONAL32_HEADER 224
 #define IMAGE_SIZEOF_NT_OPTIONAL64_HEADER 240
 #define IMAGE_NT_OPTIONAL_HDR32_MAGIC 0x10b
@@ -33,8 +40,8 @@
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR32_MAGIC
 #endif
 
-#ifndef NONAMELESSUNION
 #ifdef __GNUC__
+#ifndef NONAMELESSUNION
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
 #define _ANONYMOUS_UNION __extension__
 #define _ANONYMOUS_STRUCT __extension__
@@ -43,12 +50,11 @@
 #define _ANONYMOUS_UNION __extension__
 #endif /* __cplusplus */
 #endif /* __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95) */
+#endif /* NONAMELESSUNION */
 #elif defined(__WATCOMC__) || defined(_MSC_VER)
 #define _ANONYMOUS_UNION
 #define _ANONYMOUS_STRUCT
 #endif /* __GNUC__/__WATCOMC__ */
-#endif /* NONAMELESSUNION */
-
 #ifndef _ANONYMOUS_UNION
 #define _ANONYMOUS_UNION
 #define _UNION_NAME(x) x

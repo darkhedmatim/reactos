@@ -9,13 +9,11 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
 /* GLOBALS *******************************************************************/
-
-ULONG CmpCallBackCount = 0;
-EX_CALLBACK CmpCallBackVector[100];
 
 LIST_ENTRY CmiCallbackHead;
 FAST_MUTEX CmiCallbackLock;
@@ -31,28 +29,6 @@ typedef struct _REGISTRY_CALLBACK
 } REGISTRY_CALLBACK, *PREGISTRY_CALLBACK;
 
 /* PRIVATE FUNCTIONS *********************************************************/
-
-VOID
-NTAPI
-CmpInitCallback(VOID)
-{
-    ULONG i;
-    PAGED_CODE();
-
-    /* Reset counter */
-    CmpCallBackCount = 0;
-
-    /* Loop all the callbacks */
-    for (i = 0; i < CMP_MAX_CALLBACKS; i++)
-    {
-        /* Initialize this one */
-        ExInitializeCallBack(&CmpCallBackVector[i]);
-    }
-
-    /* ROS: Initialize old-style callbacks for now */
-    InitializeListHead(&CmiCallbackHead);
-    ExInitializeFastMutex(&CmiCallbackLock);
-}
 
 NTSTATUS
 CmiCallRegisteredCallbacks(IN REG_NOTIFY_CLASS Argument1,
@@ -116,7 +92,7 @@ CmRegisterCallback(IN PEX_CALLBACK_FUNCTION Function,
 
     Callback = ExAllocatePoolWithTag(PagedPool,
                                    sizeof(REGISTRY_CALLBACK),
-                                   'bcMC');
+                                   TAG('C', 'M', 'c', 'b'));
     if (Callback != NULL)
     {
         /* initialize the callback */

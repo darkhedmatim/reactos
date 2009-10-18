@@ -1,8 +1,29 @@
+/**
+ * \file context.h
+ * Mesa context/visual/framebuffer management functions.
+ *
+ * There are three Mesa data types which are meant to be used by device
+ * drivers:
+ * - GLcontext: this contains the Mesa rendering state
+ * - GLvisual:  this describes the color buffer (RGB vs. ci), whether or not
+ *   there's a depth buffer, stencil buffer, etc.
+ * - GLframebuffer:  contains pointers to the depth buffer, stencil buffer,
+ *   accum buffer and alpha buffers.
+ *
+ * These types should be encapsulated by corresponding device driver
+ * data types.  See xmesa.h and xmesaP.h for an example.
+ *
+ * In OOP terms, GLcontext, GLvisual, and GLframebuffer are base classes
+ * which the device driver must derive from.
+ *
+ * The following functions create and destroy these data types.
+ */
+
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.1
+ * Version:  6.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,38 +44,17 @@
  */
 
 
-/**
- * \file context.h
- * Mesa context and visual-related functions.
- *
- * There are three large Mesa data types/classes which are meant to be
- * used by device drivers:
- * - GLcontext: this contains the Mesa rendering state
- * - GLvisual:  this describes the color buffer (RGB vs. ci), whether or not
- *   there's a depth buffer, stencil buffer, etc.
- * - GLframebuffer:  contains pointers to the depth buffer, stencil buffer,
- *   accum buffer and alpha buffers.
- *
- * These types should be encapsulated by corresponding device driver
- * data types.  See xmesa.h and xmesaP.h for an example.
- *
- * In OOP terms, GLcontext, GLvisual, and GLframebuffer are base classes
- * which the device driver must derive from.
- *
- * The following functions create and destroy these data types.
- */
-
-
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
 
-#include "glapi/glapi.h"
+#include "glapi.h"
 #include "imports.h"
 #include "mtypes.h"
 
 
-/** \name Visual-related functions */
+/**********************************************************************/
+/** \name Create/destroy a GLvisual. */
 /*@{*/
  
 extern GLvisual *
@@ -98,7 +98,8 @@ _mesa_destroy_visual( GLvisual *vis );
 /*@}*/
 
 
-/** \name Context-related functions */
+/**********************************************************************/
+/** \name Create/destroy a GLcontext. */
 /*@{*/
 
 extern GLcontext *
@@ -113,9 +114,6 @@ _mesa_initialize_context( GLcontext *ctx,
                           GLcontext *share_list,
                           const struct dd_function_table *driverFunctions,
                           void *driverContext );
-
-extern void
-_mesa_initialize_context_extra(GLcontext *ctx);
 
 extern void
 _mesa_free_context_data( GLcontext *ctx );
@@ -141,8 +139,47 @@ _mesa_get_current_context(void);
 /*@}*/
 
 
+/**********************************************************************/
+/** \name OpenGL SI-style export functions. */
+/*@{*/
+
+extern GLboolean
+_mesa_destroyContext(__GLcontext *gc);
+
+extern GLboolean
+_mesa_loseCurrent(__GLcontext *gc);
+
+extern GLboolean
+_mesa_makeCurrent(__GLcontext *gc);
+
+extern GLboolean
+_mesa_shareContext(__GLcontext *gc, __GLcontext *gcShare);
+
+extern GLboolean
+_mesa_copyContext(__GLcontext *dst, const __GLcontext *src, GLuint mask);
+
+extern GLboolean
+_mesa_forceCurrent(__GLcontext *gc);
+
+extern GLboolean
+_mesa_notifyResize(__GLcontext *gc);
+
+extern void
+_mesa_notifyDestroy(__GLcontext *gc);
+
 extern void
 _mesa_notifySwapBuffers(__GLcontext *gc);
+
+extern struct __GLdispatchStateRec *
+_mesa_dispatchExec(__GLcontext *gc);
+
+extern void
+_mesa_beginDispatchOverride(__GLcontext *gc);
+
+extern void
+_mesa_endDispatchOverride(__GLcontext *gc);
+
+/*@}*/
 
 
 extern struct _glapi_table *
@@ -150,11 +187,13 @@ _mesa_get_dispatch(GLcontext *ctx);
 
 
 
+/**********************************************************************/
 /** \name Miscellaneous */
 /*@{*/
 
 extern void
 _mesa_record_error( GLcontext *ctx, GLenum error );
+
 
 extern void GLAPIENTRY
 _mesa_Finish( void );
@@ -166,11 +205,10 @@ _mesa_Flush( void );
 
 
 
-/**
- * \name Macros for flushing buffered rendering commands before state changes,
- * checking if inside glBegin/glEnd, etc.
- */
+/**********************************************************************/
+/** \name Macros for contexts/flushing. */
 /*@{*/
+
 
 /**
  * Flush vertices.
@@ -220,7 +258,7 @@ do {								\
 #define ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, retval)		\
 do {									\
    if (ctx->Driver.CurrentExecPrimitive != PRIM_OUTSIDE_BEGIN_END) {	\
-      _mesa_error(ctx, GL_INVALID_OPERATION, "Inside glBegin/glEnd");	\
+      _mesa_error( ctx, GL_INVALID_OPERATION, "begin/end" );		\
       return retval;							\
    }									\
 } while (0)
@@ -234,7 +272,7 @@ do {									\
 #define ASSERT_OUTSIDE_BEGIN_END(ctx)					\
 do {									\
    if (ctx->Driver.CurrentExecPrimitive != PRIM_OUTSIDE_BEGIN_END) {	\
-      _mesa_error(ctx, GL_INVALID_OPERATION, "Inside glBegin/glEnd");	\
+      _mesa_error( ctx, GL_INVALID_OPERATION, "begin/end" );		\
       return;								\
    }									\
 } while (0)
@@ -264,9 +302,16 @@ do {									\
    FLUSH_VERTICES(ctx, 0);						\
 } while (0)
 
+
 /*@}*/
 
 
+
+/**
+ * Macros to help evaluate current state conditions
+ */
+
+/*@{*/
 
 /**
  * Is the secondary color needed?
@@ -275,21 +320,21 @@ do {									\
    (((CTX)->Light.Enabled &&						\
      (CTX)->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)	\
     || (CTX)->Fog.ColorSumEnabled					\
-    || ((CTX)->VertexProgram._Current &&				\
-        ((CTX)->VertexProgram._Current != (CTX)->VertexProgram._TnlProgram) &&    \
-        ((CTX)->VertexProgram._Current->Base.InputsRead & VERT_BIT_COLOR1)) \
-    || ((CTX)->FragmentProgram._Current &&				\
-        ((CTX)->FragmentProgram._Current != (CTX)->FragmentProgram._TexEnvProgram) &&  \
-        ((CTX)->FragmentProgram._Current->Base.InputsRead & FRAG_BIT_COL1)) \
+    || ((CTX)->VertexProgram._Enabled &&				\
+        ((CTX)->VertexProgram.Current->InputsRead & VERT_BIT_COLOR1))	\
+    || ((CTX)->FragmentProgram._Enabled &&				\
+        ((CTX)->FragmentProgram.Current->InputsRead & FRAG_BIT_COL1))	\
    )
 
 
 /**
- * Is RGBA LogicOp enabled?
+ * Is two-sided lighting in effect?
  */
-#define RGBA_LOGICOP_ENABLED(CTX) \
-  ((CTX)->Color.ColorLogicOpEnabled || \
-   ((CTX)->Color.BlendEnabled && (CTX)->Color.BlendEquationRGB == GL_LOGIC_OP))
+#define NEED_TWO_SIDED_LIGHTING(CTX) \
+   (ctx->Light.Enabled && ctx->Light.Model.TwoSide)
 
 
-#endif /* CONTEXT_H */
+/*@}*/
+
+
+#endif

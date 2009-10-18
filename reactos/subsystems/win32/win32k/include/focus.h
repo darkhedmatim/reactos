@@ -5,17 +5,15 @@
  * These functions take the window handles from current message queue.
  */
 HWND FASTCALL
-IntGetCaptureWindow(VOID);
+IntGetCaptureWindow();
 HWND FASTCALL
-IntGetFocusWindow(VOID);
+IntGetFocusWindow();
 
 /*
  * These functions take the window handles from current thread queue.
  */
 HWND FASTCALL
-IntGetThreadFocusWindow(VOID);
-HWND APIENTRY IntGetCapture(VOID);
-HWND FASTCALL UserGetActiveWindow(VOID);
+IntGetThreadFocusWindow();
 
 BOOL FASTCALL
 co_IntMouseActivateWindow(PWINDOW_OBJECT Window);

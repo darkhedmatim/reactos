@@ -21,6 +21,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
@@ -61,21 +62,30 @@ VOID ErrorMessage (DWORD dwErrorCode, LPTSTR szFormat, ...)
 
 VOID error_parameter_format(TCHAR ch)
 {
-	ConErrResPrintf(STRING_ERROR_PARAMETERF_ERROR, ch);
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
+	LoadString(CMD_ModuleHandle, STRING_ERROR_PARAMETERF_ERROR, szMsg, RC_STRING_MAX_SIZE);
+	ConErrPrintf(szMsg, ch);
   nErrorLevel = 1;
 }
 
 
 VOID error_invalid_switch (TCHAR ch)
 {
-	ConErrResPrintf(STRING_ERROR_INVALID_SWITCH, ch);
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
+	LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_SWITCH, szMsg, RC_STRING_MAX_SIZE);
+	ConErrPrintf(szMsg, ch);
   nErrorLevel = 1;
 }
 
 
 VOID error_too_many_parameters (LPTSTR s)
 {
-	ConErrResPrintf(STRING_ERROR_TOO_MANY_PARAMETERS, s);
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
+	LoadString(CMD_ModuleHandle, STRING_ERROR_TOO_MANY_PARAMETERS, szMsg, RC_STRING_MAX_SIZE);
+	ConErrPrintf(szMsg, s);
   nErrorLevel = 1;
 }
 
@@ -118,9 +128,9 @@ VOID error_invalid_drive (VOID)
 }
 
 
-VOID error_bad_command (LPTSTR s)
+VOID error_bad_command (VOID)
 {
-	ConErrResPrintf(STRING_ERROR_BADCOMMAND, s);
+	ConErrResPuts(STRING_ERROR_BADCOMMAND);
 	nErrorLevel = 9009;
 }
 
@@ -141,7 +151,7 @@ VOID error_out_of_memory (VOID)
 
 VOID error_invalid_parameter_format (LPTSTR s)
 {
-	ConErrResPrintf(STRING_ERROR_INVALID_PARAM_FORMAT, s);
+	ConErrResPuts(STRING_ERROR_INVALID_PARAM_FORMAT);
   nErrorLevel = 1;
 }
 

@@ -13,23 +13,16 @@
 #if !(defined _WINSOCK2_H || defined _WINSOCK_H)
 #define _WINSOCK2_H
 #define _WINSOCK_H /* to prevent later inclusion of winsock.h */
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #define _GNU_H_WINDOWS32_SOCKETS
-
-#if !defined(__ROS_LONG64__)
-#ifdef __WINESRC__
-#define __ROS_LONG64__
-#endif
-#endif
 
 #include <windows.h>
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
 #endif
 /*   Names common to Winsock1.1 and Winsock2  */
 #if !defined ( _BSDTYPES_DEFINED )
@@ -37,19 +30,13 @@ extern "C" {
 typedef unsigned char	u_char;
 typedef unsigned short	u_short;
 typedef unsigned int	u_int;
-#ifndef __ROS_LONG64__
 typedef unsigned long	u_long;
-#else
-typedef unsigned int	u_long;
-#endif
 #define _BSDTYPES_DEFINED
 #endif /* ! def _BSDTYPES_DEFINED  */
-typedef UINT_PTR	SOCKET;
+typedef u_int	SOCKET;
 #ifndef FD_SETSIZE
 #define FD_SETSIZE	64
 #endif
-
-#define	WSAAPI	WINAPI
 
 /* shutdown() how types */
 #define SD_RECEIVE      0x00
@@ -108,14 +95,14 @@ if (__i == ((fd_set *)(set))->fd_count) {\
 #warning "fd_set and associated macros have been defined in sys/types.  \
     This may cause runtime problems with W32 sockets"
 #endif /* ndef _SYS_TYPES_FD_SET */
-#if !(defined (__INSIDE_CYGWIN__) || (defined (__INSIDE_MSYS__) && (__INSIDE_MSYS__)))
+#if !(defined (__INSIDE_CYGWIN__) || (__INSIDE_MSYS__))
 #ifndef _TIMEVAL_DEFINED
 /* also in sys/time.h */
 #define _TIMEVAL_DEFINED
 #define _STRUCT_TIMEVAL
 struct timeval {
-	LONG    tv_sec;
-	LONG    tv_usec;
+	long    tv_sec;
+	long    tv_usec;
 };
 #define timerisset(tvp)	 ((tvp)->tv_sec || (tvp)->tv_usec)
 #define timercmp(tvp, uvp, cmp) \
@@ -145,8 +132,8 @@ struct linger {
 
 #if ! (defined (__INSIDE_CYGWIN__) || defined (__INSIDE_MSYS__))
 #define _IO(x,y)	(IOC_VOID|((x)<<8)|(y))
-#define _IOR(x,y,t)	(IOC_OUT|(((LONG)sizeof(t)&IOCPARM_MASK)<<16)|((x)<<8)|(y))
-#define _IOW(x,y,t)	(IOC_IN|(((LONG)sizeof(t)&IOCPARM_MASK)<<16)|((x)<<8)|(y))
+#define _IOR(x,y,t)	(IOC_OUT|(((long)sizeof(t)&IOCPARM_MASK)<<16)|((x)<<8)|(y))
+#define _IOW(x,y,t)	(IOC_IN|(((long)sizeof(t)&IOCPARM_MASK)<<16)|((x)<<8)|(y))
 #define FIONBIO	_IOW('f', 126, u_long)
 #endif /* ! (__INSIDE_CYGWIN__ || __INSIDE_MSYS__) */
 
@@ -242,17 +229,17 @@ typedef struct in_addr {
 #define s_lh    S_un.S_un_b.s_b3
 } IN_ADDR, *PIN_ADDR;
 #endif
-#define IN_CLASSA(i)	((LONG)(i)&0x80000000)
+#define IN_CLASSA(i)	((long)(i)&0x80000000)
 #define IN_CLASSA_NET	0xff000000
 #define IN_CLASSA_NSHIFT	24
 #define IN_CLASSA_HOST	0x00ffffff
 #define IN_CLASSA_MAX	128
-#define IN_CLASSB(i)	(((LONG)(i)&0xc0000000)==0x80000000)
+#define IN_CLASSB(i)	(((long)(i)&0xc0000000)==0x80000000)
 #define IN_CLASSB_NET	   0xffff0000
 #define IN_CLASSB_NSHIFT	16
 #define IN_CLASSB_HOST	  0x0000ffff
 #define IN_CLASSB_MAX	   65536
-#define IN_CLASSC(i)	(((LONG)(i)&0xe0000000)==0xc0000000)
+#define IN_CLASSC(i)	(((long)(i)&0xe0000000)==0xc0000000)
 #define IN_CLASSC_NET	   0xffffff00
 #define IN_CLASSC_NSHIFT	8
 #define IN_CLASSC_HOST	  0xff
@@ -521,47 +508,6 @@ struct sockproto {
 
 #endif /* !WSABASEERR */
 
-#if !defined(NS_ALL)
-#define NS_ALL         0
-#define NS_SAP         1
-#define NS_NDS         2
-#define NS_PEER_BROWSE 3
-#define NS_SLP         5
-#define NS_DHCP        6
-#define NS_TCPIP_LOCAL 10
-#define NS_TCPIP_HOSTS 11
-#define NS_DNS         12
-#define NS_NETBT       13
-#define NS_WINS        14
-#define NS_NLA         15
-#define NS_NBP         20
-#define NS_MS          30
-#define NS_STDA        31
-#define NS_NTDS        32
-#define NS_X500        40
-#define NS_NIS         41
-#define NS_NISPLUS     42
-#define NS_WRQ         50
-#define NS_NETDES      60
-#endif /* !defined(NS_ALL) */
-
-#define LUP_DEEP                0x0001
-#define LUP_CONTAINERS          0x0002
-#define LUP_NOCONTAINERS        0x0004
-#define LUP_NEAREST             0x0008
-#define LUP_RETURN_NAME         0x0010
-#define LUP_RETURN_TYPE         0x0020
-#define LUP_RETURN_VERSION      0x0040
-#define LUP_RETURN_COMMENT      0x0080
-#define LUP_RETURN_ADDR         0x0100
-#define LUP_RETURN_BLOB         0x0200
-#define LUP_RETURN_ALIASES      0x0400
-#define LUP_RETURN_QUERY_STRING 0x0800
-#define LUP_RETURN_ALL          0x0FF0
-#define LUP_RES_SERVICE         0x8000
-#define LUP_FLUSHCACHE          0x1000
-#define LUP_FLUSHPREVIOUS       0x2000
-
 #define WSANO_ADDRESS	WSANO_DATA
 #if !(defined (__INSIDE_CYGWIN__) || defined (__INSIDE_MSYS__))
 #define h_errno WSAGetLastError()
@@ -575,11 +521,11 @@ SOCKET PASCAL accept(SOCKET,struct sockaddr*,int*);
 int PASCAL bind(SOCKET,const struct sockaddr*,int);
 int PASCAL closesocket(SOCKET);
 int PASCAL connect(SOCKET,const struct sockaddr*,int);
-int PASCAL ioctlsocket(SOCKET,LONG,u_long *);
+int PASCAL ioctlsocket(SOCKET,long,u_long *);
 int PASCAL getpeername(SOCKET,struct sockaddr*,int*);
 int PASCAL getsockname(SOCKET,struct sockaddr*,int*);
 int PASCAL getsockopt(SOCKET,int,int,char*,int*);
-u_long PASCAL inet_addr(const char*);
+unsigned long PASCAL inet_addr(const char*);
 DECLARE_STDCALL_P(char *) inet_ntoa(struct in_addr);
 int PASCAL listen(SOCKET,int);
 int PASCAL recv(SOCKET,char*,int,int);
@@ -599,13 +545,6 @@ int PASCAL WSAStartup(WORD,LPWSADATA);
 int PASCAL WSACleanup(void);
 void PASCAL WSASetLastError(int);
 int PASCAL WSAGetLastError(void);
-typedef int (WSAAPI *LPFN_WSAGETLASTERROR)(void);
-typedef int (WSAAPI *LPFN_WSACANCELBLOCKINGCALL)(void);
-typedef FARPROC (WSAAPI *LPFN_WSASETBLOCKINGHOOK)(FARPROC);
-typedef int (WSAAPI *LPFN_SELECT)(int nfds,fd_set FAR*,fd_set FAR*,fd_set FAR*,const struct timeval FAR*);
-typedef int (WSAAPI *LPFN_WSASTARTUP)(WORD,LPWSADATA);
-typedef int (WSAAPI *LPFN_WSACLEANUP)(void);
-typedef int (WSAAPI *LPFN_GETSOCKOPT)(SOCKET,int,int,char FAR*,int FAR*);
 /*
  * Pseudo-blocking functions are deprecated in WinSock2
  * spec. Use threads instead.
@@ -622,13 +561,13 @@ HANDLE PASCAL WSAAsyncGetProtoByNumber(HWND,u_int,int,char*,int);
 HANDLE PASCAL WSAAsyncGetHostByName(HWND,u_int,const char*,char*,int);
 HANDLE PASCAL WSAAsyncGetHostByAddr(HWND,u_int,const char*,int,int,char*,int);
 int PASCAL WSACancelAsyncRequest(HANDLE);
-int PASCAL WSAAsyncSelect(SOCKET,HWND,u_int,LONG);
+int PASCAL WSAAsyncSelect(SOCKET,HWND,u_int,long);
 #if ! (defined (__INSIDE_CYGWIN__) || defined (__INSIDE_MSYS__))
 u_long PASCAL htonl(u_long);
 u_long PASCAL ntohl(u_long);
 u_short PASCAL htons(u_short);
 u_short PASCAL ntohs(u_short);
-#ifndef _SYS_SELECT_H /* Work around for Linux Compilers */
+#ifndef _SYS_SELECT_H /* Work around for Linux Compilers */ 
 #define _SYS_SELECT_H
 int PASCAL select(int nfds,fd_set*,fd_set*,fd_set*,const struct timeval*);
 #endif
@@ -673,7 +612,7 @@ typedef struct timeval *LPTIMEVAL;
 /* winsock2 additions */
 #define ADDR_ANY	INADDR_ANY
 
-#define	IN_CLASSD(i)	(((LONG)(i) & 0xf0000000) == 0xe0000000)
+#define	IN_CLASSD(i)	(((long)(i) & 0xf0000000) == 0xe0000000)
 #define	IN_CLASSD_NET	0xf0000000
 #define	IN_CLASSD_NSHIFT	28
 #define	IN_CLASSD_HOST	0x0fffffff
@@ -697,6 +636,7 @@ typedef struct timeval *LPTIMEVAL;
 #define	MSG_INTERRUPT	0x10
 #define	MSG_MAXIOVLEN	16
 
+#define	WSAAPI	WINAPI
 #define WSAEVENT	HANDLE
 #define	LPWSAEVENT	LPHANDLE
 #define	WSAOVERLAPPED	OVERLAPPED
@@ -718,7 +658,7 @@ typedef	struct _OVERLAPPED	*LPWSAOVERLAPPED;
 #define	WSA_INFINITE	(INFINITE)
 
 typedef struct _WSABUF {
-	u_long len;
+	unsigned long len;
 	char *buf;
 } WSABUF, *LPWSABUF;
 
@@ -750,7 +690,7 @@ typedef unsigned int	GROUP;
 #define SG_UNCONSTRAINED_GROUP	0x01
 #define SG_CONSTRAINED_GROUP	0x02
 typedef struct _WSANETWORKEVENTS {
-	LONG	lNetworkEvents;
+	long	lNetworkEvents;
 	int	iErrorCode[FD_MAX_EVENTS];
 } WSANETWORKEVENTS, *LPWSANETWORKEVENTS;
 
@@ -1123,14 +1063,14 @@ INT WINAPI WSAEnumNameSpaceProvidersW(LPDWORD, LPWSANAMESPACE_INFOW);
 int WINAPI WSAEnumNetworkEvents(SOCKET, WSAEVENT, LPWSANETWORKEVENTS);
 int WINAPI WSAEnumProtocolsA(LPINT, LPWSAPROTOCOL_INFOA, LPDWORD);
 int WINAPI WSAEnumProtocolsW(LPINT, LPWSAPROTOCOL_INFOW, LPDWORD);
-int WINAPI WSAEventSelect(SOCKET, WSAEVENT, LONG);
+int WINAPI WSAEventSelect(SOCKET, WSAEVENT, long);
 BOOL WINAPI WSAGetOverlappedResult(SOCKET, LPWSAOVERLAPPED, LPDWORD, BOOL, LPDWORD);
 BOOL WINAPI WSAGetQOSByName(SOCKET, LPWSABUF, LPQOS);
 INT WINAPI WSAGetServiceClassInfoA(LPGUID, LPGUID, LPDWORD, LPWSASERVICECLASSINFOA);
 INT WINAPI WSAGetServiceClassInfoW(LPGUID, LPGUID, LPDWORD, LPWSASERVICECLASSINFOW);
 INT WINAPI WSAGetServiceClassNameByClassIdA(LPGUID, LPSTR, LPDWORD);
 INT WINAPI WSAGetServiceClassNameByClassIdW(LPGUID, LPWSTR, LPDWORD);
-int WINAPI WSAHtonl(SOCKET, u_long, u_long *);
+int WINAPI WSAHtonl(SOCKET, unsigned long, unsigned long *);
 int WINAPI WSAHtons(SOCKET, unsigned short, unsigned short *);
 INT WINAPI WSAInstallServiceClassA(LPWSASERVICECLASSINFOA);
 INT WINAPI WSAInstallServiceClassW(LPWSASERVICECLASSINFOW);
@@ -1142,7 +1082,7 @@ INT WINAPI WSALookupServiceNextA(HANDLE, DWORD, LPDWORD, LPWSAQUERYSETA);
 INT WINAPI WSALookupServiceNextW(HANDLE, DWORD, LPDWORD, LPWSAQUERYSETW);
 INT WINAPI WSALookupServiceEnd(HANDLE);
 int WINAPI WSANSPIoctl(HANDLE,DWORD,LPVOID,DWORD,LPVOID,DWORD,LPDWORD,LPWSACOMPLETION); /* XP or .NET Server */
-int WINAPI WSANtohl(SOCKET, u_long, u_long *);
+int WINAPI WSANtohl(SOCKET, unsigned long, unsigned long *);
 int WINAPI WSANtohs(SOCKET, unsigned short, unsigned short *);
 int WINAPI WSARecv(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);
 int WINAPI WSARecvDisconnect(SOCKET, LPWSABUF);
@@ -1173,14 +1113,14 @@ typedef INT (WINAPI *LPFN_WSAENUMNAMESPACEPROVIDERSW)(LPDWORD, LPWSANAMESPACE_IN
 typedef int (WINAPI *LPFN_WSAENUMNETWORKEVENTS)(SOCKET, WSAEVENT, LPWSANETWORKEVENTS);
 typedef int (WINAPI *LPFN_WSAENUMPROTOCOLSA)(LPINT, LPWSAPROTOCOL_INFOA, LPDWORD);
 typedef int (WINAPI *LPFN_WSAENUMPROTOCOLSW)(LPINT, LPWSAPROTOCOL_INFOW, LPDWORD);
-typedef int (WINAPI *LPFN_WSAEVENTSELECT)(SOCKET, WSAEVENT, LONG);
+typedef int (WINAPI *LPFN_WSAEVENTSELECT)(SOCKET, WSAEVENT, long);
 typedef BOOL (WINAPI *LPFN_WSAGETOVERLAPPEDRESULT)(SOCKET, LPWSAOVERLAPPED, LPDWORD, BOOL, LPDWORD);
 typedef BOOL (WINAPI *LPFN_WSAGETQOSBYNAME)(SOCKET, LPWSABUF, LPQOS);
 typedef INT (WINAPI *LPFN_WSAGETSERVICECLASSINFOA)(LPGUID, LPGUID, LPDWORD, LPWSASERVICECLASSINFOA);
 typedef INT (WINAPI *LPFN_WSAGETSERVICECLASSINFOW)(LPGUID, LPGUID, LPDWORD, LPWSASERVICECLASSINFOW);
 typedef INT (WINAPI *LPFN_WSAGETSERVICECLASSNAMEBYCLASSIDA)(LPGUID, LPSTR, LPDWORD);
 typedef INT (WINAPI *LPFN_WSAGETSERVICECLASSNAMEBYCLASSIDW)(LPGUID, LPWSTR, LPDWORD);
-typedef int (WINAPI *LPFN_WSAHTONL)(SOCKET, u_long, u_long *);
+typedef int (WINAPI *LPFN_WSAHTONL)(SOCKET, unsigned long, unsigned long *);
 typedef int (WINAPI *LPFN_WSAHTONS)(SOCKET, unsigned short, unsigned short *);
 typedef INT (WINAPI *LPFN_WSAINSTALLSERVICECLASSA)(LPWSASERVICECLASSINFOA);
 typedef INT (WINAPI *LPFN_WSAINSTALLSERVICECLASSW)(LPWSASERVICECLASSINFOW);
@@ -1192,7 +1132,7 @@ typedef INT (WINAPI *LPFN_WSALOOKUPSERVICENEXTA)(HANDLE, DWORD, LPDWORD, LPWSAQU
 typedef INT (WINAPI *LPFN_WSALOOKUPSERVICENEXTW)(HANDLE, DWORD, LPDWORD, LPWSAQUERYSETW);
 typedef INT (WINAPI *LPFN_WSALOOKUPSERVICEEND)(HANDLE);
 typedef int (WINAPI *LPFN_WSANSPIoctl)(HANDLE, DWORD,LPVOID,DWORD,LPVOID,DWORD,LPDWORD,LPWSACOMPLETION);
-typedef int (WINAPI *LPFN_WSANTOHL)(SOCKET, u_long, u_long *);
+typedef int (WINAPI *LPFN_WSANTOHL)(SOCKET, unsigned long, unsigned long *);
 typedef int (WINAPI *LPFN_WSANTOHS)(SOCKET, unsigned short, unsigned short *);
 typedef int (WINAPI *LPFN_WSARECV)(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);
 typedef int (WINAPI *LPFN_WSARECVDISCONNECT)(SOCKET, LPWSABUF);
@@ -1261,10 +1201,6 @@ typedef DWORD (WINAPI *LPFN_WSAWAITFORMULTIPLEEVENTS)(DWORD, const WSAEVENT *, B
 #define WSASocket WSASocketA
 #define WSAStringToAddress WSAStringToAddressA
 #define WSASetService WSASetServiceA
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(pop)
 #endif
 
 #ifdef __cplusplus

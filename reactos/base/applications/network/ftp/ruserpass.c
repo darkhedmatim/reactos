@@ -29,6 +29,9 @@ static char sccsid[] = "@(#)ruserpass.c	5.1 (Berkeley) 3/1/89";
 #include "prototypes.h"
 #include <winsock.h>
 
+char	*renvlook(), *index(), *getenv(), *getpass(), *getlogin();
+void  *malloc();
+char	*strcpy();
 struct	utmp *getutmp();
 static	FILE *cfile;
 
@@ -70,6 +73,7 @@ int ruserpass(const char *host, char **aname, char **apass, char **aacct)
 	char myname[MAXHOSTNAMELEN];
 	int t, i, c, usedefault = 0;
 	struct stat stb;
+	extern int errno;
 
 	hdir = getenv("HOME");
 	if (hdir == NULL)

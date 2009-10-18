@@ -23,11 +23,6 @@
 #ifndef KJK_PSEH_FRAMEBASED_H_
 #define KJK_PSEH_FRAMEBASED_H_
 
-#if ((__GNUC__ > 4) && (__GNUC_MINOR__ > 1))
-/* warning: this will hide uninitialized variable warnings in the following code */
-#  pragma GCC diagnostic ignored "-Wuninitialized"
-#endif
-
 #include <pseh/framebased/internal.h>
 #include <pseh/excpt.h>
 
@@ -154,7 +149,6 @@ static _SEHPortableTryLevel_t * const _SEHPortableTryLevel = 0;
 		_SEHHandlers.SH_Finally = (FINALLY_);
 #endif
 
-#define _SEH_SetExceptionCode(CODE_) (_SEHPortableFrame->SPF_Code = (CODE_))
 #define _SEH_GetExceptionCode() (unsigned long)(_SEHPortableFrame->SPF_Code)
 
 #define _SEH_GetExceptionPointers() \
@@ -172,74 +166,6 @@ static _SEHPortableTryLevel_t * const _SEHPortableTryLevel = 0;
 	\
 		STMT_; \
 	}
-
-#ifdef _ARM_
-
-#define _SEH_TRY \
-	for(;;) \
-	{ \
-		 \
-		{ \
-	\
-			for(;;) \
-			{ \
-				if(1) \
-				{ \
-					for(;;) \
-					{ \
-						{
-
-#define _SEH_EXCEPT(FILTER_) \
-						} \
-	\
-						break; \
-					} \
-	\
-					break; \
-				} \
-				else \
-				{ \
-					{ \
-						break; \
-					} \
-				} \
-	\
-				break; \
-			} \
-	\
-	\
-			if(0) \
-			{
-
-#define _SEH_FINALLY(FINALLY_) \
-						} \
-	\
-						break; \
-					} \
-	\
-					break; \
-				} \
-				else \
-				{ \
-				} \
-	\
-				break; \
-			} \
-	\
-			(FINALLY_)(&_SEHFrame.SEH_Header); \
-	\
-			if(0) \
-			{
-
-#define _SEH_END \
-			} \
-		} \
-	\
-	\
-		break; \
-	}
-
-#else
 
 #define _SEH_TRY \
 	for(;;) \
@@ -364,8 +290,6 @@ static _SEHPortableTryLevel_t * const _SEHPortableTryLevel = 0;
 	\
 		break; \
 	}
-
-#endif
 
 #define _SEH_HANDLE _SEH_EXCEPT(_SEH_STATIC_FILTER(_SEH_EXECUTE_HANDLER))
 

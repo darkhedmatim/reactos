@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <windowsx.h>
+#include <tchar.h>
 #include <stdio.h>
 #include <math.h>
 #include <commctrl.h>
@@ -51,9 +52,6 @@ VOID DisplayWin32Error(DWORD dwErrorCode);
 
 
 /* clock.c */
-#define CLM_STOPCLOCK (WM_USER + 1)
-#define CLM_STARTCLOCK (WM_USER + 2)
-
 BOOL RegisterClockControl(VOID);
 VOID UnregisterClockControl(VOID);
 

@@ -20,7 +20,7 @@
 #ifndef __ISO_H
 #define __ISO_H
 
-#include <pshpack1.h>
+
 struct _DIR_RECORD
 {
   UCHAR  RecordLength;			// 1
@@ -42,8 +42,11 @@ struct _DIR_RECORD
   ULONG  VolumeSequenceNumber;		// 29-32
   UCHAR  FileIdLength;			// 33
   UCHAR  FileId[1];			// 34
-};
+} __attribute__((packed));
+
 typedef struct _DIR_RECORD DIR_RECORD, *PDIR_RECORD;
+
+
 
 
 /* Volume Descriptor header*/
@@ -52,8 +55,10 @@ struct _VD_HEADER
   UCHAR  VdType;			// 1
   UCHAR  StandardId[5];			// 2-6
   UCHAR  VdVersion;			// 7
-};
+} __attribute__((packed));
+
 typedef struct _VD_HEADER VD_HEADER, *PVD_HEADER;
+
 
 
 /* Primary Volume Descriptor */
@@ -84,8 +89,8 @@ struct _PVD
 
   /* more data ... */
 
-};
-#include <poppack.h>
+} __attribute__((packed));
+
 typedef struct _PVD PVD, *PPVD;
 
 
@@ -99,6 +104,12 @@ typedef struct
 	ULONG		DriveNumber;
 } ISO_FILE_INFO, * PISO_FILE_INFO;
 
-const DEVVTBL* IsoMount(ULONG DeviceId);
+
+BOOLEAN	IsoOpenVolume(ULONG DriveNumber);
+FILE*	IsoOpenFile(PCSTR FileName);
+BOOLEAN	IsoReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
+ULONG		IsoGetFileSize(FILE *FileHandle);
+VOID	IsoSetFilePointer(FILE *FileHandle, ULONG NewFilePointer);
+ULONG		IsoGetFilePointer(FILE *FileHandle);
 
 #endif // #defined __FAT_H

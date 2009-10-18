@@ -40,7 +40,7 @@
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath)
 /*
@@ -72,7 +72,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject,
     }
 
   /* Initialize driver data */
-  DeviceObject->Flags |= DO_DIRECT_IO;
+  DeviceObject->Flags = DO_DIRECT_IO;
 //  DriverObject->MajorFunction[IRP_MJ_CLOSE] = NtfsClose;
   DriverObject->MajorFunction[IRP_MJ_CREATE] = MupCreate;
   DriverObject->MajorFunction[IRP_MJ_CREATE_NAMED_PIPE] = MupCreate;

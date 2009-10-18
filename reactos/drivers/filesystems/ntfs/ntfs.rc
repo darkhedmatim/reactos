@@ -1,3 +1,4 @@
+/* $Id$ */
 
 #define REACTOS_VERSION_DLL
 #define REACTOS_STR_FILE_DESCRIPTION	"NTFS Driver\0"

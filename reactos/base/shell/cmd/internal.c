@@ -127,21 +127,34 @@
  *        Remove all hard code string so they can be
  *		  translate to other langues.
  *
- *    19-Jul-2005 (Brandon Turner <turnerb7@msu.edu>)
+ *    19-jul-2005 (Brandon Turner <turnerb7@msu.edu)
  *        Rewrite the CD, it working as Windows 2000 CMD
- *
- *    19-Jul-2005 (Magnus Olsen <magnus@greatlord.com>)
- *        Add SetRootPath and GetRootPath
- *
- *    14-Jul-2007 (Pierre Schweitzer <heis_spiter@hotmail.com>)
- *        Added commands help display to help command (ex. : "help cmd")
+ *		
+ *    19-jul-2005 (Magnus Olsen <magnus@greatlord.com)
+ *        Add SetRootPath and GetRootPath         
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_CHDIR
 
-/* help functions for getting current path from drive
+static LPTSTR lpLastPath;
+
+
+VOID InitLastPath (VOID)
+{
+	lpLastPath = NULL;
+}
+
+
+VOID FreeLastPath (VOID)
+{
+	if (lpLastPath)
+		free (lpLastPath);
+}
+
+/* help functions for getting current path from drive 
    without changing drive. Return code 0 = ok, 1 = fail.
    INT GetRootPath("C:",outbuffer,chater size of outbuffer);
    the first param can have any size, if the the two frist
@@ -151,15 +164,19 @@
 
 INT GetRootPath(TCHAR *InPath,TCHAR *OutPath,INT size)
 {
-  if (InPath[0] && InPath[1] == _T(':'))
+  INT retcode = 1;
+  
+  if (_tcslen(InPath)>1)
   {
+    if (InPath[1]==_T(':'))    
+    {   
       INT t=0;
-
+     
       if ((InPath[0] >= _T('0')) && (InPath[0] <= _T('9')))
       {
           t = (InPath[0] - _T('0')) +28;
       }
-
+      
       if ((InPath[0] >= _T('a')) && (InPath[0] <= _T('z')))
       {
           t = (InPath[0] - _T('a')) +1;
@@ -170,102 +187,235 @@ INT GetRootPath(TCHAR *InPath,TCHAR *OutPath,INT size)
       {
           t = (InPath[0] - _T('A')) +1;
       }
-
-      return _tgetdcwd(t,OutPath,size) == NULL;
+                
+      if (_tgetdcwd(t,OutPath,size) != NULL) 
+      {                 
+        return 0;          
+      }    
+     } 
+    }
+   
+  /* fail */
+  if (_tcslen(InPath)>1)
+  {
+    if (InPath[1]==_T(':'))
+       return 1;  
   }
 
   /* Get current directory */
-  return !GetCurrentDirectory(size,OutPath);
+  retcode = GetCurrentDirectory(size,OutPath);     
+  if (retcode==0) 
+      return 1;
+
+  return 0;
 }
+  
 
-
-BOOL SetRootPath(TCHAR *oldpath, TCHAR *InPath)
+BOOL SetRootPath(TCHAR *InPath)
 {
+  TCHAR oldpath[MAX_PATH];
   TCHAR OutPath[MAX_PATH];
   TCHAR OutPathTemp[MAX_PATH];
-
+  TCHAR OutPathTemp2[MAX_PATH];
+  BOOL fail;
+  
+  
+  /* Get The current directory path and save it */
+  fail = GetCurrentDirectory(MAX_PATH,oldpath);
+  if (!fail)   
+      return 1;
+  
+  /* Get current drive directory path if C: was only pass down*/
+  
+  if (_tcsncicmp(&InPath[1],_T(":\\"),2)!=0)
+  {
+      if (!GetRootPath(InPath,OutPathTemp,MAX_PATH))
+         _tcscpy(OutPathTemp,InPath);
+  }
+  else 
+  {
+    _tcscpy(OutPathTemp,InPath);
+  }
+  
+   _tcsupr(OutPathTemp); 
   /* The use of both of these together will correct the case of a path
      where as one alone or GetFullPath will not.  Exameple:
 	  c:\windows\SYSTEM32 => C:\WINDOWS\system32 */
-	if (GetFullPathName(InPath, MAX_PATH, OutPathTemp, NULL))
-	{
-		GetPathCase(OutPathTemp, OutPath);
+  GetFullPathName(OutPathTemp, MAX_PATH, OutPathTemp2, NULL);
+  GetPathCase(OutPathTemp2, OutPath);
 
-		/* Use _tchdir, since unlike SetCurrentDirectory it updates
-		 * the current-directory-on-drive environment variables. */
-		if (_tchdir(OutPath) != 0)
-		{
-			ConErrFormatMessage(GetLastError());
-			nErrorLevel = 1;
-			return FALSE;
-		}
+  fail = SetCurrentDirectory(OutPath);
+  if (!fail) 
+      return 1;
 
-		/* Keep original drive in ordinary CD/CHDIR (without /D switch). */
-		if (oldpath != NULL && _tcsncicmp(OutPath, oldpath, 2) != 0)
-			SetCurrentDirectory(oldpath);
-	}
+  
+    
+  SetCurrentDirectory(OutPath);
+  GetCurrentDirectory(MAX_PATH,OutPath);
+  _tchdir(OutPath);
 
-	return TRUE;
-}
+  if (_tcsncicmp(OutPath,oldpath,2)!=0)      
+      SetCurrentDirectory(oldpath);   
+
+ return 0;
+} 
 
 
 /*
  * CD / CHDIR
  *
  */
-INT cmd_chdir (LPTSTR param)
+INT cmd_chdir (LPTSTR cmd, LPTSTR param)
 {
-	TCHAR szCurrent[MAX_PATH];
+ 
+	WIN32_FIND_DATA f; 
+	HANDLE hFile;
 	BOOL bChangeDrive = FALSE;
-
+	TCHAR szPath[MAX_PATH];
+	TCHAR szFinalPath[MAX_PATH];
+	TCHAR * tmpPath;
+	TCHAR szCurrent[MAX_PATH];
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+	INT i;
+ 
+ 
 	/* Filter out special cases first */
-
+ 
 	/* Print Help */
 	if (!_tcsncmp(param, _T("/?"), 2))
 	{
 		ConOutResPaging(TRUE,STRING_CD_HELP);
 		return 0;
 	}
-
-	/* Remove " */
-	StripQuotes(param);
-
-	/* Set Error Level to Success */
+ 
+  /* Set Error Level to Success */
 	nErrorLevel = 0;
-
-	/* Print Current Directory on a disk */
-	if (_tcslen(param) == 2 && param[1] == _T(':'))
-	{
-		if (GetRootPath(param, szCurrent, MAX_PATH))
-		{
-			error_invalid_drive();
-			return 1;
-		}
-		ConOutPuts(szCurrent);
-		return 0;
-	}
-
-	/* Get Current Directory */
-	GetCurrentDirectory(MAX_PATH, szCurrent);
-	if (param[0] == _T('\0'))
-	{
-		ConOutPuts(szCurrent);
-		return 0;
-	}
 
 	/* Input String Contains /D Switch */
 	if (!_tcsncicmp(param, _T("/D"), 2))
 	{
 		bChangeDrive = TRUE;
-		param += 2;
-		while (_istspace(*param))
-			param++;
+		tmpPath = _tcsstr(param,_T(" "));
+		if(!tmpPath)
+		{
+			/* Didnt find an directories */
+			LoadString(CMD_ModuleHandle, STRING_ERROR_PATH_NOT_FOUND, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg);
+			nErrorLevel = 1;
+			return 1;
+		}
+		tmpPath++;
+		_tcscpy(szPath,tmpPath);
 	}
+	else
+	{
+		_tcscpy(szPath,param);
+	}
+ 
+	/* Print Current Directory on a disk */
+	if (_tcslen(szPath) == 2 && szPath[1] == _T(':'))
+	{		
+		if(GetRootPath(szPath,szCurrent,MAX_PATH))
+		{
+			nErrorLevel = 1;
+			return 1;
+		}
+		ConOutPuts(szCurrent);
+		return 0;
+	}
+ 
+	/* Get Current Directory */
+	GetRootPath(_T("."),szCurrent,MAX_PATH);
+ 
+   /* Remove " */
+	i = 0;
+	while(i < (INT)_tcslen(szPath))
+	{
+		if(szPath[i] == _T('\"'))
+			memmove(&szPath[i],&szPath[i + 1], _tcslen(&szPath[i]) * sizeof(TCHAR));
+		else
+			i++;
+	}
+ 
+	tmpPath = szPath;
+	while (_istspace (*tmpPath))
+			tmpPath++;
+	_tcscpy(szPath,tmpPath);
+ 
+	if (szPath[0] == _T('\0')) 
+	{
+		ConOutPuts(szCurrent);
+		return 0;
+	}
+	 
 
-	if (!SetRootPath(bChangeDrive ? NULL : szCurrent, param))
+	/* change to full path if relative path was given */
+	GetFullPathName(szPath,MAX_PATH,szFinalPath,NULL);
+ 
+	if(szFinalPath[_tcslen(szFinalPath) - 1] == _T('\\') && _tcslen(szFinalPath) > 3)
+		szFinalPath[_tcslen(szFinalPath) - 1] = _T('\0');
+ 
+	/* Handle Root Directory Alone*/
+	if (_tcslen(szFinalPath) == 3 && szFinalPath[1] == _T(':'))
+	{		
+		if(!SetRootPath(szFinalPath))
+		{
+			/* Change prompt if it is one the same drive or /D */
+			if(bChangeDrive || !_tcsncicmp(szFinalPath,szCurrent,1))
+				SetCurrentDirectory(szFinalPath);
+			return 0;
+		}
+		/* Didnt find an directories */
+		LoadString(CMD_ModuleHandle, STRING_ERROR_PATH_NOT_FOUND, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg);
+		nErrorLevel = 1;
 		return 1;
+ 
+	}
+ 
+	/* Get a list of all the files */
+	hFile = FindFirstFile (szFinalPath, &f);
+ 
+	do
+	{
+		if(hFile == INVALID_HANDLE_VALUE)
+		{		
+			ConErrFormatMessage (GetLastError(), szFinalPath);			
+			nErrorLevel = 1;
+			return 1;
+		}
+ 
+		/* Strip the paths back to the folder they are in */
+		for(i = (_tcslen(szFinalPath) -  1); i > -1; i--)
+			if(szFinalPath[i] != _T('\\'))
+				szFinalPath[i] = _T('\0');
+			else
+				break;
+ 
+		_tcscat(szFinalPath,f.cFileName);      
+		
+		if ((f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ==  FILE_ATTRIBUTE_DIRECTORY)
+		{  		       
+			if(!SetRootPath(szFinalPath))
+			{
+				/* Change for /D */
+				if(bChangeDrive)
+				{   
+					_tcsupr(szFinalPath);   
+					GetPathCase(szFinalPath, szPath);
+					SetCurrentDirectory(szPath);
+				}
+				return 0;
+			}
 
-	return 0;
+		}
+	}while(FindNextFile (hFile, &f));
+ 
+	/* Didnt find an directories */
+	LoadString(CMD_ModuleHandle, STRING_ERROR_PATH_NOT_FOUND, szMsg, RC_STRING_MAX_SIZE);
+	ConErrPrintf(szMsg);
+	nErrorLevel = 1;
+	return 1;
 }
 
 #endif
@@ -274,35 +424,31 @@ INT cmd_chdir (LPTSTR param)
 
 #ifdef INCLUDE_CMD_MKDIR
 
-/* Helper funtion for mkdir to make directories in a path.
+/* Helper funtion for mkdir to make directories in a path.  
 Dont use the api to decrease depence on libs */
-BOOL
+BOOL 
 MakeFullPath(TCHAR * DirPath)
 {
     TCHAR path[MAX_PATH];
     TCHAR *p = DirPath;
     INT  n;
 
-    if (CreateDirectory(DirPath, NULL))
-        return TRUE;
-    else if (GetLastError() != ERROR_PATH_NOT_FOUND)
-        return FALSE;
-
-    /* got ERROR_PATH_NOT_FOUND, so try building it up one component at a time */
-    if (p[0] && p[1] == _T(':'))
+    if (p[0] && p[1] == _T(':')) 
         p += 2;
-    while (*p == _T('\\'))
+    while (*p == _T('\\')) 
         p++; /* skip drive root */
-    do
+    while ((p = _tcschr(p, _T('\\'))) != NULL)
     {
-       p = _tcschr(p, _T('\\'));
-       n = p ? p++ - DirPath : _tcslen(DirPath);
+       n = p - DirPath + 1;
        _tcsncpy(path, DirPath, n);
        path[n] = _T('\0');
        if( !CreateDirectory(path, NULL) &&
            (GetLastError() != ERROR_ALREADY_EXISTS))
            return FALSE;
-    } while (p != NULL);
+       p++;
+    }
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+       SetLastError(ERROR_SUCCESS);
 
     return TRUE;
 }
@@ -311,44 +457,79 @@ MakeFullPath(TCHAR * DirPath)
  * MD / MKDIR
  *
  */
-INT cmd_mkdir (LPTSTR param)
+INT cmd_mkdir (LPTSTR cmd, LPTSTR param)
 {
-	LPTSTR *p;
-	INT argc, i;
+	LPTSTR dir;		/* pointer to the directory to change to */
+	LPTSTR place;	/* used to search for the \ when no space is used */
+	LPTSTR *p = NULL;
+	INT argc;
+	nErrorLevel = 0;
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
 		ConOutResPaging(TRUE,STRING_MKDIR_HELP);
 		return 0;
 	}
 
-	p = split (param, &argc, FALSE);
-	if (argc == 0)
+
+	/* check if there is no space between the command and the path */
+	if (param[0] == _T('\0'))
 	{
-		ConErrResPuts(STRING_ERROR_REQ_PARAM_MISSING);
+		/* search for the \ or . so that both short & long names will work */
+		for (place = cmd; *place; place++)
+			if (*place == _T('.') || *place == _T('\\'))
+				break;
+
+		if (*place)
+			dir = place;
+		else
+			/* signal that there are no parameters */
+			dir = NULL;
+	}
+	else
+	{
+		p = split (param, &argc, FALSE);
+		if (argc > 1)
+		{
+			/*JPP 20-Jul-1998 use standard error message */
+			error_too_many_parameters (param);
+			freep (p);
+			return 1;
+		}
+		else
+			dir = p[0];
+	}
+
+	if (!dir)
+	{
+		ConErrResPuts (STRING_ERROR_REQ_PARAM_MISSING);
 		nErrorLevel = 1;
-		freep(p);
+		if(p != NULL)
+			freep (p);
 		return 1;
 	}
 
-	nErrorLevel = 0;
-	for (i = 0; i < argc; i++)
-	{
-		if (!MakeFullPath(p[i]))
-		{
-			if(GetLastError() == ERROR_PATH_NOT_FOUND)
-			{
-				ConErrResPuts(STRING_MD_ERROR2);
-			}
-			else
-			{
-				ErrorMessage (GetLastError(), _T("MD"));
-			}
-			nErrorLevel = 1;
-		}
-	}
+	/* Add a \ at the end of the path is there isnt on already */
+	if (dir[_tcslen (dir) - 1] != _T('\\'))
+		_tcscat(dir,_T("\\"));
+
+    if (!MakeFullPath(dir))
+    {
+        if(GetLastError() == ERROR_PATH_NOT_FOUND)
+        {
+            ConErrResPuts(STRING_MD_ERROR2);
+        }
+        else
+        {
+            ErrorMessage (GetLastError(), _T("MD"));
+        }
+        nErrorLevel = 1;
+        freep (p);
+        return 1;
+    }
 
 	freep (p);
-	return nErrorLevel;
+
+	return 0;
 }
 #endif
 
@@ -392,28 +573,40 @@ BOOL DeleteFolder(LPTSTR FileName)
     }
 	return RemoveDirectory(FileName);
 }
-INT cmd_rmdir (LPTSTR param)
+INT cmd_rmdir (LPTSTR cmd, LPTSTR param)
 {
-	TCHAR ch;
+	TCHAR dir[MAX_PATH];		/* pointer to the directory to change to */
+	char ch;
 	INT args;
-	INT dirCount;
-	LPTSTR *arg;
+	LPTSTR *arg = NULL;
 	INT i;
 	BOOL RD_SUB = FALSE;
 	BOOL RD_QUIET = FALSE;
+	HANDLE hFile;
+	WIN32_FIND_DATA f;
 	INT res;
-	INT nError = 0;
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	TCHAR szFullPath[MAX_PATH];
-
+	
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
 		ConOutResPaging(TRUE,STRING_RMDIR_HELP);
 		return 0;
 	}
 
-	arg = split (param, &args, FALSE);
-	dirCount = 0;
+	nErrorLevel = 0;
 
+	arg = split (param, &args, FALSE);
+
+	if (args == 0)
+	{
+		/* only command given */
+		error_req_param_missing ();
+		freep (arg);
+		return 1;
+	}
+
+	dir[0] = 0;
 	/* check for options anywhere in command line */
 	for (i = 0; i < args; i++)
 	{
@@ -423,7 +616,6 @@ INT cmd_rmdir (LPTSTR param)
 			if (_tcslen (arg[i]) == 2)
 			{
 				ch = _totupper (arg[i][1]);
-
 				if (ch == _T('S'))
 				{
 					RD_SUB = TRUE;
@@ -436,61 +628,76 @@ INT cmd_rmdir (LPTSTR param)
 		}
 		else
 		{
-			dirCount++;
+			/* get the folder name */
+			_tcscpy(dir,arg[i]);
 		}
 	}
-
-	if (dirCount == 0)
+	
+	if (dir[0] == _T('\0'))
 	{
 		/* No folder to remove */
-		error_req_param_missing();
+		ConErrResPuts(STRING_ERROR_REQ_PARAM_MISSING);
 		freep(arg);
 		return 1;
 	}
 
-	for (i = 0; i < args; i++)
+	GetFullPathName(dir,MAX_PATH,szFullPath,NULL);
+	/* remove trailing \ if any, but ONLY if dir is not the root dir */
+	if (_tcslen (szFullPath) >= 2 && szFullPath[_tcslen (szFullPath) - 1] == _T('\\'))
+		szFullPath[_tcslen(szFullPath) - 1] = _T('\0');
+
+	if(RD_SUB)
 	{
-		if (*arg[i] == _T('/'))
-			continue;
-
-		if (RD_SUB)
+		/* ask if they want to delete evrything in the folder */
+		if (!RD_QUIET)
 		{
-			/* ask if they want to delete evrything in the folder */
-			if (!RD_QUIET)
+			LoadString( CMD_ModuleHandle, STRING_DEL_HELP2, szMsg, RC_STRING_MAX_SIZE);
+			res = FilePromptYNA (szMsg);
+			if ((res == PROMPT_NO) || (res == PROMPT_BREAK))
 			{
-				res = FilePromptYNA (STRING_DEL_HELP2);
-				if (res == PROMPT_NO || res == PROMPT_BREAK)
-				{
-					nError = 1;
-					continue;
-				}
-				if (res == PROMPT_ALL)
-					RD_QUIET = TRUE;
+				freep(arg);
+				nErrorLevel = 1;
+				return 1;
 			}
-			/* get the folder name */
-			GetFullPathName(arg[i],MAX_PATH,szFullPath,NULL);
-
-			/* remove trailing \ if any, but ONLY if dir is not the root dir */
-			if (_tcslen (szFullPath) >= 2 && szFullPath[_tcslen (szFullPath) - 1] == _T('\\'))
-				szFullPath[_tcslen(szFullPath) - 1] = _T('\0');
-
-			res = DeleteFolder(szFullPath);
 		}
-		else
+
+	}
+	else
+	{
+		/* check for files in the folder */
+		_tcscat(szFullPath,_T("\\*"));
+
+		hFile = FindFirstFile(szFullPath, &f);
+		if (hFile != INVALID_HANDLE_VALUE)
 		{
-			res = RemoveDirectory(arg[i]);
+			do
+			{
+				if (!_tcscmp(f.cFileName,_T(".")) ||
+					!_tcscmp(f.cFileName,_T("..")))
+					continue;
+				ConOutResPuts(STRING_RMDIR_HELP2);
+				freep(arg);
+				FindClose (hFile);
+				nErrorLevel = 1;
+				return 1;
+			}while (FindNextFile (hFile, &f));
+			FindClose (hFile);
 		}
+		/* reovme the \\* */
+		szFullPath[_tcslen(szFullPath) - 2] = _T('\0');
+	}
 
-		if (!res)
-		{
-			/* Couldn't delete the folder, print out the error */
-			nError = GetLastError();
-			ErrorMessage(nError, _T("RD"));
-		}
+	if (!DeleteFolder(szFullPath))
+	{
+		/* Couldnt delete the folder, clean up and print out the error */
+		ErrorMessage (GetLastError(), _T("RD"));
+		freep (arg);
+		nErrorLevel = 1;
+		return 1;
 	}
 
 	freep (arg);
-	return nError;
+	return 0;
 }
 #endif
 
@@ -499,7 +706,7 @@ INT cmd_rmdir (LPTSTR param)
  * set the exitflag to true
  *
  */
-INT CommandExit (LPTSTR param)
+INT CommandExit (LPTSTR cmd, LPTSTR param)
 {
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
@@ -517,13 +724,13 @@ INT CommandExit (LPTSTR param)
 			param++;
 		if (_istdigit(*param))
 			nErrorLevel = _ttoi(param);
-		ExitBatch();
+		ExitBatch (NULL);
 	}
-
+		
 	else
 		bExit = TRUE;
 
-
+	
 	return 0;
 
 }
@@ -533,7 +740,7 @@ INT CommandExit (LPTSTR param)
  * does nothing
  *
  */
-INT CommandRem (LPTSTR param)
+INT CommandRem (LPTSTR cmd, LPTSTR param)
 {
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
@@ -545,24 +752,15 @@ INT CommandRem (LPTSTR param)
 #endif /* INCLUDE_CMD_REM */
 
 
-INT CommandShowCommands (LPTSTR param)
+INT CommandShowCommands (LPTSTR cmd, LPTSTR param)
 {
 	PrintCommandList ();
 	return 0;
 }
 
-INT CommandShowCommandsDetail (LPTSTR param)
+INT CommandShowCommandsDetail (LPTSTR cmd, LPTSTR param)
 {
-	/* If a param was send, display help of correspondent command */
-	if (_tcslen(param))
-	{
-		DoCommand(param, _T("/?"), NULL);
-	}
-	/* Else, display detailed commands list */
-	else
-	{
-		PrintCommandListDetail ();
-	}
+	PrintCommandListDetail ();
 	return 0;
 }
 

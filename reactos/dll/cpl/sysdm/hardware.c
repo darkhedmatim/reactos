@@ -10,14 +10,13 @@
 
 #include "precomp.h"
 
-typedef BOOL (WINAPI *PDEVMGREXEC)(HWND hWndParent, HINSTANCE hInst, PVOID Unknown, int nCmdShow);
+typedef BOOL (STDCALL *PDEVMGREXEC)(HWND hWndParent, HINSTANCE hInst, PVOID Unknown, int nCmdShow);
 
-static BOOL
-LaunchDeviceManager(HWND hWndParent)
+BOOL LaunchDeviceManager(HWND hWndParent)
 {
 /* hack for ROS to start our devmgmt until we have mmc */
 #ifdef __REACTOS__
-    return ((INT_PTR)ShellExecuteW(NULL, L"open", L"devmgmt.exe", NULL, NULL, SW_SHOWNORMAL) > 32);
+    return ((INT)ShellExecuteW(NULL, L"open", L"devmgmt.exe", NULL, NULL, SW_SHOWNORMAL) > 32);
 #else
     HMODULE hDll;
     PDEVMGREXEC DevMgrExec;
@@ -41,28 +40,6 @@ LaunchDeviceManager(HWND hWndParent)
 #endif /* __REACTOS__ */
 }
 
-static VOID
-LaunchHardwareWizard(HWND hWndParent)
-{
-    SHELLEXECUTEINFO shInputDll;
-
-    memset(&shInputDll, 0x0, sizeof(SHELLEXECUTEINFO));
-
-    shInputDll.cbSize = sizeof(shInputDll);
-    shInputDll.hwnd = hWndParent;
-    shInputDll.lpVerb = _T("open");
-    shInputDll.lpFile = _T("rundll32.exe");
-    shInputDll.lpParameters = _T("shell32.dll,Control_RunDLL hdwwiz.cpl");
-
-    if (ShellExecuteEx(&shInputDll) == 0)
-    {
-        MessageBox(NULL,
-                   _T("Can't start hdwwiz.cpl"),
-                   NULL,
-                   MB_OK | MB_ICONERROR);
-    }
-}
-
 /* Property page dialog callback */
 INT_PTR CALLBACK
 HardwarePageProc(HWND hwndDlg,
@@ -72,34 +49,39 @@ HardwarePageProc(HWND hwndDlg,
 {
     UNREFERENCED_PARAMETER(lParam);
 
-    switch (uMsg)
+    switch(uMsg)
     {
         case WM_INITDIALOG:
-            break;
+        break;
 
         case WM_COMMAND:
-            switch (LOWORD(wParam))
+        {
+            switch(LOWORD(wParam))
             {
                 case IDC_HARDWARE_DEVICE_MANAGER:
-                    if (!LaunchDeviceManager(hwndDlg))
+                {
+                    if(!LaunchDeviceManager(hwndDlg))
                     {
                         /* FIXME */
                     }
-                    return TRUE;
 
-                case IDC_HARDWARE_WIZARD:
-                    LaunchHardwareWizard(hwndDlg);
                     return TRUE;
+                }
 
                 case IDC_HARDWARE_PROFILE:
+                {
                     DialogBox(hApplet,
                               MAKEINTRESOURCE(IDD_HARDWAREPROFILES),
                               hwndDlg,
                               (DLGPROC)HardProfDlgProc);
+
                     return TRUE;
+                }
             }
-            break;
+        }
+        break;
     }
 
     return FALSE;
 }
+

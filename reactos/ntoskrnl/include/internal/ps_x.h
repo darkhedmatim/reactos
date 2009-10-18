@@ -27,16 +27,8 @@
 #define PspClearCrossThreadFlag(Thread, Flag)               \
     InterlockedAnd((PLONG)&Thread->CrossThreadFlags, ~Flag)
 
-//
-// Process flag routines
-//
-#define PspSetProcessFlag(Process, Flag) \
-    InterlockedOr((PLONG)&Process->Flags, Flag)
-#define PspClearProcessFlag(Process, Flag) \
-    InterlockedAnd((PLONG)&Process->Flags, ~Flag)
-
-FORCEINLINE
 VOID
+FORCEINLINE
 PspRunCreateThreadNotifyRoutines(IN PETHREAD CurrentThread,
                                  IN BOOLEAN Create)
 {
@@ -57,8 +49,8 @@ PspRunCreateThreadNotifyRoutines(IN PETHREAD CurrentThread,
     }
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspRunCreateProcessNotifyRoutines(IN PEPROCESS CurrentProcess,
                                   IN BOOLEAN Create)
 {
@@ -73,14 +65,14 @@ PspRunCreateProcessNotifyRoutines(IN PEPROCESS CurrentProcess,
             /* Do the callback */
             ExDoCallBack(&PspProcessNotifyRoutine[i],
                          CurrentProcess->InheritedFromUniqueProcessId,
-                         CurrentProcess->UniqueProcessId,
-                         (PVOID)(ULONG_PTR)Create);
+                         (PVOID)(ULONG_PTR)Create,
+                         NULL);
         }
     }
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspRunLoadImageNotifyRoutines(PUNICODE_STRING FullImageName,
                               HANDLE ProcessId,
                               PIMAGE_INFO ImageInfo)
@@ -98,16 +90,16 @@ PspRunLoadImageNotifyRoutines(PUNICODE_STRING FullImageName,
     }
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspRunLegoRoutine(IN PKTHREAD Thread)
 {
     /* Call it */
     if (PspLegoNotifyRoutine) PspLegoNotifyRoutine(Thread);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspLockProcessSecurityShared(IN PEPROCESS Process)
 {
     /* Enter a Critical Region */
@@ -117,8 +109,8 @@ PspLockProcessSecurityShared(IN PEPROCESS Process)
     ExAcquirePushLockShared(&Process->ProcessLock);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspUnlockProcessSecurityShared(IN PEPROCESS Process)
 {
     /* Unlock the Process */
@@ -128,8 +120,8 @@ PspUnlockProcessSecurityShared(IN PEPROCESS Process)
     KeLeaveCriticalRegion();
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspLockProcessSecurityExclusive(IN PEPROCESS Process)
 {
     /* Enter a Critical Region */
@@ -139,8 +131,8 @@ PspLockProcessSecurityExclusive(IN PEPROCESS Process)
     ExAcquirePushLockExclusive(&Process->ProcessLock);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspUnlockProcessSecurityExclusive(IN PEPROCESS Process)
 {
     /* Unlock the Process */
@@ -150,8 +142,8 @@ PspUnlockProcessSecurityExclusive(IN PEPROCESS Process)
     KeLeaveCriticalRegion();
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspLockThreadSecurityShared(IN PETHREAD Thread)
 {
     /* Enter a Critical Region */
@@ -161,8 +153,8 @@ PspLockThreadSecurityShared(IN PETHREAD Thread)
     ExAcquirePushLockShared(&Thread->ThreadLock);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspUnlockThreadSecurityShared(IN PETHREAD Thread)
 {
     /* Unlock the Thread */
@@ -172,8 +164,8 @@ PspUnlockThreadSecurityShared(IN PETHREAD Thread)
     KeLeaveCriticalRegion();
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspLockThreadSecurityExclusive(IN PETHREAD Thread)
 {
     /* Enter a Critical Region */
@@ -183,8 +175,8 @@ PspLockThreadSecurityExclusive(IN PETHREAD Thread)
     ExAcquirePushLockExclusive(&Thread->ThreadLock);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 PspUnlockThreadSecurityExclusive(IN PETHREAD Thread)
 {
     /* Unlock the Process */
@@ -194,8 +186,8 @@ PspUnlockThreadSecurityExclusive(IN PETHREAD Thread)
     KeLeaveCriticalRegion();
 }
 
-FORCEINLINE
 PEPROCESS
+FORCEINLINE
 _PsGetCurrentProcess(VOID)
 {
     /* Get the current process */

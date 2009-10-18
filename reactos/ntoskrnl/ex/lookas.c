@@ -108,7 +108,7 @@ ExpInitLookasideLists()
         ExInitializeSystemLookasideList(&ExpSmallNPagedPoolLookasideLists[i],
                                         NonPagedPool,
                                         (i + 1) * 8,
-                                        'looP',
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
 
@@ -116,7 +116,7 @@ ExpInitLookasideLists()
         ExInitializeSystemLookasideList(&ExpSmallPagedPoolLookasideLists[i],
                                         PagedPool,
                                         (i + 1) * 8,
-                                        'looP',
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
     }
@@ -135,7 +135,7 @@ ExiAllocateFromPagedLookasideList(IN PPAGED_LOOKASIDE_LIST Lookaside)
 
     Lookaside->L.TotalAllocates++;
     Entry = InterlockedPopEntrySList(&Lookaside->L.ListHead);
-    if (!Entry)
+    if (!Entry) 
     {
         Lookaside->L.AllocateMisses++;
         Entry = (Lookaside->L.Allocate)(Lookaside->L.Type,
@@ -154,7 +154,7 @@ ExiFreeToPagedLookasideList(IN PPAGED_LOOKASIDE_LIST  Lookaside,
                             IN PVOID  Entry)
 {
     Lookaside->L.TotalFrees++;
-    if (ExQueryDepthSList(&Lookaside->L.ListHead) >= Lookaside->L.Depth)
+    if (ExQueryDepthSList(&Lookaside->L.ListHead) >= Lookaside->L.Depth) 
     {
         Lookaside->L.FreeMisses++;
         (Lookaside->L.Free)(Entry);
@@ -222,7 +222,7 @@ ExInitializeNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside,
                                 IN PALLOCATE_FUNCTION Allocate OPTIONAL,
                                 IN PFREE_FUNCTION Free OPTIONAL,
                                 IN ULONG Flags,
-                                IN SIZE_T Size,
+                                IN ULONG Size,
                                 IN ULONG Tag,
                                 IN USHORT Depth)
 {
@@ -258,7 +258,7 @@ ExInitializeNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside,
     {
         Lookaside->L.Free = ExFreePool;
     }
-
+    
     /* Insert it into the list */
     ExInterlockedInsertTailList(&ExpNonPagedLookasideListHead,
                                 &Lookaside->L.ListEntry,
@@ -274,7 +274,7 @@ ExInitializePagedLookasideList(IN PPAGED_LOOKASIDE_LIST Lookaside,
                                IN PALLOCATE_FUNCTION Allocate OPTIONAL,
                                IN PFREE_FUNCTION Free OPTIONAL,
                                IN ULONG Flags,
-                               IN SIZE_T Size,
+                               IN ULONG Size,
                                IN ULONG Tag,
                                IN USHORT Depth)
 {

@@ -349,7 +349,6 @@ static BOOL ProcessRunKeys(HKEY hkRoot, LPCWSTR szKeyName, BOOL bDelete,
     {
         printf("Couldn't allocate memory for the value names\n");
 
-        free(szCmdLine);
         res=ERROR_NOT_ENOUGH_MEMORY;
         goto end;
     }
@@ -389,8 +388,6 @@ static BOOL ProcessRunKeys(HKEY hkRoot, LPCWSTR szKeyName, BOOL bDelete,
         printf("Done processing cmd #%ld\n", i);
     }
 
-    free(szValue);
-    free(szCmdLine);
     res=ERROR_SUCCESS;
 
 end:

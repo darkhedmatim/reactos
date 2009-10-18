@@ -83,7 +83,7 @@ static ULONG MiniportOIDList[] =
 
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiniportQueryInformation(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN NDIS_OID Oid,
@@ -103,7 +103,7 @@ MiniportQueryInformation(
  * RETURNS:
  *     NDIS_STATUS_SUCCESS on all queries
  * NOTES:
- *     - Called by NDIS at DISPATCH_LEVEL
+ *     - Called by NDIS at PASSIVE_LEVEL
  *     - If InformationBufferLength is insufficient to store the results, return the amount
  *       needed in BytesNeeded and return NDIS_STATUS_INVALID_LENGTH
  * TODO:
@@ -118,11 +118,9 @@ MiniportQueryInformation(
 
   DPRINT("Called. OID 0x%x\n", Oid);
 
-  ASSERT_IRQL_EQUAL(DISPATCH_LEVEL);
-
   ASSERT(Adapter);
 
-  NdisDprAcquireSpinLock(&Adapter->Lock);
+  NdisAcquireSpinLock(&Adapter->Lock);
 
   Status   = NDIS_STATUS_SUCCESS;
   CopyFrom = (PVOID)&GenericULONG;
@@ -139,8 +137,8 @@ MiniportQueryInformation(
 
     case OID_GEN_HARDWARE_STATUS:
         {
+          /* TODO: implement this... */
           GenericULONG = (ULONG)NdisHardwareStatusReady;
-          /* ((Adapter->MediaState == NdisMediaStateConnected) ? NdisHardwareStatusReady : NdisHardwareStatusNotReady); */
           break;
         }
 
@@ -173,7 +171,7 @@ MiniportQueryInformation(
 
     case OID_GEN_LINK_SPEED:
         {
-          GenericULONG = Adapter->MediaSpeed * 10000;
+          GenericULONG = 100000;  /* 10Mbps */
           break;
         }
 
@@ -263,8 +261,7 @@ MiniportQueryInformation(
         {
           GenericULONG = NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA |
                          NDIS_MAC_OPTION_RECEIVE_SERIALIZED  |
-                         NDIS_MAC_OPTION_TRANSFERS_NOT_PEND  |
-                         NDIS_MAC_OPTION_NO_LOOPBACK;
+                         NDIS_MAC_OPTION_TRANSFERS_NOT_PEND;
           break;
         }
 
@@ -352,9 +349,9 @@ MiniportQueryInformation(
     {
       if (CopySize > InformationBufferLength)
         {
-          *BytesNeeded = CopySize;
+          *BytesNeeded  = (CopySize - InformationBufferLength);
           *BytesWritten = 0;
-          Status        = NDIS_STATUS_INVALID_LENGTH;
+          Status        = NDIS_STATUS_BUFFER_TOO_SHORT;
         }
       else
         {
@@ -363,13 +360,8 @@ MiniportQueryInformation(
           *BytesNeeded  = CopySize;
          }
     }
-   else
-    {
-       *BytesWritten = 0;
-       *BytesNeeded = 0;
-    }
 
-  NdisDprReleaseSpinLock(&Adapter->Lock);
+  NdisReleaseSpinLock(&Adapter->Lock);
 
   DPRINT("Leaving. Status is 0x%x\n", Status);
 
@@ -377,7 +369,7 @@ MiniportQueryInformation(
 }
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiniportSetInformation(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN NDIS_OID Oid,
@@ -398,7 +390,7 @@ MiniportSetInformation(
  * RETURNS:
  *     NDIS_STATUS_SUCCESS on all requests
  * NOTES:
- *     - Called by NDIS at DISPATCH_LEVEL
+ *     - Called by NDIS at PASSIVE_LEVEL
  *     - verify buffer space as mentioned in previous function notes
  */
 {
@@ -408,11 +400,9 @@ MiniportSetInformation(
 
   ASSERT(Adapter);
 
-  ASSERT_IRQL_EQUAL(DISPATCH_LEVEL);
-
   DPRINT("Called, OID 0x%x\n", Oid);
 
-  NdisDprAcquireSpinLock(&Adapter->Lock);
+  NdisAcquireSpinLock(&Adapter->Lock);
 
   switch (Oid)
     {
@@ -422,7 +412,7 @@ MiniportSetInformation(
         if (InformationBufferLength < sizeof(ULONG))
           {
             *BytesRead   = 0;
-            *BytesNeeded = sizeof(ULONG);
+            *BytesNeeded = sizeof(ULONG) - InformationBufferLength;
             Status       = NDIS_STATUS_INVALID_LENGTH;
             break;
           }
@@ -439,7 +429,7 @@ MiniportSetInformation(
             NDIS_PACKET_TYPE_SOURCE_ROUTING)
            )
           {
-            *BytesRead   = sizeof(ULONG);
+            *BytesRead   = 4;
             *BytesNeeded = 0;
             Status       = NDIS_STATUS_NOT_SUPPORTED;
             break;
@@ -458,7 +448,7 @@ MiniportSetInformation(
         if (InformationBufferLength < sizeof(ULONG))
           {
             *BytesRead   = 0;
-            *BytesNeeded = sizeof(ULONG);
+            *BytesNeeded = sizeof(ULONG) - InformationBufferLength;
             Status = NDIS_STATUS_INVALID_LENGTH;
             break;
           }
@@ -466,7 +456,7 @@ MiniportSetInformation(
         NdisMoveMemory(&GenericULONG, InformationBuffer, sizeof(ULONG));
 
         if (GenericULONG > 1500)
-          Status = NDIS_STATUS_INVALID_DATA;
+          Status = NDIS_STATUS_INVALID_LENGTH;
         else
           Adapter->CurrentLookaheadSize = GenericULONG;
 
@@ -479,7 +469,7 @@ MiniportSetInformation(
         if ((InformationBufferLength % 6) != 0)
           {
             *BytesRead   = 0;
-            *BytesNeeded = InformationBufferLength + (InformationBufferLength % 6);
+            *BytesNeeded = 0;
             Status       = NDIS_STATUS_INVALID_LENGTH;
             break;
           }
@@ -511,7 +501,7 @@ MiniportSetInformation(
       *BytesNeeded = 0;
     }
 
-  NdisDprReleaseSpinLock(&Adapter->Lock);
+  NdisReleaseSpinLock(&Adapter->Lock);
 
   DPRINT("Leaving. Status (0x%X).\n", Status);
 

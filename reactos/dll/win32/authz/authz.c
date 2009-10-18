@@ -318,7 +318,7 @@ AuthzUnregisterSecurityEventSource(IN DWORD dwFlags,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(IN HINSTANCE hinstDLL,
         IN DWORD dwReason,
         IN LPVOID lpvReserved)

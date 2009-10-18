@@ -107,7 +107,7 @@ IntSetupClipboard(PWINSTATION_OBJECT WinStaObj)
 
 /* OBJECT CALLBACKS  **********************************************************/
 
-VOID APIENTRY
+VOID STDCALL
 IntWinStaObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters)
 {
    PWINSTATION_OBJECT WinSta = (PWINSTATION_OBJECT)Parameters->Object;
@@ -120,7 +120,7 @@ IntWinStaObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters)
 }
 
 NTSTATUS
-APIENTRY
+STDCALL
 IntWinStaObjectParse(PWIN32_PARSEMETHOD_PARAMETERS Parameters)
 {
     PUNICODE_STRING RemainingName = Parameters->RemainingName;
@@ -290,40 +290,25 @@ IntGetWindowStationObject(PWINSTATION_OBJECT Object)
    return NT_SUCCESS(Status);
 }
 
-
 BOOL FASTCALL
 co_IntInitializeDesktopGraphics(VOID)
 {
-   TEXTMETRICW tmw;
-   UNICODE_STRING DriverName = RTL_CONSTANT_STRING(L"DISPLAY");
+   UNICODE_STRING DriverName;
    if (! IntCreatePrimarySurface())
    {
       return FALSE;
    }
+   RtlInitUnicodeString(&DriverName, L"DISPLAY");
    ScreenDeviceContext = IntGdiCreateDC(&DriverName, NULL, NULL, NULL, FALSE);
    if (NULL == ScreenDeviceContext)
    {
       IntDestroyPrimarySurface();
       return FALSE;
    }
-   IntGdiSetDCOwnerEx(ScreenDeviceContext, GDI_OBJ_HMGR_PUBLIC, FALSE);
+   DC_SetOwnership(ScreenDeviceContext, NULL);
 
    /* Setup the cursor */
    co_IntLoadDefaultCursors();
-
-   hSystemBM = NtGdiCreateCompatibleDC(ScreenDeviceContext);
-
-   NtGdiSelectFont( hSystemBM, NtGdiGetStockObject(SYSTEM_FONT));
-   IntGdiSetDCOwnerEx( hSystemBM, GDI_OBJ_HMGR_PUBLIC, FALSE);
-
-   // FIXME! Move these to a update routine.
-   gpsi->Planes        = NtGdiGetDeviceCaps(ScreenDeviceContext, PLANES);
-   gpsi->BitsPixel     = NtGdiGetDeviceCaps(ScreenDeviceContext, BITSPIXEL);
-   gpsi->BitCount      = gpsi->Planes * gpsi->BitsPixel;
-   gpsi->dmLogPixels   = NtGdiGetDeviceCaps(ScreenDeviceContext, LOGPIXELSY);
-   // Font is realized and this dc was previously set to internal DC_ATTR.
-   gpsi->cxSysFontChar = IntGetCharDimensions(hSystemBM, &tmw, (DWORD*)&gpsi->cySysFontChar);
-   gpsi->tmSysFont     = tmw;
 
    return TRUE;
 }
@@ -332,7 +317,7 @@ VOID FASTCALL
 IntEndDesktopGraphics(VOID)
 {
    if (NULL != ScreenDeviceContext)
-   {  // No need to allocate a new dcattr.
+   {
       DC_SetOwnership(ScreenDeviceContext, PsGetCurrentProcess());
       NtGdiDeleteObjectApp(ScreenDeviceContext);
       ScreenDeviceContext = NULL;
@@ -385,15 +370,14 @@ IntGetScreenDC(VOID)
  *    @implemented
  */
 
-HWINSTA APIENTRY
+HWINSTA STDCALL
 NtUserCreateWindowStation(
    PUNICODE_STRING lpszWindowStationName,
    ACCESS_MASK dwDesiredAccess,
    LPSECURITY_ATTRIBUTES lpSecurity,
    DWORD Unknown3,
    DWORD Unknown4,
-   DWORD Unknown5,
-   DWORD Unknown6)
+   DWORD Unknown5)
 {
    PSYSTEM_CURSORINFO CurInfo;
    UNICODE_STRING WindowStationName;
@@ -483,9 +467,6 @@ NtUserCreateWindowStation(
       return 0;
    }
 
-   /* Zero out the buffer */
-   RtlZeroMemory(WindowStationObject, sizeof(WINSTATION_OBJECT));
-
    KeInitializeSpinLock(&WindowStationObject->Lock);
 
    InitializeListHead(&WindowStationObject->DesktopListHead);
@@ -517,9 +498,8 @@ NtUserCreateWindowStation(
    /*
     * Initialize the new window station object
     */
-
    WindowStationObject->ScreenSaverRunning = FALSE;
-
+   WindowStationObject->ScreenSaverTimeOut = 10 * 60;
    WindowStationObject->FlatMenu = FALSE;
 
    if(!(CurInfo = ExAllocatePool(PagedPool, sizeof(SYSTEM_CURSORINFO))))
@@ -537,41 +517,26 @@ NtUserCreateWindowStation(
    CurInfo->LastBtnDown = 0;
    CurInfo->CurrentCursorObject = NULL;
    CurInfo->ShowingCursor = 0;
-   CurInfo->ClickLockActive = FALSE;
-   CurInfo->ClickLockTime = 0;
+    
+   CurInfo->WheelScroLines = 3;
+   CurInfo->WheelScroChars = 3;
 
-/*
-   // not used anymore
-   CurInfo->WheelScroLines = gspv.iWheelScrollLines;
-#if (_WIN32_WINNT >= 0x0600)
-   CurInfo->WheelScroChars = gspv.iWheelScrollChars;
-#endif
-   CurInfo->SwapButtons = gspv.bMouseBtnSwap;
-   CurInfo->DblClickSpeed = gspv.iDblClickTime;
-   CurInfo->DblClickWidth = gspv.iDblClickWidth;
-   CurInfo->DblClickHeight = gspv.iDblClickHeight;
+   
 
-   CurInfo->MouseSpeed = gspv.iMouseSpeed;
-   CurInfo->CursorAccelerationInfo.FirstThreshold  = gspv.caiMouse.FirstThreshold;
-   CurInfo->CursorAccelerationInfo.SecondThreshold = gspv.caiMouse.SecondThreshold;
-   CurInfo->CursorAccelerationInfo.Acceleration = gspv.caiMouse.Acceleration;
+   /* FIXME: Obtain the following information from the registry */    
+   CurInfo->SwapButtons = FALSE;
+   CurInfo->DblClickSpeed = 500;
+   CurInfo->DblClickWidth = 4;
+   CurInfo->DblClickHeight = 4;
 
-   CurInfo->MouseHoverTime = gspv.iMouseHoverTime;
-   CurInfo->MouseHoverWidth = gspv.iMouseHoverWidth;
-   CurInfo->MouseHoverHeight = gspv.iMouseHoverHeight;
-*/
-
-//   WindowStationObject->ScreenSaverActive = FALSE;
-//   WindowStationObject->ScreenSaverTimeOut = 10;
    WindowStationObject->SystemCursor = CurInfo;
-
-   /* END FIXME loading from register */
-
+    
+    
    if (!IntSetupClipboard(WindowStationObject))
    {
        DPRINT1("WindowStation: Error Setting up the clipboard!!!\n");
-   }
-
+   }   
+    
    if (!IntSetupCurIconHandles(WindowStationObject))
    {
       DPRINT1("Setting up the Cursor/Icon Handle table failed!\n");
@@ -579,7 +544,7 @@ NtUserCreateWindowStation(
       ExFreePool(FullWindowStationName.Buffer);
    }
 
-   DPRINT("Window station successfully created (%wZ)\n", &FullWindowStationName);
+   DPRINT("Window station successfully created (%wZ)\n", FullWindowStationName);
    ExFreePool(FullWindowStationName.Buffer);
    return WindowStation;
 }
@@ -608,7 +573,7 @@ NtUserCreateWindowStation(
  *    @implemented
  */
 
-HWINSTA APIENTRY
+HWINSTA STDCALL
 NtUserOpenWindowStation(
    PUNICODE_STRING lpszWindowStationName,
    ACCESS_MASK dwDesiredAccess)
@@ -635,14 +600,14 @@ NtUserOpenWindowStation(
    InitializeObjectAttributes(
       &ObjectAttributes,
       &WindowStationName,
-      OBJ_CASE_INSENSITIVE,
+      0,
       NULL,
       NULL);
 
    Status = ObOpenObjectByName(
                &ObjectAttributes,
                ExWindowStationObjectType,
-               KernelMode,
+               UserMode,
                NULL,
                dwDesiredAccess,
                NULL,
@@ -683,7 +648,7 @@ NtUserOpenWindowStation(
  */
 
 BOOL
-APIENTRY
+STDCALL
 NtUserCloseWindowStation(
    HWINSTA hWinSta)
 {
@@ -691,11 +656,6 @@ NtUserCloseWindowStation(
    NTSTATUS Status;
 
    DPRINT("About to close window station handle (0x%X)\n", hWinSta);
-
-	if (hWinSta == UserGetProcessWindowStation())
-	{
-		return FALSE;
-	}
 
    Status = IntValidateWindowStationHandle(
                hWinSta,
@@ -769,7 +729,7 @@ NtUserCloseWindowStation(
  *    @unimplemented
  */
 
-BOOL APIENTRY
+BOOL STDCALL
 NtUserGetObjectInformation(
    HANDLE hObject,
    DWORD nIndex,
@@ -778,7 +738,7 @@ NtUserGetObjectInformation(
    PDWORD nLengthNeeded)
 {
    PWINSTATION_OBJECT WinStaObject = NULL;
-   PDESKTOP DesktopObject = NULL;
+   PDESKTOP_OBJECT DesktopObject = NULL;
    NTSTATUS Status;
    PVOID pvData = NULL;
    DWORD nDataSize = 0;
@@ -921,7 +881,7 @@ NtUserGetObjectInformation(
  */
 
 BOOL
-APIENTRY
+STDCALL
 NtUserSetObjectInformation(
    HANDLE hObject,
    DWORD nIndex,
@@ -941,7 +901,6 @@ HWINSTA FASTCALL
 UserGetProcessWindowStation(VOID)
 {
    NTSTATUS Status;
-   PTHREADINFO pti;
    HWINSTA WinSta;
 
    if(PsGetCurrentProcess() != CsrProcess)
@@ -951,8 +910,7 @@ UserGetProcessWindowStation(VOID)
    else
    {
       DPRINT1("Should use ObFindHandleForObject\n");
-      pti = PsGetCurrentThreadWin32Thread();
-      Status = ObOpenObjectByPointer(pti->Desktop->WindowStation,
+      Status = ObOpenObjectByPointer(PsGetCurrentThreadWin32Thread()->Desktop->WindowStation,
                                      0,
                                      NULL,
                                      WINSTA_ALL_ACCESS,
@@ -985,7 +943,7 @@ UserGetProcessWindowStation(VOID)
  *    @implemented
  */
 
-HWINSTA APIENTRY
+HWINSTA STDCALL
 NtUserGetProcessWindowStation(VOID)
 {
    return UserGetProcessWindowStation();
@@ -995,22 +953,19 @@ PWINSTATION_OBJECT FASTCALL
 IntGetWinStaObj(VOID)
 {
    PWINSTATION_OBJECT WinStaObj;
-   PTHREADINFO Win32Thread;
-   PEPROCESS CurrentProcess;
 
    /*
     * just a temporary hack, this will be gone soon
     */
 
-   Win32Thread = PsGetCurrentThreadWin32Thread();
-   if(Win32Thread != NULL && Win32Thread->Desktop != NULL)
+   if(PsGetCurrentThreadWin32Thread() != NULL && PsGetCurrentThreadWin32Thread()->Desktop != NULL)
    {
-      WinStaObj = Win32Thread->Desktop->WindowStation;
+      WinStaObj = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
       ObReferenceObjectByPointer(WinStaObj, KernelMode, ExWindowStationObjectType, 0);
    }
-   else if((CurrentProcess = PsGetCurrentProcess()) != CsrProcess)
+   else if(PsGetCurrentProcess() != CsrProcess)
    {
-      NTSTATUS Status = IntValidateWindowStationHandle(CurrentProcess->Win32WindowStation,
+      NTSTATUS Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
                         KernelMode,
                         0,
                         &WinStaObj);
@@ -1044,7 +999,7 @@ IntGetWinStaObj(VOID)
  *    @implemented
  */
 
-BOOL APIENTRY
+BOOL STDCALL
 NtUserSetProcessWindowStation(HWINSTA hWindowStation)
 {
    HANDLE hOld;
@@ -1097,7 +1052,7 @@ NtUserSetProcessWindowStation(HWINSTA hWindowStation)
  *    @implemented
  */
 
-BOOL APIENTRY
+BOOL STDCALL
 NtUserLockWindowStation(HWINSTA hWindowStation)
 {
    PWINSTATION_OBJECT Object;
@@ -1141,7 +1096,7 @@ NtUserLockWindowStation(HWINSTA hWindowStation)
  *    @implemented
  */
 
-BOOL APIENTRY
+BOOL STDCALL
 NtUserUnlockWindowStation(HWINSTA hWindowStation)
 {
    PWINSTATION_OBJECT Object;
@@ -1185,7 +1140,7 @@ NtUserUnlockWindowStation(HWINSTA hWindowStation)
  *    @unimplemented
  */
 
-DWORD APIENTRY
+DWORD STDCALL
 NtUserSetWindowStationUser(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -1282,7 +1237,7 @@ BuildWindowStationNameList(
                      FALSE, &Context, NULL))
          {
             /* Something went wrong, maybe someone added a directory entry? Just give up. */
-            ExFreePoolWithTag(Buffer, TAG_WINSTA);
+            ExFreePool(Buffer);
             ObDereferenceObject(DirectoryHandle);
             return NT_SUCCESS(Status) ? STATUS_INTERNAL_ERROR : Status;
          }
@@ -1310,7 +1265,7 @@ BuildWindowStationNameList(
       {
          if (Buffer != InitialBuffer)
          {
-            ExFreePoolWithTag(Buffer, TAG_WINSTA);
+            ExFreePool(Buffer);
          }
          return STATUS_BUFFER_TOO_SMALL;
       }
@@ -1323,7 +1278,7 @@ BuildWindowStationNameList(
    {
       if (Buffer != InitialBuffer)
       {
-         ExFreePoolWithTag(Buffer, TAG_WINSTA);
+         ExFreePool(Buffer);
       }
       return STATUS_BUFFER_TOO_SMALL;
    }
@@ -1390,7 +1345,7 @@ BuildDesktopNameList(
    PWINSTATION_OBJECT WindowStation;
    KIRQL OldLevel;
    PLIST_ENTRY DesktopEntry;
-   PDESKTOP DesktopObject;
+   PDESKTOP_OBJECT DesktopObject;
    DWORD EntryCount;
    ULONG ReturnLength;
    WCHAR NullWchar;
@@ -1415,7 +1370,7 @@ BuildDesktopNameList(
          DesktopEntry != &WindowStation->DesktopListHead;
          DesktopEntry = DesktopEntry->Flink)
    {
-      DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP, ListEntry);
+      DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP_OBJECT, ListEntry);
       ReturnLength += ((PUNICODE_STRING)GET_DESKTOP_NAME(DesktopObject))->Length + sizeof(WCHAR);
       EntryCount++;
    }
@@ -1458,7 +1413,7 @@ BuildDesktopNameList(
          DesktopEntry != &WindowStation->DesktopListHead;
          DesktopEntry = DesktopEntry->Flink)
    {
-      DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP, ListEntry);
+      DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP_OBJECT, ListEntry);
       Status = MmCopyToCaller(lpBuffer, ((PUNICODE_STRING)GET_DESKTOP_NAME(DesktopObject))->Buffer, ((PUNICODE_STRING)GET_DESKTOP_NAME(DesktopObject))->Length);
       if (! NT_SUCCESS(Status))
       {
@@ -1512,7 +1467,7 @@ BuildDesktopNameList(
  *    @implemented
  */
 
-NTSTATUS APIENTRY
+NTSTATUS STDCALL
 NtUserBuildNameList(
    HWINSTA hWindowStation,
    ULONG dwSize,

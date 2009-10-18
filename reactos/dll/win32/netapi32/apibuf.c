@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdarg.h>
@@ -35,9 +35,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(netapi32);
  */
 NET_API_STATUS WINAPI NetApiBufferAllocate(DWORD ByteCount, LPVOID* Buffer)
 {
-    TRACE("(%d, %p)\n", ByteCount, Buffer);
-
-    if (Buffer == NULL) return ERROR_INVALID_PARAMETER;
+    TRACE("(%ld, %p)\n", ByteCount, Buffer);
     *Buffer = HeapAlloc(GetProcessHeap(), 0, ByteCount);
     if (*Buffer)
         return NERR_Success;
@@ -61,7 +59,7 @@ NET_API_STATUS WINAPI NetApiBufferFree(LPVOID Buffer)
 NET_API_STATUS WINAPI NetApiBufferReallocate(LPVOID OldBuffer, DWORD NewByteCount,
                                              LPVOID* NewBuffer)
 {
-    TRACE("(%p, %d, %p)\n", OldBuffer, NewByteCount, NewBuffer);
+    TRACE("(%p, %ld, %p)\n", OldBuffer, NewByteCount, NewBuffer);
     if (NewByteCount) 
     {
         if (OldBuffer)
@@ -89,7 +87,7 @@ NET_API_STATUS WINAPI NetApiBufferSize(LPVOID Buffer, LPDWORD ByteCount)
     if (Buffer == NULL)
         return ERROR_INVALID_PARAMETER;
     dw = HeapSize(GetProcessHeap(), 0, Buffer);
-    TRACE("size: %d\n", dw);
+    TRACE("size: %ld\n", dw);
     if (dw != 0xFFFFFFFF)
         *ByteCount = dw;
     else

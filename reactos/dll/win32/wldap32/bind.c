@@ -31,6 +31,9 @@
 
 #ifdef HAVE_LDAP_H
 #include <ldap.h>
+#else
+#define LDAP_SUCCESS        0x00
+#define LDAP_NOT_SUPPORTED  0x5c
 #endif
 
 #include "winldap_private.h"
@@ -45,7 +48,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(wldap32);
  */
 ULONG CDECL ldap_bindA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR cred, ULONG method )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL, *credW = NULL;
 
@@ -53,7 +56,7 @@ ULONG CDECL ldap_bindA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR cred, ULONG method )
 
     TRACE( "(%p, %s, %p, 0x%08x)\n", ld, debugstr_a(dn), cred, method );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (dn) {
         dnW = strAtoW( dn );
@@ -94,7 +97,7 @@ exit:
  */
 ULONG CDECL ldap_bindW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR cred, ULONG method )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL, *credU = NULL;
     struct berval pwd = { 0, NULL };
@@ -104,7 +107,7 @@ ULONG CDECL ldap_bindW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR cred, ULONG method )
 
     TRACE( "(%p, %s, %p, 0x%08x)\n", ld, debugstr_w(dn), cred, method );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
     if (method != LDAP_AUTH_SIMPLE) return WLDAP32_LDAP_PARAM_ERROR;
 
     if (dn) {
@@ -124,7 +127,7 @@ ULONG CDECL ldap_bindW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR cred, ULONG method )
     if (ret == LDAP_SUCCESS)
         ret = msg;
     else
-        ret = ~0u;
+        ret = ~0UL;
 
 exit:
     strfreeU( dnU );
@@ -141,7 +144,7 @@ exit:
  */
 ULONG CDECL ldap_bind_sA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR cred, ULONG method )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL, *credW = NULL;
 
@@ -187,7 +190,7 @@ exit:
  */
 ULONG CDECL ldap_bind_sW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR cred, ULONG method )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL, *credU = NULL;
     struct berval pwd = { 0, NULL };
@@ -211,7 +214,7 @@ ULONG CDECL ldap_bind_sW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR cred, ULONG method
         pwd.bv_val = credU;
     }
 
-    ret = map_error( ldap_sasl_bind_s( ld, dnU, LDAP_SASL_SIMPLE, &pwd, NULL, NULL, NULL ));
+    ret = ldap_sasl_bind_s( ld, dnU, LDAP_SASL_SIMPLE, &pwd, NULL, NULL, NULL );
 
 exit:
     strfreeU( dnU );
@@ -230,7 +233,7 @@ ULONG CDECL ldap_sasl_bindA( WLDAP32_LDAP *ld, const PCHAR dn,
     const PCHAR mechanism, const BERVAL *cred, PLDAPControlA *serverctrls,
     PLDAPControlA *clientctrls, int *message )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW, *mechanismW = NULL;
     LDAPControlW **serverctrlsW = NULL, **clientctrlsW = NULL;
@@ -296,7 +299,7 @@ ULONG CDECL ldap_sasl_bindW( WLDAP32_LDAP *ld, const PWCHAR dn,
     const PWCHAR mechanism, const BERVAL *cred, PLDAPControlW *serverctrls,
     PLDAPControlW *clientctrls, int *message )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU, *mechanismU = NULL;
     LDAPControl **serverctrlsU = NULL, **clientctrlsU = NULL;
@@ -328,8 +331,8 @@ ULONG CDECL ldap_sasl_bindW( WLDAP32_LDAP *ld, const PWCHAR dn,
     credU.bv_len = cred->bv_len;
     credU.bv_val = cred->bv_val;
 
-    ret = map_error( ldap_sasl_bind( ld, dnU, mechanismU, &credU,
-                                     serverctrlsU, clientctrlsU, message ));
+    ret = ldap_sasl_bind( ld, dnU, mechanismU, &credU,
+                          serverctrlsU, clientctrlsU, message );
 
 exit:
     strfreeU( dnU );
@@ -350,7 +353,7 @@ ULONG CDECL ldap_sasl_bind_sA( WLDAP32_LDAP *ld, const PCHAR dn,
     const PCHAR mechanism, const BERVAL *cred, PLDAPControlA *serverctrls,
     PLDAPControlA *clientctrls, PBERVAL *serverdata )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW, *mechanismW = NULL;
     LDAPControlW **serverctrlsW = NULL, **clientctrlsW = NULL;
@@ -416,7 +419,7 @@ ULONG CDECL ldap_sasl_bind_sW( WLDAP32_LDAP *ld, const PWCHAR dn,
     const PWCHAR mechanism, const BERVAL *cred, PLDAPControlW *serverctrls,
     PLDAPControlW *clientctrls, PBERVAL *serverdata )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU, *mechanismU = NULL;
     LDAPControl **serverctrlsU = NULL, **clientctrlsU = NULL;
@@ -448,8 +451,8 @@ ULONG CDECL ldap_sasl_bind_sW( WLDAP32_LDAP *ld, const PWCHAR dn,
     credU.bv_len = cred->bv_len;
     credU.bv_val = cred->bv_val;
 
-    ret = map_error( ldap_sasl_bind_s( ld, dnU, mechanismU, &credU,
-                                       serverctrlsU, clientctrlsU, (struct berval **)serverdata ));
+    ret = ldap_sasl_bind_s( ld, dnU, mechanismU, &credU,
+                            serverctrlsU, clientctrlsU, (struct berval **)serverdata );
 
 exit:
     strfreeU( dnU );
@@ -468,7 +471,7 @@ exit:
  */
 ULONG CDECL ldap_simple_bindA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR passwd )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL, *passwdW = NULL;
 
@@ -476,7 +479,7 @@ ULONG CDECL ldap_simple_bindA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR passwd )
 
     TRACE( "(%p, %s, %p)\n", ld, debugstr_a(dn), passwd );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (dn) {
         dnW = strAtoW( dn );
@@ -516,7 +519,7 @@ exit:
  */
 ULONG CDECL ldap_simple_bindW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR passwd )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL, *passwdU = NULL;
     struct berval pwd = { 0, NULL };
@@ -526,7 +529,7 @@ ULONG CDECL ldap_simple_bindW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR passwd )
 
     TRACE( "(%p, %s, %p)\n", ld, debugstr_w(dn), passwd );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (dn) {
         dnU = strWtoU( dn );
@@ -545,7 +548,7 @@ ULONG CDECL ldap_simple_bindW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR passwd )
     if (ret == LDAP_SUCCESS)
         ret = msg;
     else
-        ret = ~0u;
+        ret = ~0UL;
 
 exit:
     strfreeU( dnU );
@@ -562,7 +565,7 @@ exit:
  */
 ULONG CDECL ldap_simple_bind_sA( WLDAP32_LDAP *ld, PCHAR dn, PCHAR passwd )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL, *passwdW = NULL;
 
@@ -610,7 +613,7 @@ exit:
  */
 ULONG CDECL ldap_simple_bind_sW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR passwd )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL, *passwdU = NULL;
     struct berval pwd = { 0, NULL };
@@ -633,7 +636,7 @@ ULONG CDECL ldap_simple_bind_sW( WLDAP32_LDAP *ld, PWCHAR dn, PWCHAR passwd )
         pwd.bv_val = passwdU;
     }
 
-    ret = map_error( ldap_sasl_bind_s( ld, dnU, LDAP_SASL_SIMPLE, &pwd, NULL, NULL, NULL ));
+    ret = ldap_sasl_bind_s( ld, dnU, LDAP_SASL_SIMPLE, &pwd, NULL, NULL, NULL );
 
 exit:
     strfreeU( dnU );
@@ -657,13 +660,13 @@ exit:
  */
 ULONG CDECL WLDAP32_ldap_unbind( WLDAP32_LDAP *ld )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p)\n", ld );
 
     if (ld)
-        ret = map_error( ldap_unbind_ext( ld, NULL, NULL ));
+        ret = ldap_unbind_ext( ld, NULL, NULL );
     else
         ret = WLDAP32_LDAP_PARAM_ERROR;
 
@@ -685,13 +688,13 @@ ULONG CDECL WLDAP32_ldap_unbind( WLDAP32_LDAP *ld )
  */
 ULONG CDECL WLDAP32_ldap_unbind_s( WLDAP32_LDAP *ld )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p)\n", ld );
 
     if (ld)
-        ret = map_error( ldap_unbind_ext_s( ld, NULL, NULL ));
+        ret = ldap_unbind_ext_s( ld, NULL, NULL );
     else
         ret = WLDAP32_LDAP_PARAM_ERROR;
 

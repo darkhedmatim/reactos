@@ -1,5 +1,8 @@
 #ifndef _SETUPAPI_H_
 #define _SETUPAPI_H_
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #include <commctrl.h>
 #include <pshpack1.h>
@@ -338,7 +341,6 @@ extern "C" {
 #define ERROR_INTERFACE_DEVICE_REMOVED	ERROR_DEVICE_INTERFACE_REMOVED
 #define ERROR_NO_DEFAULT_INTERFACE_DEVICE	ERROR_NO_DEFAULT_DEVICE_INTERFACE
 #define ERROR_NO_SUCH_INTERFACE_DEVICE	ERROR_NO_SUCH_DEVICE_INTERFACE
-#define ERROR_WRONG_INF_TYPE              (APPLICATION_ERROR_MASK|ERROR_SEVERITY_ERROR|0x24A)
 
 #define FILEOP_COPY	0
 #define FILEOP_ABORT	0
@@ -639,9 +641,6 @@ extern "C" {
 
 /* Flags for StringTableAddString and StringTableLookUpString */
 #define ST_CASE_SENSITIVE_COMPARE	0x00000001
-
-/* SetupUninstallOEMInf Flags values */
-#define SUOI_FORCEDELETE 0x00000001
 
 #ifndef RC_INVOKED
 typedef PVOID HINF;
@@ -1313,8 +1312,6 @@ WINSETUPAPI BOOL WINAPI SetupGetBinaryField(PINFCONTEXT,DWORD,PBYTE,DWORD,LPDWOR
 WINSETUPAPI DWORD WINAPI SetupGetFieldCount(PINFCONTEXT);
 WINSETUPAPI DWORD WINAPI SetupGetFileCompressionInfoA(PCSTR,PSTR*,PDWORD,PDWORD,PUINT);
 WINSETUPAPI DWORD WINAPI SetupGetFileCompressionInfoW(PCWSTR,PWSTR*,PDWORD,PDWORD,PUINT);
-WINSETUPAPI BOOL WINAPI SetupGetFileCompressionInfoExA(PCSTR,PSTR,DWORD,PDWORD,PDWORD,PDWORD,PUINT);
-WINSETUPAPI BOOL WINAPI SetupGetFileCompressionInfoExW(PCWSTR,PWSTR,DWORD,PDWORD,PDWORD,PDWORD,PUINT);
 WINSETUPAPI BOOL WINAPI SetupGetInfFileListA(PCSTR,DWORD,PSTR,DWORD,PDWORD);
 WINSETUPAPI BOOL WINAPI SetupGetInfFileListW(PCWSTR,DWORD,PWSTR,DWORD,PDWORD);
 WINSETUPAPI BOOL WINAPI SetupGetInfInformationA(LPCVOID,DWORD,PSP_INF_INFORMATION,DWORD,PDWORD);
@@ -1437,7 +1434,7 @@ WINSETUPAPI BOOL   WINAPI StringTableGetExtraData(HSTRING_TABLE, DWORD, LPVOID, 
 WINSETUPAPI HSTRING_TABLE WINAPI StringTableInitialize(VOID);
 WINSETUPAPI HSTRING_TABLE WINAPI StringTableInitializeEx(DWORD, DWORD);
 WINSETUPAPI DWORD  WINAPI StringTableLookUpString(HSTRING_TABLE, LPWSTR, DWORD);
-WINSETUPAPI DWORD  WINAPI StringTableLookUpStringEx(HSTRING_TABLE, LPWSTR, DWORD, LPVOID, DWORD);
+WINSETUPAPI DWORD  WINAPI StringTableLookUpStringEx(HSTRING_TABLE, LPWSTR, DWORD, LPVOID, LPDWORD);
 WINSETUPAPI BOOL   WINAPI StringTableSetExtraData(HSTRING_TABLE, DWORD, LPVOID, DWORD);
 WINSETUPAPI LPWSTR WINAPI StringTableStringFromId(HSTRING_TABLE, DWORD);
 WINSETUPAPI BOOL   WINAPI StringTableStringFromIdEx(HSTRING_TABLE, DWORD, LPWSTR, LPDWORD);
@@ -1527,7 +1524,6 @@ WINSETUPAPI BOOL WINAPI UnmapAndCloseFile(HANDLE, HANDLE, PVOID);
 #define SetupFreeSourceList	SetupFreeSourceListW
 #define SetupGetBackupInformation	SetupGetBackupInformationW
 #define SetupGetFileCompressionInfo	SetupGetFileCompressionInfoW
-#define SetupGetFileCompressionInfoEx	SetupGetFileCompressionInfoExW
 #define SetupGetInfFileList	SetupGetInfFileListW
 #define SetupGetInfInformation	SetupGetInfInformationW
 #define SetupGetLineByIndex	SetupGetLineByIndexW
@@ -1649,7 +1645,6 @@ WINSETUPAPI BOOL WINAPI UnmapAndCloseFile(HANDLE, HANDLE, PVOID);
 #define SetupFreeSourceList	SetupFreeSourceListA
 #define SetupGetBackupInformation	SetupGetBackupInformationA
 #define SetupGetFileCompressionInfo	SetupGetFileCompressionInfoA
-#define SetupGetFileCompressionInfoEx	SetupGetFileCompressionInfoExA
 #define SetupGetInfFileList	SetupGetInfFileListA
 #define SetupGetInfInformation	SetupGetInfInformationA
 #define SetupGetLineByIndex	SetupGetLineByIndexA

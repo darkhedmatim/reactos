@@ -1,6 +1,6 @@
 /*
  * Copyright 2002 Mike McCormack for CodeWeavers
- * Copyright 2005-2008 Juan Lang
+ * Copyright 2005 Juan Lang
  * Copyright 2006 Paul Vriens
  *
  * This library is free software; you can redistribute it and/or
@@ -30,7 +30,6 @@
 #include "winuser.h"
 
 #include "wine/debug.h"
-#include "wine/list.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(crypt);
 
@@ -254,39 +253,6 @@ end_function:
     return TRUE;
 }
 
-static void *CRYPT_LoadSIPFuncFromKey(HKEY key, HMODULE *pLib)
-{
-    LONG r;
-    DWORD size;
-    WCHAR dllName[MAX_PATH];
-    char functionName[MAX_PATH];
-    HMODULE lib;
-    void *func = NULL;
-
-    /* Read the DLL entry */
-    size = sizeof(dllName);
-    r = RegQueryValueExW(key, szDllName, NULL, NULL, (LPBYTE)dllName, &size);
-    if (r) goto end;
-
-    /* Read the Function entry */
-    size = sizeof(functionName);
-    r = RegQueryValueExA(key, "FuncName", NULL, NULL, (LPBYTE)functionName,
-     &size);
-    if (r) goto end;
-
-    lib = LoadLibraryW(dllName);
-    if (!lib)
-        goto end;
-    func = GetProcAddress(lib, functionName);
-    if (func)
-        *pLib = lib;
-    else
-        FreeLibrary(lib);
-
-end:
-    return func;
-}
-
 /***********************************************************************
  *             CryptSIPRetrieveSubjectGuid (CRYPT32.@)
  *
@@ -309,19 +275,13 @@ BOOL WINAPI CryptSIPRetrieveSubjectGuid
       (LPCWSTR FileName, HANDLE hFileIn, GUID *pgSubject)
 {
     HANDLE hFile;
+    HANDLE hFilemapped;
+    LPVOID pMapped;
     BOOL   bRet = FALSE;
-    DWORD  count;
-    LARGE_INTEGER zero, oldPos;
+    DWORD  fileSize;
+    IMAGE_DOS_HEADER *dos;
     /* FIXME, find out if there is a name for this GUID */
     static const GUID unknown = { 0xC689AAB8, 0x8E78, 0x11D0, { 0x8C,0x47,0x00,0xC0,0x4F,0xC2,0x95,0xEE }};
-    static const GUID cabGUID = { 0xc689aaba, 0x8e78, 0x11d0, {0x8c,0x47,0x00,0xc0,0x4f,0xc2,0x95,0xee }};
-    static const GUID catGUID = { 0xDE351A43, 0x8E59, 0x11D0, { 0x8C,0x47,0x00,0xC0,0x4F,0xC2,0x95,0xEE }};
-    static const WORD dosHdr = IMAGE_DOS_SIGNATURE;
-    static const BYTE cabHdr[] = { 'M','S','C','F' };
-    BYTE hdr[SIP_MAX_MAGIC_NUMBER];
-    WCHAR szFullKey[ 0x100 ];
-    LONG r = ERROR_SUCCESS;
-    HKEY key;
 
     TRACE("(%s %p %p)\n", wine_dbgstr_w(FileName), hFileIn, pgSubject);
 
@@ -344,316 +304,54 @@ BOOL WINAPI CryptSIPRetrieveSubjectGuid
         if (hFile == INVALID_HANDLE_VALUE) return FALSE;
     }
 
-    zero.QuadPart = 0;
-    SetFilePointerEx(hFile, zero, &oldPos, FILE_CURRENT);
-    SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
-    if (!ReadFile(hFile, hdr, sizeof(hdr), &count, NULL))
-        goto cleanup;
+    hFilemapped = CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+    /* Last error is set by CreateFileMapping */
+    if (!hFilemapped) goto cleanup3;
 
-    if (count < SIP_MAX_MAGIC_NUMBER)
+    pMapped = MapViewOfFile(hFilemapped, FILE_MAP_READ, 0, 0, 0);
+    /* Last error is set by MapViewOfFile */
+    if (!pMapped) goto cleanup2;
+
+    /* Native checks it right here */
+    fileSize = GetFileSize(hFile, NULL);
+    if (fileSize < 4)
     {
         SetLastError(ERROR_INVALID_PARAMETER);
-        goto cleanup;
+        goto cleanup1;
     }
 
-    TRACE("file magic = 0x%02x%02x%02x%02x\n", hdr[0], hdr[1], hdr[2], hdr[3]);
     /* As everything is in place now we start looking at the file header */
-    if (!memcmp(hdr, &dosHdr, sizeof(dosHdr)))
+    dos = (IMAGE_DOS_HEADER *)pMapped;
+    if (dos->e_magic == IMAGE_DOS_SIGNATURE)
     {
-        *pgSubject = unknown;
+        memcpy(pgSubject, &unknown, sizeof(GUID));
         SetLastError(S_OK);
         bRet = TRUE;
-        goto cleanup;
-    }
-    /* Quick-n-dirty check for a cab file. */
-    if (!memcmp(hdr, cabHdr, sizeof(cabHdr)))
-    {
-        *pgSubject = cabGUID;
-        SetLastError(S_OK);
-        bRet = TRUE;
-        goto cleanup;
-    }
-    /* If it's asn.1-encoded, it's probably a .cat file. */
-    if (hdr[0] == 0x30)
-    {
-        DWORD fileLen = GetFileSize(hFile, NULL);
-
-        TRACE("fileLen = %d\n", fileLen);
-        /* Sanity-check length */
-        if (hdr[1] < 0x80 && fileLen == 2 + hdr[1])
-        {
-            *pgSubject = catGUID;
-            SetLastError(S_OK);
-            bRet = TRUE;
-            goto cleanup;
-        }
-        else if (hdr[1] == 0x80)
-        {
-            /* Indefinite length, can't verify with just the header, assume it
-             * is.
-             */
-            *pgSubject = catGUID;
-            SetLastError(S_OK);
-            bRet = TRUE;
-            goto cleanup;
-        }
-        else
-        {
-            BYTE lenBytes = hdr[1] & 0x7f;
-
-            if (lenBytes == 1 && fileLen == 2 + lenBytes + hdr[2])
-            {
-                *pgSubject = catGUID;
-                SetLastError(S_OK);
-                bRet = TRUE;
-                goto cleanup;
-            }
-            else if (lenBytes == 2 && fileLen == 2 + lenBytes +
-             (hdr[2] << 8 | hdr[3]))
-            {
-                *pgSubject = catGUID;
-                SetLastError(S_OK);
-                bRet = TRUE;
-                goto cleanup;
-            }
-            else if (fileLen > 0xffff)
-            {
-                /* The file size must be greater than 2 bytes in length, so
-                 * assume it is a .cat file
-                 */
-                *pgSubject = catGUID;
-                SetLastError(S_OK);
-                bRet = TRUE;
-                goto cleanup;
-            }
-        }
+        goto cleanup1;
     }
 
-    /* Check for supported functions using CryptSIPDllIsMyFileType */
-    /* max length of szFullKey depends on our code only, so we won't overrun */
-    lstrcpyW(szFullKey, szOID);
-    lstrcatW(szFullKey, szIsMyFile);
-    r = RegOpenKeyExW(HKEY_LOCAL_MACHINE, szFullKey, 0, KEY_READ, &key);
-    if (r == ERROR_SUCCESS)
-    {
-        DWORD index = 0, size;
-        WCHAR subKeyName[MAX_PATH];
-
-        do {
-            size = sizeof(subKeyName) / sizeof(subKeyName[0]);
-            r = RegEnumKeyExW(key, index++, subKeyName, &size, NULL, NULL,
-             NULL, NULL);
-            if (r == ERROR_SUCCESS)
-            {
-                HKEY subKey;
-
-                r = RegOpenKeyExW(key, subKeyName, 0, KEY_READ, &subKey);
-                if (r == ERROR_SUCCESS)
-                {
-                    HMODULE lib;
-                    pfnIsFileSupported isMy = CRYPT_LoadSIPFuncFromKey(subKey,
-                     &lib);
-
-                    if (isMy)
-                    {
-                        bRet = isMy(hFile, pgSubject);
-                        FreeLibrary(lib);
-                    }
-                    RegCloseKey(subKey);
-                }
-            }
-        } while (!bRet && r == ERROR_SUCCESS);
-        RegCloseKey(key);
-    }
-
-    /* Check for supported functions using CryptSIPDllIsMyFileType2 */
-    if (!bRet)
-    {
-        lstrcpyW(szFullKey, szOID);
-        lstrcatW(szFullKey, szIsMyFile2);
-        r = RegOpenKeyExW(HKEY_LOCAL_MACHINE, szFullKey, 0, KEY_READ, &key);
-        if (r == ERROR_SUCCESS)
-        {
-            DWORD index = 0, size;
-            WCHAR subKeyName[MAX_PATH];
-
-            do {
-                size = sizeof(subKeyName) / sizeof(subKeyName[0]);
-                r = RegEnumKeyExW(key, index++, subKeyName, &size, NULL, NULL,
-                 NULL, NULL);
-                if (r == ERROR_SUCCESS)
-                {
-                    HKEY subKey;
-
-                    r = RegOpenKeyExW(key, subKeyName, 0, KEY_READ, &subKey);
-                    if (r == ERROR_SUCCESS)
-                    {
-                        HMODULE lib;
-                        pfnIsFileSupportedName isMy2 =
-                         CRYPT_LoadSIPFuncFromKey(subKey, &lib);
-
-                        if (isMy2)
-                        {
-                            bRet = isMy2((LPWSTR)FileName, pgSubject);
-                            FreeLibrary(lib);
-                        }
-                        RegCloseKey(subKey);
-                    }
-                }
-            } while (!bRet && r == ERROR_SUCCESS);
-            RegCloseKey(key);
-        }
-    }
-
-    if (!bRet)
-        SetLastError(TRUST_E_SUBJECT_FORM_UNKNOWN);
-
-cleanup:
-    /* If we didn't open this one we shouldn't close it (hFile is a copy),
-     * but we should reset the file pointer to its original position.
+    /* FIXME
+     * There is a lot more to be checked:
+     * - Check for MSFC in the header
+     * - Check for the keys CryptSIPDllIsMyFileType and CryptSIPDllIsMyFileType2
+     *   under HKLM\Software\Microsoft\Cryptography\OID\EncodingType 0. Here are 
+     *   functions listed that need check if a SIP Provider can deal with the 
+     *   given file.
      */
-    if (!hFileIn)
-        CloseHandle(hFile);
-    else
-        SetFilePointerEx(hFile, oldPos, NULL, FILE_BEGIN);
+
+    /* Let's set the most common error for now */
+    SetLastError(TRUST_E_SUBJECT_FORM_UNKNOWN);
+
+    /* The 3 different cleanups are here because we shouldn't overwrite the last error */
+cleanup1:
+    UnmapViewOfFile(pMapped);
+cleanup2:
+    CloseHandle(hFilemapped);
+cleanup3:
+    /* If we didn't open this one we shouldn't close it (hFile is a copy) */
+    if (!hFileIn) CloseHandle(hFile);
 
     return bRet;
-}
-
-static LONG CRYPT_OpenSIPFunctionKey(const GUID *guid, LPCWSTR function,
- HKEY *key)
-{
-    WCHAR szFullKey[ 0x100 ];
-
-    lstrcpyW(szFullKey, szOID);
-    lstrcatW(szFullKey, function);
-    CRYPT_guid2wstr(guid, &szFullKey[lstrlenW(szFullKey)]);
-    return RegOpenKeyExW(HKEY_LOCAL_MACHINE, szFullKey, 0, KEY_READ, key);
-}
-
-/* Loads the function named function for the SIP specified by pgSubject, and
- * returns it if found.  Returns NULL on error.  If the function is loaded,
- * *pLib is set to the library in which it is found.
- */
-static void *CRYPT_LoadSIPFunc(const GUID *pgSubject, LPCWSTR function,
- HMODULE *pLib)
-{
-    LONG r;
-    HKEY key;
-    void *func = NULL;
-
-    TRACE("(%s, %s)\n", debugstr_guid(pgSubject), debugstr_w(function));
-
-    r = CRYPT_OpenSIPFunctionKey(pgSubject, function, &key);
-    if (!r)
-    {
-        func = CRYPT_LoadSIPFuncFromKey(key, pLib);
-        RegCloseKey(key);
-    }
-    TRACE("returning %p\n", func);
-    return func;
-}
-
-typedef struct _WINE_SIP_PROVIDER {
-    GUID              subject;
-    SIP_DISPATCH_INFO info;
-    struct list       entry;
-} WINE_SIP_PROVIDER;
-
-static struct list providers = { &providers, &providers };
-static CRITICAL_SECTION providers_cs;
-static CRITICAL_SECTION_DEBUG providers_cs_debug =
-{
-    0, 0, &providers_cs,
-    { &providers_cs_debug.ProcessLocksList,
-    &providers_cs_debug.ProcessLocksList },
-    0, 0, { (DWORD_PTR)(__FILE__ ": providers_cs") }
-};
-static CRITICAL_SECTION providers_cs = { &providers_cs_debug, -1, 0, 0, 0, 0 };
-
-static void CRYPT_CacheSIP(const GUID *pgSubject, SIP_DISPATCH_INFO *info)
-{
-    WINE_SIP_PROVIDER *prov = CryptMemAlloc(sizeof(WINE_SIP_PROVIDER));
-
-    if (prov)
-    {
-        prov->subject = *pgSubject;
-        prov->info = *info;
-        EnterCriticalSection(&providers_cs);
-        list_add_tail(&providers, &prov->entry);
-        LeaveCriticalSection(&providers_cs);
-    }
-}
-
-static WINE_SIP_PROVIDER *CRYPT_GetCachedSIP(const GUID *pgSubject)
-{
-    WINE_SIP_PROVIDER *provider = NULL, *ret = NULL;
-
-    EnterCriticalSection(&providers_cs);
-    LIST_FOR_EACH_ENTRY(provider, &providers, WINE_SIP_PROVIDER, entry)
-    {
-        if (IsEqualGUID(pgSubject, &provider->subject))
-            break;
-    }
-    if (provider && IsEqualGUID(pgSubject, &provider->subject))
-        ret = provider;
-    LeaveCriticalSection(&providers_cs);
-    return ret;
-}
-
-static inline BOOL CRYPT_IsSIPCached(const GUID *pgSubject)
-{
-    return CRYPT_GetCachedSIP(pgSubject) != NULL;
-}
-
-void crypt_sip_free(void)
-{
-    WINE_SIP_PROVIDER *prov, *next;
-
-    LIST_FOR_EACH_ENTRY_SAFE(prov, next, &providers, WINE_SIP_PROVIDER, entry)
-    {
-        list_remove(&prov->entry);
-        FreeLibrary(prov->info.hSIP);
-        CryptMemFree(prov);
-    }
-}
-
-/* Loads the SIP for pgSubject into the global cache.  Returns FALSE if the
- * SIP isn't registered or is invalid.
- */
-static BOOL CRYPT_LoadSIP(const GUID *pgSubject)
-{
-    SIP_DISPATCH_INFO sip = { 0 };
-    HMODULE lib = NULL, temp = NULL;
-
-    sip.pfGet = CRYPT_LoadSIPFunc(pgSubject, szGetSigned, &lib);
-    if (!sip.pfGet)
-        goto error;
-    sip.pfPut = CRYPT_LoadSIPFunc(pgSubject, szPutSigned, &temp);
-    if (!sip.pfPut || temp != lib)
-        goto error;
-    FreeLibrary(temp);
-    sip.pfCreate = CRYPT_LoadSIPFunc(pgSubject, szCreate, &temp);
-    if (!sip.pfCreate || temp != lib)
-        goto error;
-    FreeLibrary(temp);
-    sip.pfVerify = CRYPT_LoadSIPFunc(pgSubject, szVerify, &temp);
-    if (!sip.pfVerify || temp != lib)
-        goto error;
-    FreeLibrary(temp);
-    sip.pfRemove = CRYPT_LoadSIPFunc(pgSubject, szRemoveSigned, &temp);
-    if (!sip.pfRemove || temp != lib)
-        goto error;
-    FreeLibrary(temp);
-    sip.hSIP = lib;
-    CRYPT_CacheSIP(pgSubject, &sip);
-    return TRUE;
-
-error:
-    FreeLibrary(lib);
-    FreeLibrary(temp);
-    SetLastError(TRUST_E_SUBJECT_FORM_UNKNOWN);
-    return FALSE;
 }
 
 /***********************************************************************
@@ -684,24 +382,15 @@ error:
 BOOL WINAPI CryptSIPLoad
        (const GUID *pgSubject, DWORD dwFlags, SIP_DISPATCH_INFO *pSipDispatch)
 {
-    TRACE("(%s %d %p)\n", debugstr_guid(pgSubject), dwFlags, pSipDispatch);
+    FIXME("(%s %d %p) stub!\n", debugstr_guid(pgSubject), dwFlags, pSipDispatch);
 
     if (!pgSubject || dwFlags != 0 || !pSipDispatch)
     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
     }
-    if (!CRYPT_IsSIPCached(pgSubject) && !CRYPT_LoadSIP(pgSubject))
-        return FALSE;
 
-    pSipDispatch->hSIP = NULL;
-    pSipDispatch->pfGet = CryptSIPGetSignedDataMsg;
-    pSipDispatch->pfPut = CryptSIPPutSignedDataMsg;
-    pSipDispatch->pfCreate = CryptSIPCreateIndirectData;
-    pSipDispatch->pfVerify = CryptSIPVerifyIndirectData;
-    pSipDispatch->pfRemove = CryptSIPRemoveSignedDataMsg;
-
-    return TRUE;
+    return FALSE;
 }
 
 /***********************************************************************
@@ -710,15 +399,9 @@ BOOL WINAPI CryptSIPLoad
 BOOL WINAPI CryptSIPCreateIndirectData(SIP_SUBJECTINFO* pSubjectInfo, DWORD* pcbIndirectData,
                                        SIP_INDIRECT_DATA* pIndirectData)
 {
-    WINE_SIP_PROVIDER *sip;
-    BOOL ret = FALSE;
+    FIXME("(%p %p %p) stub\n", pSubjectInfo, pcbIndirectData, pIndirectData);
 
-    TRACE("(%p %p %p)\n", pSubjectInfo, pcbIndirectData, pIndirectData);
-
-    if ((sip = CRYPT_GetCachedSIP(pSubjectInfo->pgSubjectType)))
-        ret = sip->info.pfCreate(pSubjectInfo, pcbIndirectData, pIndirectData);
-    TRACE("returning %d\n", ret);
-    return ret;
+    return FALSE;
 }
 
 /***********************************************************************
@@ -727,17 +410,10 @@ BOOL WINAPI CryptSIPCreateIndirectData(SIP_SUBJECTINFO* pSubjectInfo, DWORD* pcb
 BOOL WINAPI CryptSIPGetSignedDataMsg(SIP_SUBJECTINFO* pSubjectInfo, DWORD* pdwEncodingType,
                                        DWORD dwIndex, DWORD* pcbSignedDataMsg, BYTE* pbSignedDataMsg)
 {
-    WINE_SIP_PROVIDER *sip;
-    BOOL ret = FALSE;
-
-    TRACE("(%p %p %d %p %p)\n", pSubjectInfo, pdwEncodingType, dwIndex,
+    FIXME("(%p %p %d %p %p) stub\n", pSubjectInfo, pdwEncodingType, dwIndex,
           pcbSignedDataMsg, pbSignedDataMsg);
 
-    if ((sip = CRYPT_GetCachedSIP(pSubjectInfo->pgSubjectType)))
-        ret = sip->info.pfGet(pSubjectInfo, pdwEncodingType, dwIndex,
-         pcbSignedDataMsg, pbSignedDataMsg);
-    TRACE("returning %d\n", ret);
-    return ret;
+    return FALSE;
 }
 
 /***********************************************************************
@@ -746,17 +422,10 @@ BOOL WINAPI CryptSIPGetSignedDataMsg(SIP_SUBJECTINFO* pSubjectInfo, DWORD* pdwEn
 BOOL WINAPI CryptSIPPutSignedDataMsg(SIP_SUBJECTINFO* pSubjectInfo, DWORD pdwEncodingType,
                                        DWORD* pdwIndex, DWORD cbSignedDataMsg, BYTE* pbSignedDataMsg)
 {
-    WINE_SIP_PROVIDER *sip;
-    BOOL ret = FALSE;
-
-    TRACE("(%p %d %p %d %p)\n", pSubjectInfo, pdwEncodingType, pdwIndex,
+    FIXME("(%p %d %p %d %p) stub\n", pSubjectInfo, pdwEncodingType, pdwIndex,
           cbSignedDataMsg, pbSignedDataMsg);
 
-    if ((sip = CRYPT_GetCachedSIP(pSubjectInfo->pgSubjectType)))
-        ret = sip->info.pfPut(pSubjectInfo, pdwEncodingType, pdwIndex,
-         cbSignedDataMsg, pbSignedDataMsg);
-    TRACE("returning %d\n", ret);
-    return ret;
+    return FALSE;
 }
 
 /***********************************************************************
@@ -765,15 +434,9 @@ BOOL WINAPI CryptSIPPutSignedDataMsg(SIP_SUBJECTINFO* pSubjectInfo, DWORD pdwEnc
 BOOL WINAPI CryptSIPRemoveSignedDataMsg(SIP_SUBJECTINFO* pSubjectInfo,
                                        DWORD dwIndex)
 {
-    WINE_SIP_PROVIDER *sip;
-    BOOL ret = FALSE;
+    FIXME("(%p %d) stub\n", pSubjectInfo, dwIndex);
 
-    TRACE("(%p %d)\n", pSubjectInfo, dwIndex);
-
-    if ((sip = CRYPT_GetCachedSIP(pSubjectInfo->pgSubjectType)))
-        ret = sip->info.pfRemove(pSubjectInfo, dwIndex);
-    TRACE("returning %d\n", ret);
-    return ret;
+    return FALSE;
 }
 
 /***********************************************************************
@@ -782,13 +445,7 @@ BOOL WINAPI CryptSIPRemoveSignedDataMsg(SIP_SUBJECTINFO* pSubjectInfo,
 BOOL WINAPI CryptSIPVerifyIndirectData(SIP_SUBJECTINFO* pSubjectInfo,
                                        SIP_INDIRECT_DATA* pIndirectData)
 {
-    WINE_SIP_PROVIDER *sip;
-    BOOL ret = FALSE;
+    FIXME("(%p %p) stub\n", pSubjectInfo, pIndirectData);
 
-    TRACE("(%p %p)\n", pSubjectInfo, pIndirectData);
-
-    if ((sip = CRYPT_GetCachedSIP(pSubjectInfo->pgSubjectType)))
-        ret = sip->info.pfVerify(pSubjectInfo, pIndirectData);
-    TRACE("returning %d\n", ret);
-    return ret;
+    return FALSE;
 }

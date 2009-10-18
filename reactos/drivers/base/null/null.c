@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            drivers/base/null/null.c
- * PURPOSE:         Null Device Driver
+ * PURPOSE:         Beep Device Driver
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
  *                  David Welch (welch@mcmail.com)
  */
@@ -77,7 +77,7 @@ NullWrite(IN PFILE_OBJECT FileObject,
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NullDispatch(IN PDEVICE_OBJECT DeviceObject,
              IN PIRP Irp)
 {
@@ -151,7 +151,7 @@ NullDispatch(IN PDEVICE_OBJECT DeviceObject,
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(IN PDRIVER_OBJECT DriverObject,
             IN PUNICODE_STRING RegistryPath)
 {

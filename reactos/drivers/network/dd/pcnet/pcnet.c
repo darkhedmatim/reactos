@@ -47,13 +47,13 @@
 #include <debug.h>
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath);
 
 static VOID
-NTAPI
+STDCALL
 MiniportHandleInterrupt(
     IN NDIS_HANDLE MiniportAdapterContext)
 /*
@@ -68,8 +68,6 @@ MiniportHandleInterrupt(
   USHORT Data;
 
   DPRINT("Called\n");
-
-  ASSERT_IRQL_EQUAL(DISPATCH_LEVEL);
 
   NdisDprAcquireSpinLock(&Adapter->Lock);
 
@@ -95,8 +93,6 @@ MiniportHandleInterrupt(
         }
       if(Data & CSR0_RINT)
         {
-          BOOLEAN IndicatedData = FALSE;
-
           DPRINT("receive interrupt\n");
 
           while(1)
@@ -137,8 +133,7 @@ MiniportHandleInterrupt(
               DPRINT("Indicating a %d-byte packet (index %d)\n", ByteCount, Adapter->CurrentReceiveDescriptorIndex);
 
               NdisMEthIndicateReceive(Adapter->MiniportAdapterHandle, 0, Buffer, 14, Buffer+14, ByteCount-14, ByteCount-14);
-
-              IndicatedData = TRUE;
+              NdisMEthIndicateReceiveComplete(Adapter->MiniportAdapterHandle);
 
               RtlZeroMemory(Descriptor, sizeof(RECEIVE_DESCRIPTOR));
               Descriptor->RBADR =
@@ -151,9 +146,6 @@ MiniportHandleInterrupt(
 
               Adapter->Statistics.RcvGoodFrames++;
             }
-
-            if (IndicatedData)
-                NdisMEthIndicateReceiveComplete(Adapter->MiniportAdapterHandle);
         }
       if(Data & CSR0_TINT)
         {
@@ -534,7 +526,7 @@ MiFreeSharedMemory(
 }
 
 static BOOLEAN
-NTAPI
+STDCALL
 MiSyncStop(
     IN PVOID SynchronizeContext)
 /*
@@ -550,7 +542,7 @@ MiSyncStop(
 }
 
 static VOID
-NTAPI
+STDCALL
 MiniportHalt(
     IN NDIS_HANDLE MiniportAdapterContext)
 /*
@@ -579,9 +571,6 @@ MiniportHalt(
   /* deregister i/o port range */
   NdisMDeregisterIoPortRange(Adapter->MiniportAdapterHandle, Adapter->IoBaseAddress, NUMBER_OF_PORTS, (PVOID)Adapter->PortOffset);
 
-  /* deregister the shutdown routine */
-  NdisMDeregisterAdapterShutdownHandler(Adapter->MiniportAdapterHandle);
-
   /* free shared memory */
   MiFreeSharedMemory(Adapter);
 
@@ -596,7 +585,7 @@ MiniportHalt(
 }
 
 static BOOLEAN
-NTAPI
+STDCALL
 MiSyncMediaDetection(
     IN PVOID SynchronizeContext)
 /*
@@ -607,25 +596,19 @@ MiSyncMediaDetection(
 {
   PADAPTER Adapter = (PADAPTER)SynchronizeContext;
   NDIS_MEDIA_STATE MediaState = MiGetMediaState(Adapter);
-  UINT MediaSpeed = MiGetMediaSpeed(Adapter);
-  BOOLEAN FullDuplex = MiGetMediaDuplex(Adapter);
 
   DPRINT("Called\n");
   DPRINT("MediaState: %d\n", MediaState);
-  if (MediaState != Adapter->MediaState ||
-      MediaSpeed != Adapter->MediaSpeed ||
-      FullDuplex != Adapter->FullDuplex)
+  if (MediaState != Adapter->MediaState)
     {
       Adapter->MediaState = MediaState;
-      Adapter->MediaSpeed = MediaSpeed;
-      Adapter->FullDuplex = FullDuplex;
       return TRUE;
     }
   return FALSE;
 }
 
 static VOID
-NTAPI
+STDCALL
 MiniportMediaDetectionTimer(
     IN PVOID SystemSpecific1,
     IN PVOID FunctionContext,
@@ -640,8 +623,6 @@ MiniportMediaDetectionTimer(
  */
 {
   PADAPTER Adapter = (PADAPTER)FunctionContext;
-
-  ASSERT_IRQL_EQUAL(DISPATCH_LEVEL);
 
   if (NdisMSynchronizeWithInterrupt(&Adapter->InterruptObject,
                                     MiSyncMediaDetection,
@@ -727,29 +708,10 @@ MiInitChip(
   NdisRawWritePortUshort(Adapter->PortOffset + RAP, CSR0);
   NdisRawWritePortUshort(Adapter->PortOffset + RDP, CSR0_STRT|CSR0_INIT|CSR0_IENA);
 
-  /* Allow LED programming */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR2);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR2_LEDPE);
-
-  /* LED0 is configured for link status (on = up, off = down) */
+  /* detect the media state */
   NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR4);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR4_LNKSTE | BCR4_PSE);
-
-  /* LED1 is configured for link duplex (on = full, off = half) */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR5);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR5_FDLSE | BCR5_PSE);
-
-  /* LED2 is configured for link speed (on = 100M, off = 10M) */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR6);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR6_E100 | BCR6_PSE);
-
-  /* LED3 is configured for trasmit/receive activity */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR7);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR7_XMTE | BCR7_RCVE | BCR7_PSE);
-
+  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR4_LNKSTE|BCR4_FDLSE);
   Adapter->MediaState = MiGetMediaState(Adapter);
-  Adapter->FullDuplex = MiGetMediaDuplex(Adapter);
-  Adapter->MediaSpeed = MiGetMediaSpeed(Adapter);
 
   DPRINT("card started\n");
 
@@ -815,20 +777,8 @@ MiTestCard(
 }
 #endif
 
-VOID
-NTAPI
-MiniportShutdown( PVOID Context )
-{
-  PADAPTER Adapter = Context;
-
-  DPRINT("Stopping the chip\n");
-
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, CSR0);
-  NdisRawWritePortUshort(Adapter->PortOffset + RDP, CSR0_STOP);
-}
-
 static NDIS_STATUS
-NTAPI
+STDCALL
 MiniportInitialize(
     OUT PNDIS_STATUS OpenErrorStatus,
     OUT PUINT SelectedMediumIndex,
@@ -861,11 +811,6 @@ MiniportInitialize(
   PADAPTER Adapter = 0;
   NDIS_STATUS Status = NDIS_STATUS_FAILURE;
   BOOLEAN InterruptRegistered = FALSE;
-  NDIS_HANDLE ConfigurationHandle;
-  UINT *RegNetworkAddress = 0;
-  UINT RegNetworkAddressLength = 0;
-
-  ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
 
   /* Pick a medium */
   for(i = 0; i < MediumArraySize; i++)
@@ -958,25 +903,6 @@ MiniportInitialize(
       /* set up the initialization block */
       MiPrepareInitializationBlock(Adapter);
 
-      /* see if someone set a network address manually */
-      NdisOpenConfiguration(&Status, &ConfigurationHandle, WrapperConfigurationContext);
-      if (Status == NDIS_STATUS_SUCCESS)
-      {
-         NdisReadNetworkAddress(&Status, (PVOID *)&RegNetworkAddress, &RegNetworkAddressLength, ConfigurationHandle);
-         if(Status == NDIS_STATUS_SUCCESS && RegNetworkAddressLength == 6)
-         {
-             int i;
-             DPRINT("NdisReadNetworkAddress returned successfully, address %x:%x:%x:%x:%x:%x\n",
-                     RegNetworkAddress[0], RegNetworkAddress[1], RegNetworkAddress[2], RegNetworkAddress[3],
-                     RegNetworkAddress[4], RegNetworkAddress[5]);
-
-             for(i = 0; i < 6; i++)
-                 Adapter->InitializationBlockVirt->PADR[i] = RegNetworkAddress[i];
-         }
-
-         NdisCloseConfiguration(ConfigurationHandle);
-      }
-
       DPRINT("Interrupt registered successfully\n");
 
       /* Initialize and start the chip */
@@ -1013,9 +939,6 @@ MiniportInitialize(
                            Adapter);
       NdisMSetPeriodicTimer(&Adapter->MediaDetectionTimer,
                             MEDIA_DETECTION_INTERVAL);
-      NdisMRegisterAdapterShutdownHandler(Adapter->MiniportAdapterHandle,
-                                          Adapter,
-                                          MiniportShutdown);
     }
 
 #if DBG
@@ -1029,7 +952,7 @@ MiniportInitialize(
 }
 
 static VOID
-NTAPI
+STDCALL
 MiniportISR(
     OUT PBOOLEAN InterruptRecognized,
     OUT PBOOLEAN QueueMiniportHandleInterrupt,
@@ -1082,7 +1005,7 @@ MiniportISR(
 }
 
 static NDIS_STATUS
-NTAPI
+STDCALL
 MiniportReset(
     OUT PBOOLEAN AddressingReset,
     IN NDIS_HANDLE MiniportAdapterContext)
@@ -1100,8 +1023,6 @@ MiniportReset(
 {
   DPRINT("Called\n");
 
-  ASSERT_IRQL_EQUAL(PASSIVE_LEVEL);
-
   /* MiniportReset doesn't do anything at the moment... perhaps this should be fixed. */
 
   *AddressingReset = FALSE;
@@ -1109,7 +1030,7 @@ MiniportReset(
 }
 
 static BOOLEAN
-NTAPI
+STDCALL
 MiSyncStartTransmit(
     IN PVOID SynchronizeContext)
 /*
@@ -1125,7 +1046,7 @@ MiSyncStartTransmit(
 }
 
 static NDIS_STATUS
-NTAPI
+STDCALL
 MiniportSend(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN PNDIS_PACKET Packet,
@@ -1150,8 +1071,6 @@ MiniportSend(
   UINT TotalPacketLength, SourceLength, Position = 0;
 
   DPRINT("Called\n");
-
-  ASSERT_IRQL_EQUAL(DISPATCH_LEVEL);
 
   NdisDprAcquireSpinLock(&Adapter->Lock);
 
@@ -1216,7 +1135,7 @@ MiniportSend(
 }
 
 static ULONG
-NTAPI
+STDCALL
 MiEthernetCrc(UCHAR *Address)
 /*
  * FUNCTION: Calculate Ethernet CRC32
@@ -1243,7 +1162,7 @@ MiEthernetCrc(UCHAR *Address)
 }
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiSetMulticast(
     PADAPTER Adapter,
     UCHAR *Addresses,
@@ -1265,32 +1184,8 @@ MiSetMulticast(
   return NDIS_STATUS_SUCCESS;
 }
 
-BOOLEAN
-NTAPI
-MiGetMediaDuplex(PADAPTER Adapter)
-{
-  ULONG Data;
-
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR5);
-  NdisRawReadPortUshort(Adapter->PortOffset + BDP, &Data);
-
-  return Data & BCR5_LEDOUT;
-}
-
-UINT
-NTAPI
-MiGetMediaSpeed(PADAPTER Adapter)
-{
-  ULONG Data;
-
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR6);
-  NdisRawReadPortUshort(Adapter->PortOffset + BDP, &Data);
-
-  return Data & BCR6_LEDOUT ? 100 : 10;
-}
-
 NDIS_MEDIA_STATE
-NTAPI
+STDCALL
 MiGetMediaState(PADAPTER Adapter)
 /*
  * FUNCTION: Determine the link state
@@ -1308,7 +1203,7 @@ MiGetMediaState(PADAPTER Adapter)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath)
@@ -1342,7 +1237,6 @@ DriverEntry(
   Characteristics.SendHandler = MiniportSend;
 
   NdisMInitializeWrapper(&WrapperHandle, DriverObject, RegistryPath, 0);
-  if (!WrapperHandle) return NDIS_STATUS_FAILURE;
 
   Status = NdisMRegisterMiniport(WrapperHandle, &Characteristics, sizeof(Characteristics));
   if(Status != NDIS_STATUS_SUCCESS)

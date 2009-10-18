@@ -4,7 +4,7 @@
  * FILE:            drivers/bus/serenum/fdo.c
  * PURPOSE:         IRP_MJ_PNP operations for FDOs
  *
- * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.com)
  */
 
 #include "serenum.h"
@@ -18,7 +18,7 @@ SerenumAddDevice(
 	PFDO_DEVICE_EXTENSION DeviceExtension;
 	NTSTATUS Status;
 
-	TRACE_(SERENUM, "SerenumAddDevice called. Pdo = %p\n", Pdo);
+	DPRINT("SerenumAddDevice called. Pdo = %p\n", Pdo);
 
 	/* Create new device object */
 	Status = IoCreateDevice(DriverObject,
@@ -30,7 +30,7 @@ SerenumAddDevice(
 	                        &Fdo);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(SERENUM, "IoCreateDevice() failed with status 0x%08lx\n", Status);
+		DPRINT("IoCreateDevice() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 	DeviceExtension = (PFDO_DEVICE_EXTENSION)Fdo->DeviceExtension;
@@ -44,7 +44,7 @@ SerenumAddDevice(
 		&DeviceExtension->SerenumInterfaceName);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(SERENUM, "IoRegisterDeviceInterface() failed with status 0x%08lx\n", Status);
+		DPRINT("IoRegisterDeviceInterface() failed with status 0x%08lx\n", Status);
 		IoDeleteDevice(Fdo);
 		return Status;
 	}
@@ -56,7 +56,7 @@ SerenumAddDevice(
 	Status = IoAttachDeviceToDeviceStackSafe(Fdo, Pdo, &DeviceExtension->LowerDevice);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(SERENUM, "IoAttachDeviceToDeviceStackSafe() failed with status 0x%08lx\n", Status);
+		DPRINT("IoAttachDeviceToDeviceStackSafe() failed with status 0x%08lx\n", Status);
 		IoDeleteDevice(Fdo);
 		return Status;
 	}
@@ -79,7 +79,7 @@ SerenumFdoStartDevice(
 	PFDO_DEVICE_EXTENSION DeviceExtension;
 	NTSTATUS Status;
 
-	TRACE_(SERENUM, "SerenumFdoStartDevice() called\n");
+	DPRINT("SerenumFdoStartDevice() called\n");
 	DeviceExtension = (PFDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
 	ASSERT(DeviceExtension->Common.PnpState == dsStopped);
@@ -87,7 +87,7 @@ SerenumFdoStartDevice(
 	Status = IoSetDeviceInterfaceState(&DeviceExtension->SerenumInterfaceName, TRUE);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(SERENUM, "IoSetDeviceInterfaceState() failed with status 0x%08lx\n", Status);
+		DPRINT("IoSetDeviceInterfaceState() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 
@@ -171,13 +171,14 @@ SerenumFdoPnp(
 		IRP_MN_QUERY_DEVICE_RELATIONS / RemovalRelations (optional) 0x7
 		IRP_MN_QUERY_INTERFACE (optional) 0x8
 		IRP_MN_QUERY_CAPABILITIES (optional) 0x9
+		IRP_MN_FILTER_RESOURCE_REQUIREMENTS (optional or required) 0xb
 		IRP_MN_QUERY_PNP_DEVICE_STATE (optional) 0x14
 		IRP_MN_DEVICE_USAGE_NOTIFICATION (required or optional) 0x16
 		IRP_MN_SURPRISE_REMOVAL 0x17
 		*/
 		case IRP_MN_START_DEVICE: /* 0x0 */
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_START_DEVICE\n");
+			DPRINT("IRP_MJ_PNP / IRP_MN_START_DEVICE\n");
 			/* Call lower driver */
 			Status = ForwardIrpAndWait(DeviceObject, Irp);
 			if (NT_SUCCESS(Status))
@@ -191,26 +192,21 @@ SerenumFdoPnp(
 				case BusRelations:
 				{
 					PDEVICE_RELATIONS DeviceRelations = NULL;
-					TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / BusRelations\n");
+					DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / BusRelations\n");
 					Status = SerenumFdoQueryBusRelations(DeviceObject, &DeviceRelations);
 					Information = (ULONG_PTR)DeviceRelations;
 					break;
 				}
 				default:
-					TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / Unknown type 0x%lx\n",
+					DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_DEVICE_RELATIONS / Unknown type 0x%lx\n",
 						Stack->Parameters.QueryDeviceRelations.Type);
 					return ForwardIrpAndForget(DeviceObject, Irp);
 			}
 			break;
 		}
-		case IRP_MN_FILTER_RESOURCE_REQUIREMENTS: /* 0xd */
-		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / IRP_MN_FILTER_RESOURCE_REQUIREMENTS\n");
-			return ForwardIrpAndForget(DeviceObject, Irp);
-		}
 		default:
 		{
-			TRACE_(SERENUM, "IRP_MJ_PNP / unknown minor function 0x%lx\n", MinorFunction);
+			DPRINT1("IRP_MJ_PNP / unknown minor function 0x%lx\n", MinorFunction);
 			return ForwardIrpAndForget(DeviceObject, Irp);
 		}
 	}

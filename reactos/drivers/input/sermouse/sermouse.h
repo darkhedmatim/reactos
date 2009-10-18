@@ -2,9 +2,17 @@
 #include <kbdmou.h>
 #include <ntddser.h>
 #include <ntddmou.h>
-#include <debug.h>
 
-#define SERMOUSE_TAG 'uoMS'
+#if defined(__GNUC__)
+  #include <debug.h>
+#elif defined(_MSC_VER)
+  #define DPRINT1 DbgPrint("(%s:%d) ", __FILE__, __LINE__), DbgPrint
+  #define CHECKPOINT1 DbgPrint("(%s:%d)\n", __FILE__, __LINE__)
+  #define DPRINT
+  #define CHECKPOINT
+#else
+  #error Unknown compiler!
+#endif
 
 typedef enum
 {

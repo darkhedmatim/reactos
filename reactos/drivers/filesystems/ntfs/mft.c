@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/mft.c
+ * FILE:             services/fs/ntfs/mft.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  *                   Updated by Valentin Verkhovsky  2003/09/12
@@ -56,8 +58,8 @@ NtfsOpenMft (PDEVICE_EXTENSION Vcb)
 
   BytesPerFileRecord = Vcb->NtfsInfo.BytesPerFileRecord;
 
-  MftRecord = ExAllocatePoolWithTag(NonPagedPool,
-			     BytesPerFileRecord, TAG_NTFS);
+  MftRecord = ExAllocatePool(NonPagedPool,
+			     BytesPerFileRecord);
   if (MftRecord == NULL)
     {
       return STATUS_INSUFFICIENT_RESOURCES;
@@ -84,7 +86,7 @@ NtfsOpenMft (PDEVICE_EXTENSION Vcb)
   n = AttributeDataLength (FindAttribute (MftRecord, AttributeData, 0))
 		  / BytesPerFileRecord;
 
-  FileRecord = ExAllocatePoolWithTag(NonPagedPool, BytesPerFileRecord, TAG_NTFS);
+  FileRecord = ExAllocatePool(NonPagedPool, BytesPerFileRecord);
   if (FileRecord == NULL)
     {
       ExFreePool(MftRecord);
@@ -195,8 +197,8 @@ ReadFileRecord (PDEVICE_EXTENSION Vcb,
   ULONGLONG vcn = index * BytesPerFileRecord / Vcb->NtfsInfo.BytesPerCluster;
   LONG m = (Vcb->NtfsInfo.BytesPerCluster / BytesPerFileRecord) - 1;
   ULONG n = m > 0 ? (index & m) : 0;
-
-  p = ExAllocatePoolWithTag(NonPagedPool, clusters * Vcb->NtfsInfo.BytesPerCluster, TAG_NTFS);
+  
+  p = ExAllocatePool(NonPagedPool, clusters * Vcb->NtfsInfo.BytesPerCluster);
 
   ReadVCN (Vcb, Mft, AttributeData, vcn, clusters, p);
 

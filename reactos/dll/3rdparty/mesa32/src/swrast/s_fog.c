@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.2
+ * Version:  6.3
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,13 +23,14 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/colormac.h"
-#include "main/context.h"
-#include "main/macros.h"
+#include "glheader.h"
+#include "colormac.h"
+#include "context.h"
+#include "macros.h"
 
 #include "s_context.h"
 #include "s_fog.h"
+#include "s_span.h"
 
 
 /**
@@ -50,12 +51,12 @@ _swrast_z_to_fogfactor(GLcontext *ctx, GLfloat z)
       return CLAMP(f, 0.0F, 1.0F);
    case GL_EXP:
       d = ctx->Fog.Density;
-      f = EXPF(-d * z);
+      f = (GLfloat) exp(-d * z);
       f = CLAMP(f, 0.0F, 1.0F);
       return f;
    case GL_EXP2:
       d = ctx->Fog.Density;
-      f = EXPF(-(d * d * z * z));
+      f = (GLfloat) exp(-(d * d * z * z));
       f = CLAMP(f, 0.0F, 1.0F);
       return f;
    default:
@@ -63,95 +64,6 @@ _swrast_z_to_fogfactor(GLcontext *ctx, GLfloat z)
       return 0.0; 
    }
 }
-
-
-#define LINEAR_FOG(f, coord)  f = (fogEnd - coord) * fogScale
-
-#define EXP_FOG(f, coord)  f = EXPF(density * coord)
-
-#define EXP2_FOG(f, coord)				\
-do {							\
-   GLfloat tmp = negDensitySquared * coord * coord;	\
-   if (tmp < FLT_MIN_10_EXP)				\
-      tmp = FLT_MIN_10_EXP;				\
-   f = EXPF(tmp);					\
- } while(0)
-
-
-#define BLEND_FOG(f, coord)  f = coord
-
-
-
-/**
- * Template code for computing fog blend factor and applying it to colors.
- * \param TYPE  either GLubyte, GLushort or GLfloat.
- * \param COMPUTE_F  code to compute the fog blend factor, f.
- */
-#define FOG_LOOP(TYPE, FOG_FUNC)						\
-if (span->arrayAttribs & FRAG_BIT_FOGC) {					\
-   GLuint i;									\
-   for (i = 0; i < span->end; i++) {						\
-      const GLfloat fogCoord = span->array->attribs[FRAG_ATTRIB_FOGC][i][0];	\
-      const GLfloat c = FABSF(fogCoord);					\
-      GLfloat f, oneMinusF;							\
-      FOG_FUNC(f, c);								\
-      f = CLAMP(f, 0.0F, 1.0F);							\
-      oneMinusF = 1.0F - f;							\
-      rgba[i][RCOMP] = (TYPE) (f * rgba[i][RCOMP] + oneMinusF * rFog);		\
-      rgba[i][GCOMP] = (TYPE) (f * rgba[i][GCOMP] + oneMinusF * gFog);		\
-      rgba[i][BCOMP] = (TYPE) (f * rgba[i][BCOMP] + oneMinusF * bFog);		\
-   }										\
-}										\
-else {										\
-   const GLfloat fogStep = span->attrStepX[FRAG_ATTRIB_FOGC][0];		\
-   GLfloat fogCoord = span->attrStart[FRAG_ATTRIB_FOGC][0];			\
-   const GLfloat wStep = span->attrStepX[FRAG_ATTRIB_WPOS][3];			\
-   GLfloat w = span->attrStart[FRAG_ATTRIB_WPOS][3];				\
-   GLuint i;									\
-   for (i = 0; i < span->end; i++) {						\
-      const GLfloat c = FABSF(fogCoord) / w;					\
-      GLfloat f, oneMinusF;							\
-      FOG_FUNC(f, c);								\
-      f = CLAMP(f, 0.0F, 1.0F);							\
-      oneMinusF = 1.0F - f;							\
-      rgba[i][RCOMP] = (TYPE) (f * rgba[i][RCOMP] + oneMinusF * rFog);		\
-      rgba[i][GCOMP] = (TYPE) (f * rgba[i][GCOMP] + oneMinusF * gFog);		\
-      rgba[i][BCOMP] = (TYPE) (f * rgba[i][BCOMP] + oneMinusF * bFog);		\
-      fogCoord += fogStep;							\
-      w += wStep;								\
-   }										\
-}
-
-/* As above, but CI mode (XXX try to merge someday) */
-#define FOG_LOOP_CI(FOG_FUNC)							\
-if (span->arrayAttribs & FRAG_BIT_FOGC) {					\
-   GLuint i;									\
-   for (i = 0; i < span->end; i++) {						\
-      const GLfloat fogCoord = span->array->attribs[FRAG_ATTRIB_FOGC][i][0];	\
-      const GLfloat c = FABSF(fogCoord);					\
-      GLfloat f;								\
-      FOG_FUNC(f, c);								\
-      f = CLAMP(f, 0.0F, 1.0F);							\
-      index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);		\
-   }										\
-}										\
-else {										\
-   const GLfloat fogStep = span->attrStepX[FRAG_ATTRIB_FOGC][0];		\
-   GLfloat fogCoord = span->attrStart[FRAG_ATTRIB_FOGC][0];			\
-   const GLfloat wStep = span->attrStepX[FRAG_ATTRIB_WPOS][3];  		\
-   GLfloat w = span->attrStart[FRAG_ATTRIB_WPOS][3];				\
-   GLuint i;									\
-   for (i = 0; i < span->end; i++) {						\
-      const GLfloat c = FABSF(fogCoord) / w;					\
-      GLfloat f;								\
-      FOG_FUNC(f, c);								\
-      f = CLAMP(f, 0.0F, 1.0F);							\
-      index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);		\
-      fogCoord += fogStep;							\
-      w += wStep;								\
-   }										\
-}
-
 
 
 /**
@@ -162,31 +74,24 @@ else {										\
  * _PreferPixelFog should be in sync with that state!
  */
 void
-_swrast_fog_rgba_span( const GLcontext *ctx, SWspan *span )
+_swrast_fog_rgba_span( const GLcontext *ctx, struct sw_span *span )
 {
    const SWcontext *swrast = SWRAST_CONTEXT(ctx);
-   GLfloat rFog, gFog, bFog;
+   const GLchan rFog = swrast->_FogColor[RCOMP];
+   const GLchan gFog = swrast->_FogColor[GCOMP];
+   const GLchan bFog = swrast->_FogColor[BCOMP];
+   const GLuint haveW = (span->interpMask & SPAN_W);
+   GLchan (*rgba)[4] = (GLchan (*)[4]) span->array->rgba;
 
    ASSERT(swrast->_FogEnabled);
+   ASSERT((span->interpMask | span->arrayMask) & SPAN_FOG);
    ASSERT(span->arrayMask & SPAN_RGBA);
 
-   /* compute (scaled) fog color */
-   if (span->array->ChanType == GL_UNSIGNED_BYTE) {
-      rFog = ctx->Fog.Color[RCOMP] * 255.0;
-      gFog = ctx->Fog.Color[GCOMP] * 255.0;
-      bFog = ctx->Fog.Color[BCOMP] * 255.0;
-   }
-   else if (span->array->ChanType == GL_UNSIGNED_SHORT) {
-      rFog = ctx->Fog.Color[RCOMP] * 65535.0;
-      gFog = ctx->Fog.Color[GCOMP] * 65535.0;
-      bFog = ctx->Fog.Color[BCOMP] * 65535.0;
-   }
-   else {
-      rFog = ctx->Fog.Color[RCOMP];
-      gFog = ctx->Fog.Color[GCOMP];
-      bFog = ctx->Fog.Color[BCOMP];
-   }
+   /* NOTE: if haveW is true, that means the fog start/step values are
+    * perspective-corrected and we have to divide each fog coord by W.
+    */
 
+   /* we need to compute fog blend factors */
    if (swrast->_PreferPixelFog) {
       /* The span's fog values are fog coordinates, now compute blend factors
        * and blend the fragment colors with the fog color.
@@ -197,81 +102,109 @@ _swrast_fog_rgba_span( const GLcontext *ctx, SWspan *span )
             const GLfloat fogEnd = ctx->Fog.End;
             const GLfloat fogScale = (ctx->Fog.Start == ctx->Fog.End)
                ? 1.0F : 1.0F / (ctx->Fog.End - ctx->Fog.Start);
-            if (span->array->ChanType == GL_UNSIGNED_BYTE) {
-               GLubyte (*rgba)[4] = span->array->rgba8;
-               FOG_LOOP(GLubyte, LINEAR_FOG);
-            }
-            else if (span->array->ChanType == GL_UNSIGNED_SHORT) {
-               GLushort (*rgba)[4] = span->array->rgba16;
-               FOG_LOOP(GLushort, LINEAR_FOG);
-            }
-            else {
-               GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
-               ASSERT(span->array->ChanType == GL_FLOAT);
-               FOG_LOOP(GLfloat, LINEAR_FOG);
+            const GLfloat fogStep = span->fogStep;
+            GLfloat fogCoord = span->fog;
+            const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+            GLfloat w = haveW ? span->w : 1.0F;
+            GLuint i;
+            for (i = 0; i < span->end; i++) {
+               GLfloat f, oneMinusF;
+               f = (fogEnd - FABSF(fogCoord) / w) * fogScale;
+               f = CLAMP(f, 0.0F, 1.0F);
+               oneMinusF = 1.0F - f;
+               rgba[i][RCOMP] = (GLchan) (f * rgba[i][RCOMP] + oneMinusF * rFog);
+               rgba[i][GCOMP] = (GLchan) (f * rgba[i][GCOMP] + oneMinusF * gFog);
+               rgba[i][BCOMP] = (GLchan) (f * rgba[i][BCOMP] + oneMinusF * bFog);
+               fogCoord += fogStep;
+               w += wStep;
             }
          }
          break;
-
       case GL_EXP:
          {
             const GLfloat density = -ctx->Fog.Density;
-            if (span->array->ChanType == GL_UNSIGNED_BYTE) {
-               GLubyte (*rgba)[4] = span->array->rgba8;
-               FOG_LOOP(GLubyte, EXP_FOG);
-            }
-            else if (span->array->ChanType == GL_UNSIGNED_SHORT) {
-               GLushort (*rgba)[4] = span->array->rgba16;
-               FOG_LOOP(GLushort, EXP_FOG);
-            }
-            else {
-               GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
-               ASSERT(span->array->ChanType == GL_FLOAT);
-               FOG_LOOP(GLfloat, EXP_FOG);
+            const GLfloat fogStep = span->fogStep;
+            GLfloat fogCoord = span->fog;
+            const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+            GLfloat w = haveW ? span->w : 1.0F;
+            GLuint i;
+            for (i = 0; i < span->end; i++) {
+               GLfloat f, oneMinusF;
+               f = (GLfloat) exp(density * FABSF(fogCoord) / w);
+               f = CLAMP(f, 0.0F, 1.0F);
+               oneMinusF = 1.0F - f;
+               rgba[i][RCOMP] = (GLchan) (f * rgba[i][RCOMP] + oneMinusF * rFog);
+               rgba[i][GCOMP] = (GLchan) (f * rgba[i][GCOMP] + oneMinusF * gFog);
+               rgba[i][BCOMP] = (GLchan) (f * rgba[i][BCOMP] + oneMinusF * bFog);
+               fogCoord += fogStep;
+               w += wStep;
             }
          }
          break;
-
       case GL_EXP2:
          {
             const GLfloat negDensitySquared = -ctx->Fog.Density * ctx->Fog.Density;
-            if (span->array->ChanType == GL_UNSIGNED_BYTE) {
-               GLubyte (*rgba)[4] = span->array->rgba8;
-               FOG_LOOP(GLubyte, EXP2_FOG);
-            }
-            else if (span->array->ChanType == GL_UNSIGNED_SHORT) {
-               GLushort (*rgba)[4] = span->array->rgba16;
-               FOG_LOOP(GLushort, EXP2_FOG);
-            }
-            else {
-               GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
-               ASSERT(span->array->ChanType == GL_FLOAT);
-               FOG_LOOP(GLfloat, EXP2_FOG);
+            const GLfloat fogStep = span->fogStep;
+            GLfloat fogCoord = span->fog;
+            const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+            GLfloat w = haveW ? span->w : 1.0F;
+            GLuint i;
+            for (i = 0; i < span->end; i++) {
+               const GLfloat coord = fogCoord / w;
+               GLfloat tmp = negDensitySquared * coord * coord;
+               GLfloat f, oneMinusF;
+#if defined(__alpha__) || defined(__alpha)
+               /* XXX this underflow check may be needed for other systems*/
+               if (tmp < FLT_MIN_10_EXP)
+                  tmp = FLT_MIN_10_EXP;
+#endif
+               f = (GLfloat) exp(tmp);
+               f = CLAMP(f, 0.0F, 1.0F);
+               oneMinusF = 1.0F - f;
+               rgba[i][RCOMP] = (GLchan) (f * rgba[i][RCOMP] + oneMinusF * rFog);
+               rgba[i][GCOMP] = (GLchan) (f * rgba[i][GCOMP] + oneMinusF * gFog);
+               rgba[i][BCOMP] = (GLchan) (f * rgba[i][BCOMP] + oneMinusF * bFog);
+               fogCoord += fogStep;
+               w += wStep;
             }
          }
          break;
-
       default:
          _mesa_problem(ctx, "Bad fog mode in _swrast_fog_rgba_span");
          return;
       }
    }
-   else {
-      /* The span's fog start/step/array values are blend factors in [0,1].
+   else if (span->arrayMask & SPAN_FOG) {
+      /* The span's fog array values are blend factors.
        * They were previously computed per-vertex.
        */
-      if (span->array->ChanType == GL_UNSIGNED_BYTE) {
-         GLubyte (*rgba)[4] = span->array->rgba8;
-         FOG_LOOP(GLubyte, BLEND_FOG);
+      GLuint i;
+      for (i = 0; i < span->end; i++) {
+         const GLfloat f = span->array->fog[i];
+         const GLfloat oneMinusF = 1.0F - f;
+         rgba[i][RCOMP] = (GLchan) (f * rgba[i][RCOMP] + oneMinusF * rFog);
+         rgba[i][GCOMP] = (GLchan) (f * rgba[i][GCOMP] + oneMinusF * gFog);
+         rgba[i][BCOMP] = (GLchan) (f * rgba[i][BCOMP] + oneMinusF * bFog);
       }
-      else if (span->array->ChanType == GL_UNSIGNED_SHORT) {
-         GLushort (*rgba)[4] = span->array->rgba16;
-         FOG_LOOP(GLushort, BLEND_FOG);
-      }
-      else {
-         GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
-         ASSERT(span->array->ChanType == GL_FLOAT);
-         FOG_LOOP(GLfloat, BLEND_FOG);
+   }
+   else {
+      /* The span's fog start/step values are blend factors.
+       * They were previously computed per-vertex.
+       */
+      const GLfloat fogStep = span->fogStep;
+      GLfloat fog = span->fog;
+      const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+      GLfloat w = haveW ? span->w : 1.0F;
+      GLuint i;
+      ASSERT(span->interpMask & SPAN_FOG);
+      for (i = 0; i < span->end; i++) {
+         const GLfloat fact = fog / w;
+         const GLfloat oneMinusF = 1.0F - fact;
+         rgba[i][RCOMP] = (GLchan) (fact * rgba[i][RCOMP] + oneMinusF * rFog);
+         rgba[i][GCOMP] = (GLchan) (fact * rgba[i][GCOMP] + oneMinusF * gFog);
+         rgba[i][BCOMP] = (GLchan) (fact * rgba[i][BCOMP] + oneMinusF * bFog);
+         fog += fogStep;
+         w += wStep;
       }
    }
 }
@@ -281,14 +214,16 @@ _swrast_fog_rgba_span( const GLcontext *ctx, SWspan *span )
  * As above, but color index mode.
  */
 void
-_swrast_fog_ci_span( const GLcontext *ctx, SWspan *span )
+_swrast_fog_ci_span( const GLcontext *ctx, struct sw_span *span )
 {
    const SWcontext *swrast = SWRAST_CONTEXT(ctx);
+   const GLuint haveW = (span->interpMask & SPAN_W);
    const GLuint fogIndex = (GLuint) ctx->Fog.Index;
    GLuint *index = span->array->index;
 
    ASSERT(swrast->_FogEnabled);
    ASSERT(span->arrayMask & SPAN_INDEX);
+   ASSERT((span->interpMask | span->arrayMask) & SPAN_FOG);
 
    /* we need to compute fog blend factors */
    if (swrast->_PreferPixelFog) {
@@ -301,19 +236,60 @@ _swrast_fog_ci_span( const GLcontext *ctx, SWspan *span )
             const GLfloat fogEnd = ctx->Fog.End;
             const GLfloat fogScale = (ctx->Fog.Start == ctx->Fog.End)
                ? 1.0F : 1.0F / (ctx->Fog.End - ctx->Fog.Start);
-            FOG_LOOP_CI(LINEAR_FOG);
+            const GLfloat fogStep = span->fogStep;
+            GLfloat fogCoord = span->fog;
+            const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+            GLfloat w = haveW ? span->w : 1.0F;
+            GLuint i;
+            for (i = 0; i < span->end; i++) {
+               GLfloat f = (fogEnd - fogCoord / w) * fogScale;
+               f = CLAMP(f, 0.0F, 1.0F);
+               index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);
+               fogCoord += fogStep;
+               w += wStep;
+            }
          }
          break;
       case GL_EXP:
          {
             const GLfloat density = -ctx->Fog.Density;
-            FOG_LOOP_CI(EXP_FOG);
+            const GLfloat fogStep = span->fogStep;
+            GLfloat fogCoord = span->fog;
+            const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+            GLfloat w = haveW ? span->w : 1.0F;
+            GLuint i;
+            for (i = 0; i < span->end; i++) {
+               GLfloat f = (GLfloat) exp(density * fogCoord / w);
+               f = CLAMP(f, 0.0F, 1.0F);
+               index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);
+               fogCoord += fogStep;
+               w += wStep;
+            }
          }
          break;
       case GL_EXP2:
          {
             const GLfloat negDensitySquared = -ctx->Fog.Density * ctx->Fog.Density;
-            FOG_LOOP_CI(EXP2_FOG);
+            const GLfloat fogStep = span->fogStep;
+            GLfloat fogCoord = span->fog;
+            const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+            GLfloat w = haveW ? span->w : 1.0F;
+            GLuint i;
+            for (i = 0; i < span->end; i++) {
+               const GLfloat coord = fogCoord / w;
+               GLfloat tmp = negDensitySquared * coord * coord;
+               GLfloat f;
+#if defined(__alpha__) || defined(__alpha)
+               /* XXX this underflow check may be needed for other systems*/
+               if (tmp < FLT_MIN_10_EXP)
+                  tmp = FLT_MIN_10_EXP;
+#endif
+               f = (GLfloat) exp(tmp);
+               f = CLAMP(f, 0.0F, 1.0F);
+               index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);
+               fogCoord += fogStep;
+               w += wStep;
+            }
          }
          break;
       default:
@@ -321,10 +297,31 @@ _swrast_fog_ci_span( const GLcontext *ctx, SWspan *span )
          return;
       }
    }
-   else {
-      /* The span's fog start/step/array values are blend factors in [0,1].
+   else if (span->arrayMask & SPAN_FOG) {
+      /* The span's fog array values are blend factors.
        * They were previously computed per-vertex.
        */
-      FOG_LOOP_CI(BLEND_FOG);
+      GLuint i;
+      for (i = 0; i < span->end; i++) {
+         const GLfloat f = span->array->fog[i];
+         index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);
+      }
+   }
+   else {
+      /* The span's fog start/step values are blend factors.
+       * They were previously computed per-vertex.
+       */
+      const GLfloat fogStep = span->fogStep;
+      GLfloat fog = span->fog;
+      const GLfloat wStep = haveW ? span->dwdx : 0.0F;
+      GLfloat w = haveW ? span->w : 1.0F;
+      GLuint i;
+      ASSERT(span->interpMask & SPAN_FOG);
+      for (i = 0; i < span->end; i++) {
+         const GLfloat f = fog / w;
+         index[i] = (GLuint) ((GLfloat) index[i] + (1.0F - f) * fogIndex);
+         fog += fogStep;
+         w += wStep;
+      }
    }
 }
