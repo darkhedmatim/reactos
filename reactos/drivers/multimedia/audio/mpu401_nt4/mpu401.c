@@ -131,7 +131,7 @@ static NTSTATUS InitDevice(
 }
 
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 MPU401Create(PDEVICE_OBJECT DeviceObject,
 	   PIRP Irp)
 /*
@@ -165,7 +165,7 @@ MPU401Create(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 MPU401Close(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
 /*
@@ -194,7 +194,7 @@ MPU401Close(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 MPU401Cleanup(PDEVICE_OBJECT DeviceObject,
 	    PIRP Irp)
 /*
@@ -227,7 +227,7 @@ MPU401Cleanup(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 MPU401DeviceControl(PDEVICE_OBJECT DeviceObject,
 		  PIRP Irp)
 /*
@@ -350,14 +350,14 @@ MPU401DeviceControl(PDEVICE_OBJECT DeviceObject,
 }
 
 
-static VOID NTAPI
+static VOID STDCALL
 MPU401Unload(PDRIVER_OBJECT DriverObject)
 {
   DPRINT("MPU401Unload() called!\n");
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath)
 /*

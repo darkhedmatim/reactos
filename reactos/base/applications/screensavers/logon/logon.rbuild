@@ -1,8 +1,12 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
-<module name="logon" type="win32scr" installbase="system32" installname="logon.scr" unicode="yes">
+<module name="logon" type="win32scr" installbase="system32" installname="logon.scr">
 	<include base="logon">.</include>
-	<library>scrnsave</library>
+	<define name="__USE_W32API" />
+	<define name="__REACTOS__" />
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
+
 	<library>kernel32</library>
 	<library>user32</library>
 	<library>gdi32</library>

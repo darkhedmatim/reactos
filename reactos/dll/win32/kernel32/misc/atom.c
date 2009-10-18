@@ -340,12 +340,6 @@ InternalGetAtomName(BOOLEAN Local,
                                                 0,
                                                 AtomInfoLength);
 
-        if (!AtomInfo)
-        {
-            SetLastErrorByStatus(STATUS_NO_MEMORY);
-            return 0;
-        }
-
         /* Query the name */
         Status = NtQueryInformationAtom(Atom,
                                         AtomBasicInformation,
@@ -411,7 +405,7 @@ InternalGetAtomName(BOOLEAN Local,
     if (!NT_SUCCESS(Status))
     {
         /* Fail */
-        DPRINT("Failed: %lx\n", Status);
+        DPRINT1("Failed: %lx\n", Status);
         SetLastErrorByStatus(Status);
     }
 

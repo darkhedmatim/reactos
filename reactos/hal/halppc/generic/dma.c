@@ -114,7 +114,7 @@ static DMA_OPERATIONS HalpDmaOperations = {
 
 #define MAX_MAP_REGISTERS 64
 
-#define TAG_DMA ' AMD'
+#define TAG_DMA TAG('D','M','A',' ')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -134,7 +134,7 @@ HalpInitDma(VOID)
     * Check if Extended DMA is available. We're just going to do a random
     * read and write.
     */
-
+    
    WRITE_PORT_UCHAR((PUCHAR)FIELD_OFFSET(EISA_CONTROL, DmaController2Pages.Channel2), 0x2A);
    if (READ_PORT_UCHAR((PUCHAR)FIELD_OFFSET(EISA_CONTROL, DmaController2Pages.Channel2)) == 0x2A)
       HalpEisaDma = TRUE;
@@ -164,7 +164,7 @@ HalpInitDma(VOID)
  * by the passed DMA adapter.
  */
 
-PHYSICAL_ADDRESS NTAPI
+PHYSICAL_ADDRESS STDCALL
 HalpGetAdapterMaximumPhysicalAddress(
    IN PADAPTER_OBJECT AdapterObject)
 {
@@ -193,14 +193,14 @@ HalpGetAdapterMaximumPhysicalAddress(
  *
  * Allocate initial, or additional, map buffers for DMA master adapter.
  *
- * @param MasterAdapter
+ * @param MasterAdapter 
  *        DMA master adapter to allocate buffers for.
  * @param SizeOfMapBuffers
  *        Size of the map buffers to allocate (not including the size
  *        already allocated).
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalpGrowMapBuffers(
    IN PADAPTER_OBJECT AdapterObject,
    IN ULONG SizeOfMapBuffers)
@@ -228,7 +228,7 @@ HalpGrowMapBuffers(
    LowestAcceptableAddress.LowPart =
       HighestAcceptableAddress.LowPart == 0xFFFFFFFF ? 0x1000000 : 0;
    BoundryAddressMultiple.QuadPart = 0;
-
+   
    VirtualAddress = MmAllocateContiguousMemorySpecifyCache(
       MapRegisterCount << PAGE_SHIFT, LowestAcceptableAddress,
       HighestAcceptableAddress, BoundryAddressMultiple, MmNonCached);
@@ -258,7 +258,7 @@ HalpGrowMapBuffers(
     * a virtual and physical address and corresponds to PAGE_SIZE large
     * buffer.
     */
-
+   
    if (MapRegisterCount > 0)
    {
       PROS_MAP_REGISTER_ENTRY CurrentEntry, PreviousEntry;
@@ -329,7 +329,7 @@ HalpGrowMapBuffers(
  * @see HalpInitDma
  */
 
-PADAPTER_OBJECT NTAPI
+PADAPTER_OBJECT STDCALL
 HalpDmaAllocateMasterAdapter(VOID)
 {
    PADAPTER_OBJECT MasterAdapter;
@@ -388,7 +388,7 @@ HalpDmaAllocateMasterAdapter(VOID)
  * @see HalGetAdapter
  */
 
-PADAPTER_OBJECT NTAPI
+PADAPTER_OBJECT STDCALL
 HalpDmaAllocateChildAdapter(
    ULONG NumberOfMapRegisters,
    PDEVICE_DESCRIPTION DeviceDescription)
@@ -425,7 +425,7 @@ HalpDmaAllocateChildAdapter(
       KernelMode);
    if (!NT_SUCCESS(Status))
       return NULL;
-
+ 
    RtlZeroMemory(AdapterObject, sizeof(ADAPTER_OBJECT));
 
    Status = ObInsertObject(
@@ -458,7 +458,7 @@ HalpDmaAllocateChildAdapter(
  * Setup DMA modes and extended modes for (E)ISA DMA adapter object.
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalpDmaInitializeEisaAdapter(
    PADAPTER_OBJECT AdapterObject,
    PDEVICE_DESCRIPTION DeviceDescription)
@@ -514,7 +514,7 @@ HalpDmaInitializeEisaAdapter(
    else
    {
       /*
-       * Validate setup for non-busmaster DMA adapter. Secondary controller
+       * Validate setup for non-busmaster DMA adapter. Secondary controller 
        * supports only 16-bit transfers and main controller supports only
        * 8-bit transfers. Anything else is invalid.
        */
@@ -588,7 +588,7 @@ HalpDmaInitializeEisaAdapter(
  * @implemented
  */
 
-PADAPTER_OBJECT NTAPI
+PADAPTER_OBJECT STDCALL
 HalGetAdapter(
    PDEVICE_DESCRIPTION DeviceDescription,
    PULONG NumberOfMapRegisters)
@@ -623,7 +623,7 @@ HalGetAdapter(
    {
       EisaAdapter = FALSE;
    }
-
+	
    /*
     * Disallow creating adapter for ISA/EISA DMA channel 4 since it's used
     * for cascading the controllers and it's not available for software use.
@@ -685,7 +685,7 @@ HalGetAdapter(
       AdapterObject = HalpEisaAdapter[DeviceDescription->DmaChannel];
       if (AdapterObject != NULL)
       {
-         if (AdapterObject->NeedsMapRegisters &&
+         if (AdapterObject->NeedsMapRegisters && 
              MapRegisters > AdapterObject->MapRegistersPerChannel)
             AdapterObject->MapRegistersPerChannel = MapRegisters;
       }
@@ -713,7 +713,7 @@ HalGetAdapter(
          AdapterObject->MapRegistersPerChannel = MapRegisters;
 
          /*
-          * FIXME: Verify that the following makes sense. Actually
+          * FIXME: Verify that the following makes sense. Actually 
           * MasterAdapter->NumberOfMapRegisters contains even the number
           * of gaps, so this will not work correctly all the time. It
           * doesn't matter much since it's only optimization to avoid
@@ -770,7 +770,7 @@ HalGetAdapter(
    {
       if (!HalpDmaInitializeEisaAdapter(AdapterObject, DeviceDescription))
       {
-         ObDereferenceObject(AdapterObject);
+         ObfDereferenceObject(AdapterObject);
          return NULL;
       }
    }
@@ -787,7 +787,7 @@ HalGetAdapter(
  * @see HalGetAdapter
  */
 
-PDMA_ADAPTER NTAPI
+PDMA_ADAPTER STDCALL
 HalpGetDmaAdapter(
    IN PVOID Context,
    IN PDEVICE_DESCRIPTION DeviceDescription,
@@ -805,7 +805,7 @@ HalpGetDmaAdapter(
  * @see HalGetAdapter
  */
 
-VOID NTAPI
+VOID STDCALL
 HalPutDmaAdapter(
    PADAPTER_OBJECT AdapterObject)
 {
@@ -817,7 +817,7 @@ HalPutDmaAdapter(
       KeSetEvent(&HalpDmaLock, 0, 0);
    }
 
-   ObDereferenceObject(AdapterObject);
+   ObfDereferenceObject(AdapterObject);
 }
 
 /**
@@ -846,7 +846,7 @@ HalPutDmaAdapter(
  * @implemented
  */
 
-PVOID NTAPI
+PVOID STDCALL
 HalAllocateCommonBuffer(
    PADAPTER_OBJECT AdapterObject,
    ULONG Length,
@@ -895,7 +895,7 @@ HalAllocateCommonBuffer(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 HalFreeCommonBuffer(
    PADAPTER_OBJECT AdapterObject,
    ULONG Length,
@@ -915,7 +915,7 @@ HalFreeCommonBuffer(
  * @see HalGetAdapter
  */
 
-ULONG NTAPI
+ULONG STDCALL
 HalpDmaGetDmaAlignment(
    PADAPTER_OBJECT AdapterObject)
 {
@@ -930,7 +930,7 @@ HalpDmaGetDmaAlignment(
  * @implemented
  */
 
-ULONG NTAPI
+ULONG STDCALL
 HalReadDmaCounter(
    PADAPTER_OBJECT AdapterObject)
 {
@@ -946,7 +946,7 @@ HalReadDmaCounter(
     */
 
    KeAcquireSpinLock(&AdapterObject->MasterAdapter->SpinLock, &OldIrql);
-
+  
    /* Send the request to the specific controller. */
    if (AdapterObject->AdapterNumber == 1)
    {
@@ -986,7 +986,7 @@ HalReadDmaCounter(
    }
 
    KeReleaseSpinLock(&AdapterObject->MasterAdapter->SpinLock, OldIrql);
-
+	
    Count++;
    Count &= 0xffff;
    if (AdapterObject->Width16Bits)
@@ -1002,7 +1002,7 @@ HalReadDmaCounter(
  * at PASSIVE_LEVEL in work item.
  */
 
-VOID NTAPI
+VOID STDCALL
 HalpGrowMapBufferWorker(PVOID DeferredContext)
 {
    PGROW_WORK_ITEM WorkItem = (PGROW_WORK_ITEM)DeferredContext;
@@ -1018,7 +1018,7 @@ HalpGrowMapBufferWorker(PVOID DeferredContext)
 
    KeWaitForSingleObject(&HalpDmaLock, Executive, KernelMode,
                          FALSE, NULL);
-   Succeeded = HalpGrowMapBuffers(WorkItem->AdapterObject->MasterAdapter,
+   Succeeded = HalpGrowMapBuffers(WorkItem->AdapterObject->MasterAdapter, 
                                   WorkItem->NumberOfMapRegisters);
    KeSetEvent(&HalpDmaLock, 0, 0);
 
@@ -1064,7 +1064,7 @@ HalpGrowMapBufferWorker(PVOID DeferredContext)
  * @implemented
  */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 HalAllocateAdapterChannel(
    PADAPTER_OBJECT AdapterObject,
    PWAIT_CONTEXT_BLOCK WaitContextBlock,
@@ -1073,10 +1073,10 @@ HalAllocateAdapterChannel(
 {
    PADAPTER_OBJECT MasterAdapter;
    PGROW_WORK_ITEM WorkItem;
-   ULONG Index = MAXULONG;
+   ULONG Index = ~0;
    ULONG Result;
    KIRQL OldIrql;
-
+   
    ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
 
    /* Set up the wait context block in case we can't run right away. */
@@ -1129,7 +1129,7 @@ HalAllocateAdapterChannel(
       {
          Index = RtlFindClearBitsAndSet(
             MasterAdapter->MapRegisters, NumberOfMapRegisters, 0);
-         if (Index != MAXULONG)
+         if (Index != ~0)
          {
             AdapterObject->MapRegisterBase =
                MasterAdapter->MapRegisterBase + Index;
@@ -1143,7 +1143,7 @@ HalAllocateAdapterChannel(
          }
       }
 
-      if (Index == MAXULONG)
+      if (Index == ~0)
       {
          WorkItem = ExAllocatePoolWithTag(
             NonPagedPool, sizeof(GROW_WORK_ITEM), TAG_DMA);
@@ -1180,10 +1180,10 @@ HalAllocateAdapterChannel(
    AdapterObject->CurrentWcb = WaitContextBlock;
 
    Result = ExecutionRoutine(
-      WaitContextBlock->DeviceObject, WaitContextBlock->CurrentIrp,
+      WaitContextBlock->DeviceObject, WaitContextBlock->CurrentIrp, 
       AdapterObject->MapRegisterBase, WaitContextBlock->DeviceContext);
 
-   /*
+   /* 
     * Possible return values:
     *
     * - KeepObject
@@ -1235,19 +1235,19 @@ HalAllocateAdapterChannel(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 IoFreeAdapterChannel(
    PADAPTER_OBJECT AdapterObject)
 {
    PADAPTER_OBJECT MasterAdapter;
    PKDEVICE_QUEUE_ENTRY DeviceQueueEntry;
    PWAIT_CONTEXT_BLOCK WaitContextBlock;
-   ULONG Index = MAXULONG;
+   ULONG Index = ~0;
    ULONG Result;
    KIRQL OldIrql;
 
    MasterAdapter = AdapterObject->MasterAdapter;
-
+   
    for (;;)
    {
       /*
@@ -1287,7 +1287,7 @@ IoFreeAdapterChannel(
             Index = RtlFindClearBitsAndSet(
                MasterAdapter->MapRegisters,
                WaitContextBlock->NumberOfMapRegisters, 0);
-            if (Index != MAXULONG)
+            if (Index != ~0)
             {
                AdapterObject->MapRegisterBase =
                   MasterAdapter->MapRegisterBase + Index;
@@ -1301,7 +1301,7 @@ IoFreeAdapterChannel(
             }
          }
 
-         if (Index == MAXULONG)
+         if (Index == ~0)
          {
             InsertTailList(&MasterAdapter->AdapterQueue, &AdapterObject->AdapterQueue);
             KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
@@ -1359,7 +1359,7 @@ IoFreeAdapterChannel(
  * @implemented
  */
 
-VOID NTAPI
+VOID STDCALL
 IoFreeMapRegisters(
    IN PADAPTER_OBJECT AdapterObject,
    IN PVOID MapRegisterBase,
@@ -1404,7 +1404,7 @@ IoFreeMapRegisters(
          MasterAdapter->MapRegisters,
          AdapterObject->NumberOfMapRegisters,
          MasterAdapter->NumberOfMapRegisters);
-      if (Index == MAXULONG)
+      if (Index == ~0)
       {
          InsertHeadList(&MasterAdapter->AdapterQueue, ListEntry);
          break;
@@ -1465,7 +1465,7 @@ IoFreeMapRegisters(
  * @see IoFlushAdapterBuffers, IoMapTransfer
  */
 
-VOID NTAPI
+VOID STDCALL
 HalpCopyBufferMap(
    PMDL Mdl,
    PROS_MAP_REGISTER_ENTRY MapRegisterBase,
@@ -1485,7 +1485,9 @@ HalpCopyBufferMap(
        * NOTE: On real NT a mechanism with reserved pages is implemented
        * to handle this case in a slow, but graceful non-fatal way.
        */
-      KeBugCheckEx(HAL_MEMORY_ALLOCATION, PAGE_SIZE, 0, (ULONG_PTR)__FILE__, 0);
+      /* FIXME: The correct bug check code isn't defined. */
+      /* KEBUGCHECKEX(HAL_MEMORY_ALLOCATION, PAGE_SIZE, 0, (ULONG_PTR)__FILE__, 0); */
+      KEBUGCHECK(0);
    }
 
    CurrentAddress = (ULONG_PTR)VirtualAddress +
@@ -1552,7 +1554,7 @@ HalpCopyBufferMap(
  * @unimplemented.
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 IoFlushAdapterBuffers(
    PADAPTER_OBJECT AdapterObject,
    PMDL Mdl,
@@ -1567,7 +1569,7 @@ IoFlushAdapterBuffers(
    PHYSICAL_ADDRESS PhysicalAddress;
    PPFN_NUMBER MdlPagesPtr;
 
-   ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
+   ASSERT_IRQL(DISPATCH_LEVEL);  
 
    if (AdapterObject != NULL && !AdapterObject->MasterDevice)
    {
@@ -1586,7 +1588,7 @@ IoFlushAdapterBuffers(
       }
       SlaveDma = TRUE;
    }
-
+  
    /* This can happen if the device supports hardware scatter/gather. */
    if (MapRegisterBase == NULL)
       return TRUE;
@@ -1598,7 +1600,7 @@ IoFlushAdapterBuffers(
    {
       if ((ULONG_PTR)MapRegisterBase & MAP_BASE_SW_SG)
       {
-         if (RealMapRegisterBase->Counter != MAXULONG)
+         if (RealMapRegisterBase->Counter != ~0)
          {
             if (SlaveDma && !AdapterObject->IgnoreCount)
                Length -= HalReadDmaCounter(AdapterObject);
@@ -1659,7 +1661,7 @@ IoFlushAdapterBuffers(
  * @implemented
  */
 
-PHYSICAL_ADDRESS NTAPI
+PHYSICAL_ADDRESS STDCALL
 IoMapTransfer(
    IN PADAPTER_OBJECT AdapterObject,
    IN PMDL Mdl,
@@ -1680,7 +1682,7 @@ IoMapTransfer(
    ULONG Counter;
    DMA_MODE AdapterMode;
    KIRQL OldIrql;
-
+   
    /*
     * Precalculate some values that are used in all cases.
     *
@@ -1745,7 +1747,7 @@ IoMapTransfer(
 
    /*
     * Try to calculate the size of the transfer. We can only transfer
-    * pages that are physically contiguous and that don't cross the
+    * pages that are physically contiguous and that don't cross the 
     * 64Kb boundary (this limitation applies only for ISA controllers).
     */
 
@@ -1777,7 +1779,7 @@ IoMapTransfer(
       PhysicalAddress = RealMapRegisterBase->PhysicalAddress;
       PhysicalAddress.QuadPart += ByteOffset;
       TransferLength = *Length;
-      RealMapRegisterBase->Counter = MAXULONG;
+      RealMapRegisterBase->Counter = ~0;
       Counter = 0;
    }
    else
@@ -1807,7 +1809,7 @@ IoMapTransfer(
          PhysicalAddress.QuadPart += ByteOffset;
          if ((ULONG_PTR)MapRegisterBase & MAP_BASE_SW_SG)
          {
-            RealMapRegisterBase->Counter = MAXULONG;
+            RealMapRegisterBase->Counter = ~0;
             Counter = 0;
          }
       }
@@ -1839,7 +1841,7 @@ IoMapTransfer(
    if (AdapterObject != NULL && !AdapterObject->MasterDevice)
    {
       AdapterMode = AdapterObject->AdapterMode;
-
+      
       if (WriteToDevice)
       {
          AdapterMode.TransferType = WRITE_TRANSFER;
@@ -1980,13 +1982,13 @@ HalAllocateCrashDumpRegisters(IN PADAPTER_OBJECT AdapterObject,
         }
 
         /* Try to find free map registers */
-        MapRegisterNumber = MAXULONG;
+        MapRegisterNumber = -1;
         MapRegisterNumber = RtlFindClearBitsAndSet(MasterAdapter->MapRegisters,
                                                    *NumberOfMapRegisters,
                                                    0);
 
         /* Check if nothing was found */
-        if (MapRegisterNumber == MAXULONG)
+        if (MapRegisterNumber == -1)
         {
             /* No free registers found, so use the base registers */
             RtlSetBits(MasterAdapter->MapRegisters,

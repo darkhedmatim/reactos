@@ -115,7 +115,7 @@ ForwardIrpAndWait(
 	KeInitializeEvent(&Event, NotificationEvent, FALSE);
 	IoCopyCurrentIrpStackLocationToNext(Irp);
 
-	TRACE_(SERENUM, "Calling lower device %p\n", LowerDevice);
+	DPRINT("Calling lower device %p\n", LowerDevice);
 	IoSetCompletionRoutine(Irp, ForwardIrpAndWaitCompletion, &Event, TRUE, TRUE, TRUE);
 
 	Status = IoCallDriver(LowerDevice, Irp);
@@ -142,7 +142,7 @@ ForwardIrpToLowerDeviceAndForget(
 
 	LowerDevice = DeviceExtension->LowerDevice;
 	ASSERT(LowerDevice);
-	TRACE_(SERENUM, "Calling lower device 0x%p\n", LowerDevice);
+	DPRINT("Calling lower device 0x%p\n", LowerDevice);
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(LowerDevice, Irp);
 }
@@ -160,7 +160,7 @@ ForwardIrpToAttachedFdoAndForget(
 
 	Fdo = DeviceExtension->AttachedFdo;
 	ASSERT(Fdo);
-	TRACE_(SERENUM, "Calling attached Fdo 0x%p\n", Fdo);
+	DPRINT("Calling attached Fdo 0x%p\n", Fdo);
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(Fdo, Irp);
 }
@@ -196,7 +196,7 @@ DuplicateUnicodeString(
 
 
 	if ((SourceString->Length == 0)
-	 && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE |
+	 && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE | 
 	               RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING)))
 	{
 		DestinationString->Length = 0;

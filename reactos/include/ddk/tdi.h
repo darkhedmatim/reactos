@@ -23,6 +23,10 @@
 #ifndef __TDI_H
 #define __TDI_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "ntddtdi.h"
 #include "tdistat.h"
 #include "netpnp.h"

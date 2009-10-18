@@ -8,24 +8,16 @@
  *              25/11/05: Added license header
  */
 
-#if defined(__GNUC__)
-#define __int64 long long
-#endif
-
-#ifdef _WIN64
-typedef unsigned __int64 size_t;
-#else
-typedef unsigned int size_t;
-#endif
+#include <precomp.h>
 
 /*
  * @implemented
  */
-char* _strnset(char* szToFill, int szFill, size_t sizeMaxFill)
+char* _strnset (char* szToFill, int szFill, size_t sizeMaxFill)
 {
 	char *t = szToFill;
-	int i = 0;
-	while (*szToFill != 0 && i < (int) sizeMaxFill)
+	size_t i = 0;
+	while( *szToFill != 0 && i < sizeMaxFill)
 	{
 		*szToFill = szFill;
 		szToFill++;
@@ -38,10 +30,10 @@ char* _strnset(char* szToFill, int szFill, size_t sizeMaxFill)
 /*
  * @implemented
  */
-char* _strset(char* szToFill, int szFill)
+char* _strset (char* szToFill, int szFill)
 {
 	char *t = szToFill;
-	while (*szToFill != 0)
+	while( *szToFill != 0 )
 	{
 		*szToFill = szFill;
 		szToFill++;

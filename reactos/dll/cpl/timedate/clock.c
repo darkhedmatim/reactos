@@ -27,6 +27,17 @@ typedef struct _CLOCKDATA
 
 static const WCHAR szClockWndClass[] = L"ClockWndClass";
 
+
+static VOID
+SetIsotropic(HDC hdc, PCLOCKDATA pClockData)
+{
+    /* set isotropic mode */
+     SetMapMode(hdc, MM_ISOTROPIC);
+     /* position axis in centre of window */
+     SetViewportOrgEx(hdc, pClockData->cxClient / 2, pClockData->cyClient / 2, NULL);
+}
+
+
 static VOID
 RotatePoint(POINT pt[], INT iNum, INT iAngle)
 {
@@ -46,10 +57,10 @@ RotatePoint(POINT pt[], INT iNum, INT iAngle)
 }
 
 
-static INT
+static VOID
 DrawClock(HDC hdc, PCLOCKDATA pClockData)
 {
-     INT iAngle,Radius;
+     INT iAngle;
      POINT pt[3];
      HBRUSH hBrushOld;
      HPEN hPenOld = NULL;
@@ -59,14 +70,11 @@ DrawClock(HDC hdc, PCLOCKDATA pClockData)
 
      hPenOld = GetCurrentObject(hdc, OBJ_PEN);
 
-     // TODO: check if this conversion is correct resp. usable
-     Radius = min(pClockData->cxClient,pClockData->cyClient) * 2;
-
      for (iAngle = 0; iAngle < 360; iAngle += 6)
      {
           /* starting coords */
           pt[0].x = 0;
-          pt[0].y = Radius;
+          pt[0].y = 180;
 
           /* rotate start coords */
           RotatePoint(pt, 1, iAngle);
@@ -95,18 +103,15 @@ DrawClock(HDC hdc, PCLOCKDATA pClockData)
 
      SelectObject(hdc, hBrushOld);
      SelectObject(hdc, hPenOld);
-     return Radius;
 }
 
 
 static VOID
-DrawHands(HDC hdc, SYSTEMTIME * pst, BOOL fChange, INT Radius)
+DrawHands(HDC hdc, SYSTEMTIME * pst, BOOL fChange)
 {
-     POINT pt[3][5] = { {{0, (INT)-Radius/6}, {(INT)Radius/9, 0}, 
-	     {0, (INT)Radius/1.8}, {(INT)-Radius/9, 0}, {0, (INT)-Radius/6}},
-     {{0, (INT)-Radius/4.5}, {(INT)Radius/18, 0}, {0, (INT) Radius*0.89}, 
-	     {(INT)-Radius/18, 0}, {0, (INT)-Radius/4.5}},
-     {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, (INT) Radius*0.89}} };
+     static POINT pt[3][5] = { {{0, -30}, {20, 0}, {0, 100}, {-20, 0}, {0, -30}},
+                               {{0, -40}, {10, 0}, {0, 160}, {-10, 0}, {0, -40}},
+                               {{0,   0}, { 0, 0}, {0,   0}, {  0, 0}, {0, 160}} };
      INT i, iAngle[3];
      POINT ptTemp[3][5];
 
@@ -136,7 +141,7 @@ ClockWndProc(HWND hwnd,
              LPARAM lParam)
 {
     PCLOCKDATA pClockData;
-    HDC hdc, hdcMem;
+    HDC hdc;
     PAINTSTRUCT ps;
 
     pClockData = (PCLOCKDATA)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
@@ -163,70 +168,15 @@ ClockWndProc(HWND hwnd,
 
         case WM_TIMER:
             GetLocalTime(&pClockData->stCurrent);
-            InvalidateRect(hwnd, NULL, FALSE);
+            InvalidateRect(hwnd, NULL, TRUE);
             pClockData->stPrevious = pClockData->stCurrent;
             break;
 
         case WM_PAINT:
             hdc = BeginPaint(hwnd, &ps);
-
-            hdcMem = CreateCompatibleDC(hdc);
-            if (hdcMem)
-            {
-                HBITMAP hBmp, hBmpOld;
-                
-                hBmp = CreateCompatibleBitmap(hdc,
-                                              pClockData->cxClient,
-                                              pClockData->cyClient);
-                if (hBmp)
-                {
-                    HBRUSH hWinBrush, hWinBrushOld;
-                    INT oldMap, Radius;
-                    POINT oldOrg;
-
-                    hBmpOld = SelectObject(hdcMem, hBmp);
-
-                    hWinBrush = GetSysColorBrush(COLOR_BTNFACE);
-                    hWinBrushOld = SelectObject(hdcMem, hWinBrush);
-                    PatBlt(hdcMem,
-                           0,
-                           0,
-                           pClockData->cxClient,
-                           pClockData->cyClient,
-                           PATCOPY);
-
-                    oldMap = SetMapMode(hdcMem, MM_ISOTROPIC);
-                    SetWindowExtEx(hdcMem, 3600, 2700, NULL);
-                    SetViewportExtEx(hdcMem, 800, -600, NULL);
-                    SetViewportOrgEx(hdcMem,
-                                     pClockData->cxClient / 2,
-                                     pClockData->cyClient / 2,
-                                     &oldOrg);
-
-                    Radius = DrawClock(hdcMem, pClockData);
-                    DrawHands(hdcMem, &pClockData->stPrevious, TRUE, Radius);
-
-                    SetMapMode(hdcMem, oldMap);
-                    SetViewportOrgEx(hdcMem, oldOrg.x, oldOrg.y, NULL);
-
-                    BitBlt(hdc,
-                           0,
-                           0,
-                           pClockData->cxClient,
-                           pClockData->cyClient,
-                           hdcMem,
-                           0,
-                           0,
-                           SRCCOPY);
-
-                    SelectObject(hdcMem, hWinBrushOld);
-                    SelectObject(hdcMem, hBmpOld);
-                    DeleteObject(hBmp);
-                }
-
-                DeleteDC(hdcMem);
-            }
-
+            SetIsotropic(hdc, pClockData);
+            DrawClock(hdc, pClockData);
+            DrawHands(hdc, &pClockData->stPrevious, TRUE);
             EndPaint(hwnd, &ps);
             break;
 
@@ -240,20 +190,19 @@ ClockWndProc(HWND hwnd,
             HeapFree(GetProcessHeap(), 0, pClockData);
             break;
 
-        case CLM_STOPCLOCK:
+        case CLM_SETTIME:
+            /* Stop the timer if it is still running */
             if (pClockData->bTimer)
             {
                 KillTimer(hwnd, ID_TIMER);
                 pClockData->bTimer = FALSE;
             }
-            break;
 
-        case CLM_STARTCLOCK:
-            if (!pClockData->bTimer)
-            {
-                SetTimer(hwnd, ID_TIMER, 1000, NULL);
-                pClockData->bTimer = TRUE;
-            }
+            /* Set the current time */
+            CopyMemory(&pClockData->stPrevious, (LPSYSTEMTIME)lParam, sizeof(SYSTEMTIME));
+
+            /* Redraw the clock */
+            InvalidateRect(hwnd, NULL, TRUE);
             break;
 
         default:

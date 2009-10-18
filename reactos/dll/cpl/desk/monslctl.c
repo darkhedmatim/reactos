@@ -27,17 +27,11 @@ typedef struct _MONITORSELWND
             UINT Enabled : 1;
             UINT HasFocus : 1;
             UINT CanDisplay : 1;
-            UINT LeftBtnDown : 1;
-            UINT IsDraggingMonitor : 1;
         };
     };
     DWORD ControlExStyle;
     DWORD MonitorsCount;
     INT SelectedMonitor;
-    INT DraggingMonitor;
-    RECT rcDragging;
-    POINT ptDrag, ptDragBegin;
-    SIZE DraggingMargin;
     PMONSL_MONINFO MonitorInfo;
     PMONSL_MON Monitors;
     RECT rcExtent;
@@ -271,34 +265,15 @@ MonSelRepaintMonitor(IN PMONITORSELWND infoPtr,
                      IN DWORD Index)
 {
     RECT rc;
-    BOOL NoRepaint = FALSE;
 
     if (Index < infoPtr->MonitorsCount)
     {
-        if (Index == (DWORD)infoPtr->DraggingMonitor)
-        {
-            if (infoPtr->IsDraggingMonitor)
-            {
-                MonSelRectToScreen(infoPtr,
-                                   &infoPtr->rcDragging,
-                                   &rc);
-            }
-            else
-                NoRepaint = TRUE;
-        }
-        else
-        {
-            MonSelRectToScreen(infoPtr,
-                               &infoPtr->Monitors[Index].rc,
-                               &rc);
-        }
-
-        if (!NoRepaint)
-        {
-            InvalidateRect(infoPtr->hSelf,
-                           &rc,
-                           TRUE);
-        }
+        MonSelRectToScreen(infoPtr,
+                           &infoPtr->Monitors[Index].rc,
+                           &rc);
+        InvalidateRect(infoPtr->hSelf,
+                       &rc,
+                       TRUE);
     }
 }
 
@@ -394,9 +369,6 @@ MonSelSetMonitorsInfo(IN OUT PMONITORSELWND infoPtr,
 {
     DWORD Index;
     BOOL Ret = TRUE;
-
-    if (infoPtr->DraggingMonitor >= 0)
-        return FALSE;
 
     if (infoPtr->MonitorInfo != NULL)
     {
@@ -494,8 +466,7 @@ MonSelSetMonitorInfo(IN OUT PMONITORSELWND infoPtr,
                      IN INT Index,
                      IN const MONSL_MONINFO *MonitorsInfo)
 {
-    if (infoPtr->DraggingMonitor < 0 &&
-        Index >= 0 && Index < (INT)infoPtr->MonitorsCount)
+    if (Index >= 0 && Index < (INT)infoPtr->MonitorsCount)
     {
         CopyMemory(&infoPtr->MonitorInfo[Index],
                    MonitorsInfo,
@@ -525,32 +496,6 @@ MonSelGetMonitorInfo(IN PMONITORSELWND infoPtr,
     return FALSE;
 }
 
-static INT
-MonSelGetMonitorRect(IN OUT PMONITORSELWND infoPtr,
-                     IN INT Index,
-                     OUT PRECT prc)
-{
-    RECT rc, rcClient;
-
-    if (Index < 0 || Index >= infoPtr->MonitorsCount)
-        return -1;
-
-    if (!infoPtr->CanDisplay)
-        return 0;
-
-    MonSelRectToScreen(infoPtr,
-                       &infoPtr->Monitors[Index].rc,
-                       prc);
-
-    rcClient.left = rcClient.top = 0;
-    rcClient.right = infoPtr->ClientSize.cx;
-    rcClient.bottom = infoPtr->ClientSize.cy;
-
-    return IntersectRect(&rc,
-                         &rcClient,
-                         prc) != FALSE;
-}
-
 static BOOL
 MonSelSetCurSelMonitor(IN OUT PMONITORSELWND infoPtr,
                        IN INT Index,
@@ -560,8 +505,7 @@ MonSelSetCurSelMonitor(IN OUT PMONITORSELWND infoPtr,
     BOOL PreventSelect = FALSE;
     BOOL Ret = FALSE;
 
-    if (infoPtr->DraggingMonitor < 0 &&
-        (Index == -1 || Index < (INT)infoPtr->MonitorsCount))
+    if (Index == -1 || Index < (INT)infoPtr->MonitorsCount)
     {
         if (Index != infoPtr->SelectedMonitor)
         {
@@ -624,9 +568,7 @@ MonSelCreate(IN OUT PMONITORSELWND infoPtr)
     infoPtr->SelectionFrame.cx = infoPtr->SelectionFrame.cy = 4;
     infoPtr->Margin.cx = infoPtr->Margin.cy = 20;
     infoPtr->SelectedMonitor = -1;
-    infoPtr->DraggingMonitor = -1;
-    infoPtr->ControlExStyle = MSLM_EX_ALLOWSELECTDISABLED | MSLM_EX_HIDENUMBERONSINGLE |
-        MSLM_EX_SELECTONRIGHTCLICK | MSLM_EX_SELECTBYARROWKEY;
+    infoPtr->ControlExStyle = MSLM_EX_ALLOWSELECTDISABLED;
     return;
 }
 
@@ -655,9 +597,6 @@ static BOOL
 MonSelSetExtendedStyle(IN OUT PMONITORSELWND infoPtr,
                        IN DWORD dwExtendedStyle)
 {
-    if (infoPtr->DraggingMonitor >= 0)
-        return FALSE;
-
     if (dwExtendedStyle != infoPtr->ControlExStyle)
     {
         infoPtr->ControlExStyle = dwExtendedStyle;
@@ -759,100 +698,17 @@ MonSelDrawDisabledRect(IN OUT PMONITORSELWND infoPtr,
 }
 
 static VOID
-MonSelPaintMonitor(IN OUT PMONITORSELWND infoPtr,
-                   IN HDC hDC,
-                   IN DWORD Index,
-                   IN OUT PRECT prc,
-                   IN COLORREF crDefFontColor,
-                   IN BOOL bHideNumber)
-{
-    HFONT hFont, hPrevFont;
-    COLORREF crPrevText;
-
-    if ((INT)Index == infoPtr->SelectedMonitor)
-    {
-        FillRect(hDC,
-                 prc,
-                 (HBRUSH)(COLOR_HIGHLIGHT + 1));
-
-        if (infoPtr->HasFocus && !(infoPtr->UIState & UISF_HIDEFOCUS))
-        {
-            /* NOTE: We need to switch the text color to the default, because
-                     DrawFocusRect draws a solid line if the text is white! */
-
-            crPrevText = SetTextColor(hDC,
-                                      crDefFontColor);
-
-            DrawFocusRect(hDC,
-                          prc);
-
-            SetTextColor(hDC,
-                         crPrevText);
-        }
-    }
-
-    InflateRect(prc,
-                -infoPtr->SelectionFrame.cx,
-                -infoPtr->SelectionFrame.cy);
-
-    Rectangle(hDC,
-              prc->left,
-              prc->top,
-              prc->right,
-              prc->bottom);
-
-    InflateRect(prc,
-                -1,
-                -1);
-
-    if (!bHideNumber)
-    {
-        hFont = MonSelGetMonitorFont(infoPtr,
-                                     hDC,
-                                     Index);
-        if (hFont != NULL)
-        {
-            hPrevFont = SelectObject(hDC,
-                                     hFont);
-
-            DrawText(hDC,
-                     infoPtr->Monitors[Index].szCaption,
-                     -1,
-                     prc,
-                     DT_VCENTER | DT_CENTER | DT_NOPREFIX | DT_SINGLELINE);
-
-            SelectObject(hDC,
-                         hPrevFont);
-        }
-    }
-
-    if (infoPtr->MonitorInfo[Index].Flags & MSL_MIF_DISABLED)
-    {
-        InflateRect(prc,
-                    1,
-                    1);
-
-        MonSelDrawDisabledRect(infoPtr,
-                               hDC,
-                               prc);
-    }
-}
-
-static VOID
 MonSelPaint(IN OUT PMONITORSELWND infoPtr,
             IN HDC hDC,
             IN const RECT *prcUpdate)
 {
-    COLORREF crPrevText;
+    COLORREF crPrevText, crPrevText2;
+    HFONT hFont, hPrevFont;
     HBRUSH hbBk, hbOldBk;
     HPEN hpFg, hpOldFg;
     DWORD Index;
     RECT rc, rctmp;
     INT iPrevBkMode;
-    BOOL bHideNumber;
-
-    bHideNumber = (infoPtr->ControlExStyle & MSLM_EX_HIDENUMBERS) ||
-        ((infoPtr->MonitorsCount == 1) && (infoPtr->ControlExStyle & MSLM_EX_HIDENUMBERONSINGLE));
 
     hbBk = GetSysColorBrush(COLOR_BACKGROUND);
     hpFg = CreatePen(PS_SOLID,
@@ -870,47 +726,80 @@ MonSelPaint(IN OUT PMONITORSELWND infoPtr,
 
     for (Index = 0; Index < infoPtr->MonitorsCount; Index++)
     {
-        if (infoPtr->IsDraggingMonitor &&
-            (DWORD)infoPtr->DraggingMonitor == Index)
-        {
-            continue;
-        }
-
         MonSelRectToScreen(infoPtr,
                            &infoPtr->Monitors[Index].rc,
                            &rc);
 
-        if (IntersectRect(&rctmp,
-                          &rc,
-                          prcUpdate))
+        if (!IntersectRect(&rctmp,
+                           &rc,
+                           prcUpdate))
         {
-            MonSelPaintMonitor(infoPtr,
-                               hDC,
-                               Index,
-                               &rc,
-                               crPrevText,
-                               bHideNumber);
+            continue;
         }
-    }
 
-    /* Paint the dragging monitor last */
-    if (infoPtr->IsDraggingMonitor &&
-        infoPtr->DraggingMonitor >= 0)
-    {
-        MonSelRectToScreen(infoPtr,
-                           &infoPtr->rcDragging,
-                           &rc);
-
-        if (IntersectRect(&rctmp,
-                          &rc,
-                          prcUpdate))
+        if ((INT)Index == infoPtr->SelectedMonitor)
         {
-            MonSelPaintMonitor(infoPtr,
-                               hDC,
-                               (DWORD)infoPtr->DraggingMonitor,
-                               &rc,
-                               crPrevText,
-                               bHideNumber);
+            FillRect(hDC,
+                     &rc,
+                     (HBRUSH)(COLOR_HIGHLIGHT + 1));
+
+            if (infoPtr->HasFocus && !(infoPtr->UIState & UISF_HIDEFOCUS))
+            {
+                /* NOTE: We need to switch the text color to the default, because
+                         DrawFocusRect draws a solid line if the text is white! */
+
+                crPrevText2 = SetTextColor(hDC,
+                                           crPrevText);
+
+                DrawFocusRect(hDC,
+                              &rc);
+
+                SetTextColor(hDC,
+                             crPrevText2);
+            }
+        }
+
+        InflateRect(&rc,
+                    -infoPtr->SelectionFrame.cx,
+                    -infoPtr->SelectionFrame.cy);
+
+        Rectangle(hDC,
+                  rc.left,
+                  rc.top,
+                  rc.right,
+                  rc.bottom);
+
+        InflateRect(&rc,
+                    -1,
+                    -1);
+
+        hFont = MonSelGetMonitorFont(infoPtr,
+                                     hDC,
+                                     Index);
+        if (hFont != NULL)
+        {
+            hPrevFont = SelectObject(hDC,
+                                     hFont);
+
+            DrawText(hDC,
+                     infoPtr->Monitors[Index].szCaption,
+                     -1,
+                     &rc,
+                     DT_VCENTER | DT_CENTER | DT_NOPREFIX | DT_SINGLELINE);
+
+            SelectObject(hDC,
+                         hPrevFont);
+        }
+
+        if (infoPtr->MonitorInfo[Index].Flags & MSL_MIF_DISABLED)
+        {
+            InflateRect(&rc,
+                        1,
+                        1);
+
+            MonSelDrawDisabledRect(infoPtr,
+                                   hDC,
+                                   &rc);
         }
     }
 
@@ -922,239 +811,6 @@ MonSelPaint(IN OUT PMONITORSELWND infoPtr,
                  hpOldFg);
     SelectObject(hDC,
                  hbOldBk);
-
-    DeleteObject(hpFg);
-}
-
-static VOID
-MonSelContextMenu(IN OUT PMONITORSELWND infoPtr,
-                  IN SHORT x,
-                  IN SHORT y)
-{
-    MONSL_MONNMBUTTONCLICKED nm;
-    INT Index;
-
-    if (!infoPtr->HasFocus)
-        SetFocus(infoPtr->hSelf);
-
-    nm.pt.x = x;
-    nm.pt.y = y;
-
-    Index = MonSelHitTest(infoPtr,
-                          &nm.pt);
-
-    MonSelNotifyMonitor(infoPtr,
-                        MSLN_RBUTTONUP,
-                        Index,
-                        (PMONSL_MONNMHDR)&nm);
-
-    /* Send a WM_CONTEXTMENU notification */
-    MapWindowPoints(infoPtr->hSelf,
-                    NULL,
-                    &nm.pt,
-                    1);
-
-    SendMessage(infoPtr->hSelf,
-                WM_CONTEXTMENU,
-                (WPARAM)infoPtr->hSelf,
-                MAKELPARAM(nm.pt.x,
-                           nm.pt.y));
-}
-
-static VOID
-MonSelApplyCursorClipping(IN PMONITORSELWND infoPtr,
-                          IN BOOL bClip)
-{
-    RECT rc;
-
-    if (bClip)
-    {
-        rc.left = rc.top = 0;
-        rc.right = infoPtr->ClientSize.cx;
-        rc.bottom = infoPtr->ClientSize.cy;
-
-        if (MapWindowPoints(infoPtr->hSelf,
-                            NULL,
-                            (LPPOINT)&rc,
-                            2))
-        {
-            ClipCursor(&rc);
-        }
-    }
-    else
-    {
-        ClipCursor(NULL);
-    }
-}
-
-static VOID
-MonSelMoveDragRect(IN OUT PMONITORSELWND infoPtr,
-                   IN PPOINT ppt)
-{
-    RECT rcPrev, rcUpdate, *prc;
-    HRGN hRgnPrev;
-    HDC hDC;
-
-    if (infoPtr->CanDisplay)
-    {
-        hDC = GetDC(infoPtr->hSelf);
-        if (hDC != NULL)
-        {
-            if (infoPtr->ptDrag.x != ppt->x ||
-                infoPtr->ptDrag.y != ppt->y)
-            {
-                infoPtr->ptDrag = *ppt;
-
-                rcPrev = infoPtr->rcDragging;
-
-                /* Calculate updated dragging rectangle */
-                prc = &infoPtr->Monitors[infoPtr->DraggingMonitor].rc;
-                infoPtr->rcDragging.left = ppt->x - infoPtr->DraggingMargin.cx;
-                infoPtr->rcDragging.top = ppt->y - infoPtr->DraggingMargin.cy;
-                infoPtr->rcDragging.right = infoPtr->rcDragging.left + (prc->right - prc->left);
-                infoPtr->rcDragging.bottom = infoPtr->rcDragging.top + (prc->bottom - prc->top);
-
-                hRgnPrev = CreateRectRgn(rcPrev.left,
-                                         rcPrev.top,
-                                         rcPrev.right,
-                                         rcPrev.bottom);
-
-                if (hRgnPrev != NULL)
-                {
-                    if (!ScrollDC(hDC,
-                                  infoPtr->rcDragging.left - rcPrev.left,
-                                  infoPtr->rcDragging.top - rcPrev.top,
-                                  &rcPrev,
-                                  NULL,
-                                  hRgnPrev,
-                                  &rcUpdate) ||
-                        !InvalidateRgn(infoPtr->hSelf,
-                                       hRgnPrev,
-                                       TRUE))
-                    {
-                        DeleteObject(hRgnPrev);
-                        goto InvRects;
-                    }
-
-                    DeleteObject(hRgnPrev);
-                }
-                else
-                {
-InvRects:
-                    InvalidateRect(infoPtr->hSelf,
-                                   &rcPrev,
-                                   TRUE);
-                    InvalidateRect(infoPtr->hSelf,
-                                   &infoPtr->rcDragging,
-                                   TRUE);
-                }
-            }
-
-            ReleaseDC(infoPtr->hSelf,
-                      hDC);
-        }
-    }
-}
-
-static VOID
-MonSelCancelDragging(IN OUT PMONITORSELWND infoPtr)
-{
-    DWORD Index;
-
-    if (infoPtr->DraggingMonitor >= 0)
-    {
-        MonSelMoveDragRect(infoPtr,
-                           &infoPtr->ptDragBegin);
-
-        Index = (DWORD)infoPtr->DraggingMonitor;
-        infoPtr->DraggingMonitor = -1;
-
-        if (infoPtr->CanDisplay)
-        {
-            /* Repaint the area where the monitor was last dragged */
-            MonSelRepaintMonitor(infoPtr,
-                                 Index);
-
-            infoPtr->IsDraggingMonitor = FALSE;
-
-            /* Repaint the area where the monitor is located */
-            MonSelRepaintMonitor(infoPtr,
-                                 Index);
-        }
-        else
-            infoPtr->IsDraggingMonitor = FALSE;
-
-        ReleaseCapture();
-
-        MonSelApplyCursorClipping(infoPtr,
-                                  FALSE);
-    }
-}
-
-static VOID
-MonSelInitDragging(IN OUT PMONITORSELWND infoPtr,
-                   IN DWORD Index,
-                   IN PPOINT ppt)
-{
-    POINT pt;
-
-    MonSelCancelDragging(infoPtr);
-    infoPtr->IsDraggingMonitor = FALSE;
-
-    MonSelScreenToPt(infoPtr,
-                     ppt,
-                     &pt);
-
-    infoPtr->ptDrag = infoPtr->ptDragBegin = pt;
-    infoPtr->DraggingMonitor = (INT)Index;
-
-    infoPtr->DraggingMargin.cx = ppt->x - infoPtr->Monitors[Index].rc.left;
-    infoPtr->DraggingMargin.cy = ppt->y - infoPtr->Monitors[Index].rc.top;
-    infoPtr->rcDragging = infoPtr->Monitors[Index].rc;
-
-    MonSelApplyCursorClipping(infoPtr,
-                              TRUE);
-}
-
-static VOID
-MonSelDrag(IN OUT PMONITORSELWND infoPtr,
-           IN PPOINT ppt)
-{
-    SIZE szDrag;
-    POINT pt;
-    RECT rcDrag;
-
-    if (infoPtr->DraggingMonitor >= 0)
-    {
-        MonSelScreenToPt(infoPtr,
-                         ppt,
-                         &pt);
-
-        if (!infoPtr->IsDraggingMonitor)
-        {
-            szDrag.cx = GetSystemMetrics(SM_CXDRAG);
-            szDrag.cy = GetSystemMetrics(SM_CYDRAG);
-
-            rcDrag.left = infoPtr->Monitors[infoPtr->DraggingMonitor].rc.left + infoPtr->DraggingMargin.cx - (szDrag.cx / 2);
-            rcDrag.top = infoPtr->Monitors[infoPtr->DraggingMonitor].rc.top + infoPtr->DraggingMargin.cy - (szDrag.cy / 2);
-            rcDrag.right = rcDrag.left + szDrag.cx;
-            rcDrag.bottom = rcDrag.top + szDrag.cy;
-
-            if (!PtInRect(&rcDrag,
-                          pt))
-            {
-                /* The user started moving around the mouse: Begin dragging */
-                infoPtr->IsDraggingMonitor = TRUE;
-                MonSelMoveDragRect(infoPtr,
-                                   &pt);
-            }
-        }
-        else
-        {
-            MonSelMoveDragRect(infoPtr,
-                               &pt);
-        }
-    }
 }
 
 static LRESULT CALLBACK
@@ -1217,44 +873,12 @@ MonitorSelWndProc(IN HWND hwnd,
             break;
         }
 
-        case WM_MOUSEMOVE:
-        {
-            POINT pt;
-
-            if (!(wParam & MK_LBUTTON))
-            {
-                MonSelCancelDragging(infoPtr);
-                break;
-            }
-
-            if (infoPtr->LeftBtnDown)
-            {
-                pt.x = (LONG)LOWORD(lParam);
-                pt.y = (LONG)HIWORD(lParam);
-
-                MonSelDrag(infoPtr,
-                           &pt);
-            }
-
-            break;
-        }
-
-        case WM_RBUTTONDOWN:
-        {
-            if (!(infoPtr->ControlExStyle & MSLM_EX_SELECTONRIGHTCLICK))
-                break;
-
-            /* fall through */
-        }
-
         case WM_LBUTTONDBLCLK:
         case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
         {
             INT Index;
             POINT pt;
-
-            if (!infoPtr->HasFocus)
-                SetFocus(infoPtr->hSelf);
 
             pt.x = (LONG)LOWORD(lParam);
             pt.y = (LONG)HIWORD(lParam);
@@ -1268,14 +892,6 @@ MonitorSelWndProc(IN HWND hwnd,
                                        TRUE);
             }
 
-            if (Index >= 0 && (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONDBLCLK))
-            {
-                infoPtr->LeftBtnDown = TRUE;
-                MonSelInitDragging(infoPtr,
-                                   (DWORD)Index,
-                                   &pt);
-            }
-
             /* fall through */
         }
 
@@ -1283,21 +899,6 @@ MonitorSelWndProc(IN HWND hwnd,
         {
             if (!infoPtr->HasFocus)
                 SetFocus(hwnd);
-            break;
-        }
-
-        case WM_RBUTTONUP:
-        {
-            MonSelContextMenu(infoPtr,
-                              (SHORT)LOWORD(lParam),
-                              (SHORT)HIWORD(lParam));
-            break;
-        }
-
-        case WM_LBUTTONUP:
-        {
-            MonSelCancelDragging(infoPtr);
-            infoPtr->LeftBtnDown = FALSE;
             break;
         }
 
@@ -1322,9 +923,6 @@ MonitorSelWndProc(IN HWND hwnd,
             }
 
             Ret |= DLGC_WANTARROWS;
-
-            if (infoPtr->ControlExStyle & MSLM_EX_SELECTBYNUMKEY)
-                Ret |= DLGC_WANTCHARS;
             break;
         }
 
@@ -1338,21 +936,13 @@ MonitorSelWndProc(IN HWND hwnd,
         case WM_KILLFOCUS:
         {
             infoPtr->HasFocus = FALSE;
-            MonSelCancelDragging(infoPtr);
             MonSelRepaintSelected(infoPtr);
             break;
         }
 
         case WM_UPDATEUISTATE:
         {
-            DWORD OldUIState;
-
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
-
-            OldUIState = infoPtr->UIState;
+            DWORD OldUIState = infoPtr->UIState;
             switch (LOWORD(wParam))
             {
                 case UIS_SET:
@@ -1415,78 +1005,6 @@ MonitorSelWndProc(IN HWND hwnd,
 
                 if (OldEnabled != infoPtr->Enabled)
                     MonSelRepaint(infoPtr);
-            }
-            break;
-        }
-
-        case WM_KEYDOWN:
-        {
-            INT Index;
-
-            if (infoPtr->ControlExStyle & MSLM_EX_SELECTBYARROWKEY)
-            {
-                switch (wParam)
-                {
-                    case VK_UP:
-                    case VK_LEFT:
-                    {
-                        Index = infoPtr->SelectedMonitor;
-
-                        if (infoPtr->MonitorsCount != 0)
-                        {
-                            if (Index < 0)
-                                Index = 0;
-                            else if (Index > 0)
-                                Index--;
-                        }
-
-                        if (Index >= 0)
-                        {
-                            MonSelSetCurSelMonitor(infoPtr,
-                                                   Index,
-                                                   TRUE);
-                        }
-                        break;
-                    }
-
-                    case VK_DOWN:
-                    case VK_RIGHT:
-                    {
-                        Index = infoPtr->SelectedMonitor;
-
-                        if (infoPtr->MonitorsCount != 0)
-                        {
-                            if (Index < 0)
-                                Index = (INT)infoPtr->MonitorsCount - 1;
-                            else if (Index < (INT)infoPtr->MonitorsCount - 1)
-                                Index++;
-                        }
-
-                        if (infoPtr->SelectedMonitor < infoPtr->MonitorsCount)
-                        {
-                            MonSelSetCurSelMonitor(infoPtr,
-                                                   Index,
-                                                   TRUE);
-                        }
-                        break;
-                    }
-                }
-            }
-            break;
-        }
-
-        case WM_CHAR:
-        {
-            if ((infoPtr->ControlExStyle & MSLM_EX_SELECTBYNUMKEY) &&
-                wParam >= '1' && wParam <= '9')
-            {
-                INT Index = (INT)(wParam - '1');
-                if (Index < (INT)infoPtr->MonitorsCount)
-                {
-                    MonSelSetCurSelMonitor(infoPtr,
-                                           Index,
-                                           TRUE);
-                }
             }
             break;
         }
@@ -1560,14 +1078,6 @@ MonitorSelWndProc(IN HWND hwnd,
         case MSLM_GETEXSTYLE:
         {
             Ret = MonSelGetExtendedStyle(infoPtr);
-            break;
-        }
-
-        case MSLM_GETMONITORRECT:
-        {
-            Ret = (LRESULT)MonSelGetMonitorRect(infoPtr,
-                                                (INT)wParam,
-                                                (PRECT)lParam);
             break;
         }
 

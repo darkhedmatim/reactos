@@ -1,7 +1,7 @@
 LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
 
-IDD_END_NOW DIALOGEX DISCARDABLE  0, 0, 200, 95
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_END_NOW DIALOG DISCARDABLE  0, 0, 200, 95
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Fin du programme - "
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -13,8 +13,8 @@ BEGIN
     DEFPUSHBUTTON   "T&erminer maintenant",IDC_END_NOW,150,71,43,17
 END
 
-IDD_NOT_RESPONDING DIALOGEX DISCARDABLE 0, 0, 192, 122
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_NOT_RESPONDING DIALOG DISCARDABLE 0, 0, 192, 122
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Fin du programme - "
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -25,14 +25,6 @@ BEGIN
                     IDC_STATIC,7,26,178,16
     LTEXT           "Si vous choisissez de terminer le programme immédiatement, vous perdrez toutes les données non sauvegardées. Pour terminer le programme maintenant, cliquez sur Terminer maintenant",
                     IDC_STATIC,7,53,178,26
-END
-
-IDD_SWITCH_APP DIALOGEX 90, 90, 265, 170
-STYLE DS_SYSMODAL | DS_SETFONT | DS_SETFOREGROUND | DS_3DLOOK | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE
-EXSTYLE WS_EX_TOPMOST | WS_EX_WINDOWEDGE
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    LTEXT           "",IDC_STATIC_CUR_APP,39,139,204,16,SS_SUNKEN,WS_EX_STATICEDGE
 END
 
 /* Fixme : Translation could be really improved, with context
@@ -47,7 +39,7 @@ BEGIN
   IDS_SCROLL "Défiler"
   IDS_FIND "Trouver..."
   IDS_DEFAULTS "Défauts"
-  IDS_PROPERTIES "Propriétés"
+  IDS_PROPERTIES "Proprietés"
   IDS_SCROLLHERE "Défiler ici"
   IDS_SCROLLTOP "Défiler tout en haut"
   IDS_SCROLLBOTTOM "Défiler tout en bas"

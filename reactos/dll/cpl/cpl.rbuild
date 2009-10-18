@@ -7,9 +7,6 @@
 <directory name="appwiz">
 	<xi:include href="appwiz/appwiz.rbuild" />
 </directory>
-<directory name="console">
-	<xi:include href="console/console.rbuild" />
-</directory>
 <directory name="desk">
 	<xi:include href="desk/desk.rbuild" />
 </directory>
@@ -21,9 +18,6 @@
 </directory>
 <directory name="intl">
 	<xi:include href="intl/intl.rbuild" />
-</directory>
-<directory name="joy">
-	<xi:include href="joy/joy.rbuild" />
 </directory>
 <directory name="main">
 	<xi:include href="main/main.rbuild" />
@@ -42,9 +36,6 @@
 </directory>
 <directory name="sysdm">
 	<xi:include href="sysdm/sysdm.rbuild" />
-</directory>
-<directory name="telephon">
-	<xi:include href="telephon/telephon.rbuild" />
 </directory>
 <directory name="timedate">
 	<xi:include href="timedate/timedate.rbuild" />

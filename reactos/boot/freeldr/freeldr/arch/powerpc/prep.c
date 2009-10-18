@@ -4,7 +4,6 @@
 #include "prep.h"
 
 int prep_serial = 0x800003f8;
-extern int mem_range_end;
 
 void sync() { __asm__("eieio\n\tsync"); }
 
@@ -23,7 +22,7 @@ BOOLEAN PpcPrepDiskReadLogicalSectors
 ( ULONG DriveNumber, ULONGLONG SectorNumber,
   ULONG SectorCount, PVOID Buffer ) {
     int secct;
-
+    
     for(secct = 0; secct < SectorCount; secct++)
     {
 	ide_seek(&ide1_desc, SectorNumber + secct, 0);
@@ -39,7 +38,7 @@ BOOLEAN PpcPrepConsKbHit()
     //return GetPhysByte(prep_serial+5) & 1;
 }
 
-int PpcPrepConsGetCh()
+int PpcPrepConsGetCh() 
 {
     while(!PpcPrepConsKbHit());
     return GetPhysByte(prep_serial);
@@ -64,58 +63,25 @@ void PpcPrepVideoGetDisplaySize( PULONG Width, PULONG Height, PULONG Depth )
 
 void PpcPrepVideoPrepareForReactOS(BOOLEAN setup)
 {
+    pci_setup(&pci1_desc);
 }
 
-VOID PpcInitializeMmu(int max);
+int mmu_initialized = 0;
 
 ULONG PpcPrepGetMemoryMap( PBIOS_MEMORY_MAP BiosMemoryMap,
 			   ULONG MaxMemoryMapSize )
 {
-    // Probe memory
-    paddr_t physAddr;
-    register int oldStore = 0, newStore = 0, change = 0, oldmsr;
-
-    __asm__("mfmsr %0\n" : "=r" (oldmsr));
-    change = oldmsr & 0x6fff;
-    __asm__("mtmsr %0\n" : : "r" (change));
-
-    // Find the last ram address in physical space ... this bypasses mapping
-    // but could run into non-ram objects right above ram.  Usually systems
-    // aren't designed like that though.
-    for (physAddr = 0x40000, change = newStore; 
-         (physAddr < 0x80000000) && (change == newStore); 
-         physAddr += 1 << 12)
+    // xxx fixme
+    BiosMemoryMap[0].Type = 1;
+    BiosMemoryMap[0].BaseAddress = 0xe80000;
+    BiosMemoryMap[0].Length = (64 * 1024 * 1024) - BiosMemoryMap[0].BaseAddress;
+    if(!mmu_initialized)
     {
-        oldStore = GetPhys(physAddr);
-        newStore = (physAddr & 0x1000) ? 0x55aa55aa : 0xaa55aa55;
-        SetPhys(physAddr, newStore);
-        change = GetPhys(physAddr);
-        SetPhys(physAddr, oldStore);
+	MmuInit();
+	mmu_initialized = 1;
     }
-    // Back off by one page
-    physAddr -= 0x1000;
-    BiosMemoryMap[0].BaseAddress = 0x30000; // End of ppcmmu
-    BiosMemoryMap[0].Type = BiosMemoryUsable;
-    BiosMemoryMap[0].Length = physAddr - BiosMemoryMap[0].BaseAddress;
-
-    __asm__("mtmsr %0\n" : : "r" (oldmsr));
-
-    mem_range_end = physAddr;
-
-    printf("Actual RAM: %d Mb\n", physAddr >> 20);
+    MmuSetMemorySize(BiosMemoryMap[0].Length + BiosMemoryMap[0].BaseAddress);
     return 1;
-}
-
-/* Most PReP hardware is in standard locations, based on the corresponding 
- * hardware on PCs. */
-PCONFIGURATION_COMPONENT_DATA PpcPrepHwDetect() {
-  PCONFIGURATION_COMPONENT_DATA SystemKey;
-
-  /* Create the 'System' key */
-  FldrCreateSystemKey(&SystemKey);
-
-  printf("DetectHardware() Done\n");
-  return SystemKey;
 }
 
 void PpcPrepInit()
@@ -127,7 +93,7 @@ void PpcPrepInit()
     ide_setup( &ide1_desc );
 
     MachVtbl.DiskReadLogicalSectors = PpcPrepDiskReadLogicalSectors;
-
+    
     MachVtbl.ConsKbHit   = PpcPrepConsKbHit;
     MachVtbl.ConsGetCh   = PpcPrepConsGetCh;
 
@@ -138,7 +104,6 @@ void PpcPrepInit()
     MachVtbl.VideoPrepareForReactOS = PpcPrepVideoPrepareForReactOS;
 
     MachVtbl.GetMemoryMap = PpcPrepGetMemoryMap;
-    MachVtbl.HwDetect = PpcPrepHwDetect;
 
     printf( "FreeLDR version [%s]\n", GetFreeLoaderVersionString() );
 

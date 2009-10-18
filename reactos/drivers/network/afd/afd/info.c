@@ -11,23 +11,25 @@
 #include "tdi_proto.h"
 #include "tdiconn.h"
 #include "debug.h"
-#include "pseh/pseh2.h"
+#include "pseh/pseh.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	    PIO_STACK_LOCATION IrpSp ) {
     NTSTATUS Status = STATUS_SUCCESS;
     PAFD_INFO InfoReq = IrpSp->Parameters.DeviceIoControl.Type3InputBuffer;
     PFILE_OBJECT FileObject = IrpSp->FileObject;
     PAFD_FCB FCB = FileObject->FsContext;
-    PLIST_ENTRY CurrentEntry;
 
     AFD_DbgPrint(MID_TRACE,("Called %x %x\n", InfoReq,
 			    InfoReq ? InfoReq->InformationClass : 0));
 
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
+    _SEH_TRY {
+	if( !SocketAcquireStateLock( FCB ) ) {
+	    Status = LostSocket( Irp, TRUE );
+	    _SEH_YIELD(return Status);
+	}
 
-    _SEH2_TRY {
 	switch( InfoReq->InformationClass ) {
 	case AFD_INFO_RECEIVE_WINDOW_SIZE:
 	    InfoReq->Information.Ulong = FCB->Recv.Size;
@@ -39,39 +41,12 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	    break;
 
 	case AFD_INFO_GROUP_ID_TYPE:
-	    InfoReq->Information.LargeInteger.u.HighPart = FCB->GroupType;
-	    InfoReq->Information.LargeInteger.u.LowPart = FCB->GroupID;
-	    AFD_DbgPrint(MID_TRACE, ("Group ID: %d Group Type: %d\n", FCB->GroupID, FCB->GroupType));
+	    InfoReq->Information.Ulong = 0; /* What is group id */
 	    break;
 
 	case AFD_INFO_BLOCKING_MODE:
-	    InfoReq->Information.Ulong = FCB->BlockingMode;
+	    InfoReq->Information.Ulong = 0;
 	    break;
-
-    case AFD_INFO_RECEIVE_CONTENT_SIZE:
-        /* Only touch InfoReq if a socket has been set up.
-           Behaviour was verified under WinXP SP2. */
-        if(FCB->AddressFile.Object)
-            InfoReq->Information.Ulong = FCB->Recv.Content - FCB->Recv.BytesUsed;
-
-        break;
-
-	case AFD_INFO_SENDS_IN_PROGRESS:
-            InfoReq->Information.Ulong = 0;
-
-	    /* Count the queued sends */
-	    CurrentEntry = FCB->PendingIrpList[FUNCTION_SEND].Flink;
-	    while (CurrentEntry != &FCB->PendingIrpList[FUNCTION_SEND])
-	    {
-	         InfoReq->Information.Ulong++;
-	         CurrentEntry = CurrentEntry->Flink;
-	    }
-
-	    /* Count the send in progress */
-	    if (FCB->SendIrp.InFlightRequest)
-	        InfoReq->Information.Ulong++;
-
-            break;
 
 	default:
 	    AFD_DbgPrint(MID_TRACE,("Unknown info id %x\n",
@@ -79,57 +54,33 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	    Status = STATUS_INVALID_PARAMETER;
 	    break;
 	}
-    } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+    } _SEH_HANDLE {
 	AFD_DbgPrint(MID_TRACE,("Exception executing GetInfo\n"));
 	Status = STATUS_INVALID_PARAMETER;
-    } _SEH2_END;
+    } _SEH_END;
 
     AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );
 }
 
-NTSTATUS NTAPI
-AfdSetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-            PIO_STACK_LOCATION IrpSp ) {
-    NTSTATUS Status = STATUS_SUCCESS;
-    PAFD_INFO InfoReq = IrpSp->Parameters.DeviceIoControl.Type3InputBuffer;
-    PFILE_OBJECT FileObject = IrpSp->FileObject;
-    PAFD_FCB FCB = FileObject->FsContext;
-
-    if (!SocketAcquireStateLock(FCB)) return LostSocket(Irp);
-
-    _SEH2_TRY {
-      switch (InfoReq->InformationClass) {
-        case AFD_INFO_BLOCKING_MODE:
-          AFD_DbgPrint(MID_TRACE,("Blocking mode set to %d\n", InfoReq->Information.Ulong));
-          FCB->BlockingMode = InfoReq->Information.Ulong;
-          break;
-        default:
-          AFD_DbgPrint(MIN_TRACE,("Unknown request %d\n", InfoReq->InformationClass));
-          break;
-      }
-    } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
-      Status = STATUS_INVALID_PARAMETER;
-    } _SEH2_END;
-
-    AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
-
-    return UnlockAndMaybeComplete(FCB, Status, Irp, 0);
-}
-
-NTSTATUS NTAPI
-AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                      PIO_STACK_LOCATION IrpSp ) {
+NTSTATUS STDCALL
+AfdGetSockOrPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
+                      PIO_STACK_LOCATION IrpSp, BOOLEAN Local ) {
     NTSTATUS Status = STATUS_SUCCESS;
     PFILE_OBJECT FileObject = IrpSp->FileObject;
     PAFD_FCB FCB = FileObject->FsContext;
-    PMDL Mdl = NULL;
+    PMDL Mdl = NULL, SysMdl = NULL;
+    PTDI_CONNECTION_INFORMATION ConnInfo = NULL;
+    PTRANSPORT_ADDRESS TransAddr = NULL;
 
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
+    AFD_DbgPrint(MID_TRACE,("Called on %x\n", FCB));
 
-    if( FCB->AddressFile.Object == NULL && FCB->Connection.Object == NULL ) {
-	 return UnlockAndMaybeComplete( FCB, STATUS_INVALID_PARAMETER, Irp, 0 );
+    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, FALSE );
+
+    if( FCB->AddressFile.Object == NULL) {
+	return UnlockAndMaybeComplete( FCB, STATUS_UNSUCCESSFUL, Irp, 0,
+	                               NULL, FALSE );
     }
 
     Mdl = IoAllocateMdl
@@ -140,79 +91,65 @@ AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	  NULL );
 
     if( Mdl != NULL ) {
-	_SEH2_TRY {
+	_SEH_TRY {
 	    MmProbeAndLockPages( Mdl, Irp->RequestorMode, IoModifyAccess );
-	} _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+	} _SEH_HANDLE {
 	    AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
-	    Status = _SEH2_GetExceptionCode();
-	} _SEH2_END;
+	    Status = _SEH_GetExceptionCode();
+	} _SEH_END;
 
 	if( NT_SUCCESS(Status) ) {
+            if( Local ) {
                 Status = TdiQueryInformation
-                    ( FCB->Connection.Object ? FCB->Connection.Object : FCB->AddressFile.Object,
+                    ( FCB->AddressFile.Object,
                       TDI_QUERY_ADDRESS_INFO,
                       Mdl );
-        }
-    } else
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
-}
-
-NTSTATUS NTAPI
-AfdGetPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                      PIO_STACK_LOCATION IrpSp ) {
-    NTSTATUS Status = STATUS_SUCCESS;
-    PFILE_OBJECT FileObject = IrpSp->FileObject;
-    PAFD_FCB FCB = FileObject->FsContext;
-    PMDL Mdl = NULL;
-    PTDI_CONNECTION_INFORMATION ConnInfo = NULL;
-
-
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
-
-    if (FCB->RemoteAddress == NULL || FCB->Connection.Object == NULL) {
-        return UnlockAndMaybeComplete( FCB, STATUS_INVALID_PARAMETER, Irp, 0 );
-    }
-
-    if(NT_SUCCESS(Status = TdiBuildNullConnectionInfo
-                      (&ConnInfo,
-                       FCB->RemoteAddress->Address[0].AddressType)))
-    {
-        Mdl = IoAllocateMdl(ConnInfo, 
-                            sizeof(TDI_CONNECTION_INFORMATION) + 
-                                   TaLengthOfTransportAddress(ConnInfo->RemoteAddress),
-                            FALSE,
-                            FALSE,
-                            NULL);
-
-        if (Mdl)
-        {
-            _SEH2_TRY {
-               MmProbeAndLockPages(Mdl, Irp->RequestorMode, IoModifyAccess);
-            } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
-	       AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
-	       Status = _SEH2_GetExceptionCode();
-	    } _SEH2_END;
-
-            if (NT_SUCCESS(Status))
-            {
-                Status = TdiQueryInformation(FCB->Connection.Object,
-                          TDI_QUERY_CONNECTION_INFO,
-                          Mdl);
-
-                if (NT_SUCCESS(Status))
-                {
-                    if (IrpSp->Parameters.DeviceIoControl.OutputBufferLength >= TaLengthOfTransportAddress(ConnInfo->RemoteAddress))
-                        RtlCopyMemory(Irp->UserBuffer, ConnInfo->RemoteAddress, TaLengthOfTransportAddress(ConnInfo->RemoteAddress));
-                    else
-                        Status = STATUS_BUFFER_TOO_SMALL;
+            } else {
+                if( !NT_SUCCESS
+                    ( Status = TdiBuildNullConnectionInfo
+                      ( &ConnInfo,
+                        FCB->LocalAddress->Address[0].AddressType ) ) ) {
+                    SysMdl = IoAllocateMdl
+                        ( ConnInfo,
+                          sizeof( TDI_CONNECTION_INFORMATION ) +
+                          TaLengthOfTransportAddress
+                          ( ConnInfo->RemoteAddress ),
+                          FALSE,
+                          FALSE,
+                          NULL );
                 }
-            }
-         }
 
-         ExFreePool(ConnInfo);
+                if( SysMdl ) {
+                    MmBuildMdlForNonPagedPool( SysMdl );
+                    Status = TdiQueryInformation
+                        ( FCB->AddressFile.Object,
+                          TDI_QUERY_CONNECTION_INFO,
+                          SysMdl );
+                } else Status = STATUS_NO_MEMORY;
+
+                if( NT_SUCCESS(Status) ) {
+                    TransAddr =
+                        (PTRANSPORT_ADDRESS)MmMapLockedPages
+                        ( Mdl, IoModifyAccess );
+                }
+
+                if( TransAddr )
+                    RtlCopyMemory( TransAddr, ConnInfo->RemoteAddress,
+                                   TaLengthOfTransportAddress
+                                   ( ConnInfo->RemoteAddress ) );
+
+                if( ConnInfo ) ExFreePool( ConnInfo );
+                if( SysMdl ) IoFreeMdl( SysMdl );
+            }
+	}
+
+	/* MmUnlockPages( Mdl ); */
+	/* IoFreeMdl( Mdl ); */
+    } else {
+    	Status = STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
+
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );
 }

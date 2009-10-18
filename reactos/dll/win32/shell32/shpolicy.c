@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * NOTES:
  *
@@ -29,7 +29,19 @@
  * Up to date as of SHELL32 v5.00 (W2K)
  */
 
-#include <precomp.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "windef.h"
+#include "winbase.h"
+#include "winerror.h"
+#include "winreg.h"
+
+#include "shell32_main.h"
+#include "shlobj.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -121,7 +133,7 @@ static const char strNoClose[] = {"NoClose"};
 static const char strNoRun[] = {"NoRun"};
 
 /* policy data array */
-static POLICYDATA sh32_policy_table[] =
+POLICYDATA sh32_policy_table[] =
 {
   {
     REST_NORUN,
@@ -429,14 +441,12 @@ static POLICYDATA sh32_policy_table[] =
     strForceCopyACLW,
     SHELL_NO_POLICY
   },
-#if (NTDDI_VERSION < NTDDI_LONGHORN)
   {
     REST_NOLOGO3CHANNELNOTIFY,
     strExplorer,
     strNoMSAppLogo,
     SHELL_NO_POLICY
   },
-#endif
   {
     REST_NOFORGETSOFTWAREUPDATE,
     strExplorer,
@@ -786,7 +796,7 @@ static POLICYDATA sh32_policy_table[] =
     0,
     0,
     SHELL_NO_POLICY
-  }
+	}
 };
 
 /*************************************************************************

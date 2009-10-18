@@ -75,19 +75,6 @@ MonthCalNotifyControlParent(IN PMONTHCALWND infoPtr,
     return Ret;
 }
 
-/*
- * for the year range 1..9999
- * return 1 if is leap year otherwise 0
- */
-static WORD LeapYear(IN WORD Year)
-{
-	return 
-#ifdef WITH_1752
-		(Year <= 1752) ? !(Year % 4) :
-#endif	       
-		!(Year % 4) && ((Year % 100) || !(Year % 400));
-}
-
 static WORD
 MonthCalMonthLength(IN WORD Month,
                     IN WORD Year)
@@ -95,16 +82,9 @@ MonthCalMonthLength(IN WORD Month,
     const BYTE MonthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0};
 
     if(Month == 2)
-        return MonthDays[Month - 1] + LeapYear(Year);
+        return MonthDays[Month - 1] + ((Year % 400 == 0) ? 1 : ((Year % 100 != 0) && (Year % 4 == 0)) ? 1 : 0);
     else
-    {
-#ifdef WITH_1752
-        if ((Year == 1752) && (Month == 9))
-	   return 19; // special case: September 1752 has no 3rd-13th
-	else
-#endif
-     	   return MonthDays[Month - 1];
-    }
+        return MonthDays[Month - 1];
 }
 
 static WORD
@@ -154,7 +134,7 @@ MonthCalValidDate(IN WORD Day,
     if (Month < 1 || Month > 12 ||
         Day == 0 || Day > MonthCalMonthLength(Month,
                                               Year) ||
-        Year < 1899 || Year > 9999)
+        Year < 1980 || Year > 2099)
     {
         return FALSE;
     }
@@ -524,7 +504,7 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
             if (crOldCtrlText == CLR_INVALID)
             {
                 crOldCtrlText = SetTextColor(hDC,
-                                             GetSysColor(infoPtr->Enabled ? MONTHCAL_CTRLFG : MONTHCAL_DISABLED_CTRLFG));
+                                             infoPtr->Enabled ? MONTHCAL_CTRLFG : MONTHCAL_DISABLED_CTRLFG);
             }
 
             for (x = prcUpdate->left / infoPtr->CellSize.cx;
@@ -553,7 +533,7 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
                                               szDayLen,
                                               &TextSize))
                     {
-                        RECT rcHighlight = { 0, 0, 0, 0 };
+                        RECT rcHighlight = {0};
 
                         rcText.left = rcCell.left + (infoPtr->CellSize.cx / 2) - (TextSize.cx / 2);
                         rcText.top = rcCell.top + (infoPtr->CellSize.cy / 2) - (TextSize.cy / 2);
@@ -562,20 +542,7 @@ MonthCalPaint(IN PMONTHCALWND infoPtr,
 
                         if (Day == infoPtr->Day)
                         {
-                            SIZE TextSel;
-
-                            TextSel.cx = (infoPtr->CellSize.cx * 2) / 3;
-                            TextSel.cy = (infoPtr->CellSize.cy * 3) / 4;
-
-                            if (TextSel.cx < rcText.right - rcText.left)
-                                TextSel.cx = rcText.right - rcText.left;
-                            if (TextSel.cy < rcText.bottom - rcText.top)
-                                TextSel.cy = rcText.bottom - rcText.top;
-
-                            rcHighlight.left = rcCell.left + (infoPtr->CellSize.cx / 2) - (TextSel.cx / 2);
-                            rcHighlight.right = rcHighlight.left + TextSel.cx;
-                            rcHighlight.top = rcCell.top + (infoPtr->CellSize.cy / 2) - (TextSel.cy / 2);
-                            rcHighlight.bottom = rcHighlight.top + TextSel.cy;
+                            rcHighlight = rcText;
 
                             InflateRect(&rcHighlight,
                                         GetSystemMetrics(SM_CXFOCUSBORDER),
@@ -876,14 +843,7 @@ MonthCalWndProc(IN HWND hwnd,
 
         case WM_UPDATEUISTATE:
         {
-            DWORD OldUIState;
-
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
-
-            OldUIState = infoPtr->UIState;
+            DWORD OldUIState = infoPtr->UIState;
             switch (LOWORD(wParam))
             {
                 case UIS_SET:

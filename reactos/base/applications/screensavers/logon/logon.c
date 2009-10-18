@@ -19,7 +19,6 @@
  */
 
 #include <windows.h>
-#include <scrnsave.h>
 #include <tchar.h>
 #include "resource.h"
 
@@ -29,10 +28,45 @@
 #define APP_TIMER			1
 #define APP_TIMER_INTERVAL	2000
 
+#define BITMAP_HEIGHT	 240;
+#define BITMAP_WIDTH	 340
+
+HINSTANCE hInstance;
+
+BOOL fullscreen = FALSE;
+
+void DrawScreen (HDC hdc, HDC hMemDC , RECT rect)
+{
+	int x;
+	int y;
+	int width = BITMAP_WIDTH;
+	int height = BITMAP_HEIGHT;
+
+	if (!fullscreen)
+	{
+		width =  width / 20;
+		height = height / 20;
+	}
+
+	x = RANDOM (0, rect.right - width);
+	y = RANDOM (0, rect.bottom - height);
+
+	BitBlt(
+		hdc, 
+		x, 
+		y, 
+		width, 
+		height, 
+		hMemDC, 
+		0, 
+		0, 
+		SRCCOPY);
+}
+
 HBITMAP GetScreenSaverBitmap (void)
 {
 	OSVERSIONINFOEX osvi;
-
+	
 	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
 	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
 	GetVersionEx ((OSVERSIONINFO *) &osvi);
@@ -40,133 +74,259 @@ HBITMAP GetScreenSaverBitmap (void)
 	switch(osvi.wProductType)
 	{
 		case VER_NT_WORKSTATION:
-			return LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_WORKSTATION), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
+			return LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_WORKSTATION));
 			break;
 		default:
-			return LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_SERVER), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
+			return LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_SERVER));
 			break;
 	}
 }
 
-LRESULT CALLBACK
-ScreenSaverProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	static POINT ptLast;
+	static POINT ptCursor;
+	static BOOL  fFirstTime = TRUE;
+
+	static PAINTSTRUCT ps;
 	static RECT rect;
+	static HDC hDC;
+	static HDC hMemDC;
+	static HBRUSH hBlkBrush;
 	static HBITMAP bitmap;
 
-	switch (message)
+	switch (msg)
 	{
-		case WM_CREATE:
+		case WM_CREATE: 
 		{
+			hDC = GetDC(hwnd);
+			hBlkBrush = (HBRUSH) GetStockObject(BLACK_BRUSH);
+			hMemDC = CreateCompatibleDC(hDC);
+			GetClientRect(hwnd, &rect);
+
 			bitmap = GetScreenSaverBitmap ();
 
 			if(bitmap == NULL)
 			{
 				MessageBox(
-				   hWnd,
-				   _T("Fatal Error: Could not load bitmap"),
+				   hwnd, 
+				   _T("Fatal Error: Could not load bitmap"), 
 				   _T("Error"),
-				   MB_OK | MB_ICONEXCLAMATION);
+				   MB_OK | MB_ICONEXCLAMATION); 
 			}
 
 			SetTimer (
-				hWnd,
-				APP_TIMER,
-				APP_TIMER_INTERVAL,
+				hwnd, 
+				APP_TIMER, 
+				APP_TIMER_INTERVAL, 
 				NULL);
 
-			 break;
+			 break; 
 		 }
 		case WM_PAINT:
+			{	
+				hDC = BeginPaint(hwnd, &ps);
+				SelectObject(hMemDC, bitmap);
+				DrawScreen (hDC , hMemDC , rect);
+				EndPaint(hwnd, &ps);
+				break;
+			}
+		case WM_TIMER :
 		{
-             BITMAP bm; /* Bitmap structure as seen in bmWidth & bmHeight */ 
-             PAINTSTRUCT ps; 
-             HDC hdc;
-             HDC hdcMem;
-             HBITMAP hbmOld;
-
-             // Obtain window coordinates.
-             GetClientRect (hWnd, &rect);
-
-             hdc = BeginPaint(hWnd, &ps); 
-             hdcMem = CreateCompatibleDC(hdc); 
-             hbmOld = SelectObject(hdcMem, bitmap); 
-
-             GetObject(bitmap, sizeof(bm), &bm);
-
-             if (rect.right < bm.bmWidth ||
-                 rect.bottom < bm.bmHeight)
-             {
-                StretchBlt(
-                    hdc,
-                    RANDOM (0, rect.right - (bm.bmWidth /5)),
-                    RANDOM (0, rect.bottom - (bm.bmHeight /5)),
-                    bm.bmWidth /5,
-                    bm.bmHeight /5,
-                    hdcMem,
-                    0,
-                    0,
-                    bm.bmWidth,
-                    bm.bmHeight,
-                    SRCCOPY);
-             }
-             else
-             {
-                 BitBlt(
-                     hdc, 
-                     RANDOM (0, rect.right - bm.bmWidth),
-                     RANDOM (0, rect.bottom - bm.bmHeight),
-                     bm.bmWidth, 
-                     bm.bmHeight, 
-                     hdcMem, 
-                     0, 
-                     0, 
-                     SRCCOPY); 
-             }
-
-             SelectObject(hdcMem, hbmOld); 
-             DeleteDC(hdcMem); 
-
-             EndPaint(hWnd, &ps);
-             break;
+			if (wParam == APP_TIMER)
+			{
+				InvalidateRect(hwnd, NULL, 1);
+			}
 		}
-        case WM_TIMER:
-        {
-          InvalidateRect(hWnd, NULL, 1);
-          break;
-        }
-		case WM_DESTROY:
-		{
-			KillTimer (hWnd, APP_TIMER);
-			DeleteObject(bitmap);
-			PostQuitMessage(0);
+		  case WM_ERASEBKGND:
+			{
+				SelectObject(hDC, hBlkBrush);
+		        
+				PatBlt(
+					hDC,
+					0,
+					0, 
+					rect.right, 
+					rect.bottom, 
+					PATCOPY);
+				break;
+			}
+			case WM_DESTROY:
+			{
+				KillTimer (hwnd, APP_TIMER);
+				DeleteObject(bitmap);
+				ShowCursor(TRUE);
+				PostQuitMessage(0);
+				break;	
+			}
+			
+			// break out of screen-saver if any keyboard activity
+			case WM_NOTIFY:
+			case WM_SYSKEYDOWN:
+				PostMessage(hwnd, WM_CLOSE, 0, 0);
+				break;
+
+			// break out of screen-saver if any mouse activity
+			case WM_LBUTTONDOWN:
+			case WM_LBUTTONUP:
+			case WM_RBUTTONDOWN:
+			case WM_RBUTTONUP:
+			case WM_MBUTTONDOWN:
+			case WM_MBUTTONUP:
+			case WM_MOUSEMOVE:
+				// If we've got a parent then we must be a preview
+				if(GetParent(hwnd) != 0)
+					return 0;
+
+				if(fFirstTime)
+				{
+					GetCursorPos(&ptLast);
+					fFirstTime = FALSE;
+				}
+
+			GetCursorPos(&ptCursor);
+
+			// if the mouse has moved more than 3 pixels then exit
+			if(abs(ptCursor.x - ptLast.x) >= 3 || abs(ptCursor.y - ptLast.y) >= 3)
+				PostMessage(hwnd, WM_CLOSE, 0, 0);
+
+			ptLast = ptCursor;
+
+			return 0;
+		}
+
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+void InitSaver(HWND hwndParent)
+{
+	WNDCLASS wc;
+	ZeroMemory(&wc, sizeof(wc));
+	wc.style            = CS_HREDRAW | CS_VREDRAW;
+	wc.lpfnWndProc      = WndProc;
+	wc.lpszClassName    = APPNAME;
+	wc.hbrBackground    = (HBRUSH)GetStockObject(BLACK_BRUSH);
+	RegisterClass(&wc);
+
+	if (hwndParent != 0)
+	{
+		RECT rect;
+		GetClientRect(hwndParent, &rect);
+		CreateWindow(APPNAME, APPNAME,
+		             WS_VISIBLE | WS_CHILD,
+		             0, 0,
+		             rect.right,
+		             rect.bottom,
+		             hwndParent, 0,
+		             hInstance, NULL);
+		fullscreen = FALSE;
+	}
+	else
+	{
+		HWND hwnd;
+		hwnd = CreateWindowEx(WS_EX_TOPMOST,
+                          APPNAME, 
+                          APPNAME,
+                          WS_VISIBLE | WS_POPUP,
+                          0, 0,
+                          GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+                          HWND_DESKTOP, 0,
+                          hInstance, NULL);
+        
+    SetWindowPos(hwnd, 
+                 0, 0, 0, 0, 0, 
+                 SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_SHOWWINDOW);
+
+    ShowCursor(FALSE);
+		fullscreen = TRUE;
+	}
+}
+
+void ParseCommandLine(PSTR szCmdLine, int *chOption, HWND *hwndParent)
+{
+	int ch = *szCmdLine++;
+
+	if(ch == '-' || ch == '/')
+		ch = *szCmdLine++;
+
+	if(ch >= 'A' && ch <= 'Z')
+		ch += 'a' - 'A';
+
+	*chOption = ch;
+	ch = *szCmdLine++;
+
+	if(ch == ':')
+		ch = *szCmdLine++;
+
+	while(ch == ' ' || ch == '\t')
+		ch = *szCmdLine++;
+
+	if(isdigit(ch))
+	{
+		unsigned int i = atoi(szCmdLine - 1);
+		*hwndParent = (HWND)i;
+	}
+	else
+		*hwndParent = 0;
+}
+
+void Configure(void)
+{
+	TCHAR szTitle[256];
+	TCHAR szText[256];
+
+	LoadString(hInstance,
+		   IDS_TITLE,
+		   szTitle,
+		   256);
+
+	LoadString(hInstance,
+		   IDS_TEXT,
+		   szText,
+		   256);
+
+	MessageBox(0,
+	           szText,
+	           szTitle,
+	           MB_OK | MB_ICONWARNING);
+}
+
+int WINAPI WinMain (HINSTANCE hInst,
+                    HINSTANCE hPrev,
+                    LPSTR lpCmdLine,
+                    int iCmdShow)
+{
+	HWND	hwndParent;
+	UINT	nPreviousState;
+	int	chOption;
+	MSG	Message;
+
+	hInstance = hInst;
+
+	ParseCommandLine(lpCmdLine, &chOption, &hwndParent);
+
+	SystemParametersInfo(SPI_SETSCREENSAVERRUNNING, TRUE, &nPreviousState, 0);
+
+	switch (chOption)
+	{
+		case 's':
+			InitSaver(0);
 			break;
-		}
 
-        default:
-            // Pass Windows Messages to the default screensaver window procedure
-            return DefScreenSaverProc(hWnd, message, wParam, lParam);
-    }
+		case 'p':
+			InitSaver(hwndParent);
+			break;
 
-	return 0;
-}
+		case 'c':
+		default:
+			Configure();
+			return 0;
+	}
 
-BOOL WINAPI ScreenSaverConfigureDialog(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    return FALSE;
-}
+	while (GetMessage(&Message, 0, 0, 0))
+		DispatchMessage(&Message);
 
-// This function is only called one time before opening the configuration dialog.
-// Use it to show a message that no configuration is necesssary and return FALSE to indicate that no configuration dialog shall be opened.
-BOOL WINAPI RegisterDialogClasses(HANDLE hInst)
-{
-    TCHAR szMessage[256];
-    TCHAR szTitle[25];
+	SystemParametersInfo(SPI_SETSCREENSAVERRUNNING, FALSE, &nPreviousState, 0);
 
-    LoadString(hInst, IDS_TEXT, szMessage, sizeof(szMessage) / sizeof(TCHAR));
-    LoadString(hInst, IDS_DESCRIPTION, szTitle, sizeof(szTitle) / sizeof(TCHAR));
-
-    MessageBox(NULL, szMessage, szTitle, MB_OK | MB_ICONEXCLAMATION);
-
-    return FALSE;
+	return Message.wParam;
 }

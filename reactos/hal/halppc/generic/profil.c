@@ -21,7 +21,7 @@ VOID
 NTAPI
 HalStopProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    KeBugCheck(0);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -32,7 +32,7 @@ VOID
 NTAPI
 HalStartProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    KeBugCheck(0);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -43,7 +43,7 @@ ULONG_PTR
 NTAPI
 HalSetProfileInterval(IN ULONG_PTR Interval)
 {
-    KeBugCheck(0);
+    KEBUGCHECK(0);
     return Interval;
 }
 
@@ -54,7 +54,7 @@ KeQueryPerformanceCounter(PLARGE_INTEGER PerformanceFrequency)
 {
     LARGE_INTEGER Result;
     /* for now */
-    if(PerformanceFrequency) PerformanceFrequency->QuadPart = 100000000;
+    if(PerformanceFrequency) PerformanceFrequency->QuadPart = 100000000; 
     Result.HighPart = HalpDecrementerRoll;
     Result.LowPart = __rdtsc();
     return Result;

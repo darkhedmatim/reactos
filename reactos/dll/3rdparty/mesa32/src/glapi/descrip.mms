@@ -1,10 +1,9 @@
 # Makefile for core library for VMS
-# contributed by Jouk Jansen  joukj@hrem.nano.tudelft.nl
-# Last revision : 29 September 2008
+# contributed by Jouk Jansen  joukj@hrem.stm.tudelft.nl
+# Last revision : 16 June 2003
 
 .first
 	define gl [---.include.gl]
-	define main [-.main]
 
 .include [---]mms-config.
 
@@ -14,11 +13,11 @@ VPATH = RCS
 
 INCDIR = [---.include],[-.main]
 LIBDIR = [---.lib]
-CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)/float=ieee/ieee=denorm
+CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)
 
-SOURCES = glapi.c glthread.c glapi_getproc.c
+SOURCES = glapi.c glthread.c
 
-OBJECTS =  glapi.obj,glthread.obj,glapi_getproc.obj
+OBJECTS =  glapi.obj,glthread.obj
 
 ##### RULES #####
 
@@ -36,4 +35,3 @@ clean :
 glapi.obj : glapi.c
 
 glthread.obj : glthread.c
-glapi_getproc.obj : glapi_getproc.c

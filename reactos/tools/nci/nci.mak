@@ -16,7 +16,7 @@ $(NCI_OUT): | $(TOOLS_OUT)
 endif
 
 NCI_TARGET = \
-	$(NCI_OUT_)nci$(EXEPOSTFIX)
+	$(EXEPREFIX)$(NCI_OUT_)nci$(EXEPOSTFIX)
 
 NCI_SOURCES = \
 	$(NCI_BASE_)ncitool.c
@@ -29,11 +29,11 @@ NCI_HOST_CFLAGS = -Iinclude $(TOOLS_CFLAGS)
 NCI_HOST_LFLAGS = $(TOOLS_LFLAGS)
 
 $(NCI_TARGET): $(NCI_OBJECTS) | $(NCI_OUT)
-	$(ECHO_HOSTLD)
+	$(ECHO_LD)
 	${host_gcc} $(NCI_OBJECTS) $(NCI_HOST_LFLAGS) -o $@
 
 $(NCI_INT_)ncitool.o: $(NCI_BASE_)ncitool.c | $(NCI_INT)
-	$(ECHO_HOSTCC)
+	$(ECHO_CC)
 	${host_gcc} $(NCI_HOST_CFLAGS) -c $< -o $@
 
 .PHONY: nci
@@ -54,26 +54,23 @@ WIN32K_STUBS = $(INTERMEDIATE_)lib$(SEP)win32ksys$(SEP)win32k.S
 # NTOSKRNL.EXE
 KERNEL_SVC_DB = ntoskrnl$(SEP)sysfuncs.lst
 KERNEL_SERVICE_TABLE = $(INTERMEDIATE_)ntoskrnl$(SEP)include$(SEP)internal$(SEP)napi.h
-NTDLL_STUBS = $(INTERMEDIATE_)lib$(SEP)ntdllsys$(SEP)ntdll.S
+NTDLL_STUBS = $(INTERMEDIATE_)dll$(SEP)ntdll$(SEP)napi.S
 KERNEL_STUBS = $(INTERMEDIATE_)ntoskrnl$(SEP)ex$(SEP)zw.S
-NT_SPEC = $(INTERMEDIATE_)dll$(SEP)ntdll$(SEP)def$(SEP)ntsys.pspec
 
 NCI_SERVICE_FILES = \
 	$(KERNEL_SERVICE_TABLE) \
 	$(WIN32K_SERVICE_TABLE) \
 	$(NTDLL_STUBS) \
 	$(KERNEL_STUBS) \
-	$(WIN32K_STUBS) \
-	$(NT_SPEC)
+	$(WIN32K_STUBS)
 
 $(NCI_SERVICE_FILES): $(NCI_TARGET) $(KERNEL_SVC_DB) $(WIN32K_SVC_DB)
 	$(ECHO_NCI)
 	${mkdir} $(INTERMEDIATE_)ntoskrnl$(SEP)include$(SEP)internal 2>$(NUL)
-	${mkdir} $(INTERMEDIATE_)lib$(SEP)ntdllsys$(SEP)ntdll 2>$(NUL)
+	${mkdir} $(INTERMEDIATE_)dll$(SEP)ntdll 2>$(NUL)
 	${mkdir} $(INTERMEDIATE_)ntoskrnl$(SEP)ex$(SEP) 2>$(NUL)
 	${mkdir} $(INTERMEDIATE_)subsystems$(SEP)win32$(SEP)win32k$(SEP)include 2>$(NUL)
 	${mkdir} $(INTERMEDIATE_)lib$(SEP)win32ksys 2>$(NUL)
-	${mkdir} $(INTERMEDIATE_)dll$(SEP)ntdll$(SEP)def 2>$(NUL)
 
 	$(Q)$(NCI_TARGET) -arch $(ARCH) \
 		$(KERNEL_SVC_DB) \
@@ -82,8 +79,7 @@ $(NCI_SERVICE_FILES): $(NCI_TARGET) $(KERNEL_SVC_DB) $(WIN32K_SVC_DB)
 		$(WIN32K_SERVICE_TABLE) \
 		$(NTDLL_STUBS) \
 		$(KERNEL_STUBS) \
-		$(WIN32K_STUBS) \
-		$(NT_SPEC)
+		$(WIN32K_STUBS)
 
 .PHONY: nci_service_files_clean
 nci_service_files_clean:

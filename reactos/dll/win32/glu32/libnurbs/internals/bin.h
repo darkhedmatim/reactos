@@ -46,7 +46,7 @@
 #include "arc.h"
 #include "defines.h"
 
-class Bin
+class Bin 
 { /* a linked list of jordan arcs */
 private:
     Arc_ptr head;/*first arc on list */
@@ -63,7 +63,7 @@ public:
     int			numarcs( void );
     void 		adopt( void );
     void		markall( void );
-    void		show( const char * );
+    void		show( char * );
     void		listBezier( void );
 };
 

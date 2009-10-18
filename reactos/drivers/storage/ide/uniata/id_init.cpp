@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2004-2008 Alexandr A. Telyatnikov (Alter)
+Copyright (c) 2004-2007 Alexandr A. Telyatnikov (Alter)
 
 Module Name:
     id_init.cpp
@@ -44,104 +44,6 @@ Revision History:
 #include "stdafx.h"
 
 BOOLEAN
-NTAPI
-UniataChipDetectChannels(
-    IN PVOID HwDeviceExtension,
-    IN PPCI_COMMON_CONFIG pciData, // optional
-    IN ULONG DeviceNumber,
-    IN PPORT_CONFIGURATION_INFORMATION ConfigInfo
-    )
-{
-    PHW_DEVICE_EXTENSION deviceExtension = (PHW_DEVICE_EXTENSION)HwDeviceExtension;
-    //ULONG slotNumber = deviceExtension->slotNumber;
-    //ULONG SystemIoBusNumber = deviceExtension->SystemIoBusNumber;
-    ULONG VendorID =  deviceExtension->DevID        & 0xffff;
-    //ULONG DeviceID = (deviceExtension->DevID >> 16) & 0xffff;
-    //ULONG RevID    =  deviceExtension->RevID;
-    ULONG ChipType = deviceExtension->HwFlags & CHIPTYPE_MASK;
-    ULONG ChipFlags= deviceExtension->HwFlags & CHIPFLAG_MASK;
-
-    KdPrint2((PRINT_PREFIX "UniataChipDetectChannels:\n" ));
-    switch(VendorID) {
-    case ATA_ACER_LABS_ID:
-        switch(deviceExtension->DevID) {
-        case 0x528710b9:
-        case 0x528810b9:
-            deviceExtension->NumberChannels = 4;
-            KdPrint2((PRINT_PREFIX "Acer 4 chan\n"));
-        }
-        break;
-    case ATA_PROMISE_ID:
-
-        if(ChipType != PRMIO) {
-            break;
-        }
-        deviceExtension->NumberChannels = 4;
-        KdPrint2((PRINT_PREFIX "Promise 4 chan\n"));
-        break;
-    case ATA_MARVELL_ID:
-        KdPrint2((PRINT_PREFIX "Marvell\n"));
-        switch(deviceExtension->DevID) {
-        case 0x610111ab: 
-            /* 88SX6101 only have 1 PATA channel */
-            if(BMList[deviceExtension->DevIndex].channel) {
-                KdPrint2((PRINT_PREFIX "88SX6101 has no 2nd PATA chan\n"));
-                return FALSE;
-            }
-            deviceExtension->NumberChannels = 1;
-            KdPrint2((PRINT_PREFIX "88SX6101 PATA 1 chan\n"));
-            break;
-        }
-        break;
-    case ATA_ATI_ID:
-        KdPrint2((PRINT_PREFIX "ATI\n"));
-        switch(deviceExtension->DevID) {
-        case ATA_ATI_IXP600: 
-        case ATA_ATI_IXP700:
-            /* IXP600 & IXP700 only have 1 PATA channel */
-            if(BMList[deviceExtension->DevIndex].channel) {
-                KdPrint2((PRINT_PREFIX "New ATI no 2nd PATA chan\n"));
-                return FALSE;
-            }
-            deviceExtension->NumberChannels = 1;
-            KdPrint2((PRINT_PREFIX "New ATI PATA 1 chan\n"));
-            break;
-        }
-    case ATA_SILICON_IMAGE_ID:
-
-        if(ChipFlags & SIIBUG) {
-        }
-        if(ChipType != SIIMIO) {
-            break;
-        }
-        if(!pciData) {
-            break;
-        }
-
-        if(VendorID == ATA_SILICON_IMAGE_ID) {
-            KdPrint2((PRINT_PREFIX "New SII\n"));
-        } else {
-            KdPrint2((PRINT_PREFIX "ATI SATA\n"));
-        }
-        if(deviceExtension->HwFlags & SII4CH) {
-            deviceExtension->NumberChannels = 4;
-            KdPrint2((PRINT_PREFIX "4 chan\n"));
-        }
-        break;
-    case ATA_VIA_ID:
-        if((deviceExtension->DevID == 0x32491106) &&
-           ScsiPortConvertPhysicalAddressToUlong((*ConfigInfo->AccessRanges)[5].RangeStart)) {
-            deviceExtension->NumberChannels = 3;
-            KdPrint2((PRINT_PREFIX "VIA 3 chan\n"));
-        }
-        break;
-    } // end switch(VendorID)
-    return TRUE;
-
-} // end UniataChipDetectChannels()
-
-BOOLEAN
-NTAPI
 UniataChipDetect(
     IN PVOID HwDeviceExtension,
     IN PPCI_COMMON_CONFIG pciData, // optional
@@ -176,30 +78,15 @@ UniataChipDetect(
 
     c = AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"ForceSimplex", 0);
     if(c) {
-        *simplexOnly = TRUE;
+        *simplexOnly = TRUE; 
     }
-
-    // defaults
-    BaseIoAddressBM = pciData->u.type0.BaseAddresses[4] & ~0x07;
-    deviceExtension->MaxTransferMode = BaseIoAddressBM ? ATA_DMA : ATA_PIO4;
-    ConfigInfo->MaximumTransferLength = DEV_BSIZE*256;
-    deviceExtension->MaximumDmaTransferLength = ConfigInfo->MaximumTransferLength;
 
     KdPrint2((PRINT_PREFIX "i: %#x\n", i));
     if(i != BMLIST_TERMINATOR) {
         DevTypeInfo = (PBUSMASTER_CONTROLLER_INFORMATION)&BusMasterAdapters[i];
     } else {
-        KdPrint2((PRINT_PREFIX "  unknown dev, BM addr %#x", BaseIoAddressBM));
         DevTypeInfo = NULL;
-        KdPrint2((PRINT_PREFIX "  MaxTransferMode %#x\n", deviceExtension->MaxTransferMode));
-
-        if(!UniataChipDetectChannels(HwDeviceExtension, pciData, DeviceNumber, ConfigInfo)) {
-            return FALSE;
-        }
-        if(!UniataAllocateLunExt(deviceExtension, UNIATA_ALLOCATE_NEW_LUNS)) {
-            return FALSE;
-        }
-
+        deviceExtension->MaxTransferMode = deviceExtension->BaseIoAddressBM_0.Addr ? ATA_DMA : ATA_PIO4;
         return FALSE;
     }
 
@@ -225,7 +112,7 @@ UniataChipDetect(
         PCI_DEV_HW_SPEC_BM( 0630, 1039, 0x00, ATA_UDMA5, "SiS 630S" , SIS100OLD        ),
         PCI_DEV_HW_SPEC_BM( 0630, 1039, 0x00, ATA_UDMA4, "SiS 630"  , SIS66            ),
         PCI_DEV_HW_SPEC_BM( 0620, 1039, 0x00, ATA_UDMA4, "SiS 620"  , SIS66            ),
-
+                                
         PCI_DEV_HW_SPEC_BM( 0550, 1039, 0x00, ATA_UDMA5, "SiS 550"  , SIS66            ),
         PCI_DEV_HW_SPEC_BM( 0540, 1039, 0x00, ATA_UDMA4, "SiS 540"  , SIS66            ),
         PCI_DEV_HW_SPEC_BM( 0530, 1039, 0x00, ATA_UDMA4, "SiS 530"  , SIS66            ),
@@ -257,8 +144,7 @@ UniataChipDetect(
         PCI_DEV_HW_SPEC_BM( 3147, 1106, 0x00, ATA_UDMA6, "VIA 8233A"  , VIA133 | VIAAST ),
         PCI_DEV_HW_SPEC_BM( 3177, 1106, 0x00, ATA_UDMA6, "VIA 8235"   , VIA133 | VIAAST ),
         PCI_DEV_HW_SPEC_BM( 3227, 1106, 0x00, ATA_UDMA6, "VIA 8237"   , VIA133 | VIAAST ),
-        PCI_DEV_HW_SPEC_BM( 0591, 1106, 0x00, ATA_UDMA6, "VIA 8237A"  , VIA133 | VIAAST ),
-        PCI_DEV_HW_SPEC_BM( 3349, 1106, 0x00, ATA_UDMA6, "VIA 8251"   , VIA133 | VIAAST ),
+        PCI_DEV_HW_SPEC_BM( 3349, 1106, 0x00, ATA_UDMA6, "VIA 8237"   , VIA133 | VIAAST ),
         PCI_DEV_HW_SPEC_BM( ffff, ffff, 0xff, BMLIST_TERMINATOR       , NULL         , BMLIST_TERMINATOR )
         };
 
@@ -277,10 +163,7 @@ UniataChipDetect(
     case ATA_SIS_ID:
         KdPrint2((PRINT_PREFIX "ATA_SIS_ID\n"));
         DevTypeInfo = (BUSMASTER_CONTROLLER_INFORMATION*)&SiSAdapters[0];
-        i = AtapiFindListedDev(DevTypeInfo, -1, HwDeviceExtension, SystemIoBusNumber, PCISLOTNUM_NOT_SPECIFIED, NULL);
-        if(i != BMLIST_TERMINATOR) {
-            deviceExtension->FullDevName = SiSAdapters[i].FullDevName;
-        }
+        i = AtapiFindListedDev(DevTypeInfo, -1, HwDeviceExtension, SystemIoBusNumber, -1, NULL);
         goto for_ugly_chips;
 
     case ATA_VIA_ID: 
@@ -292,15 +175,12 @@ UniataChipDetect(
         // only by SouthBridge DeviceId
         DevTypeInfo = (BUSMASTER_CONTROLLER_INFORMATION*)&ViaSouthAdapters[0];
         i = AtapiFindListedDev(DevTypeInfo, -1, HwDeviceExtension, SystemIoBusNumber, slotNumber, NULL);
-        if(i != BMLIST_TERMINATOR) {
+        if(i != 0xFFFFFFFF) {
             KdPrint2((PRINT_PREFIX "VIASOUTH\n"));
             deviceExtension->HwFlags |= VIASOUTH;
         }
         DevTypeInfo = (BUSMASTER_CONTROLLER_INFORMATION*)&ViaAdapters[0];
         i = AtapiFindListedDev(DevTypeInfo, -1, HwDeviceExtension, SystemIoBusNumber, slotNumber, NULL);
-        if(i != BMLIST_TERMINATOR) {
-            deviceExtension->FullDevName = SiSAdapters[i].FullDevName;
-        }
         goto for_ugly_chips;
 
     default:
@@ -331,13 +211,13 @@ UniataChipDetect(
             deviceExtension->MaxTransferMode = ATA_UDMA2;
             break;
 
-        case 0x06401039:        /* CMD 640 known bad, no DMA */
+        case 0x06401095:        /* CMD 640 known bad, no DMA */
         case 0x06011039:
             *simplexOnly = TRUE; 
 
             /* FALLTHROUGH */
 
-        case 0x10001042:        /* RZ 100x known bad, no DMA */
+        case 0x10001042:        /* RZ 100? known bad, no DMA */
         case 0x10011042:
 
             if(deviceExtension->BaseIoAddressBM_0)
@@ -351,7 +231,7 @@ UniataChipDetect(
 
         case 0x81721283:        /* IT8172 IDE controller */
             deviceExtension->MaxTransferMode = ATA_UDMA2;
-            *simplexOnly = TRUE;
+            *simplexOnly = TRUE; 
             break;
 
         default:
@@ -364,14 +244,14 @@ UniataChipDetect(
     i = Ata_is_dev_listed(DevTypeInfo, VendorID, DeviceID, RevID, -1);
 for_ugly_chips:
     KdPrint2((PRINT_PREFIX "i: %#x\n", i));
-    if(i == BMLIST_TERMINATOR) {
+    if(i == 0xFFFFFFFF) {
         return FALSE;
     }
     deviceExtension->MaxTransferMode =  DevTypeInfo[i].MaxTransferMode;
     deviceExtension->HwFlags         |= DevTypeInfo[i].RaidFlags;
 
     KdPrint2((PRINT_PREFIX "HwFlags: %#x\n", deviceExtension->HwFlags));
-
+    
     tmp32 = AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"HwFlagsOverride", deviceExtension->HwFlags);
     KdPrint2((PRINT_PREFIX "HwFlagsOverride: %#x\n", tmp32));
     deviceExtension->HwFlags = tmp32;
@@ -383,7 +263,7 @@ for_ugly_chips:
     KdPrint2((PRINT_PREFIX "HwFlags (final): %#x\n", deviceExtension->HwFlags));
     if(deviceExtension->HwFlags & UNIATA_SIMPLEX_ONLY) {
         KdPrint2((PRINT_PREFIX "UNIATA_SIMPLEX_ONLY\n" ));
-        *simplexOnly = TRUE;
+        *simplexOnly = TRUE; 
     }
 
     KdPrint2((PRINT_PREFIX "MaxTransferMode: %#x\n", deviceExtension->MaxTransferMode));
@@ -396,22 +276,20 @@ for_ugly_chips:
     if(deviceExtension->MaxTransferMode >= ATA_SA150) {
         deviceExtension->HwFlags |= UNIATA_SATA;
     }
-/*
+
     ConfigInfo->MaximumTransferLength = DEV_BSIZE*256;
     deviceExtension->MaximumDmaTransferLength = ConfigInfo->MaximumTransferLength;
-*/
+
     ChipType  = deviceExtension->HwFlags & CHIPTYPE_MASK;
     ChipFlags = deviceExtension->HwFlags & CHIPFLAG_MASK;
 
-    if(!UniataChipDetectChannels(HwDeviceExtension, pciData, DeviceNumber, ConfigInfo)) {
-        return FALSE;
-    }
-    if(!UniataAllocateLunExt(deviceExtension, UNIATA_ALLOCATE_NEW_LUNS)) {
-        return FALSE;
-    }
-
     switch(VendorID) {
     case ATA_ACER_LABS_ID:
+        switch(deviceExtension->DevID) {
+        case 0x528710b9:
+        case 0x528810b9:
+            deviceExtension->NumberChannels = 4;
+        }
         if(ChipFlags & UNIATA_SATA) {
             deviceExtension->AltRegMap = TRUE; // inform generic resource allocator
             BaseIoAddress1  = AtapiGetIoRange(HwDeviceExtension, ConfigInfo, pciData, SystemIoBusNumber,
@@ -421,7 +299,6 @@ for_ugly_chips:
             BaseIoAddressBM = AtapiGetIoRange(HwDeviceExtension, ConfigInfo, pciData, SystemIoBusNumber,
                                     4, 0, deviceExtension->NumberChannels*sizeof(IDE_BUSMASTER_REGISTERS));
             for(c=0; c<deviceExtension->NumberChannels; c++) {
-                //ULONG unit01 = (c & 1);
                 ULONG unit10 = (c & 2);
                 chan = &deviceExtension->chan[c];
 
@@ -443,7 +320,7 @@ for_ugly_chips:
 
                 chan->ChannelCtrlFlags |= CTRFLAGS_NO_SLAVE;
             }
-        }
+        } 
         break;
     case ATA_NVIDIA_ID:
         if(ChipFlags & UNIATA_SATA) {
@@ -476,6 +353,7 @@ for_ugly_chips:
         if(ChipType != PRMIO) {
             break;
         }
+        deviceExtension->NumberChannels = 4;
         if(!pciData) {
             break;
         }
@@ -546,6 +424,9 @@ for_ugly_chips:
         }
         deviceExtension->BaseIoAddressSATA_0.Addr  = BaseMemAddress;
         deviceExtension->BaseIoAddressSATA_0.MemIo = MemIo;
+        if(deviceExtension->HwFlags & SII4CH) {
+            deviceExtension->NumberChannels = 4;
+        }
 
         for(c=0; c<deviceExtension->NumberChannels; c++) {
             ULONG unit01 = (c & 1);
@@ -674,14 +555,14 @@ for_ugly_chips:
             if(tmp32 == ATA_SIS5513 ||
                tmp32 == ATA_SIS5517) {
                 i = AtapiFindListedDev((BUSMASTER_CONTROLLER_INFORMATION*)&SiSSouthAdapters[0],
-                     -1, HwDeviceExtension, SystemIoBusNumber, PCISLOTNUM_NOT_SPECIFIED, NULL); 
-                if(i != BMLIST_TERMINATOR) {
+                     -1, HwDeviceExtension, SystemIoBusNumber, -1, NULL); 
+                if(i != 0xFFFFFFFF) {
                     deviceExtension->HwFlags = (deviceExtension->HwFlags & ~CHIPTYPE_MASK) | SIS133OLD;
                     //deviceExtension->MaxTransferMode = ATA_UDMA6;
                     deviceExtension->MaxTransferMode = SiSSouthAdapters[i].MaxTransferMode;
                     if(SiSSouthAdapters[i].RaidFlags & UNIATA_SATA) {
                         deviceExtension->HwFlags |= UNIATA_SATA;
-                        if(SiSSouthAdapters[i].nDeviceId == 0x1182) {
+                        if(SiSSouthAdapters[i].nDeviceId == 0x01182) {
                             SIS_182 = TRUE;
                         }
                     }
@@ -736,20 +617,16 @@ for_ugly_chips:
         if(ChipFlags & UNIATA_SATA) {
 
             ULONG IoSize = 0;
-            ULONG BaseMemAddress = 0;
 
             switch(DeviceID) {
-            case 0x3149: // VIA 6420
-                KdPrint2((PRINT_PREFIX "VIA 6420\n"));
+            case 3149: // VIA 6420
                 IoSize = 0x80;
                 break;
-            case 0x3249: // VIA 6421
-                KdPrint2((PRINT_PREFIX "VIA 6421\n"));
+            case 3249: // VIA 6421
                 IoSize = 0x40;
                 break;
             }
             if(IoSize) {
-                KdPrint2((PRINT_PREFIX "IoSize %x\n", IoSize));
                 /*deviceExtension->*/BaseMemAddress = AtapiGetIoRange(HwDeviceExtension, ConfigInfo, pciData, SystemIoBusNumber,
                                         5, 0, IoSize * deviceExtension->NumberChannels);
                 if((*ConfigInfo->AccessRanges)[5].RangeInMemory) {
@@ -762,7 +639,7 @@ for_ugly_chips:
             if(/*deviceExtension->*/BaseMemAddress) {
                 KdPrint2((PRINT_PREFIX "UniataChipDetect: BAR5 %x\n", /*deviceExtension->*/BaseMemAddress));
                 if(ChipFlags & VIABAR) {
-
+                    
                     ULONG BaseIoAddressBM_0;
                     ULONG BaseIo;
 
@@ -786,18 +663,14 @@ for_ugly_chips:
                         for (i=0; i<=IDX_BM_IO_SZ; i++) {
                             chan->RegTranslation[IDX_BM_IO+i].Addr         = BaseIoAddressBM_0 + sizeof(IDE_BUSMASTER_REGISTERS)*c + i;
                         }
-                        if(c < 2) {
-                            // Do not setup SATA registers for PATA part
-                            chan->RegTranslation[IDX_SATA_SStatus].Addr        = BaseMemAddress + (c * IoSize);
-                            chan->RegTranslation[IDX_SATA_SStatus].MemIo       = MemIo;
-                            chan->RegTranslation[IDX_SATA_SError].Addr         = BaseMemAddress + 4 + (c * IoSize);
-                            chan->RegTranslation[IDX_SATA_SError].MemIo        = MemIo;
-                            chan->RegTranslation[IDX_SATA_SControl].Addr       = BaseMemAddress + 8 + (c * IoSize);
-                            chan->RegTranslation[IDX_SATA_SControl].MemIo      = MemIo;
+                        chan->RegTranslation[IDX_SATA_SStatus].Addr        = BaseMemAddress + (c * IoSize);
+                        chan->RegTranslation[IDX_SATA_SStatus].MemIo       = MemIo;
+                        chan->RegTranslation[IDX_SATA_SError].Addr         = BaseMemAddress + 4 + (c * IoSize);
+                        chan->RegTranslation[IDX_SATA_SError].MemIo        = MemIo;
+                        chan->RegTranslation[IDX_SATA_SControl].Addr       = BaseMemAddress + 8 + (c * IoSize);
+                        chan->RegTranslation[IDX_SATA_SControl].MemIo      = MemIo;
 
-                            chan->ChannelCtrlFlags |= CTRFLAGS_NO_SLAVE;
-                        }
-
+                        chan->ChannelCtrlFlags |= CTRFLAGS_NO_SLAVE;
                     }
                 }
             }
@@ -901,7 +774,7 @@ for_ugly_chips:
         break; }
     case 0x1078:
         /* Cyrix 5530 ATA33 controller */
-        if(deviceExtension->DevID == 0x01021078) {
+        if(deviceExtension->DevID == 0x01021078) { 
             ConfigInfo->AlignmentMask = 0x0f;
             deviceExtension->MaximumDmaTransferLength = 63*1024;
         }
@@ -918,7 +791,6 @@ for_ugly_chips:
     This will prevent data losses
 */
 VOID
-NTAPI
 AtapiViaSouthBridgeFixup(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -939,7 +811,7 @@ AtapiViaSouthBridgeFixup(
 
     slotData.u.AsULONG = slotNumber;
     for(funcNumber = 0; funcNumber < PCI_MAX_FUNCTION; funcNumber++) {
-
+        
         slotData.u.bits.FunctionNumber = funcNumber;
 
         busDataRead = ScsiPortGetBusData(HwDeviceExtension,
@@ -962,9 +834,9 @@ AtapiViaSouthBridgeFixup(
             dev_id == 0x31021106 ||         /* VIA VT8662 */
             dev_id == 0x31121106) {         /* VIA VT8361 */
             UCHAR reg76;
-
+            
             GetPciConfig1(0x76, reg76);
-
+     
             if ((reg76 & 0xf0) != 0xd0) {
                 SetPciConfig1(0x75, 0x80);
                 SetPciConfig1(0x76, (reg76 & 0x0f) | 0xd0);
@@ -983,7 +855,6 @@ AtapiViaSouthBridgeFixup(
     This will prevent data losses
 */
 VOID
-NTAPI
 AtapiRosbSouthBridgeFixup(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -991,7 +862,6 @@ AtapiRosbSouthBridgeFixup(
     IN ULONG  slotNumber
     )
 {
-    //PHW_DEVICE_EXTENSION deviceExtension = (PHW_DEVICE_EXTENSION)HwDeviceExtension;
     PCI_COMMON_CONFIG     pciData;
     ULONG                 funcNumber;
     ULONG                 busDataRead;
@@ -1005,7 +875,7 @@ AtapiRosbSouthBridgeFixup(
     /* locate the ISA part in the southbridge and enable UDMA33 */
     slotData.u.AsULONG = slotNumber;
     for(funcNumber = 0; funcNumber < PCI_MAX_FUNCTION; funcNumber++) {
-
+        
         slotData.u.bits.FunctionNumber = funcNumber;
 
         busDataRead = ScsiPortGetBusData(HwDeviceExtension,
@@ -1035,7 +905,6 @@ AtapiRosbSouthBridgeFixup(
     This will prevent data losses
 */
 VOID
-NTAPI
 AtapiAliSouthBridgeFixup(
     IN PVOID  HwDeviceExtension,
     IN BUS_DATA_TYPE  BusDataType,
@@ -1044,7 +913,6 @@ AtapiAliSouthBridgeFixup(
     IN ULONG  c
     )
 {
-    //PHW_DEVICE_EXTENSION deviceExtension = (PHW_DEVICE_EXTENSION)HwDeviceExtension;
     PCI_COMMON_CONFIG     pciData;
     ULONG                 funcNumber;
     ULONG                 busDataRead;
@@ -1060,7 +928,7 @@ AtapiAliSouthBridgeFixup(
      * the ATA channel tristate buffer */
     slotData.u.AsULONG = slotNumber;
     for(funcNumber = 0; funcNumber < PCI_MAX_FUNCTION; funcNumber++) {
-
+        
         slotData.u.bits.FunctionNumber = funcNumber;
 
         busDataRead = ScsiPortGetBusData(HwDeviceExtension,
@@ -1087,7 +955,6 @@ AtapiAliSouthBridgeFixup(
 } // end AtapiRosbSouthBridgeFixup()
 
 ULONG
-NTAPI
 hpt_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel               // physical channel number (0-1)
@@ -1122,7 +989,6 @@ hpt_cable80(
 
 
 ULONG
-NTAPI
 via_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel               // physical channel number (0-1)
@@ -1158,7 +1024,7 @@ via_cable80(
     res = FALSE;
     for (j=0; j>=2; i -= 8) {
         i = (3-(channel*2+j))*8;
-        if (((reg50 >> (i & 0x10)) & 8) &&
+        if (((reg50 >> (i & 16)) & 8) &&
             ((reg50 >> i) & 0x20) &&
              (((reg50 >> i) & 7) < a)) {
 
@@ -1169,38 +1035,7 @@ via_cable80(
 
 } // end via_cable80()
 
-BOOLEAN
-NTAPI
-generic_cable80(
-    IN PHW_DEVICE_EXTENSION deviceExtension,
-    IN ULONG channel,               // physical channel number (0-1)
-    IN ULONG pci_reg,
-    IN ULONG bit_offs
-    )
-{
-    PVOID HwDeviceExtension = (PVOID)deviceExtension;
-    ULONG slotNumber = deviceExtension->slotNumber;
-    ULONG SystemIoBusNumber = deviceExtension->SystemIoBusNumber;
-
-    //ULONG ChipType  = deviceExtension->HwFlags & CHIPTYPE_MASK;
-    PHW_CHANNEL chan;
-    ULONG  c; // logical channel (for Compatible Mode controllers)
-    UCHAR tmp8;
-
-    c = channel - deviceExtension->Channel; // logical channel (for Compatible Mode controllers)
-    chan = &deviceExtension->chan[c];
-
-    GetPciConfig1(pci_reg, tmp8);
-    if(!(tmp8 & (1 << (channel << bit_offs)))) {
-        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
-        return FALSE;
-    }
-
-    return TRUE;
-} // end generic_cable80()
-
 VOID
-NTAPI
 UniAtaReadLunConfig(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel,  // physical channel
@@ -1230,27 +1065,16 @@ UniAtaReadLunConfig(
     tmp32 = AtapiRegCheckDevValue(deviceExtension, channel, ldev, L"PreferedTransferMode", 0xffffffff);
     LunExt->opt_PreferedTransferMode = tmp32;
 
-    tmp32 = AtapiRegCheckDevValue(deviceExtension, channel, ldev, L"ReadOnly", 0);
-    if(tmp32 <= 2) {
-        LunExt->opt_ReadOnly = (UCHAR)tmp32;
-    }
-
     tmp32 = AtapiRegCheckDevValue(deviceExtension, channel, ldev, L"GeomType", 0xffffffff);
     if(tmp32 > 2) {
         tmp32 = 0xffffffff;
     }
     LunExt->opt_GeomType = tmp32;
 
-    tmp32 = AtapiRegCheckDevValue(deviceExtension, channel, ldev, L"Hidden", 0);
-    if(tmp32) {
-        LunExt->DeviceFlags |= DFLAGS_HIDDEN;
-    }
-
     return;
 } // end UniAtaReadLunConfig()
 
 BOOLEAN
-NTAPI
 AtapiReadChipConfig(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1275,16 +1099,15 @@ AtapiReadChipConfig(
 
     if(channel == CHAN_NOT_SPECIFIED) {
         if(AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"ForceSimplex", FALSE)) {
-            deviceExtension->simplexOnly = TRUE;
+            deviceExtension->simplexOnly = TRUE; 
         }
-        deviceExtension->opt_AtapiDmaZeroTransfer = FALSE;
-        deviceExtension->opt_AtapiDmaControlCmd   = FALSE;
-        deviceExtension->opt_AtapiDmaRawRead      = FALSE;//TRUE; // Disabling that for VirtualBox
-        deviceExtension->opt_AtapiDmaReadWrite    = TRUE;
+        deviceExtension->opt_AtapiDmaZeroTransfer = FALSE; 
+        deviceExtension->opt_AtapiDmaControlCmd   = FALSE; 
+        deviceExtension->opt_AtapiDmaRawRead      = TRUE; 
+        deviceExtension->opt_AtapiDmaReadWrite    = TRUE; 
     }
 
     if(c == CHAN_NOT_SPECIFIED) {
-        KdPrint2((PRINT_PREFIX "MaxTransferMode (base): %#x\n", deviceExtension->MaxTransferMode));
         for(c=0; c<deviceExtension->NumberChannels; c++) {
             chan = &deviceExtension->chan[c];
             chan->MaxTransferMode = deviceExtension->MaxTransferMode;
@@ -1297,21 +1120,21 @@ AtapiReadChipConfig(
             //UniAtaReadLunConfig(deviceExtension, c, 1);
         }
 
-        deviceExtension->opt_AtapiDmaZeroTransfer =
+        deviceExtension->opt_AtapiDmaZeroTransfer = 
             AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"AtapiDmaZeroTransfer", deviceExtension->opt_AtapiDmaZeroTransfer) ?
-               TRUE : FALSE;
+               TRUE : FALSE; 
 
         deviceExtension->opt_AtapiDmaControlCmd =
             AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"AtapiDmaControlCmd", deviceExtension->opt_AtapiDmaControlCmd) ?
-               TRUE : FALSE;
+               TRUE : FALSE; 
 
         deviceExtension->opt_AtapiDmaRawRead =
             AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"AtapiDmaRawRead", deviceExtension->opt_AtapiDmaRawRead) ?
-               TRUE : FALSE;
+               TRUE : FALSE; 
 
         deviceExtension->opt_AtapiDmaReadWrite =
             AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"AtapiDmaReadWrite", deviceExtension->opt_AtapiDmaReadWrite) ?
-               TRUE : FALSE;
+               TRUE : FALSE; 
 
     } else {
         chan = &deviceExtension->chan[c];
@@ -1332,7 +1155,6 @@ AtapiReadChipConfig(
 } // end AtapiReadChipConfig()
 
 BOOLEAN
-NTAPI
 AtapiChipInit(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1343,9 +1165,7 @@ AtapiChipInit(
     ULONG slotNumber = deviceExtension->slotNumber;
     ULONG SystemIoBusNumber = deviceExtension->SystemIoBusNumber;
     ULONG VendorID =  deviceExtension->DevID        & 0xffff;
-#ifdef _DEBUG
     ULONG DeviceID = (deviceExtension->DevID >> 16) & 0xffff;
-#endif
     ULONG RevID    =  deviceExtension->RevID;
 //    ULONG i;
 //    BUSMASTER_CONTROLLER_INFORMATION* DevTypeInfo;
@@ -1356,18 +1176,12 @@ AtapiChipInit(
     USHORT tmp16;
     ULONG  tmp32;
     ULONG  c; // logical channel (for Compatible Mode controllers)
-    BOOLEAN CheckCable = FALSE;
     //ULONG BaseIoAddress;
 
-    switch(channel) {
-    case CHAN_NOT_SPECIFIED_CHECK_CABLE:
-        CheckCable = TRUE;
-        /* FALLTHROUGH */
-    case CHAN_NOT_SPECIFIED:
-        c = CHAN_NOT_SPECIFIED;
-        break;
-    default:
+    if(channel != CHAN_NOT_SPECIFIED) {
         c = channel - deviceExtension->Channel; // logical channel (for Compatible Mode controllers)
+    } else {
+        c = CHAN_NOT_SPECIFIED;
     }
 
     KdPrint2((PRINT_PREFIX "AtapiChipInit: dev %#x, ph chan %d\n", DeviceNumber, channel ));
@@ -1382,7 +1196,7 @@ AtapiChipInit(
     }
 
     switch(VendorID) {
-//  case ATA_ACARD_ID:
+//  case ATA_ACARD_ID: 
 //      break;
     case ATA_ACER_LABS_ID:
         if(ChipFlags & UNIATA_SATA) {
@@ -1409,15 +1223,15 @@ AtapiChipInit(
 
                 /* enable ATAPI UDMA mode */
                 ChangePciConfig1(0x53, (a | 0x01));
-
-            } else {
-                // check 80-pin cable
-                generic_cable80(deviceExtension, channel, 0x4a, 0);
             }
         } else {
             if(c == CHAN_NOT_SPECIFIED) {
                 /* deactivate the ATAPI FIFO and enable ATAPI UDMA */
                 ChangePciConfig1(0x53, (a | 0x03));
+                // ATAPI DMA R/O
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    deviceExtension->chan[c].ChannelCtrlFlags |= CTRFLAGS_DMA_RO;
+                }
             } else {
                 // ATAPI DMA R/O
                 deviceExtension->chan[c].ChannelCtrlFlags |= CTRFLAGS_DMA_RO;
@@ -1436,15 +1250,25 @@ AtapiChipInit(
         if(deviceExtension->MaxTransferMode < ATA_UDMA2)
             break;
         // check 80-pin cable
-        if(!(ChipFlags & UNIATA_NO80CHK)) {
+        if(ChipFlags & AMDCABLE) {
             if(c == CHAN_NOT_SPECIFIED) {
-                // do nothing
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    chan = &deviceExtension->chan[c];
+                    GetPciConfig1(0x42, tmp8);
+                    if(!(tmp8 & (1 << channel))) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
-                generic_cable80(deviceExtension, channel, 0x42, 0);
+                chan = &deviceExtension->chan[c];
+                GetPciConfig1(0x42, tmp8);
+                if(!(tmp8 & (1 << channel))) {
+                    chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                }
             }
         }
         break;
-    case ATA_HIGHPOINT_ID:
+    case ATA_HIGHPOINT_ID: 
 
         if(c == CHAN_NOT_SPECIFIED) {
 
@@ -1465,6 +1289,13 @@ AtapiChipInit(
                 }
             }
 
+            // check 80-pin cable
+            for(c=0; c<deviceExtension->NumberChannels; c++) {
+                chan = &deviceExtension->chan[c];
+                if(!hpt_cable80(deviceExtension, channel)) {
+                    chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                }
+            }
         } else {
             // check 80-pin cable
             chan = &deviceExtension->chan[c];
@@ -1501,14 +1332,19 @@ AtapiChipInit(
 #else
             /* enable PCI interrupt */
             ChangePciConfig2(/*PCIR_COMMAND*/0x04, (a & ~0x0400));
-#endif
+#endif 
             break;
         }
         if(deviceExtension->MaxTransferMode < ATA_UDMA2)
             break;
-        // check 80-pin cable
         if(c == CHAN_NOT_SPECIFIED) {
-            // do nothing
+            for(c=0; c<deviceExtension->NumberChannels; c++) {
+                chan = &deviceExtension->chan[c];
+                GetPciConfig2(0x54, reg54);
+                if( ((reg54 >> (channel*2)) & 30) != 30) {
+                    chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                }
+            }
         } else {
             chan = &deviceExtension->chan[c];
             GetPciConfig2(0x54, reg54);
@@ -1544,19 +1380,27 @@ AtapiChipInit(
                 //UniataSataPhyEnable(HwDeviceExtension, c);
             }
         } else {
-            //UCHAR reg52;
+            UCHAR reg52;
             
+            // check 80-pin cable
             if(c == CHAN_NOT_SPECIFIED) {
+
                 /* set prefetch, postwrite */
                 ChangePciConfig1(0x51, (a & 0x0f));
+
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    chan = &deviceExtension->chan[c];
+                    GetPciConfig1(0x52, reg52);
+                    if( !((reg52 >> (channel*2)) & 0x01)) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
-                // check 80-pin cable
-                generic_cable80(deviceExtension, channel, 0x52, 1);
-/*                chan = &deviceExtension->chan[c];
+                chan = &deviceExtension->chan[c];
                 GetPciConfig1(0x52, reg52);
                 if( !((reg52 >> (channel*2)) & 0x01)) {
                     chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
-                }*/
+                }
             }
         }
         break; }
@@ -1577,8 +1421,14 @@ AtapiChipInit(
             if(c == CHAN_NOT_SPECIFIED) {
                 AtapiWritePortEx1(NULL, (ULONG)(&deviceExtension->BaseIoAddressBM_0),0x1f, 
                     AtapiReadPortEx1(NULL, (ULONG)(&deviceExtension->BaseIoAddressBM_0),0x1f) | 0x01 );
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    chan = &deviceExtension->chan[c];
+                    GetPciConfig2(0x50, Reg50);
+                    if(Reg50 & (1 << (channel+10))) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
-                // check 80-pin cable
                 chan = &deviceExtension->chan[c];
                 GetPciConfig2(0x50, Reg50);
                 if(Reg50 & (1 << (channel+10))) {
@@ -1588,9 +1438,14 @@ AtapiChipInit(
             break;
         case PRTX:
             if(c == CHAN_NOT_SPECIFIED) {
-                // do nothing
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    chan = &deviceExtension->chan[c];
+                    AtapiWritePort1(chan, IDX_BM_DeviceSpecific0, 0x0b);
+                    if(AtapiReadPort1(chan, IDX_BM_DeviceSpecific1) & 0x04) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
-                // check 80-pin cable
                 chan = &deviceExtension->chan[c];
                 AtapiWritePort1(chan, IDX_BM_DeviceSpecific0, 0x0b);
                 if(AtapiReadPort1(chan, IDX_BM_DeviceSpecific1) & 0x04) {
@@ -1603,12 +1458,21 @@ AtapiChipInit(
                 if(ChipFlags & PRSATA) {
                     AtapiWritePortEx4(NULL, (ULONG)(&deviceExtension->BaseIoAddressBM_0),0x6c, 0x000000ff);
                 }
+                for(c=0; c<4; c++) {
+                    chan = &deviceExtension->chan[c];
+                    AtapiWritePort4(chan, IDX_BM_Command, 
+                        (AtapiReadPort4(chan, IDX_BM_Command) & ~0x00000f8f) | channel );
+                    AtapiWritePort4(chan, IDX_BM_DeviceSpecific0, 0x00000001);
+                    if(chan->MaxTransferMode < ATA_SA150 &&
+                       (AtapiReadPort4(chan, IDX_BM_Command) & 0x01000000)) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
                 chan = &deviceExtension->chan[c];
                 AtapiWritePort4(chan, IDX_BM_Command, 
                     (AtapiReadPort4(chan, IDX_BM_Command) & ~0x00000f8f) | channel );
                 AtapiWritePort4(chan, IDX_BM_DeviceSpecific0, 0x00000001);
-                // check 80-pin cable
                 if(chan->MaxTransferMode < ATA_SA150 &&
                    (AtapiReadPort4(chan, IDX_BM_Command) & 0x01000000)) {
                     chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
@@ -1617,7 +1481,7 @@ AtapiChipInit(
             break;
         }
         break; }
-    case ATA_SERVERWORKS_ID:
+    case ATA_SERVERWORKS_ID: 
         if(c == CHAN_NOT_SPECIFIED) {
             if(ChipType == SWKS33) {
                 AtapiRosbSouthBridgeFixup(HwDeviceExtension, PCIConfiguration,
@@ -1643,14 +1507,14 @@ AtapiChipInit(
         case SIIMIO: {
 
             KdPrint2((PRINT_PREFIX "SII\n"));
-            USHORT Reg79;
+            UCHAR Reg79;
 
             if(c == CHAN_NOT_SPECIFIED) {
                 if(ChipFlags & SIISETCLK)  {
                     KdPrint2((PRINT_PREFIX "SIISETCLK\n"));
                     GetPciConfig1(0x8a, tmp8);
                     if ((tmp8 & 0x30) != 0x10)
-                        ChangePciConfig1(0x8a, (a & 0xcf) | 0x10);
+                        ChangePciConfig1(0x8a, (a & 0xcf | 0x10));
                     GetPciConfig1(0x8a, tmp8);
                     if ((tmp8 & 0x30) != 0x10) {
                         KdPrint2((PRINT_PREFIX "Sil 0680 could not set ATA133 clock\n"));
@@ -1659,11 +1523,16 @@ AtapiChipInit(
                 }
             }
             if(deviceExtension->MaxTransferMode < ATA_SA150) {
-                // check 80-pin cable
+                KdPrint2((PRINT_PREFIX "Check UDMA66 cable\n"));
                 if(c == CHAN_NOT_SPECIFIED) {
-                    // do nothing
+                    for(c=0; c<deviceExtension->NumberChannels; c++) {
+                        chan = &deviceExtension->chan[c];
+                        GetPciConfig2(0x79, Reg79);
+                        if(Reg79 & (channel ? 0x02 : 0x01)) {
+                            chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                        }
+                    }
                 } else {
-                    KdPrint2((PRINT_PREFIX "Check UDMA66 cable\n"));
                     chan = &deviceExtension->chan[c];
                     GetPciConfig2(0x79, Reg79);
                     if(Reg79 & (channel ? 0x02 : 0x01)) {
@@ -1778,9 +1647,14 @@ AtapiChipInit(
         }
         if(ChipType == SIS133NEW) {
             USHORT tmp16;
-            // check 80-pin cable
             if(c == CHAN_NOT_SPECIFIED) {
-                // do nothing
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    chan = &deviceExtension->chan[c];
+                    GetPciConfig2(channel ? 0x52 : 0x50, tmp16);
+                    if(tmp16 & 0x8000) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
                 chan = &deviceExtension->chan[c];
                 GetPciConfig2(channel ? 0x52 : 0x50, tmp16);
@@ -1789,9 +1663,14 @@ AtapiChipInit(
                 }
             }
         } else {
-            // check 80-pin cable
             if(c == CHAN_NOT_SPECIFIED) {
-                // do nothing
+                for(c=0; c<deviceExtension->NumberChannels; c++) {
+                    chan = &deviceExtension->chan[c];
+                    GetPciConfig1(48, tmp8);
+                    if(tmp8 & (0x10 << channel)) {
+                        chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                    }
+                }
             } else {
                 chan = &deviceExtension->chan[c];
                 GetPciConfig1(48, tmp8);
@@ -1801,7 +1680,7 @@ AtapiChipInit(
             }
         }
         break;
-    case ATA_VIA_ID:
+    case ATA_VIA_ID: 
 
         if(c == CHAN_NOT_SPECIFIED) {
             /* prepare for ATA-66 on the 82C686a and 82C596b */
@@ -1814,7 +1693,23 @@ AtapiChipInit(
                 ChangePciConfig2(/*PCIR_COMMAND*/0x04, (a & ~0x0400));
                 break;
             }
-
+        }
+        // check 80-pin cable
+        if(c == CHAN_NOT_SPECIFIED) {
+            for(c=0; c<deviceExtension->NumberChannels; c++) {
+                chan = &deviceExtension->chan[c];
+                if(!via_cable80(deviceExtension, channel)) {
+                    chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                }
+            }
+        } else {
+            chan = &deviceExtension->chan[c];
+            if(!via_cable80(deviceExtension, channel)) {
+                chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+            }
+        }
+        
+        if(c == CHAN_NOT_SPECIFIED) {
             /* the southbridge might need the data corruption fix */
             if(ChipFlags & VIABUG) {
                 AtapiViaSouthBridgeFixup(HwDeviceExtension, PCIConfiguration,
@@ -1837,12 +1732,6 @@ AtapiChipInit(
             /* set sector size */
             SetPciConfig2(0x60, DEV_BSIZE);
             SetPciConfig2(0x68, DEV_BSIZE);
-        } else {
-            // check 80-pin cable
-            chan = &deviceExtension->chan[c];
-            if(!via_cable80(deviceExtension, channel)) {
-                chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
-            }
         }
 
         break;
@@ -1858,9 +1747,18 @@ AtapiChipInit(
             /* set default active & recover timings */
             SetPciConfig1(0x54, 0x31);
             SetPciConfig1(0x56, 0x31);
+        }
+
+        GetPciConfig2(0x40, tmp16);
+        // check 80-pin cable
+        if(c == CHAN_NOT_SPECIFIED) {
+            for(c=0; c<deviceExtension->NumberChannels; c++) {
+                chan = &deviceExtension->chan[c];
+                if(!(tmp16 & (channel ? 0x08 : 0x04))) {
+                    chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
+                }
+            }
         } else {
-            // check 80-pin cable
-            GetPciConfig2(0x40, tmp16);
             chan = &deviceExtension->chan[c];
             if(!(tmp16 & (channel ? 0x08 : 0x04))) {
                 chan->MaxTransferMode = min(deviceExtension->MaxTransferMode, ATA_UDMA2);
@@ -1868,30 +1766,12 @@ AtapiChipInit(
         }
 
         break;
-    default:
-        if(c != CHAN_NOT_SPECIFIED) {
-            // We don't know how to check for 80-pin cable on unknown controllers.
-            // Later we shall check bit in IDENTIFY structure, but it is not reliable way.
-            // So, leave this flag to use as hint in error recovery procedures
-            KdPrint2((PRINT_PREFIX "UNIATA_NO80CHK\n"));
-            deviceExtension->HwFlags |= UNIATA_NO80CHK;
-        }
-        break;
-    }
-
-    // In all places separate channels are inited after common controller init
-    // The only exception is probe. But there we may need info about 40/80 pin and MaxTransferRate
-    if(CheckCable && !(ChipFlags & (UNIATA_NO80CHK | UNIATA_SATA))) {
-        for(c=0; c<deviceExtension->NumberChannels; c++) {
-            AtapiChipInit(HwDeviceExtension, DeviceNumber, c);
-        }
     }
 
     return TRUE;
 } // end AtapiChipInit()
 
 VOID
-NTAPI
 UniataInitMapBM(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN PIDE_BUSMASTER_REGISTERS BaseIoAddressBM_0,
@@ -1918,7 +1798,6 @@ UniataInitMapBM(
 } // end UniataInitMapBM()
 
 VOID
-NTAPI
 UniataInitMapBase(
     IN PHW_CHANNEL chan,
     IN PIDE_REGISTERS_1 BaseIoAddress1,
@@ -1939,7 +1818,6 @@ UniataInitMapBase(
 } // end UniataInitMapBase()
 
 VOID
-NTAPI
 UniataInitSyncBaseIO(
     IN PHW_CHANNEL chan
     )

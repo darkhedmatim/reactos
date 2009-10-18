@@ -97,10 +97,10 @@ static LRESULT inline DRIVER_SendMessage(LPWINE_DRIVER lpDrv, UINT msg,
         if (pFnSendMessage16)
             ret = pFnSendMessage16(lpDrv->d.d16.hDriver16, msg, lParam1, lParam2);
     } else {
-        TRACE("Before call32 proc=%p drvrID=%08lx hDrv=%p wMsg=%04x p1=%08lx p2=%08lx\n",
+        TRACE("Before call32 proc=%p drvrID=%08lx hDrv=%p wMsg=%04x p1=%08lx p2=%08lx\n", 
               lpDrv->d.d32.lpDrvProc, lpDrv->d.d32.dwDriverID, (HDRVR)lpDrv, msg, lParam1, lParam2);
         ret = lpDrv->d.d32.lpDrvProc(lpDrv->d.d32.dwDriverID, (HDRVR)lpDrv, msg, lParam1, lParam2);
-        TRACE("After  call32 proc=%p drvrID=%08lx hDrv=%p wMsg=%04x p1=%08lx p2=%08lx => %08lx\n",
+        TRACE("After  call32 proc=%p drvrID=%08lx hDrv=%p wMsg=%04x p1=%08lx p2=%08lx => %08lx\n", 
               lpDrv->d.d32.lpDrvProc, lpDrv->d.d32.dwDriverID, (HDRVR)lpDrv, msg, lParam1, lParam2, ret);
     }
     return ret;
@@ -381,7 +381,7 @@ HDRVR WINAPI OpenDriver(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lPar
     WCHAR 		libName[128];
     LPCWSTR		lsn = lpSectionName;
 
-    TRACE("(%s, %s, 0x%08lx);\n",
+    TRACE("(%s, %s, 0x%08lx);\n", 
           debugstr_w(lpDriverName), debugstr_w(lpSectionName), lParam);
 
     /* If no section name is specified, either the caller is intending on
@@ -395,7 +395,7 @@ HDRVR WINAPI OpenDriver(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lPar
         lstrcpynW(libName, lpDriverName, sizeof(libName) / sizeof(WCHAR));
 
         /* Try and open the driver by filename */
-        if ( (lpDrv = DRIVER_TryOpenDriver32(libName, lParam)) )
+        if ( lpDrv = DRIVER_TryOpenDriver32(libName, lParam) )
             goto the_end;
 
         /* If we got here, the file wasn't found. So we assume the caller
@@ -407,7 +407,7 @@ HDRVR WINAPI OpenDriver(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lPar
     if ( DRIVER_GetLibName(lpDriverName, lsn, libName, sizeof(libName)) )
     {
         /* Now we have the filename, we can try and load it */
-        if ( (lpDrv = DRIVER_TryOpenDriver32(libName, lParam)) )
+        if ( lpDrv = DRIVER_TryOpenDriver32(libName, lParam) )
             goto the_end;
     }
 
@@ -422,7 +422,7 @@ HDRVR WINAPI OpenDriver(LPCWSTR lpDriverName, LPCWSTR lpSectionName, LPARAM lPar
         if (DRIVER_AddToList(lpDrv, 0, lParam)) goto the_end;
         HeapFree(GetProcessHeap(), 0, lpDrv);
     }
-    TRACE("Failed to open driver %s from system.ini file, section %s\n",
+    TRACE("Failed to open driver %s from system.ini file, section %s\n", 
           debugstr_w(lpDriverName), debugstr_w(lpSectionName));
     return 0;
 
@@ -579,14 +579,14 @@ BOOL WINAPI DriverCallback(DWORD dwCallBack, UINT uFlags, HDRVR hDev,
 	/* this is an undocumented DCB_ value used for mmThreads
 	 * loword of dwCallBack contains the handle of the lpMMThd block
 	 * which dwSignalCount has to be incremented
-	 */
+	 */     
         if (pFnGetMMThread16)
 	{
 	    WINE_MMTHREAD*	lpMMThd = pFnGetMMThread16(LOWORD(dwCallBack));
 
 	    TRACE("mmThread (%04x, %p) !\n", LOWORD(dwCallBack), lpMMThd);
 	    /* same as mmThreadSignal16 */
-	    InterlockedIncrement((PLONG)&lpMMThd->dwSignalCount);
+	    InterlockedIncrement(&lpMMThd->dwSignalCount);
 	    SetEvent(lpMMThd->hEvent);
 	    /* some other stuff on lpMMThd->hVxD */
 	}

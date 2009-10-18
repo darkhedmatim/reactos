@@ -1,6 +1,10 @@
 # NAME                                      ARG_COUNT
 #
-# Funcs order should match Windows XP 5.1.2600 SP2
+# Windows XP 2600SP2 Syscall id order, 
+# meaning if we got all stub implement 
+# we can use user32.dll and gdi32.dll 
+# on that OS, this table will be update
+# to a newer windows nt combatible later.
 #
 NtGdiAbortDoc                                    1
 NtGdiAbortPath                                   1
@@ -235,7 +239,7 @@ NtGdiMonoBitmap                                  1
 NtGdiMoveTo                                      4
 NtGdiOffsetClipRgn                               3
 NtGdiOffsetRgn                                   3
-NtGdiOpenDCW                                     8
+NtGdiOpenDCW                                     7
 NtGdiPatBlt                                      6
 NtGdiPolyPatBlt                                  5
 NtGdiPathToRegion                                1
@@ -375,13 +379,11 @@ NtUserEndMenu                                    0
 NtUserEndPaint                                   2
 NtUserEnumDisplayDevices                         4
 # NtUserEnumDisplayMonitors                      4 Wrong number of param ?
-NtUserEnumDisplayMonitors                        5
 NtUserEnumDisplaySettings                        4
 NtUserEvent                                      1
 NtUserExcludeUpdateRgn                           2
 NtUserFillWindow                                 4
 # NtUserFindExistingCursorIcon                   3  Wrong number of param ?
-NtUserFindExistingCursorIcon                     4
 NtUserFindWindowEx                               5
 NtUserFlashWindowEx                              1
 NtUserGetAltTabInfo                              6
@@ -391,7 +393,7 @@ NtUserGetAsyncKeyState                           1
 NtUserGetAtomName                                2
 NtUserGetCaretBlinkTime                          0
 NtUserGetCaretPos                                1
-NtUserGetClassInfo                               5
+# NtUserGetClassInfo                             5   Wrong number of param ?
 NtUserGetClassName                               3
 NtUserGetClipboardData                           2
 NtUserGetClipboardFormatName                     3
@@ -452,7 +454,7 @@ NtUserHiliteMenuItem                             4
 NtUserImpersonateDdeClientWindow                 2
 NtUserInitialize                                 3
 NtUserInitializeClientPfnArrays                  4
-NtUserInitTask                                  12
+# NtUserInitTask                                12 Wrong number of param ?
 NtUserInternalGetWindowText                      3
 NtUserInvalidateRect                             3
 NtUserInvalidateRgn                              3
@@ -493,7 +495,7 @@ NtUserRealInternalGetMessage                     6
 NtUserRealWaitMessageEx                          2
 NtUserRedrawWindow                               4
 NtUserRegisterClassExWOW                         7
-NtUserRegisterUserApiHook                        4
+NtUserRegisterUserApiHook                        2
 NtUserRegisterHotKey                             4
 NtUserRegisterRawInputDevices                    3
 NtUserRegisterTasklist                           1
@@ -517,7 +519,7 @@ NtUserSetClipboardViewer                         1
 NtUserSetConsoleReserveKeys                      2
 NtUserSetCursor                                  1
 NtUserSetCursorContents                          2
-NtUserSetCursorIconData                          6 #4
+# NtUserSetCursorIconData                        4 Wrong number of param ?
 NtUserSetDbgTag                                  2
 NtUserSetFocus                                   1
 NtUserSetImeHotKey                               5
@@ -578,12 +580,12 @@ NtUserUnhookWindowsHookEx                        1
 NtUserUnhookWinEvent                             1
 NtUserUnloadKeyboardLayout                       1
 NtUserUnlockWindowStation                        1
-NtUserUnregisterClass                            3
+# NtUserUnregisterClass                          3 Wrong number of param ?
 NtUserUnregisterUserApiHook                      0
 NtUserUnregisterHotKey                           2
 NtUserUpdateInputContext                         3
 NtUserUpdateInstance                             3
-NtUserUpdateLayeredWindow                        10
+NtUserUpdateLayeredWindow                        9
 NtUserGetLayeredWindowAttributes                 4
 NtUserSetLayeredWindowAttributes                 4
 NtUserUpdatePerUserSystemParameters              2
@@ -596,7 +598,6 @@ NtUserWaitForInputIdle                           3
 NtUserWaitForMsgAndEvent                         1
 NtUserWaitMessage                                0
 NtUserWin32PoolAllocationStats                   6
-NtUserWindowFromPhysicalPoint                    2
 NtUserWindowFromPoint                            2
 NtUserYieldTask                                  0
 NtUserRemoteConnect                              3
@@ -674,29 +675,130 @@ NtGdiUMPDEngFreeUserMem                          1
 NtGdiDrawStream                                  3
 #
 #
-#ReactOS specific syscalls
-NtGdiSetDIBits                          7
-NtGdiSetViewportOrgEx                   4
-NtGdiSetWindowOrgEx                     4
-NtGdiGetFontFamilyInfo                  4
-NtGdiOffsetViewportOrgEx                4
-NtGdiOffsetWindowOrgEx                  4
+# Wrong number of param ?
+NtUserEnumDisplayMonitors               5
+NtUserFindExistingCursorIcon            4
+NtUserGetClassInfo                      4
+NtUserInitTask                          11
+NtUserSetCursorIconData                 6
+NtUserUnregisterClass                   2
 #
+#ReactOS specify syscall 
+NtGdiSelectObject                       2
+NtGdiSetBkColor                         2
+NtGdiSetBkMode                          2
+NtGdiSetDIBits                          7
+NtGdiSetEnhMetaFileBits                 2
+NtGdiSetGraphicsMode                    2
+NtGdiSetICMProfile                      2
+NtGdiSetMapperFlags                     2
+NtGdiSetPolyFillMode                    2
+NtGdiSetROP2                            2
+NtGdiSetStretchBltMode                  2
+NtGdiSetTextAlign                       2
+NtGdiSetTextColor                       2
+NtGdiSetViewportExtEx                   4
+NtGdiSetViewportOrgEx                   4
+NtGdiSetWindowExtEx                     4
+NtGdiSetWindowOrgEx                     4
+NtGdiStretchDIBits                      13
+NtGdiTranslateCharsetInfo               3
+NtGdiUpdateICMRegKey                    4
 NtUserBuildMenuItemList                 4
 NtUserCreateCursorIconHandle            2
+NtUserEnumClipboardFormats              1 
+NtUserGetActiveWindow                   0
+NtUserGetCapture                        0
 NtUserGetClassLong                      3
+NtUserGetClientOrigin                   2
+NtUserGetClientRect                     2
 NtUserGetMenuDefaultItem                3
+NtUserGetCursorIconInfo                 2
+NtUserGetCursorIconSize                 3
 NtUserGetLastInputInfo                  1
 NtUserGetMinMaxInfo                     3
 NtUserGetMonitorInfo                    2
+NtUserGetProp                           2
 NtUserGetScrollInfo                     3
-NtUserGetWindow                         2
+NtUserGetSystemMetrics                  1
 NtUserGetWindowLong                     3
+NtUserGetWindowRect                     2
+NtUserInsertMenuItem                    4
+NtUserKillSystemTimer                   2
 NtUserMenuInfo                          3
 NtUserMenuItemInfo                      5
 NtUserMonitorFromPoint                  3
 NtUserMonitorFromRect                   2
 NtUserMonitorFromWindow                 2
+NtUserRegisterClassEx                   6
+NtUserRegisterClipboardFormat           1 
 NtUserSendMessage                       5
+NtUserSendMessageCallback               6
 NtUserSendMessageTimeout                8
+NtUserSendNotifyMessage                 4
 NtUserSetScrollBarInfo                  3
+NtUserGetDesktopWindow                  0
+NtGdiAddFontResource                    2
+NtGdiCloseEnhMetaFile                   1
+NtGdiColorMatchToTarget                 3
+NtGdiCopyEnhMetaFile                    2
+NtGdiCreateDIBitmap                     6
+NtGdiCreateEnhMetaFile                  4
+NtGdiCreateScalableFontResource         4
+NtGdiDeleteEnhMetaFile                  1
+NtGdiDeleteObject                       1
+NtGdiEnumEnhMetaFile                    5
+NtGdiEnumFonts                          4
+NtGdiEnumICMProfiles                    3
+NtGdiExtTextOut                         8
+NtGdiGdiComment                         3
+NtGdiGetAspectRatioFilterEx             2
+NtGdiGetBkColor                         1
+NtGdiGetBkMode                          1
+NtGdiGetBrushOrgEx                      2
+NtGdiGetCharABCWidths                   4
+NtGdiGetCharABCWidthsFloat              4
+NtGdiGetCharacterPlacement              6
+NtGdiGetCharWidth32                     4
+NtGdiGetCharWidthFloat                  4
+NtGdiGetClipBox                         2
+NtGdiGetColorSpace                      1
+NtGdiGetCurrentPositionEx               2
+NtGdiGetEnhMetaFile                     1
+NtGdiGetEnhMetaFileBits                 3
+NtGdiGetEnhMetaFileDescription          3
+NtGdiGetEnhMetaFileHeader               3
+NtGdiGetEnhMetaFilePaletteEntries       3
+NtGdiGetEnhMetaFilePixelFormat          3
+NtGdiGetFontFamilyInfo                  4
+NtGdiGetFontLanguageInfo                1
+NtGdiGetGraphicsMode                    1
+NtGdiGetICMProfile                      3
+NtGdiGetLogColorSpace                   3
+NtGdiGetMapMode                         1
+NtGdiGetPixelFormat                     1
+NtGdiGetPolyFillMode                    1
+NtGdiGetROP2                            1
+NtGdiGetStretchBltMode                  1
+NtGdiGetTextAlign                       1
+NtGdiGetTextColor                       1
+NtGdiGetTextExtentPoint32               4
+NtGdiMoveToEx                           4
+NtGdiOffsetViewportOrgEx                4
+NtGdiOffsetWindowOrgEx                  4
+NtGdiPlayEnhMetaFile                    3
+NtGdiPlayEnhMetaFileRecord              4
+NtGdiPolyTextOut                        3
+NtGdiRealizePalette                     1
+NtGdiRemoveFontResource                 1
+#
+# ReactOS only system calls
+NtUserAcquireOrReleaseInputOwnership    1
+NtUserGetWindowThreadProcessId          2
+NtUserGetQueueStatus                    1
+NtUserGetParent                         1
+NtUserGetWindow                         2
+NtUserGetLastActivePopup                1
+NtUserGetShellWindow                    0
+NtUserDereferenceWndProcHandle          2
+NtUserManualGuiCheck                    1

@@ -1,21 +1,21 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/iskana.c
+ * FILE:        lib/msvcrt/mbstring/iskana.c
  * PURPOSE:     Checks for kana character
- * PROGRAMER:
+ * PROGRAMER:   Ariadne, Taiji Yamada
  * UPDATE HISTORY:
- *              12/04/99:  Ariadne, Taiji Yamada Created
- *              05/30/08: Samuel Serapion adapted  from PROJECT C Library
- *
+		Modified from Taiji Yamada japanese code system utilities
+ *              12/04/99: Created
  */
-
-#include <precomp.h>
+#include <mbstring.h>
+#include <mbctype.h>
+#include <internal/mbstring.h>
 
 /*
  * @implemented
  */
 int _ismbbkana(unsigned int c)
 {
-  return (_mbctype[c & 0xff] & _MBKANA);
+  return ((_mbctype+1)[(unsigned char)(c)] & (_KNJ_M|_KNJ_P));
 }

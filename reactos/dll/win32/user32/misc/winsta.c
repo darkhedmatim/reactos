@@ -13,45 +13,55 @@
 
 #include <wine/debug.h>
 
-
 /*
  * @implemented
  */
-HWINSTA WINAPI
-CreateWindowStationA(LPSTR lpwinsta,
-		     DWORD dwReserved,
-		     ACCESS_MASK dwDesiredAccess,
-		     LPSECURITY_ATTRIBUTES lpsa)
+BOOL STDCALL
+CloseWindowStation(HWINSTA hWinSta)
 {
-    UNICODE_STRING WindowStationNameU;
-    HWINSTA hWinSta;
-
-    if (lpwinsta)
-    {
-        /* After conversion, the buffer is zero-terminated */
-        RtlCreateUnicodeStringFromAsciiz(&WindowStationNameU, lpwinsta);
-    }
-    else
-    {
-        RtlInitUnicodeString(&WindowStationNameU, NULL);
-    }
-
-    hWinSta = CreateWindowStationW(WindowStationNameU.Buffer,
-                                   dwReserved,
-                                   dwDesiredAccess,
-                                   lpsa);
-
-    /* Free the string, if it was allocated */
-    if (lpwinsta) RtlFreeUnicodeString(&WindowStationNameU);
-
-    return hWinSta;
+  return(NtUserCloseWindowStation(hWinSta));
 }
 
 
 /*
  * @implemented
  */
-HWINSTA WINAPI
+HWINSTA STDCALL
+CreateWindowStationA(LPSTR lpwinsta,
+		     DWORD dwReserved,
+		     ACCESS_MASK dwDesiredAccess,
+		     LPSECURITY_ATTRIBUTES lpsa)
+{
+  ANSI_STRING WindowStationNameA;
+  UNICODE_STRING WindowStationNameU;
+  HWINSTA hWinSta;
+
+  if (lpwinsta != NULL)
+    {
+      RtlInitAnsiString(&WindowStationNameA, lpwinsta);
+      RtlAnsiStringToUnicodeString(&WindowStationNameU, &WindowStationNameA,
+				   TRUE);
+    }
+  else
+    {
+      RtlInitUnicodeString(&WindowStationNameU, NULL);
+    }
+
+  hWinSta = CreateWindowStationW(WindowStationNameU.Buffer,
+				 dwReserved,
+				 dwDesiredAccess,
+				 lpsa);
+
+  RtlFreeUnicodeString(&WindowStationNameU);
+
+  return hWinSta;
+}
+
+
+/*
+ * @implemented
+ */
+HWINSTA STDCALL
 CreateWindowStationW(LPWSTR lpwinsta,
 		     DWORD dwReserved,
 		     ACCESS_MASK dwDesiredAccess,
@@ -88,7 +98,8 @@ EnumNamesW(HWINSTA WindowStation,
     */
    if (NULL == WindowStation && Desktops)
    {
-      WindowStation = GetProcessWindowStation();
+      SetLastError(ERROR_INVALID_HANDLE);
+      return FALSE;
    }
 
    /*
@@ -243,7 +254,7 @@ EnumNamesA(HWINSTA WindowStation,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 EnumWindowStationsA(WINSTAENUMPROCA EnumFunc,
 		    LPARAM Context)
 {
@@ -254,7 +265,7 @@ EnumWindowStationsA(WINSTAENUMPROCA EnumFunc,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 EnumWindowStationsW(WINSTAENUMPROCW EnumFunc,
 		    LPARAM Context)
 {
@@ -265,39 +276,50 @@ EnumWindowStationsW(WINSTAENUMPROCW EnumFunc,
 /*
  * @implemented
  */
-HWINSTA WINAPI
-OpenWindowStationA(LPSTR lpszWinSta,
-		   BOOL fInherit,
-		   ACCESS_MASK dwDesiredAccess)
+HWINSTA STDCALL
+GetProcessWindowStation(VOID)
 {
-    UNICODE_STRING WindowStationNameU;
-    HWINSTA hWinSta;
-
-    if (lpszWinSta)
-    {
-        /* After conversion, the buffer is zero-terminated */
-        RtlCreateUnicodeStringFromAsciiz(&WindowStationNameU, lpszWinSta);
-    }
-    else
-    {
-        RtlInitUnicodeString(&WindowStationNameU, NULL);
-    }
-
-    hWinSta = OpenWindowStationW(WindowStationNameU.Buffer,
-                                 fInherit,
-                                 dwDesiredAccess);
-
-    /* Free the string, if it was allocated */
-    if (lpszWinSta) RtlFreeUnicodeString(&WindowStationNameU);
-
-    return hWinSta;
+  return NtUserGetProcessWindowStation();
 }
 
 
 /*
  * @implemented
  */
-HWINSTA WINAPI
+HWINSTA STDCALL
+OpenWindowStationA(LPSTR lpszWinSta,
+		   BOOL fInherit,
+		   ACCESS_MASK dwDesiredAccess)
+{
+  ANSI_STRING WindowStationNameA;
+  UNICODE_STRING WindowStationNameU;
+  HWINSTA hWinSta;
+
+  if (lpszWinSta != NULL)
+    {
+      RtlInitAnsiString(&WindowStationNameA, lpszWinSta);
+      RtlAnsiStringToUnicodeString(&WindowStationNameU, &WindowStationNameA,
+				   TRUE);
+    }
+  else
+    {
+      RtlInitUnicodeString(&WindowStationNameU, NULL);
+    }
+
+  hWinSta = OpenWindowStationW(WindowStationNameU.Buffer,
+			       fInherit,
+			       dwDesiredAccess);
+
+  RtlFreeUnicodeString(&WindowStationNameU);
+
+  return hWinSta;
+}
+
+
+/*
+ * @implemented
+ */
+HWINSTA STDCALL
 OpenWindowStationW(LPWSTR lpszWinSta,
 		   BOOL fInherit,
 		   ACCESS_MASK dwDesiredAccess)
@@ -311,10 +333,20 @@ OpenWindowStationW(LPWSTR lpszWinSta,
 
 
 /*
+ * @implemented
+ */
+BOOL STDCALL
+SetProcessWindowStation(HWINSTA hWinSta)
+{
+  return NtUserSetProcessWindowStation(hWinSta);
+}
+
+
+/*
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 SetWindowStationUser(
   DWORD Unknown1,
   DWORD Unknown2,
@@ -323,6 +355,28 @@ SetWindowStationUser(
   )
 {
   return NtUserSetWindowStationUser(Unknown1, Unknown2, Unknown3, Unknown4);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+LockWindowStation(HWINSTA hWinSta)
+{
+  return NtUserLockWindowStation(hWinSta);
+}
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+UnlockWindowStation(HWINSTA hWinSta)
+{
+  return NtUserUnlockWindowStation(hWinSta);
 }
 
 /* EOF */

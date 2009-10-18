@@ -32,7 +32,7 @@
 #define NDEBUG
 #include <debug.h>
 
-VOID WINAPI DisplayString(LPCWSTR lpwString)
+VOID STDCALL DisplayString(LPCWSTR lpwString)
 {
    UNICODE_STRING us;
 
@@ -40,7 +40,7 @@ VOID WINAPI DisplayString(LPCWSTR lpwString)
    ZwDisplayString (&us);
 }
 
-VOID WINAPI PrintString (char* fmt, ...)
+VOID STDCALL PrintString (char* fmt, ...)
 {
    char buffer[512];
    va_list ap;

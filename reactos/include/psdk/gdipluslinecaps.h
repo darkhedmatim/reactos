@@ -19,6 +19,10 @@
 #ifndef _GDIPLUSLINECAPS_H
 #define _GDIPLUSLINECAPS_H
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 inline
 CustomLineCap::CustomLineCap(const GraphicsPath *fillPath,
   const GraphicsPath *strokePath, LineCap baseCap, REAL baseInset)

@@ -5,8 +5,8 @@
  * This is the top-most include file of the Mesa sources.
  * It includes gl.h and all system headers which are needed.
  * Other Mesa source files should \e not directly include any system
- * headers.  This allows system-dependent hacks/workarounds to be
- * collected in one place.
+ * headers.  This allows Mesa to be integrated into XFree86 and
+ * allows system-dependent hacks/workarounds to be collected in one place.
  *
  * \note Actually, a lot of system-dependent stuff is now in imports.[ch].
  *
@@ -20,7 +20,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
  * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
@@ -46,10 +46,15 @@
 #ifndef GLHEADER_H
 #define GLHEADER_H
 
+
+#if defined(XFree86LOADER) && defined(IN_MODULE)
+#include "xf86_ansic.h"
+#else
 #include <assert.h>
 #include <ctype.h>
+/* If we can use Compaq's Fast Math Library on Alpha */
 #if defined(__alpha__) && defined(CCPML)
-#include <cpml.h> /* use Compaq's Fast Math Library on Alpha */
+#include <cpml.h>
 #else
 #include <math.h>
 #endif
@@ -60,41 +65,22 @@
 #if defined(__linux__) && defined(__i386__)
 #include <fpu_control.h>
 #endif
+#endif
 #include <float.h>
 #include <stdarg.h>
 
 
 /* Get typedefs for uintptr_t and friends */
-#if defined(__MINGW32__) || defined(__NetBSD__)
-#  include <stdint.h>
-#elif defined(_WIN32)
-#  include <BaseTsd.h>
-#  if _MSC_VER == 1200
-     typedef UINT_PTR uintptr_t;
-#  endif 
-#elif defined(__INTERIX)
-/* Interix 3.x has a gcc that shadows this. */
-#  ifndef _UINTPTR_T_DEFINED
-     typedef unsigned long uintptr_t;
-#  define _UINTPTR_T_DEFINED
-#  endif
-#else
-#  include <inttypes.h>
+#if defined(_WIN32) && !defined(__MINGW32__)
+#include <BaseTsd.h>
+#if _MSC_VER == 1200
+typedef UINT_PTR uintptr_t;
+#endif 
+#if defined(__MINGW32__)
+#include <stdint.h>
 #endif
-
-
-/* Sun compilers define __i386 instead of the gcc-style __i386__ */
-#ifdef __SUNPRO_C
-# if !defined(__i386__) && defined(__i386)
-#  define __i386__
-# elif !defined(__amd64__) && defined(__amd64)
-#  define __amd64__
-# elif !defined(__sparc__) && defined(__sparc)
-#  define __sparc__
-# endif
-# if !defined(__volatile)
-#  define __volatile volatile
-# endif
+#else
+#include <inttypes.h>
 #endif
 
 #if defined(_WIN32) && !defined(__WIN32__) && !defined(__CYGWIN__) && !defined(BUILD_FOR_SNAP)
@@ -107,9 +93,6 @@
 #  pragma disable_message(201) /* Disable unreachable code warnings */
 #endif
 
-#ifdef WGLAPI
-#	undef WGLAPI
-#endif
 
 #if !defined(OPENSTEP) && (defined(__WIN32__) && !defined(__CYGWIN__)) && !defined(BUILD_FOR_SNAP)
 #  if !defined(__GNUC__) /* mingw environment */
@@ -135,6 +118,32 @@
 #endif /* WIN32 / CYGWIN bracket */
 
 
+#ifndef __MINGW32__
+/* XXX why is this here?
+ * It should probaby be somewhere in src/mesa/drivers/windows/
+ */
+#if defined(_WIN32) && !defined(_WINGDI_) && !defined(_WINGDI_H) && !defined(_GNU_H_WINDOWS32_DEFINES) && !defined(OPENSTEP) && !defined(BUILD_FOR_SNAP) 
+#	define WGL_FONT_LINES      0
+#	define WGL_FONT_POLYGONS   1
+#ifndef _GNU_H_WINDOWS32_FUNCTIONS
+#	ifdef UNICODE
+#		define wglUseFontBitmaps  wglUseFontBitmapsW
+#		define wglUseFontOutlines  wglUseFontOutlinesW
+#	else
+#		define wglUseFontBitmaps  wglUseFontBitmapsA
+#		define wglUseFontOutlines  wglUseFontOutlinesA
+#	endif /* !UNICODE */
+#endif /* _GNU_H_WINDOWS32_FUNCTIONS */
+typedef struct tagLAYERPLANEDESCRIPTOR LAYERPLANEDESCRIPTOR, *PLAYERPLANEDESCRIPTOR, *LPLAYERPLANEDESCRIPTOR;
+typedef struct _GLYPHMETRICSFLOAT GLYPHMETRICSFLOAT, *PGLYPHMETRICSFLOAT, *LPGLYPHMETRICSFLOAT;
+typedef struct tagPIXELFORMATDESCRIPTOR PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESCRIPTOR, *LPPIXELFORMATDESCRIPTOR;
+#if !defined(GLX_USE_MESA)
+#include <GL/mesa_wgl.h>
+#endif
+#endif
+#endif /* !__MINGW32__ */
+
+
 /*
  * Either define MESA_BIG_ENDIAN or MESA_LITTLE_ENDIAN.
  * Do not use them unless absolutely necessary!
@@ -146,8 +155,7 @@
 #include <byteswap.h>
 #define CPU_TO_LE32( x )	bswap_32( x )
 #else /*__linux__*/
-#include <sys/endian.h>
-#define CPU_TO_LE32( x )	bswap32( x )
+#define CPU_TO_LE32( x )	( x )  /* fix me for non-Linux big-endian! */
 #endif /*__linux__*/
 #define MESA_BIG_ENDIAN 1
 #else
@@ -162,28 +170,10 @@
 #include "GL/glext.h"
 
 
-#ifndef GL_FIXED
-#define GL_FIXED 0x140C
-#endif
-
-
-#ifndef GL_OES_point_size_array
-#define GL_POINT_SIZE_ARRAY_OES                                 0x8B9C
-#define GL_POINT_SIZE_ARRAY_TYPE_OES                            0x898A
-#define GL_POINT_SIZE_ARRAY_STRIDE_OES                          0x898B
-#define GL_POINT_SIZE_ARRAY_POINTER_OES                         0x898C
-#define GL_POINT_SIZE_ARRAY_BUFFER_BINDING_OES                  0x8B9F
-#endif
-
-
-#ifndef GL_OES_draw_texture
-#define GL_TEXTURE_CROP_RECT_OES  0x8B9D
-#endif
-
-
 #if !defined(CAPI) && defined(WIN32) && !defined(BUILD_FOR_SNAP)
 #define CAPI _cdecl
 #endif
+#include <GL/internal/glcore.h>
 
 
 /* This is a macro on IRIX */
@@ -236,12 +226,6 @@
 #  define INLINE inline
 #elif defined(__WATCOMC__) && (__WATCOMC__ >= 1100)
 #  define INLINE __inline
-#elif defined(__SUNPRO_C) && defined(__C99FEATURES__)
-#  define INLINE inline
-#  define __inline inline
-#  define __inline__ inline
-#elif (__STDC_VERSION__ >= 199901L) /* C99 */
-#  define INLINE inline
 #else
 #  define INLINE
 #endif
@@ -270,7 +254,6 @@
 #endif
 
 
-#if !defined(_WIN32_WCE)
 #if defined(BUILD_FOR_SNAP) && defined(CHECKED)
 #  define ASSERT(X)   _CHECK(X) 
 #elif defined(DEBUG)
@@ -278,29 +261,54 @@
 #else
 #  define ASSERT(X)
 #endif
-#endif
 
 
-#if (!defined(__GNUC__) || __GNUC__ < 3) && (!defined(__IBMC__) || __IBMC__ < 900)
+#if !defined __GNUC__ || __GNUC__ < 3
 #  define __builtin_expect(x, y) x
 #endif
+
+/* Windows does not have the ffs() function */
+#if defined(_WIN32)
+static int INLINE
+ffs(register int value)
+{
+    register int bit = 0;
+    if (value != 0)
+    {
+        if ((value & 0xffff) == 0)
+        {
+            bit += 16;
+            value >>= 16;
+        }
+        if ((value & 0xff) == 0)
+        {
+            bit += 8;
+            value >>= 8;
+        }
+        if ((value & 0xf) == 0)
+        {
+            bit += 4;
+            value >>= 4;
+        }
+        while ((value & 1) == 0)
+        {
+            bit++;
+            value >>= 1;
+        }
+    }
+    return bit;
+}
+#endif
+
 
 /* The __FUNCTION__ gcc variable is generally only used for debugging.
  * If we're not using gcc, define __FUNCTION__ as a cpp symbol here.
  * Don't define it if using a newer Windows compiler.
  */
-#ifndef __FUNCTION__
-# if defined(__VMS)
-#  define __FUNCTION__ "VMS$NL:"
-# elif ((!defined __GNUC__) || (__GNUC__ < 2)) && (!defined __xlC__) && \
-      (!defined(_MSC_VER) || _MSC_VER < 1300)
-#  if (__STDC_VERSION__ >= 199901L) /* C99 */ || \
-    (defined(__SUNPRO_C) && defined(__C99FEATURES__))
-#   define __FUNCTION__ __func__
-#  else
-#   define __FUNCTION__ "<unknown>"
-#  endif
-# endif
+#if defined(__VMS)
+#define __FUNCTION__ "VMS$NL:"
+#elif !(defined(__GNUC__) && __GNUC__ >= 2) && !(defined(_MSC_VER) && _MSC_VER >= 1300)
+#define __FUNCTION__ "unknown"
 #endif
 
 

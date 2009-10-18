@@ -101,7 +101,7 @@ static ULONG WINAPI IStream_fnRelease(IStream *iface)
   if (!refCount)
   {
     IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
-    LocalFree(This->lpszPath);
+    LocalFree((HLOCAL)This->lpszPath);
     CloseHandle(This->hFile);
     HeapFree(GetProcessHeap(), 0, This);
   }
@@ -119,10 +119,13 @@ static HRESULT WINAPI IStream_fnRead(IStream *iface, void* pv, ULONG cb, ULONG* 
 
   TRACE("(%p,%p,0x%08x,%p)\n", This, pv, cb, pcbRead);
 
+  if (!pv)
+    return STG_E_INVALIDPOINTER;
+
   if (!ReadFile(This->hFile, pv, cb, &dwRead, NULL))
   {
-    WARN("error %d reading file\n", GetLastError());
-    return S_FALSE;
+    ERR("error %d reading file\n", GetLastError());
+    return HRESULT_FROM_WIN32(GetLastError());
   }
   if (pcbRead)
     *pcbRead = dwRead;
@@ -139,13 +142,16 @@ static HRESULT WINAPI IStream_fnWrite(IStream *iface, const void* pv, ULONG cb, 
 
   TRACE("(%p,%p,0x%08x,%p)\n", This, pv, cb, pcbWritten);
 
+  if (!pv)
+    return STG_E_INVALIDPOINTER;
+
   switch (STGM_ACCESS_MODE(This->dwMode))
   {
   case STGM_WRITE:
   case STGM_READWRITE:
     break;
   default:
-    return STG_E_ACCESSDENIED;
+    return E_FAIL;
   }
 
   if (!WriteFile(This->hFile, pv, cb, &dwWritten, NULL))
@@ -170,7 +176,7 @@ static HRESULT WINAPI IStream_fnSeek(IStream *iface, LARGE_INTEGER dlibMove,
   IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
   dwPos = SetFilePointer(This->hFile, dlibMove.u.LowPart, NULL, dwOrigin);
   if( dwPos == INVALID_SET_FILE_POINTER )
-     return HRESULT_FROM_WIN32(GetLastError());
+     return E_FAIL;
 
   if (pNewPos)
   {
@@ -218,7 +224,7 @@ static HRESULT WINAPI IStream_fnCopyTo(IStream *iface, IStream* pstm, ULARGE_INT
     pcbWritten->QuadPart = 0;
 
   if (!pstm)
-    return S_OK;
+    return STG_E_INVALIDPOINTER;
 
   IStream_fnCommit(iface, 0); /* If ever buffered, this will be needed */
 
@@ -412,6 +418,9 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
 
   *lppStream = NULL;
 
+  if (dwMode & STGM_TRANSACTED)
+    return E_INVALIDARG;
+
   /* Access */
   switch (STGM_ACCESS_MODE(dwMode))
   {
@@ -431,9 +440,6 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
   /* Sharing */
   switch (STGM_SHARE_MODE(dwMode))
   {
-  case 0:
-    dwShare = FILE_SHARE_READ|FILE_SHARE_WRITE;
-    break;
   case STGM_SHARE_DENY_READ:
     dwShare = FILE_SHARE_WRITE;
     break;
@@ -453,7 +459,7 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
   switch(STGM_CREATE_MODE(dwMode))
   {
   case STGM_FAILIFTHERE:
-    dwCreate = bCreate ? CREATE_NEW : OPEN_EXISTING;
+    dwCreate = OPEN_EXISTING;
     break;
   case STGM_CREATE:
     dwCreate = CREATE_ALWAYS;
@@ -467,7 +473,12 @@ HRESULT WINAPI SHCreateStreamOnFileEx(LPCWSTR lpszPath, DWORD dwMode,
                       dwAttributes, 0);
 
   if(hFile == INVALID_HANDLE_VALUE)
-    return HRESULT_FROM_WIN32(GetLastError());
+  {
+    HRESULT hRet = (HRESULT)GetLastError();
+    if(hRet > 0)
+      hRet = HRESULT_FROM_WIN32(hRet);
+    return hRet;
+  }
 
   *lppStream = IStream_Create(lpszPath, hFile, dwMode);
 
@@ -490,9 +501,6 @@ HRESULT WINAPI SHCreateStreamOnFileW(LPCWSTR lpszPath, DWORD dwMode,
   TRACE("(%s,%d,%p)\n", debugstr_w(lpszPath), dwMode, lppStream);
 
   if (!lpszPath || !lppStream)
-    return E_INVALIDARG;
-
-  if ((dwMode & (STGM_CONVERT|STGM_DELETEONRELEASE|STGM_TRANSACTED)) != 0)
     return E_INVALIDARG;
 
   return SHCreateStreamOnFileEx(lpszPath, dwMode, 0, FALSE, NULL, lppStream);
@@ -520,8 +528,7 @@ HRESULT WINAPI SHCreateStreamOnFileA(LPCSTR lpszPath, DWORD dwMode,
   TRACE("(%s,%d,%p)\n", debugstr_a(lpszPath), dwMode, lppStream);
 
   if (!lpszPath)
-    return HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND);
-
+    return E_INVALIDARG;
   MultiByteToWideChar(0, 0, lpszPath, -1, szPath, MAX_PATH);
   return SHCreateStreamOnFileW(szPath, dwMode, lppStream);
 }
@@ -541,7 +548,7 @@ HRESULT WINAPI SHCreateStreamOnFileA(LPCSTR lpszPath, DWORD dwMode,
  *  Failure: An HRESULT error code, or E_FAIL if the read succeeded but the
  *           number of bytes read does not match.
  */
-HRESULT WINAPI SHIStream_Read(IStream *lpStream, LPVOID lpvDest, ULONG ulSize)
+HRESULT WINAPI SHLWAPI_184(IStream *lpStream, LPVOID lpvDest, ULONG ulSize)
 {
   ULONG ulRead;
   HRESULT hRet;
@@ -586,7 +593,7 @@ BOOL WINAPI SHIsEmptyStream(IStream *lpStream)
     DWORD dwDummy;
 
     /* Try to read from the stream */
-    if(SUCCEEDED(SHIStream_Read(lpStream, &dwDummy, sizeof(dwDummy))))
+    if(SUCCEEDED(SHLWAPI_184(lpStream, &dwDummy, sizeof(dwDummy))))
     {
       LARGE_INTEGER zero;
       zero.QuadPart = 0;
@@ -613,7 +620,7 @@ BOOL WINAPI SHIsEmptyStream(IStream *lpStream)
  *  Failure: An HRESULT error code, or E_FAIL if the write succeeded but the
  *           number of bytes written does not match.
  */
-HRESULT WINAPI SHIStream_Write(IStream *lpStream, LPCVOID lpvSrc, ULONG ulSize)
+HRESULT WINAPI SHLWAPI_212(IStream *lpStream, LPCVOID lpvSrc, ULONG ulSize)
 {
   ULONG ulWritten;
   HRESULT hRet;

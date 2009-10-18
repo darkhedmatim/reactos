@@ -1,11 +1,17 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="dinput" type="win32dll" baseaddress="${BASEADDRESS_DINPUT}" installbase="system32" installname="dinput.dll" unicode="yes">
+<module name="dinput" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_DINPUT}" installbase="system32" installname="dinput.dll" allowwarnings ="true">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
-	<importlibrary definition="dinput.spec" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<importlibrary definition="dinput.spec.def" />
 	<include base="dinput">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
+	<define name="__REACTOS__" />
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x600</define>
+	<define name="_WIN32_WINNT">0x501</define>
+	<define name="WINVER">0x501</define>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ntdll</library>
@@ -25,4 +31,5 @@
 	<file>keyboard.c</file>
 	<file>mouse.c</file>
 	<file>regsvr.c</file>
+	<file>dinput.spec</file>
 </module>

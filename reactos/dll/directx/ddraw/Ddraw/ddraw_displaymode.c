@@ -11,106 +11,11 @@
 
 #include "rosdraw.h"
 
-HRESULT WINAPI
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
+
+HRESULT WINAPI 
 Main_DirectDraw_EnumDisplayModes(LPDDRAWI_DIRECTDRAW_INT This, DWORD dwFlags,
-                                  LPDDSURFACEDESC pDDSD, LPVOID pContext, LPDDENUMMODESCALLBACK pCallback)
-{
-    HRESULT ret = DD_OK;
-    INT iMode = 0;
-    DEVMODE DevMode;
-
-    DX_WINDBG_trace();
-
-    ZeroMemory(&DevMode, sizeof(DEVMODE));
-
-    _SEH2_TRY
-    {
-
-        if (pDDSD != NULL)
-        {
-            if (pDDSD->dwSize != sizeof(DDSURFACEDESC))
-            {
-                 ret = DDERR_INVALIDPARAMS;
-            }
-        }
-
-        if (IsBadCodePtr((LPVOID)pCallback))
-        {
-            ret = DDERR_INVALIDPARAMS;
-        }
-        else if ( ret == DD_OK)
-        {
-
-            DevMode.dmSize = sizeof(DEVMODE);
-
-            while (EnumDisplaySettingsEx(NULL, iMode, &DevMode, 0) == TRUE)
-            {
-                DDSURFACEDESC SurfaceDesc;
-
-                ZeroMemory(&SurfaceDesc, sizeof(DDSURFACEDESC));
-
-                iMode++;
-
-                SurfaceDesc.dwSize = sizeof (DDSURFACEDESC);
-                SurfaceDesc.dwFlags = DDSD_HEIGHT | DDSD_WIDTH | DDSD_REFRESHRATE | DDSD_WIDTH | DDSD_PIXELFORMAT;
-                SurfaceDesc.dwHeight = DevMode.dmPelsHeight;
-                SurfaceDesc.dwWidth = DevMode.dmPelsWidth;
-                SurfaceDesc.lPitch = DevMode.dmPelsWidth * DevMode.dmBitsPerPel / 8;
-                SurfaceDesc.dwRefreshRate = DevMode.dmDisplayFrequency;
-
-                SurfaceDesc.ddpfPixelFormat.dwSize = sizeof (DDPIXELFORMAT);
-                SurfaceDesc.ddpfPixelFormat.dwFlags = DDPF_RGB;
-                // FIXME: get these
-                /*
-                    SurfaceDesc.ddpfPixelFormat.dwRBitMask =
-                    SurfaceDesc.ddpfPixelFormat.dwGBitMask =
-                    SurfaceDesc.ddpfPixelFormat.dwBBitMask =
-                    SurfaceDesc.ddpfPixelFormat.dwRGBAlphaBitMask =
-                */
-                SurfaceDesc.ddpfPixelFormat.dwRGBBitCount = DevMode.dmBitsPerPel;
-
-                // FIXME1: This->lpLcl->lpGbl->dwMonitorFrequency is not set !
-                if(dwFlags & DDEDM_REFRESHRATES && SurfaceDesc.dwRefreshRate != This->lpLcl->lpGbl->dwMonitorFrequency)
-                {
-                    //continue;  // FIXME2: what is SurfaceDesc.dwRefreshRate supposed to be set to ?
-                }
-
-                // FIXME: Take case when DDEDM_STANDARDVGAMODES flag is not set in account
-
-                if(pDDSD)
-                {
-                    if(pDDSD->dwFlags & DDSD_HEIGHT && pDDSD->dwHeight != SurfaceDesc.dwHeight)
-                        continue;
-
-                    else if(pDDSD->dwFlags & DDSD_WIDTH && pDDSD->dwWidth != SurfaceDesc.dwWidth)
-                        continue;
-
-                    else if(pDDSD->dwFlags & DDSD_PITCH && pDDSD->lPitch != SurfaceDesc.lPitch)
-                        continue;
-
-                    else if(pDDSD->dwFlags & DDSD_REFRESHRATE && pDDSD->dwRefreshRate != SurfaceDesc.dwRefreshRate)
-                        continue;
-
-                    else if(pDDSD->dwFlags & DDSD_PIXELFORMAT && pDDSD->ddpfPixelFormat.dwRGBBitCount != SurfaceDesc.ddpfPixelFormat.dwRGBBitCount)
-                        continue;  // FIXME: test for the other members of ddpfPixelFormat as well
-                }
-
-                if((*pCallback)(&SurfaceDesc, pContext) == DDENUMRET_CANCEL)
-                    break;
-            }
-        }
-
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
-
-    return ret;
-}
-
-HRESULT WINAPI
-Main_DirectDraw_EnumDisplayModes4(LPDDRAWI_DIRECTDRAW_INT This, DWORD dwFlags,
                                   LPDDSURFACEDESC2 pDDSD, LPVOID pContext, LPDDENUMMODESCALLBACK2 pCallback)
 {
     HRESULT ret = DD_OK;
@@ -119,33 +24,26 @@ Main_DirectDraw_EnumDisplayModes4(LPDDRAWI_DIRECTDRAW_INT This, DWORD dwFlags,
 
     DX_WINDBG_trace();
 
-    ZeroMemory(&DevMode, sizeof(DEVMODE));
-
-    _SEH2_TRY
+    _SEH_TRY
     {
 
-        if (pDDSD != NULL)
-        {
-            if (pDDSD->dwSize != sizeof(DDSURFACEDESC2))
-            {
-                 ret = DDERR_INVALIDPARAMS;
-            }
-        }
-
-        if (IsBadCodePtr((LPVOID)pCallback))
+        if 
+        ((!IsBadReadPtr(pCallback,sizeof(LPDDENUMMODESCALLBACK2)))  ||
+        (!IsBadWritePtr(pCallback,sizeof(LPDDENUMMODESCALLBACK2))) ||
+        (!IsBadReadPtr(pDDSD,sizeof(DDSURFACEDESC2)))  ||
+        (!IsBadWritePtr(pDDSD,sizeof(DDSURFACEDESC2))))
         {
             ret = DDERR_INVALIDPARAMS;
         }
-        else if ( ret == DD_OK)
+        else
         {
 
             DevMode.dmSize = sizeof(DEVMODE);
+            DevMode.dmDriverExtra = 0;
 
             while (EnumDisplaySettingsEx(NULL, iMode, &DevMode, 0) == TRUE)
             {
-                DDSURFACEDESC2 SurfaceDesc;
-
-                ZeroMemory(&SurfaceDesc, sizeof(DDSURFACEDESC2));
+                DDSURFACEDESC2 SurfaceDesc; 
 
                 iMode++;
 
@@ -159,11 +57,11 @@ Main_DirectDraw_EnumDisplayModes4(LPDDRAWI_DIRECTDRAW_INT This, DWORD dwFlags,
                 SurfaceDesc.ddpfPixelFormat.dwSize = sizeof (DDPIXELFORMAT);
                 SurfaceDesc.ddpfPixelFormat.dwFlags = DDPF_RGB;
                 // FIXME: get these
-                /*
-                    SurfaceDesc.ddpfPixelFormat.dwRBitMask =
-                    SurfaceDesc.ddpfPixelFormat.dwGBitMask =
-                    SurfaceDesc.ddpfPixelFormat.dwBBitMask =
-                    SurfaceDesc.ddpfPixelFormat.dwRGBAlphaBitMask =
+                /*      
+                    SurfaceDesc.ddpfPixelFormat.dwRBitMask = 
+                    SurfaceDesc.ddpfPixelFormat.dwGBitMask = 
+                    SurfaceDesc.ddpfPixelFormat.dwBBitMask = 
+                    SurfaceDesc.ddpfPixelFormat.dwRGBAlphaBitMask = 
                 */
                 SurfaceDesc.ddpfPixelFormat.dwRGBBitCount = DevMode.dmBitsPerPel;
 
@@ -199,30 +97,22 @@ Main_DirectDraw_EnumDisplayModes4(LPDDRAWI_DIRECTDRAW_INT This, DWORD dwFlags,
         }
 
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return ret;
 }
 
 HRESULT WINAPI
-Main_DirectDraw_SetDisplayMode (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP)
-{
-    DX_WINDBG_trace();
-
-    return Main_DirectDraw_SetDisplayMode2 (This, dwWidth, dwHeight, dwBPP, 0, 0 );
-}
-
-HRESULT WINAPI
-Main_DirectDraw_SetDisplayMode2 (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DWORD dwHeight,
-                                 DWORD dwBPP, DWORD dwRefreshRate, DWORD dwFlags)
+Main_DirectDraw_SetDisplayMode (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DWORD dwHeight,
+                                                                DWORD dwBPP, DWORD dwRefreshRate, DWORD dwFlags)
 {
     HRESULT ret = DD_OK;
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         // FIXME: Check primary if surface is locked / busy etc.
 
@@ -233,10 +123,10 @@ Main_DirectDraw_SetDisplayMode2 (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DW
         }
         else
         {
-            if ((!dwHeight || This->lpLcl->lpGbl->vmiData.dwDisplayHeight == dwHeight) &&
-                (!dwWidth || This->lpLcl->lpGbl->vmiData.dwDisplayWidth == dwWidth)  &&
+            if ((!dwHeight || This->lpLcl->lpGbl->vmiData.dwDisplayHeight == dwHeight) && 
+                (!dwWidth || This->lpLcl->lpGbl->vmiData.dwDisplayWidth == dwWidth)  && 
                 (!dwBPP || This->lpLcl->lpGbl->vmiData.ddpfDisplay.dwRGBBitCount == dwBPP) &&
-                (!dwRefreshRate || This->lpLcl->lpGbl->dwMonitorFrequency == dwRefreshRate))
+                (!dwRefreshRate || This->lpLcl->lpGbl->dwMonitorFrequency == dwRefreshRate))  
             {
                 ret = DD_OK; // nothing to do here for us
             }
@@ -245,16 +135,15 @@ Main_DirectDraw_SetDisplayMode2 (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DW
                 LONG retval;
                 // Here we go
                 DEVMODE DevMode;
-                ZeroMemory(&DevMode, sizeof(DEVMODE));
-                DevMode.dmSize = sizeof(DEVMODE);
+                DevMode.dmFields = 0;
 
-                if (dwHeight)
+                if (dwHeight) 
                     DevMode.dmFields |= DM_PELSHEIGHT;
-                if (dwWidth)
+                if (dwWidth) 
                     DevMode.dmFields |= DM_PELSWIDTH;
-                if (dwBPP)
+                if (dwBPP) 
                     DevMode.dmFields |= DM_BITSPERPEL;
-                if (dwRefreshRate)
+                if (dwRefreshRate) 
                     DevMode.dmFields |= DM_DISPLAYFREQUENCY;
 
                 DevMode.dmPelsHeight = dwHeight;
@@ -262,23 +151,12 @@ Main_DirectDraw_SetDisplayMode2 (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DW
                 DevMode.dmBitsPerPel = dwBPP;
                 DevMode.dmDisplayFrequency = dwRefreshRate;
 
-                DX_WINDBG_trace_res(dwWidth, dwHeight,dwBPP, dwRefreshRate);
-
                 retval = ChangeDisplaySettings(&DevMode, CDS_FULLSCREEN);
                 /* FIXME: Are we supposed to set CDS_SET_PRIMARY as well ? */
 
                 if(retval == DISP_CHANGE_BADMODE)
                 {
-                    /* Note : it seam ms ddraw ignore this and try using the bad mode any case.
-                     * tested with Ati HD2400 that only support 16 and 32 Bpp in windows
-                     */
-                    DX_STUB_str("Warning ChangeDisplaySettings return DISP_CHANGE_BADMODE, but ddraw.dll ignore it\n");
-
-                    //ret = DDERR_UNSUPPORTED;
-                    BOOL ModeChanged;
-                    This->lpLcl->lpGbl->hDD = This->lpLcl->hDD;
-                    DdReenableDirectDrawObject(This->lpLcl->lpGbl, &ModeChanged);
-                    StartDirectDraw((LPDIRECTDRAW)This, 0, TRUE);
+                    ret = DDERR_UNSUPPORTED;
                 }
                 else if(retval != DISP_CHANGE_SUCCESSFUL)
                 {
@@ -295,10 +173,10 @@ Main_DirectDraw_SetDisplayMode2 (LPDDRAWI_DIRECTDRAW_INT This, DWORD dwWidth, DW
             }
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return ret;
 }
@@ -308,7 +186,7 @@ Main_DirectDraw_RestoreDisplayMode (LPDDRAWI_DIRECTDRAW_INT This)
 {
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         BOOL ModeChanged;
 
@@ -316,15 +194,15 @@ Main_DirectDraw_RestoreDisplayMode (LPDDRAWI_DIRECTDRAW_INT This)
 
         // Update Interals
 
-
+        
         This->lpLcl->lpGbl->hDD = This->lpLcl->hDD;
         DdReenableDirectDrawObject(This->lpLcl->lpGbl, &ModeChanged);
         StartDirectDraw((LPDIRECTDRAW)This, 0, TRUE);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
 
     return DD_OK;
@@ -336,7 +214,7 @@ Main_DirectDraw_GetMonitorFrequency (LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpFre
     HRESULT retVal = DD_OK;
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         if(IsBadWritePtr(lpFreq,sizeof(LPDWORD)))
         {
@@ -354,60 +232,24 @@ Main_DirectDraw_GetMonitorFrequency (LPDDRAWI_DIRECTDRAW_INT This, LPDWORD lpFre
             }
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
       retVal = DD_FALSE;
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
 
 HRESULT WINAPI
-Main_DirectDraw_GetDisplayMode (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC pDDSD)
+Main_DirectDraw_GetDisplayMode (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC2 pDDSD)
 {
     HRESULT retVal = DD_OK;
     DX_WINDBG_trace();
 
-    _SEH2_TRY
+    _SEH_TRY
     {
-        if(IsBadWritePtr(pDDSD,sizeof(LPDDSURFACEDESC)))
-        {
-            retVal = DDERR_INVALIDPARAMS;
-        }
-        else if (pDDSD->dwSize != sizeof(DDSURFACEDESC))
-        {
-             retVal = DDERR_INVALIDPARAMS;
-        }
-        else
-        {
-            // FIXME: More stucture members might need to be filled
-
-            pDDSD->dwFlags |= DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_PITCH | DDSD_REFRESHRATE;
-            pDDSD->dwHeight = This->lpLcl->lpGbl->vmiData.dwDisplayHeight;
-            pDDSD->dwWidth = This->lpLcl->lpGbl->vmiData.dwDisplayWidth;
-            pDDSD->ddpfPixelFormat = This->lpLcl->lpGbl->vmiData.ddpfDisplay;
-            pDDSD->dwRefreshRate = This->lpLcl->lpGbl->dwMonitorFrequency;
-            pDDSD->lPitch = This->lpLcl->lpGbl->vmiData.lDisplayPitch;
-        }
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-    }
-    _SEH2_END;
-
-    return retVal;
-}
-
-HRESULT WINAPI
-Main_DirectDraw_GetDisplayMode4 (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC2 pDDSD)
-{
-    HRESULT retVal = DD_OK;
-    DX_WINDBG_trace();
-
-    _SEH2_TRY
-    {
-        if(IsBadWritePtr(pDDSD,sizeof(LPDDSURFACEDESC2)))
+        if(IsBadWritePtr(pDDSD,sizeof(LPDWORD)))
         {
             retVal = DDERR_INVALIDPARAMS;
         }
@@ -427,10 +269,10 @@ Main_DirectDraw_GetDisplayMode4 (LPDDRAWI_DIRECTDRAW_INT This, LPDDSURFACEDESC2 
             pDDSD->lPitch = This->lpLcl->lpGbl->vmiData.lDisplayPitch;
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }

@@ -22,7 +22,7 @@
 
 #define INITIAL_STALL_COUNT 0x10000
 
-VOID NTAPI
+VOID STDCALL
 HalInitializeProcessor(ULONG ProcessorNumber,
                        PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
@@ -30,7 +30,7 @@ HalInitializeProcessor(ULONG ProcessorNumber,
     KeGetPcr()->StallScaleFactor = INITIAL_STALL_COUNT;
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalAllProcessorsStarted (VOID)
 {
   DPRINT("HalAllProcessorsStarted()\n");
@@ -40,7 +40,7 @@ HalAllProcessorsStarted (VOID)
 
 NTHALAPI
 BOOLEAN
-NTAPI
+NTAPI 
 HalStartNextProcessor(
     IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock,
     IN PKPROCESSOR_STATE ProcessorState

@@ -372,7 +372,7 @@ STRINGTABLE DISCARDABLE
     IDS_CREATEFILE          "Plik nie istnieje.t\nCzy chcesz go utworzyæ?"
     IDS_OVERWRITEFILE       "Plik istnieje.\nCzy chcesz go zast¹piæ?"
     IDS_INVALID_FILENAME_TITLE "B³êdny(e) znak(i) w nazwie"
-    IDS_INVALID_FILENAME    "Nazwa pliku nie mo¿e zawieraæ znaków:\n                          / : < > |"
+    IDS_INVALID_FILENAME    "Nazwa pliku nie mo¿e zawieraæ znaków: \n                          / : < > |"
     IDS_PATHNOTEXISTING     "Katalog nie istnieje"
     IDS_FILENOTEXISTING     "Plik nie istnieje"
 }
@@ -409,8 +409,8 @@ Po zainstalowaniu spróbuj ponownie."
     PD32_DEFAULT_PRINTER                  "Domyœlna drukarka; "
     PD32_NR_OF_DOCUMENTS_IN_QUEUE         "W kolejce znajduj¹ siê %d dokumenty"
     PD32_MARGINS_IN_INCHES                "Marginesy [cale]"
-    PD32_MARGINS_IN_MILLIMETERS           "Marginesy [mm]"
-    PD32_MILLIMETERS                      "mm"
+    PD32_MARGINS_IN_MILIMETERS            "Marginesy [mm]"
+    PD32_MILIMETERS                       "mm"
     PD32_PRINTER_STATUS_READY             "Gotowy"
     PD32_PRINTER_STATUS_PAUSED            "Przerwany; "
     PD32_PRINTER_STATUS_ERROR             "B³¹d; "
@@ -447,14 +447,6 @@ STRINGTABLE DISCARDABLE
     IDS_SAVE        "Zapisz"
     IDS_SAVE_AS     "Zapisz jako"
     IDS_OPEN_FILE   "Otwórz plik"
-}
-
-STRINGTABLE DISCARDABLE /* Font styles */
-{
-    IDS_FONT_REGULAR       "Regularny"
-    IDS_FONT_BOLD          "Pogrubiony"
-    IDS_FONT_ITALIC        "Kusywa"
-    IDS_FONT_BOLD_ITALIC   "Pogrubiona kursywa"
 }
 
 STRINGTABLE DISCARDABLE /* Color names */

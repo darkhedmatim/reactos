@@ -122,8 +122,8 @@ CallInitComplete(void)
 }
 
 BOOL
-CallHardError(IN PCSRSS_PROCESS_DATA ProcessData,
-              IN PHARDERROR_MSG HardErrorMessage)
+FASTCALL
+CallHardError(void)
 {
     BOOL Ok;
     unsigned i;
@@ -135,7 +135,7 @@ CallHardError(IN PCSRSS_PROCESS_DATA ProcessData,
     {
         for (i = 0; i < HardErrorProcCount && Ok; i++)
         {
-            Ok = (*(HardErrorProcs[i]))(ProcessData, HardErrorMessage);
+            Ok = (*(HardErrorProcs[i]))();
         }
     }
 
@@ -252,7 +252,6 @@ CsrpInitWin32Csr (int argc, char ** argv, char ** envp)
     }
   Exports.CsrInsertObjectProc = CsrInsertObject;
   Exports.CsrGetObjectProc = CsrGetObject;
-  Exports.CsrReleaseObjectByPointerProc = CsrReleaseObjectByPointer;
   Exports.CsrReleaseObjectProc = CsrReleaseObject;
   Exports.CsrEnumProcessesProc = CsrEnumProcesses;
   if (! (*InitProc)(&ApiDefinitions, &ObjectDefinitions, &InitCompleteProc,
@@ -297,7 +296,7 @@ CSRSS_API_DEFINITION NativeDefinitions[] =
     { 0, 0, NULL }
   };
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CsrpCreateListenPort (IN     LPWSTR  Name,
 		      IN OUT PHANDLE Port,
 		      IN     PTHREAD_START_ROUTINE ListenThread)
@@ -344,7 +343,7 @@ CsrpCreateListenPort (IN     LPWSTR  Name,
  * CsrpCreateBNODirectory/3
  *
  * These used to be part of kernel32 startup, but that clearly wasn't a good
- * idea, as races were definately possible.  These are moved (as in the
+ * idea, as races were definately possible.  These are moved (as in the 
  * previous fixmes).
  */
 static NTSTATUS
@@ -373,7 +372,7 @@ CsrpCreateBNODirectory (int argc, char ** argv, char ** envp)
         DPRINT1("NtCreateDirectoryObject() failed %08x\n", Status);
     }
 
-    /* Create the "local" Symbolic Link.
+    /* Create the "local" Symbolic Link. 
      * FIXME: CSR should do this -- Fixed */
     InitializeObjectAttributes(&ObjectAttributes,
                                &SymName,
@@ -388,7 +387,7 @@ CsrpCreateBNODirectory (int argc, char ** argv, char ** envp)
     {
         DPRINT1("NtCreateDirectoryObject() failed %08x\n", Status);
     }
-
+    
     /* Create the "global" Symbolic Link. */
     InitializeObjectAttributes(&ObjectAttributes,
                                &SymName2,
@@ -513,20 +512,20 @@ EnvpToUnicodeString (char ** envp, PUNICODE_STRING UnicodeEnv)
 	ANSI_STRING  AnsiEnv;
 
 	UnicodeEnv->Buffer = NULL;
-
+	
 	for (Index=0; NULL != envp[Index]; Index++)
 	{
 		CharCount += strlen (envp[Index]);
 		++ CharCount;
 	}
 	++ CharCount;
-
+	
 	AnsiEnv.Buffer = RtlAllocateHeap (RtlGetProcessHeap(), 0, CharCount);
 	if (NULL != AnsiEnv.Buffer)
 	{
 
 		PCHAR WritePos = AnsiEnv.Buffer;
-
+		
 		for (Index=0; NULL != envp[Index]; Index++)
 		{
 			strcpy (WritePos, envp[Index]);
@@ -538,7 +537,7 @@ EnvpToUnicodeString (char ** envp, PUNICODE_STRING UnicodeEnv)
 		AnsiEnv.Buffer [CharCount-1] = '\0';
 		AnsiEnv.Length             = CharCount;
 		AnsiEnv.MaximumLength      = CharCount;
-
+      
 		RtlAnsiStringToUnicodeString (UnicodeEnv, & AnsiEnv, TRUE);
 		RtlFreeHeap (RtlGetProcessHeap(), 0, AnsiEnv.Buffer);
 	}
@@ -560,7 +559,7 @@ CsrpLoadKernelModeDriver (int argc, char ** argv, char ** envp)
 	DPRINT("SM: %s called\n", __FUNCTION__);
 
 
-	EnvpToUnicodeString (envp, & Environment);
+	EnvpToUnicodeString (envp, & Environment);	
 	Status = SmLookupSubsystem (L"Kmode",
 				    Data,
 				    & DataLength,
@@ -674,7 +673,6 @@ CsrpRunWinlogon (int argc, char ** argv, char ** envp)
 		DPRINT1("SM: %s: loading winlogon.exe failed (Status=%08lx)\n",
 				__FUNCTION__, Status);
 	}
-
    ZwResumeThread(ProcessInfo.ThreadHandle, NULL);
 	return Status;
 }
@@ -717,7 +715,7 @@ struct {
  * RETURN VALUE
  * 	TRUE: Initialization OK; otherwise FALSE.
  */
-BOOL WINAPI
+BOOL STDCALL
 CsrServerInitialization (
 	int argc,
 	char ** argv,

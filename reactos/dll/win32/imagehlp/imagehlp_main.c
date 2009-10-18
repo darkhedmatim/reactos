@@ -24,6 +24,8 @@
 
 #include "precomp.h"
 
+//#define NDEBUG
+#include <debug.h>
 #define _WINNT_H
 #include "wine/debug.h"
 

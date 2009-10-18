@@ -22,14 +22,14 @@
 
 <!ELEMENT bootstrap EMPTY>
 <!ATTLIST bootstrap
-	installbase %Text; #IMPLIED
-	nameoncd    %Text; #IMPLIED
+	base      %Text; #IMPLIED
+	nameoncd  %Text; #IMPLIED
 >
 
 <!ELEMENT cdfile (#PCDATA)>
 <!ATTLIST cdfile
-	installbase %Text; #IMPLIED
-	nameoncd    %Text; #IMPLIED
+	base      %Text; #IMPLIED
+	nameoncd  %Text; #IMPLIED
 >
 
 <!ELEMENT compilerflag (#PCDATA)>
@@ -37,7 +37,8 @@
 <!ELEMENT define (#PCDATA)>
 <!ATTLIST define
 	name  %CIdentifier; #REQUIRED
-	overridable (true) #IMPLIED
+	value %Text;        #IMPLIED
+	empty (true) #IMPLIED
 >
 
 <!ELEMENT directory (compilationunit*|directory*|group*|cdfile|file*|if*|ifnot*|module+|pch*|xi:include*)+>
@@ -54,8 +55,8 @@
 
 <!ELEMENT installfile (#PCDATA)>
 <!ATTLIST installfile
-	installbase %Text; #IMPLIED
-	root        (intermediate|output) #IMPLIED
+	base %Text; #IMPLIED
+	root (intermediate|output) #IMPLIED
 >
 
 <!ELEMENT group (cdfile*|define*|directory*|file*|if*|ifnot*|include*|installfile*|property*|module*|group*|xi:include*)+>
@@ -114,7 +115,7 @@
 	if	%Text; #IMPLIED
 	ifnot	%Text; #IMPLIED
 	name	%CIdentifier; #IMPLIED
-	type	(buildtool|staticlibrary|objectlibrary|embeddedtypelib|kernel|kernelmodedll|kernelmodedriver|nativedll|nativecui|win32dll|win32ocx|win32cui|win32gui|win32scr|bootloader|bootsector|elfexecutable|idlheader|iso|isoregtest|liveiso|liveisoregtest|test|rpcserver|rpcclient|rpcproxy|alias) #REQUIRED
+	type	(buildtool|staticlibrary|objectlibrary|embeddedtypelib|kernel|kernelmodedll|kernelmodedriver|nativedll|nativecui|win32dll|win32ocx|win32cui|win32gui|win32scr|bootloader|bootsector|elfexecutable|idlheader|iso|isoregtest|liveiso|liveisoregtest|test|rpcserver|rpcclient|alias) #REQUIRED
 	extension	%CIdentifier; #IMPLIED
 	entrypoint	%CIdentifier; #IMPLIED
 	baseaddress	%CIdentifier; #IMPLIED
@@ -122,13 +123,12 @@
 	underscoresymbols	(true|yes|false|no) "no"
 	installbase	%Text; #IMPLIED
 	installname	%Text; #IMPLIED
+	usewrc		%Text; #IMPLIED
 	allowwarnings	(true|false) "false"
 	aliasof %Text; #IMPLIED
 	unicode	(true|yes|false|no) "no"
 	isstartuplib	(true)	#IMPLIED
 	buildtype %Text; #FIXED "OFWLDR"
-	iscrt	(true|yes|false|no) "no"
-	crt	(libc|msvcrt|libcntpr|ntdll|static|dll|none|auto) "auto"
 >
 
 <!ELEMENT pch (#PCDATA)>
@@ -137,7 +137,6 @@
 <!ATTLIST project
 	name      (ReactOS|Project) #REQUIRED
 	makefile  %Text;  #REQUIRED
-	allowwarnings	(true|false) "false"
 	xmlns:xi  %Text;  #FIXED "http://www.w3.org/2001/XInclude"
 >
 

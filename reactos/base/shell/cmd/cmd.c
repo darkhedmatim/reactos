@@ -154,23 +154,22 @@ typedef NTSTATUS (WINAPI *NtReadVirtualMemoryProc)(HANDLE, PVOID, PVOID, ULONG, 
 BOOL bExit = FALSE;       /* indicates EXIT was typed */
 BOOL bCanExit = TRUE;     /* indicates if this shell is exitable */
 BOOL bCtrlBreak = FALSE;  /* Ctrl-Break or Ctrl-C hit */
-BOOL bIgnoreEcho = FALSE; /* Set this to TRUE to prevent a newline, when executing a command */
+BOOL bIgnoreEcho = FALSE; /* Ignore 'newline' before 'cls' */
 INT  nErrorLevel = 0;     /* Errorlevel of last launched external program */
 BOOL bChildProcessRunning = FALSE;
-BOOL bUnicodeOutput = FALSE;
-BOOL bDisableBatchEcho = FALSE;
-BOOL bDelayedExpansion = FALSE;
 DWORD dwChildProcessId = 0;
 OSVERSIONINFO osvi;
 HANDLE hIn;
 HANDLE hOut;
-LPTSTR lpOriginalEnvironment;
+HANDLE hConsole;
 HANDLE CMD_ModuleHandle;
+HMODULE NtDllModule;
 
 static NtQueryInformationProcessProc NtQueryInformationProcessPtr = NULL;
 static NtReadVirtualMemoryProc       NtReadVirtualMemoryPtr = NULL;
 
 #ifdef INCLUDE_CMD_COLOR
+WORD wColor;              /* current color */
 WORD wDefColor;           /* default color */
 #endif
 
@@ -180,36 +179,48 @@ WORD wDefColor;           /* default color */
  * insert commas into a number
  */
 INT
-ConvertULargeInteger(ULONGLONG num, LPTSTR des, INT len, BOOL bPutSeperator)
+ConvertULargeInteger (ULARGE_INTEGER num, LPTSTR des, INT len, BOOL bPutSeperator)
 {
-	TCHAR temp[39];   /* maximum length with nNumberGroups == 1 */
-	UINT  n, iTarget;
+	TCHAR temp[32];
+	INT c = 0;
+	INT n = 0;
 
 	if (len <= 1)
 		return 0;
 
-	n = 0;
-	iTarget = nNumberGroups;
-	if (!nNumberGroups)
-		bPutSeperator = FALSE;
-
-	do
+	if (num.QuadPart == 0)
 	{
-		if (iTarget == n && bPutSeperator)
+		des[0] = _T('0');
+		des[1] = _T('\0');
+		n = 1;
+	}
+	else
+	{
+		temp[31] = 0;
+		while (num.QuadPart > 0)
 		{
-			iTarget += nNumberGroups + 1;
-			temp[38 - n++] = cThousandSeparator;
+			if ((((c + 1) % (nNumberGroups + 1)) == 0) && (bPutSeperator))
+				temp[30 - c++] = cThousandSeparator;
+                        temp[30 - c++] = (TCHAR)(num.QuadPart % 10) + _T('0');
+			num.QuadPart /= 10;
 		}
-		temp[38 - n++] = (TCHAR)(num % 10) + _T('0');
-		num /= 10;
-	} while (num > 0);
-	if (n > len-1)
-		n = len-1;
+        if (c>len)
+			c=len;
 
-	memcpy(des, temp + 39 - n, n * sizeof(TCHAR));
-	des[n] = _T('\0');
+		for (n = 0; n <= c; n++)
+			des[n] = temp[31 - c + n];
+	}
 
 	return n;
+}
+
+/*
+ * is character a delimeter when used on first word?
+ *
+ */
+static BOOL IsDelimiter (TCHAR c)
+{
+	return (c == _T('/') || c == _T('=') || c == _T('\0') || _istspace (c));
 }
 
 /*
@@ -232,7 +243,9 @@ static BOOL IsConsoleProcess(HANDLE Process)
 		&Info, sizeof(PROCESS_BASIC_INFORMATION), NULL);
 	if (! NT_SUCCESS(Status))
 	{
-		WARN ("NtQueryInformationProcess failed with status %08x\n", Status);
+#ifdef _DEBUG
+		DebugPrintf (_T("NtQueryInformationProcess failed with status %08x\n"), Status);
+#endif
 		return TRUE;
 	}
 	Status = NtReadVirtualMemoryPtr (
@@ -240,7 +253,9 @@ static BOOL IsConsoleProcess(HANDLE Process)
 		sizeof(PEB), &BytesRead);
 	if (! NT_SUCCESS(Status) || sizeof(PEB) != BytesRead)
 	{
-		WARN ("Couldn't read virt mem status %08x bytes read %lu\n", Status, BytesRead);
+#ifdef _DEBUG
+		DebugPrintf (_T("Couldn't read virt mem status %08x bytes read %lu\n"), Status, BytesRead);
+#endif
 		return TRUE;
 	}
 
@@ -250,52 +265,62 @@ static BOOL IsConsoleProcess(HANDLE Process)
 
 
 #ifdef _UNICODE
-#define SHELLEXECUTETEXT   	"ShellExecuteExW"
+#define SHELLEXECUTETEXT   	"ShellExecuteW"
 #else
-#define SHELLEXECUTETEXT   	"ShellExecuteExA"
+#define SHELLEXECUTETEXT   	"ShellExecuteA"
 #endif
 
-typedef BOOL (WINAPI *MYEX)(LPSHELLEXECUTEINFO lpExecInfo);
+typedef HINSTANCE (WINAPI *MYEX)(
+	HWND hwnd,
+	LPCTSTR lpOperation,
+	LPCTSTR lpFile,
+	LPCTSTR lpParameters,
+	LPCTSTR lpDirectory,
+	INT nShowCmd
+);
 
-HANDLE RunFile(DWORD flags, LPTSTR filename, LPTSTR params,
-               LPTSTR directory, INT show)
+
+
+static BOOL RunFile(LPTSTR filename)
 {
-	SHELLEXECUTEINFO sei;
 	HMODULE     hShell32;
 	MYEX        hShExt;
-	BOOL        ret;
+	HINSTANCE   ret;
 
-	TRACE ("RunFile(%s)\n", debugstr_aw(filename));
+#ifdef _DEBUG
+	DebugPrintf (_T("RunFile(%s)\n"), filename);
+#endif
 	hShell32 = LoadLibrary(_T("SHELL32.DLL"));
 	if (!hShell32)
 	{
-		WARN ("RunFile: couldn't load SHELL32.DLL!\n");
-		return NULL;
+#ifdef _DEBUG
+		DebugPrintf (_T("RunFile: couldn't load SHELL32.DLL!\n"));
+#endif
+		return FALSE;
 	}
 
 	hShExt = (MYEX)(FARPROC)GetProcAddress(hShell32, SHELLEXECUTETEXT);
 	if (!hShExt)
 	{
-		WARN ("RunFile: couldn't find ShellExecuteExA/W in SHELL32.DLL!\n");
+#ifdef _DEBUG
+		DebugPrintf (_T("RunFile: couldn't find ShellExecuteA/W in SHELL32.DLL!\n"));
+#endif
 		FreeLibrary(hShell32);
-		return NULL;
+		return FALSE;
 	}
 
-	TRACE ("RunFile: ShellExecuteExA/W is at %x\n", hShExt);
+#ifdef _DEBUG
+	DebugPrintf (_T("RunFile: ShellExecuteA/W is at %x\n"), hShExt);
+#endif
 
-	memset(&sei, 0, sizeof sei);
-	sei.cbSize = sizeof sei;
-	sei.fMask = flags;
-	sei.lpFile = filename;
-	sei.lpParameters = params;
-	sei.lpDirectory = directory;
-	sei.nShow = show;
-	ret = hShExt(&sei);
+	ret = (hShExt)(NULL, _T("open"), filename, NULL, NULL, SW_SHOWNORMAL);
 
-	TRACE ("RunFile: ShellExecuteExA/W returned 0x%p\n", ret);
+#ifdef _DEBUG
+	DebugPrintf (_T("RunFile: ShellExecuteA/W returned %d\n"), (DWORD)ret);
+#endif
 
 	FreeLibrary(hShell32);
-	return ret ? sei.hProcess : NULL;
+	return (((DWORD)ret) > 32);
 }
 
 
@@ -303,49 +328,113 @@ HANDLE RunFile(DWORD flags, LPTSTR filename, LPTSTR params,
 /*
  * This command (in first) was not found in the command table
  *
- * Full  - buffer to hold whole command line
+ * Full  - whole command line
  * First - first word on command line
  * Rest  - rest of command line
  */
 
-static INT
-Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
+static VOID
+Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest)
 {
-	TCHAR szFullName[MAX_PATH];
-	TCHAR *first, *rest, *dot;
+	TCHAR *szFullName=NULL;
+	TCHAR *first = NULL;
+	TCHAR *rest = NULL;
+	TCHAR *full = NULL;
+	TCHAR *dot = NULL;
 	TCHAR szWindowTitle[MAX_PATH];
 	DWORD dwExitCode = 0;
-	TCHAR *FirstEnd;
 
-	TRACE ("Execute: \'%s\' \'%s\'\n", debugstr_aw(First), debugstr_aw(Rest));
+#ifdef _DEBUG
+	DebugPrintf (_T("Execute: \'%s\' \'%s\'\n"), first, rest);
+#endif
+
+	/* we need biger buffer that First, Rest, Full are already
+	   need rewrite some code to use cmd_realloc when it need instead
+	   of add 512bytes extra */
+
+	first = cmd_alloc ( (_tcslen(First) + 512) * sizeof(TCHAR));
+	if (first == NULL)
+	{
+		error_out_of_memory();
+                nErrorLevel = 1;
+		return ;
+	}
+
+	rest = cmd_alloc ( (_tcslen(Rest) + 512) * sizeof(TCHAR));
+	if (rest == NULL)
+	{
+		cmd_free (first);
+		error_out_of_memory();
+                nErrorLevel = 1;
+		return ;
+	}
+
+	full = cmd_alloc ( (_tcslen(Full) + 512) * sizeof(TCHAR));
+	if (full == NULL)
+	{
+		cmd_free (first);
+		cmd_free (rest);
+		error_out_of_memory();
+                nErrorLevel = 1;
+		return ;
+	}
+
+	szFullName = cmd_alloc ( (_tcslen(Full) + 512) * sizeof(TCHAR));
+	if (full == NULL)
+	{
+		cmd_free (first);
+		cmd_free (rest);
+		cmd_free (full);
+		error_out_of_memory();
+                nErrorLevel = 1;
+		return ;
+	}
+
 
 	/* Though it was already parsed once, we have a different set of rules
 	   for parsing before we pass to CreateProccess */
-	if (First[0] == _T('/') || (First[0] && First[1] == _T(':')))
+	if(!_tcschr(Full,_T('\"')))
 	{
-		/* Use the entire first word as the program name (no change) */
-		FirstEnd = First + _tcslen(First);
+		_tcscpy(first,First);
+		_tcscpy(rest,Rest);
+		_tcscpy(full,Full);
 	}
 	else
 	{
-		/* If present in the first word, spaces and ,;=/ end the program
-		 * name and become the beginning of its parameters. */
+		UINT i = 0;
 		BOOL bInside = FALSE;
-		for (FirstEnd = First; *FirstEnd; FirstEnd++)
+		rest[0] = _T('\0');
+		full[0] = _T('\0');
+		first[0] = _T('\0');
+		_tcscpy(first,Full);
+		/* find the end of the command and start of the args */
+		for(i = 0; i < _tcslen(first); i++)
 		{
-			if (!bInside && (_istspace(*FirstEnd) || _tcschr(_T(",;=/"), *FirstEnd)))
+			if(!_tcsncmp(&first[i], _T("\""), 1))
+				bInside = !bInside;
+			if(!_tcsncmp(&first[i], _T(" "), 1) && !bInside)
+			{
+				_tcscpy(rest,&first[i]);
+				first[i] = _T('\0');
 				break;
-			bInside ^= *FirstEnd == _T('"');
-		}
-	}
+			}
 
-	/* Copy the new first/rest into the buffer */
-	first = Full;
-	rest = &Full[FirstEnd - First + 1];
-	_tcscpy(rest, FirstEnd);
-	_tcscat(rest, Rest);
-	*FirstEnd = _T('\0');
-	_tcscpy(first, First);
+		}
+		i = 0;
+		/* remove any slashes */
+		while(i < _tcslen(first))
+		{
+			if(first[i] == _T('\"'))
+				memmove(&first[i],&first[i + 1], _tcslen(&first[i]) * sizeof(TCHAR));
+			else
+				i++;
+		}
+		/* Drop quotes around it just in case there is a space */
+		_tcscpy(full,_T("\""));
+		_tcscat(full,first);
+		_tcscat(full,_T("\" "));
+		_tcscat(full,rest);
+	}
 
 	/* check for a drive change */
 	if ((_istalpha (first[0])) && (!_tcscmp (first + 1, _T(":"))))
@@ -363,16 +452,27 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 		}
 
 		if (!working) ConErrResPuts (STRING_FREE_ERROR1);
-		return !working;
+
+		cmd_free (first);
+		cmd_free (rest);
+		cmd_free (full);
+		cmd_free (szFullName);
+                nErrorLevel = 1;
+		return;
 	}
 
 	/* get the PATH environment variable and parse it */
 	/* search the PATH environment variable for the binary */
-	StripQuotes(First);
-	if (!SearchForExecutable(First, szFullName))
+	if (!SearchForExecutable (first, szFullName))
 	{
-		error_bad_command(first);
-		return 1;
+			error_bad_command ();
+			cmd_free (first);
+			cmd_free (rest);
+			cmd_free (full);
+			cmd_free (szFullName);
+                        nErrorLevel = 1;
+			return;
+
 	}
 
 	GetConsoleTitle (szWindowTitle, MAX_PATH);
@@ -381,10 +481,10 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 	dot = _tcsrchr (szFullName, _T('.'));
 	if (dot && (!_tcsicmp (dot, _T(".bat")) || !_tcsicmp (dot, _T(".cmd"))))
 	{
-		while (*rest == _T(' '))
-			rest++;
-		TRACE ("[BATCH: %s %s]\n", debugstr_aw(szFullName), debugstr_aw(rest));
-		dwExitCode = Batch(szFullName, first, rest, Cmd);
+#ifdef _DEBUG
+		DebugPrintf (_T("[BATCH: %s %s]\n"), szFullName, rest);
+#endif
+		Batch (szFullName, first, rest);
 	}
 	else
 	{
@@ -392,11 +492,10 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 		PROCESS_INFORMATION prci;
 		STARTUPINFO stui;
 
-		/* build command line for CreateProcess(): first + " " + rest */
-		if (*rest)
-			rest[-1] = _T(' ');
-
-		TRACE ("[EXEC: %s]\n", debugstr_aw(Full));
+#ifdef _DEBUG
+		DebugPrintf (_T("[EXEC: %s %s]\n"), full, rest);
+#endif
+		/* build command line for CreateProcess() */
 
 		/* fill startup info */
 		memset (&stui, 0, sizeof (STARTUPINFO));
@@ -409,7 +508,7 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 		                ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT );
 
 		if (CreateProcess (szFullName,
-		                   Full,
+		                   full,
 		                   NULL,
 		                   NULL,
 		                   TRUE,
@@ -418,21 +517,7 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 		                   NULL,
 		                   &stui,
 		                   &prci))
-
-		{
-			CloseHandle(prci.hThread);
-		}
-		else
-		{
-			// See if we can run this with ShellExecute() ie myfile.xls
-			prci.hProcess = RunFile(SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NO_CONSOLE,
-			                        szFullName,
-			                        rest,
-			                        NULL,
-			                        SW_SHOWNORMAL);
-		}
-
-		if (prci.hProcess != NULL)
+						   
 		{
 			if (IsConsoleProcess(prci.hProcess))
 			{
@@ -448,15 +533,32 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 				GetExitCodeProcess (prci.hProcess, &dwExitCode);
 				nErrorLevel = (INT)dwExitCode;
 			}
+                        else
+                        {
+                            nErrorLevel = 0;
+                        }
+			CloseHandle (prci.hThread);
 			CloseHandle (prci.hProcess);
 		}
 		else
 		{
-			TRACE ("[ShellExecute failed!: %s]\n", debugstr_aw(Full));
-			error_bad_command (first);
-			dwExitCode = 1;
+#ifdef _DEBUG
+			DebugPrintf (_T("[ShellExecute: %s]\n"), full);
+#endif
+			// See if we can run this with ShellExecute() ie myfile.xls
+			if (!RunFile(full))
+			{
+#ifdef _DEBUG
+				DebugPrintf (_T("[ShellExecute failed!: %s]\n"), full);
+#endif
+				error_bad_command ();
+                                nErrorLevel = 1;
+			}
+                        else
+                        {
+                                nErrorLevel = 0;
+                        }
 		}
-
 		// restore console mode
 		SetConsoleMode (
 			GetStdHandle( STD_INPUT_HANDLE ),
@@ -468,7 +570,10 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 	OutputCodePage = GetConsoleOutputCP();
 	SetConsoleTitle (szWindowTitle);
 
-	return dwExitCode;
+	cmd_free(first);
+	cmd_free(rest);
+	cmd_free(full);
+	cmd_free (szFullName);
 }
 
 
@@ -477,73 +582,123 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
  * command is one of them.  If it is, call the command.  If not, call
  * execute to run it as an external program.
  *
- * first - first word on command line
- * rest  - rest of command line
+ * line - the command line of the program to run
+ *
  */
 
-INT
-DoCommand(LPTSTR first, LPTSTR rest, PARSED_COMMAND *Cmd)
+VOID
+DoCommand (LPTSTR line)
 {
-	TCHAR *com;
-	TCHAR *cp;
-	LPTSTR param;   /* pointer to command's parameters */
+	TCHAR *com = NULL;  /* the first word in the command */
+	TCHAR *cp = NULL;
+	LPTSTR cstart;
+	LPTSTR rest;   /* pointer to the rest of the command line */
 	INT cl;
 	LPCOMMAND cmdptr;
-	BOOL nointernal = FALSE;
-	INT ret;
 
-	TRACE ("DoCommand: (\'%s\' \'%s\')\n", debugstr_aw(first), debugstr_aw(rest));
+#ifdef _DEBUG
+	DebugPrintf (_T("DoCommand: (\'%s\')\n"), line);
+#endif /* DEBUG */
 
-	/* full command line */
-	com = cmd_alloc((_tcslen(first) + _tcslen(rest) + 2) * sizeof(TCHAR));
+	com = cmd_alloc( (_tcslen(line) +512)*sizeof(TCHAR) );
 	if (com == NULL)
 	{
 		error_out_of_memory();
-		return 1;
+		return;
 	}
 
-	/* If present in the first word, these characters end the name of an
-	 * internal command and become the beginning of its parameters. */
-	cp = first + _tcscspn(first, _T("\t +,/;=[]"));
+	cp = com;
+	/* Skip over initial white space */
+	while (_istspace (*line))
+		line++;
+	rest = line;
 
-	for (cl = 0; cl < (cp - first); cl++)
+	cstart = rest;
+
+	/* Anything to do ? */
+	if (*rest)
 	{
-		/* These characters do it too, but if one of them is present,
-		 * then we check to see if the word is a file name and skip
-		 * checking for internal commands if so.
-		 * This allows running programs with names like "echo.exe" */
-		if (_tcschr(_T(".:\\"), first[cl]))
+		if (*rest == _T('"'))
 		{
-			TCHAR tmp = *cp;
-			*cp = _T('\0');
-			nointernal = IsExistingFile(first);
-			*cp = tmp;
-			break;
+			/* treat quoted words specially */
+
+			rest++;
+
+			while(*rest != _T('\0') && *rest != _T('"'))
+				*cp++ = _totlower (*rest++);
+			if (*rest == _T('"'))
+				rest++;
 		}
-	}
-
-	/* Scan internal command table */
-	for (cmdptr = cmds; !nointernal && cmdptr->name; cmdptr++)
-	{
-		if (!_tcsnicmp(first, cmdptr->name, cl) && cmdptr->name[cl] == _T('\0'))
+		else
 		{
-			_tcscpy(com, first);
-			_tcscat(com, rest);
-			param = &com[cl];
+			while (!IsDelimiter (*rest))
+				*cp++ = _totlower (*rest++);
+		}
 
-			/* Skip over whitespace to rest of line, exclude 'echo' command */
-			if (_tcsicmp(cmdptr->name, _T("echo")) != 0)
-				while (_istspace(*param))
-					param++;
-			ret = cmdptr->func(param);
+
+		/* Terminate first word */
+		*cp = _T('\0');
+
+		/* Do not limit commands to MAX_PATH */
+		/*
+		if(_tcslen(com) > MAX_PATH)
+		{
+			error_bad_command();
 			cmd_free(com);
-			return ret;
+			return;
+		}
+		*/
+
+		/* Skip over whitespace to rest of line, exclude 'echo' command */
+		if (_tcsicmp (com, _T("echo"))) 
+		{
+			while (_istspace (*rest))
+			rest++;
+		}
+
+		/* Scan internal command table */
+		for (cmdptr = cmds;; cmdptr++)
+		{
+			/* If end of table execute ext cmd */
+			if (cmdptr->name == NULL)
+			{
+				Execute (line, com, rest);
+				break;
+			}
+
+			if (!_tcscmp (com, cmdptr->name))
+			{
+				cmdptr->func (com, rest);
+				break;
+			}
+
+			/* The following code handles the case of commands like CD which
+			 * are recognised even when the command name and parameter are
+			 * not space separated.
+			 *
+			 * e.g dir..
+			 * cd\freda
+			 */
+
+			/* Get length of command name */
+			cl = _tcslen (cmdptr->name);
+
+			if ((cmdptr->flags & CMD_SPECIAL) &&
+			    (!_tcsncmp (cmdptr->name, com, cl)) &&
+			    (_tcschr (_T("\\.-"), *(com + cl))))
+			{
+				/* OK its one of the specials...*/
+
+				/* Terminate first word properly */
+				com[cl] = _T('\0');
+
+				/* Call with new rest */
+				cmdptr->func (com, cstart + cl);
+				break;
+			}
 		}
 	}
-
-	ret = Execute(com, first, rest, Cmd);
 	cmd_free(com);
-	return ret;
 }
 
 
@@ -552,254 +707,491 @@ DoCommand(LPTSTR first, LPTSTR rest, PARSED_COMMAND *Cmd)
  * full input/output redirection and piping are supported
  */
 
-INT ParseCommandLine (LPTSTR cmd)
+VOID ParseCommandLine (LPTSTR cmd)
 {
-	INT Ret = 0;
-	PARSED_COMMAND *Cmd = ParseCommand(cmd);
-	if (Cmd)
-	{
-		Ret = ExecuteCommand(Cmd);
-		FreeCommand(Cmd);
-	}
-	return Ret;
-}
-
-/* Execute a command without waiting for it to finish. If it's an internal
- * command or batch file, we must create a new cmd.exe process to handle it.
- * TODO: For now, this just always creates a cmd.exe process.
- *       This works, but is inefficient for running external programs,
- *       which could just be run directly. */
-static HANDLE
-ExecuteAsync(PARSED_COMMAND *Cmd)
-{
-	TCHAR CmdPath[MAX_PATH];
-	TCHAR CmdParams[CMDLINE_LENGTH], *ParamsEnd;
-	STARTUPINFO stui;
-	PROCESS_INFORMATION prci;
-
-	/* Get the path to cmd.exe */
-	GetModuleFileName(NULL, CmdPath, MAX_PATH);
-
-	/* Build the parameter string to pass to cmd.exe */
-	ParamsEnd = _stpcpy(CmdParams, _T("/S/D/C\""));
-	ParamsEnd = Unparse(Cmd, ParamsEnd, &CmdParams[CMDLINE_LENGTH - 2]);
-	if (!ParamsEnd)
-	{
-		error_out_of_memory();
-		return NULL;
-	}
-	_tcscpy(ParamsEnd, _T("\""));
-
-	memset(&stui, 0, sizeof stui);
-	stui.cb = sizeof(STARTUPINFO);
-	if (!CreateProcess(CmdPath, CmdParams, NULL, NULL, TRUE, 0,
-	                   NULL, NULL, &stui, &prci))
-	{
-		ErrorMessage(GetLastError(), NULL);
-		return NULL;
-	}
-
-	CloseHandle(prci.hThread);
-	return prci.hProcess;
-}
-
-static VOID
-ExecutePipeline(PARSED_COMMAND *Cmd)
-{
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+	TCHAR cmdline[CMDLINE_LENGTH];
+	LPTSTR s;
 #ifdef FEATURE_REDIRECTION
-	HANDLE hInput = NULL;
-	HANDLE hOldConIn = GetStdHandle(STD_INPUT_HANDLE);
-	HANDLE hOldConOut = GetStdHandle(STD_OUTPUT_HANDLE);
-	HANDLE hProcess[MAXIMUM_WAIT_OBJECTS];
-	INT nProcesses = 0;
-	DWORD dwExitCode;
+	TCHAR in[CMDLINE_LENGTH] = _T("");
+	TCHAR out[CMDLINE_LENGTH] = _T("");
+	TCHAR err[CMDLINE_LENGTH] = _T("");
+	TCHAR szTempPath[MAX_PATH] = _T(".\\");
+	TCHAR szFileName[2][MAX_PATH] = {_T(""), _T("")};
+	HANDLE hFile[2] = {INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE};
+	LPTSTR t = NULL;
+	INT  num = 0;
+	INT  nRedirFlags = 0;
+	INT  Length;
+	UINT Attributes;
+	BOOL bNewBatch = TRUE;
+	HANDLE hOldConIn;
+	HANDLE hOldConOut;
+	HANDLE hOldConErr;
+#endif /* FEATURE_REDIRECTION */
 
-	/* Do all but the last pipe command */
-	do
+	_tcscpy (cmdline, cmd);
+	s = &cmdline[0];
+
+#ifdef _DEBUG
+	DebugPrintf (_T("ParseCommandLine: (\'%s\')\n"), s);
+#endif /* DEBUG */
+
+#ifdef FEATURE_ALIASES
+	/* expand all aliases */
+	ExpandAlias (s, CMDLINE_LENGTH);
+#endif /* FEATURE_ALIAS */
+
+#ifdef FEATURE_REDIRECTION
+	/* find the temp path to store temporary files */
+	Length = GetTempPath (MAX_PATH, szTempPath);
+	if (Length > 0 && Length < MAX_PATH)
 	{
-		HANDLE hPipeRead, hPipeWrite;
-		if (nProcesses > (MAXIMUM_WAIT_OBJECTS - 2))
+		Attributes = GetFileAttributes(szTempPath);
+		if (Attributes == 0xffffffff ||
+		    !(Attributes & FILE_ATTRIBUTE_DIRECTORY))
 		{
-			error_too_many_parameters(_T("|"));
-			goto failed;
+			Length = 0;
 		}
-
-		/* Create the pipe that this process will write into.
-		 * Make the handles non-inheritable initially, because this
-		 * process shouldn't inherit the reading handle. */
-		if (!CreatePipe(&hPipeRead, &hPipeWrite, NULL, 0))
-		{
-			error_no_pipe();
-			goto failed;
-		}
-
-		/* The writing side of the pipe is STDOUT for this process */
-		SetHandleInformation(hPipeWrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-		SetStdHandle(STD_OUTPUT_HANDLE, hPipeWrite);
-
-		/* Execute it (error check is done later for easier cleanup) */
-		hProcess[nProcesses] = ExecuteAsync(Cmd->Subcommands);
-		CloseHandle(hPipeWrite);
-		if (hInput)
-			CloseHandle(hInput);
-
-		/* The reading side of the pipe will be STDIN for the next process */
-		SetHandleInformation(hPipeRead, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-		SetStdHandle(STD_INPUT_HANDLE, hPipeRead);
-		hInput = hPipeRead;
-
-		if (!hProcess[nProcesses])
-			goto failed;
-		nProcesses++;
-
-		Cmd = Cmd->Subcommands->Next;
-	} while (Cmd->Type == C_PIPE);
-
-	/* The last process uses the original STDOUT */
-	SetStdHandle(STD_OUTPUT_HANDLE, hOldConOut);
-	hProcess[nProcesses] = ExecuteAsync(Cmd);
-	if (!hProcess[nProcesses])
-		goto failed;
-	nProcesses++;
-	CloseHandle(hInput);
-	SetStdHandle(STD_INPUT_HANDLE, hOldConIn);
-
-	/* Wait for all processes to complete */
-	bChildProcessRunning = TRUE;
-	WaitForMultipleObjects(nProcesses, hProcess, TRUE, INFINITE);
-	bChildProcessRunning = FALSE;
-
-	/* Use the exit code of the last process in the pipeline */
-	GetExitCodeProcess(hProcess[nProcesses - 1], &dwExitCode);
-	nErrorLevel = (INT)dwExitCode;
-
-	while (--nProcesses >= 0)
-		CloseHandle(hProcess[nProcesses]);
-	return;
-
-failed:
-	if (hInput)
-		CloseHandle(hInput);
-	while (--nProcesses >= 0)
-	{
-		TerminateProcess(hProcess[nProcesses], 0);
-		CloseHandle(hProcess[nProcesses]);
 	}
-	SetStdHandle(STD_INPUT_HANDLE, hOldConIn);
-	SetStdHandle(STD_OUTPUT_HANDLE, hOldConOut);
+	if (Length == 0 || Length >= MAX_PATH)
+	{
+		_tcscpy(szTempPath, _T(".\\"));
+	}
+	if (szTempPath[_tcslen (szTempPath) - 1] != _T('\\'))
+		_tcscat (szTempPath, _T("\\"));
+
+	/* get the redirections from the command line */
+	num = GetRedirection (s, in, out, err, &nRedirFlags);
+
+	/* more efficient, but do we really need to do this? */
+	for (t = in; _istspace (*t); t++)
+		;
+	_tcscpy (in, t);
+
+	for (t = out; _istspace (*t); t++)
+		;
+	_tcscpy (out, t);
+
+	for (t = err; _istspace (*t); t++)
+		;
+	_tcscpy (err, t);
+
+	if(bc && !_tcslen (in) && _tcslen (bc->In))
+		_tcscpy(in, bc->In);
+	if(bc && !out[0] && _tcslen(bc->Out))
+	{
+		nRedirFlags |= OUTPUT_APPEND;
+		_tcscpy(out, bc->Out);
+	}
+	if(bc && !_tcslen (err) && _tcslen (bc->Err))
+	{
+		nRedirFlags |= ERROR_APPEND;
+		_tcscpy(err, bc->Err);
+	}
+
+
+	/* Set up the initial conditions ... */
+	/* preserve STDIN, STDOUT and STDERR handles */
+	hOldConIn  = GetStdHandle (STD_INPUT_HANDLE);
+	hOldConOut = GetStdHandle (STD_OUTPUT_HANDLE);
+	hOldConErr = GetStdHandle (STD_ERROR_HANDLE);
+
+	/* redirect STDIN */
+	if (in[0])
+	{
+		HANDLE hFile;
+		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+
+	/* we need make sure the LastError msg is zero before calling CreateFile */
+		SetLastError(0);
+
+	/* Set up pipe for the standard input handler */
+		hFile = CreateFile (in, GENERIC_READ, FILE_SHARE_READ, &sa, OPEN_EXISTING,
+		                    FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile == INVALID_HANDLE_VALUE)
+		{
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, in);
+			return;
+		}
+
+		if (!SetStdHandle (STD_INPUT_HANDLE, hFile))
+		{
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, in);
+			return;
+		}
+#ifdef _DEBUG
+		DebugPrintf (_T("Input redirected from: %s\n"), in);
 #endif
-}
+	}
 
-INT
-ExecuteCommand(PARSED_COMMAND *Cmd)
-{
-	PARSED_COMMAND *Sub;
-	LPTSTR First, Rest;
-	INT Ret = 0;
+	/* Now do all but the last pipe command */
+	*szFileName[0] = _T('\0');
+	hFile[0] = INVALID_HANDLE_VALUE;
 
-	if (!PerformRedirection(Cmd->Redirections))
-		return 1;
-
-	switch (Cmd->Type)
+	while (num-- > 1)
 	{
-	case C_COMMAND:
-		Ret = 1;
-		First = DoDelayedExpansion(Cmd->Command.First);
-		if (First)
+		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+
+		/* Create unique temporary file name */
+		GetTempFileName (szTempPath, _T("CMD"), 0, szFileName[1]);
+
+		/* we need make sure the LastError msg is zero before calling CreateFile */
+		SetLastError(0);
+
+		/* Set current stdout to temporary file */
+		hFile[1] = CreateFile (szFileName[1], GENERIC_WRITE, 0, &sa,
+				       TRUNCATE_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
+
+		if (hFile[1] == INVALID_HANDLE_VALUE)
 		{
-			Rest = DoDelayedExpansion(Cmd->Command.Rest);
-			if (Rest)
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR2, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg);
+			return;
+		}
+
+		SetStdHandle (STD_OUTPUT_HANDLE, hFile[1]);
+
+		DoCommand (s);
+
+		/* close stdout file */
+		SetStdHandle (STD_OUTPUT_HANDLE, hOldConOut);
+		if ((hFile[1] != INVALID_HANDLE_VALUE) && (hFile[1] != hOldConOut))
+		{
+			CloseHandle (hFile[1]);
+			hFile[1] = INVALID_HANDLE_VALUE;
+		}
+
+		/* close old stdin file */
+		SetStdHandle (STD_INPUT_HANDLE, hOldConIn);
+		if ((hFile[0] != INVALID_HANDLE_VALUE) && (hFile[0] != hOldConIn))
+		{
+			/* delete old stdin file, if it is a real file */
+			CloseHandle (hFile[0]);
+			hFile[0] = INVALID_HANDLE_VALUE;
+			DeleteFile (szFileName[0]);
+			*szFileName[0] = _T('\0');
+		}
+
+		/* copy stdout file name to stdin file name */
+		_tcscpy (szFileName[0], szFileName[1]);
+		*szFileName[1] = _T('\0');
+
+		/* we need make sure the LastError msg is zero before calling CreateFile */
+		SetLastError(0);
+
+		/* open new stdin file */
+		hFile[0] = CreateFile (szFileName[0], GENERIC_READ, 0, &sa,
+		                       OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY, NULL);
+		SetStdHandle (STD_INPUT_HANDLE, hFile[0]);
+
+		s = s + _tcslen (s) + 1;
+	}
+
+	/* Now set up the end conditions... */
+	/* redirect STDOUT */
+	if (out[0])
+	{
+		/* Final output to here */
+		HANDLE hFile;
+		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+
+		/* we need make sure the LastError msg is zero before calling CreateFile */
+		SetLastError(0);
+
+		hFile = CreateFile (out, GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE, &sa,
+		                    (nRedirFlags & OUTPUT_APPEND) ? OPEN_ALWAYS : CREATE_ALWAYS,
+		                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
+
+		if (hFile == INVALID_HANDLE_VALUE)
+		{
+			INT size = _tcslen(out)-1;
+
+			if (out[size] != _T(':'))
 			{
-				Ret = DoCommand(First, Rest, Cmd);
-				cmd_free(Rest);
+				LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+				ConErrPrintf(szMsg, out);
+				return;
 			}
-			cmd_free(First);
+
+			out[size]=_T('\0');
+			hFile = CreateFile (out, GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE, &sa,
+			                    (nRedirFlags & OUTPUT_APPEND) ? OPEN_ALWAYS : CREATE_ALWAYS,
+			                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
+
+			if (hFile == INVALID_HANDLE_VALUE)
+			{
+				LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+				ConErrPrintf(szMsg, out);
+				return;
+			}
+
 		}
-		break;
-	case C_QUIET:
-	case C_BLOCK:
-	case C_MULTI:
-		for (Sub = Cmd->Subcommands; Sub; Sub = Sub->Next)
-			Ret = ExecuteCommand(Sub);
-		break;
-	case C_IFFAILURE:
-		Sub = Cmd->Subcommands;
-		Ret = ExecuteCommand(Sub);
-		if (Ret != 0)
+
+		if (!SetStdHandle (STD_OUTPUT_HANDLE, hFile))
 		{
-			nErrorLevel = Ret;
-			Ret = ExecuteCommand(Sub->Next);
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, out);
+			return;
 		}
-		break;
-	case C_IFSUCCESS:
-		Sub = Cmd->Subcommands;
-		Ret = ExecuteCommand(Sub);
-		if (Ret == 0)
-			Ret = ExecuteCommand(Sub->Next);
-		break;
-	case C_PIPE:
-		ExecutePipeline(Cmd);
-		break;
-	case C_IF:
-		Ret = ExecuteIf(Cmd);
-		break;
-	case C_FOR:
-		Ret = ExecuteFor(Cmd);
-		break;
+
+		if (nRedirFlags & OUTPUT_APPEND)
+		{
+			LONG lHighPos = 0;
+
+			if (GetFileType (hFile) == FILE_TYPE_DISK)
+				SetFilePointer (hFile, 0, &lHighPos, FILE_END);
+		}
+#ifdef _DEBUG
+		DebugPrintf (_T("Output redirected to: %s\n"), out);
+#endif
+	}
+	else if (hOldConOut != INVALID_HANDLE_VALUE)
+	{
+		/* Restore original stdout */
+		HANDLE hOut = GetStdHandle (STD_OUTPUT_HANDLE);
+		SetStdHandle (STD_OUTPUT_HANDLE, hOldConOut);
+		if (hOldConOut != hOut)
+			CloseHandle (hOut);
+		hOldConOut = INVALID_HANDLE_VALUE;
 	}
 
-	UndoRedirection(Cmd->Redirections, NULL);
-	return Ret;
+	/* redirect STDERR */
+	if (err[0])
+	{
+		/* Final output to here */
+		HANDLE hFile;
+		SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+
+		if (!_tcscmp (err, out))
+		{
+#ifdef _DEBUG
+			DebugPrintf (_T("Stdout and stderr will use the same file!!\n"));
+#endif
+			DuplicateHandle (GetCurrentProcess (),
+			                 GetStdHandle (STD_OUTPUT_HANDLE),
+			                 GetCurrentProcess (),
+			                 &hFile, 0, TRUE, DUPLICATE_SAME_ACCESS);
+		}
+		else
+		{
+			hFile = CreateFile (err,
+			                    GENERIC_WRITE,
+			                    FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE,
+			                    &sa,
+			                    (nRedirFlags & ERROR_APPEND) ? OPEN_ALWAYS : CREATE_ALWAYS,
+			                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH,
+			                    NULL);
+			if (hFile == INVALID_HANDLE_VALUE)
+			{
+				LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+				ConErrPrintf(szMsg, err);
+				return;
+			}
+		}
+
+		if (!SetStdHandle (STD_ERROR_HANDLE, hFile))
+		{
+			LoadString(CMD_ModuleHandle, STRING_CMD_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+			ConErrPrintf(szMsg, err);
+			return;
+		}
+
+		if (nRedirFlags & ERROR_APPEND)
+		{
+			LONG lHighPos = 0;
+
+			if (GetFileType (hFile) == FILE_TYPE_DISK)
+				SetFilePointer (hFile, 0, &lHighPos, FILE_END);
+		}
+#ifdef _DEBUG
+		DebugPrintf (_T("Error redirected to: %s\n"), err);
+#endif
+	}
+	else if (hOldConErr != INVALID_HANDLE_VALUE)
+	{
+		/* Restore original stderr */
+		HANDLE hErr = GetStdHandle (STD_ERROR_HANDLE);
+		SetStdHandle (STD_ERROR_HANDLE, hOldConErr);
+		if (hOldConErr != hErr)
+			CloseHandle (hErr);
+		hOldConErr = INVALID_HANDLE_VALUE;
+	}
+
+	if(bc)
+		bNewBatch = FALSE;
+#endif
+
+	/* process final command */
+	DoCommand (s);
+
+#ifdef FEATURE_REDIRECTION
+	if(bNewBatch && bc)
+		AddBatchRedirection(in, out, err);
+	/* close old stdin file */
+#if 0  /* buggy implementation */
+	SetStdHandle (STD_INPUT_HANDLE, hOldConIn);
+	if ((hFile[0] != INVALID_HANDLE_VALUE) &&
+		(hFile[0] != hOldConIn))
+	{
+		/* delete old stdin file, if it is a real file */
+		CloseHandle (hFile[0]);
+		hFile[0] = INVALID_HANDLE_VALUE;
+		DeleteFile (szFileName[0]);
+		*szFileName[0] = _T('\0');
+	}
+
+	/* Restore original STDIN */
+	if (hOldConIn != INVALID_HANDLE_VALUE)
+	{
+		HANDLE hIn = GetStdHandle (STD_INPUT_HANDLE);
+		SetStdHandle (STD_INPUT_HANDLE, hOldConIn);
+		if (hOldConIn != hIn)
+			CloseHandle (hIn);
+		hOldConIn = INVALID_HANDLE_VALUE;
+	}
+	else
+	{
+#ifdef _DEBUG
+		DebugPrintf (_T("Can't restore STDIN! Is invalid!!\n"), out);
+#endif
+	}
+#endif  /* buggy implementation */
+
+
+	if (hOldConIn != INVALID_HANDLE_VALUE)
+	{
+		HANDLE hIn = GetStdHandle (STD_INPUT_HANDLE);
+		SetStdHandle (STD_INPUT_HANDLE, hOldConIn);
+		if (hIn == INVALID_HANDLE_VALUE)
+		{
+#ifdef _DEBUG
+			DebugPrintf (_T("Previous STDIN is invalid!!\n"));
+#endif
+		}
+		else
+		{
+			if (GetFileType (hIn) == FILE_TYPE_DISK)
+			{
+				if (hFile[0] == hIn)
+				{
+					CloseHandle (hFile[0]);
+					hFile[0] = INVALID_HANDLE_VALUE;
+					DeleteFile (szFileName[0]);
+					*szFileName[0] = _T('\0');
+				}
+				else
+				{
+#ifdef _DEBUG
+					DebugPrintf (_T("hFile[0] and hIn dont match!!!\n"));
+#endif
+				}
+			}
+		}
+	}
+
+
+	/* Restore original STDOUT */
+	if (hOldConOut != INVALID_HANDLE_VALUE)
+	{
+		HANDLE hOut = GetStdHandle (STD_OUTPUT_HANDLE);
+		SetStdHandle (STD_OUTPUT_HANDLE, hOldConOut);
+		if (hOldConOut != hOut)
+			CloseHandle (hOut);
+		hOldConOut = INVALID_HANDLE_VALUE;
+	}
+
+	/* Restore original STDERR */
+	if (hOldConErr != INVALID_HANDLE_VALUE)
+	{
+		HANDLE hErr = GetStdHandle (STD_ERROR_HANDLE);
+		SetStdHandle (STD_ERROR_HANDLE, hOldConErr);
+		if (hOldConErr != hErr)
+			CloseHandle (hErr);
+		hOldConErr = INVALID_HANDLE_VALUE;
+	}
+#endif /* FEATURE_REDIRECTION */
 }
 
-LPTSTR
-GetEnvVar(LPCTSTR varName)
+BOOL
+GrowIfNecessary ( UINT needed, LPTSTR* ret, UINT* retlen )
 {
-	static LPTSTR ret = NULL;
-	UINT size;
-
-	cmd_free(ret);
-	ret = NULL;
-	size = GetEnvironmentVariable(varName, NULL, 0);
-	if (size > 0)
-	{
-		ret = cmd_alloc(size * sizeof(TCHAR));
-		if (ret != NULL)
-			GetEnvironmentVariable(varName, ret, size + 1);
-	}
-	return ret;
+	if ( *ret && needed < *retlen )
+		return TRUE;
+	*retlen = needed;
+	if ( *ret )
+		cmd_free ( *ret );
+	*ret = (LPTSTR)cmd_alloc ( *retlen * sizeof(TCHAR) );
+	if ( !*ret )
+		SetLastError ( ERROR_OUTOFMEMORY );
+	return *ret != NULL;
 }
 
 LPCTSTR
-GetEnvVarOrSpecial(LPCTSTR varName)
+GetEnvVarOrSpecial ( LPCTSTR varName )
 {
-	static TCHAR ret[MAX_PATH];
+	static LPTSTR ret = NULL;
+	static UINT retlen = 0;
+	UINT size;
 
-	LPTSTR var = GetEnvVar(varName);
-	if (var)
-		return var;
+	size = GetEnvironmentVariable ( varName, ret, retlen );
+	if ( size > retlen )
+	{
+		if ( !GrowIfNecessary ( size, &ret, &retlen ) )
+			return NULL;
+		size = GetEnvironmentVariable ( varName, ret, retlen );
+	}
+	if ( size )
+		return ret;
 
 	/* env var doesn't exist, look for a "special" one */
 	/* %CD% */
 	if (_tcsicmp(varName,_T("cd")) ==0)
 	{
-		GetCurrentDirectory(MAX_PATH, ret);
+		size = GetCurrentDirectory ( retlen, ret );
+		if ( size > retlen )
+		{
+			if ( !GrowIfNecessary ( size, &ret, &retlen ) )
+				return NULL;
+			size = GetCurrentDirectory ( retlen, ret );
+		}
+		if ( !size )
+			return NULL;
 		return ret;
 	}
 	/* %TIME% */
 	else if (_tcsicmp(varName,_T("time")) ==0)
 	{
-		return GetTimeString();
+		SYSTEMTIME t;
+		if ( !GrowIfNecessary ( MAX_PATH, &ret, &retlen ) )
+			return NULL;
+		GetSystemTime(&t);
+		_sntprintf ( ret, retlen, _T("%02d%c%02d%c%02d%c%02d"),
+			t.wHour, cTimeSeparator, t.wMinute, cTimeSeparator,
+			t.wSecond, cDecimalSeparator, t.wMilliseconds / 10);
+		return ret;
 	}
 	/* %DATE% */
 	else if (_tcsicmp(varName,_T("date")) ==0)
 	{
-		return GetDateString();
+
+		if ( !GrowIfNecessary ( GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, NULL, NULL, NULL, 0), &ret, &retlen ) )
+			return NULL;
+
+		size = GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, NULL, NULL, ret, retlen);
+
+		if ( !size )
+			return NULL;
+		return ret;
 	}
 
 	/* %RANDOM% */
 	else if (_tcsicmp(varName,_T("random")) ==0)
 	{
+		if ( !GrowIfNecessary ( MAX_PATH, &ret, &retlen ) )
+			return NULL;
 		/* Get random number */
 		_itot(rand(),ret,10);
 		return ret;
@@ -814,6 +1206,8 @@ GetEnvVarOrSpecial(LPCTSTR varName)
 	/* %CMDEXTVERSION% */
 	else if (_tcsicmp(varName,_T("cmdextversion")) ==0)
 	{
+		if ( !GrowIfNecessary ( MAX_PATH, &ret, &retlen ) )
+			return NULL;
 		/* Set version number to 2 */
 		_itot(2,ret,10);
 		return ret;
@@ -822,284 +1216,32 @@ GetEnvVarOrSpecial(LPCTSTR varName)
 	/* %ERRORLEVEL% */
 	else if (_tcsicmp(varName,_T("errorlevel")) ==0)
 	{
+		if ( !GrowIfNecessary ( MAX_PATH, &ret, &retlen ) )
+			return NULL;
 		_itot(nErrorLevel,ret,10);
 		return ret;
 	}
 
-	return NULL;
-}
-
-/* Handle the %~var syntax */
-static LPTSTR
-GetEnhancedVar(TCHAR **pFormat, LPTSTR (*GetVar)(TCHAR, BOOL *))
-{
-	static const TCHAR ModifierTable[] = _T("dpnxfsatz");
-	enum {
-		M_DRIVE = 1,   /* D: drive letter */
-		M_PATH  = 2,   /* P: path */
-		M_NAME  = 4,   /* N: filename */
-		M_EXT   = 8,   /* X: extension */
-		M_FULL  = 16,  /* F: full path (drive+path+name+ext) */
-		M_SHORT = 32,  /* S: full path (drive+path+name+ext), use short names */
-		M_ATTR  = 64,  /* A: attributes */
-		M_TIME  = 128, /* T: modification time */
-		M_SIZE  = 256, /* Z: file size */
-	} Modifiers = 0;
-
-	TCHAR *Format, *FormatEnd;
-	TCHAR *PathVarName = NULL;
-	LPTSTR Variable;
-	TCHAR *VarEnd;
-	BOOL VariableIsParam0;
-	TCHAR FullPath[MAX_PATH];
-	TCHAR FixedPath[MAX_PATH], *Filename, *Extension;
-	HANDLE hFind;
-	WIN32_FIND_DATA w32fd;
-	TCHAR *In, *Out;
-
-	static TCHAR Result[CMDLINE_LENGTH];
-
-	/* There is ambiguity between modifier characters and FOR variables;
-	 * the rule that cmd uses is to pick the longest possible match.
-	 * For example, if there is a %n variable, then out of %~anxnd,
-	 * %~anxn will be substituted rather than just %~an. */
-
-	/* First, go through as many modifier characters as possible */
-	FormatEnd = Format = *pFormat;
-	while (*FormatEnd && _tcschr(ModifierTable, _totlower(*FormatEnd)))
-		FormatEnd++;
-
-	if (*FormatEnd == _T('$'))
-	{
-		/* $PATH: syntax */
-		PathVarName = FormatEnd + 1;
-		FormatEnd = _tcschr(PathVarName, _T(':'));
-		if (!FormatEnd)
-			return NULL;
-
-		/* Must be immediately followed by the variable */
-		Variable = GetVar(*++FormatEnd, &VariableIsParam0);
-		if (!Variable)
-			return NULL;
-	}
-	else
-	{
-		/* Backtrack if necessary to get a variable name match */
-		while (!(Variable = GetVar(*FormatEnd, &VariableIsParam0)))
-		{
-			if (FormatEnd == Format)
-				return NULL;
-			FormatEnd--;
-		}
-	}
-
-	for (; Format < FormatEnd && *Format != _T('$'); Format++)
-		Modifiers |= 1 << (_tcschr(ModifierTable, _totlower(*Format)) - ModifierTable);
-
-	*pFormat = FormatEnd + 1;
-
-	/* Exclude the leading and trailing quotes */
-	VarEnd = &Variable[_tcslen(Variable)];
-	if (*Variable == _T('"'))
-	{
-		Variable++;
-		if (VarEnd > Variable && VarEnd[-1] == _T('"'))
-			VarEnd--;
-	}
-
-	if ((char *)VarEnd - (char *)Variable >= sizeof Result)
-		return _T("");
-	memcpy(Result, Variable, (char *)VarEnd - (char *)Variable);
-	Result[VarEnd - Variable] = _T('\0');
-
-	if (PathVarName)
-	{
-		/* $PATH: syntax - search the directories listed in the
-		 * specified environment variable for the file */
-		LPTSTR PathVar;
-		FormatEnd[-1] = _T('\0');
-		PathVar = GetEnvVar(PathVarName);
-		FormatEnd[-1] = _T(':');
-		if (!PathVar ||
-		    !SearchPath(PathVar, Result, NULL, MAX_PATH, FullPath, NULL))
-		{
-			return _T("");
-		}
-	}
-	else if (Modifiers == 0)
-	{
-		/* For plain %~var with no modifiers, just return the variable without quotes */
-		return Result;
-	}
-	else if (VariableIsParam0)
-	{
-		/* Special case: If the variable is %0 and modifier characters are present,
-		 * use the batch file's path (which includes the .bat/.cmd extension)
-		 * rather than the actual %0 variable (which might not). */
-		_tcscpy(FullPath, bc->BatchFilePath);
-	}
-	else
-	{
-		/* Convert the variable, now without quotes, to a full path */
-		if (!GetFullPathName(Result, MAX_PATH, FullPath, NULL))
-			return _T("");
-	}
-
-	/* Next step is to change the path to fix letter case (e.g.
-	 * C:\ReAcToS -> C:\ReactOS) and, if requested with the S modifier,
-	 * replace long filenames with short. */
-
-	In = FullPath;
-	Out = FixedPath;
-
-	/* Copy drive letter */
-	*Out++ = *In++;
-	*Out++ = *In++;
-	*Out++ = *In++;
-	/* Loop over each \-separated component in the path */
-	do {
-		TCHAR *Next = _tcschr(In, _T('\\'));
-		if (Next)
-			*Next++ = _T('\0');
-		/* Use FindFirstFile to get the correct name */
-		if (Out + _tcslen(In) + 1 >= &FixedPath[MAX_PATH])
-			return _T("");
-		_tcscpy(Out, In);
-		hFind = FindFirstFile(FixedPath, &w32fd);
-		/* If it doesn't exist, just leave the name as it was given */
-		if (hFind != INVALID_HANDLE_VALUE)
-		{
-			LPTSTR FixedComponent = w32fd.cFileName;
-			if (*w32fd.cAlternateFileName &&
-			    ((Modifiers & M_SHORT) || !_tcsicmp(In, w32fd.cAlternateFileName)))
-			{
-				FixedComponent = w32fd.cAlternateFileName;
-			}
-			FindClose(hFind);
-
-			if (Out + _tcslen(FixedComponent) + 1 >= &FixedPath[MAX_PATH])
-				return _T("");
-			_tcscpy(Out, FixedComponent);
-		}
-		Filename = Out;
-		Out += _tcslen(Out);
-		*Out++ = _T('\\');
-
-		In = Next;
-	} while (In != NULL);
-	Out[-1] = _T('\0');
-
-	/* Build the result string. Start with attributes, modification time, and
-	 * file size. If the file didn't exist, these fields will all be empty. */
-	Out = Result;
-	if (hFind != INVALID_HANDLE_VALUE)
-	{
-		if (Modifiers & M_ATTR)
-		{
-			static const struct {
-				TCHAR Character;
-				WORD  Value;
-			} *Attrib, Table[] = {
-				{ _T('d'), FILE_ATTRIBUTE_DIRECTORY },
-				{ _T('r'), FILE_ATTRIBUTE_READONLY },
-				{ _T('a'), FILE_ATTRIBUTE_ARCHIVE },
-				{ _T('h'), FILE_ATTRIBUTE_HIDDEN },
-				{ _T('s'), FILE_ATTRIBUTE_SYSTEM },
-				{ _T('c'), FILE_ATTRIBUTE_COMPRESSED },
-				{ _T('o'), FILE_ATTRIBUTE_OFFLINE },
-				{ _T('t'), FILE_ATTRIBUTE_TEMPORARY },
-				{ _T('l'), FILE_ATTRIBUTE_REPARSE_POINT },
-			};
-			for (Attrib = Table; Attrib != &Table[9]; Attrib++)
-			{
-				*Out++ = w32fd.dwFileAttributes & Attrib->Value
-				         ? Attrib->Character
-				         : _T('-');
-			}
-			*Out++ = _T(' ');
-		}
-		if (Modifiers & M_TIME)
-		{
-			FILETIME ft;
-			SYSTEMTIME st;
-			FileTimeToLocalFileTime(&w32fd.ftLastWriteTime, &ft);
-			FileTimeToSystemTime(&ft, &st);
-
-			Out += FormatDate(Out, &st, TRUE);
-			*Out++ = _T(' ');
-			Out += FormatTime(Out, &st);
-			*Out++ = _T(' ');
-		}
-		if (Modifiers & M_SIZE)
-		{
-			ULARGE_INTEGER Size;
-			Size.LowPart = w32fd.nFileSizeLow;
-			Size.HighPart = w32fd.nFileSizeHigh;
-			Out += _stprintf(Out, _T("%I64u "), Size.QuadPart);
-		}
-	}
-
-	/* When using the path-searching syntax or the S modifier,
-	 * at least part of the file path is always included.
-	 * If none of the DPNX modifiers are present, include the full path */
-	if (PathVarName || (Modifiers & M_SHORT))
-		if ((Modifiers & (M_DRIVE | M_PATH | M_NAME | M_EXT)) == 0)
-			Modifiers |= M_FULL;
-
-	/* Now add the requested parts of the name.
-	 * With the F modifier, add all parts to form the full path. */
-	Extension = _tcsrchr(Filename, _T('.'));
-	if (Modifiers & (M_DRIVE | M_FULL))
-	{
-		*Out++ = FixedPath[0];
-		*Out++ = FixedPath[1];
-	}
-	if (Modifiers & (M_PATH | M_FULL))
-	{
-		memcpy(Out, &FixedPath[2], (char *)Filename - (char *)&FixedPath[2]);
-		Out += Filename - &FixedPath[2];
-	}
-	if (Modifiers & (M_NAME | M_FULL))
-	{
-		while (*Filename && Filename != Extension)
-			*Out++ = *Filename++;
-	}
-	if (Modifiers & (M_EXT | M_FULL))
-	{
-		if (Extension)
-			Out = _stpcpy(Out, Extension);
-	}
-
-	/* Trim trailing space which otherwise would appear as a
-	 * result of using the A/T/Z modifiers but no others. */
-	while (Out != &Result[0] && Out[-1] == _T(' '))
-		Out--;
-	*Out = _T('\0');
-
-	return Result;
+	GrowIfNecessary(_tcslen(varName) + 2, &ret, &retlen);
+	_stprintf(ret,_T("%%%s%%"),varName);
+	return ret; /* not found - return orginal string */
 }
 
 LPCTSTR
-GetBatchVar(TCHAR *varName, UINT *varNameLen)
+GetParsedEnvVar ( LPCTSTR varName, UINT* varNameLen, BOOL ModeSetA )
 {
-	LPCTSTR ret;
-	TCHAR *varNameEnd;
-	BOOL dummy;
+	static LPTSTR ret = NULL;
+	static UINT retlen = 0;
+	LPTSTR p, tmp;
+	UINT size;
 
-	*varNameLen = 1;
-
+	if ( varNameLen )
+		*varNameLen = 0;
+	SetLastError(0);
+	if ( *varName++ != '%' )
+		return NULL;
 	switch ( *varName )
 	{
-	case _T('~'):
-		varNameEnd = varName + 1;
-		ret = GetEnhancedVar(&varNameEnd, FindArg);
-		if (!ret)
-		{
-			error_syntax(varName);
-			return NULL;
-		}
-		*varNameLen = varNameEnd - varName;
-		return ret;
 	case _T('0'):
 	case _T('1'):
 	case _T('2'):
@@ -1110,239 +1252,96 @@ GetBatchVar(TCHAR *varName, UINT *varNameLen)
 	case _T('7'):
 	case _T('8'):
 	case _T('9'):
-		return FindArg(*varName, &dummy);
-
+		if ((tmp = FindArg (*varName - _T('0'))))
+		{
+			if ( varNameLen )
+				*varNameLen = 2;
+			if ( !*tmp )
+				return _T("");
+			if ( !GrowIfNecessary ( _tcslen(tmp)+1, &ret, &retlen ) )
+				return NULL;
+			_tcscpy ( ret, tmp );
+			return ret;
+		}
+		if ( !GrowIfNecessary ( 3, &ret, &retlen ) )
+			return NULL;
+		ret[0] = _T('%');
+		ret[1] = *varName;
+		ret[2] = 0;
+		if ( varNameLen )
+			*varNameLen = 2;
+		return ret;
+   
     case _T('*'):
+        if(bc == NULL)
+        {
+            //
+            // No batch file to see here, move along
+            //
+            if ( !GrowIfNecessary ( 3, &ret, &retlen ) )
+                return NULL;
+            ret[0] = _T('%');
+            ret[1] = _T('*');
+            ret[2] = 0;
+            if ( varNameLen )
+                *varNameLen = 2;
+            return ret;
+        }
+
         //
         // Copy over the raw params(not including the batch file name
         //
-        return bc->raw_params;
+        if ( !GrowIfNecessary ( _tcslen(bc->raw_params)+1, &ret, &retlen ) )
+            return NULL;
+        if ( varNameLen )
+            *varNameLen = 2;
+        _tcscpy ( ret, bc->raw_params );
+        return ret;
 
 	case _T('%'):
-		return _T("%");
+		if ( !GrowIfNecessary ( 2, &ret, &retlen ) )
+			return NULL;
+		ret[0] = _T('%');
+		ret[1] = 0;
+		if ( varNameLen )
+			*varNameLen = 2;
+		return ret;
+
+	case _T('?'):
+		/* TODO FIXME 10 is only max size for 32-bit */
+		if ( !GrowIfNecessary ( 11, &ret, &retlen ) )
+			return NULL;
+		_sntprintf ( ret, retlen, _T("%u"), nErrorLevel);
+		ret[retlen-1] = 0;
+		if ( varNameLen )
+			*varNameLen = 2;
+		return ret;
 	}
-	return NULL;
-}
-
-BOOL
-SubstituteVars(TCHAR *Src, TCHAR *Dest, TCHAR Delim)
-{
-#define APPEND(From, Length) { \
-	if (Dest + (Length) > DestEnd) \
-		goto too_long; \
-	memcpy(Dest, From, (Length) * sizeof(TCHAR)); \
-	Dest += Length; }
-#define APPEND1(Char) { \
-	if (Dest >= DestEnd) \
-		goto too_long; \
-	*Dest++ = Char; }
-
-	TCHAR *DestEnd = Dest + CMDLINE_LENGTH - 1;
-	const TCHAR *Var;
-	int VarLength;
-	TCHAR *SubstStart;
-	TCHAR EndChr;
-	while (*Src)
+	if ( ModeSetA )
 	{
-		if (*Src != Delim)
-		{
-			APPEND1(*Src++)
-			continue;
-		}
-
-		Src++;
-		if (bc && Delim == _T('%'))
-		{
-			UINT NameLen;
-			Var = GetBatchVar(Src, &NameLen);
-			if (Var != NULL)
-			{
-				VarLength = _tcslen(Var);
-				APPEND(Var, VarLength)
-				Src += NameLen;
-				continue;
-			}
-		}
-
-		/* Find the end of the variable name. A colon (:) will usually
-		 * end the name and begin the optional modifier, but not if it
-		 * is immediately followed by the delimiter (%VAR:%). */
-		SubstStart = Src;
-		while (*Src != Delim && !(*Src == _T(':') && Src[1] != Delim))
-		{
-			if (!*Src)
-				goto bad_subst;
-			Src++;
-		}
-
-		EndChr = *Src;
-		*Src = _T('\0');
-		Var = GetEnvVarOrSpecial(SubstStart);
-		*Src++ = EndChr;
-		if (Var == NULL)
-		{
-			/* In a batch file, %NONEXISTENT% "expands" to an empty string */
-			if (bc)
-				continue;
-			goto bad_subst;
-		}
-		VarLength = _tcslen(Var);
-
-		if (EndChr == Delim)
-		{
-			/* %VAR% - use as-is */
-			APPEND(Var, VarLength)
-		}
-		else if (*Src == _T('~'))
-		{
-			/* %VAR:~[start][,length]% - substring
-			 * Negative values are offsets from the end */
-			int Start = _tcstol(Src + 1, &Src, 0);
-			int End = VarLength;
-			if (Start < 0)
-				Start += VarLength;
-			Start = max(Start, 0);
-			Start = min(Start, VarLength);
-			if (*Src == _T(','))
-			{
-				End = _tcstol(Src + 1, &Src, 0);
-				End += (End < 0) ? VarLength : Start;
-				End = max(End, Start);
-				End = min(End, VarLength);
-			}
-			if (*Src++ != Delim)
-				goto bad_subst;
-			APPEND(&Var[Start], End - Start);
-		}
-		else
-		{
-			/* %VAR:old=new% - replace all occurrences of old with new
-			 * %VAR:*old=new% - replace first occurrence only,
-			 *                  and remove everything before it */
-			TCHAR *Old, *New;
-			DWORD OldLength, NewLength;
-			BOOL Star = FALSE;
-			int LastMatch = 0, i = 0;
-
-			if (*Src == _T('*'))
-			{
-				Star = TRUE;
-				Src++;
-			}
-
-			/* the string to replace may contain the delimiter */
-			Src = _tcschr(Old = Src, _T('='));
-			if (Src == NULL)
-				goto bad_subst;
-			OldLength = Src++ - Old;
-			if (OldLength == 0)
-				goto bad_subst;
-
-			Src = _tcschr(New = Src, Delim);
-			if (Src == NULL)
-				goto bad_subst;
-			NewLength = Src++ - New;
-
-			while (i < VarLength)
-			{
-				if (_tcsnicmp(&Var[i], Old, OldLength) == 0)
-				{
-					if (!Star)
-						APPEND(&Var[LastMatch], i - LastMatch)
-					APPEND(New, NewLength)
-					i += OldLength;
-					LastMatch = i;
-					if (Star)
-						break;
-					continue;
-				}
-				i++;
-			}
-			APPEND(&Var[LastMatch], VarLength - LastMatch)
-		}
-		continue;
-
-	bad_subst:
-		Src = SubstStart;
-		if (!bc)
-			APPEND1(Delim)
+		/* HACK for set/a */
+		if ( !GrowIfNecessary ( 2, &ret, &retlen ) )
+			return NULL;
+		ret[0] = _T('%');
+		ret[1] = 0;
+		if ( varNameLen )
+			*varNameLen = 1;
+		return ret;
 	}
-	*Dest = _T('\0');
-	return TRUE;
-too_long:
-	ConOutResPrintf(STRING_ALIAS_ERROR);
-	nErrorLevel = 9023;
-	return FALSE;
-#undef APPEND
-#undef APPEND1
-}
-
-/* Search the list of FOR contexts for a variable */
-static LPTSTR FindForVar(TCHAR Var, BOOL *IsParam0)
-{
-	FOR_CONTEXT *Ctx;
-	*IsParam0 = FALSE;
-	for (Ctx = fc; Ctx != NULL; Ctx = Ctx->prev)
-		if ((UINT)(Var - Ctx->firstvar) < Ctx->varcount)
-			return Ctx->values[Var - Ctx->firstvar];
-	return NULL;
-}
-
-BOOL
-SubstituteForVars(TCHAR *Src, TCHAR *Dest)
-{
-	TCHAR *DestEnd = &Dest[CMDLINE_LENGTH - 1];
-	while (*Src)
+	p = _tcschr ( varName, _T('%') );
+	if ( !p )
 	{
-		if (Src[0] == _T('%'))
-		{
-			BOOL Dummy;
-			LPTSTR End = &Src[2];
-			LPTSTR Value = NULL;
-
-			if (Src[1] == _T('~'))
-				Value = GetEnhancedVar(&End, FindForVar);
-
-			if (!Value)
-				Value = FindForVar(Src[1], &Dummy);
-
-			if (Value)
-			{
-				if (Dest + _tcslen(Value) > DestEnd)
-					return FALSE;
-				Dest = _stpcpy(Dest, Value);
-				Src = End;
-				continue;
-			}
-		}
-		/* Not a variable; just copy the character */
-		if (Dest >= DestEnd)
-			return FALSE;
-		*Dest++ = *Src++;
+		SetLastError ( ERROR_INVALID_PARAMETER );
+		return NULL;
 	}
-	*Dest = _T('\0');
-	return TRUE;
-}
-
-LPTSTR
-DoDelayedExpansion(LPTSTR Line)
-{
-	TCHAR Buf1[CMDLINE_LENGTH];
-	TCHAR Buf2[CMDLINE_LENGTH];
-
-	/* First, substitute FOR variables */
-	if (!SubstituteForVars(Line, Buf1))
-		return NULL;
-
-	if (!bDelayedExpansion || !_tcschr(Buf1, _T('!')))
-		return cmd_dup(Buf1);
-
-	/* FIXME: Delayed substitutions actually aren't quite the same as
-	 * immediate substitutions. In particular, it's possible to escape
-	 * the exclamation point using ^. */
-	if (!SubstituteVars(Buf1, Buf2, _T('!')))
-		return NULL;
-	return cmd_dup(Buf2);
+	size = p-varName;
+	if ( varNameLen )
+		*varNameLen = size + 2;
+	p = alloca ( (size+1) * sizeof(TCHAR) );
+	memmove ( p, varName, size * sizeof(TCHAR) );
+	p[size] = 0;
+	varName = p;
+	return GetEnvVarOrSpecial ( varName );
 }
 
 
@@ -1351,67 +1350,153 @@ DoDelayedExpansion(LPTSTR Line)
  *
  */
 
-BOOL
-ReadLine (TCHAR *commandline, BOOL bMore)
+static INT
+ProcessInput (BOOL bFlag)
 {
+	TCHAR commandline[CMDLINE_LENGTH];
 	TCHAR readline[CMDLINE_LENGTH];
 	LPTSTR ip;
+	LPTSTR cp;
+	LPCTSTR tmp;
+	BOOL bEchoThisLine;
+	BOOL bModeSetA;
+        BOOL bIsBatch;
 
-	/* if no batch input then... */
-	if (bc == NULL)
+	do
 	{
-		if (bMore)
+		/* if no batch input then... */
+		if (!(ip = ReadBatchLine (&bEchoThisLine)))
 		{
-			ConOutResPrintf(STRING_MORE);
+			if (bFlag)
+				return nErrorLevel;
+
+			ReadCommand (readline, CMDLINE_LENGTH);
+			ip = readline;
+			bEchoThisLine = FALSE;
+            bIsBatch = FALSE;
 		}
-		else
+        else
+        {
+            bIsBatch = TRUE;
+        }
+
+		/* skip leading blanks */
+		while ( _istspace(*ip) )
+			++ip;
+
+		cp = commandline;
+		bModeSetA = FALSE;
+		while (*ip)
 		{
-			/* JPP 19980807 - if echo off, don't print prompt */
-			if (bEcho)
+			if ( *ip == _T('%') )
 			{
-				if (!bIgnoreEcho)
-					ConOutChar('\n');
-				PrintPrompt();
+				UINT envNameLen;
+				LPCTSTR envVal = GetParsedEnvVar ( ip, &envNameLen, bModeSetA );
+				if ( envVal )
+				{
+					ip += envNameLen;
+					cp = _stpcpy ( cp, envVal );
+				}
+			}
+
+			if (_istcntrl (*ip))
+				*ip = _T(' ');
+			*cp++ = *ip++;
+
+			/* HACK HACK HACK check whether bModeSetA needs to be toggled */
+			*cp = 0;
+			tmp = commandline;
+			tmp += _tcsspn(tmp,_T(" \t"));
+			/* first we find and skip and pre-redirections... */
+			while (( tmp ) &&
+				( _tcschr(_T("<>"),*tmp)
+				|| !_tcsncmp(tmp,_T("1>"),2)
+				|| !_tcsncmp(tmp,_T("2>"),2) ))
+			{
+				if ( _istdigit(*tmp) )
+					tmp += 2;
+				else
+					tmp++;
+				tmp += _tcsspn(tmp,_T(" \t"));
+				if ( *tmp == _T('\"') )
+				{
+					tmp = _tcschr(tmp+1,_T('\"'));
+					if ( tmp )
+						++tmp;
+				}
+				else
+					tmp = _tcspbrk(tmp,_T(" \t"));
+				if ( tmp )
+					tmp += _tcsspn(tmp,_T(" \t"));
+			}
+			/* we should now be pointing to the actual command
+			 * (if there is one yet)*/
+			if ( tmp )
+			{
+				/* if we're currently substituting ( which is default )
+				 * check to see if we've parsed out a set/a. if so, we
+				 * need to disable substitution until we come across a
+				 * redirection */
+				if ( !bModeSetA )
+				{
+					/* look for set /a */
+					if ( !_tcsnicmp(tmp,_T("set"),3) )
+					{
+						tmp += 3;
+						tmp += _tcsspn(tmp,_T(" \t"));
+						if ( !_tcsnicmp(tmp,_T("/a"),2) )
+							bModeSetA = TRUE;
+					}
+				}
+				/* if we're not currently substituting, it means we're
+				 * already inside a set /a. now we need to look for
+				 * a redirection in order to turn redirection back on */
+				else
+				{
+					/* look for redirector of some kind after the command */
+					while ( (tmp = _tcspbrk ( tmp, _T("^<>|") )) )
+					{
+						if ( *tmp == _T('^') )
+						{
+							if ( _tcschr(_T("<>|&"), *++tmp ) && *tmp )
+								++tmp;
+						}
+						else
+						{
+							bModeSetA = FALSE;
+							break;
+						}
+					}
+				}
 			}
 		}
 
-		if (!ReadCommand(readline, CMDLINE_LENGTH - 1))
+		*cp = _T('\0');
+
+		/* strip trailing spaces */
+		while ((--cp >= commandline) && _istspace (*cp));
+
+		*(cp + 1) = _T('\0');
+
+		/* JPP 19980807 */
+		/* Echo batch file line */
+		if (bEchoThisLine)
 		{
-			bExit = TRUE;
-			return FALSE;
+			PrintPrompt ();
+			ConOutPuts (commandline);
 		}
 
-		if (CheckCtrlBreak(BREAK_INPUT))
+		if (!CheckCtrlBreak(BREAK_INPUT) && *commandline)
 		{
-			ConOutPuts(_T("\n"));
-			return FALSE;
+			ParseCommandLine (commandline);
+			if (bEcho && !bIgnoreEcho && (!bIsBatch || bEchoThisLine))
+				ConOutChar ('\n');
+			bIgnoreEcho = FALSE;
 		}
-		ip = readline;
 	}
-	else
-	{
-		ip = ReadBatchLine();
-		if (!ip)
-			return FALSE;
-	}
+	while (!bCanExit || !bExit);
 
-	return SubstituteVars(ip, commandline, _T('%'));
-}
-
-static VOID
-ProcessInput()
-{
-	PARSED_COMMAND *Cmd;
-
-	while (!bCanExit || !bExit)
-	{
-		Cmd = ParseCommand(NULL);
-		if (!Cmd)
-			continue;
-
-		ExecuteCommand(Cmd);
-		FreeCommand(Cmd);
-	}
+	return nErrorLevel;
 }
 
 
@@ -1424,21 +1509,21 @@ BOOL WINAPI BreakHandler (DWORD dwCtrlType)
 	DWORD			dwWritten;
 	INPUT_RECORD	rec;
 	static BOOL SelfGenerated = FALSE;
-
+    
  	if ((dwCtrlType != CTRL_C_EVENT) &&
 	    (dwCtrlType != CTRL_BREAK_EVENT))
 	{
 		return FALSE;
 	}
 	else
-	{
+	{		
 		if(SelfGenerated)
 		{
 			SelfGenerated = FALSE;
 			return TRUE;
 		}
 	}
-
+	
 	if (bChildProcessRunning == TRUE)
 	{
 		SelfGenerated = TRUE;
@@ -1446,7 +1531,7 @@ BOOL WINAPI BreakHandler (DWORD dwCtrlType)
 		return TRUE;
 	}
 
-
+    
     rec.EventType = KEY_EVENT;
     rec.Event.KeyEvent.bKeyDown = TRUE;
     rec.Event.KeyEvent.wRepeatCount = 1;
@@ -1454,14 +1539,14 @@ BOOL WINAPI BreakHandler (DWORD dwCtrlType)
     rec.Event.KeyEvent.wVirtualScanCode = _T('C') - 35;
     rec.Event.KeyEvent.uChar.AsciiChar = _T('C');
     rec.Event.KeyEvent.uChar.UnicodeChar = _T('C');
-    rec.Event.KeyEvent.dwControlKeyState = RIGHT_CTRL_PRESSED;
+    rec.Event.KeyEvent.dwControlKeyState = RIGHT_CTRL_PRESSED; 
 
     WriteConsoleInput(
         hIn,
         &rec,
         1,
 		&dwWritten);
-
+        
 	bCtrlBreak = TRUE;
 	/* FIXME: Handle batch files */
 
@@ -1518,102 +1603,23 @@ ShowCommands (VOID)
 }
 #endif
 
-static VOID
-ExecuteAutoRunFile(HKEY hkeyRoot)
-{
-	TCHAR autorun[2048];
-	DWORD len = sizeof autorun;
-	HKEY hkey;
-
-    if (RegOpenKeyEx(hkeyRoot,
-                    _T("SOFTWARE\\Microsoft\\Command Processor"),
-                    0, 
-                    KEY_READ, 
-                    &hkey ) == ERROR_SUCCESS)
-    {
-	    if(RegQueryValueEx(hkey, 
-                           _T("AutoRun"),
-                           0, 
-                           0, 
-                           (LPBYTE)autorun, 
-                           &len) == ERROR_SUCCESS)
-	    {
-			if (*autorun)
-				ParseCommandLine(autorun);
-	    }
-	    RegCloseKey(hkey);
-    }
-}
-
-/* Get the command that comes after a /C or /K switch */
-static VOID
-GetCmdLineCommand(TCHAR *commandline, TCHAR *ptr, BOOL AlwaysStrip)
-{
-	TCHAR *LastQuote;
-
-	while (_istspace(*ptr))
-		ptr++;
-
-	/* Remove leading quote, find final quote */
-	if (*ptr == _T('"') &&
-	    (LastQuote = _tcsrchr(++ptr, _T('"'))) != NULL)
-	{
-		TCHAR *Space;
-		/* Under certain circumstances, all quotes are preserved.
-		 * CMD /? documents these conditions as follows:
-		 *  1. No /S switch
-		 *  2. Exactly two quotes
-		 *  3. No "special characters" between the quotes
-		 *     (CMD /? says &<>()@^| but parentheses did not
-		 *     trigger this rule when I tested them.)
-		 *  4. Whitespace exists between the quotes
-		 *  5. Enclosed string is an executable filename
-		 */
-		*LastQuote = _T('\0');
-		for (Space = ptr + 1; Space < LastQuote; Space++)
-		{
-			if (_istspace(*Space))                         /* Rule 4 */
-			{
-				if (!AlwaysStrip &&                        /* Rule 1 */
-				    !_tcspbrk(ptr, _T("\"&<>@^|")) &&      /* Rules 2, 3 */
-				    SearchForExecutable(ptr, commandline)) /* Rule 5 */
-				{
-					/* All conditions met: preserve both the quotes */
-					*LastQuote = _T('"');
-					_tcscpy(commandline, ptr - 1);
-					return;
-				}
-				break;
-			}
-		}
-
-		/* The conditions were not met: remove both the
-		 * leading quote and the last quote */
-		_tcscpy(commandline, ptr);
-		_tcscpy(&commandline[LastQuote - ptr], LastQuote + 1);
-		return;
-	}
-
-	/* No quotes; just copy */
-	_tcscpy(commandline, ptr);
-}
-
 /*
  * set up global initializations and process parameters
+ *
+ * argc - number of parameters to command.com
+ * argv - command-line parameters
+ *
  */
 static VOID
-Initialize()
+Initialize (int argc, const TCHAR* argv[])
 {
-	HMODULE NtDllModule;
 	TCHAR commandline[CMDLINE_LENGTH];
 	TCHAR ModuleName[_MAX_PATH + 1];
+	INT i;
 	TCHAR lpBuffer[2];
-	INT nExitCode;
 
 	//INT len;
-	TCHAR *ptr, *cmdLine, option = 0;
-	BOOL AlwaysStrip = FALSE;
-	BOOL AutoRun = TRUE;
+	//TCHAR *ptr, *cmdLine;
 
 	/* get version information */
 	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
@@ -1622,12 +1628,33 @@ Initialize()
 	/* Some people like to run ReactOS cmd.exe on Win98, it helps in the
 	 * build process. So don't link implicitly against ntdll.dll, load it
 	 * dynamically instead */
-	NtDllModule = GetModuleHandle(TEXT("ntdll.dll"));
+
+	if (osvi.dwPlatformId == VER_PLATFORM_WIN32_NT)
+	{
+		/* ntdll is always present on NT */
+		NtDllModule = GetModuleHandle(TEXT("ntdll.dll"));
+	}
+	else
+	{
+		/* not all 9x versions have a ntdll.dll, try to load it */
+		NtDllModule = LoadLibrary(TEXT("ntdll.dll"));
+	}
+
 	if (NtDllModule != NULL)
 	{
 		NtQueryInformationProcessPtr = (NtQueryInformationProcessProc)GetProcAddress(NtDllModule, "NtQueryInformationProcess");
 		NtReadVirtualMemoryPtr = (NtReadVirtualMemoryProc)GetProcAddress(NtDllModule, "NtReadVirtualMemory");
 	}
+
+
+#ifdef _DEBUG
+	DebugPrintf (_T("[command args:\n"));
+	for (i = 0; i < argc; i++)
+	{
+		DebugPrintf (_T("%d. %s\n"), i, argv[i]);
+	}
+	DebugPrintf (_T("]\n"));
+#endif
 
 	InitLocale ();
 
@@ -1642,10 +1669,108 @@ Initialize()
 	if (GetEnvironmentVariable(_T("PROMPT"),lpBuffer, sizeof(lpBuffer) / sizeof(lpBuffer[0])) == 0)
 	    SetEnvironmentVariable (_T("PROMPT"), _T("$P$G"));
 
+
+	if (argc >= 2 && !_tcsncmp (argv[1], _T("/?"), 2))
+	{
+		ConOutResPaging(TRUE,STRING_CMD_HELP8);
+		cmd_exit(0);
+	}
+	SetConsoleMode (hIn, ENABLE_PROCESSED_INPUT);
+
+#ifdef INCLUDE_CMD_CHDIR
+	InitLastPath ();
+#endif
+
+#ifdef FATURE_ALIASES
+	InitializeAlias ();
+#endif
+
+	if (argc >= 2)
+	{
+		for (i = 1; i < argc; i++)
+		{
+			if (!_tcsicmp (argv[i], _T("/p")))
+			{
+				if (!IsExistingFile (_T("\\autoexec.bat")))
+				{
+#ifdef INCLUDE_CMD_DATE
+					cmd_date (_T(""), _T(""));
+#endif
+#ifdef INCLUDE_CMD_TIME
+					cmd_time (_T(""), _T(""));
+#endif
+				}
+				else
+				{
+					ParseCommandLine (_T("\\autoexec.bat"));
+				}
+				bCanExit = FALSE;
+			}
+			else if (!_tcsicmp (argv[i], _T("/c")))
+			{
+				/* This just runs a program and exits */
+				++i;
+				if (i < argc)
+				{
+					_tcscpy (commandline, argv[i]);
+					while (++i < argc)
+					{
+						_tcscat (commandline, _T(" "));
+						_tcscat (commandline, argv[i]);
+					}
+
+					ParseCommandLine(commandline);
+					cmd_exit (ProcessInput (TRUE));
+				}
+				else
+				{
+					cmd_exit (0);
+				}
+			}
+			else if (!_tcsicmp (argv[i], _T("/k")))
+			{
+				/* This just runs a program and remains */
+				++i;
+				if (i < argc)
+				{
+					_tcscpy (commandline, _T("\""));
+					_tcscat (commandline, argv[i]);
+					_tcscat (commandline, _T("\""));
+					while (++i < argc)
+					{
+						_tcscat (commandline, _T(" "));
+						_tcscat (commandline, argv[i]);
+					}
+					ParseCommandLine(commandline);
+				}
+			}
+#ifdef INCLUDE_CMD_COLOR
+			else if (!_tcsnicmp (argv[i], _T("/t:"), 3))
+			{
+				/* process /t (color) argument */
+				wDefColor = (WORD)_tcstoul (&argv[i][3], NULL, 16);
+				wColor = wDefColor;
+				SetScreenColor (wColor, TRUE);
+			}
+#endif
+		}
+	}
+
+	/* run cmdstart.bat */
+	if (IsExistingFile (_T("cmdstart.bat")))
+	{
+		ParseCommandLine (_T("cmdstart.bat"));
+	}
+	else if (IsExistingFile (_T("\\cmdstart.bat")))
+	{
+		ParseCommandLine (_T("\\cmdstart.bat"));
+	}
+
 #ifdef FEATURE_DIR_STACK
 	/* initialize directory stack */
 	InitDirectoryStack ();
 #endif
+
 
 #ifdef FEATURE_HISTORY
 	/*initialize history*/
@@ -1661,112 +1786,10 @@ Initialize()
 
 	/* add ctrl break handler */
 	AddBreakHandler ();
-
-
-	SetConsoleMode (hIn, ENABLE_PROCESSED_INPUT);
-
-	cmdLine = GetCommandLine();
-	TRACE ("[command args: %s]\n", debugstr_aw(cmdLine));
-
-	for (ptr = cmdLine; *ptr; ptr++)
-	{
-		if (*ptr == _T('/'))
-		{
-			option = _totupper(ptr[1]);
-			if (option == _T('?'))
-			{
-				ConOutResPaging(TRUE,STRING_CMD_HELP8);
-				nErrorLevel = 1;
-				bExit = TRUE;
-				return;
-			}
-			else if (option == _T('P'))
-			{
-				if (!IsExistingFile (_T("\\autoexec.bat")))
-				{
-#ifdef INCLUDE_CMD_DATE
-					cmd_date (_T(""));
-#endif
-#ifdef INCLUDE_CMD_TIME
-					cmd_time (_T(""));
-#endif
-				}
-				else
-				{
-					ParseCommandLine (_T("\\autoexec.bat"));
-				}
-				bCanExit = FALSE;
-			}
-			else if (option == _T('A'))
-			{
-				bUnicodeOutput = FALSE;
-			}
-			else if (option == _T('C') || option == _T('K') || option == _T('R'))
-			{
-				/* Remainder of command line is a command to be run */
-				break;
-			}
-			else if (option == _T('D'))
-			{
-				AutoRun = FALSE;
-			}
-			else if (option == _T('Q'))
-			{
-				bDisableBatchEcho = TRUE;
-			}
-			else if (option == _T('S'))
-			{
-				AlwaysStrip = TRUE;
-			}
-#ifdef INCLUDE_CMD_COLOR
-			else if (!_tcsnicmp(ptr, _T("/T:"), 3))
-			{
-				/* process /t (color) argument */
-				wDefColor = (WORD)_tcstoul(&ptr[3], &ptr, 16);
-				SetScreenColor(wDefColor, TRUE);
-			}
-#endif
-			else if (option == _T('U'))
-			{
-				bUnicodeOutput = TRUE;
-			}
-			else if (option == _T('V'))
-			{
-				bDelayedExpansion = _tcsnicmp(&ptr[2], _T(":OFF"), 4);
-			}
-		}
-	}
-
-	if (!*ptr)
-	{
-		/* If neither /C or /K was given, display a simple version string */
-		ConOutResPrintf(STRING_REACTOS_VERSION, 
-			_T(KERNEL_RELEASE_STR),
-			_T(KERNEL_VERSION_BUILD_STR));
-		ConOutPuts(_T("(C) Copyright 1998-") _T(COPYRIGHT_YEAR) _T(" ReactOS Team."));
-	}
-
-	if (AutoRun)
-	{
-		ExecuteAutoRunFile(HKEY_LOCAL_MACHINE);
-		ExecuteAutoRunFile(HKEY_CURRENT_USER);
-	}
-
-	if (*ptr)
-	{
-		/* Do the /C or /K command */
-		GetCmdLineCommand(commandline, &ptr[2], AlwaysStrip);
-		nExitCode = ParseCommandLine(commandline);
-		if (option != _T('K'))
-		{
-			nErrorLevel = nExitCode;
-			bExit = TRUE;
-		}
-	}
 }
 
 
-static VOID Cleanup()
+static VOID Cleanup (int argc, const TCHAR *argv[])
 {
 	/* run cmdexit.bat */
 	if (IsExistingFile (_T("cmdexit.bat")))
@@ -1781,22 +1804,33 @@ static VOID Cleanup()
 		ParseCommandLine (_T("\\cmdexit.bat"));
 	}
 
+#ifdef FEATURE_ALIASES
+	DestroyAlias ();
+#endif
+
 #ifdef FEATURE_DIECTORY_STACK
 	/* destroy directory stack */
 	DestroyDirectoryStack ();
+#endif
+
+#ifdef INCLUDE_CMD_CHDIR
+	FreeLastPath ();
 #endif
 
 #ifdef FEATURE_HISTORY
 	CleanHistory();
 #endif
 
-	/* free GetEnvVar's buffer */
-	GetEnvVar(NULL);
 
 	/* remove ctrl break handler */
 	RemoveBreakHandler ();
 	SetConsoleMode( GetStdHandle( STD_INPUT_HANDLE ),
 			ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT );
+
+	if (NtDllModule != NULL)
+	{
+		FreeLibrary(NtDllModule);
+	}
 }
 
 /*
@@ -1804,11 +1838,9 @@ static VOID Cleanup()
  */
 int cmd_main (int argc, const TCHAR *argv[])
 {
-	HANDLE hConsole;
 	TCHAR startPath[MAX_PATH];
 	CONSOLE_SCREEN_BUFFER_INFO Info;
-
-	lpOriginalEnvironment = DuplicateEnvironment();
+	INT nExitCode;
 
 	GetCurrentDirectory(MAX_PATH,startPath);
 	_tchdir(startPath);
@@ -1820,34 +1852,29 @@ int cmd_main (int argc, const TCHAR *argv[])
 	hConsole = CreateFile(_T("CONOUT$"), GENERIC_READ|GENERIC_WRITE,
 		FILE_SHARE_READ|FILE_SHARE_WRITE, NULL,
 		OPEN_EXISTING, 0, NULL);
-	if (hConsole != INVALID_HANDLE_VALUE)
+	if (GetConsoleScreenBufferInfo(hConsole, &Info) == FALSE)
 	{
-		if (!GetConsoleScreenBufferInfo(hConsole, &Info))
-		{
-			ConErrFormatMessage(GetLastError());
-			return(1);
-		}
-		wDefColor = Info.wAttributes;
-		CloseHandle(hConsole);
+		ConErrFormatMessage(GetLastError());
+		return(1);
 	}
+	wColor = Info.wAttributes;
+	wDefColor = wColor;
 
 	InputCodePage= GetConsoleCP();
 	OutputCodePage = GetConsoleOutputCP();
 	CMD_ModuleHandle = GetModuleHandle(NULL);
 
 	/* check switches on command-line */
-	Initialize();
+	Initialize(argc, argv);
 
 	/* call prompt routine */
-	ProcessInput();
+	nExitCode = ProcessInput(FALSE);
 
 	/* do the cleanup */
-	Cleanup();
+	Cleanup(argc, argv);
 
-	cmd_free(lpOriginalEnvironment);
-
-	cmd_exit(nErrorLevel);
-	return(nErrorLevel);
+	cmd_exit(nExitCode);
+	return(nExitCode);
 }
 
 /* EOF */

@@ -33,7 +33,7 @@ NTAPI
 FsRtlDeregisterUncProvider(IN HANDLE Handle)
 {
     /* Unimplemented */
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++
@@ -62,6 +62,6 @@ FsRtlRegisterUncProvider(IN OUT PHANDLE Handle,
                          IN BOOLEAN MailslotsSupported)
 {
     /* Unimplemented */
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return STATUS_NOT_IMPLEMENTED;
 }

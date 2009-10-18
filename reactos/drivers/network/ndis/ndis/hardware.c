@@ -28,9 +28,8 @@ NdisImmediateReadPciSlotInformation(
     IN  ULONG       Length)
 {
   PNDIS_WRAPPER_CONTEXT WrapperContext = (PNDIS_WRAPPER_CONTEXT)WrapperConfigurationContext;
-  /* Slot number is ignored. */
   return HalGetBusDataByOffset(PCIConfiguration, WrapperContext->BusNumber,
-                               WrapperContext->SlotNumber, Buffer, Offset, Length);
+                               SlotNumber, Buffer, Offset, Length);
 }
 
 
@@ -47,9 +46,8 @@ NdisImmediateWritePciSlotInformation(
     IN  ULONG       Length)
 {
   PNDIS_WRAPPER_CONTEXT WrapperContext = (PNDIS_WRAPPER_CONTEXT)WrapperConfigurationContext;
-  /* Slot number is ignored. */
   return HalSetBusDataByOffset(PCIConfiguration, WrapperContext->BusNumber,
-                               WrapperContext->SlotNumber, Buffer, Offset, Length);
+                               SlotNumber, Buffer, Offset, Length);
 }
 
 
@@ -59,21 +57,20 @@ NdisImmediateWritePciSlotInformation(
 NDIS_STATUS
 EXPORT
 NdisMPciAssignResources(
-    IN  NDIS_HANDLE             MiniportAdapterHandle,
+    IN  NDIS_HANDLE             MiniportHandle,
     IN  ULONG                   SlotNumber,
     OUT PNDIS_RESOURCE_LIST     *AssignedResources)
 {
-  PLOGICAL_ADAPTER Adapter = MiniportAdapterHandle;
+  PNDIS_MINIPORT_BLOCK MiniportBlock = (PNDIS_MINIPORT_BLOCK)MiniportHandle;
 
-  if (Adapter->NdisMiniportBlock.BusType != NdisInterfacePci ||
-      Adapter->NdisMiniportBlock.AllocatedResources == NULL)
+  if (MiniportBlock->BusType != PCIBus ||
+      MiniportBlock->AllocatedResources == NULL)
     {
-      NDIS_DbgPrint(MIN_TRACE, ("Bad bus type or no resources\n"));
       *AssignedResources = NULL;
       return NDIS_STATUS_FAILURE;
     }
 
-  *AssignedResources = &Adapter->NdisMiniportBlock.AllocatedResources->List[0].PartialResourceList;
+  *AssignedResources = &MiniportBlock->AllocatedResources->List[0].PartialResourceList;
 
   return NDIS_STATUS_SUCCESS;
 }
@@ -102,7 +99,7 @@ NdisMQueryAdapterResources(
  */
 {
   PNDIS_WRAPPER_CONTEXT WrapperContext = (PNDIS_WRAPPER_CONTEXT)WrapperConfigurationContext;
-  PLOGICAL_ADAPTER Adapter = WrapperContext->DeviceObject->DeviceExtension;
+  PNDIS_MINIPORT_BLOCK MiniportBlock = WrapperContext->DeviceObject->DeviceExtension;
   ULONG ResourceListSize;
 
   PAGED_CODE();
@@ -110,7 +107,7 @@ NdisMQueryAdapterResources(
 
   NDIS_DbgPrint(MAX_TRACE, ("Called\n"));
 
-  if (Adapter->NdisMiniportBlock.AllocatedResources == NULL)
+  if (MiniportBlock->AllocatedResources == NULL)
     {
       NDIS_DbgPrint(MIN_TRACE, ("No allocated resources!\n"));
       *Status = NDIS_STATUS_FAILURE;
@@ -119,16 +116,16 @@ NdisMQueryAdapterResources(
 
   ResourceListSize =
     FIELD_OFFSET(CM_PARTIAL_RESOURCE_LIST, PartialDescriptors) +
-    Adapter->NdisMiniportBlock.AllocatedResources->List[0].PartialResourceList.Count *
+    MiniportBlock->AllocatedResources->List[0].PartialResourceList.Count *
     sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR);
 
   if (*BufferSize >= ResourceListSize)
     {
       RtlCopyMemory(ResourceList,
-                    &Adapter->NdisMiniportBlock.AllocatedResources->List[0].PartialResourceList,
+                    &MiniportBlock->AllocatedResources->List[0].PartialResourceList,
                     ResourceListSize);
       *BufferSize = ResourceListSize;
-      *Status = NDIS_STATUS_SUCCESS;
+      *Status = STATUS_SUCCESS;
     }
   else
     {
@@ -155,6 +152,37 @@ NdisQueryMapRegisterCount(
   return NDIS_STATUS_NOT_SUPPORTED;
 }
 
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisReadEisaSlotInformation(
+    OUT PNDIS_STATUS                    Status,
+    IN  NDIS_HANDLE                     WrapperConfigurationContext,
+    OUT PUINT                           SlotNumber,
+    OUT PNDIS_EISA_FUNCTION_INFORMATION EisaData)
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisReadEisaSlotInformationEx(
+    OUT PNDIS_STATUS                    Status,
+    IN  NDIS_HANDLE                     WrapperConfigurationContext,
+    OUT PUINT                           SlotNumber,
+    OUT PNDIS_EISA_FUNCTION_INFORMATION *EisaData,
+    OUT PUINT                           NumberOfFunctions)
+{
+    UNIMPLEMENTED
+}
+
 
 /*
  * @implemented
@@ -168,10 +196,10 @@ NdisReadPciSlotInformation(
     IN  PVOID       Buffer,
     IN  ULONG       Length)
 {
-  PLOGICAL_ADAPTER Adapter = NdisAdapterHandle;
+  PNDIS_MINIPORT_BLOCK Adapter = (PNDIS_MINIPORT_BLOCK)NdisAdapterHandle;
   /* Slot number is ignored since W2K for all NDIS drivers. */
   return HalGetBusDataByOffset(PCIConfiguration,
-                               Adapter->NdisMiniportBlock.BusNumber, Adapter->NdisMiniportBlock.SlotNumber,
+                               Adapter->BusNumber, Adapter->SlotNumber,
                                Buffer, Offset, Length);
 }
 
@@ -188,146 +216,11 @@ NdisWritePciSlotInformation(
     IN  PVOID       Buffer,
     IN  ULONG       Length)
 {
-  PLOGICAL_ADAPTER Adapter = NdisAdapterHandle;
+  PNDIS_MINIPORT_BLOCK Adapter = (PNDIS_MINIPORT_BLOCK)NdisAdapterHandle;
   /* Slot number is ignored since W2K for all NDIS drivers. */
   return HalSetBusDataByOffset(PCIConfiguration,
-                               Adapter->NdisMiniportBlock.BusNumber, Adapter->NdisMiniportBlock.SlotNumber,
+                               Adapter->BusNumber, Adapter->SlotNumber,
                                Buffer, Offset, Length);
-}
-
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisReadEisaSlotInformation(
-    OUT PNDIS_STATUS                    Status,
-    IN  NDIS_HANDLE                     WrapperConfigurationContext,
-    OUT PUINT                           SlotNumber,
-    OUT PNDIS_EISA_FUNCTION_INFORMATION EisaData)
-{
-    PNDIS_WRAPPER_CONTEXT Wrapper = WrapperConfigurationContext;
-    ULONG Ret;
-    PVOID Buffer;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    /* We are called only at PASSIVE_LEVEL */
-    Buffer = ExAllocatePool(PagedPool, sizeof(NDIS_EISA_FUNCTION_INFORMATION));
-    if (!Buffer) {
-         NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
-        *Status = NDIS_STATUS_RESOURCES;
-        return;
-    }
-
-    Ret = HalGetBusData(EisaConfiguration,
-                        Wrapper->BusNumber,
-                        Wrapper->SlotNumber,
-                        Buffer,
-                        sizeof(NDIS_EISA_FUNCTION_INFORMATION));
-
-    if (Ret == 0 || Ret == 2) {
-        NDIS_DbgPrint(MIN_TRACE, ("HalGetBusData failed.\n"));
-        ExFreePool(Buffer);
-        *Status = NDIS_STATUS_FAILURE;
-        return;
-    }
-
-    *SlotNumber = Wrapper->SlotNumber;
-
-    RtlCopyMemory(EisaData, Buffer, sizeof(NDIS_EISA_FUNCTION_INFORMATION));
-
-    ExFreePool(Buffer);
-
-    *Status = NDIS_STATUS_SUCCESS;
-}
-
-
-/*
- * @implemented
- */
-ULONG
-EXPORT
-NdisReadPcmciaAttributeMemory(
-    IN  NDIS_HANDLE NdisAdapterHandle,
-    IN  ULONG       Offset,
-    IN  PVOID       Buffer,
-    IN  ULONG       Length)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PLOGICAL_ADAPTER Adapter = NdisAdapterHandle;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    return HalGetBusDataByOffset(PCMCIAConfiguration,
-                                 Adapter->NdisMiniportBlock.BusNumber,
-                                 Adapter->NdisMiniportBlock.SlotNumber,
-                                 Buffer,
-                                 Offset,
-                                 Length);
-}
-
-
-/*
- * @implemented
- */
-ULONG
-EXPORT
-NdisWritePcmciaAttributeMemory(
-    IN  NDIS_HANDLE NdisAdapterHandle,
-    IN  ULONG       Offset,
-    IN  PVOID       Buffer,
-    IN  ULONG       Length)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 5.0
- */
-{
-    PLOGICAL_ADAPTER Adapter = NdisAdapterHandle;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    return HalSetBusDataByOffset(PCMCIAConfiguration,
-                                 Adapter->NdisMiniportBlock.BusNumber,
-                                 Adapter->NdisMiniportBlock.SlotNumber,
-                                 Buffer,
-                                 Offset,
-                                 Length);
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisOverrideBusNumber(
-    IN  NDIS_HANDLE WrapperConfigurationContext,
-    IN  NDIS_HANDLE MiniportAdapterHandle   OPTIONAL,
-    IN  ULONG       BusNumber)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 4.0
- */
-{
-    PNDIS_WRAPPER_CONTEXT Wrapper = WrapperConfigurationContext;
-    PLOGICAL_ADAPTER Adapter = MiniportAdapterHandle;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    Wrapper->BusNumber = BusNumber;
-
-    if (Adapter)
-        Adapter->NdisMiniportBlock.BusNumber = BusNumber;
 }
 
 /* EOF */

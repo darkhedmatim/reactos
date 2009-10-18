@@ -18,8 +18,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include <stdarg.h>
+#include <string.h>
 
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+#include "windef.h"
+#include "winbase.h"
+#include "wine/debug.h"
+#include "wingdi.h"
+#include "shell32_main.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -47,7 +55,7 @@ typedef struct _NOTIFICATIONLIST
 	LONG wSignalledEvent;   /* event that occurred */
 	DWORD dwFlags;		/* client flags */
 	LPCITEMIDLIST pidlSignaled; /*pidl of the path that caused the signal*/
-
+    
 } NOTIFICATIONLIST, *LPNOTIFICATIONLIST;
 
 static NOTIFICATIONLIST *head, *tail;
@@ -98,7 +106,7 @@ static const char * DumpEvent( LONG event )
 #undef DUMPEV
 }
 
-static const char * NodeName(const NOTIFICATIONLIST *item)
+static const char * NodeName(LPNOTIFICATIONLIST item)
 {
     const char *str;
     WCHAR path[MAX_PATH];
@@ -185,7 +193,7 @@ SHChangeNotifyRegister(
     LONG wEventMask,
     UINT uMsg,
     int cItems,
-    const SHChangeNotifyEntry *lpItems)
+    SHChangeNotifyEntry *lpItems)
 {
     LPNOTIFICATIONLIST item;
     int i;
@@ -260,7 +268,7 @@ static BOOL should_notify( LPCITEMIDLIST changed, LPCITEMIDLIST watched, BOOL su
         return FALSE;
     if (ILIsEqual( watched, changed ) )
         return TRUE;
-    if( sub && ILIsParent( watched, changed, TRUE ) )
+    if( sub && ILIsParent( watched, changed, FALSE ) )
         return TRUE;
     return FALSE;
 }
@@ -293,11 +301,11 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
         return;
     }
 
-    if( ( ( wEventId & SHCNE_NOITEMEVENTS ) &&
+    if( ( ( wEventId & SHCNE_NOITEMEVENTS ) && 
           ( wEventId & ~SHCNE_NOITEMEVENTS ) ) ||
-        ( ( wEventId & SHCNE_ONEITEMEVENTS ) &&
+        ( ( wEventId & SHCNE_ONEITEMEVENTS ) && 
           ( wEventId & ~SHCNE_ONEITEMEVENTS ) ) ||
-        ( ( wEventId & SHCNE_TWOITEMEVENTS ) &&
+        ( ( wEventId & SHCNE_TWOITEMEVENTS ) && 
           ( wEventId & ~SHCNE_TWOITEMEVENTS ) ) )
     {
         WARN("mutually incompatible events listed\n");
@@ -308,8 +316,8 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
     switch (typeFlag)
     {
     case SHCNF_PATHA:
-        if (dwItem1) Pidls[0] = SHSimpleIDListFromPathA((LPCSTR)dwItem1); //FIXME
-        if (dwItem2) Pidls[1] = SHSimpleIDListFromPathA((LPCSTR)dwItem2); //FIXME
+        if (dwItem1) Pidls[0] = SHSimpleIDListFromPathA((LPCSTR)dwItem1);
+        if (dwItem2) Pidls[1] = SHSimpleIDListFromPathA((LPCSTR)dwItem2);
         break;
     case SHCNF_PATHW:
         if (dwItem1) Pidls[0] = SHSimpleIDListFromPathW((LPCWSTR)dwItem1);
@@ -334,7 +342,7 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
 
         if( Pidls[0] && SHGetPathFromIDListW(Pidls[0], path ))
             TRACE("notify %08x on item1 = %s\n", wEventId, debugstr_w(path));
-
+    
         if( Pidls[1] && SHGetPathFromIDListW(Pidls[1], path ))
             TRACE("notify %08x on item2 = %s\n", wEventId, debugstr_w(path));
     }
@@ -380,9 +388,9 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
         ptr->wSignalledEvent |= wEventId;
 
         if (ptr->dwFlags  & SHCNRF_NewDelivery)
-            SendMessageW(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
+            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
         else
-            SendMessageW(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
+            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
 
         TRACE("notifying %s, event %s(%x) after\n", NodeName( ptr ), DumpEvent(
                 wEventId ),wEventId );
@@ -390,7 +398,7 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
     }
     TRACE("notify Done\n");
     LeaveCriticalSection(&SHELL32_ChangenotifyCS);
-
+    
     /* if we allocated it, free it. The ANSI flag is also set in its Unicode sibling. */
     if ((typeFlag & SHCNF_PATHA) || (typeFlag & SHCNF_PRINTERA))
     {
@@ -402,20 +410,21 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
 /*************************************************************************
  * NTSHChangeNotifyRegister			[SHELL32.640]
  * NOTES
- *   Idlist is an array of structures and Count specifies how many items in the array.
- *   count should always be one when calling SHChangeNotifyRegister, or
- *   SHChangeNotifyDeregister will not work properly.
+ *   Idlist is an array of structures and Count specifies how many items in the array
+ *   (usually just one I think).
  */
-ULONG WINAPI NTSHChangeNotifyRegister(
+DWORD WINAPI NTSHChangeNotifyRegister(
     HWND hwnd,
-    int fSources,
-    LONG fEvents,
-    UINT msg,
+    LONG events1,
+    LONG events2,
+    DWORD msg,
     int count,
     SHChangeNotifyEntry *idlist)
 {
-    return SHChangeNotifyRegister(hwnd, fSources | SHCNRF_NewDelivery,
-                                  fEvents, msg, count, idlist);
+    FIXME("(%p,0x%08x,0x%08x,0x%08x,0x%08x,%p):semi stub.\n",
+		hwnd,events1,events2,msg,count,idlist);
+
+    return (DWORD) SHChangeNotifyRegister(hwnd, events1, events2, msg, count, idlist);
 }
 
 /*************************************************************************

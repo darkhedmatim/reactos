@@ -250,7 +250,6 @@ umss_driver_init(PUSB_DEV_MANAGER dev_mgr, PUSB_DRIVER pdriver)
     pdriver->driver_desc.dev_protocol = 0;      // Protocol Info.
 
     pdriver->driver_ext = usb_alloc_mem(NonPagedPool, sizeof(UMSS_DRVR_EXTENSION));
-    if (!pdriver->driver_ext) return FALSE;
     pdriver->driver_ext_size = sizeof(UMSS_DRVR_EXTENSION);
 
     RtlZeroMemory(pdriver->driver_ext, sizeof(UMSS_DRVR_EXTENSION));
@@ -1816,8 +1815,6 @@ umss_if_driver_init(PUSB_DEV_MANAGER dev_mgr, PUSB_DRIVER pdriver)
     pdriver->driver_desc.dev_protocol = 0;      // Protocol Info.
 
     pdriver->driver_ext = usb_alloc_mem(NonPagedPool, sizeof(UMSS_DRVR_EXTENSION));
-    if (!pdriver->driver_ext) return FALSE;
-
     pdriver->driver_ext_size = sizeof(UMSS_DRVR_EXTENSION);
 
     RtlZeroMemory(pdriver->driver_ext, sizeof(UMSS_DRVR_EXTENSION));
@@ -1926,7 +1923,7 @@ Routine Description:
     Wrapper for handling worker thread callbacks, it is importent to
     lock the dev from being deleted by calling usb_query_and_lock_dev
     and in umss_worker, call the usb_unlock_dev to release the ref
-    count. One exception is that the umss_if_disconnect call this
+    count. One exception is that the umss_if_disconnect call this 
     function to delete the device object that is still held by some
     others, and deferred deletion is required.
 
@@ -1949,11 +1946,10 @@ umss_schedule_workitem(PVOID context,
     PUMSS_WORKER_PACKET worker_packet;
 
     worker_packet = usb_alloc_mem(NonPagedPool, sizeof(WORK_QUEUE_ITEM) + sizeof(UMSS_WORKER_PACKET));
+    RtlZeroMemory(worker_packet, sizeof(WORK_QUEUE_ITEM) + sizeof(UMSS_WORKER_PACKET));
 
     if (worker_packet)
     {
-        RtlZeroMemory(worker_packet, sizeof(WORK_QUEUE_ITEM) + sizeof(UMSS_WORKER_PACKET));
-
         workitem = (PWORK_QUEUE_ITEM) & worker_packet[1];
         worker_packet->completion = completion;
         worker_packet->context = context;

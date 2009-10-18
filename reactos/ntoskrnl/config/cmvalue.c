@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -32,7 +33,7 @@ CmpMarkValueDataDirty(IN PHHIVE Hive,
         ASSERT_VALUE_BIG(Hive, KeySize);
 
         /* Normal value, just mark it dirty */
-        HvMarkCellDirty(Hive, Value->Data, FALSE);
+        HvMarkCellDirty(Hive, Value->Data);
     }
 
     /* Operation complete */
@@ -188,8 +189,8 @@ CmpValueToData(IN PHHIVE Hive,
     if (BufferAllocated)
     {
         /* Free the buffer and bugcheck */
-        CmpFree(Buffer, 0);
-        KeBugCheckEx(REGISTRY_ERROR, 8, 0, (ULONG_PTR)Hive, (ULONG_PTR)Value);
+        ExFreePool(Buffer);
+        KEBUGCHECKEX(REGISTRY_ERROR, 8, 0, (ULONG_PTR)Hive, (ULONG_PTR)Value);
     }
 
     /* Otherwise, return the cell data */
@@ -243,11 +244,11 @@ CmpAddValueToList(IN PHHIVE Hive,
     else
     {
         /* This is our first child, so allocate a single cell */
-        ListCell = HvAllocateCell(Hive, sizeof(HCELL_INDEX), Type, HCELL_NIL);
+        ListCell = HvAllocateCell(Hive, sizeof(HCELL_INDEX), Type);
     }
 
     /* Fail if we couldn't get a cell */
-    if (ListCell == HCELL_NIL) return STATUS_INSUFFICIENT_RESOURCES;
+    if (ListCell == HCELL_NULL) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Set this cell as the child list's list cell */
     ChildList->List = ListCell;
@@ -292,7 +293,7 @@ CmpSetValueDataNew(IN PHHIVE Hive,
     ASSERT_VALUE_BIG(Hive, DataSize);
 
     /* Allocate a data cell */
-    *DataCell = HvAllocateCell(Hive, DataSize, StorageType, HCELL_NIL);
+    *DataCell = HvAllocateCell(Hive, DataSize, StorageType);
     if (*DataCell == HCELL_NIL) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Get the actual data */

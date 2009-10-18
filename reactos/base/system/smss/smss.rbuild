@@ -3,9 +3,12 @@
 <module name="smss" type="nativecui" installbase="system32" installname="smss.exe">
 	<include base="smss">.</include>
 	<include base="ReactOS">include/reactos/subsys</include>
+	<define name="__USE_W32API" />
+	<define name="_DISABLE_TIDENTS" />
 	<library>nt</library>
 	<library>smlib</library>
 	<library>ntdll</library>
+	<linkerflag>-lgcc</linkerflag>
 	<pch>smss.h</pch>
 	<compilationunit name="unit.c">
 		<file>client.c</file>

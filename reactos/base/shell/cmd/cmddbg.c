@@ -9,25 +9,17 @@
 typedef struct
 {
     size_t size;
-    LIST_ENTRY list_entry;
     const char *file;
     int line;
 } alloc_info, *palloc_info;
 
 static size_t allocations = 0;
 static size_t allocated_memory = 0;
-static LIST_ENTRY alloc_list_head = {&alloc_list_head, &alloc_list_head};
 
 static void *
 get_base_ptr(void *ptr)
 {
     return (void *)((UINT_PTR)ptr - REDZONE_SIZE - sizeof(alloc_info));
-}
-
-static void *
-get_ptr_from_base(palloc_info info)
-{
-    return (void*)((size_t)(info + 1) + REDZONE_SIZE);
 }
 
 static void *
@@ -96,50 +88,6 @@ calculate_size_with_redzone(size_t size)
     return sizeof(alloc_info) + size + (2 * REDZONE_SIZE);
 }
 
-static void
-add_mem_to_list(void *ptr)
-{
-    palloc_info info = (palloc_info)ptr;
-    InsertTailList(&alloc_list_head, &info->list_entry);
-}
-
-static void
-del_mem_from_list(void *ptr)
-{
-    palloc_info info = (palloc_info)ptr;
-    RemoveEntryList(&info->list_entry);
-}
-
-static void
-dump_mem_list(void)
-{
-    palloc_info info;
-    PLIST_ENTRY entry;
-    void *ptr;
-
-    entry = alloc_list_head.Flink;
-    while (entry != &alloc_list_head)
-    {
-        info = CONTAINING_RECORD(entry, alloc_info, list_entry);
-
-        DbgPrint(" * Block: 0x%p Size: %lu allocated from %s:%d\n", get_ptr_from_base(info), info->size, info->file, info->line);
-
-        ptr = (void *)(info + 1);
-        if (!check_redzone_region(ptr, REDZONE_LEFT, &ptr))
-        {
-            DbgPrint("   !!! Detected buffer underflow !!!\n");
-        }
-
-        ptr = (void *)((UINT_PTR)ptr + info->size);
-        if (!check_redzone_region(ptr, REDZONE_RIGHT, NULL))
-        {
-            DbgPrint("   !!! Detected buffer overflow !!!\n");
-        }
-
-        entry = entry->Flink;
-    }
-}
-
 void *
 cmd_alloc_dbg(size_t size, const char *file, int line)
 {
@@ -150,7 +98,6 @@ cmd_alloc_dbg(size_t size, const char *file, int line)
     {
         allocations++;
         allocated_memory += size;
-        add_mem_to_list(newptr);
         newptr = write_redzone(newptr, size, file, line);
     }
 
@@ -175,16 +122,12 @@ cmd_realloc_dbg(void *ptr, size_t size, const char *file, int line)
     prev_size = ((palloc_info)ptr)->size;
     check_redzone(ptr, file, line);
 
-    del_mem_from_list(ptr);
     newptr = realloc(ptr, calculate_size_with_redzone(size));
     if (newptr != NULL)
     {
         allocated_memory += size - prev_size;
-        add_mem_to_list(newptr);
         newptr = write_redzone(newptr, size, file, line);
     }
-    else
-        add_mem_to_list(ptr);
 
     return newptr;
 }
@@ -198,27 +141,9 @@ cmd_free_dbg(void *ptr, const char *file, int line)
         check_redzone(ptr, file, line);
         allocations--;
         allocated_memory -= ((palloc_info)ptr)->size;
-        del_mem_from_list(ptr);
     }
 
     free(ptr);
-}
-
-TCHAR *
-cmd_dup_dbg(const TCHAR *str, const char *file, int line)
-{
-    TCHAR *ptr = NULL;
-
-    if (str != NULL)
-    {
-        ptr = (TCHAR *)cmd_alloc_dbg((_tcslen(str) + 1) * sizeof(TCHAR), file, line);
-        if (ptr != NULL)
-        {
-            _tcscpy(ptr, str);
-        }
-    }
-
-    return ptr;
 }
 
 void
@@ -237,11 +162,9 @@ cmd_exit(int code)
     if (allocations != 0 || allocated_memory != 0)
     {
         DbgPrint("CMD: Leaking %lu bytes of memory in %lu blocks! Exit code: %d\n", allocated_memory, allocations, code);
-        if (allocations != 0)
-            dump_mem_list();
     }
 
     ExitProcess(code);
 }
 
-#endif /* _DEBUG_MEM */
+#endif /* _DEBUG */

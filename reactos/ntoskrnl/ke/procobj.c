@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -96,9 +96,6 @@ KiAttachProcess(IN PKTHREAD Thread,
 
         /* Release lock */
         KiReleaseApcLockFromDpcLevel(ApcLock);
-        
-        /* Make sure that we are in the right page directory (ReactOS Mm Hack) */
-        MiSyncForProcessAttach(Thread, (PEPROCESS)Process);
 
         /* Swap Processes */
         KiSwapProcess(Process, SavedApcState->Process);
@@ -118,7 +115,7 @@ NTAPI
 KeInitializeProcess(IN OUT PKPROCESS Process,
                     IN KPRIORITY Priority,
                     IN KAFFINITY Affinity,
-                    IN PULONG DirectoryTableBase,
+                    IN PLARGE_INTEGER DirectoryTableBase,
                     IN BOOLEAN Enable)
 {
 #ifdef CONFIG_SMP
@@ -137,8 +134,7 @@ KeInitializeProcess(IN OUT PKPROCESS Process,
     Process->Affinity = Affinity;
     Process->BasePriority = (CHAR)Priority;
     Process->QuantumReset = 6;
-    Process->DirectoryTableBase[0] = DirectoryTableBase[0];
-    Process->DirectoryTableBase[1] = DirectoryTableBase[1];
+    Process->DirectoryTableBase = *DirectoryTableBase;
     Process->AutoAlignment = Enable;
 #if defined(_M_IX86)
     Process->IopmOffset = KiComputeIopmOffset(IO_ACCESS_MAP_NONE);
@@ -281,7 +277,7 @@ KeSetPriorityAndQuantumProcess(IN PKPROCESS Process,
     if (Process->BasePriority == Priority) return Process->BasePriority;
 
     /* If the caller gave priority 0, normalize to 1 */
-    if (!Priority) Priority = LOW_PRIORITY + 1;
+    if (!LOW_PRIORITY) Priority = LOW_PRIORITY + 1;
 
     /* Lock the process */
     KiAcquireProcessLock(Process, &ProcessLock);
@@ -450,8 +446,11 @@ KeAttachProcess(IN PKPROCESS Process)
     ASSERT_PROCESS(Process);
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
 
-    /* Make sure that we are in the right page directory (ReactOS Mm Hack) */
-    MiSyncForProcessAttach(Thread, (PEPROCESS)Process);
+    /* Make sure that we are in the right page directory */
+    MiSyncThreadProcessViews(Process,
+                             (PVOID)Thread->StackLimit,
+                             Thread->LargeStack ?
+                             KERNEL_STACK_SIZE : KERNEL_LARGE_STACK_SIZE);
 
     /* Check if we're already in that process */
     if (Thread->ApcState.Process == Process) return;
@@ -461,7 +460,7 @@ KeAttachProcess(IN PKPROCESS Process)
         (KeIsExecutingDpc()))
     {
         /* Invalid attempt */
-        KeBugCheckEx(INVALID_PROCESS_ATTACH_ATTEMPT,
+        KEBUGCHECKEX(INVALID_PROCESS_ATTACH_ATTEMPT,
                      (ULONG_PTR)Process,
                      (ULONG_PTR)Thread->ApcState.Process,
                      Thread->ApcStateIndex,
@@ -538,7 +537,7 @@ KeDetachProcess(VOID)
     KiReleaseApcLockFromDpcLevel(&ApcLock);
 
     /* Swap Processes */
-    KiSwapProcess(Thread->ApcState.Process, Process);
+    KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
 
     /* Exit the dispatcher */
     KiExitDispatcher(ApcLock.OldIrql);
@@ -576,11 +575,17 @@ KeStackAttachProcess(IN PKPROCESS Process,
     ASSERT_PROCESS(Process);
     ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
 
+    /* Make sure that we are in the right page directory */
+    MiSyncThreadProcessViews(Process,
+                             (PVOID)Thread->StackLimit,
+                             Thread->LargeStack ?
+                             KERNEL_STACK_SIZE : KERNEL_LARGE_STACK_SIZE);
+
     /* Crash system if DPC is being executed! */
     if (KeIsExecutingDpc())
     {
         /* Executing a DPC, crash! */
-        KeBugCheckEx(INVALID_PROCESS_ATTACH_ATTEMPT,
+        KEBUGCHECKEX(INVALID_PROCESS_ATTACH_ATTEMPT,
                      (ULONG_PTR)Process,
                      (ULONG_PTR)Thread->ApcState.Process,
                      Thread->ApcStateIndex,
@@ -662,7 +667,7 @@ KeUnstackDetachProcess(IN PRKAPC_STATE ApcState)
         (!IsListEmpty(&Thread->ApcState.ApcListHead[UserMode])))
     {
         /* Bugcheck the system */
-        KeBugCheck(INVALID_PROCESS_DETACH_ATTEMPT);
+        KEBUGCHECK(INVALID_PROCESS_DETACH_ATTEMPT);
     }
 
     /* Get the process */
@@ -705,7 +710,7 @@ KeUnstackDetachProcess(IN PRKAPC_STATE ApcState)
     KiReleaseApcLockFromDpcLevel(&ApcLock);
 
     /* Swap Processes */
-    KiSwapProcess(Thread->ApcState.Process, Process);
+    KiSwapProcess(Thread->ApcState.Process, Thread->ApcState.Process);
 
     /* Exit the dispatcher */
     KiExitDispatcher(ApcLock.OldIrql);
@@ -717,54 +722,6 @@ KeUnstackDetachProcess(IN PRKAPC_STATE ApcState)
         Thread->ApcState.KernelApcPending = TRUE;
         HalRequestSoftwareInterrupt(APC_LEVEL);
     }
-}
-
-/*
- * @implemented
- */
-ULONG
-NTAPI
-KeQueryRuntimeProcess(IN PKPROCESS Process,
-                      OUT PULONG UserTime)
-{
-    ULONG TotalUser, TotalKernel;
-    KLOCK_QUEUE_HANDLE ProcessLock;
-    PLIST_ENTRY NextEntry, ListHead;
-    PKTHREAD Thread;
-
-    ASSERT_PROCESS(Process);
-
-    /* Initialize user and kernel times */
-    TotalUser = Process->UserTime;
-    TotalKernel = Process->KernelTime;
-
-    /* Lock the process */
-    KiAcquireProcessLock(Process, &ProcessLock);
-
-    /* Loop all child threads and sum up their times */
-    ListHead = &Process->ThreadListHead;
-    NextEntry = ListHead->Flink;
-    while (ListHead != NextEntry)
-    {
-        /* Get the thread */
-        Thread = CONTAINING_RECORD(NextEntry, KTHREAD, ThreadListEntry);
-
-        /* Sum up times */
-        TotalKernel += Thread->KernelTime;
-        TotalUser += Thread->UserTime;
-
-        /* Go to the next one */
-        NextEntry = NextEntry->Flink;
-    }
-
-    /* Release lock */
-    KiReleaseProcessLock(&ProcessLock);
-
-    /* Return the user time */
-    *UserTime = TotalUser;
-
-    /* Return the kernel time */
-    return TotalKernel;
 }
 
 /*

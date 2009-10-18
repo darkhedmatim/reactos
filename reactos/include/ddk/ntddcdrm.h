@@ -23,6 +23,10 @@
 #ifndef __NTDDCDRM_H
 #define __NTDDCDRM_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "ntddstor.h"
 
 #ifdef __cplusplus
@@ -57,9 +61,6 @@ extern "C" {
 
 #define IOCTL_CDROM_RAW_READ \
   CTL_CODE(IOCTL_CDROM_BASE, 0x000F, METHOD_OUT_DIRECT,  FILE_READ_ACCESS)
-
-#define IOCTL_CDROM_DISK_TYPE \
-  CTL_CODE(IOCTL_CDROM_BASE, 0x0010, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 #define IOCTL_CDROM_READ_Q_CHANNEL \
   CTL_CODE(IOCTL_CDROM_BASE, 0x000B, METHOD_BUFFERED, FILE_READ_ACCESS)

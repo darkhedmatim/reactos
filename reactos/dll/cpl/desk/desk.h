@@ -35,10 +35,6 @@ typedef struct _DIBITMAP
 
 extern HINSTANCE hApplet;
 
-HMENU
-LoadPopupMenu(IN HINSTANCE hInstance,
-              IN LPCTSTR lpMenuName);
-
 PDIBITMAP DibLoadImage(LPTSTR lpFilename);
 VOID DibFreeImage(PDIBITMAP lpBitmap);
 
@@ -48,8 +44,7 @@ INT AllocAndLoadString(LPTSTR *lpTarget,
 
 ULONG __cdecl DbgPrint(PCCH Format,...);
 
-#define MAX_DESK_PAGES        32
-#define NUM_SPECTRUM_BITMAPS  3
+#define MAX_DESK_PAGES  32
 
 /* As slider control can't contain user data, we have to keep an
  * array of RESOLUTION_INFO to have our own associated data.
@@ -67,7 +62,6 @@ typedef struct _SETTINGS_ENTRY
 	DWORD dmBitsPerPel;
 	DWORD dmPelsWidth;
 	DWORD dmPelsHeight;
-	DWORD dmDisplayFrequency;
 } SETTINGS_ENTRY, *PSETTINGS_ENTRY;
 
 typedef struct _DISPLAY_DEVICE_ENTRY
@@ -93,9 +87,6 @@ IDataObject *
 CreateDevSettings(PDISPLAY_DEVICE_ENTRY DisplayDeviceInfo);
 
 HPSXA WINAPI SHCreatePropSheetExtArrayEx(HKEY,LPCWSTR,UINT,IDataObject*);
-
-INT_PTR CALLBACK
-AdvGeneralPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 #endif /* __CPL_DESK_H__ */
 

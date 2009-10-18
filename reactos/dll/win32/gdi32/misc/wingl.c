@@ -17,7 +17,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *
- *
+ * 
  *
  */
 
@@ -28,11 +28,11 @@
 
 
 
-typedef int  (WINAPI *CHOOSEPIXELFMT) (HDC, CONST PIXELFORMATDESCRIPTOR *);
-typedef BOOL (WINAPI *SETPIXELFMT) (HDC, int, CONST PIXELFORMATDESCRIPTOR *);
-typedef BOOL (WINAPI *SWAPBUFFERS) (HDC hdc);
-typedef int  (WINAPI *DESCRIBEPIXELFMT) (HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
-typedef int  (WINAPI *GETPIXELFMT) (HDC);
+typedef int  STDCALL (*CHOOSEPIXELFMT) (HDC, CONST PIXELFORMATDESCRIPTOR *);
+typedef BOOL STDCALL (*SETPIXELFMT) (HDC, int, CONST PIXELFORMATDESCRIPTOR *);
+typedef BOOL STDCALL (*SWAPBUFFERS) (HDC hdc);
+typedef int  STDCALL (*DESCRIBEPIXELFMT) (HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
+typedef int  STDCALL (*GETPIXELFMT) (HDC);
 
 
 static CHOOSEPIXELFMT    glChoosePixelFormat   = NULL;
@@ -46,61 +46,46 @@ static GETPIXELFMT       glGetPixelFormat      = NULL;
 */
 HINSTANCE                hOpenGL               = NULL;
 
-static BOOL OpenGLInitFunction(PCSTR name,
-                               FARPROC *funcptr)
-{
-    PVOID func;
-
-    func = (PVOID)GetProcAddress(hOpenGL, name);
-    if (func != NULL)
-    {
-        (void)InterlockedCompareExchangePointer((PVOID*)funcptr,
-                                                func,
-                                                NULL);
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
 static BOOL OpenGLEnable(void)
 {
-    HMODULE hModOpengl32;
-    BOOL Ret = TRUE;
+  if(hOpenGL == NULL)
+  {
+     hOpenGL = LoadLibraryA("OPENGL32.DLL");
+     if(hOpenGL == NULL)
+       return(FALSE);
+  }
 
-    hModOpengl32 = LoadLibraryW(L"OPENGL32.DLL");
-    if (hModOpengl32 == NULL)
-        return FALSE;
+  if(glChoosePixelFormat == NULL) {
+        glChoosePixelFormat = (CHOOSEPIXELFMT)GetProcAddress(hOpenGL, "wglChoosePixelFormat");
+        if(glChoosePixelFormat == NULL)
+                return(FALSE);
+  }
 
-    if (InterlockedCompareExchangePointer((PVOID*)&hOpenGL,
-                                          (PVOID)hModOpengl32,
-                                          NULL) != NULL)
-    {
-        FreeLibrary(hModOpengl32);
+  if(glSetPixelFormat == NULL) {
+        glSetPixelFormat = (SETPIXELFMT)GetProcAddress(hOpenGL, "wglSetPixelFormat");
+        if(glSetPixelFormat == NULL)
+                return(FALSE);
+  }
 
-        /* NOTE: Even though another thread was faster loading the
-                 library we can't just bail out here. We really need
-                 to *try* to locate every function. This is slow but
-                 thread-safe */
-    }
+  if(glSwapBuffers == NULL) {
+        glSwapBuffers = (SWAPBUFFERS)GetProcAddress(hOpenGL, "wglSwapBuffers");
+        if(glSwapBuffers == NULL)
+                return(FALSE);
+  }
 
+  if(glDescribePixelFormat == NULL) {
+        glDescribePixelFormat = (DESCRIBEPIXELFMT)GetProcAddress(hOpenGL, "wglDescribePixelFormat");
+        if(glDescribePixelFormat == NULL)
+                return(FALSE);
+  }
 
-    if (!OpenGLInitFunction("wglChoosePixelFormat", &glChoosePixelFormat))
-        Ret = FALSE;
+  if(glGetPixelFormat == NULL) {
+        glGetPixelFormat = (GETPIXELFMT)GetProcAddress(hOpenGL, "wglGetPixelFormat");
+        if(glGetPixelFormat == NULL)
+                return(FALSE);
+  }
 
-    if (!OpenGLInitFunction("wglSetPixelFormat", &glSetPixelFormat))
-        Ret = FALSE;
-
-    if (!OpenGLInitFunction("wglSwapBuffers", &glSwapBuffers))
-        Ret = FALSE;
-
-    if (!OpenGLInitFunction("wglDescribePixelFormat", &glDescribePixelFormat))
-        Ret = FALSE;
-
-    if (!OpenGLInitFunction("wglGetPixelFormat", &glGetPixelFormat))
-        Ret = FALSE;
-
-    return Ret;
+  return(TRUE);	/* OpenGL is initialized and enabled*/
 }
 
 
@@ -109,7 +94,7 @@ static BOOL OpenGLEnable(void)
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 ChoosePixelFormat(HDC  hdc,
                   CONST PIXELFORMATDESCRIPTOR * ppfd)
 {
@@ -126,7 +111,7 @@ ChoosePixelFormat(HDC  hdc,
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 DescribePixelFormat(HDC  hdc,
                     INT  iPixelFormat,
                     UINT  nBytes,
@@ -145,7 +130,7 @@ DescribePixelFormat(HDC  hdc,
  * @implemented
  */
 INT
-WINAPI
+STDCALL
 GetPixelFormat(HDC  hdc)
 {
   if (glGetPixelFormat == NULL)
@@ -161,7 +146,7 @@ GetPixelFormat(HDC  hdc)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetPixelFormat(HDC  hdc,
                INT  iPixelFormat,
                CONST PIXELFORMATDESCRIPTOR * ppfd)
@@ -179,7 +164,7 @@ SetPixelFormat(HDC  hdc,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SwapBuffers(HDC  hdc)
 {
   if (glSwapBuffers == NULL)
@@ -199,7 +184,7 @@ SwapBuffers(HDC  hdc)
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetEnhMetaFilePixelFormat(
 	HENHMETAFILE			hemf,
 	UINT				cbBuffer,

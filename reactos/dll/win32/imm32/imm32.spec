@@ -10,14 +10,14 @@
 @ stdcall ImmDestroyIMCC(long)
 @ stub ImmDestroySoftKeyboard
 @ stdcall ImmDisableIME(long)
-@ stdcall ImmDisableIme(long) ImmDisableIME
+@ stub ImmDisableIme
 @ stub ImmEnumInputContext
 @ stdcall ImmEnumRegisterWordA(long ptr str long str ptr)
 @ stdcall ImmEnumRegisterWordW(long ptr wstr long wstr ptr)
 @ stdcall ImmEscapeA(long long long ptr)
 @ stdcall ImmEscapeW(long long long ptr)
 @ stub ImmFreeLayout
-@ stdcall ImmGenerateMessage(ptr)
+@ stub ImmGenerateMessage
 @ stdcall ImmGetCandidateListA(long long ptr long)
 @ stdcall ImmGetCandidateListCountA(long ptr)
 @ stdcall ImmGetCandidateListCountW(long ptr)

@@ -16,20 +16,33 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include <stdarg.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
+#include "ole2.h"
+#include "urlmon.h"
 #include "urlmon_main.h"
+
 #include "wine/debug.h"
+#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
 typedef struct {
-    const IInternetProtocolVtbl  *lpIInternetProtocolVtbl;
+    const IInternetProtocolVtbl  *lpInternetProtocolVtbl;
 
     LONG ref;
 
     IStream *stream;
 } MkProtocol;
 
-#define PROTOCOL_THIS(iface) DEFINE_THIS(MkProtocol, IInternetProtocol, iface)
+#define PROTOCOL_THIS(iface) DEFINE_THIS(MkProtocol, InternetProtocol, iface)
+
+#define PROTOCOL(x)  ((IInternetProtocol*)  &(x)->lpInternetProtocolVtbl)
 
 static HRESULT WINAPI MkProtocol_QueryInterface(IInternetProtocol *iface, REFIID riid, void **ppv)
 {
@@ -75,7 +88,7 @@ static ULONG WINAPI MkProtocol_Release(IInternetProtocol *iface)
         if(This->stream)
             IStream_Release(This->stream);
 
-        heap_free(This);
+        HeapFree(GetProcessHeap(), 0, This);
 
         URLMON_UnlockModule();
     }
@@ -91,7 +104,7 @@ static HRESULT report_result(IInternetProtocolSink *sink, HRESULT hres, DWORD dw
 
 static HRESULT WINAPI MkProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
         IInternetProtocolSink *pOIProtSink, IInternetBindInfo *pOIBindInfo,
-        DWORD grfPI, HANDLE_PTR dwReserved)
+        DWORD grfPI, DWORD dwReserved)
 {
     MkProtocol *This = PROTOCOL_THIS(iface);
     IParseDisplayName *pdn;
@@ -104,13 +117,10 @@ static HRESULT WINAPI MkProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
     CLSID clsid;
     HRESULT hres;
 
-    static const WCHAR wszMK[] = {'m','k',':','@'};
+    static const WCHAR wszMK[] = {'m','k',':'};
 
-    TRACE("(%p)->(%s %p %p %08x %lx)\n", This, debugstr_w(szUrl), pOIProtSink,
+    TRACE("(%p)->(%s %p %p %08x %d)\n", This, debugstr_w(szUrl), pOIProtSink,
             pOIBindInfo, grfPI, dwReserved);
-
-    if(strncmpiW(szUrl, wszMK, sizeof(wszMK)/sizeof(WCHAR)))
-        return INET_E_INVALID_URL;
 
     memset(&bindinfo, 0, sizeof(bindinfo));
     bindinfo.cbSize = sizeof(BINDINFO);
@@ -122,6 +132,10 @@ static HRESULT WINAPI MkProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
 
     ReleaseBindInfo(&bindinfo);
 
+    if(strncmpiW(szUrl, wszMK, sizeof(wszMK)/sizeof(WCHAR)))
+        return MK_E_SYNTAX;
+
+    IInternetProtocolSink_ReportProgress(pOIProtSink, BINDSTATUS_DIRECTBIND, NULL);
     IInternetProtocolSink_ReportProgress(pOIProtSink, BINDSTATUS_SENDINGREQUEST, NULL);
 
     hres = FindMimeFromData(NULL, szUrl, NULL, 0, NULL, 0, &mime, 0);
@@ -131,15 +145,19 @@ static HRESULT WINAPI MkProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
     }
 
     ptr2 = szUrl + sizeof(wszMK)/sizeof(WCHAR);
+    if(*ptr2 != '@')
+        return report_result(pOIProtSink, INET_E_RESOURCE_NOT_FOUND, ERROR_INVALID_PARAMETER);
+    ptr2++;
+
     ptr = strchrW(ptr2, ':');
     if(!ptr)
         return report_result(pOIProtSink, INET_E_RESOURCE_NOT_FOUND, ERROR_INVALID_PARAMETER);
 
-    progid = heap_alloc((ptr-ptr2+1)*sizeof(WCHAR));
+    progid = HeapAlloc(GetProcessHeap(), 0, (ptr-ptr2+1)*sizeof(WCHAR));
     memcpy(progid, ptr2, (ptr-ptr2)*sizeof(WCHAR));
     progid[ptr-ptr2] = 0;
     hres = CLSIDFromProgID(progid, &clsid);
-    heap_free(progid);
+    HeapFree(GetProcessHeap(), 0, progid);
     if(FAILED(hres))
         return report_result(pOIProtSink, INET_E_RESOURCE_NOT_FOUND, ERROR_INVALID_PARAMETER);
 
@@ -151,10 +169,10 @@ static HRESULT WINAPI MkProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
     }
 
     len = strlenW(--ptr2);
-    display_name = heap_alloc((len+1)*sizeof(WCHAR));
+    display_name = HeapAlloc(GetProcessHeap(), 0, (len+1)*sizeof(WCHAR));
     memcpy(display_name, ptr2, (len+1)*sizeof(WCHAR));
     hres = IParseDisplayName_ParseDisplayName(pdn, NULL /* FIXME */, display_name, &eaten, &mon);
-    heap_free(display_name);
+    HeapFree(GetProcessHeap(), 0, display_name);
     IParseDisplayName_Release(pdn);
     if(FAILED(hres)) {
         WARN("ParseDisplayName failed: %08x\n", hres);
@@ -289,9 +307,9 @@ HRESULT MkProtocol_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
 
     URLMON_LockModule();
 
-    ret = heap_alloc(sizeof(MkProtocol));
+    ret = HeapAlloc(GetProcessHeap(), 0, sizeof(MkProtocol));
 
-    ret->lpIInternetProtocolVtbl = &MkProtocolVtbl;
+    ret->lpInternetProtocolVtbl = &MkProtocolVtbl;
     ret->ref = 1;
     ret->stream = NULL;
 

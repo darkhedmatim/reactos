@@ -3,7 +3,8 @@
 #include <tchar.h>
 #include <stdio.h>
 #include "resource.h"
-#include "cardlib.h"
+#include "cardlib/cardlib.h"
+//#include "../catch22lib/trace.h"
 #include "solitaire.h"
 
 #if 1
@@ -13,7 +14,6 @@
 #endif
 
 extern TCHAR MsgWin[128];
-extern TCHAR MsgDeal[128];
 
 CardStack activepile;
 bool fGameStarted = false;
@@ -24,7 +24,7 @@ void NewGame(void)
     int i, j;
 
     SolWnd.EmptyStacks();
-
+    
     //create a new card-stack
     CardStack deck;
     deck.NewDeck();
@@ -50,11 +50,7 @@ void NewGame(void)
     //put the other cards onto the deck
     pDeck->SetCardStack(deck);
     pDeck->Update();
-
-    // For the 1-card-mode, all cards need to be completely overlapped
-    if(!(dwOptions & OPTION_THREE_CARDS))
-        pPile->SetOffsets(0, 0);
-
+    
     SolWnd.Redraw();
 
     fGameStarted = false;
@@ -88,10 +84,10 @@ bool CARDLIBPROC RowStackDragProc(CardRegion &stackobj, int iNumDragCards)
 }
 
 //
-//    Row a row-stack, we can only drop cards
+//    Row a row-stack, we can only drop cards 
 //    that are lower / different colour
 //
-bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj, CardStack &dragcards)
+bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj,  const CardStack &dragcards)
 {
     TRACE("ENTER RowStackDropProc()\n");
     Card dragcard = dragcards[dragcards.NumCards() - 1];
@@ -108,7 +104,7 @@ bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj, CardStack &dragcards)
     else
     {
         const CardStack &mystack = stackobj.GetCardStack();
-
+        
         //can only drop if card is 1 less
         if(mystack[0].LoVal() != dragcard.LoVal() + 1)
         {
@@ -117,8 +113,8 @@ bool CARDLIBPROC RowStackDropProc(CardRegion &stackobj, CardStack &dragcards)
         }
 
         //can only drop if card is different colour
-        if( (mystack[0].IsBlack() && !dragcard.IsRed()) ||
-           (!mystack[0].IsBlack() &&  dragcard.IsRed()) )
+        if( mystack[0].IsBlack() && !dragcard.IsRed() ||
+           !mystack[0].IsBlack() &&  dragcard.IsRed() )
         {
             TRACE("EXIT RowStackDropProc(false)\n");
             return false;
@@ -171,7 +167,7 @@ bool CanDrop(CardRegion &stackobj, Card card)
 //
 //    Can only drop a card onto suit stack if it is same suit, and 1 higher
 //
-bool CARDLIBPROC SuitStackDropProc(CardRegion &stackobj, CardStack &dragcards)
+bool CARDLIBPROC SuitStackDropProc(CardRegion &stackobj, const CardStack &dragcards)
 {
     TRACE("ENTER SuitStackDropProc()\n");
     //only drop 1 card at a time
@@ -194,7 +190,7 @@ void CARDLIBPROC RowStackClickProc(CardRegion &stackobj, int iNumClicked)
 {
     TRACE("ENTER RowStackClickProc()\n");
     int numfacedown;
-
+    
     stackobj.GetFaceDirection(&numfacedown);
 
     //if all face-down, then make top card face-up
@@ -249,24 +245,13 @@ void CARDLIBPROC SuitStackAddProc(CardRegion &stackobj, const CardStack &added)
     if(fGameOver)
     {
         MessageBox(SolWnd, MsgWin, szAppName, MB_OK | MB_ICONINFORMATION);
-
+    
         for(int i = 0; i < 4; i++)
         {
             pSuitStack[i]->Flash(11, 100);
         }
-
-        if( IDYES == MessageBox(SolWnd, MsgDeal, szAppName, MB_YESNO | MB_ICONQUESTION) )
-        {
-            NewGame();
-        }
-        else
-        {
-            SolWnd.EmptyStacks();
-
-            fGameStarted = false;
-        }
+        fGameStarted = false;
     }
-
     TRACE("EXIT SuitStackAddProc()\n");
 }
 
@@ -288,7 +273,7 @@ void CARDLIBPROC RowStackDblClickProc(CardRegion &stackobj, int iNumClicked)
     //find a suit-stack to move the card to...
     const CardStack &cardstack = stackobj.GetCardStack();
     CardRegion *pDest = FindSuitStackFromCard(cardstack[0]);
-
+    
     if(pDest != 0)
     {
         fGameStarted = true;
@@ -346,8 +331,7 @@ void CARDLIBPROC DeckClickProc(CardRegion &stackobj, int iNumClicked)
     fGameStarted = true;
 
     //reset the face-up pile to represent 3 cards
-    if(dwOptions & OPTION_THREE_CARDS)
-        pPile->SetOffsets(CS_DEFXOFF, 1);
+    pPile->SetOffsets(CS_DEFXOFF, 1);
 
     if(cardstack.NumCards() == 0)
     {
@@ -366,9 +350,7 @@ void CARDLIBPROC DeckClickProc(CardRegion &stackobj, int iNumClicked)
         temp = cardstack.Pop(numcards);
         temp.Reverse();
 
-        if(dwOptions & OPTION_THREE_CARDS)
-            pile.Clear();
-
+        pile.Clear();
         pile.Push(temp);
 
         //remove the top 3 from deck

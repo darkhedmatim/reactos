@@ -13,11 +13,9 @@
 #define NDEBUG
 #include <debug.h>
 
-#define GetPteAddress(x) (PHARDWARE_PTE)(((((ULONG_PTR)(x)) >> 12) << 2) + 0xC0000000)
-
 /* PRIVATE FUNCTIONS *********************************************************/
 
-VOID
+static VOID
 NTAPI
 HalpWriteResetCommand(VOID)
 {
@@ -25,29 +23,17 @@ HalpWriteResetCommand(VOID)
     WRITE_PORT_UCHAR((PUCHAR)0x64, 0xFE);
 };
 
-VOID
+static VOID
 NTAPI
 HalpReboot(VOID)
 {
     UCHAR Data;
-    PVOID ZeroPageMapping;
-    PHARDWARE_PTE Pte;
-
-    /* Get a PTE in the HAL reserved region */
-    ZeroPageMapping = (PVOID)(0xFFC00000 + PAGE_SIZE);
-    Pte = GetPteAddress(ZeroPageMapping);
-
-    /* Make it valid and map it to the first physical page */
-    Pte->Valid = 1;
-    Pte->Write = 1;
-    Pte->Owner = 1;
-    Pte->PageFrameNumber = 0;
-
-    /* Flush the TLB by resetting CR3 */
-    __writecr3(__readcr3());
+    PVOID HalpZeroPageMapping;
+    PHYSICAL_ADDRESS Null = {{0}};
 
     /* Enable warm reboot */
-    ((PUSHORT)ZeroPageMapping)[0x239] = 0x1234;
+    HalpZeroPageMapping = MmMapIoSpace(Null, PAGE_SIZE, MmNonCached);
+    ((PUSHORT)HalpZeroPageMapping)[0x239] = 0x1234;
 
     /* FIXME: Lock CMOS Access */
 
@@ -81,7 +67,7 @@ HalpReboot(VOID)
     HalpWriteResetCommand();
 
     /* Halt the CPU */
-    __halt();
+    Ke386HaltProcessor();
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/
@@ -93,15 +79,12 @@ VOID
 NTAPI
 HalReturnToFirmware(IN FIRMWARE_REENTRY Action)
 {
-    /* Check what kind of action this is */
+    /* Check the kind of action this is */
     switch (Action)
     {
         /* All recognized actions */
         case HalHaltRoutine:
         case HalRebootRoutine:
-
-            /* Acquire the display */
-            InbvAcquireDisplayOwnership();
 
             /* Call the internal reboot function */
             HalpReboot();

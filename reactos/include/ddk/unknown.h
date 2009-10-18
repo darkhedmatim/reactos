@@ -1,5 +1,5 @@
-#ifndef __unknwn_h__
-#define __unknwn_h__
+#ifndef _UNKNOWN_H_
+#define _UNKNOWN_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,13 +44,12 @@ DECLARE_INTERFACE(IUnknown)
 typedef IUnknown *PUNKNOWN;
 typedef
 HRESULT
-(NTAPI *PFNCREATEINSTANCE)
+(*PFNCREATEINSTANCE)
 (
   OUT PUNKNOWN *  Unknown,
   IN  REFCLSID    ClassId,
   IN  PUNKNOWN    OuterUnknown,
   IN  POOL_TYPE   PoolType
 );
-
 #endif
 

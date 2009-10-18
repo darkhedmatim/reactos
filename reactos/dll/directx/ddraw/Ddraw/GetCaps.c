@@ -2,7 +2,7 @@
  *
  * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS DirectX
- * FILE:                 ddraw/ddraw/GetCaps.c
+ * FILE:                 ddraw/ddraw/ddraw_main.c
  * PURPOSE:              IDirectDraw7 Implementation
  * PROGRAMMER:           Magnus Olsen
  *
@@ -10,7 +10,7 @@
 
 /* TODO
  * lpddNLVHELCaps and lpddNLVCaps
- * Thouse two can be null or inviald in lpGBL
+ * Thouse two can be null or inviald in lpGBL 
  * we need add code in startup to detect if we have lpddNLVCaps set
  * ms HEL does not support lpddNLVHELCaps shall we do that ?
  * ms HEL does not support dwVidMemTotal and dwVidMemFree shall we implement a emulate of them ?
@@ -20,6 +20,10 @@
 
 #include <string.h>
 
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
+
+
 HRESULT WINAPI
 Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                          LPDDCAPS pHELCaps)
@@ -28,42 +32,12 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
 
     DX_WINDBG_trace();
 
-    EnterCriticalSection( &ddcs );
-
-    _SEH2_TRY
+        _SEH_TRY
     {
         if ((!pDriverCaps) && (!pHELCaps))
         {
                 retVal = DDERR_INVALIDPARAMS;
-                _SEH2_LEAVE;
-        }
-
-        /*
-         * DDCAPS_DX6 and DDCAPS_DX7 have same size so
-         * we do not need check both only one of them
-         */
-        if ( (pDriverCaps) &&
-             (pDriverCaps->dwSize != sizeof(DDCAPS_DX1) ) &&
-             (pDriverCaps->dwSize != sizeof(DDCAPS_DX3) ) &&
-             (pDriverCaps->dwSize != sizeof(DDCAPS_DX5) ) &&
-             (pDriverCaps->dwSize !=  sizeof(DDCAPS_DX7 )) )
-        {
-                retVal = DDERR_INVALIDPARAMS;
-                _SEH2_LEAVE;
-        }
-
-        /*
-         * DDCAPS_DX6 and DDCAPS_DX7 have same size so
-         * we do not need check both only one of them
-         */
-        if ( (pHELCaps) &&
-             (pHELCaps->dwSize != sizeof(DDCAPS_DX1) ) &&
-             (pHELCaps->dwSize != sizeof(DDCAPS_DX3) ) &&
-             (pHELCaps->dwSize != sizeof(DDCAPS_DX5) ) &&
-             (pHELCaps->dwSize != sizeof(DDCAPS_DX7 )) )
-        {
-                retVal = DDERR_INVALIDPARAMS;
-                _SEH2_LEAVE;
+                _SEH_LEAVE;
         }
 
         if (pDriverCaps)
@@ -117,7 +91,7 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                 {
                     LPDDCAPS_DX5 myCaps = (LPDDCAPS_DX5) pDriverCaps;
 
-                    /* FIXME  This->lpLcl->lpGbl->lpddNLVCaps are not set in startup.c
+                    /* FIXME  This->lpLcl->lpGbl->lpddNLVCaps are not set in startup.c 
                     if (This->lpLcl->lpGbl->lpddNLVCaps->dwSize == sizeof(DDNONLOCALVIDMEMCAPS))
                     {
                         memcpy(&myCaps->dwNLVBCaps, This->lpLcl->lpGbl->lpddNLVCaps, sizeof(DDNONLOCALVIDMEMCAPS));
@@ -143,7 +117,7 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                 {
                     LPDDCAPS_DX7 myCaps = (LPDDCAPS_DX7) pDriverCaps;
 
-                    /* FIXME  This->lpLcl->lpGbl->lpddNLVCaps are not set in startup.c
+                    /* FIXME  This->lpLcl->lpGbl->lpddNLVCaps are not set in startup.c 
                     if (This->lpLcl->lpGbl->lpddNLVCaps->dwSize == sizeof(DDNONLOCALVIDMEMCAPS))
                     {
                         memcpy(&myCaps->dwNLVBCaps, This->lpLcl->lpGbl->lpddNLVCaps, sizeof(DDNONLOCALVIDMEMCAPS));
@@ -165,8 +139,6 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                     myCaps->ddsCaps.dwCaps4 = 0;
                     myCaps->dwSize = sizeof(DDCAPS_DX7);
 
-                    retVal = DD_OK;
-
                 }
                 break;
 
@@ -179,10 +151,13 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
         if (pHELCaps)
         {
             /* Setup software caps */
+            DDSCAPS2 ddscaps = { 0 };
             LPDDCORECAPS CoreCaps = (LPDDCORECAPS)&This->lpLcl->lpGbl->ddHELCaps;
 
             DWORD dwTotal = 0;
             DWORD dwFree = 0;
+
+            Main_DirectDraw_GetAvailableVidMem4(This, &ddscaps, &dwTotal, &dwFree);
 
             switch (pHELCaps->dwSize)
             {
@@ -224,7 +199,7 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                 {
                     LPDDCAPS_DX5 myCaps = (LPDDCAPS_DX5) pHELCaps;
 
-                    /* FIXME  This->lpLcl->lpGbl->lpddNLVHELCaps are not set in startup.c
+                    /* FIXME  This->lpLcl->lpGbl->lpddNLVHELCaps are not set in startup.c 
                     if (This->lpLcl->lpGbl->lpddNLVHELCaps->dwSize == sizeof(DDNONLOCALVIDMEMCAPS))
                     {
                         memcpy(&myCaps->dwNLVBCaps, This->lpLcl->lpGbl->lpddNLVHELCaps, sizeof(DDNONLOCALVIDMEMCAPS));
@@ -250,7 +225,7 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                 {
                     LPDDCAPS_DX7 myCaps = (LPDDCAPS_DX7) pHELCaps;
 
-                    /* FIXME  This->lpLcl->lpGbl->lpddNLVHELCaps are not set in startup.c
+                    /* FIXME  This->lpLcl->lpGbl->lpddNLVHELCaps are not set in startup.c 
                     if (This->lpLcl->lpGbl->lpddNLVHELCaps->dwSize == sizeof(DDNONLOCALVIDMEMCAPS))
                     {
                         memcpy(&myCaps->dwNLVBCaps, This->lpLcl->lpGbl->lpddNLVHELCaps, sizeof(DDNONLOCALVIDMEMCAPS));
@@ -272,8 +247,6 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
                     myCaps->ddsCaps.dwCaps4 = 0;
                     myCaps->dwSize = sizeof(DDCAPS_DX7);
 
-                    retVal = DD_OK;
-
                 }
                 break;
 
@@ -283,14 +256,14 @@ Main_DirectDraw_GetCaps( LPDDRAWI_DIRECTDRAW_INT This, LPDDCAPS pDriverCaps,
             }
         }
 
+
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         retVal = DD_FALSE;
     }
-    _SEH2_END;
+    _SEH_END;
 
-    LeaveCriticalSection( &ddcs );
-    return  retVal;
+     return  retVal;
 }
 

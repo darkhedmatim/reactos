@@ -29,7 +29,7 @@
 // Name=Value
 typedef struct
 {
-	LIST_ENTRY	ListEntry;
+	LIST_ITEM	ListEntry;
 	PCHAR		ItemName;
 	PCHAR		ItemValue;
 
@@ -42,17 +42,18 @@ typedef struct
 // one INI_SECTION_ITEM for each line in the section
 typedef struct
 {
-	LIST_ENTRY			ListEntry;
+	LIST_ITEM			ListEntry;
 	PCHAR				SectionName;
 	ULONG					SectionItemCount;
-	LIST_ENTRY	SectionItemList; // Contains PINI_SECTION_ITEM structures
+	PINI_SECTION_ITEM	SectionItemList;
 
 } INI_SECTION, *PINI_SECTION;
 
-extern	LIST_ENTRY		IniFileSectionListHead;
-extern	BOOLEAN			IniFileSectionInitialized;
+extern	PINI_SECTION		IniFileSectionListHead;
 extern	ULONG					IniFileSectionCount;
 extern	ULONG					IniFileSettingCount;
+
+PFILE	IniOpenIniFile();
 
 BOOLEAN	IniParseFile(PCHAR IniFileData, ULONG IniFileSize);
 ULONG		IniGetNextLineSize(PCHAR IniFileData, ULONG IniFileSize, ULONG CurrentOffset);
@@ -70,14 +71,14 @@ VOID	IniExtractSettingValue(PCHAR SettingValue, PCHAR SettingValueLine, ULONG Li
 
 BOOLEAN	IniFileInitialize(VOID);
 
-BOOLEAN	IniOpenSection(PCSTR SectionName, ULONG_PTR* SectionId);
-ULONG		IniGetNumSectionItems(ULONG_PTR SectionId);
-ULONG		IniGetSectionSettingNameSize(ULONG_PTR SectionId, ULONG SettingIndex);
-ULONG		IniGetSectionSettingValueSize(ULONG_PTR SectionId, ULONG SettingIndex);
-BOOLEAN	IniReadSettingByNumber(ULONG_PTR SectionId, ULONG SettingNumber, PCHAR SettingName, ULONG NameSize, PCHAR SettingValue, ULONG ValueSize);
-BOOLEAN	IniReadSettingByName(ULONG_PTR SectionId, PCSTR SettingName, PCHAR Buffer, ULONG BufferSize);
-BOOLEAN	IniAddSection(PCSTR SectionName, ULONG_PTR* SectionId);
-BOOLEAN	IniAddSettingValueToSection(ULONG_PTR SectionId, PCSTR SettingName, PCSTR SettingValue);
+BOOLEAN	IniOpenSection(PCSTR SectionName, ULONG* SectionId);
+ULONG		IniGetNumSectionItems(ULONG SectionId);
+ULONG		IniGetSectionSettingNameSize(ULONG SectionId, ULONG SettingIndex);
+ULONG		IniGetSectionSettingValueSize(ULONG SectionId, ULONG SettingIndex);
+BOOLEAN	IniReadSettingByNumber(ULONG SectionId, ULONG SettingNumber, PCHAR SettingName, ULONG NameSize, PCHAR SettingValue, ULONG ValueSize);
+BOOLEAN	IniReadSettingByName(ULONG SectionId, PCSTR SettingName, PCHAR Buffer, ULONG BufferSize);
+BOOLEAN	IniAddSection(PCSTR SectionName, ULONG* SectionId);
+BOOLEAN	IniAddSettingValueToSection(ULONG SectionId, PCSTR SettingName, PCSTR SettingValue);
 
 
 #endif // defined __PARSEINI_H

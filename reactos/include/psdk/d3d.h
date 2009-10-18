@@ -19,12 +19,6 @@
 #ifndef __WINE_D3D_H
 #define __WINE_D3D_H
 
-#ifndef DIRECT3D_VERSION
-#define DIRECT3D_VERSION         0x0700
-#endif
-
-#if (DIRECT3D_VERSION < 0x0800)
-
 #include <stdlib.h>
 
 #define COM_NO_WINDOWS_H
@@ -208,7 +202,6 @@ typedef DWORD D3DVIEWPORTHANDLE, *LPD3DVIEWPORTHANDLE;
 /*****************************************************************************
  * IDirect3D interface
  */
-#undef INTERFACE
 #define INTERFACE IDirect3D
 DECLARE_INTERFACE_(IDirect3D,IUnknown)
 {
@@ -585,22 +578,22 @@ DECLARE_INTERFACE_(IDirect3DTexture,IUnknown)
 #define IDirect3DTexture_AddRef(p)             (p)->lpVtbl->AddRef(p)
 #define IDirect3DTexture_Release(p)            (p)->lpVtbl->Release(p)
 /*** IDirect3DTexture methods ***/
-#define IDirect3DTexture_Initialize(p,a,b) (p)->lpVtbl->Initialize(p,a,b)
-#define IDirect3DTexture_GetHandle(p,a,b) (p)->lpVtbl->GetHandle(p,a,b)
-#define IDirect3DTexture_PaletteChanged(p,a,b) (p)->lpVtbl->PaletteChanged(p,a,b)
-#define IDirect3DTexture_Load(p,a) (p)->lpVtbl->Load(p,a)
-#define IDirect3DTexture_Unload(p) (p)->lpVtbl->Unload(p)
+#define IDirect3DTexture_Initialize(p,a,b,c) (p)->lpVtbl->Initialize(p,a,b,c)
+#define IDirect3DTexture_GetHandle(p,a,b,c) (p)->lpVtbl->GetHandle(p,a,b,c)
+#define IDirect3DTexture_PaletteChanged(p,a,b,c) (p)->lpVtbl->PaletteChanged(p,a,b,c)
+#define IDirect3DTexture_Load(p,a,b,c) (p)->lpVtbl->Load(p,a,b,c)
+#define IDirect3DTexture_Unload(p,a,b,c) (p)->lpVtbl->Unload(p,a,b,c)
 #else
 /*** IUnknown methods ***/
 #define IDirect3DTexture_QueryInterface(p,a,b) (p)->QueryInterface(a,b)
 #define IDirect3DTexture_AddRef(p)             (p)->AddRef()
 #define IDirect3DTexture_Release(p)            (p)->Release()
 /*** IDirect3DTexture methods ***/
-#define IDirect3DTexture_Initialize(p,a,b) (p)->Initialize(a,b)
-#define IDirect3DTexture_GetHandle(p,a,b) (p)->GetHandle(a,b)
-#define IDirect3DTexture_PaletteChanged(p,a,b) (p)->PaletteChanged(a,b)
-#define IDirect3DTexture_Load(p,a) (p)->Load(a)
-#define IDirect3DTexture_Unload(p) (p)->Unload()
+#define IDirect3DTexture_Initialize(p,a,b,c) (p)->Initialize(a,b,c)
+#define IDirect3DTexture_GetHandle(p,a,b,c) (p)->GetHandle(a,b,c)
+#define IDirect3DTexture_PaletteChanged(p,a,b,c) (p)->PaletteChanged(a,b,c)
+#define IDirect3DTexture_Load(p,a,b,c) (p)->Load(a,b,c)
+#define IDirect3DTexture_Unload(p,a,b,c) (p)->Unload(a,b,c)
 #endif
 
 
@@ -840,8 +833,8 @@ DECLARE_INTERFACE_(IDirect3DViewport3,IDirect3DViewport2)
 #define IDirect3DViewport3_DeleteLight(p,a)             (p)->lpVtbl->DeleteLight(p,a)
 #define IDirect3DViewport3_NextLight(p,a,b,c)           (p)->lpVtbl->NextLight(p,a,b,c)
 /*** IDirect3DViewport2 methods ***/
-#define IDirect3DViewport3_GetViewport2(p,a) (p)->lpVtbl->GetViewport2(p,a)
-#define IDirect3DViewport3_SetViewport2(p,a) (p)->lpVtbl->SetViewport2(p,a)
+#define IDirect3DViewport3_GetViewport3(p,a) (p)->lpVtbl->GetViewport2(p,a)
+#define IDirect3DViewport3_SetViewport3(p,a) (p)->lpVtbl->SetViewport2(p,a)
 /*** IDirect3DViewport3 methods ***/
 #define IDirect3DViewport3_SetBackgroundDepth2(p,a)   (p)->lpVtbl->SetBackgroundDepth2(p,a)
 #define IDirect3DViewport3_GetBackgroundDepth2(p,a,b) (p)->lpVtbl->GetBackgroundDepth2(p,a,b)
@@ -866,8 +859,8 @@ DECLARE_INTERFACE_(IDirect3DViewport3,IDirect3DViewport2)
 #define IDirect3DViewport3_DeleteLight(p,a)             (p)->DeleteLight(a)
 #define IDirect3DViewport3_NextLight(p,a,b,c)           (p)->NextLight(a,b,c)
 /*** IDirect3DViewport2 methods ***/
-#define IDirect3DViewport3_GetViewport2(p,a) (p)->GetViewport2(a)
-#define IDirect3DViewport3_SetViewport2(p,a) (p)->SetViewport2(a)
+#define IDirect3DViewport3_GetViewport3(p,a) (p)->GetViewport2(a)
+#define IDirect3DViewport3_SetViewport3(p,a) (p)->SetViewport2(a)
 /*** IDirect3DViewport3 methods ***/
 #define IDirect3DViewport3_SetBackgroundDepth2(p,a)   (p)->SetBackgroundDepth2(a)
 #define IDirect3DViewport3_GetBackgroundDepth2(p,a,b) (p)->GetBackgroundDepth2(a,b)
@@ -1534,5 +1527,4 @@ DECLARE_INTERFACE_(IDirect3DVertexBuffer7,IUnknown)
 #define IDirect3DVertexBuffer7_ProcessVerticesStrided(p,a,b,c,d,e,f,g) (p)->ProcessVerticesStrided(a,b,c,d,e,f,g)
 #endif
 
-#endif /* (DIRECT3D_VERSION < 0x0800) */
 #endif /* __WINE_D3D_H */

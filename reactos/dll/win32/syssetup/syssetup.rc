@@ -15,12 +15,6 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 IDB_WATERMARK BITMAP "resources/watermark.bmp"
 IDB_HEADER    BITMAP "resources/header.bmp"
 
-IDI_ICON1 ICON "resources/1.ico"
-IDI_ICON2 ICON "resources/2.ico"
-IDI_ICON3 ICON "resources/3.ico"
-IDI_ICON4 ICON "resources/4.ico"
-IDI_ICON5 ICON "resources/5.ico"
-
 
 STRINGTABLE
 BEGIN
@@ -35,12 +29,7 @@ BEGIN
                     "QEMU - http://fabrice.bellard.free.fr/qemu\n"\
                     "Mesa3D - http://www.mesa3d.org\n"\
                     "FreeBSD - http://www.freebsd.org\n"\
-                    "adns - http://adns.jgaa.com\n"\
-                    "ICU - http://www.icu-project.org/\n"\
-                    "GraphApp - http://enchantia.com/software/graphapp/\n"\
-                    "Ext2 - http://winext2fsd.sourceforge.net/\n"\
-                    "X - http://www.x.org/\n"\
-                    ""
+                    "adns - http://adns.jgaa.com\n"
 END
 
 IDR_GPL RT_TEXT "COPYING"
@@ -52,23 +41,19 @@ IDR_GPL RT_TEXT "COPYING"
  * a neutral version. This is to get localized bitmaps for example.
  */
 
-#include "lang/bg-BG.rc"
 #include "lang/cs-CZ.rc"
 #include "lang/de-DE.rc"
 #include "lang/el-GR.rc"
 #include "lang/en-US.rc"
 #include "lang/es-ES.rc"
-#include "lang/et-EE.rc"
 #include "lang/fr-FR.rc"
 #include "lang/hu-HU.rc"
 #include "lang/id-ID.rc"
 #include "lang/it-IT.rc"
 #include "lang/ja-JP.rc"
-#include "lang/no-NO.rc"
+#include "lang/nb-NO.rc"
 #include "lang/nl-NL.rc"
 #include "lang/pl-PL.rc"
-#include "lang/sk-SK.rc"
 #include "lang/uk-UA.rc"
 #include "lang/zh-CN.rc"
-#include "lang/ro-RO.rc"
 #include "lang/ru-RU.rc"

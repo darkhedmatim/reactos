@@ -2,6 +2,6 @@
  */
 
 #include <string.h>
-#include "tcscmp.h"
+#include "internal/tcscmp.h"
 
 /* EOF */

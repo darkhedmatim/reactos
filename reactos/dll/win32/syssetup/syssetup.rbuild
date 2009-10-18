@@ -1,6 +1,10 @@
-<module name="syssetup" type="win32dll" baseaddress="${BASEADDRESS_SYSSETUP}" installbase="system32" installname="syssetup.dll" unicode="yes" allowwarnings="true" crt="msvcrt">
-	<importlibrary definition="syssetup.spec" />
+<module name="syssetup" type="win32dll" baseaddress="${BASEADDRESS_SYSSETUP}" installbase="system32" installname="syssetup.dll" unicode="yes" allowwarnings="true">
+	<importlibrary definition="syssetup.def" />
 	<include base="syssetup">.</include>
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x0600</define>
+	<define name="_WIN32_WINNT">0x0501</define>
+	<define name="_SETUPAPI_VER">0x0501</define>
 	<library>pseh</library>
 	<library>uuid</library>
 	<library>ntdll</library>
@@ -21,6 +25,4 @@
 	<file>logfile.c</file>
 	<file>wizard.c</file>
 	<file>syssetup.rc</file>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
 </module>

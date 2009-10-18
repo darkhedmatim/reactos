@@ -1,8 +1,6 @@
 #ifndef __CPL_INTL_H
 #define __CPL_INTL_H
 
-#include <cpl.h>
-
 #define MAX_FMT_SIZE          30
 #define MAX_STR_SIZE          128
 #define MAX_SAMPLES_STR_SIZE  70
@@ -10,10 +8,10 @@
 
 typedef struct _APPLET
 {
-    UINT idIcon;
-    UINT idName;
-    UINT idDescription;
-    APPLET_PROC AppletProc;
+  UINT idIcon;
+  UINT idName;
+  UINT idDescription;
+  APPLET_PROC AppletProc;
 } APPLET, *PAPPLET;
 
 typedef struct _GLOBALDATA
@@ -29,44 +27,69 @@ extern DWORD UnattendLCID;
 
 /* languages.c */
 INT_PTR CALLBACK
-LanguagesPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
+LanguagesPageProc(HWND hwndDlg,
+	     UINT uMsg,
+	     WPARAM wParam,
+	     LPARAM lParam);
+		 
 /* advanced.c */
 INT_PTR CALLBACK
-AdvancedPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-VOID
-SetNonUnicodeLang(HWND hwnd, LCID lcid);
+AdvancedPageProc(HWND hwndDlg,
+	     UINT uMsg,
+	     WPARAM wParam,
+	     LPARAM lParam);
 
 /* currency.c */
 INT_PTR CALLBACK
-CurrencyPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+CurrencyPageProc(HWND hwndDlg,
+		 UINT uMsg,
+		 WPARAM wParam,
+		 LPARAM lParam);
 
 /* date.c */
 INT_PTR CALLBACK
-DatePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+DatePageProc(HWND hwndDlg,
+	     UINT uMsg,
+	     WPARAM wParam,
+	     LPARAM lParam);
 
 /* general.c */
 INT_PTR CALLBACK
-GeneralPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+GeneralPageProc(HWND hwndDlg,
+		UINT uMsg,
+		WPARAM wParam,
+		LPARAM lParam);
 
 /* locale.c */
 INT_PTR CALLBACK
-InpLocalePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+InpLocalePageProc(HWND hwndDlg,
+	       UINT uMsg,
+	       WPARAM wParam,
+	       LPARAM lParam);
 
 /* numbers.h */
 INT_PTR CALLBACK
-NumbersPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+NumbersPageProc(HWND hwndDlg,
+		UINT uMsg,
+		WPARAM wParam,
+		LPARAM lParam);
 
 /* time.c */
 INT_PTR CALLBACK
-TimePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+TimePageProc(HWND hwndDlg,
+	     UINT uMsg,
+	     WPARAM wParam,
+	     LPARAM lParam);
 
 /* sort.c */
 BOOL
 IsSortPageNeeded(LCID lcid);
 
 INT_PTR CALLBACK
-SortPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+SortPageProc(HWND hwndDlg,
+             UINT uMsg,
+             WPARAM wParam,
+             LPARAM lParam);
 
 /* misc.c */
 LPTSTR
@@ -77,10 +100,7 @@ ReplaceSubStr(LPCTSTR szSourceStr, LPCTSTR szStrToReplace, LPCTSTR szTempl);
 
 LONG
 APIENTRY
-SetupApplet(HWND hwndDlg, LCID lcid);
-
-/* kblayouts.c */
-VOID AddNewKbLayoutsByLcid(LCID Lcid);
+SetupApplet(LCID lcid);
 
 #endif /* __CPL_INTL_H */
 

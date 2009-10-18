@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  *  Entry Point for win32k.sys
  */
 
@@ -26,62 +27,52 @@
 #define NDEBUG
 #include <debug.h>
 
-HANDLE hModuleWin;
-
 PGDI_HANDLE_TABLE INTERNAL_CALL GDIOBJ_iAllocHandleTable(OUT PSECTION_OBJECT *SectionObject);
-BOOL INTERNAL_CALL GDI_CleanupForProcess (struct _EPROCESS *Process);
+BOOL INTERNAL_CALL GDI_CleanupForProcess (PGDI_HANDLE_TABLE HandleTable, struct _EPROCESS *Process);
 /* FIXME */
 PGDI_HANDLE_TABLE GdiHandleTable = NULL;
 PSECTION_OBJECT GdiTableSection = NULL;
 
-LIST_ENTRY GlobalDriverListHead;
-
 HANDLE GlobalUserHeap = NULL;
 PSECTION_OBJECT GlobalUserHeapSection = NULL;
-
-PSERVERINFO gpsi = NULL; // Global User Server Information.
-
-HSEMAPHORE hsemDriverMgmt = NULL;
-
-SHORT gusLanguageID;
 
 extern ULONG_PTR Win32kSSDT[];
 extern UCHAR Win32kSSPT[];
 extern ULONG Win32kNumberOfSysCalls;
 
-NTSTATUS
-APIENTRY
+NTSTATUS 
+STDCALL
 Win32kProcessCallback(struct _EPROCESS *Process,
                       BOOLEAN Create)
 {
-    PPROCESSINFO Win32Process;
+    PW32PROCESS Win32Process;
     DECLARE_RETURN(NTSTATUS);
-
+    
     DPRINT("Enter Win32kProcessCallback\n");
     UserEnterExclusive();
-
+    
     /* Get the Win32 Process */
     Win32Process = PsGetProcessWin32Process(Process);
-
+    
     /* Allocate one if needed */
     if (!Win32Process)
     {
         /* FIXME - lock the process */
         Win32Process = ExAllocatePoolWithTag(NonPagedPool,
-                                             sizeof(PROCESSINFO),
-                                             'p23W');
+                                             sizeof(W32PROCESS),
+                                             TAG('W', '3', '2', 'p'));
 
         if (Win32Process == NULL) RETURN( STATUS_NO_MEMORY);
 
-        RtlZeroMemory(Win32Process, sizeof(PROCESSINFO));
-
+        RtlZeroMemory(Win32Process, sizeof(W32PROCESS));
+        
         PsSetProcessWin32Process(Process, Win32Process);
         /* FIXME - unlock the process */
     }
 
   if (Create)
     {
-      SIZE_T ViewSize = 0;
+      ULONG ViewSize = 0;
       LARGE_INTEGER Offset;
       PVOID UserBase = NULL;
       NTSTATUS Status;
@@ -126,24 +117,23 @@ Win32kProcessCallback(struct _EPROCESS *Process,
       {
         /* map the gdi handle table to user land */
         Process->Peb->GdiSharedHandleTable = GDI_MapHandleTable(GdiTableSection, Process);
-        Process->Peb->GdiDCAttributeList = GDI_BATCH_LIMIT;
       }
 
-      Win32Process->peProcess = Process;
       /* setup process flags */
-      Win32Process->W32PF_flags = 0;
+      Win32Process->Flags = 0;
     }
   else
     {
       DPRINT("Destroying W32 process PID:%d at IRQ level: %lu\n", Process->UniqueProcessId, KeGetCurrentIrql());
       IntCleanupMenus(Process, Win32Process);
       IntCleanupCurIcons(Process, Win32Process);
+      IntEngCleanupDriverObjs(Process, Win32Process);
       CleanupMonitorImpl();
-
+      
       /* no process windows should exist at this point, or the function will assert! */
       DestroyProcessClasses(Win32Process);
 
-      GDI_CleanupForProcess(Process);
+      GDI_CleanupForProcess(GdiHandleTable, Process);
 
       co_IntGraphicsCheck(FALSE);
 
@@ -154,10 +144,16 @@ Win32kProcessCallback(struct _EPROCESS *Process,
       {
         LogonProcess = NULL;
       }
+
+      if (Win32Process->ProcessInfo != NULL)
+      {
+          UserHeapFree(Win32Process->ProcessInfo);
+          Win32Process->ProcessInfo = NULL;
+      }
     }
 
   RETURN( STATUS_SUCCESS);
-
+  
 CLEANUP:
   UserLeave();
   DPRINT("Leave Win32kProcessCallback, ret=%i\n",_ret_);
@@ -165,42 +161,41 @@ CLEANUP:
 }
 
 
-NTSTATUS
-APIENTRY
+NTSTATUS 
+STDCALL
 Win32kThreadCallback(struct _ETHREAD *Thread,
                      PSW32THREADCALLOUTTYPE Type)
 {
     struct _EPROCESS *Process;
-    PTHREADINFO Win32Thread;
+    PW32THREAD Win32Thread;
     DECLARE_RETURN(NTSTATUS);
-
+    
     DPRINT("Enter Win32kThreadCallback\n");
     UserEnterExclusive();
 
     Process = Thread->ThreadsProcess;
-
+    
     /* Get the Win32 Thread */
     Win32Thread = PsGetThreadWin32Thread(Thread);
-
+    
     /* Allocate one if needed */
     if (!Win32Thread)
     {
         /* FIXME - lock the process */
         Win32Thread = ExAllocatePoolWithTag(NonPagedPool,
-                                            sizeof(THREADINFO),
-                                            't23W');
+                                            sizeof(W32THREAD),
+                                            TAG('W', '3', '2', 't'));
 
         if (Win32Thread == NULL) RETURN( STATUS_NO_MEMORY);
 
-        RtlZeroMemory(Win32Thread, sizeof(THREADINFO));
-
+        RtlZeroMemory(Win32Thread, sizeof(W32THREAD));
+        
         PsSetThreadWin32Thread(Thread, Win32Thread);
         /* FIXME - unlock the process */
     }
   if (Type == PsW32ThreadCalloutInitialize)
     {
       HWINSTA hWinSta = NULL;
-      PTEB pTeb;
       HDESK hDesk = NULL;
       NTSTATUS Status;
       PUNICODE_STRING DesktopPath;
@@ -210,7 +205,6 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
 
       InitializeListHead(&Win32Thread->WindowListHead);
       InitializeListHead(&Win32Thread->W32CallbackListHead);
-      InitializeListHead(&Win32Thread->PtiLink);
 
       /*
        * inherit the thread desktop and process window station (if not yet inherited) from the process startup
@@ -242,7 +236,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
 
         if (hDesk != NULL)
         {
-          PDESKTOP DesktopObject;
+          PDESKTOP_OBJECT DesktopObject;
           Win32Thread->Desktop = NULL;
           Status = ObReferenceObjectByHandle(hDesk,
                                              0,
@@ -265,26 +259,19 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
           }
         }
       }
-      Win32Thread->TIF_flags &= ~TIF_INCLEANUP;
+      Win32Thread->IsExiting = FALSE;
       co_IntDestroyCaret(Win32Thread);
-      Win32Thread->ppi = PsGetCurrentProcessWin32Process();
-      pTeb = NtCurrentTeb();
-      if (pTeb)
-      {
-          Win32Thread->pClientInfo = (PCLIENTINFO)pTeb->Win32ClientInfo;
-          Win32Thread->pClientInfo->pClientThreadInfo = NULL;
-      }
       Win32Thread->MessageQueue = MsqCreateMessageQueue(Thread);
       Win32Thread->KeyboardLayout = W32kGetDefaultKeyLayout();
-      Win32Thread->pEThread = Thread;
+      Win32Thread->MessagePumpHookValue = 0;
     }
   else
     {
       PSINGLE_LIST_ENTRY e;
-
+      
       DPRINT("Destroying W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
 
-      Win32Thread->TIF_flags |= TIF_INCLEANUP;
+      Win32Thread->IsExiting = TRUE;
       HOOK_DestroyThreadHooks(Thread);
       UnregisterThreadHotKeys(Thread);
       /* what if this co_ func crash in umode? what will clean us up then? */
@@ -299,19 +286,25 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
       {
          PUSER_REFERENCE_ENTRY ref = CONTAINING_RECORD(e, USER_REFERENCE_ENTRY, Entry);
          DPRINT("thread clean: remove reference obj 0x%x\n",ref->obj);
-         UserDereferenceObject(ref->obj);
-
+         ObmDereferenceObject(ref->obj);
+         
          e = PopEntryList(&Win32Thread->ReferencesList);
       }
 
       IntSetThreadDesktop(NULL,
                           TRUE);
 
+      if (Win32Thread->ThreadInfo != NULL)
+      {
+          UserHeapFree(Win32Thread->ThreadInfo);
+          Win32Thread->ThreadInfo = NULL;
+      }
+
       PsSetThreadWin32Thread(Thread, NULL);
     }
 
   RETURN( STATUS_SUCCESS);
-
+  
 CLEANUP:
   UserLeave();
   DPRINT("Leave Win32kThreadCallback, ret=%i\n",_ret_);
@@ -330,12 +323,12 @@ Win32kInitWin32Thread(PETHREAD Thread)
   if (Process->Win32Process == NULL)
     {
       /* FIXME - lock the process */
-      Process->Win32Process = ExAllocatePool(NonPagedPool, sizeof(PROCESSINFO));
+      Process->Win32Process = ExAllocatePool(NonPagedPool, sizeof(W32PROCESS));
 
       if (Process->Win32Process == NULL)
 	return STATUS_NO_MEMORY;
 
-      RtlZeroMemory(Process->Win32Process, sizeof(PROCESSINFO));
+      RtlZeroMemory(Process->Win32Process, sizeof(W32PROCESS));
       /* FIXME - unlock the process */
 
       Win32kProcessCallback(Process, TRUE);
@@ -343,11 +336,11 @@ Win32kInitWin32Thread(PETHREAD Thread)
 
   if (Thread->Tcb.Win32Thread == NULL)
     {
-      Thread->Tcb.Win32Thread = ExAllocatePool (NonPagedPool, sizeof(THREADINFO));
+      Thread->Tcb.Win32Thread = ExAllocatePool (NonPagedPool, sizeof(W32THREAD));
       if (Thread->Tcb.Win32Thread == NULL)
 	return STATUS_NO_MEMORY;
 
-      RtlZeroMemory(Thread->Tcb.Win32Thread, sizeof(THREADINFO));
+      RtlZeroMemory(Thread->Tcb.Win32Thread, sizeof(W32THREAD));
 
       Win32kThreadCallback(Thread, PsW32ThreadCalloutInitialize);
     }
@@ -359,7 +352,7 @@ Win32kInitWin32Thread(PETHREAD Thread)
 /*
  * This definition doesn't work
  */
-NTSTATUS APIENTRY
+NTSTATUS STDCALL
 DriverEntry (
   IN	PDRIVER_OBJECT	DriverObject,
   IN	PUNICODE_STRING	RegistryPath)
@@ -384,8 +377,6 @@ DriverEntry (
       return STATUS_UNSUCCESSFUL;
     }
 
-  hModuleWin = MmPageEntireDriver(DriverEntry);
-  DPRINT("Win32k hInstance 0x%x!\n",hModuleWin);
     /*
      * Register Object Manager Callbacks
      */
@@ -394,7 +385,7 @@ DriverEntry (
     CalloutData.DesktopDeleteProcedure = IntDesktopObjectDelete;
     CalloutData.ProcessCallout = Win32kProcessCallback;
     CalloutData.ThreadCallout = Win32kThreadCallback;
-    CalloutData.BatchFlushRoutine = NtGdiFlushUserBatch;
+    CalloutData.BatchFlushRoutine = NtGdiFlushUserBatch;    
 
     /*
      * Register our per-process and per-thread structures.
@@ -410,17 +401,6 @@ DriverEntry (
         return STATUS_UNSUCCESSFUL;
     }
 
-  /* Initialize a list of loaded drivers in Win32 subsystem */
-  InitializeListHead(&GlobalDriverListHead);
-
-  if(!hsemDriverMgmt) hsemDriverMgmt = EngCreateSemaphore();
-
-  GdiHandleTable = GDIOBJ_iAllocHandleTable(&GdiTableSection);
-  if (GdiHandleTable == NULL)
-  {
-      DPRINT1("Failed to initialize the GDI handle table.\n");
-      return STATUS_UNSUCCESSFUL;
-  }
 
   Status = InitUserImpl();
   if (!NT_SUCCESS(Status))
@@ -513,6 +493,13 @@ DriverEntry (
       return(Status);
     }
 
+  GdiHandleTable = GDIOBJ_iAllocHandleTable(&GdiTableSection);
+  if (GdiHandleTable == NULL)
+  {
+      DPRINT1("Failed to initialize the GDI handle table.\n");
+      return STATUS_UNSUCCESSFUL;
+  }
+
   Status = InitDcImpl();
   if (!NT_SUCCESS(Status))
   {
@@ -527,16 +514,19 @@ DriverEntry (
       return STATUS_UNSUCCESSFUL;
     }
 
-  InitXlateImpl();
-
   /* Create stock objects, ie. precreated objects commonly
      used by win32 applications */
   CreateStockObjects();
   CreateSysColorObjects();
 
-  gusLanguageID = IntGdiGetLanguageID();
-
   return STATUS_SUCCESS;
+}
+
+
+BOOLEAN STDCALL
+Win32kInitialize (VOID)
+{
+  return TRUE;
 }
 
 /* EOF */

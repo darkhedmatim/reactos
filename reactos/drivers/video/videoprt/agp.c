@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id$
  */
 
 #include "videoprt.h"
@@ -99,11 +100,11 @@ IntAgpCommitPhysical(
 {
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    PAGP_BUS_INTERFACE_STANDARD AgpBusInterface;
-   PHYSICAL_ADDRESS MappingAddr = {{0, 0}};
+   PHYSICAL_ADDRESS MappingAddr = {{0}};
    PVIDEO_PORT_AGP_MAPPING AgpMapping;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpCommitPhysical - PhysicalContext: 0x%x Pages: %d, Offset: 0x%x\n",
+   DPRINT("AgpCommitPhysical - PhysicalContext: 0x%x Pages: %d, Offset: 0x%x\n",
           PhysicalContext, Pages, Offset);
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
@@ -116,7 +117,7 @@ IntAgpCommitPhysical(
 
    if (!NT_SUCCESS(Status))
    {
-      WARN_(VIDEOPRT, "Warning: AgpBusInterface->CommitMemory failed (Status = 0x%x)\n",
+      DPRINT1("Warning: AgpBusInterface->CommitMemory failed (Status = 0x%x)\n",
               Status);
    }
    return NT_SUCCESS(Status);
@@ -134,7 +135,7 @@ IntAgpFreePhysical(
    PVIDEO_PORT_AGP_MAPPING AgpMapping;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpFreePhysical - PhysicalContext: 0x%x Pages: %d, Offset: 0x%x\n",
+   DPRINT("AgpFreePhysical - PhysicalContext: 0x%x Pages: %d, Offset: 0x%x\n",
           PhysicalContext, Pages, Offset);
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
@@ -145,7 +146,7 @@ IntAgpFreePhysical(
                                         AgpMapping->MapHandle, Pages, Offset);
    if (!NT_SUCCESS(Status))
    {
-      WARN_(VIDEOPRT, "Warning: AgpBusInterface->FreeMemory failed (Status = 0x%x)\n",
+      DPRINT1("Warning: AgpBusInterface->FreeMemory failed (Status = 0x%x)\n",
               Status);
    }
 }
@@ -160,21 +161,21 @@ IntAgpReleasePhysical(
    PVIDEO_PORT_AGP_MAPPING AgpMapping;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpReleasePhysical - PhysicalContext: 0x%x\n", PhysicalContext);
+   DPRINT("AgpReleasePhysical - PhysicalContext: 0x%x\n", PhysicalContext);
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
    AgpBusInterface = &DeviceExtension->AgpInterface;
    AgpMapping = (PVIDEO_PORT_AGP_MAPPING)PhysicalContext;
-
+   
    /* Release memory */
    Status = AgpBusInterface->ReleaseMemory(AgpBusInterface->AgpContext,
                                            AgpMapping->MapHandle);
    if (!NT_SUCCESS(Status))
    {
-      WARN_(VIDEOPRT, "Warning: AgpBusInterface->ReleaseMemory failed (Status = 0x%x)\n",
+      DPRINT1("Warning: AgpBusInterface->ReleaseMemory failed (Status = 0x%x)\n",
               Status);
    }
-
+   
    /* Free resources */
    ExFreePool(AgpMapping);
 }
@@ -186,14 +187,14 @@ IntAgpReservePhysical(
    IN  VIDEO_PORT_CACHE_TYPE Caching,
    OUT PVOID *PhysicalContext)
 {
-   PHYSICAL_ADDRESS ZeroAddress = {{0, 0}};
+   PHYSICAL_ADDRESS ZeroAddress = {{0}};
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    PAGP_BUS_INTERFACE_STANDARD AgpBusInterface;
    MEMORY_CACHING_TYPE MemCachingType;
    PVIDEO_PORT_AGP_MAPPING AgpMapping;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpReservePhysical - Pages: %d, Caching: 0x%x\n", Pages, Caching);
+   DPRINT("AgpReservePhysical - Pages: %d, Caching: 0x%x\n", Pages, Caching);
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
    AgpBusInterface = &DeviceExtension->AgpInterface;
@@ -207,7 +208,7 @@ IntAgpReservePhysical(
      MemCachingType = MmWriteCombined;
    else
    {
-      WARN_(VIDEOPRT, "Invalid caching type %d!\n", Caching);
+      DPRINT1("Invalid caching type %d!\n", Caching);
       return ZeroAddress;
    }
 
@@ -217,7 +218,7 @@ IntAgpReservePhysical(
                                       TAG_VIDEO_PORT);
    if (AgpMapping == NULL)
    {
-      WARN_(VIDEOPRT, "Out of memory! Couldn't allocate AGP mapping structure!\n");
+      DPRINT1("Out of memory! Couldn't allocate AGP mapping structure!\n");
       return ZeroAddress;
    }
    RtlZeroMemory(AgpMapping, sizeof(VIDEO_PORT_AGP_MAPPING));
@@ -231,7 +232,7 @@ IntAgpReservePhysical(
    if (!NT_SUCCESS(Status) || AgpMapping->MapHandle == NULL)
    {
       ExFreePool(AgpMapping);
-      WARN_(VIDEOPRT, "Warning: AgpBusInterface->ReserveMemory failed (Status = 0x%x)\n",
+      DPRINT1("Warning: AgpBusInterface->ReserveMemory failed (Status = 0x%x)\n",
               Status);
       return ZeroAddress;
    }
@@ -242,7 +243,7 @@ IntAgpReservePhysical(
    *PhysicalContext = (PVOID)AgpMapping;
    return AgpMapping->PhysicalAddress;
 }
-
+   
 
 PVOID NTAPI
 IntAgpCommitVirtual(
@@ -253,10 +254,9 @@ IntAgpCommitVirtual(
 {
    PVIDEO_PORT_AGP_VIRTUAL_MAPPING VirtualMapping;
    PVOID BaseAddress = NULL;
-   PHYSICAL_ADDRESS PhysicalAddress;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpCommitVirtual - VirtualContext: 0x%x Pages: %d, Offset: 0x%x\n",
+   DPRINT("AgpCommitVirtual - VirtualContext: 0x%x Pages: %d, Offset: 0x%x\n",
           VirtualContext, Pages, Offset);
 
    VirtualMapping = (PVIDEO_PORT_AGP_VIRTUAL_MAPPING)VirtualContext;
@@ -280,7 +280,7 @@ IntAgpCommitVirtual(
       ULONG OffsetInBytes = Offset * PAGE_SIZE;
       BaseAddress = (PVOID)((ULONG_PTR)VirtualMapping->MappedAddress +
                                        OffsetInBytes);
-      PhysicalAddress = VirtualMapping->AgpMapping->PhysicalAddress;
+      PHYSICAL_ADDRESS PhysicalAddress = VirtualMapping->AgpMapping->PhysicalAddress;
       PhysicalAddress.QuadPart += OffsetInBytes;
 
       Status = ZwFreeVirtualMemory(VirtualMapping->ProcessHandle,
@@ -288,13 +288,13 @@ IntAgpCommitVirtual(
                                    &Size, MEM_RELEASE);
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "Warning: ZwFreeVirtualMemory() failed: Status = 0x%x\n", Status);
+         DPRINT1("Warning: ZwFreeVirtualMemory() failed: Status = 0x%x\n", Status);
          return NULL;
       }
       ASSERT(Size == Pages * PAGE_SIZE);
       ASSERT(BaseAddress == (PVOID)((ULONG_PTR)VirtualMapping->MappedAddress +
                                                OffsetInBytes));
-
+      
       /* Map the physical memory into the released virtual memory area */
       Status = IntVideoPortMapPhysicalMemory(VirtualMapping->ProcessHandle,
                                              PhysicalAddress,
@@ -303,14 +303,14 @@ IntAgpCommitVirtual(
                                              &BaseAddress);
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "Warning: IntVideoPortMapPhysicalMemory() failed: Status = 0x%x\n", Status);
+         DPRINT1("Warning: IntVideoPortMapPhysicalMemory() failed: Status = 0x%x\n", Status);
          /* Reserve the released virtual memory area again */
          Status = ZwAllocateVirtualMemory(VirtualMapping->ProcessHandle,
                                           &BaseAddress, 0, &Size, MEM_RESERVE,
                                           PAGE_NOACCESS);
          if (!NT_SUCCESS(Status))
          {
-            WARN_(VIDEOPRT, "Warning: ZwAllocateVirtualMemory() failed: Status = 0x%x\n", Status);
+            DPRINT1("Warning: ZwAllocateVirtualMemory() failed: Status = 0x%x\n", Status);
             /* FIXME: What to do now?? */
             ASSERT(0);
             return NULL;
@@ -338,7 +338,7 @@ IntAgpFreeVirtual(
    PVOID BaseAddress = NULL;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpFreeVirtual - VirtualContext: 0x%x Pages: %d, Offset: 0x%x\n",
+   DPRINT("AgpFreeVirtual - VirtualContext: 0x%x Pages: %d, Offset: 0x%x\n",
           VirtualContext, Pages, Offset);
 
    VirtualMapping = (PVIDEO_PORT_AGP_VIRTUAL_MAPPING)VirtualContext;
@@ -358,7 +358,7 @@ IntAgpFreeVirtual(
       Status = ZwUnmapViewOfSection(VirtualMapping->ProcessHandle, BaseAddress);
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "Warning: ZwUnmapViewOfSection() failed: Status = 0x%x\n", Status);
+         DPRINT1("Warning: ZwUnmapViewOfSection() failed: Status = 0x%x\n", Status);
          /* FIXME: What to do now?? */
          ASSERT(0);
          return;
@@ -370,7 +370,7 @@ IntAgpFreeVirtual(
                                        PAGE_NOACCESS);
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "Warning: ZwAllocateVirtualMemory() failed: Status = 0x%x\n", Status);
+         DPRINT1("Warning: ZwAllocateVirtualMemory() failed: Status = 0x%x\n", Status);
          /* FIXME: What to do now?? */
          ASSERT(0);
          return;
@@ -389,10 +389,10 @@ IntAgpReleaseVirtual(
    PVIDEO_PORT_AGP_VIRTUAL_MAPPING VirtualMapping;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpReleaseVirtual - VirtualContext: 0x%x\n", VirtualContext);
+   DPRINT("AgpReleaseVirtual - VirtualContext: 0x%x\n", VirtualContext);
 
    VirtualMapping = (PVIDEO_PORT_AGP_VIRTUAL_MAPPING)VirtualContext;
-
+   
    /* Release the virtual memory */
    if (VirtualMapping->ProcessHandle == NULL)
    {
@@ -407,10 +407,10 @@ IntAgpReleaseVirtual(
                                    &Size, MEM_RELEASE);
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "Warning: ZwFreeVirtualMemory() failed: Status = 0x%x\n", Status);
+         DPRINT1("Warning: ZwFreeVirtualMemory() failed: Status = 0x%x\n", Status);
       }
    }
-
+   
    /* Free resources */
    ExFreePool(VirtualMapping);
 }
@@ -427,7 +427,7 @@ IntAgpReserveVirtual(
    PVOID MappedAddress;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "AgpReserveVirtual - ProcessHandle: 0x%x PhysicalContext: 0x%x\n",
+   DPRINT("AgpReserveVirtual - ProcessHandle: 0x%x PhysicalContext: 0x%x\n",
           ProcessHandle, PhysicalContext);
 
    AgpMapping = (PVIDEO_PORT_AGP_MAPPING)PhysicalContext;
@@ -438,7 +438,7 @@ IntAgpReserveVirtual(
                                           TAG_VIDEO_PORT);
    if (VirtualMapping == NULL)
    {
-      WARN_(VIDEOPRT, "Out of memory! Couldn't allocate AGP virtual mapping structure!\n");
+      DPRINT1("Out of memory! Couldn't allocate AGP virtual mapping structure!\n");
       return NULL;
    }
    RtlZeroMemory(VirtualMapping, sizeof(VIDEO_PORT_AGP_VIRTUAL_MAPPING));
@@ -460,7 +460,7 @@ IntAgpReserveVirtual(
       if (!NT_SUCCESS(Status))
       {
          ExFreePool(VirtualMapping);
-         WARN_(VIDEOPRT, "ZwAllocateVirtualMemory() failed: Status = 0x%x\n", Status);
+         DPRINT("ZwAllocateVirtualMemory() failed: Status = 0x%x\n", Status);
          return NULL;
       }
    }
@@ -483,11 +483,11 @@ IntAgpSetRate(
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    PAGP_BUS_INTERFACE_STANDARD AgpBusInterface;
 
-   TRACE_(VIDEOPRT, "AgpSetRate - Rate: %d\n", Rate);
+   DPRINT("AgpSetRate - Rate: %d\n", Rate);
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
    AgpBusInterface = &DeviceExtension->AgpInterface;
-
+   
    return NT_SUCCESS(AgpBusInterface->SetRate(AgpBusInterface->AgpContext, Rate));
 }
 
@@ -515,7 +515,7 @@ IntAgpGetInterface(
 
    if (DeviceExtension->NextDeviceObject == NULL)
    {
-      WARN_(VIDEOPRT, "DeviceExtension->NextDeviceObject is NULL!\n");
+      DPRINT("DeviceExtension->NextDeviceObject is NULL!\n");
       return STATUS_UNSUCCESSFUL;
    }
 
@@ -536,10 +536,10 @@ IntAgpGetInterface(
          &IoStatusBlock, IRP_MN_QUERY_INTERFACE, &IoStack);
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "IopInitiatePnpIrp() failed! (Status 0x%x)\n", Status);
+         DPRINT("IopInitiatePnpIrp() failed! (Status 0x%x)\n", Status);
          return Status;
       }
-      INFO_(VIDEOPRT, "Got AGP driver interface!\n");
+      DPRINT("Got AGP driver interface!\n");
    }
 
    /* FIXME: Not sure if we should wrap the reference/dereference functions */

@@ -1,8 +1,3 @@
-/**
- * This file has no copyright assigned and is placed in the Public Domain.
- * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
- */
 /*
     File: strings.h
     Copyright: Public Domain
@@ -11,7 +6,7 @@
     that belong in strings.h.  These functions are provided for in the OLDNAME
     libraries.
 */
-#ifndef _STRINGS_H_
-#define _STRINGS_H_ 1
-#include <string.h>
+#if !defined(_STRINGS_H_)
+# define _STRINGS_H_ 1
+# include <string.h>
 #endif

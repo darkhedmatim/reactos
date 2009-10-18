@@ -27,7 +27,7 @@
 
 /* System setup APIs */
 
-DWORD WINAPI
+DWORD STDCALL
 InstallReactOS (HINSTANCE hInstance);
 
 

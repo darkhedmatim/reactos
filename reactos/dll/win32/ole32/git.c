@@ -104,7 +104,7 @@ StdGlobalInterfaceTable_FindEntry(IGlobalInterfaceTable* iface, DWORD cookie)
   StdGlobalInterfaceTableImpl* const self = (StdGlobalInterfaceTableImpl*) iface;
   StdGITEntry* e;
 
-  TRACE("iface=%p, cookie=0x%x\n", iface, cookie);
+  TRACE("iface=%p, cookie=0x%x\n", iface, (UINT)cookie);
 
   LIST_FOR_EACH_ENTRY(e, &self->list, StdGITEntry, entry) {
     if (e->cookie == cookie)
@@ -227,7 +227,7 @@ StdGlobalInterfaceTable_RevokeInterfaceFromGlobal(
   StdGITEntry* entry;
   HRESULT hr;
 
-  TRACE("iface=%p, dwCookie=0x%x\n", iface, dwCookie);
+  TRACE("iface=%p, dwCookie=0x%x\n", iface, (UINT)dwCookie);
 
   EnterCriticalSection(&git_section);
 
@@ -308,7 +308,7 @@ GITCF_QueryInterface(LPCLASSFACTORY iface,REFIID riid, LPVOID *ppv)
   if (IsEqualIID(riid,&IID_IUnknown) ||
       IsEqualIID(riid,&IID_IGlobalInterfaceTable))
   {
-    *ppv = iface;
+    *ppv = (LPVOID)iface;
     return S_OK;
   }
   return E_NOINTERFACE;

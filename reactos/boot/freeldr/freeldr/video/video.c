@@ -37,8 +37,3 @@ PVOID VideoAllocateOffScreenBuffer(VOID)
 
 	return VideoOffScreenBuffer;
 }
-
-VOID VideoCopyOffScreenBufferToVRAM(VOID)
-{
-	MachVideoCopyOffScreenBufferToVRAM(VideoOffScreenBuffer);
-}

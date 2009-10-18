@@ -98,12 +98,10 @@ struct name {								\
 	struct type *slh_first;	/* first element */			\
 }
 
-#if 0
 #define SLIST_ENTRY(type)						\
 struct {								\
 	struct type *sle_next;	/* next element */			\
 }
-#endif
 
 /*
  * Singly-linked List functions.

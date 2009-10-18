@@ -20,7 +20,7 @@
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateMemoryResourceNotification(
     MEMORY_RESOURCE_NOTIFICATION_TYPE NotificationType
     )
@@ -68,7 +68,7 @@ CreateMemoryResourceNotification(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 QueryMemoryResourceNotification(
     HANDLE ResourceNotificationHandle,
     PBOOL  ResourceState

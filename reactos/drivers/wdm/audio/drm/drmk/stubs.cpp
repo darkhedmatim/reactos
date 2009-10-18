@@ -13,9 +13,7 @@
     rights information) but is needed for linking with PORTCLS.
 */
 
-#include <ntddk.h>
-#include <portcls.h>
-#include <debug.h>
+#include <drmk.h>
 
 /*
     Provide a driver interface consisting of functions for handling DRM
@@ -24,8 +22,7 @@
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmAddContentHandlers(
     IN  ULONG ContentId,
     IN  PVOID *paHandlers,
@@ -42,8 +39,7 @@ DrmAddContentHandlers(
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmCreateContentMixed(
     IN  PULONG paContentId,
     IN  ULONG cContentId,
@@ -59,8 +55,7 @@ DrmCreateContentMixed(
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmDestroyContent(
     IN  ULONG ContentId)
 {
@@ -75,8 +70,7 @@ DrmDestroyContent(
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmForwardContentToDeviceObject(
     IN  ULONG ContentId,
     IN  PVOID Reserved,
@@ -94,8 +88,7 @@ DrmForwardContentToDeviceObject(
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmForwardContentToFileObject(
     IN  ULONG ContentId,
     IN  PFILE_OBJECT FileObject)
@@ -111,8 +104,7 @@ DrmForwardContentToFileObject(
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmForwardContentToInterface(
     IN  ULONG ContentId,
     IN  PUNKNOWN pUnknown,
@@ -128,8 +120,7 @@ DrmForwardContentToInterface(
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+NTAPI NTSTATUS
 DrmGetContentRights(
     IN  ULONG ContentId,
     OUT PDRMRIGHTS DrmRights)
@@ -137,3 +128,4 @@ DrmGetContentRights(
     UNIMPLEMENTED;
     return STATUS_UNSUCCESSFUL;
 }
+

@@ -122,7 +122,6 @@ BadBlockQueryRoutine(
 
 
 void
-NTAPI
 InitBadBlocks(
     IN PHW_LU_EXTENSION LunExt
     )
@@ -145,10 +144,10 @@ InitBadBlocks(
 
         QueryTable[0].QueryRoutine    = BadBlockQueryRoutine;
         QueryTable[0].Flags           = RTL_QUERY_REGISTRY_REQUIRED;
-        QueryTable[0].Name            = NULL;   // If Name is NULL, the QueryRoutine function
-                                                //  specified for this table entry is called
-                                                //  for all values associated with the current
-                                                //  registry key.
+        QueryTable[0].Name            = NULL;   // If Name is NULL, the QueryRoutine function 
+                                                //  specified for this table entry is called 
+                                                //  for all values associated with the current 
+                                                //  registry key. 
         QueryTable[0].EntryContext    = NULL;
         QueryTable[0].DefaultType     = REG_NONE;
         QueryTable[0].DefaultData     = 0;
@@ -160,11 +159,7 @@ InitBadBlocks(
                                                 L"UniATA\\Parameters\\BadBlocks",
                                                 QueryTable, 0, 0);
 
-#ifdef _DEBUG
         KdPrint(( "InitBadBlocks returned: %#x\n", status));
-#else
-        UNREFERENCED_PARAMETER(status);
-#endif
     } else {
 
         KdPrint(( "InitBadBlocks local\n"));
@@ -223,7 +218,6 @@ InitBadBlocks(
 
 
 void
-NTAPI
 ForgetBadBlocks(
     IN PHW_LU_EXTENSION LunExt
     )
@@ -237,7 +231,6 @@ ForgetBadBlocks(
 } // end ForgetBadBlocks()
 
 bool
-NTAPI
 CheckIfBadBlock(
     IN PHW_LU_EXTENSION LunExt,
 //    IN UCHAR command,
@@ -260,7 +253,7 @@ CheckIfBadBlock(
 
     for (ULONG i = 0; i < nBadBlocks; i++)
     {
-        if (lba + count > arrBadBlocks->m_lbaStart  &&
+        if (lba + count > arrBadBlocks->m_lbaStart  &&  
                     lba < arrBadBlocks->m_lbaEnd) {
             KdPrint(( "listed BB @ %I64x\n", lba));
             return true;

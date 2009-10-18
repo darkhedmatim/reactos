@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -126,12 +126,12 @@ BOOLEAN PspIsDescriptorValid(PLDT_ENTRY ldt_entry)
      that wrap the address space.  Windows NT does not allow user-created
      selectors to reach into kernel memory.  However, there is no security
      risk in allowing it; the page table will prevent access anyway.
-  */
+  */  
   return (/*(Base + SegLimit > (ULONG_PTR) MmHighestUserAddress) ||
           (Base > Base+SegLimit) ? FALSE : TRUE*/ TRUE);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtSetLdtEntries (ULONG Selector1,
 		 LDT_ENTRY LdtEntry1,
 		 ULONG Selector2,

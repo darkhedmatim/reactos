@@ -55,8 +55,6 @@ Author:
 // The DDK steals these away from you.
 //
 #ifdef _MSC_VER
-void __cdecl _enable(void);
-void __cdecl _disable(void);
 #pragma intrinsic(_enable)
 #pragma intrinsic(_disable)
 #endif
@@ -137,12 +135,6 @@ HalBeginSystemInterrupt(
     PKIRQL OldIrql
 );
 
-VOID
-FASTCALL
-HalClearSoftwareInterrupt(
-    IN KIRQL Request
-);
-
 NTHALAPI
 BOOLEAN
 NTAPI
@@ -167,13 +159,6 @@ HalEndSystemInterrupt(
     KIRQL Irql,
     ULONG Vector
 );
-
-#ifdef _ARM_ // FIXME: ndk/arm? armddk.h?
-ULONG
-HalGetInterruptSource(
-    VOID
-);
-#endif
 
 NTHALAPI
 VOID

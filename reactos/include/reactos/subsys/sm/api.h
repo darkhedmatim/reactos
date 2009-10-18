@@ -1,3 +1,4 @@
+/* $Id$ */
 #ifndef __SM_API_H
 #define __SM_API_H
 
@@ -106,7 +107,7 @@ typedef struct _SM_PORT_MESSAGE_QRYINFO
 
 /*** | ****************************************************************/
 
-typedef struct _SM_PORT_MESSAGE
+typedef union _SM_PORT_MESSAGE
 {
     /*** LPC common header ***/
     PORT_MESSAGE Header;
@@ -114,6 +115,7 @@ typedef struct _SM_PORT_MESSAGE
     {
         struct
         {
+            UCHAR LpcHeader[sizeof(PORT_MESSAGE)];
             /*** SM common header ***/
             struct
             {
@@ -137,7 +139,7 @@ typedef struct _SM_PORT_MESSAGE
                 } Reply;
             };
         };
-        SM_CONNECT_DATA ConnectData;
+        UCHAR PadBuffer[PORT_MAXIMUM_MESSAGE_LENGTH];
     };
 } SM_PORT_MESSAGE, * PSM_PORT_MESSAGE;
 

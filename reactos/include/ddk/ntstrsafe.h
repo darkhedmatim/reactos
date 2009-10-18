@@ -26,14 +26,9 @@
 #endif
 #define NTSTRSAFE_MAX_LENGTH    (NTSTRSAFE_MAX_CCH - 1)
 
-//
-// Typedefs
-//
-typedef unsigned long DWORD;
-
 /* PRIVATE FUNCTIONS *********************************************************/
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringLengthWorkerA(IN PCHAR String,
@@ -66,7 +61,7 @@ RtlStringLengthWorkerA(IN PCHAR String,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringValidateDestA(IN PCHAR Destination,
@@ -95,7 +90,7 @@ RtlStringValidateDestA(IN PCHAR Destination,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringExValidateDestA(IN OUT PCHAR *Destination,
@@ -111,7 +106,7 @@ RtlStringExValidateDestA(IN OUT PCHAR *Destination,
                                   MaxLength);
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringExValidateSrcA(IN OUT PCCHAR *Source OPTIONAL,
@@ -130,7 +125,7 @@ RtlStringExValidateSrcA(IN OUT PCCHAR *Source OPTIONAL,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringVPrintfWorkerA(OUT PCHAR Destination,
@@ -140,13 +135,13 @@ RtlStringVPrintfWorkerA(OUT PCHAR Destination,
                         IN va_list argList)
 {
     NTSTATUS Status = STATUS_SUCCESS;
-    LONG Return;
+    ULONG Return;
     SIZE_T MaxLength, LocalNewLength = 0;
 
     MaxLength = Length - 1;
 
     Return = _vsnprintf(Destination, MaxLength, Format, argList);
-    if ((Return < 0) || ((SIZE_T)Return > MaxLength))
+    if ((Return < 0) || (Return > MaxLength))
     {
         Destination += MaxLength;
         *Destination = ANSI_NULL;
@@ -155,7 +150,7 @@ RtlStringVPrintfWorkerA(OUT PCHAR Destination,
 
         Status = STATUS_BUFFER_OVERFLOW;
     }
-    else if ((SIZE_T)Return == MaxLength)
+    else if (Return == MaxLength)
     {
         Destination += MaxLength;
         *Destination = ANSI_NULL;
@@ -171,7 +166,7 @@ RtlStringVPrintfWorkerA(OUT PCHAR Destination,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringCopyWorkerA(OUT PCHAR Destination,
@@ -208,18 +203,7 @@ RtlStringCopyWorkerA(OUT PCHAR Destination,
 
 /* PUBLIC FUNCTIONS **********************************************************/
 
-__inline
-NTSTATUS
-NTAPI
-RtlStringCchCopyA(IN PCHAR Destination,
-                  IN SIZE_T cchDest,
-                  IN PCCHAR pszSrc)
-{
-    ASSERTMSG("RtlStringCchCopyA is UNIMPLEMENTED!\n", FALSE);
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringCbPrintfA(OUT PCHAR Destination,
@@ -249,7 +233,7 @@ RtlStringCbPrintfA(OUT PCHAR Destination,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringCbPrintfExA(OUT PCHAR Destination,
@@ -330,7 +314,7 @@ RtlStringCbPrintfExA(OUT PCHAR Destination,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringCbCopyExA(OUT PCHAR Destination,
@@ -407,20 +391,7 @@ RtlStringCbCopyExA(OUT PCHAR Destination,
     return Status;
 }
 
-__inline
-NTSTATUS
-NTAPI
-RtlStringCbPrintfW(
-    LPWSTR pszDest,
-    IN size_t cbDest,
-    IN LPCWSTR pszFormat,
-    ...)
-{
-    ASSERTMSG("RtlStringCbPrintfW is UNIMPLEMENTED!\n", FALSE);
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringCbCatExA(IN OUT PCHAR Destination,
@@ -494,7 +465,7 @@ RtlStringCbCatExA(IN OUT PCHAR Destination,
     return Status;
 }
 
-__inline
+FORCEINLINE
 NTSTATUS
 NTAPI
 RtlStringCbCopyA(OUT PCHAR Destination,

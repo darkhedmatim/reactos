@@ -1,9 +1,9 @@
 /* $Id$
  *
  * server.c - ReactOS/Win32 base enviroment subsystem server
- *
+ * 
  * ReactOS Operating System
- *
+ * 
  * --------------------------------------------------------------------
  *
  * This software is free software; you can redistribute it and/or
@@ -19,7 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this software; see the file COPYING.LIB. If not, write
  * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
- * MA 02139, USA.
+ * MA 02139, USA.  
  *
  * --------------------------------------------------------------------
  */
@@ -32,7 +32,7 @@
  * 	PUBLIC API
  *===================================================================*/
 
-NTSTATUS WINAPI BaseSetProcessCreateNotify (BASE_PROCESS_CREATE_NOTIFY_ROUTINE ProcessCreateNotifyProc)
+NTSTATUS STDCALL BaseSetProcessCreateNotify (BASE_PROCESS_CREATE_NOTIFY_ROUTINE ProcessCreateNotifyProc)
 {
 	NTSTATUS Status = STATUS_NOT_IMPLEMENTED;
 

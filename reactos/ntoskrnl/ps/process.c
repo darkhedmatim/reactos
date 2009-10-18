@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -201,13 +201,13 @@ PspComputeQuantumAndPriority(IN PEPROCESS Process,
     if (Mode == PsProcessPriorityForeground)
     {
         /* Set the memory priority and use priority separation */
-        MemoryPriority = MEMORY_PRIORITY_FOREGROUND;
+        MemoryPriority = 2;
         i = PsPrioritySeparation;
     }
     else
     {
         /* Set the background memory priority and no separation */
-        MemoryPriority = MEMORY_PRIORITY_BACKGROUND;
+        MemoryPriority = 0;
         i = 0;
     }
 
@@ -365,7 +365,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     PDEBUG_OBJECT DebugObject;
     PSECTION_OBJECT SectionObject;
     NTSTATUS Status, AccessStatus;
-    ULONG DirectoryTableBase[2] = {0,0};
+    PHYSICAL_ADDRESS DirectoryTableBase = {{0}};
     KAFFINITY Affinity;
     HANDLE_TABLE_ENTRY CidEntry;
     PETHREAD CurrentThread = PsGetCurrentThread();
@@ -374,13 +374,11 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     ULONG MinWs, MaxWs;
     ACCESS_STATE LocalAccessState;
     PACCESS_STATE AccessState = &LocalAccessState;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     UCHAR Quantum;
     BOOLEAN Result, SdAllocated;
     PSECURITY_DESCRIPTOR SecurityDescriptor;
     SECURITY_SUBJECT_CONTEXT SubjectContext;
-    BOOLEAN NeedsPeb = FALSE;
-    INITIAL_PEB InitialPeb;
     PAGED_CODE();
     PSTRACE(PS_PROCESS_DEBUG,
             "ProcessHandle: %p Parent: %p\n", ProcessHandle, ParentProcess);
@@ -453,7 +451,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     /* Check if we have a parent */
     if (Parent)
     {
-        /* Inherit PID and Hard Error Processing */
+        /* Ineherit PID and Hard Error Processing */
         Process->InheritedFromUniqueProcessId = Parent->UniqueProcessId;
         Process->DefaultHardErrorProcessing = Parent->
                                               DefaultHardErrorProcessing;
@@ -556,7 +554,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     Process->SectionObject = SectionObject;
 
     /* Set default exit code */
-    Process->ExitStatus = STATUS_PENDING;
+    Process->ExitStatus = STATUS_TIMEOUT;
 
     /* Check if this is the initial process being built */
     if (Parent)
@@ -564,7 +562,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
         /* Create the address space for the child */
         if (!MmCreateProcessAddressSpace(MinWs,
                                          Process,
-                                         DirectoryTableBase))
+                                         &DirectoryTableBase))
         {
             /* Failed */
             Status = STATUS_INSUFFICIENT_RESOURCES;
@@ -575,7 +573,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     {
         /* Otherwise, we are the boot process, we're already semi-initialized */
         Process->ObjectTable = CurrentProcess->ObjectTable;
-        Status = MmInitializeHandBuiltProcess(Process, DirectoryTableBase);
+        Status = MmInitializeHandBuiltProcess(Process, &DirectoryTableBase);
         if (!NT_SUCCESS(Status)) goto CleanupWithRef;
     }
 
@@ -589,7 +587,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     KeInitializeProcess(&Process->Pcb,
                         PROCESS_PRIORITY_NORMAL,
                         Affinity,
-                        DirectoryTableBase,
+                        &DirectoryTableBase,
                         (BOOLEAN)(Process->DefaultHardErrorProcessing & 4));
 
     /* Duplicate Parent Token */
@@ -604,12 +602,12 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     {
         /* Check our priority class */
         if (Parent->PriorityClass == PROCESS_PRIORITY_CLASS_IDLE ||
-            Parent->PriorityClass == PROCESS_PRIORITY_CLASS_BELOW_NORMAL)
+            Parent->PriorityClass == PROCESS_PRIORITY_CLASS_BELOW_NORMAL) 
         {
             /* Normalize it */
             Process->PriorityClass = Parent->PriorityClass;
         }
-
+        
         /* Initialize object manager for the process */
         Status = ObInitProcess(Flags & PS_INHERIT_HANDLES ? Parent : NULL,
                                Process);
@@ -621,7 +619,7 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
         Status = MmInitializeHandBuiltProcess2(Process);
         if (!NT_SUCCESS(Status)) goto CleanupWithRef;
     }
-
+    
     /* Set success for now */
     Status = STATUS_SUCCESS;
 
@@ -636,28 +634,18 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
                                                  &Process->
                                                  SeAuditProcessCreationInfo.
                                                  ImageFileName);
-        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-        
-        //
-        // We need a PEB
-        //
-        NeedsPeb = TRUE;
+        if (!NT_SUCCESS(Status)) goto CleanupWithRef;    
     }
     else if (Parent)
     {
         /* Check if this is a child of the system process */
         if (Parent != PsInitialSystemProcess)
         {
-            //
-            // We need a PEB
-            //
-            NeedsPeb = TRUE;
-
             /* This is a clone! */
             ASSERTMSG("No support for cloning yet\n", FALSE);
         }
         else
-        {           
+        {
             /* This is the initial system process */
             Flags &= ~PS_LARGE_PAGES;
             Status = MmInitializeProcessAddressSpace(Process,
@@ -666,19 +654,19 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
                                                      &Flags,
                                                      NULL);
             if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-
+            
             /* Create a dummy image file name */
             Process->SeAuditProcessCreationInfo.ImageFileName =
                 ExAllocatePoolWithTag(PagedPool,
                                       sizeof(OBJECT_NAME_INFORMATION),
-                                      'aPeS');
+                                      TAG('S', 'e', 'P', 'a'));
             if (!Process->SeAuditProcessCreationInfo.ImageFileName)
             {
                 /* Fail */
                 Status = STATUS_INSUFFICIENT_RESOURCES;
                 goto CleanupWithRef;
             }
-
+            
             /* Zero it out */
             RtlZeroMemory(Process->SeAuditProcessCreationInfo.ImageFileName,
                           sizeof(OBJECT_NAME_INFORMATION));
@@ -710,38 +698,15 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     {
         /* FIXME: We need to insert this process */
         DPRINT1("Jobs not yet supported\n");
-        ASSERT(FALSE);
+        KEBUGCHECK(0);
     }
 
     /* Create PEB only for User-Mode Processes */
-    if ((Parent) && (NeedsPeb))
+    if (Parent)
     {
-        //
-        // Set up the initial PEB
-        //
-        RtlZeroMemory(&InitialPeb, sizeof(INITIAL_PEB));
-        InitialPeb.Mutant = (HANDLE)-1;
-        InitialPeb.ImageUsesLargePages = 0; // FIXME: Not yet supported
-        
-        //
-        // Create it only if we have an image section
-        //
-        if (SectionHandle)
-        {
-            //
-            // Create it
-            //
-            Status = MmCreatePeb(Process, &InitialPeb, &Process->Peb);
-            if (!NT_SUCCESS(Status)) goto CleanupWithRef;
-        }
-        else
-        {
-            //
-            // We have to clone it
-            //
-            ASSERTMSG("No support for cloning yet\n", FALSE);
-        }
-
+        /* Create it */
+        Status = MmCreatePeb(Process);
+        if (!NT_SUCCESS(Status)) goto CleanupWithRef;
     }
 
     /* The process can now be activated */
@@ -845,23 +810,20 @@ PspCreateProcess(OUT PHANDLE ProcessHandle,
     KeQuerySystemTime(&Process->CreateTime);
 
     /* Protect against bad user-mode pointer */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Save the process handle */
        *ProcessHandle = hProcess;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Get the exception code */
-       Status = _SEH2_GetExceptionCode();
+       Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
-
-    /* Run the Notification Routines */
-    PspRunCreateProcessNotifyRoutines(Process, TRUE);
+    _SEH_END;
 
 CleanupWithRef:
-    /*
+    /* 
      * Dereference the process. For failures, kills the process and does
      * cleanup present in PspDeleteProcess. For success, kills the extra
      * reference added by ObInsertObject.
@@ -1156,11 +1118,11 @@ PsGetProcessSessionId(PEPROCESS Process)
 /*
  * @implemented
  */
-PVOID
+struct _W32PROCESS*
 NTAPI
 PsGetCurrentProcessWin32Process(VOID)
 {
-    return PsGetCurrentProcess()->Win32Process;
+    return (struct _W32PROCESS*)PsGetCurrentProcess()->Win32Process;
 }
 
 /*
@@ -1191,17 +1153,6 @@ NTAPI
 PsIsProcessBeingDebugged(PEPROCESS Process)
 {
     return Process->DebugPort != NULL;
-}
-
-/*
- * @implemented
- */
-BOOLEAN
-NTAPI
-PsIsSystemProcess(IN PEPROCESS Process)
-{
-    /* Return if this is the System Process */
-    return Process == PsInitialSystemProcess;
 }
 
 /*
@@ -1282,26 +1233,27 @@ NtCreateProcessEx(OUT PHANDLE ProcessHandle,
                   IN HANDLE ExceptionPort OPTIONAL,
                   IN BOOLEAN InJob)
 {
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    KPROCESSOR_MODE PreviousMode  = ExGetPreviousMode();
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_PROCESS_DEBUG,
             "ParentProcess: %p Flags: %lx\n", ParentProcess, Flags);
 
     /* Check if we came from user mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe process handle */
             ProbeForWriteHandle(ProcessHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure there's a parent process */
@@ -1380,9 +1332,9 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
     BOOLEAN HasObjectName = FALSE;
     PETHREAD Thread = NULL;
     PEPROCESS Process = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ACCESS_STATE AccessState;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     PAGED_CODE();
     PSTRACE(PS_PROCESS_DEBUG,
             "ClientId: %p Attributes: %p\n", ClientId, ObjectAttributes);
@@ -1391,7 +1343,7 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the thread handle */
             ProbeForWriteHandle(ProcessHandle);
@@ -1415,12 +1367,13 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
             HasObjectName = (ObjectAttributes->ObjectName != NULL);
             Attributes = ObjectAttributes->Attributes;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -1525,17 +1478,17 @@ NtOpenProcess(OUT PHANDLE ProcessHandle,
     if (NT_SUCCESS(Status))
     {
         /* Use SEH for write back */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write back the handle */
             *ProcessHandle = hProcess;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
             /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */

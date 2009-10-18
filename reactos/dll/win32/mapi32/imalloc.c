@@ -78,7 +78,7 @@ static HRESULT WINAPI IMAPIMalloc_fnQueryInterface(LPMALLOC iface, REFIID refiid
     if (IsEqualIID(refiid, &IID_IUnknown) ||
         IsEqualIID(refiid, &IID_IMalloc))
     {
-        *ppvObj = &MAPI_IMalloc;
+        *ppvObj = (LPMALLOC) &MAPI_IMalloc;
         TRACE("Returning IMalloc (%p)\n", *ppvObj);
         return S_OK;
     }
@@ -127,9 +127,9 @@ static LPVOID WINAPI IMAPIMalloc_fnRealloc(LPMALLOC iface, LPVOID pv, DWORD cb)
         return LocalAlloc(LMEM_FIXED, cb);
 
     if (cb)
-        return LocalReAlloc(pv, cb, LMEM_MOVEABLE);
+        return LocalReAlloc((HANDLE) pv, cb, LMEM_MOVEABLE);
 
-    LocalFree(pv);
+    LocalFree((HANDLE) pv);
     return NULL;
 }
 
@@ -139,7 +139,7 @@ static LPVOID WINAPI IMAPIMalloc_fnRealloc(LPMALLOC iface, LPVOID pv, DWORD cb)
 static void WINAPI IMAPIMalloc_fnFree(LPMALLOC iface, LPVOID pv)
 {
     TRACE("(%p)->(%p)\n", iface, pv);
-    LocalFree(pv);
+    LocalFree((HANDLE) pv);
 }
 
 /**************************************************************************
@@ -148,7 +148,7 @@ static void WINAPI IMAPIMalloc_fnFree(LPMALLOC iface, LPVOID pv)
 static DWORD WINAPI IMAPIMalloc_fnGetSize(LPMALLOC iface, LPVOID pv)
 {
     TRACE("(%p)->(%p)\n", iface, pv);
-    return LocalSize(pv);
+    return LocalSize((HANDLE) pv);
 }
 
 /**************************************************************************

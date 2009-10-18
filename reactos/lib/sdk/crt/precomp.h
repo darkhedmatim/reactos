@@ -18,35 +18,18 @@
 #include <malloc.h>
 #include <math.h>
 #include <limits.h>
-#include <io.h>
 
 #include <sys/stat.h>
-#include <sys/locking.h>
 #include <share.h>
 
 /* PSDK/NDK Headers */
 #define WIN32_NO_STATUS
 #include <windows.h>
 #include <ndk/ntndk.h>
+#include <reactos/helper.h>
 
 #if !defined(_MSC_VER)
   #include <stdint.h>
-#endif
-
-#include "wine/unicode.h"
-
-/* kernelmode libcnt should not include Wine-debugging crap */
-#ifndef _LIBCNT_
-#define WINE_NO_TRACE_MSGS
-#include "wine/debug.h"
-#ifndef __WINE_DEBUG_CHANNEL__
-WINE_DEFAULT_DEBUG_CHANNEL(msvcrt);
-#endif
-#else
-#define NDEBUG
-#include <debug.h>
-#define TRACE DPRINT
-#define WARN DPRINT1
 #endif
 
 /* CRT Internal data */
@@ -54,12 +37,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(msvcrt);
 #include <internal/console.h>
 #include <internal/file.h>
 #include <internal/ieee.h>
-#include <internal/math.h>
-#include <internal/mbstring.h>
-#include <internal/mtdll.h>
-#include <internal/rterror.h>
-#include <internal/time.h>
 #include <internal/tls.h>
-#include <internal/printf.h>
 
 #endif /* _CRT_PRECOMP_H */

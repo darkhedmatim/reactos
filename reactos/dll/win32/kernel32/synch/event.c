@@ -9,6 +9,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
+
 #define NDEBUG
 #include <debug.h>
 
@@ -72,16 +73,13 @@ CreateEventExW(IN LPSECURITY_ATTRIBUTES lpEventAttributes  OPTIONAL,
     /* Now check if we got a name */
     if (lpName) RtlInitUnicodeString(&ObjectName, lpName);
 
-	/* Check for invalid flags */
     if (dwFlags & ~(CREATE_EVENT_INITIAL_SET | CREATE_EVENT_MANUAL_RESET))
     {
-	    /* Fail */
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
 
-    /* Set initial state and event type */
-    InitialState = (dwFlags & CREATE_EVENT_INITIAL_SET) ? TRUE : FALSE;
+    InitialState = (dwFlags & CREATE_EVENT_INITIAL_SET) != 0;
     EventType = (dwFlags & CREATE_EVENT_MANUAL_RESET) ? NotificationEvent : SynchronizationEvent;
 
     /* Now convert the object attributes */
@@ -130,11 +128,12 @@ CreateEventA(IN LPSECURITY_ATTRIBUTES lpEventAttributes  OPTIONAL,
 {
     DWORD dwFlags = 0;
 
-    /* Set new flags */
-    if (bManualReset) dwFlags |= CREATE_EVENT_MANUAL_RESET;
-    if (bInitialState) dwFlags |= CREATE_EVENT_INITIAL_SET;
+    if (bManualReset)
+        dwFlags |= CREATE_EVENT_MANUAL_RESET;
 
-    /* Call the newer API */
+    if (bInitialState)
+        dwFlags |= CREATE_EVENT_INITIAL_SET;
+
     return CreateEventExA(lpEventAttributes,
                           lpName,
                           dwFlags,
@@ -150,11 +149,12 @@ CreateEventW(IN LPSECURITY_ATTRIBUTES lpEventAttributes  OPTIONAL,
 {
     DWORD dwFlags = 0;
 
-    /* Set new flags */
-    if (bManualReset) dwFlags |= CREATE_EVENT_MANUAL_RESET;
-    if (bInitialState) dwFlags |= CREATE_EVENT_INITIAL_SET;
+    if (bManualReset)
+        dwFlags |= CREATE_EVENT_MANUAL_RESET;
 
-    /* Call the newer API */
+    if (bInitialState)
+        dwFlags |= CREATE_EVENT_INITIAL_SET;
+
     return CreateEventExW(lpEventAttributes,
                           lpName,
                           dwFlags,

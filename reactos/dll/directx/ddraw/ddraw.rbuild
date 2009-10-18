@@ -1,8 +1,13 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="ddraw" type="win32dll" installbase="system32" installname="ddraw.dll" unicode="yes" crt="msvcrt">
-	<importlibrary definition="ddraw.spec" />
+<module name="ddraw" type="win32dll" entrypoint="0" installbase="system32" installname="ddraw.dll" allowwarnings ="true">
+	<importlibrary definition="ddraw.def" />
 	<include base="ddraw">.</include>
+	<define name="UNICODE" />
+	<define name="__USE_W32API" />
+	<define name="WINVER">0x0600</define>
+	<define name="_WIN32_WINNT">0x0501</define>
+
 	<library>kernel32</library>
 	<library>user32</library>
 	<library>gdi32</library>
@@ -11,6 +16,7 @@
 	<library>ole32</library>
 	<library>user32</library>
 	<library>advapi32</library>
+	<library>msvcrt</library>
 	<library>pseh</library>
 
 	<file>ddraw.rc</file>
@@ -40,9 +46,6 @@
 	<directory name="Color">
 		<file>color_stubs.c</file>
 	</directory>
-	<directory name="d3d">
-		<file>DirectD3D_main.c</file>
-	</directory>
 	<directory name="Gamma">
 		<file>gamma_stubs.c</file>
 	</directory>
@@ -60,16 +63,5 @@
 		<file>DirectDraw4_Vtable.c</file>
 		<file>DirectDraw2_Vtable.c</file>
 		<file>DirectDraw_Vtable.c</file>
-		<file>DirectDrawSurface7_Vtable.c</file>
-		<file>DirectDrawSurface4_Vtable.c</file>
-		<file>DirectDrawSurface3_Vtable.c</file>
-		<file>DirectDrawSurface2_Vtable.c</file>
-		<file>DirectDrawSurface_Vtable.c</file>
-		<file>DirectD3D_Vtable.c</file>
-		<file>DirectD3D2_Vtable.c</file>
-		<file>DirectD3D3_Vtable.c</file>
-		<file>DirectD3D7_Vtable.c</file>
 	</directory>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
 </module>

@@ -84,12 +84,12 @@ DWORD WINAPI PipeThreadProc( LPVOID Parameter ) {
         }
         DisconnectNamedPipe( CommPipe );
     }
-
+    
     return TRUE;
 }
 
 HANDLE PipeInit() {
-    CommPipe = CreateNamedPipeW
+    CommPipe = CreateNamedPipe
         ( DHCP_PIPE_NAME,
           PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
           PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,

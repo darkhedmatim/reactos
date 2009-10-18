@@ -11,7 +11,6 @@
 
 LONG CALLBACK SystemApplet(VOID);
 HINSTANCE hApplet = 0;
-HWND hCPLWindow;
 
 /* Applets */
 APPLET Applets[NUM_APPLETS] =
@@ -113,7 +112,7 @@ SystemApplet(VOID)
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags =  PSH_PROPTITLE;
-    psh.hwndParent = hCPLWindow;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLSYSTEM));
     psh.pszCaption = MAKEINTRESOURCE(IDS_CPLSYSTEMNAME);
@@ -149,57 +148,57 @@ SystemApplet(VOID)
 
 /* Control Panel Callback */
 LONG CALLBACK
-CPlApplet(HWND hwndCPl,
-          UINT uMsg,
-          LPARAM lParam1,
-          LPARAM lParam2)
+CPlApplet(
+    HWND hwndCPl,
+    UINT uMsg,
+    LPARAM lParam1,
+    LPARAM lParam2)
 {
-    INT i = (INT)lParam1;
-
+    int i = (int)lParam1;
     UNREFERENCED_PARAMETER(hwndCPl);
 
-    switch (uMsg)
+    switch(uMsg)
     {
         case CPL_INIT:
+        {
             return TRUE;
-
+        }
         case CPL_GETCOUNT:
+        {
             return NUM_APPLETS;
-
+        }
         case CPL_INQUIRE:
-            {
-                 CPLINFO *CPlInfo = (CPLINFO*)lParam2;
-                 CPlInfo->lData = 0;
-                 CPlInfo->idIcon = Applets[i].idIcon;
-                 CPlInfo->idName = Applets[i].idName;
-                 CPlInfo->idInfo = Applets[i].idDescription;
-            }
+        {
+            CPLINFO *CPlInfo = (CPLINFO*)lParam2;
+            CPlInfo->lData = 0;
+            CPlInfo->idIcon = Applets[i].idIcon;
+            CPlInfo->idName = Applets[i].idName;
+            CPlInfo->idInfo = Applets[i].idDescription;
             break;
-
+        }
         case CPL_DBLCLK:
-            hCPLWindow = hwndCPl;
+        {
             Applets[i].AppletProc();
             break;
+        }
     }
-
     return FALSE;
 }
 
 
-BOOL WINAPI
-DllMain(HINSTANCE hinstDLL,
-        DWORD dwReason,
-        LPVOID lpvReserved)
+BOOL STDCALL
+DllMain(
+    HINSTANCE hinstDLL,
+    DWORD     dwReason,
+    LPVOID    lpvReserved)
 {
     UNREFERENCED_PARAMETER(lpvReserved);
-
-    switch (dwReason)
+    switch(dwReason)
     {
         case DLL_PROCESS_ATTACH:
         case DLL_THREAD_ATTACH:
             hApplet = hinstDLL;
             break;
     }
-
     return TRUE;
 }

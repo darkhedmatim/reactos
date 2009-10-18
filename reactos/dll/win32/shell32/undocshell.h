@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_UNDOCSHELL_H
@@ -51,7 +51,8 @@ BOOL WINAPI ILGetDisplayNameEx(
 
 LPITEMIDLIST WINAPI ILGlobalClone(LPCITEMIDLIST pidl);
 void WINAPI ILGlobalFree(LPITEMIDLIST pidl);
-LPITEMIDLIST WINAPI SHSimpleIDListFromPathA (LPCSTR lpszPath); //FIXME
+
+LPITEMIDLIST WINAPI SHSimpleIDListFromPathA (LPCSTR lpszPath);
 LPITEMIDLIST WINAPI SHSimpleIDListFromPathW (LPCWSTR lpszPath);
 
 HRESULT WINAPI SHILCreateFromPathA (
@@ -70,9 +71,24 @@ HRESULT WINAPI SHILCreateFromPathW (
 BOOL WINAPI StrRetToStrNA(LPSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 BOOL WINAPI StrRetToStrNW(LPWSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 
+
+/****************************************************************************
+* SHChangeNotifyRegister API
+*/
+#define SHCNRF_InterruptLevel		0x0001
+#define SHCNRF_ShellLevel		0x0002
+#define SHCNRF_RecursiveInterrupt	0x1000	/* Must be combined with SHCNRF_InterruptLevel */
+#define SHCNRF_NewDelivery		0x8000	/* Messages use shared memory */
+
 /****************************************************************************
  * Shell Common Dialogs
  */
+
+BOOL WINAPI PickIconDlg(
+	HWND hwndOwner,
+	LPSTR lpstrFile,
+	DWORD nMaxFile,
+	LPDWORD lpdwIconIndex);
 
 /* RunFileDlg flags */
 #define RFF_NOBROWSE       0x01
@@ -80,8 +96,6 @@ BOOL WINAPI StrRetToStrNW(LPWSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 #define RFF_CALCDIRECTORY  0x04
 #define RFF_NOLABEL        0x08
 #define RFF_NOSEPARATEMEM  0x20  /* NT only */
-
-#define DE_SAMEFILE 0x71
 
 /* RunFileFlg notification structure */
 typedef struct
@@ -121,7 +135,7 @@ int  WINAPI SHOutOfMemoryMessageBox(
 
 DWORD WINAPI SHNetConnectionDialog(
 	HWND hwndOwner,
-	LPCWSTR lpstrRemoteName,
+	LPCSTR lpstrRemoteName,
 	DWORD dwType);
 
 /****************************************************************************
@@ -177,10 +191,10 @@ typedef struct
  * System Imagelist Routines
  */
 
-int WINAPI Shell_GetCachedImageIndexA(
+int WINAPI Shell_GetCachedImageIndex(
 	LPCSTR lpszFileName,
-	int nIconIndex,
-	UINT bSimulateDoc);
+	UINT nIconIndex,
+	BOOL bSimulateDoc);
 
 BOOL WINAPI Shell_GetImageLists(
 	HIMAGELIST *lphimlLarge,
@@ -342,6 +356,12 @@ BOOL WINAPI DAD_SetDragImageFromListView(
 
 BOOL WINAPI DAD_ShowDragImage(BOOL bShow);
 
+HRESULT WINAPI CIDLData_CreateFromIDArray(
+	LPCITEMIDLIST pidlFolder,
+	DWORD cpidlFiles,
+	LPCITEMIDLIST *lppidlFiles,
+	LPDATAOBJECT *ppdataObject);
+
 /****************************************************************************
  * Path Manipulation Routines
  */
@@ -416,7 +436,7 @@ VOID WINAPI PathSetDlgItemPathAW(HWND hDlg, int nIDDlgItem, LPCVOID lpszPath);
 /* PathProcessCommand flags */
 #define PPCF_QUOTEPATH        0x01 /* implies PPCF_INCLUDEARGS */
 #define PPCF_INCLUDEARGS      0x02
-//#define PPCF_NODIRECTORIES    0x10 move to shlobj
+#define PPCF_NODIRECTORIES    0x10
 #define PPCF_DONTRESOLVE      0x20
 #define PPCF_PATHISRELATIVE   0x40
 
@@ -435,7 +455,7 @@ int WINAPI PathParseIconLocationAW(LPVOID lpszPath);
 
 BOOL WINAPI PathIsSameRootAW(LPCVOID lpszPath1, LPCVOID lpszPath2);
 
-BOOL WINAPI PathFindOnPathAW(LPVOID sFile, LPCVOID *sOtherDirs);
+BOOL WINAPI PathFindOnPathAW(LPVOID sFile, LPCVOID sOtherDirs);
 
 /****************************************************************************
  * Shell Namespace Routines
@@ -545,39 +565,6 @@ DWORD WINAPI CheckEscapesW(LPWSTR string, DWORD len);
 
 /* policy functions */
 BOOL WINAPI SHInitRestricted(LPCVOID unused, LPCVOID inpRegKey);
-
-/* Shell Desktop functions */
-
-#undef INTERFACE
-#define INTERFACE IShellDesktop
-DECLARE_INTERFACE_(IShellDesktop,IUnknown)
-{
-    /*** IUnknown ***/
-    STDMETHOD(QueryInterface)(THIS_ REFIID,PVOID*) PURE;
-    STDMETHOD_(ULONG,AddRef)(THIS) PURE;
-    STDMETHOD_(ULONG,Release)(THIS) PURE;
-    /*** IShellDesktopTray ***/
-    STDMETHOD_(ULONG,GetState)(THIS) PURE;
-    STDMETHOD(GetTrayWindow)(THIS_ HWND*) PURE;
-    STDMETHOD(RegisterDesktopWindow)(THIS_ HWND) PURE;
-    STDMETHOD(Unknown)(THIS_ DWORD,DWORD) PURE;
-};
-#undef INTERFACE
-
-#define IShellDesktop_QueryInterface(T,a,b) (T)->lpVtbl->QueryInterface(T,a,b)
-#define IShellDesktop_AddRef(T) (T)->lpVtbl->AddRef(T)
-#define IShellDesktop_Release(T) (T)->lpVtbl->Release(T)
-#define IShellDesktop_GetState(T) (T)->lpVtbl->GetState(T)
-#define IShellDesktop_GetTrayWindow(T,a) (T)->lpVtbl->GetTrayWindow(T,a)
-#define IShellDesktop_RegisterDesktopWindow(T,a) (T)->lpVtbl->RegisterDesktopWindow(T,a)
-#define IShellDesktop_Unknown(T,a,b) (T)->lpVtbl->Unknown(T,a,b)
-
-#define WM_GETISHELLBROWSER (WM_USER+7)
-
-HANDLE WINAPI SHCreateDesktop(IShellDesktop*);
-BOOL WINAPI SHDesktopMessageLoop(HANDLE);
-
-#define CSIDL_FOLDER_MASK	0x00ff
 
 #ifdef __cplusplus
 } /* extern "C" */

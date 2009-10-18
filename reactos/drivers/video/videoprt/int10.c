@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id$
  */
 
 #include "videoprt.h"
@@ -34,10 +35,10 @@ IntInt10AllocateBuffer(
 {
    PVOID MemoryAddress;
    NTSTATUS Status;
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
-   TRACE_(VIDEOPRT, "IntInt10AllocateBuffer\n");
+   DPRINT("IntInt10AllocateBuffer\n");
 
    IntAttachToCSRSS(&CallingProcess, &ApcState);
 
@@ -47,7 +48,7 @@ IntInt10AllocateBuffer(
 
    if (!NT_SUCCESS(Status))
    {
-      WARN_(VIDEOPRT, "- ZwAllocateVirtualMemory failed\n");
+      DPRINT("- ZwAllocateVirtualMemory failed\n");
       IntDetachFromCSRSS(&CallingProcess, &ApcState);
       return ERROR_NOT_ENOUGH_MEMORY;
    }
@@ -56,7 +57,7 @@ IntInt10AllocateBuffer(
    {
       ZwFreeVirtualMemory(NtCurrentProcess(), &MemoryAddress, Length,
          MEM_RELEASE);
-      WARN_(VIDEOPRT, "- Unacceptable memory allocated\n");
+      DPRINT("- Unacceptable memory allocated\n");
       IntDetachFromCSRSS(&CallingProcess, &ApcState);
       return ERROR_NOT_ENOUGH_MEMORY;
    }
@@ -64,9 +65,9 @@ IntInt10AllocateBuffer(
    *Seg = (ULONG)MemoryAddress >> 4;
    *Off = (ULONG)MemoryAddress & 0xF;
 
-   INFO_(VIDEOPRT, "- Segment: %x\n", (ULONG)MemoryAddress >> 4);
-   INFO_(VIDEOPRT, "- Offset: %x\n", (ULONG)MemoryAddress & 0xF);
-   INFO_(VIDEOPRT, "- Length: %x\n", *Length);
+   DPRINT("- Segment: %x\n", (ULONG)MemoryAddress >> 4);
+   DPRINT("- Offset: %x\n", (ULONG)MemoryAddress & 0xF);
+   DPRINT("- Length: %x\n", *Length);
 
    IntDetachFromCSRSS(&CallingProcess, &ApcState);
 
@@ -81,12 +82,12 @@ IntInt10FreeBuffer(
 {
    PVOID MemoryAddress = (PVOID)((Seg << 4) | Off);
    NTSTATUS Status;
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
-   TRACE_(VIDEOPRT, "IntInt10FreeBuffer\n");
-   INFO_(VIDEOPRT, "- Segment: %x\n", Seg);
-   INFO_(VIDEOPRT, "- Offset: %x\n", Off);
+   DPRINT("IntInt10FreeBuffer\n");
+   DPRINT("- Segment: %x\n", Seg);
+   DPRINT("- Offset: %x\n", Off);
 
    IntAttachToCSRSS(&CallingProcess, &ApcState);
    Status = ZwFreeVirtualMemory(NtCurrentProcess(), &MemoryAddress, 0,
@@ -104,14 +105,14 @@ IntInt10ReadMemory(
    OUT PVOID Buffer,
    IN ULONG Length)
 {
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
-   TRACE_(VIDEOPRT, "IntInt10ReadMemory\n");
-   INFO_(VIDEOPRT, "- Segment: %x\n", Seg);
-   INFO_(VIDEOPRT, "- Offset: %x\n", Off);
-   INFO_(VIDEOPRT, "- Buffer: %x\n", Buffer);
-   INFO_(VIDEOPRT, "- Length: %x\n", Length);
+   DPRINT("IntInt10ReadMemory\n");
+   DPRINT("- Segment: %x\n", Seg);
+   DPRINT("- Offset: %x\n", Off);
+   DPRINT("- Buffer: %x\n", Buffer);
+   DPRINT("- Length: %x\n", Length);
 
    IntAttachToCSRSS(&CallingProcess, &ApcState);
    RtlCopyMemory(Buffer, (PVOID)((Seg << 4) | Off), Length);
@@ -128,14 +129,14 @@ IntInt10WriteMemory(
    IN PVOID Buffer,
    IN ULONG Length)
 {
-   PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+   PKPROCESS CallingProcess;
    KAPC_STATE ApcState;
 
-   TRACE_(VIDEOPRT, "IntInt10WriteMemory\n");
-   INFO_(VIDEOPRT, "- Segment: %x\n", Seg);
-   INFO_(VIDEOPRT, "- Offset: %x\n", Off);
-   INFO_(VIDEOPRT, "- Buffer: %x\n", Buffer);
-   INFO_(VIDEOPRT, "- Length: %x\n", Length);
+   DPRINT("IntInt10WriteMemory\n");
+   DPRINT("- Segment: %x\n", Seg);
+   DPRINT("- Offset: %x\n", Off);
+   DPRINT("- Buffer: %x\n", Buffer);
+   DPRINT("- Length: %x\n", Length);
 
    IntAttachToCSRSS(&CallingProcess, &ApcState);
    RtlCopyMemory((PVOID)((Seg << 4) | Off), Buffer, Length);
@@ -152,7 +153,7 @@ IntInt10CallBios(
 {
     CONTEXT BiosContext;
     NTSTATUS Status;
-    PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
+    PKPROCESS CallingProcess;
     KAPC_STATE ApcState;
 
     /* Attach to CSRSS */
@@ -161,7 +162,7 @@ IntInt10CallBios(
     /* Clear the context */
     RtlZeroMemory(&BiosContext, sizeof(CONTEXT));
 
-    /* Fill out the bios arguments */
+    /* Fil out the bios arguments */
     BiosContext.Eax = BiosArguments->Eax;
     BiosContext.Ebx = BiosArguments->Ebx;
     BiosContext.Ecx = BiosArguments->Ecx;
@@ -199,48 +200,48 @@ IntInt10CallBios(
 
 VP_STATUS NTAPI
 VideoPortInt10(
-    IN PVOID HwDeviceExtension,
-    IN PVIDEO_X86_BIOS_ARGUMENTS BiosArguments)
+   IN PVOID HwDeviceExtension,
+   IN PVIDEO_X86_BIOS_ARGUMENTS BiosArguments)
 {
-    CONTEXT BiosContext;
-    NTSTATUS Status;
-    PKPROCESS CallingProcess = (PKPROCESS)PsGetCurrentProcess();
-    KAPC_STATE ApcState;
+   KV86M_REGISTERS Regs;
+   NTSTATUS Status;
+   PKPROCESS CallingProcess;
+   KAPC_STATE ApcState;
 
-    if (!CsrssInitialized)
-    {
-       return ERROR_INVALID_PARAMETER;
-    }
+   DPRINT("VideoPortInt10\n");
 
-    /* Attach to CSRSS */
-    IntAttachToCSRSS(&CallingProcess, &ApcState);
+   if (!CsrssInitialized)
+   {
+      return ERROR_INVALID_PARAMETER;
+   }
 
-    /* Clear the context */
-    RtlZeroMemory(&BiosContext, sizeof(CONTEXT));
+   IntAttachToCSRSS(&CallingProcess, &ApcState);
 
-    /* Fill out the bios arguments */
-    BiosContext.Eax = BiosArguments->Eax;
-    BiosContext.Ebx = BiosArguments->Ebx;
-    BiosContext.Ecx = BiosArguments->Ecx;
-    BiosContext.Edx = BiosArguments->Edx;
-    BiosContext.Esi = BiosArguments->Esi;
-    BiosContext.Edi = BiosArguments->Edi;
-    BiosContext.Ebp = BiosArguments->Ebp;
+   memset(&Regs, 0, sizeof(Regs));
+   DPRINT("- Input register Eax: %x\n", BiosArguments->Eax);
+   Regs.Eax = BiosArguments->Eax;
+   DPRINT("- Input register Ebx: %x\n", BiosArguments->Ebx);
+   Regs.Ebx = BiosArguments->Ebx;
+   DPRINT("- Input register Ecx: %x\n", BiosArguments->Ecx);
+   Regs.Ecx = BiosArguments->Ecx;
+   DPRINT("- Input register Edx: %x\n", BiosArguments->Edx);
+   Regs.Edx = BiosArguments->Edx;
+   DPRINT("- Input register Esi: %x\n", BiosArguments->Esi);
+   Regs.Esi = BiosArguments->Esi;
+   DPRINT("- Input register Edi: %x\n", BiosArguments->Edi);
+   Regs.Edi = BiosArguments->Edi;
+   DPRINT("- Input register Ebp: %x\n", BiosArguments->Ebp);
+   Regs.Ebp = BiosArguments->Ebp;
+   Status = Ke386CallBios(0x10, (PCONTEXT)&Regs);
+   BiosArguments->Eax = Regs.Eax;
+   BiosArguments->Ebx = Regs.Ebx;
+   BiosArguments->Ecx = Regs.Ecx;
+   BiosArguments->Edx = Regs.Edx;
+   BiosArguments->Esi = Regs.Esi;
+   BiosArguments->Edi = Regs.Edi;
+   BiosArguments->Ebp = Regs.Ebp;
 
-    /* Do the ROM BIOS call */
-    Status = Ke386CallBios(0x10, &BiosContext);
+   IntDetachFromCSRSS(&CallingProcess, &ApcState);
 
-    /* Return the arguments */
-    BiosArguments->Eax = BiosContext.Eax;
-    BiosArguments->Ebx = BiosContext.Ebx;
-    BiosArguments->Ecx = BiosContext.Ecx;
-    BiosArguments->Edx = BiosContext.Edx;
-    BiosArguments->Esi = BiosContext.Esi;
-    BiosArguments->Edi = BiosContext.Edi;
-    BiosArguments->Ebp = BiosContext.Ebp;
-
-    /* Detach from CSRSS */
-    IntDetachFromCSRSS(&CallingProcess, &ApcState);
-
-    return Status;
+   return Status;
 }

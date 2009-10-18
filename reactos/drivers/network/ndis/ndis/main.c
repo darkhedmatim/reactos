@@ -14,14 +14,12 @@
 #include "ndissys.h"
 
 
-#if DBG
+#ifdef DBG
 
 /* See debug.h for debug/trace constants */
 ULONG DebugTraceLevel = MIN_TRACE;
 
 #endif /* DBG */
-
-LONG CancelId;
 
 
 VOID NTAPI MainUnload(
@@ -62,8 +60,6 @@ DriverEntry(
   KeInitializeSpinLock(&AdapterListLock);
 
   DriverObject->DriverUnload = MainUnload;
-
-  CancelId = 0;
 
   return STATUS_SUCCESS;
 }
@@ -121,7 +117,7 @@ NdisWriteEventLogEntry(
  *     DataSize: number of bytes in Data
  *     Data: binary dump data to help analyzing the event
  * NOTES:
- *     - NTAPI, not CDECL like WriteError...
+ *     - STDCALL, not CDECL like WriteError...
  *     - FIXME Needs to use the real log interface, once there is one
  */
 {

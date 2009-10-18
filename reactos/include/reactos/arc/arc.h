@@ -30,26 +30,6 @@ typedef enum _ARC_CODES
     EMAXIMUM
 } ARC_CODES;
 
-typedef enum _SEEKMODE
-{
-    SeekAbsolute,
-    SeekRelative,
-} SEEKMODE;
-
-typedef enum _OPENMODE
-{
-    OpenReadOnly,
-    OpenWriteOnly,
-    OpenReadWrite,
-    CreateWriteOnly,
-    CreateReadOnly,
-    SupersedeWriteOnly,
-    SupersedeReadOnly,
-    SupersedeReadWrite,
-    OpenDirectory,
-    CreateDirectory,
-} OPENMODE;
-
 typedef enum _IDENTIFIER_FLAG
 {
     Failed = 0x01,
@@ -103,7 +83,6 @@ typedef enum _TYPE_OF_MEMORY
     LoaderXIPRom,
     LoaderHALCachedMemory,
     LoaderLargePageFiller,
-    LoaderErrorLogMemory,
     LoaderMaximum
 } TYPE_OF_MEMORY;
 
@@ -120,16 +99,6 @@ typedef enum _MEMORY_TYPE
     MemorySpecialMemory,
     MemoryMaximum
 } MEMORY_TYPE;
-
-typedef struct _TIMEINFO
-{
-    USHORT Year;
-    USHORT Month;
-    USHORT Day;
-    USHORT Hour;
-    USHORT Minute;
-    USHORT Second;
-} TIMEINFO;
 
 typedef struct _MEMORY_DESCRIPTOR
 {
@@ -148,10 +117,10 @@ typedef struct _MEMORY_ALLOCATION_DESCRIPTOR
 
 typedef struct _BOOT_DRIVER_LIST_ENTRY
 {
-    LIST_ENTRY Link;
+    LIST_ENTRY ListEntry;
     UNICODE_STRING FilePath;
     UNICODE_STRING RegistryPath;
-    struct _LDR_DATA_TABLE_ENTRY *LdrEntry;
+    struct _LDR_DATA_TABLE_ENTRY *DataTableEntry;
 } BOOT_DRIVER_LIST_ENTRY, *PBOOT_DRIVER_LIST_ENTRY;
 
 typedef struct _ARC_DISK_SIGNATURE
@@ -348,11 +317,6 @@ typedef struct _LOADER_PARAMETER_EXTENSION
     LIST_ENTRY BootApplicationPersistentData;
     PVOID WmdTestResult;
     GUID BootIdentifier;
-    //
-    // NT 6
-    //
-    ULONG ResumePages;
-    PVOID DumpHeader;
 } LOADER_PARAMETER_EXTENSION, *PLOADER_PARAMETER_EXTENSION;
 
 //
@@ -378,76 +342,7 @@ typedef struct _I386_LOADER_BLOCK
 typedef struct _PPC_LOADER_BLOCK
 {
     PVOID BootInfo;
-    ULONG MachineType;
 } PPC_LOADER_BLOCK, *PPPC_LOADER_BLOCK;
-
-typedef struct _ARM_LOADER_BLOCK
-{
-#ifdef _ARM_
-    ULONG InterruptStack;
-    ULONG FirstLevelDcacheSize;
-    ULONG FirstLevelDcacheFillSize;
-    ULONG FirstLevelIcacheSize;
-    ULONG FirstLevelIcacheFillSize;
-    ULONG GpBase;
-    ULONG PanicStack;
-    ULONG PcrPage;
-    ULONG PdrPage;
-    ULONG SecondLevelDcacheSize;
-    ULONG SecondLevelDcacheFillSize;
-    ULONG SecondLevelIcacheSize;
-    ULONG SecondLevelIcacheFillSize;
-    ULONG PcrPage2;
-#else
-    ULONG PlaceHolder;
-#endif
-} ARM_LOADER_BLOCK, *PARM_LOADER_BLOCK;
-
-//
-// Firmware information block (NT6+)
-//
-
-typedef struct _VIRTUAL_EFI_RUNTIME_SERVICES
-{
-    ULONG_PTR GetTime;
-    ULONG_PTR SetTime;
-    ULONG_PTR GetWakeupTime;
-    ULONG_PTR SetWakeupTime;
-    ULONG_PTR SetVirtualAddressMap;
-    ULONG_PTR ConvertPointer;
-    ULONG_PTR GetVariable;
-    ULONG_PTR GetNextVariableName;
-    ULONG_PTR SetVariable;
-    ULONG_PTR GetNextHighMonotonicCount;
-    ULONG_PTR ResetSystem;
-    ULONG_PTR UpdateCapsule;
-    ULONG_PTR QueryCapsuleCapabilities;
-    ULONG_PTR QueryVariableInfo;
-} VIRTUAL_EFI_RUNTIME_SERVICES, *PVIRTUAL_EFI_RUNTIME_SERVICES;
-
-typedef struct _EFI_FIRMWARE_INFORMATION
-{
-    ULONG FirmwareVersion;
-    PVIRTUAL_EFI_RUNTIME_SERVICES VirtualEfiRuntimeServices;
-    ULONG SetVirtualAddressMapStatus;
-    ULONG MissedMappingsCount;
-} EFI_FIRMWARE_INFORMATION, *PEFI_FIRMWARE_INFORMATION;
-
-typedef struct _PCAT_FIRMWARE_INFORMATION
-{
-    ULONG PlaceHolder;
-} PCAT_FIRMWARE_INFORMATION, *PPCAT_FIRMWARE_INFORMATION;
-
-typedef struct _FIRMWARE_INFORMATION_LOADER_BLOCK
-{
-    ULONG FirmwareTypeEfi:1;
-    ULONG Reserved:31;
-    union
-    {
-        EFI_FIRMWARE_INFORMATION EfiInformation;
-        PCAT_FIRMWARE_INFORMATION PcatInformation;
-    } u;
-} FIRMWARE_INFORMATION_LOADER_BLOCK, *PFIRMWARE_INFORMATION_LOADER_BLOCK;
 
 //
 // Loader Parameter Block
@@ -478,28 +373,9 @@ typedef struct _LOADER_PARAMETER_BLOCK
     {
         I386_LOADER_BLOCK I386;
         ALPHA_LOADER_BLOCK Alpha;
-        IA64_LOADER_BLOCK IA64;
-        PPC_LOADER_BLOCK PowerPC;
-        ARM_LOADER_BLOCK Arm;
+        IA64_LOADER_BLOCK Ia64;
+	PPC_LOADER_BLOCK PowerPC;
     } u;
-    FIRMWARE_INFORMATION_LOADER_BLOCK FirmwareInformation;
 } LOADER_PARAMETER_BLOCK, *PLOADER_PARAMETER_BLOCK;
 
-typedef int CONFIGTYPE;
-typedef struct tagFILEINFORMATION
-{
-    LARGE_INTEGER StartingAddress;
-    LARGE_INTEGER EndingAddress;
-    LARGE_INTEGER CurrentAddress;
-    CONFIGTYPE Type;
-    ULONG FileNameLength;
-    UCHAR Attributes;
-    CHAR Filename[32];
-} FILEINFORMATION;
-
-typedef LONG (*ARC_CLOSE)(ULONG FileId);
-typedef LONG (*ARC_GET_FILE_INFORMATION)(ULONG FileId, FILEINFORMATION* Information);
-typedef LONG (*ARC_OPEN)(CHAR* Path, OPENMODE OpenMode, ULONG* FileId);
-typedef LONG (*ARC_READ)(ULONG FileId, VOID* Buffer, ULONG N, ULONG* Count);
-typedef LONG (*ARC_SEEK)(ULONG FileId, LARGE_INTEGER* Position, SEEKMODE SeekMode);
 #endif

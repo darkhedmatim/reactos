@@ -7,9 +7,6 @@
 <directory name="bus">
 	<xi:include href="bus/directory.rbuild" />
 </directory>
-<directory name="directx">
-	<xi:include href="directx/directory.rbuild" />
-</directory>
 <directory name="filesystems">
 	<xi:include href="filesystems/directory.rbuild" />
 </directory>

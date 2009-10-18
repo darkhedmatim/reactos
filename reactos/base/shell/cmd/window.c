@@ -158,7 +158,9 @@ static INT ServiceActivate (LPTSTR param, HWND hWnd)
 
 	if (iAction & A_CLOSE)
 	{
-		FIXME("!!!FIXME:  CLOSE Not implemented!!!\n");
+#ifdef _DEBUG
+		ConErrPrintf(_T("!!!FIXME:  CLOSE Not implemented!!!\n"));
+#endif
 	}
 
 	wp.length = sizeof(WINDOWPLACEMENT);
@@ -173,7 +175,7 @@ static INT ServiceActivate (LPTSTR param, HWND hWnd)
 
 
 
-INT CommandWindow (LPTSTR param)
+INT CommandWindow (LPTSTR cmd, LPTSTR param)
 {
 	HWND hwnd;
 
@@ -189,7 +191,7 @@ INT CommandWindow (LPTSTR param)
 }
 
 
-INT CommandActivate (LPTSTR param)
+INT CommandActivate (LPTSTR cmd, LPTSTR param)
 {
 	HWND hwnd;
 	LPTSTR *arg;

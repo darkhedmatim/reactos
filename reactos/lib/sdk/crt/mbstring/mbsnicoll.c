@@ -1,5 +1,3 @@
-
-#include <precomp.h>
 #include <mbstring.h>
 
 /*
@@ -7,8 +5,7 @@
  */
 int _mbsnicoll(const unsigned char *s1, const unsigned char *s2, size_t n)
 {
-    WARN("_mbsnicoll unimplemented\n");
-    return 0;
+  return 0;
 }
 
 /*
@@ -16,6 +13,5 @@ int _mbsnicoll(const unsigned char *s1, const unsigned char *s2, size_t n)
  */
 int _mbsnbicoll(const unsigned char *s1, const unsigned char *s2, size_t n)
 {
-    WARN("_mbsnbicoll unimplemented\n");
-    return 0;
+  return 0;
 }

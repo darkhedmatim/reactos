@@ -20,7 +20,6 @@
 #ifndef __FAT_H
 #define __FAT_H
 
-#include <pshpack1.h>
 typedef struct _FAT_BOOTSECTOR
 {
 	UCHAR		JumpBoot[3];				// Jump instruction to boot code
@@ -48,7 +47,7 @@ typedef struct _FAT_BOOTSECTOR
 
 	USHORT		BootSectorMagic;			// 0xAA55
 
-} FAT_BOOTSECTOR, *PFAT_BOOTSECTOR;
+} PACKED FAT_BOOTSECTOR, *PFAT_BOOTSECTOR;
 
 typedef struct _FAT32_BOOTSECTOR
 {
@@ -84,7 +83,7 @@ typedef struct _FAT32_BOOTSECTOR
 
 	USHORT		BootSectorMagic;			// 0xAA55
 
-} FAT32_BOOTSECTOR, *PFAT32_BOOTSECTOR;
+} PACKED FAT32_BOOTSECTOR, *PFAT32_BOOTSECTOR;
 
 typedef struct _FATX_BOOTSECTOR
 {
@@ -95,7 +94,7 @@ typedef struct _FATX_BOOTSECTOR
 	ULONG		Unknown;				/* Always 0? */
 	UCHAR		Unused[494];				/* Actually size should be 4078 (boot block is 4096 bytes) */
 
-} FATX_BOOTSECTOR, *PFATX_BOOTSECTOR;
+} PACKED FATX_BOOTSECTOR, *PFATX_BOOTSECTOR;
 
 /*
  * Structure of MSDOS directory entry
@@ -114,7 +113,7 @@ typedef struct //_DIRENTRY
 	USHORT	Date;		/* Date last modified */
 	USHORT	ClusterLow;	/* First cluster number low word */
 	ULONG	Size;		/* File size */
-} DIRENTRY, * PDIRENTRY;
+} PACKED DIRENTRY, * PDIRENTRY;
 
 typedef struct
 {
@@ -126,7 +125,7 @@ typedef struct
 	WCHAR	Name5_10[6];		/* 6 more characters in name */
 	USHORT	StartCluster;		/* Starting cluster number */
 	WCHAR	Name11_12[2];		/* Last 2 characters in name */
-} LFN_DIRENTRY, * PLFN_DIRENTRY;
+} PACKED LFN_DIRENTRY, * PLFN_DIRENTRY;
 
 typedef struct
 {
@@ -141,20 +140,37 @@ typedef struct
 	USHORT	CreateDate;	/* Date file was created */
 	USHORT	LastAccessTime;	/* Time file was last accessed */
 	USHORT	LastAccessDate;	/* Date file was last accessed */
-} FATX_DIRENTRY, * PFATX_DIRENTRY;
-#include <poppack.h>
-
-typedef struct _FAT_VOLUME_INFO *PFAT_VOLUME_INFO;
+} PACKED FATX_DIRENTRY, * PFATX_DIRENTRY;
 
 typedef struct
 {
-	UCHAR	Attributes;		/* File attributes */
 	ULONG	FileSize;		/* File size */
 	ULONG	FilePointer;		/* File pointer */
 	ULONG*	FileFatChain;		/* File fat chain array */
 	ULONG	DriveNumber;
-	PFAT_VOLUME_INFO	Volume;
 } FAT_FILE_INFO, * PFAT_FILE_INFO;
+
+
+
+BOOLEAN	FatOpenVolume(ULONG DriveNumber, ULONG VolumeStartSector, ULONG PartitionSectorCount);
+ULONG	FatDetermineFatType(PFAT_BOOTSECTOR FatBootSector, ULONG PartitionSectorCount);
+PVOID	FatBufferDirectory(ULONG DirectoryStartCluster, ULONG* EntryCountPointer, BOOLEAN RootDirectory);
+BOOLEAN	FatSearchDirectoryBufferForFile(PVOID DirectoryBuffer, ULONG EntryCount, PCHAR FileName, PFAT_FILE_INFO FatFileInfoPointer);
+BOOLEAN	FatLookupFile(PCSTR FileName, PFAT_FILE_INFO FatFileInfoPointer);
+void	FatParseShortFileName(PCHAR Buffer, PDIRENTRY DirEntry);
+BOOLEAN	FatGetFatEntry(ULONG Cluster, ULONG* ClusterPointer);
+FILE*	FatOpenFile(PCSTR FileName);
+ULONG	FatCountClustersInChain(ULONG StartCluster);
+ULONG*	FatGetClusterChainArray(ULONG StartCluster);
+BOOLEAN	FatReadCluster(ULONG ClusterNumber, PVOID Buffer);
+BOOLEAN	FatReadClusterChain(ULONG StartClusterNumber, ULONG NumberOfClusters, PVOID Buffer);
+BOOLEAN	FatReadPartialCluster(ULONG ClusterNumber, ULONG StartingOffset, ULONG Length, PVOID Buffer);
+BOOLEAN	FatReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
+ULONG		FatGetFileSize(FILE *FileHandle);
+VOID	FatSetFilePointer(FILE *FileHandle, ULONG NewFilePointer);
+ULONG		FatGetFilePointer(FILE *FileHandle);
+BOOLEAN	FatReadVolumeSectors(ULONG DriveNumber, ULONG SectorNumber, ULONG SectorCount, PVOID Buffer);
+
 
 #define	ATTR_NORMAL		0x00
 #define	ATTR_READONLY	0x01
@@ -172,7 +188,5 @@ typedef struct
 #define FATX32			5
 
 #define ISFATX(FT) ((FT) == FATX16 || (FT) == FATX32)
-
-const DEVVTBL* FatMount(ULONG DeviceId);
 
 #endif // #defined __FAT_H

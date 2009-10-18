@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -106,7 +107,7 @@ CmpCompressedNameSize(IN PWCHAR Name,
 
 LONG
 NTAPI
-CmpCompareCompressedName(IN PCUNICODE_STRING SearchName,
+CmpCompareCompressedName(IN PUNICODE_STRING SearchName,
                          IN PWCHAR CompressedName,
                          IN ULONG NameLength)
 {

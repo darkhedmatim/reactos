@@ -24,12 +24,14 @@
 /* Image_Open, Image_Closed, and Image_Root - integer variables for indexes of the images.  */
 /* CX_ICON and CY_ICON - width and height of an icon.  */
 /* NUM_ICON - number of icons to add to the image list.  */
-static int Image_Open = 0;
-static int Image_Closed = 0;
-static int Image_Root = 0;
+int Image_Open;
+int Image_Closed;
+int Image_Root;
 
 static LPTSTR pathBuffer;
 
+#define CX_ICON    16
+#define CY_ICON    16
 #define NUM_ICONS    3
 
 static BOOL get_item_path(HWND hwndTV, HTREEITEM hItem, HKEY* phKey, LPTSTR* pKeyPath, int* pPathLen, int* pMaxLen)
@@ -216,17 +218,7 @@ BOOL RefreshTreeItem(HWND hwndTV, HTREEITEM hItem)
             pszNodes[dwActualSize] = '\0';
     }
 
-    /* Now go through all the children in the tree, and check if any have to be removed. */
-    childItem = TreeView_GetChild(hwndTV, hItem);
-    while (childItem) {
-        HTREEITEM nextItem = TreeView_GetNextSibling(hwndTV, childItem);
-        if (RefreshTreeItem(hwndTV, childItem) == FALSE) {
-            (void)TreeView_DeleteItem(hwndTV, childItem);
-        }
-        childItem = nextItem;
-    }
-
-	/* Now go through all the children in the registry, and check if any have to be added. */
+    /* Now go through all the children in the registry, and check if any have to be added. */
     bAddedAny = FALSE;
     for (dwIndex = 0; dwIndex < dwCount; dwIndex++) {
         DWORD cName = dwMaxSubKeyLen, dwSubCount;
@@ -266,6 +258,15 @@ BOOL RefreshTreeItem(HWND hwndTV, HTREEITEM hItem)
     if (bAddedAny)
         SendMessage(hwndTV, TVM_SORTCHILDREN, 0, (LPARAM) hItem);
 
+    /* Now go through all the children in the tree, and check if any have to be removed. */
+    childItem = TreeView_GetChild(hwndTV, hItem);
+    while (childItem) {
+        HTREEITEM nextItem = TreeView_GetNextSibling(hwndTV, childItem);
+        if (RefreshTreeItem(hwndTV, childItem) == FALSE) {
+            (void)TreeView_DeleteItem(hwndTV, childItem);
+        }
+        childItem = nextItem;
+    }
     bSuccess = TRUE;
 
 done:
@@ -294,7 +295,7 @@ BOOL RefreshTreeView(HWND hwndTV)
 
     SendMessage(hwndTV, WM_SETREDRAW, TRUE, 0);
     SetCursor(hcursorOld);
-
+    
     /* We reselect the currently selected node, this will prompt a refresh of the listview. */
     (void)TreeView_SelectItem(hwndTV, hSelectedItem);
     return TRUE;
@@ -345,7 +346,7 @@ HTREEITEM InsertNode(HWND hwndTV, HTREEITEM hItem, LPTSTR name)
             item.cchTextMax = COUNT_OF(buf);
             if (!TreeView_GetItem(hwndTV, &item)) continue;
             if (lstrcmp(name, item.pszText) == 0) break;
-        }
+        }	
     }
     if (hNewItem) (void)TreeView_SelectItem(hwndTV, hNewItem);
 
@@ -393,7 +394,7 @@ static BOOL InitTreeViewItems(HWND hwndTV, LPTSTR pHostName)
         /* Win9x specific key */
         if (!AddEntryToTree(hwndTV, hRoot, _T("HKEY_DYN_DATA"), HKEY_DYN_DATA, 1)) return FALSE;
 	}
-
+    
     /* expand and select host name */
     (void)TreeView_Expand(hwndTV, hRoot, TVE_EXPAND);
     (void)TreeView_Select(hwndTV, hRoot, TVGN_CARET);
@@ -413,57 +414,24 @@ static BOOL InitTreeViewImageLists(HWND hwndTV)
     HICON hico;       /* handle to icon  */
 
     /* Create the image list.  */
-    if ((himl = ImageList_Create(GetSystemMetrics(SM_CXSMICON),
-                                 GetSystemMetrics(SM_CYSMICON),
-                                 ILC_MASK | ILC_COLOR32,
-                                 0,
-                                 NUM_ICONS)) == NULL)
-    {
+    if ((himl = ImageList_Create(CX_ICON, CY_ICON,
+                                 ILC_MASK|ILC_COLOR32, 0, NUM_ICONS)) == NULL)
         return FALSE;
-    }
 
     /* Add the open file, closed file, and document bitmaps.  */
-    hico = LoadImage(hInst,
-                     MAKEINTRESOURCE(IDI_OPEN_FILE),
-                     IMAGE_ICON,
-                     GetSystemMetrics(SM_CXSMICON),
-                     GetSystemMetrics(SM_CYSMICON),
-                     0);
-    if (hico)
-    {
-            Image_Open = ImageList_AddIcon(himl, hico);
-            DestroyIcon(hico);
-    }
+    hico = LoadIcon(hInst, MAKEINTRESOURCE(IDI_OPEN_FILE));
+    Image_Open = ImageList_AddIcon(himl, hico);
 
-    hico = LoadImage(hInst,
-                     MAKEINTRESOURCE(IDI_CLOSED_FILE),
-                     IMAGE_ICON,
-                     GetSystemMetrics(SM_CXSMICON),
-                     GetSystemMetrics(SM_CYSMICON),
-                     0);
-    if (hico)
-    {
-            Image_Closed = ImageList_AddIcon(himl, hico);
-            DestroyIcon(hico);
-    }
+    hico = LoadIcon(hInst, MAKEINTRESOURCE(IDI_CLOSED_FILE));
+    Image_Closed = ImageList_AddIcon(himl, hico);
 
-    hico = LoadImage(hInst,
-                     MAKEINTRESOURCE(IDI_ROOT),
-                     IMAGE_ICON,
-                     GetSystemMetrics(SM_CXSMICON),
-                     GetSystemMetrics(SM_CYSMICON),
-                     0);
-    if (hico)
-    {
-            Image_Root = ImageList_AddIcon(himl, hico);
-            DestroyIcon(hico);
-    }
+    hico = LoadIcon(hInst, MAKEINTRESOURCE(IDI_ROOT));
+    Image_Root = ImageList_AddIcon(himl, hico);
 
     /* Fail if not all of the images were added.  */
     if (ImageList_GetImageCount(himl) < NUM_ICONS)
     {
-        ImageList_Destroy(himl);
-        return FALSE;
+      return FALSE;
     }
 
     /* Associate the image list with the tree view control.  */
@@ -634,7 +602,7 @@ BOOL SelectNode(HWND hwndTV, LPCTSTR keyPath)
 
 	while(keyPath[0])
 	{
-		s = _tcschr(keyPath, TEXT('\\'));
+		s = _tcschr(keyPath, '\\');
 		lstrcpyn(szPathPart, keyPath, s ? s - keyPath + 1 : _tcslen(keyPath) + 1);
 
 		/* Special case for root to expand root key abbreviations */
@@ -687,5 +655,4 @@ BOOL SelectNode(HWND hwndTV, LPCTSTR keyPath)
 
 	return TRUE;
 }
-
 

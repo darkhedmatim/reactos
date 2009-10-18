@@ -30,7 +30,6 @@ Include::Include ( const Project& project,
 	  node ( includeNode ),
 	  module ( NULL )
 {
-	Initialize ();
 }
 
 Include::Include ( const Project& project,
@@ -41,7 +40,6 @@ Include::Include ( const Project& project,
 	  node ( includeNode ),
 	  module ( module )
 {
-	Initialize ();
 }
 
 Include::Include ( const Project& project,
@@ -55,8 +53,6 @@ Include::Include ( const Project& project,
 
 Include::~Include()
 {
-	if ( directory )
-		delete directory;
 }
 
 void
@@ -112,8 +108,7 @@ Include::ProcessXML ()
 
 	directory = new FileLocation ( root,
 	                               relative_path,
-	                               "",
-	                               node );
+	                               "" );
 }
 
 DirectoryLocation
@@ -122,16 +117,8 @@ Include::GetDefaultDirectoryTree ( const Module* module ) const
 	if ( module != NULL &&
 	     ( module->type == RpcServer ||
 	       module->type == RpcClient ||
-	       module->type == RpcProxy ||
-		   module->type == IdlHeader ||
-	       module->type == IdlInterface) )
+	       module->type == IdlHeader) )
 		return IntermediateDirectory;
 	else
 		return SourceDirectory;
-}
-
-void
-Include::Initialize ()
-{
-	ParseCompilers ( *node, "cpp" );
 }

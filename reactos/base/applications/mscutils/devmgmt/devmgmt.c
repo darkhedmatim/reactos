@@ -35,6 +35,8 @@ _tWinMain(HINSTANCE hThisInstance,
         return 0;
     }
 
+
+
     hInstance = hThisInstance;
     ProcessHeap = GetProcessHeap();
 

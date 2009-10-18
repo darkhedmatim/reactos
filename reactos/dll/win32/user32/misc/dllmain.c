@@ -1,192 +1,16 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
-
-#define KEY_LENGTH 1024
 
 static ULONG User32TlsIndex;
 HINSTANCE User32Instance;
-
-PPROCESSINFO g_ppi = NULL;
 PUSER_HANDLE_TABLE gHandleTable = NULL;
-PUSER_HANDLE_ENTRY gHandleEntries = NULL;
-PSERVERINFO gpsi = NULL;
-ULONG_PTR g_ulSharedDelta;
-BOOL gfServerProcess = FALSE;
 
-WCHAR szAppInit[KEY_LENGTH];
 
 PUSER32_THREAD_DATA
 User32GetThreadData()
 {
    return ((PUSER32_THREAD_DATA)TlsGetValue(User32TlsIndex));
-}
-
-
-BOOL
-GetDllList()
-{
-    NTSTATUS Status;
-    OBJECT_ATTRIBUTES Attributes;
-    BOOL bRet = FALSE;
-    BOOL bLoad;
-    HANDLE hKey = NULL;
-    DWORD dwSize;
-    PKEY_VALUE_PARTIAL_INFORMATION kvpInfo = NULL;
-
-    UNICODE_STRING szKeyName = RTL_CONSTANT_STRING(L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows");
-    UNICODE_STRING szLoadName = RTL_CONSTANT_STRING(L"LoadAppInit_DLLs");
-    UNICODE_STRING szDllsName = RTL_CONSTANT_STRING(L"AppInit_DLLs");
-
-    InitializeObjectAttributes(&Attributes, &szKeyName, OBJ_CASE_INSENSITIVE, NULL, NULL);
-    Status = NtOpenKey(&hKey, KEY_READ, &Attributes);
-    if (NT_SUCCESS(Status))
-    {
-        dwSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + sizeof(DWORD);
-        kvpInfo = HeapAlloc(GetProcessHeap(), 0, dwSize);
-        if (!kvpInfo)
-            goto end;
-
-        Status = NtQueryValueKey(hKey,
-                                 &szLoadName,
-                                 KeyValuePartialInformation,
-                                 kvpInfo,
-                                 dwSize,
-                                 &dwSize);
-        if (!NT_SUCCESS(Status))
-            goto end;
-
-        RtlMoveMemory(&bLoad,
-                      kvpInfo->Data,
-                      kvpInfo->DataLength);
-
-        HeapFree(GetProcessHeap(), 0, kvpInfo);
-        kvpInfo = NULL;
-
-        if (bLoad)
-        {
-            Status = NtQueryValueKey(hKey,
-                                     &szDllsName,
-                                     KeyValuePartialInformation,
-                                     NULL,
-                                     0,
-                                     &dwSize);
-            if (Status != STATUS_BUFFER_TOO_SMALL)
-                goto end;
-
-            kvpInfo = HeapAlloc(GetProcessHeap(), 0, dwSize);
-            if (!kvpInfo)
-                goto end;
-
-            Status = NtQueryValueKey(hKey,
-                                     &szDllsName,
-                                     KeyValuePartialInformation,
-                                     kvpInfo,
-                                     dwSize,
-                                     &dwSize);
-            if (NT_SUCCESS(Status))
-            {
-                LPWSTR lpBuffer = (LPWSTR)kvpInfo->Data;
-                if (*lpBuffer != UNICODE_NULL)
-                {
-                    INT bytesToCopy, nullPos;
-
-                    bytesToCopy = min(kvpInfo->DataLength, KEY_LENGTH * sizeof(WCHAR));
-
-                    if (bytesToCopy != 0)
-                    {
-                        RtlMoveMemory(szAppInit,
-                                      kvpInfo->Data,
-                                      bytesToCopy);
-
-                        nullPos = (bytesToCopy / sizeof(WCHAR)) - 1;
-
-                        /* ensure string is terminated */
-                        szAppInit[nullPos] = UNICODE_NULL;
-
-                        bRet = TRUE;
-                    }
-                }
-            }
-        }
-    }
-
-end:
-    if (hKey)
-        NtClose(hKey);
-
-    if (kvpInfo)
-        HeapFree(GetProcessHeap(), 0, kvpInfo);
-
-    return bRet;
-}
-
-
-VOID
-LoadAppInitDlls()
-{
-    szAppInit[0] = UNICODE_NULL;
-
-    if (GetDllList())
-    {
-        WCHAR buffer[KEY_LENGTH];
-        LPWSTR ptr;
-		size_t i;
-
-        RtlCopyMemory(buffer, szAppInit, KEY_LENGTH);
-
-		for (i = 0; i < KEY_LENGTH; ++ i)
-		{
-			if(buffer[i] == L' ' || buffer[i] == L',')
-				buffer[i] = 0;
-		}
-
-		for (i = 0; i < KEY_LENGTH; )
-		{
-			if(buffer[i] == 0)
-				++ i;
-			else
-			{
-				ptr = buffer + i;
-				i += wcslen(ptr);
-				LoadLibraryW(ptr);
-			}
-		}
-    }
-}
-
-VOID
-UnloadAppInitDlls()
-{
-    if (szAppInit[0] != UNICODE_NULL)
-    {
-        WCHAR buffer[KEY_LENGTH];
-        HMODULE hModule;
-        LPWSTR ptr;
-		size_t i;
-
-        RtlCopyMemory(buffer, szAppInit, KEY_LENGTH);
-
-		for (i = 0; i < KEY_LENGTH; ++ i)
-		{
-			if(buffer[i] == L' ' || buffer[i] == L',')
-				buffer[i] = 0;
-		}
-
-		for (i = 0; i < KEY_LENGTH; )
-		{
-			if(buffer[i] == 0)
-				++ i;
-			else
-			{
-				ptr = buffer + i;
-				i += wcslen(ptr);
-				hModule = GetModuleHandleW(ptr);
-				FreeLibrary(hModule);
-			}
-		}
-    }
 }
 
 BOOL
@@ -216,41 +40,22 @@ CleanupThread(VOID)
 BOOL
 Init(VOID)
 {
-   USERCONNECT UserCon;
-
    /* Set up the kernel callbacks. */
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
+   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_WINDOWPROC] =
       (PVOID)User32CallWindowProcFromKernel;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
+   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_SENDASYNCPROC] =
       (PVOID)User32CallSendAsyncProcForKernel;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
+   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADSYSMENUTEMPLATE] =
       (PVOID)User32LoadSysMenuTemplateForKernel;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
+   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_LOADDEFAULTCURSORS] =
       (PVOID)User32SetupDefaultCursors;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
+   NtCurrentTeb()->ProcessEnvironmentBlock->KernelCallbackTable[USER32_CALLBACK_HOOKPROC] =
       (PVOID)User32CallHookProcFromKernel;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_EVENTPROC] =
-      (PVOID)User32CallEventProcFromKernel;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_LOADMENU] =
-      (PVOID)User32CallLoadMenuFromKernel;
-   NtCurrentPeb()->KernelCallbackTable[USER32_CALLBACK_CLIENTTHREADSTARTUP] =
-      (PVOID)User32CallClientThreadSetupFromKernel;
-
-   NtUserProcessConnect( NtCurrentProcess(),
-                         &UserCon,
-                         sizeof(USERCONNECT));
-
-   g_ppi = GetWin32ClientInfo()->ppi; // Snapshot PI, used as pointer only!
-   g_ulSharedDelta = UserCon.siClient.ulSharedDelta;
-   gpsi = SharedPtrToUser(UserCon.siClient.psi);
-   gHandleTable = SharedPtrToUser(UserCon.siClient.aheList);
-   gHandleEntries = SharedPtrToUser(gHandleTable->handles);
-
-   RtlInitializeCriticalSection(&gcsUserApiHook);
-   gfServerProcess = TRUE; // FIXME HAX! Used in CsrClientConnectToServer(,,,,&gfServerProcess);
-
-   //ERR("1 SI 0x%x : HT 0x%x : D 0x%x\n", UserCon.siClient.psi, UserCon.siClient.aheList,  g_ulSharedDelta);
-
+   {
+     PW32THREADINFO ti = (PW32THREADINFO)NtCurrentTeb()->Win32ThreadInfo;
+     PW32PROCESSINFO pi = ti->pi;
+     gHandleTable = (PUSER_HANDLE_TABLE) pi->UserHandleTable;
+   }
    /* Allocate an index for user32 thread local data. */
    User32TlsIndex = TlsAlloc();
    if (User32TlsIndex != TLS_OUT_OF_INDEXES)
@@ -262,7 +67,6 @@ Init(VOID)
             InitializeCriticalSection(&U32AccelCacheLock);
             GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
             InitStockObjects();
-            LoadAppInitDlls();
 
             return TRUE;
          }
@@ -281,12 +85,11 @@ Cleanup(VOID)
    MenuCleanup();
    MessageCleanup();
    DeleteFrameBrushes();
-   UnloadAppInitDlls();
    GdiDllInitialize(NULL, DLL_PROCESS_DETACH, NULL);
    TlsFree(User32TlsIndex);
 }
 
-INT WINAPI
+INT STDCALL
 DllMain(
    IN PVOID hInstanceDll,
    IN ULONG dwReason,
@@ -296,11 +99,10 @@ DllMain(
    {
       case DLL_PROCESS_ATTACH:
          User32Instance = hInstanceDll;
-         if (!RegisterClientPFN())
-         {
+         if (!NtUserRegisterUserModule(hInstanceDll))
              return FALSE;
-         }
 
+         hProcessHeap = RtlGetProcessHeap();
          if (!Init())
             return FALSE;
          if (!InitThread())
@@ -308,7 +110,7 @@ DllMain(
             Cleanup();
             return FALSE;
          }
-
+     
          /* Initialize message spying */
         if (!SPY_Init()) return FALSE;
 
@@ -324,7 +126,6 @@ DllMain(
          break;
 
       case DLL_PROCESS_DETACH:
-         if (hImmInstance) FreeLibrary(hImmInstance);
          CleanupThread();
          Cleanup();
          break;
@@ -332,39 +133,3 @@ DllMain(
 
    return TRUE;
 }
-
-
-VOID
-FASTCALL
-GetConnected(VOID)
-{
-  USERCONNECT UserCon;
-//  ERR("GetConnected\n");
-
-  if ((PTHREADINFO)NtCurrentTeb()->Win32ThreadInfo == NULL)
-     NtUserGetThreadState(THREADSTATE_GETTHREADINFO);
-
-  if (gpsi && g_ppi) return;
-// FIXME HAX: Due to the "Dll Initialization Bug" we have to call this too.
-  GdiDllInitialize(NULL, DLL_PROCESS_ATTACH, NULL);
-
-  NtUserProcessConnect( NtCurrentProcess(),
-                         &UserCon,
-                         sizeof(USERCONNECT));
-
-  g_ppi = GetWin32ClientInfo()->ppi;
-  g_ulSharedDelta = UserCon.siClient.ulSharedDelta;
-  gpsi = SharedPtrToUser(UserCon.siClient.psi);
-  gHandleTable = SharedPtrToUser(UserCon.siClient.aheList);
-  gHandleEntries = SharedPtrToUser(gHandleTable->handles);  
-  
-}
-
-NTSTATUS
-WINAPI
-User32CallClientThreadSetupFromKernel(PVOID Arguments, ULONG ArgumentLength)
-{
-  ERR("GetConnected\n");
-  return ZwCallbackReturn(NULL, 0, STATUS_SUCCESS);  
-}
-

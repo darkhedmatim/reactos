@@ -63,8 +63,8 @@ static inline IMoniker *impl_from_IROTData( IROTData *iface )
 }
 
 /* Local function used by filemoniker implementation */
-static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* iface, LPCOLESTR lpszPathName);
-static HRESULT FileMonikerImpl_Destroy(FileMonikerImpl* iface);
+static HRESULT WINAPI FileMonikerImpl_Construct(FileMonikerImpl* iface, LPCOLESTR lpszPathName);
+static HRESULT WINAPI FileMonikerImpl_Destroy(FileMonikerImpl* iface);
 
 /*******************************************************************************
  *        FileMoniker_QueryInterface
@@ -92,7 +92,7 @@ FileMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void** ppvObject)
         *ppvObject = iface;
 
     else if (IsEqualIID(&IID_IROTData, riid))
-        *ppvObject = &This->lpvtbl2;
+        *ppvObject = (IROTData*)&(This->lpvtbl2);
     else if (IsEqualIID(&IID_IMarshal, riid))
     {
         HRESULT hr = S_OK;
@@ -315,7 +315,7 @@ FileMonikerImpl_Load(IMoniker* iface, IStream* pStm)
  *
  * This function saves data of this object. In the beginning I thought
  * that I have just to write the filePath string on Stream. But, when I
- * tested this function with windows program samples, I noticed that it
+ * tested this function with windows programs samples, I noticed that it
  * was not the case. This implementation is based on XP SP2. Other versions
  * of Windows have minor variations.
  *
@@ -328,7 +328,7 @@ FileMonikerImpl_Load(IMoniker* iface, IStream* pStm)
  * 6) If we're only writing the multibyte version, 
  *     write a zero DWORD and finish.
  *
- * 7) DWORD: double-length of the path string type W ("\0" not
+ * 7) DWORD: double-length of the the path string type W ("\0" not
  *    included)
  * 8) WORD constant: 0x3
  * 9) filePath unicode string.
@@ -358,12 +358,12 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
 
     /* write a 0 WORD */
     res=IStream_Write(pStm,&ZERO,sizeof(WORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write length of filePath string ( 0 included )*/
     bytesA = WideCharToMultiByte( CP_ACP, 0, filePathW, -1, NULL, 0, NULL, NULL );
     res=IStream_Write(pStm,&bytesA,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write A string (with '\0') */
     filePathA=HeapAlloc(GetProcessHeap(),0,bytesA);
@@ -372,17 +372,17 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
     WideCharToMultiByte( CP_ACP, 0, filePathW, -1, filePathA, bytesA, NULL, &bUsedDefault);
     res=IStream_Write(pStm,filePathA,bytesA,NULL);
     HeapFree(GetProcessHeap(),0,filePathA);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write a DWORD 0xDEADFFFF */
     res=IStream_Write(pStm,&DEADFFFF,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write 5 zero DWORDs */
     for(i=0;i<5;i++)
     {
         res=IStream_Write(pStm,&ZERO,sizeof(DWORD),NULL);
-        if (FAILED(res)) return res;
+        if (!SUCCEEDED(res)) return res;
     }
 
     /* Write the wide version if:
@@ -414,16 +414,16 @@ FileMonikerImpl_Save(IMoniker* iface, IStream* pStm, BOOL fClearDirty)
     /* write bytes needed for the filepathW (without 0) + 6 */
     bytesW = len*sizeof(WCHAR) + 6;
     res=IStream_Write(pStm,&bytesW,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* try again, without the extra 6 */
     bytesW -= 6;
     res=IStream_Write(pStm,&bytesW,sizeof(DWORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write a WORD 3 */
     res=IStream_Write(pStm,&THREE,sizeof(WORD),NULL);
-    if (FAILED(res)) return res;
+    if (!SUCCEEDED(res)) return res;
 
     /* write W string (no 0) */
     res=IStream_Write(pStm,filePathW,bytesW,NULL);
@@ -456,7 +456,7 @@ FileMonikerImpl_GetSizeMax(IMoniker* iface, ULARGE_INTEGER* pcbSize)
 /******************************************************************************
  *        FileMoniker_Destroy (local function)
  *******************************************************************************/
-HRESULT FileMonikerImpl_Destroy(FileMonikerImpl* This)
+HRESULT WINAPI FileMonikerImpl_Destroy(FileMonikerImpl* This)
 {
     TRACE("(%p)\n",This);
 
@@ -560,7 +560,7 @@ FileMonikerImpl_BindToObject(IMoniker* iface, IBindCtx* pbc, IMoniker* pmkToLeft
         /* get the requested interface from the loaded class */
         res= IUnknown_QueryInterface(pObj,riid,ppvResult);
 
-        IBindCtx_RegisterObjectBound(pbc,*ppvResult);
+        IBindCtx_RegisterObjectBound(pbc,(IUnknown*)*ppvResult);
 
         IUnknown_Release(pObj);
     }
@@ -600,7 +600,7 @@ FileMonikerImpl_BindToStorage(IMoniker* iface, IBindCtx* pbc, IMoniker* pmkToLef
             /* get the file name */
             IMoniker_GetDisplayName(iface,pbc,pmkToLeft,&filePath);
 
-            /* verify if the file contains a storage object */
+            /* verifie if the file contains a storage object */
             res=StgIsStorageFile(filePath);
 
             if(res==S_OK){
@@ -679,7 +679,7 @@ FileMonikerImpl_ComposeWith(IMoniker* iface, IMoniker* pmkRight,
 
     IMoniker_IsSystemMoniker(pmkRight,&mkSys);
 
-    /* check if we have two FileMonikers to compose or not */
+    /* check if we have two filemonikers to compose or not */
     if(mkSys==MKSYS_FILEMONIKER){
 
         CreateBindCtx(0,&bind);
@@ -793,15 +793,13 @@ FileMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
     res = CreateBindCtx(0,&bind);
     if (FAILED(res)) return res;
 
-    res = S_FALSE;
     if (SUCCEEDED(IMoniker_GetDisplayName(pmkOtherMoniker,bind,NULL,&filePath))) {
-	if (!lstrcmpiW(filePath, This->filePathName))
-            res = S_OK;
+	int result = lstrcmpiW(filePath, This->filePathName);
 	CoTaskMemFree(filePath);
+        if ( result == 0 ) return S_OK;
     }
+    return S_FALSE;
 
-    IBindCtx_Release(bind);
-    return res;
 }
 
 /******************************************************************************
@@ -1264,7 +1262,7 @@ FileMonikerROTDataImpl_Release(IROTData* iface)
 }
 
 /******************************************************************************
- *        FileMonikerIROTData_GetComparisonData
+ *        FileMonikerIROTData_GetComparaisonData
  */
 static HRESULT WINAPI
 FileMonikerROTDataImpl_GetComparisonData(IROTData* iface, BYTE* pbData,
@@ -1333,7 +1331,8 @@ static const IROTDataVtbl VT_ROTDataImpl =
 /******************************************************************************
  *         FileMoniker_Construct (local function)
  */
-static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPathName)
+static HRESULT WINAPI
+FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPathName)
 {
     int nb=0,i;
     int sizeStr=lstrlenW(lpszPathName);
@@ -1344,7 +1343,7 @@ static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPa
 
     TRACE("(%p,%s)\n",This,debugstr_w(lpszPathName));
 
-    /* Initialize the virtual function table. */
+    /* Initialize the virtual fgunction table. */
     This->lpvtbl1      = &VT_FileMonikerImpl;
     This->lpvtbl2      = &VT_ROTDataImpl;
     This->ref          = 0;

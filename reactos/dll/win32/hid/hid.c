@@ -33,7 +33,7 @@ HINSTANCE hDllInstance;
 /* device interface GUID for HIDClass devices */
 const GUID HidClassGuid = {0x4D1E55B2, 0xF16F, 0x11CF, {0x88,0xCB,0x00,0x11,0x11,0x00,0x00,0x30}};
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpvReserved)
@@ -43,13 +43,13 @@ DllMain(HINSTANCE hinstDLL,
     case DLL_PROCESS_ATTACH:
       hDllInstance = hinstDLL;
       break;
-
+    
     case DLL_THREAD_ATTACH:
       break;
-
+    
     case DLL_THREAD_DETACH:
       break;
-
+    
     case DLL_PROCESS_DETACH:
       break;
   }
@@ -63,7 +63,7 @@ DllMain(HINSTANCE hinstDLL,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_FlushQueue(IN HANDLE HidDeviceObject)
 {
   DWORD RetLen;
@@ -80,7 +80,7 @@ HidD_FlushQueue(IN HANDLE HidDeviceObject)
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_FreePreparsedData(IN PHIDP_PREPARSED_DATA PreparsedData)
 {
   return (LocalFree((HLOCAL)PreparsedData) == NULL);
@@ -93,13 +93,13 @@ HidD_FreePreparsedData(IN PHIDP_PREPARSED_DATA PreparsedData)
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetAttributes(IN HANDLE HidDeviceObject,
                    OUT PHIDD_ATTRIBUTES Attributes)
 {
   HID_COLLECTION_INFORMATION hci;
   DWORD RetLen;
-
+  
   if(!DeviceIoControl(HidDeviceObject, IOCTL_HID_GET_COLLECTION_INFORMATION,
                                        NULL, 0,
                                        &hci, sizeof(HID_COLLECTION_INFORMATION),
@@ -107,13 +107,13 @@ HidD_GetAttributes(IN HANDLE HidDeviceObject,
   {
     return FALSE;
   }
-
+  
   /* copy the fields */
   Attributes->Size = sizeof(HIDD_ATTRIBUTES);
   Attributes->VendorID = hci.VendorID;
   Attributes->ProductID = hci.ProductID;
   Attributes->VersionNumber = hci.VersionNumber;
-
+  
   return TRUE;
 }
 
@@ -124,7 +124,7 @@ HidD_GetAttributes(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-NTSTATUS WINAPI
+NTSTATUS DDKAPI
 HidP_GetButtonCaps(IN HIDP_REPORT_TYPE ReportType,
                    OUT PHIDP_BUTTON_CAPS ButtonCaps,
                    IN OUT PULONG ButtonCapsLength,
@@ -141,7 +141,7 @@ HidP_GetButtonCaps(IN HIDP_REPORT_TYPE ReportType,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetFeature(IN HANDLE HidDeviceObject,
                 OUT PVOID ReportBuffer,
                 IN ULONG ReportBufferLength)
@@ -160,7 +160,7 @@ HidD_GetFeature(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-VOID WINAPI
+VOID DDKAPI
 HidD_GetHidGuid(OUT LPGUID HidGuid)
 {
   *HidGuid = HidClassGuid;
@@ -173,7 +173,7 @@ HidD_GetHidGuid(OUT LPGUID HidGuid)
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetInputReport(IN HANDLE HidDeviceObject,
                     IN OUT PVOID ReportBuffer,
                     IN ULONG ReportBufferLength)
@@ -192,7 +192,7 @@ HidD_GetInputReport(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetManufacturerString(IN HANDLE HidDeviceObject,
                            OUT PVOID Buffer,
                            IN ULONG BufferLength)
@@ -211,7 +211,7 @@ HidD_GetManufacturerString(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetNumInputBuffers(IN HANDLE HidDeviceObject,
                         OUT PULONG NumberBuffers)
 {
@@ -229,7 +229,7 @@ HidD_GetNumInputBuffers(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetPhysicalDescriptor(IN HANDLE HidDeviceObject,
                            OUT PVOID Buffer,
                            IN ULONG BufferLength)
@@ -248,19 +248,19 @@ HidD_GetPhysicalDescriptor(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetPreparsedData(IN HANDLE HidDeviceObject,
                       OUT PHIDP_PREPARSED_DATA *PreparsedData)
 {
   HID_COLLECTION_INFORMATION hci;
   DWORD RetLen;
   BOOL Ret;
-
+  
   if(PreparsedData == NULL)
   {
     return FALSE;
   }
-
+  
   if(!DeviceIoControl(HidDeviceObject, IOCTL_HID_GET_COLLECTION_INFORMATION,
                                        NULL, 0,
                                        &hci, sizeof(HID_COLLECTION_INFORMATION),
@@ -268,14 +268,14 @@ HidD_GetPreparsedData(IN HANDLE HidDeviceObject,
   {
     return FALSE;
   }
-
+  
   *PreparsedData = LocalAlloc(LHND, hci.DescriptorSize);
   if(*PreparsedData == NULL)
   {
     SetLastError(ERROR_NOT_ENOUGH_MEMORY);
     return FALSE;
   }
-
+  
   Ret = DeviceIoControl(HidDeviceObject, IOCTL_HID_GET_COLLECTION_DESCRIPTOR,
                         NULL, 0,
                         *PreparsedData, hci.DescriptorSize,
@@ -303,7 +303,7 @@ HidD_GetPreparsedData(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetProductString(IN HANDLE HidDeviceObject,
                       OUT PVOID Buffer,
                       IN ULONG BufferLength)
@@ -322,7 +322,7 @@ HidD_GetProductString(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_GetSerialNumberString(IN HANDLE HidDeviceObject,
                            OUT PVOID Buffer,
                            IN ULONG BufferLength)
@@ -341,7 +341,7 @@ HidD_GetSerialNumberString(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-NTSTATUS WINAPI
+NTSTATUS DDKAPI
 HidP_GetValueCaps(IN HIDP_REPORT_TYPE ReportType,
                   OUT PHIDP_VALUE_CAPS ValueCaps,
                   IN OUT PULONG ValueCapsLength,
@@ -364,17 +364,17 @@ HidP_GetValueCaps(IN HIDP_REPORT_TYPE ReportType,
  * @implemented
  */
 HIDAPI
-ULONG WINAPI
+ULONG DDKAPI
 HidD_Hello(OUT PCHAR Buffer,
            IN ULONG BufferLength)
 {
   const CHAR HelloString[] = "Hello\n";
-
+  
   if(BufferLength > 0)
   {
     memcpy(Buffer, HelloString, min(sizeof(HelloString), BufferLength));
   }
-
+  
   return sizeof(HelloString);
 }
 
@@ -385,7 +385,7 @@ HidD_Hello(OUT PCHAR Buffer,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_SetFeature(IN HANDLE HidDeviceObject,
                 IN PVOID ReportBuffer,
                 IN ULONG ReportBufferLength)
@@ -404,7 +404,7 @@ HidD_SetFeature(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_SetNumInputBuffers(IN HANDLE HidDeviceObject,
                         IN ULONG NumberBuffers)
 {
@@ -422,7 +422,7 @@ HidD_SetNumInputBuffers(IN HANDLE HidDeviceObject,
  * @implemented
  */
 HIDAPI
-BOOLEAN WINAPI
+BOOLEAN DDKAPI
 HidD_SetOutputReport(IN HANDLE HidDeviceObject,
                      IN PVOID ReportBuffer,
                      IN ULONG ReportBufferLength)

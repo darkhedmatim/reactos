@@ -154,7 +154,7 @@ DWORD CDECL IMalloc16_fnGetSize(IMalloc16* iface,SEGPTR pv)
  * IMalloc16_DidAlloc [COMPOBJ.507]
  */
 INT16 CDECL IMalloc16_fnDidAlloc(IMalloc16* iface,LPVOID pv) {
-        IMalloc16 *This = iface;
+        IMalloc16 *This = (IMalloc16 *)iface;
 	TRACE("(%p)->DidAlloc(%p)\n",This,pv);
 	return (INT16)-1;
 }
@@ -171,7 +171,7 @@ LPVOID CDECL IMalloc16_fnHeapMinimize(IMalloc16* iface) {
 /******************************************************************************
  * IMalloc16_Constructor [VTABLE]
  */
-static LPMALLOC16
+LPMALLOC16
 IMalloc16_Constructor(void)
 {
     static IMalloc16Vtbl vt16;
@@ -409,7 +409,7 @@ HRESULT WINAPI StringFromCLSID16(
  */
 HRESULT WINAPI ProgIDFromCLSID16(
   REFCLSID clsid, /* [in] class id as found in registry */
-  LPOLESTR16 *lplpszProgID/* [out] associated Program ID */
+  LPOLESTR16 *lplpszProgID/* [out] associated Prog ID */
 ) {
   static const WCHAR wszProgID[] = {'P','r','o','g','I','D',0};
   HKEY     hkey;
@@ -572,7 +572,7 @@ SEGPTR WINAPI CoMemAlloc(DWORD size, DWORD dwMemContext, DWORD x) {
 	TRACE("(%d, 0x%08x, 0x%08x)\n", size, dwMemContext, x);
 	hres = _xmalloc16(size, &segptr);
 	if (hres != S_OK)
-		return 0;
+		return (SEGPTR)0;
 	return segptr;
 }
 

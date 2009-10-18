@@ -1,11 +1,17 @@
 <?xml version="1.0"?>
 <!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
 <group xmlns:xi="http://www.w3.org/2001/XInclude">
-<module name="explorer" type="win32gui" installname="explorer.exe" unicode="yes">
+<module name="explorer" type="win32gui" installname="explorer.exe" allowwarnings="true" usewrc="false">
+	<linkerflag>-fexceptions</linkerflag>
 	<include base="explorer">.</include>
+	<define name="__USE_W32API" />
+	<define name="UNICODE" />
 	<define name="WIN32" />
+	<define name="_ROS_" />
+	<define name="_WIN32_IE">0x0600</define>
+	<define name="_WIN32_WINNT">0x0501</define>
+	<define name="WINVER">0x0500</define>
 	<define name="__WINDRES__" />
-	<library>advapi32</library>
 	<library>kernel32</library>
 	<library>gdi32</library>
 	<library>user32</library>
@@ -63,9 +69,8 @@
 	<file>explorer.cpp</file>
 	<file>i386-stub-win32.c</file>
 	<file>explorer.rc</file>
-	<linkerflag>--enable-stdcall-fixup</linkerflag>
 </module>
-<installfile installbase=".">explorer-cfg-template.xml</installfile>
+<installfile base=".">explorer-cfg-template.xml</installfile>
 <directory name="notifyhook">
 	<xi:include href="notifyhook/notifyhook.rbuild" />
 </directory>

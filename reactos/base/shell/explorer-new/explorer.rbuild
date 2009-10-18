@@ -3,13 +3,19 @@
 <module name="explorer_new" type="win32gui" installname="explorer_new.exe" unicode="true">
 	<include base="explorer_new">.</include>
 	<define name="WIN32" />
+	<define name="_WIN32_IE">0x0600</define>
+	<define name="_WIN32_WINNT">0x0600</define>
+	<define name="WINVER">0x0600</define>
 	<library>advapi32</library>
 	<library>kernel32</library>
 	<library>gdi32</library>
 	<library>user32</library>
 	<library>comctl32</library>
+	<library>msvcrt20</library>
+	<library>ntdll</library>
 	<library>ole32</library>
 	<library>oleaut32</library>
+	<library>shdocvw</library>
 	<library>shell32</library>
 	<library>shlwapi</library>
 	<library>uuid</library>

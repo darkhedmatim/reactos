@@ -4,9 +4,6 @@
 	<directory name="devmgmt">
 		<xi:include href="devmgmt/devmgmt.rbuild" />
 	</directory>
-	<directory name="eventvwr">
-		<xi:include href="eventvwr/eventvwr.rbuild" />
-	</directory>
 	<directory name="servman">
 		<xi:include href="servman/servman.rbuild" />
 	</directory>

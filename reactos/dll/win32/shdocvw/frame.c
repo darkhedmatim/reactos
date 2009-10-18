@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "wine/debug.h"
@@ -21,12 +21,12 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(shdocvw);
 
-#define INPLACEFRAME_THIS(iface) DEFINE_THIS(DocHost, OleInPlaceFrame, iface)
+#define INPLACEFRAME_THIS(iface) DEFINE_THIS(WebBrowser, OleInPlaceFrame, iface)
 
 static HRESULT WINAPI InPlaceFrame_QueryInterface(IOleInPlaceFrame *iface,
                                                   REFIID riid, void **ppv)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
 
     *ppv = NULL;
 
@@ -52,19 +52,19 @@ static HRESULT WINAPI InPlaceFrame_QueryInterface(IOleInPlaceFrame *iface,
 
 static ULONG WINAPI InPlaceFrame_AddRef(IOleInPlaceFrame *iface)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
-    return IOleClientSite_AddRef(CLIENTSITE(This));
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
+    return IWebBrowser2_AddRef(WEBBROWSER(This));
 }
 
 static ULONG WINAPI InPlaceFrame_Release(IOleInPlaceFrame *iface)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
-    return IOleClientSite_Release(CLIENTSITE(This));
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
+    return IWebBrowser2_Release(WEBBROWSER(This));
 }
 
 static HRESULT WINAPI InPlaceFrame_GetWindow(IOleInPlaceFrame *iface, HWND *phwnd)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p)\n", This, phwnd);
     return E_NOTIMPL;
 }
@@ -72,14 +72,14 @@ static HRESULT WINAPI InPlaceFrame_GetWindow(IOleInPlaceFrame *iface, HWND *phwn
 static HRESULT WINAPI InPlaceFrame_ContextSensitiveHelp(IOleInPlaceFrame *iface,
                                                         BOOL fEnterMode)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%x)\n", This, fEnterMode);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI InPlaceFrame_GetBorder(IOleInPlaceFrame *iface, LPRECT lprectBorder)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p)\n", This, lprectBorder);
     return E_NOTIMPL;
 }
@@ -87,7 +87,7 @@ static HRESULT WINAPI InPlaceFrame_GetBorder(IOleInPlaceFrame *iface, LPRECT lpr
 static HRESULT WINAPI InPlaceFrame_RequestBorderSpace(IOleInPlaceFrame *iface,
                                                       LPCBORDERWIDTHS pborderwidths)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p)\n", This, pborderwidths);
     return E_NOTIMPL;
 }
@@ -95,7 +95,7 @@ static HRESULT WINAPI InPlaceFrame_RequestBorderSpace(IOleInPlaceFrame *iface,
 static HRESULT WINAPI InPlaceFrame_SetBorderSpace(IOleInPlaceFrame *iface,
                                                   LPCBORDERWIDTHS pborderwidths)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p)\n", This, pborderwidths);
     return E_NOTIMPL;
 }
@@ -103,7 +103,7 @@ static HRESULT WINAPI InPlaceFrame_SetBorderSpace(IOleInPlaceFrame *iface,
 static HRESULT WINAPI InPlaceFrame_SetActiveObject(IOleInPlaceFrame *iface,
         IOleInPlaceActiveObject *pActiveObject, LPCOLESTR pszObjName)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p %s)\n", This, pActiveObject, debugstr_w(pszObjName));
     return E_NOTIMPL;
 }
@@ -111,7 +111,7 @@ static HRESULT WINAPI InPlaceFrame_SetActiveObject(IOleInPlaceFrame *iface,
 static HRESULT WINAPI InPlaceFrame_InsertMenus(IOleInPlaceFrame *iface, HMENU hmenuShared,
         LPOLEMENUGROUPWIDTHS lpMenuWidths)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p %p)\n", This, hmenuShared, lpMenuWidths);
     return E_NOTIMPL;
 }
@@ -119,14 +119,14 @@ static HRESULT WINAPI InPlaceFrame_InsertMenus(IOleInPlaceFrame *iface, HMENU hm
 static HRESULT WINAPI InPlaceFrame_SetMenu(IOleInPlaceFrame *iface, HMENU hmenuShared,
         HOLEMENU holemenu, HWND hwndActiveObject)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p %p %p)\n", This, hmenuShared, holemenu, hwndActiveObject);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI InPlaceFrame_RemoveMenus(IOleInPlaceFrame *iface, HMENU hmenuShared)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p)\n", This, hmenuShared);
     return E_NOTIMPL;
 }
@@ -134,14 +134,14 @@ static HRESULT WINAPI InPlaceFrame_RemoveMenus(IOleInPlaceFrame *iface, HMENU hm
 static HRESULT WINAPI InPlaceFrame_SetStatusText(IOleInPlaceFrame *iface,
                                                  LPCOLESTR pszStatusText)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
-    FIXME("(%p)->(%s)\n", This, debugstr_w(pszStatusText));
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
+    FIXME("(%p)->(%p)\n", This, debugstr_w(pszStatusText));
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI InPlaceFrame_EnableModeless(IOleInPlaceFrame *iface, BOOL fEnable)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%x)\n", This, fEnable);
     return E_NOTIMPL;
 }
@@ -149,7 +149,7 @@ static HRESULT WINAPI InPlaceFrame_EnableModeless(IOleInPlaceFrame *iface, BOOL 
 static HRESULT WINAPI InPlaceFrame_TranslateAccelerator(IOleInPlaceFrame *iface, LPMSG lpmsg,
                                                         WORD wID)
 {
-    DocHost *This = INPLACEFRAME_THIS(iface);
+    WebBrowser *This = INPLACEFRAME_THIS(iface);
     FIXME("(%p)->(%p %d)\n", This, lpmsg, wID);
     return E_NOTIMPL;
 }
@@ -174,7 +174,7 @@ static const IOleInPlaceFrameVtbl OleInPlaceFrameVtbl = {
     InPlaceFrame_TranslateAccelerator
 };
 
-void DocHost_Frame_Init(DocHost *This)
+void WebBrowser_Frame_Init(WebBrowser *This)
 {
     This->lpOleInPlaceFrameVtbl = &OleInPlaceFrameVtbl;
 }

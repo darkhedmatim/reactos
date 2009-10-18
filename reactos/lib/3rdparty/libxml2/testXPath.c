@@ -178,9 +178,9 @@ int main(int argc, char **argv) {
     }
     if (document == NULL) {
         if (filename == NULL)
-	    document = xmlReadDoc(buffer,NULL,NULL,XML_PARSE_COMPACT);
+	    document = xmlReadDoc(buffer,NULL,NULL,0);
 	else
-	    document = xmlReadFile(filename,NULL,XML_PARSE_COMPACT);
+	    document = xmlReadFile(filename,NULL,0);
     }
     for (i = 1; i < argc ; i++) {
 	if ((!strcmp(argv[i], "-i")) || (!strcmp(argv[i], "--input"))) {

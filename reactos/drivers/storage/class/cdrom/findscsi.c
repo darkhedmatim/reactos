@@ -18,7 +18,7 @@
 #include <debug.h>
 
 NTSTATUS
-NTAPI
+STDCALL
 FindScsiAdapter (
     IN HANDLE KeyHandle,
     IN UNICODE_STRING ScsiUnicodeString[],
@@ -42,7 +42,7 @@ FindScsiAdapter (
 
 
 NTSTATUS
-NTAPI
+STDCALL
 FindScsiAdapter (
     IN HANDLE KeyHandle,
     IN UNICODE_STRING ScsiUnicodeString[],

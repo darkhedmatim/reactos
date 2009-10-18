@@ -14,11 +14,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#undef MAILSLOT_NO_MESSAGE
-#undef MAILSLOT_WAIT_FOREVER
-#define MAILSLOT_NO_MESSAGE   MAXULONG
-#define MAILSLOT_WAIT_FOREVER MAXULONG
-
 
 /* FUNCTIONS *****************************************************************/
 
@@ -174,7 +169,7 @@ MsfsSetInformation(PDEVICE_OBJECT DeviceObject,
     BufferLength = IoStack->Parameters.QueryFile.Length;
 
     DPRINT("FileInformationClass %d\n", FileInformationClass);
-    DPRINT("SystemBuffer %p\n", SystemBuffer);
+    DPRINT("SystemBuffer %x\n", SystemBuffer);
 
     switch (FileInformationClass)
     {

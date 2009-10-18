@@ -43,7 +43,7 @@ HINSTANCE hApplet = 0;
 
 
 /* Applets */
-APPLET Applets[NUM_APPLETS] =
+APPLET Applets[NUM_APPLETS] = 
 {
   {IDC_CPLICON_1, IDS_CPLNAME_1, IDS_CPLDESCRIPTION_1, MouseApplet},
   {IDC_CPLICON_2, IDS_CPLNAME_2, IDS_CPLDESCRIPTION_2, KeyboardApplet}
@@ -128,7 +128,7 @@ CPlApplet(HWND hwndCpl,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpReserved)

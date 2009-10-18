@@ -33,7 +33,7 @@ ProxyMakefile::~ProxyMakefile ()
 }
 
 bool
-ProxyMakefile::GenerateProxyMakefile ( const Module& module )
+ProxyMakefile::GenerateProxyMakefile ( Module& module )
 {
 	return module.output->directory == OutputDirectory;
 }
@@ -42,9 +42,9 @@ void
 ProxyMakefile::GenerateProxyMakefiles ( bool verbose,
                                         string outputTree )
 {
-	for ( std::map<std::string, Module*>::const_iterator p = project.modules.begin (); p != project.modules.end (); ++ p )
+	for ( size_t i = 0; i < project.modules.size (); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *project.modules[i];
 		if ( !module.enabled )
 			continue;
 		if ( !GenerateProxyMakefile ( module ) )

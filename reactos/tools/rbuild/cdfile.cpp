@@ -34,18 +34,12 @@ CDFile::ReplaceVariable ( const string& name,
 		return path;
 }
 
-CDFile::~CDFile ()
-{
-	delete source;
-	delete target;
-}
-
 CDFile::CDFile ( const Project& project,
                  const XMLElement& cdfileNode,
                  const string& path )
 	: XmlNode ( project, cdfileNode )
 {
-	const XMLAttribute* att = cdfileNode.GetAttribute ( "installbase", false );
+	const XMLAttribute* att = cdfileNode.GetAttribute ( "base", false );
 	string target_relative_directory;
 	if ( att != NULL )
 		target_relative_directory = ReplaceVariable ( "$(CDOUTPUT)", Environment::GetCdOutputPath (), att->value );
@@ -56,10 +50,8 @@ CDFile::CDFile ( const Project& project,
 
 	source = new FileLocation ( SourceDirectory,
 	                            path,
-	                            cdfileNode.value,
-	                            &cdfileNode );
+	                            cdfileNode.value );
 	target = new FileLocation ( OutputDirectory,
 	                            target_relative_directory,
-	                            nameoncd ? nameoncd->value : cdfileNode.value,
-	                            &cdfileNode );
+	                            nameoncd ? att->value : cdfileNode.value );
 }

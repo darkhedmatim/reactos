@@ -6,6 +6,11 @@ include $(TOP)/configs/current
 include sources
 
 
+GL_MAJOR = 1
+GL_MINOR = 5
+GL_TINY = 0$(MESA_MAJOR)0$(MESA_MINOR)0$(MESA_TINY)
+
+
 .SUFFIXES : .cpp
 
 .c.o:
@@ -18,123 +23,208 @@ include sources
 	$(CC) -c $(INCLUDE_DIRS) $(CFLAGS) $< -o $@
 
 
-
-# Default: build dependencies, then asm_subdirs, then convenience
-# libs (.a) and finally the device drivers:
-default: depend asm_subdirs libmesa.a libglapi.a driver_subdirs
-
-
-
-######################################################################
-# Helper libraries used by many drivers:
-
-# Make archive of core mesa object files
-libmesa.a: $(MESA_OBJECTS)
-	@ $(MKLIB) -o mesa -static $(MESA_OBJECTS)
-
-# Make archive of gl* API dispatcher functions only
-libglapi.a: $(GLAPI_OBJECTS)
-	@ $(MKLIB) -o glapi -static $(GLAPI_OBJECTS)
-
-
-######################################################################
-# Device drivers
-driver_subdirs: libmesa.a libglapi.a
-	(cd drivers && $(MAKE))
-
-
-######################################################################
-# Assembly subdirs
-asm_subdirs:
-	@ if echo "$(ASM_FLAGS)" | grep -q USE_X86_ASM ; then \
-		(cd x86 && $(MAKE)) || exit 1 ; \
-	fi
-	@ if echo "$(ASM_FLAGS)" | grep -q USE_X86_64_ASM ; then \
-		(cd x86 && $(MAKE)) || exit 1 ; \
-		(cd x86-64 && $(MAKE)) || exit 1 ; \
+# Figure out what to make here
+default:
+	@if [ "${DRIVER_DIRS}" = "dri" ] ; then \
+		$(MAKE) linux-solo ; \
+	elif [ "${DRIVER_DIRS}" = "osmesa" ] ; then \
+		$(MAKE) osmesa-only ; \
+	elif [ "$(DRIVER_DIRS)" = "beos" ]; then \
+		$(MAKE) beos ; \
+	elif [ "$(DRIVER_DIRS)" = "directfb" ]; then \
+		$(MAKE) directfb; \
+	else \
+		$(MAKE) stand-alone ; \
 	fi
 
+# BeOS driver target
+beos: depend subdirs mesa.a
+	cd drivers/beos; $(MAKE)
+
+
+install: default
+	@if [ "${DRIVER_DIRS}" = "dri" ] ; then \
+		cd drivers/dri ; $(MAKE) install ; \
+	fi
 
 ######################################################################
-# Dependency generation
+# Linux solo DRI drivers
 
+SOLO_C_SOURCES = \
+	$(MAIN_SOURCES)		\
+	$(MATH_SOURCES)		\
+	$(ARRAY_CACHE_SOURCES)	\
+	$(TNL_SOURCES)		\
+	$(SWRAST_SOURCES)	\
+	$(SWRAST_SETUP_SOURCES)	\
+	$(SHADER_SOURCES)       \
+	$(SLANG_SOURCES)	\
+	$(ASM_C_SOURCES)	
+
+SOLO_OBJECTS = $(SOLO_C_SOURCES:.c=.o) \
+		$(ASM_SOURCES:.S=.o)
+
+linux-solo: depend subdirs mesa.a drivers-dri
+
+# Make archive of core object files
+mesa.a:	$(SOLO_OBJECTS)
+	rm -f $@
+	ar rcv $@ $(SOLO_OBJECTS)
+	ranlib $@
+	@if [ "${CONFIG_NAME}" = "beos" ] ; then \
+		mimeset -f "$@" ; \
+	fi
+
+# note: cannot use the name of the directory ("drivers") as the
+# target, otherwise make will look & see that the "drivers" directory
+# already exists, so not try to rebuild it...
+drivers-dri:
+	cd drivers/dri ; $(MAKE)
+
+
+
+#####################################################################
+# Stand-alone Mesa libGL, no built-in drivers (DirectFB)
+
+LIBGL_CORE_SOURCES =	\
+	$(CORE_SOURCES) 	\
+	$(ASM_SOURCES)
+
+LIBGL_CORE_OBJECTS = 	\
+	$(CORE_OBJECTS) 	\
+	$(ASM_SOURCES:.S=.o)
+
+# Make libGL from core object files
+libgl-core: $(LIBGL_CORE_OBJECTS)
+	@ $(TOP)/bin/mklib -o $(GL_LIB) -linker '$(CC)' \
+		-major $(MESA_MAJOR) -minor $(MESA_MINOR) -patch $(MESA_TINY) \
+		-install $(LIB_DIR) $(MKLIB_OPTIONS) $(LIBGL_CORE_OBJECTS) $(GL_LIB_DEPS)
+
+# DirectFB driver target
+directfb: depend subdirs libgl-core
+	cd drivers/directfb; $(MAKE)
+
+
+
+######################################################################
+# Stand-alone Mesa libGL and libOSMesa
+
+STAND_ALONE_DRIVER_SOURCES = \
+	$(COMMON_DRIVER_SOURCES) \
+	$(X11_DRIVER_SOURCES) \
+	$(GLIDE_DRIVER_SOURCES) \
+	$(SVGA_DRIVER_SOURCES) \
+	$(FBDEV_DRIVER_SOURCES)
+
+STAND_ALONE_SOURCES = \
+	$(CORE_SOURCES) \
+	$(ASM_SOURCES) \
+	$(STAND_ALONE_DRIVER_SOURCES)
+
+# ASM_SOURCES is defined in the config file
+ASM_OBJECTS = $(ASM_SOURCES:.S=.o)
+
+STAND_ALONE_DRIVER_OBJECTS = $(STAND_ALONE_DRIVER_SOURCES:.c=.o)
+
+STAND_ALONE_OBJECTS = \
+	$(CORE_OBJECTS) \
+	$(ASM_OBJECTS) \
+	$(STAND_ALONE_DRIVER_OBJECTS)
+
+# For libOSMesa16 or libOSMesa32 we link _all_ the objects into the library,
+# not just the osmesa.o object (i.e. we don't have a libGL).
+OSMESA16_OBJECTS = \
+	$(CORE_OBJECTS) \
+	$(ASM_OBJECTS) \
+	$(COMMON_DRIVER_OBJECTS) \
+	$(OSMESA_DRIVER_OBJECTS)
+
+
+stand-alone: depend subdirs $(LIB_DIR)/$(GL_LIB_NAME) $(LIB_DIR)/$(OSMESA_LIB_NAME)
+
+osmesa-only: depend subdirs $(LIB_DIR)/$(OSMESA_LIB_NAME)
+
+subdirs:
+	@ (cd x86 ; $(MAKE))
+	@ (cd x86-64 ; $(MAKE))
+
+# Make the GL library
+$(LIB_DIR)/$(GL_LIB_NAME): $(STAND_ALONE_OBJECTS)
+	@ $(TOP)/bin/mklib -o $(GL_LIB) -linker '$(CC)' \
+		-major $(GL_MAJOR) -minor $(GL_MINOR) -patch $(GL_TINY) \
+		-install $(LIB_DIR) \
+		$(MKLIB_OPTIONS) $(GL_LIB_DEPS) $(STAND_ALONE_OBJECTS)
+
+# Make the OSMesa library
+$(LIB_DIR)/$(OSMESA_LIB_NAME): $(OSMESA_DRIVER_OBJECTS) $(OSMESA16_OBJECTS)
+	@ if [ "${DRIVER_DIRS}" = "osmesa" ] ; then \
+		$(TOP)/bin/mklib -o $(OSMESA_LIB) -linker '$(CC)' \
+			-major $(MESA_MAJOR) \
+			-minor $(MESA_MINOR) -patch $(MESA_TINY) \
+			-install $(LIB_DIR) $(MKLIB_OPTIONS) \
+			$(OSMESA_LIB_DEPS) $(OSMESA16_OBJECTS) ; \
+	else \
+		$(TOP)/bin/mklib -o $(OSMESA_LIB) -linker '$(CC)' \
+			-major $(MESA_MAJOR) \
+			-minor $(MESA_MINOR) -patch $(GL_TINY) \
+			-install $(LIB_DIR) $(MKLIB_OPTIONS) \
+			$(OSMESA_LIB_DEPS) $(OSMESA_DRIVER_OBJECTS) ; \
+	fi
+
+
+######################################################################
+# 16 (or 32) bit/channel OSMesa
+
+# $(LIB_DIR)/$(OSMESA_LIB_NAME): $(OSMESA16_OBJECTS)
+#	$(TOP)/bin/mklib -o $(OSMESA_LIB) \
+#		-major $(MESA_MAJOR) -minor $(MESA_MINOR) -patch $(MESA_TINY) \
+#		-install $(LIB_DIR) \
+#		$(MKLIB_OPTIONS) $(GL_LIB_DEPS) $(OSMESA16_OBJECTS)
+
+
+
+######################################################################
+# Generic stuff
+
+ALL_SOURCES = \
+	$(GLAPI_SOURCES)	\
+	$(MAIN_SOURCES)		\
+	$(MATH_SOURCES)		\
+	$(ARRAY_CACHE_SOURCES)	\
+	$(TNL_SOURCES)		\
+	$(SHADER_SOURCES)	\
+	$(SWRAST_SOURCES)	\
+	$(SWRAST_SETUP_SOURCES)	\
+	$(ASM_C_SOURCES)	\
+	$(X86_SOURCES)		\
+	$(COMMON_DRIVER_SOURCES)\
+	$(X11_DRIVER_SOURCES)	\
+	$(OSMESA_DRIVER_SOURCES)
+
+
+SUBDIRS = array_cache drivers/dri glapi main math sparc swrast swrast_setup \
+	tnl tnl_dd
+
+
+# Update dependencies
 depend: $(ALL_SOURCES)
 	@ echo "running $(MKDEP)"
 	@ touch depend
-	@$(MKDEP) $(MKDEP_OPTIONS) $(DEFINES) $(INCLUDE_DIRS) $(ALL_SOURCES) \
-		> /dev/null 2>/dev/null
-
-
-######################################################################
-# Installation rules
-
-# this isn't fleshed out yet but is probably the way to go in the future
-new_install:
-	(cd drivers && $(MAKE) install)
-
-
-# XXX replace this with new_install above someday
-install: default
-	@for driver in $(DRIVER_DIRS) ; do \
-	  case "$$driver" in \
-	    osmesa) if [ "$(DRIVER_DIRS)" = osmesa ]; then \
-	              $(MAKE) install-headers install-osmesa || exit 1 ; \
-	            else \
-	              $(MAKE) install-osmesa || exit 1 ; \
-	            fi ;; \
-	    dri)    $(MAKE) install-libgl install-dri || exit 1 ;; \
-	    *)      $(MAKE) install-libgl || exit 1 ;; \
-	  esac ; \
-	done
-
-
-pcedit = sed \
-	-e 's,@INSTALL_DIR@,$(INSTALL_DIR),' \
-	-e 's,@INSTALL_LIB_DIR@,$(INSTALL_LIB_DIR),' \
-	-e 's,@INSTALL_INC_DIR@,$(INSTALL_INC_DIR),' \
-	-e 's,@VERSION@,$(MESA_MAJOR).$(MESA_MINOR).$(MESA_TINY),'
-
-gl.pc: gl.pc.in
-	$(pcedit) $< > $@
-
-install-headers:
-	$(INSTALL) -d $(DESTDIR)$(INSTALL_INC_DIR)/GL
-	$(INSTALL) -m 644 $(TOP)/include/GL/*.h \
-		$(DESTDIR)$(INSTALL_INC_DIR)/GL
-
-install-libgl: default gl.pc install-headers
-	$(INSTALL) -d $(DESTDIR)$(INSTALL_LIB_DIR)
-	$(INSTALL) -d $(DESTDIR)$(INSTALL_LIB_DIR)/pkgconfig
-	$(INSTALL) $(TOP)/$(LIB_DIR)/$(GL_LIB_GLOB) \
-		$(DESTDIR)$(INSTALL_LIB_DIR)
-	$(INSTALL) -m 644 gl.pc $(DESTDIR)$(INSTALL_LIB_DIR)/pkgconfig
-
-install-osmesa: default
-	$(INSTALL) -d $(DESTDIR)$(INSTALL_LIB_DIR)
-	$(INSTALL) $(TOP)/$(LIB_DIR)/$(OSMESA_LIB_GLOB) \
-		$(DESTDIR)$(INSTALL_LIB_DIR)
-
-install-dri: default
-	cd drivers/dri && $(MAKE) install
-
+	$(MKDEP) $(MKDEP_OPTIONS) $(DEFINES) $(INCLUDE_DIRS) $(ALL_SOURCES) \
+		> /dev/null 
 
 
 # Emacs tags
 tags:
 	etags `find . -name \*.[ch]` $(TOP)/include/GL/*.h
 
-
 clean:
 	-rm -f */*.o
 	-rm -f */*/*.o
-	-rm -f depend depend.bak libmesa.a libglapi.a
+	-rm -f depend depend.bak mesa.a
 	-rm -f drivers/*/*.o
-	-rm -f *.pc
-	-@cd drivers/dri && $(MAKE) clean
-	-@cd drivers/x11 && $(MAKE) clean
-	-@cd drivers/osmesa && $(MAKE) clean
-	-@cd x86 && $(MAKE) clean
-	-@cd x86-64 && $(MAKE) clean
+	(cd drivers/dri ; $(MAKE) clean)
+	(cd x86 ; $(MAKE) clean)
+	(cd x86-64 ; $(MAKE) clean)
 
-
--include depend
+include depend

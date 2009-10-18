@@ -63,11 +63,11 @@ BEGIN
 END
 
 IDD_ABOUTBOX DIALOGEX 22,16,190,182
-CAPTION "О Диспетчере служб"
+CAPTION "О Менеджере служб"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 BEGIN
-  LTEXT "Диспетчер служб v0.8\nАвторское право (C) 2005-2007\nГед Мерфи (gedmurphy@reactos.org)", IDC_STATIC, 48, 7, 135, 32
+  LTEXT "Менеджер служб v0.8\nCopyright (C) 2005-2007\nот Ged Murphy (gedmurphy@reactos.org)", IDC_STATIC, 48, 7, 135, 26
   PUSHBUTTON "Закрыть", IDOK, 75, 162, 44, 15
   ICON IDI_SM_ICON, IDC_STATIC, 10, 10, 7, 30
   EDITTEXT IDC_LICENSE_EDIT, 8, 44, 174, 107, WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | ES_READONLY | ES_MULTILINE
@@ -76,7 +76,7 @@ END
 IDD_DLG_GENERAL DIALOGEX 6,6,253,232
 CAPTION "Общие"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   LTEXT "", IDC_SERV_NAME, 78,11,176,11, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_DISP_NAME, 78, 29, 166, 12, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_READONLY
@@ -97,13 +97,13 @@ BEGIN
   LTEXT "Можно указать параметры запуска, применяемые при запуске службы из этого каталога.",IDC_STATIC, 6,177,240,15
   LTEXT "Параметры запуска:", IDC_STATIC, 6, 200, 73, 11
   EDITTEXT IDC_START_PARAM, 78, 199, 168, 11, WS_CHILD | WS_VISIBLE | WS_TABSTOP
-  PUSHBUTTON "Изменить", IDC_EDIT, 192, 215, 54, 15, WS_DISABLED
+  PUSHBUTTON "Edit", IDC_EDIT, 192, 215, 54, 15, WS_DISABLED
 END
 
 IDD_DLG_DEPEND DIALOGEX 6,6,253,225
 CAPTION "Зависимости"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   CONTROL "",IDC_DEPEND_TREE1,"SysTreeView32",0x50010007,8,70,236,68,0x00000200
   CONTROL "",IDC_DEPEND_TREE2,"SysTreeView32",0x50010007,8,151,234,67,0x00000200
@@ -115,27 +115,27 @@ END
 IDD_DLG_CREATE DIALOGEX 6,6,225,209
 CAPTION "Создать службу"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
-  EDITTEXT IDC_CREATE_SERVNAME, 71, 9, 150, 14, WS_CHILD | WS_VISIBLE | WS_EX_CLIENTEDGE
-  EDITTEXT IDC_CREATE_DISPNAME, 87, 29, 134, 14, WS_CHILD | WS_VISIBLE
-  EDITTEXT IDC_CREATE_PATH, 8, 62, 214, 14, WS_CHILD | WS_VISIBLE
-  EDITTEXT IDC_CREATE_DESC, 8, 97, 210, 48, WS_CHILD | WS_VISIBLE
-  EDITTEXT IDC_CREATE_OPTIONS, 8, 162, 210, 14, WS_CHILD | WS_VISIBLE
-  LTEXT "*Имя службы:", IDC_STATIC, 8, 12, 59, 9
-  LTEXT "*Отображаемое имя:", IDC_STATIC, 8, 33, 78, 9
-  LTEXT "*Исполняемый файл:", IDC_STATIC, 8, 51, 96, 9
-  LTEXT "Описание:", IDC_STATIC, 8, 86, 58, 9
-  PUSHBUTTON "OK", IDOK, 126, 192, 44, 14
-  PUSHBUTTON "Отмена", IDCANCEL, 176, 192, 46, 14
-  LTEXT "Дополнително (нажмите ""Справка"" для уточнения)", IDC_STATIC, 8, 151, 206, 9
-  PUSHBUTTON "Справка", ID_CREATE_HELP, 8, 192, 44, 14
+  EDITTEXT IDC_CREATE_SERVNAME, 72, 12, 150, 11, WS_CHILD | WS_VISIBLE | WS_EX_CLIENTEDGE
+  EDITTEXT IDC_CREATE_DISPNAME, 72, 31, 150, 11, WS_CHILD | WS_VISIBLE
+  EDITTEXT IDC_CREATE_PATH, 8, 62, 214, 13, WS_CHILD | WS_VISIBLE
+  EDITTEXT IDC_CREATE_DESC, 10, 97, 210, 48, WS_CHILD | WS_VISIBLE
+  EDITTEXT IDC_CREATE_OPTIONS, 10, 162, 210, 13, WS_CHILD | WS_VISIBLE
+  LTEXT "*Имя службы :", IDC_STATIC, 12, 12, 54, 9
+  LTEXT "*Отображаемое имя :", IDC_STATIC, 12, 33, 54, 9
+  LTEXT "*Исполняемый файл :", IDC_STATIC, 10, 51, 68, 9
+  LTEXT "Описание :", IDC_STATIC, 12, 86, 44, 9
+  PUSHBUTTON "OK", IDOK, 126, 192, 44, 13
+  PUSHBUTTON "Отмена", IDCANCEL, 176, 192, 46, 13
+  LTEXT "Дополнительные опции (нажмите справку для уточнения)", IDC_STATIC, 10, 151, 134, 9
+  PUSHBUTTON "Справка", ID_CREATE_HELP, 6, 192, 44, 13
 END
 
 IDD_DLG_DELETE DIALOGEX 6,6,185,148
 CAPTION "Удалить службу"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
 BEGIN
   ICON IDI_WARNING, IDC_STATIC, 10, 8, 24, 22
   LTEXT "Вы уверены, что хотите удалить выбранную службу? Вы не сможете востановить ее после удаления!", IDC_STATIC, 50, 6, 125, 25
@@ -158,7 +158,7 @@ END
 IDD_DLG_PROGRESS DIALOGEX 6,6,255,89
 CAPTION "Управление службами"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_VISIBLE | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_VISIBLE | DS_MODALFRAME
 EXSTYLE WS_EX_TOOLWINDOW
 BEGIN
   CONTROL "",IDC_SERVCON_PROGRESS,"msctls_progress32",0x50000000,8,46,238,13
@@ -190,8 +190,6 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
   IDS_NUM_SERVICES "Номер службы: %d"
-  IDS_STOP_DEPENDS "When %s stops, these other services will also stop"
-  IDS_NO_DEPENDS "<No Dependencies>"
   IDS_LICENSE "Эта программа является свободным программным обеспечением; Вы можете распространять и/или изменять ее в соответствии с лицензией GNU General Public License версии 2 или более поздней, опубликованной Free Software Foundation.\r\n\r\nЭта программа распространяется с надеждой, что она может быть полезна, но БЕЗ ВСЯКОЙ ГАРАНТИИ; не подразумевается даже РАБОТОСПОСОБНОСТЬ или ПРИГОДНОСТЬ ДЛЯ ВЫПОЛНЕНИЯ НЕОБХОДИМЫХ ЗАДАЧ. См. GNU General Public License для получения дополнительных сведений.\r\n\r\nВы должны получить копию лицензии GNU вместе с этой программой, в противном случае обращайтесь в Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."
 END
 
@@ -210,12 +208,12 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-  IDS_PROGRESS_INFO_START "ReactOS запускает службу"
-  IDS_PROGRESS_INFO_STOP  "ReactOS остановливает службу"
-  IDS_PROGRESS_INFO_PAUSE  "ReactOS останавливает следующие службы"
-  IDS_PROGRESS_INFO_RESUME "ReactOS возобновляет работу следующих служб"
+  IDS_PROGRESS_INFO_START "ReactOS пытается запустить службу"
+  IDS_PROGRESS_INFO_STOP  "ReactOS пытается остановить службу"
+  IDS_PROGRESS_INFO_PAUSE  "ReactOS is attempting to pause the following service"
+  IDS_PROGRESS_INFO_RESUME "ReactOS is attempting to resume the following service"
   IDS_CREATE_SUCCESS "Создание службы успешно завершено"
-  IDS_DELETE_SUCCESS "Удаление службы успешно завершено"
+  IDS_DELETE_SUCCESS "Service Deleted Succesfully"
   IDS_CREATE_REQ "* = обязательные поля"
   IDS_DELETE_STOP "Вы должны вручную остановить службу перед удалением!"
 END
@@ -242,7 +240,7 @@ BEGIN
   IDS_HINT_EDIT         " Изменить свойства выбранной службы."
   IDS_HINT_CREATE       " Создать новую службу."
   IDS_HINT_DELETE       " Удалить выбранную службу."
-  IDS_HINT_PROP         " Открыть список свойств для выделенного элемента."
+  IDS_HINT_PROP         " Open property sheet for the current selection."
 
   IDS_HINT_LARGE        " Отображать элементы в виде больших значков."
   IDS_HINT_SMALL        " Отображать элементы в виде маленьких значков."
@@ -251,7 +249,7 @@ BEGIN
   IDS_HINT_CUST         " Настройка вида."
 
   IDS_HINT_HELP         " Показать окно справки."
-  IDS_HINT_ABOUT        " О Диспетчере служб ReactOS."
+  IDS_HINT_ABOUT        " О Менеджере служб ReactOS."
 
   IDS_HINT_SYS_RESTORE  " Востановить нормальный размер окна."
   IDS_HINT_SYS_MOVE     " Переместить это окно."
@@ -264,5 +262,5 @@ END
 /* Application title */
 STRINGTABLE DISCARDABLE
 BEGIN
-  IDS_APPNAME "Диспетчер служб ReactOS"
+  IDS_APPNAME "Менеджер служб ReactOS"
 END

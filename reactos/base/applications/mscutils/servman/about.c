@@ -9,7 +9,7 @@
 
 #include "precomp.h"
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
@@ -31,7 +31,9 @@ AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 SetWindowText(hLicenseEditWnd,
                               lpString);
 
-                LocalFree(lpString);
+                HeapFree(GetProcessHeap(),
+                         0,
+                         lpString);
             }
         }
 

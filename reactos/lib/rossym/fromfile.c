@@ -3,7 +3,7 @@
  * PROJECT:         ReactOS kernel
  * FILE:            lib/rossym/fromfile.c
  * PURPOSE:         Creating rossym info from a file
- *
+ * 
  * PROGRAMMERS:     Ge van Geldorp (gvg@reactos.com)
  */
 
@@ -11,7 +11,9 @@
 #include <ntddk.h>
 #include <reactos/rossym.h>
 #include "rossympriv.h"
-#include <ntimage.h>
+#ifdef _MSC_VER
+#include "ntimage.h"
+#endif
 
 #define NDEBUG
 #include <debug.h>

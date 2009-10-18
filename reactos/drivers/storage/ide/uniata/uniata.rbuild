@@ -1,14 +1,11 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
-<module name="uniata" type="kernelmodedriver" installbase="system32/drivers" installname="uniata.sys">
-	<bootstrap installbase="$(CDOUTPUT)" />
-	<include base="uniata">.</include>
+<module name="uniata" type="kernelmodedriver" installbase="system32/drivers" allowwarnings="true" installname="uniata.sys">
+	<bootstrap base="$(CDOUTPUT)" />
+	<define name="__USE_W32API" />
+	<define name="_DEBUG" />
+	<include base="uniata">.</include> 
 	<include base="uniata">inc</include>
-	<group compilerset="gcc">
-		<compilerflag compiler="cxx">-fno-exceptions</compilerflag>
-		<compilerflag compiler="cxx">-fno-rtti</compilerflag>
-	</group>
-	<!-- define name="_DEBUG" /-->
 	<library>ntoskrnl</library>
 	<library>hal</library>
 	<library>scsiport</library>
@@ -20,9 +17,11 @@
 	<file>id_queue.cpp</file>
 	<file>id_sata.cpp</file>
 	<file>idedma.rc</file>
-
+	
 	<directory name="ros_glue">
 		<file>ros_glue.cpp</file>
 		<file>ros_glue_asm.s</file>
 	</directory>
+	
+	<linkerflag>-lgcc</linkerflag>
 </module>

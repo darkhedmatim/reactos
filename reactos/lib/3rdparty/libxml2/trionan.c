@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: trionan.c 3790 2008-09-01 13:08:57Z veillard $
+ * $Id: trionan.c,v 1.14 2003/10/15 08:17:58 veillard Exp $
  *
  * Copyright (C) 2001 Bjorn Reese <breese@users.sourceforge.net>
  *
@@ -57,9 +57,6 @@
 #   include <fp_class.h>
 #  endif
 #endif
-/* Small ReactOS hack */
-#undef fpclassify
-#define fpclassify _fpclass
 #include <assert.h>
 
 #if defined(TRIO_DOCUMENTATION)
@@ -115,7 +112,7 @@
  * Constants
  */
 
-static TRIO_CONST char rcsid[] = "@(#)$Id: trionan.c 3790 2008-09-01 13:08:57Z veillard $";
+static TRIO_CONST char rcsid[] = "@(#)$Id: trionan.c,v 1.14 2003/10/15 08:17:58 veillard Exp $";
 
 #if defined(USE_IEEE_754)
 
@@ -132,11 +129,7 @@ static TRIO_CONST char rcsid[] = "@(#)$Id: trionan.c 3790 2008-09-01 13:08:57Z v
  */
 #define TRIO_DOUBLE_INDEX(x) (((unsigned char *)&internalEndianMagic)[7-(x)])
 
-#if (defined(__BORLANDC__) && __BORLANDC__ >= 0x0590)
-static TRIO_CONST double internalEndianMagic = 7.949928895127362e-275;
-#else
 static TRIO_CONST double internalEndianMagic = 7.949928895127363e-275;
-#endif
 
 /* Mask for the exponent */
 static TRIO_CONST unsigned char ieee_754_exponent_mask[] = {
@@ -214,7 +207,6 @@ TRIO_ARGS2((number, has_mantissa),
   return is_special_quantity;
 }
 
-#if 0
 /*
  * trio_is_negative
  */
@@ -232,7 +224,6 @@ TRIO_ARGS1((number),
   }
   return is_negative;
 }
-#endif
 
 #endif /* USE_IEEE_754 */
 

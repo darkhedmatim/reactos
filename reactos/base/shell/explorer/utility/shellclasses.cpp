@@ -19,7 +19,7 @@
 
  //
  // Explorer clone
- //
+ // 
  // shellclasses.cpp
  //
  // C++ wrapper classes for COM interfaces and shell objects
@@ -566,7 +566,6 @@ HRESULT ShellFolderContextMenu(IShellFolder* shell_folder, HWND hwndParent, int 
 				}
 			} else
 				cm_ifs.reset();
-			DestroyMenu(hmenu);
 		}
 
 		pcm->Release();

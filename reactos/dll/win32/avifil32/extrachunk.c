@@ -1,5 +1,5 @@
 /*
- * Copyright 2002 Michael GÃ¼nnewig
+ * Copyright 2002 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -145,7 +145,7 @@ HRESULT FindChunkAndKeepExtras(LPEXTRACHUNKS extra,HMMIO hmmio,MMCKINFO *lpck,
 {
   FOURCC  ckid;
   FOURCC  fccType;
-  MMRESULT mmr;
+  HRESULT hr;
 
   /* pre-conditions */
   assert(extra != NULL);
@@ -171,32 +171,26 @@ HRESULT FindChunkAndKeepExtras(LPEXTRACHUNKS extra,HMMIO hmmio,MMCKINFO *lpck,
   TRACE(": find ckid=0x%08X fccType=0x%08X\n", ckid, fccType);
 
   for (;;) {
-    mmr = mmioDescend(hmmio, lpck, lpckParent, 0);
-    if (mmr != MMSYSERR_NOERROR) {
+    hr = mmioDescend(hmmio, lpck, lpckParent, 0);
+    if (hr != S_OK) {
       /* No extra chunks in front of desired chunk? */
-      if (flags == 0 && mmr == MMIOERR_CHUNKNOTFOUND)
-	return AVIERR_OK;
-      else
-        return AVIERR_FILEREAD;
+      if (flags == 0 && hr == MMIOERR_CHUNKNOTFOUND)
+	hr = AVIERR_OK;
+      return hr;
     }
 
     /* Have we found what we search for? */
     if ((lpck->ckid == ckid) &&
-	(fccType == 0 || lpck->fccType == fccType))
+	(fccType == (FOURCC)0 || lpck->fccType == fccType))
       return AVIERR_OK;
 
     /* Skip padding chunks, the others put into the extrachunk-structure */
     if (lpck->ckid == ckidAVIPADDING ||
 	lpck->ckid == mmioFOURCC('p','a','d','d'))
-    {
-      mmr = mmioAscend(hmmio, lpck, 0);
-      if (mmr != MMSYSERR_NOERROR) return AVIERR_FILEREAD;
-    }
+      hr = mmioAscend(hmmio, lpck, 0);
     else
-    {
-      HRESULT hr = ReadChunkIntoExtra(extra, hmmio, lpck);
-      if (FAILED(hr))
-        return hr;
-    }
+      hr = ReadChunkIntoExtra(extra, hmmio, lpck);
+    if (FAILED(hr))
+      return hr;
   }
 }

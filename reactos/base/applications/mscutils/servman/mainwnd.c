@@ -144,7 +144,9 @@ UpdateServiceCount(PMAIN_WND_INFO Info)
                     0,
                     (LPARAM)szNumServices);
 
-        LocalFree(lpNumServices);
+        HeapFree(ProcessHeap,
+                 0,
+                 lpNumServices);
     }
 }
 
@@ -152,6 +154,7 @@ UpdateServiceCount(PMAIN_WND_INFO Info)
 VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info)
 {
     HMENU hMainMenu;
+    DWORD Flags, State;
     UINT i;
 
     /* get handle to menu */
@@ -161,55 +164,37 @@ VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info)
     for (i = ID_START; i <= ID_RESTART; i++)
     {
         EnableMenuItem(hMainMenu, i, MF_GRAYED);
-        EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), i, MF_GRAYED);
+        EnableMenuItem(Info->hShortcutMenu, ID_START, MF_GRAYED);
         SendMessage(Info->hTool, TB_SETSTATE, i,
                     (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
     }
 
     if (Info->SelectedItem != NO_ITEM_SELECTED)
     {
-        LPQUERY_SERVICE_CONFIG lpServiceConfig = NULL;
-        DWORD Flags, State;
-
         /* allow user to delete service */
         if (Info->bIsUserAnAdmin)
         {
             SendMessage(Info->hTool, TB_SETSTATE, ID_DELETE,
                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
             EnableMenuItem(hMainMenu, ID_DELETE, MF_ENABLED);
-            EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_DELETE, MF_ENABLED);
+            EnableMenuItem(Info->hShortcutMenu, ID_DELETE, MF_ENABLED);
         }
 
         Flags = Info->pCurrentService->ServiceStatusProcess.dwControlsAccepted;
         State = Info->pCurrentService->ServiceStatusProcess.dwCurrentState;
 
-        lpServiceConfig = GetServiceConfig(Info->pCurrentService->lpServiceName);
-
-        if (lpServiceConfig && lpServiceConfig->dwStartType != SERVICE_DISABLED)
+        if (State == SERVICE_STOPPED)
         {
-            if (State == SERVICE_STOPPED)
-            {
-                EnableMenuItem(hMainMenu, ID_START, MF_ENABLED);
-                EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_START, MF_ENABLED);
-                SendMessage(Info->hTool, TB_SETSTATE, ID_START,
-                       (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-            }
-
-            if ( (Flags & SERVICE_ACCEPT_STOP) && (State == SERVICE_RUNNING) )
-            {
-                EnableMenuItem(hMainMenu, ID_RESTART, MF_ENABLED);
-                EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_RESTART, MF_ENABLED);
-                SendMessage(Info->hTool, TB_SETSTATE, ID_RESTART,
-                       (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-            }
-
-            HeapFree(GetProcessHeap(), 0, lpServiceConfig);
+            EnableMenuItem(hMainMenu, ID_START, MF_ENABLED);
+            EnableMenuItem(Info->hShortcutMenu, ID_START, MF_ENABLED);
+            SendMessage(Info->hTool, TB_SETSTATE, ID_START,
+                   (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
         }
 
         if ( (Flags & SERVICE_ACCEPT_STOP) && (State == SERVICE_RUNNING) )
         {
             EnableMenuItem(hMainMenu, ID_STOP, MF_ENABLED);
-            EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_STOP, MF_ENABLED);
+            EnableMenuItem(Info->hShortcutMenu, ID_STOP, MF_ENABLED);
             SendMessage(Info->hTool, TB_SETSTATE, ID_STOP,
                    (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
         }
@@ -217,8 +202,16 @@ VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info)
         if ( (Flags & SERVICE_ACCEPT_PAUSE_CONTINUE) && (State == SERVICE_RUNNING) )
         {
             EnableMenuItem(hMainMenu, ID_PAUSE, MF_ENABLED);
-            EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_PAUSE, MF_ENABLED);
+            EnableMenuItem(Info->hShortcutMenu, ID_PAUSE, MF_ENABLED);
             SendMessage(Info->hTool, TB_SETSTATE, ID_PAUSE,
+                   (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+        }
+
+        if ( (Flags & SERVICE_ACCEPT_STOP) && (State == SERVICE_RUNNING) )
+        {
+            EnableMenuItem(hMainMenu, ID_RESTART, MF_ENABLED);
+            EnableMenuItem(Info->hShortcutMenu, ID_RESTART, MF_ENABLED);
+            SendMessage(Info->hTool, TB_SETSTATE, ID_RESTART,
                    (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
         }
     }
@@ -227,8 +220,8 @@ VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info)
         /* disable tools which rely on a selected service */
         EnableMenuItem(hMainMenu, ID_PROP, MF_GRAYED);
         EnableMenuItem(hMainMenu, ID_DELETE, MF_GRAYED);
-        EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_PROP, MF_GRAYED);
-        EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0), ID_DELETE, MF_GRAYED);
+        EnableMenuItem(Info->hShortcutMenu, ID_PROP, MF_GRAYED);
+        EnableMenuItem(Info->hShortcutMenu, ID_DELETE, MF_GRAYED);
         SendMessage(Info->hTool, TB_SETSTATE, ID_PROP,
                    (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
         SendMessage(Info->hTool, TB_SETSTATE, ID_DELETE,
@@ -288,9 +281,8 @@ pCreateToolbar(PMAIN_WND_INFO Info)
 
         hImageList = InitImageList(IDB_PROP,
                                    IDB_RESTART,
-                                   GetSystemMetrics(SM_CXSMICON),
-                                   GetSystemMetrics(SM_CXSMICON),
-                                   IMAGE_BITMAP);
+                                   16,
+                                   16);
         if (hImageList == NULL)
             return FALSE;
 
@@ -357,6 +349,8 @@ InitMainWnd(PMAIN_WND_INFO Info)
     /* Create Popup Menu */
     Info->hShortcutMenu = LoadMenu(hInstance,
                                    MAKEINTRESOURCE(IDR_POPUP));
+    Info->hShortcutMenu = GetSubMenu(Info->hShortcutMenu,
+                                     0);
 
     Info->bIsUserAnAdmin = IsUserAnAdmin();
     if (Info->bIsUserAnAdmin)
@@ -373,7 +367,7 @@ InitMainWnd(PMAIN_WND_INFO Info)
                            ID_CREATE,
                            MF_ENABLED);
         }
-        EnableMenuItem(GetSubMenu(Info->hShortcutMenu, 0),
+        EnableMenuItem(Info->hShortcutMenu,
                        ID_CREATE,
                        MF_ENABLED);
     }
@@ -398,7 +392,6 @@ MainWndCommand(PMAIN_WND_INFO Info,
                 Info->bDlgOpen = TRUE;
                 OpenPropSheet(Info);
                 Info->bDlgOpen = FALSE;
-                SetMenuAndButtonStates(Info);
             }
         }
         break;
@@ -433,7 +426,7 @@ MainWndCommand(PMAIN_WND_INFO Info,
             ret = DialogBoxParam(hInstance,
                                  MAKEINTRESOURCE(IDD_DLG_CREATE),
                                  Info->hMainWnd,
-                                 CreateDialogProc,
+                                 (DLGPROC)CreateDialogProc,
                                  (LPARAM)Info);
             if (ret == IDOK)
                 RefreshServiceList(Info);
@@ -449,7 +442,7 @@ MainWndCommand(PMAIN_WND_INFO Info,
                 DialogBoxParam(hInstance,
                                MAKEINTRESOURCE(IDD_DLG_DELETE),
                                Info->hMainWnd,
-                               DeleteDialogProc,
+                               (DLGPROC)DeleteDialogProc,
                                (LPARAM)Info);
             }
             else
@@ -570,7 +563,7 @@ MainWndCommand(PMAIN_WND_INFO Info,
             DialogBox(hInstance,
                       MAKEINTRESOURCE(IDD_ABOUTBOX),
                       Info->hMainWnd,
-                      AboutDialogProc);
+                      (DLGPROC)AboutDialogProc);
             SetFocus(Info->hListView);
         break;
 
@@ -643,14 +636,11 @@ MainWndProc(HWND hwnd,
             if (!InitMainWnd(Info))
                 return -1;
 
-            /* Fill the list-view before showing the main window */
-            RefreshServiceList(Info);
-
             /* Show the window */
             ShowWindow(hwnd,
                        Info->nCmdShow);
 
-            SetFocus(Info->hListView);
+            RefreshServiceList(Info);
         }
         break;
 
@@ -689,16 +679,6 @@ MainWndProc(HWND hwnd,
                 }
                 break;
 
-                case NM_RETURN:
-                {
-                    SendMessage(hwnd,
-                                WM_COMMAND,
-                                //ID_PROP,
-                                MAKEWPARAM((WORD)ID_PROP, (WORD)0),
-                                0);
-                }
-                break;
-
                 case LVN_COLUMNCLICK:
                 {
                     LPNMLISTVIEW pnmv = (LPNMLISTVIEW) lParam;
@@ -714,11 +694,9 @@ MainWndProc(HWND hwnd,
                 {
                     LPNMLISTVIEW pnmv = (LPNMLISTVIEW) lParam;
 
-                    if (pnmv->uNewState != 0)
-                    {
-                        ListViewSelectionChanged(Info, pnmv);
-                        SetMenuAndButtonStates(Info);
-                    }
+                    ListViewSelectionChanged(Info, pnmv);
+                    SetMenuAndButtonStates(Info);
+
                 }
                 break;
 
@@ -790,7 +768,7 @@ MainWndProc(HWND hwnd,
                 GetWindowRect(Info->hListView, &lvRect);
                 if (PtInRect(&lvRect, pt))
                 {
-                    TrackPopupMenuEx(GetSubMenu(Info->hShortcutMenu, 0),
+                    TrackPopupMenuEx(Info->hShortcutMenu,
                                      TPM_RIGHTBUTTON,
                                      xPos,
                                      yPos,
@@ -904,7 +882,7 @@ CreateMainWindow(LPCTSTR lpCaption,
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
                                   CW_USEDEFAULT,
                                   CW_USEDEFAULT,
-                                  680,
+                                  650,
                                   450,
                                   NULL,
                                   NULL,

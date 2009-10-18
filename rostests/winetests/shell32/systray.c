@@ -26,39 +26,30 @@
 
 
 static HWND hMainWnd;
-static BOOL (WINAPI *pShell_NotifyIconW)(DWORD,PNOTIFYICONDATAW);
 
-static void test_cbsize(void)
+void test_cbsize()
 {
+    NOTIFYICONDATAW nidW;
     NOTIFYICONDATAA nidA;
-    BOOL ret;
 
-    if (pShell_NotifyIconW)
-    {
-        NOTIFYICONDATAW nidW;
+    ZeroMemory(&nidW, sizeof(nidW));
+    nidW.cbSize = NOTIFYICONDATAW_V1_SIZE;
+    nidW.hWnd = hMainWnd;
+    nidW.uID = 1;
+    nidW.uFlags = NIF_ICON|NIF_MESSAGE;
+    nidW.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    nidW.uCallbackMessage = WM_USER+17;
+    ok(Shell_NotifyIconW(NIM_ADD, &nidW), "NIM_ADD failed!\n");
 
-        ZeroMemory(&nidW, sizeof(nidW));
-        nidW.cbSize = NOTIFYICONDATAW_V1_SIZE;
-        nidW.hWnd = hMainWnd;
-        nidW.uID = 1;
-        nidW.uFlags = NIF_ICON|NIF_MESSAGE;
-        nidW.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-        nidW.uCallbackMessage = WM_USER+17;
-        ret = pShell_NotifyIconW(NIM_ADD, &nidW);
-        if (ret)
-        {
-            /* using an invalid cbSize does work */
-            nidW.cbSize = 3;
-            nidW.hWnd = hMainWnd;
-            nidW.uID = 1;
-            ret = pShell_NotifyIconW(NIM_DELETE, &nidW);
-            ok( ret || broken(!ret), /* nt4 */ "NIM_DELETE failed!\n");
-            /* as icon doesn't exist anymore - now there will be an error */
-            nidW.cbSize = sizeof(nidW);
-            ok(!pShell_NotifyIconW(NIM_DELETE, &nidW) != !ret, "The icon was not deleted\n");
-        }
-        else win_skip( "Shell_NotifyIconW not working\n" );  /* win9x */
-    }
+    /* using an invalid cbSize does work */
+    nidW.cbSize = 3;
+    nidW.hWnd = hMainWnd;
+    nidW.uID = 1;
+    ok(Shell_NotifyIconW(NIM_DELETE, &nidW), "NIM_DELETE failed!\n");
+    /* as icon doesn't exist anymore - now there will be an error */
+    nidW.cbSize = sizeof(nidW);
+    /* wine currently doesn't return error code put prints an ERR(...) */
+    todo_wine ok(!Shell_NotifyIconW(NIM_DELETE, &nidW), "The icon was not deleted\n");
 
     /* same for Shell_NotifyIconA */
     ZeroMemory(&nidA, sizeof(nidA));
@@ -74,11 +65,11 @@ static void test_cbsize(void)
     nidA.cbSize = 3;
     nidA.hWnd = hMainWnd;
     nidA.uID = 1;
-    ret = Shell_NotifyIconA(NIM_DELETE, &nidA);
-    ok( ret || broken(!ret),  /* win9x */ "NIM_DELETE failed!\n");
+    ok(Shell_NotifyIconA(NIM_DELETE, &nidA), "NIM_DELETE failed!\n");
     /* as icon doesn't exist anymore - now there will be an error */
     nidA.cbSize = sizeof(nidA);
-    ok(!Shell_NotifyIconA(NIM_DELETE, &nidA) != !ret, "The icon was not deleted\n");
+    /* wine currently doesn't return error code put prints an ERR(...) */
+    todo_wine ok(!Shell_NotifyIconA(NIM_DELETE, &nidA), "The icon was not deleted\n");
 }
 
 START_TEST(systray)
@@ -86,17 +77,13 @@ START_TEST(systray)
     WNDCLASSA wc;
     MSG msg;
     RECT rc;
-    HMODULE hshell32;
-
-    hshell32 = GetModuleHandleA("shell32.dll");
-    pShell_NotifyIconW = (void*)GetProcAddress(hshell32, "Shell_NotifyIconW");
 
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.cbClsExtra = 0;
     wc.cbWndExtra = 0;
     wc.hInstance = GetModuleHandleA(NULL);
     wc.hIcon = NULL;
-    wc.hCursor = LoadCursorA(NULL, IDC_IBEAM);
+    wc.hCursor = LoadCursorA(NULL, MAKEINTRESOURCEA(IDC_IBEAM));
     wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
     wc.lpszMenuName = NULL;
     wc.lpszClassName = "MyTestWnd";

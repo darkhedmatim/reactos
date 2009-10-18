@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -24,11 +25,15 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
                   IN HANDLE Primary,
                   IN HANDLE Log,
                   IN HANDLE External,
-                  IN PCUNICODE_STRING FileName OPTIONAL,
+                  IN PUNICODE_STRING FileName OPTIONAL,
                   IN ULONG CheckFlags)
 {
+#if 0
     PCMHIVE Hive;
+#else
+    PEREGISTRY_HIVE Hive;
     FILE_STANDARD_INFORMATION FileInformation;
+#endif
     IO_STATUS_BLOCK IoStatusBlock;
     FILE_FS_SIZE_INFORMATION FileSizeInformation;
     NTSTATUS Status;
@@ -84,9 +89,9 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
     }
 
     /* Allocate the hive */
-    Hive = ExAllocatePoolWithTag(NonPagedPool, sizeof(CMHIVE), TAG_CM);
+    Hive = ExAllocatePoolWithTag(NonPagedPool, sizeof(EREGISTRY_HIVE), TAG_CM);
     if (!Hive) return STATUS_INSUFFICIENT_RESOURCES;
-
+#if 0
     /* Setup null fields */
     Hive->UnloadEvent = NULL;
     Hive->RootKcb = NULL;
@@ -119,12 +124,10 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
     if (!Hive->ViewLock) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Allocate the flush lock */
-#if 0
     Hive->FlusherLock = ExAllocatePoolWithTag(NonPagedPool,
                                               sizeof(ERESOURCE),
                                               TAG_CM);
     if (!Hive->FlusherLock) return STATUS_INSUFFICIENT_RESOURCES;
-#endif
 
     /* Setup the handles */
     Hive->FileHandles[HFILE_TYPE_PRIMARY] = Primary;
@@ -136,14 +139,14 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
     Hive->ViewLockOwner = NULL;
 
     /* Initialize the flush lock */
-    ExInitializePushLock((PULONG_PTR)&Hive->FlusherLock);
+    ExInitializeResourceLite(Hive->FlusherLock);
 
     /* Setup hive locks */
-    ExInitializePushLock((PULONG_PTR)&Hive->HiveLock);
+    ExInitializePushLock(&Hive->HiveLock);
     Hive->HiveLockOwner = NULL;
-    ExInitializePushLock((PULONG_PTR)&Hive->WriterLock);
+    ExInitializePushLock(&Hive->WriterLock);
     Hive->WriterLockOwner = NULL;
-    ExInitializePushLock((PULONG_PTR)&Hive->SecurityLock);
+    ExInitializePushLock(&Hive->SecurityLock);
     Hive->HiveSecurityLockOwner = NULL;
 
     /* Clear file names */
@@ -151,17 +154,22 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
     RtlInitEmptyUnicodeString(&Hive->FileFullPath, NULL, 0);
 
     /* Initialize the view list */
-    CmpInitHiveViewList(Hive);
+    CmpInitializeHiveViewList(Hive);
 
     /* Initailize the security cache */
-    CmpInitSecurityCache(Hive);
+    CmpInitializeSecurityCache(Hive);
 
     /* Setup flags */
     Hive->Flags = 0;
     Hive->FlushCount = 0;
+#else
+    /* Clear it */
+    RtlZeroMemory(Hive, sizeof(EREGISTRY_HIVE));
 
     /* Set flags */
     Hive->Flags = HiveFlags;
+    Hive->HiveHandle = Primary;
+    Hive->LogHandle = Log;
 
     /* Check how large the file is */
     ZwQueryInformationFile(Primary,
@@ -170,26 +178,27 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
                            sizeof(FileInformation),
                            FileStandardInformation);
     Cluster = FileInformation.EndOfFile.LowPart;
+#endif
 
     /* Initialize it */
     Status = HvInitialize(&Hive->Hive,
                           OperationType,
-                          FileType,
                           HiveFlags,
-                          HiveData,
+                          FileType,
+                          (ULONG_PTR)HiveData,
+                          Cluster,
                           CmpAllocate,
                           CmpFree,
-                          CmpFileSetSize,
-                          CmpFileWrite,
                           CmpFileRead,
+                          CmpFileWrite,
+                          CmpFileSetSize,
                           CmpFileFlush,
-                          Cluster,
-                          (PUNICODE_STRING)FileName);
+                          FileName);
     if (!NT_SUCCESS(Status))
     {
         /* Clear allocations and fail */
-        ExFreePool(Hive->ViewLock);
 #if 0
+        ExFreePool(Hive->ViewLock);
         ExFreePool(Hive->FlusherLock);
 #endif
         ExFreePool(Hive);
@@ -206,8 +215,8 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
         if (CmCheckRegistry((PCMHIVE)Hive, TRUE))
         {
             /* Free all alocations */
-            ExFreePool(Hive->ViewLock);
 #if 0
+            ExFreePool(Hive->ViewLock);
             ExFreePool(Hive->FlusherLock);
 #endif
             ExFreePool(Hive);
@@ -231,8 +240,8 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
 
 NTSTATUS
 NTAPI
-CmpOpenHiveFiles(IN PCUNICODE_STRING BaseName,
-                 IN PCWSTR Extension OPTIONAL,
+CmpOpenHiveFiles(IN PUNICODE_STRING BaseName,
+                 IN PWCHAR Extension OPTIONAL,
                  IN PHANDLE Primary,
                  IN PHANDLE Log,
                  IN PULONG PrimaryDisposition,
@@ -464,7 +473,8 @@ CmpOpenHiveFiles(IN PCUNICODE_STRING BaseName,
     /* Check if we don't need to create a log file */
     if (!Extension)
     {
-        /* We're done, close handles */
+        /* We're done, close handles and free buffers */
+        if (NameBuffer) ExFreePool(NameBuffer);
         ObDereferenceObject(Event);
         ZwClose(EventHandle);
         return STATUS_SUCCESS;

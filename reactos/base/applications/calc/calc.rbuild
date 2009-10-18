@@ -1,17 +1,18 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="calc" type="win32gui" installbase="system32" installname="calc.exe" unicode="yes">
+<module name="calc" type="win32gui" installbase="system32" installname="calc.exe">
 	<include base="calc">.</include>
-	<define name="DISABLE_HTMLHELP_SUPPORT">1</define>
-	<library>advapi32</library>
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x0501</define>
+	<define name="WINVER">0x0501</define>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
 	<library>kernel32</library>
-	<library>gdi32</library>
 	<library>user32</library>
-	<file>about.c</file>
-	<file>convert.c</file>
-	<file>function.c</file>
-	<file>rpn.c</file>
-	<file>utl.c</file>
-	<file>winmain.c</file>
-	<file>resource.rc</file>
+	<library>gdi32</library>
+	<library>comctl32</library>
+	<file>dialog.c</file>
+	<file>stats.c</file>
+	<file>winecalc.c</file>
+	<file>rsrc.rc</file>
 </module>

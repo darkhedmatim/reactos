@@ -46,12 +46,7 @@ typedef double DOUBLE;
 
 typedef struct _FX_SAVE_AREA {
     ULONG Fr[32];
-} FX_SAVE_AREA, *PFX_SAVE_AREA;
-
-typedef struct _FXSAVE_FORMAT
-{
-    ULONG Xer,Fpscr;
-} FXSAVE_FORMAT, *PFXSAVE_FORMAT;
+} FX_SAVE_AREA;
 
 typedef struct _LDT_ENTRY {
     USHORT LimitLow;

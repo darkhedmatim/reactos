@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/* COPYRIGHT:       See COPYING in the top level directory
+/* $Id$
+ * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/partlist.h
  * PURPOSE:         Partition list functions
@@ -25,9 +26,6 @@
 
 #ifndef __PARTLIST_H__
 #define __PARTLIST_H__
-
-/* We have to define it there, because it is not in the MS DDK */
-#define PARTITION_EXT2 0x83
 
 typedef enum _FORMATSTATE
 {
@@ -43,7 +41,7 @@ typedef struct _PARTENTRY
 {
   LIST_ENTRY ListEntry;
 
-  CHAR DriveLetter[4];
+  CHAR DriveLetter;
   CHAR VolumeLabel[17];
   CHAR FileSystemName[9];
 
@@ -79,7 +77,7 @@ typedef struct _BIOSDISKENTRY
   BOOLEAN Recognized;
   CM_DISK_GEOMETRY_DEVICE_DATA DiskGeometry;
   CM_INT13_DRIVE_PARAMETER Int13DiskData;
-} BIOSDISKENTRY, *PBIOSDISKENTRY;
+} BIOSDISKENTRY, *PBIOSDISKENTRY; 
 
 
 typedef struct _DISKENTRY
@@ -109,7 +107,6 @@ typedef struct _DISKENTRY
   BOOLEAN Modified;
 
   BOOLEAN NewDisk;
-  BOOLEAN NoMbr; /* MBR is absent */
 
   UNICODE_STRING DriverName;
 
@@ -133,11 +130,9 @@ typedef struct _PARTLIST
 
   PDISKENTRY CurrentDisk;
   PPARTENTRY CurrentPartition;
-  UCHAR      CurrentPartitionNumber;
 
   PDISKENTRY ActiveBootDisk;
   PPARTENTRY ActiveBootPartition;
-  UCHAR      ActiveBootPartitionNumber;
 
   LIST_ENTRY DiskListHead;
   LIST_ENTRY BiosDiskListHead;

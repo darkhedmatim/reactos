@@ -1,29 +1,20 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="chkstk" type="staticlibrary">
-	<directory name="except">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>chkstk_asm.s</file>
-			</directory>
-		</if>
-		<if property="ARCH" value="powerpc">
-			<directory name="powerpc">
-				<file>chkstk_asm.s</file>
-			</directory>
-		</if>
-	</directory>
-</module>
-
 <module name="crt" type="staticlibrary">
-	<library>chkstk</library>
 	<include base="crt">.</include>
 	<include base="crt">include</include>
+	<define name="_DISABLE_TIDENTS" />
 	<define name="__MINGW_IMPORT">extern</define>
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x600</define>
+	<define name="_WIN32_WINNT">0x501</define>
+	<define name="__REACTOS__" />
 	<define name="USE_MSVCRT_PREFIX" />
 	<define name="_MSVCRT_LIB_" />
 	<define name="_MSVCRT_" />
 	<define name="_MT" />
+	<define name="__NO_CTYPE_INLINES" />
+	<pch>precomp.h</pch>
 	<directory name="conio">
 		<file>cgets.c</file>
 		<file>cprintf.c</file>
@@ -33,6 +24,9 @@
 		<file>kbhit.c</file>
 		<file>putch.c</file>
 		<file>ungetch.c</file>
+	</directory>
+	<directory name="ctype">
+		<file>ctype.c</file>
 	</directory>
 	<directory name="direct">
 		<file>chdir.c</file>
@@ -51,26 +45,12 @@
 	</directory>
 	<directory name="except">
 		<file>abnorter.c</file>
-		<file>checkesp.c</file>
-		<file>cpp.c</file>
-		<file>cppexcept.c</file>
+		<file>exhand2.c</file>
 		<file>matherr.c</file>
 		<if property="ARCH" value="i386">
 			<directory name="i386">
-				<file>prolog.s</file>
 				<file>seh.s</file>
 				<file>unwind.c</file>
-			</directory>
-		</if>
-		<if property="ARCH" value="powerpc">
-			<directory name="powerpc">
-				<file>seh.s</file>
-			</directory>
-		</if>
-		<if property="ARCH" value="amd64">
-			<directory name="amd64">
-				<file>seh.s</file>
-				<file>chkstk_asm.s</file>
 			</directory>
 		</if>
 		<file>xcptfil.c</file>
@@ -80,6 +60,7 @@
 		<file>copysign.c</file>
 		<file>fpclass.c</file>
 		<file>fpecode.c</file>
+		<file>fpreset.c</file>
 		<file>isnan.c</file>
 		<file>nafter.c</file>
 		<file>scalb.c</file>
@@ -87,20 +68,50 @@
 			<directory name="i386">
 				<file>clearfp.c</file>
 				<file>cntrlfp.c</file>
-				<file>fpreset.c</file>
 				<file>logb.c</file>
 				<file>statfp.c</file>
 			</directory>
 		</if>
-		<if property="ARCH" value="amd64">
-			<directory name="i386">
-				<file>clearfp.c</file>
-				<file>cntrlfp.c</file>
-				<file>fpreset.c</file>
-				<file>logb.c</file>
-				<file>statfp.c</file>
-			</directory>
-		</if>
+	</directory>
+	<directory name="io">
+		<file>access.c</file>
+		<file>chmod.c</file>
+		<file>chsize.c</file>
+		<file>close.c</file>
+		<file>commit.c</file>
+		<file>create.c</file>
+		<file>dup.c</file>
+		<file>dup2.c</file>
+		<file>eof.c</file>
+		<file>filelen.c</file>
+		<file>fileleni.c</file>
+		<file>find.c</file>
+		<file>fmode.c</file>
+		<file>isatty.c</file>
+		<file>locking.c</file>
+		<file>lseek.c</file>
+		<file>lseeki64.c</file>
+		<file>mktemp.c</file>
+		<file>open.c</file>
+		<file>pipe.c</file>
+		<file>read.c</file>
+		<file>setmode.c</file>
+		<file>sopen.c</file>
+		<file>stubs.c</file>
+		<file>tell.c</file>
+		<file>telli64.c</file>
+		<file>umask.c</file>
+		<file>unlink.c</file>
+		<file>utime.c</file>
+		<file>waccess.c</file>
+		<file>wchmod.c</file>
+		<file>wcreate.c</file>
+		<file>wfind.c</file>
+		<file>wmktemp.c</file>
+		<file>wopen.c</file>
+		<file>write.c</file>
+		<file>wunlink.c</file>
+		<file>wutime.c</file>
 	</directory>
 	<directory name="locale">
 		<file>locale.c</file>
@@ -111,67 +122,31 @@
 		<file>asin.c</file>
 		<file>cabs.c</file>
 		<file>cosh.c</file>
-		<file>div.c</file>
-		<file>fdivbug.c</file>
 		<file>frexp.c</file>
 		<file>huge_val.c</file>
 		<file>hypot.c</file>
-		<file>ldiv.c</file>
+		<file>j0_y0.c</file>
+		<file>j1_y1.c</file>
+		<file>jn_yn.c</file>
 		<file>modf.c</file>
-		<file>rand.c</file>
 		<file>s_modf.c</file>
 		<file>sinh.c</file>
+		<file>stubs.c</file>
 		<file>tanh.c</file>
 		<file>pow_asm.c</file>
 
 		<if property="ARCH" value="i386">
 			<directory name="i386">
-				<file>alldiv_asm.s</file>
-				<file>alldvrm_asm.s</file>
-				<file>allmul_asm.s</file>
-				<file>allrem_asm.s</file>
-				<file>allshl_asm.s</file>
-				<file>allshr_asm.s</file>
+				<file>atan2.c</file>
+				<file>exp.c</file>
+				<file>fmod.c</file>
+				<file>ldexp.c</file>
 				<file>atan_asm.s</file>
-				<file>aulldiv_asm.s</file>
-				<file>aulldvrm_asm.s</file>
-				<file>aullrem_asm.s</file>
-				<file>aullshr_asm.s</file>
-				<file>ceil_asm.s</file>
-				<file>cos_asm.s</file>
-				<file>fabs_asm.s</file>
-				<file>floor_asm.s</file>
-				<file>ftol_asm.s</file>
-				<file>log_asm.s</file>
-				<file>log10_asm.s</file>
 				<file>pow_asm.s</file>
-				<file>sin_asm.s</file>
-				<file>sqrt_asm.s</file>
-				<file>tan_asm.s</file>
-
-				<file>atan2.c</file>
-				<file>ci.c</file>
-				<file>exp.c</file>
-				<file>fmod.c</file>
-				<file>ldexp.c</file>
+				<file>log10_asm.s</file>
 			</directory>
-			<file>j0_y0.c</file>
-			<file>j1_y1.c</file>
-			<file>jn_yn.c</file>
-		</if>
-		<if property="ARCH" value="amd64">
-			<directory name="i386">
-				<file>atan2.c</file>
-				<file>exp.c</file>
-				<file>fmod.c</file>
-				<file>ldexp.c</file>
-			</directory>
-			<file>j0_y0.c</file>
-			<file>j1_y1.c</file>
-			<file>jn_yn.c</file>
 		</if>
 		<ifnot property="ARCH" value="i386">
-			<file>stubs.c</file>
 		</ifnot>
 	</directory>
 
@@ -232,27 +207,6 @@
 		<file>mbstrlen.c</file>
 		<file>mbsupr.c</file>
 	</directory>
-
-	<directory name="mem">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>memchr_asm.s</file>
-				<file>memcpy_asm.s</file>
-				<file>memmove_asm.s</file>
-				<file>memset_asm.s</file>
-			</directory>
-		</if>
-		<ifnot property="ARCH" value="i386">
-			<file>memchr.c</file>
-			<file>memcpy.c</file>
-			<file>memmove.c</file>
-			<file>memset.c</file>
-		</ifnot>
-		<file>memcmp.c</file>
-		<file>memccpy.c</file>
-		<file>memicmp.c</file>
-	</directory>
-
 	<directory name="misc">
 		<file>amsg.c</file>
 		<file>assert.c</file>
@@ -277,7 +231,6 @@
 		<file>wprocess.c</file>
 	</directory>
 	<directory name="search">
-		<file>bsearch.c</file>
 		<file>lfind.c</file>
 		<file>lsearch.c</file>
 	</directory>
@@ -293,54 +246,122 @@
 		<file>xcptinfo.c</file>
 	</directory>
 	<directory name="stdio">
-		<file>access.c</file>
-		<file>file.c</file>
-		<file>find.c</file>
-		<file>find64.c</file>
-		<file>findi64.c</file>
-		<file>fmode.c</file>
-		<file>lnx_sprintf.c</file>
+		<file>allocfil.c</file>
+		<file>clearerr.c</file>
+		<file>fclose.c</file>
+		<file>fdopen.c</file>
+		<file>feof.c</file>
+		<file>ferror.c</file>
+		<file>fflush.c</file>
+		<file>fgetc.c</file>
+		<file>fgetchar.c</file>
+		<file>fgetpos.c</file>
+		<file>fgets.c</file>
+		<file>fgetws.c</file>
+		<file>filbuf.c</file>
+		<file>fileno.c</file>
+		<file>flsbuf.c</file>
+		<file>fopen.c</file>
+		<file>fprintf.c</file>
+		<file>fputc.c</file>
+		<file>fputchar.c</file>
+		<file>fputs.c</file>
+		<file>fputws.c</file>
+		<file>fread.c</file>
+		<file>freopen.c</file>
+		<file>fseek.c</file>
+		<file>fsetpos.c</file>
+		<file>fsopen.c</file>
+		<file>ftell.c</file>
+		<file>fwalk.c</file>
+		<file>fwprintf.c</file>
+		<file>fwrite.c</file>
+		<file>getc.c</file>
+		<file>getchar.c</file>
+		<file>gets.c</file>
+		<file>getw.c</file>
 		<file>perror.c</file>
 		<file>popen.c</file>
-		<file>stat.c</file>
-		<file>stat64.c</file>
-		<file>waccess.c</file>
-		<file>wfind.c</file>
-		<file>wfind64.c</file>
-		<file>wfindi64.c</file>
+		<file>printf.c</file>
+		<file>putc.c</file>
+		<file>putchar.c</file>
+		<file>puts.c</file>
+		<file>putw.c</file>
+		<file>putwchar.c</file>
+		<file>remove.c</file>
+		<file>rename.c</file>
+		<file>rewind.c</file>
+		<file>rmtmp.c</file>
+		<file>setbuf.c</file>
+		<file>setvbuf.c</file>
+		<file>sprintf.c</file>
+		<file>swprintf.c</file>
+		<file>stdhnd.c</file>
+		<file>tempnam.c</file>
+		<file>tmpfile.c</file>
+		<file>tmpnam.c</file>
+		<file>ungetc.c</file>
+		<file>ungetwc.c</file>
+		<file>vfprintf.c</file>
+		<file>vfwprint.c</file>
+		<file>vprintf.c</file>
+		<file>vsprintf.c</file>
+		<file>vswprintf.c</file>
+		<file>vwprintf.c</file>
+		<file>wfdopen.c</file>
+		<file>wfopen.c</file>
+		<file>wfreopen.c</file>
+		<file>wfsopen.c</file>
 		<file>wpopen.c</file>
-		<file>wstat.c</file>
-		<file>wstat64.c</file>
+		<file>wprintf.c</file>
+		<file>wremove.c</file>
+		<file>wrename.c</file>
+		<file>wtempnam.c</file>
+		<file>wtmpnam.c</file>
 	</directory>
 	<directory name="stdlib">
 		<file>_exit.c</file>
 		<file>abort.c</file>
 		<file>atexit.c</file>
+		<file>atof.c</file>
+		<file>div.c</file>
 		<file>ecvt.c</file>
+		<file>ecvtbuf.c</file>
 		<file>errno.c</file>
 		<file>fcvt.c</file>
 		<file>fcvtbuf.c</file>
 		<file>fullpath.c</file>
 		<file>gcvt.c</file>
 		<file>getenv.c</file>
+		<file>ldiv.c</file>
 		<file>makepath.c</file>
 		<file>malloc.c</file>
 		<file>mbtowc.c</file>
-		<file>mbstowcs.c</file>
 		<file>obsol.c</file>
 		<file>putenv.c</file>
-		<file>qsort.c</file>
+		<file>rand.c</file>
 		<file>rot.c</file>
 		<file>senv.c</file>
+		<file>strtod.c</file>
+		<file>strtoul.c</file>
+		<file>strtoull.c</file>
 		<file>swab.c</file>
+		<file>wcstod.c</file>
+		<file>wcstombs.c</file>
+		<file>wctomb.c</file>
 		<file>wfulpath.c</file>
 		<file>wputenv.c</file>
 		<file>wsenv.c</file>
+		<file>wsplitp.c</file>
 		<file>wmakpath.c</file>
 	</directory>
 	<directory name="string">
 		<if property="ARCH" value="i386">
 			<directory name="i386">
+				<file>memchr_asm.s</file>
+				<file>memcpy_asm.s</file>
+				<file>memmove_asm.s</file>
+				<file>memset_asm.s</file>
 				<file>strcat_asm.s</file>
 				<file>strchr_asm.s</file>
 				<file>strcmp_asm.s</file>
@@ -364,6 +385,10 @@
 			</directory>
 		</if>
 		<ifnot property="ARCH" value="i386">
+			<file>memchr.c</file>
+			<file>memcpy.c</file>
+			<file>memmove.c</file>
+			<file>memset.c</file>
 			<file>strcat.c</file>
 			<file>strchr.c</file>
 			<file>strcmp.c</file>
@@ -385,97 +410,56 @@
 			<file>wcsnlen.c</file>
 			<file>wcsrchr.c</file>
 		</ifnot>
-		<file>atof.c</file>
-		<file>atoi.c</file>
-		<file>atoi64.c</file>
-		<file>atol.c</file>
-		<file>ctype.c</file>
-		<file>itoa.c</file>
-		<file>itow.c</file>
 		<file>lasttok.c</file>
-		<file>scanf.c</file>
-		<file>splitp.c</file>
+		<file>memcmp.c</file>
+		<file>memicmp.c</file>
 		<file>strcoll.c</file>
-		<file>strcspn.c</file>
 		<file>strdup.c</file>
 		<file>strerror.c</file>
 		<file>stricmp.c</file>
-		<file>string.c</file>
 		<file>strlwr.c</file>
 		<file>strncoll.c</file>
 		<file>strnicmp.c</file>
 		<file>strpbrk.c</file>
 		<file>strrev.c</file>
 		<file>strset.c</file>
-		<file>strspn.c</file>
 		<file>strstr.c</file>
-		<file>strtod.c</file>
-		<file>strtoi64.c</file>
 		<file>strtok.c</file>
-		<file>strtol.c</file>
-		<file>strtoul.c</file>
-		<file>strtoull.c</file>
 		<file>strupr.c</file>
 		<file>strxfrm.c</file>
-		<file>wcs.c</file>
-		<file>wcstol.c</file>
-		<file>wcstoul.c</file>
-		<file>wsplitp.c</file>
-		<file>wtoi.c</file>
-		<file>wtoi64.c</file>
-		<file>wtol.c</file>
 	</directory>
 	<directory name="sys_stat">
+		<file>fstat.c</file>
+		<file>fstati64.c</file>
+		<file>futime.c</file>
+		<file>stat.c</file>
+		<file>wstat.c</file>
 		<file>systime.c</file>
 	</directory>
 	<directory name="time">
-		<file>asctime.c</file>
 		<file>clock.c</file>
-		<file>ctime32.c</file>
-		<file>ctime64.c</file>
 		<file>ctime.c</file>
-		<file>difftime32.c</file>
-		<file>difftime64.c</file>
 		<file>difftime.c</file>
-		<file>ftime32.c</file>
-		<file>ftime64.c</file>
 		<file>ftime.c</file>
-		<file>futime32.c</file>
-		<file>futime64.c</file>
-		<file>futime.c</file>
-		<file>gmtime.c</file>
-		<file>localtime32.c</file>
-		<file>localtime64.c</file>
-		<file>localtime.c</file>
-		<file>mktime.c</file>
 		<file>strdate.c</file>
 		<file>strftime.c</file>
 		<file>strtime.c</file>
-		<file>time32.c</file>
-		<file>time64.c</file>
 		<file>time.c</file>
-		<file>timezone.c</file>
-		<file>tzname.c</file>
-		<file>utime32.c</file>
-		<file>utime64.c</file>
-		<file>utime.c</file>
-		<file>wasctime.c</file>
-		<file>wcsftime.c</file>
-		<file>wctime32.c</file>
-		<file>wctime64.c</file>
+		<file>tz_vars.c</file>
 		<file>wctime.c</file>
 		<file>wstrdate.c</file>
 		<file>wstrtime.c</file>
-		<file>wutime32.c</file>
-		<file>wutime64.c</file>
-		<file>wutime.c</file>
 	</directory>
 	<directory name="wstring">
 		<file>wcscoll.c</file>
 		<file>wcscspn.c</file>
+		<file>wcsdup.c</file>
 		<file>wcsicmp.c</file>
 		<file>wcslwr.c</file>
 		<file>wcsnicmp.c</file>
+		<file>wcspbrk.c</file>
+		<file>wcsrev.c</file>
+		<file>wcsset.c</file>
 		<file>wcsspn.c</file>
 		<file>wcsstr.c</file>
 		<file>wcstok.c</file>
@@ -484,7 +468,11 @@
 		<file>wlasttok.c</file>
 	</directory>
 	<directory name="wine">
+		<file>cpp.c</file>
+		<file>cppexcept.c</file>
 		<file>heap.c</file>
+		<file>scanf.c</file>
+		<file>thread.c</file>
 		<file>undname.c</file>
 	</directory>
 </module>

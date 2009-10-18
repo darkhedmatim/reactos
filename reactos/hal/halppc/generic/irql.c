@@ -16,7 +16,7 @@
 /* GLOBALS ******************************************************************/
 
 /*
- * FIXME: Use EISA_CONTROL STRUCTURE INSTEAD OF HARD-CODED OFFSETS
+ * FIXME: Use EISA_CONTROL STRUCTURE INSTEAD OF HARD-CODED OFFSETS 
 */
 
 typedef union
@@ -29,10 +29,10 @@ typedef union
    };
 }
 PIC_MASK;
-
-/*
+   
+/* 
  * PURPOSE: - Mask for HalEnableSystemInterrupt and HalDisableSystemInterrupt
- *          - At startup enable timer and cascade
+ *          - At startup enable timer and cascade 
  */
 #if defined(__GNUC__)
 static PIC_MASK pic_mask = {.both = 0xFFFA};
@@ -42,7 +42,7 @@ static PIC_MASK pic_mask = { 0xFFFA };
 
 
 /*
- * PURPOSE: Mask for disabling of acknowledged interrupts
+ * PURPOSE: Mask for disabling of acknowledged interrupts 
  */
 #if defined(__GNUC__)
 static PIC_MASK pic_mask_intr = {.both = 0x0000};
@@ -61,7 +61,7 @@ static ULONG HalpPendingInterruptCount[NR_IRQS];
 
 #else
 
-VOID NTAPI
+VOID STDCALL
 KiInterruptDispatch2 (ULONG Irq, KIRQL old_level);
 
 #endif
@@ -69,7 +69,7 @@ KiInterruptDispatch2 (ULONG Irq, KIRQL old_level);
 /* FUNCTIONS ****************************************************************/
 
 #undef KeGetCurrentIrql
-KIRQL NTAPI KeGetCurrentIrql (VOID)
+KIRQL STDCALL KeGetCurrentIrql (VOID)
 /*
  * PURPOSE: Returns the current irq level
  * RETURNS: The current irq level
@@ -94,11 +94,11 @@ VOID NTAPI HalpInitPICs(VOID)
   WRITE_PORT_UCHAR((PUCHAR)0xa1, 0x2);
   /* 8086 mode */
   WRITE_PORT_UCHAR((PUCHAR)0x21, 0x1);
-  WRITE_PORT_UCHAR((PUCHAR)0xa1, 0x1);
+  WRITE_PORT_UCHAR((PUCHAR)0xa1, 0x1);   
   /* Enable interrupts */
   WRITE_PORT_UCHAR((PUCHAR)0x21, 0xFF);
   WRITE_PORT_UCHAR((PUCHAR)0xa1, 0xFF);
-
+  
   /* We can now enable interrupts */
   _enable();
 }
@@ -108,13 +108,13 @@ VOID HalpEndSystemInterrupt(KIRQL Irql)
  * FUNCTION: Enable all irqs with higher priority.
  */
 {
-  const USHORT mask[] =
+  const USHORT mask[] = 
   {
      0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
      0x0000, 0x0000, 0x0000, 0x0000, 0x8000, 0xc000, 0xe000, 0xf000,
      0xf800, 0xfc00, 0xfe00, 0xff00, 0xff80, 0xffc0, 0xffe0, 0xfff0,
      0xfff8, 0xfffc, 0xfffe, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
-  };
+  };     
 
   /* Interrupts should be disable while enabling irqs of both pics */
   _disable();
@@ -183,7 +183,7 @@ HalpLowerIrql(KIRQL NewIrql)
     {
       return;
     }
-  if (KeGetCurrentThread() != NULL &&
+  if (KeGetCurrentThread() != NULL && 
       KeGetCurrentThread()->ApcState.KernelApcPending)
     {
       KiDeliverApc(KernelMode, NULL, NULL);
@@ -211,15 +211,15 @@ VOID FASTCALL
 KfLowerIrql (KIRQL	NewIrql)
 {
   DPRINT("KfLowerIrql(NewIrql %d)\n", NewIrql);
-
+  
   if (NewIrql > KeGetPcr()->Irql)
     {
       DbgPrint ("(%s:%d) NewIrql %x CurrentIrql %x\n",
 		__FILE__, __LINE__, NewIrql, KeGetPcr()->Irql);
-      KeBugCheck(0);
+      KEBUGCHECK(0);
       for(;;);
     }
-
+  
   HalpLowerIrql(NewIrql);
 }
 
@@ -244,17 +244,17 @@ KIRQL FASTCALL
 KfRaiseIrql (KIRQL	NewIrql)
 {
   KIRQL OldIrql;
-
+  
   DPRINT("KfRaiseIrql(NewIrql %d)\n", NewIrql);
-
+  
   if (NewIrql < KeGetPcr()->Irql)
     {
       DbgPrint ("%s:%d CurrentIrql %x NewIrql %x\n",
 		__FILE__,__LINE__,KeGetPcr()->Irql,NewIrql);
-      KeBugCheck (0);
+      KEBUGCHECK (0);
       for(;;);
     }
-
+  
   OldIrql = KeGetPcr()->Irql;
   KeGetPcr()->Irql = NewIrql;
   return OldIrql;
@@ -277,7 +277,7 @@ KfRaiseIrql (KIRQL	NewIrql)
  *	Calls KfRaiseIrql
  */
 
-KIRQL NTAPI
+KIRQL STDCALL
 KeRaiseIrqlToDpcLevel (VOID)
 {
   return KfRaiseIrql (DISPATCH_LEVEL);
@@ -301,14 +301,14 @@ KeRaiseIrqlToDpcLevel (VOID)
  *	Calls KfRaiseIrql
  */
 
-KIRQL NTAPI
+KIRQL STDCALL
 KeRaiseIrqlToSynchLevel (VOID)
 {
   return KfRaiseIrql (DISPATCH_LEVEL);
 }
 
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL 
 HalBeginSystemInterrupt (KIRQL Irql,
 			 ULONG Vector,
 			 PKIRQL OldIrql)
@@ -347,7 +347,7 @@ HalBeginSystemInterrupt (KIRQL Irql,
 }
 
 
-VOID NTAPI HalEndSystemInterrupt (KIRQL Irql, ULONG Unknown2)
+VOID STDCALL HalEndSystemInterrupt (KIRQL Irql, ULONG Unknown2)
 /*
  * FUNCTION: Finish a system interrupt and restore the specified irq level.
  */
@@ -355,15 +355,15 @@ VOID NTAPI HalEndSystemInterrupt (KIRQL Irql, ULONG Unknown2)
   HalpLowerIrql(Irql);
   HalpEndSystemInterrupt(Irql);
 }
-
+  
 BOOLEAN
-NTAPI
+STDCALL
 HalDisableSystemInterrupt(
   ULONG Vector,
   KIRQL Irql)
 {
   ULONG irq;
-
+  
   if (Vector < IRQ_BASE || Vector >= IRQ_BASE + NR_IRQS)
     return FALSE;
 
@@ -377,13 +377,13 @@ HalDisableSystemInterrupt(
     {
       WRITE_PORT_UCHAR((PUCHAR)0xa1, (UCHAR)(pic_mask.slave|pic_mask_intr.slave));
     }
-
+  
   return TRUE;
 }
 
 
 BOOLEAN
-NTAPI
+STDCALL
 HalEnableSystemInterrupt(
   ULONG Vector,
   KIRQL Irql,
@@ -422,9 +422,9 @@ HalRequestSoftwareInterrupt(
     case DISPATCH_LEVEL:
       ((PKIPCR)KeGetPcr())->HalReserved[HAL_DPC_REQUEST] = TRUE;
       break;
-
+      
     default:
-      KeBugCheck(0);
+      KEBUGCHECK(0);
   }
 }
 
@@ -441,9 +441,9 @@ HalClearSoftwareInterrupt(
     case DISPATCH_LEVEL:
       ((PKIPCR)KeGetPcr())->HalReserved[HAL_DPC_REQUEST] = FALSE;
       break;
-
+      
     default:
-      KeBugCheck(0);
+      KEBUGCHECK(0);
   }
 }
 

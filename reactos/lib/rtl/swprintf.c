@@ -34,9 +34,9 @@ typedef struct {
     unsigned int sign:1;
 } double_t;
 
-static
+static 
 __inline
-int
+int 
 _isinf(double __x)
 {
 	union
@@ -49,9 +49,9 @@ _isinf(double __x)
 	return ( x.x->exponent == 0x7ff  && ( x.x->mantissah == 0 && x.x->mantissal == 0 ));
 }
 
-static
+static 
 __inline
-int
+int 
 _isnan(double __x)
 {
 	union
@@ -115,11 +115,11 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 			size--;
 		}
 	}
-
+	
 	if ((type & SPECIAL) && ((type & REMOVEHEX) == 0)) {
 		if (base == 16)
 			size -= 2;
-	}
+	} 
 	i = 0;
 	if ((num == 0) && (precision !=0))
 		tmp[i++] = L'0';
@@ -140,7 +140,7 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 			*buf = sign;
 		++buf;
 	}
-
+	
 	if ((type & SPECIAL) && ((type & REMOVEHEX) == 0)) {
 	    if (base==16) {
 			if (buf <= end)
@@ -173,7 +173,7 @@ number(wchar_t * buf, wchar_t * end, long long num, int base, int size, int prec
 			*buf = L' ';
 		++buf;
 	}
-
+	
 
 	return buf;
 }
@@ -188,11 +188,11 @@ numberf(wchar_t * buf, wchar_t * end, double num, int base, int size, int precis
 	int i;
 	long long x;
 
-    /* FIXME
-       the float version of number is direcly copy of number
+    /* FIXME 
+       the float version of number is direcly copy of number 
     */
-
-
+    
+    
 	digits = (type & LARGE) ? large_digits : small_digits;
 	if (type & LEFT)
 		type &= ~ZEROPAD;
@@ -226,9 +226,7 @@ numberf(wchar_t * buf, wchar_t * end, double num, int base, int size, int precis
 	{
         x = num;
 		tmp[i++] = digits[do_div(&x,base)];
-#ifndef _M_ARM // Missing __floatdidf in CeGCC 0.55 -- GCC 4.4
 		num = x;
-#endif
     }
 	if (i > precision)
 		precision = i;
@@ -289,7 +287,7 @@ string(wchar_t* buf, wchar_t* end, const char* s, int len, int field_width, int 
 {
 	int i;
     wchar_t c;
-
+    
     c = (flags & ZEROPAD) ? L'0' : L' ';
 
 	if (s == NULL)
@@ -338,9 +336,9 @@ stringw(wchar_t* buf, wchar_t* end, const wchar_t* sw, int len, int field_width,
 {
 	int i;
 	wchar_t c;
-
+    
     c = (flags & ZEROPAD) ? L'0' : L' ';
-
+    
 	if (sw == NULL)
 	{
 		sw = L"<NULL>";
@@ -468,7 +466,7 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 			qualifier = *fmt;
 			fmt += 3;
 		} else if (*fmt == L'I' && *(fmt+1) == L'3' && *(fmt+2) == L'2') {
-			qualifier = L'l';
+			qualifier = L'l'; 
 			fmt += 3;
 		} else if (*fmt == L'F' && *(fmt+1) == L'p') {
 			fmt += 1;
@@ -480,7 +478,7 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 
 		switch (*fmt) {
 		case L'c':
-              if (qualifier == 'h' || qualifier == 'w') {
+              if (qualifier == 'h' || qualifier == 'w') {    
 	              wchar_t sw1[2];
 				/* print unicode string */
                 sw1[0] = (wchar_t) va_arg(args, int);
@@ -493,7 +491,7 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
                 s1[1] = 0;
 				str = string(str, end, (char *)&s1, -1,  field_width, precision, flags);
 			}
-
+		
 			continue;
 
 		case L'C':
@@ -571,13 +569,13 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 
 		case L'p':
              if ((flags & LARGE) == 0)
-                flags |= LARGE;
+                flags |= LARGE;  
 			if (field_width == -1) {
 				field_width = 2*sizeof(void *);
 				flags |= ZEROPAD;
 			}
 			str = number(str, end,
-				(ULONG_PTR) va_arg(args, void *), 16,
+				(unsigned long) va_arg(args, void *), 16,
 				field_width, precision, flags);
 			continue;
 
@@ -598,7 +596,7 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 		case 'g':
 		case 'G':
           _double = (double)va_arg(args, double);
-
+          
          if ( _isnan(_double) ) {
             ss = L"Nan";
             len = 3;
@@ -628,10 +626,10 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
             }
          } else {
             if ( precision == -1 )
-               precision = 6;
-               	str = numberf(str, end, _double, base, field_width, precision, flags);
+               precision = 6;               
+               	str = numberf(str, end, _double, base, field_width, precision, flags);           
          }
-
+            
           continue;
 
 
@@ -657,7 +655,7 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 		case L'u':
 			break;
 
-		default:
+		default:			
 			if (*fmt) {
 				if (str <= end)
 					*str = *fmt;
@@ -691,9 +689,21 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 	}
 	if (str <= end)
 		*str = L'\0';
-	else if (cnt > 0)
+    else if (cnt > 0)
+	{
 		/* don't write out a null byte if the buf size is zero */
-		*end = L'\0';
+		//*end = '\0';
+	   if (str-buf >cnt ) 
+       {
+		 *end = L'\0';
+       }
+       else
+       {
+           end++;
+          *end = L'\0';
+       }
+       
+    }
 	return str-buf;
 }
 

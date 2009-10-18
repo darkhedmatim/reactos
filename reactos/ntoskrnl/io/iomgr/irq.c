@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -35,7 +35,7 @@ IoConnectInterrupt(OUT PKINTERRUPT *InterruptObject,
     PKINTERRUPT InterruptUsed;
     PIO_INTERRUPT IoInterrupt;
     PKSPIN_LOCK SpinLockUsed;
-    BOOLEAN FirstRun;
+    BOOLEAN FirstRun = TRUE;
     CCHAR Count = 0;
     KAFFINITY Affinity;
     PAGED_CODE();
@@ -135,7 +135,7 @@ IoConnectInterrupt(OUT PKINTERRUPT *InterruptObject,
 /*
  * @implemented
  */
-VOID
+VOID 
 NTAPI
 IoDisconnectInterrupt(PKINTERRUPT InterruptObject)
 {

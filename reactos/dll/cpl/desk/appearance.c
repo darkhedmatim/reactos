@@ -4,7 +4,7 @@
  * PROJECT:         ReactOS Display Control Panel
  * FILE:            lib/cpl/desk/appearance.c
  * PURPOSE:         Appearance property page
- *
+ * 
  * PROGRAMMERS:     Trevor McCort (lycan359@gmail.com)
  *                  Timo Kreuzer (timo[dot]kreuzer[at]web[dot]de
  */
@@ -17,7 +17,7 @@
 /* This const assigns the color and metric numbers to the elements from the elements list */
 
 /* Size 1 (width)	Size 2 (height)	Color 1					Color 2							Font			Fontcolor */
-const ASSIGNMENT g_Assignment[NUM_ELEMENTS] =
+const ASSIGNMENT g_Assignment[NUM_ELEMENTS] = 
 { {-1,				-1,				COLOR_DESKTOP,			-1,								-1,				-1},				/* -Desktop */
   {SIZE_CAPTION_Y,	-1,				COLOR_INACTIVECAPTION,	COLOR_GRADIENTINACTIVECAPTION,	FONT_CAPTION,	-1},				/* inactive window caption */
   {SIZE_BORDER_X,	SIZE_BORDER_Y,	COLOR_INACTIVEBORDER,	-1,								-1,				-1},  				/* inactive window border */
@@ -42,7 +42,7 @@ const ASSIGNMENT g_Assignment[NUM_ELEMENTS] =
   {SIZE_ICON_X,		SIZE_ICON_Y,	-1,						-1,								FONT_ICON,		-1}};				/* symbol */
 
 /* This is the list of names for the colors stored in the registry */
-const TCHAR g_RegColorNames[NUM_COLORS][MAX_COLORNAMELENGTH] =
+const TCHAR g_RegColorNames[NUM_COLORS][MAX_COLORNAMELENGTH] = 
 	{TEXT("Scrollbar"),				/* 00 = COLOR_SCROLLBAR */
 	TEXT("Background"),				/* 01 = COLOR_DESKTOP */
 	TEXT("ActiveTitle"),			/* 02 = COLOR_ACTIVECAPTION  */
@@ -127,38 +127,19 @@ LoadCurrentTheme(GLOBALS* g)
 	g->Theme.lfFont[FONT_INFO] = NonClientMetrics.lfStatusFont;
 	g->Theme.lfFont[FONT_DIALOG] = NonClientMetrics.lfMessageFont;
 	SystemParametersInfo(SPI_GETICONTITLELOGFONT, sizeof(LOGFONT), &g->Theme.lfFont[FONT_ICON], 0);
-
-    /* Effects */
-   /* "Use the following transition effect for menus and tooltips" */
-    SystemParametersInfo(SPI_GETMENUANIMATION, sizeof(BOOL), &g->Theme.Effects.bMenuAnimation, 0);
-    SystemParametersInfo(SPI_GETMENUFADE, sizeof(BOOL), &g->Theme.Effects.bMenuFade, 0);
-    /* FIXME: XP seems to use grayed checkboxes to reflect differences between menu and tooltips settings
-     * Just keep them in sync for now:
-     */
-    g->Theme.Effects.bTooltipAnimation  = g->Theme.Effects.bMenuAnimation;
-    g->Theme.Effects.bTooltipFade       = g->Theme.Effects.bMenuFade;
-
-    /* show content of windows during dragging */
-    //SystemParametersInfo(SPI_SETDRAGFULLWINDOWS, g->Theme.Effects.bDragFullWindows, NULL, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
-    SystemParametersInfoW(SPI_GETDRAGFULLWINDOWS, 0, &g->Theme.Effects.bDragFullWindows, 0);
-
-    /* "Hide underlined letters for keyboard navigation until I press the Alt key" */
-    //SystemParametersInfo(SPI_GETKEYBOARDCUES, sizeof(BOOL), &g->Theme.Effects.bKeyboardCues, 0);
 }
 
 
-static BOOL
-LoadThemeFromReg(GLOBALS* g)
+static VOID
+LoadThemeFromReg(GLOBALS* g, INT iPreset)
 {
 	INT i;
 	TCHAR strSizeName[20] = {TEXT("Sizes\\0")};
 	TCHAR strValueName[10];
 	HKEY hkNewSchemes, hkScheme, hkSize;
 	DWORD dwType, dwLength;
-	BOOL Ret = FALSE;
-	INT iPreset = g->Theme.Id;
 
-	if(RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"),
+	if(RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"), 
 		0, KEY_READ, &hkNewSchemes) == ERROR_SUCCESS)
 	{
 		if(RegOpenKeyEx(hkNewSchemes, g->ThemeTemplates[iPreset].strKeyName, 0, KEY_READ, &hkScheme) == ERROR_SUCCESS)
@@ -166,52 +147,27 @@ LoadThemeFromReg(GLOBALS* g)
 			lstrcpyn(&strSizeName[6],g->ThemeTemplates[iPreset].strSizeName, 3);
 			if(RegOpenKeyEx(hkScheme, strSizeName, 0, KEY_READ, &hkSize) == ERROR_SUCCESS)
 			{
-				Ret = TRUE;
-
-				dwLength = sizeof(DWORD);
-				if (RegQueryValueEx(hkSize, TEXT("FlatMenus"), NULL, &dwType, (LPBYTE)&g->Theme.bFlatMenus, &dwLength) != ERROR_SUCCESS ||
-				    dwType != REG_DWORD || dwLength != sizeof(DWORD))
-				{
-					/* Failed to read registry value */
-					g->Theme.bFlatMenus = FALSE;
-					Ret = FALSE;
-				}
+				dwLength = sizeof(BOOL);
+				RegQueryValueEx(hkSize, TEXT("FlatMenus"), NULL, &dwType, (LPBYTE)&g->Theme.bFlatMenus, &dwLength);
 
 				for (i = 0; i <= 30; i++)
 				{
 					wsprintf(strValueName, TEXT("Color #%d"), i);
 					dwLength = sizeof(COLORREF);
-					if (RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.crColor[i], &dwLength) != ERROR_SUCCESS ||
-					    dwType != REG_DWORD || dwLength != sizeof(COLORREF))
-					{
-						/* Failed to read registry value, initialize with current setting for now */
-						g->Theme.crColor[i] = GetSysColor(i);
-						Ret = FALSE;
-					}
+					RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.crColor[i], &dwLength);
 				}
 				for (i = 0; i <= 5; i++)
 				{
 					wsprintf(strValueName, TEXT("Font #%d"), i);
 					dwLength = sizeof(LOGFONT);
 					g->Theme.lfFont[i].lfFaceName[0] = 'x';
-					if (RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.lfFont[i], &dwLength) != ERROR_SUCCESS ||
-					    dwType != REG_BINARY || dwLength != sizeof(LOGFONT))
-					{
-						/* Failed to read registry value */
-						Ret = FALSE;
-					}
+					RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.lfFont[i], &dwLength);
 				}
 				for (i = 0; i <= 8; i++)
 				{
 					wsprintf(strValueName, TEXT("Size #%d"), i);
-					dwLength = sizeof(UINT64);
-					if (RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.Size[i], &dwLength) != ERROR_SUCCESS ||
-					    dwType != REG_QWORD || dwLength != sizeof(UINT64))
-					{
-						/* Failed to read registry value, initialize with current setting for now */
-						g->Theme.Size[i] = GetSystemMetrics(g_SizeMetric[i]);
-						Ret = FALSE;
-					}
+					dwLength = sizeof(DWORD);
+					RegQueryValueEx(hkSize, strValueName, NULL, &dwType, (LPBYTE)&g->Theme.Size[i], &dwLength);
 				}
 				RegCloseKey(hkScheme);
 			}
@@ -219,16 +175,8 @@ LoadThemeFromReg(GLOBALS* g)
 		}
 		RegCloseKey(hkNewSchemes);
 	}
-
-	return Ret;
 }
 
-static VOID
-_UpdateUserPref(UINT SpiGet,UINT SpiSet,BOOL *pbFlag)
-{
-    SystemParametersInfo(SpiSet, 0, (PVOID)pbFlag, SPIF_UPDATEINIFILE|SPIF_SENDCHANGE);
-}
-#define UPDATE_USERPREF(NAME,pbFlag) _UpdateUserPref(SPI_GET ## NAME, SPI_SET ## NAME, pbFlag)
 
 static VOID
 ApplyTheme(GLOBALS* g)
@@ -244,13 +192,15 @@ ApplyTheme(GLOBALS* g)
 	if (!g->Theme.bHasChanged)
 		return;
 
+	g->Theme.bHasChanged = FALSE;
+
 	/* Update some globals */
 	g->crCOLOR_BTNFACE = g->Theme.crColor[COLOR_BTNFACE];
 	g->crCOLOR_BTNTEXT = g->Theme.crColor[COLOR_BTNTEXT];
 	g->crCOLOR_BTNSHADOW = g->Theme.crColor[COLOR_BTNSHADOW];
 	g->crCOLOR_BTNHIGHLIGHT = g->Theme.crColor[COLOR_BTNHIGHLIGHT];
 	lfButtonFont = g->Theme.lfFont[FONT_DIALOG];
-
+	
 	/* Create new font for bold button */
 	lfButtonFont.lfWeight = FW_BOLD;
 	lfButtonFont.lfItalic = FALSE;
@@ -297,7 +247,7 @@ ApplyTheme(GLOBALS* g)
 
 		RegCloseKey(hKey);
 	}
-
+	
 	/* Apply the fonts */
 	NonClientMetrics.cbSize = sizeof(NONCLIENTMETRICS);
 	SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &NonClientMetrics, 0);
@@ -356,36 +306,6 @@ ApplyTheme(GLOBALS* g)
 
 		RegCloseKey(hKey);
 	}
-
-    /* Effects, save only when needed: */
-    /* FIXME: XP seems to use grayed checkboxes to reflect differences between menu and tooltips settings
-     * Just keep them in sync for now.
-     */
-    g->Theme.Effects.bTooltipAnimation  = g->Theme.Effects.bMenuAnimation;
-    g->Theme.Effects.bTooltipFade       = g->Theme.Effects.bMenuFade;
-    SystemParametersInfo(SPI_SETDRAGFULLWINDOWS, g->Theme.Effects.bDragFullWindows, NULL, SPIF_UPDATEINIFILE|SPIF_SENDCHANGE);
-    //UPDATE_USERPREF(KEYBOARDCUES, &g->Theme.Effects.bKeyboardCues);
-    //UPDATE_USERPREF(ACTIVEWINDOWTRACKING, &g->Theme.Effects.bActiveWindowTracking);
-    //UPDATE_USERPREF(MENUANIMATION, &g->Theme.Effects.bMenuAnimation);
-    //UPDATE_USERPREF(COMBOBOXANIMATION, &g->Theme.Effects.bComboBoxAnimation);
-    //UPDATE_USERPREF(LISTBOXSMOOTHSCROLLING, &g->Theme.Effects.bListBoxSmoothScrolling);
-    //UPDATE_USERPREF(GRADIENTCAPTIONS, &g->Theme.Effects.bGradientCaptions);
-    //UPDATE_USERPREF(ACTIVEWNDTRKZORDER, &g->Theme.Effects.bActiveWndTrkZorder);
-    //UPDATE_USERPREF(HOTTRACKING, &g->Theme.Effects.bHotTracking);
-    UPDATE_USERPREF(MENUFADE, &g->Theme.Effects.bMenuFade);
-    //UPDATE_USERPREF(SELECTIONFADE, &g->Theme.Effects.bSelectionFade);
-    UPDATE_USERPREF(TOOLTIPANIMATION, &g->Theme.Effects.bTooltipAnimation);
-    UPDATE_USERPREF(TOOLTIPFADE, &g->Theme.Effects.bTooltipFade);
-    //UPDATE_USERPREF(CURSORSHADOW, &g->Theme.Effects.bCursorShadow);
-    //UPDATE_USERPREF(UIEFFECTS, &g->Theme.Effects.bUiEffects);
-	/* Save ThemeId */
-	Result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"), 0, KEY_ALL_ACCESS, &hKey);
-	if (Result == ERROR_SUCCESS)
-	{
-		lstrcpy(clText, g->ThemeTemplates[g->Theme.Id].strKeyName);
-		RegSetValueEx(hKey, TEXT("SelectedStyle"), 0, REG_SZ, (BYTE *)clText, (lstrlen(clText)+1) * sizeof (TCHAR));
-		RegCloseKey(hKey);
-	}
 }
 
 
@@ -411,7 +331,7 @@ AppearancePage_OnInit(HWND hwndDlg, GLOBALS *g)
 	LoadCurrentTheme(g);
 
 	/* Fill color schemes combo */
-	Result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"),
+	Result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance\\New Schemes"), 
 		0, KEY_READ, &hkNewSchemes);
 	if (Result != ERROR_SUCCESS)
 	{
@@ -490,7 +410,7 @@ AppearancePage_OnDestroy(HWND hwndDlg, GLOBALS *g)
 INT_PTR CALLBACK
 AppearancePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	INT i;
+	INT i, index;
 	GLOBALS *g;
 	LPNMHDR lpnm;
 
@@ -507,19 +427,6 @@ AppearancePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case WM_COMMAND:
 			switch (LOWORD(wParam))
 			{
-				case IDC_APPEARANCE_EFFECTS:
-					DialogBoxParam(hApplet, (LPCTSTR)IDD_EFFAPPEARANCE,
-						hwndDlg, EffAppearanceDlgProc, (LPARAM)g);
-
-					/* Was anything changed in the effects appearance dialog? */
-					if (memcmp(&g->Theme, &g->ThemeAdv, sizeof(THEME)) != 0)
-					{
-						PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-						g->Theme = g->ThemeAdv;
-						g->Theme.bHasChanged = TRUE;
-					}
-					break;
-
 				case IDC_APPEARANCE_ADVANCED:
 					DialogBoxParam(hApplet, (LPCTSTR)IDD_ADVAPPEARANCE,
 						hwndDlg, AdvAppearanceDlgProc, (LPARAM)g);
@@ -539,9 +446,8 @@ AppearancePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 						PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
 						g->Theme.bHasChanged = TRUE;
 						i = SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_COLORSCHEME, CB_GETCURSEL, 0, 0);
-						g->Theme.Id = SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_COLORSCHEME, CB_GETITEMDATA, (WPARAM)i, 0);
-						LoadThemeFromReg(g);
-						//SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_PREVIEW, WM_PAINT, 0, 0);
+						index = SendDlgItemMessage(hwndDlg, IDC_APPEARANCE_COLORSCHEME, CB_GETITEMDATA, (WPARAM)i, 0);
+						LoadThemeFromReg(g, index);
 					}
 					break;
 

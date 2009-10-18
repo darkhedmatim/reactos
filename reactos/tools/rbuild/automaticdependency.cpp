@@ -18,7 +18,6 @@
  */
 #include "pch.h"
 #include <assert.h>
-#include <algorithm>
 
 #include "rbuild.h"
 
@@ -117,7 +116,7 @@ SourceFile::ReadInclude ( string& filename,
 					includeNext = true;
 					include = true;
 				}
-
+	
 				if ( include )
 				{
 					SkipWhitespace ();
@@ -265,7 +264,7 @@ SourceFile::Parse ()
 				         this->file.file.relative_path.c_str (),
 				         cSep,
 				         this->file.file.name.c_str () );
-			}
+		}
 		p++;
 	}
 	Close ();
@@ -286,8 +285,8 @@ AutomaticDependency::~AutomaticDependency ()
 void
 AutomaticDependency::ParseFiles ()
 {
-	for( std::map<std::string, Module*>::const_iterator p = project.modules.begin(); p != project.modules.end(); ++ p )
-		ParseFiles ( *p->second );
+	for ( size_t i = 0; i < project.modules.size (); i++ )
+		ParseFiles ( *project.modules[i] );
 }
 
 void
@@ -301,7 +300,7 @@ AutomaticDependency::GetModuleFiles ( const Module& module,
 
 	if ( module.pch != NULL )
 	{
-		const FileLocation& pch = *module.pch->file;
+		const FileLocation& pch = module.pch->file;
 		File *file = new File ( pch.directory, pch.relative_path, pch.name , false, "", true );
 		files.push_back ( file );
 	}
@@ -396,7 +395,7 @@ AutomaticDependency::LocateIncludedFile ( SourceFile* sourceFile,
 		if ( LocateIncludedFile ( *include.directory,
 		                          includedFilename ) )
 		{
-			if ( includeNext &&
+			if ( includeNext && 
 			     include.directory->directory == sourceFile->file.file.directory &&
 			     include.directory->relative_path == sourceFile->file.file.relative_path )
 			{
@@ -455,9 +454,9 @@ void
 AutomaticDependency::CheckAutomaticDependencies ( bool verbose )
 {
 	ParseFiles ();
-	for( std::map<std::string, Module*>::const_iterator p = project.modules.begin(); p != project.modules.end(); ++ p )
+	for ( size_t mi = 0; mi < project.modules.size (); mi++ )
 	{
-		Module& module = *p->second;
+		Module& module = *project.modules[mi];
 		CheckAutomaticDependencies ( module, verbose );
 	}
 }

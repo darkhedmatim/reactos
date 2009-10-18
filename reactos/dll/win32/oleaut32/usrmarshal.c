@@ -34,8 +34,8 @@
 
 #include "ole2.h"
 #include "oleauto.h"
+#include "rpcproxy.h"
 #include "typelib.h"
-#include "ocidl.h"
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
@@ -45,7 +45,24 @@ WINE_DEFAULT_DEBUG_CHANNEL(ole);
 #define ALIGN_LENGTH(_Len, _Align) _Len = ALIGNED_LENGTH(_Len, _Align)
 #define ALIGN_POINTER(_Ptr, _Align) _Ptr = ALIGNED_POINTER(_Ptr, _Align)
 
-static void dump_user_flags(const ULONG *pFlags)
+static CStdPSFactoryBuffer PSFactoryBuffer;
+
+CSTDSTUBBUFFERRELEASE(&PSFactoryBuffer)
+
+extern const ExtendedProxyFileInfo oaidl_ProxyFileInfo;
+
+static const ProxyFileInfo *OLEAUT32_ProxyFileList[] = {
+  &oaidl_ProxyFileInfo,
+  NULL
+};
+
+HRESULT OLEAUTPS_DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
+{
+  return NdrDllGetClassObject(rclsid, riid, ppv, OLEAUT32_ProxyFileList,
+                              &CLSID_PSDispatch, &PSFactoryBuffer);
+}
+
+static void dump_user_flags(ULONG *pFlags)
 {
     if (HIWORD(*pFlags) == NDR_LOCAL_DATA_REPRESENTATION)
         TRACE("MAKELONG(NDR_LOCAL_REPRESENTATION, ");
@@ -166,9 +183,12 @@ unsigned char * WINAPI BSTR_UserUnmarshal(ULONG *pFlags, unsigned char *Buffer, 
     header = (bstr_wire_t*)Buffer;
     if(header->len != header->len2)
         FIXME("len %08x != len2 %08x\n", header->len, header->len2);
-
-    SysFreeString(*pstr);
-    *pstr = NULL;
+    
+    if(*pstr)
+    {
+        SysFreeString(*pstr);
+        *pstr = NULL;
+    }
 
     if(header->byte_len != 0xffffffff)
         *pstr = SysAllocStringByteLen((char*)(header + 1), header->byte_len);
@@ -180,8 +200,11 @@ unsigned char * WINAPI BSTR_UserUnmarshal(ULONG *pFlags, unsigned char *Buffer, 
 void WINAPI BSTR_UserFree(ULONG *pFlags, BSTR *pstr)
 {
     TRACE("(%x,%p) => %p\n", *pFlags, pstr, *pstr);
-    SysFreeString(*pstr);
-    *pstr = NULL;
+    if (*pstr)
+    {
+        SysFreeString(*pstr);
+        *pstr = NULL;
+    }
 }
 
 /* VARIANT */
@@ -197,11 +220,11 @@ typedef struct
     DWORD switch_is;
 } variant_wire_t;
 
-static unsigned int get_type_size(ULONG *pFlags, VARTYPE vt)
+static unsigned int get_type_size(ULONG *pFlags, VARIANT *pvar)
 {
-    if (vt & VT_ARRAY) return 4;
+    if (V_VT(pvar) & VT_ARRAY) return 4;
 
-    switch (vt & ~VT_BYREF) {
+    switch (V_VT(pvar) & ~VT_BYREF) {
     case VT_EMPTY:
     case VT_NULL:
         return 0;
@@ -232,7 +255,7 @@ static unsigned int get_type_size(ULONG *pFlags, VARTYPE vt)
     case VT_DECIMAL:
         return sizeof(DECIMAL);
     case VT_BSTR:
-        return sizeof(ULONG);
+        return sizeof(BSTR);
     case VT_VARIANT:
         return sizeof(VARIANT);
     case VT_UNKNOWN:
@@ -240,21 +263,21 @@ static unsigned int get_type_size(ULONG *pFlags, VARTYPE vt)
     case VT_RECORD:
         return 0;
     default:
-        FIXME("unhandled VT %d\n", vt);
+        FIXME("unhandled VT %d\n", V_VT(pvar));
         return 0;
     }
 }
 
-static unsigned int get_type_alignment(ULONG *pFlags, VARTYPE vt)
+static unsigned int get_type_alignment(ULONG *pFlags, VARIANT *pvar)
 {
-    unsigned int size = get_type_size(pFlags, vt);
-    if(vt & VT_BYREF) return 3;
+    unsigned int size = get_type_size(pFlags, pvar);
+    if(V_VT(pvar) & VT_BYREF) return 3;
     if(size == 0) return 0;
     if(size <= 4) return size - 1;
     return 7;
 }
 
-static unsigned interface_variant_size(const ULONG *pFlags, REFIID riid, IUnknown *punk)
+static unsigned interface_variant_size(ULONG *pFlags, REFIID riid, IUnknown *punk)
 {
   ULONG size;
   HRESULT hr;
@@ -310,8 +333,7 @@ static ULONG wire_extra_user_size(ULONG *pFlags, ULONG Start, VARIANT *pvar)
 }
 
 /* helper: called for VT_DISPATCH variants to marshal the IDispatch* into the buffer. returns Buffer on failure, new position otherwise */
-static unsigned char* interface_variant_marshal(const ULONG *pFlags, unsigned char *Buffer,
-                                                REFIID riid, IUnknown *punk)
+static unsigned char* interface_variant_marshal(ULONG *pFlags, unsigned char *Buffer, REFIID riid, IUnknown *punk)
 {
   IStream *working; 
   HGLOBAL working_mem;
@@ -360,8 +382,7 @@ static unsigned char* interface_variant_marshal(const ULONG *pFlags, unsigned ch
 }
 
 /* helper: called for VT_DISPATCH / VT_UNKNOWN variants to unmarshal the buffer. returns Buffer on failure, new position otherwise */
-static unsigned char *interface_variant_unmarshal(const ULONG *pFlags, unsigned char *Buffer,
-                                                  REFIID riid, IUnknown **ppunk)
+static unsigned char *interface_variant_unmarshal(ULONG *pFlags, unsigned char *Buffer, REFIID riid, IUnknown **ppunk)
 {
   IStream *working;
   HGLOBAL working_mem;
@@ -418,12 +439,12 @@ ULONG WINAPI VARIANT_UserSize(ULONG *pFlags, ULONG Start, VARIANT *pvar)
     if(V_VT(pvar) & VT_BYREF)
         Start += 4;
 
-    align = get_type_alignment(pFlags, V_VT(pvar));
+    align = get_type_alignment(pFlags, pvar);
     ALIGN_LENGTH(Start, align);
     if(V_VT(pvar) == (VT_VARIANT | VT_BYREF))
         Start += 4;
     else
-        Start += get_type_size(pFlags, V_VT(pvar));
+        Start += get_type_size(pFlags, pvar);
     Start = wire_extra_user_size(pFlags, Start, pvar);
 
     TRACE("returning %d\n", Start);
@@ -455,8 +476,8 @@ unsigned char * WINAPI VARIANT_UserMarshal(ULONG *pFlags, unsigned char *Buffer,
         header->switch_is &= ~VT_TYPEMASK;
 
     Pos = (unsigned char*)(header + 1);
-    type_size = get_type_size(pFlags, V_VT(pvar));
-    align = get_type_alignment(pFlags, V_VT(pvar));
+    type_size = get_type_size(pFlags, pvar);
+    align = get_type_alignment(pFlags, pvar);
     ALIGN_POINTER(Pos, align);
 
     if(header->vt & VT_BYREF)
@@ -542,44 +563,38 @@ unsigned char * WINAPI VARIANT_UserUnmarshal(ULONG *pFlags, unsigned char *Buffe
     TRACE("(%x,%p,%p)\n", *pFlags, Buffer, pvar);
 
     ALIGN_POINTER(Buffer, 7);
+    VariantClear(pvar);
 
     header = (variant_wire_t *)Buffer; 
     
+    pvar->n1.n2.vt = header->vt;
+    pvar->n1.n2.wReserved1 = header->wReserved1;
+    pvar->n1.n2.wReserved2 = header->wReserved2;
+    pvar->n1.n2.wReserved3 = header->wReserved3;
+
     Pos = (unsigned char*)(header + 1);
-    type_size = get_type_size(pFlags, header->vt);
-    align = get_type_alignment(pFlags, header->vt);
+    type_size = get_type_size(pFlags, pvar);
+    align = get_type_alignment(pFlags, pvar);
     ALIGN_POINTER(Pos, align);
 
     if(header->vt & VT_BYREF)
     {
         Pos += 4;
-        if (V_VT(pvar) != header->vt)
-        {
-            VariantClear(pvar);
-            V_BYREF(pvar) = CoTaskMemAlloc(type_size);
-        }
-        else if (!V_BYREF(pvar))
-            V_BYREF(pvar) = CoTaskMemAlloc(type_size);
-        memcpy(V_BYREF(pvar), Pos, type_size);
+        pvar->n1.n2.n3.byref = CoTaskMemAlloc(type_size);
+        memcpy(pvar->n1.n2.n3.byref, Pos, type_size); 
         if((header->vt & VT_TYPEMASK) != VT_VARIANT)
-            Pos += type_size;
+           Pos += type_size;
         else
             Pos += 4;
     }
     else
     {
-        VariantClear(pvar);
         if((header->vt & VT_TYPEMASK) == VT_DECIMAL)
             memcpy(pvar, Pos, type_size);
         else
             memcpy(&pvar->n1.n2.n3, Pos, type_size);
         Pos += type_size;
     }
-
-    pvar->n1.n2.vt = header->vt;
-    pvar->n1.n2.wReserved1 = header->wReserved1;
-    pvar->n1.n2.wReserved2 = header->wReserved2;
-    pvar->n1.n2.wReserved3 = header->wReserved3;
 
     if(header->vt & VT_ARRAY)
     {
@@ -644,12 +659,7 @@ void WINAPI VARIANT_UserFree(ULONG *pFlags, VARIANT *pvar)
   if (!ref) return;
 
   if(vt & VT_ARRAY)
-  {
-    if (vt & VT_BYREF)
-      LPSAFEARRAY_UserFree(pFlags, V_ARRAYREF(pvar));
-    else
-      LPSAFEARRAY_UserFree(pFlags, &V_ARRAY(pvar));
-  }
+    LPSAFEARRAY_UserFree(pFlags, V_ARRAYREF(pvar));
   else
   {
     switch (vt)
@@ -755,7 +765,7 @@ ULONG WINAPI LPSAFEARRAY_UserSize(ULONG *pFlags, ULONG StartingSize, LPSAFEARRAY
     TRACE("("); dump_user_flags(pFlags); TRACE(", %d, %p\n", StartingSize, *ppsa);
 
     ALIGN_LENGTH(size, 3);
-    size += sizeof(ULONG);
+    size += sizeof(ULONG_PTR);
     if (*ppsa)
     {
         SAFEARRAY *psa = *ppsa;
@@ -764,13 +774,13 @@ ULONG WINAPI LPSAFEARRAY_UserSize(ULONG *pFlags, ULONG StartingSize, LPSAFEARRAY
         HRESULT hr;
 
         size += sizeof(ULONG);
-        size += 2 * sizeof(USHORT) + 2 * sizeof(ULONG);
+        size += FIELD_OFFSET(struct _wireSAFEARRAY, uArrayStructs);
 
         sftype = SAFEARRAY_GetUnionType(psa);
         size += sizeof(ULONG);
 
         size += sizeof(ULONG);
-        size += sizeof(ULONG);
+        size += sizeof(ULONG_PTR);
         if (sftype == SF_HAVEIID)
             size += sizeof(IID);
 
@@ -784,7 +794,7 @@ ULONG WINAPI LPSAFEARRAY_UserSize(ULONG *pFlags, ULONG StartingSize, LPSAFEARRAY
             {
                 BSTR* lpBstr;
 
-                for (lpBstr = psa->pvData; ulCellCount; ulCellCount--, lpBstr++)
+                for (lpBstr = (BSTR*)psa->pvData; ulCellCount; ulCellCount--, lpBstr++)
                     size = BSTR_UserSize(pFlags, size, lpBstr);
 
                 break;
@@ -798,7 +808,7 @@ ULONG WINAPI LPSAFEARRAY_UserSize(ULONG *pFlags, ULONG StartingSize, LPSAFEARRAY
             {
                 VARIANT* lpVariant;
 
-                for (lpVariant = psa->pvData; ulCellCount; ulCellCount--, lpVariant++)
+                for (lpVariant = (VARIANT*)psa->pvData; ulCellCount; ulCellCount--, lpVariant++)
                     size = VARIANT_UserSize(pFlags, size, lpVariant);
 
                 break;
@@ -843,30 +853,30 @@ unsigned char * WINAPI LPSAFEARRAY_UserMarshal(ULONG *pFlags, unsigned char *Buf
     TRACE("("); dump_user_flags(pFlags); TRACE(", %p, &%p\n", Buffer, *ppsa);
 
     ALIGN_POINTER(Buffer, 3);
-    *(ULONG *)Buffer = *ppsa ? 0x1 : 0x0;
-    Buffer += sizeof(ULONG);
+    *(ULONG_PTR *)Buffer = *ppsa ? TRUE : FALSE;
+    Buffer += sizeof(ULONG_PTR);
     if (*ppsa)
     {
         VARTYPE vt;
         SAFEARRAY *psa = *ppsa;
         ULONG ulCellCount = SAFEARRAY_GetCellCount(psa);
+        wireSAFEARRAY wiresa;
         SF_TYPE sftype;
         GUID guid;
 
         *(ULONG *)Buffer = psa->cDims;
         Buffer += sizeof(ULONG);
-        *(USHORT *)Buffer = psa->cDims;
-        Buffer += sizeof(USHORT);
-        *(USHORT *)Buffer = psa->fFeatures;
-        Buffer += sizeof(USHORT);
-        *(ULONG *)Buffer = psa->cbElements;
-        Buffer += sizeof(ULONG);
+        wiresa = (wireSAFEARRAY)Buffer;
+        wiresa->cDims = psa->cDims;
+        wiresa->fFeatures = psa->fFeatures;
+        wiresa->cbElements = psa->cbElements;
 
         hr = SafeArrayGetVartype(psa, &vt);
         if (FAILED(hr)) vt = 0;
 
-        *(ULONG *)Buffer = (USHORT)psa->cLocks | (vt << 16);
-        Buffer += sizeof(ULONG);
+        wiresa->cLocks = (USHORT)psa->cLocks | (vt << 16);
+
+        Buffer += FIELD_OFFSET(struct _wireSAFEARRAY, uArrayStructs);
 
         sftype = SAFEARRAY_GetUnionType(psa);
         *(ULONG *)Buffer = sftype;
@@ -874,8 +884,8 @@ unsigned char * WINAPI LPSAFEARRAY_UserMarshal(ULONG *pFlags, unsigned char *Buf
 
         *(ULONG *)Buffer = ulCellCount;
         Buffer += sizeof(ULONG);
-        *(ULONG *)Buffer = psa->pvData ? 0x2 : 0x0;
-        Buffer += sizeof(ULONG);
+        *(ULONG_PTR *)Buffer = (ULONG_PTR)psa->pvData;
+        Buffer += sizeof(ULONG_PTR);
         if (sftype == SF_HAVEIID)
         {
             SafeArrayGetIID(psa, &guid);
@@ -897,7 +907,7 @@ unsigned char * WINAPI LPSAFEARRAY_UserMarshal(ULONG *pFlags, unsigned char *Buf
                 {
                     BSTR* lpBstr;
 
-                    for (lpBstr = psa->pvData; ulCellCount; ulCellCount--, lpBstr++)
+                    for (lpBstr = (BSTR*)psa->pvData; ulCellCount; ulCellCount--, lpBstr++)
                         Buffer = BSTR_UserMarshal(pFlags, Buffer, lpBstr);
 
                     break;
@@ -911,7 +921,7 @@ unsigned char * WINAPI LPSAFEARRAY_UserMarshal(ULONG *pFlags, unsigned char *Buf
                 {
                     VARIANT* lpVariant;
 
-                    for (lpVariant = psa->pvData; ulCellCount; ulCellCount--, lpVariant++)
+                    for (lpVariant = (VARIANT*)psa->pvData; ulCellCount; ulCellCount--, lpVariant++)
                         Buffer = VARIANT_UserMarshal(pFlags, Buffer, lpVariant);
 
                     break;
@@ -958,7 +968,7 @@ unsigned char * WINAPI LPSAFEARRAY_UserMarshal(ULONG *pFlags, unsigned char *Buf
 
 unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *Buffer, LPSAFEARRAY *ppsa)
 {
-    ULONG ptr;
+    ULONG_PTR ptr;
     wireSAFEARRAY wiresa;
     ULONG cDims;
     HRESULT hr;
@@ -971,8 +981,8 @@ unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *B
     TRACE("("); dump_user_flags(pFlags); TRACE(", %p, %p\n", Buffer, ppsa);
 
     ALIGN_POINTER(Buffer, 3);
-    ptr = *(ULONG *)Buffer;
-    Buffer += sizeof(ULONG);
+    ptr = *(ULONG_PTR *)Buffer;
+    Buffer += sizeof(ULONG_PTR);
 
     if (!ptr)
     {
@@ -987,7 +997,7 @@ unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *B
     Buffer += sizeof(ULONG);
 
     wiresa = (wireSAFEARRAY)Buffer;
-    Buffer += 2 * sizeof(USHORT) + 2 * sizeof(ULONG);
+    Buffer += FIELD_OFFSET(struct _wireSAFEARRAY, uArrayStructs);
 
     if (cDims != wiresa->cDims)
         RpcRaiseException(RPC_S_INVALID_BOUND);
@@ -1001,8 +1011,8 @@ unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *B
 
     cell_count = *(ULONG *)Buffer;
     Buffer += sizeof(ULONG);
-    ptr = *(ULONG *)Buffer;
-    Buffer += sizeof(ULONG);
+    ptr = *(ULONG_PTR *)Buffer;
+    Buffer += sizeof(ULONG_PTR);
     if (sftype == SF_HAVEIID)
     {
         memcpy(&guid, Buffer, sizeof(guid));
@@ -1031,14 +1041,9 @@ unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *B
     (*ppsa)->cbElements = wiresa->cbElements;
     (*ppsa)->cLocks = LOWORD(wiresa->cLocks);
 
-    /* SafeArrayCreateEx allocates the data for us, but
-     * SafeArrayAllocDescriptor doesn't */
-    if(!vt)
-    {
-        hr = SafeArrayAllocData(*ppsa);
-        if (FAILED(hr))
-            RpcRaiseException(hr);
-    }
+    hr = SafeArrayAllocData(*ppsa);
+    if (FAILED(hr))
+        RpcRaiseException(hr);
 
     if ((*(ULONG *)Buffer != cell_count) || (SAFEARRAY_GetCellCount(*ppsa) != cell_count))
         RpcRaiseException(RPC_S_INVALID_BOUND);
@@ -1052,7 +1057,7 @@ unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *B
             {
                 BSTR* lpBstr;
 
-                for (lpBstr = (*ppsa)->pvData; cell_count; cell_count--, lpBstr++)
+                for (lpBstr = (BSTR*)(*ppsa)->pvData; cell_count; cell_count--, lpBstr++)
                     Buffer = BSTR_UserUnmarshal(pFlags, Buffer, lpBstr);
 
                 break;
@@ -1066,7 +1071,7 @@ unsigned char * WINAPI LPSAFEARRAY_UserUnmarshal(ULONG *pFlags, unsigned char *B
             {
                 VARIANT* lpVariant;
 
-                for (lpVariant = (*ppsa)->pvData; cell_count; cell_count--, lpVariant++)
+                for (lpVariant = (VARIANT*)(*ppsa)->pvData; cell_count; cell_count--, lpVariant++)
                     Buffer = VARIANT_UserUnmarshal(pFlags, Buffer, lpVariant);
 
                 break;
@@ -1104,32 +1109,6 @@ void WINAPI LPSAFEARRAY_UserFree(ULONG *pFlags, LPSAFEARRAY *ppsa)
 
     SafeArrayDestroy(*ppsa);
 }
-
-
-ULONG WINAPI HFONT_UserSize(ULONG *pFlags, ULONG Start, HFONT *phfont)
-{
-    FIXME(":stub\n");
-    return 0;
-}
-
-unsigned char * WINAPI HFONT_UserMarshal(ULONG *pFlags, unsigned char *Buffer, HFONT *phfont)
-{
-    FIXME(":stub\n");
-    return NULL;
-}
-
-unsigned char * WINAPI HFONT_UserUnmarshal(ULONG *pFlags, unsigned char *Buffer, HFONT *phfont)
-{
-    FIXME(":stub\n");
-    return NULL;
-}
-
-void WINAPI HFONT_UserFree(ULONG *pFlags, HFONT *phfont)
-{
-    FIXME(":stub\n");
-    return;
-}
-
 
 /* IDispatch */
 /* exactly how Invoke is marshalled is not very clear to me yet,
@@ -2009,246 +1988,4 @@ HRESULT __RPC_STUB ITypeLib2_GetDocumentation2_Stub(
 {
   FIXME("not implemented\n");
   return E_FAIL;
-}
-
-HRESULT CALLBACK IPropertyBag_Read_Proxy(
-    IPropertyBag* This,
-    LPCOLESTR pszPropName,
-    VARIANT *pVar,
-    IErrorLog *pErrorLog)
-{
-  IUnknown *pUnk = NULL;
-  TRACE("(%p, %s, %p, %p)\n", This, debugstr_w(pszPropName), pVar, pErrorLog);
-
-  if(!pVar)
-    return E_POINTER;
-
-  if(V_VT(pVar) & (VT_BYREF | VT_ARRAY | VT_VECTOR))
-  {
-    FIXME("Variant type %x is byref, array or vector. Not implemented.\n", V_VT(pVar));
-    return E_NOTIMPL;
-  }
-
-  switch(V_VT(pVar))
-  {
-    case VT_DISPATCH:
-      pUnk = (IUnknown*)V_DISPATCH(pVar);
-      break;
-    case VT_UNKNOWN:
-      pUnk = V_UNKNOWN(pVar);
-      break;
-    case VT_SAFEARRAY:
-      FIXME("Safearray support not yet implemented.\n");
-      return E_NOTIMPL;
-    default:
-      FIXME("Unknown V_VT %d - support not yet implemented.\n", V_VT(pVar));
-      return E_NOTIMPL;
-  }
-
-  return IPropertyBag_RemoteRead_Proxy(This, pszPropName, pVar, pErrorLog,
-                                       V_VT(pVar), pUnk);
-}
-
-HRESULT __RPC_STUB IPropertyBag_Read_Stub(
-    IPropertyBag* This,
-    LPCOLESTR pszPropName,
-    VARIANT *pVar,
-    IErrorLog *pErrorLog,
-    DWORD varType,
-    IUnknown *pUnkObj)
-{
-  static const WCHAR emptyWstr[1] = {0};
-  IDispatch *disp;
-  HRESULT hr;
-  TRACE("(%p, %s, %p, %p, %x, %p)\n", This, debugstr_w(pszPropName), pVar,
-                                     pErrorLog, varType, pUnkObj);
-
-  if(varType & (VT_BYREF | VT_ARRAY | VT_VECTOR))
-  {
-    FIXME("Variant type %x is byref, array or vector. Not implemented.\n", V_VT(pVar));
-    return E_NOTIMPL;
-  }
-
-  V_VT(pVar) = varType;
-  switch(varType)
-  {
-    case VT_DISPATCH:
-      hr = IUnknown_QueryInterface(pUnkObj, &IID_IDispatch, (LPVOID*)&disp);
-      if(FAILED(hr))
-        return hr;
-      IUnknown_Release(pUnkObj);
-      V_DISPATCH(pVar) = disp;
-      break;
-    case VT_UNKNOWN:
-      V_UNKNOWN(pVar) = pUnkObj;
-      break;
-    case VT_BSTR:
-      V_BSTR(pVar) = SysAllocString(emptyWstr);
-      break;
-    case VT_SAFEARRAY:
-      FIXME("Safearray support not yet implemented.\n");
-      return E_NOTIMPL;
-    default:
-      break;
-  }
-  hr = IPropertyBag_Read(This, pszPropName, pVar, pErrorLog);
-  if(FAILED(hr))
-    VariantClear(pVar);
-
-  return hr;
-}
-
-/* call_as/local stubs for ocidl.idl */
-
-HRESULT CALLBACK IClassFactory2_CreateInstanceLic_Proxy(
-    IClassFactory2* This,
-    IUnknown *pUnkOuter,
-    IUnknown *pUnkReserved,
-    REFIID riid,
-    BSTR bstrKey,
-    PVOID *ppvObj)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IClassFactory2_CreateInstanceLic_Stub(
-    IClassFactory2* This,
-    REFIID riid,
-    BSTR bstrKey,
-    IUnknown **ppvObj)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT CALLBACK IEnumConnections_Next_Proxy(
-    IEnumConnections* This,
-    ULONG cConnections,
-    LPCONNECTDATA rgcd,
-    ULONG *pcFetched)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IEnumConnections_Next_Stub(
-    IEnumConnections* This,
-    ULONG cConnections,
-    LPCONNECTDATA rgcd,
-    ULONG *pcFetched)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT CALLBACK IEnumConnectionPoints_Next_Proxy(
-    IEnumConnectionPoints* This,
-    ULONG cConnections,
-    LPCONNECTIONPOINT *ppCP,
-    ULONG *pcFetched)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IEnumConnectionPoints_Next_Stub(
-    IEnumConnectionPoints* This,
-    ULONG cConnections,
-    LPCONNECTIONPOINT *ppCP,
-    ULONG *pcFetched)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT CALLBACK IPersistMemory_Load_Proxy(
-    IPersistMemory* This,
-    LPVOID pMem,
-    ULONG cbSize)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IPersistMemory_Load_Stub(
-    IPersistMemory* This,
-    BYTE *pMem,
-    ULONG cbSize)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT CALLBACK IPersistMemory_Save_Proxy(
-    IPersistMemory* This,
-    LPVOID pMem,
-    BOOL fClearDirty,
-    ULONG cbSize)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IPersistMemory_Save_Stub(
-    IPersistMemory* This,
-    BYTE *pMem,
-    BOOL fClearDirty,
-    ULONG cbSize)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-void CALLBACK IAdviseSinkEx_OnViewStatusChange_Proxy(
-    IAdviseSinkEx* This,
-    DWORD dwViewStatus)
-{
-    FIXME("not implemented\n");
-}
-
-HRESULT __RPC_STUB IAdviseSinkEx_OnViewStatusChange_Stub(
-    IAdviseSinkEx* This,
-    DWORD dwViewStatus)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT CALLBACK IEnumOleUndoUnits_Next_Proxy(
-    IEnumOleUndoUnits* This,
-    ULONG cElt,
-    IOleUndoUnit **rgElt,
-    ULONG *pcEltFetched)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IEnumOleUndoUnits_Next_Stub(
-    IEnumOleUndoUnits* This,
-    ULONG cElt,
-    IOleUndoUnit **rgElt,
-    ULONG *pcEltFetched)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT CALLBACK IQuickActivate_QuickActivate_Proxy(
-    IQuickActivate* This,
-    QACONTAINER *pQaContainer,
-    QACONTROL *pQaControl)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
-}
-
-HRESULT __RPC_STUB IQuickActivate_QuickActivate_Stub(
-    IQuickActivate* This,
-    QACONTAINER *pQaContainer,
-    QACONTROL *pQaControl)
-{
-    FIXME("not implemented\n");
-    return E_NOTIMPL;
 }

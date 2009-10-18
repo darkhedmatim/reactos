@@ -45,7 +45,7 @@ HaliMPIntSrcInfo(PMP_CONFIGURATION_INTSRC m)
   if (IRQCount > MAX_IRQ_SOURCE) 
   {
     DPRINT1("Max # of irq sources exceeded!!\n");
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
   }
 
   IRQMap[IRQCount] = *m;
@@ -83,7 +83,7 @@ HaliMPFamily(ULONG Family,
 static VOID 
 HaliMPProcessorInfo(PMP_CONFIGURATION_PROCESSOR m)
 {
-  UCHAR ver;
+  ULONG ver;
 
   if (!(m->CpuFlags & CPU_FLAG_ENABLED))
     return;
@@ -176,7 +176,7 @@ HaliMPProcessorInfo(PMP_CONFIGURATION_PROCESSOR m)
 static VOID 
 HaliMPBusInfo(PMP_CONFIGURATION_BUS m)
 {
-  static UCHAR CurrentPCIBusId = 0;
+  static ULONG CurrentPCIBusId = 0;
 
   DPRINT("Bus #%d is %.*s\n", m->BusId, 6, m->BusType);
 
@@ -217,7 +217,7 @@ HaliMPIOApicInfo(PMP_CONFIGURATION_IOAPIC m)
     DPRINT("Max # of I/O APICs (%d) exceeded (found %d).\n",
            MAX_IOAPIC, IOAPICCount);
     DPRINT1("Recompile with bigger MAX_IOAPIC!.\n");
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
   }
 
   IOAPICMap[IOAPICCount].ApicId = m->ApicId;
@@ -245,12 +245,12 @@ HaliMPIntLocalInfo(PMP_CONFIGURATION_INTLOCAL m)
   if ((m->IrqType == INT_EXTINT) && (m->DstApicLInt != 0)) 
   {
     DPRINT1("Invalid MP table!\n");
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
   }
   if ((m->IrqType == INT_NMI) && (m->DstApicLInt != 1)) 
   {
     DPRINT1("Invalid MP table!\n");
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
   }
 }
 
@@ -271,14 +271,14 @@ HaliReadMPConfigTable(PMP_CONFIGURATION_TABLE Table)
        
        DPRINT1("Bad MP configuration block signature: %c%c%c%c\n",
 		pc[0], pc[1], pc[2], pc[3]);
-       KeBugCheckEx(0, pc[0], pc[1], pc[2], pc[3]);
+       KEBUGCHECKEX(0, pc[0], pc[1], pc[2], pc[3]);
        return FALSE;
      }
 
    if (MPChecksum((PUCHAR)Table, Table->Length))
      {
        DPRINT1("Bad MP configuration block checksum\n");
-       ASSERT(FALSE);
+       KEBUGCHECK(0);
        return FALSE;
      }
 
@@ -286,7 +286,7 @@ HaliReadMPConfigTable(PMP_CONFIGURATION_TABLE Table)
      {
        DPRINT1("Bad MP configuration table version (%d)\n",
 	       Table->Specification);
-       ASSERT(FALSE);
+       KEBUGCHECK(0);
        return FALSE;
      }
 
@@ -294,7 +294,7 @@ HaliReadMPConfigTable(PMP_CONFIGURATION_TABLE Table)
      {
        DPRINT1("APIC base address is at 0x%X. I cannot handle non-standard adresses\n", 
 	       Table->LocalAPICAddress);
-       ASSERT(FALSE);
+       KEBUGCHECK(0);
        return FALSE;
      }
 
@@ -346,7 +346,7 @@ HaliReadMPConfigTable(PMP_CONFIGURATION_TABLE Table)
 	 }
        default:
 	 DPRINT1("Unknown entry in MPC table\n");
-	 ASSERT(FALSE);
+	 KEBUGCHECK(0);
 	 return FALSE;
        }
    }
@@ -357,7 +357,7 @@ static VOID
 HaliConstructDefaultIOIrqMPTable(ULONG Type)
 {
 	MP_CONFIGURATION_INTSRC intsrc;
-	UCHAR i;
+	ULONG i;
 
 	intsrc.Type = MPCTE_INTSRC;
 	intsrc.IrqFlag = 0;			/* conforming */
@@ -394,8 +394,8 @@ HaliConstructDefaultISAMPTable(ULONG Type)
   MP_CONFIGURATION_BUS bus;
   MP_CONFIGURATION_IOAPIC ioapic;
   MP_CONFIGURATION_INTLOCAL lintsrc;
-  UCHAR linttypes[2] = { INT_EXTINT, INT_NMI };
-  UCHAR i;
+  ULONG linttypes[2] = { INT_EXTINT, INT_NMI };
+  ULONG i;
 
   /*
    * 2 CPUs, numbered 0 & 1.
@@ -597,7 +597,7 @@ HaliGetSmpConfig(VOID)
    }
    else
    {
-      ASSERT(FALSE);
+      KEBUGCHECK(0);
    }
    return TRUE;
 }    

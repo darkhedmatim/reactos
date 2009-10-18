@@ -228,7 +228,7 @@ pCDevSettings_OpenDeviceKey(PCDevSettings This,
     if (lpRegKey != NULL)
     {
         if (wcslen(lpRegKey) >= wcslen(szRegPrefix) &&
-            !_wcsnicmp(lpRegKey,
+            !wcsnicmp(lpRegKey,
                       szRegPrefix,
                       wcslen(szRegPrefix)))
         {

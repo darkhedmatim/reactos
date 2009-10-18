@@ -1,43 +1,34 @@
-#ifndef WMESADEF_H
-#define WMESADEF_H
-#ifdef __MINGW32__
-#include <windows.h>
-#endif
+
 #include "context.h"
 
+typedef struct _dibSection{
+    HDC		hDC;
+    HANDLE	hFileMap;
+    BOOL	fFlushed;
+    LPVOID	base;
+}WMDIBSECTION, *PWMDIBSECTION;
 
-/**
- * The Windows Mesa rendering context, derived from GLcontext.
- */
-struct wmesa_context {
-    GLcontext           gl_ctx;	        /* The core GL/Mesa context */
+typedef struct wmesa_context{
+    GLcontext           *gl_ctx;	/* The core GL/Mesa context */
+    GLvisual            *gl_visual;	/* Describes the buffers */
+    GLframebuffer       *gl_buffer;	/* Depth, stencil, accum, etc buffers*/
+    
+    HWND		Window;
     HDC                 hDC;
     COLORREF		clearColorRef;
     HPEN                clearPen;
     HBRUSH              clearBrush;
-};
-
-
-/**
- * Windows framebuffer, derived from gl_framebuffer
- */
-struct wmesa_framebuffer
-{
-    struct gl_framebuffer Base;
-    HDC                 hDC;
-    int			pixelformat;
+    GLuint		width;
+    GLuint		height;
     GLuint		ScanWidth;
-    BYTE		cColorBits;
-    /* back buffer DIB fields */
-    HDC                 dib_hDC;
+    GLboolean		db_flag;
+    WMDIBSECTION	dib;
     BITMAPINFO          bmi;
     HBITMAP             hbmDIB;
     HBITMAP             hOldBitmap;
     PBYTE               pbPixels;
-    struct wmesa_framebuffer *next;
-};
+    BYTE		cColorBits;
+    int			pixelformat;
+}  *PWMC;
 
-typedef struct wmesa_framebuffer *WMesaFramebuffer;
 
-
-#endif /* WMESADEF_H */

@@ -29,7 +29,10 @@ enum
 /*just makes a print out if there is a problem with the switches*/
 void invalid_switch(LPTSTR is)
 {
-	ConOutResPrintf(STRING_REPLACE_ERROR1,is);
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
+	LoadString(CMD_ModuleHandle, STRING_REPLACE_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+	ConOutPrintf(szMsg,is);
 	ConOutResPaging(TRUE,STRING_REPLACE_HELP3);
 }
 
@@ -46,6 +49,7 @@ void getPath(TCHAR* out, LPTSTR in)
 /*makes the replace*/
 INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *doMore)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	TCHAR d[MAX_PATH];
 	TCHAR s[MAX_PATH];
 	HANDLE hFileSrc, hFileDest;
@@ -62,23 +66,24 @@ INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *d
 // 	ConOutPrintf(_T("old-dest: %s\n"), d);
 // 	ConOutPrintf(_T("src:  %s\n"), source);
 // 	ConOutPrintf(_T("dest: %s\n"), dest);
-
+	
 	/* Open up the sourcefile */
 	hFileSrc = CreateFile (source, GENERIC_READ, FILE_SHARE_READ,NULL, OPEN_EXISTING, 0, NULL);
 	if (hFileSrc == INVALID_HANDLE_VALUE)
 	{
-		ConOutResPrintf(STRING_COPY_ERROR1, source);
+		LoadString(CMD_ModuleHandle, STRING_COPY_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+		ConOutPrintf(szMsg, source);
 		return 0;
 	}
-
+	
 	/* Get the time from source file to be used in the comparison with
 	   dest time if update switch is set */
 	GetFileTime (hFileSrc, &srcCreationTime, &srcLastAccessTime, &srcLastWriteTime);
-
+	
 	/* Retrieve the source attributes so that they later on can be
 	   inserted in to the destination */
 	dwAttrib = GetFileAttributes (source);
-
+	
 	if(IsExistingFile (dest))
 	{
 		/* Resets the attributes to avoid probles with read only files,
@@ -94,7 +99,8 @@ INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *d
 
 			if (hFileSrc == INVALID_HANDLE_VALUE)
 			{
-				ConOutResPrintf(STRING_COPY_ERROR1, dest);
+				LoadString(CMD_ModuleHandle, STRING_COPY_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+				ConOutPrintf(szMsg, dest);
 				return 0;
 			}
 
@@ -119,18 +125,20 @@ INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *d
 	{
 		/* Output depending on add flag */
 		if(dwFlags & REPLACE_ADD)
-			ConOutResPrintf(STRING_REPLACE_HELP9, dest);
+			LoadString(CMD_ModuleHandle, STRING_REPLACE_HELP9, szMsg, RC_STRING_MAX_SIZE);
 		else
-			ConOutResPrintf(STRING_REPLACE_HELP10, dest);
-		if( !FilePromptYNA (0))
+			LoadString(CMD_ModuleHandle, STRING_REPLACE_HELP10, szMsg, RC_STRING_MAX_SIZE);
+		ConOutPrintf(szMsg, dest);
+		if( !FilePromptYNA (_T("")))
 			return 0;
 	}
 
 	/* Output depending on add flag */
 	if(dwFlags & REPLACE_ADD)
-		ConOutResPrintf(STRING_REPLACE_HELP11, dest);
+		LoadString(CMD_ModuleHandle, STRING_REPLACE_HELP11, szMsg, RC_STRING_MAX_SIZE);
 	else
-		ConOutResPrintf(STRING_REPLACE_HELP5, dest);
+		LoadString(CMD_ModuleHandle, STRING_REPLACE_HELP5, szMsg, RC_STRING_MAX_SIZE);
+	ConOutPrintf(szMsg,dest);
 
 	/* Make sure source and destination is not the same */
 	if(!_tcscmp(s, d))
@@ -140,7 +148,7 @@ INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *d
 		*doMore = FALSE;
 		return 0;
 	}
-
+	
 	/* Open destination file to write to */
 	hFileDest = CreateFile (dest, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
 	if (hFileDest == INVALID_HANDLE_VALUE)
@@ -202,7 +210,7 @@ INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *d
 /* Function to iterate over source files and call replace for each of them */
 INT recReplace(DWORD dwFlags, TCHAR szSrcPath[MAX_PATH], TCHAR szDestPath[MAX_PATH], BOOL *doMore)
 {
-	TCHAR tmpDestPath[MAX_PATH], tmpSrcPath[MAX_PATH];
+	TCHAR szMsg[RC_STRING_MAX_SIZE], tmpDestPath[MAX_PATH], tmpSrcPath[MAX_PATH];
 	INT filesReplaced=0, i;
 	DWORD dwAttrib = 0;
 	HANDLE hFile;
@@ -230,7 +238,7 @@ INT recReplace(DWORD dwFlags, TCHAR szSrcPath[MAX_PATH], TCHAR szDestPath[MAX_PA
 		/* Problem with file handler */
 		if(hFile == INVALID_HANDLE_VALUE)
 			return filesReplaced;
-
+		
 		/* We do not want to replace any .. . ocr directory */
 		if(!_tcscmp (findBuffer.cFileName, _T("."))  ||
 				!_tcscmp (findBuffer.cFileName, _T(".."))||
@@ -261,7 +269,8 @@ INT recReplace(DWORD dwFlags, TCHAR szSrcPath[MAX_PATH], TCHAR szDestPath[MAX_PA
 		{
 			if(!(dwFlags & REPLACE_READ_ONLY))
 			{
-				ConOutResPrintf(STRING_REPLACE_ERROR5, tmpDestPath);
+				LoadString(CMD_ModuleHandle, STRING_REPLACE_ERROR5, szMsg, RC_STRING_MAX_SIZE);
+				ConOutPrintf(szMsg, tmpDestPath);
 				*doMore = FALSE;
 				break;
 			}
@@ -358,8 +367,9 @@ INT recFindSubDirs(DWORD dwFlags,
 	return filesReplaced;
 }
 
-INT cmd_replace (LPTSTR param)
+INT cmd_replace (LPTSTR cmd, LPTSTR param)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	LPTSTR *arg;
 	INT argc, i,filesReplaced = 0, nFiles, srcIndex = -1, destIndex = -1;
 	DWORD dwFlags = 0;
@@ -375,7 +385,7 @@ INT cmd_replace (LPTSTR param)
 
 	/* Divide the argument in to an array of c-strings */
 	arg = split (param, &argc, FALSE);
-	nFiles = argc;
+	nFiles = argc;	
 
 	/* Read options */
 	for (i = 0; i < argc; i++)
@@ -464,7 +474,8 @@ INT cmd_replace (LPTSTR param)
 			if (_tcschr (arg[destIndex], _T('*')) != NULL ||
 				_tcschr (arg[destIndex], _T('?')) != NULL)
 			{
-				ConOutResPrintf(STRING_REPLACE_ERROR2,arg[destIndex]);
+				LoadString(CMD_ModuleHandle, STRING_REPLACE_ERROR2, szMsg, RC_STRING_MAX_SIZE);
+				ConOutPrintf(szMsg,arg[destIndex]);
 				ConOutResPaging(TRUE,STRING_REPLACE_HELP3);
 				freep(arg);
 				return 1;
@@ -473,7 +484,8 @@ INT cmd_replace (LPTSTR param)
 			/* Make sure that destination exists */
 			if(!IsExistingDirectory(szDestPath))
 			{
-				ConOutResPrintf(STRING_REPLACE_ERROR2, szDestPath);
+				LoadString(CMD_ModuleHandle, STRING_REPLACE_ERROR2, szMsg, RC_STRING_MAX_SIZE);
+				ConOutPrintf(szMsg, szDestPath);
 				ConOutResPaging(TRUE,STRING_REPLACE_HELP3);
 				freep(arg);
 				return 1;
@@ -499,7 +511,8 @@ INT cmd_replace (LPTSTR param)
 		/* Check so that source is not a directory, because that is not allowed */
 		if(IsExistingDirectory(szSrcPath))
 		{
-			ConOutResPrintf(STRING_REPLACE_ERROR6, szSrcPath);
+			LoadString(CMD_ModuleHandle, STRING_REPLACE_ERROR6, szMsg, RC_STRING_MAX_SIZE);
+			ConOutPrintf(szMsg, szSrcPath);
 			ConOutResPaging(TRUE,STRING_REPLACE_HELP3);
 			freep(arg);
 			return 1;
@@ -550,9 +563,10 @@ INT cmd_replace (LPTSTR param)
 		{
 			/* Add switch dependent output */
 			if(dwFlags & REPLACE_ADD)
-				ConOutResPrintf(STRING_REPLACE_HELP8, filesReplaced);
+				LoadString(CMD_ModuleHandle, STRING_REPLACE_HELP8, szMsg, RC_STRING_MAX_SIZE);
 			else
-				ConOutResPrintf(STRING_REPLACE_HELP4, filesReplaced);
+				LoadString(CMD_ModuleHandle, STRING_REPLACE_HELP4, szMsg, RC_STRING_MAX_SIZE);
+			ConOutPrintf(szMsg, filesReplaced);
 		}
 	}
 	/* Return memory */

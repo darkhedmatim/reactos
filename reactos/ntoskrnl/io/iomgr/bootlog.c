@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/io/bootlog.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, IopInitBootLog)
@@ -337,6 +338,7 @@ IopSaveBootLogToFile(VOID)
 			   BufferSize);
   if (KeyInfo == NULL)
     {
+      CHECKPOINT1;
       ExReleaseResourceLite(&IopBootLogResource);
       return;
     }
@@ -353,6 +355,7 @@ IopSaveBootLogToFile(VOID)
 		     &ObjectAttributes);
   if (!NT_SUCCESS(Status))
     {
+      CHECKPOINT1;
       ExFreePool(KeyInfo);
       ExReleaseResourceLite(&IopBootLogResource);
       return;
@@ -379,6 +382,7 @@ IopSaveBootLogToFile(VOID)
 
       if (!NT_SUCCESS(Status))
 	{
+	  CHECKPOINT1;
 	  ZwClose(KeyHandle);
 	  ExFreePool(KeyInfo);
 	  ExReleaseResourceLite(&IopBootLogResource);
@@ -388,6 +392,7 @@ IopSaveBootLogToFile(VOID)
       Status = IopWriteLogFile((PWSTR)&KeyInfo->Data);
       if (!NT_SUCCESS(Status))
 	{
+	  CHECKPOINT1;
 	  ZwClose(KeyHandle);
 	  ExFreePool(KeyInfo);
 	  ExReleaseResourceLite(&IopBootLogResource);

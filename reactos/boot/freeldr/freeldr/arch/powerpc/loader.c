@@ -22,10 +22,8 @@
 
 #define NDEBUG
 #include <debug.h>
+#undef DbgPrint
 
-#define DbgPrint printf
-
-extern PVOID KernelBase;
 extern PVOID KernelMemory;
 
 PVOID
@@ -202,6 +200,7 @@ LdrPEGetExportByName(PVOID BaseAddress,
             if ((ULONG_PTR)Function >= (ULONG_PTR)ExportDir &&
                 (ULONG_PTR)Function < (ULONG_PTR)ExportDir + ExportDirSize)
             {
+                DbgPrint("Forward: %s\n", (PCHAR)Function);
                 Function = LdrPEFixupForward((PCHAR)Function);
                 if (Function == NULL)
                 {
@@ -264,10 +263,9 @@ LdrPEProcessImportDirectoryEntry(PVOID DriverBase,
             *ImportAddressList = LdrPEGetExportByName((PVOID)LoaderModule->ModStart, pe_name->Name, pe_name->Hint);
 
             /* Fixup the address to be virtual */
-            *ImportAddressList = (PVOID)(ULONG_PTR)*ImportAddressList + (ULONG_PTR)KernelBase - (ULONG_PTR)KernelMemory;
+            *ImportAddressList = (PVOID)((ULONG_PTR)*ImportAddressList + (KSEG0_BASE - (ULONG_PTR)KernelMemory));
 
-
-            //DbgPrint("Looked for: %s and found: %x\n", pe_name->Name, *ImportAddressList);
+            //DbgPrint("Looked for: %s and found: %p\n", pe_name->Name, *ImportAddressList);
             if ((*ImportAddressList) == NULL)
             {
                 DbgPrint("Failed to import %s from %s\n", pe_name->Name, LoaderModule->String);
@@ -299,7 +297,7 @@ LdrPEGetOrLoadModule(IN PCHAR ModuleName,
          * code, and we'll just call it instead.
          */
 	FrLdrLoadDriver(ImportedName, 0);
-
+	
 	/* Return the new module */
 	*ImportedModule = LdrGetModuleObject(ImportedName);
 	if (*ImportedModule == NULL)
@@ -322,6 +320,8 @@ LdrPEFixupImports(IN PVOID DllBase,
     NTSTATUS Status;
     PLOADER_MODULE ImportedModule;
     ULONG Size;
+
+    printf("Fixing up %x (%s)\n", DllBase, DllName);
 
     /*  Process each import module  */
     ImportModuleDirectory = (PIMAGE_IMPORT_DESCRIPTOR)

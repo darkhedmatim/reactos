@@ -1,7 +1,7 @@
 /*
  *  ReactOS Task Manager
  *
- *  column.c
+ *  column.cpp
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
  *                2005         Klemens Friedl <frik85@reactos.at>
@@ -24,6 +24,7 @@
 #include <precomp.h>
 
 UINT    ColumnDataHints[COLUMN_NMAX];
+TCHAR       szTemp[256];
 
 #define DECLARE_COLUMN_PRESET(_name, _size, _state) \
     { IDS_TAB_##_name, IDC_##_name, _size, _state },
@@ -56,34 +57,34 @@ const PresetColumnEntry ColumnPresets[COLUMN_NMAX] = {
     DECLARE_COLUMN_PRESET(IOOTHERBYTES,      70, FALSE)
 };
 
-static int          InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem);
+int                 InsertColumn(int nCol, LPCTSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem);
 INT_PTR CALLBACK    ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 void AddColumns(void)
 {
-    LRESULT       size;
-    WCHAR         szTemp[256];
-    unsigned int  n;
+    LRESULT        size;
+    TCHAR          szTemp[256];
+    unsigned int   n;
 
     for (n=0; n<COLUMN_NMAX; n++) {
         if (TaskManagerSettings.Columns[n]) {
-            LoadStringW(hInst, ColumnPresets[n].dwIdsName, szTemp, sizeof(szTemp)/sizeof(WCHAR));
+            LoadString(hInst, ColumnPresets[n].dwIdsName, szTemp, sizeof(szTemp)/sizeof(TCHAR));
             InsertColumn(n, szTemp, LVCFMT_LEFT, TaskManagerSettings.ColumnSizeArray[n], -1);
         }
     }
 
-    size = SendMessageW(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0);
-    SendMessageW(hProcessPageHeaderCtrl, HDM_SETORDERARRAY, (WPARAM) size, (LPARAM) &TaskManagerSettings.ColumnOrderArray);
+    size = SendMessage(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0);
+    SendMessage(hProcessPageHeaderCtrl, HDM_SETORDERARRAY, (WPARAM) size, (LPARAM) &TaskManagerSettings.ColumnOrderArray);
 
     UpdateColumnDataHints();
 }
 
-static int InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem)
+int InsertColumn(int nCol, LPCTSTR lpszColumnHeading, int nFormat, int nWidth, int nSubItem)
 {
-    LVCOLUMN  column;
+    LVCOLUMN    column;
 
     column.mask = LVCF_TEXT|LVCF_FMT;
-    column.pszText = (LPWSTR)lpszColumnHeading;
+    column.pszText = (LPTSTR)lpszColumnHeading;
     column.fmt = nFormat;
 
     if (nWidth != -1)
@@ -103,11 +104,10 @@ static int InsertColumn(int nCol, LPCWSTR lpszColumnHeading, int nFormat, int nW
 
 void SaveColumnSettings(void)
 {
-    HDITEM        hditem;
-    int           i, n;
-    WCHAR         text[260];
-    WCHAR         szTemp[256];
-    LRESULT       size;
+    HDITEM    hditem;
+    unsigned int i, n;
+    TCHAR    text[260];
+    LRESULT        size;
 
     /* Reset column data */
     for (i=0; i<COLUMN_NMAX; i++) {
@@ -117,22 +117,22 @@ void SaveColumnSettings(void)
     }
 
     /* Get header order */
-    size = SendMessageW(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0);
-    SendMessageW(hProcessPageHeaderCtrl, HDM_GETORDERARRAY, (WPARAM) size, (LPARAM) &TaskManagerSettings.ColumnOrderArray);
+    size = SendMessage(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0);
+    SendMessage(hProcessPageHeaderCtrl, HDM_GETORDERARRAY, (WPARAM) size, (LPARAM) &TaskManagerSettings.ColumnOrderArray);
 
     /* Get visible columns */
-    for (i = 0; i < SendMessageW(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0); i++) {
+    for (i=0; i<SendMessage(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0); i++) {
         memset(&hditem, 0, sizeof(HDITEM));
 
         hditem.mask = HDI_TEXT|HDI_WIDTH;
         hditem.pszText = text;
         hditem.cchTextMax = 260;
 
-        SendMessageW(hProcessPageHeaderCtrl, HDM_GETITEM, i, (LPARAM) &hditem);
+        SendMessage(hProcessPageHeaderCtrl, HDM_GETITEM, i, (LPARAM) &hditem);
 
-        for (n = 0; n < COLUMN_NMAX; n++) {
-            LoadStringW(hInst, ColumnPresets[n].dwIdsName, szTemp, sizeof(szTemp)/sizeof(WCHAR));
-            if (_wcsicmp(text, szTemp) == 0)
+        for (n=0; n<COLUMN_NMAX; n++) {
+            LoadString(hInst, ColumnPresets[n].dwIdsName, szTemp, sizeof(szTemp)/sizeof(TCHAR));
+            if (_tcsicmp(text, szTemp) == 0)
             {
                 TaskManagerSettings.Columns[n] = TRUE;
                 TaskManagerSettings.ColumnSizeArray[n] = hditem.cxy;
@@ -143,9 +143,9 @@ void SaveColumnSettings(void)
 
 void ProcessPage_OnViewSelectColumns(void)
 {
-    int  i;
+    int        i;
 
-    if (DialogBoxW(hInst, MAKEINTRESOURCEW(IDD_COLUMNS_DIALOG), hMainWnd, ColumnsDialogWndProc) == IDOK)
+    if (DialogBox(hInst, MAKEINTRESOURCE(IDD_COLUMNS_DIALOG), hMainWnd, ColumnsDialogWndProc) == IDOK)
     {
         for (i=Header_GetItemCount(hProcessPageHeaderCtrl)-1; i>=0; i--)
         {
@@ -164,7 +164,7 @@ void ProcessPage_OnViewSelectColumns(void)
 INT_PTR CALLBACK
 ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    unsigned int  i;
+    unsigned int i;
 
     switch (message)
     {
@@ -172,7 +172,7 @@ ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
         for (i=0; i<COLUMN_NMAX; i++) {
             if (TaskManagerSettings.Columns[i])
-                SendMessageW(GetDlgItem(hDlg, ColumnPresets[i].dwIdcCtrl), BM_SETCHECK, BST_CHECKED, 0);
+                SendMessage(GetDlgItem(hDlg, ColumnPresets[i].dwIdcCtrl), BM_SETCHECK, BST_CHECKED, 0);
         }
         return TRUE;
 
@@ -187,7 +187,7 @@ ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         if (LOWORD(wParam) == IDOK)
         {
             for (i=0; i<COLUMN_NMAX; i++)
-                TaskManagerSettings.Columns[i] = (BOOL) SendMessageW(GetDlgItem(hDlg, ColumnPresets[i].dwIdcCtrl), BM_GETCHECK, 0, 0);
+                TaskManagerSettings.Columns[i] = (BOOL) SendMessage(GetDlgItem(hDlg, ColumnPresets[i].dwIdcCtrl), BM_GETCHECK, 0, 0);
 
             EndDialog(hDlg, LOWORD(wParam));
             return TRUE;
@@ -201,13 +201,13 @@ ColumnsDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 void UpdateColumnDataHints(void)
 {
-    HDITEM        hditem;
-    WCHAR         text[260];
-    ULONG         Index;
-    WCHAR         szTemp[256];
-    unsigned int  i;
+    HDITEM          hditem;
+    TCHAR           text[260];
+    ULONG           Index;
+    TCHAR           szTemp[256];
+    unsigned int    i;
 
-    for (Index=0; Index<(ULONG)SendMessageW(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0); Index++)
+    for (Index=0; Index<(ULONG)SendMessage(hProcessPageHeaderCtrl, HDM_GETITEMCOUNT, 0, 0); Index++)
     {
         memset(&hditem, 0, sizeof(HDITEM));
 
@@ -215,11 +215,11 @@ void UpdateColumnDataHints(void)
         hditem.pszText = text;
         hditem.cchTextMax = 260;
 
-        SendMessageW(hProcessPageHeaderCtrl, HDM_GETITEM, Index, (LPARAM) &hditem);
+        SendMessage(hProcessPageHeaderCtrl, HDM_GETITEM, Index, (LPARAM) &hditem);
 
         for (i=0; i<COLUMN_NMAX; i++) {
-            LoadStringW(hInst, ColumnPresets[i].dwIdsName, szTemp, sizeof(szTemp)/sizeof(WCHAR));
-            if (_wcsicmp(text, szTemp) == 0)
+            LoadString(hInst, ColumnPresets[i].dwIdsName, szTemp, sizeof(szTemp)/sizeof(TCHAR));
+            if (_tcsicmp(text, szTemp) == 0)
                 ColumnDataHints[Index] = i;
         }
     }

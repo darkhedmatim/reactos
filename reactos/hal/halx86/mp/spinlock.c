@@ -26,7 +26,7 @@
 /* FUNCTIONS ***************************************************************/
 
 #undef KeAcquireSpinLock
-VOID NTAPI
+VOID STDCALL
 KeAcquireSpinLock (
 	PKSPIN_LOCK	SpinLock,
 	PKIRQL		OldIrql
@@ -55,7 +55,7 @@ KeAcquireSpinLockRaiseToSynch (
 }
 
 #undef KeReleaseSpinLock
-VOID NTAPI
+VOID STDCALL
 KeReleaseSpinLock (
 	PKSPIN_LOCK	SpinLock,
 	KIRQL		NewIrql
@@ -101,7 +101,7 @@ KfAcquireSpinLock (
    KIRQL OldIrql;
 
    ASSERT(KeGetCurrentIrql() <= DISPATCH_LEVEL);
-
+   
    OldIrql = KfRaiseIrql(DISPATCH_LEVEL);
    KiAcquireSpinLock(SpinLock);
 

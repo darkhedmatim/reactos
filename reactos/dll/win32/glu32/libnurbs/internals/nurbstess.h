@@ -102,7 +102,7 @@ public:
     void set_domain_distance_u_rate(REAL u_rate);
     void set_domain_distance_v_rate(REAL v_rate);
     void set_is_domain_distance_sampling(int flag);
-
+    
 
 protected:
     Renderhints		renderhints;
@@ -112,7 +112,7 @@ protected:
 private:
 
     void		resetObjects( void );
-    int			do_check_knots( Knotvector *, const char * );
+    int			do_check_knots( Knotvector *, char * );
     void		do_nurbserror( int );
     void		do_bgncurve( O_curve * );
     void		do_endcurve( void );

@@ -23,6 +23,10 @@
 #ifndef __MCD_H
 #define __MCD_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "srb.h"
 #include "scsi.h"
 #include "ntddchgr.h"
@@ -32,7 +36,7 @@ extern "C" {
 #endif
 
 #if defined(_MCD_)
-  #define CHANGERAPI
+  #define CHANGERAPI DECLSPEC_EXPORT
 #else
   #define CHANGERAPI DECLSPEC_IMPORT
 #endif
@@ -41,7 +45,7 @@ extern "C" {
 #undef DebugPrint
 #endif
 
-#if DBG
+#ifdef DBG
 #define DebugPrint(x) ChangerClassDebugPrint x
 #else
 #define DebugPrint(x)

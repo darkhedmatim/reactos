@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -160,10 +160,6 @@ _mesa_MatrixMode( GLenum mode )
       ctx->CurrentStack = &ctx->ProjectionMatrixStack;
       break;
    case GL_TEXTURE:
-      if (ctx->Texture.CurrentUnit >= ctx->Const.MaxTextureCoordUnits) {
-         _mesa_error(ctx, GL_INVALID_OPERATION, "glMatrixMode(texcoord unit)");
-         return;
-      }
       ctx->CurrentStack = &ctx->TextureMatrixStack[ctx->Texture.CurrentUnit];
       break;
    case GL_COLOR:
@@ -230,7 +226,7 @@ void GLAPIENTRY
 _mesa_PushMatrix( void )
 {
    GET_CURRENT_CONTEXT(ctx);
-   struct gl_matrix_stack *stack = ctx->CurrentStack;
+   struct matrix_stack *stack = ctx->CurrentStack;
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
@@ -270,7 +266,7 @@ void GLAPIENTRY
 _mesa_PopMatrix( void )
 {
    GET_CURRENT_CONTEXT(ctx);
-   struct gl_matrix_stack *stack = ctx->CurrentStack;
+   struct matrix_stack *stack = ctx->CurrentStack;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
@@ -427,7 +423,7 @@ _mesa_Scalef( GLfloat x, GLfloat y, GLfloat z )
 
 
 /**
- * Multiply the current matrix with a translation matrix.
+ * Multiply the current matrix with a general scaling matrix.
  *
  * \param x translation vector x coordinate.
  * \param y translation vector y coordinate.
@@ -556,7 +552,6 @@ _mesa_Viewport( GLint x, GLint y, GLsizei width, GLsizei height )
    _mesa_set_viewport(ctx, x, y, width, height);
 }
 
-
 /**
  * Set new viewport parameters and update derived state (the _WindowMap
  * matrix).  Usually called from _mesa_Viewport().
@@ -565,11 +560,22 @@ _mesa_Viewport( GLint x, GLint y, GLsizei width, GLsizei height )
  * \param x, y coordinates of the lower left corner of the viewport rectangle.
  * \param width width of the viewport rectangle.
  * \param height height of the viewport rectangle.
+ *
+ * Verifies the parameters, clamps them to the implementation dependent range
+ * and updates __GLcontextRec::Viewport. Computes the scale and bias values for
+ * the drivers and notifies the driver via the dd_function_table::Viewport
+ * callback.
  */
 void
 _mesa_set_viewport( GLcontext *ctx, GLint x, GLint y,
                     GLsizei width, GLsizei height )
 {
+   const GLfloat depthMax = ctx->DrawBuffer->_DepthMaxF;
+   const GLfloat n = ctx->Viewport.Near;
+   const GLfloat f = ctx->Viewport.Far;
+
+   ASSERT(depthMax > 0);
+
    if (MESA_VERBOSE & VERBOSE_API)
       _mesa_debug(ctx, "glViewport %d %d %d %d\n", x, y, width, height);
 
@@ -579,27 +585,31 @@ _mesa_set_viewport( GLcontext *ctx, GLint x, GLint y,
       return;
    }
 
-   /* clamp width and height to the implementation dependent range */
-   width  = CLAMP(width,  1, (GLsizei) ctx->Const.MaxViewportWidth);
-   height = CLAMP(height, 1, (GLsizei) ctx->Const.MaxViewportHeight);
+   /* clamp width, and height to implementation dependent range */
+   width  = CLAMP( width,  1, ctx->Const.MaxViewportWidth );
+   height = CLAMP( height, 1, ctx->Const.MaxViewportHeight );
 
+   /* Save viewport */
    ctx->Viewport.X = x;
    ctx->Viewport.Width = width;
    ctx->Viewport.Y = y;
    ctx->Viewport.Height = height;
-   ctx->NewState |= _NEW_VIEWPORT;
 
-#if 1
-   /* XXX remove this someday.  Currently the DRI drivers rely on
-    * the WindowMap matrix being up to date in the driver's Viewport
-    * and DepthRange functions.
+   /* XXX send transposed width/height to Driver.Viewport() below??? */
+   if (ctx->_RotateMode) {
+      GLint tmp, tmps;
+      tmp = x; x = y; y = tmp;
+      tmps = width; width = height; height = tmps;
+   }
+
+   /* Compute scale and bias values. This is really driver-specific
+    * and should be maintained elsewhere if at all.
+    * NOTE: RasterPos uses this.
     */
-   _math_matrix_viewport(&ctx->Viewport._WindowMap,
-                         ctx->Viewport.X, ctx->Viewport.Y,
-                         ctx->Viewport.Width, ctx->Viewport.Height,
-                         ctx->Viewport.Near, ctx->Viewport.Far,
-                         ctx->DrawBuffer->_DepthMaxF);
-#endif
+   _math_matrix_viewport(&ctx->Viewport._WindowMap, x, y, width, height,
+                         n, f, depthMax);
+
+   ctx->NewState |= _NEW_VIEWPORT;
 
    if (ctx->Driver.Viewport) {
       /* Many drivers will use this call to check for window size changes
@@ -611,38 +621,38 @@ _mesa_set_viewport( GLcontext *ctx, GLint x, GLint y,
 
 
 #if _HAVE_FULL_GL
-/**
- * Called by glDepthRange
- *
- * \param nearval  specifies the Z buffer value which should correspond to
- *                 the near clip plane
- * \param farval  specifies the Z buffer value which should correspond to
- *                the far clip plane
- */
 void GLAPIENTRY
 _mesa_DepthRange( GLclampd nearval, GLclampd farval )
 {
+   /*
+    * nearval - specifies mapping of the near clipping plane to window
+    *   coordinates, default is 0
+    * farval - specifies mapping of the far clipping plane to window
+    *   coordinates, default is 1
+    *
+    * After clipping and div by w, z coords are in -1.0 to 1.0,
+    * corresponding to near and far clipping planes.  glDepthRange
+    * specifies a linear mapping of the normalized z coords in
+    * this range to window z coords.
+    */
+   GLfloat depthMax;
+   GLfloat n, f;
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
+
+   depthMax = ctx->DrawBuffer->_DepthMaxF;
 
    if (MESA_VERBOSE&VERBOSE_API)
       _mesa_debug(ctx, "glDepthRange %f %f\n", nearval, farval);
 
-   ctx->Viewport.Near = (GLfloat) CLAMP( nearval, 0.0, 1.0 );
-   ctx->Viewport.Far = (GLfloat) CLAMP( farval, 0.0, 1.0 );
-   ctx->NewState |= _NEW_VIEWPORT;
+   n = (GLfloat) CLAMP( nearval, 0.0, 1.0 );
+   f = (GLfloat) CLAMP( farval, 0.0, 1.0 );
 
-#if 1
-   /* XXX remove this someday.  Currently the DRI drivers rely on
-    * the WindowMap matrix being up to date in the driver's Viewport
-    * and DepthRange functions.
-    */
-   _math_matrix_viewport(&ctx->Viewport._WindowMap,
-                         ctx->Viewport.X, ctx->Viewport.Y,
-                         ctx->Viewport.Width, ctx->Viewport.Height,
-                         ctx->Viewport.Near, ctx->Viewport.Far,
-                         ctx->DrawBuffer->_DepthMaxF);
-#endif
+   ctx->Viewport.Near = n;
+   ctx->Viewport.Far = f;
+   ctx->Viewport._WindowMap.m[MAT_SZ] = depthMax * ((f - n) / 2.0F);
+   ctx->Viewport._WindowMap.m[MAT_TZ] = depthMax * ((f - n) / 2.0F + n);
+   ctx->NewState |= _NEW_VIEWPORT;
 
    if (ctx->Driver.DepthRange) {
       (*ctx->Driver.DepthRange)( ctx, nearval, farval );
@@ -766,7 +776,7 @@ void _mesa_update_modelview_project( GLcontext *ctx, GLuint new_state )
  * initialize it.
  */
 static void
-init_matrix_stack( struct gl_matrix_stack *stack,
+init_matrix_stack( struct matrix_stack *stack,
                    GLuint maxDepth, GLuint dirtyFlag )
 {
    GLuint i;
@@ -792,7 +802,7 @@ init_matrix_stack( struct gl_matrix_stack *stack,
  * frees the array.
  */
 static void
-free_matrix_stack( struct gl_matrix_stack *stack )
+free_matrix_stack( struct matrix_stack *stack )
 {
    GLuint i;
    for (i = 0; i < stack->MaxDepth; i++) {

@@ -55,11 +55,11 @@ VOID DIALOG_HelpAboutWine(VOID);
 
 VOID DIALOG_TimeDate(VOID);
 
-INT_PTR CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 /* utility functions */
 VOID ShowLastError(void);
-BOOL FileExists(LPCTSTR szFilename);
-BOOL HasFileExtension(LPCTSTR szFilename);
+BOOL FileExists(LPCWSTR szFilename);
+BOOL HasFileExtension(LPCWSTR szFilename);
 BOOL DoCloseFile(void);
-void DoOpenFile(LPCTSTR szFileName);
+void DoOpenFile(LPCWSTR szFileName);

@@ -1,22 +1,16 @@
 #ifndef __NTDDK_EX__H__
 #define __NTDDK_EX__H__
 
-#ifdef ASSERT
 #undef ASSERT
-#define ASSERT(x) ((void)0)
-// #define ASSERT(x) if (!(x)) { RtlAssert("#x",__FILE__,__LINE__, ""); }
-#endif
+#define ASSERT
 
-#ifndef FILE_CHARACTERISTIC_PNP_DEVICE  // DDK 2003
-
-#define FILE_CHARACTERISTIC_PNP_DEVICE  0x00000800
-
-typedef enum _SYSTEM_INFORMATION_CLASS {
+typedef enum _SYSTEM_INFORMATION_CLASS
+{
     SystemBasicInformation,
     SystemProcessorInformation,
     SystemPerformanceInformation,
     SystemTimeOfDayInformation,
-    SystemPathInformation,
+    SystemPathInformation, /// Obsolete: Use KUSER_SHARED_DATA
     SystemProcessInformation,
     SystemCallCountInformation,
     SystemDeviceInformation,
@@ -42,15 +36,9 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemUnloadGdiDriverInformation,
     SystemTimeAdjustmentInformation,
     SystemSummaryMemoryInformation,
-#ifndef __REACTOS__
-    SystemNextEventIdInformation,
-    SystemEventIdsInformation,
-    SystemCrashDumpInformation,
-#else
     SystemMirrorMemoryInformation,
     SystemPerformanceTraceInformation,
     SystemObsolete0,
-#endif
     SystemExceptionInformation,
     SystemCrashDumpStateInformation,
     SystemKernelDebuggerInformation,
@@ -60,17 +48,10 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemPrioritySeperation,
     SystemPlugPlayBusInformation,
     SystemDockInformation,
-#ifdef __REACTOS__
     SystemPowerInformationNative,
-#elif defined IRP_MN_START_DEVICE
-    SystemPowerInformationInfo,
-#else
-    SystemPowerInformation,
-#endif
     SystemProcessorSpeedInformation,
     SystemCurrentTimeZoneInformation,
     SystemLookasideInformation,
-#ifdef __REACTOS__
     SystemTimeSlipNotification,
     SystemSessionCreate,
     SystemSessionDetach,
@@ -124,11 +105,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemPrefetchPathInformation,
     SystemVerifierFaultsInformation,
     MaxSystemInfoClass,
-#endif //__REACTOS__
 } SYSTEM_INFORMATION_CLASS;
-
-#endif // !FILE_CHARACTERISTIC_PNP_DEVICE
-
 
 NTSYSAPI
 NTSTATUS
@@ -184,9 +161,7 @@ typedef struct _SYSTEM_MODULE_INFORMATION
 } SYSTEM_MODULE_INFORMATION, *PSYSTEM_MODULE_INFORMATION;
 
 typedef unsigned short  WORD;
-#ifndef __REACTOS__
-typedef unsigned int    BOOL;
-#endif //__REACTOS__
+//typedef unsigned int    BOOL;
 typedef unsigned long   DWORD;
 typedef unsigned char   BYTE;
 
@@ -519,7 +494,7 @@ typedef struct _KTHREAD_HDR {
 */
 } KTHREAD_HDR, *PKTHREAD_HDR;
 
-#ifndef __REACTOS__
+#ifdef __REACTOS__
 typedef struct _IMAGE_DOS_HEADER {      // DOS .EXE header
     WORD   e_magic;                     // Magic number
     WORD   e_cblp;                      // Bytes on last page of file
@@ -629,14 +604,12 @@ typedef struct _IMAGE_EXPORT_DIRECTORY {
 
 NTHALAPI
 VOID
-NTAPI
 HalDisplayString (
     PUCHAR String
     );
 
 NTHALAPI
 VOID
-NTAPI
 HalQueryDisplayParameters (
     OUT PULONG WidthInCharacters,
     OUT PULONG HeightInLines,
@@ -646,7 +619,6 @@ HalQueryDisplayParameters (
 
 NTHALAPI
 VOID
-NTAPI
 HalSetDisplayParameters (
     IN ULONG CursorColumn,
     IN ULONG CursorRow

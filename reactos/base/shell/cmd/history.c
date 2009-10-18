@@ -74,7 +74,7 @@ VOID set_size(INT new_size);
 
 
 
-INT CommandHistory (LPTSTR param)
+INT CommandHistory (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR tmp;
 	INT tmp_int;
@@ -192,9 +192,11 @@ VOID del(LPHIST_ENTRY item)
 {
 	if (item==NULL || item==Top || item==Bottom)
 	{
-		TRACE ("del in " __FILE__ ": returning\n"
-			    "item is 0x%08x (Bottom is0x%08x)\n",
+#ifdef _DEBUG
+		DebugPrintf(_T("del in ") _T(__FILE__)  _T(": retrning\n")
+			    _T("item is 0x%08x (Bottom is0x%08x)\n"),
 			    item, Bottom);
+#endif
 		return;
 	}
 

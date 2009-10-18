@@ -19,10 +19,9 @@
 @ stdcall CoInternetGetSession(long ptr long)
 @ stdcall CoInternetParseUrl(wstr long long wstr long ptr long)
 @ stdcall CoInternetQueryInfo(ptr long long ptr long ptr long)
-@ stdcall CoInternetSetFeatureEnabled(long long long)
 @ stub CompareSecurityIds
 @ stub CopyBindInfo
-@ stdcall CopyStgMedium(ptr ptr)
+@ stub CopyStgMedium
 @ stdcall CreateAsyncBindCtx(long ptr ptr ptr)
 @ stdcall CreateAsyncBindCtxEx(ptr long ptr ptr ptr long)
 @ stdcall CreateFormatEnumerator(long ptr ptr)
@@ -39,7 +38,7 @@
 @ stub FindMediaType
 @ stub FindMediaTypeClass
 @ stdcall FindMimeFromData(long ptr ptr long ptr long ptr long)
-@ stdcall GetClassFileOrMime(ptr wstr ptr long wstr long ptr)
+@ stub GetClassFileOrMime
 @ stub GetClassURL
 @ stub GetComponentIDFromCLSSPEC
 @ stub GetMarkOfTheWeb
@@ -48,13 +47,13 @@
 @ stub HlinkGoForward
 @ stub HlinkNavigateMoniker
 @ stdcall HlinkNavigateString(ptr wstr)
-@ stdcall HlinkSimpleNavigateToMoniker(ptr wstr wstr ptr ptr ptr long long)
+@ stub HlinkSimpleNavigateToMoniker
 @ stdcall HlinkSimpleNavigateToString(wstr wstr wstr ptr ptr ptr long long)
 @ stdcall IsAsyncMoniker(ptr)
-@ stdcall IsLoggingEnabledA(str)
-@ stdcall IsLoggingEnabledW(wstr)
+@ stub IsLoggingEnabledA
+@ stub IsLoggingEnabledW
 @ stdcall IsValidURL(ptr wstr long)
-@ stdcall MkParseDisplayNameEx(ptr wstr ptr ptr)
+@ stdcall MkParseDisplayNameEx(ptr ptr ptr ptr) ole32.MkParseDisplayName
 @ stdcall ObtainUserAgentString(long str ptr)
 @ stub PrivateCoInstall
 @ stdcall RegisterBindStatusCallback(ptr ptr ptr long)
@@ -71,12 +70,12 @@
 @ stdcall URLDownloadToFileA(ptr str str long ptr)
 @ stdcall URLDownloadToFileW(ptr wstr wstr long ptr)
 @ stub URLDownloadW
-@ stdcall URLOpenBlockingStreamA(ptr str ptr long ptr)
-@ stdcall URLOpenBlockingStreamW(ptr wstr ptr long ptr)
+@ stub URLOpenBlockingStreamA
+@ stub URLOpenBlockingStreamW
 @ stub URLOpenPullStreamA
 @ stub URLOpenPullStreamW
-@ stdcall URLOpenStreamA(ptr str long ptr)
-@ stdcall URLOpenStreamW(ptr wstr long ptr)
+@ stub URLOpenStreamA
+@ stub URLOpenStreamW
 @ stub UrlMkBuildVersion
 @ stdcall UrlMkGetSessionOption(long ptr long ptr long)
 @ stdcall UrlMkSetSessionOption(long ptr long long)

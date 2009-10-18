@@ -33,7 +33,7 @@
 #define ENV_BUFFER_SIZE 1024
 
 
-INT cmd_path (LPTSTR param)
+INT cmd_path (LPTSTR cmd, LPTSTR param)
 {
 
 	if (!_tcsncmp (param, _T("/?"), 2))
@@ -49,12 +49,14 @@ INT cmd_path (LPTSTR param)
 	{
 		DWORD  dwBuffer;
 		LPTSTR pszBuffer;
+		TCHAR szMsg[RC_STRING_MAX_SIZE];
 
 		pszBuffer = (LPTSTR)cmd_alloc (ENV_BUFFER_SIZE * sizeof(TCHAR));
 		dwBuffer = GetEnvironmentVariable (_T("PATH"), pszBuffer, ENV_BUFFER_SIZE);
 		if (dwBuffer == 0)
 		{
-		    ConOutResPrintf(STRING_VOL_HELP2, _T("PATH"));
+			LoadString(CMD_ModuleHandle, STRING_VOL_HELP2, szMsg, RC_STRING_MAX_SIZE);
+		    ConOutPrintf(szMsg, _T("PATH"));
 			return 0;
 		}
 		else if (dwBuffer > ENV_BUFFER_SIZE)

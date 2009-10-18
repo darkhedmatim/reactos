@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * PROJECT:         ReactOS user32.dll
  * FILE:            lib/user32/windows/input.c
  * PURPOSE:         Input
@@ -31,45 +32,20 @@
 
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
+typedef struct _PROPLISTITEM
+{
+  ATOM Atom;
+  HANDLE Data;
+} PROPLISTITEM, *PPROPLISTITEM;
 
 #define ATOM_BUFFER_SIZE 256
-
-/* INTERNAL FUNCTIONS ********************************************************/
-
-HANDLE
-FASTCALL
-IntGetProp(HWND hWnd, ATOM Atom)
-{
-  PLIST_ENTRY ListEntry, temp;
-  PPROPERTY Property;
-  PWND pWnd;
-  int i;
-
-  pWnd = ValidateHwnd(hWnd);
-  if (!pWnd) return NULL;
-
-  ListEntry = SharedPtrToUser(pWnd->PropListHead.Flink);
-  for (i = 0; i < pWnd->PropListItems; i++ )
-  {
-      Property = CONTAINING_RECORD(ListEntry, PROPERTY, PropListEntry);
-      if (Property->Atom == Atom)
-      {
-         return(Property);
-      }
-      temp = ListEntry->Flink;
-      ListEntry = SharedPtrToUser(temp);
-  }
-  return NULL;
-}
-
 
 /* FUNCTIONS *****************************************************************/
 
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsA(HWND hWnd, PROPENUMPROCA lpEnumFunc)
 {
   PPROPLISTITEM pli, i;
@@ -136,7 +112,7 @@ EnumPropsA(HWND hWnd, PROPENUMPROCA lpEnumFunc)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsExA(HWND hWnd, PROPENUMPROCEXA lpEnumFunc, LPARAM lParam)
 {
   PPROPLISTITEM pli, i;
@@ -203,7 +179,7 @@ EnumPropsExA(HWND hWnd, PROPENUMPROCEXA lpEnumFunc, LPARAM lParam)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsExW(HWND hWnd, PROPENUMPROCEXW lpEnumFunc, LPARAM lParam)
 {
   PPROPLISTITEM pli, i;
@@ -270,7 +246,7 @@ EnumPropsExW(HWND hWnd, PROPENUMPROCEXW lpEnumFunc, LPARAM lParam)
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 EnumPropsW(HWND hWnd, PROPENUMPROCW lpEnumFunc)
 {
   PPROPLISTITEM pli, i;
@@ -337,7 +313,7 @@ EnumPropsW(HWND hWnd, PROPENUMPROCW lpEnumFunc)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 GetPropA(HWND hWnd, LPCSTR lpString)
 {
   PWSTR lpWString;
@@ -365,30 +341,26 @@ GetPropA(HWND hWnd, LPCSTR lpString)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 GetPropW(HWND hWnd, LPCWSTR lpString)
 {
   ATOM Atom;
-  HANDLE Data = NULL;
-  PPROPERTY Prop;
   if (HIWORD(lpString))
-  {
-     Atom = GlobalFindAtomW(lpString);
-  }
+    {
+      Atom = GlobalFindAtomW(lpString);
+    }
   else
-  {
-     Atom = LOWORD((DWORD)lpString);
-  }
-  Prop = IntGetProp(hWnd, Atom);
-  if (Prop != NULL) Data = Prop->Data;
-  return Data;
+    {
+      Atom = LOWORD((DWORD)lpString);
+    }
+  return(NtUserGetProp(hWnd, Atom));
 }
 
 
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 RemovePropA(HWND hWnd, LPCSTR lpString)
 {
   PWSTR lpWString;
@@ -417,7 +389,7 @@ RemovePropA(HWND hWnd, LPCSTR lpString)
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 RemovePropW(HWND hWnd,
 	    LPCWSTR lpString)
 {
@@ -437,7 +409,7 @@ RemovePropW(HWND hWnd,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetPropA(HWND hWnd, LPCSTR lpString, HANDLE hData)
 {
   PWSTR lpWString;
@@ -466,7 +438,7 @@ SetPropA(HWND hWnd, LPCSTR lpString, HANDLE hData)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 SetPropW(HWND hWnd, LPCWSTR lpString, HANDLE hData)
 {
   ATOM Atom;

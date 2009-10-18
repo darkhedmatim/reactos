@@ -19,11 +19,10 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
-#include "wine/port.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -45,9 +44,6 @@ static FILE *input_file;
 static const char *separator_chars;
 static const char *comment_chars;
 
-/* valid characters in ordinal names */
-static const char valid_ordname_chars[] = "/$:-_@?abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
 static const char * const TypeNames[TYPE_NBTYPES] =
 {
     "variable",     /* TYPE_VARIABLE */
@@ -57,7 +53,6 @@ static const char * const TypeNames[TYPE_NBTYPES] =
     "stdcall",      /* TYPE_STDCALL */
     "cdecl",        /* TYPE_CDECL */
     "varargs",      /* TYPE_VARARGS */
-    "fastcall",     /* TYPE_FASTCALL */
     "extern"        /* TYPE_EXTERN */
 };
 
@@ -67,9 +62,9 @@ static const char * const FlagNames[] =
     "noname",      /* FLAG_NONAME */
     "ret16",       /* FLAG_RET16 */
     "ret64",       /* FLAG_RET64 */
+    "i386",        /* FLAG_I386 */
     "register",    /* FLAG_REGISTER */
     "private",     /* FLAG_PRIVATE */
-    "ordinal",     /* FLAG_ORDINAL */
     NULL
 };
 
@@ -79,12 +74,12 @@ static int IsNumberString(const char *s)
     return 1;
 }
 
-static inline int is_token_separator( char ch )
+inline static int is_token_separator( char ch )
 {
     return strchr( separator_chars, ch ) != NULL;
 }
 
-static inline int is_token_comment( char ch )
+inline static int is_token_comment( char ch )
 {
     return strchr( comment_chars, ch ) != NULL;
 }
@@ -377,7 +372,7 @@ static int parse_spec_stub( ORDDEF *odp, DLLSPEC *spec )
 {
     odp->u.func.arg_types[0] = '\0';
     odp->link_name = xstrdup("");
-    odp->flags |= FLAG_CPU(CPU_x86) | FLAG_CPU(CPU_x86_64); /* don't bother generating stubs for Winelib */
+    odp->flags |= FLAG_I386;  /* don't bother generating stubs for Winelib */
     return 1;
 }
 
@@ -427,38 +422,14 @@ static const char *parse_spec_flags( ORDDEF *odp )
     do
     {
         if (!(token = GetToken(0))) break;
-        if (!strncmp( token, "arch=", 5))
+        for (i = 0; FlagNames[i]; i++)
+            if (!strcmp( FlagNames[i], token )) break;
+        if (!FlagNames[i])
         {
-            char *args = xstrdup( token + 5 );
-            char *cpu_name = strtok( args, "," );
-            while (cpu_name)
-            {
-                enum target_cpu cpu = get_cpu_from_name( cpu_name );
-                if (cpu == -1)
-                {
-                    error( "Unknown architecture '%s'\n", cpu_name );
-                    return NULL;
-                }
-                odp->flags |= FLAG_CPU( cpu );
-                cpu_name = strtok( NULL, "," );
-            }
-            free( args );
+            error( "Unknown flag '%s'\n", token );
+            return NULL;
         }
-        else if (!strcmp( token, "i386" ))  /* backwards compatibility */
-        {
-            odp->flags |= FLAG_CPU(CPU_x86);
-        }
-        else
-        {
-            for (i = 0; FlagNames[i]; i++)
-                if (!strcmp( FlagNames[i], token )) break;
-            if (!FlagNames[i])
-            {
-                error( "Unknown flag '%s'\n", token );
-                return NULL;
-            }
-            odp->flags |= 1 << i;
-        }
+        odp->flags |= 1 << i;
         token = GetToken(0);
     } while (token && *token == '-');
 
@@ -474,7 +445,6 @@ static const char *parse_spec_flags( ORDDEF *odp )
 static int parse_spec_ordinal( int ordinal, DLLSPEC *spec )
 {
     const char *token;
-    size_t len;
 
     ORDDEF *odp = add_entry_point( spec );
     memset( odp, 0, sizeof(*odp) );
@@ -498,13 +468,6 @@ static int parse_spec_ordinal( int ordinal, DLLSPEC *spec )
     odp->lineno = current_line;
     odp->ordinal = ordinal;
 
-    len = strspn( odp->name, valid_ordname_chars );
-    if (len < strlen( odp->name ))
-    {
-        error( "Character '%c' is not allowed in exported name '%s'\n", odp->name[len], odp->name );
-        goto error;
-    }
-
     switch(odp->type)
     {
     case TYPE_VARIABLE:
@@ -514,7 +477,6 @@ static int parse_spec_ordinal( int ordinal, DLLSPEC *spec )
     case TYPE_STDCALL:
     case TYPE_VARARGS:
     case TYPE_CDECL:
-    case TYPE_FASTCALL:
         if (!parse_spec_export( odp, spec )) goto error;
         break;
     case TYPE_ABS:
@@ -530,9 +492,9 @@ static int parse_spec_ordinal( int ordinal, DLLSPEC *spec )
         assert( 0 );
     }
 
-    if ((odp->flags & FLAG_CPU_MASK) && !(odp->flags & FLAG_CPU(target_cpu)))
+    if ((target_cpu != CPU_x86) && (odp->flags & FLAG_I386))
     {
-        /* ignore this entry point */
+        /* ignore this entry point on non-Intel archs */
         spec->nb_entry_points--;
         return 1;
     }
@@ -570,14 +532,11 @@ static int parse_spec_ordinal( int ordinal, DLLSPEC *spec )
         }
     }
 
-    if (!strcmp( odp->name, "@" ) || odp->flags & (FLAG_NONAME | FLAG_ORDINAL))
+    if (!strcmp( odp->name, "@" ) || odp->flags & FLAG_NONAME)
     {
         if (ordinal == -1)
         {
-            if (!strcmp( odp->name, "@" ))
-                error( "Nameless function needs an explicit ordinal number\n" );
-            else
-                error( "Function imported by ordinal needs an explicit ordinal number\n" );
+            error( "Nameless function needs an explicit ordinal number\n" );
             goto error;
         }
         if (spec->type != SPEC_WIN32)
@@ -585,16 +544,9 @@ static int parse_spec_ordinal( int ordinal, DLLSPEC *spec )
             error( "Nameless functions not supported for Win16\n" );
             goto error;
         }
-        if (!strcmp( odp->name, "@" ))
-        {
-            free( odp->name );
-            odp->name = NULL;
-        }
-        else if (!(odp->flags & FLAG_ORDINAL))  /* -ordinal only affects the import library */
-        {
-            odp->export_name = odp->name;
-            odp->name = NULL;
-        }
+        if (!strcmp( odp->name, "@" )) free( odp->name );
+        else odp->export_name = odp->name;
+        odp->name = NULL;
     }
     return 1;
 

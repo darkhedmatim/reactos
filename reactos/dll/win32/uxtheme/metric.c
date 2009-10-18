@@ -135,7 +135,7 @@ HRESULT WINAPI GetThemeSysFont(HTHEME hTheme, int iFontID, LOGFONTW *plf)
             case TMT_MSGBOXFONT: font = &ncm.lfMessageFont; break;
             default: FIXME("Unknown FontID: %d\n", iFontID); break;
         }
-        if(font) *plf = *font;
+        if(font) CopyMemory(plf, font, sizeof(LOGFONTW));
         else     hr = STG_E_INVALIDPARAMETER;
     }
     return hr;

@@ -22,18 +22,12 @@
 
 using std::string;
 
-InstallFile::~InstallFile()
-{
-	delete source;
-	delete target;
-}
-
 InstallFile::InstallFile ( const Project& project,
                            const XMLElement& installfileNode,
                            const string& path )
 	: XmlNode(project, installfileNode )
 {
-	const XMLAttribute* base = node.GetAttribute ( "installbase", false );
+	const XMLAttribute* base = node.GetAttribute ( "base", false );
 	const XMLAttribute* newname = node.GetAttribute ( "newname", false );
 
 	DirectoryLocation source_directory = SourceDirectory;
@@ -55,14 +49,12 @@ InstallFile::InstallFile ( const Project& project,
 
 	source = new FileLocation ( source_directory,
 	                            path,
-	                            node.value,
-	                            &node );
+	                            node.value );
 	target = new FileLocation ( InstallDirectory,
 	                            base && base->value != "."
 	                                ? base->value
 	                                : "",
 	                            newname
 	                                ? newname->value
-	                                : node.value,
-	                            &node );
+	                                : node.value );
 }

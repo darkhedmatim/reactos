@@ -10,21 +10,12 @@
 // Print information about which commandline arguments the program accepts.
 static void PrintUsage() {
 	LPTSTR lpUsage = NULL;
-	DWORD errLength; // error message length
-	LPTSTR resMsg; // for error message in OEM symbols
 
 	if( AllocAndLoadString( &lpUsage,
 							GetModuleHandle(NULL),
 							IDS_USAGE ) )
 	{
-		errLength = strlen(lpUsage) + 1;
-		resMsg = (LPTSTR)LocalAlloc(LPTR, errLength * sizeof(TCHAR));
-		CharToOemBuff(lpUsage, resMsg, errLength);
-
-		_putts( resMsg );
-
-		LocalFree(lpUsage);
-		LocalFree(resMsg);
+		_putts( lpUsage );
 	}
 }
 
@@ -51,17 +42,17 @@ static struct CommandLineOptions ParseArguments(int argc, TCHAR *argv[])
 {
 	struct CommandLineOptions opts;
 	int i;
-
+	
 	// Reset all flags in struct
 	opts.abort = FALSE;
 	opts.force = FALSE;
 	opts.logoff = FALSE;
 	opts.restart = FALSE;
 	opts.shutdown = FALSE;
-
+	
 	for (i = 1; i < argc; i++)
 	{
-		if (argv[i][0] == '-' || argv[i][0] == '/')
+		if (argv[i][0] == '-' || argv[i][0] == '/') 
 		{
 			switch(argv[i][1]) {
 				case '?':
@@ -91,16 +82,16 @@ static struct CommandLineOptions ParseArguments(int argc, TCHAR *argv[])
 			}
 		}
 	}
-
+	
 	return opts;
 }
 
 // Converts the commandline arguments to flags used to shutdown computer
-static struct ExitOptions ParseCommandLineOptionsToExitOptions(struct CommandLineOptions opts)
+static struct ExitOptions ParseCommandLineOptionsToExitOptions(struct CommandLineOptions opts) 
 {
 	struct ExitOptions exitOpts;
 	exitOpts.shouldExit = TRUE;
-
+	
 	// Sets ONE of the exit type flags
 	if (opts.logoff)
 		exitOpts.flags = EWX_LOGOFF;
@@ -113,7 +104,7 @@ static struct ExitOptions ParseCommandLineOptionsToExitOptions(struct CommandLin
 		exitOpts.flags = 0;
 		exitOpts.shouldExit = FALSE;
 	}
-
+	
 	// Sets additional flags
 	if (opts.force)
 	{
@@ -123,11 +114,11 @@ static struct ExitOptions ParseCommandLineOptionsToExitOptions(struct CommandLin
 		// The Windows shutdown utility does it the same way.
 		exitOpts.shouldExit = TRUE;
 	}
-
+	
 	// Reason for shutdown
 	// Hardcoded to "Other (Planned)"
 	exitOpts.reason = SHTDN_REASON_MAJOR_OTHER | SHTDN_REASON_MINOR_OTHER | SHTDN_REASON_FLAG_PLANNED;
-
+	
 	return exitOpts;
 }
 
@@ -135,42 +126,34 @@ static struct ExitOptions ParseCommandLineOptionsToExitOptions(struct CommandLin
 void DisplayLastError()
 {
 	int errorCode = GetLastError();
-	LPTSTR lpMsgBuf = NULL;
-	DWORD errLength; // error message length
-	LPTSTR resMsg; // for error message in OEM symbols
-
+	LPTSTR lpMsgBuf;
+	
 	// Display the error message to the user
-	errLength = FormatMessage(
+	FormatMessage(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 		NULL,
 		errorCode,
 		LANG_USER_DEFAULT,
 		(LPTSTR) &lpMsgBuf,
 		0,
-		NULL) + 1;
-
-	resMsg = (LPTSTR)LocalAlloc(LPTR, errLength * sizeof(TCHAR));
-	CharToOemBuff(lpMsgBuf, resMsg, errLength);
-
-	_ftprintf(stderr, resMsg);
+		NULL);
+	
+	_ftprintf(stderr, lpMsgBuf);
 	_ftprintf(stderr, _T("Error code: %d\n"), errorCode);
-
-	LocalFree(lpMsgBuf);
-	LocalFree(resMsg);
 }
 
 void EnableShutdownPrivileges()
 {
 	HANDLE token;
 	TOKEN_PRIVILEGES privs;
-
+	
 	// Check to see if the choosen action is allowed by the user. Everyone can call LogOff, but only privilieged users can shutdown/restart etc.
 	if (! OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &token))
 	{
 		DisplayLastError();
 		exit(1);
 	}
-
+	
 	// Get LUID (Locally Unique Identifier) for the privilege we need
 	if (!LookupPrivilegeValue(
 			NULL, // system - NULL is localsystem
@@ -197,27 +180,27 @@ void EnableShutdownPrivileges()
 			exit(1);
 		}
 }
-
+ 
  // Main entry for program
 int _tmain(int argc, TCHAR *argv[])
 {
 	struct CommandLineOptions opts;
 	struct ExitOptions exitOpts;
-
+	
 	if (argc == 1) // i.e. no commandline arguments given
 	{
 		PrintUsage();
 		exit(0);
 	}
 
-	opts = ParseArguments(argc, argv);
+	opts = ParseArguments(argc, argv);    
 	exitOpts = ParseCommandLineOptionsToExitOptions(opts);
 
 	// Perform the shutdown/restart etc. action
 	if (exitOpts.shouldExit)
 	{
 		EnableShutdownPrivileges();
-
+	
 		if (!ExitWindowsEx(exitOpts.flags, exitOpts.reason))
 		{
 			DisplayLastError();

@@ -6,16 +6,11 @@
  * daniel@veillard.com
  */
 
-#ifdef HAVE_CONFIG_H
-#include "libxml.h"
-#else
-#include <stdio.h>
-#endif
-
 #if !defined(_WIN32) || defined(__CYGWIN__)
 #include <unistd.h>
 #endif
 #include <string.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -35,17 +30,12 @@
 #include <libxml/xmlschemastypes.h>
 
 #define LOGFILE "runsuite.log"
-static FILE *logfile = NULL;
-static int verbose = 0;
-
-
+FILE *logfile = NULL;
+int verbose = 0;
 
 #if defined(_WIN32) && !defined(__CYGWIN__)
-
 #define vsnprintf _vsnprintf
-
 #define snprintf _snprintf
-
 #endif
 
 /************************************************************************
@@ -93,6 +83,7 @@ static int nb_internals = 0;
 static int nb_schematas = 0;
 static int nb_unimplemented = 0;
 static int nb_leaks = 0;
+static long libxmlMemoryAllocatedBase = 0;
 static int extraMemoryFromResolver = 0;
 
 static int
@@ -105,9 +96,9 @@ fatalError(void) {
  * that's needed to implement <resource>
  */
 #define MAX_ENTITIES 20
-static char *testEntitiesName[MAX_ENTITIES];
-static char *testEntitiesValue[MAX_ENTITIES];
-static int nb_entities = 0;
+char *testEntitiesName[MAX_ENTITIES];
+char *testEntitiesValue[MAX_ENTITIES];
+int nb_entities = 0;
 static void resetEntities(void) {
     int i;
 
@@ -214,7 +205,7 @@ testErrorHandler(void *ctx  ATTRIBUTE_UNUSED, const char *msg, ...) {
     testErrors[testErrorsSize] = 0;
 }
 
-static xmlXPathContextPtr ctxtXPath;
+xmlXPathContextPtr ctxtXPath;
 
 static void
 initializeLibxml2(void) {
@@ -225,16 +216,6 @@ initializeLibxml2(void) {
     xmlInitParser();
     xmlSetExternalEntityLoader(testExternalEntityLoader);
     ctxtXPath = xmlXPathNewContext(NULL);
-    /*
-    * Deactivate the cache if created; otherwise we have to create/free it
-    * for every test, since it will confuse the memory leak detection.
-    * Note that normally this need not be done, since the cache is not
-    * created until set explicitely with xmlXPathContextSetCache();
-    * but for test purposes it is sometimes usefull to activate the
-    * cache by default for the whole library.
-    */
-    if (ctxtXPath->cache != NULL)
-	xmlXPathContextSetCache(ctxtXPath, 0, -1, 0);
     /* used as default nanemspace in xstc tests */
     xmlXPathRegisterNs(ctxtXPath, BAD_CAST "ts", BAD_CAST "TestSuite");
     xmlXPathRegisterNs(ctxtXPath, BAD_CAST "xlink",
@@ -244,6 +225,7 @@ initializeLibxml2(void) {
     xmlSchemaInitTypes();
     xmlRelaxNGInitTypes();
 #endif
+    libxmlMemoryAllocatedBase = xmlMemUsed();
 }
 
 static xmlNodePtr
@@ -358,7 +340,7 @@ done:
     if (rng != NULL)
         xmlRelaxNGFree(rng);
     xmlResetLastError();
-    if ((memt < xmlMemUsed()) && (extraMemoryFromResolver == 0)) {
+    if ((memt != xmlMemUsed()) && (extraMemoryFromResolver == 0)) {
 	test_log("Validation of tests starting line %ld leaked %d\n",
 		xmlGetLineNo(cur), xmlMemUsed() - memt);
 	nb_leaks++;
@@ -949,17 +931,9 @@ xstcTestGroup(xmlNodePtr cur, const char *base) {
 	}
 	instance = getNext(cur, "./ts:instanceTest[1]");
 	while (instance != NULL) {
-	    if (schemas != NULL) {
-		xstcTestInstance(instance, schemas, path, base);		
-	    } else {
-		/*
-		* We'll automatically mark the instances as failed
-		* if the schema was broken.
-		*/
-		nb_errors++;
-	    }
+            xstcTestInstance(instance, schemas, path, base);
 	    instance = getNext(instance,
-		"following-sibling::ts:instanceTest[1]");
+	                       "following-sibling::ts:instanceTest[1]");
 	}
     } else if (xmlStrEqual(validity, BAD_CAST "invalid")) {
         nb_schematas++;
@@ -1059,7 +1033,7 @@ done:
 
 int
 main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
-    int ret = 0;
+    int res, ret = 0;
     int old_errors, old_tests, old_leaks;
 
     logfile = fopen(LOGFILE, "w");
@@ -1077,7 +1051,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     old_errors = nb_errors;
     old_tests = nb_tests;
     old_leaks = nb_leaks;
-    xsdTest();
+    res = xsdTest();
     if ((nb_errors == old_errors) && (nb_leaks == old_leaks))
 	printf("Ran %d tests, no errors\n", nb_tests - old_tests);
     else
@@ -1088,7 +1062,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     old_errors = nb_errors;
     old_tests = nb_tests;
     old_leaks = nb_leaks;
-    rngTest1();
+    res = rngTest1();
     if ((nb_errors == old_errors) && (nb_leaks == old_leaks))
 	printf("Ran %d tests, no errors\n", nb_tests - old_tests);
     else
@@ -1099,7 +1073,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     old_errors = nb_errors;
     old_tests = nb_tests;
     old_leaks = nb_leaks;
-    rngTest2();
+    res = rngTest2();
     if ((nb_errors == old_errors) && (nb_leaks == old_leaks))
 	printf("Ran %d tests, no errors\n", nb_tests - old_tests);
     else
@@ -1112,7 +1086,8 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     old_leaks = nb_leaks;
     nb_internals = 0;
     nb_schematas = 0;
-    xstcMetadata("xstc/Tests/Metadata/NISTXMLSchemaDatatypes.testSet",
+    res = xstcMetadata(
+                 "xstc/Tests/Metadata/NISTXMLSchemaDatatypes.testSet",
 		 "xstc/Tests/Metadata/");
     if ((nb_errors == old_errors) && (nb_leaks == old_leaks))
 	printf("Ran %d tests (%d schemata), no errors\n",
@@ -1129,7 +1104,8 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     old_leaks = nb_leaks;
     nb_internals = 0;
     nb_schematas = 0;
-    xstcMetadata("xstc/Tests/Metadata/SunXMLSchema1-0-20020116.testSet",
+    res = xstcMetadata(
+                 "xstc/Tests/Metadata/SunXMLSchema1-0-20020116.testSet",
 		 "xstc/Tests/");
     if ((nb_errors == old_errors) && (nb_leaks == old_leaks))
 	printf("Ran %d tests (%d schemata), no errors\n",
@@ -1146,7 +1122,8 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     old_leaks = nb_leaks;
     nb_internals = 0;
     nb_schematas = 0;
-    xstcMetadata("xstc/Tests/Metadata/MSXMLSchema1-0-20020116.testSet",
+    res = xstcMetadata(
+                 "xstc/Tests/Metadata/MSXMLSchema1-0-20020116.testSet",
 		 "xstc/Tests/");
     if ((nb_errors == old_errors) && (nb_leaks == old_leaks))
 	printf("Ran %d tests (%d schemata), no errors\n",
@@ -1168,6 +1145,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
 	printf("Total %d tests, %d errors, %d leaks\n",
 	       nb_tests, nb_errors, nb_leaks);
     }
+
     xmlXPathFreeContext(ctxtXPath);
     xmlCleanupParser();
     xmlMemoryDump();

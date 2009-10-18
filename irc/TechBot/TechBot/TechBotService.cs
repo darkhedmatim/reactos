@@ -9,7 +9,7 @@ using System.Configuration.Install;
 
 namespace TechBot
 {
-	public class TechBotService : ServiceBase
+	public class TechBotService : System.ServiceProcess.ServiceBase
 	{
 		private Thread thread;
 		private ServiceThread threadWorker;
@@ -78,5 +78,20 @@ namespace TechBot
 				EventLog.WriteEntry(String.Format("Ex. {0}", ex));
 			}
 		}
+	}
+}
+
+[RunInstaller(true)]
+public class ProjectInstaller : Installer
+{
+	public ProjectInstaller()
+	{
+		ServiceProcessInstaller spi = new ServiceProcessInstaller();
+		spi.Account = ServiceAccount.LocalSystem;
+		
+		ServiceInstaller si = new ServiceInstaller();
+		si.ServiceName = "TechBot";
+		si.StartType = ServiceStartMode.Automatic;
+		Installers.AddRange(new Installer[] {spi, si});
 	}
 }

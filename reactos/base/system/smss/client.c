@@ -1,12 +1,28 @@
-/*
- * PROJECT:         ReactOS Session Manager
- * LICENSE:         GPL v2 or later - See COPYING in the top level directory
- * FILE:            base/system/smss/client.c
- * PURPOSE:         Client management.
- * PROGRAMMERS:     ReactOS Development Team
+/* $Id$
+ *
+ * client.c - Session Manager client Management
+ * 
+ * ReactOS Operating System
+ * 
+ * --------------------------------------------------------------------
+ *
+ * This software is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.LIB. If not, write
+ * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
+ * MA 02139, USA.  
+ *
+ * --------------------------------------------------------------------
  */
-
-/* INCLUDES ******************************************************************/
 #include "smss.h"
 #include <sm/helper.h>
 
@@ -48,7 +64,7 @@ SmInitializeClientManagement (VOID)
 VOID FASTCALL
 SmpSetClientInitialized (PSM_CLIENT_DATA Client)
 {
-	DPRINT("SM: %s(%p) called\n", __FUNCTION__, Client);
+	DPRINT("SM: %s(%08lx) called\n", __FUNCTION__, Client);
 	Client->Flags |= SM_CLIENT_FLAG_INITIALIZED;
 }
 /**********************************************************************
@@ -56,7 +72,7 @@ SmpSetClientInitialized (PSM_CLIENT_DATA Client)
  *
  * NOTE: call it holding SmpClientDirectory.Lock only
  */
-static INT NTAPI SmpGetFirstFreeClientEntry (VOID)
+static INT STDCALL SmpGetFirstFreeClientEntry (VOID)
 {
 	INT ClientIndex = 0;
 
@@ -75,7 +91,7 @@ static INT NTAPI SmpGetFirstFreeClientEntry (VOID)
 			}
 		}
 	}
-	return SM_INVALID_CLIENT_INDEX; // full!
+	return SM_INVALID_CLIENT_INDEX; // full!		
 }
 /**********************************************************************
  *	SmpLookupClient/1					PRIVATE
@@ -113,7 +129,7 @@ SmpLookupClient (USHORT SubsystemId)
 				}
 			}
 		}
-	}
+	}	
 	return SM_INVALID_CLIENT_INDEX;
 }
 /**********************************************************************
@@ -122,10 +138,10 @@ SmpLookupClient (USHORT SubsystemId)
  * WARNING
  * 	SmpClientDirectory.Lock must be held by the caller.
  */
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpDestroyClientObject (PSM_CLIENT_DATA Client, NTSTATUS DestroyReason)
 {
-	DPRINT("SM:%s(%p,%08lx) called\n", __FUNCTION__, Client, DestroyReason);
+	DPRINT("SM:%s(%08lx,%08lx) called\n", __FUNCTION__, DestroyReason);
 	/* TODO: send shutdown to the SB port */
 	NtTerminateProcess (Client->ServerProcess, DestroyReason);
 	RtlFreeHeap (SmpHeap, 0, Client);
@@ -142,11 +158,11 @@ SmpDestroyClientObject (PSM_CLIENT_DATA Client, NTSTATUS DestroyReason)
  * ARGUMENTS
  *	Request: message received by \SmApiPort
  *	ClientData:
- *
+ *		
  * RETURN VALUES
  *	NTSTATUS
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 			     OUT PSM_CLIENT_DATA  * ClientData)
 {
@@ -157,9 +173,9 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
     HANDLE Process;
 
 
-	DPRINT("SM: %s(%p,%p) called\n", __FUNCTION__,
+	DPRINT("SM: %s(%08lx,%08lx) called\n", __FUNCTION__,
 			Request, ClientData);
-
+	
 	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
 	/*
 	 * Is there a subsystem bootstrap in progress?
@@ -168,7 +184,7 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 	{
 		PROCESS_BASIC_INFORMATION pbi;
         OBJECT_ATTRIBUTES ObjectAttributes;
-
+		
 		RtlZeroMemory (& pbi, sizeof pbi);
         InitializeObjectAttributes(&ObjectAttributes, NULL, 0, NULL, NULL);
         Status = NtOpenProcess(&Process,
@@ -192,7 +208,7 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 		DPRINT1("SM: %s: subsys booting with no descriptor!\n", __FUNCTION__);
 		Status = STATUS_NOT_FOUND;
 		RtlLeaveCriticalSection (& SmpClientDirectory.Lock);
-		return Status;
+		return Status;		
 	}
 	/*
 	 * Check if a client for the ID already exist.
@@ -252,7 +268,7 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 	/*
 	 * Notify to the caller the reference to the client data.
 	 */
-	if (ClientData)
+	if (ClientData) 
 	{
 		*ClientData = SmpClientDirectory.CandidateClient;
 	}
@@ -263,7 +279,7 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
 
 	/* Done */
 	RtlLeaveCriticalSection (& SmpClientDirectory.Lock);
-
+	
 	return STATUS_SUCCESS;
 }
 /**********************************************************************
@@ -273,7 +289,7 @@ SmBeginClientInitialization (IN  PSM_PORT_MESSAGE Request,
  * 	Lookup the subsystem server descriptor given the process ID
  * 	of the subsystem server process.
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmCompleteClientInitialization (ULONG ProcessId)
 {
 	NTSTATUS  Status = STATUS_NOT_FOUND;
@@ -285,7 +301,7 @@ SmCompleteClientInitialization (ULONG ProcessId)
 	if (SmpClientDirectory.Count > 0)
 	{
 		for (ClientIndex = 0; ClientIndex < SM_MAX_CLIENT_COUNT; ClientIndex ++)
-		{
+		{		
 			if ((NULL != SmpClientDirectory.Client [ClientIndex]) &&
 				(ProcessId == SmpClientDirectory.Client [ClientIndex]->ServerProcessId))
 			{
@@ -301,7 +317,7 @@ SmCompleteClientInitialization (ULONG ProcessId)
 /**********************************************************************
  * 	SmpDestroyClientByClientIndex/1				PRIVATE
  */
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpDestroyClientByClientIndex (INT ClientIndex)
 {
 	NTSTATUS         Status = STATUS_SUCCESS;
@@ -344,13 +360,13 @@ SmpDestroyClientByClientIndex (INT ClientIndex)
  * RETURN VALUE
  * 	NONE.
  */
-static VOID NTAPI SmpTimeoutCandidateClient (PVOID x)
+static VOID STDCALL SmpTimeoutCandidateClient (PVOID x)
 {
 	NTSTATUS       Status = STATUS_SUCCESS;
 	HANDLE         CandidateClientProcessHandle = (HANDLE) x;
 	LARGE_INTEGER  TimeOut;
 
-	DPRINT("SM: %s(%p) called\n", __FUNCTION__, x);
+	DPRINT("SM: %s(%lx) called\n", __FUNCTION__, x);
 
 	TimeOut.QuadPart = (LONGLONG) -300000000L; // 30s
 	Status = NtWaitForSingleObject (CandidateClientProcessHandle,
@@ -361,7 +377,7 @@ static VOID NTAPI SmpTimeoutCandidateClient (PVOID x)
 		RtlEnterCriticalSection (& SmpClientDirectory.Lock);
 		if (NULL != SmpClientDirectory.CandidateClient)
 		{
-			DPRINT("SM:%s: destroy candidate %p\n", __FUNCTION__,
+			DPRINT("SM:%s: destroy candidate %08lx\n", __FUNCTION__,
 					SmpClientDirectory.CandidateClient);
 			Status = SmpDestroyClientObject (SmpClientDirectory.CandidateClient,
 							 STATUS_TIMEOUT);
@@ -387,15 +403,15 @@ static VOID NTAPI SmpTimeoutCandidateClient (PVOID x)
  * 		STATUS_SUCCESS if all OK;
  * 		STATUS_DEVICE_BUSY if another SS is still booting;
  * 		STATUS_NO_MEMORY if client descriptor allocation failed;
- *
- *
+ * 		
+ * 		
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
-
-	DPRINT("SM: %s(%p, %S) called\n", __FUNCTION__, ProcessInfo->ProcessHandle, ProgramName);
+	
+	DPRINT("SM: %s(%lx, %S) called\n", __FUNCTION__, ProcessInfo->ProcessHandle, ProgramName);
 
 	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
 	/*
@@ -409,7 +425,7 @@ SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
 		 */
 		if (SM_INVALID_CLIENT_INDEX == SmpGetFirstFreeClientEntry())
 		{
-			DPRINT("SM: %s(%p): out of memory!\n",
+			DPRINT("SM: %s(%lx): out of memory!\n",
 				__FUNCTION__, ProcessInfo->ProcessHandle);
 			Status = STATUS_NO_MEMORY;
 		}
@@ -422,20 +438,20 @@ SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
 					 sizeof (SM_CLIENT_DATA));
 		if (NULL == SmpClientDirectory.CandidateClient)
 		{
-			DPRINT("SM: %s(%p): out of memory!\n",
+			DPRINT("SM: %s(%lx): out of memory!\n",
 				__FUNCTION__, ProcessInfo->ProcessHandle);
 			Status = STATUS_NO_MEMORY;
 		}
 		else
 		{
-			DPRINT("SM:%s(%p,%S): candidate is %p\n", __FUNCTION__,
+			DPRINT("SM:%s(%08lx,%S): candidate is %08lx\n", __FUNCTION__,
 					ProcessInfo, ProgramName, SmpClientDirectory.CandidateClient);
 			/* Initialize the candidate client. */
 			RtlInitializeCriticalSection(& SmpClientDirectory.CandidateClient->Lock);
 			SmpClientDirectory.CandidateClient->ServerProcess =
 				(HANDLE) ProcessInfo->ProcessHandle;
-			SmpClientDirectory.CandidateClient->ServerProcessId =
-				(DWORD_PTR) ProcessInfo->ClientId.UniqueProcess;
+			SmpClientDirectory.CandidateClient->ServerProcessId = 
+				(ULONG) ProcessInfo->ClientId.UniqueProcess;
 			/*
 			 * Copy the program name
 			 */
@@ -444,7 +460,7 @@ SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
 				       SM_SB_NAME_MAX_LENGTH);
 		}
 	} else {
-		DPRINT1("SM: %s: CandidateClient %p pending!\n", __FUNCTION__,
+		DPRINT1("SM: %s: CandidateClient %08lx pending!\n", __FUNCTION__,
 				SmpClientDirectory.CandidateClient);
 		Status = STATUS_DEVICE_BUSY;
 	}
@@ -480,7 +496,7 @@ SmCreateClient (PRTL_USER_PROCESS_INFORMATION ProcessInfo, PWSTR ProgramName)
  * 	2. kill client process
  * 	3. release resources
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 SmDestroyClient (ULONG SubsystemId)
 {
 	NTSTATUS  Status = STATUS_SUCCESS;
@@ -512,13 +528,13 @@ SmGetClientBasicInformation (PSM_BASIC_INFORMATION i)
 	INT  ClientIndex = 0;
 	INT  Index = 0;
 
-	DPRINT("SM: %s(%p) called\n", __FUNCTION__, i);
+	DPRINT("SM: %s(%08lx) called\n", __FUNCTION__, i);
 
 	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
 
 	i->SubSystemCount = SmpClientDirectory.Count;
 	i->Unused = 0;
-
+	
 	if (SmpClientDirectory.Count > 0)
 	{
 		for (ClientIndex = 0; (ClientIndex < SM_MAX_CLIENT_COUNT); ClientIndex ++)
@@ -546,8 +562,8 @@ SmGetSubSystemInformation (PSM_SUBSYSTEM_INFORMATION i)
 {
 	NTSTATUS  Status = STATUS_SUCCESS;
 	INT       ClientIndex = SM_INVALID_CLIENT_INDEX;
-
-	DPRINT("SM: %s(%p) called\n", __FUNCTION__, i);
+	
+	DPRINT("SM: %s(%08lx) called\n", __FUNCTION__, i);
 
 	RtlEnterCriticalSection (& SmpClientDirectory.Lock);
 	ClientIndex = SmpLookupClient (i->SubSystemId);

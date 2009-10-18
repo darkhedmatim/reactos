@@ -32,6 +32,9 @@
 
 #ifdef HAVE_LDAP_H
 #include <ldap.h>
+#else
+#define LDAP_SUCCESS        0x00
+#define LDAP_NOT_SUPPORTED  0x5c
 #endif
 
 #include "winldap_private.h"
@@ -314,7 +317,7 @@ ULONG CDECL ldap_connect( WLDAP32_LDAP *ld, struct l_timeval *timeout )
     TRACE( "(%p, %p)\n", ld, timeout );
 
     if (!ld) return WLDAP32_LDAP_PARAM_ERROR;
-    return WLDAP32_LDAP_SUCCESS; /* FIXME: do something, e.g. ping the host */
+    return LDAP_SUCCESS; /* FIXME: do something, e.g. ping the host */
 }
 
 /***********************************************************************
@@ -576,7 +579,7 @@ exit:
 ULONG CDECL ldap_start_tls_sA( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMessage **result,
     PLDAPControlA *serverctrls, PLDAPControlA *clientctrls )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPControlW **serverctrlsW = NULL, **clientctrlsW = NULL;
 
@@ -584,7 +587,7 @@ ULONG CDECL ldap_start_tls_sA( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
 
     TRACE( "(%p, %p, %p, %p, %p)\n", ld, retval, result, serverctrls, clientctrls );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (serverctrls) {
         serverctrlsW = controlarrayAtoW( serverctrls );
@@ -627,7 +630,7 @@ exit:
 ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMessage **result,
     PLDAPControlW *serverctrls, PLDAPControlW *clientctrls )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPControl **serverctrlsU = NULL, **clientctrlsU = NULL;
 
@@ -635,7 +638,7 @@ ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
 
     TRACE( "(%p, %p, %p, %p, %p)\n", ld, retval, result, serverctrls, clientctrls );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (serverctrls) {
         serverctrlsU = controlarrayWtoU( serverctrls );
@@ -646,7 +649,7 @@ ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_start_tls_s( ld, serverctrlsU, clientctrlsU ));
+    ret = ldap_start_tls_s( ld, serverctrlsU, clientctrlsU );
 
 exit:
     controlarrayfreeU( serverctrlsU );
@@ -662,7 +665,7 @@ exit:
 ULONG CDECL ldap_startup( PLDAP_VERSION_INFO version, HANDLE *instance )
 {
     TRACE( "(%p, %p)\n", version, instance );
-    return WLDAP32_LDAP_SUCCESS;
+    return LDAP_SUCCESS;
 }
 
 /***********************************************************************

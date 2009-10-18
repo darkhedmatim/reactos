@@ -1,10 +1,12 @@
 #ifndef _KDDLL_
 #define _KDDLL_
 
-typedef ULONG KDSTATUS;
-#define KdPacketReceived     0
-#define KdPacketTimedOut     1
-#define KdPacketNeedsResend  2
+typedef enum _KDSTATUS
+{
+    KdPacketReceived = 0,
+    KdPacketTimedOut,
+    KdPacketNeedsResend
+} KDSTATUS;
 
 NTSTATUS
 NTAPI
@@ -47,18 +49,6 @@ KdSendPacket(
     IN PSTRING MessageHeader,
     IN PSTRING MessageData,
     IN OUT PKD_CONTEXT Context
-);
-
-NTSTATUS
-NTAPI
-KdD0Transition(
-    VOID
-);
-
-NTSTATUS
-NTAPI
-KdD3Transition(
-    VOID
 );
 
 #endif
