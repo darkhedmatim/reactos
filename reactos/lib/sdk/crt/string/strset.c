@@ -8,15 +8,7 @@
  *              25/11/05: Added license header
  */
 
-#if defined(__GNUC__)
-#define __int64 long long
-#endif
-
-#ifdef _WIN64
-typedef unsigned __int64 size_t;
-#else
-typedef unsigned int size_t;
-#endif
+#include <precomp.h>
 
 /*
  * @implemented
@@ -38,6 +30,7 @@ char* _strnset(char* szToFill, int szFill, size_t sizeMaxFill)
 /*
  * @implemented
  */
+#ifndef _MSC_VER
 char* _strset(char* szToFill, int szFill)
 {
 	char *t = szToFill;
@@ -49,3 +42,4 @@ char* _strset(char* szToFill, int szFill)
 	}
 	return t;
 }
+#endif

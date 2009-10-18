@@ -587,7 +587,7 @@ typedef struct _INTERNAL_ENUM_PAGE_FILES_CONTEXT
 } INTERNAL_ENUM_PAGE_FILES_CONTEXT, *PINTERNAL_ENUM_PAGE_FILES_CONTEXT;
 
 
-static BOOL CALLBACK
+static BOOL
 InternalAnsiPageFileCallback(LPVOID pContext,
                              PENUM_PAGE_FILE_INFORMATION pPageFileInfo,
                              LPCWSTR lpFilename)

@@ -17,7 +17,6 @@
 
 UNICODE_STRING IoArcHalDeviceName, IoArcBootDeviceName;
 PCHAR IoLoaderArcBootDeviceName;
-extern PROS_LOADER_PARAMETER_BLOCK KeRosLoaderBlock;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -279,8 +278,7 @@ IopGetDiskInformation(IN ULONG i,
 BOOLEAN
 INIT_FUNCTION
 NTAPI
-IopAssignArcNamesToCdrom(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
-                         IN PULONG Buffer,
+IopAssignArcNamesToCdrom(IN PULONG Buffer,
                          IN ULONG DiskNumber)
 {
     CHAR ArcBuffer[128];
@@ -294,10 +292,6 @@ IopAssignArcNamesToCdrom(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     ULONG i, CheckSum = 0;
     PDEVICE_OBJECT DeviceObject;
     PFILE_OBJECT FileObject;
-    PARC_DISK_INFORMATION ArcDiskInfo = LoaderBlock->ArcDiskInformation;
-    PLIST_ENTRY NextEntry;
-    PARC_DISK_SIGNATURE ArcDiskEntry;
-    BOOLEAN IsBootCdRom = FALSE;
 
     /* Build the device name */
     sprintf(ArcBuffer, "\\Device\\CdRom%lu", DiskNumber);
@@ -354,28 +348,6 @@ IopAssignArcNamesToCdrom(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     /* Now calculate the checksum */
     for (i = 0; i < 2048 / sizeof(ULONG); i++) CheckSum += Buffer[i];
 
-    if (KeRosLoaderBlock) goto freeldrhack;
-
-    /* Search if this device is the actual boot CD */
-    for (NextEntry = ArcDiskInfo->DiskSignatureListHead.Flink;
-         NextEntry != &ArcDiskInfo->DiskSignatureListHead;
-         NextEntry = NextEntry->Flink)
-    {
-        /* Get the current ARC disk signature entry */
-        ArcDiskEntry = CONTAINING_RECORD(NextEntry,
-                                         ARC_DISK_SIGNATURE,
-                                         ListEntry);
-        /* And check if checksums and arc names match */
-        if (CheckSum == ArcDiskEntry->CheckSum &&
-            strcmp(KeLoaderBlock->ArcBootDeviceName, ArcDiskEntry->ArcName) == 0)
-        {
-            IsBootCdRom = TRUE;
-            break;
-        }
-    }
-    goto checkbootcd;
-
-freeldrhack:
     /*
      * FIXME: In normal conditions, NTLDR/FreeLdr sends the *proper* CDROM
      * ARC Path name, and what happens here is a comparision of both checksums
@@ -391,10 +363,7 @@ freeldrhack:
      * The signature code stays however, because eventually FreeLDR will work
      * like NTLDR, and, conversly, we do want to be able to be booted by NTLDR.
      */
-    IsBootCdRom = IopApplyRosCdromArcHack(DiskNumber);
-
-checkbootcd:
-    if (IsBootCdRom)
+    if (IopApplyRosCdromArcHack(DiskNumber))
     {
         /* This is the boot CD-ROM, build the ARC name */
         sprintf(ArcBuffer, "\\ArcName\\%s", KeLoaderBlock->ArcBootDeviceName);
@@ -614,7 +583,7 @@ IopCreateArcNames(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
         for (i = 0; i < ConfigInfo->CdRomCount; i++)
         {
             /* Give it an ARC name */
-            if (IopAssignArcNamesToCdrom(LoaderBlock, PartitionBuffer, i)) break;
+            if (IopAssignArcNamesToCdrom(PartitionBuffer, i)) break;
         }
 
         /* Free the buffer */

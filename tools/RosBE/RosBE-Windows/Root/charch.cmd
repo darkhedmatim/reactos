@@ -4,45 +4,68 @@
 :: FILE:        Root/charch.cmd
 :: PURPOSE:     Tool to change the current Arch to build ROS for in RosBE.
 :: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
-::                             Colin Finck <colin@reactos.org>
 ::
-
 @echo off
 if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
 if %_ROSBE_DEBUG% == 1 (
     @echo on
 )
 
-setlocal enabledelayedexpansion
 title Change the Architecture to build for...
 
+::
 :: Parse the command line arguments.
+:: ROSBE_ARCH: Default is i386, can be set to amd64, ppc or arm.
+::
+
 if "%1" == "" (
-    set /p ARCH="Please enter an Architecture you want to build ReactOS for: "
-
-    if "!ARCH!" == "" (
-        echo ERROR: You must enter an Architecture.
-        goto :EOC
-    )
+    call :INTERACTIVE
 ) else (
-    set ARCH=%1
+    set _1=%1
 )
+if /i "%_1%" == "i386" (
+    set ROS_ARCH=
+) else (
+    set ROS_ARCH=%_1%
+)
+goto :EOA
 
-:: Modify ROS_ARCH for the current environment
-endlocal & set ROS_ARCH=%ARCH%
-
+::
 :: Refresh all needed Params by recalling the main Path setting CMD File.
-if "%ROS_ARCH%" == "i386" (
-    if exist "%APPDATA%\RosBE\rosbe-options.cmd" (
-        call "%APPDATA%\RosBE\rosbe-options.cmd"
-    )
-) else (
-    if exist "%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd" (
-        call "%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd"
-    )
+::
+
+:EOA
+
+:: arch specific settings.
+if exist "%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd" (
+    call "%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd"
 )
 
-call "%_ROSBE_BASEDIR%\chdefgcc.cmd" %ROS_ARCH% target
+call "%_ROSBE_BASEDIR%\rosbe-gcc-env.cmd"
+
+"%_ROSBE_BASEDIR%\version.cmd"
+goto :EOC
+
+::
+:: If Parameters were set, parse them, if not, ask the user to add them.
+::
+
+:INTERACTIVE
+
+set /p _1="Please enter a Architecture you want to build ReactOS for: "
+if "%_1%" == "" (
+    echo ERROR: You must enter a Architecture.
+    goto :EOC
+)
+goto :EOF
 
 :EOC
-title ReactOS Build Environment %_ROSBE_VERSION%
+
+if defined _ROSBE_VERSION (
+    title ReactOS Build Environment %_ROSBE_VERSION%
+)
+
+::
+:: Unload all used Vars.
+::
+set _1=

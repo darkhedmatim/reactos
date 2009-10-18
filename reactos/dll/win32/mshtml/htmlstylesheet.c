@@ -48,13 +48,13 @@ struct HTMLStyleSheetsCollection {
     nsIDOMStyleSheetList *nslist;
 };
 
-struct HTMLStyleSheetRulesCollection {
+typedef struct {
     const IHTMLStyleSheetRulesCollectionVtbl *lpHTMLStyleSheetRulesCollectionVtbl;
 
     LONG ref;
 
     nsIDOMCSSRuleList *nslist;
-};
+} HTMLStyleSheetRulesCollection;
 
 #define HTMLSTYLESHEET(x)     ((IHTMLStyleSheet*)                &(x)->lpHTMLStyleSheetVtbl)
 #define HTMLSTYLESHEETSCOL(x) ((IHTMLStyleSheetsCollection*)     &(x)->lpHTMLStyleSheetsCollectionVtbl)

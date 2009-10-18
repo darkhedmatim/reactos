@@ -13,7 +13,7 @@
 #include "tdiconn.h"
 #include "tdi_proto.h"
 
-#if DBG
+#ifdef DBG
 #if 0
 static VOID DisplayBuffer(
     PVOID Buffer,
@@ -112,8 +112,7 @@ static NTSTATUS TdiOpenDevice(
 
     InitializeObjectAttributes(&Attr,                   /* Attribute buffer */
                                DeviceName,              /* Device name */
-                               OBJ_CASE_INSENSITIVE |   /* Attributes */
-                               OBJ_KERNEL_HANDLE,
+                               OBJ_CASE_INSENSITIVE,    /* Attributes */
                                NULL,                    /* Root directory */
                                NULL);                   /* Security descriptor */
 
@@ -123,7 +122,7 @@ static NTSTATUS TdiOpenDevice(
                           &Iosb,                                /* IO status */
                           0,                                    /* Initial allocation size */
                           FILE_ATTRIBUTE_NORMAL,                /* File attributes */
-                          0,                                    /* Share access */
+                          FILE_SHARE_READ | FILE_SHARE_WRITE,   /* Share access */
                           FILE_OPEN_IF,                         /* Create disposition */
                           0,                                    /* Create options */
                           EaInfo,                               /* EA buffer */
@@ -131,7 +130,7 @@ static NTSTATUS TdiOpenDevice(
     if (NT_SUCCESS(Status)) {
         Status = ObReferenceObjectByHandle(*Handle,                       /* Handle to open file */
                                            GENERIC_READ | GENERIC_WRITE | SYNCHRONIZE,  /* Access mode */
-                                           IoFileObjectType,              /* Object type */
+                                           NULL,                          /* Object type */
                                            KernelMode,                    /* Access mode */
                                            (PVOID*)Object,                /* Pointer to object */
                                            NULL);                         /* Handle information */
@@ -147,12 +146,30 @@ static NTSTATUS TdiOpenDevice(
     }
 
     if (!NT_SUCCESS(Status)) {
-        *Handle = INVALID_HANDLE_VALUE;
+        *Handle = NULL;
         *Object = NULL;
     }
 
     return Status;
 }
+
+
+NTSTATUS TdiCloseDevice(
+    HANDLE Handle,
+    PFILE_OBJECT FileObject)
+{
+    AFD_DbgPrint(MAX_TRACE, ("Called. Handle (0x%X)  FileObject (0x%X)\n",
+							 Handle, FileObject));
+
+    if (Handle)
+        ZwClose(Handle);
+
+    if (FileObject)
+        ObDereferenceObject(FileObject);
+
+    return STATUS_SUCCESS;
+}
+
 
 NTSTATUS TdiOpenAddressFile(
     PUNICODE_STRING DeviceName,
@@ -831,10 +848,10 @@ NTSTATUS TdiSend
                         BufferLength,   /* Length of buffer */
                         FALSE,          /* Not secondary */
                         FALSE,          /* Don't charge quota */
-                        NULL);          /* Don't use IRP */
+                        *Irp);          /* Use IRP */
     if (!Mdl) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -844,7 +861,7 @@ NTSTATUS TdiSend
     } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
 		IoFreeMdl(Mdl);
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         _SEH2_YIELD(return STATUS_INSUFFICIENT_RESOURCES);
     } _SEH2_END;
@@ -912,10 +929,10 @@ NTSTATUS TdiReceive(
                         BufferLength,   /* Length of buffer */
                         FALSE,          /* Not secondary */
                         FALSE,          /* Don't charge quota */
-                        NULL);          /* Don't use IRP */
+                        *Irp);          /* Use IRP */
     if (!Mdl) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -927,7 +944,7 @@ NTSTATUS TdiReceive(
     } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
 		IoFreeMdl(Mdl);
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
 		*Irp = NULL;
 		_SEH2_YIELD(return STATUS_INSUFFICIENT_RESOURCES);
     } _SEH2_END;
@@ -1012,10 +1029,10 @@ NTSTATUS TdiReceiveDatagram(
                         BufferLength,   /* Length of buffer */
                         FALSE,          /* Not secondary */
                         FALSE,          /* Don't charge quota */
-                        NULL);          /* Don't use IRP */
+                        *Irp);          /* Use IRP */
     if (!Mdl) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -1025,7 +1042,7 @@ NTSTATUS TdiReceiveDatagram(
     } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
 		IoFreeMdl(Mdl);
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         _SEH2_YIELD(return STATUS_INSUFFICIENT_RESOURCES);
     } _SEH2_END;
@@ -1110,11 +1127,11 @@ NTSTATUS TdiSendDatagram(
                         BufferLength,   /* Length of buffer */
                         FALSE,          /* Not secondary */
                         FALSE,          /* Don't charge quota */
-                        NULL);          /* Don't use IRP */
+                        *Irp);          /* Use IRP */
 
     if (!Mdl) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -1124,7 +1141,7 @@ NTSTATUS TdiSendDatagram(
     } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
         AFD_DbgPrint(MIN_TRACE, ("MmProbeAndLockPages() failed.\n"));
 		IoFreeMdl(Mdl);
-        IoCompleteRequest(*Irp, IO_NO_INCREMENT);
+        IoFreeIrp(*Irp);
         *Irp = NULL;
         _SEH2_YIELD(return STATUS_INSUFFICIENT_RESOURCES);
     } _SEH2_END;

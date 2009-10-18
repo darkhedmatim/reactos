@@ -33,9 +33,22 @@
 
 #include "wine/debug.h"
 #include "wine/unicode.h"
-#include "fusionpriv.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(fusion);
+
+static inline LPWSTR strdupW(LPCWSTR src)
+{
+    LPWSTR dest;
+
+    if (!src)
+        return NULL;
+
+    dest = HeapAlloc(GetProcessHeap(), 0, (lstrlenW(src) + 1) * sizeof(WCHAR));
+    if (dest)
+        lstrcpyW(dest, src);
+
+    return dest;
+}
 
 typedef struct {
     const IAssemblyNameVtbl *lpIAssemblyNameVtbl;
@@ -44,7 +57,7 @@ typedef struct {
     LPWSTR name;
     LPWSTR culture;
 
-    WORD version[4];
+    BYTE version[4];
     DWORD versize;
 
     BYTE pubkey[8];
@@ -144,28 +157,28 @@ static HRESULT WINAPI IAssemblyNameImpl_GetProperty(IAssemblyName *iface,
 
         case ASM_NAME_MAJOR_VERSION:
             *pcbProperty = 0;
-            *((WORD *)pvProperty) = name->version[0];
+            *((LPDWORD)pvProperty) = name->version[0];
             if (name->versize >= 1)
                 *pcbProperty = sizeof(WORD);
             break;
 
         case ASM_NAME_MINOR_VERSION:
             *pcbProperty = 0;
-            *((WORD *)pvProperty) = name->version[1];
+            *((LPDWORD)pvProperty) = name->version[1];
             if (name->versize >= 2)
                 *pcbProperty = sizeof(WORD);
             break;
 
         case ASM_NAME_BUILD_NUMBER:
             *pcbProperty = 0;
-            *((WORD *)pvProperty) = name->version[2];
+            *((LPDWORD)pvProperty) = name->version[2];
             if (name->versize >= 3)
                 *pcbProperty = sizeof(WORD);
             break;
 
         case ASM_NAME_REVISION_NUMBER:
             *pcbProperty = 0;
-            *((WORD *)pvProperty) = name->version[3];
+            *((LPDWORD)pvProperty) = name->version[3];
             if (name->versize >= 4)
                 *pcbProperty = sizeof(WORD);
             break;
@@ -209,7 +222,7 @@ static HRESULT WINAPI IAssemblyNameImpl_GetDisplayName(IAssemblyName *iface,
 {
     IAssemblyNameImpl *name = (IAssemblyNameImpl *)iface;
 
-    TRACE("(%p, %p, %p, %d)\n", iface, szDisplayName,
+    TRACE("(%p, %s, %p, %d)\n", iface, debugstr_w(szDisplayName),
           pccDisplayName, dwDisplayFlags);
 
     if (!name->displayname || !*name->displayname)
@@ -453,8 +466,6 @@ static HRESULT parse_display_name(IAssemblyNameImpl *name, LPCWSTR szAssemblyNam
         }
 
         *ptr2 = '\0';
-
-        while (*str == ' ') str++;
 
         if (!lstrcmpW(str, version))
             hr = parse_version(name, ptr);

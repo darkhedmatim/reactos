@@ -3,7 +3,7 @@
  *
  * Copyright 2002-2003 Jason Edmeades
  * Copyright 2002-2003 Raphael Junqueira
- * Copyright 2005 Oliver Stieber
+ * Copyright 2005 Oliver Stieber 
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -41,9 +41,12 @@
 /* ===========================================================================
    Internal use
    =========================================================================== */
-extern HRESULT vdecl_convert_fvf(DWORD FVF, D3DVERTEXELEMENT9 **ppVertexElements) DECLSPEC_HIDDEN;
-D3DFORMAT d3dformat_from_wined3dformat(WINED3DFORMAT format) DECLSPEC_HIDDEN;
-WINED3DFORMAT wined3dformat_from_d3dformat(D3DFORMAT format) DECLSPEC_HIDDEN;
+extern HRESULT vdecl_convert_fvf(
+    DWORD FVF,
+    D3DVERTEXELEMENT9** ppVertexElements);
+extern CRITICAL_SECTION d3d9_cs;
+D3DFORMAT d3dformat_from_wined3dformat(WINED3DFORMAT format);
+WINED3DFORMAT wined3dformat_from_d3dformat(D3DFORMAT format);
 
 /* ===========================================================================
     Macros
@@ -138,7 +141,7 @@ WINED3DFORMAT wined3dformat_from_d3dformat(D3DFORMAT format) DECLSPEC_HIDDEN;
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3D9ExVtbl Direct3D9_Vtbl DECLSPEC_HIDDEN;
+extern const IDirect3D9ExVtbl Direct3D9_Vtbl;
 
 /*****************************************************************************
  * IDirect3D implementation structure
@@ -156,7 +159,7 @@ typedef struct IDirect3D9Impl
     BOOL                    extended;
 } IDirect3D9Impl;
 
-void filter_caps(D3DCAPS9* pCaps) DECLSPEC_HIDDEN;
+void filter_caps(D3DCAPS9* pCaps);
 
 /* ---------------- */
 /* IDirect3DDevice9 */
@@ -165,8 +168,8 @@ void filter_caps(D3DCAPS9* pCaps) DECLSPEC_HIDDEN;
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3DDevice9ExVtbl Direct3DDevice9_Vtbl DECLSPEC_HIDDEN;
-extern const IWineD3DDeviceParentVtbl d3d9_wined3d_device_parent_vtbl DECLSPEC_HIDDEN;
+extern const IDirect3DDevice9ExVtbl Direct3DDevice9_Vtbl;
+extern const IWineD3DDeviceParentVtbl d3d9_wined3d_device_parent_vtbl;
 
 /*****************************************************************************
  * IDirect3DDevice9 implementation structure
@@ -192,54 +195,39 @@ typedef struct IDirect3DDevice9Impl
 
 
 /* IDirect3DDevice9: */
-extern HRESULT WINAPI IDirect3DDevice9Impl_CreateAdditionalSwapChain(IDirect3DDevice9Ex *iface,
-        D3DPRESENT_PARAMETERS *pPresentationParameters, IDirect3DSwapChain9 **pSwapChain) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetSwapChain(IDirect3DDevice9Ex *iface,
-        UINT iSwapChain, IDirect3DSwapChain9 **pSwapChain) DECLSPEC_HIDDEN;
-extern UINT WINAPI IDirect3DDevice9Impl_GetNumberOfSwapChains(IDirect3DDevice9Ex *iface) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_CreateStateBlock(IDirect3DDevice9Ex *iface,
-        D3DSTATEBLOCKTYPE Type, IDirect3DStateBlock9 **ppSB) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_BeginStateBlock(IDirect3DDevice9Ex *iface) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_EndStateBlock(IDirect3DDevice9Ex *iface,
-        IDirect3DStateBlock9 **ppSB) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetVertexDeclaration(IDirect3DDevice9Ex *iface,
-        IDirect3DVertexDeclaration9 *pDecl) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetVertexDeclaration(IDirect3DDevice9Ex *iface,
-        IDirect3DVertexDeclaration9 **ppDecl) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetVertexShader(IDirect3DDevice9Ex *iface,
-        IDirect3DVertexShader9 *pShader) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetVertexShader(IDirect3DDevice9Ex *iface,
-        IDirect3DVertexShader9 **ppShader) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetVertexShaderConstantF(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, const float *pConstantData, UINT Vector4fCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetVertexShaderConstantF(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, float *pConstantData, UINT Vector4fCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetVertexShaderConstantI(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, const int *pConstantData, UINT Vector4iCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetVertexShaderConstantI(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, int *pConstantData, UINT Vector4iCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetVertexShaderConstantB(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, const BOOL *pConstantData, UINT BoolCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetVertexShaderConstantB(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, BOOL *pConstantData, UINT BoolCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetPixelShader(IDirect3DDevice9Ex *iface,
-        IDirect3DPixelShader9 *pShader) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetPixelShader(IDirect3DDevice9Ex *iface,
-        IDirect3DPixelShader9  **ppShader) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetPixelShaderConstantF(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, const float *pConstantData, UINT Vector4fCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetPixelShaderConstantF(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, float *pConstantData, UINT Vector4fCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetPixelShaderConstantI(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, const int *pConstantData, UINT Vector4iCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetPixelShaderConstantI(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, int *pConstantData, UINT Vector4iCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_SetPixelShaderConstantB(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, const BOOL *pConstantData, UINT BoolCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_GetPixelShaderConstantB(IDirect3DDevice9Ex *iface,
-        UINT StartRegister, BOOL *pConstantData, UINT BoolCount) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI IDirect3DDevice9Impl_CreateQuery(IDirect3DDevice9Ex *iface,
-        D3DQUERYTYPE Type, IDirect3DQuery9 **ppQuery) DECLSPEC_HIDDEN;
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateAdditionalSwapChain(LPDIRECT3DDEVICE9EX iface, D3DPRESENT_PARAMETERS* pPresentationParameters, IDirect3DSwapChain9** pSwapChain);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetSwapChain(LPDIRECT3DDEVICE9EX iface, UINT iSwapChain, IDirect3DSwapChain9** pSwapChain);
+extern UINT     WINAPI  IDirect3DDevice9Impl_GetNumberOfSwapChains(LPDIRECT3DDEVICE9EX iface);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateTexture(LPDIRECT3DDEVICE9EX iface, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9** ppTexture, HANDLE* pSharedHandle);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateVolumeTexture(LPDIRECT3DDEVICE9EX iface, UINT Width, UINT Height, UINT Depth, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DVolumeTexture9** ppVolumeTexture, HANDLE* pSharedHandle);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateCubeTexture(LPDIRECT3DDEVICE9EX iface, UINT EdgeLength, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DCubeTexture9** ppCubeTexture, HANDLE* pSharedHandle);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateVertexBuffer(LPDIRECT3DDEVICE9EX iface, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9** ppVertexBuffer, HANDLE* pSharedHandle);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateIndexBuffer(LPDIRECT3DDEVICE9EX iface, UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9** ppIndexBuffer, HANDLE* pSharedHandle);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateStateBlock(LPDIRECT3DDEVICE9EX iface, D3DSTATEBLOCKTYPE Type, IDirect3DStateBlock9** ppSB);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_BeginStateBlock(LPDIRECT3DDEVICE9EX iface);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_EndStateBlock(LPDIRECT3DDEVICE9EX iface, IDirect3DStateBlock9** ppSB);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateVertexDeclaration(LPDIRECT3DDEVICE9EX iface, CONST D3DVERTEXELEMENT9* pVertexElements, IDirect3DVertexDeclaration9** ppDecl);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetVertexDeclaration(LPDIRECT3DDEVICE9EX iface, IDirect3DVertexDeclaration9* pDecl);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetVertexDeclaration(LPDIRECT3DDEVICE9EX iface, IDirect3DVertexDeclaration9** ppDecl);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateVertexShader(LPDIRECT3DDEVICE9EX iface, CONST DWORD* pFunction, IDirect3DVertexShader9** ppShader);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetVertexShader(LPDIRECT3DDEVICE9EX iface, IDirect3DVertexShader9* pShader);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetVertexShader(LPDIRECT3DDEVICE9EX iface, IDirect3DVertexShader9** ppShader);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetVertexShaderConstantF(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, CONST float* pConstantData, UINT Vector4fCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetVertexShaderConstantF(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, float* pConstantData, UINT Vector4fCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetVertexShaderConstantI(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, CONST int* pConstantData, UINT Vector4iCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetVertexShaderConstantI(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, int* pConstantData, UINT Vector4iCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetVertexShaderConstantB(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, CONST BOOL* pConstantData, UINT BoolCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetVertexShaderConstantB(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, BOOL* pConstantData, UINT BoolCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreatePixelShader(LPDIRECT3DDEVICE9EX iface, CONST DWORD* pFunction, IDirect3DPixelShader9** ppShader);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetPixelShader(LPDIRECT3DDEVICE9EX iface, IDirect3DPixelShader9* pShader);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetPixelShader(LPDIRECT3DDEVICE9EX iface, IDirect3DPixelShader9** ppShader);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetPixelShaderConstantF(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, CONST float* pConstantData, UINT Vector4fCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetPixelShaderConstantF(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, float* pConstantData, UINT Vector4fCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetPixelShaderConstantI(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, CONST int* pConstantData, UINT Vector4iCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetPixelShaderConstantI(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, int* pConstantData, UINT Vector4iCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_SetPixelShaderConstantB(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, CONST BOOL* pConstantData, UINT BoolCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_GetPixelShaderConstantB(LPDIRECT3DDEVICE9EX iface, UINT StartRegister, BOOL* pConstantData, UINT BoolCount);
+extern HRESULT  WINAPI  IDirect3DDevice9Impl_CreateQuery(LPDIRECT3DDEVICE9EX iface, D3DQUERYTYPE Type, IDirect3DQuery9** ppQuery);
 
 
 /* ---------------- */
@@ -249,6 +237,7 @@ extern HRESULT WINAPI IDirect3DDevice9Impl_CreateQuery(IDirect3DDevice9Ex *iface
 /*****************************************************************************
  * IDirect3DVolume9 implementation structure
  */
+extern const IDirect3DVolume9Vtbl Direct3DVolume9_Vtbl;
 typedef struct IDirect3DVolume9Impl
 {
     /* IUnknown fields */
@@ -264,9 +253,6 @@ typedef struct IDirect3DVolume9Impl
     /* If set forward refcounting to this object */
     IUnknown                    *forwardReference;
 } IDirect3DVolume9Impl;
-
-HRESULT volume_init(IDirect3DVolume9Impl *volume, IDirect3DDevice9Impl *device, UINT width, UINT height,
-        UINT depth, DWORD usage, WINED3DFORMAT format, WINED3DPOOL pool) DECLSPEC_HIDDEN;
 
 /* ------------------- */
 /* IDirect3DSwapChain9 */
@@ -296,6 +282,11 @@ typedef struct IDirect3DSwapChain9Impl
 /* ----------------- */
 
 /*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DSurface9Vtbl Direct3DSurface9_Vtbl;
+
+/*****************************************************************************
  * IDirect3DSurface9 implementation structure
  */
 typedef struct IDirect3DSurface9Impl
@@ -316,12 +307,9 @@ typedef struct IDirect3DSurface9Impl
     /* If set forward refcounting to this object */
     IUnknown                    *forwardReference;
 
-    BOOL                        getdc_supported;
+    /* Flags an implicit surface */
+    BOOL                        isImplicit;
 } IDirect3DSurface9Impl;
-
-HRESULT surface_init(IDirect3DSurface9Impl *surface, IDirect3DDevice9Impl *device,
-        UINT width, UINT height, D3DFORMAT format, BOOL lockable, BOOL discard, UINT level,
-        DWORD usage, D3DPOOL pool, D3DMULTISAMPLE_TYPE multisample_type, DWORD multisample_quality) DECLSPEC_HIDDEN;
 
 /* ---------------------- */
 /* IDirect3DVertexBuffer9 */
@@ -345,9 +333,6 @@ typedef struct IDirect3DVertexBuffer9Impl
     DWORD fvf;
 } IDirect3DVertexBuffer9Impl;
 
-HRESULT vertexbuffer_init(IDirect3DVertexBuffer9Impl *buffer, IDirect3DDevice9Impl *device,
-        UINT size, UINT usage, DWORD fvf, D3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* --------------------- */
 /* IDirect3DIndexBuffer9 */
 /* --------------------- */
@@ -369,9 +354,6 @@ typedef struct IDirect3DIndexBuffer9Impl
     WINED3DFORMAT             format;
 } IDirect3DIndexBuffer9Impl;
 
-HRESULT indexbuffer_init(IDirect3DIndexBuffer9Impl *buffer, IDirect3DDevice9Impl *device,
-        UINT size, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* --------------------- */
 /* IDirect3DBaseTexture9 */
 /* --------------------- */
@@ -387,6 +369,7 @@ typedef struct IDirect3DBaseTexture9Impl
 
     /* IDirect3DResource9 fields */
     IWineD3DBaseTexture    *wineD3DBaseTexture;
+    
 } IDirect3DBaseTexture9Impl;
 
 /* --------------------- */
@@ -409,8 +392,6 @@ typedef struct IDirect3DCubeTexture9Impl
     LPDIRECT3DDEVICE9EX       parentDevice;
 }  IDirect3DCubeTexture9Impl;
 
-HRESULT cubetexture_init(IDirect3DCubeTexture9Impl *texture, IDirect3DDevice9Impl *device,
-        UINT edge_length, UINT levels, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
 
 /* ----------------- */
 /* IDirect3DTexture9 */
@@ -432,9 +413,6 @@ typedef struct IDirect3DTexture9Impl
     LPDIRECT3DDEVICE9EX       parentDevice;
 } IDirect3DTexture9Impl;
 
-HRESULT texture_init(IDirect3DTexture9Impl *texture, IDirect3DDevice9Impl *device,
-        UINT width, UINT height, UINT levels, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* ----------------------- */
 /* IDirect3DVolumeTexture9 */
 /* ----------------------- */
@@ -454,9 +432,6 @@ typedef struct IDirect3DVolumeTexture9Impl
     /* Parent reference */
     LPDIRECT3DDEVICE9EX       parentDevice;
 } IDirect3DVolumeTexture9Impl;
-
-HRESULT volumetexture_init(IDirect3DVolumeTexture9Impl *texture, IDirect3DDevice9Impl *device,
-        UINT width, UINT height, UINT depth, UINT levels, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
 
 /* ----------------------- */
 /* IDirect3DStateBlock9 */
@@ -501,9 +476,7 @@ typedef struct IDirect3DVertexDeclaration9Impl {
   LPDIRECT3DDEVICE9EX parentDevice;
 } IDirect3DVertexDeclaration9Impl;
 
-void IDirect3DVertexDeclaration9Impl_Destroy(LPDIRECT3DVERTEXDECLARATION9 iface) DECLSPEC_HIDDEN;
-HRESULT vertexdeclaration_init(IDirect3DVertexDeclaration9Impl *declaration,
-        IDirect3DDevice9Impl *device, const D3DVERTEXELEMENT9 *elements) DECLSPEC_HIDDEN;
+void IDirect3DVertexDeclaration9Impl_Destroy(LPDIRECT3DVERTEXDECLARATION9 iface);
 
 /* ---------------------- */
 /* IDirect3DVertexShader9 */
@@ -524,12 +497,6 @@ typedef struct IDirect3DVertexShader9Impl {
   LPDIRECT3DDEVICE9EX parentDevice;
 } IDirect3DVertexShader9Impl;
 
-HRESULT vertexshader_init(IDirect3DVertexShader9Impl *shader,
-        IDirect3DDevice9Impl *device, const DWORD *byte_code) DECLSPEC_HIDDEN;
-
-#define D3D9_MAX_VERTEX_SHADER_CONSTANTF 256
-#define D3D9_MAX_SIMULTANEOUS_RENDERTARGETS 4
-
 /* --------------------- */
 /* IDirect3DPixelShader9 */
 /* --------------------- */
@@ -548,9 +515,6 @@ typedef struct IDirect3DPixelShader9Impl {
     /* Parent reference */
     LPDIRECT3DDEVICE9EX       parentDevice;
 } IDirect3DPixelShader9Impl;
-
-HRESULT pixelshader_init(IDirect3DPixelShader9Impl *shader,
-        IDirect3DDevice9Impl *device, const DWORD *byte_code) DECLSPEC_HIDDEN;
 
 /* --------------- */
 /* IDirect3DQuery9 */
@@ -573,6 +537,10 @@ typedef struct IDirect3DQuery9Impl {
 
 
 /* Callbacks */
-extern ULONG WINAPI D3D9CB_DestroySwapChain (IWineD3DSwapChain *pSwapChain) DECLSPEC_HIDDEN;
+extern ULONG WINAPI D3D9CB_DestroySwapChain (IWineD3DSwapChain *pSwapChain);
+extern ULONG WINAPI D3D9CB_DestroyDepthStencilSurface (IWineD3DSurface *pSurface);
+extern ULONG WINAPI D3D9CB_DestroyRenderTarget (IWineD3DSurface *pSurface);
+extern ULONG WINAPI D3D9CB_DestroySurface(IWineD3DSurface *pSurface);
+extern ULONG WINAPI D3D9CB_DestroyVolume(IWineD3DVolume *pVolume);
 
 #endif /* __WINE_D3D9_PRIVATE_H */

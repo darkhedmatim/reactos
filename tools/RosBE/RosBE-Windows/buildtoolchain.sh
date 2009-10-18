@@ -17,24 +17,12 @@
 #
 # Constants
 #
-CFLAGS="-O2"
-CXXFLAGS="$CFLAGS"
 INSTALLDIR="/c/buildtoolchain/mingw"
-LDFLAGS="-s"
 MINGWDIR="/mingw"
 NEEDED_TOOLS="bison flex gcc g++ grep make makeinfo"
-TARGET="mingw32"
+TARGET="i686-pc-mingw32"
 TEMPDIR="/c/buildtoolchain"
 WIN32_INSTALLDIR="c:/buildtoolchain/mingw"
-
-# Make sure we build an entirely native compiler, since MSYS might report subtle differences (i.e. "i686-pc-mingw32" instead of "mingw32")
-BUILD="$TARGET"
-HOST="$TARGET"
-
-# The following variables need to be accessed by Make and its subprocesses.
-export CFLAGS
-export CXXFLAGS
-export LDFLAGS
 
 #
 # Functions
@@ -190,11 +178,11 @@ if $process_binutils; then
 	echo -n "Configuring binutils... "
 	mkdir "binutils-build"
 	cd "binutils-build"
-	../binutils/configure --prefix="$INSTALLDIR" --build="$BUILD" --host="$HOST" --target="$TARGET" --disable-nls --disable-shared >& "$TEMPDIR/build.log"
+	../binutils/configure --prefix="$INSTALLDIR" --disable-nls --disable-shared >& "$TEMPDIR/build.log"
 	check_run
 
 	echo -n "Building binutils... "
-	make >& "$TEMPDIR/build.log"
+	make CFLAGS="-O2 -fno-exceptions" LDFLAGS="-s" >& "$TEMPDIR/build.log"
 	check_run
 
 	echo -n "Installing binutils... "
@@ -220,14 +208,14 @@ if $process_gcc; then
 	mkdir "gcc-build"
 	cd "gcc-build"
 	
-	../gcc/configure --prefix="$WIN32_INSTALLDIR" --build="$BUILD" --host="$HOST" --target="$TARGET" --with-ld=/bin/ld \
+	../gcc/configure --prefix="$WIN32_INSTALLDIR" --with-ld=/bin/ld \
 			--enable-languages=c,c++ --enable-checking=release \
 			--enable-threads=win32 --disable-win32-registry --disable-nls  \
 			--disable-shared >& "$TEMPDIR/build.log"
 	check_run
 	
 	echo -n "Building gcc... "
-	make >& "$TEMPDIR/build.log"
+	make CFLAGS="-O2" CXXFLAGS="-O2" LDFLAGS="-s" >& "$TEMPDIR/build.log"
 	check_run
 
 	echo -n "Installing gcc... "

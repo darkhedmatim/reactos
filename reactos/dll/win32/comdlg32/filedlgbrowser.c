@@ -785,8 +785,7 @@ static HRESULT WINAPI IShellBrowserImpl_ICommDlgBrowser_OnDefaultCommand(ICommDl
 	if (ulAttr & (SFGAO_FOLDER | SFGAO_HASSUBFOLDER) )
 	{
           hRes = IShellBrowser_BrowseObject((IShellBrowser *)This,pidl,SBSP_RELATIVE);
-          if(fodInfos->ofnInfos->Flags & OFN_EXPLORER)
-              SendCustomDlgNotificationMessage(This->hwndOwner, CDN_FOLDERCHANGE);
+          SendCustomDlgNotificationMessage(This->hwndOwner, CDN_FOLDERCHANGE);
 	}
         else
 	{
@@ -961,8 +960,7 @@ static HRESULT IShellBrowserImpl_ICommDlgBrowser_OnSelChange(ICommDlgBrowser *if
 
     FILEDLG95_FILENAME_FillFromSelection(This->hwndOwner);
 
-    if(fodInfos->ofnInfos->Flags & OFN_EXPLORER)
-        SendCustomDlgNotificationMessage(This->hwndOwner, CDN_SELCHANGE);
+    SendCustomDlgNotificationMessage(This->hwndOwner, CDN_SELCHANGE);
     return S_OK;
 }
 

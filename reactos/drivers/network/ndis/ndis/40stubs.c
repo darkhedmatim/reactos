@@ -154,6 +154,26 @@ NdisIMSwitchToMiniport(
 /*
  * @unimplemented
  */
+VOID
+EXPORT
+NdisOverrideBusNumber(
+    IN  NDIS_HANDLE WrapperConfigurationContext,
+    IN  NDIS_HANDLE MiniportAdapterHandle   OPTIONAL,
+    IN  ULONG       BusNumber)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 4.0
+ */
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
 NDIS_STATUS
 EXPORT
 NdisQueryReceiveInformation(
@@ -311,6 +331,22 @@ NdisImmediateWriteSharedMemory(
     IN  ULONG       SharedMemoryAddress,
     IN  PUCHAR      Buffer,
     IN  ULONG       Length)
+{
+    UNIMPLEMENTED
+}
+
+
+
+/*
+ * @unimplemented
+ */
+VOID
+EXPORT
+NdisReadEisaSlotInformation(
+    OUT PNDIS_STATUS                    Status,
+    IN  NDIS_HANDLE                     WrapperConfigurationContext,
+    OUT PUINT                           SlotNumber,
+    OUT PNDIS_EISA_FUNCTION_INFORMATION EisaData)
 {
     UNIMPLEMENTED
 }

@@ -555,7 +555,7 @@ BOOL WINAPI GetFileVersionInfoW( LPCWSTR filename, DWORD handle,
                                     DWORD datasize, LPVOID data )
 {
     DWORD len;
-    VS_VERSION_INFO_STRUCT32* vvis = data;
+    VS_VERSION_INFO_STRUCT32* vvis = (VS_VERSION_INFO_STRUCT32*)data;
 
     TRACE("(%s,%d,size=%d,data=%p)\n",
                 debugstr_w(filename), handle, datasize, data );
@@ -677,7 +677,6 @@ static const VS_VERSION_INFO_STRUCT32 *VersionInfo32_FindChild( const VS_VERSION
         if (!strncmpiW( child->szKey, szKey, cbKey ) && !child->szKey[cbKey])
             return child;
 
-        if (!(child->wLength)) return NULL;
         child = VersionInfo32_Next( child );
     }
 
@@ -689,7 +688,7 @@ static const VS_VERSION_INFO_STRUCT32 *VersionInfo32_FindChild( const VS_VERSION
  *
  *    Gets a value from a 16-bit NE resource
  */
-static BOOL VersionInfo16_QueryValue( const VS_VERSION_INFO_STRUCT16 *info, LPCSTR lpSubBlock,
+static BOOL WINAPI VersionInfo16_QueryValue( const VS_VERSION_INFO_STRUCT16 *info, LPCSTR lpSubBlock,
                                LPVOID *lplpBuffer, UINT *puLen )
 {
     while ( *lpSubBlock )
@@ -733,7 +732,7 @@ static BOOL VersionInfo16_QueryValue( const VS_VERSION_INFO_STRUCT16 *info, LPCS
  *
  *    Gets a value from a 32-bit PE resource
  */
-static BOOL VersionInfo32_QueryValue( const VS_VERSION_INFO_STRUCT32 *info, LPCWSTR lpSubBlock,
+static BOOL WINAPI VersionInfo32_QueryValue( const VS_VERSION_INFO_STRUCT32 *info, LPCWSTR lpSubBlock,
                                LPVOID *lplpBuffer, UINT *puLen )
 {
     TRACE("lpSubBlock : (%s)\n", debugstr_w(lpSubBlock));
@@ -782,16 +781,13 @@ BOOL WINAPI VerQueryValueA( LPCVOID pBlock, LPCSTR lpSubBlock,
 {
     static const char rootA[] = "\\";
     static const char varfileinfoA[] = "\\VarFileInfo\\Translation";
-    const VS_VERSION_INFO_STRUCT16 *info = pBlock;
+    const VS_VERSION_INFO_STRUCT16 *info = (const VS_VERSION_INFO_STRUCT16 *)pBlock;
 
     TRACE("(%p,%s,%p,%p)\n",
                 pBlock, debugstr_a(lpSubBlock), lplpBuffer, puLen );
 
      if (!pBlock)
         return FALSE;
-
-    if (lpSubBlock == NULL || lpSubBlock[0] == '\0')
-        lpSubBlock = rootA;
 
     if ( !VersionInfoIs16( info ) )
     {
@@ -819,7 +815,7 @@ BOOL WINAPI VerQueryValueA( LPCVOID pBlock, LPCSTR lpSubBlock,
             LPSTR lpBufferA = (LPSTR)pBlock + info->wLength + 4;
             DWORD pos = (LPCSTR)*lplpBuffer - (LPCSTR)pBlock;
 
-            len = WideCharToMultiByte(CP_ACP, 0, *lplpBuffer, -1,
+            len = WideCharToMultiByte(CP_ACP, 0, (LPCWSTR)*lplpBuffer, -1,
                                       lpBufferA + pos, info->wLength - pos, NULL, NULL);
             *lplpBuffer = lpBufferA + pos;
             *puLen = len;
@@ -836,21 +832,17 @@ BOOL WINAPI VerQueryValueA( LPCVOID pBlock, LPCSTR lpSubBlock,
 BOOL WINAPI VerQueryValueW( LPCVOID pBlock, LPCWSTR lpSubBlock,
                                LPVOID *lplpBuffer, PUINT puLen )
 {
-    static const WCHAR nullW[] = { 0 };
     static const WCHAR rootW[] = { '\\', 0 };
     static const WCHAR varfileinfoW[] = { '\\','V','a','r','F','i','l','e','I','n','f','o',
                                           '\\','T','r','a','n','s','l','a','t','i','o','n', 0 };
 
-    const VS_VERSION_INFO_STRUCT32 *info = pBlock;
+    const VS_VERSION_INFO_STRUCT32 *info = (const VS_VERSION_INFO_STRUCT32 *)pBlock;
 
     TRACE("(%p,%s,%p,%p)\n",
                 pBlock, debugstr_w(lpSubBlock), lplpBuffer, puLen );
 
     if (!pBlock)
         return FALSE;
-
-    if (lpSubBlock == NULL || lpSubBlock[0] == nullW[0])
-        lpSubBlock = rootW;
 
     if ( VersionInfoIs16( info ) )
     {
@@ -879,7 +871,7 @@ BOOL WINAPI VerQueryValueW( LPCVOID pBlock, LPCWSTR lpSubBlock,
             DWORD pos = (LPCSTR)*lplpBuffer - (LPCSTR)pBlock;
             DWORD max = (info->wLength - sizeof(VS_FIXEDFILEINFO)) * 4 - info->wLength;
 
-            len = MultiByteToWideChar(CP_ACP, 0, *lplpBuffer, -1,
+            len = MultiByteToWideChar(CP_ACP, 0, (LPCSTR)*lplpBuffer, -1,
                                       lpBufferW + pos, max/sizeof(WCHAR) - pos );
             *lplpBuffer = lpBufferW + pos;
             *puLen = len;

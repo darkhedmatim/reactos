@@ -1184,10 +1184,9 @@ static void checkElementStatus(const CERT_TRUST_STATUS *expected,
         ok(got->dwErrorStatus == expected->dwErrorStatus ||
          broken((got->dwErrorStatus & ~ignore->dwErrorStatus) ==
          (expected->dwErrorStatus & ~ignore->dwErrorStatus)),
-         "Chain %d, element [%d,%d]: expected error %08x, got %08x. %08x is "
-         "expected if no valid Verisign root certificate is available.\n",
+         "Chain %d, element [%d,%d]: expected error %08x, got %08x\n",
          testIndex, chainIndex, elementIndex, expected->dwErrorStatus,
-         got->dwErrorStatus, CERT_TRUST_IS_UNTRUSTED_ROOT);
+         got->dwErrorStatus);
     if (got->dwInfoStatus == expected->dwInfoStatus)
         ok(got->dwInfoStatus == expected->dwInfoStatus,
          "Chain %d, element [%d,%d]: expected info %08x, got %08x\n",
@@ -1265,10 +1264,9 @@ static void checkChainStatus(PCCERT_CHAIN_CONTEXT chain,
          ~chainStatus->statusToIgnore.dwErrorStatus) ==
          (chainStatus->status.dwErrorStatus &
          ~chainStatus->statusToIgnore.dwErrorStatus)),
-         "Chain %d: expected error %08x, got %08x. %08x is expected if no valid "
-         "Verisign root certificate is available.\n",
+         "Chain %d: expected error %08x, got %08x\n",
          testIndex, chainStatus->status.dwErrorStatus,
-         chain->TrustStatus.dwErrorStatus, CERT_TRUST_IS_UNTRUSTED_ROOT);
+         chain->TrustStatus.dwErrorStatus);
     if (todo & TODO_INFO &&
      chain->TrustStatus.dwInfoStatus != chainStatus->status.dwInfoStatus)
         todo_wine ok(chain->TrustStatus.dwInfoStatus ==

@@ -3,9 +3,6 @@
 #ifndef RSYM_H
 #define RSYM_H
 
-#define IMAGE_NT_OPTIONAL_HDR32_MAGIC 0x010b
-#define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x020b
-
 #define IMAGE_DOS_MAGIC 0x5a4d
 #define IMAGE_PE_MAGIC 0x00004550
 #define IMAGE_SIZEOF_SHORT_NAME 8
@@ -45,7 +42,7 @@ typedef unsigned char UCHAR;
 typedef unsigned short WORD;
 typedef unsigned short USHORT;
 typedef unsigned long long ULONGLONG;
-#if defined(__x86_64__) && !defined(_WIN64)
+#if defined(__x86_64__) && defined(unix)
 typedef signed int LONG;
 typedef unsigned int ULONG;
 typedef unsigned int DWORD;
@@ -57,7 +54,7 @@ typedef unsigned long DWORD;
 #if defined(_WIN64)
 typedef unsigned __int64 ULONG_PTR;
 #else
-#if defined(__x86_64__) && !defined(_WIN64)
+#if defined(__x86_64__) && defined(unix)
 typedef  unsigned int  ULONG_PTR;
 #else
 typedef  unsigned long ULONG_PTR;

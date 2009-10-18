@@ -713,9 +713,8 @@ app_fill_ellipse(DC *g, Rect r, PBRUSH pbrush)
 }
 
 static
-POINT
 FASTCALL
-app_boundary_point(Rect r, int angle)
+POINT app_boundary_point(Rect r, int angle)
 {
 	int cx, cy;
 	double tangent;
@@ -1266,8 +1265,8 @@ IntFillArc( PDC dc,
 {
   PDC_ATTR pdcattr;
   PBRUSH pbrush;
-  int Start = ceil(StartArc);
-  int End   = ceil(EndArc);
+  int Start = ceill(StartArc);
+  int End   = ceill(EndArc);
   BOOL Chord = (arctype == GdiTypeChord), ret;
 
   pdcattr = dc->pdcattr;
@@ -1301,8 +1300,8 @@ IntDrawArc( PDC dc,
             ARCTYPE arctype,
             PBRUSH pbrush)
 {
-  int Start = ceil(StartArc);
-  int End   = ceil(EndArc);
+  int Start = ceill(StartArc);
+  int End   = ceill(EndArc);
   BOOL Chord = (arctype == GdiTypeChord);
   // Sort out alignment here.
   return app_draw_arc(dc, rect( XLeft, YLeft, Width, Height),

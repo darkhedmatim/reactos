@@ -804,11 +804,11 @@ static WCHAR prev_char(HTMLTxtRange *This, const dompos_t *pos, dompos_t *new_po
     return 0;
 }
 
-static LONG move_next_chars(LONG cnt, const dompos_t *pos, BOOL col, const dompos_t *bound_pos,
+static long move_next_chars(long cnt, const dompos_t *pos, BOOL col, const dompos_t *bound_pos,
         BOOL *bounded, dompos_t *new_pos)
 {
     dompos_t iter, tmp;
-    LONG ret = 0;
+    long ret = 0;
     WCHAR c;
 
     if(bounded)
@@ -843,11 +843,11 @@ static LONG move_next_chars(LONG cnt, const dompos_t *pos, BOOL col, const dompo
     return ret;
 }
 
-static LONG move_prev_chars(HTMLTxtRange *This, LONG cnt, const dompos_t *pos, BOOL end,
+static long move_prev_chars(HTMLTxtRange *This, long cnt, const dompos_t *pos, BOOL end,
         const dompos_t *bound_pos, BOOL *bounded, dompos_t *new_pos)
 {
     dompos_t iter, tmp;
-    LONG ret = 0;
+    long ret = 0;
     BOOL prev_eq = FALSE;
     WCHAR c;
 
@@ -882,7 +882,7 @@ static LONG move_prev_chars(HTMLTxtRange *This, LONG cnt, const dompos_t *pos, B
     return ret;
 }
 
-static LONG find_prev_space(HTMLTxtRange *This, const dompos_t *pos, BOOL first_space, dompos_t *ret)
+static long find_prev_space(HTMLTxtRange *This, const dompos_t *pos, BOOL first_space, dompos_t *ret)
 {
     dompos_t iter, tmp;
     WCHAR c;
@@ -946,10 +946,10 @@ static int find_word_end(const dompos_t *pos, dompos_t *ret)
     return cnt;
 }
 
-static LONG move_next_words(LONG cnt, const dompos_t *pos, dompos_t *new_pos)
+static long move_next_words(long cnt, const dompos_t *pos, dompos_t *new_pos)
 {
     dompos_t iter, tmp;
-    LONG ret = 0;
+    long ret = 0;
     WCHAR c;
 
     c = get_pos_char(pos);
@@ -974,10 +974,10 @@ static LONG move_next_words(LONG cnt, const dompos_t *pos, dompos_t *new_pos)
     return ret;
 }
 
-static LONG move_prev_words(HTMLTxtRange *This, LONG cnt, const dompos_t *pos, dompos_t *new_pos)
+static long move_prev_words(HTMLTxtRange *This, long cnt, const dompos_t *pos, dompos_t *new_pos)
 {
     dompos_t iter, tmp;
-    LONG ret = 0;
+    long ret = 0;
 
     iter = *pos;
     dompos_addref(&iter);

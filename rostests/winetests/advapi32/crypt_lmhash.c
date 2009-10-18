@@ -43,8 +43,8 @@ typedef VOID (WINAPI *fnSystemFunction006)( PCSTR passwd, PSTR lmhash );
 typedef NTSTATUS (WINAPI *fnSystemFunction008)(const BYTE *, const BYTE *, LPBYTE);
 typedef NTSTATUS (WINAPI *fnSystemFunction009)(const BYTE *, const BYTE *, LPBYTE);
 typedef int (WINAPI *descrypt)(unsigned char *, unsigned char *, unsigned char *);
-typedef NTSTATUS (WINAPI *fnSystemFunction030)(const void*, const void*);
-typedef NTSTATUS (WINAPI *fnSystemFunction032)(struct ustring *, const struct ustring *);
+typedef NTSTATUS (WINAPI *fnSystemFunction030)(void*, void*);
+typedef NTSTATUS (WINAPI *fnSystemFunction032)(struct ustring *, struct ustring *);
 
 fnSystemFunction001 pSystemFunction001;
 fnSystemFunction002 pSystemFunction002;
@@ -413,7 +413,7 @@ static void test_SystemFunction_encrypt(descrypt func, int num)
 
     if (!func)
     {
-        win_skip("SystemFunction%03d is not available\n", num);
+        skip("SystemFunction%03d is not available\n", num);
         return;
     }
 
@@ -434,7 +434,7 @@ static void test_SystemFunction_decrypt(descrypt func, int num)
 
     if (!func)
     {
-        win_skip("SystemFunction%03d is not available\n", num);
+        skip("SystemFunction%03d is not available\n", num);
         return;
     }
 
@@ -460,7 +460,7 @@ static void test_SystemFunction_enc32(descrypt func, int num)
 
     if (!func)
     {
-        win_skip("SystemFunction%03d is not available\n", num);
+        skip("SystemFunction%03d is not available\n", num);
         return;
     }
 
@@ -482,7 +482,7 @@ static void test_SystemFunction_dec32(descrypt func, int num)
 
     if (!func)
     {
-        win_skip("SystemFunction%03d is not available\n", num);
+        skip("SystemFunction%03d is not available\n", num);
         return;
     }
 
@@ -504,7 +504,7 @@ static void test_memcmpfunc(memcmpfunc fn)
 
     if (!fn)
     {
-        win_skip("function is not available\n");
+        skip("function is not available\n");
         return;
     }
 
@@ -549,49 +549,49 @@ START_TEST(crypt_lmhash)
     if (pSystemFunction001)
         test_SystemFunction001();
     else
-        win_skip("SystemFunction001 is not available\n");
+        skip("SystemFunction001 is not available\n");
 
     pSystemFunction002 = (fnSystemFunction002)GetProcAddress( module, "SystemFunction002" );
     if (pSystemFunction002)
         test_SystemFunction002();
     else
-        win_skip("SystemFunction002 is not available\n");
+        skip("SystemFunction002 is not available\n");
 
     pSystemFunction003 = (fnSystemFunction003)GetProcAddress( module, "SystemFunction003" );
     if (pSystemFunction003)
         test_SystemFunction003();
     else
-        win_skip("SystemFunction002 is not available\n");
+        skip("SystemFunction002 is not available\n");
 
     pSystemFunction004 = (fnSystemFunction004)GetProcAddress( module, "SystemFunction004" );
     if (pSystemFunction004)
         test_SystemFunction004();
     else
-        win_skip("SystemFunction004 is not available\n");
+        skip("SystemFunction004 is not available\n");
 
     pSystemFunction005 = (fnSystemFunction005)GetProcAddress( module, "SystemFunction005" );
     if (pSystemFunction005)
         test_SystemFunction005();
     else
-        win_skip("SystemFunction005 is not available\n");
+        skip("SystemFunction005 is not available\n");
 
     pSystemFunction006 = (fnSystemFunction006)GetProcAddress( module, "SystemFunction006" );
     if (pSystemFunction006) 
         test_SystemFunction006();
     else
-        win_skip("SystemFunction006 is not available\n");
+        skip("SystemFunction006 is not available\n");
 
     pSystemFunction008 = (fnSystemFunction008)GetProcAddress( module, "SystemFunction008" );
     if (pSystemFunction008)
         test_SystemFunction008();
     else
-        win_skip("SystemFunction008 is not available\n");
+        skip("SystemFunction008 is not available\n");
 
     pSystemFunction009 = (fnSystemFunction009)GetProcAddress( module, "SystemFunction009" );
     if (pSystemFunction009)
         test_SystemFunction009();
     else
-        win_skip("SystemFunction009 is not available\n");
+        skip("SystemFunction009 is not available\n");
 
     pSystemFunction012 = (descrypt) GetProcAddress( module, "SystemFunction012");
     pSystemFunction013 = (descrypt) GetProcAddress( module, "SystemFunction013");
@@ -645,5 +645,5 @@ START_TEST(crypt_lmhash)
     if (pSystemFunction032)
         test_SystemFunction032();
     else
-        win_skip("SystemFunction032 is not available\n");
+        skip("SystemFunction032 is not available\n");
 }

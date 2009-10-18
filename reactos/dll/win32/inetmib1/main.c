@@ -125,7 +125,6 @@ static BOOL mib2IfNumberQuery(BYTE bPduType, SnmpVarBind *pVarBind,
     AsnInteger32 *pErrorStatus)
 {
     AsnObjectIdentifier numberOid = DEFINE_OID(mib2IfNumber);
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -143,10 +142,7 @@ static BOOL mib2IfNumberQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 
             copyInt(&pVarBind->value, &numIfs);
             if (bPduType == SNMP_PDU_GETNEXT)
-            {
-                SnmpUtilOidFree(&pVarBind->name);
                 SnmpUtilOidCpy(&pVarBind->name, &numberOid);
-            }
             *pErrorStatus = SNMP_ERRORSTATUS_NOERROR;
         }
         else
@@ -159,13 +155,12 @@ static BOOL mib2IfNumberQuery(BYTE bPduType, SnmpVarBind *pVarBind,
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static void copyOperStatus(AsnAny *value, void *src)
@@ -323,27 +318,7 @@ static DWORD oidToIpAddr(AsnObjectIdentifier *oid)
 typedef void (*oidToKeyFunc)(AsnObjectIdentifier *oid, void *dst);
 typedef int (*compareFunc)(const void *key, const void *value);
 
-/* Finds the first value in the table that matches key.  Returns its 1-based
- * index if found, or 0 if not found.
- */
-static UINT findValueInTable(const void *key,
-    struct GenericTable *table, size_t tableEntrySize, compareFunc compare)
-{
-    UINT index = 0;
-    void *value;
-
-    value = bsearch(key, table->entries, table->numEntries, tableEntrySize,
-        compare);
-    if (value)
-        index = ((BYTE *)value - (BYTE *)table->entries) / tableEntrySize + 1;
-    return index;
-}
-
-/* Finds the first value in the table that matches oid, using makeKey to
- * convert the oid to a key for comparison.  Returns the value's 1-based
- * index if found, or 0 if not found.
- */
-static UINT findOidInTable(AsnObjectIdentifier *oid,
+static UINT findValueInTable(AsnObjectIdentifier *oid,
     struct GenericTable *table, size_t tableEntrySize, oidToKeyFunc makeKey,
     compareFunc compare)
 {
@@ -352,50 +327,14 @@ static UINT findOidInTable(AsnObjectIdentifier *oid,
 
     if (key)
     {
-        makeKey(oid, key);
-        index = findValueInTable(key, table, tableEntrySize, compare);
-        HeapFree(GetProcessHeap(), 0, key);
-    }
-    return index;
-}
+        void *value;
 
-/* Finds the first successor to the value in the table that does matches oid,
- * using makeKey to convert the oid to a key for comparison.  A successor is
- * a value that does not match oid, so if multiple entries match an oid, only
- * the first will ever be returned using this method.
- * Returns the successor's 1-based index if found, or 0 if not found.
- */
-static UINT findNextOidInTable(AsnObjectIdentifier *oid,
-    struct GenericTable *table, size_t tableEntrySize, oidToKeyFunc makeKey,
-    compareFunc compare)
-{
-    UINT index = 0;
-    void *key = HeapAlloc(GetProcessHeap(), 0, tableEntrySize);
-
-    if (key)
-    {
         makeKey(oid, key);
-        index = findValueInTable(key, table, tableEntrySize, compare);
-        if (index == 0)
-        {
-            /* Not found in table.  If it's less than the first entry, return
-             * the first index.  Otherwise just return 0 and let the caller
-             * handle finding the successor.
-             */
-            if (compare(key, table->entries) < 0)
-                index = 1;
-        }
-        else
-        {
-            /* Skip any entries that match the same key.  This enumeration will
-             * be incomplete, but it's what Windows appears to do if there are
-             * multiple entries with the same index in a table, and it avoids
-             * an infinite loop.
-             */
-            for (++index; index <= table->numEntries && compare(key,
-                &table->entries[tableEntrySize * index]) == 0; ++index)
-                ;
-        }
+        value = bsearch(key, table->entries, table->numEntries, tableEntrySize,
+            compare);
+        if (value)
+            index = ((BYTE *)value - (BYTE *)table->entries) / tableEntrySize
+                + 1;
         HeapFree(GetProcessHeap(), 0, key);
     }
     return index;
@@ -456,12 +395,12 @@ static AsnInteger32 getItemAndInstanceFromTable(AsnObjectIdentifier *oid,
             }
             else
             {
-                AsnObjectIdentifier instanceOid = { instanceLen,
+                AsnObjectIdentifier ipOid = { instanceLen,
                     oid->ids + base->idLength + 1 };
 
-                *instance = findNextOidInTable(&instanceOid, table,
-                    tableEntrySize, makeKey, compare);
-                if (!*instance || *instance > table->numEntries)
+                *instance = findValueInTable(&ipOid, table, tableEntrySize,
+                    makeKey, compare) + 1;
+                if (*instance > table->numEntries)
                     ret = SNMP_ERRORSTATUS_NOSUCHNAME;
             }
         }
@@ -477,10 +416,10 @@ static AsnInteger32 getItemAndInstanceFromTable(AsnObjectIdentifier *oid,
                 ret = SNMP_ERRORSTATUS_NOSUCHNAME;
             else
             {
-                AsnObjectIdentifier instanceOid = { instanceLen,
+                AsnObjectIdentifier ipOid = { instanceLen,
                     oid->ids + base->idLength + 1 };
 
-                *instance = findOidInTable(&instanceOid, table, tableEntrySize,
+                *instance = findValueInTable(&ipOid, table, tableEntrySize,
                     makeKey, compare);
                 if (!*instance)
                     ret = SNMP_ERRORSTATUS_NOSUCHNAME;
@@ -492,62 +431,45 @@ static AsnInteger32 getItemAndInstanceFromTable(AsnObjectIdentifier *oid,
     return ret;
 }
 
-static INT setOidWithItem(AsnObjectIdentifier *dst, AsnObjectIdentifier *base,
+static void setOidWithItem(AsnObjectIdentifier *dst, AsnObjectIdentifier *base,
     UINT item)
 {
     UINT id;
     AsnObjectIdentifier oid;
-    INT ret;
 
-    SnmpUtilOidFree(dst);
-    ret = SnmpUtilOidCpy(dst, base);
-    if (ret)
-    {
-        oid.idLength = 1;
-        oid.ids = &id;
-        id = item;
-        ret = SnmpUtilOidAppend(dst, &oid);
-    }
-    return ret;
+    SnmpUtilOidCpy(dst, base);
+    oid.idLength = 1;
+    oid.ids = &id;
+    id = item;
+    SnmpUtilOidAppend(dst, &oid);
 }
 
-static INT setOidWithItemAndIpAddr(AsnObjectIdentifier *dst,
+static void setOidWithItemAndIpAddr(AsnObjectIdentifier *dst,
     AsnObjectIdentifier *base, UINT item, DWORD addr)
 {
     UINT id;
     BYTE *ptr;
     AsnObjectIdentifier oid;
-    INT ret;
 
-    ret = setOidWithItem(dst, base, item);
-    if (ret)
+    setOidWithItem(dst, base, item);
+    oid.idLength = 1;
+    oid.ids = &id;
+    for (ptr = (BYTE *)&addr; ptr < (BYTE *)&addr + sizeof(DWORD); ptr++)
     {
-        oid.idLength = 1;
-        oid.ids = &id;
-        for (ptr = (BYTE *)&addr; ret && ptr < (BYTE *)&addr + sizeof(DWORD);
-         ptr++)
-        {
-            id = *ptr;
-            ret = SnmpUtilOidAppend(dst, &oid);
-        }
+        id = *ptr;
+        SnmpUtilOidAppend(dst, &oid);
     }
-    return ret;
 }
 
-static INT setOidWithItemAndInteger(AsnObjectIdentifier *dst,
+static void setOidWithItemAndInteger(AsnObjectIdentifier *dst,
     AsnObjectIdentifier *base, UINT item, UINT instance)
 {
     AsnObjectIdentifier oid;
-    INT ret;
 
-    ret = setOidWithItem(dst, base, item);
-    if (ret)
-    {
-        oid.idLength = 1;
-        oid.ids = &instance;
-        ret = SnmpUtilOidAppend(dst, &oid);
-    }
-    return ret;
+    setOidWithItem(dst, base, item);
+    oid.idLength = 1;
+    oid.ids = &instance;
+    SnmpUtilOidAppend(dst, &oid);
 }
 
 static struct structToAsnValue mib2IfEntryMap[] = {
@@ -580,7 +502,6 @@ static BOOL mib2IfEntryQuery(BYTE bPduType, SnmpVarBind *pVarBind,
     AsnInteger32 *pErrorStatus)
 {
     AsnObjectIdentifier entryOid = DEFINE_OID(mib2IfEntry);
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -615,21 +536,20 @@ static BOOL mib2IfEntryQuery(BYTE bPduType, SnmpVarBind *pVarBind,
                         &ifTable->table[tableIndex - 1], item, bPduType,
                         pVarBind);
                     if (bPduType == SNMP_PDU_GETNEXT)
-                        ret = setOidWithItemAndInteger(&pVarBind->name,
-                            &entryOid, item, tableIndex);
+                        setOidWithItemAndInteger(&pVarBind->name, &entryOid,
+                            item, tableIndex);
                 }
             }
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2Ip[] = { 1,3,6,1,2,1,4 };
@@ -671,7 +591,6 @@ static BOOL mib2IpStatsQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2Ip);
     UINT item = 0;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -687,18 +606,17 @@ static BOOL mib2IpStatsQuery(BYTE bPduType, SnmpVarBind *pVarBind,
             *pErrorStatus = mapStructEntryToValue(mib2IpMap,
                 DEFINE_SIZEOF(mib2IpMap), &ipStats, item, bPduType, pVarBind);
             if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                ret = setOidWithItem(&pVarBind->name, &myOid, item);
+                setOidWithItem(&pVarBind->name, &myOid, item);
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2IpAddr[] = { 1,3,6,1,2,1,4,20,1 };
@@ -751,7 +669,6 @@ static BOOL mib2IpAddrQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2IpAddr);
     UINT tableIndex = 0, item = 0;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -772,19 +689,18 @@ static BOOL mib2IpAddrQuery(BYTE bPduType, SnmpVarBind *pVarBind,
                 DEFINE_SIZEOF(mib2IpAddrMap),
                 &ipAddrTable->table[tableIndex - 1], item, bPduType, pVarBind);
             if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                ret = setOidWithItemAndIpAddr(&pVarBind->name, &myOid, item,
+                setOidWithItemAndIpAddr(&pVarBind->name, &myOid, item,
                     ipAddrTable->table[tableIndex - 1].dwAddr);
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2IpRoute[] = { 1,3,6,1,2,1,4,21,1 };
@@ -844,7 +760,6 @@ static BOOL mib2IpRouteQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2IpRoute);
     UINT tableIndex = 0, item = 0;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -865,19 +780,18 @@ static BOOL mib2IpRouteQuery(BYTE bPduType, SnmpVarBind *pVarBind,
                 DEFINE_SIZEOF(mib2IpRouteMap),
                 &ipRouteTable->table[tableIndex - 1], item, bPduType, pVarBind);
             if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                ret = setOidWithItemAndIpAddr(&pVarBind->name, &myOid, item,
+                setOidWithItemAndIpAddr(&pVarBind->name, &myOid, item,
                     ipRouteTable->table[tableIndex - 1].dwForwardDest);
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2IpNet[] = { 1,3,6,1,2,1,4,22,1 };
@@ -914,7 +828,6 @@ static BOOL mib2IpNetQuery(BYTE bPduType, SnmpVarBind *pVarBind,
     AsnInteger32 *pErrorStatus)
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2IpNet);
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -943,21 +856,20 @@ static BOOL mib2IpNetQuery(BYTE bPduType, SnmpVarBind *pVarBind,
                         DEFINE_SIZEOF(mib2IpNetMap),
                         &ipNetTable[tableIndex - 1], item, bPduType, pVarBind);
                     if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                        ret = setOidWithItemAndInteger(&pVarBind->name, &myOid,
-                            item, tableIndex);
+                        setOidWithItemAndInteger(&pVarBind->name, &myOid, item,
+                            tableIndex);
                 }
             }
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2Icmp[] = { 1,3,6,1,2,1,5 };
@@ -1002,7 +914,6 @@ static BOOL mib2IcmpQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2Icmp);
     UINT item = 0;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -1019,18 +930,17 @@ static BOOL mib2IcmpQuery(BYTE bPduType, SnmpVarBind *pVarBind,
                 DEFINE_SIZEOF(mib2IcmpMap), &icmpStats, item, bPduType,
                 pVarBind);
             if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                ret = setOidWithItem(&pVarBind->name, &myOid, item);
+                setOidWithItem(&pVarBind->name, &myOid, item);
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2Tcp[] = { 1,3,6,1,2,1,6 };
@@ -1064,7 +974,6 @@ static BOOL mib2TcpQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2Tcp);
     UINT item = 0;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -1080,18 +989,17 @@ static BOOL mib2TcpQuery(BYTE bPduType, SnmpVarBind *pVarBind,
             *pErrorStatus = mapStructEntryToValue(mib2TcpMap,
                 DEFINE_SIZEOF(mib2TcpMap), &tcpStats, item, bPduType, pVarBind);
             if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                ret = setOidWithItem(&pVarBind->name, &myOid, item);
+                setOidWithItem(&pVarBind->name, &myOid, item);
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2Udp[] = { 1,3,6,1,2,1,7 };
@@ -1114,7 +1022,6 @@ static BOOL mib2UdpQuery(BYTE bPduType, SnmpVarBind *pVarBind,
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2Udp);
     UINT item;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -1130,18 +1037,17 @@ static BOOL mib2UdpQuery(BYTE bPduType, SnmpVarBind *pVarBind,
             *pErrorStatus = mapStructEntryToValue(mib2UdpMap,
                 DEFINE_SIZEOF(mib2UdpMap), &udpStats, item, bPduType, pVarBind);
             if (!*pErrorStatus && bPduType == SNMP_PDU_GETNEXT)
-                ret = setOidWithItem(&pVarBind->name, &myOid, item);
+                setOidWithItem(&pVarBind->name, &myOid, item);
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 static UINT mib2UdpEntry[] = { 1,3,6,1,2,1,7,5,1 };
@@ -1196,7 +1102,6 @@ static BOOL mib2UdpEntryQuery(BYTE bPduType, SnmpVarBind *pVarBind,
     AsnInteger32 *pErrorStatus)
 {
     AsnObjectIdentifier myOid = DEFINE_OID(mib2UdpEntry);
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %s, %p)\n", bPduType, SnmpUtilOidToA(&pVarBind->name),
         pErrorStatus);
@@ -1226,27 +1131,23 @@ static BOOL mib2UdpEntryQuery(BYTE bPduType, SnmpVarBind *pVarBind,
                 {
                     AsnObjectIdentifier oid;
 
-                    ret = setOidWithItemAndIpAddr(&pVarBind->name, &myOid, item,
+                    setOidWithItemAndIpAddr(&pVarBind->name, &myOid, item,
                         udpTable->table[tableIndex - 1].dwLocalAddr);
-                    if (ret)
-                    {
-                        oid.idLength = 1;
-                        oid.ids = &udpTable->table[tableIndex - 1].dwLocalPort;
-                        ret = SnmpUtilOidAppend(&pVarBind->name, &oid);
-                    }
+                    oid.idLength = 1;
+                    oid.ids = &udpTable->table[tableIndex - 1].dwLocalPort;
+                    SnmpUtilOidAppend(&pVarBind->name, &oid);
                 }
             }
         }
         break;
     case SNMP_PDU_SET:
         *pErrorStatus = SNMP_ERRORSTATUS_READONLY;
-        ret = FALSE;
         break;
     default:
         FIXME("0x%02x: unsupported PDU type\n", bPduType);
         *pErrorStatus = SNMP_ERRORSTATUS_NOSUCHNAME;
     }
-    return ret;
+    return TRUE;
 }
 
 /* This list MUST BE lexicographically sorted */
@@ -1339,7 +1240,6 @@ BOOL WINAPI SnmpExtensionQuery(BYTE bPduType, SnmpVarBindList *pVarBindList,
     AsnObjectIdentifier mib2oid = DEFINE_OID(mib2);
     AsnInteger32 error = SNMP_ERRORSTATUS_NOERROR, errorIndex = 0;
     UINT i;
-    BOOL ret = TRUE;
 
     TRACE("(0x%02x, %p, %p, %p)\n", bPduType, pVarBindList,
         pErrorStatus, pErrorIndex);
@@ -1361,7 +1261,7 @@ BOOL WINAPI SnmpExtensionQuery(BYTE bPduType, SnmpVarBindList *pVarBindList,
                 impl = findSupportedQuery(pVarBindList->list[i].name.ids, len,
                     &matchingIndex);
             if (impl && impl->query)
-                ret = impl->query(bPduType, &pVarBindList->list[i], &error);
+                impl->query(bPduType, &pVarBindList->list[i], &error);
             else
                 error = SNMP_ERRORSTATUS_NOSUCHNAME;
             if (error == SNMP_ERRORSTATUS_NOSUCHNAME &&
@@ -1371,15 +1271,14 @@ BOOL WINAPI SnmpExtensionQuery(BYTE bPduType, SnmpVarBindList *pVarBindList,
                  * so we have to continue until an implementation handles the
                  * query or we exhaust the table of supported OIDs.
                  */
-                for (matchingIndex++; error == SNMP_ERRORSTATUS_NOSUCHNAME &&
+                for (; error == SNMP_ERRORSTATUS_NOSUCHNAME &&
                     matchingIndex < DEFINE_SIZEOF(supportedIDs);
                     matchingIndex++)
                 {
                     error = SNMP_ERRORSTATUS_NOERROR;
                     impl = &supportedIDs[matchingIndex];
                     if (impl->query)
-                        ret = impl->query(bPduType, &pVarBindList->list[i],
-                            &error);
+                        impl->query(bPduType, &pVarBindList->list[i], &error);
                     else
                         error = SNMP_ERRORSTATUS_NOSUCHNAME;
                 }
@@ -1389,7 +1288,7 @@ BOOL WINAPI SnmpExtensionQuery(BYTE bPduType, SnmpVarBindList *pVarBindList,
                 if (error == SNMP_ERRORSTATUS_NOSUCHNAME)
                 {
                     SnmpUtilOidFree(&pVarBindList->list[i].name);
-                    ret = SnmpUtilOidCpy(&pVarBindList->list[i].name,
+                    SnmpUtilOidCpy(&pVarBindList->list[i].name,
                         &supportedIDs[matchingIndex - 1].name);
                     pVarBindList->list[i].name.ids[
                         pVarBindList->list[i].name.idLength - 1] += 1;
@@ -1401,7 +1300,7 @@ BOOL WINAPI SnmpExtensionQuery(BYTE bPduType, SnmpVarBindList *pVarBindList,
     }
     *pErrorStatus = error;
     *pErrorIndex = errorIndex;
-    return ret;
+    return TRUE;
 }
 
 /*****************************************************************************

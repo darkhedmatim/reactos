@@ -23,38 +23,29 @@ InitAudioDlg(HWND hwnd)
     WAVEOUTCAPS waveOutputPaps;
     WAVEINCAPS waveInputPaps;
     MIDIOUTCAPS midiOutCaps;
-    TCHAR szNoDevices[256];
     UINT DevsNum;
     UINT uIndex;
     HWND hCB;
     LRESULT Res;
 
-    LoadString(hApplet, IDS_NO_DEVICES, szNoDevices, sizeof(szNoDevices) / sizeof(TCHAR));
-
     // Init sound playback devices list
     hCB = GetDlgItem(hwnd, IDC_DEVICE_PLAY_LIST);
 
     DevsNum = waveOutGetNumDevs();
-    if (DevsNum < 1)
+    if (DevsNum < 1) return;
+
+    for (uIndex = 0; uIndex < DevsNum; uIndex++)
     {
-        Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM)szNoDevices);
-        SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
-    }
-    else
-    {
-        for (uIndex = 0; uIndex < DevsNum; uIndex++)
+        if (waveOutGetDevCaps(uIndex, &waveOutputPaps, sizeof(waveOutputPaps)))
+            continue;
+
+        Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM) waveOutputPaps.szPname);
+
+        if (CB_ERR != Res)
         {
-            if (waveOutGetDevCaps(uIndex, &waveOutputPaps, sizeof(waveOutputPaps)))
-                continue;
-
-            Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM) waveOutputPaps.szPname);
-
-            if (CB_ERR != Res)
-            {
-                SendMessage(hCB, CB_SETITEMDATA, Res, (LPARAM) uIndex);
-                // TODO: Getting default device
-                SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
-            }
+            SendMessage(hCB, CB_SETITEMDATA, Res, (LPARAM) uIndex);
+            // TODO: Getting default device
+            SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
         }
     }
 
@@ -62,26 +53,20 @@ InitAudioDlg(HWND hwnd)
     hCB = GetDlgItem(hwnd, IDC_DEVICE_REC_LIST);
 
     DevsNum = waveInGetNumDevs();
-    if (DevsNum < 1)
+    if (DevsNum < 1) return;
+
+    for (uIndex = 0; uIndex < DevsNum; uIndex++)
     {
-        Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM)szNoDevices);
-        SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
-    }
-    else
-    {
-        for (uIndex = 0; uIndex < DevsNum; uIndex++)
+        if (waveInGetDevCaps(uIndex, &waveInputPaps, sizeof(waveInputPaps)))
+            continue;
+
+        Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM) waveInputPaps.szPname);
+
+        if (CB_ERR != Res)
         {
-            if (waveInGetDevCaps(uIndex, &waveInputPaps, sizeof(waveInputPaps)))
-                continue;
-
-            Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM) waveInputPaps.szPname);
-
-            if (CB_ERR != Res)
-            {
-                SendMessage(hCB, CB_SETITEMDATA, Res, (LPARAM) uIndex);
-                // TODO: Getting default device
-                SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
-            }
+            SendMessage(hCB, CB_SETITEMDATA, Res, (LPARAM) uIndex);
+            // TODO: Getting default device
+            SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
         }
     }
 
@@ -89,26 +74,20 @@ InitAudioDlg(HWND hwnd)
     hCB = GetDlgItem(hwnd, IDC_DEVICE_MIDI_LIST);
 
     DevsNum = midiOutGetNumDevs();
-    if (DevsNum < 1)
+    if (DevsNum < 1) return;
+
+    for (uIndex = 0; uIndex < DevsNum; uIndex++)
     {
-        Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM)szNoDevices);
-        SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
-    }
-    else
-    {
-        for (uIndex = 0; uIndex < DevsNum; uIndex++)
+        if (midiOutGetDevCaps(uIndex, &midiOutCaps, sizeof(midiOutCaps)))
+            continue;
+
+        Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM) midiOutCaps.szPname);
+
+        if (CB_ERR != Res)
         {
-            if (midiOutGetDevCaps(uIndex, &midiOutCaps, sizeof(midiOutCaps)))
-                continue;
-
-            Res = SendMessage(hCB, CB_ADDSTRING, 0, (LPARAM) midiOutCaps.szPname);
-
-            if (CB_ERR != Res)
-            {
-                SendMessage(hCB, CB_SETITEMDATA, Res, (LPARAM) uIndex);
-                // TODO: Getting default device
-                SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
-            }
+            SendMessage(hCB, CB_SETITEMDATA, Res, (LPARAM) uIndex);
+            // TODO: Getting default device
+            SendMessage(hCB, CB_SETCURSEL, (WPARAM) Res, 0);
         }
     }
 }
@@ -149,10 +128,9 @@ AudioDlgProc(HWND hwndDlg,
     {
         case WM_INITDIALOG:
         {
-            UINT NumWavOut = waveOutGetNumDevs();
+            UINT NumWavOut;
 
-            InitAudioDlg(hwndDlg);
-
+            NumWavOut = waveOutGetNumDevs();
             if (!NumWavOut)
             {
                 EnableWindow(GetDlgItem(hwndDlg, IDC_DEVICE_PLAY_LIST),     FALSE);
@@ -165,6 +143,10 @@ AudioDlgProc(HWND hwndDlg,
                 EnableWindow(GetDlgItem(hwndDlg, IDC_ADV1_BTN),             FALSE);
                 EnableWindow(GetDlgItem(hwndDlg, IDC_VOLUME3_BTN),          FALSE);
                 EnableWindow(GetDlgItem(hwndDlg, IDC_ADV3_BTN),             FALSE);
+            }
+            else
+            {
+                InitAudioDlg(hwndDlg);
             }
         }
         break;

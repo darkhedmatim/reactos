@@ -41,7 +41,7 @@
   (BOOL)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_VALIDATERGN)
 
 #define NtUserSetWindowContextHelpId(hWnd, dwContextHelpId) \
-  (BOOL)NtUserCallHwndParam(hWnd, dwContextHelpId, HWNDPARAM_ROUTINE_SETWNDCONTEXTHLPID)
+  (BOOL)NtUserCallTwoParam((DWORD)hwnd, dwContextHelpId, TWOPARAM_ROUTINE_SETWNDCONTEXTHLPID)
 
 #define NtUserSetCaretPos(X, Y) \
   (BOOL)NtUserCallTwoParam((DWORD)X, (DWORD)Y, TWOPARAM_ROUTINE_SETCARETPOS)
@@ -49,8 +49,14 @@
 #define NtUserSetGUIThreadHandle(field, hwnd) \
   (BOOL)NtUserCallTwoParam((DWORD)field, (DWORD)hwnd, TWOPARAM_ROUTINE_SETGUITHRDHANDLE)
 
+#define NtUserSetMenuItemRect(menu, mir) \
+  (BOOL)NtUserCallTwoParam((DWORD)menu, (DWORD)mir, TWOPARAM_ROUTINE_SETMENUITEMRECT)
+
 #define NtUserSetMenuBarHeight(menu, height) \
   (BOOL)NtUserCallTwoParam((DWORD)menu, (DWORD)height, TWOPARAM_ROUTINE_SETMENUBARHEIGHT)
+
+#define NtUserGetWindowInfo(hwnd, pwi) \
+  (BOOL)NtUserCallTwoParam((DWORD)hwnd, (DWORD)pwi, TWOPARAM_ROUTINE_GETWINDOWINFO)
 
 #define NtUserRegisterLogonProcess(hproc, x) \
   (BOOL)NtUserCallTwoParam((DWORD)hproc, (DWORD)x, TWOPARAM_ROUTINE_REGISTERLOGONPROC)
@@ -58,11 +64,17 @@
 #define NtUserGetSysColorBrushes(HBrushes, count) \
   (BOOL)NtUserCallTwoParam((DWORD)(HBrushes), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES)
 
+#define NtUserGetSysColorPens(HPens, count) \
+  (BOOL)NtUserCallTwoParam((DWORD)(HPens), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORPENS)
+
 #define NtUserGetSysColors(ColorRefs, count) \
   (BOOL)NtUserCallTwoParam((DWORD)(ColorRefs), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORS)
 
 #define NtUserSetCaretBlinkTime(uMSeconds) \
   (BOOL)NtUserCallOneParam((DWORD)uMSeconds, ONEPARAM_ROUTINE_SETCARETBLINKTIME)
+
+#define NtUserRegisterUserModule(hInstance) \
+  (BOOL)NtUserCallOneParam((DWORD)hInstance, ONEPARAM_ROUTINE_REGISTERUSERMODULE)
 
 /*
 #define NtUserEnumClipboardFormats(format) \
@@ -78,11 +90,20 @@
 #define NtUserSwapMouseButton(fSwap) \
   (BOOL)NtUserCallOneParam((DWORD)fSwap, ONEPARAM_ROUTINE_SWAPMOUSEBUTTON)
 
+#define NtUserGetMenu(hWnd) \
+  (HMENU)NtUserCallOneParam((DWORD)hWnd, ONEPARAM_ROUTINE_GETMENU)
+
 #define NtUserSetMessageExtraInfo(lParam) \
   (LPARAM)NtUserCallOneParam((DWORD)lParam, ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO)
 
+#define NtUserIsWindowUnicode(hWnd) \
+  (BOOL)NtUserCallOneParam((DWORD)hWnd, ONEPARAM_ROUTINE_ISWINDOWUNICODE)
+
 #define NtUserGetWindowContextHelpId(hwnd) \
   NtUserCallOneParam((DWORD)hwnd, ONEPARAM_ROUTINE_GETWNDCONTEXTHLPID)
+
+#define NtUserGetWindowInstance(hwnd) \
+  (HINSTANCE)NtUserCallOneParam((DWORD)hwnd, ONEPARAM_ROUTINE_GETWINDOWINSTANCE)
 
 #define NtUserGetCursorPos(lpPoint) \
   (BOOL)NtUserCallOneParam((DWORD)lpPoint, ONEPARAM_ROUTINE_GETCURSORPOSITION)
@@ -105,6 +126,9 @@
 #define HideCaret(hwnd) \
   NtUserHideCaret(hwnd)
 
+#define NtUserRegisterSystemClasses(Count,SysClasses) \
+    (BOOL)NtUserCallTwoParam((DWORD)Count, (DWORD)SysClasses, TWOPARAM_ROUTINE_ROS_REGSYSCLASSES)
+
 /* Internal Thread Data */
 extern HINSTANCE User32Instance;
 extern HINSTANCE hImmInstance;
@@ -121,6 +145,7 @@ typedef struct _USER32_TRACKINGLIST {
 typedef struct _USER32_THREAD_DATA
 {
     MSG LastMessage;
+    HKL KeyboardLayoutHandle;
     USER32_TRACKINGLIST tracking_info; /* TrackMouseEvent stuff */
 } USER32_THREAD_DATA, *PUSER32_THREAD_DATA;
 
@@ -183,7 +208,7 @@ typedef struct _USER_HANDLE_ENTRY
     union
     {
         PVOID pi;
-        PTHREADINFO pti;          // pointer to Win32ThreadInfo
+        PW32THREADINFO pti;          // pointer to Win32ThreadInfo
         PPROCESSINFO ppi;         // pointer to W32ProcessInfo
     };
     unsigned short type;         /* object type (0 if free) */
@@ -204,6 +229,7 @@ extern PUSER_HANDLE_ENTRY gHandleEntries;
 PUSER_HANDLE_ENTRY FASTCALL GetUser32Handle(HANDLE);
 PVOID FASTCALL ValidateHandle(HANDLE, UINT);
 
+#define SYSCOLOR_GetPen(index) GetSysColorPen(index)
 #define WIN_GetFullHandle(h) ((HWND)(h))
 
 #ifndef __ms_va_list

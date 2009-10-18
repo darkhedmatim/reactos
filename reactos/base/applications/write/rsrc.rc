@@ -16,19 +16,27 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include <windef.h>
+#include <winuser.h>
+
 #include "resources.h"
 
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 
-#include "De.rc"
-#include "En.rc"
-#include "Fr.rc"
-#include "Ja.rc"
-#include "Ko.rc"
-#include "Lt.rc"
-#include "Nl.rc"
-#include "Pt.rc"
-#include "Ro.rc"
-#include "Ru.rc"
-#include "Si.rc"
-#include "Sv.rc"
+#include "lang/bg-BG.rc"
+#include "lang/de-DE.rc"
+#include "lang/en-US.rc"
+#include "lang/es-ES.rc"
+#include "lang/fr-FR.rc"
+#include "lang/ja-JP.rc"
+#include "lang/ko-KR.rc"
+#include "lang/nl-NL.rc"
+#include "lang/no-NO.rc"
+#include "lang/pl-PL.rc"
+#include "lang/pt-BR.rc"
+#include "lang/ro-RO.rc"
+#include "lang/ru-RU.rc"
+#include "lang/sk-SK.rc"
+#include "lang/sl-SI.rc"
+#include "lang/sv-SE.rc"
+#include "lang/uk-UA.rc"

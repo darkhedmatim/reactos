@@ -747,6 +747,7 @@ DestroyCallback(IDirectDrawSurface7 *surf,
                 void *context)
 {
     IDirectDrawSurfaceImpl *Impl = (IDirectDrawSurfaceImpl *)surf;
+    IDirectDrawImpl *ddraw = context;
     ULONG ref;
 
     ref = IDirectDrawSurface7_Release(surf);  /* For the EnumSurfaces */
@@ -757,6 +758,9 @@ DestroyCallback(IDirectDrawSurface7 *surf,
      * the root
      */
     if( (!Impl->is_complex_root) || (Impl->first_attached != Impl) )
+        return DDENUMRET_OK;
+    /* Skip our depth stencil surface, it will be released with the render target */
+    if( Impl == ddraw->DepthStencilBuffer)
         return DDENUMRET_OK;
 
     /* Destroy the surface */

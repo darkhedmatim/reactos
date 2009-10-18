@@ -20,7 +20,6 @@
 #include <tchar.h>
 #include <sect_attribs.h>
 #include <locale.h>
-#include <intrin.h>
 
 #ifndef __winitenv
 extern wchar_t ***_imp____winitenv;
@@ -52,11 +51,7 @@ extern int *_imp___commode;
 #define _commode (*_imp___commode)
 extern int _dowildcard;
 
-#if defined(__GNUC__)
 int _MINGW_INSTALL_DEBUG_MATHERR __attribute__((weak)) = 0;
-#else
-int _MINGW_INSTALL_DEBUG_MATHERR = 0;
-#endif
 extern int __defaultmatherr;
 extern _CRTIMP void __cdecl _initterm(_PVFV *, _PVFV *);
 
@@ -91,8 +86,8 @@ static int has_cctor = 0;
 static _startupinfo startinfo;
 
 extern void _pei386_runtime_relocator (void);
-static long CALLBACK _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
-//static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data);
+static CALLBACK long _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
+static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data);
 #ifdef WPRFLAG
 static void duplicate_ppstrings (int ac, wchar_t ***av);
 #else
@@ -174,7 +169,7 @@ __tmainCRTStartup (void)
   STARTUPINFO StartupInfo;
   BOOL inDoubleQuote = FALSE;
   memset (&StartupInfo, 0, sizeof (STARTUPINFO));
-
+  
   if (mingw_app_type)
     GetStartupInfo (&StartupInfo);
   {
@@ -211,18 +206,26 @@ __tmainCRTStartup (void)
     _ASSERTE(__native_startup_state == __initialized);
     if (! nested)
       (VOID)InterlockedExchangePointer ((volatile PVOID *) &__native_startup_lock, 0);
-
+    
     if (__dyn_tls_init_callback != NULL && _IsNonwritableInCurrentImage ((PBYTE) &__dyn_tls_init_callback))
       __dyn_tls_init_callback (NULL, DLL_THREAD_ATTACH, NULL);
-
+    
     _pei386_runtime_relocator ();
-
-#if defined(__i386__) || defined(_M_IX86)
-	__writefsdword(0, 0xffffffff);
-#endif
-    //AddVectoredExceptionHandler (0, (PVECTORED_EXCEPTION_HANDLER)__mingw_vex);
+    
+    #ifdef _WIN64
+    __asm__ __volatile__ (
+	"xorq %rax,%rax\n\t"
+	"decq %rax\n\t"
+	"movq %rax,%gs:0" "\n");
+    #else
+    __asm__ __volatile__ (
+	"xorl %eax,%eax\n\t"
+	"decl %eax\n\t"
+	"movl %eax,%fs:0" "\n");
+    #endif
+    AddVectoredExceptionHandler (0, (PVECTORED_EXCEPTION_HANDLER)__mingw_vex);
     SetUnhandledExceptionFilter (_gnu_exception_handler);
-
+    
     _fpreset ();
 
     if (mingw_app_type)
@@ -327,7 +330,7 @@ check_managed_app (void)
   return 0;
 }
 
-static long CALLBACK
+static CALLBACK long
 _gnu_exception_handler (EXCEPTION_POINTERS * exception_data)
 {
   void (*old_handler) (int);
@@ -406,7 +409,6 @@ _gnu_exception_handler (EXCEPTION_POINTERS * exception_data)
   return action;
 }
 
-#if 0
 static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data)
 {
   /* TODO this is not chainablem, therefore need rewrite. Disabled the ill code. */
@@ -431,7 +433,6 @@ static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data)
 #endif
   return _gnu_exception_handler(exception_data);
 }
-#endif
 
 #ifdef WPRFLAG
 
@@ -465,7 +466,7 @@ static void duplicate_ppstrings (int ac, char ***av)
 	char **avl;
 	int i;
 	char **n = (char **) malloc (sizeof (char *) * (ac + 1));
-
+	
 	avl=*av;
 	for (i=0; i < ac; i++)
 	  {

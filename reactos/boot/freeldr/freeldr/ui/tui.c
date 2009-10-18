@@ -22,28 +22,62 @@
 PVOID	TextVideoBuffer = NULL;
 
 /*
- * TuiPrintf()
- * Prints formatted text to the screen
+ * printf() - prints formatted text to stdout
+ * originally from GRUB
  */
-int TuiPrintf(const char *Format, ...)
+int TuiPrintf(const char *format, ... )
 {
-	int i;
-	int Length;
 	va_list ap;
-	CHAR Buffer[512];
+	va_start(ap,format);
+	char c, *ptr, str[16];
 
-	va_start(ap, Format);
-	Length = _vsnprintf(Buffer, sizeof(Buffer), Format, ap);
-	va_end(ap);
-
-	if (Length == -1) Length = sizeof(Buffer);
-
-	for (i = 0; i < Length; i++)
+	while ((c = *(format++)))
 	{
-		MachConsPutChar(Buffer[i]);
+		if (c != '%')
+		{
+			MachConsPutChar(c);
+		}
+		else
+		{
+			switch (c = *(format++))
+			{
+			case 'd': case 'u': case 'x':
+                if (c == 'x')
+                    _itoa(va_arg(ap, unsigned long), str, 16);
+                else
+                    _itoa(va_arg(ap, unsigned long), str, 10);
+
+				ptr = str;
+
+				while (*ptr)
+				{
+					MachConsPutChar(*(ptr++));
+				}
+				break;
+
+			case 'c': MachConsPutChar((va_arg(ap,int))&0xff); break;
+
+			case 's':
+				ptr = va_arg(ap,char *);
+
+				while ((c = *(ptr++)))
+				{
+					MachConsPutChar(c);
+				}
+				break;
+			case '%':
+				MachConsPutChar(c);
+				break;
+			default:
+				printf("\nprintf() invalid format specifier - %%%c\n", c);
+				break;
+			}
+		}
 	}
 
-	return Length;
+	va_end(ap);
+
+	return 0;
 }
 
 BOOLEAN TuiInitialize(VOID)
@@ -414,8 +448,8 @@ VOID TuiUpdateDateTime(VOID)
 	CHAR	TempString[20];
 	BOOLEAN	PMHour = FALSE;
 
-	/* Don't draw the time if this has been disabled */
-	if (!UiDrawTime) return;
+    /* Don't draw the time if this has been disabled */
+    if (!UiDrawTime) return;
 
 	TimeInfo = ArcGetTime();
 	if (TimeInfo->Year < 1 || 9999 < TimeInfo->Year ||

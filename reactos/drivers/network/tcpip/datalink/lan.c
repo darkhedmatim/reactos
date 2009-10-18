@@ -231,7 +231,12 @@ VOID NTAPI ProtocolSendComplete(
  *     Status         = Status of the operation
  */
 {
-    FreeNdisPacket(Packet);
+    TI_DbgPrint(DEBUG_DATALINK, ("Calling completion routine\n"));
+    ASSERT_KM_POINTER(Packet);
+    ASSERT_KM_POINTER(PC(Packet));
+    ASSERT_KM_POINTER(PC(Packet)->DLComplete);
+    (*PC(Packet)->DLComplete)( PC(Packet)->Context, Packet, Status);
+    TI_DbgPrint(DEBUG_DATALINK, ("Finished\n"));
 }
 
 VOID LanReceiveWorker( PVOID Context ) {
@@ -248,8 +253,6 @@ VOID LanReceiveWorker( PVOID Context ) {
     Packet = WorkItem->Packet;
     Adapter = WorkItem->Adapter;
     BytesTransferred = WorkItem->BytesTransferred;
-
-    exFreePool(WorkItem);
 
     IPInitializePacket(&IPPacket, 0);
 
@@ -300,19 +303,18 @@ VOID LanSubmitReceiveWork(
     PNDIS_PACKET Packet,
     NDIS_STATUS Status,
     UINT BytesTransferred) {
-    PLAN_WQ_ITEM WQItem = exAllocatePool(NonPagedPool, sizeof(LAN_WQ_ITEM));
+    LAN_WQ_ITEM WQItem;
     PLAN_ADAPTER Adapter = (PLAN_ADAPTER)BindingContext;
 
     TI_DbgPrint(DEBUG_DATALINK,("called\n"));
 
-    if (!WQItem) return;
+    WQItem.Packet = Packet;
+    WQItem.Adapter = Adapter;
+    WQItem.BytesTransferred = BytesTransferred;
 
-    WQItem->Packet = Packet;
-    WQItem->Adapter = Adapter;
-    WQItem->BytesTransferred = BytesTransferred;
-
-    if (!ChewCreate( LanReceiveWorker, WQItem ))
-        exFreePool(WQItem);
+    if( !ChewCreate
+	( NULL, sizeof(LAN_WQ_ITEM),  LanReceiveWorker, &WQItem ) )
+	ASSERT(0);
 }
 
 VOID NTAPI ProtocolTransferDataComplete(
@@ -413,7 +415,7 @@ NDIS_STATUS NTAPI ProtocolReceive(
 				 Adapter, Adapter->MTU));
 
     NdisStatus = AllocatePacketWithBuffer( &NdisPacket, NULL,
-                                           PacketSize );
+                                           PacketSize + HeaderBufferSize );
     if( NdisStatus != NDIS_STATUS_SUCCESS ) {
 	return NDIS_STATUS_NOT_ACCEPTED;
     }
@@ -594,18 +596,17 @@ VOID LANTransmit(
 {
     NDIS_STATUS NdisStatus;
     PETH_HEADER EHeader;
-    PCHAR Data, OldData;
-    UINT Size, OldSize;
+    PCHAR Data;
+    UINT Size;
     PLAN_ADAPTER Adapter = (PLAN_ADAPTER)Context;
     KIRQL OldIrql;
-    PNDIS_PACKET XmitPacket;
 
     TI_DbgPrint(DEBUG_DATALINK,
 		("Called( NdisPacket %x, Offset %d, Adapter %x )\n",
 		 NdisPacket, Offset, Adapter));
 
     if (Adapter->State != LAN_STATE_STARTED) {
-        (*PC(NdisPacket)->DLComplete)(PC(NdisPacket)->Context, NdisPacket, NDIS_STATUS_NOT_ACCEPTED);
+        ProtocolSendComplete(Context, NdisPacket, NDIS_STATUS_NOT_ACCEPTED);
         return;
     }
 
@@ -618,19 +619,9 @@ VOID LANTransmit(
 		 Adapter->HWAddress[4] & 0xff,
 		 Adapter->HWAddress[5] & 0xff));
 
-    GetDataPtr( NdisPacket, 0, &OldData, &OldSize );
-
-    NdisStatus = AllocatePacketWithBuffer(&XmitPacket, NULL, OldSize + Adapter->HeaderSize);
-    if (NdisStatus != NDIS_STATUS_SUCCESS) {
-        (*PC(NdisPacket)->DLComplete)(PC(NdisPacket)->Context, NdisPacket, NDIS_STATUS_RESOURCES);
-        return;
-    }
-
-    GetDataPtr(XmitPacket, 0, &Data, &Size);
-
-    RtlCopyMemory(Data + Adapter->HeaderSize, OldData, OldSize);
-
-    (*PC(NdisPacket)->DLComplete)(PC(NdisPacket)->Context, NdisPacket, NDIS_STATUS_SUCCESS);
+    /* XXX arty -- Handled adjustment in a saner way than before ...
+     * not needed immediately */
+    GetDataPtr( NdisPacket, 0, &Data, &Size );
 
         switch (Adapter->Media) {
         case NdisMedium802_3:
@@ -657,7 +648,14 @@ VOID LANTransmit(
                 EHeader->EType = ETYPE_IPv6;
                 break;
             default:
-                ASSERT(FALSE);
+#ifdef DBG
+                /* Should not happen */
+                TI_DbgPrint(MIN_TRACE, ("Unknown LAN protocol.\n"));
+
+                ProtocolSendComplete((NDIS_HANDLE)Context,
+                                     NdisPacket,
+                                     NDIS_STATUS_FAILURE);
+#endif
                 return;
             }
             break;
@@ -680,15 +678,9 @@ VOID LANTransmit(
 		   ((PCHAR)LinkAddress)[5] & 0xff));
 	}
 
-        if (Adapter->MTU < Size) {
-            /* This is NOT a pointer. MSDN explicitly says so. */
-            NDIS_PER_PACKET_INFO_FROM_PACKET(NdisPacket,
-                                             TcpLargeSendPacketInfo) = (PVOID)((ULONG)Adapter->MTU);
-        }
-
 	TcpipAcquireSpinLock( &Adapter->Lock, &OldIrql );
 	TI_DbgPrint(MID_TRACE, ("NdisSend\n"));
-	NdisSend(&NdisStatus, Adapter->NdisHandle, XmitPacket);
+	NdisSend(&NdisStatus, Adapter->NdisHandle, NdisPacket);
 	TI_DbgPrint(MID_TRACE, ("NdisSend %s\n",
 				NdisStatus == NDIS_STATUS_PENDING ?
 				"Pending" : "Complete"));
@@ -699,7 +691,7 @@ VOID LANTransmit(
 	 * status_pending is returned.  Note that this is different from
 	 * the situation with IRPs. */
         if (NdisStatus != NDIS_STATUS_PENDING)
-            ProtocolSendComplete((NDIS_HANDLE)Context, XmitPacket, NdisStatus);
+            ProtocolSendComplete((NDIS_HANDLE)Context, NdisPacket, NdisStatus);
 }
 
 static NTSTATUS
@@ -849,8 +841,6 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
         ExAllocatePool(NonPagedPool, sizeof(KEY_BASIC_INFORMATION));
     ULONG KbioLength = sizeof(KEY_BASIC_INFORMATION), ResultLength;
 
-    RtlInitUnicodeString( DeviceDesc, NULL );
-
     if( !Kbio ) return STATUS_INSUFFICIENT_RESOURCES;
 
     RtlInitUnicodeString
@@ -905,6 +895,8 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
         }
     }
 
+    RtlInitUnicodeString( DeviceDesc, L"" );
+    AppendUnicodeString( DeviceDesc, &TargetKeyName, FALSE );
     NtClose( EnumKey );
     ExFreePool( Kbio );
     return STATUS_UNSUCCESSFUL;

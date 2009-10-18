@@ -493,10 +493,10 @@ WaitOnBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<20000; i++) {
+    for (i=0; i<200; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(150);
+            AtapiStallExecution(10);
             continue;
         } else {
             break;
@@ -537,10 +537,10 @@ WaitOnBaseBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<20000; i++) {
+    for (i=0; i<200; i++) {
         GetBaseStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(150);
+            AtapiStallExecution(10);
             continue;
         } else {
             break;
@@ -640,11 +640,11 @@ WaitForDrq(
     for (i=0; i<1000; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(100);
+            AtapiStallExecution(10);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(200);
+            AtapiStallExecution(10);
         }
     }
     return Status;
@@ -661,11 +661,11 @@ WaitShortForDrq(
     for (i=0; i<2; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(100);
+            AtapiStallExecution(10);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(100);
+            AtapiStallExecution(10);
         }
     }
     return Status;
@@ -3077,7 +3077,7 @@ AtapiCallBack__(
         goto ReturnCallback;
     }
 
-#if DBG
+#ifdef DBG
     if (!IS_RDP((srb->Cdb[0]))) {
         KdPrint2((PRINT_PREFIX "AtapiCallBack: Invalid CDB marked as RDP - %#x\n", srb->Cdb[0]));
     }
@@ -4305,7 +4305,7 @@ continue_err:
         for (k = atapiDev ? 0 : 200; k; k--) {
             GetStatus(chan, statusByte);
             if (!(statusByte & IDE_STATUS_DRQ)) {
-                AtapiStallExecution(100);
+                AtapiStallExecution(50);
             } else {
                 break;
             }
@@ -5433,8 +5433,6 @@ UniAtaCalculateLBARegs(
     USHORT               cylinder;
     ULONG                tmp;
 
-    (*max_bcount) = 0;
-
     if(LunExt->DeviceFlags & DFLAGS_LBA_ENABLED) {
         if(LunExt->LimitedTransferMode >= ATA_DMA) {
             if(LunExt->DeviceExtension) {
@@ -5459,6 +5457,7 @@ UniAtaCalculateLBARegs(
         KdPrint2((PRINT_PREFIX "UniAtaCalculateLBARegs: C:H:S=%#x:%#x:%#x, max_bc %#x\n",
             cylinder, drvSelect, sectorNumber, (*max_bcount)));
     }
+        (*max_bcount) = 0;
 
     return (ULONG)(sectorNumber&0xff) | (((ULONG)cylinder&0xffff)<<8) | (((ULONG)drvSelect&0xf)<<24);
 } // end UniAtaCalculateLBARegs()
@@ -6365,7 +6364,7 @@ make_reset:
         InterlockedExchange(&(chan->CheckIntr),
                                       CHECK_INTR_IDLE);
 
-        //AtapiDisableInterrupts(deviceExtension, lChannel);
+        AtapiDisableInterrupts(deviceExtension, lChannel);
 
         // Write ATAPI packet command.
         AtapiWritePort1(chan, IDX_IO1_o_Command, IDE_COMMAND_ATAPI_PACKET);
@@ -6400,7 +6399,7 @@ make_reset:
 
     GetBaseStatus(chan, statusByte);
 
-    //AtapiEnableInterrupts(deviceExtension, lChannel);
+    AtapiEnableInterrupts(deviceExtension, lChannel);
 
     WriteBuffer(chan,
                 (PUSHORT)Srb->Cdb,
@@ -8356,7 +8355,7 @@ DriverEntry(
     LARGE_INTEGER t0, t1;
 
     Connect_DbgPrint();
-    KdPrint2((PRINT_PREFIX "%s", (PCCHAR)ver_string));
+    KdPrint2((PRINT_PREFIX (PCCHAR)ver_string));
     a = (WCHAR)strlen(ver_string);
 
     g_opt_Verbose = (BOOLEAN)AtapiRegCheckDevValue(NULL, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"PrintLogo", 0);

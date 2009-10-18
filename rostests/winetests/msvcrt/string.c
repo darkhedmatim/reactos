@@ -45,12 +45,12 @@ static char *buf_to_string(const unsigned char *bin, int len, int nr)
 #define expect_eq(expr, value, type, format) { type ret = (expr); ok((value) == ret, #expr " expected " format " got " format "\n", value, ret); }
 #define expect_bin(buf, value, len) { ok(memcmp((buf), value, len) == 0, "Binary buffer mismatch - expected %s, got %s\n", buf_to_string((unsigned char *)value, len, 1), buf_to_string((buf), len, 0)); }
 
-static void* (__cdecl *pmemcpy)(void *, const void *, size_t n);
-static int* (__cdecl *pmemcmp)(void *, const void *, size_t n);
-static int (__cdecl *pstrcpy_s)(char *dst, size_t len, const char *src);
-static int (__cdecl *pstrcat_s)(char *dst, size_t len, const char *src);
-static int (__cdecl *p_mbsnbcpy_s)(unsigned char * dst, size_t size, const unsigned char * src, size_t count);
-static int (__cdecl *p_wcscpy_s)(wchar_t *wcDest, size_t size, const wchar_t *wcSrc);
+static void* (*pmemcpy)(void *, const void *, size_t n);
+static int* (*pmemcmp)(void *, const void *, size_t n);
+static int (*pstrcpy_s)(char *dst, size_t len, const char *src);
+static int (*pstrcat_s)(char *dst, size_t len, const char *src);
+static int (*p_mbsnbcpy_s)(unsigned char * dst, size_t size, const unsigned char * src, size_t count);
+static int (*p_wcscpy_s)(wchar_t *wcDest, size_t size, const wchar_t *wcSrc);
 static int *p__mb_cur_max;
 static unsigned char *p_mbctype;
 
@@ -619,90 +619,6 @@ static void test_mbcjisjms(void)
     } while(jisjms[i++][0] != 0);
 }
 
-static const struct {
-    const char* string;
-    const char* delimiter;
-    int exp_offsetret1; /* returned offset from string after first call to strtok()
-                           -1 means NULL  */
-    int exp_offsetret2; /* returned offset from string after second call to strtok()
-                           -1 means NULL  */
-    int exp_offsetret3; /* returned offset from string after third call to strtok()
-                           -1 means NULL  */
-} testcases_strtok[] = {
-    { "red cabernet", " ", 0, 4, -1 },
-    { "sparkling white riesling", " ", 0, 10, 16 },
-    { " pale cream sherry", "e ", 1, 6, 9 },
-    /* end mark */
-    { 0}
-};
-
-static void test_strtok(void)
-{
-    int i;
-    char *strret;
-    char teststr[100];
-    for( i = 0; testcases_strtok[i].string; i++){
-        strcpy( teststr, testcases_strtok[i].string);
-        strret = strtok( teststr, testcases_strtok[i].delimiter);
-        ok( (int)(strret - teststr) ==  testcases_strtok[i].exp_offsetret1 ||
-                (!strret && testcases_strtok[i].exp_offsetret1 == -1),
-                "string (%p) \'%s\' return %p\n",
-                teststr, testcases_strtok[i].string, strret);
-        if( !strret) continue;
-        strret = strtok( NULL, testcases_strtok[i].delimiter);
-        ok( (int)(strret - teststr) ==  testcases_strtok[i].exp_offsetret2 ||
-                (!strret && testcases_strtok[i].exp_offsetret2 == -1),
-                "second call string (%p) \'%s\' return %p\n",
-                teststr, testcases_strtok[i].string, strret);
-        if( !strret) continue;
-        strret = strtok( NULL, testcases_strtok[i].delimiter);
-        ok( (int)(strret - teststr) ==  testcases_strtok[i].exp_offsetret3 ||
-                (!strret && testcases_strtok[i].exp_offsetret3 == -1),
-                "third call string (%p) \'%s\' return %p\n",
-                teststr, testcases_strtok[i].string, strret);
-    }
-}
-
-static void test_strtol(void)
-{
-    char* e;
-    LONG l;
-    ULONG ul;
-
-    /* errno is only set in case of error, so reset errno to EBADF to check for errno modification */
-    /* errno is modified on W2K8+ */
-    errno = EBADF;
-    l = strtol("-1234", &e, 0);
-    ok(l==-1234, "wrong value %d\n", l);
-    ok(errno == EBADF || broken(errno == 0), "wrong errno %d\n", errno);
-    errno = EBADF;
-    ul = strtoul("1234", &e, 0);
-    ok(ul==1234, "wrong value %u\n", ul);
-    ok(errno == EBADF || broken(errno == 0), "wrong errno %d\n", errno);
-
-    errno = EBADF;
-    l = strtol("2147483647L", &e, 0);
-    ok(l==2147483647, "wrong value %d\n", l);
-    ok(errno == EBADF || broken(errno == 0), "wrong errno %d\n", errno);
-    errno = EBADF;
-    l = strtol("-2147483648L", &e, 0);
-    ok(l==-2147483647L - 1, "wrong value %d\n", l);
-    ok(errno == EBADF || broken(errno == 0), "wrong errno %d\n", errno);
-    errno = EBADF;
-    ul = strtoul("4294967295UL", &e, 0);
-    ok(ul==4294967295ul, "wrong value %u\n", ul);
-    ok(errno == EBADF || broken(errno == 0), "wrong errno %d\n", errno);
-
-    errno = 0;
-    l = strtol("9223372036854775807L", &e, 0);
-    ok(l==2147483647, "wrong value %d\n", l);
-    ok(errno == ERANGE, "wrong errno %d\n", errno);
-    errno = 0;
-    ul = strtoul("9223372036854775807L", &e, 0);
-    ok(ul==4294967295ul, "wrong value %u\n", ul);
-    ok(errno == ERANGE, "wrong errno %d\n", errno);
-}
-
 START_TEST(string)
 {
     char mem[100];
@@ -744,7 +660,6 @@ START_TEST(string)
     test_strcat_s();
     test__mbsnbcpy_s();
     test_mbcjisjms();
-    test_strtok();
+
     test_wcscpy_s();
-    test_strtol();
 }

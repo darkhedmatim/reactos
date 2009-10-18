@@ -47,14 +47,6 @@ static unsigned         MACRO_NumLoaded /* = 0 */;
 
 /*******      helper functions     *******/
 
-static char* StrDup(const char* str)
-{
-    char* dst;
-    dst=HeapAlloc(GetProcessHeap(),0,strlen(str)+1);
-    strcpy(dst, str);
-    return dst;
-}
-
 static WINHELP_BUTTON**        MACRO_LookupButton(WINHELP_WINDOW* win, LPCSTR name)
 {
     WINHELP_BUTTON**    b;
@@ -68,7 +60,7 @@ static WINHELP_BUTTON**        MACRO_LookupButton(WINHELP_WINDOW* win, LPCSTR na
 
 void CALLBACK MACRO_CreateButton(LPCSTR id, LPCSTR name, LPCSTR macro)
 {
-    WINHELP_WINDOW *win = MACRO_CurrentWindow();
+    WINHELP_WINDOW *win = Globals.active_win;
     WINHELP_BUTTON *button, **b;
     LONG            size;
     LPSTR           ptr;
@@ -115,7 +107,7 @@ void CALLBACK MACRO_DisableButton(LPCSTR id)
 
     WINE_TRACE("(\"%s\")\n", id);
 
-    b = MACRO_LookupButton(MACRO_CurrentWindow(), id);
+    b = MACRO_LookupButton(Globals.active_win, id);
     if (!*b) {WINE_FIXME("Couldn't find button '%s'\n", id); return;}
 
     EnableWindow((*b)->hWnd, FALSE);
@@ -127,7 +119,7 @@ static void CALLBACK MACRO_EnableButton(LPCSTR id)
 
     WINE_TRACE("(\"%s\")\n", id);
 
-    b = MACRO_LookupButton(MACRO_CurrentWindow(), id);
+    b = MACRO_LookupButton(Globals.active_win, id);
     if (!*b) {WINE_FIXME("Couldn't find button '%s'\n", id); return;}
 
     EnableWindow((*b)->hWnd, TRUE);
@@ -172,7 +164,7 @@ static void CALLBACK MACRO_AppendItem(LPCSTR str1, LPCSTR str2, LPCSTR str3, LPC
 
 static void CALLBACK MACRO_Back(void)
 {
-    WINHELP_WINDOW* win = MACRO_CurrentWindow();
+    WINHELP_WINDOW* win = Globals.active_win;
 
     WINE_TRACE("()\n");
 
@@ -182,7 +174,7 @@ static void CALLBACK MACRO_Back(void)
 
 static void CALLBACK MACRO_BackFlush(void)
 {
-    WINHELP_WINDOW* win = MACRO_CurrentWindow();
+    WINHELP_WINDOW* win = Globals.active_win;
 
     WINE_TRACE("()\n");
 
@@ -201,7 +193,7 @@ static void CALLBACK MACRO_BookmarkMore(void)
 
 static void CALLBACK MACRO_BrowseButtons(void)
 {
-    HLPFILE_PAGE*       page = MACRO_CurrentWindow()->page;
+    HLPFILE_PAGE*       page = Globals.active_win->page;
     ULONG               relative;
 
     WINE_TRACE("()\n");
@@ -217,7 +209,7 @@ static void CALLBACK MACRO_BrowseButtons(void)
 
 static void CALLBACK MACRO_ChangeButtonBinding(LPCSTR id, LPCSTR macro)
 {
-    WINHELP_WINDOW*     win = MACRO_CurrentWindow();
+    WINHELP_WINDOW*     win = Globals.active_win;
     WINHELP_BUTTON*     button;
     WINHELP_BUTTON**    b;
     LONG                size;
@@ -280,8 +272,8 @@ static void CALLBACK MACRO_CloseSecondarys(void)
 
     WINE_TRACE("()\n");
     for (win = Globals.win_list; win; win = win->next)
-        if (lstrcmpi(win->info->name, "main"))
-            WINHELP_ReleaseWindow(win);
+        if (win->lpszName && lstrcmpi(win->lpszName, "main"))
+            DestroyWindow(win->hMainWnd);
 }
 
 static void CALLBACK MACRO_CloseWindow(LPCSTR lpszWindow)
@@ -293,8 +285,8 @@ static void CALLBACK MACRO_CloseWindow(LPCSTR lpszWindow)
     if (!lpszWindow || !lpszWindow[0]) lpszWindow = "main";
 
     for (win = Globals.win_list; win; win = win->next)
-        if (!lstrcmpi(win->info->name, lpszWindow))
-            WINHELP_ReleaseWindow(win);
+        if (win->lpszName && !lstrcmpi(win->lpszName, lpszWindow))
+            DestroyWindow(win->hMainWnd);
 }
 
 static void CALLBACK MACRO_Compare(LPCSTR str)
@@ -304,12 +296,10 @@ static void CALLBACK MACRO_Compare(LPCSTR str)
 
 static void CALLBACK MACRO_Contents(void)
 {
-    HLPFILE_PAGE*       page = MACRO_CurrentWindow()->page;
-
     WINE_TRACE("()\n");
 
-    if (page)
-        MACRO_JumpContents(page->file->lpszPath, NULL);
+    if (Globals.active_win->page)
+        MACRO_JumpContents(Globals.active_win->page->file->lpszPath, NULL);
 }
 
 static void CALLBACK MACRO_ControlPanel(LPCSTR str1, LPCSTR str2, LONG u)
@@ -367,7 +357,7 @@ void CALLBACK MACRO_Exit(void)
     WINE_TRACE("()\n");
 
     while (Globals.win_list)
-        WINHELP_ReleaseWindow(Globals.win_list);
+        DestroyWindow(Globals.win_list->hMainWnd);
 }
 
 static void CALLBACK MACRO_ExtAbleItem(LPCSTR str, LONG u)
@@ -430,7 +420,7 @@ static void CALLBACK MACRO_FocusWindow(LPCSTR lpszWindow)
     if (!lpszWindow || !lpszWindow[0]) lpszWindow = "main";
 
     for (win = Globals.win_list; win; win = win->next)
-        if (!lstrcmpi(win->info->name, lpszWindow))
+        if (win->lpszName && !lstrcmpi(win->lpszName, lpszWindow))
             SetFocus(win->hMainWnd);
 }
 
@@ -446,13 +436,10 @@ static void CALLBACK MACRO_GotoMark(LPCSTR str)
 
 void CALLBACK MACRO_HelpOn(void)
 {
-    WINHELP_WINDOW *win = MACRO_CurrentWindow();
-    LPCSTR      file = NULL;
+    LPCSTR      file;
 
     WINE_TRACE("()\n");
-    if (win && win->page && win->page->file)
-        file = win->page->file->help_on_file;
-
+    file = Globals.active_win->page->file->help_on_file;
     if (!file)
         file = (Globals.wVersion > 4) ? "winhlp32.hlp" : "winhelp.hlp";
 
@@ -478,13 +465,12 @@ void CALLBACK MACRO_History(void)
 
 static void CALLBACK MACRO_IfThen(BOOL b, LPCSTR t)
 {
-    if (b) MACRO_ExecuteMacro(MACRO_CurrentWindow(), t);
+    if (b) MACRO_ExecuteMacro(t);
 }
 
 static void CALLBACK MACRO_IfThenElse(BOOL b, LPCSTR t, LPCSTR f)
 {
-    if (b) MACRO_ExecuteMacro(MACRO_CurrentWindow(), t);
-    else MACRO_ExecuteMacro(MACRO_CurrentWindow(), f);
+    if (b) MACRO_ExecuteMacro(t); else MACRO_ExecuteMacro(f);
 }
 
 static BOOL CALLBACK MACRO_InitMPrint(void)
@@ -538,10 +524,7 @@ void CALLBACK MACRO_JumpHash(LPCSTR lpszPath, LPCSTR lpszWindow, LONG lHash)
     HLPFILE*    hlpfile;
 
     WINE_TRACE("(\"%s\", \"%s\", %u)\n", lpszPath, lpszWindow, lHash);
-    if (!lpszPath || !lpszPath[0])
-        hlpfile = MACRO_CurrentWindow()->page->file;
-    else
-        hlpfile = WINHELP_LookupHelpFile(lpszPath);
+    hlpfile = WINHELP_LookupHelpFile(lpszPath);
     WINHELP_OpenHelpWindow(HLPFILE_PageByHash, hlpfile, lHash,
                            WINHELP_GetWindowInfo(hlpfile, lpszWindow),
                            SW_NORMAL);
@@ -608,12 +591,12 @@ static void CALLBACK MACRO_Next(void)
     WINHELP_WNDPAGE     wp;
 
     WINE_TRACE("()\n");
-    wp.page = MACRO_CurrentWindow()->page;
+    wp.page = Globals.active_win->page;
     wp.page = HLPFILE_PageByOffset(wp.page->file, wp.page->browse_fwd, &wp.relative);
     if (wp.page)
     {
         wp.page->file->wRefCount++;
-        wp.wininfo = MACRO_CurrentWindow()->info;
+        wp.wininfo = Globals.active_win->info;
         WINHELP_CreateHelpWindow(&wp, SW_NORMAL, TRUE);
     }
 }
@@ -648,12 +631,12 @@ static void CALLBACK MACRO_Prev(void)
     WINHELP_WNDPAGE     wp;
 
     WINE_TRACE("()\n");
-    wp.page = MACRO_CurrentWindow()->page;
+    wp.page = Globals.active_win->page;
     wp.page = HLPFILE_PageByOffset(wp.page->file, wp.page->browse_bwd, &wp.relative);
     if (wp.page)
     {
         wp.page->file->wRefCount++;
-        wp.wininfo = MACRO_CurrentWindow()->info;
+        wp.wininfo = Globals.active_win->info;
         WINHELP_CreateHelpWindow(&wp, SW_NORMAL, TRUE);
     }
 }
@@ -665,7 +648,7 @@ void CALLBACK MACRO_Print(void)
     WINE_TRACE("()\n");
 
     printer.lStructSize         = sizeof(printer);
-    printer.hwndOwner           = MACRO_CurrentWindow()->hMainWnd;
+    printer.hwndOwner           = Globals.active_win->hMainWnd;
     printer.hInstance           = Globals.hInstance;
     printer.hDevMode            = 0;
     printer.hDevNames           = 0;
@@ -728,7 +711,7 @@ static void CALLBACK MACRO_RegisterRoutine(LPCSTR dll_name, LPCSTR proc, LPCSTR 
         else if ((dll = HeapAlloc(GetProcessHeap(), 0, sizeof(*dll))))
         {
             dll->hLib = hLib;
-            dll->name = StrDup(dll_name); /* FIXME: never freed */
+            dll->name = strdup(dll_name); /* FIXME */
             dll->next = Globals.dlls;
             Globals.dlls = dll;
             dll->handler = (WINHELP_LDLLHandler)GetProcAddress(dll->hLib, "LDLLHandler");
@@ -748,10 +731,10 @@ static void CALLBACK MACRO_RegisterRoutine(LPCSTR dll_name, LPCSTR proc, LPCSTR 
     size = ++MACRO_NumLoaded * sizeof(struct MacroDesc);
     if (!MACRO_Loaded) MACRO_Loaded = HeapAlloc(GetProcessHeap(), 0, size);
     else MACRO_Loaded = HeapReAlloc(GetProcessHeap(), 0, MACRO_Loaded, size);
-    MACRO_Loaded[MACRO_NumLoaded - 1].name      = StrDup(proc); /* FIXME: never freed */
+    MACRO_Loaded[MACRO_NumLoaded - 1].name      = strdup(proc); /* FIXME */
     MACRO_Loaded[MACRO_NumLoaded - 1].alias     = NULL;
     MACRO_Loaded[MACRO_NumLoaded - 1].isBool    = 0;
-    MACRO_Loaded[MACRO_NumLoaded - 1].arguments = StrDup(args); /* FIXME: never freed */
+    MACRO_Loaded[MACRO_NumLoaded - 1].arguments = strdup(args); /* FIXME */
     MACRO_Loaded[MACRO_NumLoaded - 1].fn        = fn;
     WINE_TRACE("Added %s(%s) at %p\n", proc, args, fn);
 }
@@ -783,23 +766,19 @@ void CALLBACK MACRO_SetContents(LPCSTR str, LONG u)
 
 static void CALLBACK MACRO_SetHelpOnFile(LPCSTR str)
 {
-    HLPFILE_PAGE*       page = MACRO_CurrentWindow()->page;
-
     WINE_TRACE("(\"%s\")\n", str);
 
-    HeapFree(GetProcessHeap(), 0, page->file->help_on_file);
-    page->file->help_on_file = HeapAlloc(GetProcessHeap(), 0, strlen(str) + 1);
-    if (page->file->help_on_file)
-        strcpy(page->file->help_on_file, str);
+    HeapFree(GetProcessHeap(), 0, Globals.active_win->page->file->help_on_file);
+    Globals.active_win->page->file->help_on_file = HeapAlloc(GetProcessHeap(), 0, strlen(str) + 1);
+    if (Globals.active_win->page->file->help_on_file)
+        strcpy(Globals.active_win->page->file->help_on_file, str);
 }
 
 static void CALLBACK MACRO_SetPopupColor(LONG r, LONG g, LONG b)
 {
-    HLPFILE_PAGE*       page = MACRO_CurrentWindow()->page;
-
     WINE_TRACE("(%x, %x, %x)\n", r, g, b);
-    page->file->has_popup_color = TRUE;
-    page->file->popup_color = RGB(r, g, b);
+    Globals.active_win->page->file->has_popup_color = TRUE;
+    Globals.active_win->page->file->popup_color = RGB(r, g, b);
 }
 
 static void CALLBACK MACRO_ShellExecute(LPCSTR str1, LPCSTR str2, LONG u1, LONG u2, LPCSTR str3, LPCSTR str4)
@@ -924,7 +903,7 @@ static struct MacroDesc MACRO_Builtins[] = {
     {"MPrintHash",          NULL, 0, "U",      (FARPROC)MACRO_MPrintHash},
     {"MPrintID",            NULL, 0, "S",      (FARPROC)MACRO_MPrintID},
     {"Next",                NULL, 0, "",       (FARPROC)MACRO_Next},
-    {"NoShow",              "NS", 0, "",       (FARPROC)MACRO_NoShow},
+    {"NoShow",              NULL, 0, "",       (FARPROC)MACRO_NoShow},
     {"PopupContext",        "PC", 0, "SU",     (FARPROC)MACRO_PopupContext},
     {"PopupHash",           NULL, 0, "SU",     (FARPROC)MACRO_PopupHash},
     {"PopupId",             "PI", 0, "SS",     (FARPROC)MACRO_PopupId},

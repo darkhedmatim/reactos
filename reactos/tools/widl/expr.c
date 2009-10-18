@@ -33,10 +33,6 @@
 #include "expr.h"
 #include "header.h"
 #include "typetree.h"
-#include "typegen.h"
-
-static int is_integer_type(const type_t *type);
-static int is_float_type(const type_t *type);
 
 expr_t *make_expr(enum expr_type type)
 {
@@ -109,17 +105,38 @@ expr_t *make_exprt(enum expr_type type, type_t *tref, expr_t *expr)
     e->ref = expr;
     e->u.tref = tref;
     e->is_const = FALSE;
+    /* check for cast of constant expression */
     if (type == EXPR_SIZEOF)
     {
-        /* only do this for types that should be the same on all platforms */
-        if (is_integer_type(tref) || is_float_type(tref))
+        switch (tref->type)
         {
-            unsigned int align = 0;
+        case RPC_FC_BYTE:
+        case RPC_FC_CHAR:
+        case RPC_FC_SMALL:
+        case RPC_FC_USMALL:
             e->is_const = TRUE;
-            e->cval = type_memsize(tref, &align);
+            e->cval = 1;
+            break;
+        case RPC_FC_WCHAR:
+        case RPC_FC_USHORT:
+        case RPC_FC_SHORT:
+            e->is_const = TRUE;
+            e->cval = 2;
+            break;
+        case RPC_FC_LONG:
+        case RPC_FC_ULONG:
+        case RPC_FC_FLOAT:
+        case RPC_FC_ERROR_STATUS_T:
+            e->is_const = TRUE;
+            e->cval = 4;
+            break;
+        case RPC_FC_HYPER:
+        case RPC_FC_DOUBLE:
+            e->is_const = TRUE;
+            e->cval = 8;
+            break;
         }
     }
-    /* check for cast of constant expression */
     if (type == EXPR_CAST && expr->is_const)
     {
         e->is_const = TRUE;
@@ -285,44 +302,34 @@ struct expression_type
 
 static int is_integer_type(const type_t *type)
 {
-    switch (type_get_type(type))
+    switch (type->type)
     {
-    case TYPE_ENUM:
+    case RPC_FC_BYTE:
+    case RPC_FC_CHAR:
+    case RPC_FC_SMALL:
+    case RPC_FC_USMALL:
+    case RPC_FC_WCHAR:
+    case RPC_FC_SHORT:
+    case RPC_FC_USHORT:
+    case RPC_FC_LONG:
+    case RPC_FC_ULONG:
+    case RPC_FC_INT3264:
+    case RPC_FC_UINT3264:
+    case RPC_FC_HYPER:
+    case RPC_FC_ENUM16:
+    case RPC_FC_ENUM32:
         return TRUE;
-    case TYPE_BASIC:
-        switch (type_basic_get_type(type))
-        {
-        case TYPE_BASIC_INT8:
-        case TYPE_BASIC_INT16:
-        case TYPE_BASIC_INT32:
-        case TYPE_BASIC_INT64:
-        case TYPE_BASIC_INT:
-        case TYPE_BASIC_CHAR:
-        case TYPE_BASIC_HYPER:
-        case TYPE_BASIC_BYTE:
-        case TYPE_BASIC_WCHAR:
-        case TYPE_BASIC_ERROR_STATUS_T:
-            return TRUE;
-        default:
-            return FALSE;
-        }
     default:
         return FALSE;
     }
-}
-
-static int is_float_type(const type_t *type)
-{
-    return (type_get_type(type) == TYPE_BASIC &&
-        (type_basic_get_type(type) == TYPE_BASIC_FLOAT ||
-         type_basic_get_type(type) == TYPE_BASIC_DOUBLE));
 }
 
 static void check_scalar_type(const struct expr_loc *expr_loc,
                               const type_t *cont_type, const type_t *type)
 {
     if (!cont_type || (!is_integer_type(type) && !is_ptr(type) &&
-                       !is_float_type(type)))
+                       type->type != RPC_FC_FLOAT &&
+                       type->type != RPC_FC_DOUBLE))
         error_loc_info(&expr_loc->v->loc_info, "scalar type required in expression%s%s\n",
                        expr_loc->attr ? " for attribute " : "",
                        expr_loc->attr ? expr_loc->attr : "");
@@ -331,7 +338,9 @@ static void check_scalar_type(const struct expr_loc *expr_loc,
 static void check_arithmetic_type(const struct expr_loc *expr_loc,
                                   const type_t *cont_type, const type_t *type)
 {
-    if (!cont_type || (!is_integer_type(type) && !is_float_type(type)))
+    if (!cont_type || (!is_integer_type(type) &&
+                       type->type != RPC_FC_FLOAT &&
+                       type->type != RPC_FC_DOUBLE))
         error_loc_info(&expr_loc->v->loc_info, "arithmetic type required in expression%s%s\n",
                        expr_loc->attr ? " for attribute " : "",
                        expr_loc->attr ? expr_loc->attr : "");
@@ -356,33 +365,12 @@ static type_t *find_identifier(const char *identifier, const type_t *cont_type, 
 
     if (cont_type)
     {
-        switch (type_get_type(cont_type))
-        {
-        case TYPE_FUNCTION:
+        if (cont_type->type == RPC_FC_FUNCTION)
             fields = type_function_get_args(cont_type);
-            break;
-        case TYPE_STRUCT:
+        else if (is_struct(cont_type->type))
             fields = type_struct_get_fields(cont_type);
-            break;
-        case TYPE_UNION:
-        case TYPE_ENCAPSULATED_UNION:
+        else if (is_union(cont_type->type))
             fields = type_union_get_cases(cont_type);
-            break;
-        case TYPE_VOID:
-        case TYPE_BASIC:
-        case TYPE_ENUM:
-        case TYPE_MODULE:
-        case TYPE_COCLASS:
-        case TYPE_INTERFACE:
-        case TYPE_POINTER:
-        case TYPE_ARRAY:
-            /* nothing to do */
-            break;
-        case TYPE_ALIAS:
-            /* shouldn't get here because of using type_get_type above */
-            assert(0);
-            break;
-        }
     }
 
     if (fields) LIST_FOR_EACH_ENTRY( field, fields, const var_t, entry )
@@ -402,19 +390,6 @@ static type_t *find_identifier(const char *identifier, const type_t *cont_type, 
     return type;
 }
 
-static int is_valid_member_operand(const type_t *type)
-{
-    switch (type_get_type(type))
-    {
-    case TYPE_STRUCT:
-    case TYPE_UNION:
-    case TYPE_ENUM:
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
 static struct expression_type resolve_expression(const struct expr_loc *expr_loc,
                                                  const type_t *cont_type,
                                                  const expr_t *e)
@@ -432,22 +407,22 @@ static struct expression_type resolve_expression(const struct expr_loc *expr_loc
     case EXPR_TRUEFALSE:
         result.is_variable = FALSE;
         result.is_temporary = FALSE;
-        result.type = type_new_int(TYPE_BASIC_INT, 0);
+        result.type = find_type("int", 0);
         break;
     case EXPR_STRLIT:
         result.is_variable = FALSE;
         result.is_temporary = TRUE;
-        result.type = type_new_pointer(RPC_FC_UP, type_new_int(TYPE_BASIC_CHAR, 0), NULL);
+        result.type = make_type(RPC_FC_RP, find_type("char", 0));
         break;
     case EXPR_WSTRLIT:
         result.is_variable = FALSE;
         result.is_temporary = TRUE;
-        result.type = type_new_pointer(RPC_FC_UP, type_new_int(TYPE_BASIC_WCHAR, 0), NULL);
+        result.type = make_type(RPC_FC_RP, find_type("wchar_t", 0));
         break;
     case EXPR_DOUBLE:
         result.is_variable = FALSE;
-        result.is_temporary = TRUE;
-        result.type = type_new_basic(TYPE_BASIC_DOUBLE);
+        result.is_temporary = FALSE;
+        result.type = find_type("double", 0);
         break;
     case EXPR_IDENTIFIER:
     {
@@ -468,7 +443,7 @@ static struct expression_type resolve_expression(const struct expr_loc *expr_loc
         check_scalar_type(expr_loc, cont_type, result.type);
         result.is_variable = FALSE;
         result.is_temporary = FALSE;
-        result.type = type_new_int(TYPE_BASIC_INT, 0);
+        result.type = find_type("int", 0);
         break;
     case EXPR_NOT:
         result = resolve_expression(expr_loc, cont_type, e->ref);
@@ -489,14 +464,14 @@ static struct expression_type resolve_expression(const struct expr_loc *expr_loc
                            expr_loc->attr ? expr_loc->attr : "");
             result.is_variable = FALSE;
         result.is_temporary = TRUE;
-        result.type = type_new_pointer(RPC_FC_UP, result.type, NULL);
+        result.type = make_type(RPC_FC_RP, result.type);
         break;
     case EXPR_PPTR:
         result = resolve_expression(expr_loc, cont_type, e->ref);
         if (result.type && is_ptr(result.type))
             result.type = type_pointer_get_ref(result.type);
         else if(result.type && is_array(result.type)
-                            && type_array_is_decl_as_ptr(result.type))
+                            && !result.type->declarray)
             result.type = type_array_get_element(result.type);
         else
             error_loc_info(&expr_loc->v->loc_info, "dereference operator applied to non-pointer type in expression%s%s\n",
@@ -510,7 +485,7 @@ static struct expression_type resolve_expression(const struct expr_loc *expr_loc
     case EXPR_SIZEOF:
         result.is_variable = FALSE;
         result.is_temporary = FALSE;
-        result.type = type_new_int(TYPE_BASIC_INT, 0);
+        result.type = find_type("int", 0);
         break;
     case EXPR_SHL:
     case EXPR_SHR:
@@ -548,12 +523,12 @@ static struct expression_type resolve_expression(const struct expr_loc *expr_loc
         check_scalar_type(expr_loc, cont_type, result_right.type);
         result.is_variable = FALSE;
         result.is_temporary = FALSE;
-        result.type = type_new_int(TYPE_BASIC_INT, 0);
+        result.type = find_type("int", 0);
         break;
     }
     case EXPR_MEMBER:
         result = resolve_expression(expr_loc, cont_type, e->ref);
-        if (result.type && is_valid_member_operand(result.type))
+        if (result.type && (is_struct(result.type->type) || is_union(result.type->type) || result.type->type == RPC_FC_ENUM16 || result.type->type == RPC_FC_ENUM32))
             result = resolve_expression(expr_loc, result.type, e->u.ext);
         else
             error_loc_info(&expr_loc->v->loc_info, "'.' or '->' operator applied to a type that isn't a structure, union or enumeration in expression%s%s\n",

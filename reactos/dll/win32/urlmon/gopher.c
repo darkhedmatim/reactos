@@ -24,12 +24,13 @@ WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 typedef struct {
     Protocol base;
 
-    const IInternetProtocolVtbl  *lpIInternetProtocolVtbl;
+    const IInternetProtocolVtbl  *lpInternetProtocolVtbl;
     const IInternetPriorityVtbl  *lpInternetPriorityVtbl;
 
     LONG ref;
 } GopherProtocol;
 
+#define PROTOCOL(x)  ((IInternetProtocol*)  &(x)->lpInternetProtocolVtbl)
 #define PRIORITY(x)  ((IInternetPriority*)  &(x)->lpInternetPriorityVtbl)
 
 #define ASYNCPROTOCOL_THIS(iface) DEFINE_THIS2(GopherProtocol, base, iface)
@@ -66,7 +67,7 @@ static const ProtocolVtbl AsyncProtocolVtbl = {
     GopherProtocol_close_connection
 };
 
-#define PROTOCOL_THIS(iface) DEFINE_THIS(GopherProtocol, IInternetProtocol, iface)
+#define PROTOCOL_THIS(iface) DEFINE_THIS(GopherProtocol, InternetProtocol, iface)
 
 static HRESULT WINAPI GopherProtocol_QueryInterface(IInternetProtocol *iface, REFIID riid, void **ppv)
 {
@@ -288,8 +289,8 @@ HRESULT GopherProtocol_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
     ret = heap_alloc_zero(sizeof(GopherProtocol));
 
     ret->base.vtbl = &AsyncProtocolVtbl;
-    ret->lpIInternetProtocolVtbl = &GopherProtocolVtbl;
-    ret->lpInternetPriorityVtbl  = &GopherPriorityVtbl;
+    ret->lpInternetProtocolVtbl = &GopherProtocolVtbl;
+    ret->lpInternetPriorityVtbl = &GopherPriorityVtbl;
     ret->ref = 1;
 
     *ppobj = PROTOCOL(ret);

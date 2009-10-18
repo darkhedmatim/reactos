@@ -1107,10 +1107,8 @@ IopSecurityFile(IN PVOID ObjectBody,
         /* Check what kind of request this was */
         if (OperationCode == QuerySecurityDescriptor)
         {
-            return SeQuerySecurityDescriptorInfo(SecurityInformation,
-                                                 SecurityDescriptor,
-                                                 BufferLength,
-                                                 &DeviceObject->SecurityDescriptor);
+            DPRINT1("FIXME: Device Query security descriptor UNHANDLED\n");
+            return STATUS_SUCCESS;
         }
         else if (OperationCode == DeleteSecurityDescriptor)
         {
@@ -1264,17 +1262,8 @@ IopSecurityFile(IN PVOID ObjectBody,
         /* Callers usually expect the normalized form */
         if (Status == STATUS_BUFFER_OVERFLOW) Status = STATUS_BUFFER_TOO_SMALL;
 
-        _SEH2_TRY
-        {
-            /* Return length */
-            *BufferLength = IoStatusBlock.Information;
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
+        /* Return length */
+        *BufferLength = IoStatusBlock.Information;
     }
 
     /* Return Status */
@@ -1507,7 +1496,7 @@ IopQueryAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
                        IN ULONG FileInformationSize,
                        OUT PVOID FileInformation)
 {
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     KPROCESSOR_MODE AccessMode = ExGetPreviousMode();
     DUMMY_FILE_OBJECT DummyFileObject;
     FILE_NETWORK_OPEN_INFORMATION NetworkOpenInfo;
@@ -1528,10 +1517,13 @@ IopQueryAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status))return Status;
     }
 
     /* Check if this is a basic or full request */
@@ -1656,7 +1648,7 @@ IoCreateFile(OUT PHANDLE FileHandle,
     HANDLE LocalHandle = 0;
     LARGE_INTEGER SafeAllocationSize;
     PVOID SystemEaBuffer = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     OPEN_PACKET OpenPacket;
     ULONG EaErrorOffset;
 
@@ -1703,7 +1695,8 @@ IoCreateFile(OUT PHANDLE FileHandle,
                                                        TAG_EA);
                 if(!SystemEaBuffer)
                 {
-                    _SEH2_YIELD(return STATUS_INSUFFICIENT_RESOURCES);
+                    Status = STATUS_INSUFFICIENT_RESOURCES;
+                    _SEH2_LEAVE;
                 }
 
                 RtlCopyMemory(SystemEaBuffer, EaBuffer, EaLength);
@@ -1716,22 +1709,23 @@ IoCreateFile(OUT PHANDLE FileHandle,
                 {
                     DPRINT1("FIXME: IoCheckEaBufferValidity() failed with "
                         "Status: %lx\n",Status);
-
-                    /* Free EA Buffer and return the error */
-                    ExFreePoolWithTag(SystemEaBuffer, TAG_EA);
-                    _SEH2_YIELD(return Status);
                 }
             }
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
+            Status = _SEH2_GetExceptionCode();
+        }
+        _SEH2_END;
+
+        if(!NT_SUCCESS(Status))
+        {
             /* Free SystemEaBuffer if needed */
             if (SystemEaBuffer) ExFreePoolWithTag(SystemEaBuffer, TAG_EA);
 
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Return failure status */
+            return Status;
         }
-        _SEH2_END;
     }
     else
     {
@@ -2534,6 +2528,7 @@ NtCreateMailslotFile(OUT PHANDLE FileHandle,
                      IN PLARGE_INTEGER TimeOut)
 {
     MAILSLOT_CREATE_PARAMETERS Buffer;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check for Timeout */
@@ -2550,10 +2545,13 @@ NtCreateMailslotFile(OUT PHANDLE FileHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+
+            /* Return the exception */
+            if (!NT_SUCCESS(Status)) return Status;
         }
         else
         {
@@ -2609,6 +2607,7 @@ NtCreateNamedPipeFile(OUT PHANDLE FileHandle,
                       IN PLARGE_INTEGER DefaultTimeout)
 {
     NAMED_PIPE_CREATE_PARAMETERS Buffer;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check for Timeout */
@@ -2626,10 +2625,13 @@ NtCreateNamedPipeFile(OUT PHANDLE FileHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+
+            /* Return the exception */
+            if (!NT_SUCCESS(Status)) return Status;
         }
         else
         {
@@ -2764,7 +2766,7 @@ NtCancelIoFile(IN HANDLE FileHandle,
     BOOLEAN OurIrpsInList = FALSE;
     LARGE_INTEGER Interval;
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PLIST_ENTRY ListHead, NextEntry;
     PAGED_CODE();
     IOTRACE(IO_API_DEBUG, "FileHandle: %p\n", FileHandle);
@@ -2780,10 +2782,13 @@ NtCancelIoFile(IN HANDLE FileHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Return exception code on failure */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Reference the file object */
@@ -2872,7 +2877,7 @@ NtCancelIoFile(IN HANDLE FileHandle,
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
-        /* Ignore exception */
+
     }
     _SEH2_END;
 

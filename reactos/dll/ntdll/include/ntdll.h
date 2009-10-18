@@ -32,7 +32,4 @@
 /* CSRSS Header */
 #include <csrss/csrss.h>
 
-/* PSEH */
-#include <pseh/pseh2.h>
-
 /* EOF */

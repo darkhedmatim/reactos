@@ -84,7 +84,7 @@ void viewport_activate(IDirect3DViewportImpl* This, BOOL ignore_lights) {
 	vp.dvMinZ = This->viewports.vp1.dvMinZ;
 	vp.dvMaxZ = This->viewports.vp1.dvMaxZ;
     }
-
+    
     /* And also set the viewport */
     IDirect3DDevice7_SetViewport((IDirect3DDevice7 *)This->active_device, &vp);
 }
@@ -657,8 +657,11 @@ IDirect3DViewportImpl_GetBackgroundDepth(IDirect3DViewport3 *iface,
  *  The return value of IDirect3DDevice7::Clear
  *
  *****************************************************************************/
-static HRESULT WINAPI IDirect3DViewportImpl_Clear(IDirect3DViewport3 *iface,
-        DWORD dwCount, D3DRECT *lpRects, DWORD dwFlags)
+static HRESULT WINAPI
+IDirect3DViewportImpl_Clear(IDirect3DViewport3 *iface,
+                            DWORD dwCount, 
+                            D3DRECT *lpRects,
+                            DWORD dwFlags)
 {
     IDirect3DViewportImpl *This = (IDirect3DViewportImpl *)iface;
     DWORD color = 0x00000000;
@@ -676,15 +679,14 @@ static HRESULT WINAPI IDirect3DViewportImpl_Clear(IDirect3DViewport3 *iface,
     EnterCriticalSection(&ddraw_cs);
     if (dwFlags & D3DCLEAR_TARGET) {
         if (This->background == NULL) {
-            ERR(" Trying to clear the color buffer without background material !\n");
-        }
-        else
-        {
-            color = ((int)((This->background->mat.u.diffuse.u1.r) * 255) << 16)
-                    | ((int) ((This->background->mat.u.diffuse.u2.g) * 255) <<  8)
-                    | ((int) ((This->background->mat.u.diffuse.u3.b) * 255) <<  0)
-                    | ((int) ((This->background->mat.u.diffuse.u4.a) * 255) << 24);
-        }
+	    ERR(" Trying to clear the color buffer without background material !\n");
+	} else {
+	    color = 
+	      ((int) ((This->background->mat.u.diffuse.u1.r) * 255) << 16) |
+	      ((int) ((This->background->mat.u.diffuse.u2.g) * 255) <<  8) |
+	      ((int) ((This->background->mat.u.diffuse.u3.b) * 255) <<  0) |
+	      ((int) ((This->background->mat.u.diffuse.u4.a) * 255) << 24);
+	}
     }
 
     /* Need to temporarily activate viewport to clear it. Previously active one will be restored
@@ -727,7 +729,7 @@ IDirect3DViewportImpl_AddLight(IDirect3DViewport3 *iface,
     IDirect3DLightImpl *lpDirect3DLightImpl = (IDirect3DLightImpl *)lpDirect3DLight;
     DWORD i = 0;
     DWORD map = This->map_lights;
-
+    
     TRACE("(%p)->(%p)\n", This, lpDirect3DLight);
 
     EnterCriticalSection(&ddraw_cs);
@@ -749,11 +751,10 @@ IDirect3DViewportImpl_AddLight(IDirect3DViewport3 *iface,
     /* Add the light in the 'linked' chain */
     lpDirect3DLightImpl->next = This->lights;
     This->lights = lpDirect3DLightImpl;
-    IDirect3DLight_AddRef(lpDirect3DLight);
 
     /* Attach the light to the viewport */
     lpDirect3DLightImpl->active_viewport = This;
-
+    
     /* If active, activate the light */
     if (This->active_device != NULL) {
         lpDirect3DLightImpl->activate(lpDirect3DLightImpl);
@@ -783,7 +784,7 @@ IDirect3DViewportImpl_DeleteLight(IDirect3DViewport3 *iface,
     IDirect3DViewportImpl *This = (IDirect3DViewportImpl *)iface;
     IDirect3DLightImpl *lpDirect3DLightImpl = (IDirect3DLightImpl *)lpDirect3DLight;
     IDirect3DLightImpl *cur_light, *prev_light = NULL;
-
+    
     TRACE("(%p)->(%p)\n", This, lpDirect3DLight);
 
     EnterCriticalSection(&ddraw_cs);
@@ -795,7 +796,6 @@ IDirect3DViewportImpl_DeleteLight(IDirect3DViewport3 *iface,
 	    else prev_light->next = cur_light->next;
 	    /* Detach the light to the viewport */
 	    cur_light->active_viewport = NULL;
-	    IDirect3DLight_Release( (IDirect3DLight *)cur_light );
 	    This->num_lights--;
 	    This->map_lights &= ~(1<<lpDirect3DLightImpl->dwLightIndex);
             LeaveCriticalSection(&ddraw_cs);
@@ -870,9 +870,6 @@ IDirect3DViewportImpl_NextLight(IDirect3DViewport3 *iface,
             ERR("Unknown flag %d\n", dwFlags);
             break;
     }
-
-    if (*lplpDirect3DLight)
-        IDirect3DLight_AddRef(*lplpDirect3DLight);
 
     LeaveCriticalSection(&ddraw_cs);
 

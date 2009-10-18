@@ -31,7 +31,7 @@ POBJECT_TYPE IoDeviceObjectType = NULL;
 POBJECT_TYPE IoFileObjectType = NULL;
 extern POBJECT_TYPE IoControllerObjectType;
 extern UNICODE_STRING NtSystemRoot;
-BOOLEAN IoCountOperations = TRUE;
+BOOLEAN IoCountOperations;
 ULONG IoReadOperationCount = 0;
 LARGE_INTEGER IoReadTransferCount = {{0, 0}};
 ULONG IoWriteOperationCount = 0;
@@ -265,10 +265,9 @@ IopCreateObjectTypes(VOID)
                                        NULL,
                                        &IoControllerObjectType))) return FALSE;
 
-    /* Do the Device Type */
+    /* Do the Device Type. FIXME: Needs Delete Routine! */
     RtlInitUnicodeString(&Name, L"Device");
     ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(DEVICE_OBJECT);
-    ObjectTypeInitializer.DeleteProcedure = IopDeleteDevice;
     ObjectTypeInitializer.ParseProcedure = IopParseDevice;
     ObjectTypeInitializer.SecurityProcedure = IopSecurityFile;
     if (!NT_SUCCESS(ObCreateObjectType(&Name,

@@ -18,7 +18,7 @@
 #define IsOwnedExclusive(r)     (r->Flag & ResourceOwnedExclusive)
 #define IsBoostAllowed(r)       (!(r->Flag & ResourceHasDisabledPriorityBoost))
 
-#if (!(defined(CONFIG_SMP)) && !(DBG))
+#if (!(defined(CONFIG_SMP)) && !(defined(DBG)))
 
 FORCEINLINE
 VOID

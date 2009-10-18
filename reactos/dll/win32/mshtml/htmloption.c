@@ -31,13 +31,13 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
-struct HTMLOptionElement {
+typedef struct {
     HTMLElement element;
 
     const IHTMLOptionElementVtbl *lpHTMLOptionElementVtbl;
 
     nsIDOMHTMLOptionElement *nsoption;
-};
+} HTMLOptionElement;
 
 #define HTMLOPTION(x)  (&(x)->lpHTMLOptionElementVtbl)
 

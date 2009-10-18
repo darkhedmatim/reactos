@@ -74,7 +74,7 @@ Ke386CallBios(IN ULONG Int,
     /* Allocate VDM structure */
     VdmProcessObjects = ExAllocatePoolWithTag(NonPagedPool,
                                               sizeof(VDM_PROCESS_OBJECTS),
-                                              '  eK');
+                                              TAG('K', 'e', ' ', ' '));
     if (!VdmProcessObjects) return STATUS_NO_MEMORY;
 
     /* Set it up */

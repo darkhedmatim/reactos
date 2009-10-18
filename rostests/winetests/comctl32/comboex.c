@@ -187,7 +187,7 @@ static void test_WM_LBUTTONDOWN(void)
 
     pGetComboBoxInfo = (void*)GetProcAddress(GetModuleHandleA("user32.dll"), "GetComboBoxInfo");
     if (!pGetComboBoxInfo){
-        win_skip("GetComboBoxInfo is not available\n");
+        skip("GetComboBoxInfo is not available\n");
         return;
     }
 
@@ -314,7 +314,7 @@ static int init(void)
     pInitCommonControlsEx = (void*)GetProcAddress(hComctl32, "InitCommonControlsEx");
     if (!pInitCommonControlsEx)
     {
-        win_skip("InitCommonControlsEx() is missing. Skipping the tests\n");
+        skip("InitCommonControlsEx() is missing. Skipping the tests\n");
         return 0;
     }
     iccex.dwSize = sizeof(iccex);

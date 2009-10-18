@@ -18,9 +18,9 @@ extern ERESOURCE ExpFirmwareTableResource;
 extern LIST_ENTRY ExpFirmwareTableProviderListHead;
 extern BOOLEAN ExpIsWinPEMode;
 extern LIST_ENTRY ExpSystemResourcesList;
-extern ULONG ExpAnsiCodePageDataOffset, ExpOemCodePageDataOffset;
-extern ULONG ExpUnicodeCaseTableDataOffset;
-extern PVOID ExpNlsSectionPointer;
+ULONG ExpAnsiCodePageDataOffset, ExpOemCodePageDataOffset;
+ULONG ExpUnicodeCaseTableDataOffset;
+PVOID ExpNlsSectionPointer;
 extern CHAR NtBuildLab[];
 extern ULONG CmNtCSDVersion;
 extern ULONG NtGlobalFlag;
@@ -574,8 +574,8 @@ ExInsertFastReference(IN OUT PEX_FAST_REF FastRef,
     return TRUE;   
 }
 
-FORCEINLINE
 BOOLEAN
+FORCEINLINE
 ExReleaseFastReference(IN PEX_FAST_REF FastRef,
                        IN PVOID Object)
 {
@@ -609,8 +609,8 @@ ExReleaseFastReference(IN PEX_FAST_REF FastRef,
     return TRUE;
 }
 
-FORCEINLINE
 EX_FAST_REF
+FORCEINLINE
 ExSwapFastReference(IN PEX_FAST_REF FastRef,
                     IN PVOID Object)
 {
@@ -636,8 +636,8 @@ ExSwapFastReference(IN PEX_FAST_REF FastRef,
     return OldValue;
 }
 
-FORCEINLINE
 EX_FAST_REF
+FORCEINLINE
 ExCompareSwapFastReference(IN PEX_FAST_REF FastRef,
                            IN PVOID Object,
                            IN PVOID OldObject)

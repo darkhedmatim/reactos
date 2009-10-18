@@ -21,13 +21,19 @@
 #define NDEBUG
 #include <debug.h>
 
-#define LDRP_PROCESS_CREATION_TIME 0xffff
+#define LDRP_PROCESS_CREATION_TIME 0x8000000
 #define RVA(m, b) ((PVOID)((ULONG_PTR)(b) + (ULONG_PTR)(m)))
 
 /* GLOBALS *******************************************************************/
 
 #ifdef NDEBUG
-#define TRACE_LDR(...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(__VA_ARGS__); }
+#if defined(__GNUC__)
+#define TRACE_LDR(args...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); }
+#elif defined(_MSC_VER)
+#define TRACE_LDR(args, ...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(__VA_ARGS__); }
+#endif	/* __GNUC__ */
+#else
+#define TRACE_LDR(args...) do { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0)
 #endif
 
 typedef struct _TLS_DATA
@@ -63,6 +69,22 @@ static VOID LdrpDetachProcess(BOOLEAN UnloadAll);
 
 /* FUNCTIONS *****************************************************************/
 
+#if defined(DBG) || defined(KDBG)
+
+VOID
+LdrpLoadUserModuleSymbols(PLDR_DATA_TABLE_ENTRY LdrModule)
+{
+  NtSystemDebugControl(
+    SysDbgQueryVersion,
+    (PVOID)LdrModule,
+    0,
+    NULL,
+    0,
+    NULL);
+}
+
+#endif /* DBG || KDBG */
+
 BOOLEAN
 LdrMappedAsDataFile(PVOID *BaseAddress)
 {
@@ -83,7 +105,7 @@ static __inline LONG LdrpDecrementLoadCount(PLDR_DATA_TABLE_ENTRY Module, BOOLEA
        RtlEnterCriticalSection (NtCurrentPeb()->LoaderLock);
      }
    LoadCount = Module->LoadCount;
-   if (Module->LoadCount > 0 && Module->LoadCount != LDRP_PROCESS_CREATION_TIME)
+   if (Module->LoadCount > 0 && Module->LoadCount != 0xFFFF)
      {
        Module->LoadCount--;
      }
@@ -102,7 +124,7 @@ static __inline LONG LdrpIncrementLoadCount(PLDR_DATA_TABLE_ENTRY Module, BOOLEA
        RtlEnterCriticalSection (NtCurrentPeb()->LoaderLock);
      }
    LoadCount = Module->LoadCount;
-   if (Module->LoadCount != LDRP_PROCESS_CREATION_TIME)
+   if (Module->LoadCount != 0xFFFF)
      {
        Module->LoadCount++;
      }
@@ -131,7 +153,7 @@ static __inline VOID LdrpAcquireTlsSlot(PLDR_DATA_TABLE_ENTRY Module, ULONG Size
 static __inline VOID LdrpTlsCallback(PLDR_DATA_TABLE_ENTRY Module, ULONG dwReason)
 {
    PIMAGE_TLS_CALLBACK *TlsCallback;
-   if (Module->TlsIndex != 0xFFFF && Module->LoadCount == LDRP_PROCESS_CREATION_TIME)
+   if (Module->TlsIndex != 0xFFFF && Module->LoadCount == 0xFFFF)
      {
        TlsCallback = LdrpTlsArray[Module->TlsIndex].TlsAddressOfCallBacks;
        if (TlsCallback)
@@ -156,112 +178,6 @@ static BOOLEAN LdrpCallDllEntry(PLDR_DATA_TABLE_ENTRY Module, DWORD dwReason, PV
      }
    LdrpTlsCallback(Module, dwReason);
    return  ((PDLLMAIN_FUNC)Module->EntryPoint)(Module->DllBase, dwReason, lpReserved);
-}
-
-static PWSTR
-LdrpQueryAppPaths(IN PCWSTR ImageName)
-{
-    PKEY_VALUE_PARTIAL_INFORMATION KeyInfo;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    WCHAR SearchPathBuffer[5*MAX_PATH];
-    UNICODE_STRING ValueNameString;
-    UNICODE_STRING KeyName;
-    WCHAR NameBuffer[MAX_PATH];
-    ULONG KeyInfoSize;
-    ULONG ResultSize;
-    PWCHAR Backslash;
-    HANDLE KeyHandle;
-    NTSTATUS Status;
-    PWSTR Path = NULL;
-
-    _snwprintf(NameBuffer,
-              sizeof(NameBuffer) / sizeof(WCHAR),
-              L"\\Registry\\Machine\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\%s",
-              ImageName);
-
-    RtlInitUnicodeString(&KeyName, NameBuffer);
-
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status = NtOpenKey(&KeyHandle,
-                       KEY_READ,
-                       &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT ("NtOpenKey() failed (Status %lx)\n", Status);
-        return NULL;
-    }
-
-    KeyInfoSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 256 * sizeof(WCHAR);
-
-    KeyInfo = RtlAllocateHeap(RtlGetProcessHeap(), 0, KeyInfoSize);
-    if (KeyInfo == NULL)
-    {
-        DPRINT("RtlAllocateHeap() failed\n");
-        NtClose(KeyHandle);
-        return NULL;
-    }
-
-    RtlInitUnicodeString(&ValueNameString,
-                         L"Path");
-
-    Status = NtQueryValueKey(KeyHandle,
-                             &ValueNameString,
-                             KeyValuePartialInformation,
-                             KeyInfo,
-                             KeyInfoSize,
-                             &ResultSize);
-
-    if (!NT_SUCCESS(Status))
-    {
-        NtClose(KeyHandle);
-        RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-        return NULL;
-    }
-
-    RtlCopyMemory(SearchPathBuffer,
-                  &KeyInfo->Data,
-                  KeyInfo->DataLength);
-
-    /* Free KeyInfo memory, we won't need it anymore */
-    RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-
-    /* Close the key handle */
-    NtClose(KeyHandle);
-
-    /* get application running path */
-    wcscat(SearchPathBuffer, L";");
-    wcscat(SearchPathBuffer, NtCurrentPeb()->ProcessParameters->ImagePathName.Buffer); // FIXME: Don't rely on it being NULL-terminated!!!
-
-    /* Remove trailing backslash */
-    Backslash = wcsrchr(SearchPathBuffer, L'\\');
-    if (Backslash) Backslash = L'\0';
-
-    wcscat(SearchPathBuffer, L";");
-
-    wcscat(SearchPathBuffer, SharedUserData->NtSystemRoot);
-    wcscat(SearchPathBuffer, L"\\system32;");
-    wcscat(SearchPathBuffer, SharedUserData->NtSystemRoot);
-    wcscat(SearchPathBuffer, L";.");
-
-    /* Copy it to the heap allocd memory */
-    Path = RtlAllocateHeap(RtlGetProcessHeap(),
-                           0,
-                           wcslen(SearchPathBuffer) * sizeof(WCHAR));
-
-    if (!Path)
-    {
-        DPRINT1("RtlAllocateHeap() failed\n");
-        return NULL;
-    }
-
-    wcscpy(Path, SearchPathBuffer);
-
-    return Path;
 }
 
 static NTSTATUS
@@ -343,7 +259,7 @@ LdrpInitializeTlsForProccess(VOID)
        while (Entry != ModuleListHead)
          {
            Module = CONTAINING_RECORD(Entry, LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
-           if (Module->LoadCount == LDRP_PROCESS_CREATION_TIME &&
+           if (Module->LoadCount == 0xFFFF &&
                Module->TlsIndex != 0xFFFF)
              {
                TlsDirectory = (PIMAGE_TLS_DIRECTORY)
@@ -570,7 +486,7 @@ LdrAddModuleEntry(PVOID ImageBase,
        * loading while app is initializing
        * dll must not be unloaded
        */
-      Module->LoadCount = LDRP_PROCESS_CREATION_TIME;
+      Module->LoadCount = 0xFFFF;
     }
 
   Module->Flags = 0;
@@ -976,7 +892,7 @@ LdrFindEntryForName(PUNICODE_STRING Name,
            0 == RtlCompareUnicodeString(&LdrpLastModule->FullDllName, &AdjustedName, TRUE)))
         {
           *Module = LdrpLastModule;
-          if (Ref && (*Module)->LoadCount != LDRP_PROCESS_CREATION_TIME)
+          if (Ref && (*Module)->LoadCount != 0xFFFF)
             {
               (*Module)->LoadCount++;
             }
@@ -997,7 +913,7 @@ LdrFindEntryForName(PUNICODE_STRING Name,
            0 == RtlCompareUnicodeString(&ModulePtr->FullDllName, &AdjustedName, TRUE)))
         {
           *Module = LdrpLastModule = ModulePtr;
-          if (Ref && ModulePtr->LoadCount != LDRP_PROCESS_CREATION_TIME)
+          if (Ref && ModulePtr->LoadCount != 0xFFFF)
             {
               ModulePtr->LoadCount++;
             }
@@ -1056,8 +972,9 @@ LdrFixupForward(PCHAR ForwardName)
          */
         if (!NT_SUCCESS(Status))
           {
+             ULONG Flags = LDRP_PROCESS_CREATION_TIME;
              Status = LdrLoadDll(NULL,
-								 NULL,
+                                 &Flags,
                                  &DllName,
                                  &BaseAddress);
              if (NT_SUCCESS(Status))
@@ -1426,10 +1343,10 @@ LdrpGetOrLoadModule(PWCHAR SearchPath,
    if (Load && !NT_SUCCESS(Status))
      {
        Status = LdrpLoadModule(SearchPath,
-							   0,
+                               NtCurrentPeb()->Ldr->Initialized ? 0 : LDRP_PROCESS_CREATION_TIME,
                                &DllName,
                                Module,
-							   NULL);
+                               NULL);
        if (NT_SUCCESS(Status))
          {
            Status = LdrFindEntryForName (&DllName, Module, FALSE);
@@ -1759,7 +1676,6 @@ LdrFixupImports(IN PWSTR SearchPath OPTIONAL,
    NTSTATUS Status;
    PLDR_DATA_TABLE_ENTRY ImportedModule;
    PCHAR ImportedName;
-   PWSTR ModulePath;
    ULONG Size;
 
    DPRINT("LdrFixupImports(SearchPath %S, Module %p)\n", SearchPath, Module);
@@ -1939,22 +1855,12 @@ LdrFixupImports(IN PWSTR SearchPath OPTIONAL,
            ImportedName = (PCHAR)Module->DllBase + ImportModuleDirectoryCurrent->Name;
            TRACE_LDR("%wZ imports functions from %s\n", &Module->BaseDllName, ImportedName);
 
-           if (SearchPath == NULL)
-           {
-                ModulePath = LdrpQueryAppPaths(Module->BaseDllName.Buffer);
-
-                Status = LdrpGetOrLoadModule(ModulePath, ImportedName, &ImportedModule, TRUE);
-                if (ModulePath != NULL) RtlFreeHeap(RtlGetProcessHeap(), 0, ModulePath);
-                if (NT_SUCCESS(Status)) goto Success;
-           }
-
            Status = LdrpGetOrLoadModule(SearchPath, ImportedName, &ImportedModule, TRUE);
            if (!NT_SUCCESS(Status))
              {
                DPRINT1("failed to load %s\n", ImportedName);
                return Status;
              }
-Success:
            if (Module == ImportedModule)
              {
                LdrpDecrementLoadCount(Module, FALSE);
@@ -2252,7 +2158,9 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
             DPRINT1("LdrFixupImports failed for %wZ, status=%x\n", &(*Module)->BaseDllName, Status);
             return Status;
           }
-
+#if defined(DBG) || defined(KDBG)
+        LdrpLoadUserModuleSymbols(*Module);
+#endif /* DBG || KDBG */
         RtlEnterCriticalSection(NtCurrentPeb()->LoaderLock);
         InsertTailList(&NtCurrentPeb()->Ldr->InInitializationOrderModuleList,
                        &(*Module)->InInitializationOrderModuleList);
@@ -2644,7 +2552,7 @@ LdrpDetachProcess(BOOLEAN UnloadAll)
    while (Entry != ModuleListHead)
      {
        Module = CONTAINING_RECORD(Entry, LDR_DATA_TABLE_ENTRY, InInitializationOrderModuleList);
-       if (((UnloadAll && Module->LoadCount == LDRP_PROCESS_CREATION_TIME) || Module->LoadCount == 0) &&
+       if (((UnloadAll && Module->LoadCount == 0xFFFF) || Module->LoadCount == 0) &&
            Module->Flags & LDRP_ENTRY_PROCESSED &&
            !(Module->Flags & LDRP_UNLOAD_IN_PROGRESS))
          {
@@ -2657,7 +2565,7 @@ LdrpDetachProcess(BOOLEAN UnloadAll)
              {
                TRACE_LDR("Unload %wZ - Calling entry point at %x\n",
                          &Module->BaseDllName, Module->EntryPoint);
-               LdrpCallDllEntry(Module, DLL_PROCESS_DETACH, (PVOID)(Module->LoadCount == LDRP_PROCESS_CREATION_TIME ? 1 : 0));
+               LdrpCallDllEntry(Module, DLL_PROCESS_DETACH, (PVOID)(Module->LoadCount == 0xFFFF ? 1 : 0));
              }
            else
              {
@@ -2679,7 +2587,7 @@ LdrpDetachProcess(BOOLEAN UnloadAll)
            Module = CONTAINING_RECORD(Entry, LDR_DATA_TABLE_ENTRY, InInitializationOrderModuleList);
            Entry = Entry->Blink;
            if (Module->Flags & LDRP_UNLOAD_IN_PROGRESS &&
-               ((UnloadAll && Module->LoadCount != LDRP_PROCESS_CREATION_TIME) || Module->LoadCount == 0))
+               ((UnloadAll && Module->LoadCount != 0xFFFF) || Module->LoadCount == 0))
              {
                /* remove the module entry from the list */
                RemoveEntryList (&Module->InLoadOrderLinks);
@@ -2742,7 +2650,7 @@ LdrpAttachProcess(VOID)
            Module->Flags |= LDRP_LOAD_IN_PROGRESS;
            TRACE_LDR("%wZ loaded - Calling init routine at %x for process attaching\n",
                      &Module->BaseDllName, Module->EntryPoint);
-           Result = LdrpCallDllEntry(Module, DLL_PROCESS_ATTACH, (PVOID)(Module->LoadCount == LDRP_PROCESS_CREATION_TIME ? 1 : 0));
+           Result = LdrpCallDllEntry(Module, DLL_PROCESS_ATTACH, (PVOID)(Module->LoadCount == 0xFFFF ? 1 : 0));
            if (!Result)
              {
                Status = STATUS_DLL_INIT_FAILED;

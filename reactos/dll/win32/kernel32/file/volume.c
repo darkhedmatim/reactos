@@ -88,7 +88,6 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 {
    DWORD drive, count;
    DWORD dwDriveMap;
-   LPSTR p;
 
    dwDriveMap = GetLogicalDrives();
 
@@ -101,7 +100,7 @@ GetLogicalDriveStringsA(DWORD nBufferLength,
 
    if ((count * 4) + 1 > nBufferLength) return ((count * 4) + 1);
 
-	p = lpBuffer;
+	LPSTR p = lpBuffer;
 
 	for (drive = 0; drive < MAX_DOS_DRIVES; drive++)
 	  if (dwDriveMap & (1<<drive))
@@ -127,7 +126,6 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 {
    DWORD drive, count;
    DWORD dwDriveMap;
-   LPWSTR p;
 
    dwDriveMap = GetLogicalDrives();
 
@@ -139,7 +137,7 @@ GetLogicalDriveStringsW(DWORD nBufferLength,
 
     if ((count * 4) + 1 > nBufferLength) return ((count * 4) + 1);
 
-    p = lpBuffer;
+    LPWSTR p = lpBuffer;
     for (drive = 0; drive < MAX_DOS_DRIVES; drive++)
         if (dwDriveMap & (1<<drive))
         {
@@ -917,7 +915,7 @@ GetVolumeNameForVolumeMountPointW(
    BufferLength = sizeof(MOUNTDEV_NAME) + 50 * sizeof(WCHAR);
    do
    {
-      MountDevName = RtlAllocateHeap(RtlGetProcessHeap(), 0, BufferLength);
+      MountDevName = RtlAllocateHeap(GetProcessHeap(), 0, BufferLength);
       if (MountDevName == NULL)
       {
          NtClose(FileHandle);
@@ -936,7 +934,7 @@ GetVolumeNameForVolumeMountPointW(
             BufferLength = sizeof(MOUNTDEV_NAME) + MountDevName->NameLength;
             continue;
          }
-         else
+         else 
          {
             NtClose(FileHandle);
             SetLastErrorByStatus(Status);
@@ -964,7 +962,7 @@ GetVolumeNameForVolumeMountPointW(
    MountPoint->DeviceNameOffset = sizeof(MOUNTMGR_MOUNT_POINT);
    MountPoint->DeviceNameLength = MountDevName->NameLength;
    RtlCopyMemory(MountPoint + 1, MountDevName->Name, MountDevName->NameLength);
-   RtlFreeHeap(RtlGetProcessHeap(), 0, MountDevName);
+   RtlFreeHeap(GetProcessHeap(), 0, MountDevName);
 
    RtlInitUnicodeString(&NtFileName, L"\\??\\MountPointManager");
    InitializeObjectAttributes(&ObjectAttributes, &NtFileName, 0, NULL, NULL);
@@ -974,17 +972,17 @@ GetVolumeNameForVolumeMountPointW(
    if (!NT_SUCCESS(Status))
    {
       SetLastErrorByStatus(Status);
-      RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoint);
+      RtlFreeHeap(GetProcessHeap(), 0, MountPoint);
       return FALSE;
    }
 
    BufferLength = sizeof(MOUNTMGR_MOUNT_POINTS);
    do
    {
-      MountPoints = RtlAllocateHeap(RtlGetProcessHeap(), 0, BufferLength);
+      MountPoints = RtlAllocateHeap(GetProcessHeap(), 0, BufferLength);
       if (MountPoints == NULL)
       {
-         RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoint);
+         RtlFreeHeap(GetProcessHeap(), 0, MountPoint);
          NtClose(FileHandle);
          SetLastError(ERROR_NOT_ENOUGH_MEMORY);
          return FALSE;
@@ -996,7 +994,7 @@ GetVolumeNameForVolumeMountPointW(
                                      MountPoints, BufferLength);
       if (!NT_SUCCESS(Status))
       {
-         RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoints);
+         RtlFreeHeap(GetProcessHeap(), 0, MountPoints);
          if (Status == STATUS_BUFFER_OVERFLOW)
          {
             BufferLength = MountPoints->Size;
@@ -1004,7 +1002,7 @@ GetVolumeNameForVolumeMountPointW(
          }
          else if (!NT_SUCCESS(Status))
          {
-            RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoint);
+            RtlFreeHeap(GetProcessHeap(), 0, MountPoint);
             NtClose(FileHandle);
             SetLastErrorByStatus(Status);
             return FALSE;
@@ -1013,7 +1011,7 @@ GetVolumeNameForVolumeMountPointW(
    }
    while (!NT_SUCCESS(Status));
 
-   RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoint);
+   RtlFreeHeap(GetProcessHeap(), 0, MountPoint);
    NtClose(FileHandle);
 
    /*
@@ -1025,7 +1023,7 @@ GetVolumeNameForVolumeMountPointW(
    {
       MountPoint = MountPoints->MountPoints + Index;
       SymbolicLinkName = (PUCHAR)MountPoints + MountPoint->SymbolicLinkNameOffset;
-
+      
       /*
        * Check for "\\?\Volume{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}\"
        * (with the last slash being optional) style symbolic links.
@@ -1055,14 +1053,14 @@ GetVolumeNameForVolumeMountPointW(
                Result = FALSE;
             }
 
-            RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoints);
+            RtlFreeHeap(GetProcessHeap(), 0, MountPoints);
 
             return Result;
          }
       }
    }
 
-   RtlFreeHeap(RtlGetProcessHeap(), 0, MountPoints);
+   RtlFreeHeap(GetProcessHeap(), 0, MountPoints);
    SetLastError(ERROR_INVALID_PARAMETER);
 
    return FALSE;
@@ -1091,7 +1089,7 @@ GetVolumeNameForVolumeMountPointA(
     if ((ret = GetVolumeNameForVolumeMountPointW( pathW, volumeW, len )))
         FilenameW2A_N( lpszVolumeName, len, volumeW, -1 );
 
-    RtlFreeHeap( RtlGetProcessHeap(), 0, pathW );
+    RtlFreeHeap( GetProcessHeap(), 0, pathW );
     return ret;
 }
 
@@ -1107,7 +1105,7 @@ FindFirstVolumeW(
 {
     DWORD size = 1024;
     HANDLE mgr = CreateFileW( MOUNTMGR_DOS_DEVICE_NAME, 0, FILE_SHARE_READ|FILE_SHARE_WRITE,
-                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, INVALID_HANDLE_VALUE );
+                              NULL, OPEN_EXISTING, 0, 0 );
     if (mgr == INVALID_HANDLE_VALUE) return INVALID_HANDLE_VALUE;
 
     for (;;)
@@ -1115,7 +1113,7 @@ FindFirstVolumeW(
         MOUNTMGR_MOUNT_POINT input;
         MOUNTMGR_MOUNT_POINTS *output;
 
-        if (!(output = RtlAllocateHeap( RtlGetProcessHeap(), 0, size )))
+        if (!(output = RtlAllocateHeap( GetProcessHeap(), 0, size )))
         {
             SetLastError( ERROR_NOT_ENOUGH_MEMORY );
             break;
@@ -1127,7 +1125,7 @@ FindFirstVolumeW(
         {
             if (GetLastError() != ERROR_MORE_DATA) break;
             size = output->Size;
-            RtlFreeHeap( RtlGetProcessHeap(), 0, output );
+            RtlFreeHeap( GetProcessHeap(), 0, output );
             continue;
         }
         CloseHandle( mgr );
@@ -1135,7 +1133,7 @@ FindFirstVolumeW(
         output->Size = 0;
         if (!FindNextVolumeW( output, volume, len ))
         {
-            RtlFreeHeap( RtlGetProcessHeap(), 0, output );
+            RtlFreeHeap( GetProcessHeap(), 0, output );
             return INVALID_HANDLE_VALUE;
         }
         return (HANDLE)output;
@@ -1154,18 +1152,8 @@ FindFirstVolumeA(
 	DWORD len
     )
 {
-    WCHAR *buffer = NULL;
-    HANDLE handle;
-
-    buffer = RtlAllocateHeap( RtlGetProcessHeap(), 0, len * sizeof(WCHAR) );
-
-    if (!buffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return INVALID_HANDLE_VALUE;
-    }
-
-    handle = FindFirstVolumeW( buffer, len );
+    WCHAR *buffer = RtlAllocateHeap( GetProcessHeap(), 0, len * sizeof(WCHAR) );
+    HANDLE handle = FindFirstVolumeW( buffer, len );
 
     if (handle != INVALID_HANDLE_VALUE)
     {
@@ -1175,7 +1163,7 @@ FindFirstVolumeA(
             handle = INVALID_HANDLE_VALUE;
         }
     }
-    RtlFreeHeap( RtlGetProcessHeap(), 0, buffer );
+    RtlFreeHeap( GetProcessHeap(), 0, buffer );
     return handle;
 }
 
@@ -1188,7 +1176,7 @@ FindVolumeClose(
     HANDLE hFindVolume
     )
 {
-    return RtlFreeHeap(RtlGetProcessHeap(), 0, hFindVolume);
+    return RtlFreeHeap(GetProcessHeap(), 0, hFindVolume);
 }
 
 /*

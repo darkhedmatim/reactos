@@ -1,23 +1,11 @@
-/*
- * COPYRIGHT:   LGPL, See LGPL.txt in the top level directory
- * PROJECT:     ReactOS CRT library
- * FILE:        lib/sdk/crt/time/difftime.c
- * PURPOSE:     Implementation of difftime
- * PROGRAMERS:  Timo Kreuzer
- */
-#include <time.h>
-#include "bitsfixup.h"
+/* Copyright (C) 1994 DJ Delorie, see COPYING.DJ for details */
+#include <precomp.h>
 
-/**
- * \name difftime
- * \brief Retrurns the difference between two time_t values in seconds.
- * \param time1 Beginning time.
- * \param time2 Ending time.
+/*
+ * @implemented
  */
 double
-difftime(
-    time_t time1, /**< Beginning time */
-    time_t time2) /**< Ending time */
+difftime(time_t time1, time_t time2)
 {
-    return (double)(time1 - time2);
+  return (double)(time1 - time2);
 }

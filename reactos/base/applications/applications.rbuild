@@ -61,9 +61,6 @@
 	<directory name="notepad">
 		<xi:include href="notepad/notepad.rbuild" />
 	</directory>
-	<directory name="paint">
-		<xi:include href="paint/paint.rbuild" />
-	</directory>
 	<directory name="regedit">
 		<xi:include href="regedit/regedit.rbuild" />
 	</directory>
@@ -96,8 +93,5 @@
 	</directory>
 	<directory name="write">
 		<xi:include href="write/write.rbuild" />
-	</directory>
-	<directory name="rapps">
-		<xi:include href="rapps/rapps.rbuild" />
 	</directory>
 </group>

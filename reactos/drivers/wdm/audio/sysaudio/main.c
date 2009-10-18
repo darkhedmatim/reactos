@@ -29,47 +29,6 @@ SysAudio_Unload(IN PDRIVER_OBJECT DriverObject)
 
 NTSTATUS
 NTAPI
-SysAudio_Shutdown(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  PIRP Irp)
-{
-    PKSAUDIO_DEVICE_ENTRY DeviceEntry;
-    PSYSAUDIODEVEXT DeviceExtension;
-    PLIST_ENTRY Entry;
-
-    DPRINT1("SysAudio_Shutdown called\n");
-
-    DeviceExtension = (PSYSAUDIODEVEXT)DeviceObject->DeviceExtension;
-
-    while(!IsListEmpty(&DeviceExtension->KsAudioDeviceList))
-    {
-        Entry = RemoveHeadList(&DeviceExtension->KsAudioDeviceList);
-        DeviceEntry = (PKSAUDIO_DEVICE_ENTRY)CONTAINING_RECORD(Entry, KSAUDIO_DEVICE_ENTRY, Entry);
-
-        DPRINT1("Freeing item %wZ\n", &DeviceEntry->DeviceName);
-
-        /* dereference audio device file object */
-        ObDereferenceObject(DeviceEntry->FileObject);
-
-        /* close audio device handle */
-        ZwClose(DeviceEntry->Handle);
-        /* free device string */
-        RtlFreeUnicodeString(&DeviceEntry->DeviceName);
-        /* free pins */
-        ExFreePool(DeviceEntry->Pins);
-        /* free audio device entry */
-        ExFreePool(DeviceEntry);
-    }
-
-    Irp->IoStatus.Information = 0;
-    Irp->IoStatus.Status = STATUS_SUCCESS;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-NTAPI
 SysAudio_Pnp(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp)
@@ -194,10 +153,6 @@ SysAudio_InstallDevice(
      /* clear initializing flag */
      DeviceObject->Flags &= ~ DO_DEVICE_INITIALIZING;
 
-     /* register shutdown notfication */
-     IoRegisterShutdownNotification(DeviceObject);
-
-
     /* Done */
     return STATUS_SUCCESS;
 
@@ -237,7 +192,6 @@ DriverEntry(
 
     /* Sysaudio needs to do work on pnp, so handle it */
     DriverObject->MajorFunction[IRP_MJ_PNP] = SysAudio_Pnp;
-    DriverObject->MajorFunction[IRP_MJ_SHUTDOWN] = SysAudio_Shutdown;
 
     /* Call our initialization function */
     return SysAudio_InstallDevice(DriverObject);

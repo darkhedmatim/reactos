@@ -94,7 +94,7 @@ static inline WORD d3d_fpu_setup(void)
 }
 
 /*****************************************************************************
- * IUnknown Methods. Common for Version 1, 2, 3 and 7
+ * IUnknown Methods. Common for Version 1, 2, 3 and 7 
  *****************************************************************************/
 
 /*****************************************************************************
@@ -316,7 +316,7 @@ IDirect3DDeviceImpl_7_Release(IDirect3DDevice7 *iface)
 
         EnterCriticalSection(&ddraw_cs);
         /* Free the index buffer. */
-        IWineD3DDevice_SetIndexBuffer(This->wineD3DDevice, NULL, WINED3DFMT_UNKNOWN);
+        IWineD3DDevice_SetIndices(This->wineD3DDevice, NULL, WINED3DFMT_UNKNOWN);
         IWineD3DBuffer_GetParent(This->indexbuffer,
                                  (IUnknown **) &IndexBufferParent);
         IParent_Release(IndexBufferParent); /* Once for the getParent */
@@ -1147,18 +1147,18 @@ IDirect3DDeviceImpl_7_EnumTextureFormats(IDirect3DDevice7 *iface,
 
     WINED3DFORMAT FormatList[] = {
         /* 32 bit */
-        WINED3DFMT_B8G8R8A8_UNORM,
-        WINED3DFMT_B8G8R8X8_UNORM,
+        WINED3DFMT_A8R8G8B8,
+        WINED3DFMT_X8R8G8B8,
         /* 24 bit */
-        WINED3DFMT_B8G8R8_UNORM,
+        WINED3DFMT_R8G8B8,
         /* 16 Bit */
-        WINED3DFMT_B5G5R5A1_UNORM,
-        WINED3DFMT_B4G4R4A4_UNORM,
-        WINED3DFMT_B5G6R5_UNORM,
-        WINED3DFMT_B5G5R5X1_UNORM,
+        WINED3DFMT_A1R5G5B5,
+        WINED3DFMT_A4R4G4B4,
+        WINED3DFMT_R5G6B5,
+        WINED3DFMT_X1R5G5B5,
         /* 8 Bit */
-        WINED3DFMT_B2G3R3_UNORM,
-        WINED3DFMT_P8_UINT,
+        WINED3DFMT_R3G3B2,
+        WINED3DFMT_P8,
         /* FOURCC codes */
         WINED3DFMT_DXT1,
         WINED3DFMT_DXT3,
@@ -1167,12 +1167,12 @@ IDirect3DDeviceImpl_7_EnumTextureFormats(IDirect3DDevice7 *iface,
 
     WINED3DFORMAT BumpFormatList[] = {
         WINED3DFMT_R8G8_SNORM,
-        WINED3DFMT_R5G5_SNORM_L6_UNORM,
-        WINED3DFMT_R8G8_SNORM_L8X8_UNORM,
+        WINED3DFMT_L6V5U5,
+        WINED3DFMT_X8L8V8U8,
         WINED3DFMT_R8G8B8A8_SNORM,
         WINED3DFMT_R16G16_SNORM,
-        WINED3DFMT_R10G11B11_SNORM,
-        WINED3DFMT_R10G10B10_SNORM_A2_UNORM
+        WINED3DFMT_W11V11U10,
+        WINED3DFMT_A2W10V10U10
     };
 
     TRACE("(%p)->(%p,%p): Relay\n", This, Callback, Arg);
@@ -1309,18 +1309,18 @@ IDirect3DDeviceImpl_2_EnumTextureFormats(IDirect3DDevice2 *iface,
 
     WINED3DFORMAT FormatList[] = {
         /* 32 bit */
-        WINED3DFMT_B8G8R8A8_UNORM,
-        WINED3DFMT_B8G8R8X8_UNORM,
+        WINED3DFMT_A8R8G8B8,
+        WINED3DFMT_X8R8G8B8,
         /* 24 bit */
-        WINED3DFMT_B8G8R8_UNORM,
+        WINED3DFMT_R8G8B8,
         /* 16 Bit */
-        WINED3DFMT_B5G5R5A1_UNORM,
-        WINED3DFMT_B4G4R4A4_UNORM,
-        WINED3DFMT_B5G6R5_UNORM,
-        WINED3DFMT_B5G5R5X1_UNORM,
+        WINED3DFMT_A1R5G5B5,
+        WINED3DFMT_A4R4G4B4,
+        WINED3DFMT_R5G6B5,
+        WINED3DFMT_X1R5G5B5,
         /* 8 Bit */
-        WINED3DFMT_B2G3R3_UNORM,
-        WINED3DFMT_P8_UINT,
+        WINED3DFMT_R3G3B2,
+        WINED3DFMT_P8,
         /* FOURCC codes - Not in this version*/
     };
 
@@ -2558,6 +2558,7 @@ IDirect3DDeviceImpl_3_GetRenderState(IDirect3DDevice3 *iface,
                 BOOL tex_alpha = FALSE;
                 IWineD3DBaseTexture *tex = NULL;
                 WINED3DSURFACE_DESC desc;
+                WINED3DFORMAT fmt;
                 DDPIXELFORMAT ddfmt;
 
                 hr = IWineD3DDevice_GetTexture(This->wineD3DDevice,
@@ -2566,11 +2567,13 @@ IDirect3DDeviceImpl_3_GetRenderState(IDirect3DDevice3 *iface,
 
                 if(hr == WINED3D_OK && tex)
                 {
+                    memset(&desc, 0, sizeof(desc));
+                    desc.Format = &fmt;
                     hr = IWineD3DTexture_GetLevelDesc((IWineD3DTexture*) tex, 0, &desc);
                     if (SUCCEEDED(hr))
                     {
                         ddfmt.dwSize = sizeof(ddfmt);
-                        PixelFormat_WineD3DtoDD(&ddfmt, desc.format);
+                        PixelFormat_WineD3DtoDD(&ddfmt, fmt);
                         if (ddfmt.u5.dwRGBAlphaBitMask) tex_alpha = TRUE;
                     }
 
@@ -2639,7 +2642,7 @@ IDirect3DDeviceImpl_7_SetRenderState(IDirect3DDevice7 *iface,
     {
         case D3DRENDERSTATE_TEXTUREMAG:
         {
-            WINED3DTEXTUREFILTERTYPE tex_mag = WINED3DTEXF_POINT;
+            WINED3DTEXTUREFILTERTYPE tex_mag = WINED3DTEXF_NONE;
 
             switch ((D3DTEXTUREFILTER) Value)
             {
@@ -2663,7 +2666,7 @@ IDirect3DDeviceImpl_7_SetRenderState(IDirect3DDevice7 *iface,
 
         case D3DRENDERSTATE_TEXTUREMIN:
         {
-            WINED3DTEXTUREFILTERTYPE tex_min = WINED3DTEXF_POINT;
+            WINED3DTEXTUREFILTERTYPE tex_min = WINED3DTEXF_NONE;
             WINED3DTEXTUREFILTERTYPE tex_mip = WINED3DTEXF_NONE;
 
             switch ((D3DTEXTUREFILTER) Value)
@@ -2675,11 +2678,11 @@ IDirect3DDeviceImpl_7_SetRenderState(IDirect3DDevice7 *iface,
                     tex_min = WINED3DTEXF_LINEAR;
                     break;
                 case D3DFILTER_MIPNEAREST:
-                    tex_min = WINED3DTEXF_POINT;
+                    tex_min = WINED3DTEXF_NONE;
                     tex_mip = WINED3DTEXF_POINT;
                     break;
                 case D3DFILTER_MIPLINEAR:
-                    tex_min = WINED3DTEXF_POINT;
+                    tex_min = WINED3DTEXF_NONE;
                     tex_mip = WINED3DTEXF_LINEAR;
                     break;
                 case D3DFILTER_LINEARMIPNEAREST:
@@ -2830,6 +2833,7 @@ IDirect3DDeviceImpl_3_SetRenderState(IDirect3DDevice3 *iface,
                     BOOL tex_alpha = FALSE;
                     IWineD3DBaseTexture *tex = NULL;
                     WINED3DSURFACE_DESC desc;
+                    WINED3DFORMAT fmt;
                     DDPIXELFORMAT ddfmt;
 
                     hr = IWineD3DDevice_GetTexture(This->wineD3DDevice,
@@ -2839,11 +2843,12 @@ IDirect3DDeviceImpl_3_SetRenderState(IDirect3DDevice3 *iface,
                     if(hr == WINED3D_OK && tex)
                     {
                         memset(&desc, 0, sizeof(desc));
+                        desc.Format = &fmt;
                         hr = IWineD3DTexture_GetLevelDesc((IWineD3DTexture*) tex, 0, &desc);
                         if (SUCCEEDED(hr))
                         {
                             ddfmt.dwSize = sizeof(ddfmt);
-                            PixelFormat_WineD3DtoDD(&ddfmt, desc.format);
+                            PixelFormat_WineD3DtoDD(&ddfmt, fmt);
                             if (ddfmt.u5.dwRGBAlphaBitMask) tex_alpha = TRUE;
                         }
 
@@ -2956,7 +2961,7 @@ IDirect3DDeviceImpl_3_SetLightState(IDirect3DDevice3 *iface,
 
     TRACE("(%p)->(%08x,%08x)\n", This, LightStateType, Value);
 
-    if (!LightStateType || (LightStateType > D3DLIGHTSTATE_COLORVERTEX))
+    if (!LightStateType && (LightStateType > D3DLIGHTSTATE_COLORVERTEX))
     {
         TRACE("Unexpected Light State Type\n");
         return DDERR_INVALIDPARAMS;
@@ -3089,7 +3094,7 @@ IDirect3DDeviceImpl_3_GetLightState(IDirect3DDevice3 *iface,
 
     TRACE("(%p)->(%08x,%p)\n", This, LightStateType, Value);
 
-    if (!LightStateType || (LightStateType > D3DLIGHTSTATE_COLORVERTEX))
+    if (!LightStateType && (LightStateType > D3DLIGHTSTATE_COLORVERTEX))
     {
         TRACE("Unexpected Light State Type\n");
         return DDERR_INVALIDPARAMS;
@@ -3603,8 +3608,9 @@ IDirect3DDeviceImpl_7_DrawIndexedPrimitive(IDirect3DDevice7 *iface,
     }
 
     IWineD3DDevice_SetPrimitiveType(This->wineD3DDevice, PrimitiveType);
-    hr = IWineD3DDevice_DrawIndexedPrimitiveUP(This->wineD3DDevice, IndexCount, Indices,
-            WINED3DFMT_R16_UINT, Vertices, get_flexible_vertex_size(VertexType));
+    hr = IWineD3DDevice_DrawIndexedPrimitiveUP(This->wineD3DDevice, 0 /* MinVertexIndex */,
+            VertexCount /* UINT NumVertexIndex */, IndexCount, Indices, WINED3DFMT_R16_UINT,
+            Vertices, get_flexible_vertex_size(VertexType));
     LeaveCriticalSection(&ddraw_cs);
     return hr;
 }
@@ -3841,14 +3847,14 @@ IDirect3DDeviceImpl_7_DrawPrimitiveStrided(IDirect3DDevice7 *iface,
 
     if(VertexType & D3DFVF_DIFFUSE)
     {
-        WineD3DStrided.diffuse.format = WINED3DFMT_B8G8R8A8_UNORM;
+        WineD3DStrided.diffuse.format = WINED3DFMT_A8R8G8B8;
         WineD3DStrided.diffuse.lpData = D3DDrawPrimStrideData->diffuse.lpvData;
         WineD3DStrided.diffuse.dwStride = D3DDrawPrimStrideData->diffuse.dwStride;
     }
 
     if(VertexType & D3DFVF_SPECULAR)
     {
-        WineD3DStrided.specular.format = WINED3DFMT_B8G8R8A8_UNORM;
+        WineD3DStrided.specular.format = WINED3DFMT_A8R8G8B8;
         WineD3DStrided.specular.lpData = D3DDrawPrimStrideData->specular.lpvData;
         WineD3DStrided.specular.dwStride = D3DDrawPrimStrideData->specular.dwStride;
     }
@@ -3982,14 +3988,14 @@ IDirect3DDeviceImpl_7_DrawIndexedPrimitiveStrided(IDirect3DDevice7 *iface,
 
     if(VertexType & D3DFVF_DIFFUSE)
     {
-        WineD3DStrided.diffuse.format = WINED3DFMT_B8G8R8A8_UNORM;
+        WineD3DStrided.diffuse.format = WINED3DFMT_A8R8G8B8;
         WineD3DStrided.diffuse.lpData = D3DDrawPrimStrideData->diffuse.lpvData;
         WineD3DStrided.diffuse.dwStride = D3DDrawPrimStrideData->diffuse.dwStride;
     }
 
     if(VertexType & D3DFVF_SPECULAR)
     {
-        WineD3DStrided.specular.format = WINED3DFMT_B8G8R8A8_UNORM;
+        WineD3DStrided.specular.format = WINED3DFMT_A8R8G8B8;
         WineD3DStrided.specular.lpData = D3DDrawPrimStrideData->specular.lpvData;
         WineD3DStrided.specular.dwStride = D3DDrawPrimStrideData->specular.dwStride;
     }
@@ -4266,7 +4272,7 @@ IDirect3DDeviceImpl_7_DrawIndexedPrimitiveVB(IDirect3DDevice7 *iface,
 
     /* Set the index stream */
     IWineD3DDevice_SetBaseVertexIndex(This->wineD3DDevice, StartVertex);
-    hr = IWineD3DDevice_SetIndexBuffer(This->wineD3DDevice, This->indexbuffer,
+    hr = IWineD3DDevice_SetIndices(This->wineD3DDevice, This->indexbuffer,
                                    WINED3DFMT_R16_UINT);
 
     /* Set the vertex stream source */
@@ -4284,7 +4290,8 @@ IDirect3DDeviceImpl_7_DrawIndexedPrimitiveVB(IDirect3DDevice7 *iface,
 
 
     IWineD3DDevice_SetPrimitiveType(This->wineD3DDevice, PrimitiveType);
-    hr = IWineD3DDevice_DrawIndexedPrimitive(This->wineD3DDevice, 0 /* StartIndex */, IndexCount);
+    hr = IWineD3DDevice_DrawIndexedPrimitive(This->wineD3DDevice,
+            0 /* minIndex */, NumVertices, 0 /* StartIndex */, IndexCount);
 
     LeaveCriticalSection(&ddraw_cs);
     return hr;
@@ -4349,6 +4356,8 @@ Thunk_IDirect3DDeviceImpl_3_DrawIndexedPrimitiveVB(IDirect3DDevice3 *iface,
  * The return value consist of a combination of D3DCLIP_* flags, or it's
  * 0 if the sphere is completely visible(according to the SDK, not checked)
  *
+ * Sounds like an overdose of math ;)
+ *
  * Version 3 and 7
  *
  * Params:
@@ -4359,7 +4368,7 @@ Thunk_IDirect3DDeviceImpl_3_DrawIndexedPrimitiveVB(IDirect3DDevice3 *iface,
  *  ReturnValues: Array to write the results to
  *
  * Returns:
- *  D3D_OK
+ *  D3D_OK because it's a stub
  *  (DDERR_INVALIDPARAMS if Centers, Radii or ReturnValues are NULL)
  *  (D3DERR_INVALIDMATRIX if the combined world, view and proj matrix
  *  is singular)
@@ -4500,7 +4509,7 @@ IDirect3DDeviceImpl_7_GetTexture(IDirect3DDevice7 *iface,
 
     EnterCriticalSection(&ddraw_cs);
     hr = IWineD3DDevice_GetTexture(This->wineD3DDevice, Stage, &Surf);
-    if( (hr != D3D_OK) || (!Surf) )
+    if( (hr != D3D_OK) || (!Surf) ) 
     {
         *Texture = NULL;
         LeaveCriticalSection(&ddraw_cs);
@@ -4641,6 +4650,7 @@ IDirect3DDeviceImpl_3_SetTexture(IDirect3DDevice3 *iface,
         BOOL tex_alpha = FALSE;
         IWineD3DBaseTexture *tex = NULL;
         WINED3DSURFACE_DESC desc;
+        WINED3DFORMAT fmt;
         DDPIXELFORMAT ddfmt;
         HRESULT result;
 
@@ -4651,11 +4661,12 @@ IDirect3DDeviceImpl_3_SetTexture(IDirect3DDevice3 *iface,
         if(result == WINED3D_OK && tex)
         {
             memset(&desc, 0, sizeof(desc));
+            desc.Format = &fmt;
             result = IWineD3DTexture_GetLevelDesc((IWineD3DTexture*) tex, 0, &desc);
             if (SUCCEEDED(result))
             {
                 ddfmt.dwSize = sizeof(ddfmt);
-                PixelFormat_WineD3DtoDD(&ddfmt, desc.format);
+                PixelFormat_WineD3DtoDD(&ddfmt, fmt);
                 if (ddfmt.u5.dwRGBAlphaBitMask) tex_alpha = TRUE;
             }
 
@@ -5300,7 +5311,7 @@ IDirect3DDeviceImpl_7_GetMaterial(IDirect3DDevice7 *iface,
     TRACE("(%p)->(%p): Relay!\n", This, Mat);
 
     EnterCriticalSection(&ddraw_cs);
-    /* Note: D3DMATERIAL7 is compatible with WINED3DMATERIAL */
+    /* Note: D3DMATERIAL7 is compatible with WINED3DMATERIAL */ 
     hr = IWineD3DDevice_GetMaterial(This->wineD3DDevice,
                                     (WINED3DMATERIAL*) Mat);
     LeaveCriticalSection(&ddraw_cs);
@@ -5935,8 +5946,8 @@ static BOOL is_mip_level_subset(IDirectDrawSurfaceImpl *dest,
 static void copy_mipmap_chain(IDirect3DDeviceImpl *device,
                               IDirectDrawSurfaceImpl *dest,
                               IDirectDrawSurfaceImpl *src,
-                              const POINT *DestPoint,
-                              const RECT *SrcRect)
+                              POINT *DestPoint,
+                              RECT *SrcRect)
 {
     IDirectDrawSurfaceImpl *src_level, *dest_level;
     IDirectDrawSurface7 *temp;

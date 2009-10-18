@@ -22,7 +22,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
 typedef struct {
-    const IInternetProtocolVtbl  *lpIInternetProtocolVtbl;
+    const IInternetProtocolVtbl  *lpInternetProtocolVtbl;
     const IInternetPriorityVtbl  *lpInternetPriorityVtbl;
 
     HANDLE file;
@@ -31,9 +31,10 @@ typedef struct {
     LONG ref;
 } FileProtocol;
 
+#define PROTOCOL(x)  ((IInternetProtocol*)  &(x)->lpInternetProtocolVtbl)
 #define PRIORITY(x)  ((IInternetPriority*)  &(x)->lpInternetPriorityVtbl)
 
-#define PROTOCOL_THIS(iface) DEFINE_THIS(FileProtocol, IInternetProtocol, iface)
+#define PROTOCOL_THIS(iface) DEFINE_THIS(FileProtocol, InternetProtocol, iface)
 
 static HRESULT WINAPI FileProtocol_QueryInterface(IInternetProtocol *iface, REFIID riid, void **ppv)
 {
@@ -359,7 +360,7 @@ HRESULT FileProtocol_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
 
     ret = heap_alloc(sizeof(FileProtocol));
 
-    ret->lpIInternetProtocolVtbl = &FileProtocolVtbl;
+    ret->lpInternetProtocolVtbl = &FileProtocolVtbl;
     ret->lpInternetPriorityVtbl = &FilePriorityVtbl;
     ret->file = NULL;
     ret->priority = 0;

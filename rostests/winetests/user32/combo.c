@@ -94,28 +94,27 @@ static void test_setitemheight(DWORD style)
 
 static void test_setfont(DWORD style)
 {
-    HWND hCombo;
-    HFONT hFont1, hFont2;
+    HWND hCombo = build_combo(style);
+    HFONT hFont1 = CreateFont(10, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH|FF_DONTCARE, "Marlett");
+    HFONT hFont2 = CreateFont(8, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH|FF_DONTCARE, "Marlett");
     RECT r;
     int i;
 
-    if (!is_font_installed("Marlett"))
-    {
-        skip("Marlett font not available\n");
-        return;
-    }
-
     trace("Style %x\n", style);
-
-    hCombo = build_combo(style);
-    hFont1 = CreateFont(10, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, SYMBOL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH|FF_DONTCARE, "Marlett");
-    hFont2 = CreateFont(8, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, SYMBOL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH|FF_DONTCARE, "Marlett");
-
     GetClientRect(hCombo, &r);
     expect_rect(r, 0, 0, 100, 24);
     SendMessageA(hCombo, CB_GETDROPPEDCONTROLRECT, 0, (LPARAM)&r);
     MapWindowPoints(HWND_DESKTOP, hMainWnd, (LPPOINT)&r, 2);
     todo_wine expect_rect(r, 5, 5, 105, 105);
+
+    if (!is_font_installed("Marlett"))
+    {
+        skip("Marlett font not available\n");
+        DestroyWindow(hCombo);
+        DeleteObject(hFont1);
+        DeleteObject(hFont2);
+        return;
+    }
 
     if (font_height(hFont1) == 10 && font_height(hFont2) == 8)
     {
@@ -141,14 +140,11 @@ static void test_setfont(DWORD style)
         todo_wine expect_rect(r, 5, 5, 105, 99);
     }
     else
-    {
-        ok(0, "Expected Marlett font heights 10/8, got %d/%d\n",
-           font_height(hFont1), font_height(hFont2));
-    }
+        skip("Invalid Marlett font heights\n");
 
     for (i = 1; i < 30; i++)
     {
-        HFONT hFont = CreateFont(i, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, SYMBOL_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH|FF_DONTCARE, "Marlett");
+        HFONT hFont = CreateFont(i, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH|FF_DONTCARE, "Marlett");
         int height = font_height(hFont);
 
         SendMessage(hCombo, WM_SETFONT, (WPARAM)hFont, FALSE);
@@ -359,48 +355,6 @@ static void test_WM_LBUTTONDOWN(void)
     DestroyWindow(hCombo);
 }
 
-static void test_changesize( DWORD style)
-{
-    HWND hCombo = build_combo(style);
-    RECT rc;
-    INT ddheight, clheight, ddwidth, clwidth;
-    /* get initial measurements */
-    GetClientRect( hCombo, &rc);
-    clheight = rc.bottom - rc.top;
-    clwidth = rc.right - rc.left;
-    SendMessageA(hCombo, CB_GETDROPPEDCONTROLRECT, 0, (LPARAM)&rc);
-    ddheight = rc.bottom - rc.top;
-    ddwidth = rc.right - rc.left;
-    /* use MoveWindow to move & resize the combo */
-    /* first make it slightly smaller */
-    MoveWindow( hCombo, 10, 10, clwidth - 2, clheight - 2, TRUE);
-    GetClientRect( hCombo, &rc);
-    ok( rc.right - rc.left == clwidth - 2, "clientrect witdh is %d vs %d\n",
-            rc.right - rc.left, clwidth - 2);
-    ok( rc.bottom - rc.top == clheight, "clientrect height is %d vs %d\n",
-                rc.bottom - rc.top, clheight);
-    SendMessageA(hCombo, CB_GETDROPPEDCONTROLRECT, 0, (LPARAM)&rc);
-    ok( rc.right - rc.left == clwidth - 2, "drop-down rect witdh is %d vs %d\n",
-            rc.right - rc.left, clwidth - 2);
-    ok( rc.bottom - rc.top == ddheight, "drop-down rect height is %d vs %d\n",
-            rc.bottom - rc.top, ddheight);
-    /* new cx, cy is slightly bigger than the initial values */
-    MoveWindow( hCombo, 10, 10, clwidth + 2, clheight + 2, TRUE);
-    GetClientRect( hCombo, &rc);
-    ok( rc.right - rc.left == clwidth + 2, "clientrect witdh is %d vs %d\n",
-            rc.right - rc.left, clwidth + 2);
-    ok( rc.bottom - rc.top == clheight, "clientrect height is %d vs %d\n",
-            rc.bottom - rc.top, clheight);
-    SendMessageA(hCombo, CB_GETDROPPEDCONTROLRECT, 0, (LPARAM)&rc);
-    ok( rc.right - rc.left == clwidth + 2, "drop-down rect witdh is %d vs %d\n",
-            rc.right - rc.left, clwidth + 2);
-    todo_wine {
-        ok( rc.bottom - rc.top == clheight + 2, "drop-down rect height is %d vs %d\n",
-                rc.bottom - rc.top, clheight + 2);
-    }
-    DestroyWindow(hCombo);
-}
-
 START_TEST(combo)
 {
     hMainWnd = CreateWindow("static", "Test", WS_OVERLAPPEDWINDOW, 10, 10, 300, 300, NULL, NULL, NULL, 0);
@@ -412,8 +366,6 @@ START_TEST(combo)
     test_setitemheight(CBS_DROPDOWNLIST);
     test_CBN_SELCHANGE();
     test_WM_LBUTTONDOWN();
-    test_changesize(CBS_DROPDOWN);
-    test_changesize(CBS_DROPDOWNLIST);
 
     DestroyWindow(hMainWnd);
 }

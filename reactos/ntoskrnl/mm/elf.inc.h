@@ -7,6 +7,10 @@
 #error __ELF_WORD_SIZE must be defined
 #endif
 
+#ifndef MAXULONG
+#define MAXULONG ((ULONG)(~1))
+#endif
+
 #include <elf/elf.h>
 
 /* TODO: Intsafe should be made into a library, as it's generally useful */
@@ -201,7 +205,7 @@ static __inline ULONG ElfFmtpReadULong
  }
 
  ASSERT(FALSE);
- return MAXULONG;
+ return (ULONG)-1;
 }
 
 static __inline USHORT ElfFmtpReadUShort
@@ -278,7 +282,7 @@ static __inline ULONG ElfFmtpSafeReadULong
  }
 
  ASSERT(FALSE);
- return MAXULONG;
+ return (ULONG)-1;
 }
 
 static __inline BOOLEAN ElfFmtpIsPowerOf2(IN Elf_Addr Number)

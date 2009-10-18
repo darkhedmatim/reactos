@@ -1,7 +1,6 @@
 /*
  *  FreeLoader
  *  Copyright (C) 1998-2003  Brian Palmer  <brianp@sginet.com>
- *  Copyright (C) 2008-2009  Hervé Poussineau  <hpoussin@reactos.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +23,13 @@
 #include <debug.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////
+// DATA
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+const FS_VTBL* pFSVtbl = NULL; // Type of filesystem on boot device, set by FsOpenVolume()
+PVOID FsStaticBufferDisk = 0, FsStaticBufferData = 0;
+
+/////////////////////////////////////////////////////////////////////////////////////////////
 // FUNCTIONS
 /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -34,11 +40,103 @@ VOID FileSystemError(PCSTR ErrorString)
 	UiMessageBox(ErrorString);
 }
 
+/*
+ *
+ * BOOLEAN FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG SectorCount, int Type);
+ *
+ * This function is called to open a disk volume for file access.
+ * It must be called before any of the file functions will work.
+ *
+ */
+static BOOLEAN FsOpenVolume(ULONG DriveNumber, ULONGLONG StartSector, ULONGLONG SectorCount, int Type)
+{
+	CHAR ErrorText[80];
+
+	if( !FsStaticBufferDisk )
+		FsStaticBufferDisk = MmAllocateMemory( 0x20000 );
+	if( !FsStaticBufferDisk )
+	{
+		FileSystemError("could not allocate filesystem static buffer");
+		return FALSE;
+	}
+	FsStaticBufferData = ((PCHAR)FsStaticBufferDisk) + 0x10000;
+
+	switch (Type)
+	{
+	case FS_FAT:
+		pFSVtbl = &FatVtbl;
+		break;
+	case FS_NTFS:
+		pFSVtbl = &NtfsVtbl;
+		break;
+	case FS_EXT2:
+		pFSVtbl = &Ext2Vtbl;
+		break;
+	case FS_ISO9660:
+		pFSVtbl = &Iso9660Vtbl;
+		break;
+	default:
+		pFSVtbl = NULL;
+		break;
+	}
+
+	if (pFSVtbl && pFSVtbl->OpenVolume)
+	{
+		return (*pFSVtbl->OpenVolume)(DriveNumber, StartSector, SectorCount);
+	}
+	else
+	{
+		sprintf(ErrorText, "Unsupported file system. Type: 0x%x", Type);
+		FileSystemError(ErrorText);
+	}
+
+	return FALSE;
+}
+/*
+ *
+ * BOOLEAN FsOpenBootVolume()
+ *
+ * This function is called to open the boot disk volume for file access.
+ * It must be called before any of the file functions will work.
+ */
+BOOLEAN FsOpenBootVolume()
+{
+	ULONG DriveNumber;
+	ULONGLONG StartSector;
+	ULONGLONG SectorCount;
+	int Type;
+
+	if (! MachDiskGetBootVolume(&DriveNumber, &StartSector, &SectorCount, &Type))
+	{
+		FileSystemError("Unable to locate boot partition\n");
+		return FALSE;
+	}
+
+	return FsOpenVolume(DriveNumber, StartSector, SectorCount, Type);
+}
+
+BOOLEAN FsOpenSystemVolume(char *SystemPath, char *RemainingPath, PULONG Device)
+{
+	ULONG DriveNumber;
+	ULONGLONG StartSector;
+	ULONGLONG SectorCount;
+	int Type;
+
+	if (! MachDiskGetSystemVolume(SystemPath, RemainingPath, Device,
+	                              &DriveNumber, &StartSector, &SectorCount,
+	                              &Type))
+	{
+		FileSystemError("Unable to locate system partition\n");
+		return FALSE;
+	}
+
+	return FsOpenVolume(DriveNumber, StartSector, SectorCount, Type);
+}
+
+
 PFILE FsOpenFile(PCSTR FileName)
 {
-	CHAR FullPath[MAX_PATH];
-	ULONG FileId;
-	LONG ret;
+	PFILE	FileHandle = NULL;
 
 	//
 	// Print status message
@@ -46,38 +144,51 @@ PFILE FsOpenFile(PCSTR FileName)
 	DPRINTM(DPRINT_FILESYSTEM, "Opening file '%s'...\n", FileName);
 
 	//
-	// Create full file name
+	// Check and see if the first character is '\' or '/' and remove it if so
 	//
-	MachDiskGetBootPath(FullPath, sizeof(FullPath));
-	strcat(FullPath, FileName);
+	while ((*FileName == '\\') || (*FileName == '/'))
+	{
+		FileName++;
+	}
 
 	//
-	// Open the file
+	// Check file system type and pass off to appropriate handler
 	//
-	ret = ArcOpen(FullPath, OpenReadOnly, &FileId);
-
-	//
-	// Check for success
-	//
-	if (ret == ESUCCESS)
-		return (PFILE)FileId;
+	if (pFSVtbl && pFSVtbl->OpenFile)
+	{
+		FileHandle = pFSVtbl->OpenFile(FileName);
+	}
 	else
-		return (PFILE)0;
+	{
+		FileSystemError("Error: Unknown filesystem.");
+	}
+
+	//
+	// Check return value
+	//
+	if (FileHandle != NULL)
+	{
+		DPRINTM(DPRINT_FILESYSTEM, "FsOpenFile() succeeded. FileHandle: 0x%x\n", FileHandle);
+	}
+	else
+	{
+		DPRINTM(DPRINT_FILESYSTEM, "FsOpenFile() failed.\n");
+	}
+
+	return FileHandle;
 }
 
 VOID FsCloseFile(PFILE FileHandle)
 {
-	ULONG FileId = (ULONG)FileHandle;
-
-	//
-	// Close the handle
-	//
-	ArcClose(FileId);
-
-	//
-	// Do not check for error; this function is
-	// supposed to always succeed
-	//
+	if (pFSVtbl)
+	{
+		if (pFSVtbl->CloseFile)
+			(*pFSVtbl->CloseFile)(FileHandle);
+	}
+	else
+	{
+		FileSystemError("Error: Unknown filesystem.");
+	}
 }
 
 /*
@@ -86,62 +197,73 @@ VOID FsCloseFile(PFILE FileHandle)
  */
 BOOLEAN FsReadFile(PFILE FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer)
 {
-	ULONG FileId = (ULONG)FileHandle;
-	LONG ret;
+	//
+	// Set the number of bytes read equal to zero
+	//
+	if (BytesRead != NULL)
+	{
+		*BytesRead = 0;
+	}
 
-	//
-	// Read the file
-	//
-	ret = ArcRead(FileId, Buffer, BytesToRead, BytesRead);
-
-	//
-	// Check for success
-	//
-	if (ret == ESUCCESS)
-		return TRUE;
+	if (pFSVtbl && pFSVtbl->ReadFile)
+	{
+		return (*pFSVtbl->ReadFile)(FileHandle, BytesToRead, BytesRead, Buffer);
+	}
 	else
+	{
+		FileSystemError("Unknown file system.");
 		return FALSE;
+	}
 }
 
 ULONG FsGetFileSize(PFILE FileHandle)
 {
-	ULONG FileId = (ULONG)FileHandle;
-	FILEINFORMATION Information;
-	LONG ret;
-
-	//
-	// Query file informations
-	//
-	ret = ArcGetFileInformation(FileId, &Information);
-
-	//
-	// Check for error
-	//
-	if (ret != ESUCCESS || Information.EndingAddress.HighPart != 0)
+	if (pFSVtbl && pFSVtbl->GetFileSize)
+	{
+		return (*pFSVtbl->GetFileSize)(FileHandle);
+	}
+	else
+	{
+		FileSystemError("Unknown file system.");
 		return 0;
-
-	//
-	// Return file size
-	//
-	return Information.EndingAddress.LowPart;
+	}
 }
 
 VOID FsSetFilePointer(PFILE FileHandle, ULONG NewFilePointer)
 {
-	ULONG FileId = (ULONG)FileHandle;
-	LARGE_INTEGER Position;
+	if (pFSVtbl && pFSVtbl->SetFilePointer)
+	{
+		(*pFSVtbl->SetFilePointer)(FileHandle, NewFilePointer);
+	}
+	else
+	{
+		FileSystemError("Unknown file system.");
+	}
+}
 
-	//
-	// Set file position
-	//
-	Position.HighPart = 0;
-	Position.LowPart = NewFilePointer;
-	ArcSeek(FileId, &Position, SeekAbsolute);
+ULONG FsGetFilePointer(PFILE FileHandle)
+{
+	if (pFSVtbl && pFSVtbl->SetFilePointer)
+	{
+		return (*pFSVtbl->GetFilePointer)(FileHandle);
+	}
+	else
+	{
+		FileSystemError("Unknown file system.");
+		return 0;
+	}
+}
 
-	//
-	// Do not check for error; this function is
-	// supposed to always succeed
-	//
+BOOLEAN FsIsEndOfFile(PFILE FileHandle)
+{
+	if (FsGetFilePointer(FileHandle) >= FsGetFileSize(FileHandle))
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
 }
 
 /*
@@ -163,7 +285,7 @@ ULONG FsGetNumPathParts(PCSTR Path)
 	}
 	num++;
 
-	DPRINTM(DPRINT_FILESYSTEM, "FsGetNumPathParts() Path = %s NumPathParts = %d\n", Path, num);
+	DPRINTM(DPRINT_FILESYSTEM, "FatGetNumPathParts() Path = %s NumPathParts = %d\n", Path, num);
 
 	return num;
 }
@@ -195,9 +317,75 @@ VOID FsGetFirstNameFromPath(PCHAR Buffer, PCSTR Path)
 
 	Buffer[i] = 0;
 
-	DPRINTM(DPRINT_FILESYSTEM, "FsGetFirstNameFromPath() Path = %s FirstName = %s\n", Path, Buffer);
+	DPRINTM(DPRINT_FILESYSTEM, "FatGetFirstNameFromPath() Path = %s FirstName = %s\n", Path, Buffer);
 }
 
+LONG CompatFsClose(ULONG FileId)
+{
+    PFILE FileHandle = FsGetDeviceSpecific(FileId);
+
+    FsCloseFile(FileHandle);
+    return ESUCCESS;
+}
+
+LONG CompatFsGetFileInformation(ULONG FileId, FILEINFORMATION* Information)
+{
+    PFILE FileHandle = FsGetDeviceSpecific(FileId);
+
+    memset(Information, 0, sizeof(FILEINFORMATION));
+    Information->EndingAddress.LowPart = FsGetFileSize(FileHandle);
+    Information->CurrentAddress.LowPart = FsGetFilePointer(FileHandle);
+    return ESUCCESS;
+}
+
+LONG CompatFsOpen(CHAR* Path, OPENMODE OpenMode, ULONG* FileId)
+{
+    PFILE FileHandle;
+    static BOOLEAN bVolumeOpened = FALSE;
+
+    if (!bVolumeOpened)
+    {
+        bVolumeOpened = FsOpenBootVolume();
+        if (!bVolumeOpened)
+            return EIO;
+    }
+
+    FileHandle = FsOpenFile(Path);
+    if (!FileHandle)
+        return EIO;
+    FsSetDeviceSpecific(*FileId, FileHandle);
+    return ESUCCESS;
+}
+
+LONG CompatFsRead(ULONG FileId, VOID* Buffer, ULONG N, ULONG* Count)
+{
+    PFILE FileHandle = FsGetDeviceSpecific(FileId);
+    BOOLEAN ret;
+
+    ret = FsReadFile(FileHandle, N, Count, Buffer);
+    return (ret ? ESUCCESS : EFAULT);
+}
+
+LONG CompatFsSeek(ULONG FileId, LARGE_INTEGER* Position, SEEKMODE SeekMode)
+{
+    PFILE FileHandle = FsGetDeviceSpecific(FileId);
+
+    if (SeekMode != SeekAbsolute)
+        return EINVAL;
+
+    FsSetFilePointer(FileHandle, Position->LowPart);
+    return ESUCCESS;
+}
+
+const DEVVTBL CompatFsFuncTable = {
+    CompatFsClose,
+    CompatFsGetFileInformation,
+    CompatFsOpen,
+    CompatFsRead,
+    CompatFsSeek,
+};
+
+#define MAX_FDS 20
 typedef struct tagFILEDATA
 {
     ULONG DeviceId;
@@ -232,7 +420,6 @@ LONG ArcClose(ULONG FileId)
     {
         FileData[FileId].FuncTable = NULL;
         FileData[FileId].Specific = NULL;
-        FileData[FileId].DeviceId = -1;
     }
     return ret;
 }
@@ -256,9 +443,6 @@ LONG ArcOpen(CHAR* Path, OPENMODE OpenMode, ULONG* FileId)
     ULONG dwCount, dwLength;
     OPENMODE DeviceOpenMode;
     ULONG DeviceId;
-
-    /* Print status message */
-    DPRINTM(DPRINT_FILESYSTEM, "Opening file '%s'...\n", Path);
 
     *FileId = MAX_FDS;
 
@@ -321,20 +505,8 @@ LONG ArcOpen(CHAR* Path, OPENMODE OpenMode, ULONG* FileId)
                 }
 
                 /* Try to detect the file system */
-                FileData[DeviceId].FileFuncTable = IsoMount(DeviceId);
-                if (!FileData[DeviceId].FileFuncTable)
-                    FileData[DeviceId].FileFuncTable = FatMount(DeviceId);
-                if (!FileData[DeviceId].FileFuncTable)
-                    FileData[DeviceId].FileFuncTable = NtfsMount(DeviceId);
-                if (!FileData[DeviceId].FileFuncTable)
-                    FileData[DeviceId].FileFuncTable = Ext2Mount(DeviceId);
-                if (!FileData[DeviceId].FileFuncTable)
-                {
-                    /* Error, unable to detect file system */
-                    pDevice->FuncTable->Close(DeviceId);
-                    FileData[DeviceId].FuncTable = NULL;
-                    return ENODEV;
-                }
+                /* FIXME: we link there to old infrastructure... */
+                FileData[DeviceId].FileFuncTable = &CompatFsFuncTable;
 
                 pDevice->DeviceId = DeviceId;
             }
@@ -361,13 +533,8 @@ LONG ArcOpen(CHAR* Path, OPENMODE OpenMode, ULONG* FileId)
     if (i == MAX_FDS)
         return EMFILE;
 
-    /* Skip leading backslash, if any */
-    if (*FileName == '\\')
-        FileName++;
-
     /* Open the file */
     FileData[i].FuncTable = FileData[DeviceId].FileFuncTable;
-    FileData[i].DeviceId = DeviceId;
     *FileId = i;
     ret = FileData[i].FuncTable->Open(FileName, OpenMode, FileId);
     if (ret != ESUCCESS)
@@ -397,8 +564,6 @@ VOID FsRegisterDevice(CHAR* Prefix, const DEVVTBL* FuncTable)
     DEVICE* pNewEntry;
     ULONG dwLength;
 
-    DPRINTM(DPRINT_FILESYSTEM, "FsRegisterDevice() Prefix = %s\n", Prefix);
-
     dwLength = strlen(Prefix) + 1;
     pNewEntry = MmHeapAlloc(sizeof(DEVICE) + dwLength);
     if (!pNewEntry)
@@ -409,13 +574,6 @@ VOID FsRegisterDevice(CHAR* Prefix, const DEVVTBL* FuncTable)
     memcpy(pNewEntry->Prefix, Prefix, dwLength);
 
     InsertHeadList(&DeviceListHead, &pNewEntry->ListEntry);
-}
-
-LPCWSTR FsGetServiceName(ULONG FileId)
-{
-    if (FileId >= MAX_FDS || !FileData[FileId].FuncTable)
-        return NULL;
-    return FileData[FileId].FuncTable->ServiceName;
 }
 
 VOID FsSetDeviceSpecific(ULONG FileId, VOID* Specific)
@@ -432,20 +590,8 @@ VOID* FsGetDeviceSpecific(ULONG FileId)
     return FileData[FileId].Specific;
 }
 
-ULONG FsGetDeviceId(ULONG FileId)
-{
-    if (FileId >= MAX_FDS)
-        return (ULONG)-1;
-    return FileData[FileId].DeviceId;
-}
-
 VOID FsInit(VOID)
 {
-    ULONG i;
-
-    RtlZeroMemory(FileData, sizeof(FileData));
-    for (i = 0; i < MAX_FDS; i++)
-        FileData[i].DeviceId = (ULONG)-1;
-
+    memset(FileData, 0, sizeof(FileData));
     InitializeListHead(&DeviceListHead);
 }

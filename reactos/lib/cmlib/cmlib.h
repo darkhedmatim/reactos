@@ -59,7 +59,6 @@
         IN PRTL_BITMAP BitMapHeader);
 
     #define RtlCheckBit(BMH,BP) (((((PLONG)(BMH)->Buffer)[(BP) / 32]) >> ((BP) % 32)) & 0x1)
-    #define UNREFERENCED_PARAMETER(P) {(P)=(P);}
 
     #define PKTHREAD PVOID
     #define PKGUARDED_MUTEX PVOID
@@ -88,9 +87,7 @@
     #define CMLTRACE(x, ...) DPRINT(__VA_ARGS__)
     #endif
 
-    #include <ntdef.h>
-    #undef DECLSPEC_IMPORT
-    #define DECLSPEC_IMPORT
+
     #include <ntddk.h>
 #endif
 

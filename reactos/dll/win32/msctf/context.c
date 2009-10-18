@@ -58,29 +58,14 @@ typedef struct tagContextSink {
 typedef struct tagContext {
     const ITfContextVtbl *ContextVtbl;
     const ITfSourceVtbl *SourceVtbl;
-    /* const ITfContextCompositionVtbl *ContextCompositionVtbl; */
-    /* const ITfContextOwnerCompositionServicesVtbl *ContextOwnerCompositionServicesVtbl; */
-    /* const ITfContextOwnerServicesVtbl *ContextOwnerServicesVtbl; */
-    const ITfInsertAtSelectionVtbl *InsertAtSelectionVtbl;
-    /* const ITfMouseTrackerVtbl *MouseTrackerVtbl; */
-    /* const ITfQueryEmbeddedVtbl *QueryEmbeddedVtbl; */
-    const ITfSourceSingleVtbl *SourceSingleVtbl;
     LONG refCount;
-    BOOL connected;
-
-    /* Aggregation */
-    ITfCompartmentMgr  *CompartmentMgr;
 
     TfClientId tidOwner;
-    TfEditCookie defaultCookie;
-    TS_STATUS documentStatus;
-    ITfDocumentMgr *manager;
 
     ITextStoreACP   *pITextStoreACP;
     ITfContextOwnerCompositionSink *pITfContextOwnerCompositionSink;
 
     ITextStoreACPSink *pITextStoreACPSink;
-    ITfEditSession* currentEditSession;
 
     /* kept as separate lists to reduce unnecessary iterations */
     struct list     pContextKeyEventSink;
@@ -91,14 +76,9 @@ typedef struct tagContext {
 
 } Context;
 
-typedef struct tagEditCookie {
-    DWORD lockType;
-    Context *pOwningContext;
-} EditCookie;
 
 typedef struct tagTextStoreACPSink {
     const ITextStoreACPSinkVtbl *TextStoreACPSinkVtbl;
-    /* const ITextStoreACPServicesVtbl *TextStoreACPServicesVtbl; */
     LONG refCount;
 
     Context *pContext;
@@ -112,16 +92,6 @@ static inline Context *impl_from_ITfSourceVtbl(ITfSource *iface)
     return (Context *)((char *)iface - FIELD_OFFSET(Context,SourceVtbl));
 }
 
-static inline Context *impl_from_ITfInsertAtSelectionVtbl(ITfInsertAtSelection*iface)
-{
-    return (Context *)((char *)iface - FIELD_OFFSET(Context,InsertAtSelectionVtbl));
-}
-
-static inline Context *impl_from_ITfSourceSingleVtbl(ITfSourceSingle* iface)
-{
-    return (Context *)((char *)iface - FIELD_OFFSET(Context,SourceSingleVtbl));
-}
-
 static void free_sink(ContextSink *sink)
 {
         IUnknown_Release(sink->interfaces.pIUnknown);
@@ -131,7 +101,6 @@ static void free_sink(ContextSink *sink)
 static void Context_Destructor(Context *This)
 {
     struct list *cursor, *cursor2;
-    EditCookie *cookie;
     TRACE("destroying %p\n", This);
 
     if (This->pITextStoreACPSink)
@@ -145,13 +114,6 @@ static void Context_Destructor(Context *This)
 
     if (This->pITfContextOwnerCompositionSink)
         ITextStoreACPSink_Release(This->pITfContextOwnerCompositionSink);
-
-    if (This->defaultCookie)
-    {
-        cookie = remove_Cookie(This->defaultCookie);
-        HeapFree(GetProcessHeap(),0,cookie);
-        This->defaultCookie = 0;
-    }
 
     LIST_FOR_EACH_SAFE(cursor, cursor2, &This->pContextKeyEventSink)
     {
@@ -184,7 +146,6 @@ static void Context_Destructor(Context *This)
         free_sink(sink);
     }
 
-    CompartmentMgr_Destructor(This->CompartmentMgr);
     HeapFree(GetProcessHeap(),0,This);
 }
 
@@ -200,18 +161,6 @@ static HRESULT WINAPI Context_QueryInterface(ITfContext *iface, REFIID iid, LPVO
     else if (IsEqualIID(iid, &IID_ITfSource))
     {
         *ppvOut = &This->SourceVtbl;
-    }
-    else if (IsEqualIID(iid, &IID_ITfInsertAtSelection))
-    {
-        *ppvOut = &This->InsertAtSelectionVtbl;
-    }
-    else if (IsEqualIID(iid, &IID_ITfCompartmentMgr))
-    {
-        *ppvOut = This->CompartmentMgr;
-    }
-    else if (IsEqualIID(iid, &IID_ITfSourceSingle))
-    {
-        *ppvOut = &This->SourceSingleVtbl;
     }
 
     if (*ppvOut)
@@ -248,51 +197,9 @@ static HRESULT WINAPI Context_RequestEditSession (ITfContext *iface,
         TfClientId tid, ITfEditSession *pes, DWORD dwFlags,
         HRESULT *phrSession)
 {
-    HRESULT hr;
     Context *This = (Context *)iface;
-    DWORD  dwLockFlags = 0x0;
-
-    TRACE("(%p) %i %p %x %p\n",This, tid, pes, dwFlags, phrSession);
-
-    if (!(dwFlags & TF_ES_READ) && !(dwFlags & TF_ES_READWRITE))
-    {
-        *phrSession = E_FAIL;
-        return E_INVALIDARG;
-    }
-
-    if (!This->pITextStoreACP)
-    {
-        FIXME("No ITextStoreACP avaliable\n");
-        *phrSession = E_FAIL;
-        return E_FAIL;
-    }
-
-    if (!(dwFlags & TF_ES_ASYNC))
-        dwLockFlags |= TS_LF_SYNC;
-
-    if ((dwFlags & TF_ES_READWRITE) == TF_ES_READWRITE)
-        dwLockFlags |= TS_LF_READWRITE;
-    else if (dwFlags & TF_ES_READ)
-        dwLockFlags |= TS_LF_READ;
-
-    if (!This->documentStatus.dwDynamicFlags)
-        ITextStoreACP_GetStatus(This->pITextStoreACP, &This->documentStatus);
-
-    if (((dwFlags & TF_ES_READWRITE) == TF_ES_READWRITE) && (This->documentStatus.dwDynamicFlags & TS_SD_READONLY))
-    {
-        *phrSession = TS_E_READONLY;
-        return S_OK;
-    }
-
-    if (FAILED (ITfEditSession_QueryInterface(pes, &IID_ITfEditSession, (LPVOID*)&This->currentEditSession)))
-    {
-        *phrSession = E_FAIL;
-        return E_INVALIDARG;
-    }
-
-    hr = ITextStoreACP_RequestLock(This->pITextStoreACP, dwLockFlags, phrSession);
-
-    return hr;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_InWriteSession (ITfContext *iface,
@@ -309,150 +216,32 @@ static HRESULT WINAPI Context_GetSelection (ITfContext *iface,
         TF_SELECTION *pSelection, ULONG *pcFetched)
 {
     Context *This = (Context *)iface;
-    EditCookie *cookie;
-    ULONG count, i;
-    ULONG totalFetched = 0;
-    HRESULT hr = S_OK;
-
-    if (!pSelection || !pcFetched)
-        return E_INVALIDARG;
-
-    *pcFetched = 0;
-
-    if (!This->connected)
-        return TF_E_DISCONNECTED;
-
-    if (get_Cookie_magic(ec)!=COOKIE_MAGIC_EDITCOOKIE)
-        return TF_E_NOLOCK;
-
-    if (!This->pITextStoreACP)
-    {
-        FIXME("Context does not have a ITextStoreACP\n");
-        return E_NOTIMPL;
-    }
-
-    cookie = get_Cookie_data(ec);
-
-    if (ulIndex == TF_DEFAULT_SELECTION)
-        count = 1;
-    else
-        count = ulCount;
-
-    for (i = 0; i < count; i++)
-    {
-        DWORD fetched;
-        TS_SELECTION_ACP acps;
-
-        hr = ITextStoreACP_GetSelection(This->pITextStoreACP, ulIndex + i,
-                1, &acps, &fetched);
-
-        if (hr == TS_E_NOLOCK)
-            return TF_E_NOLOCK;
-        else if (SUCCEEDED(hr))
-        {
-            pSelection[totalFetched].style.ase = acps.style.ase;
-            pSelection[totalFetched].style.fInterimChar = acps.style.fInterimChar;
-            Range_Constructor(iface, This->pITextStoreACP, cookie->lockType, acps.acpStart, acps.acpEnd, &pSelection[totalFetched].range);
-            totalFetched ++;
-        }
-        else
-            break;
-    }
-
-    *pcFetched = totalFetched;
-
-    return hr;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_SetSelection (ITfContext *iface,
         TfEditCookie ec, ULONG ulCount, const TF_SELECTION *pSelection)
 {
-    TS_SELECTION_ACP *acp;
     Context *This = (Context *)iface;
-    INT i;
-    HRESULT hr;
-
-    TRACE("(%p) %i %i %p\n",This,ec,ulCount,pSelection);
-
-    if (!This->pITextStoreACP)
-    {
-        FIXME("Context does not have a ITextStoreACP\n");
-        return E_NOTIMPL;
-    }
-
-    if (get_Cookie_magic(ec)!=COOKIE_MAGIC_EDITCOOKIE)
-        return TF_E_NOLOCK;
-
-    acp = HeapAlloc(GetProcessHeap(), 0, sizeof(TS_SELECTION_ACP) * ulCount);
-    if (!acp)
-        return E_OUTOFMEMORY;
-
-    for (i = 0; i < ulCount; i++)
-        if (FAILED(TF_SELECTION_to_TS_SELECTION_ACP(&pSelection[i], &acp[i])))
-        {
-            TRACE("Selection Conversion Failed\n");
-            HeapFree(GetProcessHeap(), 0 , acp);
-            return E_FAIL;
-        }
-
-    hr = ITextStoreACP_SetSelection(This->pITextStoreACP, ulCount, acp);
-
-    HeapFree(GetProcessHeap(), 0, acp);
-
-    return hr;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_GetStart (ITfContext *iface,
         TfEditCookie ec, ITfRange **ppStart)
 {
     Context *This = (Context *)iface;
-    EditCookie *cookie;
-    TRACE("(%p) %i %p\n",This,ec,ppStart);
-
-    if (!ppStart)
-        return E_INVALIDARG;
-
-    *ppStart = NULL;
-
-    if (!This->connected)
-        return TF_E_DISCONNECTED;
-
-    if (get_Cookie_magic(ec)!=COOKIE_MAGIC_EDITCOOKIE)
-        return TF_E_NOLOCK;
-
-    cookie = get_Cookie_data(ec);
-    return Range_Constructor(iface, This->pITextStoreACP, cookie->lockType, 0, 0, ppStart);
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_GetEnd (ITfContext *iface,
         TfEditCookie ec, ITfRange **ppEnd)
 {
     Context *This = (Context *)iface;
-    EditCookie *cookie;
-    LONG end;
-    TRACE("(%p) %i %p\n",This,ec,ppEnd);
-
-    if (!ppEnd)
-        return E_INVALIDARG;
-
-    *ppEnd = NULL;
-
-    if (!This->connected)
-        return TF_E_DISCONNECTED;
-
-    if (get_Cookie_magic(ec)!=COOKIE_MAGIC_EDITCOOKIE)
-        return TF_E_NOLOCK;
-
-    if (!This->pITextStoreACP)
-    {
-        FIXME("Context does not have a ITextStoreACP\n");
-        return E_NOTIMPL;
-    }
-
-    cookie = get_Cookie_data(ec);
-    ITextStoreACP_GetEndACP(This->pITextStoreACP,&end);
-
-    return Range_Constructor(iface, This->pITextStoreACP, cookie->lockType, end, end, ppEnd);
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_GetActiveView (ITfContext *iface,
@@ -475,25 +264,8 @@ static HRESULT WINAPI Context_GetStatus (ITfContext *iface,
         TF_STATUS *pdcs)
 {
     Context *This = (Context *)iface;
-    TRACE("(%p) %p\n",This,pdcs);
-
-    if (!This->connected)
-        return TF_E_DISCONNECTED;
-
-    if (!pdcs)
-        return E_INVALIDARG;
-
-    if (!This->pITextStoreACP)
-    {
-        FIXME("Context does not have a ITextStoreACP\n");
-        return E_NOTIMPL;
-    }
-
-    ITextStoreACP_GetStatus(This->pITextStoreACP, &This->documentStatus);
-
-    *pdcs = This->documentStatus;
-
-    return S_OK;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_GetProperty (ITfContext *iface,
@@ -533,18 +305,8 @@ static HRESULT WINAPI Context_GetDocumentMgr (ITfContext *iface,
         ITfDocumentMgr **ppDm)
 {
     Context *This = (Context *)iface;
-    TRACE("(%p) %p\n",This,ppDm);
-
-    if (!ppDm)
-        return E_INVALIDARG;
-
-    *ppDm = This->manager;
-    if (!This->manager)
-        return S_FALSE;
-
-    ITfDocumentMgr_AddRef(This->manager);
-
-    return S_OK;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Context_CreateRangeBackup (ITfContext *iface,
@@ -599,7 +361,7 @@ static ULONG WINAPI Source_Release(ITfSource *iface)
 /*****************************************************
  * ITfSource functions
  *****************************************************/
-static HRESULT WINAPI ContextSource_AdviseSink(ITfSource *iface,
+static WINAPI HRESULT ContextSource_AdviseSink(ITfSource *iface,
         REFIID riid, IUnknown *punk, DWORD *pdwCookie)
 {
     ContextSink *es;
@@ -614,7 +376,7 @@ static HRESULT WINAPI ContextSource_AdviseSink(ITfSource *iface,
         es = HeapAlloc(GetProcessHeap(),0,sizeof(ContextSink));
         if (!es)
             return E_OUTOFMEMORY;
-        if (FAILED(IUnknown_QueryInterface(punk, riid, (LPVOID *)&es->interfaces.pITfTextEditSink)))
+        if (!SUCCEEDED(IUnknown_QueryInterface(punk, riid, (LPVOID*)&es->interfaces.pITfTextEditSink)))
         {
             HeapFree(GetProcessHeap(),0,es);
             return CONNECT_E_CANNOTCONNECT;
@@ -632,7 +394,7 @@ static HRESULT WINAPI ContextSource_AdviseSink(ITfSource *iface,
     return S_OK;
 }
 
-static HRESULT WINAPI ContextSource_UnadviseSink(ITfSource *iface, DWORD pdwCookie)
+static WINAPI HRESULT ContextSource_UnadviseSink(ITfSource *iface, DWORD pdwCookie)
 {
     ContextSink *sink;
     Context *This = impl_from_ITfSourceVtbl(iface);
@@ -662,165 +424,30 @@ static const ITfSourceVtbl Context_SourceVtbl =
     ContextSource_UnadviseSink,
 };
 
-/*****************************************************
- * ITfInsertAtSelection functions
- *****************************************************/
-static HRESULT WINAPI InsertAtSelection_QueryInterface(ITfInsertAtSelection *iface, REFIID iid, LPVOID *ppvOut)
-{
-    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
-    return Context_QueryInterface((ITfContext *)This, iid, *ppvOut);
-}
-
-static ULONG WINAPI InsertAtSelection_AddRef(ITfInsertAtSelection *iface)
-{
-    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
-    return Context_AddRef((ITfContext *)This);
-}
-
-static ULONG WINAPI InsertAtSelection_Release(ITfInsertAtSelection *iface)
-{
-    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
-    return Context_Release((ITfContext *)This);
-}
-
-static HRESULT WINAPI InsertAtSelection_InsertTextAtSelection(
-        ITfInsertAtSelection *iface, TfEditCookie ec, DWORD dwFlags,
-        const WCHAR *pchText, LONG cch, ITfRange **ppRange)
-{
-    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
-    EditCookie *cookie;
-    LONG acpStart, acpEnd;
-    TS_TEXTCHANGE change;
-    HRESULT hr;
-
-    TRACE("(%p) %i %x %s %p\n",This, ec, dwFlags, debugstr_wn(pchText,cch), ppRange);
-
-    if (!This->connected)
-        return TF_E_DISCONNECTED;
-
-    if (get_Cookie_magic(ec)!=COOKIE_MAGIC_EDITCOOKIE)
-        return TF_E_NOLOCK;
-
-    cookie = get_Cookie_data(ec);
-
-    if ((cookie->lockType & TS_LF_READWRITE) != TS_LF_READWRITE )
-        return TS_E_READONLY;
-
-    if (!This->pITextStoreACP)
-    {
-        FIXME("Context does not have a ITextStoreACP\n");
-        return E_NOTIMPL;
-    }
-
-    hr = ITextStoreACP_InsertTextAtSelection(This->pITextStoreACP, dwFlags, pchText, cch, &acpStart, &acpEnd, &change);
-    if (SUCCEEDED(hr))
-        Range_Constructor((ITfContext*)This, This->pITextStoreACP, cookie->lockType, change.acpStart, change.acpNewEnd, ppRange);
-
-    return hr;
-}
-
-static HRESULT WINAPI InsertAtSelection_InsertEmbeddedAtSelection(
-        ITfInsertAtSelection *iface, TfEditCookie ec, DWORD dwFlags,
-        IDataObject *pDataObject, ITfRange **ppRange)
-{
-    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
-    FIXME("STUB:(%p)\n",This);
-    return E_NOTIMPL;
-}
-
-static const ITfInsertAtSelectionVtbl Context_InsertAtSelectionVtbl =
-{
-    InsertAtSelection_QueryInterface,
-    InsertAtSelection_AddRef,
-    InsertAtSelection_Release,
-
-    InsertAtSelection_InsertTextAtSelection,
-    InsertAtSelection_InsertEmbeddedAtSelection,
-};
-
-/*****************************************************
- * ITfSourceSingle functions
- *****************************************************/
-static HRESULT WINAPI SourceSingle_QueryInterface(ITfSourceSingle *iface, REFIID iid, LPVOID *ppvOut)
-{
-    Context *This = impl_from_ITfSourceSingleVtbl(iface);
-    return Context_QueryInterface((ITfContext *)This, iid, *ppvOut);
-}
-
-static ULONG WINAPI SourceSingle_AddRef(ITfSourceSingle *iface)
-{
-    Context *This = impl_from_ITfSourceSingleVtbl(iface);
-    return Context_AddRef((ITfContext *)This);
-}
-
-static ULONG WINAPI SourceSingle_Release(ITfSourceSingle *iface)
-{
-    Context *This = impl_from_ITfSourceSingleVtbl(iface);
-    return Context_Release((ITfContext *)This);
-}
-
-static HRESULT WINAPI SourceSingle_AdviseSingleSink( ITfSourceSingle *iface,
-    TfClientId tid, REFIID riid, IUnknown *punk)
-{
-    Context *This = impl_from_ITfSourceSingleVtbl(iface);
-    FIXME("STUB:(%p) %i %s %p\n",This, tid, debugstr_guid(riid),punk);
-    return E_NOTIMPL;
-}
-
-static HRESULT WINAPI SourceSingle_UnadviseSingleSink( ITfSourceSingle *iface,
-    TfClientId tid, REFIID riid)
-{
-    Context *This = impl_from_ITfSourceSingleVtbl(iface);
-    FIXME("STUB:(%p) %i %s\n",This, tid, debugstr_guid(riid));
-    return E_NOTIMPL;
-}
-
-static const ITfSourceSingleVtbl Context_SourceSingleVtbl =
-{
-    SourceSingle_QueryInterface,
-    SourceSingle_AddRef,
-    SourceSingle_Release,
-
-    SourceSingle_AdviseSingleSink,
-    SourceSingle_UnadviseSingleSink,
-};
-
-HRESULT Context_Constructor(TfClientId tidOwner, IUnknown *punk, ITfDocumentMgr *mgr, ITfContext **ppOut, TfEditCookie *pecTextStore)
+HRESULT Context_Constructor(TfClientId tidOwner, IUnknown *punk, ITfContext **ppOut, TfEditCookie *pecTextStore)
 {
     Context *This;
-    EditCookie *cookie;
 
     This = HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(Context));
     if (This == NULL)
         return E_OUTOFMEMORY;
 
-    cookie = HeapAlloc(GetProcessHeap(),0,sizeof(EditCookie));
-    if (cookie == NULL)
-    {
-        HeapFree(GetProcessHeap(),0,This);
-        return E_OUTOFMEMORY;
-    }
-
     TRACE("(%p) %x %p %p %p\n",This, tidOwner, punk, ppOut, pecTextStore);
 
     This->ContextVtbl= &Context_ContextVtbl;
     This->SourceVtbl = &Context_SourceVtbl;
-    This->InsertAtSelectionVtbl = &Context_InsertAtSelectionVtbl;
-    This->SourceSingleVtbl = &Context_SourceSingleVtbl;
     This->refCount = 1;
     This->tidOwner = tidOwner;
-    This->connected = FALSE;
-    This->manager = mgr;
-
-    CompartmentMgr_Constructor((IUnknown*)This, &IID_IUnknown, (IUnknown**)&This->CompartmentMgr);
-
-    cookie->lockType = TF_ES_READ;
-    cookie->pOwningContext = This;
 
     if (punk)
     {
-        IUnknown_QueryInterface(punk, &IID_ITextStoreACP,
-                          (LPVOID*)&This->pITextStoreACP);
+        if (SUCCEEDED(IUnknown_QueryInterface(punk, &IID_ITextStoreACP,
+                          (LPVOID*)&This->pITextStoreACP)))
+        {
+            if (SUCCEEDED(TextStoreACPSink_Constructor(&This->pITextStoreACPSink, This)))
+                ITextStoreACP_AdviseSink(This->pITextStoreACP, &IID_ITextStoreACPSink,
+                                        (IUnknown*)This->pITextStoreACPSink, TS_AS_ALL_SINKS);
+        }
 
         IUnknown_QueryInterface(punk, &IID_ITfContextOwnerCompositionSink,
                                 (LPVOID*)&This->pITfContextOwnerCompositionSink);
@@ -829,8 +456,10 @@ HRESULT Context_Constructor(TfClientId tidOwner, IUnknown *punk, ITfDocumentMgr 
             FIXME("Unhandled pUnk\n");
     }
 
-    This->defaultCookie = generate_Cookie(COOKIE_MAGIC_EDITCOOKIE,cookie);
-    *pecTextStore = This->defaultCookie;
+    TRACE("returning %p\n", This);
+    *ppOut = (ITfContext*)This;
+    /* FIXME */
+    *pecTextStore = 0xdeaddead;
 
     list_init(&This->pContextKeyEventSink);
     list_init(&This->pEditTransactionSink);
@@ -838,39 +467,6 @@ HRESULT Context_Constructor(TfClientId tidOwner, IUnknown *punk, ITfDocumentMgr 
     list_init(&This->pTextEditSink);
     list_init(&This->pTextLayoutSink);
 
-    *ppOut = (ITfContext*)This;
-    TRACE("returning %p\n", This);
-
-    return S_OK;
-}
-
-HRESULT Context_Initialize(ITfContext *iface, ITfDocumentMgr *manager)
-{
-    Context *This = (Context *)iface;
-
-    if (This->pITextStoreACP)
-    {
-        if (SUCCEEDED(TextStoreACPSink_Constructor(&This->pITextStoreACPSink, This)))
-            ITextStoreACP_AdviseSink(This->pITextStoreACP, &IID_ITextStoreACPSink,
-                            (IUnknown*)This->pITextStoreACPSink, TS_AS_ALL_SINKS);
-    }
-    This->connected = TRUE;
-    This->manager = manager;
-    return S_OK;
-}
-
-HRESULT Context_Uninitialize(ITfContext *iface)
-{
-    Context *This = (Context *)iface;
-
-    if (This->pITextStoreACPSink)
-    {
-        ITextStoreACP_UnadviseSink(This->pITextStoreACP, (IUnknown*)This->pITextStoreACPSink);
-        if (ITextStoreACPSink_Release(This->pITextStoreACPSink) == 0)
-            This->pITextStoreACPSink = NULL;
-    }
-    This->connected = FALSE;
-    This->manager = NULL;
     return S_OK;
 }
 
@@ -952,28 +548,8 @@ static HRESULT WINAPI TextStoreACPSink_OnStatusChange(ITextStoreACPSink *iface,
         DWORD dwFlags)
 {
     TextStoreACPSink *This = (TextStoreACPSink *)iface;
-    HRESULT hr, hrSession;
-
-    TRACE("(%p) %x\n",This, dwFlags);
-
-    if (!This->pContext)
-    {
-        ERR("No context?\n");
-        return E_FAIL;
-    }
-
-    if (!This->pContext->pITextStoreACP)
-    {
-        FIXME("Context does not have a ITextStoreACP\n");
-        return E_NOTIMPL;
-    }
-
-    hr = ITextStoreACP_RequestLock(This->pContext->pITextStoreACP, TS_LF_READ, &hrSession);
-
-    if(SUCCEEDED(hr) && SUCCEEDED(hrSession))
-        This->pContext->documentStatus.dwDynamicFlags = dwFlags;
-
-    return S_OK;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI TextStoreACPSink_OnAttrsChange(ITextStoreACPSink *iface,
@@ -988,66 +564,8 @@ static HRESULT WINAPI TextStoreACPSink_OnLockGranted(ITextStoreACPSink *iface,
         DWORD dwLockFlags)
 {
     TextStoreACPSink *This = (TextStoreACPSink *)iface;
-    HRESULT hr;
-    EditCookie *cookie,*sinkcookie;
-    TfEditCookie ec;
-    struct list *cursor;
-
-    TRACE("(%p) %x\n",This, dwLockFlags);
-
-    if (!This->pContext)
-    {
-        ERR("OnLockGranted called without a context\n");
-        return E_FAIL;
-    }
-
-    if (!This->pContext->currentEditSession)
-    {
-        FIXME("OnLockGranted called for something other than an EditSession\n");
-        return S_OK;
-    }
-
-    cookie = HeapAlloc(GetProcessHeap(),0,sizeof(EditCookie));
-    if (!cookie)
-        return E_OUTOFMEMORY;
-
-    sinkcookie = HeapAlloc(GetProcessHeap(),0,sizeof(EditCookie));
-    if (!sinkcookie)
-        return E_OUTOFMEMORY;
-
-    cookie->lockType = dwLockFlags;
-    cookie->pOwningContext = This->pContext;
-    ec = generate_Cookie(COOKIE_MAGIC_EDITCOOKIE, cookie);
-
-    hr = ITfEditSession_DoEditSession(This->pContext->currentEditSession, ec);
-
-    if ((dwLockFlags&TS_LF_READWRITE) == TS_LF_READWRITE)
-    {
-        TfEditCookie sc;
-
-        sinkcookie->lockType = TS_LF_READ;
-        sinkcookie->pOwningContext = This->pContext;
-        sc = generate_Cookie(COOKIE_MAGIC_EDITCOOKIE, sinkcookie);
-
-        /*TODO: implement ITfEditRecord */
-        LIST_FOR_EACH(cursor, &This->pContext->pTextEditSink)
-        {
-            ContextSink* sink = LIST_ENTRY(cursor,ContextSink,entry);
-            ITfTextEditSink_OnEndEdit(sink->interfaces.pITfTextEditSink,
-                                      (ITfContext*) &This->pContext, sc, NULL);
-        }
-        sinkcookie = remove_Cookie(sc);
-    }
-    HeapFree(GetProcessHeap(),0,sinkcookie);
-
-    ITfEditSession_Release(This->pContext->currentEditSession);
-    This->pContext->currentEditSession = NULL;
-
-    /* Edit Cookie is only valid during the edit session */
-    cookie = remove_Cookie(ec);
-    HeapFree(GetProcessHeap(),0,cookie);
-
-    return hr;
+    FIXME("STUB:(%p)\n",This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI TextStoreACPSink_OnStartEditTransaction(ITextStoreACPSink *iface)

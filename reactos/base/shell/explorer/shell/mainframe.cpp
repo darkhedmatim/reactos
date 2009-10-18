@@ -153,11 +153,6 @@ MainFrameBase::MainFrameBase(HWND hwnd)
  :	super(hwnd)
 {
     HDC hDC = GetDC(NULL);
-#ifndef _NO_REBAR
-    //static WCHAR Title1[] = TEXT("Toolbar");
-    static WCHAR Title2[] = TEXT("Address :");
-#endif
-
     if (hDC)
     {
         DWORD ilMask;
@@ -269,7 +264,7 @@ MainFrameBase::MainFrameBase(HWND hwnd)
 	rbBand.cyMaxChild = 0;
 	rbBand.cyIntegral = btn_hgt;
 
-	rbBand.lpText = NULL;//Title1
+	rbBand.lpText = NULL;//TEXT("Toolbar");
 	rbBand.hwndChild = _htoolbar;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;
@@ -278,7 +273,7 @@ MainFrameBase::MainFrameBase(HWND hwnd)
 
 	rbBand.fStyle &= ~RBBS_HIDETITLE;
 	rbBand.fStyle |= RBBS_BREAK;
-    rbBand.lpText = Title2;
+    rbBand.lpText = TEXT("Address :");
 	rbBand.hwndChild = _haddrcombo;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;

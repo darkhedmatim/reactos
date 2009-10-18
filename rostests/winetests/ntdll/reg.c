@@ -373,8 +373,7 @@ static void test_NtCreateKey(void)
 
     /* All NULL */
     status = pNtCreateKey(NULL, 0, NULL, 0, 0, 0, 0);
-    ok(status == STATUS_ACCESS_VIOLATION || status == STATUS_INVALID_PARAMETER,
-       "Expected STATUS_ACCESS_VIOLATION or STATUS_INVALID_PARAMETER, got: 0x%08x\n", status);
+    ok(status == STATUS_ACCESS_VIOLATION, "Expected STATUS_ACCESS_VIOLATION, got: 0x%08x\n", status);
 
     /* Only the key */
     status = pNtCreateKey(&key, 0, NULL, 0, 0, 0, 0);
@@ -383,8 +382,7 @@ static void test_NtCreateKey(void)
 
     /* Only accessmask */
     status = pNtCreateKey(NULL, am, NULL, 0, 0, 0, 0);
-    ok(status == STATUS_ACCESS_VIOLATION || status == STATUS_INVALID_PARAMETER,
-       "Expected STATUS_ACCESS_VIOLATION or STATUS_INVALID_PARAMETER, got: 0x%08x\n", status);
+    ok(status == STATUS_ACCESS_VIOLATION, "Expected STATUS_ACCESS_VIOLATION, got: 0x%08x\n", status);
 
     /* Key and accessmask */
     status = pNtCreateKey(&key, am, NULL, 0, 0, 0, 0);
@@ -558,7 +556,7 @@ static void test_NtQueryValueKey(void)
     status = pNtQueryValueKey(key, &ValName, KeyValuePartialInformation, NULL, 0, &len);
     todo_wine ok(status == STATUS_BUFFER_TOO_SMALL, "NtQueryValueKey should have returned STATUS_BUFFER_TOO_SMALL instead of 0x%08x\n", status);
     partial_info = HeapAlloc(GetProcessHeap(), 0, len+1);
-    memset(partial_info, 0xbd, len+1);
+    memset((BYTE*)partial_info, 0xbd, len+1);
     status = pNtQueryValueKey(key, &ValName, KeyValuePartialInformation, partial_info, len, &len);
     ok(status == STATUS_SUCCESS, "NtQueryValueKey should have returned STATUS_SUCCESS instead of 0x%08x\n", status);
     ok(partial_info->TitleIndex == 0, "NtQueryValueKey returned wrong TitleIndex %d\n", partial_info->TitleIndex);

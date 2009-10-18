@@ -22,8 +22,8 @@ typedef struct _ClipboardElement
 
 typedef struct _CLIPBOARDSYSTEM
 {
-    PTHREADINFO     ClipboardThread;
-    PTHREADINFO     ClipboardOwnerThread;
+    PW32THREAD      ClipboardThread;
+    PW32THREAD      ClipboardOwnerThread;
     PWINDOW_OBJECT  ClipboardWindow;
     PWINDOW_OBJECT  ClipboardViewerWindow;
     PWINDOW_OBJECT  ClipboardOwnerWindow;

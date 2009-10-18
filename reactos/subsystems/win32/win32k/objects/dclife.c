@@ -23,7 +23,6 @@ DC_AllocDC(PUNICODE_STRING Driver)
     PWSTR Buf = NULL;
     XFORM xformTemplate;
     PBRUSH pbrush;
-    HSURF hsurf;
 
     if (Driver != NULL)
     {
@@ -101,36 +100,29 @@ DC_AllocDC(PUNICODE_STRING Driver)
     /* Create the default fill brush */
     pdcattr->hbrush = NtGdiGetStockObject(WHITE_BRUSH);
     NewDC->dclevel.pbrFill = BRUSH_ShareLockBrush(pdcattr->hbrush);
-    EBRUSHOBJ_vInit(&NewDC->eboFill, NewDC->dclevel.pbrFill, NewDC);
+    EBRUSHOBJ_vInit(&NewDC->eboFill, NewDC->dclevel.pbrFill, NULL);
 
     /* Create the default pen / line brush */
     pdcattr->hpen = NtGdiGetStockObject(BLACK_PEN);
     NewDC->dclevel.pbrLine = PEN_ShareLockPen(pdcattr->hpen);
-    EBRUSHOBJ_vInit(&NewDC->eboLine, NewDC->dclevel.pbrLine, NewDC);
+    EBRUSHOBJ_vInit(&NewDC->eboLine, NewDC->dclevel.pbrLine, NULL);
 
     /* Create the default text brush */
     pbrush = BRUSH_ShareLockBrush(NtGdiGetStockObject(BLACK_BRUSH));
-    EBRUSHOBJ_vInit(&NewDC->eboText, pbrush, NewDC);
+    EBRUSHOBJ_vInit(&NewDC->eboText, pbrush, NULL);
     pdcattr->ulDirty_ |= DIRTY_TEXT;
 
     /* Create the default background brush */
     pbrush = BRUSH_ShareLockBrush(NtGdiGetStockObject(WHITE_BRUSH));
-    EBRUSHOBJ_vInit(&NewDC->eboBackground, pbrush, NewDC);
+    EBRUSHOBJ_vInit(&NewDC->eboBackground, pbrush, NULL);
 
     pdcattr->hlfntNew = NtGdiGetStockObject(SYSTEM_FONT);
     TextIntRealizeFont(pdcattr->hlfntNew,NULL);
 
     NewDC->dclevel.hpal = NtGdiGetStockObject(DEFAULT_PALETTE);
-    NewDC->dclevel.ppal = PALETTE_ShareLockPalette(NewDC->dclevel.hpal);
-    /* This should never fail */
-    ASSERT(NewDC->dclevel.ppal);
-
-    NewDC->dclevel.laPath.eMiterLimit = 10.0; // FIXME: use FLOATL or FLOATOBJ!
+    NewDC->dclevel.laPath.eMiterLimit = 10.0;
 
     NewDC->dclevel.lSaveDepth = 1;
-
-    hsurf = (HBITMAP)PrimarySurface.pSurface; // <- what kind of haxx0ry is that?
-    NewDC->dclevel.pSurface = SURFACE_ShareLockSurface(hsurf);
 
     return NewDC;
 }
@@ -161,21 +153,14 @@ DC_Cleanup(PVOID ObjectBody)
     if (pDC->rosdc.DriverName.Buffer)
         ExFreePoolWithTag(pDC->rosdc.DriverName.Buffer, TAG_DC);
 
-    /* Deselect dc objects */
+    /* Clean up selected objects */
     DC_vSelectSurface(pDC, NULL);
     DC_vSelectFillBrush(pDC, NULL);
     DC_vSelectLineBrush(pDC, NULL);
-    DC_vSelectPalette(pDC, NULL);
 
     /* Dereference default brushes */
     BRUSH_ShareUnlockBrush(pDC->eboText.pbrush);
     BRUSH_ShareUnlockBrush(pDC->eboBackground.pbrush);
-
-    /* Cleanup the dc brushes */
-    EBRUSHOBJ_vCleanup(&pDC->eboFill);
-    EBRUSHOBJ_vCleanup(&pDC->eboLine);
-    EBRUSHOBJ_vCleanup(&pDC->eboText);
-    EBRUSHOBJ_vCleanup(&pDC->eboBackground);
 
     return TRUE;
 }
@@ -227,6 +212,7 @@ IntGdiCreateDC(
     HRGN     hVisRgn;
     UNICODE_STRING StdDriver;
     BOOL calledFromUser;
+    HSURF hsurf;
 
     RtlInitUnicodeString(&StdDriver, L"DISPLAY");
 
@@ -296,33 +282,35 @@ IntGdiCreateDC(
 
     pdc->dctype = DC_TYPE_DIRECT;
 
-    pdc->dhpdev = PrimarySurface.dhpdev;
+    pdc->dhpdev = PrimarySurface.hPDev;
     if (pUMdhpdev) pUMdhpdev = pdc->dhpdev; // set DHPDEV for device.
     pdc->ppdev = (PVOID)&PrimarySurface;
+    hsurf = (HBITMAP)PrimarySurface.pSurface; // <- what kind of haxx0ry is that?
+    pdc->dclevel.pSurface = SURFACE_ShareLockSurface(hsurf);
 
     // ATM we only have one display.
     pdcattr->ulDirty_ |= DC_PRIMARY_DISPLAY;
 
-    pdc->rosdc.bitsPerPixel = pdc->ppdev->gdiinfo.cBitsPixel *
-                              pdc->ppdev->gdiinfo.cPlanes;
+    pdc->rosdc.bitsPerPixel = pdc->ppdev->GDIInfo.cBitsPixel *
+                              pdc->ppdev->GDIInfo.cPlanes;
     DPRINT("Bits per pel: %u\n", pdc->rosdc.bitsPerPixel);
 
-    pdc->flGraphicsCaps  = PrimarySurface.devinfo.flGraphicsCaps;
-    pdc->flGraphicsCaps2 = PrimarySurface.devinfo.flGraphicsCaps2;
+    pdc->flGraphicsCaps  = PrimarySurface.DevInfo.flGraphicsCaps;
+    pdc->flGraphicsCaps2 = PrimarySurface.DevInfo.flGraphicsCaps2;
 
     pdc->dclevel.hpal = NtGdiGetStockObject(DEFAULT_PALETTE);
 
     pdcattr->jROP2 = R2_COPYPEN;
 
     pdc->erclWindow.top = pdc->erclWindow.left = 0;
-    pdc->erclWindow.right  = pdc->ppdev->gdiinfo.ulHorzRes;
-    pdc->erclWindow.bottom = pdc->ppdev->gdiinfo.ulVertRes;
+    pdc->erclWindow.right  = pdc->ppdev->GDIInfo.ulHorzRes;
+    pdc->erclWindow.bottom = pdc->ppdev->GDIInfo.ulVertRes;
     pdc->dclevel.flPath &= ~DCPATH_CLOCKWISE; // Default is CCW.
 
     pdcattr->iCS_CP = ftGdiGetTextCharsetInfo(pdc,NULL,0);
 
-    hVisRgn = NtGdiCreateRectRgn(0, 0, pdc->ppdev->gdiinfo.ulHorzRes,
-                                 pdc->ppdev->gdiinfo.ulVertRes);
+    hVisRgn = NtGdiCreateRectRgn(0, 0, pdc->ppdev->GDIInfo.ulHorzRes,
+                                 pdc->ppdev->GDIInfo.ulVertRes);
 
     if (!CreateAsIC)
     {
@@ -345,7 +333,7 @@ IntGdiCreateDC(
          */
         pdc->dctype = DC_TYPE_INFO;
 //    pdc->pSurfInfo =
-//        DC_vSelectSurface(pdc, NULL);
+        DC_vSelectSurface(pdc, NULL);
         pdcattr->crBackgroundClr = pdcattr->ulBackgroundClr = RGB(255, 255, 255);
         pdcattr->crForegroundClr = RGB(0, 0, 0);
         DC_UnlockDc(pdc);
@@ -370,7 +358,6 @@ NtGdiOpenDCW(
     DEVMODEW *InitData,
     PUNICODE_STRING pustrLogAddr,
     ULONG iType,
-    BOOL bDisplay,
     HANDLE hspool,
     VOID *pDriverInfo2,
     VOID *pUMdhpdev)
@@ -380,8 +367,6 @@ NtGdiOpenDCW(
     PVOID Dhpdev;
     HDC Ret;
     NTSTATUS Status = STATUS_SUCCESS;
-
-    if (!Device) return UserGetDesktopDC(iType,FALSE,TRUE);
 
     if (InitData)
     {
@@ -447,12 +432,10 @@ IntGdiCreateDisplayDC(HDEV hDev, ULONG DcType, BOOL EmptyDC)
 
 //
 // If NULL, first time through! Build the default (was window) dc!
-// Setup clean DC state for the system.
 //
     if (hDC && !defaultDCstate) // Ultra HAX! Dedicated to GvG!
     { // This is a cheesy way to do this.
         PDC dc = DC_LockDc(hDC);
-        HSURF hsurf;
         defaultDCstate = ExAllocatePoolWithTag(PagedPool, sizeof(DC), TAG_DC);
         if (!defaultDCstate)
         {
@@ -461,8 +444,6 @@ IntGdiCreateDisplayDC(HDEV hDev, ULONG DcType, BOOL EmptyDC)
         }
         RtlZeroMemory(defaultDCstate, sizeof(DC));
         defaultDCstate->pdcattr = &defaultDCstate->dcattr;
-        hsurf = (HSURF)PrimarySurface.pSurface; // HAX²
-        defaultDCstate->dclevel.pSurface = SURFACE_ShareLockSurface(hsurf);
         DC_vCopyState(dc, defaultDCstate);
         DC_UnlockDc(dc);
     }
@@ -517,6 +498,10 @@ IntGdiDeleteDC(HDC hDC, BOOL Force)
         NtGdiSelectBrush (DCHandle, STOCK_WHITE_BRUSH);
         NtGdiSelectFont (DCHandle, STOCK_SYSTEM_FONT);
         DC_LockDC (DCHandle); NtGdiSelectXxx does not recognize stock objects yet  */
+        if (DCToDelete->rosdc.XlateBrush != NULL)
+            EngDeleteXlate(DCToDelete->rosdc.XlateBrush);
+        if (DCToDelete->rosdc.XlatePen != NULL)
+            EngDeleteXlate(DCToDelete->rosdc.XlatePen);
     }
     if (DCToDelete->rosdc.hClipRgn)
     {
@@ -662,8 +647,7 @@ NtGdiCreateCompatibleDC(HDC hDC)
     pdcattrNew->ulDirty_        = pdcattrOld->ulDirty_;
     pdcattrNew->iCS_CP          = pdcattrOld->iCS_CP;
 
-    pdcNew->erclWindow.left = pdcNew->erclWindow.top = 0;
-    pdcNew->erclWindow.right = pdcNew->erclWindow.bottom = 1;
+    pdcNew->erclWindow = (RECTL){0, 0, 1, 1};
 
     DC_UnlockDc(pdcNew);
     DC_UnlockDc(pdcOld);
@@ -733,7 +717,7 @@ NewNtGdiDeleteObjectApp(HANDLE DCHandle)
           return GreDeleteObject((HGDIOBJ) DCHandle);
 
         default:
-          return FALSE;
+          return FALSE; 
      }
   }
   return (DCHandle != NULL);

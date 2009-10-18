@@ -1,7 +1,7 @@
 /*
  * msiexec.exe implementation
  *
- * Copyright 2004 Vincent BÃ©ron
+ * Copyright 2004 Vincent Béron
  * Copyright 2005 Mike McCormack
  *
  * This library is free software; you can redistribute it and/or
@@ -69,7 +69,7 @@ static const char UsageStr[] =
 "    msiexec {/h|/?}\n"
 "NOTE: Product code on commandline unimplemented as of yet\n"
 "\n"
-"Copyright 2004 Vincent BÃ©ron\n";
+"Copyright 2004 Vincent Béron\n";
 
 static const WCHAR ActionAdmin[] = {
    'A','C','T','I','O','N','=','A','D','M','I','N',0 };
@@ -388,9 +388,9 @@ enum chomp_state
 
 static int chomp( WCHAR *str )
 {
-	enum chomp_state state = cs_token;
+	enum chomp_state state = cs_whitespace;
 	WCHAR *p, *out;
-	int count = 1, ignore;
+	int count = 0, ignore;
 
 	for( p = str, out = str; *p; p++ )
 	{
@@ -493,7 +493,7 @@ static BOOL process_args_from_reg( LPWSTR ident, int *pargc, WCHAR ***pargv )
 	return ret;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int main(int argc, char **argv)
 {
 	int i;
 	BOOL FunctionInstall = FALSE;
@@ -529,10 +529,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	LPWSTR DllName = NULL;
 	DWORD ReturnCode;
-	int argc;
 	LPWSTR *argvW = NULL;
 
-	/* parse the command line */
+	/* overwrite the command line */
 	process_args( GetCommandLineW(), &argc, &argvW );
 
 	/*

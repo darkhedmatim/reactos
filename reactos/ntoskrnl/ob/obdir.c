@@ -362,7 +362,7 @@ NtOpenDirectoryObject(OUT PHANDLE DirectoryHandle,
 {
     HANDLE Directory;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we need to do any probing */
@@ -375,10 +375,11 @@ NtOpenDirectoryObject(OUT PHANDLE DirectoryHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the error code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the directory object */
@@ -464,7 +465,7 @@ NtQueryDirectoryObject(IN HANDLE DirectoryHandle,
     POBJECT_DIRECTORY Directory;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     ULONG SkipEntries = 0;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PVOID LocalBuffer;
     POBJECT_DIRECTORY_INFORMATION DirectoryInfo;
     ULONG Length, TotalLength;
@@ -498,10 +499,11 @@ NtQueryDirectoryObject(IN HANDLE DirectoryHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else if (!RestartScan)
     {
@@ -690,7 +692,6 @@ Quickie:
     }
     _SEH2_EXCEPT(ExSystemExceptionFilter())
     {
-        /* Get the exception code */
         Status = _SEH2_GetExceptionCode();
     }
     _SEH2_END;
@@ -735,11 +736,11 @@ NtCreateDirectoryObject(OUT PHANDLE DirectoryHandle,
     POBJECT_DIRECTORY Directory;
     HANDLE NewHandle;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we need to do any probing */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         _SEH2_TRY
         {
@@ -748,10 +749,11 @@ NtCreateDirectoryObject(OUT PHANDLE DirectoryHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the error code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Create the object */

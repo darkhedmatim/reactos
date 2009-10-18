@@ -40,7 +40,7 @@ GetProtoOpenNetworkDatabase(PCHAR Name)
                                     "DatabasePath",
                                     NULL,
                                     &RegType,
-                                    (LPBYTE)DatabasePath,
+                                    DatabasePath,
                                     &RegSize);
 
         /* Close the key */

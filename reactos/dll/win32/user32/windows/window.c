@@ -174,12 +174,6 @@ User32CreateWindowEx(DWORD dwExStyle,
     DbgPrint("[window] User32CreateWindowEx style %d, exstyle %d, parent %d\n", dwStyle, dwExStyle, hWndParent);
 #endif
 
-    if (!RegisterDefaultClasses)
-    {
-       ERR("User32CreateWindowEx RegisterSystemControls\n");
-       RegisterSystemControls();
-    }
-
     if (IS_ATOM(lpClassName))
     {
         RtlInitUnicodeString(&ClassName, NULL);
@@ -247,7 +241,7 @@ User32CreateWindowEx(DWORD dwExStyle,
                                   hInstance,
                                   lpParam,
                                   SW_SHOW,
-                                  Unicode,
+                                  FALSE,
                                   0);
 
 #if 0
@@ -287,12 +281,6 @@ CreateWindowExA(DWORD dwExStyle,
     MDICREATESTRUCTA mdi;
     HWND hwnd;
 
-    if (!RegisterDefaultClasses)
-    {
-       ERR("CreateWindowExA RegisterSystemControls\n");
-       RegisterSystemControls();
-    }
-
     if (dwExStyle & WS_EX_MDICHILD)
     {
         POINT mPos[2];
@@ -314,7 +302,7 @@ CreateWindowExA(DWORD dwExStyle,
 
         lpParam = (LPVOID)&mdi;
 
-        if (GetWindowLongPtrW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
+        if (GetWindowLongW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
         {
             if (dwStyle & WS_POPUP)
             {
@@ -399,12 +387,6 @@ CreateWindowExW(DWORD dwExStyle,
     MDICREATESTRUCTW mdi;
     HWND hwnd;
 
-    if (!RegisterDefaultClasses)
-    {
-       ERR("CreateWindowExW RegisterSystemControls\n");
-       RegisterSystemControls();
-    }
-
     if (dwExStyle & WS_EX_MDICHILD)
     {
         POINT mPos[2];
@@ -426,7 +408,7 @@ CreateWindowExW(DWORD dwExStyle,
 
         lpParam = (LPVOID)&mdi;
 
-        if (GetWindowLongPtrW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
+        if (GetWindowLongW(hWndParent, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
         {
             if (dwStyle & WS_POPUP)
             {
@@ -533,7 +515,7 @@ EndDeferWindowPos(HDWP hWinPosInfo)
 HWND WINAPI
 GetDesktopWindow(VOID)
 {
-    PWND Wnd;
+    PWINDOW Wnd;
     HWND Ret = NULL;
 
     _SEH2_TRY
@@ -856,7 +838,7 @@ HWND WINAPI
 GetAncestor(HWND hwnd, UINT gaFlags)
 {
     HWND Ret = NULL;
-    PWND Ancestor, Wnd;
+    PWINDOW Ancestor, Wnd;
     
     Wnd = ValidateHwnd(hwnd);
     if (!Wnd)
@@ -868,8 +850,8 @@ GetAncestor(HWND hwnd, UINT gaFlags)
         switch (gaFlags)
         {
             case GA_PARENT:
-                if (Wnd->spwndParent != NULL)
-                    Ancestor = DesktopPtrToUser(Wnd->spwndParent);
+                if (Wnd->Parent != NULL)
+                    Ancestor = DesktopPtrToUser(Wnd->Parent);
                 break;
 
             default:
@@ -900,13 +882,13 @@ GetAncestor(HWND hwnd, UINT gaFlags)
 BOOL WINAPI
 GetClientRect(HWND hWnd, LPRECT lpRect)
 {
-    PWND Wnd = ValidateHwnd(hWnd);
+    PWINDOW Wnd = ValidateHwnd(hWnd);
 
     if (Wnd != NULL)
     {
         lpRect->left = lpRect->top = 0;
-        lpRect->right = Wnd->rcClient.right - Wnd->rcClient.left;
-        lpRect->bottom = Wnd->rcClient.bottom - Wnd->rcClient.top;
+        lpRect->right = Wnd->ClientRect.right - Wnd->ClientRect.left;
+        lpRect->bottom = Wnd->ClientRect.bottom - Wnd->ClientRect.top;
         return TRUE;
     }
 
@@ -920,7 +902,7 @@ GetClientRect(HWND hWnd, LPRECT lpRect)
 HWND WINAPI
 GetLastActivePopup(HWND hWnd)
 {
-    PWND Wnd;
+    PWINDOW Wnd;
     HWND Ret = hWnd;
 
     Wnd = ValidateHwnd(hWnd);
@@ -947,7 +929,7 @@ GetLastActivePopup(HWND hWnd)
 HWND WINAPI
 GetParent(HWND hWnd)
 {
-    PWND Wnd, WndParent;
+    PWINDOW Wnd, WndParent;
     HWND Ret = NULL;
 
     Wnd = ValidateHwnd(hWnd);
@@ -956,15 +938,15 @@ GetParent(HWND hWnd)
         _SEH2_TRY
         {
             WndParent = NULL;
-            if (Wnd->style & WS_CHILD)
+            if (Wnd->Style & WS_CHILD)
             {
-                if (Wnd->spwndParent != NULL)
-                    WndParent = DesktopPtrToUser(Wnd->spwndParent);
+                if (Wnd->Parent != NULL)
+                    WndParent = DesktopPtrToUser(Wnd->Parent);
             }
-            else if (Wnd->style & WS_POPUP)
+            else if (Wnd->Style & WS_POPUP)
             {
-                if (Wnd->spwndOwner != NULL)
-                    WndParent = DesktopPtrToUser(Wnd->spwndOwner);
+                if (Wnd->Owner != NULL)
+                    WndParent = DesktopPtrToUser(Wnd->Owner);
             }
 
             if (WndParent != NULL)
@@ -1007,7 +989,7 @@ HWND WINAPI
 GetWindow(HWND hWnd,
           UINT uCmd)
 {
-    PWND Wnd, FoundWnd;
+    PWINDOW Wnd, FoundWnd;
     HWND Ret = NULL;
 
     Wnd = ValidateHwnd(hWnd);
@@ -1020,8 +1002,8 @@ GetWindow(HWND hWnd,
         switch (uCmd)
         {
             case GW_OWNER:
-                if (Wnd->spwndOwner != NULL)
-                    FoundWnd = DesktopPtrToUser(Wnd->spwndOwner);
+                if (Wnd->Owner != NULL)
+                    FoundWnd = DesktopPtrToUser(Wnd->Owner);
                 break;
 
             default:
@@ -1061,63 +1043,10 @@ GetTopWindow(HWND hWnd)
  * @implemented
  */
 BOOL WINAPI
-GetWindowInfo(HWND hWnd,
+GetWindowInfo(HWND hwnd,
               PWINDOWINFO pwi)
 {
-    PWND pWnd;
-    PCLS pCls = NULL;
-    SIZE Size = {0,0};
-    BOOL Ret = FALSE;
-
-    if ( !pwi || pwi->cbSize != sizeof(WINDOWINFO))
-       SetLastError(ERROR_INVALID_PARAMETER); // Just set the error and go!
-
-    pWnd = ValidateHwnd(hWnd);
-    if (!pWnd)
-        return Ret;
-
-    UserGetWindowBorders(pWnd->style, pWnd->ExStyle, &Size, FALSE);
-
-    _SEH2_TRY
-    {
-       pCls = DesktopPtrToUser(pWnd->pcls);
-       pwi->rcWindow = pWnd->rcWindow;
-       pwi->rcClient = pWnd->rcClient;
-       pwi->dwStyle = pWnd->style;
-       pwi->dwExStyle = pWnd->ExStyle;
-       pwi->cxWindowBorders = Size.cx;
-       pwi->cyWindowBorders = Size.cy;
-       pwi->dwWindowStatus = 0;
-       if (pWnd->state & WNDS_ACTIVEFRAME)
-          pwi->dwWindowStatus = WS_ACTIVECAPTION;
-       pwi->atomWindowType = (pCls ? pCls->atomClassName : 0 );
-
-       if ( pWnd->state2 & WNDS2_WIN50COMPAT )
-       {
-          pwi->wCreatorVersion = 0x500;
-       }
-       else if ( pWnd->state2 & WNDS2_WIN40COMPAT )
-       {
-          pwi->wCreatorVersion = 0x400;
-       }
-       else if ( pWnd->state2 & WNDS2_WIN31COMPAT )
-       {
-          pwi->wCreatorVersion =  0x30A;
-       }
-       else
-       {
-          pwi->wCreatorVersion = 0x300;
-       }
-
-       Ret = TRUE;
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        /* Do nothing */
-    }
-    _SEH2_END;
-
-   return Ret;
+    return NtUserGetWindowInfo(hwnd, pwi);
 }
 
 
@@ -1129,12 +1058,14 @@ GetWindowModuleFileNameA(HWND hwnd,
                          LPSTR lpszFileName,
                          UINT cchFileNameMax)
 {
-    PWND Wnd = ValidateHwnd(hwnd);
+    HINSTANCE hWndInst;
 
-    if (!Wnd)
+    if(!(hWndInst = NtUserGetWindowInstance(hwnd)))
+    {
         return 0;
+    }
 
-    return GetModuleFileNameA(Wnd->hModule, lpszFileName, cchFileNameMax);
+    return GetModuleFileNameA(hWndInst, lpszFileName, cchFileNameMax);
 }
 
 
@@ -1146,12 +1077,14 @@ GetWindowModuleFileNameW(HWND hwnd,
                          LPWSTR lpszFileName,
                          UINT cchFileNameMax)
 {
-       PWND Wnd = ValidateHwnd(hwnd);
+    HINSTANCE hWndInst;
 
-    if (!Wnd)
+    if(!(hWndInst = NtUserGetWindowInstance(hwnd)))
+    {
         return 0;
+    }
 
-    return GetModuleFileNameW( Wnd->hModule, lpszFileName, cchFileNameMax );
+    return GetModuleFileNameW(hWndInst, lpszFileName, cchFileNameMax);
 }
 
 
@@ -1162,11 +1095,11 @@ BOOL WINAPI
 GetWindowRect(HWND hWnd,
               LPRECT lpRect)
 {
-    PWND Wnd = ValidateHwnd(hWnd);
+    PWINDOW Wnd = ValidateHwnd(hWnd);
 
     if (Wnd != NULL)
     {
-        *lpRect = Wnd->rcWindow;
+        *lpRect = Wnd->WindowRect;
         return TRUE;
     }
 
@@ -1180,7 +1113,7 @@ GetWindowRect(HWND hWnd,
 int WINAPI
 GetWindowTextA(HWND hWnd, LPSTR lpString, int nMaxCount)
 {
-    PWND Wnd;
+    PWINDOW Wnd;
     PCWSTR Buffer;
     INT Length = 0;
 
@@ -1198,10 +1131,10 @@ GetWindowTextA(HWND hWnd, LPSTR lpString, int nMaxCount)
             if (nMaxCount > 0)
             {
                 /* do not send WM_GETTEXT messages to other processes */
-                Length = Wnd->strName.Length / sizeof(WCHAR);
+                Length = Wnd->WindowName.Length / sizeof(WCHAR);
                 if (Length != 0)
                 {
-                    Buffer = DesktopPtrToUser(Wnd->strName.Buffer);
+                    Buffer = DesktopPtrToUser(Wnd->WindowName.Buffer);
                     if (Buffer != NULL)
                     {
                         if (!WideCharToMultiByte(CP_ACP,
@@ -1270,7 +1203,7 @@ GetWindowTextLengthW(HWND hWnd)
 int WINAPI
 GetWindowTextW(HWND hWnd, LPWSTR lpString, int nMaxCount)
 {
-    PWND Wnd;
+    PWINDOW Wnd;
     PCWSTR Buffer;
     INT Length = 0;
 
@@ -1288,10 +1221,10 @@ GetWindowTextW(HWND hWnd, LPWSTR lpString, int nMaxCount)
             if (nMaxCount > 0)
             {
                 /* do not send WM_GETTEXT messages to other processes */
-                Length = Wnd->strName.Length / sizeof(WCHAR);
+                Length = Wnd->WindowName.Length / sizeof(WCHAR);
                 if (Length != 0)
                 {
-                    Buffer = DesktopPtrToUser(Wnd->strName.Buffer);
+                    Buffer = DesktopPtrToUser(Wnd->WindowName.Buffer);
                     if (Buffer != NULL)
                     {
                         RtlCopyMemory(lpString,
@@ -1330,12 +1263,12 @@ GetWindowThreadProcessId(HWND hWnd,
                          LPDWORD lpdwProcessId)
 {
     DWORD Ret = 0;
-    PTHREADINFO ti;
-    PWND pWnd = ValidateHwnd(hWnd);
+    PW32THREADINFO ti;
+    PWINDOW pWnd = ValidateHwnd(hWnd);
 
     if (!pWnd) return Ret;
 
-    ti = pWnd->head.pti;
+    ti = SharedPtrToUser(pWnd->ti);
  
     if (ti)
     {
@@ -1365,7 +1298,7 @@ BOOL WINAPI
 IsChild(HWND hWndParent,
     HWND hWnd)
 {
-    PWND WndParent, Wnd;
+    PWINDOW WndParent, Wnd;
     BOOL Ret = FALSE;
 
     WndParent = ValidateHwnd(hWndParent);
@@ -1379,9 +1312,9 @@ IsChild(HWND hWndParent,
     {
         while (Wnd != NULL)
         {
-            if (Wnd->spwndParent != NULL)
+            if (Wnd->Parent != NULL)
             {
-                Wnd = DesktopPtrToUser(Wnd->spwndParent);
+                Wnd = DesktopPtrToUser(Wnd->Parent);
                 if (Wnd == WndParent)
                 {
                     Ret = TRUE;
@@ -1408,10 +1341,10 @@ IsChild(HWND hWndParent,
 BOOL WINAPI
 IsIconic(HWND hWnd)
 {
-    PWND Wnd = ValidateHwnd(hWnd);
+    PWINDOW Wnd = ValidateHwnd(hWnd);
 
     if (Wnd != NULL)
-        return (Wnd->style & WS_MINIMIZE) != 0;
+        return (Wnd->Style & WS_MINIMIZE) != 0;
 
     return FALSE;
 }
@@ -1423,7 +1356,7 @@ IsIconic(HWND hWnd)
 BOOL WINAPI
 IsWindow(HWND hWnd)
 {
-    PWND Wnd = ValidateHwndNoErr(hWnd);
+    PWINDOW Wnd = ValidateHwndNoErr(hWnd);
     if (Wnd != NULL)
     {
         /* FIXME: If window is being destroyed return FALSE! */
@@ -1440,7 +1373,7 @@ IsWindow(HWND hWnd)
 BOOL WINAPI
 IsWindowUnicode(HWND hWnd)
 {
-    PWND Wnd = ValidateHwnd(hWnd);
+    PWINDOW Wnd = ValidateHwnd(hWnd);
 
     if (Wnd != NULL)
         return Wnd->Unicode;
@@ -1456,7 +1389,7 @@ BOOL WINAPI
 IsWindowVisible(HWND hWnd)
 {
     BOOL Ret = FALSE;
-    PWND Wnd = ValidateHwnd(hWnd);
+    PWINDOW Wnd = ValidateHwnd(hWnd);
 
     if (Wnd != NULL)
     {
@@ -1466,14 +1399,14 @@ IsWindowVisible(HWND hWnd)
 
             do
             {
-                if (!(Wnd->style & WS_VISIBLE))
+                if (!(Wnd->Style & WS_VISIBLE))
                 {
                     Ret = FALSE;
                     break;
                 }
 
-                if (Wnd->spwndParent != NULL)
-                    Wnd = DesktopPtrToUser(Wnd->spwndParent);
+                if (Wnd->Parent != NULL)
+                    Wnd = DesktopPtrToUser(Wnd->Parent);
                 else
                     break;
 
@@ -1500,7 +1433,7 @@ IsWindowEnabled(HWND hWnd)
     // disabled. I think they stop processing messages but stay appearing
     // as enabled.
 
-    return !(GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_DISABLED);
+    return !(GetWindowLongW(hWnd, GWL_STYLE) & WS_DISABLED);
 }
 
 
@@ -1510,7 +1443,7 @@ IsWindowEnabled(HWND hWnd)
 BOOL WINAPI
 IsZoomed(HWND hWnd)
 {
-    return (GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_MAXIMIZE) != 0;
+    return (GetWindowLongW(hWnd, GWL_STYLE) & WS_MAXIMIZE) != 0;
 }
 
 
@@ -1561,7 +1494,7 @@ AnimateWindow(HWND hwnd,
 BOOL WINAPI
 OpenIcon(HWND hWnd)
 {
-    if (!(GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_MINIMIZE))
+    if (!(GetWindowLongW(hWnd, GWL_STYLE) & WS_MINIMIZE))
         return FALSE;
 
     ShowWindow(hWnd,SW_RESTORE);
@@ -1622,7 +1555,7 @@ SetWindowTextA(HWND hWnd,
 
         DefSetText(hWnd, (PCWSTR)lpString, TRUE);
 
-        if ((GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
+        if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
         {
             DefWndNCPaint(hWnd, (HRGN)1, -1);
         }
@@ -1652,7 +1585,7 @@ SetWindowTextW(HWND hWnd,
 
         DefSetText(hWnd, lpString, FALSE);
 
-        if ((GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
+        if ((GetWindowLongW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
         {
             DefWndNCPaint(hWnd, (HRGN)1, -1);
         }
@@ -1675,55 +1608,14 @@ ShowOwnedPopups(HWND hWnd,
 
 
 /*
- * @implemented
- */
-BOOL WINAPI
-UpdateLayeredWindow( HWND hwnd,
-                     HDC hdcDst,
-                     POINT *pptDst,
-                     SIZE *psize,
-                     HDC hdcSrc,
-                     POINT *pptSrc,
-                     COLORREF crKey,
-                     BLENDFUNCTION *pbl,
-                     DWORD dwFlags)
-{
-  if ( dwFlags & ULW_EX_NORESIZE)
-     dwFlags = ~(ULW_EX_NORESIZE|ULW_OPAQUE|ULW_ALPHA|ULW_COLORKEY);
-  return NtUserUpdateLayeredWindow( hwnd,
-                                    hdcDst,
-                                    pptDst,
-                                    psize,
-                                    hdcSrc,
-                                    pptSrc,
-                                    crKey,
-                                    pbl,
-                                    dwFlags,
-                                    NULL);
-}
-
-/*
- * @implemented
+ * @unimplemented
  */
 BOOL WINAPI
 UpdateLayeredWindowIndirect(HWND hwnd,
                             const UPDATELAYEREDWINDOWINFO *info)
 {
-  if (info && info->cbSize == sizeof(info))
-  {
-     return NtUserUpdateLayeredWindow( hwnd,
-                                       info->hdcDst,
-                                       (POINT *)info->pptDst,
-                                       (SIZE *)info->psize,
-                                       info->hdcSrc,
-                                       (POINT *)info->pptSrc,
-                                       info->crKey,
-                                       (BLENDFUNCTION *)info->pblend,
-                                       info->dwFlags,
-                                       (RECT *)info->prcDirty);
-  }
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return FALSE;
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
 
@@ -1745,7 +1637,7 @@ WindowFromPoint(POINT Point)
 int WINAPI
 MapWindowPoints(HWND hWndFrom, HWND hWndTo, LPPOINT lpPoints, UINT cPoints)
 {
-    PWND FromWnd, ToWnd;
+    PWINDOW FromWnd, ToWnd;
     POINT Delta;
     UINT i;
 
@@ -1757,8 +1649,8 @@ MapWindowPoints(HWND hWndFrom, HWND hWndTo, LPPOINT lpPoints, UINT cPoints)
     if (!ToWnd)
         return 0;
 
-    Delta.x = FromWnd->rcClient.left - ToWnd->rcClient.left;
-    Delta.y = FromWnd->rcClient.top - ToWnd->rcClient.top;
+    Delta.x = FromWnd->ClientRect.left - ToWnd->ClientRect.left;
+    Delta.y = FromWnd->ClientRect.top - ToWnd->ClientRect.top;
 
     for (i = 0; i != cPoints; i++)
     {
@@ -1776,7 +1668,7 @@ MapWindowPoints(HWND hWndFrom, HWND hWndTo, LPPOINT lpPoints, UINT cPoints)
 BOOL WINAPI
 ScreenToClient(HWND hWnd, LPPOINT lpPoint)
 {
-    PWND Wnd, DesktopWnd;
+    PWINDOW Wnd, DesktopWnd;
 
     Wnd = ValidateHwnd(hWnd);
     if (!Wnd)
@@ -1784,8 +1676,8 @@ ScreenToClient(HWND hWnd, LPPOINT lpPoint)
 
     DesktopWnd = GetThreadDesktopWnd();
 
-    lpPoint->x += DesktopWnd->rcClient.left - Wnd->rcClient.left;
-    lpPoint->y += DesktopWnd->rcClient.top - Wnd->rcClient.top;
+    lpPoint->x += DesktopWnd->ClientRect.left - Wnd->ClientRect.left;
+    lpPoint->y += DesktopWnd->ClientRect.top - Wnd->ClientRect.top;
 
     return TRUE;
 }
@@ -1797,7 +1689,7 @@ ScreenToClient(HWND hWnd, LPPOINT lpPoint)
 BOOL WINAPI
 ClientToScreen(HWND hWnd, LPPOINT lpPoint)
 {
-    PWND Wnd, DesktopWnd;
+    PWINDOW Wnd, DesktopWnd;
 
     Wnd = ValidateHwnd(hWnd);
     if (!Wnd)
@@ -1805,8 +1697,8 @@ ClientToScreen(HWND hWnd, LPPOINT lpPoint)
 
     DesktopWnd = GetThreadDesktopWnd();
 
-    lpPoint->x += Wnd->rcClient.left - DesktopWnd->rcClient.left;
-    lpPoint->y += Wnd->rcClient.top - DesktopWnd->rcClient.top;
+    lpPoint->x += Wnd->ClientRect.left - DesktopWnd->ClientRect.left;
+    lpPoint->y += Wnd->ClientRect.top - DesktopWnd->ClientRect.top;
 
     return TRUE;
 }
@@ -1829,7 +1721,13 @@ SetWindowContextHelpId(HWND hwnd,
 DWORD WINAPI
 GetWindowContextHelpId(HWND hwnd)
 {
-    return NtUserCallHwnd(hwnd, HWND_ROUTINE_GETWNDCONTEXTHLPID);
+    PWINDOW Wnd = ValidateHwnd(hwnd);
+    if (Wnd != NULL)
+    {
+        return Wnd->ContextHelpId;
+    }
+
+    return 0;
 }
 
 /*
@@ -1869,12 +1767,6 @@ HWND WINAPI
 GetFocus(VOID)
 {
     return (HWND)NtUserGetThreadState(THREADSTATE_FOCUSWINDOW);
-}
-
-DWORD WINAPI
-GetRealWindowOwner(HWND hwnd)
-{
-    return NtUserQueryWindow(hwnd, QUERY_WINDOW_REAL_ID);
 }
 
 /*

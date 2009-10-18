@@ -119,51 +119,48 @@ AnalyzeArgv(char *argument)
     return element;
 }
 
-void sh_outp(char *cur_string)
-{
-    int symbol;
-    putchar('\n');
-    putchar('\n');
-    for(symbol=3;putchar(cur_string[symbol]); symbol++);
-}
-
-void th_outp(char *cur_string, char *THtag)
-{
-    int symbol;
-    putchar('\n');
-    putchar('\n');
-    putchar('\t');
-    putchar('\t');
-    SetCl(ITALIC);
-     for(symbol=3;putchar(THtag[symbol]); symbol++);
-    putchar('\n');
-    SetCl(NORMAL);
-}
-
-void text_outp(char *cur_string)
-{
-    char TagFlag=0;
-    int symbol=0;
-
-    if(cur_string[0]=='.')
-        while(cur_string[symbol]!=' ')
-            symbol++;
-
-    if(symbol) TagFlag=1;
-
-    for(;cur_string[symbol]!='\n'; symbol++)
-        putchar(cur_string[symbol]);
-        putchar(' ');
-}
-
 int
 AnalyzeFile()
 {
     char *cur_string=(char*)malloc(sizeof(char)*MAXLINE);
+    int symbol=0;
     char *THtag=(char*)malloc(sizeof(char)*MAXLINE);
 
 
+    void sh_outp(void)
+     {
+      putchar('\n');
+      putchar('\n');
+      for(symbol=3;putchar(cur_string[symbol]); symbol++);
+     }
 
+    void th_outp(void)
+     {
+      putchar('\n');
+      putchar('\n');
+      putchar('\t');
+      putchar('\t');
+      SetCl(ITALIC);
+       for(symbol=3;putchar(THtag[symbol]); symbol++);
+      putchar('\n');
+      SetCl(NORMAL);
+     }
+
+    void text_outp(void)
+     {
+      char TagFlag=0;
+      symbol=0;
+
+      if(cur_string[0]=='.')
+       while(cur_string[symbol]!=' ')
+        symbol++;
+
+     if(symbol) TagFlag=1;
+
+     for(;cur_string[symbol]!='\n'; symbol++)
+        putchar(cur_string[symbol]);
+        putchar(' ');
+     }
 
     while(fgets(cur_string,MAXLINE,manfile))
 
@@ -172,7 +169,7 @@ AnalyzeFile()
        (cur_string[2]=='H')) // .SH tag
       {
        SetCl(BOLD);
-       sh_outp(cur_string);
+       sh_outp();
        SetCl(NORMAL);
       }
      else
@@ -180,7 +177,7 @@ AnalyzeFile()
        (cur_string[2]==' ')) // .I tag
       {
        SetCl(ITALIC);
-       text_outp(cur_string);
+       text_outp();
        SetCl(NORMAL);
       }
      else
@@ -198,7 +195,7 @@ AnalyzeFile()
        (cur_string[2]==' ')) // .B tag
       {
        SetCl(BOLD);
-       text_outp(cur_string);
+       text_outp();
        SetCl(NORMAL);
       }
       else
@@ -209,8 +206,8 @@ AnalyzeFile()
         putchar(' ');
        }
 
-     else text_outp(cur_string); // print plane text
-     th_outp(cur_string, THtag);
+     else text_outp(); // print plane text
+     th_outp();
 /* END of TAGs processing */
      return 0;
 }

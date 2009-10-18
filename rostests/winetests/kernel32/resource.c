@@ -310,7 +310,7 @@ START_TEST(resource)
 
     if (GLE == ERROR_CALL_NOT_IMPLEMENTED)
     {
-        win_skip("Resource calls are not implemented\n");
+        skip("Resource calls are not implemented\n");
         return;
     }
 

@@ -13,8 +13,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#include "udfs.h"
-
 /* FUNCTIONS ****************************************************************/
 
 BOOLEAN
@@ -22,10 +20,9 @@ NTAPI
 FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject,
                   IN ULONG SectorSize)
 {
-    PVOLSTRUCTDESC VolumeStructDesc = NULL;
+    PUCHAR Buffer = NULL;
     LARGE_INTEGER Offset;
     ULONG State = 0;
-    PAGED_CODE();
 
     Offset.QuadPart = UDFS_VRS_START_OFFSET;
     while (TRUE)
@@ -34,7 +31,7 @@ FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject,
                             &Offset,
                             SectorSize,
                             SectorSize,
-                            (PVOID)&VolumeStructDesc,
+                            (PVOID)&Buffer,
                             NULL))
         {
             break;
@@ -44,27 +41,28 @@ FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject,
         {
             case 0:
 
-                if (!strncmp((const char*)VolumeStructDesc->Ident,
-                             VSD_STD_ID_BEA01,
-                             VSD_STD_ID_LEN))
+                if ((Buffer[1] == 'B') &&
+                    (Buffer[2] == 'E') &&
+                    (Buffer[3] == 'A') &&
+                    (Buffer[4] == '0') &&
+                    (Buffer[5] == '1'))
                 {
                     State = 1;
                 }
                 else
                 {
-                    ExFreePool(VolumeStructDesc);
+                    ExFreePool(Buffer);
                     return FALSE;
                 }
                 break;
 
             case 1:
 
-                if (!strncmp((const char*)VolumeStructDesc->Ident,
-                             VSD_STD_ID_NSR03,
-                             VSD_STD_ID_LEN) ||
-                    !strncmp((const char*)VolumeStructDesc->Ident,
-                             VSD_STD_ID_NSR02,
-                             VSD_STD_ID_LEN))
+                if ((Buffer[1] == 'N') &&
+                    (Buffer[2] == 'S') &&
+                    (Buffer[3] == 'R') &&
+                    (Buffer[4] == '0') &&
+                    ((Buffer[5] == '2') || (Buffer[5] == '3')))
                 {
                     State = 2;
                 }
@@ -72,11 +70,13 @@ FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject,
 
             case 2:
 
-                if (!strncmp((const char*)VolumeStructDesc->Ident,
-                             VSD_STD_ID_TEA01,
-                             VSD_STD_ID_LEN))
+                if ((Buffer[1] == 'T') &&
+                    (Buffer[2] == 'E') &&
+                    (Buffer[3] == 'A') &&
+                    (Buffer[4] == '0') &&
+                    (Buffer[5] == '1'))
                 {
-                    ExFreePool(VolumeStructDesc);
+                    ExFreePool(Buffer);
                     return TRUE;
                 }
                 break;
@@ -85,12 +85,12 @@ FsRecIsUdfsVolume(IN PDEVICE_OBJECT DeviceObject,
         Offset.QuadPart += SectorSize;
         if (Offset.QuadPart == UDFS_AVDP_SECTOR)
         {
-            ExFreePool(VolumeStructDesc);
+            ExFreePool(Buffer);
             return FALSE;
         }
     }
 
-    ExFreePool(VolumeStructDesc);
+    ExFreePool(Buffer);
     return TRUE;
 }
 

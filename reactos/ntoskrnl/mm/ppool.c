@@ -51,7 +51,7 @@ VOID
 INIT_FUNCTION
 NTAPI
 MmInitializePagedPool(VOID)
-{   
+{
 	/*
 	 * We are still at a high IRQL level at this point so explicitly commit
 	 * the first page of the paged pool before writing the first block header.

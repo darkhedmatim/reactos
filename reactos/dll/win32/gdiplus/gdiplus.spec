@@ -29,24 +29,24 @@
 @ stdcall GdipAddPathRectangleI(ptr long long long long)
 @ stdcall GdipAddPathRectangles(ptr ptr long)
 @ stdcall GdipAddPathRectanglesI(ptr ptr long)
-@ stdcall GdipAddPathString(ptr wstr long ptr long long ptr ptr)
-@ stdcall GdipAddPathStringI(ptr wstr long ptr long long ptr ptr)
+@ stub GdipAddPathString
+@ stub GdipAddPathStringI
 @ stdcall GdipAlloc(long)
 @ stdcall GdipBeginContainer2(ptr ptr)
-@ stdcall GdipBeginContainer(ptr ptr ptr long ptr)
-@ stdcall GdipBeginContainerI(ptr ptr ptr long ptr)
-@ stdcall GdipBitmapApplyEffect(ptr ptr ptr long ptr ptr)
+@ stub GdipBeginContainer
+@ stub GdipBeginContainerI
+@ stub GdipBitmapApplyEffect
 @ stub GdipBitmapConvertFormat
-@ stdcall GdipBitmapCreateApplyEffect(ptr long ptr ptr ptr ptr long ptr ptr)
+@ stub GdipBitmapCreateApplyEffect
 @ stub GdipBitmapGetHistogram
 @ stub GdipBitmapGetHistogramSize
 @ stdcall GdipBitmapGetPixel(ptr long long ptr)
 @ stdcall GdipBitmapLockBits(ptr ptr long long ptr)
-@ stdcall GdipBitmapSetPixel(ptr long long long)
+@ stub GdipBitmapSetPixel
 @ stdcall GdipBitmapSetResolution(ptr long long)
 @ stdcall GdipBitmapUnlockBits(ptr ptr)
 @ stdcall GdipClearPathMarkers(ptr)
-@ stdcall GdipCloneBitmapArea(long long long long long ptr ptr)
+@ stub GdipCloneBitmapArea
 @ stdcall GdipCloneBitmapAreaI(long long long long long ptr ptr)
 @ stdcall GdipCloneBrush(ptr ptr)
 @ stdcall GdipCloneCustomLineCap(ptr ptr)
@@ -65,7 +65,7 @@
 @ stdcall GdipCombineRegionRect(ptr ptr long)
 @ stdcall GdipCombineRegionRectI(ptr ptr long)
 @ stdcall GdipCombineRegionRegion(ptr ptr long)
-@ stdcall GdipComment(ptr long ptr)
+@ stub GdipComment
 @ stdcall GdipConvertToEmfPlus(ptr ptr ptr long ptr ptr)
 @ stub GdipConvertToEmfPlusToFile
 @ stub GdipConvertToEmfPlusToStream
@@ -94,7 +94,7 @@
 @ stdcall GdipCreateFromHWND(long ptr)
 @ stdcall GdipCreateFromHWNDICM(long ptr)
 @ stdcall GdipCreateHBITMAPFromBitmap(ptr ptr long)
-@ stdcall GdipCreateHICONFromBitmap(ptr ptr)
+@ stub GdipCreateHICONFromBitmap
 @ stdcall GdipCreateHalftonePalette()
 @ stdcall GdipCreateHatchBrush(long long long ptr)
 @ stdcall GdipCreateImageAttributes(ptr)
@@ -109,8 +109,8 @@
 @ stdcall GdipCreateMatrix3I(ptr ptr ptr)
 @ stdcall GdipCreateMatrix(ptr)
 @ stdcall GdipCreateMetafileFromEmf(ptr long ptr)
-@ stdcall GdipCreateMetafileFromFile(ptr ptr)
-@ stdcall GdipCreateMetafileFromStream(ptr ptr)
+@ stub GdipCreateMetafileFromFile
+@ stub GdipCreateMetafileFromStream
 @ stdcall GdipCreateMetafileFromWmf(ptr long ptr ptr)
 @ stdcall GdipCreateMetafileFromWmfFile(wstr ptr ptr)
 @ stdcall GdipCreatePath2(ptr ptr long long ptr)
@@ -139,7 +139,7 @@
 @ stdcall GdipDeleteBrush(ptr)
 @ stdcall GdipDeleteCachedBitmap(ptr)
 @ stdcall GdipDeleteCustomLineCap(ptr)
-@ stdcall GdipDeleteEffect(ptr)
+@ stub GdipDeleteEffect
 @ stdcall GdipDeleteFont(ptr)
 @ stdcall GdipDeleteFontFamily(ptr)
 @ stdcall GdipDeleteGraphics(ptr)
@@ -165,20 +165,20 @@
 @ stdcall GdipDrawClosedCurveI(ptr ptr ptr long)
 @ stdcall GdipDrawCurve2(ptr ptr ptr long long)
 @ stdcall GdipDrawCurve2I(ptr ptr ptr long long)
-@ stdcall GdipDrawCurve3(ptr ptr ptr long long long long)
-@ stdcall GdipDrawCurve3I(ptr ptr ptr long long long long)
+@ stub GdipDrawCurve3
+@ stub GdipDrawCurve3I
 @ stdcall GdipDrawCurve(ptr ptr ptr long)
 @ stdcall GdipDrawCurveI(ptr ptr ptr long)
-@ stdcall GdipDrawDriverString(ptr ptr long ptr ptr ptr long ptr)
+@ stub GdipDrawDriverString
 @ stdcall GdipDrawEllipse(ptr ptr long long long long)
 @ stdcall GdipDrawEllipseI(ptr ptr long long long long)
 @ stdcall GdipDrawImage(ptr ptr long long)
 @ stub GdipDrawImageFX
 @ stdcall GdipDrawImageI(ptr ptr long long)
-@ stdcall GdipDrawImagePointRect(ptr ptr long long long long long long long)
-@ stdcall GdipDrawImagePointRectI(ptr ptr long long long long long long long)
-@ stdcall GdipDrawImagePoints(ptr ptr ptr long)
-@ stdcall GdipDrawImagePointsI(ptr ptr ptr long)
+@ stub GdipDrawImagePointRect
+@ stub GdipDrawImagePointRectI
+@ stub GdipDrawImagePoints
+@ stub GdipDrawImagePointsI
 @ stdcall GdipDrawImagePointsRect(ptr ptr ptr long long long long long long ptr ptr ptr)
 @ stdcall GdipDrawImagePointsRectI(ptr ptr ptr long long long long long long ptr ptr ptr)
 @ stdcall GdipDrawImageRect(ptr ptr long long long long)
@@ -199,7 +199,7 @@
 @ stdcall GdipDrawRectangles(ptr ptr ptr long)
 @ stdcall GdipDrawRectanglesI(ptr ptr ptr long)
 @ stdcall GdipDrawString(ptr ptr long ptr ptr ptr ptr)
-@ stdcall GdipEmfToWmfBits(ptr long ptr long long)
+@ stub GdipEmfToWmfBits
 @ stdcall GdipEndContainer(ptr ptr)
 @ stub GdipEnumerateMetafileDestPoint
 @ stub GdipEnumerateMetafileDestPointI
@@ -291,17 +291,17 @@
 @ stdcall GdipGetImageHeight(ptr ptr)
 @ stdcall GdipGetImageHorizontalResolution(ptr ptr)
 @ stub GdipGetImageItemData
-@ stdcall GdipGetImagePalette(ptr ptr long)
+@ stub GdipGetImagePalette
 @ stdcall GdipGetImagePaletteSize(ptr ptr)
 @ stdcall GdipGetImagePixelFormat(ptr ptr)
 @ stdcall GdipGetImageRawFormat(ptr ptr)
-@ stdcall GdipGetImageThumbnail(ptr long long ptr ptr ptr)
+@ stub GdipGetImageThumbnail
 @ stdcall GdipGetImageType(ptr ptr)
 @ stdcall GdipGetImageVerticalResolution(ptr ptr)
 @ stdcall GdipGetImageWidth(ptr ptr)
 @ stdcall GdipGetInterpolationMode(ptr ptr)
-@ stdcall GdipGetLineBlend(ptr ptr ptr long)
-@ stdcall GdipGetLineBlendCount(ptr ptr)
+@ stub GdipGetLineBlend
+@ stub GdipGetLineBlendCount
 @ stdcall GdipGetLineColors(ptr ptr)
 @ stdcall GdipGetLineGammaCorrection(ptr ptr)
 @ stub GdipGetLinePresetBlend
@@ -400,8 +400,8 @@
 @ stub GdipGetTextureImage
 @ stdcall GdipGetTextureTransform(ptr ptr)
 @ stdcall GdipGetTextureWrapMode(ptr ptr)
-@ stdcall GdipGetVisibleClipBounds(ptr ptr)
-@ stdcall GdipGetVisibleClipBoundsI(ptr ptr)
+@ stub GdipGetVisibleClipBounds
+@ stub GdipGetVisibleClipBoundsI
 @ stdcall GdipGetWorldTransform(ptr ptr)
 @ stdcall GdipGraphicsClear(ptr long)
 @ stub GdipGraphicsSetAbort
@@ -409,7 +409,7 @@
 @ stdcall GdipImageGetFrameCount(ptr ptr ptr)
 @ stdcall GdipImageGetFrameDimensionsCount(ptr ptr)
 @ stdcall GdipImageGetFrameDimensionsList(ptr ptr long)
-@ stdcall GdipImageRotateFlip(ptr long)
+@ stub GdipImageRotateFlip
 @ stdcall GdipImageSelectActiveFrame(ptr ptr long)
 @ stub GdipImageSetAbort
 @ stub GdipInitializePalette
@@ -429,18 +429,18 @@
 @ stdcall GdipIsVisiblePathPointI(ptr long long ptr ptr)
 @ stdcall GdipIsVisiblePoint(ptr long long ptr)
 @ stdcall GdipIsVisiblePointI(ptr long long ptr)
-@ stdcall GdipIsVisibleRect(ptr long long long long ptr)
-@ stdcall GdipIsVisibleRectI(ptr long long long long ptr)
-@ stdcall GdipIsVisibleRegionPoint(ptr long long ptr ptr)
-@ stdcall GdipIsVisibleRegionPointI(ptr long long ptr ptr)
-@ stdcall GdipIsVisibleRegionRect(ptr long long long long ptr ptr)
-@ stdcall GdipIsVisibleRegionRectI(ptr long long long long ptr ptr)
+@ stub GdipIsVisibleRect
+@ stub GdipIsVisibleRectI
+@ stub GdipIsVisibleRegionPoint
+@ stub GdipIsVisibleRegionPointI
+@ stub GdipIsVisibleRegionRect
+@ stub GdipIsVisibleRegionRectI
 @ stdcall GdipLoadImageFromFile(wstr ptr)
 @ stdcall GdipLoadImageFromFileICM(wstr ptr)
 @ stdcall GdipLoadImageFromStream(ptr ptr)
 @ stdcall GdipLoadImageFromStreamICM(ptr ptr)
 @ stdcall GdipMeasureCharacterRanges(ptr wstr long ptr ptr ptr long ptr)
-@ stdcall GdipMeasureDriverString(ptr ptr long ptr ptr long ptr ptr)
+@ stub GdipMeasureDriverString
 @ stdcall GdipMeasureString(ptr wstr long ptr ptr ptr ptr ptr ptr)
 @ stub GdipMultiplyLineTransform
 @ stdcall GdipMultiplyMatrix(ptr ptr long)
@@ -469,7 +469,7 @@
 @ stub GdipRecordMetafile
 @ stdcall GdipRecordMetafileFileName(wstr long long ptr long wstr ptr)
 @ stdcall GdipRecordMetafileFileNameI(wstr long long ptr long wstr ptr)
-@ stdcall GdipRecordMetafileI(long long ptr long wstr ptr)
+@ stub GdipRecordMetafileI
 @ stub GdipRecordMetafileStream
 @ stub GdipRecordMetafileStreamI
 @ stdcall GdipReleaseDC(ptr ptr)
@@ -556,7 +556,7 @@
 @ stdcall GdipSetPathGradientGammaCorrection(ptr long)
 @ stub GdipSetPathGradientLinearBlend
 @ stub GdipSetPathGradientPath
-@ stdcall GdipSetPathGradientPresetBlend(ptr ptr ptr long)
+@ stub GdipSetPathGradientPresetBlend
 @ stdcall GdipSetPathGradientSigmaBlend(ptr long long)
 @ stdcall GdipSetPathGradientSurroundColorsWithCount(ptr ptr ptr)
 @ stub GdipSetPathGradientTransform
@@ -582,7 +582,7 @@
 @ stdcall GdipSetPenWidth(ptr long)
 @ stdcall GdipSetPixelOffsetMode(ptr long)
 @ stdcall GdipSetPropertyItem(ptr ptr)
-@ stdcall GdipSetRenderingOrigin(ptr long long)
+@ stub GdipSetRenderingOrigin
 @ stdcall GdipSetSmoothingMode(ptr long)
 @ stdcall GdipSetSolidFillColor(ptr ptr)
 @ stdcall GdipSetStringFormatAlign(ptr long)
@@ -621,8 +621,8 @@
 @ stdcall GdipTranslateWorldTransform(ptr long long long)
 @ stdcall GdipVectorTransformMatrixPoints(ptr ptr long)
 @ stdcall GdipVectorTransformMatrixPointsI(ptr ptr long)
-@ stdcall GdipWarpPath(ptr ptr ptr long long long long long long long)
-@ stdcall GdipWidenPath(ptr ptr ptr long)
+@ stub GdipWarpPath
+@ stub GdipWidenPath
 @ stub GdipWindingModeOutline
 @ stdcall GdiplusNotificationHook(ptr)
 @ stdcall GdiplusNotificationUnhook(ptr)

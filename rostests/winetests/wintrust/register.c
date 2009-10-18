@@ -66,7 +66,7 @@ static void test_AddRem_ActionID(void)
 
     if (!pWintrustAddActionID || !pWintrustRemoveActionID)
     {
-        win_skip("WintrustAddActionID and/or WintrustRemoveActionID are not available\n");
+        skip("WintrustAddActionID and/or WintrustRemoveActionID are not available\n");
         return;
     }
 
@@ -176,7 +176,7 @@ static void test_AddDefaultForUsage(void)
 
     if (!pWintrustAddDefaultForUsage)
     {
-        win_skip("WintrustAddDefaultForUsage is not available\n");
+        skip("WintrustAddDefaultForUsage is not available\n");
         return;
     }
 
@@ -229,7 +229,7 @@ static void test_LoadFunctionPointers(void)
 
     if (!pWintrustLoadFunctionPointers)
     {
-        win_skip("WintrustLoadFunctionPointers is not available\n");
+        skip("WintrustLoadFunctionPointers is not available\n");
         return;
     }
     SetLastError(0xdeadbeef);
@@ -278,7 +278,7 @@ static void test_RegPolicyFlags(void)
 
     if (!pWintrustGetRegPolicyFlags || !pWintrustSetRegPolicyFlags)
     {
-        win_skip("Policy flags functions not present\n");
+        skip("Policy flags functions not present\n");
         return;
     }
 

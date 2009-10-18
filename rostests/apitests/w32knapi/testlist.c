@@ -58,7 +58,6 @@
 #include "ntuser/NtUserSetTimer.c"
 #include "ntuser/NtUserSystemParametersInfo.c"
 #include "ntuser/NtUserToUnicodeEx.c"
-#include "ntuser/NtUserUpdatePerUserSystemParameters.c"
 
 /* The List of tests */
 TESTENTRY TestList[] =
@@ -122,7 +121,6 @@ TESTENTRY TestList[] =
 	{ L"NtUserSetTimer", Test_NtUserSetTimer },
 	{ L"NtUserSystemParametersInfo", Test_NtUserSystemParametersInfo },
 	{ L"NtUserToUnicodeEx", Test_NtUserToUnicodeEx },
-	{ L"NtUserUpdatePerUserSystemParameters", Test_NtUserUpdatePerUserSystemParameters },
 };
 
 /* The function that gives us the number of tests */

@@ -33,10 +33,6 @@ ok(true === true, "true === true is false");
 ok(null === null, "null === null is false");
 ok(undefined === undefined, "undefined === undefined is false");
 ok(!(undefined === null), "!(undefined === null) is false");
-ok(1E0 === 1, "1E0 === 1 is false");
-ok(1000000*1000000 === 1000000000000, "1000000*1000000 === 1000000000000 is false");
-ok(8.64e15 === 8640000000000000, "8.64e15 !== 8640000000000000"+8.64e15);
-ok(1e2147483648 === Infinity, "1e2147483648 !== Infinity");
 
 ok(1 !== 2, "1 !== 2 is false");
 ok(null !== undefined, "null !== undefined is false");
@@ -84,7 +80,7 @@ ok(RegExp.prototype !== undefined, "RegExp.prototype is undefined");
 ok(Math !== undefined, "Math is undefined");
 ok(Math.prototype === undefined, "Math.prototype is not undefined");
 ok(Function.prototype !== undefined, "Function.prototype is undefined");
-ok(Function.prototype.prototype === undefined, "Function.prototype.prototype is not undefined");
+ok(Function.prototype.prototype === undefined, "Function.prototype is not undefined");
 ok(Date.prototype !== undefined, "Date.prototype is undefined");
 ok(Date.prototype.prototype === undefined, "Date.prototype is not undefined");
 
@@ -672,13 +668,6 @@ do {
 ok(tmp === 1, "tmp !== 1");
 
 tmp = 0;
-do {
-    ok(tmp < 4, "tmp >= 4");
-    tmp++;
-} while(tmp < 4)
-ok(tmp === 4, "tmp !== 4")
-
-tmp = 0;
 while(tmp < 4) {
     tmp++;
     if(tmp === 2) {
@@ -881,21 +870,5 @@ function testEmbededFunctions() {
 }
 
 testEmbededFunctions();
-
-date = new Date();
-date.toString = function() { return "toString"; }
-ok(""+date === "toString", "''+date = " + date);
-date.toString = function() { return this; }
-ok(""+date === ""+date.valueOf(), "''+date = " + date);
-
-str = new String("test");
-str.valueOf = function() { return "valueOf"; }
-ok(""+str === "valueOf", "''+str = " + str);
-str.valueOf = function() { return new Date(); }
-ok(""+str === "test", "''+str = " + str);
-
-ok((function (){return 1;})() === 1, "(function (){return 1;})() = " + (function (){return 1;})());
-
-ok(createNullBSTR() === '', "createNullBSTR() !== ''");
 
 reportSuccess();

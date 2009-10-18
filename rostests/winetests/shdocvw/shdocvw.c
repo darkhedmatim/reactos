@@ -357,5 +357,4 @@ START_TEST(shdocvw)
     test_URLSubRegQueryA();
     test_ParseURLFromOutsideSourceA();
     test_ParseURLFromOutsideSourceW();
-    FreeLibrary(hshdocvw);
 }

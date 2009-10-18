@@ -515,11 +515,6 @@ IopInitiatePnpIrp(PDEVICE_OBJECT DeviceObject,
    Irp->IoStatus.Status = STATUS_NOT_SUPPORTED;
    Irp->IoStatus.Information = 0;
 
-   if (MinorFunction == IRP_MN_FILTER_RESOURCE_REQUIREMENTS)
-   {
-      Irp->IoStatus.Information = (ULONG_PTR)Stack->Parameters.FilterResourceRequirements.IoResourceRequirementList;
-   }
-
    IrpSp = IoGetNextIrpStackLocation(Irp);
    IrpSp->MinorFunction = (UCHAR)MinorFunction;
 
@@ -2852,7 +2847,7 @@ PnpInit(VOID)
 	ExInitializeFastMutex(&IopBusTypeGuidListLock);
 	
     /* Initialize the Bus Type GUID List */
-    IopBusTypeGuidList = ExAllocatePool(NonPagedPool, sizeof(IO_BUS_TYPE_GUID_LIST));
+    IopBusTypeGuidList = ExAllocatePool(PagedPool, sizeof(IO_BUS_TYPE_GUID_LIST));
     if (!IopBusTypeGuidList) {
 	DPRINT1("ExAllocatePool() failed\n");
 	KeBugCheckEx(PHASE1_INITIALIZATION_FAILED, STATUS_NO_MEMORY, 0, 0, 0);
@@ -3218,7 +3213,7 @@ IoGetDeviceProperty(IN PDEVICE_OBJECT DeviceObject,
         {
             Length = CM_RESOURCE_LIST_SIZE(DeviceNode->BootResources);
         }
-        Data = DeviceNode->BootResources;
+        Data = &DeviceNode->BootResources;
         break;
 
         /* FIXME: use a translated boot configuration instead */
@@ -3228,7 +3223,7 @@ IoGetDeviceProperty(IN PDEVICE_OBJECT DeviceObject,
         {
             Length = CM_RESOURCE_LIST_SIZE(DeviceNode->BootResources);
         }
-        Data = DeviceNode->BootResources;
+        Data = &DeviceNode->BootResources;
         break;
 
     case DevicePropertyEnumeratorName:

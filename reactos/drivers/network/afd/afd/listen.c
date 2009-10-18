@@ -36,6 +36,11 @@ static NTSTATUS SatisfyAccept( PAFD_DEVICE_EXTENSION DeviceExt,
     else
 	Status = MakeSocketIntoConnection( FCB );
 
+    if( NT_SUCCESS(Status) ) {
+	FCB->PollState |= AFD_EVENT_SEND;
+	PollReeval( DeviceExt, NewFileObject );
+    }
+
     return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
 }
 
@@ -60,7 +65,6 @@ static NTSTATUS SatisfyPreAccept( PIRP Irp, PAFD_TDI_OBJECT_QELT Qelt ) {
 	if( Irp->MdlAddress ) UnlockRequest( Irp, IoGetCurrentIrpStackLocation( Irp ) );
 	Irp->IoStatus.Status = STATUS_NO_MEMORY;
 	Irp->IoStatus.Information = 0;
-        (void)IoSetCancelRoutine(Irp, NULL);
 	IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
         return STATUS_NO_MEMORY;
     }
@@ -80,7 +84,6 @@ static NTSTATUS SatisfyPreAccept( PIRP Irp, PAFD_TDI_OBJECT_QELT Qelt ) {
 
     Irp->IoStatus.Information = ((PCHAR)&IPAddr[1]) - ((PCHAR)ListenReceive);
     Irp->IoStatus.Status = STATUS_SUCCESS;
-    (void)IoSetCancelRoutine(Irp, NULL);
     IoCompleteRequest( Irp, IO_NETWORK_INCREMENT );
     return STATUS_SUCCESS;
 }
@@ -108,7 +111,6 @@ static NTSTATUS NTAPI ListenComplete
 	       NextIrp->IoStatus.Status = STATUS_FILE_CLOSED;
 	       NextIrp->IoStatus.Information = 0;
 	       if( NextIrp->MdlAddress ) UnlockRequest( NextIrp, IoGetCurrentIrpStackLocation( NextIrp ) );
-               (void)IoSetCancelRoutine(NextIrp, NULL);
 	       IoCompleteRequest( NextIrp, IO_NETWORK_INCREMENT );
         }
 
@@ -190,11 +192,8 @@ static NTSTATUS NTAPI ListenComplete
     /* Trigger a select return if appropriate */
     if( !IsListEmpty( &FCB->PendingConnections ) ) {
 	FCB->PollState |= AFD_EVENT_ACCEPT;
-    } else {
-	FCB->PollState &= ~AFD_EVENT_ACCEPT;
+	PollReeval( FCB->DeviceExt, FCB->FileObject );
     }
-
-    PollReeval( FCB->DeviceExt, FCB->FileObject );
 
     SocketStateUnlock( FCB );
 
@@ -297,11 +296,7 @@ NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
 	AFD_DbgPrint(MID_TRACE,("Completed a wait for accept\n"));
 
-        if ( IsListEmpty( &FCB->PendingConnections ) )
-             FCB->PollState &= ~AFD_EVENT_ACCEPT;
-        else
-             FCB->PollState |= AFD_EVENT_ACCEPT;
-
+        FCB->PollState &= ~AFD_EVENT_ACCEPT;
         PollReeval( FCB->DeviceExt, FCB->FileObject );
 
 	SocketStateUnlock( FCB );
@@ -326,6 +321,8 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     AFD_DbgPrint(MID_TRACE,("Called\n"));
 
     if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
+
+    FCB->EventsFired &= ~AFD_EVENT_ACCEPT;
 
     if( FCB->NeedsNewListen ) {
 	AFD_DbgPrint(MID_TRACE,("ADDRESSFILE: %x\n", FCB->AddressFile.Handle));
@@ -415,11 +412,8 @@ NTSTATUS AfdAccept( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
 	    if( IsListEmpty( &FCB->PendingConnections ) ) {
 		FCB->PollState &= ~AFD_EVENT_ACCEPT;
-	    } else {
-		FCB->PollState |= AFD_EVENT_ACCEPT;
-            }
-
-	    PollReeval( FCB->DeviceExt, FCB->FileObject );
+		PollReeval( FCB->DeviceExt, FCB->FileObject );
+	    }
 
 	    SocketStateUnlock( FCB );
 	    return Status;

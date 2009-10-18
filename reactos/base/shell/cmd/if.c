@@ -115,21 +115,16 @@ INT ExecuteIf(PARSED_COMMAND *Cmd)
 	else if (Cmd->If.Operator == IF_EXIST)
 	{
 		/* IF EXIST filename: check if file exists (wildcards allowed) */
+		WIN32_FIND_DATA f;
+		HANDLE hFind;
+
 		StripQuotes(Right);
 
-		if (_tcschr(Right, _T('*')) || _tcschr(Right, _T('?')))
+		hFind = FindFirstFile(Right, &f);
+		if (hFind != INVALID_HANDLE_VALUE)
 		{
-			WIN32_FIND_DATA f;
-			HANDLE hFind = FindFirstFile(Right, &f);
-			if (hFind != INVALID_HANDLE_VALUE)
-			{
-				result = TRUE;
-				FindClose(hFind);
-			}
-		}
-		else
-		{
-			result = (GetFileAttributes(Right) != INVALID_FILE_ATTRIBUTES);
+			result = TRUE;
+			FindClose(hFind);
 		}
 	}
 	else

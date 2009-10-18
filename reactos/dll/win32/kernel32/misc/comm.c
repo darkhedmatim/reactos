@@ -741,14 +741,7 @@ SetDefaultCommConfigA(LPCSTR lpszName, LPCOMMCONFIG lpCC, DWORD dwSize)
     if (lpszName)
     {
         len = MultiByteToWideChar( CP_ACP, 0, lpszName, -1, NULL, 0 );
-
         lpDeviceW = HeapAlloc( GetProcessHeap(), 0, len*sizeof(WCHAR) );
-        if (!lpDeviceW)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-        }
-
         MultiByteToWideChar( CP_ACP, 0, lpszName, -1, lpDeviceW, len );
     }
     r = SetDefaultCommConfigW(lpDeviceW,lpCC,dwSize);

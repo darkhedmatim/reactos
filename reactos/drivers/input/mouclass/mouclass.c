@@ -331,7 +331,7 @@ CreateClassDeviceObject(
 			&DeviceNameU,
 			FILE_DEVICE_MOUSE,
 			FILE_DEVICE_SECURE_OPEN,
-			FALSE,
+			TRUE,
 			&Fdo);
 		if (NT_SUCCESS(Status))
 			goto cleanup;
@@ -368,7 +368,6 @@ cleanup:
 	DeviceExtension->DeviceName = DeviceNameU.Buffer;
 	Fdo->Flags |= DO_POWER_PAGABLE;
 	Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
-    Fdo->Flags |= DO_BUFFERED_IO;
 
 	/* Add entry entry to HKEY_LOCAL_MACHINE\HARDWARE\DEVICEMAP\[DeviceBaseName] */
 	RtlWriteRegistryValue(
@@ -626,7 +625,7 @@ ClassAddDevice(
 		NULL,
 		Pdo->DeviceType,
 		Pdo->Characteristics & FILE_DEVICE_SECURE_OPEN ? FILE_DEVICE_SECURE_OPEN : 0,
-		FALSE,
+		TRUE,
 		&Fdo);
 	if (!NT_SUCCESS(Status))
 	{

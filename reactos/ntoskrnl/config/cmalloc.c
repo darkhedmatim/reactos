@@ -62,7 +62,7 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
     if (!Kcb->PrivateAlloc)
     {
         /* Free it from the pool */
-        CmpFree(Kcb, 0);
+        ExFreePoolWithTag(Kcb, TAG_CM);
         return;
     }
     
@@ -98,7 +98,7 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
         }
         
         /* Free the page */
-        CmpFree(AllocPage, 0);
+        ExFreePoolWithTag(AllocPage, TAG_CM);
     }
     
     /* Release the lock */
@@ -151,7 +151,7 @@ SearchKcbList:
         }
         
         /* Allocate an allocation page */
-        AllocPage = CmpAllocate(PAGE_SIZE, TRUE, TAG_CM);
+        AllocPage = ExAllocatePoolWithTag(PagedPool, PAGE_SIZE, TAG_CM);
         if (AllocPage)
         {
             /* Set default entries */
@@ -178,9 +178,9 @@ SearchKcbList:
     }
 
     /* Allocate a KCB only */
-    CurrentKcb = CmpAllocate(sizeof(CM_KEY_CONTROL_BLOCK),
-                             TRUE,
-                             TAG_CM);
+    CurrentKcb = ExAllocatePoolWithTag(PagedPool,
+                                       sizeof(CM_KEY_CONTROL_BLOCK),
+                                       TAG_CM);
     if (CurrentKcb)
     {
         /* Set it up */
@@ -231,7 +231,7 @@ SearchList:
     }
     
     /* Allocate an allocation page */
-    AllocPage = CmpAllocate(PAGE_SIZE, TRUE, TAG_CM);
+    AllocPage = ExAllocatePoolWithTag(PagedPool, PAGE_SIZE, TAG_CM);
     if (AllocPage)
     {
         /* Set default entries */
@@ -295,7 +295,7 @@ CmpFreeDelayItem(PVOID Entry)
         }
         
         /* Now free the page */
-        CmpFree(AllocPage, 0);
+        ExFreePoolWithTag(AllocPage, TAG_CM);
     }
     
     /* Release the lock */

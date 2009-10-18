@@ -13,7 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_SID 'diSp'
+#define TAG_SID TAG('p', 'S', 'i', 'd')
 
 /* FUNCTIONS ***************************************************************/
 

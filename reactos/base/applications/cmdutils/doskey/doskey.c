@@ -19,27 +19,15 @@ static VOID SetInsert(DWORD dwFlag)
 static VOID PrintHistory(VOID)
 {
     DWORD Length = GetConsoleCommandHistoryLength(pszExeName);
-    DWORD BufferLength;
-    PBYTE HistBuf;
-    TCHAR *Hist;
-    TCHAR *HistEnd;
-
     /* On Windows, the ANSI version of GetConsoleCommandHistory requires
      * a buffer twice as large as the actual history length. */
-    BufferLength = Length * (sizeof(WCHAR) / sizeof(TCHAR)) * sizeof(BYTE);
+    BYTE HistBuf[Length * (sizeof(WCHAR) / sizeof(TCHAR))];
+    TCHAR *Hist    = (TCHAR *)HistBuf;
+    TCHAR *HistEnd = (TCHAR *)&HistBuf[Length];
 
-    HistBuf = HeapAlloc(GetProcessHeap(),
-                        HEAP_ZERO_MEMORY,
-                        BufferLength);
-    if (!HistBuf) return;
-    Hist = (TCHAR *)HistBuf;
-    HistEnd = (TCHAR *)&HistBuf[Length];
-
-    if (GetConsoleCommandHistory(Hist, BufferLength, pszExeName))
+    if (GetConsoleCommandHistory(Hist, sizeof HistBuf, pszExeName))
         for (; Hist < HistEnd; Hist += _tcslen(Hist) + 1)
             _tprintf(_T("%s\n"), Hist);
-
-    HeapFree(GetProcessHeap(), 0, HistBuf);
 }
 
 static INT SetMacro(LPTSTR definition)
@@ -77,39 +65,23 @@ static INT SetMacro(LPTSTR definition)
 static VOID PrintMacros(LPTSTR pszExeName, LPTSTR Indent)
 {
     DWORD Length = GetConsoleAliasesLength(pszExeName);
-    PBYTE AliasBuf;
-    TCHAR *Alias;
-    TCHAR *AliasEnd;
+    BYTE AliasBuf[Length];
+    TCHAR *Alias    = (TCHAR *)AliasBuf;
+    TCHAR *AliasEnd = (TCHAR *)&AliasBuf[Length];
 
-    AliasBuf = HeapAlloc(GetProcessHeap(),
-                         HEAP_ZERO_MEMORY,
-                         Length * sizeof(BYTE));
-    if (!AliasBuf) return;
-    Alias = (TCHAR *)AliasBuf;
-    AliasEnd = (TCHAR *)&AliasBuf[Length];
-
-    if (GetConsoleAliases(Alias, Length * sizeof(BYTE), pszExeName))
+    if (GetConsoleAliases(Alias, sizeof AliasBuf, pszExeName))
         for (; Alias < AliasEnd; Alias += _tcslen(Alias) + 1)
             _tprintf(_T("%s%s\n"), Indent, Alias);
-
-    HeapFree(GetProcessHeap(), 0, AliasBuf);
 }
 
 static VOID PrintAllMacros(VOID)
 {
     DWORD Length = GetConsoleAliasExesLength();
-    PBYTE ExeNameBuf;
-    TCHAR *ExeName;
-    TCHAR *ExeNameEnd;
+    BYTE ExeNameBuf[Length];
+    TCHAR *ExeName    = (TCHAR *)ExeNameBuf;
+    TCHAR *ExeNameEnd = (TCHAR *)&ExeNameBuf[Length];
 
-    ExeNameBuf = HeapAlloc(GetProcessHeap(),
-                           HEAP_ZERO_MEMORY,
-                           Length * sizeof(BYTE));
-    if (!ExeNameBuf) return;
-    ExeName = (TCHAR *)ExeNameBuf;
-    ExeNameEnd = (TCHAR *)&ExeNameBuf[Length];
-
-    if (GetConsoleAliasExes(ExeName, Length * sizeof(BYTE)))
+    if (GetConsoleAliasExes(ExeName, sizeof ExeNameBuf))
     {
         for (; ExeName < ExeNameEnd; ExeName += _tcslen(ExeName) + 1)
         {
@@ -118,8 +90,6 @@ static VOID PrintAllMacros(VOID)
             _tprintf(_T("\n"));
         }
     }
-
-    HeapFree(GetProcessHeap(), 0, ExeNameBuf);
 }
 
 static VOID ReadFromFile(LPTSTR param)

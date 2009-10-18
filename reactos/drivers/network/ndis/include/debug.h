@@ -19,7 +19,7 @@
 #define DEBUG_PACKET   0x00000800
 #define DEBUG_ULTRA    0xFFFFFFFF
 
-#if DBG
+#ifdef DBG
 
 extern ULONG DebugTraceLevel;
 

@@ -35,7 +35,7 @@ static void testInit(void)
     pInit = (void *)GetProcAddress(inetmib1, "SnmpExtensionInit");
     if (!pInit)
     {
-        win_skip("no SnmpExtensionInit\n");
+        skip("no SnmpExtensionInit\n");
         return;
     }
     /* Crash
@@ -72,7 +72,7 @@ static void testQuery(void)
     pQuery = (void *)GetProcAddress(inetmib1, "SnmpExtensionQuery");
     if (!pQuery)
     {
-        win_skip("couldn't find SnmpExtensionQuery\n");
+        skip("couldn't find SnmpExtensionQuery\n");
         return;
     }
     /* Crash
@@ -473,5 +473,4 @@ START_TEST(main)
     inetmib1 = LoadLibraryA("inetmib1");
     testInit();
     testQuery();
-    FreeLibrary(inetmib1);
 }

@@ -13,17 +13,59 @@
 
 #define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
 
+
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+WINAPI
+GetCharacterPlacementA(
+	HDC		hDc,
+	LPCSTR		a1,
+	int		a2,
+	int		a3,
+	LPGCP_RESULTSA	a4,
+	DWORD		a5
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+StartDocA(
+	HDC		hdc,
+	CONST DOCINFOA	*lpdi
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
 /*
  * @unimplemented
  */
 BOOL
 WINAPI
-PolyTextOutA( HDC hdc, const POLYTEXTA *pptxt, INT cStrings )
+PolyTextOutA(
+	HDC			hdc,
+	CONST POLYTEXTA		*a1,
+	int			a2
+	)
 {
-    for (; cStrings>0; cStrings--, pptxt++)
-        if (!ExtTextOutA( hdc, pptxt->x, pptxt->y, pptxt->uiFlags, &pptxt->rcl, pptxt->lpstr, pptxt->n, pptxt->pdx ))
-            return FALSE;
-    return TRUE;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 /*
@@ -54,25 +96,9 @@ GetICMProfileA(
 	LPSTR		pszFilename
 	)
 {
-    WCHAR filenameW[MAX_PATH];
-    DWORD buflen = MAX_PATH;
-    BOOL ret = FALSE;
-
-    if (!hdc || !pBufSize || !pszFilename) return FALSE;
-
-    if (GetICMProfileW(hdc, &buflen, filenameW))
-    {
-        int len = WideCharToMultiByte(CP_ACP, 0, filenameW, -1, NULL, 0, NULL, NULL);
-        if (*pBufSize >= len)
-        {
-            WideCharToMultiByte(CP_ACP, 0, filenameW, -1, pszFilename, *pBufSize, NULL, NULL);
-            ret = TRUE;
-        }
-        else SetLastError(ERROR_INSUFFICIENT_BUFFER);
-        *pBufSize = len;
-    }
-
-    return ret;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 
@@ -116,6 +142,46 @@ EnumICMProfilesA(
   UNIMPLEMENTED;
   SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
   return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglUseFontBitmapsA(
+	HDC		a0,
+	DWORD		a1,
+	DWORD		a2,
+	DWORD		a3
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglUseFontOutlinesA(
+	HDC			a0,
+	DWORD			a1,
+	DWORD			a2,
+	DWORD			a3,
+	FLOAT			a4,
+	FLOAT			a5,
+	int			a6,
+	LPGLYPHMETRICSFLOAT	a7
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
 }
 
 

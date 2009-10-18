@@ -54,12 +54,10 @@ typedef struct {
 
 typedef struct {
     void (*destroy)(BSCallback*);
-    HRESULT (*init_bindinfo)(BSCallback*);
     HRESULT (*start_binding)(BSCallback*);
     HRESULT (*stop_binding)(BSCallback*,HRESULT);
     HRESULT (*read_data)(BSCallback*,IStream*);
     HRESULT (*on_progress)(BSCallback*,ULONG,LPCWSTR);
-    HRESULT (*on_response)(BSCallback*,DWORD);
 } BSCallbackVtbl;
 
 struct BSCallback {
@@ -77,7 +75,6 @@ struct BSCallback {
     ULONG post_data_len;
     ULONG readed;
     DWORD bindf;
-    BOOL bindinfo_ready;
 
     IMoniker *mon;
     IBinding *binding;
@@ -155,21 +152,18 @@ static nsresult NSAPI nsInputStream_Read(nsIInputStream *iface, char *aBuf, PRUi
                                          PRUint32 *_retval)
 {
     nsProtocolStream *This = NSINSTREAM_THIS(iface);
-    DWORD read = aCount;
 
     TRACE("(%p)->(%p %d %p)\n", This, aBuf, aCount, _retval);
 
-    if(read > This->buf_size)
-        read = This->buf_size;
+    /* Gecko always calls Read with big enough buffer */
+    if(aCount < This->buf_size)
+        FIXME("aCount < This->buf_size\n");
 
-    if(read) {
-        memcpy(aBuf, This->buf, read);
-        if(read < This->buf_size)
-            memmove(This->buf, This->buf+read, This->buf_size-read);
-        This->buf_size -= read;
-    }
+    *_retval = This->buf_size;
+    if(This->buf_size)
+        memcpy(aBuf, This->buf, This->buf_size);
+    This->buf_size = 0;
 
-    *_retval = read;
     return NS_OK;
 }
 
@@ -347,13 +341,10 @@ static HRESULT WINAPI BindStatusCallback_OnStopBinding(IBindStatusCallback *ifac
         HRESULT hresult, LPCWSTR szError)
 {
     BSCallback *This = STATUSCLB_THIS(iface);
-    HRESULT hres;
 
     TRACE("(%p)->(%08x %s)\n", This, hresult, debugstr_w(szError));
 
     /* NOTE: IE7 calls GetBindResult here */
-
-    hres = This->vtbl->stop_binding(This, hresult);
 
     if(This->binding) {
         IBinding_Release(This->binding);
@@ -361,9 +352,8 @@ static HRESULT WINAPI BindStatusCallback_OnStopBinding(IBindStatusCallback *ifac
     }
 
     list_remove(&This->entry);
-    This->doc = NULL;
 
-    return hres;
+    return This->vtbl->stop_binding(This, hresult);
 }
 
 static HRESULT WINAPI BindStatusCallback_GetBindInfo(IBindStatusCallback *iface,
@@ -373,16 +363,6 @@ static HRESULT WINAPI BindStatusCallback_GetBindInfo(IBindStatusCallback *iface,
     DWORD size;
 
     TRACE("(%p)->(%p %p)\n", This, grfBINDF, pbindinfo);
-
-    if(!This->bindinfo_ready) {
-        HRESULT hres;
-
-        hres = This->vtbl->init_bindinfo(This);
-        if(FAILED(hres))
-            return hres;
-
-        This->bindinfo_ready = TRUE;
-    }
 
     *grfBINDF = This->bindf;
 
@@ -486,11 +466,9 @@ static HRESULT WINAPI HttpNegotiate_OnResponse(IHttpNegotiate2 *iface, DWORD dwR
         LPCWSTR szResponseHeaders, LPCWSTR szRequestHeaders, LPWSTR *pszAdditionalRequestHeaders)
 {
     BSCallback *This = HTTPNEG_THIS(iface);
-
-    TRACE("(%p)->(%d %s %s %p)\n", This, dwResponseCode, debugstr_w(szResponseHeaders),
+    FIXME("(%p)->(%d %s %s %p)\n", This, dwResponseCode, debugstr_w(szResponseHeaders),
           debugstr_w(szRequestHeaders), pszAdditionalRequestHeaders);
-
-    return This->vtbl->on_response(This, dwResponseCode);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HttpNegotiate_GetRootSecurityId(IHttpNegotiate2 *iface,
@@ -763,11 +741,6 @@ static void BufferBSC_destroy(BSCallback *bsc)
     heap_free(This);
 }
 
-static HRESULT BufferBSC_init_bindinfo(BSCallback *bsc)
-{
-    return S_OK;
-}
-
 static HRESULT BufferBSC_start_binding(BSCallback *bsc)
 {
     return S_OK;
@@ -818,21 +791,14 @@ static HRESULT BufferBSC_on_progress(BSCallback *bsc, ULONG status_code, LPCWSTR
     return S_OK;
 }
 
-static HRESULT BufferBSC_on_response(BSCallback *bsc, DWORD response_code)
-{
-    return S_OK;
-}
-
 #undef BUFFERBSC_THIS
 
 static const BSCallbackVtbl BufferBSCVtbl = {
     BufferBSC_destroy,
-    BufferBSC_init_bindinfo,
     BufferBSC_start_binding,
     BufferBSC_stop_binding,
     BufferBSC_read_data,
     BufferBSC_on_progress,
-    BufferBSC_on_response
 };
 
 
@@ -879,46 +845,14 @@ struct nsChannelBSC {
     nsProtocolStream *nsstream;
 };
 
-static void on_start_nsrequest(nsChannelBSC *This)
-{
-    nsresult nsres;
-
-    /* FIXME: it's needed for http connections from BindToObject. */
-    if(!This->nschannel->response_status)
-        This->nschannel->response_status = 200;
-
-    nsres = nsIStreamListener_OnStartRequest(This->nslistener,
-            (nsIRequest*)NSCHANNEL(This->nschannel), This->nscontext);
-    if(NS_FAILED(nsres))
-        FIXME("OnStartRequest failed: %08x\n", nsres);
-}
-
-static void on_stop_nsrequest(nsChannelBSC *This)
-{
-    nsresult nsres;
-
-    if(!This->nslistener)
-        return;
-
-    if(!This->bsc.readed) {
-        TRACE("No data read! Calling OnStartRequest\n");
-        on_start_nsrequest(This);
-    }
-
-    nsres = nsIStreamListener_OnStopRequest(This->nslistener, (nsIRequest*)NSCHANNEL(This->nschannel),
-            This->nscontext, NS_OK);
-    if(NS_FAILED(nsres))
-        WARN("OnStopRequest failed: %08x\n", nsres);
-}
-
 static HRESULT read_stream_data(nsChannelBSC *This, IStream *stream)
 {
-    DWORD read;
     nsresult nsres;
     HRESULT hres;
 
     if(!This->nslistener) {
         BYTE buf[1024];
+        DWORD read;
 
         do {
             read = 0;
@@ -932,21 +866,21 @@ static HRESULT read_stream_data(nsChannelBSC *This, IStream *stream)
         This->nsstream = create_nsprotocol_stream();
 
     do {
-        read = 0;
-        hres = IStream_Read(stream, This->nsstream->buf+This->nsstream->buf_size,
-                sizeof(This->nsstream->buf)-This->nsstream->buf_size, &read);
-        if(!read)
+        hres = IStream_Read(stream, This->nsstream->buf, sizeof(This->nsstream->buf),
+                &This->nsstream->buf_size);
+        if(!This->nsstream->buf_size)
             break;
 
-        This->nsstream->buf_size += read;
+        if(!This->bsc.readed && This->nsstream->buf_size >= 2 && *(WORD*)This->nsstream->buf == 0xfeff) {
+            This->nschannel->charset = heap_alloc(sizeof(UTF16_STR));
+            memcpy(This->nschannel->charset, UTF16_STR, sizeof(UTF16_STR));
+        }
 
         if(!This->bsc.readed) {
-            if(This->nsstream->buf_size >= 2
-               && (BYTE)This->nsstream->buf[0] == 0xff
-               && (BYTE)This->nsstream->buf[1] == 0xfe)
-                This->nschannel->charset = heap_strdupA(UTF16_STR);
-
-            on_start_nsrequest(This);
+            nsres = nsIStreamListener_OnStartRequest(This->nslistener,
+                    (nsIRequest*)NSCHANNEL(This->nschannel), This->nscontext);
+            if(NS_FAILED(nsres))
+                FIXME("OnStartRequest failed: %08x\n", nsres);
 
             /* events are reset when a new document URI is loaded, so re-initialise them here */
             if(This->bsc.doc && This->bsc.doc->bscallback == This && This->bsc.doc->nscontainer) {
@@ -964,13 +898,20 @@ static HRESULT read_stream_data(nsChannelBSC *This, IStream *stream)
         if(NS_FAILED(nsres))
             ERR("OnDataAvailable failed: %08x\n", nsres);
 
-        if(This->nsstream->buf_size == sizeof(This->nsstream->buf)) {
-            ERR("buffer is full\n");
-            break;
-        }
+        if(This->nsstream->buf_size)
+            FIXME("buffer is not empty!\n");
     }while(hres == S_OK);
 
     return S_OK;
+}
+
+static void on_stop_nsrequest(nsChannelBSC *This)
+{
+    if(!This->nslistener)
+        return;
+
+    nsIStreamListener_OnStopRequest(This->nslistener, (nsIRequest*)NSCHANNEL(This->nschannel),
+            This->nscontext, NS_OK);
 }
 
 static void add_nsrequest(nsChannelBSC *This)
@@ -1013,19 +954,6 @@ static HRESULT nsChannelBSC_start_binding(BSCallback *bsc)
     return S_OK;
 }
 
-static HRESULT nsChannelBSC_init_bindinfo(BSCallback *bsc)
-{
-    nsChannelBSC *This = NSCHANNELBSC_THIS(bsc);
-
-    if(This->nschannel && This->nschannel->post_data_stream) {
-        parse_post_data(This->nschannel->post_data_stream, &This->bsc.headers, &This->bsc.post_data, &This->bsc.post_data_len);
-        TRACE("headers = %s post_data = %s\n", debugstr_w(This->bsc.headers),
-              debugstr_an(This->bsc.post_data, This->bsc.post_data_len));
-    }
-
-    return S_OK;
-}
-
 static HRESULT nsChannelBSC_stop_binding(BSCallback *bsc, HRESULT result)
 {
     nsChannelBSC *This = NSCHANNELBSC_THIS(bsc);
@@ -1041,6 +969,23 @@ static HRESULT nsChannelBSC_stop_binding(BSCallback *bsc, HRESULT result)
             if(NS_FAILED(nsres))
                 ERR("RemoveRequest failed: %08x\n", nsres);
         }
+    }
+
+    if(FAILED(result))
+        return S_OK;
+
+    if(This->bsc.doc && This->bsc.doc->bscallback == This && !This->bsc.doc->nscontainer) {
+        task_t *task = heap_alloc(sizeof(task_t));
+
+        task->doc = This->bsc.doc;
+        task->task_id = TASK_PARSECOMPLETE;
+        task->next = NULL;
+
+        /*
+         * This should be done in the worker thread that parses HTML,
+         * but we don't have such thread.
+         */
+        push_task(task);
     }
 
     return S_OK;
@@ -1069,24 +1014,14 @@ static HRESULT nsChannelBSC_on_progress(BSCallback *bsc, ULONG status_code, LPCW
     return S_OK;
 }
 
-static HRESULT nsChannelBSC_on_response(BSCallback *bsc, DWORD response_code)
-{
-    nsChannelBSC *This = NSCHANNELBSC_THIS(bsc);
-
-    This->nschannel->response_status = response_code;
-    return S_OK;
-}
-
 #undef NSCHANNELBSC_THIS
 
 static const BSCallbackVtbl nsChannelBSCVtbl = {
     nsChannelBSC_destroy,
-    nsChannelBSC_init_bindinfo,
     nsChannelBSC_start_binding,
     nsChannelBSC_stop_binding,
     nsChannelBSC_read_data,
     nsChannelBSC_on_progress,
-    nsChannelBSC_on_response
 };
 
 nsChannelBSC *create_channelbsc(IMoniker *mon)

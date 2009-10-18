@@ -2,8 +2,6 @@
     ReactOS Kernel Streaming
     Port Class
 
-    This file is in the public domain.
-
     Andrew Greenwood
 
     NOTES:
@@ -140,9 +138,9 @@ extern "C"
 #include <mmreg.h>
 #undef NOBITMAP
 
-#include <punknown.h>
 #include <ks.h>
 #include <ksmedia.h>
+#include <punknown.h>
 #include <drmk.h>
 
 #ifdef __cplusplus
@@ -241,7 +239,7 @@ struct _PCPROPERTY_REQUEST;
 
 typedef struct _PCPROPERTY_REQUEST PCPROPERTY_REQUEST, *PPCPROPERTY_REQUEST;
 
-typedef NTSTATUS (NTAPI *PCPFNPROPERTY_HANDLER)(
+typedef NTSTATUS (*PCPFNPROPERTY_HANDLER)(
     IN  PPCPROPERTY_REQUEST PropertyRequest);
 
 typedef struct
@@ -283,7 +281,7 @@ struct _PCPROPERTY_REQUEST
 
 struct _PCEVENT_REQUEST;
 
-typedef NTSTATUS (NTAPI *PCPFNEVENT_HANDLER)(
+typedef NTSTATUS (*PCPFNEVENT_HANDLER)(
     IN  struct _PCEVENT_REQUEST* EventRequest);
 
 typedef struct _PCEVENT_ITEM
@@ -309,7 +307,7 @@ typedef struct _PCEVENT_REQUEST
 
 struct _PCMETHOD_REQUEST;
 
-typedef NTSTATUS (NTAPI *PCPFNMETHOD_HANDLER)(
+typedef NTSTATUS (*PCPFNMETHOD_HANDLER)(
     IN  struct _PCMETHOD_REQUEST* MethodRequest);
 
 typedef struct _PCMETHOD_ITEM
@@ -665,11 +663,6 @@ DECLARE_INTERFACE_(IUnregisterSubdevice,IUnknown)
 
 typedef IUnregisterSubdevice *PUNREGISTERSUBDEVICE;
 
-#define IMP_IUnregisterSubdevice                        \
-    STDMETHODIMP_(NTSTATUS) UnregisterSubdevice(THIS_   \
-        IN  PDEVICE_OBJECT  DeviceObject,               \
-        IN  PUNKNOWN        Unknown)
-
 /* ===============================================================
     IUnregisterPhysicalConnection Interface
 */
@@ -708,29 +701,6 @@ DECLARE_INTERFACE_(IUnregisterPhysicalConnection,IUnknown)
 typedef IUnregisterPhysicalConnection *PUNREGISTERPHYSICALCONNECTION;
 #endif
 
-#define IMP_IUnregisterPhysicalConnection                                    \
-    STDMETHODIMP_(NTSTATUS) UnregisterPhysicalConnection(                    \
-        IN  PDEVICE_OBJECT  DeviceObject,                                    \
-        IN  PUNKNOWN        FromUnknown,                                     \
-        IN  ULONG           FromPin,                                         \
-        IN  PUNKNOWN        ToUnknown,                                       \
-        IN  ULONG           ToPin);                                          \
-                                                                             \
-    STDMETHODIMP_(NTSTATUS) UnregisterPhysicalConnectionToExternal(          \
-        IN  PDEVICE_OBJECT  DeviceObject,                                    \
-        IN  PUNKNOWN        FromUnknown,                                     \
-        IN  ULONG           FromPin,                                         \
-        IN  PUNICODE_STRING ToString,                                        \
-        IN  ULONG           ToPin);                                          \
-                                                                             \
-    STDMETHODIMP_(NTSTATUS) UnregisterPhysicalConnectionFromExternal(        \
-        IN  PDEVICE_OBJECT  DeviceObject,                                    \
-        IN  PUNICODE_STRING FromString,                                      \
-        IN  ULONG           FromPin,                                         \
-        IN  PUNKNOWN        ToUnknown,                                       \
-        IN  ULONG           ToPin)
-
-
 /* ===============================================================
     IDmaChannel Interface
 */
@@ -763,33 +733,33 @@ typedef IUnregisterPhysicalConnection *PUNREGISTERPHYSICALCONNECTION;
         IN  PVOID Source, \
         IN  ULONG ByteCount) PURE;
 
-#define IMP_IDmaChannel                                                   \
-    STDMETHODIMP_(NTSTATUS) AllocateBuffer(                               \
-        IN  ULONG BufferSize,                                             \
-        IN  PPHYSICAL_ADDRESS PhysicalAddressConstraint OPTIONAL);        \
-                                                                          \
-    STDMETHODIMP_(void) FreeBuffer(void);                                 \
-    STDMETHODIMP_(ULONG) TransferCount(void);                             \
-    STDMETHODIMP_(ULONG) MaximumBufferSize(void);                         \
-    STDMETHODIMP_(ULONG) AllocatedBufferSize(void);                       \
-    STDMETHODIMP_(ULONG) BufferSize(void);                                \
-                                                                          \
-    STDMETHODIMP_(void) SetBufferSize(                                    \
-        IN  ULONG BufferSize);                                            \
-                                                                          \
-    STDMETHODIMP_(PVOID) SystemAddress(void);                             \
-    STDMETHODIMP_(PHYSICAL_ADDRESS) PhysicalAddress(void);                \
-    STDMETHODIMP_(PADAPTER_OBJECT) GetAdapterObject(void);                \
-                                                                          \
-    STDMETHODIMP_(void) CopyTo(                                           \
-        IN  PVOID Destination,                                            \
-        IN  PVOID Source,                                                 \
-        IN  ULONG ByteCount);                                             \
-                                                                          \
-    STDMETHODIMP_(void) CopyFrom(                                         \
-        IN  PVOID Destination,                                            \
-        IN  PVOID Source,                                                 \
-        IN  ULONG ByteCount)
+#define IMP_IDmaChannel() \
+    STDMETHODIMP_(NTSTATUS) AllocateBuffer( \
+        IN  ULONG BufferSize, \
+        IN  PPHYSICAL_ADDRESS PhysicalAddressConstraint OPTIONAL); \
+\
+    STDMETHODIMP_(void) FreeBuffer(void); \
+    STDMETHODIMP_(ULONG) TransferCount(void); \
+    STDMETHODIMP_(ULONG) MaximumBufferSize(void); \
+    STDMETHODIMP_(ULONG) AllocatedBufferSize(void); \
+    STDMETHODIMP_(ULONG) BufferSize(void); \
+\
+    STDMETHODIMP_(void) SetBufferSize)( \
+        IN  ULONG BufferSize); \
+\
+    STDMETHODIMP_(PVOID) SystemAddress(void); \
+    STDMETHODIMP_(PHYSICAL_ADDRESS) PhysicalAddress(void); \
+    STDMETHODIMP_(PADAPTER_OBJECT) GetAdapterObject(void); \
+\
+    STDMETHODIMP_(void) CopyTo( \
+        IN  PVOID Destination, \
+        IN  PVOID Source, \
+        IN  ULONG ByteCount); \
+\
+    STDMETHODIMP_(void) CopyFrom( \
+        IN  PVOID Destination, \
+        IN  PVOID Source, \
+        IN  ULONG ByteCount);
 
 #undef INTERFACE
 #define INTERFACE IDmaChannel
@@ -820,17 +790,16 @@ typedef IDmaChannel *PDMACHANNEL;
     STDMETHOD_(NTSTATUS, WaitForTC)( THIS_ \
         ULONG Timeout) PURE;
 
-#define IMP_IDmaChannelSlave                   \
-    IMP_IDmaChannel;                           \
-    STDMETHODIMP_(NTSTATUS) Start(             \
-        IN  ULONG MapSize,                     \
-        IN  BOOLEAN WriteToDevice);            \
-                                               \
-    STDMETHODIMP_(NTSTATUS) Stop(void);        \
-    STDMETHODIMP_(ULONG) ReadCounter(void);    \
-                                               \
-    STDMETHODIMP_(NTSTATUS) WaitForTC(         \
-        ULONG Timeout)
+#define IMP_IDmaChannelSlave \
+    STDMETHODIMP_(NTSTATUS) Start( \
+        IN  ULONG MapSize, \
+        IN  BOOLEAN WriteToDevice); \
+\
+    STDMETHODIMP_(NTSTATUS) Stop(void); \
+    STDMETHODIMP_(ULONG) ReadCounter)(void); \
+\
+    STDMETHODIMP_(NTSTATUS, WaitForTC)( \
+        ULONG Timeout);
 
 #undef INTERFACE
 #define INTERFACE IDmaChannelSlave
@@ -865,7 +834,7 @@ typedef enum
 
 struct IInterruptSync;
 
-typedef NTSTATUS (NTAPI *PINTERRUPTSYNCROUTINE)(
+typedef NTSTATUS (*PINTERRUPTSYNCROUTINE)(
     IN  struct IInterruptSync* InterruptSync,
     IN  PVOID DynamicContext);
 
@@ -892,19 +861,19 @@ DECLARE_INTERFACE_(IInterruptSync, IUnknown)
 
 DEFINE_GUID(IID_IInterruptSync, 0x22C6AC63L, 0x851B, 0x11D0, 0x9A, 0x7F, 0x00, 0xAA, 0x00, 0x38, 0xAC, 0xFE);
 
-#define IMP_IInterruptSync                           \
-    STDMETHODIMP_(NTSTATUS) CallSynchronizedRoutine( \
-        IN  PINTERRUPTSYNCROUTINE Routine,           \
-        IN  PVOID DynamicContext);                   \
-                                                     \
-    STDMETHODIMP_(PKINTERRUPT) GetKInterrupt(void);  \
-    STDMETHODIMP_(NTSTATUS) Connect(void);           \
-    STDMETHODIMP_(void) Disconnect(void);            \
-                                                     \
-    STDMETHODIMP_(NTSTATUS) RegisterServiceRoutine(  \
-        IN  PINTERRUPTSYNCROUTINE Routine,           \
-        IN  PVOID DynamicContext,                    \
-        IN  BOOLEAN First)
+#define IMP_IInterruptSync \
+    STDMETHODIMP_(NTSTATUS, CallSynchronizedRoutine)( \
+        IN  PINTERRUPTSYNCROUTINE Routine, \
+        IN  PVOID DynamicContext); \
+\
+    STDMETHODIMP_(PKINTERRUPT, GetKInterrupt)(void); \
+    STDMETHODIMP_(NTSTATUS, Connect)(void); \
+    STDMETHODIMP_(void, Disconnect)(void); \
+\
+    STDMETHODIMP_(NTSTATUS, RegisterServiceRoutine)( \
+        IN  PINTERRUPTSYNCROUTINE Routine, \
+        IN  PVOID DynamicContext, \
+        IN  BOOLEAN First);
 
 typedef IInterruptSync *PINTERRUPTSYNC;
 
@@ -1088,31 +1057,28 @@ DEFINE_GUID(IID_IPort,
         IN  ULONG CreateOptiona OPTIONAL, \
         OUT PULONG Disposition OPTIONAL) PURE;
 
-#ifdef PC_IMPLEMENTATION
-#define IMP_IPort\
-    STDMETHODIMP_(NTSTATUS) Init\
-    (   IN      PDEVICE_OBJECT  DeviceObject,\
-        IN      PIRP            Irp,\
-        IN      PUNKNOWN        UnknownMiniport,\
-        IN      PUNKNOWN        UnknownAdapter      OPTIONAL,\
-        IN      PRESOURCELIST   ResourceList\
-    );\
-    STDMETHODIMP_(NTSTATUS) GetDeviceProperty\
-    (   IN      DEVICE_REGISTRY_PROPERTY    DeviceProperty,\
-        IN      ULONG                       BufferLength,\
-        OUT     PVOID                       PropertyBuffer,\
-        OUT     PULONG                      ResultLength\
-    );\
-    STDMETHODIMP_(NTSTATUS) NewRegistryKey\
-    (   OUT     PREGISTRYKEY *      OutRegistryKey,\
-        IN      PUNKNOWN            OuterUnknown        OPTIONAL,\
-        IN      ULONG               RegistryKeyType,\
-        IN      ACCESS_MASK         DesiredAccess,\
-        IN      POBJECT_ATTRIBUTES  ObjectAttributes    OPTIONAL,\
-        IN      ULONG               CreateOptions       OPTIONAL,\
-        OUT     PULONG              Disposition         OPTIONAL\
-    )
-#endif
+#define IMP_IPort() \
+    STDMETHODIMP_(NTSTATUS) Init( \
+        IN  PDEVICE_OBJECT DeviceObject, \
+        IN  PIRP Irp, \
+        IN  PUNKNOWN UnknownMiniport, \
+        IN  PUNKNOWN UnknownAdapter OPTIONAL, \
+        IN  PRESOURCELIST ResourceList); \
+\
+    STDMETHODIMP_(NTSTATUS) GetDeviceProperty( \
+        IN  DEVICE_REGISTRY_PROPERTY DeviceProperty, \
+        IN  ULONG BufferLength, \
+        OUT PVOID PropertyBuffer, \
+        OUT PULONG ResultLength); \
+\
+    STDMETHODIMP_(NTSTATUS) NewRegistryKey( \
+        OUT PREGISTRYKEY* OutRegistryKey, \
+        IN  PUNKNOWN OuterUnknown OPTIONAL, \
+        IN  ULONG RegistryKeyType, \
+        IN  ACCESS_MASK DesiredAccess, \
+        IN  POBJECT_ATTRIBUTES ObjectAttributes OPTIONAL, \
+        IN  ULONG CreateOptiona OPTIONAL, \
+        OUT PULONG Disposition OPTIONAL);
 
 #undef INTERFACE
 #define INTERFACE IPort
@@ -1187,7 +1153,7 @@ DECLARE_INTERFACE_(IPortWaveCyclic, IPort)
         IN  PRESOURCELIST ResourceList OPTIONAL,
         IN  ULONG DmaIndex,
         IN  ULONG MaximumLength,
-        IN  BOOLEAN DemandMode,
+        IN  BOOL DemandMode,
         IN  DMA_SPEED DmaSpeed) PURE;
 
     STDMETHOD_(NTSTATUS, NewMasterDmaChannel)(THIS_
@@ -1195,41 +1161,14 @@ DECLARE_INTERFACE_(IPortWaveCyclic, IPort)
         IN  PUNKNOWN OuterUnknown,
         IN  PRESOURCELIST ResourceList OPTIONAL,
         IN  ULONG MaximumLength,
-        IN  BOOLEAN Dma32BitAddresses,
-        IN  BOOLEAN Dma64BitAddresses,
+        IN  BOOL Dma32BitAddresses,
+        IN  BOOL Dma64BitAddresses,
         IN  DMA_WIDTH DmaWidth,
         IN  DMA_SPEED DmaSpeed) PURE;
 
 };
 
 typedef IPortWaveCyclic *PPORTWAVECYCLIC;
-
-#ifdef PC_IMPLEMENTATION
-#define IMP_IPortWaveCyclic                           \
-    IMP_IPort;                                        \
-    STDMETHODIMP_(VOID) Notify(                       \
-        IN  PSERVICEGROUP ServiceGroup);              \
-                                                      \
-    STDMETHODIMP_(NTSTATUS) NewSlaveDmaChannel(       \
-        OUT PDMACHANNELSLAVE* DmaChannel,             \
-        IN  PUNKNOWN OuterUnknown,                    \
-        IN  PRESOURCELIST ResourceList OPTIONAL,      \
-        IN  ULONG DmaIndex,                           \
-        IN  ULONG MaximumLength,                      \
-        IN  BOOLEAN DemandMode,                       \
-        IN  DMA_SPEED DmaSpeed);                      \
-                                                      \
-    STDMETHODIMP_(NTSTATUS) NewMasterDmaChannel(      \
-        OUT PDMACHANNEL* DmaChannel,                  \
-        IN  PUNKNOWN OuterUnknown,                    \
-        IN  PRESOURCELIST ResourceList OPTIONAL,      \
-        IN  ULONG MaximumLength,                      \
-        IN  BOOLEAN Dma32BitAddresses,                \
-        IN  BOOLEAN Dma64BitAddresses,                \
-        IN  DMA_WIDTH DmaWidth,                       \
-        IN  DMA_SPEED DmaSpeed)
-#endif
-
 
 #undef INTERFACE
 /* ===============================================================
@@ -1269,26 +1208,6 @@ DECLARE_INTERFACE_(IPortWavePci, IPort)
 typedef IPortWavePci *PPORTWAVEPCI;
 #undef INTERFACE
 
-#ifdef PC_IMPLEMENTATION
-#define IMP_IPortWavePci                                     \
-    IMP_IPort;                                               \
-    STDMETHODIMP_(VOID) Notify(                              \
-        IN  PSERVICEGROUP ServiceGroup);                     \
-                                                             \
-    STDMETHODIMP_(NTSTATUS) NewMasterDmaChannel(             \
-        OUT PDMACHANNEL* DmaChannel,                         \
-        IN  PUNKNOWN OuterUnknown,                           \
-        IN  POOL_TYPE PoolType,                              \
-        IN  PRESOURCELIST ResourceList OPTIONAL,             \
-        IN  BOOLEAN ScatterGather,                           \
-        IN  BOOLEAN Dma32BitAddresses,                       \
-        IN  BOOLEAN Dma64BitAddresses,                       \
-        IN  BOOLEAN IgnoreCount,                             \
-        IN  DMA_WIDTH DmaWidth,                              \
-        IN  DMA_SPEED DmaSpeed,                              \
-        IN  ULONG MaximumLength,                             \
-        IN  ULONG DmaPort);
-#endif
 
 /* ===============================================================
     IMiniPort Interface
@@ -1309,17 +1228,17 @@ DEFINE_GUID(IID_IMiniPort,
         OUT PVOID ResultantFormat OPTIONAL, \
         OUT PULONG ResultantFormatLength) PURE;
 
-#define IMP_IMiniport                                        \
-    STDMETHODIMP_(NTSTATUS) GetDescription(                  \
-        OUT  PPCFILTER_DESCRIPTOR* Description);             \
-                                                             \
-    STDMETHODIMP_(NTSTATUS) DataRangeIntersection(           \
-        IN  ULONG PinId,                                     \
-        IN  PKSDATARANGE DataRange,                          \
-        IN  PKSDATARANGE MatchingDataRange,                  \
-        IN  ULONG OutputBufferLength,                        \
-        OUT PVOID ResultantFormat OPTIONAL,                  \
-        OUT PULONG ResultantFormatLength)
+#define IMP_IMiniport \
+    STDMETHODIMP_(NTSTATUS) GetDescription( \
+        OUT  PPCFILTER_DESCRIPTOR* Description); \
+\
+    STDMETHODIMP_(NTSTATUS) DataRangeIntersection( \
+        IN  ULONG PinId, \
+        IN  PKSDATARANGE DataRange, \
+        IN  PKSDATARANGE MatchingDataRange, \
+        IN  ULONG OutputBufferLength, \
+        OUT PVOID ResultantFormat OPTIONAL, \
+        OUT PULONG ResultantFormatLength);
 
 DECLARE_INTERFACE_(IMiniport, IUnknown)
 {
@@ -1386,7 +1305,7 @@ DECLARE_INTERFACE_(IMiniportMidi, IMiniport)
     STDMETHOD_(void, Service)(THIS) PURE;
 
     STDMETHOD_(NTSTATUS, NewStream)(THIS_
-        OUT PMINIPORTMIDISTREAM *Stream,
+        OUT PMINIPORTMIDISTREAM Stream,
         IN  PUNKNOWN OuterUnknown OPTIONAL,
         IN  POOL_TYPE PoolType,
         IN  ULONG Pin,
@@ -1424,9 +1343,6 @@ DEFINE_GUIDSTRUCT("0xB4C90A30-5791-11d0-86f9-00a0c911b544", IID_IPortTopology);
 DEFINE_GUID(IID_IPortTopology, 0xb4c90a30L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 DEFINE_GUID(CLSID_PortTopology, 0xb4c90a32L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
 
-#undef INTERFACE
-#define INTERFACE IPortTopology
-
 DECLARE_INTERFACE_(IPortTopology, IPort)
 {
     DEFINE_ABSTRACT_UNKNOWN()
@@ -1446,9 +1362,6 @@ typedef IPortTopology *PPORTTOPOLOGY;
 #define INTERFACE IMiniportTopology
 
 DEFINE_GUID(IID_IMiniportTopology, 0xb4c90a31L, 0x5791, 0x11d0, 0x86, 0xf9, 0x00, 0xa0, 0xc9, 0x11, 0xb5, 0x44);
-
-#undef INTERFACE
-#define INTERFACE IMiniportTopology
 
 DECLARE_INTERFACE_(IMiniportTopology,IMiniport)
 {
@@ -1603,20 +1516,6 @@ DECLARE_INTERFACE_(IPortWavePciStream,IUnknown)
 
 typedef IPortWavePciStream *PPORTWAVEPCISTREAM;
 
-#define IMP_IPortWavePciStream                             \
-    STDMETHODIMP_(NTSTATUS) GetMapping(                    \
-        IN PVOID Tag,                                      \
-        OUT PPHYSICAL_ADDRESS PhysicalAddress,             \
-        OUT PVOID * VirtualAddress,                        \
-        OUT PULONG ByteCount,                              \
-        OUT PULONG Flags);                                 \
-                                                           \
-    STDMETHODIMP_(NTSTATUS) ReleaseMapping(                \
-        IN PVOID Tag);                                     \
-                                                           \
-    STDMETHODIMP_(NTSTATUS) TerminatePacket(THIS)
-
-
 /* ===============================================================
     IMiniportWavePciStream Interface
 */
@@ -1760,10 +1659,6 @@ DECLARE_INTERFACE_(IPortWaveRT,IPort)
 };
 
 typedef IPortWaveRT *PPORTWAVERT;
-
-#ifdef PC_IMPLEMENTATION
-#define IMP_IPortWaveRT IMP_IPort
-#endif
 
 
 /* ===============================================================
@@ -2038,18 +1933,6 @@ DECLARE_INTERFACE_(IPortEvents, IUnknown)
 typedef IPortEvents *PPORTEVENTS;
 
 
-#define IMP_IPortEvents                        \
-    STDMETHODIMP_(void) AddEventToEventList(   \
-        IN  PKSEVENT_ENTRY EventEntry);        \
-                                               \
-    STDMETHODIMP_(void) GenerateEventList(     \
-        IN  GUID* Set OPTIONAL,                \
-        IN  ULONG EventId,                     \
-        IN  BOOL PinEvent,                     \
-        IN  ULONG PinId,                       \
-        IN  BOOL NodeEvent,                    \
-        IN  ULONG NodeId)
-
 /* ===============================================================
     IDrmPort / IDrmPort2 Interfaces
     These are almost identical, except for the addition of two extra methods.
@@ -2092,29 +1975,6 @@ DECLARE_INTERFACE_(IDrmPort, IUnknown)
 
 typedef IDrmPort *PDRMPORT;
 
-#define IMP_IDrmPort                                       \
-    STDMETHODIMP_(NTSTATUS) CreateContentMixed(            \
-        IN  PULONG paContentId,                            \
-        IN  ULONG cContentId,                              \
-        OUT PULONG pMixedContentId);                       \
-                                                           \
-    STDMETHODIMP_(NTSTATUS) DestroyContent(                \
-        IN ULONG ContentId);                               \
-                                                           \
-    STDMETHODIMP_(NTSTATUS) ForwardContentToFileObject(    \
-        IN ULONG        ContentId,                         \
-        IN PFILE_OBJECT FileObject);                       \
-                                                           \
-    STDMETHODIMP_(NTSTATUS) ForwardContentToInterface(     \
-        IN ULONG ContentId,                                \
-        IN PUNKNOWN pUnknown,                              \
-        IN ULONG NumMethods);                              \
-                                                           \
-    STDMETHODIMP_(NTSTATUS) GetContentRights(              \
-        IN  ULONG ContentId,                               \
-        OUT PDRMRIGHTS  DrmRights)
-
-
 /* ===============================================================
     IDrmPort2 Interface
 */
@@ -2144,19 +2004,6 @@ DECLARE_INTERFACE_(IDrmPort2, IDrmPort)
 
 typedef IDrmPort2 *PDRMPORT2;
 
-#define IMP_IDrmPort2                                                \
-    IMP_IDrmPort;                                                    \
-    STDMETHODIMP_(NTSTATUS) AddContentHandlers(                      \
-        IN ULONG ContentId,                                          \
-        IN PVOID * paHandlers,                                       \
-        IN ULONG NumHandlers);                                       \
-                                                                     \
-    STDMETHODIMP_(NTSTATUS) ForwardContentToDeviceObject(            \
-        IN ULONG ContentId,                                          \
-        IN PVOID Reserved,                                           \
-        IN PCDRMFORWARD DrmForward)
-
-
 /* ===============================================================
     IPortClsVersion Interface
 */
@@ -2179,7 +2026,6 @@ DECLARE_INTERFACE_(IPortClsVersion, IUnknown)
 
 typedef IPortClsVersion *PPORTCLSVERSION;
 
-#undef INTERFACE
 
 /* ===============================================================
     IDmaOperations Interface
@@ -2195,7 +2041,7 @@ typedef IPortClsVersion *PPORTCLSVERSION;
     PortCls API Functions
 */
 
-typedef NTSTATUS (NTAPI *PCPFNSTARTDEVICE)(
+typedef NTSTATUS (*PCPFNSTARTDEVICE)(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp,
     IN  PRESOURCELIST ResourceList);

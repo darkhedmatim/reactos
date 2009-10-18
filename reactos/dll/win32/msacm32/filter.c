@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdarg.h>
@@ -27,7 +27,6 @@
 #include "winnls.h"
 #include "winerror.h"
 #include "mmsystem.h"
-#define NOBITMAP
 #include "mmreg.h"
 #include "msacm.h"
 #include "msacmdrv.h"
@@ -91,7 +90,7 @@ MMRESULT WINAPI acmFilterDetailsW(HACMDRIVER had, PACMFILTERDETAILSW pafd,
     MMRESULT			mmr;
     ACMFILTERTAGDETAILSA	aftd;
 
-    TRACE("(%p, %p, %d)\n", had, pafd, fdwDetails);
+    TRACE("(%p, %p, %ld)\n", had, pafd, fdwDetails);
 
     memset(&aftd, 0, sizeof(aftd));
     aftd.cbStruct = sizeof(aftd);
@@ -127,7 +126,7 @@ MMRESULT WINAPI acmFilterDetailsW(HACMDRIVER had, PACMFILTERDETAILSW pafd,
 	mmr = MSACM_Message(had, ACMDM_FILTER_DETAILS, (LPARAM)pafd, fdwDetails);
 	break;
     default:
-	WARN("Unknown fdwDetails %08x\n", fdwDetails);
+	WARN("Unknown fdwDetails %08lx\n", fdwDetails);
 	mmr = MMSYSERR_INVALFLAG;
 	break;
     }
@@ -137,14 +136,14 @@ MMRESULT WINAPI acmFilterDetailsW(HACMDRIVER had, PACMFILTERDETAILSW pafd,
 }
 
 struct MSACM_FilterEnumWtoA_Instance {
-    PACMFILTERDETAILSA pafda;
-    DWORD_PTR          dwInstance;
-    ACMFILTERENUMCBA   fnCallback;
+    PACMFILTERDETAILSA	pafda;
+    DWORD		dwInstance;
+    ACMFILTERENUMCBA 	fnCallback;
 };
 
 static BOOL CALLBACK MSACM_FilterEnumCallbackWtoA(HACMDRIVERID hadid,
 						  PACMFILTERDETAILSW pafdw,
-                                                  DWORD_PTR dwInstance,
+						  DWORD dwInstance,
 						  DWORD fdwSupport)
 {
     struct MSACM_FilterEnumWtoA_Instance* pafei;
@@ -165,8 +164,8 @@ static BOOL CALLBACK MSACM_FilterEnumCallbackWtoA(HACMDRIVERID hadid,
  *           acmFilterEnumA (MSACM32.@)
  */
 MMRESULT WINAPI acmFilterEnumA(HACMDRIVER had, PACMFILTERDETAILSA pafda,
-                               ACMFILTERENUMCBA fnCallback,
-                               DWORD_PTR dwInstance, DWORD fdwEnum)
+			       ACMFILTERENUMCBA fnCallback, DWORD dwInstance,
+			       DWORD fdwEnum)
 {
     ACMFILTERDETAILSW		afdw;
     struct MSACM_FilterEnumWtoA_Instance afei;
@@ -183,16 +182,16 @@ MMRESULT WINAPI acmFilterEnumA(HACMDRIVER had, PACMFILTERDETAILSA pafda,
     afei.fnCallback = fnCallback;
 
     return acmFilterEnumW(had, &afdw, MSACM_FilterEnumCallbackWtoA,
-                          (DWORD_PTR)&afei, fdwEnum);
+			  (DWORD)&afei, fdwEnum);
 }
 
 static BOOL MSACM_FilterEnumHelper(PWINE_ACMDRIVERID padid, HACMDRIVER had,
 				   PACMFILTERDETAILSW pafd,
-                                   ACMFILTERENUMCBW fnCallback,
-                                   DWORD_PTR dwInstance, DWORD fdwEnum)
+				   ACMFILTERENUMCBW fnCallback, DWORD dwInstance,
+				   DWORD fdwEnum)
 {
     ACMFILTERTAGDETAILSW	aftd;
-    unsigned int i, j;
+    int				i, j;
 
     for (i = 0; i < padid->cFilterTags; i++) {
 	memset(&aftd, 0, sizeof(aftd));
@@ -222,13 +221,13 @@ static BOOL MSACM_FilterEnumHelper(PWINE_ACMDRIVERID padid, HACMDRIVER had,
  *           acmFilterEnumW (MSACM32.@)
  */
 MMRESULT WINAPI acmFilterEnumW(HACMDRIVER had, PACMFILTERDETAILSW pafd,
-                               ACMFILTERENUMCBW fnCallback,
-                               DWORD_PTR dwInstance, DWORD fdwEnum)
+			       ACMFILTERENUMCBW fnCallback, DWORD dwInstance,
+			       DWORD fdwEnum)
 {
     PWINE_ACMDRIVERID		padid;
     BOOL			ret;
 
-    TRACE("(%p, %p, %p, %ld, %d)\n",
+    TRACE("(%p, %p, %p, %ld, %ld)\n",
 	  had, pafd, fnCallback, dwInstance, fdwEnum);
 
     if (pafd->cbStruct < sizeof(*pafd)) return MMSYSERR_INVALPARAM;
@@ -294,7 +293,7 @@ MMRESULT WINAPI acmFilterTagDetailsW(HACMDRIVER had, PACMFILTERTAGDETAILSW paftd
     PWINE_ACMDRIVERID	padid;
     MMRESULT		mmr;
 
-    TRACE("(%p, %p, %d)\n", had, paftd, fdwDetails);
+    TRACE("(%p, %p, %ld)\n", had, paftd, fdwDetails);
 
     if (fdwDetails & ~(ACM_FILTERTAGDETAILSF_FILTERTAG|ACM_FILTERTAGDETAILSF_INDEX|
 		       ACM_FILTERTAGDETAILSF_LARGESTSIZE))
@@ -355,7 +354,7 @@ MMRESULT WINAPI acmFilterTagDetailsW(HACMDRIVER had, PACMFILTERTAGDETAILSW paftd
 	break;
 
     default:
-	WARN("Unsupported fdwDetails=%08x\n", fdwDetails);
+	WARN("Unsupported fdwDetails=%08lx\n", fdwDetails);
 	mmr = MMSYSERR_ERROR;
     }
 
@@ -368,14 +367,14 @@ MMRESULT WINAPI acmFilterTagDetailsW(HACMDRIVER had, PACMFILTERTAGDETAILSW paftd
 }
 
 struct MSACM_FilterTagEnumWtoA_Instance {
-    PACMFILTERTAGDETAILSA paftda;
-    DWORD_PTR             dwInstance;
-    ACMFILTERTAGENUMCBA   fnCallback;
+    PACMFILTERTAGDETAILSA	paftda;
+    DWORD			dwInstance;
+    ACMFILTERTAGENUMCBA 	fnCallback;
 };
 
 static BOOL CALLBACK MSACM_FilterTagEnumCallbackWtoA(HACMDRIVERID hadid,
 						     PACMFILTERTAGDETAILSW paftdw,
-                                                     DWORD_PTR dwInstance,
+						     DWORD dwInstance,
 						     DWORD fdwSupport)
 {
     struct MSACM_FilterTagEnumWtoA_Instance* paftei;
@@ -398,8 +397,8 @@ static BOOL CALLBACK MSACM_FilterTagEnumCallbackWtoA(HACMDRIVERID hadid,
  *           acmFilterTagEnumA (MSACM32.@)
  */
 MMRESULT WINAPI acmFilterTagEnumA(HACMDRIVER had, PACMFILTERTAGDETAILSA paftda,
-                                  ACMFILTERTAGENUMCBA fnCallback,
-                                  DWORD_PTR dwInstance, DWORD fdwEnum)
+				  ACMFILTERTAGENUMCBA fnCallback, DWORD dwInstance,
+				  DWORD fdwEnum)
 {
     ACMFILTERTAGDETAILSW	aftdw;
     struct MSACM_FilterTagEnumWtoA_Instance aftei;
@@ -414,20 +413,20 @@ MMRESULT WINAPI acmFilterTagEnumA(HACMDRIVER had, PACMFILTERTAGDETAILSA paftda,
     aftei.fnCallback = fnCallback;
 
     return acmFilterTagEnumW(had, &aftdw, MSACM_FilterTagEnumCallbackWtoA,
-                             (DWORD_PTR)&aftei, fdwEnum);
+			     (DWORD)&aftei, fdwEnum);
 }
 
 /***********************************************************************
  *           acmFilterTagEnumW (MSACM32.@)
  */
 MMRESULT WINAPI acmFilterTagEnumW(HACMDRIVER had, PACMFILTERTAGDETAILSW paftd,
-                                  ACMFILTERTAGENUMCBW fnCallback,
-                                  DWORD_PTR dwInstance, DWORD fdwEnum)
+				  ACMFILTERTAGENUMCBW fnCallback, DWORD dwInstance,
+				  DWORD fdwEnum)
 {
     PWINE_ACMDRIVERID		padid;
-    unsigned int			i;
+    int				i;
 
-    TRACE("(%p, %p, %p, %ld, %d)\n",
+    TRACE("(%p, %p, %p, %ld, %ld)\n",
 	  had, paftd, fnCallback, dwInstance, fdwEnum);
 
     if (paftd->cbStruct < sizeof(*paftd)) return MMSYSERR_INVALPARAM;

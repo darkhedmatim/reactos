@@ -822,7 +822,9 @@ SetupDiInstallClassExW(
             goto cleanup;
 
         /* Try to append a layout file */
-        SetupOpenAppendInfFileW(NULL, hInf, NULL);
+        ret = SetupOpenAppendInfFileW(NULL, hInf, NULL);
+        if (!ret)
+            goto cleanup;
 
         if (InterfaceClassGuid)
         {

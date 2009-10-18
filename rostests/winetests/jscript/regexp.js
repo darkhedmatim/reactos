@@ -31,7 +31,7 @@ ok(m["0"] === "ab", "m[0] is not \"ab\"");
 
 m = "abcabc".match(/ab/g);
 ok(typeof(m) === "object", "typeof m is not object");
-ok(m.length === 2, "m.length is not 2");
+ok(m.length === 2, "m.length is not 1");
 ok(m["0"] === "ab", "m[0] is not \"ab\"");
 ok(m["1"] === "ab", "m[1] is not \"ab\"");
 
@@ -41,7 +41,7 @@ ok(m === null, "m is not null");
 
 m = "abcabc".match(/Ab/gi);
 ok(typeof(m) === "object", "typeof m is not object");
-ok(m.length === 2, "m.length is not 2");
+ok(m.length === 2, "m.length is not 1");
 ok(m["0"] === "ab", "m[0] is not \"ab\"");
 ok(m["1"] === "ab", "m[1] is not \"ab\"");
 
@@ -64,29 +64,21 @@ ok(m["0"] === "ab", "m[0] is not \"ab\"");
 
 m = "abcabc".match(new RegExp("ab","g"));
 ok(typeof(m) === "object", "typeof m is not object");
-ok(m.length === 2, "m.length is not 2");
+ok(m.length === 2, "m.length is not 1");
 ok(m["0"] === "ab", "m[0] is not \"ab\"");
 ok(m["1"] === "ab", "m[1] is not \"ab\"");
 
 m = "abcabc".match(new RegExp(/ab/g));
 ok(typeof(m) === "object", "typeof m is not object");
-ok(m.length === 2, "m.length is not 2");
+ok(m.length === 2, "m.length is not 1");
 ok(m["0"] === "ab", "m[0] is not \"ab\"");
 ok(m["1"] === "ab", "m[1] is not \"ab\"");
 
 m = "abcabc".match(new RegExp("ab","g", "test"));
 ok(typeof(m) === "object", "typeof m is not object");
-ok(m.length === 2, "m.length is not 2");
+ok(m.length === 2, "m.length is not 1");
 ok(m["0"] === "ab", "m[0] is not \"ab\"");
 ok(m["1"] === "ab", "m[1] is not \"ab\"");
-
-m = "abcabcg".match("ab", "g");
-ok(typeof(m) === "object", "typeof m is not object");
-ok(m.length === 1, "m.length is not 1");
-ok(m["0"] === "ab", "m[0] is not \"ab\"");
-
-m = "abcabc".match();
-ok(m === null, "m is not null");
 
 r = "- [test] -".replace(/\[([^\[]+)\]/g, "success");
 ok(r === "- success -", "r = " + r + " expected '- success -'");
@@ -158,39 +150,6 @@ function replaceFunc2(m, subm, off, str) {
 r = "[test1] [test2]".replace(/\[([^\[]+)\]/g, replaceFunc2);
 ok(r === "r0 r1", "r = '" + r + "' expected 'r0 r1'");
 
-r = "$1,$2".replace(/(\$(\d))/g, "$$1-$1$2");
-ok(r === "$1-$11,$1-$22", "r = '" + r + "' expected '$1-$11,$1-$22'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$&");
-ok(r === "abc &1 123", "r = '" + r + "' expected 'abc &1 123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$'");
-ok(r === "abc  123 123", "r = '" + r + "' expected 'abc  123 123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$`");
-ok(r === "abc abc  123", "r = '" + r + "' expected 'abc abc  123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$3");
-ok(r === "abc $3 123", "r = '" + r + "' expected 'abc $3 123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$");
-ok(r === "abc $ 123", "r = '" + r + "' expected 'abc $ 123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$a");
-ok(r === "abc $a 123", "r = '" + r + "' expected 'abc $a 123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$11");
-ok(r === "abc &11 123", "r = '" + r + "' expected 'abc &11 123'");
-
-r = "abc &1 123".replace(/(\&(\d))/g, "$0");
-ok(r === "abc $0 123", "r = '" + r + "' expected 'abc $0 123'");
-
-r = "1 2 3".replace("2", "$&");
-ok(r === "1 $& 3", "r = '" + r + "' expected '1 $& 3'");
-
-r = "1 2 3".replace("2", "$'");
-ok(r === "1 $' 3", "r = '" + r + "' expected '1 $' 3'");
-
 r = "1,,2,3".split(/,+/g);
 ok(r.length === 3, "r.length = " + r.length);
 ok(r[0] === "1", "r[0] = " + r[0]);
@@ -207,13 +166,5 @@ r = "1,,2,".split(/,+/);
 ok(r.length === 2, "r.length = " + r.length);
 ok(r[0] === "1", "r[0] = " + r[0]);
 ok(r[1] === "2", "r[1] = " + r[1]);
-
-var re;
-
-re = /abc[^d]/g;
-ok(re.source === "abc[^d]", "re.source = '" + re.source + "', expected 'abc[^d]'");
-
-re = /a\bc[^d]/g;
-ok(re.source === "a\\bc[^d]", "re.source = '" + re.source + "', expected 'a\\bc[^d]'");
 
 reportSuccess();

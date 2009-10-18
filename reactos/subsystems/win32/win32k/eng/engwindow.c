@@ -27,10 +27,7 @@
  *                 16/11/2004: Created
  */
 
-/* TODO: Check how the WNDOBJ implementation should behave with a driver on windows.
-
-   Simple! Use Prop's!
- */
+/* TODO: Check how the WNDOBJ implementation should behave with a driver on windows. */
 
 #include <w32k.h>
 
@@ -88,7 +85,7 @@ IntEngWndUpdateClipObj(
   hVisRgn = VIS_ComputeVisibleRegion(Window, TRUE, TRUE, TRUE);
   if (hVisRgn != NULL)
   {
-    NtGdiOffsetRgn(hVisRgn, Window->Wnd->rcClient.left, Window->Wnd->rcClient.top);
+    NtGdiOffsetRgn(hVisRgn, Window->Wnd->ClientRect.left, Window->Wnd->ClientRect.top);
     visRgn = REGION_LockRgn(hVisRgn);
     if (visRgn != NULL)
     {
@@ -125,8 +122,8 @@ IntEngWndUpdateClipObj(
   if (ClipObj == NULL)
   {
     /* Fall back to client rect */
-    ClipObj = IntEngCreateClipRegion(1, &Window->Wnd->rcClient,
-                                     &Window->Wnd->rcClient);
+    ClipObj = IntEngCreateClipRegion(1, &Window->Wnd->ClientRect,
+                                     &Window->Wnd->ClientRect);
   }
 
   if (ClipObj == NULL)
@@ -136,7 +133,7 @@ IntEngWndUpdateClipObj(
   }
 
   RtlCopyMemory(&WndObjInt->WndObj.coClient, ClipObj, sizeof (CLIPOBJ));
-  RtlCopyMemory(&WndObjInt->WndObj.rclClient, &Window->Wnd->rcClient, sizeof (RECT));
+  RtlCopyMemory(&WndObjInt->WndObj.rclClient, &Window->Wnd->ClientRect, sizeof (RECT));
   OldClipObj = InterlockedExchangePointer(&WndObjInt->ClientClipObj, ClipObj);
   if (OldClipObj != NULL)
     IntEngDeleteClipRegion(OldClipObj);

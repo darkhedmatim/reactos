@@ -27,7 +27,8 @@
 #include "winuser.h"
 #include "winerror.h"
 
-#define MODIFIED(rect) (rect.left == 10 && rect.right != 100 && rect.top == 10 && rect.bottom != 100)
+#define MODIFIED(rect) (rect.left = 10 && rect.right != 100 && rect.top == 10 && rect.bottom != 100)
+#define SAME(rect) (rect.left = 10 && rect.right == 100 && rect.top == 10 && rect.bottom == 100)
 #define EMPTY(rect) (rect.left == rect.right && rect.bottom == rect.top)
 
 static void test_DrawTextCalcRect(void)
@@ -80,7 +81,7 @@ static void test_DrawTextCalcRect(void)
     ok( textheight, "DrawTextA error %u\n", GetLastError());
 
     trace("MM_HIENGLISH rect.bottom %d\n", rect.bottom);
-    ok(rect.bottom < 0, "In MM_HIENGLISH, DrawText with "
+    todo_wine ok(rect.bottom < 0, "In MM_HIENGLISH, DrawText with "
        "DT_CALCRECT should return a negative rectangle bottom. "
        "(bot=%d)\n", rect.bottom);
 

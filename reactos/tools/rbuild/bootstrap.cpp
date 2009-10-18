@@ -63,6 +63,8 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case ObjectLibrary:
 		case Iso:
 		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
 		case Test:
 		case RpcServer:
 		case RpcClient:

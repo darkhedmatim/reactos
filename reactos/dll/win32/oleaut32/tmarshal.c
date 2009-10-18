@@ -213,7 +213,7 @@ _marshal_interface(marshal_state *buf, REFIID riid, LPUNKNOWN pUnk) {
 	goto fail;
     }
     
-    hres = IStream_Stat(pStm,&ststg,STATFLAG_NONAME);
+    hres = IStream_Stat(pStm,&ststg,0);
     if (hres) {
         ERR("Stream stat failed\n");
         goto fail;
@@ -299,7 +299,7 @@ _get_typeinfo_for_iid(REFIID riid, ITypeInfo**ti) {
 	return E_FAIL;
     }
     RegCloseKey(ikey);
-    sprintf(typelibkey,"Typelib\\%s\\%s\\0\\win%u",tlguid,ver,(sizeof(void*) == 8) ? 64 : 32);
+    sprintf(typelibkey,"Typelib\\%s\\%s\\0\\win32",tlguid,ver);
     tlfnlen = sizeof(tlfn);
     if (RegQueryValueA(HKEY_CLASSES_ROOT,typelibkey,tlfn,&tlfnlen)) {
 	ERR("Could not get typelib fn?\n");

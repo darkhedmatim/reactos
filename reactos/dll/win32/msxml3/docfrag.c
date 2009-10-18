@@ -520,7 +520,7 @@ static const struct IXMLDOMDocumentFragmentVtbl domfrag_vtbl =
 IUnknown* create_doc_fragment( xmlNodePtr fragment )
 {
     domfrag *This;
-    xmlnode *node;
+    HRESULT hr;
 
     This = HeapAlloc( GetProcessHeap(), 0, sizeof *This );
     if ( !This )
@@ -529,15 +529,22 @@ IUnknown* create_doc_fragment( xmlNodePtr fragment )
     This->lpVtbl = &domfrag_vtbl;
     This->ref = 1;
 
-    node = create_basic_node( fragment, (IUnknown*)&This->lpVtbl, NULL );
-    if(!node)
+    This->node_unk = create_basic_node( fragment, (IUnknown*)&This->lpVtbl );
+    if(!This->node_unk)
     {
         HeapFree(GetProcessHeap(), 0, This);
         return NULL;
     }
 
-    This->node_unk = (IUnknown*)&node->lpInternalUnkVtbl;
-    This->node = IXMLDOMNode_from_impl(node);
+    hr = IUnknown_QueryInterface(This->node_unk, &IID_IXMLDOMNode, (LPVOID*)&This->node);
+    if(FAILED(hr))
+    {
+        IUnknown_Release(This->node_unk);
+        HeapFree( GetProcessHeap(), 0, This );
+        return NULL;
+    }
+    /* The ref on This->node is actually looped back into this object, so release it */
+    IXMLDOMNode_Release(This->node);
 
     return (IUnknown*) &This->lpVtbl;
 }

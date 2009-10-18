@@ -19,7 +19,6 @@ VOID LdrpInitLoader(VOID);
 VOID NTAPI RtlpInitDeferedCriticalSection(VOID);
 NTSTATUS LdrpAttachThread(VOID);
 VOID RtlpInitializeVectoredExceptionHandling(VOID);
-extern PTEB LdrpTopLevelDllBeingLoadedTeb;
 
 /* GLOBALS *******************************************************************/
 
@@ -428,6 +427,12 @@ LdrpInit2(PCONTEXT Context,
     InsertTailList(&Peb->Ldr->InInitializationOrderModuleList,
                    &NtModule->InInitializationOrderModuleList);
 
+#if defined(DBG) || defined(KDBG)
+
+    LdrpLoadUserModuleSymbols(NtModule);
+
+#endif /* DBG || KDBG */
+
     /* add entry for executable (becomes first list entry) */
     ExeModule = (PLDR_DATA_TABLE_ENTRY)
                  RtlAllocateHeap(Peb->ProcessHeap,
@@ -465,12 +470,16 @@ LdrpInit2(PCONTEXT Context,
     ExeModule->SizeOfImage = LdrpGetResidentSize(NTHeaders);
     ExeModule->TimeDateStamp = NTHeaders->FileHeader.TimeDateStamp;
 
-    LdrpTopLevelDllBeingLoadedTeb = NtCurrentTeb();
-
     InsertHeadList(&Peb->Ldr->InLoadOrderModuleList,
                    &ExeModule->InLoadOrderLinks);
 
     LdrpInitLoader();
+
+#if defined(DBG) || defined(KDBG)
+
+    LdrpLoadUserModuleSymbols(ExeModule);
+
+#endif /* DBG || KDBG */
 
     EntryPoint = LdrPEStartup((PVOID)ImageBase, NULL, NULL, NULL);
     ExeModule->EntryPoint = EntryPoint;

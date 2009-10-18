@@ -552,7 +552,6 @@ CompositeMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
     IEnumMoniker *enumMoniker1,*enumMoniker2;
     IMoniker *tempMk1,*tempMk2;
     HRESULT res1,res2,res;
-    BOOL done;
 
     TRACE("(%p,%p)\n",iface,pmkOtherMoniker);
 
@@ -568,18 +567,27 @@ CompositeMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
 
     IMoniker_Enum(iface,TRUE,&enumMoniker2);
 
-    do {
+    while(1){
 
         res1=IEnumMoniker_Next(enumMoniker1,1,&tempMk1,NULL);
         res2=IEnumMoniker_Next(enumMoniker2,1,&tempMk2,NULL);
 
         if((res1==S_OK)&&(res2==S_OK)){
-            done = (res = IMoniker_IsEqual(tempMk1,tempMk2)) == S_FALSE;
+
+            if(IMoniker_IsEqual(tempMk1,tempMk2)==S_FALSE){
+                res= S_FALSE;
+                break;
+            }
+            else
+                continue;
         }
-        else
-        {
-            res = (res1==S_FALSE) && (res2==S_FALSE);
-            done = TRUE;
+        else if ( (res1==S_FALSE) && (res2==S_FALSE) ){
+                res = S_OK;
+                break;
+        }
+        else{
+            res = S_FALSE;
+            break;
         }
 
         if (res1==S_OK)
@@ -587,7 +595,7 @@ CompositeMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
 
         if (res2==S_OK)
             IMoniker_Release(tempMk2);
-    } while (!done);
+    }
 
     IEnumMoniker_Release(enumMoniker1);
     IEnumMoniker_Release(enumMoniker2);
@@ -981,12 +989,12 @@ static VOID GetAfterCommonPrefix(IMoniker* pGenMk,IMoniker* commonMk,IMoniker** 
                     nbRestMk++;
 
                 IMoniker_Release(tempMk1);
-                IMoniker_Release(tempMk2);
+                IMoniker_Release(tempMk1);
 
                 break;
             }
             IMoniker_Release(tempMk1);
-            IMoniker_Release(tempMk2);
+            IMoniker_Release(tempMk1);
         }
     }
     else{

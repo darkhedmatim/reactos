@@ -181,11 +181,6 @@ enum ImageType
     ImageTypeMetafile
 };
 
-enum WarpMode {
-    WarpModePerspective,
-    WarpModeBilinear
-};
-
 enum WrapMode
 {
     WrapModeTile,
@@ -441,7 +436,6 @@ typedef enum DashStyle DashStyle;
 typedef enum MatrixOrder MatrixOrder;
 typedef enum ImageType ImageType;
 typedef enum ImageFlags ImageFlags;
-typedef enum WarpMode WarpMode;
 typedef enum WrapMode WrapMode;
 typedef enum MetafileType MetafileType;
 typedef enum LinearGradientMode LinearGradientMode;

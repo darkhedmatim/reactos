@@ -14,7 +14,7 @@
 #include <wchar.h>
 #include "resources.h"
 
-#define MINGWVERSION L"\\amd64"
+#define MINGWVERSION L"\\x86_64"
 
 typedef struct _SETTINGS
 {
@@ -26,14 +26,11 @@ typedef struct _SETTINGS
     INT background;
     BOOL showtime;
     BOOL useccache;
-    WCHAR lstrip[MAX_PATH];
-    WCHAR lnostrip[MAX_PATH];
     BOOL strip;
     BOOL nostrip;
     BOOL writelog;
     BOOL objstate;
     BOOL outstate;
-    BOOL showversion;
 }
 SETTINGS, *PSETTINGS;
 

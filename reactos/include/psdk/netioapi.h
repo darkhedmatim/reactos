@@ -17,7 +17,6 @@ extern "C" {
 
 #ifdef _WS2IPDEF_
 #include <ntddndis.h>
-#include <ifdef.h>
 
 typedef struct _MIB_IF_ROW2 {
     NET_LUID InterfaceLuid;
@@ -72,14 +71,8 @@ typedef struct _MIB_IF_ROW2 {
     ULONG64 OutQLen;
 } MIB_IF_ROW2, *PMIB_IF_ROW2;
 
-typedef struct _MIB_IF_TABLE2
-{
-    ULONG NumEntries;
-    MIB_IF_ROW2 Table[1];
-} MIB_IF_TABLE2, *PMIB_IF_TABLE2;
 
 NETIOAPI_API GetIfEntry2(IN OUT PMIB_IF_ROW2 Row);
-NETIOAPI_API GetIfTable2(OUT PMIB_IF_TABLE2 *Table);
 
 #endif
 

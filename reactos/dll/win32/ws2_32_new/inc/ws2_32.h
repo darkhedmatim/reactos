@@ -14,17 +14,20 @@
 #define NTOS_MODE_USER
 #define _CRT_SECURE_NO_DEPRECATE
 #define WINSOCK_API_LINKAGE
+#define DBG 1
 
 /* C Header */
 #include <stdio.h>
 
 /* PSDK and NDK Headers */
 #include <winsock2.h>
-#include <ws2tcpip.h>
-#include <ws2spi.h>
+#include <Ws2tcpip.h>
+#include <Ws2spi.h>
 #include <ndk/umtypes.h>
 #include <ndk/rtlfuncs.h>
-#include <svcguid.h>
+
+/* Shared NSP Headers */
+#include <nsp_dns.h>
 
 /* Winsock Helper Header */
 #include <ws2help.h>

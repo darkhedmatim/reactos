@@ -400,7 +400,7 @@ ROSGL_ICDForHDC( HDC hdc )
         {
             WCHAR Buffer[256];
             snwprintf(Buffer, sizeof(Buffer)/sizeof(WCHAR),
-                      L"Couldn't load driver \"%s\".", info.DriverName);
+                      L"Couldn't load driver \"%s\".", driverName);
             MessageBox(WindowFromDC( hdc ), Buffer,
                        L"OPENGL32.dll: Warning",
                        MB_OK | MB_ICONWARNING);
@@ -502,16 +502,6 @@ ROSGL_SetContextCallBack( const ICDTable *table )
  */
 #define BUFFERDEPTH_SCORE(want, have) \
     ((want == 0) ? (0) : ((want < have) ? (1) : ((want > have) ? (3) : (0))))
-
-/* Score if we want and not have it */
-#define FLAG_SCORE(want, have, flag) \
-    (((want & ~have) & flag) ? (1) : (0))
-
-/* Score if what we want is different than what we have, except when
-   _DONTCARE was set */
-#define FLAG_SCORE_DONTCARE(want, have, flag) \
-    ((!(have & flag ## _DONTCARE)) && ((want & flag) != (have & flag)) ? (1) : (0))
-
 int
 APIENTRY
 rosglChoosePixelFormat( HDC hdc, CONST PIXELFORMATDESCRIPTOR *pfd )
@@ -522,6 +512,8 @@ rosglChoosePixelFormat( HDC hdc, CONST PIXELFORMATDESCRIPTOR *pfd )
     int best = 0;
     int score, bestScore = 0x7fff; /* used to choose a pfd if no exact match */
     int icdNumFormats;
+    const DWORD compareFlags = PFD_DRAW_TO_WINDOW | PFD_DRAW_TO_BITMAP |
+                               PFD_SUPPORT_GDI | PFD_SUPPORT_OPENGL;
 
     DBGTRACE( "Called!" );
 
@@ -563,17 +555,18 @@ rosglChoosePixelFormat( HDC hdc, CONST PIXELFORMATDESCRIPTOR *pfd )
             continue;
         }
 
-        score = 0; /* higher is worse */
-
         /* compare flags */
-        score += FLAG_SCORE(pfd->dwFlags, icdPfd.dwFlags, PFD_DRAW_TO_WINDOW);
-        score += FLAG_SCORE(pfd->dwFlags, icdPfd.dwFlags, PFD_DRAW_TO_BITMAP);
-        score += FLAG_SCORE(pfd->dwFlags, icdPfd.dwFlags, PFD_SUPPORT_GDI);
-        score += FLAG_SCORE(pfd->dwFlags, icdPfd.dwFlags, PFD_SUPPORT_OPENGL);
-        score += FLAG_SCORE_DONTCARE(pfd->dwFlags, icdPfd.dwFlags, PFD_DOUBLEBUFFER);
-        score += FLAG_SCORE_DONTCARE(pfd->dwFlags, icdPfd.dwFlags, PFD_STEREO);
+        if ((pfd->dwFlags & compareFlags) != (icdPfd.dwFlags & compareFlags))
+            continue;
+        if (!(pfd->dwFlags & PFD_DOUBLEBUFFER_DONTCARE) &&
+            ((pfd->dwFlags & PFD_DOUBLEBUFFER) != (icdPfd.dwFlags & PFD_DOUBLEBUFFER)))
+            continue;
+        if (!(pfd->dwFlags & PFD_STEREO_DONTCARE) &&
+            ((pfd->dwFlags & PFD_STEREO) != (icdPfd.dwFlags & PFD_STEREO)))
+            continue;
 
         /* check other attribs */
+        score = 0; /* higher is worse */
         if (pfd->iPixelType != icdPfd.iPixelType)
             score += 5; /* this is really bad i think */
         if (pfd->iLayerType != icdPfd.iLayerType)
@@ -1195,32 +1188,31 @@ BOOL
 APIENTRY
 rosglSwapLayerBuffers( HDC hdc, UINT fuPlanes )
 {
-    BOOL ret = FALSE;
-
-    if(fuPlanes & WGL_SWAP_MAIN_PLANE)
-        ret = rosglSwapBuffers(hdc);
-
-    if(fuPlanes &~WGL_SWAP_MAIN_PLANE)
-        DBGTRACE("wglSwapLayerBuffers is not fully implemented\n");
-
-    return ret;
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 
 BOOL
 APIENTRY
-rosglUseFontBitmapsA( HDC hdc, DWORD first, DWORD count, DWORD listBase )
+rosglUseFontBitmapsA( HDC hdc, DWORD  first, DWORD count, DWORD listBase )
 {
-    return IntUseFontBitmapsA(hdc, first, count, listBase);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 
 BOOL
 APIENTRY
-rosglUseFontBitmapsW( HDC hdc, DWORD first, DWORD count, DWORD listBase )
+rosglUseFontBitmapsW( HDC hdc, DWORD  first, DWORD count, DWORD listBase )
 {
-    return IntUseFontBitmapsW(hdc, first, count, listBase);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
+
 
 BOOL
 APIENTRY
@@ -1228,7 +1220,9 @@ rosglUseFontOutlinesA( HDC hdc, DWORD first, DWORD count, DWORD listBase,
                        FLOAT deviation, FLOAT extrusion, int format,
                        GLYPHMETRICSFLOAT *pgmf )
 {
-    return IntUseFontOutlinesA(hdc, first, count, listBase, deviation, extrusion, format, pgmf);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 
@@ -1238,7 +1232,9 @@ rosglUseFontOutlinesW( HDC hdc, DWORD first, DWORD count, DWORD listBase,
                        FLOAT deviation, FLOAT extrusion, int format,
                        GLYPHMETRICSFLOAT *pgmf )
 {
-    return IntUseFontOutlinesW(hdc, first, count, listBase, deviation, extrusion, format, pgmf);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 #ifdef __cplusplus

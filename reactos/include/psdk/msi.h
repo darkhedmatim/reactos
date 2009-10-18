@@ -237,8 +237,6 @@ typedef struct tagMSIPATCHSEQUENCEINFOW
 
 #define MAX_FEATURE_CHARS 38
 
-#define ERROR_PATCH_TARGET_NOT_FOUND        1642
-
 /* Strings defined in msi.h */
 /* Advertised Information */
 
@@ -650,10 +648,6 @@ UINT WINAPI MsiInstallMissingComponentW(LPCWSTR, LPCWSTR, INSTALLSTATE);
 UINT WINAPI MsiDetermineApplicablePatchesA(LPCSTR, DWORD, PMSIPATCHSEQUENCEINFOA);
 UINT WINAPI MsiDetermineApplicablePatchesW(LPCWSTR, DWORD, PMSIPATCHSEQUENCEINFOW);
 #define     MsiDetermineApplicablePatches WINELIB_NAME_AW(MsiDetermineApplicablePatches)
-
-UINT WINAPI MsiApplyMultiplePatchesA(LPCSTR, LPCSTR, LPCSTR);
-UINT WINAPI MsiApplyMultiplePatchesW(LPCWSTR, LPCWSTR, LPCWSTR);
-#define     MsiApplyMultiplePatches WINELIB_NAME_AW(MsiApplyMultiplePatches)
 
 /* Non Unicode */
 UINT WINAPI MsiCloseHandle(MSIHANDLE);

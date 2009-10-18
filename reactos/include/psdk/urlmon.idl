@@ -198,9 +198,7 @@ interface IBindStatusCallback : IUnknown
         BSCF_INTERMEDIATEDATANOTIFICATION = 0x02,
         BSCF_LASTDATANOTIFICATION = 0x04,
         BSCF_DATAFULLYAVAILABLE = 0x08,
-        BSCF_AVAILABLEDATASIZEUNKNOWN = 0x10,
-        BSCF_SKIPDRAINDATAFORFILEURLS = 0x20,
-        BSCF_64BITLENGTHDOWNLOAD = 0x40
+        BSCF_AVAILABLEDATASIZEUNKNOWN = 0x10
     } BSCF;
 
     typedef enum BINDSTATUS
@@ -1497,20 +1495,6 @@ interface IUri : IUnknown
     HRESULT IsEqual(
         [in]  IUri *pUri,
         [out] BOOL *pfEqual);
-}
-
-/*****************************************************************************
- * IUriContainer interface
- */
-[
-    local,
-    object,
-    uuid(a158a630-ed6f-45fb-b987-f68676f57752),
-    pointer_default(unique)
-]
-interface IUriContainer : IUnknown
-{
-    HRESULT GetIUri([out] IUri **ppIUri);
 }
 
 /*****************************************************************************

@@ -31,7 +31,6 @@ typedef struct {
     IGraphBuilder* pgraph;
     IMediaControl* pmctrl;
     BOOL           started;
-    DWORD          time_format;
 } WINE_MCIQTZ;
 
 #endif  /* __WINE_PRIVATE_MCIQTZ_H */

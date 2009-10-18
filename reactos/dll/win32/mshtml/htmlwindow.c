@@ -93,7 +93,6 @@ static ULONG WINAPI HTMLWindow2_Release(IHTMLWindow2 *iface)
 
     if(!ref) {
         list_remove(&This->entry);
-        release_dispex(&This->dispex);
         heap_free(This);
     }
 
@@ -746,16 +745,8 @@ static HRESULT WINAPI HTMLWindow2_execScript(IHTMLWindow2 *iface, BSTR scode, BS
 static HRESULT WINAPI HTMLWindow2_toString(IHTMLWindow2 *iface, BSTR *String)
 {
     HTMLWindow *This = HTMLWINDOW2_THIS(iface);
-
-    static const WCHAR objectW[] = {'[','o','b','j','e','c','t',']',0};
-
-    TRACE("(%p)->(%p)\n", This, String);
-
-    if(!String)
-        return E_INVALIDARG;
-
-    *String = SysAllocString(objectW);
-    return *String ? S_OK : E_OUTOFMEMORY;
+    FIXME("(%p)->(%p)\n", This, String);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLWindow2_scrollBy(IHTMLWindow2 *iface, LONG x, LONG y)

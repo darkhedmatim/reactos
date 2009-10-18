@@ -127,4 +127,3 @@
 @ stdcall DnsWriteQuestionToBuffer_W(ptr ptr wstr long long long)
 @ stub DnsWriteReverseNameStringForIpAddress
 @ stub GetCurrentTimeInSeconds
-@ stdcall DnsFree(ptr long)

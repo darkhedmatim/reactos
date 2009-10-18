@@ -34,11 +34,11 @@ KiThreadStartup(VOID);
 
 VOID
 NTAPI
-KiInitializeContextThread(IN PKTHREAD Thread,
-                          IN PKSYSTEM_ROUTINE SystemRoutine,
-                          IN PKSTART_ROUTINE StartRoutine,
-                          IN PVOID StartContext,
-                          IN PCONTEXT ContextPointer)
+KeArmInitThreadWithContext(IN PKTHREAD Thread,
+                           IN PKSYSTEM_ROUTINE SystemRoutine,
+                           IN PKSTART_ROUTINE StartRoutine,
+                           IN PVOID StartContext,
+                           IN PCONTEXT ContextPointer)
 {
     PKTRAP_FRAME TrapFrame;
     PKEXCEPTION_FRAME ExceptionFrame = NULL, CtxSwitchFrame;

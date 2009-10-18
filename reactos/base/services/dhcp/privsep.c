@@ -52,16 +52,19 @@ buf_close(int sock, struct buf *buf)
 {
 	ssize_t	n;
 
-	n = write(sock, buf->buf + buf->rpos, buf->size - buf->rpos);
-	if (n != -1)
-		buf->rpos += n;
-	if (n == 0) {			/* connection closed */
-		return (-1);
-	}
+	do {
+		n = write(sock, buf->buf + buf->rpos, buf->size - buf->rpos);
+		if (n != -1)
+			buf->rpos += n;
+		if (n == 0) {			/* connection closed */
+			errno = 0;
+			return (-1);
+		}
+	} while (n == -1 && (errno == EAGAIN || errno == EINTR));
 
 	if (buf->rpos < buf->size)
-		error("short write: wanted %lu got %ld bytes",
-		    (unsigned long)buf->size, (long)buf->rpos);
+		error("short %s write: wanted %lu got %ld bytes",
+		    strerror(errno), (unsigned long)buf->size, (long)buf->rpos);
 
 	free(buf->buf);
 	free(buf);
@@ -74,17 +77,19 @@ buf_read(int sock, void *buf, size_t nbytes)
 	ssize_t	n, r = 0;
 	char *p = buf;
 
-	n = read(sock, p, nbytes);
-	if (n == 0)
-		error("connection closed");
-	if (n != -1) {
-		r += n;
-		p += n;
-		nbytes -= n;
-	}
+	do {
+		n = read(sock, p, nbytes);
+		if (n == 0)
+			error("connection closed");
+		if (n != -1) {
+			r += n;
+			p += n;
+			nbytes -= n;
+		}
+	} while (n == -1 && (errno == EINTR || errno == EAGAIN));
 
 	if (n == -1)
-		error("buf_read: %d", WSAGetLastError());
+		error("buf_read: %s", strerror(errno));
 
 	if (r < nbytes)
 		error("short read: wanted %lu got %ld bytes",
@@ -116,8 +121,9 @@ dispatch_imsg(int fd)
 		    + sizeof(size_t) || medium_len == SIZE_T_MAX)
 			error("corrupted message received");
 		if (medium_len > 0) {
-			if ((medium = calloc(1, medium_len + 1)) != NULL)
-			     buf_read(fd, medium, medium_len);
+			if ((medium = calloc(1, medium_len + 1)) == NULL)
+				error("%s", strerror(errno));
+			buf_read(fd, medium, medium_len);
 		} else
 			medium = NULL;
 
@@ -126,8 +132,9 @@ dispatch_imsg(int fd)
 		    reason_len == SIZE_T_MAX)
 			error("corrupted message received");
 		if (reason_len > 0) {
-			if ((reason = calloc(1, reason_len + 1)) != NULL)
-			    buf_read(fd, reason, reason_len);
+			if ((reason = calloc(1, reason_len + 1)) == NULL)
+				error("%s", strerror(errno));
+			buf_read(fd, reason, reason_len);
 		} else
 			reason = NULL;
 
@@ -148,8 +155,9 @@ dispatch_imsg(int fd)
 		if (hdr.len < totlen || filename_len == SIZE_T_MAX)
 			error("corrupted message received");
 		if (filename_len > 0) {
-			if ((filename = calloc(1, filename_len + 1)) != NULL)
-			    buf_read(fd, filename, filename_len);
+			if ((filename = calloc(1, filename_len + 1)) == NULL)
+				error("%s", strerror(errno));
+			buf_read(fd, filename, filename_len);
 		} else
 			filename = NULL;
 
@@ -159,8 +167,9 @@ dispatch_imsg(int fd)
 			error("corrupted message received");
 		if (servername_len > 0) {
 			if ((servername =
-			    calloc(1, servername_len + 1)) != NULL)
-			    buf_read(fd, servername, servername_len);
+			    calloc(1, servername_len + 1)) == NULL)
+				error("%s", strerror(errno));
+			buf_read(fd, servername, servername_len);
 		} else
 			servername = NULL;
 
@@ -169,8 +178,9 @@ dispatch_imsg(int fd)
 		if (hdr.len < totlen || prefix_len == SIZE_T_MAX)
 			error("corrupted message received");
 		if (prefix_len > 0) {
-			if ((prefix = calloc(1, prefix_len + 1)) != NULL)
-			     buf_read(fd, prefix, prefix_len);
+			if ((prefix = calloc(1, prefix_len + 1)) == NULL)
+				error("%s", strerror(errno));
+			buf_read(fd, prefix, prefix_len);
 		} else
 			prefix = NULL;
 
@@ -187,8 +197,9 @@ dispatch_imsg(int fd)
 					error("corrupted message received");
 				lease.options[i].data =
 				    calloc(1, optlen + 1);
-				if (lease.options[i].data != NULL)
-				   buf_read(fd, lease.options[i].data, optlen);
+				if (lease.options[i].data == NULL)
+				    error("%s", strerror(errno));
+				buf_read(fd, lease.options[i].data, optlen);
 			}
 		}
 		lease.server_name = servername;
@@ -211,13 +222,14 @@ dispatch_imsg(int fd)
 
 		hdr.code = IMSG_SCRIPT_GO_RET;
 		hdr.len = sizeof(struct imsg_hdr) + sizeof(int);
-		buf = buf_open(hdr.len);
-
-                if (buf != NULL) {
-		    buf_add(buf, &hdr, sizeof(hdr));
-		    buf_add(buf, &ret, sizeof(ret));
-		    buf_close(fd, buf);
-                }
+		if ((buf = buf_open(hdr.len)) == NULL)
+			error("buf_open: %s", strerror(errno));
+		if (buf_add(buf, &hdr, sizeof(hdr)))
+			error("buf_add: %s", strerror(errno));
+		if (buf_add(buf, &ret, sizeof(ret)))
+			error("buf_add: %s", strerror(errno));
+		if (buf_close(fd, buf) == -1)
+			error("buf_close: %s", strerror(errno));
 		break;
 	default:
 		error("received unknown message, code %d", hdr.code);

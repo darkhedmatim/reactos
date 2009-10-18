@@ -280,7 +280,6 @@ static UINT WPRINTF_GetLen( WPRINTF_FORMAT *format, WPRINTF_DATA *arg,
     return len;
 }
 
-
 /***********************************************************************
  *           wvsnprintfA   (internal)
  */
@@ -485,7 +484,6 @@ static INT wvsnprintfW( LPWSTR buffer, UINT maxlen, LPCWSTR spec, __ms_va_list a
     return (maxlen > 1) ? (INT)(p - buffer) : -1;
 }
 
-
 /***********************************************************************
  *           wvsprintfA   (USER32.@)
  */
@@ -505,7 +503,6 @@ INT WINAPI wvsprintfW( LPWSTR buffer, LPCWSTR spec, __ms_va_list args )
     return ( res == -1 ) ? 1024 : res;
 }
 
-
 /***********************************************************************
  *           wsprintfA   (USER32.@)
  */
@@ -519,7 +516,6 @@ INT WINAPIV wsprintfA( LPSTR buffer, LPCSTR spec, ... )
     __ms_va_end( valist );
     return ( res == -1 ) ? 1024 : res;
 }
-
 
 /***********************************************************************
  *           wsprintfW   (USER32.@)

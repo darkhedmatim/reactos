@@ -12,10 +12,10 @@ typedef struct _ACCELERATOR_TABLE
 } ACCELERATOR_TABLE, *PACCELERATOR_TABLE;
 
 NTSTATUS FASTCALL
-InitAcceleratorImpl(VOID);
+InitAcceleratorImpl();
 
 NTSTATUS FASTCALL
-CleanupAcceleratorImpl(VOID);
+CleanupAcceleratorImpl();
 
 PACCELERATOR_TABLE FASTCALL UserGetAccelObject(HACCEL);
 

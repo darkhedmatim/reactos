@@ -41,12 +41,7 @@ inline int iswdigit ( wchar_t c )
 }
 #endif
 
-#if defined(__sun__)
-#include <alloca.h>
-#include <ieee.h>
-#endif
-
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__sun__) || defined(__CYGWIN__)
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__CYGWIN__)
 # define __isnan isnan
 # define __finite finite
 # define powl __builtin_powl

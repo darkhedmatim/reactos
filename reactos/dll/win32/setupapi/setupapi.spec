@@ -100,8 +100,8 @@
 @ stub CM_Get_Device_Interface_List_ExW
 @ stub CM_Get_Device_Interface_List_SizeA
 @ stub CM_Get_Device_Interface_List_SizeW
-@ stdcall CM_Get_Device_Interface_List_Size_ExA(ptr ptr str long ptr)
-@ stdcall CM_Get_Device_Interface_List_Size_ExW(ptr ptr wstr long ptr)
+@ stub CM_Get_Device_Interface_List_Size_ExA
+@ stub CM_Get_Device_Interface_List_Size_ExW
 @ stdcall CM_Get_First_Log_Conf(ptr long long)
 @ stdcall CM_Get_First_Log_Conf_Ex(ptr long long long)
 @ stdcall CM_Get_Global_State(ptr long)
@@ -325,7 +325,7 @@
 @ stdcall SetupDiGetDeviceInstallParamsW(ptr ptr ptr)
 @ stdcall SetupDiGetDeviceInstanceIdA(ptr ptr str long ptr)
 @ stdcall SetupDiGetDeviceInstanceIdW(ptr ptr wstr long ptr)
-@ stdcall SetupDiGetDeviceInterfaceAlias(ptr ptr ptr ptr)
+@ stub SetupDiGetDeviceInterfaceAlias
 @ stdcall SetupDiGetDeviceInterfaceDetailA(long ptr ptr long ptr ptr)
 @ stdcall SetupDiGetDeviceInterfaceDetailW(long ptr ptr long ptr ptr)
 @ stdcall SetupDiGetDeviceRegistryPropertyA(long ptr long ptr ptr long ptr)
@@ -363,7 +363,7 @@
 @ stdcall SetupDiOpenDeviceInfoA(ptr str long long ptr)
 @ stdcall SetupDiOpenDeviceInfoW(ptr wstr long long ptr)
 @ stdcall SetupDiOpenDeviceInterfaceA(ptr str long ptr)
-@ stdcall SetupDiOpenDeviceInterfaceRegKey(ptr ptr long long)
+@ stub SetupDiOpenDeviceInterfaceRegKey
 @ stdcall SetupDiOpenDeviceInterfaceW(ptr wstr long ptr)
 @ stdcall SetupDiRegisterCoDeviceInstallers(ptr ptr)
 @ stdcall SetupDiRegisterDeviceInfo(ptr ptr long ptr ptr ptr)
@@ -528,8 +528,8 @@
 @ stdcall SetupTermDefaultQueueCallback(ptr)
 @ stdcall SetupTerminateFileLog(long)
 @ stub SetupUninstallNewlyCopiedInfs
-@ stdcall SetupUninstallOEMInfA(str long ptr)
-@ stdcall SetupUninstallOEMInfW(wstr long ptr)
+@ stub SetupUninstallOEMInfA
+@ stub SetupUninstallOEMInfW
 @ stub SetupVerifyInfFileA
 @ stub SetupVerifyInfFileW
 @ stdcall UnicodeToMultiByte(wstr long)

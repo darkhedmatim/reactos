@@ -1,4 +1,23 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window classes
@@ -23,7 +42,6 @@ extern NTSTATUS Win32kInitWin32Thread(PETHREAD Thread);
 
 PTHREADINFO ptiRawInput;
 PKTIMER MasterTimer;
-PATTACHINFO gpai = NULL;
 
 static HANDLE MouseDeviceHandle;
 static HANDLE MouseThreadHandle;
@@ -37,6 +55,8 @@ static KEVENT InputThreadsStart;
 static BOOLEAN InputThreadsRunning = FALSE;
 
 /* FUNCTIONS *****************************************************************/
+ULONG FASTCALL
+IntSystemParametersInfo(UINT uiAction, UINT uiParam,PVOID pvParam, UINT fWinIni);
 DWORD IntLastInputTick(BOOL LastInputTickSetGet);
 
 #define ClearMouseInput(mi) \
@@ -114,15 +134,6 @@ ProcessMouseInputData(PMOUSE_INPUT_DATA Data, ULONG InputCount)
       mid = (Data + i);
       mi.dx += mid->LastX;
       mi.dy += mid->LastY;
-
-      /* Check if the mouse move is absolute */
-      if (mid->Flags == MOUSE_MOVE_ABSOLUTE)
-      {
-         /* Set flag and convert to screen location */
-         mi.dwFlags |= MOUSEEVENTF_ABSOLUTE;
-         mi.dx = mi.dx / (65535 / (UserGetSystemMetrics(SM_CXVIRTUALSCREEN) - 1));
-         mi.dy = mi.dy / (65535 / (UserGetSystemMetrics(SM_CYVIRTUALSCREEN) - 1));
-      }
 
       if(mid->ButtonFlags)
       {
@@ -202,7 +213,6 @@ MouseThreadMain(PVOID StartContext)
    OBJECT_ATTRIBUTES MouseObjectAttributes;
    IO_STATUS_BLOCK Iosb;
    NTSTATUS Status;
-   MOUSE_ATTRIBUTES MouseAttr;
 
    InitializeObjectAttributes(&MouseObjectAttributes,
                               &MouseDeviceName,
@@ -239,20 +249,6 @@ MouseThreadMain(PVOID StartContext)
                                      TRUE,
                                      NULL);
       DPRINT("Mouse Input Thread Starting...\n");
-
-      /*FIXME: Does mouse attributes need to be used for anything */
-      Status = NtDeviceIoControlFile(MouseDeviceHandle,
-                                     NULL,
-                                     NULL,
-                                     NULL,
-                                     &Iosb,
-                                     IOCTL_MOUSE_QUERY_ATTRIBUTES,
-                                     &MouseAttr, sizeof(MOUSE_ATTRIBUTES),
-                                     NULL, 0);
-      if(!NT_SUCCESS(Status))
-      {
-         DPRINT("Failed to get mouse attributes\n");
-      }
 
       /*
        * Receive and process mouse input.
@@ -746,7 +742,7 @@ KeyboardThreadMain(PVOID StartContext)
                }
                else
                {
-                  RepeatCount = 1;
+                  RepeatCount = 0;
                   LastFlags = KeyInput.Flags & (KEY_E0 | KEY_E1);
                   LastMakeCode = KeyInput.MakeCode;
                }
@@ -865,7 +861,7 @@ RawInputThreadMain(PVOID StartContext)
 
   MasterTimer = ExAllocatePoolWithTag(NonPagedPool, sizeof(KTIMER), TAG_INPUT);
   if (!MasterTimer)
-  {
+  {   
      DPRINT1("Win32K: Failed making Raw Input thread a win32 thread.\n");
      return;
   }
@@ -881,7 +877,7 @@ RawInputThreadMain(PVOID StartContext)
   }
 
   ptiRawInput = PsGetCurrentThreadWin32Thread();
-  DPRINT("\nRaw Input Thread 0x%x \n", ptiRawInput);
+  DPRINT1("\nRaw Input Thread 0x%x \n", ptiRawInput);
 
 
   KeSetPriorityThread(&PsGetCurrentThread()->Tcb,
@@ -990,7 +986,7 @@ IntBlockInput(PTHREADINFO W32Thread, BOOL BlockIt)
    PTHREADINFO OldBlock;
    ASSERT(W32Thread);
 
-   if(!W32Thread->Desktop || ((W32Thread->TIF_flags & TIF_INCLEANUP) && BlockIt))
+   if(!W32Thread->Desktop || (W32Thread->IsExiting && BlockIt))
    {
       /*
        * fail blocking if exiting the thread
@@ -1043,6 +1039,18 @@ CLEANUP:
    DPRINT("Leave NtUserBlockInput, ret=%i\n",_ret_);
    UserLeave();
    END_CLEANUP;
+}
+
+BOOL FASTCALL
+IntSwapMouseButton(PWINSTATION_OBJECT WinStaObject, BOOL Swap)
+{
+   PSYSTEM_CURSORINFO CurInfo;
+   BOOL res;
+
+   CurInfo = IntGetSysCursorInfo(WinStaObject);
+   res = CurInfo->SwapButtons;
+   CurInfo->SwapButtons = Swap;
+   return res;
 }
 
 BOOL FASTCALL
@@ -1102,7 +1110,7 @@ IntMouseInput(MOUSEINPUT *mi)
       mi->time = MsqCalculateMessageTime(&LargeTickCount);
    }
 
-   SwapButtons = gspv.bMouseBtnSwap;
+   SwapButtons = CurInfo->SwapButtons;
    DoMove = FALSE;
 
    IntGetCursorLocation(WinSta, &MousePos);
@@ -1126,10 +1134,10 @@ IntMouseInput(MOUSEINPUT *mi)
 
       if (DesktopWindow)
       {
-         if(MousePos.x >= DesktopWindow->Wnd->rcClient.right)
-            MousePos.x = DesktopWindow->Wnd->rcClient.right - 1;
-         if(MousePos.y >= DesktopWindow->Wnd->rcClient.bottom)
-            MousePos.y = DesktopWindow->Wnd->rcClient.bottom - 1;
+         if(MousePos.x >= DesktopWindow->Wnd->ClientRect.right)
+            MousePos.x = DesktopWindow->Wnd->ClientRect.right - 1;
+         if(MousePos.y >= DesktopWindow->Wnd->ClientRect.bottom)
+            MousePos.y = DesktopWindow->Wnd->ClientRect.bottom - 1;
          UserDereferenceObject(DesktopWindow);
       }
 
@@ -1304,57 +1312,6 @@ BOOL FASTCALL
 IntKeyboardInput(KEYBDINPUT *ki)
 {
    return FALSE;
-}
-
-BOOL FASTCALL
-UserAttachThreadInput( PTHREADINFO pti, PTHREADINFO ptiTo, BOOL fAttach)
-{
-   PATTACHINFO pai;
-
-   /* Can not be the same thread.*/
-   if (pti == ptiTo) return FALSE;
-
-   /* Do not attach to system threads or between different desktops. */
-   if ( pti->TIF_flags & TIF_DONTATTACHQUEUE ||
-        ptiTo->TIF_flags & TIF_DONTATTACHQUEUE ||
-        pti->Desktop != ptiTo->Desktop )
-      return FALSE;
-
-   /* If Attach set, allocate and link. */
-   if ( fAttach )
-   {
-      pai = ExAllocatePoolWithTag(PagedPool, sizeof(ATTACHINFO), TAG_ATTACHINFO);
-      if ( !pai ) return FALSE;
-
-      pai->paiNext = gpai;
-      pai->pti1 = pti;
-      pai->pti2 = ptiTo;
-      gpai = pai;
-   }
-   else /* If clear, unlink and free it. */
-   {
-      PATTACHINFO paiprev = NULL;
-
-      if ( !gpai ) return FALSE;
-
-      pai = gpai;
-
-      /* Search list and free if found or return false. */
-      do
-      {
-        if ( pai->pti2 == ptiTo && pai->pti1 == pti ) break;
-        paiprev = pai;
-        pai = pai->paiNext;
-      } while (pai);
-
-      if ( !pai ) return FALSE;
-
-      if (paiprev) paiprev->paiNext = pai->paiNext;
-
-      ExFreePoolWithTag(pai, TAG_ATTACHINFO);
-  }
-
-  return TRUE;
 }
 
 UINT

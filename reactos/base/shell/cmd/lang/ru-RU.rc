@@ -1,3 +1,5 @@
+#include "windows.h"
+#include "resource.h"
 /*
  * Russian language file by
  * Andrey Korotaev (unC0Rr@inbox.ru)
@@ -5,6 +7,7 @@
  * Aleksey Bragin (aleksey@reactos.com)
  * Copyright 2005
  */
+
 
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 STRINGTABLE DISCARDABLE

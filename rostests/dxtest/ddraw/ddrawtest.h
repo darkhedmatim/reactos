@@ -24,7 +24,7 @@ typedef BOOL (*TESTPROC)(INT*, INT*);
 
 typedef struct tagTEST
 {
-	const CHAR* Test;
+	CHAR* Test;
 	TESTPROC Proc;
 } TEST, *PTEST;
 

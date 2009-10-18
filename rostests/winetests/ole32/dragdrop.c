@@ -31,6 +31,9 @@
 
 #include "wine/test.h"
 
+/* functions that are not present on all versions of Windows */
+HRESULT (WINAPI * pCoInitializeEx)(LPVOID lpReserved, DWORD dwCoInit);
+
 static int droptarget_addref_called;
 static int droptarget_release_called;
 

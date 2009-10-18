@@ -22,14 +22,16 @@
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
 typedef struct {
-    const IInternetProtocolVtbl  *lpIInternetProtocolVtbl;
+    const IInternetProtocolVtbl  *lpInternetProtocolVtbl;
 
     LONG ref;
 
     IStream *stream;
 } MkProtocol;
 
-#define PROTOCOL_THIS(iface) DEFINE_THIS(MkProtocol, IInternetProtocol, iface)
+#define PROTOCOL_THIS(iface) DEFINE_THIS(MkProtocol, InternetProtocol, iface)
+
+#define PROTOCOL(x)  ((IInternetProtocol*)  &(x)->lpInternetProtocolVtbl)
 
 static HRESULT WINAPI MkProtocol_QueryInterface(IInternetProtocol *iface, REFIID riid, void **ppv)
 {
@@ -291,7 +293,7 @@ HRESULT MkProtocol_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
 
     ret = heap_alloc(sizeof(MkProtocol));
 
-    ret->lpIInternetProtocolVtbl = &MkProtocolVtbl;
+    ret->lpInternetProtocolVtbl = &MkProtocolVtbl;
     ret->ref = 1;
     ret->stream = NULL;
 

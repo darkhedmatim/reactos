@@ -2,7 +2,7 @@
 #include <commctrl.h>
 #include <tchar.h>
 #include "resource.h"
-#include "cardlib.h"
+#include "cardlib/cardlib.h"
 
 #include "solitaire.h"
 

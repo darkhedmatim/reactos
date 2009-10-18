@@ -20,6 +20,28 @@
 /*
  * @implemented
  */
+VOID
+WINAPI
+SetLastError (DWORD dwErrorCode)
+{
+    NtCurrentTeb ()->LastErrorValue = (ULONG) dwErrorCode;
+}
+
+
+/*
+ * @implemented
+ */
+DWORD
+WINAPI
+GetLastError (VOID)
+{
+    return (DWORD) (NtCurrentTeb ()->LastErrorValue);
+}
+
+
+/*
+ * @implemented
+ */
 BOOL
 WINAPI
 Beep (DWORD dwFreq, DWORD dwDuration)
@@ -75,7 +97,7 @@ Beep (DWORD dwFreq, DWORD dwDuration)
 
             /* do an alertable wait if necessary */
             if (NT_SUCCESS(Status) &&
-                (dwFreq != 0x0 || dwDuration != 0x0) && dwDuration != MAXDWORD)
+                (dwFreq != 0x0 || dwDuration != 0x0) && dwDuration != (DWORD)-1)
             {
                 SleepEx(dwDuration,
                         TRUE);

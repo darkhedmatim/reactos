@@ -6,7 +6,6 @@
   <property name="BASEADDRESS_QMGRPRXY" value="0x1F710000" />
   <property name="BASEADDRESS_CRYPTDLG" value="0x209C0000" />
   <property name="BASEADDRESS_COMCAT" value="0x20A50000" />
-  <property name="BASEADDRESS_WINDOWSCODECS" value="0x26c40000" />
   <property name="BASEADDRESS_DEVENUM" value="0x35680000" />
   <property name="BASEADDRESS_RSABASE" value="0x35700000" />
   <property name="BASEADDRESS_RSAENH" value="0x35780000" />
@@ -22,7 +21,6 @@
   <property name="BASEADDRESS_SRCLIENT" value="0x512C0000" />
   <property name="BASEADDRESS_PSTOREC" value="0x513D0000" />
   <property name="BASEADDRESS_LPK" value="0x516C0000" />
-  <property name="BASEADDRESS_MSGSM32ACM" value="0x56db0000" />
   <property name="BASEADDRESS_MSG711ACM" value="0x584f0000" />
   <property name="BASEADDRESS_IMAADP32ACM" value="0x585e0000" />
   <property name="BASEADDRESS_TELEPHON" value="0x58750000" />
@@ -43,7 +41,6 @@
   <property name="BASEADDRESS_COMMCTRL" value="0x5d090000" />
   <property name="BASEADDRESS_DPLAYX" value="0x5e080000" />
   <property name="BASEADDRESS_INPUT" value ="0x5e400000" />
-  <property name="BASEADDRESS_NTLANMAN" value="0x5f380000" />
   <property name="BASEADDRESS_DINPUT" value="0x5f580000" />
   <property name="BASEADDRESS_NETID" value="0x5f660000" />
   <property name="BASEADDRESS_NTPRINT" value="0x5f6a0000" />
@@ -109,7 +106,6 @@
   <property name="BASEADDRESS_SXS" value="0x6e160000" />
   <property name="BASEADDRESS_SCHANNEL" value="0x6e360000" />
   <property name="BASEADDRESS_COMPSTUI" value="0x6ec10000" />
-  <property name="BASEADDRESS_HNETCFG" value="0x6edb0000" />
   <property name="BASEADDRESS_CLB" value="0x6f2b0000" />
   <property name="BASEADDRESS_JSCRIPT" value="0x6fe80000" />
   <property name="BASEADDRESS_FONTEXT" value="0x6f7b0000" />
@@ -146,7 +142,6 @@
   <property name="BASEADDRESS_MSVIDC32" value="0x73650000" />
   <property name="BASEADDRESS_MSRLE32" value="0x73660000" />
   <property name="BASEADDRESS_MSDMO" value="0x73670000" />
-  <property name="BASEADDRESS_AVICAP32" value="0x739e0000" />
   <property name="BASEADDRESS_AVIFIL32" value="0x73ac0000" />
   <property name="BASEADDRESS_MSCMS" value="0x73af0000" />
   <property name="BASEADDRESS_DCIMAN32" value="0x73b10000" />

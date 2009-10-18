@@ -349,7 +349,7 @@ NtOpenProcessTokenEx(IN HANDLE ProcessHandle,
     PACCESS_TOKEN Token;
     HANDLE hToken;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_SECURITY_DEBUG,
             "Process: %p DesiredAccess: %lx\n", ProcessHandle, DesiredAccess);
@@ -365,10 +365,13 @@ NtOpenProcessTokenEx(IN HANDLE ProcessHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the process token */
@@ -935,7 +938,7 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
     PETHREAD Thread;
     PETHREAD ThreadToImpersonate;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_SECURITY_DEBUG,
             "Threads: %p %p\n", ThreadHandle, ThreadToImpersonateHandle);
@@ -957,10 +960,13 @@ NtImpersonateThread(IN HANDLE ThreadHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception status */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Reference the thread */

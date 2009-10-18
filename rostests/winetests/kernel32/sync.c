@@ -18,7 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#define _WIN32_WINNT 0x500
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -54,7 +53,7 @@ static void test_signalandwait(void)
     r = pSignalObjectAndWait(NULL, NULL, 0, 0);
     if (r == ERROR_INVALID_FUNCTION)
     {
-        win_skip("SignalObjectAndWait is not implemented\n");
+        skip("SignalObjectAndWait is not implemented\n");
         return; /* Win98/ME */
     }
     ok( r == WAIT_FAILED, "should fail\n");
@@ -197,7 +196,7 @@ static void test_slist(void)
         int value;
     } item1, item2, item3, *pitem;
 
-    SLIST_HEADER slist_header;
+    SLIST_HEADER slist_header, test_header;
     PSLIST_ENTRY entry;
     USHORT size;
 
@@ -220,12 +219,15 @@ static void test_slist(void)
         pInterlockedPopEntrySList == NULL ||
         pInterlockedPushEntrySList == NULL)
     {
-        win_skip("some required slist entrypoints were not found, skipping tests\n");
+        skip("some required slist entrypoints were not found, skipping tests\n");
         return;
     }
 
+    memset(&test_header, 0, sizeof(test_header));
     memset(&slist_header, 0xFF, sizeof(slist_header));
     pInitializeSListHead(&slist_header);
+    ok(memcmp(&test_header, &slist_header, sizeof(SLIST_HEADER)) == 0,
+        "InitializeSListHead didn't zero-fill list header\n");
     size = pQueryDepthSList(&slist_header);
     ok(size == 0, "initially created slist has size %d, expected 0\n", size);
 
@@ -393,7 +395,7 @@ static void test_waitable_timer(void)
 
     if (!pCreateWaitableTimerA || !pOpenWaitableTimerA)
     {
-        win_skip("{Create,Open}WaitableTimerA() is not available\n");
+        skip("{Create,Open}WaitableTimerA() is not available\n");
         return;
     }
 
@@ -455,7 +457,7 @@ static void test_iocp_callback(void)
 
     p_BindIoCompletionCallback = (void*)GetProcAddress(hmod, "BindIoCompletionCallback");
     if(!p_BindIoCompletionCallback) {
-        win_skip("BindIoCompletionCallback not found in this DLL\n");
+        skip("BindIoCompletionCallback not found in this DLL\n");
         return;
     }
 
@@ -490,7 +492,7 @@ static void test_iocp_callback(void)
     ok(retb == TRUE, "BindIoCompletionCallback failed\n");
 
     memset(&overlapped, 0, sizeof(overlapped));
-    retb = WriteFile(hFile, buffer, 4, &bytesWritten, &overlapped);
+    retb = WriteFile(hFile, (const void *) buffer, 4, &bytesWritten, &overlapped);
     ok(retb == TRUE || GetLastError() == ERROR_IO_PENDING, "WriteFile failed, lastError = %d\n", GetLastError());
 
     ret = WaitForSingleObject(sem, 5000);
@@ -534,7 +536,7 @@ static void test_iocp_callback(void)
 
 static void CALLBACK timer_queue_cb1(PVOID p, BOOLEAN timedOut)
 {
-    int *pn = p;
+    int *pn = (int *) p;
     ok(timedOut, "Timer callbacks should always time out\n");
     ++*pn;
 }
@@ -594,7 +596,7 @@ static void CALLBACK timer_queue_cb4(PVOID p, BOOLEAN timedOut)
 
 static void CALLBACK timer_queue_cb5(PVOID p, BOOLEAN timedOut)
 {
-    DWORD_PTR delay = (DWORD_PTR) p;
+    DWORD delay = (DWORD) p;
     ok(timedOut, "Timer callbacks should always time out\n");
     if (delay)
         Sleep(delay);
@@ -645,7 +647,7 @@ static void test_timer_queue(void)
     if (!pChangeTimerQueueTimer || !pCreateTimerQueue || !pCreateTimerQueueTimer
         || !pDeleteTimerQueueEx || !pDeleteTimerQueueTimer)
     {
-        win_skip("TimerQueue API not present\n");
+        skip("TimerQueue API not present\n");
         return;
     }
 

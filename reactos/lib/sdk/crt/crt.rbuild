@@ -24,6 +24,7 @@
 	<define name="_MSVCRT_LIB_" />
 	<define name="_MSVCRT_" />
 	<define name="_MT" />
+	<define name="__NO_CTYPE_INLINES" />
 	<directory name="conio">
 		<file>cgets.c</file>
 		<file>cprintf.c</file>
@@ -80,6 +81,7 @@
 		<file>copysign.c</file>
 		<file>fpclass.c</file>
 		<file>fpecode.c</file>
+		<file>fpreset.c</file>
 		<file>isnan.c</file>
 		<file>nafter.c</file>
 		<file>scalb.c</file>
@@ -87,7 +89,6 @@
 			<directory name="i386">
 				<file>clearfp.c</file>
 				<file>cntrlfp.c</file>
-				<file>fpreset.c</file>
 				<file>logb.c</file>
 				<file>statfp.c</file>
 			</directory>
@@ -96,7 +97,6 @@
 			<directory name="i386">
 				<file>clearfp.c</file>
 				<file>cntrlfp.c</file>
-				<file>fpreset.c</file>
 				<file>logb.c</file>
 				<file>statfp.c</file>
 			</directory>
@@ -116,6 +116,9 @@
 		<file>frexp.c</file>
 		<file>huge_val.c</file>
 		<file>hypot.c</file>
+		<file>j0_y0.c</file>
+		<file>j1_y1.c</file>
+		<file>jn_yn.c</file>
 		<file>ldiv.c</file>
 		<file>modf.c</file>
 		<file>rand.c</file>
@@ -155,9 +158,6 @@
 				<file>fmod.c</file>
 				<file>ldexp.c</file>
 			</directory>
-			<file>j0_y0.c</file>
-			<file>j1_y1.c</file>
-			<file>jn_yn.c</file>
 		</if>
 		<if property="ARCH" value="amd64">
 			<directory name="i386">
@@ -166,9 +166,6 @@
 				<file>fmod.c</file>
 				<file>ldexp.c</file>
 			</directory>
-			<file>j0_y0.c</file>
-			<file>j1_y1.c</file>
-			<file>jn_yn.c</file>
 		</if>
 		<ifnot property="ARCH" value="i386">
 			<file>stubs.c</file>
@@ -317,6 +314,7 @@
 		<file>abort.c</file>
 		<file>atexit.c</file>
 		<file>ecvt.c</file>
+		<file>ecvtbuf.c</file>
 		<file>errno.c</file>
 		<file>fcvt.c</file>
 		<file>fcvtbuf.c</file>
@@ -429,46 +427,18 @@
 		<file>systime.c</file>
 	</directory>
 	<directory name="time">
-		<file>asctime.c</file>
 		<file>clock.c</file>
-		<file>ctime32.c</file>
-		<file>ctime64.c</file>
 		<file>ctime.c</file>
-		<file>difftime32.c</file>
-		<file>difftime64.c</file>
 		<file>difftime.c</file>
-		<file>ftime32.c</file>
-		<file>ftime64.c</file>
 		<file>ftime.c</file>
-		<file>futime32.c</file>
-		<file>futime64.c</file>
-		<file>futime.c</file>
-		<file>gmtime.c</file>
-		<file>localtime32.c</file>
-		<file>localtime64.c</file>
-		<file>localtime.c</file>
-		<file>mktime.c</file>
 		<file>strdate.c</file>
 		<file>strftime.c</file>
 		<file>strtime.c</file>
-		<file>time32.c</file>
-		<file>time64.c</file>
 		<file>time.c</file>
-		<file>timezone.c</file>
-		<file>tzname.c</file>
-		<file>utime32.c</file>
-		<file>utime64.c</file>
-		<file>utime.c</file>
-		<file>wasctime.c</file>
-		<file>wcsftime.c</file>
-		<file>wctime32.c</file>
-		<file>wctime64.c</file>
+		<file>tz_vars.c</file>
 		<file>wctime.c</file>
 		<file>wstrdate.c</file>
 		<file>wstrtime.c</file>
-		<file>wutime32.c</file>
-		<file>wutime64.c</file>
-		<file>wutime.c</file>
 	</directory>
 	<directory name="wstring">
 		<file>wcscoll.c</file>

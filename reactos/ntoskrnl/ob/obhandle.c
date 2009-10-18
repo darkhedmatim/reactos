@@ -20,7 +20,7 @@
 PHANDLE_TABLE ObpKernelHandleTable = NULL;
 ULONG ObpAccessProtectCloseBit = MAXIMUM_ALLOWED;
 
-#define TAG_OB_HANDLE 'dHbO'
+#define TAG_OB_HANDLE TAG('O', 'b', 'H', 'd')
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -3221,7 +3221,7 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
     PEPROCESS SourceProcess, TargetProcess, Target;
     HANDLE hTarget;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     OBTRACE(OB_HANDLE_DEBUG,
             "%s - Duplicating handle: %lx for %lx into %lx.\n",
             __FUNCTION__,
@@ -3241,10 +3241,11 @@ NtDuplicateObject(IN HANDLE SourceProcessHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception status */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Now reference the input handle */

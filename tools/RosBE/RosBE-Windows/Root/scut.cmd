@@ -7,7 +7,6 @@
 ::                             Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::
-
 @echo off
 if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
 if %_ROSBE_DEBUG% == 1 (
@@ -36,7 +35,11 @@ for /f "usebackq tokens=*" %%i in (`""%_ROSBE_BASEDIR%\Tools\scut.exe" %*"`) do 
 goto :EOC
 
 :paramcall
+
 call "%_ROSBE_BASEDIR%\Tools\scut.exe" "%1" %2 %3
 
 :EOC
-title ReactOS Build Environment %_ROSBE_VERSION%
+
+if defined _ROSBE_VERSION (
+    title ReactOS Build Environment %_ROSBE_VERSION%
+)

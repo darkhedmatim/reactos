@@ -73,50 +73,23 @@ static SecurityFunctionTableW securityFunctionTableW =
 SECURITY_STATUS
 WINAPI
 EnumerateSecurityPackagesW (
-	PULONG pcPackages,
-	PSecPkgInfoW* ppPackageInfo
+	PULONG pulong,
+	PSecPkgInfoW* psecpkginfow
 	)
 {
-    SECURITY_STATUS ret = SEC_E_OK;
-
-    *pcPackages = 0;
-
-    /*
-    if (packageTable)
-    {
-
-    }
-    */
-
-    UNIMPLEMENTED;
-    return ret;
+	UNIMPLEMENTED;
+	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 SECURITY_STATUS
 WINAPI
 EnumerateSecurityPackagesA(
-	PULONG pcPackages,
-	PSecPkgInfoA* ppPackageInfo
+	PULONG pulong,
+	PSecPkgInfoA* psecpkginfoa
 	)
 {
-    SECURITY_STATUS ret;
-    PSecPkgInfoW info = NULL;
-
-    ret = EnumerateSecurityPackagesW(pcPackages, &info);
-    if (ret == SEC_E_OK && *pcPackages && info)
-    {
-        /* *ppPackageInfo = thunk_PSecPkgInfoWToA(*pcPackages, info);
-        if (*pcPackages && !*ppPackageInfo)
-        {
-            *pcPackages = 0;
-            ret = SEC_E_INSUFFICIENT_MEMORY;
-        } */
-        FreeContextBuffer(info);
-    }
-
 	UNIMPLEMENTED;
-
-    return ret;
+	return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 SECURITY_STATUS

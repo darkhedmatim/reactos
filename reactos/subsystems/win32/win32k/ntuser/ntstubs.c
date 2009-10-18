@@ -31,36 +31,9 @@ NtUserAttachThreadInput(
     IN DWORD idAttachTo,
     IN BOOL fAttach)
 {
-  NTSTATUS Status;
-  PETHREAD Thread, ThreadTo;
-  PTHREADINFO pti, ptiTo;
-  BOOL Ret = FALSE;
+   UNIMPLEMENTED
 
-  UserEnterExclusive();
-  Status = PsLookupThreadByThreadId((HANDLE)idAttach, &Thread);
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     goto Exit;
-  }
-  Status = PsLookupThreadByThreadId((HANDLE)idAttachTo, &ThreadTo);
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     ObDereferenceObject(Thread);
-     goto Exit;
-  }
-
-  pti = PsGetThreadWin32Thread(Thread);
-  ptiTo = PsGetThreadWin32Thread(ThreadTo);
-  ObDereferenceObject(Thread);
-  ObDereferenceObject(ThreadTo);
-
-  Ret = UserAttachThreadInput( pti, ptiTo, fAttach);
-
-Exit:
-  UserLeave();
-  return Ret;
+   return 0;
 }
 
 //
@@ -299,6 +272,18 @@ NtUserGetControlColor(
 
 DWORD
 APIENTRY
+NtUserGetCPD(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+APIENTRY
 NtUserGetImeHotKey(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -320,29 +305,25 @@ NtUserGetMouseMovePointsEx(
    int nBufPoints,
    DWORD resolution)
 {
-   UserEnterExclusive();
-
-   if ((cbSize != sizeof(MOUSEMOVEPOINT)) || (nBufPoints < 0) || (nBufPoints > 64))
-   {
-      UserLeave();
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return -1;
-   }
-
-   _SEH2_TRY
-   {
-      ProbeForRead(lppt, cbSize, 1);
-      ProbeForWrite(lpptBuf, cbSize, 1);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-       SetLastNtError(_SEH2_GetExceptionCode());
-       SetLastWin32Error(ERROR_NOACCESS);
-   }
-   _SEH2_END;
-
 /*
-   Call a subfunction of GetMouseMovePointsEx!
+   if (cbSize != sizeof (MOUSEMOVEPOINT)
+   {
+       SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
+       return GMMP_ERR_POINT_NOT_FOUND;
+   }
+
+   if (!lppt)
+   {
+       SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
+       return GMMP_ERR_POINT_NOT_FOUND;
+   }
+
+   if (!lpptBuf)
+   {
+       SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
+       return GMMP_ERR_POINT_NOT_FOUND;
+   }
+
    switch(resolution)
    {
      case GMMP_USE_DISPLAY_POINTS:
@@ -354,8 +335,8 @@ NtUserGetMouseMovePointsEx(
    }
   */
    UNIMPLEMENTED
-   UserLeave();
-   return -1;
+
+   return 0;
 }
 
 
@@ -379,43 +360,9 @@ NtUserInitializeClientPfnArrays(
   PPFNCLIENTWORKER pfnClientWorker,
   HINSTANCE hmodUser)
 {
-   NTSTATUS Status = STATUS_SUCCESS;
-   DPRINT("Enter NtUserInitializeClientPfnArrays User32 0x%x\n",hmodUser);
+   UNIMPLEMENTED
 
-   if (ClientPfnInit) return Status;
-
-   UserEnterExclusive();
-
-   _SEH2_TRY
-   {
-      ProbeForRead( pfnClientA, sizeof(PFNCLIENT), 1);
-      ProbeForRead( pfnClientW, sizeof(PFNCLIENT), 1);
-      ProbeForRead( pfnClientWorker, sizeof(PFNCLIENTWORKER), 1);
-      RtlCopyMemory(&gpsi->apfnClientA, pfnClientA, sizeof(PFNCLIENT));
-      RtlCopyMemory(&gpsi->apfnClientW, pfnClientW, sizeof(PFNCLIENT));
-      RtlCopyMemory(&gpsi->apfnClientWorker, pfnClientWorker, sizeof(PFNCLIENTWORKER));
-
-      //// FIXME! HAX! Temporary until server side is finished.
-      //// Copy the client side procs for now.
-      RtlCopyMemory(&gpsi->aStoCidPfn, pfnClientW, sizeof(gpsi->aStoCidPfn));
-
-      hModClient = hmodUser;
-      ClientPfnInit = TRUE;
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-      Status =_SEH2_GetExceptionCode();
-   }
-   _SEH2_END
-
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed reading Client Pfns from user space.\n");
-      SetLastNtError(Status);
-   }
-   
-   UserLeave();
-   return Status;
+   return STATUS_UNSUCCESSFUL;
 }
 
 DWORD
@@ -858,6 +805,44 @@ NtUserHardErrorControl(
     return 0;
 }
 
+/*
+    Called from win32csr.
+ */
+NTSTATUS
+APIENTRY
+NtUserInitialize(
+  DWORD   dwWinVersion,
+  HANDLE  hPowerRequestEvent,
+  HANDLE  hMediaRequestEvent)
+{
+    UserEnterExclusive();
+    UNIMPLEMENTED;
+// Check to see we have the right version.
+// Initialize Power Request List.
+// Initialize Media Change.
+// Initialize CSRSS
+// {
+//    Startup DxGraphics.
+//    calls ** IntGdiGetLanguageID() and sets it **.
+//    Enables Fonts drivers, Initialize Font table & Stock Fonts.
+// }
+// Set W32PF_Flags |= (W32PF_READSCREENACCESSGRANTED | W32PF_IOWINSTA)
+// Create Object Directory,,, Looks like create workstation. "\\Windows\\WindowStations"
+// Create Event for Diconnect Desktop.
+// Initialize Video.
+// {
+//     DrvInitConsole.
+//     DrvChangeDisplaySettings.
+//     Update Shared Device Caps.
+//     Initialize User Screen.
+// }
+// Create ThreadInfo for this Thread!
+// Set Global SERVERINFO Error flags.
+// Load Resources.
+    UserLeave();
+    return STATUS_SUCCESS;
+}
+
 DWORD
 APIENTRY
 NtUserMinMaximize(
@@ -903,16 +888,14 @@ NtUserProcessConnect(
   DPRINT("NtUserProcessConnect\n");
   if (pUserConnect && ( Size == sizeof(USERCONNECT) ))
   {
-     PPROCESSINFO W32Process;
      UserEnterShared();
      GetW32ThreadInfo();
-     W32Process = PsGetCurrentProcessWin32Process();
+     PPROCESSINFO ppi = GetW32ProcessInfo();
      _SEH2_TRY
      {
         pUserConnect->siClient.psi = gpsi;
-        pUserConnect->siClient.aheList = gHandleTable;
-        pUserConnect->siClient.ulSharedDelta = (ULONG_PTR)W32Process->HeapMappings.KernelMapping -
-                                               (ULONG_PTR)W32Process->HeapMappings.UserMapping;
+        pUserConnect->siClient.aheList = ppi->UserHandleTable;
+        pUserConnect->siClient.ulSharedDelta = ppi->UserHeapDelta;
      }
      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
      {
@@ -923,6 +906,7 @@ NtUserProcessConnect(
      {
         SetLastNtError(Status);
      }
+     DPRINT("NtUserPC SI 0x%x : HT 0x%x : D 0x%x\n", gpsi, ppi->UserHandleTable, ppi->UserHeapDelta);
      UserLeave();
      return Status;
   }
@@ -976,17 +960,13 @@ NtUserRealWaitMessageEx(
     return 0;
 }
 
-BOOL
+DWORD
 APIENTRY
 NtUserRegisterUserApiHook(
-    PUNICODE_STRING m_dllname1,
-    PUNICODE_STRING m_funname1,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
+    DWORD dwUnknown1,
+    DWORD dwUnknown2)
 {
-    UserEnterExclusive();
     UNIMPLEMENTED;
-    UserLeave();
     return 0;
 }
 
@@ -1111,7 +1091,7 @@ NtUserPaintMenuBar(
     return 0;
 }
 
-BOOL
+DWORD
 APIENTRY
 NtUserUnregisterUserApiHook(VOID)
 {

@@ -10,24 +10,36 @@
 
 $host.ui.RawUI.WindowTitle = "Change the current working ReactOS source directory..."
 
+#
 # Parse the command line arguments.
+#
 if ($args.count -eq 0) {
-    $SOURCEDIR = Read-Host "Please enter a ReactOS source directory, or 'previous': "
-    if ($SOURCEDIR.length -eq 0) {
+    #
+    # If Parameters were set, parse them, if not, ask the user to add them.
+    #
+    $_1 = Read-Host "Please enter a ReactOS source directory, or 'previous': "
+    if ($_1.length -eq 0) {
         "ERROR: You must enter a ReactOS source directory, or 'previous'."
     }
 } else {
-    $SOURCEDIR = $args
+    $_1 = $args
 }
-if ("$SOURCEDIR" -eq "previous") {
+if ($_1 -eq "previous") {
     pop-location
 } else {
-    if (!(Test-Path "$SOURCEDIR\.")) {
+    if (!(Test-Path "$_1\.")) {
         "ERROR: The path specified doesn't seem to exist."
+        
     }
-    push-location "$SOURCEDIR"
+    push-location "$_1"
+}
+$global:_ROSBE_ROSSOURCEDIR = "$pwd"
+
+if ($_ROSBE_VERSION -ne $null) {
+    $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"
 }
 
-$global:_ROSBE_ROSSOURCEDIR = "$pwd"
-$host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"
-set-location "$_ROSBE_ROSSOURCEDIR"
+#
+# Unload all used Vars.
+#
+$_1 = $null

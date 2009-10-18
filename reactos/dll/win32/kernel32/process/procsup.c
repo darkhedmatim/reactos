@@ -1072,11 +1072,6 @@ GetAppName:
                                       &StartupInfo,
                                       lpProcessInformation);
 
-            case STATUS_OBJECT_NAME_NOT_FOUND:
-            case STATUS_OBJECT_PATH_NOT_FOUND:
-                SetLastErrorByStatus(Status);
-                goto Cleanup;
-
             default:
                 /* Invalid Image Type */
                 SetLastError(ERROR_BAD_EXE_FORMAT);
@@ -1184,19 +1179,16 @@ GetAppName:
         goto Cleanup;
     }
 
-    if (PriorityClass.PriorityClass != PROCESS_PRIORITY_CLASS_INVALID)
+    /* Set new class */
+    Status = NtSetInformationProcess(hProcess,
+                                     ProcessPriorityClass,
+                                     &PriorityClass,
+                                     sizeof(PROCESS_PRIORITY_CLASS));
+    if(!NT_SUCCESS(Status))
     {
-        /* Set new class */
-        Status = NtSetInformationProcess(hProcess,
-                                         ProcessPriorityClass,
-                                         &PriorityClass,
-                                         sizeof(PROCESS_PRIORITY_CLASS));
-        if(!NT_SUCCESS(Status))
-        {
-            DPRINT1("Unable to set new process priority, status 0x%x\n", Status);
-            SetLastErrorByStatus(Status);
-            goto Cleanup;
-        }
+        DPRINT1("Unable to set new process priority, status 0x%x\n", Status);
+        SetLastErrorByStatus(Status);
+        goto Cleanup;
     }
 
     /* Set Error Mode */

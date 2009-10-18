@@ -265,14 +265,12 @@ static WCHAR *get_lcid_subkey( LCID lcid, SYSKIND syskind, WCHAR *buffer )
     static const WCHAR LcidFormatW[] = {'%','l','x','\\',0};
     static const WCHAR win16W[] = {'w','i','n','1','6',0};
     static const WCHAR win32W[] = {'w','i','n','3','2',0};
-    static const WCHAR win64W[] = {'w','i','n','6','4',0};
 
     sprintfW( buffer, LcidFormatW, lcid );
     switch(syskind)
     {
     case SYS_WIN16: strcatW( buffer, win16W ); break;
     case SYS_WIN32: strcatW( buffer, win32W ); break;
-    case SYS_WIN64: strcatW( buffer, win64W ); break;
     default:
         TRACE("Typelib is for unsupported syskind %i\n", syskind);
         return NULL;
@@ -537,12 +535,6 @@ HRESULT WINAPI RegisterTypeLib(
     if (FAILED(ITypeLib_GetLibAttr(ptlib, &attr)))
         return E_FAIL;
 
-#ifdef _WIN64
-    if (attr->syskind != SYS_WIN64) return TYPE_E_BADMODULEKIND;
-#else
-    if (attr->syskind != SYS_WIN32 && attr->syskind != SYS_WIN16) return TYPE_E_BADMODULEKIND;
-#endif
-
     get_typelib_key( &attr->guid, attr->wMajorVerNum, attr->wMinorVerNum, keyName );
 
     res = S_OK;
@@ -788,7 +780,7 @@ HRESULT WINAPI UnRegisterTypeLib(
     /* Create the path to the key */
     get_typelib_key( libid, wVerMajor, wVerMinor, keyName );
 
-    if (syskind != SYS_WIN16 && syskind != SYS_WIN32 && syskind != SYS_WIN64)
+    if (syskind != SYS_WIN16 && syskind != SYS_WIN32)
     {
         TRACE("Unsupported syskind %i\n", syskind);
         result = E_INVALIDARG;
@@ -930,7 +922,6 @@ typedef struct tagITypeLibImpl
     const ITypeCompVtbl *lpVtblTypeComp;
     LONG ref;
     TLIBATTR LibAttr;            /* guid,lcid,syskind,version,flags */
-    LCID lcid;
 
     /* strings can be stored in tlb as multibyte strings BUT they are *always*
      * exported to the application as a UNICODE string.
@@ -939,7 +930,7 @@ typedef struct tagITypeLibImpl
     BSTR DocString;
     BSTR HelpFile;
     BSTR HelpStringDll;
-    DWORD dwHelpContext;
+    unsigned long  dwHelpContext;
     int TypeInfoCount;          /* nr of typeinfo's in librarry */
     struct tagITypeInfoImpl *pTypeInfo;   /* linked list of type info data */
     int ctCustData;             /* number of items in cust data list */
@@ -1059,8 +1050,8 @@ typedef struct tagITypeInfoImpl
     BSTR Name;
     BSTR DocString;
     BSTR DllName;
-    DWORD dwHelpContext;
-    DWORD dwHelpStringContext;
+    unsigned long  dwHelpContext;
+    unsigned long  dwHelpStringContext;
 
     /* functions  */
     TLBFuncDesc * funclist;     /* linked list with function descriptions */
@@ -1935,7 +1926,7 @@ MSFT_DoFuncs(TLBContext*     pcx,
         (*pptfd)->funcdesc.callconv   =  (pFuncRec->FKCCIC) >> 8 & 0xF;
         (*pptfd)->funcdesc.cParams    =   pFuncRec->nrargs  ;
         (*pptfd)->funcdesc.cParamsOpt =   pFuncRec->nroargs ;
-        (*pptfd)->funcdesc.oVft       =   pFuncRec->VtableOffset;
+        (*pptfd)->funcdesc.oVft       =   (pFuncRec->VtableOffset * sizeof(void *))/4;
         (*pptfd)->funcdesc.wFuncFlags =   LOWORD(pFuncRec->Flags) ;
 
         MSFT_GetTdesc(pcx,
@@ -2194,7 +2185,7 @@ static ITypeInfoImpl * MSFT_DoTypeInfo(
     ptiRet->TypeAttr.wMajorVerNum=LOWORD(tiBase.version);
     ptiRet->TypeAttr.wMinorVerNum=HIWORD(tiBase.version);
     ptiRet->TypeAttr.cImplTypes=tiBase.cImplTypes;
-    ptiRet->TypeAttr.cbSizeVft=tiBase.cbSizeVft; /* FIXME: this is only the non inherited part */
+    ptiRet->TypeAttr.cbSizeVft=(tiBase.cbSizeVft * sizeof(void *))/4; /* FIXME: this is only the non inherited part */
     if(ptiRet->TypeAttr.typekind == TKIND_ALIAS)
         MSFT_GetTdesc(pcx, tiBase.datatype1,
             &ptiRet->TypeAttr.tdescAlias, ptiRet);
@@ -2873,13 +2864,17 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
     /* TLIBATTR fields */
     MSFT_ReadGuid(&pTypeLibImpl->LibAttr.guid, tlbHeader.posguid, &cx);
 
-    pTypeLibImpl->LibAttr.lcid = tlbHeader.lcid2;
+    /*    pTypeLibImpl->LibAttr.lcid = tlbHeader.lcid;*/
+    /* Windows seems to have zero here, is this correct? */
+    if(SUBLANGID(tlbHeader.lcid) == SUBLANG_NEUTRAL)
+      pTypeLibImpl->LibAttr.lcid = MAKELCID(MAKELANGID(PRIMARYLANGID(tlbHeader.lcid),0),0);
+    else
+      pTypeLibImpl->LibAttr.lcid = 0;
+
     pTypeLibImpl->LibAttr.syskind = tlbHeader.varflags & 0x0f; /* check the mask */
     pTypeLibImpl->LibAttr.wMajorVerNum = LOWORD(tlbHeader.version);
     pTypeLibImpl->LibAttr.wMinorVerNum = HIWORD(tlbHeader.version);
     pTypeLibImpl->LibAttr.wLibFlags = (WORD) tlbHeader.flags & 0xffff;/* check mask */
-
-    pTypeLibImpl->lcid = tlbHeader.lcid;
 
     /* name, eventually add to a hash table */
     pTypeLibImpl->Name = MSFT_ReadName(&cx, tlbHeader.NameOffset);
@@ -3055,7 +3050,7 @@ static WORD SLTG_ReadString(const char *ptr, BSTR *pBstr)
     bytelen = *(const WORD*)ptr;
     if(bytelen == 0xffff) return 2;
     len = MultiByteToWideChar(CP_ACP, 0, ptr + 2, bytelen, NULL, 0);
-    *pBstr = SysAllocStringLen(NULL, len);
+    *pBstr = SysAllocStringLen(NULL, len - 1);
     if (*pBstr)
         len = MultiByteToWideChar(CP_ACP, 0, ptr + 2, bytelen, *pBstr, len);
     return bytelen + 2;
@@ -3102,9 +3097,9 @@ static DWORD SLTG_ReadLibBlk(LPVOID pLibBlk, ITypeLibImpl *pTypeLibImpl)
     ptr += 2;
 
     if(SUBLANGID(*(WORD*)ptr) == SUBLANG_NEUTRAL)
-        pTypeLibImpl->lcid = pTypeLibImpl->LibAttr.lcid = MAKELCID(MAKELANGID(PRIMARYLANGID(*(WORD*)ptr),0),0);
+        pTypeLibImpl->LibAttr.lcid = MAKELCID(MAKELANGID(PRIMARYLANGID(*(WORD*)ptr),0),0);
     else
-        pTypeLibImpl->lcid = pTypeLibImpl->LibAttr.lcid = 0;
+        pTypeLibImpl->LibAttr.lcid = 0;
     ptr += 2;
 
     ptr += 4; /* skip res12 */
@@ -3134,7 +3129,7 @@ typedef struct
 static HRESULT sltg_get_typelib_ref(const sltg_ref_lookup_t *table, DWORD typeinfo_ref,
 				    HREFTYPE *typelib_ref)
 {
-    if(table && typeinfo_ref < table->num)
+    if(typeinfo_ref < table->num)
     {
         *typelib_ref = table->refs[typeinfo_ref];
         return S_OK;
@@ -3952,7 +3947,7 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
       (*ppTypeInfoImpl)->TypeAttr.cbAlignment = pTITail->cbAlignment;
       (*ppTypeInfoImpl)->TypeAttr.cbSizeInstance = pTITail->cbSizeInstance;
-      (*ppTypeInfoImpl)->TypeAttr.cbSizeVft = pTITail->cbSizeVft;
+      (*ppTypeInfoImpl)->TypeAttr.cbSizeVft = (pTITail->cbSizeVft * sizeof(void *))/4;
 
       switch(pTIHeader->typekind) {
       case TKIND_ENUM:
@@ -5877,12 +5872,6 @@ static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, 
         *vt |= VT_ARRAY;
         hr = typedescvt_to_variantvt(tinfo, tdesc->u.lptdesc, vt);
         break;
-    case VT_INT:
-        *vt |= VT_I4;
-        break;
-    case VT_UINT:
-        *vt |= VT_UI4;
-        break;
     default:
         *vt |= tdesc->vt;
         break;
@@ -6066,7 +6055,6 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
             VARTYPE *rgvt = INVBUF_GET_ARG_TYPE_ARRAY(buffer, func_desc->cParams);
             UINT cNamedArgs = pDispParams->cNamedArgs;
             DISPID *rgdispidNamedArgs = pDispParams->rgdispidNamedArgs;
-            UINT vargs_converted=0;
 
             hres = S_OK;
 
@@ -6104,15 +6092,6 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                 USHORT wParamFlags = func_desc->lprgelemdescParam[i].u.paramdesc.wParamFlags;
                 VARIANTARG *src_arg;
 
-                if (wParamFlags & PARAMFLAG_FLCID)
-                {
-                    VARIANTARG *arg;
-                    arg = prgpvarg[i] = &rgvarg[i];
-                    V_VT(arg) = VT_I4;
-                    V_I4(arg) = This->pTypeLib->lcid;
-                    continue;
-                }
-
                 if (cNamedArgs)
                 {
                     USHORT j;
@@ -6125,10 +6104,7 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                         }
                 }
                 else
-                {
-                    src_arg = vargs_converted < pDispParams->cArgs ? &pDispParams->rgvarg[pDispParams->cArgs - 1 - vargs_converted] : NULL;
-                    vargs_converted++;
-                }
+                    src_arg = i < pDispParams->cArgs ? &pDispParams->rgvarg[pDispParams->cArgs - 1 - i] : NULL;
 
                 if (wParamFlags & PARAMFLAG_FRETVAL)
                 {
@@ -6294,15 +6270,10 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                                 V_VT(&varresult), func_desc->cParams, rgvt,
                                 prgpvarg, &varresult);
 
-            vargs_converted = 0;
-
             for (i = 0; i < func_desc->cParams; i++)
             {
                 USHORT wParamFlags = func_desc->lprgelemdescParam[i].u.paramdesc.wParamFlags;
-
-                if (wParamFlags & PARAMFLAG_FLCID)
-                    continue;
-                else if (wParamFlags & PARAMFLAG_FRETVAL)
+                if (wParamFlags & PARAMFLAG_FRETVAL)
                 {
                     if (TRACE_ON(ole))
                     {
@@ -6330,11 +6301,11 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                     }
                     break;
                 }
-                else if (vargs_converted < pDispParams->cArgs)
+                else if (i < pDispParams->cArgs)
                 {
                     if (wParamFlags & PARAMFLAG_FOUT)
                     {
-                        VARIANTARG *arg = &pDispParams->rgvarg[pDispParams->cArgs - 1 - vargs_converted];
+                        VARIANTARG *arg = &pDispParams->rgvarg[pDispParams->cArgs - 1 - i];
 
                         if ((rgvt[i] == VT_BYREF) && (V_VT(arg) != VT_BYREF))
                             hres = VariantChangeType(arg, &rgvarg[i], 0, V_VT(arg));
@@ -6342,7 +6313,7 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                         if (FAILED(hres))
                         {
                             ERR("failed to convert param %d to vt %d\n", i,
-                                V_VT(&pDispParams->rgvarg[pDispParams->cArgs - 1 - vargs_converted]));
+                                V_VT(&pDispParams->rgvarg[pDispParams->cArgs - 1 - i]));
                             break;
                         }
                     }
@@ -6375,7 +6346,6 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                         }
                     }
                     VariantClear(&rgvarg[i]);
-                    vargs_converted++;
                 }
                 else if (wParamFlags & PARAMFLAG_FOPT)
                 {
@@ -7069,12 +7039,13 @@ static HRESULT WINAPI ITypeInfo2_fnGetCustData(
 
     TRACE("(%p) guid %s %s found!x)\n", This, debugstr_guid(guid), pCData? "" : "NOT");
 
-    VariantInit( pVarVal);
-    if (pCData)
+    if(pCData)
+    {
+        VariantInit( pVarVal);
         VariantCopy( pVarVal, &pCData->data);
-    else
-        VariantClear( pVarVal );
-    return S_OK;
+        return S_OK;
+    }
+    return E_INVALIDARG;  /* FIXME: correct? */
 }
 
 /* ITypeInfo2::GetFuncCustData
@@ -7557,7 +7528,7 @@ HRESULT WINAPI CreateDispTypeInfo(
         (*ppFuncDesc)->funcdesc.callconv = md->cc;
         (*ppFuncDesc)->funcdesc.cParams = md->cArgs;
         (*ppFuncDesc)->funcdesc.cParamsOpt = 0;
-        (*ppFuncDesc)->funcdesc.oVft = md->iMeth * sizeof(void *);
+        (*ppFuncDesc)->funcdesc.oVft = md->iMeth << 2;
         (*ppFuncDesc)->funcdesc.cScodes = 0;
         (*ppFuncDesc)->funcdesc.wFuncFlags = 0;
         (*ppFuncDesc)->funcdesc.elemdescFunc.tdesc.vt = md->vtReturn;

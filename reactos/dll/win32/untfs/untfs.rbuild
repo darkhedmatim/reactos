@@ -1,5 +1,5 @@
 <module name="untfs" type="win32dll" baseaddress="${BASEADDRESS_UNTFS}" installbase="system32" installname="untfs.dll">
-	<importlibrary definition="untfs.spec" />
+	<importlibrary definition="untfs.def" />
 	<include base="untfs">.</include>
 	<library>ntfslib</library>
 	<library>ntdll</library>

@@ -478,19 +478,11 @@ thread_data_t *get_thread_data(BOOL create)
 {
     thread_data_t *thread_data;
 
-    if(mshtml_tls == TLS_OUT_OF_INDEXES) {
-        DWORD tls;
-
-        if(!create)
+    if(!mshtml_tls) {
+        if(create)
+            mshtml_tls = TlsAlloc();
+        else
             return NULL;
-
-        tls = TlsAlloc();
-        if(tls == TLS_OUT_OF_INDEXES)
-            return NULL;
-
-        tls = InterlockedCompareExchange((LONG*)&mshtml_tls, tls, TLS_OUT_OF_INDEXES);
-        if(tls != mshtml_tls)
-            TlsFree(tls);
     }
 
     thread_data = TlsGetValue(mshtml_tls);

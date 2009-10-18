@@ -28,7 +28,6 @@
 #include "winsvc.h"
 #include "winnls.h"
 #include "lmcons.h"
-#include "aclapi.h"
 
 #include "wine/test.h"
 
@@ -38,8 +37,6 @@ static BOOL (WINAPI *pChangeServiceConfig2A)(SC_HANDLE,DWORD,LPVOID);
 static BOOL (WINAPI *pEnumServicesStatusExA)(SC_HANDLE, SC_ENUM_TYPE, DWORD,
                                              DWORD, LPBYTE, DWORD, LPDWORD,
                                              LPDWORD, LPDWORD, LPCSTR);
-static DWORD (WINAPI *pGetSecurityInfo)(HANDLE, SE_OBJECT_TYPE, SECURITY_INFORMATION,
-                                        PSID*, PSID*, PACL*, PACL*, PSECURITY_DESCRIPTOR*);
 static BOOL (WINAPI *pQueryServiceConfig2A)(SC_HANDLE,DWORD,LPBYTE,DWORD,LPDWORD);
 static BOOL (WINAPI *pQueryServiceConfig2W)(SC_HANDLE,DWORD,LPBYTE,DWORD,LPDWORD);
 static BOOL (WINAPI *pQueryServiceStatusEx)(SC_HANDLE, SC_STATUS_TYPE, LPBYTE,
@@ -51,7 +48,6 @@ static void init_function_pointers(void)
 
     pChangeServiceConfig2A = (void*)GetProcAddress(hadvapi32, "ChangeServiceConfig2A");
     pEnumServicesStatusExA= (void*)GetProcAddress(hadvapi32, "EnumServicesStatusExA");
-    pGetSecurityInfo = (void *)GetProcAddress(hadvapi32, "GetSecurityInfo");
     pQueryServiceConfig2A= (void*)GetProcAddress(hadvapi32, "QueryServiceConfig2A");
     pQueryServiceConfig2W= (void*)GetProcAddress(hadvapi32, "QueryServiceConfig2W");
     pQueryServiceStatusEx= (void*)GetProcAddress(hadvapi32, "QueryServiceStatusEx");
@@ -311,8 +307,7 @@ static void test_create_delete_svc(void)
     svc_handle1 = CreateServiceA(scm_handle, servicename, NULL, GENERIC_ALL, SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
                                  SERVICE_DISABLED, 0, pathname, NULL, NULL, NULL, account, password);
     ok(!svc_handle1, "Expected failure\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER || GetLastError() == ERROR_INVALID_SERVICE_ACCOUNT,
-       "Expected ERROR_INVALID_PARAMETER or ERROR_INVALID_SERVICE_ACCOUNT, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_INVALID_PARAMETER, "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
 
     /* Illegal (start-type is not a mask and should only be one of the possibilities)
      * Remark : 'OR'-ing them could result in a valid possibility (but doesn't make sense as
@@ -1747,17 +1742,7 @@ static void test_sequence(void)
         return;
     }
     else
-    {
         ok(svc_handle != NULL, "Could not create the service : %d\n", GetLastError());
-        if ((svc_handle != NULL) && (pGetSecurityInfo != NULL))
-        {
-            PSID sidOwner, sidGroup;
-            PACL dacl, sacl;
-            PSECURITY_DESCRIPTOR pSD;
-            HRESULT retval = pGetSecurityInfo(svc_handle,SE_SERVICE,DACL_SECURITY_INFORMATION,&sidOwner,&sidGroup,&dacl,&sacl,&pSD);
-            todo_wine ok(ERROR_SUCCESS == retval, "Expected GetSecurityInfo to succeed: result %d\n",retval);
-        }
-    }
 
     if (!svc_handle) return;
 
@@ -1777,7 +1762,10 @@ static void test_sequence(void)
     SetLastError(0xdeadbeef);
     ret = QueryServiceConfigA(svc_handle, config, given, &needed);
     ok(ret, "Expected success, got error %u\n", GetLastError());
-
+    todo_wine
+    {
+    ok(given == needed, "Expected the given (%d) and needed (%d) buffersizes to be equal\n", given, needed);
+    }
     ok(config->lpBinaryPathName && config->lpLoadOrderGroup && config->lpDependencies && config->lpServiceStartName &&
         config->lpDisplayName, "Expected all string struct members to be non-NULL\n");
     ok(config->dwServiceType == (SERVICE_INTERACTIVE_PROCESS | SERVICE_WIN32_OWN_PROCESS),
@@ -1841,7 +1829,7 @@ static void test_queryconfig2(void)
 
     if(!pQueryServiceConfig2A)
     {
-        win_skip("function QueryServiceConfig2A not present\n");
+        skip("function QueryServiceConfig2A not present\n");
         return;
     }
 
@@ -1945,7 +1933,7 @@ static void test_queryconfig2(void)
 
     if(!pChangeServiceConfig2A)
     {
-        win_skip("function ChangeServiceConfig2A not present\n");
+        skip("function ChangeServiceConfig2A not present\n");
         goto cleanup;
     }
 
@@ -1983,7 +1971,7 @@ static void test_queryconfig2(void)
 
     if(!pQueryServiceConfig2W)
     {
-        win_skip("function QueryServiceConfig2W not present\n");
+        skip("function QueryServiceConfig2W not present\n");
         goto cleanup;
     }
     SetLastError(0xdeadbeef);
@@ -2119,7 +2107,7 @@ START_TEST(service)
 
     if (!scm_handle && (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED))
     {
-        win_skip("OpenSCManagerA is not implemented, we are most likely on win9x\n");
+        skip("OpenSCManagerA is not implemented, we are most likely on win9x\n");
         return;
     }
     CloseServiceHandle(scm_handle);

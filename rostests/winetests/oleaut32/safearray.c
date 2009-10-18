@@ -146,7 +146,7 @@ static const IRecordInfoVtbl IRecordInfoImpl_VTable =
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
-  IRecordInfoImpl_GetSize,
+  (PVOID)IRecordInfoImpl_GetSize,
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,
   (PVOID)IRecordInfoImpl_Dummy,

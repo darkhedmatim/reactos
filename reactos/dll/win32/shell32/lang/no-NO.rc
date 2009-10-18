@@ -155,7 +155,7 @@ BEGIN
 	ICON "", 12297, 7, 11, 18, 20, WS_VISIBLE
 	LTEXT "Skriv inn navnet på programmet, mappen, dokumentet etter Internett-ressursen du ønsker å åpne.", 12289, 36, 11, 182, 18
 	LTEXT "&Åpne:", 12305, 7, 39, 24, 10
-	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+	CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_DISABLENOSCROLL | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
 	DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
 	PUSHBUTTON "Avbryt", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
 	PUSHBUTTON "&Bla gjennom .", 12288, 170, 63, 54, 14, WS_TABSTOP
@@ -278,26 +278,26 @@ BEGIN
 	LTEXT "Filsystem:", -1, 15, 70, 100, 10
 	LTEXT "", 14002, 110, 70, 100, 10
 
-	CONTROL "", 14013, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 90, 10, 10
+	CONTROL "", 14003, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 90, 10, 10
 	LTEXT "Brukt plass:", -1, 25, 90, 120, 10
-	LTEXT "", 14003, 110, 90, 120, 10
-	LTEXT "", 14004, 200, 90, 40, 10
+	LTEXT "", 14004, 110, 90, 120, 10
+	LTEXT "", 14005, 200, 90, 40, 10
 
-	CONTROL "", 14014, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 105, 10, 10
+	CONTROL "", 14006, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 5, 105, 10, 10
 	LTEXT "Ledig plass:", -1, 25, 105, 70, 10
-	LTEXT "", 14005, 110, 105, 120, 10
-	LTEXT "", 14006, 200, 105, 40, 10
+	LTEXT "", 14007, 110, 105, 120, 10
+	LTEXT "", 14008, 200, 105, 40, 10
 
 	LTEXT "Kapasitet:", -1, 25, 125, 80, 10
-	LTEXT "", 14007, 110, 125, 120, 10
-	LTEXT "", 14008, 200, 125, 40, 10
+	LTEXT "", 14009, 110, 125, 120, 10
+	LTEXT "", 14010, 200, 125, 40, 10
 
-	CONTROL "", 14015, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 20, 140, 200, 20
+	CONTROL "", 14011, "Static", SS_NOTIFY | SS_SUNKEN | SS_OWNERDRAW, 20, 140, 200, 20
 
-	LTEXT "Stasjon %s", 14009, 100, 170, 40, 10
-	PUSHBUTTON "Diskoppryding", 14010, 180, 175, 50, 15, WS_TABSTOP
-	CHECKBOX "Komprimer denne stasjonen for å frigjøre diskplass", 14011, 15, 205, 180, 10, WS_DISABLED
-	CHECKBOX "Indekser denne stasjonen for raskere søking", 14012, 15, 220, 200, 10, WS_DISABLED
+	LTEXT "Stasjon %s", 14012, 100, 170, 40, 10
+	PUSHBUTTON "Diskoppryding", 14013, 180, 175, 50, 15, WS_TABSTOP
+	CHECKBOX "Komprimer denne stasjonen for å frigjøre diskplass", 14014, 15, 205, 180, 10, WS_DISABLED
+	CHECKBOX "Indekser denne stasjonen for raskere søking", 14015, 15, 220, 200, 10, WS_DISABLED
 END
 
 DRIVE_EXTRA_DLG DIALOGEX 0, 0, 240, 230
@@ -457,7 +457,7 @@ FONT 8, "MS Shell Dlg"
 BEGIN
 	ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
 	LTEXT "Er du sikker på at du vil logge av?", -1, 43, 11, 140, 22
-	DEFPUSHBUTTON "&Logg av", IDOK, 57, 40, 60, 14
+	DEFPUSHBUTTON "&Log Off", IDOK, 57, 40, 60, 14
 	PUSHBUTTON "Avbryt", IDCANCEL, 122, 40, 60, 14
 END
 
@@ -751,5 +751,5 @@ BEGIN
 	IDS_INSTALLNEWFONT          "Installere nye skrifttyper..."
 
         IDS_DEFAULT_CLUSTER_SIZE    "Standard tildelingsstørrelse"
-	IDS_COPY_OF                 "Copy of"
+
 END

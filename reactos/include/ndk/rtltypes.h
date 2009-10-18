@@ -435,7 +435,7 @@ extern const PRTL_REALLOCATE_STRING_ROUTINE RtlReallocateStringRoutine;
 // Callback for RTL Heap Enumeration
 //
 typedef NTSTATUS
-(NTAPI *PHEAP_ENUMERATION_ROUTINE)(
+(*PHEAP_ENUMERATION_ROUTINE)(
     IN PVOID HeapHandle,
     IN PVOID UserParam
 );
@@ -958,11 +958,8 @@ typedef struct _RTL_UNLOAD_EVENT_TRACE
 //
 typedef struct _RTL_HANDLE_TABLE_ENTRY
 {
-    union
-    {
-        ULONG Flags;
-        struct _RTL_HANDLE_TABLE_ENTRY *NextFree;
-    };
+    ULONG Flags;
+    struct _RTL_HANDLE_TABLE_ENTRY *NextFree;
 } RTL_HANDLE_TABLE_ENTRY, *PRTL_HANDLE_TABLE_ENTRY;
 
 typedef struct _RTL_HANDLE_TABLE

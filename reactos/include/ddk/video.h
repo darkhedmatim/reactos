@@ -28,7 +28,7 @@
 #else
 
 #if defined(_VIDEOPORT_)
-  #define VPAPI
+  #define VPAPI DECLSPEC_EXPORT
 #else
   #define VPAPI DECLSPEC_IMPORT
 #endif
@@ -44,6 +44,7 @@ extern "C" {
 typedef LONG VP_STATUS;
 typedef VP_STATUS *PVP_STATUS;
 typedef struct __DMA_PARAMETERS * PDMA;
+typedef struct _VIDEO_PORT_EVENT *PEVENT;
 typedef struct _VIDEO_PORT_SPIN_LOCK *PSPIN_LOCK;
 typedef struct __VP_DMA_ADAPTER *PVP_DMA_ADAPTER;
 
@@ -76,7 +77,7 @@ typedef enum _HW_DMA_RETURN {
 } HW_DMA_RETURN, *PHW_DMA_RETURN;
 
 typedef HW_DMA_RETURN
-(DDKAPI *PVIDEO_HW_START_DMA)(
+(*PVIDEO_HW_START_DMA)(
     PVOID  HwDeviceExtension,
     PDMA  pDma);
 
@@ -85,7 +86,7 @@ typedef HW_DMA_RETURN
 #undef PAGED_CODE
 #endif
 
-#if DBG
+#ifdef DBG
 
 #define PAGED_CODE() \
   if (VideoPortGetCurrentIrql() > 1 /* APC_LEVEL */) \
@@ -143,15 +144,15 @@ typedef struct _VP_SCATTER_GATHER_LIST {
   VP_SCATTER_GATHER_ELEMENT  Elements[0];
 } VP_SCATTER_GATHER_LIST, *PVP_SCATTER_GATHER_LIST;
 
-typedef VOID
-(DDKAPI *PEXECUTE_DMA)(
+typedef VOID DDKAPI
+(*PEXECUTE_DMA)(
 	IN PVOID  HwDeviceExtension,
 	IN PVP_DMA_ADAPTER  VpDmaAdapter,
 	IN PVP_SCATTER_GATHER_LIST  SGList,
 	IN PVOID  Context);
 
-typedef PVOID
-(DDKAPI *PVIDEO_PORT_GET_PROC_ADDRESS)(
+typedef PVOID DDKAPI
+(*PVIDEO_PORT_GET_PROC_ADDRESS)(
   IN PVOID  HwDeviceExtension,
   IN PUCHAR  FunctionName);
 
@@ -187,16 +188,16 @@ typedef struct _VIDEO_PORT_CONFIG_INFO {
   ULONGLONG  SystemMemorySize;
 } VIDEO_PORT_CONFIG_INFO, *PVIDEO_PORT_CONFIG_INFO;
 
-typedef VP_STATUS
-(DDKAPI *PVIDEO_HW_FIND_ADAPTER)(
+typedef VP_STATUS DDKAPI
+(*PVIDEO_HW_FIND_ADAPTER)(
 	IN PVOID  HwDeviceExtension,
 	IN PVOID  HwContext,
 	IN PWSTR  ArgumentString,
 	IN OUT  PVIDEO_PORT_CONFIG_INFO  ConfigInfo,
 	OUT PUCHAR  Again);
 
-typedef VP_STATUS
-(DDKAPI *PVIDEO_HW_POWER_GET)(
+typedef VP_STATUS DDKAPI
+(*PVIDEO_HW_POWER_GET)(
   IN PVOID  HwDeviceExtension,
   IN ULONG  HwId,
   IN OUT  PVIDEO_POWER_MANAGEMENT  VideoPowerControl);
@@ -256,15 +257,15 @@ typedef struct _VIDEO_ACCESS_RANGE {
 } VIDEO_ACCESS_RANGE, *PVIDEO_ACCESS_RANGE;
 #endif
 
-typedef VOID
-(DDKAPI *PVIDEO_HW_LEGACYRESOURCES)(
+typedef VOID DDKAPI
+(*PVIDEO_HW_LEGACYRESOURCES)(
   IN ULONG  VendorId,
   IN ULONG  DeviceId,
   IN OUT  PVIDEO_ACCESS_RANGE  *LegacyResourceList,
   IN OUT  PULONG  LegacyResourceCount);
 
-typedef VP_STATUS
-(DDKAPI *PMINIPORT_QUERY_DEVICE_ROUTINE)(
+typedef VP_STATUS DDKAPI
+(*PMINIPORT_QUERY_DEVICE_ROUTINE)(
   IN PVOID  HwDeviceExtension,
   IN PVOID  Context,
   IN VIDEO_DEVICE_DATA_TYPE  DeviceDataType,
@@ -1539,7 +1540,7 @@ VideoPortZeroMemory(
   IN PVOID  Destination,
   IN ULONG  Length);
 
-#if DBG
+#ifdef DBG
 #define VideoDebugPrint(x) VideoPortDebugPrint x
 #else
 #define VideoDebugPrint(x)

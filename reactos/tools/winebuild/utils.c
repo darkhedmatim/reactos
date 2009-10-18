@@ -516,7 +516,6 @@ unsigned int get_ptr_size(void)
     case CPU_POWERPC:
     case CPU_SPARC:
     case CPU_ALPHA:
-    case CPU_ARM:
         return 4;
     case CPU_x86_64:
         return 8;

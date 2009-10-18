@@ -831,7 +831,7 @@ static LRESULT SYSLINK_Draw (const SYSLINK_INFO *infoPtr, HDC hdc)
 
     hOldFont = SelectObject(hdc, infoPtr->Font);
     OldTextColor = SetTextColor(hdc, infoPtr->TextColor);
-    OldBkColor = SetBkColor(hdc, comctl32_color.clrBtnFace);
+    OldBkColor = SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
     
     GetClientRect(infoPtr->Self, &rc);
     rc.right -= SL_RIGHTMARGIN + SL_LEFTMARGIN;
@@ -1329,8 +1329,10 @@ static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
     if(Focus != NULL)
     {
         SYSLINK_SetFocusLink(infoPtr, Focus);
-        SYSLINK_RepaintLink(infoPtr, Focus);
     }
+    
+    SYSLINK_RepaintLink(infoPtr, Focus);
+    
     return 0;
 }
 
@@ -1474,7 +1476,7 @@ static BOOL SYSKEY_SelectNextPrevLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
             {
                 OldFocus = SYSLINK_SetFocusLink(infoPtr, NewFocus);
 
-                if(OldFocus && OldFocus != NewFocus)
+                if(OldFocus != NewFocus)
                 {
                     SYSLINK_RepaintLink(infoPtr, OldFocus);
                 }
@@ -1727,9 +1729,9 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         infoPtr->Items = NULL;
         infoPtr->HasFocus = FALSE;
         infoPtr->MouseDownID = -1;
-        infoPtr->TextColor = comctl32_color.clrWindowText;
-        infoPtr->LinkColor = comctl32_color.clrHighlight;
-        infoPtr->VisitedColor = comctl32_color.clrHighlight;
+        infoPtr->TextColor = GetSysColor(COLOR_WINDOWTEXT);
+        infoPtr->LinkColor = GetSysColor(COLOR_HIGHLIGHT);
+        infoPtr->VisitedColor = GetSysColor(COLOR_HIGHLIGHT);
         infoPtr->BreakChar = ' ';
         TRACE("SysLink Ctrl creation, hwnd=%p\n", hwnd);
         SYSLINK_SetText(infoPtr, ((LPCREATESTRUCTW)lParam)->lpszName);
@@ -1742,10 +1744,6 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         if(infoPtr->LinkFont != 0) DeleteObject(infoPtr->LinkFont);
         SetWindowLongPtrW(hwnd, 0, 0);
         Free (infoPtr);
-        return 0;
-
-    case WM_SYSCOLORCHANGE:
-        COMCTL32_RefreshSysColors();
         return 0;
 
     default:

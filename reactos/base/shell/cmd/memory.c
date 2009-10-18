@@ -25,7 +25,6 @@ INT CommandMemory (LPTSTR param)
 	TCHAR szAvailPageFile[40];
 	TCHAR szTotalVirtual[40];
 	TCHAR szAvailVirtual[40];
-	BOOL (WINAPI *GlobalMemoryStatusEx)(LPMEMORYSTATUSEX);
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
@@ -33,8 +32,8 @@ INT CommandMemory (LPTSTR param)
 		return 0;
 	}
 
-	GlobalMemoryStatusEx
-		= (BOOL (WINAPI *)(LPMEMORYSTATUSEX))GetProcAddress(GetModuleHandle(_T("KERNEL32")), "GlobalMemoryStatusEx");
+	BOOL (WINAPI *GlobalMemoryStatusEx)(LPMEMORYSTATUSEX)
+		= GetProcAddress(GetModuleHandle(_T("KERNEL32")), "GlobalMemoryStatusEx");
 	if (GlobalMemoryStatusEx)
 	{
 		msex.dwLength = sizeof(MEMORYSTATUSEX);

@@ -715,7 +715,7 @@ NtfsFsdDirectoryControl(PDEVICE_OBJECT DeviceObject,
   IoCompleteRequest(Irp, IO_NO_INCREMENT);
   
   if (IrpContext)
-    ExFreePoolWithTag(IrpContext, 'PRIN');
+    ExFreePoolWithTag(IrpContext, TAG('N', 'I', 'R', 'P'));
   
   IoSetTopLevelIrp(NULL);
   FsRtlExitFileSystem();

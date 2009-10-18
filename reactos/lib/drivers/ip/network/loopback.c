@@ -1,11 +1,9 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS TCP/IP protocol driver
- * FILE:        datalink/loopback.c
+ * FILE:        lib/drivers/ip/network/loopback.c
  * PURPOSE:     Loopback adapter
- * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- * REVISIONS:
- *   CSH 01/08-2000 Created
+ * PROGRAMMERS: Cameron Gutman (cgutman@reactos.org)
  */
 
 #include "precomp.h"
@@ -28,44 +26,46 @@ VOID LoopTransmit(
  *   Type        = LAN protocol type (unused)
  */
 {
+    IP_PACKET IPPacket;
+    PNDIS_PACKET XmitPacket;
+    PNDIS_BUFFER NdisBuffer;
+    NDIS_STATUS NdisStatus;
     PCHAR PacketBuffer;
     UINT PacketLength;
-    PNDIS_PACKET XmitPacket;
-    NDIS_STATUS NdisStatus;
-    IP_PACKET IPPacket;
-    PNDIS_BUFFER NdisBuffer;
 
-    ASSERT_KM_POINTER(NdisPacket);
-    ASSERT_KM_POINTER(PC(NdisPacket));
-    ASSERT_KM_POINTER(PC(NdisPacket)->DLComplete);
+    ASSERT(KeGetCurrentIrql() == PASSIVE_LEVEL);
 
-    TI_DbgPrint(MAX_TRACE, ("Called (NdisPacket = %x)\n", NdisPacket));
-
-    GetDataPtr( NdisPacket, 0, &PacketBuffer, &PacketLength );
+    GetDataPtr( NdisPacket, Offset, &PacketBuffer, &PacketLength );
 
     NdisStatus = AllocatePacketWithBuffer
         ( &XmitPacket, PacketBuffer, PacketLength );
 
-    (PC(NdisPacket)->DLComplete)
-        ( PC(NdisPacket)->Context, NdisPacket, NdisStatus );
-
-    if( NT_SUCCESS(NdisStatus) ) {
-        IPInitializePacket(&IPPacket, 0);
-		
-        IPPacket.NdisPacket = XmitPacket;
-		
-        NdisGetFirstBufferFromPacket(XmitPacket,
-                                     &NdisBuffer,
-                                     &IPPacket.Header,
-                                     &IPPacket.ContigSize,
-                                     &IPPacket.TotalSize);
-
-        IPReceive(Loopback, &IPPacket);
-
-        FreeNdisPacket(XmitPacket);
+    if (NdisStatus != NDIS_STATUS_SUCCESS)
+    {
+        (PC(NdisPacket)->DLComplete)( PC(NdisPacket)->Context, NdisPacket, NdisStatus );
+        return;
     }
 
-    TI_DbgPrint(MAX_TRACE, ("Done\n"));
+    IPInitializePacket(&IPPacket, 0);
+
+    NdisGetFirstBufferFromPacket(XmitPacket,
+                                 &NdisBuffer,
+                                 &IPPacket.Header,
+                                 &IPPacket.ContigSize,
+                                 &IPPacket.TotalSize);
+
+    IPPacket.NdisPacket = XmitPacket;
+    IPPacket.Position = 0;
+
+    TI_DbgPrint(MID_TRACE,
+		 ("ContigSize: %d, TotalSize: %d\n",
+		  IPPacket.ContigSize, IPPacket.TotalSize));
+		
+    IPReceive(Loopback, &IPPacket);
+
+    FreeNdisPacket(XmitPacket);
+
+    (PC(NdisPacket)->DLComplete)( PC(NdisPacket)->Context, NdisPacket, NDIS_STATUS_SUCCESS );
 }
 
 NDIS_STATUS LoopRegisterAdapter(
@@ -94,7 +94,6 @@ NDIS_STATUS LoopRegisterAdapter(
   BindInfo.Transmit = LoopTransmit;
 
   Loopback = IPCreateInterface(&BindInfo);
-  if (!Loopback) return NDIS_STATUS_RESOURCES;
 
   Loopback->Name.Buffer = L"Loopback";
   Loopback->Name.MaximumLength = Loopback->Name.Length =

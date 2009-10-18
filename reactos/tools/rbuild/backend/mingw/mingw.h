@@ -45,12 +45,10 @@ public:
 	std::string AddDirectoryTarget ( const std::string& directory,
 	                                 Directory* directoryTree );
 	const Module& GetAliasedModuleOrModule ( const Module& module ) const;
-	bool compilerNeedsHelper;
 	std::string compilerPrefix;
 	std::string compilerCommand;
 	std::string nasmCommand;
 	std::string binutilsPrefix;
-	bool binutilsNeedsHelper;
 	std::string binutilsCommand;
 	bool usePipe, manualBinutilsSetting;
 	Directory* intermediateDirectory;
@@ -117,8 +115,6 @@ private:
 	void GenerateDirectoryTargets ();
 	FILE* fMakefile;
 	bool use_pch;
-	bool DetectMicrosoftCompiler ( std::string& version, std::string& path );
-	bool DetectMicrosoftLinker ( std::string& version, std::string& path );
 };
 
 

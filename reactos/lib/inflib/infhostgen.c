@@ -107,7 +107,7 @@ InfHostOpenFile(PHINF InfHandle,
       return -1;
     }
 
-  FileLength = (ULONG)ftell(File);
+  FileLength = ftell(File);
   if ((ULONG) -1 == FileLength)
     {
       DPRINT1("ftell() failed (errno %d)\n", errno);

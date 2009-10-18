@@ -5,7 +5,6 @@
 	<importlibrary definition="dsound.spec" />
 	<include base="dsound">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
-	<define name="_WINE" />
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ntdll</library>

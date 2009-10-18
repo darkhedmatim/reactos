@@ -158,18 +158,18 @@ static LRESULT IPADDRESS_Draw (const IPADDRESS_INFO *infoPtr, HDC hdc)
     GetClientRect (infoPtr->Self, &rect);
 
     if (infoPtr->Enabled) {
-        bgCol = comctl32_color.clrWindow;
-        fgCol = comctl32_color.clrWindowText;
+        bgCol = COLOR_WINDOW;
+        fgCol = COLOR_WINDOWTEXT;
     } else {
-        bgCol = comctl32_color.clr3dFace;
-        fgCol = comctl32_color.clrGrayText;
+        bgCol = COLOR_3DFACE;
+        fgCol = COLOR_GRAYTEXT;
     }
     
     FillRect (hdc, &rect, (HBRUSH)(DWORD_PTR)(bgCol+1));
     DrawEdge (hdc, &rect, EDGE_SUNKEN, BF_RECT | BF_ADJUST);
     
-    SetBkColor  (hdc, bgCol);
-    SetTextColor(hdc, fgCol);
+    SetBkColor  (hdc, GetSysColor(bgCol));
+    SetTextColor(hdc, GetSysColor(fgCol));
 
     for (i = 0; i < 3; i++) {
         GetWindowRect (infoPtr->Part[i].EditHwnd, &rcPart);
@@ -594,10 +594,6 @@ IPADDRESS_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		    break;
 	    }
 	    break;
-
-        case WM_SYSCOLORCHANGE:
-            COMCTL32_RefreshSysColors();
-            return 0;
 
         case IPM_CLEARADDRESS:
             IPADDRESS_ClearAddress (infoPtr);

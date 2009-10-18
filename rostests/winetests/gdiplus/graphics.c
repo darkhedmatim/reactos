@@ -22,10 +22,8 @@
 #include "gdiplus.h"
 #include "wingdi.h"
 #include "wine/test.h"
-#include <math.h>
 
 #define expect(expected, got) ok(got == expected, "Expected %.8x, got %.8x\n", expected, got)
-#define expectf(expected, got) ok(fabs(expected - got) < 0.0001, "Expected %.2f, got %.2f\n", expected, got)
 #define TABLE_LEN (23)
 
 static void test_constructor_destructor(void)
@@ -769,11 +767,16 @@ static void test_transformpoints(void)
     GpStatus status;
     GpGraphics *graphics = NULL;
     HDC hdc = GetDC(0);
-    GpPointF ptf[2];
-    GpPoint pt[2];
+    GpPointF ptf[5];
+    INT i;
 
     status = GdipCreateFromHDC(hdc, &graphics);
     expect(Ok, status);
+
+    for(i = 0; i < 5; i++){
+        ptf[i].X = 200.0 + i * 50.0 * (i % 2);
+        ptf[i].Y = 200.0 + i * 50.0 * !(i % 2);
+    }
 
     /* NULL arguments */
     status = GdipTransformPoints(NULL, CoordinateSpacePage, CoordinateSpaceWorld, NULL, 0);
@@ -784,101 +787,6 @@ static void test_transformpoints(void)
     expect(InvalidParameter, status);
     status = GdipTransformPoints(graphics, CoordinateSpacePage, CoordinateSpaceWorld, ptf, -1);
     expect(InvalidParameter, status);
-
-    ptf[0].X = 1.0;
-    ptf[0].Y = 0.0;
-    ptf[1].X = 0.0;
-    ptf[1].Y = 1.0;
-    status = GdipTransformPoints(graphics, CoordinateSpaceDevice, CoordinateSpaceWorld, ptf, 2);
-    expect(Ok, status);
-    expectf(1.0, ptf[0].X);
-    expectf(0.0, ptf[0].Y);
-    expectf(0.0, ptf[1].X);
-    expectf(1.0, ptf[1].Y);
-
-    status = GdipTranslateWorldTransform(graphics, 5.0, 5.0, MatrixOrderAppend);
-    expect(Ok, status);
-    status = GdipSetPageUnit(graphics, UnitPixel);
-    expect(Ok, status);
-    status = GdipSetPageScale(graphics, 3.0);
-    expect(Ok, status);
-
-    ptf[0].X = 1.0;
-    ptf[0].Y = 0.0;
-    ptf[1].X = 0.0;
-    ptf[1].Y = 1.0;
-    status = GdipTransformPoints(graphics, CoordinateSpaceDevice, CoordinateSpaceWorld, ptf, 2);
-    expect(Ok, status);
-    expectf(18.0, ptf[0].X);
-    expectf(15.0, ptf[0].Y);
-    expectf(15.0, ptf[1].X);
-    expectf(18.0, ptf[1].Y);
-
-    ptf[0].X = 1.0;
-    ptf[0].Y = 0.0;
-    ptf[1].X = 0.0;
-    ptf[1].Y = 1.0;
-    status = GdipTransformPoints(graphics, CoordinateSpacePage, CoordinateSpaceWorld, ptf, 2);
-    expect(Ok, status);
-    expectf(6.0, ptf[0].X);
-    expectf(5.0, ptf[0].Y);
-    expectf(5.0, ptf[1].X);
-    expectf(6.0, ptf[1].Y);
-
-    ptf[0].X = 1.0;
-    ptf[0].Y = 0.0;
-    ptf[1].X = 0.0;
-    ptf[1].Y = 1.0;
-    status = GdipTransformPoints(graphics, CoordinateSpaceDevice, CoordinateSpacePage, ptf, 2);
-    expect(Ok, status);
-    expectf(3.0, ptf[0].X);
-    expectf(0.0, ptf[0].Y);
-    expectf(0.0, ptf[1].X);
-    expectf(3.0, ptf[1].Y);
-
-    ptf[0].X = 18.0;
-    ptf[0].Y = 15.0;
-    ptf[1].X = 15.0;
-    ptf[1].Y = 18.0;
-    status = GdipTransformPoints(graphics, CoordinateSpaceWorld, CoordinateSpaceDevice, ptf, 2);
-    expect(Ok, status);
-    expectf(1.0, ptf[0].X);
-    expectf(0.0, ptf[0].Y);
-    expectf(0.0, ptf[1].X);
-    expectf(1.0, ptf[1].Y);
-
-    ptf[0].X = 6.0;
-    ptf[0].Y = 5.0;
-    ptf[1].X = 5.0;
-    ptf[1].Y = 6.0;
-    status = GdipTransformPoints(graphics, CoordinateSpaceWorld, CoordinateSpacePage, ptf, 2);
-    expect(Ok, status);
-    expectf(1.0, ptf[0].X);
-    expectf(0.0, ptf[0].Y);
-    expectf(0.0, ptf[1].X);
-    expectf(1.0, ptf[1].Y);
-
-    ptf[0].X = 3.0;
-    ptf[0].Y = 0.0;
-    ptf[1].X = 0.0;
-    ptf[1].Y = 3.0;
-    status = GdipTransformPoints(graphics, CoordinateSpacePage, CoordinateSpaceDevice, ptf, 2);
-    expect(Ok, status);
-    expectf(1.0, ptf[0].X);
-    expectf(0.0, ptf[0].Y);
-    expectf(0.0, ptf[1].X);
-    expectf(1.0, ptf[1].Y);
-
-    pt[0].X = 1;
-    pt[0].Y = 0;
-    pt[1].X = 0;
-    pt[1].Y = 1;
-    status = GdipTransformPointsI(graphics, CoordinateSpaceDevice, CoordinateSpaceWorld, pt, 2);
-    expect(Ok, status);
-    expect(18, pt[0].X);
-    expect(15, pt[0].Y);
-    expect(15, pt[1].X);
-    expect(18, pt[1].Y);
 
     GdipDeleteGraphics(graphics);
     ReleaseDC(0, hdc);
@@ -1027,57 +935,6 @@ static void test_textcontrast(void)
     ReleaseDC(0, hdc);
 }
 
-static void test_GdipDrawString(void)
-{
-    GpStatus status;
-    GpGraphics *graphics = NULL;
-    GpFont *fnt = NULL;
-    RectF  rect;
-    GpStringFormat *format;
-    GpBrush *brush;
-    LOGFONTA logfont;
-    HDC hdc = GetDC(0);
-    static const WCHAR string[] = {'T','e','s','t',0};
-
-    memset(&logfont,0,sizeof(logfont));
-    strcpy(logfont.lfFaceName,"Arial");
-    logfont.lfHeight = 12;
-    logfont.lfCharSet = DEFAULT_CHARSET;
-
-    status = GdipCreateFromHDC(hdc, &graphics);
-    expect(Ok, status);
-
-    status = GdipCreateFontFromLogfontA(hdc, &logfont, &fnt);
-    if (status == FileNotFound)
-    {
-        skip("Arial not installed.\n");
-        return;
-    }
-    expect(Ok, status);
-
-    status = GdipCreateSolidFill((ARGB)0xdeadbeef, (GpSolidFill**)&brush);
-    expect(Ok, status);
-
-    status = GdipCreateStringFormat(0,0,&format);
-    expect(Ok, status);
-
-    rect.X = 0;
-    rect.Y = 0;
-    rect.Width = 0;
-    rect.Height = 12;
-
-    status = GdipDrawString(graphics, string, 4, fnt, &rect, format, brush);
-    expect(Ok, status);
-
-    GdipDeleteGraphics(graphics);
-    GdipDeleteBrush(brush);
-    GdipDeleteFont(fnt);
-    GdipDeleteStringFormat(format);
-
-    ReleaseDC(0, hdc);
-}
-
-
 START_TEST(graphics)
 {
     struct GdiplusStartupInput gdiplusStartupInput;
@@ -1097,7 +954,6 @@ START_TEST(graphics)
     test_GdipDrawArcI();
     test_GdipDrawLineI();
     test_GdipDrawLinesI();
-    test_GdipDrawString();
     test_Get_Release_DC();
     test_transformpoints();
     test_get_set_clip();

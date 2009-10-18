@@ -62,7 +62,7 @@ OptionsProc(
 				else
 				{
 					/* options have already been applied */
-					SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
+					SetWindowLong(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
 					return TRUE;
 				}
 				return TRUE;

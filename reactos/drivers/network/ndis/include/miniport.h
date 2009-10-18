@@ -41,8 +41,7 @@ typedef struct _NDIS_M_DEVICE_BLOCK {
 } NDIS_M_DEVICE_BLOCK, *PNDIS_M_DEVICE_BLOCK;
 
 /* resources allocated on behalf on the miniport */
-#define MINIPORT_RESOURCE_TYPE_REGISTRY_DATA 0
-#define MINIPORT_RESOURCE_TYPE_MEMORY        1
+#define MINIPORT_RESOURCE_TYPE_MEMORY 0
 typedef struct _MINIPORT_RESOURCE {
     LIST_ENTRY     ListEntry;
     ULONG          ResourceType;
@@ -81,7 +80,6 @@ typedef struct _NDIS_WRAPPER_CONTEXT {
     HANDLE            RegistryHandle;
     PDEVICE_OBJECT    DeviceObject;
     ULONG             BusNumber;
-    ULONG             SlotNumber;
 } NDIS_WRAPPER_CONTEXT, *PNDIS_WRAPPER_CONTEXT;
 
 #define GET_MINIPORT_DRIVER(Handle)((PNDIS_M_DRIVER_BLOCK)Handle)
@@ -109,7 +107,7 @@ extern LIST_ENTRY AdapterListHead;
 extern KSPIN_LOCK AdapterListLock;
 
 
-#if DBG
+#ifdef DBG
 VOID
 MiniDisplayPacket(
     PNDIS_PACKET Packet);
@@ -188,14 +186,6 @@ BOOLEAN
 MiniIsBusy(
     PLOGICAL_ADAPTER Adapter,
     NDIS_WORK_ITEM_TYPE Type);
-
-NDIS_STATUS
-MiniReset(
-    PLOGICAL_ADAPTER Adapter);
-
-VOID
-MiniDoAddressingReset(
-    PLOGICAL_ADAPTER Adapter);
 
 #endif /* __MINIPORT_H */
 

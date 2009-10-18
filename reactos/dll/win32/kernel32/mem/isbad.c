@@ -171,6 +171,9 @@ IsBadStringPtrW(IN LPCWSTR lpsz,
     /* Calculate the last page */
     Last = (PWCHAR)((ULONG_PTR)lpsz + (ucchMax * 2) - 2);
 
+    /* Another quick failure case */
+    if ((ULONG_PTR)Last < (ULONG_PTR)lpsz) return TRUE;
+
     /* Enter SEH */
     _SEH2_TRY
     {
@@ -181,7 +184,7 @@ IsBadStringPtrW(IN LPCWSTR lpsz,
         {
             Char = *Current;
             Current++;
-        } while (Char && (Current != Last + 1));
+        } while (Char && (Current <= Last));
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
@@ -214,6 +217,9 @@ IsBadStringPtrA(IN LPCSTR lpsz,
     /* Calculate the last page */
     Last = (PCHAR)((ULONG_PTR)lpsz + ucchMax - 1);
 
+    /* Another quick failure case */
+    if ((ULONG_PTR)Last < (ULONG_PTR)lpsz) return TRUE;
+
     /* Enter SEH */
     _SEH2_TRY
     {
@@ -224,7 +230,7 @@ IsBadStringPtrA(IN LPCSTR lpsz,
         {
             Char = *Current;
             Current++;
-        } while (Char && (Current != Last + 1));
+        } while (Char && (Current <= Last));
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {

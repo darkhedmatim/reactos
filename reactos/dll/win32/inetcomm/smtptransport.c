@@ -732,7 +732,7 @@ static HRESULT WINAPI SMTPTransport_CommandMAIL(ISMTPTransport2 *iface, LPSTR ps
     SMTPTransport *This = (SMTPTransport *)iface;
     const char szCommandFormat[] = "MAIL FROM: <%s>\n";
     char *szCommand;
-    int len;
+    int len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszEmailFrom);
     HRESULT hr;
 
     TRACE("(%s)\n", debugstr_a(pszEmailFrom));
@@ -740,7 +740,6 @@ static HRESULT WINAPI SMTPTransport_CommandMAIL(ISMTPTransport2 *iface, LPSTR ps
     if (!pszEmailFrom)
         return E_INVALIDARG;
 
-    len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszEmailFrom);
     szCommand = HeapAlloc(GetProcessHeap(), 0, len);
     if (!szCommand)
         return E_OUTOFMEMORY;
@@ -759,7 +758,7 @@ static HRESULT WINAPI SMTPTransport_CommandRCPT(ISMTPTransport2 *iface, LPSTR ps
     SMTPTransport *This = (SMTPTransport *)iface;
     const char szCommandFormat[] = "RCPT TO: <%s>\n";
     char *szCommand;
-    int len;
+    int len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszEmailTo);
     HRESULT hr;
 
     TRACE("(%s)\n", debugstr_a(pszEmailTo));
@@ -767,7 +766,6 @@ static HRESULT WINAPI SMTPTransport_CommandRCPT(ISMTPTransport2 *iface, LPSTR ps
     if (!pszEmailTo)
         return E_INVALIDARG;
 
-    len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszEmailTo);
     szCommand = HeapAlloc(GetProcessHeap(), 0, len);
     if (!szCommand)
         return E_OUTOFMEMORY;
@@ -835,7 +833,7 @@ static HRESULT WINAPI SMTPTransport_CommandAUTH(ISMTPTransport2 *iface,
     SMTPTransport *This = (SMTPTransport *)iface;
     const char szCommandFormat[] = "AUTH %s\n";
     char *szCommand;
-    int len;
+    int len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszAuthType);
     HRESULT hr;
 
     TRACE("(%s)\n", debugstr_a(pszAuthType));
@@ -843,7 +841,6 @@ static HRESULT WINAPI SMTPTransport_CommandAUTH(ISMTPTransport2 *iface,
     if (!pszAuthType)
         return E_INVALIDARG;
 
-    len = sizeof(szCommandFormat) - 2 /* "%s" */ + strlen(pszAuthType);
     szCommand = HeapAlloc(GetProcessHeap(), 0, len);
     if (!szCommand)
         return E_OUTOFMEMORY;

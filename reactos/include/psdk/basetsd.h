@@ -48,10 +48,6 @@
 #define MAXHALF_PTR  ((HALF_PTR)(MAXUHALF_PTR >> 1))
 #define MINHALF_PTR  (~MAXHALF_PTR)
 
-#define MAXUINT      ((UINT)~((UINT)0))
-
-#define MAXULONGLONG ((ULONGLONG)~((ULONGLONG)0))
-
 #ifndef RC_INVOKED
 #ifdef __cplusplus
 extern "C" {
@@ -104,10 +100,10 @@ static inline void* ULongToPtr( const unsigned long ul )
     { return( (void*)(ULONG_PTR)ul ); }
 #endif /* !__midl */
 #else /*  !_WIN64 */
-#if !defined(__ROS_LONG64__)
+#if 1// !defined(__ROS_LONG64__)
 typedef int INT_PTR, *PINT_PTR;
 typedef unsigned int UINT_PTR, *PUINT_PTR;
-#else
+#else // WTF??? HACK of break
 typedef long INT_PTR, *PINT_PTR;
 typedef unsigned long UINT_PTR, *PUINT_PTR;
 #endif
