@@ -4,10 +4,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
-#endif
 #define DI_CHANNEL 1
 #define DI_CHANNEL_WRITE 2
 #define DI_READ_SPOOL_JOB 3
@@ -827,7 +823,6 @@ BOOL WINAPI EnumPrintProcessorDatatypesA(LPSTR,LPSTR,DWORD,PBYTE,DWORD,PDWORD,PD
 BOOL WINAPI EnumPrintProcessorDatatypesW(LPWSTR,LPWSTR,DWORD,PBYTE,DWORD,PDWORD,PDWORD);
 BOOL WINAPI EnumPrintProcessorsA(LPSTR,LPSTR,DWORD,PBYTE,DWORD,PDWORD,PDWORD);
 BOOL WINAPI EnumPrintProcessorsW(LPWSTR,LPWSTR,DWORD,PBYTE,DWORD,PDWORD,PDWORD);
-LONG WINAPI ExtDeviceMode(HWND,HANDLE,LPDEVMODEA,LPSTR,LPSTR,LPDEVMODEA,LPSTR,DWORD);
 BOOL WINAPI FindClosePrinterChangeNotification(HANDLE);
 HANDLE WINAPI FindFirstPrinterChangeNotification(HANDLE,DWORD,DWORD,PVOID);
 HANDLE WINAPI FindNextPrinterChangeNotification(HANDLE,PDWORD,PVOID,PVOID*);
@@ -871,11 +866,6 @@ BOOL WINAPI SetPrinterA(HANDLE,DWORD,PBYTE,DWORD);
 BOOL WINAPI SetPrinterW(HANDLE,DWORD,PBYTE,DWORD);
 BOOL WINAPI SetPrinterDataA(HANDLE,LPSTR,DWORD,PBYTE,DWORD);
 BOOL WINAPI SetPrinterDataW(HANDLE,LPWSTR,DWORD,PBYTE,DWORD);
-#ifdef _WINE
-LPSTR WINAPI StartDocDlgA(HANDLE hPrinter, DOCINFOA *doc);
-LPWSTR WINAPI StartDocDlgW(HANDLE hPrinter, DOCINFOW *doc);
-#define StartDocDlg WINELIB_NAME_AW(StartDocDlg)
-#endif
 DWORD WINAPI StartDocPrinterA(HANDLE,DWORD,PBYTE);
 DWORD WINAPI StartDocPrinterW(HANDLE,DWORD,PBYTE);
 BOOL WINAPI StartPagePrinter(HANDLE);
@@ -1029,9 +1019,6 @@ typedef PRINTER_DEFAULTSA PRINTER_DEFAULTS,*PPRINTER_DEFAULTS,*LPPRINTER_DEFAULT
 #define StartDocPrinter StartDocPrinterA
 #endif
 #endif /* RC_INVOKED */
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 #ifdef __cplusplus
 }
 #endif

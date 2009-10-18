@@ -33,7 +33,7 @@
 #define DEBUG_CPOINT   0x00800000
 #define DEBUG_ULTRA    0xFFFFFFFF
 
-#if DBG
+#ifdef DBG
 
 extern DWORD DebugTraceLevel;
 

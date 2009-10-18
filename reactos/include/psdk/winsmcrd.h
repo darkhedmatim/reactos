@@ -22,11 +22,6 @@
 extern "C" {
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
-#endif
-
 typedef struct _SCARD_IO_REQUEST
 {
   DWORD dwProtocol;
@@ -207,10 +202,6 @@ typedef struct _SCARD_T1_REQUEST
 #define SCARD_ATTR_DEVICE_FRIENDLY_NAME SCARD_ATTR_DEVICE_FRIENDLY_NAME_A
 #define SCARD_ATTR_DEVICE_SYSTEM_NAME SCARD_ATTR_DEVICE_SYSTEM_NAME_A
 #endif /* UNICODE */
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #ifdef __cplusplus
 }

@@ -257,11 +257,8 @@ UINT ALTER_CreateView( MSIDATABASE *db, MSIVIEW **view, LPCWSTR name, column_inf
         return ERROR_FUNCTION_FAILED;
 
     r = TABLE_CreateView( db, name, &av->table );
-    if (r != ERROR_SUCCESS)
-    {
-        msi_free( av );
+    if (r != ERROR_SUCCESS || !av->table)
         return r;
-    }
 
     if (colinfo)
         colinfo->table = name;

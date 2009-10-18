@@ -65,10 +65,9 @@ NdisMPciAssignResources(
 {
   PLOGICAL_ADAPTER Adapter = MiniportAdapterHandle;
 
-  if (Adapter->NdisMiniportBlock.BusType != NdisInterfacePci ||
+  if (Adapter->NdisMiniportBlock.BusType != PCIBus ||
       Adapter->NdisMiniportBlock.AllocatedResources == NULL)
     {
-      NDIS_DbgPrint(MIN_TRACE, ("Bad bus type or no resources\n"));
       *AssignedResources = NULL;
       return NDIS_STATUS_FAILURE;
     }
@@ -301,33 +300,6 @@ NdisWritePcmciaAttributeMemory(
                                  Buffer,
                                  Offset,
                                  Length);
-}
-
-/*
- * @implemented
- */
-VOID
-EXPORT
-NdisOverrideBusNumber(
-    IN  NDIS_HANDLE WrapperConfigurationContext,
-    IN  NDIS_HANDLE MiniportAdapterHandle   OPTIONAL,
-    IN  ULONG       BusNumber)
-/*
- * FUNCTION:
- * ARGUMENTS:
- * NOTES:
- *    NDIS 4.0
- */
-{
-    PNDIS_WRAPPER_CONTEXT Wrapper = WrapperConfigurationContext;
-    PLOGICAL_ADAPTER Adapter = MiniportAdapterHandle;
-
-    NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    Wrapper->BusNumber = BusNumber;
-
-    if (Adapter)
-        Adapter->NdisMiniportBlock.BusNumber = BusNumber;
 }
 
 /* EOF */

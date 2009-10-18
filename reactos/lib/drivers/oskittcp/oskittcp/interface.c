@@ -358,14 +358,14 @@ int OskitTCPAccept( void *socket,
     so = head->so_q;
 
     inp = so ? (struct inpcb *)so->so_pcb : NULL;
-    if( inp && name ) {
+    if( inp ) {
         ((struct sockaddr_in *)AddrOut)->sin_addr.s_addr =
             inp->inp_faddr.s_addr;
         ((struct sockaddr_in *)AddrOut)->sin_port = inp->inp_fport;
     }
 
     OS_DbgPrint(OSK_MID_TRACE,("error = %d\n", error));
-    if( FinishAccepting && so ) {
+    if( FinishAccepting ) {
 	head->so_q = so->so_q;
 	head->so_qlen--;
 

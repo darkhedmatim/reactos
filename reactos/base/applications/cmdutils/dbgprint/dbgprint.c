@@ -35,7 +35,6 @@ int _tmain(int argc, TCHAR ** argv)
 	{
 		char   psBuffer[128];
 		char   psBuffer2[128];
-		char   *nlptr2;
 		char   cmd[255];
 		char   test[300];
 		FILE   *pPipe;
@@ -61,7 +60,7 @@ int _tmain(int argc, TCHAR ** argv)
 					{
 						while(fgets(psBuffer2, 128, pPipe2))
 						{
-							nlptr2 = strchr(psBuffer2, '\n');
+							char *nlptr2 = strchr(psBuffer2, '\n');
 							if (nlptr2)
 								*nlptr2 = '\0';
 							puts(psBuffer2);

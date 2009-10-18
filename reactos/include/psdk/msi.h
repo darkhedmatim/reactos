@@ -237,8 +237,6 @@ typedef struct tagMSIPATCHSEQUENCEINFOW
 
 #define MAX_FEATURE_CHARS 38
 
-#define ERROR_PATCH_TARGET_NOT_FOUND        1642
-
 /* Strings defined in msi.h */
 /* Advertised Information */
 

@@ -17,7 +17,7 @@
 #include "cabman.h"
 
 
-#if DBG
+#ifdef DBG
 
 ULONG DebugTraceLevel = MIN_TRACE;
 //ULONG DebugTraceLevel = MID_TRACE;

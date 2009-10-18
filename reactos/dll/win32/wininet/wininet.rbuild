@@ -7,7 +7,6 @@
 	<include base="wininet">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
 	<library>wine</library>
 	<library>mpr</library>
 	<library>shlwapi</library>
@@ -19,6 +18,7 @@
 	<library>secur32</library>
 	<library>crypt32</library>
 	<library>ws2_32</library>
+	<library>pseh</library>
 	<file>cookie.c</file>
 	<file>dialogs.c</file>
 	<file>ftp.c</file>

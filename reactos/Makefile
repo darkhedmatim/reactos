@@ -112,10 +112,6 @@
 #        will go from 80 to 40MB, memory usage from 58 to 38MB and the install CD
 #        from 18 to 13MB. The variable defaults to no.
 #
-#    ROS_GENERATE_RSYM
-#        This variable controls generation of RSYM symbol data. The value can be
-#        either yes (to generate symbol data) or no. The variable defaults to yes.
-#
 #    ROS_RBUILDFLAGS
 #        Pass parameters to rbuild.
 #            -v           Be verbose.
@@ -332,6 +328,8 @@ objcopy = $(Q)$(PREFIX_)objcopy
 dlltool = $(Q)$(PREFIX_)dlltool
 strip = $(Q)$(PREFIX_)strip
 windres = $(Q)$(PREFIX_)windres
+cl = $(Q)cl -nologo
+link = $(Q)link -nologo
 
 # Set utilities
 ifeq ($(OSTYPE),msys)

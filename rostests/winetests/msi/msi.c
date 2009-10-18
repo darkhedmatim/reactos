@@ -190,7 +190,7 @@ static void test_usefeature(void)
 
     if (!pMsiUseFeatureExA)
     {
-        win_skip("MsiUseFeatureExA not implemented\n");
+        skip("MsiUseFeatureExA not implemented\n");
         return;
     }
 
@@ -408,7 +408,7 @@ static void test_MsiGetFileHash(void)
 
     if (!pMsiGetFileHashA)
     {
-        win_skip("MsiGetFileHash not implemented\n");
+        skip("MsiGetFileHash not implemented\n");
         return;
     }
 
@@ -1221,7 +1221,7 @@ static void test_MsiQueryComponentState(void)
 
     if (!pMsiQueryComponentStateA)
     {
-        win_skip("MsiQueryComponentStateA not implemented\n");
+        skip("MsiQueryComponentStateA not implemented\n");
         return;
     }
 
@@ -3864,7 +3864,7 @@ static void test_MsiGetProductInfoEx(void)
 
     if (!pMsiGetProductInfoExA)
     {
-        win_skip("MsiGetProductInfoExA is not available\n");
+        skip("MsiGetProductInfoExA is not available\n");
         return;
     }
 
@@ -10958,7 +10958,7 @@ START_TEST(msi)
     test_MsiGetFileHash();
 
     if (!pConvertSidToStringSidA)
-        win_skip("ConvertSidToStringSidA not implemented\n");
+        skip("ConvertSidToStringSidA not implemented\n");
     else
     {
         /* These tests rely on get_user_sid that needs ConvertSidToStringSidA */

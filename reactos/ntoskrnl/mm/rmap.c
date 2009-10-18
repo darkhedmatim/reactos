@@ -24,7 +24,7 @@ typedef struct _MM_RMAP_ENTRY
    struct _MM_RMAP_ENTRY* Next;
    PEPROCESS Process;
    PVOID Address;
-#if DBG
+#ifdef DBG
    PVOID Caller;
 #endif
 }
@@ -396,7 +396,7 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
    }
    new_entry->Address = Address;
    new_entry->Process = (PEPROCESS)Process;
-#if DBG
+#ifdef DBG
 #ifdef __GNUC__
    new_entry->Caller = __builtin_return_address(0);
 #else
@@ -416,7 +416,7 @@ MmInsertRmap(PFN_TYPE Page, PEPROCESS Process,
    ExAcquireFastMutex(&RmapListLock);
    current_entry = MmGetRmapListHeadPage(Page);
    new_entry->Next = current_entry;
-#if DBG
+#ifdef DBG
    while (current_entry)
    {
       if (current_entry->Address == new_entry->Address && current_entry->Process == new_entry->Process)

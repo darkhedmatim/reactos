@@ -1,12 +1,3 @@
-/*
- * PROJECT:     ReactOS System Regression Testing Utility
- * LICENSE:     GNU GPLv2 or any later version as published by the Free Software Foundation
- * PURPOSE:     Shared header
- * COPYRIGHT:   Copyright 2008-2009 Christoph von Wittich <christoph_vw@reactos.org>
- *              Copyright 2009 Colin Finck <colin@reactos.org>
- */
-
-#include <dirent.h>
 #include <fcntl.h>
 #include <libvirt.h>
 #include <poll.h>
@@ -22,42 +13,30 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
-#include <sys/stat.h>
 #include <sys/sysinfo.h>
-#include <sys/types.h>
 
 #define EXIT_CHECKPOINT_REACHED     0
-#define EXIT_CONTINUE               1
-#define EXIT_DONT_CONTINUE          2
+#define EXIT_SHUTDOWN               1
+#define EXIT_ERROR                  2
+#define EXIT_NONCONTINUABLE_ERROR   3
 #define NUM_STAGES                  3
 
-typedef struct _stage
-{
+typedef struct {
     char BootDevice[8];
     char Checkpoint[80];
-}
-stage;
+} stage;
 
-typedef struct _Settings
-{
+typedef struct {
+    int MaxCrashes;
     int Timeout;
     char Filename[255];
     char Name[80];
     char HardDiskImage[255];
     int ImageSize;
     stage Stage[3];
-    unsigned int MaxCacheHits;
-    unsigned int MaxRetries;
-}
-Settings;
+} Settings;
 
-typedef struct _ModuleListEntry
-{
-    struct _ModuleListEntry* Next;
-    char* Module;
-    char* Path;
-}
-ModuleListEntry;
+Settings AppSettings;
 
 /* utils.c */
 char* ReadFile (const char* filename);
@@ -71,11 +50,5 @@ bool LoadSettings(const char* XmlConfig);
 int ProcessDebugData(const char* tty, int timeout, int stage);  
 
 /* raddr2line.c */
-void InitializeModuleList();
-void CleanModuleList();
-bool ResolveAddressFromFile(char* Buffer, size_t BufferSize, const char* Data);
-
-/* virt.c */
-extern const char* OutputPath;
-extern Settings AppSettings;
-extern ModuleListEntry* ModuleList;
+bool GetPackagePath(char* Buffer, int BuffSize, char* Module);
+bool ResolveAddressFromFile(char* Buffer, int BuffSize, char* Data);

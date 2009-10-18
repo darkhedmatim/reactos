@@ -1,10 +1,10 @@
-#if defined(__GNUC__)
 #define EXTINLINE extern inline __attribute__((always_inline)) 
-#elif defined(_MSC_VER)
-#define EXTINLINE extern __forceinline
-#else
-#error
-#endif
+
+EXTINLINE BOOL WINAPI
+EnableScrollBar(HWND hWnd, UINT wSBflags, UINT wArrows)
+{
+    return NtUserEnableScrollBar(hWnd, wSBflags, wArrows);
+}
 
 EXTINLINE BOOL WINAPI
 GetScrollBarInfo(HWND hWnd, LONG idObject, PSCROLLBARINFO psbi)

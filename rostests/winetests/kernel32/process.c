@@ -43,12 +43,6 @@
       ok((expected) == value, "Expected " #actual " to be %d (" #expected ") is %d\n", \
           (expected), value); \
     } while (0)
-#define expect_eq_s(expected, actual) \
-    do { \
-      LPCSTR value = (actual); \
-      ok(lstrcmpA((expected), value) == 0, "Expected " #actual " to be L\"%s\" (" #expected ") is L\"%s\"\n", \
-          expected, value); \
-    } while (0)
 #define expect_eq_ws_i(expected, actual) \
     do { \
       LPCWSTR value = (actual); \
@@ -56,10 +50,26 @@
           wine_dbgstr_w(expected), wine_dbgstr_w(value)); \
     } while (0)
 
+/* A simpler version of wine_dbgstr_w. Note that the returned buffer will be
+ * invalid after 16 calls to this funciton. */
+static const char *wine_dbgstr_w(LPCWSTR wstr)
+{
+  static char *buffers[16];
+  static int curr_buffer = 0;
+
+  int size;
+
+  curr_buffer = (curr_buffer + 1) % 16;
+  HeapFree(GetProcessHeap(), 0, buffers[curr_buffer]);
+  size = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+  buffers[curr_buffer] = HeapAlloc(GetProcessHeap(), 0, size);
+  size = WideCharToMultiByte(CP_ACP, 0, wstr, -1, buffers[curr_buffer], size, NULL, NULL);
+  return buffers[curr_buffer];
+}
+
 static HINSTANCE hkernel32;
 static LPVOID (WINAPI *pVirtualAllocEx)(HANDLE, LPVOID, SIZE_T, DWORD, DWORD);
 static BOOL   (WINAPI *pVirtualFreeEx)(HANDLE, LPVOID, SIZE_T, DWORD);
-static BOOL   (WINAPI *pQueryFullProcessImageNameA)(HANDLE hProcess, DWORD dwFlags, LPSTR lpExeName, PDWORD lpdwSize);
 static BOOL   (WINAPI *pQueryFullProcessImageNameW)(HANDLE hProcess, DWORD dwFlags, LPWSTR lpExeName, PDWORD lpdwSize);
 
 /* ############################### */
@@ -198,7 +208,6 @@ static int     init(void)
     hkernel32 = GetModuleHandleA("kernel32");
     pVirtualAllocEx = (void *) GetProcAddress(hkernel32, "VirtualAllocEx");
     pVirtualFreeEx = (void *) GetProcAddress(hkernel32, "VirtualFreeEx");
-    pQueryFullProcessImageNameA = (void *) GetProcAddress(hkernel32, "QueryFullProcessImageNameA");
     pQueryFullProcessImageNameW = (void *) GetProcAddress(hkernel32, "QueryFullProcessImageNameW");
     return 1;
 }
@@ -379,7 +388,7 @@ static void     doChild(const char* file, const char* option)
         ret = SetConsoleCP(1252);
         if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
         {
-            win_skip("Setting the codepage is not implemented\n");
+            win_skip("Setting the codepage is not implemented");
         }
         else
         {
@@ -918,72 +927,6 @@ static void test_CommandLine(void)
     okChildStringWA("Arguments", "CommandLineW", buffer2);
     release_memory();
     assert(DeleteFileA(resfile) != 0);
-
-    if (0) /* Test crashes on NT-based Windows. */
-    {
-        /* Test NULL application name and command line parameters. */
-        SetLastError(0xdeadbeef);
-        ret = CreateProcessA(NULL, NULL, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-        ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-        ok(GetLastError() == ERROR_INVALID_PARAMETER,
-           "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
-    }
-
-    buffer[0] = '\0';
-
-    /* Test empty application name parameter. */
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(buffer, NULL, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_PATH_NOT_FOUND ||
-       broken(GetLastError() == ERROR_FILE_NOT_FOUND) /* Win9x/WinME */ ||
-       broken(GetLastError() == ERROR_ACCESS_DENIED) /* Win98 */,
-       "Expected ERROR_PATH_NOT_FOUND, got %d\n", GetLastError());
-
-    buffer2[0] = '\0';
-
-    /* Test empty application name and command line parameters. */
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(buffer, buffer2, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_PATH_NOT_FOUND ||
-       broken(GetLastError() == ERROR_FILE_NOT_FOUND) /* Win9x/WinME */ ||
-       broken(GetLastError() == ERROR_ACCESS_DENIED) /* Win98 */,
-       "Expected ERROR_PATH_NOT_FOUND, got %d\n", GetLastError());
-
-    /* Test empty command line parameter. */
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(NULL, buffer2, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND ||
-       GetLastError() == ERROR_PATH_NOT_FOUND /* NT4 */ ||
-       GetLastError() == ERROR_BAD_PATHNAME /* Win98 */,
-       "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
-
-    strcpy(buffer, "doesnotexist.exe");
-    strcpy(buffer2, "does not exist.exe");
-
-    /* Test nonexistent application name. */
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(buffer, NULL, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(buffer2, NULL, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
-
-    /* Test nonexistent command line parameter. */
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(NULL, buffer, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret = CreateProcessA(NULL, buffer2, NULL, NULL, FALSE, 0L, NULL, NULL, &startup, &info);
-    ok(!ret, "CreateProcessA unexpectedly succeeded\n");
-    ok(GetLastError() == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
 }
 
 static void test_Directory(void)
@@ -1226,7 +1169,6 @@ static  void    test_SuspendFlag(void)
 static  void    test_DebuggingFlag(void)
 {
     char                buffer[MAX_PATH];
-    void               *processbase = NULL;
     PROCESS_INFORMATION	info;
     STARTUPINFOA       startup, us;
     DEBUG_EVENT         de;
@@ -1247,15 +1189,7 @@ static  void    test_DebuggingFlag(void)
     {
         ok(WaitForDebugEvent(&de, INFINITE), "reading debug event\n");
         ContinueDebugEvent(de.dwProcessId, de.dwThreadId, DBG_CONTINUE);
-        if (!dbg)
-        {
-            ok(de.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT,
-               "first event: %d\n", de.dwDebugEventCode);
-            processbase = de.u.CreateProcessInfo.lpBaseOfImage;
-        }
         if (de.dwDebugEventCode != EXCEPTION_DEBUG_EVENT) dbg++;
-        ok(de.dwDebugEventCode != LOAD_DLL_DEBUG_EVENT ||
-           de.u.LoadDll.lpBaseOfDll != processbase, "got LOAD_DLL for main module\n");
     } while (de.dwDebugEventCode != EXIT_PROCESS_DEBUG_EVENT);
 
     ok(dbg, "I have seen a debug event\n");
@@ -1620,53 +1554,6 @@ static void test_GetProcessVersion(void)
     CloseHandle(pi.hThread);
 }
 
-static void test_ProcessNameA(void)
-{
-#define INIT_STR "Just some words"
-    DWORD length, size;
-    CHAR buf[1024];
-
-    if (!pQueryFullProcessImageNameA)
-    {
-        win_skip("QueryFullProcessImageNameA unavailable (added in Windows Vista)\n");
-        return;
-    }
-    /* get the buffer length without \0 terminator */
-    length = 1024;
-    expect_eq_d(TRUE, pQueryFullProcessImageNameA(GetCurrentProcess(), 0, buf, &length));
-    expect_eq_d(length, lstrlenA(buf));
-
-    /*  when the buffer is too small
-     *  - function fail with error ERROR_INSUFFICIENT_BUFFER
-     *  - the size variable is not modified
-     * tested with the biggest too small size
-     */
-    size = length;
-    sprintf(buf,INIT_STR);
-    expect_eq_d(FALSE, pQueryFullProcessImageNameA(GetCurrentProcess(), 0, buf, &size));
-    expect_eq_d(ERROR_INSUFFICIENT_BUFFER, GetLastError());
-    expect_eq_d(length, size);
-    expect_eq_s(INIT_STR, buf);
-
-    /* retest with smaller buffer size
-     */
-    size = 4;
-    sprintf(buf,INIT_STR);
-    expect_eq_d(FALSE, pQueryFullProcessImageNameA(GetCurrentProcess(), 0, buf, &size));
-    expect_eq_d(ERROR_INSUFFICIENT_BUFFER, GetLastError());
-    expect_eq_d(4, size);
-    expect_eq_s(INIT_STR, buf);
-
-    /* this is a difference between the ascii and the unicode version
-     * the unicode version crashes when the size is big enough to hold the result
-     * ascii version throughs an error
-     */
-    size = 1024;
-    expect_eq_d(FALSE, pQueryFullProcessImageNameA(GetCurrentProcess(), 0, NULL, &size));
-    expect_eq_d(1024, size);
-    expect_eq_d(ERROR_INVALID_PARAMETER, GetLastError());
-}
-
 static void test_ProcessName(void)
 {
     HANDLE hSelf;
@@ -1790,7 +1677,6 @@ START_TEST(process)
     test_ExitCode();
     test_OpenProcess();
     test_GetProcessVersion();
-    test_ProcessNameA();
     test_ProcessName();
     test_Handles();
     /* things that can be tested:

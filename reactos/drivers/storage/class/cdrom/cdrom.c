@@ -126,7 +126,7 @@ typedef struct _CDROM_DATA {
 
     UCHAR MediaChangeCountDown;
 
-#if DBG
+#ifdef DBG
     //
     // Second timer to keep track of how long the media change IRP has been
     // in use.  If this value exceeds the timeout (#defined) then we should
@@ -176,7 +176,7 @@ typedef struct _CDROM_DATA {
 #define CDROM_SRB_LIST_SIZE          4
 
 
-#if DBG
+#ifdef DBG
 
 //
 // Used to detect the loss of the autorun irp.  The driver prints out a message
@@ -984,7 +984,7 @@ Return Value:
 
     deviceExtension->MediaChangeNoMedia = TRUE;
     cddata->MediaChangeIrp = NULL;
-#if DBG
+#ifdef DBG
     cddata->MediaChangeIrpTimeInUse = 0;
     cddata->MediaChangeIrpLost = FALSE;
 #endif
@@ -5746,7 +5746,7 @@ Return Value:
 
             cddata->MediaChangeCountDown--;
 
-#if DBG
+#ifdef DBG
             cddata->MediaChangeIrpTimeInUse = 0;
             cddata->MediaChangeIrpLost = FALSE;
 #endif
@@ -5833,7 +5833,7 @@ Return Value:
             }
         } else {
 
-#if DBG
+#ifdef DBG
             if(cddata->MediaChangeIrpLost == FALSE) {
                 if(cddata->MediaChangeIrpTimeInUse++ >
                    MEDIA_CHANGE_TIMEOUT_TIME) {

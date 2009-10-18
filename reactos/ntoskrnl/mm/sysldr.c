@@ -13,7 +13,6 @@
 #include <debug.h>
 
 /* GCC's incompetence strikes again */
-__inline
 VOID
 sprintf_nt(IN PCHAR Buffer,
            IN PCHAR Format,
@@ -29,7 +28,7 @@ sprintf_nt(IN PCHAR Buffer,
 
 LIST_ENTRY PsLoadedModuleList;
 KSPIN_LOCK PsLoadedModuleSpinLock;
-ULONG_PTR PsNtosImageBase;
+ULONG PsNtosImageBase;
 KMUTANT MmSystemLoadLock;
 extern ULONG NtGlobalFlag;
 
@@ -282,7 +281,7 @@ MiFindExportedRoutineByName(IN PVOID DllBase,
     Function = (PVOID)((ULONG_PTR)DllBase + ExportTable[Ordinal]);
 
     /* We found it! */
-    ASSERT(!(Function > (PVOID)ExportDirectory) &&
+    ASSERT((Function > (PVOID)ExportDirectory) &&
            (Function < (PVOID)((ULONG_PTR)ExportDirectory + ExportSize)));
     return Function;
 }
@@ -1334,7 +1333,7 @@ MiInitializeLoadedModuleList(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     LdrEntry = CONTAINING_RECORD(NextEntry,
                                  LDR_DATA_TABLE_ENTRY,
                                  InLoadOrderLinks);
-    PsNtosImageBase = (ULONG_PTR)LdrEntry->DllBase;
+    PsNtosImageBase = (ULONG)LdrEntry->DllBase;
 
     /* Loop the loader block */
     while (NextEntry != ListHead)

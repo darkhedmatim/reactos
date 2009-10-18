@@ -175,7 +175,7 @@ EngSecureMem(PVOID Address, ULONG Length)
 VOID APIENTRY
 EngUnsecureMem(HANDLE Mem)
 {
-  MmUnsecureVirtualMemory((PVOID) Mem);
+  return MmUnsecureVirtualMemory((PVOID) Mem);
 }
 
 /* EOF */

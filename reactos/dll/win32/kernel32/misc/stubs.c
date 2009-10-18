@@ -661,14 +661,8 @@ FindNextVolumeA(HANDLE handle,
                 LPSTR volume,
                 DWORD len)
 {
-    WCHAR *buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, len * sizeof(WCHAR));
+    WCHAR *buffer = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
     BOOL ret;
-
-    if (!buffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
 
     if ((ret = FindNextVolumeW( handle, buffer, len )))
     {
@@ -994,6 +988,15 @@ GetProcessWorkingSetSizeEx(IN HANDLE hProcess,
 
 BOOL
 WINAPI
+GetLogicalProcessorInformation(OUT PSYSTEM_LOGICAL_PROCESSOR_INFORMATION Buffer,
+                               IN OUT PDWORD ReturnLength)
+{
+    STUB;
+    return FALSE;
+}
+
+BOOL
+WINAPI
 GetNumaAvailableMemoryNode(IN UCHAR Node,
                            OUT PULONGLONG AvailableBytes)
 {
@@ -1047,7 +1050,7 @@ AddLocalAlternateComputerNameW(LPWSTR lpName, PNTSTATUS Status)
 
 NTSTATUS
 WINAPI
-BaseCleanupAppcompatCache(VOID)
+BaseCleanupAppcompatCache()
 {
     STUB;
     return STATUS_NOT_IMPLEMENTED;

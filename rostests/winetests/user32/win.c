@@ -118,16 +118,6 @@ static void check_parents( HWND hwnd, HWND ga_parent, HWND gwl_parent, HWND get_
     }
 }
 
-static BOOL ignore_message( UINT message )
-{
-    /* these are always ignored */
-    return (message >= 0xc000 ||
-            message == WM_GETICON ||
-            message == WM_GETOBJECT ||
-            message == WM_TIMECHANGE ||
-            message == WM_DEVICECHANGE);
-}
-
 static BOOL CALLBACK EnumChildProc( HWND hwndChild, LPARAM lParam)
 {
     (*(LPINT)lParam)++;
@@ -2322,10 +2312,7 @@ static void check_wnd_state_(const char *file, int line,
                              HWND active, HWND foreground, HWND focus, HWND capture)
 {
     ok_(file, line)(active == GetActiveWindow(), "GetActiveWindow() = %p\n", GetActiveWindow());
-    /* only check foreground if it belongs to the current thread */
-    /* foreground can be moved to a different app pretty much at any time */
-    if (foreground && GetForegroundWindow() &&
-        GetWindowThreadProcessId(GetForegroundWindow(), NULL) == GetCurrentThreadId())
+    if (foreground && GetForegroundWindow())
         ok_(file, line)(foreground == GetForegroundWindow(), "GetForegroundWindow() = %p\n", GetForegroundWindow());
     ok_(file, line)(focus == GetFocus(), "GetFocus() = %p\n", GetFocus());
     ok_(file, line)(capture == GetCapture(), "GetCapture() = %p\n", GetCapture());
@@ -2634,17 +2621,6 @@ static void test_capture_3(HWND hwnd1, HWND hwnd2)
     ok (ret, "releasecapture did not return TRUE after second try.\n");
 }
 
-/* PeekMessage wrapper that ignores the messages we don't care about */
-static BOOL peek_message( MSG *msg )
-{
-    BOOL ret;
-    do
-    {
-        ret = PeekMessageA(msg, 0, 0, 0, PM_REMOVE);
-    } while (ret && (msg->message == WM_TIMER || ignore_message(msg->message)));
-    return ret;
-}
-
 static void test_keyboard_input(HWND hwnd)
 {
     MSG msg;
@@ -2663,31 +2639,40 @@ static void test_keyboard_input(HWND hwnd)
     flush_events( TRUE );
 
     PostMessageA(hwnd, WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok( ret, "no message available\n");
+    do
+    {
+        ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
+        ok( ret, "no message available\n");
+    }
+    while (ret && msg.message >= 0xc000);
     ok(msg.hwnd == hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    do
+        ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
+    while (ret && (msg.message == WM_TIMER || msg.message >= 0xc000));
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == hwnd, "wrong focus window %p\n", GetFocus());
 
     PostThreadMessageA(GetCurrentThreadId(), WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(!msg.hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == hwnd, "wrong focus window %p\n", GetFocus());
 
     keybd_event(VK_SPACE, 0, 0, 0);
-    if (!peek_message(&msg))
+    do
+    {
+        ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
+    } while (ret && msg.message >= 0xc000);
+    if (!ret)
     {
         skip( "keybd_event didn't work, skipping keyboard test\n" );
         return;
     }
     ok(msg.hwnd == hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     SetFocus(0);
@@ -2696,28 +2681,25 @@ static void test_keyboard_input(HWND hwnd)
     flush_events( TRUE );
 
     PostMessageA(hwnd, WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == 0, "wrong focus window %p\n", GetFocus());
 
     PostThreadMessageA(GetCurrentThreadId(), WM_KEYDOWN, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(!msg.hwnd && msg.message == WM_KEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     ok(GetFocus() == 0, "wrong focus window %p\n", GetFocus());
 
     keybd_event(VK_SPACE, 0, 0, 0);
-    ret = peek_message(&msg);
-    ok(ret, "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == hwnd && msg.message == WM_SYSKEYDOWN, "hwnd %p message %04x\n", msg.hwnd, msg.message);
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 }
 
@@ -2727,11 +2709,11 @@ static BOOL wait_for_message( MSG *msg )
 
     for (;;)
     {
-        ret = peek_message(msg);
+        ret = PeekMessageA(msg, 0, 0, 0, PM_REMOVE);
         if (ret)
         {
             if (msg->message == WM_PAINT) DispatchMessage(msg);
-            else break;
+            else if (msg->message < 0xc000) break;  /* skip registered messages */
         }
         else if (MsgWaitForMultipleObjects( 0, NULL, FALSE, 100, QS_ALLINPUT ) == WAIT_TIMEOUT) break;
     }
@@ -2784,7 +2766,9 @@ static void test_mouse_input(HWND hwnd)
     /* Check that setting the same position may generate WM_MOUSEMOVE */
     SetCursorPos(x, y);
     msg.message = 0;
-    ret = peek_message(&msg);
+    do
+        ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
+    while (ret && msg.message >= 0xc000);  /* skip registered messages */
     if (ret)
     {
         ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE, "hwnd %p message %04x\n",
@@ -2805,11 +2789,11 @@ static void test_mouse_input(HWND hwnd)
     /* FIXME: SetCursorPos in Wine generates additional WM_MOUSEMOVE message */
     while (PeekMessageA(&msg, 0, 0, 0, PM_REMOVE))
     {
-        if (msg.message == WM_TIMER || ignore_message(msg.message)) continue;
+        if (msg.message == WM_TIMER || msg.message >= 0xc000) continue;  /* skip registered messages */
         ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE,
            "hwnd %p message %04x\n", msg.hwnd, msg.message);
     }
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok( !ret, "message %04x available\n", msg.message);
 
     mouse_event(MOUSEEVENTF_MOVE, -1, -1, 0, 0);
@@ -2869,7 +2853,7 @@ static void test_mouse_input(HWND hwnd)
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
 
-    ret = peek_message(&msg);
+    ret = PeekMessageA(&msg, 0, 0, 0, PM_REMOVE);
     ok(!ret, "message %04x available\n", msg.message);
 
     ShowWindow(popup, SW_HIDE);
@@ -2897,10 +2881,10 @@ static void test_mouse_input(HWND hwnd)
     ok(ret, "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONDOWN, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
-    ok(peek_message(&msg), "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
     ok(msg.hwnd == popup && msg.message == WM_LBUTTONUP, "hwnd %p/%p message %04x\n",
        msg.hwnd, popup, msg.message);
-    ok(peek_message(&msg), "no message available\n");
+    ok(PeekMessageA(&msg, 0, 0, 0, PM_REMOVE), "no message available\n");
 
     /* Test WM_MOUSEACTIVATE */
 #define TEST_MOUSEACTIVATE(A,B)                                                          \
@@ -3216,59 +3200,6 @@ static void test_window_styles(void)
     check_window_style(WS_CHILD, WS_EX_DLGMODALFRAME|WS_EX_STATICEDGE, WS_CHILD, WS_EX_STATICEDGE|WS_EX_WINDOWEDGE|WS_EX_DLGMODALFRAME);
     check_window_style(WS_CAPTION, WS_EX_STATICEDGE, WS_CLIPSIBLINGS|WS_CAPTION, WS_EX_STATICEDGE|WS_EX_WINDOWEDGE);
     check_window_style(0, WS_EX_APPWINDOW, WS_CLIPSIBLINGS|WS_CAPTION, WS_EX_APPWINDOW|WS_EX_WINDOWEDGE);
-}
-
-static void test_scrollwindow( HWND hwnd)
-{
-    HDC hdc;
-    RECT rc, rc2, rc3;
-    COLORREF colr;
-
-    ShowWindow( hwnd, SW_SHOW);
-    UpdateWindow( hwnd);
-    flush_events( TRUE );
-    GetClientRect( hwnd, &rc);
-    hdc = GetDC( hwnd);
-    /* test ScrollWindow(Ex) with no clip rectangle */
-    /* paint the lower half of the window black */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    FillRect( hdc, &rc2, GetStockObject(BLACK_BRUSH));
-    /* paint the upper half of the window white */
-    rc2.bottom = rc2.top;
-    rc2.top =0;
-    FillRect( hdc, &rc2, GetStockObject(WHITE_BRUSH));
-    /* scroll lower half up */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    ScrollWindowEx( hwnd, 0, - rc2.top, &rc2, NULL, NULL, NULL, SW_ERASE);
-    flush_events(FALSE);
-    /* expected: black should have scrolled to the upper half */
-    colr = GetPixel( hdc, (rc2.left+rc2.right)/ 2,  rc2.bottom / 4 );
-    ok ( colr == 0, "pixel should be black, color is %08x\n", colr);
-    /* Repeat that test of ScrollWindow(Ex) now with clip rectangle */
-    /* paint the lower half of the window black */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    FillRect( hdc, &rc2, GetStockObject(BLACK_BRUSH));
-    /* paint the upper half of the window white */
-    rc2.bottom = rc2.top;
-    rc2.top =0;
-    FillRect( hdc, &rc2, GetStockObject(WHITE_BRUSH));
-    /* scroll lower half up */
-    rc2 = rc;
-    rc2.top = ( rc2.top + rc2.bottom) / 2;
-    rc3 = rc;
-    rc3.left = rc3.right / 4;
-    rc3.right -= rc3.right / 4;
-    ScrollWindowEx( hwnd, 0, - rc2.top, &rc2, &rc3, NULL, NULL, SW_ERASE);
-    flush_events(FALSE);
-    /* expected: black should have scrolled to the upper half */
-    colr = GetPixel( hdc, (rc2.left+rc2.right)/ 2,  rc2.bottom / 4 );
-    ok ( colr == 0, "pixel should be black, color is %08x\n", colr);
-
-    /* clean up */
-    ReleaseDC( hwnd, hdc);
 }
 
 static void test_scrollvalidate( HWND parent)
@@ -4912,75 +4843,6 @@ static void test_Expose(void)
     DestroyWindow(mw);
 }
 
-static LRESULT CALLBACK TestNCRedraw_WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    static UINT ncredrawflags;
-    PAINTSTRUCT ps;
-
-    switch(msg)
-    {
-    case WM_CREATE:
-        ncredrawflags = *(UINT *) (((CREATESTRUCT *)lParam)->lpCreateParams);
-        return 0;
-    case WM_NCPAINT:
-        RedrawWindow(hwnd, NULL, NULL, ncredrawflags);
-        break;
-    case WM_PAINT:
-        BeginPaint(hwnd, &ps);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-static void run_NCRedrawLoop(UINT flags)
-{
-    HWND hwnd;
-    MSG msg;
-
-    UINT loopcount = 0;
-
-    hwnd = CreateWindowA("TestNCRedrawClass", "MainWindow",
-                         WS_OVERLAPPEDWINDOW, 0, 0, 200, 100,
-                         NULL, NULL, 0, &flags);
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-    while(PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE) != 0)
-    {
-        if (msg.message == WM_PAINT) loopcount++;
-        if (loopcount >= 100) break;
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT);
-    }
-    if (flags == (RDW_INVALIDATE | RDW_FRAME))
-        todo_wine ok(loopcount < 100, "Detected infinite WM_PAINT loop (%x).\n", flags);
-    else
-        ok(loopcount < 100, "Detected infinite WM_PAINT loop (%x).\n", flags);
-    DestroyWindow(hwnd);
-}
-
-static void test_NCRedraw(void)
-{
-    WNDCLASSA wndclass;
-
-    wndclass.lpszClassName = "TestNCRedrawClass";
-    wndclass.style = CS_HREDRAW | CS_VREDRAW;
-    wndclass.lpfnWndProc = TestNCRedraw_WndProc;
-    wndclass.cbClsExtra = 0;
-    wndclass.cbWndExtra = 0;
-    wndclass.hInstance = 0;
-    wndclass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wndclass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wndclass.hbrBackground = GetStockObject(WHITE_BRUSH);
-    wndclass.lpszMenuName = NULL;
-
-    RegisterClassA(&wndclass);
-
-    run_NCRedrawLoop(RDW_INVALIDATE | RDW_FRAME);
-    run_NCRedrawLoop(RDW_INVALIDATE);
-}
-
 static void test_GetWindowModuleFileName(void)
 {
     HWND hwnd;
@@ -5769,7 +5631,6 @@ START_TEST(win)
     test_SetMenu(hwndMain);
     test_SetFocus(hwndMain);
     test_SetActiveWindow(hwndMain);
-    test_NCRedraw();
 
     test_children_zorder(hwndMain);
     test_popup_zorder(hwndMain2, hwndMain);
@@ -5777,7 +5638,6 @@ START_TEST(win)
     test_mouse_input(hwndMain);
     test_validatergn(hwndMain);
     test_nccalcscroll( hwndMain);
-    test_scrollwindow( hwndMain);
     test_scrollvalidate( hwndMain);
     test_scrolldc( hwndMain);
     test_scroll();

@@ -28,16 +28,10 @@ if "%1" == "" (
     call :LOG
     goto :EOC
 ) else (
-    call :WHILE %*
+    "%_ROSBE_BASEDIR%\Build.cmd" %1_clean
+    goto :EOC
 )
-goto :EOC
 
-:WHILE
-    if "%1" == "" goto :EOF
-    call "%_ROSBE_BASEDIR%\Build.cmd" %1_clean
-    shift /1
-    echo.
-    GOTO :WHILE %*
 
 :: Check if we have any logs to clean, if so, clean them.
 :LOG

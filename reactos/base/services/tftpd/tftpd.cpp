@@ -111,6 +111,7 @@ void WINAPI ServiceMain(DWORD /*argc*/, TCHAR* /*argv*/[])
         init();
         fd_set readfds;
         timeval tv;
+        int fdsReady = 0;
         tv.tv_sec = 20;
         tv.tv_usec = 0;
 
@@ -296,6 +297,7 @@ void printWindowsError()
     if (dw)
     {
         LPVOID lpMsgBuf;
+        LPVOID lpDisplayBuf;
 
         FormatMessage(
             FORMAT_MESSAGE_ALLOCATE_BUFFER |
@@ -307,11 +309,8 @@ void printWindowsError()
             (LPTSTR) &lpMsgBuf,
             0, NULL );
 
-        _tprintf(_T("Error: %s\nPress Enter..\n"), (LPTSTR)lpMsgBuf);
+        printf("Error: %s\nPress Enter..\n", lpMsgBuf);
         getchar();
-
-        if(lpMsgBuf)
-            LocalFree(lpMsgBuf);
     }
 }
 
@@ -865,7 +864,7 @@ void processRequest(void *lpParam)
                         val = blksize;
 
                     req.blksize = val;
-                    sprintf(outPtr, "%lu", val);
+                    sprintf(outPtr, "%u", val);
                     outPtr += strlen(outPtr) + 1;
                 }
                 else if (!strcasecmp(inPtr, "tsize"))
@@ -881,7 +880,7 @@ void processRequest(void *lpParam)
                             if (ftell(req.file) >= 0)
                             {
                                 req.tsize = ftell(req.file);
-                                sprintf(outPtr, "%lu", req.tsize);
+                                sprintf(outPtr, "%u", req.tsize);
                                 outPtr += strlen(outPtr) + 1;
                             }
                             else
@@ -909,7 +908,7 @@ void processRequest(void *lpParam)
                     else
                     {
                         req.tsize = 0;
-                        sprintf(outPtr, "%lu", req.tsize);
+                        sprintf(outPtr, "%u", req.tsize);
                         outPtr += strlen(outPtr) + 1;
                     }
                 }
@@ -927,7 +926,7 @@ void processRequest(void *lpParam)
 
                     req.timeout = val;
                     req.expiry = time(NULL) + req.timeout;
-                    sprintf(outPtr, "%lu", val);
+                    sprintf(outPtr, "%u", val);
                     outPtr += strlen(outPtr) + 1;
                 }
 
@@ -1222,7 +1221,7 @@ void processRequest(void *lpParam)
                 }
                 else
                 {
-                    sprintf(req.serverError.errormessage, "%lu Blocks Served", req.fblock - 1);
+                    sprintf(req.serverError.errormessage, "%u Blocks Served", req.fblock - 1);
                     logMess(&req, 2);
                     req.attempt = UCHAR_MAX;
                     break;
@@ -1317,7 +1316,7 @@ void processRequest(void *lpParam)
                             {
                                 fclose(req.file);
                                 req.file = 0;
-                                sprintf(req.serverError.errormessage, "%lu Blocks Received", req.fblock);
+                                sprintf(req.serverError.errormessage, "%u Blocks Received", req.fblock);
                                 logMess(&req, 2);
                                 req.attempt = UCHAR_MAX;
                                 break;
@@ -1568,7 +1567,7 @@ void mySplit(char *name, char *value, char *source, char splitChar)
     //printf("%s %s\n", name, value);
 }
 
-bool getSection(const char *sectionName, char *buffer, BYTE serial, char *fileName)
+bool getSection(char *sectionName, char *buffer, BYTE serial, char *fileName)
 {
     //printf("%s=%s\n",fileName,sectionName);
     char section[128];
@@ -1598,7 +1597,7 @@ bool getSection(const char *sectionName, char *buffer, BYTE serial, char *fileNa
                         if (strstr(buff, "[") == buff)
                             break;
 
-                        if (((*buff) >= '0' && (*buff) <= '9') || ((*buff) >= 'A' && (*buff) <= 'Z') || ((*buff) >= 'a' && (*buff) <= 'z') || (((*buff) && strchr("/\\?*", (*buff)))))
+                        if ((*buff) >= '0' && (*buff) <= '9' || (*buff) >= 'A' && (*buff) <= 'Z' || (*buff) >= 'a' && (*buff) <= 'z' || ((*buff) && strchr("/\\?*", (*buff))))
                         {
                             buffer += sprintf(buffer, "%s", buff);
                             buffer++;
@@ -1813,7 +1812,7 @@ void init()
                 }
                 else
                 {
-                    sprintf(logBuff, "Section [HOME], alias %s too large", name);
+                    sprintf(logBuff, "Section [HOME], alias name too large", name);
                     logMess(logBuff, 1);
                 }
             }
@@ -2107,7 +2106,7 @@ void init()
 
     if (lEvent == NULL)
     {
-        printf("CreateEvent error: %lu\n", GetLastError());
+        printf("CreateEvent error: %d\n", GetLastError());
         exit(-1);
     }
     else if ( GetLastError() == ERROR_ALREADY_EXISTS )
@@ -2125,7 +2124,7 @@ void init()
 
     if (tEvent == NULL)
     {
-        printf("CreateEvent error: %lu\n", GetLastError());
+        printf("CreateEvent error: %d\n", GetLastError());
         exit(-1);
     }
     else if ( GetLastError() == ERROR_ALREADY_EXISTS )
@@ -2143,7 +2142,7 @@ void init()
 
     if (sEvent == NULL)
     {
-        printf("CreateEvent error: %lu\n", GetLastError());
+        printf("CreateEvent error: %d\n", GetLastError());
         exit(-1);
     }
     else if ( GetLastError() == ERROR_ALREADY_EXISTS )
@@ -2161,7 +2160,7 @@ void init()
 
     if (cEvent == NULL)
     {
-        printf("CreateEvent error: %lu\n", GetLastError());
+        printf("CreateEvent error: %d\n", GetLastError());
         exit(-1);
     }
     else if ( GetLastError() == ERROR_ALREADY_EXISTS )
@@ -2195,6 +2194,8 @@ void init()
 void logMess(char *logBuff, BYTE logLevel)
 {
     WaitForSingleObject(lEvent, INFINITE);
+
+    char tempbuff[256];
 
     if (verbatim)
         printf("%s\n", logBuff);

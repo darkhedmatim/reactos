@@ -744,30 +744,6 @@ static HRESULT get_data_from_global(IDataObject *data, FORMATETC *fmt, HGLOBAL *
     return hr;
 }
 
-static HRESULT get_data_from_enhmetafile(IDataObject *data, FORMATETC *fmt, HGLOBAL *mem)
-{
-    HENHMETAFILE copy;
-    HRESULT hr;
-    FORMATETC mem_fmt;
-    STGMEDIUM med;
-
-    *mem = NULL;
-
-    mem_fmt = *fmt;
-    mem_fmt.tymed = TYMED_ENHMF;
-
-    hr = IDataObject_GetData(data, &mem_fmt, &med);
-    if(FAILED(hr)) return hr;
-
-    copy = CopyEnhMetaFileW(med.u.hEnhMetaFile, NULL);
-    if(copy) *mem = (HGLOBAL)copy;
-    else hr = E_FAIL;
-
-    ReleaseStgMedium(&med);
-
-    return hr;
-}
-
 /***********************************************************************
  *                render_format
  *
@@ -796,10 +772,6 @@ static HRESULT render_format(IDataObject *data, LPFORMATETC fmt)
     else if(fmt->tymed & TYMED_HGLOBAL)
     {
         hr = get_data_from_global(data, fmt, &clip_data);
-    }
-    else if(fmt->tymed & TYMED_ENHMF)
-    {
-        hr = get_data_from_enhmetafile(data, fmt, &clip_data);
     }
     else
     {
@@ -1025,7 +997,8 @@ static HRESULT get_priv_data(ole_priv_data **data)
         {
             char buf[100];
             GetClipboardFormatNameA(cf, buf, sizeof(buf));
-            TRACE("cf %04x %s\n", cf, buf);
+            TRACE("\tcf %04x %s\n", cf, buf);
+            ;
         }
         TRACE("count %d\n", count);
         size += count * sizeof(ret->entries[0]);
@@ -1133,22 +1106,6 @@ static HRESULT get_stgmed_for_storage(HGLOBAL h, STGMEDIUM *med)
     return hr;
 }
 
-/************************************************************************
- *                    get_stgmed_for_emf
- *
- * Returns a stg medium with an enhanced metafile based on the handle
- */
-static HRESULT get_stgmed_for_emf(HENHMETAFILE hemf, STGMEDIUM *med)
-{
-    med->pUnkForRelease = NULL;
-    med->tymed = TYMED_NULL;
-
-    med->u.hEnhMetaFile = CopyEnhMetaFileW(hemf, NULL);
-    if(!med->u.hEnhMetaFile) return E_OUTOFMEMORY;
-    med->tymed = TYMED_ENHMF;
-    return S_OK;
-}
-
 static inline BOOL string_off_equal(const DVTARGETDEVICE *t1, WORD off1, const DVTARGETDEVICE *t2, WORD off2)
 {
     const WCHAR *str1, *str2;
@@ -1238,8 +1195,6 @@ static HRESULT WINAPI snapshot_GetData(IDataObject *iface, FORMATETC *fmt,
         hr = get_stgmed_for_global(h, med);
     else if(mask & TYMED_ISTREAM)
         hr = get_stgmed_for_stream(h, med);
-    else if(mask & TYMED_ENHMF)
-        hr = get_stgmed_for_emf((HENHMETAFILE)h, med);
     else
     {
         FIXME("Unhandled tymed - mask %x req tymed %x\n", mask, fmt->tymed);

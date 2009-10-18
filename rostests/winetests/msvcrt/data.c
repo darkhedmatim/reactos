@@ -31,12 +31,12 @@
 #include <process.h>
 #include <errno.h>
 
-typedef void (__cdecl *_INITTERMFUN)(void);
-static void (__cdecl *p_initterm)(_INITTERMFUN *start, _INITTERMFUN *end);
+typedef void (*_INITTERMFUN)(void);
+static void (*p_initterm)(_INITTERMFUN *start, _INITTERMFUN *end);
 
 static int callbacked;
 
-static void __cdecl initcallback(void)
+static void initcallback(void)
 {
    callbacked++;
 }

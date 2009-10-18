@@ -14,7 +14,6 @@
     <library>advapi32</library>
     <library>kernel32</library>
     <library>uuid</library>
-    <file>splitpath.c</file>
     <file>winefile.c</file>
     <file>rsrc.rc</file>
   </module>

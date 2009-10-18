@@ -1,7 +1,7 @@
 /*
  * Slovak Language resource file
- * Translated by: M·rio KaËm·r /Mario Kacmar/ aka Kario (kario@szm.sk)
- * Last changed:  02-07-2009
+ * Translated by: M·rio KaËm·r /Mario Kacmar/ aka Kario
+ * Last changed:  28-04-2009
  */
 
 LANGUAGE LANG_SLOVAK, SUBLANG_DEFAULT
@@ -43,23 +43,17 @@ BEGIN
         MENUITEM "Panel n·strojov\tCtrl+T", IDM_VIEWTOOLBOX, CHECKED
         MENUITEM "Paleta farieb\tCtrl+L", IDM_VIEWCOLORPALETTE, CHECKED
         MENUITEM "Stavov˝ riadok", IDM_VIEWSTATUSBAR, CHECKED
-        MENUITEM "Panel pÌsma", IDM_FORMATICONBAR, CHECKED, GRAYED
+        MENUITEM "Format icon bar", IDM_FORMATICONBAR, CHECKED, GRAYED
         MENUITEM SEPARATOR
         POPUP "Lupa" //Zoom
         BEGIN
-            POPUP "VlastnÈ zv‰Ëöenie" //PouûÌvateæom definovanÈ
-            BEGIN
-                MENUITEM "12,5%", IDM_VIEWZOOM125
-                MENUITEM "25%", IDM_VIEWZOOM25
-                MENUITEM "50%", IDM_VIEWZOOM50
-                MENUITEM "100%", IDM_VIEWZOOM100
-                MENUITEM "200%", IDM_VIEWZOOM200
-                MENUITEM "400%", IDM_VIEWZOOM400
-                MENUITEM "800%", IDM_VIEWZOOM800
-            END
-            MENUITEM SEPARATOR
-            MENUITEM "Zobraziù mrieûku\tCtrl+G", IDM_VIEWSHOWGRID
-            MENUITEM "Zobraziù miniat˙ru", IDM_VIEWSHOWMINIATURE
+            MENUITEM "12,5%", IDM_VIEWZOOM125
+            MENUITEM "25%", IDM_VIEWZOOM25
+            MENUITEM "50%", IDM_VIEWZOOM50
+            MENUITEM "100%", IDM_VIEWZOOM100
+            MENUITEM "200%", IDM_VIEWZOOM200
+            MENUITEM "400%", IDM_VIEWZOOM400
+            MENUITEM "800%", IDM_VIEWZOOM800
         END
         MENUITEM "Cel· obrazovka\tCtrl+F", IDM_VIEWFULLSCREEN
     END
@@ -102,7 +96,6 @@ BEGIN
     "^A", IDM_EDITSELECTALL
     "^T", IDM_VIEWTOOLBOX
     "^L", IDM_VIEWCOLORPALETTE
-    "^G", IDM_VIEWSHOWGRID
     "^F", IDM_VIEWFULLSCREEN
     "^R", IDM_IMAGEROTATEMIRROR
     "^W", IDM_IMAGECHANGESIZE
@@ -136,8 +129,8 @@ BEGIN
     EDITTEXT IDD_ATTRIBUTESEDIT2, 110, 40, 35, 12
     LTEXT "äÌrka:", IDD_ATTRIBUTESTEXT1, 10, 40, 30, 10
     LTEXT "V˝öka:", IDD_ATTRIBUTESTEXT2, 80, 40, 30, 10
-    LTEXT "D·tum zmeny:", IDD_ATTRIBUTESTEXT3, 10, 5, 60, 10 //File date
-    LTEXT "Veækosù s˙boru:", IDD_ATTRIBUTESTEXT4, 10, 15, 60, 10 //File size
+    LTEXT "File date:", IDD_ATTRIBUTESTEXT3, 10, 5, 60, 10
+    LTEXT "File size:", IDD_ATTRIBUTESTEXT4, 10, 15, 60, 10
     LTEXT "RozlÌöenie:", IDD_ATTRIBUTESTEXT5, 10, 25, 60, 10
     LTEXT "Nie je k dispozÌcii", IDD_ATTRIBUTESTEXT6, 70, 5, 60, 10
     LTEXT "Nie je k dispozÌcii", IDD_ATTRIBUTESTEXT7, 70, 15, 60, 10
@@ -160,11 +153,11 @@ FONT 8, "MS Shell Dlg"
 CAPTION "Zmena veækosti"
 BEGIN
     GROUPBOX "Zmeniù veækosù", IDD_CHANGESIZEGROUP, 6, 6, 142, 66
-    ICON IDI_HORZSTRETCH, IDD_CHANGESIZEICON1, 12, 18, 32, 32
+    ICON IDI_HORZSTRETCH, IDD_CHANGESIZEICON1, 12, 18
     LTEXT "&Vodorovne:", IDD_CHANGESIZETEXT1, 45, 24, 40, 10
     EDITTEXT IDD_CHANGESIZEEDIT1, 90, 23, 32, 12
     LTEXT "%", IDD_CHANGESIZETEXT2, 125, 24, 15, 10
-    ICON IDI_VERTSTRETCH, IDD_CHANGESIZEICON2, 12, 43, 32, 32
+    ICON IDI_VERTSTRETCH, IDD_CHANGESIZEICON2, 12, 43
     LTEXT "&Zvislo:", IDD_CHANGESIZETEXT3, 45, 49, 40, 10
     EDITTEXT IDD_CHANGESIZEEDIT2, 90, 48, 32, 12
     LTEXT "%", IDD_CHANGESIZETEXT4, 125, 49, 15, 10
@@ -180,7 +173,6 @@ BEGIN
     IDS_INFOTEXT, "Skic·r systÈmu ReactOS je dostupn˝ za podmienok GNU Lesser General Public License (LGPL) verzia 3 (viÔ www.gnu.org)"
     IDS_SAVEPROMPTTEXT, "Chcete uloûiù vykonanÈ zmeny do %s?"
     IDS_DEFAULTFILENAME, "Bez n·zvu.bmp"
-    IDS_MINIATURETITLE, "Miniature"
     IDS_TOOLTIP1, "Voæn˝ v˝ber"
     IDS_TOOLTIP2, "V˝ber"
     IDS_TOOLTIP3, "Guma"
@@ -197,8 +189,6 @@ BEGIN
     IDS_TOOLTIP14, "PolygÛn" //mnohouholnÌk
     IDS_TOOLTIP15, "Elipsa"
     IDS_TOOLTIP16, "Zaoblen˝ obdÂûnik"
-    IDS_OPENFILTER, "S˙bory bitov˝ch m·p (*.bmp;*.dib)\1*.bmp;*.dib\1Vöetky s˙bory (*.*)\1*.*\1"
-    IDS_SAVEFILTER, "24-bitov· mapa (*.bmp;*.dib)\1*.bmp;*.dib\1"
-    IDS_FILESIZE, "%d bytes"
-    IDS_PRINTRES, "%d x %d pixels per meter"
+    IDS_OPENFILTER, "Bitmap files (*.bmp;*.dib)\1*.bmp;*.dib\1All files (*.*)\1*.*\1"
+    IDS_SAVEFILTER, "24 bit bitmap (*.bmp;*.dib)\1*.bmp;*.dib\1"
 END

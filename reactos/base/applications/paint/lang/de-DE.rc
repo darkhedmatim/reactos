@@ -46,19 +46,13 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "Zoom"
         BEGIN
-            POPUP "Benutzerdefiniert"
-            BEGIN
-                MENUITEM "12,5%", IDM_VIEWZOOM125
-                MENUITEM "25%", IDM_VIEWZOOM25
-                MENUITEM "50%", IDM_VIEWZOOM50
-                MENUITEM "100%", IDM_VIEWZOOM100
-                MENUITEM "200%", IDM_VIEWZOOM200
-                MENUITEM "400%", IDM_VIEWZOOM400
-                MENUITEM "800%", IDM_VIEWZOOM800
-            END
-            MENUITEM SEPARATOR
-            MENUITEM "Raster anzeigen", IDM_VIEWSHOWGRID
-            MENUITEM "Miniaturansicht anzeigen", IDM_VIEWSHOWMINIATURE
+            MENUITEM "12,5%", IDM_VIEWZOOM125
+            MENUITEM "25%", IDM_VIEWZOOM25
+            MENUITEM "50%", IDM_VIEWZOOM50
+            MENUITEM "100%", IDM_VIEWZOOM100
+            MENUITEM "200%", IDM_VIEWZOOM200
+            MENUITEM "400%", IDM_VIEWZOOM400
+            MENUITEM "800%", IDM_VIEWZOOM800
         END
         MENUITEM "Gesamtbild\tStrg+G", IDM_VIEWFULLSCREEN
     END
@@ -134,12 +128,12 @@ BEGIN
     EDITTEXT IDD_ATTRIBUTESEDIT2, 110, 40, 35, 12
     LTEXT "Breite:", IDD_ATTRIBUTESTEXT1, 10, 40, 30, 10
     LTEXT "Höhe:", IDD_ATTRIBUTESTEXT2, 80, 40, 30, 10
-    LTEXT "Dateidatum:", IDD_ATTRIBUTESTEXT3, 10, 5, 50, 10
-    LTEXT "Dateigröße:", IDD_ATTRIBUTESTEXT4, 10, 15, 50, 10
-    LTEXT "Auflösung:", IDD_ATTRIBUTESTEXT5, 10, 25, 50, 10
-    LTEXT "Nicht verfügbar", IDD_ATTRIBUTESTEXT6, 60, 5, 90, 10
-    LTEXT "Nicht verfügbar", IDD_ATTRIBUTESTEXT7, 60, 15, 90, 10
-    LTEXT "Nicht verfügbar", IDD_ATTRIBUTESTEXT8, 60, 25, 90, 10
+    LTEXT "Dateidatum:", IDD_ATTRIBUTESTEXT3, 10, 5, 60, 10
+    LTEXT "Dateigröße:", IDD_ATTRIBUTESTEXT4, 10, 15, 60, 10
+    LTEXT "Auflösung:", IDD_ATTRIBUTESTEXT5, 10, 25, 60, 10
+    LTEXT "Nicht verfügbar", IDD_ATTRIBUTESTEXT6, 70, 5, 60, 10
+    LTEXT "Nicht verfügbar", IDD_ATTRIBUTESTEXT7, 70, 15, 60, 10
+    LTEXT "Nicht verfügbar", IDD_ATTRIBUTESTEXT8, 70, 25, 60, 10
     GROUPBOX "Maßeinheit", IDD_ATTRIBUTESGROUP1, 6, 57, 139, 27
     AUTORADIOBUTTON "Zoll", IDD_ATTRIBUTESRB1, 12, 69, 35, 10, WS_GROUP
     AUTORADIOBUTTON "cm", IDD_ATTRIBUTESRB2, 52, 69, 35, 10
@@ -158,11 +152,11 @@ FONT 8, "MS Shell Dlg"
 CAPTION "Größe ändern"
 BEGIN
     GROUPBOX "Größe ändern", IDD_CHANGESIZEGROUP, 6, 6, 142, 66
-    ICON IDI_HORZSTRETCH, IDD_CHANGESIZEICON1, 12, 18, 32, 32
+    ICON IDI_HORZSTRETCH, IDD_CHANGESIZEICON1, 12, 18
     LTEXT "Horizontal:", IDD_CHANGESIZETEXT1, 45, 24, 40, 10
     EDITTEXT IDD_CHANGESIZEEDIT1, 90, 23, 32, 12
     LTEXT "%", IDD_CHANGESIZETEXT2, 125, 24, 15, 10
-    ICON IDI_VERTSTRETCH, IDD_CHANGESIZEICON2, 12, 43, 32, 32
+    ICON IDI_VERTSTRETCH, IDD_CHANGESIZEICON2, 12, 43
     LTEXT "Vertikal:", IDD_CHANGESIZETEXT3, 45, 49, 40, 10
     EDITTEXT IDD_CHANGESIZEEDIT2, 90, 48, 32, 12
     LTEXT "%", IDD_CHANGESIZETEXT4, 125, 49, 15, 10
@@ -178,7 +172,6 @@ BEGIN
     IDS_INFOTEXT, "Paint für ReactOS steht unter der GNU Lesser General Public License (LGPL) Version 3. (siehe www.gnu.org)"
     IDS_SAVEPROMPTTEXT, "Möchten Sie die Änderungen an %s speichern?"
     IDS_DEFAULTFILENAME, "Unbenannt.bmp"
-    IDS_MINIATURETITLE, "Miniaturansicht"
     IDS_TOOLTIP1, "Freie Auswahl"
     IDS_TOOLTIP2, "Auswahl"
     IDS_TOOLTIP3, "Radierer"
@@ -197,6 +190,4 @@ BEGIN
     IDS_TOOLTIP16, "Abgerundetes Rechteck"
     IDS_OPENFILTER, "Bitmapdateien (*.bmp;*.dib)\1*.bmp;*.dib\1Alle Dateien (*.*)\1*.*\1"
     IDS_SAVEFILTER, "24-Bit-Bitmap (*.bmp;*.dib)\1*.bmp;*.dib\1"
-    IDS_FILESIZE, "%d Bytes"
-    IDS_PRINTRES, "%d x %d Pixel pro Meter"
 END

@@ -42,8 +42,8 @@ RTL_CRITICAL_SECTION ConsoleLock;
 extern BOOL WINAPI DefaultConsoleCtrlHandler(DWORD Event);
 extern __declspec(noreturn) VOID CALLBACK ConsoleControlDispatcher(DWORD CodeAndFlag);
 
-extern BOOL FASTCALL NlsInit(VOID);
-extern VOID FASTCALL NlsUninit(VOID);
+extern BOOL FASTCALL NlsInit();
+extern VOID FASTCALL NlsUninit();
 BOOLEAN InWindows = FALSE;
 
 HANDLE

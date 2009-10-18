@@ -64,9 +64,8 @@ BOOL
 FASTCALL
 PATH_Delete(HPATH hPath)
 {
-  PPATH pPath;
   if (!hPath) return FALSE;
-  pPath = PATH_LockPath( hPath );
+  PPATH pPath = PATH_LockPath( hPath );
   if (!pPath) return FALSE;
   PATH_DestroyGdiPath( pPath );
   PATH_UnlockPath( pPath );
@@ -2297,9 +2296,6 @@ NtGdiFillPath(HDC  hDC)
 
   if (pdcattr->ulDirty_ & (DIRTY_LINE | DC_PEN_DIRTY))
       DC_vUpdateLineBrush(dc);
-
-  if (pdcattr->ulDirty_ & (DIRTY_FILL | DC_BRUSH_DIRTY))
-      DC_vUpdateFillBrush(dc);
 
   ret = PATH_FillPath( dc, pPath );
   if ( ret )

@@ -206,10 +206,6 @@ DWORD WINAPI GetSize (LPVOID lpMem)
  *  - Free an MRU-list with FreeMRUList().
  */
 
-typedef INT (CALLBACK *MRUStringCmpFnA)(LPCSTR lhs, LPCSTR rhs);
-typedef INT (CALLBACK *MRUStringCmpFnW)(LPCWSTR lhs, LPCWSTR rhs);
-typedef INT (CALLBACK *MRUBinaryCmpFn)(LPCVOID lhs, LPCVOID rhs, DWORD length);
-
 typedef struct tagCREATEMRULISTA
 {
     DWORD  cbSize;
@@ -217,11 +213,7 @@ typedef struct tagCREATEMRULISTA
     DWORD  dwFlags;
     HKEY   hKey;
     LPSTR  lpszSubKey;
-    union
-    {
-        MRUStringCmpFnA string_cmpfn;
-        MRUBinaryCmpFn  binary_cmpfn;
-    } u;
+    PROC   lpfnCompare;
 } CREATEMRULISTA, *LPCREATEMRULISTA;
 
 typedef struct tagCREATEMRULISTW
@@ -231,11 +223,7 @@ typedef struct tagCREATEMRULISTW
     DWORD   dwFlags;
     HKEY    hKey;
     LPWSTR  lpszSubKey;
-    union
-    {
-        MRUStringCmpFnW string_cmpfn;
-        MRUBinaryCmpFn  binary_cmpfn;
-    } u;
+    PROC    lpfnCompare;
 } CREATEMRULISTW, *LPCREATEMRULISTW;
 
 /* dwFlags */
@@ -397,7 +385,7 @@ INT WINAPI FindMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData,
     UINT i;
     LPSTR dataA = NULL;
 
-    if (!mp || !mp->extview.u.string_cmpfn)
+    if (!mp->extview.lpfnCompare)
 	return -1;
 
     if(!(mp->extview.dwFlags & MRUF_BINARY_LIST) && !mp->isUnicode) {
@@ -409,12 +397,13 @@ INT WINAPI FindMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData,
 
     for(i=0; i<mp->cursize; i++) {
 	if (mp->extview.dwFlags & MRUF_BINARY_LIST) {
-	    if (!mp->extview.u.binary_cmpfn(lpData, &mp->array[i]->datastart, cbData))
+	    if (!mp->extview.lpfnCompare(lpData, &mp->array[i]->datastart,
+					 cbData))
 		break;
 	}
 	else {
 	    if(mp->isUnicode) {
-	        if (!mp->extview.u.string_cmpfn(lpData, (LPWSTR)&mp->array[i]->datastart))
+	        if (!mp->extview.lpfnCompare(lpData, &mp->array[i]->datastart))
 		    break;
 	    } else {
 	        DWORD len = WideCharToMultiByte(CP_ACP, 0,
@@ -425,7 +414,7 @@ INT WINAPI FindMRUData (HANDLE hList, LPCVOID lpData, DWORD cbData,
 		WideCharToMultiByte(CP_ACP, 0, (LPWSTR)&mp->array[i]->datastart, -1,
 				    itemA, len, NULL, NULL);
 
-	        cmp = mp->extview.u.string_cmpfn((LPWSTR)dataA, (LPWSTR)itemA);
+	        cmp = mp->extview.lpfnCompare(dataA, itemA);
 		Free(itemA);
 		if(!cmp)
 		    break;
@@ -683,7 +672,7 @@ static HANDLE CreateMRUListLazy_common(LPWINEMRULIST mp)
 	ERR("(%u %u %x %p %s %p): Could not open key, error=%d\n",
 	    mp->extview.cbSize, mp->extview.nMaxItems, mp->extview.dwFlags,
 	    mp->extview.hKey, debugstr_w(mp->extview.lpszSubKey),
-            mp->extview.u.string_cmpfn, err);
+				 mp->extview.lpfnCompare, err);
 	return 0;
     }
 
@@ -728,7 +717,7 @@ static HANDLE CreateMRUListLazy_common(LPWINEMRULIST mp)
     TRACE("(%u %u %x %p %s %p): Current Size = %d\n",
 	  mp->extview.cbSize, mp->extview.nMaxItems, mp->extview.dwFlags,
 	  mp->extview.hKey, debugstr_w(mp->extview.lpszSubKey),
-	  mp->extview.u.string_cmpfn, mp->cursize);
+	  mp->extview.lpfnCompare, mp->cursize);
     return mp;
 }
 
@@ -845,7 +834,6 @@ INT WINAPI EnumMRUListW (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
     const WINEMRUITEM *witem;
     INT desired, datasize;
 
-    if (!mp) return -1;
     if ((nItemPos < 0) || !lpBuffer) return mp->cursize;
     if (nItemPos >= mp->cursize) return -1;
     desired = mp->realMRU[nItemPos];
@@ -872,7 +860,6 @@ INT WINAPI EnumMRUListA (HANDLE hList, INT nItemPos, LPVOID lpBuffer,
     INT desired, datasize;
     DWORD lenA;
 
-    if (!mp) return -1;
     if ((nItemPos < 0) || !lpBuffer) return mp->cursize;
     if (nItemPos >= mp->cursize) return -1;
     desired = mp->realMRU[nItemPos];

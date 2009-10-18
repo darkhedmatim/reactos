@@ -235,7 +235,7 @@ AddHotkeySettings(IN LPCWSTR Hotkey, IN LPCWSTR LangHotkey, IN LPCWSTR LayoutHot
                                NULL);
 
     Status =  NtCreateKey(&KeyHandle,
-                          KEY_SET_VALUE,
+                          KEY_ALL_ACCESS,
                           &ObjectAttributes,
                           0,
                           NULL,
@@ -326,7 +326,7 @@ AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
                                NULL);
 
     Status =  NtCreateKey(&KeyHandle,
-                          KEY_CREATE_SUB_KEY,
+                          KEY_ALL_ACCESS,
                           &ObjectAttributes,
                           0,
                           NULL,
@@ -358,7 +358,7 @@ AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
                                NULL);
 
     Status = NtCreateKey(&KeyHandle,
-                         KEY_SET_VALUE,
+                         KEY_ALL_ACCESS,
                          &ObjectAttributes,
                          0,
                          NULL,
@@ -379,7 +379,7 @@ AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
                                NULL);
 
     Status =  NtCreateKey(&SubKeyHandle,
-                          KEY_SET_VALUE,
+                          KEY_ALL_ACCESS,
                           &ObjectAttributes,
                           0,
                           NULL,

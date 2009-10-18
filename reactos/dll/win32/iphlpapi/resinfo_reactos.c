@@ -151,13 +151,11 @@ void EnumNameServers( HANDLE RegHandle, PWCHAR Interface,
 	}
 	if (ch - LastNameStart > 0) { /* A last name? */
 	    PWCHAR NameServer = malloc(((ch - LastNameStart) + 1) * sizeof(WCHAR));
-            if (NameServer) {
-	        memcpy(NameServer,NameServerString + LastNameStart,
-		       (ch - LastNameStart) * sizeof(WCHAR));
-	        NameServer[ch - LastNameStart] = 0;
-	        cb( Interface, NameServer, Data );
-	        free(NameServer);
-            }
+	    memcpy(NameServer,NameServerString + LastNameStart,
+		   (ch - LastNameStart) * sizeof(WCHAR));
+	    NameServer[ch - LastNameStart] = 0;
+	    cb( Interface, NameServer, Data );
+	    free(NameServer);
 	}
 	ConsumeRegValueString(NameServerString);
     }
@@ -225,8 +223,6 @@ PIPHLP_RES_INFO getResInfo() {
 
     PrivateNSEnum.NumServers = ServerCount;
     DnsList = HeapAlloc(GetProcessHeap(), 0, ServerCount * sizeof(IP_ADDR_STRING));
-    if (!DnsList) return NULL;
-
     ZeroMemory(DnsList, ServerCount * sizeof(IP_ADDR_STRING));
 
     ResInfo = (PIPHLP_RES_INFO)RtlAllocateHeap ( GetProcessHeap(), 0, sizeof(IPHLP_RES_INFO));

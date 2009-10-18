@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <k32.h>
@@ -383,13 +383,13 @@ static PROFILESECTION *PROFILE_Load(HANDLE hFile, ENCODING * pEncoding)
 
     case ENCODING_UTF16LE:
         DPRINT("UTF16 Little Endian encoding\n");
-        szFile = pBuffer;
+        szFile = pBuffer;// + 1;
         szEnd = (WCHAR *)((char *)pBuffer + dwFileSize);
         break;
 
     case ENCODING_UTF16BE:
         DPRINT("UTF16 Big Endian encoding\n");
-        szFile = pBuffer;
+        szFile = pBuffer;// + 1;
         szEnd = (WCHAR *)((char *)pBuffer + dwFileSize);
         PROFILE_ByteSwapShortBuffer(szFile, dwFileSize / sizeof(WCHAR));
         break;
@@ -488,7 +488,6 @@ static PROFILESECTION *PROFILE_Load(HANDLE hFile, ENCODING * pEncoding)
             {
                 len = (int)(szLineEnd - szValueStart);
                 key->value = HeapAlloc( GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR) );
-                if (!key->value) break;
                 memcpy(key->value, szValueStart, len * sizeof(WCHAR));
                 key->value[len] = '\0';
             }
@@ -1156,7 +1155,6 @@ static int PROFILE_GetPrivateProfileString( LPCWSTR section, LPCWSTR entry,
            int len = (int)(p - def_val) + 1;
 
            defval_tmp = HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR));
-           if (!defval_tmp) return 0;
 		   memcpy(defval_tmp, def_val, len * sizeof(WCHAR));
            defval_tmp[len] = '\0';
            def_val = defval_tmp;
@@ -1386,12 +1384,6 @@ DWORD WINAPI GetPrivateProfileSectionA( LPCSTR section, LPSTR buffer,
     }
 
     bufferW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-    if (!bufferW)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
-
     RtlCreateUnicodeStringFromAsciiz(&sectionW, section);
     if (filename) RtlCreateUnicodeStringFromAsciiz(&filenameW, filename);
     else filenameW.Buffer = NULL;
@@ -1611,12 +1603,12 @@ BOOL WINAPI WriteProfileSectionW( LPCWSTR section, LPCWSTR keys_n_values)
  * Win95:
  * - if the buffer is 0 or 1 character long then it is as if it was of
  *   infinite length.
- * - otherwise, if the buffer is too small only the section names that fit
+ * - otherwise, if the buffer is to small only the section names that fit
  *   are returned.
- * - note that this means if the buffer was too small to return even just
+ * - note that this means if the buffer was to small to return even just
  *   the first section name then a single '\0' will be returned.
  * - the return value is the number of characters written in the buffer,
- *   except if the buffer was too small in which case len-2 is returned
+ *   except if the buffer was too smal in which case len-2 is returned
  *
  * Win2000:
  * - if the buffer is 0, 1 or 2 characters long then it is filled with

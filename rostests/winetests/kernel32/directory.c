@@ -61,11 +61,8 @@ static void test_GetWindowsDirectoryW(void)
     static const WCHAR fooW[] = {'f','o','o',0};
 
     len_with_null = GetWindowsDirectoryW(NULL, 0);
-    if (len_with_null == 0 && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-    {
-        win_skip("GetWindowsDirectoryW is not implemented\n");
+    if (len_with_null==0 && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
         return;
-    }
     ok(len_with_null <= MAX_PATH, "should fit into MAX_PATH\n");
 
     lstrcpyW(buf, fooW);
@@ -127,11 +124,8 @@ static void test_GetSystemDirectoryW(void)
     static const WCHAR fooW[] = {'f','o','o',0};
 
     len_with_null = GetSystemDirectoryW(NULL, 0);
-    if (len_with_null == 0 && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-    {
-        win_skip("GetSystemDirectoryW is not available\n");
+    if (len_with_null==0 && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
         return;
-    }
     ok(len_with_null <= MAX_PATH, "should fit into MAX_PATH\n");
 
     lstrcpyW(buf, fooW);
@@ -343,11 +337,8 @@ static void test_CreateDirectoryW(void)
     static const WCHAR questionW[] = {'?',0};
 
     ret = CreateDirectoryW(NULL, NULL);
-    if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-    {
-        win_skip("CreateDirectoryW is not available\n");
+    if (!ret && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
         return;
-    }
     ok(ret == FALSE && GetLastError() == ERROR_PATH_NOT_FOUND,
        "should not create NULL path ret %u err %u\n", ret, GetLastError());
 
@@ -450,11 +441,8 @@ static void test_RemoveDirectoryW(void)
     GetTempPathW(MAX_PATH, tmpdir);
     lstrcatW(tmpdir, tmp_dir_name);
     ret = CreateDirectoryW(tmpdir, NULL);
-    if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-    {
-        win_skip("CreateDirectoryW is not available\n");
-        return;
-    }
+    if (!ret && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
+      return;
 
     ok(ret == TRUE, "CreateDirectoryW should always succeed\n");
 

@@ -607,18 +607,12 @@ MiSyncMediaDetection(
 {
   PADAPTER Adapter = (PADAPTER)SynchronizeContext;
   NDIS_MEDIA_STATE MediaState = MiGetMediaState(Adapter);
-  UINT MediaSpeed = MiGetMediaSpeed(Adapter);
-  BOOLEAN FullDuplex = MiGetMediaDuplex(Adapter);
 
   DPRINT("Called\n");
   DPRINT("MediaState: %d\n", MediaState);
-  if (MediaState != Adapter->MediaState ||
-      MediaSpeed != Adapter->MediaSpeed ||
-      FullDuplex != Adapter->FullDuplex)
+  if (MediaState != Adapter->MediaState)
     {
       Adapter->MediaState = MediaState;
-      Adapter->MediaSpeed = MediaSpeed;
-      Adapter->FullDuplex = FullDuplex;
       return TRUE;
     }
   return FALSE;
@@ -727,29 +721,10 @@ MiInitChip(
   NdisRawWritePortUshort(Adapter->PortOffset + RAP, CSR0);
   NdisRawWritePortUshort(Adapter->PortOffset + RDP, CSR0_STRT|CSR0_INIT|CSR0_IENA);
 
-  /* Allow LED programming */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR2);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR2_LEDPE);
-
-  /* LED0 is configured for link status (on = up, off = down) */
+  /* detect the media state */
   NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR4);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR4_LNKSTE | BCR4_PSE);
-
-  /* LED1 is configured for link duplex (on = full, off = half) */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR5);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR5_FDLSE | BCR5_PSE);
-
-  /* LED2 is configured for link speed (on = 100M, off = 10M) */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR6);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR6_E100 | BCR6_PSE);
-
-  /* LED3 is configured for trasmit/receive activity */
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR7);
-  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR7_XMTE | BCR7_RCVE | BCR7_PSE);
-
+  NdisRawWritePortUshort(Adapter->PortOffset + BDP, BCR4_LNKSTE|BCR4_FDLSE);
   Adapter->MediaState = MiGetMediaState(Adapter);
-  Adapter->FullDuplex = MiGetMediaDuplex(Adapter);
-  Adapter->MediaSpeed = MiGetMediaSpeed(Adapter);
 
   DPRINT("card started\n");
 
@@ -1013,15 +988,14 @@ MiniportInitialize(
                            Adapter);
       NdisMSetPeriodicTimer(&Adapter->MediaDetectionTimer,
                             MEDIA_DETECTION_INTERVAL);
-      NdisMRegisterAdapterShutdownHandler(Adapter->MiniportAdapterHandle,
-                                          Adapter,
-                                          MiniportShutdown);
     }
 
 #if DBG
   if(!MiTestCard(Adapter))
     ASSERT(0);
 #endif
+
+  NdisMRegisterAdapterShutdownHandler(Adapter->MiniportAdapterHandle, Adapter, MiniportShutdown);
 
   DPRINT("returning 0x%x\n", Status);
   *OpenErrorStatus = Status;
@@ -1265,30 +1239,6 @@ MiSetMulticast(
   return NDIS_STATUS_SUCCESS;
 }
 
-BOOLEAN
-NTAPI
-MiGetMediaDuplex(PADAPTER Adapter)
-{
-  ULONG Data;
-
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR5);
-  NdisRawReadPortUshort(Adapter->PortOffset + BDP, &Data);
-
-  return Data & BCR5_LEDOUT;
-}
-
-UINT
-NTAPI
-MiGetMediaSpeed(PADAPTER Adapter)
-{
-  ULONG Data;
-
-  NdisRawWritePortUshort(Adapter->PortOffset + RAP, BCR6);
-  NdisRawReadPortUshort(Adapter->PortOffset + BDP, &Data);
-
-  return Data & BCR6_LEDOUT ? 100 : 10;
-}
-
 NDIS_MEDIA_STATE
 NTAPI
 MiGetMediaState(PADAPTER Adapter)
@@ -1342,7 +1292,6 @@ DriverEntry(
   Characteristics.SendHandler = MiniportSend;
 
   NdisMInitializeWrapper(&WrapperHandle, DriverObject, RegistryPath, 0);
-  if (!WrapperHandle) return NDIS_STATUS_FAILURE;
 
   Status = NdisMRegisterMiniport(WrapperHandle, &Characteristics, sizeof(Characteristics));
   if(Status != NDIS_STATUS_SUCCESS)

@@ -180,7 +180,7 @@ free_pending_endp(PUHCI_PENDING_ENDP_POOL pool, PUHCI_PENDING_ENDP pending_endp)
     }
 
     RtlZeroMemory(pending_endp, sizeof(UHCI_PENDING_ENDP));
-    InsertTailList(&pool->free_que, &pending_endp->endp_link);
+    InsertTailList(&pool->free_que, (PLIST_ENTRY) & pending_endp->endp_link);
     pool->free_count++;
 
     return TRUE;
@@ -651,8 +651,9 @@ uhci_probe(PDRIVER_OBJECT drvr_obj, PUNICODE_STRING reg_path, PUSB_DEV_MANAGER d
 #ifdef _MULTI_UHCI
                     {
                         pdev = uhci_alloc(drvr_obj, reg_path, ((bus << 8) | (i << 3) | j), dev_mgr);
-                        if (pdev)
-                            count++;
+                        count++;
+                        if (!pdev)
+                            return NULL;
                     }
 #else
                     pdev = uhci_alloc(drvr_obj, reg_path, ((bus << 8) | (i << 3) | j), dev_mgr);
@@ -666,9 +667,7 @@ uhci_probe(PDRIVER_OBJECT drvr_obj, PUNICODE_STRING reg_path, PUSB_DEV_MANAGER d
         }
     }
 
-#ifndef _MULTI_UHCI
 LBL_LOOPOUT:
-#endif
     if (pdev)
     {
         pdev_ext = pdev->DeviceExtension;
@@ -678,7 +677,7 @@ LBL_LOOPOUT:
             KeSynchronizeExecution(pdev_ext->uhci_int, uhci_cal_cpu_freq, NULL);
         }
     }
-    return pdev;
+    return NULL;
 }
 
 PDEVICE_OBJECT
@@ -1274,7 +1273,7 @@ uhci_process_pending_endp(PUHCI_DEV uhci)
         if (can_submit == STATUS_NO_MORE_ENTRIES)
         {
             //no enough bandwidth or tds
-            InsertHeadList(&pendp->urb_list, &purb->urb_link);
+            InsertHeadList(&pendp->urb_list, (PLIST_ENTRY) purb);
             InsertTailList(&temp_list, pthis);
         }
         else
@@ -1314,7 +1313,7 @@ uhci_process_pending_endp(PUHCI_DEV uhci)
         RemoveEntryList(&abort_list);
         InsertTailList(pthis, cancel_list);
 
-        pwork_item = (PWORK_QUEUE_ITEM) (cancel_list + 1);
+        pwork_item = (PWORK_QUEUE_ITEM) & cancel_list[1];
 
         // we do not need to worry the uhci_cancel_pending_endp_urb running when the
         // driver is unloading since it will prevent the dev_mgr to quit till all the
@@ -1427,7 +1426,7 @@ uhci_submit_urb(PUHCI_DEV uhci, PUSB_DEV pdev, PUSB_ENDPOINT pendp, PURB purb)
     }
 
     pending_endp->pendp = purb->pendp;
-    InsertTailList(&uhci->pending_endp_list, &pending_endp->endp_link );
+    InsertTailList(&uhci->pending_endp_list, (PLIST_ENTRY) pending_endp);
 
     unlock_dev(pdev, TRUE);
     unlock_pending_endp_list(&uhci->pending_endp_list_lock);
@@ -1743,17 +1742,10 @@ uhci_dpc_callback(PKDPC dpc, PVOID context, PVOID sysarg1, PVOID sysarg2)
             purb->flags &= ~URB_FLAG_STATE_MASK;
             purb->flags |= URB_FLAG_STATE_PENDING;
 
-            InsertHeadList(&pendp->urb_list, &purb->urb_link);
+            InsertHeadList(&pendp->urb_list, (PLIST_ENTRY) purb);
         }
 
         pending_endp = alloc_pending_endp(&uhci->pending_endp_pool, 1);
-        if (!pending_endp)
-        {
-            unlock_dev(pdev, TRUE);
-            KeReleaseSpinLockFromDpcLevel(&uhci->pending_endp_list_lock);
-            return;
-        }
-
         pending_endp->pendp = pendp;
         InsertTailList(&uhci->pending_endp_list, &pending_endp->endp_link);
 
@@ -2730,7 +2722,7 @@ uhci_insert_urb_schedule(PUHCI_DEV uhci, PURB urb)
     if (pthis == NULL)
         return FALSE;
 
-    InsertTailList(&uhci->urb_list, &urb->urb_link);
+    InsertTailList(&uhci->urb_list, (PLIST_ENTRY) urb);
 
     urb->flags &= ~URB_FLAG_STATE_MASK;
     urb->flags |= URB_FLAG_STATE_IN_PROCESS | URB_FLAG_IN_SCHEDULE;
@@ -3407,12 +3399,6 @@ uhci_rh_submit_urb(PUSB_DEV pdev, PURB purb)
                 }
 
                 ptimer = alloc_timer_svc(&dev_mgr->timer_svc_pool, 1);
-                if (!ptimer)
-                {
-                    purb->status = STATUS_NO_MEMORY;
-                    break;
-                }
-
                 ptimer->threshold = 0;  // within [ 50ms, 60ms ], one tick is 10 ms
                 ptimer->context = (ULONG) purb;
                 ptimer->pdev = pdev;
@@ -3436,12 +3422,6 @@ uhci_rh_submit_urb(PUSB_DEV pdev, PURB purb)
         case USB_ENDPOINT_XFER_INT:
         {
             ptimer = alloc_timer_svc(&dev_mgr->timer_svc_pool, 1);
-            if (!ptimer)
-            {
-                purb->status = STATUS_NO_MEMORY;
-                break;
-            }
-
             ptimer->threshold = RH_INTERVAL;
             ptimer->context = (ULONG) purb;
             ptimer->pdev = pdev;

@@ -37,9 +37,6 @@ BEGIN
                     "FreeBSD - http://www.freebsd.org\n"\
                     "adns - http://adns.jgaa.com\n"\
                     "ICU - http://www.icu-project.org/\n"\
-                    "GraphApp - http://enchantia.com/software/graphapp/\n"\
-                    "Ext2 - http://winext2fsd.sourceforge.net/\n"\
-                    "X - http://www.x.org/\n"\
                     ""
 END
 
@@ -58,7 +55,6 @@ IDR_GPL RT_TEXT "COPYING"
 #include "lang/el-GR.rc"
 #include "lang/en-US.rc"
 #include "lang/es-ES.rc"
-#include "lang/et-EE.rc"
 #include "lang/fr-FR.rc"
 #include "lang/hu-HU.rc"
 #include "lang/id-ID.rc"

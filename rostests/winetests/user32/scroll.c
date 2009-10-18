@@ -222,27 +222,25 @@ static void scrollbar_test_default( DWORD style)
 
     ret = GetScrollRange( hwnd, SB_VERT, &min, &max);
     ok( ret ||
-            broken( !ret) /* Win 9x/ME */ , "GetScrollRange failed.\n");
+            broken( !ret) /* Win 98/ME */ , "GetScrollRange failed.\n");
     /* range is 0,0 if there are no H or V scroll bars. 0,100 otherwise */
     if( !( style & ( WS_VSCROLL | WS_HSCROLL)))
         ok( min == 0 && max == 0,
                 "Scroll bar range is %d,%d. Expected 0,0. Style %08x\n", min, max, style);
     else
 todo_wine
-        ok(( min == 0 && max == 100) ||
-                broken( min == 0 && max == 0), /* Win 9x/ME */
+        ok( min == 0 && max == 100,
                 "Scroll bar range is %d,%d. Expected 0,100. Style %08x\n", min, max, style);
     ret = GetScrollRange( hwnd, SB_HORZ, &min, &max);
     ok( ret ||
-            broken( !ret) /* Win 9x/ME */ , "GetScrollRange failed.\n");
+            broken( !ret) /* Win 98/ME */ , "GetScrollRange failed.\n");
     /* range is 0,0 if there are no H or V scroll bars. 0,100 otherwise */
     if( !( style & ( WS_VSCROLL | WS_HSCROLL)))
         ok( min == 0 && max == 0,
                 "Scroll bar range is %d,%d. Expected 0,0. Style %08x\n", min, max, style);
     else
 todo_wine
-        ok(( min == 0 && max == 100) ||
-                broken( min == 0 && max == 0), /* Win 9x/ME */
+        ok( min == 0 && max == 100,
                 "Scroll bar range is %d,%d. Expected 0,100. Style %08x\n", min, max, style);
     /* test GetScrollInfo, vist for vertical SB */
     ret = GetScrollInfo( hwnd, SB_VERT, &si);
@@ -251,9 +249,7 @@ todo_wine
         ok( !ret, "GetScrollInfo succeeded unexpectedly. Style is %08x\n", style);
     else
 todo_wine
-        ok( ret ||
-                broken( !ret), /* Win 9x/ME */
-                "GetScrollInfo failed unexpectedly. Style is %08x\n", style);
+        ok( ret, "GetScrollInfo failed unexpectedly. Style is %08x\n", style);
     /* Same for Horizontal SB */
     ret = GetScrollInfo( hwnd, SB_HORZ, &si);
     /* should fail if no H orV scroll bar styles are present. Succeed otherwise */
@@ -261,9 +257,7 @@ todo_wine
         ok( !ret, "GetScrollInfo succeeded unexpectedly. Style is %08x\n", style);
     else
 todo_wine
-        ok( ret ||
-                broken( !ret), /* Win 9x/ME */
-                "GetScrollInfo failed unexpectedly. Style is %08x\n", style);
+        ok( ret, "GetScrollInfo failed unexpectedly. Style is %08x\n", style);
     /* now set the Vertical Scroll range to something that could be the default value it
      * already has */;
     ret = SetScrollRange( hwnd, SB_VERT, 0, 100, FALSE);
@@ -282,7 +276,7 @@ todo_wine
     /* should succeed in ALL cases */
     ok( ret, "GetScrollInfo failed unexpectedly. Style is %08x\n", style);
     /* report the windows style */
-    winstyle = GetWindowLongA( hwnd, GWL_STYLE );
+    winstyle = GetWindowLongW( hwnd, GWL_STYLE );
     /* WS_VSCROLL added to the window style */
     if( !(style & WS_VSCROLL))
     {
@@ -292,8 +286,7 @@ todo_wine
                     "unexpected style change %8lx expected %8lx\n",
                     (winstyle & (WS_HSCROLL|WS_VSCROLL)), style | WS_VSCROLL);
         else
-            ok( (winstyle & (WS_HSCROLL|WS_VSCROLL)) == style ||
-                    broken((winstyle & (WS_HSCROLL|WS_VSCROLL)) == (WS_HSCROLL|WS_VSCROLL)), /* Win 9x/ME */
+            ok( (winstyle & (WS_HSCROLL|WS_VSCROLL)) == style,
                     "unexpected style change %8lx expected %8x\n",
                     (winstyle & (WS_HSCROLL|WS_VSCROLL)), style);
     }
@@ -321,7 +314,7 @@ todo_wine
     /* should succeed in ALL cases */
     ok( ret, "GetScrollInfo failed unexpectedly. Style is %08x\n", style);
     /* report the windows style */
-    winstyle = GetWindowLongA( hwnd, GWL_STYLE );
+    winstyle = GetWindowLongW( hwnd, GWL_STYLE );
     /* WS_HSCROLL added to the window style */
     if( !(style & WS_HSCROLL))
     {
@@ -331,8 +324,7 @@ todo_wine
                     "unexpected style change %8lx expected %8lx\n",
                     (winstyle & (WS_HSCROLL|WS_VSCROLL)), style | WS_HSCROLL);
         else
-            ok( (winstyle & (WS_HSCROLL|WS_VSCROLL)) == style ||
-                    broken((winstyle & (WS_HSCROLL|WS_VSCROLL)) == (WS_HSCROLL|WS_VSCROLL)), /* Win 9x/ME */
+            ok( (winstyle & (WS_HSCROLL|WS_VSCROLL)) == style,
                     "unexpected style change %8lx expected %8x\n",
                     (winstyle & (WS_HSCROLL|WS_VSCROLL)), style);
     }
@@ -380,7 +372,7 @@ todo_wine
     /* should fail */
     ok( !ret, "GetScrollInfo succeeded unexpectedly. Style is %08x\n", style);
     /* add scroll styles */
-    winstyle = GetWindowLongA( hwnd, GWL_STYLE );
+    winstyle = GetWindowLongW( hwnd, GWL_STYLE );
     SetWindowLongW( hwnd, GWL_STYLE, winstyle | WS_VSCROLL | WS_HSCROLL);
     ret = GetScrollInfo( hwnd, SB_VERT, &si);
     /* should still fail */

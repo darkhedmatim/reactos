@@ -1,4 +1,23 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *  $Id$
+ *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
  *  PURPOSE:          Window painting function
@@ -39,19 +58,19 @@ BOOL FASTCALL
 IntIntersectWithParents(PWINDOW_OBJECT Child, RECTL *WindowRect)
 {
    PWINDOW_OBJECT ParentWindow;
-   PWND ParentWnd;
+   PWINDOW ParentWnd;
 
    ParentWindow = Child->Parent;
    while (ParentWindow != NULL)
    {
       ParentWnd = ParentWindow->Wnd;
-      if (!(ParentWnd->style & WS_VISIBLE) ||
-          (ParentWnd->style & WS_MINIMIZE))
+      if (!(ParentWnd->Style & WS_VISIBLE) ||
+          (ParentWnd->Style & WS_MINIMIZE))
       {
          return FALSE;
       }
 
-      if (!RECTL_bIntersectRect(WindowRect, WindowRect, &ParentWnd->rcClient))
+      if (!RECTL_bIntersectRect(WindowRect, WindowRect, &ParentWnd->ClientRect))
       {
          return FALSE;
       }
@@ -68,12 +87,12 @@ BOOL FASTCALL
 IntValidateParent(PWINDOW_OBJECT Child, HRGN hValidateRgn, BOOL Recurse)
 {
    PWINDOW_OBJECT ParentWindow = Child->Parent;
-   PWND ParentWnd;
+   PWINDOW ParentWnd;
 
    while (ParentWindow)
    {
       ParentWnd = ParentWindow->Wnd;
-      if (ParentWnd->style & WS_CLIPCHILDREN)
+      if (ParentWnd->Style & WS_CLIPCHILDREN)
          break;
 
       if (ParentWindow->UpdateRegion != 0)
@@ -100,25 +119,25 @@ IntValidateParent(PWINDOW_OBJECT Child, HRGN hValidateRgn, BOOL Recurse)
 HRGN FASTCALL
 IntCalcWindowRgn(PWINDOW_OBJECT Window, BOOL Client)
 {
-   PWND Wnd;
+   PWINDOW Wnd;
    HRGN hRgnWindow;
    UINT RgnType;
 
    Wnd = Window->Wnd;
    if (Client)
-      hRgnWindow = UnsafeIntCreateRectRgnIndirect(&Wnd->rcClient);
+      hRgnWindow = UnsafeIntCreateRectRgnIndirect(&Wnd->ClientRect);
    else
-      hRgnWindow = UnsafeIntCreateRectRgnIndirect(&Wnd->rcWindow);
+      hRgnWindow = UnsafeIntCreateRectRgnIndirect(&Wnd->WindowRect);
 
-   if (Window->WindowRegion != NULL && !(Wnd->style & WS_MINIMIZE))
+   if (Window->WindowRegion != NULL && !(Wnd->Style & WS_MINIMIZE))
    {
       NtGdiOffsetRgn(hRgnWindow,
-         -Wnd->rcWindow.left,
-         -Wnd->rcWindow.top);
+         -Wnd->WindowRect.left,
+         -Wnd->WindowRect.top);
       RgnType = NtGdiCombineRgn(hRgnWindow, hRgnWindow, Window->WindowRegion, RGN_AND);
       NtGdiOffsetRgn(hRgnWindow,
-         Wnd->rcWindow.left,
-         Wnd->rcWindow.top);
+         Wnd->WindowRect.left,
+         Wnd->WindowRect.top);
    }
 
    return hRgnWindow;
@@ -149,7 +168,7 @@ IntGetNCUpdateRgn(PWINDOW_OBJECT Window, BOOL Validate)
    if (Window->UpdateRegion != NULL &&
        Window->UpdateRegion != (HRGN)1)
    {
-      hRgnNonClient = IntCalcWindowRgn(Window, FALSE);
+      hRgnNonClient = NtGdiCreateRectRgn(0, 0, 0, 0);
 
       /*
        * If region creation fails it's safe to fallback to whole
@@ -167,7 +186,7 @@ IntGetNCUpdateRgn(PWINDOW_OBJECT Window, BOOL Validate)
          return (HRGN)1;
       }
 
-      RgnType = NtGdiCombineRgn(hRgnNonClient, hRgnNonClient,
+      RgnType = NtGdiCombineRgn(hRgnNonClient, Window->UpdateRegion,
                                 hRgnWindow, RGN_DIFF);
       if (RgnType == ERROR)
       {
@@ -222,7 +241,7 @@ co_IntPaintWindows(PWINDOW_OBJECT Window, ULONG Flags, BOOL Recurse)
    HDC hDC;
    HWND hWnd = Window->hSelf;
    HRGN TempRegion;
-   PWND Wnd;
+   PWINDOW Wnd;
 
    Wnd = Window->Wnd;
 
@@ -285,8 +304,8 @@ co_IntPaintWindows(PWINDOW_OBJECT Window, ULONG Flags, BOOL Recurse)
    /*
     * Paint child windows.
     */
-   if (!(Flags & RDW_NOCHILDREN) && !(Wnd->style & WS_MINIMIZE) &&
-       ((Flags & RDW_ALLCHILDREN) || !(Wnd->style & WS_CLIPCHILDREN)))
+   if (!(Flags & RDW_NOCHILDREN) && !(Wnd->Style & WS_MINIMIZE) &&
+       ((Flags & RDW_ALLCHILDREN) || !(Wnd->Style & WS_CLIPCHILDREN)))
    {
       HWND *List, *phWnd;
 
@@ -297,7 +316,7 @@ co_IntPaintWindows(PWINDOW_OBJECT Window, ULONG Flags, BOOL Recurse)
          {
             Window = UserGetWindowObject(*phWnd);
             Wnd = Window->Wnd;
-            if (Window && (Wnd->style & WS_VISIBLE))
+            if (Window && (Wnd->Style & WS_VISIBLE))
             {
                USER_REFERENCE_ENTRY Ref;
                UserRefObjectCo(Window, &Ref);
@@ -320,7 +339,7 @@ VOID FASTCALL
 IntInvalidateWindows(PWINDOW_OBJECT Window, HRGN hRgn, ULONG Flags)
 {
    INT RgnType;
-   PWND Wnd;
+   PWINDOW Wnd;
    BOOL HadPaintMessage, HadNCPaintMessage;
    BOOL HasPaintMessage, HasNCPaintMessage;
 
@@ -334,7 +353,7 @@ IntInvalidateWindows(PWINDOW_OBJECT Window, HRGN hRgn, ULONG Flags)
    {
       HRGN hRgnClient;
 
-      hRgnClient = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->rcClient);
+      hRgnClient = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->ClientRect);
       RgnType = NtGdiCombineRgn(hRgn, hRgn, hRgnClient, RGN_AND);
       GreDeleteObject(hRgnClient);
    }
@@ -343,23 +362,23 @@ IntInvalidateWindows(PWINDOW_OBJECT Window, HRGN hRgn, ULONG Flags)
     * Clip the given region with window rectangle (or region)
     */
 
-   if (!Window->WindowRegion || (Wnd->style & WS_MINIMIZE))
+   if (!Window->WindowRegion || (Wnd->Style & WS_MINIMIZE))
    {
       HRGN hRgnWindow;
 
-      hRgnWindow = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->rcWindow);
+      hRgnWindow = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->WindowRect);
       RgnType = NtGdiCombineRgn(hRgn, hRgn, hRgnWindow, RGN_AND);
       GreDeleteObject(hRgnWindow);
    }
    else
    {
       NtGdiOffsetRgn(hRgn,
-         -Wnd->rcWindow.left,
-         -Wnd->rcWindow.top);
+         -Wnd->WindowRect.left,
+         -Wnd->WindowRect.top);
       RgnType = NtGdiCombineRgn(hRgn, hRgn, Window->WindowRegion, RGN_AND);
       NtGdiOffsetRgn(hRgn,
-         Wnd->rcWindow.left,
-         Wnd->rcWindow.top);
+         Wnd->WindowRect.left,
+         Wnd->WindowRect.top);
    }
 
    /*
@@ -433,14 +452,14 @@ IntInvalidateWindows(PWINDOW_OBJECT Window, HRGN hRgn, ULONG Flags)
     * Process children if needed
     */
 
-   if (!(Flags & RDW_NOCHILDREN) && !(Wnd->style & WS_MINIMIZE) &&
-         ((Flags & RDW_ALLCHILDREN) || !(Wnd->style & WS_CLIPCHILDREN)))
+   if (!(Flags & RDW_NOCHILDREN) && !(Wnd->Style & WS_MINIMIZE) &&
+         ((Flags & RDW_ALLCHILDREN) || !(Wnd->Style & WS_CLIPCHILDREN)))
    {
       PWINDOW_OBJECT Child;
 
       for (Child = Window->FirstChild; Child; Child = Child->NextSibling)
       {
-         if (Child->Wnd->style & WS_VISIBLE)
+         if (Child->Wnd->Style & WS_VISIBLE)
          {
             /*
              * Recursive call to update children UpdateRegion
@@ -492,13 +511,13 @@ BOOL FASTCALL
 IntIsWindowDrawable(PWINDOW_OBJECT Window)
 {
    PWINDOW_OBJECT WndObject;
-   PWND Wnd;
+   PWINDOW Wnd;
 
    for (WndObject = Window; WndObject != NULL; WndObject = WndObject->Parent)
    {
       Wnd = WndObject->Wnd;
-      if (!(Wnd->style & WS_VISIBLE) ||
-            ((Wnd->style & WS_MINIMIZE) && (WndObject != Window)))
+      if (!(Wnd->Style & WS_VISIBLE) ||
+            ((Wnd->Style & WS_MINIMIZE) && (WndObject != Window)))
       {
          return FALSE;
       }
@@ -549,26 +568,26 @@ co_UserRedrawWindow(PWINDOW_OBJECT Window, const RECTL* UpdateRect, HRGN UpdateR
             hRgn = NULL;
          }
          else
-            NtGdiOffsetRgn(hRgn, Window->Wnd->rcClient.left, Window->Wnd->rcClient.top);
+            NtGdiOffsetRgn(hRgn, Window->Wnd->ClientRect.left, Window->Wnd->ClientRect.top);
       }
       else if (UpdateRect != NULL)
       {
          if (!RECTL_bIsEmptyRect(UpdateRect))
          {
             hRgn = UnsafeIntCreateRectRgnIndirect((RECTL *)UpdateRect);
-            NtGdiOffsetRgn(hRgn, Window->Wnd->rcClient.left, Window->Wnd->rcClient.top);
+            NtGdiOffsetRgn(hRgn, Window->Wnd->ClientRect.left, Window->Wnd->ClientRect.top);
          }
       }
       else if ((Flags & (RDW_INVALIDATE | RDW_FRAME)) == (RDW_INVALIDATE | RDW_FRAME) ||
                (Flags & (RDW_VALIDATE | RDW_NOFRAME)) == (RDW_VALIDATE | RDW_NOFRAME))
       {
-         if (!RECTL_bIsEmptyRect(&Window->Wnd->rcWindow))
-            hRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->rcWindow);
+         if (!RECTL_bIsEmptyRect(&Window->Wnd->WindowRect))
+            hRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->WindowRect);
       }
       else
       {
-         if (!RECTL_bIsEmptyRect(&Window->Wnd->rcClient))
-            hRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->rcClient);
+         if (!RECTL_bIsEmptyRect(&Window->Wnd->ClientRect))
+            hRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->ClientRect);
       }
    }
 
@@ -609,8 +628,8 @@ co_UserRedrawWindow(PWINDOW_OBJECT Window, const RECTL* UpdateRect, HRGN UpdateR
 BOOL FASTCALL
 IntIsWindowDirty(PWINDOW_OBJECT Window)
 {
-   PWND Wnd = Window->Wnd;
-   return (Wnd->style & WS_VISIBLE) &&
+   PWINDOW Wnd = Window->Wnd;
+   return (Wnd->Style & WS_VISIBLE) &&
           ((Window->UpdateRegion != NULL) ||
            (Window->Flags & WINDOWOBJECT_NEED_INTERNALPAINT) ||
            (Window->Flags & WINDOWOBJECT_NEED_NCPAINT));
@@ -621,7 +640,7 @@ IntFindWindowToRepaint(PWINDOW_OBJECT Window, PTHREADINFO Thread)
 {
    HWND hChild;
    PWINDOW_OBJECT TempWindow;
-   PWND Wnd, TempWnd;
+   PWINDOW Wnd, TempWnd;
 
    for (; Window != NULL; Window = Window->NextSibling)
    {
@@ -660,7 +679,7 @@ IntFindWindowToRepaint(PWINDOW_OBJECT Window, PTHREADINFO Thread)
 }
 
 BOOL FASTCALL
-IntGetPaintMessage(PWINDOW_OBJECT Window, UINT MsgFilterMin, UINT MsgFilterMax,
+IntGetPaintMessage(HWND hWnd, UINT MsgFilterMin, UINT MsgFilterMax,
                    PTHREADINFO Thread, MSG *Message, BOOL Remove)
 {
    PUSER_MESSAGE_QUEUE MessageQueue = (PUSER_MESSAGE_QUEUE)Thread->MessageQueue;
@@ -682,7 +701,7 @@ IntGetPaintMessage(PWINDOW_OBJECT Window, UINT MsgFilterMin, UINT MsgFilterMax,
       return FALSE;
    }
 
-   if (Window != NULL && Message->hwnd != Window->hSelf)
+   if (hWnd != NULL && Message->hwnd != hWnd)
       return FALSE;
 
    Message->message = WM_PAINT;
@@ -754,7 +773,7 @@ NtUserBeginPaint(HWND hWnd, PAINTSTRUCT* UnsafePs)
    NTSTATUS Status;
    DECLARE_RETURN(HDC);
    USER_REFERENCE_ENTRY Ref;
-   PWND Wnd;
+   PWINDOW Wnd;
 
    DPRINT("Enter NtUserBeginPaint\n");
    UserEnterExclusive();
@@ -822,7 +841,7 @@ NtUserBeginPaint(HWND hWnd, PAINTSTRUCT* UnsafePs)
    }
    if (Window->UpdateRegion)
    {
-      if (!(Wnd->style & WS_CLIPCHILDREN))
+      if (!(Wnd->Style & WS_CLIPCHILDREN))
       {
          PWINDOW_OBJECT Child;
          for (Child = Window->FirstChild; Child; Child = Child->NextSibling)
@@ -918,11 +937,11 @@ co_UserGetUpdateRgn(PWINDOW_OBJECT Window, HRGN hRgn, BOOL bErase)
    }
    else
    {
-      Rect = Window->Wnd->rcClient;
+      Rect = Window->Wnd->ClientRect;
       IntIntersectWithParents(Window, &Rect);
       NtGdiSetRectRgn(hRgn, Rect.left, Rect.top, Rect.right, Rect.bottom);
       RegionType = NtGdiCombineRgn(hRgn, hRgn, Window->UpdateRegion, RGN_AND);
-      NtGdiOffsetRgn(hRgn, -Window->Wnd->rcClient.left, -Window->Wnd->rcClient.top);
+      NtGdiOffsetRgn(hRgn, -Window->Wnd->ClientRect.left, -Window->Wnd->ClientRect.top);
    }
 
    if (bErase && RegionType != NULLREGION && RegionType != ERROR)
@@ -1002,7 +1021,7 @@ NtUserGetUpdateRect(HWND hWnd, LPRECT UnsafeRect, BOOL bErase)
       /* Get the update region bounding box. */
       if (Window->UpdateRegion == (HRGN)1)
       {
-         Rect = Window->Wnd->rcClient;
+         Rect = Window->Wnd->ClientRect;
       }
       else
       {
@@ -1012,14 +1031,14 @@ NtUserGetUpdateRect(HWND hWnd, LPRECT UnsafeRect, BOOL bErase)
          REGION_UnlockRgn(RgnData);
 
          if (RegionType != ERROR && RegionType != NULLREGION)
-            RECTL_bIntersectRect(&Rect, &Rect, &Window->Wnd->rcClient);
+            RECTL_bIntersectRect(&Rect, &Rect, &Window->Wnd->ClientRect);
       }
 
       if (IntIntersectWithParents(Window, &Rect))
       {
          RECTL_vOffsetRect(&Rect,
-                          -Window->Wnd->rcClient.left,
-                          -Window->Wnd->rcClient.top);
+                          -Window->Wnd->ClientRect.left,
+                          -Window->Wnd->ClientRect.top);
       } else
       {
          Rect.left = Rect.top = Rect.right = Rect.bottom = 0;
@@ -1408,7 +1427,7 @@ NtUserScrollWindowEx(HWND hWnd, INT dx, INT dy, const RECT *prcUnsafeScroll,
       IntGetClientOrigin(Window, &ClientOrigin);
       for (Child = Window->FirstChild; Child; Child = Child->NextSibling)
       {
-         rcChild = Child->Wnd->rcWindow;
+         rcChild = Child->Wnd->WindowRect;
          rcChild.left -= ClientOrigin.x;
          rcChild.top -= ClientOrigin.y;
          rcChild.right -= ClientOrigin.x;
@@ -1494,12 +1513,12 @@ UserDrawSysMenuButton(
 
    /* Get the icon to draw. We don't care about WM_GETICON here. */
 
-   hIcon = pWnd->Wnd->pcls->hIconSm;
+   hIcon = pWnd->Wnd->Class->hIconSm;
 
    if(!hIcon)
    {
       DPRINT("Wnd class has no small icon.\n");
-      hIcon = pWnd->Wnd->pcls->hIcon;
+      hIcon = pWnd->Wnd->Class->hIcon;
    }
 
    if(!hIcon)
@@ -1540,10 +1559,10 @@ UserDrawCaptionText(HDC hDc,
    #endif
 
    nclm.cbSize = sizeof(nclm);
-   if(!UserSystemParametersInfo(SPI_GETNONCLIENTMETRICS,
+   if(!IntSystemParametersInfo(SPI_GETNONCLIENTMETRICS,
       sizeof(NONCLIENTMETRICS), &nclm, 0))
    {
-      DPRINT1("%s: UserSystemParametersInfo() failed!\n", __FUNCTION__);
+      DPRINT1("%s: IntSystemParametersInfo() failed!\n", __FUNCTION__);
       return FALSE;
    }
 
@@ -1604,7 +1623,7 @@ BOOL UserDrawCaption(
    RECTL r = *lpRc;
    LONG ButtonWidth, IconWidth;
    BOOL HasIcon;
-   PWND Wnd = NULL;
+   PWINDOW Wnd = NULL;
 
    //ASSERT(pWnd != NULL);
 
@@ -1642,7 +1661,7 @@ BOOL UserDrawCaption(
 
    if ((!hIcon) && (Wnd != NULL))
    {
-     HasIcon = (uFlags & DC_ICON) && (Wnd->style & WS_SYSMENU)
+     HasIcon = (uFlags & DC_ICON) && (Wnd->Style & WS_SYSMENU)
         && !(uFlags & DC_SMALLCAP) && !(Wnd->ExStyle & WS_EX_DLGMODALFRAME)
         && !(Wnd->ExStyle & WS_EX_TOOLWINDOW);
    }
@@ -1721,12 +1740,12 @@ BOOL UserDrawCaption(
 
 		 if (Wnd != NULL)
 		 {
-			 if(Wnd->style & WS_SYSMENU)
+			 if(Wnd->Style & WS_SYSMENU)
 			 {
 				r.right -= 3 + ButtonWidth;
 				if(!(uFlags & DC_SMALLCAP))
 				{
-				   if(Wnd->style & (WS_MAXIMIZEBOX | WS_MINIMIZEBOX))
+				   if(Wnd->Style & (WS_MAXIMIZEBOX | WS_MINIMIZEBOX))
 					  r.right -= 2 + 2 * ButtonWidth;
 				   else r.right -= 2;
 				   r.right -= 2;
@@ -1794,7 +1813,6 @@ BOOL UserDrawCaption(
 	  /* FIXME: Draw the Icon when pWnd == NULL but  hIcon is valid */
 	  if (pWnd != NULL)
 		UserDrawSysMenuButton(pWnd, hMemDc, &r, FALSE);
-
       r.left += IconWidth;
       r.top --;
    }
@@ -1814,12 +1832,12 @@ BOOL UserDrawCaption(
             ButtonWidth = UserGetSystemMetrics(SM_CXSMSIZE) - 2;
          else ButtonWidth = UserGetSystemMetrics(SM_CXSIZE) - 2;
 
-         if ((Wnd != NULL) && (Wnd->style & WS_SYSMENU))
+         if ((Wnd != NULL) && (Wnd->Style & WS_SYSMENU))
          {
             r.right -= 3 + ButtonWidth;
             if(! (uFlags & DC_SMALLCAP))
             {
-               if(Wnd->style & (WS_MAXIMIZEBOX | WS_MINIMIZEBOX))
+               if(Wnd->Style & (WS_MAXIMIZEBOX | WS_MINIMIZEBOX))
                   r.right -= 2 + 2 * ButtonWidth;
                else r.right -= 2;
                r.right -= 2;
@@ -1830,8 +1848,8 @@ BOOL UserDrawCaption(
 	  /* FIXME: hFont isn't handled */
       if (str)
          UserDrawCaptionText(hMemDc, str, &r, uFlags);
-      else if (pWnd != NULL)
-         UserDrawCaptionText(hMemDc, &pWnd->Wnd->strName, &r, uFlags);
+	  else if (pWnd != NULL)
+	     UserDrawCaptionText(hMemDc, &pWnd->Wnd->WindowName, &r, uFlags);
    }
 
    if(!NtGdiBitBlt(hDc, lpRc->left, lpRc->top,
@@ -1884,10 +1902,9 @@ NtUserDrawCaptionTemp(
    UINT uFlags)
 {
    PWINDOW_OBJECT pWnd = NULL;
-   UNICODE_STRING SafeStr = {0};
-   NTSTATUS Status = STATUS_SUCCESS;
    RECTL SafeRect;
-   BOOL Ret;
+   UNICODE_STRING SafeStr = {0};
+   BOOL Ret = FALSE;
 
    UserEnterExclusive();
 
@@ -1905,33 +1922,24 @@ NtUserDrawCaptionTemp(
       ProbeForRead(lpRc, sizeof(RECTL), sizeof(ULONG));
       RtlCopyMemory(&SafeRect, lpRc, sizeof(RECTL));
       if (str != NULL)
-      {
-         SafeStr = ProbeForReadUnicodeString(str);
-         if (SafeStr.Length != 0)
-         {
-             ProbeForRead( SafeStr.Buffer,
-                           SafeStr.Length,
-                            sizeof(WCHAR));
-         }
+	  {
+        SafeStr = ProbeForReadUnicodeString(str);
+	    if (SafeStr.Length != 0)
+        {
+          ProbeForRead(SafeStr.Buffer,
+               SafeStr.Length,
+               sizeof(WCHAR));
+        }
+		Ret = UserDrawCaption(pWnd, hDC, &SafeRect, hFont, hIcon, &SafeStr, uFlags);
       }
+	  else
+	    Ret = UserDrawCaption(pWnd, hDC, &SafeRect, hFont, hIcon, NULL, uFlags);
    }
    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
    {
-      Status = _SEH2_GetExceptionCode();
+      SetLastNtError(_SEH2_GetExceptionCode());
    }
    _SEH2_END;
-
-   if (Status != STATUS_SUCCESS)
-   {
-      SetLastNtError(Status);
-      UserLeave();
-      return FALSE;
-   }
-
-   if (str != NULL)
-      Ret = UserDrawCaption(pWnd, hDC, &SafeRect, hFont, hIcon, &SafeStr, uFlags);
-   else
-      Ret = UserDrawCaption(pWnd, hDC, &SafeRect, hFont, hIcon, NULL, uFlags);
 
    UserLeave();
    return Ret;

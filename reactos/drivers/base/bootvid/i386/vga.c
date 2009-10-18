@@ -146,10 +146,10 @@ DisplayCharacter(CHAR Character,
     ULONG i, j, XOffset;
 
     /* Get the font line for this character */
-    FontChar = &FontData[Character * BOOTCHAR_HEIGHT];
+    FontChar = &FontData[Character * 13 - Top];
 
     /* Loop each pixel height */
-    i = BOOTCHAR_HEIGHT;
+    i = 13;
     do
     {
         /* Loop each pixel width */
@@ -158,20 +158,15 @@ DisplayCharacter(CHAR Character,
         do
         {
             /* Check if we should draw this pixel */
-#ifdef CHAR_GEN_UPSIDE_DOWN
-            if (FontChar[i] & (UCHAR)j)
-#else
-            /* Normal character generator (top of char is first element) */
-            if (FontChar[BOOTCHAR_HEIGHT - i] & (UCHAR)j)
-#endif
+            if (FontChar[Top] & (UCHAR)j)
             {
                 /* We do, use the given Text Color */
                 SetPixel(XOffset, Top, (UCHAR)TextColor);
             }
             else if (BackTextColor < 16)
             {
-                /* This is a background pixel. */
-                /* We're drawing it unless it's transparent. */
+                /* This is a background pixel. We're drawing it unless it's */
+                /* transparent. */
                 SetPixel(XOffset, Top, (UCHAR)BackTextColor);
             }
 

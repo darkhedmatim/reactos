@@ -42,42 +42,32 @@ typedef INT
 /* TYPES *********************************************************************/
 
 // Based on wmfapi.h and Wine.
-typedef struct tagMETAFILEDC
-{
-  PVOID       pvMetaBuffer;
-  HANDLE      hFile;
-  DWORD       Size;
-  DWORD       dwWritten;
-  METAHEADER  mh;
-  WORD        reserved;
-  HLOCAL      MFObjList;
-  HPEN        hPen;
-  HBRUSH      hBrush;
-  HDC         hDc;
-  HGDIOBJ     hMetaDc;
-  HPALETTE    hPalette;
-  HFONT       hFont;
-  HBITMAP     hBitmap;
-  HRGN        hRegion;
-  HGDIOBJ     hMetafile;
-  HGDIOBJ     hMemDc;
-  HPEN        hExtPen;
-  HGDIOBJ     hEnhMetaDc;
-  HGDIOBJ     hEnhMetaFile;
-  HCOLORSPACE hColorSpace;
-  WCHAR       Filename[MAX_PATH+2];
+typedef struct tagMETAFILEDC {
+  PVOID      pvMetaBuffer;
+  HANDLE     hFile;
+  DWORD      Size;
+  METAHEADER mh;
+  UINT       handles_size, cur_handles;
+  HGDIOBJ   *handles;
+
+  // more DC object stuff.
+  HGDIOBJ    Pen;
+  HGDIOBJ    Brush;
+  HGDIOBJ    Palette;
+  HGDIOBJ    Font;
+
+  WCHAR      Filename[MAX_PATH+2];
+  // Add more later.
 } METAFILEDC,*PMETAFILEDC;
 
 // Metafile Entry handle
-typedef struct tagMF_ENTRY
-{
+typedef struct tagMF_ENTRY {
   LIST_ENTRY   List;
   HGDIOBJ      hmDC;             // Handle return from NtGdiCreateClientObj.
   PMETAFILEDC pmfDC;
 } MF_ENTRY, *PMF_ENTRY;
 
-typedef struct tagENHMETAFILE
-{
+typedef struct tagENHMETAFILE {
   PVOID      pvMetaBuffer;
   HANDLE     hFile;      /* Handle for disk based MetaFile */
   DWORD      Size;
@@ -114,8 +104,7 @@ typedef struct _UMPDEV
   DWORD           dwDriverCount;   // After init should be 2
   DWORD           WOW64_UMPDev;
   DWORD           WOW64_hMod;
-  DWORD           Unknown;
-  PVOID           apfn[INDEX_LAST]; // Print Driver pfn
+  WCHAR           String[188];
 } UMPDEV, *PUMPDEV;
 
 #define LOCALFONT_COUNT 10
@@ -125,38 +114,36 @@ typedef struct _LOCALFONT
 } LOCALFONT, *PLOCALFONT;
 
 // sdk/winspool.h
-typedef BOOL (WINAPI *ABORTPRINTER) (HANDLE);
-typedef BOOL (WINAPI *CLOSEPRINTER) (HANDLE);
-typedef BOOL (WINAPI *CLOSESPOOLFILEHANDLE) (HANDLE, HANDLE); // W2k8
-typedef HANDLE (WINAPI *COMMITSPOOLDATA) (HANDLE,HANDLE,DWORD); // W2k8
-typedef LONG (WINAPI *DOCUMENTPROPERTIESW) (HWND,HANDLE,LPWSTR,PDEVMODEW,PDEVMODEW,DWORD);
-typedef BOOL (WINAPI *ENDDOCPRINTER) (HANDLE);
-typedef BOOL (WINAPI *ENDPAGEPRINTER) (HANDLE);
-typedef BOOL (WINAPI *GETPRINTERW) (HANDLE,DWORD,LPBYTE,DWORD,LPDWORD);
-typedef BOOL (WINAPI *GETPRINTERDRIVERW) (HANDLE,LPWSTR,DWORD,LPBYTE,DWORD,LPDWORD);
-typedef HANDLE (WINAPI *GETSPOOLFILEHANDLE) (HANDLE); // W2k8
-typedef BOOL (WINAPI *ISVALIDDEVMODEW) (PDEVMODEW,size_t);
-typedef BOOL (WINAPI *OPENPRINTERW) (LPWSTR,PHANDLE,LPPRINTER_DEFAULTSW);
-typedef BOOL (WINAPI *READPRINTER) (HANDLE,PVOID,DWORD,PDWORD);
-typedef BOOL (WINAPI *RESETPRINTERW) (HANDLE,LPPRINTER_DEFAULTSW);
-typedef LPWSTR (WINAPI *STARTDOCDLGW) (HANDLE,DOCINFOW *);
-typedef DWORD (WINAPI *STARTDOCPRINTERW) (HANDLE,DWORD,PBYTE);
-typedef BOOL (WINAPI *STARTPAGEPRINTER) (HANDLE);
+typedef BOOL WINAPI (*ABORTPRINTER) (HANDLE);
+typedef BOOL WINAPI (*CLOSEPRINTER) (HANDLE);
+typedef BOOL WINAPI (*CLOSESPOOLFILEHANDLE) (HANDLE, HANDLE); // W2k8
+typedef HANDLE WINAPI (*COMMITSPOOLDATA) (HANDLE,HANDLE,DWORD); // W2k8
+typedef LONG WINAPI (*DOCUMENTPROPERTIESW) (HWND,HANDLE,LPWSTR,PDEVMODEW,PDEVMODEW,DWORD);
+typedef BOOL WINAPI (*ENDDOCPRINTER) (HANDLE);
+typedef BOOL WINAPI (*ENDPAGEPRINTER) (HANDLE);
+typedef BOOL WINAPI (*GETPRINTERW) (HANDLE,DWORD,LPBYTE,DWORD,LPDWORD);
+typedef BOOL WINAPI (*GETPRINTERDRIVERW) (HANDLE,LPWSTR,DWORD,LPBYTE,DWORD,LPDWORD);
+typedef HANDLE WINAPI (*GETSPOOLFILEHANDLE) (HANDLE); // W2k8
+typedef BOOL WINAPI (*ISVALIDDEVMODEW) (PDEVMODEW,size_t);
+typedef BOOL WINAPI (*OPENPRINTERW) (LPWSTR,PHANDLE,LPPRINTER_DEFAULTSW);
+typedef BOOL WINAPI (*READPRINTER) (HANDLE,PVOID,DWORD,PDWORD);
+typedef BOOL WINAPI (*RESETPRINTERW) (HANDLE,LPPRINTER_DEFAULTSW);
+typedef BOOL WINAPI (*STARTDOCDLGW) (HANDLE,DOCINFOW *);
+typedef DWORD WINAPI (*STARTDOCPRINTERW) (HANDLE,DWORD,PBYTE);
+typedef BOOL WINAPI (*STARTPAGEPRINTER) (HANDLE);
 // ddk/winsplp.h
-typedef BOOL (WINAPI *SEEKPRINTER) (HANDLE,LARGE_INTEGER,PLARGE_INTEGER,DWORD,BOOL);
-typedef BOOL (WINAPI *SPLREADPRINTER) (HANDLE,LPBYTE *,DWORD);
+typedef BOOL WINAPI (*SEEKPRINTER) (HANDLE,LARGE_INTEGER,PLARGE_INTEGER,DWORD,BOOL);
+typedef BOOL WINAPI (*SPLREADPRINTER) (HANDLE,LPBYTE *,DWORD);
 // Same as ddk/winsplp.h DriverUnloadComplete?
-typedef BOOL (WINAPI *SPLDRIVERUNLOADCOMPLETE) (LPWSTR); 
+typedef BOOL WINAPI (*SPLDRIVERUNLOADCOMPLETE) (LPWSTR); 
 // Driver support:
 // DrvDocumentEvent api/winddiui.h not W2k8 DocumentEventAW
-typedef INT (WINAPI *DOCUMENTEVENT) (HANDLE,HDC,INT,ULONG,PVOID,ULONG,PVOID);
+typedef INT WINAPI (*DOCUMENTEVENT) (HANDLE,HDC,INT,ULONG,PVOID,ULONG,PVOID);
 // DrvQueryColorProfile
-typedef BOOL (WINAPI *QUERYCOLORPROFILE) (HANDLE,PDEVMODEW,ULONG,VOID*,ULONG,FLONG);
+typedef BOOL WINAPI (*QUERYCOLORPROFILE) (HANDLE,PDEVMODEW,ULONG,VOID*,ULONG,FLONG);
 // Unknown:
-typedef DWORD (WINAPI *QUERYSPOOLMODE) (HANDLE,DWORD,DWORD);
-typedef DWORD (WINAPI *QUERYREMOTEFONTS) (DWORD,DWORD,DWORD);
-
-extern CLOSEPRINTER fpClosePrinter;
+typedef DWORD WINAPI (*QUERYSPOOLMODE) (HANDLE,DWORD,DWORD);
+typedef DWORD WINAPI (*QUERYREMOTEFONTS) (DWORD,DWORD,DWORD);
 
 /* FUNCTIONS *****************************************************************/
 
@@ -172,21 +159,21 @@ HEAP_strdupA2W(
 VOID
 HEAP_free(LPVOID memory);
 
-VOID 
+BOOL
 FASTCALL
-FONT_TextMetricWToA(
-    const TEXTMETRICW *ptmW, 
-    LPTEXTMETRICA ptmA
+TextMetricW2A(
+    TEXTMETRICA *tma,
+    TEXTMETRICW *tmw
 );
 
-VOID
+BOOL
 FASTCALL
 NewTextMetricW2A(
     NEWTEXTMETRICA *tma,
     NEWTEXTMETRICW *tmw
 );
 
-VOID
+BOOL
 FASTCALL
 NewTextMetricExW2A(
     NEWTEXTMETRICEXA *tma,
@@ -208,7 +195,6 @@ GdiGetHandleUserData(
 );
 
 PLDC
-FASTCALL
 GdiGetLDC(HDC hDC);
 
 HGDIOBJ
@@ -291,7 +277,6 @@ GdiGetBitmapBitsSize(BITMAPINFO *lpbmi);
 VOID GdiSAPCallback(PLDC pldc);
 
 int FASTCALL DocumentEventEx(PVOID,HANDLE,HDC,int,ULONG,PVOID,ULONG,PVOID);
-BOOL FASTCALL EndPagePrinterEx(PVOID,HANDLE);
 BOOL FASTCALL LoadTheSpoolerDrv(VOID);
 
 /* EOF */

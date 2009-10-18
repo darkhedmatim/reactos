@@ -265,10 +265,9 @@ IopCreateObjectTypes(VOID)
                                        NULL,
                                        &IoControllerObjectType))) return FALSE;
 
-    /* Do the Device Type */
+    /* Do the Device Type. FIXME: Needs Delete Routine! */
     RtlInitUnicodeString(&Name, L"Device");
     ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(DEVICE_OBJECT);
-    ObjectTypeInitializer.DeleteProcedure = IopDeleteDevice;
     ObjectTypeInitializer.ParseProcedure = IopParseDevice;
     ObjectTypeInitializer.SecurityProcedure = IopSecurityFile;
     if (!NT_SUCCESS(ObCreateObjectType(&Name,

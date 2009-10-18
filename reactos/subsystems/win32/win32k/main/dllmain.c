@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  *  Entry Point for win32k.sys
  */
 
@@ -25,8 +26,6 @@
 
 #define NDEBUG
 #include <debug.h>
-
-HANDLE hModuleWin;
 
 PGDI_HANDLE_TABLE INTERNAL_CALL GDIOBJ_iAllocHandleTable(OUT PSECTION_OBJECT *SectionObject);
 BOOL INTERNAL_CALL GDI_CleanupForProcess (struct _EPROCESS *Process);
@@ -54,7 +53,7 @@ APIENTRY
 Win32kProcessCallback(struct _EPROCESS *Process,
                       BOOLEAN Create)
 {
-    PPROCESSINFO Win32Process;
+    PW32PROCESS Win32Process;
     DECLARE_RETURN(NTSTATUS);
 
     DPRINT("Enter Win32kProcessCallback\n");
@@ -69,7 +68,7 @@ Win32kProcessCallback(struct _EPROCESS *Process,
         /* FIXME - lock the process */
         Win32Process = ExAllocatePoolWithTag(NonPagedPool,
                                              sizeof(PROCESSINFO),
-                                             'p23W');
+                                             TAG('W', '3', '2', 'p'));
 
         if (Win32Process == NULL) RETURN( STATUS_NO_MEMORY);
 
@@ -129,7 +128,6 @@ Win32kProcessCallback(struct _EPROCESS *Process,
         Process->Peb->GdiDCAttributeList = GDI_BATCH_LIMIT;
       }
 
-      Win32Process->peProcess = Process;
       /* setup process flags */
       Win32Process->W32PF_flags = 0;
     }
@@ -188,7 +186,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
         /* FIXME - lock the process */
         Win32Thread = ExAllocatePoolWithTag(NonPagedPool,
                                             sizeof(THREADINFO),
-                                            't23W');
+                                            TAG('W', '3', '2', 't'));
 
         if (Win32Thread == NULL) RETURN( STATUS_NO_MEMORY);
 
@@ -265,7 +263,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
           }
         }
       }
-      Win32Thread->TIF_flags &= ~TIF_INCLEANUP;
+      Win32Thread->IsExiting = FALSE;
       co_IntDestroyCaret(Win32Thread);
       Win32Thread->ppi = PsGetCurrentProcessWin32Process();
       pTeb = NtCurrentTeb();
@@ -276,7 +274,6 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
       }
       Win32Thread->MessageQueue = MsqCreateMessageQueue(Thread);
       Win32Thread->KeyboardLayout = W32kGetDefaultKeyLayout();
-      Win32Thread->pEThread = Thread;
     }
   else
     {
@@ -284,7 +281,7 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
 
       DPRINT("Destroying W32 thread TID:%d at IRQ level: %lu\n", Thread->Cid.UniqueThread, KeGetCurrentIrql());
 
-      Win32Thread->TIF_flags |= TIF_INCLEANUP;
+      Win32Thread->IsExiting = TRUE;
       HOOK_DestroyThreadHooks(Thread);
       UnregisterThreadHotKeys(Thread);
       /* what if this co_ func crash in umode? what will clean us up then? */
@@ -306,6 +303,12 @@ Win32kThreadCallback(struct _ETHREAD *Thread,
 
       IntSetThreadDesktop(NULL,
                           TRUE);
+
+      if (Win32Thread->ThreadInfo != NULL)
+      {
+          UserHeapFree(Win32Thread->ThreadInfo);
+          Win32Thread->ThreadInfo = NULL;
+      }
 
       PsSetThreadWin32Thread(Thread, NULL);
     }
@@ -384,8 +387,6 @@ DriverEntry (
       return STATUS_UNSUCCESSFUL;
     }
 
-  hModuleWin = MmPageEntireDriver(DriverEntry);
-  DPRINT("Win32k hInstance 0x%x!\n",hModuleWin);
     /*
      * Register Object Manager Callbacks
      */
@@ -526,8 +527,6 @@ DriverEntry (
       DPRINT1("Unable to initialize font support\n");
       return STATUS_UNSUCCESSFUL;
     }
-
-  InitXlateImpl();
 
   /* Create stock objects, ie. precreated objects commonly
      used by win32 applications */

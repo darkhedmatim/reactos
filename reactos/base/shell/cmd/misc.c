@@ -38,8 +38,7 @@
 /*
  * get a character out-of-band and honor Ctrl-Break characters
  */
-TCHAR
-cgetchar (VOID)
+TCHAR cgetchar (VOID)
 {
 	HANDLE hInput = GetStdHandle (STD_INPUT_HANDLE);
 	INPUT_RECORD irBuffer;

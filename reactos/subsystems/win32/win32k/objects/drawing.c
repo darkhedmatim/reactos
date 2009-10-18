@@ -713,9 +713,8 @@ app_fill_ellipse(DC *g, Rect r, PBRUSH pbrush)
 }
 
 static
-POINT
 FASTCALL
-app_boundary_point(Rect r, int angle)
+POINT app_boundary_point(Rect r, int angle)
 {
 	int cx, cy;
 	double tangent;

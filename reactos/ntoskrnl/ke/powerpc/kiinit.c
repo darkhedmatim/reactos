@@ -329,7 +329,7 @@ AppCpuInit:
     /* Check for break-in */
     if (KdPollBreakIn())
     {
-	DbgBreakPointWithStatus(DBG_STATUS_CONTROL_C);
+	DbgBreakPointWithStatus(1);
     }
 
     /* Raise to HIGH_LEVEL */

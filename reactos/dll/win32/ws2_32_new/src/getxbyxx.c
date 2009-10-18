@@ -8,7 +8,6 @@
 
 /* INCLUDES ******************************************************************/
 #include "ws2_32.h"
-#include <nsp_dns.h>
 
 //#define NDEBUG
 #include <debug.h>
@@ -103,7 +102,7 @@ WSAAPI
 getxyDataEnt(IN OUT PCHAR *Results,
              IN DWORD Length,
              IN LPSTR Name,
-             IN LPCGUID Type,
+             IN LPGUID Type,
              IN LPSTR *NewName)
 {
     PWSAQUERYSETA WsaQuery = (PWSAQUERYSETA)*Results;
@@ -119,7 +118,7 @@ getxyDataEnt(IN OUT PCHAR *Results,
     RtlZeroMemory(WsaQuery, sizeof(*WsaQuery));
     WsaQuery->dwSize = sizeof(*WsaQuery);
     WsaQuery->lpszServiceInstanceName = Name;
-    WsaQuery->lpServiceClassId = (LPGUID)Type;
+    WsaQuery->lpServiceClassId = Type;
     WsaQuery->dwNameSpace = NS_ALL;
     WsaQuery->dwNumberOfProtocols = 2;
     WsaQuery->lpafpProtocols = &afp[0];

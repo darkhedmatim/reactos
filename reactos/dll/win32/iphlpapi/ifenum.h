@@ -147,6 +147,4 @@ NTSTATUS deleteIpAddress( ULONG NteContext );
 /* Inserts a route into the route table. */
 DWORD createIpForwardEntryOS(PMIB_IPFORWARDROW pRoute);
 
-BOOL isLoopback( HANDLE tcpFile, TDIEntityID *loop_maybe );
-
 #endif /* ndef WINE_IFENUM_H_ */

@@ -2,6 +2,7 @@
 <!DOCTYPE module SYSTEM "../../tools/rbuild/project.dtd">
 <module name="rtl" type="staticlibrary">
 	<define name="_NTOSKRNL_" />
+	<define name="__NO_CTYPE_INLINES" />
 	<define name="NO_RTL_INLINES" />
 	<define name="_NTSYSTEM_" />
 	<define name="_NTDLLBUILD_" />
@@ -12,6 +13,7 @@
 			<file>except_asm.s</file>
 			<file>except.c</file>
 			<file>interlck.S</file>
+			<file>random_asm.S</file>
 			<file>rtlswap.S</file>
 			<file>rtlmem.s</file>
 			<file>res_asm.s</file>
@@ -99,5 +101,5 @@
 	<pch>rtl.h</pch>
 	-->
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>

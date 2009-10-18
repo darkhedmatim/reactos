@@ -213,10 +213,10 @@ BOOLEAN
 NTAPI
 HalpBiosDisplayReset(VOID)
 {
-    ULONG Flags;
+    ULONG Flags = 0;
 
     /* Disable interrupts */
-    Flags = __readeflags();
+    Ke386SaveFlags(Flags);
     _disable();
 
     /* Map memory available to the V8086 real-mode code */
@@ -241,7 +241,7 @@ HalpBiosDisplayReset(VOID)
     HalpUnmapRealModeMemory();
 
     /* Restore interrupts if they were previously enabled */
-    __writeeflags(Flags);
+    Ke386RestoreFlags(Flags);
     return TRUE;
 }
 

@@ -1,9 +1,7 @@
 /*
- * PROJECT:     Paint for ReactOS
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/devmgmt/lang/uk-UA.rc
- * PURPOSE:     Ukraianian Language File for Paint
- * TRANSLATOR:  Artem Reznikov, Sakara Yevhen
+ * Ukrainian Language resource file
+ * Translated by: Artem Reznikov
+ * Last changed:  29-04-2009
  */
 
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
@@ -49,19 +47,13 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "Масштаб"
         BEGIN
-            POPUP "Користувальницький"
-            BEGIN
-                MENUITEM "12,5%", IDM_VIEWZOOM125
-                MENUITEM "25%", IDM_VIEWZOOM25
-                MENUITEM "50%", IDM_VIEWZOOM50
-                MENUITEM "100%", IDM_VIEWZOOM100
-                MENUITEM "200%", IDM_VIEWZOOM200
-                MENUITEM "400%", IDM_VIEWZOOM400
-                MENUITEM "800%", IDM_VIEWZOOM800
-            END
-            MENUITEM SEPARATOR
-            MENUITEM "Показати сітку", IDM_VIEWSHOWGRID
-            MENUITEM "Показати в мініатюрі", IDM_VIEWSHOWMINIATURE
+            MENUITEM "12,5%", IDM_VIEWZOOM125
+            MENUITEM "25%", IDM_VIEWZOOM25
+            MENUITEM "50%", IDM_VIEWZOOM50
+            MENUITEM "100%", IDM_VIEWZOOM100
+            MENUITEM "200%", IDM_VIEWZOOM200
+            MENUITEM "400%", IDM_VIEWZOOM400
+            MENUITEM "800%", IDM_VIEWZOOM800
         END
         MENUITEM "На весь екран\tCtrl+F", IDM_VIEWFULLSCREEN
     END
@@ -161,11 +153,11 @@ FONT 8, "MS Shell Dlg"
 CAPTION "Зміна розміру"
 BEGIN
     GROUPBOX "Змінення розміру", IDD_CHANGESIZEGROUP, 6, 6, 142, 66
-    ICON IDI_HORZSTRETCH, IDD_CHANGESIZEICON1, 12, 18, 32, 32
+    ICON IDI_HORZSTRETCH, IDD_CHANGESIZEICON1, 12, 18
     LTEXT "По горизонталі:", IDD_CHANGESIZETEXT1, 45, 24, 40, 10
     EDITTEXT IDD_CHANGESIZEEDIT1, 90, 23, 32, 12
     LTEXT "%", IDD_CHANGESIZETEXT2, 125, 24, 15, 10
-    ICON IDI_VERTSTRETCH, IDD_CHANGESIZEICON2, 12, 43, 32, 32
+    ICON IDI_VERTSTRETCH, IDD_CHANGESIZEICON2, 12, 43
     LTEXT "По вертикалі:", IDD_CHANGESIZETEXT3, 45, 49, 40, 10
     EDITTEXT IDD_CHANGESIZEEDIT2, 90, 48, 32, 12
     LTEXT "%", IDD_CHANGESIZETEXT4, 125, 49, 15, 10
@@ -178,10 +170,9 @@ BEGIN
     IDS_PROGRAMNAME, "Paint"
     IDS_WINDOWTITLE, "%s - Paint"
     IDS_INFOTITLE, "Paint для ReactOS"
-    IDS_INFOTEXT, "Paint для ReactOS доступний згідно з GNU Lesser General Public License (LGPL) версії 3 (дивіться www.gnu.org)"
+    IDS_INFOTEXT, "Paint for ReactOS is available under the GNU Lesser General Public License (LGPL) version 3 (see www.gnu.org)"
     IDS_SAVEPROMPTTEXT, "Зберегти зміни до %s?"
     IDS_DEFAULTFILENAME, "Без_імені.bmp"
-    IDS_MINIATURETITLE, "Мініатюра"
     IDS_TOOLTIP1, "Виділення довільної області"
     IDS_TOOLTIP2, "Виділення"
     IDS_TOOLTIP3, "Ластик"
@@ -200,6 +191,4 @@ BEGIN
     IDS_TOOLTIP16, "Прямокутник з округленими кутами"
     IDS_OPENFILTER, "Точкові рисунки (*.bmp;*.dib)\1*.bmp;*.dib\1Усі файли (*.*)\1*.*\1"
     IDS_SAVEFILTER, "24-розрядний рисунок (*.bmp;*.dib)\1*.bmp;*.dib\1"
-    IDS_FILESIZE, "%d bytes"
-    IDS_PRINTRES, "%d x %d pixels per meter"
 END

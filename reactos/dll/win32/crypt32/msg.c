@@ -1340,7 +1340,7 @@ static BOOL CSignedEncodeMsg_Update(HCRYPTMSG hCryptMsg, const BYTE *pbData,
 }
 
 static HCRYPTMSG CSignedEncodeMsg_Open(DWORD dwFlags,
- const void *pvMsgEncodeInfo, LPCSTR pszInnerContentObjID,
+ const void *pvMsgEncodeInfo, LPSTR pszInnerContentObjID,
  PCMSG_STREAM_INFO pStreamInfo)
 {
     const CMSG_SIGNED_ENCODE_INFO_WITH_CMS *info = pvMsgEncodeInfo;
@@ -1553,7 +1553,7 @@ static BOOL CDecodeMsg_CopyData(CRYPT_DATA_BLOB *blob, const BYTE *pbData,
     return ret;
 }
 
-static BOOL CDecodeMsg_DecodeDataContent(CDecodeMsg *msg, const CRYPT_DER_BLOB *blob)
+static BOOL CDecodeMsg_DecodeDataContent(CDecodeMsg *msg, CRYPT_DER_BLOB *blob)
 {
     BOOL ret;
     CRYPT_DATA_BLOB *data;
@@ -1613,7 +1613,7 @@ static inline void CRYPT_FixUpAlgorithmID(CRYPT_ALGORITHM_IDENTIFIER *id)
 }
 
 static BOOL CDecodeMsg_DecodeHashedContent(CDecodeMsg *msg,
- const CRYPT_DER_BLOB *blob)
+ CRYPT_DER_BLOB *blob)
 {
     BOOL ret;
     CRYPT_DIGESTED_DATA *digestedData;
@@ -2406,20 +2406,6 @@ static BOOL CDecodeSignedMsg_GetParam(CDecodeMsg *msg, DWORD dwParamType,
                 ret = CryptGetHashParam(
                  msg->u.signed_data.signerHandles[dwIndex].contentHash,
                  HP_HASHVAL, pvData, pcbData, 0);
-        }
-        else
-            SetLastError(CRYPT_E_INVALID_MSG_TYPE);
-        break;
-    case CMSG_ENCODED_SIGNER:
-        if (msg->u.signed_data.info)
-        {
-            if (dwIndex >= msg->u.signed_data.info->cSignerInfo)
-                SetLastError(CRYPT_E_INVALID_INDEX);
-            else
-                ret = CryptEncodeObjectEx(
-                 X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, CMS_SIGNER_INFO,
-                 &msg->u.signed_data.info->rgSignerInfo[dwIndex], 0, NULL,
-                 pvData, pcbData);
         }
         else
             SetLastError(CRYPT_E_INVALID_MSG_TYPE);

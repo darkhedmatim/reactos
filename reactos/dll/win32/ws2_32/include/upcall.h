@@ -37,7 +37,7 @@ WPUCreateSocketHandle(
     IN  DWORD dwContext,
     OUT LPINT lpErrno);
 
-int
+SOCKET
 WSPAPI
 WPUFDIsSet(
     IN  SOCKET s,

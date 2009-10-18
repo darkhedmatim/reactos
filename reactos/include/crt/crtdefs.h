@@ -19,11 +19,10 @@
 #endif
 #endif
 
-/* Disable non-ANSI C definitions if compiling with __STDC__ */
-//HACK: Disabled
-//#if __STDC__
-//#define NO_OLDNAMES
-//#endif
+/* Compatability definition */
+#if _MSC_VER > 0 && __STDC__
+#define NO_OLDNAMES
+#endif
 
 /** Properties ***************************************************************/
 

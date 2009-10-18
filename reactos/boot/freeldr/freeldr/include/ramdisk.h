@@ -14,6 +14,12 @@
 //
 VOID
 NTAPI
+RamDiskSwitchFromBios(
+    VOID
+);
+
+VOID
+NTAPI
 RamDiskLoadVirtualFile(
     IN PCHAR FileName
 );

@@ -39,8 +39,7 @@ static void test_GetDriveTypeA(void)
     for (drive[0] = 'A'; drive[0] <= 'Z'; drive[0]++)
     {
         type = GetDriveTypeA(drive);
-        ok(type > DRIVE_UNKNOWN && type <= DRIVE_RAMDISK,
-           "not a valid drive %c: type %u\n", drive[0], type);
+        ok(type > 0 && type <= 6, "not a valid drive %c: type %u\n", drive[0], type);
 
         if (!(logical_drives & 1))
             ok(type == DRIVE_NO_ROOT_DIR,
@@ -63,13 +62,12 @@ static void test_GetDriveTypeW(void)
     for (drive[0] = 'A'; drive[0] <= 'Z'; drive[0]++)
     {
         type = GetDriveTypeW(drive);
-        if (type == DRIVE_UNKNOWN && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
+        if (type == DRIVE_UNKNOWN && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
         {
-            win_skip("GetDriveTypeW is not available on Win9x\n");
+            /* Must be Win9x which doesn't support the Unicode functions */
             return;
         }
-        ok(type > DRIVE_UNKNOWN && type <= DRIVE_RAMDISK,
-           "not a valid drive %c: type %u\n", drive[0], type);
+        ok(type > 0 && type <= 6, "not a valid drive %c: type %u\n", drive[0], type);
 
         if (!(logical_drives & 1))
             ok(type == DRIVE_NO_ROOT_DIR,
@@ -125,7 +123,6 @@ static void test_GetDiskFreeSpaceA(void)
                    GetLastError() == ERROR_INVALID_DRIVE ||
                    GetLastError() == ERROR_PATH_NOT_FOUND ||
                    GetLastError() == ERROR_REQUEST_ABORTED ||
-                   GetLastError() == ERROR_NETNAME_DELETED ||
                    GetLastError() == ERROR_UNRECOGNIZED_VOLUME,
                    "GetDiskFreeSpaceA(%s): ret=%d GetLastError=%d\n",
                    drive, ret, GetLastError());
@@ -145,7 +142,6 @@ static void test_GetDiskFreeSpaceA(void)
                         GetLastError() == ERROR_INVALID_FUNCTION ||
                         GetLastError() == ERROR_PATH_NOT_FOUND ||
                         GetLastError() == ERROR_REQUEST_ABORTED ||
-                        GetLastError() == ERROR_NETNAME_DELETED ||
                         GetLastError() == ERROR_UNRECOGNIZED_VOLUME,
                         "GetDiskFreeSpaceExA( %s ) failed. GetLastError=%d\n", drive, GetLastError());
                     ok( bytes_per_sector == 0 || /* empty cd rom drive */
@@ -169,9 +165,9 @@ static void test_GetDiskFreeSpaceW(void)
     static const WCHAR unix_style_root_pathW[] = { '/', 0 };
 
     ret = GetDiskFreeSpaceW(NULL, &sectors_per_cluster, &bytes_per_sector, &free_clusters, &total_clusters);
-    if (ret == 0 && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
+    if (ret == 0 && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
     {
-        win_skip("GetDiskFreeSpaceW is not available\n");
+        /* Must be Win9x which doesn't support the Unicode functions */
         return;
     }
     ok(ret, "GetDiskFreeSpaceW error %d\n", GetLastError());

@@ -92,23 +92,14 @@ static void test_profile_int(void)
 
 static void test_profile_string(void)
 {
-    static WCHAR emptyW[] = { 0 };
-    static WCHAR keyW[] = { 'k','e','y',0 };
-    static WCHAR sW[] = { 's',0 };
-    static WCHAR TESTFILE2W[] = {'.','\\','t','e','s','t','w','i','n','e','2','.','i','n','i',0};
-    static WCHAR valsectionW[] = {'v','a','l','_','e','_','s','e','c','t','i','o','n',0 };
-    static WCHAR valnokeyW[] = {'v','a','l','_','n','o','_','k','e','y',0};
     HANDLE h;
     int ret;
     DWORD count;
     char buf[100];
-    WCHAR bufW[100];
     char *p;
     /* test that lines without an '=' will not be enumerated */
     /* in the case below, name2 is a key while name3 is not. */
     char content[]="[s]\r\nname1=val1\r\nname2=\r\nname3\r\nname4=val4\r\n";
-    char content2[]="\r\nkey=val_no_section\r\n[]\r\nkey=val_e_section\r\n"
-                    "[s]\r\n=val_no_key\r\n[t]\r\n";
     DeleteFileA( TESTFILE2);
     h = CreateFileA( TESTFILE2, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL, NULL);
@@ -134,27 +125,6 @@ static void test_profile_string(void)
         p[-1] = ',';
     ok( ret == 24 && !strcmp( buf, "name1,name2,name4,name5"), "wrong keys returned(%d): %s\n",
             ret, buf);
-
-    h = CreateFileA( TESTFILE2, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL, NULL);
-    ok( h != INVALID_HANDLE_VALUE, " cannot create %s\n", TESTFILE2);
-    if( h == INVALID_HANDLE_VALUE) return;
-    WriteFile( h, content2, sizeof(content2), &count, NULL);
-    CloseHandle( h);
-
-    /* works only in unicode, ascii crashes */
-    ret=GetPrivateProfileStringW(emptyW, keyW, emptyW, bufW,
-                                 sizeof(bufW)/sizeof(bufW[0]), TESTFILE2W);
-    todo_wine
-    ok(!lstrcmpW(valsectionW,bufW), "expected %s, got %s\n",
-        wine_dbgstr_w(valsectionW), wine_dbgstr_w(bufW) );
-
-    /* works only in unicode, ascii crashes */
-    ret=GetPrivateProfileStringW(sW, emptyW, emptyW, bufW,
-                                 sizeof(bufW)/sizeof(bufW[0]), TESTFILE2W);
-    todo_wine
-    ok(!lstrcmpW(valnokeyW,bufW), "expected %s, got %s\n",
-        wine_dbgstr_w(valnokeyW), wine_dbgstr_w(bufW) );
 
     DeleteFileA( TESTFILE2);
 }
@@ -852,11 +822,17 @@ static void test_GetPrivateProfileString(const char *content, const char *descri
     DeleteFileA(filename);
 }
 
+static DWORD timeout = 0;
+
 static BOOL check_binary_file_data(LPCSTR path, const VOID *data, DWORD size)
 {
     HANDLE file;
     CHAR buf[MAX_PATH];
     BOOL ret;
+
+    /* Sleep() is needed on Win9x and WinME */
+    if (timeout)
+        Sleep(timeout);
 
     file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
     if (file == INVALID_HANDLE_VALUE)
@@ -888,19 +864,6 @@ static void test_WritePrivateProfileString(void)
     CHAR path[MAX_PATH];
     CHAR temp[MAX_PATH];
 
-    SetLastError(0xdeadbeef);
-    ret = WritePrivateProfileStringW(NULL, NULL, NULL, NULL);
-    if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-    {
-        /* Win9x/WinME needs (variable) timeouts between tests and even long timeouts don't
-         * guarantee a correct result.
-         * Win9x/WinMe also produces different ini files where there is always a newline before
-         * a section start (except for the first one).
-         */
-        win_skip("WritePrivateProfileString on Win9x/WinME is hard to test reliably\n");
-        return;
-    }
-
     GetTempPathA(MAX_PATH, temp);
     GetTempFileNameA(temp, "wine", 0, path);
     DeleteFileA(path);
@@ -915,6 +878,8 @@ static void test_WritePrivateProfileString(void)
        broken(GetLastError() == ERROR_INVALID_PARAMETER) || /* NT4 */
        broken(GetLastError() == 0xdeadbeef), /* Win9x and WinME */
        "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
+    if (GetLastError() == 0xdeadbeef)
+        timeout = 1000;
     ok(GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES,
        "Expected path to not exist\n");
 

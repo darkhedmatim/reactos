@@ -26,14 +26,11 @@ typedef struct _SETTINGS
     INT background;
     BOOL showtime;
     BOOL useccache;
-    WCHAR lstrip[MAX_PATH];
-    WCHAR lnostrip[MAX_PATH];
     BOOL strip;
     BOOL nostrip;
     BOOL writelog;
     BOOL objstate;
     BOOL outstate;
-    BOOL showversion;
 }
 SETTINGS, *PSETTINGS;
 

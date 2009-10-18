@@ -76,11 +76,6 @@ WdmAudInstallDevice(
         return Status;
     }
 
-    Status = WdmAudMixerInitialize(DeviceObject);
-    DPRINT("WdmAudMixerInitialize Status %x\n", Status);
-    Status = WdmAudWaveInitialize(DeviceObject);
-    DPRINT("WdmAudWaveInitialize Status %x\n", Status);
-
     DeviceObject->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
     DeviceObject->Flags &= ~ DO_DEVICE_INITIALIZING;
 
@@ -209,10 +204,9 @@ WdmAudCleanup(
     {
         for (Index = 0; Index < pClient->NumPins; Index++)
         {
-           DPRINT("Index %u Pin %p Type %x\n", Index, pClient->hPins[Index].Handle, pClient->hPins[Index].Type);
-           if (pClient->hPins[Index].Handle && pClient->hPins[Index].Type != MIXER_DEVICE_TYPE)
+           if (pClient->hPins[Index])
            {
-               ZwClose(pClient->hPins[Index].Handle);
+               ZwClose(pClient->hPins[Index]);
            }
         }
 
@@ -221,6 +215,8 @@ WdmAudCleanup(
             ExFreePool(pClient->hPins);
         }
 
+        ObDereferenceObject(pClient->FileObject);
+        ZwClose(pClient->hSysAudio);
         ExFreePool(pClient);
         IoStack->FileObject->FsContext = NULL;
     }
@@ -244,14 +240,14 @@ DriverEntry(
 
     Driver->DriverUnload = WdmAudUnload;
 
+
     Driver->MajorFunction[IRP_MJ_CREATE] = WdmAudCreate;
     Driver->MajorFunction[IRP_MJ_CLOSE] = WdmAudClose;
     Driver->MajorFunction[IRP_MJ_PNP] = WdmAudPnp;
     Driver->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = KsDefaultForwardIrp; 
     Driver->MajorFunction[IRP_MJ_CLEANUP] = WdmAudCleanup;
     Driver->MajorFunction[IRP_MJ_DEVICE_CONTROL] = WdmAudDeviceControl;
-    Driver->MajorFunction[IRP_MJ_WRITE] = WdmAudReadWrite;
-    Driver->MajorFunction[IRP_MJ_READ] = WdmAudReadWrite;
+    Driver->MajorFunction[IRP_MJ_WRITE] = WdmAudWrite;
     Driver->MajorFunction[IRP_MJ_POWER] = KsDefaultDispatchPower;
 
     return WdmAudInstallDevice(Driver);

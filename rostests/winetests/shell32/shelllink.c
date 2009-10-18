@@ -40,15 +40,12 @@
 typedef void (WINAPI *fnILFree)(LPITEMIDLIST);
 typedef BOOL (WINAPI *fnILIsEqual)(LPCITEMIDLIST, LPCITEMIDLIST);
 typedef HRESULT (WINAPI *fnSHILCreateFromPath)(LPCWSTR, LPITEMIDLIST *,DWORD*);
-typedef HRESULT (WINAPI *fnSHDefExtractIconA)(LPCSTR, int, UINT, HICON*, HICON*, UINT);
 
 static fnILFree pILFree;
 static fnILIsEqual pILIsEqual;
 static fnSHILCreateFromPath pSHILCreateFromPath;
-static fnSHDefExtractIconA pSHDefExtractIconA;
 
 static DWORD (WINAPI *pGetLongPathNameA)(LPCSTR, LPSTR, DWORD);
-static DWORD (WINAPI *pGetShortPathNameA)(LPCSTR, LPSTR, DWORD);
 
 static const GUID _IID_IShellLinkDataList = {
     0x45e2b4ae, 0xb1c3, 0x11d0,
@@ -224,7 +221,6 @@ static void test_get_set(void)
     r = IShellLinkA_SetPath(sl, "\"c:\\nonexistent\\file\"");
     ok(r==S_FALSE || r == S_OK, "SetPath failed (0x%08x)\n", r);
 
-    strcpy(buffer,"garbage");
     r = IShellLinkA_GetPath(sl, buffer, sizeof(buffer), NULL, SLGP_RAWPATH);
     ok(r==S_OK, "GetPath failed (0x%08x)\n", r);
     ok(!lstrcmp(buffer, "C:\\nonexistent\\file") ||
@@ -617,25 +613,6 @@ static void test_load_save(void)
     create_lnk(lnkfile, &desc, 0);
     check_lnk(lnkfile, &desc, 0x0);
 
-    r=pGetShortPathNameA(mydir, mypath, sizeof(mypath));
-    strcpy(realpath, mypath);
-    strcat(realpath, "\\test.txt");
-    strcat(mypath, "\\\\test.txt");
-
-    /* Overwrite the existing lnk file and test link to a short path with double backslashes */
-    desc.description="non-executable file";
-    desc.workdir=mydir;
-    desc.path=mypath;
-    desc.pidl=NULL;
-    desc.arguments="";
-    desc.showcmd=SW_SHOWNORMAL;
-    desc.icon=mypath;
-    desc.icon_id=0;
-    desc.hotkey=0x1234;
-    create_lnk(lnkfile, &desc, 0);
-    desc.path=realpath;
-    check_lnk(lnkfile, &desc, 0x0);
-
     r = DeleteFileA(mypath);
     ok(r, "failed to delete file %s (%d)\n", mypath, GetLastError());
 
@@ -731,34 +708,6 @@ static void test_datalink(void)
     IShellLinkW_Release( sl );
 }
 
-static void test_shdefextracticon(void)
-{
-    HICON hiconlarge=NULL, hiconsmall=NULL;
-    HRESULT res;
-
-    if (!pSHDefExtractIconA)
-    {
-        win_skip("SHDefExtractIconA is unavailable\n");
-        return;
-    }
-
-    res = pSHDefExtractIconA("shell32.dll", 0, 0, &hiconlarge, &hiconsmall, MAKELONG(16,24));
-    ok(SUCCEEDED(res), "SHDefExtractIconA failed, res=%x\n", res);
-    ok(hiconlarge != NULL, "got null hiconlarge\n");
-    ok(hiconsmall != NULL, "got null hiconsmall\n");
-    DestroyIcon(hiconlarge);
-    DestroyIcon(hiconsmall);
-
-    hiconsmall = NULL;
-    res = pSHDefExtractIconA("shell32.dll", 0, 0, NULL, &hiconsmall, MAKELONG(16,24));
-    ok(SUCCEEDED(res), "SHDefExtractIconA failed, res=%x\n", res);
-    ok(hiconsmall != NULL, "got null hiconsmall\n");
-    DestroyIcon(hiconsmall);
-
-    res = pSHDefExtractIconA("shell32.dll", 0, 0, NULL, NULL, MAKELONG(16,24));
-    ok(SUCCEEDED(res), "SHDefExtractIconA failed, res=%x\n", res);
-}
-
 START_TEST(shelllink)
 {
     HRESULT r;
@@ -768,10 +717,8 @@ START_TEST(shelllink)
     pILFree = (fnILFree) GetProcAddress(hmod, (LPSTR)155);
     pILIsEqual = (fnILIsEqual) GetProcAddress(hmod, (LPSTR)21);
     pSHILCreateFromPath = (fnSHILCreateFromPath) GetProcAddress(hmod, (LPSTR)28);
-    pSHDefExtractIconA = (fnSHDefExtractIconA) GetProcAddress(hmod, "SHDefExtractIconA");
 
     pGetLongPathNameA = (void *)GetProcAddress(hkernel32, "GetLongPathNameA");
-    pGetShortPathNameA = (void *)GetProcAddress(hkernel32, "GetShortPathNameA");
 
     r = CoInitialize(NULL);
     ok(SUCCEEDED(r), "CoInitialize failed (0x%08x)\n", r);
@@ -781,7 +728,6 @@ START_TEST(shelllink)
     test_get_set();
     test_load_save();
     test_datalink();
-    test_shdefextracticon();
 
     CoUninitialize();
 }

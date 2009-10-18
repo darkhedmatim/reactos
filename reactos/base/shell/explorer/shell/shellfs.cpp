@@ -172,11 +172,7 @@ bool ShellDirectory::get_path(PTSTR path, size_t path_count) const
 
 	SFGAOF attribs = SFGAO_FILESYSTEM;
 
-	// Split pidl into current and parent folder PIDLs
-	ShellPath pidlParent, pidlFolder;
-	_pidl.split(pidlParent, pidlFolder);
-
-	if (FAILED(const_cast<ShellFolder&>(_folder)->GetAttributesOf(1, (LPCITEMIDLIST*)&pidlFolder, &attribs)))
+	if (FAILED(const_cast<ShellFolder&>(_folder)->GetAttributesOf(1, (LPCITEMIDLIST*)&_pidl, &attribs)))
 		return false;
 
 	if (!(attribs & SFGAO_FILESYSTEM))

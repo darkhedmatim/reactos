@@ -3,7 +3,7 @@
 
 #include <include/engobjects.h>
 
-#define TAG_FINF        'FNIF'
+#define TAG_FINF        TAG('F', 'I', 'N', 'F')
 //
 // EXSTROBJ flags.
 //
@@ -109,8 +109,6 @@ DWORD FASTCALL ftGdiGetKerningPairs(PFONTGDI,DWORD,LPKERNINGPAIR);
 BOOL NTAPI GreExtTextOutW(IN HDC,IN INT,IN INT,IN UINT,IN OPTIONAL RECTL*,
     IN LPWSTR, IN INT, IN OPTIONAL LPINT, IN DWORD);
 DWORD FASTCALL IntGetCharDimensions(HDC, PTEXTMETRICW, PDWORD);
-BOOL FASTCALL GreGetTextExtentW(HDC,LPWSTR,INT,LPSIZE,UINT);
-BOOL FASTCALL GreGetTextExtentExW(HDC,LPWSTR,ULONG,ULONG,PULONG,PULONG,LPSIZE,FLONG);
 
 #define IntLockProcessPrivateFonts(W32Process) \
   ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&W32Process->PrivateFontListLock)

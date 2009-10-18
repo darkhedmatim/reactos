@@ -1,5 +1,9 @@
+#include "resource.h"
+#include "windows.h"
 /*
- * Hungarian resource állomány for CMD
+ * Moved all hardcoded strings to En.rc.
+ * By Magnus Olsen  2005
+ * Hungarian resource állomány for ntvdm
  * Translation by Robert Horvath (talley at cubeclub.hu) 2005
  */
 

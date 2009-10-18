@@ -2,7 +2,8 @@
     ReactOS Kernel-Mode COM
     IUnknown implementations
 
-    This file is in the public domain.
+    LICENSE
+        Please see COPYING in the top-level directory for license information.
 
     AUTHORS
         Andrew Greenwood
@@ -10,6 +11,8 @@
 
 #ifndef STDUNK_H
 #define STDUNK_H
+
+#define STDUNK_TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 
 #include <punknown.h>
 
@@ -91,20 +94,20 @@ class CUnknown : public INonDelegatingUnknown
 
 #else   /* Not C++ - this is probably very buggy... */
 
-NTSTATUS
 STDMETHODCALLTYPE
+NTSTATUS
 Unknown_QueryInterface(
     IUnknown* this,
     IN  REFIID refiid,
     OUT PVOID* output);
 
-ULONG
 STDMETHODCALLTYPE
+ULONG
 Unknown_AddRef(
     IUnknown* unknown_this);
 
-ULONG
 STDMETHODCALLTYPE
+ULONG
 Unknown_Release(
     IUnknown* unknown_this);
 
@@ -151,7 +154,7 @@ typedef struct CUnknown
     STD_CREATE_BODY_WITH_TAG_(classname, unknown, outer_unknown, pool_type, tag, PUNKNOWN)
 
 #define STD_CREATE_BODY_(classname, unknown, outer_unknown, pool_type, base) \
-    STD_CREATE_BODY_WITH_TAG_(classname, unknown, outer_unknown, pool_type, 'rCcP', base)
+    STD_CREATE_BODY_WITH_TAG_(classname, unknown, outer_unknown, pool_type, STDUNK_TAG('r','C','c','P'), base)
 
 #define STD_CREATE_BODY(classname, unknown, outer_unknown, pool_type) \
     STD_CREATE_BODY_(classname, unknown, outer_unknown, pool_type, PUNKNOWN)
@@ -185,7 +188,7 @@ operator new (
     size_t  size,
     POOL_TYPE pool_type)
 {
-    return KCOM_New(size, pool_type, 'wNcP');
+    return KCOM_New(size, pool_type, STDUNK_TAG ('w','N','c','P'));
 }
 
 inline PVOID

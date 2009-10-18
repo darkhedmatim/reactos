@@ -3133,7 +3133,6 @@ PAGE_NUMBER
 FileCopyPage(PINPUT_RECORD Ir)
 {
     COPYCONTEXT CopyContext;
-    unsigned int mem_bar_width;
 
     MUIDisplayPage(FILE_COPY_PAGE);
 
@@ -3154,7 +3153,7 @@ FileCopyPage(PINPUT_RECORD Ir)
                                                 MUIGetString(STRING_SETUPCOPYINGFILES));
 
     // fit memory bars to screen width, distribute them uniform
-    mem_bar_width = (xScreen - 26) / 5;
+    unsigned int mem_bar_width = (xScreen - 26) / 5;
     mem_bar_width -= mem_bar_width % 2;  // make even
     /* ATTENTION: The following progress bars are debug stuff, which should not be translated!! */
     /* Create the paged pool progress bar */
@@ -3354,18 +3353,6 @@ BootLoaderPage(PINPUT_RECORD Ir)
     PartitionType = PartitionList->ActiveBootPartition->
         PartInfo[PartitionList->ActiveBootPartitionNumber].PartitionType;
 
-    if (IsUnattendedSetup)
-    {
-        if (UnattendMBRInstallType == 0) /* skip MBR installation */
-        {
-            return SUCCESS_PAGE;
-        }
-        else if (UnattendMBRInstallType == 1) /* install on floppy */
-        {
-            return BOOT_LOADER_FLOPPY_PAGE;
-        }
-    }
-
     if (PartitionType == PARTITION_ENTRY_UNUSED)
     {
         DPRINT("Error: active partition invalid (unused)\n");
@@ -3411,10 +3398,20 @@ BootLoaderPage(PINPUT_RECORD Ir)
         return BOOT_LOADER_FLOPPY_PAGE;
     }
 
-    /* Unattended install on hdd? */
-    if (IsUnattendedSetup && UnattendMBRInstallType == 2)
+    if (IsUnattendedSetup)
     {
-        return BOOT_LOADER_HARDDISK_PAGE;
+        if (UnattendMBRInstallType == 0) /* skip MBR installation */
+        {
+            return SUCCESS_PAGE;
+        }
+        else if (UnattendMBRInstallType == 1) /* install on floppy */
+        {
+            return BOOT_LOADER_FLOPPY_PAGE;
+        }
+        else if (UnattendMBRInstallType == 2) /* install on hdd */
+        {
+            return BOOT_LOADER_HARDDISK_PAGE;
+        }
     }
 
     MUIDisplayPage(BOOT_LOADER_PAGE);

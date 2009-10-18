@@ -501,18 +501,11 @@ CreateDIBitmap( HDC hDC,
      hBmp = GetStockObject(DEFAULT_BITMAP);
   else
   {
-     if ( Bits && Init == CBM_INIT )
+     if ( Bits )
      {
         pvSafeBits = RtlAllocateHeap(GetProcessHeap(), 0, cjBmpScanSize);
-        if (pvSafeBits == NULL)
-        {
-            hBmp = NULL;
-            goto Exit;
-        }
-        else
-        {
+        if ( pvSafeBits )
            RtlCopyMemory( pvSafeBits, Bits, cjBmpScanSize);
-        }
      }
 
      hBmp = NtGdiCreateDIBitmapInternal(hDC,
@@ -527,7 +520,7 @@ CreateDIBitmap( HDC hDC,
                                         0,
                                         0);
 
-     if ( Bits && Init == CBM_INIT )
+     if ( Bits )
         RtlFreeHeap(RtlGetProcessHeap(), 0, pvSafeBits);
   }
 Exit:

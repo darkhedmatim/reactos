@@ -535,7 +535,7 @@ DWORD WINAPI VerInstallFileW(
 	LPCWSTR destdir,LPCWSTR curdir,LPWSTR tmpfile,PUINT tmpfilelen )
 {
     LPSTR wsrcf = NULL, wsrcd = NULL, wdestf = NULL, wdestd = NULL, wtmpf = NULL, wcurd = NULL;
-    DWORD ret = 0;
+    DWORD ret;
     UINT len;
 
     if (srcfilename)
@@ -543,50 +543,34 @@ DWORD WINAPI VerInstallFileW(
         len = WideCharToMultiByte( CP_ACP, 0, srcfilename, -1, NULL, 0, NULL, NULL );
         if ((wsrcf = HeapAlloc( GetProcessHeap(), 0, len )))
             WideCharToMultiByte( CP_ACP, 0, srcfilename, -1, wsrcf, len, NULL, NULL );
-        else
-            ret = VIF_OUTOFMEMORY;
     }
-    if (srcdir && !ret)
+    if (srcdir)
     {
         len = WideCharToMultiByte( CP_ACP, 0, srcdir, -1, NULL, 0, NULL, NULL );
         if ((wsrcd = HeapAlloc( GetProcessHeap(), 0, len )))
             WideCharToMultiByte( CP_ACP, 0, srcdir, -1, wsrcd, len, NULL, NULL );
-        else
-            ret = VIF_OUTOFMEMORY;
     }
-    if (destfilename && !ret)
+    if (destfilename)
     {
         len = WideCharToMultiByte( CP_ACP, 0, destfilename, -1, NULL, 0, NULL, NULL );
         if ((wdestf = HeapAlloc( GetProcessHeap(), 0, len )))
             WideCharToMultiByte( CP_ACP, 0, destfilename, -1, wdestf, len, NULL, NULL );
-        else
-            ret = VIF_OUTOFMEMORY;
     }
-    if (destdir && !ret)
+    if (destdir)
     {
         len = WideCharToMultiByte( CP_ACP, 0, destdir, -1, NULL, 0, NULL, NULL );
         if ((wdestd = HeapAlloc( GetProcessHeap(), 0, len )))
             WideCharToMultiByte( CP_ACP, 0, destdir, -1, wdestd, len, NULL, NULL );
-        else
-            ret = VIF_OUTOFMEMORY;
     }
-    if (curdir && !ret)
+    if (curdir)
     {
         len = WideCharToMultiByte( CP_ACP, 0, curdir, -1, NULL, 0, NULL, NULL );
         if ((wcurd = HeapAlloc( GetProcessHeap(), 0, len )))
             WideCharToMultiByte( CP_ACP, 0, curdir, -1, wcurd, len, NULL, NULL );
-        else
-            ret = VIF_OUTOFMEMORY;
     }
-    if (!ret)
-    {
-        len = *tmpfilelen * sizeof(WCHAR);
-        wtmpf = HeapAlloc( GetProcessHeap(), 0, len );
-        if (!wtmpf)
-            ret = VIF_OUTOFMEMORY;
-    }
-    if (!ret)
-        ret = VerInstallFileA(flags,wsrcf,wdestf,wsrcd,wdestd,wcurd,wtmpf,&len);
+    len = *tmpfilelen * sizeof(WCHAR);
+    wtmpf = HeapAlloc( GetProcessHeap(), 0, len );
+    ret = VerInstallFileA(flags,wsrcf,wdestf,wsrcd,wdestd,wcurd,wtmpf,&len);
     if (!ret)
         *tmpfilelen = MultiByteToWideChar( CP_ACP, 0, wtmpf, -1, tmpfile, *tmpfilelen );
     else if (ret & VIF_BUFFTOOSMALL)

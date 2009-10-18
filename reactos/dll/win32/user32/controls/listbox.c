@@ -138,8 +138,8 @@ typedef enum
 
 static TIMER_DIRECTION LISTBOX_Timer = LB_TIMER_NONE;
 
-//static LRESULT WINAPI ListBoxWndProcA( HWND hwnd, UINT msg, WPARAM wParam,LPARAM lParam );
-//static LRESULT WINAPI ListBoxWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ListBoxWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ListBoxWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 
 static LRESULT LISTBOX_GetItemRect( const LB_DESCR *descr, INT index, RECT *rect );
 
@@ -1900,7 +1900,8 @@ static LRESULT LISTBOX_Directory( LB_DESCR *descr, UINT attrib,
                 else  /* not a directory */
                 {
 #define ATTRIBS (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | \
-                 FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_ARCHIVE)
+                 FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_ARCHIVE | \
+                 FILE_ATTRIBUTE_DIRECTORY)
 
                     if ((attrib & DDL_EXCLUSIVE) &&
                         ((attrib & ATTRIBS) != (entry.dwFileAttributes & ATTRIBS)))
@@ -2659,8 +2660,8 @@ static BOOL LISTBOX_Destroy( LB_DESCR *descr )
 /***********************************************************************
  *           ListBoxWndProc_common
  */
-LRESULT WINAPI ListBoxWndProc_common( HWND hwnd, UINT msg,
-                                   WPARAM wParam, LPARAM lParam, BOOL unicode )
+static LRESULT ListBoxWndProc_common( HWND hwnd, UINT msg,
+                                      WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
     LB_DESCR *descr = (LB_DESCR *)GetWindowLongPtrW( hwnd, 0 );
     LPHEADCOMBO lphc = 0;
@@ -2673,7 +2674,7 @@ LRESULT WINAPI ListBoxWndProc_common( HWND hwnd, UINT msg,
         if (msg == WM_CREATE)
         {
 	    CREATESTRUCTW *lpcs = (CREATESTRUCTW *)lParam;
-            if (lpcs->style & LBS_COMBOBOX) lphc = lpcs->lpCreateParams;
+	    if (lpcs->style & LBS_COMBOBOX) lphc = (LPHEADCOMBO)lpcs->lpCreateParams;
             if (!LISTBOX_Create( hwnd, lphc )) return -1;
             TRACE("creating hwnd %p descr %p\n", hwnd, (void *)GetWindowLongPtrW( hwnd, 0 ) );
             return 0;
@@ -3446,7 +3447,7 @@ LRESULT WINAPI ListBoxWndProc_common( HWND hwnd, UINT msg,
 /***********************************************************************
  *           ListBoxWndProcA
  */
-LRESULT WINAPI ListBoxWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ListBoxWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
     return ListBoxWndProc_common( hwnd, msg, wParam, lParam, FALSE );
 }
@@ -3454,7 +3455,7 @@ LRESULT WINAPI ListBoxWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 /***********************************************************************
  *           ListBoxWndProcW
  */
-LRESULT WINAPI ListBoxWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ListBoxWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
     return ListBoxWndProc_common( hwnd, msg, wParam, lParam, TRUE );
 }

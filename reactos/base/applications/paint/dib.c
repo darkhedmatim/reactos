@@ -14,128 +14,88 @@
 
 HBITMAP CreateDIBWithProperties(int width, int height)
 {
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(BITMAPINFO));
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = width;
-    bmi.bmiHeader.biHeight = height;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 24;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    return CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, NULL, NULL, 0);
+    BITMAPINFO bitmapinfo;
+    bitmapinfo.bmiHeader.biSize = sizeof (BITMAPINFOHEADER);
+    bitmapinfo.bmiHeader.biWidth = width;
+    bitmapinfo.bmiHeader.biHeight = height;
+    bitmapinfo.bmiHeader.biPlanes = 1;
+    bitmapinfo.bmiHeader.biBitCount = 24;
+    bitmapinfo.bmiHeader.biCompression = BI_RGB;
+    bitmapinfo.bmiHeader.biSizeImage = 0;
+    bitmapinfo.bmiHeader.biXPelsPerMeter = 0;
+    bitmapinfo.bmiHeader.biYPelsPerMeter = 0;
+    bitmapinfo.bmiHeader.biClrUsed = 0;
+    bitmapinfo.bmiHeader.biClrImportant = 0;
+    return CreateDIBSection(NULL, &bitmapinfo, DIB_RGB_COLORS, NULL, NULL, 0);
 }
 
-int GetDIBWidth(HBITMAP hBitmap)
+int GetDIBWidth(HBITMAP hbm)
 {
     BITMAP bm;
-    GetObject(hBitmap, sizeof(BITMAP), &bm);
+    GetObject(hbm, sizeof(BITMAP), &bm);
     return bm.bmWidth;
 }
 
-int GetDIBHeight(HBITMAP hBitmap)
+int GetDIBHeight(HBITMAP hbm)
 {
     BITMAP bm;
-    GetObject(hBitmap, sizeof(BITMAP), &bm);
+    GetObject(hbm, sizeof(BITMAP), &bm);
     return bm.bmHeight;
 }
 
-void SaveDIBToFile(HBITMAP hBitmap, LPTSTR FileName, HDC hDC, LPSYSTEMTIME time, int *size, int hRes, int vRes)
+void SaveDIBToFile(HBITMAP hbm, char name[], HDC hdc)
 {
     BITMAP bm;
-    HANDLE hFile;
+    GetObject(hbm, sizeof(BITMAP), &bm);
     BITMAPFILEHEADER bf;
     BITMAPINFOHEADER bi;
-    int imgDataSize;
-    DWORD dwBytesWritten;
-    char* buffer;
-
-    GetObject(hBitmap, sizeof(BITMAP), &bm);
-
-    ZeroMemory(&bf, sizeof(BITMAPFILEHEADER));
-    ZeroMemory(&bi, sizeof(BITMAPINFOHEADER));
-
-    imgDataSize = bm.bmWidthBytes * bm.bmHeight;
-    bf.bfType = 0x4d42; /* BM */
-    bf.bfSize = imgDataSize + 52;
+    int imgDataSize = bm.bmWidthBytes*bm.bmHeight;
+    bf.bfType = 0x4d42;
+    bf.bfSize = imgDataSize+52;
+    bf.bfReserved1 = 0;
+    bf.bfReserved2 = 0;
     bf.bfOffBits = 54;
-    bi.biSize = sizeof(BITMAPINFOHEADER);
+    bi.biSize = 40;
     bi.biWidth = bm.bmWidth;
     bi.biHeight = bm.bmHeight;
     bi.biPlanes = bm.bmPlanes;
     bi.biBitCount = bm.bmBitsPixel;
     bi.biCompression = BI_RGB;
-    bi.biXPelsPerMeter = hRes;
-    bi.biYPelsPerMeter = vRes;
-
-    buffer = HeapAlloc(GetProcessHeap(), 0, imgDataSize);
-    GetDIBits(hDC, hBitmap, 0, bm.bmHeight, buffer, (LPBITMAPINFO)&bi, DIB_RGB_COLORS);
-
-    hFile = CreateFile(FileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
-        return;
-
-    WriteFile(hFile, &bf, sizeof(BITMAPFILEHEADER), &dwBytesWritten, NULL);
-    WriteFile(hFile, &bi, sizeof(BITMAPINFOHEADER), &dwBytesWritten, NULL);
-    WriteFile(hFile, buffer, imgDataSize, &dwBytesWritten, NULL);
-
-    if (time)
-    {
-        FILETIME ft;
-        GetFileTime(hFile, NULL, NULL, &ft);
-        FileTimeToSystemTime(&ft, time);
-    }
-    if (size)
-        *size = GetFileSize(hFile, NULL);
-
-    CloseHandle(hFile);
+    bi.biSizeImage = 0;
+    bi.biXPelsPerMeter = 0;
+    bi.biYPelsPerMeter = 0;
+    bi.biClrUsed = 0;
+    bi.biClrImportant = 0;
+    int *buffer = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, imgDataSize);
+    GetDIBits(hdc, hbm, 0, bm.bmHeight, buffer, (LPBITMAPINFO)&bi, DIB_RGB_COLORS);
+    HANDLE f = CreateFile(name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    int bytesWritten;
+    WriteFile(f, &bf, 14, (LPDWORD)&bytesWritten, NULL);
+    WriteFile(f, &bi, 40, (LPDWORD)&bytesWritten, NULL);
+    WriteFile(f, buffer, imgDataSize, (LPDWORD)&bytesWritten, NULL);
+    CloseHandle(f);
     HeapFree(GetProcessHeap(), 0, buffer);
 }
 
-void LoadDIBFromFile(HBITMAP *hBitmap, LPTSTR name, LPSYSTEMTIME time, int *size, int *hRes, int *vRes)
+HBITMAP LoadDIBFromFile(char name[])
 {
+    HBITMAP bm;
     BITMAPFILEHEADER bfh;
     BITMAPINFO *bi;
-    PVOID pvBits;
-    DWORD dwBytesRead;
-    HANDLE hFile;
-    
-    if (!hBitmap)
-        return;
-
-    hFile = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
-        return;
-
-    /* read header and check for 'BM' magic */
-    ReadFile(hFile, &bfh, sizeof(BITMAPFILEHEADER), &dwBytesRead, NULL);
-    if (bfh.bfType != 0x4d42)
+    VOID *data;
+    int bytesRead;
+    HANDLE f = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    ReadFile(f, &bfh, 14, (LPDWORD)&bytesRead, NULL);
+    if (bfh.bfType!=0x4d42)
     {
-        CloseHandle(hFile);
-        return;
+        fclose(f);
+        return NULL;
     }
-    
-    if (time)
-    {
-        FILETIME ft;
-        GetFileTime(hFile, NULL, NULL, &ft);
-        FileTimeToSystemTime(&ft, time);
-    }
-    if (size)
-        *size = GetFileSize(hFile, NULL);
-
-    bi = HeapAlloc(GetProcessHeap(), 0, bfh.bfOffBits - sizeof(BITMAPFILEHEADER));
-    if (!bi)
-        return;
-
-    ReadFile(hFile, bi, bfh.bfOffBits - sizeof(BITMAPFILEHEADER), &dwBytesRead, NULL);
-    *hBitmap = CreateDIBSection(NULL, bi, DIB_RGB_COLORS, &pvBits, NULL, 0);
-    ReadFile(hFile, pvBits, bfh.bfSize - bfh.bfOffBits, &dwBytesRead, NULL);
-    
-    if (hRes)
-        *hRes = (*bi).bmiHeader.biXPelsPerMeter;
-    if (vRes)
-        *vRes = (*bi).bmiHeader.biYPelsPerMeter;
-    
-    CloseHandle(hFile);
+    bi = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, bfh.bfOffBits-14);
+    ReadFile(f, bi, bfh.bfOffBits-14, (LPDWORD)&bytesRead, NULL);
+    bm = CreateDIBSection(NULL, bi, DIB_RGB_COLORS, &data, NULL, 0);
+    ReadFile(f, data, bfh.bfSize-bfh.bfOffBits, (LPDWORD)&bytesRead, NULL);
+    CloseHandle(f);
     HeapFree(GetProcessHeap(), 0, bi);
+    return bm;
 }

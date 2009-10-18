@@ -21,7 +21,7 @@
 #include <freeldr.h>
 #include <debug.h>
 
-#if DBG
+#ifdef DBG
 typedef struct
 {
     MEMORY_TYPE Type;
@@ -54,13 +54,13 @@ extern ULONG_PTR	MmHeapStart;
 
 BOOLEAN MmInitializeMemoryManager(VOID)
 {
-#if DBG
+#ifdef DBG
 	MEMORY_DESCRIPTOR* MemoryDescriptor = NULL;
 #endif
 
 	DPRINTM(DPRINT_MEMORY, "Initializing Memory Manager.\n");
 
-#if DBG
+#ifdef DBG
 	// Dump the system memory map
 	DPRINTM(DPRINT_MEMORY, "System Memory Map (Base Address, Length, Type):\n");
 	while ((MemoryDescriptor = ArcGetMemoryDescriptor(MemoryDescriptor)) != NULL)
@@ -128,7 +128,7 @@ VOID MmInitializeHeap(PVOID PageLookupTable)
 	DPRINTM(DPRINT_MEMORY, "Heap initialized, base 0x%08x, pages %d\n", (HeapStart << MM_PAGE_SHIFT), PagesNeeded);
 }
 
-#if DBG
+#ifdef DBG
 PCSTR MmGetSystemMemoryMapTypeString(MEMORY_TYPE Type)
 {
 	ULONG		Index;
@@ -275,38 +275,6 @@ VOID MmInitPageLookupTable(PVOID PageLookupTable, ULONG TotalPageCount)
                 // Allocatable memory
                 //
                 MemoryMapPageAllocated = LoaderFree;
-                break;
-            }
-            case MemoryFirmwarePermanent:
-            {
-                //
-                // Firmware permanent memory
-                //
-                MemoryMapPageAllocated = LoaderFirmwarePermanent;
-                break;
-            }
-            case MemoryFirmwareTemporary:
-            {
-                //
-                // Firmware temporary memory
-                //
-                MemoryMapPageAllocated = LoaderFirmwareTemporary;
-                break;
-            }
-            case MemoryLoadedProgram:
-            {
-                //
-                // Bootloader code
-                //
-                MemoryMapPageAllocated = LoaderLoadedProgram;
-                break;
-            }
-            case MemorySpecialMemory:
-            {
-                //
-                // Special reserved memory
-                //
-                MemoryMapPageAllocated = LoaderSpecialMemory;
                 break;
             }
             default:

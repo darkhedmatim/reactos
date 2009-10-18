@@ -4,7 +4,6 @@
 #include <iprtrmib.h>
 #include <ipexport.h>
 #include <iptypes.h>
-#include <netioapi.h>
 #ifdef __cplusplus
 extern "C" {
 #endif

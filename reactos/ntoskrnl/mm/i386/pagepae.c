@@ -78,11 +78,11 @@ ULONG_PTR
 NTAPI
 MiFlushTlbIpiRoutine(ULONG_PTR Address)
 {
-   if (Address == MAXULONGLONG)
+   if (Address == (ULONG_PTR)-1)
    {
       KeFlushCurrentTb();
    }
-   else if (Address == MAXULONGLONG-1)
+   else if (Address == (ULONG_PTR)-2)
    {
       KeFlushCurrentTb();
    }

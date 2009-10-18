@@ -154,6 +154,26 @@ NdisIMSwitchToMiniport(
 /*
  * @unimplemented
  */
+VOID
+EXPORT
+NdisOverrideBusNumber(
+    IN  NDIS_HANDLE WrapperConfigurationContext,
+    IN  NDIS_HANDLE MiniportAdapterHandle   OPTIONAL,
+    IN  ULONG       BusNumber)
+/*
+ * FUNCTION:
+ * ARGUMENTS:
+ * NOTES:
+ *    NDIS 4.0
+ */
+{
+    UNIMPLEMENTED
+}
+
+
+/*
+ * @unimplemented
+ */
 NDIS_STATUS
 EXPORT
 NdisQueryReceiveInformation(

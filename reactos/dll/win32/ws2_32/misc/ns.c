@@ -7,6 +7,7 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
+#define __NO_CTYPE_INLINES
 #include <ctype.h>
 #include <ws2_32.h>
 #include <winbase.h>
@@ -631,9 +632,8 @@ struct hostent defined in w32api/include/winsock2.h
 
 void free_servent(struct servent* s)
 {
-    char* next;
     HFREE(s->s_name);
-    next = s->s_aliases[0];
+    char* next = s->s_aliases[0];
     while(next) { HFREE(next); next++; }
     s->s_port = 0;
     HFREE(s->s_proto);
@@ -660,11 +660,10 @@ gethostbyname(IN  CONST CHAR FAR* name)
     DNS_STATUS dns_status = {0};
     /* include/WinDNS.h -- look up DNS_RECORD on MSDN */
     PDNS_RECORD dp = 0;
-    PWINSOCK_THREAD_BLOCK p;
 
     addr = GH_INVALID;
 
-    p = NtCurrentTeb()->WinSockData;
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
 
     if( !p )
     {

@@ -3,7 +3,6 @@
 	<include base="mciwave">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
 	<file>mciwave.c</file>
 	<library>wine</library>
 	<library>winmm</library>

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{FB776BFE-D2C2-465E-B713-6AD82CAE1A39}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -12,8 +12,6 @@
     <AssemblyName>RosDBG</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
-    <ApplicationIcon>app-rosdbg.ico</ApplicationIcon>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -26,6 +24,7 @@
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>0</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
@@ -45,29 +44,8 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
-    <OutputPath>bin\x86\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.mshtml, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Microsoft.NET\Primary Interop Assemblies\Microsoft.mshtml.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -85,51 +63,32 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AboutDlg.cs">
-      <SubType>Form</SubType>
+    <Compile Include="BackTrace.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="AboutDlg.Designer.cs">
-      <DependentUpon>AboutDlg.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Connect.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Connect.Designer.cs">
-      <DependentUpon>Connect.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Diagnostics.cs" />
-    <Compile Include="Dockable Objects\BackTrace.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Dockable Objects\BackTrace.Designer.cs">
+    <Compile Include="BackTrace.Designer.cs">
       <DependentUpon>BackTrace.cs</DependentUpon>
     </Compile>
     <Compile Include="DebugControlAttribute.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DebugInfoFile.cs" />
-    <Compile Include="ExtTools.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="ExtTools.Designer.cs">
-      <DependentUpon>ExtTools.cs</DependentUpon>
-    </Compile>
-    <Compile Include="FileDirChooser.cs">
-    </Compile>
-    <Compile Include="Dockable Objects\ToolWindow.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Dockable Objects\ToolWindow.Designer.cs">
-      <DependentUpon>ToolWindow.cs</DependentUpon>
+    <Compile Include="DirectoryChooser.cs">
     </Compile>
     <Compile Include="HighLevelInteraction.cs" />
+    <Compile Include="HostWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="HostWindow.Designer.cs">
+      <DependentUpon>HostWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="IShell.cs" />
     <Compile Include="IUseDebugConnection.cs" />
     <Compile Include="IUseSymbols.cs" />
-    <Compile Include="Dockable Objects\Locals.cs">
-      <SubType>Form</SubType>
+    <Compile Include="Locals.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\Locals.Designer.cs">
+    <Compile Include="Locals.Designer.cs">
       <DependentUpon>Locals.cs</DependentUpon>
     </Compile>
     <Compile Include="MainWindow.cs">
@@ -138,78 +97,80 @@
     <Compile Include="MainWindow.Designer.cs">
       <DependentUpon>MainWindow.cs</DependentUpon>
     </Compile>
-    <Compile Include="Dockable Objects\MemoryWindow.cs">
-      <SubType>Form</SubType>
+    <Compile Include="MemoryWindow.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\MemoryWindow.Designer.cs">
+    <Compile Include="MemoryWindow.Designer.cs">
       <DependentUpon>MemoryWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Module.cs" />
     <Compile Include="ModuleIndex.cs" />
-    <Compile Include="Dockable Objects\Modules.cs">
-      <SubType>Form</SubType>
+    <Compile Include="Modules.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\Modules.Designer.cs">
+    <Compile Include="Modules.Designer.cs">
       <DependentUpon>Modules.cs</DependentUpon>
     </Compile>
-    <Compile Include="Dockable Objects\ProcThread.cs">
+    <Compile Include="PipeTargetSelect.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\ProcThread.Designer.cs">
+    <Compile Include="PipeTargetSelect.Designer.cs">
+      <DependentUpon>PipeTargetSelect.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ProcThread.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ProcThread.Designer.cs">
       <DependentUpon>ProcThread.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <EmbeddedResource Include="AboutDlg.resx">
-      <DependentUpon>AboutDlg.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Connect.resx">
-      <DependentUpon>Connect.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\BackTrace.resx">
+    <EmbeddedResource Include="BackTrace.resx">
       <DependentUpon>BackTrace.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\Locals.resx">
-      <DependentUpon>Locals.cs</DependentUpon>
+    <EmbeddedResource Include="HostWindow.resx">
+      <DependentUpon>HostWindow.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="ExtTools.resx">
-      <DependentUpon>ExtTools.cs</DependentUpon>
+    <EmbeddedResource Include="Locals.resx">
+      <DependentUpon>Locals.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="MainWindow.resx">
       <DependentUpon>MainWindow.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\MemoryWindow.resx">
+    <EmbeddedResource Include="MemoryWindow.resx">
       <DependentUpon>MemoryWindow.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\Modules.resx">
+    <EmbeddedResource Include="Modules.resx">
       <DependentUpon>Modules.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\ProcThread.resx">
+    <EmbeddedResource Include="PipeTargetSelect.resx">
+      <DependentUpon>PipeTargetSelect.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ProcThread.resx">
       <DependentUpon>ProcThread.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
+      <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\RawTraffic.resx">
+    <EmbeddedResource Include="RawTraffic.resx">
       <DependentUpon>RawTraffic.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\ReactOSWeb.resx">
+    <EmbeddedResource Include="ReactOSWeb.resx">
       <DependentUpon>ReactOSWeb.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\RegisterView.resx">
+    <EmbeddedResource Include="RegisterView.resx">
       <DependentUpon>RegisterView.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -217,8 +178,16 @@
       <DependentUpon>Settings.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Dockable Objects\SourceView.resx">
+    <EmbeddedResource Include="SerialTargetSelect.resx">
+      <DependentUpon>SerialTargetSelect.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SourceView.resx">
       <DependentUpon>SourceView.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TCPTargetSelect.resx">
+      <DependentUpon>TCPTargetSelect.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <Compile Include="Properties\Resources.Designer.cs">
@@ -235,22 +204,22 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <Compile Include="Dockable Objects\RawTraffic.cs">
-      <SubType>Form</SubType>
+    <Compile Include="RawTraffic.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\RawTraffic.Designer.cs">
+    <Compile Include="RawTraffic.Designer.cs">
       <DependentUpon>RawTraffic.cs</DependentUpon>
     </Compile>
-    <Compile Include="Dockable Objects\ReactOSWeb.cs">
-      <SubType>Form</SubType>
+    <Compile Include="ReactOSWeb.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\ReactOSWeb.Designer.cs">
+    <Compile Include="ReactOSWeb.Designer.cs">
       <DependentUpon>ReactOSWeb.cs</DependentUpon>
     </Compile>
-    <Compile Include="Dockable Objects\RegisterView.cs">
-      <SubType>Form</SubType>
+    <Compile Include="RegisterView.cs">
+      <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\RegisterView.Designer.cs">
+    <Compile Include="RegisterView.Designer.cs">
       <DependentUpon>RegisterView.cs</DependentUpon>
     </Compile>
     <Compile Include="Settings.cs">
@@ -259,19 +228,26 @@
     <Compile Include="Settings.Designer.cs">
       <DependentUpon>Settings.cs</DependentUpon>
     </Compile>
-    <Compile Include="Dockable Objects\SourceView.cs">
+    <Compile Include="SerialTargetSelect.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Dockable Objects\SourceView.Designer.cs">
+    <Compile Include="SerialTargetSelect.Designer.cs">
+      <DependentUpon>SerialTargetSelect.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SourceView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="SourceView.Designer.cs">
       <DependentUpon>SourceView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TCPTargetSelect.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="TCPTargetSelect.Designer.cs">
+      <DependentUpon>TCPTargetSelect.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
-      <Visible>False</Visible>
-      <ProductName>.NET Framework Client Profile</ProductName>
-      <Install>false</Install>
-    </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Net.Framework.2.0">
       <Visible>False</Visible>
       <ProductName>.NET Framework 2.0 %28x86%29</ProductName>
@@ -286,11 +262,6 @@
       <Visible>False</Visible>
       <ProductName>.NET Framework 3.5</ProductName>
       <Install>true</Install>
-    </BootstrapperPackage>
-    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
-      <Visible>False</Visible>
-      <ProductName>.NET Framework 3.5 SP1</ProductName>
-      <Install>false</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
       <Visible>False</Visible>
@@ -311,20 +282,6 @@
       <Project>{F943218A-0A5E-436E-A7A4-475F37F45FA8}</Project>
       <Name>Pipe</Name>
     </ProjectReference>
-    <ProjectReference Include="..\WinFormsUI\WinFormsUI.csproj">
-      <Project>{C75532C4-765B-418E-B09B-46D36B2ABDB1}</Project>
-      <Name>WinFormsUI</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="app-rosdbg.ico" />
-    <None Include="app.config" />
-    <None Include="Resources\copyToolStripMenuItem.Image.png" />
-    <None Include="Resources\Run.bmp" />
-    <None Include="Resources\Pause.bmp" />
-    <Content Include="Resources\emblem-system.ico" />
-    <Content Include="Resources\internet-web-browser.ico" />
-    <Content Include="Resources\utilities-terminal.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
@@ -335,8 +292,6 @@
   </Target>
   -->
   <PropertyGroup>
-    <PostBuildEvent>copy "$(SolutionDir)dbghelptest\dbghelp.dll" "$(TargetDir)"
-copy "$(TargetPath)" "$(SolutionDir)temp.exe"</PostBuildEvent>
-    <PreBuildEvent>"$(SolutionDir)buildhelper" "$(ProjectDir)Properties\AssemblyInfo.cs"</PreBuildEvent>
+    <PostBuildEvent>copy "$(SolutionDir)dbghelptest\dbghelp.dll" "$(TargetDir)"</PostBuildEvent>
   </PropertyGroup>
 </Project>

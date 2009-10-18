@@ -928,19 +928,11 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
         /* User mode exception, was it first-chance? */
         if (FirstChance)
         {
-            /* 
-             * Break into the kernel debugger unless a user mode debugger
-             * is present or user mode exceptions are ignored, unless this is
-             * a breakpoint or a debug service in which case we have to
-             * handle it.
-             */
-            if ((!(PsGetCurrentProcess()->DebugPort) &&
-                 !(KdIgnoreUmExceptions)) ||
-                 (KdIsThisAKdTrap(ExceptionRecord,
-                                  &Context,
-                                  PreviousMode)))
+            /* Make sure a debugger is present, and ignore user-mode if requested */
+            if ((KiDebugRoutine) &&
+                (!(PsGetCurrentProcess()->DebugPort)))
             {
-                /* Call the kernel debugger */
+                /* Call the debugger */
                 if (KiDebugRoutine(TrapFrame,
                                    ExceptionFrame,
                                    ExceptionRecord,
@@ -954,7 +946,7 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
             }
 
             /* Forward exception to user mode debugger */
-            if (DbgkForwardException(ExceptionRecord, TRUE, FALSE)) return;
+            if (DbgkForwardException(ExceptionRecord, TRUE, FALSE)) goto Exit;
 
             /* Set up the user-stack */
 DispatchToUser:
@@ -1037,15 +1029,15 @@ DispatchToUser:
         }
 
         /* Try second chance */
-        if (DbgkForwardException(ExceptionRecord, TRUE, TRUE))
+        if (DbgkForwardException(ExceptionRecord, TRUE, FALSE))
         {
             /* Handled, get out */
-            return;
+            goto Exit;
         }
         else if (DbgkForwardException(ExceptionRecord, FALSE, TRUE))
         {
             /* Handled, get out */
-            return;
+            goto Exit;
         }
 
         /* 3rd strike, kill the process */
@@ -1069,6 +1061,7 @@ Handled:
                          TrapFrame,
                          Context.ContextFlags,
                          PreviousMode);
+Exit:
     return;
 }
 
@@ -1079,6 +1072,7 @@ NTSTATUS
 NTAPI
 KeRaiseUserException(IN NTSTATUS ExceptionCode)
 {
+    NTSTATUS Status = STATUS_SUCCESS;
     ULONG OldEip;
     PTEB Teb = KeGetCurrentThread()->Teb;
     PKTRAP_FRAME TrapFrame = KeGetCurrentThread()->TrapFrame;
@@ -1091,10 +1085,11 @@ KeRaiseUserException(IN NTSTATUS ExceptionCode)
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Save exception code */
+        Status = ExceptionCode;
     }
     _SEH2_END;
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Get the old EIP */
     OldEip = TrapFrame->Eip;

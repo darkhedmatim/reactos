@@ -24,7 +24,7 @@ FASTCALL
 KiIdleSchedule(IN PKPRCB Prcb)
 {
     /* FIXME: TODO */
-    ASSERTMSG("SMP: Not yet implemented\n", FALSE);
+    ASSERTMSG("Not yet implemented\n", FALSE);
     return NULL;
 }
 
@@ -32,29 +32,8 @@ VOID
 FASTCALL
 KiProcessDeferredReadyList(IN PKPRCB Prcb)
 {
-    PSINGLE_LIST_ENTRY ListEntry;
-    PKTHREAD Thread;
-
-    /* Make sure there is something on the ready list */
-    ASSERT(Prcb->DeferredReadyListHead.Next != NULL);
-
-    /* Get the first entry and clear the list */
-    ListEntry = Prcb->DeferredReadyListHead.Next;
-    Prcb->DeferredReadyListHead.Next = NULL;
-
-    /* Start processing loop */
-    do
-    {
-        /* Get the thread and advance to the next entry */
-        Thread = CONTAINING_RECORD(ListEntry, KTHREAD, SwapListEntry);
-        ListEntry = ListEntry->Next;
-
-        /* Make the thread ready */
-        KiDeferredReadyThread(Thread);
-    } while (ListEntry != NULL);
-
-    /* Make sure the ready list is still empty */
-    ASSERT(Prcb->DeferredReadyListHead.Next == NULL);
+    /* FIXME: TODO */
+    ASSERTMSG("Not yet implemented\n", FALSE);
 }
 
 VOID
@@ -67,7 +46,7 @@ KiQueueReadyThread(IN PKTHREAD Thread,
 }
 
 VOID
-FASTCALL
+NTAPI
 KiDeferredReadyThread(IN PKTHREAD Thread)
 {
     PKPRCB Prcb;
@@ -212,10 +191,9 @@ KiDeferredReadyThread(IN PKTHREAD Thread)
     OldPriority = Thread->Priority;
     Thread->Preempted = FALSE;
 
-    /* Queue the thread on CPU 0 and get the PRCB and lock it */
+    /* Queue the thread on CPU 0 and get the PRCB */
     Thread->NextProcessor = 0;
     Prcb = KiProcessorBlock[0];
-    KiAcquirePrcbLock(Prcb);
 
     /* Check if we have an idle summary */
     if (KiIdleSummary)
@@ -224,9 +202,6 @@ KiDeferredReadyThread(IN PKTHREAD Thread)
         KiIdleSummary = 0;
         Thread->State = Standby;
         Prcb->NextThread = Thread;
-
-        /* Unlock the PRCB and return */
-        KiReleasePrcbLock(Prcb);
         return;
     }
 
@@ -325,7 +300,6 @@ KiSelectNextThread(IN PKPRCB Prcb)
         Prcb->IdleSchedule = TRUE;
 
         /* FIXME: SMT support */
-        ASSERTMSG("SMP: Not yet implemented\n", FALSE);
     }
 
     /* Sanity checks and return the thread */

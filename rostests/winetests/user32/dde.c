@@ -1615,6 +1615,12 @@ static void test_DdeCreateDataHandle(void)
     ok(hdata != NULL, "Expected non-NULL hdata\n");
     ok(err == DMLERR_NO_ERROR, "Expected DMLERR_NO_ERROR, got %d\n", err);
 
+    ptr = GlobalLock(hdata);
+    todo_wine
+    {
+        ok(ptr == NULL, "Expected NULL, got %p\n", ptr);
+    }
+
     ptr = DdeAccessData(hdata, &size);
     ok(ptr != NULL, "Expected non-NULL ptr\n");
     ok(size == 260, "Expected 260, got %d\n", size);
@@ -1632,6 +1638,12 @@ static void test_DdeCreateDataHandle(void)
     ok(hdata != NULL, "Expected non-NULL hdata\n");
     ok(err == DMLERR_NO_ERROR, "Expected DMLERR_NO_ERROR, got %d\n", err);
 
+    ptr = GlobalLock(hdata);
+    todo_wine
+    {
+        ok(ptr == NULL, "Expected NULL, got %p\n", ptr);
+    }
+
     ptr = DdeAccessData(hdata, &size);
     ok(ptr != NULL, "Expected non-NULL ptr\n");
     ok(size == 0, "Expected 0, got %d\n", size);
@@ -1648,6 +1660,12 @@ static void test_DdeCreateDataHandle(void)
     err = DdeGetLastError(dde_inst);
     ok(hdata != NULL, "Expected non-NULL hdata\n");
     ok(err == DMLERR_NO_ERROR, "Expected DMLERR_NO_ERROR, got %d\n", err);
+
+    ptr = GlobalLock(hdata);
+    todo_wine
+    {
+        ok(ptr == NULL, "Expected NULL, got %p\n", ptr);
+    }
 
     ptr = DdeAccessData(hdata, &size);
     ok(ptr != NULL, "Expected non-NULL ptr\n");
@@ -1670,6 +1688,12 @@ static void test_DdeCreateDataHandle(void)
     ok(hdata != NULL, "Expected non-NULL hdata\n");
     ok(err == DMLERR_NO_ERROR, "Expected DMLERR_NO_ERROR, got %d\n", err);
 
+    ptr = GlobalLock(hdata);
+    todo_wine
+    {
+        ok(ptr == NULL, "Expected NULL, got %p\n", ptr);
+    }
+
     ptr = DdeAccessData(hdata, &size);
     ok(ptr != NULL, "Expected non-NULL ptr\n");
     ok(!lstrcmpA((LPSTR)ptr, "data"), "Expected data, got %s\n", ptr);
@@ -1688,6 +1712,12 @@ static void test_DdeCreateDataHandle(void)
     ok(hdata != NULL, "Expected non-NULL hdata\n");
     ok(err == DMLERR_NO_ERROR, "Expected DMLERR_NO_ERROR, got %d\n", err);
 
+    ptr = GlobalLock(hdata);
+    todo_wine
+    {
+        ok(ptr == NULL, "Expected NULL, got %p\n", ptr);
+    }
+
     ptr = DdeAccessData(hdata, &size);
     ok(ptr != NULL, "Expected non-NULL ptr\n");
     ok(!lstrcmpA((LPSTR)ptr, "data"), "Expected data, got %s\n", ptr);
@@ -1705,6 +1735,12 @@ static void test_DdeCreateDataHandle(void)
     err = DdeGetLastError(dde_inst);
     ok(hdata != NULL, "Expected non-NULL hdata\n");
     ok(err == DMLERR_NO_ERROR, "Expected DMLERR_NO_ERROR, got %d\n", err);
+
+    ptr = GlobalLock(hdata);
+    todo_wine
+    {
+        ok(ptr == NULL, "Expected NULL, got %p\n", ptr);
+    }
 
     ptr = DdeAccessData(hdata, &size);
     ok(ptr != NULL, "Expected non-NULL ptr\n");
@@ -2390,33 +2426,23 @@ START_TEST(dde)
 
     test_end_to_end_server(proc.hProcess, proc.hThread, TRUE);
 
-    /* Don't bother testing W interfaces on Win9x/WinMe */
-    SetLastError(0xdeadbeef);
-    lstrcmpW(NULL, NULL);
-    if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-    {
-        win_skip("Skipping W-interface tests\n");
-    }
-    else
-    {
-        sprintf(buffer, "%s dde endw", argv[0]);
-        CreateProcessA(NULL, buffer, NULL, NULL, FALSE,
-                       CREATE_SUSPENDED, NULL, NULL, &startup, &proc);
+    sprintf(buffer, "%s dde endw", argv[0]);
+    CreateProcessA(NULL, buffer, NULL, NULL, FALSE,
+                   CREATE_SUSPENDED, NULL, NULL, &startup, &proc);
 
-        test_end_to_end_server(proc.hProcess, proc.hThread, FALSE);
+    test_end_to_end_server(proc.hProcess, proc.hThread, FALSE);
 
-        sprintf(buffer, "%s dde enda", argv[0]);
-        CreateProcessA(NULL, buffer, NULL, NULL, FALSE,
-                       CREATE_SUSPENDED, NULL, NULL, &startup, &proc);
+    sprintf(buffer, "%s dde enda", argv[0]);
+    CreateProcessA(NULL, buffer, NULL, NULL, FALSE,
+                   CREATE_SUSPENDED, NULL, NULL, &startup, &proc);
 
-        test_end_to_end_server(proc.hProcess, proc.hThread, FALSE);
+    test_end_to_end_server(proc.hProcess, proc.hThread, FALSE);
 
-        sprintf(buffer, "%s dde endw", argv[0]);
-        CreateProcessA(NULL, buffer, NULL, NULL, FALSE,
-                       CREATE_SUSPENDED, NULL, NULL, &startup, &proc);
+    sprintf(buffer, "%s dde endw", argv[0]);
+    CreateProcessA(NULL, buffer, NULL, NULL, FALSE,
+                   CREATE_SUSPENDED, NULL, NULL, &startup, &proc);
 
-        test_end_to_end_server(proc.hProcess, proc.hThread, TRUE);
-    }
+    test_end_to_end_server(proc.hProcess, proc.hThread, TRUE);
 
     test_dde_aw_transaction();
 

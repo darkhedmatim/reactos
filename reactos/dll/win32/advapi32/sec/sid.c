@@ -506,7 +506,7 @@ static BOOL DumpAce(LPVOID pace, WCHAR **pwptr, ULONG *plen)
         return FALSE;
     }
 
-    piace = pace;
+    piace = (ACCESS_ALLOWED_ACE *)pace;
     DumpString(&openbr, 1, pwptr, plen);
     switch (piace->Header.AceType)
     {
@@ -789,6 +789,7 @@ static DWORD ComputeStringSidSize(LPCWSTR StringSid)
     return GetSidLengthRequired(0);
 }
 
+
 /******************************************************************************
  * ParseStringSidToSid
  */
@@ -899,6 +900,7 @@ lend:
     return bret;
 }
 
+
 /******************************************************************************
  * ParseAclStringFlags
  */
@@ -927,6 +929,7 @@ static DWORD ParseAclStringFlags(LPCWSTR* StringAcl)
     *StringAcl = szAcl;
     return flags;
 }
+
 
 /******************************************************************************
  * ParseAceStringType
@@ -1179,7 +1182,7 @@ lerr:
  */
 static BOOL ParseStringSecurityDescriptorToSecurityDescriptor(
     LPCWSTR StringSecurityDescriptor,
-    SECURITY_DESCRIPTOR_RELATIVE* SecurityDescriptor,
+    SECURITY_DESCRIPTOR* SecurityDescriptor,
     LPDWORD cBytes)
 {
     BOOL bret = FALSE;
@@ -1192,7 +1195,7 @@ static BOOL ParseStringSecurityDescriptorToSecurityDescriptor(
     *cBytes = sizeof(SECURITY_DESCRIPTOR);
 
     if (SecurityDescriptor)
-        lpNext = (LPBYTE)(SecurityDescriptor + 1);
+        lpNext = ((LPBYTE) SecurityDescriptor) + sizeof(SECURITY_DESCRIPTOR);
 
     while (*StringSecurityDescriptor)
     {
@@ -1230,7 +1233,7 @@ static BOOL ParseStringSecurityDescriptorToSecurityDescriptor(
 
                 if (SecurityDescriptor)
                 {
-                    SecurityDescriptor->Owner = lpNext - (LPBYTE)SecurityDescriptor;
+                    SecurityDescriptor->Owner = (PSID)(lpNext - (LPBYTE)SecurityDescriptor);
                     lpNext += bytes; /* Advance to next token */
                 }
 
@@ -1248,7 +1251,7 @@ static BOOL ParseStringSecurityDescriptorToSecurityDescriptor(
 
                 if (SecurityDescriptor)
                 {
-                    SecurityDescriptor->Group = lpNext - (LPBYTE)SecurityDescriptor;
+                    SecurityDescriptor->Group = (PSID)(lpNext - (LPBYTE)SecurityDescriptor);
                     lpNext += bytes; /* Advance to next token */
                 }
 
@@ -1268,7 +1271,7 @@ static BOOL ParseStringSecurityDescriptorToSecurityDescriptor(
                 if (SecurityDescriptor)
                 {
                     SecurityDescriptor->Control |= SE_DACL_PRESENT | flags;
-                    SecurityDescriptor->Dacl = lpNext - (LPBYTE)SecurityDescriptor;
+                    SecurityDescriptor->Dacl = (PACL)(lpNext - (LPBYTE)SecurityDescriptor);
                     lpNext += bytes; /* Advance to next token */
 		}
 
@@ -1288,7 +1291,7 @@ static BOOL ParseStringSecurityDescriptorToSecurityDescriptor(
                 if (SecurityDescriptor)
                 {
                     SecurityDescriptor->Control |= SE_SACL_PRESENT | flags;
-                    SecurityDescriptor->Sacl = lpNext - (LPBYTE)SecurityDescriptor;
+                    SecurityDescriptor->Sacl = (PACL)(lpNext - (LPBYTE)SecurityDescriptor);
                     lpNext += bytes; /* Advance to next token */
 		}
 
@@ -1357,7 +1360,7 @@ BOOL WINAPI ConvertStringSecurityDescriptorToSecurityDescriptorW(
     psd->Control |= SE_SELF_RELATIVE;
 
     if (!ParseStringSecurityDescriptorToSecurityDescriptor(StringSecurityDescriptor,
-             (SECURITY_DESCRIPTOR_RELATIVE *)psd, &cBytes))
+        psd, &cBytes))
     {
         LocalFree(psd);
 	goto lend;
@@ -1661,8 +1664,7 @@ CreateWellKnownSid(IN WELL_KNOWN_SID_TYPE WellKnownSidType,
     unsigned int i;
     TRACE("(%d, %s, %p, %p)\n", WellKnownSidType, debugstr_sid(DomainSid), pSid, cbSid);
 
-    if (cbSid == NULL || (DomainSid && !IsValidSid(DomainSid)))
-    {
+    if (cbSid == NULL || pSid == NULL || (DomainSid && !IsValidSid(DomainSid))) {
         SetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
     }
@@ -1671,17 +1673,11 @@ CreateWellKnownSid(IN WELL_KNOWN_SID_TYPE WellKnownSidType,
         if (WellKnownSids[i].Type == WellKnownSidType) {
             DWORD length = GetSidLengthRequired(WellKnownSids[i].Sid.SubAuthorityCount);
 
-            if (*cbSid < length)
-            {
-                *cbSid = length;
+            if (*cbSid < length) {
                 SetLastError(ERROR_INSUFFICIENT_BUFFER);
                 return FALSE;
             }
-            if (!pSid)
-            {
-                SetLastError(ERROR_INVALID_PARAMETER);
-                return FALSE;
-            }
+
             CopyMemory(pSid, &WellKnownSids[i].Sid.Revision, length);
             *cbSid = length;
             return TRUE;
@@ -1700,17 +1696,11 @@ CreateWellKnownSid(IN WELL_KNOWN_SID_TYPE WellKnownSidType,
             DWORD domain_sid_length = GetSidLengthRequired(domain_subauth);
             DWORD output_sid_length = GetSidLengthRequired(domain_subauth + 1);
 
-            if (*cbSid < output_sid_length)
-            {
-                *cbSid = output_sid_length;
+            if (*cbSid < output_sid_length) {
                 SetLastError(ERROR_INSUFFICIENT_BUFFER);
                 return FALSE;
             }
-            if (!pSid)
-            {
-                SetLastError(ERROR_INVALID_PARAMETER);
-                return FALSE;
-            }
+
             CopyMemory(pSid, DomainSid, domain_sid_length);
             (*GetSidSubAuthorityCount(pSid))++;
             (*GetSidSubAuthority(pSid, domain_subauth)) = WellKnownRids[i].Rid;

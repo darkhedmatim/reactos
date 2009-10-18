@@ -400,7 +400,7 @@ ROSGL_ICDForHDC( HDC hdc )
         {
             WCHAR Buffer[256];
             snwprintf(Buffer, sizeof(Buffer)/sizeof(WCHAR),
-                      L"Couldn't load driver \"%s\".", info.DriverName);
+                      L"Couldn't load driver \"%s\".", driverName);
             MessageBox(WindowFromDC( hdc ), Buffer,
                        L"OPENGL32.dll: Warning",
                        MB_OK | MB_ICONWARNING);
@@ -1195,32 +1195,31 @@ BOOL
 APIENTRY
 rosglSwapLayerBuffers( HDC hdc, UINT fuPlanes )
 {
-    BOOL ret = FALSE;
-
-    if(fuPlanes & WGL_SWAP_MAIN_PLANE)
-        ret = rosglSwapBuffers(hdc);
-
-    if(fuPlanes &~WGL_SWAP_MAIN_PLANE)
-        DBGTRACE("wglSwapLayerBuffers is not fully implemented\n");
-
-    return ret;
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 
 BOOL
 APIENTRY
-rosglUseFontBitmapsA( HDC hdc, DWORD first, DWORD count, DWORD listBase )
+rosglUseFontBitmapsA( HDC hdc, DWORD  first, DWORD count, DWORD listBase )
 {
-    return IntUseFontBitmapsA(hdc, first, count, listBase);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 
 BOOL
 APIENTRY
-rosglUseFontBitmapsW( HDC hdc, DWORD first, DWORD count, DWORD listBase )
+rosglUseFontBitmapsW( HDC hdc, DWORD  first, DWORD count, DWORD listBase )
 {
-    return IntUseFontBitmapsW(hdc, first, count, listBase);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
+
 
 BOOL
 APIENTRY
@@ -1228,7 +1227,9 @@ rosglUseFontOutlinesA( HDC hdc, DWORD first, DWORD count, DWORD listBase,
                        FLOAT deviation, FLOAT extrusion, int format,
                        GLYPHMETRICSFLOAT *pgmf )
 {
-    return IntUseFontOutlinesA(hdc, first, count, listBase, deviation, extrusion, format, pgmf);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 
@@ -1238,7 +1239,9 @@ rosglUseFontOutlinesW( HDC hdc, DWORD first, DWORD count, DWORD listBase,
                        FLOAT deviation, FLOAT extrusion, int format,
                        GLYPHMETRICSFLOAT *pgmf )
 {
-    return IntUseFontOutlinesW(hdc, first, count, listBase, deviation, extrusion, format, pgmf);
+    UNIMPLEMENTED;
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED );
+    return FALSE;
 }
 
 #ifdef __cplusplus

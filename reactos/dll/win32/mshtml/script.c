@@ -67,30 +67,12 @@ typedef struct {
 #define ACTSCPWIN(x)   (&(x)->lpIActiveScriptSiteWindowVtbl)
 #define ACTSCPDBG32(x) (&(x)->lpIActiveScriptSiteDebug32Vtbl)
 
-static void set_script_prop(ScriptHost *script_host, DWORD property, VARIANT *val)
-{
-    IActiveScriptProperty *script_prop;
-    HRESULT hres;
-
-    hres = IActiveScript_QueryInterface(script_host->script, &IID_IActiveScriptProperty,
-            (void**)&script_prop);
-    if(FAILED(hres)) {
-        WARN("Could not get IActiveScriptProperty iface: %08x\n", hres);
-        return;
-    }
-
-    hres = IActiveScriptProperty_SetProperty(script_prop, property, NULL, val);
-    IActiveScriptProperty_Release(script_prop);
-    if(FAILED(hres))
-        WARN("SetProperty(%x) failed: %08x\n", property, hres);
-}
-
 static BOOL init_script_engine(ScriptHost *script_host)
 {
+    IActiveScriptProperty *property;
     IObjectSafety *safety;
     SCRIPTSTATE state;
     DWORD supported_opts=0, enabled_opts=0;
-    VARIANT var;
     HRESULT hres;
 
     hres = IActiveScript_QueryInterface(script_host->script, &IID_IActiveScriptParse, (void**)&script_host->parse);
@@ -122,13 +104,20 @@ static BOOL init_script_engine(ScriptHost *script_host)
     if(FAILED(hres))
         return FALSE;
 
-    V_VT(&var) = VT_I4;
-    V_I4(&var) = 1;
-    set_script_prop(script_host, SCRIPTPROP_INVOKEVERSIONING, &var);
+    hres = IActiveScript_QueryInterface(script_host->script, &IID_IActiveScriptProperty, (void**)&property);
+    if(SUCCEEDED(hres)) {
+        VARIANT var;
 
-    V_VT(&var) = VT_BOOL;
-    V_BOOL(&var) = VARIANT_TRUE;
-    set_script_prop(script_host, SCRIPTPROP_HACK_TRIDENTEVENTSINK, &var);
+        V_VT(&var) = VT_BOOL;
+        V_BOOL(&var) = VARIANT_TRUE;
+        hres = IActiveScriptProperty_SetProperty(property, SCRIPTPROP_HACK_TRIDENTEVENTSINK, NULL, &var);
+        if(FAILED(hres))
+            WARN("SetProperty failed: %08x\n", hres);
+
+        IActiveScriptProperty_Release(property);
+    }else {
+        WARN("Could not get IActiveScriptProperty: %08x\n", hres);
+    }
 
     hres = IActiveScriptParse64_InitNew(script_host->parse);
     if(FAILED(hres)) {
@@ -157,13 +146,8 @@ static BOOL init_script_engine(ScriptHost *script_host)
 
     hres = IActiveScript_AddNamedItem(script_host->script, windowW,
             SCRIPTITEM_ISVISIBLE|SCRIPTITEM_ISSOURCE|SCRIPTITEM_GLOBALMEMBERS);
-    if(SUCCEEDED(hres)) {
-        V_VT(&var) = VT_BOOL;
-        V_BOOL(&var) = VARIANT_TRUE;
-        set_script_prop(script_host, SCRIPTPROP_ABBREVIATE_GLOBALNAME_RESOLUTION, &var);
-    }else {
+    if(FAILED(hres))
        WARN("AddNamedItem failed: %08x\n", hres);
-    }
 
     hres = IActiveScript_QueryInterface(script_host->script, &IID_IActiveScriptParseProcedure2,
                                         (void**)&script_host->parse_proc);

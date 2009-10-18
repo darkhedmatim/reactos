@@ -30,7 +30,8 @@
 
 #include <debug.h>
 
-#define TAG_STRING	' RTS' /* string */
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#define TAG_STRING	TAG('S', 'T', 'R', ' ') /* string */
 
 /* Define _NTTEST_ to make test version. Device names are prefixed with
    'NT' to allow the driver to run side by side with MS TCP/IP driver */
@@ -149,12 +150,29 @@ struct sockaddr
     char sa_data[14];
 };
 
+typedef TDI_STATUS (*InfoRequest_f)( UINT InfoClass,
+				     UINT InfoType,
+				     UINT InfoId,
+				     PVOID Context,
+				     TDIEntityID *id,
+				     PNDIS_BUFFER Buffer,
+				     PUINT BufferSize );
+
+typedef TDI_STATUS (*InfoSet_f)( UINT InfoClass,
+				 UINT InfoType,
+				 UINT InfoId,
+				 PVOID Context,
+				 TDIEntityID *id,
+				 PCHAR Buffer,
+				 UINT BufferSize );
+
 /* Sufficient information to manage the entity list */
 typedef struct {
     UINT tei_entity;
     UINT tei_instance;
     PVOID context;
-    UINT flags;
+    InfoRequest_f info_req;
+    InfoSet_f info_set;
 } TDIEntityInfo;
 
 #ifndef htons

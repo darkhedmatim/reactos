@@ -8,11 +8,6 @@
  
 /* DEFINES **********************************************************/
 
-#define HISTORYSIZE 11
-/* HISTORYSIZE = number of possible undo-steps + 1 */
-
-#define SIZEOF(a)  (sizeof(a) / sizeof((a)[0]))
-
 #define IDI_APPICON 500
 
 #define IDB_TOOLBARICONS    510
@@ -63,8 +58,6 @@
 #define IDM_VIEWZOOM400         239
 #define IDM_VIEWZOOM800         240
 #define IDM_VIEWFULLSCREEN      241
-#define IDM_VIEWSHOWGRID        242
-#define IDM_VIEWSHOWMINIATURE   243
 
 #define IDM_IMAGEROTATEMIRROR   250
 #define IDM_IMAGECHANGESIZE     251
@@ -145,7 +138,6 @@
 #define IDS_INFOTEXT    903
 #define IDS_SAVEPROMPTTEXT  904
 #define IDS_DEFAULTFILENAME 905
-#define IDS_MINIATURETITLE  906
 #define IDS_TOOLTIP1    910
 #define IDS_TOOLTIP2    911
 #define IDS_TOOLTIP3    912
@@ -165,5 +157,3 @@
 
 #define IDS_OPENFILTER  926
 #define IDS_SAVEFILTER  927
-#define IDS_FILESIZE    928
-#define IDS_PRINTRES    929

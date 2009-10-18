@@ -333,11 +333,11 @@ static void create_test_verb_dde(const char* extension, const char* verb,
     }
     else
     {
-        cmd=HeapAlloc(GetProcessHeap(), 0, strlen(argv0)+10+strlen(child_file)+2+strlen(cmdtail)+1);
+        cmd=malloc(strlen(argv0)+10+strlen(child_file)+2+strlen(cmdtail)+1);
         sprintf(cmd,"%s shlexec \"%s\" %s", argv0, child_file, cmdtail);
         rc=RegSetValueEx(hkey_cmd, NULL, 0, REG_SZ, (LPBYTE)cmd, strlen(cmd)+1);
         assert(rc==ERROR_SUCCESS);
-        HeapFree(GetProcessHeap(), 0, cmd);
+        free(cmd);
     }
 
     if (ddeexec)
@@ -587,79 +587,7 @@ static int _okChildInt(const char* file, int line, const char* key, int expected
 #define okChildPath(key, expected) _okChildPath(__FILE__, __LINE__, (key), (expected))
 #define okChildInt(key, expected)    _okChildInt(__FILE__, __LINE__, (key), (expected))
 
-/***
- *
- * GetLongPathNameA equivalent that supports Win95 and WinNT
- *
- ***/
 
-static DWORD get_long_path_name(const char* shortpath, char* longpath, DWORD longlen)
-{
-    char tmplongpath[MAX_PATH];
-    const char* p;
-    DWORD sp = 0, lp = 0;
-    DWORD tmplen;
-    WIN32_FIND_DATAA wfd;
-    HANDLE goit;
-
-    if (!shortpath || !shortpath[0])
-        return 0;
-
-    if (shortpath[1] == ':')
-    {
-        tmplongpath[0] = shortpath[0];
-        tmplongpath[1] = ':';
-        lp = sp = 2;
-    }
-
-    while (shortpath[sp])
-    {
-        /* check for path delimiters and reproduce them */
-        if (shortpath[sp] == '\\' || shortpath[sp] == '/')
-        {
-            if (!lp || tmplongpath[lp-1] != '\\')
-            {
-                /* strip double "\\" */
-                tmplongpath[lp++] = '\\';
-            }
-            tmplongpath[lp] = 0; /* terminate string */
-            sp++;
-            continue;
-        }
-
-        p = shortpath + sp;
-        if (sp == 0 && p[0] == '.' && (p[1] == '/' || p[1] == '\\'))
-        {
-            tmplongpath[lp++] = *p++;
-            tmplongpath[lp++] = *p++;
-        }
-        for (; *p && *p != '/' && *p != '\\'; p++);
-        tmplen = p - (shortpath + sp);
-        lstrcpyn(tmplongpath + lp, shortpath + sp, tmplen + 1);
-        /* Check if the file exists and use the existing file name */
-        goit = FindFirstFileA(tmplongpath, &wfd);
-        if (goit == INVALID_HANDLE_VALUE)
-            return 0;
-        FindClose(goit);
-        strcpy(tmplongpath + lp, wfd.cFileName);
-        lp += strlen(tmplongpath + lp);
-        sp += tmplen;
-    }
-    tmplen = strlen(shortpath) - 1;
-    if ((shortpath[tmplen] == '/' || shortpath[tmplen] == '\\') &&
-        (tmplongpath[lp - 1] != '/' && tmplongpath[lp - 1] != '\\'))
-        tmplongpath[lp++] = shortpath[tmplen];
-    tmplongpath[lp] = 0;
-
-    tmplen = strlen(tmplongpath) + 1;
-    if (tmplen <= longlen)
-    {
-        strcpy(longpath, tmplongpath);
-        tmplen--; /* length without 0 */
-    }
-
-    return tmplen;
-}
 
 /***
  *
@@ -749,8 +677,6 @@ static void test_filename(void)
     test=filename_tests;
     while (test->basename)
     {
-        BOOL quotedfile = FALSE;
-
         sprintf(filename, test->basename, tmpdir);
         if (strchr(filename, '/'))
         {
@@ -769,8 +695,6 @@ static void test_filename(void)
         else
         {
             char quoted[MAX_PATH + 2];
-
-            quotedfile = TRUE;
             sprintf(quoted, "\"%s\"", filename);
             rc=shell_execute(test->verb, quoted, NULL, NULL);
         }
@@ -778,9 +702,7 @@ static void test_filename(void)
             rc=33;
         if ((test->todo & 0x1)==0)
         {
-            ok(rc==test->rc ||
-               broken(quotedfile && rc == 2), /* NT4 */
-               "%s failed: rc=%d err=%d\n", shell_call,
+            ok(rc==test->rc, "%s failed: rc=%d err=%d\n", shell_call,
                rc, GetLastError());
         }
         else todo_wine
@@ -1058,8 +980,7 @@ static void test_lnks(void)
        GetLastError());
     okChildInt("argcA", 5);
     okChildString("argvA3", "Open");
-    sprintf(params, "%s\\test file.shlexec", tmpdir);
-    get_long_path_name(params, filename, sizeof(filename));
+    sprintf(filename, "%s\\test file.shlexec", tmpdir);
     okChildPath("argvA4", filename);
 
     sprintf(filename, "%s\\test_shortcut_exe.lnk", tmpdir);
@@ -1595,13 +1516,8 @@ static void init_test(void)
            "unable to find argv0!\n");
     }
 
-    GetTempPathA(sizeof(filename), filename);
-    GetTempFileNameA(filename, "wt", 0, tmpdir);
-    DeleteFileA( tmpdir );
-    rc = CreateDirectoryA( tmpdir, NULL );
-    ok( rc, "failed to create %s err %u\n", tmpdir, GetLastError() );
-    rc = GetTempFileNameA(tmpdir, "wt", 0, child_file);
-    assert(rc != 0);
+    GetTempPathA(sizeof(tmpdir)/sizeof(*tmpdir), tmpdir);
+    assert(GetTempFileNameA(tmpdir, "wt", 0, child_file)!=0);
     init_event(child_file);
 
     /* Set up the test files */
@@ -1675,13 +1591,10 @@ static void cleanup_test(void)
     while (*testfile)
     {
         sprintf(filename, *testfile, tmpdir);
-        /* Make sure we can delete the files ('test file.noassoc' is read-only now) */
-        SetFileAttributes(filename, FILE_ATTRIBUTE_NORMAL);
         DeleteFile(filename);
         testfile++;
     }
     DeleteFile(child_file);
-    RemoveDirectoryA(tmpdir);
 
     /* Delete the test association */
     delete_test_association(".shlexec");

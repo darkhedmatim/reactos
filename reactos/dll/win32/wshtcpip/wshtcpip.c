@@ -50,7 +50,7 @@ WSHAddressToString(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -64,7 +64,7 @@ WSHEnumProtocols(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -75,22 +75,9 @@ WSHGetBroadcastSockaddr(
     OUT PSOCKADDR Sockaddr,
     OUT PINT SockaddrLength)
 {
-    DWORD Size = 2 * sizeof(UINT);
+    UNIMPLEMENTED
 
-    if (*SockaddrLength < Size)
-    {
-        DPRINT1("Socket address length too small: %d\n", *SockaddrLength);
-        return WSAEFAULT;
-    }
-
-    RtlZeroMemory(Sockaddr, *SockaddrLength);
-
-    Sockaddr->sa_family = AF_INET;
-    *((PUINT)Sockaddr->sa_data) = INADDR_BROADCAST;
-
-    /* *SockaddrLength = Size; */
-
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -102,7 +89,7 @@ WSHGetProviderGuid(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -120,40 +107,51 @@ WSHGetSockaddrType(
 {
     PSOCKADDR_IN ipv4 = (PSOCKADDR_IN)Sockaddr;
 
-    if (!ipv4 || !SockaddrInfo || SockaddrLength < sizeof(SOCKADDR_IN) ||
-        ipv4->sin_family != AF_INET)
+    if ((ipv4 != NULL)
+	&& (SockaddrLength == sizeof(SOCKADDR_IN))
+	&& (ipv4->sin_family == AF_INET)
+	&& (SockaddrInfo != NULL))
     {
-        DPRINT1("Invalid parameter: %x %x %d %u\n", ipv4, SockaddrInfo, SockaddrLength, (ipv4 ? ipv4->sin_family : 0));
-        return WSAEINVAL;
+
+      switch (ntohl(ipv4->sin_addr.s_addr))
+      {
+        case INADDR_ANY:
+             SockaddrInfo->AddressInfo = SockaddrAddressInfoWildcard;
+             break;
+
+        case INADDR_BROADCAST:
+             SockaddrInfo->AddressInfo = SockaddrAddressInfoBroadcast;
+             break;
+
+        case INADDR_LOOPBACK:
+             SockaddrInfo->AddressInfo = SockaddrAddressInfoLoopback;
+             break;
+
+        default:
+             SockaddrInfo->AddressInfo = SockaddrAddressInfoNormal;
+	     break;
+      }
+
+      SockaddrInfo->EndpointInfo = SockaddrEndpointInfoNormal;
+      if (ntohs(ipv4->sin_port) == 0)
+	  SockaddrInfo->EndpointInfo = SockaddrEndpointInfoWildcard;
+      if (ntohs(ipv4->sin_port) < IPPORT_RESERVED)
+	  SockaddrInfo->EndpointInfo = SockaddrEndpointInfoReserved;
+
+      return 0;
     }
 
-    switch (ntohl(ipv4->sin_addr.s_addr))
+    DPRINT1("FIXME WSHGetSockaddrType Unsupported Address Family or bad parameters\n");
+    if (SockaddrInfo != NULL)
     {
-      case INADDR_ANY:
-           SockaddrInfo->AddressInfo = SockaddrAddressInfoWildcard;
-           break;
-
-      case INADDR_BROADCAST:
-           SockaddrInfo->AddressInfo = SockaddrAddressInfoBroadcast;
-           break;
-
-      case INADDR_LOOPBACK:
-           SockaddrInfo->AddressInfo = SockaddrAddressInfoLoopback;
-           break;
-
-      default:
-           SockaddrInfo->AddressInfo = SockaddrAddressInfoNormal;
-	   break;
+      SockaddrInfo->AddressInfo = SockaddrAddressInfoNormal;
+      SockaddrInfo->EndpointInfo = SockaddrEndpointInfoNormal;
     }
 
-    if (ntohs(ipv4->sin_port) == 0)
- 	SockaddrInfo->EndpointInfo = SockaddrEndpointInfoWildcard;
-    else if (ntohs(ipv4->sin_port) < IPPORT_RESERVED)
-	SockaddrInfo->EndpointInfo = SockaddrEndpointInfoReserved;
-    else
-        SockaddrInfo->EndpointInfo = SockaddrEndpointInfoNormal;
+    DPRINT1("Size of Address Family %d \n",SockaddrLength);
 
-    return NO_ERROR;
+    DPRINT1("FIXME WSHGetSockaddrType return Winsock error, but we do not return any error\n");
+    return 0;
 }
 
 
@@ -174,7 +172,7 @@ WSHGetSocketInformation(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -185,22 +183,9 @@ WSHGetWildcardSockaddr(
     OUT PSOCKADDR Sockaddr,
     OUT PINT SockaddrLength)
 {
-    DWORD Size = 2 * sizeof(UINT);
-
-    if (*SockaddrLength < Size)
-    {
-        DPRINT1("Socket address length too small: %d\n", *SockaddrLength);
-        return WSAEFAULT;
-    }
-
-    RtlZeroMemory(Sockaddr, *SockaddrLength);
-
+    RtlZeroMemory((PVOID)Sockaddr, *SockaddrLength);
     Sockaddr->sa_family = AF_INET;
-    *((PUINT)Sockaddr->sa_data) = INADDR_ANY;
-
-    /* *SockaddrLength = Size; */
-
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -210,44 +195,9 @@ WSHGetWinsockMapping(
     OUT PWINSOCK_MAPPING Mapping,
     IN  DWORD MappingLength)
 {
-    DWORD Rows = 6;
-    DWORD Columns = 3;
-    DWORD Size = 2 * sizeof(DWORD) + Columns * Rows * sizeof(DWORD);
+    UNIMPLEMENTED
 
-    if (MappingLength < Size)
-    {
-        DPRINT1("Mapping length too small: %d\n", MappingLength);
-        return Size;
-    }
-
-    Mapping->Rows = Rows;
-    Mapping->Columns = Columns;
-
-    Mapping->Mapping[0].AddressFamily = AF_INET;
-    Mapping->Mapping[0].SocketType = SOCK_STREAM;
-    Mapping->Mapping[0].Protocol = 0;
-
-    Mapping->Mapping[1].AddressFamily = AF_INET;
-    Mapping->Mapping[1].SocketType = SOCK_STREAM;
-    Mapping->Mapping[1].Protocol = IPPROTO_TCP;
-
-    Mapping->Mapping[2].AddressFamily = AF_INET;
-    Mapping->Mapping[2].SocketType = SOCK_DGRAM;
-    Mapping->Mapping[2].Protocol = 0;
-
-    Mapping->Mapping[3].AddressFamily = AF_INET;
-    Mapping->Mapping[3].SocketType = SOCK_DGRAM;
-    Mapping->Mapping[3].Protocol = IPPROTO_UDP;
-
-    Mapping->Mapping[4].AddressFamily = AF_INET;
-    Mapping->Mapping[4].SocketType = SOCK_RAW;
-    Mapping->Mapping[4].Protocol = 0;
-
-    Mapping->Mapping[5].AddressFamily = AF_INET;
-    Mapping->Mapping[5].SocketType = SOCK_RAW;
-    Mapping->Mapping[5].Protocol = IPPROTO_ICMP;
-
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -260,7 +210,7 @@ WSHGetWSAProtocolInfo(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -283,7 +233,7 @@ WSHIoctl(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -306,7 +256,7 @@ WSHJoinLeaf(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -319,18 +269,9 @@ WSHNotify(
     IN  HANDLE TdiConnectionObjectHandle,
     IN  DWORD NotifyEvent)
 {
-    switch (NotifyEvent)
-    {
-        case WSH_NOTIFY_CLOSE:
-        HeapFree(GetProcessHeap(), 0, HelperDllSocketContext);
-        break;
+    UNIMPLEMENTED
 
-        default:
-        DPRINT1("Unwanted notification received! (%d)\n", NotifyEvent);
-        break;
-    }
-
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -393,7 +334,7 @@ WSHOpenSocket2(
     UNICODE_STRING RawDeviceName = RTL_CONSTANT_STRING(DD_RAW_IP_DEVICE_NAME);
     NTSTATUS Status;
 
-    DPRINT("WSHOpenSocket2 called\n");
+    DPRINT("");
 
     switch (*SocketType) {
     case SOCK_STREAM:
@@ -462,7 +403,6 @@ WSHOpenSocket2(
     Context->Flags         = Flags;
 
     *HelperDllSocketContext = Context;
-    *NotificationEvents = WSH_NOTIFY_CLOSE;
 
     return NO_ERROR;
 }
@@ -482,7 +422,7 @@ WSHSetSocketInformation(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 
@@ -497,7 +437,7 @@ WSHStringToAddress(
 {
     UNIMPLEMENTED
 
-    return NO_ERROR;
+    return 0;
 }
 
 /* EOF */

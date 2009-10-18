@@ -142,7 +142,6 @@ IntDesktopObjectParse(IN PVOID ParseObject,
     if (!NT_SUCCESS(Status)) return Status;
 
     /* Initialize shell hook window list and set the parent */
-    RtlZeroMemory(Desktop, sizeof(DESKTOP));
     InitializeListHead(&Desktop->ShellHookWindows);
     Desktop->WindowStation = (PWINSTATION_OBJECT)ParseObject;
 
@@ -557,17 +556,6 @@ PWINDOW_OBJECT FASTCALL UserGetDesktopWindow(VOID)
    return UserGetWindowObject(pdo->DesktopWindow);
 }
 
-HWND FASTCALL IntGetMessageWindow(VOID)
-{
-   PDESKTOP pdo = IntGetActiveDesktop();
-   
-   if (!pdo)
-   {
-      DPRINT("No active desktop\n");
-      return NULL;
-   }
-   return pdo->spwndMessage->head.h;
-}
 
 HWND FASTCALL IntGetCurrentThreadDesktopWindow(VOID)
 {
@@ -619,27 +607,6 @@ BOOL FASTCALL IntDesktopUpdatePerUserSettings(BOOL bEnable)
 
 /* PUBLIC FUNCTIONS ***********************************************************/
 
-HDC FASTCALL
-UserGetDesktopDC(ULONG DcType, BOOL EmptyDC, BOOL ValidatehWnd)
-{
-    PWINDOW_OBJECT DesktopObject = 0;
-    HDC DesktopHDC = 0;
-
-    if (DcType == DC_TYPE_DIRECT)
-    {        
-        DesktopObject = UserGetDesktopWindow();
-        DesktopHDC = (HDC)UserGetWindowDC(DesktopObject);
-    }
-    else
-    {
-        HDEV hDev;
-        hDev = (HDEV)pPrimarySurface;
-        DesktopHDC = IntGdiCreateDisplayDC(hDev, DcType, EmptyDC);
-    }
-
-    return DesktopHDC;
-}
-
 VOID APIENTRY
 UserRedrawDesktop()
 {
@@ -686,7 +653,7 @@ IntHideDesktop(PDESKTOP Desktop)
 #else
 
    PWINDOW_OBJECT DesktopWindow;
-   PWND DesktopWnd;
+   PWINDOW DesktopWnd;
 
    DesktopWindow = IntGetWindowObject(Desktop->DesktopWindow);
    if (! DesktopWindow)
@@ -694,7 +661,7 @@ IntHideDesktop(PDESKTOP Desktop)
       return ERROR_INVALID_WINDOW_HANDLE;
    }
    DesktopWnd = DesktopWindow->Wnd;
-   DesktopWnd->style &= ~WS_VISIBLE;
+   DesktopWnd->Style &= ~WS_VISIBLE;
 
    return STATUS_SUCCESS;
 #endif
@@ -855,20 +822,15 @@ IntFreeDesktopHeap(IN OUT PDESKTOP Desktop)
 }
 /* SYSCALLS *******************************************************************/
 
+
 /*
  * NtUserCreateDesktop
  *
  * Creates a new desktop.
  *
  * Parameters
- *    poaAttribs
- *       Object Attributes.
- *
- *    lpszDesktopDevice
- *       Name of the device.
- *
- *    pDeviceMode
- *       Device Mode.
+ *    lpszDesktopName
+ *       Name of the new desktop.
  *
  *    dwFlags
  *       Interaction flags.
@@ -876,6 +838,11 @@ IntFreeDesktopHeap(IN OUT PDESKTOP Desktop)
  *    dwDesiredAccess
  *       Requested type of access.
  *
+ *    lpSecurity
+ *       Security descriptor.
+ *
+ *    hWindowStation
+ *       Handle to window station on which to create the desktop.
  *
  * Return Value
  *    If the function succeeds, the return value is a handle to the newly
@@ -890,18 +857,17 @@ IntFreeDesktopHeap(IN OUT PDESKTOP Desktop)
 
 HDESK APIENTRY
 NtUserCreateDesktop(
-   POBJECT_ATTRIBUTES poa,
-   PUNICODE_STRING lpszDesktopDevice,
-   LPDEVMODEW lpdmw,
+   PUNICODE_STRING lpszDesktopName,
    DWORD dwFlags,
-   ACCESS_MASK dwDesiredAccess)
+   ACCESS_MASK dwDesiredAccess,
+   LPSECURITY_ATTRIBUTES lpSecurity,
+   HWINSTA hWindowStation)
 {
    OBJECT_ATTRIBUTES ObjectAttributes;
-   PTHREADINFO W32Thread;
    PWINSTATION_OBJECT WinStaObject;
    PDESKTOP DesktopObject;
    UNICODE_STRING DesktopName;
-   NTSTATUS Status = STATUS_SUCCESS;
+   NTSTATUS Status;
    HDESK Desktop;
    CSR_API_MESSAGE Request;
    PVOID DesktopHeapSystemBase = NULL;
@@ -909,36 +875,11 @@ NtUserCreateDesktop(
    UNICODE_STRING SafeDesktopName;
    ULONG DummyContext;
    ULONG_PTR HeapSize = 4 * 1024 * 1024; /* FIXME */
-   HWINSTA hWindowStation = NULL ;
-   PUNICODE_STRING lpszDesktopName = NULL;
-   UNICODE_STRING ClassName, WindowName, MenuName;
-   PWND pWnd = NULL;
    DECLARE_RETURN(HDESK);
+
 
    DPRINT("Enter NtUserCreateDesktop: %wZ\n", lpszDesktopName);
    UserEnterExclusive();
-
-   _SEH2_TRY
-   {
-      ProbeForRead( poa,
-                    sizeof(OBJECT_ATTRIBUTES),
-                    1);
-
-      hWindowStation = poa->RootDirectory;
-      lpszDesktopName = poa->ObjectName;
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-      Status =_SEH2_GetExceptionCode();
-   }
-   _SEH2_END
-
-   if (! NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed reading Object Attributes from user space.\n");
-      SetLastNtError(Status);
-      RETURN( NULL);
-   }
 
    Status = IntValidateWindowStationHandle(
                hWindowStation,
@@ -1072,12 +1013,7 @@ NtUserCreateDesktop(
    }
 
    /*
-    * Create a handle for CSRSS and notify CSRSS for Creating Desktop Window.
-    *
-    * Honestly, I believe this is a cleverly written hack that allowed ReactOS
-    * to function at the beginning of the project by ramroding the GUI into
-    * operation and making the desktop window work from user space.
-    *                                                         (jt)
+    * Create a handle for CSRSS and notify CSRSS
     */
    Request.Type = MAKE_CSR_API(CREATE_DESKTOP, CSR_GUI);
    Status = CsrInsertObject(Desktop,
@@ -1099,42 +1035,6 @@ NtUserCreateDesktop(
       ZwClose(Desktop);
       SetLastNtError(Status);
       RETURN( NULL);
-   }
-
-   W32Thread = PsGetCurrentThreadWin32Thread();
-
-   if (!W32Thread->Desktop) IntSetThreadDesktop(DesktopObject,FALSE);
-
-  /*
-     Based on wine/server/window.c in get_desktop_window.
-   */
-
-   ClassName.Buffer = ((PWSTR)((ULONG_PTR)(WORD)(gpsi->atomSysClass[ICLS_HWNDMESSAGE])));
-   ClassName.Length = 0;
-   RtlZeroMemory(&MenuName, sizeof(MenuName));
-   RtlZeroMemory(&WindowName, sizeof(WindowName));
-
-   pWnd = co_IntCreateWindowEx( 0,
-                               &ClassName,
-                               &WindowName,
-                                (WS_POPUP|WS_CLIPCHILDREN),
-                                0,
-                                0,
-                                100,
-                                100,
-                                NULL,
-                                NULL,
-                                hModClient, 
-                                NULL,
-                                0,
-                                TRUE);
-   if (!pWnd)
-   {
-      DPRINT1("Failed to create Message window handle\n");
-   }
-   else
-   {
-      DesktopObject->spwndMessage = pWnd;
    }
 
    RETURN( Desktop);
@@ -1463,7 +1363,7 @@ NtUserPaintDesktop(HDC hDC)
       RETURN(FALSE);
    }
 
-   DesktopBrush = (HBRUSH)UserGetClassLongPtr(WndDesktop->Wnd->pcls, GCL_HBRBACKGROUND, FALSE);
+   DesktopBrush = (HBRUSH)UserGetClassLongPtr(WndDesktop->Wnd->Class, GCL_HBRBACKGROUND, FALSE);
 
 
    /*
@@ -1482,8 +1382,8 @@ NtUserPaintDesktop(HDC hDC)
          int x, y;
          HDC hWallpaperDC;
 
-         sz.cx = DeskWin->Wnd->rcWindow.right - DeskWin->Wnd->rcWindow.left;
-         sz.cy = DeskWin->Wnd->rcWindow.bottom - DeskWin->Wnd->rcWindow.top;
+         sz.cx = DeskWin->Wnd->WindowRect.right - DeskWin->Wnd->WindowRect.left;
+         sz.cy = DeskWin->Wnd->WindowRect.bottom - DeskWin->Wnd->WindowRect.top;
 
          if (WinSta->WallpaperMode == wmStretch ||
              WinSta->WallpaperMode == wmTile)
@@ -1810,8 +1710,8 @@ CLEANUP:
 static NTSTATUS
 IntUnmapDesktopView(IN PDESKTOP DesktopObject)
 {
-    PTHREADINFO ti;
-    PPROCESSINFO CurrentWin32Process;
+    PW32THREADINFO ti;
+    PW32PROCESS CurrentWin32Process;
     PW32HEAP_USER_MAPPING HeapMapping, *PrevLink;
     NTSTATUS Status = STATUS_SUCCESS;
 
@@ -1847,6 +1747,10 @@ IntUnmapDesktopView(IN PDESKTOP DesktopObject)
     ti = GetW32ThreadInfo();
     if (ti != NULL)
     {
+        if (ti->pDeskInfo == DesktopObject->DesktopInfo)
+        {
+            ti->pDeskInfo = NULL;
+        }
         GetWin32ClientInfo()->pDeskInfo = NULL;
     }
     GetWin32ClientInfo()->ulClientDelta = 0;
@@ -1857,8 +1761,8 @@ IntUnmapDesktopView(IN PDESKTOP DesktopObject)
 static NTSTATUS
 IntMapDesktopView(IN PDESKTOP DesktopObject)
 {
-    PTHREADINFO ti;
-    PPROCESSINFO CurrentWin32Process;
+    PW32THREADINFO ti;
+    PW32PROCESS CurrentWin32Process;
     PW32HEAP_USER_MAPPING HeapMapping, *PrevLink;
     PVOID UserBase = NULL;
     SIZE_T ViewSize = 0;
@@ -1925,11 +1829,11 @@ IntMapDesktopView(IN PDESKTOP DesktopObject)
     GetWin32ClientInfo()->ulClientDelta = DesktopHeapGetUserDelta();
     if (ti != NULL)
     {
-        if (GetWin32ClientInfo()->pDeskInfo == NULL)
+        if (ti->pDeskInfo == NULL)
         {
+           ti->pDeskInfo = DesktopObject->DesktopInfo;
            GetWin32ClientInfo()->pDeskInfo = 
-                (PVOID)((ULONG_PTR)DesktopObject->DesktopInfo - 
-                                          GetWin32ClientInfo()->ulClientDelta);
+                (PVOID)((ULONG_PTR)ti->pDeskInfo - GetWin32ClientInfo()->ulClientDelta);
         }
     }
 
@@ -1969,6 +1873,15 @@ IntSetThreadDesktop(IN PDESKTOP DesktopObject,
             {
                 SetLastNtError(Status);
                 return FALSE;
+            }
+        }
+
+        if (W32Thread->Desktop == NULL)
+        {
+            PW32THREADINFO ti = GetW32ThreadInfo();
+            if (ti != NULL)
+            {
+                ti->pDeskInfo = NULL;
             }
         }
 

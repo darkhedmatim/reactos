@@ -74,8 +74,8 @@ static UINT	CBitHeight, CBitWidth;
 #define COMBO_EDITBUTTONSPACE()  0
 #define EDIT_CONTROL_PADDING()   1
 
-//static LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-//static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 
 /*********************************************************************
  * combo class descriptor
@@ -482,20 +482,20 @@ static LRESULT COMBO_WindowPosChanging(
     /*
      * Resizing a combobox has another side effect, it resizes the dropped
      * rectangle as well. However, it does it only if the new height for the
-     * combobox is more than the height it should have. In other words,
+     * combobox is different from the height it should have. In other words,
      * if the application resizing the combobox only had the intention to resize
      * the actual control, for example, to do the layout of a dialog that is
      * resized, the height of the dropdown is not changed.
      */
-    if (posChanging->cy > newComboHeight)
+    if (posChanging->cy != newComboHeight)
     {
 	TRACE("posChanging->cy=%d, newComboHeight=%d, oldbot=%d, oldtop=%d\n",
 	      posChanging->cy, newComboHeight, lphc->droppedRect.bottom,
 	      lphc->droppedRect.top);
       lphc->droppedRect.bottom = lphc->droppedRect.top + posChanging->cy - newComboHeight;
 
+      posChanging->cy = newComboHeight;
     }
-    posChanging->cy = newComboHeight;
   }
 
   return 0;
@@ -1836,8 +1836,8 @@ static char *strdupA(LPCSTR str)
 /***********************************************************************
  *           ComboWndProc_common
  */
-LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
-                                  WPARAM wParam, LPARAM lParam, BOOL unicode )
+static LRESULT ComboWndProc_common( HWND hwnd, UINT message,
+                                    WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
       LPHEADCOMBO lphc = (LPHEADCOMBO)GetWindowLongPtrW( hwnd, 0 );
 
@@ -2361,7 +2361,7 @@ LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message,
  * This is just a wrapper for the real ComboWndProc which locks/unlocks
  * window structs.
  */
-LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow(hwnd)) return 0;
     return ComboWndProc_common( hwnd, message, wParam, lParam, FALSE );
@@ -2370,7 +2370,7 @@ LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
 /***********************************************************************
  *           ComboWndProcW
  */
-LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow(hwnd)) return 0;
     return ComboWndProc_common( hwnd, message, wParam, lParam, TRUE );

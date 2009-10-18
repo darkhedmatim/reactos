@@ -36,7 +36,7 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
  }
  else
  {
-    if ((lpwszDevice) && (wcslen(lpwszDevice) != 0))  // First
+    if (lpwszDevice) // First
     {
       if (!_wcsnicmp(lpwszDevice, L"\\\\.\\DISPLAY",11)) Display = TRUE;
       RtlInitUnicodeString(&Device, lpwszDevice);
@@ -64,7 +64,6 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
                      (PDEVMODEW) lpInitData,
                      (lpwszOutput ? &Output : NULL),
                       iType,             // DCW 0 and ICW 1.
-                      Display,
                       hspool,
                      (PVOID) NULL,       // NULL for now.
                      (PVOID) &UMdhpdev );
@@ -276,37 +275,25 @@ WINAPI
 DeleteDC(HDC hDC)
 {
   BOOL Ret = TRUE;
-  PLDC pLDC = NULL;
-  HANDLE hPrinter = NULL;
-  ULONG hType = GDI_HANDLE_GET_TYPE(hDC);
+#if 0
+  PDC_ATTR Dc_Attr;
+  PLDC pLDC;
 
-  pLDC = GdiGetLDC(hDC);
+  if (!GdiGetHandleUserData((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return FALSE;
 
-  if (hType != GDILoObjType_LO_DC_TYPE)
-  {
+  if ( Dc_Attr )
+    {
+      pLDC = Dc_Attr->pvLDC;
 
-     if ( !pLDC || hType == GDILoObjType_LO_METADC16_TYPE)
-     {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-     }
-     if (pLDC->Flags & LDC_INIT_DOCUMENT) AbortDoc(hDC);
-     if (pLDC->hPrinter)
-     {
-        DocumentEventEx(NULL, pLDC->hPrinter, hDC, DOCUMENTEVENT_DELETEDC, 0, NULL, 0, NULL);
-        hPrinter = pLDC->hPrinter;
-        pLDC->hPrinter = NULL;
-     }
-  }
-
+      if ( pLDC )
+        {
+          DPRINT1("Delete the Local DC structure\n");
+          LocalFree( pLDC );
+        }
+    }
+#endif
   Ret = NtGdiDeleteObjectApp(hDC);
 
-  if (Ret && pLDC )
-  {
-     DPRINT1("Delete the Local DC structure\n");
-     LocalFree( pLDC );
-  }
-  if (hPrinter) fpClosePrinter(hPrinter);
   return Ret;
 }
 
@@ -1539,7 +1526,6 @@ SelectObject(HDC hDC,
 {
     PDC_ATTR pDc_Attr;
     HGDIOBJ hOldObj = NULL;
-    UINT uType;
 //    PTEB pTeb;
 
     if(!GdiGetHandleUserData(hDC, GDI_OBJECT_TYPE_DC, (PVOID)&pDc_Attr))
@@ -1554,7 +1540,7 @@ SelectObject(HDC hDC,
         return NULL;
     }
 
-    uType = GDI_HANDLE_GET_TYPE(hGdiObj);
+    UINT uType = GDI_HANDLE_GET_TYPE(hGdiObj);
 
     switch (uType)
     {

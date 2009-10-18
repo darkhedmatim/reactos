@@ -188,7 +188,7 @@ CmpValueToData(IN PHHIVE Hive,
     if (BufferAllocated)
     {
         /* Free the buffer and bugcheck */
-        CmpFree(Buffer, 0);
+        ExFreePool(Buffer);
         KeBugCheckEx(REGISTRY_ERROR, 8, 0, (ULONG_PTR)Hive, (ULONG_PTR)Value);
     }
 

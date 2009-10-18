@@ -61,8 +61,7 @@ KeStartProfile(PKPROFILE Profile,
     /* Allocate a buffer first, before we raise IRQL */
     SourceBuffer = ExAllocatePoolWithTag(NonPagedPool,
                                           sizeof(KPROFILE_SOURCE_OBJECT),
-                                          'forP');
-    if (!SourceBuffer) return;
+                                          TAG('P', 'r', 'o', 'f'));
     RtlZeroMemory(SourceBuffer, sizeof(KPROFILE_SOURCE_OBJECT));
 
     /* Raise to PROFILE_LEVEL */
@@ -256,10 +255,6 @@ KiParseProfileList(IN PKTRAP_FRAME TrapFrame,
     PULONG BucketValue;
     PKPROFILE Profile;
     PLIST_ENTRY NextEntry;
-    ULONG_PTR ProgramCounter;
-
-    /* Get the Program Counter */
-    ProgramCounter = KeGetTrapFramePc(TrapFrame);
 
     /* Loop the List */
     for (NextEntry = ListHead->Flink;
@@ -270,17 +265,21 @@ KiParseProfileList(IN PKTRAP_FRAME TrapFrame,
         Profile = CONTAINING_RECORD(NextEntry, KPROFILE, ProfileListEntry);
 
         /* Check if the source is good, and if it's within the range */
+#ifdef _M_IX86
         if ((Profile->Source != Source) ||
-            (ProgramCounter < (ULONG_PTR)Profile->RangeBase) ||
-            (ProgramCounter > (ULONG_PTR)Profile->RangeLimit))
+            (TrapFrame->Eip < (ULONG_PTR)Profile->RangeBase) ||
+            (TrapFrame->Eip > (ULONG_PTR)Profile->RangeLimit))
         {
             continue;
         }
 
-        /* Get the Pointer to the Bucket Value representing this Program Counter */
+        /* Get the Pointer to the Bucket Value representing this EIP */
         BucketValue = (PULONG)((((ULONG_PTR)Profile->Buffer +
-                               (ProgramCounter - (ULONG_PTR)Profile->RangeBase))
+                               (TrapFrame->Eip - (ULONG_PTR)Profile->RangeBase))
                                 >> Profile->BucketShift) &~ 0x3);
+#elif defined(_M_PPC)
+    // XXX arty
+#endif
 
         /* Increment the value */
         ++BucketValue;

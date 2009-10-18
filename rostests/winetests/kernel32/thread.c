@@ -693,10 +693,7 @@ static VOID test_thread_priority(void)
    SetLastError(0xdeadbeef);
    rc=pGetThreadPriorityBoost(curthread,&disabled);
    if (rc==0 && GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
-   {
-      win_skip("GetThreadPriorityBoost is not implemented on WinME\n");
-      return;
-   }
+     return; /* WinME */
 
    todo_wine
      ok(rc!=0,"error=%d\n",GetLastError());
@@ -758,10 +755,7 @@ static VOID test_GetThreadTimes(void)
 /* GetThreadTimes should set all of the parameters passed to it */
      error=GetThreadTimes(thread,&creationTime,&exitTime,
                           &kernelTime,&userTime);
-
-     if (error == 0 && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-       win_skip("GetThreadTimes is not implemented\n");
-     else {
+     if (error!=0 || GetLastError()!=ERROR_CALL_NOT_IMPLEMENTED) {
        ok(error!=0,"GetThreadTimes failed\n");
        ok(creationTime.dwLowDateTime!=99 || creationTime.dwHighDateTime!=99,
           "creationTime was invalid\n");
@@ -812,24 +806,22 @@ static VOID test_thread_processor(void)
       "SetThreadAffinityMask passed for an illegal processor\n");
 /* NOTE: This only works on WinNT/2000/XP) */
    if (pSetThreadIdealProcessor) {
-     SetLastError(0xdeadbeef);
-     error=pSetThreadIdealProcessor(curthread,0);
-     if (GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
-     {
-       win_skip("SetThreadIdealProcessor is not implemented\n");
-       return;
+     todo_wine {
+       SetLastError(0);
+       error=pSetThreadIdealProcessor(curthread,0);
+       if (GetLastError()!=ERROR_CALL_NOT_IMPLEMENTED) {
+         ok(error!=-1, "SetThreadIdealProcessor failed\n");
+       }
      }
-     ok(error!=-1, "SetThreadIdealProcessor failed\n");
-
-     SetLastError(0xdeadbeef);
-     error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS+1);
-     ok(error==-1,
-        "SetThreadIdealProcessor succeeded with an illegal processor #\n");
-     ok(GetLastError()==ERROR_INVALID_PARAMETER,
-        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
-
-     error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS);
-     ok(error==0, "SetThreadIdealProcessor returned an incorrect value\n");
+     if (GetLastError()!=ERROR_CALL_NOT_IMPLEMENTED) {
+       error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS+1);
+       ok(error==-1,
+          "SetThreadIdealProcessor succeeded with an illegal processor #\n");
+       todo_wine {
+         error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS);
+         ok(error==0, "SetThreadIdealProcessor returned an incorrect value\n");
+       }
+     }
    }
 }
 

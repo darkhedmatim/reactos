@@ -54,6 +54,8 @@ VOID
 IntDrawScrollBar(HWND hWnd, HDC hDC, INT nBar);
 DWORD
 IntScrollHitTest(HWND hWnd, INT nBar, POINT pt, BOOL bDragging);
+HPEN WINAPI
+GetSysColorPen(int nIndex);
 
 BOOL WINAPI GdiGradientFill(HDC,PTRIVERTEX,ULONG,PVOID,ULONG,ULONG);
 
@@ -430,8 +432,7 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active)
       if(!(Style & WS_MINIMIZE))
       {
         /* Line under caption */
-        PreviousPen = SelectObject(hDC, GetStockObject(DC_PEN));
-        SetDCPenColor(hDC, GetSysColor(
+        PreviousPen = SelectObject(hDC, GetSysColorPen(
            ((ExStyle & (WS_EX_STATICEDGE | WS_EX_CLIENTEDGE |
                         WS_EX_DLGMODALFRAME)) == WS_EX_STATICEDGE) ?
            COLOR_WINDOWFRAME : COLOR_3DFACE));
@@ -1058,11 +1059,14 @@ DefWndTrackScrollBar(HWND hWnd, WPARAM wParam, POINT Point)
 
 /* PUBLIC FUNCTIONS ***********************************************************/
 
+/*
+ * @implemented
+ */
 BOOL WINAPI
-RealAdjustWindowRectEx(LPRECT lpRect,
-                       DWORD dwStyle,
-                       BOOL bMenu,
-                       DWORD dwExStyle)
+AdjustWindowRectEx(LPRECT lpRect,
+		   DWORD dwStyle,
+		   BOOL bMenu,
+		   DWORD dwExStyle)
 {
    SIZE BorderSize;
 
@@ -1086,38 +1090,6 @@ RealAdjustWindowRectEx(LPRECT lpRect,
    return TRUE;
 }
 
-/*
- * @implemented
- */
-BOOL WINAPI
-AdjustWindowRectEx(LPRECT lpRect,
-		   DWORD dwStyle,
-		   BOOL bMenu,
-		   DWORD dwExStyle)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-     /* Bypass SEH and go direct. */
-   if (!Hook) return RealAdjustWindowRectEx(lpRect, dwStyle, bMenu, dwExStyle);
-
-   _SEH2_TRY
-   {
-      Ret = guah.AdjustWindowRectEx(lpRect, dwStyle, bMenu, dwExStyle);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
-}
-
 
 /*
  * @implemented
@@ -1139,27 +1111,7 @@ AdjustWindowRect(LPRECT lpRect,
 BOOL WINAPI
 DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
 {
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return NtUserDrawCaption(hWnd, hDC, lprc, uFlags);
-
-   _SEH2_TRY
-   {
-      Ret = guah.DrawCaption(hWnd, hDC, lprc, uFlags);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
+ return NtUserDrawCaption(hWnd, hDC, lprc, uFlags);
 }
 
 /*

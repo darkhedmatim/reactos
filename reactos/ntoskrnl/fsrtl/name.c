@@ -142,10 +142,6 @@ FsRtlDissectName(IN UNICODE_STRING Name,
     ULONG FirstPosition, i;
     ULONG SkipFirstSlash = 0;
 
-    /* Zero the strings before continuing */
-    RtlZeroMemory(FirstPart, sizeof(UNICODE_STRING));
-    RtlZeroMemory(RemainingPart, sizeof(UNICODE_STRING));
-
     /* Just quit if the string is empty */
     if (!Name.Length) return;
 
@@ -173,14 +169,14 @@ FsRtlDissectName(IN UNICODE_STRING Name,
     /* Set up the first result string */
     FirstPart->Buffer = Name.Buffer + SkipFirstSlash;
     FirstPart->Length = (FirstPosition - SkipFirstSlash) * sizeof(WCHAR);
-    FirstPart->MaximumLength = FirstPart->Length;
+    FirstPart->MaximumLength = Name.MaximumLength - FirstPart->Length;
 
     /* And second one, if necessary */
     if (FirstPosition < (Name.Length / sizeof(WCHAR)))
     {
         RemainingPart->Buffer = Name.Buffer + FirstPosition + 1;
-        RemainingPart->Length = Name.Length - (FirstPosition + 1) * sizeof(WCHAR);
-        RemainingPart->MaximumLength = RemainingPart->Length;
+        RemainingPart->Length = (Name.Length - FirstPosition) * sizeof(WCHAR);
+        RemainingPart->MaximumLength = Name.MaximumLength - RemainingPart->Length;
     }
 }
 

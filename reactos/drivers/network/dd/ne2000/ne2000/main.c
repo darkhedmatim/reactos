@@ -11,13 +11,15 @@
 #include <debug.h>
 
 NTSTATUS
+#ifndef _MSC_VER
 NTAPI
+#endif
 DriverEntry(
     PDRIVER_OBJECT DriverObject,
     PUNICODE_STRING RegistryPath);
 
 
-#if DBG
+#ifdef DBG
 
 /* See debug.h for debug/trace constants */
 ULONG DebugTraceLevel = 0;
@@ -371,7 +373,7 @@ static NDIS_STATUS NTAPI MiniportInitialize(
          NdisCloseConfiguration(ConfigurationHandle);
     }
 
-    if (Status != NDIS_STATUS_SUCCESS || RegNetworkAddressLength != DRIVER_LENGTH_OF_ADDRESS)
+    if (Status != NDIS_STATUS_SUCCESS)
     {
         int i;
         for (i = 0; i < DRIVER_LENGTH_OF_ADDRESS; i++)
@@ -925,7 +927,9 @@ static NDIS_STATUS NTAPI MiniportTransferData(
 
 
 NTSTATUS
+#ifndef _MSC_VER
 NTAPI
+#endif
 DriverEntry(
     PDRIVER_OBJECT DriverObject,
     PUNICODE_STRING RegistryPath)

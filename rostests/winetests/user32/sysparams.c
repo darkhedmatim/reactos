@@ -245,11 +245,11 @@ static BOOL test_error_msg ( int rc, const char *name )
     {
         if (last_error==0xdeadbeef || last_error==ERROR_INVALID_SPI_VALUE || last_error==ERROR_INVALID_PARAMETER)
         {
-            skip("%s not supported on this platform\n", name);
+            trace("%s not supported on this platform. Skipping test\n", name);
         }
         else if (last_error==ERROR_ACCESS_DENIED)
         {
-            skip("%s does not have privileges to run\n", name);
+            trace("%s does not have privileges to run. Skipping test\n", name);
         }
         else
         {
@@ -274,7 +274,7 @@ static BOOL test_error_msg ( int rc, const char *name )
  * lpsRegName - registry entry name
  * lpsTestValue - value to test
  */
-static void _test_reg_key( LPCSTR subKey1, LPCSTR subKey2, LPCSTR valName1, LPCSTR valName2, LPCSTR testValue, BOOL optional )
+static void _test_reg_key( LPCSTR subKey1, LPCSTR subKey2, LPCSTR valName1, LPCSTR valName2, LPCSTR testValue )
 {
     CHAR  value[MAX_PATH];
     DWORD valueLen;
@@ -360,21 +360,16 @@ static void _test_reg_key( LPCSTR subKey1, LPCSTR subKey2, LPCSTR valName1, LPCS
             }
          }
     }
-    ok(found || optional,
-       "Missing registry values: %s or %s in keys: %s or %s\n",
+    ok(found,"Missing registry values: %s or %s in keys: %s or %s\n",
        valName1, (valName2?valName2:"<n/a>"), subKey1, (subKey2?subKey2:"<n/a>") );
 }
 
 #define test_reg_key( subKey, valName, testValue ) \
-    _test_reg_key( subKey, NULL, valName, NULL, testValue, FALSE )
-#define test_reg_key_optional( subKey, valName, testValue ) \
-    _test_reg_key( subKey, NULL, valName, NULL, testValue, TRUE )
+    _test_reg_key( subKey, NULL, valName, NULL, testValue )
 #define test_reg_key_ex( subKey1, subKey2, valName, testValue ) \
-    _test_reg_key( subKey1, subKey2, valName, NULL, testValue, FALSE )
+    _test_reg_key( subKey1, subKey2, valName, NULL, testValue )
 #define test_reg_key_ex2( subKey1, subKey2, valName1, valName2, testValue ) \
-    _test_reg_key( subKey1, subKey2, valName1, valName2, testValue, FALSE )
-#define test_reg_key_ex2_optional( subKey1, subKey2, valName1, valName2, testValue ) \
-    _test_reg_key( subKey1, subKey2, valName1, valName2, testValue, TRUE )
+    _test_reg_key( subKey1, subKey2, valName1, valName2, testValue )
 
 /* get a metric from the registry. If the value is negative
  * it is assumed to be in twips and converted to pixels */
@@ -942,8 +937,7 @@ static void test_SPI_SETSCREENSAVEACTIVE( void )       /*     17 */
 
         rc=SystemParametersInfoA( SPI_GETSCREENSAVEACTIVE, 0, &v, 0 );
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
-        ok(v == vals[i] || broken(! v) /* Win 7 */,
-           "SPI_{GET,SET}SCREENSAVEACTIVE: got %d instead of %d\n", v, vals[i]);
+        eq( v, vals[i], "SPI_{GET,SET}SCREENSAVEACTIVE", "%d" );
     }
 
     rc=SystemParametersInfoA( SPI_SETSCREENSAVEACTIVE, old_b, 0, SPIF_UPDATEINIFILE );
@@ -1806,10 +1800,10 @@ static void test_SPI_SETWORKAREA( void )               /*     47 */
         test_change_message( SPI_SETWORKAREA, 0);
     eq( area.left,   curr_val.left,   "left",   "%d" );
     eq( area.top,    curr_val.top,    "top",    "%d" );
-    /* size may be rounded */
-    ok( area.right >= curr_val.right - 16 && area.right < curr_val.right + 16,
+    /* size may be rounded up */
+    ok( area.right >= curr_val.right && area.right < curr_val.right + 16,
         "right: got %d instead of %d\n", area.right, curr_val.right );
-    ok( area.bottom >= curr_val.bottom - 16 && area.bottom < curr_val.bottom + 16,
+    ok( area.bottom >= curr_val.bottom && area.bottom < curr_val.bottom + 16,
         "bottom: got %d instead of %d\n", area.bottom, curr_val.bottom );
     curr_val = area;
     rc=SystemParametersInfoA( SPI_SETWORKAREA, 0, &old_area,
@@ -1821,10 +1815,10 @@ static void test_SPI_SETWORKAREA( void )               /*     47 */
         test_change_message( SPI_SETWORKAREA, 0 );
     eq( area.left,   old_area.left,   "left",   "%d" );
     eq( area.top,    old_area.top,    "top",    "%d" );
-    /* size may be rounded */
-    ok( area.right >= old_area.right - 16 && area.right < old_area.right + 16,
+    /* size may be rounded up */
+    ok( area.right >= old_area.right && area.right < old_area.right + 16,
         "right: got %d instead of %d\n", area.right, old_area.right );
-    ok( area.bottom >= old_area.bottom - 16 && area.bottom < old_area.bottom + 16,
+    ok( area.bottom >= old_area.bottom && area.bottom < old_area.bottom + 16,
         "bottom: got %d instead of %d\n", area.bottom, old_area.bottom );
 }
 
@@ -1923,9 +1917,9 @@ static void test_SPI_SETSCREENREADER( void )           /*     71 */
         if (!test_error_msg(rc,"SPI_SETSCREENREADER")) return;
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
         test_change_message( SPI_SETSCREENREADER, 1 );
-        test_reg_key_ex2_optional( SPI_SETSCREENREADER_REGKEY, SPI_SETSCREENREADER_REGKEY_LEGACY,
-                                   SPI_SETSCREENREADER_VALNAME, SPI_SETSCREENREADER_VALNAME_LEGACY,
-                                   vals[i] ? "1" : "0" );
+        test_reg_key_ex2( SPI_SETSCREENREADER_REGKEY, SPI_SETSCREENREADER_REGKEY_LEGACY,
+                      SPI_SETSCREENREADER_VALNAME, SPI_SETSCREENREADER_VALNAME_LEGACY,
+                      vals[i] ? "1" : "0" );
 
         rc=SystemParametersInfoA( SPI_GETSCREENREADER, 0, &v, 0 );
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
@@ -1994,16 +1988,14 @@ static void test_SPI_SETLOWPOWERACTIVE( void )         /*     85 */
         if (!test_error_msg(rc,"SPI_SETLOWPOWERACTIVE")) return;
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
         test_change_message( SPI_SETLOWPOWERACTIVE, 1 );
-        test_reg_key_optional( SPI_SETLOWPOWERACTIVE_REGKEY,
-                               SPI_SETLOWPOWERACTIVE_VALNAME,
-                               vals[i] ? "1" : "0" );
+        test_reg_key( SPI_SETLOWPOWERACTIVE_REGKEY,
+                      SPI_SETLOWPOWERACTIVE_VALNAME,
+                      vals[i] ? "1" : "0" );
 
         /* SPI_SETLOWPOWERACTIVE is not persistent in win2k3 and above */
-        v = 0xdeadbeef;
         rc=SystemParametersInfoA( SPI_GETLOWPOWERACTIVE, 0, &v, 0 );
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
         ok(v == vals[i] ||
-           broken(v == (0xdead0000 | vals[i])) ||  /* win98 only sets the low word */
            v == 0, /* win2k3 */
            "SPI_GETLOWPOWERACTIVE: got %d instead of 0 or %d\n", v, vals[i]);
     }
@@ -2034,16 +2026,14 @@ static void test_SPI_SETPOWEROFFACTIVE( void )         /*     86 */
         if (!test_error_msg(rc,"SPI_SETPOWEROFFACTIVE")) return;
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
         test_change_message( SPI_SETPOWEROFFACTIVE, 1 );
-        test_reg_key_optional( SPI_SETPOWEROFFACTIVE_REGKEY,
-                               SPI_SETPOWEROFFACTIVE_VALNAME,
-                               vals[i] ? "1" : "0" );
+        test_reg_key( SPI_SETPOWEROFFACTIVE_REGKEY,
+                      SPI_SETPOWEROFFACTIVE_VALNAME,
+                      vals[i] ? "1" : "0" );
 
         /* SPI_SETPOWEROFFACTIVE is not persistent in win2k3 and above */
-        v = 0xdeadbeef;
         rc=SystemParametersInfoA( SPI_GETPOWEROFFACTIVE, 0, &v, 0 );
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
         ok(v == vals[i] ||
-           broken(v == (0xdead0000 | vals[i])) ||  /* win98 only sets the low word */
            v == 0, /* win2k3 */
            "SPI_GETPOWEROFFACTIVE: got %d instead of 0 or %d\n", v, vals[i]);
     }
@@ -2074,9 +2064,9 @@ static void test_SPI_SETSNAPTODEFBUTTON( void )         /*     95 */
         if (!test_error_msg(rc,"SPI_SETSNAPTODEFBUTTON")) return;
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
         test_change_message( SPI_SETSNAPTODEFBUTTON, 0 );
-        test_reg_key_optional( SPI_SETSNAPTODEFBUTTON_REGKEY,
-                               SPI_SETSNAPTODEFBUTTON_VALNAME,
-                               vals[i] ? "1" : "0" );
+        test_reg_key( SPI_SETSNAPTODEFBUTTON_REGKEY,
+                      SPI_SETSNAPTODEFBUTTON_VALNAME,
+                      vals[i] ? "1" : "0" );
 
         rc=SystemParametersInfoA( SPI_GETSNAPTODEFBUTTON, 0, &v, 0 );
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
@@ -2732,14 +2722,12 @@ static void test_EnumDisplaySettings(void)
     DWORD num;
 
     memset(&devmode, 0, sizeof(devmode));
-    /* Win95 doesn't handle ENUM_CURRENT_SETTINGS correctly */
+    devmode.dmSize = sizeof(devmode);
     EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
 
     hdc = GetDC(0);
     val = GetDeviceCaps(hdc, BITSPIXEL);
-    ok(devmode.dmBitsPerPel == val ||
-        broken(devmode.dmDeviceName[0] == 0), /* Win95 */
-        "GetDeviceCaps(BITSPIXEL) returned %d, EnumDisplaySettings returned %d\n",
+    ok(devmode.dmBitsPerPel == val, "GetDeviceCaps(BITSPIXEL) returned %d, EnumDisplaySettings returned %d\n",
         val, devmode.dmBitsPerPel);
 
     val = GetDeviceCaps(hdc, NUMCOLORS);

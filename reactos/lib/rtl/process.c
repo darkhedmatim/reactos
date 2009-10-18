@@ -362,7 +362,6 @@ RtlSetProcessIsCritical(
     IN   BOOLEAN   IsWinlogon)
 {
 	//TODO
-    UNIMPLEMENTED;
 }
 
 ULONG

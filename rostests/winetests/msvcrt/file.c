@@ -179,7 +179,7 @@ static void test_readmode( BOOL ascii_mode )
     const int *ip;
     int i, j, m, ao, pl;
     unsigned int fp;
-    LONG l;
+    long l;
 
     fd = open ("fdopen.tst", O_WRONLY | O_CREAT | O_BINARY, _S_IREAD |_S_IWRITE);
     /* an internal buffer of BUFSIZ is maintained, so make a file big
@@ -212,7 +212,7 @@ static void test_readmode( BOOL ascii_mode )
     ok(fgets(buffer,2*BUFSIZ+256,file) !=0,"padding line fgets failed unexpected in %s\n", IOMODE);
     l = ftell(file);
     pl = 2*BUFSIZ-2;
-    ok(l == pl,"padding line ftell got %d should be %d in %s\n", l, pl, IOMODE);
+    ok(l == pl,"padding line ftell got %ld should be %d in %s\n", l, pl, IOMODE);
     ok(lstrlenA(buffer) == pl+ao,"padding line fgets got size %d should be %d in %s\n",
      lstrlenA(buffer), pl+ao, IOMODE);
     for (fp=0; fp<strlen(outbuffer); fp++)
@@ -220,23 +220,23 @@ static void test_readmode( BOOL ascii_mode )
     fp++;
     ok(fgets(buffer,256,file) !=0,"line 1 fgets failed unexpected in %s\n", IOMODE);
     l = ftell(file);
-    ok(l == pl+fp,"line 1 ftell got %d should be %d in %s\n", l, pl+fp, IOMODE);
+    ok(l == pl+fp,"line 1 ftell got %ld should be %d in %s\n", l, pl+fp, IOMODE);
     ok(lstrlenA(buffer) == fp+ao,"line 1 fgets got size %d should be %d in %s\n",
      lstrlenA(buffer), fp+ao, IOMODE);
     /* test a seek back across the buffer boundary */
     l = pl;
     ok(fseek(file,l,SEEK_SET)==0,"seek failure in %s\n", IOMODE);
     l = ftell(file);
-    ok(l == pl,"ftell after seek got %d should be %d in %s\n", l, pl, IOMODE);
+    ok(l == pl,"ftell after seek got %ld should be %d in %s\n", l, pl, IOMODE);
     ok(fgets(buffer,256,file) !=0,"second read of line 1 fgets failed unexpected in %s\n", IOMODE);
     l = ftell(file);
-    ok(l == pl+fp,"second read of line 1 ftell got %d should be %d in %s\n", l, pl+fp, IOMODE);
+    ok(l == pl+fp,"second read of line 1 ftell got %ld should be %d in %s\n", l, pl+fp, IOMODE);
     ok(lstrlenA(buffer) == fp+ao,"second read of line 1 fgets got size %d should be %d in %s\n",
      lstrlenA(buffer), fp+ao, IOMODE);
     ok(fgets(buffer,256,file) !=0,"line 2 fgets failed unexpected in %s\n", IOMODE);
     fp += 2;
     l = ftell(file);
-    ok(l == pl+fp,"line 2 ftell got %d should be %d in %s\n", l, pl+fp, IOMODE);
+    ok(l == pl+fp,"line 2 ftell got %ld should be %d in %s\n", l, pl+fp, IOMODE);
     ok(lstrlenA(buffer) == 2+ao,"line 2 fgets got size %d should be %d in %s\n",
      lstrlenA(buffer), 2+ao, IOMODE);
     
@@ -248,7 +248,7 @@ static void test_readmode( BOOL ascii_mode )
     i=fread(buffer,1,BUFSIZ+strlen(outbuffer),file);
     ok(i==BUFSIZ+j,"fread failed, expected %d got %d in %s\n", BUFSIZ+j, i, IOMODE);
     l = ftell(file);
-    ok(l == pl+j-(ao*4)-5,"ftell after fread got %d should be %d in %s\n", l, pl+j-(ao*4)-5, IOMODE);
+    ok(l == pl+j-(ao*4)-5,"ftell after fread got %ld should be %d in %s\n", l, pl+j-(ao*4)-5, IOMODE);
     for (m=0; m<3; m++)
         ok(buffer[m]==padbuffer[m+(BUFSIZ-4)%strlen(padbuffer)],"expected %c got %c\n", padbuffer[m], buffer[m]);
     m+=BUFSIZ+2+ao;
@@ -531,7 +531,7 @@ static void test_fgetwc( void )
   BOOL diff_found = FALSE;
   int j;
   unsigned int i;
-  LONG l;
+  long l;
 
   tempf=_tempnam(".","wne");
   tempfh = fopen(tempf,"wb");
@@ -550,10 +550,10 @@ static void test_fgetwc( void )
   tempfh = fopen(tempf,"rt"); /* open in TEXT mode */
   fgetws(wtextW,LLEN,tempfh);
   l=ftell(tempfh);
-  ok(l==BUFSIZ-2, "ftell expected %d got %d\n", BUFSIZ-2, l);
+  ok(l==BUFSIZ-2, "ftell expected %d got %ld\n", BUFSIZ-2, l);
   fgetws(wtextW,LLEN,tempfh);
   l=ftell(tempfh);
-  ok(l==BUFSIZ-2+strlen(mytext), "ftell expected %d got %d\n", BUFSIZ-2+lstrlen(mytext), l);
+  ok(l==BUFSIZ-2+strlen(mytext), "ftell expected %d got %ld\n", BUFSIZ-2+lstrlen(mytext), l);
   mytextW = AtoW (mytext);
   aptr = mytextW;
   wptr = wtextW;
@@ -586,25 +586,25 @@ static void test_fgetwc( void )
   fgetws(wtextW,j,tempfh);
   l=ftell(tempfh);
   j=(j-1)*sizeof(WCHAR);
-  ok(l==j, "ftell expected %d got %d\n", j, l);
+  ok(l==j, "ftell expected %d got %ld\n", j, l);
   i=fgetc(tempfh);
   ok(i=='a', "fgetc expected %d got %d\n", 0x61, i);
   l=ftell(tempfh);
   j++;
-  ok(l==j, "ftell expected %d got %d\n", j, l);
+  ok(l==j, "ftell expected %d got %ld\n", j, l);
   fgetws(wtextW,3,tempfh);
   ok(wtextW[0]=='\r',"expected carriage return got %04hx\n", wtextW[0]);
   ok(wtextW[1]=='\n',"expected newline got %04hx\n", wtextW[1]);
   l=ftell(tempfh);
   j += 4;
-  ok(l==j, "ftell expected %d got %d\n", j, l);
+  ok(l==j, "ftell expected %d got %ld\n", j, l);
   for(i=0; i<strlen(mytext); i++)
     wtextW[i] = 0;
   /* the first time we get the string, it should be entirely within the local buffer */
   fgetws(wtextW,LLEN,tempfh);
   l=ftell(tempfh);
   j += (strlen(mytext)-1)*sizeof(WCHAR);
-  ok(l==j, "ftell expected %d got %d\n", j, l);
+  ok(l==j, "ftell expected %d got %ld\n", j, l);
   diff_found = FALSE;
   aptr = mytextW;
   wptr = wtextW;
@@ -643,7 +643,7 @@ static void test_ctrlz( void )
   static const char mytext[]= "This is test_ctrlz";
   char buffer[256];
   int i, j;
-  LONG l;
+  long l;
 
   tempf=_tempnam(".","wne");
   tempfh = fopen(tempf,"wb");
@@ -664,7 +664,7 @@ static void test_ctrlz( void )
   ok(i==j, "returned string length expected %d got %d\n", j, i);
   j+=4; /* ftell should indicate the true end of file */
   l=ftell(tempfh);
-  ok(l==j, "ftell expected %d got %d\n", j, l);
+  ok(l==j, "ftell expected %d got %ld\n", j, l);
   ok(feof(tempfh), "did not get EOF\n");
   fclose(tempfh);
   
@@ -674,7 +674,7 @@ static void test_ctrlz( void )
   j=strlen(mytext)+3; /* should get through newline */
   ok(i==j, "returned string length expected %d got %d\n", j, i);
   l=ftell(tempfh);
-  ok(l==j, "ftell expected %d got %d\n", j, l);
+  ok(l==j, "ftell expected %d got %ld\n", j, l);
   ok(fgets(buffer,256,tempfh) != 0,"fgets failed unexpected\n");
   i=strlen(buffer);
   ok(i==1, "returned string length expected %d got %d\n", 1, i);
@@ -785,7 +785,7 @@ static void test_file_write_read( void )
 
   memset(btext, 0, LLEN);
   tempfd = _open(tempf,_O_APPEND|_O_RDWR); /* open for APPEND in default mode */
-  ok(tell(tempfd) == 0, "bad position %u expecting 0\n", tell(tempfd));
+  ok(tell(tempfd) == 0, "bad position %lu expecting 0\n", tell(tempfd));
   ok(_read(tempfd,btext,LLEN) == lstrlenA(mytext), "_read _O_APPEND got bad length\n");
   ok( memcmp(mytext,btext,strlen(mytext)) == 0, "problems with _O_APPEND _read\n");
   _close(tempfd);
@@ -801,7 +801,7 @@ static void test_file_write_read( void )
   _lseek(tempfd, -3, FILE_END);
   ret = _read(tempfd,btext,2);
   ok(ret == 1 && *btext == 'e', "_read expected 'e' got \"%.*s\" bad length: %d\n", ret, btext, ret);
-  ok(tell(tempfd) == 42, "bad position %u expecting 42\n", tell(tempfd));
+  ok(tell(tempfd) == 42, "bad position %lu expecting 42\n", tell(tempfd));
   _close(tempfd);
 
   ret = unlink(tempf);
@@ -857,89 +857,12 @@ static void test_file_inherit_child_no(const char* fd_s)
     ok( ret == -1 && errno == EBADF, 
        "Wrong write result in child process on %d (%s)\n", fd, strerror(errno));
 }
-
-static void create_io_inherit_block( STARTUPINFO *startup, unsigned int count, const HANDLE *handles )
-{
-    static BYTE block[1024];
-    BYTE *wxflag_ptr;
-    HANDLE *handle_ptr;
-    unsigned int i;
-
-    startup->lpReserved2 = block;
-    startup->cbReserved2 = sizeof(unsigned) + (sizeof(char) + sizeof(HANDLE)) * count;
-    wxflag_ptr = block + sizeof(unsigned);
-    handle_ptr = (HANDLE *)(wxflag_ptr + count);
-
-    *(unsigned*)block = count;
-    for (i = 0; i < count; i++)
-    {
-        wxflag_ptr[i] = 0x81;
-        handle_ptr[i] = handles[i];
-    }
-}
-
-static const char *read_file( HANDLE file )
-{
-    static char buffer[128];
-    DWORD ret;
-    SetFilePointer( file, 0, NULL, FILE_BEGIN );
-    if (!ReadFile( file, buffer, sizeof(buffer) - 1, &ret, NULL)) ret = 0;
-    buffer[ret] = 0;
-    return buffer;
-}
-
-static void test_stdout_handle( STARTUPINFO *startup, char *cmdline, HANDLE hstdout, BOOL expect_stdout,
-                                const char *descr )
-{
-    const char *data;
-    HANDLE hErrorFile;
-    SECURITY_ATTRIBUTES sa;
-    PROCESS_INFORMATION proc;
-
-    /* make file handle inheritable */
-    sa.nLength = sizeof(sa);
-    sa.lpSecurityDescriptor = NULL;
-    sa.bInheritHandle = TRUE;
-
-    hErrorFile = CreateFileA( "fdopen.err", GENERIC_READ|GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS, 0, NULL );
-    startup->dwFlags    = STARTF_USESTDHANDLES;
-    startup->hStdInput  = GetStdHandle( STD_INPUT_HANDLE );
-    startup->hStdOutput = hErrorFile;
-    startup->hStdError  = GetStdHandle( STD_ERROR_HANDLE );
-
-    CreateProcessA( NULL, cmdline, NULL, NULL, TRUE,
-                    CREATE_DEFAULT_ERROR_MODE | NORMAL_PRIORITY_CLASS, NULL, NULL, startup, &proc );
-    winetest_wait_child_process( proc.hProcess );
-
-    data = read_file( hErrorFile );
-    if (expect_stdout)
-        ok( strcmp( data, "Success" ), "%s: Error file shouldn't contain data\n", descr );
-    else
-        ok( !strcmp( data, "Success" ), "%s: Wrong error data (%s)\n", descr, data );
-
-    if (hstdout)
-    {
-        data = read_file( hstdout );
-        if (expect_stdout)
-            ok( !strcmp( data, "Success" ), "%s: Wrong stdout data (%s)\n", descr, data );
-        else
-            ok( strcmp( data, "Success" ), "%s: Stdout file shouldn't contain data\n", descr );
-    }
-
-    CloseHandle( hErrorFile );
-    DeleteFile( "fdopen.err" );
-}
-
+ 
 static void test_file_inherit( const char* selfname )
 {
     int			fd;
     const char*		arg_v[5];
     char 		buffer[16];
-    char cmdline[MAX_PATH];
-    STARTUPINFO startup;
-    SECURITY_ATTRIBUTES sa;
-    HANDLE handles[3];
 
     fd = open ("fdopen.tst", O_CREAT | O_RDWR | O_BINARY, _S_IREAD |_S_IWRITE);
     ok(fd != -1, "Couldn't create test file\n");
@@ -949,7 +872,7 @@ static void test_file_inherit( const char* selfname )
     arg_v[3] = buffer; sprintf(buffer, "%d", fd);
     arg_v[4] = 0;
     _spawnvp(_P_WAIT, selfname, arg_v);
-    ok(tell(fd) == 8, "bad position %u expecting 8\n", tell(fd));
+    ok(tell(fd) == 8, "bad position %lu expecting 8\n", tell(fd));
     lseek(fd, 0, SEEK_SET);
     ok(read(fd, buffer, sizeof (buffer)) == 8 && memcmp(buffer, "Success", 8) == 0, "Couldn't read back the data\n");
     close (fd);
@@ -963,68 +886,10 @@ static void test_file_inherit( const char* selfname )
     arg_v[3] = buffer; sprintf(buffer, "%d", fd);
     arg_v[4] = 0;
     _spawnvp(_P_WAIT, selfname, arg_v);
-    ok(tell(fd) == 0, "bad position %u expecting 0\n", tell(fd));
+    ok(tell(fd) == 0, "bad position %lu expecting 0\n", tell(fd));
     ok(read(fd, buffer, sizeof (buffer)) == 0, "Found unexpected data (%s)\n", buffer);
     close (fd);
     ok(unlink("fdopen.tst") == 0, "Couldn't unlink\n");
-
-    /* make file handle inheritable */
-    sa.nLength = sizeof(sa);
-    sa.lpSecurityDescriptor = NULL;
-    sa.bInheritHandle = TRUE;
-    sprintf(cmdline, "%s file inherit 1", selfname);
-
-    /* init an empty Reserved2, which should not be recognized as inherit-block */
-    ZeroMemory(&startup, sizeof(STARTUPINFO));
-    startup.cb = sizeof(startup);
-    create_io_inherit_block( &startup, 0, NULL );
-    test_stdout_handle( &startup, cmdline, 0, FALSE, "empty block" );
-
-    /* test with valid inheritblock */
-    handles[0] = GetStdHandle( STD_INPUT_HANDLE );
-    handles[1] = CreateFileA( "fdopen.tst", GENERIC_READ|GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS, 0, NULL );
-    handles[2] = GetStdHandle( STD_ERROR_HANDLE );
-    create_io_inherit_block( &startup, 3, handles );
-    test_stdout_handle( &startup, cmdline, handles[1], TRUE, "valid block" );
-    CloseHandle( handles[1] );
-    DeleteFile("fdopen.tst");
-
-    /* test inherit block starting with unsigned zero */
-    handles[1] = CreateFileA( "fdopen.tst", GENERIC_READ|GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS, 0, NULL );
-    create_io_inherit_block( &startup, 3, handles );
-    *(unsigned int *)startup.lpReserved2 = 0;
-    test_stdout_handle( &startup, cmdline, handles[1], FALSE, "zero count block" );
-    CloseHandle( handles[1] );
-    DeleteFile("fdopen.tst");
-
-    /* test inherit block with smaller size */
-    handles[1] = CreateFileA( "fdopen.tst", GENERIC_READ|GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS, 0, NULL );
-    create_io_inherit_block( &startup, 3, handles );
-    startup.cbReserved2 -= 3;
-    test_stdout_handle( &startup, cmdline, handles[1], TRUE, "small size block" );
-    CloseHandle( handles[1] );
-    DeleteFile("fdopen.tst");
-
-    /* test inherit block with even smaller size */
-    handles[1] = CreateFileA( "fdopen.tst", GENERIC_READ|GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS, 0, NULL );
-    create_io_inherit_block( &startup, 3, handles );
-    startup.cbReserved2 = sizeof(unsigned int) + sizeof(HANDLE) + sizeof(char);
-    test_stdout_handle( &startup, cmdline, handles[1], FALSE, "smaller size block" );
-    CloseHandle( handles[1] );
-    DeleteFile("fdopen.tst");
-
-    /* test inherit block with larger size */
-    handles[1] = CreateFileA( "fdopen.tst", GENERIC_READ|GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS, 0, NULL );
-    create_io_inherit_block( &startup, 3, handles );
-    startup.cbReserved2 += 7;
-    test_stdout_handle( &startup, cmdline, handles[1], TRUE, "large size block" );
-    CloseHandle( handles[1] );
-    DeleteFile("fdopen.tst");
 }
 
 static void test_tmpnam( void )
@@ -1049,7 +914,7 @@ static void test_tmpnam( void )
 static void test_chsize( void )
 {
     int fd;
-    LONG cur, pos, count;
+    long cur, pos, count;
     char temptext[] = "012345678";
     char *tempfile = _tempnam( ".", "tst" );
     
@@ -1068,14 +933,14 @@ static void test_chsize( void )
     ok( _chsize( fd, sizeof(temptext) / 2 ) == 0, "_chsize() failed\n" );
 
     pos = _lseek( fd, 0, SEEK_CUR );
-    ok( cur == pos, "File pointer changed from: %d to: %d\n", cur, pos );
+    ok( cur == pos, "File pointer changed from: %ld to: %ld\n", cur, pos );
     ok( _filelength( fd ) == sizeof(temptext) / 2, "Wrong file size\n" );
 
     /* enlarge the file */
     ok( _chsize( fd, sizeof(temptext) * 2 ) == 0, "_chsize() failed\n" ); 
 
     pos = _lseek( fd, 0, SEEK_CUR );
-    ok( cur == pos, "File pointer changed from: %d to: %d\n", cur, pos );
+    ok( cur == pos, "File pointer changed from: %ld to: %ld\n", cur, pos );
     ok( _filelength( fd ) == sizeof(temptext) * 2, "Wrong file size\n" );
 
     _close( fd );

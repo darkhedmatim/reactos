@@ -33,11 +33,9 @@ struct lexret {
 };
 
 extern struct lexret yylval;
-struct tagWinHelp;
 
-BOOL            MACRO_ExecuteMacro(struct tagWinHelp*, LPCSTR);
-int             MACRO_Lookup(const char* name, struct lexret* lr);
-struct tagWinHelp* MACRO_CurrentWindow(void);
+BOOL MACRO_ExecuteMacro(LPCSTR);
+int  MACRO_Lookup(const char* name, struct lexret* lr);
 
 enum token_types {EMPTY, VOID_FUNCTION, BOOL_FUNCTION, INTEGER, STRING, IDENTIFIER};
 void CALLBACK MACRO_About(void);

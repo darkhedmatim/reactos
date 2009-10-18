@@ -161,7 +161,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				OutputFile=".\Debug/rbuild.exe"
-				LinkIncremental="2"
+				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/rbuild.pdb"
@@ -393,10 +393,6 @@
 				</File>
 				<File
 					RelativePath="backend\mingw\modulehandler.h"
-					>
-				</File>
-				<File
-					RelativePath=".\backend\mingw\mstools_detection.cpp"
 					>
 				</File>
 				<File

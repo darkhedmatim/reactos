@@ -27,7 +27,13 @@
 /* GLOBALS *******************************************************************/
 
 #ifdef NDEBUG
-#define TRACE_LDR(...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(__VA_ARGS__); }
+#if defined(__GNUC__)
+#define TRACE_LDR(args...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); }
+#elif defined(_MSC_VER)
+#define TRACE_LDR(args, ...) if (RtlGetNtGlobalFlags() & FLG_SHOW_LDR_SNAPS) { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(__VA_ARGS__); }
+#endif	/* __GNUC__ */
+#else
+#define TRACE_LDR(args...) do { DbgPrint("(LDR:%s:%d) ",__FILE__,__LINE__); DbgPrint(args); } while(0)
 #endif
 
 typedef struct _TLS_DATA
@@ -62,6 +68,22 @@ static NTSTATUS LdrpAttachProcess(VOID);
 static VOID LdrpDetachProcess(BOOLEAN UnloadAll);
 
 /* FUNCTIONS *****************************************************************/
+
+#if defined(DBG) || defined(KDBG)
+
+VOID
+LdrpLoadUserModuleSymbols(PLDR_DATA_TABLE_ENTRY LdrModule)
+{
+  NtSystemDebugControl(
+    SysDbgQueryVersion,
+    (PVOID)LdrModule,
+    0,
+    NULL,
+    0,
+    NULL);
+}
+
+#endif /* DBG || KDBG */
 
 BOOLEAN
 LdrMappedAsDataFile(PVOID *BaseAddress)
@@ -2252,7 +2274,9 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
             DPRINT1("LdrFixupImports failed for %wZ, status=%x\n", &(*Module)->BaseDllName, Status);
             return Status;
           }
-
+#if defined(DBG) || defined(KDBG)
+        LdrpLoadUserModuleSymbols(*Module);
+#endif /* DBG || KDBG */
         RtlEnterCriticalSection(NtCurrentPeb()->LoaderLock);
         InsertTailList(&NtCurrentPeb()->Ldr->InInitializationOrderModuleList,
                        &(*Module)->InInitializationOrderModuleList);

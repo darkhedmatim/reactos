@@ -1,12 +1,9 @@
 #ifndef __WIN32K_DC_H
 #define __WIN32K_DC_H
 
-typedef struct _DC *PDC;
-
 #include "brush.h"
 #include "bitmaps.h"
 #include "pdevobj.h"
-#include "palette.h"
 
 /* Constants ******************************************************************/
 
@@ -24,6 +21,8 @@ typedef struct _ROS_DC_INFO
   BYTE   bitsPerPixel;
 
   CLIPOBJ     *CombinedClip;
+  XLATEOBJ    *XlateBrush;
+  XLATEOBJ    *XlatePen;
 
   UNICODE_STRING    DriverName;
 
@@ -128,7 +127,7 @@ typedef struct _DC
 
   /* Reactos specific members */
   ROS_DC_INFO rosdc;
-} DC;
+} DC, *PDC;
 
 /* Internal functions *********************************************************/
 
@@ -220,20 +219,8 @@ DC_vSelectLineBrush(PDC pdc, PBRUSH pbrLine)
     pdc->dclevel.pbrLine = pbrLine;
 }
 
-VOID
-FORCEINLINE
-DC_vSelectPalette(PDC pdc, PPALETTE ppal)
-{
-    PPALETTE ppalOld = pdc->dclevel.ppal;
-    if (ppalOld)
-        PALETTE_ShareUnlockPalette(ppalOld);
-    if (ppal)
-        GDIOBJ_IncrementShareCount((POBJ)ppal);
-    pdc->dclevel.ppal = ppal;
-}
-
 BOOL FASTCALL
-IntPrepareDriverIfNeeded(VOID);
+IntPrepareDriverIfNeeded();
 extern PDEVOBJ PrimarySurface;
 
 #endif /* not __WIN32K_DC_H */

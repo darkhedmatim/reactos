@@ -1226,7 +1226,7 @@ NTSTATUS NTAPI PropertyHandler_CpuResources(PPCPROPERTY_REQUEST PropertyRequest)
 
 	NTSTATUS ntStatus = STATUS_INVALID_DEVICE_REQUEST;
 
-	if (PropertyRequest->Node == MAXULONG) {
+	if (PropertyRequest->Node == (ULONG)-1) {
 		return ntStatus;
 	}
 	if (PropertyRequest->Node >= KSNODE_TOPO_INVALID) {

@@ -38,11 +38,7 @@ copy_my_glyphset( FD_GLYPHSET *dst_glyphset , FD_GLYPHSET * src_glyphset, ULONG 
     return retValue;
 }
 
-/*
- * @implemented
- */
-FD_GLYPHSET*
-WINAPI
+FD_GLYPHSET* WINAPI
 EngComputeGlyphSet(INT nCodePage,INT nFirstChar,INT cChars)
 {
     FD_GLYPHSET * ntfd_glyphset;
@@ -50,12 +46,13 @@ EngComputeGlyphSet(INT nCodePage,INT nFirstChar,INT cChars)
 
     ntfd_glyphset = NtGdiEngComputeGlyphSet(nCodePage,nFirstChar,cChars);
 
-    if (ntfd_glyphset)
+    if (!ntfd_glyphset)
     {
         if (ntfd_glyphset->cjThis)
         {
             myfd_glyphset = GlobalAlloc(0,ntfd_glyphset->cjThis);
-            if (myfd_glyphset)
+
+            if (!myfd_glyphset)
             {
                 if (copy_my_glyphset(myfd_glyphset,ntfd_glyphset,ntfd_glyphset->cjThis) == FALSE)
                 {

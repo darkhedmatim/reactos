@@ -45,11 +45,6 @@
 
 #include "scripts.h"
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4351) // elements of array 'array' will be default initialized
-#endif
-
 struct SCRIPTS_ScriptsSet
 {
 private:
@@ -149,10 +144,6 @@ public:
 		return retval;
 	}
 };
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 int
 WINAPI

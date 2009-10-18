@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Net;
@@ -75,7 +74,6 @@ namespace DebugProtocol
         ulong mTid;
         public ulong ThreadId { get { return mTid; } set { mTid = value; } }
         ulong mEip;
-        [TypeConverter(typeof(UlongToHexTypeConverter))]
         public ulong Eip { get { return mEip; } set { mEip = value; } }
         string mDescription;
         public string Description { get { return mDescription; } set { mDescription = value; } }
@@ -173,8 +171,6 @@ namespace DebugProtocol
 
         #region Named Pipe Members
         NamedPipe mNamedPipe;
-        string mPipeName;
-        ConnectionMode mMode;
         Thread ReadThread;
         Thread WriteThread;
         #endregion
@@ -225,42 +221,6 @@ namespace DebugProtocol
             mKdb.ThreadListEvent += ThreadListEvent;
         }
 
-        void NamedPipe_ClientConnectedEvent(object sender, EventArgs e)
-        {
-            mKdb = new KDBG(mNamedPipe);
-            Running = true;
-            ConnectEventHandlers();
-            /* retrieve input seperate thread */
-            ReadThread = new Thread(mNamedPipe.ReadLoop);
-            ReadThread.Start();
-            WriteThread = new Thread(mNamedPipe.WriteLoop);
-            WriteThread.Start();
-        }
-
-        void NamedPipe_ClientDisconectedEvent(object sender, EventArgs e)
-        {
-            Running = false;
-            mNamedPipe.Close();
-            mNamedPipe.CreatePipe(mPipeName, mMode);
-        }
-
-        public void StartPipe(string pipeName, ConnectionMode mode)
-        {
-            mPipeName = pipeName;
-            mMode = mode;
-
-            Close();
-            ConnectionMode = Mode.PipeMode;
-
-            mNamedPipe = new NamedPipe();
-            mNamedPipe.ClientConnectedEvent += new EventHandler(NamedPipe_ClientConnectedEvent);
-            mNamedPipe.ClientDisconnectedEvent += new EventHandler(NamedPipe_ClientDisconectedEvent);
-            mNamedPipe.PipeReceiveEvent +=new PipeReceiveEventHandler(PipeReceiveEvent);
-            mNamedPipe.PipeErrorEvent +=new PipeErrorEventHandler(MediumErrorEvent);
-
-            mNamedPipe.CreatePipe(pipeName, mode);
-        }
-
         public void StartTCP(string host, int port)
         {
             Close();
@@ -272,6 +232,30 @@ namespace DebugProtocol
             mAsyncConnect.Completed += SocketConnectCompleted;
             mDnsLookup = new AsyncCallback(DnsLookupResult);
             mDnsAsyncResult = Dns.BeginGetHostEntry(host, mDnsLookup, this);
+        }
+
+        public void StartPipe(string pipeName, ConnectionMode mode)
+        {
+            Close();
+            ConnectionMode = Mode.PipeMode;
+            mNamedPipe = new NamedPipe();
+            if (mNamedPipe.CreatePipe(pipeName, mode))
+            {
+                mKdb = new KDBG(mNamedPipe);
+                mNamedPipe.PipeReceiveEvent += PipeReceiveEvent;
+                mNamedPipe.PipeErrorEvent += MediumError;
+                Running = true;
+                ConnectEventHandlers();
+                /* retrieve input seperate thread */
+                ReadThread = new Thread(mNamedPipe.ReadLoop);
+                ReadThread.Start();
+                WriteThread = new Thread(mNamedPipe.WriteLoop);
+                WriteThread.Start();
+            }
+            else 
+            {
+                ConnectionMode = Mode.ClosedMode;
+            }
         }
 
         public void StartSerial(string port, int baudrate)
@@ -287,7 +271,7 @@ namespace DebugProtocol
                 //create pipe and kdb instances, connect internal receive pipe 
                 mMedium = new SerialPipe(mSerialPort);
                 mMedium.PipeReceiveEvent += PipeReceiveEvent;
-                mMedium.PipeErrorEvent += MediumErrorEvent;
+                mMedium.PipeErrorEvent += MediumError;
                 mKdb = new KDBG(mMedium);
                 ConnectEventHandlers();
                 Running = true;
@@ -365,7 +349,8 @@ namespace DebugProtocol
                         mNamedPipe = null;
                     }
                     Running = false;
-
+                    ReadThread.Abort();
+                    WriteThread.Abort();
                     break;
             }
 
@@ -376,7 +361,7 @@ namespace DebugProtocol
             ConnectionMode = Mode.ClosedMode;
         }
 
-        void MediumErrorEvent(object sender, PipeErrorEventArgs args)
+        void MediumError(object sender, PipeErrorEventArgs args)
         {
             Close();
         }
@@ -386,7 +371,7 @@ namespace DebugProtocol
             if (mAsyncConnect.SocketError == SocketError.Success)
             {
                 mMedium = new SocketPipe(mSocket);
-                mMedium.PipeErrorEvent += MediumErrorEvent;
+                mMedium.PipeErrorEvent += MediumError;
                 mMedium.PipeReceiveEvent += PipeReceiveEvent;
                 mKdb = new KDBG(mMedium);
                 ConnectEventHandlers();

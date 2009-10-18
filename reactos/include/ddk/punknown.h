@@ -2,7 +2,7 @@
     ReactOS Kernel-Mode COM
     by Andrew Greenwood
 
-    This file is in the public domain.
+    Please see COPYING in the top-level directory for license information.
 */
 
 #ifndef _UNKNOWN_H_
@@ -80,7 +80,7 @@ typedef IUnknown *PUNKNOWN;
     Constructor callback definition
 */
 
-typedef HRESULT (NTAPI *PFNCREATEINSTANCE)(
+typedef HRESULT (*PFNCREATEINSTANCE)(
     OUT PUNKNOWN* Unknown,
     IN  REFCLSID ClassId,
     IN  PUNKNOWN OuterUnknown,

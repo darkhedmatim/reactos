@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
- /*
+/* $Id$
+ *
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS kernel
  * PURPOSE:           GDI Internal Objects
@@ -101,6 +102,27 @@ typedef struct _XFORMGDI {
   ULONG Dummy;
   /* XFORMOBJ has no public members */
 } XFORMGDI;
+
+typedef struct _XLATEGDI {
+  XLATEOBJ		XlateObj;
+  HPALETTE DestPal;
+  HPALETTE SourcePal;
+  BOOL UseShiftAndMask;
+
+//  union {
+//    struct {            /* For Shift Translations */
+      ULONG RedMask;
+      ULONG GreenMask;
+      ULONG BlueMask;
+      INT RedShift;
+      INT GreenShift;
+      INT BlueShift;
+//    };
+//    struct {            /* For Color -> Mono Translations */
+      ULONG BackgroundColor;
+//    };
+//  };
+} XLATEGDI;
 
 /* as the *OBJ structures are located at the beginning of the *GDI structures
    we can simply typecast the pointer */

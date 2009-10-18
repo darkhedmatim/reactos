@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections; 
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -9,7 +8,6 @@ using System.Text;
 using System.Configuration;
 using System.Windows.Forms;
 using System.Drawing.Design;
-using System.IO;
 using System.IO.Ports;
 
 namespace RosDBG
@@ -21,22 +19,6 @@ namespace RosDBG
             private SerialConnSettings _serialconnsettings;
             private PipeConnSettings _pipeconnsettings;
 
-            [UserScopedSetting()]
-            [Browsable(false)]
-            public ExternalToolList ExternalTools
-            {
-                get { return (ExternalToolList)this["ExternalTools"]; }
-                set { this["ExternalTools"] = (ExternalToolList)value; }
-            }
-
-            [UserScopedSetting, DefaultSettingValue("0")]
-            [Browsable(false)]
-            public Connect.ConnectionType SelectedConnType
-            {
-                get { return (Connect.ConnectionType) this["SelectedConnType"]; }
-                set { this["SelectedConnType"] = value; }
-            }
-            
             /* Hack to work around a crash (bug in .net?) 
              * using a TypeConverter in a class which is derived from
              * ApplicationSettingsBase results in a crash
@@ -65,7 +47,7 @@ namespace RosDBG
                 set { this["Pipe"] = value; }
             }
 
-            [UserScopedSetting, DefaultSettingValue(@"Server")]
+            [UserScopedSetting, DefaultSettingValue(@"Client")]
             [Browsable(false)]
             public string Mode
             {
@@ -80,12 +62,7 @@ namespace RosDBG
             public string SourceDirectory
             {
                 get { return this["SourceDirectory"].ToString(); }
-                set 
-                {
-                    if (!File.Exists(value + "\\ReactOS-generic.rbuild"))
-                        MessageBox.Show("Can not find ReactOS sources in this directory!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                    this["SourceDirectory"] = value;
-                }
+                set { this["SourceDirectory"] = value; }
             }
 
             [CategoryAttribute("Directories"), DescriptionAttribute("Directory settings")]
@@ -93,12 +70,7 @@ namespace RosDBG
             public string OutputDirectory
             {
                 get { return this["OutputDirectory"].ToString(); }
-                set
-                {
-                    if (!File.Exists(value + "\\ntoskrnl\\ntoskrnl.nostrip.exe"))
-                        MessageBox.Show("Can not find .nostrip files!\nThe Debugger will not work properly without them.\n\nPlease enable building of .nostrip files in RosBE options." , "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);  
-                    this["OutputDirectory"] = value; 
-                }
+                set { this["OutputDirectory"] = value; }
             }
 
             [CategoryAttribute("Connection"), DescriptionAttribute("Connection settings")]
@@ -113,24 +85,6 @@ namespace RosDBG
             {
                 get { return new PipeConnSettings(Mode, Pipe, this); }
                 set { _pipeconnsettings = value; }
-            }
-
-            [Browsable(true)]
-            [CategoryAttribute("Logging"), DescriptionAttribute("Turn application logging on or off")]
-            [UserScopedSetting, DefaultSettingValue("true")]
-            [TypeConverter(typeof(AppLoggingSelection))]
-            public string AppLogging
-            {
-                get { return this["AppLogging"].ToString(); }
-                set { this["AppLogging"] = value; }
-            }
-
-            [CategoryAttribute("Logging"), DescriptionAttribute("The log file in which to store the app log")]
-            [UserScopedSetting, DefaultSettingValue(@".\rosdbg.log"), Editor(typeof(FileEditor), typeof(UITypeEditor))]
-            public string AppLogFile
-            {
-                get { return this["AppLogFile"].ToString(); }
-                set { this["AppLogFile"] = value; }
             }
 
             public SettingsPropertyValues()
@@ -176,23 +130,6 @@ namespace RosDBG
             }
         }
 
-        internal class AppLoggingSelection : StringConverter
-        {
-            public override bool GetStandardValuesSupported(ITypeDescriptorContext context)
-            {
-                return true;
-            }
-
-            public override bool GetStandardValuesExclusive(ITypeDescriptorContext context)
-            {
-                return true;
-            }
-
-            public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
-            {
-                return new StandardValuesCollection(new string[] { "true", "false" });
-            }
-        }
         #endregion
 
         [TypeConverterAttribute(typeof(ExpandableObjectConverter))]
@@ -265,26 +202,10 @@ namespace RosDBG
 
         public static string SourceDirectory { get { return mProperties.SourceDirectory; } }
         public static string OutputDirectory { get { return mProperties.OutputDirectory; } }
-        public static string Mode
-        {
-            get { return mProperties.Mode; }
-            set { mProperties.Mode = value; }
-        }
+        public static string Mode { get { return mProperties.Mode;  } }
         public static string Pipe { get { return mProperties.Pipe; } }
         public static string ComPort { get { return mProperties.Port; } }
         public static string Baudrate { get { return mProperties.Baudrate; } }
-        public static string AppLogging { get { return mProperties.AppLogging; } }
-        public static string AppLogFile { get { return mProperties.AppLogFile; } }
-        public static Connect.ConnectionType SelectedConnType
-        { 
-            get { return mProperties.SelectedConnType; }
-            set {  mProperties.SelectedConnType = value; }
-        }
-        public static ExternalToolList ExternalTools
-        {
-            get { return mProperties.ExternalTools; }
-            set { mProperties.ExternalTools = value; }
-        }
 
         public Settings()
         {
@@ -312,11 +233,6 @@ namespace RosDBG
         {
             DialogResult = DialogResult.Cancel;
             Close();
-        }
-
-        public static void Save()
-        {
-            mProperties.Save();
         }
     }
 }

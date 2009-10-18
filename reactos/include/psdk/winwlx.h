@@ -633,7 +633,7 @@ struct _WLX_DISPATCH_VERSION_1_4
 /* non-GINA notification DLLs*/
 
 typedef
-DWORD (CALLBACK *PFNMSGECALLBACK)(
+DWORD (*PFNMSGECALLBACK)(
 	BOOL bVerbose,
 	LPWSTR lpMessage);
 

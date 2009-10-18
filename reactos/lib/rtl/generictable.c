@@ -619,7 +619,7 @@ RtlEnumerateGenericTableWithoutSplayingAvl(IN PRTL_AVL_TABLE Table,
                                            IN OUT PVOID *RestartKey)
 {
     /* FIXME! */
-	return NULL;
+	return RtlEnumerateGenericTableWithoutSplayingAvl(Table, RestartKey);
 }
 
 /*

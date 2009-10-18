@@ -44,8 +44,7 @@ VOID TaCopyAddressInPlace( PTA_ADDRESS Target,
 PTA_ADDRESS TaCopyAddress( PTA_ADDRESS Source ) {
     UINT AddrLen = TaLengthOfAddress( Source );
     PVOID Buffer = ExAllocatePool( NonPagedPool, AddrLen );
-    if (Buffer)
-       RtlCopyMemory( Buffer, Source, AddrLen );
+    RtlCopyMemory( Buffer, Source, AddrLen );
     return Buffer;
 }
 

@@ -9,7 +9,6 @@
 /* INCLUDES *********************************************************/
 
 #include <windows.h>
-#include <tchar.h>
 #include "definitions.h"
 #include "globalvar.h"
 
@@ -60,7 +59,6 @@ LRESULT CALLBACK MRDlgWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
         default:
             return FALSE;
     }
-    return TRUE;
 }
 
 int mirrorRotateDlg()
@@ -77,25 +75,6 @@ LRESULT CALLBACK ATTDlgWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             CheckDlgButton(hwnd, IDD_ATTRIBUTESRB5, BST_CHECKED);
             SetDlgItemInt(hwnd, IDD_ATTRIBUTESEDIT1, imgXRes, FALSE);
             SetDlgItemInt(hwnd, IDD_ATTRIBUTESEDIT2, imgYRes, FALSE);
-            TCHAR strrc[100];
-            if (isAFile)
-            {
-                TCHAR date[100];
-                TCHAR size[100];
-                TCHAR temp[100];
-                GetDateFormat(LOCALE_USER_DEFAULT, 0, &fileTime, NULL, date, sizeof(date));
-                GetTimeFormat(LOCALE_USER_DEFAULT, 0, &fileTime, NULL, temp, sizeof(temp));
-                _tcscat(date, _T(" "));
-                _tcscat(date, temp);
-                LoadString(hProgInstance, IDS_FILESIZE, strrc, sizeof(strrc));
-                _stprintf(size, strrc, fileSize);
-                SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT6, date);
-                SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT7, size);
-            }
-            TCHAR res[100];
-            LoadString(hProgInstance, IDS_PRINTRES, strrc, sizeof(strrc));
-            _stprintf(res, strrc, fileHPPM, fileVPPM);
-            SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT8, res);
             return TRUE;
         case WM_CLOSE:
             EndDialog(hwnd, 0);
@@ -104,23 +83,16 @@ LRESULT CALLBACK ATTDlgWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             switch (LOWORD(wParam))
             {
                 case IDOK:
-                    EndDialog(hwnd, GetDlgItemInt(hwnd, IDD_ATTRIBUTESEDIT1, NULL, FALSE) | (GetDlgItemInt(hwnd, IDD_ATTRIBUTESEDIT2, NULL, FALSE)<<16));
+                    EndDialog(hwnd, 1);
                     break;
                 case IDCANCEL:
                     EndDialog(hwnd, 0);
-                    break;
-                case IDD_ATTRIBUTESSTANDARD:
-                    CheckDlgButton(hwnd, IDD_ATTRIBUTESRB3, BST_CHECKED);
-                    CheckDlgButton(hwnd, IDD_ATTRIBUTESRB5, BST_CHECKED);
-                    SetDlgItemInt(hwnd, IDD_ATTRIBUTESEDIT1, imgXRes, FALSE);
-                    SetDlgItemInt(hwnd, IDD_ATTRIBUTESEDIT2, imgYRes, FALSE);
                     break;
             }
             break;
         default:
             return FALSE;
     }
-    return TRUE;
 }
 
 int attributesDlg()
@@ -153,7 +125,6 @@ LRESULT CALLBACK CHSIZEDlgWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARA
         default:
             return FALSE;
     }
-    return TRUE;
 }
 
 int changeSizeDlg()

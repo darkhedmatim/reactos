@@ -15,7 +15,6 @@
 	<define name="PROXY_DELEGATION"/>
 	<define name="REGISTER_PROXY_DLL"/>
 	<define name="ENTRY_PREFIX">OLEAUTPS_</define>
-	<compilerflag compilerset="msc">/FIwine/typeof.h</compilerflag>
 	<file>connpt.c</file>
 	<file>dispatch.c</file>
 	<file>hash.c</file>
@@ -39,7 +38,6 @@
 	<include base="oleaut32" root="intermediate">.</include>
 	<library>oleaut32_proxy</library>
 	<library>wine</library>
-	<library>windowscodecs</library>
 	<library>wineldr</library>
 	<library>ole32</library>
 	<library>rpcrt4</library>

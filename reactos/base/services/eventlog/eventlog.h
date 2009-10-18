@@ -91,12 +91,11 @@ typedef struct
     LIST_ENTRY ListEntry;
 } LOGFILE, *PLOGFILE;
 
-typedef struct _EVENTSOURCE
+typedef struct
 {
-    LIST_ENTRY EventSourceListEntry;
     PLOGFILE LogFile;
     ULONG CurrentRecord;
-    WCHAR szName[1];
+    WCHAR *Name;
 } EVENTSOURCE, *PEVENTSOURCE;
 
 /* file.c */

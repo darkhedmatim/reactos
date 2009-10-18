@@ -218,14 +218,6 @@ HEADER_PrevItem(const HEADER_INFO *infoPtr, INT iItem)
     return HEADER_OrderToIndex(infoPtr, HEADER_IndexToOrder(infoPtr, iItem)-1);
 }
 
-/* TRUE when item is not resizable with dividers,
-   note that valid index should be supplied */
-static inline BOOL
-HEADER_IsItemFixed(const HEADER_INFO *infoPtr, INT iItem)
-{
-    return (infoPtr->dwStyle & HDS_NOSIZING) || (infoPtr->items[iItem].fmt & HDF_FIXEDWIDTH);
-}
-
 static void
 HEADER_SetItemBounds (HEADER_INFO *infoPtr)
 {
@@ -255,7 +247,8 @@ HEADER_SetItemBounds (HEADER_INFO *infoPtr)
 static LRESULT
 HEADER_Size (HEADER_INFO *infoPtr)
 {
-    HEADER_SetItemBounds(infoPtr);
+    infoPtr->bRectsValid = FALSE;
+
     return 0;
 }
 
@@ -336,21 +329,18 @@ HEADER_DrawItem (HEADER_INFO *infoPtr, HDC hdc, INT iItem, BOOL bHotTrack, LRESU
     }
     else {
         HBRUSH hbr;
-
-        if (!(infoPtr->dwStyle & HDS_FLAT))
-        {
-            if (infoPtr->dwStyle & HDS_BUTTONS) {
-                if (phdi->bDown) {
-                    DrawEdge (hdc, &r, BDR_RAISEDOUTER,
-                                BF_RECT | BF_FLAT | BF_MIDDLE | BF_ADJUST);
-                }
-                else
-                    DrawEdge (hdc, &r, EDGE_RAISED,
-                                BF_RECT | BF_SOFT | BF_MIDDLE | BF_ADJUST);
+    
+        if (infoPtr->dwStyle & HDS_BUTTONS) {
+            if (phdi->bDown) {
+                DrawEdge (hdc, &r, BDR_RAISEDOUTER,
+                            BF_RECT | BF_FLAT | BF_MIDDLE | BF_ADJUST);
             }
             else
-                DrawEdge (hdc, &r, EDGE_ETCHED, BF_BOTTOM | BF_RIGHT | BF_ADJUST);
+                DrawEdge (hdc, &r, EDGE_RAISED,
+                            BF_RECT | BF_SOFT | BF_MIDDLE | BF_ADJUST);
         }
+        else
+            DrawEdge (hdc, &r, EDGE_ETCHED, BF_BOTTOM | BF_RIGHT | BF_ADJUST);
 
         hbr = CreateSolidBrush(GetBkColor(hdc));
         FillRect(hdc, &r, hbr);
@@ -557,19 +547,14 @@ HEADER_Refresh (HEADER_INFO *infoPtr, HDC hdc)
         if (theme != NULL) {
             DrawThemeBackground(theme, hdc, HP_HEADERITEM, HIS_NORMAL, &rcRest, NULL);
         }
-        else if (infoPtr->dwStyle & HDS_FLAT) {
-            hbrBk = GetSysColorBrush(COLOR_3DFACE);
-            FillRect(hdc, &rcRest, hbrBk);
-        }
-        else
-        {
+        else {
             if (infoPtr->dwStyle & HDS_BUTTONS)
                 DrawEdge (hdc, &rcRest, EDGE_RAISED, BF_TOP|BF_LEFT|BF_BOTTOM|BF_SOFT|BF_MIDDLE);
             else
                 DrawEdge (hdc, &rcRest, EDGE_ETCHED, BF_BOTTOM|BF_MIDDLE);
         }
     }
-
+    
     if (infoPtr->iHotDivider != -1)
         HEADER_DrawHotDivider(infoPtr, hdc);
 
@@ -632,13 +617,6 @@ HEADER_InternalHitTest (const HEADER_INFO *infoPtr, const POINT *lpPt, UINT *pFl
 			rcTest = rect;
 			rcTest.right = rcTest.left + DIVIDER_WIDTH;
 			if (PtInRect (&rcTest, *lpPt)) {
-			    if (HEADER_IsItemFixed(infoPtr, HEADER_PrevItem(infoPtr, iCount)))
-			    {
-				*pFlags |= HHT_ONHEADER;
-                                *pItem = iCount;
-				TRACE("ON HEADER %d\n", *pItem);
-				return;
-			    }
 			    if (bNoWidth) {
 				*pFlags |= HHT_ONDIVOPEN;
                                 *pItem = HEADER_PrevItem(infoPtr, iCount);
@@ -655,8 +633,7 @@ HEADER_InternalHitTest (const HEADER_INFO *infoPtr, const POINT *lpPt, UINT *pFl
 		    }
 		    rcTest = rect;
 		    rcTest.left = rcTest.right - DIVIDER_WIDTH;
-		    if (!HEADER_IsItemFixed(infoPtr, iCount) && PtInRect (&rcTest, *lpPt))
-		    {
+		    if (PtInRect (&rcTest, *lpPt)) {
 			*pFlags |= HHT_ONDIVIDER;
 			*pItem = iCount;
 			TRACE("ON DIVIDER %d\n", *pItem);
@@ -671,24 +648,21 @@ HEADER_InternalHitTest (const HEADER_INFO *infoPtr, const POINT *lpPt, UINT *pFl
 	    }
 
 	    /* check for last divider part (on nowhere) */
-	    if (!HEADER_IsItemFixed(infoPtr, infoPtr->uNumItem - 1))
-	    {
-		rect = infoPtr->items[infoPtr->uNumItem-1].rect;
-		rect.left = rect.right;
-		rect.right += DIVIDER_WIDTH;
-		if (PtInRect (&rect, *lpPt)) {
-		    if (bNoWidth) {
-			*pFlags |= HHT_ONDIVOPEN;
-			*pItem = infoPtr->uNumItem - 1;
-			TRACE("ON DIVOPEN %d\n", *pItem);
-			return;
-		    }
-		    else {
-			*pFlags |= HHT_ONDIVIDER;
-			*pItem = infoPtr->uNumItem - 1;
-			TRACE("ON DIVIDER %d\n", *pItem);
-			return;
-		    }
+	    rect = infoPtr->items[infoPtr->uNumItem-1].rect;
+	    rect.left = rect.right;
+	    rect.right += DIVIDER_WIDTH;
+	    if (PtInRect (&rect, *lpPt)) {
+		if (bNoWidth) {
+		    *pFlags |= HHT_ONDIVOPEN;
+		    *pItem = infoPtr->uNumItem - 1;
+		    TRACE("ON DIVOPEN %d\n", *pItem);
+		    return;
+		}
+		else {
+		    *pFlags |= HHT_ONDIVIDER;
+		    *pItem = infoPtr->uNumItem-1;
+		    TRACE("ON DIVIDER %d\n", *pItem);
+		    return;
 		}
 	    }
 
@@ -1215,7 +1189,7 @@ HEADER_GetOrderArray(const HEADER_INFO *infoPtr, INT size, LPINT order)
 }
 
 static LRESULT
-HEADER_SetOrderArray(HEADER_INFO *infoPtr, INT size, const INT *order)
+HEADER_SetOrderArray(HEADER_INFO *infoPtr, INT size, LPINT order)
 {
     INT i;
     HEADER_ITEM *lpItem;
@@ -1228,7 +1202,7 @@ HEADER_SetOrderArray(HEADER_INFO *infoPtr, INT size, const INT *order)
         lpItem = &infoPtr->items[*order++];
 	lpItem->iOrder=i;
       }
-    HEADER_SetItemBounds(infoPtr);
+    infoPtr->bRectsValid=0;
     InvalidateRect(infoPtr->hwndSelf, NULL, FALSE);
     return TRUE;
 }
@@ -1243,12 +1217,10 @@ HEADER_GetUnicodeFormat (const HEADER_INFO *infoPtr)
 static LRESULT
 HEADER_HitTest (const HEADER_INFO *infoPtr, LPHDHITTESTINFO phti)
 {
-    UINT outside = HHT_NOWHERE | HHT_ABOVE | HHT_BELOW | HHT_TOLEFT | HHT_TORIGHT;
-
     HEADER_InternalHitTest (infoPtr, &phti->pt, &phti->flags, &phti->iItem);
 
-    if (phti->flags & outside)
-	return phti->iItem = -1;
+    if (phti->flags == HHT_NOWHERE)
+        return -1;
     else
         return phti->iItem;
 }
@@ -1428,7 +1400,7 @@ HEADER_SetUnicodeFormat (HEADER_INFO *infoPtr, WPARAM wParam)
 
 
 static LRESULT
-HEADER_Create (HWND hwnd, const CREATESTRUCTW *lpcs)
+HEADER_Create (HWND hwnd, LPCREATESTRUCTW lpcs)
 {
     HEADER_INFO *infoPtr;
     TEXTMETRICW tm;
@@ -1524,7 +1496,7 @@ HEADER_IsDragDistance(const HEADER_INFO *infoPtr, const POINT *pt)
 }
 
 static LRESULT
-HEADER_LButtonDblClk (const HEADER_INFO *infoPtr, INT x, INT y)
+HEADER_LButtonDblClk (HEADER_INFO *infoPtr, INT x, INT y)
 {
     POINT pt;
     UINT  flags;
@@ -1610,9 +1582,6 @@ HEADER_LButtonUp (HEADER_INFO *infoPtr, INT x, INT y)
     HEADER_InternalHitTest (infoPtr, &pt, &flags, &nItem);
 
     if (infoPtr->bPressed) {
-
-	infoPtr->items[infoPtr->iMoveItem].bDown = FALSE;
-
 	if (infoPtr->bDragging)
 	{
             HEADER_ITEM *lpItem = &infoPtr->items[infoPtr->iMoveItem];
@@ -1620,7 +1589,8 @@ HEADER_LButtonUp (HEADER_INFO *infoPtr, INT x, INT y)
             
 	    ImageList_DragShowNolock(FALSE);
 	    ImageList_EndDrag();
-
+            lpItem->bDown=FALSE;
+            
             if (infoPtr->iHotDivider == -1)
                 iNewOrder = -1;
             else if (infoPtr->iHotDivider == infoPtr->uNumItem)
@@ -1645,14 +1615,14 @@ HEADER_LButtonUp (HEADER_INFO *infoPtr, INT x, INT y)
             infoPtr->bDragging = FALSE;
             HEADER_SetHotDivider(infoPtr, FALSE, -1);
 	}
-	else
+	else if (!(infoPtr->dwStyle & HDS_DRAGDROP) || !HEADER_IsDragDistance(infoPtr, &pt))
 	{
+	    infoPtr->items[infoPtr->iMoveItem].bDown = FALSE;
 	    hdc = GetDC (infoPtr->hwndSelf);
 	    HEADER_RefreshItem (infoPtr, infoPtr->iMoveItem);
 	    ReleaseDC (infoPtr->hwndSelf, hdc);
 
-	    if (!(infoPtr->dwStyle & HDS_DRAGDROP) || !HEADER_IsDragDistance(infoPtr, &pt))
-		HEADER_SendNotifyWithHDItemT(infoPtr, HDN_ITEMCLICKW, infoPtr->iMoveItem, NULL);
+	    HEADER_SendNotifyWithHDItemT(infoPtr, HDN_ITEMCLICKW, infoPtr->iMoveItem, NULL);
 	}
 
 	TRACE("Released item %d!\n", infoPtr->iMoveItem);
@@ -1953,7 +1923,7 @@ static LRESULT HEADER_SetRedraw(HEADER_INFO *infoPtr, WPARAM wParam, LPARAM lPar
 }
 
 static INT HEADER_StyleChanged(HEADER_INFO *infoPtr, WPARAM wStyleType,
-                               const STYLESTRUCT *lpss)
+                               const LPSTYLESTRUCT lpss)
 {
     TRACE("(styletype=%lx, styleOld=0x%08x, styleNew=0x%08x)\n",
           wStyleType, lpss->styleOld, lpss->styleNew);

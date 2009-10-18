@@ -61,7 +61,7 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize);
 
 BOOL
 FASTCALL
-NlsInit(VOID)
+NlsInit()
 {
     UNICODE_STRING DirName;
     OBJECT_ATTRIBUTES ObjectAttributes;
@@ -117,7 +117,7 @@ NlsInit(VOID)
 
 VOID
 FASTCALL
-NlsUninit(VOID)
+NlsUninit()
 {
     PCODEPAGE_ENTRY Current;
 

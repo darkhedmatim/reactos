@@ -559,10 +559,8 @@ UINT STORAGES_CreateView(MSIDATABASE *db, MSIVIEW **view)
 
     rows = add_storages_to_table(sv);
     if (rows < 0)
-    {
-        msi_free( sv );
         return ERROR_FUNCTION_FAILED;
-    }
+
     sv->num_rows = rows;
 
     *view = (MSIVIEW *)sv;
