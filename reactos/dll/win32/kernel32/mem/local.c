@@ -11,7 +11,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* TYPES *********************************************************************/
 
@@ -201,17 +201,19 @@ LocalFlags(HLOCAL hMem)
             /* Get the lock count first */
             uFlags = HandleEntry->LockCount & LMEM_LOCKCOUNT;
 
-            /* Now check if it's discardable */
+            /* Now check if it's discarded */
             if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSABLE)
+            {
+                /* Set the Win32 Flag */
+                uFlags |= LMEM_DISCARDED;
+            }
+
+            /* Check if it's movable */
+            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_MOVABLE)
             {
                 /* Set the Win32 Flag */
                 uFlags |= LMEM_DISCARDABLE;
             }
-
-            /* Now check if it's discarded */
-            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSE)
-               /* Set the Win32 Flag */
-               uFlags |= LMEM_DISCARDED;
         }
     }
 
@@ -253,7 +255,7 @@ NTAPI
 LocalLock(HLOCAL hMem)
 {
     /* This is the same as a GlobalLock, assuming these never change */
-    C_ASSERT(LMEM_LOCKCOUNT == GMEM_LOCKCOUNT);
+    ASSERT(LMEM_LOCKCOUNT == GMEM_LOCKCOUNT);
     return GlobalLock(hMem);
 }
 
@@ -352,11 +354,6 @@ LocalReAlloc(HLOCAL hMem,
                                             HEAP_NO_SERIALIZE,
                                             Ptr,
                                             hMem);
-                        RtlSetUserFlagsHeap(hProcessHeap,
-                                            HEAP_NO_SERIALIZE,
-                                            Ptr,
-                                            Flags);
-
                     }
                 }
                 else
@@ -378,19 +375,6 @@ LocalReAlloc(HLOCAL hMem,
 
                     /* And do the re-allocation */
                     Ptr = RtlReAllocateHeap(hProcessHeap, Flags, Ptr, dwBytes);
-
-                    if (Ptr)
-                    {
-                        /* Allocation succeeded, so save our entry */
-                        RtlSetUserValueHeap(hProcessHeap,
-                                            HEAP_NO_SERIALIZE,
-                                            Ptr,
-                                            hMem);
-                        RtlSetUserFlagsHeap(hProcessHeap,
-                                            HEAP_NO_SERIALIZE,
-                                            Ptr,
-                                            Flags);
-                    }
                 }
 
                 /* Make sure we have a pointer by now */
@@ -433,7 +417,7 @@ LocalReAlloc(HLOCAL hMem,
  * @implemented
  */
 SIZE_T
-WINAPI
+STDCALL
 LocalShrink(HLOCAL hMem,
             UINT cbNewSize)
 {

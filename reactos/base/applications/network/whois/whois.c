@@ -65,7 +65,7 @@ void getwhoisserver(int argc, char **argv)
 			if (i + 2 < argc)
 			{
 				host = argv[i +1];
-				optset = i + 1;
+				optset = i + 1;	
 			}
 			else
 			{
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in sin;
 	struct hostent *hp;
 	struct servent *sp;
-	SOCKET s;
+	int s;
 
 	WORD wVersionRequested;
 	WSADATA wsaData;
@@ -130,9 +130,9 @@ int main(int argc, char **argv)
 	}
 
 	memcpy((char *)&sin.sin_addr, hp->h_addr, hp->h_length);
-	sp = getservbyname("nicname", "tcp");
+	sp = getservbyname("whois", "tcp");
 	if (sp == NULL) {
-		(void)fprintf(stderr, "whois: nicname/tcp: unknown service\n");
+		(void)fprintf(stderr, "whois: whois/tcp: unknown service\n");
 		cleanup(1);
 	}
 

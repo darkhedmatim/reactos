@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.3
+ * Version:  6.3
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,15 +29,16 @@
  * functions to draw triangles.
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/colormac.h"
-#include "main/imports.h"
-#include "main/macros.h"
-#include "main/texformat.h"
+#include "glheader.h"
+#include "context.h"
+#include "colormac.h"
+#include "imports.h"
+#include "macros.h"
+#include "texformat.h"
 
 #include "s_aatriangle.h"
 #include "s_context.h"
+#include "s_depth.h"
 #include "s_feedback.h"
 #include "s_span.h"
 #include "s_triangle.h"
@@ -52,13 +53,13 @@ _swrast_culltriangle( GLcontext *ctx,
                       const SWvertex *v1,
                       const SWvertex *v2 )
 {
-   GLfloat ex = v1->attrib[FRAG_ATTRIB_WPOS][0] - v0->attrib[FRAG_ATTRIB_WPOS][0];
-   GLfloat ey = v1->attrib[FRAG_ATTRIB_WPOS][1] - v0->attrib[FRAG_ATTRIB_WPOS][1];
-   GLfloat fx = v2->attrib[FRAG_ATTRIB_WPOS][0] - v0->attrib[FRAG_ATTRIB_WPOS][0];
-   GLfloat fy = v2->attrib[FRAG_ATTRIB_WPOS][1] - v0->attrib[FRAG_ATTRIB_WPOS][1];
+   GLfloat ex = v1->win[0] - v0->win[0];
+   GLfloat ey = v1->win[1] - v0->win[1];
+   GLfloat fx = v2->win[0] - v0->win[0];
+   GLfloat fy = v2->win[1] - v0->win[1];
    GLfloat c = ex*fy-ey*fx;
 
-   if (c * SWRAST_CONTEXT(ctx)->_BackfaceCullSign > 0)
+   if (c * SWRAST_CONTEXT(ctx)->_BackfaceSign > 0)
       return 0;
 
    return 1;
@@ -67,11 +68,26 @@ _swrast_culltriangle( GLcontext *ctx,
 
 
 /*
- * Render a smooth or flat-shaded color index triangle.
+ * Render a flat-shaded color index triangle.
  */
-#define NAME ci_triangle
+#define NAME flat_ci_triangle
 #define INTERP_Z 1
-#define INTERP_ATTRIBS 1  /* just for fog */
+#define INTERP_FOG 1
+#define SETUP_CODE			\
+   span.interpMask |= SPAN_INDEX;	\
+   span.index = FloatToFixed(v2->index);\
+   span.indexStep = 0;
+#define RENDER_SPAN( span )  _swrast_write_index_span(ctx, &span);
+#include "s_tritemp.h"
+
+
+
+/*
+ * Render a smooth-shaded color index triangle.
+ */
+#define NAME smooth_ci_triangle
+#define INTERP_Z 1
+#define INTERP_FOG 1
 #define INTERP_INDEX 1
 #define RENDER_SPAN( span )  _swrast_write_index_span(ctx, &span);
 #include "s_tritemp.h"
@@ -83,6 +99,7 @@ _swrast_culltriangle( GLcontext *ctx,
  */
 #define NAME flat_rgba_triangle
 #define INTERP_Z 1
+#define INTERP_FOG 1
 #define SETUP_CODE				\
    ASSERT(ctx->Texture._EnabledCoordUnits == 0);\
    ASSERT(ctx->Light.ShadeModel==GL_FLAT);	\
@@ -105,6 +122,7 @@ _swrast_culltriangle( GLcontext *ctx,
  */
 #define NAME smooth_rgba_triangle
 #define INTERP_Z 1
+#define INTERP_FOG 1
 #define INTERP_RGB 1
 #define INTERP_ALPHA 1
 #define SETUP_CODE				\
@@ -122,7 +140,7 @@ _swrast_culltriangle( GLcontext *ctx,
  * Render an RGB, GL_DECAL, textured triangle.
  * Interpolate S,T only w/out mipmapping or perspective correction.
  *
- * No fog.  No depth testing.
+ * No fog.
  */
 #define NAME simple_textured_triangle
 #define INTERP_INT_TEX 1
@@ -130,9 +148,8 @@ _swrast_culltriangle( GLcontext *ctx,
 #define T_SCALE theight
 
 #define SETUP_CODE							\
-   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[0];	\
-   struct gl_texture_object *obj = 					\
-      ctx->Texture.Unit[0].CurrentTex[TEXTURE_2D_INDEX];		\
+   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[0][0];\
+   struct gl_texture_object *obj = ctx->Texture.Unit[0].Current2D;	\
    const GLint b = obj->BaseLevel;					\
    const GLfloat twidth = (GLfloat) obj->Image[0][b]->Width;		\
    const GLfloat theight = (GLfloat) obj->Image[0][b]->Height;		\
@@ -140,13 +157,13 @@ _swrast_culltriangle( GLcontext *ctx,
    const GLchan *texture = (const GLchan *) obj->Image[0][b]->Data;	\
    const GLint smask = obj->Image[0][b]->Width - 1;			\
    const GLint tmask = obj->Image[0][b]->Height - 1;			\
-   if (!rb || !texture) {						\
+   if (!texture) {							\
+      /* this shouldn't happen */					\
       return;								\
    }
 
-#define RENDER_SPAN( span )						\
+#define RENDER_SPAN( span  )						\
    GLuint i;								\
-   GLchan rgb[MAX_WIDTH][3];						\
    span.intTex[0] -= FIXED_HALF; /* off-by-one error? */		\
    span.intTex[1] -= FIXED_HALF;					\
    for (i = 0; i < span.end; i++) {					\
@@ -154,13 +171,13 @@ _swrast_culltriangle( GLcontext *ctx,
       GLint t = FixedToInt(span.intTex[1]) & tmask;			\
       GLint pos = (t << twidth_log2) + s;				\
       pos = pos + pos + pos;  /* multiply by 3 */			\
-      rgb[i][RCOMP] = texture[pos];					\
-      rgb[i][GCOMP] = texture[pos+1];					\
-      rgb[i][BCOMP] = texture[pos+2];					\
+      span.array->rgb[i][RCOMP] = texture[pos];				\
+      span.array->rgb[i][GCOMP] = texture[pos+1];			\
+      span.array->rgb[i][BCOMP] = texture[pos+2];			\
       span.intTex[0] += span.intTexStep[0];				\
       span.intTex[1] += span.intTexStep[1];				\
    }									\
-   rb->PutRowRGB(ctx, rb, span.end, span.x, span.y, rgb, NULL);
+   rb->PutRowRGB(ctx, rb, span.end, span.x, span.y, span.array->rgb, NULL);
 
 #include "s_tritemp.h"
 
@@ -182,9 +199,8 @@ _swrast_culltriangle( GLcontext *ctx,
 #define T_SCALE theight
 
 #define SETUP_CODE							\
-   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[0];	\
-   struct gl_texture_object *obj = 					\
-      ctx->Texture.Unit[0].CurrentTex[TEXTURE_2D_INDEX];		\
+   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[0][0];\
+   struct gl_texture_object *obj = ctx->Texture.Unit[0].Current2D;	\
    const GLint b = obj->BaseLevel;					\
    const GLfloat twidth = (GLfloat) obj->Image[0][b]->Width;		\
    const GLfloat theight = (GLfloat) obj->Image[0][b]->Height;		\
@@ -192,25 +208,25 @@ _swrast_culltriangle( GLcontext *ctx,
    const GLchan *texture = (const GLchan *) obj->Image[0][b]->Data;	\
    const GLint smask = obj->Image[0][b]->Width - 1;			\
    const GLint tmask = obj->Image[0][b]->Height - 1;			\
-   if (!rb || !texture) {						\
+   if (!texture) {							\
+      /* this shouldn't happen */					\
       return;								\
    }
 
 #define RENDER_SPAN( span )						\
    GLuint i;				    				\
-   GLchan rgb[MAX_WIDTH][3];						\
    span.intTex[0] -= FIXED_HALF; /* off-by-one error? */		\
    span.intTex[1] -= FIXED_HALF;					\
    for (i = 0; i < span.end; i++) {					\
-      const GLuint z = FixedToDepth(span.z);				\
+      const GLdepth z = FixedToDepth(span.z);				\
       if (z < zRow[i]) {						\
          GLint s = FixedToInt(span.intTex[0]) & smask;			\
          GLint t = FixedToInt(span.intTex[1]) & tmask;			\
          GLint pos = (t << twidth_log2) + s;				\
          pos = pos + pos + pos;  /* multiply by 3 */			\
-         rgb[i][RCOMP] = texture[pos];					\
-         rgb[i][GCOMP] = texture[pos+1];				\
-         rgb[i][BCOMP] = texture[pos+2];				\
+         span.array->rgb[i][RCOMP] = texture[pos];			\
+         span.array->rgb[i][GCOMP] = texture[pos+1];			\
+         span.array->rgb[i][BCOMP] = texture[pos+2];			\
          zRow[i] = z;							\
          span.array->mask[i] = 1;					\
       }									\
@@ -221,9 +237,11 @@ _swrast_culltriangle( GLcontext *ctx,
       span.intTex[1] += span.intTexStep[1];				\
       span.z += span.zStep;						\
    }									\
-   rb->PutRowRGB(ctx, rb, span.end, span.x, span.y, rgb, span.array->mask);
+   rb->PutRowRGB(ctx, rb, span.end, span.x, span.y,			\
+                 span.array->rgb, span.array->mask);
 
 #include "s_tritemp.h"
+
 
 
 #if CHAN_TYPE != GL_FLOAT
@@ -261,11 +279,10 @@ ilerp_2d(GLint ia, GLint ib, GLint v00, GLint v10, GLint v01, GLint v11)
  * texture env modes.
  */
 static INLINE void
-affine_span(GLcontext *ctx, SWspan *span,
+affine_span(GLcontext *ctx, struct sw_span *span,
             struct affine_info *info)
 {
    GLchan sample[4];  /* the filtered texture sample */
-   const GLuint texEnableSave = ctx->Texture._EnabledUnits;
 
    /* Instead of defining a function for each mode, a test is done
     * between the outer and inner loops. This is to reduce code size
@@ -395,9 +412,6 @@ affine_span(GLcontext *ctx, SWspan *span,
    GLuint i;
    GLchan *dest = span->array->rgba[0];
 
-   /* Disable tex units so they're not re-applied in swrast_write_rgba_span */
-   ctx->Texture._EnabledUnits = 0x0;
-
    span->intTex[0] -= FIXED_HALF;
    span->intTex[1] -= FIXED_HALF;
    switch (info->filter) {
@@ -499,11 +513,7 @@ affine_span(GLcontext *ctx, SWspan *span,
    }
    span->interpMask &= ~SPAN_RGBA;
    ASSERT(span->arrayMask & SPAN_RGBA);
-
    _swrast_write_rgba_span(ctx, span);
-
-   /* re-enable texture units */
-   ctx->Texture._EnabledUnits = texEnableSave;
 
 #undef SPAN_NEAREST
 #undef SPAN_LINEAR
@@ -516,6 +526,7 @@ affine_span(GLcontext *ctx, SWspan *span,
  */
 #define NAME affine_textured_triangle
 #define INTERP_Z 1
+#define INTERP_FOG 1
 #define INTERP_RGB 1
 #define INTERP_ALPHA 1
 #define INTERP_INT_TEX 1
@@ -525,8 +536,7 @@ affine_span(GLcontext *ctx, SWspan *span,
 #define SETUP_CODE							\
    struct affine_info info;						\
    struct gl_texture_unit *unit = ctx->Texture.Unit+0;			\
-   struct gl_texture_object *obj = 					\
-      ctx->Texture.Unit[0].CurrentTex[TEXTURE_2D_INDEX];		\
+   struct gl_texture_object *obj = unit->Current2D;			\
    const GLint b = obj->BaseLevel;					\
    const GLfloat twidth = (GLfloat) obj->Image[0][b]->Width;		\
    const GLfloat theight = (GLfloat) obj->Image[0][b]->Height;		\
@@ -534,7 +544,7 @@ affine_span(GLcontext *ctx, SWspan *span,
    info.twidth_log2 = obj->Image[0][b]->WidthLog2;			\
    info.smask = obj->Image[0][b]->Width - 1;				\
    info.tmask = obj->Image[0][b]->Height - 1;				\
-   info.format = obj->Image[0][b]->_BaseFormat;				\
+   info.format = obj->Image[0][b]->Format;				\
    info.filter = obj->MinFilter;					\
    info.envmode = unit->EnvMode;					\
    span.arrayMask |= SPAN_RGBA;						\
@@ -592,7 +602,7 @@ struct persp_info
 
 
 static INLINE void
-fast_persp_span(GLcontext *ctx, SWspan *span,
+fast_persp_span(GLcontext *ctx, struct sw_span *span,
 		struct persp_info *info)
 {
    GLchan sample[4];  /* the filtered texture sample */
@@ -666,13 +676,13 @@ fast_persp_span(GLcontext *ctx, SWspan *span,
    const GLuint savedTexEnable = ctx->Texture._EnabledUnits;
    ctx->Texture._EnabledUnits = 0;
 
-   tex_coord[0] = span->attrStart[FRAG_ATTRIB_TEX0][0]  * (info->smask + 1);
-   tex_step[0] = span->attrStepX[FRAG_ATTRIB_TEX0][0] * (info->smask + 1);
-   tex_coord[1] = span->attrStart[FRAG_ATTRIB_TEX0][1] * (info->tmask + 1);
-   tex_step[1] = span->attrStepX[FRAG_ATTRIB_TEX0][1] * (info->tmask + 1);
-   /* span->attrStart[FRAG_ATTRIB_TEX0][2] only if 3D-texturing, here only 2D */
-   tex_coord[2] = span->attrStart[FRAG_ATTRIB_TEX0][3];
-   tex_step[2] = span->attrStepX[FRAG_ATTRIB_TEX0][3];
+   tex_coord[0] = span->tex[0][0]  * (info->smask + 1);
+   tex_step[0] = span->texStepX[0][0] * (info->smask + 1);
+   tex_coord[1] = span->tex[0][1] * (info->tmask + 1);
+   tex_step[1] = span->texStepX[0][1] * (info->tmask + 1);
+   /* span->tex[0][2] only if 3D-texturing, here only 2D */
+   tex_coord[2] = span->tex[0][3];
+   tex_step[2] = span->texStepX[0][3];
 
    switch (info->filter) {
    case GL_NEAREST:
@@ -789,21 +799,22 @@ fast_persp_span(GLcontext *ctx, SWspan *span,
  */
 #define NAME persp_textured_triangle
 #define INTERP_Z 1
+#define INTERP_W 1
+#define INTERP_FOG 1
 #define INTERP_RGB 1
 #define INTERP_ALPHA 1
-#define INTERP_ATTRIBS 1
+#define INTERP_TEX 1
 
 #define SETUP_CODE							\
    struct persp_info info;						\
    const struct gl_texture_unit *unit = ctx->Texture.Unit+0;		\
-   struct gl_texture_object *obj = 					\
-      ctx->Texture.Unit[0].CurrentTex[TEXTURE_2D_INDEX];		\
+   const struct gl_texture_object *obj = unit->Current2D;		\
    const GLint b = obj->BaseLevel;					\
    info.texture = (const GLchan *) obj->Image[0][b]->Data;		\
    info.twidth_log2 = obj->Image[0][b]->WidthLog2;			\
    info.smask = obj->Image[0][b]->Width - 1;				\
    info.tmask = obj->Image[0][b]->Height - 1;				\
-   info.format = obj->Image[0][b]->_BaseFormat;				\
+   info.format = obj->Image[0][b]->Format;				\
    info.filter = obj->MinFilter;					\
    info.envmode = unit->EnvMode;					\
 									\
@@ -847,21 +858,44 @@ fast_persp_span(GLcontext *ctx, SWspan *span,
 
 #include "s_tritemp.h"
 
-#endif /*CHAN_TYPE != GL_FLOAT*/
+
+#endif /* CHAN_BITS != GL_FLOAT */
+
+                
+
+
+/*
+ * Render a smooth-shaded, textured, RGBA triangle.
+ * Interpolate S,T,R with perspective correction, w/out mipmapping.
+ */
+#define NAME general_textured_triangle
+#define INTERP_Z 1
+#define INTERP_W 1
+#define INTERP_FOG 1
+#define INTERP_RGB 1
+#define INTERP_SPEC 1
+#define INTERP_ALPHA 1
+#define INTERP_TEX 1
+#define RENDER_SPAN( span )   _swrast_write_rgba_span(ctx, &span);
+#include "s_tritemp.h"
 
 
 
 /*
- * Render an RGBA triangle with arbitrary attributes.
+ * This is the big one!
+ * Interpolate Z, RGB, Alpha, specular, fog, and N sets of texture coordinates.
+ * Yup, it's slow.
  */
-#define NAME general_triangle
+#define NAME multitextured_triangle
 #define INTERP_Z 1
+#define INTERP_W 1
+#define INTERP_FOG 1
 #define INTERP_RGB 1
 #define INTERP_ALPHA 1
-#define INTERP_ATTRIBS 1
+#define INTERP_SPEC 1
+#define INTERP_MULTITEX 1
 #define RENDER_SPAN( span )   _swrast_write_rgba_span(ctx, &span);
 #include "s_tritemp.h"
-
 
 
 
@@ -870,24 +904,25 @@ fast_persp_span(GLcontext *ctx, SWspan *span,
  */
 #define NAME occlusion_zless_triangle
 #define INTERP_Z 1
-#define SETUP_CODE							\
-   struct gl_renderbuffer *rb = ctx->DrawBuffer->_DepthBuffer;		\
-   struct gl_query_object *q = ctx->Query.CurrentOcclusionObject;	\
-   ASSERT(ctx->Depth.Test);						\
-   ASSERT(!ctx->Depth.Mask);						\
-   ASSERT(ctx->Depth.Func == GL_LESS);					\
-   if (!q) {								\
-      return;								\
+#define SETUP_CODE						\
+   struct gl_renderbuffer *rb					\
+      = ctx->DrawBuffer->Attachment[BUFFER_DEPTH].Renderbuffer;	\
+   ASSERT(ctx->Depth.Test);					\
+   ASSERT(!ctx->Depth.Mask);					\
+   ASSERT(ctx->Depth.Func == GL_LESS);				\
+   if (ctx->OcclusionResult && !ctx->Occlusion.Active) {	\
+      return;							\
    }
 #define RENDER_SPAN( span )						\
-   if (rb->DepthBits <= 16) {						\
+   if (ctx->Visual.depthBits <= 16) {					\
       GLuint i;								\
       const GLushort *zRow = (const GLushort *)				\
          rb->GetPointer(ctx, rb, span.x, span.y);			\
       for (i = 0; i < span.end; i++) {					\
-         GLuint z = FixedToDepth(span.z);				\
+         GLdepth z = FixedToDepth(span.z);				\
          if (z < zRow[i]) {						\
-            q->Result++;						\
+            ctx->OcclusionResult = GL_TRUE;				\
+            ctx->Occlusion.PassedCounter++;				\
          }								\
          span.z += span.zStep;						\
       }									\
@@ -898,7 +933,8 @@ fast_persp_span(GLcontext *ctx, SWspan *span,
          rb->GetPointer(ctx, rb, span.x, span.y);			\
       for (i = 0; i < span.end; i++) {					\
          if ((GLuint)span.z < zRow[i]) {				\
-            q->Result++;						\
+            ctx->OcclusionResult = GL_TRUE;				\
+            ctx->Occlusion.PassedCounter++;				\
          }								\
          span.z += span.zStep;						\
       }									\
@@ -923,47 +959,51 @@ nodraw_triangle( GLcontext *ctx,
  * draw the triangle, then restore the original primary color.
  * Inefficient, but seldom needed.
  */
-void
-_swrast_add_spec_terms_triangle(GLcontext *ctx, const SWvertex *v0,
-                                const SWvertex *v1, const SWvertex *v2)
+void _swrast_add_spec_terms_triangle( GLcontext *ctx,
+				      const SWvertex *v0,
+				      const SWvertex *v1,
+				      const SWvertex *v2 )
 {
    SWvertex *ncv0 = (SWvertex *)v0; /* drop const qualifier */
    SWvertex *ncv1 = (SWvertex *)v1;
    SWvertex *ncv2 = (SWvertex *)v2;
+#if CHAN_TYPE == GL_FLOAT
    GLfloat rSum, gSum, bSum;
-   GLchan cSave[3][4];
-
+#else
+   GLint rSum, gSum, bSum;
+#endif
+   GLchan c[3][4];
    /* save original colors */
-   COPY_CHAN4( cSave[0], ncv0->color );
-   COPY_CHAN4( cSave[1], ncv1->color );
-   COPY_CHAN4( cSave[2], ncv2->color );
+   COPY_CHAN4( c[0], ncv0->color );
+   COPY_CHAN4( c[1], ncv1->color );
+   COPY_CHAN4( c[2], ncv2->color );
    /* sum v0 */
-   rSum = CHAN_TO_FLOAT(ncv0->color[0]) + ncv0->attrib[FRAG_ATTRIB_COL1][0];
-   gSum = CHAN_TO_FLOAT(ncv0->color[1]) + ncv0->attrib[FRAG_ATTRIB_COL1][1];
-   bSum = CHAN_TO_FLOAT(ncv0->color[2]) + ncv0->attrib[FRAG_ATTRIB_COL1][2];
-   UNCLAMPED_FLOAT_TO_CHAN(ncv0->color[0], rSum);
-   UNCLAMPED_FLOAT_TO_CHAN(ncv0->color[1], gSum);
-   UNCLAMPED_FLOAT_TO_CHAN(ncv0->color[2], bSum);
+   rSum = ncv0->color[0] + ncv0->specular[0];
+   gSum = ncv0->color[1] + ncv0->specular[1];
+   bSum = ncv0->color[2] + ncv0->specular[2];
+   ncv0->color[0] = MIN2(rSum, CHAN_MAX);
+   ncv0->color[1] = MIN2(gSum, CHAN_MAX);
+   ncv0->color[2] = MIN2(bSum, CHAN_MAX);
    /* sum v1 */
-   rSum = CHAN_TO_FLOAT(ncv1->color[0]) + ncv1->attrib[FRAG_ATTRIB_COL1][0];
-   gSum = CHAN_TO_FLOAT(ncv1->color[1]) + ncv1->attrib[FRAG_ATTRIB_COL1][1];
-   bSum = CHAN_TO_FLOAT(ncv1->color[2]) + ncv1->attrib[FRAG_ATTRIB_COL1][2];
-   UNCLAMPED_FLOAT_TO_CHAN(ncv1->color[0], rSum);
-   UNCLAMPED_FLOAT_TO_CHAN(ncv1->color[1], gSum);
-   UNCLAMPED_FLOAT_TO_CHAN(ncv1->color[2], bSum);
+   rSum = ncv1->color[0] + ncv1->specular[0];
+   gSum = ncv1->color[1] + ncv1->specular[1];
+   bSum = ncv1->color[2] + ncv1->specular[2];
+   ncv1->color[0] = MIN2(rSum, CHAN_MAX);
+   ncv1->color[1] = MIN2(gSum, CHAN_MAX);
+   ncv1->color[2] = MIN2(bSum, CHAN_MAX);
    /* sum v2 */
-   rSum = CHAN_TO_FLOAT(ncv2->color[0]) + ncv2->attrib[FRAG_ATTRIB_COL1][0];
-   gSum = CHAN_TO_FLOAT(ncv2->color[1]) + ncv2->attrib[FRAG_ATTRIB_COL1][1];
-   bSum = CHAN_TO_FLOAT(ncv2->color[2]) + ncv2->attrib[FRAG_ATTRIB_COL1][2];
-   UNCLAMPED_FLOAT_TO_CHAN(ncv2->color[0], rSum);
-   UNCLAMPED_FLOAT_TO_CHAN(ncv2->color[1], gSum);
-   UNCLAMPED_FLOAT_TO_CHAN(ncv2->color[2], bSum);
+   rSum = ncv2->color[0] + ncv2->specular[0];
+   gSum = ncv2->color[1] + ncv2->specular[1];
+   bSum = ncv2->color[2] + ncv2->specular[2];
+   ncv2->color[0] = MIN2(rSum, CHAN_MAX);
+   ncv2->color[1] = MIN2(gSum, CHAN_MAX);
+   ncv2->color[2] = MIN2(bSum, CHAN_MAX);
    /* draw */
    SWRAST_CONTEXT(ctx)->SpecTriangle( ctx, ncv0, ncv1, ncv2 );
    /* restore original colors */
-   COPY_CHAN4( ncv0->color, cSave[0] );
-   COPY_CHAN4( ncv1->color, cSave[1] );
-   COPY_CHAN4( ncv2->color, cSave[2] );
+   COPY_CHAN4( ncv0->color, c[0] );
+   COPY_CHAN4( ncv1->color, c[1] );
+   COPY_CHAN4( ncv2->color, c[2] );
 }
 
 
@@ -1017,7 +1057,7 @@ _swrast_choose_triangle( GLcontext *ctx )
       }
 
       /* special case for occlusion testing */
-      if (ctx->Query.CurrentOcclusionObject &&
+      if ((ctx->Depth.OcclusionTest || ctx->Occlusion.Active) &&
           ctx->Depth.Test &&
           ctx->Depth.Mask == GL_FALSE &&
           ctx->Depth.Func == GL_LESS &&
@@ -1034,27 +1074,13 @@ _swrast_choose_triangle( GLcontext *ctx )
          }
       }
 
-      if (!rgbmode) {
-         USE(ci_triangle);
-         return;
-      }
-
-      /*
-       * XXX should examine swrast->_ActiveAttribMask to determine what
-       * needs to be interpolated.
-       */
-      if (ctx->Texture._EnabledCoordUnits ||
-          ctx->FragmentProgram._Current ||
-          ctx->ATIFragmentShader._Enabled ||
-          NEED_SECONDARY_COLOR(ctx) ||
-          swrast->_FogEnabled) {
+      if (ctx->Texture._EnabledCoordUnits || ctx->FragmentProgram._Active) {
          /* Ugh, we do a _lot_ of tests to pick the best textured tri func */
-         const struct gl_texture_object *texObj2D;
+	 const struct gl_texture_object *texObj2D;
          const struct gl_texture_image *texImg;
          GLenum minFilter, magFilter, envMode;
          GLint format;
-         texObj2D = ctx->Texture.Unit[0].CurrentTex[TEXTURE_2D_INDEX];
-
+         texObj2D = ctx->Texture.Unit[0].Current2D;
          texImg = texObj2D ? texObj2D->Image[0][texObj2D->BaseLevel] : NULL;
          format = texImg ? texImg->TexFormat->MesaFormat : -1;
          minFilter = texObj2D ? texObj2D->MinFilter : (GLenum) 0;
@@ -1063,19 +1089,17 @@ _swrast_choose_triangle( GLcontext *ctx )
 
          /* First see if we can use an optimized 2-D texture function */
          if (ctx->Texture._EnabledCoordUnits == 0x1
-             && !ctx->FragmentProgram._Current
-             && !ctx->ATIFragmentShader._Enabled
+             && !ctx->FragmentProgram._Active
              && ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT
              && texObj2D->WrapS == GL_REPEAT
-             && texObj2D->WrapT == GL_REPEAT
-             && texImg->_IsPowerOfTwo
+	     && texObj2D->WrapT == GL_REPEAT
+             && texObj2D->_IsPowerOfTwo
              && texImg->Border == 0
              && texImg->Width == texImg->RowStride
              && (format == MESA_FORMAT_RGB || format == MESA_FORMAT_RGBA)
-             && minFilter == magFilter
-             && ctx->Light.Model.ColorControl == GL_SINGLE_COLOR
-             && !swrast->_FogEnabled
-             && ctx->Texture.Unit[0].EnvMode != GL_COMBINE_EXT) {
+	     && minFilter == magFilter
+	     && ctx->Light.Model.ColorControl == GL_SINGLE_COLOR
+	     && ctx->Texture.Unit[0].EnvMode != GL_COMBINE_EXT) {
 	    if (ctx->Hint.PerspectiveCorrection==GL_FASTEST) {
 	       if (minFilter == GL_NEAREST
 		   && format == MESA_FORMAT_RGB
@@ -1085,7 +1109,7 @@ _swrast_choose_triangle( GLcontext *ctx )
 			&& ctx->Depth.Mask == GL_TRUE)
 		       || swrast->_RasterMask == TEXTURE_BIT)
 		   && ctx->Polygon.StippleFlag == GL_FALSE
-                   && ctx->DrawBuffer->Visual.depthBits <= 16) {
+                   && ctx->Visual.depthBits <= 16) {
 		  if (swrast->_RasterMask == (DEPTH_BIT | TEXTURE_BIT)) {
 		     USE(simple_z_textured_triangle);
 		  }
@@ -1094,16 +1118,16 @@ _swrast_choose_triangle( GLcontext *ctx )
 		  }
 	       }
 	       else {
-#if CHAN_BITS != 8
-                  USE(general_triangle);
+#if (CHAN_BITS == 16 || CHAN_BITS == 32)
+                  USE(general_textured_triangle);
 #else
                   USE(affine_textured_triangle);
 #endif
 	       }
 	    }
 	    else {
-#if CHAN_BITS != 8
-               USE(general_triangle);
+#if (CHAN_BITS == 16 || CHAN_BITS == 32)
+               USE(general_textured_triangle);
 #else
                USE(persp_textured_triangle);
 #endif
@@ -1111,27 +1135,33 @@ _swrast_choose_triangle( GLcontext *ctx )
 	 }
          else {
             /* general case textured triangles */
-            USE(general_triangle);
+            if (ctx->Texture._EnabledCoordUnits > 1) {
+               USE(multitextured_triangle);
+            }
+            else {
+               USE(general_textured_triangle);
+            }
          }
       }
       else {
-         ASSERT(!swrast->_FogEnabled);
-         ASSERT(!NEED_SECONDARY_COLOR(ctx));
+         ASSERT(!ctx->Texture._EnabledCoordUnits);
 	 if (ctx->Light.ShadeModel==GL_SMOOTH) {
 	    /* smooth shaded, no texturing, stippled or some raster ops */
-#if CHAN_BITS != 8
-               USE(general_triangle);
-#else
-               USE(smooth_rgba_triangle);
-#endif
+            if (rgbmode) {
+	       USE(smooth_rgba_triangle);
+            }
+            else {
+               USE(smooth_ci_triangle);
+            }
 	 }
 	 else {
 	    /* flat shaded, no texturing, stippled or some raster ops */
-#if CHAN_BITS != 8
-            USE(general_triangle);
-#else
-            USE(flat_rgba_triangle);
-#endif
+            if (rgbmode) {
+	       USE(flat_rgba_triangle);
+            }
+            else {
+               USE(flat_ci_triangle);
+            }
 	 }
       }
    }

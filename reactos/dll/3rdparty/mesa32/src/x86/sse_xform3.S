@@ -1,3 +1,4 @@
+/* $Id: sse_xform3.S,v 1.3 2005/01/04 14:33:47 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -31,7 +32,6 @@
   */
 
 #ifdef USE_SSE_ASM
-#include "assyntax.h"
 #include "matypes.h"
 #include "xform_args.h"
 
@@ -504,8 +504,4 @@ LLBL(K_GTP3P3DR_finish):
 	POP_L( ESI )
 	RET
 #undef FRAME_OFFSET
-#endif
-	
-#if defined (__ELF__) && defined (__linux__)
-	.section .note.GNU-stack,"",%progbits
 #endif

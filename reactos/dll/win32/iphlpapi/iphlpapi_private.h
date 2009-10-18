@@ -23,7 +23,6 @@
 #define _WIN32_WINNT 0x500
 #define WIN32_NO_STATUS
 #include <winsock2.h>
-#include <ws2tcpip.h>
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
@@ -33,7 +32,6 @@
 #include "resinfo.h"
 #include "wine/debug.h"
 
-//#include "ntddndis.h"
 #include "ddk/tdiinfo.h"
 #include "tcpioctl.h"
 
@@ -60,6 +58,8 @@
 #define TCP_REQUEST_QUERY_INFORMATION_INIT { { { 0 } } }
 #define TCP_REQUEST_SET_INFORMATION_INIT { { 0 } }
 
+#define IP_MIB_ROUTETABLE_ENTRY_ID   0x101
+
 // As in the mib from RFC 1213
 
 typedef struct _IPRouteEntry {
@@ -70,9 +70,9 @@ typedef struct _IPRouteEntry {
     ULONG ire_metric3;
     ULONG ire_metric4;
     ULONG ire_gw;
-    ULONG ire_type;
+    ULONG ire_type; 
     ULONG ire_proto;
-    ULONG ire_age;
+    ULONG ire_age; 
     ULONG ire_mask;
     ULONG ire_metric5;
     ULONG ire_info;
@@ -82,17 +82,17 @@ typedef struct _IPRouteEntry {
 typedef char *caddr_t;
 
 typedef union _IFEntrySafelySized {
-    CHAR MaxSize[sizeof(DWORD) +
-		 sizeof(IFEntry) +
+    CHAR MaxSize[sizeof(DWORD) + 
+		 sizeof(IFEntry) + 
 		 MAX_ADAPTER_DESCRIPTION_LENGTH + 1];
     IFEntry ent;
 } IFEntrySafelySized;
 
 typedef union _TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED {
-    CHAR MaxSize[sizeof(TCP_REQUEST_SET_INFORMATION_EX) - 1 +
+    CHAR MaxSize[sizeof(TCP_REQUEST_SET_INFORMATION_EX) - 1 + 
 		 sizeof(IPRouteEntry)];
     TCP_REQUEST_SET_INFORMATION_EX Req;
-} TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED,
+} TCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED, 
     *PTCP_REQUEST_SET_INFORMATION_EX_SAFELY_SIZED;
 
 /* Encapsulates information about an interface */
@@ -120,7 +120,7 @@ NTSTATUS tdiGetEntityIDSet( HANDLE tcpFile, TDIEntityID **entitySet,
 NTSTATUS tdiGetSetOfThings( HANDLE tcpFile, DWORD toiClass, DWORD toiType,
 			    DWORD toiId, DWORD teiEntity, DWORD teiInstance,
 			    DWORD fixedPart,
-			    DWORD entrySize, PVOID *tdiEntitySet,
+			    DWORD entrySize, PVOID *tdiEntitySet, 
 			    PDWORD numEntries );
 VOID tdiFreeThingSet( PVOID things );
 NTSTATUS getNthIpEntity( HANDLE tcpFile, DWORD index, TDIEntityID *ent );
@@ -137,11 +137,6 @@ PWCHAR QueryRegistryValueString( HANDLE RegHandle, PWCHAR ValueName );
 void ConsumeRegValueString( PWCHAR NameServer );
 BOOL isInterface( TDIEntityID *if_maybe );
 BOOL hasArp( HANDLE tcpFile, TDIEntityID *arp_maybe );
-
-typedef VOID (*EnumNameServersFunc)( PWCHAR Interface,
-				     PWCHAR NameServer,
-				     PVOID Data );
-void EnumNameServers( HANDLE RegHandle, PWCHAR Interface, PVOID Data, EnumNameServersFunc cb );
 
 #include <w32api.h>
 /* This is here until we switch to version 2.5 of the mingw headers */

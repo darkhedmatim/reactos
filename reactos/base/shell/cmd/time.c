@@ -10,14 +10,14 @@
  *    27-Jul-1998 (John P Price <linux-guru@gcfl.net>)
  *        added config.h include
  *
- *    09-Jan-1999 (Eric Kohl)
+ *    09-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Added locale support.
  *
- *    19-Jan-1999 (Eric Kohl)
+ *    19-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Unicode and redirection safe!
  *        Added "/t" option.
  *
- *    04-Feb-1999 (Eric Kohl)
+ *    04-Feb-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Fixed time input bug.
  *
  *    30-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
@@ -25,6 +25,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_TIME
 
@@ -129,11 +130,12 @@ static BOOL ParseTime (LPTSTR s)
 }
 
 
-INT cmd_time (LPTSTR param)
+INT cmd_time (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR *arg;
 	INT    argc;
 	INT    i;
+	BOOL   bPrompt = TRUE;
 	INT    nTimeString = -1;
 
 	if (!_tcsncmp (param, _T("/?"), 2))
@@ -151,25 +153,19 @@ INT cmd_time (LPTSTR param)
 	for (i = 0; i < argc; i++)
 	{
 		if (_tcsicmp (arg[i], _T("/t")) == 0)
-		{
-			/* Display current time in short format */
-			SYSTEMTIME st;
-			TCHAR szTime[20];
-			GetLocalTime(&st);
-			FormatTime(szTime, &st);
-			ConOutPuts(szTime);
-			freep(arg);
-			return 0;
-		}
+			bPrompt = FALSE;
 
 		if ((*arg[i] != _T('/')) && (nTimeString == -1))
 			nTimeString = i;
 	}
 
 	if (nTimeString == -1)
+		PrintTime ();
+
+	if (!bPrompt)
 	{
-		ConOutResPrintf(STRING_LOCALE_HELP1);
-		ConOutPrintf(_T(": %s\n"), GetTimeString());
+		freep (arg);
+		return 0;
 	}
 
 	while (1)
@@ -182,7 +178,9 @@ INT cmd_time (LPTSTR param)
 
 			ConInString (s, 40);
 
-			TRACE ("\'%s\'\n", debugstr_aw(s));
+#ifdef _DEBUG
+			DebugPrintf (_T("\'%s\'\n"), s);
+#endif
 
 			while (*s && s[_tcslen (s) - 1] < _T(' '))
 				s[_tcslen(s) - 1] = _T('\0');

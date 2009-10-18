@@ -59,7 +59,6 @@
 #define NTFS_FILE_NAME_DOS			2
 #define NTFS_FILE_NAME_WIN32_AND_DOS		3
 
-#include <pshpack1.h>
 typedef struct
 {
 	UCHAR		JumpBoot[3];			// Jump to the boot loader routine
@@ -86,14 +85,14 @@ typedef struct
 	ULONGLONG		VolumeSerialNumber;		// Volume serial number
 	UCHAR		BootCodeAndData[430];		// The remainder of the boot sector
 	USHORT		BootSectorMagic;		// 0xAA55
-} NTFS_BOOTSECTOR, *PNTFS_BOOTSECTOR;
+} PACKED NTFS_BOOTSECTOR, *PNTFS_BOOTSECTOR;
 
 typedef struct
 {
 	ULONG		Magic;
 	USHORT		USAOffset;					// Offset to the Update Sequence Array from the start of the ntfs record
 	USHORT		USACount;
-} NTFS_RECORD, *PNTFS_RECORD;
+} PACKED NTFS_RECORD, *PNTFS_RECORD;
 
 typedef struct
 {
@@ -109,7 +108,7 @@ typedef struct
 	ULONG		BytesAllocated;
 	ULONGLONG		BaseMFTRecord;
 	USHORT		NextAttributeInstance;
-} NTFS_MFT_RECORD, *PNTFS_MFT_RECORD;
+} PACKED NTFS_MFT_RECORD, *PNTFS_MFT_RECORD;
 
 typedef struct
 {
@@ -128,7 +127,7 @@ typedef struct
 			ULONG		ValueLength;
 			USHORT		ValueOffset;
 			USHORT		Flags;
-		} Resident;
+		} PACKED Resident;
 		// Non-resident attributes
 		struct
 		{
@@ -141,9 +140,9 @@ typedef struct
 			LONGLONG		DataSize;
 			LONGLONG		InitializedSize;
 			LONGLONG		CompressedSize;
-		} NonResident;
-	};
-} NTFS_ATTR_RECORD, *PNTFS_ATTR_RECORD;
+		} PACKED NonResident;
+	} PACKED;
+} PACKED NTFS_ATTR_RECORD, *PNTFS_ATTR_RECORD;
 
 typedef struct
 {
@@ -152,7 +151,7 @@ typedef struct
 	ULONG		AllocatedSize;
 	UCHAR		Flags;
 	UCHAR		Reserved[3];
-} NTFS_INDEX_HEADER, *PNTFS_INDEX_HEADER;
+} PACKED NTFS_INDEX_HEADER, *PNTFS_INDEX_HEADER;
 
 typedef struct
 {
@@ -162,7 +161,7 @@ typedef struct
 	UCHAR		ClustersPerIndexBlock;
 	UCHAR		Reserved[3];
 	NTFS_INDEX_HEADER	IndexHeader;
-} NTFS_INDEX_ROOT, *PNTFS_INDEX_ROOT;
+} PACKED NTFS_INDEX_ROOT, *PNTFS_INDEX_ROOT;
 
 typedef struct
 {
@@ -179,7 +178,7 @@ typedef struct
 	UCHAR		FileNameLength;
 	UCHAR		FileNameType;
 	WCHAR		FileName[0];
-} NTFS_FILE_NAME_ATTR, *PNTFS_FILE_NAME_ATTR;
+} PACKED NTFS_FILE_NAME_ATTR, *PNTFS_FILE_NAME_ATTR;
 
 typedef struct {
 	union
@@ -187,21 +186,20 @@ typedef struct {
 		struct
 		{
 			ULONGLONG	IndexedFile;
-		} Directory;
+		} PACKED Directory;
 		struct
 		{
 			USHORT	DataOffset;
 			USHORT	DataLength;
 			ULONG	Reserved;
-		} ViewIndex;
-	} Data;
+		} PACKED ViewIndex;
+	} PACKED Data;
 	USHORT			Length;
 	USHORT			KeyLength;
 	USHORT			Flags;
 	USHORT			Reserved;
 	NTFS_FILE_NAME_ATTR	FileName;
-} NTFS_INDEX_ENTRY, *PNTFS_INDEX_ENTRY;
-#include <poppack.h>
+} PACKED NTFS_INDEX_ENTRY, *PNTFS_INDEX_ENTRY;
 
 typedef struct
 {
@@ -214,17 +212,18 @@ typedef struct
 	NTFS_ATTR_RECORD	Record;
 } NTFS_ATTR_CONTEXT, *PNTFS_ATTR_CONTEXT;
 
-typedef struct _NTFS_VOLUME_INFO *PNTFS_VOLUME_INFO;
-
-#include <pshpack1.h>
 typedef struct
 {
 	PNTFS_ATTR_CONTEXT	DataContext;
 	ULONGLONG			Offset;
-	PNTFS_VOLUME_INFO	Volume;
-} NTFS_FILE_HANDLE, *PNTFS_FILE_HANDLE;
-#include <poppack.h>
+} PACKED NTFS_FILE_HANDLE, *PNTFS_FILE_HANDLE;
 
-const DEVVTBL* NtfsMount(ULONG DeviceId);
+BOOLEAN	NtfsOpenVolume(ULONG DriveNumber, ULONG VolumeStartSector);
+FILE*	NtfsOpenFile(PCSTR FileName);
+VOID	NtfsCloseFile(FILE *FileHandle);
+BOOLEAN	NtfsReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
+ULONG	NtfsGetFileSize(FILE *FileHandle);
+VOID	NtfsSetFilePointer(FILE *FileHandle, ULONG NewFilePointer);
+ULONG	NtfsGetFilePointer(FILE *FileHandle);
 
 #endif // #defined __NTFS_H

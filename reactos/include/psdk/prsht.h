@@ -1,13 +1,11 @@
 #ifndef _PRSHT_H
 #define _PRSHT_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4201)
 #endif
 
 #ifndef SNDMSG
@@ -63,10 +61,6 @@ extern "C" {
 #else
 #define PSH_WIZARD97	0x01000000
 #endif
-#ifdef _WINE
-#define PSH_WIZARD97_OLD 0x00002000
-#define PSH_WIZARD97_NEW 0x01000000
-#endif
 #endif /* _WIN32_IE >= 0x0400 */
 #if (_WIN32_IE >= 0x0500)
 #define PSH_WIZARD_LITE	0x400000
@@ -106,22 +100,20 @@ extern "C" {
 #define PSM_SETHEADERSUBTITLEA	1151
 #define PSM_SETHEADERSUBTITLEW	1152
 #endif
-
-#define PSN_FIRST                (0U - 200U)
-#define PSN_SETACTIVE            (PSN_FIRST - 0)
-#define PSN_KILLACTIVE           (PSN_FIRST - 1)
-#define PSN_APPLY                (PSN_FIRST - 2)
-#define PSN_RESET                (PSN_FIRST - 3)
-#define PSN_HELP                 (PSN_FIRST - 5)
-#define PSN_WIZBACK              (PSN_FIRST - 6)
-#define PSN_WIZNEXT              (PSN_FIRST - 7)
-#define PSN_WIZFINISH            (PSN_FIRST - 8)
-#define PSN_QUERYCANCEL          (PSN_FIRST - 9)
-#define PSN_GETOBJECT            (PSN_FIRST - 10)
-#define PSN_TRANSLATEACCELERATOR (PSN_FIRST - 12)
-#define PSN_QUERYINITIALFOCUS    (PSN_FIRST - 13)
-#define PSN_LAST                 (PSN_FIRST - 99)
-
+#define PSN_FIRST	(-200)
+#define PSN_LAST	(-299)
+#define PSN_APPLY	(-202)
+#define PSN_HELP	(-205)
+#define PSN_KILLACTIVE	(-201)
+#define PSN_QUERYCANCEL	(-209)
+#define PSN_GETOBJECT   (PSN_FIRST-10)
+#define PSN_TRANSLATEACCELERATOR (PSN_FIRST-12)
+#define PSN_QUERYINITIALFOCUS    (PSN_FIRST-13)
+#define PSN_RESET	(-203)
+#define PSN_SETACTIVE	(-200)
+#define PSN_WIZBACK	(-206)
+#define PSN_WIZFINISH	(-208)
+#define PSN_WIZNEXT	(-207)
 #define PSNRET_NOERROR	0
 #define PSNRET_INVALID	1
 #define PSNRET_INVALID_NOCHANGEPAGE	2
@@ -216,10 +208,7 @@ typedef const PROPSHEETPAGEW *LPCPROPSHEETPAGEW;
 typedef UINT(CALLBACK *LPFNPSPCALLBACKA)(HWND,UINT,LPPROPSHEETPAGEA);
 typedef UINT(CALLBACK *LPFNPSPCALLBACKW)(HWND,UINT,LPPROPSHEETPAGEW);
 typedef int(CALLBACK *PFNPROPSHEETCALLBACK)(HWND,UINT,LPARAM);
-#ifndef _HPROPSHEETPAGE_DEFINED
-#define _HPROPSHEETPAGE_DEFINED
 DECLARE_HANDLE(HPROPSHEETPAGE);
-#endif /* _HPROPSHEETPAGE_DEFINED */
 typedef struct _PROPSHEETHEADERA {
 	DWORD	dwSize;
 	DWORD	dwFlags;
@@ -298,8 +287,8 @@ typedef struct _PSHNOTIFY {
 HPROPSHEETPAGE WINAPI CreatePropertySheetPageA(LPCPROPSHEETPAGEA);
 HPROPSHEETPAGE WINAPI CreatePropertySheetPageW(LPCPROPSHEETPAGEW);
 BOOL WINAPI DestroyPropertySheetPage(HPROPSHEETPAGE);
-INT_PTR WINAPI PropertySheetA(LPCPROPSHEETHEADERA);
-INT_PTR WINAPI PropertySheetW(LPCPROPSHEETHEADERW);
+int WINAPI PropertySheetA(LPCPROPSHEETHEADERA);
+int WINAPI PropertySheetW(LPCPROPSHEETHEADERW);
 #define PropSheet_AddPage(d,p) SendMessage(d,PSM_ADDPAGE,0,(LPARAM)p)
 #define PropSheet_Apply(d) SendMessage(d,PSM_APPLY,0,0)
 #define PropSheet_CancelToClose(d) SendMessage(d,PSM_CANCELTOCLOSE,0,0)
@@ -361,11 +350,6 @@ static const WCHAR WC_PROPSHEETW[] = { 'S','y','s',
 #define CreatePropertySheetPage CreatePropertySheetPageA
 #define PropertySheet PropertySheetA
 #endif
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
 #ifdef __cplusplus
 }
 #endif

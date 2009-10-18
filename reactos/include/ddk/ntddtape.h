@@ -23,6 +23,10 @@
 #ifndef __NTDDTAPE_H
 #define __NTDDTAPE_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "ntddstor.h"
 
 #ifdef __cplusplus

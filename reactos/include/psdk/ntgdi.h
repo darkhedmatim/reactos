@@ -36,7 +36,7 @@
 #define GS_HANDOBJ_ALLOC            3
 #define GS_LOOKASIDE_INFO           4
 
-/* NtGdiEnumFontOpen */
+/* NtGdiQueryFonts */
 #define TYPE_ENUMFONTS              1
 #define TYPE_ENUMFONTFAMILIES       2
 #define TYPE_ENUMFONTFAMILIESEX     3
@@ -61,14 +61,7 @@ typedef struct _LOGCOLORSPACEEXW
     DWORD dwFlags;
 } LOGCOLORSPACEEXW, *PLOGCOLORSPACEEXW;
 
-typedef struct _POLYPATBLT
-{
-  INT nXLeft;
-  INT nYLeft;
-  INT nWidth;
-  INT nHeight;
-  HBRUSH hBrush;
-} POLYPATBLT, *PPOLYPATBLT;
+typedef struct _POLYPATBLT POLYPATBLT, *PPOLYPATBLT;
 
 /* NtGdiAddRemoteMMInstanceToDC */
 typedef struct tagDOWNLOADDESIGNVECTOR
@@ -107,7 +100,7 @@ NtGdiSetDIBitsToDeviceInternal(
 W32KAPI
 BOOL
 APIENTRY
-NtGdiGetFontResourceInfoInternalW(
+NtGdiGetFontResourceInfoInternalW( 
     IN LPWSTR pwszFiles,
     IN ULONG cwc,
     IN ULONG cFiles,
@@ -165,7 +158,7 @@ NtGdiArcInternal(
 );
 
 W32KAPI
-INT
+INT      
 APIENTRY
 NtGdiStretchDIBitsInternal(
     IN HDC hdc,
@@ -349,14 +342,14 @@ NtGdiGetEmbUFI(
 
 W32KAPI
 ULONG
-APIENTRY
+APIENTRY 
 NtGdiGetEmbedFonts(
     VOID
 );
 
 W32KAPI
 BOOL
-APIENTRY
+APIENTRY 
 NtGdiChangeGhostFont(
     IN KERNEL_PVOID *pfontID,
     IN BOOL bLoad
@@ -364,7 +357,7 @@ NtGdiChangeGhostFont(
 
 W32KAPI
 BOOL
-APIENTRY
+APIENTRY 
 NtGdiAddEmbFontToDC(
     IN HDC hdc,
     IN VOID **pFontID
@@ -390,12 +383,12 @@ NtGdiPolyPolyDraw(
 
 W32KAPI
 LONG
-APIENTRY
+APIENTRY 
 NtGdiDoPalette(
-    IN HGDIOBJ hObj,
+    IN HPALETTE hpal,
     IN WORD iStart,
     IN WORD cEntries,
-    IN LPVOID pEntries,
+    IN PALETTEENTRY *pPalEntries,
     IN DWORD iFunc,
     IN BOOL bInbound
 );
@@ -705,7 +698,7 @@ NtGdiDdSetOverlayPosition(
 );
 
 W32KAPI
-DWORD
+VOID
 APIENTRY
 NtGdiDdUnattachSurface(
     IN HANDLE hSurface,
@@ -801,7 +794,7 @@ NtGdiDdDestroyD3DBuffer(
 );
 
 W32KAPI
-BOOL
+DWORD
 APIENTRY
 NtGdiD3dContextCreate(
     IN HANDLE hDirectDrawLocal,
@@ -1104,8 +1097,7 @@ NtGdiAlphaBlend(
     IN LONG SrcY,
     IN LONG SrcCx,
     IN LONG SrcCy,
-    IN BLENDFUNCTION BlendFunction,
-    IN HANDLE hcmXform
+    IN BLENDFUNCTION BlendFunction
 );
 
 W32KAPI
@@ -1272,7 +1264,7 @@ NtGdiDeleteClientObj(
 
 W32KAPI
 LONG
-APIENTRY
+APIENTRY 
 NtGdiGetBitmapBits(
     IN HBITMAP hbm,
     IN ULONG cjMax,
@@ -1375,7 +1367,7 @@ NtGdiCreateHatchBrushInternal(
 
 W32KAPI
 HPEN
-APIENTRY
+APIENTRY 
 NtGdiExtCreatePen(
     IN ULONG flPenStyle,
     IN ULONG ulWidth,
@@ -1392,7 +1384,7 @@ NtGdiExtCreatePen(
 
 W32KAPI
 HRGN
-APIENTRY
+APIENTRY 
 NtGdiCreateEllipticRgn(
     IN INT xLeft,
     IN INT yTop,
@@ -1402,7 +1394,7 @@ NtGdiCreateEllipticRgn(
 
 W32KAPI
 HRGN
-APIENTRY
+APIENTRY 
 NtGdiCreateRoundRectRgn(
     IN INT xLeft,
     IN INT yTop,
@@ -1426,7 +1418,7 @@ NtGdiCreateServerMetaFile(
 
 W32KAPI
 HRGN
-APIENTRY
+APIENTRY 
 NtGdiExtCreateRegion(
     IN OPTIONAL LPXFORM px,
     IN DWORD cj,
@@ -1495,7 +1487,7 @@ NtGdiGetBitmapDimension(
 
 W32KAPI
 UINT
-APIENTRY
+APIENTRY 
 NtGdiGetNearestPaletteIndex(
     IN HPALETTE hpal,
     IN COLORREF crColor
@@ -1605,7 +1597,7 @@ NtGdiGetCharABCWidthsW(
     IN OPTIONAL PWCHAR pwch,
     IN FLONG fl,
     OUT PVOID pvBuf
-);
+);                                               
 
 W32KAPI
 DWORD
@@ -1703,13 +1695,8 @@ NtGdiFlattenPath(
 );
 
 W32KAPI
-NTSTATUS
-APIENTRY
-NtGdiFlushUserBatch(VOID);
-
-W32KAPI
 HRGN
-APIENTRY
+APIENTRY 
 NtGdiPathToRegion(
     IN HDC hdc
 );
@@ -2025,15 +2012,6 @@ NtGdiEnumObjects(
     OUT OPTIONAL PVOID pvBuf
 );
 
-// Note from SDK:
-//
-// NtGdiResetDC
-// The exact size of the buffer at pdm is pdm->dmSize + pdm->dmDriverExtra.
-// But this can't be specified with current annotation language.
-//
-// typedef struct _DRIVER_INFO_2W DRIVER_INFO_2W;
-//
-// :end note.
 W32KAPI
 BOOL
 APIENTRY
@@ -2041,7 +2019,7 @@ NtGdiResetDC(
     IN HDC hdc,
     IN LPDEVMODEW pdm,
     OUT PBOOL pbBanding,
-    IN OPTIONAL VOID *pDriverInfo2, // this is "typedef struct _DRIVER_INFO_2W DRIVER_INFO_2W;"
+    IN OPTIONAL VOID *pDriverInfo2,
     OUT VOID *ppUMdhpdev
 );
 
@@ -2082,12 +2060,11 @@ HDC
 APIENTRY
 NtGdiOpenDCW(
     IN OPTIONAL PUNICODE_STRING pustrDevice,
-    IN DEVMODEW *pdm,  // See note for NtGdiResetDC
+    IN DEVMODEW *pdm,
     IN PUNICODE_STRING pustrLogAddr,
     IN ULONG iType,
-    IN BOOL bDisplay,
     IN OPTIONAL HANDLE hspool,
-    IN OPTIONAL VOID *pDriverInfo2, // this is  "typedef struct _DRIVER_INFO_2W DRIVER_INFO_2W;"
+    IN OPTIONAL VOID *pDriverInfo2,
     OUT VOID *pUMdhpdev
 );
 
@@ -2193,7 +2170,7 @@ NtGdiTransformPoints(
 
 W32KAPI
 LONG
-APIENTRY
+APIENTRY 
 NtGdiConvertMetafileRect(
     IN HDC hdc,
     IN OUT PRECTL prect
@@ -2256,7 +2233,7 @@ NtGdiSelectBrush(
 
 W32KAPI
 HPEN
-APIENTRY
+APIENTRY 
 NtGdiSelectPen(
     IN HDC hdc,
     IN HPEN hpen
@@ -2289,7 +2266,7 @@ NtGdiExtSelectClipRgn(
 
 W32KAPI
 HPEN
-APIENTRY
+APIENTRY 
 NtGdiCreatePen(
     IN INT iPenStyle,
     IN INT iPenWidth,
@@ -2429,7 +2406,7 @@ NtGdiIntersectClipRect(
 
 W32KAPI
 HRGN
-APIENTRY
+APIENTRY 
 NtGdiCreateRectRgn(
     IN INT xLeft,
     IN INT yTop,
@@ -2622,7 +2599,7 @@ NtGdiSetRectRgn(
 
 W32KAPI
 LONG
-APIENTRY
+APIENTRY 
 NtGdiSetBitmapBits(
     IN HBITMAP hbm,
     IN ULONG cj,
@@ -2651,15 +2628,6 @@ NtGdiOffsetRgn(
     IN HRGN hrgn,
     IN INT cx,
     IN INT cy
-);
-
-W32KAPI
-INT
-APIENTRY
-NtGdiGetRandomRgn(
-    IN HDC hDC,
-    OUT HRGN hDest,
-    IN INT iCode
 );
 
 W32KAPI
@@ -2706,14 +2674,14 @@ NtGdiGetNearestColor(
 
 W32KAPI
 UINT
-APIENTRY
+APIENTRY 
 NtGdiGetSystemPaletteUse(
     IN HDC hdc
 );
 
 W32KAPI
 UINT
-APIENTRY
+APIENTRY 
 NtGdiSetSystemPaletteUse(
     IN HDC hdc,
     IN UINT ui
@@ -2818,7 +2786,7 @@ APIENTRY
 NtGdiQueryFonts(
     OUT PUNIVERSAL_FONT_ID pufiFontList,
     IN ULONG nBufferSize,
-    OUT PLARGE_INTEGER pTimeStamp
+    OUT PLARGE_INTEGER pTimeStamp 
 );
 
 W32KAPI
@@ -2843,22 +2811,21 @@ NtGdiFullscreenControl(
 );
 
 W32KAPI
-DWORD
-APIENTRY
+DWORD    
 NtGdiGetCharSet(
     IN HDC hdc
 );
 
 W32KAPI
 BOOL
-APIENTRY
+APIENTRY 
 NtGdiEnableEudc(
     IN BOOL
 );
 
 W32KAPI
 BOOL
-APIENTRY
+APIENTRY 
 NtGdiEudcLoadUnloadLink(
     IN OPTIONAL LPCWSTR pBaseFaceName,
     IN UINT cwcBaseFaceName,
@@ -2871,7 +2838,7 @@ NtGdiEudcLoadUnloadLink(
 
 W32KAPI
 UINT
-APIENTRY
+APIENTRY  
 NtGdiGetStringBitmapW(
     IN HDC hdc,
     IN LPWSTR pwsz,
@@ -2898,8 +2865,7 @@ NtGdiQueryFontAssocInfo(
 
 #if (_WIN32_WINNT >= 0x0500)
 W32KAPI
-DWORD
-APIENTRY
+DWORD 
 NtGdiGetFontUnicodeRanges(
     IN HDC hdc,
     OUT OPTIONAL LPGLYPHSET pgs
@@ -2908,8 +2874,7 @@ NtGdiGetFontUnicodeRanges(
 
 #ifdef LANGPACK
 W32KAPI
-BOOL
-APIENTRY
+BOOL 
 NtGdiGetRealizationInfo(
     IN HDC hdc,
     OUT PREALIZATION_INFO pri,
@@ -2918,8 +2883,7 @@ NtGdiGetRealizationInfo(
 #endif
 
 W32KAPI
-BOOL
-APIENTRY
+BOOL 
 NtGdiAddRemoteMMInstanceToDC(
     IN HDC hdc,
     IN DOWNLOADDESIGNVECTOR *pddv,
@@ -3385,7 +3349,7 @@ NtGdiFONTOBJ_cGetAllGlyphHandles(
 
 W32KAPI
 PVOID
-APIENTRY
+APIENTRY 
 NtGdiFONTOBJ_pvTrueTypeFontFile(
     IN FONTOBJ *pfo,
     OUT ULONG *pcjFile
@@ -3479,7 +3443,7 @@ APIENTRY
 NtGdiPATHOBJ_bEnum(
     IN PATHOBJ *ppo,
     OUT PATHDATA *ppd
-);
+);  
 
 W32KAPI
 VOID
@@ -3523,7 +3487,6 @@ NtGdiEngCheckAbort(
 
 W32KAPI
 DHPDEV
-APIENTRY
 NtGdiGetDhpdev(
     IN HDEV hdev
 );
@@ -3574,13 +3537,13 @@ NtGdiMirrorWindowOrg(
 
 W32KAPI
 LONG
-APIENTRY
+APIENTRY 
 NtGdiGetDeviceWidth(
     IN HDC hdc
 );
 
 W32KAPI
-BOOL
+BOOL              
 NtGdiSetPUMPDOBJ(
     IN HUMPD humpd,
     IN BOOL bStoreID,
@@ -3589,14 +3552,14 @@ NtGdiSetPUMPDOBJ(
 );
 
 W32KAPI
-BOOL
+BOOL              
 NtGdiBRUSHOBJ_DeleteRbrush(
     IN BRUSHOBJ *pbo,
     IN BRUSHOBJ *pboB
 );
 
 W32KAPI
-BOOL
+BOOL              
 NtGdiUMPDEngFreeUserMem(
     IN KERNEL_PVOID *ppv
 );
@@ -3657,17 +3620,4 @@ NtGdiMakeObjectUnXferable(
     IN HANDLE h
 );
 
-W32KAPI
-BOOL
-APIENTRY
-NtGdiInitSpool();
-
-/* FIXME wrong prototypes fix the build */
-W32KAPI
-INT
-APIENTRY
-NtGdiGetSpoolMessage( DWORD u1,
-                      DWORD u2,
-                      DWORD u3,
-                      DWORD u4);
 #endif

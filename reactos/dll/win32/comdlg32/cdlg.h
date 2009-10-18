@@ -21,6 +21,7 @@
 #ifndef _WINE_DLL_CDLG_H
 #define _WINE_DLL_CDLG_H
 
+#define COM_NO_WINDOWS_H
 #include "dlgs.h"
 #include "wownt32.h"
 
@@ -30,7 +31,7 @@
 extern HINSTANCE	COMDLG32_hInstance;
 
 void	COMDLG32_SetCommDlgExtendedError(DWORD err);
-LPVOID	COMDLG32_AllocMem(int size) __WINE_ALLOC_SIZE(1);
+LPVOID	COMDLG32_AllocMem(int size);
 
 /* handle<-handle16 conversion */
 #define HINSTANCE_32(h16)           ((HINSTANCE)(ULONG_PTR)(h16))
@@ -95,8 +96,8 @@ typedef struct {
 #define PD32_NR_OF_DOCUMENTS_IN_QUEUE         1583
 
 #define PD32_MARGINS_IN_INCHES                1585
-#define PD32_MARGINS_IN_MILLIMETERS           1586
-#define PD32_MILLIMETERS                      1587
+#define PD32_MARGINS_IN_MILIMETERS            1586
+#define PD32_MILIMETERS                       1587
 
 /* Charset names string IDs */
 
@@ -125,13 +126,6 @@ typedef struct {
 #define IDS_CHARSET_ISO4        222
 #define IDS_CHARSET_ISO10       223
 #define IDS_CHARSET_CELTIC      224
-
-/* Font styles */
-
-#define IDS_FONT_REGULAR        256
-#define IDS_FONT_BOLD           257
-#define IDS_FONT_ITALIC         258
-#define IDS_FONT_BOLD_ITALIC    259
 
 /* Color names string IDs */
 
@@ -177,25 +171,30 @@ extern LPITEMIDLIST (WINAPI *COMDLG32_PIDL_ILCombine)(LPCITEMIDLIST,LPCITEMIDLIS
 extern LPITEMIDLIST (WINAPI *COMDLG32_PIDL_ILGetNext)(LPITEMIDLIST);
 extern BOOL (WINAPI *COMDLG32_PIDL_ILRemoveLastID)(LPCITEMIDLIST);
 extern BOOL (WINAPI *COMDLG32_PIDL_ILIsEqual)(LPCITEMIDLIST, LPCITEMIDLIST);
-extern UINT (WINAPI *COMDLG32_PIDL_ILGetSize)(LPCITEMIDLIST);
 
 /* SHELL */
 extern LPVOID (WINAPI *COMDLG32_SHAlloc)(DWORD);
 extern DWORD (WINAPI *COMDLG32_SHFree)(LPVOID);
+extern BOOL (WINAPI *COMDLG32_SHGetFolderPathA)(HWND,int,HANDLE,DWORD,LPSTR);
 extern BOOL (WINAPI *COMDLG32_SHGetFolderPathW)(HWND,int,HANDLE,DWORD,LPWSTR);
+
+extern BOOL  WINAPI GetFileDialog95A(LPOPENFILENAMEA ofn,UINT iDlgType);
+extern BOOL  WINAPI GetFileDialog95W(LPOPENFILENAMEW ofn,UINT iDlgType);
 
 /*
  * Internal Functions
  * Do NOT Export to other programs and dlls
  */
 
-BOOL CC_HookCallChk( const CHOOSECOLORW *lpcc );
+BOOL CC_HookCallChk( LPCHOOSECOLORW lpcc );
 int CC_MouseCheckResultWindow( HWND hDlg, LPARAM lParam );
 LRESULT CC_WMLButtonDown( HWND hDlg, WPARAM wParam, LPARAM lParam );
 LRESULT CC_WMLButtonUp( HWND hDlg, WPARAM wParam, LPARAM lParam );
+LRESULT CC_WMCommand( HWND hDlg, WPARAM wParam, LPARAM lParam, WORD 
+						notifyCode, HWND hwndCtl );
 LRESULT CC_WMMouseMove( HWND hDlg, LPARAM lParam );
 LRESULT CC_WMPaint( HWND hDlg, WPARAM wParam, LPARAM lParam );
-void CC_SwitchToFullSize( HWND hDlg, COLORREF result, LPCRECT lprect );
+void CC_SwitchToFullSize( HWND hDlg, COLORREF result, LPRECT lprect );
 void CC_PaintSelectedColor( HWND hDlg, COLORREF cr );
 int CC_RGBtoHSL(char c, int r, int g, int b);
 void CC_PaintCross( HWND hDlg, int x, int y);
@@ -204,7 +203,7 @@ int CC_CheckDigitsInEdit( HWND hwnd, int maxval );
 void CC_EditSetHSL( HWND hDlg, int h, int s, int l );
 int CC_HSLtoRGB(char c, int hue, int sat, int lum);
 void CC_EditSetRGB( HWND hDlg, COLORREF cr );
-void CC_PaintUserColorArray( HWND hDlg, int rows, int cols, const COLORREF* lpcr );
+void CC_PaintUserColorArray( HWND hDlg, int rows, int cols, COLORREF* lpcr );
 
 typedef struct
 {
@@ -215,10 +214,10 @@ typedef struct
 } CFn_ENUMSTRUCT, *LPCFn_ENUMSTRUCT;
 
 INT AddFontFamily(const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *lpNTM,
-                  UINT nFontType, const CHOOSEFONTW *lpcf, HWND hwnd,
+                  UINT nFontType, LPCHOOSEFONTW lpcf, HWND hwnd,
                   LPCFn_ENUMSTRUCT e);
 INT AddFontStyle(const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *metrics,
-                 UINT nFontType, const CHOOSEFONTW *lpcf, HWND hcmb2, HWND hcmb3,
+                 UINT nFontType, LPCHOOSEFONTW lpcf, HWND hcmb2, HWND hcmb3,
                  HWND hDlg, BOOL iswin16);
 void _dump_cf_flags(DWORD cflags);
 
@@ -229,6 +228,6 @@ LRESULT CFn_WMDrawItem(HWND hDlg, WPARAM wParam, LPARAM lParam);
 LRESULT CFn_WMCommand(HWND hDlg, WPARAM wParam, LPARAM lParam,
                       LPCHOOSEFONTW lpcf);
 LRESULT CFn_WMPaint(HWND hDlg, WPARAM wParam, LPARAM lParam,
-                      const CHOOSEFONTW *lpcf);
+                      LPCHOOSEFONTW lpcf);
 
 #endif /* _WINE_DLL_CDLG_H */

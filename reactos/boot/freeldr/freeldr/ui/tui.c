@@ -20,30 +20,66 @@
 #include <freeldr.h>
 
 PVOID	TextVideoBuffer = NULL;
+extern BOOLEAN UiDrawTime;
+extern BOOLEAN UiMinimal;
 
 /*
- * TuiPrintf()
- * Prints formatted text to the screen
+ * printf() - prints formatted text to stdout
+ * originally from GRUB
  */
-int TuiPrintf(const char *Format, ...)
+int printf(const char *format, ... )
 {
-	int i;
-	int Length;
 	va_list ap;
-	CHAR Buffer[512];
+	va_start(ap,format);
+	char c, *ptr, str[16];
 
-	va_start(ap, Format);
-	Length = _vsnprintf(Buffer, sizeof(Buffer), Format, ap);
-	va_end(ap);
-
-	if (Length == -1) Length = sizeof(Buffer);
-
-	for (i = 0; i < Length; i++)
+	while ((c = *(format++)))
 	{
-		MachConsPutChar(Buffer[i]);
+		if (c != '%')
+		{
+			MachConsPutChar(c);
+		}
+		else
+		{
+			switch (c = *(format++))
+			{
+			case 'd': case 'u': case 'x':
+                if (c == 'x')
+                    *_itoa(va_arg(ap, unsigned long), str, 16) = 0;
+                else
+                    *_itoa(va_arg(ap, unsigned long), str, 10) = 0;
+
+				ptr = str;
+
+				while (*ptr)
+				{
+					MachConsPutChar(*(ptr++));
+				}
+				break;
+
+			case 'c': MachConsPutChar((va_arg(ap,int))&0xff); break;
+
+			case 's':
+				ptr = va_arg(ap,char *);
+
+				while ((c = *(ptr++)))
+				{
+					MachConsPutChar(c);
+				}
+				break;
+			case '%':
+				MachConsPutChar(c);
+				break;
+			default:
+				printf("\nprintf() invalid format specifier - %%%c\n", c);
+				break;
+			}
+		}
 	}
 
-	return Length;
+	va_end(ap);
+
+	return 0;
 }
 
 BOOLEAN TuiInitialize(VOID)
@@ -77,6 +113,25 @@ VOID TuiUnInitialize(VOID)
 
 VOID TuiDrawBackdrop(VOID)
 {
+    if (UiMinimal)
+    {
+        //
+        // Fill in a black background
+        //
+        TuiFillArea(0,
+                    0,
+                    UiScreenWidth - 1,
+                    UiScreenHeight - 1,
+                    0,
+                    0);
+
+        //
+        // Update the screen buffer
+        //
+        VideoCopyOffScreenBufferToVRAM();
+        return;
+    }
+
 	//
 	// Fill in the background (excluding title box & status bar)
 	//
@@ -395,6 +450,11 @@ VOID TuiDrawStatusText(PCSTR StatusText)
 {
 	ULONG		i;
 
+    //
+    // Minimal UI doesn't have a status bar
+    //
+    if (UiMinimal) return;
+
 	TuiDrawText(0, UiScreenHeight-1, " ", ATTR(UiStatusBarFgColor, UiStatusBarBgColor));
 	TuiDrawText(1, UiScreenHeight-1, StatusText, ATTR(UiStatusBarFgColor, UiStatusBarBgColor));
 
@@ -408,40 +468,37 @@ VOID TuiDrawStatusText(PCSTR StatusText)
 
 VOID TuiUpdateDateTime(VOID)
 {
-	TIMEINFO*	TimeInfo;
-	char	DateString[40];
+	ULONG	Year, Month, Day;
+	ULONG	Hour, Minute, Second;
+	CHAR	DateString[40];
 	CHAR	TimeString[40];
 	CHAR	TempString[20];
 	BOOLEAN	PMHour = FALSE;
 
-	/* Don't draw the time if this has been disabled */
-	if (!UiDrawTime) return;
+    /* Don't draw the time if this has been disabled */
+    if (!UiDrawTime) return;
 
-	TimeInfo = ArcGetTime();
-	if (TimeInfo->Year < 1 || 9999 < TimeInfo->Year ||
-	    TimeInfo->Month < 1 || 12 < TimeInfo->Month ||
-	    TimeInfo->Day < 1 || 31 < TimeInfo->Day ||
-	    23 < TimeInfo->Hour ||
-	    59 < TimeInfo->Minute ||
-	    59 < TimeInfo->Second)
+	MachRTCGetCurrentDateTime(&Year, &Month, &Day, &Hour, &Minute, &Second);
+	if (Year < 1 || 9999 < Year || Month < 1 || 12 < Month || Day < 1 ||
+            31 < Day || 23 < Hour || 59 < Minute || 59 < Second)
 	{
 		/* This happens on QEmu sometimes. We just skip updating */
 		return;
 	}
 	// Get the month name
-	strcpy(DateString, UiMonthNames[TimeInfo->Month - 1]);
+	strcpy(DateString, UiMonthNames[Month - 1]);
 	// Get the day
-	_itoa(TimeInfo->Day, TempString, 10);
+	_itoa(Day, TempString, 10);
 	// Get the day postfix
-	if (1 == TimeInfo->Day || 21 == TimeInfo->Day || 31 == TimeInfo->Day)
+	if (1 == Day || 21 == Day || 31 == Day)
 	{
 		strcat(TempString, "st");
 	}
-	else if (2 == TimeInfo->Day || 22 == TimeInfo->Day)
+	else if (2 == Day || 22 == Day)
 	{
 		strcat(TempString, "nd");
 	}
-	else if (3 == TimeInfo->Day || 23 == TimeInfo->Day)
+	else if (3 == Day || 23 == Day)
 	{
 		strcat(TempString, "rd");
 	}
@@ -455,35 +512,35 @@ VOID TuiUpdateDateTime(VOID)
 	strcat(DateString, " ");
 
 	// Get the year and add it to the date
-	_itoa(TimeInfo->Year, TempString, 10);
+	_itoa(Year, TempString, 10);
 	strcat(DateString, TempString);
 
 	// Draw the date
 	TuiDrawText(UiScreenWidth-strlen(DateString)-2, 1, DateString, ATTR(UiTitleBoxFgColor, UiTitleBoxBgColor));
 
 	// Get the hour and change from 24-hour mode to 12-hour
-	if (TimeInfo->Hour > 12)
+	if (Hour > 12)
 	{
-		TimeInfo->Hour -= 12;
+		Hour -= 12;
 		PMHour = TRUE;
 	}
-	if (TimeInfo->Hour == 0)
+	if (Hour == 0)
 	{
-		TimeInfo->Hour = 12;
+		Hour = 12;
 	}
-	_itoa(TimeInfo->Hour, TempString, 10);
+	_itoa(Hour, TempString, 10);
 	strcpy(TimeString, "    ");
 	strcat(TimeString, TempString);
 	strcat(TimeString, ":");
-	_itoa(TimeInfo->Minute, TempString, 10);
-	if (TimeInfo->Minute < 10)
+	_itoa(Minute, TempString, 10);
+	if (Minute < 10)
 	{
 		strcat(TimeString, "0");
 	}
 	strcat(TimeString, TempString);
 	strcat(TimeString, ":");
-	_itoa(TimeInfo->Second, TempString, 10);
-	if (TimeInfo->Second < 10)
+	_itoa(Second, TempString, 10);
+	if (Second < 10)
 	{
 		strcat(TimeString, "0");
 	}
@@ -528,7 +585,7 @@ VOID TuiMessageBox(PCSTR MessageText)
 	PVOID	ScreenBuffer;
 
 	// Save the screen contents
-	ScreenBuffer = MmHeapAlloc(UiScreenWidth * UiScreenHeight * 2);
+	ScreenBuffer = MmAllocateMemory(UiScreenWidth * UiScreenHeight * 2);
 	TuiSaveScreen(ScreenBuffer);
 
 	// Display the message box
@@ -536,7 +593,7 @@ VOID TuiMessageBox(PCSTR MessageText)
 
 	// Restore the screen contents
 	TuiRestoreScreen(ScreenBuffer);
-	MmHeapFree(ScreenBuffer);
+	MmFreeMemory(ScreenBuffer);
 }
 
 VOID TuiMessageBoxCritical(PCSTR MessageText)
@@ -635,10 +692,28 @@ VOID TuiDrawProgressBarCenter(ULONG Position, ULONG Range, PCHAR ProgressText)
 	ULONG		Width = 50; // Allow for 50 "bars"
 	ULONG		Height = 2;
 
-	Left = (UiScreenWidth - Width - 4) / 2;
-	Right = Left + Width + 3;
-	Top = (UiScreenHeight - Height - 2) / 2;
-	Top += 2;
+	//
+	// Is this the minimal UI?
+	//
+	if (UiMinimal)
+	{
+		//
+		// Use alternate settings
+		//
+		Width = 80;
+		Left = 0;
+		Right = Left + Width;
+		Top = UiScreenHeight - Height - 4;
+		Bottom = Top + Height + 1;
+	}
+	else
+	{
+		Left = (UiScreenWidth - Width - 4) / 2;
+		Right = Left + Width + 3;
+		Top = (UiScreenHeight - Height - 2) / 2;
+		Top += 2;
+	}
+
 	Bottom = Top + Height + 1;
 
 	TuiDrawProgressBar(Left, Top, Right, Bottom, Position, Range, ProgressText);
@@ -657,13 +732,26 @@ VOID TuiDrawProgressBar(ULONG Left, ULONG Top, ULONG Right, ULONG Bottom, ULONG 
 		Position = Range;
 	}
 
-	// Draw the box
-	TuiDrawBox(Left, Top, Right, Bottom, VERT, HORZ, TRUE, TRUE, ATTR(UiMenuFgColor, UiMenuBgColor));
+    //
+    // Minimal UI has no box, and only generic loading text
+    //
+    if (!UiMinimal)
+    {
+	    // Draw the box
+	    TuiDrawBox(Left, Top, Right, Bottom, VERT, HORZ, TRUE, TRUE, ATTR(UiMenuFgColor, UiMenuBgColor));
 
-	//
-	//  Draw the "Loading..." text
-	//
-	TuiDrawCenteredText(Left + 2, Top + 2, Right - 2, Top + 2, ProgressText, ATTR(UiTextColor, UiMenuBgColor));
+    	//
+        //  Draw the "Loading..." text
+        //
+	    TuiDrawCenteredText(Left + 2, Top + 2, Right - 2, Top + 2, ProgressText, ATTR(UiTextColor, UiMenuBgColor));
+    }
+    else
+    {
+    	//
+        //  Draw the "Loading..." text
+        //
+        TuiDrawCenteredText(Left + 2, Top + 1, Right - 2, Top + 1, "ReactOS is loading files...", ATTR(7, 0));
+    }
 
 	// Draw the percent complete
 	for (i=0; i<(Position*ProgressBarWidth)/Range; i++)
@@ -671,11 +759,14 @@ VOID TuiDrawProgressBar(ULONG Left, ULONG Top, ULONG Right, ULONG Bottom, ULONG 
 		TuiDrawText(Left+2+i, Top+2, "\xDB", ATTR(UiTextColor, UiMenuBgColor));
 	}
 
-	// Draw the shadow
-	for (; i<ProgressBarWidth; i++)
-	{
-		TuiDrawText(Left+2+i, Top+2, "\xB2", ATTR(UiTextColor, UiMenuBgColor));
-	}
+	// Draw the shadow for non-minimal UI
+    if (!UiMinimal)
+    {
+	    for (; i<ProgressBarWidth; i++)
+	    {
+		    TuiDrawText(Left+2+i, Top+2, "\xB2", ATTR(UiTextColor, UiMenuBgColor));
+	    }
+    }
 
 	TuiUpdateDateTime();
 	VideoCopyOffScreenBufferToVRAM();
@@ -743,7 +834,7 @@ VOID TuiFadeInBackdrop(VOID)
 
 	if (UiUseSpecialEffects && ! MachVideoIsPaletteFixed())
 	{
-		TuiFadePalette = (PPALETTE_ENTRY)MmHeapAlloc(sizeof(PALETTE_ENTRY) * 64);
+		TuiFadePalette = (PPALETTE_ENTRY)MmAllocateMemory(sizeof(PALETTE_ENTRY) * 64);
 
 		if (TuiFadePalette != NULL)
 		{
@@ -758,7 +849,7 @@ VOID TuiFadeInBackdrop(VOID)
 	if (UiUseSpecialEffects && ! MachVideoIsPaletteFixed() && TuiFadePalette != NULL)
 	{
 		VideoFadeIn(TuiFadePalette, 64);
-		MmHeapFree(TuiFadePalette);
+		MmFreeMemory(TuiFadePalette);
 	}
 }
 
@@ -768,7 +859,7 @@ VOID TuiFadeOut(VOID)
 
 	if (UiUseSpecialEffects && ! MachVideoIsPaletteFixed())
 	{
-		TuiFadePalette = (PPALETTE_ENTRY)MmHeapAlloc(sizeof(PALETTE_ENTRY) * 64);
+		TuiFadePalette = (PPALETTE_ENTRY)MmAllocateMemory(sizeof(PALETTE_ENTRY) * 64);
 
 		if (TuiFadePalette != NULL)
 		{
@@ -786,7 +877,7 @@ VOID TuiFadeOut(VOID)
 	if (UiUseSpecialEffects && ! MachVideoIsPaletteFixed() && TuiFadePalette != NULL)
 	{
 		VideoRestorePaletteState(TuiFadePalette, 64);
-		MmHeapFree(TuiFadePalette);
+		MmFreeMemory(TuiFadePalette);
 	}
 
 }
@@ -810,7 +901,7 @@ BOOLEAN TuiEditBox(PCSTR MessageText, PCHAR EditTextBuffer, ULONG Length)
 	PVOID	ScreenBuffer;
 
 	// Save the screen contents
-	ScreenBuffer = MmHeapAlloc(UiScreenWidth * UiScreenHeight * 2);
+	ScreenBuffer = MmAllocateMemory(UiScreenWidth * UiScreenHeight * 2);
 	TuiSaveScreen(ScreenBuffer);
 
 	// Find the height
@@ -904,7 +995,7 @@ BOOLEAN TuiEditBox(PCSTR MessageText, PCHAR EditTextBuffer, ULONG Length)
 				}
 				else
 				{
-					MachBeep();
+					beep();
 				}
 			}
 			else // Add this key to the buffer
@@ -917,7 +1008,7 @@ BOOLEAN TuiEditBox(PCSTR MessageText, PCHAR EditTextBuffer, ULONG Length)
 				}
 				else
 				{
-					MachBeep();
+					beep();
 				}
 			}
 		}
@@ -951,32 +1042,7 @@ BOOLEAN TuiEditBox(PCSTR MessageText, PCHAR EditTextBuffer, ULONG Length)
 
 	// Restore the screen contents
 	TuiRestoreScreen(ScreenBuffer);
-	MmHeapFree(ScreenBuffer);
+	MmFreeMemory(ScreenBuffer);
 
 	return ReturnCode;
 }
-
-const UIVTBL TuiVtbl =
-{
-	TuiInitialize,
-	TuiUnInitialize,
-	TuiDrawBackdrop,
-	TuiFillArea,
-	TuiDrawShadow,
-	TuiDrawBox,
-	TuiDrawText,
-	TuiDrawCenteredText,
-	TuiDrawStatusText,
-	TuiUpdateDateTime,
-	TuiMessageBox,
-	TuiMessageBoxCritical,
-	TuiDrawProgressBarCenter,
-	TuiDrawProgressBar,
-	TuiEditBox,
-	TuiTextToColor,
-	TuiTextToFillStyle,
-	TuiFadeInBackdrop,
-	TuiFadeOut,
-	TuiDisplayMenu,
-	TuiDrawMenu,
-};

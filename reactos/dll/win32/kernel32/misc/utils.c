@@ -9,12 +9,10 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#ifdef _M_IX86
 #include "i386/ketypes.h"
-#endif
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 /* GLOBALS ******************************************************************/
 
@@ -26,7 +24,7 @@ PRTL_CONVERT_STRING Basep8BitStringToUnicodeString;
  * Converts an ANSI or OEM String to the specified Unicode String
  */
 NTSTATUS
-WINAPI
+STDCALL
 Basep8BitStringToLiveUnicodeString(OUT PUNICODE_STRING UnicodeString,
                                    IN LPCSTR String)
 {
@@ -54,7 +52,7 @@ Basep8BitStringToLiveUnicodeString(OUT PUNICODE_STRING UnicodeString,
  * Converts an ANSI or OEM String to the TEB StaticUnicodeString
  */
 PUNICODE_STRING
-WINAPI
+STDCALL
 Basep8BitStringToCachedUnicodeString(IN LPCSTR String)
 {
     PUNICODE_STRING StaticString = &NtCurrentTeb()->StaticUnicodeString;
@@ -81,7 +79,7 @@ Basep8BitStringToCachedUnicodeString(IN LPCSTR String)
 }
 
 NTSTATUS
-WINAPI
+STDCALL
 Basep8BitStringToHeapUnicodeString(OUT PUNICODE_STRING UnicodeString,
                                    IN LPCSTR String)
 {
@@ -109,7 +107,7 @@ Basep8BitStringToHeapUnicodeString(OUT PUNICODE_STRING UnicodeString,
  * Allocates space from the Heap and converts an Ansi String into it
  */
 VOID
-WINAPI
+STDCALL
 BasepAnsiStringToHeapUnicodeString(IN LPCSTR AnsiString,
                                    OUT LPWSTR* UnicodeString)
 {
@@ -137,7 +135,7 @@ BasepAnsiStringToHeapUnicodeString(IN LPCSTR AnsiString,
  * Converts lpSecurityAttributes + Object Name into ObjectAttributes.
  */
 POBJECT_ATTRIBUTES
-WINAPI
+STDCALL
 BasepConvertObjectAttributes(OUT POBJECT_ATTRIBUTES ObjectAttributes,
                              IN PSECURITY_ATTRIBUTES SecurityAttributes OPTIONAL,
                              IN PUNICODE_STRING ObjectName)
@@ -187,7 +185,7 @@ BasepConvertObjectAttributes(OUT POBJECT_ATTRIBUTES ObjectAttributes,
  * Creates a stack for a thread or fiber
  */
 NTSTATUS
-WINAPI
+STDCALL
 BasepCreateStack(HANDLE hProcess,
                  ULONG StackReserve,
                  ULONG StackCommit,
@@ -257,8 +255,6 @@ BasepCreateStack(HANDLE hProcess,
     /* Now set up some basic Initial TEB Parameters */
     InitialTeb->AllocatedStackBase = (PVOID)Stack;
     InitialTeb->StackBase = (PVOID)(Stack + StackReserve);
-    InitialTeb->PreviousStackBase = NULL;
-    InitialTeb->PreviousStackLimit = NULL;
     
     /* Update the Stack Position */
     Stack += StackReserve - StackCommit;
@@ -314,7 +310,7 @@ BasepCreateStack(HANDLE hProcess,
 }
 
 VOID
-WINAPI
+STDCALL
 BasepFreeStack(HANDLE hProcess,
                PINITIAL_TEB InitialTeb)
 {
@@ -331,14 +327,13 @@ BasepFreeStack(HANDLE hProcess,
  * Creates the Initial Context for a Thread or Fiber
  */
 VOID
-WINAPI
+STDCALL
 BasepInitializeContext(IN PCONTEXT Context,
                        IN PVOID Parameter,
                        IN PVOID StartAddress,
                        IN PVOID StackAddress,
                        IN ULONG ContextType)
 {
-#ifdef _M_IX86
     DPRINT("BasepInitializeContext: %p\n", Context);
     
     /* Setup the Initial Win32 Thread Context */
@@ -376,18 +371,13 @@ BasepInitializeContext(IN PCONTEXT Context,
     
     /* Give it some room for the Parameter */
     Context->Esp -= sizeof(PVOID);
-#else
-#warning Unknown architecture
-    UNIMPLEMENTED;
-    DbgBreakPoint();
-#endif
 }
 
 /*
  * Checks if the privilege for Real-Time Priority is there
  */
 BOOLEAN
-WINAPI
+STDCALL
 BasepCheckRealTimePrivilege(VOID)
 {
     return TRUE;
@@ -397,7 +387,7 @@ BasepCheckRealTimePrivilege(VOID)
  * Maps an image file into a section
  */
 NTSTATUS
-WINAPI
+STDCALL
 BasepMapFile(IN LPCWSTR lpApplicationName,
              OUT PHANDLE hSection,
              IN PUNICODE_STRING ApplicationName)
@@ -414,14 +404,10 @@ BasepMapFile(IN LPCWSTR lpApplicationName,
     RelativeName.Handle = NULL;
 
     /* Find the application name */
-    if (!RtlDosPathNameToNtPathName_U(lpApplicationName,
-                                      ApplicationName,
-                                      NULL,
-                                      &RelativeName))
-    {
-        return STATUS_OBJECT_PATH_NOT_FOUND;
-    }
-
+    RtlDosPathNameToNtPathName_U(lpApplicationName,
+                                 ApplicationName,
+                                 NULL,
+                                 &RelativeName);
     DPRINT("ApplicationName %wZ\n", ApplicationName);
     DPRINT("RelativeName %wZ\n", &RelativeName.DosPath);
     
@@ -448,7 +434,7 @@ BasepMapFile(IN LPCWSTR lpApplicationName,
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Failed to open file\n");
-        SetLastErrorByStatus(Status);
+        SetLastErrorByStatus (Status);
         return Status;
     }
     

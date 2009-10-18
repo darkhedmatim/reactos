@@ -14,6 +14,7 @@
 
 /* GLOBALS *******************************************************************/
 
+HALP_HOOKS HalpHooks;
 BOOLEAN HalpPciLockSettings;
 
 /* PRIVATE FUNCTIONS *********************************************************/
@@ -101,7 +102,7 @@ HalInitSystem(IN ULONG BootPhase,
         HalpInitializeClock();
 
         /* Setup busy waiting */
-        HalpCalibrateStallExecution();
+        //HalpCalibrateStallExecution();
 
         /* Fill out the dispatch tables */
         HalQuerySystemInformation = HaliQuerySystemInformation;
@@ -109,14 +110,9 @@ HalInitSystem(IN ULONG BootPhase,
         HalInitPnpDriver = NULL; // FIXME: TODO
         HalGetDmaAdapter = HalpGetDmaAdapter;
         HalGetInterruptTranslator = NULL;  // FIXME: TODO
-        HalResetDisplay = HalpBiosDisplayReset;
-        HalHaltSystem = HaliHaltSystem;
 
         /* Initialize the hardware lock (CMOS) */
         KeInitializeSpinLock(&HalpSystemHardwareLock);
-
-        /* Do some HAL-specific initialization */
-        HalpInitPhase0(LoaderBlock);
     }
     else if (BootPhase == 1)
     {
@@ -127,14 +123,11 @@ HalInitSystem(IN ULONG BootPhase,
         ((PKIPCR)KeGetPcr())->IDT[0x30].ExtendedOffset =
             (USHORT)(((ULONG_PTR)HalpClockInterrupt >> 16) & 0xFFFF);
         ((PKIPCR)KeGetPcr())->IDT[0x30].Offset =
-            (USHORT)((ULONG_PTR)HalpClockInterrupt);
+            (ULONG_PTR)HalpClockInterrupt;
         HalEnableSystemInterrupt(0x30, CLOCK2_LEVEL, Latched);
 
         /* Initialize DMA. NT does this in Phase 0 */
         HalpInitDma();
-
-        /* Do some HAL-specific initialization */
-        HalpInitPhase1();
     }
 
     /* All done, return */

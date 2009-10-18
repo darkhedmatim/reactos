@@ -711,7 +711,6 @@ const struct sbcs_table cptable_28595 =
 {
     { 28595, 1, 0x003f, 0x003f, "ISO 8859-5 Cyrillic" },
     cp2uni,
-    cp2uni,
     uni2cp_low,
     uni2cp_high
 };

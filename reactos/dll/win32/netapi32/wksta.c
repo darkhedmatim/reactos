@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -35,6 +35,7 @@
 #include "lmwksta.h"
 #include "iphlpapi.h"
 #include "winerror.h"
+#include "winreg.h"
 #include "ntsecapi.h"
 #include "netbios.h"
 #include "wine/debug.h"
@@ -46,7 +47,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(netapi32);
  *
  * Checks whether the server name indicates local machine.
  */
-BOOL NETAPI_IsLocalComputer(LMCSTR ServerName)
+BOOL NETAPI_IsLocalComputer(LPCWSTR ServerName)
 {
     if (!ServerName)
     {
@@ -71,7 +72,7 @@ BOOL NETAPI_IsLocalComputer(LMCSTR ServerName)
     }
 }
 
-static void wprint_mac(WCHAR* buffer, int len, const MIB_IFROW *ifRow)
+static void wprint_mac(WCHAR* buffer, int len, PMIB_IFROW ifRow)
 {
     int i;
     unsigned char val;
@@ -98,12 +99,12 @@ static void wprint_mac(WCHAR* buffer, int len, const MIB_IFROW *ifRow)
         else
             buffer[2*i+1] = (WCHAR)((val & 0xf) + '0');
     }
-    buffer[2*i]=0;
+    buffer[2*i]=(WCHAR)0;
 }
 
 /* Theoretically this could be too short, except that MS defines
  * MAX_ADAPTER_NAME as 128, and MAX_INTERFACE_NAME_LEN as 256, and both
- * represent a count of WCHARs, so even with an extraordinarily long header
+ * represent a count of WCHARs, so even with an extroardinarily long header
  * this will be plenty
  */
 #define MAX_TRANSPORT_NAME MAX_INTERFACE_NAME_LEN
@@ -157,7 +158,8 @@ static BOOL WkstaEnumAdaptersCallback(UCHAR totalLANAs, UCHAR lanaIndex,
  ULONG transport, const NetBIOSAdapterImpl *data, void *closure)
 {
     BOOL ret;
-    struct WkstaTransportEnumData *enumData = closure;
+    struct WkstaTransportEnumData *enumData = (struct WkstaTransportEnumData *)
+     closure;
 
     if (enumData && enumData->pbuf)
     {
@@ -188,15 +190,15 @@ static BOOL WkstaEnumAdaptersCallback(UCHAR totalLANAs, UCHAR lanaIndex,
             if (enumData->n_read < spaceFor)
             {
                 PWKSTA_TRANSPORT_INFO_0 ti;
-                LMSTR transport_name, transport_addr;
+                LPWSTR transport_name, transport_addr;
                 MIB_IFROW ifRow;
 
                 ti = (PWKSTA_TRANSPORT_INFO_0)(*(enumData->pbuf) +
                  enumData->n_read * sizeof(WKSTA_TRANSPORT_INFO_0));
-                transport_name = (LMSTR)(*(enumData->pbuf) +
+                transport_name = (LPWSTR)(*(enumData->pbuf) +
                  totalLANAs * sizeof(WKSTA_TRANSPORT_INFO_0) +
                  enumData->n_read * MAX_TRANSPORT_NAME * sizeof(WCHAR));
-                transport_addr = (LMSTR)(*(enumData->pbuf) +
+                transport_addr = (LPWSTR)(*(enumData->pbuf) +
                  totalLANAs * (sizeof(WKSTA_TRANSPORT_INFO_0) +
                  MAX_TRANSPORT_NAME * sizeof(WCHAR)) +
                  enumData->n_read * MAX_TRANSPORT_ADDR * sizeof(WCHAR));
@@ -246,13 +248,13 @@ static BOOL WkstaEnumAdaptersCallback(UCHAR totalLANAs, UCHAR lanaIndex,
 /**********************************************************************/
 
 NET_API_STATUS WINAPI 
-NetWkstaTransportEnum(LMSTR ServerName, DWORD level, PBYTE* pbuf,
+NetWkstaTransportEnum(LPWSTR ServerName, DWORD level, PBYTE* pbuf,
       DWORD prefmaxlen, LPDWORD read_entries,
       PDWORD total_entries, PDWORD hresume)
 {
     NET_API_STATUS ret;
 
-    TRACE(":%s, 0x%08x, %p, 0x%08x, %p, %p, %p\n", debugstr_w(ServerName), 
+    TRACE(":%s, 0x%08lx, %p, 0x%08lx, %p, %p, %p\n", debugstr_w(ServerName), 
      level, pbuf, prefmaxlen, read_entries, total_entries,hresume);
     if (!NETAPI_IsLocalComputer(ServerName))
     {
@@ -293,7 +295,7 @@ NetWkstaTransportEnum(LMSTR ServerName, DWORD level, PBYTE* pbuf,
                 break;
             }
             default:
-                TRACE("Invalid level %d is specified\n", level);
+                ERR("Invalid level %ld is specified\n", level);
                 ret = ERROR_INVALID_LEVEL;
         }
     }
@@ -304,12 +306,10 @@ NetWkstaTransportEnum(LMSTR ServerName, DWORD level, PBYTE* pbuf,
 /************************************************************
  *                NetWkstaUserGetInfo  (NETAPI32.@)
  */
-NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
+NET_API_STATUS WINAPI NetWkstaUserGetInfo(LPWSTR reserved, DWORD level,
                                           PBYTE* bufptr)
 {
-    NET_API_STATUS nastatus;
-
-    TRACE("(%s, %d, %p)\n", debugstr_w(reserved), level, bufptr);
+    TRACE("(%s, %ld, %p)\n", debugstr_w(reserved), level, bufptr);
     switch (level)
     {
     case 0:
@@ -318,13 +318,11 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
         DWORD dwSize = UNLEN + 1;
 
         /* set up buffer */
-        nastatus = NetApiBufferAllocate(sizeof(WKSTA_USER_INFO_0) + dwSize * sizeof(WCHAR),
+        NetApiBufferAllocate(sizeof(WKSTA_USER_INFO_0) + dwSize * sizeof(WCHAR),
                              (LPVOID *) bufptr);
-        if (nastatus != NERR_Success)
-            return ERROR_NOT_ENOUGH_MEMORY;
 
         ui = (PWKSTA_USER_INFO_0) *bufptr;
-        ui->wkui0_username = (LMSTR) (*bufptr + sizeof(WKSTA_USER_INFO_0));
+        ui->wkui0_username = (LPWSTR) (*bufptr + sizeof(WKSTA_USER_INFO_0));
 
         /* get data */
         if (!GetUserNameW(ui->wkui0_username, &dwSize))
@@ -332,14 +330,11 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
             NetApiBufferFree(ui);
             return ERROR_NOT_ENOUGH_MEMORY;
         }
-        else {
-            nastatus = NetApiBufferReallocate(
+        else
+            NetApiBufferReallocate(
                 *bufptr, sizeof(WKSTA_USER_INFO_0) +
                 (lstrlenW(ui->wkui0_username) + 1) * sizeof(WCHAR),
                 (LPVOID *) bufptr);
-            if (nastatus != NERR_Success)
-                return nastatus;
-        }
         break;
     }
 
@@ -347,6 +342,7 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
     {
         PWKSTA_USER_INFO_1 ui;
         PWKSTA_USER_INFO_0 ui0;
+        DWORD dwSize;
         LSA_OBJECT_ATTRIBUTES ObjectAttributes;
         LSA_HANDLE PolicyHandle;
         PPOLICY_ACCOUNT_DOMAIN_INFO DomainInfo;
@@ -361,9 +357,7 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
 
         /* get some information first to estimate size of the buffer */
         ui0 = NULL;
-        nastatus = NetWkstaUserGetInfo(NULL, 0, (PBYTE *) &ui0);
-        if (nastatus != NERR_Success)
-            return nastatus;
+        NetWkstaUserGetInfo(NULL, 0, (PBYTE *) &ui0);
         username_sz = lstrlenW(ui0->wkui0_username) + 1;
 
         ZeroMemory(&ObjectAttributes, sizeof(ObjectAttributes));
@@ -372,7 +366,7 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
                                  &PolicyHandle);
         if (NtStatus != STATUS_SUCCESS)
         {
-            TRACE("LsaOpenPolicyFailed with NT status %x\n",
+            ERR("LsaOpenPolicyFailed with NT status %lx\n",
                 LsaNtStatusToWinError(NtStatus));
             NetApiBufferFree(ui0);
             return ERROR_NOT_ENOUGH_MEMORY;
@@ -383,26 +377,23 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
         LsaClose(PolicyHandle);
 
         /* set up buffer */
-        nastatus = NetApiBufferAllocate(sizeof(WKSTA_USER_INFO_1) +
+        NetApiBufferAllocate(sizeof(WKSTA_USER_INFO_1) +
                              (username_sz + logon_domain_sz +
                               oth_domains_sz + logon_server_sz) * sizeof(WCHAR),
                              (LPVOID *) bufptr);
-        if (nastatus != NERR_Success) {
-            NetApiBufferFree(ui0);
-            return nastatus;
-        }
         ui = (WKSTA_USER_INFO_1 *) *bufptr;
-        ui->wkui1_username = (LMSTR) (*bufptr + sizeof(WKSTA_USER_INFO_1));
-        ui->wkui1_logon_domain = (LMSTR) (
+        ui->wkui1_username = (LPWSTR) (*bufptr + sizeof(WKSTA_USER_INFO_1));
+        ui->wkui1_logon_domain = (LPWSTR) (
             ((PBYTE) ui->wkui1_username) + username_sz * sizeof(WCHAR));
-        ui->wkui1_oth_domains = (LMSTR) (
+        ui->wkui1_oth_domains = (LPWSTR) (
             ((PBYTE) ui->wkui1_logon_domain) +
             logon_domain_sz * sizeof(WCHAR));
-        ui->wkui1_logon_server = (LMSTR) (
+        ui->wkui1_logon_server = (LPWSTR) (
             ((PBYTE) ui->wkui1_oth_domains) +
             oth_domains_sz * sizeof(WCHAR));
 
         /* get data */
+        dwSize = username_sz;
         lstrcpyW(ui->wkui1_username, ui0->wkui0_username);
         NetApiBufferFree(ui0);
 
@@ -424,35 +415,21 @@ NET_API_STATUS WINAPI NetWkstaUserGetInfo(LMSTR reserved, DWORD level,
         /* FIXME see also wkui1_oth_domains for level 1 */
 
         /* set up buffer */
-        nastatus = NetApiBufferAllocate(sizeof(WKSTA_USER_INFO_1101) + dwSize * sizeof(WCHAR),
+        NetApiBufferAllocate(sizeof(WKSTA_USER_INFO_1101) + dwSize * sizeof(WCHAR),
                              (LPVOID *) bufptr);
-        if (nastatus != NERR_Success)
-            return nastatus;
+
         ui = (PWKSTA_USER_INFO_1101) *bufptr;
-        ui->wkui1101_oth_domains = (LMSTR)(ui + 1);
+        ui->wkui1101_oth_domains = (LPWSTR)(ui + 1);
 
         /* get data */
         ui->wkui1101_oth_domains[0] = 0;
         break;
     }
     default:
-        TRACE("Invalid level %d is specified\n", level);
+        ERR("Invalid level %ld is specified\n", level);
         return ERROR_INVALID_LEVEL;
     }
     return NERR_Success;
-}
-
-/************************************************************
- *                NetWkstaUserEnum  (NETAPI32.@)
- */
-NET_API_STATUS WINAPI
-NetWkstaUserEnum(LMSTR servername, DWORD level, LPBYTE* bufptr,
-                 DWORD prefmaxlen, LPDWORD entriesread,
-                 LPDWORD totalentries, LPDWORD resumehandle)
-{
-    FIXME("(%s, %d, %p, %d, %p, %p, %p): stub!\n", debugstr_w(servername),
-          level, bufptr, prefmaxlen, entriesread, totalentries, resumehandle);
-    return ERROR_INVALID_PARAMETER;
 }
 
 /************************************************************
@@ -466,9 +443,10 @@ NET_API_STATUS WINAPI NetpGetComputerName(LPWSTR *Buffer)
     NetApiBufferAllocate(dwSize * sizeof(WCHAR), (LPVOID *) Buffer);
     if (GetComputerNameW(*Buffer,  &dwSize))
     {
-        return NetApiBufferReallocate(
-            *Buffer, (dwSize + 1) * sizeof(WCHAR),
+        NetApiBufferReallocate(
+            *Buffer, dwSize * sizeof(WCHAR),
             (LPVOID *) Buffer);
+        return NERR_Success;
     }
     else
     {
@@ -492,12 +470,12 @@ NET_API_STATUS WINAPI I_NetNameValidate(LPVOID p1, LPWSTR wkgrp, LPVOID p3,
     return ERROR_INVALID_PARAMETER;
 }
 
-NET_API_STATUS WINAPI NetWkstaGetInfo( LMSTR servername, DWORD level,
+NET_API_STATUS WINAPI NetWkstaGetInfo( LPWSTR servername, DWORD level,
                                        LPBYTE* bufptr)
 {
     NET_API_STATUS ret;
 
-    TRACE("%s %d %p\n", debugstr_w( servername ), level, bufptr );
+    TRACE("%s %ld %p\n", debugstr_w( servername ), level, bufptr );
     if (servername)
     {
         if (!NETAPI_IsLocalComputer(servername))
@@ -511,10 +489,7 @@ NET_API_STATUS WINAPI NetWkstaGetInfo( LMSTR servername, DWORD level,
     switch (level)
     {
         case 100:
-        case 101:
-        case 102:
         {
-            static const WCHAR lanroot[] = {'c',':','\\','l','a','n','m','a','n',0};  /* FIXME */
             DWORD computerNameLen, domainNameLen, size;
             WCHAR computerName[MAX_COMPUTERNAME_LENGTH + 1];
             LSA_OBJECT_ATTRIBUTES ObjectAttributes;
@@ -537,31 +512,28 @@ NET_API_STATUS WINAPI NetWkstaGetInfo( LMSTR servername, DWORD level,
                 LsaQueryInformationPolicy(PolicyHandle,
                  PolicyAccountDomainInformation, (PVOID*)&DomainInfo);
                 domainNameLen = lstrlenW(DomainInfo->DomainName.Buffer) + 1;
-                size = sizeof(WKSTA_INFO_102) + computerNameLen * sizeof(WCHAR)
-                    + domainNameLen * sizeof(WCHAR) + sizeof(lanroot);
+                size = sizeof(WKSTA_INFO_100) + computerNameLen * sizeof(WCHAR)
+                 + domainNameLen * sizeof(WCHAR);
                 ret = NetApiBufferAllocate(size, (LPVOID *)bufptr);
                 if (ret == NERR_Success)
                 {
-                    /* INFO_100 and INFO_101 structures are subsets of INFO_102 */
-                    PWKSTA_INFO_102 info = (PWKSTA_INFO_102)*bufptr;
+                    PWKSTA_INFO_100 info = (PWKSTA_INFO_100)*bufptr;
                     OSVERSIONINFOW verInfo;
 
-                    info->wki102_platform_id = PLATFORM_ID_NT;
-                    info->wki102_computername = (LMSTR)(*bufptr +
-                     sizeof(WKSTA_INFO_102));
-                    memcpy(info->wki102_computername, computerName,
+                    info->wki100_platform_id = PLATFORM_ID_NT;
+                    info->wki100_computername = (LPWSTR)(*bufptr +
+                     sizeof(WKSTA_INFO_100));
+                    memcpy(info->wki100_computername, computerName,
                      computerNameLen * sizeof(WCHAR));
-                    info->wki102_langroup = info->wki102_computername + computerNameLen;
-                    memcpy(info->wki102_langroup, DomainInfo->DomainName.Buffer,
+                    info->wki100_langroup = (LPWSTR)(*bufptr +
+                     sizeof(WKSTA_INFO_100) + computerNameLen * sizeof(WCHAR));
+                    memcpy(info->wki100_langroup, DomainInfo->DomainName.Buffer,
                      domainNameLen * sizeof(WCHAR));
-                    info->wki102_lanroot = info->wki102_langroup + domainNameLen;
-                    memcpy(info->wki102_lanroot, lanroot, sizeof(lanroot));
                     memset(&verInfo, 0, sizeof(verInfo));
                     verInfo.dwOSVersionInfoSize = sizeof(verInfo);
                     GetVersionExW(&verInfo);
-                    info->wki102_ver_major = verInfo.dwMajorVersion;
-                    info->wki102_ver_minor = verInfo.dwMinorVersion;
-                    info->wki102_logged_on_users = 1;
+                    info->wki100_ver_major = verInfo.dwMajorVersion;
+                    info->wki100_ver_minor = verInfo.dwMinorVersion;
                 }
                 LsaFreeMemory(DomainInfo);
                 LsaClose(PolicyHandle);
@@ -570,7 +542,7 @@ NET_API_STATUS WINAPI NetWkstaGetInfo( LMSTR servername, DWORD level,
         }
 
         default:
-            FIXME("level %d unimplemented\n", level);
+            FIXME("level %ld unimplemented\n", level);
             ret = ERROR_INVALID_LEVEL;
     }
     return ret;

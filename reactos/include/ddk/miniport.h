@@ -20,8 +20,12 @@
  *
  */
 
-#ifndef _MINIPORT_
-#define _MINIPORT_
+#ifndef __MINIPORT_H
+#define __MINIPORT_H
+
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,8 +62,8 @@ typedef struct _VIDEO_ACCESS_RANGE {
 } VIDEO_ACCESS_RANGE, *PVIDEO_ACCESS_RANGE;
 #endif
 
-typedef VOID
-(DDKAPI *PBANKED_SECTION_ROUTINE)(
+typedef VOID DDKAPI
+(*PBANKED_SECTION_ROUTINE)(
   IN ULONG  ReadBank,
   IN ULONG  WriteBank,
   IN PVOID  Context);

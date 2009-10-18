@@ -2,25 +2,25 @@
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Kernel
  * FILE:            ntoskrnl/kd/kdinit.c
- * PURPOSE:         Kernel Debugger Initialization
+ * PURPOSE:         Kernel Debugger Initializtion
  *
  * PROGRAMMERS:     Alex Ionescu (alex@relsoft.net)
  */
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* VARIABLES ***************************************************************/
 
 BOOLEAN KdDebuggerEnabled = FALSE;
 BOOLEAN KdEnteredDebugger = FALSE;
 BOOLEAN KdDebuggerNotPresent = TRUE;
+BOOLEAN KiEnableTimerWatchdog = FALSE;
 BOOLEAN KdBreakAfterSymbolLoad = FALSE;
-BOOLEAN KdpBreakPending = FALSE;
-BOOLEAN KdPitchDebugger = TRUE;
-BOOLEAN KdIgnoreUmExceptions = FALSE;
-VOID NTAPI PspDumpThreads(BOOLEAN SystemThreads);
+ULONG KiBugCheckData;
+BOOLEAN KdpBreakPending;
+VOID STDCALL PspDumpThreads(BOOLEAN SystemThreads);
 
 typedef struct
 {
@@ -31,12 +31,10 @@ typedef struct
 KD_COMPONENT_DATA KdComponentTable[MAX_KD_COMPONENT_TABLE_ENTRIES];
 ULONG KdComponentTableEntries = 0;
 
-ULONG Kd_DEFAULT_MASK = 1 << DPFLTR_ERROR_LEVEL;
-
 /* PRIVATE FUNCTIONS *********************************************************/
 
 ULONG
-NTAPI
+STDCALL
 KdpServiceDispatcher(ULONG Service,
                      PVOID Buffer1,
                      ULONG Buffer1Length)
@@ -49,13 +47,29 @@ KdpServiceDispatcher(ULONG Service,
             Result = KdpPrintString(Buffer1, Buffer1Length);
             break;
 
-#if DBG
-        case ' soR': /* ROS-INTERNAL */
+#ifdef DBG
+        case TAG('R', 'o', 's', ' '): /* ROS-INTERNAL */
         {
             switch ((ULONG)Buffer1)
             {
+                case DumpNonPagedPool:
+                    MiDebugDumpNonPagedPool(FALSE);
+                    break;
+
                 case ManualBugCheck:
-                    KeBugCheck(MANUALLY_INITIATED_CRASH);
+                    KEBUGCHECK(MANUALLY_INITIATED_CRASH);
+                    break;
+
+                case DumpNonPagedPoolStats:
+                    MiDebugDumpNonPagedPoolStats(FALSE);
+                    break;
+
+                case DumpNewNonPagedPool:
+                    MiDebugDumpNonPagedPool(TRUE);
+                    break;
+
+                case DumpNewNonPagedPoolStats:
+                    MiDebugDumpNonPagedPoolStats(TRUE);
                     break;
 
                 case DumpAllThreads:
@@ -69,22 +83,10 @@ KdpServiceDispatcher(ULONG Service,
                 case EnterDebugger:
                     DbgBreakPoint();
                     break;
-                    
-                case ThatsWhatSheSaid:
-                    MmDumpPfnDatabase();
-                    break;
 
                 default:
                     break;
             }
-            break;
-        }
-
-        /* Special  case for stack frame dumps */
-        case 'DsoR':
-        {
-            KeRosDumpStackFrames((PULONG)Buffer1, Buffer1Length);
-            break;
         }
 #endif
         default:
@@ -104,69 +106,24 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
                           IN KPROCESSOR_MODE PreviousMode,
                           IN BOOLEAN SecondChance)
 {
-    KD_CONTINUE_TYPE Return = kdHandleException;
-    ULONG ExceptionCommand = ExceptionRecord->ExceptionInformation[0];
+    KD_CONTINUE_TYPE Return;
 
-    /* Check if this was a breakpoint due to DbgPrint or Load/UnloadSymbols */
-    if ((ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT) &&
-        (ExceptionRecord->NumberParameters > 0) &&
-        ((ExceptionCommand == BREAKPOINT_LOAD_SYMBOLS) ||
-         (ExceptionCommand == BREAKPOINT_UNLOAD_SYMBOLS) ||
-         (ExceptionCommand == BREAKPOINT_COMMAND_STRING) ||
-         (ExceptionCommand == BREAKPOINT_PRINT)))
-    {
-        /* Check if this is a debug print */
-        if (ExceptionCommand == BREAKPOINT_PRINT)
-        {
-            /* Print the string */
-            KdpServiceDispatcher(BREAKPOINT_PRINT,
-                                 (PVOID)ExceptionRecord->ExceptionInformation[1],
-                                 ExceptionRecord->ExceptionInformation[2]);
-
-            /* Return success */
-            KeSetContextReturnRegister(Context, STATUS_SUCCESS);
-        }
-        else if (ExceptionCommand == BREAKPOINT_LOAD_SYMBOLS)
-        {
-#ifdef KDBG
-            PLDR_DATA_TABLE_ENTRY LdrEntry;
-
-            /* Load symbols. Currently implemented only for KDBG! */
-            if(KdbpSymFindModule(((PKD_SYMBOLS_INFO)ExceptionRecord->ExceptionInformation[2])->BaseOfDll, NULL, -1, &LdrEntry))
-                KdbSymProcessSymbols(LdrEntry);
-#endif
-        }
-
-        /* This we can handle: simply bump the Program Counter */
-        KeSetContextPc(Context, KeGetContextPc(Context) + KD_BREAKPOINT_SIZE);
-        return TRUE;
-    }
+    /* HACK (just like all this routine */
+    if (ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT) Context->Eip++;
 
     /* Get out of here if the Debugger isn't connected */
     if (KdDebuggerNotPresent) return FALSE;
 
-#ifdef KDBG
     /* Call KDBG if available */
     Return = KdbEnterDebuggerException(ExceptionRecord,
                                        PreviousMode,
                                        Context,
                                        TrapFrame,
                                        !SecondChance);
-#else /* not KDBG */
-    if (WrapperInitRoutine)
-    {
-        /* Call GDB */
-        Return = WrapperTable.KdpExceptionRoutine(ExceptionRecord,
-                                                  Context,
-                                                  TrapFrame);
-    }
-#endif /* not KDBG */
 
-    /* Debugger didn't handle it, please handle! */
-    if (Return == kdHandleException) return FALSE;
-
-    /* Debugger handled it */
-    return TRUE;
+    /* Convert return to BOOLEAN */
+    if (Return == kdContinue) return TRUE;
+    return FALSE;
 }
 
 BOOLEAN
@@ -193,20 +150,8 @@ KdpCallGdb(IN PKTRAP_FRAME TrapFrame,
                                                   TrapFrame);
     }
 
-    /* Debugger didn't handle it, please handle! */
-    if (Return == kdHandleException) return FALSE;
-
-    /* Debugger handled it */
-    return TRUE;
-}
-
-BOOLEAN
-NTAPI
-KdIsThisAKdTrap(IN PEXCEPTION_RECORD ExceptionRecord,
-                IN PCONTEXT Context,
-                IN KPROCESSOR_MODE PreviousMode)
-{
-    /* KDBG has its own mechanism for ignoring user mode exceptions */
+    /* Convert return to BOOLEAN */
+    if (Return == kdContinue) return TRUE;
     return FALSE;
 }
 
@@ -215,21 +160,8 @@ KdIsThisAKdTrap(IN PEXCEPTION_RECORD ExceptionRecord,
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
-KdRefreshDebuggerNotPresent(VOID)
-{
-    UNIMPLEMENTED;
-
-    /* Just return whatever was set previously -- FIXME! */
-    return KdDebuggerNotPresent;
-}
-
-/*
- * @implemented
- */
 NTSTATUS
-NTAPI
+STDCALL
 KdDisableDebugger(VOID)
 {
     KIRQL OldIrql;
@@ -253,7 +185,7 @@ KdDisableDebugger(VOID)
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 KdEnableDebugger(VOID)
 {
     KIRQL OldIrql;
@@ -277,17 +209,33 @@ KdEnableDebugger(VOID)
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 KdPollBreakIn(VOID)
 {
     return KdpBreakPending;
 }
 
 /*
+ * @implemented
+ */
+VOID
+STDCALL
+KeEnterKernelDebugger(VOID)
+{
+    HalDisplayString("\n\n *** Entered kernel debugger ***\n");
+
+    /* Set the Variable */
+    KdEnteredDebugger = TRUE;
+
+    /* Halt the CPU */
+    for (;;) Ke386HaltProcessor();
+}
+
+/*
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 KdPowerTransition(ULONG PowerState)
 {
     UNIMPLEMENTED;
@@ -297,8 +245,8 @@ KdPowerTransition(ULONG PowerState)
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
+VOID
+STDCALL
 KdChangeOption(IN KD_OPTION Option,
                IN ULONG InBufferLength OPTIONAL,
                IN PVOID InBuffer,
@@ -307,109 +255,57 @@ KdChangeOption(IN KD_OPTION Option,
                OUT PULONG OutBufferRequiredLength OPTIONAL)
 {
     UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }
 
 
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryDebugFilterState(IN ULONG ComponentId,
                         IN ULONG Level)
 {
-    ULONG i;
+	unsigned int i;
 
-    /* Convert Level to mask if it isn't already one */
-    if (Level < 32)
-        Level = 1 << Level;
+	/* convert Level to mask if it isn't already one */
+	if ( Level < 32 )
+		Level = 1 << Level;
 
-    /* Check if it is not the default component */
-    if (ComponentId != DPFLTR_DEFAULT_ID)
-    {
-        /* No, search for an existing entry in the table */
-        for (i = 0; i < KdComponentTableEntries; i++)
-        {
-            /* Check if it is the right component */
-            if (ComponentId == KdComponentTable[i].ComponentId)
-            {
-                /* Check if mask are matching */
-                return (Level & KdComponentTable[i].Level) != 0;
-            }
-        }
-    }
-
-    /* Entry not found in the table, use default mask */
-    return (Level & Kd_DEFAULT_MASK) != 0;
+	for ( i = 0; i < KdComponentTableEntries; i++ )
+	{
+		if ( ComponentId == KdComponentTable[i].ComponentId )
+		{
+			if ( Level & KdComponentTable[i].Level )
+				return TRUE;
+			break;
+		}
+	}
+	return FALSE;
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 NtSetDebugFilterState(IN ULONG ComponentId,
                       IN ULONG Level,
                       IN BOOLEAN State)
 {
-    ULONG i;
-
-    /* Convert Level to mask if it isn't already one */
-    if (Level < 32)
-        Level = 1 << Level;
-    Level &= ~DPFLTR_MASK;
-
-    /* Check if it is the default component */
-    if (ComponentId == DPFLTR_DEFAULT_ID)
-    {
-        /* Yes, modify the default mask */
-        if (State)
-            Kd_DEFAULT_MASK |= Level;
-        else
-            Kd_DEFAULT_MASK &= ~Level;
-
-        return STATUS_SUCCESS;
-    }
-
-    /* Search for an existing entry */
-    for (i = 0; i < KdComponentTableEntries; i++ )
-    {
-        if (ComponentId == KdComponentTable[i].ComponentId)
-            break;
-    }
-
-    /* Check if we have found an existing entry */
-    if (i == KdComponentTableEntries)
-    {
-        /* Check if we have enough space in the table */
-        if (i == MAX_KD_COMPONENT_TABLE_ENTRIES)
-            return STATUS_INVALID_PARAMETER_1;
-
-        /* Add a new entry */
-        ++KdComponentTableEntries;
-        KdComponentTable[i].ComponentId = ComponentId;
-        KdComponentTable[i].Level = Kd_DEFAULT_MASK;
-    }
-
-    /* Update entry table */
-    if (State)
-        KdComponentTable[i].Level |= Level;
-    else
-        KdComponentTable[i].Level &= ~Level;
-
-    return STATUS_SUCCESS;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-KdSystemDebugControl(IN SYSDBG_COMMAND Command,
-                     IN PVOID InputBuffer,
-                     IN ULONG InputBufferLength,
-                     OUT PVOID OutputBuffer,
-                     IN ULONG OutputBufferLength,
-                     IN OUT PULONG ReturnLength,
-                     IN KPROCESSOR_MODE PreviousMode)
-{
-    /* HACK */
-    return KdpServiceDispatcher(Command, InputBuffer, InputBufferLength);
+	unsigned int i;
+	for ( i = 0; i < KdComponentTableEntries; i++ )
+	{
+		if ( ComponentId == KdComponentTable[i].ComponentId )
+			break;
+	}
+	if ( i == KdComponentTableEntries )
+	{
+		if ( i == MAX_KD_COMPONENT_TABLE_ENTRIES )
+			return STATUS_INVALID_PARAMETER_1;
+		++KdComponentTableEntries;
+		KdComponentTable[i].ComponentId = ComponentId;
+		KdComponentTable[i].Level = 0;
+	}
+	if ( State )
+		KdComponentTable[i].Level |= Level;
+	else
+		KdComponentTable[i].Level &= ~Level;
+	return STATUS_SUCCESS;
 }
 
 PKDEBUG_ROUTINE KiDebugRoutine = KdpEnterDebuggerException;

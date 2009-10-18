@@ -21,18 +21,12 @@
 #ifndef __ARCH_H
 #define __ARCH_H
 
-#ifdef _M_AMD64
-#include <arch/amd64/amd64.h>
-#endif
-
-#if defined (_M_IX86)
 /* Defines needed for switching between real and protected mode */
 #define NULL_DESC	0x00	/* NULL descriptor */
 #define PMODE_CS	0x08	/* PMode code selector, base 0 limit 4g */
 #define PMODE_DS	0x10	/* PMode data selector, base 0 limit 4g */
 #define RMODE_CS	0x18	/* RMode code selector, base 0 limit 64k */
 #define RMODE_DS	0x20	/* RMode data selector, base 0 limit 64k */
-#endif
 
 #define CR0_PE_SET	0x00000001	/* OR this value with CR0 to enable pmode */
 #define CR0_PE_CLR	0xFFFFFFFE	/* AND this value with CR0 to disable pmode */
@@ -40,17 +34,11 @@
 #define STACK16ADDR	0x7000	/* The 16-bit stack top will be at 0000:7000 */
 #define STACK32ADDR	0x78000	/* The 32-bit stack top will be at 7000:8000, or 0x78000 */
 
-#if defined (_M_IX86) || defined (_M_AMD64)
 #define BIOSCALLBUFFER		0x78000	/* Buffer to store temporary data for any Int386() call */
 #define BIOSCALLBUFSEGMENT	0x7800	/* Buffer to store temporary data for any Int386() call */
 #define BIOSCALLBUFOFFSET	0x0000	/* Buffer to store temporary data for any Int386() call */
 #define FILESYSBUFFER		0x80000	/* Buffer to store file system data (e.g. cluster buffer for FAT) */
 #define DISKREADBUFFER		0x90000	/* Buffer to store data read in from the disk via the BIOS */
-#define DISKREADBUFFER_SIZE 512
-#elif defined(_M_PPC) || defined(_M_MIPS) || defined(_M_ARM)
-#define DISKREADBUFFER		    0x80000000
-#define FILESYSBUFFER           0x80000000
-#endif
 
 /* Makes "x" a global variable or label */
 #define EXTERN(x)	.global x; x:
@@ -60,7 +48,7 @@
 
 #ifndef ASM
 
-#include <pshpack1.h>
+
 typedef struct
 {
 	unsigned long	eax;
@@ -78,7 +66,7 @@ typedef struct
 
 	unsigned long	eflags;
 
-} DWORDREGS;
+} PACKED DWORDREGS;
 
 typedef struct
 {
@@ -97,7 +85,7 @@ typedef struct
 
 	unsigned short	flags, _upper_flags;
 
-} WORDREGS;
+} PACKED WORDREGS;
 
 typedef struct
 {
@@ -124,8 +112,7 @@ typedef struct
 
 	unsigned short	flags, _upper_flags;
 
-} BYTEREGS;
-
+} PACKED BYTEREGS;
 
 typedef union
 {
@@ -134,7 +121,6 @@ typedef union
 	WORDREGS	w;
 	BYTEREGS	b;
 } REGS;
-#include <poppack.h>
 
 // Int386()
 //

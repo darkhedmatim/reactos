@@ -8,6 +8,9 @@
                 Copyright 2005-2006 Hervé Poussineau (hpoussin@reactos.org)
  */
 
+#define NDEBUG
+#include <debug.h>
+
 #include "sermouse.h"
 
 /* Most of this file is ripped from reactos/drivers/bus/serenum/detect.c */
@@ -17,9 +20,9 @@ DeviceIoControl(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN ULONG CtlCode,
 	IN PVOID InputBuffer OPTIONAL,
-	IN SIZE_T InputBufferSize,
+	IN ULONG_PTR InputBufferSize,
 	IN OUT PVOID OutputBuffer OPTIONAL,
-	IN OUT PSIZE_T OutputBufferSize)
+	IN OUT PULONG_PTR OutputBufferSize)
 {
 	KEVENT Event;
 	PIRP Irp;
@@ -31,15 +34,15 @@ DeviceIoControl(
 	Irp = IoBuildDeviceIoControlRequest(CtlCode,
 		DeviceObject,
 		InputBuffer,
-		(ULONG)InputBufferSize,
+		InputBufferSize,
 		OutputBuffer,
-		(OutputBufferSize) ? (ULONG)*OutputBufferSize : 0,
+		(OutputBufferSize) ? *OutputBufferSize : 0,
 		FALSE,
 		&Event,
 		&IoStatus);
 	if (Irp == NULL)
 	{
-		WARN_(SERMOUSE, "IoBuildDeviceIoControlRequest() failed\n");
+		DPRINT("IoBuildDeviceIoControlRequest() failed\n");
 		return STATUS_INSUFFICIENT_RESOURCES;
 	}
 
@@ -47,14 +50,14 @@ DeviceIoControl(
 
 	if (Status == STATUS_PENDING)
 	{
-		INFO_(SERMOUSE, "Operation pending\n");
+		DPRINT("Operation pending\n");
 		KeWaitForSingleObject(&Event, Suspended, KernelMode, FALSE, NULL);
 		Status = IoStatus.Status;
 	}
 
 	if (OutputBufferSize)
 	{
-		*OutputBufferSize = (SIZE_T)IoStatus.Information;
+		*OutputBufferSize = IoStatus.Information;
 	}
 
 	return Status;
@@ -91,7 +94,7 @@ ReadBytes(
 		KeWaitForSingleObject(&event, Suspended, KernelMode, FALSE, NULL);
 		Status = ioStatus.Status;
 	}
-	INFO_(SERMOUSE, "Bytes received: %lu/%lu\n",
+	DPRINT("Bytes received: %lu/%lu\n",
 		ioStatus.Information, BufferSize);
 	*FilledBytes = ioStatus.Information;
 	return Status;
@@ -125,14 +128,14 @@ SermouseDetectLegacyDevice(
 	SERMOUSE_MOUSE_TYPE MouseType = mtNone;
 	NTSTATUS Status;
 
-	TRACE_(SERMOUSE, "SermouseDetectLegacyDevice(LowerDevice %p)\n", LowerDevice);
+	DPRINT("SermouseDetectLegacyDevice(LowerDevice %p)\n", LowerDevice);
 
 	RtlZeroMemory(Buffer, sizeof(Buffer));
 
 	/* Open port */
 	Status = ObOpenObjectByPointer(
 		LowerDevice,
-		OBJ_KERNEL_HANDLE,
+		OBJ_EXCLUSIVE | OBJ_KERNEL_HANDLE,
 		NULL,
 		0,
 		NULL,
@@ -141,14 +144,14 @@ SermouseDetectLegacyDevice(
 	if (!NT_SUCCESS(Status)) return mtNone;
 
 	/* Reset UART */
-	TRACE_(SERMOUSE, "Reset UART\n");
+	CHECKPOINT;
 	Mcr = 0; /* MCR: DTR/RTS/OUT2 off */
 	Status = DeviceIoControl(LowerDevice, IOCTL_SERIAL_SET_MODEM_CONTROL,
 		&Mcr, sizeof(Mcr), NULL, NULL);
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 
 	/* Set communications parameters */
-	TRACE_(SERMOUSE, "Set communications parameters\n");
+	CHECKPOINT;
 	/* DLAB off */
 	Fcr = 0;
 	Status = DeviceIoControl(LowerDevice, IOCTL_SERIAL_SET_FIFO_CONTROL,
@@ -168,7 +171,7 @@ SermouseDetectLegacyDevice(
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 
 	/* Flush receive buffer */
-	TRACE_(SERMOUSE, "Flush receive buffer\n");
+	CHECKPOINT;
 	Command = SERIAL_PURGE_RXCLEAR;
 	Status = DeviceIoControl(LowerDevice, IOCTL_SERIAL_SET_MODEM_CONTROL,
 		&Command, sizeof(Command), NULL, NULL);
@@ -177,7 +180,7 @@ SermouseDetectLegacyDevice(
 	Wait(100);
 
 	/* Enable DTR/RTS */
-	TRACE_(SERMOUSE, "Enable DTR/RTS\n");
+	CHECKPOINT;
 	Status = DeviceIoControl(LowerDevice, IOCTL_SERIAL_SET_DTR,
 		NULL, 0, NULL, NULL);
 	if (!NT_SUCCESS(Status)) goto ByeBye;
@@ -186,7 +189,7 @@ SermouseDetectLegacyDevice(
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 
 	/* Set timeout to 500 microseconds */
-	TRACE_(SERMOUSE, "Set timeout to 500 microseconds\n");
+	CHECKPOINT;
 	Timeouts.ReadIntervalTimeout = 100;
 	Timeouts.ReadTotalTimeoutMultiplier = 0;
 	Timeouts.ReadTotalTimeoutConstant = 500;
@@ -196,7 +199,7 @@ SermouseDetectLegacyDevice(
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 
 	/* Fill the read buffer */
-	TRACE_(SERMOUSE, "Fill the read buffer\n");
+	CHECKPOINT;
 	Status = ReadBytes(LowerDevice, Buffer, sizeof(Buffer)/sizeof(Buffer[0]), &Count);
 	if (!NT_SUCCESS(Status)) goto ByeBye;
 
@@ -205,7 +208,7 @@ SermouseDetectLegacyDevice(
 		if (Buffer[i] == 'B')
 		{
 			/* Sign for Microsoft Ballpoint */
-			ERR_(SERMOUSE, "Microsoft Ballpoint device detected. THIS DEVICE IS NOT YET SUPPORTED");
+			DPRINT1("Microsoft Ballpoint device detected. THIS DEVICE IS NOT YET SUPPORTED");
 			MouseType = mtNone;
 			goto ByeBye;
 		}
@@ -220,17 +223,14 @@ SermouseDetectLegacyDevice(
 			switch (Buffer[i + 1])
 			{
 				case '3':
-					INFO_(SERMOUSE, "Microsoft Mouse with 3-buttons detected\n");
+					DPRINT("Microsoft Mouse with 3-buttons detected\n");
 					MouseType = mtLogitech;
-					break;
 				case 'Z':
-					INFO_(SERMOUSE, "Microsoft Wheel Mouse detected\n");
+					DPRINT("Microsoft Wheel Mouse detected\n");
 					MouseType = mtWheelZ;
-					break;
 				default:
-					INFO_(SERMOUSE, "Microsoft Mouse with 2-buttons detected\n");
+					DPRINT("Microsoft Mouse with 2-buttons detected\n");
 					MouseType = mtMicrosoft;
-					break;
 			}
 			goto ByeBye;
 		}

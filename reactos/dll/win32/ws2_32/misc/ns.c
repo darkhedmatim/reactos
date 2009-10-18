@@ -7,6 +7,7 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
+#define __NO_CTYPE_INLINES
 #include <ctype.h>
 #include <ws2_32.h>
 #include <winbase.h>
@@ -34,8 +35,7 @@ WSAAddressToStringA(IN      LPSOCKADDR lpsaAddress,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -52,8 +52,7 @@ WSAAddressToStringW(IN      LPSOCKADDR lpsaAddress,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -67,8 +66,7 @@ WSAEnumNameSpaceProvidersA(IN OUT  LPDWORD lpdwBufferLength,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -82,8 +80,7 @@ WSAEnumNameSpaceProvidersW(IN OUT  LPDWORD lpdwBufferLength,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -99,8 +96,7 @@ WSAGetServiceClassInfoA(IN      LPGUID lpProviderId,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -116,8 +112,7 @@ WSAGetServiceClassInfoW(IN      LPGUID lpProviderId,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -132,8 +127,7 @@ WSAGetServiceClassNameByClassIdA(IN      LPGUID lpServiceClassId,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -148,8 +142,7 @@ WSAGetServiceClassNameByClassIdW(IN      LPGUID lpServiceClassId,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -162,8 +155,7 @@ WSAInstallServiceClassA(IN  LPWSASERVICECLASSINFOA lpServiceClassInfo)
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -176,8 +168,7 @@ WSAInstallServiceClassW(IN  LPWSASERVICECLASSINFOW lpServiceClassInfo)
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -192,8 +183,7 @@ WSALookupServiceBeginA(IN  LPWSAQUERYSETA lpqsRestrictions,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -208,8 +198,7 @@ WSALookupServiceBeginW(IN  LPWSAQUERYSETW lpqsRestrictions,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -222,8 +211,7 @@ WSALookupServiceEnd(IN  HANDLE hLookup)
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -239,8 +227,7 @@ WSALookupServiceNextA(IN      HANDLE hLookup,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -256,8 +243,7 @@ WSALookupServiceNextW(IN      HANDLE hLookup,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -270,8 +256,7 @@ WSARemoveServiceClass(IN  LPGUID lpServiceClassId)
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -286,8 +271,7 @@ WSASetServiceA(IN  LPWSAQUERYSETA lpqsRegInfo,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -302,8 +286,7 @@ WSASetServiceW(IN  LPWSAQUERYSETW lpqsRegInfo,
 {
     UNIMPLEMENTED
 
-    WSASetLastError(WSASYSCALLFAILURE);
-    return SOCKET_ERROR;
+    return 0;
 }
 
 
@@ -381,7 +364,7 @@ WSAStringToAddressA(IN     LPSTR AddressString,
 
 
 /*
- * @implemented
+ * @implement
  */
 INT
 EXPORT
@@ -395,15 +378,14 @@ WSAStringToAddressW(IN      LPWSTR AddressString,
     int res=0;
     LONG inetaddr = 0;
     LPWSTR *bp=NULL;
-    SOCKADDR_IN *sockaddr;
 
-    if (!lpAddressLength || !lpAddress || !AddressString)
-    {
-        WSASetLastError(WSAEINVAL);
+    SOCKADDR_IN *sockaddr = (SOCKADDR_IN *) lpAddress;
+
+    if (!lpAddressLength || !lpAddress)
         return SOCKET_ERROR;
-    }
 
-    sockaddr = (SOCKADDR_IN *) lpAddress;
+    if (AddressString==NULL)
+        return WSAEINVAL;
 
     /* Set right adress family */
     if (lpProtocolInfo!=NULL)
@@ -421,40 +403,45 @@ WSAStringToAddressW(IN      LPWSTR AddressString,
         }
         else
         {
-            // translate ip string to ip
-
-            /* rest sockaddr.sin_addr.s_addr
-                   for we need to be sure it is zero when we come to while */
-            memset(lpAddress,0,sizeof(SOCKADDR_IN));
-
-            /* Set right adress family */
-            sockaddr->sin_family = AF_INET;
-
-            /* Get port number */
-            pos = wcscspn(AddressString,L":") + 1;
-
-            if (pos < (int)wcslen(AddressString))
-                sockaddr->sin_port = wcstol(&AddressString[pos],
-                                            bp,
-                                            10);
-
+            if (!lpAddress)
+                res = WSAEINVAL;
             else
-                sockaddr->sin_port = 0;
-
-            /* Get ip number */
-            pos=0;
-            inetaddr=0;
-
-            while (pos < (int)wcslen(AddressString))
             {
-                inetaddr = (inetaddr<<8) + ((UCHAR)wcstol(&AddressString[pos],
-                                                          bp,
-                                                          10));
-                pos += wcscspn( &AddressString[pos],L".") +1 ;
-            }
+                // translate now ip string to ip
 
-            res = 0;
-            sockaddr->sin_addr.s_addr = inetaddr;
+                /* rest sockaddr.sin_addr.s_addr
+                   for we need to be sure it is zero when we come to while */
+                memset(lpAddress,0,sizeof(SOCKADDR_IN));
+
+                /* Set right adress family */
+                sockaddr->sin_family = AF_INET;
+
+                /* Get port number */
+                pos = wcscspn(AddressString,L":") + 1;
+
+                if (pos < (int)wcslen(AddressString))
+                    sockaddr->sin_port = wcstol(&AddressString[pos],
+                                                bp,
+                                                10);
+
+                else
+                    sockaddr->sin_port = 0;
+
+                /* Get ip number */
+                pos=0;
+                inetaddr=0;
+
+                while (pos < (int)wcslen(AddressString))
+                {
+                    inetaddr = (inetaddr<<8) + ((UCHAR)wcstol(&AddressString[pos],
+                                                              bp,
+                                                              10));
+                    pos += wcscspn( &AddressString[pos],L".") +1 ;
+                }
+
+                res = 0;
+                sockaddr->sin_addr.s_addr = inetaddr;
+            }
 
         }
     }
@@ -536,8 +523,8 @@ void free_hostent(struct hostent *he)
     {
        char *next = 0;
         HFREE(he->h_name);
-        if(he->h_aliases)
-       {
+        if(he->h_aliases) 
+       { 
            next = he->h_aliases[0];
            while(next) { HFREE(next); next++; }
        }
@@ -631,9 +618,8 @@ struct hostent defined in w32api/include/winsock2.h
 
 void free_servent(struct servent* s)
 {
-    char* next;
     HFREE(s->s_name);
-    next = s->s_aliases[0];
+    char* next = s->s_aliases[0];
     while(next) { HFREE(next); next++; }
     s->s_port = 0;
     HFREE(s->s_proto);
@@ -660,11 +646,10 @@ gethostbyname(IN  CONST CHAR FAR* name)
     DNS_STATUS dns_status = {0};
     /* include/WinDNS.h -- look up DNS_RECORD on MSDN */
     PDNS_RECORD dp = 0;
-    PWINSOCK_THREAD_BLOCK p;
 
     addr = GH_INVALID;
 
-    p = NtCurrentTeb()->WinSockData;
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
 
     if( !p )
     {
@@ -813,27 +798,25 @@ gethostname(OUT CHAR FAR* name,
  *
  * @unimplemented
  */
- 
-static CHAR *no_aliases = 0;
-static PROTOENT protocols[] =
-{
-    {"icmp",&no_aliases, IPPROTO_ICMP},
-    {"tcp", &no_aliases, IPPROTO_TCP},
-    {"udp", &no_aliases, IPPROTO_UDP},
-    {NULL, NULL, 0}
-};
- 
 LPPROTOENT
 EXPORT
 getprotobyname(IN  CONST CHAR FAR* name)
 {
-    UINT i;
-    for (i = 0; protocols[i].p_name; i++)
+    static CHAR *udp_aliases = 0;
+    static PROTOENT udp = { "udp", &udp_aliases, 17 };
+    static CHAR *tcp_aliases = 0;
+    static PROTOENT tcp = { "tcp", &tcp_aliases, 6 };
+
+    if(!_stricmp(name, "udp"))
     {
-       if (_stricmp(protocols[i].p_name, name) == 0)
-         return &protocols[i];
+        return &udp;
     }
-    return NULL;
+    else if (!_stricmp( name, "tcp"))
+    {
+        return &tcp;
+    }
+
+    return 0;
 }
 
 /*
@@ -843,13 +826,9 @@ LPPROTOENT
 EXPORT
 getprotobynumber(IN  INT number)
 {
-    UINT i;
-    for (i = 0; protocols[i].p_name; i++)
-    {
-       if (protocols[i].p_proto == number)
-         return &protocols[i];
-    }
-    return NULL;
+    UNIMPLEMENTED
+
+    return (LPPROTOENT)NULL;
 }
 
 #define SKIPWS(ptr,act) \
@@ -1295,12 +1274,6 @@ inet_addr(IN  CONST CHAR FAR* cp)
 
     p = (PCHAR)cp;
 
-    if (!p)
-    {
-        WSASetLastError(WSAEFAULT);
-        return INADDR_NONE;
-    }
-
     if (strlen(p) == 0)
         return INADDR_NONE;
 
@@ -1352,196 +1325,108 @@ inet_ntoa(IN  IN_ADDR in)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
-VOID
+HANDLE
 EXPORT
-freeaddrinfo(struct addrinfo *pAddrInfo)
+WSAAsyncGetHostByAddr(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  CONST CHAR FAR* addr,
+                      IN  INT len,
+                      IN  INT type,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
 {
-    struct addrinfo *next, *cur;
-    cur = pAddrInfo;
-    while (cur)
-    {
-        next = cur->ai_next;
-        if (cur->ai_addr)
-          HeapFree(GetProcessHeap(), 0, cur->ai_addr);
-        if (cur->ai_canonname)
-          HeapFree(GetProcessHeap(), 0, cur->ai_canonname);
-        HeapFree(GetProcessHeap(), 0, cur);
-        cur = next;
-    }
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
 }
 
 
-struct addrinfo *
-new_addrinfo(struct addrinfo *prev)
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetHostByName(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  CONST CHAR FAR* name,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
 {
-    struct addrinfo *ret = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(struct addrinfo));
-    if (prev)
-      prev->ai_next = ret;
-    return ret;
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetProtoByName(IN  HWND hWnd,
+                       IN  UINT wMsg,
+                       IN  CONST CHAR FAR* name,
+                       OUT CHAR FAR* buf,
+                       IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetProtoByNumber(IN  HWND hWnd,
+                         IN  UINT wMsg,
+                         IN  INT number,
+                         OUT CHAR FAR* buf,
+                         IN  INT buflen)
+{
+    UNIMPLEMENTED
+
+    return (HANDLE)0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
-INT
+HANDLE
 EXPORT
-getaddrinfo(const char FAR * nodename,
-            const char FAR * servname,
-            const struct addrinfo FAR * hints,
-            struct addrinfo FAR * FAR * res)
+WSAAsyncGetServByName(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  CONST CHAR FAR* name,
+                      IN  CONST CHAR FAR* proto,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
 {
-    struct addrinfo *ret = NULL, *ai;
-    ULONG addr;
-    USHORT port;
-    struct servent *se;
-    char *proto;
-    LPPROTOENT pent;
-    DNS_STATUS dns_status;
-    PDNS_RECORD dp, currdns;
-    struct sockaddr_in *sin;
+    UNIMPLEMENTED
 
-    if (res == NULL)
-        return WSAEINVAL;
-    if (nodename == NULL && servname == NULL)
-        return WSAHOST_NOT_FOUND;
-        
-    if (!WSAINITIALIZED)
-        return WSANOTINITIALISED;
+    return (HANDLE)0;
+}
 
-    if (servname)
-    {
-        /* converting port number */
-        port = strtoul(servname, NULL, 10);
-        /* service name was specified? */
-        if (port == 0)
-        {
-            /* protocol was specified? */
-            if (hints && hints->ai_protocol)
-            {
-                pent = getprotobynumber(hints->ai_protocol);
-                if (pent == NULL)
-                  return WSAEINVAL;
-                proto = pent->p_name;
-            }
-            else
-                proto = NULL;
-            se = getservbyname(servname, proto);
-            if (se == NULL)
-                return WSATYPE_NOT_FOUND;
-            port = se->s_port;
-        }
-        else
-            port = htons(port);
-    }
-    else
-        port = 0;
 
-    if (nodename)
-    {
-        /* Is it an IPv6 address? */
-        if (strstr(nodename, ":"))
-            return WSAHOST_NOT_FOUND;
-            
-        /* Is it an IPv4 address? */
-        addr = inet_addr(nodename);
-        if (addr != INADDR_NONE)
-        {
-            ai = new_addrinfo(NULL);
-            ai->ai_family = PF_INET;
-            ai->ai_addrlen = sizeof(struct sockaddr_in);
-            ai->ai_addr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ai->ai_addrlen);
-            sin = (struct sockaddr_in *)ai->ai_addr;
-            sin->sin_family = AF_INET;
-            sin->sin_port = port;
-            RtlCopyMemory(&sin->sin_addr, &addr, sizeof(sin->sin_addr));
-            if (hints)
-            {
-                if (ai->ai_socktype == 0)
-                    ai->ai_socktype = hints->ai_socktype;
-                if (ai->ai_protocol == 0)
-                    ai->ai_protocol = hints->ai_protocol;
-            }
-            ret = ai;
-        }
-        else
-        {
-           /* resolving host name */
-            dns_status = DnsQuery_A(nodename,
-                                    DNS_TYPE_A,
-                                    DNS_QUERY_STANDARD,
-                                    0,
-                                    /* extra dns servers */ &dp,
-                                    0);
+/*
+ * @unimplemented
+ */
+HANDLE
+EXPORT
+WSAAsyncGetServByPort(IN  HWND hWnd,
+                      IN  UINT wMsg,
+                      IN  INT port,
+                      IN  CONST CHAR FAR* proto,
+                      OUT CHAR FAR* buf,
+                      IN  INT buflen)
+{
+    UNIMPLEMENTED
 
-            if (dns_status == 0)
-            {
-                ai = NULL;
-                for (currdns = dp; currdns; currdns = currdns->pNext )
-                {
-                    /* accept only A records */
-                    if (currdns->wType != DNS_TYPE_A) continue;
-                    
-                    ai = new_addrinfo(ai);
-                    if (ret == NULL)
-                      ret = ai;
-                    ai->ai_family = PF_INET;
-                    ai->ai_addrlen = sizeof(struct sockaddr_in);
-                    ai->ai_addr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ai->ai_addrlen);
-                    sin = (struct sockaddr_in *)ret->ai_addr;
-                    sin->sin_family = AF_INET;
-                    sin->sin_port = port;
-                    RtlCopyMemory(&sin->sin_addr, &currdns->Data.A.IpAddress, sizeof(sin->sin_addr));
-                    if (hints)
-                    {
-                        if (ai->ai_socktype == 0)
-                            ai->ai_socktype = hints->ai_socktype;
-                        if (ai->ai_protocol == 0)
-                            ai->ai_protocol = hints->ai_protocol;
-                    }
-                }
-                DnsRecordListFree(dp, DnsFreeRecordList);
-            }
-        }
-    }
-    else
-    {
-        ai = new_addrinfo(NULL);
-        ai->ai_family = PF_INET;
-        ai->ai_addrlen = sizeof(struct sockaddr_in);
-        ai->ai_addr = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, ai->ai_addrlen);
-        sin = (struct sockaddr_in *)ai->ai_addr;
-        sin->sin_family = AF_INET;
-        sin->sin_port = port;
-        if (hints)
-        {
-            if (!(hints->ai_flags & AI_PASSIVE))
-            {
-                sin->sin_addr.S_un.S_un_b.s_b1 = 127;
-                sin->sin_addr.S_un.S_un_b.s_b2 = 0;
-                sin->sin_addr.S_un.S_un_b.s_b3 = 0;
-                sin->sin_addr.S_un.S_un_b.s_b4 = 1;
-            }
-            if (ai->ai_socktype == 0)
-                ai->ai_socktype = hints->ai_socktype;
-            if (ai->ai_protocol == 0)
-                ai->ai_protocol = hints->ai_protocol;
-        }
-        ret = ai;
-    }
-
-    if (ret == NULL)
-        return WSAHOST_NOT_FOUND;
-        
-    if (hints && hints->ai_family != PF_UNSPEC && hints->ai_family != PF_INET)
-    {
-        freeaddrinfo(ret);
-        return WSAEAFNOSUPPORT;
-    }
-
-    *res = ret;
-    return 0;
+    return (HANDLE)0;
 }
 
 /* EOF */
+

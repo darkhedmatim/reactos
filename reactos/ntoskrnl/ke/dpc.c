@@ -24,55 +24,8 @@ BOOLEAN KeThreadDpcEnable;
 FAST_MUTEX KiGenericCallDpcMutex;
 KDPC KiTimerExpireDpc;
 ULONG KiTimeLimitIsrMicroseconds;
-ULONG KiDPCTimeout = 110;
 
 /* PRIVATE FUNCTIONS *********************************************************/
-
-VOID
-NTAPI
-KiCheckTimerTable(IN ULARGE_INTEGER CurrentTime)
-{
-#if DBG
-    ULONG i = 0;
-    PLIST_ENTRY ListHead, NextEntry;
-    KIRQL OldIrql;
-    PKTIMER Timer;
-
-    /* Raise IRQL to high and loop timers */
-    KeRaiseIrql(HIGH_LEVEL, &OldIrql);
-    do
-    {
-        /* Loop the current list */
-        ListHead = &KiTimerTableListHead[i].Entry;
-        NextEntry = ListHead->Flink;
-        while (NextEntry != ListHead)
-        {
-            /* Get the timer and move to the next one */
-            Timer = CONTAINING_RECORD(NextEntry, KTIMER, TimerListEntry);
-            NextEntry = NextEntry->Flink;
-
-            /* Check if it expired */
-            if (Timer->DueTime.QuadPart <= CurrentTime.QuadPart)
-            {
-                /* Check if the DPC was queued, but didn't run */
-                if (!(KeGetCurrentPrcb()->TimerRequest) &&
-                    !(*((volatile PULONG*)(&KiTimerExpireDpc.DpcData))))
-                {
-                    /* This is bad, breakpoint! */
-                    DPRINT1("Invalid timer state!\n");
-                    DbgBreakPoint();
-                }
-            }
-        }
-
-        /* Move to the next timer */
-        i++;
-    } while(i < TIMER_TABLE_SIZE);
-
-    /* Lower IRQL and return */
-    KeLowerIrql(OldIrql);
-#endif
-}
 
 VOID
 NTAPI
@@ -81,26 +34,23 @@ KiTimerExpiration(IN PKDPC Dpc,
                   IN PVOID SystemArgument1,
                   IN PVOID SystemArgument2)
 {
-    ULARGE_INTEGER SystemTime, InterruptTime;
-    LARGE_INTEGER Interval;
+    LARGE_INTEGER SystemTime, InterruptTime, Interval;
     LONG Limit, Index, i;
     ULONG Timers, ActiveTimers, DpcCalls;
     PLIST_ENTRY ListHead, NextEntry;
+    PKTIMER_TABLE_ENTRY TimerEntry;
     KIRQL OldIrql;
     PKTIMER Timer;
     PKDPC TimerDpc;
     ULONG Period;
     DPC_QUEUE_ENTRY DpcEntry[MAX_TIMER_DPCS];
     PKSPIN_LOCK_QUEUE LockQueue;
-#ifdef CONFIG_SMP
-    PKPRCB Prcb = KeGetCurrentPrcb();
-#endif
 
     /* Disable interrupts */
     _disable();
 
     /* Query system and interrupt time */
-    KeQuerySystemTime((PLARGE_INTEGER)&SystemTime);
+    KeQuerySystemTime(&SystemTime);
     InterruptTime.QuadPart = KeQueryInterruptTime();
     Limit = KeTickCount.LowPart;
 
@@ -149,7 +99,16 @@ KiTimerExpiration(IN PKDPC Dpc,
             {
                 /* It's expired, remove it */
                 ActiveTimers--;
-                KiRemoveEntryTimer(Timer);
+                if (RemoveEntryList(&Timer->TimerListEntry))
+                {
+                    /* Get the entry and check if it's empty */
+                    TimerEntry = &KiTimerTableListHead[Timer->Header.Hand];
+                    if (IsListEmpty(&TimerEntry->Entry))
+                    {
+                        /* Clear the time then */
+                        TimerEntry->Time.HighPart = 0xFFFFFFFF;
+                    }
+                }
 
                 /* Make it non-inserted, unlock it, and signal it */
                 Timer->Header.Inserted = FALSE;
@@ -187,35 +146,11 @@ KiTimerExpiration(IN PKDPC Dpc,
                 /* Check if we have a DPC */
                 if (TimerDpc)
                 {
-#ifdef CONFIG_SMP
-                    /* 
-                     * If the DPC is targeted to another processor,
-                     * then insert it into that processor's DPC queue
-                     * instead of delivering it now.
-                     * If the DPC is a threaded DPC, and the current CPU
-                     * has threaded DPCs enabled (KiExecuteDpc is actively parsing DPCs),
-                     * then also insert it into the DPC queue for threaded delivery,
-                     * instead of doing it here.
-                     */
-                    if (((TimerDpc->Number >= MAXIMUM_PROCESSORS) &&
-                        ((TimerDpc->Number - MAXIMUM_PROCESSORS) != Prcb->Number)) ||
-                        ((TimerDpc->Type == ThreadedDpcObject) && (Prcb->ThreadDpcEnable)))
-                    {
-                        /* Queue it */
-                        KeInsertQueueDpc(TimerDpc,
-                                         UlongToPtr(SystemTime.LowPart),
-                                         UlongToPtr(SystemTime.HighPart));
-                    }
-                    else
-#endif
-                    {
-                        /* Setup the DPC Entry */
-                        DpcEntry[DpcCalls].Dpc = TimerDpc;
-                        DpcEntry[DpcCalls].Routine = TimerDpc->DeferredRoutine;
-                        DpcEntry[DpcCalls].Context = TimerDpc->DeferredContext;
-                        DpcCalls++;
-                        ASSERT(DpcCalls < MAX_TIMER_DPCS);
-                    }
+                    /* Setup the DPC Entry */
+                    DpcEntry[DpcCalls].Dpc = TimerDpc;
+                    DpcEntry[DpcCalls].Routine = TimerDpc->DeferredRoutine;
+                    DpcEntry[DpcCalls].Context = TimerDpc->DeferredContext;
+                    DpcCalls++;
                 }
 
                 /* Check if we're done processing */
@@ -291,9 +226,6 @@ KiTimerExpiration(IN PKDPC Dpc,
         }
     } while (Index != Limit);
 
-    /* Verify the timer table, on debug builds */
-    if (KeNumberProcessors == 1) KiCheckTimerTable(InterruptTime);
-
     /* Check if we still have DPC entries */
     if (DpcCalls)
     {
@@ -312,130 +244,6 @@ KiTimerExpiration(IN PKDPC Dpc,
 
         /* Lower IRQL if we need to */
         if (OldIrql != DISPATCH_LEVEL) KeLowerIrql(OldIrql);
-    }
-    else
-    {
-        /* Unlock the dispatcher */
-        KiReleaseDispatcherLock(OldIrql);
-    }
-}
-
-VOID
-FASTCALL
-KiTimerListExpire(IN PLIST_ENTRY ExpiredListHead,
-                  IN KIRQL OldIrql)
-{
-    ULARGE_INTEGER SystemTime;
-    LARGE_INTEGER Interval;
-    LONG i;
-    ULONG DpcCalls = 0;
-    PKTIMER Timer;
-    PKDPC TimerDpc;
-    ULONG Period;
-    DPC_QUEUE_ENTRY DpcEntry[MAX_TIMER_DPCS];
-#ifdef CONFIG_SMP
-    PKPRCB Prcb = KeGetCurrentPrcb();
-#endif
-
-    /* Query system */
-    KeQuerySystemTime((PLARGE_INTEGER)&SystemTime);
-    
-    /* Loop expired list */
-    while (ExpiredListHead->Flink != ExpiredListHead)
-    {
-        /* Get the current timer */
-        Timer = CONTAINING_RECORD(ExpiredListHead->Flink, KTIMER, TimerListEntry);
-        
-        /* Remove it */
-        RemoveEntryList(&Timer->TimerListEntry);
-        
-        /* Not inserted */
-        Timer->Header.Inserted = FALSE;
-        
-        /* Signal it */
-        Timer->Header.SignalState = 1;
-        
-        /* Get the DPC and period */
-        TimerDpc = Timer->Dpc;
-        Period = Timer->Period;
-        
-        /* Check if there's any waiters */
-        if (!IsListEmpty(&Timer->Header.WaitListHead))
-        {
-            /* Check the type of event */
-            if (Timer->Header.Type == TimerNotificationObject)
-            {
-                /* Unwait the thread */
-                KxUnwaitThread(&Timer->Header, IO_NO_INCREMENT);
-            }
-            else
-            {
-                /* Otherwise unwait the thread and signal the timer */
-                KxUnwaitThreadForEvent((PKEVENT)Timer, IO_NO_INCREMENT);
-            }
-        }
-        
-        /* Check if we have a period */
-        if (Period)
-        {
-            /* Calculate the interval and insert the timer */
-            Interval.QuadPart = Int32x32To64(Period, -10000);
-            while (!KiInsertTreeTimer(Timer, Interval));
-        }
-
-        /* Check if we have a DPC */
-        if (TimerDpc)
-        {
-#ifdef CONFIG_SMP
-            /* 
-             * If the DPC is targeted to another processor,
-             * then insert it into that processor's DPC queue
-             * instead of delivering it now.
-             * If the DPC is a threaded DPC, and the current CPU
-             * has threaded DPCs enabled (KiExecuteDpc is actively parsing DPCs),
-             * then also insert it into the DPC queue for threaded delivery,
-             * instead of doing it here.
-             */
-            if (((TimerDpc->Number >= MAXIMUM_PROCESSORS) &&
-                ((TimerDpc->Number - MAXIMUM_PROCESSORS) != Prcb->Number)) ||
-                ((TimerDpc->Type == ThreadedDpcObject) && (Prcb->ThreadDpcEnable)))
-            {
-                /* Queue it */
-                KeInsertQueueDpc(TimerDpc,
-                                 UlongToPtr(SystemTime.LowPart),
-                                 UlongToPtr(SystemTime.HighPart));
-            }
-            else
-#endif
-            {
-                /* Setup the DPC Entry */
-                DpcEntry[DpcCalls].Dpc = TimerDpc;
-                DpcEntry[DpcCalls].Routine = TimerDpc->DeferredRoutine;
-                DpcEntry[DpcCalls].Context = TimerDpc->DeferredContext;
-                DpcCalls++;
-                ASSERT(DpcCalls < MAX_TIMER_DPCS);
-            }
-        }
-    }
-    
-    /* Check if we still have DPC entries */
-    if (DpcCalls)
-    {
-        /* Release the dispatcher while doing DPCs */
-        KiReleaseDispatcherLock(DISPATCH_LEVEL);
-        
-        /* Start looping all DPC Entries */
-        for (i = 0; DpcCalls; DpcCalls--, i++)
-        {
-            /* Call the DPC */
-            DpcEntry[i].Routine(DpcEntry[i].Dpc,
-                                DpcEntry[i].Context,
-                                UlongToPtr(SystemTime.LowPart),
-                                UlongToPtr(SystemTime.HighPart));
-        }
-        
-        /* Lower IRQL */
-        KeLowerIrql(OldIrql);
     }
     else
     {
@@ -466,14 +274,9 @@ KiQuantumEnd(VOID)
     /* Check if Quantum expired */
     if (Thread->Quantum <= 0)
     {
-        /* Check if we're real-time and with quantums disabled */
-        if ((Thread->Priority >= LOW_REALTIME_PRIORITY) &&
-            (Thread->ApcState.Process->DisableQuantum))
-        {
-            /* Otherwise, set maximum quantum */
-            Thread->Quantum = MAX_QUANTUM;
-        }
-        else
+        /* Make sure that we're not real-time or without a quantum */
+        if ((Thread->Priority < LOW_REALTIME_PRIORITY) &&
+            !(Thread->ApcState.Process->DisableQuantum))
         {
             /* Reset the new Quantum */
             Thread->Quantum = Thread->QuantumReset;
@@ -484,6 +287,7 @@ KiQuantumEnd(VOID)
             /* Check if a new thread is scheduled */
             if (!Prcb->NextThread)
             {
+#ifdef NEW_SCHEDULER
                 /* Get a new ready thread */
                 NextThread = KiSelectReadyThread(Thread->Priority, Prcb);
                 if (NextThread)
@@ -492,12 +296,24 @@ KiQuantumEnd(VOID)
                     NextThread->State = Standby;
                     Prcb->NextThread = NextThread;
                 }
+#else
+                /* Just leave now */
+                KiReleasePrcbLock(Prcb);
+                KeLowerIrql(DISPATCH_LEVEL);
+                KiDispatchThread(Ready);
+                return;
+#endif
             }
             else
             {
                 /* Otherwise, make sure that this thread doesn't get preempted */
                 Thread->Preempted = FALSE;
             }
+        }
+        else
+        {
+            /* Otherwise, set maximum quantum */
+            Thread->Quantum = MAX_QUANTUM;
         }
     }
 
@@ -544,19 +360,12 @@ VOID
 FASTCALL
 KiRetireDpcList(IN PKPRCB Prcb)
 {
-    PKDPC_DATA DpcData;
-    PLIST_ENTRY ListHead, DpcEntry;
+    PKDPC_DATA DpcData = Prcb->DpcData;
+    PLIST_ENTRY DpcEntry;
     PKDPC Dpc;
     PKDEFERRED_ROUTINE DeferredRoutine;
     PVOID DeferredContext, SystemArgument1, SystemArgument2;
     ULONG_PTR TimerHand;
-#ifdef CONFIG_SMP
-    KIRQL OldIrql;
-#endif
-
-    /* Get data and list variables before starting anything else */
-    DpcData = &Prcb->DpcData[DPC_NORMAL];
-    ListHead = &DpcData->DpcListHead;
 
     /* Main outer loop */
     do
@@ -567,28 +376,24 @@ KiRetireDpcList(IN PKPRCB Prcb)
         /* Check if this is a timer expiration request */
         if (Prcb->TimerRequest)
         {
-            /* It is, get the timer hand and disable timer request */
             TimerHand = Prcb->TimerHand;
             Prcb->TimerRequest = 0;
-
-            /* Expire timers with interrups enabled */
             _enable();
-            KiTimerExpiration(NULL, NULL, (PVOID)TimerHand, NULL);
+            KiTimerExpiration(NULL, NULL, (PVOID) TimerHand, NULL);
             _disable();
         }
 
         /* Loop while we have entries in the queue */
-        while (DpcData->DpcQueueDepth != 0)
+        while (DpcData->DpcQueueDepth)
         {
-            /* Lock the DPC data and get the DPC entry*/
-            KeAcquireSpinLockAtDpcLevel(&DpcData->DpcLock);
-            DpcEntry = ListHead->Flink;
+            /* Lock the DPC data */
+            KefAcquireSpinLockAtDpcLevel(&DpcData->DpcLock);
 
             /* Make sure we have an entry */
-            if (DpcEntry != ListHead)
+            if (!IsListEmpty(&DpcData->DpcListHead))
             {
                 /* Remove the DPC from the list */
-                RemoveEntryList(DpcEntry);
+                DpcEntry = RemoveHeadList(&DpcData->DpcListHead);
                 Dpc = CONTAINING_RECORD(DpcEntry, KDPC, DpcListEntry);
 
                 /* Clear its DPC data and save its parameters */
@@ -605,7 +410,7 @@ KiRetireDpcList(IN PKPRCB Prcb)
                 Prcb->DebugDpcTime = 0;
 
                 /* Release the lock */
-                KeReleaseSpinLockFromDpcLevel(&DpcData->DpcLock);
+                KefReleaseSpinLockFromDpcLevel(&DpcData->DpcLock);
 
                 /* Re-enable interrupts */
                 _enable();
@@ -626,7 +431,8 @@ KiRetireDpcList(IN PKPRCB Prcb)
                 ASSERT(DpcData->DpcQueueDepth == 0);
 
                 /* Release DPC Lock */
-                KeReleaseSpinLockFromDpcLevel(&DpcData->DpcLock);
+                KefReleaseSpinLockFromDpcLevel(&DpcData->DpcLock);
+                break;
             }
         }
 
@@ -634,24 +440,13 @@ KiRetireDpcList(IN PKPRCB Prcb)
         Prcb->DpcRoutineActive = FALSE;
         Prcb->DpcInterruptRequested = FALSE;
 
-#ifdef CONFIG_SMP
         /* Check if we have deferred threads */
         if (Prcb->DeferredReadyListHead.Next)
         {
-
-            /* Re-enable interrupts and raise to synch */
-            _enable();
-            OldIrql = KeRaiseIrqlToSynchLevel();
-
-            /* Process deferred threads */
-            KiProcessDeferredReadyList(Prcb);
-
-            /* Lower IRQL back and disable interrupts */
-            KeLowerIrql(OldIrql);
-            _disable();
+            /* FIXME: 2K3-style scheduling not implemeted */
+            ASSERT(FALSE);
         }
-#endif
-    } while (DpcData->DpcQueueDepth != 0);
+    } while (DpcData->DpcQueueDepth);
 }
 
 VOID
@@ -663,7 +458,7 @@ KiInitializeDpc(IN PKDPC Dpc,
 {
     /* Setup the DPC Object */
     Dpc->Type = Type;
-    Dpc->Number = 0;
+    Dpc->Number= 0;
     Dpc->Importance= MediumImportance;
     Dpc->DeferredRoutine = DeferredRoutine;
     Dpc->DeferredContext = DeferredContext;
@@ -708,7 +503,7 @@ KeInsertQueueDpc(IN PKDPC Dpc,
                  IN PVOID SystemArgument2)
 {
     KIRQL OldIrql;
-    PKPRCB Prcb, CurrentPrcb;
+    PKPRCB Prcb, CurrentPrcb = KeGetCurrentPrcb();
     ULONG Cpu;
     PKDPC_DATA DpcData;
     BOOLEAN DpcConfigured = FALSE, DpcInserted = FALSE;
@@ -716,7 +511,6 @@ KeInsertQueueDpc(IN PKDPC Dpc,
 
     /* Check IRQL and Raise it to HIGH_LEVEL */
     KeRaiseIrql(HIGH_LEVEL, &OldIrql);
-    CurrentPrcb = KeGetCurrentPrcb();
 
     /* Check if the DPC has more then the maximum number of CPUs */
     if (Dpc->Number >= MAXIMUM_PROCESSORS)
@@ -731,9 +525,6 @@ KeInsertQueueDpc(IN PKDPC Dpc,
         Prcb = CurrentPrcb;
         Cpu = Prcb->Number;
     }
-
-    /* ROS Sanity Check */
-    ASSERT(Prcb == CurrentPrcb);
 
     /* Check if this is a threaded DPC and threaded DPCs are enabled */
     if ((Dpc->Type == ThreadedDpcObject) && (Prcb->ThreadDpcEnable))
@@ -773,14 +564,13 @@ KeInsertQueueDpc(IN PKDPC Dpc,
         }
 
         /* Check if this is the DPC on the threaded list */
-        if (&Prcb->DpcData[DPC_THREADED] == DpcData)
+        if (&Prcb->DpcData[DPC_THREADED].DpcListHead == &DpcData->DpcListHead)
         {
             /* Make sure a threaded DPC isn't already active */
             if (!(Prcb->DpcThreadActive) && !(Prcb->DpcThreadRequested))
             {
                 /* FIXME: Setup Threaded DPC */
-                DPRINT1("Threaded DPC not supported\n");
-                while (TRUE);
+                ASSERT(FALSE);
             }
         }
         else
@@ -838,7 +628,7 @@ KeInsertQueueDpc(IN PKDPC Dpc,
         if (Prcb != CurrentPrcb)
         {
             /* It was, request and IPI */
-            KiIpiSend(AFFINITY_MASK(Cpu), IPI_DPC);
+            KiIpiSendRequest(AFFINITY_MASK(Cpu), IPI_DPC);
         }
         else
         {
@@ -860,13 +650,14 @@ NTAPI
 KeRemoveQueueDpc(IN PKDPC Dpc)
 {
     PKDPC_DATA DpcData;
-    BOOLEAN Enable;
+    UCHAR DpcType;
     ASSERT_DPC(Dpc);
 
     /* Disable interrupts */
-    Enable = KeDisableInterrupts();
+    _disable();
 
-    /* Get DPC data */
+    /* Get DPC data and type */
+    DpcType = Dpc->Type;
     DpcData = Dpc->DpcData;
     if (DpcData)
     {
@@ -887,7 +678,7 @@ KeRemoveQueueDpc(IN PKDPC Dpc)
     }
 
     /* Re-enable interrupts */
-    if (Enable) _enable();
+    _enable();
 
     /* Return if the DPC was in the queue or not */
     return DpcData ? TRUE : FALSE;
@@ -900,15 +691,14 @@ VOID
 NTAPI
 KeFlushQueuedDpcs(VOID)
 {
-    PKPRCB CurrentPrcb = KeGetCurrentPrcb();
     PAGED_CODE();
 
     /* Check if this is an UP machine */
     if (KeActiveProcessors == 1)
     {
         /* Check if there are DPCs on either queues */
-        if ((CurrentPrcb->DpcData[DPC_NORMAL].DpcQueueDepth > 0) ||
-            (CurrentPrcb->DpcData[DPC_THREADED].DpcQueueDepth > 0))
+        if ((KeGetCurrentPrcb()->DpcData[DPC_NORMAL].DpcQueueDepth) ||
+            (KeGetCurrentPrcb()->DpcData[DPC_THREADED].DpcQueueDepth))
         {
             /* Request an interrupt */
             HalRequestSoftwareInterrupt(DISPATCH_LEVEL);

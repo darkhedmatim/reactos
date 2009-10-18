@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/volume.c
+ * FILE:             services/fs/ntfs/volume.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -34,8 +36,8 @@
 
 static NTSTATUS
 NtfsGetFsVolumeInformation(PDEVICE_OBJECT DeviceObject,
-                           PFILE_FS_VOLUME_INFORMATION FsVolumeInfo,
-                           PULONG BufferLength)
+			   PFILE_FS_VOLUME_INFORMATION FsVolumeInfo,
+			   PULONG BufferLength)
 {
   DPRINT("NtfsGetFsVolumeInformation() called\n");
   DPRINT("FsVolumeInfo = %p\n", FsVolumeInfo);
@@ -44,12 +46,12 @@ NtfsGetFsVolumeInformation(PDEVICE_OBJECT DeviceObject,
   DPRINT("Vpb %p\n", DeviceObject->Vpb);
 
   DPRINT("Required length %lu\n",
-         sizeof(FILE_FS_VOLUME_INFORMATION) + DeviceObject->Vpb->VolumeLabelLength);
+	 sizeof(FILE_FS_VOLUME_INFORMATION) + DeviceObject->Vpb->VolumeLabelLength);
   DPRINT("LabelLength %hu\n",
-         DeviceObject->Vpb->VolumeLabelLength);
+	 DeviceObject->Vpb->VolumeLabelLength);
   DPRINT("Label %*.S\n",
-         DeviceObject->Vpb->VolumeLabelLength / sizeof(WCHAR),
-         DeviceObject->Vpb->VolumeLabel);
+	 DeviceObject->Vpb->VolumeLabelLength / sizeof(WCHAR),
+	 DeviceObject->Vpb->VolumeLabel);
 
   if (*BufferLength < sizeof(FILE_FS_VOLUME_INFORMATION))
     return STATUS_INFO_LENGTH_MISMATCH;
@@ -61,8 +63,8 @@ NtfsGetFsVolumeInformation(PDEVICE_OBJECT DeviceObject,
   FsVolumeInfo->VolumeSerialNumber = DeviceObject->Vpb->SerialNumber;
   FsVolumeInfo->VolumeLabelLength = DeviceObject->Vpb->VolumeLabelLength;
   memcpy(FsVolumeInfo->VolumeLabel,
-         DeviceObject->Vpb->VolumeLabel,
-         DeviceObject->Vpb->VolumeLabelLength);
+	 DeviceObject->Vpb->VolumeLabel,
+	 DeviceObject->Vpb->VolumeLabelLength);
 
   /* dummy entries */
   FsVolumeInfo->VolumeCreationTime.QuadPart = 0;
@@ -79,8 +81,8 @@ NtfsGetFsVolumeInformation(PDEVICE_OBJECT DeviceObject,
 
 static NTSTATUS
 NtfsGetFsAttributeInformation(PDEVICE_EXTENSION DeviceExt,
-                              PFILE_FS_ATTRIBUTE_INFORMATION FsAttributeInfo,
-                              PULONG BufferLength)
+			      PFILE_FS_ATTRIBUTE_INFORMATION FsAttributeInfo,
+			      PULONG BufferLength)
 {
   DPRINT("NtfsGetFsAttributeInformation()\n");
   DPRINT("FsAttributeInfo = %p\n", FsAttributeInfo);
@@ -111,8 +113,8 @@ NtfsGetFsAttributeInformation(PDEVICE_EXTENSION DeviceExt,
 
 static NTSTATUS
 NtfsGetFsSizeInformation(PDEVICE_OBJECT DeviceObject,
-                         PFILE_FS_SIZE_INFORMATION FsSizeInfo,
-                         PULONG BufferLength)
+			 PFILE_FS_SIZE_INFORMATION FsSizeInfo,
+			 PULONG BufferLength)
 {
   PDEVICE_EXTENSION DeviceExt;
   NTSTATUS Status = STATUS_SUCCESS;
@@ -140,7 +142,7 @@ NtfsGetFsSizeInformation(PDEVICE_OBJECT DeviceObject,
 
 static NTSTATUS
 NtfsGetFsDeviceInformation(PFILE_FS_DEVICE_INFORMATION FsDeviceInfo,
-                           PULONG BufferLength)
+			   PULONG BufferLength)
 {
   DPRINT("NtfsGetFsDeviceInformation()\n");
   DPRINT("FsDeviceInfo = %p\n", FsDeviceInfo);
@@ -163,11 +165,10 @@ NtfsGetFsDeviceInformation(PFILE_FS_DEVICE_INFORMATION FsDeviceInfo,
 
 
 
-NTSTATUS
-NtfsQueryVolumeInformation(PNTFS_IRP_CONTEXT IrpContext)
+NTSTATUS STDCALL
+NtfsQueryVolumeInformation(PDEVICE_OBJECT DeviceObject,
+			   PIRP Irp)
 {
-  PIRP Irp;
-  PDEVICE_OBJECT DeviceObject;
   FS_INFORMATION_CLASS FsInformationClass;
   PIO_STACK_LOCATION Stack;
   NTSTATUS Status = STATUS_SUCCESS;
@@ -176,72 +177,66 @@ NtfsQueryVolumeInformation(PNTFS_IRP_CONTEXT IrpContext)
 
   DPRINT("NtfsQueryVolumeInformation() called\n");
 
-  ASSERT(IrpContext);
-
-  Irp = IrpContext->Irp;
-  DeviceObject = IrpContext->DeviceObject;
   Stack = IoGetCurrentIrpStackLocation(Irp);
   FsInformationClass = Stack->Parameters.QueryVolume.FsInformationClass;
   BufferLength = Stack->Parameters.QueryVolume.Length;
   SystemBuffer = Irp->AssociatedIrp.SystemBuffer;
-  RtlZeroMemory(SystemBuffer, BufferLength);
 
   DPRINT("FsInformationClass %d\n", FsInformationClass);
-  DPRINT("SystemBuffer %p\n", SystemBuffer);
+  DPRINT("SystemBuffer %x\n", SystemBuffer);
 
   switch (FsInformationClass)
-  {
-    case FileFsVolumeInformation:
-      Status = NtfsGetFsVolumeInformation(DeviceObject,
-                                          SystemBuffer,
-                                          &BufferLength);
-      break;
+    {
+      case FileFsVolumeInformation:
+	Status = NtfsGetFsVolumeInformation(DeviceObject,
+					    SystemBuffer,
+					    &BufferLength);
+	break;
 
-    case FileFsAttributeInformation:
-      Status = NtfsGetFsAttributeInformation(DeviceObject->DeviceExtension,
-                                             SystemBuffer,
-                                             &BufferLength);
-      break;
+      case FileFsAttributeInformation:
+	Status = NtfsGetFsAttributeInformation(DeviceObject->DeviceExtension,
+					       SystemBuffer,
+					       &BufferLength);
+	break;
 
-    case FileFsSizeInformation:
-      Status = NtfsGetFsSizeInformation(DeviceObject,
-                                        SystemBuffer,
-                                        &BufferLength);
-      break;
+      case FileFsSizeInformation:
+	Status = NtfsGetFsSizeInformation(DeviceObject,
+					  SystemBuffer,
+					  &BufferLength);
+	break;
 
-    case FileFsDeviceInformation:
-      Status = NtfsGetFsDeviceInformation(SystemBuffer,
-                                          &BufferLength);
-      break;
+      case FileFsDeviceInformation:
+	Status = NtfsGetFsDeviceInformation(SystemBuffer,
+					    &BufferLength);
+	break;
 
-    default:
-      Status = STATUS_NOT_SUPPORTED;
-  }
+      default:
+	Status = STATUS_NOT_SUPPORTED;
+    }
 
+  Irp->IoStatus.Status = Status;
   if (NT_SUCCESS(Status))
     Irp->IoStatus.Information =
       Stack->Parameters.QueryVolume.Length - BufferLength;
   else
     Irp->IoStatus.Information = 0;
+  IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-  return Status;
+  return(Status);
 }
 
 
-NTSTATUS
-NtfsSetVolumeInformation(PNTFS_IRP_CONTEXT IrpContext)
+NTSTATUS STDCALL
+NtfsSetVolumeInformation(PDEVICE_OBJECT DeviceObject,
+			PIRP Irp)
 {
-  PIRP Irp;
-  
   DPRINT("NtfsSetVolumeInformation() called\n");
 
-  ASSERT(IrpContext);
-
-  Irp = IrpContext->Irp;
   Irp->IoStatus.Status = STATUS_NOT_SUPPORTED;
   Irp->IoStatus.Information = 0;
+  IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-  return STATUS_NOT_SUPPORTED;
+  return(STATUS_NOT_SUPPORTED);
 }
 
 /* EOF */

@@ -13,30 +13,65 @@ typedef struct _WINDOW_OBJECT *PWINDOW_OBJECT;
 #include <include/prop.h>
 #include <include/scroll.h>
 
-extern ATOM AtomMessage;
 
-BOOL FASTCALL UserUpdateUiState(PWND Wnd, WPARAM wParam);
+VOID FASTCALL
+WinPosSetupInternalPos(VOID);
+
+typedef struct _INTERNALPOS
+{
+  RECT NormalRect;
+  POINT IconPos;
+  POINT MaxPos;
+} INTERNALPOS, *PINTERNALPOS;
 
 typedef struct _WINDOW_OBJECT
 {
-  /* NOTE: Do *NOT* Move this pointer anywhere in this structure! This
-           is a pointer to the WINDOW structure that eventually replaces
-           the WINDOW_OBJECT structure! USER32 expects this pointer to
-           be here until WINDOW_OBJECT has completely been superseded! */
-  PWND Wnd;
-
   /* Pointer to the thread information */
-  PTHREADINFO ti;
+  PW32THREADINFO ti;
   /* Pointer to the desktop */
-  PDESKTOPINFO Desktop;
+  PDESKTOP Desktop;
+  union
+  {
+    /* Pointer to a call procedure handle */
+    PCALLPROC CallProc;
+    /* Extra Wnd proc (windows of system classes) */
+    WNDPROC WndProcExtra;
+  };
+  /* Pointer to another call procedure handle (used for returning the previous
+     window proc in SetWindowLongPtr) */
+  PCALLPROC CallProc2;
+  /* Indicates whether the window is derived from a system class */
+  BOOL IsSystem;
+  /* Pointer to the window class. */
+  PWINDOWCLASS Class;
+  /* Extended style. */
+  DWORD ExStyle;
+  /* Window name. */
+  UNICODE_STRING WindowName;
+  /* Style. */
+  DWORD Style;
+  /* Context help id */
+  DWORD ContextHelpId;
   /* system menu handle. */
   HMENU SystemMenu;
+  /* Handle of the module that created the window. */
+  HINSTANCE Instance;
   /* Entry in the thread's list of windows. */
   LIST_ENTRY ListEntry;
+  /* Pointer to the extra data associated with the window. */
+  PCHAR ExtraData;
+  /* Size of the extra data associated with the window. */
+  ULONG ExtraDataSize;
+  /* Position of the window. */
+  RECT WindowRect;
+  /* Position of the window's client area. */
+  RECT ClientRect;
   /* Handle for the window. */
   HWND hSelf;
   /* Window flags. */
   ULONG Flags;
+  /* Window menu handle or window id */
+  UINT IDMenu;
   /* Handle of region of the window to be updated. */
   HANDLE UpdateRegion;
   /* Handle of the window region. */
@@ -55,10 +90,17 @@ typedef struct _WINDOW_OBJECT
   HWND hOwner;
   /* DC Entries (DCE) */
   PDCE Dce;
+  /* Property list head.*/
+  LIST_ENTRY PropListHead;
+  ULONG PropListItems;
   /* Scrollbar info */
   PWINDOW_SCROLLINFO Scroll;
+  LONG UserData;
+  BOOL Unicode;
+  WNDPROC WndProc;
   PETHREAD OwnerThread;
   HWND hWndLastPopup; /* handle to last active popup window (wine doesn't use pointer, for unk. reason)*/
+  PINTERNALPOS InternalPos;
   ULONG Status;
   /* counter for tiled child windows */
   ULONG TiledCounter;
@@ -67,14 +109,14 @@ typedef struct _WINDOW_OBJECT
 } WINDOW_OBJECT; /* PWINDOW_OBJECT already declared at top of file */
 
 /* Window flags. */
-#define WINDOWOBJECT_NEED_SIZE            (0x00000001) // WNDS_SENDSIZEMOVEMSGS?
-#define WINDOWOBJECT_NEED_ERASEBKGND      (0x00000002) // WNDS_ERASEBACKGROUND
-#define WINDOWOBJECT_NEED_NCPAINT         (0x00000004) // WNDS_SENDNCPAINT
-#define WINDOWOBJECT_NEED_INTERNALPAINT   (0x00000008) // WNDS_INTERNALPAINT
+#define WINDOWOBJECT_NEED_SIZE            (0x00000001)
+#define WINDOWOBJECT_NEED_ERASEBKGND      (0x00000002)
+#define WINDOWOBJECT_NEED_NCPAINT         (0x00000004)
+#define WINDOWOBJECT_NEED_INTERNALPAINT   (0x00000008)
 #define WINDOWOBJECT_RESTOREMAX           (0x00000020)
 
-#define WINDOWSTATUS_DESTROYING         (0x1) // WNDS2_INDESTROY
-#define WINDOWSTATUS_DESTROYED          (0x2) // WNDS_DESTROYED
+#define WINDOWSTATUS_DESTROYING         (0x1)
+#define WINDOWSTATUS_DESTROYED          (0x2)
 
 #define HAS_DLGFRAME(Style, ExStyle) \
             (((ExStyle) & WS_EX_DLGMODALFRAME) || \
@@ -118,7 +160,7 @@ NTSTATUS FASTCALL
 CleanupWindowImpl (VOID);
 
 VOID FASTCALL
-IntGetClientRect (PWINDOW_OBJECT WindowObject, RECTL *Rect);
+IntGetClientRect (PWINDOW_OBJECT WindowObject, PRECT Rect);
 
 HWND FASTCALL
 IntGetActiveWindow (VOID);
@@ -149,7 +191,7 @@ INT FASTCALL
 IntGetWindowRgn(PWINDOW_OBJECT Window, HRGN hRgn);
 
 INT FASTCALL
-IntGetWindowRgnBox(PWINDOW_OBJECT Window, RECTL *Rect);
+IntGetWindowRgnBox(PWINDOW_OBJECT Window, RECT *Rect);
 
 BOOL FASTCALL
 IntGetWindowInfo(PWINDOW_OBJECT WindowObject, PWINDOWINFO pwi);
@@ -165,14 +207,6 @@ IntIsWindowInDestroy(PWINDOW_OBJECT Window);
 
 BOOL FASTCALL
 IntShowOwnedPopups( PWINDOW_OBJECT owner, BOOL fShow );
-
-LRESULT FASTCALL
-IntDefWindowProc( PWINDOW_OBJECT Window, UINT Msg, WPARAM wParam, LPARAM lParam, BOOL Ansi);
-
-VOID FASTCALL IntNotifyWinEvent(DWORD, PWND, LONG, LONG);
-
-PWND APIENTRY co_IntCreateWindowEx(DWORD,PUNICODE_STRING,PUNICODE_STRING,DWORD,LONG,LONG,LONG,LONG,HWND,HMENU,HINSTANCE,LPVOID,DWORD,BOOL);
-WNDPROC FASTCALL IntGetWindowProc(PWND,BOOL);
 
 #endif /* _WIN32K_WINDOW_H */
 

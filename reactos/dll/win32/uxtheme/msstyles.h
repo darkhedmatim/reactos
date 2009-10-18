@@ -82,7 +82,7 @@ typedef struct _THEME_FILE {
     PTHEME_IMAGE images;
 } THEME_FILE, *PTHEME_FILE;
 
-typedef struct _UXINI_FILE *PUXINI_FILE;
+typedef void* PUXINI_FILE;
 
 HRESULT MSSTYLES_OpenThemeFile(LPCWSTR lpThemeFile, LPCWSTR pszColorName, LPCWSTR pszSizeName, PTHEME_FILE *tf);
 void MSSTYLES_CloseThemeFile(PTHEME_FILE tf);
@@ -94,6 +94,7 @@ BOOL MSSTYLES_LookupEnum(LPCWSTR pszValueName, int dwEnum, int *dwValue);
 BOOL MSSTYLES_LookupPartState(LPCWSTR pszClass, LPCWSTR pszPart, LPCWSTR pszState, int *iPartId, int *iStateId);
 PUXINI_FILE MSSTYLES_GetThemeIni(PTHEME_FILE tf);
 PTHEME_PARTSTATE MSSTYLES_FindPartState(PTHEME_CLASS tc, int iPartId, int iStateId, PTHEME_CLASS *tcNext);
+PTHEME_CLASS MSSTYLES_FindClass(PTHEME_FILE tf, LPCWSTR pszAppName, LPCWSTR pszClassName);
 PTHEME_PROPERTY MSSTYLES_FindProperty(PTHEME_CLASS tc, int iPartId, int iStateId, int iPropertyPrimitive, int iPropertyId);
 PTHEME_PROPERTY MSSTYLES_FindMetric(int iPropertyPrimitive, int iPropertyId);
 HBITMAP MSSTYLES_LoadBitmap(PTHEME_CLASS tc, LPCWSTR lpFilename, BOOL* hasAlpha);
@@ -110,6 +111,7 @@ HRESULT MSSTYLES_GetPropertyMargins(PTHEME_PROPERTY tp, RECT *prc, MARGINS *pMar
 
 PUXINI_FILE UXINI_LoadINI(HMODULE hTheme, LPCWSTR lpName);
 void UXINI_CloseINI(PUXINI_FILE uf);
+void UXINI_ResetINI(PUXINI_FILE uf);
 LPCWSTR UXINI_GetNextSection(PUXINI_FILE uf, DWORD *dwLen);
 BOOL UXINI_FindSection(PUXINI_FILE uf, LPCWSTR lpName);
 LPCWSTR UXINI_GetNextValue(PUXINI_FILE uf, DWORD *dwNameLen, LPCWSTR *lpValue, DWORD *dwValueLen);

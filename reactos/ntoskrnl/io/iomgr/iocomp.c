@@ -11,11 +11,11 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 POBJECT_TYPE IoCompletionType;
 
-GENERAL_LOOKASIDE IoCompletionPacketLookaside;
+NPAGED_LOOKASIDE_LIST IoCompletionPacketLookaside;
 
 GENERIC_MAPPING IopCompletionMapping =
 {
@@ -40,7 +40,8 @@ IopUnloadSafeCompletion(IN PDEVICE_OBJECT DeviceObject,
                         IN PVOID Context)
 {
     NTSTATUS Status;
-    PIO_UNLOAD_SAFE_COMPLETION_CONTEXT UnsafeContext = Context;
+    PIO_UNLOAD_SAFE_COMPLETION_CONTEXT UnsafeContext =
+        (PIO_UNLOAD_SAFE_COMPLETION_CONTEXT)Context;
 
     /* Reference the device object */
     ObReferenceObject(UnsafeContext->DeviceObject);
@@ -60,7 +61,7 @@ IopUnloadSafeCompletion(IN PDEVICE_OBJECT DeviceObject,
 
 VOID
 NTAPI
-IopFreeMiniPacket(PIOP_MINI_COMPLETION_PACKET Packet)
+IopFreeIoCompletionPacket(PIO_COMPLETION_PACKET Packet)
 {
     PKPRCB Prcb = KeGetCurrentPrcb();
     PNPAGED_LOOKASIDE_LIST List;
@@ -87,7 +88,6 @@ IopFreeMiniPacket(PIOP_MINI_COMPLETION_PACKET Packet)
             /* All lists failed, use the pool */
             List->L.FreeMisses++;
             ExFreePool(Packet);
-            return;
         }
     }
 
@@ -103,7 +103,7 @@ IopDeleteIoCompletion(PVOID ObjectBody)
     PLIST_ENTRY FirstEntry;
     PLIST_ENTRY CurrentEntry;
     PIRP Irp;
-    PIOP_MINI_COMPLETION_PACKET Packet;
+    PIO_COMPLETION_PACKET Packet;
 
     /* Rundown the Queue */
     FirstEntry = KeRundownQueue(Queue);
@@ -115,14 +115,14 @@ IopDeleteIoCompletion(PVOID ObjectBody)
         {
             /* Get the Packet */
             Packet = CONTAINING_RECORD(CurrentEntry,
-                                       IOP_MINI_COMPLETION_PACKET,
+                                       IO_COMPLETION_PACKET,
                                        ListEntry);
 
             /* Go to next Entry */
             CurrentEntry = CurrentEntry->Flink;
 
             /* Check if it's part of an IRP, or a separate packet */
-            if (Packet->PacketType == IopCompletionPacketIrp)
+            if (Packet->PacketType == IrpCompletionPacket)
             {
                 /* Get the IRP and free it */
                 Irp = CONTAINING_RECORD(Packet, IRP, Tail.Overlay.ListEntry);
@@ -131,7 +131,7 @@ IopDeleteIoCompletion(PVOID ObjectBody)
             else
             {
                 /* Use common routine */
-                IopFreeMiniPacket(Packet);
+                IopFreeIoCompletionPacket(Packet);
             }
         } while (FirstEntry != CurrentEntry);
     }
@@ -154,7 +154,7 @@ IoSetIoCompletion(IN PVOID IoCompletion,
     PKQUEUE Queue = (PKQUEUE)IoCompletion;
     PNPAGED_LOOKASIDE_LIST List;
     PKPRCB Prcb = KeGetCurrentPrcb();
-    PIOP_MINI_COMPLETION_PACKET Packet;
+    PIO_COMPLETION_PACKET Packet;
 
     /* Get the P List */
     List = (PNPAGED_LOOKASIDE_LIST)Prcb->
@@ -193,11 +193,11 @@ IoSetIoCompletion(IN PVOID IoCompletion,
     if (Packet)
     {
         /* Set up the Packet */
-        Packet->PacketType = IopCompletionPacketMini;
-        Packet->KeyContext = KeyContext;
-        Packet->ApcContext = ApcContext;
-        Packet->IoStatus = IoStatus;
-        Packet->IoStatusInformation = IoStatusInformation;
+        Packet->PacketType = IrpMiniCompletionPacket;
+        Packet->Key = KeyContext;
+        Packet->Context = ApcContext;
+        Packet->IoStatus.Status = IoStatus;
+        Packet->IoStatus.Information = IoStatusInformation;
 
         /* Insert the Queue */
         KeInsertQueue(Queue, &Packet->ListEntry);
@@ -230,7 +230,7 @@ IoSetCompletionRoutineEx(IN PDEVICE_OBJECT DeviceObject,
     /* Allocate the context */
     UnloadContext = ExAllocatePoolWithTag(NonPagedPool,
                                           sizeof(*UnloadContext),
-                                          'sUoI');
+                                          TAG('I', 'o', 'U', 's'));
     if (!UnloadContext) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Set up the context */
@@ -258,24 +258,27 @@ NtCreateIoCompletion(OUT PHANDLE IoCompletionHandle,
     PKQUEUE Queue;
     HANDLE hIoCompletionHandle;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if this was a user-mode call */
     if (PreviousMode != KernelMode)
     {
         /* Wrap probing in SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the handle */
             ProbeForWriteHandle(IoCompletionHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Create the Object */
@@ -303,17 +306,17 @@ NtCreateIoCompletion(OUT PHANDLE IoCompletionHandle,
         if (NT_SUCCESS(Status))
         {
             /* Protect writing the handle in SEH */
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Write the handle back */
                 *IoCompletionHandle = hIoCompletionHandle;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
                 /* Get the exception code */
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
    }
 
@@ -329,24 +332,27 @@ NtOpenIoCompletion(OUT PHANDLE IoCompletionHandle,
 {
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     HANDLE hIoCompletionHandle;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if this was a user-mode call */
     if (PreviousMode != KernelMode)
     {
         /* Wrap probing in SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the handle */
             ProbeForWriteHandle(IoCompletionHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -360,17 +366,17 @@ NtOpenIoCompletion(OUT PHANDLE IoCompletionHandle,
     if (NT_SUCCESS(Status))
     {
         /* Protect writing the handle in SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write the handle back */
             *IoCompletionHandle = hIoCompletionHandle;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return Status */
@@ -387,7 +393,7 @@ NtQueryIoCompletion(IN  HANDLE IoCompletionHandle,
 {
     PKQUEUE Queue;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check buffers and parameters */
@@ -411,11 +417,14 @@ NtQueryIoCompletion(IN  HANDLE IoCompletionHandle,
     if (NT_SUCCESS(Status))
     {
         /* Protect write in SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return Info */
             ((PIO_COMPLETION_BASIC_INFORMATION)IoCompletionInformation)->
                 Depth = KeReadStateQueue(Queue);
+
+            /* Dereference the queue */
+            ObDereferenceObject(Queue);
 
             /* Return Result Length if needed */
             if (ResultLength)
@@ -423,15 +432,12 @@ NtQueryIoCompletion(IN  HANDLE IoCompletionHandle,
                 *ResultLength = sizeof(IO_COMPLETION_BASIC_INFORMATION);
             }
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             /* Get exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
-
-        /* Dereference the queue */
-        ObDereferenceObject(Queue);
+        _SEH_END;
     }
 
     /* Return Status */
@@ -448,10 +454,10 @@ NtRemoveIoCompletion(IN HANDLE IoCompletionHandle,
 {
     LARGE_INTEGER SafeTimeout;
     PKQUEUE Queue;
-    PIOP_MINI_COMPLETION_PACKET Packet;
+    PIO_COMPLETION_PACKET Packet;
     PLIST_ENTRY ListEntry;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PIRP Irp;
     PVOID Apc, Key;
     IO_STATUS_BLOCK IoStatus;
@@ -461,7 +467,7 @@ NtRemoveIoCompletion(IN HANDLE IoCompletionHandle,
     if (PreviousMode != KernelMode)
     {
         /* Protect probes in SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the pointers */
             ProbeForWritePointer(KeyContext);
@@ -476,12 +482,15 @@ NtRemoveIoCompletion(IN HANDLE IoCompletionHandle,
                 Timeout = &SafeTimeout;
             }
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail on exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -507,11 +516,11 @@ NtRemoveIoCompletion(IN HANDLE IoCompletionHandle,
         {
             /* Get the Packet Data */
             Packet = CONTAINING_RECORD(ListEntry,
-                                       IOP_MINI_COMPLETION_PACKET,
+                                       IO_COMPLETION_PACKET,
                                        ListEntry);
 
             /* Check if this is piggybacked on an IRP */
-            if (Packet->PacketType == IopCompletionPacketIrp)
+            if (Packet->PacketType == IrpCompletionPacket)
             {
                 /* Get the IRP */
                 Irp = CONTAINING_RECORD(ListEntry,
@@ -529,29 +538,28 @@ NtRemoveIoCompletion(IN HANDLE IoCompletionHandle,
             else
             {
                 /* Save values */
-                Key = Packet->KeyContext;
-                Apc = Packet->ApcContext;
-                IoStatus.Status = Packet->IoStatus;
-                IoStatus.Information = Packet->IoStatusInformation;
+                Key = Packet->Key;
+                Apc = Packet->Context;
+                IoStatus = Packet->IoStatus;
 
                 /* Free the packet */
-                IopFreeMiniPacket(Packet);
+                IopFreeIoCompletionPacket(Packet);
             }
 
             /* Enter SEH to write back the values */
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Write the values to caller */
                 *ApcContext = Apc;
                 *KeyContext = Key;
                 *IoStatusBlock = IoStatus;
             }
-            _SEH2_EXCEPT(ExSystemExceptionFilter())
+            _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
             {
                 /* Get the exception code */
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
 
         /* Dereference the Object */

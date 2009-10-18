@@ -11,7 +11,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* TYPES *********************************************************************/
 
@@ -101,7 +101,6 @@ GlobalAlloc(UINT uFlags,
         {
             /* All worked well, save our heap entry */
             RtlSetUserValueHeap(hProcessHeap, HEAP_NO_SERIALIZE, Ptr, hMemory);
-            RtlSetUserFlagsHeap(hProcessHeap, HEAP_NO_SERIALIZE, Ptr, Flags);
         }
     }
 
@@ -224,11 +223,18 @@ GlobalFlags(HGLOBAL hMem)
             /* Get the lock count first */
             uFlags = HandleEntry->LockCount & GMEM_LOCKCOUNT;
 
-            /* Now check if it's discardable */
+            /* Now check if it's discarded */
             if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSABLE)
             {
                 /* Set the Win32 Flag */
-                uFlags |= GMEM_DISCARDABLE;
+                uFlags |= GMEM_DISCARDED;
+            }
+
+            /* Check if it's movable */
+            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_MOVABLE)
+            {
+                /* Set the Win32 Flag */
+                uFlags |= GMEM_MOVEABLE;
             }
 
             /* Check if it's DDE Shared */
@@ -237,11 +243,6 @@ GlobalFlags(HGLOBAL hMem)
                 /* Set the Win32 Flag */
                 uFlags |= GMEM_DDESHARE;
             }
-
-            /* Now check if it's discarded */
-            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSE)
-               /* Set the Win32 Flag */
-               uFlags |= GMEM_DISCARDED;
         }
     }
 
@@ -520,10 +521,6 @@ GlobalReAlloc(HGLOBAL hMem,
                                             HEAP_NO_SERIALIZE,
                                             Ptr,
                                             hMem);
-                        RtlSetUserFlagsHeap(hProcessHeap,
-                                            HEAP_NO_SERIALIZE,
-                                            Ptr,
-                                            Flags);
                     }
                 }
                 else
@@ -545,20 +542,6 @@ GlobalReAlloc(HGLOBAL hMem,
 
                     /* And do the re-allocation */
                     Ptr = RtlReAllocateHeap(hProcessHeap, Flags, Ptr, dwBytes);
-
-                    if (Ptr)
-                    {
-                        /* Allocation succeeded, so save our entry */
-                        RtlSetUserValueHeap(hProcessHeap,
-                                            HEAP_NO_SERIALIZE,
-                                            Ptr,
-                                            hMem);
-                        RtlSetUserFlagsHeap(hProcessHeap,
-                                            HEAP_NO_SERIALIZE,
-                                            Ptr,
-                                            Flags);
-                    }
-
                 }
 
                 /* Make sure we have a pointer by now */
@@ -659,10 +642,6 @@ GlobalReAlloc(HGLOBAL hMem,
                                         HEAP_NO_SERIALIZE,
                                         HandleEntry->Object,
                                         hMem);
-                    RtlSetUserFlagsHeap(hProcessHeap,
-                                        HEAP_NO_SERIALIZE,
-                                        HandleEntry->Object,
-                                        Flags);
                 }
             }
         }
@@ -804,7 +783,6 @@ GlobalUnlock(HGLOBAL hMem)
         /* It's not, fail */
         BASE_TRACE_FAILURE();
         SetLastError(ERROR_INVALID_HANDLE);
-        RetVal = FALSE;
     }
     else
     {

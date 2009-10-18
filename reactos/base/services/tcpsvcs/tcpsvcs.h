@@ -1,16 +1,16 @@
+/*
+ * PROJECT:     ReactOS simple TCP/IP services
+ * LICENSE:     GPL - See COPYING in the top level directory
+ * FILE:        /base/services/tcpsvcs/tcpsvcs.h
+ * PURPOSE:     Provide CharGen, Daytime, Discard, Echo, and Qotd services
+ * COPYRIGHT:   Copyright 2005 - 2006 Ged Murphy <gedmurphy@gmail.com>
+ *
+ */
+
 #include <stdio.h>
 #include <winsock2.h>
 #include <tchar.h>
 #include <time.h>
-
-#ifndef _MSC_VER
-#define _swprintf swprintf
-#endif
-
-#define LOG_FILE 1
-#define LOG_EVENTLOG 2
-#define LOG_ERROR 4
-#define LOG_ALL (LOG_FILE | LOG_EVENTLOG | LOG_ERROR)
 
 /* default port numbers */
 #define ECHO_PORT 7
@@ -20,32 +20,60 @@
 #define CHARGEN_PORT 19
 
 #define NUM_SERVICES 5
+#define BUF_SIZE 255
+#define BUF 1024
 #define CS_TIMEOUT 1000
 
+/* RFC865 states no more than 512 chars per line */
+#define MAX_QUOTE_BUF 512
+
+/* printable ASCII's characters for chargen */
+#define START 32
+#define END 126
+
+/* number of chars to put on a line */
+#define LINESIZ 74 // 72 + /r and /n
 
 /* data structure to pass to threads */
-typedef struct _Services
-{
+typedef struct _Services {
     USHORT Port;
-    LPWSTR lpName;
-    LPTHREAD_START_ROUTINE lpService;
+    TCHAR *Name;
+    LPTHREAD_START_ROUTINE Service;
 } SERVICES, *PSERVICES;
 
-extern volatile BOOL bShutdown;
-extern volatile BOOL bPause;
+/* tcpsvcs functions */
+//static VOID WINAPI ServiceMain(DWORD argc, LPTSTR argv[]);
+VOID WINAPI ServerCtrlHandler(DWORD control);
+INT CreateServers(VOID);
+VOID LogEvent (LPCTSTR UserMessage, INT ExitCode, BOOL PrintErrorMsg);
+void UpdateStatus (int NewStatus, int Check);
 
-/* logging functions */
-BOOL InitLogging();
-VOID UninitLogging();
-VOID LogEvent(LPCWSTR lpMsg, DWORD errNum, DWORD exitCode, UINT flags);
 
 /* skelserver functions */
 DWORD WINAPI StartServer(LPVOID lpParam);
+SOCKET SetUpListener(USHORT Port);
+VOID AcceptConnections(SOCKET ListeningSocket,
+    LPTHREAD_START_ROUTINE Service, TCHAR *Name);
+BOOL EchoIncomingPackets(SOCKET sd);
 BOOL ShutdownConnection(SOCKET Sock, BOOL bRec);
 
-/* server thread handlers */
-DWORD WINAPI ChargenHandler(VOID* sock_);
-DWORD WINAPI DaytimeHandler(VOID* sock_);
-DWORD WINAPI EchoHandler(VOID* sock_);
-DWORD WINAPI DiscardHandler(VOID* sock_);
-DWORD WINAPI QotdHandler(VOID* sock_);
+/* chargen functions */
+DWORD WINAPI ChargenHandler(VOID* Sock_);
+BOOL GenerateChars(SOCKET Sock);
+BOOL SendLine(SOCKET Sock, char* Line);
+
+/* daytime functions */
+DWORD WINAPI DaytimeHandler(VOID* Sock_);
+BOOL SendTime(SOCKET Sock, char *time);
+
+/* echo functions */
+DWORD WINAPI EchoHandler(VOID* Sock_);
+BOOL EchoIncomingPackets(SOCKET Sock);
+
+/* discard functions */
+DWORD WINAPI DiscardHandler(VOID* Sock_);
+BOOL RecieveIncomingPackets(SOCKET Sock);
+
+/* qotd functions */
+DWORD WINAPI QotdHandler(VOID* Sock_);
+BOOL SendQuote(SOCKET Sock, char* Quote);

@@ -47,7 +47,6 @@ PCONTEXT_PROPERTY_LIST ContextPropertyList_Create(void)
     if (list)
     {
         InitializeCriticalSection(&list->cs);
-        list->cs.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": PCONTEXT_PROPERTY_LIST->cs");
         list_init(&list->properties);
     }
     return list;
@@ -64,7 +63,6 @@ void ContextPropertyList_Free(PCONTEXT_PROPERTY_LIST list)
         CryptMemFree(prop->pbData);
         CryptMemFree(prop);
     }
-    list->cs.DebugInfo->Spare[0] = 0;
     DeleteCriticalSection(&list->cs);
     CryptMemFree(list);
 }
@@ -75,7 +73,7 @@ BOOL ContextPropertyList_FindProperty(PCONTEXT_PROPERTY_LIST list, DWORD id,
     PCONTEXT_PROPERTY prop;
     BOOL ret = FALSE;
 
-    TRACE("(%p, %d, %p)\n", list, id, blob);
+    TRACE("(%p, %ld, %p)\n", list, id, blob);
 
     EnterCriticalSection(&list->cs);
     LIST_FOR_EACH_ENTRY(prop, &list->properties, CONTEXT_PROPERTY, entry)

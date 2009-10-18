@@ -1,6 +1,6 @@
 /*
  * Copyright 1999 Marcus Meissner
- * Copyright 2002-2003 Michael GÃ¼nnewig
+ * Copyright 2002-2003 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -210,23 +210,23 @@ static HRESULT AVIFILE_AddFrame(IAVIStreamImpl *This, DWORD ckid, DWORD size,
 static HRESULT AVIFILE_AddRecord(IAVIFileImpl *This);
 static DWORD   AVIFILE_ComputeMoviStart(IAVIFileImpl *This);
 static void    AVIFILE_ConstructAVIStream(IAVIFileImpl *paf, DWORD nr,
-					  const AVISTREAMINFOW *asi);
+					  LPAVISTREAMINFOW asi);
 static void    AVIFILE_DestructAVIStream(IAVIStreamImpl *This);
 static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This);
-static HRESULT AVIFILE_LoadIndex(const IAVIFileImpl *This, DWORD size, DWORD offset);
-static HRESULT AVIFILE_ParseIndex(const IAVIFileImpl *This, AVIINDEXENTRY *lp,
+static HRESULT AVIFILE_LoadIndex(IAVIFileImpl *This, DWORD size, DWORD offset);
+static HRESULT AVIFILE_ParseIndex(IAVIFileImpl *This, AVIINDEXENTRY *lp,
 				  LONG count, DWORD pos, BOOL *bAbsolute);
 static HRESULT AVIFILE_ReadBlock(IAVIStreamImpl *This, DWORD start,
-				 LPVOID buffer, DWORD size);
-static void    AVIFILE_SamplesToBlock(const IAVIStreamImpl *This, LPLONG pos,
+				 LPVOID buffer, LONG size);
+static void    AVIFILE_SamplesToBlock(IAVIStreamImpl *This, LPLONG pos,
 				      LPLONG offset);
 static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This);
-static HRESULT AVIFILE_SaveIndex(const IAVIFileImpl *This);
-static ULONG   AVIFILE_SearchStream(const IAVIFileImpl *This, DWORD fccType,
+static HRESULT AVIFILE_SaveIndex(IAVIFileImpl *This);
+static ULONG   AVIFILE_SearchStream(IAVIFileImpl *This, DWORD fccType,
 				    LONG lSkip);
 static void    AVIFILE_UpdateInfo(IAVIFileImpl *This);
 static HRESULT AVIFILE_WriteBlock(IAVIStreamImpl *This, DWORD block,
-				  FOURCC ckid, DWORD flags, LPCVOID buffer,
+				  FOURCC ckid, DWORD flags, LPVOID buffer,
 				  LONG size);
 
 HRESULT AVIFILE_CreateAVIFile(REFIID riid, LPVOID *ppv)
@@ -590,7 +590,7 @@ static HRESULT WINAPI IPersistFile_fnGetClassID(IPersistFile *iface,
   if (pClassID == NULL)
     return AVIERR_BADPARAM;
 
-  *pClassID = CLSID_AVIFile;
+  memcpy(pClassID, &CLSID_AVIFile, sizeof(CLSID_AVIFile));
 
   return AVIERR_OK;
 }
@@ -623,7 +623,7 @@ static HRESULT WINAPI IPersistFile_fnLoad(IPersistFile *iface,
   if (This->paf->hmmio != NULL)
     return AVIERR_ERROR; /* No reuse of this object for another file! */
 
-  /* remember mode and name */
+  /* remeber mode and name */
   This->paf->uMode = dwMode;
 
   len = lstrlenW(pszFileName) + 1;
@@ -931,7 +931,7 @@ static HRESULT WINAPI IAVIStream_fnSetFormat(IAVIStream *iface, LONG pos,
 {
   IAVIStreamImpl *This = (IAVIStreamImpl *)iface;
 
-  LPBITMAPINFOHEADER lpbiNew = format;
+  LPBITMAPINFOHEADER lpbiNew = (LPBITMAPINFOHEADER)format;
 
   TRACE("(%p,%d,%p,%d)\n", iface, pos, format, formatsize);
 
@@ -951,7 +951,7 @@ static HRESULT WINAPI IAVIStream_fnSetFormat(IAVIStream *iface, LONG pos,
   if (This->lpFormat == NULL) {
     /* initial format */
     if (This->paf->dwMoviChunkPos != 0)
-      return AVIERR_ERROR; /* user has used API in wrong sequence! */
+      return AVIERR_ERROR; /* user has used API in wrong sequnece! */
 
     This->lpFormat = HeapAlloc(GetProcessHeap(), 0, formatsize);
     if (This->lpFormat == NULL)
@@ -976,7 +976,7 @@ static HRESULT WINAPI IAVIStream_fnSetFormat(IAVIStream *iface, LONG pos,
     return AVIERR_OK;
   } else {
     MMCKINFO           ck;
-    LPBITMAPINFOHEADER lpbiOld = This->lpFormat;
+    LPBITMAPINFOHEADER lpbiOld = (LPBITMAPINFOHEADER)This->lpFormat;
     RGBQUAD           *rgbNew  = (RGBQUAD*)((LPBYTE)lpbiNew + lpbiNew->biSize);
     AVIPALCHANGE      *lppc = NULL;
     UINT               n;
@@ -1018,15 +1018,14 @@ static HRESULT WINAPI IAVIStream_fnSetFormat(IAVIStream *iface, LONG pos,
       lppc->peNew[n].peFlags = 0;
     }
 
-    if (mmioSeek(This->paf->hmmio, This->paf->dwNextFramePos, SEEK_SET) == -1 ||
-        mmioCreateChunk(This->paf->hmmio, &ck, 0) != S_OK ||
-        mmioWrite(This->paf->hmmio, (HPSTR)lppc, ck.cksize) != ck.cksize ||
-        mmioAscend(This->paf->hmmio, &ck, 0) != S_OK)
-    {
-      HeapFree(GetProcessHeap(), 0, lppc);
+    if (mmioSeek(This->paf->hmmio, This->paf->dwNextFramePos, SEEK_SET) == -1)
       return AVIERR_FILEWRITE;
-    }
-
+    if (mmioCreateChunk(This->paf->hmmio, &ck, 0) != S_OK)
+      return AVIERR_FILEWRITE;
+    if (mmioWrite(This->paf->hmmio, (HPSTR)lppc, ck.cksize) != ck.cksize)
+      return AVIERR_FILEWRITE;
+    if (mmioAscend(This->paf->hmmio, &ck, 0) != S_OK)
+      return AVIERR_FILEWRITE;
     This->paf->dwNextFramePos += ck.cksize + 2 * sizeof(DWORD);
 
     HeapFree(GetProcessHeap(), 0, lppc);
@@ -1413,7 +1412,7 @@ static HRESULT AVIFILE_AddFrame(IAVIStreamImpl *This, DWORD ckid, DWORD size, DW
     break;
   };
 
-  /* first frame is always a keyframe */
+  /* first frame is alwasy a keyframe */
   if (This->lLastFrame == -1)
     flags |= AVIIF_KEYFRAME;
 
@@ -1503,7 +1502,7 @@ static DWORD   AVIFILE_ComputeMoviStart(IAVIFileImpl *This)
   return dwPos;
 }
 
-static void AVIFILE_ConstructAVIStream(IAVIFileImpl *paf, DWORD nr, const AVISTREAMINFOW *asi)
+static void    AVIFILE_ConstructAVIStream(IAVIFileImpl *paf, DWORD nr, LPAVISTREAMINFOW asi)
 {
   IAVIStreamImpl *pstream;
 
@@ -1656,7 +1655,7 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
   This->fInfo.dwWidth               = MainAVIHdr.dwWidth;
   This->fInfo.dwHeight              = MainAVIHdr.dwHeight;
   LoadStringW(AVIFILE_hModule, IDS_AVIFILETYPE, This->fInfo.szFileType,
-	      sizeof(This->fInfo.szFileType)/sizeof(This->fInfo.szFileType[0]));
+	      sizeof(This->fInfo.szFileType));
 
   /* go back to into header list */
   if (mmioAscend(This->hmmio, &ck, 0) != S_OK)
@@ -1688,7 +1687,7 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
 	    return AVIERR_MEMORY;
 	  pStream->cbHandlerData = ck.cksize;
 
-          if (mmioRead(This->hmmio, pStream->lpHandlerData, ck.cksize) != ck.cksize)
+	  if (mmioRead(This->hmmio, (HPSTR)pStream->lpHandlerData, ck.cksize) != ck.cksize)
 	    return AVIERR_FILEREAD;
 	  break;
 	case ckidSTREAMFORMAT:
@@ -1702,11 +1701,11 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
 	    return AVIERR_MEMORY;
 	  pStream->cbFormat = ck.cksize;
 
-          if (mmioRead(This->hmmio, pStream->lpFormat, ck.cksize) != ck.cksize)
+	  if (mmioRead(This->hmmio, (HPSTR)pStream->lpFormat, ck.cksize) != ck.cksize)
 	    return AVIERR_FILEREAD;
 
 	  if (pStream->sInfo.fccType == streamtypeVIDEO) {
-            LPBITMAPINFOHEADER lpbi = pStream->lpFormat;
+	    LPBITMAPINFOHEADER lpbi = (LPBITMAPINFOHEADER)pStream->lpFormat;
 
 	    /* some corrections to the video format */
 	    if (lpbi->biClrUsed == 0 && lpbi->biBitCount <= 8)
@@ -1767,9 +1766,9 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
 
 	    /* generate description for stream like "filename.avi Type #n" */
 	    if (streamHdr.fccType == streamtypeVIDEO)
-	      LoadStringW(AVIFILE_hModule, IDS_VIDEO, szType, sizeof(szType)/sizeof(szType[0]));
+	      LoadStringW(AVIFILE_hModule, IDS_VIDEO, szType, sizeof(szType));
 	    else if (streamHdr.fccType == streamtypeAUDIO)
-	      LoadStringW(AVIFILE_hModule, IDS_AUDIO, szType, sizeof(szType)/sizeof(szType[0]));
+	      LoadStringW(AVIFILE_hModule, IDS_AUDIO, szType, sizeof(szType));
 	    else
 	      wsprintfW(szType, streamTypeFmt, (char*)&streamHdr.fccType);
 
@@ -1782,7 +1781,7 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
 
 	    memset(pStream->sInfo.szName, 0, sizeof(pStream->sInfo.szName));
 
-	    LoadStringW(AVIFILE_hModule, IDS_AVISTREAMFORMAT, streamNameFmt, sizeof(streamNameFmt)/sizeof(streamNameFmt[0]));
+	    LoadStringW(AVIFILE_hModule, IDS_AVISTREAMFORMAT, streamNameFmt, sizeof(streamNameFmt));
 
 	    /* FIXME: avoid overflow -- better use wsnprintfW, which doesn't exists ! */
 	    wsprintfW(pStream->sInfo.szName, streamNameFmt,
@@ -1795,7 +1794,7 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
 	    if (str == NULL)
 	      return AVIERR_MEMORY;
 
-	    if (mmioRead(This->hmmio, str, ck.cksize) != ck.cksize)
+	    if (mmioRead(This->hmmio, (HPSTR)str, ck.cksize) != ck.cksize)
 	    {
 	      HeapFree(GetProcessHeap(), 0, str);
 	      return AVIERR_FILEREAD;
@@ -1903,7 +1902,7 @@ static HRESULT AVIFILE_LoadFile(IAVIFileImpl *This)
   return AVIERR_OK;
 }
 
-static HRESULT AVIFILE_LoadIndex(const IAVIFileImpl *This, DWORD size, DWORD offset)
+static HRESULT AVIFILE_LoadIndex(IAVIFileImpl *This, DWORD size, DWORD offset)
 {
   AVIINDEXENTRY *lp;
   DWORD          pos, n;
@@ -1940,7 +1939,6 @@ static HRESULT AVIFILE_LoadIndex(const IAVIFileImpl *This, DWORD size, DWORD off
       HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, pStream->nIdxFrames * sizeof(AVIINDEXENTRY));
     if (pStream->idxFrames == NULL && pStream->nIdxFrames > 0) {
       pStream->nIdxFrames = 0;
-      HeapFree(GetProcessHeap(), 0, lp);
       return AVIERR_MEMORY;
     }
   }
@@ -1977,7 +1975,7 @@ static HRESULT AVIFILE_LoadIndex(const IAVIFileImpl *This, DWORD size, DWORD off
   return hr;
 }
 
-static HRESULT AVIFILE_ParseIndex(const IAVIFileImpl *This, AVIINDEXENTRY *lp,
+static HRESULT AVIFILE_ParseIndex(IAVIFileImpl *This, AVIINDEXENTRY *lp,
 				  LONG count, DWORD pos, BOOL *bAbsolute)
 {
   if (lp == NULL)
@@ -2008,7 +2006,7 @@ static HRESULT AVIFILE_ParseIndex(const IAVIFileImpl *This, AVIINDEXENTRY *lp,
 }
 
 static HRESULT AVIFILE_ReadBlock(IAVIStreamImpl *This, DWORD pos,
-				 LPVOID buffer, DWORD size)
+				 LPVOID buffer, LONG size)
 {
   /* pre-conditions */
   assert(This != NULL);
@@ -2059,14 +2057,15 @@ static HRESULT AVIFILE_ReadBlock(IAVIStreamImpl *This, DWORD pos,
   } else {
     if (mmioSeek(This->paf->hmmio, This->idxFrames[pos].dwChunkOffset + 2 * sizeof(DWORD), SEEK_SET) == -1)
       return AVIERR_FILEREAD;
-    if (mmioRead(This->paf->hmmio, buffer, size) != size)
+    if (mmioRead(This->paf->hmmio, (HPSTR)buffer, size) != size)
       return AVIERR_FILEREAD;
   }
 
   return AVIERR_OK;
 }
 
-static void AVIFILE_SamplesToBlock(const IAVIStreamImpl *This, LPLONG pos, LPLONG offset)
+static void    AVIFILE_SamplesToBlock(IAVIStreamImpl *This, LPLONG pos,
+				      LPLONG offset)
 {
   LONG block;
 
@@ -2206,7 +2205,7 @@ static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This)
     if (mmioCreateChunk(This->hmmio, &ck, 0) != S_OK)
       return AVIERR_FILEWRITE;
     if (pStream->lpFormat != NULL && ck.cksize > 0) {
-      if (mmioWrite(This->hmmio, pStream->lpFormat, ck.cksize) != ck.cksize)
+      if (mmioWrite(This->hmmio, (HPSTR)pStream->lpFormat, ck.cksize) != ck.cksize)
 	return AVIERR_FILEWRITE;
     }
     if (mmioAscend(This->hmmio, &ck, 0) != S_OK)
@@ -2218,7 +2217,7 @@ static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This)
       ck.cksize = pStream->cbHandlerData;
       if (mmioCreateChunk(This->hmmio, &ck, 0) != S_OK)
 	return AVIERR_FILEWRITE;
-      if (mmioWrite(This->hmmio, pStream->lpHandlerData, ck.cksize) != ck.cksize)
+      if (mmioWrite(This->hmmio, (HPSTR)pStream->lpHandlerData, ck.cksize) != ck.cksize)
 	return AVIERR_FILEWRITE;
       if (mmioAscend(This->hmmio, &ck, 0) != S_OK)
 	return AVIERR_FILEWRITE;
@@ -2226,8 +2225,8 @@ static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This)
 
     /* ... some optional additional extra chunk for this stream ... */
     if (pStream->extra.lp != NULL && pStream->extra.cb > 0) {
-      /* the chunk header(s) are already in the structure */
-      if (mmioWrite(This->hmmio, pStream->extra.lp, pStream->extra.cb) != pStream->extra.cb)
+      /* the chunk header(s) are already in the strucuture */
+      if (mmioWrite(This->hmmio, (HPSTR)pStream->extra.lp, pStream->extra.cb) != pStream->extra.cb)
 	return AVIERR_FILEWRITE;
     }
 
@@ -2249,7 +2248,7 @@ static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This)
       WideCharToMultiByte(CP_ACP, 0, pStream->sInfo.szName, -1, str,
 			  ck.cksize, NULL, NULL);
 
-      if (mmioWrite(This->hmmio, str, ck.cksize) != ck.cksize) {
+      if (mmioWrite(This->hmmio, (HPSTR)str, ck.cksize) != ck.cksize) {
 	HeapFree(GetProcessHeap(), 0, str);	
 	return AVIERR_FILEWRITE;
       }
@@ -2302,7 +2301,7 @@ static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This)
   /* write optional extra file chunks */
   if (This->fileextra.lp != NULL && This->fileextra.cb > 0) {
     /* as for the streams, are the chunk header(s) in the structure */
-    if (mmioWrite(This->hmmio, This->fileextra.lp, This->fileextra.cb) != This->fileextra.cb)
+    if (mmioWrite(This->hmmio, (HPSTR)This->fileextra.lp, This->fileextra.cb) != This->fileextra.cb)
       return AVIERR_FILEWRITE;
   }
 
@@ -2318,7 +2317,7 @@ static HRESULT AVIFILE_SaveFile(IAVIFileImpl *This)
   return AVIERR_OK;
 }
 
-static HRESULT AVIFILE_SaveIndex(const IAVIFileImpl *This)
+static HRESULT AVIFILE_SaveIndex(IAVIFileImpl *This)
 {
   IAVIStreamImpl *pStream;
   AVIINDEXENTRY   idx;
@@ -2332,7 +2331,7 @@ static HRESULT AVIFILE_SaveIndex(const IAVIFileImpl *This)
     return AVIERR_FILEWRITE;
 
   if (This->fInfo.dwFlags & AVIFILEINFO_ISINTERLEAVED) {
-    /* is interleaved -- write block of corresponding frames */
+    /* is interleaved -- write block of coresponding frames */
     LONG lInitialFrames = 0;
     LONG stepsize;
     LONG i;
@@ -2448,7 +2447,7 @@ static HRESULT AVIFILE_SaveIndex(const IAVIFileImpl *This)
   return AVIERR_OK;
 }
 
-static ULONG  AVIFILE_SearchStream(const IAVIFileImpl *This, DWORD fcc, LONG lSkip)
+static ULONG  AVIFILE_SearchStream(IAVIFileImpl *This, DWORD fcc, LONG lSkip)
 {
   UINT i;
   UINT nStream;
@@ -2543,7 +2542,7 @@ static void    AVIFILE_UpdateInfo(IAVIFileImpl *This)
 }
 
 static HRESULT AVIFILE_WriteBlock(IAVIStreamImpl *This, DWORD block,
-				  FOURCC ckid, DWORD flags, LPCVOID buffer,
+				  FOURCC ckid, DWORD flags, LPVOID buffer,
 				  LONG size)
 {
   MMCKINFO ck;
@@ -2562,7 +2561,7 @@ static HRESULT AVIFILE_WriteBlock(IAVIStreamImpl *This, DWORD block,
   if (mmioCreateChunk(This->paf->hmmio, &ck, 0) != S_OK)
     return AVIERR_FILEWRITE;
   if (buffer != NULL && size > 0) {
-    if (mmioWrite(This->paf->hmmio, buffer, size) != size)
+    if (mmioWrite(This->paf->hmmio, (HPSTR)buffer, size) != size)
       return AVIERR_FILEWRITE;
   }
   if (mmioAscend(This->paf->hmmio, &ck, 0) != S_OK)

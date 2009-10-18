@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * History:
  * 24-Jul-2000 BS	- Made a fix for broken Berkeley yacc on
@@ -129,6 +129,9 @@
 #include <assert.h>
 #include <ctype.h>
 #include <string.h>
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#endif
 
 #include "wrc.h"
 #include "utils.h"
@@ -169,12 +172,12 @@
 
 int want_nl = 0;	/* Signal flex that we need the next newline */
 int want_id = 0;	/* Signal flex that we need the next identifier */
-static stringtable_t *tagstt;	/* Stringtable tag.
+stringtable_t *tagstt;	/* Stringtable tag.
 			 * It is set while parsing a stringtable to one of
 			 * the stringtables in the sttres list or a new one
 			 * if the language was not parsed before.
 			 */
-static stringtable_t *sttres;	/* Stringtable resources. This holds the list of
+stringtable_t *sttres;	/* Stringtable resources. This holds the list of
 			 * stringtables with different lanuages
 			 */
 static int dont_want_id = 0;	/* See language parsing for details */
@@ -297,6 +300,7 @@ static int rsrcid_to_token(int lookahead);
 %token tFILEVERSION tPRODUCTVERSION tFILEFLAGSMASK tFILEOS tFILETYPE tFILEFLAGS tFILESUBTYPE
 %token tMENUBARBREAK tMENUBREAK tMENUITEM tPOPUP tSEPARATOR
 %token tHELP
+%token tSTRING tIDENT tRAWDATA
 %token tTOOLBAR tBUTTON
 %token tBEGIN tEND
 %token tDLGINIT
@@ -344,7 +348,7 @@ static int rsrcid_to_token(int lookahead);
 %type <lan>	opt_language
 %type <chars>	opt_characts
 %type <ver>	opt_version
-%type <num>	expr xpr
+%type <num>	expr xpr xpr_no_not
 %type <iptr>	e_expr
 %type <tlbar>	toolbar
 %type <tlbarItems>	toolbar_items
@@ -358,7 +362,7 @@ static int rsrcid_to_token(int lookahead);
 
 resource_file
 	: resources {
-		resource_t *rsc, *head;
+		resource_t *rsc;
 		/* First add stringtables to the resource-list */
 		rsc = build_stt_resources(sttres);
 		/* 'build_stt_resources' returns a head and $1 is a tail */
@@ -384,20 +388,8 @@ resource_file
 		}
 		else
 			$1 = rsc;
-
-		/* Final statements before were done */
-                if ((head = get_resource_head($1)) != NULL)
-                {
-                    if (resource_top)  /* append to existing resources */
-                    {
-                        resource_t *tail = resource_top;
-                        while (tail->next) tail = tail->next;
-                        tail->next = head;
-                        head->prev = tail;
-                    }
-                    else resource_top = head;
-                }
-                sttres = NULL;
+		/* Final statement before were done */
+		resource_top = get_resource_head($1);
 		}
 	;
 
@@ -426,8 +418,7 @@ resources
 					if(rsc->type == head->type
 					&& rsc->lan->id == head->lan->id
 					&& rsc->lan->sub == head->lan->sub
-					&& !compare_name_id(rsc->name, head->name)
-					&& (rsc->type != res_usr || !compare_name_id(rsc->res.usr->type,head->res.usr->type)))
+					&& !compare_name_id(rsc->name, head->name))
 					{
 						yyerror("Duplicate resource name '%s'", get_nameid_str(rsc->name));
 					}
@@ -452,7 +443,7 @@ resources
 		}
 	/*
 	 * The following newline rule will never get reduced because we never
-	 * get the tNL token, unless we explicitly set the 'want_nl'
+	 * get the tNL token, unless we explicitely set the 'want_nl'
 	 * flag, which we don't.
 	 * The *ONLY* reason for this to be here is because Berkeley
 	 * yacc (byacc), at least version 1.9, has a bug.
@@ -490,7 +481,7 @@ resource
 			$$->name = new_name_id();
 			$$->name->type = name_ord;
 			$$->name->name.i_name = $1;
-			chat("Got %s (%d)\n", get_typename($3), $$->name->name.i_name);
+			chat("Got %s (%d)", get_typename($3), $$->name->name.i_name);
 			}
 			}
 	| tIDENT usrcvt resource_definition {
@@ -500,7 +491,7 @@ resource
 			$$->name = new_name_id();
 			$$->name->type = name_str;
 			$$->name->name.s_name = $1;
-			chat("Got %s (%s)\n", get_typename($3), $$->name->name.s_name->str.cstr);
+			chat("Got %s (%s)", get_typename($3), $$->name->name.s_name->str.cstr);
 		}
 		}
 	| stringtable {
@@ -509,7 +500,7 @@ resource
 		 * the final rule of the parser is reduced (see above)
 		 */
 		$$ = NULL;
-		chat("Got STRINGTABLE\n");
+		chat("Got STRINGTABLE");
 		}
 	| tLANGUAGE {want_nl = 1; } expr ',' expr {
 		/* We *NEED* the newline to delimit the expression.
@@ -519,7 +510,7 @@ resource
 		 * However, we can test the lookahead-token for
 		 * being "non-expression" type, in which case we
 		 * continue. Fortunately, tNL is the only token that
-		 * will break expression parsing and is implicitly
+		 * will break expression parsing and is implicitely
 		 * void, so we just remove it. This scheme makes it
 		 * possible to do some (not all) fancy preprocessor
 		 * stuff.
@@ -535,18 +526,19 @@ resource
 			yychar = YYEMPTY;	/* Could use 'yyclearin', but we already need the*/
 						/* direct access to yychar in rule 'usrcvt' below. */
 		else if(yychar == tIDENT)
-			parser_warning("LANGUAGE statement not delimited with newline; next identifier might be wrong\n");
+			yywarning("LANGUAGE statement not delimited with newline; next identifier might be wrong");
 
 		want_nl = 0;	/* We don't want it anymore if we didn't get it */
 
 		if(!win32)
-			parser_warning("LANGUAGE not supported in 16-bit mode\n");
-		free(currentlanguage);
+			yywarning("LANGUAGE not supported in 16-bit mode");
+		if(currentlanguage)
+			free(currentlanguage);
 		if (get_language_codepage($3, $5) == -1)
 			yyerror( "Language %04x is not supported", ($5<<10) + $3);
 		currentlanguage = new_language($3, $5);
 		$$ = NULL;
-		chat("Got LANGUAGE %d,%d (0x%04x)\n", $3, $5, ($5<<10) + $3);
+		chat("Got LANGUAGE %d,%d (0x%04x)", $3, $5, ($5<<10) + $3);
 		}
 	;
 
@@ -610,7 +602,7 @@ resource_definition
 			}
 		}
 		else
-			internal_error(__FILE__, __LINE__, "Invalid top-level type %d in cursor resource\n", $1->type);
+			internal_error(__FILE__, __LINE__, "Invalid top-level type %d in cursor resource", $1->type);
 		free($1);
 		}
 	| dialog	{ $$ = new_resource(res_dlg, $1, $1->memopt, $1->lvc.language); }
@@ -644,7 +636,7 @@ resource_definition
 			}
 		}
 		else
-			internal_error(__FILE__, __LINE__, "Invalid top-level type %d in icon resource\n", $1->type);
+			internal_error(__FILE__, __LINE__, "Invalid top-level type %d in icon resource", $1->type);
 		free($1);
 		}
 	| menu		{ $$ = new_resource(res_men, $1, $1->memopt, $1->lvc.language); }
@@ -731,7 +723,7 @@ fontdir	: tFONTDIR loadmemopts file_raw	{ $$ = new_fontdir($3, $2); }
 messagetable
 	: tMESSAGETABLE loadmemopts file_raw	{
 		if(!win32)
-			parser_warning("MESSAGETABLE not supported in 16-bit mode\n");
+			yywarning("MESSAGETABLE not supported in 16-bit mode");
 		$$ = new_messagetable($3, $2);
 		}
 	;
@@ -755,7 +747,7 @@ userres	: usertype loadmemopts file_raw		{
 #else
 			if(pedantic && byteorder == WRC_BO_BIG)
 #endif
-				parser_warning("Byteordering is not little-endian and type cannot be interpreted\n");
+				yywarning("Byteordering is not little-endian and type cannot be interpreted");
 			$$ = new_user($1, $3, $2);
 		}
 	;
@@ -904,9 +896,11 @@ ctrls	: /* Empty */				{ $$ = NULL; }
 	;
 
 lab_ctrl
-	: nameid_s opt_comma expr ',' expr ',' expr ',' expr ',' expr optional_style_pair {
+	: tSTRING opt_comma expr ',' expr ',' expr ',' expr ',' expr optional_style_pair {
 		$$=new_control();
-		$$->title = $1;
+		$$->title = new_name_id();
+		$$->title->type = name_str;
+		$$->title->name.s_name = $1;
 		$$->id = $3;
 		$$->x = $5;
 		$$->y = $7;
@@ -1016,8 +1010,8 @@ optional_style_pair
 style
 	: style '|' style	{ $$ = new_style($1->or_mask | $3->or_mask, $1->and_mask | $3->and_mask); free($1); free($3);}
 	| '(' style ')'		{ $$ = $2; }
-        | any_num       	{ $$ = new_style($1, 0); }
-        | tNOT any_num		{ $$ = new_style(0, $2); }
+        | xpr_no_not    	{ $$ = new_style($1, 0); }
+        | tNOT xpr_no_not	{ $$ = new_style(0, $2); }
         ;
 
 ctlclass
@@ -1037,7 +1031,7 @@ ctlclass
 dialogex: tDIALOGEX loadmemopts expr ',' expr ',' expr ',' expr helpid dlgex_attribs
 	  tBEGIN  exctrls tEND {
 		if(!win32)
-			parser_warning("DIALOGEX not supported in 16-bit mode\n");
+			yywarning("DIALOGEX not supported in 16-bit mode");
 		if($2)
 		{
 			$11->memopt = *($2);
@@ -1162,9 +1156,11 @@ gen_exctrl
 	;
 
 lab_exctrl
-	: nameid_s opt_comma expr ',' expr ',' expr ',' expr ',' expr optional_style_pair helpid opt_data {
+	: tSTRING opt_comma expr ',' expr ',' expr ',' expr ',' expr optional_style_pair helpid opt_data {
 		$$=new_control();
-		$$->title = $1;
+		$$->title = new_name_id();
+		$$->title->type = name_str;
+		$$->title->name.s_name = $1;
 		$$->id = $3;
 		$$->x = $5;
 		$$->y = $7;
@@ -1306,7 +1302,7 @@ item_options
 /* ------------------------------ MenuEx ------------------------------ */
 menuex	: tMENUEX loadmemopts opt_lvc menuex_body	{
 		if(!win32)
-			parser_warning("MENUEX not supported in 16-bit mode\n");
+			yywarning("MENUEX not supported in 16-bit mode");
 		if(!$4)
 			yyerror("MenuEx must contain items");
 		$$ = new_menuex();
@@ -1386,16 +1382,16 @@ itemex_options
 		$$->gotid = TRUE;
 		$$->gottype = TRUE;
 		$$->gotstate = TRUE;
-		free($2);
-		free($4);
+		if($2) free($2);
+		if($4) free($4);
 		}
 	| ',' e_expr ',' e_expr ',' expr {
 		$$ = new_itemex_opt($2 ? *($2) : 0, $4 ? *($4) : 0, $6, 0);
 		$$->gotid = TRUE;
 		$$->gottype = TRUE;
 		$$->gotstate = TRUE;
-		free($2);
-		free($4);
+		if($2) free($2);
+		if($4) free($4);
 		}
 	;
 
@@ -1407,23 +1403,23 @@ itemex_p_options
 		}
 	| ',' e_expr ',' expr {
 		$$ = new_itemex_opt($2 ? *($2) : 0, $4, 0, 0);
-		free($2);
+		if($2) free($2);
 		$$->gotid = TRUE;
 		$$->gottype = TRUE;
 		}
 	| ',' e_expr ',' e_expr ',' expr {
 		$$ = new_itemex_opt($2 ? *($2) : 0, $4 ? *($4) : 0, $6, 0);
-		free($2);
-		free($4);
+		if($2) free($2);
+		if($4) free($4);
 		$$->gotid = TRUE;
 		$$->gottype = TRUE;
 		$$->gotstate = TRUE;
 		}
 	| ',' e_expr ',' e_expr ',' e_expr ',' expr {
 		$$ = new_itemex_opt($2 ? *($2) : 0, $4 ? *($4) : 0, $6 ? *($6) : 0, $8);
-		free($2);
-		free($4);
-		free($6);
+		if($2) free($2);
+		if($4) free($4);
+		if($6) free($6);
 		$$->gotid = TRUE;
 		$$->gottype = TRUE;
 		$$->gotstate = TRUE;
@@ -1469,8 +1465,11 @@ stringtable
 			 }
 			 /* Else were done */
 		}
-		free(tagstt_memopt);
-		tagstt_memopt = NULL;
+		if(tagstt_memopt)
+		{
+			free(tagstt_memopt);
+			tagstt_memopt = NULL;
+		}
 
 		$$ = tagstt;
 		}
@@ -1483,7 +1482,8 @@ stt_head: tSTRINGTABLE loadmemopts opt_lvc {
 		tagstt_memopt = $2;
 		tagstt_version = $3->version;
 		tagstt_characts = $3->characts;
-		free($3);
+		if($3)
+			free($3);
 		}
 	;
 
@@ -1512,7 +1512,7 @@ strings	: /* Empty */	{ $$ = NULL; }
 		tagstt->entries[tagstt->nentries-1].characts = tagstt_characts;
 
 		if(pedantic && !$4->size)
-			parser_warning("Zero length strings make no sense\n");
+			yywarning("Zero length strings make no sense");
 		if(!win32 && $4->size > 254)
 			yyerror("Stringtable entry more than 254 characters");
 		if(win32 && $4->size > 65534) /* Hmm..., does this happen? */
@@ -1738,7 +1738,7 @@ lama	: tLOADONCALL	{ $$ = new_int(~WRC_MO_PRELOAD); }
 opt_lvc	: /* Empty */		{ $$ = new_lvc(); }
 	| opt_lvc opt_language {
 		if(!win32)
-			parser_warning("LANGUAGE not supported in 16-bit mode\n");
+			yywarning("LANGUAGE not supported in 16-bit mode");
 		if($1->language)
 			yyerror("Language already defined");
 		$$ = $1;
@@ -1746,7 +1746,7 @@ opt_lvc	: /* Empty */		{ $$ = new_lvc(); }
 		}
 	| opt_lvc opt_characts {
 		if(!win32)
-			parser_warning("CHARACTERISTICS not supported in 16-bit mode\n");
+			yywarning("CHARACTERISTICS not supported in 16-bit mode");
 		if($1->characts)
 			yyerror("Characteristics already defined");
 		$$ = $1;
@@ -1754,7 +1754,7 @@ opt_lvc	: /* Empty */		{ $$ = new_lvc(); }
 		}
 	| opt_lvc opt_version {
 		if(!win32)
-			parser_warning("VERSION not supported in 16-bit mode\n");
+			yywarning("VERSION not supported in 16-bit mode");
 		if($1->version)
 			yyerror("Version already defined");
 		$$ = $1;
@@ -1831,18 +1831,22 @@ e_expr	: /* Empty */	{ $$ = 0; }
 expr	: xpr	{ $$ = ($1); }
 	;
 
-xpr	: xpr '+' xpr	{ $$ = ($1) + ($3); }
-	| xpr '-' xpr	{ $$ = ($1) - ($3); }
-	| xpr '|' xpr	{ $$ = ($1) | ($3); }
-	| xpr '&' xpr	{ $$ = ($1) & ($3); }
-	| xpr '*' xpr	{ $$ = ($1) * ($3); }
-	| xpr '/' xpr	{ $$ = ($1) / ($3); }
-	| xpr '^' xpr	{ $$ = ($1) ^ ($3); }
-	| '~' xpr	{ $$ = ~($2); }
-	| '-' xpr %prec pUPM	{ $$ = -($2); }
-	| '+' xpr %prec pUPM	{ $$ = $2; }
-	| '(' xpr ')'	{ $$ = $2; }
-	| any_num	{ $$ = $1; }
+xpr_no_not	: xpr '+' xpr	{ $$ = ($1) + ($3); }
+		| xpr '-' xpr	{ $$ = ($1) - ($3); }
+		| xpr '|' xpr	{ $$ = ($1) | ($3); }
+		| xpr '&' xpr	{ $$ = ($1) & ($3); }
+		| xpr '*' xpr	{ $$ = ($1) * ($3); }
+		| xpr '/' xpr	{ $$ = ($1) / ($3); }
+		| xpr '^' xpr	{ $$ = ($1) ^ ($3); }
+		| '~' xpr	{ $$ = ~($2); }
+		| '-' xpr %prec pUPM	{ $$ = -($2); }
+		| '+' xpr %prec pUPM	{ $$ = $2; }
+		| '(' xpr ')'	{ $$ = $2; }
+		| any_num	{ $$ = $1; }
+		;
+
+
+xpr	: xpr_no_not	{ $$ = ($1); }
 	| tNOT any_num	{ $$ = ~($2); }
 	;
 
@@ -1862,7 +1866,7 @@ static dialog_t *dialog_style(style_t * st, dialog_t *dlg)
 
 	if(dlg->gotstyle)
 	{
-		parser_warning("Style already defined, or-ing together\n");
+		yywarning("Style already defined, or-ing together");
 	}
 	else
 	{
@@ -1886,7 +1890,7 @@ static dialog_t *dialog_exstyle(style_t *st, dialog_t *dlg)
 
 	if(dlg->gotexstyle)
 	{
-		parser_warning("ExStyle already defined, or-ing together\n");
+		yywarning("ExStyle already defined, or-ing together");
 	}
 	else
 	{
@@ -1975,14 +1979,6 @@ static control_t *ins_ctrl(int type, int special_style, control_t *ctrl, control
 	if(prev)
 		prev->next = ctrl;
 
-	/* Check for duplicate identifiers */
-	while (prev)
-	{
-		if (ctrl->id != -1 && ctrl->id == prev->id)
-                        parser_warning("Duplicate dialog control id %d\n", ctrl->id);
-		prev = prev->prev;
-	}
-
 	if(type != -1)
 	{
 		ctrl->ctlclass = new_name_id();
@@ -2042,7 +2038,7 @@ static control_t *ins_ctrl(int type, int special_style, control_t *ctrl, control
 				defaultstyle |= WS_TABSTOP;
 				break;
 			default:
-				parser_warning("Unknown default button control-style 0x%08x\n", special_style);
+				yywarning("Unknown default button control-style 0x%08x", special_style);
 			case BS_GROUPBOX:
 			case BS_RADIOBUTTON:
 				break;
@@ -2060,7 +2056,7 @@ static control_t *ins_ctrl(int type, int special_style, control_t *ctrl, control
 			case SS_ICON:	/* Special case */
 				break;
 			default:
-				parser_warning("Unknown default static control-style 0x%08x\n", special_style);
+				yywarning("Unknown default static control-style 0x%08x", special_style);
 				break;
 			}
 			break;
@@ -2097,63 +2093,34 @@ byebye:
 	return ctrl;
 }
 
-static int get_class_idW(const WCHAR *cc)
-{
-        static const WCHAR szBUTTON[]    = {'B','U','T','T','O','N',0};
-        static const WCHAR szCOMBOBOX[]  = {'C','O','M','B','O','B','O','X',0};
-        static const WCHAR szLISTBOX[]   = {'L','I','S','T','B','O','X',0};
-        static const WCHAR szEDIT[]      = {'E','D','I','T',0};
-        static const WCHAR szSTATIC[]    = {'S','T','A','T','I','C',0};
-        static const WCHAR szSCROLLBAR[] = {'S','C','R','O','L','L','B','A','R',0};
-
-        if(!strcmpiW(szBUTTON, cc))
-                return CT_BUTTON;
-        if(!strcmpiW(szCOMBOBOX, cc))
-                return CT_COMBOBOX;
-        if(!strcmpiW(szLISTBOX, cc))
-                return CT_LISTBOX;
-        if(!strcmpiW(szEDIT, cc))
-                return CT_EDIT;
-        if(!strcmpiW(szSTATIC, cc))
-                return CT_STATIC;
-        if(!strcmpiW(szSCROLLBAR, cc))
-                return CT_SCROLLBAR;
-
-        return -1;
-}
-
-static int get_class_idA(const char *cc)
-{
-        if(!strcasecmp("BUTTON", cc))
-                return CT_BUTTON;
-        if(!strcasecmp("COMBOBOX", cc))
-                return CT_COMBOBOX;
-        if(!strcasecmp("LISTBOX", cc))
-                return CT_LISTBOX;
-        if(!strcasecmp("EDIT", cc))
-                return CT_EDIT;
-        if(!strcasecmp("STATIC", cc))
-                return CT_STATIC;
-        if(!strcasecmp("SCROLLBAR", cc))
-                return CT_SCROLLBAR;
-
-        return -1;
-}
-
-
 static name_id_t *convert_ctlclass(name_id_t *cls)
 {
+	char *cc = NULL;
 	int iclass;
 
 	if(cls->type == name_ord)
 		return cls;
 	assert(cls->type == name_str);
-        if(cls->name.s_name->type == str_unicode)
-                iclass = get_class_idW(cls->name.s_name->str.wstr);
-        else
-                iclass = get_class_idA(cls->name.s_name->str.cstr);
+	if(cls->type == str_unicode)
+	{
+		yyerror("Don't yet support unicode class comparison");
+	}
+	else
+		cc = cls->name.s_name->str.cstr;
 
-        if (iclass == -1)
+	if(!strcasecmp("BUTTON", cc))
+		iclass = CT_BUTTON;
+	else if(!strcasecmp("COMBOBOX", cc))
+		iclass = CT_COMBOBOX;
+	else if(!strcasecmp("LISTBOX", cc))
+		iclass = CT_LISTBOX;
+	else if(!strcasecmp("EDIT", cc))
+		iclass = CT_EDIT;
+	else if(!strcasecmp("STATIC", cc))
+		iclass = CT_STATIC;
+	else if(!strcasecmp("SCROLLBAR", cc))
+		iclass = CT_SCROLLBAR;
+	else
 		return cls;	/* No default, return user controlclass */
 
 	free(cls->name.s_name->str.cstr);
@@ -2174,7 +2141,7 @@ static dialogex_t *dialogex_style(style_t * st, dialogex_t *dlg)
 
 	if(dlg->gotstyle)
 	{
-		parser_warning("Style already defined, or-ing together\n");
+		yywarning("Style already defined, or-ing together");
 	}
 	else
 	{
@@ -2198,7 +2165,7 @@ static dialogex_t *dialogex_exstyle(style_t * st, dialogex_t *dlg)
 
 	if(dlg->gotexstyle)
 	{
-		parser_warning("ExStyle already defined, or-ing together\n");
+		yywarning("ExStyle already defined, or-ing together");
 	}
 	else
 	{
@@ -2294,60 +2261,45 @@ static event_t *add_event(int key, int id, int flags, event_t *prev)
 
 static event_t *add_string_event(string_t *key, int id, int flags, event_t *prev)
 {
-    int keycode = 0;
-    event_t *ev = new_event();
+	int keycode = 0, keysym = 0;
+	event_t *ev = new_event();
 
-    if(key->type == str_char)
-    {
-	if((flags & WRC_AF_VIRTKEY) && (!isupper(key->str.cstr[0] & 0xff) && !isdigit(key->str.cstr[0] & 0xff)))
+	if(key->type == str_char)
+		keysym = key->str.cstr[0];
+	else
+		keysym = key->str.wstr[0];
+
+	if((flags & WRC_AF_VIRTKEY) && (!isupper(keysym & 0xff) && !isdigit(keysym & 0xff)))
 		yyerror("VIRTKEY code is not equal to ascii value");
 
-	if(key->str.cstr[0] == '^' && (flags & WRC_AF_CONTROL) != 0)
+	if(keysym == '^' && (flags & WRC_AF_CONTROL) != 0)
 	{
 		yyerror("Cannot use both '^' and CONTROL modifier");
 	}
-	else if(key->str.cstr[0] == '^')
+	else if(keysym == '^')
 	{
-		keycode = toupper(key->str.cstr[1]) - '@';
+		if(key->type == str_char)
+			keycode = toupper(key->str.cstr[1]) - '@';
+		else
+			keycode = toupper(key->str.wstr[1]) - '@';
 		if(keycode >= ' ')
 			yyerror("Control-code out of range");
 	}
 	else
-		keycode = key->str.cstr[0];
-    }
-    else
-    {
-	if((flags & WRC_AF_VIRTKEY) && !isupperW(key->str.wstr[0]) && !isdigitW(key->str.wstr[0]))
-		yyerror("VIRTKEY code is not equal to ascii value");
-
-	if(key->str.wstr[0] == '^' && (flags & WRC_AF_CONTROL) != 0)
-	{
-		yyerror("Cannot use both '^' and CONTROL modifier");
-	}
-	else if(key->str.wstr[0] == '^')
-	{
-		keycode = toupperW(key->str.wstr[1]) - '@';
-		if(keycode >= ' ')
-			yyerror("Control-code out of range");
-	}
-	else
-		keycode = key->str.wstr[0];
-    }
-
-    ev->key = keycode;
-    ev->id = id;
-    ev->flags = flags & ~WRC_AF_ASCII;
-    ev->prev = prev;
-    if(prev)
-        prev->next = ev;
-    return ev;
+		keycode = keysym;
+	ev->key = keycode;
+	ev->id = id;
+	ev->flags = flags & ~WRC_AF_ASCII;
+	ev->prev = prev;
+	if(prev)
+		prev->next = ev;
+	return ev;
 }
 
 /* MenuEx specific functions */
 static itemex_opt_t *new_itemex_opt(int id, int type, int state, int helpid)
 {
-	itemex_opt_t *opt = xmalloc(sizeof(itemex_opt_t));
-	memset( opt, 0, sizeof(*opt) );
+	itemex_opt_t *opt = (itemex_opt_t *)xmalloc(sizeof(itemex_opt_t));
 	opt->id = id;
 	opt->type = type;
 	opt->state = state;
@@ -2368,7 +2320,7 @@ static raw_data_t *load_file(string_t *filename, language_t *lang)
 	if (codepage <= 0 && filename->type != str_char)
 		yyerror("Cannot convert filename to ASCII string");
 	name = convert_string( filename, str_char, codepage );
-	if (!(path = wpp_find_include(name->str.cstr, input_name)))
+	if (!(path = wpp_find_include(name->str.cstr, input_name, 1)))
 		yyerror("Cannot open file %s", name->str.cstr);
 	if (!(fp = fopen( path, "rb" )))
 		yyerror("Cannot open file %s", name->str.cstr);
@@ -2379,7 +2331,7 @@ static raw_data_t *load_file(string_t *filename, language_t *lang)
 	fseek(fp, 0, SEEK_SET);
 	if (rd->size)
 	{
-		rd->data = xmalloc(rd->size);
+		rd->data = (char *)xmalloc(rd->size);
 		fread(rd->data, rd->size, 1, fp);
 	}
 	else rd->data = NULL;
@@ -2395,11 +2347,11 @@ static raw_data_t *int2raw_data(int i)
 
 	if( ( i >= 0 && (int)((unsigned short)i) != i) ||
             ( i < 0  && (int)((short)i) != i) )
-		parser_warning("Integer constant out of 16bit range (%d), truncated to %d\n", i, (short)i);
+		yywarning("Integer constant out of 16bit range (%d), truncated to %d\n", i, (short)i);
 
 	rd = new_raw_data();
 	rd->size = sizeof(short);
-	rd->data = xmalloc(rd->size);
+	rd->data = (char *)xmalloc(rd->size);
 	switch(byteorder)
 	{
 #ifdef WORDS_BIGENDIAN
@@ -2426,7 +2378,7 @@ static raw_data_t *long2raw_data(int i)
 	raw_data_t *rd;
 	rd = new_raw_data();
 	rd->size = sizeof(int);
-	rd->data = xmalloc(rd->size);
+	rd->data = (char *)xmalloc(rd->size);
 	switch(byteorder)
 	{
 #ifdef WORDS_BIGENDIAN
@@ -2457,7 +2409,7 @@ static raw_data_t *str2raw_data(string_t *str)
 	raw_data_t *rd;
 	rd = new_raw_data();
 	rd->size = str->size * (str->type == str_char ? 1 : 2);
-	rd->data = xmalloc(rd->size);
+	rd->data = (char *)xmalloc(rd->size);
 	if(str->type == str_char)
 		memcpy(rd->data, str->str.cstr, rd->size);
 	else if(str->type == str_unicode)
@@ -2488,7 +2440,7 @@ static raw_data_t *str2raw_data(string_t *str)
 		}
 	}
 	else
-		internal_error(__FILE__, __LINE__, "Invalid stringtype\n");
+		internal_error(__FILE__, __LINE__, "Invalid stringtype");
 	return rd;
 }
 
@@ -2613,12 +2565,12 @@ static stringtable_t *find_stringtable(lvc_t *lvc)
 			if((stt->lvc.version && lvc->version && *(stt->lvc.version) != *(lvc->version))
 			|| (!stt->lvc.version && lvc->version)
 			|| (stt->lvc.version && !lvc->version))
-				parser_warning("Stringtable's versions are not the same, using first definition\n");
+				yywarning("Stringtable's versions are not the same, using first definition");
 
 			if((stt->lvc.characts && lvc->characts && *(stt->lvc.characts) != *(lvc->characts))
 			|| (!stt->lvc.characts && lvc->characts)
 			|| (stt->lvc.characts && !lvc->characts))
-				parser_warning("Stringtable's characteristics are not the same, using first definition\n");
+				yywarning("Stringtable's characteristics are not the same, using first definition");
 			*/
 			return stt;
 		}
@@ -2663,8 +2615,7 @@ static resource_t *build_stt_resources(stringtable_t *stthead)
 		for(i = 0; i < stt->nentries; )
 		{
 			newstt = new_stringtable(&stt->lvc);
-			newstt->entries = xmalloc(16 * sizeof(stt_entry_t));
-			memset( newstt->entries, 0, 16 * sizeof(stt_entry_t) );
+			newstt->entries = (stt_entry_t *)xmalloc(16 * sizeof(stt_entry_t));
 			newstt->nentries = 16;
 			newstt->idbase = stt->entries[i].id & ~0xf;
 			for(j = 0; j < 16 && i < stt->nentries; j++)
@@ -2695,7 +2646,7 @@ static resource_t *build_stt_resources(stringtable_t *stthead)
 			}
 			if(andsum != orsum)
 			{
-				warning("Stringtable's memory options are not equal (idbase: %d)\n", newstt->idbase);
+				warning("Stringtable's memory options are not equal (idbase: %d)", newstt->idbase);
 			}
 			/* Check version and characteristics */
 			for(j = 0; j < 16; j++)
@@ -2703,11 +2654,11 @@ static resource_t *build_stt_resources(stringtable_t *stthead)
 				if(characts
 				&& newstt->entries[j].characts
 				&& *newstt->entries[j].characts != *characts)
-					warning("Stringtable's characteristics are not the same (idbase: %d)\n", newstt->idbase);
+					warning("Stringtable's characteristics are not the same (idbase: %d)", newstt->idbase);
 				if(version
 				&& newstt->entries[j].version
 				&& *newstt->entries[j].version != *version)
-					warning("Stringtable's versions are not the same (idbase: %d)\n", newstt->idbase);
+					warning("Stringtable's versions are not the same (idbase: %d)", newstt->idbase);
 			}
 			rsc = new_resource(res_stt, newstt, newstt->memopt, newstt->lvc.language);
 			rsc->name = new_name_id();
@@ -2821,7 +2772,7 @@ static resource_t *build_fontdir(resource_t **fnt, int nfnt)
 	static int once = 0;
 	if(!once)
 	{
-		warning("Need to parse fonts, not yet implemented (fnt: %p, nfnt: %d)\n", fnt, nfnt);
+		warning("Need to parse fonts, not yet implemented (fnt: %p, nfnt: %d)", fnt, nfnt);
 		once++;
 	}
 	return NULL;
@@ -2870,7 +2821,7 @@ static resource_t *build_fontdirs(resource_t *tail)
 	{
 		if(compare_name_id(&nid, fnd[i]->name))
 		{
-			warning("User supplied FONTDIR entry has an invalid name '%s', ignored\n",
+			warning("User supplied FONTDIR entry has an invalid name '%s', ignored",
 				get_nameid_str(fnd[i]->name));
 			fnd[i] = NULL;
 		}
@@ -2880,13 +2831,12 @@ static resource_t *build_fontdirs(resource_t *tail)
 	if(nfnt == 0)
 	{
 		if(nfnd != 0)
-			warning("Found %d FONTDIR entries without any fonts present\n", nfnd);
+			warning("Found %d FONTDIR entries without any fonts present", nfnd);
 		goto clean;
 	}
 
 	/* Copy space */
 	lanfnt = xmalloc(nfnt * sizeof(*lanfnt));
-	memset( lanfnt, 0, nfnt * sizeof(*lanfnt));
 
 	/* Get all fonts covered by fontdirs */
 	for(i = 0; i < nfnd; i++)
@@ -2915,7 +2865,7 @@ static resource_t *build_fontdirs(resource_t *tail)
 		else if(nlanfnt == BYTESWAP_WORD(cnt))
 			isswapped = 1;
 		else
-			error("FONTDIR for language %d,%d has wrong count (%d, expected %d)\n",
+			error("FONTDIR for language %d,%d has wrong count (%d, expected %d)",
 				fnd[i]->lan->id, fnd[i]->lan->sub, cnt, nlanfnt);
 #ifdef WORDS_BIGENDIAN
 		if((byteorder == WRC_BO_LITTLE && !isswapped) || (byteorder != WRC_BO_LITTLE && isswapped))
@@ -2923,7 +2873,7 @@ static resource_t *build_fontdirs(resource_t *tail)
 		if((byteorder == WRC_BO_BIG && !isswapped) || (byteorder != WRC_BO_BIG && isswapped))
 #endif
 		{
-			internal_error(__FILE__, __LINE__, "User supplied FONTDIR needs byteswapping\n");
+			internal_error(__FILE__, __LINE__, "User supplied FONTDIR needs byteswapping");
 		}
 	}
 
@@ -2967,8 +2917,10 @@ static resource_t *build_fontdirs(resource_t *tail)
 
 	free(lanfnt);
 clean:
-	free(fnt);
-	free(fnd);
+	if(fnt)
+		free(fnt);
+	if(fnd)
+		free(fnd);
 	free(str.str.cstr);
 	return lst;
 }
@@ -3086,13 +3038,13 @@ static int rsrcid_to_token(int lookahead)
 	case WRC_RT_ANIICON:
 	case WRC_RT_GROUP_CURSOR:
 	case WRC_RT_GROUP_ICON:
-		parser_warning("Usertype uses reserved type ID %d, which is auto-generated\n", yylval.num);
+		yywarning("Usertype uses reserved type ID %d, which is auto-generated", yylval.num);
 		return lookahead;
 
 	case WRC_RT_DLGINCLUDE:
 	case WRC_RT_PLUGPLAY:
 	case WRC_RT_VXD:
-		parser_warning("Usertype uses reserved type ID %d, which is not supported by wrc yet\n", yylval.num);
+		yywarning("Usertype uses reserved type ID %d, which is not supported by wrc yet", yylval.num);
 	default:
 		return lookahead;
 	}

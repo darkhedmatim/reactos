@@ -54,8 +54,8 @@ RtlDestroyQueryDebugBuffer(IN PRTL_DEBUG_INFORMATION Buf)
    if (NULL != Buf)
      {
      Status = NtFreeVirtualMemory( NtCurrentProcess(),
-                                   (PVOID)&Buf,
-                                   (PSIZE_T)&Buf->ViewSize, /* FIXME: not portable! */
+                                  (PVOID)&Buf,
+                                  &Buf->ViewSize,
                                    MEM_RELEASE);
      }
    if (!NT_SUCCESS(Status))
@@ -234,7 +234,7 @@ RtlQueryProcessDebugInformation(IN ULONG ProcessId,
                                 IN OUT PRTL_DEBUG_INFORMATION Buf)
 {
    NTSTATUS Status = STATUS_SUCCESS;
-   ULONG Pid = (ULONG_PTR) NtCurrentTeb()->ClientId.UniqueProcess;
+   ULONG Pid = (ULONG) NtCurrentTeb()->Cid.UniqueProcess;
 
    Buf->Flags = DebugInfoMask;
    Buf->OffsetFree = sizeof(RTL_DEBUG_INFORMATION);
@@ -319,7 +319,7 @@ else
        Buf->TargetProcessHandle = NtCurrentProcess();
 
        ClientId.UniqueThread = 0;
-       ClientId.UniqueProcess = (HANDLE)(ULONG_PTR)ProcessId;
+       ClientId.UniqueProcess = (HANDLE)ProcessId;
        InitializeObjectAttributes(&ObjectAttributes,
                                   NULL,
                                   0,

@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  6.3
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,40 +44,13 @@
 #ifndef _GLAPI_H
 #define _GLAPI_H
 
-#define GL_GLEXT_PROTOTYPES
 
 #include "GL/gl.h"
-#include "GL/glext.h"
-#include "glthread.h"
-
-
-struct _glapi_table;
-
-typedef void (*_glapi_proc)(void); /* generic function pointer */
+#include "glapitable.h"
 
 typedef void (*_glapi_warning_func)(void *ctx, const char *str, ...);
 
 
-#if defined(USE_MGL_NAMESPACE)
-#define _glapi_set_dispatch _mglapi_set_dispatch
-#define _glapi_get_dispatch _mglapi_get_dispatch
-#define _glapi_set_context _mglapi_set_context
-#define _glapi_get_context _mglapi_get_context
-#define _glapi_Context _mglapi_Context
-#define _glapi_Dispatch _mglapi_Dispatch
-#endif
-
-
-/*
- * Number of extension functions which we can dynamically add at runtime.
- */
-#define MAX_EXTENSION_FUNCS 300
-
-
-/**
- ** Define the GET_CURRENT_CONTEXT() macro.
- ** \param C local variable which will hold the current context.
- **/
 #if defined (GLX_USE_TLS)
 
 const extern void *_glapi_Context;
@@ -93,6 +66,19 @@ extern __thread void * _glapi_tls_Context
 extern void *_glapi_Context;
 extern struct _glapi_table *_glapi_Dispatch;
 
+/**
+ * Macro for declaration and fetching the current context.
+ *
+ * \param C local variable which will hold the current context.
+ *
+ * It should be used in the variable declaration area of a function:
+ * \code
+ * ...
+ * {
+ *   GET_CURRENT_CONTEXT(ctx);
+ *   ...
+ * \endcode
+ */
 # ifdef THREADS
 #  define GET_CURRENT_CONTEXT(C)  GLcontext *C = (GLcontext *) (_glapi_Context ? _glapi_Context : _glapi_get_context())
 # else
@@ -100,11 +86,6 @@ extern struct _glapi_table *_glapi_Dispatch;
 # endif
 
 #endif /* defined (GLX_USE_TLS) */
-
-
-/**
- ** GL API public functions
- **/
 
 extern void
 _glapi_noop_enable_warnings(GLboolean enable);

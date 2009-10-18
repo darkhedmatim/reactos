@@ -6,7 +6,8 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
+
 
 #define STUB \
   SetLastError(ERROR_CALL_NOT_IMPLEMENTED); \
@@ -16,7 +17,7 @@
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 BaseAttachCompleteThunk (VOID)
 {
     STUB;
@@ -26,7 +27,7 @@ BaseAttachCompleteThunk (VOID)
 /*
  * @unimplemented
  */
-VOID WINAPI
+VOID STDCALL
 BaseDumpAppcompatCache(VOID)
 {
     STUB;
@@ -35,7 +36,7 @@ BaseDumpAppcompatCache(VOID)
 /*
  * @unimplemented
  */
-VOID WINAPI
+VOID STDCALL
 BaseFlushAppcompatCache(VOID)
 {
     STUB;
@@ -44,22 +45,16 @@ BaseFlushAppcompatCache(VOID)
 /*
  * @unimplemented
  */
-BOOL
-WINAPI
-BaseCheckAppcompatCache(ULONG Unknown1,
-                        ULONG Unknown2,
-                        ULONG Unknown3,
-                        PULONG Unknown4)
+VOID STDCALL
+BaseCheckAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3, ULONG Unknown4)
 {
     STUB;
-    if (Unknown4) *Unknown4 = 0;
-    return TRUE;
 }
 
 /*
  * @unimplemented
  */
-VOID WINAPI
+VOID STDCALL
 BaseUpdateAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3)
 {
     STUB;
@@ -69,7 +64,7 @@ BaseUpdateAppcompatCache(ULONG Unknown1, ULONG Unknown2, ULONG Unknown3)
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 CmdBatNotification (
     DWORD   Unknown
     )
@@ -83,7 +78,7 @@ CmdBatNotification (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 CreateVirtualBuffer (
     DWORD   Unknown0,
     DWORD   Unknown1,
@@ -99,7 +94,7 @@ CreateVirtualBuffer (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 ExitVDM (
     DWORD   Unknown0,
     DWORD   Unknown1
@@ -114,7 +109,7 @@ ExitVDM (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 ExtendVirtualBuffer (
     DWORD   Unknown0,
     DWORD   Unknown1
@@ -128,8 +123,44 @@ ExtendVirtualBuffer (
 /*
  * @unimplemented
  */
+int
+STDCALL
+FoldStringW (
+    DWORD   dwMapFlags,
+    LPCWSTR lpSrcStr,
+    int cchSrc,
+    LPWSTR  lpDestStr,
+    int cchDest
+    )
+{
+    STUB;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+STDCALL
+FoldStringA (
+    DWORD   dwMapFlags,
+    LPCSTR  lpSrcStr,
+    int cchSrc,
+    LPSTR   lpDestStr,
+    int cchDest
+    )
+{
+    STUB;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
-WINAPI
+STDCALL
 FreeVirtualBuffer (
     HANDLE  hVirtualBuffer
     )
@@ -143,7 +174,7 @@ FreeVirtualBuffer (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 GetNextVDMCommand (
     DWORD   Unknown0
     )
@@ -156,8 +187,28 @@ GetNextVDMCommand (
 /*
  * @unimplemented
  */
+BOOL
+STDCALL
+GetSystemPowerStatus (
+    LPSYSTEM_POWER_STATUS PowerStatus
+    )
+{
+    STUB;
+    PowerStatus->ACLineStatus = 1;
+    PowerStatus->BatteryFlag = 128;
+    PowerStatus->BatteryLifePercent = 255;
+    PowerStatus->Reserved1 = 0;
+    PowerStatus->BatteryLifeTime = -1;
+    PowerStatus->BatteryFullLifeTime = -1;
+    return TRUE;
+}
+
+
+/*
+ * @unimplemented
+ */
 DWORD
-WINAPI
+STDCALL
 GetVDMCurrentDirectories (
     DWORD   Unknown0,
     DWORD   Unknown1
@@ -172,7 +223,7 @@ GetVDMCurrentDirectories (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 RegisterConsoleVDM (
     DWORD   Unknown0,
     DWORD   Unknown1,
@@ -196,7 +247,7 @@ RegisterConsoleVDM (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 RegisterWowBaseHandlers (
     DWORD   Unknown0
     )
@@ -210,7 +261,7 @@ RegisterWowBaseHandlers (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 RegisterWowExec (
     DWORD   Unknown0
     )
@@ -223,8 +274,22 @@ RegisterWowExec (
 /*
  * @unimplemented
  */
+BOOL STDCALL
+SetSystemPowerState (
+    BOOL fSuspend,
+    BOOL fForce
+    )
+{
+    STUB;
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
-WINAPI
+STDCALL
 SetVDMCurrentDirectories (
     DWORD   Unknown0,
     DWORD   Unknown1
@@ -239,7 +304,7 @@ SetVDMCurrentDirectories (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 TrimVirtualBuffer (
     DWORD   Unknown0
     )
@@ -253,7 +318,7 @@ TrimVirtualBuffer (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 VDMConsoleOperation (
     DWORD   Unknown0,
     DWORD   Unknown1
@@ -268,7 +333,7 @@ VDMConsoleOperation (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 VDMOperationStarted (
     DWORD   Unknown0
     )
@@ -281,7 +346,7 @@ VDMOperationStarted (
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 VirtualBufferExceptionHandler (
     DWORD   Unknown0,
     DWORD   Unknown1,
@@ -293,36 +358,53 @@ VirtualBufferExceptionHandler (
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
-BindIoCompletionCallback(HANDLE FileHandle,
-                         LPOVERLAPPED_COMPLETION_ROUTINE Function,
-                         ULONG Flags)
+STDCALL
+AllocateUserPhysicalPages(
+    HANDLE hProcess,
+    PULONG_PTR NumberOfPages,
+    PULONG_PTR UserPfnArray
+    )
 {
-    NTSTATUS Status = 0;
-
-    DPRINT("(%p, %p, %d)\n", FileHandle, Function, Flags);
-
-    Status = RtlSetIoCompletionCallback(FileHandle,
-                                        (PIO_APC_ROUTINE)Function,
-                                        Flags);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    return TRUE;
+    STUB;
+    return 0;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+BindIoCompletionCallback (
+    HANDLE FileHandle,
+    LPOVERLAPPED_COMPLETION_ROUTINE Function,
+    ULONG Flags
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+CancelDeviceWakeupRequest(
+    HANDLE hDevice
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 CreateJobSet (
     ULONG NumJob,
     PJOB_SET_ARRAY UserJobSet,
@@ -336,7 +418,20 @@ CreateJobSet (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+FindVolumeClose(
+    HANDLE hFindVolume
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 FindVolumeMountPointClose(
     HANDLE hFindVolumeMountPoint
     )
@@ -349,7 +444,37 @@ FindVolumeMountPointClose(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+FreeUserPhysicalPages(
+    HANDLE hProcess,
+    PULONG_PTR NumberOfPages,
+    PULONG_PTR PageArray
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetDevicePowerState(
+    HANDLE hDevice,
+    BOOL *pfOn
+    )
+{
+    STUB;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 GetNumaHighestNodeNumber(
     PULONG HighestNodeNumber
     )
@@ -362,7 +487,7 @@ GetNumaHighestNodeNumber(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetNumaNodeProcessorMask(
     UCHAR Node,
     PULONGLONG ProcessorMask
@@ -376,7 +501,7 @@ GetNumaNodeProcessorMask(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetNumaProcessorNode(
     UCHAR Processor,
     PUCHAR NodeNumber
@@ -387,52 +512,224 @@ GetNumaProcessorNode(
 }
 
 /*
- * @implemented
+ * @unimplemented
+ */
+UINT
+STDCALL
+GetWriteWatch(
+    DWORD  dwFlags,
+    PVOID  lpBaseAddress,
+    SIZE_T dwRegionSize,
+    PVOID *lpAddresses,
+    PULONG_PTR lpdwCount,
+    PULONG lpdwGranularity
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
  */
 BOOL
-WINAPI
-ReadFileScatter(HANDLE hFile,
-                FILE_SEGMENT_ELEMENT aSegmentArray[],
-                DWORD nNumberOfBytesToRead,
-                LPDWORD lpReserved,
-                LPOVERLAPPED lpOverlapped)
+STDCALL
+HeapQueryInformation (
+    HANDLE HeapHandle,
+    HEAP_INFORMATION_CLASS HeapInformationClass,
+    PVOID HeapInformation OPTIONAL,
+    SIZE_T HeapInformationLength OPTIONAL,
+    PSIZE_T ReturnLength OPTIONAL
+    )
 {
-    PIO_STATUS_BLOCK pIOStatus;
-    LARGE_INTEGER Offset;
-    NTSTATUS Status;
+    STUB;
+    return 0;
+}
 
-    DPRINT("(%p %p %u %p)\n", hFile, aSegmentArray, nNumberOfBytesToRead, lpOverlapped);
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+HeapSetInformation (
+    HANDLE HeapHandle,
+    HEAP_INFORMATION_CLASS HeapInformationClass,
+    PVOID HeapInformation OPTIONAL,
+    SIZE_T HeapInformationLength OPTIONAL
+    )
+{
+    STUB;
+    return 0;
+}
 
-    Offset.LowPart  = lpOverlapped->Offset;
-    Offset.HighPart = lpOverlapped->OffsetHigh;
-    pIOStatus = (PIO_STATUS_BLOCK) lpOverlapped;
-    pIOStatus->Status = STATUS_PENDING;
-    pIOStatus->Information = 0;
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+IsSystemResumeAutomatic(
+    VOID
+    )
+{
+    STUB;
+    return 0;
+}
 
-    Status = NtReadFileScatter(hFile,
-                               NULL,
-                               NULL,
-                               NULL,
-                               pIOStatus,
-                               aSegmentArray,
-                               nNumberOfBytesToRead,
-                               &Offset,
-                               NULL);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+IsWow64Process(
+    HANDLE hProcess,
+    PBOOL Wow64Process
+    )
+{
+    STUB;
+    *Wow64Process = FALSE;
     return TRUE;
 }
 
 /*
  * @unimplemented
  */
+BOOL
+STDCALL
+MapUserPhysicalPages(
+    PVOID VirtualAddress,
+    ULONG_PTR NumberOfPages,
+    PULONG_PTR PageArray  OPTIONAL
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+MapUserPhysicalPagesScatter(
+    PVOID *VirtualAddresses,
+    ULONG_PTR NumberOfPages,
+    PULONG_PTR PageArray  OPTIONAL
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+ReadFileScatter(
+    HANDLE hFile,
+    FILE_SEGMENT_ELEMENT aSegmentArray[],
+    DWORD nNumberOfBytesToRead,
+    LPDWORD lpReserved,
+    LPOVERLAPPED lpOverlapped
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+RegisterWaitForSingleObject(
+    PHANDLE phNewWaitObject,
+    HANDLE hObject,
+    WAITORTIMERCALLBACK Callback,
+    PVOID Context,
+    ULONG dwMilliseconds,
+    ULONG dwFlags
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+RegisterWaitForSingleObjectEx(
+    HANDLE hObject,
+    WAITORTIMERCALLBACK Callback,
+    PVOID Context,
+    ULONG dwMilliseconds,
+    ULONG dwFlags
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+RemoveVectoredExceptionHandler(
+    PVOID VectoredHandlerHandle
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+RequestDeviceWakeup(
+    HANDLE hDevice
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+RequestWakeupLatency(
+    LATENCY_TIME latency
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+UINT
+STDCALL
+ResetWriteWatch(
+    LPVOID lpBaseAddress,
+    SIZE_T dwRegionSize
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
 VOID
-WINAPI
+STDCALL
 RestoreLastError(
     DWORD dwErrCode
     )
@@ -441,52 +738,96 @@ RestoreLastError(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
-WriteFileGather(HANDLE hFile,
-                FILE_SEGMENT_ELEMENT aSegmentArray[],
-                DWORD nNumberOfBytesToWrite,
-                LPDWORD lpReserved,
-                LPOVERLAPPED lpOverlapped)
+STDCALL
+SetMessageWaitingIndicator(
+    HANDLE hMsgIndicator,
+    ULONG ulMsgCount
+    )
 {
-    PIO_STATUS_BLOCK IOStatus;
-    LARGE_INTEGER Offset;
-    NTSTATUS Status;
+    STUB;
+    return 0;
+}
 
-    DPRINT("%p %p %u %p\n", hFile, aSegmentArray, nNumberOfBytesToWrite, lpOverlapped);
-
-    Offset.LowPart = lpOverlapped->Offset;
-    Offset.HighPart = lpOverlapped->OffsetHigh;
-    IOStatus = (PIO_STATUS_BLOCK) lpOverlapped;
-    IOStatus->Status = STATUS_PENDING;
-    IOStatus->Information = 0;
-
-    Status = NtWriteFileGather(hFile,
-                               NULL,
-                               NULL,
-                               NULL,
-                               IOStatus,
-                               aSegmentArray,
-                               nNumberOfBytesToWrite,
-                               &Offset,
-                               NULL);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    return TRUE;
+/*
+ * @unimplemented
+ */
+EXECUTION_STATE
+STDCALL
+SetThreadExecutionState(
+    EXECUTION_STATE esFlags
+    )
+{
+    STUB;
+    return 0;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+TzSpecificLocalTimeToSystemTime(
+    CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation,
+    CONST SYSTEMTIME *lpLocalTime,
+    LPSYSTEMTIME lpUniversalTime
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+UnregisterWait(
+    HANDLE WaitHandle
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+UnregisterWaitEx(
+    HANDLE WaitHandle,
+    HANDLE CompletionEvent
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+WriteFileGather(
+    HANDLE hFile,
+    FILE_SEGMENT_ELEMENT aSegmentArray[],
+    DWORD nNumberOfBytesToWrite,
+    LPDWORD lpReserved,
+    LPOVERLAPPED lpOverlapped
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 DeleteVolumeMountPointW(
     LPCWSTR lpszVolumeMountPoint
     )
@@ -498,8 +839,37 @@ DeleteVolumeMountPointW(
 /*
  * @unimplemented
  */
+BOOL
+STDCALL
+DnsHostnameToComputerNameW (
+    LPCWSTR Hostname,
+    LPWSTR ComputerName,
+    LPDWORD nSize
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
 HANDLE
-WINAPI
+STDCALL
+FindFirstVolumeW(
+    LPWSTR lpszVolumeName,
+    DWORD cchBufferLength
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
 FindFirstVolumeMountPointW(
     LPCWSTR lpszRootPathName,
     LPWSTR lpszVolumeMountPoint,
@@ -511,47 +881,25 @@ FindFirstVolumeMountPointW(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextVolumeW(
-	HANDLE handle,
-	LPWSTR volume,
-	DWORD len
+    HANDLE hFindVolume,
+    LPWSTR lpszVolumeName,
+    DWORD cchBufferLength
     )
 {
-    MOUNTMGR_MOUNT_POINTS *data = handle;
-
-    while (data->Size < data->NumberOfMountPoints)
-    {
-        static const WCHAR volumeW[] = {'\\','?','?','\\','V','o','l','u','m','e','{',};
-        WCHAR *link = (WCHAR *)((char *)data + data->MountPoints[data->Size].SymbolicLinkNameOffset);
-        DWORD size = data->MountPoints[data->Size].SymbolicLinkNameLength;
-        data->Size++;
-        /* skip non-volumes */
-        if (size < sizeof(volumeW) || memcmp( link, volumeW, sizeof(volumeW) )) continue;
-        if (size + sizeof(WCHAR) >= len * sizeof(WCHAR))
-        {
-            SetLastError( ERROR_FILENAME_EXCED_RANGE );
-            return FALSE;
-        }
-        memcpy( volume, link, size );
-        volume[1] = '\\';  /* map \??\ to \\?\ */
-        volume[size / sizeof(WCHAR)] = '\\';  /* Windows appends a backslash */
-        volume[size / sizeof(WCHAR) + 1] = 0;
-        DPRINT( "returning entry %u %s\n", data->Size - 1, volume );
-        return TRUE;
-    }
-    SetLastError( ERROR_NO_MORE_FILES );
-    return FALSE;
+    STUB;
+    return 0;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextVolumeMountPointW(
     HANDLE hFindVolumeMountPoint,
     LPWSTR lpszVolumeMountPoint,
@@ -566,7 +914,7 @@ FindNextVolumeMountPointW(
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 GetFirmwareEnvironmentVariableW(
     LPCWSTR lpName,
     LPCWSTR lpGuid,
@@ -582,7 +930,22 @@ GetFirmwareEnvironmentVariableW(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+GetVolumePathNameW(
+    LPCWSTR lpszFileName,
+    LPWSTR lpszVolumePathName,
+    DWORD cchBufferLength
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 GetVolumePathNamesForVolumeNameW(
     LPCWSTR lpszVolumeName,
     LPWSTR lpszVolumePathNames,
@@ -598,7 +961,25 @@ GetVolumePathNamesForVolumeNameW(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+ReplaceFileW(
+    LPCWSTR lpReplacedFileName,
+    LPCWSTR lpReplacementFileName,
+    LPCWSTR lpBackupFileName,
+    DWORD   dwReplaceFlags,
+    LPVOID  lpExclude,
+    LPVOID  lpReserved
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 SetFirmwareEnvironmentVariableW(
     LPCWSTR lpName,
     LPCWSTR lpGuid,
@@ -614,7 +995,7 @@ SetFirmwareEnvironmentVariableW(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 SetVolumeMountPointW(
     LPCWSTR lpszVolumeMountPoint,
     LPCWSTR lpszVolumeName
@@ -628,7 +1009,7 @@ SetVolumeMountPointW(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteVolumeMountPointA(
     LPCSTR lpszVolumeMountPoint
     )
@@ -640,8 +1021,37 @@ DeleteVolumeMountPointA(
 /*
  * @unimplemented
  */
+BOOL
+STDCALL
+DnsHostnameToComputerNameA (
+    LPCSTR Hostname,
+    LPSTR ComputerName,
+    LPDWORD nSize
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
 HANDLE
-WINAPI
+STDCALL
+FindFirstVolumeA(
+    LPSTR lpszVolumeName,
+    DWORD cchBufferLength
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
 FindFirstVolumeMountPointA(
     LPCSTR lpszRootPathName,
     LPSTR lpszVolumeMountPoint,
@@ -653,37 +1063,25 @@ FindFirstVolumeMountPointA(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-WINAPI
-FindNextVolumeA(HANDLE handle,
-                LPSTR volume,
-                DWORD len)
+STDCALL
+FindNextVolumeA(
+    HANDLE hFindVolume,
+    LPSTR lpszVolumeName,
+    DWORD cchBufferLength
+    )
 {
-    WCHAR *buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, len * sizeof(WCHAR));
-    BOOL ret;
-
-    if (!buffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
-
-    if ((ret = FindNextVolumeW( handle, buffer, len )))
-    {
-        if (!WideCharToMultiByte( CP_ACP, 0, buffer, -1, volume, len, NULL, NULL )) ret = FALSE;
-    }
-
-    HeapFree( GetProcessHeap(), 0, buffer );
-    return ret;
+    STUB;
+    return 0;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextVolumeMountPointA(
     HANDLE hFindVolumeMountPoint,
     LPSTR lpszVolumeMountPoint,
@@ -698,7 +1096,7 @@ FindNextVolumeMountPointA(
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 GetFirmwareEnvironmentVariableA(
     LPCSTR lpName,
     LPCSTR lpGuid,
@@ -714,7 +1112,37 @@ GetFirmwareEnvironmentVariableA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+GetVolumeNameForVolumeMountPointA(
+    LPCSTR lpszVolumeMountPoint,
+    LPSTR lpszVolumeName,
+    DWORD cchBufferLength
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+GetVolumePathNameA(
+    LPCSTR lpszFileName,
+    LPSTR lpszVolumePathName,
+    DWORD cchBufferLength
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 GetVolumePathNamesForVolumeNameA(
     LPCSTR lpszVolumeName,
     LPSTR lpszVolumePathNames,
@@ -730,7 +1158,25 @@ GetVolumePathNamesForVolumeNameA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+ReplaceFileA(
+    LPCSTR  lpReplacedFileName,
+    LPCSTR  lpReplacementFileName,
+    LPCSTR  lpBackupFileName,
+    DWORD   dwReplaceFlags,
+    LPVOID  lpExclude,
+    LPVOID  lpReserved
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 SetFirmwareEnvironmentVariableA(
     LPCSTR lpName,
     LPCSTR lpGuid,
@@ -746,7 +1192,7 @@ SetFirmwareEnvironmentVariableA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 SetVolumeMountPointA(
     LPCSTR lpszVolumeMountPoint,
     LPCSTR lpszVolumeName
@@ -759,7 +1205,7 @@ SetVolumeMountPointA(
 /*
  * @unimplemented
  */
-BOOL WINAPI GetConsoleKeyboardLayoutNameA(LPSTR name)
+BOOL STDCALL GetConsoleKeyboardLayoutNameA(LPSTR name)
 {
     STUB;
     return 0;
@@ -768,7 +1214,7 @@ BOOL WINAPI GetConsoleKeyboardLayoutNameA(LPSTR name)
 /*
  * @unimplemented
  */
-BOOL WINAPI GetConsoleKeyboardLayoutNameW(LPWSTR name)
+BOOL STDCALL GetConsoleKeyboardLayoutNameW(LPWSTR name)
 {
     STUB;
     return 0;
@@ -777,7 +1223,7 @@ BOOL WINAPI GetConsoleKeyboardLayoutNameW(LPWSTR name)
 /*
  * @unimplemented
  */
-DWORD WINAPI GetHandleContext(HANDLE hnd)
+DWORD STDCALL GetHandleContext(HANDLE hnd)
 {
     STUB;
     return 0;
@@ -786,16 +1232,7 @@ DWORD WINAPI GetHandleContext(HANDLE hnd)
 /*
  * @unimplemented
  */
-HANDLE WINAPI CreateSocketHandle(VOID)
-{
-    STUB;
-    return INVALID_HANDLE_VALUE;
-}
-
-/*
- * @unimplemented
- */
-BOOL WINAPI SetHandleContext(HANDLE hnd,DWORD context)
+HANDLE STDCALL CreateSocketHandle(VOID)
 {
     STUB;
     return 0;
@@ -804,7 +1241,16 @@ BOOL WINAPI SetHandleContext(HANDLE hnd,DWORD context)
 /*
  * @unimplemented
  */
-BOOL WINAPI UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
+BOOL STDCALL SetHandleContext(HANDLE hnd,DWORD context)
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
                         LPSTR lpszInitName, LPSTR lpszProcName,
                         FARPROC *ppfn32Thunk, FARPROC pfnUT32CallBack,
                         LPVOID lpBuff )
@@ -816,7 +1262,7 @@ BOOL WINAPI UTRegister( HMODULE hModule, LPSTR lpsz16BITDLL,
 /*
  * @unimplemented
  */
-VOID WINAPI UTUnRegister( HMODULE hModule )
+VOID STDCALL UTUnRegister( HMODULE hModule )
 {
     STUB;
 }
@@ -824,16 +1270,11 @@ VOID WINAPI UTUnRegister( HMODULE hModule )
 /*
  * @unimplemented
  */
-FARPROC WINAPI DelayLoadFailureHook(LPCSTR pszDllName, LPCSTR pszProcName)
-{
-    STUB;
-    return NULL;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS WINAPI CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,ULONG Size,ULONG AccessMask)
+#if 0
+FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PDelayLoadInfo pdli)
+#else
+FARPROC STDCALL DelayLoadFailureHook(unsigned int dliNotify, PVOID pdli)
+#endif
 {
     STUB;
     return 0;
@@ -842,7 +1283,7 @@ NTSTATUS WINAPI CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescrip
 /*
  * @unimplemented
  */
-BOOL WINAPI IsValidUILanguage(LANGID langid)
+NTSTATUS STDCALL CreateNlsSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,ULONG Size,ULONG AccessMask)
 {
     STUB;
     return 0;
@@ -851,7 +1292,16 @@ BOOL WINAPI IsValidUILanguage(LANGID langid)
 /*
  * @unimplemented
  */
-VOID WINAPI NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPWSTR str, ULONG strsize2)
+BOOL STDCALL IsValidUILanguage(LANGID langid)
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPWSTR str, ULONG strsize2)
 {
     STUB;
 }
@@ -859,7 +1309,7 @@ VOID WINAPI NlsConvertIntegerToString(ULONG Value,ULONG Base,ULONG strsize, LPWS
 /*
  * @unimplemented
  */
-UINT WINAPI SetCPGlobal(UINT CodePage)
+UINT STDCALL SetCPGlobal(UINT CodePage)
 {
     STUB;
     return 0;
@@ -869,9 +1319,10 @@ UINT WINAPI SetCPGlobal(UINT CodePage)
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 SetClientTimeZoneInformation(
-    CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation)
+		       CONST TIME_ZONE_INFORMATION *lpTimeZoneInformation
+		       )
 {
     STUB;
     return 0;
@@ -886,15 +1337,7 @@ NlsGetCacheUpdateCount(VOID)
 }
 
 BOOL
-WINAPI
-Wow64EnableWow64FsRedirection (BOOL Wow64EnableWow64FsRedirection)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
+STDCALL
 Wow64DisableWow64FsRedirection (VOID ** pv)
 {
     STUB;
@@ -902,367 +1345,8 @@ Wow64DisableWow64FsRedirection (VOID ** pv)
 }
 
 BOOL
-WINAPI
+STDCALL
 Wow64RevertWow64FsRedirection (VOID * pv)
-{
-    STUB;
-    return FALSE;
-}
-
-UINT
-WINAPI
-EnumSystemFirmwareTables(IN DWORD FirmwareTableProviderSignature,
-                         OUT PVOID pFirmwareTableBuffer,
-                         IN DWORD BufferSize)
-{
-    STUB;
-    return 0;
-}
-
-BOOL
-WINAPI
-GetSystemFileCacheSize(OUT PSIZE_T lpMinimumFileCacheSize,
-                       OUT PSIZE_T lpMaximumFileCacheSize,
-                       OUT PDWORD lpFlags)
-{
-    STUB;
-    return FALSE;
-}
-
-UINT
-WINAPI
-GetSystemFirmwareTable(IN DWORD FirmwareTableProviderSignature,
-                       IN DWORD FirmwareTableID,
-                       OUT PVOID pFirmwareTableBuffer,
-                       IN DWORD BufferSize)
-{
-    STUB;
-    return 0;
-}
-
-BOOL
-WINAPI
-SetSystemFileCacheSize(IN SIZE_T MinimumFileCacheSize,
-                       IN SIZE_T MaximumFileCacheSize,
-                       IN DWORD Flags)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetThreadStackGuarantee(IN OUT PULONG StackSizeInBytes)
-{
-    STUB;
-    return FALSE;
-}
-
-HANDLE
-WINAPI
-ReOpenFile(IN HANDLE hOriginalFile,
-           IN DWORD dwDesiredAccess,
-           IN DWORD dwShareMode,
-           IN DWORD dwFlags)
-{
-    STUB;
-    return INVALID_HANDLE_VALUE;
-}
-
-BOOL
-WINAPI
-SetProcessWorkingSetSizeEx(IN HANDLE hProcess,
-                           IN SIZE_T dwMinimumWorkingSetSize,
-                           IN SIZE_T dwMaximumWorkingSetSize,
-                           IN DWORD Flags)
-{
-    STUB;
-    return FALSE;
-}
-
-
-BOOL
-WINAPI
-GetProcessWorkingSetSizeEx(IN HANDLE hProcess,
-                           OUT PSIZE_T lpMinimumWorkingSetSize,
-                           OUT PSIZE_T lpMaximumWorkingSetSize,
-                           OUT PDWORD Flags)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetNumaAvailableMemoryNode(IN UCHAR Node,
-                           OUT PULONGLONG AvailableBytes)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetNumaAvailableMemory(PVOID lpInfo,
-                       ULONG Length,
-                       PULONG ReturnLength)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetNumaProcessorMap(PVOID lpInfo,
-                    ULONG Length,
-                    PULONG ReturnLength)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-NlsResetProcessLocale(VOID)
-{
-    STUB;
-    return TRUE;
-}
-
-DWORD
-WINAPI
-AddLocalAlternateComputerNameA(LPSTR lpName, PNTSTATUS Status)
-{
-    STUB;
-    return 0;
-}
-
-DWORD
-WINAPI
-AddLocalAlternateComputerNameW(LPWSTR lpName, PNTSTATUS Status)
-{
-    STUB;
-    return 0;
-}
-
-NTSTATUS
-WINAPI
-BaseCleanupAppcompatCache(VOID)
-{
-    STUB;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS
-WINAPI
-BaseCleanupAppcompatCacheSupport(PVOID pUnknown)
-{
-    STUB;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-BOOL
-WINAPI
-BaseInitAppcompatCache(VOID)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-BaseInitAppcompatCacheSupport(VOID)
-{
-    STUB;
-    return FALSE;
-}
-
-VOID
-WINAPI
-CreateProcessInternalWSecure(VOID)
-{
-    STUB;
-}
-
-DWORD
-WINAPI
-EnumerateLocalComputerNamesA(PVOID pUnknown, DWORD Size, LPSTR lpBuffer, LPDWORD lpnSize)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-DWORD
-WINAPI
-EnumerateLocalComputerNamesW(PVOID pUnknown, DWORD Size, LPWSTR lpBuffer, LPDWORD lpnSize)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-PVOID
-WINAPI
-GetComPlusPackageInstallStatus(VOID)
-{
-    STUB;
-    return NULL;
-}
-
-BOOL
-WINAPI
-GetConsoleCharType(HANDLE hConsole, COORD Coord, PDWORD Type)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetConsoleCursorMode(HANDLE hConsole, PBOOL pUnknown1, PBOOL pUnknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetConsoleNlsMode(HANDLE hConsole, LPDWORD lpMode)
-{
-    STUB;
-    return FALSE;
-}
-
-VOID
-WINAPI
-GetDefaultSortkeySize(LPVOID lpUnknown)
-{
-    STUB;
-    lpUnknown = NULL;
-}
-
-VOID
-WINAPI
-GetLinguistLangSize(LPVOID lpUnknown)
-{
-    STUB;
-    lpUnknown = NULL;
-}
-
-BOOL
-WINAPI
-OpenDataFile(HANDLE hFile, DWORD dwUnused)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-OpenProfileUserMapping(VOID)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-PrivMoveFileIdentityW(DWORD Unknown1, DWORD Unknown2, DWORD Unknown3)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-ReadConsoleInputExA(HANDLE hConsole, LPVOID lpBuffer, DWORD dwLen, LPDWORD Unknown1, DWORD Unknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-ReadConsoleInputExW(HANDLE hConsole, LPVOID lpBuffer, DWORD dwLen, LPDWORD Unknown1, DWORD Unknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-RegisterConsoleIME(HWND hWnd, LPDWORD ThreadId)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-RegisterConsoleOS2(BOOL bUnknown)
-{
-    STUB;
-    return FALSE;
-}
-
-DWORD
-WINAPI
-RemoveLocalAlternateComputerNameA(LPSTR lpName, DWORD Unknown)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-DWORD
-WINAPI
-RemoveLocalAlternateComputerNameW(LPWSTR lpName, DWORD Unknown)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-BOOL
-WINAPI
-SetComPlusPackageInstallStatus(LPVOID lpInfo)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleCursorMode(HANDLE hConsole, BOOL Unknown1, BOOL Unknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleLocalEUDC(DWORD Unknown1, DWORD Unknown2, DWORD Unknown3, DWORD Unknown4)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleNlsMode(HANDLE hConsole, DWORD dwMode)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleOS2OemFormat(BOOL bUnknown)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-UnregisterConsoleIME(VOID)
 {
     STUB;
     return FALSE;

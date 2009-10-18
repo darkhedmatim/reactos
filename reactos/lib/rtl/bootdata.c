@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS system libraries
  * PURPOSE:         Boot Data implementation
  * FILE:            lib/rtl/bootdata.c
- * PROGRAMMERS:
+ * PROGRAMMERS:     
  */
 
 /* INCLUDES *****************************************************************/
@@ -17,7 +17,7 @@
 static SID_IDENTIFIER_AUTHORITY LocalSystemAuthority = {SECURITY_NT_AUTHORITY};
 
 static NTSTATUS
-RtlpSysVolCreateSecurityDescriptor(OUT PISECURITY_DESCRIPTOR *SecurityDescriptor,
+RtlpSysVolCreateSecurityDescriptor(OUT PSECURITY_DESCRIPTOR *SecurityDescriptor,
                                    OUT PSID *SystemSid)
 {
     PSECURITY_DESCRIPTOR AbsSD = NULL;
@@ -45,7 +45,7 @@ RtlpSysVolCreateSecurityDescriptor(OUT PISECURITY_DESCRIPTOR *SecurityDescriptor
 
     /* allocate and initialize the security descriptor */
     AbsSD = RtlpAllocateMemory(sizeof(SECURITY_DESCRIPTOR),
-                               'dSeS');
+                               TAG('S', 'e', 'S', 'd'));
     if (AbsSD == NULL)
     {
         Status = STATUS_NO_MEMORY;
@@ -63,7 +63,7 @@ RtlpSysVolCreateSecurityDescriptor(OUT PISECURITY_DESCRIPTOR *SecurityDescriptor
     DaclSize = sizeof(ACL) + sizeof(ACE) +
                RtlLengthSid(LocalSystemSid);
     Dacl = RtlpAllocateMemory(DaclSize,
-                              'cAeS');
+                              TAG('S', 'e', 'A', 'c'));
     if (Dacl == NULL)
     {
         Status = STATUS_NO_MEMORY;
@@ -111,13 +111,13 @@ Cleanup:
         if (Dacl != NULL)
         {
             RtlpFreeMemory(Dacl,
-                           'cAeS');
+                           TAG('S', 'e', 'A', 'c'));
         }
 
         if (AbsSD != NULL)
         {
             RtlpFreeMemory(AbsSD,
-                           'dSeS');
+                           TAG('S', 'e', 'S', 'd'));
         }
     }
 
@@ -162,7 +162,7 @@ RtlpSysVolCheckOwnerAndSecurity(IN HANDLE DirectoryHandle,
 
     /* allocate enough memory for the security descriptor */
     RelSD = RtlpAllocateMemory(DescriptorSize,
-                               'dSeS');
+                               TAG('S', 'e', 'S', 'd'));
     if (RelSD == NULL)
     {
         Status = STATUS_NO_MEMORY;
@@ -297,7 +297,7 @@ RtlpSysVolCheckOwnerAndSecurity(IN HANDLE DirectoryHandle,
         ASSERT(AbsSDSize > DescriptorSize);
 
         AbsSD = RtlpAllocateMemory(DescriptorSize,
-                                   'dSeS');
+                                   TAG('S', 'e', 'S', 'd'));
         if (AbsSD == NULL)
         {
             Status = STATUS_NO_MEMORY;
@@ -357,7 +357,7 @@ RtlpSysVolCheckOwnerAndSecurity(IN HANDLE DirectoryHandle,
 
     /* allocate enough memory for the new self-relative descriptor */
     NewRelSD = RtlpAllocateMemory(RelSDSize,
-                                  'dSeS');
+                                  TAG('S', 'e', 'S', 'd'));
     if (NewRelSD == NULL)
     {
         Status = STATUS_NO_MEMORY;
@@ -392,20 +392,20 @@ Cleanup:
     if (RelSD != NULL)
     {
         RtlpFreeMemory(RelSD,
-                       'dSeS');
+                       TAG('S', 'e', 'S', 'd'));
     }
 
     if (NewRelSD != NULL)
     {
         RtlpFreeMemory(NewRelSD,
-                       'dSeS');
+                       TAG('S', 'e', 'S', 'd'));
     }
 
 #ifdef _WIN64
     if (AbsSDAllocated)
     {
         RtlpFreeMemory(AbsSD,
-                       'dSeS');
+                       TAG('S', 'e', 'S', 'd'));
     }
 #endif
 
@@ -573,7 +573,7 @@ RtlCreateSystemVolumeInformationFolder(
         AddSep = TRUE;
         PathLen += sizeof(WCHAR);
     }
-
+    
     /* allocate the new string */
     NewPath.MaximumLength = (USHORT)PathLen + sizeof(WCHAR);
     NewPath.Buffer = RtlpAllocateStringMemory(NewPath.MaximumLength,
@@ -660,9 +660,9 @@ RtlCreateSystemVolumeInformationFolder(
         ASSERT(SecurityDescriptor->Dacl != NULL);
 
         RtlpFreeMemory(SecurityDescriptor->Dacl,
-                       'cAeS');
+                       TAG('S', 'e', 'A', 'c'));
         RtlpFreeMemory(SecurityDescriptor,
-                       'dSeS');
+                       TAG('S', 'e', 'S', 'd'));
 
         RtlFreeSid(SystemSid);
     }

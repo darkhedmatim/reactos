@@ -7,8 +7,8 @@
  15 stdcall MAPIAllocateMore@12(long ptr ptr) MAPIAllocateMore
  16 stdcall MAPIFreeBuffer(ptr)
  17 stdcall MAPIFreeBuffer@4(ptr) MAPIFreeBuffer
- 18 stdcall MAPIAdminProfiles(long ptr)
- 19 stdcall MAPIAdminProfiles@8(long ptr) MAPIAdminProfiles
+ 18 stub MAPIAdminProfiles
+ 19 stub MAPIAdminProfiles@8
  20 stdcall MAPIInitialize(ptr)
  21 stdcall MAPIInitialize@4(ptr) MAPIInitialize
  22 stdcall MAPIUninitialize()
@@ -16,7 +16,7 @@
  24 stub PRProviderInit
  25 stub LAUNCHWIZARD
  26 stub LaunchWizard@20
- 27 stdcall -private DllGetClassObject(ptr ptr ptr)
+ 27 stub DllGetClassObject
  28 stdcall -private DllCanUnloadNow()
  29 stub MAPIOpenFormMgr
  30 stub MAPIOpenFormMgr@8
@@ -54,7 +54,7 @@
  72 stdcall FEqualNames@8(ptr ptr) FEqualNames
  73 stub WrapStoreEntryID@24
  74 stdcall IsBadBoundedStringPtr@8(ptr long) IsBadBoundedStringPtr
- 75 stdcall HrQueryAllRows@24(ptr ptr ptr ptr long ptr) HrQueryAllRows
+ 75 stub HrQueryAllRows@24
  76 stdcall PropCopyMore@16(ptr ptr ptr ptr) PropCopyMore
  77 stdcall UlPropSize@4(ptr) UlPropSize
  78 stdcall FPropContainsProp@12(ptr ptr long) FPropContainsProp

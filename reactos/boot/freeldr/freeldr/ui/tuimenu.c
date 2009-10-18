@@ -14,6 +14,7 @@
 /* FUNCTIONS *****************************************************************/
 
 BOOLEAN
+NTAPI
 TuiDisplayMenu(PCSTR MenuItemList[],
                ULONG MenuItemCount,
                ULONG DefaultMenuItem,
@@ -22,7 +23,7 @@ TuiDisplayMenu(PCSTR MenuItemList[],
                BOOLEAN CanEscape,
                UiMenuKeyPressFilterCallback KeyPressFilter)
 {
-    UI_MENU_INFO MenuInformation;
+    TUI_MENU_INFO MenuInformation;
     ULONG LastClockSecond;
     ULONG CurrentClockSecond;
     ULONG KeyPress;
@@ -54,12 +55,12 @@ TuiDisplayMenu(PCSTR MenuItemList[],
     //
     // Draw the menu
     //
-    UiVtbl.DrawMenu(&MenuInformation);
+    TuiDrawMenu(&MenuInformation);
 
     //
     // Get the current second of time
     //
-    LastClockSecond = ArcGetTime()->Second;
+    MachRTCGetCurrentDateTime(NULL, NULL, NULL, NULL, NULL, &LastClockSecond);
 
     //
     // Process keys
@@ -92,7 +93,12 @@ TuiDisplayMenu(PCSTR MenuItemList[],
             //
             // Get the updated time, seconds only
             //
-            CurrentClockSecond = ArcGetTime()->Second;
+            MachRTCGetCurrentDateTime(NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      &CurrentClockSecond);
 
             //
             // Check if more then a second has now elapsed
@@ -130,7 +136,7 @@ TuiDisplayMenu(PCSTR MenuItemList[],
 
 VOID
 NTAPI
-TuiCalcMenuBoxSize(PUI_MENU_INFO MenuInfo)
+TuiCalcMenuBoxSize(PTUI_MENU_INFO MenuInfo)
 {
     ULONG i;
     ULONG Width = 0;
@@ -189,7 +195,8 @@ TuiCalcMenuBoxSize(PUI_MENU_INFO MenuInfo)
 }
 
 VOID
-TuiDrawMenu(PUI_MENU_INFO MenuInfo)
+NTAPI
+TuiDrawMenu(PTUI_MENU_INFO MenuInfo)
 {
     ULONG i;
 
@@ -199,9 +206,48 @@ TuiDrawMenu(PUI_MENU_INFO MenuInfo)
     UiDrawBackdrop();
 
     //
-    // Update the status bar
+    // Check if this is the minimal (console) UI
     //
-    UiVtbl.DrawStatusText("Use \x18\x19 to select, then press ENTER.");
+    if (UiMinimal)
+    {
+        //
+        // No GUI status bar text, just minimal text. first to tell the user to
+        // choose.
+        //
+        TuiDrawText(0,
+                    MenuInfo->Top - 2,
+                    "Please select the operating system to start:",
+                    ATTR(UiMenuFgColor, UiMenuBgColor));
+
+        //
+        // Now tell him how to choose
+        //
+        TuiDrawText(0,
+                    MenuInfo->Bottom + 1,
+                    "Use the up and down arrow keys to move the highlight to "
+                    "your choice.",
+                    ATTR(UiMenuFgColor, UiMenuBgColor));
+        TuiDrawText(0,
+                    MenuInfo->Bottom + 2,
+                    "Press ENTER to choose.",
+                    ATTR(UiMenuFgColor, UiMenuBgColor));
+
+        //
+        // And offer F8 options
+        //
+        TuiDrawText(0,
+                    UiScreenHeight - 4,
+                    "For troubleshooting and advanced startup options for "
+                    "ReactOS, press F8.",
+                    ATTR(UiMenuFgColor, UiMenuBgColor));
+    }
+    else
+    {
+        //
+        // Update the status bar
+        //
+        UiDrawStatusText("Use \x18\x19 to select, then press ENTER.");
+    }
 
     //
     // Draw the menu box
@@ -217,7 +263,7 @@ TuiDrawMenu(PUI_MENU_INFO MenuInfo)
 
 VOID
 NTAPI
-TuiDrawMenuBox(PUI_MENU_INFO MenuInfo)
+TuiDrawMenuBox(PTUI_MENU_INFO MenuInfo)
 {
     CHAR MenuLineText[80];
     CHAR TempString[80];
@@ -287,35 +333,6 @@ TuiDrawMenuBox(PUI_MENU_INFO MenuInfo)
                        ATTR(UiMenuFgColor, UiMenuBgColor));
         }
     }
-    else
-    {
-        //
-        // Erase the timeout string with spaces, and 0-terminate for sure
-        //
-        for (i=0; i<sizeof(MenuLineText)-1; i++)
-        {
-            MenuLineText[i] = ' ';
-        }
-        MenuLineText[sizeof(MenuLineText)-1] = 0;
-
-        //
-        // Draw this "empty" string to erase
-        //
-        if (UiCenterMenu)
-        {
-            UiDrawText(MenuInfo->Right - strlen(MenuLineText) - 1,
-                       MenuInfo->Bottom,
-                       MenuLineText,
-                       ATTR(UiMenuFgColor, UiMenuBgColor));
-        }
-        else
-        {
-            UiDrawText(0,
-                       MenuInfo->Bottom + 3,
-                       MenuLineText,
-                       ATTR(UiMenuFgColor, UiMenuBgColor));
-        }
-    }
 
     //
     // Loop each item
@@ -344,7 +361,7 @@ TuiDrawMenuBox(PUI_MENU_INFO MenuInfo)
 
 VOID
 NTAPI
-TuiDrawMenuItem(PUI_MENU_INFO MenuInfo,
+TuiDrawMenuItem(PTUI_MENU_INFO MenuInfo,
                 ULONG MenuItemNumber)
 {
     ULONG i;
@@ -424,7 +441,7 @@ TuiDrawMenuItem(PUI_MENU_INFO MenuInfo,
 
 ULONG
 NTAPI
-TuiProcessMenuKeyboardEvent(PUI_MENU_INFO MenuInfo,
+TuiProcessMenuKeyboardEvent(PTUI_MENU_INFO MenuInfo,
                             UiMenuKeyPressFilterCallback KeyPressFilter)
 {
     ULONG KeyEvent = 0;
@@ -466,7 +483,7 @@ TuiProcessMenuKeyboardEvent(PUI_MENU_INFO MenuInfo,
             //
             // It processed the key character, so redraw and exit
             //
-            UiVtbl.DrawMenu(MenuInfo);
+            TuiDrawMenu(MenuInfo);
             return 0;
         }
 

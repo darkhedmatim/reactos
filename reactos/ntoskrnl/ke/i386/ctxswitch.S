@@ -10,10 +10,10 @@
 
 /* INCLUDES ******************************************************************/
 
+#include <roscfg.h>
 #include <ndk/asm.h>
 .intel_syntax noprefix
 
-#define Ready 1
 #define Running 2
 #define WrDispatchInt 0x1F
 
@@ -140,7 +140,7 @@ _KiFlushNPXState@4:
     cmp dword ptr [esp+20], 0
     je Return
 
-#if DBG
+#ifdef DBG
     /* Assert Fxsr support */
     test byte ptr _KeI386FxsrPresent, 1
     jnz AssertOk
@@ -167,7 +167,7 @@ Cr0OK:
     cmp byte ptr [eax+KTHREAD_NPX_STATE], NPX_STATE_NOT_LOADED
     jnz DontSave
 
-#if DBG
+#ifdef DBG
     /* We are the NPX Thread with an unloaded NPX State... this isn't normal! */
     int 3
 #endif
@@ -347,12 +347,12 @@ BadThread:
 #ifdef CONFIG_SMP
 GetSwapLock:
     /* Acquire the swap lock */
-    cmp byte ptr [esi+KTHREAD_SWAP_BUSY], 0
+    cmp [esi+KTHREAD_SWAP_BUSY], 0
     jz NotBusy
     pause
     jmp GetSwapLock
-NotBusy:
 #endif
+
     /* Increase context switches (use ES for lazy load) */
     inc dword ptr es:[ebx+KPCR_CONTEXT_SWITCHES]
 
@@ -364,13 +364,11 @@ NotBusy:
     jnz WmiTrace
 
 AfterTrace:
-#ifdef CONFIG_SMP
-#if DBG
+#ifdef DBG
     /* Assert that we're on the right CPU */
     mov cl, [esi+KTHREAD_NEXT_PROCESSOR]
     cmp cl, [ebx+KPCR_PROCESSOR_NUMBER]
     jnz WrongCpu
-#endif
 #endif
 
     /* Get CR0 and save it */
@@ -381,9 +379,9 @@ AfterTrace:
     /* Check NPX State */
     cmp byte ptr [edi+KTHREAD_NPX_STATE], NPX_STATE_LOADED
     jz NpxLoaded
-SetStack:
 #endif
 
+SetStack:
     /* Set new stack */
     mov [edi+KTHREAD_KERNEL_STACK], esp
 
@@ -419,11 +417,11 @@ StackOk:
     lock xor [eax+KPROCESS_ACTIVE_PROCESSORS], ecx
 
     /* Assert change went ok */
-#if DBG
+#ifdef DBG
     test [ebp+KPROCESS_ACTIVE_PROCESSORS], ecx
     jz WrongActiveCpu
     test [eax+KPROCESS_ACTIVE_PROCESSORS], ecx
-    jnz WrongActiveCpu
+    jz WrongActiveCpu
 #endif
 #endif
 
@@ -548,48 +546,17 @@ LoadLdt:
 
 NewCr0:
 
-#if DBG
+#ifdef DBG
     /* Assert NPX State */
     test byte ptr [esi+KTHREAD_NPX_STATE], ~(NPX_STATE_NOT_LOADED)
     jnz InvalidNpx
-    test dword ptr [eax - (NPX_FRAME_LENGTH - FN_CR0_NPX_STATE)], ~(CR0_PE + CR0_MP + CR0_EM + CR0_TS)
+    test dword ptr [eax - (NPX_FRAME_LENGTH - FN_CR0_NPX_STATE)], ~(CR0_MP + CR0_EM + CR0_TS)
     jnz InvalidNpx
 #endif
 
     /* Update CR0 */
     mov cr0, ecx
     jmp StackOk
-
-#ifdef CONFIG_SMP
-NpxLoaded:
-
-    /* Mask out FPU flags */
-    and edx, ~(CR0_MP + CR0_EM + CR0_TS)
-
-    /* Get the NPX Frame */
-    mov ecx, [edi+KTHREAD_INITIAL_STACK]
-    sub ecx, NPX_FRAME_LENGTH
-
-    /* Check if we have a new CR0 */
-    cmp ebp, edx
-    jz Cr0Equal
-
-    /* We do, update it */
-    mov cr0, edx
-    mov ebp, edx
-
-Cr0Equal:
-
-    /* Save the NPX State */
-    fxsave [ecx]
-    mov byte ptr [edi+KTHREAD_NPX_STATE], NPX_STATE_NOT_LOADED
-
-    /* Clear the NPX Thread */
-    mov dword ptr [ebx+KPCR_NPX_THREAD], 0
-
-    /* Jump back */
-    jmp SetStack
-#endif
 
 WmiTrace:
 
@@ -610,7 +577,7 @@ BugCheckDpc:
     push ATTEMPTED_SWITCH_FROM_DPC
     call _KeBugCheckEx@20
 
-#if DBG
+#ifdef DBG
 InvalidNpx:
     int 3
 WrongActiveCpu:
@@ -710,14 +677,16 @@ MainLoop:
 #endif
     jz CheckSchedule
 
-    mov cl, DISPATCH_LEVEL
-    call @HalClearSoftwareInterrupt@4
-    
     /* Handle the above */
     lea ecx, [ebx+KPCR_PRCB_DATA]
     call @KiRetireDpcList@4
 
 CheckSchedule:
+#ifndef NEW_SCHEDULER
+    /* FIXME: ROS HACK */
+    call _NtYieldExecution@0
+#endif
+
     /* Check if a next thread is queued */
     cmp dword ptr [ebx+KPCR_PRCB_NEXT_THREAD], 0
 #ifdef CONFIG_SMP
@@ -728,7 +697,8 @@ CheckSchedule:
 
 #ifdef CONFIG_SMP
     /* There is, raise IRQL to synch level */
-    call _KeRaiseIrqlToSynchLevel@0
+    mov ecx, SYNCH_LEVEL
+    call @KfRaiseIrql@4
 #endif
     sti
 
@@ -738,7 +708,7 @@ CheckSchedule:
     mov byte ptr [edi+KTHREAD_SWAP_BUSY], 1
 
     /* Acquire the PRCB Lock */
-    lock bts dword ptr [ebx+KPCR_PRCB_PRCB_LOCK], 0
+    lock bts [ebx+KPCR_PRCB_PRCB_LOCK], 0
     jnb CheckNext
     lea ecx, [ebx+KPCR_PRCB_PRCB_LOCK]
     call @KefAcquireSpinLockAtDpcLevel@4
@@ -757,19 +727,15 @@ CheckNext:
     mov [ebx+KPCR_CURRENT_THREAD], esi
 
     /* Set the thread as running */
-    mov byte ptr [esi+KTHREAD_STATE_], Running
+    mov byte ptr [esi+KTHREAD_STATE], Running
 
 #ifdef CONFIG_SMP
     /* Disable the idle scheduler and release the PRCB lock */
     and byte ptr [ebx+KPCR_PRCB_IDLE_SCHEDULE], 0
-    and dword ptr [ebx+KPCR_PRCB_PRCB_LOCK], 0
+    and [ebx+KPCR_PRCB_PRCB_LOCK], 0
 #endif
 
 SwapContext:
-    /* ReactOS Mm Hack */
-    mov ecx, esi
-    call @MiSyncForContextSwitch@4
-
     /* Swap context at APC_LEVEL */
     mov ecx, APC_LEVEL
     call @KiSwapContextInternal@0
@@ -783,10 +749,10 @@ SwapContext:
 
 #ifdef CONFIG_SMP
 SameThread:
-    /* Clear the next thread, and put the thread as ready after lock release */
+    /* Clear the next thread, and put the thready as ready after lock release */
     and dword ptr [ebx+KPCR_PRCB_NEXT_THREAD], 0
     and dword ptr [ebx+KPCR_PRCB_PRCB_LOCK], 0
-    and byte ptr [edi+KTHREAD_STATE_], Ready
+    and byte ptr [edi+KTHREAD_STATE], Ready
     jmp MainLoop
 
 NoNextThread:
@@ -795,7 +761,7 @@ NoNextThread:
     jz CpuIdle
 
     /* It is, so call the scheduler */
-    lea ecx, [ebx+KPCR_PRCB_DATA]
+    lea ecx, [ebx+KPCR_PRCBDATA]
     call @KiIdleSchedule@4
     test eax, eax
 
@@ -857,10 +823,10 @@ _KiSwapProcess@8:
     lock xor [eax+KPROCESS_ACTIVE_PROCESSORS], ecx
 
     /* Sanity check */
-#if DBG
-    test [edx+KPROCESS_ACTIVE_PROCESSORS], ecx
+#ifdef DBG
+    test dword ptr [edx+KPROCESS_ACTIVE_PROCESSORS], 0
     jz WrongCpu1
-    test [eax+KPROCESS_ACTIVE_PROCESSORS], ecx
+    test dword ptr [eax+KPROCESS_ACTIVE_PROCESSORS], 0
     jnz WrongCpu2
 #endif
 #endif
@@ -892,7 +858,7 @@ NewLdt:
     /* FIXME: TODO */
     int 3
 
-#if DBG
+#ifdef DBG
 WrongCpu1:
     int 3
 WrongCpu2:

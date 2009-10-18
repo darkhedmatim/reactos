@@ -1,8 +1,8 @@
 
  //
- // XML storage C++ classes version 1.3
+ // XML storage classes Version 1.1
  //
- // Copyright (c) 2006, 2007, 2008, 2009 Martin Fuchs <martin-fuchs@gmx.net>
+ // Copyright (c) 2006 Martin Fuchs <martin-fuchs@gmx.net>
  //
 
  /// \file xs-native.cpp
@@ -37,13 +37,12 @@
 
 */
 
-#include <precomp.h>
-
 #ifndef XS_NO_COMMENT
 #define XS_NO_COMMENT	// no #pragma comment(lib, ...) statements in .lib files to enable static linking
 #endif
 
 //#include "xmlstorage.h"
+#include <precomp.h>
 
 
 #if !defined(XS_USE_EXPAT) && !defined(XS_USE_XERCES)
@@ -95,7 +94,7 @@ struct Buffer
 		_buffer_str.erase();
 	}
 
-	void append(int c)
+	void append(char c)
 	{
 		size_t wpos = _wptr-_buffer;
 
@@ -105,19 +104,15 @@ struct Buffer
 			_wptr = _buffer + wpos;
 		}
 
-		*_wptr++ = static_cast<char>(c);
+		*_wptr++ = c;
 	}
 
 	const std::string& str(bool utf8)	// returns UTF-8 encoded buffer content
 	{
-#if defined(_WIN32) && !defined(XS_STRING_UTF8)
 		if (utf8)
-#endif
 			_buffer_str.assign(_buffer, _wptr-_buffer);
-#if defined(_WIN32) && !defined(XS_STRING_UTF8)
 		else
 			_buffer_str = get_utf8(_buffer, _wptr-_buffer);
-#endif
 
 		return _buffer_str;
 	}
@@ -132,7 +127,7 @@ struct Buffer
 		//if (_wptr-_buffer < 3)
 		//	return false;
 
-		return !strncmp(_wptr-3, CDATA_END, 3);
+		return !strncmp(_wptr-3, "]]>", 3);
 	}
 
 	XS_String get_tag() const
@@ -150,7 +145,8 @@ struct Buffer
 		if (*q == '?')
 			++q;
 
-		q = get_xmlsym_end_utf8(q);
+		while(isxmlsym(*q))
+			++q;
 
 #ifdef XS_STRING_UTF8
 		return XS_String(p, q-p);
@@ -175,7 +171,8 @@ struct Buffer
 		else if (*p == '?')
 			++p;
 
-		p = get_xmlsym_end_utf8(p);
+		while(isxmlsym(*p))
+			++p;
 
 		 // read attributes from buffer
 		while(*p && *p!='>' && *p!='/') {
@@ -184,7 +181,8 @@ struct Buffer
 
 			const char* attr_name = p;
 
-			p = get_xmlsym_end_utf8(p);
+			while(isxmlsym(*p))
+				++p;
 
 			if (*p != '=')
 				break;	//@TODO error handling
@@ -207,12 +205,14 @@ struct Buffer
 
 #ifdef XS_STRING_UTF8
 			XS_String name_str(attr_name, attr_len);
+			XS_String value_str(value, value_len);
 #else
-			XS_String name_str;
+			XS_String name_str, value_str;
 			assign_utf8(name_str, attr_name, attr_len);
+			assign_utf8(value_str, value, value_len);
 #endif
 
-			attributes[name_str] = DecodeXMLString(std::string(value, value_len));
+			attributes[name_str] = DecodeXMLString(value_str);
 		}
 	}
 
@@ -220,7 +220,7 @@ protected:
 	char*	_buffer;
 	char*	_wptr;
 	size_t	_len;
-	std::string	_buffer_str;	// UTF-8 encoded
+	std::string	_buffer_str;	// UF-8 encoded
 };
 
 bool XMLReaderBase::parse()
@@ -319,7 +319,7 @@ bool XMLReaderBase::parse()
 					_format._doctype.parse(str+10);
 
 					c = eat_endl();
-				} else if (!strncmp(str+2, "[CDATA[", 7)) {	// see CDATA_START
+				} else if (!strncmp(str+2, "[CDATA[", 7)) {
 					 // parse <![CDATA[ ... ]]> strings
 					while(!buffer.has_CDEnd()) {
 						c = get();
@@ -356,7 +356,7 @@ bool XMLReaderBase::parse()
 			 // read white space
 			for(;;) {
 				 // check for the encoding of the first line end
-				if (!_endl_defined) {
+				if (!_endl_defined)
 					if (c == '\n') {
 						_format._endl = "\n";
 						_endl_defined = true;
@@ -364,7 +364,6 @@ bool XMLReaderBase::parse()
 						_format._endl = "\r\n";
 						_endl_defined = true;
 					}
-				}
 
 				c = get();
 
@@ -383,7 +382,7 @@ bool XMLReaderBase::parse()
 		buffer.reset();
 	}
 
-	return true; //TODO return false on invalid XML
+	return true;
 }
 
 int XMLReaderBase::eat_endl()

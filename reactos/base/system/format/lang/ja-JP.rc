@@ -6,8 +6,8 @@
 
 LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 STRINGTABLE DISCARDABLE
-BEGIN
-STRING_HELP,  "使用法: %s ドライブ: [-FS:ファイルシステム] [-V:ラベル] [-Q] [-A:サイズ] [-C]\n\n\
+{
+STRING_HELP,  "使用法: %S ドライブ: [-FS:ファイルシステム] [-V:ラベル] [-Q] [-A:サイズ] [-C]\n\n\
   [ドライブ:]         フォーマットするドライブを指定します。\n\
   -FS:ファイルシステム\n\
                    ファイルシステムの種類を指定します (%s)。\n\
@@ -32,7 +32,7 @@ STRING_NO_SUPPORT  "処理がサポートされていません。"
 
 STRING_FMIFS_FAIL  "FMIFS エントリ ポイント を設定できませんでした。\n\n"
 
-STRING_UNKNOW_ARG  "不明な引数: %s\n"
+STRING_UNKNOW_ARG  "不明な引数: %S\n"
 
 STRING_DRIVE_PARM  "必要なドライブを指定するパラメータが不足しています。\n\n"
 
@@ -44,7 +44,7 @@ STRING_NO_VOLUME         "ボリュームの問い合わせができませんでした"
 
 STRING_NO_VOLUME_SIZE    "ボリューム サイズの問い合わせができませんでした"
 
-STRING_FILESYSTEM        "ファイルシステムのタイプは %s です。\n"
+STRING_FILESYSTEM        "ファイルシステムのタイプは %S です。\n"
 
 STRING_LABEL_NAME_EDIT  "ドライブ D: の現在のボリューム ラベルを入力してください "
 
@@ -72,4 +72,4 @@ STRING_NO_LABEL        "ボリュームにラベルをつけられませんでした。"
 STRING_FREE_SPACE      "\nディスク領域は合計で %I64d バイトです。\nそのうち %I64d バイトが使用可能\です。\n"
 
 STRING_SERIAL_NUMBER   "\nボリューム シリアル番号は  %04X-%04X です\n"
-END
+}

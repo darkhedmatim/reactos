@@ -226,7 +226,7 @@
     cmp eax, ecx
     je 2f
 
-    /* Get the next entry and do the deletion */
+    /* Get the next entry and do the deletion*/
 #ifdef CONFIG_SMP
     push ebx
     mov ebx, [eax]
@@ -539,6 +539,8 @@ _ExpInterlockedPopEntrySListEnd@0:
  *                                IN ULONG Value)
  */
 .global @Exfi386InterlockedExchangeUlong@8
+.global @InterlockedExchange@8
+@InterlockedExchange@8:
 @Exfi386InterlockedExchangeUlong@8:
 
 #ifdef CONFIG_SMP
@@ -556,6 +558,54 @@ _ExpInterlockedPopEntrySListEnd@0:
     /* Return */
     ret
 
+/*ULONG
+ *FASTCALL
+ *InterlockedIncrement(IN PLONG Addend)
+ */
+.global @InterlockedIncrement@4
+@InterlockedIncrement@4:
+
+    /* Do the op */
+    mov eax, 1
+    LOCK xadd dword ptr [ecx], eax
+
+    /* Return */
+    inc eax
+    ret
+
+/*ULONG
+ *FASTCALL
+ *InterlockedDecrement(IN PLONG Addend)
+ */
+.global @InterlockedDecrement@4
+@InterlockedDecrement@4:
+
+    /* Do the op */
+    mov eax, -1
+    LOCK xadd dword ptr [ecx], eax
+
+    /* Return */
+    dec eax
+    ret
+
+/*PVOID
+ *FASTCALL
+ *InterlockedCompareExchange(IN OUT PVOID *Destination,
+ *                           IN PVOID Exchange,
+ *                           IN PVOID Comperand)
+ */
+.global @InterlockedCompareExchange@12
+@InterlockedCompareExchange@12:
+
+    /* Get comperand */
+    mov eax, [esp+4]
+
+    /* Do the op */
+    LOCK cmpxchg dword ptr [ecx], edx
+
+    /* Return */
+    ret 4
+
 /*PVOID
  *FASTCALL
  *ExfInterlockedCompareExchange64(IN PLONGLONG Destination,
@@ -569,7 +619,7 @@ _ExpInterlockedPopEntrySListEnd@0:
     push ebx
     push ebp
 
-    /* Get destination pointer, exchange value and comperand value/address */
+    /* Get desination pointer, exchange value and comperand value/address */
     mov ebp, ecx
     mov ebx, [edx]
     mov ecx, [edx+4]
@@ -601,7 +651,7 @@ _ExpInterlockedPopEntrySListEnd@0:
     push ebp
     push ebp
 
-    /* Get destination pointer, exchange value and comperand value/address */
+    /* Get desination pointer, exchange value and comperand value/address */
     mov ebp, ecx
     mov ebx, [edx]
     mov ecx, [edx+4]
@@ -618,6 +668,21 @@ _ExpInterlockedPopEntrySListEnd@0:
 
     /* Return */
     ret 8
+
+/*PVOID
+ *FASTCALL
+ *InterlockedExchangeAdd(IN OUT PLONG Addend,
+ *                       IN LONG Increment)
+ */
+.global @InterlockedExchangeAdd@8
+@InterlockedExchangeAdd@8:
+
+    /* Do the op */
+    LOCK xadd dword ptr [ecx], edx
+
+    /* Return */
+    mov eax, edx
+    ret
 
 /*** Non-586 functions ***/
 
@@ -730,7 +795,7 @@ _ExpInterlockedPopEntrySListEnd@0:
     push ebp
     push ebp
 
-    /* Get destination pointer, exchange value and comperand value/address */
+    /* Get desination pointer, exchange value and comperand value/address */
     mov ebp, ecx
     mov ebx, [edx]
     mov ecx, [edx+4]
@@ -745,7 +810,6 @@ _ExpInterlockedPopEntrySListEnd@0:
     /* Save flags and lock, and disable interrupts */
     pushfd
     mov esi, [esp+24]
-.startc:
     cli
 
     /* Acquire the spinlock */

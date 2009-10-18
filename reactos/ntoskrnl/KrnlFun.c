@@ -9,13 +9,16 @@
 //              Failure to respect this will *ACHIEVE NOTHING*.
 //
 // Hal:
+//  - Use APC and DPC Interrupt Dispatchers.
 //  - CMOS Initialization and CMOS Spinlock.
 //
 // Global:
-//  - TODO: Complete the list of bugfixes
-//  - Fix weird crash on boot with 0x867-0x872 EIP.
-//  - Fix trap.s AMD64 VMWare "Greatlord Issue".
-//  - Support SSE/MMX.
+//  - TODO: Complete the list of bufxies
+//  - Fix hang/slowdown during boot -> New scheduler
+//      - Fix freelist.c errors with new scheduler enabled.
+//  - Fix process reference count leak.
+//  - Fix atapi.sys or serial.sys loading one more time at each boot.
+//  - Fix LiveCD.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -28,7 +31,7 @@
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |N|
 // | \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/      \/           | |
 // | BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES BUGFIXES   |F|
-// |                                                                                                      |E|
+// | KE => Enable new thread scheduler and ensure it works.                                               |E|
 // | KD/KDBG => Laptop has special version of ROS without these components. Commit in branch.             |B|
 // | KD => Implement KD64 6.0, compatible with WinDBG                                                     | |
 // | ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||      ||           |M|

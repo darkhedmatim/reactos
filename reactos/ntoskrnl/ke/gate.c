@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS ****************************************************************/
 
@@ -21,7 +21,7 @@ KeInitializeGate(IN PKGATE Gate)
     /* Initialize the Dispatcher Header */
     KeInitializeDispatcherHeader(&Gate->Header,
                                  GateObject,
-                                 sizeof(KGATE) / sizeof(ULONG),
+                                 sizeof(Gate) / sizeof(ULONG),
                                  0);
 }
 
@@ -74,9 +74,6 @@ KeWaitForGate(IN PKGATE Gate,
                 /* Release the gate and thread locks */
                 KiReleaseDispatcherObject(&Gate->Header);
                 KiReleaseThreadLock(Thread);
-
-                /* Release the gate lock */
-                if (Queue) KiReleaseDispatcherLockFromDpcLevel();
 
                 /* Release the APC lock and return */
                 KiReleaseApcLock(&ApcLock);
@@ -170,7 +167,7 @@ KeSignalGateBoostPriority(IN PKGATE Gate)
             WaitThread = WaitBlock->Thread;
 
             /* Check to see if the waiting thread is locked */
-            if (KiTryThreadLock(WaitThread))
+            if (!KiTryThreadLock(WaitThread))
             {
                 /* Unlock the gate */
                 KiReleaseDispatcherObject(&Gate->Header);

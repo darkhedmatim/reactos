@@ -7,6 +7,7 @@
  * REVISIONS:
  *   CSH 27/08-2000 Created
  */
+#include <roscfg.h>
 #include <ne2000.h>
 #include <debug.h>
 
@@ -266,9 +267,9 @@ static BOOLEAN NICReadSAPROM(
         for (i = 0; i < 16; i++)
             Adapter->SAPROM[i] = Buffer[i * 2];
 
-        /* Copy the permanent address */
+        /* Copy the station address */
         NdisMoveMemory(
-            (PVOID)&Adapter->PermanentAddress,
+            (PVOID)&Adapter->StationAddress,
             (PVOID)&Adapter->SAPROM,
             DRIVER_LENGTH_OF_ADDRESS);
 
@@ -479,7 +480,7 @@ NDIS_STATUS NICStop(
         NdisStallExecution(500);
     }
 
-#if DBG
+#ifdef DBG
     if (i == 4)
         NDIS_DbgPrint(MIN_TRACE, ("NIC was not reset after 2ms.\n"));
 #endif
@@ -543,8 +544,6 @@ static VOID NICStartTransmit(
     UCHAR Tmp;
 
     NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
-
-    if (Adapter->TXCurrent < 0) return;
 
 	//FrameStart = Adapter->TXStart + Adapter->TXCurrent * DRIVER_BLOCK_SIZE;
 	//FrameStart = Adapter->TXStart;
@@ -686,7 +685,7 @@ VOID NICReadDataAlign(
         NdisStallExecution(4);
     }
 
-#if DBG
+#ifdef DBG
     if (Count == 0xFFFF)
         NDIS_DbgPrint(MIN_TRACE, ("Remote DMA did not complete.\n"));
 #endif
@@ -741,7 +740,7 @@ VOID NICWriteDataAlign(
         NdisStallExecution(4);
     }
 
-#if DBG
+#ifdef DBG
     if (Count == 0xFFFF)
         NDIS_DbgPrint(MIN_TRACE, ("Remote DMA did not complete.\n"));
 #endif
@@ -778,7 +777,7 @@ VOID NICWriteDataAlign(
         NdisStallExecution(4);
     }
 
-#if DBG
+#ifdef DBG
     if (Count == 0xFFFF)
         NDIS_DbgPrint(MIN_TRACE, ("Remote DMA did not complete.\n"));
 #endif
@@ -1184,7 +1183,7 @@ static VOID HandleReceive(
             NdisStallExecution(500);
         }
 
-#if DBG
+#ifdef DBG
         if (i == 4)
             NDIS_DbgPrint(MIN_TRACE, ("NIC was not reset after 2ms.\n"));
 #endif
@@ -1300,7 +1299,7 @@ static VOID HandleTransmit(
 }
 
 
-VOID NTAPI MiniportHandleInterrupt(
+VOID STDCALL MiniportHandleInterrupt(
     IN  NDIS_HANDLE MiniportAdapterContext)
 /*
  * FUNCTION: Handler for deferred processing of interrupts

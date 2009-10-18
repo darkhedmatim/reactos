@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.1
  *
- * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -149,49 +149,41 @@ void _mesa_print_info( void )
  */
 static void add_debug_flags( const char *debug )
 {
-#ifdef DEBUG
-   struct debug_option {
-      const char *name;
-      GLbitfield flag;
-   };
-   static const struct debug_option debug_opt[] = {
-      { "varray",    VERBOSE_VARRAY },
-      { "tex",       VERBOSE_TEXTURE },
-      { "imm",       VERBOSE_IMMEDIATE },
-      { "pipe",      VERBOSE_PIPELINE },
-      { "driver",    VERBOSE_DRIVER },
-      { "state",     VERBOSE_STATE },
-      { "api",       VERBOSE_API },
-      { "list",      VERBOSE_DISPLAY_LIST },
-      { "lighting",  VERBOSE_LIGHTING },
-      { "disassem",  VERBOSE_DISASSEM },
-      { "glsl",      VERBOSE_GLSL },     /* report GLSL compile/link errors */
-      { "glsl_dump", VERBOSE_GLSL_DUMP } /* print shader GPU instructions */
-   };
-   GLuint i;
+#ifdef MESA_DEBUG
+   if (_mesa_strstr(debug, "varray")) 
+      MESA_VERBOSE |= VERBOSE_VARRAY;
 
-   MESA_VERBOSE = 0x0;
-   for (i = 0; i < Elements(debug_opt); i++) {
-      if (_mesa_strstr(debug, debug_opt[i].name))
-         MESA_VERBOSE |= debug_opt[i].flag;
-   }
+   if (_mesa_strstr(debug, "tex")) 
+      MESA_VERBOSE |= VERBOSE_TEXTURE;
 
+   if (_mesa_strstr(debug, "imm")) 
+      MESA_VERBOSE |= VERBOSE_IMMEDIATE;
+
+   if (_mesa_strstr(debug, "pipe")) 
+      MESA_VERBOSE |= VERBOSE_PIPELINE;
+
+   if (_mesa_strstr(debug, "driver")) 
+      MESA_VERBOSE |= VERBOSE_DRIVER;
+
+   if (_mesa_strstr(debug, "state")) 
+      MESA_VERBOSE |= VERBOSE_STATE;
+
+   if (_mesa_strstr(debug, "api")) 
+      MESA_VERBOSE |= VERBOSE_API;
+
+   if (_mesa_strstr(debug, "list")) 
+      MESA_VERBOSE |= VERBOSE_DISPLAY_LIST;
+
+   if (_mesa_strstr(debug, "lighting")) 
+      MESA_VERBOSE |= VERBOSE_LIGHTING;
+
+   if (_mesa_strstr(debug, "disassem")) 
+      MESA_VERBOSE |= VERBOSE_DISASSEM;
+   
    /* Debug flag:
     */
    if (_mesa_strstr(debug, "flush")) 
       MESA_DEBUG_FLAGS |= DEBUG_ALWAYS_FLUSH;
-
-#if defined(_FPU_GETCW) && defined(_FPU_SETCW)
-   if (_mesa_strstr(debug, "fpexceptions")) {
-      /* raise FP exceptions */
-      fpu_control_t mask;
-      _FPU_GETCW(mask);
-      mask &= ~(_FPU_MASK_IM | _FPU_MASK_DM | _FPU_MASK_ZM
-                | _FPU_MASK_OM | _FPU_MASK_UM);
-      _FPU_SETCW(mask);
-   }
-#endif
-
 #else
    (void) debug;
 #endif
@@ -202,6 +194,9 @@ void
 _mesa_init_debug( GLcontext *ctx )
 {
    char *c;
+
+   /* For debug/development only */
+   ctx->FirstTimeCurrent = GL_TRUE;
 
    /* Dither disable */
    ctx->NoDither = _mesa_getenv("MESA_NO_DITHER") ? GL_TRUE : GL_FALSE;

@@ -5,13 +5,13 @@
  * Hungarian version is Copyright 2005 - Peter Nagy <nagylakas@gmail.com>
  */
 
-LANGUAGE LANG_HUNGARIAN, SUBLANG_DEFAULT
+LANGUAGE LANG_HUNGARIAN, SUBLANG_NEUTRAL
 STRINGTABLE DISCARDABLE
-BEGIN
+{
 
 IDS_Copy, "ReactOS Fájlkicsomagoló segédprogram 1.0 verzió\n\
 Szerzõi jog: Victor Schneider 1997\n\n\
 Használat: %s forrás [cél]\n"
 
 IDS_FAILS "LZCopy sikertelen, visszatérése: %ld\n"
-END
+}

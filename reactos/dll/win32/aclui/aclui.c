@@ -90,9 +90,6 @@ DestroySecurityPage(IN PSECURITY_PAGE sp)
 
     DestroySidCacheMgr(sp->SidCacheMgr);
 
-    if (sp->OwnerSid != NULL)
-        LocalFree((HLOCAL)sp->OwnerSid);
-
     HeapFree(GetProcessHeap(),
              0,
              sp);
@@ -106,7 +103,7 @@ FreePrincipalsList(IN PSECURITY_PAGE sp,
 {
     PPRINCIPAL_LISTITEM CurItem, NextItem;
     PACE_ENTRY AceEntry, NextAceEntry;
-
+    
     CurItem = *PrincipalsListHead;
     while (CurItem != NULL)
     {
@@ -140,7 +137,7 @@ FreePrincipalsList(IN PSECURITY_PAGE sp,
                  CurItem);
         CurItem = NextItem;
     }
-
+    
     *PrincipalsListHead = NULL;
 }
 
@@ -180,7 +177,7 @@ FindSidInPrincipalsListAddAce(IN PPRINCIPAL_LISTITEM PrincipalsListHead,
                               IN PACE_HEADER AceHeader)
 {
     PPRINCIPAL_LISTITEM CurItem;
-
+    
     for (CurItem = PrincipalsListHead;
          CurItem != NULL;
          CurItem = CurItem->Next)
@@ -198,7 +195,7 @@ FindSidInPrincipalsListAddAce(IN PPRINCIPAL_LISTITEM PrincipalsListHead,
             break;
         }
     }
-
+    
     return NULL;
 }
 
@@ -246,13 +243,13 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
                                        AceHeader))
     {
         DWORD SidLength;
-
+        
         PrincipalLink = &sp->PrincipalsListHead;
         while (*PrincipalLink != NULL)
         {
             PrincipalLink = &(*PrincipalLink)->Next;
         }
-
+        
         SidLength = GetLengthSid(Sid);
 
         /* allocate the principal */
@@ -312,44 +309,34 @@ AddPrincipalToList(IN PSECURITY_PAGE sp,
 }
 
 static LPWSTR
-GetDisplayStringFromSidRequestResult(IN PSIDREQRESULT SidReqResult)
-{
-    LPWSTR lpDisplayString = NULL;
-
-    if (SidReqResult->SidNameUse == SidTypeUser ||
-        SidReqResult->SidNameUse == SidTypeGroup)
-    {
-        LoadAndFormatString(hDllInstance,
-                            IDS_USERDOMAINFORMAT,
-                            &lpDisplayString,
-                            SidReqResult->AccountName,
-                            SidReqResult->DomainName,
-                            SidReqResult->AccountName);
-    }
-    else
-    {
-        LoadAndFormatString(hDllInstance,
-                            IDS_USERFORMAT,
-                            &lpDisplayString,
-                            SidReqResult->AccountName);
-    }
-
-    return lpDisplayString;
-}
-
-static LPWSTR
 GetPrincipalDisplayString(IN PPRINCIPAL_LISTITEM PrincipalListItem)
 {
     LPWSTR lpDisplayString = NULL;
 
     if (PrincipalListItem->SidReqResult != NULL)
     {
-        lpDisplayString = GetDisplayStringFromSidRequestResult(PrincipalListItem->SidReqResult);
+        if (PrincipalListItem->SidReqResult->SidNameUse == SidTypeUser ||
+            PrincipalListItem->SidReqResult->SidNameUse == SidTypeGroup)
+        {
+            LoadAndFormatString(hDllInstance,
+                                IDS_USERDOMAINFORMAT,
+                                &lpDisplayString,
+                                PrincipalListItem->SidReqResult->AccountName,
+                                PrincipalListItem->SidReqResult->DomainName,
+                                PrincipalListItem->SidReqResult->AccountName);
+        }
+        else
+        {
+            LoadAndFormatString(hDllInstance,
+                                IDS_USERFORMAT,
+                                &lpDisplayString,
+                                PrincipalListItem->SidReqResult->AccountName);
+        }
     }
     else
     {
-        ConvertSidToStringSidW((PSID)(PrincipalListItem + 1),
-                               &lpDisplayString);
+        ConvertSidToStringSid((PSID)(PrincipalListItem + 1),
+                              &lpDisplayString);
     }
 
     return lpDisplayString;
@@ -504,11 +491,8 @@ static VOID
 ReloadPrincipalsList(IN PSECURITY_PAGE sp)
 {
     PSECURITY_DESCRIPTOR SecurityDescriptor;
-    BOOL DaclPresent, DaclDefaulted, OwnerDefaulted;
+    BOOL DaclPresent, DaclDefaulted;
     PACL Dacl = NULL;
-    PSID OwnerSid = NULL;
-    LPTSTR OwnerSidString;
-    DWORD SidLen;
     HRESULT hRet;
 
     /* delete the cached ACL */
@@ -517,67 +501,11 @@ ReloadPrincipalsList(IN PSECURITY_PAGE sp)
 
     /* query the ACL */
     hRet = sp->psi->lpVtbl->GetSecurity(sp->psi,
-                                        DACL_SECURITY_INFORMATION | OWNER_SECURITY_INFORMATION,
+                                        DACL_SECURITY_INFORMATION,
                                         &SecurityDescriptor,
                                         FALSE);
     if (SUCCEEDED(hRet) && SecurityDescriptor != NULL)
     {
-        if (GetSecurityDescriptorOwner(SecurityDescriptor,
-                                       &OwnerSid,
-                                       &OwnerDefaulted))
-        {
-            sp->OwnerDefaulted = OwnerDefaulted;
-            if (sp->OwnerSid != NULL)
-            {
-                LocalFree((HLOCAL)sp->OwnerSid);
-                sp->OwnerSid = NULL;
-            }
-
-            SidLen = GetLengthSid(OwnerSid);
-            if (SidLen == 0)
-                goto ClearOwner;
-
-            sp->OwnerSid = (PSID)LocalAlloc(LMEM_FIXED,
-                                            SidLen);
-            if (sp->OwnerSid != NULL)
-            {
-                if (CopySid(SidLen,
-                            sp->OwnerSid,
-                            OwnerSid))
-                {
-                    /* Lookup the SID now */
-                    if (!LookupSidCache(sp->SidCacheMgr,
-                                        sp->OwnerSid,
-                                        SidLookupCompletion,
-                                        sp))
-                    {
-                        /* Lookup was deferred */
-                        if (ConvertSidToStringSid(sp->OwnerSid,
-                                                  &OwnerSidString))
-                        {
-                            SetDlgItemText(sp->hWnd,
-                                           IDC_OWNER,
-                                           OwnerSidString);
-                            LocalFree((HLOCAL)OwnerSidString);
-                        }
-                        else
-                            goto ClearOwner;
-                    }
-                }
-                else
-                    goto ClearOwner;
-            }
-            else
-                goto ClearOwner;
-        }
-        else
-        {
-ClearOwner:
-            SetDlgItemText(sp->hWnd,
-                           IDC_OWNER,
-                           NULL);
-        }
-
         if (GetSecurityDescriptorDacl(SecurityDescriptor,
                                       &DaclPresent,
                                       &Dacl,
@@ -587,7 +515,7 @@ ClearOwner:
             PSID Sid;
             PACE_HEADER AceHeader;
             ULONG AceIndex;
-
+            
             for (AceIndex = 0;
                  AceIndex < Dacl->AceCount;
                  AceIndex++)
@@ -630,7 +558,7 @@ UpdateControlStates(IN PSECURITY_PAGE sp)
                  Selected != NULL);
     EnableWindow(sp->hAceCheckList,
                  Selected != NULL);
-
+    
     if (Selected != NULL)
     {
         LPWSTR szLabel;
@@ -655,7 +583,7 @@ UpdateControlStates(IN PSECURITY_PAGE sp)
     else
     {
         WCHAR szPermissions[255];
-
+        
         if (LoadString(hDllInstance,
                        IDS_PERMISSIONS,
                        szPermissions,
@@ -677,29 +605,6 @@ UpdatePrincipalInfo(IN PSECURITY_PAGE sp,
                     IN PSIDLOOKUPNOTIFYINFO LookupInfo)
 {
     PPRINCIPAL_LISTITEM CurItem;
-    LPWSTR DisplayName;
-
-    if (sp->OwnerSid != NULL &&
-        EqualSid(sp->OwnerSid,
-                 LookupInfo->Sid))
-    {
-        if (LookupInfo->SidRequestResult != NULL)
-            DisplayName = GetDisplayStringFromSidRequestResult(LookupInfo->SidRequestResult);
-        else if (!ConvertSidToStringSidW(LookupInfo->Sid,
-                                         &DisplayName))
-        {
-            DisplayName = NULL;
-        }
-
-        if (DisplayName != NULL)
-        {
-            SetDlgItemTextW(sp->hWnd,
-                            IDC_OWNER,
-                            DisplayName);
-
-            LocalFree((HLOCAL)DisplayName);
-        }
-    }
 
     for (CurItem = sp->PrincipalsListHead;
          CurItem != NULL;
@@ -749,7 +654,7 @@ SecurityPageCallback(IN HWND hwnd,
                      IN LPPROPSHEETPAGE ppsp)
 {
     PSECURITY_PAGE sp = (PSECURITY_PAGE)ppsp->lParam;
-
+    
     switch (uMsg)
     {
         case PSPCB_CREATE:
@@ -896,24 +801,24 @@ ResizeControls(IN PSECURITY_PAGE sp,
                IN INT Width,
                IN INT Height)
 {
-    HWND hWndAllow, hWndDeny, hWndOwnerEdit;
+    HWND hWndAllow, hWndDeny;
     RECT rcControl, rcControl2, rcControl3, rcWnd;
     INT cxWidth, cxEdge, btnSpacing;
     POINT pt, pt2;
     HDWP dwp;
-    INT nControls = 8;
+    INT nControls = 7;
     LVCOLUMN lvc;
-
+    
     hWndAllow = GetDlgItem(sp->hWnd,
                            IDC_LABEL_ALLOW);
     hWndDeny = GetDlgItem(sp->hWnd,
                           IDC_LABEL_DENY);
-
+    
     GetWindowRect(sp->hWnd,
                   &rcWnd);
 
     cxEdge = GetSystemMetrics(SM_CXEDGE);
-
+    
     /* use the left margin of the principal list view control for all control
        margins */
     pt.x = 0;
@@ -923,37 +828,14 @@ ResizeControls(IN PSECURITY_PAGE sp,
                     &pt,
                     1);
     cxWidth = Width - (2 * pt.x);
-
+    
     if (sp->ObjectInfo.dwFlags & SI_ADVANCED)
     {
         nControls += 2;
     }
-
+    
     if ((dwp = BeginDeferWindowPos(nControls)))
     {
-        /* resize the owner edit field */
-        hWndOwnerEdit = GetDlgItem(sp->hWnd,
-                                   IDC_OWNER);
-        GetWindowRect(hWndOwnerEdit,
-                      &rcControl);
-        pt2.x = 0;
-        pt2.y = 0;
-        MapWindowPoints(hWndOwnerEdit,
-                        sp->hWnd,
-                        &pt2,
-                        1);
-        if (!(dwp = DeferWindowPos(dwp,
-                                   hWndOwnerEdit,
-                                   NULL,
-                                   0,
-                                   0,
-                                   Width - pt.x - pt2.x,
-                                   rcControl.bottom - rcControl.top,
-                                   SWP_NOMOVE | SWP_NOZORDER)))
-        {
-            goto EndDeferWnds;
-        }
-
         /* resize the Principal list view */
         GetWindowRect(sp->hWndPrincipalsList,
                       &rcControl);
@@ -1200,7 +1082,7 @@ AddSelectedPrincipal(IN IDsObjectPicker *pDsObjectPicker,
 {
     PACE_HEADER AceHeader;
     PSECURITY_PAGE sp = (PSECURITY_PAGE)Context;
-
+    
     AceHeader = BuildDefaultPrincipalAce(sp,
                                          pSid);
     if (AceHeader != NULL)
@@ -1255,7 +1137,7 @@ SecurityPageProc(IN HWND hwndDlg,
                         case LVN_ITEMCHANGED:
                         {
                             LPNMLISTVIEW pnmv = (LPNMLISTVIEW)lParam;
-
+                            
                             if ((pnmv->uChanged & LVIF_STATE) &&
                                 ((pnmv->uOldState & (LVIS_FOCUSED | LVIS_SELECTED)) ||
                                  (pnmv->uNewState & (LVIS_FOCUSED | LVIS_SELECTED))))
@@ -1273,7 +1155,7 @@ SecurityPageProc(IN HWND hwndDlg,
                         case CLN_CHANGINGITEMCHECKBOX:
                         {
                             PNMCHANGEITEMCHECKBOX pcicb = (PNMCHANGEITEMCHECKBOX)lParam;
-
+                            
                             /* make sure only one of both checkboxes is only checked
                                at the same time */
                             if (pcicb->Checked)
@@ -1303,7 +1185,7 @@ SecurityPageProc(IN HWND hwndDlg,
                 }
                 break;
             }
-
+            
             case WM_COMMAND:
             {
                 switch (LOWORD(wParam))
@@ -1311,7 +1193,7 @@ SecurityPageProc(IN HWND hwndDlg,
                     case IDC_ADD_PRINCIPAL:
                     {
                         HRESULT hRet;
-
+                        
                         hRet = InitializeObjectPicker(sp->ServerName,
                                                       &sp->ObjectInfo,
                                                       &sp->pDsObjectPicker);
@@ -1325,7 +1207,7 @@ SecurityPageProc(IN HWND hwndDlg,
                             {
                                 MessageBox(hwndDlg, L"InvokeObjectPickerDialog failed!\n", NULL, 0);
                             }
-
+                            
                             /* delete the instance */
                             FreeObjectPicker(sp->pDsObjectPicker);
                         }
@@ -1350,7 +1232,7 @@ SecurityPageProc(IN HWND hwndDlg,
                 }
                 break;
             }
-
+            
             case WM_SIZE:
             {
                 ResizeControls(sp,
@@ -1358,7 +1240,7 @@ SecurityPageProc(IN HWND hwndDlg,
                                (INT)HIWORD(lParam));
                 break;
             }
-
+            
             case WM_INITDIALOG:
             {
                 sp = (PSECURITY_PAGE)((LPPROPSHEETPAGE)lParam)->lParam;
@@ -1366,7 +1248,7 @@ SecurityPageProc(IN HWND hwndDlg,
                 {
                     LV_COLUMN lvc;
                     RECT rcLvClient;
-
+                    
                     sp->hWnd = hwndDlg;
                     sp->hWndPrincipalsList = GetDlgItem(hwndDlg, IDC_PRINCIPALS);
                     sp->hBtnAdd = GetDlgItem(hwndDlg, IDC_ADD_PRINCIPAL);
@@ -1374,7 +1256,7 @@ SecurityPageProc(IN HWND hwndDlg,
                     sp->hBtnAdvanced = GetDlgItem(hwndDlg, IDC_ADVANCED);
                     sp->hAceCheckList = GetDlgItem(hwndDlg, IDC_ACE_CHECKLIST);
                     sp->hPermissionsForLabel = GetDlgItem(hwndDlg, IDC_LABEL_PERMISSIONS_FOR);
-
+                    
                     sp->SpecialPermCheckIndex = -1;
 
                     /* save the pointer to the structure */
@@ -1386,28 +1268,13 @@ SecurityPageProc(IN HWND hwndDlg,
                                                               LVS_EX_FULLROWSELECT,
                                                               LVS_EX_FULLROWSELECT);
 
-                    sp->hiPrincipals = ImageList_Create(16,
-                                                        16,
-                                                        ILC_COLOR32 | ILC_MASK,
-                                                        0,
-                                                        3);
-                    if (sp->hiPrincipals != NULL)
-                    {
-                        HBITMAP hbmImages;
-
-                        hbmImages = LoadBitmap(hDllInstance,
-                                               MAKEINTRESOURCE(IDB_USRGRPIMAGES));
-                        if (hbmImages != NULL)
-                        {
-                            ImageList_AddMasked(sp->hiPrincipals,
-                                                hbmImages,
-                                                RGB(255,
-                                                    0,
-                                                    255));
-
-                            DeleteObject(hbmImages);
-                        }
-                    }
+                    sp->hiPrincipals = ImageList_LoadBitmap(hDllInstance,
+                                                            MAKEINTRESOURCE(IDB_USRGRPIMAGES),
+                                                            16,
+                                                            3,
+                                                            RGB(255,
+                                                                0,
+                                                                255));
 
                     /* setup the listview control */
                     if (sp->hiPrincipals != NULL)
@@ -1419,7 +1286,7 @@ SecurityPageProc(IN HWND hwndDlg,
 
                     GetClientRect(sp->hWndPrincipalsList,
                                   &rcLvClient);
-
+                    
                     /* add a column to the list view */
                     lvc.mask = LVCF_FMT | LVCF_WIDTH;
                     lvc.fmt = LVCFMT_LEFT;
@@ -1427,9 +1294,9 @@ SecurityPageProc(IN HWND hwndDlg,
                     (void)ListView_InsertColumn(sp->hWndPrincipalsList,
                                                 0,
                                                 &lvc);
-
+                    
                     ReloadPrincipalsList(sp);
-
+                    
                     ListViewSelectItem(sp->hWndPrincipalsList,
                                        0);
 
@@ -1461,7 +1328,7 @@ SecurityPageProc(IN HWND hwndDlg,
                         ShowWindow(GetDlgItem(hwndDlg, IDC_LABEL_ADVANCED),
                                    SW_HIDE);
                     }
-
+                    
                     /* enable quicksearch for the permissions checklist control */
                     SendMessage(sp->hAceCheckList,
                                 CLM_ENABLEQUICKSEARCH,
@@ -1540,7 +1407,7 @@ CreateSecurityPage(IN LPSECURITYINFO psi)
         DPRINT("CoInitialize failed!\n");
         return NULL;
     }
-
+    
     sPage = HeapAlloc(GetProcessHeap(),
                       HEAP_ZERO_MEMORY,
                       sizeof(SECURITY_PAGE));
@@ -1550,13 +1417,10 @@ CreateSecurityPage(IN LPSECURITYINFO psi)
         CoUninitialize();
 
         SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-
+        
         DPRINT("Not enough memory to allocate a SECURITY_PAGE!\n");
         return NULL;
     }
-
-    ZeroMemory(sPage,
-               sizeof(*sPage));
 
     sPage->psi = psi;
     sPage->ObjectInfo = ObjectInfo;
@@ -1584,7 +1448,7 @@ CreateSecurityPage(IN LPSECURITYINFO psi)
     {
         psp.pszTitle = NULL;
     }
-
+    
     /* NOTE: the SECURITY_PAGE structure will be freed by the property page
              callback! */
 

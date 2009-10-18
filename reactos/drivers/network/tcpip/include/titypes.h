@@ -8,7 +8,7 @@
 #define __TITYPES_H
 
 
-#if DBG
+#ifdef DBG
 
 #define DEFINE_TAG ULONG Tag;
 #define INIT_TAG(_Object, _Tag) \
@@ -113,7 +113,6 @@ typedef VOID (*DATAGRAM_COMPLETION_ROUTINE)(
 typedef DATAGRAM_COMPLETION_ROUTINE PDATAGRAM_COMPLETION_ROUTINE;
 
 typedef struct _DATAGRAM_RECEIVE_REQUEST {
-    struct _ADDRESS_FILE *AddressFile;     /* AddressFile on behalf of */
     LIST_ENTRY ListEntry;                  /* Entry on list */
     IP_ADDRESS RemoteAddress;              /* Remote address we receive from (NULL means any) */
     USHORT RemotePort;                     /* Remote port we receive from (0 means any) */
@@ -124,7 +123,6 @@ typedef struct _DATAGRAM_RECEIVE_REQUEST {
     PVOID Context;                         /* Pointer to context information */
     DATAGRAM_COMPLETION_ROUTINE UserComplete;   /* Completion routine */
     PVOID UserContext;                     /* Pointer to context information */
-    PIRP Irp;                              /* IRP on behalf of */
 } DATAGRAM_RECEIVE_REQUEST, *PDATAGRAM_RECEIVE_REQUEST;
 
 /* Datagram build routine prototype */
@@ -176,40 +174,40 @@ typedef struct _ADDRESS_FILE {
     /* Connection indication handler */
     PTDI_IND_CONNECT ConnectHandler;
     PVOID ConnectHandlerContext;
-    BOOLEAN RegisteredConnectHandler;
+    BOOL RegisteredConnectHandler;
     /* Disconnect indication handler */
     PTDI_IND_DISCONNECT DisconnectHandler;
     PVOID DisconnectHandlerContext;
-    BOOLEAN RegisteredDisconnectHandler;
+    BOOL RegisteredDisconnectHandler;
     /* Error indication handler */
     PTDI_IND_ERROR ErrorHandler;
     PVOID ErrorHandlerContext;
     PVOID ErrorHandlerOwner;
-    BOOLEAN RegisteredErrorHandler;
+    BOOL RegisteredErrorHandler;
     /* Receive indication handler */
     PTDI_IND_RECEIVE ReceiveHandler;
     PVOID ReceiveHandlerContext;
-    BOOLEAN RegisteredReceiveHandler;
+    BOOL RegisteredReceiveHandler;
     /* Receive datagram indication handler */
     PTDI_IND_RECEIVE_DATAGRAM ReceiveDatagramHandler;
     PVOID ReceiveDatagramHandlerContext;
-    BOOLEAN RegisteredReceiveDatagramHandler;
+    BOOL RegisteredReceiveDatagramHandler;
     /* Expedited receive indication handler */
     PTDI_IND_RECEIVE_EXPEDITED ExpeditedReceiveHandler;
     PVOID ExpeditedReceiveHandlerContext;
-    BOOLEAN RegisteredExpeditedReceiveHandler;
+    BOOL RegisteredExpeditedReceiveHandler;
     /* Chained receive indication handler */
     PTDI_IND_CHAINED_RECEIVE ChainedReceiveHandler;
     PVOID ChainedReceiveHandlerContext;
-    BOOLEAN RegisteredChainedReceiveHandler;
+    BOOL RegisteredChainedReceiveHandler;
     /* Chained receive datagram indication handler */
     PTDI_IND_CHAINED_RECEIVE_DATAGRAM ChainedReceiveDatagramHandler;
     PVOID ChainedReceiveDatagramHandlerContext;
-    BOOLEAN RegisteredChainedReceiveDatagramHandler;
+    BOOL RegisteredChainedReceiveDatagramHandler;
     /* Chained expedited receive indication handler */
     PTDI_IND_CHAINED_RECEIVE_EXPEDITED ChainedReceiveExpeditedHandler;
     PVOID ChainedReceiveExpeditedHandlerContext;
-    BOOLEAN RegisteredChainedReceiveExpeditedHandler;
+    BOOL RegisteredChainedReceiveExpeditedHandler;
 } ADDRESS_FILE, *PADDRESS_FILE;
 
 /* Address File Flag constants */
@@ -334,7 +332,7 @@ typedef struct _TRANSPORT_CONTEXT {
         CONNECTION_CONTEXT ConnectionContext;
         HANDLE ControlChannel;
     } Handle;
-    BOOLEAN CancelIrps;
+    BOOL CancelIrps;
     KEVENT CleanupEvent;
 } TRANSPORT_CONTEXT, *PTRANSPORT_CONTEXT;
 

@@ -1,8 +1,13 @@
+/**
+ * \file state.h
+ * State management.
+ */
+
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  6.3
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,13 +34,10 @@
 #include "mtypes.h"
 
 extern void
-_mesa_update_state( GLcontext *ctx );
+_mesa_init_exec_table(struct _glapi_table *exec);
 
-/* As above but can only be called between _mesa_lock_context_textures() and 
- * _mesa_unlock_context_textures().
- */
 extern void
-_mesa_update_state_locked( GLcontext *ctx );
+_mesa_update_state( GLcontext *ctx );
 
 
 #endif

@@ -25,24 +25,20 @@ Author:
 #include <umtypes.h>
 #include <pstypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef NTOS_MODE_USER
 
 //
 // Win32K Process/Thread Functions
 //
 NTKERNELAPI
-PVOID
+struct _W32THREAD*
 NTAPI
 PsGetCurrentThreadWin32Thread(
     VOID
 );
 
 NTKERNELAPI
-PVOID
+struct _W32PROCESS*
 NTAPI
 PsGetCurrentProcessWin32Process(
     VOID
@@ -79,20 +75,6 @@ PsGetThreadWin32Thread(
 );
 
 NTKERNELAPI
-PTEB
-NTAPI
-PsGetThreadTeb(
-    IN PETHREAD Thread
-);
-
-NTKERNELAPI
-HANDLE
-NTAPI
-PsGetThreadId(
-    IN PETHREAD Thread
-);
-
-NTKERNELAPI
 BOOLEAN
 NTAPI
 PsGetThreadHardErrorsAreDisabled(
@@ -100,7 +82,7 @@ PsGetThreadHardErrorsAreDisabled(
 );
 
 NTKERNELAPI
-VOID
+VOID 
 NTAPI
 PsSetThreadHardErrorsAreDisabled(
     PETHREAD Thread,
@@ -108,7 +90,7 @@ PsSetThreadHardErrorsAreDisabled(
 );
 
 NTKERNELAPI
-VOID
+VOID 
 NTAPI
 PsEstablishWin32Callouts(
     PWIN32_CALLOUTS_FPNS CalloutData
@@ -119,7 +101,7 @@ VOID
 NTAPI
 PsReturnProcessNonPagedPoolQuota(
     IN PEPROCESS Process,
-    IN SIZE_T    Amount
+    IN ULONG_PTR Amount
 );
 
 //
@@ -136,100 +118,17 @@ PsRevertThreadToSelf(
 // Misc. Functions
 //
 NTKERNELAPI
+HANDLE
+NTAPI
+PsGetProcessId(PEPROCESS Process);
+
+NTKERNELAPI
 NTSTATUS
 NTAPI
 PsLookupProcessThreadByCid(
     IN PCLIENT_ID Cid,
     OUT PEPROCESS *Process OPTIONAL,
     OUT PETHREAD *Thread
-);
-
-BOOLEAN
-NTAPI
-PsIsProtectedProcess(
-    IN PEPROCESS Process
-);
-
-NTKERNELAPI
-BOOLEAN
-NTAPI
-PsIsSystemProcess(
-    IN PEPROCESS Process
-);
-
-VOID
-NTAPI
-PsSetProcessPriorityByClass(
-    IN PEPROCESS Process,
-    IN PSPROCESSPRIORITYMODE Type
-);
-
-HANDLE
-NTAPI
-PsGetProcessInheritedFromUniqueProcessId(
-    IN PEPROCESS Process
-);
-
-//
-// Quota Functions
-//
-NTKERNELAPI
-VOID
-NTAPI
-PsChargePoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN SIZE_T    Amount
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-PsChargeProcessNonPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T    Amount
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-PsChargeProcessPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T    Amount
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-PsChargeProcessPoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN SIZE_T    Amount
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-PsReturnPoolQuota(
-    IN PEPROCESS Process,
-    IN POOL_TYPE PoolType,
-    IN SIZE_T    Amount
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-PsReturnProcessNonPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T    Amount
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-PsReturnProcessPagedPoolQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T    Amount
 );
 
 #endif
@@ -348,11 +247,6 @@ NtCurrentTeb(VOID)
 
     return ret;
 #endif
-}
-#elif defined (_M_AMD64)
-FORCEINLINE struct _TEB * NtCurrentTeb(VOID)
-{
-    return (struct _TEB *)__readgsqword(FIELD_OFFSET(NT_TIB, Self));
 }
 #endif
 #else
@@ -786,9 +680,5 @@ ZwTerminateJobObject(
     HANDLE JobHandle,
     NTSTATUS ExitStatus
 );
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

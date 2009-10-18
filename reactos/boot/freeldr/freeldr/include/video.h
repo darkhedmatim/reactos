@@ -20,18 +20,16 @@
 #ifndef __VIDEO_H
 #define __VIDEO_H
 
-#include <pshpack1.h>
 typedef struct
 {
   UCHAR Red;
   UCHAR Green;
   UCHAR Blue;
-} PALETTE_ENTRY, *PPALETTE_ENTRY;
-#include <poppack.h>
+} PACKED PALETTE_ENTRY, *PPALETTE_ENTRY;
 
 extern	PVOID	VideoOffScreenBuffer;
 
-USHORT		BiosIsVesaSupported(VOID);						// Implemented in i386vid.c, returns the VESA version
+USHORT		BiosIsVesaSupported(VOID);						// Implemented in i386vid.S, returns the VESA version
 
 PVOID	VideoAllocateOffScreenBuffer(VOID);				// Returns a pointer to an off-screen buffer sufficient for the current video mode
 

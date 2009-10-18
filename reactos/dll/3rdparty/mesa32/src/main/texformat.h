@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.1
+ * Version:  6.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -70,10 +70,8 @@ enum _format {
    MESA_FORMAT_BGR888,		/*           BBBB BBBB GGGG GGGG RRRR RRRR */
    MESA_FORMAT_RGB565,		/*                     RRRR RGGG GGGB BBBB */
    MESA_FORMAT_RGB565_REV,	/*                     GGGB BBBB RRRR RGGG */
-   MESA_FORMAT_RGBA4444,        /*                     RRRR GGGG BBBB AAAA */
    MESA_FORMAT_ARGB4444,	/*                     AAAA RRRR GGGG BBBB */
    MESA_FORMAT_ARGB4444_REV,	/*                     GGGG BBBB AAAA RRRR */
-   MESA_FORMAT_RGBA5551,        /*                     RRRR RGGG GGBB BBBA */
    MESA_FORMAT_ARGB1555,	/*                     ARRR RRGG GGGB BBBB */
    MESA_FORMAT_ARGB1555_REV,	/*                     GGGB BBBB ARRR RRGG */
    MESA_FORMAT_AL88,		/*                     AAAA AAAA LLLL LLLL */
@@ -85,24 +83,7 @@ enum _format {
    MESA_FORMAT_CI8,		/*                               CCCC CCCC */
    MESA_FORMAT_YCBCR,		/*                     YYYY YYYY UorV UorV */
    MESA_FORMAT_YCBCR_REV,	/*                     UorV UorV YYYY YYYY */
-   MESA_FORMAT_Z24_S8,          /* ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ SSSS SSSS */
-   MESA_FORMAT_S8_Z24,          /* SSSS SSSS ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ */
-   MESA_FORMAT_Z16,             /*                     ZZZZ ZZZZ ZZZZ ZZZZ */
-   MESA_FORMAT_Z32,             /* ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ ZZZZ */
    /*@}*/
-
-#if FEATURE_EXT_texture_sRGB
-   /**
-    * \name 8-bit/channel sRGB formats
-    */
-   /*@{*/
-   MESA_FORMAT_SRGB8,
-   MESA_FORMAT_SRGBA8,
-   MESA_FORMAT_SL8,
-   MESA_FORMAT_SLA8,
-   MESA_FORMAT_SRGB_DXT1,
-   /*@}*/
-#endif
 
    /**
     * \name Compressed texture formats.
@@ -136,6 +117,14 @@ enum _format {
    /*@}*/
 
    /**
+    * Depth textures
+    */
+   /*@{*/
+   MESA_FORMAT_DEPTH_COMPONENT_FLOAT32,
+   MESA_FORMAT_DEPTH_COMPONENT16,
+   /*@}*/
+
+   /**
     * \name Floating point texture formats.
     */
    /*@{*/
@@ -165,16 +154,11 @@ extern const struct gl_texture_format _mesa_texformat_luminance_alpha;
 extern const struct gl_texture_format _mesa_texformat_intensity;
 /*@}*/
 
-#if FEATURE_EXT_texture_sRGB
-/** sRGB (nonlinear) formats */
+/** Depth textures */
 /*@{*/
-extern const struct gl_texture_format _mesa_texformat_srgb8;
-extern const struct gl_texture_format _mesa_texformat_srgba8;
-extern const struct gl_texture_format _mesa_texformat_sl8;
-extern const struct gl_texture_format _mesa_texformat_sla8;
-extern const struct gl_texture_format _mesa_texformat_srgb_dxt1;
+extern const struct gl_texture_format _mesa_texformat_depth_component_float32;
+extern const struct gl_texture_format _mesa_texformat_depth_component16;
 /*@}*/
-#endif
 
 /** Floating point texture formats */
 /*@{*/
@@ -202,12 +186,10 @@ extern const struct gl_texture_format _mesa_texformat_rgb888;
 extern const struct gl_texture_format _mesa_texformat_bgr888;
 extern const struct gl_texture_format _mesa_texformat_rgb565;
 extern const struct gl_texture_format _mesa_texformat_rgb565_rev;
-extern const struct gl_texture_format _mesa_texformat_rgba4444;
 extern const struct gl_texture_format _mesa_texformat_argb4444;
 extern const struct gl_texture_format _mesa_texformat_argb4444_rev;
 extern const struct gl_texture_format _mesa_texformat_argb1555;
 extern const struct gl_texture_format _mesa_texformat_argb1555_rev;
-extern const struct gl_texture_format _mesa_texformat_rgba5551;
 extern const struct gl_texture_format _mesa_texformat_al88;
 extern const struct gl_texture_format _mesa_texformat_al88_rev;
 extern const struct gl_texture_format _mesa_texformat_rgb332;
@@ -215,10 +197,7 @@ extern const struct gl_texture_format _mesa_texformat_a8;
 extern const struct gl_texture_format _mesa_texformat_l8;
 extern const struct gl_texture_format _mesa_texformat_i8;
 extern const struct gl_texture_format _mesa_texformat_ci8;
-extern const struct gl_texture_format _mesa_texformat_z24_s8;
-extern const struct gl_texture_format _mesa_texformat_s8_z24;
-extern const struct gl_texture_format _mesa_texformat_z16;
-extern const struct gl_texture_format _mesa_texformat_z32;
+
 /*@}*/
 
 /** \name YCbCr formats */
@@ -246,11 +225,5 @@ extern const struct gl_texture_format _mesa_null_texformat;
 extern const struct gl_texture_format *
 _mesa_choose_tex_format( GLcontext *ctx, GLint internalFormat,
                          GLenum format, GLenum type );
-
-
-extern void
-_mesa_format_to_type_and_comps(const struct gl_texture_format *format,
-                               GLenum *datatype, GLuint *comps);
-
 
 #endif

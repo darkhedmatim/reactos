@@ -124,7 +124,7 @@ GetDisabledAutostartEntriesFromRegistry (TCHAR * szBasePath)
                                 else if (!_tcscmp(szSubValueName, _T("item")))
                                     item.iSubItem = 0;
                                 if (item.iSubItem != -1)
-                                {
+								{
                                     GetLongPathName(Data, Data, (DWORD) _tcsclen(Data));
                                     item.pszText = Data;
                                     SendMessage(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
@@ -185,10 +185,10 @@ GetAutostartEntriesFromRegistry ( HKEY hRootKey, TCHAR* KeyName )
 
                     switch (PtrToLong(hRootKey))
                     {
-                    case (ULONG_PTR)HKEY_LOCAL_MACHINE:
+                    case PtrToLong(HKEY_LOCAL_MACHINE):
                         _tcscpy(Path, _T("HKLM\\\0"));
                         break;
-                    case (ULONG_PTR)HKEY_CURRENT_USER:
+                    case PtrToLong(HKEY_CURRENT_USER):
                         _tcscpy(Path, _T("HKCU\\\0"));
                         break;
                     default:

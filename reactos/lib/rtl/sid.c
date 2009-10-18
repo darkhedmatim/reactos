@@ -13,7 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_SID 'diSp'
+#define TAG_SID TAG('p', 'S', 'i', 'd')
 
 /* FUNCTIONS ***************************************************************/
 
@@ -80,7 +80,7 @@ RtlSubAuthoritySid(IN PSID Sid_,
 
   PAGED_CODE_RTL();
 
-  return (PULONG)&Sid->SubAuthority[SubAuthority];
+  return &Sid->SubAuthority[SubAuthority];
 }
 
 
@@ -116,7 +116,7 @@ RtlEqualSid(IN PSID Sid1_,
    {
       return(FALSE);
    }
-
+   
    SidLen = RtlLengthSid(Sid1);
    return RtlCompareMemory(Sid1, Sid2, SidLen) == SidLen;
 }
@@ -303,22 +303,14 @@ BOOLEAN NTAPI
 RtlEqualPrefixSid(IN PSID Sid1_,
                   IN PSID Sid2_)
 {
-   PISID Sid1 =  Sid1_;
-   PISID Sid2 =  Sid2_;
-   SIZE_T SidLen;
+  PISID Sid1 =  Sid1_;
+  PISID Sid2 =  Sid2_;
 
-   PAGED_CODE_RTL();
+  PAGED_CODE_RTL();
 
-   if (Sid1->SubAuthorityCount == Sid2->SubAuthorityCount)
-   {
-      SidLen = FIELD_OFFSET(SID,
-                            SubAuthority[Sid1->SubAuthorityCount]);
-      return RtlCompareMemory(Sid1,
-                              Sid2,
-                              SidLen) == SidLen;
-   }
-
-   return FALSE;
+   return(Sid1->SubAuthorityCount == Sid2->SubAuthorityCount &&
+          !RtlCompareMemory(Sid1, Sid2,
+                            (Sid1->SubAuthorityCount - 1) * sizeof(DWORD) + 8));
 }
 
 
@@ -394,7 +386,7 @@ RtlConvertSidToUnicodeString(PUNICODE_STRING String,
       if (Length < String->MaximumLength)
          String->Buffer[Length / sizeof(WCHAR)] = 0;
    }
-
+   
    return STATUS_SUCCESS;
 }
 

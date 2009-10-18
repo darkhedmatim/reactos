@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS ******************************************************************/
 
@@ -29,7 +29,6 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     PETHREAD Thread;
     PTEB Teb;
     BOOLEAN DeadThread = FALSE;
-    KIRQL OldIrql;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "StartRoutine: %p StartContext: %p\n", StartRoutine, StartContext);
@@ -56,7 +55,7 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     if (!(Thread->DeadThread) && !(Thread->HideFromDebugger))
     {
         /* We're not, so notify the debugger */
-        DbgkCreateThread(Thread, StartContext);
+        DbgkCreateThread(StartContext);
     }
 
     /* Make sure we're not already dead */
@@ -69,13 +68,13 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
         }
 
         /* Raise to APC */
-        KeRaiseIrql(APC_LEVEL, &OldIrql);
+        KfRaiseIrql(APC_LEVEL);
 
         /* Queue the User APC */
         KiInitializeUserApc(NULL,
                             (PVOID)((ULONG_PTR)Thread->Tcb.InitialStack -
                             sizeof(KTRAP_FRAME) -
-                            SIZEOF_FX_SAVE_AREA),
+                            sizeof(FX_SAVE_AREA)),
                             PspSystemDllEntryPoint,
                             NULL,
                             PspSystemDllBase,
@@ -104,7 +103,7 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
         Prcb = KeGetCurrentPrcb();
         NewCookie = Prcb->MmPageFaultCount ^ Prcb->InterruptTime ^
                     SystemTime.u.LowPart ^ SystemTime.u.HighPart ^
-                    (ULONG_PTR)&SystemTime;
+                    (ULONG)&SystemTime;
 
         /* Set the new cookie*/
         InterlockedCompareExchange((LONG*)&SharedUserData->Cookie,
@@ -113,9 +112,10 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     }
 }
 
-LONG
-PspUnhandledExceptionInSystemThread(PEXCEPTION_POINTERS ExceptionPointers)
+_SEH_FILTER(PspUnhandledExceptionInSystemThread)
 {
+    PEXCEPTION_POINTERS ExceptionPointers= _SEH_GetExceptionPointers();
+
     /* Print debugging information */
     DPRINT1("PS: Unhandled Kernel Mode Exception Pointers = 0x%p\n",
             ExceptionPointers);
@@ -128,7 +128,7 @@ PspUnhandledExceptionInSystemThread(PEXCEPTION_POINTERS ExceptionPointers)
             ExceptionPointers->ExceptionRecord->ExceptionInformation[3]);
 
     /* Bugcheck the system */
-    KeBugCheckEx(SYSTEM_THREAD_EXCEPTION_NOT_HANDLED,
+    KeBugCheckEx(0x7E,
                  ExceptionPointers->ExceptionRecord->ExceptionCode,
                  (ULONG_PTR)ExceptionPointers->ExceptionRecord->ExceptionAddress,
                  (ULONG_PTR)ExceptionPointers->ExceptionRecord,
@@ -150,20 +150,20 @@ PspSystemThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     Thread = PsGetCurrentThread();
 
     /* Make sure the thread isn't gone */
-    _SEH2_TRY
+    _SEH_TRY
     {
         if (!(Thread->Terminated) && !(Thread->DeadThread))
         {
-            /* Call the Start Routine */
+            /* Call it the Start Routine */
             StartRoutine(StartContext);
         }
     }
-    _SEH2_EXCEPT(PspUnhandledExceptionInSystemThread(_SEH2_GetExceptionInformation()))
+    _SEH_EXCEPT(PspUnhandledExceptionInSystemThread)
     {
         /* Bugcheck if we got here */
         KeBugCheck(KMODE_EXCEPTION_NOT_HANDLED);
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Exit the thread */
     PspTerminateThreadByPointer(Thread, STATUS_SUCCESS, TRUE);
@@ -192,7 +192,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     HANDLE_TABLE_ENTRY CidEntry;
     ACCESS_STATE LocalAccessState;
     PACCESS_STATE AccessState = &LocalAccessState;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     BOOLEAN Result, SdAllocated;
     PSECURITY_DESCRIPTOR SecurityDescriptor;
     SECURITY_SUBJECT_CONTEXT SubjectContext;
@@ -310,18 +310,18 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     if (ThreadContext)
     {
         /* User-mode Thread, create Teb */
-        Status = MmCreateTeb(Process, &Thread->Cid, InitialTeb, &TebBase);
-        if (!NT_SUCCESS(Status))
+        TebBase = MmCreateTeb(Process, &Thread->Cid, InitialTeb);
+        if (!TebBase)
         {
             /* Failed to create the TEB. Release rundown and dereference */
             ExReleaseRundownProtection(&Process->RundownProtect);
             ObDereferenceObject(Thread);
-            return Status;
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         /* Set the Start Addresses */
-        Thread->StartAddress = (PVOID)KeGetContextPc(ThreadContext);
-        Thread->Win32StartAddress = (PVOID)KeGetContextReturnRegister(ThreadContext);
+        Thread->StartAddress = (PVOID)ThreadContext->Eip;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->Eax;
 
         /* Let the kernel intialize the Thread */
         Status = KeInitThread(&Thread->Tcb,
@@ -451,14 +451,17 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     if (NT_SUCCESS(Status))
     {
         /* Wrap in SEH to protect against bad user-mode pointers */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return Cid and Handle */
             if (ClientId) *ClientId = Thread->Cid;
             *ThreadHandle = hThread;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
+
             /* Thread insertion failed, thread is dead */
             PspSetCrossThreadFlag(Thread, CT_DEAD_THREAD_BIT);
 
@@ -473,11 +476,9 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
 
             /* Close its handle, killing it */
             ObCloseHandle(ThreadHandle, PreviousMode);
-
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -567,7 +568,6 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
 Quickie:
     /* When we get here, the process is locked, unlock it */
     ExReleasePushLockExclusive(&Process->ProcessLock);
-    KeLeaveCriticalRegion();
 
     /* Uninitailize it */
     KeUninitThread(&Thread->Tcb);
@@ -695,7 +695,7 @@ BOOLEAN
 NTAPI
 PsGetThreadHardErrorsAreDisabled(IN PETHREAD Thread)
 {
-    return Thread->HardErrorsAreDisabled ? TRUE : FALSE;
+    return Thread->HardErrorsAreDisabled;
 }
 
 /*
@@ -815,7 +815,7 @@ BOOLEAN
 NTAPI
 PsIsThreadImpersonating(IN PETHREAD Thread)
 {
-    return Thread->ActiveImpersonationInfo ? TRUE : FALSE;
+    return Thread->ActiveImpersonationInfo;
 }
 
 /*
@@ -832,7 +832,7 @@ PsSetThreadHardErrorsAreDisabled(IN PETHREAD Thread,
 /*
  * @implemented
  */
-PVOID
+struct _W32THREAD*
 NTAPI
 PsGetCurrentThreadWin32Thread(VOID)
 {
@@ -862,6 +862,7 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
                IN BOOLEAN CreateSuspended)
 {
     INITIAL_TEB SafeInitialTeb;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "ProcessHandle: %p Context: %p\n", ProcessHandle, ThreadContext);
@@ -873,13 +874,13 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
         if (!ThreadContext) return STATUS_INVALID_PARAMETER;
 
         /* Protect checks */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Make sure the handle pointer we got is valid */
             ProbeForWriteHandle(ThreadHandle);
 
             /* Check if the caller wants a client id */
-            if (ClientId)
+            if(ClientId)
             {
                 /* Make sure we can write to it */
                 ProbeForWrite(ClientId, sizeof(CLIENT_ID), sizeof(ULONG));
@@ -892,12 +893,12 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
             ProbeForRead(InitialTeb, sizeof(INITIAL_TEB), sizeof(ULONG));
             SafeInitialTeb = *InitialTeb;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -933,11 +934,11 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     CLIENT_ID SafeClientId;
     ULONG Attributes = 0;
     HANDLE hThread = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PETHREAD Thread;
     BOOLEAN HasObjectName = FALSE;
     ACCESS_STATE AccessState;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "ClientId: %p ObjectAttributes: %p\n", ClientId, ObjectAttributes);
@@ -946,7 +947,7 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the thread handle */
             ProbeForWriteHandle(ThreadHandle);
@@ -970,12 +971,13 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
             HasObjectName = (ObjectAttributes->ObjectName != NULL);
             Attributes = ObjectAttributes->Attributes;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -1074,17 +1076,17 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     if (NT_SUCCESS(Status))
     {
         /* Protect against bad user-mode pointers */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write back the handle */
             *ThreadHandle = hThread;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
             /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */

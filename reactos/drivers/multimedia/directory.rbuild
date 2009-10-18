@@ -1,10 +1,25 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
-	<directory name="audio">
-		<xi:include href="audio/directory.rbuild" />
-	</directory>
-	<directory name="bdasup">
-		<xi:include href="bdasup/bdasup.rbuild" />
-	</directory>
-</group>
+<directory name="audio">
+	<xi:include href="audio/directory.rbuild" />
+</directory>
+
+<!--
+    Kernel Streaming
+
+    This is mostly incomplete at the moment.
+-->
+
+<directory name="ks">
+	<xi:include href="ks/ks.rbuild" />
+</directory>
+
+<directory name="drmk">
+	<xi:include href="drmk/drmk.rbuild" />
+</directory>
+
+<directory name="portcls">
+	<xi:include href="portcls/portcls.rbuild" />
+</directory>
+
+<!--<directory name="avtest">
+	<xi:include href="avtest/avtest.rbuild" />
+</directory-->

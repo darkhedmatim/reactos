@@ -43,11 +43,10 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 	{
 		case Kernel:
 		case KernelModeDLL:
-		case KeyboardLayout:
+		case ExportDriver:
 		case NativeDLL:
 		case NativeCUI:
 		case Win32DLL:
-		case Win32OCX:
 		case Win32CUI:
 		case Win32SCR:
 		case Win32GUI:
@@ -55,42 +54,23 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case BootSector:
 		case BootLoader:
 		case BootProgram:
-		case Cabinet:
 			return true;
 		case BuildTool:
 		case StaticLibrary:
-		case HostStaticLibrary:
 		case ObjectLibrary:
 		case Iso:
 		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
 		case Test:
 		case RpcServer:
 		case RpcClient:
-		case RpcProxy:
 		case Alias:
 		case IdlHeader:
-		case IdlInterface:
-		case MessageHeader:
-		case EmbeddedTypeLib:
-		case ElfExecutable:
 			return false;
-		case TypeDontCare:
-			break;
 	}
 	throw InvalidOperationException ( __FILE__,
 	                                  __LINE__ );
-}
-
-string
-Bootstrap::ReplaceVariable ( const string& name,
-                             const string& value,
-                             string path )
-{
-	size_t i = path.find ( name );
-	if ( i != string::npos )
-		return path.replace ( i, name.length (), value );
-	else
-		return path;
 }
 
 void
@@ -103,9 +83,9 @@ Bootstrap::Initialize ()
 			"<bootstrap> is not applicable for this module type." );
 	}
 
-	const XMLAttribute* att = node.GetAttribute ( "installbase", false );
+	const XMLAttribute* att = node.GetAttribute ( "base", false );
 	if ( att != NULL )
-		base = ReplaceVariable ( "$(CDOUTPUT)", Environment::GetCdOutputPath (), att->value );
+		base = att->value;
 	else
 		base = "";
 
@@ -113,7 +93,7 @@ Bootstrap::Initialize ()
 	if ( att != NULL )
 		nameoncd = att->value;
 	else
-		nameoncd = module->output->name;
+		nameoncd = module->GetTargetName ();
 }
 
 void

@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #endif
 
+#define COM_NO_WINDOWS_H
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
@@ -58,8 +59,6 @@ typedef struct
     LPCWSTR defext;
     LPCWSTR filter;
     LPCWSTR customfilter;
-    SIZE sizedlg; /* remember the size of the dialog */
-    POINT initial_size; /* remember the initial size of the dialog */
     struct {
         IShellBrowser *FOIShellBrowser;
         IShellFolder *FOIShellFolder;
@@ -80,7 +79,6 @@ typedef struct
         HWND hwndLookInCB;
         HWND hwndFileName;
 	HWND hwndTB;
-	HWND hwndGrip;
         HWND hwndCustomDlg;
 	DWORD dwDlgProp;
     } DlgInfos;
@@ -151,19 +149,12 @@ IShellBrowser * IShellBrowserImpl_Construct(HWND hwndOwner);
 
 
 LPITEMIDLIST GetPidlFromDataObject ( IDataObject *doSelected, UINT nPidlIndex);
+UINT GetNumSelected(IDataObject *doSelected);
+
+/* pidl handling */
+BOOL IsPidlFolder (LPSHELLFOLDER psf, LPCITEMIDLIST pidl);
 
 /* Functions used by the EDIT box */
 void FILEDLG95_FILENAME_FillFromSelection (HWND hwnd);
-
-/**************************************************************************
-*   External Prototypes
-*/
-extern const char FileOpenDlgInfosStr[];
-
-extern IShellFolder*    GetShellFolderFromPidl(LPITEMIDLIST pidlAbs);
-extern LPITEMIDLIST     GetParentPidl(LPITEMIDLIST pidl);
-
-extern int     FILEDLG95_LOOKIN_SelectItem(HWND hwnd,LPITEMIDLIST pidl);
-extern LRESULT SendCustomDlgNotificationMessage(HWND hwndParentDlg, UINT uCode);
 
 #endif /*SHBROWSER_H*/

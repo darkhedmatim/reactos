@@ -11,9 +11,9 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
 
 /* FUNCTIONS ****************************************************************/
 
@@ -21,7 +21,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 BackupRead (
 	HANDLE	hFile,
 	LPBYTE	lpBuffer,
@@ -32,8 +32,7 @@ BackupRead (
 	LPVOID	* lpContext
 	)
 {
-    UNIMPLEMENTED;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
@@ -42,7 +41,7 @@ BackupRead (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 BackupSeek (
 	HANDLE	hFile,
 	DWORD	dwLowBytesToSeek,
@@ -52,8 +51,7 @@ BackupSeek (
 	LPVOID	* lpContext
 	)
 {
-    UNIMPLEMENTED;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
@@ -62,7 +60,7 @@ BackupSeek (
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 BackupWrite (
 	HANDLE	hFile,
 	LPBYTE	lpBuffer,
@@ -73,8 +71,7 @@ BackupWrite (
 	LPVOID	* lpContext
 	)
 {
-    UNIMPLEMENTED;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 

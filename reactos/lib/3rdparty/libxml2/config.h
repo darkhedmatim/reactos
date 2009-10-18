@@ -5,7 +5,7 @@
 /* #undef HAVE_LIBZ */
 /* #undef HAVE_LIBM */
 /* #undef HAVE_ISINF */
-#define HAVE_ISNAN
+#define HAVE_ISNAN 
 /* #undef HAVE_LIBHISTORY */
 /* #undef HAVE_LIBREADLINE */
 /* #undef HAVE_LIBPTHREAD */
@@ -90,7 +90,7 @@
 /* #undef HAVE_ISINF */
 
 /* Define if isnan is there */
-#define HAVE_ISNAN
+#define HAVE_ISNAN 
 
 /* Define to 1 if you have the `isnand' function. */
 /* #undef HAVE_ISNAND */
@@ -227,7 +227,7 @@
 #define HAVE_SYS_TIMEB_H 1
 
 /* Define to 1 if you have the <sys/time.h> header file. */
-//#define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_TIME_H 1
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
@@ -298,6 +298,5 @@
 /* ss_family is not defined here, use __ss_family instead */
 /* #undef ss_family */
 
-#if !defined(__MINGW32__) || defined(__NO_ISOCEXT)
+/* Win32 Std C name mangling work-around */
 #define vsnprintf _vsnprintf
-#endif

@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <reactos/resource.h>
 #include "resource.h"
 
 #define REACTOS_VERSION_DLL
@@ -7,7 +8,7 @@
 #define REACTOS_STR_ORIGINAL_FILENAME	"netid.dll\0"
 #include <reactos/version.rc>
 
-#include "rsrc.rc"
+IDI_COMPNAME    ICON "res/netid.ico"
 
-IDI_COMPNAME     ICON "res/101.ico"
-IDI_WARNINGICO   ICON "res/102.ico"
+#include "lang/en-US.rc"
+#include "lang/de-DE.rc"

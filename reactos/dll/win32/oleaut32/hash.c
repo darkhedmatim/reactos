@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include <stdarg.h>
 
@@ -509,9 +509,6 @@ ULONG WINAPI LHashValOfNameSysA( SYSKIND skind, LCID lcid, LPCSTR lpStr)
   ULONG nHiWord, nLoWord = 0x0deadbee;
   const unsigned char *str = (const unsigned char *)lpStr, *pnLookup = NULL;
 
-  TRACE("(%d, 0x%x, %s) %s\n", skind, lcid, debugstr_a(lpStr),
-    (skind == SYS_WIN16) ? "SYS_WIN16" : (skind == SYS_WIN32) ? "SYS_WIN32" : "");
-
   if (!str)
     return 0;
 
@@ -520,7 +517,7 @@ ULONG WINAPI LHashValOfNameSysA( SYSKIND skind, LCID lcid, LPCSTR lpStr)
   switch (PRIMARYLANGID(LANGIDFROMLCID(lcid)))
   {
   default:
-    ERR("Unknown lcid %x, treating as latin-based, please report\n", lcid);
+    ERR("Unknown lcid %lx, treating as latin-based, please report\n", lcid);
     /* .. Fall Through .. */
   case LANG_AFRIKAANS:  case LANG_ALBANIAN:   case LANG_ARMENIAN:
   case LANG_ASSAMESE:   case LANG_AZERI:      case LANG_BASQUE:
@@ -611,7 +608,13 @@ ULONG WINAPI LHashValOfNameSysA( SYSKIND skind, LCID lcid, LPCSTR lpStr)
 
   while (*str)
   {
-    nLoWord = 37 * nLoWord + pnLookup[*str > 0x7f && nMask ? *str + 0x80 : *str];
+    ULONG newLoWord = 0, i;
+
+    /* Cumulative prime multiplication (*37) with modulo 2^32 wrap-around */
+    for (i = 0; i < 37; i++)
+      newLoWord += nLoWord;
+
+    nLoWord = newLoWord + pnLookup[*str > 0x7f && nMask ? *str + 0x80 : *str];
     str++;
   }
   /* Constrain to a prime modulo and sizeof(WORD) */

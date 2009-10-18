@@ -34,145 +34,6 @@ using std::map;
 
 typedef set<string> set_string;
 
-const struct ModuleHandlerInformations ModuleHandlerInformations[] = {
-	{ HostTrue, "", "", "" }, // BuildTool
-	{ HostFalse, "", "", "" }, // StaticLibrary
-	{ HostFalse, "", "", "" }, // ObjectLibrary
-	{ HostFalse, "", "", "" }, // Kernel
-	{ HostFalse, "", "", "" }, // KernelModeDLL
-	{ HostFalse, "-D__NTDRIVER__", "", "" }, // KernelModeDriver
-	{ HostFalse, "", "", "" }, // NativeDLL
-	{ HostFalse, "-D__NTAPP__", "", "" }, // NativeCUI
-	{ HostFalse, "", "", "" }, // Win32DLL
-	{ HostFalse, "", "", "" }, // Win32OCX
-	{ HostFalse, "", "", "" }, // Win32CUI
-	{ HostFalse, "", "", "" }, // Win32GUI
-	{ HostFalse, "", "", "-nostartfiles -nostdlib" }, // BootLoader
-	{ HostFalse, "", "-f bin", "" }, // BootSector
-	{ HostFalse, "", "", "" }, // Iso
-	{ HostFalse, "", "", "" }, // LiveIso
-	{ HostFalse, "", "", "" }, // Test
-	{ HostFalse, "", "", "" }, // RpcServer
-	{ HostFalse, "", "", "" }, // RpcClient
-	{ HostFalse, "", "", "" }, // Alias
-	{ HostFalse, "", "", "-nostartfiles -nostdlib" }, // BootProgram
-	{ HostFalse, "", "", "" }, // Win32SCR
-	{ HostFalse, "", "", "" }, // IdlHeader
-	{ HostFalse, "", "", "" }, // IdlInterface
-	{ HostFalse, "", "", "" }, // EmbeddedTypeLib
-	{ HostFalse, "", "", "" }, // ElfExecutable
-	{ HostFalse, "", "", "" }, // RpcProxy
-	{ HostTrue, "", "", "" }, // HostStaticLibrary
-	{ HostFalse, "", "", "" }, // Cabinet
-	{ HostFalse, "", "", "" }, // KeyboardLayout
-	{ HostFalse, "", "", "" }, // MessageHeader
-};
-
-static std::string mscPath;
-static std::string mslinkPath;
-
-string
-MingwBackend::GetFullPath ( const FileLocation& file ) const
-{
-	MingwModuleHandler::PassThruCacheDirectory ( &file );
-
-	string directory;
-	switch ( file.directory )
-	{
-		case SourceDirectory:
-			directory = "";
-			break;
-		case IntermediateDirectory:
-			directory = "$(INTERMEDIATE)";
-			break;
-		case OutputDirectory:
-			directory = "$(OUTPUT)";
-			break;
-		case InstallDirectory:
-			directory = "$(INSTALL)";
-			break;
-		case TemporaryDirectory:
-			directory = "$(TEMPORARY)";
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  file.directory );
-	}
-
-	if ( file.relative_path.length () > 0 )
-	{
-		if ( directory.length () > 0 )
-			directory += sSep;
-		directory += file.relative_path;
-	}
-	return directory;
-}
-
-string
-MingwBackend::GetFullName ( const FileLocation& file ) const
-{
-	string directory;
-	switch ( file.directory )
-	{
-		case SourceDirectory:
-			directory = "";
-			break;
-		case IntermediateDirectory:
-			directory = "$(INTERMEDIATE)";
-			break;
-		case OutputDirectory:
-			directory = "$(OUTPUT)";
-			break;
-		case InstallDirectory:
-			directory = "$(INSTALL)";
-			break;
-		case TemporaryDirectory:
-			directory = "$(TEMPORARY)";
-			break;
-		default:
-			throw InvalidOperationException ( __FILE__,
-			                                  __LINE__,
-			                                  "Invalid directory %d.",
-			                                  file.directory );
-	}
-
-	if ( file.relative_path.length () > 0 )
-	{
-		if ( directory.length () > 0 )
-			directory += sSep;
-		directory += file.relative_path;
-	}
-
-	if ( directory.length () > 0 )
-		directory += sSep;
-
-	return directory + file.name;
-}
-
-string
-v2s ( const Backend* backend, const vector<FileLocation>& files, int wrap_at )
-{
-	if ( !files.size() )
-		return "";
-	string s;
-	int wrap_count = 0;
-	for ( size_t i = 0; i < files.size(); i++ )
-	{
-		const FileLocation& file = files[i];
-		if ( wrap_at > 0 && wrap_count++ == wrap_at )
-		{
-			s += " \\\n\t\t";
-			wrap_count = 1;
-		}
-		else if ( s.size() )
-			s += " ";
-		s += backend->GetFullName ( file );
-	}
-	return s;
-}
-
 
 string
 v2s ( const string_list& v, int wrap_at )
@@ -186,10 +47,7 @@ v2s ( const string_list& v, int wrap_at )
 		if ( !v[i].size() )
 			continue;
 		if ( wrap_at > 0 && wrap_count++ == wrap_at )
-		{
 			s += " \\\n\t\t";
-			wrap_count = 1;
-		}
 		else if ( s.size() )
 			s += " ";
 		s += v[i];
@@ -215,9 +73,9 @@ MingwBackend::MingwBackend ( Project& project,
                              Configuration& configuration )
 	: Backend ( project, configuration ),
 	  manualBinutilsSetting( false ),
-	  intermediateDirectory ( new Directory ( "" ) ),
-	  outputDirectory ( new Directory ( "" ) ),
-	  installDirectory ( new Directory ( "" ) )
+	  intermediateDirectory ( new Directory ("$(INTERMEDIATE)" ) ),
+	  outputDirectory ( new Directory ( "$(OUTPUT)" ) ),
+	  installDirectory ( new Directory ( "$(INSTALL)" ) )
 {
 	compilerPrefix = "";
 }
@@ -249,8 +107,27 @@ MingwBackend::CanEnablePreCompiledHeaderSupportForModule ( const Module& module 
 	for ( i = 0; i < compilationUnits.size (); i++ )
 	{
 		CompilationUnit& compilationUnit = *compilationUnits[i];
-		if ( compilationUnit.GetFiles ().size () != 1 )
+		if ( compilationUnit.files.size () != 1 )
 			return false;
+	}
+	// intentionally make a copy so that we can append more work in
+	// the middle of processing without having to go recursive
+	vector<If*> v = module.non_if_data.ifs;
+	for ( i = 0; i < v.size (); i++ )
+	{
+		size_t j;
+		If& rIf = *v[i];
+		// check for sub-ifs to add to list
+		const vector<If*>& ifs = rIf.data.ifs;
+		for ( j = 0; j < ifs.size (); j++ )
+			v.push_back ( ifs[j] );
+		const vector<CompilationUnit*>& compilationUnits = rIf.data.compilationUnits;
+		for ( j = 0; j < compilationUnits.size (); j++ )
+		{
+			CompilationUnit& compilationUnit = *compilationUnits[j];
+			if ( compilationUnit.files.size () != 1 )
+				return false;
+		}
 	}
 	return true;
 }
@@ -263,12 +140,9 @@ MingwBackend::ProcessModules ()
 	vector<MingwModuleHandler*> v;
 	size_t i;
 
-	for ( std::map<std::string, Module*>::iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
-		fprintf ( fMakefile, "%s_TYPE:=%u\n", p->second->name.c_str(), p->second->type );
-
-	for ( std::map<std::string, Module*>::iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
+	for ( i = 0; i < ProjectNode.modules.size (); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 		if ( !module.enabled )
 			continue;
 		MingwModuleHandler* h = MingwModuleHandler::InstanciateHandler (
@@ -277,13 +151,16 @@ MingwBackend::ProcessModules ()
 		h->AddImplicitLibraries ( module );
 		if ( use_pch && CanEnablePreCompiledHeaderSupportForModule ( module ) )
 			h->EnablePreCompiledHeaderSupport ();
+		if ( module.host == HostDefault )
+		{
+			module.host = h->DefaultHost();
+			assert ( module.host != HostDefault );
+		}
 		v.push_back ( h );
 	}
 
 	size_t iend = v.size ();
 
-	for ( i = 0; i < iend; i++ )
-		v[i]->GenerateSourceMacro();
 	for ( i = 0; i < iend; i++ )
 		v[i]->GenerateObjectMacro();
 	fprintf ( fMakefile, "\n" );
@@ -292,6 +169,7 @@ MingwBackend::ProcessModules ()
 	fprintf ( fMakefile, "\n" );
 
 	GenerateAllTarget ( v );
+	GenerateInitTarget ();
 	GenerateRegTestsRunTarget ();
 
 	for ( i = 0; i < iend; i++ )
@@ -324,7 +202,7 @@ MingwBackend::Process ()
 void
 MingwBackend::CheckAutomaticDependenciesForModuleOnly ()
 {
-	if ( configuration.Dependencies == AutomaticDependencies )
+	if ( configuration.AutomaticDependencies )
 	{
 		Module* module = ProjectNode.LocateModule ( configuration.CheckDependenciesForModuleOnlyModule );
 		if ( module == NULL )
@@ -333,7 +211,7 @@ MingwBackend::CheckAutomaticDependenciesForModuleOnly ()
 			        configuration.CheckDependenciesForModuleOnlyModule.c_str () );
 			return;
 		}
-
+		
 		printf ( "Checking automatic dependencies for module '%s'...",
 		         module->name.c_str () );
 		AutomaticDependency automaticDependency ( ProjectNode );
@@ -346,8 +224,6 @@ MingwBackend::CheckAutomaticDependenciesForModuleOnly ()
 void
 MingwBackend::ProcessNormal ()
 {
-	assert(sizeof(ModuleHandlerInformations)/sizeof(ModuleHandlerInformations[0]) == TypeDontCare);
-
 	DetectCompiler ();
 	DetectBinutils ();
 	DetectNetwideAssembler ();
@@ -362,6 +238,7 @@ MingwBackend::ProcessNormal ()
 	GenerateTestTarget ();
 	GenerateDirectoryTargets ();
 	GenerateDirectories ();
+	UnpackWineResources ();
 	GenerateTestSupportCode ();
 	GenerateCompilationUnitSupportCode ();
 	GenerateSysSetup ();
@@ -390,24 +267,128 @@ MingwBackend::CloseMakefile () const
 void
 MingwBackend::GenerateHeader () const
 {
-	fprintf ( fMakefile, "# THIS FILE IS AUTOMATICALLY GENERATED, EDIT '%s' INSTEAD\n\n",
-		ProjectNode.GetProjectFilename ().c_str () );
+	fprintf ( fMakefile, "# THIS FILE IS AUTOMATICALLY GENERATED, EDIT 'ReactOS.xml' INSTEAD\n\n" );
+}
+
+string
+MingwBackend::GenerateIncludesAndDefines ( IfableData& data ) const
+{
+	string includeParameters = MingwModuleHandler::GenerateGccIncludeParametersFromVector ( data.includes );
+	string defineParameters = MingwModuleHandler::GenerateGccDefineParametersFromVector ( data.defines );
+	return includeParameters + " " + defineParameters;
 }
 
 void
-MingwBackend::GenerateGlobalProperties (
-	const char* assignmentOperation,
-	const IfableData& data ) const
+MingwBackend::GenerateProjectCFlagsMacro ( const char* assignmentOperation,
+                                           IfableData& data ) const
 {
-	for ( std::map<std::string, Property*>::const_iterator p = data.properties.begin(); p != data.properties.end(); ++ p )
-	{
-		Property& prop = *p->second;
+	fprintf (
+		fMakefile,
+		"PROJECT_CFLAGS %s",
+		assignmentOperation );
+	
+	fprintf ( fMakefile,
+	          " %s",
+	          GenerateIncludesAndDefines ( data ).c_str() );
 
-		if (!prop.isInternal)
+	fprintf ( fMakefile, "\n" );
+}
+
+void
+MingwBackend::GenerateGlobalCFlagsAndProperties (
+	const char* assignmentOperation,
+	IfableData& data ) const
+{
+	size_t i;
+
+	for ( i = 0; i < data.properties.size(); i++ )
+	{
+		Property& prop = *data.properties[i];
+		fprintf ( fMakefile, "%s := %s\n",
+			prop.name.c_str(),
+			prop.value.c_str() );
+	}
+
+	if ( data.includes.size() || data.defines.size() )
+	{
+		GenerateProjectCFlagsMacro ( assignmentOperation,
+		                             data );
+	}
+
+	for ( i = 0; i < data.ifs.size(); i++ )
+	{
+		If& rIf = *data.ifs[i];
+		if ( rIf.data.defines.size()
+			|| rIf.data.includes.size()
+			|| rIf.data.ifs.size() )
 		{
-			fprintf ( fMakefile, "%s := %s\n",
-				prop.name.c_str(),
-				prop.value.c_str() );
+			fprintf (
+				fMakefile,
+				"ifeq (\"$(%s)\",\"%s\")\n",
+				rIf.property.c_str(),
+				rIf.value.c_str() );
+			GenerateGlobalCFlagsAndProperties (
+				"+=",
+				rIf.data );
+			fprintf (
+				fMakefile,
+				"endif\n\n" );
+		}
+	}
+}
+
+void
+MingwBackend::GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
+                                               IfableData& data ) const
+{
+	size_t i;
+
+	fprintf (
+		fMakefile,
+		"PROJECT_GCCOPTIONS %s",
+		assignmentOperation );
+	
+	for ( i = 0; i < data.compilerFlags.size(); i++ )
+	{
+		fprintf (
+			fMakefile,
+			" %s",
+			data.compilerFlags[i]->flag.c_str() );
+	}
+
+	fprintf ( fMakefile, "\n" );
+}
+
+void
+MingwBackend::GenerateProjectGccOptions (
+	const char* assignmentOperation,
+	IfableData& data ) const
+{
+	size_t i;
+
+	if ( data.compilerFlags.size() )
+	{
+		GenerateProjectGccOptionsMacro ( assignmentOperation,
+		                                 data );
+	}
+
+	for ( i = 0; i < data.ifs.size(); i++ )
+	{
+		If& rIf = *data.ifs[i];
+		if ( rIf.data.compilerFlags.size()
+		     || rIf.data.ifs.size() )
+		{
+			fprintf (
+				fMakefile,
+				"ifeq (\"$(%s)\",\"%s\")\n",
+				rIf.property.c_str(),
+				rIf.value.c_str() );
+			GenerateProjectGccOptions (
+				"+=",
+				rIf.data );
+			fprintf (
+				fMakefile,
+				"endif\n\n" );
 		}
 	}
 }
@@ -429,105 +410,22 @@ MingwBackend::GenerateProjectLFLAGS () const
 void
 MingwBackend::GenerateGlobalVariables () const
 {
-	fputs ( "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)rules.mak\n", fMakefile );
-	fprintf ( fMakefile, "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)linkers$(SEP)%s.mak\n", ProjectNode.GetLinkerSet ().c_str () );
-	fprintf ( fMakefile, "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)compilers$(SEP)%s.mak\n", ProjectNode.GetCompilerSet ().c_str () );
-
-	if ( mscPath.length() )
-		fprintf ( fMakefile, "export RBUILD_CL_PATH=%s\n", mscPath.c_str () );
-
-	if ( mslinkPath.length() )
-		fprintf ( fMakefile, "export RBUILD_LINK_PATH=%s\n", mslinkPath.c_str () );
-
-	if ( configuration.Dependencies == FullDependencies )
-	{
-		fprintf ( fMakefile,
-				  "ifeq ($(ROS_BUILDDEPS),)\n"
-				  "ROS_BUILDDEPS:=%s\n"
-				  "endif\n",
-				  "full" );
-	}
-
 	fprintf ( fMakefile,
 	          "PREFIX := %s\n",
 	          compilerPrefix.c_str () );
 	fprintf ( fMakefile,
-	          "nasm := $(Q)%s\n",
+	          "nasm := %s\n",
 	          nasmCommand.c_str () );
 
-	GenerateGlobalProperties ( "=", ProjectNode.non_if_data );
+	GenerateGlobalCFlagsAndProperties ( "=", ProjectNode.non_if_data );
+	GenerateProjectGccOptions ( "=", ProjectNode.non_if_data );
 
-	if ( ProjectNode.configuration.Compiler == GnuGcc )
-	{
-		fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
-		fprintf ( fMakefile, "PROJECT_ASFLAGS += -march=$(OARCH)\n" );
-		fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
-		fprintf ( fMakefile, "PROJECT_CXXFLAGS += -march=$(OARCH)\n" );
-		fprintf ( fMakefile, "endif\n" );
-		fprintf ( fMakefile, "ifneq ($(TUNE),)\n" );
-		fprintf ( fMakefile, "PROJECT_CFLAGS += -mtune=$(TUNE)\n" );
-		fprintf ( fMakefile, "PROJECT_CXXFLAGS += -mtune=$(TUNE)\n" );
-		fprintf ( fMakefile, "endif\n" );
-
-		if ( usePipe )
-		{
-			fprintf ( fMakefile, "PROJECT_CFLAGS += -pipe\n" );
-			fprintf ( fMakefile, "PROJECT_CXXFLAGS += -pipe\n" );
-			fprintf ( fMakefile, "PROJECT_ASFLAGS += -pipe\n" );
-		}
-
-		// Would be nice to have our own C++ runtime
-		fputs ( "BUILTIN_CXXINCLUDES+= $(TARGET_CPPFLAGS)\n", fMakefile );
-	}
-
-	// Because RosBE gcc is built to suck
-	fputs ( "BUILTIN_HOST_CINCLUDES+= $(HOST_CFLAGS)\n", fMakefile );
-	fputs ( "BUILTIN_HOST_CPPINCLUDES+= $(HOST_CFLAGS)\n", fMakefile );
-	fputs ( "BUILTIN_HOST_CXXINCLUDES+= $(HOST_CPPFLAGS)\n", fMakefile );
-
-	MingwModuleHandler::GenerateParameters ( "PROJECT", "+=", ProjectNode.non_if_data );
-	MingwModuleHandler::GenerateParameters ( "PROJECT_HOST", "+=", ProjectNode.host_non_if_data );
-
-	// TODO: linker flags
-	fprintf ( fMakefile, "PROJECT_LFLAGS := '$(shell ${TARGET_CC} -print-libgcc-file-name)' %s\n", GenerateProjectLFLAGS ().c_str () );
-	fprintf ( fMakefile, "PROJECT_LPPFLAGS := '$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)' '$(shell ${TARGET_CPP} -print-file-name=libgcc.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)' '$(shell ${TARGET_CPP} -print-file-name=libcoldname.a)'\n" );
-	/* hack to get libgcc_eh.a, should check mingw version or something */
-	if (Environment::GetArch() == "amd64")
-	{
-	    fprintf ( fMakefile, "PROJECT_LPPFLAGS += '$(shell ${TARGET_CPP} -print-file-name=libgcc_eh.a)'\n" );
-	}
-
-	// TODO: use symbolic names for module types
-	for ( size_t i = 0; i < sizeof(ModuleHandlerInformations) / sizeof(ModuleHandlerInformations[0]); ++ i )
-	{
-		if ( ModuleHandlerInformations[i].cflags && ModuleHandlerInformations[i].cflags[0] )
-		{
-				fprintf ( fMakefile,
-						  "MODULETYPE%d_%sFLAGS:=%s\n",
-						  (int)i,
-						  "C",
-						  ModuleHandlerInformations[i].cflags );
-		}
-
-		if ( ModuleHandlerInformations[i].cflags && ModuleHandlerInformations[i].cflags[0] )
-		{
-				fprintf ( fMakefile,
-						  "MODULETYPE%d_%sFLAGS:=%s\n",
-						  (int)i,
-						  "CXX",
-						  ModuleHandlerInformations[i].cflags );
-		}
-
-		if ( ModuleHandlerInformations[i].nasmflags && ModuleHandlerInformations[i].nasmflags[0] )
-		{
-				fprintf ( fMakefile,
-						  "MODULETYPE%d_%sFLAGS:=%s\n",
-						  (int)i,
-						  "NASM",
-						  ModuleHandlerInformations[i].nasmflags );
-		}
-	}
-
+	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CFLAGS)\n" );
+	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CFLAGS)\n" );
+	fprintf ( fMakefile, "PROJECT_LFLAGS := %s\n",
+	          GenerateProjectLFLAGS ().c_str () );
+	fprintf ( fMakefile, "PROJECT_CFLAGS += -Wall\n" );
+	fprintf ( fMakefile, "PROJECT_CFLAGS += $(PROJECT_GCCOPTIONS)\n" );
 	fprintf ( fMakefile, "\n" );
 }
 
@@ -541,6 +439,10 @@ MingwBackend::IncludeInAllTarget ( const Module& module ) const
 	if ( module.type == Iso )
 		return false;
 	if ( module.type == LiveIso )
+		return false;
+	if ( module.type == IsoRegTest )
+		return false;
+	if ( module.type == LiveIsoRegTest )
 		return false;
 	if ( module.type == Test )
 		return false;
@@ -570,6 +472,34 @@ MingwBackend::GenerateAllTarget ( const vector<MingwModuleHandler*>& handlers ) 
 	fprintf ( fMakefile, "\n\t\n\n" );
 }
 
+string
+MingwBackend::GetBuildToolDependencies () const
+{
+	string dependencies;
+	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
+	{
+		Module& module = *ProjectNode.modules[i];
+		if ( !module.enabled )
+			continue;
+		if ( module.type == BuildTool )
+		{
+			if ( dependencies.length () > 0 )
+				dependencies += " ";
+			dependencies += module.GetDependencyPath ();
+		}
+	}
+	return dependencies;
+}
+
+void
+MingwBackend::GenerateInitTarget () const
+{
+	fprintf ( fMakefile,
+	          "INIT = %s\n",
+	          GetBuildToolDependencies ().c_str () );
+	fprintf ( fMakefile, "\n" );
+}
+
 void
 MingwBackend::GenerateRegTestsRunTarget () const
 {
@@ -590,9 +520,6 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 	          ProjectNode.GetProjectFilename ().c_str () );
 	string xmlbuildFilenames;
 	int numberOfExistingFiles = 0;
-	struct stat statbuf;
-	time_t SystemTime, lastWriteTime;
-
 	for ( size_t i = 0; i < ProjectNode.xmlbuildfiles.size (); i++ )
 	{
 		XMLInclude& xmlbuildfile = *ProjectNode.xmlbuildfiles[i];
@@ -601,28 +528,6 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 		numberOfExistingFiles++;
 		if ( xmlbuildFilenames.length () > 0 )
 			xmlbuildFilenames += " ";
-
-		FILE* f = fopen ( xmlbuildfile.topIncludeFilename.c_str (), "rb" );
-		if ( !f )
-		throw FileNotFoundException ( NormalizeFilename ( xmlbuildfile.topIncludeFilename ) );
-
-		if ( fstat ( fileno ( f ), &statbuf ) != 0 )
-		{
-			fclose ( f );
-			throw AccessDeniedException ( NormalizeFilename ( xmlbuildfile.topIncludeFilename ) );
-		}
-
-		lastWriteTime = statbuf.st_mtime;
-		SystemTime = time(NULL);
-
-		if (SystemTime != -1)
-		{
-			if (difftime (lastWriteTime, SystemTime) > 0)
-				throw InvalidDateException ( NormalizeFilename ( xmlbuildfile.topIncludeFilename ) );
-		}
-
-		fclose ( f );
-
 		xmlbuildFilenames += NormalizeFilename ( xmlbuildfile.topIncludeFilename );
 		if ( numberOfExistingFiles % 5 == 4 || i == ProjectNode.xmlbuildfiles.size () - 1 )
 		{
@@ -643,6 +548,22 @@ MingwBackend::GenerateXmlBuildFilesMacro() const
 		numberOfExistingFiles++;
 	}
 	fprintf ( fMakefile, "\n" );
+}
+
+string
+MingwBackend::GetBin2ResExecutable ()
+{
+	return NormalizeFilename ( Environment::GetOutputPath () + sSep + "tools/bin2res/bin2res" + ExePostfix );
+}
+
+void
+MingwBackend::UnpackWineResources ()
+{
+	printf ( "Unpacking WINE resources..." );
+	WineResource wineResource ( ProjectNode,
+	                            GetBin2ResExecutable () );
+	wineResource.UnpackResources ( configuration.Verbose );
+	printf ( "done\n" );
 }
 
 void
@@ -697,7 +618,7 @@ MingwBackend::GenerateProxyMakefiles ()
 void
 MingwBackend::CheckAutomaticDependencies ()
 {
-	if ( configuration.Dependencies == AutomaticDependencies )
+	if ( configuration.AutomaticDependencies )
 	{
 		printf ( "Checking automatic dependencies..." );
 		AutomaticDependency automaticDependency ( ProjectNode );
@@ -706,14 +627,23 @@ MingwBackend::CheckAutomaticDependencies ()
 	}
 }
 
+bool
+MingwBackend::IncludeDirectoryTarget ( const string& directory ) const
+{
+	if ( directory == "$(INTERMEDIATE)" + sSep + "tools")
+		return false;
+	else
+		return true;
+}
+
 void
 MingwBackend::GenerateDirectories ()
 {
 	printf ( "Creating directories..." );
-	intermediateDirectory->GenerateTree ( IntermediateDirectory, configuration.Verbose );
-	outputDirectory->GenerateTree ( OutputDirectory, configuration.Verbose );
+	intermediateDirectory->GenerateTree ( "", configuration.Verbose );
+	outputDirectory->GenerateTree ( "", configuration.Verbose );
 	if ( !configuration.MakeHandlesInstallDirectories )
-		installDirectory->GenerateTree ( InstallDirectory, configuration.Verbose );
+		installDirectory->GenerateTree ( "", configuration.Verbose );
 	printf ( "done\n" );
 }
 
@@ -735,60 +665,32 @@ MingwBackend::DetectCompiler ()
 	printf ( "Detecting compiler..." );
 
 	bool detectedCompiler = false;
-	bool supportedCompiler = false;
-	string compilerVersion;
-
-	if ( ProjectNode.configuration.Compiler == GnuGcc )
+	const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
+	if ( ROS_PREFIXValue.length () > 0 )
 	{
-		const string& TARGET_CCValue = Environment::GetVariable ( "TARGET_CC" );
-		const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
-
-		if ( TARGET_CCValue.length () > 0 )
-		{
-			compilerPrefix = "";
-			compilerCommand = TARGET_CCValue;
-			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-		}
-
-		if ( !detectedCompiler )
-		{
-			if ( ROS_PREFIXValue.length () > 0 )
-			{
-				compilerPrefix = ROS_PREFIXValue;
-				compilerCommand = compilerPrefix + "-gcc";
-				detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-			}
-		}
-#if defined(WIN32)
-		if ( !detectedCompiler )
-		{
-			compilerPrefix = "";
-			compilerCommand = "gcc";
-			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-		}
-#endif
-		if ( !detectedCompiler )
-		{
-			compilerPrefix = "mingw32";
-			compilerCommand = compilerPrefix + "-gcc";
-			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-		}
-
-		if ( detectedCompiler )
-			compilerVersion = GetCompilerVersion ( compilerCommand );
-
-		supportedCompiler = IsSupportedCompilerVersion ( compilerVersion );
+		compilerPrefix = ROS_PREFIXValue;
+		compilerCommand = compilerPrefix + "-gcc";
+		detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
 	}
-	else if ( ProjectNode.configuration.Compiler == MicrosoftC )
+#if defined(WIN32)
+	if ( !detectedCompiler )
 	{
-		compilerCommand = "cl";
-		detectedCompiler = DetectMicrosoftCompiler ( compilerVersion, mscPath );
-		supportedCompiler = true; // TODO
+		compilerPrefix = "";
+		compilerCommand = "gcc";
+		detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
+	}
+#endif
+	if ( !detectedCompiler )
+	{
+		compilerPrefix = "mingw32";
+		compilerCommand = compilerPrefix + "-gcc";
+		detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
 	}
 
 	if ( detectedCompiler )
 	{
-		if ( supportedCompiler )
+		string compilerVersion = GetCompilerVersion ( compilerCommand );
+		if ( IsSupportedCompilerVersion ( compilerVersion ) )
 			printf ( "detected (%s %s)\n", compilerCommand.c_str (), compilerVersion.c_str() );
 		else
 		{
@@ -820,25 +722,24 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 {
 	FILE *fp;
 	int ch, i;
-	size_t newline;
 	char buffer[81];
 
 	fp = popen ( versionCommand.c_str () , "r" );
-	for( i = 0;
-	     ( i < 80 ) &&
-	       ( feof ( fp ) == 0 &&
-	         ( ( ch = fgetc( fp ) ) != -1 ) );
-	     i++ )
+	for( i = 0; 
+             ( i < 80 ) && 
+                 ( feof ( fp ) == 0 && 
+                   ( ( ch = fgetc( fp ) ) != -1 ) ); 
+             i++ )
 	{
 		buffer[i] = (char) ch;
 	}
 	buffer[i] = '\0';
 	pclose ( fp );
 
-	char separators[] = " ()";
+	char separators[] = " ";
 	char *token;
 	char *prevtoken = NULL;
-
+	
 	string version;
 
 	token = strtok ( buffer, separators );
@@ -846,8 +747,6 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 	{
 		prevtoken = token;
 		version = string( prevtoken );
-		if ( (newline = version.find('\n')) != std::string::npos )
-			version.erase(newline, 1);
 		if ( version.find('.') != std::string::npos )
 			break;
 		token = strtok ( NULL, separators );
@@ -909,7 +808,7 @@ bool
 MingwBackend::TryToDetectThisBinutils ( const string& binutils )
 {
 	string command = ssprintf (
-		"%s -v 1>%s 2>%s",
+		"%s -v 1>%s",
 		FixSeparatorForSystemCommand(binutils).c_str (),
 		NUL,
 		NUL );
@@ -929,21 +828,21 @@ MingwBackend::GetBinutilsVersionDate ( const string& binutilsCommand )
 	                                   NUL,
 	                                   NUL );
 	fp = popen ( versionCommand.c_str () , "r" );
-	for( i = 0;
-	     ( i < 80 ) &&
-	         ( feof ( fp ) == 0 &&
-	           ( ( ch = fgetc( fp ) ) != -1 ) );
-	     i++ )
+	for( i = 0; 
+             ( i < 80 ) && 
+                 ( feof ( fp ) == 0 && 
+                   ( ( ch = fgetc( fp ) ) != -1 ) ); 
+             i++ )
 	{
 		buffer[i] = (char) ch;
 	}
 	buffer[i] = '\0';
 	pclose ( fp );
-
+	
 	char separators[] = " ";
 	char *token;
 	char *prevtoken = NULL;
-
+	
 	token = strtok ( buffer, separators );
 	while ( token != NULL )
 	{
@@ -962,20 +861,14 @@ bool
 MingwBackend::IsSupportedBinutilsVersion ( const string& binutilsVersion )
 {
 	if ( manualBinutilsSetting ) return true;
-
+	
 	/* linux */
 	if ( binutilsVersion.find('.') != std::string::npos )
 	{
-		/* TODO: blacklist versions on version number instead of date */
+		/* TODO: blacklist versions on version number instead of date */		
 		return true;
 	}
 
-	/*
-	 * - Binutils older than 2003/10/01 have broken windres which can't handle
-	 *   icons with alpha channel.
-	 * - Binutils between 2004/09/02 and 2004/10/08 have broken handling of
-	 *   forward exports in dlltool.
-	 */
 	if ( ( ( strcmp ( binutilsVersion.c_str (), "20040902") >= 0 ) &&
 	       ( strcmp ( binutilsVersion.c_str (), "20041008") <= 0 ) ) ||
 	       ( strcmp ( binutilsVersion.c_str (), "20031001") < 0 ) )
@@ -990,51 +883,34 @@ MingwBackend::DetectBinutils ()
 	printf ( "Detecting binutils..." );
 
 	bool detectedBinutils = false;
-	bool supportedBinutils = false;
-	string binutilsVersion;
+	const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
 
-	if ( ProjectNode.configuration.Linker == GnuLd )
+	if ( ROS_PREFIXValue.length () > 0 )
 	{
-		const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
-
-		if ( ROS_PREFIXValue.length () > 0 )
-		{
-			binutilsPrefix = ROS_PREFIXValue;
-			binutilsCommand = binutilsPrefix + "-ld";
-			manualBinutilsSetting = true;
-			detectedBinutils = true;
-		}
+		binutilsPrefix = ROS_PREFIXValue;
+		binutilsCommand = binutilsPrefix + "-ld";
+		manualBinutilsSetting = true;
+		detectedBinutils = true;
+	}
 #if defined(WIN32)
-		if ( !detectedBinutils )
-		{
-			binutilsPrefix = "";
-			binutilsCommand = "ld";
-			detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
-		}
-#endif
-		if ( !detectedBinutils )
-		{
-			binutilsPrefix = "mingw32";
-			binutilsCommand = binutilsPrefix + "-ld";
-			detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
-		}
-		if ( detectedBinutils )
-		{
-			binutilsVersion = GetBinutilsVersionDate ( binutilsCommand );
-			supportedBinutils = IsSupportedBinutilsVersion ( binutilsVersion );
-		}
-	}
-	else if ( ProjectNode.configuration.Linker == MicrosoftLink )
+	if ( !detectedBinutils )
 	{
-		compilerCommand = "link";
-		detectedBinutils = DetectMicrosoftLinker ( binutilsVersion, mslinkPath );
-		supportedBinutils = true; // TODO
+		binutilsPrefix = "";
+		binutilsCommand = "ld";
+		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
 	}
-
+#endif
+	if ( !detectedBinutils )
+	{
+		binutilsPrefix = "mingw32";
+		binutilsCommand = binutilsPrefix + "-ld";
+		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
+	}
 	if ( detectedBinutils )
 	{
-		if ( supportedBinutils )
-			printf ( "detected (%s %s)\n", binutilsCommand.c_str (), binutilsVersion.c_str() );
+		string binutilsVersion = GetBinutilsVersionDate ( binutilsCommand );
+		if ( IsSupportedBinutilsVersion ( binutilsVersion ) )
+			printf ( "detected (%s %s)\n", binutilsCommand.c_str (), GetBinutilsVersion( binutilsCommand ).c_str() );
 		else
 		{
 			printf ( "detected (%s), but with unsupported version (%s)\n",
@@ -1076,38 +952,33 @@ MingwBackend::DetectNetwideAssembler ()
 void
 MingwBackend::DetectPipeSupport ()
 {
-	if ( ProjectNode.configuration.Compiler == GnuGcc )
+	printf ( "Detecting compiler -pipe support..." );
+
+	string pipe_detection = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pipe_detection.c";
+	string pipe_detectionObjectFilename = ReplaceExtension ( pipe_detection,
+	                                                         ".o" );
+	string command = ssprintf (
+		"%s -pipe -c %s -o %s 1>%s 2>%s",
+		FixSeparatorForSystemCommand(compilerCommand).c_str (),
+		pipe_detection.c_str (),
+		pipe_detectionObjectFilename.c_str (),
+		NUL,
+		NUL );
+	int exitcode = system ( command.c_str () );
+	FILE* f = fopen ( pipe_detectionObjectFilename.c_str (), "rb" );
+	if ( f )
 	{
-		printf ( "Detecting compiler -pipe support..." );
-
-		string pipe_detection = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pipe_detection.c";
-		string pipe_detectionObjectFilename = ReplaceExtension ( pipe_detection,
-																 ".o" );
-		string command = ssprintf (
-			"%s -pipe -c %s -o %s 1>%s 2>%s",
-			FixSeparatorForSystemCommand(compilerCommand).c_str (),
-			pipe_detection.c_str (),
-			pipe_detectionObjectFilename.c_str (),
-			NUL,
-			NUL );
-		int exitcode = system ( command.c_str () );
-		FILE* f = fopen ( pipe_detectionObjectFilename.c_str (), "rb" );
-		if ( f )
-		{
-			usePipe = (exitcode == 0);
-			fclose ( f );
-			unlink ( pipe_detectionObjectFilename.c_str () );
-		}
-		else
-			usePipe = false;
-
-		if ( usePipe )
-			printf ( "detected\n" );
-		else
-			printf ( "not detected\n" );
+		usePipe = (exitcode == 0);
+		fclose ( f );
+		unlink ( pipe_detectionObjectFilename.c_str () );
 	}
 	else
 		usePipe = false;
+
+	if ( usePipe )
+		printf ( "detected\n" );
+	else
+		printf ( "not detected\n" );
 }
 
 void
@@ -1115,88 +986,106 @@ MingwBackend::DetectPCHSupport ()
 {
 	printf ( "Detecting compiler pre-compiled header support..." );
 
-	if ( configuration.PrecompiledHeadersEnabled && ProjectNode.configuration.Compiler == GnuGcc )
+	string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
+	string cmd = ssprintf (
+		"%s -c %s 1>%s 2>%s",
+		FixSeparatorForSystemCommand(compilerCommand).c_str (),
+		path.c_str (),
+		NUL,
+		NUL );
+	system ( cmd.c_str () );
+	path += ".gch";
+
+	FILE* f = fopen ( path.c_str (), "rb" );
+	if ( f )
 	{
-		string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
-		string cmd = ssprintf (
-			"%s -c %s 1>%s 2>%s",
-			FixSeparatorForSystemCommand(compilerCommand).c_str (),
-			path.c_str (),
-			NUL,
-			NUL );
-		system ( cmd.c_str () );
-		path += ".gch";
-
-		FILE* f = fopen ( path.c_str (), "rb" );
-		if ( f )
-		{
-			use_pch = true;
-			fclose ( f );
-			unlink ( path.c_str () );
-		}
-		else
-			use_pch = false;
-
-		if ( use_pch )
-			printf ( "detected\n" );
-		else
-			printf ( "not detected\n" );
+		use_pch = true;
+		fclose ( f );
+		unlink ( path.c_str () );
 	}
 	else
-	{
 		use_pch = false;
-		printf ( "disabled\n" );
-	}
+
+	if ( use_pch )
+		printf ( "detected\n" );
+	else
+		printf ( "not detected\n" );
 }
 
 void
 MingwBackend::GetNonModuleInstallTargetFiles (
-	vector<FileLocation>& out ) const
+	vector<string>& out ) const
 {
 	for ( size_t i = 0; i < ProjectNode.installfiles.size (); i++ )
 	{
 		const InstallFile& installfile = *ProjectNode.installfiles[i];
-		out.push_back ( *installfile.target );
+		string targetFilenameNoFixup = installfile.base + sSep + installfile.newname;
+		string targetFilename = MingwModuleHandler::PassThruCacheDirectory (
+			NormalizeFilename ( targetFilenameNoFixup ),
+			installDirectory );
+		out.push_back ( targetFilename );
 	}
 }
 
 void
 MingwBackend::GetModuleInstallTargetFiles (
-	vector<FileLocation>& out ) const
+	vector<string>& out ) const
 {
-	for ( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
 	{
-		const Module& module = *p->second;
+		const Module& module = *ProjectNode.modules[i];
 		if ( !module.enabled )
 			continue;
-		if ( module.install )
-			out.push_back ( *module.install );
+		if ( module.installName.length () > 0 )
+		{
+			string targetFilenameNoFixup;
+			if ( module.installBase.length () > 0 )
+				targetFilenameNoFixup = module.installBase + sSep + module.installName;
+			else
+				targetFilenameNoFixup = module.installName;
+			string targetFilename = MingwModuleHandler::PassThruCacheDirectory (
+				NormalizeFilename ( targetFilenameNoFixup ),
+				installDirectory );
+			out.push_back ( targetFilename );
+		}
 	}
 }
 
 void
 MingwBackend::GetInstallTargetFiles (
-	vector<FileLocation>& out ) const
+	vector<string>& out ) const
 {
 	GetNonModuleInstallTargetFiles ( out );
 	GetModuleInstallTargetFiles ( out );
 }
 
 void
-MingwBackend::OutputInstallTarget ( const FileLocation& source,
-                                    const FileLocation& target )
+MingwBackend::OutputInstallTarget ( const string& sourceFilename,
+	                            const string& targetFilename,
+	                            const string& targetDirectory )
 {
+	string fullTargetFilename;
+	if ( targetDirectory.length () > 0)
+		fullTargetFilename = targetDirectory + sSep + targetFilename;
+	else
+		fullTargetFilename = targetFilename;
+	string normalizedTargetFilename = MingwModuleHandler::PassThruCacheDirectory (
+		NormalizeFilename ( fullTargetFilename ),
+		installDirectory );
+	string normalizedTargetDirectory = MingwModuleHandler::PassThruCacheDirectory (
+		NormalizeFilename ( targetDirectory ),
+		installDirectory );
 	fprintf ( fMakefile,
 	          "%s: %s | %s\n",
-	          GetFullName ( target ).c_str (),
-	          GetFullName ( source ).c_str (),
-	          GetFullPath ( target ).c_str () );
+	          normalizedTargetFilename.c_str (),
+	          sourceFilename.c_str (),
+	          normalizedTargetDirectory.c_str () );
 	fprintf ( fMakefile,
 	          "\t$(ECHO_CP)\n" );
 	fprintf ( fMakefile,
 	          "\t${cp} %s %s 1>$(NUL)\n",
-	          GetFullName ( source ).c_str (),
-	          GetFullName ( target ).c_str () );
+	          sourceFilename.c_str (),
+	          normalizedTargetFilename.c_str () );
 }
 
 void
@@ -1205,7 +1094,9 @@ MingwBackend::OutputNonModuleInstallTargets ()
 	for ( size_t i = 0; i < ProjectNode.installfiles.size (); i++ )
 	{
 		const InstallFile& installfile = *ProjectNode.installfiles[i];
-		OutputInstallTarget ( *installfile.source, *installfile.target );
+		OutputInstallTarget ( installfile.GetPath (),
+		                      installfile.newname,
+		                      installfile.base );
 	}
 }
 
@@ -1225,15 +1116,20 @@ MingwBackend::GetAliasedModuleOrModule ( const Module& module ) const
 void
 MingwBackend::OutputModuleInstallTargets ()
 {
-	for ( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
 	{
-		const Module& module = *p->second;
+		const Module& module = *ProjectNode.modules[i];
 		if ( !module.enabled )
 			continue;
-		if ( module.install )
+		if ( module.installName.length () > 0 )
 		{
 			const Module& aliasedModule = GetAliasedModuleOrModule ( module );
-			OutputInstallTarget ( *aliasedModule.output, *module.install );
+			string sourceFilename = MingwModuleHandler::PassThruCacheDirectory (
+				NormalizeFilename ( aliasedModule.GetPath () ),
+				outputDirectory );
+			OutputInstallTarget ( sourceFilename,
+			                      module.installName,
+			                      module.installBase );
 		}
 	}
 }
@@ -1241,33 +1137,34 @@ MingwBackend::OutputModuleInstallTargets ()
 string
 MingwBackend::GetRegistrySourceFiles ()
 {
-	return "boot" + sSep + "bootdata" + sSep + "hivecls_" + Environment::GetArch() + ".inf "
-		"boot" + sSep + "bootdata" + sSep + "hivedef_" + Environment::GetArch() + ".inf "
-		"boot" + sSep + "bootdata" + sSep + "hiveinst_" + Environment::GetArch() + ".inf "
-		"boot" + sSep + "bootdata" + sSep + "hivesft_" + Environment::GetArch() + ".inf "
-		"boot" + sSep + "bootdata" + sSep + "hivesys_" + Environment::GetArch() + ".inf ";
+	return "boot" + sSep + "bootdata" + sSep + "hivecls.inf "
+		"boot" + sSep + "bootdata" + sSep + "hivedef.inf "
+		"boot" + sSep + "bootdata" + sSep + "hiveinst.inf "
+		"boot" + sSep + "bootdata" + sSep + "hivesft.inf "
+		"boot" + sSep + "bootdata" + sSep + "hivesys.inf";
 }
 
 string
 MingwBackend::GetRegistryTargetFiles ()
 {
-	string system32ConfigDirectory = "system32" + sSep + "config";
-	FileLocation system32 ( InstallDirectory, system32ConfigDirectory, "" );
-
-	vector<FileLocation> registry_files;
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "default" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "sam" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "security" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "software" ) );
-	registry_files.push_back ( FileLocation ( InstallDirectory, system32ConfigDirectory, "system" ) );
-
-	return v2s( this, registry_files, 6 );
+	string system32ConfigDirectory = NormalizeFilename (
+		MingwModuleHandler::PassThruCacheDirectory (
+		"system32" + sSep + "config" + sSep,
+		installDirectory ) );
+	return system32ConfigDirectory + sSep + "default " +
+		system32ConfigDirectory + sSep + "sam " +
+		system32ConfigDirectory + sSep + "security " +
+		system32ConfigDirectory + sSep + "software " +
+		system32ConfigDirectory + sSep + "system";
 }
 
 void
 MingwBackend::OutputRegistryInstallTarget ()
 {
-	FileLocation system32 ( InstallDirectory, "system32" + sSep + "config", "" );
+	string system32ConfigDirectory = NormalizeFilename (
+		MingwModuleHandler::PassThruCacheDirectory (
+		"system32" + sSep + "config" + sSep,
+		installDirectory ) );
 
 	string registrySourceFiles = GetRegistrySourceFiles ();
 	string registryTargetFiles = GetRegistryTargetFiles ();
@@ -1278,12 +1175,12 @@ MingwBackend::OutputRegistryInstallTarget ()
 	          "%s: %s %s $(MKHIVE_TARGET)\n",
 	          registryTargetFiles.c_str (),
 	          registrySourceFiles.c_str (),
-	          GetFullPath ( system32 ).c_str () );
+	          system32ConfigDirectory.c_str () );
 	fprintf ( fMakefile,
 	          "\t$(ECHO_MKHIVE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(MKHIVE_TARGET) boot%cbootdata %s $(ARCH) boot%cbootdata%chiveinst_$(ARCH).inf\n",
-	          cSep, GetFullPath ( system32 ).c_str (),
+	          "\t$(MKHIVE_TARGET) boot%cbootdata %s boot%cbootdata%chiveinst.inf\n",
+	          cSep, system32ConfigDirectory.c_str (),
 	          cSep, cSep );
 	fprintf ( fMakefile,
 	          "\n" );
@@ -1292,15 +1189,15 @@ MingwBackend::OutputRegistryInstallTarget ()
 void
 MingwBackend::GenerateInstallTarget ()
 {
-	vector<FileLocation> vInstallTargetFiles;
+	vector<string> vInstallTargetFiles;
 	GetInstallTargetFiles ( vInstallTargetFiles );
-	string installTargetFiles = v2s ( this, vInstallTargetFiles, 5 );
+	string installTargetFiles = v2s ( vInstallTargetFiles, 5 );
 	string registryTargetFiles = GetRegistryTargetFiles ();
 
 	fprintf ( fMakefile,
 	          "install: %s %s\n",
 	          installTargetFiles.c_str (),
-	          registryTargetFiles.c_str () );
+		  registryTargetFiles.c_str () );
 	OutputNonModuleInstallTargets ();
 	OutputModuleInstallTargets ();
 	OutputRegistryInstallTarget ();
@@ -1312,9 +1209,9 @@ void
 MingwBackend::GetModuleTestTargets (
 	vector<string>& out ) const
 {
-	for ( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size (); i++ )
 	{
-		const Module& module = *p->second;
+		const Module& module = *ProjectNode.modules[i];
 		if ( !module.enabled )
 			continue;
 		if ( module.type == Test )
@@ -1339,7 +1236,7 @@ MingwBackend::GenerateTestTarget ()
 void
 MingwBackend::GenerateDirectoryTargets ()
 {
-	intermediateDirectory->CreateRule ( fMakefile, "$(INTERMEDIATE)" );
-	outputDirectory->CreateRule ( fMakefile, "$(OUTPUT)" );
-	installDirectory->CreateRule ( fMakefile, "$(INSTALL)" );
+	intermediateDirectory->CreateRule ( fMakefile, "" );
+	outputDirectory->CreateRule ( fMakefile, "" );
+	installDirectory->CreateRule ( fMakefile, "" );
 }

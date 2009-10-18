@@ -12,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -358,7 +358,7 @@ KeRemoveQueue(IN PKQUEUE Queue,
                 {
                     /* Check if the timer expired */
                     InterruptTime.QuadPart = KeQueryInterruptTime();
-                    if ((ULONG64)InterruptTime.QuadPart >= Timer->DueTime.QuadPart)
+                    if (InterruptTime.QuadPart >= Timer->DueTime.QuadPart)
                     {
                         /* It did, so we don't need to wait */
                         QueueEntry = (PLIST_ENTRY)STATUS_TIMEOUT;
@@ -436,7 +436,8 @@ PLIST_ENTRY
 NTAPI
 KeRundownQueue(IN PKQUEUE Queue)
 {
-    PLIST_ENTRY FirstEntry, NextEntry;
+    PLIST_ENTRY ListHead, NextEntry;
+    PLIST_ENTRY FirstEntry = NULL;
     PKTHREAD Thread;
     KIRQL OldIrql;
     ASSERT_QUEUE(Queue);
@@ -445,41 +446,34 @@ KeRundownQueue(IN PKQUEUE Queue)
 
     /* Get the Dispatcher Lock */
     OldIrql = KiAcquireDispatcherLock();
- 
-    /* Check if the list is empty */
-    FirstEntry = Queue->EntryListHead.Flink;
-    if (FirstEntry == &Queue->EntryListHead)
+
+    /* Make sure the list is not empty */
+    if (!IsListEmpty(&Queue->EntryListHead))
     {
-        /* We won't return anything */
-        FirstEntry = NULL;
+        /* Remove it */
+        FirstEntry = RemoveHeadList(&Queue->EntryListHead);
     }
-    else
+
+    /* Unlink threads and clear their Thread->Queue */
+    ListHead = &Queue->ThreadListHead;
+    NextEntry = ListHead->Flink;
+    while (ListHead != NextEntry)
     {
-        /* Remove this entry */
-        RemoveEntryList(&Queue->EntryListHead);
-    }
- 
-    /* Loop the list */
-    while (!IsListEmpty(&Queue->ThreadListHead))
-    {
-        /* Get the next entry */
-        NextEntry = Queue->ThreadListHead.Flink;
- 
-        /* Get the associated thread */
+        /* Get the Entry's Thread */
         Thread = CONTAINING_RECORD(NextEntry, KTHREAD, QueueListEntry);
 
-        /* Clear its queue */
+        /* Kill its Queue */
         Thread->Queue = NULL;
 
         /* Remove this entry */
         RemoveEntryList(NextEntry);
+
+        /* Get the next entry */
+        NextEntry = NextEntry->Flink;
     }
 
-    /* Release the dispatcher lock */
-    KiReleaseDispatcherLockFromDpcLevel();
- 
-    /* Exit the dispatcher and return the first entry (if any) */
-    KiExitDispatcher(OldIrql);
+    /* Release the lock and return */
+    KiReleaseDispatcherLock(OldIrql);
     return FirstEntry;
 }
 

@@ -7,7 +7,6 @@
  * PROGRAMMERS:     Alexander Wurzinger (Lohnegrim at gmx dot net)
  *                  Johannes Anderwald (johannes.anderwald@student.tugraz.at)
  *                  Martin Rottensteiner
- *                  Dmitry Chapyshev (lentind@yandex.ru)
  */
 
 //#ifndef NSTATUS
@@ -22,15 +21,66 @@
 #include "resource.h"
 #include "powercfg.h"
 
-HWND hAdv = 0;
+HWND hAdv=0;
+
+void Adv_InitDialog();
+void Adv_SaveData(HWND hwndDlg);
 
 static POWER_ACTION g_SystemBatteries[3];
 static POWER_ACTION g_PowerButton[5];
 static POWER_ACTION g_SleepButton[5];
 
+/* Property page dialog callback */
+INT_PTR CALLBACK
+advancedProc(
+  HWND hwndDlg,
+  UINT uMsg,
+  WPARAM wParam,
+  LPARAM lParam
+)
+{
+  switch(uMsg)
+  {
+    case WM_INITDIALOG:
+		hAdv = hwndDlg;
+		Adv_InitDialog();
+		return TRUE;
+      break;
+	case WM_COMMAND:
+		switch(LOWORD(wParam))
+		{
+		case IDC_SYSTRAYBATTERYMETER:
+		case IDC_PASSWORDLOGON:
+		case IDC_VIDEODIMDISPLAY:
+			if (HIWORD(wParam) == BN_CLICKED)
+			{
+				PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
+			}
+			break;
+		case IDC_LIDCLOSE:
+		case IDC_POWERBUTTON:
+		case IDC_SLEEPBUTTON:
+			if (HIWORD(wParam) == CBN_SELCHANGE)
+			{
+				PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
+			}
+			break;
+		}
+		break;
+	case WM_NOTIFY:
+		{
+			LPNMHDR lpnm = (LPNMHDR)lParam;
+			if (lpnm->code == (UINT)PSN_APPLY)
+			{
+				Adv_SaveData(hwndDlg);
+			}
+			return TRUE;
+		}
+  }
+  return FALSE;
+}
 
-static VOID
-AddItem(HWND hDlgCtrl, INT ResourceId, LPARAM lParam, POWER_ACTION * lpAction)
+static void AddItem(HWND hDlgCtrl, int ResourceId, LPARAM lParam, POWER_ACTION * lpAction)
 {
   TCHAR szBuffer[MAX_PATH];
   LRESULT Index;
@@ -45,12 +95,11 @@ AddItem(HWND hDlgCtrl, INT ResourceId, LPARAM lParam, POWER_ACTION * lpAction)
   }
 }
 
-static INT
-FindActionIndex(POWER_ACTION * lpAction, DWORD dwActionSize, POWER_ACTION poAction)
+static int FindActionIndex(POWER_ACTION * lpAction, DWORD dwActionSize, POWER_ACTION poAction)
 {
-  INT Index;
+  int Index;
 
-  for (Index = 0; Index < (INT)dwActionSize; Index++)
+  for (Index = 0; Index < (int) dwActionSize; Index++)
   {
 	if (lpAction[Index] == poAction)
 	    return Index;
@@ -59,8 +108,7 @@ FindActionIndex(POWER_ACTION * lpAction, DWORD dwActionSize, POWER_ACTION poActi
   return -1;
 }
 
-static BOOLEAN
-IsBatteryUsed(VOID)
+static BOOLEAN IsBatteryUsed()
 {
 	SYSTEM_BATTERY_STATE sbs;
 
@@ -79,8 +127,7 @@ IsBatteryUsed(VOID)
 	return FALSE;
 }
 
-POWER_ACTION
-GetPowerActionFromPolicy(POWER_ACTION_POLICY *Policy)
+POWER_ACTION GetPowerActionFromPolicy(POWER_ACTION_POLICY * Policy)
 {
 	POWER_ACTION poAction = PowerActionNone;
 	/*
@@ -123,11 +170,10 @@ GetPowerActionFromPolicy(POWER_ACTION_POLICY *Policy)
 	return poAction;
 }
 
-VOID
-ShowCurrentPowerActionPolicy(HWND hDlgCtrl,
-                             POWER_ACTION *lpAction,
-                             DWORD dwActionSize,
-                             POWER_ACTION_POLICY *Policy)
+void ShowCurrentPowerActionPolicy(HWND hDlgCtrl,
+									POWER_ACTION * lpAction,
+									DWORD dwActionSize,
+									POWER_ACTION_POLICY * Policy)
 {
 	int poActionIndex;
 	POWER_ACTION poAction;
@@ -143,9 +189,8 @@ ShowCurrentPowerActionPolicy(HWND hDlgCtrl,
 	SendMessage(hDlgCtrl, CB_SETCURSEL, (WPARAM)poActionIndex, (LPARAM)0);
 }
 
-BOOLEAN
-SaveCurrentPowerActionPolicy(IN HWND hDlgCtrl,
-                             OUT POWER_ACTION_POLICY *Policy)
+BOOLEAN SaveCurrentPowerActionPolicy(IN HWND hDlgCtrl,
+									 OUT POWER_ACTION_POLICY * Policy)
 {
 	LRESULT Index;
 	LRESULT ItemData;
@@ -190,8 +235,7 @@ SaveCurrentPowerActionPolicy(IN HWND hDlgCtrl,
 
 //-------------------------------------------------------------------
 
-VOID
-ShowCurrentPowerActionPolicies(HWND hwndDlg)
+void ShowCurrentPowerActionPolicies(HWND hwndDlg)
 {
 	TCHAR szAction[MAX_PATH];
 
@@ -207,7 +251,7 @@ ShowCurrentPowerActionPolicies(HWND hwndDlg)
 #else
 		if (LoadString(hApplet, IDS_PowerActionNone1+gGPP.user.LidCloseAc.Action, szAction, MAX_PATH))
 		{
-			SendDlgItemMessage(hwndDlg, IDC_LIDCLOSE,
+			SendMessage(GetDlgItem(hwndDlg, IDC_LIDCLOSE),
 						 CB_SELECTSTRING,
 						 TRUE,
 						 (LPARAM)szAction);
@@ -227,7 +271,7 @@ ShowCurrentPowerActionPolicies(HWND hwndDlg)
 #else
 		if (LoadString(hApplet, IDS_PowerActionNone1+gGPP.user.SleepButtonAc.Action, szAction, MAX_PATH))
 		{
-			SendDlgItemMessage(hwndDlg, IDC_SLEEPBUTTON,
+			SendMessage(GetDlgItem(hwndDlg, IDC_SLEEPBUTTON),
 						 CB_SELECTSTRING,
 						 TRUE,
 						 (LPARAM)szAction);
@@ -255,21 +299,21 @@ ShowCurrentPowerActionPolicies(HWND hwndDlg)
 #else
 		if (LoadString(hApplet, IDS_PowerActionNone1+gGPP.user.LidCloseDc.Action, szAction, MAX_PATH))
 		{
-			SendDlgItemMessage(hwndDlg, IDC_LIDCLOSE,
+			SendMessage(GetDlgItem(hwndDlg, IDC_LIDCLOSE),
 						 CB_SELECTSTRING,
 						 TRUE,
 						 (LPARAM)szAction);
 		}
 		if (LoadString(hApplet, IDS_PowerActionNone1+gGPP.user.PowerButtonDc.Action, szAction, MAX_PATH))
 		{
-			SendDlgItemMessage(hwndDlg, IDC_POWERBUTTON,
-						 CB_SELECTSTRING,
+			SendMessage(GetDlgItem(hwndDlg, IDC_POWERBUTTON),
+					 	 CB_SELECTSTRING,
 						 TRUE,
 						 (LPARAM)szAction);
 		}
 		if (LoadString(hApplet, IDS_PowerActionNone1+gGPP.user.SleepButtonDc.Action, szAction, MAX_PATH))
 		{
-			SendDlgItemMessage(hwndDlg, IDC_SLEEPBUTTON,
+			SendMessage(GetDlgItem(hwndDlg, IDC_SLEEPBUTTON),
 						 CB_SELECTSTRING,
 						 TRUE,
 						 (LPARAM)szAction);
@@ -278,8 +322,7 @@ ShowCurrentPowerActionPolicies(HWND hwndDlg)
 	}
 }
 
-VOID
-Adv_InitDialog(VOID)
+void Adv_InitDialog()
 {
 	HWND hList1;
 	HWND hList2;
@@ -291,15 +334,18 @@ Adv_InitDialog(VOID)
 
 	SYSTEM_POWER_CAPABILITIES spc;
 
-	CheckDlgButton(hAdv,
-		IDC_SYSTRAYBATTERYMETER,
-		gGPP.user.GlobalFlags & EnableSysTrayBatteryMeter ? BST_CHECKED : BST_UNCHECKED);
-	CheckDlgButton(hAdv,
-		IDC_PASSWORDLOGON,
-		gGPP.user.GlobalFlags & EnablePasswordLogon ? BST_CHECKED : BST_UNCHECKED);
-	CheckDlgButton(hAdv,
-		IDC_VIDEODIMDISPLAY,
-		gGPP.user.GlobalFlags & EnableVideoDimDisplay ? BST_CHECKED : BST_UNCHECKED);
+	SendMessage(GetDlgItem(hAdv, IDC_SYSTRAYBATTERYMETER),
+		BM_SETCHECK,
+		(gGPP.user.GlobalFlags & EnableSysTrayBatteryMeter ? BST_CHECKED : BST_UNCHECKED),
+		(LPARAM)0);
+	SendMessage(GetDlgItem(hAdv, IDC_PASSWORDLOGON),
+		BM_SETCHECK,
+		(gGPP.user.GlobalFlags & EnablePasswordLogon ? BST_CHECKED : BST_UNCHECKED),
+		(LPARAM)0);
+	SendMessage(GetDlgItem(hAdv, IDC_VIDEODIMDISPLAY),
+		BM_SETCHECK,
+		(gGPP.user.GlobalFlags & EnableVideoDimDisplay ? BST_CHECKED : BST_UNCHECKED),
+		(LPARAM)0);
 
 	GetPwrCapabilities(&spc);
 
@@ -329,7 +375,6 @@ Adv_InitDialog(VOID)
 	}
 	else
 	{
-		ShowWindow(GetDlgItem(hAdv, IDC_VIDEODIMDISPLAY), FALSE);
 		ShowWindow(GetDlgItem(hAdv, IDC_SLIDCLOSE), FALSE);
 		ShowWindow(hList1, FALSE);
 	}
@@ -401,21 +446,24 @@ Adv_InitDialog(VOID)
 }
 
 
-static VOID
-Adv_SaveData(HWND hwndDlg)
+void Adv_SaveData(HWND hwndDlg)
 {
-	BOOL bSystrayBatteryMeter;
-	BOOL bPasswordLogon;
-	BOOL bVideoDimDisplay;
+	BOOLEAN bSystrayBatteryMeter;
+	BOOLEAN bPasswordLogon;
+	BOOLEAN bVideoDimDisplay;
 
-	bSystrayBatteryMeter =
-		(IsDlgButtonChecked(hwndDlg, IDC_SYSTRAYBATTERYMETER) == BST_CHECKED);
-
-	bPasswordLogon =
-		(IsDlgButtonChecked(hwndDlg, IDC_PASSWORDLOGON) == BST_CHECKED);
-
-	bVideoDimDisplay =
-		(IsDlgButtonChecked(hwndDlg, IDC_VIDEODIMDISPLAY) == BST_CHECKED);
+	bSystrayBatteryMeter = (BOOLEAN)SendMessage(GetDlgItem(hwndDlg, IDC_SYSTRAYBATTERYMETER),
+		BM_GETCHECK,
+		(WPARAM)0,
+		(LPARAM)0);
+	bPasswordLogon = (BOOLEAN)SendMessage(GetDlgItem(hwndDlg, IDC_PASSWORDLOGON),
+		BM_GETCHECK,
+		(WPARAM)0,
+		(LPARAM)0);
+	bVideoDimDisplay = (BOOLEAN)SendMessage(GetDlgItem(hwndDlg, IDC_VIDEODIMDISPLAY),
+		BM_GETCHECK,
+		(WPARAM)0,
+		(LPARAM)0);
 
 	if (bSystrayBatteryMeter)
 	{
@@ -431,7 +479,6 @@ Adv_SaveData(HWND hwndDlg)
 			gGPP.user.GlobalFlags = gGPP.user.GlobalFlags - EnableSysTrayBatteryMeter;
 		}
 	}
-
 	if (bPasswordLogon)
 	{
 		if (!(gGPP.user.GlobalFlags & EnablePasswordLogon))
@@ -446,7 +493,6 @@ Adv_SaveData(HWND hwndDlg)
 			gGPP.user.GlobalFlags = gGPP.user.GlobalFlags - EnablePasswordLogon;
 		}
 	}
-
 	if (bVideoDimDisplay)
 	{
 		if (!(gGPP.user.GlobalFlags & EnableVideoDimDisplay))
@@ -461,7 +507,6 @@ Adv_SaveData(HWND hwndDlg)
 			gGPP.user.GlobalFlags = gGPP.user.GlobalFlags - EnableVideoDimDisplay;
 		}
 	}
-
 	if (!IsBatteryUsed())
 	{
 		SaveCurrentPowerActionPolicy(GetDlgItem(hwndDlg, IDC_POWERBUTTON), &gGPP.user.PowerButtonAc);
@@ -485,52 +530,4 @@ Adv_SaveData(HWND hwndDlg)
 	}
 
 	Adv_InitDialog();
-}
-
-/* Property page dialog callback */
-INT_PTR CALLBACK
-AdvancedDlgProc(HWND hwndDlg,
-                UINT uMsg,
-                WPARAM wParam,
-                LPARAM lParam)
-{
-  switch(uMsg)
-  {
-    case WM_INITDIALOG:
-		hAdv = hwndDlg;
-		Adv_InitDialog();
-		return TRUE;
-      break;
-	case WM_COMMAND:
-		switch(LOWORD(wParam))
-		{
-		case IDC_SYSTRAYBATTERYMETER:
-		case IDC_PASSWORDLOGON:
-		case IDC_VIDEODIMDISPLAY:
-			if (HIWORD(wParam) == BN_CLICKED)
-			{
-				PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-			}
-			break;
-		case IDC_LIDCLOSE:
-		case IDC_POWERBUTTON:
-		case IDC_SLEEPBUTTON:
-			if (HIWORD(wParam) == CBN_SELCHANGE)
-			{
-				PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-			}
-			break;
-		}
-		break;
-	case WM_NOTIFY:
-		{
-			LPNMHDR lpnm = (LPNMHDR)lParam;
-			if (lpnm->code == (UINT)PSN_APPLY)
-			{
-				Adv_SaveData(hwndDlg);
-			}
-			return TRUE;
-		}
-  }
-  return FALSE;
 }

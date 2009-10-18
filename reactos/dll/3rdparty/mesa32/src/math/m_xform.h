@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.3
+ * Version:  6.1
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2004  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,8 +27,8 @@
 #define _M_XFORM_H
 
 
-#include "main/glheader.h"
-#include "main/config.h"
+#include "glheader.h"
+#include "config.h"
 #include "math/m_vector.h"
 #include "math/m_matrix.h"
 
@@ -99,7 +99,7 @@ _math_init_transformation(void);
 #define CLIP_FAR_BIT     0x20
 #define CLIP_USER_BIT    0x40
 #define CLIP_CULL_BIT    0x80
-#define CLIP_FRUSTUM_BITS    0x3f
+#define CLIP_ALL_BITS    0x3f
 
 
 typedef GLvector4f * (_XFORMAPIP clip_func)( GLvector4f *vClip,

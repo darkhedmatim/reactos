@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/rtl/largeint.c
  * PURPOSE:         Large integer operations
- * PROGRAMMERS:
+ * PROGRAMMERS:     
  */
 
 /* INCLUDES *****************************************************************/
@@ -75,7 +75,7 @@ RtlEnlargedUnsignedDivide (
 )
 {
    if (Remainder)
-      *Remainder = (ULONG)(Dividend.QuadPart % Divisor);
+      *Remainder = Dividend.QuadPart % Divisor;
 
    return (ULONG)(Dividend.QuadPart / Divisor);
 }
@@ -128,7 +128,7 @@ RtlExtendedLargeIntegerDivide (
    LARGE_INTEGER RC;
 
    if (Remainder)
-      *Remainder = (ULONG)(Dividend.QuadPart % Divisor);
+      *Remainder = Dividend.QuadPart % Divisor;
 
    RC.QuadPart = Dividend.QuadPart / Divisor;
 

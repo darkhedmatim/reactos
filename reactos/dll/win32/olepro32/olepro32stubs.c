@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#define COM_NO_WINDOWS_H
 #include <stdarg.h>
 
 #include "wine/debug.h"
@@ -33,18 +34,18 @@ WINE_DEFAULT_DEBUG_CHANNEL(ole);
 /***********************************************************************
  *		DllUnregisterServer (OLEPRO32.258)
  */
-HRESULT WINAPI DllUnregisterServer(void)
+HRESULT WINAPI DllUnregisterServer()
 {
-	FIXME("stub\n");
+	FIXME("not implemented (olepro32.dll)\n");
 	return S_OK;
 }
 
 /***********************************************************************
  *		DllRegisterServer (OLEPRO32.257)
  */
-HRESULT WINAPI DllRegisterServer(void)
+HRESULT WINAPI DllRegisterServer()
 {
-	FIXME("stub\n");
+	FIXME("not implemented (olepro32.dll)\n");
 	return S_OK;
 }
 
@@ -53,7 +54,7 @@ HRESULT WINAPI DllRegisterServer(void)
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
-	FIXME("stub\n");
+	FIXME("not implemented (olepro32.dll)\n");
 	return S_OK;
 }
 
@@ -62,6 +63,6 @@ HRESULT WINAPI DllCanUnloadNow(void)
  */
 HRESULT WINAPI DllGetClassObject( REFCLSID rclsid, REFIID riid, LPVOID* ppv )
 {
-	FIXME("stub\n");
+	FIXME("not implemented (olepro32.dll)\n");
 	return S_OK;
 }

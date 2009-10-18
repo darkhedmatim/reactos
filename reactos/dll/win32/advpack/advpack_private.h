@@ -26,5 +26,6 @@ LPWSTR get_parameter(LPWSTR *params, WCHAR separator);
 void set_ldids(HINF hInf, LPCWSTR pszInstallSection, LPCWSTR pszWorkingDir);
 
 HRESULT launch_exe(LPCWSTR cmd, LPCWSTR dir, HANDLE *phEXE);
+HRESULT do_ocx_reg(HMODULE hocx, BOOL do_reg);
 
 #endif /* __ADVPACK_PRIVATE_H */

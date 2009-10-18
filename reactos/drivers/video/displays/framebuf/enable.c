@@ -32,7 +32,7 @@ static DRVFN DrvFunctionTable[] =
    {INDEX_DrvSetPalette, (PFN)DrvSetPalette},
    {INDEX_DrvSetPointerShape, (PFN)DrvSetPointerShape},
    {INDEX_DrvMovePointer, (PFN)DrvMovePointer}
-
+  
 };
 
 /*
@@ -46,7 +46,7 @@ static DRVFN DrvFunctionTable[] =
  *    @implemented
  */
 
-BOOL APIENTRY
+BOOL DDKAPI
 DrvEnableDriver(
    ULONG iEngineVersion,
    ULONG cj,
@@ -74,7 +74,7 @@ DrvEnableDriver(
  *    @implemented
  */
 
-DHPDEV APIENTRY
+DHPDEV DDKAPI
 DrvEnablePDEV(
    IN DEVMODEW *pdm,
    IN LPWSTR pwszLogAddress,
@@ -128,7 +128,7 @@ DrvEnablePDEV(
  *    @implemented
  */
 
-VOID APIENTRY
+VOID DDKAPI
 DrvCompletePDEV(
    IN DHPDEV dhpdev,
    IN HDEV hdev)
@@ -146,7 +146,7 @@ DrvCompletePDEV(
  *    @implemented
  */
 
-VOID APIENTRY
+VOID DDKAPI
 DrvDisablePDEV(
    IN DHPDEV dhpdev)
 {

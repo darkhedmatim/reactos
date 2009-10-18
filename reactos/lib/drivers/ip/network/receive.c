@@ -18,6 +18,12 @@ NPAGED_LOOKASIDE_LIST IPDRList;
 NPAGED_LOOKASIDE_LIST IPFragmentList;
 NPAGED_LOOKASIDE_LIST IPHoleList;
 
+VOID ReflectPacketComplete(
+    PVOID Context,
+    PNDIS_PACKET Packet,
+    NDIS_STATUS Status ) {
+}
+
 PIPDATAGRAM_HOLE CreateHoleDescriptor(
   ULONG First,
   ULONG Last)
@@ -35,7 +41,7 @@ PIPDATAGRAM_HOLE CreateHoleDescriptor(
 
 	TI_DbgPrint(DEBUG_IP, ("Called. First (%d)  Last (%d).\n", First, Last));
 
-	Hole = exAllocateFromNPagedLookasideList(&IPHoleList);
+	Hole = TcpipAllocateFromNPagedLookasideList(&IPHoleList);
 	if (!Hole) {
 	    TI_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
 	    return NULL;
@@ -76,7 +82,7 @@ VOID FreeIPDR(
     TI_DbgPrint(DEBUG_IP, ("Freeing hole descriptor at (0x%X).\n", CurrentH));
 
     /* And free the hole descriptor */
-    exFreeToNPagedLookasideList(&IPHoleList, CurrentH);
+    TcpipFreeToNPagedLookasideList(&IPHoleList, CurrentH);
 
     CurrentEntry = NextEntry;
   }
@@ -97,13 +103,13 @@ VOID FreeIPDR(
     TI_DbgPrint(DEBUG_IP, ("Freeing fragment at (0x%X).\n", CurrentF));
 
     /* And free the fragment descriptor */
-    exFreeToNPagedLookasideList(&IPFragmentList, CurrentF);
+    TcpipFreeToNPagedLookasideList(&IPFragmentList, CurrentF);
     CurrentEntry = NextEntry;
   }
 
   TI_DbgPrint(DEBUG_IP, ("Freeing IPDR data at (0x%X).\n", IPDR));
 
-  exFreeToNPagedLookasideList(&IPDRList, IPDR);
+  TcpipFreeToNPagedLookasideList(&IPDRList, IPDR);
 }
 
 
@@ -168,9 +174,7 @@ PIPDATAGRAM_REASSEMBLY GetReassemblyInfo(
 }
 
 
-BOOLEAN
-ReassembleDatagram(
-  PIP_PACKET             IPPacket,
+PIP_PACKET ReassembleDatagram(
   PIPDATAGRAM_REASSEMBLY IPDR)
 /*
  * FUNCTION: Reassembles an IP datagram
@@ -185,6 +189,7 @@ ReassembleDatagram(
  *     At this point, header is expected to point to the IP header
  */
 {
+  PIP_PACKET IPPacket;
   PLIST_ENTRY CurrentEntry;
   PIP_FRAGMENT Current;
   PVOID Data;
@@ -195,6 +200,11 @@ ReassembleDatagram(
 
   TI_DbgPrint(DEBUG_IP, ("Fragment header:\n"));
   //OskitDumpBuffer((PCHAR)IPDR->IPv4Header, IPDR->HeaderSize);
+
+  /* FIXME: Assume IPv4 */
+  IPPacket = IPCreatePacket(IP_ADDRESS_V4);
+  if (!IPPacket)
+    return NULL;
 
   IPPacket->TotalSize  = IPDR->HeaderSize + IPDR->DataSize;
   IPPacket->ContigSize = IPPacket->TotalSize;
@@ -209,7 +219,7 @@ ReassembleDatagram(
   if (!IPPacket->Header) {
     TI_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
     (*IPPacket->Free)(IPPacket);
-    return FALSE;
+    return NULL;
   }
 
   /* Copy the header into the buffer */
@@ -233,14 +243,15 @@ ReassembleDatagram(
     CurrentEntry = CurrentEntry->Flink;
   }
 
-  return TRUE;
+  return IPPacket;
 }
 
 
 __inline VOID Cleanup(
   PKSPIN_LOCK Lock,
   KIRQL OldIrql,
-  PIPDATAGRAM_REASSEMBLY IPDR)
+  PIPDATAGRAM_REASSEMBLY IPDR,
+  PVOID Buffer OPTIONAL)
 /*
  * FUNCTION: Performs cleaning operations on errors
  * ARGUMENTS:
@@ -255,6 +266,8 @@ __inline VOID Cleanup(
   TcpipReleaseSpinLock(Lock, OldIrql);
   RemoveIPDR(IPDR);
   FreeIPDR(IPDR);
+  if (Buffer)
+    exFreePool(Buffer);
 }
 
 
@@ -279,9 +292,8 @@ VOID ProcessFragment(
   USHORT FragLast;
   BOOLEAN MoreFragments;
   PIPv4_HEADER IPv4Header;
-  IP_PACKET Datagram;
+  PIP_PACKET Datagram;
   PIP_FRAGMENT Fragment;
-  BOOLEAN Success;
 
   /* FIXME: Assume IPv4 */
 
@@ -293,11 +305,13 @@ VOID ProcessFragment(
     TI_DbgPrint(DEBUG_IP, ("Continueing assembly.\n"));
     /* We have a reassembly structure */
     TcpipAcquireSpinLock(&IPDR->Lock, &OldIrql);
+    CurrentEntry = IPDR->HoleListHead.Flink;
+    Hole = CONTAINING_RECORD(CurrentEntry, IPDATAGRAM_HOLE, ListEntry);
   } else {
     TI_DbgPrint(DEBUG_IP, ("Starting new assembly.\n"));
 
     /* We don't have a reassembly structure, create one */
-    IPDR = exAllocateFromNPagedLookasideList(&IPDRList);
+    IPDR = TcpipAllocateFromNPagedLookasideList(&IPDRList);
     if (!IPDR)
       /* We don't have the resources to process this packet, discard it */
       return;
@@ -308,17 +322,17 @@ VOID ProcessFragment(
     Hole = CreateHoleDescriptor(0, 65536);
     if (!Hole) {
       /* We don't have the resources to process this packet, discard it */
-      exFreeToNPagedLookasideList(&IPDRList, IPDR);
+      TcpipFreeToNPagedLookasideList(&IPDRList, IPDR);
       return;
     }
     AddrInitIPv4(&IPDR->SrcAddr, IPv4Header->SrcAddr);
     AddrInitIPv4(&IPDR->DstAddr, IPv4Header->DstAddr);
     IPDR->Id         = IPv4Header->Id;
     IPDR->Protocol   = IPv4Header->Protocol;
-    IPDR->TimeoutCount = 0;
     InitializeListHead(&IPDR->FragmentListHead);
     InitializeListHead(&IPDR->HoleListHead);
     InsertTailList(&IPDR->HoleListHead, &Hole->ListEntry);
+    CurrentEntry = IPDR->HoleListHead.Flink;
 
     TcpipInitializeSpinLock(&IPDR->Lock);
 
@@ -335,12 +349,10 @@ VOID ProcessFragment(
   FragLast      = FragFirst + WN2H(IPv4Header->TotalLength);
   MoreFragments = (WN2H(IPv4Header->FlagsFragOfs) & IPv4_MF_MASK) > 0;
 
-  CurrentEntry = IPDR->HoleListHead.Flink;
   for (;;) {
     if (CurrentEntry == &IPDR->HoleListHead)
-        break;
-
-    Hole = CONTAINING_RECORD(CurrentEntry, IPDATAGRAM_HOLE, ListEntry);
+      /* No more entries */
+      break;
 
     TI_DbgPrint(DEBUG_IP, ("Comparing Fragment (%d,%d) to Hole (%d,%d).\n",
       FragFirst, FragLast, Hole->First, Hole->Last));
@@ -351,6 +363,8 @@ VOID ProcessFragment(
          descriptor in the list */
 
       CurrentEntry = CurrentEntry->Flink;
+      if (CurrentEntry != &IPDR->HoleListHead)
+          Hole = CONTAINING_RECORD(CurrentEntry, IPDATAGRAM_HOLE, ListEntry);
       continue;
     }
 
@@ -358,11 +372,10 @@ VOID ProcessFragment(
     RemoveEntryList(CurrentEntry);
 
     if (FragFirst > Hole->First) {
-      NewHole = CreateHoleDescriptor(Hole->First, FragFirst - 1);
+      NewHole = CreateHoleDescriptor(Hole->First, FragLast - 1);
       if (!NewHole) {
         /* We don't have the resources to process this packet, discard it */
-        exFreeToNPagedLookasideList(&IPHoleList, Hole);
-        Cleanup(&IPDR->Lock, OldIrql, IPDR);
+        Cleanup(&IPDR->Lock, OldIrql, IPDR, Hole);
         return;
       }
 
@@ -370,20 +383,14 @@ VOID ProcessFragment(
       InsertTailList(&IPDR->HoleListHead, &NewHole->ListEntry);
     }
 
-    if ((FragLast < Hole->Last) && MoreFragments) {
-      NewHole = CreateHoleDescriptor(FragLast + 1, Hole->Last);
-      if (!NewHole) {
-        /* We don't have the resources to process this packet, discard it */
-        exFreeToNPagedLookasideList(&IPHoleList, Hole);
-        Cleanup(&IPDR->Lock, OldIrql, IPDR);
-        return;
-      }
+    if ((FragLast < Hole->Last) && (MoreFragments)) {
+      /* We can reuse the descriptor for the new hole */
+		  Hole->First = FragLast + 1;
 
-      /* Put the new hole descriptor in the list */
-      InsertTailList(&IPDR->HoleListHead, &NewHole->ListEntry);
-    }
-
-    exFreeToNPagedLookasideList(&IPHoleList, Hole);
+		  /* Put the new hole descriptor in the list */
+      InsertTailList(&IPDR->HoleListHead, &Hole->ListEntry);
+    } else
+      TcpipFreeToNPagedLookasideList(&IPHoleList, Hole);
 
     /* If this is the first fragment, save the IP header */
     if (FragFirst == 0) {
@@ -397,10 +404,10 @@ VOID ProcessFragment(
     /* Create a buffer, copy the data into it and put it
        in the fragment list */
 
-    Fragment = exAllocateFromNPagedLookasideList(&IPFragmentList);
+    Fragment = TcpipAllocateFromNPagedLookasideList(&IPFragmentList);
     if (!Fragment) {
       /* We don't have the resources to process this packet, discard it */
-      Cleanup(&IPDR->Lock, OldIrql, IPDR);
+      Cleanup(&IPDR->Lock, OldIrql, IPDR, NULL);
       return;
     }
 
@@ -410,8 +417,7 @@ VOID ProcessFragment(
     Fragment->Data = exAllocatePool(NonPagedPool, Fragment->Size);
     if (!Fragment->Data) {
       /* We don't have the resources to process this packet, discard it */
-      exFreeToNPagedLookasideList(&IPFragmentList, Fragment);
-      Cleanup(&IPDR->Lock, OldIrql, IPDR);
+      Cleanup(&IPDR->Lock, OldIrql, IPDR, Fragment);
       return;
     }
 
@@ -422,7 +428,7 @@ VOID ProcessFragment(
     /* Copy datagram data into fragment buffer */
     CopyPacketToBuffer(Fragment->Data,
 		       IPPacket->NdisPacket,
-		       IPPacket->HeaderSize,
+		       IPPacket->Position,
 		       Fragment->Size);
     Fragment->Offset = FragFirst;
 
@@ -432,7 +438,7 @@ VOID ProcessFragment(
 
     /* Put the fragment in the list */
     InsertTailList(&IPDR->FragmentListHead, &Fragment->ListEntry);
-    break;
+	  break;
   }
 
   TI_DbgPrint(DEBUG_IP, ("Done searching for hole descriptor.\n"));
@@ -443,31 +449,26 @@ VOID ProcessFragment(
 
     TI_DbgPrint(DEBUG_IP, ("Complete datagram received.\n"));
 
-    /* FIXME: Assumes IPv4 */
-    IPInitializePacket(&Datagram, IP_ADDRESS_V4);
-
-    Success = ReassembleDatagram(&Datagram, IPDR);
+    Datagram = ReassembleDatagram(IPDR);
 
     RemoveIPDR(IPDR);
     TcpipReleaseSpinLock(&IPDR->Lock, OldIrql);
 
     FreeIPDR(IPDR);
 
-    if (!Success)
+    if (!Datagram)
       /* Not enough free resources, discard the packet */
       return;
 
-    DISPLAY_IP_PACKET(&Datagram);
+    DISPLAY_IP_PACKET(Datagram);
 
     /* Give the packet to the protocol dispatcher */
-    IPDispatchProtocol(IF, &Datagram);
-
-    IF->Stats.InBytes += Datagram.TotalSize;
+    IPDispatchProtocol(IF, Datagram);
 
     /* We're done with this datagram */
-    exFreePool(Datagram.Header);
+    exFreePool(Datagram->Header);
     TI_DbgPrint(MAX_TRACE, ("Freeing datagram at (0x%X).\n", Datagram));
-    (*Datagram.Free)(&Datagram);
+    (*Datagram->Free)(Datagram);
   } else
     TcpipReleaseSpinLock(&IPDR->Lock, OldIrql);
 }
@@ -510,36 +511,6 @@ VOID IPDatagramReassemblyTimeout(
  *     to hold IP fragments that have taken too long to reassemble
  */
 {
-    KIRQL OldIrql;
-    PLIST_ENTRY CurrentEntry, NextEntry;
-    PIPDATAGRAM_REASSEMBLY CurrentIPDR;
-
-    TcpipAcquireSpinLock(&ReassemblyListLock, &OldIrql);
-
-    CurrentEntry = ReassemblyListHead.Flink;
-    while (CurrentEntry != &ReassemblyListHead)
-    {
-       NextEntry = CurrentEntry->Flink;
-       CurrentIPDR = CONTAINING_RECORD(CurrentEntry, IPDATAGRAM_REASSEMBLY, ListEntry);
-
-       TcpipAcquireSpinLockAtDpcLevel(&CurrentIPDR->Lock);
-
-       if (++CurrentIPDR->TimeoutCount == MAX_TIMEOUT_COUNT)
-       {
-           TcpipReleaseSpinLockFromDpcLevel(&CurrentIPDR->Lock);
-           RemoveEntryList(CurrentEntry);
-           FreeIPDR(CurrentIPDR);
-       } 
-       else
-       {
-           ASSERT(CurrentIPDR->TimeoutCount < MAX_TIMEOUT_COUNT);
-           TcpipReleaseSpinLockFromDpcLevel(&CurrentIPDR->Lock);
-       }
-
-       CurrentEntry = NextEntry;
-    }
-
-    TcpipReleaseSpinLock(&ReassemblyListLock, OldIrql);
 }
 
 VOID IPv4Receive(PIP_INTERFACE IF, PIP_PACKET IPPacket)
@@ -638,13 +609,11 @@ VOID IPReceive( PIP_INTERFACE IF, PIP_PACKET IPPacket )
   case 6:
     IPPacket->Type = IP_ADDRESS_V6;
     TI_DbgPrint(MAX_TRACE, ("Datagram of type IPv6 discarded.\n"));
-    break;
+    return;
   default:
 	  TI_DbgPrint(MIN_TRACE, ("Datagram has an unsupported IP version %d.\n", Version));
-    break;
+    return;
   }
-
-  IPPacket->Free(IPPacket);
 }
 
 /* EOF */

@@ -13,27 +13,73 @@
 
 #define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
 
-
-
-
 /*
  * @unimplemented
  */
-BOOL
-WINAPI
-PolyTextOutW( HDC hdc, const POLYTEXTW *pptxt, INT cStrings )
+int
+STDCALL
+DeviceCapabilitiesExW(
+	LPCWSTR		pDevice,
+	LPCWSTR		pPort,
+	WORD		fwCapability,
+	LPWSTR		pOutput,
+	CONST DEVMODEW	*pDevMode
+	)
 {
-    for (; cStrings>0; cStrings--, pptxt++)
-        if (!ExtTextOutW( hdc, pptxt->x, pptxt->y, pptxt->uiFlags, &pptxt->rcl, pptxt->lpstr, pptxt->n, pptxt->pdx ))
-            return FALSE;
-    return TRUE;
+#if 0
+  /* FIXME no NtGdiDeviceCapabilities???? */
+  return NtGdiDeviceCapabilities ( pDevice,
+				  pPort,
+				  fwCapability,
+				  pOutput,
+				  pDevMode );
+#else
+  UNIMPLEMENTED;
+  SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+  return 0;
+#endif
 }
 
+
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+PolyTextOutW(
+	HDC			hdc,
+	CONST POLYTEXTW		*a1,
+	int			a2
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetKerningPairsW(
+	HDC		a0,
+	DWORD		a1,
+	LPKERNINGPAIR	a2
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 GetLogColorSpaceW(
 	HCOLORSPACE		a0,
 	LPLOGCOLORSPACEW	a1,
@@ -45,20 +91,32 @@ GetLogColorSpaceW(
 	return FALSE;
 }
 
+/*
+ * @unimplemented
+ */
+HCOLORSPACE
+STDCALL
+CreateColorSpaceW(
+	LPLOGCOLORSPACEW	a0
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetICMProfileW(
-	HDC		hdc,
-	LPDWORD		size,
-	LPWSTR		filename
+	HDC		a0,
+	LPDWORD		a1,
+	LPWSTR		a2
 	)
 {
-    if (!hdc || !size || !filename) return FALSE;
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
@@ -69,7 +127,7 @@ GetICMProfileW(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 SetICMProfileW(
 	HDC	a0,
 	LPWSTR	a1
@@ -85,7 +143,7 @@ SetICMProfileW(
  * @unimplemented
  */
 int
-WINAPI
+STDCALL
 EnumICMProfilesW(
 	HDC		hDC,
 	ICMENUMPROCW	lpEnumICMProfilesFunc,
@@ -111,7 +169,47 @@ EnumICMProfilesW(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+wglUseFontBitmapsW(
+	HDC		a0,
+	DWORD		a1,
+	DWORD		a2,
+	DWORD		a3
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+wglUseFontOutlinesW(
+	HDC			a0,
+	DWORD			a1,
+	DWORD			a2,
+	DWORD			a3,
+	FLOAT			a4,
+	FLOAT			a5,
+	int			a6,
+	LPGLYPHMETRICSFLOAT	a7
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 UpdateICMRegKeyW(
 	DWORD	a0,
 	LPWSTR	a1,
@@ -125,7 +223,7 @@ UpdateICMRegKeyW(
 }
 
 
-/* === AFTER THIS POINT I GUESS... =========
+/* === AFTER THIS POINT I GUESS... ========= 
  * (based on stack size in Norlander's .def)
  * === WHERE ARE THEY DEFINED? =============
  */
@@ -134,8 +232,25 @@ UpdateICMRegKeyW(
 /*
  * @unimplemented
  */
+DWORD
+STDCALL
+GetFontResourceInfoW(
+	DWORD	a0,
+	DWORD	a1,
+	DWORD	a2,
+	DWORD	a3
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
 BOOL
-WINAPI
+STDCALL
 EudcLoadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath,INT iPriority,INT iFontLinkType)
 {
 	UNIMPLEMENTED;
@@ -147,7 +262,7 @@ EudcLoadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath,INT iPriority,INT iFon
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 EudcUnloadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath)
 {
 	UNIMPLEMENTED;
@@ -159,43 +274,59 @@ EudcUnloadLinkW(LPCWSTR pBaseFaceName,LPCWSTR pEudcFontPath)
  * @unimplemented
  */
 int
-WINAPI
-GdiAddFontResourceW(
-    LPCWSTR lpszFilename,
-    FLONG fl,
-    DESIGNVECTOR *pdv)
+STDCALL
+GdiAddFontResourceW(LPCWSTR filename,FLONG f,DESIGNVECTOR *pdv)
 {
-    return NtGdiAddFontResourceW((PWSTR)lpszFilename, 0, 0, fl, 0, pdv);
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
-
-/*
- * @implemented
- */
-DWORD
-WINAPI
-GetEUDCTimeStampExW(LPWSTR lpBaseFaceName)
-{
-    DWORD retValue = 0;
-
-    if (!lpBaseFaceName)
-    {
-        retValue = NtGdiGetEudcTimeStampEx(NULL,0,FALSE);
-    }
-    else
-    {
-        retValue = NtGdiGetEudcTimeStampEx(lpBaseFaceName, wcslen(lpBaseFaceName), FALSE);
-    }
-
-    return retValue;
-}
-
-
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
+GdiConsoleTextOut(HDC hdc, POLYTEXTW *lpto,UINT nStrings, RECTL *prclBounds)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetEUDCTimeStampExW(LPCWSTR str)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+RemoveFontResourceExW(
+	LPCWSTR lpFileName,
+	DWORD fl,
+	PVOID pdv
+)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 bInitSystemAndFontsDirectoriesW(LPWSTR *SystemDir,LPWSTR *FontsDir)
 {
 	UNIMPLEMENTED;
@@ -207,7 +338,7 @@ bInitSystemAndFontsDirectoriesW(LPWSTR *SystemDir,LPWSTR *FontsDir)
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 bMakePathNameW(LPWSTR lpBuffer,LPCWSTR lpFileName,LPWSTR *lpFilePart,DWORD unknown)
 {
 	UNIMPLEMENTED;
@@ -216,54 +347,46 @@ bMakePathNameW(LPWSTR lpBuffer,LPCWSTR lpFileName,LPWSTR *lpFilePart,DWORD unkno
 }
 
 /*
- * @implemented
+ * @unimplemented
+ */
+HFONT
+STDCALL
+CreateFontIndirectExW(const ENUMLOGFONTEXDVW *elfexd)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+GetGlyphIndicesW(
+	HDC hdc,
+	LPCWSTR lpstr,
+	int c,
+	LPWORD pgi,
+	DWORD fl
+)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
  */
 UINT
-WINAPI
-GetStringBitmapW(HDC hdc,
-                 LPWSTR pwsz,
-                 BOOL doCall,
-                 UINT cj,
-                 BYTE *lpSB)
+STDCALL
+GetStringBitmapW(HDC hdc,LPWSTR pwsz,BOOL unknown,UINT cj,BYTE *lpSB)
 {
-    UINT retValue = 0;
-
-    if (doCall)
-    {
-        retValue = NtGdiGetStringBitmapW(hdc, pwsz, 1, lpSB, cj);
-    }
-
-    return retValue;
-
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
-
-BOOL
-WINAPI
-CreateScalableFontResourceW(
-	DWORD fdwHidden,
-	LPCWSTR lpszFontRes,
-	LPCWSTR lpszFontFile,
-	LPCWSTR lpszCurrentPath
-	)
-{
-    HANDLE f;
-
-    UNIMPLEMENTED;
-
-    /* fHidden=1 - only visible for the calling app, read-only, not
-     * enumerated with EnumFonts/EnumFontFamilies
-     * lpszCurrentPath can be NULL
-     */
-
-    /* If the output file already exists, return the ERROR_FILE_EXISTS error as specified in MSDN */
-    if ((f = CreateFileW(lpszFontRes, 0, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0)) != INVALID_HANDLE_VALUE) {
-        CloseHandle(f);
-        SetLastError(ERROR_FILE_EXISTS);
-        return FALSE;
-    }
-    return FALSE; /* create failed */
-}
-  
 
 /* EOF */

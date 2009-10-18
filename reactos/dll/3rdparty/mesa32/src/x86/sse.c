@@ -27,15 +27,15 @@
  * Andre Werthmann <wertmann@cs.uni-potsdam.de>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 
 #include "sse.h"
 #include "common_x86_macros.h"
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
 #include "math/m_debug.h"
 #endif
 
@@ -114,7 +114,7 @@ void _mesa_init_sse_transform_asm( void )
    ASSIGN_NORM_GROUP( sse );
 #endif
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
    _math_test_all_transform_functions( "SSE" );
    _math_test_all_normal_transform_functions( "SSE" );
 #endif

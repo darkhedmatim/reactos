@@ -40,7 +40,7 @@ HalpUnmapVirtualAddress(IN PVOID VirtualAddress,
                         IN ULONG NumberPages)
 {
     /* Use kernel memory manager I/O map facilities */
-    MmUnmapIoSpace(VirtualAddress, NumberPages << PAGE_SHIFT);
+    return MmUnmapIoSpace(VirtualAddress, NumberPages << PAGE_SHIFT);
 }
 
 /* FUNCTIONS *****************************************************************/
@@ -77,7 +77,7 @@ HalHandleNMI(IN PVOID NmiInfo)
 
     /* Halt the system */
     HalDisplayString("\n*** The system has halted ***\n");
-    //KeEnterKernelDebugger();
+    KeEnterKernelDebugger();
 }
 
 /*

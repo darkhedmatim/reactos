@@ -71,7 +71,6 @@ void *Context_CreateDataContext(size_t contextSize)
             ret = NULL;
         }
     }
-    TRACE("returning %p\n", ret);
     return ret;
 }
 
@@ -95,9 +94,8 @@ void *Context_CreateLinkContext(unsigned int contextSize, void *linked, unsigned
         linkContext->linked = linkedBase;
         if (addRef)
             InterlockedIncrement(&linkedBase->ref);
-        TRACE("%p's ref count is %d\n", context, linkContext->ref);
+        TRACE("%p's ref count is %ld\n", context, linkContext->ref);
     }
-    TRACE("returning %p\n", context);
     return context;
 }
 
@@ -125,7 +123,7 @@ void *Context_GetLinkedContext(void *context, size_t contextSize)
      contextSize);
 }
 
-PCONTEXT_PROPERTY_LIST Context_GetProperties(const void *context, size_t contextSize)
+PCONTEXT_PROPERTY_LIST Context_GetProperties(void *context, size_t contextSize)
 {
     PBASE_CONTEXT ptr = BASE_CONTEXT_FROM_CONTEXT(context, contextSize);
 
@@ -163,7 +161,7 @@ void Context_Release(void *context, size_t contextSize,
         CryptMemFree(context);
     }
     else
-        TRACE("%p's ref count is %d\n", context, base->ref);
+        TRACE("%p's ref count is %ld\n", context, base->ref);
 }
 
 void Context_CopyProperties(const void *to, const void *from,
@@ -171,9 +169,8 @@ void Context_CopyProperties(const void *to, const void *from,
 {
     PCONTEXT_PROPERTY_LIST toProperties, fromProperties;
 
-    toProperties = Context_GetProperties(to, contextSize);
-    fromProperties = Context_GetProperties(from, contextSize);
-    assert(toProperties && fromProperties);
+    toProperties = Context_GetProperties((void *)to, contextSize);
+    fromProperties = Context_GetProperties((void *)from, contextSize);
     ContextPropertyList_Copy(toProperties, fromProperties);
 }
 
@@ -195,25 +192,24 @@ struct ContextList *ContextList_Create(
         list->contextInterface = contextInterface;
         list->contextSize = contextSize;
         InitializeCriticalSection(&list->cs);
-        list->cs.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": ContextList.cs");
         list_init(&list->contexts);
     }
     return list;
 }
 
-static inline struct list *ContextList_ContextToEntry(const struct ContextList *list,
+static inline struct list *ContextList_ContextToEntry(struct ContextList *list,
  const void *context)
 {
     struct list *ret;
 
     if (context)
-        ret = Context_GetExtra(context, list->contextSize);
+        ret = (struct list *)Context_GetExtra(context, list->contextSize);
     else
         ret = NULL;
     return ret;
 }
 
-static inline void *ContextList_EntryToContext(const struct ContextList *list,
+static inline void *ContextList_EntryToContext(struct ContextList *list,
  struct list *entry)
 {
     return (LPBYTE)entry - sizeof(LINK_CONTEXT) - list->contextSize;
@@ -245,7 +241,7 @@ void *ContextList_Add(struct ContextList *list, void *toLink, void *toReplace)
             list->contextInterface->free(toReplace);
         }
         else
-            list_add_head(&list->contexts, entry);
+            list_add_tail(&list->contexts, entry);
         LeaveCriticalSection(&list->cs);
     }
     return context;
@@ -288,7 +284,7 @@ void ContextList_Delete(struct ContextList *list, void *context)
     list->contextInterface->free(context);
 }
 
-static void ContextList_Empty(struct ContextList *list)
+void ContextList_Empty(struct ContextList *list)
 {
     struct list *entry, *next;
 
@@ -307,7 +303,6 @@ static void ContextList_Empty(struct ContextList *list)
 void ContextList_Free(struct ContextList *list)
 {
     ContextList_Empty(list);
-    list->cs.DebugInfo->Spare[0] = 0;
     DeleteCriticalSection(&list->cs);
     CryptMemFree(list);
 }

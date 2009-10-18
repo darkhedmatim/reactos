@@ -28,10 +28,10 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/imports.h"
-#include "main/macros.h"
-#include "main/imports.h"
+#include "glheader.h"
+#include "imports.h"
+#include "macros.h"
+#include "imports.h"
 
 #include "m_vector.h"
 

@@ -678,7 +678,6 @@ const struct sbcs_table cptable_1258 =
 {
     { 1258, 1, 0x003f, 0x003f, "ANSI/OEM Viet Nam" },
     cp2uni,
-    cp2uni,
     uni2cp_low,
     uni2cp_high
 };

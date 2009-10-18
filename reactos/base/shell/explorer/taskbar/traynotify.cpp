@@ -419,9 +419,6 @@ LRESULT NotifyArea::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 
 	  case WM_CONTEXTMENU: {
 		Point pt(lparam);
-		POINTS p;
-		p.x = (SHORT) pt.x;
-		p.y = (SHORT) pt.y;
 		ScreenToClient(_hwnd, &pt);
 
 		if (IconHitTest(pt) == _sorted_icons.end()) { // display menu only when no icon clicked
@@ -429,7 +426,7 @@ LRESULT NotifyArea::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			SetMenuDefaultItem(menu, 0, MF_BYPOSITION);
 			CheckMenuItem(menu, ID_SHOW_HIDDEN_ICONS, MF_BYCOMMAND|(_show_hidden?MF_CHECKED:MF_UNCHECKED));
 			CheckMenuItem(menu, ID_SHOW_ICON_BUTTON, MF_BYCOMMAND|(_show_button?MF_CHECKED:MF_UNCHECKED));
-			menu.TrackPopupMenu(_hwnd, p);
+			menu.TrackPopupMenu(_hwnd, MAKEPOINTS(lparam));
 		}
 		break;}
 

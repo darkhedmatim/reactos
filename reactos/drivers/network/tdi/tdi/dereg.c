@@ -23,7 +23,7 @@ enum
 
 static
 NTSTATUS
-NTAPI
+STDCALL
 TdiDeRegister (
 	IN	TDI_OBJECT_ACTION	Action,
 	IN OUT	PVOID			Object
@@ -39,7 +39,7 @@ TdiDeRegister (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiRegisterAddressChangeHandler (
 	ULONG	Unknown0,
 	ULONG	Unknown1,
@@ -61,7 +61,7 @@ TdiRegisterAddressChangeHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDeregisterAddressChangeHandler (
 	IN	PVOID	AddressChangeHandler
 	)
@@ -79,7 +79,7 @@ TdiDeregisterAddressChangeHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiRegisterDeviceObject (
 	ULONG	Unknown0,
 	ULONG	Unknown1
@@ -100,7 +100,7 @@ TdiRegisterDeviceObject (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDeregisterDeviceObject (
 	IN	PVOID	DeviceObject
 	)
@@ -118,7 +118,7 @@ TdiDeregisterDeviceObject (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiRegisterNetAddress (
 	ULONG	Unknown0,
 	ULONG	Unknown1
@@ -139,7 +139,7 @@ TdiRegisterNetAddress (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDeregisterNetAddress (
 	IN	PVOID	NetAddress
 	)
@@ -157,7 +157,7 @@ TdiDeregisterNetAddress (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiRegisterNotificationHandler (
 	ULONG	Unknown0,
 	ULONG	Unknown1,
@@ -179,7 +179,7 @@ TdiRegisterNotificationHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDeregisterNotificationHandler (
 	IN	PVOID	NotificationHandler
 	)

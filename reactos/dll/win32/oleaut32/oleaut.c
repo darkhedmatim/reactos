@@ -15,12 +15,11 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <stdarg.h>
 #include <string.h>
-#include <limits.h>
 
 #define COBJMACROS
 
@@ -39,7 +38,18 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
+/* The OLE Automation ProxyStub Interface Class (aka Typelib Marshaler) */
+extern const GUID CLSID_PSOAInterface;
+
+extern const GUID CLSID_PSDispatch;
+extern const GUID CLSID_PSEnumVariant;
+extern const GUID CLSID_PSTypeInfo;
+extern const GUID CLSID_PSTypeLib;
+extern const GUID CLSID_PSTypeComp;
+
 static BOOL BSTR_bCache = TRUE; /* Cache allocations to minimise alloc calls? */
+
+HMODULE OLEAUT32_hModule = NULL;
 
 /******************************************************************************
  * BSTR  {OLEAUT32}
@@ -216,11 +226,8 @@ BSTR WINAPI SysAllocStringLen(const OLECHAR *str, unsigned int len)
     DWORD* newBuffer;
     WCHAR* stringBuffer;
 
-    /* Detect integer overflow. */
-    if (len >= ((UINT_MAX-sizeof(WCHAR)-sizeof(DWORD))/sizeof(WCHAR)))
-	return NULL;
     /*
-     * Find the length of the buffer passed-in, in bytes.
+     * Find the length of the buffer passed-in in bytes.
      */
     bufferSize = len * sizeof (WCHAR);
 
@@ -236,8 +243,8 @@ BSTR WINAPI SysAllocStringLen(const OLECHAR *str, unsigned int len)
     /*
      * If the memory allocation failed, return a null pointer.
      */
-    if (!newBuffer)
-      return NULL;
+    if (newBuffer==0)
+      return 0;
 
     /*
      * Copy the length of the string in the placeholder.
@@ -264,9 +271,9 @@ BSTR WINAPI SysAllocStringLen(const OLECHAR *str, unsigned int len)
      * string.
      */
     stringBuffer = (WCHAR*)newBuffer;
-    stringBuffer[len] = '\0';
+    stringBuffer[len] = L'\0';
 
-    return stringBuffer;
+    return (LPWSTR)stringBuffer;
 }
 
 /******************************************************************************
@@ -285,21 +292,17 @@ BSTR WINAPI SysAllocStringLen(const OLECHAR *str, unsigned int len)
  *
  * NOTES
  *  See BSTR(), SysAllocStringByteLen().
- *  *old may be changed by this function.
+ *  *pbstr may be changed by this function.
  */
 int WINAPI SysReAllocStringLen(BSTR* old, const OLECHAR* str, unsigned int len)
 {
-    /* Detect integer overflow. */
-    if (len >= ((UINT_MAX-sizeof(WCHAR)-sizeof(DWORD))/sizeof(WCHAR)))
-	return 0;
-
     if (*old!=NULL) {
       DWORD newbytelen = len*sizeof(WCHAR);
       DWORD *ptr = HeapReAlloc(GetProcessHeap(),0,((DWORD*)*old)-1,newbytelen+sizeof(WCHAR)+sizeof(DWORD));
       *old = (BSTR)(ptr+1);
       *ptr = newbytelen;
       if (str) {
-        memmove(*old, str, newbytelen);
+        memcpy(*old, str, newbytelen);
         (*old)[len] = 0;
       } else {
 	/* Subtle hidden feature: The old string data is still there
@@ -341,10 +344,6 @@ BSTR WINAPI SysAllocStringByteLen(LPCSTR str, UINT len)
 {
     DWORD* newBuffer;
     char* stringBuffer;
-
-    /* Detect integer overflow. */
-    if (len >= (UINT_MAX-sizeof(WCHAR)-sizeof(DWORD)))
-	return NULL;
 
     /*
      * Allocate a new buffer to hold the string.
@@ -417,7 +416,8 @@ INT WINAPI SysReAllocString(LPBSTR old,LPCOLESTR str)
     /*
      * Make sure we free the old string.
      */
-    SysFreeString(*old);
+    if (*old!=NULL)
+      SysFreeString(*old);
 
     /*
      * Allocate the new string
@@ -579,7 +579,7 @@ HRESULT WINAPI GetActiveObject(REFCLSID rcid,LPVOID preserved,LPUNKNOWN *ppunk)
  * Currently the versions returned are 2.20 for Win3.1, 2.30 for Win95 & NT 3.51,
  * and 2.40 for all later versions. The build number is maximum, i.e. 0xffff.
  */
-ULONG WINAPI OaBuildVersion(void)
+ULONG WINAPI OaBuildVersion()
 {
     switch(GetVersion() & 0x8000ffff)  /* mask off build number */
     {
@@ -629,7 +629,7 @@ HRESULT WINAPI OleTranslateColor(
   COLORREF colorref;
   BYTE b = HIBYTE(HIWORD(clr));
 
-  TRACE("(%08x, %p, %p)\n", clr, hpal, pColorRef);
+  TRACE("(%08lx, %p, %p)\n", clr, hpal, pColorRef);
 
   /*
    * In case pColorRef is NULL, provide our own to simplify the code.
@@ -694,11 +694,10 @@ HRESULT WINAPI OleTranslateColor(
   return S_OK;
 }
 
-extern HRESULT WINAPI OLEAUTPS_DllGetClassObject(REFCLSID, REFIID, LPVOID *) DECLSPEC_HIDDEN;
-extern BOOL WINAPI OLEAUTPS_DllMain(HINSTANCE, DWORD, LPVOID) DECLSPEC_HIDDEN;
+extern HRESULT OLEAUTPS_DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv);
 
-extern void _get_STDFONT_CF(LPVOID *);
-extern void _get_STDPIC_CF(LPVOID *);
+extern void _get_STDFONT_CF(LPVOID);
+extern void _get_STDPIC_CF(LPVOID);
 
 static HRESULT WINAPI PSDispatchFacBuf_QueryInterface(IPSFactoryBuffer *iface, REFIID riid, void **ppv)
 {
@@ -706,7 +705,7 @@ static HRESULT WINAPI PSDispatchFacBuf_QueryInterface(IPSFactoryBuffer *iface, R
         IsEqualIID(riid, &IID_IPSFactoryBuffer))
     {
         IUnknown_AddRef(iface);
-        *ppv = iface;
+        *ppv = (void *)iface;
         return S_OK;
     }
     return E_NOINTERFACE;
@@ -805,7 +804,8 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
 	    return S_OK;
 	/*FALLTHROUGH*/
     }
-    return OLEAUTPS_DllGetClassObject(rclsid, iid, ppv);
+    FIXME("\n\tCLSID:\t%s,\n\tIID:\t%s\n",debugstr_guid(rclsid),debugstr_guid(iid));
+    return CLASS_E_CLASSNOTAVAILABLE;
 }
 
 /***********************************************************************
@@ -829,15 +829,16 @@ HRESULT WINAPI DllCanUnloadNow(void)
  */
 BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
 {
-    return OLEAUTPS_DllMain( hInstDll, fdwReason, lpvReserved );
-}
+  TRACE("(%p,%ld,%p)\n", hInstDll, fdwReason, lpvReserved);
 
-/***********************************************************************
- *              OleIconToCursor (OLEAUT32.415)
- */
-HCURSOR WINAPI OleIconToCursor( HINSTANCE hinstExe, HICON hIcon)
-{
-    FIXME("(%p,%p), partially implemented.\n",hinstExe,hIcon);
-    /* FIXME: make a extended conversation from HICON to HCURSOR */
-    return CopyCursor(hIcon);
+  switch (fdwReason) {
+  case DLL_PROCESS_ATTACH:
+    DisableThreadLibraryCalls(hInstDll);
+    OLEAUT32_hModule = (HMODULE)hInstDll;
+    break;
+  case DLL_PROCESS_DETACH:
+    break;
+  };
+
+  return TRUE;
 }

@@ -71,22 +71,16 @@
     (HANDLE)((ULONG_PTR)(Handle) | KERNEL_HANDLE_FLAG)
 
 //
+// Returns the number of handles in a handle table
+//
+#define ObpGetHandleCountByHandleTable(HandleTable)     \
+    ((PHANDLE_TABLE)HandleTable)->HandleCount
+
+//
 // Converts from an EXHANDLE object to a POBJECT_HEADER
 //
 #define ObpGetHandleObject(x)                           \
     ((POBJECT_HEADER)((ULONG_PTR)x->Object & ~OBJ_HANDLE_ATTRIBUTES))
-
-//
-// Recovers the security descriptor from a cached security descriptor header
-//
-#define ObpGetHeaderForSd(x) \
-    CONTAINING_RECORD((x), SECURITY_DESCRIPTOR_HEADER, SecurityDescriptor)
-
-//
-// Recovers the security descriptor from a cached security descriptor list entry
-//
-#define ObpGetHeaderForEntry(x) \
-    CONTAINING_RECORD((x), SECURITY_DESCRIPTOR_HEADER, Link)
 
 //
 // Context Structures for Ex*Handle Callbacks
@@ -96,39 +90,17 @@ typedef struct _OBP_SET_HANDLE_ATTRIBUTES_CONTEXT
     KPROCESSOR_MODE PreviousMode;
     OBJECT_HANDLE_ATTRIBUTE_INFORMATION Information;
 } OBP_SET_HANDLE_ATTRIBUTES_CONTEXT, *POBP_SET_HANDLE_ATTRIBUTES_CONTEXT;
-
 typedef struct _OBP_CLOSE_HANDLE_CONTEXT
 {
     PHANDLE_TABLE HandleTable;
     KPROCESSOR_MODE AccessMode;
 } OBP_CLOSE_HANDLE_CONTEXT, *POBP_CLOSE_HANDLE_CONTEXT;
-
 typedef struct _OBP_FIND_HANDLE_DATA
 {
     POBJECT_HEADER ObjectHeader;
     POBJECT_TYPE ObjectType;
     POBJECT_HANDLE_INFORMATION HandleInformation;
 } OBP_FIND_HANDLE_DATA, *POBP_FIND_HANDLE_DATA;
-
-//
-// Cached Security Descriptor Header
-//
-typedef struct _SECURITY_DESCRIPTOR_HEADER
-{
-    LIST_ENTRY Link;
-    ULONG RefCount;
-    ULONG FullHash;
-    QUAD SecurityDescriptor;
-} SECURITY_DESCRIPTOR_HEADER, *PSECURITY_DESCRIPTOR_HEADER;
-
-//
-// Cached Security Descriptor List
-//
-typedef struct _OB_SD_CACHE_LIST
-{
-    EX_PUSH_LOCK PushLock;
-    LIST_ENTRY Head;
-} OB_SD_CACHE_LIST, *POB_SD_CACHE_LIST;
 
 //
 // Structure for quick-compare of a DOS Device path
@@ -142,29 +114,14 @@ typedef union
 //
 // Private Temporary Buffer for Lookup Routines
 //
-#define TAG_OB_TEMP_STORAGE 'tSbO'
+#define TAG_OB_TEMP_STORAGE TAG('O', 'b', 'S', 't')
 typedef struct _OB_TEMP_BUFFER
 {
     ACCESS_STATE LocalAccessState;
     OBJECT_CREATE_INFORMATION ObjectCreateInfo;
     OBP_LOOKUP_CONTEXT LookupContext;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
 } OB_TEMP_BUFFER, *POB_TEMP_BUFFER;
-
-//
-// Startup and Shutdown Functions
-//
-BOOLEAN
-NTAPI
-ObInitSystem(
-    VOID
-);
-
-VOID
-NTAPI
-ObShutdownSystem(
-    VOID
-);
 
 //
 // Directory Namespace Functions
@@ -234,8 +191,8 @@ ObpDeleteSymbolicLinkName(
 //
 NTSTATUS
 NTAPI
-ObInitProcess(
-    IN PEPROCESS Parent OPTIONAL,
+ObpCreateHandleTable(
+    IN PEPROCESS Parent,
     IN PEPROCESS Process
 );
 
@@ -373,12 +330,6 @@ ObpFreeObjectNameBuffer(
     IN PUNICODE_STRING Name
 );
 
-VOID
-NTAPI
-ObpDeleteObjectType(
-    IN PVOID Object
-);
-
 //
 // DOS Devices Functions
 //
@@ -416,10 +367,29 @@ ObpInitSdCache(
     VOID
 );
 
+NTSTATUS
+NTAPI
+ObpAddSecurityDescriptor(
+    IN PSECURITY_DESCRIPTOR SourceSD,
+    OUT PSECURITY_DESCRIPTOR *DestinationSD
+);
+
+NTSTATUS
+NTAPI
+ObpRemoveSecurityDescriptor(
+    IN PSECURITY_DESCRIPTOR SecurityDescriptor
+);
+
 PSECURITY_DESCRIPTOR
 NTAPI
-ObpReferenceSecurityDescriptor(
-    IN POBJECT_HEADER ObjectHeader
+ObpReferenceCachedSecurityDescriptor(
+    IN PSECURITY_DESCRIPTOR SecurityDescriptor
+);
+
+VOID
+NTAPI
+ObpDereferenceCachedSecurityDescriptor(
+    IN PSECURITY_DESCRIPTOR SecurityDescriptor
 );
 
 //
@@ -466,44 +436,6 @@ ObpCheckObjectReference(
     IN BOOLEAN LockHeld,
     IN KPROCESSOR_MODE AccessMode,
     OUT PNTSTATUS AccessStatus
-);
-
-//
-// Default Object Security Callback Routines
-//
-NTSTATUS
-NTAPI
-ObAssignObjectSecurityDescriptor(
-    IN PVOID Object,
-    IN PSECURITY_DESCRIPTOR SecurityDescriptor OPTIONAL,
-    IN POOL_TYPE PoolType
-);
-
-NTSTATUS
-NTAPI
-ObDeassignSecurity(
-    IN OUT PSECURITY_DESCRIPTOR *SecurityDescriptor
-);
-
-NTSTATUS
-NTAPI
-ObQuerySecurityDescriptorInfo(
-    IN PVOID Object,
-    IN PSECURITY_INFORMATION SecurityInformation,
-    OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN OUT PULONG Length,
-    IN PSECURITY_DESCRIPTOR *OutputSecurityDescriptor
-);
-
-NTSTATUS
-NTAPI
-ObSetSecurityDescriptorInfo(
-    IN PVOID Object,
-    IN PSECURITY_INFORMATION SecurityInformation,
-    IN OUT PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN OUT PSECURITY_DESCRIPTOR *OutputSecurityDescriptor,
-    IN POOL_TYPE PoolType,
-    IN PGENERIC_MAPPING GenericMapping
 );
 
 //
@@ -556,21 +488,12 @@ ObpCaptureObjectName(
 
 NTSTATUS
 NTAPI
-ObpCaptureObjectCreateInformation(
+ObpCaptureObjectAttributes(
     IN POBJECT_ATTRIBUTES ObjectAttributes,
     IN KPROCESSOR_MODE AccessMode,
     IN BOOLEAN AllocateFromLookaside,
     IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     OUT PUNICODE_STRING ObjectName
-);
-
-//
-// Miscellanea
-//
-ULONG
-NTAPI
-ObGetProcessHandleCount(
-    IN PEPROCESS Process
 );
 
 //
@@ -580,13 +503,13 @@ extern ULONG ObpTraceLevel;
 extern KEVENT ObpDefaultObject;
 extern POBJECT_TYPE ObpTypeObjectType;
 extern POBJECT_TYPE ObSymbolicLinkType;
-extern POBJECT_TYPE ObpTypeObjectType;
-extern POBJECT_DIRECTORY ObpRootDirectoryObject;
+extern POBJECT_TYPE ObTypeObjectType;
+extern POBJECT_DIRECTORY NameSpaceRoot;
 extern POBJECT_DIRECTORY ObpTypeDirectoryObject;
 extern PHANDLE_TABLE ObpKernelHandleTable;
 extern WORK_QUEUE_ITEM ObpReaperWorkItem;
 extern volatile PVOID ObpReaperList;
-extern GENERAL_LOOKASIDE ObpNameBufferLookasideList, ObpCreateInfoLookasideList;
+extern NPAGED_LOOKASIDE_LIST ObpNmLookasideList, ObpCiLookasideList;
 extern BOOLEAN IoCountOperations;
 extern ALIGNEDNAME ObpDosDevicesShortNamePrefix;
 extern ALIGNEDNAME ObpDosDevicesShortNameRoot;

@@ -12,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 #include <internal/hal.h>
 
 /* DEPRECATED FUNCTIONS ******************************************************/
@@ -20,7 +20,7 @@
 #if 1
 const WCHAR DiskMountString[] = L"\\DosDevices\\%C:";
 
-#define AUTO_DRIVE         MAXULONG
+#define AUTO_DRIVE         ((ULONG)-1)
 
 #define PARTITION_MAGIC    0xaa55
 
@@ -47,9 +47,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
                 IN UCHAR DriveType,
                 IN ULONG Signature,
                 IN LARGE_INTEGER StartingOffset,
-                IN HANDLE hKey,
-                IN PUNICODE_STRING BootDevice,
-                OUT PUCHAR NtSystemPath)
+                IN HANDLE hKey)
 {
     WCHAR DriveNameBuffer[16];
     UNICODE_STRING DriveName;
@@ -111,7 +109,7 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
         PartitionName);
 
     if (hKey &&
-        DriveType == DOSDEVICE_DRIVE_FIXED &&
+        DriveType == DOSDEVICE_DRIVE_FIXED && 
         Signature)
     {
         DiskMountInfo.Signature = Signature;
@@ -130,14 +128,6 @@ HalpAssignDrive(IN PUNICODE_STRING PartitionName,
             DPRINT1("ZwCreateValueKey failed for %wZ, status=%x\n", &DriveName, Status);
         }
     }
-
-    /* Check if this is a boot partition */
-    if (RtlCompareUnicodeString(PartitionName, BootDevice, FALSE) == 0)
-    {
-        /* Set NtSystemPath to that partition's disk letter */
-        *NtSystemPath = (UCHAR)('A' + DriveNumber);
-    }
-
     return TRUE;
 }
 
@@ -200,7 +190,7 @@ xHalpGetRDiskCount(VOID)
                 DPRINT("Count %x\n", Count);
                 DirectoryInfo[Count].Name.Buffer[DirectoryInfo[Count].Name.Length / sizeof(WCHAR)] = 0;
                 ArcNameBuffer = DirectoryInfo[Count].Name.Buffer;
-                if (DirectoryInfo[Count].Name.Length >= sizeof(L"multi(0)disk(0)rdisk(0)") - sizeof(WCHAR) &&
+                if (DirectoryInfo[Count].Name.Length >= sizeof(L"multi(0)disk(0)rdisk(0)") - sizeof(WCHAR) && 
                     !_wcsnicmp(ArcNameBuffer, L"multi(0)disk(0)rdisk(", (sizeof(L"multi(0)disk(0)rdisk(") - sizeof(WCHAR)) / sizeof(WCHAR)))
                 {
                     DPRINT("%S\n", ArcNameBuffer);
@@ -315,7 +305,7 @@ xHalQueryDriveLayout(IN PUNICODE_STRING DeviceName,
 
     /* Get the drives sector size */
     Status = IoGetDeviceObjectPointer(DeviceName,
-        FILE_READ_ATTRIBUTES,
+        FILE_READ_DATA,
         &FileObject,
         &DeviceObject);
     if (!NT_SUCCESS(Status))
@@ -405,8 +395,7 @@ xHalQueryDriveLayout(IN PUNICODE_STRING DeviceName,
     return(Status);
 }
 
-VOID
-FASTCALL
+VOID FASTCALL
 xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                          IN PSTRING NtDeviceName,
                          OUT PUCHAR NtSystemPath,
@@ -430,11 +419,6 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     PKEY_VALUE_PARTIAL_INFORMATION PartialInformation;
     PREG_DISK_MOUNT_INFO DiskMountInfo;
     ULONG RDiskCount;
-    UNICODE_STRING BootDevice;
-
-    Status = RtlAnsiStringToUnicodeString(&BootDevice,
-                                          NtDeviceName,
-                                          TRUE);
 
     DPRINT("xHalIoAssignDriveLetters()\n");
 
@@ -452,8 +436,6 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     PartialInformation = (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePool(PagedPool,
         sizeof(KEY_VALUE_PARTIAL_INFORMATION) + sizeof(REG_DISK_MOUNT_INFO));
 
-    if (!Buffer1 || !Buffer2 || !PartialInformation) return;
-
     DiskMountInfo = (PREG_DISK_MOUNT_INFO) PartialInformation->Data;
 
     /* Open or Create the 'MountedDevices' key */
@@ -466,9 +448,9 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     Status = ZwOpenKey(&hKey,
         KEY_ALL_ACCESS,
         &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
+    if (!NT_SUCCESS(Status)) 
     {
-        Status = ZwCreateKey(&hKey,
+        Status = ZwCreateKey(&hKey, 
             KEY_ALL_ACCESS,
             &ObjectAttributes,
             0,
@@ -479,7 +461,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     if (!NT_SUCCESS(Status))
     {
         hKey = NULL;
-        DPRINT("ZwCreateKey failed for %wZ, status=%x\n", &UnicodeString1, Status);
+        DPRINT1("ZwCreateKey failed for %wZ, status=%x\n", &UnicodeString1, Status);
     }
 
     /* Create PhysicalDrive links */
@@ -499,10 +481,10 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
             NULL);
 
         Status = ZwOpenFile(&FileHandle,
-            FILE_READ_DATA | SYNCHRONIZE,
+            0x10001,
             &ObjectAttributes,
             &StatusBlock,
-            FILE_SHARE_READ,
+            1,
             FILE_SYNCHRONOUS_IO_NONALERT);
         if (NT_SUCCESS(Status))
         {
@@ -524,18 +506,8 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     }
 
     /* Initialize layout array */
-    if (ConfigInfo->DiskCount == 0)
-        goto end_assign_disks;
     LayoutArray = ExAllocatePool(NonPagedPool,
         ConfigInfo->DiskCount * sizeof(PDRIVE_LAYOUT_INFORMATION));
-    if (!LayoutArray)
-    {
-        ExFreePool(PartialInformation);
-        ExFreePool(Buffer2);
-        ExFreePool(Buffer1);
-        if (hKey) ZwClose(hKey);
-    }
-
     RtlZeroMemory(LayoutArray,
         ConfigInfo->DiskCount * sizeof(PDRIVE_LAYOUT_INFORMATION));
     for (i = 0; i < ConfigInfo->DiskCount; i++)
@@ -555,7 +527,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
             LayoutArray[i] = NULL;
             continue;
         }
-        /* We don't use the RewritePartition value while mounting the disks.
+        /* We don't use the RewritePartition value while mounting the disks. 
         * We use this value for marking pre-assigned (registry) partitions.
         */
         for (j = 0; j < LayoutArray[i]->PartitionCount; j++)
@@ -603,11 +575,11 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                 PartialInformation,
                 sizeof(KEY_VALUE_PARTIAL_INFORMATION) + sizeof(REG_DISK_MOUNT_INFO),
                 &Length);
-            if (NT_SUCCESS(Status) &&
+            if (NT_SUCCESS(Status) && 
                 PartialInformation->Type == REG_BINARY &&
                 PartialInformation->DataLength == sizeof(REG_DISK_MOUNT_INFO))
             {
-                DPRINT("%wZ => %08x:%08x%08x\n", &UnicodeString1, DiskMountInfo->Signature,
+                DPRINT("%wZ => %08x:%08x%08x\n", &UnicodeString1, DiskMountInfo->Signature, 
                     DiskMountInfo->StartingOffset.u.HighPart, DiskMountInfo->StartingOffset.u.LowPart);
                 {
                     BOOLEAN Found = FALSE;
@@ -639,9 +611,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                                             DOSDEVICE_DRIVE_FIXED,
                                             DiskMountInfo->Signature,
                                             DiskMountInfo->StartingOffset,
-                                            NULL,
-                                            &BootDevice,
-                                            NtSystemPath);
+                                            NULL);
                                         /* Mark the partition as assigned */
                                         LayoutArray[i]->PartitionEntry[j].RewritePartition = TRUE;
                                     }
@@ -691,9 +661,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                             DOSDEVICE_DRIVE_FIXED,
                             LayoutArray[DiskNumber]->Signature,
                             LayoutArray[DiskNumber]->PartitionEntry[j].StartingOffset,
-                            hKey,
-                            &BootDevice,
-                            NtSystemPath);
+                            hKey);
                         /* Mark the partition as assigned */
                         LayoutArray[DiskNumber]->PartitionEntry[j].RewritePartition = TRUE;
                     }
@@ -733,9 +701,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                         DOSDEVICE_DRIVE_FIXED,
                         LayoutArray[DiskNumber]->Signature,
                         LayoutArray[DiskNumber]->PartitionEntry[j].StartingOffset,
-                        hKey,
-                        &BootDevice,
-                        NtSystemPath);
+                        hKey);
                     /* Mark the partition as assigned */
                     LayoutArray[DiskNumber]->PartitionEntry[j].RewritePartition = TRUE;
                 }
@@ -774,9 +740,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                         DOSDEVICE_DRIVE_FIXED,
                         LayoutArray[DiskNumber]->Signature,
                         LayoutArray[DiskNumber]->PartitionEntry[j].StartingOffset,
-                        hKey,
-                        &BootDevice,
-                        NtSystemPath);
+                        hKey);
                     /* Mark the partition as assigned */
                     LayoutArray[DiskNumber]->PartitionEntry[j].RewritePartition = TRUE;
                 }
@@ -811,9 +775,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                         DOSDEVICE_DRIVE_FIXED,
                         LayoutArray[DiskNumber]->Signature,
                         LayoutArray[DiskNumber]->PartitionEntry[j].StartingOffset,
-                        hKey,
-                        &BootDevice,
-                        NtSystemPath);
+                        hKey);
                     /* Mark the partition as assigned */
                     LayoutArray[DiskNumber]->PartitionEntry[j].RewritePartition = TRUE;
                 }
@@ -849,9 +811,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                         DOSDEVICE_DRIVE_FIXED,
                         LayoutArray[DiskNumber]->Signature,
                         LayoutArray[DiskNumber]->PartitionEntry[j].StartingOffset,
-                        hKey,
-                        &BootDevice,
-                        NtSystemPath);
+                        hKey);
                     /* Mark the partition as assigned */
                     LayoutArray[DiskNumber]->PartitionEntry[j].RewritePartition = TRUE;
                 }
@@ -883,9 +843,7 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                     DOSDEVICE_DRIVE_REMOVABLE,
                     0,
                     RtlConvertLongToLargeInteger(0),
-                    hKey,
-                    &BootDevice,
-                    NtSystemPath);
+                    hKey);
             }
         }
     }
@@ -897,7 +855,6 @@ xHalIoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
             ExFreePool(LayoutArray[i]);
     }
     ExFreePool(LayoutArray);
-end_assign_disks:
 
     /* Assign floppy drives */
     DPRINT("Floppy drives: %d\n", ConfigInfo->FloppyCount);
@@ -917,9 +874,7 @@ end_assign_disks:
             DOSDEVICE_DRIVE_REMOVABLE,
             0,
             RtlConvertLongToLargeInteger(0),
-            hKey,
-            &BootDevice,
-            NtSystemPath);
+            hKey);
     }
 
     /* Assign cdrom drives */
@@ -939,9 +894,7 @@ end_assign_disks:
             DOSDEVICE_DRIVE_CDROM,
             0,
             RtlConvertLongToLargeInteger(0),
-            hKey,
-            &BootDevice,
-            NtSystemPath);
+            hKey);
     }
 
     /* Anything else to do? */
@@ -994,7 +947,7 @@ HalpGetFullGeometry(IN PDEVICE_OBJECT DeviceObject,
     if (!Irp)
     {
         /* Fail, free the event */
-        ExFreePoolWithTag(Event, TAG_FILE_SYSTEM);
+        ExFreePool(Event);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -1023,7 +976,7 @@ HalpGetFullGeometry(IN PDEVICE_OBJECT DeviceObject,
         if (!Irp)
         {
             /* Fail, free the event */
-            ExFreePoolWithTag(Event, TAG_FILE_SYSTEM);
+            ExFreePool(Event);
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
@@ -1046,7 +999,7 @@ HalpGetFullGeometry(IN PDEVICE_OBJECT DeviceObject,
     }
 
     /* Free the event and return the Status */
-    ExFreePoolWithTag(Event, TAG_FILE_SYSTEM);
+    ExFreePool(Event);
     return Status;
 }
 
@@ -1246,18 +1199,23 @@ xHalGetPartialGeometry(IN PDEVICE_OBJECT DeviceObject,
 
 Cleanup:
     /* Free all the pointers */
-    if (Event) ExFreePoolWithTag(Event, TAG_FILE_SYSTEM);
+    if (Event) ExFreePool(Event);
     if (IoStatusBlock) ExFreePool(IoStatusBlock);
     if (DiskGeometry) ExFreePool(DiskGeometry);
     return;
 }
 
+/* PUBLIC FUNCTIONS **********************************************************/
+
+/*
+ * @implemented
+ */
 VOID
 FASTCALL
-xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
-               IN ULONG SectorSize,
-               IN ULONG MbrTypeIdentifier,
-               OUT PVOID *MbrBuffer)
+HalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
+              IN ULONG SectorSize,
+              IN ULONG MbrTypeIdentifier,
+              OUT PVOID *MbrBuffer)
 {
     LARGE_INTEGER Offset;
     PUCHAR Buffer;
@@ -1297,7 +1255,7 @@ xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
     if (!Irp)
     {
         /* Failed */
-        ExFreePoolWithTag(Buffer, TAG_FILE_SYSTEM);
+        ExFreePool(Buffer);
         return;
     }
 
@@ -1321,7 +1279,7 @@ xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
         if (((PUSHORT)Buffer)[BOOT_SIGNATURE_OFFSET] != BOOT_RECORD_SIGNATURE)
         {
             /* Failed */
-            ExFreePoolWithTag(Buffer, TAG_FILE_SYSTEM);
+            ExFreePool(Buffer);
             return;
         }
 
@@ -1333,7 +1291,7 @@ xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
         if (PartitionDescriptor->PartitionType != MbrTypeIdentifier)
         {
             /* It's not, free our buffer */
-            ExFreePoolWithTag(Buffer, TAG_FILE_SYSTEM);
+        ExFreePool(Buffer);
         }
         else
         {
@@ -1358,12 +1316,15 @@ xHalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
     }
 }
 
+/*
+ * @implemented
+ */
 NTSTATUS
 FASTCALL
-xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
-                         IN ULONG SectorSize,
-                         IN BOOLEAN ReturnRecognizedPartitions,
-                         IN OUT PDRIVE_LAYOUT_INFORMATION *PartitionBuffer)
+IoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
+                     IN ULONG SectorSize,
+                     IN BOOLEAN ReturnRecognizedPartitions,
+                     IN OUT PDRIVE_LAYOUT_INFORMATION *PartitionBuffer)
 {
     KEVENT Event;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -1413,7 +1374,7 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
     Status = HalpGetFullGeometry(DeviceObject, &DiskGeometry, &MaxOffset);
     if (!NT_SUCCESS(Status))
     {
-        ExFreePoolWithTag(*PartitionBuffer, TAG_FILE_SYSTEM);
+        ExFreePool(*PartitionBuffer);
         *PartitionBuffer = NULL;
         return Status;
     }
@@ -1429,8 +1390,7 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
     if (!Buffer)
     {
         /* Fail, free the input buffer */
-        ExFreePoolWithTag(*PartitionBuffer, TAG_FILE_SYSTEM);
-        *PartitionBuffer = NULL;
+        ExFreePool(*PartitionBuffer);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -1515,12 +1475,12 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
             PartitionType = PartitionDescriptor->PartitionType;
 
             /* Print debug messages */
-            DPRINT("Partition Entry %d,%d: type %#x %s\n",
+            DPRINT("Partition Entry %d,%d: type %#x %s\n", 
                     j,
                     Entry,
                     PartitionType,
                     (PartitionDescriptor->ActiveFlag) ? "Active" : "");
-            DPRINT("\tOffset %#08lx for %#08lx Sectors\n",
+            DPRINT("\tOffset %#08lx for %#08lx Sectors\n", 
                     GET_STARTING_SECTOR(PartitionDescriptor),
                     GET_PARTITION_LENGTH(PartitionDescriptor));
 
@@ -1596,7 +1556,7 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
                               BufferSize);
 
                 /* Free the old buffer and set this one as the new one */
-                ExFreePoolWithTag(*PartitionBuffer, TAG_FILE_SYSTEM);
+                ExFreePool(*PartitionBuffer);
                 *PartitionBuffer = DriveLayoutInfo;
 
                 /* Double the size */
@@ -1779,19 +1739,22 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
     if (!i) (*PartitionBuffer)->Signature = 0;
 
     /* Free the buffer and check for success */
-    if (Buffer) ExFreePoolWithTag(Buffer, TAG_FILE_SYSTEM);
-    if (!NT_SUCCESS(Status)) ExFreePoolWithTag(*PartitionBuffer, TAG_FILE_SYSTEM);
+    if (Buffer) ExFreePool(Buffer);
+    if (!NT_SUCCESS(Status)) ExFreePool(*PartitionBuffer);
 
     /* Return status */
     return Status;
 }
 
+/*
+ * @implemented
+ */
 NTSTATUS
 FASTCALL
-xHalIoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
-                              IN ULONG SectorSize,
-                              IN ULONG PartitionNumber,
-                              IN ULONG PartitionType)
+IoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
+                          IN ULONG SectorSize,
+                          IN ULONG PartitionNumber,
+                          IN ULONG PartitionType)
 {
     PIRP Irp;
     KEVENT Event;
@@ -1974,13 +1937,16 @@ xHalIoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
+/*
+ * @implemented
+ */
 NTSTATUS
 FASTCALL
-xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
-                          IN ULONG SectorSize,
-                          IN ULONG SectorsPerTrack,
-                          IN ULONG NumberOfHeads,
-                          IN PDRIVE_LAYOUT_INFORMATION PartitionBuffer)
+IoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
+                      IN ULONG SectorSize,
+                      IN ULONG SectorsPerTrack,
+                      IN ULONG NumberOfHeads,
+                      IN PDRIVE_LAYOUT_INFORMATION PartitionBuffer)
 {
     KEVENT Event;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -2259,76 +2225,8 @@ xHalIoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
     }
 
     /* If we had a buffer, free it, then return status */
-    if (Buffer) ExFreePoolWithTag(Buffer, TAG_FILE_SYSTEM);
+    if (Buffer) ExFreePool(Buffer);
     return Status;
-}
-
-/* PUBLIC FUNCTIONS **********************************************************/
-
-/*
- * @implemented
- */
-VOID
-FASTCALL
-HalExamineMBR(IN PDEVICE_OBJECT DeviceObject,
-              IN ULONG SectorSize,
-              IN ULONG MbrTypeIdentifier,
-              OUT PVOID *MbrBuffer)
-{
-    HALDISPATCH->HalExamineMBR(DeviceObject,
-                               SectorSize,
-                               MbrTypeIdentifier,
-                               MbrBuffer);
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-FASTCALL
-IoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
-                     IN ULONG SectorSize,
-                     IN BOOLEAN ReturnRecognizedPartitions,
-                     IN OUT PDRIVE_LAYOUT_INFORMATION *PartitionBuffer)
-{
-    return HALDISPATCH->HalIoReadPartitionTable(DeviceObject,
-                                                SectorSize,
-                                                ReturnRecognizedPartitions,
-                                                PartitionBuffer);
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-FASTCALL
-IoSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
-                          IN ULONG SectorSize,
-                          IN ULONG PartitionNumber,
-                          IN ULONG PartitionType)
-{
-    return HALDISPATCH->HalIoSetPartitionInformation(DeviceObject,
-                                                     SectorSize,
-                                                     PartitionNumber,
-                                                     PartitionType);
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-FASTCALL
-IoWritePartitionTable(IN PDEVICE_OBJECT DeviceObject,
-                      IN ULONG SectorSize,
-                      IN ULONG SectorsPerTrack,
-                      IN ULONG NumberOfHeads,
-                      IN PDRIVE_LAYOUT_INFORMATION PartitionBuffer)
-{
-    return HALDISPATCH->HalIoWritePartitionTable(DeviceObject,
-                                                 SectorSize,
-                                                 SectorsPerTrack,
-                                                 NumberOfHeads,
-                                                 PartitionBuffer);
 }
 
 /*
@@ -2341,10 +2239,11 @@ IoAssignDriveLetters(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
                      OUT PUCHAR NtSystemPath,
                      OUT PSTRING NtSystemPathString)
 {
-    HALDISPATCH->HalIoAssignDriveLetters(LoaderBlock,
-                                         NtDeviceName,
-                                         NtSystemPath,
-                                         NtSystemPathString);
+    /* Call our deprecated function for now */
+    xHalIoAssignDriveLetters(LoaderBlock,
+                             NtDeviceName,
+                             NtSystemPath,
+                             NtSystemPathString);
 }
 
 /* EOF */

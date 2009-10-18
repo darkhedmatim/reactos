@@ -38,9 +38,6 @@
 extern HMODULE COMCTL32_hModule;
 extern HBRUSH  COMCTL32_hPattern55AABrush;
 
-/* has a value of: 0, CCS_TOP, CCS_NOMOVEY, CCS_BOTTOM */
-#define CCS_LAYOUT_MASK 0x3
-
 /* Property sheet / Wizard */
 #define IDD_PROPSHEET 1006
 #define IDD_WIZARD    1020
@@ -128,7 +125,6 @@ typedef struct
     COLORREF clrBtnFace;            /* COLOR_BTNFACE                       */
     COLORREF clrHighlight;          /* COLOR_HIGHLIGHT                     */
     COLORREF clrHighlightText;      /* COLOR_HIGHLIGHTTEXT                 */
-    COLORREF clrHotTrackingColor;   /* COLOR_HOTLIGHT                      */
     COLORREF clr3dHilight;          /* COLOR_3DHILIGHT                     */
     COLORREF clr3dShadow;           /* COLOR_3DSHADOW                      */
     COLORREF clr3dDkShadow;         /* COLOR_3DDKSHADOW                    */
@@ -148,14 +144,13 @@ HWND COMCTL32_CreateToolTip (HWND);
 VOID COMCTL32_RefreshSysColors(void);
 void COMCTL32_DrawInsertMark(HDC hDC, const RECT *lpRect, COLORREF clrInsertMark, BOOL bHorizontal);
 void COMCTL32_EnsureBitmapSize(HBITMAP *pBitmap, int cxMinWidth, int cyMinHeight, COLORREF crBackground);
-void COMCTL32_GetFontMetrics(HFONT hFont, TEXTMETRICW *ptm);
-BOOL COMCTL32_IsReflectedMessage(UINT uMsg);
 INT  Str_GetPtrWtoA (LPCWSTR lpSrc, LPSTR lpDest, INT nMaxLen);
-INT  Str_GetPtrAtoW (LPCSTR lpSrc, LPWSTR lpDest, INT nMaxLen);
 BOOL Str_SetPtrAtoW (LPWSTR *lppDest, LPCSTR lpSrc);
 BOOL Str_SetPtrWtoA (LPSTR *lppDest, LPCWSTR lpSrc);
 
 #define COMCTL32_VERSION_MINOR 81
+#define WINE_FILEVERSION 5, COMCTL32_VERSION_MINOR, 4704, 1100
+#define WINE_FILEVERSIONSTR "5.81"
 
 /* Our internal stack structure of the window procedures to subclass */
 typedef struct _SUBCLASSPROCS {
@@ -175,13 +170,25 @@ typedef struct
 
 /* undocumented functions */
 
-LPVOID WINAPI Alloc (DWORD) __WINE_ALLOC_SIZE(1);
-LPVOID WINAPI ReAlloc (LPVOID, DWORD) __WINE_ALLOC_SIZE(2);
+LPVOID WINAPI Alloc (DWORD);
+LPVOID WINAPI ReAlloc (LPVOID, DWORD);
 BOOL   WINAPI Free (LPVOID);
 DWORD  WINAPI GetSize (LPVOID);
 
 INT  WINAPI Str_GetPtrA (LPCSTR, LPSTR, INT);
 INT  WINAPI Str_GetPtrW (LPCWSTR, LPWSTR, INT);
+
+INT  WINAPI DPA_GetPtrIndex (const HDPA, LPVOID);
+BOOL WINAPI DPA_Grow (const HDPA, INT);
+
+#define DPAM_NOSORT             0x0001
+#define DPAM_INSERT             0x0004
+#define DPAM_DELETE             0x0008
+
+typedef PVOID (CALLBACK *PFNDPAMERGE)(DWORD,PVOID,PVOID,LPARAM);
+BOOL WINAPI DPA_Merge (const HDPA, const HDPA, DWORD, PFNDPACOMPARE, PFNDPAMERGE, LPARAM);
+
+#define DPA_GetPtrCount(hdpa)  (*(INT*)(hdpa))
 
 LRESULT WINAPI SetPathWordBreakProc(HWND hwnd, BOOL bSet);
 BOOL WINAPI MirrorIcon(HICON *phicon1, HICON *phicon2);

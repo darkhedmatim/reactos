@@ -62,7 +62,7 @@ VOID
 CONSOLE_ConInKey(
 	OUT PINPUT_RECORD Buffer)
 {
-	DWORD Read;
+	ULONG Read;
 
 	while (TRUE)
 	{
@@ -78,7 +78,7 @@ VOID
 CONSOLE_ConOutChar(
 	IN CHAR c)
 {
-	DWORD Written;
+	ULONG Written;
 
 	WriteConsole(
 		StdOutput,
@@ -92,7 +92,7 @@ VOID
 CONSOLE_ConOutPuts(
 	IN LPCSTR szText)
 {
-	DWORD Written;
+	ULONG Written;
 
 	WriteConsole(
 		StdOutput,
@@ -113,7 +113,7 @@ CONSOLE_ConOutPrintf(
 	IN LPCSTR szFormat, ...)
 {
 	CHAR szOut[256];
-	DWORD dwWritten;
+	ULONG dwWritten;
 	va_list arg_ptr;
 
 	va_start(arg_ptr, szFormat);
@@ -126,12 +126,6 @@ CONSOLE_ConOutPrintf(
 		(ULONG)strlen(szOut),
 		&dwWritten,
 		NULL);
-}
-
-BOOL
-CONSOLE_Flush(VOID)
-{
-	return FlushConsoleInputBuffer(StdInput);
 }
 
 SHORT
@@ -183,7 +177,7 @@ VOID
 CONSOLE_ClearScreen(VOID)
 {
 	COORD coPos;
-	DWORD Written;
+	ULONG Written;
 
 	coPos.X = 0;
 	coPos.Y = 0;
@@ -204,6 +198,44 @@ CONSOLE_ClearScreen(VOID)
 }
 
 VOID
+CONSOLE_SetStatusText(
+	IN LPCSTR fmt, ...)
+{
+	CHAR Buffer[128];
+	va_list ap;
+	COORD coPos;
+	ULONG Written;
+
+	va_start(ap, fmt);
+	vsprintf(Buffer, fmt, ap);
+	va_end(ap);
+
+	coPos.X = 0;
+	coPos.Y = yScreen - 1;
+
+	FillConsoleOutputAttribute(
+		StdOutput,
+		BACKGROUND_WHITE,
+		xScreen,
+		coPos,
+		&Written);
+
+	FillConsoleOutputCharacterA(
+		StdOutput,
+		' ',
+		xScreen,
+		coPos,
+		&Written);
+
+	WriteConsoleOutputCharacterA(
+		StdOutput,
+		Buffer,
+		(ULONG)strlen(Buffer),
+		coPos,
+		&Written);
+}
+
+VOID
 CONSOLE_InvertTextXY(
 	IN SHORT x,
 	IN SHORT y,
@@ -211,7 +243,7 @@ CONSOLE_InvertTextXY(
 	IN SHORT row)
 {
 	COORD coPos;
-	DWORD Written;
+	ULONG Written;
 
 	for (coPos.Y = y; coPos.Y < y + row; coPos.Y++)
 	{
@@ -234,7 +266,7 @@ CONSOLE_NormalTextXY(
 	IN SHORT row)
 {
 	COORD coPos;
-	DWORD Written;
+	ULONG Written;
 
 	for (coPos.Y = y; coPos.Y < y + row; coPos.Y++)
 	{
@@ -256,7 +288,7 @@ CONSOLE_SetTextXY(
 	IN LPCSTR Text)
 {
 	COORD coPos;
-	DWORD Written;
+	ULONG Written;
 
 	coPos.X = x;
 	coPos.Y = y;
@@ -278,7 +310,7 @@ CONSOLE_SetInputTextXY(
 {
 	COORD coPos;
 	SHORT Length;
-	DWORD Written;
+	ULONG Written;
 
 	coPos.X = x;
 	coPos.Y = y;
@@ -328,8 +360,8 @@ CONSOLE_SetUnderlinedTextXY(
 	IN LPCSTR Text)
 {
 	COORD coPos;
-	DWORD Length;
-	DWORD Written;
+	ULONG Length;
+	ULONG Written;
 
 	coPos.X = x;
 	coPos.Y = y;
@@ -353,118 +385,14 @@ CONSOLE_SetUnderlinedTextXY(
 }
 
 VOID
-CONSOLE_SetStatusText(
-	IN LPCSTR fmt, ...)
-{
-	CHAR Buffer[128];
-	va_list ap;
-	COORD coPos;
-	DWORD Written;
-
-	va_start(ap, fmt);
-	vsprintf(Buffer, fmt, ap);
-	va_end(ap);
-
-	coPos.X = 0;
-	coPos.Y = yScreen - 1;
-
-	FillConsoleOutputAttribute(
-		StdOutput,
-		BACKGROUND_WHITE,
-		xScreen,
-		coPos,
-		&Written);
-
-	FillConsoleOutputCharacterA(
-		StdOutput,
-		' ',
-		xScreen,
-		coPos,
-		&Written);
-
-	WriteConsoleOutputCharacterA(
-		StdOutput,
-		Buffer,
-		(ULONG)strlen(Buffer),
-		coPos,
-		&Written);
-}
-
-VOID
-CONSOLE_SetStatusTextX(
-    IN SHORT x,
-	IN LPCSTR fmt, ...)
-{
-	CHAR Buffer[128];
-	va_list ap;
-	COORD coPos;
-	DWORD Written;
-
-	va_start(ap, fmt);
-	vsprintf(Buffer, fmt, ap);
-	va_end(ap);
-
-	coPos.X = 0;
-	coPos.Y = yScreen - 1;
-
-	FillConsoleOutputAttribute(
-		StdOutput,
-		BACKGROUND_WHITE,
-		xScreen,
-		coPos,
-		&Written);
-
-	FillConsoleOutputCharacterA(
-		StdOutput,
-		' ',
-		xScreen,
-		coPos,
-		&Written);
-
-    coPos.X = x;
-
-	WriteConsoleOutputCharacterA(
-		StdOutput,
-		Buffer,
-		(ULONG)strlen(Buffer),
-		coPos,
-		&Written);
-}
-
-VOID
-CONSOLE_SetStatusTextAutoFitX(
-    IN SHORT x,
-	IN LPCSTR fmt, ...)
-{
-	CHAR Buffer[128];
-    DWORD Length;
-	va_list ap;
-
-	va_start(ap, fmt);
-	vsprintf(Buffer, fmt, ap);
-	va_end(ap);
-
-    Length = (ULONG)strlen(Buffer);
-
-    if (Length + x <= 79)
-    {
-        CONSOLE_SetStatusTextX (x , Buffer);
-    }
-    else
-    {
-        CONSOLE_SetStatusTextX (79 - Length , Buffer);
-    }
-}
-
-VOID
 CONSOLE_SetInvertedTextXY(
 	IN SHORT x,
 	IN SHORT y,
 	IN LPCSTR Text)
 {
 	COORD coPos;
-	DWORD Length;
-	DWORD Written;
+	ULONG Length;
+	ULONG Written;
 
 	coPos.X = x;
 	coPos.Y = y;
@@ -493,8 +421,8 @@ CONSOLE_SetHighlightedTextXY(
 	IN LPCSTR Text)
 {
 	COORD coPos;
-	DWORD Length;
-	DWORD Written;
+	ULONG Length;
+	ULONG Written;
 
 	coPos.X = x;
 	coPos.Y = y;
@@ -525,7 +453,7 @@ CONSOLE_PrintTextXY(
 	CHAR buffer[512];
 	va_list ap;
 	COORD coPos;
-	DWORD Written;
+	ULONG Written;
 
 	va_start(ap, fmt);
 	vsprintf(buffer, fmt, ap);
@@ -553,7 +481,7 @@ CONSOLE_PrintTextXYN(
 	va_list ap;
 	COORD coPos;
 	SHORT Length;
-	DWORD Written;
+	ULONG Written;
 
 	va_start(ap, fmt);
 	vsprintf(buffer, fmt, ap);
@@ -584,90 +512,6 @@ CONSOLE_PrintTextXYN(
 			coPos,
 			&Written);
 	}
-}
-
-VOID
-CONSOLE_SetStyledText(
-	IN SHORT x,
-	IN SHORT y,
-	IN INT Flags,
-	IN LPCSTR Text)
-{
-	COORD coPos;
-	DWORD Length;
-
-	coPos.X = x;
-	coPos.Y = y;
-
-	Length = (ULONG)strlen(Text);
-
-    if (Flags & TEXT_TYPE_STATUS)
-	{
-		coPos.X = x;
-		coPos.Y = yScreen - 1;
-	}
-    else /* TEXT_TYPE_REGULAR (Default) */
-    {
-        coPos.X = x;
-		coPos.Y = y;
-    }
-
-    if (Flags & TEXT_ALIGN_CENTER)
-	{
-		coPos.X = (xScreen - Length) /2; 
-	}
-    else if(Flags & TEXT_ALIGN_RIGHT)
-	{
-		coPos.X = coPos.X - Length; 
-
-		if (Flags & TEXT_PADDING_SMALL)
-		{
-			coPos.X -= 1;
-		}
-		else if (Flags & TEXT_PADDING_MEDIUM)
-		{
-			coPos.X -= 2; 
-		}
-		else if (Flags & TEXT_PADDING_BIG)
-		{
-			coPos.X -= 3;
-		}
-	}
-   	else /* TEXT_ALIGN_LEFT (Default) */
-	{
-		if (Flags & TEXT_PADDING_SMALL)
-		{
-			coPos.X += 1;
-		}
-		else if (Flags & TEXT_PADDING_MEDIUM)
-		{
-			coPos.X += 2; 
-		}		
-		else if (Flags & TEXT_PADDING_BIG)
-		{
-			coPos.X += 3;
-		}
-	}
-
-	if (Flags & TEXT_TYPE_STATUS)
-	{
-        CONSOLE_SetStatusTextX(coPos.X, Text);
-	}
-    else /* TEXT_TYPE_REGULAR (Default) */
-    {
-        if (Flags & TEXT_STYLE_HIGHLIGHT)
-	    {
-            CONSOLE_SetHighlightedTextXY(coPos.X, coPos.Y, Text);
-	    }
-        else if (Flags & TEXT_STYLE_UNDERLINE)
-	    {
-            CONSOLE_SetUnderlinedTextXY(coPos.X, coPos.Y, Text);
-	    }
-        else /* TEXT_STYLE_NORMAL (Default) */
-        {
-            CONSOLE_SetTextXY(coPos.X, coPos.Y, Text);
-        }
-    }
 }
 
 /* EOF */

@@ -5,11 +5,11 @@
 
 INT FASTCALL
 DIB_BitmapInfoSize (const BITMAPINFO * info, WORD coloruse);
-HBITMAP APIENTRY
+HBITMAP STDCALL
 DIB_CreateDIBSection (PDC dc, PBITMAPINFO bmi, UINT usage, LPVOID *bits, HANDLE section, DWORD offset, DWORD ovr_pitch);
-INT APIENTRY
+INT STDCALL
 DIB_GetBitmapInfo( const BITMAPINFOHEADER *header, PLONG width, PLONG height, PWORD planes, PWORD bpp, PLONG compr, PLONG size );
-INT APIENTRY
+INT STDCALL
 DIB_GetDIBImageBytes (INT  width, INT height, INT depth);
 INT FASTCALL
 DIB_GetDIBWidthBytes (INT width, INT depth);

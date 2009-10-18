@@ -23,6 +23,10 @@
 #ifndef __STORPORT_H
 #define __STORPORT_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "srb.h"
 
 #ifdef __cplusplus
@@ -30,7 +34,7 @@ extern "C" {
 #endif
 
 #if defined(_STORPORT_)
-  #define STORPORTAPI
+  #define STORPORTAPI DECLSPEC_EXPORT
 #else
   #define STORPORTAPI DECLSPEC_IMPORT
 #endif
@@ -391,8 +395,8 @@ StorPortGetScatterGatherList(
   IN PVOID  DeviceExtension,
   IN PSCSI_REQUEST_BLOCK  Srb);
 
-typedef BOOLEAN
-(DDKAPI *PSTOR_SYNCHRONIZED_ACCESS)(
+typedef BOOLEAN DDKAPI
+(*PSTOR_SYNCHRONIZED_ACCESS)(
   IN PVOID  HwDeviceExtension,
   IN PVOID  Context);
 
@@ -404,7 +408,7 @@ StorPortSynchronizeAccess(
   IN PSTOR_SYNCHRONIZED_ACCESS  SynchronizedAccessRoutine,
   IN PVOID  Context);
 
-#if DBG
+#ifdef DBG
 #define DebugPrint(x) StorPortDebugPrint x
 #else
 #define DebugPrint(x)

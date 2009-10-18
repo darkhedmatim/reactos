@@ -12,9 +12,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 /*
  * COPYRIGHT:       See COPYING in the top level directory
@@ -43,7 +43,7 @@ CreateCommonFreeLoaderSections(PINICACHE IniCache)
   IniSection = IniCacheAppendSection(IniCache,
 				     L"FREELOADER");
 
-#if DBG
+#ifdef DBG
   if (IsUnattendedSetup)
   {
     /* DefaultOS=ReactOS */
@@ -51,7 +51,7 @@ CreateCommonFreeLoaderSections(PINICACHE IniCache)
 	  	    NULL,
 		    INSERT_LAST,
 		    L"DefaultOS",
-		    L"ReactOS_KdSerial");
+		    L"ReactOS_Debug");
   }
   else
 #endif
@@ -64,7 +64,7 @@ CreateCommonFreeLoaderSections(PINICACHE IniCache)
 		    L"ReactOS");
   }
 
-#if DBG
+#ifdef DBG
   if (IsUnattendedSetup)
 #endif
   {
@@ -75,7 +75,7 @@ CreateCommonFreeLoaderSections(PINICACHE IniCache)
 		    L"TimeOut",
 		    L"0");
   }
-#if DBG
+#ifdef DBG
   else
   {
     /* Timeout=0 or 10 */
@@ -305,12 +305,12 @@ CreateFreeLoaderIniForDos(PWCHAR IniPath,
 		    L"SystemPath",
 		    ArcPath);
 
-  /* Options=/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS */
+  /* Options=/DEBUGPORT=SCREEN /NOGUIBOOT /SOS*/
   IniCacheInsertKey(IniSection,
 		    NULL,
 		    INSERT_LAST,
 		    L"Options",
-		    L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS");
+		    L"/DEBUGPORT=SCREEN /NOGUIBOOT /SOS");
 
   /* Create "DOS" section */
   IniSection = IniCacheAppendSection(IniCache,
@@ -352,52 +352,6 @@ CreateFreeLoaderIniForDos(PWCHAR IniPath,
 
 
 NTSTATUS
-CreateFreeLoaderEntry(
-    PINICACHE IniCache,
-    PINICACHESECTION OSSection,
-    PWCHAR Section,
-    PWCHAR Description,
-    PWCHAR BootType,
-    PWCHAR ArcPath,
-    PWCHAR Options)
-{
-    PINICACHESECTION IniSection;
-
-    /* Insert entry into "Operating Systems" section */
-    IniCacheInsertKey(OSSection,
-        NULL,
-        INSERT_LAST,
-        Section,
-        Description);
-
-    /* Create new section */
-    IniSection = IniCacheAppendSection(IniCache, Section);
-
-    /* BootType= */
-    IniCacheInsertKey(IniSection,
-        NULL,
-        INSERT_LAST,
-        L"BootType",
-        BootType);
-
-    /* SystemPath= */
-    IniCacheInsertKey(IniSection,
-        NULL,
-        INSERT_LAST,
-        L"SystemPath",
-        ArcPath);
-
-    /* Options=*/
-    IniCacheInsertKey(IniSection,
-        NULL,
-        INSERT_LAST,
-        L"Options",
-        Options);
-
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
 CreateFreeLoaderIniForReactos(PWCHAR IniPath,
 			      PWCHAR ArcPath)
 {
@@ -412,49 +366,62 @@ CreateFreeLoaderIniForReactos(PWCHAR IniPath,
   IniSection = IniCacheAppendSection(IniCache,
 				     L"Operating Systems");
 
-    /* ReactOS */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS", L"\"ReactOS\"",
-        L"Windows2003", ArcPath,
-        L"");
+  /* ReactOS="ReactOS" */
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"ReactOS",
+		    L"\"ReactOS\"");
 
-    /* ReactOS_Debug */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS_Debug", L"\"ReactOS (Debug)\"",
-        L"Windows2003", ArcPath,
-        L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS");
+  /* ReactOS_Debug="ReactOS (Debug)" */
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"ReactOS_Debug",
+		    L"\"ReactOS (Debug)\"");
 
-#if DBG
-    /* ReactOS_KdSerial */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS_KdSerial", L"\"ReactOS (RosDbg)\"",
-        L"ReactOS", ArcPath,
-        L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS /KDSERIAL");
+  /* Create "ReactOS" section */
+  IniSection = IniCacheAppendSection(IniCache,
+				     L"ReactOS");
 
-    /* ReactOS_LogFile */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS_LogFile", L"\"ReactOS (Log file)\"",
-        L"Windows2003", ArcPath,
-        L"/DEBUG /DEBUGPORT=FILE /SOS");
+  /* BootType=ReactOS */
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"BootType",
+		    L"ReactOS");
 
-    /* ReactOS_Ram */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS_Ram", L"\"ReactOS (RAM Disk)\"",
-        L"ReactOS", L"ramdisk(0)\\ReactOS",
-        L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS /RDIMAGEPATH=reactos.img /RDIMAGEOFFSET=32256");
-#endif
+  /* SystemPath=<ArcPath> */
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"SystemPath",
+		    ArcPath);
 
-    /* ReactOS_old */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS_old", L"\"ReactOS (old boot method)\"",
-        L"ReactOS", ArcPath,
-        L"");
+  /* Create "ReactOS_Debug" section */
+  IniSection = IniCacheAppendSection(IniCache,
+				     L"ReactOS_Debug");
 
-    /* ReactOS_Debug_old */
-    CreateFreeLoaderEntry(IniCache, IniSection,
-        L"ReactOS_Debug_old", L"\"ReactOS (Debug, old boot method)\"",
-        L"ReactOS", ArcPath,
-        L"/DEBUG /DEBUGPORT=COM1 /BAUDRATE=115200 /SOS");
+  /* BootType=ReactOS */
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"BootType",
+		    L"ReactOS");
+
+  /* SystemPath=<ArcPath> */
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"SystemPath",
+		    ArcPath);
+
+  /* Options=/DEBUGPORT=COM1 /NOGUIBOOT /SOS*/
+  IniCacheInsertKey(IniSection,
+		    NULL,
+		    INSERT_LAST,
+		    L"Options",
+		    L"/DEBUGPORT=COM1 /NOGUIBOOT /SOS");
 
   /* Save the ini file */
   IniCacheSave(IniCache, IniPath);
@@ -937,6 +904,7 @@ InstallFat32BootCodeToFile(PWSTR SrcPath,
   NtClose(FileHandle);
   if (!NT_SUCCESS(Status))
   {
+CHECKPOINT1;
     RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
     return(Status);
   }
@@ -1851,7 +1819,7 @@ InstallFatBootcodeToPartition(PUNICODE_STRING SystemRootPath,
 	NTSTATUS Status;
 
 	/* FAT or FAT32 partition */
-	DPRINT("System path: '%wZ'\n", SystemRootPath);
+	DPRINT1("System path: '%wZ'\n", SystemRootPath);
 
 	if (DoesFileExist(SystemRootPath->Buffer, L"ntldr") == TRUE ||
 		DoesFileExist(SystemRootPath->Buffer, L"boot.ini") == TRUE)
@@ -2065,7 +2033,7 @@ InstallFatBootcodeToPartition(PUNICODE_STRING SystemRootPath,
 		wcscpy(DstPath, SystemRootPath->Buffer);
 		wcscat(DstPath, L"\\freeldr.sys");
 
-		DPRINT("Copy: %S ==> %S\n", SrcPath, DstPath);
+		DPRINT1("Copy: %S ==> %S\n", SrcPath, DstPath);
 		Status = SetupCopyFile(SrcPath, DstPath);
 		if (!NT_SUCCESS(Status))
 		{
@@ -2080,7 +2048,7 @@ InstallFatBootcodeToPartition(PUNICODE_STRING SystemRootPath,
 			wcscpy(DstPath, SystemRootPath->Buffer);
 			wcscat(DstPath, L"\\freeldr.ini");
 
-			DPRINT("Copy: %S ==> %S\n", SrcPath, DstPath);
+			DPRINT1("Copy: %S ==> %S\n", SrcPath, DstPath);
 			Status = CreateFreeLoaderIniForReactos(DstPath,
 				DestinationArcPath->Buffer);
 			if (!NT_SUCCESS(Status))
@@ -2094,7 +2062,7 @@ InstallFatBootcodeToPartition(PUNICODE_STRING SystemRootPath,
 			wcscpy(DstPath, SystemRootPath->Buffer);
 			wcscat(DstPath, L"\\bootsect.old");
 
-			DPRINT("Save bootsector: %S ==> %S\n", SrcPath, DstPath);
+			DPRINT1("Save bootsector: %S ==> %S\n", SrcPath, DstPath);
 			Status = SaveCurrentBootSector(SrcPath,
 				DstPath);
 			if (!NT_SUCCESS(Status))

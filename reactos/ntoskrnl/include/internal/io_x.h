@@ -6,23 +6,20 @@
 * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
 */
 
-static
-__inline
 VOID
+static __inline
 IopLockFileObject(IN PFILE_OBJECT FileObject)
 {
-	/* Lock the FO and check for contention */
-    InterlockedIncrement((PLONG)&FileObject->Waiters);
-    while (InterlockedCompareExchange((PLONG)&FileObject->Busy, TRUE, FALSE) != FALSE)
+    /* Lock the FO and check for contention */
+    if (InterlockedExchange((PLONG)&FileObject->Busy, TRUE))
     {
-        /* FIXME - pause for a little while? */
+        /* FIXME: Implement contention case */
+        KEBUGCHECK(0);
     }
-    InterlockedDecrement((PLONG)&FileObject->Waiters);
 }
 
-static
-__inline
 VOID
+static __inline
 IopUnlockFileObject(IN PFILE_OBJECT FileObject)
 {
     /* Unlock the FO and wake any waiters up */
@@ -30,8 +27,8 @@ IopUnlockFileObject(IN PFILE_OBJECT FileObject)
     if (FileObject->Waiters) KeSetEvent(&FileObject->Lock, 0, FALSE);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 IopQueueIrpToThread(IN PIRP Irp)
 {
     KIRQL OldIrql;
@@ -46,8 +43,8 @@ IopQueueIrpToThread(IN PIRP Irp)
     KeLowerIrql(OldIrql);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 IopUnQueueIrpFromThread(IN PIRP Irp)
 {
     /* Remove it from the list and reset it */
@@ -55,9 +52,8 @@ IopUnQueueIrpFromThread(IN PIRP Irp)
     InitializeListHead(&Irp->ThreadListEntry);
 }
 
-static
-__inline
 VOID
+static __inline
 IopUpdateOperationCount(IN IOP_TRANSFER_TYPE Type)
 {
     PLARGE_INTEGER CountToChange;
@@ -75,13 +71,13 @@ IopUpdateOperationCount(IN IOP_TRANSFER_TYPE Type)
         {
             /* Increase write count */
             IoWriteOperationCount++;
-            CountToChange = &PsGetCurrentProcess()->WriteOperationCount;
+            CountToChange = &PsGetCurrentProcess()->ReadOperationCount;
         }
         else
         {
             /* Increase other count */
             IoOtherOperationCount++;
-            CountToChange = &PsGetCurrentProcess()->OtherOperationCount;
+            CountToChange = &PsGetCurrentProcess()->ReadOperationCount;
         }
 
         /* Increase the process-wide count */
@@ -89,47 +85,8 @@ IopUpdateOperationCount(IN IOP_TRANSFER_TYPE Type)
     }
 }
 
-static
-__inline
-VOID
-IopUpdateTransferCount(IN IOP_TRANSFER_TYPE Type, IN ULONG TransferCount)
-{
-    PLARGE_INTEGER CountToChange;
-    PLARGE_INTEGER TransferToChange;
-
-    /* Make sure I/O operations are being counted */
-    if (IoCountOperations)
-    {
-        if (Type == IopReadTransfer)
-        {
-            /* Increase read count */
-            CountToChange = &PsGetCurrentProcess()->ReadTransferCount;
-            TransferToChange = &IoReadTransferCount;
-        }
-        else if (Type == IopWriteTransfer)
-        {
-            /* Increase write count */
-            CountToChange = &PsGetCurrentProcess()->WriteTransferCount;
-            TransferToChange = &IoWriteTransferCount;
-        }
-        else
-        {
-            /* Increase other count */
-            CountToChange = &PsGetCurrentProcess()->OtherTransferCount;
-            TransferToChange = &IoOtherTransferCount;
-        }
-
-        /* Increase the process-wide count */
-        ExInterlockedAddLargeStatistic(CountToChange, TransferCount);
-
-        /* Increase global count */
-        ExInterlockedAddLargeStatistic(TransferToChange, TransferCount);
-    }
-}
-
-static
-__inline
 BOOLEAN
+static __inline
 IopValidateOpenPacket(IN POPEN_PACKET OpenPacket)
 {
     /* Validate the packet */

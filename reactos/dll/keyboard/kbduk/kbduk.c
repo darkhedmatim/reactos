@@ -1,8 +1,8 @@
 /*
- * ReactOS United Kingdom keyboard layout
+ * ReactOS USASCII Keyboard layout
  * Copyright (C) 2003 ReactOS
  * License: LGPL, see: LGPL.txt
- *
+ * 
  * Thanks to: http://www.barcodeman.com/altek/mule/scandoc.php
  * and http://win.tue.nl/~aeb/linux/kbd/scancodes-1.html
  */
@@ -32,12 +32,10 @@
 #define KNUMS    0xc00  /* Special + number pad */
 #define KMEXT    0x300  /* Multi + ext */
 
-#define SHFT_INVALID 0x0F
-
 ROSDATA USHORT scancode_to_vk[] = {
   /* Numbers Row */
   /* - 00 - */
-  /* 1 ...         2 ...         3 ...         4 ... */
+  /* 1 ...         2 ...         3 ...         4 ... */     
   VK_EMPTY,     VK_ESCAPE,    '1',          '2',
   '3',          '4',          '5',          '6',
   '7',          '8',          '9',          '0',
@@ -46,14 +44,14 @@ ROSDATA USHORT scancode_to_vk[] = {
   /* First Letters Row */
   VK_TAB,       'Q',          'W',          'E',
   'R',          'T',          'Y',          'U',
-  'I',          'O',          'P',
+  'I',          'O',          'P',          
   VK_OEM_4,     VK_OEM_6,	VK_RETURN,
   /* - 1d - */
   /* Second Letters Row */
-  VK_LCONTROL,
+  VK_LCONTROL,  
   'A',          'S',          'D',          'F',
   'G',          'H',          'J',          'K',
-  'L',          VK_OEM_1,     VK_OEM_3,     VK_OEM_8,
+  'L',          VK_OEM_1,     VK_OEM_3,     VK_OEM_8,  
   VK_LSHIFT,    VK_OEM_7,
   /* - 2c - */
   /* Third letters row */
@@ -63,15 +61,15 @@ ROSDATA USHORT scancode_to_vk[] = {
   /* - 37 - */
   /* Bottom Row */
   VK_MULTIPLY,  VK_MENU,     VK_SPACE,     VK_CAPITAL,
-
+  
   /* - 3b - */
   /* F-Keys */
-  VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6,
+  VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, 
   VK_F7, VK_F8, VK_F9, VK_F10,
   /* - 45 - */
   /* Locks */
-  VK_NUMLOCK | KMEXT,
-  VK_SCROLL | KMULTI,
+  VK_NUMLOCK | KMEXT,   
+  VK_SCROLL | KMULTI,    
   /* - 47 - */
   /* Number-Pad */
   VK_HOME | KNUMS,      VK_UP | KNUMS,         VK_PRIOR | KNUMS, VK_SUBTRACT,
@@ -87,11 +85,11 @@ ROSDATA USHORT scancode_to_vk[] = {
   /* - 59 - */
   VK_CLEAR,     VK_EMPTY,     VK_EMPTY,     VK_EMPTY,     VK_EMPTY, /* EREOF */
   VK_EMPTY,     VK_EMPTY,     VK_EMPTY,     VK_EMPTY,     VK_EMPTY, /* ZOOM */
-  VK_HELP,
+  VK_HELP,      
   /* - 64 - */
   /* Even more F-Keys (for example, NCR keyboards from the early 90's) */
   VK_F13, VK_F14, VK_F15, VK_F16, VK_F17, VK_F18, VK_F19, VK_F20,
-  VK_F21, VK_F22, VK_F23,
+  VK_F21, VK_F22, VK_F23, 
   /* - 6f - */
   /* Not sure who uses these codes */
   VK_EMPTY, VK_EMPTY, VK_EMPTY,
@@ -130,8 +128,7 @@ ROSDATA VK_TO_BIT modifier_keys[] = {
 ROSDATA MODIFIERS modifier_bits = {
   modifier_keys,
   7,
-  { 0, 1, 2, 3, 0, 0, 4, 5 }
-  /* Modifier bit order: NONE, SHIFT, CTRL, SHIFT-CTRL, ALT (not used), SHIFT-ALT (not used), CTRL-ALT, SHIFT-CTRL-ALT */
+  { 0, 1, 2, 3 ,0, 0,4,5} /* Modifier bit order, NONE, SHIFT, CTRL, SHIFT+CTRL,ALT(not used),SHIFT-ALT (not used), CTR+ALT, SHIFT-CTRL-ALT*/
 };
 
 #define NOCAPS 0
@@ -154,7 +151,7 @@ ROSDATA VK_TO_WCHARS2 key_to_chars_2mod[] = {
   { VK_OEM_PERIOD,	NOCAPS, {'.', '>'} },
   { VK_OEM_2,		NOCAPS, {'/', '?'} },
 
-
+  
   /* Keys that do not have shift states */
   { VK_TAB,		NOCAPS, {'\t','\t'} },
   { VK_ADD,		NOCAPS, {'+', '+'} },
@@ -204,7 +201,7 @@ ROSDATA VK_TO_WCHARS4 key_to_chars_4mod[] = {
   { 'Z',         CAPS,   {'z', 'Z', 0x1a, 0x1a} },
 
   /* Legacy Ascii generators */
-
+  
  { '6', NOCAPS, {'6', '^', WCH_NONE, 0x1e} },
  { VK_OEM_MINUS, NOCAPS, {'-', '_', WCH_NONE, 0x1f} },
  { VK_OEM_3, NOCAPS, {'\'', '@', WCH_NONE, 0x00} },
@@ -221,7 +218,7 @@ ROSDATA VK_TO_WCHARS5 key_to_chars_5mod[] = {
 
 ROSDATA VK_TO_WCHARS6 key_to_chars_6mod[] = {
   /* Normal, Shifted, Ctrl, Sh-Ctrl,Sh-Alt,Ctl-Alt,Ctl-Sh-Alt */
-
+ 
   { 'E',         CAPS,   {'e', 'E', 0x05, 0x05, 0x00e9, 0x00c9} },
   { 'U',         CAPS,   {'u', 'U', 0x15, 0x15, 0x00fa, 0x00da} },
   { 'I',         CAPS,   {'i', 'I', 0x09, 0x09, 0x00ed, 0x00cd} },
@@ -344,10 +341,10 @@ ROSDATA VSC_LPWSTR extended_key_names[] = {
 ROSDATA KBDTABLES keyboard_layout_table = {
   /* modifier assignments */
   &modifier_bits,
-
+  
   /* character from vk tables */
   vk_to_wchar_master_table,
-
+  
   /* diacritical marks -- currently implemented by wine code */
   /* English doesn't have any, anyway */
   NULL,
@@ -364,7 +361,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   extcode1_to_vk,
 
 
-  MAKELONG(1,1), /* Version 1.0 */
+  MAKELONG(0,1), /* Version 1.0 */
 
   /* Ligatures -- English doesn't have any */
   0,
@@ -372,7 +369,7 @@ ROSDATA KBDTABLES keyboard_layout_table = {
   NULL
 };
 
-PKBDTABLES WINAPI KbdLayerDescriptor(VOID) {
+PKBDTABLES STDCALL KbdLayerDescriptor(VOID) {
   return &keyboard_layout_table;
 }
 

@@ -23,6 +23,11 @@
 #ifndef __PRIORITY_H
 #define __PRIORITY_H
 
-void DoSetPriority(DWORD priority);
+void ProcessPage_OnSetPriorityRealTime(void);
+void ProcessPage_OnSetPriorityHigh(void);
+void ProcessPage_OnSetPriorityAboveNormal(void);
+void ProcessPage_OnSetPriorityNormal(void);
+void ProcessPage_OnSetPriorityBelowNormal(void);
+void ProcessPage_OnSetPriorityLow(void);
 
 #endif /* __PRIORITY_H */

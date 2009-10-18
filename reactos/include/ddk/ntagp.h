@@ -23,6 +23,10 @@
 #ifndef __NTAGP_H
 #define __NTAGP_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "video.h"
 
 #ifdef __cplusplus

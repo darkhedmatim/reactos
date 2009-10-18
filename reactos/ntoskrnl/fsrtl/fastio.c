@@ -3,14 +3,23 @@
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            ntoskrnl/fsrtl/fastio.c
  * PURPOSE:         Provides Fast I/O entrypoints to the Cache Manager
- * PROGRAMMERS:     buzdelabuz2@gmail.com,alex.ionescu@reactos.org
+ * PROGRAMMERS:     None.
  */
 
 /* INCLUDES ******************************************************************/
 
+#ifdef _WINDOWS_TESTING
+#include <ntifs.h>
+#include "ntndk.h"
+#include "fsrtl_glue.h"
+#else
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <debug.h>
+#include <ntifs.h>
+#include <cctypes.h>
+#endif /* _WINDOWS_TESTING */
+
 
 /* PUBLIC FUNCTIONS **********************************************************/
 
@@ -27,7 +36,7 @@ FsRtlIncrementCcFastReadResourceMiss(VOID)
 /*
  * @implemented
  */
-VOID
+VOID 
 NTAPI
 FsRtlIncrementCcFastReadNotPossible(VOID)
 {
@@ -54,6 +63,20 @@ FsRtlIncrementCcFastReadNoWait(VOID)
     CcFastReadNoWait++;
 }
 
+_SEH_FILTER(FsRtlCcCopyFilter)
+{
+   LONG ExceptionDisposition;
+ 
+   /* Check if this was an expected exception */
+   ExceptionDisposition = FsRtlIsNtstatusExpected(_SEH_GetExceptionCode() ?
+                                                  EXCEPTION_EXECUTE_HANDLER :
+                                                  EXCEPTION_CONTINUE_SEARCH);
+ 
+   /* Continue execution if we expected it, otherwise fail the call */
+   return ExceptionDisposition;
+}	
+
+
 /*
  * @implemented
  */
@@ -74,7 +97,7 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
     PFAST_IO_DISPATCH FastIoDispatch;
     PDEVICE_OBJECT Device;
     BOOLEAN Result = TRUE;
-	ULONG PageCount = ADDRESS_AND_SIZE_TO_SPAN_PAGES(FileOffset,Length);
+	ULONG PageCount = COMPUTE_PAGES_SPANNED(FileOffset,Length);
 
 	PAGED_CODE();
     ASSERT(FileObject);
@@ -88,7 +111,7 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
         IoStatus->Information = 0;
         return TRUE;
     }
-
+		
     if (MAXLONGLONG < (LONGLONG) FileOffset->QuadPart + Length) {
 			IoStatus->Status = STATUS_INVALID_PARAMETER;
 			IoStatus->Information = 0;
@@ -99,7 +122,7 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
     Offset.QuadPart = FileOffset->QuadPart + Length;
     FcbHeader = (PFSRTL_COMMON_FCB_HEADER)FileObject->FsContext;
 
-
+    
 	if (Wait) {
         /* Use a Resource Acquire */
         FsRtlEnterFileSystem();
@@ -170,14 +193,13 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
         Length = (ULONG)(FcbHeader->FileSize.QuadPart - FileOffset->QuadPart);
     }
 
-    /* Set this as top-level IRP */
+    /* Set this as top-level IRP */ 
    	PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
-	_SEH2_TRY
-	{
+	_SEH_TRY {
 	    /* Make sure the IO and file size is below 4GB */
 		if (Wait && !(Offset.HighPart | FcbHeader->FileSize.HighPart )) {
-
+				
                 /* Call the cache controller */
 				CcFastCopyRead (FileObject,FileOffset->LowPart,Length,PageCount,Buffer,IoStatus);
                 /* File was accessed */
@@ -185,15 +207,15 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
 				if (IoStatus->Status != STATUS_END_OF_FILE) {
 					ASSERT(( FcbHeader->FileSize.QuadPart) >= (FileOffset->QuadPart + IoStatus->Information));
 				}
-
+				
 		} else {
-
+		
             /* Call the cache controller */
 			Result = CcCopyRead(FileObject, FileOffset, Length, Wait,Buffer, IoStatus);
             /* File was accessed */
 			FileObject->Flags |= FO_FILE_FAST_IO_READ;
 			if (Result == TRUE) {
-				ASSERT(		(IoStatus->Status == STATUS_END_OF_FILE) ||
+				ASSERT(		(IoStatus->Status == STATUS_END_OF_FILE) ||	
 									((LONGLONG)(FileOffset->QuadPart + IoStatus->Information) <= FcbHeader->FileSize.QuadPart)
 							  );
 			}
@@ -204,13 +226,12 @@ FsRtlCopyRead(IN PFILE_OBJECT FileObject,
 			FileObject->CurrentByteOffset.QuadPart += IoStatus->Information;
 		}
 	}
-	_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
-	{
+	_SEH_EXCEPT(FsRtlCcCopyFilter) {
 		Result = FALSE;
-    } _SEH2_END;
-
+       } _SEH_END;
+	
 	PsGetCurrentThread()->TopLevelIrp = 0;
-
+	
     /* Return to caller */
 Cleanup:
 
@@ -222,7 +243,7 @@ Cleanup:
 	}
 
     return Result;
-
+    
 }
 
 
@@ -247,7 +268,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
     PFSRTL_COMMON_FCB_HEADER FcbHeader;
 
     /* WDK doc. Offset=0xffffffffffffffff indicates append to the end of file */
-    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == (LONG)0xffffffff) && (FileOffset->LowPart == 0xffffffff));
+    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == 0xffffffff) && (FileOffset->LowPart == 0xffffffff));
     BOOLEAN ResourceAquiredShared = FALSE;
 
     BOOLEAN b_4GB = FALSE;
@@ -258,7 +279,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 
     LARGE_INTEGER NewSize;
     LARGE_INTEGER Offset;
-
+    
     PAGED_CODE();
 
     ASSERT(FileObject);
@@ -289,7 +310,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
     FsRtlEnterFileSystem();
 
     /* Nagar p.544/545 -- The CcFastCopyWrite doesn't deal with filesize beyond 4GB*/
-    if (Wait && (FcbHeader->AllocationSize.HighPart == 0))
+    if (Wait && (FcbHeader->AllocationSize.HighPart == 0)) 
     {
         /* If the file offset is not past the file size, then we can acquire the lock shared */
         if ((FileOffsetAppend == FALSE) && (Offset.LowPart <= FcbHeader->ValidDataLength.LowPart)){
@@ -304,9 +325,9 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
         	Offset.LowPart = FcbHeader->FileSize.LowPart;
         	NewSize.LowPart = FcbHeader->FileSize.LowPart + Length;
         	b_4GB = (NewSize.LowPart < FcbHeader->FileSize.LowPart);
-
+        	
         } else {
-        	Offset.LowPart = FileOffset->LowPart;
+        	Offset.LowPart = FileOffset->LowPart; 
         	NewSize.LowPart = FileOffset->LowPart + Length;
         	b_4GB = ((NewSize.LowPart < FileOffset->LowPart) || (FileOffset->HighPart != 0));
         }
@@ -316,7 +337,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
             That fast are allowed for this file stream.
             That we are not extending past the allocated size
             That we are not creating a hole bigger than 8k
-            That we are not crossing the 4GB boundary
+            That we are not crossing the 4GB boundary            
         */
         if ( 	(FileObject->PrivateCacheMap != NULL)  &&
         		(FcbHeader->IsFastIoPossible != FastIoIsNotPossible) &&
@@ -329,31 +350,28 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
                 exclusively, because we are going to need to update the FcbHeader */
         	if (ResourceAquiredShared && (NewSize.LowPart  > (FcbHeader->ValidDataLength.LowPart + 0x2000))) {
         		/* Then we need to acquire the resource exclusive */
-        		ExReleaseResourceLite(FcbHeader->Resource);
+        		ExReleaseResourceLite(FcbHeader->Resource); 
         		ExAcquireResourceExclusiveLite(FcbHeader->Resource,TRUE);
         		if (FileOffsetAppend == TRUE) {
         			Offset.LowPart = FcbHeader->FileSize.LowPart; // ??
         			NewSize.LowPart = FcbHeader->FileSize.LowPart + Length;
         			/* Make sure we don't cross the 4GB boundary */
         			b_4GB = (NewSize.LowPart < Offset.LowPart);
-        		}
-
+        		} 
+        		
                 /* Recheck some of the conditions since we let the lock go */
         		if ( 	(FileObject->PrivateCacheMap != NULL)  &&
         				(FcbHeader->IsFastIoPossible != FastIoIsNotPossible) &&
         				(FcbHeader->AllocationSize.LowPart >= NewSize.LowPart) &&
         				(FcbHeader->AllocationSize.HighPart == 0) &&
         				!b_4GB
-        			)
-        	    {
-        		} else
-        		{
+        			) {
+        		} else {
         			goto FailAndCleanup;
         		}
         	}
-
-        }else
-        {
+        		
+        }else {
         		goto FailAndCleanup;
         }
 
@@ -361,7 +379,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 	    if (FcbHeader->IsFastIoPossible == FastIoIsQuestionable)
 	    {
 			 IO_STATUS_BLOCK FastIoCheckIfPossibleStatus;
-
+	    
 	        /* Sanity check */
 	        ASSERT(!KeIsExecutingDpc());
 
@@ -387,7 +405,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 	            goto FailAndCleanup;
 	        }
 		}
-
+			
         /*  If we are going to extend the file then save the old file size
             in case the operation fails
         */
@@ -397,12 +415,11 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 			OldValidDataLength.LowPart = FcbHeader->ValidDataLength.LowPart;
 			FcbHeader->FileSize.LowPart = NewSize.LowPart;
 		}
-
-	    /* Set this as top-level IRP */
+			
+	    /* Set this as top-level IRP */ 
 	    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
-		_SEH2_TRY
-		{
+		_SEH_TRY {
 			if (Offset.LowPart > FcbHeader->ValidDataLength.LowPart) {
 				LARGE_INTEGER OffsetVar;
 				OffsetVar.LowPart = Offset.LowPart;
@@ -412,12 +429,11 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 
 			/* Call the cache manager */
 			CcFastCopyWrite(FileObject,Offset.LowPart,Length,Buffer);
-		}
-		_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
-		{
+		}	
+		_SEH_EXCEPT(FsRtlCcCopyFilter) {
 			Result = FALSE;
-	    } _SEH2_END;
-
+	    } _SEH_END;
+				
         /* Remove ourselves at the top level component after the IO is done */
 	    PsGetCurrentThread()->TopLevelIrp = 0;
 
@@ -439,9 +455,9 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 
             /* Update the file object current file offset */
 			FileObject->CurrentByteOffset.QuadPart = NewSize.LowPart;
-
+			
 		} else {
-
+		
 			/* Result == FALSE if we get here. */
 			if (FileSizeModified) {
 			    /* If the file size was modified then restore the old file size */
@@ -459,31 +475,31 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 			} else {
 			}
 		}
-
+		
 		goto Cleanup;
-
+		
 	} else {
-
+		
 		LARGE_INTEGER OldFileSize;
 
 		/* Sanity check */
 		ASSERT(!KeIsExecutingDpc());
-
-		// Nagar P.544
-        /* Check if we need to acquire the resource exclusive */
+		
+		// Nagar P.544 
+        /* Check if we need to acquire the resource exclusive */		
 		if ( 	(FileOffsetAppend == FALSE) &&
 				( (FileOffset->QuadPart + Length)  <= FcbHeader->ValidDataLength.QuadPart )
 			)
 		{
 		    /* Acquire the resource shared */
 			if (!ExAcquireResourceSharedLite(FcbHeader->Resource,Wait)) {
-				goto LeaveCriticalAndFail;
+				goto FailAndCleanup;
 			}
 			ResourceAquiredShared =TRUE;
 		} else {
 		    /* Acquire the resource exclusive */
 			if (!ExAcquireResourceExclusiveLite(FcbHeader->Resource,Wait)) {
-				goto LeaveCriticalAndFail;
+				goto FailAndCleanup;
 			}
 		}
 
@@ -507,13 +523,12 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 				((FcbHeader->ValidDataLength.QuadPart + 0x2000) > Offset.QuadPart) &&
 				(MAXLONGLONG > (Offset.QuadPart + Length)) &&
 				(FcbHeader->AllocationSize.QuadPart >= NewSize.QuadPart)
-			)
+			) 
 		{
 		    /* Check if we can keep the lock shared */
 			if (ResourceAquiredShared && (NewSize.QuadPart > FcbHeader->ValidDataLength.QuadPart) ) {
 				ExReleaseResourceLite(FcbHeader->Resource);
-				if(!ExAcquireResourceExclusiveLite(FcbHeader->Resource,Wait))
-				{
+				if(!ExAcquireResourceExclusiveLite(FcbHeader->Resource,Wait)) {
 					goto LeaveCriticalAndFail;
 				}
 
@@ -527,8 +542,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 				if ( 	(FileObject->PrivateCacheMap != NULL)  &&
 						(FcbHeader->IsFastIoPossible != FastIoIsNotPossible) &&
 						(FcbHeader->AllocationSize.QuadPart > NewSize.QuadPart)
-					)
-				{
+					) {
 					/* Do nothing */
 				} else {
 					goto FailAndCleanup;
@@ -539,7 +553,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 		    if (FcbHeader->IsFastIoPossible == FastIoIsQuestionable)
 		    {
 				 IO_STATUS_BLOCK FastIoCheckIfPossibleStatus;
-
+		    
 		        /* Sanity check */
 		        ASSERT(!KeIsExecutingDpc());
 
@@ -567,7 +581,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 			}
 
 
-            /* If we are going to modify the filesize, save the old fs in case the operation fails */
+            /* If we are going to modify the filesize, save the old fs in case the operation fails */            
 			if (NewSize.QuadPart > FcbHeader->FileSize.QuadPart) {
 				FileSizeModified = TRUE;
 				OldFileSize.QuadPart = FcbHeader->FileSize.QuadPart;
@@ -586,8 +600,7 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
             /* Nagar p.544 */
             /* Set ourselves as top component */
 		    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
-			_SEH2_TRY
-			{
+			_SEH_TRY {
    				BOOLEAN CallCc = TRUE;
                 /*  Check if there is a gap between the end of the file and the offset
                     If yes, then we have to zero the data
@@ -599,18 +612,17 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 					        normally
 					    */
 						CallCc = FALSE;
-					}
+					} 
 				}
 
                 /* Unless the CcZeroData failed, call the cache manager */
 				if (CallCc) {
 					Result = CcCopyWrite(FileObject,&Offset,Length, Wait, Buffer);
 				}
-			}_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
-			{
+			}_SEH_EXCEPT(FsRtlCcCopyFilter) {
 				Result = FALSE;
-		    } _SEH2_END;
-
+		    } _SEH_END;
+		
             /* Reset the top component */
 		    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
@@ -625,18 +637,18 @@ FsRtlCopyWrite(IN PFILE_OBJECT FileObject,
 					} else {
 						FcbHeader->ValidDataLength.QuadPart = NewSize.QuadPart;
 					}
-				}
 
-                /* Flag the file as modified */
-				FileObject->Flags |= FO_FILE_MODIFIED;
-				/* Check if the filesize has changed */
-				if (FileSizeModified) {
-				    /* Update the file sizes */
-					((SHARED_CACHE_MAP*) FileObject->SectionObjectPointer->SharedCacheMap)->FileSize.QuadPart = NewSize.QuadPart;
-					FileObject->Flags |= FO_FILE_SIZE_CHANGED;
+                    /* Flag the file as modified */					
+					FileObject->Flags |= FO_FILE_MODIFIED;
+					/* Check if the filesize has changed */
+					if (FileSizeModified) {
+					    /* Update the file sizes */
+						((SHARED_CACHE_MAP*) FileObject->SectionObjectPointer->SharedCacheMap)->FileSize.QuadPart = NewSize.QuadPart;
+						FileObject->Flags |= FO_FILE_SIZE_CHANGED;
+					}
+					/* Update the current FO byte offset */
+					FileObject->CurrentByteOffset.QuadPart = NewSize.QuadPart;
 				}
-				/* Update the current FO byte offset */
-				FileObject->CurrentByteOffset.QuadPart = NewSize.QuadPart;
 			}
 			else
 			{
@@ -679,7 +691,7 @@ Cleanup:
     ExReleaseResourceLite(FcbHeader->Resource);
     FsRtlExitFileSystem();
     return Result;
-}
+}   
 
 /*
  * @implemented
@@ -689,97 +701,9 @@ NTAPI
 FsRtlGetFileSize(IN PFILE_OBJECT  FileObject,
                  IN OUT PLARGE_INTEGER FileSize)
 {
-    FILE_STANDARD_INFORMATION Info;
-    NTSTATUS Status;
-    IO_STATUS_BLOCK IoStatus;
-    PDEVICE_OBJECT DeviceObject;
-    PFAST_IO_DISPATCH FastDispatch;
-    KEVENT Event;
-    PIO_STACK_LOCATION IoStackLocation;
-    PIRP Irp;
-    BOOLEAN OldHardError;
-
-
-    PAGED_CODE();
-
-    /* Get Device Object and Fast Calls */
-    DeviceObject = IoGetRelatedDeviceObject(FileObject);
-    FastDispatch = DeviceObject->DriverObject->FastIoDispatch;
-
-    /* Check if we support Fast Calls, and check FastIoQueryStandardInfo */
-    /* Call the function and see if it succeeds */
-    if (    !FastDispatch ||
-            !FastDispatch->FastIoQueryStandardInfo ||
-            !FastDispatch->FastIoQueryStandardInfo(FileObject,TRUE,
-                &Info,&IoStatus,DeviceObject))
-    {
-        /* If any of the above failed, then we are going to send an IRP to the device object */
-        /* Initialize the even for the IO */
-        KeInitializeEvent(&Event,NotificationEvent,FALSE);
-        /* Allocate the IRP */
-        Irp = IoAllocateIrp(DeviceObject->StackSize,FALSE);
-        if (Irp == NULL)
-        {
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-
-        /* Don't process hard error */
-        OldHardError = IoSetThreadHardErrorMode(FALSE);
-
-        /* Setup the IRP */
-        Irp->UserIosb = &IoStatus;
-        Irp->UserEvent = &Event;
-        Irp->Tail.Overlay.Thread = PsGetCurrentThread();
-        Irp->Flags = IRP_SYNCHRONOUS_PAGING_IO | IRP_PAGING_IO;
-        Irp->RequestorMode = KernelMode;
-        Irp->Tail.Overlay.OriginalFileObject = FileObject;
-        Irp->AssociatedIrp.SystemBuffer = &Info;
-
-        /* Setup out stack location */
-        IoStackLocation = Irp->Tail.Overlay.CurrentStackLocation;
-        IoStackLocation--;
-        IoStackLocation->MajorFunction = IRP_MJ_QUERY_INFORMATION;
-        IoStackLocation->FileObject = FileObject;
-        IoStackLocation->DeviceObject = DeviceObject;
-        IoStackLocation->Parameters.QueryFile.Length =  ALIGN_UP(sizeof(FILE_INFORMATION_CLASS),ULONG);
-        IoStackLocation->Parameters.QueryFile.FileInformationClass = FileStandardInformation;
-
-        /* Send the IRP to the related device object */
-        Status = IoCallDriver(DeviceObject,Irp);
-
-        /* Standard DDK IRP result processing */
-        if (Status == STATUS_PENDING)
-        {
-            KeWaitForSingleObject(&Event,Executive,KernelMode,FALSE,NULL);
-        }
-
-        /* If there was a synchronous error, signal it */
-        if (!NT_SUCCESS(Status))
-        {
-            IoStatus.Status = Status;
-        }
-
-        IoSetThreadHardErrorMode(OldHardError);
-    }
-
-    /* Check the sync/async IO result */
-    if (NT_SUCCESS(IoStatus.Status))
-    {
-        /* Was the request for a directory ? */
-        if (Info.Directory)
-        {
-            IoStatus.Status = STATUS_FILE_IS_A_DIRECTORY;
-        }
-        else
-        {
-            FileSize->QuadPart = Info.EndOfFile.QuadPart;
-        }
-    }
-
-    return IoStatus.Status;
+    KEBUGCHECK(0);
+    return STATUS_UNSUCCESSFUL;
 }
-
 
 /*
  * @implemented
@@ -793,45 +717,8 @@ FsRtlMdlRead(IN PFILE_OBJECT FileObject,
              OUT PMDL *MdlChain,
              OUT PIO_STATUS_BLOCK IoStatus)
 {
-    PDEVICE_OBJECT DeviceObject, BaseDeviceObject;
-    PFAST_IO_DISPATCH FastDispatch;
-
-    /* Get Device Object and Fast Calls */
-    DeviceObject = IoGetRelatedDeviceObject(FileObject);
-    FastDispatch = DeviceObject->DriverObject->FastIoDispatch;
-
-    /* Check if we support Fast Calls, and check this one */
-    if (FastDispatch && FastDispatch->MdlRead)
-    {
-        /* Use the fast path */
-        return FastDispatch->MdlRead(FileObject,
-                                     FileOffset,
-                                     Length,
-                                     LockKey,
-                                     MdlChain,
-                                     IoStatus,
-                                     DeviceObject);
-    }
-
-    /* Get the Base File System (Volume) and Fast Calls */
-    BaseDeviceObject = IoGetBaseFileSystemDeviceObject(FileObject);
-    FastDispatch = BaseDeviceObject->DriverObject->FastIoDispatch;
-
-    /* If the Base Device Object has its own FastDispatch Routine, fail */
-    if (FastDispatch && FastDispatch->MdlRead &&
-        BaseDeviceObject != DeviceObject)
-    {
-        return FALSE;
-    }
-
-    /* No fast path, use slow path */
-    return FsRtlMdlReadDev(FileObject,
-                           FileOffset,
-                           Length,
-                           LockKey,
-                           MdlChain,
-                           IoStatus,
-                           DeviceObject);
+    KEBUGCHECK(0);
+    return FALSE;
 }
 
 /*
@@ -863,7 +750,7 @@ FsRtlMdlReadComplete(IN PFILE_OBJECT FileObject,
     FastDispatch = BaseDeviceObject->DriverObject->FastIoDispatch;
 
     /* If the Base Device Object has its own FastDispatch Routine, fail */
-    if ((BaseDeviceObject != DeviceObject) && FastDispatch
+    if ((BaseDeviceObject != DeviceObject) && FastDispatch 
         && FastDispatch->MdlReadComplete)
     {
         return FALSE;
@@ -989,17 +876,17 @@ FsRtlMdlReadDev(IN PFILE_OBJECT FileObject,
     /* Set this as top-level IRP */
     PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
 
-    _SEH2_TRY
-    {
+    _SEH_TRY 
+    {    
         /* Attempt a read */
         CcMdlRead(FileObject, FileOffset, Length, MdlChain, IoStatus);
         FileObject->Flags |= FO_FILE_FAST_IO_READ;
     }
-	_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+	_SEH_EXCEPT(FsRtlCcCopyFilter) 
 	{
 		Result = FALSE;
-    } _SEH2_END;
-
+    } _SEH_END;
+    
 
     /* Remove the top-level IRP flag */
     PsGetCurrentThread()->TopLevelIrp = 0;
@@ -1020,39 +907,8 @@ FsRtlMdlWriteComplete(IN PFILE_OBJECT FileObject,
                       IN PLARGE_INTEGER FileOffset,
                       IN PMDL MdlChain)
 {
-    PDEVICE_OBJECT DeviceObject, BaseDeviceObject;
-    PFAST_IO_DISPATCH FastDispatch;
-
-    /* Get Device Object and Fast Calls */
-    DeviceObject = IoGetRelatedDeviceObject(FileObject);
-    FastDispatch = DeviceObject->DriverObject->FastIoDispatch;
-
-    /* Check if we support Fast Calls, and check this one */
-    if (FastDispatch && FastDispatch->MdlWriteComplete)
-    {
-        /* Use the fast path */
-        return FastDispatch->MdlWriteComplete(FileObject,
-                                              FileOffset,
-                                              MdlChain,
-                                              DeviceObject);
-    }
-
-    /* Get the Base File System (Volume) and Fast Calls */
-    BaseDeviceObject = IoGetBaseFileSystemDeviceObject(FileObject);
-    FastDispatch = BaseDeviceObject->DriverObject->FastIoDispatch;
-
-    /* If the Base Device Object has its own FastDispatch Routine, fail */
-    if (FastDispatch && FastDispatch->MdlWriteComplete &&
-        BaseDeviceObject != DeviceObject)
-    {
-        return FALSE;
-    }
-
-    /* No fast path, use slow path */
-    return FsRtlMdlWriteCompleteDev(FileObject,
-                                    FileOffset,
-                                    MdlChain,
-                                    DeviceObject);
+    KEBUGCHECK(0);
+    return FALSE;
 }
 
 /*
@@ -1065,15 +921,8 @@ FsRtlMdlWriteCompleteDev(IN PFILE_OBJECT FileObject,
                          IN PMDL MdlChain,
                          IN PDEVICE_OBJECT DeviceObject)
 {
-    if (FileObject->Flags & FO_WRITE_THROUGH)
-    {
-    	return FALSE;
-    }
-
-
-    /* Call the Cache Manager */
-    CcMdlWriteComplete2(FileObject,FileOffset,MdlChain);
-    return TRUE;
+    KEBUGCHECK(0);
+    return FALSE;
 }
 
 /*
@@ -1088,49 +937,12 @@ FsRtlPrepareMdlWrite(IN PFILE_OBJECT FileObject,
                      OUT PMDL *MdlChain,
                      OUT PIO_STATUS_BLOCK IoStatus)
 {
-    PDEVICE_OBJECT DeviceObject, BaseDeviceObject;
-    PFAST_IO_DISPATCH FastDispatch;
-
-    /* Get Device Object and Fast Calls */
-    DeviceObject = IoGetRelatedDeviceObject(FileObject);
-    FastDispatch = DeviceObject->DriverObject->FastIoDispatch;
-
-    /* Check if we support Fast Calls, and check this one */
-    if (FastDispatch && FastDispatch->PrepareMdlWrite)
-    {
-        /* Use the fast path */
-        return FastDispatch->PrepareMdlWrite(FileObject,
-                                             FileOffset,
-                                             Length,
-                                             LockKey,
-                                             MdlChain,
-                                             IoStatus,
-                                             DeviceObject);
-    }
-
-    /* Get the Base File System (Volume) and Fast Calls */
-    BaseDeviceObject = IoGetBaseFileSystemDeviceObject(FileObject);
-    FastDispatch = BaseDeviceObject->DriverObject->FastIoDispatch;
-
-    /* If the Base Device Object has its own FastDispatch Routine, fail */
-    if (FastDispatch && FastDispatch->PrepareMdlWrite &&
-        BaseDeviceObject != DeviceObject)
-    {
-        return FALSE;
-    }
-
-    /* No fast path, use slow path */
-    return FsRtlPrepareMdlWriteDev(FileObject,
-                                   FileOffset,
-                                   Length,
-                                   LockKey,
-                                   MdlChain,
-                                   IoStatus,
-                                   DeviceObject);
+    KEBUGCHECK(0);
+    return FALSE;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN
 NTAPI
@@ -1142,235 +954,8 @@ FsRtlPrepareMdlWriteDev(IN PFILE_OBJECT FileObject,
                         OUT PIO_STATUS_BLOCK IoStatus,
                         IN PDEVICE_OBJECT DeviceObject)
 {
-    BOOLEAN Result = TRUE;
-    PFAST_IO_DISPATCH FastIoDispatch;
-    PDEVICE_OBJECT Device;
-    PFSRTL_COMMON_FCB_HEADER FcbHeader;
-
-    LARGE_INTEGER OldFileSize;
-    LARGE_INTEGER OldValidDataLength;
-    LARGE_INTEGER NewSize;
-    LARGE_INTEGER Offset;
-
-    /* WDK doc. Offset=0xffffffffffffffff indicates append to the end of file */
-    BOOLEAN FileOffsetAppend = ((FileOffset->HighPart == (LONG)0xffffffff) && (FileOffset->LowPart == 0xffffffff));
-    BOOLEAN FileSizeModified = FALSE;
-    BOOLEAN ResourceAquiredShared = FALSE;
-
-    /* Initialize some of the vars and pointers */
-    OldFileSize.QuadPart = 0;
-    OldValidDataLength.QuadPart = 0;
-
-    PAGED_CODE();
-
-    Offset.QuadPart = FileOffset->QuadPart + Length;
-
-    /* Nagar p.544 -- Check with Cc if we can write */
-    if ( (!CcCanIWrite(FileObject, Length,TRUE,FALSE))||
-         (FileObject->Flags & FO_WRITE_THROUGH))
-    {
-    	return FALSE;
-    }
-
-    IoStatus->Status = STATUS_SUCCESS;
-
-    /* No actual read */
-    if (!Length)
-    {
-        return TRUE;
-    }
-
-    FcbHeader = (PFSRTL_COMMON_FCB_HEADER)FileObject->FsContext;
-    FsRtlEnterFileSystem();
-
-    /* Check we are going to extend the file */
-	if ( 	(FileOffsetAppend == FALSE) &&
-			( (FileOffset->QuadPart + Length)  <= FcbHeader->ValidDataLength.QuadPart )
-		)
-	{
-	    /* Acquire the resource shared */
-		ExAcquireResourceSharedLite(FcbHeader->Resource,TRUE);
-		ResourceAquiredShared =TRUE;
-	} else
-	{
-	    /* Acquire the resource exclusive */
-		ExAcquireResourceExclusiveLite(FcbHeader->Resource,TRUE);
-	}
-
-	/* Check if we are appending */
-	if (FileOffsetAppend == TRUE) {
-		Offset.QuadPart = FcbHeader->FileSize.QuadPart;
-		NewSize.QuadPart = FcbHeader->FileSize.QuadPart + Length;
-	} else
-	{
-		Offset.QuadPart = FileOffset->QuadPart;
-		NewSize.QuadPart = FileOffset->QuadPart + Length;
-	}
-
-    if (    (FileObject->PrivateCacheMap) &&
-            (FcbHeader->IsFastIoPossible) &&
-            (MAXLONGLONG >= (LONGLONG) FileOffset->QuadPart + Length) &&
-            (NewSize.QuadPart <= FcbHeader->AllocationSize.QuadPart) )
-    {
-        /* Check if we can keep the lock shared */
-    	if (ResourceAquiredShared && (NewSize.QuadPart > FcbHeader->ValidDataLength.QuadPart) ) {
-    		ExReleaseResourceLite(FcbHeader->Resource);
-    		ExAcquireResourceExclusiveLite(FcbHeader->Resource,TRUE);
-
-            /* Compute the offset and the new filesize */
-    		if (FileOffsetAppend) {
-    			Offset.QuadPart = FcbHeader->FileSize.QuadPart;
-    			NewSize.QuadPart = FcbHeader->FileSize.QuadPart + Length;
-    		}
-
-            /* Recheck the above points since we released and reacquire the lock   */
-    		if ( 	(FileObject->PrivateCacheMap != NULL)  &&
-    				(FcbHeader->IsFastIoPossible != FastIoIsNotPossible) &&
-    				(FcbHeader->AllocationSize.QuadPart > NewSize.QuadPart)
-    			)
-    	    {
-    			/* Do nothing */
-    		} else {
-    			goto FailAndCleanup;
-    		}
-    	}
-
-	    /* Check if we need to find out if fast I/O is available */
-	    if (FcbHeader->IsFastIoPossible == FastIoIsQuestionable)
-	    {
-	        /* Sanity check */
-	        /* ASSERT(!KeIsExecutingDpc()); */
-
-	        /* Get the Fast I/O table */
-	        Device = IoGetRelatedDeviceObject(FileObject);
-		     FastIoDispatch = Device->DriverObject->FastIoDispatch;
-
-	        /* Sanity check */
-	        ASSERT(FastIoDispatch != NULL);
-	        ASSERT(FastIoDispatch->FastIoCheckIfPossible != NULL);
-
-	        /* Ask the driver if we can do it */
-	        if (!FastIoDispatch->FastIoCheckIfPossible(FileObject,
-	                                                   FileOffset,
-	                                                   Length,
-	                                                   TRUE,
-	                                                   LockKey,
-	                                                   FALSE,
-	                                                   IoStatus,
-	                                                   Device))
-	        {
-	            /* It's not, fail */
-	            goto FailAndCleanup;
-	        }
-		}
-
-        /* If we are going to modify the filesize, save the old fs in case the operation fails */
-		if (NewSize.QuadPart > FcbHeader->FileSize.QuadPart)
-		{
-			FileSizeModified = TRUE;
-			OldFileSize.QuadPart = FcbHeader->FileSize.QuadPart;
-			OldValidDataLength.QuadPart = FcbHeader->ValidDataLength.QuadPart;
-
-			/* If the high part of the filesize is going to change, grab the Paging IoResouce */
-			if (NewSize.HighPart != FcbHeader->FileSize.HighPart && FcbHeader->PagingIoResource)
-			{
-				ExAcquireResourceExclusiveLite(FcbHeader->PagingIoResource, TRUE);
-				FcbHeader->FileSize.QuadPart = NewSize.QuadPart;
-				ExReleaseResourceLite(FcbHeader->PagingIoResource);
-			} else {
-				FcbHeader->FileSize.QuadPart = NewSize.QuadPart;
-			}
-		}
-
-
-        /* Nagar p.544 */
-        /* Set ourselves as top component */
-	    PsGetCurrentThread()->TopLevelIrp = FSRTL_FAST_IO_TOP_LEVEL_IRP;
-		_SEH2_TRY
-		{
-            /*  Check if there is a gap between the end of the file and the offset
-                If yes, then we have to zero the data
-            */
-			if (Offset.QuadPart > FcbHeader->ValidDataLength.QuadPart) {
-				Result = CcZeroData(FileObject,&FcbHeader->ValidDataLength,&Offset,TRUE);
-				if (Result)
-				{
-				    CcPrepareMdlWrite(FileObject,&Offset,Length,MdlChain,IoStatus);
-				}
-			} else {
-				    CcPrepareMdlWrite(FileObject,&Offset,Length,MdlChain,IoStatus);
-		    }
-
-		}_SEH2_EXCEPT(FsRtlIsNtstatusExpected(_SEH2_GetExceptionCode()) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
-		{
-			Result = FALSE;
-	    } _SEH2_END;
-
-        /* Reset the top component */
-	    PsGetCurrentThread()->TopLevelIrp = 0;
-
-        /* Did the operation suceeded */
-		if (Result) {
-		    /* Check if we need to update the filesize */
-			if (NewSize.QuadPart > FcbHeader->ValidDataLength.QuadPart) {
-				if (NewSize.HighPart != FcbHeader->ValidDataLength.HighPart && FcbHeader->PagingIoResource) {
-					ExAcquireResourceExclusiveLite(FcbHeader->PagingIoResource, TRUE);
-					FcbHeader->ValidDataLength.QuadPart = NewSize.QuadPart;
-					ExReleaseResourceLite(FcbHeader->PagingIoResource);
-				} else {
-					FcbHeader->ValidDataLength.QuadPart = NewSize.QuadPart;
-				}
-			}
-
-            /* Flag the file as modified */
-			FileObject->Flags |= FO_FILE_MODIFIED;
-			/* Check if the filesize has changed */
-			if (FileSizeModified) {
-			    /* Update the file sizes */
-				((SHARED_CACHE_MAP*) FileObject->SectionObjectPointer->SharedCacheMap)->FileSize.QuadPart = NewSize.QuadPart;
-				FileObject->Flags |= FO_FILE_SIZE_CHANGED;
-			}
-
-		}
-		else
-		{
-		    /*  The operation did not succeed
-		        Reset the file size to what it should be
-		    */
-			if (FileSizeModified) {
-				if (FcbHeader->PagingIoResource) {
-					ExAcquireResourceExclusiveLite(FcbHeader->PagingIoResource, TRUE);
-					FcbHeader->FileSize.QuadPart = OldFileSize.QuadPart;
-					FcbHeader->ValidDataLength.QuadPart = OldValidDataLength.QuadPart;
-					ExReleaseResourceLite(FcbHeader->PagingIoResource);
-				}else{
-					FcbHeader->FileSize.QuadPart = OldFileSize.QuadPart;
-					FcbHeader->ValidDataLength.QuadPart = OldValidDataLength.QuadPart;
-				}
-			}
-		}
-
-    	goto Cleanup;
-
-    }
-    else
-    {
-        goto FailAndCleanup;
-    }
-
-
-FailAndCleanup:
-
-    ExReleaseResourceLite(FcbHeader->Resource);
-    FsRtlExitFileSystem();
+    KEBUGCHECK(0);
     return FALSE;
-
-Cleanup:
-
-    ExReleaseResourceLite(FcbHeader->Resource);
-    FsRtlExitFileSystem();
-    return Result;
-
 }
 
 /*
@@ -1380,11 +965,7 @@ VOID
 NTAPI
 FsRtlAcquireFileExclusive(IN PFILE_OBJECT FileObject)
 {
-    /*
-    PAGED_CODE();
-    FsRtlAcquireFileExclusiveCommon(FileObject,0,0);
-    */
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*
@@ -1394,8 +975,7 @@ VOID
 NTAPI
 FsRtlReleaseFile(IN PFILE_OBJECT FileObject)
 {
-
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
 }
 
 /*++

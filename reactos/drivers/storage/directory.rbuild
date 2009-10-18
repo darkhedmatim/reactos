@@ -1,19 +1,30 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
-<directory name="class">
-	<xi:include href="class/directory.rbuild" />
+<directory name="atapi">
+	<xi:include href="atapi/atapi.rbuild" />
+</directory>
+<directory name="buslogic">
+	<xi:include href="buslogic/buslogic.rbuild" />
+</directory>
+<directory name="cdrom">
+	<xi:include href="cdrom/cdrom.rbuild" />
+</directory>
+<directory name="class2">
+	<xi:include href="class2/class2.rbuild" />
+</directory>
+<directory name="disk">
+	<xi:include href="disk/disk.rbuild" />
 </directory>
 <directory name="floppy">
 	<xi:include href="floppy/floppy.rbuild" />
 </directory>
-<directory name="ide">
-	<xi:include href="ide/directory.rbuild" />
+<directory name="pciide">
+	<xi:include href="pciide/pciide.rbuild" />
 </directory>
-<directory name="port">
-	<xi:include href="port/directory.rbuild" />
+<directory name="pciidex">
+	<xi:include href="pciidex/pciidex.rbuild" />
 </directory>
 <directory name="scsiport">
 	<xi:include href="scsiport/scsiport.rbuild" />
 </directory>
-</group>
+<directory name="diskdump">
+	<xi:include href="diskdump/diskdump.rbuild" />
+</directory>

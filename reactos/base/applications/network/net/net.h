@@ -14,7 +14,7 @@
 #include <windows.h>
 
 void help();
-int unimplemented();
+int unimplement();
 
 
 INT cmdHelp(INT argc, CHAR **argv);

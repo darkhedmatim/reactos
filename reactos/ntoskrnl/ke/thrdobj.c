@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 extern EX_WORK_QUEUE ExWorkerQueue[MaximumWorkQueue];
 extern LIST_ENTRY PspReaperListHead;
@@ -99,7 +99,7 @@ KeSetDisableBoostThread(IN OUT PKTHREAD Thread,
     ASSERT_THREAD(Thread);
 
     /* Check if we're enabling or disabling */
-    if (Disable)
+    if (Disable != FALSE)
     {
         /* Set the bit */
         return InterlockedBitTestAndSet(&Thread->ThreadFlags, 1);
@@ -416,7 +416,7 @@ KeRundownThread(VOID)
         if (Mutant->ApcDisable)
         {
             /* Bugcheck the system */
-            KeBugCheckEx(THREAD_TERMINATE_HELD_MUTEX,
+            KEBUGCHECKEX(0, //THREAD_TERMINATE_HELD_MUTEX,
                          (ULONG_PTR)Thread,
                          (ULONG_PTR)Mutant,
                          0,
@@ -461,9 +461,7 @@ KeStartThread(IN OUT PKTHREAD Thread)
 
     /* Setup static fields from parent */
     Thread->DisableBoost = Process->DisableBoost;
-#if defined(_M_IX86)
     Thread->Iopl = Process->Iopl;
-#endif
     Thread->Quantum = Process->QuantumReset;
     Thread->QuantumReset = Process->QuantumReset;
     Thread->SystemAffinityActive = FALSE;
@@ -480,7 +478,7 @@ KeStartThread(IN OUT PKTHREAD Thread)
 #ifdef CONFIG_SMP
     /* Get the KNODE and its PRCB */
     Node = KeNodeBlock[Process->IdealNode];
-    NodePrcb = KiProcessorBlock[Process->ThreadSeed];
+    NodePrcb = (PKPRCB)(KPCR_BASE + (Process->ThreadSeed * PAGE_SIZE));
 
     /* Calculate affinity mask */
     Set = ~NodePrcb->MultiThreadProcessorSet;
@@ -652,7 +650,7 @@ KeThawAllThreads(VOID)
 
                 /* Signal the suspend semaphore and wake it */
                 Current->SuspendSemaphore.Header.SignalState++;
-                KiWaitTest(&Current->SuspendSemaphore, 0);
+                KiWaitTest(&Current->SuspendSemaphore, 1);
 
                 /* Unlock the dispatcher */
                 KiReleaseDispatcherLockFromDpcLevel();
@@ -742,7 +740,7 @@ KeInitThread(IN OUT PKTHREAD Thread,
     }
 
     /* Set swap settings */
-    Thread->EnableStackSwap = TRUE;
+    Thread->EnableStackSwap = FALSE;//TRUE;
     Thread->IdealProcessor = 1;
     Thread->SwapBusy = FALSE;
     Thread->KernelStackResident = TRUE;
@@ -797,7 +795,8 @@ KeInitThread(IN OUT PKTHREAD Thread,
     if (!KernelStack)
     {
         /* We don't, allocate one */
-        KernelStack = MmCreateKernelStack(FALSE, 0);
+        KernelStack = (PVOID)((ULONG_PTR)MmCreateKernelStack(FALSE) +
+                              KERNEL_STACK_SIZE);
         if (!KernelStack) return STATUS_INSUFFICIENT_RESOURCES;
 
         /* Remember for later */
@@ -805,26 +804,29 @@ KeInitThread(IN OUT PKTHREAD Thread,
     }
 
     /* Set the Thread Stacks */
-    Thread->InitialStack = KernelStack;
-    Thread->StackBase = KernelStack;
+    Thread->InitialStack = (PCHAR)KernelStack;
+    Thread->StackBase = (PCHAR)KernelStack;
     Thread->StackLimit = (ULONG_PTR)KernelStack - KERNEL_STACK_SIZE;
     Thread->KernelStackResident = TRUE;
 
-    /* Make sure that we are in the right page directory (ReactOS Mm Hack) */
-    MiSyncForProcessAttach(Thread, (PEPROCESS)Process);
+    /* ROS Mm HACK */
+    MmUpdatePageDir((PEPROCESS)Process,
+                    (PVOID)Thread->StackLimit,
+                    KERNEL_STACK_SIZE);
+    MmUpdatePageDir((PEPROCESS)Process, (PVOID)Thread, sizeof(ETHREAD));
 
     /* Enter SEH to avoid crashes due to user mode */
     Status = STATUS_SUCCESS;
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Initalize the Thread Context */
-        KiInitializeContextThread(Thread,
-                                  SystemRoutine,
-                                  StartRoutine,
-                                  StartContext,
-                                  Context);
+        Ke386InitThreadWithContext(Thread,
+                                   SystemRoutine,
+                                   StartRoutine,
+                                   StartContext,
+                                   Context);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Set failure status */
         Status = STATUS_UNSUCCESSFUL;
@@ -833,11 +835,11 @@ KeInitThread(IN OUT PKTHREAD Thread,
         if (AllocatedStack)
         {
             /* Delete the stack */
-            MmDeleteKernelStack((PVOID)Thread->StackBase, FALSE);
+            MmDeleteKernelStack(Thread->StackBase, FALSE);
             Thread->InitialStack = NULL;
         }
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Set the Thread to initalized */
     Thread->State = Initialized;
@@ -855,7 +857,7 @@ KeInitializeThread(IN PKPROCESS Process,
                    IN PVOID Teb,
                    IN PVOID KernelStack)
 {
-    /* Initialize and start the thread on success */
+    /* Initailize and start the thread on success */
     if (NT_SUCCESS(KeInitThread(Thread,
                                 KernelStack,
                                 SystemRoutine,
@@ -875,7 +877,7 @@ NTAPI
 KeUninitThread(IN PKTHREAD Thread)
 {
     /* Delete the stack */
-    MmDeleteKernelStack((PVOID)Thread->StackBase, FALSE);
+    MmDeleteKernelStack(Thread->StackBase, FALSE);
     Thread->InitialStack = NULL;
 }
 
@@ -999,6 +1001,7 @@ KeRevertToUserAffinityThread(VOID)
         /* Lock the PRCB */
         KiAcquirePrcbLock(Prcb);
 
+#ifdef NEW_SCHEDULER
         /* Check if there's no next thread scheduled */
         if (!Prcb->NextThread)
         {
@@ -1007,6 +1010,14 @@ KeRevertToUserAffinityThread(VOID)
             NextThread->State = Standby;
             Prcb->NextThread = NextThread;
         }
+#else
+        /* We need to dispatch a new thread */
+        NextThread = NULL;
+        CurrentThread->WaitIrql = OldIrql;
+        KiDispatchThreadNoLock(Ready);
+        KeLowerIrql(OldIrql);
+        return;
+#endif
 
         /* Release the PRCB lock */
         KiReleasePrcbLock(Prcb);
@@ -1108,6 +1119,7 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
         /* Lock the PRCB */
         KiAcquirePrcbLock(Prcb);
 
+#ifdef NEW_SCHEDULER
         /* Check if there's no next thread scheduled */
         if (!Prcb->NextThread)
         {
@@ -1116,6 +1128,14 @@ KeSetSystemAffinityThread(IN KAFFINITY Affinity)
             NextThread->State = Standby;
             Prcb->NextThread = NextThread;
         }
+#else
+        /* We need to dispatch a new thread */
+        NextThread = NULL;
+        CurrentThread->WaitIrql = OldIrql;
+        KiDispatchThreadNoLock(Ready);
+        KeLowerIrql(OldIrql);
+        return;
+#endif
 
         /* Release the PRCB lock */
         KiReleasePrcbLock(Prcb);
@@ -1156,9 +1176,6 @@ KeSetBasePriorityThread(IN PKTHREAD Thread,
     /* If priority saturation happened, use the saturated increment */
     if (Thread->Saturation) OldIncrement = (HIGH_PRIORITY + 1) / 2 *
                                             Thread->Saturation;
-
-    /* Reset the saturation value */
-    Thread->Saturation = 0;
 
     /* Now check if saturation is being used for the new value */
     if (abs(Increment) >= ((HIGH_PRIORITY + 1) / 2))

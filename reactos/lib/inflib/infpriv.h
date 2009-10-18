@@ -9,15 +9,12 @@
 #ifndef INFPRIV_H_INCLUDED
 #define INFPRIV_H_INCLUDED
 
-#ifndef FIELD_OFFSET
-#define FIELD_OFFSET(t,f) ((ptrdiff_t)&(((t*)0)->f))
-#endif
 
-#define INF_STATUS_INSUFFICIENT_RESOURCES  ((INFSTATUS)0xC000009A)
-#define INF_STATUS_BAD_SECTION_NAME_LINE   ((INFSTATUS)0xC0700001)
-#define INF_STATUS_SECTION_NAME_TOO_LONG   ((INFSTATUS)0xC0700002)
-#define INF_STATUS_WRONG_INF_STYLE         ((INFSTATUS)0xC0700003)
-#define INF_STATUS_NOT_ENOUGH_MEMORY       ((INFSTATUS)0xC0700004)
+#define INF_STATUS_INSUFFICIENT_RESOURCES  (0xC000009A)
+#define INF_STATUS_BAD_SECTION_NAME_LINE   (0xC0700001)
+#define INF_STATUS_SECTION_NAME_TOO_LONG   (0xC0700002)
+#define INF_STATUS_WRONG_INF_STYLE         (0xC0700003)
+#define INF_STATUS_NOT_ENOUGH_MEMORY       (0xC0700004)
 
 typedef struct _INFCACHEFIELD
 {
@@ -69,7 +66,7 @@ typedef struct _INFCONTEXT
   PINFCACHELINE Line;
 } INFCONTEXT;
 
-typedef int INFSTATUS;
+typedef long INFSTATUS;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -91,8 +88,8 @@ extern PINFCACHESECTION InfpFindSection(PINFCACHE Cache,
                                         PCTSTR Section);
 
 extern INFSTATUS InfpBuildFileBuffer(PINFCACHE InfHandle,
-                                     PCHAR *Buffer,
-                                     PULONG BufferSize);
+                                     char **Buffer,
+                                     unsigned long *BufferSize);
 
 extern INFSTATUS InfpFindFirstLine(PINFCACHE InfHandle,
                                    PCTSTR Section,

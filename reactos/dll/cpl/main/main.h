@@ -26,25 +26,24 @@ typedef struct _APPLET
 
 extern HINSTANCE hApplet;
 
-#define MAX_CPL_PAGES   32
 
 /* keyboard.c */
 
 LONG APIENTRY
-KeyboardApplet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam);
+KeyboardApplet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam);
 
 /* main.c */
 
-BOOL
-InitPropSheetPage(PROPSHEETHEADER *ppsh, WORD idDlg, DLGPROC DlgProc);
+VOID
+InitPropSheetPage(PROPSHEETPAGE *psp,
+		  WORD idDlg,
+		  DLGPROC DlgProc);
 
-BOOL CALLBACK
-PropSheetAddPage(HPROPSHEETPAGE hpage, LPARAM lParam);
 
 /* mouse.c */
 
 LONG APIENTRY
-MouseApplet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam);
+MouseApplet(HWND hwnd, UINT uMsg, LONG wParam, LONG lParam);
 
 #endif /* __CPL_MAIN_H */
 

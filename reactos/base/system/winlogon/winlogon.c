@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Winlogon
- * FILE:            base/system/winlogon/winlogon.c
+ * FILE:            services/winlogon/winlogon.c
  * PURPOSE:         Logon
  * PROGRAMMERS:     Thomas Weidenmueller (w3seek@users.sourceforge.net)
  *                  Filip Navara
@@ -9,12 +9,10 @@
  */
 
 /* INCLUDES *****************************************************************/
-
 #include "winlogon.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(winlogon);
 
 /* GLOBALS ******************************************************************/
 
@@ -23,104 +21,17 @@ PWLSESSION WLSession = NULL;
 
 /* FUNCTIONS *****************************************************************/
 
-DWORD
-WINAPI
-PlayLogonSoundThread(
-	IN LPVOID lpParameter)
-{
-	HKEY hKey;
-	WCHAR szBuffer[MAX_PATH] = {0};
-	WCHAR szDest[MAX_PATH];
-	DWORD dwSize = sizeof(szBuffer);
-	HMODULE hLibrary;
-	SERVICE_STATUS_PROCESS Info;
-	typedef BOOL (WINAPI *PLAYSOUNDW)(LPCWSTR,HMODULE,DWORD);
-	PLAYSOUNDW Play;
-	ULONG Index = 0;
-
-	if (RegOpenKeyExW(HKEY_CURRENT_USER, L"AppEvents\\Schemes\\Apps\\.Default\\WindowsLogon\\.Current", 0, KEY_READ, &hKey) != ERROR_SUCCESS)
-	{
-		ExitThread(0);
-	}
-
-	if (RegQueryValueExW(hKey, NULL, NULL, NULL, (LPBYTE)szBuffer, &dwSize) != ERROR_SUCCESS)
-	{
-		RegCloseKey(hKey);
-		ExitThread(0);
-	}
-
-
-	RegCloseKey(hKey);
-
-	if (!szBuffer[0])
-		ExitThread(0);
-
-
-	szBuffer[MAX_PATH-1] = L'\0';
-	if (ExpandEnvironmentStringsW(szBuffer, szDest, MAX_PATH))
-	{
-		SC_HANDLE hSCManager, hService;
-
-		hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
-		if (!hSCManager)
-			ExitThread(0);;
-
-		hService = OpenServiceW(hSCManager, L"wdmaud", GENERIC_READ);
-		if (!hService)
-		{
-			CloseServiceHandle(hSCManager);
-			TRACE("WL: failed to open sysaudio Status %x", GetLastError());
-			ExitThread(0);
-		}
-
-		do
-		{
-			if (!QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, (LPBYTE)&Info, sizeof(SERVICE_STATUS_PROCESS), &dwSize))
-			{
-				TRACE("WL: QueryServiceStatusEx failed %x\n", GetLastError());
-				break;
-			}
-
-			if (Info.dwCurrentState == SERVICE_RUNNING)
-				break;
-
-			Sleep(1000);
-
-		}while(Index++ < 20);
-
-		CloseServiceHandle(hService);
-		CloseServiceHandle(hSCManager);
-
-		if (Info.dwCurrentState != SERVICE_RUNNING)
-			ExitThread(0);
-
-
-		hLibrary = LoadLibraryW(L"winmm.dll");
-		if (hLibrary)
-		{
-			Play = (PLAYSOUNDW)GetProcAddress(hLibrary, "PlaySoundW");
-			if (Play)
-			{
-				Play(szDest, NULL, SND_FILENAME);
-			}
-			FreeLibrary(hLibrary);
-		}
-	}
-	ExitThread(0);
-}
-
-
-
 static BOOL
 StartServicesManager(VOID)
 {
+	HANDLE ServicesInitEvent = NULL;
 	STARTUPINFOW StartupInfo;
 	PROCESS_INFORMATION ProcessInformation;
+	DWORD Count;
 	LPCWSTR ServiceString = L"services.exe";
 	BOOL res;
 
 	/* Start the service control manager (services.exe) */
-	ZeroMemory(&StartupInfo, sizeof(STARTUPINFOW));
 	StartupInfo.cb = sizeof(StartupInfo);
 	StartupInfo.lpReserved = NULL;
 	StartupInfo.lpDesktop = NULL;
@@ -148,56 +59,214 @@ StartServicesManager(VOID)
 		return FALSE;
 	}
 
-	TRACE("WL: Created new process - %S\n", ServiceString);
+	/* Wait for event creation (by SCM) for max. 20 seconds */
+	for (Count = 0; Count < 20; Count++)
+	{
+		Sleep(1000);
 
-	CloseHandle(ProcessInformation.hThread);
-	CloseHandle(ProcessInformation.hProcess);
+		TRACE("WL: Attempting to open event \"SvcctrlStartEvent_A3725DX\"\n");
+		ServicesInitEvent = OpenEventW(
+			SYNCHRONIZE,
+			FALSE,
+			L"SvcctrlStartEvent_A3725DX");
+		if (ServicesInitEvent)
+			break;
+	}
 
+	if (!ServicesInitEvent)
+	{
+		ERR("WL: Failed to open event \"SvcctrlStartEvent_A3725DX\"\n");
+		return FALSE;
+	}
+
+	/* Wait for event signalization */
+	WaitForSingleObject(ServicesInitEvent, INFINITE);
+	CloseHandle(ServicesInitEvent);
 	TRACE("WL: StartServicesManager() done.\n");
 
 	return TRUE;
 }
 
+static BOOL
+StartCustomService(
+	IN LPCWSTR ServiceName)
+{
+	SC_HANDLE hSCManager = NULL;
+	SC_HANDLE hService = NULL;
+	BOOL ret = FALSE;
+
+	hSCManager = OpenSCManager(NULL, NULL, 0);
+	if (!hSCManager)
+		goto cleanup;
+
+	hService = OpenServiceW(hSCManager, ServiceName, SERVICE_START);
+	if (!hService)
+		goto cleanup;
+	if (!StartServiceW(hService, 0, NULL))
+		goto cleanup;
+
+	ret = TRUE;
+
+cleanup:
+	if (hService)
+		CloseServiceHandle(hService);
+	if (hSCManager)
+		CloseServiceHandle(hSCManager);
+	return ret;
+}
 
 static BOOL
 StartLsass(VOID)
 {
-	STARTUPINFOW StartupInfo;
-	PROCESS_INFORMATION ProcessInformation;
-	LPCWSTR ServiceString = L"lsass.exe";
-	BOOL res;
+	HANDLE LsassInitEvent;
 
-	/* Start the service control manager (services.exe) */
-	ZeroMemory(&StartupInfo, sizeof(STARTUPINFOW));
-	StartupInfo.cb = sizeof(StartupInfo);
-	StartupInfo.lpReserved = NULL;
-	StartupInfo.lpDesktop = NULL;
-	StartupInfo.lpTitle = NULL;
-	StartupInfo.dwFlags = 0;
-	StartupInfo.cbReserved2 = 0;
-	StartupInfo.lpReserved2 = 0;
-
-	TRACE("WL: Creating new process - %S\n", ServiceString);
-
-	res = CreateProcessW(
-		ServiceString,
+	LsassInitEvent = CreateEventW(
 		NULL,
-		NULL,
-		NULL,
+		TRUE,
 		FALSE,
-		DETACHED_PROCESS,
-		NULL,
-		NULL,
-		&StartupInfo,
-		&ProcessInformation);
+		L"Global\\SECURITY_SERVICES_STARTED");
+	if (!LsassInitEvent)
+	{
+		ERR("WL: Failed to create lsass notification event (error %lu)\n", GetLastError());
+		return FALSE;
+	}
 
-	TRACE("WL: Created new process - %S\n", ServiceString);
+	/* Start the local security authority subsystem (Netlogon service) */
+	if (!StartCustomService(L"Netlogon"))
+	{
+		ERR("WL: Failed to start NetLogon service (error %lu)\n", GetLastError());
+		return FALSE;
+	}
 
-	CloseHandle(ProcessInformation.hThread);
-	CloseHandle(ProcessInformation.hProcess);
+	WaitForSingleObject(LsassInitEvent, INFINITE);
+	CloseHandle(LsassInitEvent);
 
-	return res;
+	return TRUE;
 }
+
+#if 0
+static BOOL
+OpenRegistryKey(
+	OUT HKEY *WinLogonKey)
+{
+   return ERROR_SUCCESS == RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                                        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\WinLogon",
+                                        0,
+                                        KEY_QUERY_VALUE,
+                                        WinLogonKey);
+}
+#endif
+
+#if 0
+static BOOL
+StartProcess(
+	IN PWCHAR ValueName)
+{
+   BOOL StartIt;
+   HKEY WinLogonKey;
+   DWORD Type;
+   DWORD Size;
+   DWORD StartValue;
+
+   StartIt = TRUE;
+   if (OpenRegistryKey(&WinLogonKey))
+     {
+	Size = sizeof(DWORD);
+	if (ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                             ValueName,
+	                                     NULL,
+	                                     &Type,
+	                                     (LPBYTE) &StartValue,
+                                             &Size))
+	   {
+	   if (REG_DWORD == Type)
+	     {
+		StartIt = (0 != StartValue);
+	     }
+	   }
+	RegCloseKey(WinLogonKey);
+     }
+
+   return StartIt;
+}
+#endif
+
+/*
+static BOOL RestartShell(
+	IN OUT PWLSESSION Session)
+{
+  HKEY WinLogonKey;
+  DWORD Type, Size, Value;
+
+  if(OpenRegistryKey(&WinLogonKey))
+  {
+    Size = sizeof(DWORD);
+    if(ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                        L"AutoRestartShell",
+                                        NULL,
+                                        &Type,
+                                        (LPBYTE)&Value,
+                                        &Size))
+    {
+      if(Type == REG_DWORD)
+      {
+        RegCloseKey(WinLogonKey);
+        return (Value != 0);
+      }
+    }
+    RegCloseKey(WinLogonKey);
+  }
+  return FALSE;
+}
+*/
+
+#if 0
+static PWCHAR
+GetUserInit(
+	OUT WCHAR *CommandLine,
+	IN DWORD BufferLength)
+{
+   HKEY WinLogonKey;
+   BOOL GotCommandLine;
+   DWORD Type;
+   DWORD Size;
+   WCHAR Shell[_MAX_PATH];
+
+   GotCommandLine = FALSE;
+   if (OpenRegistryKey(&WinLogonKey))
+     {
+	Size = MAX_PATH;
+	if (ERROR_SUCCESS == RegQueryValueEx(WinLogonKey,
+                                         L"UserInit",
+	                                     NULL,
+	                                     &Type,
+	                                     (LPBYTE) Shell,
+                                         &Size))
+	   {
+	   if (REG_EXPAND_SZ == Type)
+	     {
+		ExpandEnvironmentStrings(Shell, CommandLine, _MAX_PATH);
+		GotCommandLine = TRUE;
+	     }
+	   else if (REG_SZ == Type)
+	     {
+		wcscpy(CommandLine, Shell);
+		GotCommandLine = TRUE;
+	     }
+	   }
+	RegCloseKey(WinLogonKey);
+     }
+
+   if (! GotCommandLine)
+     {
+	GetSystemDirectory(CommandLine, MAX_PATH - 15);
+	wcscat(CommandLine, L"\\userinit.exe");
+     }
+
+   return CommandLine;
+}
+
+#endif
 
 BOOL
 DisplayStatusMessage(
@@ -229,7 +298,7 @@ RemoveStatusMessage(
 	return Session->Gina.Functions.WlxRemoveStatusMessage(Session->Gina.Context);
 }
 
-static INT_PTR CALLBACK
+static BOOL CALLBACK
 GinaLoadFailedWindowProc(
 	IN HWND hwndDlg,
 	IN UINT uMsg,
@@ -289,7 +358,6 @@ WinMain(
 #endif
 	ULONG HardErrorResponse;
 	MSG Msg;
-	HANDLE hThread;
 
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
@@ -330,9 +398,25 @@ WinMain(
 		ExitProcess(1);
 	}
 
+	/* Check for pending setup */
+	if (GetSetupType() != 0)
+	{
+		TRACE("WL: Setup mode detected\n");
+
+		/* Set locale */
+		SetDefaultLanguage(FALSE);
+
+		/* Run setup and reboot when done */
+		SwitchDesktop(WLSession->ApplicationDesktop);
+		RunSetup();
+
+		HandleShutdown(WLSession, WLX_SAS_ACTION_SHUTDOWN_REBOOT);
+		ExitProcess(0);
+	}
+
 	if (!StartLsass())
 	{
-		ERR("WL: Failed to start lsass.exe service (error %lu)\n", GetLastError());
+		DPRINT1("WL: Failed to start lsass.exe service (error %lu)\n", GetLastError());
 		NtRaiseHardError(STATUS_SYSTEM_PROCESS_TERMINATED, 0, 0, 0, OptionOk, &HardErrorResponse);
 		ExitProcess(1);
 	}
@@ -393,29 +477,7 @@ WinMain(
 	/* Display logged out screen */
 	WLSession->LogonStatus = WKSTA_IS_LOGGED_OFF;
 	RemoveStatusMessage(WLSession);
-
-	/* Check for pending setup */
-	if (GetSetupType() != 0)
-	{
-		TRACE("WL: Setup mode detected\n");
-
-		/* Run setup and reboot when done */
-		SwitchDesktop(WLSession->ApplicationDesktop);
-		RunSetup();
-	}
-	else
-		PostMessageW(WLSession->SASWindow, WLX_WM_SAS, WLX_SAS_TYPE_TIMEOUT, 0);
-
-	/* Play logon sound */
-	hThread = CreateThread(NULL, 0, PlayLogonSoundThread, NULL, 0, NULL);
-	if (hThread)
-	{
-		CloseHandle(hThread);
-	}
-
-	/* Tell kernel that CurrentControlSet is good (needed
-	 * to support Last good known configuration boot) */
-	NtInitializeRegistry(CM_BOOT_FLAG_ACCEPTED);
+	PostMessageW(WLSession->SASWindow, WLX_WM_SAS, WLX_SAS_TYPE_TIMEOUT, 0);
 
 	/* Message loop for the SAS window */
 	while (GetMessageW(&Msg, WLSession->SASWindow, 0, 0))

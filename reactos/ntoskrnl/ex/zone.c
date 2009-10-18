@@ -19,7 +19,7 @@
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 ExExtendZone(PZONE_HEADER Zone,
              PVOID Segment,
              ULONG SegmentSize)
@@ -27,7 +27,7 @@ ExExtendZone(PZONE_HEADER Zone,
     ULONG_PTR Entry;
     ULONG i;
 
-    /*
+    /* 
      * BlockSize and Segment must be 8-byte aligned.
      * Blocksize cannot exceed Segment Size.
      */
@@ -69,7 +69,7 @@ ExExtendZone(PZONE_HEADER Zone,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 ExInterlockedExtendZone(PZONE_HEADER Zone,
                         PVOID Segment,
                         ULONG SegmentSize,
@@ -101,7 +101,7 @@ ExInterlockedExtendZone(PZONE_HEADER Zone,
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 ExInitializeZone(PZONE_HEADER Zone,
                  ULONG BlockSize,
                  PVOID InitialSegment,
@@ -110,7 +110,7 @@ ExInitializeZone(PZONE_HEADER Zone,
     ULONG i;
     ULONG_PTR Entry;
 
-    /*
+    /* 
      * BlockSize and Segment must be 8-byte aligned.
      * Blocksize cannot exceed Segment Size.
      */

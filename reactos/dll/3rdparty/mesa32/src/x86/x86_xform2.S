@@ -1,3 +1,4 @@
+/* $Id: x86_xform2.S,v 1.3 2005/01/04 14:33:47 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -29,7 +30,6 @@
  * in there will break the build on some platforms.
  */
 
-#include "assyntax.h"
 #include "matypes.h"
 #include "xform_args.h"
 
@@ -568,7 +568,3 @@ LLBL(x86_p2_ir_done):
 	POP_L( ESI )
 	RET
 #undef FRAME_OFFSET
-	
-#if defined (__ELF__) && defined (__linux__)
-	.section .note.GNU-stack,"",%progbits
-#endif

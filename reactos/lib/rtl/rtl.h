@@ -14,10 +14,8 @@
 /* We're a core NT DLL, we don't import syscalls */
 #define WIN32_NO_STATUS
 #define _INC_SWPRINTF_INL_
-#undef __MSVCRT__
 
 /* C Headers */
-#include <stdlib.h>
 #include <stdio.h>
 
 /* PSDK/NDK Headers */
@@ -25,12 +23,10 @@
 #include <ndk/ntndk.h>
 
 /* Internal RTL header */
+#include <reactos/helper.h>
 #include "rtlp.h"
 
-/* PSEH Support */
-#include <pseh/pseh2.h>
-
-#include <intrin.h>
+#include <pseh/pseh.h>
 
 #endif /* RTL_H */
 

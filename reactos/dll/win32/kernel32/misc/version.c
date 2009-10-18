@@ -13,10 +13,8 @@
 #include <reactos/buildno.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
-#define UNICODIZE1(x) L##x
-#define UNICODIZE(x) UNICODIZE1(x)
 
 /* FUNCTIONS ******************************************************************/
 
@@ -25,7 +23,7 @@
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetVersion(VOID)
 {
   PPEB pPeb = NtCurrentPeb();
@@ -49,7 +47,7 @@ GetVersion(VOID)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetVersionExW(
     LPOSVERSIONINFOW lpVersionInformation
     )
@@ -99,7 +97,7 @@ GetVersionExW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetVersionExA(
     LPOSVERSIONINFOA lpVersionInformation
     )
@@ -177,7 +175,7 @@ GetVersionExA(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 VerifyVersionInfoW(
     LPOSVERSIONINFOEXW lpVersionInformation,
     DWORD dwTypeMask,
@@ -211,7 +209,7 @@ VerifyVersionInfoW(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 VerifyVersionInfoA(
     LPOSVERSIONINFOEXA lpVersionInformation,
     DWORD dwTypeMask,

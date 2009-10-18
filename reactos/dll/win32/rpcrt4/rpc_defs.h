@@ -1,7 +1,7 @@
 /*
  * RPC definitions
  *
- * Copyright 2001-2002 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2001-2002 Ove Kåven, TransGaming Technologies
  * Copyright 2004 Filip Navara
  *
  * This library is free software; you can redistribute it and/or
@@ -16,11 +16,13 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_RPC_DEFS_H
 #define __WINE_RPC_DEFS_H
+
+/* info from http://www.microsoft.com/msj/0398/dcomtextfigs.htm */
 
 typedef struct
 {
@@ -56,10 +58,10 @@ typedef struct
   RpcPktCommonHdr common;
   unsigned long alloc_hint;       /* Data size in bytes excluding header and tail. */
   unsigned short context_id;      /* Presentation context identifier */
-  unsigned char cancel_count;     /* Received cancel count */
-  unsigned char reserved;         /* Force alignment! */
+  unsigned char alert_count;      /* Pending alert count */
+  unsigned char padding[3];       /* Force alignment! */
   unsigned long status;           /* Runtime fault code (RPC_STATUS) */
-  unsigned long reserved2;
+  unsigned long reserved;
 } RpcPktFaultHdr;
 
 typedef struct
@@ -86,8 +88,9 @@ typedef struct
 
 typedef struct
 {
+  unsigned char padding1[2];       /* Force alignment! */
   unsigned char num_results;       /* Number of results */
-  unsigned char reserved[3];       /* Force alignment! */
+  unsigned char padding2[3];       /* Force alignment! */
   struct {
     unsigned short result;
     unsigned short reason;
@@ -103,7 +106,6 @@ typedef struct
   /* 
    * Following this header are these fields:
    *   RpcAddressString server_address;
-   *   [0 - 3 bytes of padding so that results is 4-byte aligned]
    *   RpcResults results;
    *   RPC_SYNTAX_IDENTIFIER transfer;
    */
@@ -132,18 +134,6 @@ typedef union
   RpcPktBindNAckHdr bind_nack;
 } RpcPktHdr;
 
-typedef struct
-{
-  unsigned char auth_type;       /* authentication scheme in use */
-  unsigned char auth_level;      /* RPC_C_AUTHN_LEVEL* */
-  unsigned char auth_pad_length; /* length of padding to restore n % 4 alignment */
-  unsigned char auth_reserved;   /* reserved, must be zero */
-  unsigned long auth_context_id; /* unique value for the authenticated connection */
-} RpcAuthVerifier;
-
-#define RPC_AUTH_VERIFIER_LEN(common_hdr) \
-    ((common_hdr)->auth_len ? (common_hdr)->auth_len + sizeof(RpcAuthVerifier) : 0)
-
 #define RPC_VER_MAJOR             5
 #define RPC_VER_MINOR             0
 
@@ -170,30 +160,13 @@ typedef struct
 #define PKT_BIND_NACK          13
 #define PKT_ALTER_CONTEXT      14
 #define PKT_ALTER_CONTEXT_RESP 15
-#define PKT_AUTH3              16
 #define PKT_SHUTDOWN           17
 #define PKT_CO_CANCEL          18
 #define PKT_ORPHANED           19
 
-#define RESULT_ACCEPT               0
-#define RESULT_USER_REJECTION       1
-#define RESULT_PROVIDER_REJECTION   2
+#define RESULT_ACCEPT           0
 
-#define REASON_NONE                             0
-#define REASON_ABSTRACT_SYNTAX_NOT_SUPPORTED    1
-#define REASON_TRANSFER_SYNTAXES_NOT_SUPPORTED  2
-#define REASON_LOCAL_LIMIT_EXCEEDED             3
-
-#define REJECT_REASON_NOT_SPECIFIED            0
-#define REJECT_TEMPORARY_CONGESTION            1
-#define REJECT_LOCAL_LIMIT_EXCEEDED            2
-#define REJECT_CALLED_PADDR_UNKNOWN            3 /* not used */
-#define REJECT_PROTOCOL_VERSION_NOT_SUPPORTED  4
-#define REJECT_DEFAULT_CONTEXT_NOT_SUPPORTED   5 /* not used */
-#define REJECT_USER_DATA_NOT_READABLE          6 /* not used */
-#define REJECT_NO_PSAP_AVAILABLE               7 /* not used */
-#define REJECT_UNKNOWN_AUTHN_SERVICE           8
-#define REJECT_INVALID_CHECKSUM                9
+#define NO_REASON               0
 
 #define NCADG_IP_UDP   0x08
 #define NCACN_IP_TCP   0x07

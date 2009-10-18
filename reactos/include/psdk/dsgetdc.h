@@ -1,5 +1,8 @@
 #ifndef _DSGETDC_H
 #define _DSGETDC_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,21 +65,21 @@ typedef struct _DS_DOMAIN_TRUSTSW
 	GUID DomainGuid;
 } DS_DOMAIN_TRUSTSW, *PDS_DOMAIN_TRUSTSW;
 
-DWORD WINAPI
+DWORD
 DsEnumerateDomainTrustsA(
 	LPSTR ServerName,
 	ULONG Flags,
 	PDS_DOMAIN_TRUSTSA* Domains,
 	PULONG DomainCount);
 
-DWORD WINAPI
+DWORD
 DsEnumerateDomainTrustsW(
 	LPWSTR ServerName,
 	ULONG Flags,
 	PDS_DOMAIN_TRUSTSW* Domains,
 	PULONG DomainCount);
 
-DWORD WINAPI
+DWORD
 DsGetDcNameA(
 	LPCSTR ComputerName,
 	LPCSTR DomainName,
@@ -85,7 +88,7 @@ DsGetDcNameA(
 	ULONG Flags,
 	PDOMAIN_CONTROLLER_INFOA* DomainControllerInfo);
 
-DWORD WINAPI
+DWORD
 DsGetDcNameW(
 	LPCWSTR ComputerName,
 	LPCWSTR DomainName,

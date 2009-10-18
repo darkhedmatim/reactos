@@ -62,7 +62,7 @@ class CBBackend : public Backend
 
 		void ProcessModules();
 		void ProcessFile(std::string &filename);
-
+		
 		bool CheckFolderAdded(std::string &folder);
 		void AddFolders(std::string &folder);
 
@@ -74,7 +74,7 @@ class CBBackend : public Backend
 		std::string DependFileName ( const Module& module ) const;
 		std::string GenerateProjectLinkerFlags () const;
 		void MingwAddImplicitLibraries( Module &module );
-		bool IsSpecDefinitionFile ( const Module& module ) const;
+		bool IsWineModule ( const Module& module ) const;
 		std::vector<CBConfiguration*> m_configurations;
 
 		std::vector<FileUnit> m_fileUnits;

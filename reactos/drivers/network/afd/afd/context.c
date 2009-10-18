@@ -12,7 +12,7 @@
 #include "tdiconn.h"
 #include "debug.h"
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdGetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp ) {
     NTSTATUS Status = STATUS_INVALID_PARAMETER;
@@ -20,7 +20,7 @@ AfdGetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     PAFD_FCB FCB = FileObject->FsContext;
     UINT ContextSize = IrpSp->Parameters.DeviceIoControl.OutputBufferLength;
 
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
+    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, TRUE );
 
     if( FCB->ContextSize < ContextSize ) ContextSize = FCB->ContextSize;
 
@@ -33,32 +33,36 @@ AfdGetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 
     AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
 
-    return UnlockAndMaybeComplete( FCB, Status, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 AfdSetContext( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	       PIO_STACK_LOCATION IrpSp ) {
+    NTSTATUS Status = STATUS_NO_MEMORY;
     PFILE_OBJECT FileObject = IrpSp->FileObject;
     PAFD_FCB FCB = FileObject->FsContext;
 
-    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp );
+    if( !SocketAcquireStateLock( FCB ) ) return LostSocket( Irp, TRUE );
 
-    if( FCB->Context ) {
-	ExFreePool( FCB->Context );
-	FCB->ContextSize = 0;
+    if( FCB->ContextSize <
+	IrpSp->Parameters.DeviceIoControl.InputBufferLength ) {
+	if( FCB->Context )
+	    ExFreePool( FCB->Context );
+	FCB->Context =
+	    ExAllocatePool
+	    ( PagedPool,
+	      IrpSp->Parameters.DeviceIoControl.InputBufferLength );
     }
 
-    FCB->Context = ExAllocatePool( PagedPool,
-	                           IrpSp->Parameters.DeviceIoControl.InputBufferLength );
+    if( FCB->Context ) {
+	Status = STATUS_SUCCESS;
+	RtlCopyMemory( FCB->Context,
+		       IrpSp->Parameters.DeviceIoControl.Type3InputBuffer,
+		       IrpSp->Parameters.DeviceIoControl.InputBufferLength );
+    }
 
-    if( !FCB->Context ) return UnlockAndMaybeComplete( FCB, STATUS_NO_MEMORY, Irp, 0 );
+    AFD_DbgPrint(MID_TRACE,("Returning %x\n", Status));
 
-    FCB->ContextSize = IrpSp->Parameters.DeviceIoControl.InputBufferLength;
-
-    RtlCopyMemory( FCB->Context,
-		   IrpSp->Parameters.DeviceIoControl.Type3InputBuffer,
-		   FCB->ContextSize );
-
-    return UnlockAndMaybeComplete( FCB, STATUS_SUCCESS, Irp, 0 );
+    return UnlockAndMaybeComplete( FCB, Status, Irp, 0, NULL, FALSE );
 }

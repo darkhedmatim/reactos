@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/elf32.c
@@ -6,7 +7,7 @@
  *
  * PROGRAMMERS:     No programmer listed.
  */
-#include <ntoskrnl.h>
+
 #define __ELF_WORD_SIZE 32
 #include "elf.inc.h"
 

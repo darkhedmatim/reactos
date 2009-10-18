@@ -71,15 +71,6 @@ PopAddRemoveSysCapsCallback(
 );
 
 //
-// Notifications
-//
-VOID
-NTAPI
-PoNotifySystemTimeSet(
-    VOID
-);
-
-//
 // Global data inside the Power Manager
 //
 extern PDEVICE_NODE PopSystemPowerDeviceNode;
