@@ -237,10 +237,10 @@ NdisOpenFile(
 
   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
-  ASSERT ( Status && FileName );
-
   *Status = NDIS_STATUS_SUCCESS;
   FullFileName.Buffer = NULL;
+
+  ASSERT ( Status && FileName );
 
   FullFileName.Length = sizeof(NDIS_FILE_FOLDER);
   FullFileName.MaximumLength = FileName->MaximumLength + sizeof(NDIS_FILE_FOLDER);
@@ -462,8 +462,8 @@ ndisProcWorkItemHandler(PVOID pContext)
     pNdisItem->Routine(pNdisItem, pNdisItem->Context);
 }
 
-NDIS_STATUS
 EXPORT
+NDIS_STATUS
 NdisScheduleWorkItem(
     IN PNDIS_WORK_ITEM  pWorkItem)
 {

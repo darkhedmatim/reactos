@@ -167,7 +167,7 @@ BOOL WINHELP_GetOpenFileName(LPSTR lpszFile, int len)
     lpszFile[0]='\0';
 
     openfilename.lStructSize       = sizeof(OPENFILENAME);
-    openfilename.hwndOwner         = (Globals.active_win ? Globals.active_win->hMainWnd : 0);
+    openfilename.hwndOwner         = NULL;
     openfilename.hInstance         = Globals.hInstance;
     openfilename.lpstrFilter       = szzFilter;
     openfilename.lpstrCustomFilter = 0;
@@ -646,16 +646,6 @@ static HLPFILE_LINK* WINHELP_FindLink(WINHELP_WINDOW* win, LPARAM pos)
                          (LPARAM)&char_ptl, cp);
             SendMessageW(GetDlgItem(win->hMainWnd, CTL_ID_TEXT), EM_POSFROMCHAR,
                          (LPARAM)&char_next_ptl, cp + 1);
-            if (link->bHotSpot)
-            {
-                HLPFILE_HOTSPOTLINK*    hslink = (HLPFILE_HOTSPOTLINK*)link;
-                if ((mouse_ptl.x < char_ptl.x + hslink->x) ||
-                    (mouse_ptl.x >= char_ptl.x + hslink->x + hslink->width) ||
-                    (mouse_ptl.y < char_ptl.y + hslink->y) ||
-                    (mouse_ptl.y >= char_ptl.y + hslink->y + hslink->height))
-                    continue;
-                break;
-            }
             if (char_next_ptl.y != char_ptl.y || mouse_ptl.x >= char_next_ptl.x)
                 link = NULL;
             break;
@@ -1746,7 +1736,7 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE prev, LPSTR cmdline, int show)
                            WINHELP_GetWindowInfo(hlpfile, wndname), show);
 
     /* Message loop */
-    while ((Globals.win_list || Globals.active_popup) && GetMessage(&msg, 0, 0, 0))
+    while (GetMessage(&msg, 0, 0, 0))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);

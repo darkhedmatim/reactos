@@ -3,7 +3,9 @@
 #include <debug.h>
 #include <pseh/pseh2.h>
 
-#include "fullfat.h"
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
 
 #include <fat.h>
 #include <fatstruc.h>
@@ -11,40 +13,14 @@
 #define Add2Ptr(P,I,T) ((T)((PUCHAR)(P) + (I)))
 #define PtrOffset(B,O) ((ULONG)((ULONG_PTR)(O) - (ULONG_PTR)(B)))
 
-#define TAG_CCB  'BCCV'
-#define TAG_FCB  'BCFV'
-#define TAG_IRP  'PRIV'
-#define TAG_VFAT 'TAFV'
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
 
-
-/* Global resource acquire/release */
-#define FatAcquireExclusiveGlobal(IrpContext) \
-( \
-    ExAcquireResourceExclusiveLite(&FatGlobalData.Resource, \
-                                   (IrpContext)->Flags & IRPCONTEXT_CANWAIT) \
-)
-
-#define FatAcquireSharedGlobal(IrpContext) \
-( \
-    ExAcquireResourceSharedLite(&FatGlobalData.Resource, \
-                                (IrpContext)->Flags & IRPCONTEXT_CANWAIT) \
-)
-
-#define FatReleaseGlobal(IrpContext) \
-{ \
-    ExReleaseResourceLite(&(FatGlobalData.Resource)); \
-}
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlUpcaseUnicodeStringToCountedOemString(
-    IN OUT POEM_STRING DestinationString,
-    IN PCUNICODE_STRING SourceString,
-    IN BOOLEAN AllocateDestinationString
-);
-
-
+#define TAG_CCB TAG('V', 'C', 'C', 'B')
+#define TAG_FCB TAG('V', 'F', 'C', 'B')
+#define TAG_IRP TAG('V', 'I', 'R', 'P')
+#define TAG_VFAT TAG('V', 'F', 'A', 'T')
 /*  ------------------------------------------------------  shutdown.c  */
 
 DRIVER_DISPATCH FatShutdown;
@@ -58,13 +34,6 @@ FatQueryVolumeInfo(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS NTAPI
 FatSetVolumeInfo(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-
-VOID NTAPI
-FatReadStreamFile(PVCB Vcb,
-                  ULONGLONG ByteOffset,
-                  ULONG ByteSize,
-                  PBCB *Bcb,
-                  PVOID *Buffer);
 
 /*  ------------------------------------------------------  blockdev.c  */
 NTSTATUS
@@ -81,31 +50,14 @@ FatPerformVirtualNonCachedIo(
     IN PLARGE_INTEGER Offset,
     IN SIZE_T Length);
 
+PVOID
+FatMapUserBuffer(
+    IN OUT PIRP Irp);
+
 /*  -----------------------------------------------------------  dir.c  */
 
 NTSTATUS NTAPI
 FatDirectoryControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-
-VOID NTAPI
-FatCreateRootDcb(IN PFAT_IRP_CONTEXT IrpContext,
-                 IN PVCB Vcb);
-
-PFCB NTAPI
-FatCreateDcb(IN PFAT_IRP_CONTEXT IrpContext,
-             IN PVCB Vcb,
-             IN PFCB ParentDcb,
-             IN FF_FILE *FileHandle);
-
-IO_STATUS_BLOCK NTAPI
-FatiOpenExistingDcb(IN PFAT_IRP_CONTEXT IrpContext,
-                    IN PFILE_OBJECT FileObject,
-                    IN PVCB Vcb,
-                    IN PFCB Dcb,
-                    IN PACCESS_MASK DesiredAccess,
-                    IN USHORT ShareAccess,
-                    IN ULONG CreateDisposition,
-                    IN BOOLEAN NoEaKnowledge,
-                    IN BOOLEAN DeleteOnClose);
 
 /*  --------------------------------------------------------  create.c  */
 
@@ -167,66 +119,11 @@ FatCompleteRequest(PFAT_IRP_CONTEXT IrpContext OPTIONAL,
                    PIRP Irp OPTIONAL,
                    NTSTATUS Status);
 
-BOOLEAN NTAPI
-FatAcquireExclusiveVcb(IN PFAT_IRP_CONTEXT IrpContext,
-                       IN PVCB Vcb);
-
-BOOLEAN NTAPI
-FatAcquireSharedVcb(IN PFAT_IRP_CONTEXT IrpContext,
-                    IN PVCB Vcb);
-
-VOID NTAPI
-FatReleaseVcb(IN PFAT_IRP_CONTEXT IrpContext,
-              IN PVCB Vcb);
-
-BOOLEAN NTAPI
-FatAcquireExclusiveFcb(IN PFAT_IRP_CONTEXT IrpContext,
-                       IN PFCB Fcb);
-
-BOOLEAN NTAPI
-FatAcquireSharedFcb(IN PFAT_IRP_CONTEXT IrpContext,
-                       IN PFCB Fcb);
-
-VOID NTAPI
-FatReleaseFcb(IN PFAT_IRP_CONTEXT IrpContext,
-              IN PFCB Fcb);
-
-TYPE_OF_OPEN
-NTAPI
-FatDecodeFileObject(IN PFILE_OBJECT FileObject,
-                    OUT PVCB *Vcb,
-                    OUT PFCB *FcbOrDcb,
-                    OUT PCCB *Ccb);
-
-VOID NTAPI
-FatSetFileObject(PFILE_OBJECT FileObject,
-                 TYPE_OF_OPEN TypeOfOpen,
-                 PVOID Fcb,
-                 PCCB Ccb);
-
-PVOID FASTCALL
-FatMapUserBuffer(PIRP Irp);
-
-/* --------------------------------------------------------- fullfat.c */
-
-FF_T_SINT32
-FatWriteBlocks(FF_T_UINT8 *pBuffer, FF_T_UINT32 SectorAddress, FF_T_UINT32 Count, void *pParam);
-
-FF_T_SINT32
-FatReadBlocks(FF_T_UINT8 *pBuffer, FF_T_UINT32 SectorAddress, FF_T_UINT32 Count, void *pParam);
 
 /* ---------------------------------------------------------  lock.c */
 
 NTSTATUS NTAPI
 FatLockControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-
-VOID NTAPI
-FatOplockComplete(IN PVOID Context,
-                  IN PIRP Irp);
-
-VOID NTAPI
-FatPrePostIrp(IN PVOID Context,
-              IN PIRP Irp);
 
 /*  ---------------------------------------------------------  fsctl.c  */
 
@@ -237,10 +134,6 @@ FatFileSystemControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
 NTSTATUS NTAPI FatQueryInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS NTAPI FatSetInformation(PDEVICE_OBJECT DeviceObject, PIRP Irp);
-
-/*  ---------------------------------------------------------  fullfat.c  */
-
-FF_FILE *FF_OpenW(FF_IOMAN *pIoman, PUNICODE_STRING pathW, FF_T_UINT8 Mode, FF_ERROR *pError);
 
 /*  ---------------------------------------------------------  iface.c  */
 
@@ -260,7 +153,6 @@ FatPinNextPage(
 
 NTSTATUS
 FatInitializeVcb(
-    IN PFAT_IRP_CONTEXT IrpContext,
     IN PVCB Vcb,
     IN PDEVICE_OBJECT TargetDeviceObject,
     IN PVPB Vpb);
@@ -321,64 +213,21 @@ FatUnlinkFcbNames(
 	IN PFCB ParentFcb,
 	IN PFCB Fcb);
 
-PFCB NTAPI
+NTSTATUS
 FatCreateFcb(
+    OUT PFCB* CreatedFcb,
     IN PFAT_IRP_CONTEXT IrpContext,
-    IN PVCB Vcb,
-    IN PFCB ParentDcb,
-    IN FF_FILE *FileHandle);
+    IN PFCB ParentFcb,
+	IN PDIR_ENTRY Dirent,
+    IN PUNICODE_STRING FileName,
+	IN PUNICODE_STRING LongFileName OPTIONAL);
 
-IO_STATUS_BLOCK NTAPI
-FatiOpenExistingFcb(IN PFAT_IRP_CONTEXT IrpContext,
-                    IN PFILE_OBJECT FileObject,
-                    IN PVCB Vcb,
-                    IN PFCB Fcb,
-                    IN PACCESS_MASK DesiredAccess,
-                    IN USHORT ShareAccess,
-                    IN ULONG AllocationSize,
-                    IN PFILE_FULL_EA_INFORMATION EaBuffer,
-                    IN ULONG EaLength,
-                    IN UCHAR FileAttributes,
-                    IN ULONG CreateDisposition,
-                    IN BOOLEAN NoEaKnowledge,
-                    IN BOOLEAN DeleteOnClose,
-                    IN BOOLEAN OpenedAsDos,
-                    OUT PBOOLEAN OplockPostIrp);
-
-PFCB NTAPI
-FatFindFcb(PFAT_IRP_CONTEXT IrpContext,
-           PRTL_SPLAY_LINKS *RootNode,
-           PSTRING AnsiName,
-           PBOOLEAN IsDosName);
-
-VOID NTAPI
-FatInsertName(IN PFAT_IRP_CONTEXT IrpContext,
-              IN PRTL_SPLAY_LINKS *RootNode,
-              IN PFCB_NAME_LINK Name);
-
-VOID NTAPI
-FatRemoveNames(IN PFAT_IRP_CONTEXT IrpContext,
-               IN PFCB Fcb);
-
-PCCB NTAPI
-FatCreateCcb();
-
-VOID NTAPI
-FatSetFullNameInFcb(PFCB Fcb,
-                    PUNICODE_STRING Name);
-
-VOID NTAPI
-FatSetFullFileNameInFcb(IN PFAT_IRP_CONTEXT IrpContext,
-                        IN PFCB Fcb);
-
-VOID NTAPI
-FatSetFcbNames(IN PFAT_IRP_CONTEXT IrpContext,
-               IN PFCB Fcb);
-
-VOID NTAPI
-Fati8dot3ToString(IN PCHAR FileName,
-                  IN BOOLEAN DownCase,
-                  OUT POEM_STRING OutString);
+NTSTATUS
+FatOpenFcb(
+    OUT PFCB* Fcb,
+    IN PFAT_IRP_CONTEXT IrpContext,
+    IN PFCB ParentFcb,
+    IN PUNICODE_STRING FileName);
 
 /*  ------------------------------------------------------------  rw.c  */
 

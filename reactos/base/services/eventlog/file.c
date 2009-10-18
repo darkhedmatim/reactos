@@ -704,7 +704,6 @@ BOOL LogfWriteData(PLOGFILE LogFile, DWORD BufSize, PBYTE Buffer)
 
     if (!GetFileSizeEx(LogFile->hFile, &logFileSize))
     {
-        LeaveCriticalSection(&LogFile->cs);
         return FALSE;
     }
 
@@ -752,7 +751,6 @@ BOOL LogfWriteData(PLOGFILE LogFile, DWORD BufSize, PBYTE Buffer)
             if (RecBuf->Reserved != LOGFILE_SIGNATURE)
             {
                 DPRINT1("LogFile corrupt!\n");
-                LeaveCriticalSection(&LogFile->cs);
                 return FALSE;
             }
 

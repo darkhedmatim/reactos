@@ -49,7 +49,6 @@ typedef struct
 	BOOL bCursorShadow;
 	BOOL bUiEffects;
 	BOOL bFontSmoothing;
-	BOOL bDragFullWindows;
 	UINT uiFontSmoothingType;
 } EFFECTS;
 

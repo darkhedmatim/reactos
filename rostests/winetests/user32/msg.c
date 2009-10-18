@@ -581,7 +581,7 @@ static const struct message WmShowMinOverlappedSeq[] = {
     { WM_GETTEXT, sent|defwinproc|optional },
     { WM_WINDOWPOSCHANGED, sent },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|defwinproc|wparam|lparam, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|defwinproc|wparam, SIZE_MINIMIZED },
     { WM_NCCALCSIZE, sent|optional },
     { EVENT_OBJECT_LOCATIONCHANGE, winevent_hook|wparam|lparam, 0, 0 },
     { EVENT_OBJECT_LOCATIONCHANGE, winevent_hook|wparam|lparam, 0, 0 },
@@ -1004,7 +1004,7 @@ static const struct message WmShowChildInvisibleParentSeq_1[] = {
     { WM_CHILDACTIVATE, sent|optional },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_SHOWWINDOW|SWP_FRAMECHANGED|SWP_NOREDRAW|SWP_NOCOPYBITS|SWP_STATECHANGED, 0, SWP_NOACTIVATE },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|defwinproc|wparam|lparam, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|defwinproc|wparam, SIZE_MINIMIZED },
     { EVENT_OBJECT_LOCATIONCHANGE, winevent_hook|wparam|lparam, 0, 0 },
     { EVENT_SYSTEM_MINIMIZESTART, winevent_hook|wparam|lparam, 0, 0 },
     /* FIXME: Wine creates an icon/title window while Windows doesn't */
@@ -1044,7 +1044,7 @@ static const struct message WmShowChildInvisibleParentSeq_3[] = {
     { WM_CHILDACTIVATE, sent },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_SHOWWINDOW|SWP_FRAMECHANGED|SWP_NOREDRAW|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|defwinproc|wparam|lparam, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|defwinproc|wparam, SIZE_MINIMIZED },
     { EVENT_OBJECT_LOCATIONCHANGE, winevent_hook|wparam|lparam, 0, 0 },
     { EVENT_SYSTEM_MINIMIZESTART, winevent_hook|wparam|lparam, 0, 0 },
     /* FIXME: Wine creates an icon/title window while Windows doesn't */
@@ -1065,7 +1065,7 @@ static const struct message WmShowChildInvisibleParentSeq_4[] = {
     { EVENT_OBJECT_SHOW, winevent_hook|wparam|lparam, 0, 0 },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_SHOWWINDOW|SWP_FRAMECHANGED|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|defwinproc|wparam|lparam, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|defwinproc|wparam, SIZE_MINIMIZED },
     { EVENT_OBJECT_LOCATIONCHANGE, winevent_hook|wparam|lparam, 0, 0 },
     { EVENT_SYSTEM_MINIMIZESTART, winevent_hook|wparam|lparam, 0, 0 },
     /* FIXME: Wine creates an icon/title window while Windows doesn't */
@@ -3186,7 +3186,7 @@ static const struct message WmMinimizeMDIchildVisibleSeq[] = {
     { WM_NCCALCSIZE, sent|wparam, 1 },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_FRAMECHANGED|SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_NOCLIENTSIZE|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|defwinproc|wparam|lparam, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|defwinproc|wparam, SIZE_MINIMIZED },
     { WM_CHILDACTIVATE, sent|wparam|lparam|defwinproc, 0, 0 },
     { EVENT_OBJECT_LOCATIONCHANGE, winevent_hook|wparam|lparam, 0, 0 }, /* MDI child */
     { EVENT_SYSTEM_MINIMIZESTART, winevent_hook|wparam|lparam, 0, 0 }, /* MDI child */
@@ -5209,55 +5209,12 @@ static const struct message WmSetFontButtonSeq[] =
     { WM_CTLCOLORBTN, sent|defwinproc },
     { 0 }
 };
-static const struct message WmSetStyleButtonSeq[] =
-{
-    { BM_SETSTYLE, sent },
-    { WM_APP, sent|wparam|lparam, 0, 0 },
-    { WM_PAINT, sent },
-    { WM_NCPAINT, sent|defwinproc|optional }, /* FIXME: Wine sends it */
-    { WM_ERASEBKGND, sent|defwinproc|optional }, /* Win9x doesn't send it */
-    { WM_CTLCOLORBTN, sent|parent },
-    { 0 }
-};
-static const struct message WmSetStyleStaticSeq[] =
-{
-    { BM_SETSTYLE, sent },
-    { WM_APP, sent|wparam|lparam, 0, 0 },
-    { WM_PAINT, sent },
-    { WM_NCPAINT, sent|defwinproc|optional }, /* FIXME: Wine sends it */
-    { WM_ERASEBKGND, sent|defwinproc|optional }, /* Win9x doesn't send it */
-    { WM_CTLCOLORSTATIC, sent|parent },
-    { 0 }
-};
-static const struct message WmSetStyleUserSeq[] =
-{
-    { BM_SETSTYLE, sent },
-    { WM_APP, sent|wparam|lparam, 0, 0 },
-    { WM_PAINT, sent },
-    { WM_NCPAINT, sent|defwinproc|optional }, /* FIXME: Wine sends it */
-    { WM_ERASEBKGND, sent|defwinproc|optional }, /* Win9x doesn't send it */
-    { WM_CTLCOLORBTN, sent|parent },
-    { WM_COMMAND, sent|wparam|parent, MAKEWPARAM(ID_BUTTON, BN_PAINT) },
-    { 0 }
-};
-static const struct message WmSetStyleOwnerdrawSeq[] =
-{
-    { BM_SETSTYLE, sent },
-    { WM_APP, sent|wparam|lparam, 0, 0 },
-    { WM_PAINT, sent },
-    { WM_NCPAINT, sent|optional }, /* FIXME: Wine sends it */
-    { WM_ERASEBKGND, sent|defwinproc|optional }, /* Win9x doesn't send it */
-    { WM_CTLCOLORBTN, sent|parent },
-    { WM_CTLCOLORBTN, sent|parent|optional }, /* Win9x doesn't send it */
-    { WM_DRAWITEM, sent|wparam|lparam|parent, ID_BUTTON, 0x000010e4 },
-    { 0 }
-};
 
 static WNDPROC old_button_proc;
 
 static LRESULT CALLBACK button_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -5311,30 +5268,29 @@ static void test_button_messages(void)
 	DWORD dlg_code;
 	const struct message *setfocus;
 	const struct message *killfocus;
-	const struct message *setstyle;
     } button[] = {
 	{ BS_PUSHBUTTON, DLGC_BUTTON | DLGC_UNDEFPUSHBUTTON,
-	  WmSetFocusButtonSeq, WmKillFocusButtonSeq, WmSetStyleButtonSeq },
+	  WmSetFocusButtonSeq, WmKillFocusButtonSeq },
 	{ BS_DEFPUSHBUTTON, DLGC_BUTTON | DLGC_DEFPUSHBUTTON,
-	  WmSetFocusButtonSeq, WmKillFocusButtonSeq, WmSetStyleButtonSeq },
+	  WmSetFocusButtonSeq, WmKillFocusButtonSeq },
 	{ BS_CHECKBOX, DLGC_BUTTON,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_AUTOCHECKBOX, DLGC_BUTTON,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_RADIOBUTTON, DLGC_BUTTON | DLGC_RADIOBUTTON,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_3STATE, DLGC_BUTTON,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_AUTO3STATE, DLGC_BUTTON,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_GROUPBOX, DLGC_STATIC,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_USERBUTTON, DLGC_BUTTON | DLGC_UNDEFPUSHBUTTON,
-	  WmSetFocusButtonSeq, WmKillFocusButtonSeq, WmSetStyleUserSeq },
+	  WmSetFocusButtonSeq, WmKillFocusButtonSeq },
 	{ BS_AUTORADIOBUTTON, DLGC_BUTTON | DLGC_RADIOBUTTON,
-	  WmSetFocusStaticSeq, WmKillFocusStaticSeq, WmSetStyleStaticSeq },
+	  WmSetFocusStaticSeq, WmKillFocusStaticSeq },
 	{ BS_OWNERDRAW, DLGC_BUTTON,
-	  WmSetFocusOwnerdrawSeq, WmKillFocusOwnerdrawSeq, WmSetStyleOwnerdrawSeq }
+	  WmSetFocusOwnerdrawSeq, WmKillFocusOwnerdrawSeq }
     };
     unsigned int i;
     HWND hwnd, parent;
@@ -5363,8 +5319,6 @@ static void test_button_messages(void)
         MSG msg;
         DWORD style;
 
-        trace("button style %08x\n", button[i].style);
-
         hwnd = CreateWindowExA(0, "my_button_class", "test", button[i].style | WS_CHILD | BS_NOTIFY,
                                0, 0, 50, 14, parent, (HMENU)ID_BUTTON, 0, NULL);
 	ok(hwnd != 0, "Failed to create button window\n");
@@ -5373,9 +5327,9 @@ static void test_button_messages(void)
         style &= ~(WS_CHILD | BS_NOTIFY);
         /* XP turns a BS_USERBUTTON into BS_PUSHBUTTON */
         if (button[i].style == BS_USERBUTTON)
-            ok(style == BS_PUSHBUTTON, "expected style BS_PUSHBUTTON got %x\n", style);
+            todo_wine ok(style == BS_PUSHBUTTON, "expected style BS_PUSHBUTTON got %x\n", style);
         else
-            ok(style == button[i].style, "expected style %x got %x\n", button[i].style, style);
+        ok(style == button[i].style, "expected style %x got %x\n", button[i].style, style);
 
 	dlg_code = SendMessageA(hwnd, WM_GETDLGCODE, 0, 0);
 	ok(dlg_code == button[i].dlg_code, "%u: wrong dlg_code %08x\n", i, dlg_code);
@@ -5388,6 +5342,7 @@ static void test_button_messages(void)
 
         log_all_parent_messages++;
 
+	trace("button style %08x\n", button[i].style);
         ok(GetFocus() == 0, "expected focus 0, got %p\n", GetFocus());
 	SetFocus(hwnd);
         SendMessage(hwnd, WM_APP, 0, 0); /* place a separator mark here */
@@ -5399,20 +5354,9 @@ static void test_button_messages(void)
         while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessage(&msg);
 	ok_sequence(button[i].killfocus, "SetFocus(0) on a button", FALSE);
 
-        ok(GetFocus() == 0, "expected focus 0, got %p\n", GetFocus());
-
-        SendMessage(hwnd, BM_SETSTYLE, button[i].style | BS_BOTTOM, TRUE);
-        SendMessage(hwnd, WM_APP, 0, 0); /* place a separator mark here */
-        while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessage(&msg);
-        ok_sequence(button[i].setstyle, "BM_SETSTYLE on a button", FALSE);
-
-        style = GetWindowLongA(hwnd, GWL_STYLE);
-        style &= ~(WS_VISIBLE | WS_CHILD | BS_NOTIFY);
-        /* XP doesn't turn a BS_USERBUTTON into BS_PUSHBUTTON here! */
-        ok(style == button[i].style, "expected style %x got %x\n", button[i].style, style);
-
         log_all_parent_messages--;
 
+        ok(GetFocus() == 0, "expected focus 0, got %p\n", GetFocus());
 	DestroyWindow(hwnd);
     }
 
@@ -5458,7 +5402,7 @@ static WNDPROC old_static_proc;
 
 static LRESULT CALLBACK static_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -5553,7 +5497,7 @@ static WNDPROC old_combobox_proc;
 
 static LRESULT CALLBACK combobox_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -7813,12 +7757,6 @@ static VOID CALLBACK tfunc(HWND hwnd, UINT uMsg, UINT_PTR id, DWORD dwTime)
 {
 }
 
-static VOID CALLBACK tfunc_crash(HWND hwnd, UINT uMsg, UINT_PTR id, DWORD dwTime)
-{
-    /* Crash on purpose */
-    *(volatile int *)0 = 2;
-}
-
 #define TIMER_ID  0x19
 
 static DWORD WINAPI timer_thread_proc(LPVOID x)
@@ -7840,7 +7778,6 @@ static void test_timers(void)
 {
     struct timer_info info;
     DWORD id;
-    MSG msg;
 
     info.hWnd = CreateWindow ("TestWindowClass", NULL,
        WS_OVERLAPPEDWINDOW ,
@@ -7861,26 +7798,6 @@ static void test_timers(void)
     CloseHandle(info.handles[1]);
 
     ok( KillTimer(info.hWnd, TIMER_ID), "KillTimer failed\n");
-
-    ok(DestroyWindow(info.hWnd), "failed to destroy window\n");
-
-    /* Test timer callback with crash */
-    SetLastError(0xdeadbeef);
-    info.hWnd = CreateWindowW(testWindowClassW, NULL,
-                              WS_OVERLAPPEDWINDOW ,
-                              CW_USEDEFAULT, CW_USEDEFAULT, 300, 300, 0,
-                              NULL, NULL, 0);
-    if ((!info.hWnd && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED) || /* Win9x/Me */
-        (!pGetMenuInfo)) /* Win95/NT4 */
-    {
-        win_skip("Test would crash on Win9x/WinMe/NT4\n");
-        DestroyWindow(info.hWnd);
-        return;
-    }
-    info.id = SetTimer(info.hWnd, TIMER_ID, 0, tfunc_crash);
-    ok(info.id, "SetTimer failed\n");
-    Sleep(150);
-    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) DispatchMessage(&msg);
 
     ok(DestroyWindow(info.hWnd), "failed to destroy window\n");
 }
@@ -9011,7 +8928,7 @@ static WNDPROC old_edit_proc;
 
 static LRESULT CALLBACK edit_hook_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static LONG defwndproc_counter = 0;
+    static long defwndproc_counter = 0;
     LRESULT ret;
     struct recvd_message msg;
 
@@ -10281,7 +10198,7 @@ static const struct message WmShowMinimized_1[] = {
     { WM_WINDOWPOSCHANGING, sent|wparam|optional, SWP_NOSIZE|SWP_NOMOVE }, /* win2000 doesn't send it */
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_SHOWWINDOW|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|wparam|lparam|defwinproc, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|wparam|defwinproc, SIZE_MINIMIZED },
     { 0 }
 };
 static const struct message WmMinimize_1[] = {
@@ -10291,7 +10208,7 @@ static const struct message WmMinimize_1[] = {
     { WM_WINDOWPOSCHANGING, sent|wparam, SWP_SHOWWINDOW|SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|wparam|lparam|defwinproc, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|wparam|defwinproc, SIZE_MINIMIZED },
     { 0 }
 };
 static const struct message WmMinimize_2[] = {
@@ -10300,7 +10217,7 @@ static const struct message WmMinimize_2[] = {
     { WM_WINDOWPOSCHANGING, sent|wparam, SWP_SHOWWINDOW|SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|wparam|lparam|defwinproc, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|wparam|defwinproc, SIZE_MINIMIZED },
     { 0 }
 };
 static const struct message WmMinimize_3[] = {
@@ -10308,7 +10225,7 @@ static const struct message WmMinimize_3[] = {
     { WM_WINDOWPOSCHANGING, sent|wparam, SWP_SHOWWINDOW|SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_WINDOWPOSCHANGED, sent|wparam, SWP_SHOWWINDOW|SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc },
-    { WM_SIZE, sent|wparam|lparam|defwinproc, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|wparam|defwinproc, SIZE_MINIMIZED },
     { 0 }
 };
 static const struct message WmShowMinNoActivate[] = {
@@ -10316,7 +10233,7 @@ static const struct message WmShowMinNoActivate[] = {
     { WM_WINDOWPOSCHANGING, sent },
     { WM_WINDOWPOSCHANGED, sent },
     { WM_MOVE, sent|defwinproc|optional },
-    { WM_SIZE, sent|wparam|lparam|defwinproc|optional, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|wparam|defwinproc|optional, SIZE_MINIMIZED },
     { 0 }
 };
 static const struct message WmMinMax_1[] = {
@@ -10342,7 +10259,7 @@ static const struct message WmMinMax_3[] = {
     { WM_WINDOWPOSCHANGING, sent|wparam|optional, SWP_SHOWWINDOW|SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_WINDOWPOSCHANGED, sent|wparam|optional, SWP_NOACTIVATE|SWP_FRAMECHANGED|SWP_NOCOPYBITS|SWP_STATECHANGED },
     { WM_MOVE, sent|defwinproc|optional },
-    { WM_SIZE, sent|wparam|lparam|defwinproc|optional, SIZE_MINIMIZED, 0 },
+    { WM_SIZE, sent|wparam|defwinproc|optional, SIZE_MINIMIZED },
     { 0 }
 };
 static const struct message WmMinMax_4[] = {
@@ -11751,171 +11668,6 @@ static void test_defwinproc(void)
     DestroyWindow( hwnd);
 }
 
-#define clear_clipboard(hwnd)  clear_clipboard_(__LINE__, (hwnd))
-static void clear_clipboard_(int line, HWND hWnd)
-{
-    BOOL succ;
-    succ = OpenClipboard(hWnd);
-    ok_(__FILE__, line)(succ, "OpenClipboard failed, err=%u\n", GetLastError());
-    succ = EmptyClipboard();
-    ok_(__FILE__, line)(succ, "EmptyClipboard failed, err=%u\n", GetLastError());
-    succ = CloseClipboard();
-    ok_(__FILE__, line)(succ, "CloseClipboard failed, err=%u\n", GetLastError());
-}
-
-#define expect_HWND(expected, got) expect_HWND_(__LINE__, (expected), (got))
-static void expect_HWND_(int line, HWND expected, HWND got)
-{
-    ok_(__FILE__, line)(got==expected, "Expected %p, got %p\n", expected, got);
-}
-
-static WNDPROC pOldViewerProc;
-
-static LRESULT CALLBACK recursive_viewer_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    static BOOL recursion_guard;
-
-    if (message == WM_DRAWCLIPBOARD && !recursion_guard)
-    {
-        recursion_guard = TRUE;
-        clear_clipboard(hWnd);
-        recursion_guard = FALSE;
-    }
-    return CallWindowProcA(pOldViewerProc, hWnd, message, wParam, lParam);
-}
-
-static void test_clipboard_viewers(void)
-{
-    static struct message wm_change_cb_chain[] =
-    {
-        { WM_CHANGECBCHAIN, sent|wparam|lparam, 0, 0 },
-        { 0 }
-    };
-    static const struct message wm_clipboard_destroyed[] =
-    {
-        { WM_DESTROYCLIPBOARD, sent|wparam|lparam, 0, 0 },
-        { 0 }
-    };
-    static struct message wm_clipboard_changed[] =
-    {
-        { WM_DRAWCLIPBOARD, sent|wparam|lparam, 0, 0 },
-        { 0 }
-    };
-    static struct message wm_clipboard_changed_and_owned[] =
-    {
-        { WM_DESTROYCLIPBOARD, sent|wparam|lparam, 0, 0 },
-        { WM_DRAWCLIPBOARD, sent|wparam|lparam, 0, 0 },
-        { 0 }
-    };
-
-    HINSTANCE hInst = GetModuleHandleA(NULL);
-    HWND hWnd1, hWnd2, hWnd3;
-    HWND hOrigViewer;
-    HWND hRet;
-
-    hWnd1 = CreateWindowExA(0, "TestWindowClass", "Clipboard viewer test wnd 1",
-        WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        GetDesktopWindow(), NULL, hInst, NULL);
-    hWnd2 = CreateWindowExA(0, "SimpleWindowClass", "Clipboard viewer test wnd 2",
-        WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        GetDesktopWindow(), NULL, hInst, NULL);
-    hWnd3 = CreateWindowExA(0, "SimpleWindowClass", "Clipboard viewer test wnd 3",
-        WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        GetDesktopWindow(), NULL, hInst, NULL);
-    trace("clipbd viewers: hWnd1=%p, hWnd2=%p, hWnd3=%p\n", hWnd1, hWnd2, hWnd3);
-    assert(hWnd1 && hWnd2 && hWnd3);
-
-    flush_sequence();
-
-    /* Test getting the clipboard viewer and setting the viewer to NULL. */
-    hOrigViewer = GetClipboardViewer();
-    hRet = SetClipboardViewer(NULL);
-    ok_sequence(WmEmptySeq, "set viewer to NULL", FALSE);
-    expect_HWND(hOrigViewer, hRet);
-    expect_HWND(NULL, GetClipboardViewer());
-
-    /* Test registering hWnd1 as a viewer. */
-    hRet = SetClipboardViewer(hWnd1);
-    wm_clipboard_changed[0].wParam = (WPARAM) GetClipboardOwner();
-    ok_sequence(wm_clipboard_changed, "set viewer NULL->1", FALSE);
-    expect_HWND(NULL, hRet);
-    expect_HWND(hWnd1, GetClipboardViewer());
-
-    /* Test that changing the clipboard actually refreshes the registered viewer. */
-    clear_clipboard(hWnd1);
-    wm_clipboard_changed[0].wParam = (WPARAM) GetClipboardOwner();
-    ok_sequence(wm_clipboard_changed, "clear clipbd (viewer=owner=1)", FALSE);
-
-    /* Again, but with different owner. */
-    clear_clipboard(hWnd2);
-    wm_clipboard_changed_and_owned[1].wParam = (WPARAM) GetClipboardOwner();
-    ok_sequence(wm_clipboard_changed_and_owned, "clear clipbd (viewer=1, owner=2)", FALSE);
-
-    /* Test re-registering same window. */
-    hRet = SetClipboardViewer(hWnd1);
-    wm_clipboard_changed[0].wParam = (WPARAM) GetClipboardOwner();
-    ok_sequence(wm_clipboard_changed, "set viewer 1->1", FALSE);
-    expect_HWND(hWnd1, hRet);
-    expect_HWND(hWnd1, GetClipboardViewer());
-
-    /* Test ChangeClipboardChain. */
-    ChangeClipboardChain(hWnd2, hWnd3);
-    wm_change_cb_chain[0].wParam = (WPARAM) hWnd2;
-    wm_change_cb_chain[0].lParam = (LPARAM) hWnd3;
-    ok_sequence(wm_change_cb_chain, "change chain (viewer=1, remove=2, next=3)", FALSE);
-    expect_HWND(hWnd1, GetClipboardViewer());
-
-    ChangeClipboardChain(hWnd2, NULL);
-    wm_change_cb_chain[0].wParam = (WPARAM) hWnd2;
-    wm_change_cb_chain[0].lParam = 0;
-    ok_sequence(wm_change_cb_chain, "change chain (viewer=1, remove=2, next=NULL)", FALSE);
-    expect_HWND(hWnd1, GetClipboardViewer());
-
-    ChangeClipboardChain(NULL, hWnd2);
-    ok_sequence(WmEmptySeq, "change chain (viewer=1, remove=NULL, next=2)", TRUE);
-    expect_HWND(hWnd1, GetClipboardViewer());
-
-    /* Actually change clipboard viewer with ChangeClipboardChain. */
-    ChangeClipboardChain(hWnd1, hWnd2);
-    ok_sequence(WmEmptySeq, "change chain (viewer=remove=1, next=2)", FALSE);
-    expect_HWND(hWnd2, GetClipboardViewer());
-
-    /* Test that no refresh messages are sent when viewer has unregistered. */
-    clear_clipboard(hWnd2);
-    ok_sequence(WmEmptySeq, "clear clipd (viewer=2, owner=1)", FALSE);
-
-    /* Register hWnd1 again. */
-    ChangeClipboardChain(hWnd2, hWnd1);
-    ok_sequence(WmEmptySeq, "change chain (viewer=remove=2, next=1)", FALSE);
-    expect_HWND(hWnd1, GetClipboardViewer());
-
-    /* Subclass hWnd1 so that when it receives a WM_DRAWCLIPBOARD message, it
-     * changes the clipboard. When this happens, the system shouldn't send
-     * another WM_DRAWCLIPBOARD (as this could cause an infinite loop).
-     */
-    pOldViewerProc = (WNDPROC) SetWindowLongPtrA(hWnd1, GWLP_WNDPROC, (LONG_PTR) recursive_viewer_proc);
-    clear_clipboard(hWnd2);
-    /* The clipboard owner is changed in recursive_viewer_proc: */
-    wm_clipboard_changed[0].wParam = (WPARAM) hWnd2;
-    ok_sequence(wm_clipboard_changed, "recursive clear clipbd (viewer=1, owner=2)", TRUE);
-
-    /* Test unregistering. */
-    ChangeClipboardChain(hWnd1, NULL);
-    ok_sequence(WmEmptySeq, "change chain (viewer=remove=1, next=NULL)", FALSE);
-    expect_HWND(NULL, GetClipboardViewer());
-
-    clear_clipboard(hWnd1);
-    ok_sequence(wm_clipboard_destroyed, "clear clipbd (no viewer, owner=1)", FALSE);
-
-    DestroyWindow(hWnd1);
-    DestroyWindow(hWnd2);
-    DestroyWindow(hWnd3);
-    SetClipboardViewer(hOrigViewer);
-}
-
 static void test_PostMessage(void)
 {
     static const struct
@@ -11979,7 +11731,7 @@ static void test_PostMessage(void)
 START_TEST(msg)
 {
     BOOL ret;
-    BOOL (WINAPI *pIsWinEventHookInstalled)(DWORD)= 0;/*GetProcAddress(user32, "IsWinEventHookInstalled");*/
+    FARPROC pIsWinEventHookInstalled = 0;/*GetProcAddress(user32, "IsWinEventHookInstalled");*/
 
     init_procs();
 
@@ -12059,7 +11811,6 @@ START_TEST(msg)
     test_menu_messages();
     test_paintingloop();
     test_defwinproc();
-    test_clipboard_viewers();
     /* keep it the last test, under Windows it tends to break the tests
      * which rely on active/foreground windows being correct.
      */

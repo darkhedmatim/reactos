@@ -1061,9 +1061,8 @@ maybe still wrong??? (copy 12 to 13?) */
  * and mode = mixed_mode
  */
            int sfb = gr_info->maxbandl;
-           int idx;
-           if(sfb > 21) return; /* similarity fix related to CVE-2006-1655 */
-           idx = bi->longIdx[sfb];
+           int idx = bi->longIdx[sfb];
+
            for ( ; sfb<8; sfb++ )
            {
              int sb = bi->longDiff[sfb];
@@ -1086,9 +1085,7 @@ maybe still wrong??? (copy 12 to 13?) */
       else /* ((gr_info->block_type != 2)) */
       {
         int sfb = gr_info->maxbandl;
-        int is_p,idx;
-        if (sfb > 21)  return; /* tightened fix for CVE-2006-1655 */
-        idx  = bi->longIdx[sfb];
+        int is_p,idx = bi->longIdx[sfb];
         for ( ; sfb<21; sfb++)
         {
           int sb = bi->longDiff[sfb];

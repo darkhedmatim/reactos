@@ -702,7 +702,7 @@ static BOOL UITOOLS95_DFC_ButtonPush(HDC dc, LPRECT r, UINT uFlags)
 static BOOL UITOOLS95_DFC_ButtonCheckRadio(HDC dc, LPRECT r, UINT uFlags, BOOL Radio)
 {
     RECT rc;
-    LOGFONTW lf;
+    LOGFONT lf;
     HFONT hFont, hOldFont;
     int SmallDiam, i;
     TCHAR OutRight, OutLeft, InRight, InLeft, Center;
@@ -725,7 +725,7 @@ static BOOL UITOOLS95_DFC_ButtonCheckRadio(HDC dc, LPRECT r, UINT uFlags, BOOL R
 
     SmallDiam = UITOOLS_MakeSquareRect(r, &rc);
 
-    ZeroMemory(&lf, sizeof(LOGFONTW));
+    ZeroMemory(&lf, sizeof(LOGFONT));
     lf.lfHeight = SmallDiam;
     lf.lfWidth = 0;
     lf.lfWeight = FW_NORMAL;
@@ -818,7 +818,7 @@ static BOOL UITOOLS95_DrawFrameButton(HDC hdc, LPRECT rc, UINT uState)
 
 static BOOL UITOOLS95_DrawFrameCaption(HDC dc, LPRECT r, UINT uFlags)
 {
-    LOGFONTW lf;
+    LOGFONT lf;
     HFONT hFont, hOldFont;
     COLORREF clrsave;
     RECT myr;
@@ -845,7 +845,7 @@ static BOOL UITOOLS95_DrawFrameCaption(HDC dc, LPRECT r, UINT uFlags)
              return FALSE;
     }
     IntDrawRectEdge(dc,r,(uFlags&DFCS_PUSHED) ? EDGE_SUNKEN : EDGE_RAISED, BF_RECT | BF_MIDDLE | BF_SOFT);
-    ZeroMemory(&lf, sizeof(LOGFONTW));
+    ZeroMemory(&lf, sizeof(LOGFONT));
     UITOOLS_MakeSquareRect(r, &myr);
     myr.left += 1;
     myr.top += 1;
@@ -884,7 +884,7 @@ static BOOL UITOOLS95_DrawFrameCaption(HDC dc, LPRECT r, UINT uFlags)
 
 static BOOL UITOOLS95_DrawFrameScroll(HDC dc, LPRECT r, UINT uFlags)
 {
-    LOGFONTW lf;
+    LOGFONT lf;
     HFONT hFont, hOldFont;
     COLORREF clrsave;
     RECT myr;
@@ -911,7 +911,7 @@ static BOOL UITOOLS95_DrawFrameScroll(HDC dc, LPRECT r, UINT uFlags)
 
 	case DFCS_SCROLLSIZEGRIP:
 	case DFCS_SCROLLSIZEGRIPRIGHT:
-		ZeroMemory(&lf, sizeof(LOGFONTW));
+		ZeroMemory(&lf, sizeof(LOGFONT));
 		UITOOLS_MakeSquareRect(r, &myr);
 		lf.lfHeight = myr.bottom - myr.top;
 		lf.lfWidth = 0;
@@ -947,7 +947,7 @@ static BOOL UITOOLS95_DrawFrameScroll(HDC dc, LPRECT r, UINT uFlags)
             return FALSE;
     }
     IntDrawRectEdge(dc, r, (uFlags & DFCS_PUSHED) ? EDGE_SUNKEN : EDGE_RAISED, (uFlags&DFCS_FLAT) | BF_MIDDLE | BF_RECT);
-    ZeroMemory(&lf, sizeof(LOGFONTW));
+    ZeroMemory(&lf, sizeof(LOGFONT));
     UITOOLS_MakeSquareRect(r, &myr);
     myr.left += 1;
     myr.top += 1;
@@ -986,7 +986,7 @@ static BOOL UITOOLS95_DrawFrameScroll(HDC dc, LPRECT r, UINT uFlags)
 
 static BOOL UITOOLS95_DrawFrameMenu(HDC dc, LPRECT r, UINT uFlags)
 {
-    LOGFONTW lf;
+    LOGFONT lf;
     HFONT hFont, hOldFont;
     TCHAR Symbol;
     switch(uFlags & 0xff)
@@ -1014,7 +1014,7 @@ static BOOL UITOOLS95_DrawFrameMenu(HDC dc, LPRECT r, UINT uFlags)
             return FALSE;
     }
     /* acquire ressources only if valid menu */
-    ZeroMemory(&lf, sizeof(LOGFONTW));
+    ZeroMemory(&lf, sizeof(LOGFONT));
     lf.lfHeight = r->bottom - r->top;
     lf.lfWidth = 0;
     lf.lfWeight = FW_NORMAL;
@@ -1437,7 +1437,7 @@ cleanup:
  * @implemented
  */
 BOOL WINAPI
-RealDrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
+DrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
 {
     if (GetMapMode(hDC) != MM_TEXT)
         return FALSE;
@@ -1459,32 +1459,6 @@ RealDrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
             return UITOOLS95_DrawFrameScroll(hDC, rc, uState);
     }
     return FALSE;
-}
-
-BOOL WINAPI
-DrawFrameControl(HDC hDC, LPRECT rc, UINT uType, UINT uState)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealDrawFrameControl(hDC, rc, uType, uState);
-
-   _SEH2_TRY
-   {
-      Ret = guah.DrawFrameControl(hDC, rc, uType, uState);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
 }
 
 /*

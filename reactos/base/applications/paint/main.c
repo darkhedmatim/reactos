@@ -26,7 +26,6 @@
 #include "palette.h"
 #include "toolsettings.h"
 #include "selection.h"
-#include "sizebox.h"
 
 /* FUNCTIONS ********************************************************/
 
@@ -37,11 +36,10 @@ BITMAPINFO bitmapinfo;
 int imgXRes = 400;
 int imgYRes = 300;
 
-HBITMAP hBms[HISTORYSIZE];
+HBITMAP hBms[4];
 int currInd = 0;
 int undoSteps = 0;
 int redoSteps = 0;
-BOOL imageSaved = TRUE;
 
 // global status variables
 
@@ -103,26 +101,6 @@ HINSTANCE hProgInstance;
 TCHAR filename[256];
 TCHAR filepathname[1000];
 BOOL isAFile = FALSE;
-int fileSize;
-int fileHPPM = 2834;
-int fileVPPM = 2834;
-SYSTEMTIME fileTime;
-
-BOOL showGrid = FALSE;
-BOOL showMiniature = FALSE;
-
-HWND hwndMiniature;
-
-HWND hSizeboxLeftTop;
-HWND hSizeboxCenterTop;
-HWND hSizeboxRightTop;
-HWND hSizeboxLeftCenter;
-HWND hSizeboxRightCenter;
-HWND hSizeboxLeftBottom;
-HWND hSizeboxCenterBottom;
-HWND hSizeboxRightBottom;
-
-HWND hTrackbarZoom;
 
 int WINAPI _tWinMain (HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPTSTR lpszArgument, int nFunsterStil)
 {
@@ -149,7 +127,6 @@ int WINAPI _tWinMain (HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPTSTR l
     TCHAR ofnFilename[1000];
     TCHAR ofnFiletitle[256];
     TCHAR ofnFilter[1000];
-    TCHAR miniaturetitle[100];
     int custColors[16] =
         {0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff,
         0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff, 0xffffff};
@@ -234,31 +211,15 @@ int WINAPI _tWinMain (HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPTSTR l
     wclSelection.hbrBackground  = NULL;//GetSysColorBrush(COLOR_BTNFACE);
     RegisterClassEx (&wclSelection);
 
-    /* initializing and registering the window class for the size boxes */
-    wclSettings.hInstance       = hThisInstance;
-    wclSettings.lpszClassName   = _T("Sizebox");
-    wclSettings.lpfnWndProc     = SizeboxWinProc;
-    wclSettings.style           = CS_DBLCLKS;
-    wclSettings.cbSize          = sizeof (WNDCLASSEX);
-    wclSettings.hIcon           = NULL;
-    wclSettings.hIconSm         = NULL;
-    wclSettings.hCursor         = LoadCursor (NULL, IDC_ARROW);
-    wclSettings.lpszMenuName    = NULL;
-    wclSettings.cbClsExtra      = 0;
-    wclSettings.cbWndExtra      = 0;
-    wclSettings.hbrBackground   = GetSysColorBrush(COLOR_HIGHLIGHT);
-    RegisterClassEx (&wclSettings);
-
     LoadString(hThisInstance, IDS_DEFAULTFILENAME, filename, SIZEOF(filename));
     LoadString(hThisInstance, IDS_WINDOWTITLE, resstr, SIZEOF(resstr));
     _stprintf(progtitle, resstr, filename);
-    LoadString(hThisInstance, IDS_MINIATURETITLE, miniaturetitle, SIZEOF(miniaturetitle));
+    
     
     /* create main window */
     hwnd = CreateWindowEx (0, _T("WindowsApp"), progtitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 544, 375, HWND_DESKTOP, NULL, hThisInstance, NULL);
 
     hMainWnd = hwnd;
-    hwndMiniature = CreateWindowEx(WS_EX_PALETTEWINDOW, _T("WindowsApp"), miniaturetitle, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME, 180, 200, 120, 100, hwnd, NULL, hThisInstance, NULL);
 
     /* loading and setting the window menu from resource */
     menu = LoadMenu(hThisInstance, MAKEINTRESOURCE(ID_MENU));
@@ -312,9 +273,6 @@ int WINAPI _tWinMain (HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPTSTR l
 
     /* creating the tool settings child window */
     hToolSettings = CreateWindowEx(0, _T("ToolSettings"), _T(""), WS_CHILD | WS_VISIBLE, 7, 210, 42, 140, hwnd, NULL, hThisInstance, NULL);
-    hTrackbarZoom = CreateWindowEx(0, TRACKBAR_CLASS, _T(""), WS_CHILD | TBS_VERT | TBS_AUTOTICKS, 1, 1, 40, 64, hToolSettings, NULL, hThisInstance, NULL);
-    SendMessage(hTrackbarZoom, TBM_SETRANGE, (WPARAM)TRUE, (LPARAM)MAKELONG(0, 6));
-    SendMessage(hTrackbarZoom, TBM_SETPOS, (WPARAM)TRUE, (LPARAM)3);
 
     /* creating the palette child window */
     hPalWin = CreateWindowEx(0, _T("Palette"), _T(""), WS_CHILD | WS_VISIBLE, 56, 9, 255, 32, hwnd, NULL, hThisInstance, NULL);
@@ -342,26 +300,6 @@ int WINAPI _tWinMain (HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPTSTR l
     hBms[0] = CreateDIBWithProperties(imgXRes, imgYRes);
     SelectObject(hDrawingDC, hBms[0]);
     Rectangle(hDrawingDC, 0-1, 0-1, imgXRes+1, imgYRes+1);
-
-    if (lpszArgument[0] != 0)
-    {
-        HBITMAP bmNew = NULL;
-        LoadDIBFromFile(&bmNew, lpszArgument, &fileTime, &fileSize, &fileHPPM, &fileVPPM);
-        if (bmNew!=NULL)
-        {
-            TCHAR tempstr[1000];
-            TCHAR resstr[100];
-            insertReversible(bmNew);
-            TCHAR *temp;
-            GetFullPathName(lpszArgument, sizeof(filepathname), filepathname, &temp);
-            _tcscpy(filename, temp);
-            LoadString(hProgInstance, IDS_WINDOWTITLE, resstr, SIZEOF(resstr));
-            _stprintf(tempstr, resstr, filename);
-            SetWindowText(hMainWnd, tempstr);
-            clearHistory();
-            isAFile = TRUE;
-        }
-    }
 
     /* initializing the CHOOSECOLOR structure for use with ChooseColor */
     choosecolor.lStructSize     = sizeof(CHOOSECOLOR);
@@ -403,15 +341,6 @@ int WINAPI _tWinMain (HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPTSTR l
     sfn.nMaxFileTitle   = SIZEOF(sfnFiletitle);
     sfn.Flags           = OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
 
-    hSizeboxLeftTop     = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxCenterTop   = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxRightTop    = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxLeftCenter  = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxRightCenter = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxLeftBottom  = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxCenterBottom= CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    hSizeboxRightBottom = CreateWindowEx(0, _T("Sizebox"), _T(""), WS_CHILD | WS_VISIBLE, 0, 0, 3, 3, hScrlClient, NULL, hThisInstance, NULL);
-    SendMessage(hImageArea, WM_SIZE, 0, 0);
 
     /* by moving the window, the things in WM_SIZE are done */
     MoveWindow(hwnd, 100, 100, 600, 450, TRUE);

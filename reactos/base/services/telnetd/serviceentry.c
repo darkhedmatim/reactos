@@ -21,8 +21,6 @@
 #include <windows.h>
 #include "wine/debug.h"
 
-int kickoff_telnetd(void);
-
 WINE_DEFAULT_DEBUG_CHANNEL(telnetd);
 
 static WCHAR telnetdW[] = {'t','e','l','n','e','t','d',0};

@@ -174,8 +174,8 @@ static int LaunchScreenSaver(HWND hParent)
     else
     {
         style = WS_POPUP;
-        rc.right = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        rc.bottom = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        rc.right = GetSystemMetrics(SM_CXSCREEN);
+        rc.bottom = GetSystemMetrics(SM_CYSCREEN);
         style |= WS_VISIBLE;
     }
 

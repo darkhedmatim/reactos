@@ -19,7 +19,7 @@ if ($args.count -eq 0) {
 } else {
     $SOURCEDIR = $args
 }
-if ("$SOURCEDIR" -eq "previous") {
+if ($SOURCEDIR -eq "previous") {
     pop-location
 } else {
     if (!(Test-Path "$SOURCEDIR\.")) {
@@ -30,4 +30,3 @@ if ("$SOURCEDIR" -eq "previous") {
 
 $global:_ROSBE_ROSSOURCEDIR = "$pwd"
 $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"
-set-location "$_ROSBE_ROSSOURCEDIR"

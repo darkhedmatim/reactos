@@ -253,7 +253,6 @@ IntAgpCommitVirtual(
 {
    PVIDEO_PORT_AGP_VIRTUAL_MAPPING VirtualMapping;
    PVOID BaseAddress = NULL;
-   PHYSICAL_ADDRESS PhysicalAddress;
    NTSTATUS Status;
 
    TRACE_(VIDEOPRT, "AgpCommitVirtual - VirtualContext: 0x%x Pages: %d, Offset: 0x%x\n",
@@ -280,7 +279,7 @@ IntAgpCommitVirtual(
       ULONG OffsetInBytes = Offset * PAGE_SIZE;
       BaseAddress = (PVOID)((ULONG_PTR)VirtualMapping->MappedAddress +
                                        OffsetInBytes);
-      PhysicalAddress = VirtualMapping->AgpMapping->PhysicalAddress;
+      PHYSICAL_ADDRESS PhysicalAddress = VirtualMapping->AgpMapping->PhysicalAddress;
       PhysicalAddress.QuadPart += OffsetInBytes;
 
       Status = ZwFreeVirtualMemory(VirtualMapping->ProcessHandle,

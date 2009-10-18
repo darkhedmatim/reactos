@@ -68,8 +68,6 @@ WINE_DECLARE_DEBUG_CHANNEL(relay);
 #define EF_USE_SOFTBRK		0x0100	/* Enable soft breaks in text. */
 #define EF_APP_HAS_HANDLE       0x0200  /* Set when an app sends EM_[G|S]ETHANDLE.  We are in sole control of
                                            the text buffer if this is clear. */
-#define EF_DIALOGMODE           0x0400  /* Indicates that we are inside a dialog window */
-
 typedef enum
 {
 	END_0 = 0,			/* line ends with terminating '\0' character */
@@ -163,7 +161,6 @@ typedef struct
 		     MAKEWPARAM(GetWindowLongPtrW((es->hwndSelf),GWLP_ID), wNotifyCode), \
 		     (LPARAM)(es->hwndSelf)); \
 	} while(0)
-
 
 /*********************************************************************
  *
@@ -1226,7 +1223,7 @@ static void EDIT_UnlockBuffer(EDITSTATE *es, BOOL force)
 	{
 	    WARN("edit hwnd %p already destroyed\n", es->hwndSelf);
 	    return;
-	}
+    	}
 
 	if (!es->lock_count) {
 		ERR("lock_count == 0 ... please report\n");
@@ -3204,7 +3201,29 @@ static BOOL EDIT_EM_Undo(EDITSTATE *es)
  */
 static BOOL EDIT_IsInsideDialog(EDITSTATE *es)
 {
-    return (es->flags & EF_DIALOGMODE);
+#ifdef __REACTOS__
+    if (es->hwndParent && es->hwndParent != GetDesktopWindow())
+    {
+        if (GetClassLongPtrW (es->hwndParent, GCW_ATOM) == (DWORD)MAKEINTATOM(32770))
+            return TRUE;
+    }
+    return FALSE;
+#else
+    WND *pParent;
+    BOOL r = FALSE;
+
+    if (es->hwndParent)
+    {
+        pParent = WIN_GetPtr(es->hwndParent);
+        if (pParent && pParent != WND_OTHER_PROCESS && pParent != WND_DESKTOP)
+        {
+            if (pParent->flags & WIN_ISDIALOG)
+                r = TRUE;
+            WIN_ReleasePtr(pParent);
+        }
+    }
+    return r;
+#endif
 }
 
 
@@ -3470,7 +3489,7 @@ static void EDIT_WM_ContextMenu(EDITSTATE *es, INT x, INT y)
             y = rc.top + (rc.bottom - rc.top) / 2;
         }
 
-	TrackPopupMenu(popup, TPM_LEFTALIGN | TPM_RIGHTBUTTON, x, y, 0, es->hwndSelf, NULL);
+	TrackPopupMenu(popup, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD, x, y, 0, es->hwndSelf, NULL);
 	DestroyMenu(menu);
 }
 
@@ -3660,32 +3679,32 @@ static LRESULT EDIT_WM_KeyDown(EDITSTATE *es, INT key)
 	    /* If the edit doesn't want the return send a message to the default object */
 	    if(!(es->style & ES_MULTILINE) || !(es->style & ES_WANTRETURN))
 	    {
+		HWND hwndParent;
 		DWORD dw;
 
-                if (!EDIT_IsInsideDialog(es)) break;
+                if (!EDIT_IsInsideDialog(es)) return 1;
                 if (control) break;
-                dw = SendMessageW( es->hwndParent, DM_GETDEFID, 0, 0 );
-                if (HIWORD(dw) == DC_HASDEFID)
-                {
-                    HWND hwDefCtrl = GetDlgItem(es->hwndParent, LOWORD(dw));
-                    if (hwDefCtrl)
-                    {
-                        SendMessageW(es->hwndParent, WM_NEXTDLGCTL, (WPARAM)hwDefCtrl, (LPARAM)TRUE);
-                        PostMessageW(hwDefCtrl, WM_KEYDOWN, VK_RETURN, 0);
-                    }
-                }
+                hwndParent = GetParent(es->hwndSelf);
+                dw = SendMessageW( hwndParent, DM_GETDEFID, 0, 0 );
+		if (HIWORD(dw) == DC_HASDEFID)
+		{
+		    SendMessageW( hwndParent, WM_COMMAND,
+				  MAKEWPARAM( LOWORD(dw), BN_CLICKED ),
+ 			      (LPARAM)GetDlgItem( hwndParent, LOWORD(dw) ) );
+		}
+                else
+                    SendMessageW( hwndParent, WM_COMMAND, IDOK, (LPARAM)GetDlgItem( hwndParent, IDOK ) );
 	    }
 	    break;
         case VK_ESCAPE:
-            if ((es->style & ES_MULTILINE) && EDIT_IsInsideDialog(es))
-                PostMessageW(es->hwndParent, WM_CLOSE, 0, 0);
+	    if (!(es->style & ES_MULTILINE))
+                SendMessageW(GetParent(es->hwndSelf), WM_COMMAND, IDCANCEL, (LPARAM)GetDlgItem( GetParent(es->hwndSelf), IDCANCEL ) );
             break;
         case VK_TAB:
-            if ((es->style & ES_MULTILINE) && EDIT_IsInsideDialog(es))
-                SendMessageW(es->hwndParent, WM_NEXTDLGCTL, shift, 0);
+            SendMessageW(es->hwndParent, WM_NEXTDLGCTL, shift, 0);
             break;
 	}
-	return TRUE;
+	return 0;
 }
 
 
@@ -4602,8 +4621,8 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
         *            WM_XXX messages before WM_NCCREATE is completed.
         */
 
-	es->is_unicode = unicode;
-	es->style = lpcs->style;
+ 	es->is_unicode = unicode;
+ 	es->style = lpcs->style;
 
         es->bEnableState = !(es->style & WS_DISABLED);
 
@@ -4671,7 +4690,7 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
          * If WS_BORDER without WS_EX_CLIENTEDGE is specified we shouldn't have
          * a nonclient area and we should handle painting the border ourselves.
          *
-         * When making modifications please ensure that the code still works
+         * When making modifications please ensure that the code still works 
          * for edit controls created directly with style 0x50800000, exStyle 0
          * (which should have a single pixel border)
 	 */
@@ -4692,7 +4711,7 @@ static LRESULT EDIT_WM_NCCreate(HWND hwnd, LPCREATESTRUCTW lpcs, BOOL unicode)
 static LRESULT EDIT_WM_Create(EDITSTATE *es, LPCWSTR name)
 {
         RECT clientRect;
-
+        
 	TRACE("%s\n", debugstr_w(name));
        /*
         *	To initialize some final structure members, we call some helper
@@ -4702,7 +4721,7 @@ static LRESULT EDIT_WM_Create(EDITSTATE *es, LPCWSTR name)
         */
         EDIT_WM_SetFont(es, 0, FALSE);
         EDIT_EM_EmptyUndoBuffer(es);
-
+        
         /* We need to calculate the format rect
            (applications may send EM_SETMARGINS before the control gets visible) */
         GetClientRect(es->hwndSelf, &clientRect);
@@ -4797,14 +4816,14 @@ static inline LRESULT DefWindowProcT(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
  *	names).
  *
  */
-LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
+static LRESULT EditWndProc_common( HWND hwnd, UINT msg,
                                    WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
 	EDITSTATE *es = (EDITSTATE *)GetWindowLongPtrW( hwnd, 0 );
 	LRESULT result = 0;
 
         TRACE("hwnd=%p msg=%x (%s) wparam=%lx lparam=%lx\n", hwnd, msg, SPY_GetMsgName(msg, hwnd), wParam, lParam);
-
+	
 	if (!es && msg != WM_NCCREATE)
 		return DefWindowProcT(hwnd, msg, wParam, lParam, unicode);
 
@@ -5122,9 +5141,6 @@ LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
 	case EM_SETREADONLY16:
 #endif
 	case EM_SETREADONLY:
-	{
-		DWORD old_style = es->style;
-
 		if (wParam) {
                     SetWindowLongPtrW( hwnd, GWL_STYLE,
                                        GetWindowLongPtrW( hwnd, GWL_STYLE ) | ES_READONLY );
@@ -5134,13 +5150,8 @@ LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
                                        GetWindowLongPtrW( hwnd, GWL_STYLE ) & ~ES_READONLY );
                     es->style &= ~ES_READONLY;
 		}
-
-		if (old_style ^ es->style)
-		    InvalidateRect(es->hwndSelf, NULL, TRUE);
-
-		result = 1;
-		break;
-	}
+                result = 1;
+ 		break;
 
 #ifndef __REACTOS__
 	case EM_SETWORDBREAKPROC16:
@@ -5217,25 +5228,31 @@ LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
 
 	case WM_GETDLGCODE:
 		result = DLGC_HASSETSEL | DLGC_WANTCHARS | DLGC_WANTARROWS;
-
+		
 		if (es->style & ES_MULTILINE)
 		   result |= DLGC_WANTALLKEYS;
 
-                if (lParam)
-                {
-                    es->flags|=EF_DIALOGMODE;
+		if (lParam && (((LPMSG)lParam)->message == WM_KEYDOWN))
+		{
+		   int vk = (int)((LPMSG)lParam)->wParam;
 
-                    if (((LPMSG)lParam)->message == WM_KEYDOWN)
-                    {
-                        int vk = (int)((LPMSG)lParam)->wParam;
-
-                        if (es->hwndListBox)
-                        {
-                            if (vk == VK_RETURN || vk == VK_ESCAPE)
-                                if (SendMessageW(GetParent(hwnd), CB_GETDROPPEDSTATE, 0, 0))
-                                    result |= DLGC_WANTMESSAGE;
-                        }
-                  }
+                   if (es->hwndListBox)
+                   {
+                       if (vk == VK_RETURN || vk == VK_ESCAPE)
+                           if (SendMessageW(GetParent(hwnd), CB_GETDROPPEDSTATE, 0, 0))
+                               result |= DLGC_WANTMESSAGE;
+                   }
+                   else
+                   {
+                       switch (vk)
+                       {
+                           case VK_ESCAPE:
+                               SendMessageW(GetParent(hwnd), WM_CLOSE, 0, 0);
+                               break;
+                           default:
+                               break;
+                       }
+                   }
                 }
 		break;
 
@@ -5492,12 +5509,12 @@ LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg,
 
 	case WM_IME_CONTROL:
 		break;
-
+                
 	default:
 		result = DefWindowProcT(hwnd, msg, wParam, lParam, unicode);
 		break;
 	}
-
+	
 	if (es) EDIT_UnlockBuffer(es, FALSE);
 
         TRACE("hwnd=%p msg=%x (%s) -- 0x%08lx\n", hwnd, msg, SPY_GetMsgName(msg, hwnd), result);

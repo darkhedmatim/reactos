@@ -97,7 +97,6 @@ static LPWSTR res_strdupW( LPCWSTR str )
         return (LPWSTR) (UINT_PTR) LOWORD(str);
     len = (lstrlenW( str ) + 1) * sizeof (WCHAR);
     ret = HeapAlloc( GetProcessHeap(), 0, len );
-    if (!ret) return NULL;
     memcpy( ret, str, len );
     return ret;
 }
@@ -286,7 +285,6 @@ static BOOL update_add_resource( QUEUEDUPDATES *updates, LPCWSTR Type, LPCWSTR N
     if (!restype)
     {
         restype = HeapAlloc( GetProcessHeap(), 0, sizeof *restype );
-        if (!restype) return FALSE;
         restype->id = res_strdupW( Type );
         list_init( &restype->children );
         add_resource_dir_entry( &updates->root, restype );
@@ -296,7 +294,6 @@ static BOOL update_add_resource( QUEUEDUPDATES *updates, LPCWSTR Type, LPCWSTR N
     if (!resname)
     {
         resname = HeapAlloc( GetProcessHeap(), 0, sizeof *resname );
-        if (!resname) return FALSE;
         resname->id = res_strdupW( Name );
         list_init( &resname->children );
         add_resource_dir_entry( &restype->children, resname );
@@ -405,6 +402,13 @@ static IMAGE_SECTION_HEADER *get_resource_section( void *base, DWORD mapping_siz
         return NULL;
     }
 
+    /* check that the resources section is last */
+    if (i != num_sections - 1)
+    {
+        DPRINT("FIXME: .rsrc isn't the last section\n");
+        return NULL;
+    }
+
     return &sec[i];
 }
 
@@ -464,7 +468,6 @@ static LPWSTR resource_dup_string( const IMAGE_RESOURCE_DIRECTORY *root, const I
 
     string = (const IMAGE_RESOURCE_DIR_STRING_U*) (((const char *)root) + entry->NameOffset);
     s = HeapAlloc(GetProcessHeap(), 0, (string->Length + 1)*sizeof (WCHAR) );
-    if (!s) return NULL;
     memcpy( s, string->NameString, (string->Length + 1)*sizeof (WCHAR) );
     s[string->Length] = 0;
 
@@ -558,9 +561,6 @@ static BOOL read_mapped_resources( QUEUEDUPDATES *updates, void *base, DWORD map
         return TRUE;
 
     DPRINT("found .rsrc at %08x, size %08x\n", sec[i].PointerToRawData, sec[i].SizeOfRawData);
-
-    if (!sec[i].PointerToRawData || sec[i].SizeOfRawData < sizeof(IMAGE_RESOURCE_DIRECTORY))
-        return TRUE;
 
     root = (void*) ((BYTE*)base + sec[i].PointerToRawData);
     enumerate_mapped_resources( updates, base, mapping_size, root );
@@ -958,15 +958,10 @@ static BOOL write_raw_resources( QUEUEDUPDATES *updates )
     if (!sec)
         goto done;
 
-    if (!sec->PointerToRawData)  /* empty section */
+    if ((sec->SizeOfRawData + sec->PointerToRawData) != write_map->size)
     {
-        sec->PointerToRawData = write_map->size;
-        sec->SizeOfRawData = 0;
-    }
-    else if ((sec->SizeOfRawData + sec->PointerToRawData) != write_map->size)
-    {
-        DPRINT(".rsrc isn't at the end of the image %08x + %08x != %08x for %s\n",
-              sec->SizeOfRawData, sec->PointerToRawData, write_map->size, updates->pFileName);
+        DPRINT("FIXME: .rsrc isn't at the end of the image %08x + %08x != %08x\n",
+            sec->SizeOfRawData, sec->PointerToRawData, write_map->size);
         goto done;
     }
 

@@ -19,8 +19,6 @@ NTSTATUS TCPServiceListeningSocket( PCONNECTION_ENDPOINT Listener,
     PTA_IP_ADDRESS RequestAddressReturn;
     PTDI_CONNECTION_INFORMATION WhoIsConnecting;
 
-    ASSERT_LOCKED(&TCPLock);
-
     /* Unpack TDI info -- We need the return connection information
      * struct to return the address so it can be filtered if needed
      * by WSAAccept -- The returned address will be passed on to
@@ -70,16 +68,16 @@ NTSTATUS TCPListen( PCONNECTION_ENDPOINT Connection, UINT Backlog ) {
     NTSTATUS Status = STATUS_SUCCESS;
     SOCKADDR_IN AddressToBind;
 
-    TcpipRecursiveMutexEnter( &TCPLock, TRUE );
+    TI_DbgPrint(DEBUG_TCP,("TCPListen started\n"));
+
+    TI_DbgPrint(DEBUG_TCP,("Connection->SocketContext %x\n",
+    Connection->SocketContext));
 
     ASSERT(Connection);
     ASSERT_KM_POINTER(Connection->SocketContext);
     ASSERT_KM_POINTER(Connection->AddressFile);
 
-    TI_DbgPrint(DEBUG_TCP,("TCPListen started\n"));
-
-    TI_DbgPrint(DEBUG_TCP,("Connection->SocketContext %x\n",
-    Connection->SocketContext));
+    TcpipRecursiveMutexEnter( &TCPLock, TRUE );
 
     AddressToBind.sin_family = AF_INET;
     memcpy( &AddressToBind.sin_addr,
@@ -108,9 +106,8 @@ VOID TCPAbortListenForSocket( PCONNECTION_ENDPOINT Listener,
                   PCONNECTION_ENDPOINT Connection ) {
     PLIST_ENTRY ListEntry;
     PTDI_BUCKET Bucket;
-    KIRQL OldIrql;
 
-    KeAcquireSpinLock(&Listener->Lock, &OldIrql);
+    TcpipRecursiveMutexEnter( &TCPLock, TRUE );
 
     ListEntry = Listener->ListenRequest.Flink;
     while ( ListEntry != &Listener->ListenRequest ) {
@@ -125,7 +122,7 @@ VOID TCPAbortListenForSocket( PCONNECTION_ENDPOINT Listener,
     ListEntry = ListEntry->Flink;
     }
 
-    KeReleaseSpinLock(&Listener->Lock, OldIrql);
+   TcpipRecursiveMutexLeave( &TCPLock );
 }
 
 NTSTATUS TCPAccept ( PTDI_REQUEST Request,
@@ -144,8 +141,6 @@ NTSTATUS TCPAccept ( PTDI_REQUEST Request,
     Status = TCPServiceListeningSocket( Listener, Connection,
                        (PTDI_REQUEST_KERNEL)Request );
 
-    TcpipRecursiveMutexLeave( &TCPLock );
-
     if( Status == STATUS_PENDING ) {
         Bucket = exAllocatePool( NonPagedPool, sizeof(*Bucket) );
 
@@ -154,10 +149,12 @@ NTSTATUS TCPAccept ( PTDI_REQUEST Request,
             Bucket->Request.RequestNotifyObject = Complete;
             Bucket->Request.RequestContext = Context;
             IoMarkIrpPending((PIRP)Context);
-            ExInterlockedInsertTailList( &Listener->ListenRequest, &Bucket->Entry, &Listener->Lock );
+            InsertHeadList( &Listener->ListenRequest, &Bucket->Entry );
         } else
             Status = STATUS_NO_MEMORY;
     }
+
+    TcpipRecursiveMutexLeave( &TCPLock );
 
     TI_DbgPrint(DEBUG_TCP,("TCPAccept finished %x\n", Status));
     return Status;

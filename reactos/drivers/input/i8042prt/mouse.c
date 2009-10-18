@@ -638,7 +638,7 @@ i8042MouResetIsr(
 	DeviceExtension->MouseTimeoutState = TimeoutStart;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 
-	switch ((ULONG)DeviceExtension->MouseResetState)
+	switch (DeviceExtension->MouseResetState)
 	{
 		case 1100: /* the first ack, drop it. */
 			DeviceExtension->MouseResetState = ExpectingReset;

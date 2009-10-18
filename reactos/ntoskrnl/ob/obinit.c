@@ -73,14 +73,14 @@ ObInit2(VOID)
         Prcb->PPLookasideList[LookasideCreateInfoList].L = &ObpCreateInfoLookasideList;
         CurrentList = ExAllocatePoolWithTag(NonPagedPool,
                                             sizeof(GENERAL_LOOKASIDE),
-                                            'ICbO');
+                                            TAG('O', 'b', 'C', 'I'));
         if (CurrentList)
         {
             /* Initialize it */
             ExInitializeSystemLookasideList(CurrentList,
                                             NonPagedPool,
                                             sizeof(OBJECT_CREATE_INFORMATION),
-                                            'ICbO',
+                                            TAG('O', 'b', 'C', 'I'),
                                             32,
                                             &ExSystemLookasideListHead);
         }
@@ -97,14 +97,14 @@ ObInit2(VOID)
         Prcb->PPLookasideList[LookasideNameBufferList].L = &ObpNameBufferLookasideList;
         CurrentList = ExAllocatePoolWithTag(NonPagedPool,
                                             sizeof(GENERAL_LOOKASIDE),
-                                            'MNbO');
+                                            TAG('O', 'b', 'N', 'M'));
         if (CurrentList)
         {
             /* Initialize it */
             ExInitializeSystemLookasideList(CurrentList,
                                             PagedPool,
                                             248,
-                                            'MNbO',
+                                            TAG('O', 'b', 'N', 'M'),
                                             16,
                                             &ExSystemLookasideListHead);
         }
@@ -145,7 +145,7 @@ ObInitSystem(VOID)
     ExInitializeSystemLookasideList(&ObpCreateInfoLookasideList,
                                     NonPagedPool,
                                     sizeof(OBJECT_CREATE_INFORMATION),
-                                    'ICbO',
+                                    TAG('O', 'b', 'C', 'I'),
                                     32,
                                     &ExSystemLookasideListHead);
 
@@ -153,7 +153,7 @@ ObInitSystem(VOID)
     ExInitializeSystemLookasideList(&ObpNameBufferLookasideList,
                                     PagedPool,
                                     248,
-                                    'MNbO',
+                                    TAG('O', 'b', 'N', 'M'),
                                     16,
                                     &ExSystemLookasideListHead);
 

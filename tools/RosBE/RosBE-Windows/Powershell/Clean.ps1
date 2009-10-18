@@ -25,19 +25,19 @@ function rembin {
 
     # Apply modified obj and out paths for deletion.
 
-    if ("$_ROSBE_OBJPATH" -eq "") {
+    if ($_ROSBE_OBJPATH -eq $null) {
         $OBJCLEANPATH = "$_ROSBE_ROSSOURCEDIR\obj-$ENV:ROS_ARCH"
     } else {
         $OBJCLEANPATH = "$_ROSBE_OBJPATH"
     }
 
-    if ("$_ROSBE_OUTPATH" -eq "") {
+    if ($_ROSBE_OUTPATH -eq $null) {
         $OUTCLEANPATH = "$_ROSBE_ROSSOURCEDIR\output-$ENV:ROS_ARCH"
     } else {
         $OUTCLEANPATH = "$_ROSBE_OUTPATH"
     }
 
-    if ("$ENV:ROS_ARCH" -eq "i386") {
+    if ($ENV:ROS_ARCH -eq "i386") {
         $MAKEFILE = "$_ROSBE_ROSSOURCEDIR\makefile.auto"
     } else {
         $MAKEFILE = "$_ROSBE_ROSSOURCEDIR\makefile-$ENV:ROS_ARCH.auto"
@@ -84,12 +84,8 @@ elseif ("$args" -eq "all") {
     end
 }
 elseif ("$args" -ne "") {
-    $argindex = 0
-    while ( "$($args[$argindex])" -ne "") {
-        $cl = "$($args[$argindex])" + "_clean"
-        make $cl
-        $argindex += 1
-    }
+    $cl = "$args" + "_clean"
+    make $cl
     remove-variable cl
     end
 }

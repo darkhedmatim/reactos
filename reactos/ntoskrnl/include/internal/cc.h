@@ -116,7 +116,7 @@ typedef struct _BCB
     PVOID LazyWriteContext;
     KSPIN_LOCK BcbLock;
     ULONG RefCount;
-#if DBG
+#if DBG || defined(KDBG)
 	BOOLEAN Trace; /* enable extra trace output for this BCB and it's cache segments */
 #endif
 } BCB, *PBCB;
@@ -295,21 +295,6 @@ CcRosRequestCacheSegment(
     PVOID* BaseAddress,
     PBOOLEAN UptoDate,
     CACHE_SEGMENT **CacheSeg
-);
-
-NTSTATUS
-NTAPI
-CcRosInitializeFileCache(
-    PFILE_OBJECT FileObject,
-    ULONG CacheSegmentSize,
-    PCACHE_MANAGER_CALLBACKS CallBacks,
-    PVOID LazyWriterContext
-);
-
-NTSTATUS
-NTAPI
-CcRosReleaseFileCache(
-    PFILE_OBJECT FileObject
 );
 
 NTSTATUS

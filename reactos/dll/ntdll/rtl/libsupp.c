@@ -14,7 +14,6 @@
 #include <debug.h>
 
 SIZE_T RtlpAllocDeallocQueryBufferSize = PAGE_SIZE;
-PTEB LdrpTopLevelDllBeingLoadedTeb = NULL;
 
 /* FUNCTIONS ***************************************************************/
 
@@ -202,13 +201,6 @@ RtlpCaptureStackLimits(IN ULONG_PTR Ebp,
     *StackBegin = (ULONG_PTR)NtCurrentTeb()->Tib.StackLimit;
     *StackEnd = (ULONG_PTR)NtCurrentTeb()->Tib.StackBase;
     return TRUE;
-}
-
-BOOLEAN
-NTAPI
-RtlIsThreadWithinLoaderCallout(VOID)
-{
-    return LdrpTopLevelDllBeingLoadedTeb == NtCurrentTeb();
 }
 
 /* RTL Atom Tables ************************************************************/

@@ -11,7 +11,9 @@
 #include <debug.h>
 
 NTSTATUS
+#ifndef _MSC_VER
 NTAPI
+#endif
 DriverEntry(
     PDRIVER_OBJECT DriverObject,
     PUNICODE_STRING RegistryPath);
@@ -925,7 +927,9 @@ static NDIS_STATUS NTAPI MiniportTransferData(
 
 
 NTSTATUS
+#ifndef _MSC_VER
 NTAPI
+#endif
 DriverEntry(
     PDRIVER_OBJECT DriverObject,
     PUNICODE_STRING RegistryPath)

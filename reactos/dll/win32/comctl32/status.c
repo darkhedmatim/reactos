@@ -333,7 +333,7 @@ STATUSBAR_Refresh (STATUS_INFO *infoPtr, HDC hdc)
 
 
 static int
-STATUSBAR_InternalHitTest(const STATUS_INFO *infoPtr, const POINT *pt)
+STATUSBAR_InternalHitTest(const STATUS_INFO *infoPtr, const LPPOINT pt)
 {
     int i;
     if (infoPtr->simple)
@@ -1016,17 +1016,12 @@ STATUSBAR_WMGetText (const STATUS_INFO *infoPtr, INT size, LPWSTR buf)
 
     len = strlenW (infoPtr->parts[0].text);
 
-    if (!size)
-        return len;
-    else if (size > len) {
+    if (size > len) {
         strcpyW (buf, infoPtr->parts[0].text);
 	return len;
     }
-    else {
-        memcpy (buf, infoPtr->parts[0].text, (size - 1) * sizeof(WCHAR));
-        buf[size - 1] = 0;
-        return size - 1;
-    }
+
+    return -1;
 }
 
 

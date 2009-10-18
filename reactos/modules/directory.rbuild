@@ -22,4 +22,11 @@
 			</xi:fallback>
 		</xi:include>
 	</directory>
+	<directory name="windows">
+		<xi:include href="windows/directory.rbuild">
+			<xi:fallback>
+				<xi:include href="empty.rbuild" />
+			</xi:fallback>
+		</xi:include>
+	</directory>
 </group>

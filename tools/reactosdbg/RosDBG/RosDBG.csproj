@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
+    <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{FB776BFE-D2C2-465E-B713-6AD82CAE1A39}</ProjectGuid>
     <OutputType>WinExe</OutputType>
@@ -162,11 +162,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="AboutDlg.resx">
       <DependentUpon>AboutDlg.cs</DependentUpon>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Connect.resx">
       <DependentUpon>Connect.cs</DependentUpon>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Dockable Objects\BackTrace.resx">
       <DependentUpon>BackTrace.cs</DependentUpon>
@@ -178,11 +176,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ExtTools.resx">
       <DependentUpon>ExtTools.cs</DependentUpon>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="MainWindow.resx">
       <DependentUpon>MainWindow.cs</DependentUpon>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Dockable Objects\MemoryWindow.resx">
       <DependentUpon>MemoryWindow.cs</DependentUpon>
@@ -197,7 +193,7 @@
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
+      <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
@@ -318,7 +314,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="app-rosdbg.ico" />
-    <None Include="app.config" />
     <None Include="Resources\copyToolStripMenuItem.Image.png" />
     <None Include="Resources\Run.bmp" />
     <None Include="Resources\Pause.bmp" />

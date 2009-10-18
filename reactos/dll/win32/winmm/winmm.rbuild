@@ -8,7 +8,6 @@
 	<importlibrary definition="winmm.spec" />
 	<include base="winmm">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
-	<define name="_WINE" />
 	<library>wine</library>
 	<library>ntdll</library>
 	<library>kernel32</library>

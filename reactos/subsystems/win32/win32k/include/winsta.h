@@ -1,7 +1,7 @@
 #ifndef _WIN32K_WINSTA_H
 #define _WIN32K_WINSTA_H
 
-#include "window.h"
+#include "msgqueue.h"
 #include "clipboard.h"
 
 #define WINSTA_ROOT_NAME	L"\\Windows\\WindowStations"
@@ -62,7 +62,7 @@ typedef struct _WINSTATION_OBJECT
 } WINSTATION_OBJECT, *PWINSTATION_OBJECT;
 
 extern WINSTATION_OBJECT *InputWindowStation;
-extern PPROCESSINFO LogonProcess;
+extern PW32PROCESS LogonProcess;
 
 NTSTATUS FASTCALL
 InitWindowStationImpl(VOID);

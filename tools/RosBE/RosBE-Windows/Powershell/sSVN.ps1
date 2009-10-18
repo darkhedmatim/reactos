@@ -7,64 +7,38 @@
 #
 #
 
-function UP($arg) {
+function UP {
     $OFFSVN = IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' info" | select-string "Revision:"
     $OFFSVN = $OFFSVN -replace "(.*)Revision: ",''
     $OFFSVN = [CONVERT]::ToInt32($OFFSVN,10)
-    if ("$ENV:ROS_ARCH" -eq "amd64") {
-        $ONSVN = IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' info svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/reactos" | select-string "Revision:"
-    } else {
-        $ONSVN = IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' info svn://svn.reactos.org/reactos/trunk/reactos" | select-string "Revision:"
-    }
+    $ONSVN = IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' info svn://svn.reactos.org/reactos/trunk/reactos" | select-string "Revision:"
     $ONSVN = $ONSVN -replace "(.*)Revision: ",''
     $ONSVN = [CONVERT]::ToInt32($ONSVN,10)
     "Local Revision: $OFFSVN"
     "Online HEAD Revision: $ONSVN"
     ""
-    if (($OFFSVN -lt $ONSVN) -or ("$($arg[1])" -ne "")) {
-        if ("$_ROSBE_SSVN_JOB" -eq "status") {
+    if ($OFFSVN -lt $ONSVN) {
+        if ($_ROSBE_SSVN_JOB -eq "status") {
             "Your tree is not up to date. Do you want to update it?"
             $UP = Read-Host "Please enter 'yes' or 'no': "
-            if (("$UP" -eq "yes") -or ("$UP" -eq "y")) {
+            if (($UP -eq "yes") -or ($UP -eq "y")) {
                 $_ROSBE_SSVN_JOB = "update"
             }
         }
-        if ("$_ROSBE_SSVN_JOB" -eq "update") {
-            if ("$($arg[1])" -ne "") {
-                $temparg = $arg[1]
+        if ($_ROSBE_SSVN_JOB -eq "update") {
+            if ($args[1] -ne $null) {
+                $temparg = $args[1]
                 IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' update -r $temparg"
-                if (Test-Path "modules\rosapps\.") {
-                    Set-Location modules\rosapps
-                    "Updating RosApps..."
-                    IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' update -r $temparg"
-                    Set-Location "$_ROSBE_ROSSOURCEDIR"
-                }
-                if (Test-Path "modules\rostests\.") {
-                    Set-Location modules\rostests
-                    "Updating RosTests..."
-                    IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' update -r $temparg"
-                    Set-Location "$_ROSBE_ROSSOURCEDIR"
-                }
             } else {
                 IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' update"
-                if (Test-Path "modules\rosapps\.") {
-                    Set-Location modules\rosapps
-                    "Updating RosApps..."
-                    IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' update"
-                    Set-Location "$_ROSBE_ROSSOURCEDIR"
-                }
-                if (Test-Path "modules\rostests\.") {
-                    Set-Location modules\rostests
-                    "Updating RosTests..."
-                    IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' update"
-                    Set-Location "$_ROSBE_ROSSOURCEDIR"
-                }
             }
-            "Do you want to see the changelog?"
-            $CL = Read-Host "Please enter 'yes' or 'no': "
-            if (("$CL" -eq "yes") -or ("$CL" -eq "y")) {
-                $range = "$OFFSVN" + ":" + "$ONSVN"
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' log -r $range"
+        }
+        "Do you want to see the changelog?"
+        $CL = Read-Host "Please enter 'yes' or 'no': "
+        if (($CL -eq "yes") -or ($CL -eq "y")) {
+            while ($OFFSVN -lt $ONSVN) {
+                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' log -r $OFFSVN"
+                $OFFSVN += 1
             }
         }
     }
@@ -74,19 +48,19 @@ function UP($arg) {
 }
 
 # Receive the first parameter and decide what to do.
-if ("$($args[0])" -eq "") {
+if ($args[0] -eq $null) {
     "No parameter specified. Try 'help [COMMAND]'."
 }
 
 # These two are directly parsed to svn.
-elseif ("$($args[0])" -eq "update") {
+elseif ($args[0] -eq "update") {
     $host.ui.RawUI.WindowTitle = "SVN Updating..."
     "This might take a while, so please be patient."
     ""
     $_ROSBE_SSVN_JOB = "update"
-    UP($args)
+    UP
 }
-elseif ("$($args[0])" -eq "cleanup") {
+elseif ($args[0] -eq "cleanup") {
     $host.ui.RawUI.WindowTitle = "SVN Cleaning..."
     "This might take a while, so please be patient."
     ""
@@ -94,82 +68,32 @@ elseif ("$($args[0])" -eq "cleanup") {
 }
 
 # Check if the folder is empty. If not, output an error.
-elseif ("$($args[0])" -eq "create") {
+elseif ($args[0] -eq "create") {
     $host.ui.RawUI.WindowTitle = "SVN Creating..."
     if (Test-Path ".svn\.") {
         "ERROR: Folder already contains a repository."
     } else {
         $null = (Remove-Item "$_ROSBE_LOGDIR" -recurse -force)
         $dir = get-childitem
-        if ("$dir" -eq "") {
-            if ("$ENV:ROS_ARCH" -eq "amd64") {
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/reactos ."
-            } else {
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/trunk/reactos ."
-            }
+        if ($dir -eq $null) {
+            IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/trunk/reactos ."
         } else {
             "ERROR: Folder is not empty. Continuing is dangerous and can cause errors. ABORTED"
         }
     }
-}
-
-# Check if the folder is empty. If not, output an error.
-elseif ("$($args[0])" -eq "rosapps") {
-    $host.ui.RawUI.WindowTitle = "SVN RosApps Creating..."
-    if (Test-Path "modules\rosapps\.svn\.") {
-        "ERROR: Folder already contains a RosApps repository."
-    } else {
-        if (!(Test-Path "modules\rosapps\.")) {
-            new-item -path "$_ROSBE_ROSSOURCEDIR\modules" -name rosapps -type directory
-        }
-        Set-Location modules\rosapps
-        $dir = get-childitem
-        if ("$dir" -eq "") {
-            if ("$ENV:ROS_ARCH" -eq "amd64") {
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/rosapps ."
-            } else {
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/trunk/rosapps ."
-            }
-        } else {
-            "ERROR: Folder is not empty. Continuing is dangerous and can cause errors. ABORTED"
-        }
-    }
-    Set-Location "$_ROSBE_ROSSOURCEDIR"
-}
-
-# Check if the folder is empty. If not, output an error.
-elseif ("$($args[0])" -eq "rostests") {
-    $host.ui.RawUI.WindowTitle = "SVN RosTests Creating..."
-    if (Test-Path "modules\rostests\.svn\.") {
-        "ERROR: Folder already contains a RosTests repository."
-    } else {
-        if (!(Test-Path "modules\rostests\.")) {
-            new-item -path "$_ROSBE_ROSSOURCEDIR\modules" -name rostests -type directory
-        }
-        Set-Location modules\rostests
-        $dir = get-childitem
-        if ("$dir" -eq "") {
-            if ("$ENV:ROS_ARCH" -eq "amd64") {
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/rostests ."
-            } else {
-                IEX "&'$_ROSBE_BASEDIR\Tools\svn.exe' checkout svn://svn.reactos.org/reactos/trunk/rostests ."
-            }
-        } else {
-            "ERROR: Folder is not empty. Continuing is dangerous and can cause errors. ABORTED"
-        }
-    }
-    Set-Location "$_ROSBE_ROSSOURCEDIR"
 }
 
 # Output the revision of the local and online trees and tell the user if
 # its up to date or not.
-elseif ("$($args[0])" -eq "status") {
+elseif ($args[0] -eq "status") {
     $host.ui.RawUI.WindowTitle = "SVN Status"
+    "This might take a while, so please be patient."
+    ""
     $_ROSBE_SSVN_JOB = "status"
-    UP($args)
+    UP
 }
 
-elseif ("$($args[0])" -ne "") {
+elseif ($args[0] -ne $null) {
     "Unknown parameter specified. Try 'help ssvn'."
 }
 

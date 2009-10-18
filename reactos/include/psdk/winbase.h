@@ -18,8 +18,6 @@ extern "C" {
 #pragma warning(disable:4820)
 #endif
 
-#define PROCESS_NAME_NATIVE      1
-
 #define FILE_ENCRYPTABLE         0
 #define FILE_IS_ENCRYPTED        1
 #define FILE_SYSTEM_ATTR         2
@@ -1873,15 +1871,6 @@ PSLIST_ENTRY WINAPI InterlockedPushEntrySList(PSLIST_HEADER,PSLIST_ENTRY);
 
 VOID WINAPI InitializeSListHead(PSLIST_HEADER);
 USHORT WINAPI QueryDepthSList(PSLIST_HEADER);
-
-#ifdef _MSC_VER
-
-//
-// Intrinsics are a mess -- *sigh*
-//
-long _InterlockedCompareExchange(volatile long * const Destination, const long Exchange, const long Comperand);
-#pragma intrinsic(_InterlockedCompareExchange)
-#endif
 
 #if !defined(InterlockedAnd)
 #define InterlockedAnd InterlockedAnd_Inline

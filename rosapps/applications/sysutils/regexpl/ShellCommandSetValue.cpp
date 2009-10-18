@@ -209,7 +209,6 @@ CheckValueArgument:
 
 	CRegistryKey Key;
 	TCHAR *pszValueName;
-	const TCHAR *pszEmpty = _T("");
 	const TCHAR *pszPath;
 
 	if (blnHelp)
@@ -242,7 +241,7 @@ CheckValueArgument:
 	}
 	else
 	{
-		pszValueName = (TCHAR*)pszEmpty;
+		pszValueName = _T("");
 		pszPath = _T(".");
 	}
 

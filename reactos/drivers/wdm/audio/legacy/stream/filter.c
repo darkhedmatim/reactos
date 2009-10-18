@@ -9,22 +9,6 @@
 
 #include "stream.h"
 
-
-NTSTATUS
-NTAPI
-StreamClassCreatePin(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  PIRP Irp)
-{
-    UNIMPLEMENTED
-
-    Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
-    Irp->IoStatus.Information = 0;
-    IoCompleteRequest(Irp, IO_NO_INCREMENT);
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
 NTSTATUS
 NTAPI
 FilterDispatch_fnDeviceIoControl(
@@ -107,45 +91,6 @@ static KSDISPATCH_TABLE DispatchTable =
     NULL
 };
 
-VOID
-RegisterDeviceInterfaces(
-    IN PSTREAM_DEVICE_EXTENSION DeviceExtension)
-{
-    ULONG Index;
-    PHW_STREAM_INFORMATION StreamInformation;
-    UNICODE_STRING SymbolicLink;
-    NTSTATUS Status;
-
-    /* Sanity check */
-    ASSERT(DeviceExtension->StreamDescriptor);
-    ASSERT(DeviceExtension->StreamDescriptorSize);
-
-    /* Loop all stream descriptors and register device interfaces */
-    StreamInformation = (PHW_STREAM_INFORMATION)&DeviceExtension->StreamDescriptor->StreamInfo;
-
-    for(Index = 0; DeviceExtension->StreamDescriptor->StreamHeader.NumberOfStreams; Index++)
-    {
-        if (StreamInformation->Category)
-        {
-            /* Register device interface */
-            Status = IoRegisterDeviceInterface(DeviceExtension->PhysicalDeviceObject,
-                                               StreamInformation->Category,
-                                               NULL, /* see bug 4566 */
-                                               &SymbolicLink);
-
-            if (NT_SUCCESS(Status))
-            {
-                /* Activate device interface */
-                IoSetDeviceInterfaceState(&SymbolicLink, TRUE);
-                /* Release Symbolic Link */
-                RtlFreeUnicodeString(&SymbolicLink);
-            }
-        }
-        StreamInformation = (PHW_STREAM_INFORMATION) (ULONG_PTR)StreamInformation + DeviceExtension->StreamDescriptor->StreamHeader.SizeOfHwStreamInformation;
-    }
-
-}
-
 NTSTATUS
 InitializeFilterWithKs(
     IN PDEVICE_OBJECT DeviceObject,
@@ -157,7 +102,6 @@ InitializeFilterWithKs(
     PKSOBJECT_CREATE_ITEM CreateItem;
     PIO_STACK_LOCATION IoStack;
     HW_STREAM_REQUEST_BLOCK_EXT RequestBlock;
-    PVOID HwInstanceExtension = NULL;
 
    /* Get device extension */
     DeviceExtension = (PSTREAM_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -176,22 +120,10 @@ InitializeFilterWithKs(
         /* driver supports more than one filter instance */
         RtlZeroMemory(&RequestBlock, sizeof(HW_STREAM_REQUEST_BLOCK_EXT));
 
-        /* allocate instance extension */
-        HwInstanceExtension = ExAllocatePool(NonPagedPool, DeviceExtension->DriverExtension->Data.FilterInstanceExtensionSize);
-        if (!HwInstanceExtension)
-        {
-            /* Not enough memory */
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
-        /* Zero instance extension */
-        RtlZeroMemory(HwInstanceExtension, DeviceExtension->DriverExtension->Data.FilterInstanceExtensionSize);
-
         /* set up request block */
         RequestBlock.Block.Command = SRB_OPEN_DEVICE_INSTANCE;
         RequestBlock.Block.HwDeviceExtension = DeviceExtension->DeviceExtension;
         RequestBlock.Block.Irp = Irp;
-        RequestBlock.Block.HwInstanceExtension = HwInstanceExtension;
         KeInitializeEvent(&RequestBlock.Event, SynchronizationEvent, FALSE);
 
         /*FIXME SYNCHRONIZATION */
@@ -207,7 +139,6 @@ InitializeFilterWithKs(
         if (!NT_SUCCESS(RequestBlock.Block.Status))
         {
             /* Resource is not available */
-            ExFreePool(HwInstanceExtension);
             return RequestBlock.Block.Status;
         }
     }
@@ -219,13 +150,10 @@ InitializeFilterWithKs(
         /* not enough memory */
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-
     /* Zero create item */
     RtlZeroMemory(CreateItem, sizeof(KSOBJECT_CREATE_ITEM));
-    /* Initialize createitem */
-    RtlInitUnicodeString(&CreateItem->ObjectClass, KSSTRING_Pin);
-    CreateItem->Create = StreamClassCreatePin;
-
+    /* Set item class */
+    RtlInitUnicodeString(&CreateItem->ObjectClass, L"STREAMCLASS");
     /* Get current irp stack location */
     IoStack = IoGetCurrentIrpStackLocation(Irp);
     /* Create Ks streaming object header */
@@ -234,23 +162,10 @@ InitializeFilterWithKs(
     {
         /* Failed to create header */
         ExFreePool(CreateItem);
-        if (HwInstanceExtension)
-        {
-            /* free instance buffer */
-            ExFreePool(HwInstanceExtension);
-        }
         return Status;
     }
-
-    /* Store instance buffer in file object context */
-    IoStack->FileObject->FsContext2 = HwInstanceExtension;
-
     /* Increment total instance count */
     InterlockedIncrement(&DeviceExtension->InstanceCount);
-
-    /* Register device stream interfaces */
-    RegisterDeviceInterfaces(DeviceExtension);
-
     /* Return result */
     return Status;
 
@@ -265,6 +180,7 @@ StreamClassCreateFilter(
     NTSTATUS Status;
     DPRINT1("StreamClassCreateFilter Called\n");
 
+    /* FIXME Support Pins/Clocks */
     /* Init filter */
     Status = InitializeFilterWithKs(DeviceObject, Irp);
 

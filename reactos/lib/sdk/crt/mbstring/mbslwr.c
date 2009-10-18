@@ -1,10 +1,12 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/mbslwr.c
- * PURPOSE:     Multibyte lowercase functions
- * PROGRAMER:   Eric Kohl
- *              Samuel Serapion, adapted from PROJECT C Library
+ * FILE:        lib/sdk/crt/mbstring/ismbpun.c
+ * PURPOSE:
+ * PROGRAMER:   
+ * UPDATE HISTORY:
+ *              05/30/08: Samuel Serapion adapted from PROJECT C Library
+ *
  */
 
 #include <precomp.h>
@@ -31,24 +33,14 @@ unsigned int _mbctolower(unsigned int c)
  */
 unsigned char * _mbslwr(unsigned char *x)
 {
-    unsigned char *y=x;
+    unsigned char  *y=x;
 
-    if (x == NULL)
-    {
-        return NULL;
-    }
-
-    while (*y) 
-    {
-        if (!_ismbblead(*y)) 
-        {
+    while (*y) {
+        if (!_ismbblead(*y)) {
             *y = tolower(*y);
-            y++;
-        } 
-        else
-        {
-            *y = _mbctolower(*(unsigned short *)y);
-            y++;
+	    } else {
+	        *y=_mbctolower(*(unsigned short *)y);
+	        y++;
         }
     }
     return x;

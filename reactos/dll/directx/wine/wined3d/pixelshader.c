@@ -7,7 +7,6 @@
  * Copyright 2005 Oliver Stieber
  * Copyright 2006 Ivan Gyurdiev
  * Copyright 2007-2008 Stefan Dösinger for CodeWeavers
- * Copyright 2009 Henri Verbeet for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -72,7 +71,6 @@ static ULONG  WINAPI IWineD3DPixelShaderImpl_Release(IWineD3DPixelShader *iface)
     if (!refcount)
     {
         shader_cleanup((IWineD3DBaseShader *)iface);
-        This->baseShader.parent_ops->wined3d_object_destroyed(This->baseShader.parent);
         HeapFree(GetProcessHeap(), 0, This);
     }
 
@@ -86,7 +84,7 @@ static ULONG  WINAPI IWineD3DPixelShaderImpl_Release(IWineD3DPixelShader *iface)
 static HRESULT  WINAPI IWineD3DPixelShaderImpl_GetParent(IWineD3DPixelShader *iface, IUnknown** parent){
     IWineD3DPixelShaderImpl *This = (IWineD3DPixelShaderImpl *)iface;
 
-    *parent = This->baseShader.parent;
+    *parent = This->parent;
     IUnknown_AddRef(*parent);
     TRACE("(%p) : returning %p\n", This, *parent);
     return WINED3D_OK;
@@ -180,10 +178,6 @@ static void pshader_set_limits(IWineD3DPixelShaderImpl *This)
             This->baseShader.limits.label = 16;
             break;
 
-        case WINED3D_SHADER_VERSION(4,0):
-            FIXME("Using 3.0 limits for 4.0 shader\n");
-            /* Fall through */
-
         case WINED3D_SHADER_VERSION(3,0):
             This->baseShader.limits.temporary = 32;
             This->baseShader.limits.constant_float = 224;
@@ -210,51 +204,49 @@ static void pshader_set_limits(IWineD3DPixelShaderImpl *This)
     }
 }
 
-static HRESULT pixelshader_set_function(IWineD3DPixelShaderImpl *shader,
-        const DWORD *byte_code, const struct wined3d_shader_signature *output_signature)
+static HRESULT WINAPI IWineD3DPixelShaderImpl_SetFunction(IWineD3DPixelShader *iface,
+        const DWORD *pFunction, const struct wined3d_shader_signature *output_signature)
 {
-    IWineD3DDeviceImpl *device = (IWineD3DDeviceImpl *)shader->baseShader.device;
-    const struct wined3d_gl_info *gl_info = &device->adapter->gl_info;
+    IWineD3DPixelShaderImpl *This =(IWineD3DPixelShaderImpl *)iface;
     unsigned int i, highest_reg_used = 0, num_regs_used = 0;
-    shader_reg_maps *reg_maps = &shader->baseShader.reg_maps;
+    shader_reg_maps *reg_maps = &This->baseShader.reg_maps;
     const struct wined3d_shader_frontend *fe;
     HRESULT hr;
 
-    TRACE("shader %p, byte_code %p, output_signature %p.\n", shader, byte_code, output_signature);
+    TRACE("(%p) : pFunction %p\n", iface, pFunction);
 
-    fe = shader_select_frontend(*byte_code);
+    fe = shader_select_frontend(*pFunction);
     if (!fe)
     {
         FIXME("Unable to find frontend for shader.\n");
         return WINED3DERR_INVALIDCALL;
     }
-    shader->baseShader.frontend = fe;
-    shader->baseShader.frontend_data = fe->shader_init(byte_code, output_signature);
-    if (!shader->baseShader.frontend_data)
+    This->baseShader.frontend = fe;
+    This->baseShader.frontend_data = fe->shader_init(pFunction, output_signature);
+    if (!This->baseShader.frontend_data)
     {
         FIXME("Failed to initialize frontend.\n");
         return WINED3DERR_INVALIDCALL;
     }
 
     /* First pass: trace shader */
-    if (TRACE_ON(d3d_shader)) shader_trace_init(fe, shader->baseShader.frontend_data, byte_code);
+    if (TRACE_ON(d3d_shader)) shader_trace_init(fe, This->baseShader.frontend_data, pFunction);
 
     /* Initialize immediate constant lists */
-    list_init(&shader->baseShader.constantsF);
-    list_init(&shader->baseShader.constantsB);
-    list_init(&shader->baseShader.constantsI);
+    list_init(&This->baseShader.constantsF);
+    list_init(&This->baseShader.constantsB);
+    list_init(&This->baseShader.constantsI);
 
     /* Second pass: figure out which registers are used, what the semantics are, etc.. */
-    hr = shader_get_registers_used((IWineD3DBaseShader *)shader, fe,
-            reg_maps, NULL, shader->input_signature, NULL,
-            byte_code, gl_info->max_pshader_constantsF);
+    hr = shader_get_registers_used((IWineD3DBaseShader *)This, fe, reg_maps, This->semantics_in, NULL, pFunction,
+                                    GL_LIMITS(pshader_constantsF));
     if (FAILED(hr)) return hr;
 
-    pshader_set_limits(shader);
+    pshader_set_limits(This);
 
     for (i = 0; i < MAX_REG_INPUT; ++i)
     {
-        if (shader->input_reg_used[i])
+        if (This->input_reg_used[i])
         {
             ++num_regs_used;
             highest_reg_used = i;
@@ -263,10 +255,10 @@ static HRESULT pixelshader_set_function(IWineD3DPixelShaderImpl *shader,
 
     /* Don't do any register mapping magic if it is not needed, or if we can't
      * achieve anything anyway */
-    if (highest_reg_used < (gl_info->max_glsl_varyings / 4)
-            || num_regs_used > (gl_info->max_glsl_varyings / 4))
+    if (highest_reg_used < (GL_LIMITS(glsl_varyings) / 4)
+            || num_regs_used > (GL_LIMITS(glsl_varyings) / 4))
     {
-        if (num_regs_used > (gl_info->max_glsl_varyings / 4))
+        if (num_regs_used > (GL_LIMITS(glsl_varyings) / 4))
         {
             /* This happens with relative addressing. The input mapper function
              * warns about this if the higher registers are declared too, so
@@ -276,33 +268,33 @@ static HRESULT pixelshader_set_function(IWineD3DPixelShaderImpl *shader,
 
         for (i = 0; i < MAX_REG_INPUT; ++i)
         {
-            shader->input_reg_map[i] = i;
+            This->input_reg_map[i] = i;
         }
 
-        shader->declared_in_count = highest_reg_used + 1;
+        This->declared_in_count = highest_reg_used + 1;
     }
     else
     {
-        shader->declared_in_count = 0;
+        This->declared_in_count = 0;
         for (i = 0; i < MAX_REG_INPUT; ++i)
         {
-            if (shader->input_reg_used[i]) shader->input_reg_map[i] = shader->declared_in_count++;
-            else shader->input_reg_map[i] = ~0U;
+            if (This->input_reg_used[i]) This->input_reg_map[i] = This->declared_in_count++;
+            else This->input_reg_map[i] = ~0U;
         }
     }
 
-    shader->baseShader.load_local_constsF = FALSE;
+    This->baseShader.load_local_constsF = FALSE;
 
-    TRACE("(%p) : Copying byte code.\n", shader);
+    TRACE("(%p) : Copying the function\n", This);
 
-    shader->baseShader.function = HeapAlloc(GetProcessHeap(), 0, shader->baseShader.functionLength);
-    if (!shader->baseShader.function) return E_OUTOFMEMORY;
-    memcpy(shader->baseShader.function, byte_code, shader->baseShader.functionLength);
+    This->baseShader.function = HeapAlloc(GetProcessHeap(), 0, This->baseShader.functionLength);
+    if (!This->baseShader.function) return E_OUTOFMEMORY;
+    memcpy(This->baseShader.function, pFunction, This->baseShader.functionLength);
 
     return WINED3D_OK;
 }
 
-void pixelshader_update_samplers(struct shader_reg_maps *reg_maps, IWineD3DBaseTexture * const *textures)
+static void pixelshader_update_samplers(struct shader_reg_maps *reg_maps, IWineD3DBaseTexture * const *textures)
 {
     WINED3DSAMPLER_TEXTURE_TYPE *sampler_type = reg_maps->sampler_type;
     unsigned int i;
@@ -346,7 +338,30 @@ void pixelshader_update_samplers(struct shader_reg_maps *reg_maps, IWineD3DBaseT
     }
 }
 
-static const IWineD3DPixelShaderVtbl IWineD3DPixelShader_Vtbl =
+static GLuint pixelshader_compile(IWineD3DPixelShaderImpl *This, const struct ps_compile_args *args)
+{
+    CONST DWORD *function = This->baseShader.function;
+    GLuint retval;
+    SHADER_BUFFER buffer;
+    IWineD3DDeviceImpl *device = (IWineD3DDeviceImpl *) This->baseShader.device;
+
+    TRACE("(%p) : function %p\n", This, function);
+
+    pixelshader_update_samplers(&This->baseShader.reg_maps,
+            ((IWineD3DDeviceImpl *)This->baseShader.device)->stateBlock->textures);
+
+    /* Generate the HW shader */
+    TRACE("(%p) : Generating hardware program\n", This);
+    This->cur_args = args;
+    shader_buffer_init(&buffer);
+    retval = device->shader_backend->shader_generate_pshader((IWineD3DPixelShader *)This, &buffer, args);
+    shader_buffer_free(&buffer);
+    This->cur_args = NULL;
+
+    return retval;
+}
+
+const IWineD3DPixelShaderVtbl IWineD3DPixelShader_Vtbl =
 {
     /*** IUnknown methods ***/
     IWineD3DPixelShaderImpl_QueryInterface,
@@ -355,9 +370,10 @@ static const IWineD3DPixelShaderVtbl IWineD3DPixelShader_Vtbl =
     /*** IWineD3DBase methods ***/
     IWineD3DPixelShaderImpl_GetParent,
     /*** IWineD3DBaseShader methods ***/
+    IWineD3DPixelShaderImpl_SetFunction,
+    /*** IWineD3DPixelShader methods ***/
     IWineD3DPixelShaderImpl_GetDevice,
     IWineD3DPixelShaderImpl_GetFunction
-    /*** IWineD3DPixelShader methods ***/
 };
 
 void find_ps_compile_args(IWineD3DPixelShaderImpl *shader, IWineD3DStateBlockImpl *stateblock, struct ps_compile_args *args) {
@@ -424,24 +440,43 @@ void find_ps_compile_args(IWineD3DPixelShaderImpl *shader, IWineD3DStateBlockImp
     }
 }
 
-HRESULT pixelshader_init(IWineD3DPixelShaderImpl *shader, IWineD3DDeviceImpl *device,
-        const DWORD *byte_code, const struct wined3d_shader_signature *output_signature,
-        IUnknown *parent, const struct wined3d_parent_ops *parent_ops)
+GLuint find_gl_pshader(IWineD3DPixelShaderImpl *shader, const struct ps_compile_args *args)
 {
-    HRESULT hr;
+    UINT i;
+    DWORD new_size;
+    struct ps_compiled_shader *new_array;
 
-    if (!byte_code) return WINED3DERR_INVALIDCALL;
-
-    shader->lpVtbl = &IWineD3DPixelShader_Vtbl;
-    shader_init(&shader->baseShader, device, parent, parent_ops);
-
-    hr = pixelshader_set_function(shader, byte_code, output_signature);
-    if (FAILED(hr))
-    {
-        WARN("Failed to set function, hr %#x.\n", hr);
-        shader_cleanup((IWineD3DBaseShader *)shader);
-        return hr;
+    /* Usually we have very few GL shaders for each d3d shader(just 1 or maybe 2),
+     * so a linear search is more performant than a hashmap or a binary search
+     * (cache coherency etc)
+     */
+    for(i = 0; i < shader->num_gl_shaders; i++) {
+        if(memcmp(&shader->gl_shaders[i].args, args, sizeof(*args)) == 0) {
+            return shader->gl_shaders[i].prgId;
+        }
     }
 
-    return WINED3D_OK;
+    TRACE("No matching GL shader found, compiling a new shader\n");
+    if(shader->shader_array_size == shader->num_gl_shaders) {
+        if (shader->num_gl_shaders)
+        {
+            new_size = shader->shader_array_size + max(1, shader->shader_array_size / 2);
+            new_array = HeapReAlloc(GetProcessHeap(), 0, shader->gl_shaders,
+                                    new_size * sizeof(*shader->gl_shaders));
+        } else {
+            new_array = HeapAlloc(GetProcessHeap(), 0, sizeof(*shader->gl_shaders));
+            new_size = 1;
+        }
+
+        if(!new_array) {
+            ERR("Out of memory\n");
+            return 0;
+        }
+        shader->gl_shaders = new_array;
+        shader->shader_array_size = new_size;
+    }
+
+    shader->gl_shaders[shader->num_gl_shaders].args = *args;
+    shader->gl_shaders[shader->num_gl_shaders].prgId = pixelshader_compile(shader, args);
+    return shader->gl_shaders[shader->num_gl_shaders++].prgId;
 }

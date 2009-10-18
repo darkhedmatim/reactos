@@ -114,7 +114,7 @@ static DMA_OPERATIONS HalpDmaOperations = {
 
 #define MAX_MAP_REGISTERS 64
 
-#define TAG_DMA ' AMD'
+#define TAG_DMA TAG('D','M','A',' ')
 
 /* FUNCTIONS *****************************************************************/
 
@@ -770,7 +770,7 @@ HalGetAdapter(
    {
       if (!HalpDmaInitializeEisaAdapter(AdapterObject, DeviceDescription))
       {
-         ObDereferenceObject(AdapterObject);
+         ObfDereferenceObject(AdapterObject);
          return NULL;
       }
    }
@@ -817,7 +817,7 @@ HalPutDmaAdapter(
       KeSetEvent(&HalpDmaLock, 0, 0);
    }
 
-   ObDereferenceObject(AdapterObject);
+   ObfDereferenceObject(AdapterObject);
 }
 
 /**
@@ -1075,7 +1075,7 @@ HalAllocateAdapterChannel(
 {
    PADAPTER_OBJECT MasterAdapter;
    PGROW_WORK_ITEM WorkItem;
-   ULONG Index = MAXULONG;
+   ULONG Index = ~0U;
    ULONG Result;
    KIRQL OldIrql;
 
@@ -1131,7 +1131,7 @@ HalAllocateAdapterChannel(
       {
          Index = RtlFindClearBitsAndSet(
             MasterAdapter->MapRegisters, NumberOfMapRegisters, 0);
-         if (Index != MAXULONG)
+         if (Index != ~0U)
          {
             AdapterObject->MapRegisterBase =
                MasterAdapter->MapRegisterBase + Index;
@@ -1145,7 +1145,7 @@ HalAllocateAdapterChannel(
          }
       }
 
-      if (Index == MAXULONG)
+      if (Index == ~0U)
       {
          WorkItem = ExAllocatePoolWithTag(
             NonPagedPool, sizeof(GROW_WORK_ITEM), TAG_DMA);
@@ -1244,7 +1244,7 @@ IoFreeAdapterChannel(
    PADAPTER_OBJECT MasterAdapter;
    PKDEVICE_QUEUE_ENTRY DeviceQueueEntry;
    PWAIT_CONTEXT_BLOCK WaitContextBlock;
-   ULONG Index = MAXULONG;
+   ULONG Index = ~0;
    ULONG Result;
    KIRQL OldIrql;
 
@@ -1289,7 +1289,7 @@ IoFreeAdapterChannel(
             Index = RtlFindClearBitsAndSet(
                MasterAdapter->MapRegisters,
                WaitContextBlock->NumberOfMapRegisters, 0);
-            if (Index != MAXULONG)
+            if (Index != ~0U)
             {
                AdapterObject->MapRegisterBase =
                   MasterAdapter->MapRegisterBase + Index;
@@ -1303,7 +1303,7 @@ IoFreeAdapterChannel(
             }
          }
 
-         if (Index == MAXULONG)
+         if (Index == ~0U)
          {
             InsertTailList(&MasterAdapter->AdapterQueue, &AdapterObject->AdapterQueue);
             KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
@@ -1406,7 +1406,7 @@ IoFreeMapRegisters(
          MasterAdapter->MapRegisters,
          AdapterObject->NumberOfMapRegisters,
          MasterAdapter->NumberOfMapRegisters);
-      if (Index == MAXULONG)
+      if (Index == ~0U)
       {
          InsertHeadList(&MasterAdapter->AdapterQueue, ListEntry);
          break;
@@ -1487,7 +1487,9 @@ HalpCopyBufferMap(
        * NOTE: On real NT a mechanism with reserved pages is implemented
        * to handle this case in a slow, but graceful non-fatal way.
        */
-      KeBugCheckEx(HAL_MEMORY_ALLOCATION, PAGE_SIZE, 0, (ULONG_PTR)__FILE__, 0);
+      /* FIXME: The correct bug check code isn't defined. */
+      /* KEBUGCHECKEX(HAL_MEMORY_ALLOCATION, PAGE_SIZE, 0, (ULONG_PTR)__FILE__, 0); */
+      ASSERT(FALSE);
    }
 
    CurrentAddress = (ULONG_PTR)VirtualAddress +
@@ -1602,7 +1604,7 @@ IoFlushAdapterBuffers(
    {
       if ((ULONG_PTR)MapRegisterBase & MAP_BASE_SW_SG)
       {
-         if (RealMapRegisterBase->Counter != MAXULONG)
+         if (RealMapRegisterBase->Counter != ~0U)
          {
             if (SlaveDma && !AdapterObject->IgnoreCount)
                Length -= HalReadDmaCounter(AdapterObject);
@@ -1781,7 +1783,7 @@ IoMapTransfer(
       PhysicalAddress = RealMapRegisterBase->PhysicalAddress;
       PhysicalAddress.QuadPart += ByteOffset;
       TransferLength = *Length;
-      RealMapRegisterBase->Counter = MAXULONG;
+      RealMapRegisterBase->Counter = ~0;
       Counter = 0;
    }
    else
@@ -1811,7 +1813,7 @@ IoMapTransfer(
          PhysicalAddress.QuadPart += ByteOffset;
          if ((ULONG_PTR)MapRegisterBase & MAP_BASE_SW_SG)
          {
-            RealMapRegisterBase->Counter = MAXULONG;
+            RealMapRegisterBase->Counter = ~0;
             Counter = 0;
          }
       }
@@ -1989,7 +1991,7 @@ HalAllocateCrashDumpRegisters(IN PADAPTER_OBJECT AdapterObject,
                                                    0);
 
         /* Check if nothing was found */
-        if (MapRegisterNumber == MAXULONG)
+        if (MapRegisterNumber == -1U)
         {
             /* No free registers found, so use the base registers */
             RtlSetBits(MasterAdapter->MapRegisters,

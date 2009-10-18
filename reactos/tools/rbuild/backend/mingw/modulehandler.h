@@ -57,8 +57,7 @@ public:
 
 	static const FileLocation* GetImportLibraryFilename (
 		const Module& module,
-		string_list* pclean_files,
-		bool delayimp );
+		string_list* pclean_files );
 
 	static std::string GenerateGccDefineParametersFromVector ( const std::vector<Define*>& defines, std::set<std::string> &used_defs );
 	static std::string GenerateDefineParametersFromVector ( const std::vector<Define*>& defines, CompilerType compiler );
@@ -90,15 +89,13 @@ public:
 
 	void OutputCopyCommand ( const FileLocation& source,
 	                         const FileLocation& destination );
-	void OutputCopyCommandSingle ( const FileLocation& source,
-	                               const FileLocation& destination );
 protected:
 	virtual void GetModuleSpecificCompilationUnits ( std::vector<CompilationUnit*>& compilationUnits );
 	std::string GetWorkingDirectory () const;
 	std::string GetBasename ( const std::string& filename ) const;
 	std::string GetCompilationUnitDependencies ( const CompilationUnit& compilationUnit ) const;
 	const FileLocation* GetModuleArchiveFilename () const;
-	std::string GetImportLibraryDependency ( const Module& importedModule, bool delayimp );
+	std::string GetImportLibraryDependency ( const Module& importedModule );
 	void GetTargets ( const Module& dependencyModule,
 	                  string_list& targets );
 	void GetModuleDependencies ( string_list& dependencies );
@@ -121,7 +118,6 @@ protected:
 	void GeneratePhonyTarget() const;
 	void GenerateBuildMapCode ( const FileLocation *mapTarget = NULL );
 	void GenerateRules ();
-	void GenerateImportLibraryTarget (const FileLocation *defFilename, const FileLocation *library_target, bool delayimp);
 	void GenerateImportLibraryTargetIfNeeded ();
 	void GetDefinitionDependencies ( std::vector<FileLocation>& dependencies ) const;
 	std::string GetLinkingDependencies () const;
@@ -323,10 +319,8 @@ private:
 	void GetBootstrapCdFiles ( std::vector<FileLocation>& out ) const;
 	void GetNonModuleCdFiles ( std::vector<FileLocation>& out ) const;
 	void GetCdFiles ( std::vector<FileLocation>& out ) const;
-	void OutputBootstrapfileCopyCommands ( const std::string& bootcdDirectory,
-	                                       std::vector<FileLocation>& destinations );
-	void OutputCdfileCopyCommands ( const std::string& bootcdDirectory,
-	                                std::vector<FileLocation>& destinations );
+	void OutputBootstrapfileCopyCommands ( const std::string& bootcdDirectory );
+	void OutputCdfileCopyCommands ( const std::string& bootcdDirectory );
 };
 
 
@@ -339,15 +333,11 @@ private:
 	void GenerateLiveIsoModuleTarget ();
 	void CreateDirectory ( const std::string& directory );
 	void OutputModuleCopyCommands ( std::string& livecdDirectory,
-	                                std::string& livecdReactos,
-	                                std::vector<FileLocation>& destinations );
+	                                std::string& livecdReactos );
 	void OutputNonModuleCopyCommands ( std::string& livecdDirectory,
-	                                   std::string& livecdReactos,
-	                                   std::vector<FileLocation>& destinations );
-	void OutputProfilesDirectoryCommands ( std::string& livecdDirectory,
-	                                       std::vector<FileLocation>& destinations );
-	void OutputLoaderCommands ( std::string& livecdDirectory,
-	                            std::vector<FileLocation>& destinations );
+	                                   std::string& livecdReactos );
+	void OutputProfilesDirectoryCommands ( std::string& livecdDirectory );
+	void OutputLoaderCommands ( std::string& livecdDirectory );
 	void OutputRegistryCommands ( std::string& livecdDirectory );
 };
 

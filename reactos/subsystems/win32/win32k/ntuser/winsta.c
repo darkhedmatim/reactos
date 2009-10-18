@@ -483,9 +483,6 @@ NtUserCreateWindowStation(
       return 0;
    }
 
-   /* Zero out the buffer */
-   RtlZeroMemory(WindowStationObject, sizeof(WINSTATION_OBJECT));
-
    KeInitializeSpinLock(&WindowStationObject->Lock);
 
    InitializeListHead(&WindowStationObject->DesktopListHead);
@@ -537,29 +534,24 @@ NtUserCreateWindowStation(
    CurInfo->LastBtnDown = 0;
    CurInfo->CurrentCursorObject = NULL;
    CurInfo->ShowingCursor = 0;
-   CurInfo->ClickLockActive = FALSE;
-   CurInfo->ClickLockTime = 0;
 
-/*
-   // not used anymore
-   CurInfo->WheelScroLines = gspv.iWheelScrollLines;
-#if (_WIN32_WINNT >= 0x0600)
-   CurInfo->WheelScroChars = gspv.iWheelScrollChars;
-#endif
-   CurInfo->SwapButtons = gspv.bMouseBtnSwap;
-   CurInfo->DblClickSpeed = gspv.iDblClickTime;
-   CurInfo->DblClickWidth = gspv.iDblClickWidth;
-   CurInfo->DblClickHeight = gspv.iDblClickHeight;
+   /* FIXME: Obtain the following information from the registry */
 
-   CurInfo->MouseSpeed = gspv.iMouseSpeed;
-   CurInfo->CursorAccelerationInfo.FirstThreshold  = gspv.caiMouse.FirstThreshold;
-   CurInfo->CursorAccelerationInfo.SecondThreshold = gspv.caiMouse.SecondThreshold;
-   CurInfo->CursorAccelerationInfo.Acceleration = gspv.caiMouse.Acceleration;
+//   CurInfo->WheelScroLines = 3;
+//   CurInfo->WheelScroChars = 3;
+   CurInfo->SwapButtons = FALSE;
+   CurInfo->DblClickSpeed = 500;
+   CurInfo->DblClickWidth = 4;
+   CurInfo->DblClickHeight = 4;
 
-   CurInfo->MouseHoverTime = gspv.iMouseHoverTime;
-   CurInfo->MouseHoverWidth = gspv.iMouseHoverWidth;
-   CurInfo->MouseHoverHeight = gspv.iMouseHoverHeight;
-*/
+//   CurInfo->MouseSpeed = 10;
+//   CurInfo->CursorAccelerationInfo.FirstThreshold  = 6;
+//   CurInfo->CursorAccelerationInfo.SecondThreshold = 10;
+//   CurInfo->CursorAccelerationInfo.Acceleration    = 1;
+
+//   CurInfo->MouseHoverTime = 80;
+//   CurInfo->MouseHoverWidth = 4;
+//   CurInfo->MouseHoverHeight = 4;
 
 //   WindowStationObject->ScreenSaverActive = FALSE;
 //   WindowStationObject->ScreenSaverTimeOut = 10;
@@ -635,14 +627,14 @@ NtUserOpenWindowStation(
    InitializeObjectAttributes(
       &ObjectAttributes,
       &WindowStationName,
-      OBJ_CASE_INSENSITIVE,
+      0,
       NULL,
       NULL);
 
    Status = ObOpenObjectByName(
                &ObjectAttributes,
                ExWindowStationObjectType,
-               KernelMode,
+               UserMode,
                NULL,
                dwDesiredAccess,
                NULL,
@@ -691,11 +683,6 @@ NtUserCloseWindowStation(
    NTSTATUS Status;
 
    DPRINT("About to close window station handle (0x%X)\n", hWinSta);
-
-	if (hWinSta == UserGetProcessWindowStation())
-	{
-		return FALSE;
-	}
 
    Status = IntValidateWindowStationHandle(
                hWinSta,

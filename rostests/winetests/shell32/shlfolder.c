@@ -81,6 +81,15 @@ static void init_function_pointers(void)
     ok(hr == S_OK, "SHGetMalloc failed %08x\n", hr);
 }
 
+static const char *wine_dbgstr_w(LPCWSTR str)
+{
+    static char buf[512];
+    if (!str)
+        return "(null)";
+    WideCharToMultiByte(CP_ACP, 0, str, -1, buf, sizeof(buf), NULL, NULL);
+    return buf;
+}
+
 static void test_ParseDisplayName(void)
 {
     HRESULT hr;
@@ -1556,21 +1565,21 @@ static void testSHGetFolderPathAndSubDirA(void)
     }
     if(FAILED(pSHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, SHGFP_TYPE_CURRENT, appdata)))
     {
-        win_skip("SHGetFolderPathA failed for CSIDL_LOCAL_APPDATA!\n");
+        skip("SHGetFolderPathA failed for CSIDL_LOCAL_APPDATA!\n");
         return;
     }
 
     sprintf(testpath, "%s\\%s", appdata, winetemp);
     delret = RemoveDirectoryA(testpath);
     if(!delret && (ERROR_PATH_NOT_FOUND != GetLastError()) ) {
-        win_skip("RemoveDirectoryA(%s) failed with error %u\n", testpath, GetLastError());
+        skip("RemoveDirectoryA(%s) failed with error %u\n", testpath, GetLastError());
         return;
     }
 
     sprintf(testpath, "%s\\%s", appdata, wine);
     delret = RemoveDirectoryA(testpath);
     if(!delret && (ERROR_PATH_NOT_FOUND != GetLastError()) && (ERROR_FILE_NOT_FOUND != GetLastError())) {
-        win_skip("RemoveDirectoryA(%s) failed with error %u\n", testpath, GetLastError());
+        skip("RemoveDirectoryA(%s) failed with error %u\n", testpath, GetLastError());
         return;
     }
 
@@ -1686,7 +1695,7 @@ static void test_LocalizedNames(void)
     len = lstrlenA(cCurrDirA);
 
     if (len == 0) {
-        win_skip("GetCurrentDirectoryA returned empty string. Skipping test_LocalizedNames\n");
+        trace("GetCurrentDirectoryA returned empty string. Skipping test_LocalizedNames\n");
         goto cleanup;
     }
     if(cCurrDirA[len-1] == '\\')
@@ -1935,12 +1944,12 @@ START_TEST(shlfolder)
     if(pSHGetFolderPathAndSubDirA)
         testSHGetFolderPathAndSubDirA();
     else
-        win_skip("SHGetFolderPathAndSubDirA not present\n");
+        skip("SHGetFolderPathAndSubDirA not present\n");
     test_LocalizedNames();
     if(pSHCreateShellItem)
         test_SHCreateShellItem();
     else
-        win_skip("SHCreateShellItem not present\n");
+        win_skip("test_SHCreateShellItem not present\n");
 
     OleUninitialize();
 }

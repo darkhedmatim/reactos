@@ -24,8 +24,9 @@
 #include "videoprt.h"
 #include <wdmguid.h>
 
+VIDEOPORT_API
 VP_STATUS
-NTAPI
+DDKAPI
 VideoPortFlushRegistry(
     PVOID HwDeviceExtension)
 {
@@ -33,8 +34,9 @@ VideoPortFlushRegistry(
     return 0;
 }
 
+VIDEOPORT_API
 ULONG
-NTAPI
+DDKAPI
 VideoPortGetAssociatedDeviceID(
     IN PVOID DeviceObject)
 {
@@ -43,8 +45,9 @@ VideoPortGetAssociatedDeviceID(
 }
 
 
+VIDEOPORT_API
 ULONG
-NTAPI
+DDKAPI
 VideoPortGetBytesUsed(
     IN PVOID HwDeviceExtension,
     IN PDMA pDma)
@@ -53,8 +56,9 @@ VideoPortGetBytesUsed(
     return 0;
 }
 
+VIDEOPORT_API
 PVOID
-NTAPI
+DDKAPI
 VideoPortGetMdl(
     IN PVOID HwDeviceExtension,
     IN PDMA pDma)
@@ -63,8 +67,9 @@ VideoPortGetMdl(
     return 0;
 }
 
+VIDEOPORT_API
 BOOLEAN
-NTAPI
+DDKAPI
 VideoPortLockPages(
     IN PVOID HwDeviceExtension,
     IN OUT PVIDEO_REQUEST_PACKET pVrp,
@@ -76,8 +81,9 @@ VideoPortLockPages(
     return 0;
 }
 
+VIDEOPORT_API
 LONG
-NTAPI
+DDKAPI
 VideoPortReadStateEvent(
     IN PVOID HwDeviceExtension,
     IN PEVENT pEvent)
@@ -86,8 +92,9 @@ VideoPortReadStateEvent(
     return 0;
 }
 
+VIDEOPORT_API
 VOID
-NTAPI
+DDKAPI
 VideoPortSetBytesUsed(
     IN PVOID HwDeviceExtension,
     IN OUT PDMA pDma,
@@ -96,8 +103,9 @@ VideoPortSetBytesUsed(
     UNIMPLEMENTED;
 }
 
+VIDEOPORT_API
 BOOLEAN
-NTAPI
+DDKAPI
 VideoPortUnlockPages(
     IN PVOID hwDeviceExtension,
     IN PDMA pDma)
@@ -105,3 +113,5 @@ VideoPortUnlockPages(
     UNIMPLEMENTED;
     return 0;
 }
+
+

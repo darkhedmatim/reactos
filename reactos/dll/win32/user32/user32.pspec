@@ -194,7 +194,7 @@
 @ stdcall EditWndProc(long long long long) EditWndProcA
 @ stdcall EmptyClipboard() NtUserEmptyClipboard
 @ stdcall EnableMenuItem(long long long)
-@ stdcall EnableScrollBar(long long long)
+@ stdcall EnableScrollBar(long long long) NtUserEnableScrollBar
 @ stdcall EnableWindow(long long)
 @ stdcall EndDeferWindowPos(long)
 @ stdcall EndDialog(long long)
@@ -483,8 +483,8 @@
 @ stdcall MapVirtualKeyW(long long)
 @ stdcall MapWindowPoints(long long ptr long)
 @ stdcall MenuItemFromPoint(long long double) ; Direct call NtUserMenuItemFromPoint
-@ stdcall MenuWindowProcA (long ptr long long long)
-@ stdcall MenuWindowProcW (long ptr long long long)
+@ stdcall MenuWindowProcA (long long long long)
+@ stdcall MenuWindowProcW (long long long long)
 @ stdcall MessageBeep(long)
 @ stdcall MessageBoxA(long str str long)
 @ stdcall MessageBoxExA(long str str long long)
@@ -557,7 +557,7 @@
 @ stdcall RegisterShellHookWindow(long)
 @ stdcall RegisterSystemThread(long long)
 @ stdcall RegisterTasklist(long) NtUserRegisterTasklist
-@ stdcall RegisterUserApiHook(ptr)
+@ stub RegisterUserApiHook
 @ stdcall RegisterWindowMessageA(str)
 @ stdcall RegisterWindowMessageW(wstr)
 @ stdcall ReleaseCapture()
@@ -711,9 +711,9 @@
 @ stdcall UnregisterDeviceNotification(long)
 @ stdcall UnregisterHotKey(long long) NtUserUnregisterHotKey
 @ stub UnregisterMessagePumpHook
-@ stdcall UnregisterUserApiHook() NtUserUnregisterUserApiHook
-@ stdcall UpdateLayeredWindow(long long ptr ptr long ptr long ptr long)
-@ stdcall UpdateLayeredWindowIndirect(long ptr)
+@ stub UnregisterUserApiHook
+@ stdcall UpdateLayeredWindow(long long ptr ptr long ptr long ptr long) NtUserUpdateLayeredWindow
+@ stub UpdateLayeredWindowIndirect
 @ stdcall UpdatePerUserSystemParameters(long long)
 @ stdcall UpdateWindow(long)
 @ stdcall User32InitializeImmEntryTable(ptr)
@@ -740,7 +740,6 @@
 @ stdcall WinHelpW(long wstr long long)
 @ stdcall WindowFromDC(long)
 @ stdcall WindowFromPoint(double)
-@ stdcall WindowFromPhysicalPoint(double) NtUserWindowFromPhysicalPoint
 @ stdcall keybd_event(long long long long)
 @ stdcall mouse_event(long long long long long)
 @ varargs wsprintfA(str str)

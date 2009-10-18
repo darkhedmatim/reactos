@@ -242,7 +242,7 @@ typedef HACMOBJ      *PHACMOBJ, *LPHACMOBJ;
  */
 
 typedef BOOL (CALLBACK *ACMDRIVERENUMCB)(
-  HACMDRIVERID hadid, DWORD_PTR dwInstance, DWORD fdwSupport
+  HACMDRIVERID hadid, DWORD dwInstance, DWORD fdwSupport
 );
 
 typedef UINT (CALLBACK *ACMFILTERCHOOSEHOOKPROCA)(
@@ -539,29 +539,21 @@ DECL_WINELIB_TYPE_AW(ACMFORMATTAGDETAILS)
 DECL_WINELIB_TYPE_AW(PACMFORMATTAGDETAILS)
 DECL_WINELIB_TYPE_AW(LPACMFORMATTAGDETAILS)
 
-#ifdef _WIN64
-#  define _ACMSTREAMHEADERRESERVE 15
-#else
-#  define _ACMSTREAMHEADERRESERVE 10
-#endif
-
 typedef struct _ACMSTREAMHEADER
 {
-  DWORD     cbStruct;
-  DWORD     fdwStatus;
-  DWORD_PTR dwUser;
-  LPBYTE    pbSrc;
-  DWORD     cbSrcLength;
-  DWORD     cbSrcLengthUsed;
-  DWORD_PTR dwSrcUser;
-  LPBYTE    pbDst;
-  DWORD     cbDstLength;
-  DWORD     cbDstLengthUsed;
-  DWORD_PTR dwDstUser;
-  DWORD     dwReservedDriver[_ACMSTREAMHEADERRESERVE];
+  DWORD  cbStruct;
+  DWORD  fdwStatus;
+  DWORD_PTR  dwUser;
+  LPBYTE pbSrc;
+  DWORD  cbSrcLength;
+  DWORD  cbSrcLengthUsed;
+  DWORD  dwSrcUser;
+  LPBYTE pbDst;
+  DWORD  cbDstLength;
+  DWORD  cbDstLengthUsed;
+  DWORD  dwDstUser;
+  DWORD  dwReservedDriver[10];
 } ACMSTREAMHEADER, *PACMSTREAMHEADER, *LPACMSTREAMHEADER;
-
-#undef _ACMSTREAMHEADERRESERVE
 
 /***********************************************************************
  * Callbacks 2
@@ -569,48 +561,48 @@ typedef struct _ACMSTREAMHEADER
 
 typedef BOOL (CALLBACK *ACMFILTERENUMCBA)(
   HACMDRIVERID hadid, PACMFILTERDETAILSA pafd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 typedef BOOL (CALLBACK *ACMFILTERENUMCBW)(
   HACMDRIVERID hadid, PACMFILTERDETAILSW pafd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 #define ACMFILTERENUMCB WINELIB_NAME_AW(ACMFILTERENUMCB)
 
 typedef BOOL (CALLBACK *ACMFILTERTAGENUMCBA)(
   HACMDRIVERID hadid, PACMFILTERTAGDETAILSA paftd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 typedef BOOL (CALLBACK *ACMFILTERTAGENUMCBW)(
   HACMDRIVERID hadid, PACMFILTERTAGDETAILSW paftd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 #define ACMFILTERTAGENUMCB WINELIB_NAME_AW(ACMFILTERTAGENUMCB)
 
 typedef BOOL (CALLBACK *ACMFORMATENUMCBA)(
   HACMDRIVERID hadid, PACMFORMATDETAILSA pafd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 typedef BOOL (CALLBACK *ACMFORMATENUMCBW)(
   HACMDRIVERID hadid, PACMFORMATDETAILSW pafd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 #define ACMFORMATENUMCB WINELIB_NAME_AW(ACMFORMATENUMCB)
 
 typedef BOOL (CALLBACK *ACMFORMATTAGENUMCBA)(
   HACMDRIVERID hadid, PACMFORMATTAGDETAILSA paftd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 typedef BOOL (CALLBACK *ACMFORMATTAGENUMCBW)(
   HACMDRIVERID hadid, PACMFORMATTAGDETAILSW paftd,
-  DWORD_PTR dwInstance, DWORD fdwSupport
+  DWORD dwInstance, DWORD fdwSupport
 );
 
 #define ACMFORMATTAGENUMCB WINELIB_NAME_AW(ACMFORMATTAGENUMCB)
@@ -641,7 +633,7 @@ MMRESULT WINAPI acmDriverDetailsW(
 #define acmDriverDetails WINELIB_NAME_AW(acmDriverDetails)
 
 MMRESULT WINAPI acmDriverEnum(
-  ACMDRIVERENUMCB fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMDRIVERENUMCB fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 MMRESULT WINAPI acmDriverID(
   HACMOBJ hao, PHACMDRIVERID phadid, DWORD fdwDriverID
@@ -676,11 +668,11 @@ MMRESULT WINAPI acmFilterDetailsW(
 
 MMRESULT WINAPI acmFilterEnumA(
   HACMDRIVER had, PACMFILTERDETAILSA pafd,
-  ACMFILTERENUMCBA fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFILTERENUMCBA fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 MMRESULT WINAPI acmFilterEnumW(
   HACMDRIVER had, PACMFILTERDETAILSW pafd,
-  ACMFILTERENUMCBW fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFILTERENUMCBW fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 #define acmFilterEnum WINELIB_NAME_AW(acmFilterEnum)
 
@@ -694,11 +686,11 @@ MMRESULT WINAPI acmFilterTagDetailsW(
 
 MMRESULT WINAPI acmFilterTagEnumA(
   HACMDRIVER had, PACMFILTERTAGDETAILSA paftd,
-  ACMFILTERTAGENUMCBA fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFILTERTAGENUMCBA fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 MMRESULT WINAPI acmFilterTagEnumW(
   HACMDRIVER had, PACMFILTERTAGDETAILSW paftd,
-  ACMFILTERTAGENUMCBW fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFILTERTAGENUMCBW fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 #define acmFilterTagEnum WINELIB_NAME_AW(acmFilterTagEnum)
 
@@ -720,11 +712,11 @@ MMRESULT WINAPI acmFormatDetailsW(
 
 MMRESULT WINAPI acmFormatEnumA(
   HACMDRIVER had, PACMFORMATDETAILSA pafd,
-  ACMFORMATENUMCBA fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFORMATENUMCBA fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 MMRESULT WINAPI acmFormatEnumW(
   HACMDRIVER had, PACMFORMATDETAILSW pafd,
-  ACMFORMATENUMCBW fnCallback, DWORD_PTR dwInstance,  DWORD fdwEnum
+  ACMFORMATENUMCBW fnCallback, DWORD dwInstance,  DWORD fdwEnum
 );
 #define acmFormatEnum WINELIB_NAME_AW(acmFormatEnum)
 
@@ -742,11 +734,11 @@ MMRESULT WINAPI acmFormatTagDetailsW(
 
 MMRESULT WINAPI acmFormatTagEnumA(
   HACMDRIVER had, PACMFORMATTAGDETAILSA paftd,
-  ACMFORMATTAGENUMCBA fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFORMATTAGENUMCBA fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 MMRESULT WINAPI acmFormatTagEnumW(
   HACMDRIVER had, PACMFORMATTAGDETAILSW paftd,
-  ACMFORMATTAGENUMCBW fnCallback, DWORD_PTR dwInstance, DWORD fdwEnum
+  ACMFORMATTAGENUMCBW fnCallback, DWORD dwInstance, DWORD fdwEnum
 );
 #define acmFormatTagEnum WINELIB_NAME_AW(acmFormatTagEnum)
 
@@ -766,8 +758,8 @@ MMRESULT WINAPI acmStreamMessage(
 );
 MMRESULT WINAPI acmStreamOpen(
   PHACMSTREAM phas, HACMDRIVER had, PWAVEFORMATEX pwfxSrc,
-  PWAVEFORMATEX pwfxDst, PWAVEFILTER pwfltr, DWORD_PTR dwCallback,
-  DWORD_PTR dwInstance, DWORD fdwOpen
+  PWAVEFORMATEX pwfxDst, PWAVEFILTER pwfltr, DWORD dwCallback,
+  DWORD dwInstance, DWORD fdwOpen
 );
 MMRESULT WINAPI acmStreamPrepareHeader(
   HACMSTREAM has, PACMSTREAMHEADER pash, DWORD fdwPrepare

@@ -154,7 +154,6 @@ WsSetupCatalogProtection(IN HKEY CatalogKey,
     /* Start loop */
     do
     {
-#if 0
         /* Ask for notifications */
         ErrorCode = RegNotifyChangeKeyValue(CatalogKey,
                                             FALSE,
@@ -167,7 +166,6 @@ WsSetupCatalogProtection(IN HKEY CatalogKey,
             ErrorCode = WSASYSCALLFAILURE;
             break;
         }
-#endif
 
         /* Read the current ID */
         ErrorCode = RegQueryValueEx(CatalogKey,
@@ -184,7 +182,7 @@ WsSetupCatalogProtection(IN HKEY CatalogKey,
         }
 
         /* Try to open it for writing */
-        sprintf(KeyBuffer, "%8.8lX", NewUniqueId);
+        sprintf(KeyBuffer, "%08.8lX", NewUniqueId);
         ErrorCode = RegOpenKeyEx(CatalogKey,
                                  KeyBuffer,
                                  0,

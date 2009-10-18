@@ -475,9 +475,7 @@ UINT WINAPI MsiGetSummaryInformationW( MSIHANDLE hDatabase,
 
     if( szDatabase )
     {
-        LPCWSTR persist = uiUpdateCount ? MSIDBOPEN_TRANSACT : MSIDBOPEN_READONLY;
-
-        ret = MSI_OpenDatabaseW( szDatabase, persist, &db );
+        ret = MSI_OpenDatabaseW( szDatabase, NULL, &db );
         if( ret != ERROR_SUCCESS )
             return ret;
     }

@@ -98,9 +98,10 @@ namespace RosDBG
                 pipeMode = ConnectionMode.MODE_CLIENT;
             else if (cType.SelectedItem.ToString().CompareTo("Server") == 0)
                 pipeMode = ConnectionMode.MODE_SERVER;
+            else if (cType.SelectedItem.ToString().CompareTo("Automatic") == 0)
+                pipeMode = ConnectionMode.MODE_AUTO;
 
             Settings.SelectedConnType = Type;
-            Settings.Mode = cType.SelectedItem.ToString();
             Settings.Save();
 
             Close();
@@ -111,21 +112,12 @@ namespace RosDBG
             int i = 0;
 
             /* Serial */
-            string[] serialPorts = SerialPort.GetPortNames();
-            if (serialPorts == null || serialPorts.Length == 0)
+            foreach (string s in SerialPort.GetPortNames())
             {
-                tabControl.TabPages.Remove(tabSerial);
-                Settings.SelectedConnType = ConnectionType.Pipe;
+                cPort.Items.Add(s);
             }
-            else
-            {
-                foreach (string s in serialPorts)
-                {
-                    cPort.Items.Add(s);
-                }
-                SelectComboItem(cPort, Settings.ComPort);
-                SelectComboItem(cBaud, Settings.Baudrate);
-            }
+            SelectComboItem(cPort, Settings.ComPort);
+            SelectComboItem(cBaud, Settings.Baudrate);
 
             /* Pipe */
             DefaultRadioBtn.Text += " [" + defaultPipeName + "]";
@@ -136,18 +128,7 @@ namespace RosDBG
             }
             cType.SelectedIndex = i;
 
-            switch (Settings.SelectedConnType)
-            {
-                case ConnectionType.Pipe:
-                    tabControl.SelectedTab = tabPipe;
-                    break;
-                case ConnectionType.Serial:
-                    tabControl.SelectedTab = tabSerial;
-                    break;
-                case ConnectionType.Socket:
-                    tabControl.SelectedTab = tabSocket;
-                    break;
-            }
+            tabControl.SelectedIndex = (int) Settings.SelectedConnType;
         }
 
         private void CustomRadioBtn_CheckedChanged(object sender, EventArgs e)
@@ -158,18 +139,7 @@ namespace RosDBG
 
         private void tabControl_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (tabControl.SelectedTab == tabPipe)
-            {
-                Type = ConnectionType.Pipe;
-            }
-            else if(tabControl.SelectedTab == tabSerial)
-            {
-                Type = ConnectionType.Serial;
-            }
-            else if (tabControl.SelectedTab == tabSocket)
-            {
-                Type = ConnectionType.Socket;
-            }
+            Type = (ConnectionType) ((TabControl)sender).SelectedIndex;
         }
     }
 }

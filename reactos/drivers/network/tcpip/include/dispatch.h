@@ -11,6 +11,7 @@ typedef struct _DISCONNECT_TYPE {
     UINT Type;
     PVOID Context;
     PIRP Irp;
+    PFILE_OBJECT FileObject;
 } DISCONNECT_TYPE, *PDISCONNECT_TYPE;
 
 NTSTATUS DispTdiAccept(

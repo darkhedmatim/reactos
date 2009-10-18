@@ -27,11 +27,11 @@ BOOLEAN
 NTAPI
 KeDisableInterrupts(VOID)
 {
-    ULONG Flags;
+    ULONG Flags = 0;
     BOOLEAN Return;
 
     /* Get EFLAGS and check if the interrupt bit is set */
-    Flags = __readeflags();
+    Ke386SaveFlags(Flags);
     Return = (Flags & EFLAGS_INTERRUPT_MASK) ? TRUE: FALSE;
 
     /* Disable interrupts */
@@ -194,8 +194,8 @@ KeInitializeInterrupt(IN PKINTERRUPT Interrupt,
     Interrupt->ShareVector = ShareVector;
     Interrupt->Number = ProcessorNumber;
     Interrupt->FloatingSave = FloatingSave;
-    Interrupt->TickCount = MAXULONG;
-    Interrupt->DispatchCount = MAXULONG;
+    Interrupt->TickCount = (ULONG)-1;
+    Interrupt->DispatchCount = (ULONG)-1;
 
     /* Loop the template in memory */
     for (i = 0; i < KINTERRUPT_DISPATCH_CODES; i++)

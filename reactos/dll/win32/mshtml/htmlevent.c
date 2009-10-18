@@ -176,10 +176,8 @@ static ULONG WINAPI HTMLEventObj_Release(IHTMLEventObj *iface)
 
     TRACE("(%p) ref=%d\n", This, ref);
 
-    if(!ref) {
-        release_dispex(&This->dispex);
+    if(!ref)
         heap_free(This);
-    }
 
     return ref;
 }

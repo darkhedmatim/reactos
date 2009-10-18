@@ -879,7 +879,7 @@ int main(int argc, char **argv)
   char *input_file;
   char *output_file;
 
-  if (argc != 3)
+  if (argc < 2)
   {
     puts(HELP);
     return 1;

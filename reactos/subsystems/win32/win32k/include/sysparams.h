@@ -15,7 +15,7 @@
 
 #define SPIF_PROTECT 0x80000
 
-typedef enum _USERPREFMASKS
+enum
 {
     UPM_ACTIVEWINDOWTRACKING = 0x01,
     UPM_MENUANIMATION = 0x02,
@@ -31,7 +31,6 @@ typedef enum _USERPREFMASKS
     UPM_TOOLTIPANIMATION = 0x800,
     UPM_TOOLTIPFADE = 0x1000,
     UPM_CURSORSHADOW = 0x2000,
-    UPM_CLICKLOCK = 0x8000,
     // room for more
     UPM_UIEFFECTS = 0x80000000,
     UPM_DEFAULT = 0x80003E9E
@@ -67,7 +66,6 @@ typedef struct _SPIVALUES
     CURSORACCELERATION_INFO caiMouse;
     MOUSEKEYS mousekeys;
     BOOL bMouseClickLock;
-    BOOL bMouseCursorShadow;
     DWORD dwMouseClickLockTime;
     BOOL bMouseSonar;
     BOOL bMouseVanish;

@@ -599,7 +599,7 @@
 @ stdcall KeInitializeMutex(ptr long)
 @ stdcall KeInitializeQueue(ptr long)
 @ stdcall KeInitializeSemaphore(ptr long long)
-@ stdcall KeInitializeSpinLock(ptr) _KeInitializeSpinLock
+@ stdcall KeInitializeSpinLock(ptr)
 @ stdcall KeInitializeThreadedDpc(ptr ptr ptr)
 @ stdcall KeInitializeTimer(ptr)
 @ stdcall KeInitializeTimerEx(ptr long)
@@ -718,7 +718,7 @@
 @ fastcall KiReleaseSpinLock(ptr)
 @ cdecl KiUnexpectedInterrupt()
 #ifdef _M_IX86
-@ stdcall Kii386SpinOnSpinLock(ptr long)
+;Kii386SpinOnSpinLock
 #endif
 @ stdcall LdrAccessResource(ptr ptr ptr ptr)
 @ stdcall LdrEnumResources(ptr ptr long ptr ptr)

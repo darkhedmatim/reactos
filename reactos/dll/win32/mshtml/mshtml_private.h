@@ -33,6 +33,9 @@
 
 #include "nsiface.h"
 
+#define GENERATE_MSHTML_NS_FAILURE(code) \
+    ((nsresult) ((PRUint32)(1<<31) | ((PRUint32)(0x45+6)<<16) | (PRUint32)(code)))
+
 #define NS_OK                     ((nsresult)0x00000000L)
 #define NS_ERROR_FAILURE          ((nsresult)0x80004005L)
 #define NS_NOINTERFACE            ((nsresult)0x80004002L)
@@ -40,6 +43,8 @@
 #define NS_ERROR_INVALID_ARG      ((nsresult)0x80070057L) 
 #define NS_ERROR_UNEXPECTED       ((nsresult)0x8000ffffL)
 #define NS_ERROR_UNKNOWN_PROTOCOL ((nsresult)0x804b0012L)
+
+#define WINE_NS_LOAD_FROM_MONIKER GENERATE_MSHTML_NS_FAILURE(0)
 
 #define NS_FAILED(res) ((res) & 0x80000000)
 #define NS_SUCCEEDED(res) (!NS_FAILED(res))
@@ -69,8 +74,6 @@ typedef enum {
     DispHTMLIFrame_tid,
     DispHTMLImg_tid,
     DispHTMLInputElement_tid,
-    DispHTMLLocation_tid,
-    DispHTMLNavigator_tid,
     DispHTMLOptionElement_tid,
     DispHTMLSelectElement_tid,
     DispHTMLStyle_tid,
@@ -127,7 +130,6 @@ typedef struct dispex_dynamic_data_t dispex_dynamic_data_t;
 #define MSHTML_DISPID_CUSTOM_MAX 0x6fffffff
 
 typedef struct {
-    HRESULT (*value)(IUnknown*,LCID,WORD,DISPPARAMS*,VARIANT*,EXCEPINFO*,IServiceProvider*);
     HRESULT (*get_dispid)(IUnknown*,BSTR,DWORD,DISPID*);
     HRESULT (*invoke)(IUnknown*,DISPID,LCID,WORD,DISPPARAMS*,VARIANT*,EXCEPINFO*,IServiceProvider*);
 } dispex_static_data_vtbl_t;
@@ -149,7 +151,6 @@ typedef struct {
 } DispatchEx;
 
 void init_dispex(DispatchEx*,IUnknown*,dispex_static_data_t*);
-void release_dispex(DispatchEx*);
 BOOL dispex_query_interface(DispatchEx*,REFIID,void**);
 HRESULT dispex_get_dprop_ref(DispatchEx*,const WCHAR*,BOOL,VARIANT**);
 
@@ -360,13 +361,11 @@ struct NSContainer {
 typedef struct {
     const nsIHttpChannelVtbl *lpHttpChannelVtbl;
     const nsIUploadChannelVtbl *lpUploadChannelVtbl;
-    const nsIHttpChannelInternalVtbl *lpIHttpChannelInternalVtbl;
 
     LONG ref;
 
     nsIChannel *channel;
     nsIHttpChannel *http_channel;
-    nsIHttpChannelInternal *http_channel_internal;
     nsIWineURI *uri;
     nsIInputStream *post_data_stream;
     nsILoadGroup *load_group;
@@ -376,7 +375,6 @@ typedef struct {
     nsIURI *original_uri;
     char *content_type;
     char *charset;
-    PRUint32 response_status;
 } nsChannel;
 
 typedef struct {
@@ -466,7 +464,6 @@ typedef struct {
 #define NSCHANNEL(x)     ((nsIChannel*)        &(x)->lpHttpChannelVtbl)
 #define NSHTTPCHANNEL(x) ((nsIHttpChannel*)    &(x)->lpHttpChannelVtbl)
 #define NSUPCHANNEL(x)   ((nsIUploadChannel*)  &(x)->lpUploadChannelVtbl)
-#define NSHTTPINTERNAL(x) ((nsIHttpChannelInternal*)  &(x)->lpIHttpChannelInternalVtbl)
 
 #define HTTPNEG(x)       ((IHttpNegotiate2*)              &(x)->lpHttpNegotiate2Vtbl)
 #define STATUSCLB(x)     ((IBindStatusCallback*)          &(x)->lpBindStatusCallbackVtbl)
@@ -560,8 +557,9 @@ void nsAString_SetData(nsAString*,const PRUnichar*);
 PRUint32 nsAString_GetData(const nsAString*,const PRUnichar**);
 void nsAString_Finish(nsAString*);
 
+nsIInputStream *create_nsstream(const char*,PRInt32);
 nsICommandParams *create_nscommand_params(void);
-HRESULT nsnode_to_nsstring(nsIDOMNode*,nsAString*);
+void nsnode_to_nsstring(nsIDOMNode*,nsAString*);
 void get_editor_controller(NSContainer*);
 void init_nsevents(NSContainer*);
 void add_nsevent_listener(NSContainer*,LPCWSTR);

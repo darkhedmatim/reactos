@@ -29,6 +29,8 @@
 # if !defined(__MINGW32__) && !defined(__MINGW64__) && !defined(__CYGWIN32__)
 #  define __declspec(x) __attribute__((x))
 # endif
+#else
+# define __attribute__(x) /* nothing */
 #endif
 
 #ifdef _MSC_VER
@@ -77,7 +79,7 @@
 # define __unaligned
 #else
 # ifdef __GNUC__
-#  define __unaligned
+#  define __unaligned __attribute((packed))
 # elif defined(_MSC_VER) && !defined(_M_IA64) && !defined(_M_AMD64)
 #  define __unaligned
 # else

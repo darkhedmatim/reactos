@@ -12,8 +12,6 @@
 
 /* GLOBALS ********************************************************************/
 
-UCHAR BootStack[0x4000];
-PUCHAR BootStackEnd = &BootStack[0x3FFF];
 PARM_BOARD_CONFIGURATION_BLOCK ArmBoardBlock;
 ULONG BootDrive, BootPartition;
 VOID ArmPrepareForReactOS(IN BOOLEAN Setup);
@@ -42,8 +40,7 @@ ArmInit(IN PARM_BOARD_CONFIGURATION_BLOCK BootContext)
     // This should probably go away once we support more boards
     //
     ASSERT((ArmBoardBlock->BoardType == MACH_TYPE_FEROCEON) ||
-           (ArmBoardBlock->BoardType == MACH_TYPE_VERSATILE_PB) ||
-           (ArmBoardBlock->BoardType == MACH_TYPE_OMAP3_BEAGLE));
+           (ArmBoardBlock->BoardType == MACH_TYPE_VERSATILE_PB));
 
     //
     // Save data required for memory initialization
@@ -71,6 +68,7 @@ BOOLEAN
 ArmDiskGetDriveGeometry(IN ULONG DriveNumber,
                         OUT PGEOMETRY Geometry)
 {
+    ASSERT(gRamDiskBase == NULL);
     return FALSE;
 }
 
@@ -80,13 +78,15 @@ ArmDiskReadLogicalSectors(IN ULONG DriveNumber,
                           IN ULONG SectorCount,
                           IN PVOID Buffer)
 {
+    ASSERT(gRamDiskBase == NULL);
     return FALSE;
 }
 
 ULONG
 ArmDiskGetCacheableBlockCount(IN ULONG DriveNumber)
 {
-    return 0;
+    ASSERT(gRamDiskBase == NULL);
+    return FALSE;
 }
 
 PCONFIGURATION_COMPONENT_DATA
@@ -98,6 +98,14 @@ ArmHwDetect(VOID)
     // Create the root node
     //
     FldrCreateSystemKey(&RootNode);
+    
+    //
+    // Write null component information
+    //
+    FldrSetComponentInformation(RootNode,
+                                0x0,
+                                0x0,
+                                0xFFFFFFFF);
     
     //
     // TODO:
@@ -161,25 +169,10 @@ MachInit(IN PCCH CommandLine)
             MachVtbl.ConsGetCh = ArmVersaGetCh;
             break;
             
-        //
-        // Check for TI OMAP3 boards
-        // For now that means only Beagle, but ZOOM and others should be ok too
-        //
-        case MACH_TYPE_OMAP3_BEAGLE:
-            
-            //
-            // These boards use a UART16550
-            //
-            ArmOmap3SerialInit(115200);
-            MachVtbl.ConsPutChar = ArmOmap3PutChar;
-            MachVtbl.ConsKbHit = ArmOmap3KbHit;
-            MachVtbl.ConsGetCh = ArmOmap3GetCh;
-            break;
-            
         default:
             ASSERT(FALSE);
     }
-        
+    
     //
     // Setup generic ARM routines for all boards
     //
@@ -188,17 +181,23 @@ MachInit(IN PCCH CommandLine)
     MachVtbl.HwDetect = ArmHwDetect;
     
     //
-    // Setup disk I/O routines
+    // Setup disk I/O routines, switch to ramdisk ones for non-NAND boot
     //
     MachVtbl.DiskReadLogicalSectors = ArmDiskReadLogicalSectors;
     MachVtbl.DiskGetDriveGeometry = ArmDiskGetDriveGeometry;
     MachVtbl.DiskGetCacheableBlockCount = ArmDiskGetCacheableBlockCount;
+    RamDiskSwitchFromBios();
     
     //
     // Now set default disk handling routines -- we don't need to override
     //
+    MachVtbl.DiskGetBootVolume = DiskGetBootVolume;
+    MachVtbl.DiskGetSystemVolume = DiskGetSystemVolume;
     MachVtbl.DiskGetBootPath = DiskGetBootPath;
+    MachVtbl.DiskGetBootDevice = DiskGetBootDevice;
+    MachVtbl.DiskBootingFromFloppy = DiskBootingFromFloppy;
     MachVtbl.DiskNormalizeSystemPath = DiskNormalizeSystemPath;
+    MachVtbl.DiskGetPartitionEntry = DiskGetPartitionEntry;
     
     //
     // We can now print to the console

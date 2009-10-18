@@ -102,14 +102,15 @@ VOID DebugPrintChar(UCHAR Character)
 ULONG
 DbgPrint(const char *Format, ...)
 {
-	int i;
-	int Length;
 	va_list ap;
 	CHAR Buffer[512];
+	ULONG Length;
+	char *ptr = Buffer;
 
 	va_start(ap, Format);
-	Length = _vsnprintf(Buffer, sizeof(Buffer), Format, ap);
-	va_end(ap);
+
+	/* Construct a string */
+	Length = _vsnprintf(Buffer, 512, Format, ap);
 
 	/* Check if we went past the buffer */
 	if (Length == -1)
@@ -121,11 +122,12 @@ DbgPrint(const char *Format, ...)
 		Length = sizeof(Buffer);
 	}
 
-	for (i = 0; i < Length; i++)
+	while (*ptr)
 	{
-		DebugPrintChar(Buffer[i]);
+		DebugPrintChar(*ptr++);
 	}
 
+	va_end(ap);
 	return 0;
 }
 
@@ -159,7 +161,7 @@ VOID DebugPrintHeader(ULONG Mask)
 	    DbgPrint("CACHE: ");
 		break;
 	case DPRINT_REGISTRY:
-	    DbgPrint("REGISTRY: ");
+	    DbgPrint("REGISTER: ");
 		break;
 	case DPRINT_REACTOS:
 	    DbgPrint("REACTOS: ");
@@ -197,7 +199,7 @@ VOID DbgPrintMask(ULONG Mask, char *format, ...)
 	// Print the header if we have started a new line
 	if (DebugStartOfLine)
 	{
-		DbgPrint("(%s:%d) ", g_file, g_line);
+        DbgPrint("(%s:%d) ", g_file, g_line);
 		DebugPrintHeader(Mask);
 		DebugStartOfLine = FALSE;
 	}
@@ -205,7 +207,6 @@ VOID DbgPrintMask(ULONG Mask, char *format, ...)
 	va_start(ap, format);
 	vsprintf(Buffer, format, ap);
 	va_end(ap);
-
 	while (*ptr)
 	{
 		DebugPrintChar(*ptr++);
@@ -311,7 +312,7 @@ MsgBoxPrint(const char *Format, ...)
 	Length = _vsnprintf(Buffer, 512, Format, ap);
 
 	/* Check if we went past the buffer */
-	if (Length == MAXULONG)
+	if (Length == -1U)
 	{
 		/* Terminate it if we went over-board */
 		Buffer[sizeof(Buffer) - 1] = '\n';

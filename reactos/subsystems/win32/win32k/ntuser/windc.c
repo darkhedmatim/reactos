@@ -73,7 +73,7 @@ PDCE FASTCALL
 DceAllocDCE(PWINDOW_OBJECT Window OPTIONAL, DCE_TYPE Type)
 {
   PDCE pDce;
-  PWND Wnd = NULL;
+  PWINDOW Wnd = NULL;
 
   if (Window) Wnd = Window->Wnd;
 
@@ -125,8 +125,8 @@ DceAllocDCE(PWINDOW_OBJECT Window OPTIONAL, DCE_TYPE Type)
      {
         if (Type == DCE_WINDOW_DC)
         {
-          if (Wnd->style & WS_CLIPCHILDREN) pDce->DCXFlags |= DCX_CLIPCHILDREN;
-          if (Wnd->style & WS_CLIPSIBLINGS) pDce->DCXFlags |= DCX_CLIPSIBLINGS;
+          if (Wnd->Style & WS_CLIPCHILDREN) pDce->DCXFlags |= DCX_CLIPCHILDREN;
+          if (Wnd->Style & WS_CLIPSIBLINGS) pDce->DCXFlags |= DCX_CLIPSIBLINGS;
         }
      }
   }
@@ -137,7 +137,7 @@ static VOID APIENTRY
 DceSetDrawable(PWINDOW_OBJECT Window OPTIONAL, HDC hDC, ULONG Flags,
                BOOL SetClipOrigin)
 {
-  PWND Wnd;
+  PWINDOW Wnd;
   DC *dc = DC_LockDc(hDC);
   if(!dc)
       return;
@@ -152,13 +152,13 @@ DceSetDrawable(PWINDOW_OBJECT Window OPTIONAL, HDC hDC, ULONG Flags,
       Wnd = Window->Wnd;
       if (Flags & DCX_WINDOW)
       {
-         dc->ptlDCOrig.x = Wnd->rcWindow.left;
-         dc->ptlDCOrig.y = Wnd->rcWindow.top;
+         dc->ptlDCOrig.x = Wnd->WindowRect.left;
+         dc->ptlDCOrig.y = Wnd->WindowRect.top;
       }
       else
       {
-         dc->ptlDCOrig.x = Wnd->rcClient.left;
-         dc->ptlDCOrig.y = Wnd->rcClient.top;
+         dc->ptlDCOrig.x = Wnd->ClientRect.left;
+         dc->ptlDCOrig.y = Wnd->ClientRect.top;
       }
   }
   DC_UnlockDc(dc);
@@ -240,7 +240,7 @@ DceUpdateVisRgn(DCE *Dce, PWINDOW_OBJECT Window, ULONG Flags)
    if (Flags & DCX_PARENTCLIP)
    {
       PWINDOW_OBJECT Parent;
-      PWND ParentWnd;
+      PWINDOW ParentWnd;
 
       Parent = Window->Parent;
       if(!Parent)
@@ -251,7 +251,7 @@ DceUpdateVisRgn(DCE *Dce, PWINDOW_OBJECT Window, ULONG Flags)
 
       ParentWnd = Parent->Wnd;
 
-      if (ParentWnd->style & WS_CLIPSIBLINGS)
+      if (ParentWnd->Style & WS_CLIPSIBLINGS)
       {
          DcxFlags = DCX_CLIPSIBLINGS |
                     (Flags & ~(DCX_CLIPCHILDREN | DCX_WINDOW));
@@ -267,7 +267,7 @@ DceUpdateVisRgn(DCE *Dce, PWINDOW_OBJECT Window, ULONG Flags)
       DesktopWindow = UserGetWindowObject(IntGetDesktopWindow());
       if (NULL != DesktopWindow)
       {
-         hRgnVisible = UnsafeIntCreateRectRgnIndirect(&DesktopWindow->Wnd->rcWindow);
+         hRgnVisible = UnsafeIntCreateRectRgnIndirect(&DesktopWindow->Wnd->WindowRect);
       }
       else
       {
@@ -323,7 +323,7 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
    DCE* Dce = NULL;
    BOOL UpdateVisRgn = TRUE;
    BOOL UpdateClipOrigin = FALSE;
-   PWND Wnd = NULL;
+   PWINDOW Wnd = NULL;
    HDC hDC = NULL;   
 
    if (NULL == Window)
@@ -342,20 +342,20 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
       Flags &= ~(DCX_CLIPCHILDREN | DCX_CLIPSIBLINGS | DCX_PARENTCLIP);
       if (!(Flags & DCX_WINDOW)) // not window rectangle
       {
-         if (Wnd->pcls->style & CS_PARENTDC)
+         if (Wnd->Class->Style & CS_PARENTDC)
          {
             Flags |= DCX_PARENTCLIP;
          }
 
          if (!(Flags & DCX_CACHE) && // Not on the cheap wine list.
-             !(Wnd->pcls->style & CS_OWNDC) )
+             !(Wnd->Class->Style & CS_OWNDC) )
          {
-            if (!(Wnd->pcls->style & CS_CLASSDC))
+            if (!(Wnd->Class->Style & CS_CLASSDC))
             // The window is not POWNED or has any CLASS, so we are looking for cheap wine.
                Flags |= DCX_CACHE;
             else
             {
-               if (Wnd->pcls->pdce) hDC = ((PDCE)Wnd->pcls->pdce)->hDC;
+               if (Wnd->Class->Dce) hDC = ((PDCE)Wnd->Class->Dce)->hDC;
                DPRINT("We have CLASS!!\n");
             }
          }
@@ -365,20 +365,20 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
             if (Window->Dce) DPRINT1("We have POWNER with DCE!!\n");
          }
 */
-         if (Wnd->style & WS_CLIPSIBLINGS)
+         if (Wnd->Style & WS_CLIPSIBLINGS)
          {
             Flags |= DCX_CLIPSIBLINGS;
          }
 
-         if (Wnd->style & WS_CLIPCHILDREN &&
-             !(Wnd->style & WS_MINIMIZE))
+         if (Wnd->Style & WS_CLIPCHILDREN &&
+             !(Wnd->Style & WS_MINIMIZE))
          {
             Flags |= DCX_CLIPCHILDREN;
          }
       }
       else
       {
-         if (Wnd->style & WS_CLIPSIBLINGS) Flags |= DCX_CLIPSIBLINGS;
+         if (Wnd->Style & WS_CLIPSIBLINGS) Flags |= DCX_CLIPSIBLINGS;
          Flags |= DCX_CACHE;
       }
    }
@@ -393,7 +393,7 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
 
    Parent = (Window ? Window->Parent : NULL);
 
-   if (NULL == Window || !(Wnd->style & WS_CHILD) || NULL == Parent)
+   if (NULL == Window || !(Wnd->Style & WS_CHILD) || NULL == Parent)
    {
       Flags &= ~DCX_PARENTCLIP;
       Flags |= DCX_CLIPSIBLINGS;
@@ -404,11 +404,11 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
 
    if (Flags & DCX_PARENTCLIP)
    {
-      if ((Wnd->style & WS_VISIBLE) &&
-          (Parent->Wnd->style & WS_VISIBLE))
+      if ((Wnd->Style & WS_VISIBLE) &&
+          (Parent->Wnd->Style & WS_VISIBLE))
       {
          Flags &= ~DCX_CLIPCHILDREN;
-         if (Parent->Wnd->style & WS_CLIPSIBLINGS)
+         if (Parent->Wnd->Style & WS_CLIPSIBLINGS)
          {
             Flags |= DCX_CLIPSIBLINGS;
          }
@@ -418,7 +418,7 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
    // Window nz, check to see if we still own this or it is just cheap wine tonight.
    if (!(Flags & DCX_CACHE))
    {
-      if ( Wnd->head.pti != GetW32ThreadInfo())
+      if ( Wnd->ti != GetW32ThreadInfo())
          Flags |= DCX_CACHE; // Ah~ Not Powned! Forced to be cheap~
    }
 
@@ -543,11 +543,11 @@ UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags)
    {
       if (!(Flags & DCX_WINDOW))
       {
-         Dce->hClipRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->rcClient);
+         Dce->hClipRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->ClientRect);
       }
       else
       {
-         Dce->hClipRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->rcWindow);
+         Dce->hClipRgn = UnsafeIntCreateRectRgnIndirect(&Window->Wnd->WindowRect);
       }
       Dce->DCXFlags &= ~DCX_KEEPCLIPRGN;
    }
@@ -646,8 +646,8 @@ DceFreeWindowDCE(PWINDOW_OBJECT Window)
       {
          if (!(pDCE->DCXFlags & DCX_CACHE)) /* owned or Class DCE*/
          {
-            if (Window->Wnd->pcls->style & CS_CLASSDC ||
-                Window->Wnd->style & CS_CLASSDC) /* Test Class first */
+            if (Window->Wnd->Class->Style & CS_CLASSDC ||
+                Window->Wnd->Style & CS_CLASSDC) /* Test Class first */
             {
                if (pDCE->DCXFlags & (DCX_INTERSECTRGN | DCX_EXCLUDERGN)) /* Class DCE*/
                    DceDeleteClipRgn(pDCE);
@@ -657,8 +657,8 @@ DceFreeWindowDCE(PWINDOW_OBJECT Window)
                pDCE->DCXFlags = DCX_DCEEMPTY;
                pDCE->hwndCurrent = 0;
             }
-            else if (Window->Wnd->pcls->style & CS_OWNDC ||
-                     Window->Wnd->style & CS_OWNDC) /* owned DCE*/
+            else if (Window->Wnd->Class->Style & CS_OWNDC ||
+                     Window->Wnd->Style & CS_OWNDC) /* owned DCE*/
             {
                pDCE = DceFreeDCE(pDCE, FALSE);
                if (!pDCE) break;
@@ -713,7 +713,7 @@ DceFreeClassDCE(HDC hDC)
 }
 
 VOID FASTCALL
-DceEmptyCache(VOID)
+DceEmptyCache()
 {
    PDCE pDCE = FirstDce;
    KeEnterCriticalRegion();
@@ -771,17 +771,17 @@ DceResetActiveDCEs(PWINDOW_OBJECT Window)
          {
             if (pDCE->DCXFlags & DCX_WINDOW)
             {
-               DeltaX = CurrentWindow->Wnd->rcWindow.left - dc->ptlDCOrig.x;
-               DeltaY = CurrentWindow->Wnd->rcWindow.top - dc->ptlDCOrig.y;
-               dc->ptlDCOrig.x = CurrentWindow->Wnd->rcWindow.left;
-               dc->ptlDCOrig.y = CurrentWindow->Wnd->rcWindow.top;
+               DeltaX = CurrentWindow->Wnd->WindowRect.left - dc->ptlDCOrig.x;
+               DeltaY = CurrentWindow->Wnd->WindowRect.top - dc->ptlDCOrig.y;
+               dc->ptlDCOrig.x = CurrentWindow->Wnd->WindowRect.left;
+               dc->ptlDCOrig.y = CurrentWindow->Wnd->WindowRect.top;
             }
             else
             {
-               DeltaX = CurrentWindow->Wnd->rcClient.left - dc->ptlDCOrig.x;
-               DeltaY = CurrentWindow->Wnd->rcClient.top - dc->ptlDCOrig.y;
-               dc->ptlDCOrig.x = CurrentWindow->Wnd->rcClient.left;
-               dc->ptlDCOrig.y = CurrentWindow->Wnd->rcClient.top;
+               DeltaX = CurrentWindow->Wnd->ClientRect.left - dc->ptlDCOrig.x;
+               DeltaY = CurrentWindow->Wnd->ClientRect.top - dc->ptlDCOrig.y;
+               dc->ptlDCOrig.x = CurrentWindow->Wnd->ClientRect.left;
+               dc->ptlDCOrig.y = CurrentWindow->Wnd->ClientRect.top;
             }
             if (NULL != dc->rosdc.hClipRgn)
             {
@@ -869,7 +869,7 @@ UserGetWindowDC(PWINDOW_OBJECT Wnd)
 HWND FASTCALL
 UserGethWnd( HDC hdc, PWNDOBJ *pwndo)
 {
-  PWNDGDI pWndgdi = NULL;
+  PWNDGDI pWndgdi;
   PWINDOW_OBJECT Wnd = NULL;
   HWND hWnd;
   BOOL Hit = FALSE;

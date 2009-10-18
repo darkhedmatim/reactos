@@ -21,20 +21,4 @@ FatLockControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     return STATUS_NOT_IMPLEMENTED;
 }
 
-VOID
-NTAPI
-FatOplockComplete(IN PVOID Context,
-                  IN PIRP Irp)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-NTAPI
-FatPrePostIrp(IN PVOID Context,
-              IN PIRP Irp)
-{
-    UNIMPLEMENTED;
-}
-
 /* EOF */

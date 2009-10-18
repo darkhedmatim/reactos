@@ -14,10 +14,12 @@
 #include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
+#define DESKTOP_CLASS_ATOM   MAKEINTATOMA(32769)  /* Desktop */
+static LRESULT WINAPI DesktopWndProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
+
 /*********************************************************************
  * desktop class descriptor
  */
-#if 0 // Kept for referencing.
 const struct builtin_class_descr DESKTOP_builtin_class =
 {
   (LPCWSTR) DESKTOP_CLASS_ATOM,   /* name */
@@ -28,12 +30,13 @@ const struct builtin_class_descr DESKTOP_builtin_class =
   IDC_ARROW,            /* cursor */
   (HBRUSH)(COLOR_BACKGROUND+1)    /* brush */
 };
-#endif
+
+static
 LRESULT
 WINAPI
 DesktopWndProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
-    TRACE("Desktop Class Atom! hWnd 0x%x, Msg %d\n", hwnd, message);
+    FIXME("Desktop Class Atom!\n");
     if (message == WM_NCCREATE) return TRUE;
     return 0;  /* all other messages are ignored */
 }
@@ -90,49 +93,18 @@ LogFontW2A(LPLOGFONTA pA, CONST LOGFONTW *pW)
 #undef COPYS
 }
 
-int WINAPI
-RealGetSystemMetrics(int nIndex)
-{
-  GetConnected();
-//  FIXME("Global Server Data -> %x\n",gpsi);
-  if (nIndex < 0 || nIndex >= SM_CMETRICS) return 0;
-  return gpsi->aiSysMet[nIndex];
-}
-
 /*
  * @implemented
  */
 int WINAPI
 GetSystemMetrics(int nIndex)
 {
-   BOOL Hook;
-   int Ret = 0;
-
-   if (!gpsi) // Fixme! Hax! Need Timos delay load support?
-   {
-      return RealGetSystemMetrics(nIndex);
-   }
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealGetSystemMetrics(nIndex);
-
-   _SEH2_TRY
-   {
-      Ret = guah.GetSystemMetrics(nIndex);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
+  GetConnected();
+//  FIXME("Global Sever Data -> %x\n",g_psi);
+  if (nIndex < 0 || nIndex >= SM_CMETRICS) return 0;
+  return g_psi->aiSysMet[nIndex];
 }
+
 
 /*
  * @unimplemented
@@ -141,9 +113,11 @@ BOOL WINAPI SetDeskWallpaper(LPCSTR filename)
 {
 	return SystemParametersInfoA(SPI_SETDESKWALLPAPER,0,(PVOID)filename,TRUE);
 }
-
+/*
+ * @implemented
+ */
 BOOL WINAPI
-RealSystemParametersInfoA(UINT uiAction,
+SystemParametersInfoA(UINT uiAction,
 		      UINT uiParam,
 		      PVOID pvParam,
 		      UINT fWinIni)
@@ -304,8 +278,12 @@ RealSystemParametersInfoA(UINT uiAction,
     return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 
+
+/*
+ * @implemented
+ */
 BOOL WINAPI
-RealSystemParametersInfoW(UINT uiAction,
+SystemParametersInfoW(UINT uiAction,
 		      UINT uiParam,
 		      PVOID pvParam,
 		      UINT fWinIni)
@@ -324,70 +302,6 @@ RealSystemParametersInfoW(UINT uiAction,
   return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 
-
-/*
- * @implemented
- */
-BOOL WINAPI
-SystemParametersInfoA(UINT uiAction,
-		      UINT uiParam,
-		      PVOID pvParam,
-		      UINT fWinIni)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealSystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni);
-
-   _SEH2_TRY
-   {
-      Ret = guah.SystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
-}
-
-/*
- * @implemented
- */
-BOOL WINAPI
-SystemParametersInfoW(UINT uiAction,
-		      UINT uiParam,
-		      PVOID pvParam,
-		      UINT fWinIni)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealSystemParametersInfoW(uiAction, uiParam, pvParam, fWinIni);
-
-   _SEH2_TRY
-   {
-      Ret = guah.SystemParametersInfoW(uiAction, uiParam, pvParam, fWinIni);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
-}
 
 /*
  * @implemented
@@ -442,35 +356,19 @@ CreateDesktopW(LPCWSTR lpszDesktop,
 	       ACCESS_MASK dwDesiredAccess,
 	       LPSECURITY_ATTRIBUTES lpsa)
 {
-  OBJECT_ATTRIBUTES oas;
-  UNICODE_STRING DesktopName, DesktopDevice;
+  UNICODE_STRING DesktopName;
   HWINSTA hWinSta;
   HDESK hDesktop;
-  ULONG Attributes = (OBJ_OPENIF|OBJ_CASE_INSENSITIVE);
 
-  /* Retrive WinStation handle. */
   hWinSta = NtUserGetProcessWindowStation();
 
-  /* Initialize the strings. */
   RtlInitUnicodeString(&DesktopName, lpszDesktop);
-  RtlInitUnicodeString(&DesktopDevice, lpszDevice);
 
-  /* Check for process is inherited, set flag if set. */
-  if (lpsa && lpsa->bInheritHandle) Attributes |= OBJ_INHERIT;
-
-  /* Initialize the attributes for the desktop. */
-  InitializeObjectAttributes( &oas,
-                              &DesktopName,
-                               Attributes,
-                               hWinSta,
-                               lpsa ? lpsa->lpSecurityDescriptor : NULL);
-
-  /* Send the request and call to win32k. */
-  hDesktop = NtUserCreateDesktop( &oas,
-                                  &DesktopDevice,
-                                   pDevmode,
-				   dwFlags,
-				   dwDesiredAccess);
+  hDesktop = NtUserCreateDesktop(&DesktopName,
+				 dwFlags,
+				 dwDesiredAccess,
+				 lpsa,
+				 hWinSta);
 
   return(hDesktop);
 }

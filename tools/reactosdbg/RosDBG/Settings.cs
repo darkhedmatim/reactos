@@ -265,11 +265,7 @@ namespace RosDBG
 
         public static string SourceDirectory { get { return mProperties.SourceDirectory; } }
         public static string OutputDirectory { get { return mProperties.OutputDirectory; } }
-        public static string Mode
-        {
-            get { return mProperties.Mode; }
-            set { mProperties.Mode = value; }
-        }
+        public static string Mode { get { return mProperties.Mode;  } }
         public static string Pipe { get { return mProperties.Pipe; } }
         public static string ComPort { get { return mProperties.Port; } }
         public static string Baudrate { get { return mProperties.Baudrate; } }

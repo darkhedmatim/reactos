@@ -52,6 +52,13 @@ typedef struct
 ULONG
 DbgPrint(IN PCHAR Format, IN ...);
 
+static __inline__
+void
+DbgBreakPoint(void)
+{
+    asm volatile ("int $3");
+}
+
 DHPDEV
 APIENTRY
 FtfdEnablePDEV(

@@ -37,17 +37,16 @@ MiMapPageInHyperSpace(IN PEPROCESS Process,
     PFN_NUMBER Offset;
 
     //
-    // Never accept page 0 or non-physical pages
+    // Never accept page 0
     //
     ASSERT(Page != 0);
-    ASSERT(MiGetPfnEntry(Page) != NULL);
 
     //
     // Build the PTE
     //
     TempPte = HyperTemplatePte;
     TempPte.u.Hard.PageFrameNumber = Page;
-    MI_MAKE_LOCAL_PAGE(&TempPte); // Hyperspace is local!
+    TempPte.u.Hard.Global = 0; // Hyperspace is local!
 
     //
     // Pick the first hyperspace PTE
@@ -158,7 +157,7 @@ MiMapPagesToZeroInHyperSpace(IN PMMPFN *Pages,
     //
     PointerPte += (Offset + 1);
     TempPte = HyperTemplatePte;
-    MI_MAKE_LOCAL_PAGE(&TempPte); // Hyperspace is local!
+    TempPte.u.Hard.Global = FALSE; // Hyperspace is local!
     do
     {
         //

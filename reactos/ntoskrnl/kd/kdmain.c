@@ -16,10 +16,10 @@
 BOOLEAN KdDebuggerEnabled = FALSE;
 BOOLEAN KdEnteredDebugger = FALSE;
 BOOLEAN KdDebuggerNotPresent = TRUE;
+BOOLEAN KiEnableTimerWatchdog = FALSE;
 BOOLEAN KdBreakAfterSymbolLoad = FALSE;
-BOOLEAN KdpBreakPending = FALSE;
+BOOLEAN KdpBreakPending;
 BOOLEAN KdPitchDebugger = TRUE;
-BOOLEAN KdIgnoreUmExceptions = FALSE;
 VOID NTAPI PspDumpThreads(BOOLEAN SystemThreads);
 
 typedef struct
@@ -50,12 +50,28 @@ KdpServiceDispatcher(ULONG Service,
             break;
 
 #if DBG
-        case ' soR': /* ROS-INTERNAL */
+        case TAG('R', 'o', 's', ' '): /* ROS-INTERNAL */
         {
             switch ((ULONG)Buffer1)
             {
+                case DumpNonPagedPool:
+                    MiDebugDumpNonPagedPool(FALSE);
+                    break;
+
                 case ManualBugCheck:
                     KeBugCheck(MANUALLY_INITIATED_CRASH);
+                    break;
+
+                case DumpNonPagedPoolStats:
+                    MiDebugDumpNonPagedPoolStats(FALSE);
+                    break;
+
+                case DumpNewNonPagedPool:
+                    MiDebugDumpNonPagedPool(TRUE);
+                    break;
+
+                case DumpNewNonPagedPoolStats:
+                    MiDebugDumpNonPagedPoolStats(TRUE);
                     break;
 
                 case DumpAllThreads:
@@ -81,7 +97,7 @@ KdpServiceDispatcher(ULONG Service,
         }
 
         /* Special  case for stack frame dumps */
-        case 'DsoR':
+        case TAG('R', 'o', 's', 'D'):
         {
             KeRosDumpStackFrames((PULONG)Buffer1, Buffer1Length);
             break;
@@ -106,6 +122,9 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
 {
     KD_CONTINUE_TYPE Return = kdHandleException;
     ULONG ExceptionCommand = ExceptionRecord->ExceptionInformation[0];
+#ifdef _M_IX86
+    ULONG EipOld;
+#endif
 
     /* Check if this was a breakpoint due to DbgPrint or Load/UnloadSymbols */
     if ((ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT) &&
@@ -122,28 +141,31 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
             KdpServiceDispatcher(BREAKPOINT_PRINT,
                                  (PVOID)ExceptionRecord->ExceptionInformation[1],
                                  ExceptionRecord->ExceptionInformation[2]);
-
-            /* Return success */
-            KeSetContextReturnRegister(Context, STATUS_SUCCESS);
+            Context->Eax = STATUS_SUCCESS;
         }
         else if (ExceptionCommand == BREAKPOINT_LOAD_SYMBOLS)
         {
-#ifdef KDBG
-            PLDR_DATA_TABLE_ENTRY LdrEntry;
-
             /* Load symbols. Currently implemented only for KDBG! */
-            if(KdbpSymFindModule(((PKD_SYMBOLS_INFO)ExceptionRecord->ExceptionInformation[2])->BaseOfDll, NULL, -1, &LdrEntry))
-                KdbSymProcessSymbols(LdrEntry);
-#endif
+            KDB_SYMBOLFILE_HOOK((PANSI_STRING)ExceptionRecord->ExceptionInformation[1],
+                (PKD_SYMBOLS_INFO)ExceptionRecord->ExceptionInformation[2]);
         }
 
-        /* This we can handle: simply bump the Program Counter */
-        KeSetContextPc(Context, KeGetContextPc(Context) + KD_BREAKPOINT_SIZE);
+        /* This we can handle: simply bump EIP */
+#ifdef _M_IX86
+        Context->Eip++;
+#elif _M_ARM
+        Context->Pc += sizeof(ULONG);
+#endif
         return TRUE;
     }
 
     /* Get out of here if the Debugger isn't connected */
     if (KdDebuggerNotPresent) return FALSE;
+
+    /* Save old EIP value */
+#ifdef _M_IX86
+    EipOld = Context->Eip;
+#endif
 
 #ifdef KDBG
     /* Call KDBG if available */
@@ -161,6 +183,12 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
                                                   TrapFrame);
     }
 #endif /* not KDBG */
+
+    /* Bump EIP over int 3 if debugger did not already change it */
+    if (ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT)
+    {
+        //DPRINT1("Address: %p. Return: %d\n", EipOld, Return);
+    }
 
     /* Debugger didn't handle it, please handle! */
     if (Return == kdHandleException) return FALSE;
@@ -198,16 +226,6 @@ KdpCallGdb(IN PKTRAP_FRAME TrapFrame,
 
     /* Debugger handled it */
     return TRUE;
-}
-
-BOOLEAN
-NTAPI
-KdIsThisAKdTrap(IN PEXCEPTION_RECORD ExceptionRecord,
-                IN PCONTEXT Context,
-                IN KPROCESSOR_MODE PreviousMode)
-{
-    /* KDBG has its own mechanism for ignoring user mode exceptions */
-    return FALSE;
 }
 
 /* PUBLIC FUNCTIONS *********************************************************/

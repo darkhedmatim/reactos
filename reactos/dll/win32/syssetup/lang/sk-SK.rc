@@ -207,7 +207,6 @@ BEGIN
     IDS_GAMES           "Hry"
     IDS_CMT_SOLITAIRE   "SolitÈr"
     IDS_CMT_WINEMINE    "MÌny"
-	IDS_CMT_SPIDER      "Spider Solitaire"
 END
 
 STRINGTABLE
@@ -229,7 +228,7 @@ STRINGTABLE
 BEGIN
     IDS_SYS_ENTERTAINMENT       "Z·bava" //Entertainment
     IDS_CMT_MPLAY32             "Spustiù Multimedi·lny prehr·vaË"
-    IDS_CMT_SNDVOL32            "Spustiù Ovl·danie hlasitosti"
+    IDS_CMT_SNDVOL32            "Stustiù Ovl·danie hlasitosti"
 END
 
 STRINGTABLE
@@ -249,7 +248,7 @@ STRINGTABLE
 BEGIN
     IDS_SHORT_CMD        "PrÌkazov˝ riadok.lnk"
     IDS_SHORT_EXPLORER   "PrieskumnÌk systÈmu ReactOS.lnk"
-    IDS_SHORT_DOWNLOADER "ReactOS Applications Manager.lnk"
+    IDS_SHORT_DOWNLOADER "çahaj!.lnk"
     IDS_SHORT_SERVICE    "Spr·vca sluûieb.lnk"
     IDS_SHORT_DEVICE     "Spr·vca zariadenÌ.lnk"
     IDS_SHORT_MPLAY32    "Multimedi·lny prehr·vaË.lnk"
@@ -269,7 +268,6 @@ BEGIN
     IDS_SHORT_SNDVOL32   "Ovl·danie hlasitosti.lnk" //Volume Control
     IDS_SHORT_DXDIAG     "Diagnostika ReactX.lnk"
     IDS_SHORT_PAINT      "Skic·r.lnk"
-	IDS_SHORT_SPIDER     "Spider Solitaire.lnk"
 END
 
 STRINGTABLE

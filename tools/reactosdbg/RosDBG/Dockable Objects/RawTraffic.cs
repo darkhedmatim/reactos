@@ -52,17 +52,17 @@ namespace RosDBG
 
         private void ParseBuiltinCommand(string command)
         {
-            AddCommandToList(command);
             if (command == ".cls")
             {
+                AddCommandToList(command);
                 RawTrafficText.Text = string.Empty;
             }
-            RawTrafficTextBox.Text = string.Empty;
         }
 
         private void ParseGdbCommand(string command)
         {
             AddCommandToList(command);
+            RawTrafficTextBox.Text += '\r'; //FIXME: remove this
             SendCommandToDebugger();
             RawTrafficTextBox.Text = string.Empty;
         }
@@ -137,15 +137,10 @@ namespace RosDBG
 
         private void SendCommandToDebugger()
         {
-            if (RawTrafficTextBox.Text.Length > 0 && mConnection.Debugger != null && !mConnection.Running)
+            if (RawTrafficTextBox.Text.Length > 0)
             {
-                String cmd = RawTrafficTextBox.Text;
                 RawTrafficText.AppendText(kdbPrompt);
-                if (cmd == "cont")
-                {
-                    mConnection.Running = true;
-                }
-                mConnection.Debugger.Write(cmd);
+                mConnection.Debugger.Write(RawTrafficTextBox.Text);
             }
         }
 
@@ -250,21 +245,24 @@ namespace RosDBG
 
         private void RawTrafficText_KeyPress(object sender, KeyPressEventArgs e)
         {
-            switch ((int)e.KeyChar)
+            if ((mConnection.ConnectionMode != DebugConnection.Mode.ClosedMode) && (!mConnection.Running))
             {
-                case 8: /* Backspace */
-                    if (RawTrafficTextBox.Text.Length > 0)
-                        RawTrafficTextBox.Text = RawTrafficTextBox.Text.Substring(0, RawTrafficTextBox.Text.Length - 1);
-                    break;
-                case 13: /* Return */
-                    if (RawTrafficTextBox.Text.Length > 0)
-                    {
-                        ParseCommand(RawTrafficTextBox.Text);
-                    }
-                    break;
-                default:
-                    RawTrafficTextBox.Text += e.KeyChar;
-                    break;
+                switch ((int)e.KeyChar)
+                {
+                    case 8: /* Backspace */
+                        if (RawTrafficTextBox.Text.Length > 0)
+                            RawTrafficTextBox.Text = RawTrafficTextBox.Text.Substring(0, RawTrafficTextBox.Text.Length - 1);
+                        break;
+                    case 13: /* Return */
+                        if (RawTrafficTextBox.Text.ToLower().CompareTo("cont") == 0)
+                            mConnection.Running = true;
+                        RawTrafficTextBox.Text += e.KeyChar;
+                        SendCommandToDebugger();
+                        break;
+                    default:
+                        RawTrafficTextBox.Text += e.KeyChar;
+                        break;
+                }
             }
         }
 
@@ -286,9 +284,7 @@ namespace RosDBG
 
         private void editToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            bool hasText = RawTrafficText.Text.Length != 0;
-            selectAllToolStripMenuItem.Enabled = hasText;
-            clearToolStripMenuItem.Enabled = hasText;
+            selectAllToolStripMenuItem.Enabled = (RawTrafficText.Text.Length != 0);
         }
 
         private void printDoc_PrintPage(object sender, PrintPageEventArgs e)
@@ -356,11 +352,6 @@ namespace RosDBG
 
         }
         #endregion
-
-        private void clearToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            RawTrafficText.Clear();
-        }
 
     }
 }

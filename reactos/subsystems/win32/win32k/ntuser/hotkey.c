@@ -53,7 +53,7 @@ LIST_ENTRY gHotkeyList;
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS FASTCALL
-InitHotkeyImpl(VOID)
+InitHotkeyImpl()
 {
    InitializeListHead(&gHotkeyList);
 
@@ -63,7 +63,7 @@ InitHotkeyImpl(VOID)
 
 #if 0 //not used
 NTSTATUS FASTCALL
-CleanupHotKeys(VOID)
+CleanupHotKeys()
 {
 
    return STATUS_SUCCESS;

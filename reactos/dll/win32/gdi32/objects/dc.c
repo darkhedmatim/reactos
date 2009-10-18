@@ -64,7 +64,6 @@ IntCreateDICW ( LPCWSTR   lpwszDriver,
                      (PDEVMODEW) lpInitData,
                      (lpwszOutput ? &Output : NULL),
                       iType,             // DCW 0 and ICW 1.
-                      Display,
                       hspool,
                      (PVOID) NULL,       // NULL for now.
                      (PVOID) &UMdhpdev );
@@ -1539,7 +1538,6 @@ SelectObject(HDC hDC,
 {
     PDC_ATTR pDc_Attr;
     HGDIOBJ hOldObj = NULL;
-    UINT uType;
 //    PTEB pTeb;
 
     if(!GdiGetHandleUserData(hDC, GDI_OBJECT_TYPE_DC, (PVOID)&pDc_Attr))
@@ -1554,7 +1552,7 @@ SelectObject(HDC hDC,
         return NULL;
     }
 
-    uType = GDI_HANDLE_GET_TYPE(hGdiObj);
+    UINT uType = GDI_HANDLE_GET_TYPE(hGdiObj);
 
     switch (uType)
     {

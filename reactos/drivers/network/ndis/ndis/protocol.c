@@ -341,16 +341,14 @@ ProRequest(
 #endif
 }
 
-
+
 NDIS_STATUS NTAPI
 ProReset(
     IN  NDIS_HANDLE MacBindingHandle)
 {
-    PADAPTER_BINDING AdapterBinding = MacBindingHandle;
+    UNIMPLEMENTED
 
-    /* FIXME: Wait for all packets to be sent */
-
-    return MiniReset(AdapterBinding->Adapter);
+    return NDIS_STATUS_FAILURE;
 }
 
 VOID NTAPI
@@ -509,7 +507,7 @@ ProSend(
     } else {
         if (Adapter->NdisMiniportBlock.ScatterGatherListSize != 0)
         {
-            NDIS_DbgPrint(MIN_TRACE, ("Using Scatter/Gather DMA\n"));
+            NDIS_DbgPrint(MAX_TRACE, ("Using Scatter/Gather DMA\n"));
 
             NdisQueryPacket(Packet,
                             NULL,
@@ -1034,7 +1032,6 @@ NdisRegisterProtocol(
   PPROTOCOL_BINDING Protocol;
   NTSTATUS NtStatus;
   UINT MinSize;
-  PNET_PNP_EVENT PnPEvent;
 
   NDIS_DbgPrint(MAX_TRACE, ("Called.\n"));
 
@@ -1101,23 +1098,6 @@ NdisRegisterProtocol(
   *NdisProtocolHandle = Protocol;
 
   ndisBindMiniportsToProtocol(Status, &Protocol->Chars);
-
-  /* Should we only send this if ndisBindMiniportsToProtocol succeeds? */
-  PnPEvent = ProSetupPnPEvent(NetEventBindsComplete, NULL, 0);
-  if (PnPEvent)
-  {
-      if (Protocol->Chars.PnPEventHandler)
-      {
-          /* We call this with a NULL binding context because it affects all bindings */
-          NtStatus = (*Protocol->Chars.PnPEventHandler)(NULL,
-                                                        PnPEvent);
-
-          /* FIXME: We don't support this yet */
-          ASSERT(NtStatus != NDIS_STATUS_PENDING);
-      }
-
-      ExFreePool(PnPEvent);
-  }
 
   if (*Status == NDIS_STATUS_SUCCESS) {
       ExInterlockedInsertTailList(&ProtocolListHead, &Protocol->ListEntry, &ProtocolListLock);

@@ -9,10 +9,8 @@
 /* INCLUDES *********************************************************/
 
 #include <windows.h>
-#include <commctrl.h>
 #include "globalvar.h"
 #include "drawing.h"
-#include "winproc.h"
 
 /* FUNCTIONS ********************************************************/
 
@@ -20,11 +18,6 @@ LRESULT CALLBACK SettingsWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 {
     switch (message)
     {
-        case WM_VSCROLL:
-            {
-                zoomTo(125<<SendMessage(hTrackbarZoom, TBM_GETPOS, 0, 0), 0, 0);
-            }
-            break;
         case WM_PAINT:
             {
                 HDC hdc = GetDC(hwnd);
@@ -32,11 +25,8 @@ LRESULT CALLBACK SettingsWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 int rectang2[4] = {0, 70, 42, 136};
 
                 DefWindowProc (hwnd, message, wParam, lParam);
-
-                if (activeTool!=6)
-                    DrawEdge(hdc, (LPRECT)&rectang, BDR_SUNKENOUTER, BF_RECT | BF_MIDDLE);
-                else
-                    DrawEdge(hdc, (LPRECT)&rectang, BDR_SUNKENOUTER, BF_RECT);
+                
+                DrawEdge(hdc, (LPRECT)&rectang, BDR_SUNKENOUTER, BF_RECT | BF_MIDDLE);
                 if (activeTool>=13)
                     DrawEdge(hdc, (LPRECT)&rectang2, BDR_SUNKENOUTER, BF_RECT | BF_MIDDLE);
                 else
@@ -158,14 +148,14 @@ LRESULT CALLBACK SettingsWinProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                                 }
                             }
                             if (shapeStyle==0)
-                                Rect(hdc, 5, 6, 37, 16, GetSysColor(COLOR_HIGHLIGHTTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, 0);
+                                Rect(hdc, 5, 6, 37, 16, GetSysColor(COLOR_HIGHLIGHTTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, FALSE);
                             else
-                                Rect(hdc, 5, 6, 37, 16, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, 0);
+                                Rect(hdc, 5, 6, 37, 16, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, FALSE);
                             if (shapeStyle==1)
-                                Rect(hdc, 5, 26, 37, 36, GetSysColor(COLOR_HIGHLIGHTTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, 1);
+                                Rect(hdc, 5, 26, 37, 36, GetSysColor(COLOR_HIGHLIGHTTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, TRUE);
                             else
-                                Rect(hdc, 5, 26, 37, 36, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, 1);
-                            Rect(hdc, 5, 46, 37, 56, GetSysColor(COLOR_APPWORKSPACE), GetSysColor(COLOR_APPWORKSPACE), 1, 1);
+                                Rect(hdc, 5, 26, 37, 36, GetSysColor(COLOR_WINDOWTEXT), GetSysColor(COLOR_APPWORKSPACE), 1, TRUE);
+                            Rect(hdc, 5, 46, 37, 56, GetSysColor(COLOR_APPWORKSPACE), GetSysColor(COLOR_APPWORKSPACE), 1, TRUE);
                             for (i=0; i<5; i++)
                             {
                                 if (lineWidth==i+1)

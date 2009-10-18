@@ -31,6 +31,44 @@ Dispatch_fnDeviceIoControl(
 
 NTSTATUS
 NTAPI
+Dispatch_fnRead(
+    PDEVICE_OBJECT DeviceObject,
+    PIRP Irp)
+{
+    /* unsupported request */
+    Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS
+NTAPI
+Dispatch_fnWrite(
+    PDEVICE_OBJECT DeviceObject,
+    PIRP Irp)
+{
+    /* unsupported request */
+    Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS
+NTAPI
+Dispatch_fnFlush(
+    PDEVICE_OBJECT DeviceObject,
+    PIRP Irp)
+{
+    Irp->IoStatus.Status = STATUS_SUCCESS;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
+NTAPI
 Dispatch_fnClose(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp)
@@ -43,18 +81,102 @@ Dispatch_fnClose(
     return STATUS_SUCCESS;
 }
 
+NTSTATUS
+NTAPI
+Dispatch_fnQuerySecurity(
+    PDEVICE_OBJECT DeviceObject,
+    PIRP Irp)
+{
+    DPRINT("Dispatch_fnQuerySecurity called DeviceObject %p Irp %p\n", DeviceObject);
+
+    Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_UNSUCCESSFUL;
+}
+
+NTSTATUS
+NTAPI
+Dispatch_fnSetSecurity(
+    PDEVICE_OBJECT DeviceObject,
+    PIRP Irp)
+{
+
+    DPRINT("Dispatch_fnSetSecurity called DeviceObject %p Irp %p\n", DeviceObject);
+
+    Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_UNSUCCESSFUL;
+}
+
+BOOLEAN
+NTAPI
+Dispatch_fnFastDeviceIoControl(
+    PFILE_OBJECT FileObject,
+    BOOLEAN Wait,
+    PVOID InputBuffer,
+    ULONG InputBufferLength,
+    PVOID OutputBuffer,
+    ULONG OutputBufferLength,
+    ULONG IoControlCode,
+    PIO_STATUS_BLOCK IoStatus,
+    PDEVICE_OBJECT DeviceObject)
+{
+    DPRINT("Dispatch_fnFastDeviceIoControl called DeviceObject %p Irp %p\n", DeviceObject);
+
+
+    return FALSE;
+}
+
+
+BOOLEAN
+NTAPI
+Dispatch_fnFastRead(
+    PFILE_OBJECT FileObject,
+    PLARGE_INTEGER FileOffset,
+    ULONG Length,
+    BOOLEAN Wait,
+    ULONG LockKey,
+    PVOID Buffer,
+    PIO_STATUS_BLOCK IoStatus,
+    PDEVICE_OBJECT DeviceObject)
+{
+    DPRINT("Dispatch_fnFastRead called DeviceObject %p Irp %p\n", DeviceObject);
+
+    return FALSE;
+
+}
+
+BOOLEAN
+NTAPI
+Dispatch_fnFastWrite(
+    PFILE_OBJECT FileObject,
+    PLARGE_INTEGER FileOffset,
+    ULONG Length,
+    BOOLEAN Wait,
+    ULONG LockKey,
+    PVOID Buffer,
+    PIO_STATUS_BLOCK IoStatus,
+    PDEVICE_OBJECT DeviceObject)
+{
+    DPRINT("Dispatch_fnFastWrite called DeviceObject %p Irp %p\n", DeviceObject);
+
+    return FALSE;
+}
+
 static KSDISPATCH_TABLE DispatchTable =
 {
     Dispatch_fnDeviceIoControl,
-    KsDispatchInvalidDeviceRequest,
-    KsDispatchInvalidDeviceRequest,
-    KsDispatchInvalidDeviceRequest,
+    Dispatch_fnRead,
+    Dispatch_fnWrite,
+    Dispatch_fnFlush,
     Dispatch_fnClose,
-    KsDispatchInvalidDeviceRequest,
-    KsDispatchInvalidDeviceRequest,
-    KsDispatchFastIoDeviceControlFailure,
-    KsDispatchFastReadFailure,
-    KsDispatchFastWriteFailure,
+    Dispatch_fnQuerySecurity,
+    Dispatch_fnSetSecurity,
+    Dispatch_fnFastDeviceIoControl,
+    Dispatch_fnFastRead,
+    Dispatch_fnFastWrite,
 };
 
 NTSTATUS
@@ -66,8 +188,30 @@ DispatchCreateSysAudio(
     NTSTATUS Status;
     KSOBJECT_HEADER ObjectHeader;
     PKSOBJECT_CREATE_ITEM CreateItem;
+    PIO_STACK_LOCATION IoStatus;
+    LPWSTR Buffer;
+    PSYSAUDIODEVEXT DeviceExtension;
+    static LPWSTR KS_NAME_PIN = L"{146F1A80-4791-11D0-A5D6-28DB04C10000}";
 
-    DPRINT1("DispatchCreateSysAudio entered\n");
+    IoStatus = IoGetCurrentIrpStackLocation(Irp);
+    Buffer = IoStatus->FileObject->FileName.Buffer;
+
+    DPRINT("DispatchCreateSysAudio entered\n");
+
+    if (Buffer)
+    {
+        /* is the request for a new pin */
+        if (!wcsncmp(KS_NAME_PIN, Buffer, wcslen(KS_NAME_PIN)))
+        {
+            Status = CreateDispatcher(Irp);
+            DPRINT("Virtual pin Status %x FileObject %p\n", Status, IoStatus->FileObject);
+
+            Irp->IoStatus.Information = 0;
+            Irp->IoStatus.Status = Status;
+            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+            return Status;
+        }
+    }
 
     /* allocate create item */
     CreateItem = ExAllocatePool(NonPagedPool, sizeof(KSOBJECT_CREATE_ITEM));
@@ -79,17 +223,19 @@ DispatchCreateSysAudio(
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
+    /* get device extension */
+    DeviceExtension = (PSYSAUDIODEVEXT) DeviceObject->DeviceExtension;
+
     /* zero create struct */
     RtlZeroMemory(CreateItem, sizeof(KSOBJECT_CREATE_ITEM));
 
-    /* setup create context */
-    CreateItem->Create = DispatchCreateSysAudioPin;
-    RtlInitUnicodeString(&CreateItem->ObjectClass, KSSTRING_Pin);
+    /* store create context */
+    RtlInitUnicodeString(&CreateItem->ObjectClass, L"SysAudio");
 
     /* allocate object header */
     Status = KsAllocateObjectHeader(&ObjectHeader, 1, CreateItem, Irp, &DispatchTable);
 
-    DPRINT1("KsAllocateObjectHeader result %x\n", Status);
+    DPRINT("KsAllocateObjectHeader result %x\n", Status);
     /* complete the irp */
     Irp->IoStatus.Information = 0;
     Irp->IoStatus.Status = Status;
@@ -112,12 +258,7 @@ SysAudioAllocateDeviceHeader(
     /* initialize create item struct */
     RtlZeroMemory(CreateItem, sizeof(KSOBJECT_CREATE_ITEM));
     CreateItem->Create = DispatchCreateSysAudio;
-
-    /* FIXME Sysaudio doesnt need a named create item because it installs itself
-     * via the device interface
-     */
-    RtlInitUnicodeString(&CreateItem->ObjectClass, L"GLOBAL");
-    CreateItem->Flags = KSCREATE_ITEM_WILDCARD;
+    RtlInitUnicodeString(&CreateItem->ObjectClass, L"SysAudio");
 
     Status = KsAllocateDeviceHeader(&DeviceExtension->KsDeviceHeader,
                                     1,
@@ -130,14 +271,15 @@ SysAudioOpenKMixer(
     IN SYSAUDIODEVEXT *DeviceExtension)
 {
     NTSTATUS Status;
-    UNICODE_STRING DeviceInstanceName = RTL_CONSTANT_STRING(L"\\Device\\kmixer\\GLOBAL");
+    
+    UNICODE_STRING DeviceName = RTL_CONSTANT_STRING(L"\\Device\\kmixer");
     UNICODE_STRING DevicePath = RTL_CONSTANT_STRING(L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\kmixer");
 
     Status = ZwLoadDriver(&DevicePath);
 
     if (NT_SUCCESS(Status))
     {
-        Status = OpenDevice(&DeviceInstanceName, &DeviceExtension->KMixerHandle, &DeviceExtension->KMixerFileObject);
+        Status = OpenDevice(&DeviceName, &DeviceExtension->KMixerHandle, &DeviceExtension->KMixerFileObject);
         if (!NT_SUCCESS(Status))
         {
             DeviceExtension->KMixerHandle = NULL;

@@ -123,9 +123,6 @@ KiAcquireGuardedMutex(IN OUT PKGUARDED_MUTEX GuardedMutex)
 {
     ULONG BitsToRemove, BitsToAdd;
     LONG OldValue, NewValue;
-
-    /* We depend on these bits being just right */
-    C_ASSERT((GM_LOCK_WAITER_WOKEN * 2) == GM_LOCK_WAITER_INC);
     
     /* Increase the contention count */
     GuardedMutex->Contention++;
@@ -184,6 +181,9 @@ KiAcquireGuardedMutex(IN OUT PKGUARDED_MUTEX GuardedMutex)
         /* Ok, the wait is done, so set the new bits */
         BitsToRemove = GM_LOCK_BIT | GM_LOCK_WAITER_WOKEN;
         BitsToAdd = GM_LOCK_WAITER_WOKEN;
+        
+        /* We depend on these bits being just right */
+        C_ASSERT((GM_LOCK_WAITER_WOKEN * 2) == GM_LOCK_WAITER_INC);
     }
 }
 
@@ -849,10 +849,10 @@ NtDelayExecution(IN BOOLEAN Alertable,
 {
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     LARGE_INTEGER SafeInterval;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     /* Check the previous mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
         _SEH2_TRY
@@ -863,10 +863,11 @@ NtDelayExecution(IN BOOLEAN Alertable,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get SEH exception */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
    }
 
    /* Call the Kernel Function */

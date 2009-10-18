@@ -104,8 +104,6 @@ extern "C" {
 #define _ALLOCA_S_MARKER_SIZE 8
 #elif defined(__ia64__) || defined(__x86_64)
 #define _ALLOCA_S_MARKER_SIZE 16
-#elif defined(__arm__)
-#define _ALLOCA_S_MARKER_SIZE 8
 #endif
 
 #if !defined(RC_INVOKED)
@@ -146,7 +144,12 @@ extern "C" {
 #endif /* RC_INVOKED */
 
 #ifndef	NO_OLDNAMES
+#undef alloca
+#ifdef __GNUC__
+#define alloca(x) __builtin_alloca((x))
+#else
 #define alloca _alloca
+#endif
 #endif
 
 #ifdef HEAPHOOK

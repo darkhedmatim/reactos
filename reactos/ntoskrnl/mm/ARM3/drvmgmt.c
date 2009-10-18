@@ -20,8 +20,8 @@
 
 MM_DRIVER_VERIFIER_DATA MmVerifierData;
 LIST_ENTRY MiVerifierDriverAddedThunkListHead;
+KMUTANT MmSystemLoadLock;
 ULONG MiActiveVerifierThunks;
-extern KMUTANT MmSystemLoadLock;
 extern LIST_ENTRY PsLoadedModuleList;
 
 /* PRIVATE FUNCTIONS *********************************************************/
@@ -119,8 +119,7 @@ MmPageEntireDriver(IN PVOID AddressWithinSection)
     //
     // We should find the driver loader entry and return its base address
     //
-    PLDR_DATA_TABLE_ENTRY pLdrDataTabEntry = MiLookupDataTableEntry(AddressWithinSection);
-    if (pLdrDataTabEntry) return pLdrDataTabEntry->DllBase;
+    UNIMPLEMENTED;
     return NULL;
 }
 

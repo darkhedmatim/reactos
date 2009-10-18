@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "windef.h"
-
 /* Chinese text is encoded in UTF-8 */
 #pragma code_page(65001)
 
@@ -52,3 +50,5 @@ STRINGTABLE DISCARDABLE
 	14 "功能來自:"
 	15 "選擇包含 %s 的檔案夾"
 }
+
+#pragma code_page(default)

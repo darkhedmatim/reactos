@@ -34,21 +34,6 @@
 
 #define _ReadWriteBarrier() __sync_synchronize()
 
-__INTRIN_INLINE char _InterlockedCompareExchange8(volatile char * const Destination, const char Exchange, const char Comperand)
-{
-	return __sync_val_compare_and_swap(Destination, Comperand, Exchange);
-}
-
-__INTRIN_INLINE short _InterlockedCompareExchange16(volatile short * const Destination, const short Exchange, const short Comperand)
-{
-	return __sync_val_compare_and_swap(Destination, Comperand, Exchange);
-}
-
-__INTRIN_INLINE long _InterlockedExchangeAdd16(volatile short * const Addend, const short Value)
-{
-	return __sync_fetch_and_add(Addend, Value);
-}
-
 __INTRIN_INLINE long _InterlockedCompareExchange(volatile long * const dest, const long exch, const long comp)
 {
 	long a, b;
@@ -118,15 +103,7 @@ __INTRIN_INLINE long _InterlockedExchange(volatile long * const dest, const long
 
 __INTRIN_INLINE void * _InterlockedExchangePointer(void * volatile * const Target, void * const Value)
 {
-    return (void *)_InterlockedExchange((volatile long * const)Target, (const long)Value);
-}
-
-
-
-__INTRIN_INLINE unsigned char _BitScanReverse(unsigned long * const Index, const unsigned long Mask)
-{
-    *Index = 31 - __builtin_clz(Mask);
-	return Mask ? 1 : 0;
+    return _InterlockedExchange(Target, Value);
 }
 
 __INTRIN_INLINE char _InterlockedAnd8(volatile char * const value, const char mask)
@@ -302,17 +279,13 @@ __INTRIN_INLINE long _InterlockedIncrement16(volatile short * const lpAddend)
 	return _InterlockedExchangeAdd16(lpAddend, 1) + 1;
 }
 
-__INTRIN_INLINE long _InterlockedAddLargeStatistic(volatile long long * const Addend, const long Value)
-{
-    *Addend += Value;
-    return Value;
-}
-
 __INTRIN_INLINE void _disable(void)
 {
     __asm__ __volatile__
     (
-     "cpsid i    @ __cli" : : : "memory", "cc"
+     "mrs r1, cpsr;"
+     "orr r1, r1, #0x80;"
+     "msr cpsr, r1;"
     );
 }
 
@@ -320,22 +293,14 @@ __INTRIN_INLINE void _enable(void)
 {
     __asm__ __volatile__
     (
-     "cpsie i    @ __sti" : : : "memory", "cc"
+     "mrs r1, cpsr;"
+     "bic r1, r1, #0x80;"
+     "msr cpsr, r1;"
     );
 }
 
-__INTRIN_INLINE unsigned char _interlockedbittestandset(volatile long * a, const long b)
-{
-	return (_InterlockedOr(a, 1 << b) >> b) & 1;
-}
-
-__INTRIN_INLINE unsigned char _interlockedbittestandreset(volatile long * a, const long b)
-{
-	return (_InterlockedAnd(a, ~(1 << b)) >> b) & 1;
-}
-
 #ifndef __MSVCRT__
-__INTRIN_INLINE unsigned int _rotl(const unsigned int value, int shift)
+__INTRIN_INLINE unsigned long _rotl(const unsigned long value, const unsigned char shift)
 {
 	return (((value) << ((int)(shift))) | ((value) >> (32 - (int)(shift))));
 }

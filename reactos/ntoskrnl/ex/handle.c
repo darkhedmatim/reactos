@@ -131,7 +131,7 @@ ExpAllocateTablePagedPool(IN PEPROCESS Process OPTIONAL,
     PVOID Buffer;
 
     /* Do the allocation */
-    Buffer = ExAllocatePoolWithTag(PagedPool, Size, 'btbO');
+    Buffer = ExAllocatePoolWithTag(PagedPool, Size, TAG('O', 'b', 't', 'b'));
     if (Buffer)
     {
         /* Clear the memory */
@@ -156,7 +156,7 @@ ExpAllocateTablePagedPoolNoZero(IN PEPROCESS Process OPTIONAL,
     PVOID Buffer;
 
     /* Do the allocation */
-    Buffer = ExAllocatePoolWithTag(PagedPool, Size, 'btbO');
+    Buffer = ExAllocatePoolWithTag(PagedPool, Size, TAG('O', 'b', 't', 'b'));
     if (Buffer)
     {
         /* Check if we have a process to charge quota */
@@ -344,7 +344,7 @@ ExpAllocateHandleTable(IN PEPROCESS Process OPTIONAL,
     /* Allocate the table */
     HandleTable = ExAllocatePoolWithTag(PagedPool,
                                         sizeof(HANDLE_TABLE),
-                                        'btbO');
+                                        TAG('O', 'b', 't', 'b'));
     if (!HandleTable) return NULL;
 
     /* Check if we have a process */

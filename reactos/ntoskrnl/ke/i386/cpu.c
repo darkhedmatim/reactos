@@ -87,39 +87,27 @@ static const CHAR CmpRiseID[]        = "RiseRiseRise";
 
 VOID
 NTAPI
-CPUID(IN ULONG InfoType,
-      OUT PULONG CpuInfoEax,
-      OUT PULONG CpuInfoEbx,
-      OUT PULONG CpuInfoEcx,
-      OUT PULONG CpuInfoEdx)
+CPUID(OUT ULONG CpuInfo[4],
+      IN ULONG InfoType)
 {
-    ULONG CpuInfo[4];
-
-    /* Perform the CPUID Operation */
-    __cpuid((int*)CpuInfo, InfoType);
-
-    /* Return the results */
-    *CpuInfoEax = CpuInfo[0];
-    *CpuInfoEbx = CpuInfo[1];
-    *CpuInfoEcx = CpuInfo[2];
-    *CpuInfoEdx = CpuInfo[3];
+    Ki386Cpuid(InfoType, &CpuInfo[0], &CpuInfo[1], &CpuInfo[2], &CpuInfo[3]);
 }
 
 VOID
-NTAPI
 WRMSR(IN ULONG Register,
       IN LONGLONG Value)
 {
-   /* Write to the MSR */
-    __writemsr(Register, Value);
+    LARGE_INTEGER LargeVal;
+    LargeVal.QuadPart = Value;
+    Ke386Wrmsr(Register, LargeVal.HighPart, LargeVal.LowPart);
 }
 
 LONGLONG
-FASTCALL
 RDMSR(IN ULONG Register)
 {
-    /* Read from the MSR */
-    return __readmsr(Register);
+    LARGE_INTEGER LargeVal = {{0, 0}};
+    Ke386Rdmsr(Register, LargeVal.HighPart, LargeVal.LowPart);
+    return LargeVal.QuadPart;
 }
 
 /* FUNCTIONS *****************************************************************/
@@ -128,34 +116,34 @@ VOID
 NTAPI
 KiSetProcessorType(VOID)
 {
-    ULONG EFlags, NewEFlags;
-    ULONG Reg, Dummy;
+    ULONG EFlags = 0, NewEFlags;
+    ULONG Reg[4];
     ULONG Stepping, Type;
 
     /* Start by assuming no CPUID data */
     KeGetCurrentPrcb()->CpuID = 0;
 
     /* Save EFlags */
-    EFlags = __readeflags();
+    Ke386SaveFlags(EFlags);
 
     /* XOR out the ID bit and update EFlags */
     NewEFlags = EFlags ^ EFLAGS_ID;
-    __writeeflags(NewEFlags);
+    Ke386RestoreFlags(NewEFlags);
 
     /* Get them back and see if they were modified */
-    NewEFlags = __readeflags();
+    Ke386SaveFlags(NewEFlags);
     if (NewEFlags != EFlags)
     {
         /* The modification worked, so CPUID exists. Set the ID Bit again. */
         EFlags |= EFLAGS_ID;
-        __writeeflags(EFlags);
+        Ke386RestoreFlags(EFlags);
 
         /* Peform CPUID 0 to see if CPUID 1 is supported */
-        CPUID(0, &Reg, &Dummy, &Dummy, &Dummy);
-        if (Reg > 0)
+        CPUID(Reg, 0);
+        if (Reg[0] > 0)
         {
             /* Do CPUID 1 now */
-            CPUID(1, &Reg, &Dummy, &Dummy, &Dummy);
+            CPUID(Reg, 1);
 
             /*
              * Get the Stepping and Type. The stepping contains both the
@@ -164,11 +152,11 @@ KiSetProcessorType(VOID)
              *
              * For the stepping, we convert this: zzzzzzxy into this: x0y
              */
-            Stepping = Reg & 0xF0;
+            Stepping = Reg[0] & 0xF0;
             Stepping <<= 4;
-            Stepping += (Reg & 0xFF);
+            Stepping += (Reg[0] & 0xFF);
             Stepping &= 0xF0F;
-            Type = Reg & 0xF00;
+            Type = Reg[0] & 0xF00;
             Type >>= 8;
 
             /* Save them in the PRCB */
@@ -187,7 +175,7 @@ KiSetProcessorType(VOID)
     }
 
     /* Restore EFLAGS */
-    __writeeflags(EFlags);
+    Ke386RestoreFlags(EFlags);
 }
 
 ULONG
@@ -203,7 +191,7 @@ KiGetCpuVendor(VOID)
     if (!Prcb->CpuID) return 0;
 
     /* Get the Vendor ID and null-terminate it */
-    CPUID(0, &Vendor[0], &Vendor[1], &Vendor[2], &Vendor[3]);
+    CPUID(Vendor, 0);
     Vendor[4] = 0;
 
     /* Re-arrange vendor string */
@@ -258,7 +246,7 @@ KiGetFeatureBits(VOID)
     PKPRCB Prcb = KeGetCurrentPrcb();
     ULONG Vendor;
     ULONG FeatureBits = KF_WORKING_PTE;
-    ULONG Reg[4], Dummy;
+    ULONG Reg[4];
     BOOLEAN ExtendedCPUID = TRUE;
     ULONG CpuFeatures = 0;
 
@@ -269,7 +257,7 @@ KiGetFeatureBits(VOID)
     if (!Vendor) return FeatureBits;
 
     /* Get the CPUID Info. Features are in Reg[3]. */
-    CPUID(1, &Reg[0], &Reg[1], &Dummy, &Reg[3]);
+    CPUID(Reg, 1);
 
     /* Set the initial APIC ID */
     Prcb->InitialApicId = (UCHAR)(Reg[1] >> 24);
@@ -278,13 +266,12 @@ KiGetFeatureBits(VOID)
     {
         /* Intel CPUs */
         case CPU_INTEL:
-
             /* Check if it's a P6 */
             if (Prcb->CpuType == 6)
             {
                 /* Perform the special sequence to get the MicroCode Signature */
                 WRMSR(0x8B, 0);
-                CPUID(1, &Dummy, &Dummy, &Dummy, &Dummy);
+                CPUID(Reg, 1);
                 Prcb->UpdateSignature.QuadPart = RDMSR(0x8B);
             }
             else if (Prcb->CpuType == 5)
@@ -368,14 +355,10 @@ KiGetFeatureBits(VOID)
 
         /* Cyrix CPUs */
         case CPU_CYRIX:
-
-            /* FIXME: CMPXCGH8B */
-
             break;
 
         /* Transmeta CPUs */
         case CPU_TRANSMETA:
-
             /* Enable CMPXCHG8B if the family (>= 5), model and stepping (>= 4.2) support it */
             if ((Reg[0] & 0x0FFF) >= 0x0542)
             {
@@ -388,7 +371,6 @@ KiGetFeatureBits(VOID)
         /* Centaur, IDT, Rise and VIA CPUs */
         case CPU_CENTAUR:
         case CPU_RISE:
-
             /* These CPUs don't report the presence of CMPXCHG8B through CPUID.
                However, this feature exists and operates properly without any additional steps. */
             FeatureBits |= KF_CMPXCHG8B;
@@ -433,14 +415,14 @@ KiGetFeatureBits(VOID)
     if (ExtendedCPUID)
     {
         /* Do the call */
-        CPUID(0x80000000, &Reg[0], &Dummy, &Dummy, &Dummy);
+        CPUID(Reg, 0x80000000);
         if ((Reg[0] & 0xffffff00) == 0x80000000)
         {
             /* Check if CPUID 0x80000001 is supported */
             if (Reg[0] >= 0x80000001)
             {
                 /* Check which extended features are available. */
-                CPUID(0x80000001, &Dummy, &Dummy, &Dummy, &Reg[3]);
+                CPUID(Reg, 0x80000001);
 
                 /* Check if NX-bit is supported */
                 if (Reg[3] & 0x00100000) FeatureBits |= KF_NX_BIT;
@@ -467,7 +449,7 @@ KiGetCacheInformation(VOID)
 {
     PKIPCR Pcr = (PKIPCR)KeGetPcr();
     ULONG Vendor;
-    ULONG Data[4], Dummy;
+    ULONG Data[4];
     ULONG CacheRequests = 0, i;
     ULONG CurrentRegister;
     UCHAR RegisterByte;
@@ -487,14 +469,14 @@ KiGetCacheInformation(VOID)
         case CPU_INTEL:
 
             /*Check if we support CPUID 2 */
-            CPUID(0, &Data[0], &Dummy, &Dummy, &Dummy);
+            CPUID(Data, 0);
             if (Data[0] >= 2)
             {
                 /* We need to loop for the number of times CPUID will tell us to */
                 do
                 {
                     /* Do the CPUID call */
-                    CPUID(2, &Data[0], &Data[1], &Data[2], &Data[3]);
+                    CPUID(Data, 2);
 
                     /* Check if it was the first call */
                     if (FirstPass)
@@ -556,23 +538,15 @@ KiGetCacheInformation(VOID)
         case CPU_AMD:
 
             /* Check if we support CPUID 0x80000006 */
-            CPUID(0x80000000, &Data[0], &Dummy, &Dummy, &Dummy);
+            CPUID(Data, 0x80000000);
             if (Data[0] >= 6)
             {
                 /* Get 2nd level cache and tlb size */
-                CPUID(0x80000006, &Dummy, &Dummy, &Data[2], &Dummy);
+                CPUID(Data, 0x80000006);
 
                 /* Set the L2 Cache Size */
                 Pcr->SecondLevelCacheSize = (Data[2] & 0xFFFF0000) >> 6;
             }
-            break;
-
-        case CPU_CYRIX:
-        case CPU_TRANSMETA:
-        case CPU_CENTAUR:
-        case CPU_RISE:
-
-            /* FIXME */
             break;
     }
 }
@@ -676,7 +650,6 @@ Ki386InitializeTss(IN PKTSS Tss,
     KiInitializeTSS(Tss);
     Tss->CR3 = __readcr3();
     Tss->Esp0 = PtrToUlong(KiDoubleFaultStack);
-    Tss->Esp = PtrToUlong(KiDoubleFaultStack);
     Tss->Eip = PtrToUlong(KiTrap8);
     Tss->Cs = KGDT_R0_CODE;
     Tss->Fs = KGDT_R0_PCR;
@@ -706,7 +679,6 @@ Ki386InitializeTss(IN PKTSS Tss,
     KiInitializeTSS(Tss);
     Tss->CR3 = __readcr3();
     Tss->Esp0 = PtrToUlong(KiDoubleFaultStack);
-    Tss->Esp = PtrToUlong(KiDoubleFaultStack);
     Tss->Eip = PtrToUlong(KiTrap2);
     Tss->Cs = KGDT_R0_CODE;
     Tss->Fs = KGDT_R0_PCR;
@@ -737,11 +709,7 @@ VOID
 NTAPI
 KiRestoreProcessorControlState(PKPROCESSOR_STATE ProcessorState)
 {
-    PKGDTENTRY TssEntry;
-
-    //
-    // Restore the CR registers
-    //
+    /* Restore the CR registers */
     __writecr0(ProcessorState->SpecialRegisters.Cr0);
     Ke386SetCr2(ProcessorState->SpecialRegisters.Cr2);
     __writecr3(ProcessorState->SpecialRegisters.Cr3);
@@ -750,29 +718,18 @@ KiRestoreProcessorControlState(PKPROCESSOR_STATE ProcessorState)
     //
     // Restore the DR registers
     //
-    __writedr(0, ProcessorState->SpecialRegisters.KernelDr0);
-    __writedr(1, ProcessorState->SpecialRegisters.KernelDr1);
-    __writedr(2, ProcessorState->SpecialRegisters.KernelDr2);
-    __writedr(3, ProcessorState->SpecialRegisters.KernelDr3);
-    __writedr(6, ProcessorState->SpecialRegisters.KernelDr6);
-    __writedr(7, ProcessorState->SpecialRegisters.KernelDr7);
+    Ke386SetDr0(ProcessorState->SpecialRegisters.KernelDr0);
+    Ke386SetDr1(ProcessorState->SpecialRegisters.KernelDr1);
+    Ke386SetDr2(ProcessorState->SpecialRegisters.KernelDr2);
+    Ke386SetDr3(ProcessorState->SpecialRegisters.KernelDr3);
+    Ke386SetDr6(ProcessorState->SpecialRegisters.KernelDr6);
+    Ke386SetDr7(ProcessorState->SpecialRegisters.KernelDr7);
 
     //
-    // Restore GDT and IDT
+    // Restore GDT, IDT, LDT and TSS
     //
-    Ke386SetGlobalDescriptorTable(&ProcessorState->SpecialRegisters.Gdtr.Limit);
-    __lidt(&ProcessorState->SpecialRegisters.Idtr.Limit);
-
-    //
-    // Clear the busy flag so we don't crash if we reload the same selector
-    //
-    TssEntry = (PKGDTENTRY)(ProcessorState->SpecialRegisters.Gdtr.Base +
-                            ProcessorState->SpecialRegisters.Tr);
-    TssEntry->HighWord.Bytes.Flags1 &= ~0x2;
-
-    //
-    // Restore TSS and LDT
-    //
+    Ke386SetGlobalDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Gdtr.Limit);
+    Ke386SetInterruptDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Idtr.Limit);
     Ke386SetTr(ProcessorState->SpecialRegisters.Tr);
     Ke386SetLocalDescriptorTable(ProcessorState->SpecialRegisters.Ldtr);
 }
@@ -789,19 +746,19 @@ KiSaveProcessorControlState(OUT PKPROCESSOR_STATE ProcessorState)
                                            __readcr4() : 0;
 
     /* Save the DR registers */
-    ProcessorState->SpecialRegisters.KernelDr0 = __readdr(0);
-    ProcessorState->SpecialRegisters.KernelDr1 = __readdr(1);
-    ProcessorState->SpecialRegisters.KernelDr2 = __readdr(2);
-    ProcessorState->SpecialRegisters.KernelDr3 = __readdr(3);
-    ProcessorState->SpecialRegisters.KernelDr6 = __readdr(6);
-    ProcessorState->SpecialRegisters.KernelDr7 = __readdr(7);
-    __writedr(7, 0);
+    ProcessorState->SpecialRegisters.KernelDr0 = Ke386GetDr0();
+    ProcessorState->SpecialRegisters.KernelDr1 = Ke386GetDr1();
+    ProcessorState->SpecialRegisters.KernelDr2 = Ke386GetDr2();
+    ProcessorState->SpecialRegisters.KernelDr3 = Ke386GetDr3();
+    ProcessorState->SpecialRegisters.KernelDr6 = Ke386GetDr6();
+    ProcessorState->SpecialRegisters.KernelDr7 = Ke386GetDr7();
+    Ke386SetDr7(0);
 
     /* Save GDT, IDT, LDT and TSS */
-    Ke386GetGlobalDescriptorTable(&ProcessorState->SpecialRegisters.Gdtr.Limit);
-    __sidt(&ProcessorState->SpecialRegisters.Idtr.Limit);
-    ProcessorState->SpecialRegisters.Tr = Ke386GetTr();
-    ProcessorState->SpecialRegisters.Ldtr = Ke386GetLocalDescriptorTable();
+    Ke386GetGlobalDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Gdtr.Limit);
+    Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&ProcessorState->SpecialRegisters.Idtr.Limit);
+    Ke386GetTr(ProcessorState->SpecialRegisters.Tr);
+    Ke386GetLocalDescriptorTable(ProcessorState->SpecialRegisters.Ldtr);
 }
 
 VOID
@@ -817,11 +774,11 @@ NTAPI
 KiLoadFastSyscallMachineSpecificRegisters(IN ULONG_PTR Context)
 {
     /* Set CS and ESP */
-    WRMSR(0x174, KGDT_R0_CODE);
-    WRMSR(0x175, (ULONG_PTR)KeGetCurrentPrcb()->DpcStack);
+    Ke386Wrmsr(0x174, KGDT_R0_CODE, 0);
+    Ke386Wrmsr(0x175, (ULONG)KeGetCurrentPrcb()->DpcStack, 0);
 
     /* Set LSTAR */
-    WRMSR(0x176, (ULONG_PTR)KiFastCallEntry);
+    Ke386Wrmsr(0x176, (ULONG)KiFastCallEntry, 0);
     return 0;
 }
 
@@ -883,7 +840,7 @@ VOID
 NTAPI
 KiI386PentiumLockErrataFixup(VOID)
 {
-    KDESCRIPTOR IdtDescriptor;
+    KDESCRIPTOR IdtDescriptor = { 0, 0, 0 };
     PKIDTENTRY NewIdt, NewIdt2;
 
     /* Allocate memory for a new IDT */
@@ -896,14 +853,14 @@ KiI386PentiumLockErrataFixup(VOID)
     _disable();
 
     /* Get the current IDT and copy it */
-    __sidt(&IdtDescriptor.Limit);
+    Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&IdtDescriptor.Limit);
     RtlCopyMemory(NewIdt2,
                   (PVOID)IdtDescriptor.Base,
                   IdtDescriptor.Limit + 1);
     IdtDescriptor.Base = (ULONG)NewIdt2;
 
     /* Set the new IDT */
-    __lidt(&IdtDescriptor.Limit);
+    Ke386SetInterruptDescriptorTable(*(PKDESCRIPTOR)&IdtDescriptor.Limit);
     ((PKIPCR)KeGetPcr())->IDT = NewIdt2;
 
     /* Restore interrupts */
@@ -918,10 +875,10 @@ NTAPI
 KeFreezeExecution(IN PKTRAP_FRAME TrapFrame,
                   IN PKEXCEPTION_FRAME ExceptionFrame)
 {
-    ULONG Flags;
+    ULONG Flags = 0;
 
     /* Disable interrupts and get previous state */
-    Flags = __readeflags();
+    Ke386SaveFlags(Flags);
     //Flags = __getcallerseflags();
     _disable();
 

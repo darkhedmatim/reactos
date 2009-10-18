@@ -123,8 +123,8 @@ static LONG MDI_ChildActivate( HWND, HWND );
 static LRESULT MDI_RefreshMenu(MDICLIENTINFO *);
 
 static HWND MDI_MoreWindowsDialog(HWND);
-//static LRESULT WINAPI MDIClientWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
-//static LRESULT WINAPI MDIClientWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI MDIClientWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI MDIClientWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
 
 HWND* WIN_ListChildren (HWND hWndparent)
 {
@@ -1057,8 +1057,8 @@ static void MDI_UpdateFrameText( HWND frame, HWND hClient, LPCWSTR lpTitle )
 /**********************************************************************
  *		MDIClientWndProc_common
  */
-LRESULT WINAPI MDIClientWndProc_common( HWND hwnd, UINT message,
-                                   WPARAM wParam, LPARAM lParam, BOOL unicode )
+static LRESULT MDIClientWndProc_common( HWND hwnd, UINT message,
+                                        WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
     MDICLIENTINFO *ci = NULL;
 
@@ -1319,7 +1319,7 @@ LRESULT WINAPI MDIClientWndProc_common( HWND hwnd, UINT message,
 /***********************************************************************
  *		MDIClientWndProcA
  */
-LRESULT WINAPI MDIClientWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI MDIClientWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow(hwnd)) return 0;
     return MDIClientWndProc_common( hwnd, message, wParam, lParam, FALSE );
@@ -1328,7 +1328,7 @@ LRESULT WINAPI MDIClientWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM
 /***********************************************************************
  *		MDIClientWndProcW
  */
-LRESULT WINAPI MDIClientWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI MDIClientWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow(hwnd)) return 0;
     return MDIClientWndProc_common( hwnd, message, wParam, lParam, TRUE );

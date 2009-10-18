@@ -3,7 +3,6 @@
 	<include base="ReactOS">include/reactos/drivers</include>
 	<library>ntoskrnl</library>
 	<library>hal</library>
-	<library>pseh</library>
 	<file>kmtest.c</file>
 	<file>deviface.c</file>
 	<file>deviface_test.c</file>

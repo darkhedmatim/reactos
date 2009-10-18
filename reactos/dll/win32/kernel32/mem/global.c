@@ -224,11 +224,18 @@ GlobalFlags(HGLOBAL hMem)
             /* Get the lock count first */
             uFlags = HandleEntry->LockCount & GMEM_LOCKCOUNT;
 
-            /* Now check if it's discardable */
+            /* Now check if it's discarded */
             if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSABLE)
             {
                 /* Set the Win32 Flag */
-                uFlags |= GMEM_DISCARDABLE;
+                uFlags |= GMEM_DISCARDED;
+            }
+
+            /* Check if it's movable */
+            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_MOVABLE)
+            {
+                /* Set the Win32 Flag */
+                uFlags |= GMEM_MOVEABLE;
             }
 
             /* Check if it's DDE Shared */
@@ -237,11 +244,6 @@ GlobalFlags(HGLOBAL hMem)
                 /* Set the Win32 Flag */
                 uFlags |= GMEM_DDESHARE;
             }
-
-            /* Now check if it's discarded */
-            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSE)
-               /* Set the Win32 Flag */
-               uFlags |= GMEM_DISCARDED;
         }
     }
 
@@ -804,7 +806,6 @@ GlobalUnlock(HGLOBAL hMem)
         /* It's not, fail */
         BASE_TRACE_FAILURE();
         SetLastError(ERROR_INVALID_HANDLE);
-        RetVal = FALSE;
     }
     else
     {

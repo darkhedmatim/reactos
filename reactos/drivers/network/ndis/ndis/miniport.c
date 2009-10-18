@@ -357,9 +357,6 @@ MiniResetComplete(
     PADAPTER_BINDING AdapterBinding;
     KIRQL OldIrql;
 
-    if (AddressingReset)
-        MiniDoAddressingReset(Adapter);
-
     NdisMIndicateStatus(Adapter, NDIS_STATUS_RESET_END, NULL, 0);
     NdisMIndicateStatusComplete(Adapter);
 
@@ -641,45 +638,7 @@ MiniLocateDevice(
   return Adapter;
 }
 
-NDIS_STATUS
-MiniSetInformation(
-    PLOGICAL_ADAPTER    Adapter,
-    NDIS_OID            Oid,
-    ULONG               Size,
-    PVOID               Buffer,
-    PULONG              BytesRead)
-{
-  NDIS_STATUS NdisStatus;
-  PNDIS_REQUEST NdisRequest;
-
-  NDIS_DbgPrint(DEBUG_MINIPORT, ("Called.\n"));
-
-  NdisRequest = ExAllocatePool(NonPagedPool, sizeof(NDIS_REQUEST));
-  if (!NdisRequest) {
-      NDIS_DbgPrint(MIN_TRACE, ("Insufficient resources\n"));
-      return NDIS_STATUS_RESOURCES;
-  }
-
-  RtlZeroMemory(NdisRequest, sizeof(NDIS_REQUEST));
-
-  NdisRequest->RequestType = NdisRequestSetInformation;
-  NdisRequest->DATA.SET_INFORMATION.Oid = Oid;
-  NdisRequest->DATA.SET_INFORMATION.InformationBuffer = Buffer;
-  NdisRequest->DATA.SET_INFORMATION.InformationBufferLength = Size;
-
-  NdisStatus = MiniDoRequest(Adapter, NdisRequest);
-
-  /* FIXME: Wait in pending case! */
-
-  ASSERT(NdisStatus != NDIS_STATUS_PENDING);
-
-  *BytesRead = NdisRequest->DATA.SET_INFORMATION.BytesRead;
-
-  ExFreePool(NdisRequest);
-
-  return NdisStatus;
-}
-
+
 NDIS_STATUS
 MiniQueryInformation(
     PLOGICAL_ADAPTER    Adapter,
@@ -753,34 +712,21 @@ MiniCheckForHang( PLOGICAL_ADAPTER Adapter )
    return Ret;
 }
 
-VOID
-MiniDoAddressingReset(PLOGICAL_ADAPTER Adapter)
-{
-   ULONG BytesRead;
-
-   MiniSetInformation(Adapter,
-                      OID_GEN_CURRENT_LOOKAHEAD,
-                      sizeof(ULONG),
-                      &Adapter->NdisMiniportBlock.CurrentLookahead,
-                      &BytesRead);
-
-   /* FIXME: Set more stuff */
-}
-
 NDIS_STATUS
 MiniReset(
-    PLOGICAL_ADAPTER Adapter)
+    PLOGICAL_ADAPTER Adapter,
+    PBOOLEAN AddressingReset)
 /*
  * FUNCTION: Resets the miniport
  * ARGUMENTS:
  *     Adapter = Pointer to the logical adapter object
+ *     AddressingReset = Set to TRUE if we need to call MiniportSetInformation later
  * RETURNS:
  *     Status of the operation
  */
 {
    NDIS_STATUS Status;
    KIRQL OldIrql;
-   BOOLEAN AddressingReset = TRUE;
 
    if (MiniIsBusy(Adapter, NdisWorkItemResetRequested)) {
        MiniQueueWorkItem(Adapter, NdisWorkItemResetRequested, NULL, FALSE);
@@ -793,7 +739,7 @@ MiniReset(
    KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
    Status = (*Adapter->NdisMiniportBlock.DriverHandle->MiniportCharacteristics.ResetHandler)(
             Adapter->NdisMiniportBlock.MiniportAdapterContext,
-            &AddressingReset);
+            AddressingReset);
 
    KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
    Adapter->NdisMiniportBlock.ResetStatus = Status;
@@ -802,9 +748,6 @@ MiniReset(
    KeLowerIrql(OldIrql);
 
    if (Status != NDIS_STATUS_PENDING) {
-       if (AddressingReset)
-           MiniDoAddressingReset(Adapter);
-
        NdisMIndicateStatus(Adapter, NDIS_STATUS_RESET_END, NULL, 0);
        NdisMIndicateStatusComplete(Adapter);
    }
@@ -820,11 +763,15 @@ MiniportHangDpc(
         PVOID SystemArgument2)
 {
   PLOGICAL_ADAPTER Adapter = DeferredContext;
+  BOOLEAN AddressingReset = FALSE;
+
 
   if (MiniCheckForHang(Adapter)) {
       NDIS_DbgPrint(MIN_TRACE, ("Miniport detected adapter hang\n"));
-      MiniReset(Adapter);
+      MiniReset(Adapter, &AddressingReset);
   }
+
+  /* FIXME: We should call MiniportSetInformation if AddressingReset is TRUE */
 }
 
 
@@ -1186,9 +1133,12 @@ MiniportWorker(IN PDEVICE_OBJECT DeviceObject, IN PVOID Context)
                           Adapter->NdisMiniportBlock.MiniportAdapterContext,
                           &AddressingReset);
 
-            KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
-            Adapter->NdisMiniportBlock.ResetStatus = NdisStatus;
-            KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+            if (NdisStatus == NDIS_STATUS_PENDING)
+            {
+                KeAcquireSpinLockAtDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+                Adapter->NdisMiniportBlock.ResetStatus = NDIS_STATUS_PENDING;
+                KeReleaseSpinLockFromDpcLevel(&Adapter->NdisMiniportBlock.Lock);
+            }
 
             KeLowerIrql(OldIrql);
 
@@ -1472,7 +1422,7 @@ NdisInitializeWrapper(
   *NdisWrapperHandle = NULL;
 
 #if BREAK_ON_MINIPORT_INIT
-  DbgBreakPoint();
+  __asm__ ("int $3\n");
 #endif
 
   Miniport = ExAllocatePool(NonPagedPool, sizeof(NDIS_M_DRIVER_BLOCK));
@@ -1850,12 +1800,6 @@ NdisIPnPStartDevice(
    */
 
   NdisOpenConfiguration(&NdisStatus, &ConfigHandle, (NDIS_HANDLE)&WrapperContext);
-  if (NdisStatus != NDIS_STATUS_SUCCESS)
-  {
-      NDIS_DbgPrint(MIN_TRACE, ("Failed to open configuration key\n"));
-      ExInterlockedRemoveEntryList( &Adapter->ListEntry, &AdapterListLock );
-      return NdisStatus;
-  }
 
   Size = sizeof(ULONG);
   Status = IoGetDeviceProperty(Adapter->NdisMiniportBlock.PhysicalDeviceObject,
@@ -2236,7 +2180,7 @@ NdisIAddDevice(
    * Gain the access to the miniport data structure first.
    */
 
-  MiniportPtr = IoGetDriverObjectExtension(DriverObject, (PVOID)'NMID');
+  MiniportPtr = IoGetDriverObjectExtension(DriverObject, (PVOID)TAG('D','I','M','N'));
   if (MiniportPtr == NULL)
     {
       NDIS_DbgPrint(MIN_TRACE, ("Can't get driver object extension.\n"));
@@ -2487,7 +2431,7 @@ NdisMRegisterMiniport(
    * structure in the driver extension or what?
    */
 
-  Status = IoAllocateDriverObjectExtension(Miniport->DriverObject, (PVOID)'NMID',
+  Status = IoAllocateDriverObjectExtension(Miniport->DriverObject, (PVOID)TAG('D','I','M','N'),
                                            sizeof(PNDIS_M_DRIVER_BLOCK), (PVOID*)&MiniportPtr);
   if (!NT_SUCCESS(Status))
     {

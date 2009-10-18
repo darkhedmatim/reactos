@@ -19,9 +19,7 @@
 	<directory name="reactos">
 		<file>setupldr.c</file>
 	</directory>
-	<if property="ARCH" value="i386">
-    	<directory name="windows">
-            <file>setupldr2.c</file>
-        </directory>
-    </if>
+	<directory name="windows">
+		<file>setupldr2.c</file>
+	</directory>
 </module>

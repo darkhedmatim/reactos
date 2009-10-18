@@ -76,11 +76,6 @@ WdmAudInstallDevice(
         return Status;
     }
 
-    Status = WdmAudMixerInitialize(DeviceObject);
-    DPRINT("WdmAudMixerInitialize Status %x\n", Status);
-    Status = WdmAudWaveInitialize(DeviceObject);
-    DPRINT("WdmAudWaveInitialize Status %x\n", Status);
-
     DeviceObject->Flags |= DO_DIRECT_IO | DO_POWER_PAGABLE;
     DeviceObject->Flags &= ~ DO_DEVICE_INITIALIZING;
 
@@ -244,14 +239,14 @@ DriverEntry(
 
     Driver->DriverUnload = WdmAudUnload;
 
+
     Driver->MajorFunction[IRP_MJ_CREATE] = WdmAudCreate;
     Driver->MajorFunction[IRP_MJ_CLOSE] = WdmAudClose;
     Driver->MajorFunction[IRP_MJ_PNP] = WdmAudPnp;
     Driver->MajorFunction[IRP_MJ_SYSTEM_CONTROL] = KsDefaultForwardIrp; 
     Driver->MajorFunction[IRP_MJ_CLEANUP] = WdmAudCleanup;
     Driver->MajorFunction[IRP_MJ_DEVICE_CONTROL] = WdmAudDeviceControl;
-    Driver->MajorFunction[IRP_MJ_WRITE] = WdmAudReadWrite;
-    Driver->MajorFunction[IRP_MJ_READ] = WdmAudReadWrite;
+    Driver->MajorFunction[IRP_MJ_WRITE] = WdmAudWrite;
     Driver->MajorFunction[IRP_MJ_POWER] = KsDefaultDispatchPower;
 
     return WdmAudInstallDevice(Driver);

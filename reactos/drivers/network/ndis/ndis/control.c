@@ -83,9 +83,9 @@ NdisAcquireReadWriteLock(
         if (Lock->Context != PsGetCurrentThread()) {
           /* Wait for the exclusive lock to be released. */
           Lock->RefCount[KeGetCurrentProcessorNumber()].RefCount--;
-          KeAcquireSpinLockAtDpcLevel(&Lock->SpinLock);
+          KefAcquireSpinLockAtDpcLevel(&Lock->SpinLock);
           Lock->RefCount[KeGetCurrentProcessorNumber()].RefCount++;
-          KeReleaseSpinLockFromDpcLevel(&Lock->SpinLock);
+          KefReleaseSpinLockFromDpcLevel(&Lock->SpinLock);
         }
       }
     }
@@ -124,7 +124,7 @@ NdisReleaseReadWriteLock(
     case 4: /* Exclusive write lock */
       Lock->Context = NULL;
       LockState->LockState = -1;
-      KeReleaseSpinLock(&Lock->SpinLock, LockState->OldIrql);
+      KfReleaseSpinLock(&Lock->SpinLock, LockState->OldIrql);
       return;
   }
 }

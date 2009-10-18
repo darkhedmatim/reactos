@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
-using System.Drawing;
 
 namespace RosDBG
 {
@@ -21,11 +20,6 @@ namespace RosDBG
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 MainWindow mw = new MainWindow();
-
-                mw.WindowState = RosDBG.Properties.Settings.Default.WindowState;
-                mw.StartPosition = FormStartPosition.Manual;
-                mw.Location = RosDBG.Properties.Settings.Default.Location;
-                mw.Size = RosDBG.Properties.Settings.Default.Size;
                 Application.Run(mw);
             }
             else

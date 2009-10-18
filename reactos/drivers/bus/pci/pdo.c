@@ -176,7 +176,7 @@ PdoQueryCapabilities(
 
   DeviceCapabilities->UniqueID = FALSE;
   DeviceCapabilities->Address = ((DeviceNumber << 16) & 0xFFFF0000) + (FunctionNumber & 0xFFFF);
-  DeviceCapabilities->UINumber = MAXULONG; /* FIXME */
+  DeviceCapabilities->UINumber = (ULONG)-1; /* FIXME */
 
   return STATUS_SUCCESS;
 }
@@ -213,7 +213,7 @@ PdoGetRangeLength(PPDO_DEVICE_EXTENSION DeviceExtension,
   *Base = BaseValue;
 
   /* Set magic value */
-  NewValue = MAXULONG;
+  NewValue = (ULONG)-1;
   Size= HalSetBusDataByOffset(PCIConfiguration,
                               DeviceExtension->PciDevice->BusNumber,
                               DeviceExtension->PciDevice->SlotNumber.u.AsULONG,

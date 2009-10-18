@@ -40,7 +40,6 @@
 #include <include/window.h>
 #include <include/winsta.h>
 #include <include/xformobj.h>
-#include <include/xlateobj.h>
 
 #include <include/region.h>
 #include <include/ntuser.h>
@@ -77,7 +76,6 @@
 #include <include/misc.h>
 #include <include/gdifloat.h>
 #include <include/engobjects.h>
-#include <include/engevent.h>
 #include <dib/dib.h>
 
 #endif /* __WIN32K_H */

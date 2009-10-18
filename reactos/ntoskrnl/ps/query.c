@@ -63,7 +63,7 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
 {
     PEPROCESS Process;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ULONG Length = 0;
     PPROCESS_BASIC_INFORMATION ProcessBasicInfo =
         (PPROCESS_BASIC_INFORMATION)ProcessInformation;
@@ -86,20 +86,18 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
         /* Prepare to probe parameters */
         _SEH2_TRY
         {
-            /* Probe the buffer */
             ProbeForWrite(ProcessInformation,
                           ProcessInformationLength,
                           sizeof(ULONG));
-
-            /* Probe the return length if required */
             if (ReturnLength) ProbeForWriteUlong(ReturnLength);
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the error code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     if((ProcessInformationClass == ProcessCookie) &&
@@ -193,8 +191,8 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
                         Process->Vm.MinimumWorkingSetSize << PAGE_SHIFT;
 
                 /* Set default time limits */
-                QuotaLimits->TimeLimit.LowPart = MAXULONG;
-                QuotaLimits->TimeLimit.HighPart = MAXULONG;
+                QuotaLimits->TimeLimit.LowPart = (ULONG)-1;
+                QuotaLimits->TimeLimit.HighPart = (ULONG)-1;
 
                 /* Is quota block a default one? */
                 if (Process->QuotaBlock == &PspDefaultQuotaBlock)
@@ -763,9 +761,6 @@ NtQueryInformationProcess(IN HANDLE ProcessHandle,
                 Length = sizeof(ULONG);
             }
 
-            /* Indicate success */
-            Status = STATUS_SUCCESS;
-
             /* Enter SEH to protect write */
             _SEH2_TRY
             {
@@ -887,10 +882,11 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Get the LPC Port */
             Status = ObReferenceObjectByHandle(PortHandle,
@@ -931,10 +927,11 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Assign the actual token */
             Status = PspSetPrimaryToken(Process, TokenHandle, NULL);
@@ -983,10 +980,11 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Setting the session id requires the SeTcbPrivilege */
             if (!SeSinglePrivilegeCheck(SeTcbPrivilege, PreviousMode))
@@ -1050,10 +1048,11 @@ NtSetInformationProcess(IN HANDLE ProcessHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Check for invalid PriorityClass value */
             if (PriorityClass.PriorityClass > PROCESS_PRIORITY_CLASS_ABOVE_NORMAL)
@@ -1251,10 +1250,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Validate it */
             if ((Priority > HIGH_PRIORITY) ||
@@ -1286,10 +1286,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Validate it */
             if ((Priority > THREAD_BASE_PRIORITY_MAX) ||
@@ -1331,10 +1332,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Validate it */
             if (!Affinity)
@@ -1398,10 +1400,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Assign the actual token */
             Status = PsAssignImpersonationToken(Thread, TokenHandle);
@@ -1424,10 +1427,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Set the address */
             Thread->Win32StartAddress = Address;
@@ -1450,10 +1454,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Validate it */
             if (IdealProcessor > MAXIMUM_PROCESSORS)
@@ -1497,10 +1502,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* Call the kernel */
             KeSetDisableBoostThread(&Thread->Tcb, (BOOLEAN)DisableBoost);
@@ -1523,10 +1529,11 @@ NtSetInformationThread(IN HANDLE ThreadHandle,
             }
             _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
             {
-                /* Return the exception code */
-                _SEH2_YIELD(return _SEH2_GetExceptionCode());
+                /* Get the exception code */
+                Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
+            if (!NT_SUCCESS(Status)) break;
 
             /* This is only valid for the current thread */
             if (Thread != PsGetCurrentThread())
@@ -1607,7 +1614,7 @@ NtQueryInformationThread(IN HANDLE ThreadHandle,
 {
     PETHREAD Thread;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ULONG Access;
     ULONG Length = 0;
     PTHREAD_BASIC_INFORMATION ThreadBasicInfo =
@@ -1616,26 +1623,26 @@ NtQueryInformationThread(IN HANDLE ThreadHandle,
     KIRQL OldIrql;
     PAGED_CODE();
 
-    /* Check if we were called from user mode */
     if (PreviousMode != KernelMode)
     {
-        /* Enter SEH */
         _SEH2_TRY
         {
-            /* Probe the buffer */
             ProbeForWrite(ThreadInformation,
                           ThreadInformationLength,
                           sizeof(ULONG));
 
-            /* Probe the return length if required */
-            if (ReturnLength) ProbeForWriteUlong(ReturnLength);
+            if (ReturnLength)
+            {
+                ProbeForWriteUlong(ReturnLength);
+            }
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Check what class this is */

@@ -86,13 +86,6 @@ PsGetThreadTeb(
 );
 
 NTKERNELAPI
-HANDLE
-NTAPI
-PsGetThreadId(
-    IN PETHREAD Thread
-);
-
-NTKERNELAPI
 BOOLEAN
 NTAPI
 PsGetThreadHardErrorsAreDisabled(
@@ -162,12 +155,6 @@ NTAPI
 PsSetProcessPriorityByClass(
     IN PEPROCESS Process,
     IN PSPROCESSPRIORITYMODE Type
-);
-
-HANDLE
-NTAPI
-PsGetProcessInheritedFromUniqueProcessId(
-    IN PEPROCESS Process
 );
 
 //

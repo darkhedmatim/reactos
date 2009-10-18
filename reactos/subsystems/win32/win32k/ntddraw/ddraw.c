@@ -22,7 +22,7 @@ extern EDD_DIRECTDRAW_GLOBAL edd_DdirectDraw_Global;
 
 DRVFN gpDxFuncs[DXG_INDEX_DxDdIoctl];
 HANDLE ghDxGraphics = NULL;
-ULONG gdwDirectDrawContext = 0;
+ULONG gdwDirectDrawContext;
 
 #define DXDBG 1
 

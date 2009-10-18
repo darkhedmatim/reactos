@@ -18,4 +18,4 @@ void clearHistory();
 
 void insertReversible();
 
-void cropReversible(int width, int height, int xOffset, int yOffset);
+void cropReversible(int x, int y);

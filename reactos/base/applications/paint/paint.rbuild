@@ -18,7 +18,6 @@
 	<file>palette.c</file>
 	<file>registry.c</file>
 	<file>selection.c</file>
-	<file>sizebox.c</file>
 	<file>toolsettings.c</file>
 	<file>winproc.c</file>
 	<file>rsrc.rc</file>

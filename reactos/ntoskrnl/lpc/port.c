@@ -65,7 +65,7 @@ LpcInitSystem(VOID)
                                    NULL,
                                    0,
                                    LpcpMaxMessageSize,
-                                   'McpL',
+                                   TAG('L', 'p', 'c', 'M'),
                                    32);
 
     /* We're done */

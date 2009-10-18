@@ -14,6 +14,14 @@ static const IO_STATUS_BLOCK __emptyIoStatusBlock = {{0}, 0};
 static const LARGE_STRING __emptyLargeString = {0, 0, 0, NULL};
 #endif
 
+#if defined(_WIN32K_)
+/*
+ * NOTE: NTOSKRNL unfortunately doesn't export RtlRaiseStatus!
+ */
+VOID NTAPI W32kRaiseStatus(NTSTATUS Status);
+#define RtlRaiseStatus W32kRaiseStatus
+#endif
+
 /*
  * NOTE: Alignment of the pointers is not verified!
  */
@@ -21,7 +29,7 @@ static const LARGE_STRING __emptyLargeString = {0, 0, 0, NULL};
     do {                                                                       \
         if ((ULONG_PTR)(Ptr) + sizeof(Type) - 1 < (ULONG_PTR)(Ptr) ||          \
             (ULONG_PTR)(Ptr) + sizeof(Type) - 1 >= (ULONG_PTR)MmUserProbeAddress) { \
-            ExRaiseAccessViolation();                                          \
+            RtlRaiseStatus (STATUS_ACCESS_VIOLATION);                          \
         }                                                                      \
         *(volatile Type *)(Ptr) = *(volatile Type *)(Ptr);                     \
     } while (0)
@@ -52,7 +60,7 @@ static const LARGE_STRING __emptyLargeString = {0, 0, 0, NULL};
 #define ProbeForReadGenericType(Ptr, Type, Default)                            \
     (((ULONG_PTR)(Ptr) + sizeof(Type) - 1 < (ULONG_PTR)(Ptr) ||                \
 	 (ULONG_PTR)(Ptr) + sizeof(Type) - 1 >= (ULONG_PTR)MmUserProbeAddress) ?   \
-	     ExRaiseAccessViolation(), Default :                     \
+	     ExRaiseStatus (STATUS_ACCESS_VIOLATION), Default :                    \
 	     *(const volatile Type *)(Ptr))
 
 #define ProbeForReadBoolean(Ptr) ProbeForReadGenericType(Ptr, BOOLEAN, FALSE)
@@ -82,7 +90,7 @@ static const LARGE_STRING __emptyLargeString = {0, 0, 0, NULL};
     do {                                                                       \
         if ((ULONG_PTR)(Ptr) + sizeof(HANDLE) - 1 < (ULONG_PTR)(Ptr) ||        \
             (ULONG_PTR)(Ptr) + sizeof(HANDLE) - 1 >= (ULONG_PTR)MmUserProbeAddress) { \
-            ExRaiseAccessViolation();                                          \
+            RtlRaiseStatus (STATUS_ACCESS_VIOLATION);                          \
         }                                                                      \
         *(volatile HANDLE *)(Ptr) = NULL;                                      \
     } while (0)
@@ -105,7 +113,7 @@ ProbeArrayForRead(IN const VOID *ArrayPtr,
     ArraySize = ItemSize * ItemCount;
     if (ArraySize / ItemSize != ItemCount)
     {
-        ExRaiseStatus(STATUS_INVALID_PARAMETER);
+        RtlRaiseStatus (STATUS_INVALID_PARAMETER);
     }
 
     /* Probe the array */
@@ -127,7 +135,7 @@ ProbeArrayForWrite(IN OUT PVOID ArrayPtr,
     ArraySize = ItemSize * ItemCount;
     if (ArraySize / ItemSize != ItemCount)
     {
-        ExRaiseStatus(STATUS_INVALID_PARAMETER);
+        RtlRaiseStatus (STATUS_INVALID_PARAMETER);
     }
 
     /* Probe the array */
@@ -164,7 +172,7 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
                     /* Allocate space for the buffer */
                     Buffer = ExAllocatePoolWithTag(PagedPool,
                                                    Dest->Length + sizeof(WCHAR),
-                                                   'RTSU');
+                                                   TAG('U', 'S', 'T', 'R'));
                     if (Buffer == NULL)
                     {
                         Status = STATUS_INSUFFICIENT_RESOURCES;

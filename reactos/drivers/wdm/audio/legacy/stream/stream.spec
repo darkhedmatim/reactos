@@ -6,4 +6,3 @@
 @ cdecl StreamClassDebugPrint (long str)
 @ cdecl StreamClassDeviceNotification(long ptr)
 @ stdcall StreamClassGetDmaBuffer(ptr)
-@ stdcall StreamClassReadWriteConfig(ptr long ptr long long)

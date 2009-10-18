@@ -747,5 +747,4 @@ BEGIN
 	IDS_INSTALLNEWFONT          "Установить новый шрифт..."
 
 	IDS_DEFAULT_CLUSTER_SIZE    "Выделяемый по умолчанию размер"
-	IDS_COPY_OF                 "Copy of"
 END

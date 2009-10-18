@@ -1029,21 +1029,6 @@ TaskSwitchWnd_AddTask(IN OUT PTASK_SWITCH_WND This,
 }
 
 static BOOL
-TaskSwitchWnd_ActivateTaskItem(IN OUT PTASK_SWITCH_WND This,
-                               IN OUT PTASK_ITEM TaskItem  OPTIONAL)
-{
-    if (TaskItem != NULL)
-    {
-        DbgPrint("Activate window 0x%p on button %d\n", TaskItem->hWnd, TaskItem->Index);
-    }
-
-    TaskSwitchWnd_CheckActivateTaskItem(This,
-                                        TaskItem);
-
-    return FALSE;
-}
-
-static BOOL
 TaskSwitchWnd_ActivateTask(IN OUT PTASK_SWITCH_WND This,
                            IN HWND hWnd)
 {
@@ -1056,14 +1041,20 @@ TaskSwitchWnd_ActivateTask(IN OUT PTASK_SWITCH_WND This,
         TaskItem = TaskSwitchWnd_FindOtherTaskItem(This,
                                                    hWnd);
     }
-    
-    if (TaskItem == NULL)
+
+    if (TaskItem != NULL)
+    {
+        DbgPrint("Activate window 0x%p on button %d\n", hWnd, TaskItem->Index);
+    }
+    else
     {
         DbgPrint("Activate window 0x%p, could not find task\n", hWnd);
     }
 
-    return TaskSwitchWnd_ActivateTaskItem(This,
-                                          TaskItem);
+    TaskSwitchWnd_CheckActivateTaskItem(This,
+                                        TaskItem);
+
+    return FALSE;
 }
 
 static BOOL
@@ -1643,78 +1634,6 @@ TaskSwitchWnd_EnableGrouping(IN OUT PTASK_SWITCH_WND This,
                                     FALSE);
 }
 
-static VOID
-TaskSwitchWnd_HandleTaskItemClick(IN OUT PTASK_SWITCH_WND This,
-                                  IN OUT PTASK_ITEM TaskItem)
-{
-    BOOL bIsMinimized;
-    BOOL bIsActive;
-
-    if (IsWindow(TaskItem->hWnd))
-    {
-        bIsMinimized = IsIconic(TaskItem->hWnd);
-        bIsActive = (TaskItem == This->ActiveTaskItem);
-
-        if (!bIsMinimized && bIsActive)
-        {
-            PostMessage(TaskItem->hWnd,
-                        WM_SYSCOMMAND,
-                        SC_MINIMIZE,
-                        0);
-        }
-        else
-        {
-            if (bIsMinimized)
-            {
-                 PostMessage(TaskItem->hWnd,
-                             WM_SYSCOMMAND,
-                             SC_RESTORE,
-                             0);
-            }
-
-            SetForegroundWindow(TaskItem->hWnd);
-        }
-    }
-}
-
-static VOID
-TaskSwitchWnd_HandleTaskGroupClick(IN OUT PTASK_SWITCH_WND This,
-                                   IN OUT PTASK_GROUP TaskGroup)
-{
-    /* TODO: Show task group menu */
-}
-
-static BOOL
-TaskSwitchWnd_HandleButtonClick(IN OUT PTASK_SWITCH_WND This,
-                                IN WORD wIndex)
-{
-    PTASK_ITEM TaskItem;
-    PTASK_GROUP TaskGroup;
-    
-    if (This->IsGroupingEnabled)
-    {
-        TaskGroup = FindTaskGroupByIndex(This,
-                                         (INT)wIndex);
-        if (TaskGroup != NULL && TaskGroup->IsCollapsed)
-        {
-            TaskSwitchWnd_HandleTaskGroupClick(This,
-                                               TaskGroup);
-            return TRUE;
-        }
-    }
-    
-    TaskItem = FindTaskItemByIndex(This,
-                                   (INT)wIndex);
-    if (TaskItem != NULL)
-    {
-        TaskSwitchWnd_HandleTaskItemClick(This,
-                                          TaskItem);
-        return TRUE;
-    }
-    
-    return FALSE;
-}
-
 static LRESULT
 TaskSwichWnd_HandleItemPaint(IN OUT PTASK_SWITCH_WND This,
                              IN OUT NMTBCUSTOMDRAW *nmtbcd)
@@ -1941,8 +1860,7 @@ TaskSwitchWndProc(IN HWND hwnd,
             {
                 if (lParam != 0 && (HWND)lParam == This->hWndToolbar)
                 {
-                    TaskSwitchWnd_HandleButtonClick(This,
-                                                    LOWORD(wParam));
+                    DbgPrint("WM_COMMAND %u:%u (%u)\n", (UINT)LOWORD(wParam), (UINT)HIWORD(wParam), (UINT)wParam);
                 }
                 break;
             }

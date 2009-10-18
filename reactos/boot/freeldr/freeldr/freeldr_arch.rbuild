@@ -69,11 +69,10 @@
 		</directory>
 		<directory name="arm">
 			<if property="ARCH" value="arm">
-				<file first="true">boot.s</file>
+				<file>boot.s</file>
 				<file>ferouart.c</file>
 				<file>loader.c</file>
 				<file>macharm.c</file>
-				<file>omapuart.c</file>
 				<file>versuart.c</file>
 			</if>
 		</directory>
@@ -99,13 +98,5 @@
 			</directory>
 		</if>
 
-	</directory>
-
-	<directory name="windows">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>ntsetup.c</file>
-			</directory>
-		</if>
 	</directory>
 </module>

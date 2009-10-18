@@ -42,7 +42,7 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
                    IN CCHAR Number,
                    IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
-    ULONG PageDirectory[2];
+    LARGE_INTEGER PageDirectory;
     PKPCR Pcr;
     ULONG i;
 
@@ -187,11 +187,6 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
         KdInitSystem(0, LoaderBlock);
 
         //
-        // Check for break-in
-        //
-        if (KdPollBreakIn()) DbgBreakPointWithStatus(DBG_STATUS_CONTROL_C);
-
-        //
         // Cleanup the rest of the processor block array
         //
         for (i = 1; i < MAXIMUM_PROCESSORS; i++) KiProcessorBlock[i] = NULL;
@@ -205,10 +200,11 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
         // Initialize the Idle Process and the Process Listhead
         //
         InitializeListHead(&KiProcessListHead);
+        PageDirectory.QuadPart = 0;
         KeInitializeProcess(InitProcess,
                             0,
                             0xFFFFFFFF,
-                            PageDirectory,
+                            &PageDirectory,
                             FALSE);
         InitProcess->QuantumReset = MAXCHAR;
     }
@@ -377,12 +373,12 @@ KiInitializeSystem(IN ULONG Magic,
     //
     // Set global d-cache fill and alignment values
     //
-    if (!Pcr->SecondLevelDcacheSize)
+    if (Pcr->SecondLevelDcacheSize)
     {
         //
         // Use the first level
         //
-        Pcr->DcacheFillSize = Pcr->FirstLevelDcacheSize;
+        Pcr->DcacheFillSize = Pcr->SecondLevelDcacheSize;
     }
     else
     {
@@ -400,12 +396,12 @@ KiInitializeSystem(IN ULONG Magic,
     //
     // Set global i-cache fill and alignment values
     //
-    if (!Pcr->SecondLevelIcacheSize)
+    if (Pcr->SecondLevelIcacheSize)
     {
         //
         // Use the first level
         //
-        Pcr->IcacheFillSize = Pcr->FirstLevelIcacheSize;
+        Pcr->IcacheFillSize = Pcr->SecondLevelIcacheSize;
     }
     else
     {

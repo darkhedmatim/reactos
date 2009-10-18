@@ -18,7 +18,7 @@
 
 #include <winsta.h>
 
-#define KeRosDumpStackFrames(Frames, Count) KdSystemDebugControl('DsoR', (PVOID)Frames, Count, NULL, 0, NULL, KernelMode)
+#define KeRosDumpStackFrames(Frames, Count) KdSystemDebugControl(TAG('R', 'o', 's', 'D'), (PVOID)Frames, Count, NULL, 0, NULL, KernelMode)
 HBITMAP NTAPI UserLoadImage(PCWSTR);
 BOOL NTAPI W32kDosPathNameToNtPathName(PCWSTR, PUNICODE_STRING);
 
@@ -46,16 +46,10 @@ static const WCHAR* KEY_MOUSE = L"Control Panel\\Mouse";
 static const WCHAR* VAL_MOUSE1 = L"MouseThreshold1";
 static const WCHAR* VAL_MOUSE2 = L"MouseThreshold2";
 static const WCHAR* VAL_MOUSE3 = L"MouseSpeed";
-static const WCHAR* VAL_MOUSETRAILS = L"MouseTrails";
 static const WCHAR* VAL_DBLCLKWIDTH = L"DoubleClickWidth";
 static const WCHAR* VAL_DBLCLKHEIGHT = L"DoubleClickHeight";
 static const WCHAR* VAL_DBLCLKTIME = L"DoubleClickSpeed";
-static const WCHAR* VAL_SNAPDEFBTN = L"SnapToDefaultButton";
 static const WCHAR* VAL_SWAP = L"SwapMouseButtons";
-static const WCHAR* VAL_HOVERTIME = L"MouseHoverTime";
-static const WCHAR* VAL_HOVERWIDTH = L"MouseHoverWidth";
-static const WCHAR* VAL_HOVERHEIGHT = L"MouseHoverHeight";
-//static const WCHAR* VAL_SENSITIVITY = L"MouseSensitivity";
 
 static const WCHAR* KEY_DESKTOP = L"Control Panel\\Desktop";
 static const WCHAR* VAL_SCRTO = L"ScreenSaveTimeOut";
@@ -65,12 +59,6 @@ static const WCHAR* VAL_DRAG = L"DragFullWindows";
 static const WCHAR* VAL_DRAGHEIGHT = L"DragHeight";
 static const WCHAR* VAL_DRAGWIDTH = L"DragWidth";
 static const WCHAR* VAL_FNTSMOOTH = L"FontSmoothing";
-static const WCHAR* VAL_SCRLLLINES = L"WheelScrollLines";
-static const WCHAR* VAL_CLICKLOCKTIME = L"ClickLockTime";
-#if (_WIN32_WINNT >= 0x0600)
-static const WCHAR* VAL_SCRLLCHARS = L"WheelScrollChars";
-#endif
-static const WCHAR* VAL_USERPREFMASK = L"UserPreferencesMask";
 
 static const WCHAR* KEY_MDALIGN = L"Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows";
 static const WCHAR* VAL_MDALIGN = L"MenuDropAlignment";
@@ -99,18 +87,6 @@ static const WCHAR* VAL_ON = L"On";
 
 static
 INT
-SpiLoadDWord(PCWSTR pwszKey, PCWSTR pwszValue, INT iValue)
-{
-    DWORD Result;
-    if (!RegReadUserSetting(pwszKey, pwszValue, REG_DWORD, &Result, sizeof(Result)))
-    {
-        return iValue;
-    }
-    return Result;
-}
-
-static
-INT
 SpiLoadInt(PCWSTR pwszKey, PCWSTR pwszValue, INT iValue)
 {
     WCHAR awcBuffer[12];
@@ -125,27 +101,15 @@ SpiLoadInt(PCWSTR pwszKey, PCWSTR pwszValue, INT iValue)
 }
 
 static
-DWORD
-SpiLoadUserPrefMask(DWORD dValue)
-{
-    DWORD Result;
-    if (!RegReadUserSetting(KEY_DESKTOP, VAL_USERPREFMASK, REG_BINARY, &Result, sizeof(Result)))
-    {
-        return dValue;
-    }
-    return Result;
-}
-
-static
 INT
-SpiLoadMouse(PCWSTR pwszValue, INT iValue)
+SpiLoadMouse(LPWSTR pwszValue, INT iValue)
 {
     return SpiLoadInt(KEY_MOUSE, pwszValue, iValue);
 }
 
 static
 INT
-SpiLoadMetric(PCWSTR pwszValue, INT iValue)
+SpiLoadMetric(LPWSTR pwszValue, INT iValue)
 {
     INT iRegVal;
 
@@ -211,22 +175,13 @@ SpiUpdatePerUserSystemParameters()
     memset(&gspv, 0, sizeof(gspv));
 
     /* Load mouse settings */
-    gspv.caiMouse.FirstThreshold = SpiLoadMouse(VAL_MOUSE1, 6);
-    gspv.caiMouse.SecondThreshold = SpiLoadMouse(VAL_MOUSE2, 10);
-    gspv.caiMouse.Acceleration = gspv.iMouseSpeed = SpiLoadMouse(VAL_MOUSE3, 1);
-    gspv.bMouseBtnSwap = SpiLoadMouse(VAL_SWAP, 0);
-    gspv.bSnapToDefBtn = SpiLoadMouse(VAL_SNAPDEFBTN, 0);
-    gspv.iMouseTrails = SpiLoadMouse(VAL_MOUSETRAILS, 0);
-    gspv.iDblClickTime = SpiLoadMouse(VAL_DBLCLKTIME, 500);
-    gspv.iDblClickWidth = SpiLoadMouse(VAL_DBLCLKWIDTH, 4);
-    gspv.iDblClickHeight = SpiLoadMouse(VAL_DBLCLKHEIGHT, 4);
-    gspv.iMouseHoverTime = SpiLoadMouse(VAL_HOVERTIME, 400);
-    gspv.iMouseHoverWidth = SpiLoadMouse(VAL_HOVERWIDTH, 4);
-    gspv.iMouseHoverHeight = SpiLoadMouse(VAL_HOVERHEIGHT, 4);
+    gspv.caiMouse.FirstThreshold = SpiLoadMouse(L"MouseThreshold1", 6);
+    gspv.caiMouse.SecondThreshold = SpiLoadMouse(L"MouseThreshold2", 10);
+    gspv.caiMouse.Acceleration = SpiLoadMouse(L"MouseSpeed", 1);
 
     /* Load NONCLIENTMETRICS */
     gspv.ncm.cbSize = sizeof(NONCLIENTMETRICSW);
-    gspv.ncm.iBorderWidth = SpiLoadMetric(VAL_BORDER, 1);
+    gspv.ncm.iBorderWidth = SpiLoadMetric(L"BorderWidth", 1);
     gspv.ncm.iScrollWidth = SpiLoadMetric(L"ScrollWidth", 16);
     gspv.ncm.iScrollHeight = SpiLoadMetric(L"ScrollHeight", 16);
     gspv.ncm.iCaptionWidth = SpiLoadMetric(L"CaptionWidth", 19);
@@ -253,32 +208,35 @@ SpiUpdatePerUserSystemParameters()
 
     /* Load ICONMETRICS */
     gspv.im.cbSize = sizeof(ICONMETRICSW);
-    gspv.im.iHorzSpacing = SpiLoadMetric(VAL_ICONSPC, 64);
-    gspv.im.iVertSpacing = SpiLoadMetric(VAL_ICONVSPC, 64);
-    gspv.im.iTitleWrap = SpiLoadMetric(VAL_ITWRAP, 0);
+    gspv.im.iHorzSpacing = SpiLoadMetric(L"IconSpacing", 64);
+    gspv.im.iVertSpacing = SpiLoadMetric(L"IconVerticalspacing", 64);
+    gspv.im.iTitleWrap = SpiLoadMetric(L"IconTitleWrap", 0);
     SpiLoadFont(&gspv.im.lfFont, L"IconFont", &lf1);
 
-    /* Load desktop settings */
-    gspv.bDragFullWindows = SpiLoadInt(KEY_DESKTOP, VAL_DRAG, 0);
-    gspv.iWheelScrollLines = SpiLoadInt(KEY_DESKTOP, VAL_SCRLLLINES, 3);
-    gspv.dwMouseClickLockTime = SpiLoadDWord(KEY_DESKTOP, VAL_CLICKLOCKTIME, 1200);
-    gspv.dwUserPrefMask = SpiLoadUserPrefMask(UPM_DEFAULT);
-    gspv.bMouseClickLock = (gspv.dwUserPrefMask & UPM_CLICKLOCK) != 0;
-    gspv.bMouseCursorShadow = (gspv.dwUserPrefMask & UPM_CURSORSHADOW) != 0;
-#if (_WIN32_WINNT >= 0x0600)
-    gspv.iWheelScrollChars = SpiLoadInt(KEY_DESKTOP, VAL_SCRLLCHARS, 3);
-#endif
-
     /* Some hardcoded values for now */
-
     gspv.tmCaptionFont.tmAveCharWidth = 6;
     gspv.bBeep = TRUE;
     gspv.bFlatMenu = FALSE;
+    gspv.iDblClickTime = 500;
     gspv.uiFocusBorderWidth = 1;
     gspv.uiFocusBorderHeight = 1;
     gspv.bMenuDropAlign = 1;
     gspv.bDropShadow = 1;
+    gspv.dwUserPrefMask = UPM_DEFAULT;
     gspv.dwMenuShowDelay = 100;
+
+    gspv.bMouseBtnSwap = FALSE;
+    gspv.iMouseSpeed = 10;
+    gspv.iMouseHoverTime = 80;
+    gspv.iMouseHoverWidth = 4;
+    gspv.iMouseHoverHeight = 4;
+    gspv.iDblClickTime = 500;
+    gspv.iDblClickWidth = 4;
+    gspv.iDblClickHeight = 4;
+    gspv.iWheelScrollLines = 3;
+#if (_WIN32_WINNT >= 0x0600)
+    gspv.uiWheelScrollChars = 1;
+#endif
 
     gspv.iScrSaverTimeout = 10;
     gspv.bScrSaverActive = FALSE;
@@ -325,17 +283,6 @@ NtUserUpdatePerUserSystemParameters(
 
 
 /** Storing the settings ******************************************************/
-
-static
-VOID
-SpiStoreDWord(PCWSTR pwszKey, PCWSTR pwszValue, DWORD Value)
-{
-    RegWriteUserSetting(pwszKey,
-                        pwszValue,
-                        REG_DWORD,
-                        &Value,
-                        sizeof(Value));
-}
 
 static
 VOID
@@ -488,19 +435,6 @@ SpiSetBool(BOOL *pbData, INT iValue, PCWSTR pwszKey, PCWSTR pwszValue, FLONG fl)
 
 static inline
 UINT_PTR
-SpiSetDWord(PVOID pvData, INT iValue, PCWSTR pwszKey, PCWSTR pwszValue, FLONG fl)
-{
-    REQ_INTERACTIVE_WINSTA(ERROR_REQUIRES_INTERACTIVE_WINDOWSTATION);
-    *(INT*)pvData = iValue;
-    if (fl & SPIF_UPDATEINIFILE)
-    {
-        SpiStoreDWord(pwszKey, pwszValue, iValue);
-    }
-    return (UINT_PTR)pwszKey;
-}
-
-static inline
-UINT_PTR
 SpiSetInt(PVOID pvData, INT iValue, PCWSTR pwszKey, PCWSTR pwszValue, FLONG fl)
 {
     REQ_INTERACTIVE_WINSTA(ERROR_REQUIRES_INTERACTIVE_WINDOWSTATION);
@@ -530,7 +464,7 @@ UINT_PTR
 SpiSetUserPref(DWORD dwMask, PVOID pvValue, FLONG fl)
 {
     DWORD dwRegMask;
-    BOOL bValue = (BOOL)pvValue;
+    BOOL bValue = pvValue ? 1 : 0;
 
     REQ_INTERACTIVE_WINSTA(ERROR_REQUIRES_INTERACTIVE_WINDOWSTATION);
 
@@ -542,7 +476,7 @@ SpiSetUserPref(DWORD dwMask, PVOID pvValue, FLONG fl)
     {
         /* Read current value */
         RegReadUserSetting(KEY_DESKTOP,
-                           VAL_USERPREFMASK,
+                           L"UserPreferencesMask",
                            REG_BINARY,
                            &dwRegMask,
                            sizeof(DWORD));
@@ -552,7 +486,7 @@ SpiSetUserPref(DWORD dwMask, PVOID pvValue, FLONG fl)
 
         /* write back value */
         RegWriteUserSetting(KEY_DESKTOP,
-                            VAL_USERPREFMASK,
+                            L"UserPreferencesMask",
                             REG_BINARY,
                             &dwRegMask,
                             sizeof(DWORD));
@@ -841,7 +775,7 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
                 return 0;
             if (fl & SPIF_UPDATEINIFILE)
             {
-                SpiStoreMetric(VAL_BORDER, gspv.ncm.iBorderWidth);
+                SpiStoreMetric(L"BorderWidth", gspv.ncm.iBorderWidth);
                 SpiStoreMetric(L"ScrollWidth", gspv.ncm.iScrollWidth);
                 SpiStoreMetric(L"ScrollHeight", gspv.ncm.iScrollHeight);
                 SpiStoreMetric(L"CaptionWidth", gspv.ncm.iCaptionWidth);
@@ -888,9 +822,9 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
                 return 0;
             if (fl & SPIF_UPDATEINIFILE)
             {
-                SpiStoreMetric(VAL_ICONSPC, gspv.im.iHorzSpacing);
-                SpiStoreMetric(VAL_ICONVSPC, gspv.im.iVertSpacing);
-                SpiStoreMetric(VAL_ITWRAP, gspv.im.iTitleWrap);
+                SpiStoreMetric(L"IconSpacing", gspv.im.iHorzSpacing);
+                SpiStoreMetric(L"IconVerticalspacing", gspv.im.iVertSpacing);
+                SpiStoreMetric(L"IconTitleWrap", gspv.im.iTitleWrap);
                 SpiStoreFont(L"IconFont", &gspv.im.lfFont);
             }
             return (UINT_PTR)KEY_METRIC;
@@ -1143,25 +1077,25 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
             return SpiGetInt(pvParam, &gspv.iMouseTrails, fl);
 
         case SPI_SETMOUSETRAILS:
-            return SpiSetInt(&gspv.iMouseTrails, uiParam, KEY_MOUSE, VAL_MOUSETRAILS, fl);
+            return SpiSetInt(&gspv.iMouseTrails, uiParam, KEY_MOUSE, L"MouseTrails", fl);
 
         case SPI_GETSNAPTODEFBUTTON:
             return SpiGetInt(pvParam, &gspv.bSnapToDefBtn, fl);
 
         case SPI_SETSNAPTODEFBUTTON:
-            return SpiSetBool(&gspv.bSnapToDefBtn, uiParam, KEY_MOUSE, VAL_SNAPDEFBTN, fl);
+            return SpiSetBool(&gspv.bSnapToDefBtn, uiParam, KEY_MOUSE, L"SnapToDefaultButton", fl);
 
         case SPI_GETMOUSEHOVERWIDTH:
             return SpiGetInt(pvParam, &gspv.iMouseHoverWidth, fl);
 
         case SPI_SETMOUSEHOVERWIDTH:
-            return SpiSetInt(&gspv.iMouseHoverWidth, uiParam, KEY_MOUSE, VAL_HOVERWIDTH, fl);
+            return SpiSetInt(&gspv.iMouseHoverWidth, uiParam, KEY_MOUSE, L"MouseHoverWidth", fl);
 
         case SPI_GETMOUSEHOVERHEIGHT:
             return SpiGetInt(pvParam, &gspv.iMouseHoverHeight, fl);
 
         case SPI_SETMOUSEHOVERHEIGHT:
-            return SpiSetInt(&gspv.iMouseHoverHeight, uiParam, KEY_MOUSE, VAL_HOVERHEIGHT, fl);
+            return SpiSetInt(&gspv.iMouseHoverHeight, uiParam, KEY_MOUSE, L"MouseHoverHeight", fl);
 
         case SPI_GETMOUSEHOVERTIME:
             return SpiGetInt(pvParam, &gspv.iMouseHoverTime, fl);
@@ -1174,13 +1108,13 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
             *   enforce the use of USER_TIMER_MAXIMUM and USER_TIMER_MINIMUM until
             *   Windows Server 2003 SP1 and Windows XP SP2 "
             */
-            return SpiSetInt(&gspv.iMouseHoverTime, uiParam, KEY_MOUSE, VAL_HOVERTIME, fl);
+            return SpiSetInt(&gspv.iMouseHoverTime, uiParam, KEY_MOUSE, L"MouseHoverTime", fl);
 
         case SPI_GETWHEELSCROLLLINES:
             return SpiGetInt(pvParam, &gspv.iWheelScrollLines, fl);
 
         case SPI_SETWHEELSCROLLLINES:
-            return SpiSetInt(&gspv.iWheelScrollLines, uiParam, KEY_DESKTOP, VAL_SCRLLLINES, fl);
+            return SpiSetInt(&gspv.iWheelScrollLines, uiParam, KEY_DESKTOP, L"WheelScrollLines", fl);
 
         case SPI_GETMENUSHOWDELAY:
             return SpiGetInt(pvParam, &gspv.dwMenuShowDelay, fl);
@@ -1193,7 +1127,7 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
             return SpiGetInt(pvParam, &gspv.uiWheelScrollChars, fl);
 
         case SPI_SETWHEELSCROLLCHARS:
-            return SpiSetInt(&gspv.uiWheelScrollChars, uiParam, KEY_DESKTOP, VAL_SCRLLCHARS, fl);
+            return SpiSetInt(&gspv.uiWheelScrollChars, uiParam, KEY_DESKTOP, L"WheelScrollChars", fl);
 #endif
         case SPI_GETSHOWIMEUI:
             return SpiGetInt(pvParam, &gspv.bShowImeUi, fl);
@@ -1206,7 +1140,7 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
 
         case SPI_SETMOUSESPEED:
             // vgl SETMOUSE
-            return SpiSetInt(&gspv.iMouseSpeed, uiParam, KEY_MOUSE, VAL_MOUSE3, fl);
+            return SpiSetInt(&gspv.iMouseSpeed, uiParam, KEY_MOUSE, L"MouseSpeed", fl);
 
         case SPI_GETSCREENSAVERRUNNING:
             return SpiGetInt(pvParam, &gspv.bScrSaverRunning, fl);
@@ -1306,7 +1240,6 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
             return SpiGetUserPref(UPM_CURSORSHADOW, pvParam, fl);
 
         case SPI_SETCURSORSHADOW:
-            gspv.bMouseCursorShadow = (BOOL)pvParam;
             return SpiSetUserPref(UPM_CURSORSHADOW, pvParam, fl);
 
         case SPI_GETUIEFFECTS:
@@ -1322,11 +1255,10 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
             return SpiSetBool(&gspv.bMouseSonar, uiParam, KEY_MOUSE, L"", fl);
 
         case SPI_GETMOUSECLICKLOCK:
-            return SpiGetUserPref(UPM_CLICKLOCK, pvParam, fl);
+            return SpiGetInt(pvParam, &gspv.bMouseClickLock, fl);
 
         case SPI_SETMOUSECLICKLOCK:
-            gspv.bMouseClickLock = (BOOL)pvParam;
-            return SpiSetUserPref(UPM_CLICKLOCK, pvParam, fl);
+            return SpiSetBool(&gspv.bMouseClickLock, uiParam, KEY_MOUSE, L"", fl);
 
         case SPI_GETMOUSEVANISH:
             return SpiGetInt(pvParam, &gspv.bMouseVanish, fl);
@@ -1406,7 +1338,7 @@ SpiGetSet(UINT uiAction, UINT uiParam, PVOID pvParam, FLONG fl)
             return SpiGetInt(pvParam, &gspv.dwMouseClickLockTime, fl);
 
         case SPI_SETMOUSECLICKLOCKTIME:
-            return SpiSetDWord(&gspv.dwMouseClickLockTime, uiParam, KEY_DESKTOP, VAL_CLICKLOCKTIME, fl);
+            return SpiSetInt(&gspv.dwMouseClickLockTime, uiParam, KEY_MOUSE, L"", fl);
 
         case SPI_GETFONTSMOOTHINGTYPE:
             return SpiGetInt(pvParam, &gspv.uiFontSmoothingType, fl);

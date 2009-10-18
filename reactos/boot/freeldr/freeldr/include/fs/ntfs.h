@@ -214,17 +214,22 @@ typedef struct
 	NTFS_ATTR_RECORD	Record;
 } NTFS_ATTR_CONTEXT, *PNTFS_ATTR_CONTEXT;
 
-typedef struct _NTFS_VOLUME_INFO *PNTFS_VOLUME_INFO;
-
 #include <pshpack1.h>
 typedef struct
 {
 	PNTFS_ATTR_CONTEXT	DataContext;
 	ULONGLONG			Offset;
-	PNTFS_VOLUME_INFO	Volume;
 } NTFS_FILE_HANDLE, *PNTFS_FILE_HANDLE;
 #include <poppack.h>
 
-const DEVVTBL* NtfsMount(ULONG DeviceId);
+BOOLEAN	NtfsOpenVolume(UCHAR DriveNumber, ULONGLONG VolumeStartSector, ULONGLONG PartitionSectorCount);
+FILE*	NtfsOpenFile(PCSTR FileName);
+VOID	NtfsCloseFile(FILE *FileHandle);
+BOOLEAN	NtfsReadFile(FILE *FileHandle, ULONG BytesToRead, ULONG* BytesRead, PVOID Buffer);
+ULONG	NtfsGetFileSize(FILE *FileHandle);
+VOID	NtfsSetFilePointer(FILE *FileHandle, ULONG NewFilePointer);
+ULONG	NtfsGetFilePointer(FILE *FileHandle);
+
+extern const FS_VTBL NtfsVtbl;
 
 #endif // #defined __NTFS_H

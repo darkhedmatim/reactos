@@ -1,6 +1,6 @@
-/*
+/* 
  * COPYRIGHT:        See COPYING in the top level directory
- * PROJECT:          ReactOS Win32 kernelmode subsystem
+ * PROJECT:          ReactOS kernel
  * PURPOSE:          GDI stretch blt functions
  * FILE:             subsystems/win32/win32k/eng/stretchblt.c
  * PROGRAMER:        Jason Filby
@@ -38,8 +38,7 @@ CallDibStretchBlt(SURFOBJ* psoDest,
     SURFACE* psurfPattern;
     PEBRUSHOBJ GdiBrush = NULL;
     SURFOBJ* PatternSurface = NULL;
-    BOOL bResult;
-    HBITMAP hbmPattern;
+    XLATEOBJ* XlatePatternToDest = NULL;
 
     if (BrushOrigin == NULL)
     {
@@ -54,8 +53,7 @@ CallDibStretchBlt(SURFOBJ* psoDest,
     if (ROP4_USES_PATTERN(Rop4) && pbo && pbo->iSolidColor == 0xFFFFFFFF)
     {
         GdiBrush = CONTAINING_RECORD(pbo, EBRUSHOBJ, BrushObject);
-        hbmPattern = EBRUSHOBJ_pvGetEngBrush(GdiBrush);
-        psurfPattern = SURFACE_LockSurface(hbmPattern);
+        psurfPattern = SURFACE_LockSurface(GdiBrush->pbrush->hbmPattern);
         if (psurfPattern)
         {
             PatternSurface = &psurfPattern->SurfObj;
@@ -64,24 +62,23 @@ CallDibStretchBlt(SURFOBJ* psoDest,
         {
             /* FIXME - What to do here? */
         }
+        XlatePatternToDest = GdiBrush->XlateObject;
     }
     else
     {
         psurfPattern = NULL;
     }
 
-    bResult = DibFunctionsForBitmapFormat[psoDest->iBitmapFormat].DIB_StretchBlt(
-               psoDest, psoSource, Mask, PatternSurface,
-               OutputRect, InputRect, MaskOrigin, pbo, &RealBrushOrigin,
-               ColorTranslation, Rop4);
+    return DibFunctionsForBitmapFormat[psoDest->iBitmapFormat].DIB_StretchBlt(
+               psoDest, psoSource, Mask, PatternSurface, 
+               OutputRect, InputRect, MaskOrigin, pbo, &RealBrushOrigin, 
+               ColorTranslation, XlatePatternToDest, Rop4);
 
     /* Pattern brush */
     if (psurfPattern)
     {
         SURFACE_UnlockSurface(psurfPattern);
     }
-
-    return bResult;
 }
 
 
@@ -147,7 +144,7 @@ EngStretchBltROP(
         /* Copy destination onto itself: nop */
         return TRUE;
     }
-
+   
     OutputRect = *prclDest;
     if (OutputRect.right < OutputRect.left)
     {
@@ -159,14 +156,14 @@ EngStretchBltROP(
         OutputRect.top = prclDest->bottom;
         OutputRect.bottom = prclDest->top;
     }
-
+    
+    InputRect = *prclSrc;
     if (UsesSource)
     {
         if (NULL == prclSrc)
         {
             return FALSE;
         }
-        InputRect = *prclSrc;
 
         if (! IntEngEnter(&EnterLeaveSource, psoSource, &InputRect, TRUE,
                           &Translate, &psoInput))
@@ -178,13 +175,6 @@ EngStretchBltROP(
         InputRect.right += Translate.x;
         InputRect.top += Translate.y;
         InputRect.bottom += Translate.y;
-    }
-    else
-    {
-        InputRect.left = 0;
-        InputRect.right = OutputRect.right - OutputRect.left;
-        InputRect.top = 0;
-        InputRect.bottom = OutputRect.bottom - OutputRect.top;
     }
 
     if (NULL != ClipRegion)
@@ -255,12 +245,12 @@ EngStretchBltROP(
     switch (clippingType)
     {
         case DC_TRIVIAL:
-            Ret = (*BltRectFunc)(psoOutput, psoInput, Mask,
+            Ret = (*BltRectFunc)(psoOutput, psoInput, Mask, 
                          ColorTranslation, &OutputRect, &InputRect, MaskOrigin,
                          pbo, &AdjustedBrushOrigin, ROP4);
             break;
         case DC_RECT:
-            // Clip the blt to the clip rectangle
+            // Clip the blt to the clip rectangle 
             ClipRect.left = ClipRegion->rclBounds.left + Translate.x;
             ClipRect.right = ClipRegion->rclBounds.right + Translate.x;
             ClipRect.top = ClipRegion->rclBounds.top + Translate.y;
@@ -271,13 +261,13 @@ EngStretchBltROP(
                 InputToCombinedRect.bottom = InputRect.top + (CombinedRect.bottom - OutputRect.top) * SrcHeight / DstHeight;
                 InputToCombinedRect.left = InputRect.left + (CombinedRect.left - OutputRect.left) * SrcWidth / DstWidth;
                 InputToCombinedRect.right = InputRect.left + (CombinedRect.right - OutputRect.left) * SrcWidth / DstWidth;
-                Ret = (*BltRectFunc)(psoOutput, psoInput, Mask,
-                           ColorTranslation,
+                Ret = (*BltRectFunc)(psoOutput, psoInput, Mask, 
+                           ColorTranslation, 
                            &CombinedRect,
                            &InputToCombinedRect,
                            MaskOrigin,
-                           pbo,
-                           &AdjustedBrushOrigin,
+                           pbo, 
+                           &AdjustedBrushOrigin, 
                            ROP4);
             }
             break;
@@ -316,13 +306,13 @@ EngStretchBltROP(
                         InputToCombinedRect.bottom = InputRect.top + (CombinedRect.bottom - OutputRect.top) * SrcHeight / DstHeight;
                         InputToCombinedRect.left = InputRect.left + (CombinedRect.left - OutputRect.left) * SrcWidth / DstWidth;
                         InputToCombinedRect.right = InputRect.left + (CombinedRect.right - OutputRect.left) * SrcWidth / DstWidth;
-                        Ret = (*BltRectFunc)(psoOutput, psoInput, Mask,
-                           ColorTranslation,
+                        Ret = (*BltRectFunc)(psoOutput, psoInput, Mask, 
+                           ColorTranslation, 
                            &CombinedRect,
                            &InputToCombinedRect,
                            MaskOrigin,
-                           pbo,
-                           &AdjustedBrushOrigin,
+                           pbo, 
+                           &AdjustedBrushOrigin, 
                            ROP4);
                     }
                 }
@@ -414,7 +404,7 @@ IntEngStretchBlt(SURFOBJ *psoDest,
         InputClippedRect.top = DestRect->bottom;
         InputClippedRect.bottom = DestRect->top;
     }
-
+    
     if (UsesSource)
     {
         if (NULL == SourceRect || NULL == psoSource)
@@ -422,14 +412,14 @@ IntEngStretchBlt(SURFOBJ *psoDest,
             return FALSE;
         }
         InputRect = *SourceRect;
-
+ 
         if (InputRect.right < InputRect.left ||
                 InputRect.bottom < InputRect.top)
         {
             /* Everything clipped away, nothing to do */
             return TRUE;
         }
-    }
+    }    
 
     if (ClipRegion)
     {
@@ -453,7 +443,7 @@ IntEngStretchBlt(SURFOBJ *psoDest,
     {
         OutputRect = InputClippedRect;
     }
-
+    
     if (pMaskOrigin != NULL)
     {
         MaskOrigin.x = pMaskOrigin->x; MaskOrigin.y = pMaskOrigin->y;

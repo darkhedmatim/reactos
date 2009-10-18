@@ -128,7 +128,7 @@ typedef unsigned char boolean;
    (RpcExceptionCode() == RPC_X_BAD_STUB_DATA) || \
    (RpcExceptionCode() == RPC_S_INVALID_BOUND))
 
-typedef struct _NDR_SCONTEXT
+typedef struct
 {
   void *pad[2];
   void *userContext;
@@ -177,6 +177,7 @@ typedef struct _NDR_PIPE_MESSAGE *PNDR_PIPE_MESSAGE;
 typedef struct _NDR_ASYNC_MESSAGE *PNDR_ASYNC_MESSAGE;
 typedef struct _NDR_CORRELATION_INFO *PNDR_CORRELATION_INFO;
 
+#include <pshpack4.h>
 typedef struct _MIDL_STUB_MESSAGE
 {
   PRPC_MESSAGE RpcMsg;
@@ -201,7 +202,7 @@ typedef struct _MIDL_STUB_MESSAGE
   ULONG_PTR MaxCount;
   ULONG Offset;
   ULONG ActualCount;
-  void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(SIZE_T);
+  void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(size_t);
   void (__RPC_API *pfnFree)(void *);
   unsigned char *StackTop;
   unsigned char *pPresentedType;
@@ -253,6 +254,7 @@ typedef struct _MIDL_STUB_MESSAGE
   INT_PTR Reserved51_4;
   INT_PTR Reserved51_5;
 } MIDL_STUB_MESSAGE, *PMIDL_STUB_MESSAGE;
+#include <poppack.h>
 
 typedef void * (__RPC_API * GENERIC_BINDING_ROUTINE)(void *);
 typedef void (__RPC_API * GENERIC_UNBIND_ROUTINE)(void *, unsigned char *);
@@ -327,7 +329,7 @@ typedef struct _USER_MARSHAL_CB
 
 typedef struct _MALLOC_FREE_STRUCT
 {
-  void * (__WINE_ALLOC_SIZE(1) __RPC_USER *pfnAllocate)(SIZE_T);
+  void * (__WINE_ALLOC_SIZE(1) __RPC_USER *pfnAllocate)(size_t);
   void   (__RPC_USER *pfnFree)(void *);
 } MALLOC_FREE_STRUCT;
 
@@ -340,7 +342,7 @@ typedef struct _COMM_FAULT_OFFSETS
 typedef struct _MIDL_STUB_DESC
 {
   void *RpcInterfaceInformation;
-  void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(SIZE_T);
+  void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(size_t);
   void (__RPC_API *pfnFree)(void *);
   union {
     handle_t *pAutoHandle;
@@ -479,7 +481,7 @@ typedef struct _NDR_USER_MARSHAL_INFO_LEVEL1
 {
     void *Buffer;
     ULONG BufferSize;
-    void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(SIZE_T);
+    void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(size_t);
     void (__RPC_API *pfnFree)(void *);
     struct IRpcChannelBuffer *pRpcChannelBuffer;
     ULONG_PTR Reserved[5];
@@ -683,7 +685,7 @@ RPCRTAPI RPC_STATUS RPC_ENTRY
                             ULONG *pFaultStatus, RPC_STATUS Status_ );
 
 RPCRTAPI void* RPC_ENTRY
-  NdrOleAllocate( SIZE_T Size ) __WINE_ALLOC_SIZE(1);
+  NdrOleAllocate( size_t Size ) __WINE_ALLOC_SIZE(1);
 RPCRTAPI void RPC_ENTRY
   NdrOleFree( void* NodeToFree );
 
@@ -744,11 +746,11 @@ RPCRTAPI void RPC_ENTRY
 RPCRTAPI void RPC_ENTRY
   NdrRpcSmSetClientToOsf( PMIDL_STUB_MESSAGE pMessage );
 RPCRTAPI void * RPC_ENTRY
-  NdrRpcSmClientAllocate( SIZE_T Size ) __WINE_ALLOC_SIZE(1);
+  NdrRpcSmClientAllocate( size_t Size ) __WINE_ALLOC_SIZE(1);
 RPCRTAPI void RPC_ENTRY
   NdrRpcSmClientFree( void *NodeToFree );
 RPCRTAPI void * RPC_ENTRY
-  NdrRpcSsDefaultAllocate( SIZE_T Size ) __WINE_ALLOC_SIZE(1);
+  NdrRpcSsDefaultAllocate( size_t Size ) __WINE_ALLOC_SIZE(1);
 RPCRTAPI void RPC_ENTRY
   NdrRpcSsDefaultFree( void *NodeToFree );
 

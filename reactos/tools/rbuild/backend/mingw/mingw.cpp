@@ -59,6 +59,8 @@ const struct ModuleHandlerInformations ModuleHandlerInformations[] = {
 	{ HostFalse, "", "", "" }, // Win32SCR
 	{ HostFalse, "", "", "" }, // IdlHeader
 	{ HostFalse, "", "", "" }, // IdlInterface
+	{ HostFalse, "", "", "" }, // IsoRegTest
+	{ HostFalse, "", "", "" }, // LiveIsoRegTest
 	{ HostFalse, "", "", "" }, // EmbeddedTypeLib
 	{ HostFalse, "", "", "" }, // ElfExecutable
 	{ HostFalse, "", "", "" }, // RpcProxy
@@ -162,10 +164,7 @@ v2s ( const Backend* backend, const vector<FileLocation>& files, int wrap_at )
 	{
 		const FileLocation& file = files[i];
 		if ( wrap_at > 0 && wrap_count++ == wrap_at )
-		{
 			s += " \\\n\t\t";
-			wrap_count = 1;
-		}
 		else if ( s.size() )
 			s += " ";
 		s += backend->GetFullName ( file );
@@ -186,10 +185,7 @@ v2s ( const string_list& v, int wrap_at )
 		if ( !v[i].size() )
 			continue;
 		if ( wrap_at > 0 && wrap_count++ == wrap_at )
-		{
 			s += " \\\n\t\t";
-			wrap_count = 1;
-		}
 		else if ( s.size() )
 			s += " ";
 		s += v[i];
@@ -460,7 +456,6 @@ MingwBackend::GenerateGlobalVariables () const
 	if ( ProjectNode.configuration.Compiler == GnuGcc )
 	{
 		fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
-		fprintf ( fMakefile, "PROJECT_ASFLAGS += -march=$(OARCH)\n" );
 		fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
 		fprintf ( fMakefile, "PROJECT_CXXFLAGS += -march=$(OARCH)\n" );
 		fprintf ( fMakefile, "endif\n" );
@@ -504,7 +499,7 @@ MingwBackend::GenerateGlobalVariables () const
 		{
 				fprintf ( fMakefile,
 						  "MODULETYPE%d_%sFLAGS:=%s\n",
-						  (int)i,
+						  i,
 						  "C",
 						  ModuleHandlerInformations[i].cflags );
 		}
@@ -513,7 +508,7 @@ MingwBackend::GenerateGlobalVariables () const
 		{
 				fprintf ( fMakefile,
 						  "MODULETYPE%d_%sFLAGS:=%s\n",
-						  (int)i,
+						  i,
 						  "CXX",
 						  ModuleHandlerInformations[i].cflags );
 		}
@@ -522,7 +517,7 @@ MingwBackend::GenerateGlobalVariables () const
 		{
 				fprintf ( fMakefile,
 						  "MODULETYPE%d_%sFLAGS:=%s\n",
-						  (int)i,
+						  i,
 						  "NASM",
 						  ModuleHandlerInformations[i].nasmflags );
 		}
@@ -541,6 +536,10 @@ MingwBackend::IncludeInAllTarget ( const Module& module ) const
 	if ( module.type == Iso )
 		return false;
 	if ( module.type == LiveIso )
+		return false;
+	if ( module.type == IsoRegTest )
+		return false;
+	if ( module.type == LiveIsoRegTest )
 		return false;
 	if ( module.type == Test )
 		return false;
@@ -740,24 +739,12 @@ MingwBackend::DetectCompiler ()
 
 	if ( ProjectNode.configuration.Compiler == GnuGcc )
 	{
-		const string& TARGET_CCValue = Environment::GetVariable ( "TARGET_CC" );
 		const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
-
-		if ( TARGET_CCValue.length () > 0 )
+		if ( ROS_PREFIXValue.length () > 0 )
 		{
-			compilerPrefix = "";
-			compilerCommand = TARGET_CCValue;
+			compilerPrefix = ROS_PREFIXValue;
+			compilerCommand = compilerPrefix + "-gcc";
 			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-		}
-
-		if ( !detectedCompiler )
-		{
-			if ( ROS_PREFIXValue.length () > 0 )
-			{
-				compilerPrefix = ROS_PREFIXValue;
-				compilerCommand = compilerPrefix + "-gcc";
-				detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-			}
 		}
 #if defined(WIN32)
 		if ( !detectedCompiler )

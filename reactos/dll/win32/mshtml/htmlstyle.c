@@ -59,8 +59,6 @@ static const WCHAR attrBorderLeft[] =
     {'b','o','r','d','e','r','-','l','e','f','t',0};
 static const WCHAR attrBorderLeftStyle[] =
     {'b','o','r','d','e','r','-','l','e','f','t','-','s','t','y','l','e',0};
-static const WCHAR attrBorderLeftWidth[] =
-    {'b','o','r','d','e','r','-','l','e','f','t','-','w','i','d','t','h',0};
 static const WCHAR attrBorderRightStyle[] =
     {'b','o','r','d','e','r','-','r','i','g','h','t','-','s','t','y','l','e',0};
 static const WCHAR attrBorderRightWidth[] =
@@ -95,8 +93,6 @@ static const WCHAR attrHeight[] =
     {'h','e','i','g','h','t',0};
 static const WCHAR attrLeft[] =
     {'l','e','f','t',0};
-static const WCHAR attrLetterSpacing[] =
-    {'l','e','t','t','e','r','-','s','p','a','c','i','n','g',0};
 static const WCHAR attrMargin[] =
     {'m','a','r','g','i','n',0};
 static const WCHAR attrMarginLeft[] =
@@ -123,10 +119,6 @@ static const WCHAR attrVisibility[] =
     {'v','i','s','i','b','i','l','i','t','y',0};
 static const WCHAR attrWidth[] =
     {'w','i','d','t','h',0};
-static const WCHAR attrWordSpacing[] =
-    {'w','o','r','d','-','s','p','a','c','i','n','g',0};
-static const WCHAR attrWordWrap[] =
-    {'w','o','r','d','-','w','r','a','p',0};
 static const WCHAR attrZIndex[] =
     {'z','-','i','n','d','e','x',0};
 
@@ -146,7 +138,6 @@ static const struct{
     {attrBorderColor,          DISPID_IHTMLSTYLE_BORDERCOLOR},
     {attrBorderLeft,           DISPID_IHTMLSTYLE_BORDERLEFT},
     {attrBorderLeftStyle,      DISPID_IHTMLSTYLE_BORDERLEFTSTYLE},
-    {attrBorderLeftWidth,      DISPID_IHTMLSTYLE_BORDERLEFTWIDTH},
     {attrBorderRightStyle,     DISPID_IHTMLSTYLE_BORDERRIGHTSTYLE},
     {attrBorderRightWidth,     DISPID_IHTMLSTYLE_BORDERRIGHTWIDTH},
     {attrBorderStyle,          DISPID_IHTMLSTYLE_BORDERSTYLE},
@@ -164,7 +155,6 @@ static const struct{
     {attrFontWeight,           DISPID_IHTMLSTYLE_FONTWEIGHT},
     {attrHeight,               DISPID_IHTMLSTYLE_HEIGHT},
     {attrLeft,                 DISPID_IHTMLSTYLE_LEFT},
-    {attrLetterSpacing,        DISPID_IHTMLSTYLE_LETTERSPACING},
     {attrMargin,               DISPID_IHTMLSTYLE_MARGIN},
     {attrMarginLeft,           DISPID_IHTMLSTYLE_MARGINLEFT},
     {attrMarginRight,          DISPID_IHTMLSTYLE_MARGINRIGHT},
@@ -178,8 +168,6 @@ static const struct{
     {attrVerticalAlign,        DISPID_IHTMLSTYLE_VERTICALALIGN},
     {attrVisibility,           DISPID_IHTMLSTYLE_VISIBILITY},
     {attrWidth,                DISPID_IHTMLSTYLE_WIDTH},
-    {attrWordSpacing,          DISPID_IHTMLSTYLE_WORDSPACING},
-    {attrWordWrap,             DISPID_IHTMLSTYLE3_WORDWRAP},
     {attrZIndex,               DISPID_IHTMLSTYLE_ZINDEX}
 };
 
@@ -554,7 +542,6 @@ static ULONG WINAPI HTMLStyle_Release(IHTMLStyle *iface)
     if(!ref) {
         if(This->nsstyle)
             nsIDOMCSSStyleDeclaration_Release(This->nsstyle);
-        release_dispex(&This->dispex);
         heap_free(This);
     }
 
@@ -930,29 +917,29 @@ static HRESULT WINAPI HTMLStyle_get_backgroundPositionY(IHTMLStyle *iface, VARIA
 static HRESULT WINAPI HTMLStyle_put_wordSpacing(IHTMLStyle *iface, VARIANT v)
 {
     HTMLStyle *This = HTMLSTYLE_THIS(iface);
-    TRACE("(%p)->(v%d)\n", This, V_VT(&v));
-    return set_nsstyle_attr_var(This->nsstyle, STYLEID_WORD_SPACING, &v, 0);
+    FIXME("(%p)->(v%d)\n", This, V_VT(&v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle_get_wordSpacing(IHTMLStyle *iface, VARIANT *p)
 {
     HTMLStyle *This = HTMLSTYLE_THIS(iface);
-    TRACE("(%p)->(%p)\n", This, p);
-    return get_nsstyle_attr_var(This->nsstyle, STYLEID_WORD_SPACING, p, 0);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle_put_letterSpacing(IHTMLStyle *iface, VARIANT v)
 {
     HTMLStyle *This = HTMLSTYLE_THIS(iface);
-    TRACE("(%p)->(v%d)\n", This, V_VT(&v));
-    return set_nsstyle_attr_var(This->nsstyle, STYLEID_LETTER_SPACING, &v, 0);
+    FIXME("(%p)->(v%d)\n", This, V_VT(&v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle_get_letterSpacing(IHTMLStyle *iface, VARIANT *p)
 {
     HTMLStyle *This = HTMLSTYLE_THIS(iface);
-    TRACE("(%p)->(%p)\n", This, p);
-    return get_nsstyle_attr_var(This->nsstyle, STYLEID_LETTER_SPACING, p, 0);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle_put_textDecoration(IHTMLStyle *iface, BSTR v)
@@ -1584,15 +1571,15 @@ static HRESULT WINAPI HTMLStyle_get_borderBottomWidth(IHTMLStyle *iface, VARIANT
 static HRESULT WINAPI HTMLStyle_put_borderLeftWidth(IHTMLStyle *iface, VARIANT v)
 {
     HTMLStyle *This = HTMLSTYLE_THIS(iface);
-    TRACE("(%p)->(v%d)\n", This, V_VT(&v));
-    return set_nsstyle_attr_var(This->nsstyle, STYLEID_BORDER_LEFT_WIDTH, &v, 0);
+    FIXME("(%p)->(v%d)\n", This, V_VT(&v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle_get_borderLeftWidth(IHTMLStyle *iface, VARIANT *p)
 {
     HTMLStyle *This = HTMLSTYLE_THIS(iface);
-    TRACE("(%p)->(%p)\n", This, p);
-    return get_nsstyle_attr_var(This->nsstyle, STYLEID_BORDER_LEFT_WIDTH, p, 0);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle_put_borderStyle(IHTMLStyle *iface, BSTR v)
@@ -2611,7 +2598,6 @@ static const IHTMLStyleVtbl HTMLStyleVtbl = {
 };
 
 static const dispex_static_data_vtbl_t HTMLStyle_dispex_vtbl = {
-    NULL,
     HTMLStyle_get_dispid,
     NULL
 };

@@ -41,19 +41,13 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "Мас&штаб"
         BEGIN
-            POPUP "Выбрать"
-            BEGIN
-                MENUITEM "12,5%", IDM_VIEWZOOM125
-                MENUITEM "25%", IDM_VIEWZOOM25
-                MENUITEM "50%", IDM_VIEWZOOM50
-                MENUITEM "100%", IDM_VIEWZOOM100
-                MENUITEM "200%", IDM_VIEWZOOM200
-                MENUITEM "400%", IDM_VIEWZOOM400
-                MENUITEM "800%", IDM_VIEWZOOM800
-            END
-            MENUITEM SEPARATOR
-            MENUITEM "Показать сетку", IDM_VIEWSHOWGRID
-            MENUITEM "Показать эскиз", IDM_VIEWSHOWMINIATURE
+            MENUITEM "12,5%", IDM_VIEWZOOM125
+            MENUITEM "25%", IDM_VIEWZOOM25
+            MENUITEM "50%", IDM_VIEWZOOM50
+            MENUITEM "100%", IDM_VIEWZOOM100
+            MENUITEM "200%", IDM_VIEWZOOM200
+            MENUITEM "400%", IDM_VIEWZOOM400
+            MENUITEM "800%", IDM_VIEWZOOM800
         END
         MENUITEM "Полный экран\tCtrl+F", IDM_VIEWFULLSCREEN
     END
@@ -173,7 +167,6 @@ BEGIN
     IDS_INFOTEXT, "Paint для ReactOS распространяется под лицензией GNU Lesser General Public License (LGPL) версии 3 (see www.gnu.org)"
     IDS_SAVEPROMPTTEXT, "Сохранить изменения в %s?"
     IDS_DEFAULTFILENAME, "Без_имени.bmp"
-    IDS_MINIATURETITLE, "Эскиз"
     IDS_TOOLTIP1, "Выделение произвольной области"
     IDS_TOOLTIP2, "Выделение"
     IDS_TOOLTIP3, "Ластик"
@@ -192,6 +185,4 @@ BEGIN
     IDS_TOOLTIP16, "Скругленный прямоугольник"
     IDS_OPENFILTER, "Точечные рисунки (*.bmp;*.dib)\1*.bmp;*.dib\1Все файлы (*.*)\1*.*\1"
     IDS_SAVEFILTER, "24-разрядный рисунок (*.bmp;*.dib)\1*.bmp;*.dib\1"
-    IDS_FILESIZE, "%d bytes"
-    IDS_PRINTRES, "%d x %d pixels per meter"
 END

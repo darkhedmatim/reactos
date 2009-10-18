@@ -42,5 +42,5 @@ NTAPI
 RtlpFreeMemory(PVOID Mem,
                ULONG Tag)
 {
-	MmHeapFree(Mem);
+	return MmHeapFree(Mem);
 }

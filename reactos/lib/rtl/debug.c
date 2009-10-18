@@ -54,22 +54,22 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
                               IN va_list ap,
                               IN BOOLEAN HandleBreakpoint)
 {
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ANSI_STRING DebugString;
     CHAR Buffer[512];
     ULONG Length, PrefixLength;
     EXCEPTION_RECORD ExceptionRecord;
 
     /* Check if we should print it or not */
-    if ((ComponentId != MAXULONG) &&
+    if ((ComponentId != -1U) &&
         !(NtQueryDebugFilterState(ComponentId, Level)))
     {
         /* This message is masked */
-        return STATUS_SUCCESS;
+        return Status;
     }
 
     /* For user mode, don't recursively DbgPrint */
-    if (RtlpSetInDbgPrint(TRUE)) return STATUS_SUCCESS;
+    if (RtlpSetInDbgPrint(TRUE)) return Status;
 
     /* Guard against incorrect pointers */
     _SEH2_TRY
@@ -91,12 +91,13 @@ vDbgPrintExWithPrefixInternal(IN LPCSTR Prefix,
     {
         /* Fail */
         Length = PrefixLength = 0;
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        Status = _SEH2_GetExceptionCode();
     }
     _SEH2_END;
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Check if we went past the buffer */
-    if (Length == MAXULONG)
+    if (Length == -1U)
     {
         /* Terminate it if we went over-board */
         Buffer[sizeof(Buffer) - 1] = '\n';
@@ -317,7 +318,7 @@ DbgSetDebugFilterState(IN ULONG ComponentId,
 /*
  * @implemented
  */
-VOID
+NTSTATUS
 NTAPI
 DbgLoadImageSymbols(IN PANSI_STRING Name,
                     IN PVOID Base,
@@ -346,6 +347,7 @@ DbgLoadImageSymbols(IN PANSI_STRING Name,
 
     /* Load the symbols */
     DebugService2(Name, &SymbolInfo, BREAKPOINT_LOAD_SYMBOLS);
+    return STATUS_SUCCESS;
 }
 
 /*

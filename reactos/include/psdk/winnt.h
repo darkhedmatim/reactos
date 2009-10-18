@@ -56,9 +56,8 @@ extern "C" {
 #include <string.h>
 
 /* FIXME: add more architectures. Is there a way to specify this in GCC? */
-#if defined(_M_AMD64)
-#undef UNALIGNED
-#define UNALIGNED __unaligned
+#ifdef _X86_
+#define UNALIGNED
 #else
 #define UNALIGNED
 #endif
@@ -106,7 +105,7 @@ extern "C" {
 #endif
 typedef char CHAR;
 typedef short SHORT;
-#if !defined(__ROS_LONG64__) || defined(_M_AMD64)
+#ifndef __ROS_LONG64__
 typedef long LONG;
 #else
 typedef int LONG;
@@ -198,7 +197,7 @@ typedef WORD LANGID;
 #endif
 #undef __int64
 #define __int64 long long
-#elif (defined(__WATCOMC__) || defined(_MSC_VER)) && (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 64 )
+#elif defined(__WATCOMC__) && (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 64 )
 #define _HAVE_INT64
 #endif /* __GNUC__/__WATCOMC */
 #if defined(_HAVE_INT64) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 64)
@@ -233,7 +232,9 @@ typedef DWORD FLONG;
 #define C_ASSERT(e) typedef char __C_ASSERT_JOIN(__C_ASSERT__, __LINE__)[(e) ? 1 : -1]
 
 
+#ifdef __GNUC__
 #include "intrin.h"
+#endif
 
 #define NTAPI __stdcall
 #include <basetsd.h>
@@ -473,9 +474,12 @@ typedef DWORD FLONG;
 #define FILE_SUPPORTS_ENCRYPTION        0x00020000
 #define FILE_NAMED_STREAMS              0x00040000
 
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define IO_COMPLETION_QUERY_STATE       0x0001
 #define IO_COMPLETION_MODIFY_STATE      0x0002
 #define IO_COMPLETION_ALL_ACCESS        (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|0x3)
+#endif
 /* end ntifs.h */
 
 /* also in ddk/winddk.h */
@@ -485,6 +489,8 @@ typedef DWORD FLONG;
 
 #define MAILSLOT_NO_MESSAGE	((DWORD)-1)
 #define MAILSLOT_WAIT_FOREVER	((DWORD)-1)
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define PROCESS_TERMINATE	1
 #define PROCESS_CREATE_THREAD	2
 #define PROCESS_SET_SESSIONID	4
@@ -498,17 +504,23 @@ typedef DWORD FLONG;
 #define PROCESS_SUSPEND_RESUME	2048
 #define PROCESS_QUERY_LIMITED_INFORMATION 0x1000
 #define PROCESS_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|0xFFF)
+#endif
 #define PROCESS_DUP_HANDLE	64
 #define THREAD_TERMINATE	1
 #define THREAD_SUSPEND_RESUME	2
 #define THREAD_GET_CONTEXT	8
 #define THREAD_SET_CONTEXT	16
 #define THREAD_SET_INFORMATION	32
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define THREAD_QUERY_INFORMATION	64
 #define THREAD_SET_THREAD_TOKEN	128
 #define THREAD_IMPERSONATE	256
 #define THREAD_DIRECT_IMPERSONATION	0x200
+#endif
 #define THREAD_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|0x3FF)
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define MUTANT_QUERY_STATE	0x0001
 #define MUTANT_ALL_ACCESS	(STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|MUTANT_QUERY_STATE)
 #define TIMER_QUERY_STATE	0x0001
@@ -518,6 +530,7 @@ typedef DWORD FLONG;
 #define THREAD_BASE_PRIORITY_MAX	2
 #define THREAD_BASE_PRIORITY_MIN	(-2)
 #define THREAD_BASE_PRIORITY_IDLE	(-15)
+#endif
 /*
  * To prevent gcc compiler warnings, bracket these defines when initialising
  * a  SID_IDENTIFIER_AUTHORITY, eg.
@@ -735,6 +748,8 @@ typedef enum {
 #define SE_CHANGE_NOTIFY_NAME	TEXT("SeChangeNotifyPrivilege")
 #define SE_REMOTE_SHUTDOWN_NAME	TEXT("SeRemoteShutdownPrivilege")
 #define SE_CREATE_GLOBAL_NAME TEXT("SeCreateGlobalPrivilege")
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define SE_GROUP_MANDATORY 1
 #define SE_GROUP_ENABLED_BY_DEFAULT 2
 #define SE_GROUP_ENABLED 4
@@ -742,6 +757,7 @@ typedef enum {
 #define SE_GROUP_USE_FOR_DENY_ONLY 16
 #define SE_GROUP_LOGON_ID 3221225472U
 #define SE_GROUP_RESOURCE 536870912
+#endif
 #define LANG_NEUTRAL   0x00
 #define LANG_INVARIANT   0x7f
 #define LANG_AFRIKAANS   0x36
@@ -868,17 +884,25 @@ typedef enum {
 #define LANG_YORUBA   0x6a
 #define LANG_ZULU   0x35
 
-/* FIXME: non-standard */
+#ifdef _WINE
 #define LANG_ESPERANTO      0x8f
 #define LANG_WALON          0x90
 #define LANG_CORNISH        0x91
 
-/* FIXME: not present in the official headers */
 #define LANG_GAELIC         0x94
+#define LANG_MALTESE        0x3a
+#define LANG_ROMANSH        0x17
 #define LANG_SAAMI          0x3b
+#define LANG_LOWER_SORBIAN  0x2e
+#define LANG_UPPER_SORBIAN  0x2e
 #define LANG_SUTU           0x30
+#define LANG_TAJIK          0x28
 #define LANG_TSONGA         0x31
+#define LANG_TSWANA         0x32
 #define LANG_VENDA          0x33
+#define LANG_XHOSA          0x34
+#define LANG_ZULU           0x35
+#endif
 
 #define SUBLANG_CUSTOM_UNSPECIFIED   0x04
 #define SUBLANG_CUSTOM_DEFAULT   0x03
@@ -1263,6 +1287,8 @@ typedef enum {
 #define MEM_WRITE_WATCH	   0x200000 /* 98/Me */
 #define MEM_PHYSICAL	   0x400000
 #define MEM_4MB_PAGES    0x80000000
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define MEM_IMAGE        SEC_IMAGE
 #define SEC_NO_CHANGE	0x00400000
 #define SEC_FILE	0x00800000
@@ -1271,6 +1297,7 @@ typedef enum {
 #define SEC_RESERVE	0x04000000
 #define SEC_COMMIT	0x08000000
 #define SEC_NOCACHE	0x10000000
+#endif
 #define SECTION_EXTEND_SIZE 16
 #define SECTION_MAP_READ 4
 #define SECTION_MAP_WRITE 2
@@ -1278,14 +1305,16 @@ typedef enum {
 #define SECTION_MAP_EXECUTE 8
 #define SECTION_ALL_ACCESS 0xf001f
 #define WRITE_WATCH_FLAG_RESET 0x01
+#ifndef _NTDDK_
 #define MESSAGE_RESOURCE_UNICODE 1
+#endif
 #define RTL_CRITSECT_TYPE 0
 #define RTL_RESOURCE_TYPE 1
 /* Also in winddk.h */
-#if !defined(__GNUC__)
-#define FIELD_OFFSET(t,f) ((LONG)(LONG_PTR)&(((t*) 0)->f))
+#ifndef __GNUC__
+#define FIELD_OFFSET(t,f) ((LONG_PTR)&(((t*)0)->f))
 #else
-#define FIELD_OFFSET(t,f) ((LONG)__builtin_offsetof(t,f))
+#define FIELD_OFFSET(t,f) __builtin_offsetof(t,f)
 #endif
 #ifndef CONTAINING_RECORD
 #define CONTAINING_RECORD(address, type, field) \
@@ -1908,6 +1937,8 @@ typedef struct _GENERIC_MAPPING {
 	ACCESS_MASK GenericExecute;
 	ACCESS_MASK GenericAll;
 } GENERIC_MAPPING, *PGENERIC_MAPPING;
+/* Sigh..when will they learn... */
+#ifndef _NTDDK_
 typedef struct _ACE_HEADER {
 	BYTE AceType;
 	BYTE AceFlags;
@@ -2028,6 +2059,7 @@ typedef struct _SYSTEM_ALARM_CALLBACK_OBJECT_ACE {
 	GUID InheritedObjectType;
 	DWORD SidStart;
 } SYSTEM_ALARM_CALLBACK_OBJECT_ACE, *PSYSTEM_ALARM_CALLBACK_OBJECT_ACE;
+#endif
 typedef struct _ACL {
 	BYTE AclRevision;
 	BYTE Sbz1;
@@ -2814,10 +2846,6 @@ typedef struct _CONTEXT {
 } CONTEXT;
 #elif defined(ARM)
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE                         0x1000 // FIXME: This should probably go elsewhere
-#endif
-
 /* The following flags control the contents of the CONTEXT structure. */
 
 #define CONTEXT_ARM    0x0000040
@@ -2981,6 +3009,8 @@ typedef struct _SE_IMPERSONATION_STATE {
 	BOOLEAN EffectiveOnly;
 	SECURITY_IMPERSONATION_LEVEL Level;
 } SE_IMPERSONATION_STATE,*PSE_IMPERSONATION_STATE;
+/* Steven you are my hero when you fix the w32api ddk! */
+#if !defined(_NTDDK_)
 typedef struct _SID_IDENTIFIER_AUTHORITY {
 	BYTE Value[6];
 } SID_IDENTIFIER_AUTHORITY,*PSID_IDENTIFIER_AUTHORITY,*LPSID_IDENTIFIER_AUTHORITY;
@@ -3122,6 +3152,7 @@ typedef enum _TOKEN_INFORMATION_CLASS {
   MaxTokenInfoClass
 } TOKEN_INFORMATION_CLASS;
 
+#endif
 typedef enum _SID_NAME_USE {
 	SidTypeUser=1,SidTypeGroup,SidTypeDomain,SidTypeAlias,
 	SidTypeWellKnownGroup,SidTypeDeletedAccount,SidTypeInvalid,
@@ -3208,11 +3239,13 @@ typedef struct _TAPE_CREATE_PARTITION {
 	DWORD Count;
 	DWORD Size;
 } TAPE_CREATE_PARTITION,*PTAPE_CREATE_PARTITION;
+/* Sigh..when will they learn... */
+#ifndef _NTDDK_
 typedef struct _MEMORY_BASIC_INFORMATION {
 	PVOID BaseAddress;
 	PVOID AllocationBase;
 	DWORD AllocationProtect;
-	SIZE_T RegionSize;
+	DWORD RegionSize;
 	DWORD State;
 	DWORD Protect;
 	DWORD Type;
@@ -3231,6 +3264,7 @@ typedef struct _MESSAGE_RESOURCE_DATA {
 	DWORD NumberOfBlocks;
 	MESSAGE_RESOURCE_BLOCK Blocks[1];
 } MESSAGE_RESOURCE_DATA,*PMESSAGE_RESOURCE_DATA;
+#endif
 typedef struct _LIST_ENTRY {
 	struct _LIST_ENTRY *Flink;
 	struct _LIST_ENTRY *Blink;
@@ -3239,53 +3273,20 @@ typedef struct _SINGLE_LIST_ENTRY {
 	struct _SINGLE_LIST_ENTRY *Next;
 } SINGLE_LIST_ENTRY,*PSINGLE_LIST_ENTRY;
 
-//
-// Slist Header
-//
 #ifndef _SLIST_HEADER_
 #define _SLIST_HEADER_
-
 #define SLIST_ENTRY SINGLE_LIST_ENTRY
 #define _SLIST_ENTRY _SINGLE_LIST_ENTRY
 #define PSLIST_ENTRY PSINGLE_LIST_ENTRY
-
-#if defined(_WIN64)
-typedef union DECLSPEC_ALIGN(16) _SLIST_HEADER {
-    struct {
-        ULONGLONG Alignment;
-        ULONGLONG Region;
-    } DUMMYSTRUCTNAME;
-    struct {
-        ULONGLONG Depth:16;
-        ULONGLONG Sequence:9;
-        ULONGLONG NextEntry:39;
-        ULONGLONG HeaderType:1;
-        ULONGLONG Init:1;
-        ULONGLONG Reserved:59;
-        ULONGLONG Region:3;
-    } Header8;
-    struct {
-        ULONGLONG Depth:16;
-        ULONGLONG Sequence:48;
-        ULONGLONG HeaderType:1;
-        ULONGLONG Init:1;
-        ULONGLONG Reserved:2;
-        ULONGLONG NextEntry:60;
-    } Header16;
-} SLIST_HEADER, *PSLIST_HEADER;
-#else
 typedef union _SLIST_HEADER {
-    ULONGLONG Alignment;
-    struct {
-        SLIST_ENTRY Next;
-        USHORT Depth;
-        USHORT Sequence;
-    } DUMMYSTRUCTNAME;
-} SLIST_HEADER, *PSLIST_HEADER;
-#endif
-
-#endif /* _SLIST_HEADER_ */
-
+	ULONGLONG Alignment;
+	_ANONYMOUS_STRUCT struct {
+		SLIST_ENTRY Next;
+		WORD Depth;
+		WORD Sequence;
+	} DUMMYSTRUCTNAME;
+} SLIST_HEADER,*PSLIST_HEADER;
+#endif /* !_SLIST_HEADER_ */
 
 NTSYSAPI
 VOID
@@ -3330,6 +3331,8 @@ RtlQueryDepthSList (
     IN PSLIST_HEADER ListHead
     );
 
+/* FIXME: Please oh please stop including winnt.h from the DDK... */
+#ifndef _NTDDK_
 typedef struct _RTL_CRITICAL_SECTION_DEBUG {
 	WORD Type;
 	WORD CreatorBackTraceIndex;
@@ -3349,6 +3352,7 @@ typedef struct _RTL_CRITICAL_SECTION {
 	HANDLE LockSemaphore;
 	ULONG_PTR SpinCount;
 } RTL_CRITICAL_SECTION,*PRTL_CRITICAL_SECTION;
+#endif
 
 NTSYSAPI
 WORD
@@ -4219,6 +4223,8 @@ typedef union _FILE_SEGMENT_ELEMENT {
 #define JOB_OBJECT_MSG_PROCESS_MEMORY_LIMIT   9
 #define JOB_OBJECT_MSG_JOB_MEMORY_LIMIT       10
 
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
 #define JOB_OBJECT_ASSIGN_PROCESS           1
 #define JOB_OBJECT_SET_ATTRIBUTES           2
 #define JOB_OBJECT_QUERY                    4
@@ -4246,6 +4252,7 @@ typedef struct _JOB_SET_ARRAY
     DWORD MemberLevel;
     DWORD Flags;
 } JOB_SET_ARRAY, *PJOB_SET_ARRAY;
+#endif
 
 typedef struct _JOBOBJECT_BASIC_ACCOUNTING_INFORMATION {
 	LARGE_INTEGER TotalUserTime;
@@ -4279,6 +4286,8 @@ typedef struct _JOBOBJECT_BASIC_UI_RESTRICTIONS {
 	DWORD UIRestrictionsClass;
 } JOBOBJECT_BASIC_UI_RESTRICTIONS,*PJOBOBJECT_BASIC_UI_RESTRICTIONS;
 
+/* Steven you are my hero when you fix the w32api ddk! */
+#ifndef _NTDDK_
 typedef struct _JOBOBJECT_SECURITY_LIMIT_INFORMATION {
 	DWORD SecurityLimitFlags;
 	HANDLE JobToken;
@@ -4286,6 +4295,7 @@ typedef struct _JOBOBJECT_SECURITY_LIMIT_INFORMATION {
 	PTOKEN_PRIVILEGES PrivilegesToDelete;
 	PTOKEN_GROUPS RestrictedSids;
 } JOBOBJECT_SECURITY_LIMIT_INFORMATION,*PJOBOBJECT_SECURITY_LIMIT_INFORMATION;
+#endif
 
 typedef struct _JOBOBJECT_END_OF_JOB_TIME_INFORMATION {
 	DWORD EndOfJobTimeAction;
@@ -4481,6 +4491,7 @@ typedef struct _SYSTEM_BATTERY_STATE {
 	ULONG  DefaultAlert2;
 } SYSTEM_BATTERY_STATE, *PSYSTEM_BATTERY_STATE;
 
+#ifndef _NTDDK_ /* HACK!!! ntddk.h shouldn't include winnt.h! */
 typedef struct _PROCESSOR_POWER_INFORMATION {
 	ULONG Number;
 	ULONG MaxMhz;
@@ -4489,6 +4500,7 @@ typedef struct _PROCESSOR_POWER_INFORMATION {
 	ULONG MaxIdleState;
 	ULONG CurrentIdleState;
 } PROCESSOR_POWER_INFORMATION, *PPROCESSOR_POWER_INFORMATION;
+#endif
 
 typedef DWORD EXECUTION_STATE;
 typedef enum _POWER_INFORMATION_LEVEL {
@@ -4827,7 +4839,9 @@ static __inline__ PVOID GetCurrentFiber(void)
 }
 #endif
 
-#if defined(_M_IX86)
+/* FIXME: Oh how I wish, I wish the w32api DDK wouldn't include winnt.h... */
+#ifndef _NTDDK_
+#ifdef _M_IX86
 static __inline__ struct _TEB * NtCurrentTeb(void)
 {
     struct _TEB *ret;
@@ -4840,24 +4854,26 @@ static __inline__ struct _TEB * NtCurrentTeb(void)
 
     return ret;
 }
-#elif defined(_M_ARM)
+#elif _M_ARM
 
 //
 // NT-ARM is not documented
 //
+#define KIRQL ULONG // Hack!
 #include <armddk.h>
 
-#elif defined(_M_AMD64)
+#elif defined (_M_AMD64)
 FORCEINLINE struct _TEB * NtCurrentTeb(VOID)
 {
     return (struct _TEB *)__readgsqword(FIELD_OFFSET(NT_TIB, Self));
 }
-#elif defined(_M_PPC)
+#else
 static __inline__ struct _TEB * NtCurrentTeb(void)
 {
     return __readfsdword_winnt(0x18);
 }
-#else
+#endif
+#elif defined(_M_PPC)
 static __inline__ struct _TEB * NtCurrentTeb(void)
 {
     return __readfsdword_winnt(0x18);
@@ -4881,6 +4897,9 @@ extern struct _TEB * NtCurrentTeb(void);
 #elif defined(_MSC_VER)
 
 #if (_MSC_FULL_VER >= 13012035)
+
+DWORD __readfsdword(DWORD);
+#pragma intrinsic(__readfsdword)
 
 __inline PVOID GetCurrentFiber(void) { return (PVOID)(ULONG_PTR)__readfsdword(0x10); }
 __inline struct _TEB * NtCurrentTeb(void) { return (struct _TEB *)(ULONG_PTR)__readfsdword(0x18); }
@@ -4999,16 +5018,20 @@ MemoryBarrier(VOID)
 #error Unknown architecture
 #endif
 
+VOID
+_mm_pause (
+    VOID
+    );
+
+
 #if defined(_M_IX86)
 #ifdef _MSC_VER
 #pragma intrinsic(_mm_pause)
-#define YieldProcessor _mm_pause
 #else
 #define YieldProcessor() __asm__ __volatile__("pause");
 #endif
 #elif defined (_M_AMD64)
 #ifdef _MSC_VER
-#pragma intrinsic(_mm_pause)
 #define YieldProcessor _mm_pause
 #else
 #define YieldProcessor() __asm__ __volatile__("pause");

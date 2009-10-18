@@ -2,7 +2,6 @@
 #define _STREAM_H
 
 #include <ntddk.h>
-#include <windef.h>
 #include <ks.h>
 
 #define STREAMAPI __stdcall

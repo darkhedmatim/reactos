@@ -78,6 +78,8 @@ namespace KDBGProtocol
                     if (mRunning)
                     {
                         mRunning = false;
+                        GetRegisterUpdate();
+                        GetProcesses();
                     }
                     tookText = true;
                 }
@@ -255,16 +257,12 @@ namespace KDBGProtocol
                                 if (ProcessListEvent != null)
                                     ProcessListEvent(this, new ProcessListEventArgs(ulong.Parse(pidEntryMatch.Groups["pid"].ToString(), NumberStyles.HexNumber), pidEntryMatch.Groups["cur"].Length > 0, 
                                         pidEntryMatch.Groups["state"].ToString(), pidEntryMatch.Groups["name"].ToString()));
-                                continue;
                             }
                             else
                             {
+                                /* TODO: this is called by far too often, results in several "thread list xx" commands */
                                 if ((mReceivingProcs || cleanedLine.Contains("No processes")) && ProcessListEvent != null)
-                                {
                                     ProcessListEvent(this, new ProcessListEventArgs(true));
-                                    mReceivingProcs = false;
-                                    continue;
-                                }
                             }
                         }
 
@@ -284,16 +282,11 @@ namespace KDBGProtocol
                             {
                                 if (ThreadListEvent != null)
                                     ThreadListEvent(this, new ThreadListEventArgs(ulong.Parse(tidEntryMatch.Groups["tid"].ToString(), NumberStyles.HexNumber), tidEntryMatch.Groups["cur"].Length > 0, ulong.Parse(tidEntryMatch.Groups["eip"].ToString(), NumberStyles.HexNumber)));
-                                continue;
                             }
                             else
                             {
                                 if (mReceivingThreads && ThreadListEvent != null)
-                                {
                                     ThreadListEvent(this, new ThreadListEventArgs(true));
-                                    mReceivingThreads = false;
-                                    continue;
-                                }
                             }
                         }
                     }
@@ -332,6 +325,22 @@ namespace KDBGProtocol
         public event ProcessListEventHandler ProcessListEvent;
         public event ThreadListEventHandler ThreadListEvent;
 
+        public void GetRegisterUpdate()
+        {
+            QueueCommand("regs");
+            QueueCommand("sregs");
+        }
+
+        public void GetModuleUpdate()
+        {
+            QueueCommand("mod");
+        }
+
+        public void GetMemoryUpdate(ulong address, int len)
+        {
+            QueueCommand(string.Format("x 0x{0:X} L {1}", address, len));
+        }
+
         public void WriteMemory(ulong address, byte[] buf)
         {
         }
@@ -341,26 +350,18 @@ namespace KDBGProtocol
             lock (mCommandBuffer)
             {
                 mCommandBuffer.Add(command);
+                if (mCommandBuffer.Count == 1)
+                {
+                    mConnection.Write(command + "\r");
+                    /* remove the command after sending */
+                    mCommandBuffer.RemoveAt(0);
+                }
             }
         }
 
-        public void Write(string wr)
-        {
-            /* Forward user input from RawTraffic if connected to kdbg */
-            if (!mRunning)
-            {
-                mConnection.Write(wr + "\r");
-            }
-        }
-
-        public void Close()
-        {
-        }
-
-        /* Immediately executed commands */
         public void Step()
         {
-            Write("step");
+            QueueCommand("step");
             GetRegisterUpdate();
             GetModuleUpdate();
             GetProcesses();
@@ -368,7 +369,7 @@ namespace KDBGProtocol
 
         public void Next()
         {
-            Write("next");
+            QueueCommand("next");
             Thread.Sleep(100); 
             GetRegisterUpdate();
             GetModuleUpdate();
@@ -377,24 +378,18 @@ namespace KDBGProtocol
 
         public void Break()
         {
-            Write("");
+            mConnection.Write("\r");
             GetRegisterUpdate();
             GetModuleUpdate();
         }
 
         public void Go(ulong address)
         {
-            Write("cont");
             mRunning = true;
             mFirstModuleUpdate = false;
+            QueueCommand("cont");
         }
 
-        public void GetMemoryUpdate(ulong address, int len)
-        {
-            Write(string.Format("x 0x{0:X} L {1}", address, len));
-        }
-
-        /* Commands placed into the cmd queue */
         public void GetProcesses()
         {
             QueueCommand("proc list");
@@ -418,15 +413,10 @@ namespace KDBGProtocol
             GetRegisterUpdate();
         }
 
-        public void GetRegisterUpdate()
-        {
-            QueueCommand("regs");
-            QueueCommand("sregs");
-        }
+        public void Write(string wr) { mConnection.Write(wr); }
 
-        public void GetModuleUpdate()
+        public void Close()
         {
-            QueueCommand("mod");
         }
     }
 }

@@ -88,7 +88,8 @@ EnumNamesW(HWINSTA WindowStation,
     */
    if (NULL == WindowStation && Desktops)
    {
-      WindowStation = GetProcessWindowStation();
+      SetLastError(ERROR_INVALID_HANDLE);
+      return FALSE;
    }
 
    /*

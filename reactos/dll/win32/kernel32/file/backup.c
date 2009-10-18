@@ -32,8 +32,7 @@ BackupRead (
 	LPVOID	* lpContext
 	)
 {
-    UNIMPLEMENTED;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
@@ -52,8 +51,7 @@ BackupSeek (
 	LPVOID	* lpContext
 	)
 {
-    UNIMPLEMENTED;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 
@@ -73,8 +71,7 @@ BackupWrite (
 	LPVOID	* lpContext
 	)
 {
-    UNIMPLEMENTED;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
 

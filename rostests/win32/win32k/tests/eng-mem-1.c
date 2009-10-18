@@ -14,14 +14,14 @@ static void RunTest()
   /* Allocate memory with EngAllocMem */
   pmem1 = 0;
   AllocSize1 = 1024;
-  AllocTag1 = 'zyxD';
+  AllocTag1 = TAG('D','x','y','z');
   pmem1 = EngAllocMem(FL_ZERO_MEMORY, AllocSize1, AllocTag1);
   _AssertNotEqualValue(pmem1, NULL);
 
   /* Allocate memory with EngAllocMem */
   pmem2 = 0;
   AllocSize2 = 1024;
-  AllocTag2 = 'zyxD';
+  AllocTag2 = TAG('D','x','y','z');
   pmem2 = EngAllocUserMem(AllocSize2, AllocTag2);
   _AssertNotEqualValue(pmem1, NULL);
 

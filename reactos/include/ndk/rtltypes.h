@@ -435,7 +435,7 @@ extern const PRTL_REALLOCATE_STRING_ROUTINE RtlReallocateStringRoutine;
 // Callback for RTL Heap Enumeration
 //
 typedef NTSTATUS
-(NTAPI *PHEAP_ENUMERATION_ROUTINE)(
+(*PHEAP_ENUMERATION_ROUTINE)(
     IN PVOID HeapHandle,
     IN PVOID UserParam
 );

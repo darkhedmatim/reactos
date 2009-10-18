@@ -16,6 +16,7 @@
 
 ULONG DummyData;
 ULONG CmNtGlobalFlag;
+ULONG CmNtCSDVersion;
 
 WCHAR CmDefaultLanguageId[12];
 ULONG CmDefaultLanguageIdLength = sizeof(CmDefaultLanguageId);

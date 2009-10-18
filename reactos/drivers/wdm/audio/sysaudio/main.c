@@ -34,8 +34,9 @@ SysAudio_Shutdown(
     IN  PIRP Irp)
 {
     PKSAUDIO_DEVICE_ENTRY DeviceEntry;
+    PKSAUDIO_SUBDEVICE_ENTRY SubDeviceEntry;
     PSYSAUDIODEVEXT DeviceExtension;
-    PLIST_ENTRY Entry;
+    PLIST_ENTRY Entry, SubEntry;
 
     DPRINT1("SysAudio_Shutdown called\n");
 
@@ -47,17 +48,18 @@ SysAudio_Shutdown(
         DeviceEntry = (PKSAUDIO_DEVICE_ENTRY)CONTAINING_RECORD(Entry, KSAUDIO_DEVICE_ENTRY, Entry);
 
         DPRINT1("Freeing item %wZ\n", &DeviceEntry->DeviceName);
-
-        /* dereference audio device file object */
-        ObDereferenceObject(DeviceEntry->FileObject);
-
-        /* close audio device handle */
-        ZwClose(DeviceEntry->Handle);
-        /* free device string */
         RtlFreeUnicodeString(&DeviceEntry->DeviceName);
-        /* free pins */
-        ExFreePool(DeviceEntry->Pins);
-        /* free audio device entry */
+
+        while(!IsListEmpty(&DeviceEntry->SubDeviceList))
+        {
+            SubEntry = RemoveHeadList(&DeviceEntry->SubDeviceList);
+            SubDeviceEntry = (PKSAUDIO_SUBDEVICE_ENTRY)CONTAINING_RECORD(SubEntry, KSAUDIO_SUBDEVICE_ENTRY, Entry);
+
+            ZwClose(SubDeviceEntry->Handle);
+            ObDereferenceObject(SubDeviceEntry->FileObject);
+            ExFreePool(SubDeviceEntry->Pins);
+            ExFreePool(SubDeviceEntry);
+        }
         ExFreePool(DeviceEntry);
     }
 

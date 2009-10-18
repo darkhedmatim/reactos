@@ -65,7 +65,7 @@ LdrPEGetOrLoadModule(IN PCHAR ModuleName,
 
 ULONG_PTR
 NTAPI
-FrLdrLoadModule(PFILE ModuleImage,
+FrLdrLoadModule(FILE *ModuleImage,
                 LPCSTR ModuleName,
                 PULONG ModuleSize)
 {
@@ -177,7 +177,7 @@ FrLdrCloseModule(ULONG_PTR ModuleBase,
     if (ModuleData) {
         
         /* Make sure this is the right module and that it hasn't been closed */
-        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == MAXULONG_PTR)) {
+        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == (ULONG_PTR)-1)) {
             
             /* Close the Module */
             ModuleData->ModEnd = ModuleData->ModStart + ModuleSize;
@@ -435,7 +435,7 @@ LdrPEFixupImports(IN PVOID DllBase,
 
 PVOID
 NTAPI
-FrLdrReadAndMapImage(IN PFILE Image,
+FrLdrReadAndMapImage(IN FILE *Image,
                      IN PCHAR Name,
                      IN ULONG ImageType)
 {
@@ -674,7 +674,7 @@ FrLdrReMapImage(IN PVOID Base,
 
 PVOID
 NTAPI
-FrLdrMapImage(IN PFILE Image,
+FrLdrMapImage(IN FILE *Image,
               IN PCHAR Name,
               IN ULONG ImageType)
 {

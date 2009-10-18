@@ -1202,12 +1202,6 @@ ehci_dpc_callback(PKDPC dpc, PVOID context, PVOID sysarg1, PVOID sysarg2)
         }
 
         pending_endp = alloc_pending_endp(&ehci->pending_endp_pool, 1);
-        if (!pending_endp)
-        {
-            unlock_dev(pdev, TRUE);
-            KeReleaseSpinLockFromDpcLevel(&ehci->pending_endp_list_lock);
-            return;
-        }
         pending_endp->pendp = pendp;
         InsertTailList(&ehci->pending_endp_list, &pending_endp->endp_link);
 
@@ -1573,7 +1567,6 @@ ehci_internal_submit_bulk(PEHCI_DEV ehci, PURB purb)
     PEHCI_QTD_CONTENT ptdc;
     PEHCI_QH_CONTENT pqhc;
     PEHCI_ELEM_LINKS pelnk;
-    PEHCI_ELEM_LINKS plnk;
 
     if (ehci == NULL || purb == NULL)
         return STATUS_INVALID_PARAMETER;
@@ -1686,17 +1679,7 @@ ehci_internal_submit_bulk(PEHCI_DEV ehci, PURB purb)
     RemoveEntryList(&td_list);
 
     elem_pool_lock(qh_pool, TRUE);
-
-    plnk = elem_pool_alloc_elem(qh_pool);
-    if (plnk == NULL)
-    {
-        // free the qtds
-        elem_safe_free(pthis, TRUE);
-        if (qh_pool) elem_pool_unlock(qh_pool, TRUE);
-        return STATUS_UNSUCCESSFUL;
-    }
-
-    pqh = (PEHCI_QH) ((ULONG) plnk->phys_part & PHYS_PART_ADDR_MASK);
+    pqh = (PEHCI_QH) ((ULONG) elem_pool_alloc_elem(qh_pool)->phys_part & PHYS_PART_ADDR_MASK);
     elem_pool_unlock(qh_pool, TRUE);
 
     if (pqh == NULL)
@@ -3130,12 +3113,6 @@ ehci_rh_submit_urb(PUSB_DEV pdev, PURB purb)
                 i = EHCI_PORTSC + 4 * (psetup->wIndex - 1);     // USBPORTSC1;
 
                 ptimer = alloc_timer_svc(&dev_mgr->timer_svc_pool, 1);
-                if (!ptimer)
-                {
-                    purb->status = STATUS_NO_MEMORY;
-                    break;
-                }
-
                 ptimer->threshold = 0;  // within [ 50ms, 60ms ], one tick is 10 ms
                 ptimer->context = (ULONG) purb;
                 ptimer->pdev = pdev;
@@ -3159,11 +3136,6 @@ ehci_rh_submit_urb(PUSB_DEV pdev, PURB purb)
         case USB_ENDPOINT_XFER_INT:
         {
             ptimer = alloc_timer_svc(&dev_mgr->timer_svc_pool, 1);
-            if (!ptimer)
-            {
-                purb->status = STATUS_NO_MEMORY;
-                break;
-            }
             ptimer->threshold = RH_INTERVAL;
             ptimer->context = (ULONG) purb;
             ptimer->pdev = pdev;
@@ -3510,7 +3482,7 @@ ehci_probe(PDRIVER_OBJECT drvr_obj, PUNICODE_STRING reg_path, PUSB_DEV_MANAGER d
             KeSynchronizeExecution(pdev_ext->ehci_int, ehci_cal_cpu_freq, NULL);
         }
     }
-    return pdev;
+    return NULL;
 }
 
 PDEVICE_OBJECT

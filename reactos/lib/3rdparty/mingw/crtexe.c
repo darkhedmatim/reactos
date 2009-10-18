@@ -52,11 +52,7 @@ extern int *_imp___commode;
 #define _commode (*_imp___commode)
 extern int _dowildcard;
 
-#if defined(__GNUC__)
 int _MINGW_INSTALL_DEBUG_MATHERR __attribute__((weak)) = 0;
-#else
-int _MINGW_INSTALL_DEBUG_MATHERR = 0;
-#endif
 extern int __defaultmatherr;
 extern _CRTIMP void __cdecl _initterm(_PVFV *, _PVFV *);
 
@@ -92,7 +88,7 @@ static _startupinfo startinfo;
 
 extern void _pei386_runtime_relocator (void);
 static long CALLBACK _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
-//static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data);
+static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data);
 #ifdef WPRFLAG
 static void duplicate_ppstrings (int ac, wchar_t ***av);
 #else
@@ -220,7 +216,7 @@ __tmainCRTStartup (void)
 #if defined(__i386__) || defined(_M_IX86)
 	__writefsdword(0, 0xffffffff);
 #endif
-    //AddVectoredExceptionHandler (0, (PVECTORED_EXCEPTION_HANDLER)__mingw_vex);
+    AddVectoredExceptionHandler (0, (PVECTORED_EXCEPTION_HANDLER)__mingw_vex);
     SetUnhandledExceptionFilter (_gnu_exception_handler);
 
     _fpreset ();
@@ -406,7 +402,6 @@ _gnu_exception_handler (EXCEPTION_POINTERS * exception_data)
   return action;
 }
 
-#if 0
 static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data)
 {
   /* TODO this is not chainablem, therefore need rewrite. Disabled the ill code. */
@@ -431,7 +426,6 @@ static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data)
 #endif
   return _gnu_exception_handler(exception_data);
 }
-#endif
 
 #ifdef WPRFLAG
 

@@ -369,7 +369,6 @@ NTSTATUS ElfrReportEventW(
     DWORD dwStringsSize = 0;
     DWORD dwError = ERROR_SUCCESS;
     WCHAR *lpStrings;
-    int pos = 0;
 
     lpEventSource = ElfGetEventLogSourceEntryByHandle(LogHandle);
     if (!lpEventSource)
@@ -419,6 +418,7 @@ NTSTATUS ElfrReportEventW(
         return STATUS_NO_MEMORY;
     }
 
+    int pos = 0;
     for (i = 0; i < NumStrings; i++)
     {
         wcscpy((WCHAR*)(lpStrings + pos), Strings[i]->Buffer);
@@ -660,7 +660,7 @@ NTSTATUS ElfrReportEventAndSourceW(
 }
 
 
-void __RPC_FAR *__RPC_USER midl_user_allocate(SIZE_T len)
+void __RPC_FAR *__RPC_USER midl_user_allocate(size_t len)
 {
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, len);
 }

@@ -25,9 +25,11 @@
  */
 /* $Id$ */
 
+#ifdef _MSC_VER
 #include <ntdef.h>
 #undef DECLSPEC_IMPORT
 #define DECLSPEC_IMPORT
+#endif
 #include <ntifs.h>
 
 

@@ -942,8 +942,7 @@ static void test_SPI_SETSCREENSAVEACTIVE( void )       /*     17 */
 
         rc=SystemParametersInfoA( SPI_GETSCREENSAVEACTIVE, 0, &v, 0 );
         ok(rc!=0,"%d: rc=%d err=%d\n",i,rc,GetLastError());
-        ok(v == vals[i] || broken(! v) /* Win 7 */,
-           "SPI_{GET,SET}SCREENSAVEACTIVE: got %d instead of %d\n", v, vals[i]);
+        eq( v, vals[i], "SPI_{GET,SET}SCREENSAVEACTIVE", "%d" );
     }
 
     rc=SystemParametersInfoA( SPI_SETSCREENSAVEACTIVE, old_b, 0, SPIF_UPDATEINIFILE );

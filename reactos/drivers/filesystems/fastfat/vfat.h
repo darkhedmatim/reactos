@@ -2,6 +2,8 @@
 #include <ntdddisk.h>
 #include <debug.h>
 
+#include <ccros.h>
+
 #define USE_ROS_CC_AND_FS
 
 #define ROUND_DOWN(n, align) \
@@ -402,10 +404,14 @@ typedef struct _VFATCCB
   UNICODE_STRING SearchPattern;
 } VFATCCB, *PVFATCCB;
 
-#define TAG_CCB  'BCCV'
-#define TAG_FCB  'BCFV'
-#define TAG_IRP  'PRIV'
-#define TAG_VFAT 'TAFV'
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
+
+#define TAG_CCB TAG('V', 'C', 'C', 'B')
+#define TAG_FCB TAG('V', 'F', 'C', 'B')
+#define TAG_IRP TAG('V', 'I', 'R', 'P')
+#define TAG_VFAT TAG('V', 'F', 'A', 'T')
 
 #define ENTRIES_PER_SECTOR (BLOCKSIZE / sizeof(FATDirEntry))
 

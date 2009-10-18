@@ -526,7 +526,7 @@ NtPowerInformation(IN POWER_INFORMATION_LEVEL PowerInformationLevel,
 
             /* Just zero the struct (and thus set BatteryState->BatteryPresent = FALSE) */
             RtlZeroMemory(BatteryState, sizeof(SYSTEM_BATTERY_STATE));
-            BatteryState->EstimatedTime = MAXULONG;
+            BatteryState->EstimatedTime = (ULONG)-1;
 
             Status = STATUS_SUCCESS;
             break;
@@ -609,7 +609,7 @@ NtSetThreadExecutionState(IN EXECUTION_STATE esFlags,
             /* Check if the pointer is valid */
             ProbeForWriteUlong(PreviousFlags);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
             /* It isn't -- fail */
             _SEH2_YIELD(return _SEH2_GetExceptionCode());

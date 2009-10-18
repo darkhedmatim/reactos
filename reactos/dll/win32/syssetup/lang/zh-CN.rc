@@ -210,7 +210,6 @@ BEGIN
     IDS_GAMES            "游戏"
     IDS_CMT_SOLITAIRE    "纸牌"
     IDS_CMT_WINEMINE     "扫雷"
-	IDS_CMT_SPIDER      "Spider Solitaire"
 END
 
 STRINGTABLE
@@ -252,7 +251,7 @@ STRINGTABLE
 BEGIN
     IDS_SHORT_CMD        "命令提示符.lnk"
     IDS_SHORT_EXPLORER   "ReactOS 资源管理器.lnk"
-    IDS_SHORT_DOWNLOADER "ReactOS Applications Manager.lnk"
+    IDS_SHORT_DOWNLOADER "Download !.lnk"
     IDS_SHORT_SERVICE    "服务.lnk"
     IDS_SHORT_DEVICE     "设备管理.lnk"
     IDS_SHORT_MPLAY32    "Multimedia Player.lnk"
@@ -272,7 +271,6 @@ BEGIN
     IDS_SHORT_SNDVOL32   "Volume Control.lnk"
     IDS_SHORT_DXDIAG     "ReactX Diagnostic.lnk"
     IDS_SHORT_PAINT      "Paint.lnk"
-	IDS_SHORT_SPIDER     "Spider Solitaire.lnk"
 END
 
 STRINGTABLE

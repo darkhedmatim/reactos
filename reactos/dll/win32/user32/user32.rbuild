@@ -1,4 +1,4 @@
-<module name="user32" type="win32dll" baseaddress="${BASEADDRESS_USER32}" installbase="system32" installname="user32.dll" unicode="yes" crt="dll">
+<module name="user32" type="win32dll" baseaddress="${BASEADDRESS_USER32}" installbase="system32" installname="user32.dll" unicode="yes" crt="dll" allowwarnings="true">
 	<importlibrary definition="user32.pspec" />
 	<include base="user32">.</include>
 	<include base="user32">include</include>
@@ -43,7 +43,6 @@
 		<file>rtlstr.c</file>
 		<file>stubs.c</file>
 		<file>timer.c</file>
-		<file>usrapihk.c</file>
 		<file>winhelp.c</file>
 		<file>winsta.c</file>
 		<file>wsprintf.c</file>

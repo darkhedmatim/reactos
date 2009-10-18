@@ -37,7 +37,7 @@ typedef struct _SERVICE
 /*  BOOLEAN ServiceRunning;*/	// needed ??
 } SERVICE, *PSERVICE;
 
-#define TAG_RTLREGISTRY 'vrqR'
+#define TAG_RTLREGISTRY TAG('R', 'q', 'r', 'v')
 
 /* GLOBALS ********************************************************************/
 
@@ -152,7 +152,7 @@ IopCreateServiceListEntry(PUNICODE_STRING ServiceName)
   RTL_QUERY_REGISTRY_TABLE QueryTable[7];
   PSERVICE Service;
   NTSTATUS Status;
-  ULONG DefaultTag = MAXULONG;
+  ULONG DefaultTag = ~0;
 
   DPRINT("ServiceName: '%wZ'\n", ServiceName);
 

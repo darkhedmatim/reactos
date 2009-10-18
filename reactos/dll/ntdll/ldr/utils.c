@@ -63,6 +63,22 @@ static VOID LdrpDetachProcess(BOOLEAN UnloadAll);
 
 /* FUNCTIONS *****************************************************************/
 
+#if DBG || defined(KDBG)
+
+VOID
+LdrpLoadUserModuleSymbols(PLDR_DATA_TABLE_ENTRY LdrModule)
+{
+  NtSystemDebugControl(
+    SysDbgQueryVersion,
+    (PVOID)LdrModule,
+    0,
+    NULL,
+    0,
+    NULL);
+}
+
+#endif /* DBG || KDBG */
+
 BOOLEAN
 LdrMappedAsDataFile(PVOID *BaseAddress)
 {
@@ -2252,7 +2268,9 @@ LdrpLoadModule(IN PWSTR SearchPath OPTIONAL,
             DPRINT1("LdrFixupImports failed for %wZ, status=%x\n", &(*Module)->BaseDllName, Status);
             return Status;
           }
-
+#if DBG || defined(KDBG)
+        LdrpLoadUserModuleSymbols(*Module);
+#endif /* DBG || KDBG */
         RtlEnterCriticalSection(NtCurrentPeb()->LoaderLock);
         InsertTailList(&NtCurrentPeb()->Ldr->InInitializationOrderModuleList,
                        &(*Module)->InInitializationOrderModuleList);

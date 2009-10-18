@@ -13,37 +13,25 @@
 #include <guiddef.h>
 #endif /* GUID_DEFINED */
 
+#ifdef __GNUC__
 #include "intrin.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#ifdef _NTOSKRNL_
+/* HACKHACKHACK!!! We shouldn't include this header from ntoskrnl! */
+#define NTKERNELAPI
+#else
 #define NTKERNELAPI DECLSPEC_IMPORT
+#endif
 
 #ifdef _WIN64
 #define PORT_MAXIMUM_MESSAGE_LENGTH 512
 #else
 #define PORT_MAXIMUM_MESSAGE_LENGTH 256
-#endif
-
-
-#if defined(_MSC_VER)
-
-//
-// Indicate if #pragma alloc_text() is supported
-//
-#if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_IA64)
-#define ALLOC_PRAGMA 1
-#endif
-
-//
-// Indicate if #pragma data_seg() is supported
-//
-#if defined(_M_IX86) || defined(_M_AMD64)
-#define ALLOC_DATA_PRAGMA 1
-#endif
-
 #endif
 
 
@@ -573,7 +561,7 @@ InterlockedAdd64(
 #define PSLIST_ENTRY PSINGLE_LIST_ENTRY
 
 #if defined(_WIN64)
-typedef union DECLSPEC_ALIGN(16) _SLIST_HEADER {
+typedef union _SLIST_HEADER {
     struct {
         ULONGLONG Alignment;
         ULONGLONG Region;
@@ -587,13 +575,13 @@ typedef union DECLSPEC_ALIGN(16) _SLIST_HEADER {
         ULONGLONG Reserved:59;
         ULONGLONG Region:3;
     } Header8;
-    struct {
         ULONGLONG Depth:16;
         ULONGLONG Sequence:48;
         ULONGLONG HeaderType:1;
         ULONGLONG Init:1;
         ULONGLONG Reserved:2;
         ULONGLONG NextEntry:60;
+    struct {
     } Header16;
 } SLIST_HEADER, *PSLIST_HEADER;
 #else
@@ -1968,8 +1956,8 @@ RtlEnlargedUnsignedDivide(
     IN OUT PULONG Remainder)
 {
     if (Remainder)
-        *Remainder = (ULONG)(Dividend.QuadPart % Divisor);
-    return (ULONG)(Dividend.QuadPart / Divisor);
+        *Remainder = Dividend.QuadPart % Divisor;
+    return Dividend.QuadPart / Divisor;
 }
 
 //DECLSPEC_DEPRECATED_DDK

@@ -1115,7 +1115,7 @@ GspUnloadBreakpoints(void)
     DPRINT("GspUnloadBreakpoints\n");
 
     /* Disable hardware debugging while we are inside the stub */
-    __writedr(7, 0);
+    Ke386SetDr7(0);
 
     for (Index = 0; Index < GspSwBreakpointCount; Index++)
     {
@@ -1327,7 +1327,6 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
                         strcpy(GspOutBuffer, "E03");
                         DPRINT1("Fault during memory read\n");
                     }
-                    ptr = NULL;
                 }
 
                 if (NULL != ptr)
@@ -1403,7 +1402,7 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
                 if (Stepping)
                     Context->EFlags |= EFLAGS_TF;
 
-                Dr6 = __readdr(6);
+                Dr6 = Ke386GetDr6();
                 if (!(Dr6 & DR6_BS))
                 {
                     for (BreakpointNumber = 0;
@@ -1423,7 +1422,7 @@ KdpGdbEnterDebuggerException(PEXCEPTION_RECORD ExceptionRecord,
                 }
 
                 GspLoadBreakpoints(TrapFrame);
-                __writedr(6, 0);
+                Ke386SetDr6(0);
 
                 if (NULL != GspDbgThread)
                 {

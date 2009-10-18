@@ -6,7 +6,6 @@
 	<include base="comdlg32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<define name="_WINE" />
 	<file>cdlg32.c</file>
 	<file>colordlg.c</file>
 	<file>filedlg.c</file>

@@ -104,9 +104,7 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
         return NULL;
     }
 
-//    Hook->head.pti =?
-//    Hook->head.rpdesk
-    Hook->head.h = Handle;
+    Hook->Self = Handle;
     Hook->Thread = Thread;
     Hook->HookId = HookId;
 
@@ -117,6 +115,9 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
         W32Thread->fsHooks |= HOOKID_TO_FLAG(HookId);
 
         GetWin32ClientInfo()->fsHooks = W32Thread->fsHooks;
+
+        if (W32Thread->ThreadInfo != NULL)
+            W32Thread->ThreadInfo->fsHooks = W32Thread->fsHooks;
     }
 
     RtlInitUnicodeString(&Hook->ModuleName, NULL);
@@ -217,7 +218,7 @@ IntFreeHook(PHOOKTABLE Table, PHOOK Hook, PWINSTATION_OBJECT WinStaObj)
     }
 
     /* Close handle */
-    UserDeleteObject(Hook->head.h, otHook);
+    UserDeleteObject(Hook->Self, otHook);
 }
 
 /* remove a hook, freeing it if the chain is not in use */
@@ -228,13 +229,20 @@ IntRemoveHook(PHOOK Hook, PWINSTATION_OBJECT WinStaObj, BOOL TableAlreadyLocked)
     PTHREADINFO W32Thread;
     PHOOKTABLE Table = IntGetTable(Hook);
 
-    ASSERT(NULL != Table); // At this point this should not be null!
+    ASSERT(NULL != Table);
+    if (NULL == Table)
+    {
+        return;
+    }
 
     W32Thread = ((PTHREADINFO)Hook->Thread->Tcb.Win32Thread);
     ASSERT(W32Thread != NULL);
     W32Thread->fsHooks &= ~HOOKID_TO_FLAG(Hook->HookId);
 
     GetWin32ClientInfo()->fsHooks = W32Thread->fsHooks;
+
+    if (W32Thread->ThreadInfo != NULL)
+        W32Thread->ThreadInfo->fsHooks = W32Thread->fsHooks;
 
     if (0 != Table->Counts[HOOKID_TO_INDEX(Hook->HookId)])
     {
@@ -777,14 +785,14 @@ UserCallNextHookEx(PHOOK Hook,
         }
 
         case WH_CBT:
-            DPRINT("HOOK WH_CBT!\n");
+            DPRINT1("HOOK WH_CBT!\n");
             switch (Code)
             {
                 case HCBT_CREATEWND:
                 {
                     LPCBT_CREATEWNDW pcbtcww = (LPCBT_CREATEWNDW)lParam;
 
-                    DPRINT("HOOK HCBT_CREATEWND\n");
+                    DPRINT1("HOOK HCBT_CREATEWND\n");
                     _SEH2_TRY
                     {
                         if (Ansi)
@@ -848,7 +856,7 @@ UserCallNextHookEx(PHOOK Hook,
                 {
                     RECTL rt;
 
-                    DPRINT("HOOK HCBT_MOVESIZE\n");
+                    DPRINT1("HOOK HCBT_MOVESIZE\n");
 
                     if (lParam)
                     {
@@ -885,7 +893,7 @@ UserCallNextHookEx(PHOOK Hook,
                 {
                     CBTACTIVATESTRUCT CbAs;
 
-                    DPRINT("HOOK HCBT_ACTIVATE\n");
+                    DPRINT1("HOOK HCBT_ACTIVATE\n");
                     if (lParam)
                     {
                         _SEH2_TRY
@@ -919,7 +927,7 @@ UserCallNextHookEx(PHOOK Hook,
 
                 /* The rest just use default. */
                 default:
-                    DPRINT("HOOK HCBT_ %d\n",Code);
+                    DPRINT1("HOOK HCBT_ %d\n",Code);
                     lResult = co_HOOK_CallHookNext(Hook, Code, wParam, lParam);
                     break;
             }
@@ -1274,7 +1282,7 @@ NtUserSetWindowsHookEx(HINSTANCE Mod,
         Hook->Proc = HookProc;
 
     Hook->Ansi = Ansi;
-    Handle = Hook->head.h;
+    Handle = Hook->Self;
 
     /* Clear the client threads next hook. */
     ClientInfo->phkCurrent = 0;
@@ -1325,7 +1333,7 @@ NtUserUnhookWindowsHookEx(HHOOK Hook)
         RETURN( FALSE);
     }
 
-    ASSERT(Hook == HookObj->head.h);
+    ASSERT(Hook == HookObj->Self);
 
     IntRemoveHook(HookObj, WinStaObj, FALSE);
 

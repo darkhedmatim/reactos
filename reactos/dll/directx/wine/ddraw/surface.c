@@ -159,13 +159,6 @@ IDirectDrawSurfaceImpl_AddRef(IDirectDrawSurface7 *iface)
     IDirectDrawSurfaceImpl *This = (IDirectDrawSurfaceImpl *)iface;
     ULONG refCount = InterlockedIncrement(&This->ref);
 
-    if (refCount == 1 && This->WineD3DSurface)
-    {
-        EnterCriticalSection(&ddraw_cs);
-        IWineD3DSurface_AddRef(This->WineD3DSurface);
-        LeaveCriticalSection(&ddraw_cs);
-    }
-
     TRACE("(%p) : AddRef increasing from %d\n", This, refCount - 1);
     return refCount;
 }
@@ -317,7 +310,7 @@ IDirectDrawSurfaceImpl_Release(IDirectDrawSurface7 *iface)
                 TRACE("(%p) Destroying the render target, uninitializing D3D\n", This);
 
                 /* Unset any index buffer, just to be sure */
-                IWineD3DDevice_SetIndexBuffer(ddraw->wineD3DDevice, NULL, WINED3DFMT_UNKNOWN);
+                IWineD3DDevice_SetIndices(ddraw->wineD3DDevice, NULL, WINED3DFMT_UNKNOWN);
                 IWineD3DDevice_SetDepthStencilSurface(ddraw->wineD3DDevice, NULL);
                 IWineD3DDevice_SetVertexDeclaration(ddraw->wineD3DDevice, NULL);
                 for(i = 0; i < ddraw->numConvertedDecls; i++)
@@ -327,7 +320,7 @@ IDirectDrawSurfaceImpl_Release(IDirectDrawSurface7 *iface)
                 HeapFree(GetProcessHeap(), 0, ddraw->decls);
                 ddraw->numConvertedDecls = 0;
 
-                if (FAILED(IWineD3DDevice_Uninit3D(ddraw->wineD3DDevice, D3D7CB_DestroySwapChain)))
+                if(IWineD3DDevice_Uninit3D(ddraw->wineD3DDevice, D3D7CB_DestroyDepthStencilSurface, D3D7CB_DestroySwapChain) != D3D_OK)
                 {
                     /* Not good */
                     ERR("(%p) Failed to uninit 3D\n", This);
@@ -364,6 +357,43 @@ IDirectDrawSurfaceImpl_Release(IDirectDrawSurface7 *iface)
              * crashes during development.
              */
             TRACE("(%p) D3D unloaded\n", This);
+        }
+        else if(This->surface_desc.ddsCaps.dwCaps & (DDSCAPS_PRIMARYSURFACE |
+                                                     DDSCAPS_3DDEVICE       |
+                                                     DDSCAPS_TEXTURE        ) )
+        {
+            /* It's a render target, but no swapchain was created.
+             * The IParent interfaces have to be released manually.
+             * The same applies for textures without an
+             * IWineD3DTexture object attached
+             */
+            IParent *Parent;
+
+            for(i = 0; i < MAX_COMPLEX_ATTACHED; i++)
+            {
+                if(This->complex_array[i])
+                {
+                    /* Only the topmost level can have more than 1 surfaces in the complex
+                     * attachment array(Cube texture roots), for all others there is only
+                     * one
+                     */
+                    surf = This->complex_array[i];
+                    while(surf)
+                    {
+                        IWineD3DSurface_GetParent(surf->WineD3DSurface,
+                                                  (IUnknown **) &Parent);
+                        IParent_Release(Parent);  /* For the getParent */
+                        IParent_Release(Parent);  /* To release it */
+                        surf = surf->complex_array[0];
+                    }
+                }
+            }
+
+            /* Now the top-level surface */
+            IWineD3DSurface_GetParent(This->WineD3DSurface,
+                                      (IUnknown **) &Parent);
+            IParent_Release(Parent);  /* For the getParent */
+            IParent_Release(Parent);  /* To release it */
         }
 
         /* The refcount test shows that the palette is detached when the surface is destroyed */
@@ -890,6 +920,9 @@ IDirectDrawSurfaceImpl_AddAttachedSurface(IDirectDrawSurfaceImpl *This,
         IDirect3DDeviceImpl_UpdateDepthStencil(This->ddraw->d3ddevice);
     }
 
+    /* MSDN: 
+     * "This method increments the reference count of the surface being attached."
+     */
     IDirectDrawSurface7_AddRef((IDirectDrawSurface7 *)Surf);
     LeaveCriticalSection(&ddraw_cs);
     return DD_OK;
@@ -1000,7 +1033,7 @@ IDirectDrawSurfaceImpl_AddOverlayDirtyRect(IDirectDrawSurface7 *iface,
     IDirectDrawSurfaceImpl *This = (IDirectDrawSurfaceImpl *)iface;
     TRACE("(%p)->(%p)\n",This,Rect);
 
-    /* MSDN says it's not implemented. I could forward it to WineD3D,
+    /* MSDN says it's not implemented. I could forward it to WineD3D, 
      * then we'd implement it, but I don't think that's a good idea
      * (Stefan Dösinger)
      */
@@ -1039,17 +1072,7 @@ IDirectDrawSurfaceImpl_GetDC(IDirectDrawSurface7 *iface,
     hr = IWineD3DSurface_GetDC(This->WineD3DSurface,
                                hdc);
     LeaveCriticalSection(&ddraw_cs);
-    switch(hr)
-    {
-        /* Some, but not all errors set *hdc to NULL. E.g. DCALREADYCREATED does not
-         * touch *hdc
-         */
-        case WINED3DERR_INVALIDCALL:
-            if(hdc) *hdc = NULL;
-            return DDERR_INVALIDPARAMS;
-
-        default: return hr;
-    }
+    return hr;
 }
 
 /*****************************************************************************

@@ -45,6 +45,10 @@
 #define NDEBUG
 #include <debug.h>
 
+#if defined (ALLOC_PRAGMA)
+#pragma alloc_text(INIT, MmInitMemoryAreas)
+#endif
+
 MEMORY_AREA MiStaticMemoryAreas[MI_STATIC_MEMORY_AREAS];
 ULONG MiStaticMemoryAreaCount;
 
@@ -996,7 +1000,6 @@ MmCreateMemoryArea(PMMSUPPORT AddressSpace,
         //
         ASSERT(MiStaticMemoryAreaCount < MI_STATIC_MEMORY_AREAS);
         MemoryArea = &MiStaticMemoryAreas[MiStaticMemoryAreaCount++];
-        Type &= ~MEMORY_AREA_STATIC;
     }
     else
     {
@@ -1007,9 +1010,7 @@ MmCreateMemoryArea(PMMSUPPORT AddressSpace,
                                            sizeof(MEMORY_AREA),
                                            TAG_MAREA);
     }
-
-    if (!MemoryArea) return STATUS_NO_MEMORY;
-
+    
    RtlZeroMemory(MemoryArea, sizeof(MEMORY_AREA));
    MemoryArea->Type = Type;
    MemoryArea->StartingAddress = *BaseAddress;

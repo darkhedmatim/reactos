@@ -121,23 +121,16 @@ static void table_calc_column_offsets( MSIDATABASE *db, MSICOLUMNINFO *colinfo,
 static UINT get_tablecolumns( MSIDATABASE *db,
        LPCWSTR szTableName, MSICOLUMNINFO *colinfo, UINT *sz);
 static void msi_free_colinfo( MSICOLUMNINFO *colinfo, UINT count );
-static UINT table_find_insert_idx (MSIVIEW *view, LPCWSTR name, INT *pidx);
 
 static inline UINT bytes_per_column( MSIDATABASE *db, const MSICOLUMNINFO *col )
 {
     if( MSITYPE_IS_BINARY(col->type) )
         return 2;
-
     if( col->type & MSITYPE_STRING )
         return db->bytes_per_strref;
-
-    if( (col->type & 0xff) <= 2)
-        return 2;
-
-    if( (col->type & 0xff) != 4 )
+    if( (col->type & 0xff) > 4 )
         ERR("Invalid column size!\n");
-
-    return 4;
+    return col->type & 0xff;
 }
 
 static int utf2mime(int x)
@@ -627,7 +620,6 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
     column_info *col;
     MSITABLE *table;
     UINT i;
-    INT idx;
 
     /* only add tables that don't exist already */
     if( TABLE_Exists(db, name ) )
@@ -693,11 +685,7 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
     if( r )
         goto err;
 
-    r = table_find_insert_idx (tv, name, &idx);
-    if (r != ERROR_SUCCESS)
-       idx = -1;
-
-    r = tv->ops->insert_row( tv, rec, idx, persistent == MSICONDITION_FALSE );
+    r = tv->ops->insert_row( tv, rec, -1, persistent == MSICONDITION_FALSE );
     TRACE("insert_row returned %x\n", r);
     if( r )
         goto err;
@@ -747,11 +735,7 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
             if( r )
                 goto err;
 
-            r = table_find_insert_idx (tv, name, &idx);
-            if (r != ERROR_SUCCESS)
-                idx = -1;
-
-            r = tv->ops->insert_row( tv, rec, idx, FALSE );
+            r = tv->ops->insert_row( tv, rec, -1, FALSE );
             if( r )
                 goto err;
 
@@ -1717,21 +1701,6 @@ static UINT msi_table_update(struct tagMSIVIEW *view, MSIRECORD *rec, UINT row)
     return TABLE_set_row(view, new_row, rec, (1 << tv->num_cols) - 1);
 }
 
-static UINT msi_table_assign(struct tagMSIVIEW *view, MSIRECORD *rec)
-{
-    MSITABLEVIEW *tv = (MSITABLEVIEW *)view;
-    UINT r, row;
-
-    if (!tv->table)
-        return ERROR_INVALID_PARAMETER;
-
-    r = msi_table_find_row(tv, rec, &row);
-    if (r == ERROR_SUCCESS)
-        return TABLE_set_row(view, row, rec, (1 << tv->num_cols) - 1);
-    else
-        return TABLE_insert_row( view, rec, -1, FALSE );
-}
-
 static UINT modify_delete_row( struct tagMSIVIEW *view, MSIRECORD *rec )
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW *)view;
@@ -1801,9 +1770,6 @@ static UINT TABLE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
         break;
 
     case MSIMODIFY_ASSIGN:
-        r = msi_table_assign( view, rec );
-        break;
-
     case MSIMODIFY_REPLACE:
     case MSIMODIFY_MERGE:
     case MSIMODIFY_VALIDATE:
@@ -2777,7 +2743,7 @@ static UINT msi_table_load_transform( MSIDATABASE *db, IStorage *stg,
 
                 r = TABLE_insert_row( &tv->view, rec, -1, FALSE );
                 if (r != ERROR_SUCCESS)
-                    WARN("insert row failed\n");
+                    ERR("insert row failed\n");
 
                 if ( number != MSI_NULL_INTEGER && !lstrcmpW(name, szColumns) )
                     msi_update_table_columns( db, table );
@@ -2788,7 +2754,7 @@ static UINT msi_table_load_transform( MSIDATABASE *db, IStorage *stg,
 
                 r = msi_table_find_row( tv, rec, &row );
                 if (r != ERROR_SUCCESS)
-                    WARN("no matching row to transform\n");
+                    ERR("no matching row to transform\n");
                 else if ( mask )
                 {
                     TRACE("modifying row [%d]:\n", row);
@@ -2956,30 +2922,4 @@ void msi_free_transforms( MSIDATABASE *db )
         IStorage_Release( t->stg );
         msi_free( t );
     }
-}
-
-static UINT table_find_insert_idx (MSIVIEW *view, LPCWSTR name, INT *pidx)
-{
-    UINT r, name_id, row_id;
-    INT idx;
-    MSITABLEVIEW *tv = (MSITABLEVIEW *)view;
-
-    TRACE ("%p %s\n", view, debugstr_w(name));
-
-    r = msi_string2idW(tv->db->strings, name, &name_id);
-    if (r != ERROR_SUCCESS)
-    {
-        *pidx = -1;
-        return r;
-    }
-
-    for( idx = 0; idx < tv->table->row_count; idx++ )
-    {
-        r = TABLE_fetch_int( &tv->view, idx, 1, &row_id );
-        if (row_id > name_id)
-            break;
-    }
-
-    *pidx = idx;
-    return ERROR_SUCCESS;
 }

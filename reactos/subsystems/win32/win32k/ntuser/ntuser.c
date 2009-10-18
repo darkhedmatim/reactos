@@ -1,8 +1,27 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ *  $Id: painting.c 16320 2005-06-29 07:09:25Z navaraf $
+ *
  *  COPYRIGHT:        See COPYING in the top level directory
  *  PROJECT:          ReactOS kernel
  *  PURPOSE:          ntuser init. and main funcs.
- *  FILE:             subsystems/win32/win32k/ntuser/ntuser.c
+ *  FILE:             subsys/win32k/ntuser/ntuser.c
  *  REVISION HISTORY:
  *       16 July 2005   Created (hardon)
  */
@@ -14,41 +33,13 @@
 #define NDEBUG
 #include <debug.h>
 
-BOOL InitSysParams();
-
-/* GLOBALS *******************************************************************/
-
 ERESOURCE UserLock;
-ATOM AtomMessage; // Window Message atom.
 BOOL gbInitialized;
-HINSTANCE hModClient = NULL;
-BOOL ClientPfnInit = FALSE;
 
-/* PRIVATE FUNCTIONS *********************************************************/
+BOOL
+InitSysParams();
 
-static
-NTSTATUS FASTCALL
-InitUserAtoms(VOID)
-{
-
-  gpsi->atomSysClass[ICLS_MENU]      = 32768;
-  gpsi->atomSysClass[ICLS_DESKTOP]   = 32769;
-  gpsi->atomSysClass[ICLS_DIALOG]    = 32770;
-  gpsi->atomSysClass[ICLS_SWITCH]    = 32771;
-  gpsi->atomSysClass[ICLS_ICONTITLE] = 32772;
-  gpsi->atomSysClass[ICLS_TOOLTIPS]  = 32774;
-  
-  /* System Message Atom */
-  AtomMessage = IntAddGlobalAtom(L"Message", TRUE);
-  gpsi->atomSysClass[ICLS_HWNDMESSAGE] = AtomMessage;
-
-  /* System Context Help Id Atom */
-  gpsi->atomContextHelpIdProp = IntAddGlobalAtom(L"SysCH", TRUE);
-
-  return STATUS_SUCCESS;
-}
-
-/* FUNCTIONS *****************************************************************/
+/* FUNCTIONS **********************************************************/
 
 
 NTSTATUS FASTCALL InitUserImpl(VOID)
@@ -80,8 +71,6 @@ NTSTATUS FASTCALL InitUserImpl(VOID)
       }
    }
 
-   InitUserAtoms();
-
    InitSysParams();
 
    return STATUS_SUCCESS;
@@ -94,8 +83,6 @@ UserInitialize(
   HANDLE  hPowerRequestEvent,
   HANDLE  hMediaRequestEvent)
 {
-    NTSTATUS Status;
-
 // Set W32PF_Flags |= (W32PF_READSCREENACCESSGRANTED | W32PF_IOWINSTA)
 // Create Object Directory,,, Looks like create workstation. "\\Windows\\WindowStations"
 // Create Event for Diconnect Desktop.
@@ -107,15 +94,6 @@ UserInitialize(
 //     Initialize User Screen.
 // }
 // Create ThreadInfo for this Thread!
-// {
-
-    GetW32ThreadInfo();
-   
-//    Callback to User32 Client Thread Setup
-
-    Status = co_IntClientThreadSetup();
-
-// }
 // Set Global SERVERINFO Error flags.
 // Load Resources.
 
@@ -136,8 +114,8 @@ NtUserInitialize(
 {
     NTSTATUS Status;
 
-    DPRINT("Enter NtUserInitialize(%lx, %p, %p)\n",
-           dwWinVersion, hPowerRequestEvent, hMediaRequestEvent);
+    DPRINT1("Enter NtUserInitialize(%lx, %p, %p)\n",
+            dwWinVersion, hPowerRequestEvent, hMediaRequestEvent);
 
     /* Check the Windows version */
     if (dwWinVersion != 0)
@@ -180,13 +158,13 @@ NtUserInitialize(
 RETURN
    True if current thread owns the lock (possibly shared)
 */
-BOOL FASTCALL UserIsEntered(VOID)
+BOOL FASTCALL UserIsEntered()
 {
    return ExIsResourceAcquiredExclusiveLite(&UserLock)
       || ExIsResourceAcquiredSharedLite(&UserLock);
 }
 
-BOOL FASTCALL UserIsEnteredExclusive(VOID)
+BOOL FASTCALL UserIsEnteredExclusive()
 {
    return ExIsResourceAcquiredExclusiveLite(&UserLock);
 }

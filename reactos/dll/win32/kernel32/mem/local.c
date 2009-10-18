@@ -201,17 +201,19 @@ LocalFlags(HLOCAL hMem)
             /* Get the lock count first */
             uFlags = HandleEntry->LockCount & LMEM_LOCKCOUNT;
 
-            /* Now check if it's discardable */
+            /* Now check if it's discarded */
             if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSABLE)
+            {
+                /* Set the Win32 Flag */
+                uFlags |= LMEM_DISCARDED;
+            }
+
+            /* Check if it's movable */
+            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_MOVABLE)
             {
                 /* Set the Win32 Flag */
                 uFlags |= LMEM_DISCARDABLE;
             }
-
-            /* Now check if it's discarded */
-            if (HandleEntry->Flags & BASE_HEAP_ENTRY_FLAG_REUSE)
-               /* Set the Win32 Flag */
-               uFlags |= LMEM_DISCARDED;
         }
     }
 

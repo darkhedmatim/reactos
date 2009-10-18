@@ -24,13 +24,13 @@
 #include "mm.h"
 #endif
 
-extern UCHAR XboxFont8x16[256 * 16];
+UCHAR XboxFont8x16[256 * 16];
 
 VOID XboxMachInit(const char *CmdLine);
 
 VOID XboxConsPutChar(int Ch);
-BOOLEAN XboxConsKbHit(VOID);
-int XboxConsGetCh(VOID);
+BOOLEAN XboxConsKbHit();
+int XboxConsGetCh();
 
 VOID XboxVideoInit(VOID);
 VOID XboxVideoClearScreen(UCHAR Attr);

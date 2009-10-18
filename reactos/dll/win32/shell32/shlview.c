@@ -1450,8 +1450,8 @@ static LRESULT ShellView_OnNotify(IShellViewImpl * This, UINT CtlID, LPNMHDR lpn
 
 	          if (pds)
 	          {
-	            DWORD dwEffect2;
-		    DoDragDrop(pda, pds, dwEffect, &dwEffect2);
+	            DWORD dwEffect;
+		    DoDragDrop(pda, pds, dwEffect, &dwEffect);
 		  }
 	          IDataObject_Release(pda);
 	      }

@@ -10,7 +10,6 @@
 #include <windows.h>
 #include <winsock.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <map>
 #include <string>
 #include <sstream>

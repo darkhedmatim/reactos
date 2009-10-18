@@ -96,7 +96,7 @@ WdmAudOpenSysAudioDevices(
     ULONG Length;
     HANDLE hSysAudio;
     PFILE_OBJECT FileObject;
-    UNICODE_STRING DeviceName = RTL_CONSTANT_STRING(L"\\Device\\sysaudio\\GLOBAL");
+    UNICODE_STRING DeviceName = RTL_CONSTANT_STRING(L"\\Device\\sysaudio");
 
     if (DeviceExtension->DeviceInterfaceSupport)
     {

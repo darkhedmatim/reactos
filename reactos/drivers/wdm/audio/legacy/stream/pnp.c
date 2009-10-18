@@ -157,10 +157,6 @@ StreamClassStartDevice(
     /* Get driver object extension */
     DriverObjectExtension = IoGetDriverObjectExtension(DeviceObject->DriverObject, (PVOID)StreamClassAddDevice);
 
-    /* sanity checks */
-    ASSERT(DeviceExtension);
-    ASSERT(DriverObjectExtension);
-
     /* Zero request block */
     RtlZeroMemory(RequestBlock, ResultLength);
 
@@ -315,7 +311,7 @@ StreamClassStartDevice(
         DeviceDesc.InterfaceType = Config->AdapterInterfaceType;
         DeviceDesc.DmaWidth = Width32Bits;
         DeviceDesc.DmaSpeed = Compatible;
-        DeviceDesc.MaximumLength = MAXULONG;
+        DeviceDesc.MaximumLength = (ULONG)-1;
         DeviceDesc.Dma32BitAddresses = DriverObjectExtension->Data.Dma24BitAddresses;
 
         Adapter = IoGetDmaAdapter(DeviceExtension->PhysicalDeviceObject, &DeviceDesc, &MapRegisters);

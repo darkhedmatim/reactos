@@ -1,8 +1,6 @@
 #ifndef __WIN32K_PDEVOBJ_H
 #define __WIN32K_PDEVOBJ_H
 
-#include <drivers/directx/directxint.h>
-
 /* PDEVOBJ flags */
 #define PDEV_DISPLAY             0x00000001 /* Display device */
 #define PDEV_HARDWARE_POINTER    0x00000002 /* Supports hardware cursor */
@@ -41,24 +39,10 @@ typedef struct _GDIPOINTER /* should stay private to ENG? No, part of PDEVOBJ ak
 
 typedef struct _GRAPHICS_DEVICE
 {
-    WCHAR            szNtDeviceName[CCHDEVICENAME/2];
-    WCHAR            szWinDeviceName[CCHDEVICENAME/2];
-    struct _GRAPHICS_DEVICE * pNextGraphicsDevice;
-    struct _GRAPHICS_DEVICE * pVgaDevice;
-    PDEVICE_OBJECT   DeviceObject;
-    PVOID            pDeviceHandle;
-    DWORD            hkClassDriverConfig;
-    DWORD            StateFlags;                     /* See DISPLAY_DEVICE_* */
-    ULONG            cbdevmodeInfo;
-    PVOID            devmodeInfo;
-    DWORD            cbdevmodeInfo1;
-    PVOID            devmodeInfo1;
-    LPWSTR           pwszDeviceNames;
-    LPWSTR           pwszDescription;
-    DWORD            dwUnknown;
-    PVOID            pUnknown;
-    PFILE_OBJECT     FileObject;
-    DWORD            ProtocolType;
+  CHAR szNtDeviceName[CCHDEVICENAME];           /* Yes char AscII */
+  CHAR szWinDeviceName[CCHDEVICENAME];          /* <- chk GetMonitorInfoW MxIxEX.szDevice */
+  struct _GRAPHICS_DEVICE * pNextGraphicsDevice;
+  DWORD StateFlags;                             /* See DISPLAY_DEVICE_* */
 } GRAPHICS_DEVICE, *PGRAPHICS_DEVICE;
 
 typedef struct _PDEVOBJ
@@ -71,7 +55,7 @@ typedef struct _PDEVOBJ
     struct _PDEVOBJ *         ppdevParent;
     FLONG                     flFlags;  // flags
 //  FLONG                     flAccelerated;
-    HSEMAPHORE                hsemDevLock;    /* Device lock. */
+    PERESOURCE                hsemDevLock;    /* Device lock. */
 //  HSEMAPHORE                hsemPointer;
     POINTL                    ptlPointer;
 //  SIZEL                     szlPointer;
@@ -79,7 +63,7 @@ typedef struct _PDEVOBJ
 //  HFONT                     hlfntDefault;
 //  HFONT                     hlfntAnsiVariable;
 //  HFONT                     hlfntAnsiFixed;
-    HSURF                     ahsurf[HS_DDI_MAX];
+    HSURF                     FillPatterns[HS_DDI_MAX]; // ahsurf[HS_DDI_MAX];
 //  PUNICODE_STRING           pusPrtDataFileName;
 //  PVOID                     pDevHTInfo;
 //  RFONT *                   prfntActive;
@@ -101,14 +85,14 @@ typedef struct _PDEVOBJ
 //  PFN_DrvNotify             pfnDrvNotify;
 //  ULONG                     TagSig;
 //  PLDEVOBJ                  pldev;
-    DHPDEV                    dhpdev;         /* DHPDEV for device. */
+    DHPDEV                    hPDev;          /* dhpdev, DHPDEV for device. */
     PVOID                     ppalSurf;       /* PEPALOBJ/PPALETTE for this device. */
-    DEVINFO                   devinfo;
-    GDIINFO                   gdiinfo;
+    DEVINFO                   DevInfo; // devinfo
+    GDIINFO                   GDIInfo; // gdiinfo
     HSURF                     pSurface;       /* SURFACE for this device., FIXME: PSURFACE */
 //  HANDLE                    hSpooler;       /* Handle to spooler, if spooler dev driver. */
 //  PVOID                     pDesktopId;
-    PGRAPHICS_DEVICE          pGraphicsDevice;
+    PGRAPHICS_DEVICE          pGraphicsDev;   /* pGraphicsDevice */
 //  POINTL                    ptlOrigion;
     PVOID                     pdmwDev;        /* Ptr->DEVMODEW.dmSize + dmDriverExtra == alloc size. */
 //  DWORD                     Unknown3;
@@ -135,14 +119,5 @@ typedef struct _PDEVOBJ
     UINT SafetyRemoveCount;
     struct _EDD_DIRECTDRAW_GLOBAL * pEDDgpl;
 } PDEVOBJ, *PPDEVOBJ;
-
-/* PDEV and EDDX extra data container.*/
-typedef struct _PDEVEDD
-{
-    PDEVOBJ pdevobj;
-    EDD_DIRECTDRAW_GLOBAL EDDgpl;
-} PDEVEDD, *PPDEVEDD;
-
-extern ULONG gdwDirectDrawContext;
 
 #endif /* !__WIN32K_PDEVOBJ_H */

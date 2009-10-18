@@ -182,7 +182,7 @@ WORD wDefColor;           /* default color */
 INT
 ConvertULargeInteger(ULONGLONG num, LPTSTR des, INT len, BOOL bPutSeperator)
 {
-	TCHAR temp[39];   /* maximum length with nNumberGroups == 1 */
+	TCHAR temp[32];
 	UINT  n, iTarget;
 
 	if (len <= 1)
@@ -198,15 +198,15 @@ ConvertULargeInteger(ULONGLONG num, LPTSTR des, INT len, BOOL bPutSeperator)
 		if (iTarget == n && bPutSeperator)
 		{
 			iTarget += nNumberGroups + 1;
-			temp[38 - n++] = cThousandSeparator;
+			temp[31 - n++] = cThousandSeparator;
 		}
-		temp[38 - n++] = (TCHAR)(num % 10) + _T('0');
+		temp[31 - n++] = (TCHAR)(num % 10) + _T('0');
 		num /= 10;
 	} while (num > 0);
 	if (n > len-1)
 		n = len-1;
 
-	memcpy(des, temp + 39 - n, n * sizeof(TCHAR));
+	memcpy(des, temp + 32 - n, n * sizeof(TCHAR));
 	des[n] = _T('\0');
 
 	return n;
@@ -484,23 +484,14 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 INT
 DoCommand(LPTSTR first, LPTSTR rest, PARSED_COMMAND *Cmd)
 {
-	TCHAR *com;
+	TCHAR com[_tcslen(first) + _tcslen(rest) + 2];  /* full command line */
 	TCHAR *cp;
 	LPTSTR param;   /* pointer to command's parameters */
 	INT cl;
 	LPCOMMAND cmdptr;
 	BOOL nointernal = FALSE;
-	INT ret;
 
 	TRACE ("DoCommand: (\'%s\' \'%s\')\n", debugstr_aw(first), debugstr_aw(rest));
-
-	/* full command line */
-	com = cmd_alloc((_tcslen(first) + _tcslen(rest) + 2) * sizeof(TCHAR));
-	if (com == NULL)
-	{
-		error_out_of_memory();
-		return 1;
-	}
 
 	/* If present in the first word, these characters end the name of an
 	 * internal command and become the beginning of its parameters. */
@@ -535,15 +526,11 @@ DoCommand(LPTSTR first, LPTSTR rest, PARSED_COMMAND *Cmd)
 			if (_tcsicmp(cmdptr->name, _T("echo")) != 0)
 				while (_istspace(*param))
 					param++;
-			ret = cmdptr->func(param);
-			cmd_free(com);
-			return ret;
+			return cmdptr->func(param);
 		}
 	}
 
-	ret = Execute(com, first, rest, Cmd);
-	cmd_free(com);
-	return ret;
+	return Execute(com, first, rest, Cmd);
 }
 
 
@@ -752,22 +739,42 @@ ExecuteCommand(PARSED_COMMAND *Cmd)
 	return Ret;
 }
 
+BOOL
+GrowIfNecessary_dbg ( UINT needed, LPTSTR* ret, UINT* retlen, const char *file, int line )
+{
+	if ( *ret && needed < *retlen )
+		return TRUE;
+	*retlen = needed;
+	if ( *ret )
+		cmd_free ( *ret );
+#ifdef _DEBUG_MEM
+	*ret = (LPTSTR)cmd_alloc_dbg ( *retlen * sizeof(TCHAR), file, line );
+#else
+	*ret = (LPTSTR)cmd_alloc ( *retlen * sizeof(TCHAR) );
+#endif
+	if ( !*ret )
+		SetLastError ( ERROR_OUTOFMEMORY );
+	return *ret != NULL;
+}
+#define GrowIfNecessary(x, y, z) GrowIfNecessary_dbg(x, y, z, __FILE__, __LINE__)
+
 LPTSTR
 GetEnvVar(LPCTSTR varName)
 {
 	static LPTSTR ret = NULL;
+	static UINT retlen = 0;
 	UINT size;
 
-	cmd_free(ret);
-	ret = NULL;
-	size = GetEnvironmentVariable(varName, NULL, 0);
-	if (size > 0)
+	size = GetEnvironmentVariable ( varName, ret, retlen );
+	if ( size > retlen )
 	{
-		ret = cmd_alloc(size * sizeof(TCHAR));
-		if (ret != NULL)
-			GetEnvironmentVariable(varName, ret, size + 1);
+		if ( !GrowIfNecessary ( size, &ret, &retlen ) )
+			return NULL;
+		size = GetEnvironmentVariable ( varName, ret, retlen );
 	}
-	return ret;
+	if ( size )
+		return ret;
+	return NULL;
 }
 
 LPCTSTR
@@ -1629,6 +1636,9 @@ Initialize()
 		NtReadVirtualMemoryPtr = (NtReadVirtualMemoryProc)GetProcAddress(NtDllModule, "NtReadVirtualMemory");
 	}
 
+	cmdLine = GetCommandLine();
+	TRACE ("[command args: %s]\n", debugstr_aw(cmdLine));
+
 	InitLocale ();
 
 	/* get default input and output console handles */
@@ -1642,31 +1652,8 @@ Initialize()
 	if (GetEnvironmentVariable(_T("PROMPT"),lpBuffer, sizeof(lpBuffer) / sizeof(lpBuffer[0])) == 0)
 	    SetEnvironmentVariable (_T("PROMPT"), _T("$P$G"));
 
-#ifdef FEATURE_DIR_STACK
-	/* initialize directory stack */
-	InitDirectoryStack ();
-#endif
-
-#ifdef FEATURE_HISTORY
-	/*initialize history*/
-	InitHistory();
-#endif
-
-	/* Set COMSPEC environment variable */
-	if (0 != GetModuleFileName (NULL, ModuleName, _MAX_PATH + 1))
-	{
-		ModuleName[_MAX_PATH] = _T('\0');
-		SetEnvironmentVariable (_T("COMSPEC"), ModuleName);
-	}
-
-	/* add ctrl break handler */
-	AddBreakHandler ();
-
 
 	SetConsoleMode (hIn, ENABLE_PROCESSED_INPUT);
-
-	cmdLine = GetCommandLine();
-	TRACE ("[command args: %s]\n", debugstr_aw(cmdLine));
 
 	for (ptr = cmdLine; *ptr; ptr++)
 	{
@@ -1676,9 +1663,7 @@ Initialize()
 			if (option == _T('?'))
 			{
 				ConOutResPaging(TRUE,STRING_CMD_HELP8);
-				nErrorLevel = 1;
-				bExit = TRUE;
-				return;
+				cmd_exit(0);
 			}
 			else if (option == _T('P'))
 			{
@@ -1746,6 +1731,27 @@ Initialize()
 		ConOutPuts(_T("(C) Copyright 1998-") _T(COPYRIGHT_YEAR) _T(" ReactOS Team."));
 	}
 
+#ifdef FEATURE_DIR_STACK
+	/* initialize directory stack */
+	InitDirectoryStack ();
+#endif
+
+
+#ifdef FEATURE_HISTORY
+	/*initialize history*/
+	InitHistory();
+#endif
+
+	/* Set COMSPEC environment variable */
+	if (0 != GetModuleFileName (NULL, ModuleName, _MAX_PATH + 1))
+	{
+		ModuleName[_MAX_PATH] = _T('\0');
+		SetEnvironmentVariable (_T("COMSPEC"), ModuleName);
+	}
+
+	/* add ctrl break handler */
+	AddBreakHandler ();
+
 	if (AutoRun)
 	{
 		ExecuteAutoRunFile(HKEY_LOCAL_MACHINE);
@@ -1790,8 +1796,6 @@ static VOID Cleanup()
 	CleanHistory();
 #endif
 
-	/* free GetEnvVar's buffer */
-	GetEnvVar(NULL);
 
 	/* remove ctrl break handler */
 	RemoveBreakHandler ();

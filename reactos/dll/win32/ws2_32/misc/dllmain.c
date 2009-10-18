@@ -39,7 +39,17 @@ INT
 EXPORT
 WSAGetLastError(VOID)
 {
-    return GetLastError();
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
+
+    if (p)
+    {
+        return p->LastErrorValue;
+    }
+    else
+    {
+        /* FIXME: What error code should we use here? Can this even happen? */
+        return ERROR_BAD_ENVIRONMENT;
+    }
 }
 
 
@@ -50,7 +60,10 @@ VOID
 EXPORT
 WSASetLastError(IN INT iError)
 {
-    SetLastError(iError);
+    PWINSOCK_THREAD_BLOCK p = NtCurrentTeb()->WinSockData;
+
+    if (p)
+        p->LastErrorValue = iError;
 }
 
 
@@ -872,6 +885,11 @@ DllMain(HANDLE hInstDll,
 
         case DLL_PROCESS_DETACH:
         {
+            p = NtCurrentTeb()->WinSockData;
+
+            if (p)
+              HeapFree(GlobalHeap, 0, p);
+
             DestroyCatalog();
 
             FreeProviderHandleTable();

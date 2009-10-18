@@ -13,6 +13,7 @@ namespace AbstractPipe
     {
         MODE_CLIENT = 0x00000000,
         MODE_SERVER = 0x00000001,
+        MODE_AUTO   = 0x00000002
     }
 
     public class NamedPipe : Pipe, NPipe
@@ -24,8 +25,6 @@ namespace AbstractPipe
         private List<String> cmdList; /*list of commands pending to be written */
         private bool bClientConn;
         private Thread waitThread;
-        private NamedPipeServerStream sStream;
-        private NamedPipeClientStream cStream;
 
         public event EventHandler ClientConnectedEvent;
         public event EventHandler ClientDisconnectedEvent;
@@ -44,95 +43,57 @@ namespace AbstractPipe
             cmdList = new List<string>();
         }
 
-        private void signalConnected()
+        private void WaitForConnection(object data)
         {
-            bClientConn = true;
-            if (ClientConnectedEvent != null)
-            {
-                ClientConnectedEvent(this, EventArgs.Empty);
-            }
-        }
+            NamedPipeServerStream pipeStream = (NamedPipeServerStream)data;
 
-        private void signalDisconnected()
-        {
-            bClientConn = false;
-            if (ClientDisconnectedEvent != null)
-            {
-                ClientDisconnectedEvent(this, EventArgs.Empty);
-            }
-        }
+            pipeStream.WaitForConnection();
 
-        private void WaitForConnection()
-        {
-            try
+            if (pipeStream.IsConnected)
             {
-                sStream.WaitForConnection();
+                ioStream = pipeStream;
+                bClientConn = true;
 
-                if (sStream.IsConnected)
+                if (ClientConnectedEvent != null)
                 {
-                    ioStream = sStream;
-                    signalConnected();
+                    ClientConnectedEvent(this, EventArgs.Empty);
                 }
-            }
-            catch (IOException)
-            {
-                /* Pipe got killed externally */
             }
         }
 
         public void CreateServerPipe(string name)
         {
             /* create a pipe and wait for a client */
-            sStream = new NamedPipeServerStream(name, PipeDirection.InOut, 1, 
+            NamedPipeServerStream sStream = new NamedPipeServerStream(name, PipeDirection.InOut, 1, 
                 PipeTransmissionMode.Byte, PipeOptions.Asynchronous, PIPE_SIZE, PIPE_SIZE);
 
             waitThread = new Thread(WaitForConnection);
-            waitThread.Start();
+            waitThread.Start(sStream);
         }
-
-        private void WaitForServer()
-        {
-            while (true)
-            {
-                try
-                {
-                    cStream.Connect(10);
-                }
-                catch (TimeoutException)
-                {
-                    /* Dismiss timeout, will try again */
-                }
-                catch (Exception)
-                {
-                    /* Pipe was killed externally */
-                    return;
-                }
-                if (cStream.IsConnected)
-                {
-                    ioStream = cStream;
-                    signalConnected();
-                    return;
-                }
-                Thread.Sleep(500);
-            }
-        }
-
+       
         public bool CreateClientPipe(string name)
         {
-            /* Try to connect as a client */
+            /* try to connect as a client */
             /* (QEMU -serial pipe or VMware in pipe server mode) */
             try
             {
-                cStream = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+                NamedPipeClientStream cStream = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+                cStream.Connect(100);
+
+                if (cStream.IsConnected)
+                {
+                    ioStream = cStream;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
             catch (Exception)
             {
-                /* Pipe couldn't be created */
                 return false;
             }
-            waitThread = new Thread(WaitForServer);
-            waitThread.Start();
-            return true;
         }
 
         public bool CreatePipe(string name, ConnectionMode mode)
@@ -143,13 +104,23 @@ namespace AbstractPipe
             }
             switch (mode)
             {
+                case ConnectionMode.MODE_AUTO:
+                    //check if pipe exists, if not create server pipe, wait certain time, check if pipe...
+                    //TODO: server-client lookup should time out
+                    CreateClientPipe(name);
+                    CreateServerPipe(name);
+
+                    return true; 
+
                 case ConnectionMode.MODE_CLIENT:
                     CreateClientPipe(name);
+                    
+                    /* pipe open, everything fine */
                     return true;
 
                 case ConnectionMode.MODE_SERVER:
                     CreateServerPipe(name);
-                    return true;
+                        return true;
             }
             return false;
         }
@@ -164,18 +135,8 @@ namespace AbstractPipe
             /* Wake up the write thread so it can die */
             newWriteData.Set();
 
-            /* Close connection streams */
             if (waitThread != null)
-            {
-                if (sStream != null)
-                {
-                    sStream.Close();
-                }
-                else if (cStream != null)
-                {
-                    cStream.Close();
-                }
-            }
+                waitThread.Abort();
         }
 
         public void WriteLoop()
@@ -245,8 +206,12 @@ namespace AbstractPipe
                              * Connecion closed!
                              * We'll hijack this thread and use it to set up our pipe server again.
                              * This thread will terminate once the connection is set up, it does not block.
-                            */
-                            signalDisconnected();
+                             */
+                            if (ClientDisconnectedEvent != null)
+                            {
+                                ClientDisconnectedEvent(this, EventArgs.Empty);
+                            }
+
                             break;
                         }
                     }
@@ -264,11 +229,14 @@ namespace AbstractPipe
             /* only forward a complete line */
             wCommand += str;
 
-            cmdList.Add(wCommand);
-            wCommand = null;
+            if (str[str.Length-1] == '\r') //FIXME: remove this
+            {
+                cmdList.Add(wCommand);
+                wCommand = null;
 
-            /* wake up the write thread */
-            newWriteData.Set();
+                /* wake up the write thread */
+                newWriteData.Set();
+            }
             return true;
         }
     }

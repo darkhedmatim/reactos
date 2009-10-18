@@ -27,7 +27,6 @@ int main() { return 1; }
 
 #else
 
-#include <algorithm>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -96,7 +95,7 @@ namespace
 		DWORD cchMessage = FormatMessageA
 		(
 			FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING,
-			"rbuild_helper: %1!s!() failed: error %2!lu!\n",
+			"msc_helper: %1!s!() failed: error %2!lu!\n",
 			0,
 			0,
 			(LPSTR)&pszMessage,
@@ -136,7 +135,7 @@ namespace
 	DECLSPEC_NORETURN
 	void OutOfMemory()
 	{
-		DieMessage("rbuild_helper: out of memory\n");
+		DieMessage("msc_helper: out of memory\n");
 	}
 
 	template<class CharT>
@@ -157,7 +156,7 @@ namespace
 		void push_back(TCHAR x)
 		{
 			if(x > std::numeric_limits<CharT>::max() || x < std::numeric_limits<CharT>::min())
-				DieMessage("rbuild_helper: invalid character in command line\n");
+				DieMessage("msc_helper: invalid character in command line\n");
 
 			m_arg = static_cast<CharT *>(HeapReAlloc(GetProcessHeap(), 0, m_arg, (m_argLen + 1) * sizeof(CharT)));
 
@@ -305,7 +304,7 @@ namespace
 				DWORD cchPipeName = FormatMessage
 				(
 					FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING,
-					TEXT("\\\\.\\pipe\\rbuild_helper-%1!08X!-%2!08X!"),
+					TEXT("\\\\.\\pipe\\msc_helper-%1!08X!-%2!08X!"),
 					0,
 					0,
 					(LPTSTR)&m_pszPipeName,

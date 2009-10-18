@@ -54,11 +54,7 @@ extern "C" {
 
 
 typedef void * I_RPC_HANDLE;
-#ifndef __ROS_LONG64__
 typedef long RPC_STATUS;
-#else
-typedef int RPC_STATUS;
-#endif
 #define __RPC_FAR
 
 #if defined(__RPC_WIN32__) || defined(__RPC_WIN64__)

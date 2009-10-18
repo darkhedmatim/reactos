@@ -38,10 +38,7 @@ VOID VideoFadeIn(PPALETTE_ENTRY Palette, ULONG ColorCount)
 {
 	ULONG				Index;
 	ULONG				Color;
-	PPALETTE_ENTRY	PaletteColors;
-
-	PaletteColors = MmHeapAlloc(sizeof(PALETTE_ENTRY) * ColorCount);
-	if (!PaletteColors) return;
+	PALETTE_ENTRY	PaletteColors[ColorCount];
 
 	for (Index=0; Index<RGB_MAX; Index++)
 	{
@@ -90,8 +87,6 @@ VOID VideoFadeIn(PPALETTE_ENTRY Palette, ULONG ColorCount)
 			MachVideoSetPaletteColor(Color, PaletteColors[Color].Red, PaletteColors[Color].Green, PaletteColors[Color].Blue);
 		}
 	}
-
-	MmHeapFree(PaletteColors);
 }
 
 VOID VideoFadeOut(ULONG ColorCount)

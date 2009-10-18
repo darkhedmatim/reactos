@@ -29,29 +29,11 @@ IsHandleValid(HGDIOBJ hobj)
     return TRUE;
 }
 
-PVOID
-GetHandleUserData(HGDIOBJ hobj)
-{
-    USHORT Index = (ULONG_PTR)hobj;
-    PGDI_TABLE_ENTRY pentry = &GdiHandleTable[Index];
-
-    if (pentry->KernelData == NULL ||
-        pentry->KernelData < (PVOID)0x80000000 ||
-        (USHORT)pentry->FullUnique != (USHORT)((ULONG_PTR)hobj >> 16))
-    {
-        return NULL;
-    }
-
-    return pentry->UserData;
-}
-
-
 static DWORD WINAPI
 IntSyscall(FARPROC proc, UINT cParams, PVOID pFirstParam)
 {
-	DWORD retval;
+	DWORD ret;
 
-#ifdef __GNUC__
 	asm volatile
 	(
 		"pushfl;"				// Save flags
@@ -63,37 +45,21 @@ IntSyscall(FARPROC proc, UINT cParams, PVOID pFirstParam)
 		"rep movsd;"			// Copy params to the stack
 		"call *%%edx;"			// Call function
 		"popfl;"				// Restore flags
-		: "=a" (retval)
+		: "=a" (ret)
 		: "S" (pFirstParam), "c" (cParams), "d"(proc)
 		: "%edi"
 	);
-#else
-	__asm
-	{
-		pushf
-		mov eax, cParams
-		shl eax, 2
-		sub esp, eax
-		mov edi, esp
-		cld
-		rep movsd
-		call proc
-		mov retval, eax
-		popf
-    };
-#endif
 
-	return retval;
+	return ret;
 }
 
 DWORD
 Syscall(LPWSTR pszFunction, int cParams, void* pParams)
 {
 	char szFunctionName[MAX_PATH];
-	FARPROC proc;
 
 	sprintf(szFunctionName, "%ls", pszFunction);
-	proc = (FARPROC)GetProcAddress(g_hModule, szFunctionName);
+	FARPROC proc = (FARPROC)GetProcAddress(g_hModule, szFunctionName);
 	if (!proc)
 	{
 		printf("Couldn't find proc: %s\n", szFunctionName);

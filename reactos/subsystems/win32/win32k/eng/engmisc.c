@@ -76,11 +76,6 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
       }
 
     *ppsoOutput = EngLockSurface((HSURF)EnterLeave->OutputBitmap);
-    if (*ppsoOutput == NULL)
-    {
-      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
-      return FALSE;
-    }
 
     EnterLeave->DestRect.left = 0;
     EnterLeave->DestRect.top = 0;
@@ -108,12 +103,6 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
         ClippedDestRect.bottom = ClippedDestRect.top + psoDest->sizlBitmap.cy - SrcPoint.y;
       }
     EnterLeave->TrivialClipObj = EngCreateClip();
-    if (EnterLeave->TrivialClipObj == NULL)
-    {
-      EngUnlockSurface(*ppsoOutput);
-      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
-      return FALSE;
-    }
     EnterLeave->TrivialClipObj->iDComplexity = DC_TRIVIAL;
     if (ClippedDestRect.left < (*ppsoOutput)->sizlBitmap.cx &&
         0 <= ClippedDestRect.right &&
@@ -126,11 +115,11 @@ IntEngEnter(PINTENG_ENTER_LEAVE EnterLeave,
                                         EnterLeave->TrivialClipObj, NULL,
                                         &ClippedDestRect, &SrcPoint))
       {
-          EngDeleteClip(EnterLeave->TrivialClipObj);
-          EngFreeMem((*ppsoOutput)->pvBits);
-          EngUnlockSurface(*ppsoOutput);
-          EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
-          return FALSE;
+      EngDeleteClip(EnterLeave->TrivialClipObj);
+      EngFreeMem((*ppsoOutput)->pvBits);
+      EngUnlockSurface(*ppsoOutput);
+      EngDeleteSurface((HSURF)EnterLeave->OutputBitmap);
+      return FALSE;
       }
     EnterLeave->DestRect.left = DestRect->left;
     EnterLeave->DestRect.top = DestRect->top;
@@ -233,6 +222,20 @@ IntEngLeave(PINTENG_ENTER_LEAVE EnterLeave)
 }
 
 HANDLE APIENTRY
+EngGetCurrentProcessId(VOID)
+{
+  /* http://www.osr.com/ddk/graphics/gdifncs_5ovb.htm */
+  return PsGetCurrentProcessId();
+}
+
+HANDLE APIENTRY
+EngGetCurrentThreadId(VOID)
+{
+  /* http://www.osr.com/ddk/graphics/gdifncs_25rb.htm */
+  return PsGetCurrentThreadId();
+}
+
+HANDLE APIENTRY
 EngGetProcessHandle(VOID)
 {
   /* http://www.osr.com/ddk/graphics/gdifncs_3tif.htm
@@ -247,60 +250,7 @@ EngGetCurrentCodePage(OUT PUSHORT OemCodePage,
                       OUT PUSHORT AnsiCodePage)
 {
     /* Forward to kernel */
-    RtlGetDefaultCodePage(AnsiCodePage, OemCodePage);
+    return RtlGetDefaultCodePage(AnsiCodePage, OemCodePage);
 }
-
-BOOL
-APIENTRY
-EngQuerySystemAttribute(
-   IN ENG_SYSTEM_ATTRIBUTE CapNum,
-   OUT PDWORD pCapability)
-{
-    SYSTEM_BASIC_INFORMATION sbi;
-    SYSTEM_PROCESSOR_INFORMATION spi;
-
-    switch (CapNum)
-    {
-        case EngNumberOfProcessors:
-            NtQuerySystemInformation(SystemBasicInformation,
-                                     &sbi,
-                                     sizeof(SYSTEM_BASIC_INFORMATION),
-                                     NULL);
-            *pCapability = sbi.NumberOfProcessors;
-            return TRUE;
-
-        case EngProcessorFeature:
-            NtQuerySystemInformation(SystemProcessorInformation,
-                                     &spi,
-                                     sizeof(SYSTEM_PROCESSOR_INFORMATION),
-                                     NULL);
-            *pCapability = spi.ProcessorFeatureBits;
-            return TRUE;
-
-        default:
-            break;
-    }
-
-    return FALSE;
-}
-
-ULONGLONG
-APIENTRY
-EngGetTickCount(VOID)
-{
-    ULONG Multiplier;
-    LARGE_INTEGER TickCount;
-
-    /* Get the multiplier and current tick count */
-    KeQueryTickCount(&TickCount);
-    Multiplier = SharedUserData->TickCountMultiplier;
-
-    /* Convert to milliseconds and return */
-    return (Int64ShrlMod32(UInt32x32To64(Multiplier, TickCount.LowPart), 24) +
-            (Multiplier * (TickCount.HighPart << 8)));
-}
-
-
-
 
 /* EOF */

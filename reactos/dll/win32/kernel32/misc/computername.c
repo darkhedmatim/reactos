@@ -92,18 +92,10 @@ GetComputerNameFromRegistry(LPWSTR RegistryKey,
         return FALSE;
     }
 
-    if (lpBuffer && *nSize > (KeyInfo->DataLength / sizeof(WCHAR)))
+    if (*nSize > (KeyInfo->DataLength / sizeof(WCHAR)))
     {
         *nSize = KeyInfo->DataLength / sizeof(WCHAR) - 1;
         lpBuffer[*nSize] = 0;
-    }
-    else
-    {
-        RtlFreeHeap(RtlGetProcessHeap(), 0, KeyInfo);
-        ZwClose(KeyHandle);
-        *nSize = ReturnSize;
-        SetLastErrorByStatus(STATUS_BUFFER_OVERFLOW);
-        return FALSE;
     }
 
     RtlCopyMemory(lpBuffer, KeyInfo->Data, *nSize * sizeof(WCHAR));
@@ -262,8 +254,7 @@ GetComputerNameExA(COMPUTER_NAME_FORMAT NameType,
 
     if (!TempBuffer)
     {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
+        return ERROR_OUTOFMEMORY;
     }
 
     AnsiString.MaximumLength = (USHORT)*nSize;

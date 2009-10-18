@@ -15,19 +15,19 @@
 
 <!--
 	Sub-architecture (board) to build for. Specify one of:
-		kurobox versatile omap3
+		kurobox versatile
 		
 -->
-<property name="SARCH" value="omap3" />
+<property name="SARCH" value="versatile" />
 
 
 <!--
 	Generate instructions for this CPU type. Specify one of:
-		armv5te armv7-a
+		armv5te
 
 	See GCC manual for more CPU names.
 -->
-<property name="OARCH" value="armv7-a" />
+<property name="OARCH" value="armv5te" />
 
 
 <!--

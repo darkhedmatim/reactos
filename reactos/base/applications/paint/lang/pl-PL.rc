@@ -1,8 +1,5 @@
 /*
  *      translated by Caemyr - Olaf Siejka (May,2009)
- *      Use ReactOS forum PM or IRC to contact me
- *      http://www.reactos.org
- *      IRC: irc.freenode.net #reactos-pl;
  */
 
 
@@ -49,19 +46,13 @@ BEGIN
         MENUITEM SEPARATOR
         POPUP "Powiêkszenie"
         BEGIN
-            POPUP "User defined"
-            BEGIN
-                MENUITEM "12,5%", IDM_VIEWZOOM125
-                MENUITEM "25%", IDM_VIEWZOOM25
-                MENUITEM "50%", IDM_VIEWZOOM50
-                MENUITEM "100%", IDM_VIEWZOOM100
-                MENUITEM "200%", IDM_VIEWZOOM200
-                MENUITEM "400%", IDM_VIEWZOOM400
-                MENUITEM "800%", IDM_VIEWZOOM800
-            END
-            MENUITEM SEPARATOR
-            MENUITEM "Show grid", IDM_VIEWSHOWGRID
-            MENUITEM "Show miniature", IDM_VIEWSHOWMINIATURE
+            MENUITEM "12,5%", IDM_VIEWZOOM125
+            MENUITEM "25%", IDM_VIEWZOOM25
+            MENUITEM "50%", IDM_VIEWZOOM50
+            MENUITEM "100%", IDM_VIEWZOOM100
+            MENUITEM "200%", IDM_VIEWZOOM200
+            MENUITEM "400%", IDM_VIEWZOOM400
+            MENUITEM "800%", IDM_VIEWZOOM800
         END
         MENUITEM "Pe³ny ekran\tCtrl+F", IDM_VIEWFULLSCREEN
     END
@@ -181,7 +172,6 @@ BEGIN
     IDS_INFOTEXT, "Paint dla ReactOS jest dostêpny na licencji GNU Lesser General Public License (LGPL) wersja 3 (www.gnu.org)"
     IDS_SAVEPROMPTTEXT, "Czy chcesz zapisaæ zmiany do %s?"
     IDS_DEFAULTFILENAME, "Nienazwany.bmp"
-    IDS_MINIATURETITLE, "Miniature"
     IDS_TOOLTIP1, "Zaznaczenie dowolne"
     IDS_TOOLTIP2, "Zaznaczenie"
     IDS_TOOLTIP3, "Gumka"
@@ -200,6 +190,4 @@ BEGIN
     IDS_TOOLTIP16, "Zaokr¹glony Prostok¹t"
     IDS_OPENFILTER, "Pliki Bitmapy (*.bmp;*.dib)\1*.bmp;*.dib\1Wszystkie pliki (*.*)\1*.*\1"
     IDS_SAVEFILTER, "Bitmapa 24 bit (*.bmp;*.dib)\1*.bmp;*.dib\1"
-    IDS_FILESIZE, "%d bytes"
-    IDS_PRINTRES, "%d x %d pixels per meter"
 END

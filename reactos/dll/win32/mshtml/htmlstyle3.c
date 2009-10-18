@@ -117,19 +117,15 @@ static HRESULT WINAPI HTMLStyle3_get_zoom(IHTMLStyle3 *iface, VARIANT *p)
 static HRESULT WINAPI HTMLStyle3_put_wordWrap(IHTMLStyle3 *iface, BSTR v)
 {
     HTMLStyle *This = HTMLSTYLE3_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_w(v));
-
-    return set_nsstyle_attr(This->nsstyle, STYLEID_WORD_WRAP, v, 0);
+    FIXME("(%p)->(%s)\n", This, debugstr_w(v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle3_get_wordWrap(IHTMLStyle3 *iface, BSTR *p)
 {
     HTMLStyle *This = HTMLSTYLE3_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_nsstyle_attr(This->nsstyle, STYLEID_WORD_WRAP, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyle3_put_textUnderlinePosition(IHTMLStyle3 *iface, BSTR v)

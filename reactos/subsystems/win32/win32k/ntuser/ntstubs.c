@@ -31,36 +31,9 @@ NtUserAttachThreadInput(
     IN DWORD idAttachTo,
     IN BOOL fAttach)
 {
-  NTSTATUS Status;
-  PETHREAD Thread, ThreadTo;
-  PTHREADINFO pti, ptiTo;
-  BOOL Ret = FALSE;
+   UNIMPLEMENTED
 
-  UserEnterExclusive();
-  Status = PsLookupThreadByThreadId((HANDLE)idAttach, &Thread);
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     goto Exit;
-  }
-  Status = PsLookupThreadByThreadId((HANDLE)idAttachTo, &ThreadTo);
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     ObDereferenceObject(Thread);
-     goto Exit;
-  }
-
-  pti = PsGetThreadWin32Thread(Thread);
-  ptiTo = PsGetThreadWin32Thread(ThreadTo);
-  ObDereferenceObject(Thread);
-  ObDereferenceObject(ThreadTo);
-
-  Ret = UserAttachThreadInput( pti, ptiTo, fAttach);
-
-Exit:
-  UserLeave();
-  return Ret;
+   return 0;
 }
 
 //
@@ -299,6 +272,18 @@ NtUserGetControlColor(
 
 DWORD
 APIENTRY
+NtUserGetCPD(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+APIENTRY
 NtUserGetImeHotKey(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -379,43 +364,9 @@ NtUserInitializeClientPfnArrays(
   PPFNCLIENTWORKER pfnClientWorker,
   HINSTANCE hmodUser)
 {
-   NTSTATUS Status = STATUS_SUCCESS;
-   DPRINT("Enter NtUserInitializeClientPfnArrays User32 0x%x\n",hmodUser);
+   UNIMPLEMENTED
 
-   if (ClientPfnInit) return Status;
-
-   UserEnterExclusive();
-
-   _SEH2_TRY
-   {
-      ProbeForRead( pfnClientA, sizeof(PFNCLIENT), 1);
-      ProbeForRead( pfnClientW, sizeof(PFNCLIENT), 1);
-      ProbeForRead( pfnClientWorker, sizeof(PFNCLIENTWORKER), 1);
-      RtlCopyMemory(&gpsi->apfnClientA, pfnClientA, sizeof(PFNCLIENT));
-      RtlCopyMemory(&gpsi->apfnClientW, pfnClientW, sizeof(PFNCLIENT));
-      RtlCopyMemory(&gpsi->apfnClientWorker, pfnClientWorker, sizeof(PFNCLIENTWORKER));
-
-      //// FIXME! HAX! Temporary until server side is finished.
-      //// Copy the client side procs for now.
-      RtlCopyMemory(&gpsi->aStoCidPfn, pfnClientW, sizeof(gpsi->aStoCidPfn));
-
-      hModClient = hmodUser;
-      ClientPfnInit = TRUE;
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-      Status =_SEH2_GetExceptionCode();
-   }
-   _SEH2_END
-
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed reading Client Pfns from user space.\n");
-      SetLastNtError(Status);
-   }
-   
-   UserLeave();
-   return Status;
+   return STATUS_UNSUCCESSFUL;
 }
 
 DWORD
@@ -903,10 +854,9 @@ NtUserProcessConnect(
   DPRINT("NtUserProcessConnect\n");
   if (pUserConnect && ( Size == sizeof(USERCONNECT) ))
   {
-     PPROCESSINFO W32Process;
      UserEnterShared();
      GetW32ThreadInfo();
-     W32Process = PsGetCurrentProcessWin32Process();
+     PW32PROCESS W32Process = PsGetCurrentProcessWin32Process();
      _SEH2_TRY
      {
         pUserConnect->siClient.psi = gpsi;
@@ -976,17 +926,13 @@ NtUserRealWaitMessageEx(
     return 0;
 }
 
-BOOL
+DWORD
 APIENTRY
 NtUserRegisterUserApiHook(
-    PUNICODE_STRING m_dllname1,
-    PUNICODE_STRING m_funname1,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
+    DWORD dwUnknown1,
+    DWORD dwUnknown2)
 {
-    UserEnterExclusive();
     UNIMPLEMENTED;
-    UserLeave();
     return 0;
 }
 
@@ -1111,7 +1057,7 @@ NtUserPaintMenuBar(
     return 0;
 }
 
-BOOL
+DWORD
 APIENTRY
 NtUserUnregisterUserApiHook(VOID)
 {

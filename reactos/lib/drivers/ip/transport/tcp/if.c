@@ -33,16 +33,12 @@ struct	ifnet *ifnet;
 POSK_IFADDR TCPGetInterfaceData( PIP_INTERFACE IF ) {
     NTSTATUS Status;
     POSK_IFADDR ifaddr = IF->TCPContext;
-    struct sockaddr_in *addr_in;
-    struct sockaddr_in *dstaddr_in;
     ASSERT(ifaddr);
-
-    ASSERT_LOCKED(&TCPLock);
 
     RtlZeroMemory(ifaddr, sizeof(OSK_IFADDR) + 2 * sizeof( struct sockaddr_in ));
 
-    addr_in = (struct sockaddr_in *)&ifaddr[1];
-    dstaddr_in = (struct sockaddr_in *)&addr_in[1];
+    struct sockaddr_in *addr_in = (struct sockaddr_in *)&ifaddr[1];
+    struct sockaddr_in *dstaddr_in = (struct sockaddr_in *)&addr_in[1];
 
     TI_DbgPrint(DEBUG_TCPIF,("Called\n"));
 
@@ -80,8 +76,6 @@ POSK_IFADDR TCPFindInterface( void *ClientData,
     IP_ADDRESS Destination;
     struct sockaddr_in *addr_in = (struct sockaddr_in *)ReqAddr;
     POSK_IFADDR InterfaceData;
-
-    ASSERT_LOCKED(&TCPLock);
 
     TI_DbgPrint(DEBUG_TCPIF,("called for type %d\n", FindType));
 

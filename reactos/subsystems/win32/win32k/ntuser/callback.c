@@ -1,4 +1,23 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window classes
@@ -249,7 +268,7 @@ co_IntCallWindowProc(WNDPROC Proc,
 HMENU APIENTRY
 co_IntLoadSysMenuTemplate()
 {
-   LRESULT Result = 0;
+   LRESULT Result;
    NTSTATUS Status;
    PVOID ResultPointer;
    ULONG ResultLength;
@@ -264,20 +283,23 @@ co_IntLoadSysMenuTemplate()
                                0,
                                &ResultPointer,
                                &ResultLength);
-   if (NT_SUCCESS(Status))
-   {
-      /* Simulate old behaviour: copy into our local buffer */
-      Result = *(LRESULT*)ResultPointer;
-   }
+
+   /* Simulate old behaviour: copy into our local buffer */
+   Result = *(LRESULT*)ResultPointer;
 
    UserEnterCo();
 
+   if (!NT_SUCCESS(Status))
+   {
+      return(0);
+   }
    return (HMENU)Result;
 }
 
 BOOL APIENTRY
 co_IntLoadDefaultCursors(VOID)
 {
+   LRESULT Result;
    NTSTATUS Status;
    PVOID ResultPointer;
    ULONG ResultLength;
@@ -293,6 +315,9 @@ co_IntLoadDefaultCursors(VOID)
                                sizeof(BOOL),
                                &ResultPointer,
                                &ResultLength);
+
+   /* Simulate old behaviour: copy into our local buffer */
+   Result = *(LRESULT*)ResultPointer;
 
    UserEnterCo();
 
@@ -326,14 +351,6 @@ co_IntCallHookProc(INT HookId,
    UNICODE_STRING ClassName;
    PANSI_STRING asWindowName;
    PANSI_STRING asClassName;
-   PTHREADINFO pti;
-
-   pti = PsGetCurrentThreadWin32Thread();
-   if (pti->TIF_flags & TIF_INCLEANUP)
-   {
-      DPRINT1("Thread is in cleanup and trying to call hook %d\n", Code);
-      return 0;
-   }
 
    ArgumentLength = sizeof(HOOKPROC_CALLBACK_ARGUMENTS) - sizeof(WCHAR)
                     + ModuleName->Length;
@@ -588,9 +605,6 @@ co_IntCallHookProc(INT HookId,
    return Result;
 }
 
-//
-// Events are notifications w/o results.
-//
 LRESULT
 APIENTRY
 co_IntCallEventProc(HWINEVENTHOOK hook,
@@ -602,11 +616,11 @@ co_IntCallEventProc(HWINEVENTHOOK hook,
                    DWORD dwmsEventTime,
                      WINEVENTPROC Proc)
 {
-   LRESULT Result = 0;
+   LRESULT Result;
    NTSTATUS Status;
    PEVENTPROC_CALLBACK_ARGUMENTS Common;
    ULONG ArgumentLength, ResultLength;
-   PVOID Argument, ResultPointer;
+   PVOID Argument, ResultPointer, pWnd;
 
    ArgumentLength = sizeof(EVENTPROC_CALLBACK_ARGUMENTS);
 
@@ -629,6 +643,8 @@ co_IntCallEventProc(HWINEVENTHOOK hook,
    ResultPointer = NULL;
    ResultLength = sizeof(LRESULT);
 
+   IntSetTebWndCallback (&hWnd, &pWnd);
+
    UserLeaveCo();
 
    Status = KeUserModeCallback(USER32_CALLBACK_EVENTPROC,
@@ -637,7 +653,12 @@ co_IntCallEventProc(HWINEVENTHOOK hook,
                                &ResultPointer,
                                &ResultLength);
 
+   /* Simulate old behaviour: copy into our local buffer */
+   Result = *(LRESULT*)ResultPointer;
+
    UserEnterCo();
+
+   IntRestoreTebWndCallback (hWnd, pWnd);
 
    IntCbFreeMemory(Argument);
   
@@ -648,90 +669,5 @@ co_IntCallEventProc(HWINEVENTHOOK hook,
 
    return Result;
 }
-
-//
-// Callback Load Menu and results.
-//
-HMENU
-APIENTRY
-co_IntCallLoadMenu( HINSTANCE hModule,
-                    PUNICODE_STRING pMenuName )
-{
-   LRESULT Result = 0;
-   NTSTATUS Status;
-   PLOADMENU_CALLBACK_ARGUMENTS Common;
-   ULONG ArgumentLength, ResultLength;
-   PVOID Argument, ResultPointer;
-
-   ArgumentLength = sizeof(LOADMENU_CALLBACK_ARGUMENTS);
-
-   ArgumentLength += pMenuName->Length + sizeof(WCHAR);
-
-   Argument = IntCbAllocateMemory(ArgumentLength);
-   if (NULL == Argument)
-   {
-      DPRINT1("LoadMenu callback failed: out of memory\n");
-      return 0;
-   }
-   Common = (PLOADMENU_CALLBACK_ARGUMENTS) Argument;
-
-   // Help Intersource check and MenuName is now 4 bytes + so zero it.
-   RtlZeroMemory(Common, ArgumentLength); 
-
-   Common->hModule = hModule;
-   if (pMenuName->Length)
-      RtlCopyMemory(&Common->MenuName, pMenuName->Buffer, pMenuName->Length);
-   else
-      RtlCopyMemory(&Common->MenuName, &pMenuName->Buffer, sizeof(WCHAR));
-
-   ResultPointer = NULL;
-   ResultLength = sizeof(LRESULT);
-
-   UserLeaveCo();
-
-   Status = KeUserModeCallback(USER32_CALLBACK_LOADMENU,
-                               Argument,
-                               ArgumentLength,
-                               &ResultPointer,
-                               &ResultLength);
-
-   UserEnterCo();
-
-   Result = *(LRESULT*)ResultPointer;
-
-   IntCbFreeMemory(Argument);
-  
-   if (!NT_SUCCESS(Status))
-   {
-      return 0;
-   }
-
-   return (HMENU)Result;
-}
-
-NTSTATUS
-APIENTRY
-co_IntClientThreadSetup(VOID)
-{
-   NTSTATUS Status;
-   ULONG ArgumentLength, ResultLength;
-   PVOID Argument, ResultPointer;
-
-   ArgumentLength = ResultLength = 0;
-   Argument = ResultPointer = NULL;
-
-   UserLeaveCo();
-
-   Status = KeUserModeCallback(USER32_CALLBACK_CLIENTTHREADSTARTUP,
-                               Argument,
-                               ArgumentLength,
-                               &ResultPointer,
-                               &ResultLength);
-
-   UserEnterCo();
-
-   return Status;
-}
-
 
 /* EOF */

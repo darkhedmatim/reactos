@@ -1200,11 +1200,8 @@ LookupAccountSidW(LPCWSTR pSystemName,
 				else
 				{
 					*pdwDomainName = dwSrcLen;
-					if (pDomainName)
-					{
-					    RtlCopyMemory ( pDomainName, ReferencedDomain->Domains[0].Name.Buffer, ReferencedDomain->Domains[0].Name.Length );
-					    pDomainName[ReferencedDomain->Domains[0].Name.Length / sizeof(WCHAR)] = L'\0';
-					}
+					RtlCopyMemory ( pDomainName, ReferencedDomain->Domains[0].Name.Buffer, ReferencedDomain->Domains[0].Name.Length );
+					                pDomainName[ReferencedDomain->Domains[0].Name.Length / sizeof(WCHAR)] = L'\0';
 				}
 			}
 		}

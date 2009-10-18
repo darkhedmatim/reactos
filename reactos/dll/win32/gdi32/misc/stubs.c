@@ -138,7 +138,7 @@ DrawEscape(HDC  hDC,
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 WINAPI
@@ -147,20 +147,10 @@ EnumObjects(HDC hdc,
             GOBJENUMPROC lpObjectFunc,
             LPARAM lParam)
 {
-    ULONG ObjectsCount;
-    ULONG Size;
-    PVOID Buffer = NULL;
-    DWORD_PTR EndOfBuffer;
-    int Result = 0;
-
     switch (nObjectType)
     {
         case OBJ_BRUSH:
-            Size = sizeof(LOGBRUSH);
-            break;
-
         case OBJ_PEN:
-            Size = sizeof(LOGPEN);
             break;
 
         default:
@@ -168,32 +158,9 @@ EnumObjects(HDC hdc,
             return 0;
     }
 
-    ObjectsCount = NtGdiEnumObjects(hdc, nObjectType, 0, NULL);
-    if (!ObjectsCount) return 0;
-
-    Buffer = HeapAlloc(GetProcessHeap(), 0, ObjectsCount * Size);
-    if (!Buffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
-
-    if (!NtGdiEnumObjects(hdc, nObjectType, ObjectsCount * Size, Buffer))
-    {
-        HeapFree(GetProcessHeap(), 0, Buffer);
-        return 0;
-    }
-
-    EndOfBuffer = (DWORD_PTR)Buffer + (ObjectsCount * Size);
-    while ((DWORD_PTR)Buffer < EndOfBuffer)
-    {
-        Result = lpObjectFunc(Buffer, lParam);
-        if (!Result) break;
-        Buffer = (PVOID)((DWORD_PTR)Buffer + Size);
-    }
-
-    HeapFree(GetProcessHeap(), 0, Buffer);
-    return Result;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 
@@ -677,6 +644,241 @@ ColorMatchToTarget(
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
 }
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglCopyContext(
+	HGLRC	hglrcSrc,
+	HGLRC	hglrcDst,
+	UINT	mask
+	)
+{
+    if(!hglrcSrc || !hglrcDst)
+        return FALSE;
+
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGLRC
+WINAPI
+wglCreateContext(
+	HDC	hDc
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGLRC
+WINAPI
+wglCreateLayerContext(
+	HDC	hDc,
+	int	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglDeleteContext(
+	HGLRC	hglrc
+	)
+{
+    if (hglrc == NULL) return FALSE;
+
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGLRC
+WINAPI
+wglGetCurrentContext(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HDC
+WINAPI
+wglGetCurrentDC(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+PROC
+WINAPI
+wglGetProcAddress(
+	LPCSTR		func
+	)
+{
+    if(!func) return NULL;
+
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglMakeCurrent(
+	HDC	a0,
+	HGLRC	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglShareLists(
+	HGLRC	hglrc1,
+	HGLRC	hglrc2
+	)
+{
+    if (hglrc1 == NULL) return FALSE;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglDescribeLayerPlane(
+	HDC			a0,
+	int			a1,
+	int			a2,
+	UINT			a3,
+	LPLAYERPLANEDESCRIPTOR	a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+wglSetLayerPaletteEntries(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	int		a3,
+	CONST COLORREF	*a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+wglGetLayerPaletteEntries(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	int		a3,
+	COLORREF	*a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglRealizeLayerPalette(
+	HDC		a0,
+	int		a1,
+	BOOL		a2
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglSwapLayerBuffers(
+	HDC		a0,
+	UINT		a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
 
 /* === AFTER THIS POINT I GUESS... =========
  * (based on stack size in Norlander's .def)

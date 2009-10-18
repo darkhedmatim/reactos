@@ -9,6 +9,10 @@
 /* INCLUDES ******************************************************************/
 #include "ws2_32.h"
 
+/* DATA **********************************************************************/
+
+DWORD TlsIndex;
+
 /* FUNCTIONS *****************************************************************/
 
 DWORD
@@ -62,7 +66,7 @@ WsThreadSetBlockingHook(IN PWSTHREAD Thread,
     FARPROC OldHook = Thread->BlockingHook;
 
     /* Check if we're resetting to our default hook */
-    if (BlockingHook == (FARPROC)WsThreadDefaultBlockingHook)
+    if (BlockingHook == WsThreadDefaultBlockingHook)
     {
         /* Clear out the blocking callback */
         Thread->BlockingCallback = NULL;
@@ -83,7 +87,7 @@ WSAAPI
 WsThreadUnhookBlockingHook(IN PWSTHREAD Thread)
 {
     /* Reset the hook to the default, and remove the callback */
-    Thread->BlockingHook = (FARPROC)WsThreadDefaultBlockingHook;
+    Thread->BlockingHook = WsThreadDefaultBlockingHook;
     Thread->BlockingCallback = NULL;
 
     /* Return success */
@@ -139,7 +143,7 @@ WsThreadAllocate(VOID)
     Thread = HeapAlloc(WsSockHeap, HEAP_ZERO_MEMORY, sizeof(*Thread));
 
     /* Set non-zero data */
-    Thread->BlockingHook = (FARPROC)WsThreadDefaultBlockingHook;
+    Thread->BlockingHook = WsThreadDefaultBlockingHook;
 
     /* Return it */
     return Thread;
@@ -152,7 +156,16 @@ WsThreadStartup(VOID)
     INT ErrorCode = WSASYSCALLFAILURE;
     
     /* Check if we have a valid TLS */
-    if (TlsIndex != TLS_OUT_OF_INDEXES)
+    if (TlsIndex == TLS_OUT_OF_INDEXES)
+    {
+        /* Set the global one */
+        if ((TlsIndex = GlobalTlsIndex) != TLS_OUT_OF_INDEXES)
+        {
+            /* Success! */
+            ErrorCode = ERROR_SUCCESS;
+        }
+    }
+    else
     {
         /* TLS was already OK */
         ErrorCode = ERROR_SUCCESS;
@@ -166,6 +179,12 @@ VOID
 WSAAPI
 WsThreadCleanup(VOID)
 {
+    /* Check if we have a valid TLS */
+    if (TlsIndex != TLS_OUT_OF_INDEXES)
+    {
+        /* We do, invalidate it */
+        TlsIndex = TLS_OUT_OF_INDEXES;
+    }
 }
 
 DWORD
@@ -231,7 +250,6 @@ WsThreadDestroyCurrentThread(VOID)
         {
             /* Delete it */
             WsThreadDelete(Thread);
-			TlsSetValue(TlsIndex, 0);
         }
     }
 }

@@ -56,7 +56,7 @@ typedef struct
 
 #include "poppack.h"
 
-/* forward declarations... actually in user32\windows\icon.c but useful here */
+/* forward declerations... actually in user32\windows\icon.c but usful here */
 HICON ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot);
 CURSORICONDIRENTRY *CURSORICON_FindBestIcon( CURSORICONDIR *dir, int width, int height, int colors);
 CURSORICONDIRENTRY *CURSORICON_FindBestCursor( CURSORICONDIR *dir, int width, int height, int colors);
@@ -265,7 +265,7 @@ LoadCursorIconImage(
       hIcon = CreateIconFromResourceEx((PBYTE)ResIcon,
                                        SizeofResource(hinst, hResInfo),
                                        Icon, 0x00030000, width, height,
-                                       (fuLoad & (LR_DEFAULTSIZE | LR_SHARED)) | LR_DEFAULTCOLOR);
+                                       fuLoad & (LR_DEFAULTCOLOR | LR_MONOCHROME));
 
       if (hIcon && 0 != (fuLoad & LR_SHARED))
       {

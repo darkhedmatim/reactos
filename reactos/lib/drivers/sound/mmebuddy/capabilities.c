@@ -28,7 +28,6 @@
 MMRESULT
 GetSoundDeviceCapabilities(
     IN  PSOUND_DEVICE SoundDevice,
-    IN  DWORD DeviceId,
     OUT PVOID Capabilities,
     IN  DWORD CapabilitiesSize)
 {
@@ -105,7 +104,6 @@ GetSoundDeviceCapabilities(
         return MMSYSERR_NOTSUPPORTED;
 
     return FunctionTable->GetCapabilities(SoundDevice,
-                                          DeviceId,
                                           Capabilities,
                                           CapabilitiesSize);
 }

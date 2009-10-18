@@ -29,8 +29,8 @@ InitMetrics(VOID)
     PSYSTEM_CURSORINFO CurInfo;
     INT *piSysMet;
 
-    Width = pPrimarySurface->gdiinfo.ulHorzRes;
-    Height = pPrimarySurface->gdiinfo.ulVertRes;
+    Width = pPrimarySurface->GDIInfo.ulHorzRes;
+    Height = pPrimarySurface->GDIInfo.ulVertRes;
 
     Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
                                             KernelMode,
@@ -133,9 +133,9 @@ InitMetrics(VOID)
     piSysMet[SM_MOUSEPRESENT] = 1;
     piSysMet[SM_MOUSEWHEELPRESENT] = 1;
     piSysMet[SM_CMOUSEBUTTONS] = 2;
-    piSysMet[SM_SWAPBUTTON] = gspv.bMouseBtnSwap ? 1 : 0;
-    piSysMet[SM_CXDOUBLECLK] = gspv.iDblClickWidth;
-    piSysMet[SM_CYDOUBLECLK] = gspv.iDblClickHeight;
+    piSysMet[SM_SWAPBUTTON] = gspv.bMouseBtnSwap ? 1 : 0; //CurInfo ? CurInfo->SwapButtons : 0;
+    piSysMet[SM_CXDOUBLECLK] = gspv.iDblClickWidth;//CurInfo ? CurInfo->DblClickWidth : 4;
+    piSysMet[SM_CYDOUBLECLK] = gspv.iDblClickHeight;//CurInfo ? CurInfo->DblClickWidth : 4;
 #if (_WIN32_WINNT >= 0x0600)
     piSysMet[SM_MOUSEHORIZONTALWHEELPRESENT] = 0;
 #endif

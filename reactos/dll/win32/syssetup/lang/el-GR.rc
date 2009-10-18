@@ -222,7 +222,6 @@ BEGIN
     IDS_GAMES		    "Παιχνίδια"
     IDS_CMT_SOLITAIRE	"Πασιέντζα"
     IDS_CMT_WINEMINE	"Ναρκαλιευτής"
-	IDS_CMT_SPIDER      "Spider Solitaire"
 END
 
 STRINGTABLE
@@ -264,7 +263,7 @@ STRINGTABLE
 BEGIN
     IDS_SHORT_CMD        "Γραμμή εντολών.lnk"
     IDS_SHORT_EXPLORER   "Εξερεύνηση του ReactOS.lnk"
-    IDS_SHORT_DOWNLOADER "ReactOS Applications Manager.lnk"
+    IDS_SHORT_DOWNLOADER "Download !.lnk"
     IDS_SHORT_SERVICE    "Υπηρεσίες.lnk"
     IDS_SHORT_DEVICE     "Διαχείριση συσκευών.lnk"
     IDS_SHORT_MPLAY32    "Multimedia Player.lnk"
@@ -284,7 +283,6 @@ BEGIN
     IDS_SHORT_SNDVOL32   "Volume Control.lnk"
     IDS_SHORT_DXDIAG     "ReactX Diagnostic.lnk"
     IDS_SHORT_PAINT      "Paint.lnk"
-	IDS_SHORT_SPIDER     "Spider Solitaire.lnk"
 END
 
 STRINGTABLE

@@ -11,6 +11,9 @@
 $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"
 
 # Set defaults to work with and override them if edited by the options utility.
+(Get-Host).UI.RawUI.ForegroundColor = "Green"
+(Get-Host).UI.RawUI.BackgroundColor = "Black"
+clear-host
 
 # For NT4 compatibility
 if ($ENV:APPDATA.Length -lt 1) {
@@ -19,28 +22,21 @@ if ($ENV:APPDATA.Length -lt 1) {
 
 # Set defaults to work with and override them if edited by
 # the options utility.
-if ("$args" -eq "") {
+if ("$ENV:ROS_ARCH" -eq "") {
     $ENV:ROS_ARCH = "i386"
 } else {
     $ENV:ROS_ARCH = "$($args)"
 }
-if ("$ENV:ROS_ARCH" -eq "amd64") {
-    (Get-Host).UI.RawUI.ForegroundColor = 0xB
-    (Get-Host).UI.RawUI.BackgroundColor = 0x0
-} else {
-    (Get-Host).UI.RawUI.ForegroundColor = 0xA
-    (Get-Host).UI.RawUI.BackgroundColor = 0x0
-}
-clear-host
 
 $global:0 = $myInvocation.MyCommand.Definition
 $global:_ROSBE_BASEDIR = [System.IO.Path]::GetDirectoryName($0)
-$global:_ROSBE_PREFIX = $null
-$global:_ROSBE_VERSION = "1.5"
+$global:_ROSBE_VERSION = "1.4.4"
 $global:_ROSBE_ROSSOURCEDIR = "$pwd"
 $global:_ROSBE_SHOWTIME = 1
 $global:_ROSBE_WRITELOG = 1
 $global:_ROSBE_USECCACHE = 0
+$global:_ROSBE_STRIP = 0
+$global:_ROSBE_NOSTRIP = 0
 $global:_ROSBE_SHOWVERSION = 0
 $global:_ROSBE_LOGDIR = "$pwd\RosBE-Logs"
 $global:_ROSBE_HOST_MINGWPATH = "$_ROSBE_BASEDIR\i386"
@@ -126,18 +122,12 @@ if (!(Test-Path "$ENV:APPDATA\RosBE")) {
 }
 
 # Load the user's options if any
-if ("$args" -eq "") {
-    if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options.ps1") {
-        & "$ENV:APPDATA\RosBE\rosbe-options.ps1"
-    }
+if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options.ps1") {
+    & "$ENV:APPDATA\RosBE\rosbe-options.ps1"
 }
 
-if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options-$ENV:ROS_ARCH.ps1") {
-    & "$ENV:APPDATA\RosBE\rosbe-options-$ENV:ROS_ARCH.ps1"
-}
-
-if (Test-Path "$ENV:APPDATA\RosBE\RBUILDFLAGS.FLG") {
-    $ENV:ROS_RBUILDFLAGS = get-content "$ENV:APPDATA\RosBE\RBUILDFLAGS.FLG"
+if (Test-Path "$ENV:APPDATA\RosBE\rosbe-options-$args.ps1") {
+    & "$ENV:APPDATA\RosBE\rosbe-options-$args.ps1"
 }
 
 # Check if writing logs is enabled, if so check if our log directory
@@ -156,7 +146,7 @@ LoadAliases
 clear-host
 "*******************************************************************************"
 "*                                                                             *"
-"*                        ReactOS Build Environment $_ROSBE_VERSION                        *"
+"*                        ReactOS Build Environment $_ROSBE_VERSION                      *"
 "*                                                                             *"
 "*******************************************************************************"
 ""
@@ -166,7 +156,7 @@ clear-host
 if (Test-Path "$_ROSBE_BASEDIR\scut.ps1") {
     & "$_ROSBE_BASEDIR\scut.ps1"
 }
-if ($_ROSBE_SHOWVERSION -eq 1) {
+if ($_ROSBE_SHOWVERSION -eq "1") {
     & "$_ROSBE_BASEDIR\version.ps1"
 }
 

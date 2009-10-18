@@ -85,24 +85,8 @@ namespace RosDBG
             }
 
             toolStripStatusConnectionMode.Text = mode;
-            if (mConnectionMode == DebugConnection.Mode.ClosedMode)
-            {
-                toolStripStatusConnected.ForeColor = Color.Crimson;
-                toolStripStatusConnected.Text = "Not connected";
-            }
-            else
-            {
-                if (mRunning)
-                {
-                    toolStripStatusConnected.ForeColor = Color.Green;
-                    toolStripStatusConnected.Text = "Debug";
-                }
-                else
-                {
-                    toolStripStatusConnected.ForeColor = Color.Yellow;
-                    toolStripStatusConnected.Text = "Waiting";
-                }
-            }
+            toolStripStatusConnected.ForeColor = mRunning ? Color.Green : Color.Crimson;
+            toolStripStatusConnected.Text = mRunning.ToString();
 
             if (mCurrentFile.CompareTo("unknown") != 0)
             {
@@ -205,7 +189,6 @@ namespace RosDBG
         {
             RosDiagnostics.DebugTrace(RosDiagnostics.TraceType.Info, "Closing application");
             mConnection.Close(true);
-            SaveWindowSettings();
         }
 
         void UpdateDebuggerMenu()
@@ -332,10 +315,7 @@ namespace RosDBG
                             mConnection.StartTCP(newConnection.Host, newConnection.Port);
                             break;
                     }
-                    if (mConnection.ConnectionMode != DebugConnection.Mode.ClosedMode)
-                    {
-                        connectToolStripMenuItem.Text = "&Disconnect";
-                    }
+                    connectToolStripMenuItem.Text = "&Disconect";
                 }
             }
             else
@@ -481,18 +461,10 @@ namespace RosDBG
             {
                 Process.Start(((ToolStripMenuItem)sender).Name);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
 
             }
-        }
-        private void SaveWindowSettings()
-        {
-            RosDBG.Properties.Settings.Default.Size = this.Size;
-            RosDBG.Properties.Settings.Default.Location = this.Location;
-            RosDBG.Properties.Settings.Default.WindowState = this.WindowState;
-            RosDBG.Properties.Settings.Default.Save();
-
         }
 
     }

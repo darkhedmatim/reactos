@@ -29,15 +29,14 @@ void setImgXYRes(int x, int y)
 
 void newReversible()
 {
-    DeleteObject(hBms[(currInd+1)%HISTORYSIZE]);
-    hBms[(currInd+1)%HISTORYSIZE] = CopyImage( hBms[currInd], IMAGE_BITMAP, 0, 0, LR_COPYRETURNORG);
-    currInd = (currInd+1)%HISTORYSIZE;
-    if (undoSteps<HISTORYSIZE-1) undoSteps++;
+    DeleteObject(hBms[(currInd+1)%4]);
+    hBms[(currInd+1)%4] = CopyImage( hBms[currInd], IMAGE_BITMAP, 0, 0, LR_COPYRETURNORG);
+    currInd = (currInd+1)%4;
+    if (undoSteps<3) undoSteps++;
     redoSteps = 0;
     SelectObject(hDrawingDC, hBms[currInd]);
     imgXRes = GetDIBWidth(hBms[currInd]);
     imgYRes = GetDIBHeight(hBms[currInd]);
-    imageSaved = FALSE;
 }
 
 void undo()
@@ -45,10 +44,10 @@ void undo()
     if (undoSteps>0)
     {
         ShowWindow(hSelection, SW_HIDE);
-        currInd = (currInd+HISTORYSIZE-1)%HISTORYSIZE;
+        currInd = (currInd+3)%4;
         SelectObject(hDrawingDC, hBms[currInd]);
         undoSteps--;
-        if (redoSteps<HISTORYSIZE-1) redoSteps++;
+        if (redoSteps<3) redoSteps++;
         setImgXYRes(GetDIBWidth(hBms[currInd]), GetDIBHeight(hBms[currInd]));
     }
 }
@@ -58,10 +57,10 @@ void redo()
     if (redoSteps>0)
     {
         ShowWindow(hSelection, SW_HIDE);
-        currInd = (currInd+1)%HISTORYSIZE;
+        currInd = (currInd+1)%4;
         SelectObject(hDrawingDC, hBms[currInd]);
         redoSteps--;
-        if (undoSteps<HISTORYSIZE-1) undoSteps++;
+        if (undoSteps<3) undoSteps++;
         setImgXYRes(GetDIBWidth(hBms[currInd]), GetDIBHeight(hBms[currInd]));
     }
 }
@@ -69,7 +68,7 @@ void redo()
 void resetToU1()
 {
     DeleteObject(hBms[currInd]);
-    hBms[currInd] = CopyImage( hBms[(currInd+HISTORYSIZE-1)%HISTORYSIZE], IMAGE_BITMAP, 0, 0, LR_COPYRETURNORG);
+    hBms[currInd] = CopyImage( hBms[(currInd+3)%4], IMAGE_BITMAP, 0, 0, LR_COPYRETURNORG);
     SelectObject(hDrawingDC, hBms[currInd]);
     imgXRes = GetDIBWidth(hBms[currInd]);
     imgYRes = GetDIBHeight(hBms[currInd]);
@@ -83,39 +82,36 @@ void clearHistory()
 
 void insertReversible(HBITMAP hbm)
 {
-    DeleteObject(hBms[(currInd+1)%HISTORYSIZE]);
-    hBms[(currInd+1)%HISTORYSIZE] = hbm;
-    currInd = (currInd+1)%HISTORYSIZE;
-    if (undoSteps<HISTORYSIZE-1) undoSteps++;
+    DeleteObject(hBms[(currInd+1)%4]);
+    hBms[(currInd+1)%4] = hbm;
+    currInd = (currInd+1)%4;
+    if (undoSteps<3) undoSteps++;
     redoSteps = 0;
     SelectObject(hDrawingDC, hBms[currInd]);
     setImgXYRes(GetDIBWidth(hBms[currInd]), GetDIBHeight(hBms[currInd]));
 }
 
-void cropReversible(int width, int height, int xOffset, int yOffset)
+void cropReversible(int x, int y)//FIXME: This function is broken
 {
-    HDC hdc;
+    HBITMAP oldBitmap;
     HPEN oldPen;
     HBRUSH oldBrush;
 
     SelectObject(hDrawingDC, hBms[currInd]);
-    DeleteObject(hBms[(currInd+1)%HISTORYSIZE]);
-    hBms[(currInd+1)%HISTORYSIZE] = CreateDIBWithProperties(width, height);
-    currInd = (currInd+1)%HISTORYSIZE;
-    if (undoSteps<HISTORYSIZE-1) undoSteps++;
+    DeleteObject(hBms[(currInd+1)%4]);
+    hBms[(currInd+1)%4] = CreateDIBWithProperties(x, y);
+    currInd = (currInd+1)%4;
+    if (undoSteps<3) undoSteps++;
     redoSteps = 0;
     
-    hdc = CreateCompatibleDC(hDrawingDC);
-    SelectObject(hdc, hBms[currInd]);
+    oldBitmap = SelectObject(hSelDC, hBms[currInd]);
+    oldPen = SelectObject(hSelDC, CreatePen(PS_SOLID, 1, bgColor));
+    oldBrush = SelectObject(hSelDC, CreateSolidBrush(bgColor));
+    Rectangle(hSelDC, 0, 0, x, y);
+    DeleteObject(SelectObject(hSelDC, oldBrush));
+    DeleteObject(SelectObject(hSelDC, oldPen));
+    BitBlt(hDrawingDC, 0, 0, imgXRes, imgYRes, hSelDC, 0, 0, SRCCOPY);
+    SelectObject(hDrawingDC, SelectObject(hSelDC, oldBitmap));
     
-    oldPen = SelectObject(hdc, CreatePen(PS_SOLID, 1, bgColor));
-    oldBrush = SelectObject(hdc, CreateSolidBrush(bgColor));
-    Rectangle(hdc, 0, 0, width, height);
-    BitBlt(hdc, -xOffset, -yOffset, imgXRes, imgYRes, hDrawingDC, 0, 0, SRCCOPY);
-    DeleteObject(SelectObject(hdc, oldBrush));
-    DeleteObject(SelectObject(hdc, oldPen));
-    DeleteDC(hdc);
-    SelectObject(hDrawingDC, hBms[currInd]);
-    
-    setImgXYRes(width, height);
+    setImgXYRes(x, y);
 }

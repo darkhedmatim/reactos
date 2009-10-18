@@ -19,8 +19,7 @@ namespace RosDBG
             InitializeComponent();
             BrowserView.CanGoBackChanged += BrowserView_CanGoBackChanged;
             BrowserView.CanGoForwardChanged += BrowserView_CanGoForwardChanged;
-            BrowserView.GoHome();
-            BrowserView.ScriptErrorsSuppressed = true;
+            BrowserView.GoHome(); 
         }
 
         public ReactOSWeb(string Title, string URL)
@@ -29,8 +28,7 @@ namespace RosDBG
             this.Text = Title;
             BrowserView.CanGoBackChanged += BrowserView_CanGoBackChanged;
             BrowserView.CanGoForwardChanged += BrowserView_CanGoForwardChanged;
-            BrowserView.Navigate(URL);
-            BrowserView.ScriptErrorsSuppressed = true;
+            BrowserView.Navigate(URL);              
         }
 
         private void BrowserView_Navigating(object sender, WebBrowserNavigatingEventArgs e)
@@ -87,12 +85,9 @@ namespace RosDBG
 
         private bool pIsCmdEnabled(string Cmd)
         {
-            if (BrowserView.Document != null)
-            {
-                IHTMLDocument2 doc2 = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
-                if (doc2 != null)
-                    return doc2.queryCommandEnabled(Cmd);
-            }
+            IHTMLDocument2 doc2 = BrowserView.Document.DomDocument as IHTMLDocument2;
+            if (doc2 != null)
+                return doc2.queryCommandEnabled(Cmd);
             return false;
         }
 
@@ -112,20 +107,14 @@ namespace RosDBG
 
         private void copyToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (BrowserView.Document != null)
-            {
-                IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
-                htmlDocument.execCommand("copy", true, null);
-            }
+            IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
+            htmlDocument.execCommand("copy", true, null);
         }
 
         private void selectAllToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (BrowserView.Document != null)
-            {
-                IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
-                htmlDocument.execCommand("selectall", true, null);
-            }
+            IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
+            htmlDocument.execCommand("selectall", true, null);
         }
 
         private void editToolStripMenuItem_Click(object sender, EventArgs e)
@@ -140,11 +129,8 @@ namespace RosDBG
 
         public override void SaveAs(string FileName)
         {
-            if (BrowserView.Document != null)
-            {
-                IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
-                htmlDocument.execCommand("saveas", true, FileName);
-            }
+            IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
+            htmlDocument.execCommand("saveas", true, FileName);
         }
 
         public override string GetDocumentName()
@@ -154,11 +140,9 @@ namespace RosDBG
 
         public override void Print(bool ShowDialog)
         {
-            if (BrowserView.Document != null)
-            {
-                IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
-                htmlDocument.execCommand("print", ShowDialog, null);
-            }
+            IHTMLDocument2 htmlDocument = (mshtml.IHTMLDocument2)BrowserView.Document.DomDocument;
+            htmlDocument.execCommand("print", ShowDialog, null);
         }
+
     }
 }

@@ -587,53 +587,23 @@ typedef struct _PEB_FREE_BLOCK
 } PEB_FREE_BLOCK, *PPEB_FREE_BLOCK;
 
 //
-// Initial PEB
-//
-typedef struct _INITIAL_PEB
-{
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
-    union
-    {
-        BOOLEAN BitField;
-#if (NTDDI_VERSION >= NTDDI_WS03)
-        struct
-        {
-            BOOLEAN ImageUsesLargePages:1;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-            BOOLEAN IsProtectedProcess:1;
-            BOOLEAN IsLegacyProcess:1;
-            BOOLEAN SpareBits:5;
-#else
-            BOOLEAN SpareBits:7;
-#endif
-        };
-#else
-        BOOLEAN SpareBool;
-#endif
-    };
-    HANDLE Mutant;
-} INITIAL_PEB, *PINITIAL_PEB;
-
-//
 // Process Environment Block (PEB)
 //
 typedef struct _PEB
 {
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
+    UCHAR InheritedAddressSpace;
+    UCHAR ReadImageFileExecOptions;
+    UCHAR BeingDebugged;
 #if (NTDDI_VERSION >= NTDDI_WS03)
     struct
     {
-        BOOLEAN ImageUsesLargePages:1;
+        UCHAR ImageUsesLargePages:1;
     #if (NTDDI_VERSION >= NTDDI_LONGHORN)
-        BOOLEAN IsProtectedProcess:1;
-        BOOLEAN IsLegacyProcess:1;
-        BOOLEAN SpareBits:5;
+        UCHAR IsProtectedProcess:1;
+        UCHAR IsLegacyProcess:1;
+        UCHAR SpareBits:5;
     #else
-        BOOLEAN SpareBits:7;
+        UCHAR SpareBits:7;
     #endif
     };
 #else
@@ -1107,7 +1077,7 @@ typedef struct _ETHREAD
 #endif
     PPS_IMPERSONATION_INFORMATION ImpersonationInfo;
     LIST_ENTRY IrpList;
-    ULONG_PTR TopLevelIrp;
+    ULONG TopLevelIrp;
     PDEVICE_OBJECT DeviceToVerify;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     PPSP_RATE_APC RateControlApc;

@@ -258,7 +258,6 @@ MmNotPresentFaultVirtualMemory(PMMSUPPORT AddressSpace,
    PMM_REGION Region;
    PMM_PAGEOP PageOp;
    PEPROCESS Process = MmGetAddressSpaceOwner(AddressSpace);
-   KIRQL OldIrql;
     
    /*
     * There is a window between taking the page fault and locking the
@@ -269,9 +268,7 @@ MmNotPresentFaultVirtualMemory(PMMSUPPORT AddressSpace,
    {
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(MmGetPfnForProcess(NULL, Address));
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       return(STATUS_SUCCESS);
    }
@@ -365,9 +362,7 @@ MmNotPresentFaultVirtualMemory(PMMSUPPORT AddressSpace,
       MmLockAddressSpace(AddressSpace);
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(MmGetPfnForProcess(NULL, Address));
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       KeSetEvent(&PageOp->CompletionEvent, IO_NO_INCREMENT, FALSE);
       MmReleasePageOp(PageOp);
@@ -442,9 +437,7 @@ MmNotPresentFaultVirtualMemory(PMMSUPPORT AddressSpace,
     */
    if (Locked)
    {
-      OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
       MmLockPage(Page);
-      KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
    }
    PageOp->Status = STATUS_SUCCESS;
    KeSetEvent(&PageOp->CompletionEvent, IO_NO_INCREMENT, FALSE);
@@ -666,8 +659,9 @@ NtAllocateVirtualMemory(IN     HANDLE ProcessHandle,
    }
    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
    {
-      /* Return the exception code */
-      _SEH2_YIELD(return _SEH2_GetExceptionCode());
+      /* Get the exception code */
+      Status = _SEH2_GetExceptionCode();
+      _SEH2_YIELD(return Status);
    }
    _SEH2_END;
 
@@ -736,36 +730,6 @@ NtAllocateVirtualMemory(IN     HANDLE ProcessHandle,
       {
          MemoryAreaLength = (ULONG_PTR)MemoryArea->EndingAddress -
                             (ULONG_PTR)MemoryArea->StartingAddress;
-
-         if (((ULONG)BaseAddress + RegionSize) > (ULONG)MemoryArea->EndingAddress)
-         {
-            DPRINT("BaseAddress + RegionSize %x is larger than MemoryArea's EndingAddress %x\n",
-                  (ULONG)BaseAddress + RegionSize, MemoryArea->EndingAddress);
-
-            MmUnlockAddressSpace(AddressSpace);
-            ObDereferenceObject(Process);
-
-            return STATUS_MEMORY_NOT_ALLOCATED;
-         }
-
-         if (AllocationType == MEM_RESET)
-         {
-            if (MmIsPagePresent(Process, BaseAddress))
-            {
-               /* FIXME: mark pages as not modified */
-            }
-            else
-            {
-               /* FIXME: if pages are in paging file discard them and bring in pages of zeros */
-            }
-
-            MmUnlockAddressSpace(AddressSpace);
-            ObDereferenceObject(Process);
-
-            /* MEM_RESET does not modify any attributes of region */
-            return STATUS_SUCCESS;
-         }
-
          if (MemoryArea->Type == MEMORY_AREA_VIRTUAL_MEMORY &&
              MemoryAreaLength >= RegionSize)
          {
@@ -985,7 +949,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
  */
 {
    MEMORY_AREA* MemoryArea;
-   NTSTATUS Status;
+   NTSTATUS Status = STATUS_SUCCESS;
    PEPROCESS Process;
    PMMSUPPORT AddressSpace;
    PVOID BaseAddress;
@@ -1003,7 +967,7 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
         return STATUS_INVALID_PARAMETER_4;
     }
 
-    if (ExGetPreviousMode() != KernelMode)
+    if(ExGetPreviousMode() != KernelMode)
     {
         _SEH2_TRY
         {
@@ -1013,10 +977,11 @@ NtFreeVirtualMemory(IN HANDLE ProcessHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
    BaseAddress = (PVOID)PAGE_ROUND_DOWN((*PBaseAddress));

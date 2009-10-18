@@ -17,8 +17,8 @@ VOID FASTCALL CleanupUserImpl(VOID);
 VOID FASTCALL UserEnterShared(VOID);
 VOID FASTCALL UserEnterExclusive(VOID);
 VOID FASTCALL UserLeave(VOID);
-BOOL FASTCALL UserIsEntered(VOID);
-BOOL FASTCALL UserIsEnteredExclusive(VOID);
+BOOL FASTCALL UserIsEntered();
+BOOL FASTCALL UserIsEnteredExclusive();
 
 
 #endif /* _WIN32K_NTUSER_H */

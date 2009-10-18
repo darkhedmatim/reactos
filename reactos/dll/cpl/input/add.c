@@ -188,11 +188,9 @@ CreateKeyboardLayoutList(HWND hItemsList)
 
         while (RegEnumKeyEx(hKey, dwIndex, szLayoutID, &dwSize, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
         {
-            INT iIndex;
-
             GetLayoutName(szLayoutID, KeyName);
 
-            iIndex = (INT) SendMessage(hItemsList, CB_ADDSTRING, 0, (LPARAM)KeyName);
+            INT iIndex = (INT) SendMessage(hItemsList, CB_ADDSTRING, 0, (LPARAM)KeyName);
 
             pstrLayoutID = (PTSTR)HeapAlloc(hProcessHeap, 0, sizeof(szLayoutID));
             lstrcpy(pstrLayoutID, szLayoutID);

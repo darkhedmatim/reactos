@@ -46,10 +46,6 @@ Test_NtGdiCreateDIBSection(PTESTINFO pti)
     PBITMAPV4HEADER pbV4h = (PBITMAPV4HEADER)&bmi.bmiHeader;
     PBITMAPV5HEADER pbV5h = (PBITMAPV5HEADER)&bmi.bmiHeader;
 
-    HANDLE hSection;
-    NTSTATUS Status;
-    LARGE_INTEGER MaximumSize;
-
     hDC = GetDC(0);
     pbih->biSize = sizeof(BITMAPINFOHEADER);
     pbih->biWidth = 2;
@@ -171,28 +167,23 @@ Test_NtGdiCreateDIBSection(PTESTINFO pti)
     pbih->biBitCount = 4;
     hbmp = NtGdiCreateDIBSection(hDC, NULL, 0, pbmi, 0, cjHeader, 0, 0, &pvBits);
     TEST(hbmp != 0);
-    if (hbmp) DeleteObject(hbmp);
 
     pbih->biBitCount = 8;
     hbmp = NtGdiCreateDIBSection(hDC, NULL, 0, pbmi, 0, cjHeader, 0, 0, &pvBits);
     TEST(hbmp != 0);
-    if (hbmp) DeleteObject(hbmp);
 
     cjHeader = pbih->biSize;
     pbih->biBitCount = 16;
     hbmp = NtGdiCreateDIBSection(hDC, NULL, 0, pbmi, 0, cjHeader, 0, 0, &pvBits);
     TEST(hbmp != 0);
-    if (hbmp) DeleteObject(hbmp);
 
     pbih->biBitCount = 24;
     hbmp = NtGdiCreateDIBSection(hDC, NULL, 0, pbmi, 0, cjHeader, 0, 0, &pvBits);
     TEST(hbmp != 0);
-    if (hbmp) DeleteObject(hbmp);
 
     pbih->biBitCount = 32;
     hbmp = NtGdiCreateDIBSection(hDC, NULL, 0, pbmi, 0, cjHeader, 0, 0, &pvBits);
     TEST(hbmp != 0);
-    if (hbmp) DeleteObject(hbmp);
 
     /* Test BI_BITFIELDS */
     cEntries = 3;
@@ -450,6 +441,10 @@ printf("dib with bitfileds: %p\n", hbmp);
     if (hbmp) DeleteObject(hbmp);
 
     /* Test section */
+    HANDLE hSection;
+    NTSTATUS Status;
+    LARGE_INTEGER MaximumSize;
+    
     MaximumSize.QuadPart = 4096;
     Status = ZwCreateSection(&hSection,
                              SECTION_ALL_ACCESS,

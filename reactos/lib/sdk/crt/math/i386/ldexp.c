@@ -30,14 +30,7 @@ double ldexp (double __x, int __y)
     ("fscale"
      : "=t" (__val) : "0" (__x), "u" ((double) __y));
 #else
-  register double __dy = (double)__y;
-  __asm
-  {
-    fld __dy
-    fld __x
-    fscale
-    fstp __val
-  }
+  __val = linkme_ldexp(__x, __y);
 #endif /*__GNUC__*/
   return __val;
 }
