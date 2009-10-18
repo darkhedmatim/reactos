@@ -1,16 +1,12 @@
 #ifndef __ISAPNP_H
 #define __ISAPNP_H
 
-#include <ntddk.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define TAG_ISAPNP 'PNPI'
-
 #define IO_RESOURCE_REQUIRED  0x00  //ROS Extension
-
+ 
 #define ISAPNP_ADDRESS_PORT   0x0279    // ADDRESS (W)
 #define ISAPNP_WRITE_PORT     0x0A79    // WRITE_DATA (W)
 #define ISAPNP_MIN_READ_PORT  0x0203    // READ_DATA (R)
@@ -329,7 +325,7 @@ typedef struct _ISAPNP_DEVICE_EXTENSION
 } ISAPNP_DEVICE_EXTENSION, *PISAPNP_DEVICE_EXTENSION;
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath);

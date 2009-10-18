@@ -20,8 +20,12 @@
  *
  */
 
-#ifndef __VIDEOAGP_H__
-#define __VIDEOAGP_H__
+#ifndef __VIDEOAGP_H
+#define __VIDEOAGP_H
+
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #include "video.h"
 
@@ -120,4 +124,4 @@ VideoPortGetAgpServices(
 }
 #endif
 
-#endif /* __VIDEOAGP_H__ */
+#endif /* __VIDEOAGP_H */

@@ -25,7 +25,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(cryptdll);
 
-static HMODULE CRYPTDLL_hModule;
+HMODULE CRYPTDLL_hModule = 0;
 
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {

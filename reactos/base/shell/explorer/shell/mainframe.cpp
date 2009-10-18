@@ -63,7 +63,7 @@ HWND MainFrameBase::Create(const ExplorerCmd& cmd)
 
 		 // Open the first child window after initializing the application
 		if (cmd.IsValidPath()) {
-			 // We use the static s_path variable to store the path string in order
+			 // We use the static s_path variable to store the path string in order 
 			 // to avoid accessing prematurely freed memory in the PostMessage handlers.
 			static String s_path = cmd._path;
 
@@ -96,7 +96,7 @@ int MainFrameBase::OpenShellFolders(LPIDA pida, HWND hFrameWnd)
 					XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
 
 					bool mdi = XMLBool(explorer_options, "mdi", true);
-					bool separateFolders = XMLBool(explorer_options, "separate-folders", false);
+					bool separateFolders = XMLBool(explorer_options, "separate-folders", true);
 
 					ShellPath pidl_abs = ShellPath(pidl).create_absolute_pidl(parent_pidl);
 					LOG(FmtString(TEXT("MainFrameBase::OpenShellFolders(): pidl_abs=%s"), (LPCTSTR)FileSysShellPath(pidl_abs)));
@@ -152,35 +152,7 @@ int MainFrameBase::OpenShellFolders(LPIDA pida, HWND hFrameWnd)
 MainFrameBase::MainFrameBase(HWND hwnd)
  :	super(hwnd)
 {
-    HDC hDC = GetDC(NULL);
-#ifndef _NO_REBAR
-    //static WCHAR Title1[] = TEXT("Toolbar");
-    static WCHAR Title2[] = TEXT("Address :");
-#endif
-
-    if (hDC)
-    {
-        DWORD ilMask;
-        INT bpp = GetDeviceCaps(hDC, BITSPIXEL);
-        ReleaseDC(NULL, hDC);
-
-        if (bpp <= 4)
-            ilMask = ILC_COLOR4;
-        else if (bpp <= 8)
-            ilMask = ILC_COLOR8;
-        else if (bpp <= 16)
-            ilMask = ILC_COLOR16;
-        else if (bpp <= 24)
-            ilMask = ILC_COLOR24;
-        else if (bpp <= 32)
-            ilMask = ILC_COLOR32;
-        else
-            ilMask = ILC_COLOR;
-
-        ilMask |= ILC_MASK;
-
-        _himl = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), ilMask, 2, 0);
-    }
+	_himl = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), ILC_MASK|ILC_COLOR24, 2, 0);
 
 	_hMenuFrame = GetMenu(hwnd);
 	_hMenuWindow = GetSubMenu(_hMenuFrame, GetMenuItemCount(_hMenuFrame)-3);
@@ -203,32 +175,37 @@ MainFrameBase::MainFrameBase(HWND hwnd)
 		{13, ID_STOP, TBSTATE_ENABLED, BTNS_BUTTON, {0, 0}, 0, 0}
 	};
 
-	_htoolbar = CreateToolbarEx(hwnd,
+	_htoolbar = CreateToolbarEx(hwnd, 
 #ifndef _NO_REBAR
 		CCS_NOPARENTALIGN|CCS_NORESIZE|CCS_NODIVIDER|
 #endif
 		WS_CHILD|TBSTYLE_FLAT|WS_VISIBLE, IDW_TOOLBAR, 2, g_Globals._hInstance, IDB_TOOLBAR,
 		toolbarBtns, sizeof(toolbarBtns)/sizeof(TBBUTTON),
-		16, 16, 16, 16, sizeof(TBBUTTON));
+		16, 15, 16, 15, sizeof(TBBUTTON));
 
 	CheckMenuItem(_menu_info._hMenuView, ID_VIEW_TOOL_BAR, MF_BYCOMMAND|MF_CHECKED);
 
 
-	 // address bar 
-	_haddrcombo = CreateWindowEx(0,
-								WC_COMBOBOX,
-								TEXT("Address"),
-								WS_CHILD|WS_TABSTOP|WS_BORDER|WS_VISIBLE|CBS_DROPDOWN|
-								CCS_NOPARENTALIGN|CCS_NORESIZE|CCS_NODIVIDER|CCS_NOMOVEY,
-								0, 0, 0, 0,
-								hwnd,
-								(HMENU)IDW_ADDRESSBAR,
-								g_Globals._hInstance,
-								0);
+	 // address & command bar
+	WindowCanvas canvas(hwnd);
+	RECT rect = {0, 0, 0, 0};
+	DrawText(canvas, TEXT("My"), -1, &rect, DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+	HFONT hfont = GetStockFont(DEFAULT_GUI_FONT);
 
-	HFONT hFont = (HFONT)GetStockObject(ANSI_VAR_FONT);
-	SendMessageW(_haddrcombo, WM_SETFONT, (WPARAM)hFont, 0);
+	_haddressedit = CreateWindow(TEXT("EDIT"), NULL, WS_CHILD|WS_VISIBLE, 0, 0, 0, rect.bottom,
+							hwnd, (HMENU)IDW_ADDRESSBAR, g_Globals._hInstance, 0);
+	SetWindowFont(_haddressedit, hfont, FALSE);
+	new EditController(_haddressedit);
 
+	_hcommandedit = CreateWindow(TEXT("EDIT"), TEXT("> "), WS_CHILD|WS_VISIBLE, 0, 0, 0, rect.bottom,
+							hwnd, (HMENU)IDW_COMMANDBAR, g_Globals._hInstance, 0);
+	SetWindowFont(_hcommandedit, hfont, FALSE);
+	new EditController(_hcommandedit);
+
+	/* CreateStatusWindow does not accept WS_BORDER
+		_hstatusbar = CreateWindowEx(WS_EX_NOPARENTNOTIFY, STATUSCLASSNAME, 0,
+						WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|WS_BORDER|CCS_NODIVIDER, 0,0,0,0,
+						hwnd, (HMENU)IDW_STATUSBAR, g_Globals._hInstance, 0);*/
 
 	_hstatusbar = CreateStatusWindow(WS_CHILD|WS_VISIBLE, 0, hwnd, IDW_STATUSBAR);
 	CheckMenuItem(_menu_info._hMenuView, ID_VIEW_STATUSBAR, MF_BYCOMMAND|MF_CHECKED);
@@ -244,16 +221,11 @@ MainFrameBase::MainFrameBase(HWND hwnd)
 
 	 // create rebar window to manage toolbar and drivebar
 #ifndef _NO_REBAR
-	_hwndrebar = CreateWindowEx(WS_EX_TOOLWINDOW,
-								REBARCLASSNAME,
-								NULL,
-								WS_CHILD|WS_VISIBLE|WS_BORDER|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|
-								 RBS_VARHEIGHT|RBS_DBLCLKTOGGLE| RBS_AUTOSIZE|RBS_BANDBORDERS,
-								0, 0, 0, 0,
-								_hwnd,
-								NULL,
-								g_Globals._hInstance,
-								0);
+	_hwndrebar = CreateWindowEx(WS_EX_TOOLWINDOW, REBARCLASSNAME, NULL,
+					WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|WS_CLIPCHILDREN|
+					RBS_VARHEIGHT|RBS_DBLCLKTOGGLE|
+					WS_BORDER|RBS_AUTOSIZE|RBS_BANDBORDERS,
+					0, 0, 0, 0, _hwnd, 0, g_Globals._hInstance, 0);
 
 	int btn_hgt = HIWORD(SendMessage(_htoolbar, TB_GETBUTTONSIZE, 0, 0));
 
@@ -261,6 +233,9 @@ MainFrameBase::MainFrameBase(HWND hwnd)
 
 	rbBand.cbSize = sizeof(REBARBANDINFO);
 	rbBand.fMask  = RBBIM_TEXT|RBBIM_STYLE|RBBIM_CHILD|RBBIM_CHILDSIZE|RBBIM_SIZE;
+#ifndef RBBS_HIDETITLE // missing in MinGW headers as of 25.02.2004
+#define RBBS_HIDETITLE	0x400
+#endif
 	rbBand.fStyle = RBBS_CHILDEDGE|RBBS_GRIPPERALWAYS|RBBS_HIDETITLE;
 
 	rbBand.cxMinChild = 0;
@@ -269,21 +244,12 @@ MainFrameBase::MainFrameBase(HWND hwnd)
 	rbBand.cyMaxChild = 0;
 	rbBand.cyIntegral = btn_hgt;
 
-	rbBand.lpText = NULL;//Title1
+	rbBand.lpText = NULL;//TEXT("Toolbar");
 	rbBand.hwndChild = _htoolbar;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;
 	rbBand.cx = 284;
-	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)0, (LPARAM)&rbBand);
-
-	rbBand.fStyle &= ~RBBS_HIDETITLE;
-	rbBand.fStyle |= RBBS_BREAK;
-    rbBand.lpText = Title2;
-	rbBand.hwndChild = _haddrcombo;
-	rbBand.cxMinChild = 0;
-	rbBand.cyMinChild = btn_hgt;
-	rbBand.cx = 400;
-	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)3, (LPARAM)&rbBand);
+	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 #endif
 }
 
@@ -334,15 +300,13 @@ bool MainFrameBase::ProcessMessage(UINT nmsg, WPARAM wparam, LPARAM lparam, LRES
 		break;
 
 	  case WM_SIZE: {
-#ifdef __REACTOS__	///@todo Work around to display rebar in ROS (with flickering) as long as the control isn't fixed
+#ifdef _ROS_	///@todo Work around to display rebar in ROS (with flickering) as long as the control isn't fixed
 		int height = SendMessage(_hwndrebar, RB_GETBARHEIGHT, 0, 0);
 		MoveWindow(_hwndrebar, 0, 0, LOWORD(lparam), height, TRUE);
 #else
- 		resize_frame(LOWORD(lparam), HIWORD(lparam));
- 		SendMessage(_hwndrebar, WM_SIZE, 0, 0);
+		resize_frame(LOWORD(lparam), HIWORD(lparam));
+		SendMessage(_hwndrebar, WM_SIZE, 0, 0);
 #endif
-
-
 		break;}	// do not pass message to DefFrameProc
 
 	  case WM_GETMINMAXINFO: {
@@ -370,6 +334,10 @@ bool MainFrameBase::ProcessMessage(UINT nmsg, WPARAM wparam, LPARAM lparam, LRES
 
 	  case PM_SETSTATUSTEXT:
 		SendMessage(_hstatusbar, SB_SETTEXT, 0, lparam);
+		break;
+
+	  case PM_URL_CHANGED:
+		SetWindowText(_haddressedit, (LPCTSTR)lparam);
 		break;
 
 	  default:
@@ -451,12 +419,59 @@ int MainFrameBase::Command(int id, int code)
 		launch_file(_hwnd, TEXT("http://www.sky.franken.de/explorer/"), SW_SHOW);
 		break;
 
+	  case IDW_ADDRESSBAR:
+		if (code == 1) {
+			TCHAR url[BUFFER_LEN];
+
+			if (GetWindowText(_haddressedit, url, BUFFER_LEN))
+				go_to(url, false);
+		}
+		break;
+
+	  case IDW_COMMANDBAR:
+		if (code == 1)
+			ExecuteCommandbar(NULL);
+		break;
+
 	  default:
 		return 1;	// no command handlers in Window::Command()
 	}
 
 	return 0;
 }
+
+
+void MainFrameBase::ExecuteCommandbar(LPCTSTR dir)
+{
+	TCHAR cmd[BUFFER_LEN];
+
+	if (GetWindowText(_hcommandedit, cmd, BUFFER_LEN)) {
+		CONTEXT("ExecuteCommandbar - ShellExecute()");
+
+		 // remove command prompt from 'cmd' string
+		LPCTSTR p = cmd;
+
+		if (*p == '>')
+			++p;
+
+		while(*p == ' ')
+			++p;
+
+		if (dir) {
+			 // remove "file://" from directory URL
+			if (!_tcsnicmp(dir, TEXT("file://"), 7))
+				dir += 7;
+		}
+
+		///@todo use SHGetFileInfo() with SHGFI_EXETYPE flag to determine EXE type and open console window
+
+		HINSTANCE hinst = ShellExecute(_hwnd, NULL, p, NULL, dir, SW_SHOWNORMAL);
+
+		if ((int)hinst <= 32)
+			display_error(_hwnd, GetLastError());
+	}
+}
+
 
 int MainFrameBase::Notify(int id, NMHDR* pnmh)
 {
@@ -521,11 +536,9 @@ void MainFrameBase::resize_frame(int cx, int cy)
 	RECT rect = {0, 0, cx, cy};
 
 	if (_hwndrebar) {
-        int height = SendMessage(_hwndrebar, RB_GETBARHEIGHT, 0, 0);
+        int height = SendMessage(_hwndrebar, RB_GETBARHEIGHT, 0, 0);	  
 		rect.top += height;
         rect.top += 5;
-
-		SetWindowPos(_haddrcombo, NULL, 0, 0, cx, height, SWP_NOMOVE);
 	} else {
 		if (IsWindowVisible(_htoolbar)) {
 			SendMessage(_htoolbar, WM_SIZE, 0, 0);
@@ -542,6 +555,15 @@ void MainFrameBase::resize_frame(int cx, int cy)
 		SendMessage(_hstatusbar, SB_SETPARTS, 2, (LPARAM)&parts);
 		ClientRect rt(_hstatusbar);
 		rect.bottom -= rt.bottom;
+	}
+
+	if (IsWindowVisible(_haddressedit) || IsWindowVisible(_hcommandedit)) {
+		ClientRect rt(_haddressedit);
+		rect.bottom -= rt.bottom;
+
+		int mid = (rect.right-rect.left) / 2;	///@todo use split bar
+		SetWindowPos(_haddressedit, 0, 0, rect.bottom, mid, rt.bottom, SWP_NOACTIVATE|SWP_NOZORDER);
+		SetWindowPos(_hcommandedit, 0, mid+1, rect.bottom, rect.right-(mid+1), rt.bottom, SWP_NOACTIVATE|SWP_NOZORDER);
 	}
 
 	if (IsWindowVisible(_hsidebar)) {
@@ -710,7 +732,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 	ccs.hWindowMenu = _hMenuWindow;
 	ccs.idFirstChild = IDW_FIRST_CHILD;
 
-	_hmdiclient = CreateWindowEx(WS_EX_CLIENTEDGE|WS_EX_NOPARENTNOTIFY, TEXT("MDICLIENT"), NULL,
+	_hmdiclient = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("MDICLIENT"), NULL,
 					WS_CHILD|WS_CLIPCHILDREN|WS_VSCROLL|WS_HSCROLL|WS_VISIBLE|WS_BORDER,
 					0, 0, 0, 0,
 					hwnd, 0, g_Globals._hInstance, &ccs);
@@ -722,7 +744,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 				CCS_NOPARENTALIGN|CCS_NORESIZE|CCS_NODIVIDER|
 				WS_CHILD|TBSTYLE_FLAT|WS_VISIBLE|CCS_NOMOVEY|TBSTYLE_LIST,
 				IDW_EXTRABAR, 2, g_Globals._hInstance, IDB_DRIVEBAR, NULL, 0,
-				16, 16, 16, 16, sizeof(TBBUTTON));
+				16, 15, 16, 15, sizeof(TBBUTTON));
 #else
 	_hextrabar = CreateToolbarEx(hwnd,
 				WS_CHILD|WS_VISIBLE|CCS_NOMOVEY|TBSTYLE_LIST,CCS_NODIVIDER|
@@ -766,7 +788,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 		extraBtns.iBitmap = 8;
 		SendMessage(_hextrabar, TB_INSERTBUTTON, INT_MAX, (LPARAM)&extraBtns);
 	}
-#ifndef __REACTOS__ // don't insert reg button for ROS. Regedit should be used.
+#ifndef _ROS_ // don't insert reg button for ROS. Regedit should be used.
 	 // insert Registry button
 	extraBtns.iString = SendMessage(_hextrabar, TB_ADDSTRING, 0, (LPARAM)TEXT("Reg.\0"));
 	extraBtns.idCommand = ID_DRIVE_REGISTRY;
@@ -792,7 +814,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 				CCS_NOPARENTALIGN|CCS_NORESIZE|CCS_NODIVIDER|
 				WS_CHILD|WS_VISIBLE|TBSTYLE_FLAT|CCS_NOMOVEY|TBSTYLE_LIST,
 				IDW_DRIVEBAR, 2, g_Globals._hInstance, IDB_DRIVEBAR, NULL, 0,
-				16, 16, 16, 16, sizeof(TBBUTTON));
+				16, 15, 16, 15, sizeof(TBBUTTON));
 #else
 	_hdrivebar = CreateToolbarEx(hwnd,
 				WS_CHILD|WS_VISIBLE|CCS_NOMOVEY|TBSTYLE_LIST|CCS_NODIVIDER,
@@ -801,7 +823,7 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 #endif
 #endif
 
-	CheckMenuItem(_menu_info._hMenuView, ID_VIEW_DRIVE_BAR, MF_BYCOMMAND|MF_UNCHECKED);
+	CheckMenuItem(_menu_info._hMenuView, ID_VIEW_DRIVE_BAR, MF_BYCOMMAND|MF_CHECKED);
 
 
 #ifndef _NO_WIN_FS
@@ -843,26 +865,21 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 #endif
 	rbBand.fStyle = RBBS_CHILDEDGE|RBBS_GRIPPERALWAYS|RBBS_HIDETITLE;
 
-	TCHAR ExtrasBand[] = _T("Extras");
-	rbBand.lpText = ExtrasBand;
+	rbBand.lpText = TEXT("Extras");
 	rbBand.hwndChild = _hextrabar;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;
 	rbBand.cx = 284;
-	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)1, (LPARAM)&rbBand);
+	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 
 #ifndef _NO_WIN_FS
 	rbBand.fStyle |= RBBS_BREAK;
-	TCHAR DrivesBand[] = _T("Drives");
-	rbBand.lpText = DrivesBand;
+	rbBand.lpText = TEXT("Drives");
 	rbBand.hwndChild = _hdrivebar;
 	rbBand.cxMinChild = 0;
 	rbBand.cyMinChild = btn_hgt;
 	rbBand.cx = 400;
-	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)2, (LPARAM)&rbBand);
-
-	// hide the drivebar by default
-	SendMessage(_hwndrebar, RB_SHOWBAND, 2, FALSE);
+	SendMessage(_hwndrebar, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 #endif
 #endif
 }
@@ -1153,6 +1170,20 @@ int MDIMainFrame::Command(int id, int code)
 		MainFrameBase::Create(ExplorerCmd());
 		break;
 
+	  case IDW_COMMANDBAR:
+		if (code == 1) {
+			TCHAR url[BUFFER_LEN];
+			LPCTSTR dir;
+
+			if (GetWindowText(_haddressedit, url, BUFFER_LEN))
+				dir = url;
+			else
+				dir = NULL;
+
+			ExecuteCommandbar(dir);
+		}
+		break;
+
 	///@todo There are even more menu items!
 
 	  default:
@@ -1225,6 +1256,15 @@ void MDIMainFrame::resize_frame(int cx, int cy)
 		SendMessage(_hstatusbar, SB_SETPARTS, 2, (LPARAM)&parts);
 		ClientRect rt(_hstatusbar);
 		rect.bottom -= rt.bottom;
+	}
+
+	if (IsWindowVisible(_haddressedit) || IsWindowVisible(_hcommandedit)) {
+		ClientRect rt(_haddressedit);
+		rect.bottom -= rt.bottom;
+
+		int mid = (rect.right-rect.left) / 2;	///@todo use split bar
+		SetWindowPos(_haddressedit, 0, 0, rect.bottom, mid, rt.bottom, SWP_NOACTIVATE|SWP_NOZORDER);
+		SetWindowPos(_hcommandedit, 0, mid+1, rect.bottom, rect.right-(mid+1), rt.bottom, SWP_NOACTIVATE|SWP_NOZORDER);
 	}
 
 	if (IsWindowVisible(_hsidebar)) {
@@ -1517,6 +1557,11 @@ int SDIMainFrame::Command(int id, int code)
 		MainFrameBase::Create(ExplorerCmd(_url, true));
 		break;
 
+	  case IDW_COMMANDBAR:
+		if (code == 1)
+			ExecuteCommandbar(_url);
+		break;
+
 	  default:
 		return super::Command(id, code);
 	}
@@ -1551,6 +1596,15 @@ void SDIMainFrame::resize_frame(int cx, int cy)
 		SendMessage(_hstatusbar, SB_SETPARTS, 2, (LPARAM)&parts);
 		ClientRect rt(_hstatusbar);
 		rect.bottom -= rt.bottom;
+	}
+
+	if (IsWindowVisible(_haddressedit) || IsWindowVisible(_hcommandedit)) {
+		ClientRect rt(_haddressedit);
+		rect.bottom -= rt.bottom;
+
+		int mid = (rect.right-rect.left) / 2;	///@todo use split bar
+		SetWindowPos(_haddressedit, 0, 0, rect.bottom, mid, rt.bottom, SWP_NOACTIVATE|SWP_NOZORDER);
+		SetWindowPos(_hcommandedit, 0, mid+1, rect.bottom, rect.right-(mid+1), rt.bottom, SWP_NOACTIVATE|SWP_NOZORDER);
 	}
 
 	if (IsWindowVisible(_hsidebar)) {
@@ -1642,16 +1696,29 @@ void SDIMainFrame::entry_selected(Entry* entry)
 
 	 // set size of new created shell view windows
 	resize_children();
+
+	TCHAR path[MAX_PATH];
+
+	if (entry->get_path(path, COUNTOF(path))) {
+		String url;
+
+		if (path[0] == ':')
+			url.printf(TEXT("shell://%s"), path);
+		else
+			url.printf(TEXT("file://%s"), path);
+
+		set_url(url);
+	}
 }
 
 void SDIMainFrame::set_url(LPCTSTR url)
 {
 	if (_url != url) {
 		_url = url;
-		SetWindowText(_haddrcombo, url);
+
+		SetWindowText(_haddressedit, url); //SendMessage(_hwndFrame, PM_URL_CHANGED, 0, (LPARAM)url);
 	}
 }
-
 
 void SDIMainFrame::jump_to(LPCTSTR path, int mode)
 {/*@@todo

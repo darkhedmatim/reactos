@@ -12,9 +12,10 @@
 /* INCLUDES ******************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /* FUNCTIONS *****************************************************************/
 
@@ -22,7 +23,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DefineDosDeviceA(
     DWORD dwFlags,
     LPCSTR lpDeviceName,
@@ -69,14 +70,13 @@ DefineDosDeviceA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 DefineDosDeviceW(
     DWORD dwFlags,
     LPCWSTR lpDeviceName,
     LPCWSTR lpTargetPath
     )
 {
-    UNIMPLEMENTED;
 	return FALSE;
 }
 
@@ -85,7 +85,7 @@ DefineDosDeviceW(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 QueryDosDeviceA(
     LPCSTR lpDeviceName,
     LPSTR lpTargetPath,
@@ -135,10 +135,10 @@ QueryDosDeviceA(
     while (ucchMax)
     {
       CurrentLength = min (ucchMax, MAXUSHORT / 2);
-      TargetPathU.MaximumLength = TargetPathU.Length = (USHORT)CurrentLength * sizeof(WCHAR);
+      TargetPathU.MaximumLength = TargetPathU.Length = CurrentLength * sizeof(WCHAR);
      
       TargetPathA.Length = 0;
-      TargetPathA.MaximumLength = (USHORT)CurrentLength;
+      TargetPathA.MaximumLength = CurrentLength;
 
       RtlUnicodeStringToAnsiString (&TargetPathA,
 				    &TargetPathU,
@@ -166,7 +166,7 @@ QueryDosDeviceA(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 QueryDosDeviceW(
     LPCWSTR lpDeviceName,
     LPWSTR lpTargetPath,
@@ -200,7 +200,7 @@ QueryDosDeviceW(
 				  &ObjectAttributes);
   if (!NT_SUCCESS (Status))
   {
-    WARN ("NtOpenDirectoryObject() failed (Status %lx)\n", Status);
+    DPRINT ("NtOpenDirectoryObject() failed (Status %lx)\n", Status);
     SetLastErrorByStatus (Status);
     return 0;
   }
@@ -222,7 +222,7 @@ QueryDosDeviceW(
 				       &ObjectAttributes);
     if (!NT_SUCCESS (Status))
     {
-      WARN ("NtOpenSymbolicLinkObject() failed (Status %lx)\n", Status);
+      DPRINT ("NtOpenSymbolicLinkObject() failed (Status %lx)\n", Status);
       NtClose (DirectoryHandle);
       SetLastErrorByStatus (Status);
       return 0;
@@ -241,14 +241,14 @@ QueryDosDeviceW(
     NtClose (DirectoryHandle);
     if (!NT_SUCCESS (Status))
     {
-      WARN ("NtQuerySymbolicLinkObject() failed (Status %lx)\n", Status);
+      DPRINT ("NtQuerySymbolicLinkObject() failed (Status %lx)\n", Status);
       SetLastErrorByStatus (Status);
       return 0;
     }
 
-    TRACE ("ReturnLength: %lu\n", ReturnLength);
-    TRACE ("TargetLength: %hu\n", UnicodeString.Length);
-    TRACE ("Target: '%wZ'\n", &UnicodeString);
+    DPRINT ("ReturnLength: %lu\n", ReturnLength);
+    DPRINT ("TargetLength: %hu\n", UnicodeString.Length);
+    DPRINT ("Target: '%wZ'\n", &UnicodeString);
 
     Length = ReturnLength / sizeof(WCHAR);
     if (Length < ucchMax)
@@ -259,7 +259,7 @@ QueryDosDeviceW(
     }
     else
     {
-      TRACE ("Buffer is too small\n");
+      DPRINT ("Buffer is too small\n");
       SetLastErrorByStatus (STATUS_BUFFER_TOO_SMALL);
       return 0;
     }
@@ -300,7 +300,7 @@ QueryDosDeviceW(
 
       if (!wcscmp (DirInfo->TypeName.Buffer, L"SymbolicLink"))
       {
-	TRACE ("Name: '%wZ'\n", &DirInfo->Name);
+	DPRINT ("Name: '%wZ'\n", &DirInfo->Name);
 
 	NameLength = DirInfo->Name.Length / sizeof(WCHAR);
 	if (Length + NameLength + 1 >= ucchMax)

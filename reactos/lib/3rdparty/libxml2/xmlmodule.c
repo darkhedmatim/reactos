@@ -85,7 +85,7 @@ xmlModuleOpen(const char *name, int options ATTRIBUTE_UNUSED)
         __xmlRaiseError(NULL, NULL, NULL, NULL, NULL, XML_FROM_MODULE,
                         XML_MODULE_OPEN, XML_ERR_FATAL, NULL, 0, 0,
                         name, NULL, 0, 0, "failed to open %s\n", name);
-        return(NULL);
+        return 0;
     }
 
     module->name = xmlStrdup((const xmlChar *) name);
@@ -179,7 +179,7 @@ xmlModuleFree(xmlModulePtr module)
 {
     if (NULL == module) {
         __xmlRaiseError(NULL, NULL, NULL, NULL, NULL, XML_FROM_MODULE,
-                        XML_MODULE_CLOSE, XML_ERR_FATAL, NULL, 0, NULL,
+                        XML_MODULE_CLOSE, XML_ERR_FATAL, NULL, 0, 0,
                         NULL, NULL, 0, 0, "null module pointer\n");
         return -1;
     }
@@ -190,13 +190,9 @@ xmlModuleFree(xmlModulePtr module)
     return (0);
 }
 
-#if defined(HAVE_DLOPEN) && !defined(_WIN32)
+#ifdef HAVE_DLOPEN
 #ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
-#endif
-
-#ifndef RTLD_GLOBAL            /* For Tru64 UNIX 4.0 */
-#define RTLD_GLOBAL 0
 #endif
 
 /**
@@ -281,7 +277,10 @@ xmlModulePlatformSymbol(void *handle, const char *name, void **symbol)
     int rc;
 
     errno = 0;
-    rc = shl_findsym(&handle, name, TYPE_UNDEFINED, symbol);
+    rc = shl_findsym(handle, name, TYPE_PROCEDURE, symbol);
+    if ((-1 == rc) && (0 == errno)) {
+        rc = shl_findsym(handle, name, TYPE_DATA, symbol);
+    }
     return rc;
 }
 

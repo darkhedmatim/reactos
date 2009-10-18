@@ -81,9 +81,6 @@ Author:
 #include <sefuncs.h>        // Security Subsystem Functions
 #include <umfuncs.h>        // User-Mode NT Library Functions
 
-//
-// Assembly Support
-//
 #include <asm.h>            // Assembly Offsets
 
 #ifdef _MSC_VER

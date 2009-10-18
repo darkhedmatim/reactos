@@ -318,8 +318,6 @@ CheckDebug:
     test byte ptr [eax+KTHREAD_DEBUG_ACTIVE], 0xFF
     jnz RestoreDebug
 
-RestoreStack:
-
     /* Get TSS */
     mov edx, fs:[KPCR_TSS]
 
@@ -381,25 +379,10 @@ NotV86:
     jmp CheckDebug
 
 RestoreDebug:
-    /* Get a pointer to thread's trap frame */
-    mov esi, [eax+KTHREAD_TRAP_FRAME]
 
-    /* Copy debug registers data from it */
-    mov edx, [esi+KTRAP_FRAME_DR0]
-    mov [edi+KTRAP_FRAME_DR0], edx
-    mov edx, [esi+KTRAP_FRAME_DR1]
-    mov [edi+KTRAP_FRAME_DR1], edx
-    mov edx, [esi+KTRAP_FRAME_DR2]
-    mov [edi+KTRAP_FRAME_DR2], edx
-    mov edx, [esi+KTRAP_FRAME_DR3]
-    mov [edi+KTRAP_FRAME_DR3], edx
-    mov edx, [esi+KTRAP_FRAME_DR6]
-    mov [edi+KTRAP_FRAME_DR6], edx
-    mov edx, [esi+KTRAP_FRAME_DR7]
-    mov [edi+KTRAP_FRAME_DR7], edx
-
-    /* Jump back */
-    jmp RestoreStack
+    /* Not yet supported */
+    int 3
+    jmp $
 
 NoStack:
 
@@ -420,7 +403,7 @@ NoStack:
  * @param StackLimit
  *        Pointer to the new Stack Limit of the thread.
  *
- * @return The previous Stack Base of the thread.
+ * @return The previous Stack Limit of the thread.
  *
  * @remark This routine should typically only be used when converting from a 
  *         non-GUI to a GUI Thread. The caller is responsible for freeing the
@@ -470,7 +453,7 @@ _KeSwitchKernelStack@8:
     pop edi
 
     /* Save old stack base and get new limit/base */
-    mov eax, [edx+KTHREAD_STACK_BASE]
+    mov eax, [edx+KTHREAD_STACK_LIMIT]
     mov ecx, [esp+12]
     mov esi, [esp+16]
 

@@ -35,9 +35,9 @@
 //
 // Initialization routines
 //
-BOOLEAN
+VOID
 NTAPI
-PoInitSystem(
+PoInit(
     IN ULONG BootPhase,
     IN BOOLEAN HaveAcpiTable
 );
@@ -68,15 +68,6 @@ NTAPI
 PopAddRemoveSysCapsCallback(
     IN PVOID NotificationStructure,
     IN PVOID Context
-);
-
-//
-// Notifications
-//
-VOID
-NTAPI
-PoNotifySystemTimeSet(
-    VOID
 );
 
 //

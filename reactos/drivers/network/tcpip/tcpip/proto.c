@@ -24,7 +24,7 @@ NTSTATUS TiGetProtocolNumber(
   if (*Name++ != (WCHAR)L'\\')
     return STATUS_UNSUCCESSFUL;
 
-  if (*Name == L'\0')
+  if (*Name == (WCHAR)NULL)
     return STATUS_UNSUCCESSFUL;
 
   RtlInitUnicodeString(&us, Name);

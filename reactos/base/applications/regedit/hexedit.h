@@ -3,9 +3,9 @@
 
 #define HEX_EDIT_CLASS_NAME _T("HexEdit32")
 
-ATOM WINAPI
+ATOM STDCALL
 RegisterHexEditorClass(HINSTANCE hInstance);
-BOOL WINAPI
+BOOL STDCALL
 UnregisterHexEditorClass(HINSTANCE hInstance);
 
 /* styles */

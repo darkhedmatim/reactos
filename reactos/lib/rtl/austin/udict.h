@@ -57,14 +57,14 @@ typedef enum {
 
 typedef enum {
     udict_balanced = 0,
-    udict_leftheavy = 1,
-    udict_rightheavy = 2
+    udict_leftheavy = -1,
+    udict_rightheavy = 1
 } udict_avl_balance_t;
 
 typedef union {
     int udict_dummy;
-    udict_rb_color_t udict_rb_color;
-    udict_avl_balance_t udict_avl_balance;
+    udict_rb_color_t udict_rb_color;	
+    udict_avl_balance_t udict_avl_balance;	
 } udict_algdata_t;
 
 typedef struct _RTL_BALANCED_LINKS udict_node_t;
@@ -82,7 +82,7 @@ typedef struct udict_operations {
     udict_node_t *(*udict_lookup)(udict_t *, const void *);
     udict_node_t *(*udict_lower_bound)(udict_t *, const void *);
     udict_node_t *(*udict_upper_bound)(udict_t *, const void *);
-    udict_node_t *(*udict_first)(udict_t *);
+    udict_node_t *(*udict_first)(udict_t *);	
     udict_node_t *(*udict_last)(udict_t *);
     udict_node_t *(*udict_next)(udict_t *, udict_node_t *);
     udict_node_t *(*udict_prev)(udict_t *, udict_node_t *);

@@ -28,6 +28,8 @@
 
 #include "precomp.h"
 
+//#define NDEBUG
+#include <debug.h>
 #define _WINNT_H
 #include "wine/debug.h"
 
@@ -37,7 +39,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(imagehlp);
 
 static
 BOOL
-IMAGEHLP_GetSecurityDirOffset(HANDLE handle,
+IMAGEHLP_GetSecurityDirOffset(HANDLE handle, 
                               DWORD *pdwOfs,
                               DWORD *pdwSize)
 {
@@ -84,7 +86,7 @@ IMAGEHLP_GetSecurityDirOffset(HANDLE handle,
 /***********************************************************************
  * IMAGEHLP_GetCertificateOffset (INTERNAL)
  *
- * Read a file's PE header, and return the offset and size of the
+ * Read a file's PE header, and return the offset and size of the 
  *  security directory.
  */
 static BOOL IMAGEHLP_GetCertificateOffset( HANDLE handle, DWORD num,
@@ -221,7 +223,7 @@ BOOL IMAGEAPI ImageEnumerateCertificates(
             return FALSE;
         if( hdr.dwLength > (size-offset) )
             return FALSE;
-
+       
         if( (TypeFilter == CERT_SECTION_TYPE_ANY) ||
             (TypeFilter == hdr.wCertificateType) )
         {
@@ -291,7 +293,7 @@ BOOL IMAGEAPI ImageGetCertificateHeader(
     const size_t cert_hdr_size = sizeof *Certificateheader -
                                  sizeof Certificateheader->bCertificate;
 
-    TRACE("%p %ld %p\n", FileHandle, CertificateIndex, Certificateheader);
+    DPRINT("%p %ld %p\n", FileHandle, CertificateIndex, Certificateheader);
 
     if( !IMAGEHLP_GetCertificateOffset( FileHandle, CertificateIndex, &ofs, &size ) )
         return FALSE;
@@ -352,7 +354,7 @@ CheckSumMappedFile(LPVOID BaseAddress,
   PIMAGE_NT_HEADERS Header;
   DWORD CalcSum;
   DWORD HdrSum;
-  TRACE("stub\n");
+  DPRINT("stub\n");
 
   CalcSum = (DWORD)CalcCheckSum(0,
                 BaseAddress,

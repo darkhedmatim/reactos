@@ -19,6 +19,10 @@
 #ifndef _GDIPLUSEFFECTS_H
 #define _GDIPLUSEFFECTS_H
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 typedef struct {
   float radius;
   BOOL expandEdge;

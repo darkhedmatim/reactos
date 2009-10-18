@@ -1,5 +1,8 @@
 #ifndef _DHCPCAPI_H
 #define _DHCPCAPI_H
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
 
 #include <windows.h>
 #include <accctrl.h>
@@ -8,9 +11,9 @@
 extern "C" {
 #endif
 
-    VOID WINAPI DhcpLeaseIpAddress( ULONG AdapterIndex );
-    VOID WINAPI DhcpReleaseIpAddressLease( ULONG AdapterIndex );
-    VOID WINAPI DhcpStaticRefreshParams
+    VOID STDCALL DhcpLeaseIpAddress( ULONG AdapterIndex );
+    VOID STDCALL DhcpReleaseIpAddressLease( ULONG AdapterIndex );
+    VOID STDCALL DhcpStaticRefreshParams
     ( ULONG AdapterIndex, ULONG IpAddress, ULONG NetMask );
 
 #ifdef __cplusplus

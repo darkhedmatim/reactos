@@ -25,26 +25,31 @@ typedef enum
 
 typedef struct tagDCE
 {
-    LIST_ENTRY   List;
+    struct tagDCE *next;
     HDC          hDC;
     HWND         hwndCurrent;
     HWND         hwndDC;
     HRGN         hClipRgn;
+    DCE_TYPE     type;
     DWORD        DCXFlags;
-    PEPROCESS    pProcess;
     HANDLE       Self;
 } DCE;  /* PDCE already declared at top of file */
 
-/* internal DCX flags, see psdk/winuser.h for the rest */
+/* internal DCX flags */
 #define DCX_DCEEMPTY		0x00000800
 #define DCX_DCEBUSY		0x00001000
 #define DCX_DCEDIRTY		0x00002000
-#define DCX_LAYEREDWIN		0x00004000
-#define DCX_DCPOWNED		0x00008000
-#define DCX_NOCLIPCHILDREN	0x00080000
-#define DCX_NORECOMPUTE		0x00100000
+#define DCX_USESTYLE            0x00010000
+#define DCX_KEEPCLIPRGN		0x00040000
+#define DCX_NOCLIPCHILDREN      0x00080000
 
-BOOL FASTCALL DCE_Cleanup(PDCE pDce);
+#define  DCEOBJ_AllocDCE()  \
+  ((HDCE) GDIOBJ_AllocObj (GdiHandleTable, GDI_OBJECT_TYPE_DCE))
+#define  DCEOBJ_FreeDCE(hDCE)  GDIOBJ_FreeObj(GdiHandleTable, (HGDIOBJ)hDCE, GDI_OBJECT_TYPE_DCE)
+#define  DCEOBJ_LockDCE(hDCE) ((PDCE)GDIOBJ_LockObj(GdiHandleTable, (HGDIOBJ)hDCE, GDI_OBJECT_TYPE_DCE))
+#define  DCEOBJ_UnlockDCE(pDCE) GDIOBJ_UnlockObjByPtr(GdiHandleTable, pDCE)
+BOOL INTERNAL_CALL DCE_Cleanup(PVOID ObjectBody);
+
 PDCE FASTCALL DceAllocDCE(PWINDOW_OBJECT Window, DCE_TYPE Type);
 PDCE FASTCALL DCE_FreeDCE(PDCE dce);
 VOID FASTCALL DCE_FreeWindowDCE(HWND);
@@ -55,7 +60,5 @@ PDCE FASTCALL DceFreeDCE(PDCE dce, BOOLEAN Force);
 void FASTCALL DceFreeWindowDCE(PWINDOW_OBJECT Window);
 void FASTCALL DceEmptyCache(void);
 VOID FASTCALL DceResetActiveDCEs(PWINDOW_OBJECT Window);
-void FASTCALL DceFreeClassDCE(HDC);
-HWND FASTCALL UserGethWnd(HDC,PWNDOBJ*);
 
 #endif /* _WIN32K_DCE_H */

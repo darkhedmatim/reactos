@@ -23,7 +23,6 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#include <inbvtypes.h>
 
 #ifndef NTOS_MODE_USER
 //
@@ -31,20 +30,16 @@ Author:
 //
 VOID
 NTAPI
-InbvAcquireDisplayOwnership(
-    VOID
-);
+InbvAcquireDisplayOwnership(VOID);
 
 BOOLEAN
 NTAPI
-InbvCheckDisplayOwnership(
-    VOID
-);
+InbvCheckDisplayOwnership(VOID);
 
 VOID
 NTAPI
 InbvNotifyDisplayOwnershipLost(
-    IN INBV_RESET_DISPLAY_PARAMETERS Callback
+    IN PVOID Callback
 );
 
 //
@@ -59,14 +54,12 @@ InbvEnableBootDriver(
 VOID
 NTAPI
 InbvInstallDisplayStringFilter(
-    IN INBV_DISPLAY_STRING_FILTER DisplayFilter
+    IN PVOID DisplayFilter
 );
 
 BOOLEAN
 NTAPI
-InbvIsBootDriverInstalled(
-    VOID
-);
+InbvIsBootDriverInstalled(VOID);
 
 //
 // Display Functions
@@ -85,9 +78,7 @@ InbvEnableDisplayString(
 
 BOOLEAN
 NTAPI
-InbvResetDisplay(
-    VOID
-);
+InbvResetDisplay(VOID);
 
 VOID
 NTAPI
@@ -112,13 +103,6 @@ InbvSolidColorFill(
     IN ULONG Width,
     IN ULONG Height,
     IN ULONG Color
-);
-
-VOID
-NTAPI
-InbvSetProgressBarSubset(
-    IN ULONG Floor,
-    IN ULONG Ceiling
 );
 
 #endif

@@ -69,23 +69,24 @@ CleanupAcceleratorImpl(VOID)
 }
 
 
+static
 PACCELERATOR_TABLE FASTCALL UserGetAccelObject(HACCEL hAccel)
 {
    PACCELERATOR_TABLE Accel;
-
+   
    if (!hAccel)
    {
       SetLastWin32Error(ERROR_INVALID_ACCEL_HANDLE);
       return NULL;
    }
-
+   
    Accel= UserGetObject(gHandleTable, hAccel,  otAccel);
    if (!Accel)
    {
       SetLastWin32Error(ERROR_INVALID_ACCEL_HANDLE);
       return NULL;
    }
-
+   
    ASSERT(USER_BODY_TO_HEADER(Accel)->RefCount >= 0);
 
    return Accel;
@@ -241,7 +242,7 @@ found:
          }
       }
 #else
-      DPRINT1("Menu search not implemented\n");
+      DPRINT1("menu search not implemented");
       mesg = WM_COMMAND;
 #endif
 
@@ -286,46 +287,38 @@ found:
 
 
 int
-APIENTRY
+STDCALL
 NtUserCopyAcceleratorTable(
    HACCEL hAccel,
    LPACCEL Entries,
    int EntriesCount)
 {
    PACCELERATOR_TABLE Accel;
+   NTSTATUS Status;
    int Ret;
-   BOOL Done = FALSE;
    DECLARE_RETURN(int);
 
    DPRINT("Enter NtUserCopyAcceleratorTable\n");
    UserEnterShared();
 
-   Accel = UserGetAccelObject(hAccel);
-
-   if ((Entries && (EntriesCount < 1)) || ((hAccel == NULL) || (!Accel)))
+   if (!(Accel = UserGetAccelObject(hAccel)))
    {
       RETURN(0);
    }
 
-   if (Accel->Count < EntriesCount)
-       EntriesCount = Accel->Count;
-
-   Ret = 0;
-
-   while (!Done)
+   if(Entries)
    {
-       if (Entries)
-       {
-           Entries[Ret].fVirt = Accel->Table[Ret].fVirt & 0x7f;
-           Entries[Ret].key = Accel->Table[Ret].key;
-           Entries[Ret].cmd = Accel->Table[Ret].cmd;
-
-           if(Ret + 1 == EntriesCount) Done = TRUE;
-       }
-
-       if((Accel->Table[Ret].fVirt & 0x80) != 0) Done = TRUE;
-
-       Ret++;
+      Ret = min(EntriesCount, Accel->Count);
+      Status = MmCopyToCaller(Entries, Accel->Table, Ret * sizeof(ACCEL));
+      if (!NT_SUCCESS(Status))
+      {
+         SetLastNtError(Status);
+         RETURN(0);
+      }
+   }
+   else
+   {
+      Ret = Accel->Count;
    }
 
    RETURN(Ret);
@@ -337,32 +330,31 @@ CLEANUP:
 }
 
 HACCEL
-APIENTRY
+STDCALL
 NtUserCreateAcceleratorTable(
    LPACCEL Entries,
    SIZE_T EntriesCount)
 {
    PACCELERATOR_TABLE Accel;
+   NTSTATUS Status;
    HACCEL hAccel;
-   INT Index;
    DECLARE_RETURN(HACCEL);
 
    DPRINT("Enter NtUserCreateAcceleratorTable(Entries %p, EntriesCount %d)\n",
           Entries, EntriesCount);
    UserEnterExclusive();
 
-   if (!Entries || EntriesCount < 1)
+   if (!Entries || !EntriesCount)
    {
-      SetLastNtError(STATUS_INVALID_PARAMETER);
-      RETURN( (HACCEL) NULL );
+      RETURN( (HACCEL) 0 );
    }
 
-   Accel = UserCreateObject(gHandleTable, (PHANDLE)&hAccel, otAccel, sizeof(ACCELERATOR_TABLE));
+   Accel = ObmCreateObject(gHandleTable, (PHANDLE)&hAccel, otAccel, sizeof(ACCELERATOR_TABLE));
 
    if (Accel == NULL)
    {
       SetLastNtError(STATUS_NO_MEMORY);
-      RETURN( (HACCEL) NULL );
+      RETURN( (HACCEL) 0 );
    }
 
    Accel->Count = EntriesCount;
@@ -371,24 +363,19 @@ NtUserCreateAcceleratorTable(
       Accel->Table = ExAllocatePoolWithTag(PagedPool, EntriesCount * sizeof(ACCEL), TAG_ACCEL);
       if (Accel->Table == NULL)
       {
-         UserDereferenceObject(Accel);
-         UserDeleteObject(hAccel, otAccel);
+         ObmDeleteObject(hAccel, otAccel);
          SetLastNtError(STATUS_NO_MEMORY);
-         RETURN( (HACCEL) NULL);
+         RETURN( (HACCEL) 0);
       }
 
-      for (Index = 0; Index < EntriesCount; Index++)
+      Status = MmCopyFromCaller(Accel->Table, Entries, EntriesCount * sizeof(ACCEL));
+      if (!NT_SUCCESS(Status))
       {
-          Accel->Table[Index].fVirt = Entries[Index].fVirt&0x7f;
-          if(Accel->Table[Index].fVirt & FVIRTKEY)
-          {
-              Accel->Table[Index].key = Entries[Index].key;
-          }
-          Accel->Table[Index].cmd = Entries[Index].cmd;
+         ExFreePool(Accel->Table);
+         ObmDeleteObject(hAccel, otAccel);
+         SetLastNtError(Status);
+         RETURN((HACCEL) 0);
       }
-
-      /* Set the end-of-table terminator. */
-      Accel->Table[EntriesCount - 1].fVirt |= 0x80;
    }
 
    /* FIXME: Save HandleTable in a list somewhere so we can clean it up again */
@@ -405,7 +392,7 @@ CLEANUP:
 
 
 BOOLEAN
-APIENTRY
+STDCALL
 NtUserDestroyAcceleratorTable(
    HACCEL hAccel)
 {
@@ -425,13 +412,12 @@ NtUserDestroyAcceleratorTable(
       RETURN( FALSE);
    }
 
+   ObmDeleteObject(hAccel, otAccel);
+
    if (Accel->Table != NULL)
    {
       ExFreePool(Accel->Table);
-      Accel->Table = NULL;
    }
-
-   UserDeleteObject(hAccel, otAccel);
 
    RETURN( TRUE);
 
@@ -443,7 +429,7 @@ CLEANUP:
 
 
 int
-APIENTRY
+STDCALL
 NtUserTranslateAccelerator(
    HWND hWnd,
    HACCEL hAccel,

@@ -37,54 +37,69 @@ FindApmBios(VOID)
 
   if (INT386_SUCCESS(RegsOut))
     {
-      DPRINTM(DPRINT_HWDETECT, "Found APM BIOS\n");
-      DPRINTM(DPRINT_HWDETECT, "AH: %x\n", RegsOut.b.ah);
-      DPRINTM(DPRINT_HWDETECT, "AL: %x\n", RegsOut.b.al);
-      DPRINTM(DPRINT_HWDETECT, "BH: %x\n", RegsOut.b.bh);
-      DPRINTM(DPRINT_HWDETECT, "BL: %x\n", RegsOut.b.bl);
-      DPRINTM(DPRINT_HWDETECT, "CX: %x\n", RegsOut.w.cx);
+      DbgPrint((DPRINT_HWDETECT, "Found APM BIOS\n"));
+      DbgPrint((DPRINT_HWDETECT, "AH: %x\n", RegsOut.b.ah));
+      DbgPrint((DPRINT_HWDETECT, "AL: %x\n", RegsOut.b.al));
+      DbgPrint((DPRINT_HWDETECT, "BH: %x\n", RegsOut.b.bh));
+      DbgPrint((DPRINT_HWDETECT, "BL: %x\n", RegsOut.b.bl));
+      DbgPrint((DPRINT_HWDETECT, "CX: %x\n", RegsOut.w.cx));
 
       return TRUE;
     }
 
-  DPRINTM(DPRINT_HWDETECT, "No APM BIOS found\n");
+  printf("No APM BIOS found\n");
 
   return FALSE;
 }
 
 
 VOID
-DetectApmBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
+DetectApmBios(FRLDRHKEY SystemKey, ULONG *BusNumber)
 {
-    PCONFIGURATION_COMPONENT_DATA BiosKey;
-    CM_PARTIAL_RESOURCE_LIST PartialResourceList;
+  WCHAR Buffer[80];
+  FRLDRHKEY BiosKey;
+  LONG Error;
 
-    if (FindApmBios())
+  if (FindApmBios())
     {
-        /* Create 'Configuration Data' value */
-        memset(&PartialResourceList, 0, sizeof(CM_PARTIAL_RESOURCE_LIST));
-        PartialResourceList.Version = 0;
-        PartialResourceList.Revision = 0;
-        PartialResourceList.Count = 0;
+      /* Create new bus key */
+      swprintf(Buffer,
+	      L"MultifunctionAdapter\\%u", *BusNumber);
+      Error = RegCreateKey(SystemKey,
+			   Buffer,
+			   &BiosKey);
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "RegCreateKey() failed (Error %u)\n", (int)Error));
+	  return;
+	}
 
-        /* Create new bus key */
-        FldrCreateComponentKey(SystemKey,
-                               AdapterClass,
-                               MultiFunctionAdapter,
-                               0x0,
-                               0x0,
-                               0xFFFFFFFF,
-                               "APM",
-                               &PartialResourceList,
-                               sizeof(CM_PARTIAL_RESOURCE_LIST) -
-                                   sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR),
-                               &BiosKey);
+#if 0
+      /* Set 'Component Information' */
+      SetComponentInformation(BiosKey,
+                              0x0,
+                              0x0,
+                              0xFFFFFFFF);
+#endif
 
-        /* Increment bus number */
-        (*BusNumber)++;
+      /* Increment bus number */
+      (*BusNumber)++;
+
+      /* Set 'Identifier' value */
+      Error = RegSetValue(BiosKey,
+			  L"Identifier",
+			  REG_SZ,
+			  (PCHAR)L"APM",
+			  4 * sizeof(WCHAR));
+      if (Error != ERROR_SUCCESS)
+	{
+	  DbgPrint((DPRINT_HWDETECT, "RegSetValue() failed (Error %u)\n", (int)Error));
+	  return;
+	}
+
     }
 
-    /* FIXME: Add configuration data */
+  /* FIXME: Add congiguration data */
 }
 
 /* EOF */

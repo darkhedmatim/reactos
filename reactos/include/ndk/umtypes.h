@@ -53,9 +53,7 @@ Author:
 //
 #ifndef _MANAGED
 #if defined(_M_IX86)
-#ifndef FASTCALL
 #define FASTCALL                        _fastcall
-#endif
 #else
 #define FASTCALL
 #endif
@@ -122,13 +120,12 @@ typedef short CSHORT;
 typedef CSHORT *PCSHORT;
 typedef LARGE_INTEGER PHYSICAL_ADDRESS, *PPHYSICAL_ADDRESS;
 typedef LONG KPRIORITY;
+typedef LONG NTSTATUS, *PNTSTATUS;
 
 //
 // Basic NT Types
 //
 #if !defined(_NTSECAPI_H) && !defined(_SUBAUTH_H) && !defined(_NTSECAPI_)
-
-typedef LONG NTSTATUS, *PNTSTATUS;
 
 typedef struct _UNICODE_STRING
 {
@@ -162,15 +159,6 @@ typedef struct _OBJECT_ATTRIBUTES
     PVOID SecurityDescriptor;
     PVOID SecurityQualityOfService;
 } OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
-
-//
-// ClientID Structure
-//
-typedef struct _CLIENT_ID
-{
-    HANDLE UniqueProcess;
-    HANDLE UniqueThread;
-} CLIENT_ID, *PCLIENT_ID;
 
 typedef const UNICODE_STRING* PCUNICODE_STRING;
 typedef STRING ANSI_STRING;

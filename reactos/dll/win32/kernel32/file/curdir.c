@@ -17,9 +17,10 @@
 /* INCLUDES ******************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /* GLOBAL VARIABLES **********************************************************/
 
@@ -36,7 +37,7 @@ UNICODE_STRING WindowsDirectory;
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetCurrentDirectoryA (
 	DWORD	nBufferLength,
 	LPSTR	lpBuffer
@@ -62,7 +63,7 @@ GetCurrentDirectoryA (
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetCurrentDirectoryW (
 	DWORD	nBufferLength,
 	LPWSTR	lpBuffer
@@ -82,14 +83,14 @@ GetCurrentDirectoryW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetCurrentDirectoryA (
 	LPCSTR	lpPathName
 	)
 {
    PWCHAR PathNameW;
 
-   TRACE("setcurrdir: %s\n",lpPathName);
+   DPRINT("setcurrdir: %s\n",lpPathName);
 
    if (!(PathNameW = FilenameA2W(lpPathName, FALSE)))
       return FALSE;
@@ -102,7 +103,7 @@ SetCurrentDirectoryA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetCurrentDirectoryW (
 	LPCWSTR	lpPathName
 	)
@@ -130,7 +131,7 @@ SetCurrentDirectoryW (
  * NOTE: Windows returns a dos/short (8.3) path
  */
 DWORD
-WINAPI
+STDCALL
 GetTempPathA (
 	DWORD	nBufferLength,
 	LPSTR	lpBuffer
@@ -160,25 +161,22 @@ GetTempPathA (
  * ripped from wine
  */
 DWORD
-WINAPI
+STDCALL
 GetTempPathW (
 	DWORD	count,
    LPWSTR   path
 	)
 {
-    static const WCHAR tmp[]  = { 'T', 'M', 'P', 0 };
-    static const WCHAR temp[] = { 'T', 'E', 'M', 'P', 0 };
-    static const WCHAR userprofile[] = { 'U','S','E','R','P','R','O','F','I','L','E',0 };
-    WCHAR tmp_path[MAX_PATH];
-    UINT ret;
+   WCHAR tmp_path[MAX_PATH];
+   WCHAR tmp_full_path[MAX_PATH];
+   UINT ret;
 
-    TRACE("%u,%p\n", count, path);
+   DPRINT("GetTempPathW(%lu,%p)\n", count, path);
 
-    if (!(ret = GetEnvironmentVariableW( tmp, tmp_path, MAX_PATH )) &&
-        !(ret = GetEnvironmentVariableW( temp, tmp_path, MAX_PATH )) &&
-        !(ret = GetEnvironmentVariableW( userprofile, tmp_path, MAX_PATH )) &&
-        !(ret = GetWindowsDirectoryW( tmp_path, MAX_PATH )))
-        return 0;
+   if (!(ret = GetEnvironmentVariableW( L"TMP", tmp_path, MAX_PATH )))
+     if (!(ret = GetEnvironmentVariableW( L"TEMP", tmp_path, MAX_PATH )))
+         if (!(ret = GetCurrentDirectoryW( MAX_PATH, tmp_path )))
+             return 0;
 
    if (ret > MAX_PATH)
    {
@@ -186,7 +184,7 @@ GetTempPathW (
      return 0;
    }
 
-   ret = GetFullPathNameW(tmp_path, MAX_PATH, tmp_path, NULL);
+   ret = GetFullPathNameW(tmp_path, MAX_PATH, tmp_full_path, NULL);
    if (!ret) return 0;
 
    if (ret > MAX_PATH - 2)
@@ -195,24 +193,24 @@ GetTempPathW (
      return 0;
    }
 
-   if (tmp_path[ret-1] != '\\')
+   if (tmp_full_path[ret-1] != '\\')
    {
-     tmp_path[ret++] = '\\';
-     tmp_path[ret]   = '\0';
+     tmp_full_path[ret++] = '\\';
+     tmp_full_path[ret]   = '\0';
    }
 
    ret++; /* add space for terminating 0 */
 
    if (count)
    {
-     lstrcpynW(path, tmp_path, count);
+     lstrcpynW(path, tmp_full_path, count);
      if (count >= ret)
          ret--; /* return length without 0 */
      else if (count < 4)
          path[0] = 0; /* avoid returning ambiguous "X:" */
    }
 
-   TRACE("GetTempPathW returning %u, %S\n", ret, path);
+   DPRINT("GetTempPathW returning %u, %s\n", ret, path);
    return ret;
 
 }
@@ -222,7 +220,7 @@ GetTempPathW (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemDirectoryA (
 	LPSTR	lpBuffer,
 	UINT	uSize
@@ -236,7 +234,7 @@ GetSystemDirectoryA (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemDirectoryW (
 	LPWSTR	lpBuffer,
 	UINT	uSize
@@ -265,7 +263,7 @@ GetSystemDirectoryW (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetWindowsDirectoryA (
 	LPSTR	lpBuffer,
 	UINT	uSize
@@ -279,7 +277,7 @@ GetWindowsDirectoryA (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetWindowsDirectoryW (
 	LPWSTR	lpBuffer,
 	UINT	uSize
@@ -309,7 +307,7 @@ GetWindowsDirectoryW (
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWindowsDirectoryA(
 	LPSTR	lpBuffer,
 	UINT	uSize
@@ -322,7 +320,7 @@ GetSystemWindowsDirectoryA(
  * @implemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWindowsDirectoryW(
 	LPWSTR	lpBuffer,
 	UINT	uSize
@@ -335,14 +333,14 @@ GetSystemWindowsDirectoryW(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWow64DirectoryW(
     LPWSTR lpBuffer,
     UINT uSize
     )
 {
 #ifdef _WIN64
-    ERR("GetSystemWow64DirectoryW is UNIMPLEMENTED!\n");
+    DPRINT1("GetSystemWow64DirectoryW is UNIMPLEMENTED!\n");
     return 0;
 #else
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
@@ -354,7 +352,7 @@ GetSystemWow64DirectoryW(
  * @unimplemented
  */
 UINT
-WINAPI
+STDCALL
 GetSystemWow64DirectoryA(
     LPSTR lpBuffer,
     UINT uSize

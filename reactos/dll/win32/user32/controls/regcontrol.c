@@ -1,8 +1,9 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS User32
  * PURPOSE:          Built-in control registration
- * FILE:             dll/win32/user32/controls/regcontrol.c
+ * FILE:             lib/user32/controls/regcontrol.c
  * PROGRAMER:        Ge van Geldorp (ge@gse.nl)
  * REVISION HISTORY: 2003/06/16 GvG Created
  * NOTES:            Adapted from Wine
@@ -11,162 +12,111 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
-DWORD RegisterDefaultClasses = FALSE;
-
-static PFNCLIENT pfnClientA;
-static PFNCLIENT pfnClientW;
-static PFNCLIENTWORKER pfnClientWorker;
-
-//
-// FIXME!
-// These are not "System Classes" but Global Classes that are registered
-// every time a process is created, so these can be unregistered as the msdn
-// documents states.
-//
-static const struct
+static void RegisterBuiltinClass(const struct builtin_class_descr *Descr)
 {
-    const struct builtin_class_descr *desc;
-    WORD fnid;
-    WORD ClsId;
-} g_SysClasses[] =
+   WNDCLASSEXW wc;
+   UNICODE_STRING ClassName;
+   UNICODE_STRING MenuName;
+
+   wc.cbSize = sizeof(WNDCLASSEXW);
+   wc.lpszClassName = Descr->name;
+   wc.lpfnWndProc = Descr->procW;
+   wc.style = Descr->style;
+   wc.hInstance = User32Instance;
+   wc.hIcon = NULL;
+   wc.hIconSm = NULL;
+   wc.hCursor = LoadCursorW(NULL, Descr->cursor);
+   wc.hbrBackground = Descr->brush;
+   wc.lpszMenuName = NULL;
+   wc.cbClsExtra = 0;
+   wc.cbWndExtra = Descr->extra;
+
+   MenuName.Length =
+   MenuName.MaximumLength = 0;
+   MenuName.Buffer = NULL;
+
+   if (IS_ATOM(Descr->name))
+   {
+      ClassName.Length =
+      ClassName.MaximumLength = 0;
+      ClassName.Buffer = (LPWSTR)Descr->name;
+   } else
+   {
+      RtlInitUnicodeString(&ClassName, Descr->name);
+   }
+
+   NtUserRegisterClassEx(
+      &wc,
+      &ClassName,
+      &MenuName,
+      Descr->procA,
+      REGISTERCLASS_SYSTEM,
+      NULL);
+}
+
+/***********************************************************************
+ *           ControlsInit
+ *
+ * Register the classes for the builtin controls
+ */
+BOOL FASTCALL
+ControlsInit(LPCWSTR ClassName)
 {
-    { &DIALOG_builtin_class,    FNID_DIALOG,    ICLS_DIALOG},
-/*    { &POPUPMENU_builtin_class, FNID_MENU,      ICLS_MENU},     // moved to win32k */
-    { &COMBO_builtin_class,     FNID_COMBOBOX,  ICLS_COMBOBOX},
-    { &COMBOLBOX_builtin_class, FNID_COMBOLBOX, ICLS_COMBOLBOX},
-    { &MDICLIENT_builtin_class, FNID_MDICLIENT, ICLS_MDICLIENT},
-#if 0
-    { &MENU_builtin_class,      FNID_MENU,      ICLS_MENU},
-#endif
-/*    { &SCROLL_builtin_class,    FNID_SCROLLBAR, ICLS_SCROLLBAR}, // moved to win32k */
-    { &BUTTON_builtin_class,    FNID_BUTTON,    ICLS_BUTTON},
-    { &LISTBOX_builtin_class,   FNID_LISTBOX,   ICLS_LISTBOX},
-    { &EDIT_builtin_class,      FNID_EDIT,      ICLS_EDIT},
-/*    { &ICONTITLE_builtin_class, FNID_ICONTITLE, ICLS_ICONTITLE}, // moved to win32k */
-    { &STATIC_builtin_class,    FNID_STATIC,    ICLS_STATIC},
-};
-
-BOOL WINAPI RegisterSystemControls(VOID)
-{
-    WNDCLASSEXW WndClass;
-    UINT i;
-    ATOM atom;
-
-    if (RegisterDefaultClasses) return TRUE;
-
-    ZeroMemory(&WndClass, sizeof(WndClass));
-
-    WndClass.cbSize = sizeof(WndClass);
-
-    for (i = 0; i != sizeof(g_SysClasses) / sizeof(g_SysClasses[0]); i++)
+  static const struct builtin_class_descr *ClassDescriptions[] =
     {
-        WndClass.lpszClassName = g_SysClasses[i].desc->name;
+      &DIALOG_builtin_class,
+      &POPUPMENU_builtin_class,
+      &COMBO_builtin_class,
+      &COMBOLBOX_builtin_class,
+      &DESKTOP_builtin_class,
+      &MDICLIENT_builtin_class,
+#if 0
+      &MENU_builtin_class,
+#endif
+      &SCROLL_builtin_class,
+      &BUTTON_builtin_class,
+      &LISTBOX_builtin_class,
+      &EDIT_builtin_class,
+      &ICONTITLE_builtin_class,
+      &STATIC_builtin_class
+    };
+  unsigned i;
+  BOOL Register;
 
-        // Set Global bit!
-        WndClass.style = g_SysClasses[i].desc->style|CS_GLOBALCLASS;
-        WndClass.lpfnWndProc = g_SysClasses[i].desc->procW;
-        WndClass.cbWndExtra = g_SysClasses[i].desc->extra;
-        WndClass.hCursor = LoadCursorW(NULL, g_SysClasses[i].desc->cursor);
-        WndClass.hbrBackground= g_SysClasses[i].desc->brush;
-
-        atom = RegisterClassExWOWW( &WndClass,
-                                     0,
-                                     g_SysClasses[i].fnid,
-                                     0,
-                                     FALSE);
-        if (atom)
-           RegisterDefaultClasses |= ICLASS_TO_MASK(g_SysClasses[i].ClsId);
+  Register = FALSE;
+  if (IS_ATOM(ClassName))
+    {
+      for (i = 0;
+           ! Register && i < sizeof(ClassDescriptions) / sizeof(ClassDescriptions[0]);
+           i++)
+        {
+          if (IS_ATOM(ClassDescriptions[i]->name))
+            {
+              Register = (ClassName == ClassDescriptions[i]->name);
+            }
+        }
+    }
+  else
+    {
+      for (i = 0;
+           ! Register && i < sizeof(ClassDescriptions) / sizeof(ClassDescriptions[0]);
+           i++)
+        {
+          if (! IS_ATOM(ClassDescriptions[i]->name))
+            {
+              Register = (0 == _wcsicmp(ClassName, ClassDescriptions[i]->name));
+            }
+        }
     }
 
-    return TRUE;
-}
+  if (Register)
+    {
+      for (i = 0; i < sizeof(ClassDescriptions) / sizeof(ClassDescriptions[0]); i++)
+        {
+          RegisterBuiltinClass(ClassDescriptions[i]);
+        }
+    }
 
-LRESULT
-WINAPI
-MsgWindowProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
-{
-    if (message == WM_NCCREATE) return TRUE;
-    return 0;
-}
-
-LRESULT
-WINAPI
-DialogWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL unicode)
-{
-  if (unicode)
-     return DefDlgProcW( hwnd, uMsg, wParam, lParam);
-  return DefDlgProcA( hwnd, uMsg, wParam, lParam);
-}
-
-BOOL WINAPI RegisterClientPFN(VOID)
-{
-  NTSTATUS Status;
-
-  pfnClientA.pfnScrollBarWndProc      = ScrollBarWndProcA;
-  pfnClientW.pfnScrollBarWndProc      = ScrollBarWndProcW;
-  pfnClientA.pfnTitleWndProc          = IconTitleWndProc;
-  pfnClientW.pfnTitleWndProc          = IconTitleWndProc;
-  pfnClientA.pfnMenuWndProc           = PopupMenuWndProcA;
-  pfnClientW.pfnMenuWndProc           = PopupMenuWndProcW;
-  pfnClientA.pfnDesktopWndProc        = DesktopWndProc;
-  pfnClientW.pfnDesktopWndProc        = DesktopWndProc;
-  pfnClientA.pfnDefWindowProc         = DefWindowProcA;
-  pfnClientW.pfnDefWindowProc         = DefWindowProcW;
-  pfnClientA.pfnMessageWindowProc     = MsgWindowProc;
-  pfnClientW.pfnMessageWindowProc     = MsgWindowProc;
-  pfnClientA.pfnSwitchWindowProc      = DefWindowProcA;
-  pfnClientW.pfnSwitchWindowProc      = DefWindowProcW;
-  pfnClientA.pfnButtonWndProc         = ButtonWndProcA;
-  pfnClientW.pfnButtonWndProc         = ButtonWndProcW;
-  pfnClientA.pfnComboBoxWndProc       = ComboWndProcA;
-  pfnClientW.pfnComboBoxWndProc       = ComboWndProcW;
-  pfnClientA.pfnComboListBoxProc      = ListBoxWndProcA;
-  pfnClientW.pfnComboListBoxProc      = ListBoxWndProcW;
-  pfnClientA.pfnDialogWndProc         = DefDlgProcA;
-  pfnClientW.pfnDialogWndProc         = DefDlgProcW;
-  pfnClientA.pfnEditWndProc           = EditWndProcA;
-  pfnClientW.pfnEditWndProc           = EditWndProcW;
-  pfnClientA.pfnListBoxWndProc        = ListBoxWndProcA;
-  pfnClientW.pfnListBoxWndProc        = ListBoxWndProcW;
-  pfnClientA.pfnMDIClientWndProc      = MDIClientWndProcA;
-  pfnClientW.pfnMDIClientWndProc      = MDIClientWndProcW;
-  pfnClientA.pfnStaticWndProc         = StaticWndProcA;
-  pfnClientW.pfnStaticWndProc         = StaticWndProcW;
-  pfnClientA.pfnImeWndProc            = DefWindowProcA;
-  pfnClientW.pfnImeWndProc            = DefWindowProcW;
-  pfnClientA.pfnGhostWndProc          = DefWindowProcA;
-  pfnClientW.pfnGhostWndProc          = DefWindowProcW;
-  pfnClientA.pfnHkINLPCWPSTRUCT       = DefWindowProcA;
-  pfnClientW.pfnHkINLPCWPSTRUCT       = DefWindowProcW;
-  pfnClientA.pfnHkINLPCWPRETSTRUCT    = DefWindowProcA;
-  pfnClientW.pfnHkINLPCWPRETSTRUCT    = DefWindowProcW;
-  pfnClientA.pfnDispatchHook          = DefWindowProcA;
-  pfnClientW.pfnDispatchHook          = DefWindowProcW;
-  pfnClientA.pfnDispatchDefWindowProc = DefWindowProcA;
-  pfnClientW.pfnDispatchDefWindowProc = DefWindowProcW;
-  pfnClientA.pfnDispatchMessage       = DefWindowProcA;
-  pfnClientW.pfnDispatchMessage       = DefWindowProcW;
-  pfnClientA.pfnMDIActivateDlgProc    = DefWindowProcA;
-  pfnClientW.pfnMDIActivateDlgProc    = DefWindowProcW;
-
-  pfnClientWorker.pfnButtonWndProc    = ButtonWndProc_common;
-  pfnClientWorker.pfnComboBoxWndProc  = ComboWndProc_common;
-  pfnClientWorker.pfnComboListBoxProc = ListBoxWndProc_common;
-  pfnClientWorker.pfnDialogWndProc    = DialogWndProc_common;
-  pfnClientWorker.pfnEditWndProc      = EditWndProc_common;
-  pfnClientWorker.pfnListBoxWndProc   = ListBoxWndProc_common;
-  pfnClientWorker.pfnMDIClientWndProc = MDIClientWndProc_common;
-  pfnClientWorker.pfnStaticWndProc    = StaticWndProc_common;
-  pfnClientWorker.pfnImeWndProc       = User32DefWindowProc;
-  pfnClientWorker.pfnGhostWndProc     = User32DefWindowProc;
-  pfnClientWorker.pfnCtfHookProc      = User32DefWindowProc;
-
-  Status = NtUserInitializeClientPfnArrays( &pfnClientA,
-                                            &pfnClientW,
-                                            &pfnClientWorker,
-                                            User32Instance);
-  
-  return NT_SUCCESS(Status) ? TRUE : FALSE;
+  return Register;
 }

@@ -43,9 +43,6 @@
 63 stub -noname MarkSelection
 
 # Standard functions
-@ stdcall BeginBufferedPaint(ptr ptr long ptr ptr)
-@ stdcall BufferedPaintInit()
-@ stdcall BufferedPaintUnInit()
 @ stdcall CloseThemeData(ptr)
 @ stdcall DrawThemeBackground(ptr ptr long long ptr ptr)
 @ stdcall DrawThemeBackgroundEx(ptr ptr long long ptr ptr)
@@ -55,7 +52,6 @@
 @ stdcall DrawThemeText(ptr ptr long long wstr long long long ptr)
 @ stdcall EnableThemeDialogTexture(ptr long)
 @ stdcall EnableTheming(long)
-@ stdcall EndBufferedPaint(ptr long)
 @ stdcall GetCurrentThemeName(wstr long wstr long wstr long)
 @ stdcall GetThemeAppProperties()
 @ stdcall GetThemeBackgroundContentRect(ptr ptr long long ptr ptr)

@@ -25,7 +25,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
@@ -36,7 +35,6 @@
 #include "winspool.h"
 #include "winerror.h"
 
-#include "wine/unicode.h"
 #include "wine/debug.h"
 
 #include "commdlg.h"
@@ -52,10 +50,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
 #define UPDOWN_ID 0x270f
 #define MAX_COPIES 9999
 
-DEVMODEW* WINAPI GdiConvertToDevmodeW(const DEVMODEA*);
-
 /* Debugging info */
-static const struct pd_flags psd_flags[] = {
+static struct pd_flags psd_flags[] = {
   {PSD_MINMARGINS,"PSD_MINMARGINS"},
   {PSD_MARGINS,"PSD_MARGINS"},
   {PSD_INTHOUSANDTHSOFINCHES,"PSD_INTHOUSANDTHSOFINCHES"},
@@ -77,69 +73,8 @@ static const struct pd_flags psd_flags[] = {
 
 /* address of wndproc for subclassed Static control */
 static WNDPROC lpfnStaticWndProc;
-static WNDPROC edit_wndproc;
 /* the text of the fake document to render for the Page Setup dialog */
 static WCHAR wszFakeDocumentText[1024];
-static const WCHAR pd32_collateW[] = { 'P', 'D', '3', '2', '_', 'C', 'O', 'L', 'L', 'A', 'T', 'E', 0 };
-static const WCHAR pd32_nocollateW[] = { 'P', 'D', '3', '2', '_', 'N', 'O', 'C', 'O', 'L', 'L', 'A', 'T', 'E', 0 };
-static const WCHAR pd32_portraitW[] = { 'P', 'D', '3', '2', '_', 'P', 'O', 'R', 'T', 'R', 'A', 'I', 'T', 0 };
-static const WCHAR pd32_landscapeW[] = { 'P', 'D', '3', '2', '_', 'L', 'A', 'N', 'D', 'S', 'C', 'A', 'P', 'E', 0 };
-static const WCHAR printdlg_prop[] = {'_','_','W','I','N','E','_','P','R','I','N','T','D','L','G','D','A','T','A',0};
-static const WCHAR pagesetupdlg_prop[] = { '_', '_', 'W', 'I', 'N', 'E', '_', 'P', 'A', 'G', 'E',
-                                           'S', 'E', 'T', 'U', 'P', 'D', 'L', 'G', 'D', 'A', 'T', 'A', 0 };
-
-
-static LPWSTR strdupW(LPCWSTR p)
-{
-    LPWSTR ret;
-    DWORD len;
-
-    if(!p) return NULL;
-    len = (strlenW(p) + 1) * sizeof(WCHAR);
-    ret = HeapAlloc(GetProcessHeap(), 0, len);
-    memcpy(ret, p, len);
-    return ret;
-}
-
-/***********************************************************
- * convert_to_devmodeA
- *
- * Creates an ansi copy of supplied devmode
- */
-static DEVMODEA *convert_to_devmodeA(const DEVMODEW *dmW)
-{
-    DEVMODEA *dmA;
-    DWORD size;
-
-    if (!dmW) return NULL;
-    size = dmW->dmSize - CCHDEVICENAME -
-                        ((dmW->dmSize > FIELD_OFFSET(DEVMODEW, dmFormName)) ? CCHFORMNAME : 0);
-
-    dmA = HeapAlloc(GetProcessHeap(), 0, size + dmW->dmDriverExtra);
-    if (!dmA) return NULL;
-
-    WideCharToMultiByte(CP_ACP, 0, dmW->dmDeviceName, -1,
-                        (LPSTR)dmA->dmDeviceName, CCHDEVICENAME, NULL, NULL);
-
-    if (FIELD_OFFSET(DEVMODEW, dmFormName) >= dmW->dmSize)
-    {
-        memcpy(&dmA->dmSpecVersion, &dmW->dmSpecVersion,
-               dmW->dmSize - FIELD_OFFSET(DEVMODEW, dmSpecVersion));
-    }
-    else
-    {
-        memcpy(&dmA->dmSpecVersion, &dmW->dmSpecVersion,
-               FIELD_OFFSET(DEVMODEW, dmFormName) - FIELD_OFFSET(DEVMODEW, dmSpecVersion));
-        WideCharToMultiByte(CP_ACP, 0, dmW->dmFormName, -1,
-                            (LPSTR)dmA->dmFormName, CCHFORMNAME, NULL, NULL);
-
-        memcpy(&dmA->dmLogPixels, &dmW->dmLogPixels, dmW->dmSize - FIELD_OFFSET(DEVMODEW, dmLogPixels));
-    }
-
-    dmA->dmSize = size;
-    memcpy((char *)dmA + dmA->dmSize, (const char *)dmW + dmW->dmSize, dmW->dmDriverExtra);
-    return dmA;
-}
 
 /***********************************************************************
  *    PRINTDLG_OpenDefaultPrinter
@@ -198,9 +133,8 @@ INT PRINTDLG_SetUpPrinterListComboA(HWND hDlg, UINT id, LPCSTR name)
 
         char buf[260];
         DWORD dwBufLen = sizeof(buf);
-        if (name != NULL)
-            WARN("Can't find %s in printer list so trying to find default\n",
-	        debugstr_a(name));
+        FIXME("Can't find '%s' in printer list so trying to find default\n",
+	      name);
 	if(!GetDefaultPrinterA(buf, &dwBufLen))
 	    return num;
 	i = SendDlgItemMessageA(hDlg, id, CB_FINDSTRINGEXACT, -1, (LPARAM)buf);
@@ -231,9 +165,8 @@ static INT PRINTDLG_SetUpPrinterListComboW(HWND hDlg, UINT id, LPCWSTR name)
 				(LPARAM)name)) == CB_ERR) {
         WCHAR buf[260];
         DWORD dwBufLen = sizeof(buf)/sizeof(buf[0]);
-        if (name != NULL)
-            WARN("Can't find %s in printer list so trying to find default\n",
-	        debugstr_w(name));
+        TRACE("Can't find '%s' in printer list so trying to find default\n",
+	      debugstr_w(name));
 	if(!GetDefaultPrinterW(buf, &dwBufLen))
 	    return num;
 	i = SendDlgItemMessageW(hDlg, id, CB_FINDSTRINGEXACT, -1, (LPARAM)buf);
@@ -252,8 +185,8 @@ static INT PRINTDLG_SetUpPrinterListComboW(HWND hDlg, UINT id, LPCWSTR name)
  *
  *  (NB. when we handle unicode the offsets will be in wchars).
  */
-static BOOL PRINTDLG_CreateDevNames(HGLOBAL *hmem, const char* DeviceDriverName,
-				    const char* DeviceName, const char* OutputPort)
+static BOOL PRINTDLG_CreateDevNames(HGLOBAL *hmem, char* DeviceDriverName,
+				    char* DeviceName, char* OutputPort)
 {
     long size;
     char*   pDevNamesSpace;
@@ -369,21 +302,19 @@ static BOOL PRINTDLG_UpdatePrintDlgA(HWND hDlg,
         if (IsDlgButtonChecked(hDlg, rad3) == BST_CHECKED) { /* Pages */
 	    WORD nToPage;
 	    WORD nFromPage;
-            BOOL translated;
 	    nFromPage = GetDlgItemInt(hDlg, edt1, NULL, FALSE);
-	    nToPage   = GetDlgItemInt(hDlg, edt2, &translated, FALSE);
-
-	    /* if no ToPage value is entered, use the FromPage value */
-	    if(!translated) nToPage = nFromPage;
-
+	    nToPage   = GetDlgItemInt(hDlg, edt2, NULL, FALSE);
 	    if (nFromPage < lppd->nMinPage || nFromPage > lppd->nMaxPage ||
 		nToPage < lppd->nMinPage || nToPage > lppd->nMaxPage) {
-	        WCHAR resourcestr[256];
-		WCHAR resultstr[256];
-		LoadStringW(COMDLG32_hInstance, PD32_INVALID_PAGE_RANGE, resourcestr, 255);
-		wsprintfW(resultstr,resourcestr, lppd->nMinPage, lppd->nMaxPage);
-		LoadStringW(COMDLG32_hInstance, PD32_PRINT_TITLE, resourcestr, 255);
-		MessageBoxW(hDlg, resultstr, resourcestr, MB_OK | MB_ICONWARNING);
+	        char resourcestr[256];
+		char resultstr[256];
+		LoadStringA(COMDLG32_hInstance, PD32_INVALID_PAGE_RANGE,
+			    resourcestr, 255);
+		sprintf(resultstr,resourcestr, lppd->nMinPage, lppd->nMaxPage);
+		LoadStringA(COMDLG32_hInstance, PD32_PRINT_TITLE,
+			    resourcestr, 255);
+		MessageBoxA(hDlg, resultstr, resourcestr,
+			    MB_OK | MB_ICONWARNING);
 		return FALSE;
 	    }
 	    lppd->nFromPage = nFromPage;
@@ -392,11 +323,6 @@ static BOOL PRINTDLG_UpdatePrintDlgA(HWND hDlg,
 	}
 	else
 	    lppd->Flags &= ~PD_PAGENUMS;
-
-        if (IsDlgButtonChecked(hDlg, rad2) == BST_CHECKED) /* Selection */
-            lppd->Flags |= PD_SELECTION;
-        else
-            lppd->Flags &= ~PD_SELECTION;
 
 	if (IsDlgButtonChecked(hDlg, chx1) == BST_CHECKED) {/* Print to file */
 	    static char file[] = "FILE:";
@@ -421,31 +347,13 @@ static BOOL PRINTDLG_UpdatePrintDlgA(HWND hDlg,
 	        lpdm->dmCollate =
 		  (IsDlgButtonChecked(hDlg, chx2) == BST_CHECKED);
 	    if (lpdm->dmFields & DM_COPIES)
-	        lpdm->u1.s1.dmCopies = GetDlgItemInt(hDlg, edt3, NULL, FALSE);
+	        lpdm->u.s.dmCopies = GetDlgItemInt(hDlg, edt3, NULL, FALSE);
 	} else {
-            /* Application is responsible for multiple copies */
 	    if (IsDlgButtonChecked(hDlg, chx2) == BST_CHECKED)
 	        lppd->Flags |= PD_COLLATE;
             else
                lppd->Flags &= ~PD_COLLATE;
             lppd->nCopies = GetDlgItemInt(hDlg, edt3, NULL, FALSE);
-            /* multiple copies already included in the document. Driver must print only one copy */
-            lpdm->u1.s1.dmCopies = 1;
-	}
-
-	/* Print quality, PrintDlg16 */
-	if(GetDlgItem(hDlg, cmb1))
-	{
-	    HWND hQuality = GetDlgItem(hDlg, cmb1);
-	    int Sel = SendMessageA(hQuality, CB_GETCURSEL, 0, 0);
-
-	    if(Sel != CB_ERR)
-	    {
-		LONG dpi = SendMessageA(hQuality, CB_GETITEMDATA, Sel, 0);
-		lpdm->dmFields |= DM_PRINTQUALITY | DM_YRESOLUTION;
-		lpdm->u1.s1.dmPrintQuality = LOWORD(dpi);
-		lpdm->dmYResolution = HIWORD(dpi);
-	    }
 	}
     }
     return TRUE;
@@ -472,13 +380,8 @@ static BOOL PRINTDLG_UpdatePrintDlgW(HWND hDlg,
         if (IsDlgButtonChecked(hDlg, rad3) == BST_CHECKED) { /* Pages */
 	    WORD nToPage;
 	    WORD nFromPage;
-            BOOL translated;
 	    nFromPage = GetDlgItemInt(hDlg, edt1, NULL, FALSE);
-	    nToPage   = GetDlgItemInt(hDlg, edt2, &translated, FALSE);
-
-	    /* if no ToPage value is entered, use the FromPage value */
-	    if(!translated) nToPage = nFromPage;
-
+	    nToPage   = GetDlgItemInt(hDlg, edt2, NULL, FALSE);
 	    if (nFromPage < lppd->nMinPage || nFromPage > lppd->nMaxPage ||
 		nToPage < lppd->nMinPage || nToPage > lppd->nMaxPage) {
 	        WCHAR resourcestr[256];
@@ -494,15 +397,7 @@ static BOOL PRINTDLG_UpdatePrintDlgW(HWND hDlg,
 	    }
 	    lppd->nFromPage = nFromPage;
 	    lppd->nToPage   = nToPage;
-	    lppd->Flags |= PD_PAGENUMS;
 	}
-	else
-	    lppd->Flags &= ~PD_PAGENUMS;
-
-        if (IsDlgButtonChecked(hDlg, rad2) == BST_CHECKED) /* Selection */
-            lppd->Flags |= PD_SELECTION;
-        else
-            lppd->Flags &= ~PD_SELECTION;
 
 	if (IsDlgButtonChecked(hDlg, chx1) == BST_CHECKED) {/* Print to file */
 	    static WCHAR file[] = {'F','I','L','E',':',0};
@@ -527,7 +422,7 @@ static BOOL PRINTDLG_UpdatePrintDlgW(HWND hDlg,
 	        lpdm->dmCollate =
 		  (IsDlgButtonChecked(hDlg, chx2) == BST_CHECKED);
 	    if (lpdm->dmFields & DM_COPIES)
-	        lpdm->u1.s1.dmCopies = GetDlgItemInt(hDlg, edt3, NULL, FALSE);
+	        lpdm->u.s.dmCopies = GetDlgItemInt(hDlg, edt3, NULL, FALSE);
 	} else {
 	    if (IsDlgButtonChecked(hDlg, chx2) == BST_CHECKED)
 	        lppd->Flags |= PD_COLLATE;
@@ -538,6 +433,123 @@ static BOOL PRINTDLG_UpdatePrintDlgW(HWND hDlg,
     }
     return TRUE;
 }
+
+static BOOL PRINTDLG_PaperSizeA(
+	PRINTDLGA	*pdlga,const WORD PaperSize,LPPOINT size
+) {
+    DEVNAMES	*dn;
+    DEVMODEA	*dm;
+    LPSTR	devname,portname;
+    int		i;
+    INT		NrOfEntries,ret;
+    WORD	*Words = NULL;
+    POINT	*points = NULL;
+    BOOL	retval = FALSE;
+
+    dn = GlobalLock(pdlga->hDevNames);
+    dm = GlobalLock(pdlga->hDevMode);
+    devname	= ((char*)dn)+dn->wDeviceOffset;
+    portname	= ((char*)dn)+dn->wOutputOffset;
+
+
+    NrOfEntries = DeviceCapabilitiesA(devname,portname,DC_PAPERNAMES,NULL,dm);
+    if (!NrOfEntries) {
+	FIXME("No papernames found for %s/%s\n",devname,portname);
+	goto out;
+    }
+    if (NrOfEntries == -1) {
+	ERR("Hmm ? DeviceCapabilities() DC_PAPERNAMES failed, ret -1 !\n");
+	goto out;
+    }
+
+    Words = HeapAlloc(GetProcessHeap(),0,NrOfEntries*sizeof(WORD));
+    if (NrOfEntries != (ret=DeviceCapabilitiesA(devname,portname,DC_PAPERS,(LPSTR)Words,dm))) {
+	FIXME("Number of returned vals %d is not %d\n",NrOfEntries,ret);
+	goto out;
+    }
+    for (i=0;i<NrOfEntries;i++)
+	if (Words[i] == PaperSize)
+	    break;
+    HeapFree(GetProcessHeap(),0,Words);
+    if (i == NrOfEntries) {
+	FIXME("Papersize %d not found in list?\n",PaperSize);
+	goto out;
+    }
+    points = HeapAlloc(GetProcessHeap(),0,sizeof(points[0])*NrOfEntries);
+    if (NrOfEntries!=(ret=DeviceCapabilitiesA(devname,portname,DC_PAPERSIZE,(LPSTR)points,dm))) {
+	FIXME("Number of returned sizes %d is not %d?\n",NrOfEntries,ret);
+	goto out;
+    }
+    /* this is _10ths_ of a millimeter */
+    size->x=points[i].x;
+    size->y=points[i].y;
+    retval = TRUE;
+out:
+    GlobalUnlock(pdlga->hDevNames);
+    GlobalUnlock(pdlga->hDevMode);
+    HeapFree(GetProcessHeap(),0,Words);
+    HeapFree(GetProcessHeap(),0,points);
+    return retval;
+}
+
+static BOOL PRINTDLG_PaperSizeW(
+	PRINTDLGW	*pdlga,const WCHAR *PaperSize,LPPOINT size
+) {
+    DEVNAMES	*dn;
+    DEVMODEW	*dm;
+    LPWSTR	devname,portname;
+    int		i;
+    INT		NrOfEntries,ret;
+    WCHAR	*Names = NULL;
+    POINT	*points = NULL;
+    BOOL	retval = FALSE;
+
+    dn = GlobalLock(pdlga->hDevNames);
+    dm = GlobalLock(pdlga->hDevMode);
+    devname	= ((WCHAR*)dn)+dn->wDeviceOffset;
+    portname	= ((WCHAR*)dn)+dn->wOutputOffset;
+
+
+    NrOfEntries = DeviceCapabilitiesW(devname,portname,DC_PAPERNAMES,NULL,dm);
+    if (!NrOfEntries) {
+	FIXME("No papernames found for %s/%s\n",debugstr_w(devname),debugstr_w(portname));
+	goto out;
+    }
+    if (NrOfEntries == -1) {
+	ERR("Hmm ? DeviceCapabilities() DC_PAPERNAMES failed, ret -1 !\n");
+	goto out;
+    }
+
+    Names = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*NrOfEntries*64);
+    if (NrOfEntries != (ret=DeviceCapabilitiesW(devname,portname,DC_PAPERNAMES,Names,dm))) {
+	FIXME("Number of returned vals %d is not %d\n",NrOfEntries,ret);
+	goto out;
+    }
+    for (i=0;i<NrOfEntries;i++)
+	if (!lstrcmpW(PaperSize,Names+(64*i)))
+	    break;
+    HeapFree(GetProcessHeap(),0,Names);
+    if (i==NrOfEntries) {
+	FIXME("Papersize %s not found in list?\n",debugstr_w(PaperSize));
+	goto out;
+    }
+    points = HeapAlloc(GetProcessHeap(),0,sizeof(points[0])*NrOfEntries);
+    if (NrOfEntries!=(ret=DeviceCapabilitiesW(devname,portname,DC_PAPERSIZE,(LPWSTR)points,dm))) {
+	FIXME("Number of returned sizes %d is not %d?\n",NrOfEntries,ret);
+	goto out;
+    }
+    /* this is _10ths_ of a millimeter */
+    size->x=points[i].x;
+    size->y=points[i].y;
+    retval = TRUE;
+out:
+    GlobalUnlock(pdlga->hDevNames);
+    GlobalUnlock(pdlga->hDevMode);
+    HeapFree(GetProcessHeap(),0,Names);
+    HeapFree(GetProcessHeap(),0,points);
+    return retval;
+}
+
 
 /************************************************************************
  * PRINTDLG_SetUpPaperComboBox
@@ -575,9 +587,9 @@ static BOOL PRINTDLG_SetUpPaperComboBoxA(HWND hDlg,
                                       Sel, 0);
         if (dm) {
             if (nIDComboBox == cmb2)
-                dm->u1.s1.dmPaperSize = oldWord;
+                dm->u.s.dmPaperSize = oldWord;
             else
-                dm->u1.s1.dmDefaultSource = oldWord;
+                dm->u.s.dmDefaultSource = oldWord;
         }
     }
     else {
@@ -587,9 +599,9 @@ static BOOL PRINTDLG_SetUpPaperComboBoxA(HWND hDlg,
          */
         if (dm) {
             if (nIDComboBox == cmb2)
-                oldWord = dm->u1.s1.dmPaperSize;
+                oldWord = dm->u.s.dmPaperSize;
             else
-                oldWord = dm->u1.s1.dmDefaultSource;
+                oldWord = dm->u.s.dmDefaultSource;
         }
     }
 
@@ -604,6 +616,10 @@ static BOOL PRINTDLG_SetUpPaperComboBoxA(HWND hDlg,
          fwCapability_Words = DC_BINS;
     }
 
+    /* for some printer drivers, DeviceCapabilities calls a VXD to obtain the
+     * paper settings. As Wine doesn't allow VXDs, this results in a crash.
+     */
+    WARN(" if your printer driver uses VXDs, expect a crash now!\n");
     NrOfEntries = DeviceCapabilitiesA(PrinterName, PortName,
                                       fwCapability_Names, NULL, dm);
     if (NrOfEntries == 0)
@@ -654,8 +670,8 @@ static BOOL PRINTDLG_SetUpPaperComboBoxA(HWND hDlg,
 
 static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
 					int   nIDComboBox,
-					const WCHAR* PrinterName,
-					const WCHAR* PortName,
+					WCHAR* PrinterName,
+					WCHAR* PortName,
 					LPDEVMODEW dm)
 {
     int     i;
@@ -681,9 +697,9 @@ static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
                                       Sel, 0);
         if (dm) {
             if (nIDComboBox == cmb2)
-                dm->u1.s1.dmPaperSize = oldWord;
+                dm->u.s.dmPaperSize = oldWord;
             else
-                dm->u1.s1.dmDefaultSource = oldWord;
+                dm->u.s.dmDefaultSource = oldWord;
         }
     }
     else {
@@ -693,9 +709,9 @@ static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
          */
         if (dm) {
             if (nIDComboBox == cmb2)
-                oldWord = dm->u1.s1.dmPaperSize;
+                oldWord = dm->u.s.dmPaperSize;
             else
-                oldWord = dm->u1.s1.dmDefaultSource;
+                oldWord = dm->u.s.dmDefaultSource;
         }
     }
 
@@ -710,6 +726,10 @@ static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
          fwCapability_Words = DC_BINS;
     }
 
+    /* for some printer drivers, DeviceCapabilities calls a VXD to obtain the
+     * paper settings. As Wine doesn't allow VXDs, this results in a crash.
+     */
+    WARN(" if your printer driver uses VXDs, expect a crash now!\n");
     NrOfEntries = DeviceCapabilitiesW(PrinterName, PortName,
                                       fwCapability_Names, NULL, dm);
     if (NrOfEntries == 0)
@@ -728,7 +748,7 @@ static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
     NrOfEntries = DeviceCapabilitiesW(PrinterName, PortName,
                                       fwCapability_Names, Names, dm);
     NrOfEntries = DeviceCapabilitiesW(PrinterName, PortName,
-                                      fwCapability_Words, Words, dm);
+				      fwCapability_Words, (LPWSTR)Words, dm);
 
     /* reset any current content in the combobox */
     SendDlgItemMessageW(hDlg, nIDComboBox, CB_RESETCONTENT, 0, 0);
@@ -762,7 +782,7 @@ static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
 /***********************************************************************
  *               PRINTDLG_UpdatePrinterInfoTexts               [internal]
  */
-static void PRINTDLG_UpdatePrinterInfoTextsA(HWND hDlg, const PRINTER_INFO_2A *pi)
+static void PRINTDLG_UpdatePrinterInfoTextsA(HWND hDlg, LPPRINTER_INFO_2A pi)
 {
     char   StatusMsg[256];
     char   ResourceString[256];
@@ -798,7 +818,7 @@ static void PRINTDLG_UpdatePrinterInfoTextsA(HWND hDlg, const PRINTER_INFO_2A *p
     return;
 }
 
-static void PRINTDLG_UpdatePrinterInfoTextsW(HWND hDlg, const PRINTER_INFO_2W *pi)
+static void PRINTDLG_UpdatePrinterInfoTextsW(HWND hDlg, LPPRINTER_INFO_2W pi)
 {
     WCHAR   StatusMsg[256];
     WCHAR   ResourceString[256];
@@ -893,12 +913,9 @@ BOOL PRINTDLG_ChangePrinterA(HWND hDlg, char *name,
     lpdm = PrintStructures->lpDevMode;  /* use this as a shortcut */
 
     if(!(lppd->Flags & PD_PRINTSETUP)) {
-	/* Print range (All/Range/Selection) */
-	if(lppd->nFromPage != 0xffff)
-	    SetDlgItemInt(hDlg, edt1, lppd->nFromPage, FALSE);
-	if(lppd->nToPage != 0xffff)
-	    SetDlgItemInt(hDlg, edt2, lppd->nToPage, FALSE);
-
+      /* Print range (All/Range/Selection) */
+        SetDlgItemInt(hDlg, edt1, lppd->nFromPage, FALSE);
+	SetDlgItemInt(hDlg, edt2, lppd->nToPage, FALSE);
 	CheckRadioButton(hDlg, rad1, rad3, rad1);		/* default */
 	if (lppd->Flags & PD_NOSELECTION)
 	    EnableWindow(GetDlgItem(hDlg, rad2), FALSE);
@@ -944,7 +961,7 @@ BOOL PRINTDLG_ChangePrinterA(HWND hDlg, char *name,
 	  if (lppd->hDevMode == 0)
 	      copies = lppd->nCopies;
 	  else
-	      copies = lpdm->u1.s1.dmCopies;
+	      copies = lpdm->u.s.dmCopies;
 	  if(copies == 0) copies = 1;
 	  else if(copies < 0) copies = MAX_COPIES;
 	  SetDlgItemInt(hDlg, edt3, copies, FALSE);
@@ -965,63 +982,8 @@ BOOL PRINTDLG_ChangePrinterA(HWND hDlg, char *name,
 	if (lppd->Flags & PD_HIDEPRINTTOFILE)
             ShowWindow(GetDlgItem(hDlg, chx1), SW_HIDE);
 
-	/* Fill print quality combo, PrintDlg16 */
-	if(GetDlgItem(hDlg, cmb1))
-	{
-	    DWORD numResolutions = DeviceCapabilitiesA(PrintStructures->lpPrinterInfo->pPrinterName,
-						       PrintStructures->lpPrinterInfo->pPortName,
-						       DC_ENUMRESOLUTIONS, NULL, lpdm);
-
-	    if(numResolutions != -1)
-	    {
-		HWND hQuality = GetDlgItem(hDlg, cmb1);
-		LONG* Resolutions;
-		char buf[255];
-		DWORD i;
-		int dpiX, dpiY;
-		HDC hPrinterDC = CreateDCA(PrintStructures->lpPrinterInfo->pDriverName,
-					   PrintStructures->lpPrinterInfo->pPrinterName,
-					   0, lpdm);
-
-		Resolutions = HeapAlloc(GetProcessHeap(), 0, numResolutions*sizeof(LONG)*2);
-		DeviceCapabilitiesA(PrintStructures->lpPrinterInfo->pPrinterName,
-				    PrintStructures->lpPrinterInfo->pPortName,
-				    DC_ENUMRESOLUTIONS, (LPSTR)Resolutions, lpdm);
-
-		dpiX = GetDeviceCaps(hPrinterDC, LOGPIXELSX);
-		dpiY = GetDeviceCaps(hPrinterDC, LOGPIXELSY);
-		DeleteDC(hPrinterDC);
-
-		SendMessageA(hQuality, CB_RESETCONTENT, 0, 0);
-		for(i = 0; i < (numResolutions * 2); i += 2)
-		{
-		    BOOL IsDefault = FALSE;
-		    LRESULT Index;
-
-		    if(Resolutions[i] == Resolutions[i+1])
-		    {
-			if(dpiX == Resolutions[i])
-			    IsDefault = TRUE;
-			sprintf(buf, "%d dpi", Resolutions[i]);
-		    } else
-		    {
-			if(dpiX == Resolutions[i] && dpiY == Resolutions[i+1])
-			    IsDefault = TRUE;
-			sprintf(buf, "%d dpi x %d dpi", Resolutions[i], Resolutions[i+1]);
-		    }
-
-		    Index = SendMessageA(hQuality, CB_ADDSTRING, 0, (LPARAM)buf);
-
-		    if(IsDefault)
-			SendMessageA(hQuality, CB_SETCURSEL, Index, 0);
-
-		    SendMessageA(hQuality, CB_SETITEMDATA, Index, MAKELONG(dpiX,dpiY));
-		}
-		HeapFree(GetProcessHeap(), 0, Resolutions);
-	    }
-	}
     } else { /* PD_PRINTSETUP */
-      BOOL bPortrait = (lpdm->u1.s1.dmOrientation == DMORIENT_PORTRAIT);
+      BOOL bPortrait = (lpdm->u.s.dmOrientation == DMORIENT_PORTRAIT);
 
       PRINTDLG_SetUpPaperComboBoxA(hDlg, cmb2,
 				  PrintStructures->lpPrinterInfo->pPrinterName,
@@ -1062,11 +1024,11 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
 	return FALSE;
     }
     GetPrinterW(hprn, 2, NULL, 0, &needed);
-    PrintStructures->lpPrinterInfo = HeapAlloc(GetProcessHeap(),0,needed);
+    PrintStructures->lpPrinterInfo = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*needed);
     GetPrinterW(hprn, 2, (LPBYTE)PrintStructures->lpPrinterInfo, needed,
 		&needed);
     GetPrinterDriverW(hprn, NULL, 3, NULL, 0, &needed);
-    PrintStructures->lpDriverInfo = HeapAlloc(GetProcessHeap(),0,needed);
+    PrintStructures->lpDriverInfo = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*needed);
     if (!GetPrinterDriverW(hprn, NULL, 3, (LPBYTE)PrintStructures->lpDriverInfo,
 	    needed, &needed)) {
 	ERR("GetPrinterDriverA failed for %s, fix your config!\n",debugstr_w(PrintStructures->lpPrinterInfo->pPrinterName));
@@ -1100,12 +1062,9 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
     lpdm = PrintStructures->lpDevMode;  /* use this as a shortcut */
 
     if(!(lppd->Flags & PD_PRINTSETUP)) {
-	/* Print range (All/Range/Selection) */
-	if(lppd->nFromPage != 0xffff)
-	    SetDlgItemInt(hDlg, edt1, lppd->nFromPage, FALSE);
-	if(lppd->nToPage != 0xffff)
-	    SetDlgItemInt(hDlg, edt2, lppd->nToPage, FALSE);
-
+      /* Print range (All/Range/Selection) */
+        SetDlgItemInt(hDlg, edt1, lppd->nFromPage, FALSE);
+	SetDlgItemInt(hDlg, edt2, lppd->nToPage, FALSE);
 	CheckRadioButton(hDlg, rad1, rad3, rad1);		/* default */
 	if (lppd->Flags & PD_NOSELECTION)
 	    EnableWindow(GetDlgItem(hDlg, rad2), FALSE);
@@ -1151,7 +1110,7 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
 	  if (lppd->hDevMode == 0)
 	      copies = lppd->nCopies;
 	  else
-	      copies = lpdm->u1.s1.dmCopies;
+	      copies = lpdm->u.s.dmCopies;
 	  if(copies == 0) copies = 1;
 	  else if(copies < 0) copies = MAX_COPIES;
 	  SetDlgItemInt(hDlg, edt3, copies, FALSE);
@@ -1173,7 +1132,7 @@ static BOOL PRINTDLG_ChangePrinterW(HWND hDlg, WCHAR *name,
             ShowWindow(GetDlgItem(hDlg, chx1), SW_HIDE);
 
     } else { /* PD_PRINTSETUP */
-      BOOL bPortrait = (lpdm->u1.s1.dmOrientation == DMORIENT_PORTRAIT);
+      BOOL bPortrait = (lpdm->u.s.dmOrientation == DMORIENT_PORTRAIT);
 
       PRINTDLG_SetUpPaperComboBoxW(hDlg, cmb2,
 				  PrintStructures->lpPrinterInfo->pPrinterName,
@@ -1205,6 +1164,7 @@ static LRESULT check_printer_setup(HWND hDlg)
 {
     DWORD needed,num;
     WCHAR resourcestr[256],resultstr[256];
+    int res;
 
     EnumPrintersW(PRINTER_ENUM_LOCAL, NULL, 2, NULL, 0, &needed, &num);
     if(needed == 0)
@@ -1217,7 +1177,7 @@ static LRESULT check_printer_setup(HWND hDlg)
     {
           LoadStringW(COMDLG32_hInstance, PD32_NO_DEVICES,resultstr, 255);
           LoadStringW(COMDLG32_hInstance, PD32_PRINT_TITLE,resourcestr, 255);
-          MessageBoxW(hDlg, resultstr, resourcestr,MB_OK | MB_ICONWARNING);
+          res = MessageBoxW(hDlg, resultstr, resourcestr,MB_OK | MB_ICONWARNING);
           return FALSE;
     }
 }
@@ -1336,6 +1296,10 @@ static LRESULT PRINTDLG_WMInitDialog(HWND hDlg, WPARAM wParam,
 static LRESULT PRINTDLG_WMInitDialogW(HWND hDlg, WPARAM wParam,
 				     PRINT_PTRW* PrintStructures)
 {
+    static const WCHAR PD32_COLLATE[] = { 'P', 'D', '3', '2', '_', 'C', 'O', 'L', 'L', 'A', 'T', 'E', 0 };
+    static const WCHAR PD32_NOCOLLATE[] = { 'P', 'D', '3', '2', '_', 'N', 'O', 'C', 'O', 'L', 'L', 'A', 'T', 'E', 0 };
+    static const WCHAR PD32_PORTRAIT[] = { 'P', 'D', '3', '2', '_', 'P', 'O', 'R', 'T', 'R', 'A', 'I', 'T', 0 };
+    static const WCHAR PD32_LANDSCAPE[] = { 'P', 'D', '3', '2', '_', 'L', 'A', 'N', 'D', 'S', 'C', 'A', 'P', 'E', 0 };
     LPPRINTDLGW lppd = PrintStructures->lpPrintDlg;
     DEVNAMES *pdn;
     DEVMODEW *pdm;
@@ -1346,15 +1310,15 @@ static LRESULT PRINTDLG_WMInitDialogW(HWND hDlg, WPARAM wParam,
     /* We load these with LoadImage because they are not a standard
        size and we don't want them rescaled */
     PrintStructures->hCollateIcon =
-      LoadImageW(COMDLG32_hInstance, pd32_collateW, IMAGE_ICON, 0, 0, 0);
+      LoadImageW(COMDLG32_hInstance, PD32_COLLATE, IMAGE_ICON, 0, 0, 0);
     PrintStructures->hNoCollateIcon =
-      LoadImageW(COMDLG32_hInstance, pd32_nocollateW, IMAGE_ICON, 0, 0, 0);
+      LoadImageW(COMDLG32_hInstance, PD32_NOCOLLATE, IMAGE_ICON, 0, 0, 0);
 
     /* These can be done with LoadIcon */
     PrintStructures->hPortraitIcon =
-      LoadIconW(COMDLG32_hInstance, pd32_portraitW);
+      LoadIconW(COMDLG32_hInstance, PD32_PORTRAIT);
     PrintStructures->hLandscapeIcon =
-      LoadIconW(COMDLG32_hInstance, pd32_landscapeW);
+      LoadIconW(COMDLG32_hInstance, PD32_LANDSCAPE);
 
     /* display the collate/no_collate icon */
     SendDlgItemMessageW(hDlg, ico3, STM_SETIMAGE, (WPARAM) IMAGE_ICON,
@@ -1542,7 +1506,7 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
     case rad1: /* Paperorientation */
         if (lppd->Flags & PD_PRINTSETUP)
         {
-              lpdm->u1.s1.dmOrientation = DMORIENT_PORTRAIT;
+              lpdm->u.s.dmOrientation = DMORIENT_PORTRAIT;
               SendDlgItemMessageA(hDlg, ico1, STM_SETIMAGE, (WPARAM) IMAGE_ICON,
                           (LPARAM)(PrintStructures->hPortraitIcon));
         }
@@ -1551,14 +1515,15 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
     case rad2: /* Paperorientation */
         if (lppd->Flags & PD_PRINTSETUP)
         {
-              lpdm->u1.s1.dmOrientation = DMORIENT_LANDSCAPE;
+              lpdm->u.s.dmOrientation = DMORIENT_LANDSCAPE;
               SendDlgItemMessageA(hDlg, ico1, STM_SETIMAGE, (WPARAM) IMAGE_ICON,
                           (LPARAM)(PrintStructures->hLandscapeIcon));
         }
         break;
 
-    case cmb1: /* Printer Combobox in PRINT SETUP, quality combobox in PRINT16 */
+    case cmb1: /* Printer Combobox in PRINT SETUP, quality combobox in PRINT */
 	 if (PrinterComboID != LOWORD(wParam)) {
+	     FIXME("No handling for print quality combo box yet.\n");
 	     break;
 	 }
 	 /* FALLTHROUGH */
@@ -1574,7 +1539,7 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
       {
 	  DWORD Sel = SendDlgItemMessageA(hDlg, cmb2, CB_GETCURSEL, 0, 0);
 	  if(Sel != CB_ERR)
-	      lpdm->u1.s1.dmPaperSize = SendDlgItemMessageA(hDlg, cmb2,
+	      lpdm->u.s.dmPaperSize = SendDlgItemMessageA(hDlg, cmb2,
 							    CB_GETITEMDATA,
 							    Sel, 0);
       }
@@ -1584,7 +1549,7 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
       {
 	  DWORD Sel = SendDlgItemMessageA(hDlg, cmb3, CB_GETCURSEL, 0, 0);
 	  if(Sel != CB_ERR)
-	      lpdm->u1.s1.dmDefaultSource = SendDlgItemMessageA(hDlg, cmb3,
+	      lpdm->u.s.dmDefaultSource = SendDlgItemMessageA(hDlg, cmb3,
 							  CB_GETITEMDATA, Sel,
 							  0);
       }
@@ -1595,8 +1560,8 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
 	case rad1:                         /* orientation */
 	case rad2:
 	    if (IsDlgButtonChecked(hDlg, rad1) == BST_CHECKED) {
-	        if(lpdm->u1.s1.dmOrientation != DMORIENT_PORTRAIT) {
-		    lpdm->u1.s1.dmOrientation = DMORIENT_PORTRAIT;
+	        if(lpdm->u.s.dmOrientation != DMORIENT_PORTRAIT) {
+		    lpdm->u.s.dmOrientation = DMORIENT_PORTRAIT;
 		    SendDlgItemMessageA(hDlg, stc10, STM_SETIMAGE,
 					(WPARAM)IMAGE_ICON,
 					(LPARAM)PrintStructures->hPortraitIcon);
@@ -1605,8 +1570,8 @@ LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
 					(LPARAM)PrintStructures->hPortraitIcon);
 		}
 	    } else {
-	        if(lpdm->u1.s1.dmOrientation != DMORIENT_LANDSCAPE) {
-	            lpdm->u1.s1.dmOrientation = DMORIENT_LANDSCAPE;
+	        if(lpdm->u.s.dmOrientation != DMORIENT_LANDSCAPE) {
+	            lpdm->u.s.dmOrientation = DMORIENT_LANDSCAPE;
 		    SendDlgItemMessageA(hDlg, stc10, STM_SETIMAGE,
 					(WPARAM)IMAGE_ICON,
 					(LPARAM)PrintStructures->hLandscapeIcon);
@@ -1705,7 +1670,7 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
     case rad1: /* Paperorientation */
         if (lppd->Flags & PD_PRINTSETUP)
         {
-              lpdm->u1.s1.dmOrientation = DMORIENT_PORTRAIT;
+              lpdm->u.s.dmOrientation = DMORIENT_PORTRAIT;
               SendDlgItemMessageW(hDlg, ico1, STM_SETIMAGE, (WPARAM) IMAGE_ICON,
                           (LPARAM)(PrintStructures->hPortraitIcon));
         }
@@ -1714,13 +1679,17 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
     case rad2: /* Paperorientation */
         if (lppd->Flags & PD_PRINTSETUP)
         {
-              lpdm->u1.s1.dmOrientation = DMORIENT_LANDSCAPE;
+              lpdm->u.s.dmOrientation = DMORIENT_LANDSCAPE;
               SendDlgItemMessageW(hDlg, ico1, STM_SETIMAGE, (WPARAM) IMAGE_ICON,
                           (LPARAM)(PrintStructures->hLandscapeIcon));
         }
         break;
 
-    case cmb1: /* Printer Combobox in PRINT SETUP */
+    case cmb1: /* Printer Combobox in PRINT SETUP, quality combobox in PRINT */
+	 if (PrinterComboID != LOWORD(wParam)) {
+	     FIXME("No handling for print quality combo box yet.\n");
+	     break;
+	 }
 	 /* FALLTHROUGH */
     case cmb4:                         /* Printer combobox */
          if (HIWORD(wParam)==CBN_SELCHANGE) {
@@ -1734,7 +1703,7 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
       {
 	  DWORD Sel = SendDlgItemMessageW(hDlg, cmb2, CB_GETCURSEL, 0, 0);
 	  if(Sel != CB_ERR)
-	      lpdm->u1.s1.dmPaperSize = SendDlgItemMessageW(hDlg, cmb2,
+	      lpdm->u.s.dmPaperSize = SendDlgItemMessageW(hDlg, cmb2,
 							    CB_GETITEMDATA,
 							    Sel, 0);
       }
@@ -1744,7 +1713,7 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
       {
 	  DWORD Sel = SendDlgItemMessageW(hDlg, cmb3, CB_GETCURSEL, 0, 0);
 	  if(Sel != CB_ERR)
-	      lpdm->u1.s1.dmDefaultSource = SendDlgItemMessageW(hDlg, cmb3,
+	      lpdm->u.s.dmDefaultSource = SendDlgItemMessageW(hDlg, cmb3,
 							  CB_GETITEMDATA, Sel,
 							  0);
       }
@@ -1755,8 +1724,8 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
 	case rad1:                         /* orientation */
 	case rad2:
 	    if (IsDlgButtonChecked(hDlg, rad1) == BST_CHECKED) {
-	        if(lpdm->u1.s1.dmOrientation != DMORIENT_PORTRAIT) {
-		    lpdm->u1.s1.dmOrientation = DMORIENT_PORTRAIT;
+	        if(lpdm->u.s.dmOrientation != DMORIENT_PORTRAIT) {
+		    lpdm->u.s.dmOrientation = DMORIENT_PORTRAIT;
 		    SendDlgItemMessageW(hDlg, stc10, STM_SETIMAGE,
 					(WPARAM)IMAGE_ICON,
 					(LPARAM)PrintStructures->hPortraitIcon);
@@ -1765,8 +1734,8 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
 					(LPARAM)PrintStructures->hPortraitIcon);
 		}
 	    } else {
-	        if(lpdm->u1.s1.dmOrientation != DMORIENT_LANDSCAPE) {
-	            lpdm->u1.s1.dmOrientation = DMORIENT_LANDSCAPE;
+	        if(lpdm->u.s.dmOrientation != DMORIENT_LANDSCAPE) {
+	            lpdm->u.s.dmOrientation = DMORIENT_LANDSCAPE;
 		    SendDlgItemMessageW(hDlg, stc10, STM_SETIMAGE,
 					(WPARAM)IMAGE_ICON,
 					(LPARAM)PrintStructures->hLandscapeIcon);
@@ -1791,12 +1760,12 @@ static INT_PTR CALLBACK PrintDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam,
     INT_PTR res = FALSE;
 
     if (uMsg!=WM_INITDIALOG) {
-        PrintStructures = GetPropW(hDlg, printdlg_prop);
+        PrintStructures = (PRINT_PTRA*)GetPropA(hDlg,"__WINE_PRINTDLGDATA");
 	if (!PrintStructures)
 	    return FALSE;
     } else {
         PrintStructures = (PRINT_PTRA*) lParam;
-        SetPropW(hDlg, printdlg_prop, PrintStructures);
+	SetPropA(hDlg,"__WINE_PRINTDLGDATA",PrintStructures);
         if(!check_printer_setup(hDlg))
         {
             EndDialog(hDlg,FALSE);
@@ -1836,16 +1805,17 @@ static INT_PTR CALLBACK PrintDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam,
 static INT_PTR CALLBACK PrintDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam,
                                       LPARAM lParam)
 {
+    static const WCHAR propW[] = {'_','_','W','I','N','E','_','P','R','I','N','T','D','L','G','D','A','T','A',0};
     PRINT_PTRW* PrintStructures;
     INT_PTR res = FALSE;
 
     if (uMsg!=WM_INITDIALOG) {
-        PrintStructures = GetPropW(hDlg, printdlg_prop);
+	PrintStructures = (PRINT_PTRW*) GetPropW(hDlg, propW);
 	if (!PrintStructures)
 	    return FALSE;
     } else {
         PrintStructures = (PRINT_PTRW*) lParam;
-        SetPropW(hDlg, printdlg_prop, PrintStructures);
+	SetPropW(hDlg, propW, PrintStructures);
         if(!check_printer_setup(hDlg))
         {
             EndDialog(hDlg,FALSE);
@@ -1884,7 +1854,7 @@ static INT_PTR CALLBACK PrintDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam,
  *      PRINTDLG_GetDlgTemplate
  *
  */
-static HGLOBAL PRINTDLG_GetDlgTemplateA(const PRINTDLGA *lppd)
+static HGLOBAL PRINTDLG_GetDlgTemplateA(PRINTDLGA *lppd)
 {
     HRSRC hResInfo;
     HGLOBAL hDlgTmpl;
@@ -1918,7 +1888,7 @@ static HGLOBAL PRINTDLG_GetDlgTemplateA(const PRINTDLGA *lppd)
     return hDlgTmpl;
 }
 
-static HGLOBAL PRINTDLG_GetDlgTemplateW(const PRINTDLGW *lppd)
+static HGLOBAL PRINTDLG_GetDlgTemplateW(PRINTDLGW *lppd)
 {
     HRSRC hResInfo;
     HGLOBAL hDlgTmpl;
@@ -2002,7 +1972,7 @@ static BOOL PRINTDLG_CreateDCW(LPPRINTDLGW lppd)
 /***********************************************************************
  *           PrintDlgA   (COMDLG32.@)
  *
- *  Displays the PRINT dialog box, which enables the user to specify
+ *  Displays the the PRINT dialog box, which enables the user to specify
  *  specific properties of the print job.
  *  
  * PARAMS
@@ -2021,26 +1991,19 @@ static BOOL PRINTDLG_CreateDCW(LPPRINTDLGW lppd)
 BOOL WINAPI PrintDlgA(LPPRINTDLGA lppd)
 {
     BOOL      bRet = FALSE;
-    LPVOID    ptr;
-    HINSTANCE hInst;
+    LPVOID   ptr;
+    HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrA( lppd->hwndOwner, GWLP_HINSTANCE );
 
-    if (!lppd)
-    {
-        COMDLG32_SetCommDlgExtendedError(CDERR_INITIALIZATION);
-        return FALSE;
-    }
-
-    hInst = (HINSTANCE)GetWindowLongPtrA( lppd->hwndOwner, GWLP_HINSTANCE );
     if(TRACE_ON(commdlg)) {
         char flagstr[1000] = "";
-	const struct pd_flags *pflag = pd_flags;
+	struct pd_flags *pflag = pd_flags;
 	for( ; pflag->name; pflag++) {
 	    if(lppd->Flags & pflag->flag)
 	        strcat(flagstr, pflag->name);
 	}
 	TRACE("(%p): hwndOwner = %p, hDevMode = %p, hDevNames = %p\n"
-              "pp. %d-%d, min p %d, max p %d, copies %d, hinst %p\n"
-              "flags %08x (%s)\n",
+	      "pp. %d-%d, min p %d, max p %d, copies %d, hinst %p\n"
+	      "flags %08lx (%s)\n",
 	      lppd, lppd->hwndOwner, lppd->hDevMode, lppd->hDevNames,
 	      lppd->nFromPage, lppd->nToPage, lppd->nMinPage, lppd->nMaxPage,
 	      lppd->nCopies, lppd->hInstance, lppd->Flags, flagstr);
@@ -2076,10 +2039,7 @@ BOOL WINAPI PrintDlgA(LPPRINTDLGA lppd)
 	GetPrinterDriverA(hprn, NULL, 3, NULL, 0, &needed);
 	dbuf = HeapAlloc(GetProcessHeap(),0,needed);
 	if (!GetPrinterDriverA(hprn, NULL, 3, (LPBYTE)dbuf, needed, &needed)) {
-	    ERR("GetPrinterDriverA failed, le %d, fix your config for printer %s!\n",
-	        GetLastError(),pbuf->pPrinterName);
-	    HeapFree(GetProcessHeap(), 0, dbuf);
-	    HeapFree(GetProcessHeap(), 0, pbuf);
+	    ERR("GetPrinterDriverA failed, le %ld, fix your config for printer %s!\n",GetLastError(),pbuf->pPrinterName);
 	    COMDLG32_SetCommDlgExtendedError(PDERR_RETDEFFAILURE);
 	    return FALSE;
 	}
@@ -2168,29 +2128,24 @@ BOOL WINAPI PrintDlgA(LPPRINTDLGA lppd)
  *
  * See PrintDlgA.
  */
-BOOL WINAPI PrintDlgW(LPPRINTDLGW lppd)
+BOOL WINAPI PrintDlgW(
+		      LPPRINTDLGW lppd /* [in/out] ptr to PRINTDLG32 struct */
+		      )
 {
     BOOL      bRet = FALSE;
-    LPVOID    ptr;
-    HINSTANCE hInst;
+    LPVOID   ptr;
+    HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW( lppd->hwndOwner, GWLP_HINSTANCE );
 
-    if (!lppd)
-    {
-        COMDLG32_SetCommDlgExtendedError(CDERR_INITIALIZATION);
-        return FALSE;
-    }
-
-    hInst = (HINSTANCE)GetWindowLongPtrW( lppd->hwndOwner, GWLP_HINSTANCE );
     if(TRACE_ON(commdlg)) {
         char flagstr[1000] = "";
-	const struct pd_flags *pflag = pd_flags;
+	struct pd_flags *pflag = pd_flags;
 	for( ; pflag->name; pflag++) {
 	    if(lppd->Flags & pflag->flag)
 	        strcat(flagstr, pflag->name);
 	}
 	TRACE("(%p): hwndOwner = %p, hDevMode = %p, hDevNames = %p\n"
-              "pp. %d-%d, min p %d, max p %d, copies %d, hinst %p\n"
-              "flags %08x (%s)\n",
+	      "pp. %d-%d, min p %d, max p %d, copies %d, hinst %p\n"
+	      "flags %08lx (%s)\n",
 	      lppd, lppd->hwndOwner, lppd->hDevMode, lppd->hDevNames,
 	      lppd->nFromPage, lppd->nToPage, lppd->nMinPage, lppd->nMaxPage,
 	      lppd->nCopies, lppd->hInstance, lppd->Flags, flagstr);
@@ -2220,16 +2175,13 @@ BOOL WINAPI PrintDlgW(LPPRINTDLGW lppd)
 	}
 
 	GetPrinterW(hprn, 2, NULL, 0, &needed);
-	pbuf = HeapAlloc(GetProcessHeap(), 0, needed);
+	pbuf = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*needed);
 	GetPrinterW(hprn, 2, (LPBYTE)pbuf, needed, &needed);
 
 	GetPrinterDriverW(hprn, NULL, 3, NULL, 0, &needed);
-	dbuf = HeapAlloc(GetProcessHeap(),0,needed);
+	dbuf = HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*needed);
 	if (!GetPrinterDriverW(hprn, NULL, 3, (LPBYTE)dbuf, needed, &needed)) {
-	    ERR("GetPrinterDriverA failed, le %d, fix your config for printer %s!\n",
-	        GetLastError(),debugstr_w(pbuf->pPrinterName));
-	    HeapFree(GetProcessHeap(), 0, dbuf);
-	    HeapFree(GetProcessHeap(), 0, pbuf);
+	    ERR("GetPrinterDriverA failed, le %ld, fix your config for printer %s!\n",GetLastError(),debugstr_w(pbuf->pPrinterName));
 	    COMDLG32_SetCommDlgExtendedError(PDERR_RETDEFFAILURE);
 	    return FALSE;
 	}
@@ -2334,7 +2286,7 @@ BOOL WINAPI PrintDlgW(LPPRINTDLGW lppd)
  *          PageSetupDlg
  * rad1 - portrait
  * rad2 - landscape
- * cmb1 - printer select (not in standard dialog template)
+ * cmb1 - printer select (not in standart dialog template)
  * cmb2 - paper size
  * cmb3 - source (tray?)
  * edt4 - border left
@@ -2344,789 +2296,422 @@ BOOL WINAPI PrintDlgW(LPPRINTDLGW lppd)
  * psh3 - "Printer..."
  */
 
-typedef struct
-{
-    BOOL unicode;
-    union
-    {
-        LPPAGESETUPDLGA dlga;
-        LPPAGESETUPDLGW dlgw;
-    } u;
-    HWND hDlg;                /* Page Setup dialog handle */
-    RECT rtDrawRect;          /* Drawing rect for page */
-} pagesetup_data;
+typedef struct {
+    LPPAGESETUPDLGA	dlga; /* Handler to user defined struct */
+    PRINTDLGA		pdlg;
+    HWND 		hDlg; /* Page Setup dialog handler */
+    PAGESETUPDLGA	curdlg; /* Struct means cerrent dialog state */
+    RECT		rtDrawRect; /* Drawing rect for page */
+} PageSetupDataA;
 
-static inline DWORD pagesetup_get_flags(const pagesetup_data *data)
-{
-    return data->u.dlgw->Flags;
-}
+typedef struct {
+    LPPAGESETUPDLGW	dlga;
+    PRINTDLGW		pdlg;
+} PageSetupDataW;
 
-static inline BOOL is_metric(const pagesetup_data *data)
-{
-    return pagesetup_get_flags(data) & PSD_INHUNDREDTHSOFMILLIMETERS;
-}
 
-static inline LONG tenths_mm_to_size(const pagesetup_data *data, LONG size)
+static HGLOBAL PRINTDLG_GetPGSTemplateA(PAGESETUPDLGA *lppd)
 {
-    if (is_metric(data))
-        return 10 * size;
-    else
-        return 10 * size * 100 / 254;
-}
-
-static inline LONG thousandths_inch_to_size(const pagesetup_data *data, LONG size)
-{
-    if (is_metric(data))
-        return size * 254 / 100;
-    else
-        return size;
-}
-
-static WCHAR get_decimal_sep(void)
-{
-    static WCHAR sep;
-
-    if(!sep)
-    {
-        WCHAR buf[2] = {'.',0};
-        GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_SDECIMAL, buf, sizeof(buf) / sizeof(buf[0]));
-        sep = buf[0];
+    HRSRC hResInfo;
+    HGLOBAL hDlgTmpl;
+	
+    if(lppd->Flags & PSD_ENABLEPAGESETUPTEMPLATEHANDLE) {
+	hDlgTmpl = lppd->hPageSetupTemplate;
+    } else if(lppd->Flags & PSD_ENABLEPAGESETUPTEMPLATE) {
+	hResInfo = FindResourceA(lppd->hInstance,
+				 lppd->lpPageSetupTemplateName, (LPSTR)RT_DIALOG);
+	hDlgTmpl = LoadResource(lppd->hInstance, hResInfo);
+    } else {
+	hResInfo = FindResourceA(COMDLG32_hInstance,(LPCSTR)PAGESETUPDLGORD,(LPSTR)RT_DIALOG);
+	hDlgTmpl = LoadResource(COMDLG32_hInstance,hResInfo);
     }
-    return sep;
+    return hDlgTmpl;
 }
 
-static void size2str(const pagesetup_data *data, DWORD size, LPWSTR strout)
+static HGLOBAL PRINTDLG_GetPGSTemplateW(PAGESETUPDLGW *lppd)
 {
-    WCHAR integer_fmt[] = {'%','d',0};
-    WCHAR hundredths_fmt[] = {'%','d','%','c','%','0','2','d',0};
-    WCHAR thousandths_fmt[] = {'%','d','%','c','%','0','3','d',0};
+    HRSRC hResInfo;
+    HGLOBAL hDlgTmpl;
 
-    /* FIXME use LOCALE_SDECIMAL when the edit parsing code can cope */
-
-    if (is_metric(data))
-    {
-        if(size % 100)
-            wsprintfW(strout, hundredths_fmt, size / 100, get_decimal_sep(), size % 100);
-        else
-            wsprintfW(strout, integer_fmt, size / 100);
+    if(lppd->Flags & PSD_ENABLEPAGESETUPTEMPLATEHANDLE) {
+	hDlgTmpl = lppd->hPageSetupTemplate;
+    } else if(lppd->Flags & PSD_ENABLEPAGESETUPTEMPLATE) {
+	hResInfo = FindResourceW(lppd->hInstance,
+				 lppd->lpPageSetupTemplateName, (LPWSTR)RT_DIALOG);
+	hDlgTmpl = LoadResource(lppd->hInstance, hResInfo);
+    } else {
+	hResInfo = FindResourceW(COMDLG32_hInstance,(LPCWSTR)PAGESETUPDLGORD,(LPWSTR)RT_DIALOG);
+	hDlgTmpl = LoadResource(COMDLG32_hInstance,hResInfo);
     }
-    else
-    {
-        if(size % 1000)
-            wsprintfW(strout, thousandths_fmt, size / 1000, get_decimal_sep(), size % 1000);
-        else
-            wsprintfW(strout, integer_fmt, size / 1000);
-
-    }
+    return hDlgTmpl;
 }
 
-static inline BOOL is_default_metric(void)
-{
-    DWORD system;
-    GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_IMEASURE | LOCALE_RETURN_NUMBER,
-                   (LPWSTR)&system, sizeof(system));
-    return system == 0;
+static DWORD
+_c_10mm2size(PAGESETUPDLGA *dlga,DWORD size) {
+    if (dlga->Flags & PSD_INTHOUSANDTHSOFINCHES)
+	return 10*size*100/254;
+    /* If we don't have a flag, we can choose one. Use millimeters
+     * to avoid confusing me
+     */
+    dlga->Flags |= PSD_INHUNDREDTHSOFMILLIMETERS;
+    return 10*size;
 }
 
-/**********************************************
- *           rotate_rect
- * Cyclically permute the four members of rc
- * If sense is TRUE l -> t -> r -> b
- * otherwise        l <- t <- r <- b
- */
-static inline void rotate_rect(RECT *rc, BOOL sense)
-{
-    INT tmp;
-    if(sense)
-    {
-        tmp        = rc->bottom;
-        rc->bottom = rc->right;
-        rc->right  = rc->top;
-        rc->top    = rc->left;
-        rc->left   = tmp;
-    }
-    else
-    {
-        tmp        = rc->left;
-        rc->left   = rc->top;
-        rc->top    = rc->right;
-        rc->right  = rc->bottom;
-        rc->bottom = tmp;
-    }
+
+static DWORD
+_c_inch2size(PAGESETUPDLGA *dlga,DWORD size) {
+    if (dlga->Flags & PSD_INTHOUSANDTHSOFINCHES)
+	return size;
+    if (dlga->Flags & PSD_INHUNDREDTHSOFMILLIMETERS)
+	return (size*254)/100;
+    /* if we don't have a flag, we can choose one. Use millimeters
+     * to avoid confusing me
+     */
+    dlga->Flags |= PSD_INHUNDREDTHSOFMILLIMETERS;
+    return (size*254)/100;
 }
 
-static void pagesetup_set_orientation(pagesetup_data *data, WORD orient)
-{
-    DEVMODEW *dm = GlobalLock(data->u.dlgw->hDevMode);
-
-    assert(orient == DMORIENT_PORTRAIT || orient == DMORIENT_LANDSCAPE);
-
-    if(data->unicode)
-        dm->u1.s1.dmOrientation = orient;
-    else
-    {
-        DEVMODEA *dmA = (DEVMODEA *)dm;
-        dmA->u1.s1.dmOrientation = orient;
+static void
+_c_size2strA(PageSetupDataA *pda,DWORD size,LPSTR strout) {
+    strcpy(strout,"<undef>");
+    if (pda->dlga->Flags & PSD_INHUNDREDTHSOFMILLIMETERS) {
+	sprintf(strout,"%ld",(size)/100);
+	return;
     }
-    GlobalUnlock(data->u.dlgw->hDevMode);
+    if (pda->dlga->Flags & PSD_INTHOUSANDTHSOFINCHES) {
+	sprintf(strout,"%ldin",(size)/1000);
+	return;
+    }
+    pda->dlga->Flags |= PSD_INHUNDREDTHSOFMILLIMETERS;
+    sprintf(strout,"%ld",(size)/100);
+    return;
+}
+static void
+_c_size2strW(PageSetupDataW *pda,DWORD size,LPWSTR strout) {
+    static const WCHAR UNDEF[] = { '<', 'u', 'n', 'd', 'e', 'f', '>', 0 };
+    static const WCHAR mm_fmt[] = { '%', '.', '2', 'f', 'm', 'm', 0 };
+    static const WCHAR in_fmt[] = { '%', '.', '2', 'f', 'i', 'n', 0 };
+    lstrcpyW(strout, UNDEF);
+    if (pda->dlga->Flags & PSD_INHUNDREDTHSOFMILLIMETERS) {
+	wsprintfW(strout,mm_fmt,(size*1.0)/100.0);
+	return;
+    }
+    if (pda->dlga->Flags & PSD_INTHOUSANDTHSOFINCHES) {
+	wsprintfW(strout,in_fmt,(size*1.0)/1000.0);
+	return;
+    }
+    pda->dlga->Flags |= PSD_INHUNDREDTHSOFMILLIMETERS;
+    wsprintfW(strout,mm_fmt,(size*1.0)/100.0);
+    return;
 }
 
-static WORD pagesetup_get_orientation(const pagesetup_data *data)
-{
-    DEVMODEW *dm = GlobalLock(data->u.dlgw->hDevMode);
-    WORD orient;
+static DWORD
+_c_str2sizeA(PAGESETUPDLGA *dlga,LPCSTR strin) {
+    float	val;
+    char	rest[200];
 
-    if(data->unicode)
-        orient = dm->u1.s1.dmOrientation;
-    else
-    {
-        DEVMODEA *dmA = (DEVMODEA *)dm;
-        orient = dmA->u1.s1.dmOrientation;
+    rest[0]='\0';
+    if (!sscanf(strin,"%f%s",&val,rest))
+	return 0;
+
+    if (!strcmp(rest,"in") || !strcmp(rest,"inch")) {
+	if (dlga->Flags & PSD_INTHOUSANDTHSOFINCHES)
+	    return 1000*val;
+	else
+	    return val*25.4*100;
     }
-    GlobalUnlock(data->u.dlgw->hDevMode);
-    return orient;
-}
+    if (!strcmp(rest,"cm")) { rest[0]='m'; val = val*10.0; }
+    if (!strcmp(rest,"m")) { strcpy(rest,"mm"); val = val*1000.0; }
 
-static void pagesetup_set_papersize(pagesetup_data *data, WORD paper)
-{
-    DEVMODEW *dm = GlobalLock(data->u.dlgw->hDevMode);
-
-    if(data->unicode)
-        dm->u1.s1.dmPaperSize = paper;
-    else
-    {
-        DEVMODEA *dmA = (DEVMODEA *)dm;
-        dmA->u1.s1.dmPaperSize = paper;
+    if (!strcmp(rest,"mm")) {
+	if (dlga->Flags & PSD_INHUNDREDTHSOFMILLIMETERS)
+	    return 100*val;
+	else
+	    return 1000.0*val/25.4;
     }
-    GlobalUnlock(data->u.dlgw->hDevMode);
-}
-
-static WORD pagesetup_get_papersize(const pagesetup_data *data)
-{
-    DEVMODEW *dm = GlobalLock(data->u.dlgw->hDevMode);
-    WORD paper;
-
-    if(data->unicode)
-        paper = dm->u1.s1.dmPaperSize;
-    else
-    {
-        DEVMODEA *dmA = (DEVMODEA *)dm;
-        paper = dmA->u1.s1.dmPaperSize;
+    if (rest[0]=='\0') {
+	/* use application supplied default */
+	if (dlga->Flags & PSD_INHUNDREDTHSOFMILLIMETERS) {
+	    /* 100*mm */
+	    return 100.0*val;
+	}
+	if (dlga->Flags & PSD_INTHOUSANDTHSOFINCHES) {
+	    /* 1000*inch */
+	    return 1000.0*val;
+	}
     }
-    GlobalUnlock(data->u.dlgw->hDevMode);
-    return paper;
-}
-
-static void pagesetup_set_defaultsource(pagesetup_data *data, WORD source)
-{
-    DEVMODEW *dm = GlobalLock(data->u.dlgw->hDevMode);
-
-    if(data->unicode)
-        dm->u1.s1.dmDefaultSource = source;
-    else
-    {
-        DEVMODEA *dmA = (DEVMODEA *)dm;
-        dmA->u1.s1.dmDefaultSource = source;
-    }
-    GlobalUnlock(data->u.dlgw->hDevMode);
-}
-
-typedef enum
-{
-    devnames_driver_name,
-    devnames_device_name,
-    devnames_output_name
-} devnames_name;
-
-
-static inline WORD get_devname_offset(const DEVNAMES *dn, devnames_name which)
-{
-    switch(which)
-    {
-    case devnames_driver_name: return dn->wDriverOffset;
-    case devnames_device_name: return dn->wDeviceOffset;
-    case devnames_output_name: return dn->wOutputOffset;
-    }
-    ERR("Souldn't be here\n");
+    ERR("Did not find a conversion for type '%s'!\n",rest);
     return 0;
 }
 
-static WCHAR *pagesetup_get_a_devname(const pagesetup_data *data, devnames_name which)
-{
-    DEVNAMES *dn;
-    WCHAR *name;
 
-    dn = GlobalLock(data->u.dlgw->hDevNames);
-    if(data->unicode)
-        name = strdupW((WCHAR *)dn + get_devname_offset(dn, which));
+static DWORD
+_c_str2sizeW(PAGESETUPDLGW *dlga, LPCWSTR strin) {
+    char	buf[200];
+
+    /* this W -> A transition is OK */
+    /* we need a unicode version of sscanf to avoid it */
+    WideCharToMultiByte(CP_ACP, 0, strin, -1, buf, sizeof(buf), NULL, NULL);
+    return _c_str2sizeA((PAGESETUPDLGA *)dlga, buf);
+}
+
+
+/****************************************************************************
+ * PRINTDLG_PS_UpdateDlgStructA
+ *
+ * Updates pda->dlga structure 
+ * Function calls when user presses OK button
+ *
+ * PARAMS
+ *  hDlg	[in] 	 main window dialog HANDLE
+ *  pda 	[in/out] ptr to PageSetupDataA structere
+ * 
+ * RETURNS
+ *  TRUE
+ */
+static BOOL
+PRINTDLG_PS_UpdateDlgStructA(HWND hDlg, PageSetupDataA *pda) {
+    DEVNAMES	*dn;
+    DEVMODEA	*dm;
+    DWORD 	paperword;
+
+    memcpy(pda->dlga, &pda->curdlg, sizeof(pda->curdlg));
+    pda->dlga->hDevMode  = pda->pdlg.hDevMode;
+    pda->dlga->hDevNames = pda->pdlg.hDevNames;
+    
+    dn = GlobalLock(pda->pdlg.hDevNames);
+    dm = GlobalLock(pda->pdlg.hDevMode);
+
+    /* Save paper orientation into device context */
+    if(pda->curdlg.ptPaperSize.x > pda->curdlg.ptPaperSize.y)
+        dm->u.s.dmOrientation = DMORIENT_LANDSCAPE;
     else
-    {
-        int len = MultiByteToWideChar(CP_ACP, 0, (char*)dn + get_devname_offset(dn, which), -1, NULL, 0);
-        name = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-        MultiByteToWideChar(CP_ACP, 0, (char*)dn + get_devname_offset(dn, which), -1, name, len);
-    }
-    GlobalUnlock(data->u.dlgw->hDevNames);
-    return name;
-}
+        dm->u.s.dmOrientation = DMORIENT_PORTRAIT;
 
-static WCHAR *pagesetup_get_drvname(const pagesetup_data *data)
-{
-    return pagesetup_get_a_devname(data, devnames_driver_name);
-}
-
-static WCHAR *pagesetup_get_devname(const pagesetup_data *data)
-{
-    return pagesetup_get_a_devname(data, devnames_device_name);
-}
-
-static WCHAR *pagesetup_get_portname(const pagesetup_data *data)
-{
-    return pagesetup_get_a_devname(data, devnames_output_name);
-}
-
-static void pagesetup_release_a_devname(const pagesetup_data *data, WCHAR *name)
-{
-    HeapFree(GetProcessHeap(), 0, name);
-}
-
-static void pagesetup_set_devnames(pagesetup_data *data, LPCWSTR drv, LPCWSTR devname, LPCWSTR port)
-{
-    DEVNAMES *dn;
-    WCHAR def[256];
-    DWORD len = sizeof(DEVNAMES), drv_len, dev_len, port_len;
-
-    if(data->unicode)
-    {
-        drv_len  = (strlenW(drv) + 1) * sizeof(WCHAR);
-        dev_len  = (strlenW(devname) + 1) * sizeof(WCHAR);
-        port_len = (strlenW(port) + 1) * sizeof(WCHAR);
-    }
+    /* Save paper size into the device context */
+    paperword = SendDlgItemMessageA(hDlg,cmb2,CB_GETITEMDATA,
+        SendDlgItemMessageA(hDlg, cmb2, CB_GETCURSEL, 0, 0), 0);
+    if (paperword != CB_ERR)
+        dm->u.s.dmPaperSize = paperword;
     else
-    {
-        drv_len = WideCharToMultiByte(CP_ACP, 0, drv, -1, NULL, 0, NULL, NULL);
-        dev_len = WideCharToMultiByte(CP_ACP, 0, devname, -1, NULL, 0, NULL, NULL);
-        port_len = WideCharToMultiByte(CP_ACP, 0, port, -1, NULL, 0, NULL, NULL);
-    }
-    len += drv_len + dev_len + port_len;
+        FIXME("could not get dialog text for papersize cmbbox?\n");
 
-    if(data->u.dlgw->hDevNames)
-        data->u.dlgw->hDevNames = GlobalReAlloc(data->u.dlgw->hDevNames, len, GMEM_MOVEABLE);
+    /* Save paper source into the device context */
+    paperword = SendDlgItemMessageA(hDlg,cmb1,CB_GETITEMDATA,
+        SendDlgItemMessageA(hDlg, cmb1, CB_GETCURSEL, 0, 0), 0);
+    if (paperword != CB_ERR)
+        dm->u.s.dmDefaultSource = paperword;
     else
-        data->u.dlgw->hDevNames = GlobalAlloc(GMEM_MOVEABLE, len);
+        FIXME("could not get dialog text for papersize cmbbox?\n");
 
-    dn = GlobalLock(data->u.dlgw->hDevNames);
+    GlobalUnlock(pda->pdlg.hDevNames);
+    GlobalUnlock(pda->pdlg.hDevMode);
 
-    if(data->unicode)
-    {
-        WCHAR *ptr = (WCHAR *)(dn + 1);
-        len = sizeof(DEVNAMES) / sizeof(WCHAR);
-        dn->wDriverOffset = len;
-        strcpyW(ptr, drv);
-        ptr += drv_len / sizeof(WCHAR);
-        len += drv_len / sizeof(WCHAR);
-        dn->wDeviceOffset = len;
-        strcpyW(ptr, devname);
-        ptr += dev_len / sizeof(WCHAR);
-        len += dev_len / sizeof(WCHAR);
-        dn->wOutputOffset = len;
-        strcpyW(ptr, port);
-    }
-    else
-    {
-        char *ptr = (char *)(dn + 1);
-        len = sizeof(DEVNAMES);
-        dn->wDriverOffset = len;
-        WideCharToMultiByte(CP_ACP, 0, drv, -1, ptr, drv_len, NULL, NULL);
-        ptr += drv_len;
-        len += drv_len;
-        dn->wDeviceOffset = len;
-        WideCharToMultiByte(CP_ACP, 0, devname, -1, ptr, dev_len, NULL, NULL);
-        ptr += dev_len;
-        len += dev_len;
-        dn->wOutputOffset = len;
-        WideCharToMultiByte(CP_ACP, 0, port, -1, ptr, port_len, NULL, NULL);
-    }
-
-    dn->wDefault = 0;
-    len = sizeof(def) / sizeof(def[0]);
-    GetDefaultPrinterW(def, &len);
-    if(!lstrcmpW(def, devname))
-        dn->wDefault = 1;
-
-    GlobalUnlock(data->u.dlgw->hDevNames);
+    return TRUE;
 }
 
-static DEVMODEW *pagesetup_get_devmode(const pagesetup_data *data)
-{
-    DEVMODEW *dm = GlobalLock(data->u.dlgw->hDevMode);
-    DEVMODEW *ret;
+static BOOL
+PRINTDLG_PS_UpdateDlgStructW(HWND hDlg, PageSetupDataW *pda) {
+    DEVNAMES	*dn;
+    DEVMODEW	*dm;
+    LPWSTR	devname,portname;
+    WCHAR	papername[64];
+    WCHAR	buf[200];
 
-    if(data->unicode)
-    {
-        /* We make a copy even in the unicode case because the ptr
-           may get passed back to us in pagesetup_set_devmode. */
-        ret = HeapAlloc(GetProcessHeap(), 0, dm->dmSize + dm->dmDriverExtra);
-        memcpy(ret, dm, dm->dmSize + dm->dmDriverExtra);
+    dn = GlobalLock(pda->pdlg.hDevNames);
+    dm = GlobalLock(pda->pdlg.hDevMode);
+    devname	= ((WCHAR*)dn)+dn->wDeviceOffset;
+    portname	= ((WCHAR*)dn)+dn->wOutputOffset;
+
+    /* Save paper size into device context */
+    PRINTDLG_SetUpPaperComboBoxW(hDlg,cmb2,devname,portname,dm);
+    /* Save paper source into device context */
+    PRINTDLG_SetUpPaperComboBoxW(hDlg,cmb3,devname,portname,dm);
+
+    if (GetDlgItemTextW(hDlg,cmb2,papername,sizeof(papername))>0) {
+    	PRINTDLG_PaperSizeW(&(pda->pdlg),papername,&(pda->dlga->ptPaperSize));
+	pda->dlga->ptPaperSize.x = _c_10mm2size((LPPAGESETUPDLGA)pda->dlga,pda->dlga->ptPaperSize.x);
+	pda->dlga->ptPaperSize.y = _c_10mm2size((LPPAGESETUPDLGA)pda->dlga,pda->dlga->ptPaperSize.y);
+    } else
+	FIXME("could not get dialog text for papersize cmbbox?\n");
+#define GETVAL(id,val) if (GetDlgItemTextW(hDlg,id,buf,sizeof(buf)/sizeof(buf[0]))>0) { val = _c_str2sizeW(pda->dlga,buf); } else { FIXME("could not get dlgitemtextw for %x\n",id); }
+    GETVAL(edt4,pda->dlga->rtMargin.left);
+    GETVAL(edt5,pda->dlga->rtMargin.top);
+    GETVAL(edt6,pda->dlga->rtMargin.right);
+    GETVAL(edt7,pda->dlga->rtMargin.bottom);
+#undef GETVAL
+
+    /* If we are in landscape, swap x and y of page size */
+    if (IsDlgButtonChecked(hDlg, rad2)) {
+	DWORD tmp;
+	tmp = pda->dlga->ptPaperSize.x;
+	pda->dlga->ptPaperSize.x = pda->dlga->ptPaperSize.y;
+	pda->dlga->ptPaperSize.y = tmp;
     }
-    else
-        ret = GdiConvertToDevmodeW((DEVMODEA *)dm);
-
-    GlobalUnlock(data->u.dlgw->hDevMode);
-    return ret;
-}
-
-static void pagesetup_release_devmode(const pagesetup_data *data, DEVMODEW *dm)
-{
-    HeapFree(GetProcessHeap(), 0, dm);
-}
-
-static void pagesetup_set_devmode(pagesetup_data *data, DEVMODEW *dm)
-{
-    DEVMODEA *dmA = NULL;
-    void *src, *dst;
-    DWORD size;
-
-    if(data->unicode)
-    {
-        size = dm->dmSize + dm->dmDriverExtra;
-        src = dm;
-    }
-    else
-    {
-        dmA = convert_to_devmodeA(dm);
-        size = dmA->dmSize + dmA->dmDriverExtra;
-        src = dmA;
-    }
-
-    if(data->u.dlgw->hDevMode)
-        data->u.dlgw->hDevMode = GlobalReAlloc(data->u.dlgw->hDevMode, size,
-                                               GMEM_MOVEABLE);
-    else
-        data->u.dlgw->hDevMode = GlobalAlloc(GMEM_MOVEABLE, size);
-
-    dst = GlobalLock(data->u.dlgw->hDevMode);
-    memcpy(dst, src, size);
-    GlobalUnlock(data->u.dlgw->hDevMode);
-    HeapFree(GetProcessHeap(), 0, dmA);
-}
-
-static inline POINT *pagesetup_get_papersize_pt(const pagesetup_data *data)
-{
-    return &data->u.dlgw->ptPaperSize;
-}
-
-static inline RECT *pagesetup_get_margin_rect(const pagesetup_data *data)
-{
-    return &data->u.dlgw->rtMargin;
-}
-
-typedef enum
-{
-    page_setup_hook,
-    page_paint_hook
-} hook_type;
-
-static inline LPPAGESETUPHOOK pagesetup_get_hook(const pagesetup_data *data, hook_type which)
-{
-    switch(which)
-    {
-    case page_setup_hook: return data->u.dlgw->lpfnPageSetupHook;
-    case page_paint_hook: return data->u.dlgw->lpfnPagePaintHook;
-    }
-    return NULL;
-}
-
-/* This should only be used in calls to hook procs so we return the ptr
-   already cast to LPARAM */
-static inline LPARAM pagesetup_get_dlg_struct(const pagesetup_data *data)
-{
-    return (LPARAM)data->u.dlgw;
-}
-
-static inline void swap_point(POINT *pt)
-{
-    LONG tmp = pt->x;
-    pt->x = pt->y;
-    pt->y = tmp;
-}
-
-static BOOL pagesetup_update_papersize(pagesetup_data *data)
-{
-    DEVMODEW *dm;
-    LPWSTR devname, portname;
-    int i, num;
-    WORD *words = NULL, paperword;
-    POINT *points = NULL;
-    BOOL retval = FALSE;
-
-    dm       = pagesetup_get_devmode(data);
-    devname  = pagesetup_get_devname(data);
-    portname = pagesetup_get_portname(data);
-
-    num = DeviceCapabilitiesW(devname, portname, DC_PAPERS, NULL, dm);
-    if (num <= 0)
-    {
-        FIXME("No papernames found for %s/%s\n", debugstr_w(devname), debugstr_w(portname));
-        goto end;
-    }
-
-    words = HeapAlloc(GetProcessHeap(), 0, num * sizeof(WORD));
-    points = HeapAlloc(GetProcessHeap(), 0, num * sizeof(POINT));
-
-    if (num != DeviceCapabilitiesW(devname, portname, DC_PAPERS, (LPWSTR)words, dm))
-    {
-        FIXME("Number of returned words is not %d\n", num);
-        goto end;
-    }
-
-    if (num != DeviceCapabilitiesW(devname, portname, DC_PAPERSIZE, (LPWSTR)points, dm))
-    {
-        FIXME("Number of returned sizes is not %d\n", num);
-        goto end;
-    }
-
-    paperword = pagesetup_get_papersize(data);
-
-    for (i = 0; i < num; i++)
-        if (words[i] == paperword)
-            break;
-
-    if (i == num)
-    {
-        FIXME("Papersize %d not found in list?\n", paperword);
-        goto end;
-    }
-
-    /* this is _10ths_ of a millimeter */
-    pagesetup_get_papersize_pt(data)->x = tenths_mm_to_size(data, points[i].x);
-    pagesetup_get_papersize_pt(data)->y = tenths_mm_to_size(data, points[i].y);
-
-    if(pagesetup_get_orientation(data) == DMORIENT_LANDSCAPE)
-        swap_point(pagesetup_get_papersize_pt(data));
-
-    retval = TRUE;
-
-end:
-    HeapFree(GetProcessHeap(), 0, words);
-    HeapFree(GetProcessHeap(), 0, points);
-    pagesetup_release_a_devname(data, portname);
-    pagesetup_release_a_devname(data, devname);
-    pagesetup_release_devmode(data, dm);
-
-    return retval;
+    GlobalUnlock(pda->pdlg.hDevNames);
+    GlobalUnlock(pda->pdlg.hDevMode);
+    return TRUE;
 }
 
 /**********************************************************************************************
- * pagesetup_change_printer
+ * PRINTDLG_PS_ChangeActivePrinerA
  *
  * Redefines hDevMode and hDevNames HANDLES and initialises it.
  * 
+ * PARAMS
+ * 	name	[in] 	 Name of a printer for activation
+ * 	pda	[in/out] ptr to PageSetupDataA structure
+ * 	
+ * RETURN 
+ * 	TRUE if success
+ * 	FALSE if fail
  */
-static BOOL pagesetup_change_printer(LPWSTR name, pagesetup_data *data)
-{
-    HANDLE hprn;
-    DWORD needed;
-    PRINTER_INFO_2W *prn_info = NULL;
-    DRIVER_INFO_3W *drv_info = NULL;
-    DEVMODEW *dm = NULL;
-    BOOL retval = FALSE;
+static BOOL
+PRINTDLG_PS_ChangeActivePrinterA(LPSTR name, PageSetupDataA *pda){
+	HANDLE            hprn;
+	DWORD             needed;
+	LPPRINTER_INFO_2A lpPrinterInfo;
+	LPDRIVER_INFO_3A  lpDriverInfo;
+	DEVMODEA          *pDevMode, *dm;
+	
+	if(!OpenPrinterA(name, &hprn, NULL)){
+		ERR("Can't open printer %s\n", name);
+		return FALSE;
+	}
+	GetPrinterA(hprn, 2, NULL, 0, &needed);
+	lpPrinterInfo = HeapAlloc(GetProcessHeap(), 0, needed);
+	GetPrinterA(hprn, 2, (LPBYTE)lpPrinterInfo, needed, &needed);
+	GetPrinterDriverA(hprn, NULL, 3, NULL, 0, &needed);
+	lpDriverInfo  = HeapAlloc(GetProcessHeap(), 0, needed);
+	if(!GetPrinterDriverA(hprn, NULL, 3, (LPBYTE)lpDriverInfo, needed, &needed)) {
+		ERR("GetPrinterDriverA failed for %s, fix your config!\n", lpPrinterInfo->pPrinterName);
+		return FALSE;
+	}
+	ClosePrinter(hprn);
+	
+	needed = DocumentPropertiesA(0, 0, name, NULL, NULL, 0);
+	if(needed == -1) {
+		ERR("DocumentProperties fails on %s\n", debugstr_a(name));
+		return FALSE;
+	}
+	pDevMode = HeapAlloc(GetProcessHeap(), 0, needed);
+	DocumentPropertiesA(0, 0, name, pDevMode, NULL, DM_OUT_BUFFER);
 
-    if(!OpenPrinterW(name, &hprn, NULL))
-    {
-        ERR("Can't open printer %s\n", debugstr_w(name));
-        goto end;
-    }
-
-    GetPrinterW(hprn, 2, NULL, 0, &needed);
-    prn_info = HeapAlloc(GetProcessHeap(), 0, needed);
-    GetPrinterW(hprn, 2, (LPBYTE)prn_info, needed, &needed);
-    GetPrinterDriverW(hprn, NULL, 3, NULL, 0, &needed);
-    drv_info = HeapAlloc(GetProcessHeap(), 0, needed);
-    if(!GetPrinterDriverW(hprn, NULL, 3, (LPBYTE)drv_info, needed, &needed))
-    {
-        ERR("GetPrinterDriverA failed for %s, fix your config!\n", debugstr_w(prn_info->pPrinterName));
-        goto end;
-    }
-    ClosePrinter(hprn);
-
-    needed = DocumentPropertiesW(0, 0, name, NULL, NULL, 0);
-    if(needed == -1)
-    {
-        ERR("DocumentProperties fails on %s\n", debugstr_w(name));
-        goto end;
-    }
-
-    dm = HeapAlloc(GetProcessHeap(), 0, needed);
-    DocumentPropertiesW(0, 0, name, dm, NULL, DM_OUT_BUFFER);
-
-    pagesetup_set_devmode(data, dm);
-    pagesetup_set_devnames(data, drv_info->pDriverPath, prn_info->pPrinterName,
-                           prn_info->pPortName);
-
-    retval = TRUE;
-end:
-    HeapFree(GetProcessHeap(), 0, dm);
-    HeapFree(GetProcessHeap(), 0, prn_info);
-    HeapFree(GetProcessHeap(), 0, drv_info);
-    return retval;
+	pda->pdlg.hDevMode = GlobalReAlloc(pda->pdlg.hDevMode,
+			                 pDevMode->dmSize + pDevMode->dmDriverExtra,
+							 GMEM_MOVEABLE);
+	dm = GlobalLock(pda->pdlg.hDevMode);
+	memcpy(dm, pDevMode, pDevMode->dmSize + pDevMode->dmDriverExtra);
+	
+	PRINTDLG_CreateDevNames(&(pda->pdlg.hDevNames),
+			lpDriverInfo->pDriverPath,
+			lpPrinterInfo->pPrinterName,
+			lpPrinterInfo->pPortName);
+	
+	GlobalUnlock(pda->pdlg.hDevMode);
+	HeapFree(GetProcessHeap(), 0, pDevMode);
+	HeapFree(GetProcessHeap(), 0, lpPrinterInfo);
+	HeapFree(GetProcessHeap(), 0, lpDriverInfo);
+	return TRUE;
 }
 
 /****************************************************************************************
- *  pagesetup_init_combos
+ *  PRINTDLG_PS_ChangePrinterA
  *
- *  Fills Printers, Paper and Source combos
+ *  Fills Printers, Paper and Source combo
  *
+ *  RETURNS 
+ *   TRUE
  */
-static void pagesetup_init_combos(HWND hDlg, pagesetup_data *data)
-{
-    DEVMODEW *dm;
-    LPWSTR devname, portname;
-
-    dm       = pagesetup_get_devmode(data);
-    devname  = pagesetup_get_devname(data);
-    portname = pagesetup_get_portname(data);
-
-    PRINTDLG_SetUpPrinterListComboW(hDlg, cmb1, devname);
-    PRINTDLG_SetUpPaperComboBoxW(hDlg, cmb2, devname, portname, dm);
-    PRINTDLG_SetUpPaperComboBoxW(hDlg, cmb3, devname, portname, dm);
-
-    pagesetup_release_a_devname(data, portname);
-    pagesetup_release_a_devname(data, devname);
-    pagesetup_release_devmode(data, dm);
+static BOOL
+PRINTDLG_PS_ChangePrinterA(HWND hDlg, PageSetupDataA *pda) {
+    DEVNAMES	*dn;
+    DEVMODEA	*dm;
+    LPSTR	devname,portname;
+	
+    dn = GlobalLock(pda->pdlg.hDevNames);
+    dm = GlobalLock(pda->pdlg.hDevMode);
+    devname	    = ((char*)dn)+dn->wDeviceOffset;
+    portname	= ((char*)dn)+dn->wOutputOffset;
+    PRINTDLG_SetUpPrinterListComboA(hDlg, cmb1, devname);
+    PRINTDLG_SetUpPaperComboBoxA(hDlg,cmb2,devname,portname,dm);
+    PRINTDLG_SetUpPaperComboBoxA(hDlg,cmb3,devname,portname,dm);
+    GlobalUnlock(pda->pdlg.hDevNames);
+    GlobalUnlock(pda->pdlg.hDevMode);
+    return TRUE;
 }
 
+static BOOL
+PRINTDLG_PS_ChangePrinterW(HWND hDlg, PageSetupDataW *pda) {
+    DEVNAMES	*dn;
+    DEVMODEW	*dm;
+    LPWSTR	devname,portname;
 
-/****************************************************************************************
- *  pagesetup_change_printer_dialog
- *
- *  Pops up another dialog that lets the user pick another printer.
- *
- *  For now we display the PrintDlg, this should display a striped down version of it.
- */
-static void pagesetup_change_printer_dialog(HWND hDlg, pagesetup_data *data)
-{
-    PRINTDLGW prnt;
-    LPWSTR drvname, devname, portname;
-    DEVMODEW *tmp_dm, *dm;
-
-    memset(&prnt, 0, sizeof(prnt));
-    prnt.lStructSize = sizeof(prnt);
-    prnt.Flags     = 0;
-    prnt.hwndOwner = hDlg;
-
-    drvname = pagesetup_get_drvname(data);
-    devname = pagesetup_get_devname(data);
-    portname = pagesetup_get_portname(data);
-    prnt.hDevNames = 0;
-    PRINTDLG_CreateDevNamesW(&prnt.hDevNames, drvname, devname, portname);
-    pagesetup_release_a_devname(data, portname);
-    pagesetup_release_a_devname(data, devname);
-    pagesetup_release_a_devname(data, drvname);
-
-    tmp_dm = pagesetup_get_devmode(data);
-    prnt.hDevMode = GlobalAlloc(GMEM_MOVEABLE, tmp_dm->dmSize + tmp_dm->dmDriverExtra);
-    dm = GlobalLock(prnt.hDevMode);
-    memcpy(dm, tmp_dm, tmp_dm->dmSize + tmp_dm->dmDriverExtra);
-    GlobalUnlock(prnt.hDevMode);
-    pagesetup_release_devmode(data, tmp_dm);
-
-    if (PrintDlgW(&prnt))
-    {
-        DEVMODEW *dm = GlobalLock(prnt.hDevMode);
-        DEVNAMES *dn = GlobalLock(prnt.hDevNames);
-
-        pagesetup_set_devnames(data, (WCHAR*)dn + dn->wDriverOffset,
-                               (WCHAR*)dn + dn->wDeviceOffset, (WCHAR *)dn + dn->wOutputOffset);
-        pagesetup_set_devmode(data, dm);
-        GlobalUnlock(prnt.hDevNames);
-        GlobalUnlock(prnt.hDevMode);
-        pagesetup_init_combos(hDlg, data);
-    }
-
-    GlobalFree(prnt.hDevMode);
-    GlobalFree(prnt.hDevNames);
-
+    dn = GlobalLock(pda->pdlg.hDevNames);
+    dm = GlobalLock(pda->pdlg.hDevMode);
+    devname	= ((WCHAR*)dn)+dn->wDeviceOffset;
+    portname	= ((WCHAR*)dn)+dn->wOutputOffset;
+    PRINTDLG_SetUpPaperComboBoxW(hDlg,cmb2,devname,portname,dm);
+    PRINTDLG_SetUpPaperComboBoxW(hDlg,cmb3,devname,portname,dm);
+    GlobalUnlock(pda->pdlg.hDevNames);
+    GlobalUnlock(pda->pdlg.hDevMode);
+    return TRUE;
 }
 
 /******************************************************************************************
- * pagesetup_change_preview
- *
+ * PRINTDLG_PS_ChangePaperPrev 
+ * 
  * Changes paper preview size / position
  *
+ * PARAMS:
+ * 	pda		[i] Pointer for current PageSetupDataA structure
+ *
+ * RETURNS:
+ *  always - TRUE
  */
-static void pagesetup_change_preview(const pagesetup_data *data)
+static BOOL 
+PRINTDLG_PS_ChangePaperPrev(PageSetupDataA *pda)
 {
     LONG width, height, x, y;
-    RECT tmp;
-    const int shadow = 4;
-
-    if(pagesetup_get_orientation(data) == DMORIENT_LANDSCAPE)
-    {
-        width  = data->rtDrawRect.right - data->rtDrawRect.left;
-        height = pagesetup_get_papersize_pt(data)->y * width / pagesetup_get_papersize_pt(data)->x;
+    RECT rtTmp;
+    
+    if(pda->curdlg.ptPaperSize.x > pda->curdlg.ptPaperSize.y) {
+	width  = pda->rtDrawRect.right - pda->rtDrawRect.left;
+	height = pda->curdlg.ptPaperSize.y * width / pda->curdlg.ptPaperSize.x;
+    } else {
+	height = pda->rtDrawRect.bottom - pda->rtDrawRect.top;
+	width  = pda->curdlg.ptPaperSize.x * height / pda->curdlg.ptPaperSize.y;
     }
-    else
-    {
-        height = data->rtDrawRect.bottom - data->rtDrawRect.top;
-        width  = pagesetup_get_papersize_pt(data)->x * height / pagesetup_get_papersize_pt(data)->y;
-    }
-    x = (data->rtDrawRect.right + data->rtDrawRect.left - width) / 2;
-    y = (data->rtDrawRect.bottom + data->rtDrawRect.top - height) / 2;
-    TRACE("draw rect %s x=%d, y=%d, w=%d, h=%d\n",
-          wine_dbgstr_rect(&data->rtDrawRect), x, y, width, height);
+    x = (pda->rtDrawRect.right + pda->rtDrawRect.left - width) / 2;
+    y = (pda->rtDrawRect.bottom + pda->rtDrawRect.top - height) / 2;
+    TRACE("rtDrawRect(%ld, %ld, %ld, %ld) x=%ld, y=%ld, w=%ld, h=%ld",
+	pda->rtDrawRect.left, pda->rtDrawRect.top, pda->rtDrawRect.right, pda->rtDrawRect.bottom,
+	x, y, width, height);
 
-    MoveWindow(GetDlgItem(data->hDlg, rct2), x + width, y + shadow, shadow, height, FALSE);
-    MoveWindow(GetDlgItem(data->hDlg, rct3), x + shadow, y + height, width, shadow, FALSE);
-    MoveWindow(GetDlgItem(data->hDlg, rct1), x, y, width, height, FALSE);
+#define SHADOW 4
+    MoveWindow(GetDlgItem(pda->hDlg, rct2), x+width, y+SHADOW, SHADOW, height, FALSE);
+    MoveWindow(GetDlgItem(pda->hDlg, rct3), x+SHADOW, y+height, width, SHADOW, FALSE);
+    MoveWindow(GetDlgItem(pda->hDlg, rct1), x, y, width, height, FALSE);
+    memcpy(&rtTmp, &pda->rtDrawRect, sizeof(RECT));
+    rtTmp.right  += SHADOW;
+    rtTmp.bottom += SHADOW;
+#undef SHADOW 
 
-    tmp = data->rtDrawRect;
-    tmp.right  += shadow;
-    tmp.bottom += shadow;
-    InvalidateRect(data->hDlg, &tmp, TRUE);
+    InvalidateRect(pda->hDlg, &rtTmp, TRUE);
+    return TRUE;
 }
 
-static inline LONG *element_from_margin_id(RECT *rc, WORD id)
-{
-    switch(id)
-    {
-    case edt4: return &rc->left;
-    case edt5: return &rc->top;
-    case edt6: return &rc->right;
-    case edt7: return &rc->bottom;
-    }
-    return NULL;
-}
-
-static void update_margin_edits(HWND hDlg, const pagesetup_data *data, WORD id)
-{
-    WCHAR str[100];
-    WORD idx;
-
-    for(idx = edt4; idx <= edt7; idx++)
-    {
-        if(id == 0 || id == idx)
-        {
-            size2str(data, *element_from_margin_id(pagesetup_get_margin_rect(data), idx), str);
-            SetDlgItemTextW(hDlg, idx, str);
-        }
-    }
-}
-
-static void margin_edit_notification(HWND hDlg, const pagesetup_data *data, WORD msg, WORD id)
-{
-    switch (msg)
-    {
-    case EN_CHANGE:
-      {
-        WCHAR buf[10];
-        LONG val = 0;
-        LONG *value = element_from_margin_id(pagesetup_get_margin_rect(data), id);
-
-        if (GetDlgItemTextW(hDlg, id, buf, sizeof(buf) / sizeof(buf[0])) != 0)
-        {
-            WCHAR *end;
-            WCHAR decimal = get_decimal_sep();
-
-            val = strtolW(buf, &end, 10);
-            if(end != buf || *end == decimal)
-            {
-                int mult = is_metric(data) ? 100 : 1000;
-                val *= mult;
-                if(*end == decimal)
-                {
-                    while(mult > 1)
-                    {
-                        end++;
-                        mult /= 10;
-                        if(isdigitW(*end))
-                            val += (*end - '0') * mult;
-                        else
-                            break;
-                    }
-                }
-            }
-        }
-        *value = val;
-        return;
-      }
-
-    case EN_KILLFOCUS:
-        update_margin_edits(hDlg, data, id);
-        return;
-    }
-}
-
-static void set_margin_groupbox_title(HWND hDlg, const pagesetup_data *data)
-{
-    WCHAR title[256];
-
-    if(LoadStringW(COMDLG32_hInstance, is_metric(data) ? PD32_MARGINS_IN_MILLIMETERS : PD32_MARGINS_IN_INCHES,
-                   title, sizeof(title)/sizeof(title[0])))
-        SetDlgItemTextW(hDlg, grp4, title);
-}
-
-static void pagesetup_update_orientation_buttons(HWND hDlg, const pagesetup_data *data)
-{
-    if (pagesetup_get_orientation(data) == DMORIENT_LANDSCAPE)
-        CheckRadioButton(hDlg, rad1, rad2, rad2);
-    else
-        CheckRadioButton(hDlg, rad1, rad2, rad1);
-}
-
-/****************************************************************************************
- *  pagesetup_printer_properties
- *
- *  Handle invocation of the 'Properties' button (not present in the default template).
- */
-static void pagesetup_printer_properties(HWND hDlg, pagesetup_data *data)
-{
-    HANDLE hprn;
-    LPWSTR devname;
-    DEVMODEW *dm;
-    LRESULT count;
-    int i;
-
-    devname = pagesetup_get_devname(data);
-
-    if (!OpenPrinterW(devname, &hprn, NULL))
-    {
-        FIXME("Call to OpenPrinter did not succeed!\n");
-        pagesetup_release_a_devname(data, devname);
-        return;
-    }
-
-    dm = pagesetup_get_devmode(data);
-    DocumentPropertiesW(hDlg, hprn, devname, dm, dm, DM_IN_BUFFER | DM_OUT_BUFFER | DM_IN_PROMPT);
-    pagesetup_set_devmode(data, dm);
-    pagesetup_release_devmode(data, dm);
-    pagesetup_release_a_devname(data, devname);
-    ClosePrinter(hprn);
-
-    /* Changing paper */
-    pagesetup_update_papersize(data);
-    pagesetup_update_orientation_buttons(hDlg, data);
-
-    /* Changing paper preview */
-    pagesetup_change_preview(data);
-
-    /* Selecting paper in combo */
-    count = SendDlgItemMessageW(hDlg, cmb2, CB_GETCOUNT, 0, 0);
-    if(count != CB_ERR)
-    {
-        WORD paperword = pagesetup_get_papersize(data);
-        for(i = 0; i < count; i++)
-        {
-            if(SendDlgItemMessageW(hDlg, cmb2, CB_GETITEMDATA, i, 0) == paperword) {
-                SendDlgItemMessageW(hDlg, cmb2, CB_SETCURSEL, i, 0);
-                break;
-            }
-        }
-    }
+#define GETVAL(idc,val) \
+if(msg == EN_CHANGE){ \
+    if (GetDlgItemTextA(hDlg,idc,buf,sizeof(buf)) > 0)\
+        val = _c_str2sizeA(pda->dlga,buf); \
+    else\
+	FIXME("could not get dlgitemtexta for %x\n",id);  \
 }
 
 /********************************************************************************
- * pagesetup_wm_command
- * process WM_COMMAND message for PageSetupDlg
+ * PRINTDLG_PS_WMCommandA
+ * process WM_COMMAND message for PageSetupDlgA
  *
  * PARAMS
  *  hDlg 	[in] 	Main dialog HANDLE 
@@ -3135,15 +2720,20 @@ static void pagesetup_printer_properties(HWND hDlg, pagesetup_data *data)
  *  pda		[in/out] ptr to PageSetupDataA
  */
 
-static BOOL pagesetup_wm_command(HWND hDlg, WPARAM wParam, LPARAM lParam, pagesetup_data *data)
-{
+static BOOL
+PRINTDLG_PS_WMCommandA(
+    HWND hDlg, WPARAM wParam, LPARAM lParam, PageSetupDataA *pda
+) {
     WORD msg = HIWORD(wParam);
     WORD id  = LOWORD(wParam);
-
-    TRACE("loword (lparam) %d, wparam 0x%lx, lparam %08lx\n",
+    char buf[200];
+	
+    TRACE("loword (lparam) %d, wparam 0x%x, lparam %08lx\n",
 	    LOWORD(lParam),wParam,lParam);
     switch (id)  {
     case IDOK:
+        if (!PRINTDLG_PS_UpdateDlgStructA(hDlg, pda))
+	    return(FALSE);
 	EndDialog(hDlg, TRUE);
 	return TRUE ;
 
@@ -3151,74 +2741,164 @@ static BOOL pagesetup_wm_command(HWND hDlg, WPARAM wParam, LPARAM lParam, pagese
         EndDialog(hDlg, FALSE);
 	return FALSE ;
 
-    case psh3: /* Printer... */
-        pagesetup_change_printer_dialog(hDlg, data);
-        return TRUE;
-
-    case rad1: /* Portrait */
-    case rad2: /* Landscape */
-        if((id == rad1 && pagesetup_get_orientation(data) == DMORIENT_LANDSCAPE) ||
-           (id == rad2 && pagesetup_get_orientation(data) == DMORIENT_PORTRAIT))
-	{
-            pagesetup_set_orientation(data, (id == rad1) ? DMORIENT_PORTRAIT : DMORIENT_LANDSCAPE);
-            pagesetup_update_papersize(data);
-            rotate_rect(pagesetup_get_margin_rect(data), (id == rad2));
-            update_margin_edits(hDlg, data, 0);
-            pagesetup_change_preview(data);
+    case psh3: {
+	pda->pdlg.Flags		= 0;
+	pda->pdlg.hwndOwner	= hDlg;
+	if (PrintDlgA(&(pda->pdlg)))
+	    PRINTDLG_PS_ChangePrinterA(hDlg,pda);
+        }
+	return TRUE;
+    case rad1:
+	    if (pda->curdlg.ptPaperSize.x > pda->curdlg.ptPaperSize.y){
+	        DWORD tmp = pda->curdlg.ptPaperSize.x;
+		pda->curdlg.ptPaperSize.x = pda->curdlg.ptPaperSize.y;
+		pda->curdlg.ptPaperSize.y = tmp;
+	    }
+	    PRINTDLG_PS_ChangePaperPrev(pda);
+	break;
+    case rad2:
+	    if (pda->curdlg.ptPaperSize.y > pda->curdlg.ptPaperSize.x){
+	        DWORD tmp = pda->curdlg.ptPaperSize.x;
+		pda->curdlg.ptPaperSize.x = pda->curdlg.ptPaperSize.y;
+		pda->curdlg.ptPaperSize.y = tmp;
+	    }
+	    PRINTDLG_PS_ChangePaperPrev(pda);
+	    break;
+    case cmb1: /* Printer combo */
+	    if(msg == CBN_SELCHANGE){
+		char crPrinterName[256];
+		GetDlgItemTextA(hDlg, id, crPrinterName, 255);
+		PRINTDLG_PS_ChangeActivePrinterA(crPrinterName, pda);
+		PRINTDLG_PS_ChangePrinterA(hDlg, pda);
+	    }
+	    break;
+    case cmb2: /* Paper combo */
+	if(msg == CBN_SELCHANGE){
+	    DWORD paperword = SendDlgItemMessageA(hDlg,cmb2,CB_GETITEMDATA,
+	        SendDlgItemMessageA(hDlg, cmb2, CB_GETCURSEL, 0, 0), 0);
+   	    if (paperword != CB_ERR) {
+	        PRINTDLG_PaperSizeA(&(pda->pdlg), paperword,&(pda->curdlg.ptPaperSize));
+	        pda->curdlg.ptPaperSize.x = _c_10mm2size(pda->dlga,pda->curdlg.ptPaperSize.x);
+	        pda->curdlg.ptPaperSize.y = _c_10mm2size(pda->dlga,pda->curdlg.ptPaperSize.y);
+	    
+		if (IsDlgButtonChecked(hDlg, rad2)) {
+	            DWORD tmp = pda->curdlg.ptPaperSize.x;
+ 		    pda->curdlg.ptPaperSize.x = pda->curdlg.ptPaperSize.y;
+		    pda->curdlg.ptPaperSize.y = tmp;
+	        }
+	        PRINTDLG_PS_ChangePaperPrev(pda);
+	    } else
+	        FIXME("could not get dialog text for papersize cmbbox?\n");
+	}    
+	break;
+    case cmb3:
+	if(msg == CBN_SELCHANGE){
+	    DEVMODEA *dm = GlobalLock(pda->pdlg.hDevMode);
+	    dm->u.s.dmDefaultSource = SendDlgItemMessageA(hDlg, cmb3,CB_GETITEMDATA,
+                SendDlgItemMessageA(hDlg, cmb3, CB_GETCURSEL, 0, 0), 0);
+	    GlobalUnlock(pda->pdlg.hDevMode);
 	}
 	break;
-    case cmb1: /* Printer combo */
-        if(msg == CBN_SELCHANGE)
-        {
-            WCHAR name[256];
-            GetDlgItemTextW(hDlg, id, name, sizeof(name) / sizeof(name[0]));
-            pagesetup_change_printer(name, data);
-            pagesetup_init_combos(hDlg, data);
-        }
-        break;
-    case cmb2: /* Paper combo */
-        if(msg == CBN_SELCHANGE)
-        {
-            DWORD paperword = SendDlgItemMessageW(hDlg, cmb2, CB_GETITEMDATA,
-                                                  SendDlgItemMessageW(hDlg, cmb2, CB_GETCURSEL, 0, 0), 0);
-            if (paperword != CB_ERR)
-            {
-                pagesetup_set_papersize(data, paperword);
-                pagesetup_update_papersize(data);
-                pagesetup_change_preview(data);
-	    } else
-                FIXME("could not get dialog text for papersize cmbbox?\n");
-        }
-        break;
-    case cmb3: /* Paper Source */
-        if(msg == CBN_SELCHANGE)
-        {
-            WORD source = SendDlgItemMessageW(hDlg, cmb3, CB_GETITEMDATA,
-                                              SendDlgItemMessageW(hDlg, cmb3, CB_GETCURSEL, 0, 0), 0);
-            pagesetup_set_defaultsource(data, source);
-        }
-        break;
-    case psh2: /* Printer Properties button */
-        pagesetup_printer_properties(hDlg, data);
-        break;
+    case psh2:                       /* Printer Properties button */
+       {
+	    HANDLE hPrinter;
+	    char   PrinterName[256];
+	    DEVMODEA *dm;
+	    LRESULT  count;
+	    int      i;
+	    
+            GetDlgItemTextA(hDlg, cmb1, PrinterName, 255);
+	    if (!OpenPrinterA(PrinterName, &hPrinter, NULL)) {
+	        FIXME("Call to OpenPrinter did not succeed!\n");
+		break;
+	    }
+	    dm = GlobalLock(pda->pdlg.hDevMode);
+	    DocumentPropertiesA(hDlg, hPrinter, PrinterName, dm, dm,
+	                        DM_IN_BUFFER | DM_OUT_BUFFER | DM_IN_PROMPT);
+	    ClosePrinter(hPrinter);
+	    /* Changing paper */
+	    PRINTDLG_PaperSizeA(&(pda->pdlg), dm->u.s.dmPaperSize, &(pda->curdlg.ptPaperSize));
+	    pda->curdlg.ptPaperSize.x = _c_10mm2size(pda->dlga, pda->curdlg.ptPaperSize.x);
+	    pda->curdlg.ptPaperSize.y = _c_10mm2size(pda->dlga, pda->curdlg.ptPaperSize.y);
+            if (dm->u.s.dmOrientation == DMORIENT_LANDSCAPE){
+                DWORD tmp = pda->curdlg.ptPaperSize.x;
+                pda->curdlg.ptPaperSize.x = pda->curdlg.ptPaperSize.y;
+                pda->curdlg.ptPaperSize.y = tmp;
+		CheckRadioButton(hDlg, rad1, rad2, rad2);
+	    }
+	    else
+		CheckRadioButton(hDlg, rad1, rad2, rad1);
+	    /* Changing paper preview */
+	    PRINTDLG_PS_ChangePaperPrev(pda);
+	    /* Selecting paper in combo */
+	    count = SendDlgItemMessageA(hDlg, cmb2, CB_GETCOUNT, 0, 0);
+	    if(count != CB_ERR){ 
+                for(i=0; i<count; ++i){
+		    if(SendDlgItemMessageA(hDlg, cmb2, CB_GETITEMDATA, i, 0) == dm->u.s.dmPaperSize) {
+			SendDlgItemMessageA(hDlg, cmb2, CB_SETCURSEL, i, 0);
+			break;
+		    }
+		}
+	    }
+									    
+	    GlobalUnlock(pda->pdlg.hDevMode);
+	    break;
+	}       
     case edt4:
+    	GETVAL(id, pda->curdlg.rtMargin.left);
+	break;
     case edt5:
+    	GETVAL(id, pda->curdlg.rtMargin.right);
+	break;
     case edt6:
+    	GETVAL(id, pda->curdlg.rtMargin.top);
+	break;
     case edt7:
-        margin_edit_notification(hDlg, data, msg, id);
-        break;
+    	GETVAL(id, pda->curdlg.rtMargin.bottom);
+	break;
     }
     InvalidateRect(GetDlgItem(hDlg, rct1), NULL, TRUE);
     return FALSE;
 }
+#undef GETVAL			   
+
+static BOOL
+PRINTDLG_PS_WMCommandW(
+    HWND hDlg, WPARAM wParam, LPARAM lParam, PageSetupDataW *pda
+) {
+    TRACE("loword (lparam) %d, wparam 0x%x, lparam %08lx\n",
+	    LOWORD(lParam),wParam,lParam);
+    switch (LOWORD(wParam))  {
+    case IDOK:
+        if (!PRINTDLG_PS_UpdateDlgStructW(hDlg, pda))
+	    return(FALSE);
+	EndDialog(hDlg, TRUE);
+	return TRUE ;
+
+    case IDCANCEL:
+        EndDialog(hDlg, FALSE);
+	return FALSE ;
+
+    case psh3: {
+	pda->pdlg.Flags		= 0;
+	pda->pdlg.hwndOwner	= hDlg;
+	if (PrintDlgW(&(pda->pdlg)))
+	    PRINTDLG_PS_ChangePrinterW(hDlg,pda);
+	return TRUE;
+    }
+    }
+    return FALSE;
+}
+
 
 /***********************************************************************
- *           default_page_paint_hook
+ *           DefaultPagePaintHook
  * Default hook paint procedure that receives WM_PSD_* messages from the dialog box 
  * whenever the sample page is redrawn.
- */
-static UINT_PTR default_page_paint_hook(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam,
-                                        const pagesetup_data *data)
+*/
+
+static UINT_PTR
+PRINTDLG_DefaultPagePaintHook(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam, PageSetupDataA *pda)
 {
     LPRECT lprc = (LPRECT) lParam;
     HDC hdc = (HDC) wParam;
@@ -3228,8 +2908,8 @@ static UINT_PTR default_page_paint_hook(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
     INT oldbkmode;
     TRACE("uMsg: WM_USER+%d\n",uMsg-WM_USER);
     /* Call user paint hook if enable */
-    if (pagesetup_get_flags(data) & PSD_ENABLEPAGEPAINTHOOK)
-        if (pagesetup_get_hook(data, page_paint_hook)(hwndDlg, uMsg, wParam, lParam))
+    if (pda->dlga->Flags & PSD_ENABLEPAGEPAINTHOOK)
+        if (pda->dlga->lpfnPagePaintHook(hwndDlg, uMsg, wParam, lParam))
             return TRUE;
 
     switch (uMsg) {
@@ -3323,41 +3003,41 @@ PRINTDLG_PagePaintProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     HPEN hpen, holdpen;
     HDC hdc;
     HBRUSH hbrush, holdbrush;
-    pagesetup_data *data;
+    PageSetupDataA *pda;
     int papersize=0, orientation=0; /* FIXME: set this values for user paint hook */
     double scalx, scaly;
+#define CALLPAINTHOOK(msg,lprc) PRINTDLG_DefaultPagePaintHook( hWnd, msg, (WPARAM)hdc, (LPARAM)lprc, pda)
 
     if (uMsg != WM_PAINT)
         return CallWindowProcA(lpfnStaticWndProc, hWnd, uMsg, wParam, lParam);
 
     /* Processing WM_PAINT message */
-    data = GetPropW(hWnd, pagesetupdlg_prop);
-    if (!data) {
+    pda = (PageSetupDataA*)GetPropA(hWnd, "__WINE_PAGESETUPDLGDATA");
+    if (!pda) {
         WARN("__WINE_PAGESETUPDLGDATA prop not set?\n");
         return FALSE;
     }
-    if (default_page_paint_hook(hWnd, WM_PSD_PAGESETUPDLG, MAKELONG(papersize, orientation),
-                                pagesetup_get_dlg_struct(data), data))
+    if (PRINTDLG_DefaultPagePaintHook(hWnd, WM_PSD_PAGESETUPDLG, MAKELONG(papersize, orientation), (LPARAM)pda->dlga, pda))
         return FALSE;
 
     hdc = BeginPaint(hWnd, &ps);
     GetClientRect(hWnd, &rcClient);
     
-    scalx = rcClient.right  / (double)pagesetup_get_papersize_pt(data)->x;
-    scaly = rcClient.bottom / (double)pagesetup_get_papersize_pt(data)->y;
+    scalx = rcClient.right  / (double)pda->curdlg.ptPaperSize.x;
+    scaly = rcClient.bottom / (double)pda->curdlg.ptPaperSize.y; 
     rcMargin = rcClient;
-
-    rcMargin.left   += pagesetup_get_margin_rect(data)->left   * scalx;
-    rcMargin.top    += pagesetup_get_margin_rect(data)->top    * scaly;
-    rcMargin.right  -= pagesetup_get_margin_rect(data)->right  * scalx;
-    rcMargin.bottom -= pagesetup_get_margin_rect(data)->bottom * scaly;
-
+ 
+    rcMargin.left   += (LONG)pda->curdlg.rtMargin.left   * scalx;
+    rcMargin.top    += (LONG)pda->curdlg.rtMargin.top    * scalx;
+    rcMargin.right  -= (LONG)pda->curdlg.rtMargin.right  * scaly;
+    rcMargin.bottom -= (LONG)pda->curdlg.rtMargin.bottom * scaly;
+    
     /* if the space is too small then we make sure to not draw anything */
     rcMargin.left = min(rcMargin.left, rcMargin.right);
     rcMargin.top = min(rcMargin.top, rcMargin.bottom);
 
-    if (!default_page_paint_hook(hWnd, WM_PSD_FULLPAGERECT, (WPARAM)hdc, (LPARAM)&rcClient, data) &&
-        !default_page_paint_hook(hWnd, WM_PSD_MINMARGINRECT, (WPARAM)hdc, (LPARAM)&rcMargin, data) )
+    if (!CALLPAINTHOOK(WM_PSD_FULLPAGERECT, &rcClient) &&
+        !CALLPAINTHOOK(WM_PSD_MINMARGINRECT, &rcMargin) )
     {
         /* fill background */
         hbrush = GetSysColorBrush(COLOR_3DHIGHLIGHT);
@@ -3389,7 +3069,7 @@ PRINTDLG_PagePaintProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         DeleteObject(SelectObject(hdc, holdpen));
         DeleteObject(SelectObject(hdc, holdbrush));
 
-        default_page_paint_hook(hWnd, WM_PSD_MARGINRECT, (WPARAM)hdc, (LPARAM)&rcMargin, data);
+        CALLPAINTHOOK(WM_PSD_MARGINRECT, &rcMargin);
 
         /* give text a bit of a space from the frame */
         rcMargin.left += 2;
@@ -3401,277 +3081,231 @@ PRINTDLG_PagePaintProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         rcMargin.left = min(rcMargin.left, rcMargin.right);
         rcMargin.top = min(rcMargin.top, rcMargin.bottom);
 
-        default_page_paint_hook(hWnd, WM_PSD_GREEKTEXTRECT, (WPARAM)hdc, (LPARAM)&rcMargin, data);
+        CALLPAINTHOOK(WM_PSD_GREEKTEXTRECT, &rcMargin);
     }
 
     EndPaint(hWnd, &ps);
     return FALSE;
-}
-
-/*******************************************************
- * The margin edit controls are subclassed to filter
- * anything other than numbers and the decimal separator.
- */
-static LRESULT CALLBACK pagesetup_margin_editproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
-{
-    if (msg == WM_CHAR)
-    {
-        WCHAR decimal = get_decimal_sep();
-        WCHAR wc = (WCHAR)wparam;
-        if(!isdigitW(wc) && wc != decimal && wc != VK_BACK) return 0;
-    }
-    return CallWindowProcW(edit_wndproc, hwnd, msg, wparam, lparam);
-}
-
-static void subclass_margin_edits(HWND hDlg)
-{
-    int id;
-    WNDPROC old_proc;
-
-    for(id = edt4; id <= edt7; id++)
-    {
-        old_proc = (WNDPROC)SetWindowLongPtrW(GetDlgItem(hDlg, id),
-                                              GWLP_WNDPROC,
-                                              (ULONG_PTR)pagesetup_margin_editproc);
-        InterlockedCompareExchangePointer((void**)&edit_wndproc, old_proc, NULL);
-    }
+#undef CALLPAINTHOOK
 }
 
 /***********************************************************************
- *           pagesetup_dlg_proc
- *
- * Message handler for PageSetupDlg
+ *           PRINTDLG_PageDlgProcA
+ * Message handler for PageSetupDlgA
  */
-static INT_PTR CALLBACK pagesetup_dlg_proc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK
+PRINTDLG_PageDlgProcA(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    pagesetup_data *data;
+    DEVMODEA		*dm;
+    PageSetupDataA	*pda;
     INT_PTR		res = FALSE;
     HWND 		hDrawWnd;
 
     if (uMsg == WM_INITDIALOG) { /*Init dialog*/
-        data = (pagesetup_data *)lParam;
-        data->hDlg = hDlg;
-
+        pda = (PageSetupDataA*)lParam;
+	pda->hDlg   = hDlg; /* saving handle to main window to PageSetupDataA structure */
+	memcpy(&pda->curdlg, pda->dlga, sizeof(pda->curdlg));
+	
 	hDrawWnd = GetDlgItem(hDlg, rct1); 
-        TRACE("set property to %p\n", data);
-        SetPropW(hDlg, pagesetupdlg_prop, data);
-        SetPropW(hDrawWnd, pagesetupdlg_prop, data);
-        GetWindowRect(hDrawWnd, &data->rtDrawRect); /* Calculating rect in client coordinates where paper draws */
-        ScreenToClient(hDlg, (LPPOINT)&data->rtDrawRect);
-        ScreenToClient(hDlg, (LPPOINT)(&data->rtDrawRect.right));
+        TRACE("set property to %p", pda);
+	SetPropA(hDlg, "__WINE_PAGESETUPDLGDATA", pda);
+	SetPropA(hDrawWnd, "__WINE_PAGESETUPDLGDATA", pda);
+	GetWindowRect(hDrawWnd, &pda->rtDrawRect); /* Calculating rect in client coordinates where paper draws */
+	ScreenToClient(hDlg, (LPPOINT)&pda->rtDrawRect);
+	ScreenToClient(hDlg, (LPPOINT)(&pda->rtDrawRect.right));
         lpfnStaticWndProc = (WNDPROC)SetWindowLongPtrW(
             hDrawWnd,
             GWLP_WNDPROC,
             (ULONG_PTR)PRINTDLG_PagePaintProc);
 	
-	/* FIXME: Paint hook. Must it be at begin of initialization or at end? */
+	/* FIXME: Paint hook. Must it be at begin of initializtion or at end? */
 	res = TRUE;
-        if (pagesetup_get_flags(data) & PSD_ENABLEPAGESETUPHOOK)
-        {
-            if (!pagesetup_get_hook(data, page_setup_hook)(hDlg, uMsg, wParam,
-                                                           pagesetup_get_dlg_struct(data)))
+	if (pda->dlga->Flags & PSD_ENABLEPAGESETUPHOOK) {
+            if (!pda->dlga->lpfnPageSetupHook(hDlg,uMsg,wParam,(LPARAM)pda->dlga))
 		FIXME("Setup page hook failed?\n");
 	}
 
 	/* if printer button disabled */
-        if (pagesetup_get_flags(data) & PSD_DISABLEPRINTER)
+	if (pda->dlga->Flags & PSD_DISABLEPRINTER)
             EnableWindow(GetDlgItem(hDlg, psh3), FALSE);
 	/* if margin edit boxes disabled */
-        if (pagesetup_get_flags(data) & PSD_DISABLEMARGINS)
-        {
+	if (pda->dlga->Flags & PSD_DISABLEMARGINS) {
             EnableWindow(GetDlgItem(hDlg, edt4), FALSE);
             EnableWindow(GetDlgItem(hDlg, edt5), FALSE);
             EnableWindow(GetDlgItem(hDlg, edt6), FALSE);
             EnableWindow(GetDlgItem(hDlg, edt7), FALSE);
 	}
-
-        /* Set orientation radiobuttons properly */
-        pagesetup_update_orientation_buttons(hDlg, data);
+        /* Set orientation radiobutton properly */
+        dm = GlobalLock(pda->dlga->hDevMode);
+        if (dm->u.s.dmOrientation == DMORIENT_LANDSCAPE)
+            CheckRadioButton(hDlg, rad1, rad2, rad2);
+	else /* this is default if papersize is not set */
+            CheckRadioButton(hDlg, rad1, rad2, rad1);
+        GlobalUnlock(pda->dlga->hDevMode);
 
 	/* if orientation disabled */
-        if (pagesetup_get_flags(data) & PSD_DISABLEORIENTATION)
-        {
+	if (pda->dlga->Flags & PSD_DISABLEORIENTATION) {
 	    EnableWindow(GetDlgItem(hDlg,rad1),FALSE);
 	    EnableWindow(GetDlgItem(hDlg,rad2),FALSE);
 	}
-
 	/* We fill them out enabled or not */
-        if (!(pagesetup_get_flags(data) & PSD_MARGINS))
-        {
-            /* default is 1 inch */
-            LONG size = thousandths_inch_to_size(data, 1000);
-            SetRect(pagesetup_get_margin_rect(data), size, size, size, size);
-        }
-        update_margin_edits(hDlg, data, 0);
-        subclass_margin_edits(hDlg);
-        set_margin_groupbox_title(hDlg, data);
-
+	if (pda->dlga->Flags & PSD_MARGINS) {
+	    char str[100];
+	    _c_size2strA(pda,pda->dlga->rtMargin.left,str);
+	    SetDlgItemTextA(hDlg,edt4,str);
+	    _c_size2strA(pda,pda->dlga->rtMargin.top,str);
+	    SetDlgItemTextA(hDlg,edt5,str);
+	    _c_size2strA(pda,pda->dlga->rtMargin.right,str);
+	    SetDlgItemTextA(hDlg,edt6,str);
+	    _c_size2strA(pda,pda->dlga->rtMargin.bottom,str);
+	    SetDlgItemTextA(hDlg,edt7,str);
+	} else {
+	    /* default is 1 inch */
+	    DWORD size = _c_inch2size(pda->dlga,1000);
+	    char	str[20];
+	    _c_size2strA(pda,size,str);
+	    SetDlgItemTextA(hDlg,edt4,str);
+	    SetDlgItemTextA(hDlg,edt5,str);
+	    SetDlgItemTextA(hDlg,edt6,str);
+	    SetDlgItemTextA(hDlg,edt7,str);
+	    pda->curdlg.rtMargin.left   = size;
+	    pda->curdlg.rtMargin.top    = size;
+	    pda->curdlg.rtMargin.right  = size;
+	    pda->curdlg.rtMargin.bottom = size;
+	}
 	/* if paper disabled */
-        if (pagesetup_get_flags(data) & PSD_DISABLEPAPER)
-        {
+	if (pda->dlga->Flags & PSD_DISABLEPAPER) {
 	    EnableWindow(GetDlgItem(hDlg,cmb2),FALSE);
 	    EnableWindow(GetDlgItem(hDlg,cmb3),FALSE);
 	}
-
 	/* filling combos: printer, paper, source. selecting current printer (from DEVMODEA) */
-        pagesetup_init_combos(hDlg, data);
-        pagesetup_update_papersize(data);
-        pagesetup_set_defaultsource(data, DMBIN_FORMSOURCE); /* FIXME: This is the auto select bin. Is this correct? */
-
+        PRINTDLG_PS_ChangePrinterA(hDlg, pda);
+	dm = GlobalLock(pda->pdlg.hDevMode);
+	if(dm){
+	    dm->u.s.dmDefaultSource = 15; /*FIXME: Automatic select. Does it always 15 at start? */
+	    PRINTDLG_PaperSizeA(&(pda->pdlg), dm->u.s.dmPaperSize, &pda->curdlg.ptPaperSize);
+            GlobalUnlock(pda->pdlg.hDevMode);
+	    pda->curdlg.ptPaperSize.x = _c_10mm2size(pda->dlga, pda->curdlg.ptPaperSize.x);
+	    pda->curdlg.ptPaperSize.y = _c_10mm2size(pda->dlga, pda->curdlg.ptPaperSize.y);
+            if (IsDlgButtonChecked(hDlg, rad2) == BST_CHECKED) { /* Landscape orientation */
+                DWORD tmp = pda->curdlg.ptPaperSize.y;
+                pda->curdlg.ptPaperSize.y = pda->curdlg.ptPaperSize.x;
+                pda->curdlg.ptPaperSize.x = tmp;
+            }
+	} else 
+	    WARN("GlobalLock(pda->pdlg.hDevMode) fail? hDevMode=%p", pda->pdlg.hDevMode);
 	/* Drawing paper prev */
-        pagesetup_change_preview(data);
+	PRINTDLG_PS_ChangePaperPrev(pda);
 	return TRUE;
     } else {
-        data = GetPropW(hDlg, pagesetupdlg_prop);
-        if (!data)
-        {
+	pda = (PageSetupDataA*)GetPropA(hDlg,"__WINE_PAGESETUPDLGDATA");
+	if (!pda) {
 	    WARN("__WINE_PAGESETUPDLGDATA prop not set?\n");
 	    return FALSE;
 	}
-        if (pagesetup_get_flags(data) & PSD_ENABLEPAGESETUPHOOK)
-        {
-            res = pagesetup_get_hook(data, page_setup_hook)(hDlg, uMsg, wParam, lParam);
+	if (pda->dlga->Flags & PSD_ENABLEPAGESETUPHOOK) {
+	    res = pda->dlga->lpfnPageSetupHook(hDlg,uMsg,wParam,lParam);
 	    if (res) return res;
 	}
     }
     switch (uMsg) {
     case WM_COMMAND:
-        return pagesetup_wm_command(hDlg, wParam, lParam, data);
+        return PRINTDLG_PS_WMCommandA(hDlg, wParam, lParam, pda);
     }
     return FALSE;
 }
 
-static WCHAR *get_default_printer(void)
+static INT_PTR CALLBACK
+PageDlgProcW(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    WCHAR *name = NULL;
-    DWORD len = 0;
+    static const WCHAR __WINE_PAGESETUPDLGDATA[] = 
+	{ '_', '_', 'W', 'I', 'N', 'E', '_', 'P', 'A', 'G', 'E', 
+	  'S', 'E', 'T', 'U', 'P', 'D', 'L', 'G', 'D', 'A', 'T', 'A', 0 };
+    PageSetupDataW	*pda;
+    BOOL		res = FALSE;
 
-    GetDefaultPrinterW(NULL, &len);
-    if(len)
-    {
-        name = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-        GetDefaultPrinterW(name, &len);
+    if (uMsg==WM_INITDIALOG) {
+	res = TRUE;
+        pda = (PageSetupDataW*)lParam;
+	SetPropW(hDlg, __WINE_PAGESETUPDLGDATA, pda);
+	if (pda->dlga->Flags & PSD_ENABLEPAGESETUPHOOK) {
+	    res = pda->dlga->lpfnPageSetupHook(hDlg,uMsg,wParam,(LPARAM)pda->dlga);
+	    if (!res) {
+		FIXME("Setup page hook failed?\n");
+		res = TRUE;
+	    }
+	}
+
+	if (pda->dlga->Flags & PSD_ENABLEPAGEPAINTHOOK) {
+	    FIXME("PagePaintHook not yet implemented!\n");
+	}
+	if (pda->dlga->Flags & PSD_DISABLEPRINTER)
+            EnableWindow(GetDlgItem(hDlg, psh3), FALSE);
+	if (pda->dlga->Flags & PSD_DISABLEMARGINS) {
+            EnableWindow(GetDlgItem(hDlg, edt4), FALSE);
+            EnableWindow(GetDlgItem(hDlg, edt5), FALSE);
+            EnableWindow(GetDlgItem(hDlg, edt6), FALSE);
+            EnableWindow(GetDlgItem(hDlg, edt7), FALSE);
+	}
+	/* width larger as height -> landscape */
+	if (pda->dlga->ptPaperSize.x > pda->dlga->ptPaperSize.y)
+            CheckRadioButton(hDlg, rad1, rad2, rad2);
+	else /* this is default if papersize is not set */
+            CheckRadioButton(hDlg, rad1, rad2, rad1);
+	if (pda->dlga->Flags & PSD_DISABLEORIENTATION) {
+	    EnableWindow(GetDlgItem(hDlg,rad1),FALSE);
+	    EnableWindow(GetDlgItem(hDlg,rad2),FALSE);
+	}
+	/* We fill them out enabled or not */
+	if (pda->dlga->Flags & PSD_MARGINS) {
+	    WCHAR str[100];
+	    _c_size2strW(pda,pda->dlga->rtMargin.left,str);
+	    SetDlgItemTextW(hDlg,edt4,str);
+	    _c_size2strW(pda,pda->dlga->rtMargin.top,str);
+	    SetDlgItemTextW(hDlg,edt5,str);
+	    _c_size2strW(pda,pda->dlga->rtMargin.right,str);
+	    SetDlgItemTextW(hDlg,edt6,str);
+	    _c_size2strW(pda,pda->dlga->rtMargin.bottom,str);
+	    SetDlgItemTextW(hDlg,edt7,str);
+	} else {
+	    /* default is 1 inch */
+	    DWORD size = _c_inch2size((LPPAGESETUPDLGA)pda->dlga,1000);
+	    WCHAR	str[20];
+	    _c_size2strW(pda,size,str);
+	    SetDlgItemTextW(hDlg,edt4,str);
+	    SetDlgItemTextW(hDlg,edt5,str);
+	    SetDlgItemTextW(hDlg,edt6,str);
+	    SetDlgItemTextW(hDlg,edt7,str);
+	}
+	PRINTDLG_PS_ChangePrinterW(hDlg,pda);
+	if (pda->dlga->Flags & PSD_DISABLEPAPER) {
+	    EnableWindow(GetDlgItem(hDlg,cmb2),FALSE);
+	    EnableWindow(GetDlgItem(hDlg,cmb3),FALSE);
+	}
+
+	return TRUE;
+    } else {
+	pda = (PageSetupDataW*)GetPropW(hDlg, __WINE_PAGESETUPDLGDATA);
+	if (!pda) {
+	    WARN("__WINE_PAGESETUPDLGDATA prop not set?\n");
+	    return FALSE;
+	}
+	if (pda->dlga->Flags & PSD_ENABLEPAGESETUPHOOK) {
+	    res = pda->dlga->lpfnPageSetupHook(hDlg,uMsg,wParam,lParam);
+	    if (res) return res;
+	}
     }
-    return name;
-}
-
-static void pagesetup_dump_dlg_struct(pagesetup_data *data)
-{
-    if(TRACE_ON(commdlg))
-    {
-        char flagstr[1000] = "";
-	const struct pd_flags *pflag = psd_flags;
-        for( ; pflag->name; pflag++)
-        {
-            if(pagesetup_get_flags(data) & pflag->flag)
-            {
-                strcat(flagstr, pflag->name);
-                strcat(flagstr, "|");
-            }
-        }
-        TRACE("%s: (%p): hwndOwner = %p, hDevMode = %p, hDevNames = %p\n"
-              "hinst %p, flags %08x (%s)\n",
-              data->unicode ? "unicode" : "ansi",
-              data->u.dlgw, data->u.dlgw->hwndOwner, data->u.dlgw->hDevMode,
-              data->u.dlgw->hDevNames, data->u.dlgw->hInstance,
-              pagesetup_get_flags(data), flagstr);
+    switch (uMsg) {
+    case WM_COMMAND:
+        return PRINTDLG_PS_WMCommandW(hDlg, wParam, lParam, pda);
     }
-}
-
-static void *pagesetup_get_template(pagesetup_data *data)
-{
-    HRSRC res;
-    HGLOBAL tmpl_handle;
-
-    if(pagesetup_get_flags(data) & PSD_ENABLEPAGESETUPTEMPLATEHANDLE)
-    {
-	tmpl_handle = data->u.dlgw->hPageSetupTemplate;
-    }
-    else if(pagesetup_get_flags(data) & PSD_ENABLEPAGESETUPTEMPLATE)
-    {
-        if(data->unicode)
-            res = FindResourceW(data->u.dlgw->hInstance,
-                                data->u.dlgw->lpPageSetupTemplateName, MAKEINTRESOURCEW(RT_DIALOG));
-        else
-            res = FindResourceA(data->u.dlga->hInstance,
-                                data->u.dlga->lpPageSetupTemplateName, MAKEINTRESOURCEA(RT_DIALOG));
-        tmpl_handle = LoadResource(data->u.dlgw->hInstance, res);
-    }
-    else
-    {
-        res = FindResourceW(COMDLG32_hInstance, MAKEINTRESOURCEW(PAGESETUPDLGORD),
-                            MAKEINTRESOURCEW(RT_DIALOG));
-        tmpl_handle = LoadResource(COMDLG32_hInstance, res);
-    }
-    return LockResource(tmpl_handle);
-}
-
-static BOOL pagesetup_common(pagesetup_data *data)
-{
-    BOOL ret;
-    void *tmpl;
-
-    if(!pagesetup_get_dlg_struct(data))
-    {
-        COMDLG32_SetCommDlgExtendedError(CDERR_INITIALIZATION);
-        return FALSE;
-    }
-
-    pagesetup_dump_dlg_struct(data);
-
-    if(data->u.dlgw->lStructSize != sizeof(PAGESETUPDLGW))
-    {
-        COMDLG32_SetCommDlgExtendedError(CDERR_STRUCTSIZE);
-        return FALSE;
-    }
-
-    if ((pagesetup_get_flags(data) & PSD_ENABLEPAGEPAINTHOOK) &&
-        (pagesetup_get_hook(data, page_paint_hook) == NULL))
-    {
-        COMDLG32_SetCommDlgExtendedError(CDERR_NOHOOK);
-        return FALSE;
-    }
-
-    if(!(pagesetup_get_flags(data) & (PSD_INTHOUSANDTHSOFINCHES | PSD_INHUNDREDTHSOFMILLIMETERS)))
-        data->u.dlgw->Flags |= is_default_metric() ?
-            PSD_INHUNDREDTHSOFMILLIMETERS : PSD_INTHOUSANDTHSOFINCHES;
-
-    if (!data->u.dlgw->hDevMode || !data->u.dlgw->hDevNames)
-    {
-        WCHAR *def = get_default_printer();
-        if(!def)
-        {
-            if (!(pagesetup_get_flags(data) & PSD_NOWARNING))
-            {
-                WCHAR errstr[256];
-                LoadStringW(COMDLG32_hInstance, PD32_NO_DEFAULT_PRINTER, errstr, 255);
-                MessageBoxW(data->u.dlgw->hwndOwner, errstr, 0, MB_OK | MB_ICONERROR);
-            }
-            COMDLG32_SetCommDlgExtendedError(PDERR_NODEFAULTPRN);
-            return FALSE;
-        }
-        pagesetup_change_printer(def, data);
-        HeapFree(GetProcessHeap(), 0, def);
-    }
-
-    if (pagesetup_get_flags(data) & PSD_RETURNDEFAULT)
-    {
-        pagesetup_update_papersize(data);
-        return TRUE;
-    }
-
-    tmpl = pagesetup_get_template(data);
-
-    ret = DialogBoxIndirectParamW(data->u.dlgw->hInstance, tmpl,
-                                  data->u.dlgw->hwndOwner,
-                                  pagesetup_dlg_proc, (LPARAM)data) > 0;
-    return ret;
+    return FALSE;
 }
 
 /***********************************************************************
  *            PageSetupDlgA  (COMDLG32.@)
  *
- *  Displays the PAGE SETUP dialog box, which enables the user to specify
+ *  Displays the the PAGE SETUP dialog box, which enables the user to specify
  *  specific properties of a printed page such as
  *  size, source, orientation and the width of the page margins.
  *
@@ -3685,61 +3319,210 @@ static BOOL pagesetup_common(pagesetup_data *data)
  * NOTES
  *    The values of hDevMode and hDevNames are filled on output and can be
  *    changed in PAGESETUPDLG when they are passed in PageSetupDlg.
- *
+ * 
  */
-BOOL WINAPI PageSetupDlgA(LPPAGESETUPDLGA setupdlg)
-{
-    pagesetup_data data;
 
-    data.unicode = FALSE;
-    data.u.dlga  = setupdlg;
+BOOL WINAPI PageSetupDlgA(LPPAGESETUPDLGA setupdlg) {
+    HGLOBAL		hDlgTmpl;
+    LPVOID		ptr;
+    BOOL		bRet;
+    PageSetupDataA	*pda;
+    PRINTDLGA		pdlg;
 
-    return pagesetup_common(&data);
+    /* TRACE */
+    if(TRACE_ON(commdlg)) {
+        char flagstr[1000] = "";
+	struct pd_flags *pflag = psd_flags;
+	for( ; pflag->name; pflag++) {
+	    if(setupdlg->Flags & pflag->flag) {
+	        strcat(flagstr, pflag->name);
+	        strcat(flagstr, "|");
+	    }
+	}
+	TRACE("(%p): hwndOwner = %p, hDevMode = %p, hDevNames = %p\n"
+	      "hinst %p, flags %08lx (%s)\n",
+	      setupdlg, setupdlg->hwndOwner, setupdlg->hDevMode,
+	      setupdlg->hDevNames,
+	      setupdlg->hInstance, setupdlg->Flags, flagstr);
+    }
+    /* Checking setupdlg structure */
+    if (setupdlg == NULL) {
+	   COMDLG32_SetCommDlgExtendedError(CDERR_INITIALIZATION);
+	   return FALSE;
+    }
+    if(setupdlg->lStructSize != sizeof(PAGESETUPDLGA)) {
+	   COMDLG32_SetCommDlgExtendedError(CDERR_STRUCTSIZE);
+	   return FALSE;
+    }
+    if ((setupdlg->Flags & PSD_ENABLEPAGEPAINTHOOK) &&
+        (setupdlg->lpfnPagePaintHook == NULL)) {
+            COMDLG32_SetCommDlgExtendedError(CDERR_NOHOOK);
+            return FALSE;
+        }
+
+    /* Initialize default printer struct. If no printer device info is specified
+       retrieve the default printer data. */
+    memset(&pdlg,0,sizeof(pdlg));
+    pdlg.lStructSize	= sizeof(pdlg);
+    if (setupdlg->hDevMode && setupdlg->hDevNames) {
+        pdlg.hDevMode = setupdlg->hDevMode;
+        pdlg.hDevNames = setupdlg->hDevNames;
+    } else {
+        pdlg.Flags = PD_RETURNDEFAULT;
+        bRet = PrintDlgA(&pdlg);
+        if (!bRet){
+            if (!(setupdlg->Flags & PSD_NOWARNING)) {
+                char errstr[256];
+                LoadStringA(COMDLG32_hInstance, PD32_NO_DEFAULT_PRINTER, errstr, 255);
+                MessageBoxA(setupdlg->hwndOwner, errstr, 0, MB_OK | MB_ICONERROR);
+            }
+            return FALSE;
+        }
+    }
+
+    /* short cut exit, just return default values */
+    if (setupdlg->Flags & PSD_RETURNDEFAULT) {
+	DEVMODEA *dm;
+	
+	dm = GlobalLock(pdlg.hDevMode);
+    	PRINTDLG_PaperSizeA(&pdlg, dm->u.s.dmPaperSize, &setupdlg->ptPaperSize);
+	GlobalUnlock(pdlg.hDevMode);
+	setupdlg->ptPaperSize.x=_c_10mm2size(setupdlg,setupdlg->ptPaperSize.x);
+	setupdlg->ptPaperSize.y=_c_10mm2size(setupdlg,setupdlg->ptPaperSize.y);
+	return TRUE;
+    }
+
+    /* get dialog template */
+    hDlgTmpl = PRINTDLG_GetPGSTemplateA(setupdlg);
+    if (!hDlgTmpl) {
+	COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
+	return FALSE;
+    }
+    ptr = LockResource( hDlgTmpl );
+    if (!ptr) {
+	COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
+	return FALSE;
+    }
+    
+    pda = HeapAlloc(GetProcessHeap(),0,sizeof(*pda));
+    pda->dlga = setupdlg;
+    memcpy(&pda->pdlg,&pdlg,sizeof(pdlg));
+
+    bRet = (0<DialogBoxIndirectParamA(
+		setupdlg->hInstance,
+		ptr,
+		setupdlg->hwndOwner,
+		PRINTDLG_PageDlgProcA,
+		(LPARAM)pda)
+    );
+
+    HeapFree(GetProcessHeap(),0,pda);
+    return bRet;
 }
-
 /***********************************************************************
  *            PageSetupDlgW  (COMDLG32.@)
  *
  * See PageSetupDlgA.
  */
-BOOL WINAPI PageSetupDlgW(LPPAGESETUPDLGW setupdlg)
-{
-    pagesetup_data data;
+BOOL WINAPI PageSetupDlgW(LPPAGESETUPDLGW setupdlg) {
+    HGLOBAL		hDlgTmpl;
+    LPVOID		ptr;
+    BOOL		bRet;
+    PageSetupDataW	*pdw;
+    PRINTDLGW		pdlg;
 
-    data.unicode = TRUE;
-    data.u.dlgw  = setupdlg;
+    FIXME("Unicode implementation is not done yet\n");
+    if(TRACE_ON(commdlg)) {
+        char flagstr[1000] = "";
+	struct pd_flags *pflag = psd_flags;
+	for( ; pflag->name; pflag++) {
+	    if(setupdlg->Flags & pflag->flag) {
+	        strcat(flagstr, pflag->name);
+	        strcat(flagstr, "|");
+	    }
+	}
+	TRACE("(%p): hwndOwner = %p, hDevMode = %p, hDevNames = %p\n"
+	      "hinst %p, flags %08lx (%s)\n",
+	      setupdlg, setupdlg->hwndOwner, setupdlg->hDevMode,
+	      setupdlg->hDevNames,
+	      setupdlg->hInstance, setupdlg->Flags, flagstr);
+    }
 
-    return pagesetup_common(&data);
+    /* Initialize default printer struct. If no printer device info is specified
+       retrieve the default printer data. */
+    memset(&pdlg,0,sizeof(pdlg));
+    pdlg.lStructSize	= sizeof(pdlg);
+    if (setupdlg->hDevMode && setupdlg->hDevNames) {
+        pdlg.hDevMode = setupdlg->hDevMode;
+        pdlg.hDevNames = setupdlg->hDevNames;
+    } else {
+        pdlg.Flags = PD_RETURNDEFAULT;
+        bRet = PrintDlgW(&pdlg);
+        if (!bRet){
+            if (!(setupdlg->Flags & PSD_NOWARNING)) {
+                WCHAR errstr[256];
+                LoadStringW(COMDLG32_hInstance, PD32_NO_DEFAULT_PRINTER, errstr, 255);
+                MessageBoxW(setupdlg->hwndOwner, errstr, 0, MB_OK | MB_ICONERROR);
+            }
+            return FALSE;
+        }
+    }
+
+    /* short cut exit, just return default values */
+    if (setupdlg->Flags & PSD_RETURNDEFAULT) {
+        static const WCHAR a4[] = {'A','4',0};
+	setupdlg->hDevMode	= pdlg.hDevMode;
+	setupdlg->hDevNames	= pdlg.hDevNames;
+	/* FIXME: Just return "A4" for now. */
+    	PRINTDLG_PaperSizeW(&pdlg,a4,&setupdlg->ptPaperSize);
+	setupdlg->ptPaperSize.x=_c_10mm2size((LPPAGESETUPDLGA)setupdlg,setupdlg->ptPaperSize.x);
+	setupdlg->ptPaperSize.y=_c_10mm2size((LPPAGESETUPDLGA)setupdlg,setupdlg->ptPaperSize.y);
+	return TRUE;
+    }
+    hDlgTmpl = PRINTDLG_GetPGSTemplateW(setupdlg);
+    if (!hDlgTmpl) {
+	COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
+	return FALSE;
+    }
+    ptr = LockResource( hDlgTmpl );
+    if (!ptr) {
+	COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
+	return FALSE;
+    }
+    pdw = HeapAlloc(GetProcessHeap(),0,sizeof(*pdw));
+    pdw->dlga = setupdlg;
+    memcpy(&pdw->pdlg,&pdlg,sizeof(pdlg));
+
+    bRet = (0<DialogBoxIndirectParamW(
+		setupdlg->hInstance,
+		ptr,
+		setupdlg->hwndOwner,
+		PageDlgProcW,
+		(LPARAM)pdw)
+    );
+    return bRet;
 }
 
 /***********************************************************************
- * PrintDlgExA (COMDLG32.@)
+ *	PrintDlgExA (COMDLG32.@)
  *
  * See PrintDlgExW.
  *
- * BUGS
- *   Only a Stub
- *
+ * FIXME
+ *   Stub
  */
-HRESULT WINAPI PrintDlgExA(LPPRINTDLGEXA lppd)
+HRESULT WINAPI PrintDlgExA(LPPRINTDLGEXA lpPrintDlgExA)
 {
-
-    FIXME("(%p) stub\n", lppd);
-    if ((lppd == NULL) || (lppd->lStructSize != sizeof(PRINTDLGEXA))) {
-        return E_INVALIDARG;
-    }
-
-    if (!IsWindow(lppd->hwndOwner)) {
-        return E_HANDLE;
-    }
-
-    return E_NOTIMPL;
+	FIXME("stub\n");
+	return E_NOTIMPL;
 }
 
 /***********************************************************************
- * PrintDlgExW (COMDLG32.@)
+ *	PrintDlgExW (COMDLG32.@)
  *
- * Display the property sheet style PRINT dialog box
+ * Display the the PRINT dialog box, which enables the user to specify
+ * specific properties of the print job.  The property sheet can also have
+ * additional application-specific and driver-specific property pages.
  *  
  * PARAMS
  *  lppd  [IO] ptr to PRINTDLGEX struct
@@ -3753,100 +3536,11 @@ HRESULT WINAPI PrintDlgExA(LPPRINTDLGEXA lppd)
  *    E_HANDLE      Invalid handle.
  *    E_FAIL        Unspecified error.
  *  
- * NOTES
- * This Dialog enables the user to specify specific properties of the print job.
- * The property sheet can also have additional application-specific and
- * driver-specific property pages.
- *
- * BUGS
- *   Not fully implemented
- *
+ * FIXME
+ *   Stub
  */
-HRESULT WINAPI PrintDlgExW(LPPRINTDLGEXW lppd)
+HRESULT WINAPI PrintDlgExW(LPPRINTDLGEXW lpPrintDlgExW)
 {
-    DWORD     ret = E_FAIL;
-    LPVOID    ptr;
-
-    FIXME("(%p) not fully implemented\n", lppd);
-
-    if ((lppd == NULL) || (lppd->lStructSize != sizeof(PRINTDLGEXW))) {
-        return E_INVALIDARG;
-    }
-
-    if (!IsWindow(lppd->hwndOwner)) {
-        return E_HANDLE;
-    }
-
-    if (lppd->Flags & PD_RETURNDEFAULT) {
-        PRINTER_INFO_2W *pbuf;
-        DRIVER_INFO_2W  *dbuf;
-        HANDLE hprn;
-        DWORD needed = 1024;
-        BOOL bRet;
-
-        if (lppd->hDevMode || lppd->hDevNames) {
-            WARN("hDevMode or hDevNames non-zero for PD_RETURNDEFAULT\n");
-            COMDLG32_SetCommDlgExtendedError(PDERR_RETDEFFAILURE);
-            return E_INVALIDARG;
-        }
-        if (!PRINTDLG_OpenDefaultPrinter(&hprn)) {
-            WARN("Can't find default printer\n");
-            COMDLG32_SetCommDlgExtendedError(PDERR_NODEFAULTPRN);
-            return E_FAIL;
-        }
-
-        pbuf = HeapAlloc(GetProcessHeap(), 0, needed);
-        bRet = GetPrinterW(hprn, 2, (LPBYTE)pbuf, needed, &needed);
-        if (!bRet && (GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
-            HeapFree(GetProcessHeap(), 0, pbuf);
-            pbuf = HeapAlloc(GetProcessHeap(), 0, needed);
-            bRet = GetPrinterW(hprn, 2, (LPBYTE)pbuf, needed, &needed);
-        }
-        if (!bRet) {
-            HeapFree(GetProcessHeap(), 0, pbuf);
-            ClosePrinter(hprn);
-            return E_FAIL;
-        }
-
-        needed = 1024;
-        dbuf = HeapAlloc(GetProcessHeap(), 0, needed);
-        bRet = GetPrinterDriverW(hprn, NULL, 3, (LPBYTE)dbuf, needed, &needed);
-        if (!bRet && (GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
-            HeapFree(GetProcessHeap(), 0, dbuf);
-            dbuf = HeapAlloc(GetProcessHeap(), 0, needed);
-            bRet = GetPrinterDriverW(hprn, NULL, 3, (LPBYTE)dbuf, needed, &needed);
-        }
-        if (!bRet) {
-            ERR("GetPrinterDriverW failed, last error %d, fix your config for printer %s!\n",
-                GetLastError(), debugstr_w(pbuf->pPrinterName));
-            HeapFree(GetProcessHeap(), 0, dbuf);
-            HeapFree(GetProcessHeap(), 0, pbuf);
-            COMDLG32_SetCommDlgExtendedError(PDERR_RETDEFFAILURE);
-            ClosePrinter(hprn);
-            return E_FAIL;
-        }
-        ClosePrinter(hprn);
-
-        PRINTDLG_CreateDevNamesW(&(lppd->hDevNames),
-                      dbuf->pDriverPath,
-                      pbuf->pPrinterName,
-                      pbuf->pPortName);
-        lppd->hDevMode = GlobalAlloc(GMEM_MOVEABLE, pbuf->pDevMode->dmSize +
-                         pbuf->pDevMode->dmDriverExtra);
-        if (lppd->hDevMode) {
-            ptr = GlobalLock(lppd->hDevMode);
-            if (ptr) {
-                memcpy(ptr, pbuf->pDevMode, pbuf->pDevMode->dmSize +
-                    pbuf->pDevMode->dmDriverExtra);
-                GlobalUnlock(lppd->hDevMode);
-                ret = S_OK;
-            }
-        }
-        HeapFree(GetProcessHeap(), 0, pbuf);
-        HeapFree(GetProcessHeap(), 0, dbuf);
-
-        return ret;
-    }
-
-    return E_NOTIMPL;
+	FIXME("stub\n");
+	return E_NOTIMPL;
 }

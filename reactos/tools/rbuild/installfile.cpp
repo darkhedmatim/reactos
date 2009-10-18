@@ -22,47 +22,38 @@
 
 using std::string;
 
-InstallFile::~InstallFile()
+InstallFile::InstallFile ( const Project& project_,
+	                       const XMLElement& installfileNode,
+	                       const string& path )
+	: project ( project_ ),
+	  node ( installfileNode )
 {
-	delete source;
-	delete target;
+	const XMLAttribute* att = node.GetAttribute ( "base", false );
+	if ( att != NULL )
+		base = att->value;
+	else
+		base = "";
+
+	att = node.GetAttribute ( "newname", false );
+	if ( att != NULL )
+		newname = att->value;
+	else
+		newname = node.value;
+	name = node.value;
+	this->path = path;
 }
 
-InstallFile::InstallFile ( const Project& project,
-                           const XMLElement& installfileNode,
-                           const string& path )
-	: XmlNode(project, installfileNode )
+InstallFile::~InstallFile ()
 {
-	const XMLAttribute* base = node.GetAttribute ( "installbase", false );
-	const XMLAttribute* newname = node.GetAttribute ( "newname", false );
+}
 
-	DirectoryLocation source_directory = SourceDirectory;
-	const XMLAttribute* att = node.GetAttribute ( "root", false );
-	if ( att != NULL)
-	{
-		if ( att->value == "intermediate" )
-			source_directory = IntermediateDirectory;
-		else if ( att->value == "output" )
-			source_directory = OutputDirectory;
-		else
-		{
-			throw InvalidAttributeValueException (
-				node.location,
-				"root",
-				att->value );
-		}
-	}
+string
+InstallFile::GetPath () const
+{
+	return path + sSep + name;
+}
 
-	source = new FileLocation ( source_directory,
-	                            path,
-	                            node.value,
-	                            &node );
-	target = new FileLocation ( InstallDirectory,
-	                            base && base->value != "."
-	                                ? base->value
-	                                : "",
-	                            newname
-	                                ? newname->value
-	                                : node.value,
-	                            &node );
+void
+InstallFile::ProcessXML()
+{
 }

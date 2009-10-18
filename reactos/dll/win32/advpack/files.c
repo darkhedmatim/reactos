@@ -29,7 +29,6 @@
 #include "winternl.h"
 #include "setupapi.h"
 #include "advpub.h"
-#include "fdi.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
 #include "advpack_private.h"
@@ -60,11 +59,10 @@ HRESULT WINAPI AddDelBackupEntryA(LPCSTR lpcszFileList, LPCSTR lpcszBackupDir,
                                   LPCSTR lpcszBaseName, DWORD dwFlags)
 {
     UNICODE_STRING backupdir, basename;
-    LPWSTR filelist;
-    LPCWSTR backup;
+    LPWSTR filelist, backup;
     HRESULT res;
 
-    TRACE("(%s, %s, %s, %d)\n", debugstr_a(lpcszFileList),
+    TRACE("(%s, %s, %s, %ld)\n", debugstr_a(lpcszFileList),
           debugstr_a(lpcszBackupDir), debugstr_a(lpcszBaseName), dwFlags);
 
     if (lpcszFileList)
@@ -128,7 +126,7 @@ HRESULT WINAPI AddDelBackupEntryW(LPCWSTR lpcszFileList, LPCWSTR lpcszBackupDir,
     static const WCHAR ini[] = {'.','i','n','i',0};
     static const WCHAR backup[] = {'b','a','c','k','u','p',0};
 
-    TRACE("(%s, %s, %s, %d)\n", debugstr_w(lpcszFileList),
+    TRACE("(%s, %s, %s, %ld)\n", debugstr_w(lpcszFileList),
           debugstr_w(lpcszBackupDir), debugstr_w(lpcszBaseName), dwFlags);
 
     if (!lpcszFileList || !*lpcszFileList)
@@ -166,14 +164,14 @@ HRESULT WINAPI AddDelBackupEntryW(LPCWSTR lpcszFileList, LPCWSTR lpcszBackupDir,
 /* FIXME: this is only for the local case, X:\ */
 #define ROOT_LENGTH 3
 
-static UINT CALLBACK pQuietQueueCallback(PVOID Context, UINT Notification,
-                                         UINT_PTR Param1, UINT_PTR Param2)
+UINT CALLBACK pQuietQueueCallback(PVOID Context, UINT Notification,
+                                  UINT_PTR Param1, UINT_PTR Param2)
 {
     return 1;
 }
 
-static UINT CALLBACK pQueueCallback(PVOID Context, UINT Notification,
-                                    UINT_PTR Param1, UINT_PTR Param2)
+UINT CALLBACK pQueueCallback(PVOID Context, UINT Notification,
+                             UINT_PTR Param1, UINT_PTR Param2)
 {
     /* only be verbose for error notifications */
     if (!Notification ||
@@ -201,7 +199,7 @@ HRESULT WINAPI AdvInstallFileA(HWND hwnd, LPCSTR lpszSourceDir, LPCSTR lpszSourc
     UNICODE_STRING destdir, destfile;
     HRESULT res;
 
-    TRACE("(%p, %s, %s, %s, %s, %d, %d)\n", hwnd, debugstr_a(lpszSourceDir),
+    TRACE("(%p, %s, %s, %s, %s, %ld, %ld)\n", hwnd, debugstr_a(lpszSourceDir),
           debugstr_a(lpszSourceFile), debugstr_a(lpszDestDir),
           debugstr_a(lpszDestFile), dwFlags, dwReserved);
 
@@ -258,7 +256,7 @@ HRESULT WINAPI AdvInstallFileW(HWND hwnd, LPCWSTR lpszSourceDir, LPCWSTR lpszSou
     HSPFILEQ fileQueue;
     PVOID pContext;
 
-    TRACE("(%p, %s, %s, %s, %s, %d, %d)\n", hwnd, debugstr_w(lpszSourceDir),
+    TRACE("(%p, %s, %s, %s, %s, %ld, %ld)\n", hwnd, debugstr_w(lpszSourceDir),
           debugstr_w(lpszSourceFile), debugstr_w(lpszDestDir),
           debugstr_w(lpszDestFile), dwFlags, dwReserved);
 
@@ -332,6 +330,7 @@ static HRESULT DELNODE_recurse_dirtree(LPWSTR fname, DWORD flags)
     DWORD fattrs = GetFileAttributesW(fname);
     HRESULT ret = E_FAIL;
 
+    static const WCHAR backslash[] = {'\\',0};
     static const WCHAR asterisk[] = {'*',0};
     static const WCHAR dot[] = {'.',0};
     static const WCHAR dotdot[] = {'.','.',0};
@@ -344,7 +343,11 @@ static HRESULT DELNODE_recurse_dirtree(LPWSTR fname, DWORD flags)
         int fname_len = lstrlenW(fname);
 
         /* Generate a path with wildcard suitable for iterating */
-        if (fname_len && fname[fname_len-1] != '\\') fname[fname_len++] = '\\';
+        if (lstrcmpW(CharPrevW(fname, fname + fname_len), backslash))
+        {
+            lstrcpyW(fname + fname_len, backslash);
+            ++fname_len;
+        }
         lstrcpyW(fname + fname_len, asterisk);
 
         if ((hFindFile = FindFirstFileW(fname, &w32fd)) != INVALID_HANDLE_VALUE)
@@ -400,7 +403,7 @@ HRESULT WINAPI DelNodeA(LPCSTR pszFileOrDirName, DWORD dwFlags)
     UNICODE_STRING fileordirname;
     HRESULT res;
 
-    TRACE("(%s, %d)\n", debugstr_a(pszFileOrDirName), dwFlags);
+    TRACE("(%s, %ld)\n", debugstr_a(pszFileOrDirName), dwFlags);
 
     RtlCreateUnicodeStringFromAsciiz(&fileordirname, pszFileOrDirName);
 
@@ -434,7 +437,7 @@ HRESULT WINAPI DelNodeW(LPCWSTR pszFileOrDirName, DWORD dwFlags)
     WCHAR fname[MAX_PATH];
     HRESULT ret = E_FAIL;
     
-    TRACE("(%s, %d)\n", debugstr_w(pszFileOrDirName), dwFlags);
+    TRACE("(%s, %ld)\n", debugstr_w(pszFileOrDirName), dwFlags);
     
     if (dwFlags)
         FIXME("Flags ignored!\n");
@@ -514,31 +517,30 @@ HRESULT WINAPI DelNodeRunDLL32W(HWND hWnd, HINSTANCE hInst, LPWSTR cmdline, INT 
     return res;
 }
 
-/* The following definitions were copied from dlls/cabinet/cabinet.h */
+/* The following defintions were copied from dlls/cabinet/cabinet.h */
 
-/* SESSION Operation */
+/* EXTRACTdest flags */
 #define EXTRACT_FILLFILELIST  0x00000001
 #define EXTRACT_EXTRACTFILES  0x00000002
 
-struct FILELIST{
-    LPSTR FileName;
-    struct FILELIST *next;
-    BOOL DoExtract;
-};
+struct ExtractFileList {
+        LPSTR  filename;
+        struct ExtractFileList *next;
+        BOOL   unknown;  /* always 1L */
+} ;
 
+/* the first parameter of the function Extract */
 typedef struct {
-    INT FileSize;
-    ERF Error;
-    struct FILELIST *FileList;
-    INT FileCount;
-    INT Operation;
-    CHAR Destination[MAX_PATH];
-    CHAR CurrentFile[MAX_PATH];
-    CHAR Reserved[MAX_PATH];
-    struct FILELIST *FilterList;
-} SESSION;
+        long  result1;          /* 0x000 */
+        long  unknown1[3];      /* 0x004 */
+        struct ExtractFileList *filelist; /* 0x010 */
+        long  filecount;        /* 0x014 */
+        DWORD flags;            /* 0x018 */
+        char  directory[0x104]; /* 0x01c */
+        char  lastfile[0x20c];  /* 0x120 */
+} EXTRACTdest;
 
-static HRESULT (WINAPI *pExtract)(SESSION*, LPCSTR);
+static HRESULT (WINAPI *pExtract)(EXTRACTdest*, LPCSTR);
 
 /* removes legal characters before and after file list, and
  * converts the file list to a NULL-separated list
@@ -564,14 +566,13 @@ static LPSTR convert_file_list(LPCSTR FileList, DWORD *dwNumFiles)
     dwLen = last - first + 3; /* room for double-null termination */
     szConvertedList = HeapAlloc(GetProcessHeap(), 0, dwLen);
     lstrcpynA(szConvertedList, first, dwLen - 1);
+
     szConvertedList[dwLen - 1] = '\0';
+    szConvertedList[dwLen] = '\0';
 
     /* empty list */
     if (!lstrlenA(szConvertedList))
-    {
-        HeapFree(GetProcessHeap(), 0, szConvertedList);
         return NULL;
-    }
         
     *dwNumFiles = 1;
 
@@ -591,14 +592,14 @@ static LPSTR convert_file_list(LPCSTR FileList, DWORD *dwNumFiles)
     return szConvertedList;
 }
 
-static void free_file_node(struct FILELIST *pNode)
+static void free_file_node(struct ExtractFileList *pNode)
 {
-    HeapFree(GetProcessHeap(), 0, pNode->FileName);
+    HeapFree(GetProcessHeap(), 0, pNode->filename);
     HeapFree(GetProcessHeap(), 0, pNode);
 }
 
 /* determines whether szFile is in the NULL-separated szFileList */
-static BOOL file_in_list(LPCSTR szFile, LPCSTR szFileList)
+static BOOL file_in_list(LPSTR szFile, LPSTR szFileList)
 {
     DWORD dwLen = lstrlenA(szFile);
     DWORD dwTestLen;
@@ -619,32 +620,46 @@ static BOOL file_in_list(LPCSTR szFile, LPCSTR szFileList)
     return FALSE;
 }
 
-
-/* returns the number of files that are in both the linked list and szFileList */
-static DWORD fill_file_list(SESSION *session, LPCSTR szCabName, LPCSTR szFileList)
+/* removes nodes from the linked list that aren't specified in szFileList
+ * returns the number of files that are in both the linked list and szFileList
+ */
+static DWORD fill_file_list(EXTRACTdest *extractDest, LPCSTR szCabName, LPSTR szFileList)
 {
     DWORD dwNumFound = 0;
-    struct FILELIST *pNode;
+    struct ExtractFileList *pNode;
+    struct ExtractFileList *prev = NULL;
 
-    session->Operation |= EXTRACT_FILLFILELIST;
-    if (pExtract(session, szCabName) != S_OK)
+    extractDest->flags |= EXTRACT_FILLFILELIST;
+    if (pExtract(extractDest, szCabName))
     {
-        session->Operation &= ~EXTRACT_FILLFILELIST;
+        extractDest->flags &= ~EXTRACT_FILLFILELIST;
         return -1;
     }
 
-    pNode = session->FileList;
+    pNode = extractDest->filelist;
     while (pNode)
     {
-        if (!file_in_list(pNode->FileName, szFileList))
-            pNode->DoExtract = FALSE;
-        else
+        if (file_in_list(pNode->filename, szFileList))
+        {
+            prev = pNode;
+            pNode = pNode->next;
             dwNumFound++;
-
-        pNode = pNode->next;
+        }
+        else if (prev)
+        {
+            prev->next = pNode->next;
+            free_file_node(pNode);
+            pNode = prev->next;
+        }
+        else
+        {
+            extractDest->filelist = pNode->next;
+            free_file_node(pNode);
+            pNode = extractDest->filelist;
+        }
     }
 
-    session->Operation &= ~EXTRACT_FILLFILELIST;
+    extractDest->flags &= ~EXTRACT_FILLFILELIST;
     return dwNumFound;
 }
 
@@ -676,14 +691,14 @@ static DWORD fill_file_list(SESSION *session, LPCSTR szCabName, LPCSTR szFileLis
 HRESULT WINAPI ExtractFilesA(LPCSTR CabName, LPCSTR ExpandDir, DWORD Flags,
                              LPCSTR FileList, LPVOID LReserved, DWORD Reserved)
 {   
-    SESSION session;
+    EXTRACTdest extractDest;
     HMODULE hCabinet;
     HRESULT res = S_OK;
     DWORD dwFileCount = 0;
     DWORD dwFilesFound = 0;
     LPSTR szConvertedList = NULL;
 
-    TRACE("(%s, %s, %d, %s, %p, %d)\n", debugstr_a(CabName), debugstr_a(ExpandDir),
+    TRACE("(%s, %s, %ld, %s, %p, %ld)\n", debugstr_a(CabName), debugstr_a(ExpandDir),
           Flags, debugstr_a(FileList), LReserved, Reserved);
 
     if (!CabName || !ExpandDir)
@@ -703,19 +718,19 @@ HRESULT WINAPI ExtractFilesA(LPCSTR CabName, LPCSTR ExpandDir, DWORD Flags,
         goto done;
     }
 
-    ZeroMemory(&session, sizeof(SESSION));
-    lstrcpyA(session.Destination, ExpandDir);
+    ZeroMemory(&extractDest, sizeof(EXTRACTdest));
+    lstrcpyA(extractDest.directory, ExpandDir);
 
     if (FileList)
     {
         szConvertedList = convert_file_list(FileList, &dwFileCount);
-        if (!szConvertedList)
+        if (!szConvertedList || dwFileCount == -1)
         {
             res = E_FAIL;
             goto done;
         }
 
-        dwFilesFound = fill_file_list(&session, CabName, szConvertedList);
+        dwFilesFound = fill_file_list(&extractDest, CabName, szConvertedList);
         if (dwFilesFound != dwFileCount)
         {
             res = E_FAIL;
@@ -723,67 +738,16 @@ HRESULT WINAPI ExtractFilesA(LPCSTR CabName, LPCSTR ExpandDir, DWORD Flags,
         }
     }
     else
-        session.Operation |= EXTRACT_FILLFILELIST;
+        extractDest.flags |= EXTRACT_FILLFILELIST;
 
-    session.Operation |= EXTRACT_EXTRACTFILES;
-    res = pExtract(&session, CabName);
-
-    if (session.FileList)
-    {
-        struct FILELIST *curr = session.FileList;
-        struct FILELIST *next;
-
-        while (curr)
-        {
-            next = curr->next;
-            free_file_node(curr);
-            curr = next;
-        }
-    }
+    extractDest.flags |= EXTRACT_EXTRACTFILES;
+    res = pExtract(&extractDest, CabName);
 
 done:
     FreeLibrary(hCabinet);
     HeapFree(GetProcessHeap(), 0, szConvertedList);
 
     return res;
-}
-
-/***********************************************************************
- *             ExtractFilesW    (ADVPACK.@)
- *
- * Extracts the specified files from a cab archive into
- * a destination directory.
- *
- * PARAMS
- *   CabName   [I] Filename of the cab archive.
- *   ExpandDir [I] Destination directory for the extracted files.
- *   Flags     [I] Reserved.
- *   FileList  [I] Optional list of files to extract.  See NOTES.
- *   LReserved [I] Reserved.  Must be NULL.
- *   Reserved  [I] Reserved.  Must be 0.
- *
- * RETURNS
- *   Success: S_OK.
- *   Failure: E_FAIL.
- *
- * NOTES
- *   FileList is a colon-separated list of filenames.  If FileList is
- *   non-NULL, only the files in the list will be extracted from the
- *   cab file, otherwise all files will be extracted.  Any number of
- *   spaces, tabs, or colons can be before or after the list, but
- *   the list itself must only be separated by colons.
- *
- * BUGS
- *   Unimplemented.
- */
-HRESULT WINAPI ExtractFilesW(LPCWSTR CabName, LPCWSTR ExpandDir, DWORD Flags,
-                             LPCWSTR FileList, LPVOID LReserved, DWORD Reserved)
-{
-
-    FIXME("(%s, %s, %d, %s, %p, %d) stub!\n", debugstr_w(CabName), debugstr_w(ExpandDir),
-          Flags, debugstr_w(FileList), LReserved, Reserved);
-
-    return E_FAIL;
 }
 
 /***********************************************************************
@@ -833,7 +797,7 @@ HRESULT WINAPI FileSaveRestoreA(HWND hDlg, LPSTR pszFileList, LPSTR pszDir,
     UNICODE_STRING filelist, dir, basename;
     HRESULT hr;
 
-    TRACE("(%p, %s, %s, %s, %d)\n", hDlg, debugstr_a(pszFileList),
+    TRACE("(%p, %s, %s, %s, %ld)\n", hDlg, debugstr_a(pszFileList),
           debugstr_a(pszDir), debugstr_a(pszBaseName), dwFlags);
 
     RtlCreateUnicodeStringFromAsciiz(&filelist, pszFileList);
@@ -875,7 +839,7 @@ HRESULT WINAPI FileSaveRestoreA(HWND hDlg, LPSTR pszFileList, LPSTR pszDir,
 HRESULT WINAPI FileSaveRestoreW(HWND hDlg, LPWSTR pszFileList, LPWSTR pszDir,
                                 LPWSTR pszBaseName, DWORD dwFlags)
 {
-    FIXME("(%p, %s, %s, %s, %d) stub\n", hDlg, debugstr_w(pszFileList),
+    FIXME("(%p, %s, %s, %s, %ld) stub\n", hDlg, debugstr_w(pszFileList),
           debugstr_w(pszDir), debugstr_w(pszBaseName), dwFlags);
 
     return E_FAIL;
@@ -894,7 +858,7 @@ HRESULT WINAPI FileSaveRestoreOnINFA(HWND hWnd, LPCSTR pszTitle, LPCSTR pszINF,
     UNICODE_STRING backupdir, backupfile;
     HRESULT hr;
 
-    TRACE("(%p, %s, %s, %s, %s, %s, %d)\n", hWnd, debugstr_a(pszTitle),
+    TRACE("(%p, %s, %s, %s, %s, %s, %ld)\n", hWnd, debugstr_a(pszTitle),
           debugstr_a(pszINF), debugstr_a(pszSection), debugstr_a(pszBackupDir),
           debugstr_a(pszBaseBackupFile), dwFlags);
 
@@ -943,7 +907,7 @@ HRESULT WINAPI FileSaveRestoreOnINFW(HWND hWnd, LPCWSTR pszTitle, LPCWSTR pszINF
                                      LPCWSTR pszSection, LPCWSTR pszBackupDir,
                                      LPCWSTR pszBaseBackupFile, DWORD dwFlags)
 {
-    FIXME("(%p, %s, %s, %s, %s, %s, %d): stub\n", hWnd, debugstr_w(pszTitle),
+    FIXME("(%p, %s, %s, %s, %s, %s, %ld): stub\n", hWnd, debugstr_w(pszTitle),
           debugstr_w(pszINF), debugstr_w(pszSection), debugstr_w(pszBackupDir),
           debugstr_w(pszBaseBackupFile), dwFlags);
 
@@ -1034,8 +998,8 @@ HRESULT WINAPI GetVersionFromFileExW(LPCWSTR lpszFilename, LPDWORD pdwMSVer,
     BOOL bFileCopied = FALSE;
     UINT uValueLen;
 
-    static const WCHAR backslash[] = {'\\',0};
-    static const WCHAR translation[] = {
+    static WCHAR backslash[] = {'\\',0};
+    static WCHAR translation[] = {
         '\\','V','a','r','F','i','l','e','I','n','f','o',
         '\\','T','r','a','n','s','l','a','t','i','o','n',0
     };

@@ -1,8 +1,13 @@
+/**
+ * \file lines.c
+ * Line operations.
+ */
+
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  5.1
  *
- * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +43,12 @@
  * \param width line width in pixels.
  *
  * \sa glLineWidth().
+ *
+ * Verifies the parameter and updates gl_line_attrib::Width. On a change,
+ * flushes the vertices, updates the clamped line width and marks the
+ * DD_LINE_WIDTH flag in __GLcontextRec::_TriangleCaps for the drivers if the
+ * width is different from one. Notifies the driver via the
+ * dd_function_table::LineWidth callback.
  */
 void GLAPIENTRY
 _mesa_LineWidth( GLfloat width )
@@ -55,14 +66,18 @@ _mesa_LineWidth( GLfloat width )
 
    FLUSH_VERTICES(ctx, _NEW_LINE);
    ctx->Line.Width = width;
+   ctx->Line._Width = CLAMP(width,
+			    ctx->Const.MinLineWidth,
+			    ctx->Const.MaxLineWidth);
 
-   if (width != 1.0F)
+
+   if (width != 1.0)
       ctx->_TriangleCaps |= DD_LINE_WIDTH;
    else
       ctx->_TriangleCaps &= ~DD_LINE_WIDTH;
 
    if (ctx->Driver.LineWidth)
-      ctx->Driver.LineWidth(ctx, width);
+      (*ctx->Driver.LineWidth)(ctx, width);
 }
 
 
@@ -107,12 +122,13 @@ _mesa_LineStipple( GLint factor, GLushort pattern )
  * Initializes __GLcontextRec::Line and line related constants in
  * __GLcontextRec::Const.
  */
-void GLAPIENTRY
-_mesa_init_line( GLcontext * ctx )
+void GLAPIENTRY _mesa_init_line( GLcontext * ctx )
 {
+   /* Line group */
    ctx->Line.SmoothFlag = GL_FALSE;
    ctx->Line.StippleFlag = GL_FALSE;
    ctx->Line.Width = 1.0;
+   ctx->Line._Width = 1.0;
    ctx->Line.StipplePattern = 0xffff;
    ctx->Line.StippleFactor = 1;
 }

@@ -18,9 +18,10 @@
  */
 
 #include <freeldr.h>
+
+#define NDEBUG
 #include <debug.h>
 
-#ifdef __i386__
 BOOLEAN	DriveMapInstalled = FALSE;	// Tells us if we have already installed our drive map int 13h handler code
 ULONG		OldInt13HandlerAddress = 0;	// Address of BIOS int 13h handler
 ULONG		DriveMapHandlerAddress = 0;	// Linear address of our drive map handler
@@ -96,19 +97,19 @@ VOID DriveMapMapDrivesInSection(PCSTR SectionName)
 				DriveMapList.DriveMap[(DriveMapList.DriveMapCount * 2)+1] = DriveMapGetBiosDriveNumber(Drive2);
 				DriveMapList.DriveMapCount++;
 
-				DPRINTM(DPRINT_WARNING, "Mapping BIOS drive 0x%x to drive 0x%x\n", DriveMapGetBiosDriveNumber(Drive1), DriveMapGetBiosDriveNumber(Drive2));
+				DbgPrint((DPRINT_WARNING, "Mapping BIOS drive 0x%x to drive 0x%x\n", DriveMapGetBiosDriveNumber(Drive1), DriveMapGetBiosDriveNumber(Drive2)));
 			}
 		}
 	}
 
 	if (DriveMapList.DriveMapCount)
 	{
-		DPRINTM(DPRINT_WARNING, "Installing Int13 drive map for %d drives.\n", DriveMapList.DriveMapCount);
+		DbgPrint((DPRINT_WARNING, "Installing Int13 drive map for %d drives.\n", DriveMapList.DriveMapCount));
 		DriveMapInstallInt13Handler(&DriveMapList);
 	}
 	else
 	{
-		DPRINTM(DPRINT_WARNING, "Removing any previously installed Int13 drive map.\n");
+		DbgPrint((DPRINT_WARNING, "Removing any previously installed Int13 drive map.\n"));
 		DriveMapRemoveInt13Handler();
 	}
 }
@@ -221,4 +222,3 @@ VOID DriveMapRemoveInt13Handler(VOID)
 		DriveMapInstalled = FALSE;
 	}
 }
-#endif /* __i386__ */

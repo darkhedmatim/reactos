@@ -383,17 +383,7 @@ CreateEnvironmentBlock (LPVOID *lpEnvironment,
 
   /* FIXME: Set 'USERDOMAIN' variable */
 
-  Length = MAX_PATH;
-  if (GetUserNameW(Buffer,
-            &Length))
-    {
-      SetUserEnvironmentVariable(lpEnvironment,
-				 L"USERNAME",
-				 Buffer,
-				 FALSE);
-    }
-
-
+  /* FIXME: Set 'USERNAME' variable */
 
   /* Set user environment variables */
   SetUserEnvironment (lpEnvironment,

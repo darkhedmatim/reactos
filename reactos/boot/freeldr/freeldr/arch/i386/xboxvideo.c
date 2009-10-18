@@ -234,14 +234,7 @@ XboxVideoSync()
 }
 
 VOID
-XboxBeep()
-{
-    /* Call PC version */
-    PcBeep();
-}
-
-VOID
-XboxVideoPrepareForReactOS(IN BOOLEAN Setup)
+XboxVideoPrepareForReactOS(VOID)
 {
   XboxVideoClearScreenColor(MAKE_COLOR(0, 0, 0), TRUE);
 }

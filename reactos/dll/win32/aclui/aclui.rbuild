@@ -1,6 +1,12 @@
-<module name="aclui" type="win32dll" baseaddress="${BASEADDRESS_ACLUI}" installbase="system32" installname="aclui.dll" unicode="yes">
-	<importlibrary definition="aclui.spec" />
+<module name="aclui" type="win32dll" baseaddress="${BASEADDRESS_ACLUI}" installbase="system32" installname="aclui.dll">
+	<importlibrary definition="aclui.spec.def" />
 	<include base="aclui">.</include>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x0500</define>
+	<define name="_WIN32_WINNT">0x0600</define>
+	<define name="WINVER">0x0600</define>
 	<define name="SUPPORT_UXTHEME" />
 	<library>ntdll</library>
 	<library>kernel32</library>
@@ -17,5 +23,6 @@
 	<file>misc.c</file>
 	<file>sidcache.c</file>
 	<file>aclui.rc</file>
+	<file>aclui.spec</file>
 	<pch>precomp.h</pch>
 </module>

@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -60,6 +60,23 @@ NtSystemDebugControl(SYSDBG_COMMAND ControlCode,
                      ULONG OutputBufferLength,
                      PULONG ReturnLength)
 {
-    /* FIXME: TODO */
+    switch (ControlCode)
+    {
+        case SysDbgQueryTraceInformation:
+        case SysDbgSetTracepoint:
+        case SysDbgSetSpecialCall:
+        case SysDbgClearSpecialCalls:
+        case SysDbgQuerySpecialCalls:
+        case SysDbgBreakPoint:
+            break;
+
+        case SysDbgQueryVersion:
+            KDB_LOADUSERMODULE_HOOK((PLDR_DATA_TABLE_ENTRY) InputBuffer);
+            break;
+
+        default:
+            break;
+    }
+
     return STATUS_SUCCESS;
 }

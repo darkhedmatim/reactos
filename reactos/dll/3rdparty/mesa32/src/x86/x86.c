@@ -1,3 +1,4 @@
+/* $Id: x86.c,v 1.25 2002/04/09 14:58:03 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -27,15 +28,15 @@
  * Intel x86 assembly code by Josh Vanderhoof
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 
 #include "x86.h"
 #include "common_x86_macros.h"
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
 #include "math/m_debug.h"
 #endif
 
@@ -86,7 +87,7 @@ void _mesa_init_x86_transform_asm( void )
    _mesa_clip_tab[4] = _mesa_x86_cliptest_points4;
    _mesa_clip_np_tab[4] = _mesa_x86_cliptest_points4_np;
 
-#ifdef DEBUG_MATH
+#ifdef DEBUG
    _math_test_all_transform_functions( "x86" );
    _math_test_all_cliptest_functions( "x86" );
 #endif

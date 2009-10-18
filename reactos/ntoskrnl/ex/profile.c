@@ -11,13 +11,13 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, ExpInitializeProfileImplementation)
 #endif
 
-#define TAG_PROFILE 'forP'
+#define TAG_PROFILE TAG('P', 'r', 'o', 'f')
 
 /* GLOBALS *******************************************************************/
 
@@ -102,9 +102,8 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     PEPROCESS pProcess;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     OBJECT_ATTRIBUTES ObjectAttributes;
-    NTSTATUS Status;
-    ULONG Log2 = 0;
-    ULONG_PTR Segment = 0;
+    NTSTATUS Status = STATUS_SUCCESS;
+    ULONG Segment = 0, Log2 = 0;
     PAGED_CODE();
 
     /* Easy way out */
@@ -117,7 +116,7 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
         if (BufferSize < sizeof(ULONG)) return STATUS_INVALID_PARAMETER_7;
 
         /* This will become a segmented profile object */
-        Segment = (ULONG_PTR)RangeBase;
+        Segment = (ULONG)RangeBase;
         RangeBase = 0;
 
         /* Recalculate the bucket size */
@@ -154,7 +153,7 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     if(PreviousMode != KernelMode)
     {
         /* Entry SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Make sure that the handle pointer is valid */
             ProbeForWriteHandle(ProfileHandle);
@@ -164,12 +163,14 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
                           BufferSize,
                           sizeof(ULONG));
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Bail out if we failed */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Check if a process was specified */
@@ -215,14 +216,7 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
                             0,
                             sizeof(EPROFILE) + sizeof(KPROFILE),
                             (PVOID*)&Profile);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Dereference the process object if it was specified */
-        if (pProcess) ObDereferenceObject(pProcess);
-
-        /* Return Status */
-        return Status;
-    }
+    if (!NT_SUCCESS(Status)) return(Status);
 
     /* Initialize it */
     Profile->RangeBase = RangeBase;
@@ -254,16 +248,16 @@ NtCreateProfile(OUT PHANDLE ProfileHandle,
     }
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Copy the created handle back to the caller*/
         *ProfileHandle = hProfile;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return Status */
     return Status;
@@ -279,10 +273,10 @@ NtQueryPerformanceCounter(OUT PLARGE_INTEGER PerformanceCounter,
     NTSTATUS Status = STATUS_SUCCESS;
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Entry SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Make sure the counter and frequency are valid */
             ProbeForWriteLargeInteger(PerformanceCounter);
@@ -291,29 +285,30 @@ NtQueryPerformanceCounter(OUT PLARGE_INTEGER PerformanceCounter,
                 ProbeForWriteLargeInteger(PerformanceFrequency);
             }
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* If the pointers are invalid, bail out */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Enter a new SEH Block */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Query the Kernel */
         *PerformanceCounter = KeQueryPerformanceCounter(&PerfFrequency);
 
         /* Return Frequency if requested */
-        if (PerformanceFrequency) *PerformanceFrequency = PerfFrequency;
+        if(PerformanceFrequency) *PerformanceFrequency = PerfFrequency;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
-        /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status to caller */
     return Status;
@@ -357,34 +352,14 @@ NtStartProfile(IN HANDLE ProfileHandle)
 
     /* Allocate a Kernel Profile Object. */
     ProfileObject = ExAllocatePoolWithTag(NonPagedPool,
-                                          sizeof(EPROFILE),
-                                          TAG_PROFILE);
-    if (!ProfileObject)
-    {
-        /* Out of memory, fail */
-        KeReleaseMutex(&ExpProfileMutex, FALSE);
-        ObDereferenceObject(Profile);
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
+                                      sizeof(EPROFILE),
+                                      TAG_PROFILE);
 
     /* Allocate the Mdl Structure */
     Profile->Mdl = MmCreateMdl(NULL, Profile->Buffer, Profile->BufferSize);
 
-    /* Protect this in SEH as we might raise an exception */
-    _SEH2_TRY
-    {
-        /* Probe and Lock for Write Access */
-        MmProbeAndLockPages(Profile->Mdl, PreviousMode, IoWriteAccess);
-    }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
-    {
-        /* Release our lock, free the buffer, dereference and return */
-        KeReleaseMutex(&ExpProfileMutex, FALSE);
-        ObDereferenceObject(Profile);
-        ExFreePool(ProfileObject);
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
+    /* Probe and Lock for Write Access */
+    MmProbeAndLockPages(Profile->Mdl, PreviousMode, IoWriteAccess);
 
     /* Map the pages */
     TempLockedBufferAddress = MmMapLockedPages(Profile->Mdl, KernelMode);
@@ -472,40 +447,41 @@ NtQueryIntervalProfile(IN KPROFILE_SOURCE ProfileSource,
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Validate interval */
             ProbeForWriteUlong(Interval);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* If pointer was invalid, bail out */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Query the Interval */
     ReturnInterval = KeQueryIntervalProfile(ProfileSource);
 
     /* Enter SEH block for return */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Return the data */
         *Interval = ReturnInterval;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
-        /* Get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return Success */
-    return Status;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS

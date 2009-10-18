@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WRC_NEWSTRUC_H
@@ -26,9 +26,7 @@
 #define __NEW_STRUCT_FUNC(p)	\
 	p##_t *new_##p(void)\
 	{\
-		p##_t * ret = xmalloc(sizeof(*ret)); \
-		memset( ret, 0, sizeof(*ret) ); \
-		return ret; \
+		return (p##_t *)xmalloc(sizeof(p##_t));\
 	}
 
 #define __NEW_STRUCT_PROTO(p)	p##_t *new_##p(void)

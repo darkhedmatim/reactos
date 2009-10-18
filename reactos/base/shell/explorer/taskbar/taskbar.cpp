@@ -333,10 +333,10 @@ HICON get_window_icon_small(HWND hwnd)
 		SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
 
 	if (!hIcon)
-		hIcon = (HICON)GetClassLongPtr(hwnd, GCL_HICONSM);
+		hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
 
 	if (!hIcon)
-		hIcon = (HICON)GetClassLongPtr(hwnd, GCL_HICON);
+		hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
 
 	if (!hIcon)
 		SendMessageTimeout(hwnd, WM_QUERYDRAGICON, 0, 0, 0, 1000, (LPDWORD)&hIcon);
@@ -358,10 +358,10 @@ HICON get_window_icon_big(HWND hwnd, bool allow_from_class)
 
 	if (allow_from_class) {
 		if (!hIcon)
-			hIcon = (HICON)GetClassLongPtr(hwnd, GCL_HICON);
+			hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
 
 		if (!hIcon)
-			hIcon = (HICON)GetClassLongPtr(hwnd, GCL_HICONSM);
+			hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
 	}
 
 	if (!hIcon)
@@ -469,7 +469,7 @@ BOOL CALLBACK TaskBar::EnumWndProc(HWND hwnd, LPARAM lparam)
 
 		entry._fsState = btn.fsState;
 
-#ifdef __REACTOS__	// now handled by activating the ARW_HIDE flag with SystemParametersInfo(SPI_SETMINIMIZEDMETRICS)
+#ifdef _ROS_	// now handled by activating the ARW_HIDE flag with SystemParametersInfo(SPI_SETMINIMIZEDMETRICS)
 		 // move minimized windows out of sight
 		if (IsIconic(hwnd)) {
 			RECT rect;

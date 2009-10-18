@@ -4,6 +4,9 @@
 #include <ntifs.h>
 #include <ntddk.h>
 #include <ntddcdrm.h>
+#include <ccros.h>
+
+#define USE_ROS_CC_AND_FS
 
 #define CDFS_BASIC_SECTOR 2048
 #define CDFS_PRIMARY_DESCRIPTOR_LOCATION 16
@@ -162,6 +165,8 @@ typedef struct
   PFILE_OBJECT StreamFileObject;
 
   CDINFO CdInfo;
+
+
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION, VCB, *PVCB;
 
 
@@ -171,19 +176,10 @@ typedef struct
 
 #define MAX_PATH                260
 
-typedef struct _CDFS_SHORT_NAME 
-{
-    LIST_ENTRY Entry;
-    LARGE_INTEGER StreamOffset;
-    UNICODE_STRING Name;
-    WCHAR NameBuffer[13];
-} CDFS_SHORT_NAME, *PCDFS_SHORT_NAME;
-
 typedef struct _FCB
 {
   FSRTL_COMMON_FCB_HEADER RFCB;
   SECTION_OBJECT_POINTERS SectionObjectPointers;
-  ERESOURCE MainResource;
   ERESOURCE PagingIoResource;
 
   PFILE_OBJECT FileObject;
@@ -194,6 +190,8 @@ typedef struct _FCB
   WCHAR *ObjectName;		/* point on filename (250 chars max) in PathName */
   WCHAR PathName[MAX_PATH];	/* path+filename 260 max */
   WCHAR ShortNameBuffer[13];
+
+  ERESOURCE MainResource;
 
   LIST_ENTRY FcbListEntry;
   struct _FCB* ParentFcb;
@@ -207,9 +205,6 @@ typedef struct _FCB
   ULONG Flags;
 
   DIR_RECORD Entry;
-
-  ERESOURCE  NameListResource;
-  LIST_ENTRY ShortNameList;
 } FCB, *PFCB;
 
 
@@ -227,15 +222,19 @@ typedef struct _CCB
   ULONG LastOffset;
 } CCB, *PCCB;
 
-#define TAG_CCB 'BCCI'
-#define TAG_FCB 'BCFI'
+#ifndef TAG
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#endif
+
+#define TAG_CCB TAG('I', 'C', 'C', 'B')
+
+
 
 typedef struct
 {
   PDRIVER_OBJECT DriverObject;
   PDEVICE_OBJECT DeviceObject;
   ULONG Flags;
-  CACHE_MANAGER_CALLBACKS CacheMgrCallbacks;
 } CDFS_GLOBAL_DATA, *PCDFS_GLOBAL_DATA;
 
 extern PCDFS_GLOBAL_DATA CdfsGlobalData;
@@ -243,14 +242,14 @@ extern PCDFS_GLOBAL_DATA CdfsGlobalData;
 
 /* cleanup.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsCleanup(PDEVICE_OBJECT DeviceObject,
 	    PIRP Irp);
 
 
 /* close.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsClose(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
 
@@ -280,14 +279,14 @@ CdfsDeviceIoControl (IN PDEVICE_OBJECT DeviceObject,
 
 /* create.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsCreate(PDEVICE_OBJECT DeviceObject,
 	   PIRP Irp);
 
 
 /* dirctl.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsDirectoryControl(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp);
 
@@ -362,18 +361,18 @@ CdfsGetFCBForFile(PDEVICE_EXTENSION Vcb,
 
 /* finfo.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsQueryInformation(PDEVICE_OBJECT DeviceObject,
 		     PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsSetInformation(PDEVICE_OBJECT DeviceObject,
 		   PIRP Irp);
 
 
 /* fsctl.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsFileSystemControl(PDEVICE_OBJECT DeviceObject,
 		      PIRP Irp);
 
@@ -393,45 +392,32 @@ VOID
 CdfsFileFlagsToAttributes(PFCB Fcb,
 			  PULONG FileAttributes);
 
-VOID
-CdfsShortNameCacheGet
-(PFCB DirectoryFcb, 
- PLARGE_INTEGER StreamOffset, 
- PUNICODE_STRING LongName, 
- PUNICODE_STRING ShortName);
 
 /* rw.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsRead(PDEVICE_OBJECT DeviceObject,
 	PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsWrite(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp);
 
 
 /* volinfo.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsQueryVolumeInformation(PDEVICE_OBJECT DeviceObject,
 			   PIRP Irp);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 CdfsSetVolumeInformation(PDEVICE_OBJECT DeviceObject,
 			 PIRP Irp);
 
 /* cdfs.c */
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath);
-
-BOOLEAN NTAPI
-CdfsAcquireForLazyWrite(IN PVOID Context,
-                        IN BOOLEAN Wait);
-
-VOID NTAPI
-CdfsReleaseFromLazyWrite(IN PVOID Context);
 
 #endif //CDFS_H

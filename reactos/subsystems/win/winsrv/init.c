@@ -34,7 +34,7 @@ HANDLE WinSrvApiPort = NULL;
  * NAME							PRIVATE
  * 	ConStaticServerThread/1
  */
-VOID WINAPI ConStaticServerThread (PVOID x)
+VOID STDCALL ConStaticServerThread (PVOID x)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PPORT_MESSAGE Request = (PPORT_MESSAGE) x;
@@ -59,7 +59,7 @@ VOID WINAPI ConStaticServerThread (PVOID x)
  * NAME							PRIVATE
  * 	UserStaticServerThread/1
  */
-VOID WINAPI UserStaticServerThread (PVOID x)
+VOID STDCALL UserStaticServerThread (PVOID x)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
 	PPORT_MESSAGE Request = (PPORT_MESSAGE) x;
@@ -84,7 +84,7 @@ VOID WINAPI UserStaticServerThread (PVOID x)
  * 	PUBLIC API
  *===================================================================*/
 
-NTSTATUS WINAPI ConServerDllInitialization (ULONG ArgumentCount,
+NTSTATUS STDCALL ConServerDllInitialization (ULONG ArgumentCount,
 					     LPWSTR *Argument)
 {
 	NTSTATUS Status = STATUS_SUCCESS;
@@ -106,7 +106,7 @@ NTSTATUS WINAPI ConServerDllInitialization (ULONG ArgumentCount,
 	return Status;
 }
 
-NTSTATUS WINAPI UserServerDllInitialization (ULONG ArgumentCount,
+NTSTATUS STDCALL UserServerDllInitialization (ULONG ArgumentCount,
 					      LPWSTR *Argument)
 {
 	NTSTATUS Status = STATUS_SUCCESS;

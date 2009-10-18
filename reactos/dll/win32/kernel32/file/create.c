@@ -14,47 +14,22 @@
 
 /* INCLUDES *****************************************************************/
 
+/* File contains Vista Semantics */
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
 
-#define SYMLINK_FLAG_RELATIVE   1
-
-typedef struct _REPARSE_DATA_BUFFER {
-    ULONG  ReparseTag;
-    USHORT ReparseDataLength;
-    USHORT Reserved;
-    union {
-        struct {
-            USHORT SubstituteNameOffset;
-            USHORT SubstituteNameLength;
-            USHORT PrintNameOffset;
-            USHORT PrintNameLength;
-            ULONG Flags;
-            WCHAR PathBuffer[1];
-        } SymbolicLinkReparseBuffer;
-        struct {
-            USHORT SubstituteNameOffset;
-            USHORT SubstituteNameLength;
-            USHORT PrintNameOffset;
-            USHORT PrintNameLength;
-            WCHAR PathBuffer[1];
-        } MountPointReparseBuffer;
-        struct {
-            UCHAR  DataBuffer[1];
-        } GenericReparseBuffer;
-    };
-} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
-
-#define REPARSE_DATA_BUFFER_HEADER_SIZE   FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer)
 
 /* FUNCTIONS ****************************************************************/
 
 /*
  * @implemented
  */
-HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
+HANDLE STDCALL CreateFileA (LPCSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
 			    LPSECURITY_ATTRIBUTES	lpSecurityAttributes,
@@ -65,7 +40,7 @@ HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
    PWCHAR FileNameW;
    HANDLE FileHandle;
 
-   TRACE("CreateFileA(lpFileName %s)\n",lpFileName);
+   DPRINT("CreateFileA(lpFileName %s)\n",lpFileName);
 
    if (!(FileNameW = FilenameA2W(lpFileName, FALSE)))
       return INVALID_HANDLE_VALUE;
@@ -85,7 +60,7 @@ HANDLE WINAPI CreateFileA (LPCSTR			lpFileName,
 /*
  * @implemented
  */
-HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
+HANDLE STDCALL CreateFileW (LPCWSTR			lpFileName,
 			    DWORD			dwDesiredAccess,
 			    DWORD			dwShareMode,
 			    LPSECURITY_ATTRIBUTES	lpSecurityAttributes,
@@ -99,10 +74,11 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
    HANDLE FileHandle;
    NTSTATUS Status;
    ULONG FileAttributes, Flags = 0;
+   CSR_API_MESSAGE Request;
    PVOID EaBuffer = NULL;
    ULONG EaLength = 0;
 
-   TRACE("CreateFileW(lpFileName %S)\n",lpFileName);
+   DPRINT("CreateFileW(lpFileName %S)\n",lpFileName);
 
    /* validate & translate the creation disposition */
    switch (dwCreationDisposition)
@@ -131,16 +107,6 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
         SetLastError(ERROR_INVALID_PARAMETER);
         return (INVALID_HANDLE_VALUE);
      }
-
-   /* check for console input/output */
-   if (0 == _wcsicmp(L"CONOUT$", lpFileName)
-       || 0 == _wcsicmp(L"CONIN$", lpFileName))
-   {
-      return OpenConsoleW(lpFileName,
-                          dwDesiredAccess, 
-                          lpSecurityAttributes ? lpSecurityAttributes->bInheritHandle : FALSE,
-                          FILE_SHARE_READ | FILE_SHARE_WRITE);
-   }
 
   /* validate & translate the flags */
 
@@ -196,18 +162,56 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
 
    /* FILE_FLAG_POSIX_SEMANTICS is handled later */
 
+   /* check for console output */
+   if (0 == _wcsicmp(L"CONOUT$", lpFileName))
+   {
+      /* FIXME: Send required access rights to Csrss */
+      Status = CsrClientCallServer(&Request,
+			           NULL,
+			           MAKE_CSR_API(GET_OUTPUT_HANDLE, CSR_NATIVE),
+			           sizeof(CSR_API_MESSAGE));
+      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Request.Status))
+      {
+         SetLastErrorByStatus(Status);
+	 return INVALID_HANDLE_VALUE;
+      }
+      else
+      {
+         return Request.Data.GetOutputHandleRequest.OutputHandle;
+      }
+   }
+
+   /* check for console input */
+   if (0 == _wcsicmp(L"CONIN$", lpFileName))
+   {
+      /* FIXME: Send required access rights to Csrss */
+      Status = CsrClientCallServer(&Request,
+			           NULL,
+			           MAKE_CSR_API(GET_INPUT_HANDLE, CSR_NATIVE),
+			           sizeof(CSR_API_MESSAGE));
+      if (!NT_SUCCESS(Status) || !NT_SUCCESS(Status = Request.Status))
+      {
+         SetLastErrorByStatus(Status);
+	 return INVALID_HANDLE_VALUE;
+      }
+      else
+      {
+         return Request.Data.GetInputHandleRequest.InputHandle;
+      }
+   }
+
    /* validate & translate the filename */
    if (!RtlDosPathNameToNtPathName_U (lpFileName,
 				      &NtPathU,
 				      NULL,
 				      NULL))
    {
-     WARN("Invalid path\n");
+     DPRINT("Invalid path\n");
      SetLastError(ERROR_PATH_NOT_FOUND);
      return INVALID_HANDLE_VALUE;
    }
 
-   TRACE("NtPathU \'%wZ\'\n", &NtPathU);
+   DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
 
    if (hTemplateFile != NULL)
    {
@@ -367,7 +371,7 @@ HANDLE WINAPI CreateFileW (LPCWSTR			lpFileName,
  * @implemented
  */
 BOOLEAN
-WINAPI
+STDCALL
 CreateSymbolicLinkW(IN LPCWSTR lpSymlinkFileName,
                     IN LPCWSTR lpTargetFileName,
                     IN DWORD dwFlags)
@@ -387,13 +391,13 @@ CreateSymbolicLinkW(IN LPCWSTR lpSymlinkFileName,
     ULONG dwCreateOptions;
     DWORD dwErr;
 
-    if(!lpSymlinkFileName || !lpTargetFileName || (dwFlags | SYMBOLIC_LINK_FLAG_DIRECTORY) != SYMBOLIC_LINK_FLAG_DIRECTORY)
+    if(!lpSymlinkFileName || !lpTargetFileName || (dwFlags | SYMLINK_FLAG_DIRECTORY) != SYMLINK_FLAG_DIRECTORY)
     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
     }
 
-    if(dwFlags & SYMBOLIC_LINK_FLAG_DIRECTORY)
+    if(dwFlags & SYMLINK_FLAG_DIRECTORY)
         dwCreateOptions = FILE_DIRECTORY_FILE;
     else
         dwCreateOptions = FILE_NON_DIRECTORY_FILE;
@@ -464,8 +468,8 @@ CreateSymbolicLinkW(IN LPCWSTR lpSymlinkFileName,
 
     pBufTail = (PBYTE)(pReparseData->SymbolicLinkReparseBuffer.PathBuffer);
 
-    pReparseData->ReparseTag = (ULONG)IO_REPARSE_TAG_SYMLINK;
-    pReparseData->ReparseDataLength = (USHORT)cbReparseData - REPARSE_DATA_BUFFER_HEADER_SIZE;
+    pReparseData->ReparseTag = IO_REPARSE_TAG_SYMLINK;
+    pReparseData->ReparseDataLength = cbReparseData - REPARSE_DATA_BUFFER_HEADER_SIZE;
     pReparseData->Reserved = 0;
 
     pReparseData->SymbolicLinkReparseBuffer.SubstituteNameOffset = 0;
@@ -474,7 +478,7 @@ CreateSymbolicLinkW(IN LPCWSTR lpSymlinkFileName,
     RtlCopyMemory(pBufTail, TargetFileName.Buffer, TargetFileName.Length);
 
     pReparseData->SymbolicLinkReparseBuffer.PrintNameOffset = pReparseData->SymbolicLinkReparseBuffer.SubstituteNameLength;
-    pReparseData->SymbolicLinkReparseBuffer.PrintNameLength = (USHORT)cbPrintName;
+    pReparseData->SymbolicLinkReparseBuffer.PrintNameLength = cbPrintName;
     pBufTail += pReparseData->SymbolicLinkReparseBuffer.PrintNameOffset;
     RtlCopyMemory(pBufTail, lpTargetFileName, cbPrintName);
 
@@ -570,13 +574,13 @@ Cleanup:
  * @implemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CreateSymbolicLinkA(IN LPCSTR lpSymlinkFileName,
                     IN LPCSTR lpTargetFileName,
                     IN DWORD dwFlags)
 {
     PWCHAR SymlinkW, TargetW;
-    BOOLEAN Ret;
+    BOOL Ret;
 
     if(!lpSymlinkFileName || !lpTargetFileName)
     {

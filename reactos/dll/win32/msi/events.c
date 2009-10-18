@@ -18,6 +18,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+
+/*
+http://msdn.microsoft.com/library/default.asp?url=/library/en-us/msi/setup/controlevent_overview.asp
+*/
+
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -48,7 +53,7 @@ struct subscriber {
     LPWSTR attribute;
 };
 
-static UINT ControlEvent_HandleControlEvent(MSIPACKAGE *, LPCWSTR, LPCWSTR, msi_dialog*);
+UINT ControlEvent_HandleControlEvent(MSIPACKAGE *, LPCWSTR, LPCWSTR, msi_dialog*);
 
 /*
  * Create a dialog box and run it if it's modal
@@ -104,7 +109,7 @@ static UINT ControlEvent_EndDialog(MSIPACKAGE* package, LPCWSTR argument,
     else if (lstrcmpW(argument, szRetry) == 0)
         package->CurrentInstallState = ERROR_INSTALL_SUSPEND;
     else if (lstrcmpW(argument, szIgnore) == 0)
-        package->CurrentInstallState = ERROR_SUCCESS;
+        package->CurrentInstallState = -1;
     else if (lstrcmpW(argument, szReturn) == 0)
     {
         msi_dialog *parent = msi_dialog_get_parent(dialog);
@@ -118,7 +123,7 @@ static UINT ControlEvent_EndDialog(MSIPACKAGE* package, LPCWSTR argument,
         package->CurrentInstallState = ERROR_FUNCTION_FAILED;
     }
 
-    ControlEvent_CleanupDialogSubscriptions(package, msi_dialog_get_name( dialog ));
+    ControlEvent_CleanupSubscriptions(package);
     msi_dialog_end_dialog( dialog );
     return ERROR_SUCCESS;
 }
@@ -163,7 +168,7 @@ static UINT ControlEvent_SpawnWaitDialog(MSIPACKAGE* package, LPCWSTR argument,
 static UINT ControlEvent_DoAction(MSIPACKAGE* package, LPCWSTR argument, 
                                   msi_dialog* dialog)
 {
-    ACTION_PerformAction(package,argument,-1,TRUE);
+    ACTION_PerformAction(package,argument,TRUE);
     return ERROR_SUCCESS;
 }
 
@@ -180,7 +185,7 @@ static UINT ControlEvent_AddLocal(MSIPACKAGE* package, LPCWSTR argument,
     else
     {
         LIST_FOR_EACH_ENTRY( feature, &package->features, MSIFEATURE, entry )
-            msi_feature_set_state(package, feature, INSTALLSTATE_LOCAL);
+            msi_feature_set_state( feature, INSTALLSTATE_LOCAL );
 
         ACTION_UpdateComponentStates(package,argument);
     }
@@ -200,7 +205,7 @@ static UINT ControlEvent_Remove(MSIPACKAGE* package, LPCWSTR argument,
     else
     {
         LIST_FOR_EACH_ENTRY( feature, &package->features, MSIFEATURE, entry )
-            msi_feature_set_state(package, feature, INSTALLSTATE_ABSENT);
+            msi_feature_set_state( feature, INSTALLSTATE_ABSENT );
 
         ACTION_UpdateComponentStates(package,argument);
     }
@@ -220,7 +225,7 @@ static UINT ControlEvent_AddSource(MSIPACKAGE* package, LPCWSTR argument,
     else
     {
         LIST_FOR_EACH_ENTRY( feature, &package->features, MSIFEATURE, entry )
-            msi_feature_set_state(package, feature, INSTALLSTATE_SOURCE);
+            msi_feature_set_state( feature, INSTALLSTATE_SOURCE );
         ACTION_UpdateComponentStates(package,argument);
     }
     return ERROR_SUCCESS;
@@ -278,6 +283,27 @@ VOID ControlEvent_SubscribeToEvent( MSIPACKAGE *package, msi_dialog *dialog,
     list_add_tail( &package->subscriptions, &sub->entry );
 }
 
+VOID ControlEvent_UnSubscribeToEvent( MSIPACKAGE *package, LPCWSTR event,
+                                      LPCWSTR control, LPCWSTR attribute )
+{
+    struct list *i, *t;
+    struct subscriber *sub;
+
+    LIST_FOR_EACH_SAFE( i, t, &package->subscriptions )
+    {
+        sub = LIST_ENTRY( i, struct subscriber, entry );
+
+        if( lstrcmpiW(sub->control,control) )
+            continue;
+        if( lstrcmpiW(sub->attribute,attribute) )
+            continue;
+        if( lstrcmpiW(sub->event,event) )
+            continue;
+        list_remove( &sub->entry );
+        free_subscriber( sub );
+    }
+}
+
 VOID ControlEvent_FireSubscribedEvent( MSIPACKAGE *package, LPCWSTR event, 
                                        MSIRECORD *rec )
 {
@@ -291,23 +317,6 @@ VOID ControlEvent_FireSubscribedEvent( MSIPACKAGE *package, LPCWSTR event,
             continue;
         msi_dialog_handle_event( sub->dialog, sub->control,
                                  sub->attribute, rec );
-    }
-}
-
-VOID ControlEvent_CleanupDialogSubscriptions(MSIPACKAGE *package, LPWSTR dialog)
-{
-    struct list *i, *t;
-    struct subscriber *sub;
-
-    LIST_FOR_EACH_SAFE( i, t, &package->subscriptions )
-    {
-        sub = LIST_ENTRY( i, struct subscriber, entry );
-
-        if ( lstrcmpW( msi_dialog_get_name( sub->dialog ), dialog ))
-            continue;
-
-        list_remove( &sub->entry );
-        free_subscriber( sub );
     }
 }
 
@@ -380,13 +389,6 @@ static UINT ControlEvent_DirectoryListUp(MSIPACKAGE *package, LPCWSTR argument,
     return msi_dialog_directorylist_up( dialog );
 }
 
-static UINT ControlEvent_ReinstallMode(MSIPACKAGE *package, LPCWSTR argument,
-                                       msi_dialog *dialog)
-{
-    static const WCHAR szReinstallMode[] = {'R','E','I','N','S','T','A','L','L','M','O','D','E',0};
-    return MSI_SetPropertyW( package, szReinstallMode, argument );
-}
-
 static const struct _events Events[] = {
     { "EndDialog",ControlEvent_EndDialog },
     { "NewDialog",ControlEvent_NewDialog },
@@ -401,7 +403,6 @@ static const struct _events Events[] = {
     { "SetInstallLevel",ControlEvent_SetInstallLevel },
     { "DirectoryListUp",ControlEvent_DirectoryListUp },
     { "SelectionBrowse",ControlEvent_SpawnDialog },
-    { "ReinstallMode",ControlEvent_ReinstallMode },
     { NULL,NULL },
 };
 

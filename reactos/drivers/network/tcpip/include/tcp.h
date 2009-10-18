@@ -84,8 +84,7 @@ typedef struct _SLEEPING_THREAD {
 #define SRF_FIN   TCP_FIN
 
 extern LONG TCP_IPIdentification;
-extern LIST_ENTRY SignalledConnectionsList;
-extern KSPIN_LOCK SignalledConnectionsLock;
+extern LIST_ENTRY SignalledConnections;
 extern LIST_ENTRY SleepingThreadsList;
 extern FAST_MUTEX SleepingThreadsLock;
 extern RECURSIVE_MUTEX TCPLock;
@@ -159,6 +158,10 @@ NTSTATUS TCPSendData(
 
 NTSTATUS TCPClose( PCONNECTION_ENDPOINT Connection );
 
+PVOID TCPPrepareInterface( PIP_INTERFACE IF );
+
+VOID TCPDisposeInterfaceData( PVOID Data );
+
 NTSTATUS TCPTranslateError( int OskitError );
 
 VOID TCPTimeout();
@@ -167,10 +170,9 @@ UINT TCPAllocatePort( UINT HintPort );
 
 VOID TCPFreePort( UINT Port );
 
-NTSTATUS TCPGetSockAddress
+NTSTATUS TCPGetPeerAddress
 ( PCONNECTION_ENDPOINT Connection,
-  PTRANSPORT_ADDRESS TransportAddress,
-  BOOLEAN RemoteAddress );
+  PTRANSPORT_ADDRESS TransportAddress );
 
 NTSTATUS TCPStartup(
   VOID);

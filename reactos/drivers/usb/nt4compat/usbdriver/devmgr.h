@@ -34,15 +34,15 @@ typedef struct _USB_DRIVER_DESCRIPTION
 	WORD vendor_id; 							// USB Vendor ID
 	WORD product_id;							// USB Product ID.
 	WORD release_num;							// Release Number of Device
-
+	
 	// Interface Info
 	BYTE config_val;							// Configuration Value
 	BYTE if_num;								// Interface Number
 	BYTE if_class;								// Interface Class
 	BYTE if_sub_class; 							// Interface SubClass
 	BYTE if_protocol;							// Interface Protocol
-
-	// Driver Info
+	
+	// Driver Info	
 	const char *driver_name;					// Driver name for Name Registry
 	BYTE dev_class;								// Device Class (from SampleStorageDeviceID.h)
 	BYTE dev_sub_class;							// Device Subclass
@@ -50,6 +50,7 @@ typedef struct _USB_DRIVER_DESCRIPTION
 
 } USB_DRIVER_DESCRIPTION,*PUSB_DRIVER_DESCRIPTION;
 
+#define DEVMGR_MAX_DRIVERS 	7//8
 #define RH_DRIVER_IDX  		0
 #define HUB_DRIVER_IDX		1
 #define UMSS_DRIVER_IDX		2
@@ -57,8 +58,7 @@ typedef struct _USB_DRIVER_DESCRIPTION
 #define GEN_DRIVER_IDX		4
 #define GEN_IF_DRIVER_IDX	5
 #define MOUSE_DRIVER_IDX	6
-#define KEYBOARD_DRIVER_IDX	7
-#define DEVMGR_MAX_DRIVERS 	8
+#define KEYBOARD_DRIVER_IDX	7//temp disabled
 
 typedef struct _USB_DRIVER
 {
@@ -77,20 +77,20 @@ extern USB_DRIVER g_driver_list[ DEVMGR_MAX_DRIVERS ];
 
 #define MAX_HCDS 		8
 #define dev_mgr_from_hcd( hCD ) ( ( hCD )->hcd_get_dev_mgr( hCD ) )
-#define dev_mgr_from_dev( pdEV ) ( dev_mgr_from_hcd( pdEV->hcd ) )
+#define dev_mgr_from_dev( pdEV ) ( dev_mgr_from_hcd( pdEV->hcd ) ) 
 
 typedef struct _USB_DEV_MANAGER
 {
     //BYTE                dev_addr_map[ MAX_DEVS / 8 ];     //one bit per dev
 	struct _HCD			*hcd_array[ MAX_HCDS ];
-   	unsigned char		hcd_count;
-
+   	unsigned char		hcd_count; 
+	
 	KSPIN_LOCK          dev_list_lock;
     LIST_HEAD           dev_list;
 
 	//PDEVICE_EXTENSION 	pdev_ext;
-
-	PVOID				pthread;
+	
+	PVOID				pthread;	
 	BOOLEAN    			term_flag;
 	KEVENT       		wake_up_event;
 
@@ -98,7 +98,6 @@ typedef struct _USB_DEV_MANAGER
     LIST_HEAD           event_list;
 	USB_EVENT_POOL   	event_pool;
 
-    KEVENT              drivers_inited;
 	KTIMER   			dev_mgr_timer;
 	KDPC   				dev_mgr_timer_dpc;
     KSPIN_LOCK          timer_svc_list_lock;

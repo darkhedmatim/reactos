@@ -1,11 +1,15 @@
-/*
- * PROJECT:         ReactOS Session Manager
- * LICENSE:         GPL v2 or later - See COPYING in the top level directory
+/* $Id$
+ *
+ * PROJECT:         ReactOS Operating System
+ * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/smss/initmv.c
  * PURPOSE:         Process the file rename list.
- * PROGRAMMERS:     ReactOS Development Team
+ * PROGRAMMERS:     Dmitry Philippov (shedon@mail.ru)
+ * UPDATE HISTORY:
+ *                  Created 13/08/2006
  */
 
+ 
 /* INCLUDES ******************************************************************/
 #include "smss.h"
 
@@ -17,16 +21,16 @@
 
 /*++
 * @name SmpDeleteFile
-*
+* 
 * The SmpDeleteFile function deletes a specify file.
-*
+* 
 * @param    lpFileName
 *           the name of a file which should be deleted
 *
 * @return   STATUS_SUCCESS in case of success, STATUS_UNSUCCESSFUL
 *           othwerwise.
 *
-* @remarks
+* @remarks 
 * This function is called by SmpMoveFilesQueryRoutine().
 *
 *
@@ -66,6 +70,8 @@ SmpDeleteFile( IN LPCWSTR lpFileName )
 		NULL,
 		0);
 
+	RtlFreeUnicodeString(&FileNameU);
+
 	if( !NT_SUCCESS(Status) ) {
 		DPRINT("NtCreateFile() failed (Status %lx)\n", Status);
 		return (Status);
@@ -88,9 +94,9 @@ SmpDeleteFile( IN LPCWSTR lpFileName )
 
 /*++
 * @name SmpMoveFile
-*
+* 
 * The SmpMoveFile function deletes a specify file.
-*
+* 
 * @param	lpExistingFileName
 *			the name of an existing file which should be removed
 *
@@ -100,7 +106,7 @@ SmpDeleteFile( IN LPCWSTR lpFileName )
 * @return STATUS_SUCCESS in case of success, STATUS_UNSUCCESSFUL
 *         othwerwise.
 *
-* @remarks
+* @remarks 
 * This function called from the SmpMoveFilesQueryRoutine function.
 *
 *
@@ -327,9 +333,9 @@ SmpMoveFile( IN LPCWSTR lpExistingFileName,
 
 /*++
 * @name SmpMoveFilesQueryRoutine
-*
+* 
 * The SmpMoveFilesQueryRoutine function processes registry entries.
-*
+* 
 * @param    ValueName
 *           The name of the value.
 *
@@ -351,12 +357,12 @@ SmpMoveFile( IN LPCWSTR lpExistingFileName,
 * @return STATUS_SUCCESS in case of success, STATUS_UNSUCCESSFUL
 *         othwerwise.
 *
-* @remarks
+* @remarks 
 *
 *
 *
 *--*/
-static NTSTATUS NTAPI
+static NTSTATUS STDCALL
 SmpMoveFilesQueryRoutine(IN PWSTR ValueName,
                          IN ULONG ValueType,
                          IN PVOID ValueData,
@@ -368,7 +374,7 @@ SmpMoveFilesQueryRoutine(IN PWSTR ValueName,
 	static LPWSTR FistFileName = NULL;
 
 	DPRINT("SmpMoveFilesQueryRoutine() called \n");
-	DPRINT("ValueData = %S \n", (PWSTR) ValueData);
+	DPRINT("ValueData = %S \n", ValueData);
 
 	if( !FistFileName )
 	{
@@ -395,15 +401,15 @@ SmpMoveFilesQueryRoutine(IN PWSTR ValueName,
 /*++
 * @name SmProcessFileRenameList
 * @implemented
-*
+* 
 * The SmProcessFileRenameList function moves or deletes files thats have been added to the specify registry key for delayed moving.
-*
+* 
 * @param	VOID
 *
 * @return STATUS_SUCCESS in case of success, STATUS_UNSUCCESSFUL
 *         othwerwise.
 *
-* @remarks
+* @remarks 
 * This function reads the following registry value:
 * HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations
 * This registry value is of type REG_MULTI_SZ. The each operation is specifed as two file names.

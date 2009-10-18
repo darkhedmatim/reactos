@@ -19,189 +19,172 @@
 static unsigned ObjectDefinitionsCount = 0;
 static PCSRSS_OBJECT_DEFINITION ObjectDefinitions = NULL;
 
-static
-BOOL
+BOOL 
 CsrIsConsoleHandle(HANDLE Handle)
 {
-    return ((ULONG)Handle & 0x10000003) == 0x3;
+  return ((((ULONG)Handle) & 0x10000003) == 0x3) ? TRUE : FALSE;
 }
 
 
-NTSTATUS
-FASTCALL
-CsrRegisterObjectDefinitions(
-    PCSRSS_OBJECT_DEFINITION NewDefinitions)
+NTSTATUS FASTCALL
+CsrRegisterObjectDefinitions(PCSRSS_OBJECT_DEFINITION NewDefinitions)
 {
-    unsigned NewCount;
-    PCSRSS_OBJECT_DEFINITION Scan;
-    PCSRSS_OBJECT_DEFINITION New;
+  unsigned NewCount;
+  PCSRSS_OBJECT_DEFINITION Scan;
+  PCSRSS_OBJECT_DEFINITION New;
 
-    NewCount = 0;
-    for (Scan = NewDefinitions; 0 != Scan->Type; Scan++)
+  NewCount = 0;
+  for (Scan = NewDefinitions; 0 != Scan->Type; Scan++)
     {
-        NewCount++;
+      NewCount++;
     }
 
-    New = RtlAllocateHeap(CsrssApiHeap,
-                          0,
-                          (ObjectDefinitionsCount + NewCount)
-                          * sizeof(CSRSS_OBJECT_DEFINITION));
-    if (NULL == New)
+  New = RtlAllocateHeap(CsrssApiHeap, 0,
+                        (ObjectDefinitionsCount + NewCount)
+                        * sizeof(CSRSS_OBJECT_DEFINITION));
+  if (NULL == New)
     {
-        DPRINT1("Unable to allocate memory\n");
-        return STATUS_NO_MEMORY;
+      DPRINT1("Unable to allocate memory\n");
+      return STATUS_NO_MEMORY;
     }
-
-    if (0 != ObjectDefinitionsCount)
+  if (0 != ObjectDefinitionsCount)
     {
-        RtlCopyMemory(New,
-                      ObjectDefinitions,
-                      ObjectDefinitionsCount * sizeof(CSRSS_OBJECT_DEFINITION));
-        RtlFreeHeap(CsrssApiHeap, 0, ObjectDefinitions);
+      RtlCopyMemory(New, ObjectDefinitions,
+                    ObjectDefinitionsCount * sizeof(CSRSS_OBJECT_DEFINITION));
+      RtlFreeHeap(CsrssApiHeap, 0, ObjectDefinitions);
     }
+  RtlCopyMemory(New + ObjectDefinitionsCount, NewDefinitions,
+                NewCount * sizeof(CSRSS_OBJECT_DEFINITION));
+  ObjectDefinitions = New;
+  ObjectDefinitionsCount += NewCount;
 
-    RtlCopyMemory(New + ObjectDefinitionsCount,
-                  NewDefinitions,
-                  NewCount * sizeof(CSRSS_OBJECT_DEFINITION));
-    ObjectDefinitions = New;
-    ObjectDefinitionsCount += NewCount;
-
-    return STATUS_SUCCESS;
+  return STATUS_SUCCESS;
 }
 
-NTSTATUS
-WINAPI
-CsrGetObject(
-    PCSRSS_PROCESS_DATA ProcessData,
-    HANDLE Handle,
-    Object_t **Object,
-    DWORD Access )
+NTSTATUS STDCALL CsrGetObject( PCSRSS_PROCESS_DATA ProcessData, HANDLE Handle, Object_t **Object )
 {
-    ULONG h = (ULONG)Handle >> 2;
+  ULONG h = (((ULONG)Handle) >> 2) - 1;
+  DPRINT("CsrGetObject, Object: %x, %x, %x\n", Object, Handle, ProcessData ? ProcessData->HandleTableSize : 0);
 
-    DPRINT("CsrGetObject, Object: %x, %x, %x\n", 
-           Object, Handle, ProcessData ? ProcessData->HandleTableSize : 0);
-
-    RtlEnterCriticalSection(&ProcessData->HandleTableLock);
-    if (!CsrIsConsoleHandle(Handle) || h >= ProcessData->HandleTableSize
-            || (*Object = ProcessData->HandleTable[h].Object) == NULL
-            || ~ProcessData->HandleTable[h].Access & Access)
+  if (ProcessData == NULL)
     {
-        DPRINT1("CsrGetObject returning invalid handle (%x)\n", Handle);
-        RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-        return STATUS_INVALID_HANDLE;
+      return STATUS_INVALID_PARAMETER;
     }
-    _InterlockedIncrement(&(*Object)->ReferenceCount);
-    RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-    //   DbgPrint( "CsrGetObject returning\n" );
-    return STATUS_SUCCESS;
+  if (!CsrIsConsoleHandle(Handle) || ProcessData->HandleTableSize <= h)
+    {
+      DPRINT1("CsrGetObject returning invalid handle (%x)\n", Handle);
+      return STATUS_INVALID_HANDLE;
+    }
+  *Object = ProcessData->HandleTable[h];
+  //   DbgPrint( "CsrGetObject returning\n" );
+  return *Object ? STATUS_SUCCESS : STATUS_INVALID_HANDLE;
 }
 
 
-NTSTATUS
-WINAPI
-CsrReleaseObjectByPointer(
-    Object_t *Object)
+NTSTATUS STDCALL
+CsrReleaseObjectByPointer(Object_t *Object)
 {
-    unsigned DefIndex;
+  BOOL Found;
+  unsigned DefIndex;
 
-    /* dec ref count */
-    if (_InterlockedDecrement(&Object->ReferenceCount) == 0)
+  /* dec ref count */
+  if (InterlockedDecrement(&Object->ReferenceCount) == 0)
     {
-        for (DefIndex = 0; DefIndex < ObjectDefinitionsCount; DefIndex++)
+      Found = FALSE;
+      for (DefIndex = 0; ! Found && DefIndex < ObjectDefinitionsCount; DefIndex++)
         {
-            if (Object->Type == ObjectDefinitions[DefIndex].Type)
+          if (Object->Type == ObjectDefinitions[DefIndex].Type)
             {
-                (ObjectDefinitions[DefIndex].CsrCleanupObjectProc)(Object);
-                return STATUS_SUCCESS;
+              (ObjectDefinitions[DefIndex].CsrCleanupObjectProc)(Object);
+              Found = TRUE;
             }
         }
 
-        DPRINT1("CSR: Error: releasing unknown object type 0x%x", Object->Type);
-    }
-
-    return STATUS_SUCCESS;
-}
-
-
-NTSTATUS
-WINAPI
-CsrReleaseObject(
-    PCSRSS_PROCESS_DATA ProcessData,
-    HANDLE Handle)
-{
-    ULONG h = (ULONG)Handle >> 2;
-    Object_t *Object;
-
-    RtlEnterCriticalSection(&ProcessData->HandleTableLock);
-    if (h >= ProcessData->HandleTableSize
-            || (Object = ProcessData->HandleTable[h].Object) == NULL)
-    {
-        RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-        return STATUS_INVALID_HANDLE;
-    }
-    ProcessData->HandleTable[h].Object = NULL;
-    RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-
-    return CsrReleaseObjectByPointer(Object);
-}
-
-NTSTATUS
-WINAPI
-CsrInsertObject(
-    PCSRSS_PROCESS_DATA ProcessData,
-    PHANDLE Handle,
-    Object_t *Object,
-    DWORD Access,
-    BOOL Inheritable)
-{
-    ULONG i;
-    PVOID* Block;
-
-    RtlEnterCriticalSection(&ProcessData->HandleTableLock);
-
-    for (i = 0; i < ProcessData->HandleTableSize; i++)
-    {
-        if (ProcessData->HandleTable[i].Object == NULL)
+      if (! Found)
         {
+	  DPRINT1("CSR: Error: releaseing unknown object type 0x%x", Object->Type);
+        }
+    }
+
+  return STATUS_SUCCESS;
+}
+
+
+NTSTATUS STDCALL
+CsrReleaseObject(PCSRSS_PROCESS_DATA ProcessData,
+                 HANDLE Handle)
+{
+  ULONG h = (((ULONG)Handle) >> 2) - 1;
+  NTSTATUS Status;
+
+  if (ProcessData == NULL)
+    {
+      return STATUS_INVALID_PARAMETER;
+    }
+  if (!CsrIsConsoleHandle(Handle) || h >= ProcessData->HandleTableSize || ProcessData->HandleTable[h] == NULL)
+    {
+      return STATUS_INVALID_HANDLE;
+    }
+
+  Status = CsrReleaseObjectByPointer(ProcessData->HandleTable[h]);
+
+  RtlEnterCriticalSection(&ProcessData->HandleTableLock);
+  ProcessData->HandleTable[h] = 0;
+  RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
+  return Status;
+}
+
+NTSTATUS STDCALL CsrInsertObject( PCSRSS_PROCESS_DATA ProcessData, PHANDLE Handle, Object_t *Object )
+{
+   ULONG i;
+   PVOID* Block;
+
+   if (ProcessData == NULL)
+   {
+      return STATUS_INVALID_PARAMETER;
+   }
+
+   RtlEnterCriticalSection(&ProcessData->HandleTableLock);
+
+   for (i = 0; i < ProcessData->HandleTableSize; i++)
+     {
+	if (ProcessData->HandleTable[i] == NULL)
+	  {
             break;
-        }
-    }
-    if (i >= ProcessData->HandleTableSize)
-    {
-        Block = RtlAllocateHeap(CsrssApiHeap,
-                                HEAP_ZERO_MEMORY,
-                                (ProcessData->HandleTableSize + 64) * sizeof(CSRSS_HANDLE));
-        if (Block == NULL)
-        {
-            RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-            return(STATUS_UNSUCCESSFUL);
-        }
-        RtlCopyMemory(Block,
-                      ProcessData->HandleTable,
-                      ProcessData->HandleTableSize * sizeof(CSRSS_HANDLE));
-        Block = _InterlockedExchangePointer((void* volatile)&ProcessData->HandleTable, Block);
-        RtlFreeHeap( CsrssApiHeap, 0, Block );
-        ProcessData->HandleTableSize += 64;
-    }
-    ProcessData->HandleTable[i].Object = Object;
-    ProcessData->HandleTable[i].Access = Access;
-    ProcessData->HandleTable[i].Inheritable = Inheritable;
-    *Handle = (HANDLE)((i << 2) | 0x3);
-    _InterlockedIncrement( &Object->ReferenceCount );
-    RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-    return(STATUS_SUCCESS);
+	  }
+     }
+   if (i >= ProcessData->HandleTableSize)
+     {
+       Block = RtlAllocateHeap(CsrssApiHeap,
+			       HEAP_ZERO_MEMORY,
+			       (ProcessData->HandleTableSize + 64) * sizeof(HANDLE));
+       if (Block == NULL)
+         {
+           RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
+	   return(STATUS_UNSUCCESSFUL);
+         }
+       RtlCopyMemory(Block,
+		     ProcessData->HandleTable,
+		     ProcessData->HandleTableSize * sizeof(HANDLE));
+       Block = InterlockedExchangePointer(&ProcessData->HandleTable, Block);
+       RtlFreeHeap( CsrssApiHeap, 0, Block );
+       ProcessData->HandleTableSize += 64;
+     }
+   ProcessData->HandleTable[i] = Object;
+   *Handle = (HANDLE)(((i + 1) << 2) | 0x3);
+   InterlockedIncrement( &Object->ReferenceCount );
+   RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
+   return(STATUS_SUCCESS);
 }
 
-NTSTATUS
-WINAPI
-CsrDuplicateHandleTable(
-    PCSRSS_PROCESS_DATA SourceProcessData,
-    PCSRSS_PROCESS_DATA TargetProcessData)
+NTSTATUS STDCALL CsrDuplicateHandleTable(PCSRSS_PROCESS_DATA SourceProcessData,
+                                         PCSRSS_PROCESS_DATA TargetProcessData)
 {
     ULONG i;
 
-    if (TargetProcessData->HandleTableSize)
+    if (SourceProcessData == NULL || 
+        TargetProcessData == NULL ||
+        TargetProcessData->HandleTableSize)
     {
         return STATUS_INVALID_PARAMETER;
     }
@@ -211,43 +194,40 @@ CsrDuplicateHandleTable(
     /* we are called from CreateProcessData, it isn't necessary to lock the target process data */
 
     TargetProcessData->HandleTable = RtlAllocateHeap(CsrssApiHeap,
-                                                     HEAP_ZERO_MEMORY,
-                                                     SourceProcessData->HandleTableSize
-                                                             * sizeof(CSRSS_HANDLE));
+			                             HEAP_ZERO_MEMORY,
+			                             SourceProcessData->HandleTableSize * sizeof(HANDLE));
     if (TargetProcessData->HandleTable == NULL)
     {
         RtlLeaveCriticalSection(&SourceProcessData->HandleTableLock);
-        return(STATUS_UNSUCCESSFUL);
+	return(STATUS_UNSUCCESSFUL);
     }
     TargetProcessData->HandleTableSize = SourceProcessData->HandleTableSize;
     for (i = 0; i < SourceProcessData->HandleTableSize; i++)
     {
-        if (SourceProcessData->HandleTable[i].Object != NULL &&
-            SourceProcessData->HandleTable[i].Inheritable)
+        if (SourceProcessData->HandleTable[i])
         {
             TargetProcessData->HandleTable[i] = SourceProcessData->HandleTable[i];
-            _InterlockedIncrement( &SourceProcessData->HandleTable[i].Object->ReferenceCount );
+            InterlockedIncrement( &SourceProcessData->HandleTable[i]->ReferenceCount );
         }
     }
-    RtlLeaveCriticalSection(&SourceProcessData->HandleTableLock);
-    return(STATUS_SUCCESS);
+   RtlLeaveCriticalSection(&SourceProcessData->HandleTableLock);
+   return(STATUS_SUCCESS);
 }
 
-NTSTATUS
-WINAPI
-CsrVerifyObject(
-    PCSRSS_PROCESS_DATA ProcessData,
-    HANDLE Handle)
+NTSTATUS STDCALL CsrVerifyObject( PCSRSS_PROCESS_DATA ProcessData, HANDLE Handle )
 {
-    ULONG h = (ULONG)Handle >> 2;
+  ULONG h = (((ULONG)Handle) >> 2) - 1;
 
-    if (h >= ProcessData->HandleTableSize ||
-        ProcessData->HandleTable[h].Object == NULL)
+  if (ProcessData == NULL)
     {
-        return STATUS_INVALID_HANDLE;
+      return STATUS_INVALID_PARAMETER;
+    }
+  if (!CsrIsConsoleHandle(Handle) || h >= ProcessData->HandleTableSize)
+    {
+      return STATUS_INVALID_HANDLE;
     }
 
-    return STATUS_SUCCESS;
+  return ProcessData->HandleTable[h] ? STATUS_SUCCESS : STATUS_INVALID_HANDLE;
 }
 
 /* EOF */

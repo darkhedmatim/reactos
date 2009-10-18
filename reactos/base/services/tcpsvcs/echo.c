@@ -2,93 +2,89 @@
  * PROJECT:     ReactOS simple TCP/IP services
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        /base/services/tcpsvcs/echo.c
- * PURPOSE:     Returns whatever input the client sends
- * COPYRIGHT:   Copyright 2005 - 2008 Ged Murphy <gedmurphy@reactos.org>
+ * PURPOSE:     Provide CharGen, Daytime, Discard, Echo, and Qotd services
+ * COPYRIGHT:   Copyright 2005 - 2006 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
 #include "tcpsvcs.h"
 
-#define RECV_BUF 1024
+extern BOOL bShutDown;
 
-static BOOL
-EchoIncomingPackets(SOCKET sock)
+DWORD WINAPI EchoHandler(VOID* Sock_)
 {
-    CHAR readBuffer[RECV_BUF];
-    WCHAR logBuf[256];
-    INT totalSentBytes;
-    INT readBytes;
-    INT retVal;
+    DWORD RetVal = 0;
+    SOCKET Sock = (SOCKET)Sock_;
 
-    do 
+    if (!EchoIncomingPackets(Sock)) {
+        LogEvent(_T("Echo: EchoIncomingPackets failed\n"), 0, FALSE);
+        RetVal = 1;
+    }
+
+    LogEvent(_T("Echo: Shutting connection down...\n"), 0, FALSE);
+
+    if (ShutdownConnection(Sock, TRUE))
+        LogEvent(_T("Echo: Connection is down\n"), 0, FALSE);
+    else
     {
-        readBytes = recv(sock, readBuffer, RECV_BUF, 0);
-        if (readBytes > 0)
-        {
-            _swprintf(logBuf, L"Received %d bytes from client", readBytes);
-            LogEvent(logBuf, 0, 0, LOG_FILE);
+        LogEvent(_T("Echo: Connection shutdown failed\n"), 0, FALSE);
+        RetVal = 1;
+    }
 
-            totalSentBytes = 0;
-            while (!bShutdown && totalSentBytes < readBytes)
+    LogEvent(_T("Echo: Terminating thread\n"), 0, FALSE);
+    ExitThread(RetVal);
+}
+
+
+
+BOOL EchoIncomingPackets(SOCKET Sock)
+{
+    char ReadBuffer[BUF];
+    TCHAR buf[256]; // temp for holding LogEvent text
+    INT Temp;
+    INT ReadBytes;
+    INT SentBytes;
+
+    do {
+        ReadBytes = recv(Sock, ReadBuffer, BUF, 0);
+        if (ReadBytes > 0)
+        {
+            _stprintf(buf, _T("Received %d bytes from client\n"), ReadBytes);
+            LogEvent(buf, 0, FALSE);
+
+            SentBytes = 0;
+            while (SentBytes < ReadBytes)
             {
-                retVal = send(sock, readBuffer + totalSentBytes, readBytes - totalSentBytes, 0);
-                if (retVal > 0)
+                Temp = send(Sock, ReadBuffer + SentBytes,
+                        ReadBytes - SentBytes, 0);
+                if (Temp > 0)
                 {
-                    _swprintf(logBuf, L"Sent %d bytes back to client", retVal);
-                    LogEvent(logBuf, 0, 0, LOG_FILE);
-                    totalSentBytes += retVal;
+                    _stprintf(buf, _T("Sent %d bytes back to client\n"), Temp);
+                    LogEvent(buf, 0, FALSE);
+                    SentBytes += Temp;
                 }
-                else if (retVal == SOCKET_ERROR)
-                {
-                    LogEvent(L"Echo: socket error", WSAGetLastError(), 0, LOG_ERROR);
+                else if (Temp == SOCKET_ERROR)
                     return FALSE;
-                }
                 else
                 {
                     /* Client closed connection before we could reply to
                        all the data it sent, so quit early. */
-                    LogEvent(L"Peer unexpectedly dropped connection!", 0, 0, LOG_FILE);
+                    _stprintf(buf, _T("Peer unexpectedly dropped connection!\n"));
+                    LogEvent(buf, 0, FALSE);
                     return FALSE;
                 }
             }
         }
-        else if (readBytes == SOCKET_ERROR)
-        {
-            LogEvent(L"Echo: socket error", WSAGetLastError(), 0, LOG_ERROR);
+        else if (ReadBytes == SOCKET_ERROR)
             return FALSE;
-        }
-    } while ((readBytes != 0) && (!bShutdown));
 
-    if (!bShutdown)
-        LogEvent(L"Echo: Connection closed by peer", 0, 0, LOG_FILE);
+    } while ((ReadBytes != 0) && (! bShutDown));
+
+    if (! bShutDown)
+        LogEvent(_T("Echo: Connection closed by peer.\n"), 0, FALSE);
+
+	if (bShutDown)
+		LogEvent(_T("Echo: thread recieved shutdown signal\n"), 0, FALSE);
 
     return TRUE;
-}
-
-DWORD WINAPI
-EchoHandler(VOID* sock_)
-{
-    DWORD retVal = 0;
-    SOCKET sock = (SOCKET)sock_;
-
-    if (!EchoIncomingPackets(sock))
-    {
-        LogEvent(L"Echo: EchoIncomingPackets failed", 0, 0, LOG_FILE);
-        retVal = 1;
-    }
-
-    LogEvent(L"Echo: Shutting connection down", 0, 0, LOG_FILE);
-
-    if (ShutdownConnection(sock, TRUE))
-    {
-        LogEvent(L"Echo: Connection is down", 0, 0, LOG_FILE);
-    }
-    else
-    {
-        LogEvent(L"Echo: Connection shutdown failed", 0, 0, LOG_FILE);
-        retVal = 1;
-    }
-
-    LogEvent(L"Echo: Terminating thread", 0, 0, LOG_FILE);
-    ExitThread(retVal);
 }

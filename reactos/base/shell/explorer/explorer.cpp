@@ -93,12 +93,12 @@ void ExplorerGlobals::read_persistent()
 	_cfg_dir.printf(TEXT("%s\\ReactOS"), (LPCTSTR)SpecialFolderFSPath(CSIDL_APPDATA,0));
 	_cfg_path.printf(TEXT("%s\\ros-explorer-cfg.xml"), _cfg_dir.c_str());
 
-	if (!_cfg.read_file(_cfg_path)) {
+	if (!_cfg.read(_cfg_path)) {
 		//if (_cfg._last_error != XML_ERROR_NO_ELEMENTS)
 		MessageBox(_hwndDesktop, _cfg._errors.str(),
 					TEXT("ROS Explorer - reading user settings"), MB_OK);
 
-		_cfg.read_file(TEXT("explorer-cfg-template.xml"));
+		_cfg.read(TEXT("explorer-cfg-template.xml"));
 	}
 
 	 // read bookmarks
@@ -115,7 +115,7 @@ void ExplorerGlobals::write_persistent()
 	 // write configuration file
 	RecursiveCreateDirectory(_cfg_dir);
 
-	_cfg.write_file(_cfg_path);
+	_cfg.write(_cfg_path);
 	_favorites.write(_favorites_path);
 }
 
@@ -227,10 +227,6 @@ LPCTSTR FileTypeManager::set_type(Entry* entry, bool dont_hide_ext)
 		 // hide some file extensions
 		if (type._neverShowExt && !dont_hide_ext) {
 			int len = ext - entry->_data.cFileName;
-
-			if (entry->_display_name != entry->_data.cFileName)
-				free(entry->_display_name);
-
 			entry->_display_name = (LPTSTR) malloc((len+1)*sizeof(TCHAR));
 			lstrcpyn(entry->_display_name, entry->_data.cFileName, len + 1);
 		}
@@ -406,7 +402,6 @@ void IconCache::init()
 	_icons[ICID_COMPUTER]	= Icon(ICID_COMPUTER,	IDI_COMPUTER,	icon_size);
 	_icons[ICID_LOGOFF] 	= Icon(ICID_LOGOFF, 	IDI_LOGOFF,		icon_size);
 	_icons[ICID_SHUTDOWN]	= Icon(ICID_SHUTDOWN,	IDI_SHUTDOWN,	icon_size);
-	_icons[ICID_RESTART]	= Icon(ICID_RESTART,	IDI_RESTART,	icon_size);
 	_icons[ICID_BOOKMARK]	= Icon(ICID_BOOKMARK,	IDI_DOT_TRANS,	icon_size);
 	_icons[ICID_MINIMIZE]	= Icon(ICID_MINIMIZE,	IDI_MINIMIZE,	icon_size);
 	_icons[ICID_CONTROLPAN] = Icon(ICID_CONTROLPAN, IDI_CONTROLPAN,	icon_size);
@@ -631,26 +626,6 @@ const Icon& IconCache::get_icon(int id)
 	return _icons[id];
 }
 
-IconCache::~IconCache()
-{
-/* We don't need to free cached resources - they are automatically freed at process termination
-	for (int index = s_next_id; index >= 0; index--) {
-		IconMap::iterator found = _icons.find(index);
-
-		if (found != _icons.end()) {
-			Icon& icon = found->second;
-
-			if ((icon.get_icontype() == IT_DYNAMIC) || 
-				(icon.get_icontype() == IT_CACHED)) 
-			{
-				DestroyIcon(icon.get_hicon());
-				_icons.erase(found);
-			}
-		}
-	}
-*/
-}
-
 void IconCache::free_icon(int icon_id)
 {
 	IconMap::iterator found = _icons.find(icon_id);
@@ -723,7 +698,16 @@ void explorer_show_frame(int cmdShow, LPTSTR lpCmdLine)
 
 	g_Globals._prescan_nodes = false;
 
-	cmd._mdi =  true;
+	XMLPos explorer_options = g_Globals.get_cfg("general/explorer");
+	XS_String mdiStr = XMLString(explorer_options, "mdi");
+
+	 // If there isn't yet the "mdi" setting in the configuration, display MDI/SDI dialog.
+	if (mdiStr.empty())
+		Dialog::DoModal(IDD_MDI_SDI, WINDOW_CREATOR(MdiSdiDlg), g_Globals._hwndDesktop);
+
+	 // Now read the MDI attribute again and interpret it as boolean value.
+	cmd._mdi = XMLBool(explorer_options, "mdi", true);
+
 	cmd._cmdShow = cmdShow;
 
 	 // parse command line options, which may overwrite the MDI flag
@@ -846,8 +830,6 @@ PopupMenu::PopupMenu(UINT nid)
 {
 	HMENU hMenu = LoadMenu(g_Globals._hInstance, MAKEINTRESOURCE(nid));
 	_hmenu = GetSubMenu(hMenu, 0);
-	RemoveMenu(hMenu, 0, MF_BYPOSITION);
-	DestroyMenu(hMenu);
 }
 
 
@@ -1194,31 +1176,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 #endif
 	}
 
-	if (_tcsstr(ext_options,TEXT("-?"))) {
-		MessageBoxA(g_Globals._hwndDesktop,
-			"/e		open cabinet window in explorer mode\r\n"
-			"/root		open cabinet window in rooted mode\r\n"
-			"/mdi		open cabinet window in MDI mode\r\n"
-			"/sdi		open cabinet window in SDI mode\r\n"
-			"\r\n"
-			"-?		display command line options\r\n"
-			"\r\n"
-			"-desktop		start in desktop mode regardless of an already running shell\r\n"
-			"-nodesktop	disable desktop mode\r\n"
-			"-explorer		display cabinet window regardless of enabled desktop mode\r\n"
-			"\r\n"
-			"-install		replace previous shell application with ROS Explorer\r\n"
-			"\r\n"
-			"-noautostart	disable autostarts\r\n"
-			"-autostart	enable autostarts regardless of debug build\r\n"
-			"\r\n"
-			"-console		open debug console\r\n"
-			"\r\n"
-			"-debug		activate GDB remote debugging stub\r\n"
-			"-break		activate debugger breakpoint\r\n",
-			"ROS Explorer - command line options", MB_OK);
-	}
-
 	Thread* pSSOThread = NULL;
 
 	if (startup_desktop) {
@@ -1229,7 +1186,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	/**TODO launching autostart programs can be moved into a background thread. */
 	if (autostart) {
-		const char* argv[] = {"", "s"};	// call startup routine in SESSION_START mode
+		char* argv[] = {"", "s"};	// call startup routine in SESSION_START mode
 		startup(2, argv);
 	}
 

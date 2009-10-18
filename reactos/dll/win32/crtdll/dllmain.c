@@ -2,7 +2,7 @@
  *
  * dllmain.c
  *
- * ReactOS CRTDLL.DLL Compatibility Library
+ * ReactOS MSVCRT.DLL Compatibility Library
  *
  *  THIS SOFTWARE IS NOT COPYRIGHTED
  *
@@ -14,20 +14,24 @@
  *  DISCLAMED. This includes but is not limited to warrenties of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
+ * $Revision: 1.24 $
+ * $Author: mf $
+ * $Date: 2005-01-06 14:58:04 +0100 (Thu, 06 Jan 2005) $
+ *
  */
 
 #include <precomp.h>
 #include <internal/wine/msvcrt.h>
 #include <sys/stat.h>
-#include <locale.h>
-#include <mbctype.h>
 
-#include "wine/debug.h"
-WINE_DEFAULT_DEBUG_CHANNEL(crtdll);
+#define NDEBUG
+#include <internal/debug.h>
 
 
 /* EXTERNAL PROTOTYPES ********************************************************/
 
+//void __fileno_init(void);
+extern BOOL __fileno_init(void);
 extern int BlockEnvToEnvironA(void);
 extern int BlockEnvToEnvironW(void);
 extern void FreeEnvironment(char **environment);
@@ -103,14 +107,14 @@ HANDLE hHeap = NULL;        /* handle for heap */
 /* LIBRARY ENTRY POINT ********************************************************/
 
 BOOL
-WINAPI
+STDCALL
 DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 {
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH://1
         /* initialize version info */
-        //TRACE("Attach %d\n", nAttachCount);
+        DPRINT("Attach %d\n", nAttachCount);
 
         _osver = GetVersion();
 
@@ -129,6 +133,8 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         _osver = (_osver >> 16) & 0xFFFF;
         hHeap = HeapCreate(0, 100000, 0);
         if (hHeap == NULL)
+            return FALSE;
+        if (!__fileno_init()) 
             return FALSE;
 
         /* create tls stuff */
@@ -151,11 +157,8 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 
         /* FIXME: Initialization of the WINE code */
         msvcrt_init_mt_locks();
-        msvcrt_init_io();
-        setlocale(0, "C");
-        //_setmbcp(_MB_CP_LOCALE);
 
-        TRACE("Attach done\n");
+        DPRINT("Attach done\n");
         break;
 
     case DLL_THREAD_ATTACH://2
@@ -166,10 +169,9 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         break;
 
     case DLL_PROCESS_DETACH://0
-        //TRACE("Detach %d\n", nAttachCount);
-        /* Deinit of the WINE code */
-        msvcrt_free_io();
-        msvcrt_free_mt_locks();
+        DPRINT("Detach %d\n", nAttachCount);
+        /* FIXME: more cleanup... */
+        _fcloseall();
         _atexit_cleanup();
 
         /* destroy tls stuff */
@@ -188,7 +190,7 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         /* destroy heap */
         HeapDestroy(hHeap);
 
-        TRACE("Detach done\n");
+        DPRINT("Detach done\n");
         break;
     }
 

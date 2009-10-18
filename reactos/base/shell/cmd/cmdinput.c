@@ -79,15 +79,15 @@
  *        Fixed carrage return output to better match MSDOS with echo
  *        on or off.(marked with "JPP 19980708")
  *
- *    13-Dec-1998 (Eric Kohl)
+ *    13-Dec-1998 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Added insert/overwrite cursor.
  *
- *    25-Jan-1998 (Eric Kohl)
+ *    25-Jan-1998 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Replaced CRT io functions by Win32 console io functions.
  *        This can handle <Shift>-<Tab> for 4NT filename completion.
  *        Unicode and redirection safe!
  *
- *    04-Feb-1999 (Eric Kohl)
+ *    04-Feb-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Fixed input bug. A "line feed" character remained in the keyboard
  *        input queue when you pressed <RETURN>. This sometimes caused
  *        some very strange effects.
@@ -95,12 +95,10 @@
  *
  *    30-Apr-2004 (Filip Navara <xnavara@volny.cz>)
  *        Fixed problems when the screen was scrolled away.
- *
- *    28-September-2007 (Hervé Poussineau)
- *        Added history possibilities to right key.
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 SHORT maxx;
@@ -126,9 +124,8 @@ ClearCommandLine (LPTSTR str, INT maxlen, SHORT orgx, SHORT orgy)
 
 
 /* read in a command line */
-BOOL ReadCommand (LPTSTR str, INT maxlen)
+VOID ReadCommand (LPTSTR str, INT maxlen)
 {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	SHORT orgx;			/* origin x/y */
 	SHORT orgy;
 	SHORT curx;			/*current x/y cursor position*/
@@ -141,39 +138,19 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 	WORD   wLastKey = 0;
 	TCHAR  ch;
 	BOOL bContinue=FALSE;/*is TRUE the second case will not be executed*/
-	BOOL bReturn = FALSE;
-	BOOL bCharInput;
-#ifdef FEATURE_4NT_FILENAME_COMPLETION
+    BOOL bReturn = FALSE;
 	TCHAR szPath[MAX_PATH];
-#endif
-#ifdef FEATURE_HISTORY
-	TCHAR PreviousChar;
-#endif
-
-	if (!GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
-	{
-		/* No console */
-		HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-		DWORD dwRead;
-		CHAR chr;
-		do
-		{
-			if (!ReadFile(hStdin, &chr, 1, &dwRead, NULL) || !dwRead)
-				return FALSE;
-#ifdef _UNICODE
-			MultiByteToWideChar(InputCodePage, 0, &chr, 1, &str[charcount++], 1);
-#endif
-		} while (chr != '\n' && charcount < maxlen);
-		str[charcount] = _T('\0');
-		return TRUE;
-	}
+    BOOL bCharInput;
 
 	/* get screen size */
-	maxx = csbi.dwSize.X;
-	maxy = csbi.dwSize.Y;
+	GetScreenSize (&maxx, &maxy);
 
-	curx = orgx = csbi.dwCursorPosition.X;
-	cury = orgy = csbi.dwCursorPosition.Y;
+	/* JPP 19980807 - if echo off, don't print prompt */
+	if (bEcho)
+		PrintPrompt();
+
+	GetCursorXY (&orgx, &orgy);
+	GetCursorXY (&curx, &cury);
 
 	memset (str, 0, maxlen * sizeof (TCHAR));
 
@@ -181,13 +158,13 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 
 	do
 	{
-
-		bReturn = FALSE;
-
+    
+        bReturn = FALSE;
+        
 		ConInKey (&ir);
 
 		if (ir.Event.KeyEvent.dwControlKeyState &
-			(RIGHT_ALT_PRESSED|LEFT_ALT_PRESSED|
+			(RIGHT_ALT_PRESSED|RIGHT_ALT_PRESSED|
 			RIGHT_CTRL_PRESSED|LEFT_CTRL_PRESSED) )
 		{
 
@@ -235,7 +212,11 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 
 		}
 
-		bCharInput = FALSE;
+		//if (bContinue)
+		//	continue;
+
+
+        bCharInput = FALSE;
 
 		switch (ir.Event.KeyEvent.wVirtualKeyCode)
 		{
@@ -385,12 +366,12 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 				}
 #endif
 #ifdef FEATURE_4NT_FILENAME_COMPLETION
-
+				
 				/* used to later see if we went down to the next line */
 				tempscreen = charcount;
 				szPath[0]=_T('\0');
 
-				/* str is the whole things that is on the current line
+				/* str is the whole things that is on the current line 
 				   that is and and out.  arg 2 is weather it goes back
 					one file or forward one file */
 				CompleteFilename(str, !(ir.Event.KeyEvent.dwControlKeyState & SHIFT_PRESSED), szPath, current);
@@ -398,11 +379,12 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 				ClearCommandLine (str, maxlen, orgx, orgy);
 				curx = orgx;
 				cury = orgy;
-				current = charcount = 0;
-
+				current = charcount = 0;				
+        //str[0]=_T('\0');
+				
 				/* Everything is deleted, lets add it back in */
 				_tcscpy(str,szPath);
-
+        
 				/* Figure out where cusor is going to be after we print it */
 				charcount = _tcslen (str);
 				current = charcount;
@@ -429,17 +411,17 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 
 #endif
 				break;
-
-			case _T('M'):
-			case _T('C'):
-				/* ^M does the same as return */
-				bCharInput = TRUE;
-				if(!(ir.Event.KeyEvent.dwControlKeyState &
-					(RIGHT_CTRL_PRESSED|LEFT_CTRL_PRESSED)))
-				{
-					break;
-				}
-
+            
+            case _T('M'):
+            case _T('C'):
+                /* ^M does the same as return */
+                bCharInput = TRUE;
+                if(!(ir.Event.KeyEvent.dwControlKeyState &
+                   (RIGHT_CTRL_PRESSED|LEFT_CTRL_PRESSED)))
+                {
+                    break;
+                }
+                    
 			case VK_RETURN:
 				/* end input, return to main */
 #ifdef FEATURE_HISTORY
@@ -447,10 +429,9 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 				if (str[0])
 					History (0, str);
 #endif
-				str[charcount++] = _T('\n');
-				str[charcount] = _T('\0');
+				ConInDummy ();
 				ConOutChar (_T('\n'));
-			bReturn = TRUE;
+                bReturn = TRUE;
 				break;
 
 			case VK_ESCAPE:
@@ -531,83 +512,63 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 						curx++;
 					}
 				}
-#ifdef FEATURE_HISTORY
-				else
-				{
-					LPCTSTR last = PeekHistory(-1);
-					if (last && charcount < (INT)_tcslen (last))
-					{
-						PreviousChar = last[current];
-						ConOutChar(PreviousChar);
-						GetCursorXY(&curx, &cury);
-						str[current++] = PreviousChar;
-						charcount++;
-					}
-				}
-#endif
 				break;
 
-			default:
-				/* This input is just a normal char */
-				bCharInput = TRUE;
+            default:
+                /* This input is just a normal char */
+                bCharInput = TRUE;
 
 			}
 #ifdef _UNICODE
-			ch = ir.Event.KeyEvent.uChar.UnicodeChar;
-			if (ch >= 32 && (charcount != (maxlen - 2)) && bCharInput)
+            ch = ir.Event.KeyEvent.uChar.UnicodeChar;
+            if (ch >= 32 && (charcount != (maxlen - 2)) && bCharInput)
 #else
-			ch = ir.Event.KeyEvent.uChar.AsciiChar;
-			if ((UCHAR)ch >= 32 && (charcount != (maxlen - 2)) && bCharInput)
+            ch = ir.Event.KeyEvent.uChar.AsciiChar;
+            if ((UCHAR)ch >= 32 && (charcount != (maxlen - 2)) && bCharInput)
 #endif /* _UNICODE */
-			{
-				/* insert character into string... */
-				if (bInsert && current != charcount)
-				{
-					/* If this character insertion will cause screen scrolling,
-					 * adjust the saved origin of the command prompt. */
-					tempscreen = _tcslen(str + current) + curx;
-					if ((tempscreen % maxx) == (maxx - 1) &&
-						(tempscreen / maxx) + cury == (maxy - 1))
-					{
-						orgy--;
-						cury--;
-					}
+            {
+                /* insert character into string... */
+                if (bInsert && current != charcount)
+                {
+                        /* If this character insertion will cause screen scrolling,
+                                                                 * adjust the saved origin of the command prompt. */
+                        tempscreen = _tcslen(str + current) + curx;
+                    if ((tempscreen % maxx) == (maxx - 1) &&
+                        (tempscreen / maxx) + cury == (maxy - 1))
+                    {
+                        orgy--;
+                        cury--;
+                    }
 
-					for (count = charcount; count > current; count--)
-						str[count] = str[count - 1];
-					str[current++] = ch;
-					if (curx == maxx - 1)
-						curx = 0, cury++;
-					else
-						curx++;
-					ConOutPrintf (_T("%s"), &str[current - 1]);
-					SetCursorXY (curx, cury);
-					charcount++;
-				}
-				else
-				{
-					if (current == charcount)
-						charcount++;
-					str[current++] = ch;
-					if (GetCursorX () == maxx - 1 && GetCursorY () == maxy - 1)
-						orgy--, cury--;
-					if (GetCursorX () == maxx - 1)
-						curx = 0, cury++;
-					else
-						curx++;
-					ConOutChar (ch);
-				}
-			}
-
+                    for (count = charcount; count > current; count--)
+                        str[count] = str[count - 1];
+                    str[current++] = ch;
+                    if (curx == maxx - 1)
+                        curx = 0, cury++;
+                    else
+                        curx++;
+                    ConOutPrintf (_T("%s"), &str[current - 1]);
+                    SetCursorXY (curx, cury);
+                    charcount++;
+                }
+                else
+                {
+                    if (current == charcount)
+                        charcount++;
+                    str[current++] = ch;
+                    if (GetCursorX () == maxx - 1 && GetCursorY () == maxy - 1)
+                        orgy--, cury--;
+                    if (GetCursorX () == maxx - 1)
+                        curx = 0, cury++;
+                    else
+                        curx++;
+                    ConOutChar (ch);
+                }
+            }
+		
 		wLastKey = ir.Event.KeyEvent.wVirtualKeyCode;
 	}
 	while (!bReturn);
 
 	SetCursorType (bInsert, TRUE);
-
-#ifdef FEATURE_ALIASES
-	/* expand all aliases */
-	ExpandAlias (str, maxlen);
-#endif /* FEATURE_ALIAS */
-	return TRUE;
 }

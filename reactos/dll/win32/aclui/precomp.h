@@ -1,6 +1,5 @@
 #define WIN32_NO_STATUS
 #define NTOS_MODE_USER
-#define _ACLUI_
 #include <windows.h>
 #include <ndk/ntndk.h>
 #include <commctrl.h>
@@ -10,7 +9,7 @@
 #include <aclui.h>
 #include <sddl.h>
 #include <ntsecapi.h>
-#ifdef SUPPORT_UXTHEME
+#if SUPPORT_UXTHEME
 #include <uxtheme.h>
 #include <tmschema.h>
 #endif
@@ -49,9 +48,6 @@ typedef struct _SECURITY_PAGE
     /* Main Principals List */
     HWND hWndPrincipalsList;
     PPRINCIPAL_LISTITEM PrincipalsListHead;
-
-    PSID OwnerSid;
-    BOOL OwnerDefaulted;
 
     INT ControlsMargin;
 

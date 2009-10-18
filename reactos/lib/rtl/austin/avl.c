@@ -21,7 +21,7 @@
 /*
  * Modified for use in ReactOS by arty
  */
-#include "rtl.h"
+
 #include "udict.h"
 #include "tree.h"
 #include "macros.h"
@@ -34,9 +34,9 @@
 #define LESS GenericLessThan
 #define GREATER GenericGreaterThan
 
-int print_node(udict_t *ud, udict_node_t *node, int indent)
+void print_node(udict_t *ud, udict_node_t *node, int indent)
 {
-	int i, rh = 0, lh = 0;
+	int i;
 	char buf[100];
 	udict_node_t *nil = ud->BalancedRoot.Parent;
 
@@ -44,49 +44,19 @@ int print_node(udict_t *ud, udict_node_t *node, int indent)
 	if( node == ud->BalancedRoot.Parent ) {
 		sprintf(buf+i, "Nil\n");
 		DbgPrint("%s", buf);
-		return 0;
 	} else {
-		sprintf(buf+i, "Node %p (parent %p: balance %d)\n", node, node->parent, node->Balance);
+		sprintf(buf+i, "Node %x (parent %x: balance %d)\n", (int)node, (int)node->parent, node->Balance);
 		DbgPrint("%s", buf);
 		if( node->LeftChild != nil ) {
 			sprintf(buf+i, "--> Left\n");
 			DbgPrint("%s", buf);
-			lh = print_node(ud, node->LeftChild, indent+1);
+			print_node(ud, node->LeftChild, indent+1);
 		}
 		if( node->RightChild != nil ) {
 			sprintf(buf+i, "--> Right\n");
 			DbgPrint("%s", buf);
-			rh = print_node(ud, node->RightChild, indent+1);
+			print_node(ud, node->RightChild, indent+1);
 		}
-		if (indent)
-		{
-			if (rh < lh - 1 || lh < rh - 1)
-			{
-				sprintf(buf+i, "warning: tree is too unbalanced %d vs %d\n",
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-			if (rh != lh && node->Balance == BALANCED)
-			{
-				sprintf(buf+i, "warning: tree says balanced, but %d vs %d\n", 
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-			else if (lh <= rh && node->Balance == LEFTHEAVY)
-			{
-				sprintf(buf+i, "warning: tree says leftheavy but %d vs %d\n",
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-			else if (lh >= rh && node->Balance == RIGHTHEAVY)
-			{
-				sprintf(buf+i, "warning: tree says rightheavy but %d vs %d\n",
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-		}
-		if (rh > lh) return 1+rh;
-		else return 1+lh;
 	}
 }
 
@@ -98,7 +68,7 @@ void print_tree(udict_t *ud)
 
 void avl_init(udict_t *ud)
 {
-	ud->BalancedRoot.left = ud->BalancedRoot.right =
+	ud->BalancedRoot.left = ud->BalancedRoot.right = 
 	ud->BalancedRoot.parent = (udict_node_t*)
 		ud->AllocateRoutine(ud, sizeof(udict_node_t));
 	ud->BalancedRoot.parent->left = ud->BalancedRoot.parent->right =
@@ -235,7 +205,7 @@ static int Insert(udict_t *ud, udict_node_t *what, udict_node_t **where, udict_n
 		return 1;                       /* higher than before */
 	}/*if*/
 	else {
-		result = ud->compare(ud, key(what), key(here));
+		result = ud->compare(ud, key(what), key(here));	
 
 		assert (result != GenericEqual);
 
@@ -277,6 +247,8 @@ void avl_insert_node(udict_t *ud, udict_node_t *node)
 		node->parent = &ud->BalancedRoot;
 		ud->BalancedRoot.balance = LEFTHEAVY;
 	}
+
+	print_tree(ud);
 
 	ud->nodecount++;
 }
@@ -334,7 +306,7 @@ void avl_delete_node(udict_t *ud, udict_node_t *node)
 		}/*if*/
 	}/*if*/
 
-	while (parent != &ud->BalancedRoot) {
+	while (parent != nil) {
 		if ((parent->left == nil) && (parent->right == nil)) {
 			assert (child == nil);
 			parent->balance = BALANCED;
@@ -385,7 +357,7 @@ int avl_search(udict_t *ud, void *_key, udict_node_t *here, udict_node_t **where
 	if (avl_is_nil(ud, here))
 		return TableInsertAsLeft;
 
-	result = ud->compare(ud, _key, key(here));
+	result = ud->compare(ud, _key, key(here));	
 
 	if (result == EQUAL) {
 		*where = here;
@@ -410,7 +382,7 @@ int avl_search(udict_t *ud, void *_key, udict_node_t *here, udict_node_t **where
 
 int avl_is_nil(udict_t *ud, udict_node_t *node)
 {
-	return  tree_null_priv(ud) == node ||
+	return  tree_null_priv(ud) == node || 
 		&ud->BalancedRoot == node;
 }
 
@@ -427,7 +399,7 @@ udict_node_t *avl_last(udict_t *ud)
 udict_node_t *avl_next(udict_t *ud, udict_node_t *prev)
 {
 	udict_node_t *node = udict_tree_next(ud, prev);
-	if( node == tree_null_priv(ud) || node == &ud->BalancedRoot )
+	if( node == tree_null_priv(ud) || node == &ud->BalancedRoot ) 
 		return NULL;
 	else
 		return node;

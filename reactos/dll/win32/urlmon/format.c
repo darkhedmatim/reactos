@@ -13,10 +13,20 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <stdarg.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
+#include "ole2.h"
+#include "urlmon.h"
 #include "urlmon_main.h"
+
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
@@ -33,20 +43,17 @@ typedef struct {
     LONG ref;
 } EnumFORMATETC;
 
-static IEnumFORMATETC *EnumFORMATETC_Create(UINT cfmtetc, const FORMATETC *rgfmtetc, UINT it);
+static IEnumFORMATETC *EnumFORMATETC_Create(UINT cfmtetc, FORMATETC *rgfmtetc, UINT it);
 
-#define ENUMF_THIS(iface) DEFINE_THIS(EnumFORMATETC, EnumFORMATETC, iface)
+#define ENUMF_THIS(iface) ICOM_THIS_MULTI(EnumFORMATETC, lpEnumFORMATETCVtbl, iface)
 
 static HRESULT WINAPI EnumFORMATETC_QueryInterface(IEnumFORMATETC *iface, REFIID riid, void **ppv)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
-
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid(riid), ppv);
+    TRACE("(%p)->(%s %p)\n", iface, debugstr_guid(riid), ppv);
 
     *ppv = NULL;
 
     if(IsEqualGUID(&IID_IUnknown, riid) || IsEqualGUID(&IID_IEnumFORMATETC, riid)) {
-        IEnumFORMATETC_AddRef(iface);
         *ppv = iface;
         return S_OK;
     }
@@ -57,22 +64,22 @@ static HRESULT WINAPI EnumFORMATETC_QueryInterface(IEnumFORMATETC *iface, REFIID
 
 static ULONG WINAPI EnumFORMATETC_AddRef(IEnumFORMATETC *iface)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
     LONG ref = InterlockedIncrement(&This->ref);
-    TRACE("(%p) ref=%d\n", This, ref);
+    TRACE("(%p) ref=%ld\n", This, ref);
     return ref;
 }
 
 static ULONG WINAPI EnumFORMATETC_Release(IEnumFORMATETC *iface)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
     LONG ref = InterlockedDecrement(&This->ref);
 
-    TRACE("(%p) ref=%d\n", This, ref);
+    TRACE("(%p) ref=%ld\n", This, ref);
 
     if(!ref) {
-        heap_free(This->fetc);
-        heap_free(This);
+        HeapFree(GetProcessHeap(), 0, This->fetc);
+        HeapFree(GetProcessHeap(), 0, This);
 
         URLMON_UnlockModule();
     }
@@ -83,10 +90,10 @@ static ULONG WINAPI EnumFORMATETC_Release(IEnumFORMATETC *iface)
 static HRESULT WINAPI EnumFORMATETC_Next(IEnumFORMATETC *iface, ULONG celt,
         FORMATETC *rgelt, ULONG *pceltFetched)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
     ULONG cnt;
 
-    TRACE("(%p)->(%d %p %p)\n", This, celt, rgelt, pceltFetched);
+    TRACE("(%p)->(%ld %p %p)\n", This, celt, rgelt, pceltFetched);
 
     if(!rgelt)
         return E_INVALIDARG;
@@ -110,9 +117,9 @@ static HRESULT WINAPI EnumFORMATETC_Next(IEnumFORMATETC *iface, ULONG celt,
 
 static HRESULT WINAPI EnumFORMATETC_Skip(IEnumFORMATETC *iface, ULONG celt)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
 
-    TRACE("(%p)->(%d)\n", This, celt);
+    TRACE("(%p)->(%ld)\n", This, celt);
 
     This->it += celt;
     return This->it > This->fetc_cnt ? S_FALSE : S_OK;
@@ -120,7 +127,7 @@ static HRESULT WINAPI EnumFORMATETC_Skip(IEnumFORMATETC *iface, ULONG celt)
 
 static HRESULT WINAPI EnumFORMATETC_Reset(IEnumFORMATETC *iface)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
 
     TRACE("(%p)\n", This);
 
@@ -130,7 +137,7 @@ static HRESULT WINAPI EnumFORMATETC_Reset(IEnumFORMATETC *iface)
 
 static HRESULT WINAPI EnumFORMATETC_Clone(IEnumFORMATETC *iface, IEnumFORMATETC **ppenum)
 {
-    EnumFORMATETC *This = ENUMF_THIS(iface);
+    ENUMF_THIS(iface);
 
     TRACE("(%p)->(%p)\n", This, ppenum);
 
@@ -151,9 +158,9 @@ static const IEnumFORMATETCVtbl EnumFORMATETCVtbl = {
     EnumFORMATETC_Clone
 };
 
-static IEnumFORMATETC *EnumFORMATETC_Create(UINT cfmtetc, const FORMATETC *rgfmtetc, UINT it)
+static IEnumFORMATETC *EnumFORMATETC_Create(UINT cfmtetc, FORMATETC *rgfmtetc, UINT it)
 {
-    EnumFORMATETC *ret = heap_alloc(sizeof(EnumFORMATETC));
+    EnumFORMATETC *ret = HeapAlloc(GetProcessHeap(), 0, sizeof(EnumFORMATETC));
 
     URLMON_LockModule();
 
@@ -162,7 +169,7 @@ static IEnumFORMATETC *EnumFORMATETC_Create(UINT cfmtetc, const FORMATETC *rgfmt
     ret->it = it;
     ret->fetc_cnt = cfmtetc;
 
-    ret->fetc = heap_alloc(cfmtetc*sizeof(FORMATETC));
+    ret->fetc = HeapAlloc(GetProcessHeap(), 0, cfmtetc*sizeof(FORMATETC));
     memcpy(ret->fetc, rgfmtetc, cfmtetc*sizeof(FORMATETC));
 
     return (IEnumFORMATETC*)ret;
@@ -190,7 +197,7 @@ HRESULT WINAPI CreateFormatEnumerator(UINT cfmtetc, FORMATETC *rgfmtetc,
  */
 HRESULT WINAPI RegisterFormatEnumerator(LPBC pBC, IEnumFORMATETC *pEFetc, DWORD reserved)
 {
-    TRACE("(%p %p %d)\n", pBC, pEFetc, reserved);
+    TRACE("(%p %p %ld)\n", pBC, pEFetc, reserved);
 
     if(reserved)
         WARN("reserved != 0\n");

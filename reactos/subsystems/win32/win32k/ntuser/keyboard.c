@@ -33,7 +33,8 @@
 #define NDEBUG
 #include <debug.h>
 
-
+/* Directory to load key layouts from */
+#define SYSTEMROOT_DIR L"\\SystemRoot\\System32\\"
 /* Lock modifiers */
 #define CAPITAL_BIT   0x80000000
 #define NUMLOCK_BIT   0x40000000
@@ -50,7 +51,6 @@
 
 
 BYTE gQueueKeyStateTable[256];
-
 
 
 /* FUNCTIONS *****************************************************************/
@@ -77,7 +77,7 @@ static UINT DontDistinguishShifts( UINT ret )
    return ret;
 }
 
-static VOID APIENTRY SetKeyState(DWORD key, DWORD vk, DWORD ext, BOOL down)
+static VOID STDCALL SetKeyState(DWORD key, DWORD vk, DWORD ext, BOOL down)
 {
    ASSERT(vk <= 0xff);
 
@@ -196,15 +196,7 @@ static DWORD ModBits( PKBDTABLES pkKT, PBYTE KeyState )
          KS_DOWN_BIT)
       ModBits |= GetShiftBit( pkKT, VK_SHIFT );
 
-   if (KeysSet( pkKT, KeyState, VK_SHIFT, 0 ) &
-         KS_DOWN_BIT)
-      ModBits |= GetShiftBit( pkKT, VK_SHIFT );
-
    if (KeysSet( pkKT, KeyState, VK_LCONTROL, VK_RCONTROL ) &
-         KS_DOWN_BIT )
-      ModBits |= GetShiftBit( pkKT, VK_CONTROL );
-
-   if (KeysSet( pkKT, KeyState, VK_CONTROL, 0 ) &
          KS_DOWN_BIT )
       ModBits |= GetShiftBit( pkKT, VK_CONTROL );
 
@@ -213,10 +205,9 @@ static DWORD ModBits( PKBDTABLES pkKT, PBYTE KeyState )
       ModBits |= GetShiftBit( pkKT, VK_MENU );
 
    /* Handle Alt+Gr */
-   if (pkKT->fLocalFlags & 0x1) 
-      if (KeysSet( pkKT, KeyState, VK_RMENU, 0 ) &
-            KS_DOWN_BIT)
-         ModBits |= GetShiftBit( pkKT, VK_CONTROL );
+   if (KeysSet( pkKT, KeyState, VK_RMENU, 0 ) &
+         KS_DOWN_BIT )
+      ModBits |= GetShiftBit( pkKT, VK_CONTROL );
 
    /* Deal with VK_CAPITAL */
    if (KeysSet( pkKT, KeyState, VK_CAPITAL, 0 ) & KS_LOCK_BIT)
@@ -257,7 +248,6 @@ static BOOL TryToTranslateChar(WORD wVirtKey,
    {
       return FALSE;
    }
-
    for (nMod = 0; keyLayout->pVkToWcharTable[nMod].nModifications; nMod++)
    {
       vtwTbl = &keyLayout->pVkToWcharTable[nMod];
@@ -273,12 +263,13 @@ static BOOL TryToTranslateChar(WORD wVirtKey,
 
             if( CapsMod >= keyLayout->pVkToWcharTable[nMod].nModifications )
             {
-               return FALSE;
-            }
+               DWORD MaxBit = 1;
+               while( MaxBit <
+                      keyLayout->pVkToWcharTable[nMod].nModifications )
+                  MaxBit <<= 1;
 
-            if( vkPtr->wch[CapsMod] == WCH_NONE )
-            {
-               return FALSE;
+               CapsMod &= MaxBit - 1; /* Guarantee that CapsMod lies
+                        in bounds. */
             }
 
             *pbDead = vkPtr->wch[CapsMod] == WCH_DEAD;
@@ -295,7 +286,7 @@ static BOOL TryToTranslateChar(WORD wVirtKey,
                if( vkPtr->VirtualKey != 0xff )
                {
                   DPRINT( "Found dead key with no trailer in the table.\n" );
-                  DPRINT( "VK: %04x, ADDR: %p\n", wVirtKey, vkPtr );
+                  DPRINT( "VK: %04x, ADDR: %08x\n", wVirtKey, (int)vkPtr );
                   return FALSE;
                }
                *pwcTranslatedChar = vkPtr->wch[CapsMod];
@@ -309,7 +300,7 @@ static BOOL TryToTranslateChar(WORD wVirtKey,
 }
 
 static
-int APIENTRY
+int STDCALL
 ToUnicodeInner(UINT wVirtKey,
                UINT wScanCode,
                PBYTE lpKeyState,
@@ -362,10 +353,10 @@ DWORD FASTCALL UserGetKeyState(DWORD key)
 }
 
 
-SHORT
-APIENTRY
+DWORD
+STDCALL
 NtUserGetKeyState(
-   INT key)
+   DWORD key)
 {
    DECLARE_RETURN(DWORD);
 
@@ -397,17 +388,17 @@ DWORD FASTCALL UserGetAsyncKeyState(DWORD key)
 
 
 
-SHORT
-APIENTRY
+DWORD
+STDCALL
 NtUserGetAsyncKeyState(
-   INT key)
+   DWORD key)
 {
-   DECLARE_RETURN(SHORT);
+   DECLARE_RETURN(DWORD);
 
    DPRINT("Enter NtUserGetAsyncKeyState\n");
    UserEnterExclusive();
 
-   RETURN((SHORT)UserGetAsyncKeyState(key));
+   RETURN(UserGetAsyncKeyState(key));
 
 CLEANUP:
    DPRINT("Leave NtUserGetAsyncKeyState, ret=%i\n",_ret_);
@@ -417,11 +408,305 @@ CLEANUP:
 
 
 
+int STDCALL ToUnicodeEx( UINT wVirtKey,
+                         UINT wScanCode,
+                         PBYTE lpKeyState,
+                         LPWSTR pwszBuff,
+                         int cchBuff,
+                         UINT wFlags,
+                         HKL dwhkl )
+{
+   int ToUnicodeResult = 0;
+
+   if (0 == (lpKeyState[wVirtKey] & KS_DOWN_BIT))
+   {
+      ToUnicodeResult = 0;
+   }
+   else
+   {
+      ToUnicodeResult = ToUnicodeInner( wVirtKey,
+                                        wScanCode,
+                                        lpKeyState,
+                                        pwszBuff,
+                                        cchBuff,
+                                        wFlags,
+                                        PsGetCurrentThreadWin32Thread() ?
+                                        PsGetCurrentThreadWin32Thread()->KeyboardLayout : 0 );
+   }
+
+   return ToUnicodeResult;
+}
+
+int STDCALL ToUnicode( UINT wVirtKey,
+                       UINT wScanCode,
+                       PBYTE lpKeyState,
+                       LPWSTR pwszBuff,
+                       int cchBuff,
+                       UINT wFlags )
+{
+   return ToUnicodeEx( wVirtKey,
+                       wScanCode,
+                       gQueueKeyStateTable,
+                       pwszBuff,
+                       cchBuff,
+                       wFlags,
+                       0 );
+}
+
+/*
+ * Utility to copy and append two unicode strings.
+ *
+ * IN OUT PUNICODE_STRING ResultFirst -> First string and result
+ * IN     PUNICODE_STRING Second      -> Second string to append
+ * IN     BOOL            Deallocate  -> TRUE: Deallocate First string before
+ *                                       overwriting.
+ *
+ * Returns NTSTATUS.
+ */
+
+NTSTATUS NTAPI AppendUnicodeString(PUNICODE_STRING ResultFirst,
+                                   PUNICODE_STRING Second,
+                                   BOOL Deallocate)
+{
+   NTSTATUS Status;
+   PWSTR new_string =
+      ExAllocatePoolWithTag(PagedPool,
+                            (ResultFirst->Length + Second->Length + sizeof(WCHAR)),
+                            TAG_STRING);
+   if( !new_string )
+   {
+      return STATUS_NO_MEMORY;
+   }
+   memcpy( new_string, ResultFirst->Buffer,
+           ResultFirst->Length );
+   memcpy( new_string + ResultFirst->Length / sizeof(WCHAR),
+           Second->Buffer,
+           Second->Length );
+   if( Deallocate )
+      RtlFreeUnicodeString(ResultFirst);
+   ResultFirst->Length += Second->Length;
+   ResultFirst->MaximumLength = ResultFirst->Length;
+   new_string[ResultFirst->Length / sizeof(WCHAR)] = 0;
+   Status = RtlCreateUnicodeString(ResultFirst,new_string) ?
+            STATUS_SUCCESS : STATUS_NO_MEMORY;
+   ExFreePool(new_string);
+   return Status;
+}
+
+/*
+ * Utility function to read a value from the registry more easily.
+ *
+ * IN  PUNICODE_STRING KeyName       -> Name of key to open
+ * IN  PUNICODE_STRING ValueName     -> Name of value to open
+ * OUT PUNICODE_STRING ReturnedValue -> String contained in registry
+ *
+ * Returns NTSTATUS
+ */
+
+static NTSTATUS NTAPI ReadRegistryValue( PUNICODE_STRING KeyName,
+      PUNICODE_STRING ValueName,
+      PUNICODE_STRING ReturnedValue )
+{
+   NTSTATUS Status;
+   HANDLE KeyHandle;
+   OBJECT_ATTRIBUTES KeyAttributes;
+   PKEY_VALUE_PARTIAL_INFORMATION KeyValuePartialInfo;
+   ULONG Length = 0;
+   ULONG ResLength = 0;
+   UNICODE_STRING Temp;
+
+   InitializeObjectAttributes(&KeyAttributes, KeyName, OBJ_CASE_INSENSITIVE,
+                              NULL, NULL);
+   Status = ZwOpenKey(&KeyHandle, KEY_ALL_ACCESS, &KeyAttributes);
+   if( !NT_SUCCESS(Status) )
+   {
+      return Status;
+   }
+
+   Status = ZwQueryValueKey(KeyHandle, ValueName, KeyValuePartialInformation,
+                            0,
+                            0,
+                            &ResLength);
+
+   if( Status != STATUS_BUFFER_TOO_SMALL )
+   {
+      NtClose(KeyHandle);
+      return Status;
+   }
+
+   ResLength += sizeof( *KeyValuePartialInfo );
+   KeyValuePartialInfo =
+      ExAllocatePoolWithTag(PagedPool, ResLength, TAG_STRING);
+   Length = ResLength;
+
+   if( !KeyValuePartialInfo )
+   {
+      NtClose(KeyHandle);
+      return STATUS_NO_MEMORY;
+   }
+
+   Status = ZwQueryValueKey(KeyHandle, ValueName, KeyValuePartialInformation,
+                            (PVOID)KeyValuePartialInfo,
+                            Length,
+                            &ResLength);
+
+   if( !NT_SUCCESS(Status) )
+   {
+      NtClose(KeyHandle);
+      ExFreePool(KeyValuePartialInfo);
+      return Status;
+   }
+
+   Temp.Length = Temp.MaximumLength = KeyValuePartialInfo->DataLength;
+   Temp.Buffer = (PWCHAR)KeyValuePartialInfo->Data;
+
+   /* At this point, KeyValuePartialInfo->Data contains the key data */
+   RtlInitUnicodeString(ReturnedValue,L"");
+   AppendUnicodeString(ReturnedValue,&Temp,FALSE);
+
+   ExFreePool(KeyValuePartialInfo);
+   NtClose(KeyHandle);
+
+   return Status;
+}
+
+typedef PVOID (*KbdLayerDescriptor)(VOID);
+NTSTATUS STDCALL LdrGetProcedureAddress(PVOID module,
+                                        PANSI_STRING import_name,
+                                        DWORD flags,
+                                        PVOID *func_addr);
+
+void InitKbdLayout( PVOID *pkKeyboardLayout )
+{
+   WCHAR LocaleBuffer[16];
+   UNICODE_STRING LayoutKeyName;
+   UNICODE_STRING LayoutValueName;
+   UNICODE_STRING DefaultLocale;
+   UNICODE_STRING LayoutFile;
+   UNICODE_STRING FullLayoutPath;
+   LCID LocaleId;
+   PWCHAR KeyboardLayoutWSTR;
+   HMODULE kbModule = 0;
+   NTSTATUS Status;
+   ANSI_STRING kbdProcedureName;
+   KbdLayerDescriptor layerDescGetFn;
+
+#define XX_STATUS(x) if (!NT_SUCCESS(Status = (x))) continue;
+
+   do
+   {
+      Status = ZwQueryDefaultLocale(FALSE, &LocaleId);
+      if (!NT_SUCCESS(Status))
+      {
+         DPRINT1("Could not get default locale (%08lx).\n", Status);
+      }
+      else
+      {
+         DPRINT("DefaultLocale = %lx\n", LocaleId);
+         swprintf(LocaleBuffer, L"%08lx", LocaleId);
+         DPRINT("DefaultLocale = %S\n", LocaleBuffer);
+         RtlInitUnicodeString(&DefaultLocale, LocaleBuffer);
+
+         RtlInitUnicodeString(&LayoutKeyName,
+                              L"\\REGISTRY\\Machine\\SYSTEM\\CurrentControlSet"
+                              L"\\Control\\KeyboardLayouts\\");
+
+         AppendUnicodeString(&LayoutKeyName,&DefaultLocale,FALSE);
+
+         RtlInitUnicodeString(&LayoutValueName,L"Layout File");
+
+         Status = ReadRegistryValue(&LayoutKeyName,&LayoutValueName,&LayoutFile);
+
+         RtlFreeUnicodeString(&LayoutKeyName);
+
+         if( !NT_SUCCESS(Status) )
+         {
+            DPRINT1("Got default locale but not layout file. (%08lx)\n",
+                    Status);
+         }
+         else
+         {
+            DPRINT("Read registry and got %wZ\n", &LayoutFile);
+
+
+            RtlInitUnicodeString(&FullLayoutPath,SYSTEMROOT_DIR);
+            AppendUnicodeString(&FullLayoutPath,&LayoutFile,FALSE);
+
+            DPRINT("Loading Keyboard DLL %wZ\n", &FullLayoutPath);
+
+            RtlFreeUnicodeString(&LayoutFile);
+
+            KeyboardLayoutWSTR =
+               ExAllocatePoolWithTag(PagedPool,
+                                     FullLayoutPath.Length + sizeof(WCHAR),
+                                     TAG_STRING);
+
+            if( !KeyboardLayoutWSTR )
+            {
+               DPRINT1("Couldn't allocate a string for the keyboard layout name.\n");
+               RtlFreeUnicodeString(&FullLayoutPath);
+               return;
+            }
+            memcpy(KeyboardLayoutWSTR,FullLayoutPath.Buffer,
+                   FullLayoutPath.Length);
+            KeyboardLayoutWSTR[FullLayoutPath.Length / sizeof(WCHAR)] = 0;
+
+            kbModule = EngLoadImage(KeyboardLayoutWSTR);
+            DPRINT( "Load Keyboard Layout: %S\n", KeyboardLayoutWSTR );
+
+            if( !kbModule )
+               DPRINT1( "Load Keyboard Layout: No %wZ\n", &FullLayoutPath );
+
+            ExFreePool(KeyboardLayoutWSTR);
+            RtlFreeUnicodeString(&FullLayoutPath);
+         }
+      }
+
+      if( !kbModule )
+      {
+         DPRINT1("Trying to load US Keyboard Layout\n");
+         kbModule = EngLoadImage(L"\\SystemRoot\\system32\\kbdus.dll");
+
+         if (!kbModule)
+         {
+            DPRINT1("Failed to load any Keyboard Layout\n");
+            return;
+         }
+      }
+
+      RtlInitAnsiString( &kbdProcedureName, "KbdLayerDescriptor" );
+
+      LdrGetProcedureAddress((PVOID)kbModule,
+                             &kbdProcedureName,
+                             0,
+                             (PVOID*)&layerDescGetFn);
+
+      if( layerDescGetFn )
+      {
+         *pkKeyboardLayout = layerDescGetFn();
+      }
+   }
+   while (FALSE);
+
+   if( !*pkKeyboardLayout )
+   {
+      DPRINT1("Failed to load the keyboard layout.\n");
+   }
+
+#undef XX_STATUS
+}
+
+PKBDTABLES W32kGetDefaultKeyLayout(VOID)
+{
+   PKBDTABLES pkKeyboardLayout = 0;
+   InitKbdLayout( (PVOID) &pkKeyboardLayout );
+   return pkKeyboardLayout;
+}
+
 BOOL FASTCALL
 IntTranslateKbdMessage(LPMSG lpMsg,
                        HKL dwhkl)
 {
-   PTHREADINFO pti;
    static INT dead_char = 0;
    LONG UState = 0;
    WCHAR wp[2] = { 0 };
@@ -430,8 +715,8 @@ IntTranslateKbdMessage(LPMSG lpMsg,
    BOOL Result = FALSE;
    DWORD ScanCode = 0;
 
-   pti = PsGetCurrentThreadWin32Thread();
-   keyLayout = pti->KeyboardLayout->KBTables;
+
+   keyLayout = PsGetCurrentThreadWin32Thread()->KeyboardLayout;
    if( !keyLayout )
       return FALSE;
 
@@ -441,7 +726,7 @@ IntTranslateKbdMessage(LPMSG lpMsg,
    ScanCode = (lpMsg->lParam >> 16) & 0xff;
 
    /* All messages have to contain the cursor point. */
-   IntGetCursorLocation(pti->Desktop->WindowStation,
+   IntGetCursorLocation(PsGetCurrentThreadWin32Thread()->Desktop->WindowStation,
                         &NewMsg.pt);
 
    UState = ToUnicodeInner(lpMsg->wParam, HIWORD(lpMsg->lParam) & 0xff,
@@ -478,14 +763,14 @@ IntTranslateKbdMessage(LPMSG lpMsg,
          NewMsg.wParam = dead_char;
          NewMsg.lParam = lpMsg->lParam;
          dead_char = 0;
-         MsqPostMessage(pti->MessageQueue, &NewMsg, FALSE, QS_KEY);
+         MsqPostMessage(PsGetCurrentThreadWin32Thread()->MessageQueue, &NewMsg, FALSE, QS_KEY);
       }
 
       NewMsg.hwnd = lpMsg->hwnd;
       NewMsg.wParam = wp[0];
       NewMsg.lParam = lpMsg->lParam;
       DPRINT( "CHAR='%c' %04x %08x\n", wp[0], wp[0], lpMsg->lParam );
-      MsqPostMessage(pti->MessageQueue, &NewMsg, FALSE, QS_KEY);
+      MsqPostMessage(PsGetCurrentThreadWin32Thread()->MessageQueue, &NewMsg, FALSE, QS_KEY);
       Result = TRUE;
    }
    else if (UState == -1)
@@ -496,7 +781,7 @@ IntTranslateKbdMessage(LPMSG lpMsg,
       NewMsg.wParam = wp[0];
       NewMsg.lParam = lpMsg->lParam;
       dead_char = wp[0];
-      MsqPostMessage(pti->MessageQueue, &NewMsg, FALSE, QS_KEY);
+      MsqPostMessage(PsGetCurrentThreadWin32Thread()->MessageQueue, &NewMsg, FALSE, QS_KEY);
       Result = TRUE;
    }
 
@@ -504,16 +789,16 @@ IntTranslateKbdMessage(LPMSG lpMsg,
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserGetKeyboardState(
    LPBYTE lpKeyState)
 {
    BOOL Result = TRUE;
    DECLARE_RETURN(DWORD);
-
+   
    DPRINT("Enter NtUserGetKeyboardState\n");
    UserEnterShared();
-
+   
    if (lpKeyState)
    {
       if(!NT_SUCCESS(MmCopyToCaller(lpKeyState, gQueueKeyStateTable, 256)))
@@ -521,20 +806,20 @@ NtUserGetKeyboardState(
    }
 
    RETURN(Result);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserGetKeyboardState, ret=%i\n",_ret_);
    UserLeave();
    END_CLEANUP;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserSetKeyboardState(LPBYTE lpKeyState)
 {
    BOOL Result = TRUE;
    DECLARE_RETURN(DWORD);
-
+   
    DPRINT("Enter NtUserSetKeyboardState\n");
    UserEnterExclusive();
 
@@ -543,7 +828,7 @@ NtUserSetKeyboardState(LPBYTE lpKeyState)
       if(! NT_SUCCESS(MmCopyFromCaller(gQueueKeyStateTable, lpKeyState, 256)))
          Result = FALSE;
    }
-
+   
    RETURN(Result);
 
 CLEANUP:
@@ -663,33 +948,31 @@ static UINT IntMapVirtualKeyEx( UINT Code, UINT Type, PKBDTABLES keyLayout )
 }
 
 UINT
-APIENTRY
+STDCALL
 NtUserMapVirtualKeyEx( UINT Code, UINT Type, DWORD keyboardId, HKL dwhkl )
 {
-   PTHREADINFO pti;
    PKBDTABLES keyLayout;
    DECLARE_RETURN(UINT);
-
+   
    DPRINT("Enter NtUserMapVirtualKeyEx\n");
    UserEnterExclusive();
-
-   pti = PsGetCurrentThreadWin32Thread();
-   keyLayout = pti ? pti->KeyboardLayout->KBTables : 0;
+   
+   keyLayout = PsGetCurrentThreadWin32Thread() ? PsGetCurrentThreadWin32Thread()->KeyboardLayout : 0;
 
    if( !keyLayout )
       RETURN(0);
 
    RETURN(IntMapVirtualKeyEx( Code, Type, keyLayout ));
-
+   
 CLEANUP:
    DPRINT("Leave NtUserMapVirtualKeyEx, ret=%i\n",_ret_);
    UserLeave();
-   END_CLEANUP;
+   END_CLEANUP;   
 }
 
 
 int
-APIENTRY
+STDCALL
 NtUserToUnicodeEx(
    UINT wVirtKey,
    UINT wScanCode,
@@ -699,12 +982,11 @@ NtUserToUnicodeEx(
    UINT wFlags,
    HKL dwhkl )
 {
-   PTHREADINFO pti;
    BYTE KeyStateBuf[0x100];
    PWCHAR OutPwszBuff = 0;
    int ret = 0;
    DECLARE_RETURN(int);
-
+   
    DPRINT("Enter NtUserSetKeyboardState\n");
    UserEnterShared();//faxme: this syscall doesnt seem to need any locking...
 
@@ -716,39 +998,31 @@ NtUserToUnicodeEx(
       DPRINT1( "Couldn't copy key state from caller.\n" );
       RETURN(0);
    }
-   
-   /* Virtual code is correct and key is pressed currently? */
-   if (wVirtKey < 0x100 && KeyStateBuf[wVirtKey] & KS_DOWN_BIT)
+   OutPwszBuff = ExAllocatePoolWithTag(NonPagedPool,sizeof(WCHAR) * cchBuff, TAG_STRING);
+   if( !OutPwszBuff )
    {
-      OutPwszBuff = ExAllocatePoolWithTag(NonPagedPool,sizeof(WCHAR) * cchBuff, TAG_STRING);
-      if( !OutPwszBuff )
-      {
-         DPRINT1( "ExAllocatePool(%d) failed\n", sizeof(WCHAR) * cchBuff);
-         RETURN(0);
-      }
-      RtlZeroMemory( OutPwszBuff, sizeof( WCHAR ) * cchBuff );
-
-      pti = PsGetCurrentThreadWin32Thread();
-      ret = ToUnicodeInner( wVirtKey,
-                            wScanCode,
-                            KeyStateBuf,
-                            OutPwszBuff,
-                            cchBuff,
-                            wFlags,
-                            pti ? pti->KeyboardLayout->KBTables : 0 );
-
-      MmCopyToCaller(pwszBuff,OutPwszBuff,sizeof(WCHAR)*cchBuff);
-      ExFreePoolWithTag(OutPwszBuff, TAG_STRING);
+      DPRINT1( "ExAllocatePool(%d) failed\n", sizeof(WCHAR) * cchBuff);
+      RETURN(0);
    }
-   else
-      ret = 0;
+   RtlZeroMemory( OutPwszBuff, sizeof( WCHAR ) * cchBuff );
+
+   ret = ToUnicodeEx( wVirtKey,
+                      wScanCode,
+                      KeyStateBuf,
+                      OutPwszBuff,
+                      cchBuff,
+                      wFlags,
+                      dwhkl );
+
+   MmCopyToCaller(pwszBuff,OutPwszBuff,sizeof(WCHAR)*cchBuff);
+   ExFreePool(OutPwszBuff);
 
    RETURN(ret);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserSetKeyboardState, ret=%i\n",_ret_);
    UserLeave();
-   END_CLEANUP;
+   END_CLEANUP;   
 }
 
 static int W32kSimpleToupper( int ch )
@@ -759,10 +1033,9 @@ static int W32kSimpleToupper( int ch )
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserGetKeyNameText( LONG lParam, LPWSTR lpString, int nSize )
 {
-   PTHREADINFO pti;
    int i;
    DWORD ret = 0;
    UINT CareVk = 0;
@@ -772,12 +1045,12 @@ NtUserGetKeyNameText( LONG lParam, LPWSTR lpString, int nSize )
    PKBDTABLES keyLayout;
    VSC_LPWSTR *KeyNames;
    DECLARE_RETURN(DWORD);
-
+   
    DPRINT("Enter NtUserGetKeyNameText\n");
    UserEnterShared();
-
-   pti = PsGetCurrentThreadWin32Thread();
-   keyLayout = pti ? pti->KeyboardLayout->KBTables : 0;
+   
+   keyLayout = PsGetCurrentThreadWin32Thread() ?
+      PsGetCurrentThreadWin32Thread()->KeyboardLayout : 0;
 
    if( !keyLayout || nSize < 1 )
       RETURN(0);
@@ -840,7 +1113,7 @@ NtUserGetKeyNameText( LONG lParam, LPWSTR lpString, int nSize )
    }
 
    RETURN(ret);
-
+   
 CLEANUP:
    DPRINT("Leave NtUserGetKeyNameText, ret=%i\n",_ret_);
    UserLeave();
@@ -971,6 +1244,73 @@ W32kKeyProcessMessage(LPMSG Msg,
 
 }
 
+DWORD
+STDCALL
+NtUserGetKeyboardLayoutList(
+   DWORD Items,
+   DWORD pHklBuff)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+BOOL
+STDCALL
+NtUserGetKeyboardLayoutName(
+   LPWSTR lpszName)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+HKL FASTCALL
+UserGetKeyboardLayout(
+   DWORD dwThreadId)
+{
+   NTSTATUS Status;
+   PETHREAD Thread;
+   PW32THREAD W32Thread;
+   PKBDTABLES layout;
+
+   if (!dwThreadId)
+      W32Thread = PsGetCurrentThreadWin32Thread();
+   else
+   {
+      Status = PsLookupThreadByThreadId((HANDLE)dwThreadId, &Thread);//fixme: deref thread
+      if(!NT_SUCCESS(Status))
+      {
+         SetLastWin32Error(ERROR_INVALID_PARAMETER);
+         return 0;
+      }
+      W32Thread = Thread->Tcb.Win32Thread; /* Wrong, but returning the pointer to
+                                              the table. */
+   }
+   layout = W32Thread->KeyboardLayout;
+   if(!layout)
+      return 0;
+   return (HKL)layout;
+}
+
+
+HKL
+STDCALL
+NtUserGetKeyboardLayout(
+   DWORD dwThreadId)
+{
+   DECLARE_RETURN(HKL);
+
+   UserEnterShared();
+   DPRINT("Enter NtUserGetKeyboardLayout\n");
+
+   RETURN( UserGetKeyboardLayout(dwThreadId));
+
+CLEANUP:
+   DPRINT("Leave NtUserGetKeyboardLayout, ret=%i\n",_ret_);
+   UserLeave();
+   END_CLEANUP;
+}
 
 
 DWORD FASTCALL
@@ -992,39 +1332,45 @@ UserGetKeyboardType(
 }
 
 
+HKL
+STDCALL
+NtUserLoadKeyboardLayoutEx( 
+   IN HANDLE Handle,
+   IN DWORD offTable,
+   IN HKL hKL,
+   IN PUNICODE_STRING puszKLID,
+   IN UINT KLayoutLangID,
+   IN UINT Flags)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+
 /*
     Based on TryToTranslateChar, instead of processing VirtualKey match,
     look for wChar match.
  */
 DWORD
-APIENTRY
+STDCALL
 NtUserVkKeyScanEx(
-   WCHAR wChar,
-   HKL hKeyboardLayout,
-   BOOL UsehKL ) // TRUE from KeyboardLayout, FALSE from pkbl = (THREADINFO)->KeyboardLayout
+   DWORD wChar,
+   DWORD KeyboardLayout,
+   DWORD Unknown2)
 {
+/* FAXME: currently, this routine doesnt seem to need any locking */
+
    PKBDTABLES KeyLayout;
    PVK_TO_WCHAR_TABLE vtwTbl;
    PVK_TO_WCHARS10 vkPtr;
    size_t size_this_entry;
    int nMod;
-   PKBL pkbl = NULL;
-   DWORD CapsMod = 0, CapsState = 0, Ret = -1;
+   DWORD CapsMod = 0, CapsState = 0;
 
-   DPRINT("NtUserVkKeyScanEx() wChar %d, KbdLayout 0x%p\n", wChar, hKeyboardLayout);
-   UserEnterShared();
-
-   if (UsehKL)
-   {
-      if ( !hKeyboardLayout || !(pkbl = UserHklToKbl(hKeyboardLayout)))
-      goto Exit;
-   }
-   else // From VkKeyScanAW it is FALSE so KeyboardLayout is white noise.
-   {
-     pkbl = ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->KeyboardLayout;
-   }   
-
-   KeyLayout = pkbl->KBTables;
+   if(!KeyboardLayout)
+      return -1;
+   KeyLayout = (PKBDTABLES) KeyboardLayout;
 
    for (nMod = 0; KeyLayout->pVkToWcharTable[nMod].nModifications; nMod++)
    {
@@ -1047,16 +1393,13 @@ NtUserVkKeyScanEx(
                CapsMod = KeyLayout->pCharModifiers->ModNumber[CapsState];
                DPRINT("nMod %d wC %04x: CapsMod %08x CapsState %08x MaxModBits %08x\n",
                       nMod, wChar, CapsMod, CapsState, KeyLayout->pCharModifiers->wMaxModBits);
-               Ret = ((CapsMod << 8)|(vkPtr->VirtualKey & 0xff));
-               goto Exit;
+               return ((CapsMod << 8)|(vkPtr->VirtualKey & 0xff));
             }
          }
          vkPtr = (PVK_TO_WCHARS10)(((BYTE *)vkPtr) + size_this_entry);
       }
    }
-Exit:
-   UserLeave();
-   return Ret;
+   return -1;
 }
 
 

@@ -52,27 +52,28 @@ GetC1Type(WCHAR Ch)
  */
 LPSTR
 WINAPI
-CharLowerA(LPSTR str)
+CharLowerA(LPSTR x)
 {
-    if (!HIWORD(str))
+    if (!HIWORD(x)) return (LPSTR)tolower((char)(int)x);
+    CharLowerBuffA(x, strlen(x));
+/*
+    __TRY
     {
-        char ch = LOWORD(str);
-        CharLowerBuffA( &ch, 1 );
-        return (LPSTR)(UINT_PTR)(BYTE)ch;
+        LPSTR s = x;
+        while (*s)
+        {
+            *s=tolower(*s);
+            s++;
+        }
     }
-
-    _SEH2_TRY
-    {
-        CharLowerBuffA( str, strlen(str) );
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    __EXCEPT(page_fault)
     {
         SetLastError( ERROR_INVALID_PARAMETER );
         return NULL;
     }
-    _SEH2_END;
-
-    return str;
+    __ENDTRY
+ */
+    return x;
 }
 
 /*
@@ -118,8 +119,11 @@ LPWSTR
 WINAPI
 CharLowerW(LPWSTR x)
 {
-    if (HIWORD(x)) return strlwrW(x);
-    else return (LPWSTR)((UINT_PTR)tolowerW(LOWORD(x)));
+    if (HIWORD(x)) {
+        return _wcslwr(x);
+    } else {
+        return (LPWSTR)(INT)towlower((WORD)(((DWORD)(x)) & 0xFFFF));
+    }
 }
 
 /*
@@ -252,27 +256,11 @@ CharToOemW(LPCWSTR s, LPSTR d)
 /*
  * @implemented
  */
-LPSTR WINAPI CharUpperA(LPSTR str)
+LPSTR WINAPI CharUpperA(LPSTR x)
 {
-    if (!HIWORD(str))
-    {
-        char ch = LOWORD(str);
-        CharUpperBuffA( &ch, 1 );
-        return (LPSTR)(UINT_PTR)(BYTE)ch;
-    }
-
-    _SEH2_TRY
-    {
-        CharUpperBuffA( str, strlen(str) );
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        SetLastError( ERROR_INVALID_PARAMETER );
-        return NULL;
-    }
-    _SEH2_END;
-
-    return str;
+    if (!HIWORD(x)) return (LPSTR)toupper((char)(int)x);
+    CharUpperBuffA(x, strlen(x));
+    return x;
 }
 
 /*
@@ -318,8 +306,8 @@ LPWSTR
 WINAPI
 CharUpperW(LPWSTR x)
 {
-    if (HIWORD(x)) return struprW(x);
-    else return (LPWSTR)((UINT_PTR)toupperW(LOWORD(x)));
+    if (HIWORD(x)) return _wcsupr(x);
+    else return (LPWSTR)(UINT)towlower((WORD)(((DWORD)(x)) & 0xFFFF));
 }
 
 /*
@@ -339,7 +327,7 @@ IsCharAlphaA(CHAR Ch)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsCharAlphaNumericA(CHAR Ch)
 {
     WCHAR WCh;
@@ -352,7 +340,7 @@ IsCharAlphaNumericA(CHAR Ch)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsCharAlphaNumericW(WCHAR Ch)
 {
     return (GetC1Type(Ch) & (C1_ALPHA|C1_DIGIT)) != 0;

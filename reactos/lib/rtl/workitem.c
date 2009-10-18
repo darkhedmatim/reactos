@@ -3,7 +3,7 @@
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Work Item implementation
  * FILE:              lib/rtl/workitem.c
- * PROGRAMMER:
+ * PROGRAMMER:        
  */
 
 /* INCLUDES *****************************************************************/
@@ -55,9 +55,9 @@ RtlpInitializeThreadPool(VOID)
 
     do
     {
-        InitStatus = _InterlockedCompareExchange(&ThreadPoolInitialized,
-                                                 2,
-                                                 0);
+        InitStatus = InterlockedCompareExchange(&ThreadPoolInitialized,
+                                                2,
+                                                0);
         if (InitStatus == 0)
         {
             /* We're the first thread to initialize the thread pool */
@@ -91,8 +91,8 @@ RtlpInitializeThreadPool(VOID)
 
 Finish:
             /* Initialization done */
-            _InterlockedExchange(&ThreadPoolInitialized,
-                                 1);
+            InterlockedExchange(&ThreadPoolInitialized,
+                                1);
             break;
         }
         else if (InitStatus == 2)
@@ -196,18 +196,18 @@ RtlpExecuteWorkItem(IN OUT PVOID NormalContext,
         }
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         DPRINT("RtlpExecuteWorkItem: Function: 0x%p Context: 0x%p ImpersonationToken: 0x%p\n", WorkItem.Function, WorkItem.Context, WorkItem.TokenHandle);
 
         /* Execute the function */
         WorkItem.Function(WorkItem.Context);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH2_GetExceptionCode(), WorkItem.Function);
+        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH_GetExceptionCode(), WorkItem.Function);
     }
-    _SEH2_END;
+    _SEH_END;
 
     if (Impersonated)
     {
@@ -223,11 +223,11 @@ RtlpExecuteWorkItem(IN OUT PVOID NormalContext,
     }
 
     /* update the requests counter */
-    _InterlockedDecrement(&ThreadPoolWorkerThreadsRequests);
+    InterlockedDecrement(&ThreadPoolWorkerThreadsRequests);
 
     if (WorkItem.Flags & WT_EXECUTELONGFUNCTION)
     {
-        _InterlockedDecrement(&ThreadPoolWorkerThreadsLongRequests);
+        InterlockedDecrement(&ThreadPoolWorkerThreadsLongRequests);
     }
 }
 
@@ -237,11 +237,11 @@ RtlpQueueWorkerThread(IN OUT PRTLP_WORKITEM WorkItem)
 {
     NTSTATUS Status = STATUS_SUCCESS;
 
-    _InterlockedIncrement(&ThreadPoolWorkerThreadsRequests);
+    InterlockedIncrement(&ThreadPoolWorkerThreadsRequests);
 
     if (WorkItem->Flags & WT_EXECUTELONGFUNCTION)
     {
-        _InterlockedIncrement(&ThreadPoolWorkerThreadsLongRequests);
+        InterlockedIncrement(&ThreadPoolWorkerThreadsLongRequests);
     }
 
     if (WorkItem->Flags & WT_EXECUTEINPERSISTENTTHREAD)
@@ -270,11 +270,11 @@ RtlpQueueWorkerThread(IN OUT PRTLP_WORKITEM WorkItem)
 
     if (!NT_SUCCESS(Status))
     {
-        _InterlockedDecrement(&ThreadPoolWorkerThreadsRequests);
+        InterlockedDecrement(&ThreadPoolWorkerThreadsRequests);
 
         if (WorkItem->Flags & WT_EXECUTELONGFUNCTION)
         {
-            _InterlockedDecrement(&ThreadPoolWorkerThreadsLongRequests);
+            InterlockedDecrement(&ThreadPoolWorkerThreadsLongRequests);
         }
     }
 
@@ -313,18 +313,18 @@ RtlpExecuteIoWorkItem(IN OUT PVOID NormalContext,
         }
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         DPRINT("RtlpExecuteIoWorkItem: Function: 0x%p Context: 0x%p ImpersonationToken: 0x%p\n", WorkItem.Function, WorkItem.Context, WorkItem.TokenHandle);
 
         /* Execute the function */
         WorkItem.Function(WorkItem.Context);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH2_GetExceptionCode(), WorkItem.Function);
+        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH_GetExceptionCode(), WorkItem.Function);
     }
-    _SEH2_END;
+    _SEH_END;
 
     if (Impersonated)
     {
@@ -351,11 +351,11 @@ RtlpExecuteIoWorkItem(IN OUT PVOID NormalContext,
     }
 
     /* update the requests counter */
-    _InterlockedDecrement(&ThreadPoolIOWorkerThreadsRequests);
+    InterlockedDecrement(&ThreadPoolIOWorkerThreadsRequests);
 
     if (WorkItem.Flags & WT_EXECUTELONGFUNCTION)
     {
-        _InterlockedDecrement(&ThreadPoolIOWorkerThreadsLongRequests);
+        InterlockedDecrement(&ThreadPoolIOWorkerThreadsLongRequests);
     }
 }
 
@@ -461,14 +461,14 @@ RtlpQueueIoWorkerThread(IN OUT PRTLP_WORKITEM WorkItem)
 
     ASSERT(IoThread != NULL);
 
-    _InterlockedIncrement(&ThreadPoolIOWorkerThreadsRequests);
+    InterlockedIncrement(&ThreadPoolIOWorkerThreadsRequests);
 
     if (WorkItem->Flags & WT_EXECUTELONGFUNCTION)
     {
         /* We're about to queue a long function, mark the thread */
         IoThread->Flags |= WT_EXECUTELONGFUNCTION;
 
-        _InterlockedIncrement(&ThreadPoolIOWorkerThreadsLongRequests);
+        InterlockedIncrement(&ThreadPoolIOWorkerThreadsLongRequests);
     }
 
     /* It's time to queue the work item */
@@ -480,11 +480,11 @@ RtlpQueueIoWorkerThread(IN OUT PRTLP_WORKITEM WorkItem)
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Failed to queue APC for work item 0x%p\n", WorkItem->Function);
-        _InterlockedDecrement(&ThreadPoolIOWorkerThreadsRequests);
+        InterlockedDecrement(&ThreadPoolIOWorkerThreadsRequests);
 
         if (WorkItem->Flags & WT_EXECUTELONGFUNCTION)
         {
-            _InterlockedDecrement(&ThreadPoolIOWorkerThreadsLongRequests);
+            InterlockedDecrement(&ThreadPoolIOWorkerThreadsLongRequests);
         }
     }
 
@@ -543,7 +543,7 @@ RtlpIoWorkerThreadProc(IN PVOID Parameter)
     BOOLEAN Terminate;
     NTSTATUS Status = STATUS_SUCCESS;
 
-    if (_InterlockedIncrement(&ThreadPoolIOWorkerThreads) > MAX_WORKERTHREADS)
+    if (InterlockedIncrement(&ThreadPoolIOWorkerThreads) > MAX_WORKERTHREADS)
     {
         /* Oops, too many worker threads... */
         goto InitFailed;
@@ -562,10 +562,10 @@ RtlpIoWorkerThreadProc(IN PVOID Parameter)
         DPRINT1("Failed to create handle to own thread! Status: 0x%x\n", Status);
 
 InitFailed:
-        _InterlockedDecrement(&ThreadPoolIOWorkerThreads);
+        InterlockedDecrement(&ThreadPoolIOWorkerThreads);
 
         /* Signal initialization completion */
-        _InterlockedExchange((PLONG)Parameter,
+        InterlockedExchange((PLONG)Parameter,
                             1);
 
         RtlExitUserThread(Status);
@@ -579,8 +579,8 @@ InitFailed:
                    (PLIST_ENTRY)&ThreadInfo.ListEntry);
 
     /* Signal initialization completion */
-    _InterlockedExchange((PLONG)Parameter,
-                         1);
+    InterlockedExchange((PLONG)Parameter,
+                        1);
 
     for (;;)
     {
@@ -626,7 +626,7 @@ Wait:
             if (Terminate)
             {
                 /* Rundown the thread and unlink it from the list */
-                _InterlockedDecrement(&ThreadPoolIOWorkerThreads);
+                InterlockedDecrement(&ThreadPoolIOWorkerThreads);
                 RemoveEntryList((PLIST_ENTRY)&ThreadInfo.ListEntry);
             }
 
@@ -663,11 +663,11 @@ RtlpWorkerThreadProc(IN PVOID Parameter)
     PKNORMAL_ROUTINE ApcRoutine;
     NTSTATUS Status = STATUS_SUCCESS;
 
-    if (_InterlockedIncrement(&ThreadPoolWorkerThreads) > MAX_WORKERTHREADS)
+    if (InterlockedIncrement(&ThreadPoolWorkerThreads) > MAX_WORKERTHREADS)
     {
         /* Signal initialization completion */
-        _InterlockedExchange((PLONG)Parameter,
-                             1);
+        InterlockedExchange((PLONG)Parameter,
+                            1);
 
         /* Oops, too many worker threads... */
         RtlExitUserThread(Status);
@@ -675,8 +675,8 @@ RtlpWorkerThreadProc(IN PVOID Parameter)
     }
 
     /* Signal initialization completion */
-    _InterlockedExchange((PLONG)Parameter,
-                         1);
+    InterlockedExchange((PLONG)Parameter,
+                        1);
 
     for (;;)
     {
@@ -693,17 +693,17 @@ RtlpWorkerThreadProc(IN PVOID Parameter)
         {
             TimeoutCount = 0;
 
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Call the APC routine */
                 ApcRoutine(NULL,
                            (PVOID)IoStatusBlock.Information,
                            SystemArgument2);
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
             }
-            _SEH2_END;
+            _SEH_END;
         }
         else
         {
@@ -736,7 +736,7 @@ RtlpWorkerThreadProc(IN PVOID Parameter)
 
             if (Terminate)
             {
-                _InterlockedDecrement(&ThreadPoolWorkerThreads);
+                InterlockedDecrement(&ThreadPoolWorkerThreads);
                 Status = STATUS_SUCCESS;
                 break;
             }
@@ -878,17 +878,4 @@ Cleanup:
     }
 
     return Status;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-RtlSetIoCompletionCallback(IN HANDLE FileHandle,
-                           IN PIO_APC_ROUTINE Callback,
-                           IN ULONG Flags)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }

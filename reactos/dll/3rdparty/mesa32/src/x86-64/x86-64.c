@@ -1,3 +1,4 @@
+/* $Id: x86-64.c,v 1.1 2005/05/07 16:59:59 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -30,8 +31,8 @@
 
 #ifdef USE_X86_64_ASM
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 #include "x86-64.h"
@@ -41,14 +42,8 @@
 #include "math/m_debug.h"
 #endif
 
-extern void _mesa_x86_64_cpuid(unsigned int *regs);
-
 DECLARE_XFORM_GROUP( x86_64, 4 )
-DECLARE_XFORM_GROUP( 3dnow, 4 )
 
-#else
-/* just to silence warning below */
-#include "x86-64.h"
 #endif
 
 /*
@@ -75,7 +70,7 @@ static void message( const char *msg )
    }
 #endif
    if ( debug ) {
-      _mesa_debug( NULL, "%s", msg );
+      fprintf( stderr, "%s", msg );
    }
 }
 #endif
@@ -84,7 +79,6 @@ static void message( const char *msg )
 void _mesa_init_all_x86_64_transform_asm(void)
 {
 #ifdef USE_X86_64_ASM
-   unsigned int regs[4];
 
    if ( _mesa_getenv( "MESA_NO_ASM" ) ) {
      return;
@@ -92,34 +86,26 @@ void _mesa_init_all_x86_64_transform_asm(void)
 
    message("Initializing x86-64 optimizations\n");
 
+   ASSIGN_XFORM_GROUP( x86_64, 4 );
 
+   /*
    _mesa_transform_tab[4][MATRIX_GENERAL] =
       _mesa_x86_64_transform_points4_general;
    _mesa_transform_tab[4][MATRIX_IDENTITY] =
       _mesa_x86_64_transform_points4_identity;
    _mesa_transform_tab[4][MATRIX_3D] =
       _mesa_x86_64_transform_points4_3d;
-
-   regs[0] = 0x80000001;
-   regs[1] = 0x00000000;
-   regs[2] = 0x00000000;
-   regs[3] = 0x00000000;
-   _mesa_x86_64_cpuid(regs);
-   if (regs[3] & (1U << 31)) {
-      message("3Dnow! detected\n");
-      _mesa_transform_tab[4][MATRIX_3D_NO_ROT] =
-	  _mesa_3dnow_transform_points4_3d_no_rot;
-      _mesa_transform_tab[4][MATRIX_PERSPECTIVE] =
-	  _mesa_3dnow_transform_points4_perspective;
-      _mesa_transform_tab[4][MATRIX_2D_NO_ROT] =
-	  _mesa_3dnow_transform_points4_2d_no_rot;
-      _mesa_transform_tab[4][MATRIX_2D] =
-	  _mesa_3dnow_transform_points4_2d;
-
-   }
-
+   _mesa_transform_tab[4][MATRIX_3D_NO_ROT] =
+      _mesa_x86_64_transform_points4_3d_no_rot;
+   _mesa_transform_tab[4][MATRIX_PERSPECTIVE] =
+      _mesa_x86_64_transform_points4_perspective;
+   _mesa_transform_tab[4][MATRIX_2D_NO_ROT] =
+      _mesa_x86_64_transform_points4_2d_no_rot;
+   _mesa_transform_tab[4][MATRIX_2D] =
+      _mesa_x86_64_transform_points4_2d;
+   */
    
-#ifdef DEBUG_MATH
+#ifdef DEBUG
    _math_test_all_transform_functions("x86_64");
    _math_test_all_cliptest_functions("x86_64");
    _math_test_all_normal_transform_functions("x86_64");

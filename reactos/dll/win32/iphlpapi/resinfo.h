@@ -1,5 +1,5 @@
 /*
- * iphlpapi dll implementation -- Resolver information helper function
+ * iphlpapi dll implementation -- Resolver information helper function 
  *                                prototypes
  *
  * Copyright (C) 2004 Art Yerkes
@@ -23,7 +23,7 @@
 
 typedef struct _IPHLP_RES_INFO {
     DWORD riCount;
-    IP_ADDR_STRING * DnsList;
+    struct sockaddr_in *riAddressList;
 } IPHLP_RES_INFO, *PIPHLP_RES_INFO;
 
 /* Get resolver info.  This currently is limited to a list of IP addresses

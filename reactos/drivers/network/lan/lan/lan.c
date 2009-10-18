@@ -78,7 +78,7 @@ VOID FreeAdapter(
 }
 
 
-VOID NTAPI ProtocolOpenAdapterComplete(
+VOID STDCALL ProtocolOpenAdapterComplete(
     NDIS_HANDLE BindingContext,
     NDIS_STATUS Status,
     NDIS_STATUS OpenErrorStatus)
@@ -98,7 +98,7 @@ VOID NTAPI ProtocolOpenAdapterComplete(
 }
 
 
-VOID NTAPI ProtocolCloseAdapterComplete(
+VOID STDCALL ProtocolCloseAdapterComplete(
     NDIS_HANDLE BindingContext,
     NDIS_STATUS Status)
 /*
@@ -118,7 +118,7 @@ VOID NTAPI ProtocolCloseAdapterComplete(
 }
 
 
-VOID NTAPI ProtocolResetComplete(
+VOID STDCALL ProtocolResetComplete(
     NDIS_HANDLE BindingContext,
     NDIS_STATUS Status)
 /*
@@ -132,7 +132,7 @@ VOID NTAPI ProtocolResetComplete(
 }
 
 
-VOID NTAPI ProtocolRequestComplete(
+VOID STDCALL ProtocolRequestComplete(
     NDIS_HANDLE BindingContext,
     PNDIS_REQUEST NdisRequest,
     NDIS_STATUS Status)
@@ -155,7 +155,7 @@ VOID NTAPI ProtocolRequestComplete(
 }
 
 
-VOID NTAPI ProtocolSendComplete(
+VOID STDCALL ProtocolSendComplete(
     NDIS_HANDLE BindingContext,
     PNDIS_PACKET Packet,
     NDIS_STATUS Status)
@@ -175,7 +175,7 @@ VOID NTAPI ProtocolSendComplete(
 }
 
 
-VOID NTAPI ProtocolTransferDataComplete(
+VOID STDCALL ProtocolTransferDataComplete(
     NDIS_HANDLE BindingContext,
     PNDIS_PACKET Packet,
     NDIS_STATUS Status,
@@ -248,7 +248,7 @@ VOID NTAPI ProtocolTransferDataComplete(
 		    ReadIrp = CONTAINING_RECORD(ReadListEntry, IRP,
 						Tail.Overlay.ListEntry );
 		    LA_DbgPrint(MID_TRACE,("..Irp %x\n", ReadIrp));
-		    _SEH2_TRY {
+		    _SEH_TRY {
 			Header = ReadIrp->AssociatedIrp.SystemBuffer;
 			LA_DbgPrint
 			    (MID_TRACE,
@@ -283,14 +283,14 @@ VOID NTAPI ProtocolTransferDataComplete(
 					       ReadIrp->IoStatus.Information));
 
 			IoCompleteRequest( ReadIrp, IO_NETWORK_INCREMENT );
-		    } _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
+		    } _SEH_HANDLE {
 			LA_DbgPrint
 			    (MIN_TRACE,
 			     ("Failed write to packet in client\n"));
 			ReadIrp->IoStatus.Status = STATUS_ACCESS_VIOLATION;
 			ReadIrp->IoStatus.Information = 0;
 			IoCompleteRequest( ReadIrp, IO_NETWORK_INCREMENT );
-		    } _SEH2_END;
+		    } _SEH_END;
 		    break;
 		}
 	    }
@@ -303,7 +303,7 @@ VOID NTAPI ProtocolTransferDataComplete(
 }
 
 
-NDIS_STATUS NTAPI ProtocolReceive(
+NDIS_STATUS STDCALL ProtocolReceive(
     NDIS_HANDLE BindingContext,
     NDIS_HANDLE MacReceiveContext,
     PVOID HeaderBuffer,
@@ -349,10 +349,7 @@ NDIS_STATUS NTAPI ProtocolReceive(
     /* Get a transfer data packet */
     KeAcquireSpinLockAtDpcLevel(&Adapter->Lock);
     NdisStatus = AllocatePacketWithBuffer( &NdisPacket, NULL, Adapter->MTU );
-    if( NdisStatus != NDIS_STATUS_SUCCESS ) {
-        KeReleaseSpinLockFromDpcLevel(&Adapter->Lock);
-        return NDIS_STATUS_NOT_ACCEPTED;
-    }
+    if( NdisStatus != NDIS_STATUS_SUCCESS ) return NDIS_STATUS_NOT_ACCEPTED;
     LA_DbgPrint(DEBUG_DATALINK, ("pretransfer LookaheadBufferSize %d packsize %d\n",LookaheadBufferSize,PacketSize));
     {
 	UINT temp;
@@ -386,7 +383,7 @@ NDIS_STATUS NTAPI ProtocolReceive(
 }
 
 
-VOID NTAPI ProtocolReceiveComplete(
+VOID STDCALL ProtocolReceiveComplete(
     NDIS_HANDLE BindingContext)
 /*
  * FUNCTION: Called by NDIS when we're done receiving data
@@ -398,7 +395,7 @@ VOID NTAPI ProtocolReceiveComplete(
 }
 
 
-VOID NTAPI ProtocolStatus(
+VOID STDCALL ProtocolStatus(
     NDIS_HANDLE BindingContext,
     NDIS_STATUS GenerelStatus,
     PVOID StatusBuffer,
@@ -416,7 +413,7 @@ VOID NTAPI ProtocolStatus(
 }
 
 
-VOID NTAPI ProtocolStatusComplete(
+VOID STDCALL ProtocolStatusComplete(
     NDIS_HANDLE NdisBindingContext)
 /*
  * FUNCTION: Called by NDIS when a status-change has occurred
@@ -427,7 +424,7 @@ VOID NTAPI ProtocolStatusComplete(
     LA_DbgPrint(DEBUG_DATALINK, ("Called.\n"));
 }
 
-VOID NTAPI ProtocolBindAdapter(
+VOID STDCALL ProtocolBindAdapter(
     OUT PNDIS_STATUS   Status,
     IN  NDIS_HANDLE    BindContext,
     IN  PNDIS_STRING   DeviceName,
@@ -875,7 +872,7 @@ VOID LANUnregisterProtocol(VOID)
     NdisDeregisterProtocol(&NdisStatus, DeviceExt->NdisProtocolHandle);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanCreateProtocol( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		   PIO_STACK_LOCATION IrpSp ) {
     PLAN_PROTOCOL Proto;
@@ -928,7 +925,7 @@ LanCreateProtocol( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     return STATUS_SUCCESS;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanCloseProtocol( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		  PIO_STACK_LOCATION IrpSp ) {
     PLAN_DEVICE_EXT DeviceExt =
@@ -988,7 +985,7 @@ PLAN_ADAPTER FindAdapterByIndex( PLAN_DEVICE_EXT DeviceExt, UINT Index ) {
  * |<-              16               >| |<-- variable ... -->|
  * [indx] [addrtype] [addrlen ] [ptype] [packet-data ...]
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanWriteData( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	      PIO_STACK_LOCATION IrpSp ) {
     PLAN_PACKET_HEADER ToWrite = Irp->AssociatedIrp.SystemBuffer;
@@ -1004,7 +1001,7 @@ LanWriteData( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanReadData( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	     PIO_STACK_LOCATION IrpSp ) {
     PLAN_DEVICE_EXT DeviceExt =
@@ -1026,7 +1023,7 @@ LanReadData( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     return STATUS_PENDING;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanEnumAdapters( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		 PIO_STACK_LOCATION IrpSp ) {
     PLIST_ENTRY ListEntry;
@@ -1069,7 +1066,7 @@ LanEnumAdapters( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanAdapterInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		PIO_STACK_LOCATION IrpSp ) {
     PLAN_DEVICE_EXT DeviceExt =
@@ -1174,7 +1171,7 @@ LanAdapterInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanSetBufferedMode( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 		    PIO_STACK_LOCATION IrpSp ) {
     PLAN_DEVICE_EXT DeviceExt =
@@ -1206,7 +1203,7 @@ LanSetBufferedMode( PDEVICE_OBJECT DeviceObject, PIRP Irp,
     return Status;
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 LanDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
     PIO_STACK_LOCATION IrpSp = IoGetCurrentIrpStackLocation(Irp);
@@ -1283,12 +1280,12 @@ LanDispatch(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 }
 
 /* Do i need a global here?  I think i need to do this a different way XXX */
-VOID NTAPI LanUnload(PDRIVER_OBJECT DriverObject) {
+VOID STDCALL LanUnload(PDRIVER_OBJECT DriverObject) {
     LANUnregisterProtocol();
     CloseNdisPools();
 }
 
-NTSTATUS NTAPI DriverEntry( PDRIVER_OBJECT DriverObject,
+NTSTATUS STDCALL DriverEntry( PDRIVER_OBJECT DriverObject,
 			      PUNICODE_STRING RegsitryPath ) {
     PDEVICE_OBJECT DeviceObject;
     PLAN_DEVICE_EXT DeviceExt;

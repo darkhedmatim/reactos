@@ -42,7 +42,7 @@ ShellBrowser::ShellBrowser(HWND hwnd, HWND hwndFrame, HWND left_hwnd, WindowHand
 #ifndef __MINGW32__	// IShellFolderViewCB missing in MinGW (as of 25.09.2005)
  :	super(IID_IShellFolderViewCB),
 #else
- :
+ :	
 #endif
 	_hwnd(hwnd),
 	_hwndFrame(hwndFrame),
@@ -58,31 +58,8 @@ ShellBrowser::ShellBrowser(HWND hwnd, HWND hwndFrame, HWND left_hwnd, WindowHand
 
 	_cur_dir = NULL;
 
-    HDC hDC = GetDC(NULL);
-    if (hDC)
-    {
-        INT bpp = GetDeviceCaps(hDC, BITSPIXEL);
-        ReleaseDC(NULL, hDC);
-
-        DWORD ilMask;
-        if (bpp <= 4)
-            ilMask = ILC_COLOR4;
-        else if (bpp <= 8)
-            ilMask = ILC_COLOR8;
-        else if (bpp <= 16)
-            ilMask = ILC_COLOR16;
-        else if (bpp <= 24)
-            ilMask = ILC_COLOR24;
-        else if (bpp <= 32)
-            ilMask = ILC_COLOR32;
-        else
-            ilMask = ILC_COLOR;
-
-        ilMask |= ILC_MASK;
-
-        _himl = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), ilMask, 2, 0);
-        ImageList_SetBkColor(_himl, GetSysColor(COLOR_WINDOW));
-    }
+	_himl = ImageList_Create(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), ILC_MASK|ILC_COLOR24, 2, 0);
+	ImageList_SetBkColor(_himl, GetSysColor(COLOR_WINDOW));
 }
 
 ShellBrowser::~ShellBrowser()
@@ -696,7 +673,7 @@ LRESULT MDIShellBrowserChild::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 			return super::WndProc(nmsg, wparam, lparam);
 		}
 		return TRUE;}
-
+	
 	  default:
 		return super::WndProc(nmsg, wparam, lparam);
 	}
@@ -753,7 +730,7 @@ String MDIShellBrowserChild::jump_to_int(LPCTSTR url)
 		if (_shellBrowser->jump_to_pidl(ShellPath(dir)))
 			return FmtString(TEXT("file://%s"), (LPCTSTR)dir);
 	}
-
+	
 	return String();
 }
 

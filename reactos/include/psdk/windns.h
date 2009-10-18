@@ -1,5 +1,8 @@
 #ifndef _WINDNS_H
 #define _WINDNS_H
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,45 +51,7 @@ enum {
 	DNS_TYPE_HINFO,
 	DNS_TYPE_MINFO,
 	DNS_TYPE_MX,
-	DNS_TYPE_TEXT,
-	DNS_TYPE_RP,
-	DNS_TYPE_AFSDB,
-	DNS_TYPE_X25,
-	DNS_TYPE_ISDN,
-	DNS_TYPE_RT,
-	DNS_TYPE_NSAP,
-	DNS_TYPE_NSAPPTR,
-	DNS_TYPE_SIG,
-	DNS_TYPE_KEY,
-	DNS_TYPE_PX,
-	DNS_TYPE_GPOS,
-	DNS_TYPE_AAAA,
-	DNS_TYPE_LOC,
-	DNS_TYPE_NXT,
-	DNS_TYPE_EID,
-	DNS_TYPE_NIMLOC,
-	DNS_TYPE_SRV,
-	DNS_TYPE_ATMA,
-	DNS_TYPE_NAPTR,
-	DNS_TYPE_KX,
-	DNS_TYPE_CERT,
-	DNS_TYPE_A6,
-	DNS_TYPE_DNAME,
-	DNS_TYPE_SINK,
-	DNS_TYPE_OPT,
-	DNS_TYPE_UINFO=100,
-	DNS_TYPE_UID,
-	DNS_TYPE_GID,
-	DNS_TYPE_UNSPEC,
-	DNS_TYPE_ADDRS=248,
-	DNS_TYPE_TKEY,
-	DNS_TYPE_TSIG,
-	DNS_TYPE_IXFR,
-	DNS_TYPE_AXFR,
-	DNS_TYPE_MAILB,
-	DNS_TYPE_MAILA,
-	DNS_TYPE_ALL,
-	DNS_TYPE_ANY=DNS_TYPE_ALL
+	DNS_TYPE_TEXT
 };
 typedef enum _DNS_CHARSET
 {
@@ -171,10 +136,6 @@ typedef struct _DnsRecordFlags {
 	DWORD Unused	:3;
 	DWORD Reserved	:24;
 } DNS_RECORD_FLAGS;
-#define DNSREC_QUESTION 0
-#define DNSREC_ANSWER 1
-#define DNSREC_AUTHORITY 2
-#define DNSREC_ADDITIONAL 3
 typedef struct {
 	IP4_ADDRESS IpAddress;
 } DNS_A_DATA, *PDNS_A_DATA;
@@ -472,27 +433,6 @@ typedef struct _DnsRRSet {
 	PDNS_RECORD pFirstRR;
 	PDNS_RECORD pLastRR;
 } DNS_RRSET, *PDNS_RRSET;
-
-#define DNS_RRSET_INIT( rrset )                          \
-{                                                        \
-    PDNS_RRSET  _prrset = &(rrset);                      \
-    _prrset->pFirstRR = NULL;                            \
-    _prrset->pLastRR = (PDNS_RECORD) &_prrset->pFirstRR; \
-}
-
-#define DNS_RRSET_ADD( rrset, pnewRR ) \
-{                                      \
-    PDNS_RRSET  _prrset = &(rrset);    \
-    PDNS_RECORD _prrnew = (pnewRR);    \
-    _prrset->pLastRR->pNext = _prrnew; \
-    _prrset->pLastRR = _prrnew;        \
-}
-
-#define DNS_RRSET_TERMINATE( rrset ) \
-{                                    \
-    PDNS_RRSET  _prrset = &(rrset);  \
-    _prrset->pLastRR->pNext = NULL;  \
-}
 
 DNS_STATUS WINAPI DnsAcquireContextHandle_A(DWORD,PVOID,HANDLE*);
 DNS_STATUS WINAPI DnsAcquireContextHandle_W(DWORD,PVOID,HANDLE*);

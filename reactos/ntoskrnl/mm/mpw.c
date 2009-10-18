@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/mpw.c
@@ -12,18 +13,18 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
-HANDLE MpwThreadHandle;
+static HANDLE MpwThreadHandle;
 static CLIENT_ID MpwThreadId;
-KEVENT MpwThreadEvent;
-BOOLEAN MpwThreadShouldTerminate;
+static KEVENT MpwThreadEvent;
+static volatile BOOLEAN MpwThreadShouldTerminate;
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 MmWriteDirtyPages(ULONG Target, PULONG Actual)
 {
    PFN_TYPE Page;
@@ -52,7 +53,7 @@ MmWriteDirtyPages(ULONG Target, PULONG Actual)
    return(STATUS_SUCCESS);
 }
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 MmMpwThreadMain(PVOID Ignored)
 {
    NTSTATUS Status;
@@ -71,7 +72,7 @@ MmMpwThreadMain(PVOID Ignored)
       if (!NT_SUCCESS(Status))
       {
          DbgPrint("MpwThread: Wait failed\n");
-         KeBugCheck(MEMORY_MANAGEMENT);
+         KEBUGCHECK(0);
          return(STATUS_UNSUCCESSFUL);
       }
       if (MpwThreadShouldTerminate)
@@ -121,27 +122,4 @@ MmInitMpwThread(VOID)
                           sizeof(Priority));
 
    return(STATUS_SUCCESS);
-}
-
-NTSTATUS
-NTAPI
-MmInitBsmThread(VOID)
-{
-    NTSTATUS Status;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    HANDLE ThreadHandle;
-
-    /* Create the thread */
-    InitializeObjectAttributes(&ObjectAttributes, NULL, 0, NULL, NULL);
-    Status = PsCreateSystemThread(&ThreadHandle,
-                                  THREAD_ALL_ACCESS,
-                                  &ObjectAttributes,
-                                  NULL,
-                                  NULL,
-                                  KeBalanceSetManager,
-                                  NULL);
-
-    /* Close the handle and return status */
-    ZwClose(ThreadHandle);
-    return Status;
 }

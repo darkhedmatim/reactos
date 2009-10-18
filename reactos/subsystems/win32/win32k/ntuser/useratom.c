@@ -32,19 +32,18 @@
 RTL_ATOM FASTCALL
 IntAddAtom(LPWSTR AtomName)
 {
+   PWINSTATION_OBJECT WinStaObject;
    NTSTATUS Status = STATUS_SUCCESS;
-   PTHREADINFO pti;
    RTL_ATOM Atom;
 
-   pti = PsGetCurrentThreadWin32Thread();
-   if (pti->Desktop == NULL)
+   if (PsGetCurrentThreadWin32Thread()->Desktop == NULL)
    {
       SetLastNtError(Status);
       return (RTL_ATOM)0;
    }
-
-   Status = RtlAddAtomToAtomTable(gAtomTable, AtomName, &Atom);
-
+   WinStaObject = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
+   Status = RtlAddAtomToAtomTable(WinStaObject->AtomTable,
+                                  AtomName, &Atom);
    if (!NT_SUCCESS(Status))
    {
       SetLastNtError(Status);
@@ -56,19 +55,18 @@ IntAddAtom(LPWSTR AtomName)
 ULONG FASTCALL
 IntGetAtomName(RTL_ATOM nAtom, LPWSTR lpBuffer, ULONG nSize)
 {
+   PWINSTATION_OBJECT WinStaObject;
    NTSTATUS Status = STATUS_SUCCESS;
-   PTHREADINFO pti;
    ULONG Size = nSize;
 
-   pti = PsGetCurrentThreadWin32Thread();
-   if (pti->Desktop == NULL)
+   if (PsGetCurrentThreadWin32Thread()->Desktop == NULL)
    {
       SetLastNtError(Status);
       return 0;
    }
-
-   Status = RtlQueryAtomInAtomTable(gAtomTable, nAtom, NULL, NULL, lpBuffer, &Size);
-
+   WinStaObject = PsGetCurrentThreadWin32Thread()->Desktop->WindowStation;
+   Status = RtlQueryAtomInAtomTable(WinStaObject->AtomTable,
+                                    nAtom, NULL, NULL, lpBuffer, &Size);
    if (Size < nSize)
       *(lpBuffer + Size) = 0;
    if (!NT_SUCCESS(Status))
@@ -77,25 +75,6 @@ IntGetAtomName(RTL_ATOM nAtom, LPWSTR lpBuffer, ULONG nSize)
       return 0;
    }
    return Size;
-}
-
-RTL_ATOM FASTCALL
-IntAddGlobalAtom(LPWSTR lpBuffer, BOOL PinAtom)
-{
-   RTL_ATOM Atom;
-   NTSTATUS Status = STATUS_SUCCESS;
-
-   Status = RtlAddAtomToAtomTable(gAtomTable, lpBuffer, &Atom);
-
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Error init Global Atom.\n");
-      return 0;
-   }
-
-   if ( Atom && PinAtom ) RtlPinAtomInAtomTable(gAtomTable, Atom);
-
-   return Atom;
 }
 
 /* EOF */

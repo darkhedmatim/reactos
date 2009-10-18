@@ -31,7 +31,6 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
 #include "pshpack1.h"
 
@@ -56,7 +55,8 @@ typedef struct
 
 #include "poppack.h"
 
-/* forward declarations... actually in user32\windows\icon.c but useful here */
+/*forward declerations... actualy in user32\windows\icon.c but usful here****/
+HICON ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot);
 HICON ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot);
 CURSORICONDIRENTRY *CURSORICON_FindBestIcon( CURSORICONDIR *dir, int width, int height, int colors);
 CURSORICONDIRENTRY *CURSORICON_FindBestCursor( CURSORICONDIR *dir, int width, int height, int colors);
@@ -66,7 +66,7 @@ CURSORICONDIRENTRY *CURSORICON_FindBestCursor( CURSORICONDIR *dir, int width, in
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL
 LoadImageA(HINSTANCE hinst,
 	   LPCSTR lpszName,
 	   UINT uType,
@@ -186,8 +186,9 @@ LoadCursorIconImage(
    UINT fuLoad,
    ULONG uType)
 {
-   HRSRC hResInfo;
    HANDLE hResource;
+   HANDLE h2Resource;
+   HANDLE hfRes;
    HANDLE hFile;
    HANDLE hSection;
    CURSORICONFILEDIR *IconDIR;
@@ -210,74 +211,55 @@ LoadCursorIconImage(
       if (hinst == NULL)
          hinst = User32Instance;
 
-      hResInfo = FindResourceW(hinst, lpszName,
+      hResource = hfRes = FindResourceW(hinst, lpszName,
                                         Icon ? RT_GROUP_ICON : RT_GROUP_CURSOR);
-      if (hResInfo == NULL)
+      if (hResource == NULL)
          return NULL;
 
-      hResource = LoadResource(hinst, hResInfo);
+      if (fuLoad & LR_SHARED)
+      {
+         hIcon = NtUserFindExistingCursorIcon(hinst, (HRSRC)hfRes, width, height);
+         if (hIcon)
+            return hIcon;
+      }
+
+      hResource = LoadResource(hinst, hResource);
       if (hResource == NULL)
          return NULL;
 
       IconResDir = LockResource(hResource);
       if (IconResDir == NULL)
-      {
          return NULL;
-      }
 
-      /* Find the best fitting in the IconResDir for this resolution */
+      /*
+       * Find the best fitting in the IconResDir for this resolution
+       */
+
       id = LookupIconIdFromDirectoryEx((PBYTE)IconResDir, Icon, width, height,
                                        fuLoad & (LR_DEFAULTCOLOR | LR_MONOCHROME));
 
-      hResInfo = FindResourceW(hinst, MAKEINTRESOURCEW(id),
-                                 Icon ? (LPCWSTR) RT_ICON :
-                                 (LPCWSTR) RT_CURSOR);
-      if (hResInfo == NULL)
-      {
+      h2Resource = FindResourceW(hinst, MAKEINTRESOURCEW(id),
+                                 Icon ? MAKEINTRESOURCEW(RT_ICON) :
+                                 MAKEINTRESOURCEW(RT_CURSOR));
+      if (h2Resource == NULL)
          return NULL;
-      }
 
-      /* Now we have found the icon we want to load.
-       * Let's see if we already loaded it */
-      if (fuLoad & LR_SHARED)
-      {
-         hIcon = NtUserFindExistingCursorIcon(hinst, hResInfo, 0, 0);
-         if (hIcon)
-         {
-            return hIcon;
-         }
-         else
-             TRACE("Didn't find the shared icon!!\n");
-      }
-
-      hResource = LoadResource(hinst, hResInfo);
+      hResource = LoadResource(hinst, h2Resource);
       if (hResource == NULL)
-      {
          return NULL;
-      }
 
       ResIcon = LockResource(hResource);
       if (ResIcon == NULL)
-      {
          return NULL;
-      }
 
       hIcon = CreateIconFromResourceEx((PBYTE)ResIcon,
-                                       SizeofResource(hinst, hResInfo),
+                                       SizeofResource(hinst, h2Resource),
                                        Icon, 0x00030000, width, height,
-                                       (fuLoad & (LR_DEFAULTSIZE | LR_SHARED)) | LR_DEFAULTCOLOR);
-
+                                       fuLoad & (LR_DEFAULTCOLOR | LR_MONOCHROME));
       if (hIcon && 0 != (fuLoad & LR_SHARED))
       {
-#if 1
-         NtUserSetCursorIconData((HICON)hIcon, NULL, NULL, hinst, hResInfo,
+         NtUserSetCursorIconData((HICON)hIcon, NULL, NULL, hinst, (HRSRC)hfRes,
                                  (HRSRC)NULL);
-#else
-         ICONINFO iconInfo;
-
-         if(NtUserGetIconInfo(ResIcon, &iconInfo, NULL, NULL, NULL, FALSE))
-            NtUserSetCursorIconData((HICON)hIcon, hinst, NULL, &iconInfo);
-#endif
       }
 
       return hIcon;
@@ -285,7 +267,7 @@ LoadCursorIconImage(
 
    if (fuLoad & LR_SHARED)
    {
-      FIXME("Need LR_SHARED support for loading icon images from files\n");
+      DbgPrint("FIXME: need LR_SHARED support for loading icon images from files\n");
    }
 
    hFile = CreateFileW(lpszName, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -411,7 +393,6 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
    ULONG HeaderSize;
    ULONG ColorCount;
    PVOID Data;
-   BOOL Hit = FALSE;
 
    if (!(fuLoad & LR_LOADFROMFILE))
    {
@@ -448,26 +429,18 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
       BitmapInfo = (LPBITMAPINFO)((ULONG_PTR)BitmapInfo + sizeof(BITMAPFILEHEADER));
    }
 
-   HeaderSize = BitmapInfo->bmiHeader.biSize;
-   if (HeaderSize == sizeof(BITMAPCOREHEADER))
+   if (BitmapInfo->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
    {
       BITMAPCOREHEADER* Core = (BITMAPCOREHEADER*)BitmapInfo;
       ColorCount = (Core->bcBitCount <= 8) ? (1 << Core->bcBitCount) : 0;
-      HeaderSize += ColorCount * sizeof(RGBTRIPLE);
+      HeaderSize = sizeof(BITMAPCOREHEADER) + ColorCount * sizeof(RGBTRIPLE);
    }
    else
    {
-      if (BitmapInfo->bmiHeader.biCompression == BI_BITFIELDS)
-      {
-         HeaderSize += 3 * sizeof(RGBQUAD);
-      }
-      else
-      {
-         ColorCount = BitmapInfo->bmiHeader.biClrUsed;
-         if (ColorCount == 0 && BitmapInfo->bmiHeader.biBitCount <= 8)
-            ColorCount = 1 << BitmapInfo->bmiHeader.biBitCount;
-         HeaderSize += ColorCount * sizeof(RGBQUAD);
-      }
+      ColorCount = BitmapInfo->bmiHeader.biClrUsed;
+      if (ColorCount == 0 && BitmapInfo->bmiHeader.biBitCount <= 8)
+         ColorCount = 1 << BitmapInfo->bmiHeader.biBitCount;
+      HeaderSize = sizeof(BITMAPINFOHEADER) + ColorCount * sizeof(RGBQUAD);
    }
    Data = (PVOID)((ULONG_PTR)BitmapInfo + HeaderSize);
 
@@ -478,26 +451,8 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
          UnmapViewOfFile(BitmapInfo);
       return NULL;
    }
-
-   _SEH2_TRY
-   {
    memcpy(PrivateInfo, BitmapInfo, HeaderSize);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-      Hit = TRUE;
-   }
-   _SEH2_END;
 
-   if (Hit)
-   {
-      ERR("We have a thread overrun, these are already freed! pi -> %d, bi -> %d\n", PrivateInfo, BitmapInfo);
-      RtlFreeHeap(GetProcessHeap(), 0, PrivateInfo);
-      if (fuLoad & LR_LOADFROMFILE)
-         UnmapViewOfFile(BitmapInfo);
-      return NULL;
-   }
-   
    /* FIXME: Handle color conversion and transparency. */
 
    hScreenDc = CreateCompatibleDC(NULL);
@@ -533,7 +488,7 @@ LoadBitmapImage(HINSTANCE hInstance, LPCWSTR lpszName, UINT fuLoad)
    return hBitmap;
 }
 
-HANDLE WINAPI
+HANDLE STDCALL
 LoadImageW(
    IN HINSTANCE hinst,
    IN LPCWSTR lpszName,
@@ -579,7 +534,7 @@ LoadImageW(
 /*
  * @implemented
  */
-HBITMAP WINAPI
+HBITMAP STDCALL
 LoadBitmapA(HINSTANCE hInstance, LPCSTR lpBitmapName)
 {
    return LoadImageA(hInstance, lpBitmapName, IMAGE_BITMAP, 0, 0, 0);
@@ -589,288 +544,12 @@ LoadBitmapA(HINSTANCE hInstance, LPCSTR lpBitmapName)
 /*
  * @implemented
  */
-HBITMAP WINAPI
+HBITMAP STDCALL
 LoadBitmapW(HINSTANCE hInstance, LPCWSTR lpBitmapName)
 {
    return LoadImageW(hInstance, lpBitmapName, IMAGE_BITMAP, 0, 0, 0);
 }
 
-
-static HANDLE
-CopyBmp(HANDLE hnd,
-        UINT type,
-        INT desiredx,
-        INT desiredy,
-        UINT flags)
-{
-    HBITMAP res = NULL;
-    DIBSECTION ds;
-    int objSize;
-    BITMAPINFO * bi;
-
-    objSize = GetObjectW( hnd, sizeof(ds), &ds );
-    if (!objSize) return 0;
-    if ((desiredx < 0) || (desiredy < 0)) return 0;
-
-    if (flags & LR_COPYFROMRESOURCE)
-    {
-        FIXME("FIXME: The flag LR_COPYFROMRESOURCE is not implemented for bitmaps\n");
-    }
-
-    if (desiredx == 0) desiredx = ds.dsBm.bmWidth;
-    if (desiredy == 0) desiredy = ds.dsBm.bmHeight;
-
-    /* Allocate memory for a BITMAPINFOHEADER structure and a
-       color table. The maximum number of colors in a color table
-       is 256 which corresponds to a bitmap with depth 8.
-       Bitmaps with higher depths don't have color tables. */
-    bi = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
-    if (!bi) return 0;
-
-    bi->bmiHeader.biSize        = sizeof(bi->bmiHeader);
-    bi->bmiHeader.biPlanes      = ds.dsBm.bmPlanes;
-    bi->bmiHeader.biBitCount    = ds.dsBm.bmBitsPixel;
-    bi->bmiHeader.biCompression = BI_RGB;
-
-    if (flags & LR_CREATEDIBSECTION)
-    {
-        /* Create a DIB section. LR_MONOCHROME is ignored */
-        void * bits;
-        HDC dc = CreateCompatibleDC(NULL);
-
-        if (objSize == sizeof(DIBSECTION))
-        {
-            /* The source bitmap is a DIB.
-               Get its attributes to create an exact copy */
-            memcpy(bi, &ds.dsBmih, sizeof(BITMAPINFOHEADER));
-        }
-
-        /* Get the color table or the color masks */
-        GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, NULL, bi, DIB_RGB_COLORS);
-
-        bi->bmiHeader.biWidth  = desiredx;
-        bi->bmiHeader.biHeight = desiredy;
-        bi->bmiHeader.biSizeImage = 0;
-
-        res = CreateDIBSection(dc, bi, DIB_RGB_COLORS, &bits, NULL, 0);
-        DeleteDC(dc);
-    }
-    else
-    {
-        /* Create a device-dependent bitmap */
-
-        BOOL monochrome = (flags & LR_MONOCHROME);
-
-        if (objSize == sizeof(DIBSECTION))
-        {
-            /* The source bitmap is a DIB section.
-               Get its attributes */
-            HDC dc = CreateCompatibleDC(NULL);
-            bi->bmiHeader.biSize = sizeof(bi->bmiHeader);
-            bi->bmiHeader.biBitCount = ds.dsBm.bmBitsPixel;
-            GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, NULL, bi, DIB_RGB_COLORS);
-            DeleteDC(dc);
-
-            if (!monochrome && ds.dsBm.bmBitsPixel == 1)
-            {
-                /* Look if the colors of the DIB are black and white */
-
-                monochrome =
-                      (bi->bmiColors[0].rgbRed == 0xff
-                    && bi->bmiColors[0].rgbGreen == 0xff
-                    && bi->bmiColors[0].rgbBlue == 0xff
-                    && bi->bmiColors[0].rgbReserved == 0
-                    && bi->bmiColors[1].rgbRed == 0
-                    && bi->bmiColors[1].rgbGreen == 0
-                    && bi->bmiColors[1].rgbBlue == 0
-                    && bi->bmiColors[1].rgbReserved == 0)
-                    ||
-                      (bi->bmiColors[0].rgbRed == 0
-                    && bi->bmiColors[0].rgbGreen == 0
-                    && bi->bmiColors[0].rgbBlue == 0
-                    && bi->bmiColors[0].rgbReserved == 0
-                    && bi->bmiColors[1].rgbRed == 0xff
-                    && bi->bmiColors[1].rgbGreen == 0xff
-                    && bi->bmiColors[1].rgbBlue == 0xff
-                    && bi->bmiColors[1].rgbReserved == 0);
-            }
-        }
-        else if (!monochrome)
-        {
-            monochrome = ds.dsBm.bmBitsPixel == 1;
-        }
-
-        if (monochrome)
-        {
-            res = CreateBitmap(desiredx, desiredy, 1, 1, NULL);
-        }
-        else
-        {
-            HDC screenDC = GetDC(NULL);
-            res = CreateCompatibleBitmap(screenDC, desiredx, desiredy);
-            ReleaseDC(NULL, screenDC);
-        }
-    }
-
-    if (res)
-    {
-        /* Only copy the bitmap if it's a DIB section or if it's
-           compatible to the screen */
-        BOOL copyContents;
-
-        if (objSize == sizeof(DIBSECTION))
-        {
-            copyContents = TRUE;
-        }
-        else
-        {
-            HDC screenDC = GetDC(NULL);
-            int screen_depth = GetDeviceCaps(screenDC, BITSPIXEL);
-            ReleaseDC(NULL, screenDC);
-
-            copyContents = (ds.dsBm.bmBitsPixel == 1 || ds.dsBm.bmBitsPixel == screen_depth);
-        }
-
-        if (copyContents)
-        {
-            /* The source bitmap may already be selected in a device context,
-               use GetDIBits/StretchDIBits and not StretchBlt  */
-
-            HDC dc;
-            void * bits;
-
-            dc = CreateCompatibleDC(NULL);
-
-            bi->bmiHeader.biWidth = ds.dsBm.bmWidth;
-            bi->bmiHeader.biHeight = ds.dsBm.bmHeight;
-            bi->bmiHeader.biSizeImage = 0;
-            bi->bmiHeader.biClrUsed = 0;
-            bi->bmiHeader.biClrImportant = 0;
-
-            /* Fill in biSizeImage */
-            GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, NULL, bi, DIB_RGB_COLORS);
-            bits = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, bi->bmiHeader.biSizeImage);
-
-            if (bits)
-            {
-                HBITMAP oldBmp;
-
-                /* Get the image bits of the source bitmap */
-                GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, bits, bi, DIB_RGB_COLORS);
-
-                /* Copy it to the destination bitmap */
-                oldBmp = SelectObject(dc, res);
-                StretchDIBits(dc, 0, 0, desiredx, desiredy,
-                              0, 0, ds.dsBm.bmWidth, ds.dsBm.bmHeight,
-                              bits, bi, DIB_RGB_COLORS, SRCCOPY);
-                SelectObject(dc, oldBmp);
-
-                HeapFree(GetProcessHeap(), 0, bits);
-            }
-
-            DeleteDC(dc);
-        }
-
-        if (flags & LR_COPYDELETEORG)
-        {
-            DeleteObject(hnd);
-        }
-    }
-    HeapFree(GetProcessHeap(), 0, bi);
-    return res;
-}
-
-
-INT
-GetIconCurBpp(PICONINFO pIconInfo)
-{
-    PBITMAPINFO pbi;
-
-    pbi = (PBITMAPINFO)pIconInfo->hbmColor;
-    return pbi->bmiHeader.biBitCount;
-}
-
-#if 0
-static BOOL
-SetCursorIconData(
-  HANDLE Handle,
-  HINSTANCE hMod,
-  LPWSTR lpResName,
-  PICONINFO pIconInfo)
-{
-
-    UNICODE_STRING Res;
-
-    if (!Handle || !pIconInfo)
-        return FALSE;
-
-    RtlInitUnicodeString(&Res, lpResName);
-
-    return NtUserSetCursorIconData(Handle, hMod, &Res, pIconInfo);
-
-}
-
-
-/* bare bones icon copy implementation */
-static HANDLE
-CopyIcoCur(HANDLE hIconCur,
-           UINT type,
-           INT desiredx,
-           INT desiredy,
-           UINT flags)
-{
-    HANDLE hNewIcon = NULL;
-    ICONINFO origIconInfo, newIconInfo;
-    SIZE origSize;
-    DWORD origBpp;
-
-    if (!hIconCur)
-        return NULL;
-
-    if (flags & LR_COPYFROMRESOURCE)
-    {
-        TRACE("FIXME: LR_COPYFROMRESOURCE is yet not implemented for icons\n");
-    }
-
-    if (NtUserGetIconSize(hIconCur, 0, &origSize.cx, &origSize.cy))
-    {
-        if (desiredx == 0) desiredx = origSize.cx;
-        if (desiredx == 0) desiredy = origSize.cy;
-
-        if (NtUserGetIconInfo(hIconCur, &origIconInfo, NULL, NULL, &origBpp, TRUE))
-        {
-            hNewIcon = (HANDLE)NtUserCallOneParam(0, ONEPARAM_ROUTINE_CREATECURICONHANDLE);
-
-            if (hNewIcon)
-            {
-                /* the bitmaps returned from the NtUserGetIconInfo are copies of the original,
-                 * so we can use these directly to build up our icon/cursor copy */
-                RtlCopyMemory(&newIconInfo, &origIconInfo, sizeof(ICONINFO));
-
-                if (!SetCursorIconData(hNewIcon, NULL, NULL, &newIconInfo))
-                {
-                    if (newIconInfo.fIcon)
-                        DestroyIcon(hNewIcon);
-                    else
-                        DestroyCursor(hNewIcon);
-
-                    hNewIcon = NULL;
-                }
-            }
-
-            DeleteObject(origIconInfo.hbmMask);
-            DeleteObject(origIconInfo.hbmColor);
-        }
-    }
-
-    if (hNewIcon && (flags & LR_COPYDELETEORG))
-    {
-        DestroyCursor((HCURSOR)hIconCur);
-    }
-
-    return hNewIcon;
-}
-#endif
 
 /*
  * @unimplemented
@@ -900,11 +579,195 @@ CopyImage(
    switch (type)
    {
       case IMAGE_BITMAP:
-        return CopyBmp(hnd, type, desiredx, desiredy, flags);
+         {
+            HBITMAP res = NULL;
+            DIBSECTION ds;
+            int objSize;
+            BITMAPINFO * bi;
 
+            objSize = GetObjectW( hnd, sizeof(ds), &ds );
+            if (!objSize) return 0;
+            if ((desiredx < 0) || (desiredy < 0)) return 0;
+
+            if (flags & LR_COPYFROMRESOURCE)
+            {
+                DPRINT1("FIXME: The flag LR_COPYFROMRESOURCE is not implemented for bitmaps\n");
+            }
+
+            if (desiredx == 0) desiredx = ds.dsBm.bmWidth;
+            if (desiredy == 0) desiredy = ds.dsBm.bmHeight;
+
+            /* Allocate memory for a BITMAPINFOHEADER structure and a
+               color table. The maximum number of colors in a color table
+               is 256 which corresponds to a bitmap with depth 8.
+               Bitmaps with higher depths don't have color tables. */
+            bi = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
+            if (!bi) return 0;
+
+            bi->bmiHeader.biSize        = sizeof(bi->bmiHeader);
+            bi->bmiHeader.biPlanes      = ds.dsBm.bmPlanes;
+            bi->bmiHeader.biBitCount    = ds.dsBm.bmBitsPixel;
+            bi->bmiHeader.biCompression = BI_RGB;
+
+            if (flags & LR_CREATEDIBSECTION)
+            {
+                /* Create a DIB section. LR_MONOCHROME is ignored */
+                void * bits;
+                HDC dc = CreateCompatibleDC(NULL);
+
+                if (objSize == sizeof(DIBSECTION))
+                {
+                    /* The source bitmap is a DIB.
+                       Get its attributes to create an exact copy */
+                    memcpy(bi, &ds.dsBmih, sizeof(BITMAPINFOHEADER));
+                }
+
+                /* Get the color table or the color masks */
+                GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, NULL, bi, DIB_RGB_COLORS);
+
+                bi->bmiHeader.biWidth  = desiredx;
+                bi->bmiHeader.biHeight = desiredy;
+                bi->bmiHeader.biSizeImage = 0;
+
+                res = CreateDIBSection(dc, bi, DIB_RGB_COLORS, &bits, NULL, 0);
+                DeleteDC(dc);
+            }
+            else
+            {
+                /* Create a device-dependent bitmap */
+
+                BOOL monochrome = (flags & LR_MONOCHROME);
+
+                if (objSize == sizeof(DIBSECTION))
+                {
+                    /* The source bitmap is a DIB section.
+                       Get its attributes */
+                    HDC dc = CreateCompatibleDC(NULL);
+                    bi->bmiHeader.biSize = sizeof(bi->bmiHeader);
+                    bi->bmiHeader.biBitCount = ds.dsBm.bmBitsPixel;
+                    GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, NULL, bi, DIB_RGB_COLORS);
+                    DeleteDC(dc);
+
+                    if (!monochrome && ds.dsBm.bmBitsPixel == 1)
+                    {
+                        /* Look if the colors of the DIB are black and white */
+
+                        monochrome = 
+                              (bi->bmiColors[0].rgbRed == 0xff
+                            && bi->bmiColors[0].rgbGreen == 0xff
+                            && bi->bmiColors[0].rgbBlue == 0xff
+                            && bi->bmiColors[0].rgbReserved == 0
+                            && bi->bmiColors[1].rgbRed == 0
+                            && bi->bmiColors[1].rgbGreen == 0
+                            && bi->bmiColors[1].rgbBlue == 0
+                            && bi->bmiColors[1].rgbReserved == 0)
+                            ||
+                              (bi->bmiColors[0].rgbRed == 0
+                            && bi->bmiColors[0].rgbGreen == 0
+                            && bi->bmiColors[0].rgbBlue == 0
+                            && bi->bmiColors[0].rgbReserved == 0
+                            && bi->bmiColors[1].rgbRed == 0xff
+                            && bi->bmiColors[1].rgbGreen == 0xff
+                            && bi->bmiColors[1].rgbBlue == 0xff
+                            && bi->bmiColors[1].rgbReserved == 0);
+                    }
+                }
+                else if (!monochrome)
+                {
+                    monochrome = ds.dsBm.bmBitsPixel == 1;
+                }
+
+                if (monochrome)
+                {
+                    res = CreateBitmap(desiredx, desiredy, 1, 1, NULL);
+                }
+                else
+                {
+                    HDC screenDC = GetDC(NULL);
+                    res = CreateCompatibleBitmap(screenDC, desiredx, desiredy);
+                    ReleaseDC(NULL, screenDC);
+                }
+            }
+
+            if (res)
+            {
+                /* Only copy the bitmap if it's a DIB section or if it's
+                   compatible to the screen */
+                BOOL copyContents;
+
+                if (objSize == sizeof(DIBSECTION))
+                {
+                    copyContents = TRUE;
+                }
+                else
+                {
+                    HDC screenDC = GetDC(NULL);
+                    int screen_depth = GetDeviceCaps(screenDC, BITSPIXEL);
+                    ReleaseDC(NULL, screenDC);
+
+                    copyContents = (ds.dsBm.bmBitsPixel == 1 || ds.dsBm.bmBitsPixel == screen_depth);
+                }
+
+                if (copyContents)
+                {
+                    /* The source bitmap may already be selected in a device context,
+                       use GetDIBits/StretchDIBits and not StretchBlt  */
+
+                    HDC dc;
+                    void * bits;
+
+                    dc = CreateCompatibleDC(NULL);
+
+                    bi->bmiHeader.biWidth = ds.dsBm.bmWidth;
+                    bi->bmiHeader.biHeight = ds.dsBm.bmHeight;
+                    bi->bmiHeader.biSizeImage = 0;
+                    bi->bmiHeader.biClrUsed = 0;
+                    bi->bmiHeader.biClrImportant = 0;
+
+                    /* Fill in biSizeImage */
+                    GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, NULL, bi, DIB_RGB_COLORS);
+                    bits = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, bi->bmiHeader.biSizeImage);
+
+                    if (bits)
+                    {
+                        HBITMAP oldBmp;
+
+                        /* Get the image bits of the source bitmap */
+                        GetDIBits(dc, hnd, 0, ds.dsBm.bmHeight, bits, bi, DIB_RGB_COLORS);
+
+                        /* Copy it to the destination bitmap */
+                        oldBmp = SelectObject(dc, res);
+                        StretchDIBits(dc, 0, 0, desiredx, desiredy,
+                                      0, 0, ds.dsBm.bmWidth, ds.dsBm.bmHeight,
+                                      bits, bi, DIB_RGB_COLORS, SRCCOPY);
+                        SelectObject(dc, oldBmp);
+
+                        HeapFree(GetProcessHeap(), 0, bits);
+                    }
+
+                    DeleteDC(dc);
+                }
+
+                if (flags & LR_COPYDELETEORG)
+                {
+                    DeleteObject(hnd);
+                }
+            }
+            HeapFree(GetProcessHeap(), 0, bi);
+            return (HICON)res;
+         }
       case IMAGE_ICON:
-        //return CopyIcoCur(hnd, type, desiredx, desiredy, flags);
-          return CopyIcon(hnd);
+         {
+            static BOOL IconMsgDisplayed = FALSE;
+            /* FIXME: support loading the image as shared from an instance */
+            if (!IconMsgDisplayed)
+            {
+               DPRINT("FIXME: CopyImage doesn't support IMAGE_ICON correctly!\n");
+               IconMsgDisplayed = TRUE;
+            }
+            return CopyIcon(hnd);
+//            return CURSORICON_ExtCopy(hnd,type, desiredx, desiredy, flags);
+         }
 
       case IMAGE_CURSOR:
          {
@@ -912,16 +775,16 @@ CopyImage(
             /* FIXME: support loading the image as shared from an instance */
             if (!IconMsgDisplayed)
             {
-               FIXME("FIXME: CopyImage doesn't support IMAGE_CURSOR correctly!\n");
+               DPRINT("FIXME: CopyImage doesn't support IMAGE_CURSOR correctly!\n");
                IconMsgDisplayed = TRUE;
             }
             /* Should call CURSORICON_ExtCopy but more testing
              * needs to be done before we change this
              */
-            if (flags) FIXME("FIXME: Flags are ignored\n");
+            if (flags) DPRINT1("FIXME: Flags are ignored\n");
             return CopyCursor(hnd);
          }
    }
-
    return NULL;
 }
+

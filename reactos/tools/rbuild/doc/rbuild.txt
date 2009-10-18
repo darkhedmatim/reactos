@@ -19,14 +19,14 @@ This will create ReactOS.iso in the top-level reactos directory.
 
 Top-level XML Build File
 ------------------------
-The top-level xml build file (ReactOS.rbuild) is processed by rbuild. The following is an example of how it could look like:
+The top-level xml build file (ReactOS.xml) is processed by rbuild. The following is an example of how it could look like:
 
 <?xml version="1.0"?>
 <!DOCTYPE project SYSTEM "tools/rbuild/project.dtd">
 <project name="ReactOS" makefile="Makefile.auto" xmlns:xi="http://www.w3.org/2001/XInclude">
-	<xi:include href="config.rbuild">
+	<xi:include href="config.xml">
 		<xi:fallback>
-			<xi:include href="config.template.rbuild" />
+			<xi:include href="config.template.xml" />
 		</xi:fallback>
 	</xi:include>
 
@@ -39,7 +39,7 @@ The top-level xml build file (ReactOS.rbuild) is processed by rbuild. The follow
 	<include base="ReactOS">include</include>
 
 	<directory name="boot">
-		<xi:include href="boot/boot.rbuild" />
+		<xi:include href="boot/boot.xml" />
 	</directory>
 
 	<module name="bootcd" type="iso">
@@ -52,9 +52,9 @@ xi:include
 It is possible to split an xml build file over several files. The include element in the xi namespace is used to accomplish this.
 
 Syntax:
-	<xi:include href="config.rbuild">
+	<xi:include href="config.xml">
 		<xi:fallback>
-			<xi:include href="config.template.rbuild" />
+			<xi:include href="config.template.xml" />
 		</xi:fallback>
 	</xi:include>
 
@@ -177,10 +177,10 @@ Bootstrap element
 A bootstrap element specifies that the generated file should be put on the bootable CD as a bootstrap file.
 
 Syntax:
-	<bootstrap installbase="reactos" nameoncd="halmp.dll" />
+	<bootstrap base="reactos" nameoncd="halmp.dll" />
 
 Attributes:
-	installbase - Put file in this directory on the bootable CD. This attribute is optional.
+	base - Put file in this directory on the bootable CD. This attribute is optional.
 	nameoncd - Name of file on the bootable CD. This attribute is optional.
 
 Value:
@@ -195,10 +195,10 @@ CDFile element
 A cdfile element specifies the name of a file that is to be put on the bootable CD.
 
 Syntax:
-	<cdfile installbase="reactos" nameoncd="ReadMe.txt">ReadMe.txt</cdfile>
+	<cdfile base="reactos" nameoncd="ReadMe.txt">ReadMe.txt</cdfile>
 
 Attributes:
-	installbase - Put file in this directory on the bootable CD. This attribute is optional.
+	base - Put file in this directory on the bootable CD. This attribute is optional.
 	nameoncd - Name of file on the bootable CD. This attribute is optional.
 
 Value:
@@ -392,10 +392,10 @@ Installfile element
 An installfile element specifies the name of a file that is to be installed when using 'make install'.
 
 Syntax:
-	<installfile installbase="reactos" newname="ReadMe.txt">ReadMe.txt</installfile>
+	<installfile base="reactos" newname="ReadMe.txt">ReadMe.txt</installfile>
 
 Attributes:
-	installbase - Put file in this directory within the install directory. This attribute is optional.
+	base - Put file in this directory within the install directory. This attribute is optional.
 	newname - Name of file within the install directory. This attribute is optional.
 
 Value:

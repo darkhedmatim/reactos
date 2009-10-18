@@ -24,8 +24,8 @@ LIST_ENTRY ExpPagedLookasideListHead;
 KSPIN_LOCK ExpPagedLookasideListLock;
 LIST_ENTRY ExSystemLookasideListHead;
 LIST_ENTRY ExPoolLookasideListHead;
-GENERAL_LOOKASIDE ExpSmallNPagedPoolLookasideLists[MAXIMUM_PROCESSORS];
-GENERAL_LOOKASIDE ExpSmallPagedPoolLookasideLists[MAXIMUM_PROCESSORS];
+NPAGED_LOOKASIDE_LIST ExpSmallNPagedPoolLookasideLists[MAXIMUM_PROCESSORS];
+PAGED_LOOKASIDE_LIST ExpSmallPagedPoolLookasideLists[MAXIMUM_PROCESSORS];
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -63,27 +63,30 @@ NTAPI
 ExInitPoolLookasidePointers(VOID)
 {
     ULONG i;
-    PKPRCB Prcb = KeGetCurrentPrcb();
-    PGENERAL_LOOKASIDE Entry;
+    PPP_LOOKASIDE_LIST Entry;
+    PNPAGED_LOOKASIDE_LIST ListEntry;
+    PPAGED_LOOKASIDE_LIST PagedListEntry;
 
-    /* Loop for all pool lists */
+    /* Loop for all CPUs */
     for (i = 0; i < MAXIMUM_PROCESSORS; i++)
     {
         /* Initialize the non-paged list */
-        Entry = &ExpSmallNPagedPoolLookasideLists[i];
-        InitializeSListHead(&Entry->ListHead);
+        ListEntry = &ExpSmallNPagedPoolLookasideLists[i];
+        InitializeSListHead(&ListEntry->L.ListHead);
 
         /* Bind to PRCB */
-        Prcb->PPNPagedLookasideList[i].P = Entry;
-        Prcb->PPNPagedLookasideList[i].L = Entry;
+        Entry = &KeGetCurrentPrcb()->PPPagedLookasideList[i];
+        Entry->L = &ListEntry->L;
+        Entry->P = &ListEntry->L;
 
         /* Initialize the paged list */
-        Entry = &ExpSmallPagedPoolLookasideLists[i];
-        InitializeSListHead(&Entry->ListHead);
+        PagedListEntry = &ExpSmallPagedPoolLookasideLists[i];
+        InitializeSListHead(&PagedListEntry->L.ListHead);
 
         /* Bind to PRCB */
-        Prcb->PPPagedLookasideList[i].P = Entry;
-        Prcb->PPPagedLookasideList[i].L = Entry;
+        Entry = &KeGetCurrentPrcb()->PPNPagedLookasideList[i];
+        Entry->L = &PagedListEntry->L;
+        Entry->P = &PagedListEntry->L;
     }
 }
 
@@ -91,7 +94,7 @@ VOID
 NTAPI
 ExpInitLookasideLists()
 {
-    ULONG i;
+    ULONG i, j;
 
     /* Initialize locks and lists */
     InitializeListHead(&ExpNonPagedLookasideListHead);
@@ -102,21 +105,21 @@ ExpInitLookasideLists()
     KeInitializeSpinLock(&ExpPagedLookasideListLock);
 
     /* Initialize the system lookaside lists */
-    for (i = 0; i < MAXIMUM_PROCESSORS; i++)
+    for (i = 0, j = 1; i < (MAXIMUM_PROCESSORS - 1); j++, i++)
     {
         /* Initialize the non-paged list */
-        ExInitializeSystemLookasideList(&ExpSmallNPagedPoolLookasideLists[i],
+        ExInitializeSystemLookasideList(&ExpSmallNPagedPoolLookasideLists[i].L,
                                         NonPagedPool,
-                                        (i + 1) * 8,
-                                        'looP',
+                                        j * 8,
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
 
         /* Initialize the paged list */
-        ExInitializeSystemLookasideList(&ExpSmallPagedPoolLookasideLists[i],
+        ExInitializeSystemLookasideList(&ExpSmallPagedPoolLookasideLists[i].L,
                                         PagedPool,
-                                        (i + 1) * 8,
-                                        'looP',
+                                        j * 8,
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
     }
@@ -135,7 +138,7 @@ ExiAllocateFromPagedLookasideList(IN PPAGED_LOOKASIDE_LIST Lookaside)
 
     Lookaside->L.TotalAllocates++;
     Entry = InterlockedPopEntrySList(&Lookaside->L.ListHead);
-    if (!Entry)
+    if (!Entry) 
     {
         Lookaside->L.AllocateMisses++;
         Entry = (Lookaside->L.Allocate)(Lookaside->L.Type,
@@ -154,7 +157,7 @@ ExiFreeToPagedLookasideList(IN PPAGED_LOOKASIDE_LIST  Lookaside,
                             IN PVOID  Entry)
 {
     Lookaside->L.TotalFrees++;
-    if (ExQueryDepthSList(&Lookaside->L.ListHead) >= Lookaside->L.Depth)
+    if (ExQueryDepthSList(&Lookaside->L.ListHead) >= Lookaside->L.Depth) 
     {
         Lookaside->L.FreeMisses++;
         (Lookaside->L.Free)(Entry);
@@ -222,7 +225,7 @@ ExInitializeNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside,
                                 IN PALLOCATE_FUNCTION Allocate OPTIONAL,
                                 IN PFREE_FUNCTION Free OPTIONAL,
                                 IN ULONG Flags,
-                                IN SIZE_T Size,
+                                IN ULONG Size,
                                 IN ULONG Tag,
                                 IN USHORT Depth)
 {
@@ -258,7 +261,7 @@ ExInitializeNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside,
     {
         Lookaside->L.Free = ExFreePool;
     }
-
+    
     /* Insert it into the list */
     ExInterlockedInsertTailList(&ExpNonPagedLookasideListHead,
                                 &Lookaside->L.ListEntry,
@@ -274,7 +277,7 @@ ExInitializePagedLookasideList(IN PPAGED_LOOKASIDE_LIST Lookaside,
                                IN PALLOCATE_FUNCTION Allocate OPTIONAL,
                                IN PFREE_FUNCTION Free OPTIONAL,
                                IN ULONG Flags,
-                               IN SIZE_T Size,
+                               IN ULONG Size,
                                IN ULONG Tag,
                                IN USHORT Depth)
 {

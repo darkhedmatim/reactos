@@ -1,7 +1,7 @@
 /*
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            ntoskrnl/ob/obref.c
+ * FILE:            ntoskrnl/ob/refderef.c
  * PURPOSE:         Manages the referencing and de-referencing of all Objects,
  *                  as well as the Object Fast Reference implementation.
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
@@ -13,7 +13,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -52,7 +52,7 @@ VOID
 NTAPI
 ObpDeferObjectDeletion(IN POBJECT_HEADER Header)
 {
-    PVOID Entry;
+    PVOID Entry, NewEntry;
 
     /* Loop while trying to update the list */
     do
@@ -62,10 +62,11 @@ ObpDeferObjectDeletion(IN POBJECT_HEADER Header)
 
         /* Link our object to the list */
         Header->NextToFree = Entry;
+        NewEntry = Header;
 
         /* Update the list */
     } while (InterlockedCompareExchangePointer(&ObpReaperList,
-                                               Header,
+                                               NewEntry,
                                                Entry) != Entry);
 
     /* Queue the work item if needed */
@@ -80,7 +81,7 @@ ObReferenceObjectEx(IN PVOID Object,
     /* Increment the reference count and return the count now */
     return InterlockedExchangeAdd(&OBJECT_TO_OBJECT_HEADER(Object)->
                                   PointerCount,
-                                  Count) + Count;
+                                  Count);
 }
 
 LONG
@@ -95,8 +96,8 @@ ObDereferenceObjectEx(IN PVOID Object,
     Header = OBJECT_TO_OBJECT_HEADER(Object);
 
     /* Check whether the object can now be deleted. */
-    NewCount = InterlockedExchangeAdd(&Header->PointerCount, -Count) - Count;
-    if (!NewCount) ObpDeferObjectDeletion(Header);
+    NewCount = InterlockedExchangeAdd(&Header->PointerCount, -Count);
+    if (!Count) ObpDeferObjectDeletion(Header);
 
     /* Return the current count */
     return NewCount;
@@ -109,9 +110,21 @@ ObInitializeFastReference(IN PEX_FAST_REF FastRef,
 {
     /* Check if we were given an object and reference it 7 times */
     if (Object) ObReferenceObjectEx(Object, MAX_FAST_REFS);
-    
-    /* Setup the fast reference */
-    ExInitializeFastReference(FastRef, Object);
+
+    /* Sanity check */
+    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
+
+    /* Check if the caller gave us an object */
+    if (Object)
+    {
+        /* He did, so write the biased pointer */
+        FastRef->Object = (PVOID)((ULONG_PTR)Object | MAX_FAST_REFS);
+    }
+    else
+    {
+        /* Otherwise, clear the current object */
+        FastRef->Object = NULL;
+    }
 }
 
 PVOID
@@ -119,10 +132,9 @@ FASTCALL
 ObFastReferenceObjectLocked(IN PEX_FAST_REF FastRef)
 {
     PVOID Object;
-    EX_FAST_REF OldValue = *FastRef;
 
     /* Get the object and reference it slowly */
-    Object = ExGetObjectFastReference(OldValue);
+    Object = (PVOID)((ULONG_PTR)FastRef->Object & MAX_FAST_REFS);
     if (Object) ObReferenceObject(Object);
     return Object;
 }
@@ -131,16 +143,25 @@ PVOID
 FASTCALL
 ObFastReferenceObject(IN PEX_FAST_REF FastRef)
 {
-    EX_FAST_REF OldValue;
+    ULONG_PTR Value, NewValue;
     ULONG_PTR Count;
     PVOID Object;
 
-    /* Reference the object and get it pointer */
-    OldValue = ExAcquireFastReference(FastRef);
-    Object = ExGetObjectFastReference(OldValue);
+    /* Start reference loop */
+    for (;;)
+    {
+        /* Get the current count */
+        Value = FastRef->Value;
+        if (!(Value & MAX_FAST_REFS)) break;
 
-    /* Check how many references are left */
-    Count = ExGetCountFastReference(OldValue);
+        /* Increase the reference count */
+        NewValue = Value - 1;
+        if (ExpChangeRundown(FastRef, NewValue, Value) == Value) break;
+    }
+
+    /* Get the object and count */
+    Object = (PVOID)(Value &~ MAX_FAST_REFS);
+    Count = Value & MAX_FAST_REFS;
 
     /* Check if the reference count is over 1 */
     if (Count > 1) return Object;
@@ -150,12 +171,25 @@ ObFastReferenceObject(IN PEX_FAST_REF FastRef)
 
     /* Otherwise, reference the object 7 times */
     ObReferenceObjectEx(Object, MAX_FAST_REFS);
-    
-    /* Now update the reference count */
-    if (!ExInsertFastReference(FastRef, Object))
+    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
+
+    for (;;)
     {
-        /* We failed: completely dereference the object */
-        ObDereferenceObjectEx(Object, MAX_FAST_REFS);
+        /* Check if the current count is too high */
+        Value = FastRef->Value;
+        if (((FastRef->RefCnt + MAX_FAST_REFS) > MAX_FAST_REFS) ||
+            ((PVOID)((ULONG_PTR)FastRef->Object &~ MAX_FAST_REFS) != Object))
+        {
+            /* Completely dereference the object */
+            ObDereferenceObjectEx(Object, MAX_FAST_REFS);
+            break;
+        }
+        else
+        {
+            /* Increase the reference count */
+            NewValue = Value + MAX_FAST_REFS;
+            if (ExpChangeRundown(FastRef, NewValue, Value) == Value) break;
+        }
     }
 
     /* Return the Object */
@@ -167,8 +201,30 @@ FASTCALL
 ObFastDereferenceObject(IN PEX_FAST_REF FastRef,
                         IN PVOID Object)
 {
-    /* Release a fast reference. If this failed, use the slow path */
-    if (!ExReleaseFastReference(FastRef, Object)) ObDereferenceObject(Object);
+    ULONG_PTR Value, NewValue;
+
+    /* Sanity checks */
+    ASSERT(Object);
+    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
+
+    /* Start dereference loop */
+    for (;;)
+    {
+        /* Get the current count */
+        Value = FastRef->Value;
+        if ((Value ^ (ULONG_PTR)Object) < MAX_FAST_REFS)
+        {
+            /* Decrease the reference count */
+            NewValue = Value + 1;
+            if (ExpChangeRundown(FastRef, NewValue, Value) == Value) return;
+        }
+        else
+        {
+            /* Do a normal Dereference */
+            ObDereferenceObject(Object);
+            return;
+        }
+    }
 }
 
 PVOID
@@ -176,20 +232,36 @@ FASTCALL
 ObFastReplaceObject(IN PEX_FAST_REF FastRef,
                     PVOID Object)
 {
-    EX_FAST_REF OldValue;
+    ULONG_PTR NewValue;
+    EX_FAST_REF OldRef;
     PVOID OldObject;
-    ULONG_PTR Count;
 
     /* Check if we were given an object and reference it 7 times */
     if (Object) ObReferenceObjectEx(Object, MAX_FAST_REFS);
-    
-    /* Do the swap */
-    OldValue = ExSwapFastReference(FastRef, Object);
-    OldObject = ExGetObjectFastReference(OldValue);
-    
-    /* Check if we had an active object and dereference it */
-    Count = ExGetCountFastReference(OldValue);
-    if ((OldObject) && (Count)) ObDereferenceObjectEx(OldObject, Count);
+
+    /* Sanity check */
+    ASSERT(!(((ULONG_PTR)Object) & MAX_FAST_REFS));
+
+    /* Check if the caller gave us an object */
+    if (Object)
+    {
+        /* He did, so bias the pointer */
+        NewValue = (ULONG_PTR)Object | MAX_FAST_REFS;
+    }
+    else
+    {
+        /* No object, we're clearing */
+        NewValue = 0;
+    }
+
+    /* Switch objects */
+    OldRef.Value = InterlockedExchange((PLONG)&FastRef->Value, NewValue);
+    OldObject = (PVOID)((ULONG_PTR)OldRef.Object &~ MAX_FAST_REFS);
+    if ((OldObject) && (OldRef.RefCnt))
+    {
+        /* Dereference the old object */
+        ObDereferenceObjectEx(OldObject, OldRef.RefCnt);
+    }
 
     /* Return the old object */
     return OldObject;
@@ -219,7 +291,7 @@ ObfDereferenceObject(IN PVOID Object)
 
     if (Header->PointerCount < Header->HandleCount)
     {
-        DPRINT1("Misbehaving object: %wZ\n", &Header->Type->Name);
+        DPRINT("Misbehaving object: %wZ\n", &Header->Type->Name);
         return Header->PointerCount;
     }
 
@@ -228,10 +300,14 @@ ObfDereferenceObject(IN PVOID Object)
     if (!OldCount)
     {
         /* Sanity check */
-        ASSERT(Header->HandleCount == 0);
+        if (Header->HandleCount)
+        {
+            DPRINT("Misbehaving object: %wZ\n", &Header->Type->Name);
+            return Header->PointerCount;
+        }
 
-        /* Check if APCs are still active */
-        if (!KeAreAllApcsDisabled())
+        /* Check if we're at PASSIVE */
+        if (KeGetCurrentIrql() == PASSIVE_LEVEL)
         {
             /* Remove the object */
             ObpDeleteObject(Object, FALSE);
@@ -293,39 +369,32 @@ ObReferenceObjectByPointer(IN PVOID Object,
         return STATUS_OBJECT_TYPE_MISMATCH;
     }
 
-    /* Increment the reference count and return success */
+    /* Oncrement the reference count and return success */
     InterlockedIncrement(&Header->PointerCount);
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 NTAPI
-ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
-                        IN ULONG Attributes,
-                        IN PACCESS_STATE PassedAccessState,
-                        IN ACCESS_MASK DesiredAccess,
-                        IN POBJECT_TYPE ObjectType,
-                        IN KPROCESSOR_MODE AccessMode,
-                        IN OUT PVOID ParseContext,
-                        OUT PVOID* ObjectPtr)
+ObReferenceObjectByName(PUNICODE_STRING ObjectPath,
+                        ULONG Attributes,
+                        PACCESS_STATE PassedAccessState,
+                        ACCESS_MASK DesiredAccess,
+                        POBJECT_TYPE ObjectType,
+                        KPROCESSOR_MODE AccessMode,
+                        PVOID ParseContext,
+                        PVOID* ObjectPtr)
 {
     PVOID Object = NULL;
     UNICODE_STRING ObjectName;
     NTSTATUS Status;
     OBP_LOOKUP_CONTEXT Context;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     ACCESS_STATE AccessState;
-    PAGED_CODE();
-
-    /* Fail quickly */
-    if (!ObjectPath) return STATUS_OBJECT_NAME_INVALID;
 
     /* Capture the name */
     Status = ObpCaptureObjectName(&ObjectName, ObjectPath, AccessMode, TRUE);
     if (!NT_SUCCESS(Status)) return Status;
-
-    /* We also need a valid name after capture */
-    if (!ObjectName.Length) return STATUS_OBJECT_NAME_INVALID;
 
     /* Check if we didn't get an access state */
     if (!PassedAccessState)
@@ -341,34 +410,21 @@ ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
 
     /* Find the object */
     *ObjectPtr = NULL;
-    Status = ObpLookupObjectName(NULL,
-                                 &ObjectName,
-                                 Attributes,
-                                 ObjectType,
-                                 AccessMode,
-                                 ParseContext,
-                                 NULL,
-                                 NULL,
-                                 PassedAccessState,
-                                 &Context,
-                                 &Object);
-
-    /* Cleanup after lookup */
-    ObpReleaseLookupContext(&Context);
-
-    /* Check if the lookup succeeded */
+    Status = ObFindObject(NULL,
+                          &ObjectName,
+                          Attributes,
+                          AccessMode,
+                          &Object,
+                          ObjectType,
+                          &Context,
+                          PassedAccessState,
+                          NULL,
+                          ParseContext,
+                          NULL);
     if (NT_SUCCESS(Status))
     {
-        /* Check if access is allowed */
-        if (ObpCheckObjectReference(Object,
-                                    PassedAccessState,
-                                    FALSE,
-                                    AccessMode,
-                                    &Status))
-        {
-            /* Return the object */
-            *ObjectPtr = Object;
-        }
+        /* Return the object */
+        *ObjectPtr = Object;
     }
 
     /* Free the access state */
@@ -379,7 +435,7 @@ ObReferenceObjectByName(IN PUNICODE_STRING ObjectPath,
 
 Quickie:
     /* Free the captured name if we had one, and return status */
-    ObpFreeObjectNameBuffer(&ObjectName);
+    if (ObjectName.Buffer) ObpReleaseCapturedName(&ObjectName);
     return Status;
 }
 
@@ -402,120 +458,71 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
     NTSTATUS Status;
     PAGED_CODE();
 
-    /* Assume failure */
-    *Object = NULL;
+    /* Fail immediately if the handle is NULL */
+    if (!Handle) return STATUS_INVALID_HANDLE;
 
-    /* Check if this is a special handle */
-    if (HandleToLong(Handle) < 0)
+    /* Check if the caller wants the current process */
+    if ((Handle == NtCurrentProcess()) &&
+        ((ObjectType == PsProcessType) || !(ObjectType)))
     {
-        /* Check if this is the current process */
-        if (Handle == NtCurrentProcess())
+        /* Get the current process */
+        CurrentProcess = PsGetCurrentProcess();
+
+        /* Reference ourselves */
+        ObReferenceObject(CurrentProcess);
+
+        /* Check if the caller wanted handle information */
+        if (HandleInformation)
         {
-            /* Check if this is the right object type */
-            if ((ObjectType == PsProcessType) || !(ObjectType))
-            {
-                /* Get the current process and granted access */
-                CurrentProcess = PsGetCurrentProcess();
-                GrantedAccess = CurrentProcess->GrantedAccess;
-
-                /* Validate access */
-                /* ~GrantedAccess = RefusedAccess.*/
-                /* ~GrantedAccess & DesiredAccess = list of refused bits. */
-                /* !(~GrantedAccess & DesiredAccess) == TRUE means ALL requested rights are granted */
-                if ((AccessMode == KernelMode) ||
-                    !(~GrantedAccess & DesiredAccess))
-                {
-                    /* Check if the caller wanted handle information */
-                    if (HandleInformation)
-                    {
-                        /* Return it */
-                        HandleInformation->HandleAttributes = 0;
-                        HandleInformation->GrantedAccess = GrantedAccess;
-                    }
-
-                    /* Reference ourselves */
-                    ObjectHeader = OBJECT_TO_OBJECT_HEADER(CurrentProcess);
-                    InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
-
-                    /* Return the pointer */
-                    *Object = CurrentProcess;
-                    ASSERT(*Object != NULL);
-                    Status = STATUS_SUCCESS;
-                }
-                else
-                {
-                    /* Access denied */
-                    Status = STATUS_ACCESS_DENIED;
-                }
-            }
-            else
-            {
-                /* The caller used this special handle value with a non-process type */
-                Status = STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Return the status */
-            return Status;
+            /* Return it */
+            HandleInformation->HandleAttributes = 0;
+            HandleInformation->GrantedAccess = PROCESS_ALL_ACCESS;
         }
-        else if (Handle == NtCurrentThread())
+
+        /* Return the pointer */
+        *Object = CurrentProcess;
+        return STATUS_SUCCESS;
+    }
+    else if (Handle == NtCurrentProcess())
+    {
+        /* The caller used this special handle value with a non-process type */
+        return STATUS_OBJECT_TYPE_MISMATCH;
+    }
+
+    /* Check if the caller wants the current thread */
+    if ((Handle == NtCurrentThread()) &&
+        ((ObjectType == PsThreadType) || !(ObjectType)))
+    {
+        /* Get the current thread */
+        CurrentThread = PsGetCurrentThread();
+
+        /* Reference ourselves */
+        ObReferenceObject(CurrentThread);
+
+        /* Check if the caller wanted handle information */
+        if (HandleInformation)
         {
-            /* Check if this is the right object type */
-            if ((ObjectType == PsThreadType) || !(ObjectType))
-            {
-                /* Get the current process and granted access */
-                CurrentThread = PsGetCurrentThread();
-                GrantedAccess = CurrentThread->GrantedAccess;
-
-                /* Validate access */
-                /* ~GrantedAccess = RefusedAccess.*/
-                /* ~GrantedAccess & DesiredAccess = list of refused bits. */
-                /* !(~GrantedAccess & DesiredAccess) == TRUE means ALL requested rights are granted */
-                if ((AccessMode == KernelMode) ||
-                    !(~GrantedAccess & DesiredAccess))
-                {
-                    /* Check if the caller wanted handle information */
-                    if (HandleInformation)
-                    {
-                        /* Return it */
-                        HandleInformation->HandleAttributes = 0;
-                        HandleInformation->GrantedAccess = GrantedAccess;
-                    }
-
-                    /* Reference ourselves */
-                    ObjectHeader = OBJECT_TO_OBJECT_HEADER(CurrentThread);
-                    InterlockedExchangeAdd(&ObjectHeader->PointerCount, 1);
-
-                    /* Return the pointer */
-                    *Object = CurrentThread;
-                    ASSERT(*Object != NULL);
-                    Status = STATUS_SUCCESS;
-                }
-                else
-                {
-                    /* Access denied */
-                    Status = STATUS_ACCESS_DENIED;
-                }
-            }
-            else
-            {
-                /* The caller used this special handle value with a non-process type */
-                Status = STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Return the status */
-            return Status;
+            /* Return it */
+            HandleInformation->HandleAttributes = 0;
+            HandleInformation->GrantedAccess = THREAD_ALL_ACCESS;
         }
-        else if (AccessMode == KernelMode)
-        {
-            /* Use the kernel handle table and get the actual handle value */
-            Handle = ObKernelHandleToHandle(Handle);
-            HandleTable = ObpKernelHandleTable;
-        }
-        else
-        {
-            /* Invalid access, fail */
-            return STATUS_INVALID_HANDLE;
-        }
+
+        /* Return the pointer */
+        *Object = CurrentThread;
+        return STATUS_SUCCESS;
+    }
+    else if (Handle == NtCurrentThread())
+    {
+        /* The caller used this special handle value with a non-thread type */
+        return STATUS_OBJECT_TYPE_MISMATCH;
+    }
+
+    /* Check if this is a kernel handle */
+    if (ObIsKernelHandle(Handle, AccessMode))
+    {
+        /* Use the kernel handle table and get the actual handle value */
+        Handle = ObKernelHandleToHandle(Handle);
+        HandleTable = ObpKernelHandleTable;
     }
     else
     {
@@ -524,7 +531,6 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
     }
 
     /* Enter a critical region while we touch the handle table */
-    ASSERT(HandleTable != NULL);
     KeEnterCriticalRegion();
 
     /* Get the handle entry */
@@ -532,16 +538,11 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
     if (HandleEntry)
     {
         /* Get the object header and validate the type*/
-        ObjectHeader = ObpGetHandleObject(HandleEntry);
+        ObjectHeader = EX_HTE_TO_HDR(HandleEntry);
         if (!(ObjectType) || (ObjectType == ObjectHeader->Type))
         {
             /* Get the granted access and validate it */
             GrantedAccess = HandleEntry->GrantedAccess;
-
-            /* Validate access */
-            /* ~GrantedAccess = RefusedAccess.*/
-            /* ~GrantedAccess & DesiredAccess = list of refused bits. */
-            /* !(~GrantedAccess & DesiredAccess) == TRUE means ALL requested rights are granted */
             if ((AccessMode == KernelMode) ||
                 !(~GrantedAccess & DesiredAccess))
             {
@@ -549,7 +550,10 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
                 InterlockedIncrement(&ObjectHeader->PointerCount);
 
                 /* Mask out the internal attributes */
-                Attributes = HandleEntry->ObAttributes & OBJ_HANDLE_ATTRIBUTES;
+                Attributes = HandleEntry->ObAttributes &
+                             (EX_HANDLE_ENTRY_PROTECTFROMCLOSE |
+                              EX_HANDLE_ENTRY_INHERITABLE |
+                              EX_HANDLE_ENTRY_AUDITONCLOSE);
 
                 /* Check if the caller wants handle information */
                 if (HandleInformation)
@@ -564,16 +568,14 @@ ObReferenceObjectByHandle(IN HANDLE Handle,
 
                 /* Unlock the handle */
                 ExUnlockHandleTableEntry(HandleTable, HandleEntry);
-                KeLeaveCriticalRegion();
 
                 /* Return success */
-                ASSERT(*Object != NULL);
+                KeLeaveCriticalRegion();
                 return STATUS_SUCCESS;
             }
             else
             {
                 /* Requested access failed */
-                DPRINT("Rights not granted: %x\n", ~GrantedAccess & DesiredAccess);
                 Status = STATUS_ACCESS_DENIED;
             }
         }

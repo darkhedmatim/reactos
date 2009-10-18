@@ -22,7 +22,7 @@
 #ifndef __LINUX_H
 #define __LINUX_H
 
-#ifdef __i386__
+
 #define LINUX_LOADER_TYPE_LILO			0x01
 #define LINUX_LOADER_TYPE_LOADLIN		0x11
 #define LINUX_LOADER_TYPE_BOOTSECT		0x21
@@ -43,7 +43,6 @@
 
 #define LINUX_MAX_INITRD_ADDRESS		0x38000000
 
-#include <pshpack1.h>
 typedef struct
 {
 	UCHAR		BootCode1[0x20];
@@ -62,7 +61,7 @@ typedef struct
 	USHORT		RootDevice;
 	USHORT		BootFlag;			// 0xAA55
 
-} LINUX_BOOTSECTOR, *PLINUX_BOOTSECTOR;
+} PACKED LINUX_BOOTSECTOR, *PLINUX_BOOTSECTOR;
 
 typedef struct
 {
@@ -123,8 +122,7 @@ typedef struct
 	ULONG		InitrdAddressMax;		// Highest legal initrd address
 
 
-} LINUX_SETUPSECTOR, *PLINUX_SETUPSECTOR;
-#include <poppack.h>
+} PACKED LINUX_SETUPSECTOR, *PLINUX_SETUPSECTOR;
 
 VOID	BootNewLinuxKernel(VOID);				// Implemented in linux.S
 VOID	BootOldLinuxKernel(ULONG KernelSize);		// Implemented in linux.S
@@ -137,6 +135,5 @@ BOOLEAN	LinuxReadSetupSector(PFILE LinuxKernelFile);
 BOOLEAN	LinuxReadKernel(PFILE LinuxKernelFile);
 BOOLEAN	LinuxCheckKernelVersion(VOID);
 BOOLEAN	LinuxReadInitrd(PFILE LinuxInitrdFile);
-#endif /* __i386__ */
 
 #endif // defined __LINUX_H

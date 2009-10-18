@@ -34,13 +34,19 @@
 #undef MachVideoSetPaletteColor
 #undef MachVideoGetPaletteColor
 #undef MachVideoSync
-#undef MachBeep
-#undef MachPrepareForReactOS
+#undef MachVideoPrepareForReactOS
+#undef MachGetMemoryMap
+#undef MachDiskGetBootVolume
+#undef MachDiskGetSystemVolume
 #undef MachDiskGetBootPath
+#undef MachDiskGetBootDevice
+#undef MachDiskBootingFromFloppy
 #undef MachDiskNormalizeSystemPath
 #undef MachDiskReadLogicalSectors
+#undef MachDiskGetPartitionEntry
 #undef MachDiskGetDriveGeometry
 #undef MachDiskGetCacheableBlockCount
+#undef MachRTCGetCurrentDateTime
 #undef MachHwDetect
 
 MACHVTBL MachVtbl;
@@ -78,7 +84,7 @@ MachVideoSetDisplayMode(char *DisplayMode, BOOLEAN Init)
 VOID
 MachVideoGetDisplaySize(PULONG Width, PULONG Height, PULONG Depth)
 {
-  MachVtbl.VideoGetDisplaySize(Width, Height, Depth);
+  return MachVtbl.VideoGetDisplaySize(Width, Height, Depth);
 }
 
 ULONG
@@ -90,7 +96,7 @@ MachVideoGetBufferSize(VOID)
 VOID
 MachVideoSetTextCursorPosition(ULONG X, ULONG Y)
 {
-  MachVtbl.VideoSetTextCursorPosition(X, Y);
+  return MachVtbl.VideoSetTextCursorPosition(X, Y);
 }
 
 VOID
@@ -120,13 +126,13 @@ MachVideoIsPaletteFixed(VOID)
 VOID
 MachVideoSetPaletteColor(UCHAR Color, UCHAR Red, UCHAR Green, UCHAR Blue)
 {
-  MachVtbl.VideoSetPaletteColor(Color, Red, Green, Blue);
+  return MachVtbl.VideoSetPaletteColor(Color, Red, Green, Blue);
 }
 
 VOID
 MachVideoGetPaletteColor(UCHAR Color, UCHAR *Red, UCHAR *Green, UCHAR *Blue)
 {
-  MachVtbl.VideoGetPaletteColor(Color, Red, Green, Blue);
+  return MachVtbl.VideoGetPaletteColor(Color, Red, Green, Blue);
 }
 
 VOID
@@ -136,21 +142,53 @@ MachVideoSync(VOID)
 }
 
 VOID
-MachBeep(VOID)
+MachVideoPrepareForReactOS(VOID)
 {
-  MachVtbl.Beep();
+  MachVtbl.VideoPrepareForReactOS();
 }
 
-VOID
-MachPrepareForReactOS(IN BOOLEAN Setup)
+ULONG
+MachGetMemoryMap(PBIOS_MEMORY_MAP BiosMemoryMap, ULONG MaxMemoryMapSize)
 {
-  MachVtbl.PrepareForReactOS(Setup);
+  return MachVtbl.GetMemoryMap(BiosMemoryMap, MaxMemoryMapSize);
+}
+
+BOOLEAN
+MachDiskGetBootVolume(PULONG DriveNumber, PULONGLONG StartSector, PULONGLONG SectorCount, int *FsType)
+{
+  return MachVtbl.DiskGetBootVolume(DriveNumber, StartSector, SectorCount, FsType);
+}
+
+BOOLEAN
+MachDiskGetSystemVolume(char *SystemPath,
+                        char *RemainingPath,
+                        PULONG Device,
+                        PULONG DriveNumber,
+                        PULONGLONG StartSector,
+                        PULONGLONG SectorCount,
+                        int *FsType)
+{
+  return MachVtbl.DiskGetSystemVolume(SystemPath, RemainingPath, Device,
+                                      DriveNumber, StartSector, SectorCount,
+                                      FsType);
 }
 
 BOOLEAN
 MachDiskGetBootPath(char *BootPath, unsigned Size)
 {
   return MachVtbl.DiskGetBootPath(BootPath, Size);
+}
+
+VOID
+MachDiskGetBootDevice(PULONG BootDevice)
+{
+  MachVtbl.DiskGetBootDevice(BootDevice);
+}
+
+BOOLEAN
+MachDiskBootingFromFloppy()
+{
+  return MachVtbl.DiskBootingFromFloppy();
 }
 
 BOOLEAN
@@ -166,6 +204,12 @@ MachDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULONG Sect
 }
 
 BOOLEAN
+MachDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPARTITION_TABLE_ENTRY PartitionTableEntry)
+{
+  return MachVtbl.DiskGetPartitionEntry(DriveNumber, PartitionNumber, PartitionTableEntry);
+}
+
+BOOLEAN
 MachDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY DriveGeometry)
 {
   return MachVtbl.DiskGetDriveGeometry(DriveNumber, DriveGeometry);
@@ -175,6 +219,12 @@ ULONG
 MachDiskGetCacheableBlockCount(ULONG DriveNumber)
 {
   return MachVtbl.DiskGetCacheableBlockCount(DriveNumber);
+}
+
+VOID
+MachRTCGetCurrentDateTime(PULONG Year, PULONG Month, PULONG Day, PULONG Hour, PULONG Minute, PULONG Second)
+{
+  MachVtbl.RTCGetCurrentDateTime(Year, Month, Day, Hour, Minute, Second);
 }
 
 VOID

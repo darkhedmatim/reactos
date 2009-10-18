@@ -11,7 +11,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -76,26 +76,20 @@ VirtualFreeEx(IN HANDLE hProcess,
 {
     NTSTATUS Status;
 
-    if (dwSize == 0 || !(dwFreeType & MEM_RELEASE))
+    /* Free the memory */
+    Status = NtFreeVirtualMemory(hProcess,
+                                 (PVOID *)&lpAddress,
+                                 (PULONG)&dwSize,
+                                 dwFreeType);
+    if (!NT_SUCCESS(Status))
     {
-        /* Free the memory */
-        Status = NtFreeVirtualMemory(hProcess,
-                                     (PVOID *)&lpAddress,
-                                     (PULONG)&dwSize,
-                                     dwFreeType);
-        if (!NT_SUCCESS(Status))
-        {
-            /* We failed */
-            SetLastErrorByStatus(Status);
-            return FALSE;
-        }
-
-        /* Return success */
-        return TRUE;
+        /* We failed */
+        SetLastErrorByStatus(Status);
+        return FALSE;
     }
 
-    SetLastErrorByStatus(STATUS_INVALID_PARAMETER);
-    return FALSE;
+    /* Return success */
+    return TRUE;
 }
 
 /*
@@ -170,15 +164,14 @@ NTAPI
 VirtualLock(IN LPVOID lpAddress,
             IN SIZE_T dwSize)
 {
+    ULONG BytesLocked;
     NTSTATUS Status;
-    ULONG RegionSize = dwSize;
-    PVOID BaseAddress = lpAddress;
 
     /* Lock the memory */
     Status = NtLockVirtualMemory(NtCurrentProcess(),
-                                 &BaseAddress,
-                                 &RegionSize,
-                                 MAP_PROCESS);
+                                 lpAddress,
+                                 dwSize,
+                                 &BytesLocked);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -224,7 +217,7 @@ VirtualQueryEx(IN HANDLE hProcess,
                                   (LPVOID)lpAddress,
                                   MemoryBasicInformation,
                                   lpBuffer,
-                                  dwLength,
+                                  sizeof(MEMORY_BASIC_INFORMATION),
                                   &ResultLength);
     if (!NT_SUCCESS(Status))
     {
@@ -245,15 +238,14 @@ NTAPI
 VirtualUnlock(IN LPVOID lpAddress,
               IN SIZE_T dwSize)
 {
+    ULONG BytesLocked;
     NTSTATUS Status;
-    ULONG RegionSize = dwSize;
-    PVOID BaseAddress = lpAddress;
-    
-    /* Lock the memory */
+
+    /* Unlock the memory */
     Status = NtUnlockVirtualMemory(NtCurrentProcess(),
-                                   &BaseAddress,
-                                   &RegionSize,
-                                   MAP_PROCESS);
+                                   lpAddress,
+                                   dwSize,
+                                   &BytesLocked);
     if (!NT_SUCCESS(Status))
     {
         /* We failed */
@@ -262,168 +254,6 @@ VirtualUnlock(IN LPVOID lpAddress,
     }
 
     /* Return success */
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-UINT
-WINAPI
-GetWriteWatch(
-    DWORD  dwFlags,
-    PVOID  lpBaseAddress,
-    SIZE_T dwRegionSize,
-    PVOID *lpAddresses,
-    PULONG_PTR lpdwCount,
-    PULONG lpdwGranularity
-    )
-{
-    NTSTATUS Status;
-
-    Status = NtGetWriteWatch(GetCurrentProcess(),
-                             dwFlags,
-                             lpBaseAddress,
-                             dwRegionSize,
-                             lpAddresses,
-                             lpdwCount,
-                             lpdwGranularity);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return -1;
-    }
-
-    return 0;
-}
-
-/*
- * @implemented
- */
-UINT
-WINAPI
-ResetWriteWatch(
-    LPVOID lpBaseAddress,
-    SIZE_T dwRegionSize
-    )
-{
-    NTSTATUS Status;
-
-    Status = NtResetWriteWatch(NtCurrentProcess(),
-                               lpBaseAddress,
-                               dwRegionSize);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return -1;
-    }
-
-    return 0;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-AllocateUserPhysicalPages(
-    HANDLE hProcess,
-    PULONG_PTR NumberOfPages,
-    PULONG_PTR UserPfnArray
-    )
-{
-    NTSTATUS Status;
-
-    Status = NtAllocateUserPhysicalPages(hProcess,
-                                         NumberOfPages,
-                                         UserPfnArray);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-FreeUserPhysicalPages(
-    HANDLE hProcess,
-    PULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray
-    )
-{
-    NTSTATUS Status;
-
-    Status = NtFreeUserPhysicalPages(hProcess,
-                                     NumberOfPages,
-                                     PageArray);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-MapUserPhysicalPages(
-    PVOID VirtualAddress,
-    ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray  OPTIONAL
-    )
-{
-    NTSTATUS Status;
-
-    Status = NtMapUserPhysicalPages(VirtualAddress,
-                                    NumberOfPages,
-                                    PageArray);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-MapUserPhysicalPagesScatter(
-    PVOID *VirtualAddresses,
-    ULONG_PTR NumberOfPages,
-    PULONG_PTR PageArray  OPTIONAL
-    )
-{
-    NTSTATUS Status;
-
-    Status = NtMapUserPhysicalPagesScatter(VirtualAddresses,
-                                           NumberOfPages,
-                                           PageArray);
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
-
     return TRUE;
 }
 

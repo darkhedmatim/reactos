@@ -27,16 +27,6 @@
  * the specification mentioned above.
  * If you discover missing features, or bugs, please note them below.
  *
- * TODO:
- *
- * Messages:
- *    -- PBM_GETSTEP
- *    -- PBM_SETSTATE
- *    -- PBM_GETSTATE
- *
- * Styles:
- *    -- PBS_SMOOTHREVERSE
- *
  */
 
 #include <stdarg.h>
@@ -75,7 +65,7 @@ typedef struct
 #define ID_MARQUEE_TIMER  1
 
 /* Helper to obtain size of a progress bar chunk ("led"). */
-static inline int get_led_size ( const PROGRESS_INFO *infoPtr, LONG style,
+static inline int get_led_size ( PROGRESS_INFO *infoPtr, LONG style,
                                  const RECT* rect )
 {
     HTHEME theme = GetWindowTheme (infoPtr->Self);
@@ -93,7 +83,7 @@ static inline int get_led_size ( const PROGRESS_INFO *infoPtr, LONG style,
 }
 
 /* Helper to obtain gap between progress bar chunks */
-static inline int get_led_gap ( const PROGRESS_INFO *infoPtr )
+static inline int get_led_gap ( PROGRESS_INFO *infoPtr )
 {
     HTHEME theme = GetWindowTheme (infoPtr->Self);
     if (theme)
@@ -131,7 +121,7 @@ static inline int get_bar_size( LONG style, const RECT* rect )
 }
 
 /* Compute the pixel position of a progress value */
-static inline int get_bar_position( const PROGRESS_INFO *infoPtr, LONG style,
+static inline int get_bar_position( PROGRESS_INFO *infoPtr, LONG style,
                                     const RECT* rect, INT value )
 {
     return MulDiv (value - infoPtr->MinVal, get_bar_size (style, rect),
@@ -144,7 +134,7 @@ static inline int get_bar_position( const PROGRESS_INFO *infoPtr, LONG style,
  * Don't be too clever about invalidating the progress bar.
  * InstallShield depends on this simple behaviour.
  */
-static void PROGRESS_Invalidate( const PROGRESS_INFO *infoPtr, INT old, INT new )
+static void PROGRESS_Invalidate( PROGRESS_INFO *infoPtr, INT old, INT new )
 {
     InvalidateRect( infoPtr->Self, NULL, old > new );
 }
@@ -263,22 +253,38 @@ static const ProgressDrawProc drawProcClassic[8] = {
 static void draw_theme_bar_H (const ProgressDrawInfo* di, int start, int end)
 {
     RECT r;
+    int right = di->rect.left + end;
     r.left = di->rect.left + start;
     r.top = di->rect.top;
     r.bottom = di->rect.bottom;
-    r.right = di->rect.left + end;
-    DrawThemeBackground (di->theme, di->hdc, PP_CHUNK, 0, &r, NULL);
+    while (r.left < right)
+    {
+        r.right = min (r.left + di->ledW, right);
+        DrawThemeBackground (di->theme, di->hdc, PP_CHUNK, 0, &r, NULL);
+        r.left = r.right;
+        r.right = min (r.left + di->ledGap, right);
+        DrawThemeBackground (di->theme, di->hdc, PP_BAR, 0, &di->bgRect, &r);
+        r.left = r.right;
+    }
 }
 
-/* draw themed vertical bar from 'start' to 'end' */
+/* draw themed horizontal bar from 'start' to 'end' */
 static void draw_theme_bar_V (const ProgressDrawInfo* di, int start, int end)
 {
     RECT r;
+    int top = di->rect.bottom - end;
     r.left = di->rect.left;
     r.right = di->rect.right;
     r.bottom = di->rect.bottom - start;
-    r.top = di->rect.bottom - end;
-    DrawThemeBackground (di->theme, di->hdc, PP_CHUNKVERT, 0, &r, NULL);
+    while (r.bottom > top)
+    {
+        r.top = max (r.bottom - di->ledW, top);
+        DrawThemeBackground (di->theme, di->hdc, PP_CHUNKVERT, 0, &r, NULL);
+        r.bottom = r.top;
+        r.top = max (r.bottom - di->ledGap, top);
+        DrawThemeBackground (di->theme, di->hdc, PP_BARVERT, 0, &di->bgRect, &r);
+        r.bottom = r.top;
+    }
 }
 
 /* draw themed horizontal background from 'start' to 'end' */
@@ -539,7 +545,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
     static const WCHAR themeClass[] = {'P','r','o','g','r','e','s','s',0};
     HTHEME theme;
 
-    TRACE("hwnd=%p msg=%04x wparam=%lx lParam=%lx\n", hwnd, message, wParam, lParam);
+    TRACE("hwnd=%p msg=%04x wparam=%x lParam=%lx\n", hwnd, message, wParam, lParam);
 
     infoPtr = (PROGRESS_INFO *)GetWindowLongPtrW(hwnd, 0);
 
@@ -561,7 +567,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
 	    SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
         /* allocate memory for info struct */
-        infoPtr = Alloc (sizeof(PROGRESS_INFO));
+        infoPtr = (PROGRESS_INFO *)Alloc (sizeof(PROGRESS_INFO));
         if (!infoPtr) return -1;
         SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
 
@@ -697,16 +703,10 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
 	InvalidateRect(hwnd, NULL, TRUE);
 	return 0;
 
-    case PBM_GETBARCOLOR:
-	return infoPtr->ColorBar;
-
     case PBM_SETBKCOLOR:
         infoPtr->ColorBk = (COLORREF)lParam;
 	InvalidateRect(hwnd, NULL, TRUE);
 	return 0;
-
-    case PBM_GETBKCOLOR:
-	return infoPtr->ColorBk;
 
     case PBM_SETMARQUEE:
 	if(wParam != 0)
@@ -722,8 +722,8 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
 	return infoPtr->Marquee;
 
     default:
-        if ((message >= WM_USER) && (message < WM_APP) && !COMCTL32_IsReflectedMessage(message))
-	    ERR("unknown msg %04x wp=%04lx lp=%08lx\n", message, wParam, lParam );
+        if ((message >= WM_USER) && (message < WM_APP))
+	    ERR("unknown msg %04x wp=%04x lp=%08lx\n", message, wParam, lParam );
         return DefWindowProcW( hwnd, message, wParam, lParam );
     }
 }

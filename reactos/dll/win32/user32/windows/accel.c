@@ -165,7 +165,6 @@ BOOL WINAPI U32IsValidAccelMessage(UINT uMsg)
   case WM_KEYDOWN:
   case WM_KEYUP:
   case WM_CHAR:
-  case WM_SYSCHAR:
   case WM_SYSKEYDOWN:
   case WM_SYSKEYUP:
    return TRUE;
@@ -234,7 +233,7 @@ HACCEL WINAPI LoadAcceleratorsW(HINSTANCE hInstance, LPCWSTR lpTableName)
  return U32LoadAccelerators
  (
   hInstance,
-  FindResourceExW(hInstance, (LPCWSTR) RT_ACCELERATOR, lpTableName, 0)
+  FindResourceExW(hInstance, MAKEINTRESOURCEW(RT_ACCELERATOR), lpTableName, 0)
  );
 }
 
@@ -246,7 +245,7 @@ HACCEL WINAPI LoadAcceleratorsA(HINSTANCE hInstance, LPCSTR lpTableName)
 {
   HRSRC Accel;
 
-  Accel = FindResourceExA(hInstance, (LPCSTR) RT_ACCELERATOR, lpTableName, 0);
+  Accel = FindResourceExA(hInstance, MAKEINTRESOURCEA(RT_ACCELERATOR), lpTableName, 0);
   if (NULL == Accel)
     {
       return NULL;
@@ -265,6 +264,29 @@ int WINAPI TranslateAcceleratorW(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg)
  if(!U32IsValidAccelMessage(lpMsg->message)) return 0;
 
  return NtUserTranslateAccelerator(hWnd, hAccTable, lpMsg);
+}
+
+/*
+ * @implemented
+ */
+int WINAPI CopyAcceleratorTableW
+(
+ HACCEL hAccelSrc,
+ LPACCEL lpAccelDst,
+ int cAccelEntries
+)
+{
+ return NtUserCopyAcceleratorTable(hAccelSrc, lpAccelDst, cAccelEntries);
+}
+
+/*
+ * @implemented
+ */
+HACCEL WINAPI CreateAcceleratorTableW(LPACCEL lpaccl, int cEntries)
+{
+ if (!cEntries || !lpaccl) return (HACCEL)0;
+
+ return NtUserCreateAcceleratorTable(lpaccl, cEntries);
 }
 
 

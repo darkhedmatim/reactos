@@ -656,7 +656,7 @@ UINT WINAPI UFromSz(LPCSTR lpszStr)
         while (*lpszStr >= '0' && *lpszStr <= '9')
         {
             ulRet = ulRet * 10 + (*lpszStr - '0');
-            lpszStr++;
+            lpszStr = CharNextA(lpszStr);
         }
     }
     return ulRet;
@@ -889,16 +889,4 @@ BOOL WINAPI FGetComponentPath(LPCSTR component, LPCSTR qualifier, LPSTR dll_path
         FreeLibrary(hmsi);
     }
     return ret;
-}
-
-/**************************************************************************
- *  HrQueryAllRows   (MAPI32.75)
- */
-HRESULT WINAPI HrQueryAllRows(LPMAPITABLE lpTable, LPSPropTagArray lpPropTags,
-    LPSRestriction lpRestriction, LPSSortOrderSet lpSortOrderSet,
-    LONG crowsMax, LPSRowSet *lppRows)
-{
-    FIXME("(%p, %p, %p, %p, %d, %p): stub\n", lpTable, lpPropTags, lpRestriction, lpSortOrderSet, crowsMax, lppRows);
-    *lppRows = NULL;
-    return MAPI_E_CALL_FAILED;
 }

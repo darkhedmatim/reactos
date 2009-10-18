@@ -27,6 +27,7 @@ public:
 private:
     void Usage();
     bool CreateCabinet();
+    bool CreateSimpleCabinet();
     bool DisplayCabinet();
     bool ExtractFromCabinet();
     /* Event handlers */
@@ -36,8 +37,9 @@ private:
     virtual void OnAdd(PCFFILE Entry, char* FileName);
     /* Configuration */
     bool ProcessAll;
-    ULONG Mode;
+    unsigned long Mode;
     bool PromptOnOverwrite;
+    char Location[MAX_PATH];
     char FileName[MAX_PATH];
 };
 

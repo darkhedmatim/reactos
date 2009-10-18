@@ -7,9 +7,8 @@
 
 #include "msgina.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
-
-WINE_DEFAULT_DEBUG_CHANNEL(msgina);
 
 typedef struct _DISPLAYSTATUSMSG
 {
@@ -36,8 +35,6 @@ StatusMessageWindowProc(
 	IN WPARAM wParam,
 	IN LPARAM lParam)
 {
-	UNREFERENCED_PARAMETER(wParam);
-
 	switch (uMsg)
 	{
 		case WM_INITDIALOG:
@@ -51,7 +48,11 @@ StatusMessageWindowProc(
 			if (msg->pTitle)
 				SetWindowTextW(hwndDlg, msg->pTitle);
 			SetDlgItemTextW(hwndDlg, IDC_STATUSLABEL, msg->pMessage);
-			SetEvent(msg->StartupEvent);
+			if (!msg->Context->SignaledStatusWindowCreated)
+			{
+				msg->Context->SignaledStatusWindowCreated = TRUE;
+				SetEvent(msg->StartupEvent);
+			}
 			return TRUE;
 		}
 	}
@@ -72,12 +73,15 @@ StartupWindowThread(LPVOID lpParam)
 		return FALSE;
 	}
 	DialogBoxParam(
-		hDllInstance,
+		hDllInstance, 
 		MAKEINTRESOURCE(IDD_STATUSWINDOW_DLG),
-		GetDesktopWindow(),
+		0,
 		StatusMessageWindowProc,
 		(LPARAM)lpParam);
 	SetThreadDesktop(OldDesk);
+
+	msg->Context->hStatusWindow = 0;
+	msg->Context->SignaledStatusWindowCreated = FALSE;
 
 	HeapFree(GetProcessHeap(), 0, lpParam);
 	return TRUE;
@@ -109,7 +113,7 @@ GUIDisplayStatusMessage(
 		msg->pMessage = pMessage;
 		msg->hDesktop = hDesktop;
 
-		msg->StartupEvent = CreateEventW(
+		msg->StartupEvent = CreateEvent(
 			NULL,
 			TRUE,
 			FALSE,
@@ -136,7 +140,7 @@ GUIDisplayStatusMessage(
 		return FALSE;
 	}
 
-	if (pTitle)
+	if(pTitle)
 		SetWindowTextW(pgContext->hStatusWindow, pTitle);
 
 	SetDlgItemTextW(pgContext->hStatusWindow, IDC_STATUSLABEL, pMessage);
@@ -151,25 +155,10 @@ GUIRemoveStatusMessage(
 	if (pgContext->hStatusWindow)
 	{
 		EndDialog(pgContext->hStatusWindow, 0);
-		pgContext->hStatusWindow = NULL;
+		pgContext->hStatusWindow = 0;
 	}
 
 	return TRUE;
-}
-
-static INT_PTR CALLBACK
-EmptyWindowProc(
-	IN HWND hwndDlg,
-	IN UINT uMsg,
-	IN WPARAM wParam,
-	IN LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(hwndDlg);
-	UNREFERENCED_PARAMETER(uMsg);
-	UNREFERENCED_PARAMETER(wParam);
-	UNREFERENCED_PARAMETER(lParam);
-
-	return FALSE;
 }
 
 static VOID
@@ -184,8 +173,8 @@ GUIDisplaySASNotice(
 	result = DialogBoxParam(
 		pgContext->hDllInstance,
 		MAKEINTRESOURCE(IDD_NOTICE_DLG),
-		GetDesktopWindow(),
-		EmptyWindowProc,
+		NULL,
+		NULL,
 		(LPARAM)NULL);
 	if (result == -1)
 	{
@@ -226,8 +215,6 @@ LoggedOnWindowProc(
 	IN WPARAM wParam,
 	IN LPARAM lParam)
 {
-	UNREFERENCED_PARAMETER(lParam);
-
 	switch (uMsg)
 	{
 		case WM_COMMAND:
@@ -259,7 +246,7 @@ LoggedOnWindowProc(
 		}
 		case WM_CLOSE:
 		{
-			EndDialog(hwndDlg, WLX_SAS_ACTION_NONE);
+			EndDialog(hwndDlg, IDNO);
 			return TRUE;
 		}
 	}
@@ -287,7 +274,7 @@ GUILoggedOnSAS(
 		pgContext->hWlx,
 		pgContext->hDllInstance,
 		MAKEINTRESOURCEW(IDD_LOGGEDON_DLG),
-		GetDesktopWindow(),
+		NULL,
 		LoggedOnWindowProc,
 		(LPARAM)pgContext);
 	if (result >= WLX_SAS_ACTION_LOGON &&
@@ -328,7 +315,7 @@ LoggedOutWindowProc(
 			if (pgContext->hBitmap)
 			{
 				hdc = BeginPaint(hwndDlg, &ps);
-				DrawStateW(hdc, NULL, NULL, (LPARAM)pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
+				DrawState(hdc, NULL, NULL, (LPARAM)pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
 				EndPaint(hwndDlg, &ps);
 			}
 			return TRUE;
@@ -389,7 +376,7 @@ GUILoggedOutSAS(
 		pgContext->hWlx,
 		pgContext->hDllInstance,
 		MAKEINTRESOURCEW(IDD_LOGGEDOUT_DLG),
-		GetDesktopWindow(),
+		NULL,
 		LoggedOutWindowProc,
 		(LPARAM)pgContext);
 	if (result >= WLX_SAS_ACTION_LOGON &&
@@ -408,8 +395,6 @@ GUILockedSAS(
 	IN OUT PGINA_CONTEXT pgContext)
 {
 	TRACE("GUILockedSAS()\n");
-
-	UNREFERENCED_PARAMETER(pgContext);
 
 	UNIMPLEMENTED;
 	return WLX_SAS_ACTION_UNLOCK_WKSTA;

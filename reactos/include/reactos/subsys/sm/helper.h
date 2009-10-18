@@ -8,30 +8,30 @@
 /* $Id$ */
 
 /* smlib/connect.c */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmConnectApiPort (IN      PUNICODE_STRING  pSbApiPortName  OPTIONAL,
 		  IN      HANDLE           hSbApiPort      OPTIONAL,
 		  IN      WORD             wSubsystem      OPTIONAL, /* pe.h */
 		  IN OUT  PHANDLE          phSmApiPort);
 /* smlib/compses.c */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmCompleteSession (IN     HANDLE  hSmApiPort,
 		   IN     HANDLE  hSbApiPort,
 		   IN     HANDLE  hApiPort);
 /* smlib/execpgm.c */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmExecuteProgram (IN     HANDLE           hSmApiPort,
 		  IN     PUNICODE_STRING  Pgm
 		  );
 /* smdll/query.c */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmQueryInformation (IN      HANDLE                SmApiPort,
 		    IN      SM_INFORMATION_CLASS  SmInformationClass,
 		    IN OUT  PVOID                 Data,
 		    IN      ULONG                 DataLength,
 		    IN OUT  PULONG                ReturnedDataLength OPTIONAL);
 /* smlib/lookupss.c */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmLookupSubsystem (IN     PWSTR   Name,
 		   IN OUT PWSTR   Data,
 		   IN OUT PULONG  DataLength,

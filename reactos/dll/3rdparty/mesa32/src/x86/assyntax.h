@@ -985,8 +985,7 @@ SECTION _DATA public align=16 class=DATA use32 flat
 
 #if defined(Lynx) || (defined(SYSV) || defined(SVR4)) \
  || (defined(__linux__) || defined(__OS2ELF__)) && defined(__ELF__) \
- || (defined(__FreeBSD__) && __FreeBSD__ >= 3) \
- || (defined(__NetBSD__) && defined(__ELF__))
+ || defined(__FreeBSD__) && __FreeBSD__ >= 3
 #define GLNAME(a)	a
 #else
 #define GLNAME(a)	CONCAT(_, a)
@@ -1737,7 +1736,7 @@ SECTION _DATA public align=16 class=DATA use32 flat
  */
 #if defined(GNU_ASSEMBLER) && !defined(__DJGPP__) && !defined(__MINGW32__)
 #  define HIDDEN(x) .hidden x
-#elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 303 && !defined(__DJGPP__) && !defined(__MINGW32__)
+#elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 303 && !defined(__MINGW32__)
 #  pragma GCC visibility push(default)
 #  define HIDDEN(x) .hidden x
 #else

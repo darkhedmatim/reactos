@@ -44,27 +44,21 @@ XboxMachInit(const char *CmdLine)
   MachVtbl.VideoSetPaletteColor = XboxVideoSetPaletteColor;
   MachVtbl.VideoGetPaletteColor = XboxVideoGetPaletteColor;
   MachVtbl.VideoSync = XboxVideoSync;
-  MachVtbl.Beep = PcBeep;
-  MachVtbl.PrepareForReactOS = XboxPrepareForReactOS;
+  MachVtbl.VideoPrepareForReactOS = XboxVideoPrepareForReactOS;
   MachVtbl.GetMemoryMap = XboxMemGetMemoryMap;
-  MachVtbl.DiskGetBootPath = DiskGetBootPath;
-  MachVtbl.DiskNormalizeSystemPath = DiskNormalizeSystemPath;
+  MachVtbl.DiskGetBootVolume = i386DiskGetBootVolume;
+  MachVtbl.DiskGetSystemVolume = i386DiskGetSystemVolume;
+  MachVtbl.DiskGetBootPath = i386DiskGetBootPath;
+  MachVtbl.DiskGetBootDevice = i386DiskGetBootDevice;
+  MachVtbl.DiskBootingFromFloppy = i386DiskBootingFromFloppy;
+  MachVtbl.DiskNormalizeSystemPath = i386DiskNormalizeSystemPath;
   MachVtbl.DiskReadLogicalSectors = XboxDiskReadLogicalSectors;
+  MachVtbl.DiskGetPartitionEntry = XboxDiskGetPartitionEntry;
   MachVtbl.DiskGetDriveGeometry = XboxDiskGetDriveGeometry;
   MachVtbl.DiskGetCacheableBlockCount = XboxDiskGetCacheableBlockCount;
-  MachVtbl.GetTime = XboxGetTime;
+  MachVtbl.RTCGetCurrentDateTime = XboxRTCGetCurrentDateTime;
   MachVtbl.HwDetect = XboxHwDetect;
 
   /* Set LEDs to orange after init */
   XboxSetLED("oooo");
-}
-
-VOID
-XboxPrepareForReactOS(IN BOOLEAN Setup)
-{
-    //
-    // On XBOX, prepare video and turn off the floppy motor
-    //
-    XboxVideoPrepareForReactOS(Setup);
-    DiskStopFloppyMotor();
 }

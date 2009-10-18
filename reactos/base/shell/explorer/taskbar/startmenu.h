@@ -348,7 +348,6 @@ protected:
 
 	static void	ShowLaunchDialog(HWND hwndOwner);
 	static void	ShowLogoffDialog(HWND hwndOwner);
-    static void	ShowRestartDialog(HWND hwndOwner, UINT flags);
 	static void	ShowSearchDialog();
 	static void	ShowSearchComputer();
 };
@@ -369,8 +368,6 @@ struct StartMenuRoot : public StartMenuHandler
 
 	static HWND Create(HWND hwndDesktopBar, int icon_size);
 	void	TrackStartmenu();
-
-	HWND	_hwndStartButton;
 
 protected:
 	LRESULT	Init(LPCREATESTRUCT pcs);

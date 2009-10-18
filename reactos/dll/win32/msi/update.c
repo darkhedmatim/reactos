@@ -13,7 +13,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
+ * You should have receuved a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
@@ -60,56 +60,26 @@ static UINT UPDATE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
     MSIUPDATEVIEW *uv = (MSIUPDATEVIEW*)view;
     UINT i, r, col_count = 0, row_count = 0;
     MSIRECORD *values = NULL;
-    MSIRECORD *where = NULL;
     MSIVIEW *wv;
-    UINT cols_count, where_count;
-    column_info *col = uv->vals;
 
     TRACE("%p %p\n", uv, record );
 
-    /* extract the where markers from the record */
-    if (record)
-    {
-        r = MSI_RecordGetFieldCount(record);
-
-        for (i = 0; col; col = col->next)
-            i++;
-
-        cols_count = i;
-        where_count = r - i;
-
-        if (where_count > 0)
-        {
-            where = MSI_CreateRecord(where_count);
-
-            if (where)
-                for (i = 1; i <= where_count; i++)
-                    MSI_RecordCopyField(record, cols_count + i, where, i);
-        }
-    }
-
     wv = uv->wv;
     if( !wv )
-    {
-        r = ERROR_FUNCTION_FAILED;
-        goto done;
-    }
+        return ERROR_FUNCTION_FAILED;
 
-    r = wv->ops->execute( wv, where );
+    r = wv->ops->execute( wv, 0 );
     TRACE("tv execute returned %x\n", r);
     if( r )
-        goto done;
+        return r;
 
     r = wv->ops->get_dimensions( wv, &row_count, &col_count );
     if( r )
-        goto done;
+        return r;
 
     values = msi_query_merge_record( col_count, uv->vals, record );
     if (!values)
-    {
-        r = ERROR_FUNCTION_FAILED;
-        goto done;
-    }
+        return ERROR_FUNCTION_FAILED;
 
     for ( i=0; i<row_count; i++ )
     {
@@ -118,9 +88,7 @@ static UINT UPDATE_execute( struct tagMSIVIEW *view, MSIRECORD *record )
             break;
     }
 
-done:
-    if ( where ) msiobj_release( &where->hdr );
-    if ( values ) msiobj_release( &values->hdr );
+    msiobj_release( &values->hdr );
 
     return r;
 }
@@ -155,22 +123,22 @@ static UINT UPDATE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *co
 }
 
 static UINT UPDATE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSIUPDATEVIEW *uv = (MSIUPDATEVIEW*)view;
     MSIVIEW *wv;
 
-    TRACE("%p %d %p %p %p\n", uv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", uv, n, name, type );
 
     wv = uv->wv;
     if( !wv )
         return ERROR_FUNCTION_FAILED;
 
-    return wv->ops->get_column_info( wv, n, name, type, temporary );
+    return wv->ops->get_column_info( wv, n, name, type );
 }
 
 static UINT UPDATE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                           MSIRECORD *rec, UINT row )
+                MSIRECORD *rec )
 {
     MSIUPDATEVIEW *uv = (MSIUPDATEVIEW*)view;
 
@@ -203,11 +171,9 @@ static UINT UPDATE_find_matching_rows( struct tagMSIVIEW *view, UINT col, UINT v
 }
 
 
-static const MSIVIEWOPS update_ops =
+static MSIVIEWOPS update_ops =
 {
     UPDATE_fetch_int,
-    NULL,
-    NULL,
     NULL,
     NULL,
     NULL,
@@ -217,15 +183,10 @@ static const MSIVIEWOPS update_ops =
     UPDATE_get_column_info,
     UPDATE_modify,
     UPDATE_delete,
-    UPDATE_find_matching_rows,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    UPDATE_find_matching_rows
 };
 
-UINT UPDATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPCWSTR table,
+UINT UPDATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPWSTR table,
                         column_info *columns, struct expr *expr )
 {
     MSIUPDATEVIEW *uv = NULL;
@@ -261,10 +222,7 @@ UINT UPDATE_CreateView( MSIDATABASE *db, MSIVIEW **view, LPCWSTR table,
 
     uv = msi_alloc_zero( sizeof *uv );
     if( !uv )
-    {
-        wv->ops->delete( wv );
         return ERROR_FUNCTION_FAILED;
-    }
 
     /* fill the structure */
     uv->view.ops = &update_ops;

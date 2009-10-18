@@ -1,17 +1,17 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<group>
-<module name="oleacc" type="win32dll" baseaddress="${BASEADDRESS_OLEACC}" installbase="system32" installname="oleacc.dll" allowwarnings="true" entrypoint="0">
+<module name="oleacc" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_OLEACC}" installbase="system32" installname="oleacc.dll" allowwarnings="true">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
-	<importlibrary definition="oleacc.spec" />
+	<importlibrary definition="oleacc.spec.def" />
 	<include base="oleacc">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
+	<define name="__REACTOS__" />
 	<define name="__WINESRC__" />
-	<file>main.c</file>
-	<file>oleacc.rc</file>
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x600</define>
+	<define name="_WIN32_WINNT">0x501</define>
+	<define name="WINVER">0x501</define>
 	<library>wine</library>
 	<library>kernel32</library>
-	<library>user32</library>
 	<library>ntdll</library>
+	<file>main.c</file>
+	<file>oleacc.spec</file>
 </module>
-</group>

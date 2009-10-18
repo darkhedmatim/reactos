@@ -31,11 +31,11 @@ WNDPROC             OldProcessListWndProc;
 INT_PTR CALLBACK
 ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    HBRUSH  hbrBackground;
+    HBRUSH    hbrBackground;
     RECT    rcItem;
     RECT    rcClip;
-    HDC     hDC;
-    int     DcSave;
+    HDC        hDC;
+    int        DcSave;
 
     switch (message)
     {
@@ -62,7 +62,7 @@ ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         /*
          * Get the background brush
          */
-        hbrBackground = (HBRUSH)(LONG_PTR) GetClassLongPtrW(hWnd, GCL_HBRBACKGROUND);
+        hbrBackground = (HBRUSH) GetClassLong(hWnd, GCL_HBRBACKGROUND);
 
         /*
          * Calculate the clip rect by getting the RECT
@@ -72,14 +72,10 @@ ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          * subtract it from our clip rect because we don't
          * use icons in this list control.
          */
-        rcClip.left = LVIR_BOUNDS;
-        SendMessageW(hWnd, LVM_GETITEMRECT, 0, (LPARAM)&rcClip);
-        rcItem.left = LVIR_BOUNDS;
-        SendMessageW(hWnd, LVM_GETITEMRECT, ListView_GetItemCount(hWnd) - 1, (LPARAM)&rcItem);
+        (void)ListView_GetItemRect(hWnd, 0, &rcClip, LVIR_BOUNDS);
+        (void)ListView_GetItemRect(hWnd, ListView_GetItemCount(hWnd) - 1, &rcItem, LVIR_BOUNDS);
         rcClip.bottom = rcItem.bottom;
-	rcClip.right = rcItem.right;
-        rcItem.left = LVIR_ICON;
-        SendMessageW(hWnd, LVM_GETITEMRECT, 0, (LPARAM)&rcItem);
+        (void)ListView_GetItemRect(hWnd, 0, &rcItem, LVIR_ICON);
         rcClip.left = rcItem.right;
 
         /*
@@ -110,5 +106,5 @@ ProcessListWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     /*
      * We pass on all messages except WM_ERASEBKGND
      */
-    return CallWindowProcW(OldProcessListWndProc, hWnd, message, wParam, lParam);
+    return CallWindowProc(OldProcessListWndProc, hWnd, message, wParam, lParam);
 }

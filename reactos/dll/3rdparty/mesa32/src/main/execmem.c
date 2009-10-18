@@ -32,50 +32,33 @@
 
 
 #include "imports.h"
-#include "glapi/glthread.h"
+#include "glthread.h"
 
 
 
-#if defined(__linux__) || defined(__OpenBSD__) || defined(_NetBSD__) || defined(__sun)
+#if defined(__linux__) && !defined(XFree86Server)
 
 /*
  * Allocate a large block of memory which can hold code then dole it out
  * in pieces by means of the generic memory manager code.
 */
 
+
 #include <unistd.h>
 #include <sys/mman.h>
 #include "mm.h"
 
-#ifdef MESA_SELINUX
-#include <selinux/selinux.h>
-#endif
-
-
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
-
-
-#define EXEC_HEAP_SIZE (10*1024*1024)
+#define EXEC_HEAP_SIZE (128*1024)
 
 _glthread_DECLARE_STATIC_MUTEX(exec_mutex);
 
-static struct mem_block *exec_heap = NULL;
+static memHeap_t *exec_heap = NULL;
 static unsigned char *exec_mem = NULL;
 
 
-static int
+static void
 init_heap(void)
 {
-#ifdef MESA_SELINUX
-   if (is_selinux_enabled()) {
-      if (!security_get_boolean_active("allow_execmem") ||
-	  !security_get_boolean_pending("allow_execmem"))
-         return 0;
-   }
-#endif
-
    if (!exec_heap)
       exec_heap = mmInit( 0, EXEC_HEAP_SIZE );
    
@@ -83,21 +66,18 @@ init_heap(void)
       exec_mem = (unsigned char *) mmap(0, EXEC_HEAP_SIZE, 
 					PROT_EXEC | PROT_READ | PROT_WRITE, 
 					MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-   return (exec_mem != NULL);
 }
 
 
 void *
 _mesa_exec_malloc(GLuint size)
 {
-   struct mem_block *block = NULL;
+   PMemBlock block = NULL;
    void *addr = NULL;
 
    _glthread_LOCK_MUTEX(exec_mutex);
 
-   if (!init_heap())
-      goto bail;
+   init_heap();
 
    if (exec_heap) {
       size = (size + 31) & ~31;
@@ -106,10 +86,7 @@ _mesa_exec_malloc(GLuint size)
 
    if (block)
       addr = exec_mem + block->ofs;
-   else 
-      _mesa_printf("_mesa_exec_malloc failed\n");
 
-bail:
    _glthread_UNLOCK_MUTEX(exec_mutex);
    
    return addr;
@@ -122,7 +99,7 @@ _mesa_exec_free(void *addr)
    _glthread_LOCK_MUTEX(exec_mutex);
 
    if (exec_heap) {
-      struct mem_block *block = mmFindBlock(exec_heap, (unsigned char *)addr - exec_mem);
+      PMemBlock block = mmFindBlock(exec_heap, (unsigned char *)addr - exec_mem);
    
       if (block)
 	 mmFreeMem(block);

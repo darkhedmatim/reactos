@@ -25,6 +25,7 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "winreg.h"
+#include "winver.h"
 #include "winternl.h"
 #include "winnls.h"
 #include "setupapi.h"
@@ -49,17 +50,6 @@ static const WCHAR setup_key[] = {
     'C','o','m','p','o','n','e','n','t','s',0
 };
 
-/* Strip single quotes from a token - note size includes NULL */
-static void strip_quotes(WCHAR *buffer, DWORD *size)
-{
-    if (buffer[0] == '\'' && (*size > 1) && buffer[*size-2]=='\'')
-    {
-        *size -= 2;
-        buffer[*size] = 0x00;
-        memmove(buffer, buffer + 1, *size * sizeof(WCHAR));
-    }
-}
-
 /* parses the destination directory parameters from pszSection
  * the parameters are of the form: root,key,value,unknown,fallback
  * we first read the reg value root\\key\\value and if that fails,
@@ -68,9 +58,9 @@ static void strip_quotes(WCHAR *buffer, DWORD *size)
 static void get_dest_dir(HINF hInf, PCWSTR pszSection, PWSTR pszBuffer, DWORD dwSize)
 {
     INFCONTEXT context;
-    WCHAR key[MAX_PATH + 2], value[MAX_PATH + 2];
-    WCHAR prefix[PREFIX_LEN + 2];
-    HKEY root, subkey = 0;
+    WCHAR key[MAX_PATH], value[MAX_PATH];
+    WCHAR prefix[PREFIX_LEN];
+    HKEY root, subkey;
     DWORD size;
 
     static const WCHAR hklm[] = {'H','K','L','M',0};
@@ -78,12 +68,9 @@ static void get_dest_dir(HINF hInf, PCWSTR pszSection, PWSTR pszBuffer, DWORD dw
 
     /* load the destination parameters */
     SetupFindFirstLineW(hInf, pszSection, NULL, &context);
-    SetupGetStringFieldW(&context, 1, prefix, PREFIX_LEN + 2, &size);
-    strip_quotes(prefix, &size);
-    SetupGetStringFieldW(&context, 2, key, MAX_PATH + 2, &size);
-    strip_quotes(key, &size);
-    SetupGetStringFieldW(&context, 3, value, MAX_PATH + 2, &size);
-    strip_quotes(value, &size);
+    SetupGetStringFieldW(&context, 1, prefix, PREFIX_LEN, &size);
+    SetupGetStringFieldW(&context, 2, key, MAX_PATH, &size);
+    SetupGetStringFieldW(&context, 3, value, MAX_PATH, &size);
 
     if (!lstrcmpW(prefix, hklm))
         root = HKEY_LOCAL_MACHINE;
@@ -98,11 +85,10 @@ static void get_dest_dir(HINF hInf, PCWSTR pszSection, PWSTR pszBuffer, DWORD dw
     if (RegOpenKeyW(root, key, &subkey) ||
         RegQueryValueExW(subkey, value, NULL, NULL, (LPBYTE)pszBuffer, &size))
     {
-        SetupGetStringFieldW(&context, 5, pszBuffer, dwSize, &size);
-        strip_quotes(pszBuffer, &size);
+        SetupGetStringFieldW(&context, 5, pszBuffer, dwSize, NULL);
     }
 
-    if (subkey) RegCloseKey(subkey);
+    RegCloseKey(subkey);
 }
 
 /* loads the LDIDs specified in the install section of an INF */
@@ -131,7 +117,6 @@ void set_ldids(HINF hInf, LPCWSTR pszInstallSection, LPCWSTR pszWorkingDir)
     do
     {
         LPWSTR value, ptr, key, key_copy = NULL;
-        DWORD flags = 0;
 
         SetupGetLineTextW(&context, NULL, NULL, NULL,
                           line, MAX_FIELD_LENGTH, &size);
@@ -157,22 +142,16 @@ void set_ldids(HINF hInf, LPCWSTR pszInstallSection, LPCWSTR pszWorkingDir)
         while (*value == ' ')
             value++;
 
-        /* Extract the flags */
+        /* FIXME: need to check the query option */
         ptr = strchrW(value, ',');
-        if (ptr) {
+        if (ptr)
             *ptr = '\0';
-            flags = atolW(ptr+1);
-        }
 
         /* set dest to pszWorkingDir if key is SourceDir */
         if (pszWorkingDir && !lstrcmpiW(value, source_dir))
             lstrcpynW(dest, pszWorkingDir, MAX_PATH);
         else
             get_dest_dir(hInf, value, dest, MAX_PATH);
-
-        /* If prompting required, provide dialog to request path */
-        if (flags & 0x04)
-            FIXME("Need to support changing paths - default will be used\n");
 
         /* set all ldids to dest */
         while ((ptr = get_parameter(&key, ',')))
@@ -212,7 +191,7 @@ HRESULT WINAPI CloseINFEngine(HINF hInf)
  */
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-    TRACE("(%p, %d, %p)\n", hinstDLL, fdwReason, lpvReserved);
+    TRACE("(%p, %ld, %p)\n", hinstDLL, fdwReason, lpvReserved);
 
     if (fdwReason == DLL_PROCESS_ATTACH)
         DisableThreadLibraryCalls(hinstDLL);
@@ -241,7 +220,7 @@ BOOL WINAPI IsNTAdmin(DWORD reserved, LPDWORD pReserved)
     HANDLE hToken;
     PSID pSid;
 
-    TRACE("(%d, %p)\n", reserved, pReserved);
+    TRACE("(%ld, %p)\n", reserved, pReserved);
 
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken))
         return FALSE;
@@ -323,7 +302,7 @@ DWORD WINAPI NeedRebootInit(VOID)
  */
 BOOL WINAPI NeedReboot(DWORD dwRebootCheck)
 {
-    FIXME("(%d): stub\n", dwRebootCheck);
+    FIXME("(%ld): stub\n", dwRebootCheck);
     return FALSE;
 }
 
@@ -338,7 +317,7 @@ HRESULT WINAPI OpenINFEngineA(LPCSTR pszInfFilename, LPCSTR pszInstallSection,
     UNICODE_STRING filenameW, installW;
     HRESULT res;
 
-    TRACE("(%s, %s, %d, %p, %p)\n", debugstr_a(pszInfFilename),
+    TRACE("(%s, %s, %ld, %p, %p)\n", debugstr_a(pszInfFilename),
           debugstr_a(pszInstallSection), dwFlags, phInf, pvReserved);
 
     if (!pszInfFilename || !phInf)
@@ -376,7 +355,7 @@ HRESULT WINAPI OpenINFEngineA(LPCSTR pszInfFilename, LPCSTR pszInstallSection,
 HRESULT WINAPI OpenINFEngineW(LPCWSTR pszInfFilename, LPCWSTR pszInstallSection,
                               DWORD dwFlags, HINF *phInf, PVOID pvReserved)
 {
-    TRACE("(%s, %s, %d, %p, %p)\n", debugstr_w(pszInfFilename),
+    TRACE("(%s, %s, %ld, %p, %p)\n", debugstr_w(pszInfFilename),
           debugstr_w(pszInstallSection), dwFlags, phInf, pvReserved);
 
     if (!pszInfFilename || !phInf)
@@ -397,12 +376,12 @@ HRESULT WINAPI OpenINFEngineW(LPCWSTR pszInfFilename, LPCWSTR pszInstallSection,
  * See RebootCheckOnInstallW.
  */
 HRESULT WINAPI RebootCheckOnInstallA(HWND hWnd, LPCSTR pszINF,
-                                     LPCSTR pszSec, DWORD dwReserved)
+                                     LPSTR pszSec, DWORD dwReserved)
 {
     UNICODE_STRING infW, secW;
     HRESULT res;
 
-    TRACE("(%p, %s, %s, %d)\n", hWnd, debugstr_a(pszINF),
+    TRACE("(%p, %s, %s, %ld)\n", hWnd, debugstr_a(pszINF),
           debugstr_a(pszSec), dwReserved);
 
     if (!pszINF || !pszSec)
@@ -443,9 +422,9 @@ HRESULT WINAPI RebootCheckOnInstallA(HWND hWnd, LPCSTR pszINF,
  *   Unimplemented.
  */
 HRESULT WINAPI RebootCheckOnInstallW(HWND hWnd, LPCWSTR pszINF,
-                                     LPCWSTR pszSec, DWORD dwReserved)
+                                     LPWSTR pszSec, DWORD dwReserved)
 {
-    FIXME("(%p, %s, %s, %d): stub\n", hWnd, debugstr_w(pszINF),
+    FIXME("(%p, %s, %s, %ld): stub\n", hWnd, debugstr_w(pszINF),
           debugstr_w(pszSec), dwReserved);
 
     return E_FAIL;
@@ -656,7 +635,7 @@ HRESULT WINAPI TranslateInfStringA(LPCSTR pszInfFilename, LPCSTR pszInstallSecti
     HRESULT res;
     DWORD len = 0;
 
-    TRACE("(%s, %s, %s, %s, %p, %d, %p, %p)\n",
+    TRACE("(%s, %s, %s, %s, %p, %ld, %p, %p)\n",
           debugstr_a(pszInfFilename), debugstr_a(pszInstallSection),
           debugstr_a(pszTranslateSection), debugstr_a(pszTranslateKey),
           pszBuffer, dwBufferSize,pdwRequiredSize, pvReserved);
@@ -731,9 +710,8 @@ HRESULT WINAPI TranslateInfStringW(LPCWSTR pszInfFilename, LPCWSTR pszInstallSec
                 DWORD dwBufferSize, PDWORD pdwRequiredSize, PVOID pvReserved)
 {
     HINF hInf;
-    HRESULT hret = S_OK;
 
-    TRACE("(%s, %s, %s, %s, %p, %d, %p, %p)\n",
+    TRACE("(%s, %s, %s, %s, %p, %ld, %p, %p)\n",
           debugstr_w(pszInfFilename), debugstr_w(pszInstallSection),
           debugstr_w(pszTranslateSection), debugstr_w(pszTranslateKey),
           pszBuffer, dwBufferSize,pdwRequiredSize, pvReserved);
@@ -752,13 +730,13 @@ HRESULT WINAPI TranslateInfStringW(LPCWSTR pszInfFilename, LPCWSTR pszInstallSec
                            pszBuffer, dwBufferSize, pdwRequiredSize))
     {
         if (dwBufferSize < *pdwRequiredSize)
-            hret = HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
-        else
-            hret = SPAPI_E_LINE_NOT_FOUND;
+            return HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
+
+        return SPAPI_E_LINE_NOT_FOUND;
     }
 
     SetupCloseInfFile(hInf);
-    return hret;
+    return S_OK;
 }
 
 /***********************************************************************
@@ -776,7 +754,7 @@ HRESULT WINAPI TranslateInfStringExA(HINF hInf, LPCSTR pszInfFilename,
     HRESULT res;
     DWORD len = 0;
 
-    TRACE("(%p, %s, %s, %s, %s, %d, %p, %p)\n", hInf, debugstr_a(pszInfFilename),
+    TRACE("(%p, %s, %s, %s, %s, %ld, %p, %p)\n", hInf, debugstr_a(pszInfFilename),
           debugstr_a(pszTranslateSection), debugstr_a(pszTranslateKey),
           debugstr_a(pszBuffer), dwBufferSize, pdwRequiredSize, pvReserved);
 
@@ -856,7 +834,7 @@ HRESULT WINAPI TranslateInfStringExW(HINF hInf, LPCWSTR pszInfFilename,
                                      LPWSTR pszBuffer, DWORD dwBufferSize,
                                      PDWORD pdwRequiredSize, PVOID pvReserved)
 {
-    TRACE("(%p, %s, %s, %s, %s, %d, %p, %p)\n", hInf, debugstr_w(pszInfFilename),
+    TRACE("(%p, %s, %s, %s, %s, %ld, %p, %p)\n", hInf, debugstr_w(pszInfFilename),
           debugstr_w(pszTranslateSection), debugstr_w(pszTranslateKey),
           debugstr_w(pszBuffer), dwBufferSize, pdwRequiredSize, pvReserved);
 

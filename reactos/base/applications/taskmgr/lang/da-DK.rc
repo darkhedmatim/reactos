@@ -3,7 +3,7 @@
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 #ifdef _WIN32
-LANGUAGE LANG_DANISH, SUBLANG_DEFAULT
+LANGUAGE LANG_DANISH, SUBLANG_NEUTRAL
 #endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
@@ -160,8 +160,22 @@ END
 // Dialog
 //
 
-IDD_TASKMGR_DIALOG DIALOGEX DISCARDABLE  0, 0, 264, 246
-STYLE DS_SHELLFONT | DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
+IDD_ABOUTBOX DIALOG DISCARDABLE  22, 17, 259, 210
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+CAPTION "Omkring Opgavestyring"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    CONTROL         "Opgavestyring v1.0\nKopibeskyttet (C) 1999 - 2001\naf Brian Palmer (brianp@reactos.org)",
+                    IDC_STATIC,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,53,28,
+                    122,26
+    DEFPUSHBUTTON   "OK",IDOK,183,189,44,14,WS_GROUP
+    ICON            IDI_TASKMANAGER,IDC_STATIC,19,30,20,20
+    EDITTEXT        IDC_LICENSE_EDIT,53,63,174,107,ES_MULTILINE |
+                    ES_READONLY | WS_VSCROLL
+END
+
+IDD_TASKMGR_DIALOG DIALOG DISCARDABLE  0, 0, 264, 246
+STYLE DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP |
     WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU |
     WS_THICKFRAME
 CAPTION "Opgavestyring"
@@ -171,8 +185,8 @@ BEGIN
     CONTROL         "Tab1",IDC_TAB,"SysTabControl32",WS_TABSTOP,3,3,257,228
 END
 
-IDD_APPLICATION_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+IDD_APPLICATION_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_APPLIST,"SysListView32",LVS_REPORT |
@@ -182,12 +196,13 @@ BEGIN
     PUSHBUTTON      "&Afslut Opgave",IDC_ENDTASK,75,189,53,14,WS_DISABLED
 END
 
-IDD_PROCESS_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+IDD_PROCESS_PAGE DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+CAPTION "KMK"
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "List2",IDC_PROCESSLIST,"SysListView32",LVS_REPORT |
-                    LVS_SINGLESEL | LVS_SHOWSELALWAYS |
+                    LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_OWNERDATA |
                     WS_BORDER | WS_TABSTOP,7,7,233,177
     PUSHBUTTON      "&Afslut Proces",IDC_ENDPROCESS,171,189,69,14
     CONTROL         "&Vis Processor fra alle brugere",IDC_SHOWALLPROCESSES,
@@ -196,10 +211,10 @@ END
 
 //IDD_PERFORMANCE_PAGE DIALOGEX 0, 0, 247, 210
 IDD_PERFORMANCE_PAGE DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
+STYLE DS_CONTROL | WS_CHILD | WS_CLIPCHILDREN
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX        "CPU Forbrug",IDC_CPU_USAGE_FRAME,5,5,60,54,0,WS_EX_TRANSPARENT
+    GROUPBOX        "CPU Forbrug",IDC_CPU_USAGE_FRAME,5,5,60,54,WS_TABSTOP, WS_EX_TRANSPARENT
     GROUPBOX        "Hukommelse Forbrug",IDC_MEM_USAGE_FRAME,5,63,60,54,BS_LEFTTEXT, WS_EX_TRANSPARENT
     GROUPBOX        "Ialt",IDC_TOTALS_FRAME,5,122,111,39,0,WS_EX_TRANSPARENT
     GROUPBOX        "Aftaget Forbrug (K)",IDC_COMMIT_CHARGE_FRAME,5,166,111,39,0,WS_EX_TRANSPARENT
@@ -209,52 +224,52 @@ BEGIN
     LTEXT           "Tråde",IDS_TOTALS_THREAD_COUNT,12,140,27,8
     LTEXT           "Processor",IDS_TOTALS_PROCESS_COUNT,12,149,34,8
     EDITTEXT        IDC_TOTALS_HANDLE_COUNT,65,131,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_TOTALS_THREAD_COUNT,65,140,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_TOTALS_PROCESS_COUNT,65,149,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Ialt",IDS_COMMIT_CHARGE_TOTAL,12,175,27,8
-    LTEXT           "Begrænsning",IDS_COMMIT_CHARGE_LIMIT,12,184,15,8,NOT WS_BORDER
+    LTEXT           "Begrænsning",IDS_COMMIT_CHARGE_LIMIT,12,184,15,8
     LTEXT           "Top",IDS_COMMIT_CHARGE_PEAK,12,193,34,8
     EDITTEXT        IDC_COMMIT_CHARGE_TOTAL,65,174,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_COMMIT_CHARGE_LIMIT,65,184,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_COMMIT_CHARGE_PEAK,65,193,45,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Ialt",IDS_PHYSICAL_MEMORY_TOTAL,137,131,27,8
     LTEXT           "Tilgængelig",IDS_PHYSICAL_MEMORY_AVAILABLE,137,140,30,8
     LTEXT           "System Cache",IDS_PHYSICAL_MEMORY_SYSTEM_CACHE,137,149,46,8
     EDITTEXT        IDC_PHYSICAL_MEMORY_TOTAL,185,131,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_PHYSICAL_MEMORY_AVAILABLE,185,140,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_PHYSICAL_MEMORY_SYSTEM_CACHE,185,149,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     LTEXT           "Ialt",IDS_KERNEL_MEMORY_TOTAL,137,174,27,8
     LTEXT           "Allokeret",IDS_KERNEL_MEMORY_PAGED,137,184,21,8
     LTEXT           "Ikke Allokeret",IDS_KERNEL_MEMORY_NONPAGED,137,193,34,8
     EDITTEXT        IDC_KERNEL_MEMORY_TOTAL,185,174,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_KERNEL_MEMORY_PAGED,185,184,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     EDITTEXT        IDC_KERNEL_MEMORY_NONPAGED,185,193,48,8,ES_RIGHT |
-                    ES_READONLY | ES_NUMBER | NOT WS_BORDER | NOT WS_TABSTOP
+                    ES_READONLY | ES_NUMBER | NOT WS_BORDER
     GROUPBOX        "CPU Usage History",IDC_CPU_USAGE_HISTORY_FRAME,74,5,168,54,0,WS_EX_TRANSPARENT
     GROUPBOX        "Hukommelses Forbrug Historik",IDC_MEMORY_USAGE_HISTORY_FRAME,74,63,168,54,0,WS_EX_TRANSPARENT
-    PUSHBUTTON      "CPU Forbrug Visning",IDC_CPU_USAGE_GRAPH,12,17,47,37,NOT WS_TABSTOP,
+    PUSHBUTTON      "CPU Forbrug Visning",IDC_CPU_USAGE_GRAPH,12,17,47,37,0,
 		    WS_EX_CLIENTEDGE
-    PUSHBUTTON      "Hukommelses Forbrug Visning",IDC_MEM_USAGE_GRAPH,12,75,47,37,NOT WS_TABSTOP,
+    PUSHBUTTON      "Hukommelses Forbrug Visning",IDC_MEM_USAGE_GRAPH,12,75,47,37,0,
                     WS_EX_CLIENTEDGE
     PUSHBUTTON      "CPU Forbrug Historik",IDC_CPU_USAGE_HISTORY_GRAPH,81,17,
-                    153,37,NOT WS_TABSTOP,WS_EX_CLIENTEDGE
+                    153,37,0,WS_EX_CLIENTEDGE
     PUSHBUTTON      "Hukommelses Forbrug Historik",IDC_MEM_USAGE_HISTORY_GRAPH,81,75,
-                    153,37,NOT WS_TABSTOP,WS_EX_CLIENTEDGE
+                    153,37,0,WS_EX_CLIENTEDGE
 END
 
-IDD_DEBUG_CHANNELS_DIALOG DIALOGEX DISCARDABLE  0, 0, 247, 210
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_DEBUG_CHANNELS_DIALOG DIALOG DISCARDABLE  0, 0, 247, 210
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Debug Kanaler"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -264,8 +279,8 @@ BEGIN
     PUSHBUTTON      "Luk",IDOK,171,189,69,14
 END
 
-IDD_AFFINITY_DIALOG DIALOGEX DISCARDABLE  0, 0, 231, 154
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_AFFINITY_DIALOG DIALOG DISCARDABLE  0, 0, 231, 154
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Processor Affinitet"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -339,8 +354,8 @@ BEGIN
                     WS_DISABLED | WS_TABSTOP,175,119,41,10
 END
 
-IDD_COLUMNS_DIALOG DIALOGEX DISCARDABLE  0, 0, 195, 199
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_COLUMNS_DIALOG DIALOG DISCARDABLE  0, 0, 195, 199
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Vælg Kolonner"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -351,7 +366,7 @@ BEGIN
     CONTROL         "&Billede Navn",IDC_IMAGENAME,"Button",BS_AUTOCHECKBOX |
                     WS_DISABLED | WS_TABSTOP,7,28,56,10
     CONTROL         "&PID (Process Identifikation)",IDC_PID,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,39,100,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7, 39, 100, 10
     CONTROL         "&CPU Forbrug",IDC_CPUUSAGE,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,50,53,10
     CONTROL         "CPU &Tid",IDC_CPUTIME,"Button",BS_AUTOCHECKBOX |
@@ -587,73 +602,10 @@ BEGIN
     ID_PROCESS_PAGE_SETPRIORITY_BELOWNORMAL
                             "Sæt proces til Under Normal Priotet Klasse"
     ID_PROCESS_PAGE_SETPRIORITY_LOW "Sæt proces til Lav Priotet Klasse"
+    IDS_LICENSE             "Dette program er fri software; du kan formidle det og/eller ændre det under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.\r\n\r\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.\r\n\r\nYou should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA."
 END
 
-
-STRINGTABLE DISCARDABLE
-BEGIN
-    IDS_TAB_APPS                  "Applications"
-    IDS_TAB_PROCESSES             "Processes"
-    IDS_TAB_PERFORMANCE           "Performance"
-    IDS_TAB_TASK                  "Task"
-    IDS_TAB_STATUS                "Status"
-    IDS_TAB_IMAGENAME             "Image Name"
-    IDS_TAB_PID                   "PID"
-    IDS_TAB_USERNAME              "Username"
-    IDS_TAB_SESSIONID             "Session ID"
-    IDS_TAB_CPU                   "CPU"
-    IDS_TAB_CPUTIME               "CPU Time"
-    IDS_TAB_MEMUSAGE              "Mem Usage"
-    IDS_TAB_PEAKMEMUSAGE          "Peak Mem Usage"
-    IDS_TAB_MEMDELTA              "Mem Delta"
-    IDS_TAB_PAGEFAULT             "Page Faults"
-    IDS_TAB_PFDELTA               "PF Delta"
-    IDS_TAB_VMSIZE                "VM Size"
-    IDS_TAB_PAGEDPOOL             "Paged Pool"
-    IDS_TAB_NPPOOL                "NP Pool"
-    IDS_TAB_BASEPRI               "Base Pri"
-    IDS_TAB_HANDLES               "Handles"
-    IDS_TAB_THREADS               "Threads"
-    IDS_TAB_USERPBJECTS           "USER Objects"
-    IDS_TAB_GDIOBJECTS            "GDI Objects"
-    IDS_TAB_IOREADS               "I/O Reads"
-    IDS_TAB_IOWRITES              "I/O Writes"
-    IDS_TAB_IOOTHER               "I/O Other"
-    IDS_TAB_IOREADBYTES           "I/O Read Bytes"
-    IDS_TAB_IOWRITESBYTES         "I/O Write Bytes"
-    IDS_TAB_IOOTHERBYTES          "I/O Other Bytes"
-    IDS_MENU_SELECTCOLUMNS        "&Select Columns..."
-    IDS_MENU_16BITTASK            "&Show 16-bit tasks"
-    IDS_MENU_WINDOWS              "&Windows"
-    IDS_MENU_LARGEICONS           "Lar&ge Icons"
-    IDS_MENU_SMALLICONS           "S&mall Icons"
-    IDS_MENU_DETAILS              "&Details"
-    IDS_MENU_ONEGRAPHALLCPUS      "&One Graph, All CPUs"
-    IDS_MENU_ONEGRAPHPERCPU       "One Graph &Per CPU"
-    IDS_MENU_CPUHISTORY           "&CPU History"
-    IDS_MENU_SHOWKERNELTIMES      "&Show Kernel Times"
-    IDS_CREATENEWTASK             "Create New Task"
-    IDS_CREATENEWTASK_DESC        "Type the name of a program, folder, document, or Internet resource, and Task Manager will open it for you."
-    IDS_MSG_ACCESSPROCESSAFF      "Unable to Access or Set Process Affinity"
-    IDS_MSG_PROCESSONEPRO         "The process must have affinity with at least one processor."
-    IDS_MSG_INVALIDOPTION         "Invalid Option"
-    IDS_MSG_UNABLEDEBUGPROCESS    "Unable to Debug Process"
-    IDS_MSG_WARNINGDEBUG          "WARNING: Debugging this process may result in loss of data.\nAre you sure you wish to attach the debugger?"
-    IDS_MSG_TASKMGRWARNING        "Task Manager Warning"
-    IDS_MSG_WARNINGTERMINATING    "WARNING: Terminating a process can cause undesired\nresults including loss of data and system instability. The\nprocess will not be given the chance to save its state or\ndata before it is terminated. Are you sure you want to\nterminate the process?"
-    IDS_MSG_UNABLETERMINATEPRO    "Unable to Terminate Process"
-    IDS_MSG_UNABLECHANGEPRIORITY  "Unable to Change Priority"
-    IDS_MSG_WARNINGCHANGEPRIORITY "WARNING: Changing the priority class of this process may\ncause undesired results including system instability. Are you\nsure you want to change the priority class?"
-    IDS_MSG_TRAYICONCPUUSAGE      "CPU Usage: %d%%"
-    IDS_STATUS_MEMUSAGE           "Mem Usage: %dK / %dK"
-    IDS_STATUS_CPUUSAGE           "CPU Usage: %3d%%"
-    IDS_STATUS_PROCESSES          "Processes: %d"
-    IDS_Not_Responding            "Not Responding"
-    IDS_Running                   "Running"
-END
-
-
-#endif    // Danish resources
+#endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

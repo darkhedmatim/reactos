@@ -20,8 +20,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#define COBJMACROS
-
 #include "config.h"
 
 #include <stdarg.h>
@@ -31,15 +29,12 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
-#include "msi.h"
-#include "msiquery.h"
-#include "objbase.h"
-#include "oleauto.h"
-
-#include "msipriv.h"
-#include "msiserver.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
+
+#include "msi.h"
+#include "msiquery.h"
+#include "msipriv.h"
 
 #define YYLEX_PARAM info
 #define YYPARSE_PARAM info
@@ -61,19 +56,19 @@ struct cond_str {
     INT len;
 };
 
-static LPWSTR COND_GetString( const struct cond_str *str );
-static LPWSTR COND_GetLiteral( const struct cond_str *str );
+static LPWSTR COND_GetString( struct cond_str *str );
+static LPWSTR COND_GetLiteral( struct cond_str *str );
 static int cond_lex( void *COND_lval, COND_input *info);
 static const WCHAR szEmpty[] = { 0 };
 
 static INT compare_int( INT a, INT operator, INT b );
-static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b, BOOL convert );
+static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b );
 
-static INT compare_and_free_strings( LPWSTR a, INT op, LPWSTR b, BOOL convert )
+static INT compare_and_free_strings( LPWSTR a, INT op, LPWSTR b )
 {
     INT r;
 
-    r = compare_string( a, op, b, convert );
+    r = compare_string( a, op, b );
     msi_free( a );
     msi_free( b );
     return r;
@@ -216,19 +211,19 @@ boolean_factor:
         }
   | symbol_s operator symbol_s
         {
-            $$ = compare_and_free_strings( $1, $2, $3, TRUE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | symbol_s operator literal
         {
-            $$ = compare_and_free_strings( $1, $2, $3, TRUE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | literal operator symbol_s
         {
-            $$ = compare_and_free_strings( $1, $2, $3, TRUE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | literal operator literal
         {
-            $$ = compare_and_free_strings( $1, $2, $3, FALSE );
+            $$ = compare_and_free_strings( $1, $2, $3 );
         }
   | literal operator value_i
         {
@@ -317,11 +312,7 @@ value_i:
             INSTALLSTATE install = INSTALLSTATE_UNKNOWN, action = INSTALLSTATE_UNKNOWN;
       
             MSI_GetFeatureStateW(cond->package, $2, &install, &action );
-            if (action == INSTALLSTATE_UNKNOWN)
-                $$ = MSICONDITION_FALSE;
-            else
-                $$ = action;
-
+            $$ = action;
             msi_free( $2 );
         }
   | COND_EXCLAM identifier
@@ -408,9 +399,6 @@ static BOOL str_is_number( LPCWSTR str )
 {
     int i;
 
-    if (!*str)
-        return FALSE;
-
     for (i = 0; i < lstrlenW( str ); i++)
         if (!isdigitW(str[i]))
             return FALSE;
@@ -457,7 +445,7 @@ static INT compare_substring( LPCWSTR a, INT operator, LPCWSTR b )
     return 0;
 }
 
-static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b, BOOL convert )
+static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b )
 {
     if (operator >= COND_SS && operator <= COND_RHS)
         return compare_substring( a, operator, b );
@@ -465,9 +453,6 @@ static INT compare_string( LPCWSTR a, INT operator, LPCWSTR b, BOOL convert )
     /* null and empty string are equivalent */
     if (!a) a = szEmpty;
     if (!b) b = szEmpty;
-
-    if (convert && str_is_number(a) && str_is_number(b))
-        return compare_int( atoiW(a), operator, atoiW(b) );
 
     /* a or b may be NULL */
     switch (operator)
@@ -553,14 +538,14 @@ static int COND_GetOperator( COND_input *cond )
         const WCHAR str[4];
         int id;
     } table[] = {
+        { {'~','=',0},     COND_IEQ },
         { {'~','<','=',0}, COND_ILE },
         { {'~','>','<',0}, COND_ISS },
         { {'~','>','>',0}, COND_IRHS },
         { {'~','<','>',0}, COND_INE },
+        { {'~','<',0},     COND_ILT },
         { {'~','>','=',0}, COND_IGE },
         { {'~','<','<',0}, COND_ILHS },
-        { {'~','=',0},     COND_IEQ },
-        { {'~','<',0},     COND_ILT },
         { {'~','>',0},     COND_IGT },
         { {'>','=',0},     COND_GE  },
         { {'>','<',0},     COND_SS  },
@@ -607,6 +592,7 @@ static int COND_GetOne( struct cond_str *str, COND_input *cond )
     case '%': rc = COND_PERCENT; break;
     case ' ': rc = COND_SPACE; break;
     case '=': rc = COND_EQ; break;
+        break;
 
     case '~':
     case '<':
@@ -692,7 +678,7 @@ static int cond_lex( void *COND_lval, COND_input *cond )
     return rc;
 }
 
-static LPWSTR COND_GetString( const struct cond_str *str )
+static LPWSTR COND_GetString( struct cond_str *str )
 {
     LPWSTR ret;
 
@@ -706,7 +692,7 @@ static LPWSTR COND_GetString( const struct cond_str *str )
     return ret;
 }
 
-static LPWSTR COND_GetLiteral( const struct cond_str *str )
+static LPWSTR COND_GetLiteral( struct cond_str *str )
 {
     LPWSTR ret;
 
@@ -756,39 +742,8 @@ MSICONDITION WINAPI MsiEvaluateConditionW( MSIHANDLE hInstall, LPCWSTR szConditi
     UINT ret;
 
     package = msihandle2msiinfo( hInstall, MSIHANDLETYPE_PACKAGE);
-    if( !package )
-    {
-        HRESULT hr;
-        BSTR condition;
-        IWineMsiRemotePackage *remote_package;
-
-        remote_package = (IWineMsiRemotePackage *)msi_get_remote( hInstall );
-        if (!remote_package)
-            return MSICONDITION_ERROR;
-
-        condition = SysAllocString( szCondition );
-        if (!condition)
-        {
-            IWineMsiRemotePackage_Release( remote_package );
-            return ERROR_OUTOFMEMORY;
-        }
-
-        hr = IWineMsiRemotePackage_EvaluateCondition( remote_package, condition );
-
-        SysFreeString( condition );
-        IWineMsiRemotePackage_Release( remote_package );
-
-        if (FAILED(hr))
-        {
-            if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-                return HRESULT_CODE(hr);
-
-            return ERROR_FUNCTION_FAILED;
-        }
-
-        return ERROR_SUCCESS;
-    }
-
+    if( !package)
+        return MSICONDITION_ERROR;
     ret = MSI_EvaluateConditionW( package, szCondition );
     msiobj_release( &package->hdr );
     return ret;

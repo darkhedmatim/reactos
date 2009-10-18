@@ -13,21 +13,13 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_D3D_H
 #define __WINE_D3D_H
 
-#ifndef DIRECT3D_VERSION
-#define DIRECT3D_VERSION         0x0700
-#endif
-
-#if (DIRECT3D_VERSION < 0x0800)
-
 #include <stdlib.h>
-
-#define COM_NO_WINDOWS_H
 #include <objbase.h>
 #include <d3dtypes.h> /* must precede d3dcaps.h */
 #include <d3dcaps.h>
@@ -72,32 +64,32 @@ DEFINE_GUID(IID_IDirect3DVertexBuffer,  0x7a503555,0x4a83,0x11d1,0xa5,0xdb,0x00,
 DEFINE_GUID(IID_IDirect3DVertexBuffer7, 0xf5049e7d,0x4861,0x11d2,0xa4,0x07,0x00,0xa0,0xc9,0x06,0x29,0xa8);
 
 
-typedef struct IDirect3D *LPDIRECT3D;
-typedef struct IDirect3D2 *LPDIRECT3D2;
-typedef struct IDirect3D3 *LPDIRECT3D3;
-typedef struct IDirect3D7 *LPDIRECT3D7;
+typedef struct IDirect3D             *LPDIRECT3D;
+typedef struct IDirect3D2             *LPDIRECT3D2;
+typedef struct IDirect3D3             *LPDIRECT3D3;
+typedef struct IDirect3D7             *LPDIRECT3D7;
 
-typedef struct IDirect3DLight *LPDIRECT3DLIGHT;
+typedef struct IDirect3DLight         *LPDIRECT3DLIGHT;
 
-typedef struct IDirect3DDevice *LPDIRECT3DDEVICE;
-typedef struct IDirect3DDevice2 *LPDIRECT3DDEVICE2;
-typedef struct IDirect3DDevice3 *LPDIRECT3DDEVICE3;
-typedef struct IDirect3DDevice7 *LPDIRECT3DDEVICE7;
+typedef struct IDirect3DDevice        *LPDIRECT3DDEVICE;
+typedef struct IDirect3DDevice2       *LPDIRECT3DDEVICE2;
+typedef struct IDirect3DDevice3       *LPDIRECT3DDEVICE3;
+typedef struct IDirect3DDevice7       *LPDIRECT3DDEVICE7;
 
-typedef struct IDirect3DViewport *LPDIRECT3DVIEWPORT;
-typedef struct IDirect3DViewport2 *LPDIRECT3DVIEWPORT2;
-typedef struct IDirect3DViewport3 *LPDIRECT3DVIEWPORT3;
+typedef struct IDirect3DViewport      *LPDIRECT3DVIEWPORT;
+typedef struct IDirect3DViewport2     *LPDIRECT3DVIEWPORT2;
+typedef struct IDirect3DViewport3     *LPDIRECT3DVIEWPORT3;
 
-typedef struct IDirect3DMaterial *LPDIRECT3DMATERIAL;
-typedef struct IDirect3DMaterial2 *LPDIRECT3DMATERIAL2;
-typedef struct IDirect3DMaterial3 *LPDIRECT3DMATERIAL3;
+typedef struct IDirect3DMaterial      *LPDIRECT3DMATERIAL;
+typedef struct IDirect3DMaterial2     *LPDIRECT3DMATERIAL2;
+typedef struct IDirect3DMaterial3     *LPDIRECT3DMATERIAL3;
 
-typedef struct IDirect3DTexture *LPDIRECT3DTEXTURE;
-typedef struct IDirect3DTexture2 *LPDIRECT3DTEXTURE2;
+typedef struct IDirect3DTexture       *LPDIRECT3DTEXTURE;
+typedef struct IDirect3DTexture2      *LPDIRECT3DTEXTURE2;
 
 typedef struct IDirect3DExecuteBuffer *LPDIRECT3DEXECUTEBUFFER;
 
-typedef struct IDirect3DVertexBuffer *LPDIRECT3DVERTEXBUFFER;
+typedef struct IDirect3DVertexBuffer  *LPDIRECT3DVERTEXBUFFER;
 typedef struct IDirect3DVertexBuffer7 *LPDIRECT3DVERTEXBUFFER7;
 
 /* ********************************************************************
@@ -208,7 +200,6 @@ typedef DWORD D3DVIEWPORTHANDLE, *LPD3DVIEWPORTHANDLE;
 /*****************************************************************************
  * IDirect3D interface
  */
-#undef INTERFACE
 #define INTERFACE IDirect3D
 DECLARE_INTERFACE_(IDirect3D,IUnknown)
 {
@@ -585,22 +576,22 @@ DECLARE_INTERFACE_(IDirect3DTexture,IUnknown)
 #define IDirect3DTexture_AddRef(p)             (p)->lpVtbl->AddRef(p)
 #define IDirect3DTexture_Release(p)            (p)->lpVtbl->Release(p)
 /*** IDirect3DTexture methods ***/
-#define IDirect3DTexture_Initialize(p,a,b) (p)->lpVtbl->Initialize(p,a,b)
-#define IDirect3DTexture_GetHandle(p,a,b) (p)->lpVtbl->GetHandle(p,a,b)
-#define IDirect3DTexture_PaletteChanged(p,a,b) (p)->lpVtbl->PaletteChanged(p,a,b)
-#define IDirect3DTexture_Load(p,a) (p)->lpVtbl->Load(p,a)
-#define IDirect3DTexture_Unload(p) (p)->lpVtbl->Unload(p)
+#define IDirect3DTexture_Initialize(p,a,b,c) (p)->lpVtbl->Initialize(p,a,b,c)
+#define IDirect3DTexture_GetHandle(p,a,b,c) (p)->lpVtbl->GetHandle(p,a,b,c)
+#define IDirect3DTexture_PaletteChanged(p,a,b,c) (p)->lpVtbl->PaletteChanged(p,a,b,c)
+#define IDirect3DTexture_Load(p,a,b,c) (p)->lpVtbl->Load(p,a,b,c)
+#define IDirect3DTexture_Unload(p,a,b,c) (p)->lpVtbl->Unload(p,a,b,c)
 #else
 /*** IUnknown methods ***/
 #define IDirect3DTexture_QueryInterface(p,a,b) (p)->QueryInterface(a,b)
 #define IDirect3DTexture_AddRef(p)             (p)->AddRef()
 #define IDirect3DTexture_Release(p)            (p)->Release()
 /*** IDirect3DTexture methods ***/
-#define IDirect3DTexture_Initialize(p,a,b) (p)->Initialize(a,b)
-#define IDirect3DTexture_GetHandle(p,a,b) (p)->GetHandle(a,b)
-#define IDirect3DTexture_PaletteChanged(p,a,b) (p)->PaletteChanged(a,b)
-#define IDirect3DTexture_Load(p,a) (p)->Load(a)
-#define IDirect3DTexture_Unload(p) (p)->Unload()
+#define IDirect3DTexture_Initialize(p,a,b,c) (p)->Initialize(a,b,c)
+#define IDirect3DTexture_GetHandle(p,a,b,c) (p)->GetHandle(a,b,c)
+#define IDirect3DTexture_PaletteChanged(p,a,b,c) (p)->PaletteChanged(a,b,c)
+#define IDirect3DTexture_Load(p,a,b,c) (p)->Load(a,b,c)
+#define IDirect3DTexture_Unload(p,a,b,c) (p)->Unload(a,b,c)
 #endif
 
 
@@ -840,8 +831,8 @@ DECLARE_INTERFACE_(IDirect3DViewport3,IDirect3DViewport2)
 #define IDirect3DViewport3_DeleteLight(p,a)             (p)->lpVtbl->DeleteLight(p,a)
 #define IDirect3DViewport3_NextLight(p,a,b,c)           (p)->lpVtbl->NextLight(p,a,b,c)
 /*** IDirect3DViewport2 methods ***/
-#define IDirect3DViewport3_GetViewport2(p,a) (p)->lpVtbl->GetViewport2(p,a)
-#define IDirect3DViewport3_SetViewport2(p,a) (p)->lpVtbl->SetViewport2(p,a)
+#define IDirect3DViewport3_GetViewport3(p,a) (p)->lpVtbl->GetViewport2(p,a)
+#define IDirect3DViewport3_SetViewport3(p,a) (p)->lpVtbl->SetViewport2(p,a)
 /*** IDirect3DViewport3 methods ***/
 #define IDirect3DViewport3_SetBackgroundDepth2(p,a)   (p)->lpVtbl->SetBackgroundDepth2(p,a)
 #define IDirect3DViewport3_GetBackgroundDepth2(p,a,b) (p)->lpVtbl->GetBackgroundDepth2(p,a,b)
@@ -866,8 +857,8 @@ DECLARE_INTERFACE_(IDirect3DViewport3,IDirect3DViewport2)
 #define IDirect3DViewport3_DeleteLight(p,a)             (p)->DeleteLight(a)
 #define IDirect3DViewport3_NextLight(p,a,b,c)           (p)->NextLight(a,b,c)
 /*** IDirect3DViewport2 methods ***/
-#define IDirect3DViewport3_GetViewport2(p,a) (p)->GetViewport2(a)
-#define IDirect3DViewport3_SetViewport2(p,a) (p)->SetViewport2(a)
+#define IDirect3DViewport3_GetViewport3(p,a) (p)->GetViewport2(a)
+#define IDirect3DViewport3_SetViewport3(p,a) (p)->SetViewport2(a)
 /*** IDirect3DViewport3 methods ***/
 #define IDirect3DViewport3_SetBackgroundDepth2(p,a)   (p)->SetBackgroundDepth2(a)
 #define IDirect3DViewport3_GetBackgroundDepth2(p,a,b) (p)->GetBackgroundDepth2(a,b)
@@ -1534,5 +1525,4 @@ DECLARE_INTERFACE_(IDirect3DVertexBuffer7,IUnknown)
 #define IDirect3DVertexBuffer7_ProcessVerticesStrided(p,a,b,c,d,e,f,g) (p)->ProcessVerticesStrided(a,b,c,d,e,f,g)
 #endif
 
-#endif /* (DIRECT3D_VERSION < 0x0800) */
 #endif /* __WINE_D3D_H */

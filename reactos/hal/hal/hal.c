@@ -13,10 +13,10 @@
 #include <ntddk.h>
 #include <ntdddisk.h>
 #include <arc/arc.h>
-#include <intrin.h>
 #include <ndk/halfuncs.h>
 #include <ndk/iofuncs.h>
 #include <ndk/kdfuncs.h>
+#include <internal/kd.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -27,7 +27,7 @@
 
 /* DATA **********************************************************************/
 
-PUCHAR KdComPortInUse;
+ULONG _KdComPortInUse = 0;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -49,7 +49,7 @@ VOID
 NTAPI
 HalStopProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -60,7 +60,7 @@ VOID
 NTAPI
 HalStartProfileInterrupt(IN KPROFILE_SOURCE ProfileSource)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return;
 }
 
@@ -71,11 +71,10 @@ ULONG_PTR
 NTAPI
 HalSetProfileInterval(IN ULONG_PTR Interval)
 {
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return Interval;
 }
 
-#ifndef _M_AMD64
 VOID
 FASTCALL
 ExAcquireFastMutex(
@@ -102,7 +101,7 @@ ExTryToAcquireFastMutex(
 
   return TRUE;
 }
-#endif
+
 
 VOID
 NTAPI
@@ -165,8 +164,8 @@ HalAllocateCommonBuffer(
 PVOID
 NTAPI
 HalAllocateCrashDumpRegisters(
-  PADAPTER_OBJECT AdapterObject,
-  PULONG NumberOfMapRegisters)
+  ULONG Unknown1,
+  ULONG Unknown2)
 {
   UNIMPLEMENTED;
   return NULL;
@@ -191,8 +190,8 @@ HalAssignSlotResources(
 }
 
 
-BOOLEAN
-NTAPI
+BOOLEAN 
+NTAPI 
 HalBeginSystemInterrupt (KIRQL Irql,
 			 ULONG Vector,
 			 PKIRQL OldIrql)
@@ -444,7 +443,7 @@ HalReadDmaCounter(
   PADAPTER_OBJECT AdapterObject)
 {
   UNIMPLEMENTED;
-
+  
   return 0;
 }
 
@@ -467,7 +466,7 @@ HalReportResourceUsage(VOID)
 VOID
 NTAPI
 HalRequestIpi(
-    KAFFINITY TargetSet)
+  ULONG Unknown)
 {
   UNIMPLEMENTED;
 }
@@ -611,7 +610,7 @@ HalTranslateBusAddress(
   return TRUE;
 }
 
-#ifndef _M_ARM
+
 VOID
 NTAPI
 HalpAssignDriveLetters(IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock,
@@ -620,7 +619,7 @@ HalpAssignDriveLetters(IN struct _LOADER_PARAMETER_BLOCK *LoaderBlock,
                        OUT PSTRING NtSystemPathString)
 {
     /* Call the kernel */
-    IoAssignDriveLetters(LoaderBlock,
+    return IoAssignDriveLetters(LoaderBlock,
                                 NtDeviceName,
                                 NtSystemPath,
                                 NtSystemPathString);
@@ -669,7 +668,7 @@ HalpSetPartitionInformation(IN PDEVICE_OBJECT DeviceObject,
                                      PartitionNumber,
                                      PartitionType);
 }
-#endif
+
 
 BOOLEAN
 NTAPI
@@ -727,6 +726,132 @@ IoMapTransfer(
 }
 
 
+BOOLEAN
+NTAPI
+KdPortGetByte(
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortGetByteEx(
+  PKD_PORT_INFORMATION PortInformation,
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortInitialize(
+  PKD_PORT_INFORMATION PortInformation,
+  ULONG Unknown1,
+  ULONG Unknown2)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortInitializeEx(
+  PKD_PORT_INFORMATION PortInformation,
+  ULONG Unknown1,
+  ULONG Unknown2)
+{
+  UNIMPLEMENTED;
+  
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortPollByte(
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortPollByteEx(
+  PKD_PORT_INFORMATION PortInformation,
+  PUCHAR  ByteRecieved)
+{
+  UNIMPLEMENTED;
+
+  return TRUE;
+}
+
+
+VOID
+NTAPI
+KdPortPutByte(
+  UCHAR ByteToSend)
+{
+  UNIMPLEMENTED;
+}
+
+
+VOID
+NTAPI
+KdPortPutByteEx(
+  PKD_PORT_INFORMATION PortInformation,
+  UCHAR ByteToSend)
+{
+  UNIMPLEMENTED;
+}
+
+
+VOID
+NTAPI
+KdPortRestore(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+
+VOID
+NTAPI
+KdPortSave(VOID)
+{
+  UNIMPLEMENTED;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortDisableInterrupts()
+{
+  UNIMPLEMENTED;
+
+  return FALSE;
+}
+
+
+BOOLEAN
+NTAPI
+KdPortEnableInterrupts()
+{
+  UNIMPLEMENTED;
+
+  return FALSE;
+}
+
 #undef KeAcquireSpinLock
 VOID
 NTAPI
@@ -748,7 +873,7 @@ KeAcquireSpinLockRaiseToSynch(
   return 0;
 }
 
-#ifndef _M_AMD64
+
 VOID
 FASTCALL
 KeAcquireInStackQueuedSpinLock(
@@ -777,7 +902,6 @@ KeReleaseInStackQueuedSpinLock(
 {
   UNIMPLEMENTED;
 }
-#endif
 
 VOID
 NTAPI
@@ -786,7 +910,6 @@ KeFlushWriteBuffer(VOID)
   UNIMPLEMENTED;
 }
 
-#ifndef _M_AMD64
 #undef KeGetCurrentIrql
 KIRQL
 NTAPI
@@ -805,7 +928,6 @@ KeLowerIrql(
 {
   UNIMPLEMENTED;
 }
-#endif
 
 
 LARGE_INTEGER
@@ -822,7 +944,6 @@ KeQueryPerformanceCounter(
   return Value;
 }
 
-#ifndef _M_AMD64
 #undef KeRaiseIrql
 VOID
 NTAPI
@@ -852,9 +973,7 @@ KeRaiseIrqlToSynchLevel(VOID)
 
   return (KIRQL)0;
 }
-#endif
 
-#ifndef _M_AMD64
 #undef KeReleaseSpinLock
 VOID
 NTAPI
@@ -864,7 +983,7 @@ KeReleaseSpinLock(
 {
   UNIMPLEMENTED;
 }
-#endif
+
 
 VOID
 NTAPI
@@ -898,7 +1017,7 @@ KeTryToAcquireQueuedSpinLockRaiseToSynch(
   return FALSE;
 }
 
-#if !defined(_M_AMD64)
+
 KIRQL
 FASTCALL
 KfAcquireSpinLock(
@@ -938,9 +1057,8 @@ KfReleaseSpinLock(
 {
   UNIMPLEMENTED;
 }
-#endif
 
-#if !defined(_M_AMD64)
+
 VOID
 NTAPI
 READ_PORT_BUFFER_UCHAR(
@@ -1066,7 +1184,6 @@ WRITE_PORT_USHORT(
 {
   UNIMPLEMENTED;
 }
-#endif
 
 KIRQL
 FASTCALL
@@ -1090,25 +1207,6 @@ KeReleaseQueuedSpinLock(IN PKLOCK_QUEUE_HANDLE LockHandle,
                         IN KIRQL OldIrql)
 {
   UNIMPLEMENTED;
-}
-
-VOID
-HalSweepDcache(VOID)
-{
-  UNIMPLEMENTED;
-}
-
-VOID
-HalSweepIcache(VOID)
-{
-    UNIMPLEMENTED;
-}
-
-ULONG
-HalGetInterruptSource(VOID)
-{
-    UNIMPLEMENTED;
-    return 0;
 }
 
 /* EOF */

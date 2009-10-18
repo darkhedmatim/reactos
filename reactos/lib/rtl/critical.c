@@ -59,15 +59,15 @@ RtlpCreateCriticalSectionSem(PRTL_CRITICAL_SECTION CriticalSection)
 
                 /* We failed, this is bad... */
                 DPRINT1("Failed to Create Event!\n");
-                _InterlockedDecrement(&CriticalSection->LockCount);
+                InterlockedDecrement(&CriticalSection->LockCount);
                 RtlRaiseStatus(Status);
                 return;
         }
         DPRINT("Created Event: %p \n", hNewEvent);
 
-        if ((hEvent = (HANDLE)_InterlockedCompareExchangePointer((PVOID*)&CriticalSection->LockSemaphore,
-                                                  (PVOID)hNewEvent,
-                                                  0))) {
+        if ((hEvent = InterlockedCompareExchangePointer((PVOID*)&CriticalSection->LockSemaphore,
+                                                         (PVOID)hNewEvent,
+                                                         0))) {
 
             /* Some just created an event */
             DPRINT("Closing already created event: %p\n", hNewEvent);
@@ -117,15 +117,12 @@ RtlpWaitForCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
     DPRINT("Waiting on Critical Section Event: %p %p\n",
             CriticalSection,
             CriticalSection->LockSemaphore);
-
-    if (CriticalSection->DebugInfo)
-        CriticalSection->DebugInfo->EntryCount++;
+    CriticalSection->DebugInfo->EntryCount++;
 
     for (;;) {
 
         /* Increase the number of times we've had contention */
-        if (CriticalSection->DebugInfo)
-            CriticalSection->DebugInfo->ContentionCount++;
+        CriticalSection->DebugInfo->ContentionCount++;
 
         /* Wait on the Event */
         Status = NtWaitForSingleObject(CriticalSection->LockSemaphore,
@@ -313,7 +310,7 @@ RtlpFreeDebugInfo(PRTL_CRITICAL_SECTION_DEBUG DebugInfo)
         DPRINT("Freeing from Buffer: %p. Entry: %lu inside Process: %p\n",
                DebugInfo,
                EntryId,
-               NtCurrentTeb()->ClientId.UniqueProcess);
+               NtCurrentTeb()->Cid.UniqueProcess);
         RtlpDebugInfoFreeList[EntryId] = FALSE;
 
     } else {
@@ -321,7 +318,7 @@ RtlpFreeDebugInfo(PRTL_CRITICAL_SECTION_DEBUG DebugInfo)
         /* It's a dynamic one, so free from the heap */
         DPRINT("Freeing from Heap: %p inside Process: %p\n",
                DebugInfo,
-               NtCurrentTeb()->ClientId.UniqueProcess);
+               NtCurrentTeb()->Cid.UniqueProcess);
         RtlFreeHeap(NtCurrentPeb()->ProcessHeap, 0, DebugInfo);
 
     }
@@ -361,21 +358,14 @@ RtlDeleteCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
     /* Protect List */
     RtlEnterCriticalSection(&RtlCriticalSectionLock);
 
-    if (CriticalSection->DebugInfo)
-    {
-        /* Remove it from the list */
-        RemoveEntryList(&CriticalSection->DebugInfo->ProcessLocksList);
-        RtlZeroMemory(CriticalSection->DebugInfo, sizeof(RTL_CRITICAL_SECTION_DEBUG));
-    }
+    /* Remove it from the list */
+    RemoveEntryList(&CriticalSection->DebugInfo->ProcessLocksList);
 
     /* Unprotect */
     RtlLeaveCriticalSection(&RtlCriticalSectionLock);
 
-    if (CriticalSection->DebugInfo)
-    {
-        /* Free it */
-        RtlpFreeDebugInfo(CriticalSection->DebugInfo);
-    }
+    /* Free it */
+    RtlpFreeDebugInfo(CriticalSection->DebugInfo);
 
     /* Wipe it out */
     RtlZeroMemory(CriticalSection, sizeof(RTL_CRITICAL_SECTION));
@@ -434,10 +424,10 @@ NTSTATUS
 NTAPI
 RtlEnterCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
 {
-    HANDLE Thread = (HANDLE)NtCurrentTeb()->ClientId.UniqueThread;
+    HANDLE Thread = (HANDLE)NtCurrentTeb()->Cid.UniqueThread;
 
     /* Try to Lock it */
-    if (_InterlockedIncrement(&CriticalSection->LockCount) != 0) {
+    if (InterlockedIncrement(&CriticalSection->LockCount) != 0) {
 
         /*
          * We've failed to lock it! Does this thread
@@ -532,7 +522,7 @@ RtlInitializeCriticalSectionAndSpinCount(PRTL_CRITICAL_SECTION CriticalSection,
     CritcalSectionDebugData = RtlpAllocateDebugInfo();
     DPRINT("Allocated Debug Data: %p inside Process: %p\n",
            CritcalSectionDebugData,
-           NtCurrentTeb()->ClientId.UniqueProcess);
+           NtCurrentTeb()->Cid.UniqueProcess);
 
     if (!CritcalSectionDebugData) {
 
@@ -621,7 +611,7 @@ RtlLeaveCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
     if (--CriticalSection->RecursionCount) {
 
         /* Someone still owns us, but we are free. This needs to be done atomically. */
-        _InterlockedDecrement(&CriticalSection->LockCount);
+        InterlockedDecrement(&CriticalSection->LockCount);
 
     } else {
 
@@ -630,7 +620,7 @@ RtlLeaveCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
         CriticalSection->OwningThread = 0;
 
         /* Was someone wanting us? This needs to be done atomically. */
-        if (-1 != _InterlockedDecrement(&CriticalSection->LockCount)) {
+        if (-1 != InterlockedDecrement(&CriticalSection->LockCount)) {
 
             /* Let him have us */
             RtlpUnWaitCriticalSection(CriticalSection);
@@ -662,19 +652,19 @@ NTAPI
 RtlTryEnterCriticalSection(PRTL_CRITICAL_SECTION CriticalSection)
 {
     /* Try to take control */
-    if (_InterlockedCompareExchange(&CriticalSection->LockCount,
-                                    0,
-                                    -1) == -1) {
+    if (InterlockedCompareExchange(&CriticalSection->LockCount,
+                                   0,
+                                   -1) == -1) {
 
         /* It's ours */
-        CriticalSection->OwningThread =  NtCurrentTeb()->ClientId.UniqueThread;
+        CriticalSection->OwningThread =  NtCurrentTeb()->Cid.UniqueThread;
         CriticalSection->RecursionCount = 1;
         return TRUE;
 
-   } else if (CriticalSection->OwningThread == NtCurrentTeb()->ClientId.UniqueThread) {
+   } else if (CriticalSection->OwningThread == NtCurrentTeb()->Cid.UniqueThread) {
 
         /* It's already ours */
-        _InterlockedIncrement(&CriticalSection->LockCount);
+        InterlockedIncrement(&CriticalSection->LockCount);
         CriticalSection->RecursionCount++;
         return TRUE;
     }

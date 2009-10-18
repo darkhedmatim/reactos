@@ -7,7 +7,7 @@
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CTEAllocateString (
 	ULONG	Unknown0,
 	ULONG	Unknown1
@@ -21,7 +21,7 @@ CTEAllocateString (
  * @unimplemented
  */
 BOOLEAN
-NTAPI
+STDCALL
 CTEInitString (
 	ULONG	Unknown0,
 	ULONG	Unknown1

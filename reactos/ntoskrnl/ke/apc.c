@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            ntoskrnl/ke/apc.c
- * PURPOSE:         Implements the Asynchronous Procedure Call mechanism
+ * PURPOSE:         Implements the Asyncronous Procedure Call mechanism
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
  */
 
@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -27,29 +27,27 @@
  * @return None.
  *
  * @remarks This routine allows KeLeave/EnterCritical/GuardedRegion to be used
- *          as macros from inside WIN32K or other Drivers, which will then only
- *          have to do an Import API call in the case where APCs are enabled again.
+ *          as macro from inside WIN32K or other Drivers, which will then only
+ *          have do an Import API call in the case where APCs are enabled again.
  *
  *--*/
 VOID
 NTAPI
 KiCheckForKernelApcDelivery(VOID)
 {
-    KIRQL OldIrql;
-
     /* We should only deliver at passive */
     if (KeGetCurrentIrql() == PASSIVE_LEVEL)
     {
         /* Raise to APC and Deliver APCs, then lower back to Passive */
-        KeRaiseIrql(APC_LEVEL, &OldIrql);
+        KfRaiseIrql(APC_LEVEL);
         KiDeliverApc(KernelMode, 0, 0);
-        KeLowerIrql(PASSIVE_LEVEL);
+        KfLowerIrql(PASSIVE_LEVEL);
     }
     else
     {
         /*
          * If we're not at passive level it means someone raised IRQL
-         * to APC level before the critical or guarded section was entered
+         * to APC level before the a critical or guarded section was entered
          * (e.g) by a fast mutex). This implies that the APCs shouldn't
          * be delivered now, but after the IRQL is lowered to passive
          * level again.
@@ -66,7 +64,7 @@ KiCheckForKernelApcDelivery(VOID)
  *     scheduler environment exists.
  *
  * @param Apc
- *        Pointer to an initialized control object of type APC for which the
+ *        Pointer to an initialized control object of type DPC for which the
  *        caller provides the storage.
  *
  * @param PriorityBoost
@@ -90,9 +88,8 @@ KiInsertQueueApc(IN PKAPC Apc,
     KPROCESSOR_MODE ApcMode;
     PLIST_ENTRY ListHead, NextEntry;
     PKAPC QueuedApc;
-    PKGATE Gate;
     NTSTATUS Status;
-    BOOLEAN RequestInterrupt = FALSE;
+    BOOLEAN RequestInterrupt;
 
     /*
      * Check if the caller wanted this APC to use the thread's environment at
@@ -138,20 +135,23 @@ KiInsertQueueApc(IN PKAPC Apc,
     }
     else
     {
-        /* Special APC, find the last one in the list */
+        /* Special APC, find the first Normal APC in the list */
         ListHead = &ApcState->ApcListHead[ApcMode];
-        NextEntry = ListHead->Blink;
-        while (NextEntry != ListHead)
+        NextEntry = ListHead->Flink;
+        while(NextEntry != ListHead)
         {
             /* Get the APC */
             QueuedApc = CONTAINING_RECORD(NextEntry, KAPC, ApcListEntry);
 
-            /* Is this a No-Normal APC? If so, break */
-            if (!QueuedApc->NormalRoutine) break;
+            /* Is this a Normal APC? If so, break */
+            if (QueuedApc->NormalRoutine) break;
 
-            /* Move to the previous APC in the Queue */
-            NextEntry = NextEntry->Blink;
+            /* Move to the next APC in the Queue */
+            NextEntry = NextEntry->Flink;
         }
+
+        /* Move to the APC before this one (ie: the last Special APC) */
+        NextEntry = NextEntry->Blink;
 
         /* Insert us here */
         InsertHeadList(NextEntry, &Apc->ApcListEntry);
@@ -160,7 +160,7 @@ KiInsertQueueApc(IN PKAPC Apc,
     /* Now check if the Apc State Indexes match */
     if (Thread->ApcStateIndex == Apc->ApcStateIndex)
     {
-        /* Check that the thread matches */
+        /* Check that if the thread matches */
         if (Thread == KeGetCurrentThread())
         {
             /* Sanity check */
@@ -185,8 +185,23 @@ KiInsertQueueApc(IN PKAPC Apc,
             /* Acquire the dispatcher lock */
             KiAcquireDispatcherLock();
 
-            /* Check if this is a kernel-mode APC */
-            if (ApcMode == KernelMode)
+            /* Check if this is a non-kernel mode APC */
+            if (ApcMode != KernelMode)
+            {
+                /*
+                 * Not a Kernel-Mode APC. Are we waiting in user-mode?
+                 * If so, then are we alertable or already have an APC pending?
+                 */
+                if (((Thread->State == Waiting) && (Thread->WaitMode == UserMode)) &&
+                    ((Thread->Alertable) || (Thread->ApcState.UserApcPending)))
+                {
+                    /* Set user-mode APC pending */
+                    Thread->ApcState.UserApcPending = TRUE;
+                    Status = STATUS_USER_APC;
+                    goto Unwait;
+                }
+            }
+            else
             {
                 /* Kernel-mode APC, set us pending */
                 Thread->ApcState.KernelApcPending = TRUE;
@@ -196,71 +211,45 @@ KiInsertQueueApc(IN PKAPC Apc,
                 {
                     /* The thread is running, so remember to send a request */
                     RequestInterrupt = TRUE;
+#ifndef CONFIG_SMP
+                    /* On UP systems, request it immediately */
+                    HalRequestSoftwareInterrupt(APC_LEVEL);
+#endif
                 }
-                else if ((Thread->State == Waiting) &&
-                         (Thread->WaitIrql == PASSIVE_LEVEL) &&
-                         !(Thread->SpecialApcDisable) &&
-                         (!(Apc->NormalRoutine) ||
-                          (!(Thread->KernelApcDisable) &&
-                           !(Thread->ApcState.KernelApcInProgress))))
+                else
                 {
-                    /* We'll unwait with this status */
-                    Status = STATUS_KERNEL_APC;
-
-                    /* Wake up the thread */
-                    KiUnwaitThread(Thread, Status, PriorityBoost);
-                }
-                else if (Thread->State == GateWait)
-                {
-                    /* Lock the thread */
-                    KiAcquireThreadLock(Thread);
-                    
-                    /* Essentially do the same check as above */
-                    if ((Thread->State == GateWait) &&
+                    /*
+                     * If the thread is Waiting at PASSIVE_LEVEL AND
+                     *      Special APCs are not disabled AND
+                     *          He is a Normal APC AND
+                     *              Kernel APCs are not disabled AND
+                     *                  Kernel APC is not pending OR
+                     *          He is a Special APC THEN
+                     *              Unwait thread with STATUS_KERNEL_APC
+                     */
+                    if ((Thread->State == Waiting) &&
                         (Thread->WaitIrql == PASSIVE_LEVEL) &&
                         !(Thread->SpecialApcDisable) &&
                         (!(Apc->NormalRoutine) ||
                          (!(Thread->KernelApcDisable) &&
                           !(Thread->ApcState.KernelApcInProgress))))
                     {
-                        /* We were in a gate wait. Handle this. */
-                        DPRINT1("A thread was in a gate wait\n");
-                        
-                        /* Get the gate */
-                        Gate = Thread->GateObject;
+                        /* We'll unwait with this status */
+                        Status = STATUS_KERNEL_APC;
 
-                        /* Lock the gate */
-                        KiAcquireDispatcherObject(&Gate->Header);
-                        
-                        /* Remove it from the waiters list */
-                        RemoveEntryList(&Thread->WaitBlock[0].WaitListEntry);
-                        
-                        /* Unlock the gate */
-                        KiReleaseDispatcherObject(&Gate->Header);
-                        
-                        /* Increase the queue counter if needed */
-                        if (Thread->Queue) Thread->Queue->CurrentCount++;
-                        
-                        /* Put into deferred ready list with this status */
-                        Thread->WaitStatus = STATUS_KERNEL_APC;
-                        KiInsertDeferredReadyList(Thread);
+                        /* Wake up the thread */
+Unwait:
+                        KiUnwaitThread(Thread, Status, PriorityBoost);
                     }
-                    
-                    /* Release the thread lock */
-                    KiReleaseThreadLock(Thread);
+                    else
+                    {
+                        /* Check if the thread is in a deferred ready state */
+                        if (Thread->State == DeferredReady)
+                        {
+                            /* FIXME: TODO in new scheduler */
+                        }
+                    }
                 }
-            }
-            else if ((Thread->State == Waiting) &&
-                     (Thread->WaitMode == UserMode) &&
-                     ((Thread->Alertable) ||
-                      (Thread->ApcState.UserApcPending)))
-            {
-                /* Set user-mode APC pending */
-                Thread->ApcState.UserApcPending = TRUE;
-                Status = STATUS_USER_APC;
-
-                /* Wake up the thread */
-                KiUnwaitThread(Thread, Status, PriorityBoost);
             }
 
             /* Release dispatcher lock */
@@ -344,7 +333,7 @@ KiDeliverApc(IN KPROCESSOR_MODE DeliveryMode,
         ApcListEntry = Thread->ApcState.ApcListHead[KernelMode].Flink;
         Apc = CONTAINING_RECORD(ApcListEntry, KAPC, ApcListEntry);
 
-        /* Save Parameters so that it's safe to free the Object in the Kernel Routine*/
+        /* Save Parameters so that it's safe to free the Object in Kernel Routine*/
         NormalRoutine = Apc->NormalRoutine;
         KernelRoutine = Apc->KernelRoutine;
         NormalContext = Apc->NormalContext;
@@ -358,7 +347,7 @@ KiDeliverApc(IN KPROCESSOR_MODE DeliveryMode,
             RemoveEntryList(ApcListEntry);
             Apc->Inserted = FALSE;
 
-            /* Release the APC lock */
+            /* Rrelease the APC lock */
             KiReleaseApcLock(&ApcLock);
 
             /* Call the Special APC */
@@ -415,14 +404,14 @@ KiDeliverApc(IN KPROCESSOR_MODE DeliveryMode,
                              (ULONG_PTR)NormalRoutine);
             }
 
-            /* Check if there still is a Normal Routine */
+            /* Check if There still is a Normal Routine */
             if (NormalRoutine)
             {
                 /* At Passive Level, an APC can be prempted by a Special APC */
                 Thread->ApcState.KernelApcInProgress = TRUE;
                 KeLowerIrql(PASSIVE_LEVEL);
 
-                /* Call and Raise IRQL back to APC_LEVEL */
+                /* Call and Raise IRQ back to APC_LEVEL */
                 NormalRoutine(NormalContext, SystemArgument1, SystemArgument2);
                 KeRaiseIrql(APC_LEVEL, &ApcLock.OldIrql);
             }
@@ -455,7 +444,7 @@ KiDeliverApc(IN KPROCESSOR_MODE DeliveryMode,
         ApcListEntry = Thread->ApcState.ApcListHead[UserMode].Flink;
         Apc = CONTAINING_RECORD(ApcListEntry, KAPC, ApcListEntry);
 
-        /* Save Parameters so that it's safe to free the Object in the Kernel Routine*/
+        /* Save Parameters so that it's safe to free the Object in Kernel Routine*/
         NormalRoutine = Apc->NormalRoutine;
         KernelRoutine = Apc->KernelRoutine;
         NormalContext = Apc->NormalContext;
@@ -497,7 +486,7 @@ Quickie:
     if (Process != Thread->ApcState.Process)
     {
         /* Erm, we got attached or something! BAD! */
-        KeBugCheckEx(INVALID_PROCESS_ATTACH_ATTEMPT,
+        KEBUGCHECKEX(INVALID_PROCESS_ATTACH_ATTEMPT,
                      (ULONG_PTR)Process,
                      (ULONG_PTR)Thread->ApcState.Process,
                      Thread->ApcStateIndex,
@@ -536,11 +525,11 @@ KiMoveApcState(PKAPC_STATE OldState,
                PKAPC_STATE NewState)
 {
     /* Restore backup of Original Environment */
-    RtlCopyMemory(NewState, OldState, KAPC_STATE_ACTUAL_LENGTH);
+    *NewState = *OldState;
 
     /* Repair Lists */
-    RepairList(OldState->ApcListHead, NewState->ApcListHead, KernelMode);
-    RepairList(OldState->ApcListHead, NewState->ApcListHead, UserMode);
+    RepairList(NewState->ApcListHead, OldState->ApcListHead, KernelMode);
+    RepairList(NewState->ApcListHead, OldState->ApcListHead, UserMode);
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/
@@ -603,7 +592,7 @@ _KeLeaveCriticalRegion(VOID)
  * KeInitializeApc
  * @implemented NT4
  *
- *     The KeInitializeApc routine initializes an APC object, and registers
+ *     The The KeInitializeApc routine initializes an APC object, and registers
  *     the Kernel, Rundown and Normal routines for that object.
  *
  * @param Apc
@@ -623,7 +612,7 @@ _KeLeaveCriticalRegion(VOID)
  *
  * @param RundownRoutine
  *        Points to the RundownRoutine to associate with the APC.
- *        This routine is executed when the Thread exits during APC execution.
+ *        This routine is executed when the Thread exists during APC execution.
  *
  * @param NormalRoutine
  *        Points to the NormalRoutine to associate with the APC.
@@ -697,7 +686,7 @@ KeInitializeApc(IN PKAPC Apc,
         Apc->NormalContext = NULL;
     }
 
-    /* The APC is not inserted */
+    /* The APC is not inserted*/
     Apc->Inserted = FALSE;
 }
 
@@ -709,7 +698,7 @@ KeInitializeApc(IN PKAPC Apc,
  *     scheduler environment exists.
  *
  * @param Apc
- *        Pointer to an initialized control object of type APC for which the
+ *        Pointer to an initialized control object of type DPC for which the
  *        caller provides the storage.
  *
  * @param SystemArgument[1,2]
@@ -744,7 +733,7 @@ KeInsertQueueApc(IN PKAPC Apc,
     KiAcquireApcLock(Thread, &ApcLock);
 
     /* Make sure we can Queue APCs and that this one isn't already inserted */
-    if (!(Thread->ApcQueueable) || (Apc->Inserted))
+    if (!(Thread->ApcQueueable) && (Apc->Inserted))
     {
         /* Fail */
         State = FALSE;
@@ -761,7 +750,7 @@ KeInsertQueueApc(IN PKAPC Apc,
     }
 
     /* Release the APC lock and return success */
-    KiReleaseApcLockFromDpcLevel(&ApcLock);
+    KiReleaseApcLock(&ApcLock);
     KiExitDispatcher(ApcLock.OldIrql);
     return State;
 }
@@ -776,7 +765,7 @@ KeInsertQueueApc(IN PKAPC Apc,
  * @param Thread
  *        Pointer to the thread whose APC queue will be flushed.
  *
- * @param PreviousMode
+ * @paramt PreviousMode
  *         Specifies which APC Queue to flush.
  *
  * @return A pointer to the first entry in the flushed APC queue.
@@ -865,7 +854,7 @@ FlushDone:
  *     The KeRemoveQueueApc routine removes a given APC object from the system
  *     APC queue.
  *
- * @param Apc
+ * @params Apc
  *         Pointer to an initialized APC object that was queued by calling
  *         KeInsertQueueApc.
  *
@@ -902,7 +891,10 @@ KeRemoveQueueApc(IN PKAPC Apc)
 
         /* Acquire the dispatcher lock and remove it from the list */
         KiAcquireDispatcherLockAtDpcLevel();
-        if (RemoveEntryList(&Apc->ApcListEntry))
+        RemoveEntryList(&Apc->ApcListEntry);
+
+        /* If the Queue is completely empty, then no more APCs are pending */
+        if (IsListEmpty(&ApcState->ApcListHead[Apc->ApcMode]))
         {
             /* Set the correct state based on the APC Mode */
             if (Apc->ApcMode == KernelMode)
@@ -939,7 +931,7 @@ KeRemoveQueueApc(IN PKAPC Apc)
  *         region or a guarded region, and FALSE otherwise.
  *
  * @remarks A thread running at IRQL = PASSIVE_LEVEL can use KeAreApcsDisabled
- *          to determine if normal kernel APCs are disabled.
+ *          determine if normal kernel APCs are disabled.
  *
  *          A thread that is inside critical region has both user APCs and
  *          normal kernel APCs disabled, but not special kernel APCs.
@@ -963,7 +955,7 @@ KeAreApcsDisabled(VOID)
  * @implemented NT5.1
  *
  *    The KeAreAllApcsDisabled routine returns whether the calling thread is
- *    inside a guarded region or running at IRQL >= APC_LEVEL, which disables
+ *    inside a guarded region or running at IRQL = APC_LEVEL, which disables
  *    all APC delivery.
  *
  * @param None.
@@ -972,7 +964,7 @@ KeAreApcsDisabled(VOID)
  *         guarded region or running at IRQL >= APC_LEVEL, and FALSE otherwise.
  *
  * @remarks A thread running at IRQL = PASSIVE_LEVEL can use this routine to
- *          determine if all APC delivery is disabled.
+ *          determine if all APCs delivery is disabled.
  *
  *          Callers of this routine must be running at IRQL <= DISPATCH_LEVEL.
  *
@@ -985,3 +977,5 @@ KeAreAllApcsDisabled(VOID)
     return ((KeGetCurrentThread()->SpecialApcDisable) ||
             (KeGetCurrentIrql() >= APC_LEVEL)) ? TRUE : FALSE;
 }
+
+

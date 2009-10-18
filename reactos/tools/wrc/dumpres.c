@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -203,12 +203,12 @@ static void dump_lvc(const lvc_t *l)
 		printf("LANGUAGE <not set>\n");
 
 	if(l->version)
-		printf("VERSION %08x\n", *(l->version));
+		printf("VERSION %08lx\n", *(l->version));
 	else
 		printf("VERSION <not set>\n");
 
 	if(l->characts)
-		printf("CHARACTERISTICS %08x\n", *(l->characts));
+		printf("CHARACTERISTICS %08lx\n", *(l->characts));
 	else
 		printf("CHARACTERISTICS <not set>\n");
 }
@@ -537,16 +537,16 @@ static void dump_control(const control_t *ctrl)
 	{
 		assert(ctrl->style != NULL);
 		assert(ctrl->style->and_mask == 0);
-		printf("\tStyle: %08x\n", ctrl->style->or_mask);
+		printf("\tStyle: %08lx\n", ctrl->style->or_mask);
 	}
 	if(ctrl->gotexstyle)
 	{
 		assert(ctrl->exstyle != NULL);
 		assert(ctrl->exstyle->and_mask == 0);
-		printf("\tExStyle: %08x\n", ctrl->exstyle->or_mask);
+		printf("\tExStyle: %08lx\n", ctrl->exstyle->or_mask);
 	}
 	if(ctrl->gothelpid)
-		printf("\tHelpid: %d\n", ctrl->helpid);
+		printf("\tHelpid: %ld\n", ctrl->helpid);
 	if(ctrl->extra)
 	{
 		printf("\t");
@@ -577,14 +577,14 @@ static void dump_dialog(const dialog_t *dlg)
 	{
 		assert(dlg->style != NULL);
 		assert(dlg->style->and_mask == 0);
-		printf("Style: %08x\n", dlg->style->or_mask);
+		printf("Style: %08lx\n", dlg->style->or_mask);
 
 	}
 	if(dlg->gotexstyle)
 	{
 		assert(dlg->exstyle != NULL);
 		assert(dlg->exstyle->and_mask == 0);
-		printf("ExStyle: %08x\n", dlg->exstyle->or_mask);
+		printf("ExStyle: %08lx\n", dlg->exstyle->or_mask);
 	}
 	printf("Menu: %s\n", get_nameid_str(dlg->menu));
 	printf("Class: %s\n", get_nameid_str(dlg->dlgclass));
@@ -627,16 +627,16 @@ static void dump_dialogex(const dialogex_t *dlgex)
 	{
 		assert(dlgex->style != NULL);
 		assert(dlgex->style->and_mask == 0);
-		printf("Style: %08x\n", dlgex->style->or_mask);
+		printf("Style: %08lx\n", dlgex->style->or_mask);
 	}
 	if(dlgex->gotexstyle)
 	{
 		assert(dlgex->exstyle != NULL);
 		assert(dlgex->exstyle->and_mask == 0);
-		printf("ExStyle: %08x\n", dlgex->exstyle->or_mask);
+		printf("ExStyle: %08lx\n", dlgex->exstyle->or_mask);
 	}
 	if(dlgex->gothelpid)
-		printf("Helpid: %d\n", dlgex->helpid);
+		printf("Helpid: %ld\n", dlgex->helpid);
 	printf("Menu: %s\n", get_nameid_str(dlgex->menu));
 	printf("Class: %s\n", get_nameid_str(dlgex->dlgclass));
 	printf("Title: "); print_string(dlgex->title); printf("\n");
@@ -683,7 +683,7 @@ static void dump_menu_item(const menu_item_t *item)
 			if(item->name)
 			{
 				print_string(item->name);
-				printf(", %d, %08x", item->id, item->state);
+				printf(", %d, %08lx", item->id, item->state);
 			}
 			else
 				printf("SEPARATOR");
@@ -732,9 +732,9 @@ static void dump_menuex_item(const menuex_item_t *item)
 			if(item->gotid)
 				printf(", Id=%d", item->id);
 			if(item->gottype)
-				printf(", Type=%d", item->type);
+				printf(", Type=%ld", item->type);
 			if(item->gotstate)
-				printf(", State=%08x", item->state);
+				printf(", State=%08lx", item->state);
 			if(item->gothelpid)
 				printf(", HelpId=%d", item->helpid);
 			printf("\n");
@@ -749,9 +749,9 @@ static void dump_menuex_item(const menuex_item_t *item)
 				if(item->gotid)
 					printf(", Id=%d", item->id);
 				if(item->gottype)
-					printf(", Type=%d", item->type);
+					printf(", Type=%ld", item->type);
 				if(item->gotstate)
-					printf(", State=%08x", item->state);
+					printf(", State=%08lx", item->state);
 				if(item->gothelpid)
 					printf(", HelpId=%d", item->helpid);
 			}

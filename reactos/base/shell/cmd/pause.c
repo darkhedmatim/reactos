@@ -13,11 +13,12 @@
  *    27-Jul-1998 (John P Price <linux-guru@gcfl.net>)
  *        added config.h include
  *
- *    18-Jan-1999 (Eric Kohl)
+ *    18-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Unicode ready!
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_PAUSE
 
@@ -34,10 +35,12 @@
  *        Remove all hardcode string to En.rc
  */
 
-INT cmd_pause (LPTSTR param)
+INT cmd_pause (LPTSTR cmd, LPTSTR param)
 {
 
-	TRACE ("cmd_pause: \'%s\')\n", debugstr_aw(param));
+#ifdef _DEBUG
+	DebugPrintf (_T("cmd_pause: \'%s\' : \'%s\')\n"), cmd, param);
+#endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2003 Michael GÃ¼nnewig
+ * Copyright 2002-2003 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,10 +16,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include <assert.h>
 #include <stdarg.h>
 
 #include "windef.h"
 #include "winbase.h"
+#include "winnls.h"
 #include "wingdi.h"
 #include "winuser.h"
 #include "vfw.h"
@@ -140,7 +142,6 @@ static HRESULT WINAPI IGetFrame_fnQueryInterface(IGetFrame *iface,
   if (IsEqualGUID(&IID_IUnknown, refiid) ||
       IsEqualGUID(&IID_IGetFrame, refiid)) {
     *obj = iface;
-    IGetFrame_AddRef(iface);
     return S_OK;
   }
 
@@ -213,7 +214,7 @@ static LPVOID  WINAPI IGetFrame_fnGetFrame(IGetFrame *iface, LONG lPos)
       if (This->lpOutFormat != NULL) {
 	BITMAPINFOHEADER bi;
 
-	bi = *This->lpOutFormat;
+	memcpy(&bi, This->lpOutFormat, sizeof(bi));
 	AVIFILE_CloseCompressor(This);
 
 	if (FAILED(IGetFrame_SetFormat(iface, &bi, NULL, 0, 0, -1, -1))) {

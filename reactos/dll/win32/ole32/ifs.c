@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -56,7 +56,7 @@ typedef struct {
 	DWORD SpyedAllocationsLeft; /* number of spyed allocations left */
 	BOOL SpyReleasePending;     /* CoRevokeMallocSpy called with spyed allocations left*/
         LPVOID * SpyedBlocks;       /* root of the table */
-        DWORD SpyedBlockTableLength;/* size of the table*/
+        int SpyedBlockTableLength;  /* size of the table*/
 } _Malloc32;
 
 /* this is the static object instance */
@@ -73,7 +73,7 @@ static CRITICAL_SECTION_DEBUG critsect_debug =
 static CRITICAL_SECTION IMalloc32_SpyCS = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 /* resize the old table */
-static int SetSpyedBlockTableLength ( DWORD NewLength )
+static int SetSpyedBlockTableLength ( int NewLength )
 {
 	LPVOID *NewSpyedBlocks;
 
@@ -103,9 +103,7 @@ static int AddMemoryLocation(LPVOID * pMem)
             Current++;
 	    if (Current >= Malloc32.SpyedBlocks + Malloc32.SpyedBlockTableLength) {
 	        /* no more space in table, grow it */
-                DWORD old_length = Malloc32.SpyedBlockTableLength;
 	        if (!SetSpyedBlockTableLength( Malloc32.SpyedBlockTableLength + 0x1000 )) return 0;
-                Current = Malloc32.SpyedBlocks + old_length;
 	    }
 	};
 
@@ -116,7 +114,7 @@ static int AddMemoryLocation(LPVOID * pMem)
         return 1;
 }
 
-static int RemoveMemoryLocation(LPCVOID pMem)
+static int RemoveMemoryLocation(LPVOID * pMem)
 {
         LPVOID * Current;
 
@@ -148,7 +146,7 @@ static HRESULT WINAPI IMalloc_fnQueryInterface(LPMALLOC iface,REFIID refiid,LPVO
 	TRACE("(%s,%p)\n",debugstr_guid(refiid),obj);
 
 	if (IsEqualIID(&IID_IUnknown,refiid) || IsEqualIID(&IID_IMalloc,refiid)) {
-		*obj = &Malloc32;
+		*obj = (LPMALLOC)&Malloc32;
 		return S_OK;
 	}
 	return E_NOINTERFACE;
@@ -168,7 +166,7 @@ static LPVOID WINAPI IMalloc_fnAlloc(LPMALLOC iface, DWORD cb) {
 
 	LPVOID addr;
 
-	TRACE("(%d)\n",cb);
+	TRACE("(%ld)\n",cb);
 
 	if(Malloc32.pSpy) {
 	    DWORD preAllocResult;
@@ -202,7 +200,7 @@ static LPVOID WINAPI IMalloc_fnRealloc(LPMALLOC iface,LPVOID pv,DWORD cb) {
 
 	LPVOID pNewMemory;
 
-	TRACE("(%p,%d)\n",pv,cb);
+	TRACE("(%p,%ld)\n",pv,cb);
 
 	if(Malloc32.pSpy) {
 	    LPVOID pRealMemory;
@@ -383,7 +381,7 @@ static HRESULT WINAPI IMallocSpy_fnQueryInterface(LPMALLOCSPY iface,REFIID refii
 	TRACE("(%s,%p)\n",debugstr_guid(refiid),obj);
 
 	if (IsEqualIID(&IID_IUnknown,refiid) || IsEqualIID(&IID_IMallocSpy,refiid)) {
-		*obj = &MallocSpy;
+		*obj = (LPMALLOC)&MallocSpy;
 		return S_OK;
 	}
 	return E_NOINTERFACE;
@@ -398,7 +396,7 @@ static ULONG WINAPI IMallocSpy_fnAddRef (LPMALLOCSPY iface)
     _MallocSpy *This = (_MallocSpy *)iface;
     ULONG ref = InterlockedIncrement(&This->ref);
 
-    TRACE ("(%p)->(count=%u)\n", This, ref - 1);
+    TRACE ("(%p)->(count=%lu)\n", This, ref - 1);
 
     return ref;
 }
@@ -415,7 +413,7 @@ static ULONG WINAPI IMallocSpy_fnRelease (LPMALLOCSPY iface)
     _MallocSpy *This = (_MallocSpy *)iface;
     ULONG ref = InterlockedDecrement(&This->ref);
 
-    TRACE ("(%p)->(count=%u)\n", This, ref + 1);
+    TRACE ("(%p)->(count=%lu)\n", This, ref + 1);
 
     if (!ref) {
         /* our allocation list MUST be empty here */
@@ -426,7 +424,7 @@ static ULONG WINAPI IMallocSpy_fnRelease (LPMALLOCSPY iface)
 static ULONG WINAPI IMallocSpy_fnPreAlloc(LPMALLOCSPY iface, ULONG cbRequest)
 {
     _MallocSpy *This = (_MallocSpy *)iface;
-    TRACE ("(%p)->(%u)\n", This, cbRequest);
+    TRACE ("(%p)->(%lu)\n", This, cbRequest);
     return cbRequest;
 }
 static PVOID WINAPI IMallocSpy_fnPostAlloc(LPMALLOCSPY iface, void* pActual)
@@ -451,7 +449,7 @@ static void  WINAPI IMallocSpy_fnPostFree(LPMALLOCSPY iface, BOOL fSpyed)
 static ULONG WINAPI IMallocSpy_fnPreRealloc(LPMALLOCSPY iface, void* pRequest, ULONG cbRequest, void** ppNewRequest, BOOL fSpyed)
 {
     _MallocSpy *This = (_MallocSpy *)iface;
-    TRACE ("(%p)->(%p %u %u)\n", This, pRequest, cbRequest, fSpyed);
+    TRACE ("(%p)->(%p %lu %u)\n", This, pRequest, cbRequest, fSpyed);
     *ppNewRequest = pRequest;
     return cbRequest;
 }
@@ -473,7 +471,7 @@ static PVOID WINAPI IMallocSpy_fnPreGetSize(LPMALLOCSPY iface, void* pRequest, B
 static ULONG WINAPI IMallocSpy_fnPostGetSize(LPMALLOCSPY iface, ULONG cbActual, BOOL fSpyed)
 {
     _MallocSpy *This = (_MallocSpy *)iface;
-    TRACE ("(%p)->(%u %u)\n", This, cbActual, fSpyed);
+    TRACE ("(%p)->(%lu %u)\n", This, cbActual, fSpyed);
     return cbActual;
 }
 
@@ -504,7 +502,7 @@ static void WINAPI IMallocSpy_fnPostHeapMinimize(LPMALLOCSPY iface)
 }
 
 static void MallocSpyDumpLeaks(void) {
-        TRACE("leaks: %u\n", Malloc32.SpyedAllocationsLeft);
+        TRACE("leaks: %lu\n", Malloc32.SpyedAllocationsLeft);
 }
 
 static const IMallocSpyVtbl VT_IMallocSpy =
@@ -640,7 +638,7 @@ HRESULT WINAPI CoRegisterMallocSpy(LPMALLOCSPY pMallocSpy)
 /***********************************************************************
  *           CoRevokeMallocSpy  [OLE32.@]
  *
- * Revokes a previously registered object that receives notifications on memory
+ * Revokes a previousl registered object that receives notifications on memory
  * allocations and frees.
  *
  * PARAMS
@@ -667,7 +665,7 @@ HRESULT WINAPI CoRevokeMallocSpy(void)
 	}
 
 	if (Malloc32.SpyedAllocationsLeft) {
-            TRACE("SpyReleasePending with %u allocations left\n", Malloc32.SpyedAllocationsLeft);
+	    TRACE("SpyReleasePending with %lu allocations left\n", Malloc32.SpyedAllocationsLeft);
 	    Malloc32.SpyReleasePending = TRUE;
 	    hres = E_ACCESSDENIED;
 	} else {

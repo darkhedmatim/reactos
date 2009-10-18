@@ -27,25 +27,17 @@
 NOTEPAD_GLOBALS Globals;
 static ATOM aFINDMSGSTRING;
 
-VOID NOTEPAD_EnableSearchMenu()
-{
-    EnableMenuItem(GetMenu(Globals.hMainWnd), CMD_SEARCH,
-                   MF_BYCOMMAND | ((GetWindowTextLength(Globals.hEdit) == 0) ? MF_DISABLED | MF_GRAYED : MF_ENABLED));
-    EnableMenuItem(GetMenu(Globals.hMainWnd), CMD_SEARCH_NEXT,
-                   MF_BYCOMMAND | ((GetWindowTextLength(Globals.hEdit) == 0) ? MF_DISABLED | MF_GRAYED : MF_ENABLED));
-}
-
 /***********************************************************************
  *
  *           SetFileName
  *
  *  Sets Global File Name.
  */
-VOID SetFileName(LPCTSTR szFileName)
+VOID SetFileName(LPCWSTR szFileName)
 {
-    _tcscpy(Globals.szFileName, szFileName);
+    lstrcpy(Globals.szFileName, szFileName);
     Globals.szFileTitle[0] = 0;
-    GetFileTitle(szFileName, Globals.szFileTitle, SIZEOF(Globals.szFileTitle));
+    GetFileTitle(szFileName, Globals.szFileTitle, sizeof(Globals.szFileTitle) / sizeof(Globals.szFileTitle[0]));
 }
 
 /***********************************************************************
@@ -91,7 +83,7 @@ static int NOTEPAD_MenuCommand(WPARAM wParam)
     case CMD_ABOUT:            DialogBox(GetModuleHandle(NULL),
                                          MAKEINTRESOURCE(IDD_ABOUTBOX),
                                          Globals.hMainWnd,
-                                         AboutDialogProc);
+                                         (DLGPROC) AboutDialogProc);
                                break;
     case CMD_ABOUT_WINE:       DIALOG_HelpAboutWine(); break;
 
@@ -252,17 +244,18 @@ static VOID NOTEPAD_FindTerm(VOID)
  */
 static VOID NOTEPAD_InitData(VOID)
 {
-    LPTSTR p = Globals.szFilter;
-    static const TCHAR txt_files[] = _T("*.txt");
-    static const TCHAR all_files[] = _T("*.*");
+    LPWSTR p = Globals.szFilter;
+    static const WCHAR txt_files[] = { '*','.','t','x','t',0 };
+    static const WCHAR all_files[] = { '*','.','*',0 };
 
-    p += LoadString(Globals.hInstance, STRING_TEXT_FILES_TXT, p, MAX_STRING_LEN)+1;
-    _tcscpy(p, txt_files);
-    p += SIZEOF(txt_files);
-
-    p += LoadString(Globals.hInstance, STRING_ALL_FILES, p, MAX_STRING_LEN)+1;
-    _tcscpy(p, all_files);
-    p += SIZEOF(all_files);
+    LoadString(Globals.hInstance, STRING_TEXT_FILES_TXT, p, MAX_STRING_LEN);
+    p += lstrlen(p) + 1;
+    lstrcpy(p, txt_files);
+    p += lstrlen(p) + 1;
+    LoadString(Globals.hInstance, STRING_ALL_FILES, p, MAX_STRING_LEN);
+    p += lstrlen(p) + 1;
+    lstrcpy(p, all_files);
+    p += lstrlen(p) + 1;
     *p = '\0';
     Globals.find.lpstrFindWhat = NULL;
 }
@@ -298,32 +291,6 @@ static VOID NOTEPAD_InitMenuPopup(HMENU menu, LPARAM index)
     DrawMenuBar(Globals.hMainWnd);
 }
 
-LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{ 
-    switch (msg)
-    {
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        {
-            switch (wParam)
-            {
-                case VK_UP:
-                case VK_DOWN:
-                case VK_LEFT:
-                case VK_RIGHT:
-                    DIALOG_StatusBarUpdateCaretPos();
-                    break;
-            }
-        }
-        case WM_LBUTTONUP:
-        {
-            DIALOG_StatusBarUpdateCaretPos();
-            break;
-        }
-    }
-    return CallWindowProc( (WNDPROC)Globals.EditProc, hWnd, msg, wParam, lParam);
-}
-
 /***********************************************************************
  *
  *           NOTEPAD_WndProc
@@ -335,10 +302,10 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
 
     case WM_CREATE:
     {
-        static const TCHAR edit[] = _T("edit");
+        static const WCHAR editW[] = { 'e','d','i','t',0 };
         RECT rc;
         GetClientRect(hWnd, &rc);
-        Globals.hEdit = CreateWindowEx(EDIT_EXSTYLE, edit, NULL, Globals.bWrapLongLines ? EDIT_STYLE_WRAP : EDIT_STYLE,
+        Globals.hEdit = CreateWindowEx(EDIT_EXSTYLE, editW, NULL, Globals.bWrapLongLines ? EDIT_STYLE_WRAP : EDIT_STYLE,
                              0, 0, rc.right, rc.bottom, hWnd,
                              NULL, Globals.hInstance, NULL);
         if (!Globals.hEdit)
@@ -346,17 +313,12 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
         SendMessage(Globals.hEdit, EM_LIMITTEXT, 0, 0);
         if (Globals.hFont)
             SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, (LPARAM)TRUE);
-
-        Globals.EditProc = (WNDPROC) SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)EDIT_WndProc);
-
         break;
     }
 
     case WM_COMMAND:
         if (HIWORD(wParam) == EN_CHANGE || HIWORD(wParam) == EN_HSCROLL || HIWORD(wParam) == EN_VSCROLL)
             DIALOG_StatusBarUpdateCaretPos();
-        if ((HIWORD(wParam) == EN_CHANGE))
-            NOTEPAD_EnableSearchMenu();
         NOTEPAD_MenuCommand(LOWORD(wParam));
         break;
 
@@ -366,8 +328,6 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
 
     case WM_CLOSE:
         if (DoCloseFile()) {
-            if (Globals.hFont)
-                DeleteObject(Globals.hFont);
             DestroyWindow(hWnd);
         }
         break;
@@ -379,8 +339,6 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
         break;
 
     case WM_DESTROY:
-        SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc);
-        SaveSettings();
         PostQuitMessage(0);
         break;
 
@@ -419,7 +377,7 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
 
     case WM_DROPFILES:
     {
-        TCHAR szFileName[MAX_PATH];
+        WCHAR szFileName[MAX_PATH];
         HDROP hDrop = (HDROP) wParam;
 
         DragQueryFile(hDrop, 0, szFileName, SIZEOF(szFileName));
@@ -453,11 +411,11 @@ static LRESULT WINAPI NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam,
     return 0;
 }
 
-static int AlertFileDoesNotExist(LPCTSTR szFileName)
+static int AlertFileDoesNotExist(LPCWSTR szFileName)
 {
    int nResult;
-   TCHAR szMessage[MAX_STRING_LEN];
-   TCHAR szResource[MAX_STRING_LEN];
+   WCHAR szMessage[MAX_STRING_LEN];
+   WCHAR szResource[MAX_STRING_LEN];
 
    LoadString(Globals.hInstance, STRING_DOESNOTEXIST, szResource, SIZEOF(szResource));
    wsprintf(szMessage, szResource, szFileName);
@@ -470,19 +428,33 @@ static int AlertFileDoesNotExist(LPCTSTR szFileName)
    return(nResult);
 }
 
-static void HandleCommandLine(LPTSTR cmdline)
+static void HandleCommandLine(LPWSTR cmdline)
 {
+    WCHAR delimiter;
     int opt_print=0;
 
-    while (*cmdline == _T(' ') || *cmdline == _T('-') || *cmdline == _T('/'))
-    {
-        TCHAR option;
+    /* skip white space */
+    while (*cmdline == ' ') cmdline++;
 
-        if (*cmdline++ == _T(' ')) continue;
+    /* skip executable name */
+    delimiter = (*cmdline == '"' ? '"' : ' ');
+
+    do
+    {
+        cmdline++;
+    }
+    while (*cmdline && *cmdline != delimiter);
+    if (*cmdline == delimiter) cmdline++;
+
+    while (*cmdline == ' ' || *cmdline == '-' || *cmdline == '/')
+    {
+        WCHAR option;
+
+        if (*cmdline++ == ' ') continue;
 
         option = *cmdline;
         if (option) cmdline++;
-        while (*cmdline == _T(' ')) cmdline++;
+        while (*cmdline == ' ') cmdline++;
 
         switch(option)
         {
@@ -496,11 +468,11 @@ static void HandleCommandLine(LPTSTR cmdline)
     if (*cmdline)
     {
         /* file name is passed in the command line */
-        LPCTSTR file_name = NULL;
+        LPCWSTR file_name = NULL;
         BOOL file_exists = FALSE;
-        TCHAR buf[MAX_PATH];
+        WCHAR buf[MAX_PATH];
 
-        if (cmdline[0] == _T('"'))
+        if (cmdline[0] == '"')
         {
             cmdline++;
             cmdline[lstrlen(cmdline) - 1] = 0;
@@ -513,17 +485,17 @@ static void HandleCommandLine(LPTSTR cmdline)
         }
         else if (!HasFileExtension(cmdline))
         {
-            static const TCHAR txt[] = _T(".txt");
+            static const WCHAR txtW[] = { '.','t','x','t',0 };
 
             /* try to find file with ".txt" extension */
-            if (!_tcscmp(txt, cmdline + _tcslen(cmdline) - _tcslen(txt)))
+            if (!lstrcmp(txtW, cmdline + lstrlen(cmdline) - lstrlen(txtW)))
             {
                 file_exists = FALSE;
             }
             else
             {
-                _tcsncpy(buf, cmdline, MAX_PATH - _tcslen(txt) - 1);
-                _tcscat(buf, txt);
+                lstrcpyn(buf, cmdline, MAX_PATH - lstrlen(txtW) - 1);
+                lstrcat(buf, txtW);
                 file_name = buf;
                 file_exists = FileExists(file_name);
             }
@@ -554,19 +526,16 @@ static void HandleCommandLine(LPTSTR cmdline)
  *
  *           WinMain
  */
-int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int show)
+int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE prev, LPSTR cmdline, int show)
 {
-    MSG         msg;
-    HACCEL      hAccel;
-    WNDCLASSEX  wndclass;
-    HMONITOR    monitor;
-    MONITORINFO info;
-    INT         x, y;
-
-    static const TCHAR className[] = _T("NPClass");
-    static const TCHAR winName[]   = _T("Notepad");
+    MSG        msg;
+    HACCEL     hAccel;
+    WNDCLASSEX wndclass;
+    static const WCHAR className[] = {'N','P','C','l','a','s','s',0};
+    static const WCHAR winName[]   = {'N','o','t','e','p','a','d',0};
 
     UNREFERENCED_PARAMETER(prev);
+    UNREFERENCED_PARAMETER(cmdline);
 
     aFINDMSGSTRING = (ATOM) RegisterWindowMessage(FINDMSGSTRING);
 
@@ -590,22 +559,9 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 
     /* Setup windows */
 
-    monitor = MonitorFromRect( &Globals.main_rect, MONITOR_DEFAULTTOPRIMARY );
-    info.cbSize = sizeof(info);
-    GetMonitorInfoW( monitor, &info );
-
-    x = Globals.main_rect.left;
-    y = Globals.main_rect.top;
-    if (Globals.main_rect.left >= info.rcWork.right ||
-        Globals.main_rect.top >= info.rcWork.bottom ||
-        Globals.main_rect.right < info.rcWork.left ||
-        Globals.main_rect.bottom < info.rcWork.top)
-        x = y = CW_USEDEFAULT;
-
     Globals.hMainWnd =
         CreateWindow(className, winName, WS_OVERLAPPEDWINDOW,
-                     x, y, Globals.main_rect.right - Globals.main_rect.left,
-                     Globals.main_rect.bottom - Globals.main_rect.top,
+                     CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
                      NULL, NULL, Globals.hInstance, NULL);
     if (!Globals.hMainWnd)
     {
@@ -620,9 +576,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     UpdateWindow(Globals.hMainWnd);
     DragAcceptFiles(Globals.hMainWnd, TRUE);
 
-    DIALOG_ViewStatusBar();
-
-    HandleCommandLine(cmdline);
+    HandleCommandLine(GetCommandLine());
 
     hAccel = LoadAccelerators( hInstance, MAKEINTRESOURCE(ID_ACCEL) );
 
@@ -635,5 +589,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
             DispatchMessage(&msg);
         }
     }
+    SaveSettings();
     return (int) msg.wParam;
 }

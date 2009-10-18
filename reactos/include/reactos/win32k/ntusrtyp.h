@@ -21,27 +21,6 @@ typedef struct _PATRECT
     HBRUSH hBrush;
 } PATRECT, * PPATRECT;
 
-/* Bitfields for UserpreferencesMask SPI_ values (with defaults) */
-/* See also http://technet.microsoft.com/nl-nl/library/cc957204(en-us).aspx */
-typedef struct {
-    DWORD bActiveWindowTracking:1;      //0 SPI_GETACTIVEWINDOWTRACKING
-    DWORD bMenuAnimation:1;             //1 SPI_GETMENUANIMATION
-    DWORD bComboBoxAnimation:1;         //1 SPI_GETCOMBOBOXANIMATION
-    DWORD bListBoxSmoothScrolling:1;    //1 SPI_GETLISTBOXSMOOTHSCROLLING
-    DWORD bGradientCaptions:1;          //1 SPI_GETGRADIENTCAPTIONS
-    DWORD bKeyboardCues:1;              //0 SPI_GETKEYBOARDCUES
-    DWORD bActiveWndTrkZorder:1;        //0 SPI_GETACTIVEWNDTRKZORDER
-    DWORD bHotTracking:1;               //1 SPI_GETHOTTRACKING
-    DWORD bReserved1:1;                 //0 Reserved
-    DWORD bMenuFade:1;                  //1 SPI_GETMENUFADE
-    DWORD bSelectionFade:1;             //1 SPI_GETSELECTIONFADE
-    DWORD bTooltipAnimation:1;          //1 SPI_GETTOOLTIPANIMATION
-    DWORD bTooltipFade:1;               //1 SPI_GETTOOLTIPFADE
-    DWORD bCursorShadow:1;              //1 SPI_GETCURSORSHADOW
-    DWORD bReserved2:17;                //0 Reserved
-    DWORD bUiEffects:1;                 //1 SPI_GETUIEFFECTS
-} USERPREFERENCESMASK, *PUSERPREFERENCESMASK;
-
 /* Structures for reading icon/cursor files and resources */
 #pragma pack(push,1)
 typedef struct _ICONIMAGE
@@ -140,5 +119,52 @@ typedef struct _THRDCARETINFO
     BYTE Visible;
     BYTE Showing;
 } THRDCARETINFO, *PTHRDCARETINFO;
+
+typedef struct tagROSMENUINFO
+{
+    /* ----------- MENUINFO ----------- */
+    DWORD cbSize;
+    DWORD fMask;
+    DWORD dwStyle;
+    UINT cyMax;
+    HBRUSH  hbrBack;
+    DWORD dwContextHelpID;
+    ULONG_PTR dwMenuData;
+    /* ----------- Extra ----------- */
+    HMENU Self;         /* Handle of this menu */
+    WORD Flags;         /* Menu flags (MF_POPUP, MF_SYSMENU) */
+    UINT FocusedItem;   /* Currently focused item */
+    UINT MenuItemCount; /* Number of items in the menu */
+    HWND Wnd;           /* Window containing the menu */
+    WORD Width;         /* Width of the whole menu */
+    WORD Height;        /* Height of the whole menu */
+    HWND WndOwner;     /* window receiving the messages for ownerdraw */
+    BOOL TimeToHide;   /* Request hiding when receiving a second click in the top-level menu item */
+    SIZE maxBmpSize;   /* Maximum size of the bitmap items in MIIM_BITMAP state */
+} ROSMENUINFO, *PROSMENUINFO;
+
+/* (other FocusedItem values give the position of the focused item) */
+#define NO_SELECTED_ITEM  0xffff
+
+typedef struct tagROSMENUITEMINFO
+{
+    /* ----------- MENUITEMINFOW ----------- */
+    UINT cbSize;
+    UINT fMask;
+    UINT fType;
+    UINT fState;
+    UINT wID;
+    HMENU hSubMenu;
+    HBITMAP hbmpChecked;
+    HBITMAP hbmpUnchecked;
+    DWORD dwItemData;
+    LPWSTR dwTypeData;
+    UINT cch;
+    HBITMAP hbmpItem;
+    /* ----------- Extra ----------- */
+    RECT Rect;      /* Item area (relative to menu window) */
+    UINT XTab;      /* X position of text after Tab */
+    LPWSTR Text;    /* Copy of the text pointer in MenuItem->Text */
+} ROSMENUITEMINFO, *PROSMENUITEMINFO;
 
 #endif

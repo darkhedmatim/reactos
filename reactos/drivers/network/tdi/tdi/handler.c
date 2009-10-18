@@ -12,7 +12,7 @@
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultChainedRcvDatagramHandler (
 	IN	PVOID	TdiEventContext,
 	IN	LONG	SourceAddressLength,
@@ -36,7 +36,7 @@ TdiDefaultChainedRcvDatagramHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultChainedRcvExpeditedHandler (
 	IN	PVOID			TdiEventContext,
 	IN	CONNECTION_CONTEXT	ConnectionContext,
@@ -57,7 +57,7 @@ TdiDefaultChainedRcvExpeditedHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultChainedReceiveHandler (
 	IN	PVOID			TdiEventContext,
 	IN	CONNECTION_CONTEXT	ConnectionContext,
@@ -78,7 +78,7 @@ TdiDefaultChainedReceiveHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultConnectHandler (
 	IN	PVOID			TdiEventContext,
         IN	LONG			RemoteAddressLength,
@@ -101,7 +101,7 @@ TdiDefaultConnectHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultDisconnectHandler (
 	IN	PVOID			TdiEventContext,
 	IN	CONNECTION_CONTEXT	ConnectionContext,
@@ -122,7 +122,7 @@ TdiDefaultDisconnectHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultErrorHandler (
 	IN	PVOID		TdiEventContext,
 	IN	NTSTATUS	Status
@@ -138,7 +138,7 @@ TdiDefaultErrorHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultRcvDatagramHandler (
 	IN	PVOID	TdiEventContext,
 	IN	LONG	SourceAddressLength,
@@ -163,7 +163,7 @@ TdiDefaultRcvDatagramHandler (
  * @unimplemented
  */
 TDI_STATUS
-NTAPI
+STDCALL
 TdiDefaultRcvExpeditedHandler (
 	IN	PVOID			TdiEventContext,
 	IN	CONNECTION_CONTEXT	ConnectionContext,
@@ -185,7 +185,7 @@ TdiDefaultRcvExpeditedHandler (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 TdiDefaultReceiveHandler (
 	IN	PVOID			TdiEventContext,
 	IN	CONNECTION_CONTEXT	ConnectionContext,
@@ -207,7 +207,7 @@ TdiDefaultReceiveHandler (
  * @unimplemented
  */
 TDI_STATUS
-NTAPI
+STDCALL
 TdiDefaultSendPossibleHandler (
 	IN	PVOID	TdiEventContext,
 	IN	PVOID	ConnectionContext,

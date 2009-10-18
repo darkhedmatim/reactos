@@ -20,10 +20,8 @@
 #ifndef __BOOT_H
 #define __BOOT_H
 
-#ifdef __i386__
 VOID	LoadAndBootBootSector(PCSTR OperatingSystemName);
 VOID	LoadAndBootPartition(PCSTR OperatingSystemName);
 VOID	LoadAndBootDrive(PCSTR OperatingSystemName);
-#endif /* __i386__ */
 
 #endif // defined __BOOT_H

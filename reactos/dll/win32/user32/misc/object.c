@@ -31,15 +31,61 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
 /* FUNCTIONS *****************************************************************/
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetUserObjectInformationA(
+  HANDLE hObj,
+  int nIndex,
+  PVOID pvInfo,
+  DWORD nLength)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+SetUserObjectInformationW(
+  HANDLE hObj,
+  int nIndex,
+  PVOID pvInfo,
+  DWORD nLength)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+UserHandleGrantAccess(
+  HANDLE hUserHandle,
+  HANDLE hJob,
+  BOOL bGrant)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
 
 /*
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 GetUserObjectInformationA(
   HANDLE hObj,
   int nIndex,
@@ -50,7 +96,7 @@ GetUserObjectInformationA(
   LPWSTR buffer;
   BOOL ret = TRUE;
 
-  TRACE("GetUserObjectInformationA(%x %d %x %d %x)\n", hObj, nIndex,
+  DPRINT("GetUserObjectInformationA(%x %d %x %d %x)\n", hObj, nIndex,
          pvInfo, nLength, lpnLengthNeeded);
 
   if (nIndex != UOI_NAME && nIndex != UOI_TYPE)
@@ -83,3 +129,22 @@ GetUserObjectInformationA(
   HeapFree(GetProcessHeap(), 0, buffer);
   return ret;
 }
+
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+GetUserObjectInformationW(
+  HANDLE hObj,
+  int nIndex,
+  PVOID pvInfo,
+  DWORD nLength,
+  LPDWORD lpnLengthNeeded)
+{
+  DPRINT("GetUserObjectInformationW(%x %d %x %d %x)\n", hObj, nIndex,
+         pvInfo, nLength, lpnLengthNeeded);
+  return NtUserGetObjectInformation(hObj, nIndex, pvInfo, nLength, lpnLengthNeeded);
+}
+

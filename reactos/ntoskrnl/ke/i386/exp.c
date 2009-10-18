@@ -46,6 +46,22 @@ UCHAR KiDebugRegisterTrapOffsets[9] =
 
 /* FUNCTIONS *****************************************************************/
 
+_SEH_DEFINE_LOCALS(KiCopyInfo)
+{
+    volatile EXCEPTION_RECORD SehExceptRecord;
+};
+
+_SEH_FILTER(KiCopyInformation)
+{
+    _SEH_ACCESS_LOCALS(KiCopyInfo);
+
+    /* Copy the exception records and return to the handler */
+    RtlCopyMemory((PVOID)&_SEH_VAR(SehExceptRecord),
+                  _SEH_GetExceptionPointers()->ExceptionRecord,
+                  sizeof(EXCEPTION_RECORD));
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 VOID
 INIT_FUNCTION
 NTAPI
@@ -56,7 +72,7 @@ KeInitExceptions(VOID)
     extern KIDTENTRY KiIdt[MAXIMUM_IDTVECTOR];
 
     /* Loop the IDT */
-    for (i = 0; i <= MAXIMUM_IDTVECTOR; i++)
+    for (i = 0; i <= MAXIMUM_IDTVECTOR; i ++)
     {
         /* Save the current Selector */
         FlippedSelector = KiIdt[i].Selector;
@@ -74,7 +90,7 @@ KiUpdateDr7(IN ULONG Dr7)
     ULONG DebugMask = KeGetCurrentThread()->DispatcherHeader.DebugActive;
 
     /* Check if debugging is enabled */
-    if (DebugMask & DR_MASK(DR7_OVERRIDE_V))
+    if (DebugMask & DR_ACTIVE_MASK)
     {
         /* Sanity checks */
         ASSERT((DebugMask & DR_REG_MASK) != 0);
@@ -97,7 +113,7 @@ KiRecordDr7(OUT PULONG Dr7Ptr,
     /* Check if the caller gave us a mask */
     if (!DrMask)
     {
-        /* He didn't, use the one from the thread */
+        /* He didn't use the one from the thread */
         Mask = KeGetCurrentThread()->DispatcherHeader.DebugActive;
     }
     else
@@ -117,14 +133,14 @@ KiRecordDr7(OUT PULONG Dr7Ptr,
         Result = FALSE;
 
         /* Check the DR mask */
-        NewMask &= ~(DR_MASK(7));
+        NewMask &= 0x7F;
         if (NewMask & DR_REG_MASK)
         {
             /* Set the active mask */
-            NewMask |= DR_MASK(DR7_OVERRIDE_V);
+            NewMask |= DR_ACTIVE_MASK;
 
             /* Set DR7 override */
-            *Dr7Ptr |= DR7_OVERRIDE_MASK;
+            *DrMask = DR7_OVERRIDE_MASK;
         }
         else
         {
@@ -138,8 +154,8 @@ KiRecordDr7(OUT PULONG Dr7Ptr,
         Result = NewMask ? TRUE: FALSE;
 
         /* Update the mask to disable debugging */
-        NewMask &= ~(DR_MASK(DR7_OVERRIDE_V));
-        NewMask |= DR_MASK(7);
+        NewMask &= ~DR_ACTIVE_MASK;
+        NewMask |= 0x80;
     }
 
     /* Check if caller wants the new mask */
@@ -154,8 +170,7 @@ KiRecordDr7(OUT PULONG Dr7Ptr,
         if (Mask != NewMask)
         {
             /* Update it */
-            KeGetCurrentThread()->DispatcherHeader.DebugActive =
-                (BOOLEAN)NewMask;
+            KeGetCurrentThread()->DispatcherHeader.DebugActive = NewMask;
         }
     }
 
@@ -195,19 +210,10 @@ NTAPI
 KiEspToTrapFrame(IN PKTRAP_FRAME TrapFrame,
                  IN ULONG Esp)
 {
-    KIRQL OldIrql;
-    ULONG Previous;
-
-    /* Raise to APC_LEVEL if needed */
-    OldIrql = KeGetCurrentIrql();
-    if (OldIrql < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
-
-    /* Get the old ESP */
-    Previous = KiEspFromTrapFrame(TrapFrame);
+    ULONG Previous = KiEspFromTrapFrame(TrapFrame);
 
     /* Check if this is user-mode or V86 */
-    if ((TrapFrame->SegCs & MODE_MASK) ||
-        (TrapFrame->EFlags & EFLAGS_V86_MASK))
+    if ((TrapFrame->SegCs & MODE_MASK) || (TrapFrame->EFlags & EFLAGS_V86_MASK))
     {
         /* Write it directly */
         TrapFrame->HardwareEsp = Esp;
@@ -215,11 +221,7 @@ KiEspToTrapFrame(IN PKTRAP_FRAME TrapFrame,
     else
     {
         /* Don't allow ESP to be lowered, this is illegal */
-        if (Esp < Previous) KeBugCheckEx(SET_OF_INVALID_CONTEXT,
-                                         Esp,
-                                         Previous,
-                                         (ULONG_PTR)TrapFrame,
-                                         0);
+        if (Esp < Previous) KeBugCheck(SET_OF_INVALID_CONTEXT);
 
         /* Create an edit frame, check if it was alrady */
         if (!(TrapFrame->SegCs & FRAME_EDITED))
@@ -241,16 +243,13 @@ KiEspToTrapFrame(IN PKTRAP_FRAME TrapFrame,
             }
         }
     }
-
-    /* Restore IRQL */
-    if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
 }
 
 ULONG
 NTAPI
 KiSsFromTrapFrame(IN PKTRAP_FRAME TrapFrame)
 {
-    /* Check if this was V86 Mode */
+    /* If this was V86 Mode */
     if (TrapFrame->EFlags & EFLAGS_V86_MASK)
     {
         /* Just return it */
@@ -258,7 +257,7 @@ KiSsFromTrapFrame(IN PKTRAP_FRAME TrapFrame)
     }
     else if (TrapFrame->SegCs & MODE_MASK)
     {
-        /* User mode, return the User SS */
+        /* Usermode, return the User SS */
         return TrapFrame->HardwareSegSs | RPL_MASK;
     }
     else
@@ -293,9 +292,9 @@ USHORT
 NTAPI
 KiTagWordFnsaveToFxsave(USHORT TagWord)
 {
-    INT FxTagWord = ~TagWord;
+    INT FxTagWord = ~TagWord; 
 
-    /*
+    /* 
      * Empty is now 00, any 2 bits containing 1 mean valid
      * Now convert the rest (11->0 and the rest to 1)
      */
@@ -317,13 +316,12 @@ KeContextToTrapFrame(IN PCONTEXT Context,
     PFX_SAVE_AREA FxSaveArea;
     ULONG i;
     BOOLEAN V86Switch = FALSE;
-    KIRQL OldIrql;
+    KIRQL OldIrql = APC_LEVEL;
     ULONG DrMask = 0;
     PVOID SafeDr;
 
     /* Do this at APC_LEVEL */
-    OldIrql = KeGetCurrentIrql();
-    if (OldIrql < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
+    if (KeGetCurrentIrql() < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
 
     /* Start with the basic Registers */
     if ((ContextFlags & CONTEXT_CONTROL) == CONTEXT_CONTROL)
@@ -444,7 +442,7 @@ KeContextToTrapFrame(IN PCONTEXT Context,
                           MAXIMUM_SUPPORTED_EXTENSION);
 
             /* Remove reserved bits from MXCSR */
-            FxSaveArea->U.FxArea.MXCsr &= KiMXCsrMask;
+            FxSaveArea->U.FxArea.MXCsr &= ~0xFFBF;
 
             /* Mask out any invalid flags */
             FxSaveArea->Cr0NpxState &= ~(CR0_EM | CR0_MP | CR0_TS);
@@ -546,7 +544,7 @@ KeContextToTrapFrame(IN PCONTEXT Context,
         else
         {
             /* FIXME: Handle FPU Emulation */
-            //ASSERT(FALSE);
+            ASSERT(FALSE);
         }
     }
 
@@ -577,13 +575,13 @@ KeContextToTrapFrame(IN PCONTEXT Context,
         /* If we're in user-mode */
         if (PreviousMode != KernelMode)
         {
-            /* Save the mask */
-            KeGetCurrentThread()->DispatcherHeader.DebugActive = DrMask;
+            /* FIXME: Save the mask */
+            //KeGetCurrentThread()->DispatcherHeader.DebugActive = DrMask;
         }
     }
 
     /* Check if thread has IOPL and force it enabled if so */
-    if (KeGetCurrentThread()->Iopl) TrapFrame->EFlags |= EFLAGS_IOPL;
+    if (KeGetCurrentThread()->Iopl) TrapFrame->EFlags |= 0x3000;
 
     /* Restore IRQL */
     if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
@@ -602,12 +600,11 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
         FLOATING_SAVE_AREA UnalignedArea;
     } FloatSaveBuffer;
     FLOATING_SAVE_AREA *FloatSaveArea;
-    KIRQL OldIrql;
+    KIRQL OldIrql = APC_LEVEL;
     ULONG i;
 
     /* Do this at APC_LEVEL */
-    OldIrql = KeGetCurrentIrql();
-    if (OldIrql < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
+    if (KeGetCurrentIrql() < APC_LEVEL) KeRaiseIrql(APC_LEVEL, &OldIrql);
 
     /* Start with the Control flags */
     if ((Context->ContextFlags & CONTEXT_CONTROL) == CONTEXT_CONTROL)
@@ -766,7 +763,7 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
             Context->Dr6 = TrapFrame->Dr6;
 
             /* Update DR7 */
-            Context->Dr7 = KiUpdateDr7(TrapFrame->Dr7);
+            //Context->Dr7 = KiUpdateDr7(TrapFrame->Dr7);
         }
         else
         {
@@ -783,45 +780,6 @@ KeTrapFrameToContext(IN PKTRAP_FRAME TrapFrame,
     if (OldIrql < APC_LEVEL) KeLowerIrql(OldIrql);
 }
 
-BOOLEAN
-FASTCALL
-KeInvalidAccessAllowed(IN PVOID TrapInformation OPTIONAL)
-{
-    ULONG Eip;
-    PKTRAP_FRAME TrapFrame = TrapInformation;
-    VOID NTAPI ExpInterlockedPopEntrySListFault(VOID);
-
-    /* Don't do anything if we didn't get a trap frame */
-    if (!TrapInformation) return FALSE;
-
-    /* Check where we came from */
-    switch (TrapFrame->SegCs)
-    {
-        /* Kernel mode */
-        case KGDT_R0_CODE:
-
-            /* Allow S-LIST Routine to fail */
-            Eip = (ULONG)&ExpInterlockedPopEntrySListFault;
-            break;
-
-        /* User code */
-        case KGDT_R3_CODE | RPL_MASK:
-
-            /* Allow S-LIST Routine to fail */
-            //Eip = (ULONG)KeUserPopEntrySListFault;
-            Eip = 0;
-            break;
-
-        default:
-
-            /* Anything else gets a bugcheck */
-            Eip = 0;
-    }
-
-    /* Return TRUE if we want to keep the system up */
-    return (TrapFrame->Eip == Eip) ? TRUE : FALSE;
-}
-
 VOID
 NTAPI
 KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
@@ -831,7 +789,10 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                     IN BOOLEAN FirstChance)
 {
     CONTEXT Context;
+    ULONG_PTR Stack, NewStack;
+    ULONG Size;
     EXCEPTION_RECORD LocalExceptRecord;
+    _SEH_DECLARE_LOCALS(KiCopyInfo);
 
     /* Increase number of Exception Dispatches */
     KeGetCurrentPrcb()->KeExceptionDispatchCount++;
@@ -839,7 +800,7 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
     /* Set the context flags */
     Context.ContextFlags = CONTEXT_FULL | CONTEXT_DEBUG_REGISTERS;
 
-    /* Check if User Mode or if the debugger is enabled */
+    /* Check if User Mode or if the debugger isenabled */
     if ((PreviousMode == UserMode) || (KdDebuggerEnabled))
     {
         /* Add the FPU Flag */
@@ -856,26 +817,11 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
     /* Get a Context */
     KeTrapFrameToContext(TrapFrame, ExceptionFrame, &Context);
 
-    /* Look at our exception code */
-    switch (ExceptionRecord->ExceptionCode)
+    /* Fix up EIP */
+    if (ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT)
     {
-        /* Breakpoint */
-        case STATUS_BREAKPOINT:
-
-            /* Decrement EIP by one */
-            Context.Eip--;
-            break;
-
-        /* Internal exception */
-        case KI_EXCEPTION_ACCESS_VIOLATION:
-
-            /* Set correct code */
-            ExceptionRecord->ExceptionCode = STATUS_ACCESS_VIOLATION;
-            if (PreviousMode == UserMode)
-            {
-                /* FIXME: Handle no execute */
-            }
-            break;
+        /* Decrement EIP by one */
+        Context.Eip--;
     }
 
     /* Sanity check */
@@ -900,6 +846,9 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                 goto Handled;
             }
 
+            /* HACK: GDB Entry */
+            if (KdpCallGdb(TrapFrame, ExceptionRecord, &Context)) goto Handled;
+
             /* If the Debugger couldn't handle it, dispatch the exception */
             if (RtlDispatchException(ExceptionRecord, &Context)) goto Handled;
         }
@@ -920,49 +869,41 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
         KeBugCheckEx(KMODE_EXCEPTION_NOT_HANDLED,
                      ExceptionRecord->ExceptionCode,
                      (ULONG_PTR)ExceptionRecord->ExceptionAddress,
-                     (ULONG_PTR)TrapFrame,
-                     0);
+                     ExceptionRecord->ExceptionInformation[0],
+                     ExceptionRecord->ExceptionInformation[1]);
     }
     else
     {
         /* User mode exception, was it first-chance? */
         if (FirstChance)
         {
-            /* 
-             * Break into the kernel debugger unless a user mode debugger
-             * is present or user mode exceptions are ignored, unless this is
-             * a breakpoint or a debug service in which case we have to
-             * handle it.
-             */
-            if ((!(PsGetCurrentProcess()->DebugPort) &&
-                 !(KdIgnoreUmExceptions)) ||
-                 (KdIsThisAKdTrap(ExceptionRecord,
-                                  &Context,
-                                  PreviousMode)))
+            /* Enter Debugger if available */
+            if (PsGetCurrentProcess()->DebugPort)
             {
-                /* Call the kernel debugger */
-                if (KiDebugRoutine(TrapFrame,
-                                   ExceptionFrame,
-                                   ExceptionRecord,
-                                   &Context,
-                                   PreviousMode,
-                                   FALSE))
-                {
-                    /* Exception was handled */
-                    goto Handled;
-                }
+                /* FIXME : TODO */
+                //KEBUGCHECK(0);
+            }
+            else if (KiDebugRoutine(TrapFrame,
+                                    ExceptionFrame,
+                                    ExceptionRecord,
+                                    &Context,
+                                    PreviousMode,
+                                    FALSE))
+            {
+                /* Exception was handled */
+                goto Handled;
             }
 
+            /* HACK: GDB Entry */
+            if (KdpCallGdb(TrapFrame, ExceptionRecord, &Context)) goto Handled;
+
             /* Forward exception to user mode debugger */
-            if (DbgkForwardException(ExceptionRecord, TRUE, FALSE)) return;
+            if (DbgkForwardException(ExceptionRecord, TRUE, FALSE)) goto Exit;
 
             /* Set up the user-stack */
 DispatchToUser:
-            _SEH2_TRY
+            _SEH_TRY
             {
-                ULONG Size;
-                ULONG_PTR Stack, NewStack;
-
                 /* Make sure we have a valid SS and that this isn't V86 mode */
                 if ((TrapFrame->HardwareSegSs != (KGDT_R3_DATA | RPL_MASK)) ||
                     (TrapFrame->EFlags & EFLAGS_V86_MASK))
@@ -1007,59 +948,55 @@ DispatchToUser:
                 TrapFrame->SegCs = Ke386SanitizeSeg(KGDT_R3_CODE, PreviousMode);
                 TrapFrame->SegDs = Ke386SanitizeSeg(KGDT_R3_DATA, PreviousMode);
                 TrapFrame->SegEs = Ke386SanitizeSeg(KGDT_R3_DATA, PreviousMode);
-                TrapFrame->SegFs = Ke386SanitizeSeg(KGDT_R3_TEB,  PreviousMode);
+                TrapFrame->SegFs = Ke386SanitizeSeg(KGDT_R3_TEB, PreviousMode);
                 TrapFrame->SegGs = 0;
 
                 /* Set EIP to the User-mode Dispatcher */
                 TrapFrame->Eip = (ULONG)KeUserExceptionDispatcher;
-
-                /* Dispatch exception to user-mode */
-                _SEH2_YIELD(return);
+                _SEH_LEAVE;
             }
-            _SEH2_EXCEPT((RtlCopyMemory(&LocalExceptRecord, _SEH2_GetExceptionInformation()->ExceptionRecord, sizeof(EXCEPTION_RECORD)), EXCEPTION_EXECUTE_HANDLER))
+            _SEH_EXCEPT(KiCopyInformation)
             {
                 /* Check if we got a stack overflow and raise that instead */
-                if ((NTSTATUS)LocalExceptRecord.ExceptionCode ==
+                if (_SEH_VAR(SehExceptRecord).ExceptionCode ==
                     STATUS_STACK_OVERFLOW)
                 {
                     /* Copy the exception address and record */
-                    LocalExceptRecord.ExceptionAddress =
+                    _SEH_VAR(SehExceptRecord).ExceptionAddress =
                         ExceptionRecord->ExceptionAddress;
                     RtlCopyMemory(ExceptionRecord,
-                                  (PVOID)&LocalExceptRecord,
+                                  (PVOID)&_SEH_VAR(SehExceptRecord),
                                   sizeof(EXCEPTION_RECORD));
 
                     /* Do the exception again */
-                    _SEH2_YIELD(goto DispatchToUser);
+                    goto DispatchToUser;
                 }
             }
-            _SEH2_END;
+            _SEH_END;
+
+            /* Dispatch exception to user-mode */
+            return;
         }
 
         /* Try second chance */
-        if (DbgkForwardException(ExceptionRecord, TRUE, TRUE))
+        if (DbgkForwardException(ExceptionRecord, TRUE, FALSE))
         {
             /* Handled, get out */
-            return;
+            goto Exit;
         }
         else if (DbgkForwardException(ExceptionRecord, FALSE, TRUE))
         {
             /* Handled, get out */
-            return;
+            goto Exit;
         }
 
         /* 3rd strike, kill the process */
-        DPRINT1("Kill %.16s, ExceptionCode: %lx, ExceptionAddress: %lx\n",
-                PsGetCurrentProcess()->ImageFileName,
-                ExceptionRecord->ExceptionCode,
-                ExceptionRecord->ExceptionAddress);
-
         ZwTerminateProcess(NtCurrentProcess(), ExceptionRecord->ExceptionCode);
         KeBugCheckEx(KMODE_EXCEPTION_NOT_HANDLED,
                      ExceptionRecord->ExceptionCode,
                      (ULONG_PTR)ExceptionRecord->ExceptionAddress,
-                     (ULONG_PTR)TrapFrame,
-                     0);
+                     ExceptionRecord->ExceptionInformation[0],
+                     ExceptionRecord->ExceptionInformation[1]);
     }
 
 Handled:
@@ -1069,6 +1006,7 @@ Handled:
                          TrapFrame,
                          Context.ContextFlags,
                          PreviousMode);
+Exit:
     return;
 }
 
@@ -1079,22 +1017,24 @@ NTSTATUS
 NTAPI
 KeRaiseUserException(IN NTSTATUS ExceptionCode)
 {
+    NTSTATUS Status = STATUS_SUCCESS;
     ULONG OldEip;
     PTEB Teb = KeGetCurrentThread()->Teb;
     PKTRAP_FRAME TrapFrame = KeGetCurrentThread()->TrapFrame;
 
     /* Make sure we can access the TEB */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set the exception code */
         Teb->ExceptionCode = ExceptionCode;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Save exception code */
+        Status = ExceptionCode;
     }
-    _SEH2_END;
+    _SEH_END;
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Get the old EIP */
     OldEip = TrapFrame->Eip;
@@ -1105,3 +1045,4 @@ KeRaiseUserException(IN NTSTATUS ExceptionCode)
     /* Return the old EIP */
     return (NTSTATUS)OldEip;
 }
+

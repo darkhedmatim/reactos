@@ -5,126 +5,187 @@
  * FILE:             subsys/win32k/ntddraw/dd.c
  * PROGRAMER:        Magnus Olsen (greatlord@reactos.org)
  * REVISION HISTORY:
- *       19/1-2006   Magnus Olsen
+ *       19/7-2006  Magnus Olsen
  */
 
 #include <w32k.h>
+
+#define NDEBUG
 #include <debug.h>
+
+#define DdHandleTable GdiHandleTable
+
+/* 
+   DdMapMemory, DdDestroyDriver are not exported as NtGdi Call 
+   This file is compelete for DD_CALLBACKS setup
+
+   ToDO fix the NtGdiDdCreateSurface, shall we fix it 
+   from GdiEntry or gdientry callbacks for DdCreateSurface
+   have we miss some thing there 
+*/
 
 /************************************************************************/
 /* NtGdiDdCreateSurface                                                 */
+/* status : Bugs out                                                    */
 /************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdCreateSurface(HANDLE hDirectDrawLocal,
-                     HANDLE *hSurface,
-                     DDSURFACEDESC *puSurfaceDescription,
-                     DD_SURFACE_GLOBAL *puSurfaceGlobalData,
-                     DD_SURFACE_LOCAL *puSurfaceLocalData,
-                     DD_SURFACE_MORE *puSurfaceMoreData,
-                     PDD_CREATESURFACEDATA puCreateSurfaceData,
-                     HANDLE *puhSurface)
-{
-    PGD_DDCREATESURFACE pfnDdCreateSurface = (PGD_DDCREATESURFACE)gpDxFuncs[DXG_INDEX_DxDdCreateSurface].pfn;
-   
-    if (pfnDdCreateSurface == NULL)
-    {
-        DPRINT1("Warning: no pfnDdCreateSurface\n");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
 
-    DPRINT1("Calling dxg.sys pfnDdCreateSurface\n");
-    return pfnDdCreateSurface(hDirectDrawLocal,hSurface,puSurfaceDescription,puSurfaceGlobalData,
-                              puSurfaceLocalData,puSurfaceMoreData,puCreateSurfaceData,puhSurface);
+DWORD STDCALL NtGdiDdCreateSurface(
+    HANDLE hDirectDrawLocal,
+    HANDLE *hSurface,
+    DDSURFACEDESC *puSurfaceDescription,
+    DD_SURFACE_GLOBAL *puSurfaceGlobalData,
+    DD_SURFACE_LOCAL *puSurfaceLocalData,
+    DD_SURFACE_MORE *puSurfaceMoreData,
+    PDD_CREATESURFACEDATA puCreateSurfaceData,
+    HANDLE *puhSurface
+)
+{
+	DWORD  ddRVal = DDHAL_DRIVER_NOTHANDLED;
+    PDD_DIRECTDRAW pDirectDraw;
+	PDD_DIRECTDRAW_GLOBAL lgpl;
+
+	DPRINT1("NtGdiDdCreateSurface\n");
+
+	pDirectDraw = GDIOBJ_LockObj(DdHandleTable, hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
+
+	if (pDirectDraw != NULL) 
+	{       					
+	
+		/* 
+		   FIXME Get the darn surface handle and and put all 
+		   surface struct to it 
+
+		   FIXME rewrite the darn code complete 
+
+		   FIXME fill the puCreateSurfaceData correct
+
+		   FIXME loading back info from it right 
+	     */
+
+		if ((pDirectDraw->DD.dwFlags & DDHAL_CB32_CREATESURFACE))
+		{					        	        
+           /* backup the orignal PDev and info */
+		   lgpl = puCreateSurfaceData->lpDD;
+
+		   /* use our cache version instead */
+		   puCreateSurfaceData->lpDD = &pDirectDraw->Global;
+
+		   /* make the call */
+		   ddRVal = pDirectDraw->DD.CreateSurface(puCreateSurfaceData);	
+
+		   /* But back the orignal PDev */
+	       puCreateSurfaceData->lpDD = lgpl;
+
+	    }
+	       
+	    GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);	
+	}
+	
+	return ddRVal;
 }
 
 /************************************************************************/
 /* NtGdiDdWaitForVerticalBlank                                          */
+/* status : OK working as it should                                     */
 /************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdWaitForVerticalBlank(HANDLE hDirectDraw,
-                            PDD_WAITFORVERTICALBLANKDATA puWaitForVerticalBlankData)
+
+
+DWORD STDCALL NtGdiDdWaitForVerticalBlank(
+    HANDLE hDirectDrawLocal,
+    PDD_WAITFORVERTICALBLANKDATA puWaitForVerticalBlankData
+)
 {
-    PGD_DXDDWAITFORVERTICALBLANK pfnDdWaitForVerticalBlank = (PGD_DXDDWAITFORVERTICALBLANK)gpDxFuncs[DXG_INDEX_DxDdWaitForVerticalBlank].pfn;
-   
-    if (pfnDdWaitForVerticalBlank == NULL)
-    {
-        DPRINT1("Warning: no pfnDdWaitForVerticalBlank\n");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
+	DWORD  ddRVal = DDHAL_DRIVER_NOTHANDLED;
+	PDD_DIRECTDRAW_GLOBAL lgpl;
+    PDD_DIRECTDRAW pDirectDraw;
 
-    DPRINT1("Calling dxg.sys pfnDdWaitForVerticalBlank\n");
-    return pfnDdWaitForVerticalBlank(hDirectDraw, puWaitForVerticalBlankData);
-}
+	DPRINT1("NtGdiDdWaitForVerticalBlank\n");
 
-/************************************************************************/
-/* NtGdiDdCanCreateSurface                                              */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdCanCreateSurface(HANDLE hDirectDrawLocal,
-                        PDD_CANCREATESURFACEDATA puCanCreateSurfaceData)
-{
-    PGD_DDCANCREATESURFACE pfnDdCanCreateSurface = (PGD_DDCANCREATESURFACE)gpDxFuncs[DXG_INDEX_DxDdCanCreateSurface].pfn;
-    
-    if (pfnDdCanCreateSurface == NULL)
-    {
-        DPRINT1("Warning: no pfnDdCanCreateSurface\n");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
+	pDirectDraw = GDIOBJ_LockObj(DdHandleTable, hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
+	
+	if (pDirectDraw != NULL) 
+	{	
+		if (pDirectDraw->DD.dwFlags & DDHAL_CB32_WAITFORVERTICALBLANK)
+		{
+			lgpl = puWaitForVerticalBlankData->lpDD;	
+			puWaitForVerticalBlankData->lpDD = &pDirectDraw->Global;        	
 
-    DPRINT1("Calling dxg.sys DdCanCreateSurface\n");
+  	        ddRVal = pDirectDraw->DD.WaitForVerticalBlank(puWaitForVerticalBlankData);
+	
+	        puWaitForVerticalBlankData->lpDD = lgpl;            
+	     }
+		 GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);
+	}
 
-    return pfnDdCanCreateSurface(hDirectDrawLocal,puCanCreateSurfaceData);
-}
-
-/************************************************************************/
-/* NtGdiDdGetScanLine                                                   */
-/************************************************************************/
-DWORD
-APIENTRY 
-NtGdiDdGetScanLine(HANDLE hDirectDrawLocal,
-                   PDD_GETSCANLINEDATA puGetScanLineData)
-{
-    PGD_DXDDGETSCANLINE  pfnDdGetScanLine = (PGD_DXDDGETSCANLINE)gpDxFuncs[DXG_INDEX_DxDdGetScanLine].pfn;
-   
-    if (pfnDdGetScanLine == NULL)
-    {
-        DPRINT1("Warning: no pfnDdGetScanLine\n");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
-
-    DPRINT1("Calling dxg.sys pfnDdGetScanLine\n");
-
-    return pfnDdGetScanLine(hDirectDrawLocal,puGetScanLineData);
+	return ddRVal;
 }
 
 
 /************************************************************************/
-/* This is not part of the ddsurface interface but it have              */
-/* deal with the surface                                                */
+/* CanCreateSurface                                                     */
+/* status : OK working as it should                                     */
 /************************************************************************/
 
-/************************************************************************/
-/* NtGdiDdCreateSurfaceEx                                               */
-/************************************************************************/
-DWORD
-APIENTRY
-NtGdiDdCreateSurfaceEx(HANDLE hDirectDraw,
-                       HANDLE hSurface,
-                       DWORD dwSurfaceHandle)
+DWORD STDCALL NtGdiDdCanCreateSurface(
+    HANDLE hDirectDrawLocal,
+    PDD_CANCREATESURFACEDATA puCanCreateSurfaceData
+)
 {
-    PGD_DXDDCREATESURFACEEX pfnDdCreateSurfaceEx  = (PGD_DXDDCREATESURFACEEX)gpDxFuncs[DXG_INDEX_DxDdCreateSurfaceEx].pfn;
-   
-    if (pfnDdCreateSurfaceEx == NULL)
-    {
-        DPRINT1("Warning: no pfnDdCreateSurfaceEx\n");
-        return DDHAL_DRIVER_NOTHANDLED;
-    }
+	DWORD  ddRVal = DDHAL_DRIVER_NOTHANDLED;
+	PDD_DIRECTDRAW_GLOBAL lgpl;	
 
-    DPRINT1("Calling dxg.sys pfnDdCreateSurfaceEx\n");
-    return pfnDdCreateSurfaceEx(hDirectDraw,hSurface,dwSurfaceHandle);
+	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(DdHandleTable, hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
 
+	DPRINT1("NtGdiDdCanCreateSurface\n");
+
+	if (pDirectDraw != NULL)
+	{
+
+		if (pDirectDraw->DD.dwFlags & DDHAL_CB32_CANCREATESURFACE)
+		{	
+			lgpl = puCanCreateSurfaceData->lpDD;	
+			puCanCreateSurfaceData->lpDD = &pDirectDraw->Global;
+
+	        ddRVal = pDirectDraw->DD.CanCreateSurface(puCanCreateSurfaceData);	
+
+	        puCanCreateSurfaceData->lpDD = lgpl;
+		}
+
+		GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);
+	}
+
+  return ddRVal;
 }
 
+/************************************************************************/
+/* GetScanLine                                                          */
+/* status : not implement, was undoc in msdn now it is doc              */
+/************************************************************************/
+DWORD STDCALL 
+NtGdiDdGetScanLine( HANDLE hDirectDrawLocal, PDD_GETSCANLINEDATA puGetScanLineData)
+{
+	DWORD  ddRVal = DDHAL_DRIVER_NOTHANDLED;
+	PDD_DIRECTDRAW_GLOBAL lgpl;	
+
+	PDD_DIRECTDRAW pDirectDraw = GDIOBJ_LockObj(DdHandleTable, hDirectDrawLocal, GDI_OBJECT_TYPE_DIRECTDRAW);
+
+	DPRINT1("NtGdiDdGetScanLine\n");
+
+	if (pDirectDraw != NULL)
+	{
+
+		if (pDirectDraw->DD.dwFlags & DDHAL_CB32_GETSCANLINE)
+		{	
+			lgpl = puGetScanLineData->lpDD;	
+			puGetScanLineData->lpDD = &pDirectDraw->Global;
+
+	        ddRVal = pDirectDraw->DD.GetScanLine(puGetScanLineData);	
+
+	        puGetScanLineData->lpDD = lgpl;
+		}
+
+		GDIOBJ_UnlockObjByPtr(DdHandleTable, pDirectDraw);
+	}
+
+  return ddRVal;
+}

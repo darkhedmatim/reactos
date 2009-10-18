@@ -678,7 +678,6 @@ const struct sbcs_table cptable_1026 =
 {
     { 1026, 1, 0x003f, 0x003f, "IBM EBCDIC Latin 5 Turkish" },
     cp2uni,
-    cp2uni,
     uni2cp_low,
     uni2cp_high
 };

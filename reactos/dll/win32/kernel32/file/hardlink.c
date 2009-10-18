@@ -12,9 +12,10 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /* FUNCTIONS ****************************************************************/
 
@@ -22,7 +23,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 CreateHardLinkW(LPCWSTR lpFileName,
                 LPCWSTR lpExistingFileName,
                 LPSECURITY_ATTRIBUTES lpSecurityAttributes)
@@ -45,7 +46,7 @@ CreateHardLinkW(LPCWSTR lpFileName,
   if(RtlDetermineDosPathNameType_U((LPWSTR)lpFileName) == 1 ||
      RtlDetermineDosPathNameType_U((LPWSTR)lpExistingFileName) == 1)
   {
-    WARN("CreateHardLinkW() cannot handle UNC Paths!\n");
+    DPRINT1("CreateHardLinkW() cannot handle UNC Paths!\n");
     SetLastError(ERROR_INVALID_NAME);
     return FALSE;
   }
@@ -143,13 +144,13 @@ CreateHardLinkW(LPCWSTR lpFileName,
                 }
                 else
                 {
-                  WARN("Unable to open link destination \"%wZ\"!\n", &LinkTarget);
+                  DPRINT1("Unable to open link destination \"%wZ\"!\n", &LinkTarget);
                   SetLastErrorByStatus(Status);
                 }
               }
               else
               {
-                WARN("Path \"%wZ\" must not be a mapped drive!\n", &LinkDrive);
+                DPRINT1("Path \"%wZ\" must not be a mapped drive!\n", &LinkDrive);
                 SetLastError(ERROR_INVALID_NAME);
               }
 
@@ -194,7 +195,7 @@ CreateHardLinkW(LPCWSTR lpFileName,
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 CreateHardLinkA(LPCSTR lpFileName,
                 LPCSTR lpExistingFileName,
                 LPSECURITY_ATTRIBUTES lpSecurityAttributes)

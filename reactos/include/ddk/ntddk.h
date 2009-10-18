@@ -24,34 +24,60 @@
  *    _X86_        - X86 environment
  */
 
-#ifndef _NTDDK_
-#define _NTDDK_
+#ifndef __NTDDK_H
+#define __NTDDK_H
 
-//
-// Dependencies
-//
-#define NT_INCLUDED
-#include <wdm.h>
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
+#include <stdarg.h>
+#include <windef.h>
 #include <excpt.h>
 #include <ntdef.h>
-#include <ntstatus.h>
+#include <basetyps.h>
 
-#include <stdarg.h> // FIXME
-#include <basetyps.h> // FIXME
+/* Base types, structures and definitions */
+typedef short CSHORT;
+typedef ULONG CLONG;
+typedef CCHAR *PCCHAR;
+typedef CSHORT *PCSHORT;
+typedef CLONG *PCLONG;
+typedef CONST int CINT;
+typedef CONST char *PCSZ;
 
-
-
-//
-// GUID and UUID
-//
-#ifndef GUID_DEFINED
-#include <guiddef.h>
+#ifndef STATIC
+#define STATIC static
 #endif
-typedef GUID UUID;
 
+#ifndef CALLBACK
+#define CALLBACK
+#endif
+
+#ifndef DECL_IMPORT
+#define DECL_IMPORT __declspec(dllimport)
+#endif
+
+#ifndef DECL_EXPORT
+#define DECL_EXPORT __declspec(dllexport)
+#endif
+
+/* Windows NT status codes */
+#include "ntstatus.h"
+
+/* Windows NT definitions exported to user mode */
+#include <winnt.h>
 
 /* Windows Device Driver Kit */
 #include "winddk.h"
 
+/* Definitions only in Windows XP */
+#include "winxp.h"
 
-#endif /* _NTDDK_ */
+/* Definitions only in Windows 2000 */
+#include "win2k.h"
+
+/* Definitions only in Windows NT 4 */
+#include "winnt4.h"
+
+#endif /* __NTDDK_H */

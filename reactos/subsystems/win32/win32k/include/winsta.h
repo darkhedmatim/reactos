@@ -1,8 +1,7 @@
 #ifndef _WIN32K_WINSTA_H
 #define _WIN32K_WINSTA_H
 
-#include "window.h"
-#include "clipboard.h"
+#include "msgqueue.h"
 
 #define WINSTA_ROOT_NAME	L"\\Windows\\WindowStations"
 #define WINSTA_ROOT_NAME_LENGTH	23
@@ -33,20 +32,11 @@ typedef struct _WINSTATION_OBJECT
     UINT CaretBlinkRate;
     HANDLE ShellWindow;
     HANDLE ShellListView;
-
-    /* Effects */
-    BOOL FontSmoothing; /* enable */
-    UINT FontSmoothingType; /* 1:Standard,2:ClearType */
-    /* FIXME: Big Icons (SPI_GETICONMETRICS?) */
-    BOOL DropShadow;
-    BOOL DragFullWindows;
-    BOOL FlatMenu;
-
-    /* ScreenSaver */
-    BOOL ScreenSaverRunning;
-    UINT  ScreenSaverTimeOut;
-   /* Should this be on each desktop ? */
-    BOOL ScreenSaverActive;
+     
+	BOOL FlatMenu;
+	 /* ScreenSaver */
+	BOOL ScreenSaverRunning;
+	UINT  ScreenSaverTimeOut;
 
     /* Wallpaper */
     HANDLE hbmWallpaper;
@@ -54,15 +44,12 @@ typedef struct _WINSTATION_OBJECT
     WALLPAPER_MODE WallpaperMode;
 
     ULONG Flags;
-    struct _DESKTOP* ActiveDesktop;
-
-    PCLIPBOARDSYSTEM Clipboard;
-    DWORD           ClipboardSequenceNumber;
-
+    struct _DESKTOP_OBJECT* ActiveDesktop;
+    /* FIXME: Clipboard */
 } WINSTATION_OBJECT, *PWINSTATION_OBJECT;
 
 extern WINSTATION_OBJECT *InputWindowStation;
-extern PPROCESSINFO LogonProcess;
+extern PW32PROCESS LogonProcess;
 
 NTSTATUS FASTCALL
 InitWindowStationImpl(VOID);
@@ -71,14 +58,14 @@ NTSTATUS FASTCALL
 CleanupWindowStationImpl(VOID);
 
 NTSTATUS
-APIENTRY
+STDCALL
 IntWinStaObjectOpen(PWIN32_OPENMETHOD_PARAMETERS Parameters);
 
-VOID APIENTRY
+VOID STDCALL
 IntWinStaObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters);
 
 NTSTATUS
-APIENTRY
+STDCALL
 IntWinStaObjectParse(PWIN32_PARSEMETHOD_PARAMETERS Parameters);
 
 NTSTATUS FASTCALL

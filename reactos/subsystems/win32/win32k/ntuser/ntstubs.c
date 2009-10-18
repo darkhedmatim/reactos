@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Native User stubs
@@ -13,104 +14,95 @@
 #include <debug.h>
 
 DWORD
-APIENTRY
-NtUserAssociateInputContext(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3)
+STDCALL
+NtUserActivateKeyboardLayout(
+   DWORD Unknown0,
+   DWORD Unknown1)
 {
-    UNIMPLEMENTED
-    return 0;
+   UNIMPLEMENTED
+
+   return 0;
 }
 
-
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserAttachThreadInput(
-    IN DWORD idAttach,
-    IN DWORD idAttachTo,
-    IN BOOL fAttach)
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
 {
-  NTSTATUS Status;
-  PETHREAD Thread, ThreadTo;
-  PTHREADINFO pti, ptiTo;
-  BOOL Ret = FALSE;
+   UNIMPLEMENTED
 
-  UserEnterExclusive();
-  Status = PsLookupThreadByThreadId((HANDLE)idAttach, &Thread);
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     goto Exit;
-  }
-  Status = PsLookupThreadByThreadId((HANDLE)idAttachTo, &ThreadTo);
-  if (!NT_SUCCESS(Status))
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     ObDereferenceObject(Thread);
-     goto Exit;
-  }
-
-  pti = PsGetThreadWin32Thread(Thread);
-  ptiTo = PsGetThreadWin32Thread(ThreadTo);
-  ObDereferenceObject(Thread);
-  ObDereferenceObject(ThreadTo);
-
-  Ret = UserAttachThreadInput( pti, ptiTo, fAttach);
-
-Exit:
-  UserLeave();
-  return Ret;
+   return 0;
 }
 
-//
-// Works like BitBlt, http://msdn.microsoft.com/en-us/library/ms532278(VS.85).aspx
-//
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserBitBltSysBmp(
-   HDC hdc,
-   INT nXDest,
-   INT nYDest,
-   INT nWidth,
-   INT nHeight,
-   INT nXSrc,
-   INT nYSrc,
-   DWORD dwRop )
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3,
+   DWORD Unknown4,
+   DWORD Unknown5,
+   DWORD Unknown6,
+   DWORD Unknown7)
 {
-   BOOL Ret = FALSE;
-   UserEnterExclusive();
+   UNIMPLEMENTED
 
-   Ret = NtGdiBitBlt( hdc,
-                   nXDest,
-                   nYDest,
-                   nWidth, 
-                  nHeight, 
-                hSystemBM,
-                    nXSrc, 
-                    nYSrc, 
-                    dwRop,
-                        0,
-                        0);
-
-   UserLeave();
-   return Ret;
+   return 0;
 }
 
 DWORD
-APIENTRY
-NtUserBuildHimcList(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
+STDCALL
+NtUserCallHwnd(
+   DWORD Unknown0,
+   DWORD Unknown1)
 {
-    UNIMPLEMENTED;
-    return 0;
+   switch (Unknown0)
+   {
+      case HWND_ROUTINE_REGISTERSHELLHOOKWINDOW:
+         if (IntIsWindow((HWND) Unknown1))
+            return IntRegisterShellHookWindow((HWND) Unknown1);
+         return FALSE;
+         break;
+      case HWND_ROUTINE_DEREGISTERSHELLHOOKWINDOW:
+         if (IntIsWindow((HWND) Unknown1))
+            return IntDeRegisterShellHookWindow((HWND) Unknown1);
+         return FALSE;
+   }
+   UNIMPLEMENTED
+
+   return 0;
 }
 
 DWORD
-APIENTRY
+STDCALL
+NtUserCallHwndParam(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserCallHwndParamLock(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+
+DWORD
+STDCALL
 NtUserConvertMemHandle(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -121,7 +113,7 @@ NtUserConvertMemHandle(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserCreateLocalMemHandle(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -133,12 +125,12 @@ NtUserCreateLocalMemHandle(
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserDdeGetQualityOfService(
-   IN HWND hwndClient,
-   IN HWND hWndServer,
-   OUT PSECURITY_QUALITY_OF_SERVICE pqosPrev)
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
 {
    UNIMPLEMENTED
 
@@ -146,7 +138,7 @@ NtUserDdeGetQualityOfService(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserDdeInitialize(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -159,12 +151,12 @@ NtUserDdeInitialize(
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserDdeSetQualityOfService(
-   IN  HWND hwndClient,
-   IN  PSECURITY_QUALITY_OF_SERVICE pqosNew,
-   OUT PSECURITY_QUALITY_OF_SERVICE pqosPrev)
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
 {
    UNIMPLEMENTED
 
@@ -172,7 +164,7 @@ NtUserDdeSetQualityOfService(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserDragObject(
    HWND    hwnd1,
    HWND    hwnd2,
@@ -186,13 +178,29 @@ NtUserDragObject(
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserDrawAnimatedRects(
-   HWND hwnd,
-   INT idAni,
-   RECT *lprcFrom,
-   RECT *lprcTo)
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserDrawCaptionTemp(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3,
+   DWORD Unknown4,
+   DWORD Unknown5,
+   DWORD Unknown6)
 {
    UNIMPLEMENTED
 
@@ -200,11 +208,11 @@ NtUserDrawAnimatedRects(
 }
 
 BOOL
-APIENTRY
+STDCALL
 NtUserEnumDisplayDevices (
    PUNICODE_STRING lpDevice, /* device name */
    DWORD iDevNum, /* display device */
-   PDISPLAY_DEVICEW lpDisplayDevice, /* device information */
+   PDISPLAY_DEVICE lpDisplayDevice, /* device information */
    DWORD dwFlags ) /* reserved */
 {
    DPRINT1("NtUserEnumDisplayDevices() is UNIMPLEMENTED!\n");
@@ -213,16 +221,11 @@ NtUserEnumDisplayDevices (
       /* Only one display device present */
       return FALSE;
    }
-   else if (lpDevice->Length != 0)
-   {
-       /* Can't enumerate monitors :( */
-       return FALSE;
-   }
    if (lpDisplayDevice->cb < sizeof(DISPLAY_DEVICE))
       return FALSE;
 
-   wcscpy(lpDisplayDevice->DeviceName, L"\\\\.\\DISPLAY1");
-   wcscpy(lpDisplayDevice->DeviceString, L"<Unknown>");
+   swprintf(lpDisplayDevice->DeviceName, L"\\\\.\\DISPLAY1");
+   swprintf(lpDisplayDevice->DeviceString, L"<Unknown>");
    lpDisplayDevice->StateFlags = DISPLAY_DEVICE_ATTACHED_TO_DESKTOP
                                  | DISPLAY_DEVICE_MODESPRUNED
                                  | DISPLAY_DEVICE_PRIMARY_DEVICE
@@ -233,7 +236,7 @@ NtUserEnumDisplayDevices (
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserEvent(
    DWORD Unknown0)
 {
@@ -243,54 +246,10 @@ NtUserEvent(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserExcludeUpdateRgn(
-  HDC hDC,
-  HWND hWnd)
-{
-   UNIMPLEMENTED
-
-   return 0;
-}
-
-BOOL
-APIENTRY
-NtUserGetAltTabInfo(
-   HWND hwnd,
-   INT  iItem,
-   PALTTABINFO pati,
-   LPWSTR pszItemText,
-   UINT   cchItemText,
-   BOOL   Ansi)
-{
-   UNIMPLEMENTED
-
-   return 0;
-}
-
-HBRUSH
-APIENTRY
-NtUserGetControlBrush(
-   HWND hwnd,
-   HDC  hdc,
-   UINT ctlType)
-{
-   UNIMPLEMENTED
-
-   return 0;
-}
-
-
-/*
- * Called from PaintRect, works almost like wine PaintRect16 but returns hBrush.
- */
-HBRUSH
-APIENTRY
-NtUserGetControlColor(
-   HWND hwndParent,
-   HWND hwnd, 
-   HDC hdc,
-   UINT CtlMsg) // Wine PaintRect: WM_CTLCOLORMSGBOX + hbrush
+   DWORD Unknown0,
+   DWORD Unknown1)
 {
    UNIMPLEMENTED
 
@@ -298,7 +257,70 @@ NtUserGetControlColor(
 }
 
 DWORD
-APIENTRY
+STDCALL
+NtUserGetAltTabInfo(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3,
+   DWORD Unknown4,
+   DWORD Unknown5)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetComboBoxInfo(
+   DWORD Unknown0,
+   DWORD Unknown1)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetControlBrush(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetControlColor(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserGetCPD(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetImeHotKey(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -312,7 +334,17 @@ NtUserGetImeHotKey(
 
 
 DWORD
-APIENTRY
+STDCALL
+NtUserGetListBoxInfo(
+   DWORD Unknown0)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
 NtUserGetMouseMovePointsEx(
    UINT cbSize,
    LPMOUSEMOVEPOINT lppt,
@@ -320,29 +352,25 @@ NtUserGetMouseMovePointsEx(
    int nBufPoints,
    DWORD resolution)
 {
-   UserEnterExclusive();
-
-   if ((cbSize != sizeof(MOUSEMOVEPOINT)) || (nBufPoints < 0) || (nBufPoints > 64))
-   {
-      UserLeave();
-      SetLastWin32Error(ERROR_INVALID_PARAMETER);
-      return -1;
-   }
-
-   _SEH2_TRY
-   {
-      ProbeForRead(lppt, cbSize, 1);
-      ProbeForWrite(lpptBuf, cbSize, 1);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-       SetLastNtError(_SEH2_GetExceptionCode());
-       SetLastWin32Error(ERROR_NOACCESS);
-   }
-   _SEH2_END;
-
 /*
-   Call a subfunction of GetMouseMovePointsEx!
+   if (cbSize != sizeof (MOUSEMOVEPOINT)
+   {
+       SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
+       return GMMP_ERR_POINT_NOT_FOUND;
+   }
+       
+   if (!lppt)
+   {
+       SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
+       return GMMP_ERR_POINT_NOT_FOUND;
+   }
+   
+   if (!lpptBuf)
+   {
+       SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
+       return GMMP_ERR_POINT_NOT_FOUND;
+   }
+       
    switch(resolution)
    {
      case GMMP_USE_DISPLAY_POINTS:
@@ -352,74 +380,49 @@ NtUserGetMouseMovePointsEx(
         SetLastWin32Error(GMMP_ERR_POINT_NOT_FOUND);
         return GMMP_ERR_POINT_NOT_FOUND;
    }
-  */
+  */     
    UNIMPLEMENTED
-   UserLeave();
-   return -1;
+
+   return 0;
 }
 
-
-
-BOOL
-APIENTRY
-NtUserImpersonateDdeClientWindow(
-   HWND hWndClient,
-   HWND hWndServer)
+DWORD
+STDCALL
+NtUserGetTitleBarInfo(
+   DWORD Unknown0,
+   DWORD Unknown1)
 {
    UNIMPLEMENTED
 
    return 0;
 }
 
-NTSTATUS
-APIENTRY
-NtUserInitializeClientPfnArrays(
-  PPFNCLIENT pfnClientA,
-  PPFNCLIENT pfnClientW,
-  PPFNCLIENTWORKER pfnClientWorker,
-  HINSTANCE hmodUser)
+DWORD
+STDCALL
+NtUserImpersonateDdeClientWindow(
+   DWORD Unknown0,
+   DWORD Unknown1)
 {
-   NTSTATUS Status = STATUS_SUCCESS;
-   DPRINT("Enter NtUserInitializeClientPfnArrays User32 0x%x\n",hmodUser);
+   UNIMPLEMENTED
 
-   if (ClientPfnInit) return Status;
-
-   UserEnterExclusive();
-
-   _SEH2_TRY
-   {
-      ProbeForRead( pfnClientA, sizeof(PFNCLIENT), 1);
-      ProbeForRead( pfnClientW, sizeof(PFNCLIENT), 1);
-      ProbeForRead( pfnClientWorker, sizeof(PFNCLIENTWORKER), 1);
-      RtlCopyMemory(&gpsi->apfnClientA, pfnClientA, sizeof(PFNCLIENT));
-      RtlCopyMemory(&gpsi->apfnClientW, pfnClientW, sizeof(PFNCLIENT));
-      RtlCopyMemory(&gpsi->apfnClientWorker, pfnClientWorker, sizeof(PFNCLIENTWORKER));
-
-      //// FIXME! HAX! Temporary until server side is finished.
-      //// Copy the client side procs for now.
-      RtlCopyMemory(&gpsi->aStoCidPfn, pfnClientW, sizeof(gpsi->aStoCidPfn));
-
-      hModClient = hmodUser;
-      ClientPfnInit = TRUE;
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-      Status =_SEH2_GetExceptionCode();
-   }
-   _SEH2_END
-
-   if (!NT_SUCCESS(Status))
-   {
-      DPRINT1("Failed reading Client Pfns from user space.\n");
-      SetLastNtError(Status);
-   }
-   
-   UserLeave();
-   return Status;
+   return 0;
 }
 
 DWORD
-APIENTRY
+STDCALL
+NtUserInitializeClientPfnArrays(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
 NtUserInitTask(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -431,16 +434,15 @@ NtUserInitTask(
    DWORD Unknown7,
    DWORD Unknown8,
    DWORD Unknown9,
-   DWORD Unknown10,
-   DWORD Unknown11)
+   DWORD Unknown10)
 {
    UNIMPLEMENTED
 
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserLockWorkStation(VOID)
 {
    UNIMPLEMENTED
@@ -449,7 +451,7 @@ NtUserLockWorkStation(VOID)
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserMNDragLeave(VOID)
 {
    UNIMPLEMENTED
@@ -458,7 +460,7 @@ NtUserMNDragLeave(VOID)
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserMNDragOver(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -469,7 +471,7 @@ NtUserMNDragOver(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserModifyUserStartupInfoFlags(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -480,7 +482,7 @@ NtUserModifyUserStartupInfoFlags(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserNotifyIMEStatus(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -492,7 +494,20 @@ NtUserNotifyIMEStatus(
 }
 
 DWORD
-APIENTRY
+STDCALL
+NtUserNotifyWinEvent(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
 NtUserQueryUserCounters(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -507,7 +522,7 @@ NtUserQueryUserCounters(
 
 
 DWORD
-APIENTRY
+STDCALL
 NtUserRegisterTasklist(
    DWORD Unknown0)
 {
@@ -518,7 +533,7 @@ NtUserRegisterTasklist(
 
 
 DWORD
-APIENTRY
+STDCALL
 NtUserSBGetParms(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -531,7 +546,7 @@ NtUserSBGetParms(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserSetConsoleReserveKeys(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -542,7 +557,7 @@ NtUserSetConsoleReserveKeys(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserSetDbgTag(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -553,7 +568,7 @@ NtUserSetDbgTag(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserSetImeHotKey(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -568,7 +583,7 @@ NtUserSetImeHotKey(
 
 
 DWORD
-APIENTRY
+STDCALL
 NtUserSetRipFlags(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -578,48 +593,21 @@ NtUserSetRipFlags(
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserSetSysColors(
-   int cElements,
-   IN CONST INT *lpaElements,
-   IN CONST COLORREF *lpaRgbValues,
-   FLONG Flags)
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3)
 {
-  DWORD Ret = FALSE;
-  NTSTATUS Status = STATUS_SUCCESS;
-  UserEnterExclusive();
-  _SEH2_TRY
-  {
-     ProbeForRead(lpaElements,
-                   sizeof(INT),
-                   1);
-     ProbeForRead(lpaRgbValues,
-                   sizeof(INT),
-                   1);
-// Developers: We are thread locked and calling gdi.
-     Ret = IntSetSysColors(cElements, (INT*)lpaElements, (COLORREF*)lpaRgbValues);
-  }
-  _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-  {
-      Status = _SEH2_GetExceptionCode();
-  }
-  _SEH2_END;
-  if (!NT_SUCCESS(Status))
-  {
-      SetLastNtError(Status);
-      Ret = FALSE;
-  }
-  if (Ret)
-  {
-     UserPostMessage(HWND_BROADCAST, WM_SYSCOLORCHANGE, 0, 0);
-  }
-  UserLeave();
-  return Ret;
+   UNIMPLEMENTED
+
+   return 0;
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserSetThreadState(
    DWORD Unknown0,
    DWORD Unknown1)
@@ -629,19 +617,28 @@ NtUserSetThreadState(
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserTrackMouseEvent(
-   LPTRACKMOUSEEVENT lpEventTrack)
+   DWORD Unknown0)
 {
    UNIMPLEMENTED
 
    return 0;
 }
 
+DWORD
+STDCALL
+NtUserUnloadKeyboardLayout(
+   DWORD Unknown0)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
 
 DWORD
-APIENTRY
+STDCALL
 NtUserUpdateInputContext(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -653,7 +650,7 @@ NtUserUpdateInputContext(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserUpdateInstance(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -664,12 +661,12 @@ NtUserUpdateInstance(
    return 0;
 }
 
-BOOL
-APIENTRY
+DWORD
+STDCALL
 NtUserUserHandleGrantAccess(
-   IN HANDLE hUserHandle,
-   IN HANDLE hJob,
-   IN BOOL bGrant)
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
 {
    UNIMPLEMENTED
 
@@ -677,7 +674,29 @@ NtUserUserHandleGrantAccess(
 }
 
 DWORD
-APIENTRY
+STDCALL
+NtUserValidateHandleSecure(
+   DWORD Unknown0)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
+NtUserWaitForInputIdle(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+DWORD
+STDCALL
 NtUserWaitForMsgAndEvent(
    DWORD Unknown0)
 {
@@ -687,7 +706,7 @@ NtUserWaitForMsgAndEvent(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserWin32PoolAllocationStats(
    DWORD Unknown0,
    DWORD Unknown1,
@@ -702,522 +721,12 @@ NtUserWin32PoolAllocationStats(
 }
 
 DWORD
-APIENTRY
+STDCALL
 NtUserYieldTask(VOID)
 {
    UNIMPLEMENTED
 
    return 0;
 }
-
-
-DWORD
-APIENTRY
-NtUserCheckImeHotKey(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserConsoleControl(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserCreateInputContext(
-    DWORD dwUnknown1)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserDestroyInputContext(
-    DWORD dwUnknown1)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserDisableThreadIme(
-    DWORD dwUnknown1)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetAppImeLevel(
-    DWORD dwUnknown1)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetAtomName(
-    ATOM nAtom,
-    LPWSTR lpBuffer)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetImeInfoEx(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetRawInputBuffer(
-    PRAWINPUT pData,
-    PUINT pcbSize,
-    UINT cbSizeHeader)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetRawInputData(
-    HRAWINPUT hRawInput,
-    UINT uiCommand,
-    LPVOID pData,
-    PUINT pcbSize,
-    UINT cbSizeHeader)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetRawInputDeviceInfo(
-    HANDLE hDevice,
-    UINT uiCommand,
-    LPVOID pData,
-    PUINT pcbSize
-)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetRawInputDeviceList(
-    PRAWINPUTDEVICELIST pRawInputDeviceList,
-    PUINT puiNumDevices,
-    UINT cbSize)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserGetRegisteredRawInputDevices(
-    PRAWINPUTDEVICE pRawInputDevices,
-    PUINT puiNumDevices,
-    UINT cbSize)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserHardErrorControl(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserMinMaximize(
-    HWND hWnd,
-    UINT cmd, // Wine SW_ commands
-    BOOL Hide)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserNotifyProcessCreate(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserPrintWindow(
-    HWND hwnd,
-    HDC  hdcBlt,
-    UINT nFlags)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-NTSTATUS
-APIENTRY
-NtUserProcessConnect(
-    HANDLE Process,
-    PUSERCONNECT pUserConnect,
-    DWORD Size)
-{
-  NTSTATUS Status = STATUS_SUCCESS;
-  DPRINT("NtUserProcessConnect\n");
-  if (pUserConnect && ( Size == sizeof(USERCONNECT) ))
-  {
-     PPROCESSINFO W32Process;
-     UserEnterShared();
-     GetW32ThreadInfo();
-     W32Process = PsGetCurrentProcessWin32Process();
-     _SEH2_TRY
-     {
-        pUserConnect->siClient.psi = gpsi;
-        pUserConnect->siClient.aheList = gHandleTable;
-        pUserConnect->siClient.ulSharedDelta = (ULONG_PTR)W32Process->HeapMappings.KernelMapping -
-                                               (ULONG_PTR)W32Process->HeapMappings.UserMapping;
-     }
-     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-     {
-        Status = _SEH2_GetExceptionCode();
-     }
-     _SEH2_END
-     if (!NT_SUCCESS(Status))
-     {
-        SetLastNtError(Status);
-     }
-     UserLeave();
-     return Status;
-  }
-  return STATUS_UNSUCCESSFUL;
-}
-
-DWORD
-APIENTRY
-NtUserQueryInformationThread(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserQueryInputContext(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserRealInternalGetMessage(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5,
-    DWORD dwUnknown6)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserRealWaitMessageEx(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserRegisterUserApiHook(
-    PUNICODE_STRING m_dllname1,
-    PUNICODE_STRING m_funname1,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
-{
-    UserEnterExclusive();
-    UNIMPLEMENTED;
-    UserLeave();
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserRegisterRawInputDevices(
-    IN PCRAWINPUTDEVICE pRawInputDevices,
-    IN UINT uiNumDevices,
-    IN UINT cbSize)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserResolveDesktop(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserSetAppImeLevel(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserSetImeInfoEx(
-    DWORD dwUnknown1)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserSetInformationProcess(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserSetInformationThread(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserSetThreadLayoutHandles(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserSoundSentry(VOID)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserTestForInteractiveUser(
-    DWORD dwUnknown1)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-/* http://www.cyber-ta.org/releases/malware-analysis/public/SOURCES/b47155634ccb2c30630da7e3666d3d07/b47155634ccb2c30630da7e3666d3d07.trace.html#NtUserGetIconSize */
-DWORD
-APIENTRY
-NtUserCalcMenuBar(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserPaintMenuBar(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4,
-    DWORD dwUnknown5,
-    DWORD dwUnknown6)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserUnregisterUserApiHook(VOID)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserGetLayeredWindowAttributes(
-    HWND hwnd,
-    COLORREF *pcrKey,
-    BYTE *pbAlpha,
-    DWORD *pdwFlags)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-/* ValidateRect gets redirected to NtUserValidateRect:
-   http://blog.csdn.net/ntdll/archive/2005/10/19/509299.aspx */
-BOOL
-APIENTRY
-NtUserValidateRect(
-    HWND hWnd,
-    const RECT *lpRect)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-BOOL
-APIENTRY
-NtUserValidateTimerCallback(
-    HWND hWnd,
-    WPARAM wParam,
-    LPARAM lParam)
-{
-  BOOL Ret = FALSE;
-  PWINDOW_OBJECT Window = NULL;
-
-  UserEnterShared();
-
-  if (hWnd)
-  {
-     Window = UserGetWindowObject(hWnd);
-     if (!Window || !Window->Wnd)
-        goto Exit;
-  }
-
-  Ret = ValidateTimerCallback(PsGetCurrentThreadWin32Thread(), Window, wParam, lParam);
-
-Exit:
-  UserLeave();
-  return Ret;
-}
-
-DWORD
-APIENTRY
-NtUserRemoteConnect(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserRemoteRedrawRectangle(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3,
-    DWORD dwUnknown4)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserRemoteRedrawScreen(VOID)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserRemoteStopScreenUpdates(VOID)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
-DWORD
-APIENTRY
-NtUserCtxDisplayIOCtl(
-    DWORD dwUnknown1,
-    DWORD dwUnknown2,
-    DWORD dwUnknown3)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
 
 /* EOF */

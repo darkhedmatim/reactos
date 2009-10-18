@@ -26,10 +26,10 @@
  * Updated for P6 architecture by Gareth Hughes.
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/macros.h"
-#include "main/imports.h"
+#include "glheader.h"
+#include "context.h"
+#include "macros.h"
+#include "imports.h"
 
 #include "m_matrix.h"
 #include "m_xform.h"
@@ -42,7 +42,7 @@
 static char dummy;
 #endif
 
-#ifdef DEBUG_MATH  /* This code only used for debugging */
+#ifdef DEBUG  /* This code only used for debugging */
 
 
 /* Overhead of profiling counter in cycles.  Automatically adjusted to
@@ -284,7 +284,7 @@ void _math_test_all_transform_functions( char *description )
 
    if ( first_time ) {
       first_time = 0;
-      mesa_profile = _mesa_getenv( "MESA_PROFILE" );
+      mesa_profile = getenv( "MESA_PROFILE" );
    }
 
 #ifdef RUN_DEBUG_BENCHMARK
@@ -335,4 +335,4 @@ void _math_test_all_transform_functions( char *description )
 }
 
 
-#endif /* DEBUG_MATH */
+#endif /* DEBUG */

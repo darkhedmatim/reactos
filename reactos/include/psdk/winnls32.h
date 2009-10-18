@@ -1,6 +1,10 @@
 #ifndef _WINNLS32_
 #define _WINNLS32_
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

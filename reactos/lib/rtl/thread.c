@@ -12,6 +12,7 @@
 /* INCLUDES *****************************************************************/
 
 #include <rtl.h>
+#include "i386/ketypes.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -31,8 +32,7 @@ RtlpCreateUserStack(IN HANDLE hProcess,
     PIMAGE_NT_HEADERS Headers;
     ULONG_PTR Stack = 0;
     BOOLEAN UseGuard = FALSE;
-    ULONG Dummy;
-    SIZE_T GuardPageSize;
+    ULONG Dummy, GuardPageSize;
 
     /* Get some memory information */
     Status = ZwQuerySystemInformation(SystemBasicInformation,
@@ -134,7 +134,7 @@ NTAPI
 RtlpFreeUserStack(IN HANDLE Process,
                   IN PINITIAL_TEB InitialTeb)
 {
-    SIZE_T Dummy = 0;
+    ULONG Dummy = 0;
     NTSTATUS Status;
 
     /* Free the Stack */
@@ -210,15 +210,68 @@ RtlCreateUserThread(IN HANDLE ProcessHandle,
     else
     {
         /* Return thread data */
-        if (ThreadHandle)
-            *ThreadHandle = Handle;
-        else
-            NtClose(Handle);
+        if (ThreadHandle) *ThreadHandle = Handle;
         if (ClientId) *ClientId = ThreadCid;
     }
 
     /* Return success or the previous failure */
     return Status;
+}
+
+/*
+ * FIXME: Should go in /i386
+ @implemented
+*/
+VOID
+NTAPI
+RtlInitializeContext(IN HANDLE ProcessHandle,
+                     OUT PCONTEXT ThreadContext,
+                     IN PVOID ThreadStartParam  OPTIONAL,
+                     IN PTHREAD_START_ROUTINE ThreadStartAddress,
+                     IN PINITIAL_TEB InitialTeb)
+{
+    /*
+     * Set the Initial Registers
+     * This is based on NT's default values -- crazy apps might expect this...
+     */
+    ThreadContext->Ebp = 0;
+    ThreadContext->Eax = 0;
+    ThreadContext->Ebx = 1;
+    ThreadContext->Ecx = 2;
+    ThreadContext->Edx = 3;
+    ThreadContext->Esi = 4;
+    ThreadContext->Edi = 5;
+
+    /* Set the Selectors */
+    ThreadContext->SegGs = 0;
+    ThreadContext->SegFs = KGDT_R3_TEB;
+    ThreadContext->SegEs = KGDT_R3_DATA;
+    ThreadContext->SegDs = KGDT_R3_DATA;
+    ThreadContext->SegSs = KGDT_R3_DATA;
+    ThreadContext->SegCs = KGDT_R3_CODE;
+
+    /* Enable Interrupts */
+    ThreadContext->EFlags = EFLAGS_INTERRUPT_MASK;
+
+    /* Settings passed */
+    ThreadContext->Eip = (ULONG)ThreadStartAddress;
+    ThreadContext->Esp = (ULONG)InitialTeb;
+
+    /* Only the basic Context is initialized */
+    ThreadContext->ContextFlags = CONTEXT_CONTROL |
+                                  CONTEXT_INTEGER |
+                                  CONTEXT_SEGMENTS;
+
+    /* Set up ESP to the right value */
+    ThreadContext->Esp -= sizeof(PVOID);
+    ZwWriteVirtualMemory(ProcessHandle,
+                         (PVOID)ThreadContext->Esp,
+                         (PVOID)&ThreadStartParam,
+                         sizeof(PVOID),
+                         NULL);
+
+    /* Push it down one more notch for RETEIP */
+    ThreadContext->Esp -= sizeof(PVOID);
 }
 
 /*
@@ -246,7 +299,7 @@ RtlFreeUserThreadStack(HANDLE ProcessHandle,
 {
     NTSTATUS Status;
     THREAD_BASIC_INFORMATION ThreadBasicInfo;
-    SIZE_T Dummy, Size = 0;
+    ULONG Dummy, Size = 0;
     PVOID StackLocation;
 
     /* Query the Basic Info */
@@ -278,16 +331,4 @@ _NtCurrentTeb(VOID)
     return NtCurrentTeb();
 }
 
-NTSTATUS
-NTAPI
-RtlRemoteCall(IN HANDLE Process,
-              IN HANDLE Thread,
-              IN PVOID CallSite,
-              IN ULONG ArgumentCount,
-              IN PULONG Arguments,
-              IN BOOLEAN PassContext,
-              IN BOOLEAN AlreadySuspended)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
+/* EOF */

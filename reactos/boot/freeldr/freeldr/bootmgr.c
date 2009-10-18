@@ -21,46 +21,49 @@
 
 VOID RunLoader(VOID)
 {
+	CHAR	SettingName[80];
 	CHAR	SettingValue[80];
-	ULONG_PTR	SectionId;
+	ULONG		SectionId;
 	ULONG		OperatingSystemCount;
 	PCSTR	*OperatingSystemSectionNames;
 	PCSTR	*OperatingSystemDisplayNames;
-	PCSTR SectionName;
 	ULONG		DefaultOperatingSystem;
 	LONG		TimeOut;
 	ULONG		SelectedOperatingSystem;
 
-	// FIXME: if possible, only detect and register ARC devices...
-	if (!MachHwDetect())
+	if (!FsOpenBootVolume())
 	{
-		UiMessageBoxCritical("Error when detecting hardware");
+		printf("Error opening boot partition for file access.\n");
+		MachConsGetCh();
 		return;
 	}
 
 	if (!IniFileInitialize())
 	{
-		UiMessageBoxCritical("Error initializing .ini file");
+		printf("Press any key to reboot.\n");
+		MachConsGetCh();
 		return;
 	}
 
 	if (!IniOpenSection("FreeLoader", &SectionId))
 	{
-		UiMessageBoxCritical("Section [FreeLoader] not found in freeldr.ini.");
+		printf("Section [FreeLoader] not found in freeldr.ini.\n");
+		MachConsGetCh();
 		return;
 	}
 	TimeOut = GetTimeOut();
 
 	if (!UiInitialize(TimeOut))
 	{
-		UiMessageBoxCritical("Unable to initialize UI.");
+		printf("Press any key to reboot.\n");
+		MachConsGetCh();
 		return;
 	}
 
 
 	if (!InitOperatingSystemList(&OperatingSystemSectionNames, &OperatingSystemDisplayNames, &OperatingSystemCount))
 	{
-		UiMessageBox("Press ENTER to reboot.");
+		UiMessageBox("Press ENTER to reboot.\n");
 		goto reboot;
 	}
 
@@ -80,103 +83,79 @@ VOID RunLoader(VOID)
 	for (;;)
 	{
 
+		/* If Timeout is 0, don't even bother loading any gui */
+		if (!UserInterfaceUp) {
+			SelectedOperatingSystem = DefaultOperatingSystem;
+			goto NoGui;
+		}
+
 		// Redraw the backdrop
 		UiDrawBackdrop();
 
 		// Show the operating system list menu
 		if (!UiDisplayMenu(OperatingSystemDisplayNames, OperatingSystemCount, DefaultOperatingSystem, TimeOut, &SelectedOperatingSystem, FALSE, MainBootMenuKeyPressFilter))
 		{
-			UiMessageBox("Press ENTER to reboot.");
+			UiMessageBox("Press ENTER to reboot.\n");
 			goto reboot;
 		}
 
+NoGui:
 		TimeOut = -1;
 
 		// Try to open the operating system section in the .ini file
-		SettingValue[0] = ANSI_NULL;
-		SectionName = OperatingSystemSectionNames[SelectedOperatingSystem];
-		if (IniOpenSection(SectionName, &SectionId))
+		if (!IniOpenSection(OperatingSystemSectionNames[SelectedOperatingSystem], &SectionId))
 		{
-			// Try to read the boot type
-			IniReadSettingByName(SectionId, "BootType", SettingValue, sizeof(SettingValue));
+			sprintf(SettingName, "Section [%s] not found in freeldr.ini.\n", OperatingSystemSectionNames[SelectedOperatingSystem]);
+			UiMessageBox(SettingName);
+			continue;
 		}
 
-		if (SettingValue[0] == ANSI_NULL && SectionName[0] != ANSI_NULL)
+		// Try to read the boot type
+		if (!IniReadSettingByName(SectionId, "BootType", SettingValue, sizeof(SettingValue)))
 		{
-			// Try to infere boot type value
-#ifdef __i386__
-			CHAR LastChar;
-			LastChar = SectionName[strlen(SectionName) - 1];
-			if (LastChar == '\\' ||
-			    (strstr(SectionName, ")partition(") != NULL &&
-			     strstr(SectionName, ")partition(0)") == NULL))
-			{
-				strcpy(SettingValue, "Partition");
-			}
-			else if (LastChar == ')' || LastChar == ':')
-			{
-				strcpy(SettingValue, "Drive");
-			}
-			else if (TRUE)
-			{
-				strcpy(SettingValue, "BootSector");
-			}
-			else
-#endif
-			{
-				strcpy(SettingValue, "Windows2003");
-			}
+			sprintf(SettingName, "BootType= line not found in section [%s] in freeldr.ini.\n", OperatingSystemSectionNames[SelectedOperatingSystem]);
+			UiMessageBox(SettingName);
+			continue;
 		}
 
 		// Install the drive mapper according to this sections drive mappings
-#ifdef __i386__
-		DriveMapMapDrivesInSection(SectionName);
-#endif
+		DriveMapMapDrivesInSection(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		if (_stricmp(SettingValue, "ReactOS") == 0)
 		{
-			LoadAndBootReactOS(SectionName);
+			LoadAndBootReactOS(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		}
-#ifdef FREELDR_REACTOS_SETUP
-		else if (_stricmp(SettingValue, "ReactOSSetup") == 0)
-		{
-			// In future we could pass the selected OS details through this
-			// to have different install methods, etc.
-			LoadReactOSSetup();
-		}
-#ifdef __i386__
-		else if (_stricmp(SettingValue, "ReactOSSetup2") == 0)
-		{
-			// WinLdr-style boot
-			LoadReactOSSetup2();
-		}
-#endif
-#endif
-#ifdef __i386__
 		else if (_stricmp(SettingValue, "WindowsNT40") == 0)
 		{
-			LoadAndBootWindows(SectionName, _WIN32_WINNT_NT4);
+			LoadAndBootWindows(OperatingSystemSectionNames[SelectedOperatingSystem], _WIN32_WINNT_NT4);
+		}
+		else if (_stricmp(SettingValue, "Windows2000") == 0)
+		{
+			LoadAndBootWindows(OperatingSystemSectionNames[SelectedOperatingSystem], _WIN32_WINNT_WIN2K);
+		}
+		else if (_stricmp(SettingValue, "WindowsXP") == 0)
+		{
+			LoadAndBootWindows(OperatingSystemSectionNames[SelectedOperatingSystem], _WIN32_WINNT_WINXP);
 		}
 		else if (_stricmp(SettingValue, "Windows2003") == 0)
 		{
-			LoadAndBootWindows(SectionName, _WIN32_WINNT_WS03);
+			LoadAndBootWindows(OperatingSystemSectionNames[SelectedOperatingSystem], _WIN32_WINNT_WS03);
 		}
 		else if (_stricmp(SettingValue, "Linux") == 0)
 		{
-			LoadAndBootLinux(SectionName, OperatingSystemDisplayNames[SelectedOperatingSystem]);
+			LoadAndBootLinux(OperatingSystemSectionNames[SelectedOperatingSystem], OperatingSystemDisplayNames[SelectedOperatingSystem]);
 		}
 		else if (_stricmp(SettingValue, "BootSector") == 0)
 		{
-			LoadAndBootBootSector(SectionName);
+			LoadAndBootBootSector(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		}
 		else if (_stricmp(SettingValue, "Partition") == 0)
 		{
-			LoadAndBootPartition(SectionName);
+			LoadAndBootPartition(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		}
 		else if (_stricmp(SettingValue, "Drive") == 0)
 		{
-			LoadAndBootDrive(SectionName);
+			LoadAndBootDrive(OperatingSystemSectionNames[SelectedOperatingSystem]);
 		}
-#endif
 	}
 
 
@@ -189,7 +168,7 @@ ULONG	 GetDefaultOperatingSystem(PCSTR OperatingSystemList[], ULONG	 OperatingSy
 {
 	CHAR	DefaultOSText[80];
 	PCSTR	DefaultOSName;
-	ULONG_PTR	SectionId;
+	ULONG	SectionId;
 	ULONG	DefaultOS = 0;
 	ULONG	Idx;
 
@@ -226,7 +205,7 @@ LONG GetTimeOut(VOID)
 {
 	CHAR	TimeOutText[20];
 	LONG		TimeOut;
-	ULONG_PTR	SectionId;
+	ULONG		SectionId;
 
 	TimeOut = CmdLineGetTimeOut();
 	if (0 <= TimeOut)

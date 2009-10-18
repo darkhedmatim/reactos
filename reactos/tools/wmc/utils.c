@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -36,8 +36,9 @@
 
 static void generic_msg(const char *s, const char *t, va_list ap)
 {
-	fprintf(stderr, "%s:%d:%d: %s: ", input_name ? input_name : "stdin", line_number, char_number, t);
+	fprintf(stderr, "%s %s: %d, %d: ", t, input_name ? input_name : "stdin", line_number, char_number);
 	vfprintf(stderr, s, ap);
+	fprintf(stderr, "\n");
 }
 
 /*
@@ -48,7 +49,7 @@ static void generic_msg(const char *s, const char *t, va_list ap)
  * The extra routine 'xyyerror' is used to exit after giving a real
  * message.
  */
-int mcy_error(const char *s, ...)
+int yyerror(const char *s, ...)
 {
 #ifndef SUPPRESS_YACC_ERROR_MESSAGE
 	va_list ap;
@@ -69,7 +70,7 @@ int xyyerror(const char *s, ...)
 	return 1;
 }
 
-int mcy_warning(const char *s, ...)
+int yywarning(const char *s, ...)
 {
 	va_list ap;
 	va_start(ap, s);
@@ -84,6 +85,7 @@ void internal_error(const char *file, int line, const char *s, ...)
 	va_start(ap, s);
 	fprintf(stderr, "Internal error (please report) %s %d: ", file, line);
 	vfprintf(stderr, s, ap);
+	fprintf(stderr, "\n");
 	va_end(ap);
 	exit(3);
 }
@@ -94,6 +96,7 @@ void error(const char *s, ...)
 	va_start(ap, s);
 	fprintf(stderr, "Error: ");
 	vfprintf(stderr, s, ap);
+	fprintf(stderr, "\n");
 	va_end(ap);
 	exit(2);
 }
@@ -104,6 +107,7 @@ void warning(const char *s, ...)
 	va_start(ap, s);
 	fprintf(stderr, "Warning: ");
 	vfprintf(stderr, s, ap);
+	fprintf(stderr, "\n");
 	va_end(ap);
 }
 
@@ -124,27 +128,13 @@ char *dup_basename(const char *name, const char *ext)
 	namelen = strlen(name);
 
 	/* +4 for later extension and +1 for '\0' */
-	base = xmalloc(namelen +4 +1);
+	base = (char *)xmalloc(namelen +4 +1);
 	strcpy(base, name);
 	if(!strcasecmp(name + namelen-extlen, ext))
 	{
 		base[namelen - extlen] = '\0';
 	}
 	return base;
-}
-
-void get_rcbasedir(char *basedir, const char *name)
-{
-	char *slash;
-	slash = strrchr(name, '/');
-
-	if (!slash)
-		slash = strrchr(name, '\\');
-
-	basedir[0] = 0;
-
-	strncpy(basedir, name, slash - name + 1);
-	basedir[slash-name + 1] = '\0';
 }
 
 void *xmalloc(size_t size)
@@ -158,7 +148,12 @@ void *xmalloc(size_t size)
     {
 	error("Virtual memory exhausted.\n");
     }
-    memset(res, 0x55, size);
+    /*
+     * We set it to 0.
+     * This is *paramount* because we depend on it
+     * just about everywhere in the rest of the code.
+     */
+    memset(res, 0, size);
     return res;
 }
 
@@ -182,7 +177,7 @@ char *xstrdup(const char *str)
 	char *s;
 
 	assert(str != NULL);
-	s = xmalloc(strlen(str)+1);
+	s = (char *)xmalloc(strlen(str)+1);
 	return strcpy(s, str);
 }
 
@@ -208,7 +203,7 @@ WCHAR *xunistrdup(const WCHAR * str)
 	WCHAR *s;
 
 	assert(str != NULL);
-	s = xmalloc((unistrlen(str)+1) * sizeof(WCHAR));
+	s = (WCHAR *)xmalloc((unistrlen(str)+1) * sizeof(WCHAR));
 	return unistrcpy(s, str);
 }
 
@@ -225,7 +220,7 @@ int unistricmp(const WCHAR *s1, const WCHAR *s2)
 			if(!once)
 			{
 				once++;
-				mcy_warning(warn);
+				yywarning(warn);
 			}
 			i = *s1++ - *s2++;
 		}
@@ -238,7 +233,7 @@ int unistricmp(const WCHAR *s1, const WCHAR *s2)
 	if((*s1 & 0xffff) > 0x7f || (*s2 & 0xffff) > 0x7f)
 	{
 		if(!once)
-			mcy_warning(warn);
+			yywarning(warn);
 		return *s1 - *s2;
 	}
 	else

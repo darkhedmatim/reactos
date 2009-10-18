@@ -10,6 +10,16 @@
 #define WM_ISACTIVEICON         0x0035
 #endif
 
+#ifndef __USE_W32API
+#if defined(STRICT)
+typedef INT     (CALLBACK *EDITWORDBREAKPROCA)(LPSTR,INT,INT,INT);
+typedef INT     (CALLBACK *EDITWORDBREAKPROCW)(LPWSTR,INT,INT,INT);
+#else
+typedef FARPROC EDITWORDBREAKPROCA;
+typedef FARPROC EDITWORDBREAKPROCW;
+#endif
+#endif
+
 #ifndef HBMMENU_CALLBACK
 #define HBMMENU_CALLBACK	((HBITMAP) -1)
 #endif
@@ -93,7 +103,6 @@ typedef struct
    INT            fixedOwnerDrawHeight;
    INT            droppedWidth;   /* last two are not used unless set */
    INT            editHeight;     /* explicitly */
-   LONG           UIState;
 } HEADCOMBO,*LPHEADCOMBO;
 
 /* Note, that CBS_DROPDOWNLIST style is actually (CBS_SIMPLE | CBS_DROPDOWN) */
@@ -105,29 +114,5 @@ extern BOOL COMBO_FlipListbox( LPHEADCOMBO, BOOL, BOOL );
 #define LB_INSERTSTRING_LOWER     0x1AB
 #define LB_ADDSTRING_UPPER        0x1AC
 #define LB_ADDSTRING_LOWER        0x1AD
-
-#define DESKTOP_CLASS_ATOM   MAKEINTATOMA(32769)  /* Desktop */
-LRESULT WINAPI DesktopWndProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI User32DefWindowProc(HWND,UINT,WPARAM,LPARAM,BOOL);
-BOOL WINAPI RegisterClientPFN(VOID);
-LRESULT WINAPI IconTitleWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ButtonWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ButtonWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL unicode);
-LRESULT WINAPI ComboWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ComboWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ComboWndProc_common( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, BOOL unicode);
-LRESULT WINAPI EditWndProcA(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-LRESULT WINAPI EditWndProcW(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-LRESULT WINAPI EditWndProc_common( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, BOOL unicode);
-LRESULT WINAPI ListBoxWndProcA( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ListBoxWndProcW( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI ListBoxWndProc_common( HWND hwnd, UINT msg,WPARAM wParam, LPARAM lParam, BOOL unicode);
-LRESULT WINAPI MDIClientWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI MDIClientWndProcW( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI MDIClientWndProc_common( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, BOOL unicode);
-LRESULT WINAPI StaticWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI StaticWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-LRESULT WINAPI StaticWndProc_common( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL unicode);
 
 #endif /* _ROS_CONTROLS_H */

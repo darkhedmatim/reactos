@@ -28,7 +28,6 @@
 #include "wingdi.h"
 #include "winuser.h"
 #include "winreg.h"
-#include "vfwmsgs.h"
 #include "uxtheme.h"
 #include "tmschema.h"
 
@@ -122,21 +121,21 @@ static DWORD query_reg_path (HKEY hKey, LPCWSTR lpszValue,
       WCHAR cNull = '\0';
       nBytesToAlloc = dwUnExpDataLen;
 
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
       RegQueryValueExW (hKey, lpszValue, 0, NULL, (LPBYTE)szData, &nBytesToAlloc);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, &cNull, 1);
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
     else
     {
       nBytesToAlloc = (lstrlenW(pvData) + 1) * sizeof(WCHAR);
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
       lstrcpyW(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, pvData, MAX_PATH );
       if (dwExpDataLen > MAX_PATH) dwRet = ERROR_MORE_DATA;
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
   }
 
@@ -166,7 +165,7 @@ static void UXTHEME_LoadTheme(void)
         }
         else {
             bThemeActive = FALSE;
-            TRACE("Failed to get ThemeActive: %d\n", GetLastError());
+            TRACE("Failed to get ThemeActive: %ld\n", GetLastError());
         }
         buffsize = sizeof(szCurrentColor)/sizeof(szCurrentColor[0]);
         if(RegQueryValueExW(hKey, szColorName, NULL, NULL, (LPBYTE)szCurrentColor, &buffsize))
@@ -206,7 +205,7 @@ static void UXTHEME_LoadTheme(void)
     }
     if(!bThemeActive) {
         MSSTYLES_SetActiveTheme(NULL, FALSE);
-        TRACE("Theming not active\n");
+        TRACE("Themeing not active\n");
     }
 }
 
@@ -411,7 +410,7 @@ static void UXTHEME_RestoreSystemMetrics(void)
 		&type, (LPBYTE)&ncm, &count) == ERROR_SUCCESS)
 	    {
 		SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, 
-                    count, &ncm, SPIF_UPDATEINIFILE);
+		    count, (LPVOID)&ncm, SPIF_UPDATEINIFILE);
 	    }
 	    
             count = sizeof(iconTitleFont);
@@ -420,7 +419,7 @@ static void UXTHEME_RestoreSystemMetrics(void)
 		&type, (LPBYTE)&iconTitleFont, &count) == ERROR_SUCCESS)
 	    {
 		SystemParametersInfoW (SPI_SETICONTITLELOGFONT, 
-                    count, &iconTitleFont, SPIF_UPDATEINIFILE);
+		    count, (LPVOID)&iconTitleFont, SPIF_UPDATEINIFILE);
 	    }
 	}
       
@@ -453,15 +452,17 @@ static void UXTHEME_SaveSystemMetrics(void)
     
     memset (&ncm, 0, sizeof (ncm));
     ncm.cbSize = sizeof (ncm);
-    SystemParametersInfoW (SPI_GETNONCLIENTMETRICS, sizeof (ncm), &ncm, 0);
-    SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, sizeof (ncm), &ncm,
-        SPIF_UPDATEINIFILE);
+    SystemParametersInfoW (SPI_GETNONCLIENTMETRICS, 
+	sizeof (ncm), (LPVOID)&ncm, 0);
+    SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, 
+	sizeof (ncm), (LPVOID)&ncm, SPIF_UPDATEINIFILE);
 
     memset (&iconTitleFont, 0, sizeof (iconTitleFont));
-    SystemParametersInfoW (SPI_GETICONTITLELOGFONT, sizeof (iconTitleFont),
-        &iconTitleFont, 0);
-    SystemParametersInfoW (SPI_SETICONTITLELOGFONT, sizeof (iconTitleFont),
-        &iconTitleFont, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+    SystemParametersInfoW (SPI_GETICONTITLELOGFONT, 
+	sizeof (iconTitleFont), (LPVOID)&iconTitleFont, 0);
+    SystemParametersInfoW (SPI_SETICONTITLELOGFONT, 
+	sizeof (iconTitleFont), (LPVOID)&iconTitleFont, 
+	SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 }
 
 /***********************************************************************
@@ -469,7 +470,7 @@ static void UXTHEME_SaveSystemMetrics(void)
  *
  * Change the current active theme
  */
-static HRESULT UXTHEME_SetActiveTheme(PTHEME_FILE tf)
+HRESULT UXTHEME_SetActiveTheme(PTHEME_FILE tf)
 {
     HKEY hKey;
     WCHAR tmp[2];
@@ -564,7 +565,6 @@ BOOL WINAPI IsAppThemed(void)
 BOOL WINAPI IsThemeActive(void)
 {
     TRACE("\n");
-    SetLastError(ERROR_SUCCESS);
     return bThemeActive;
 }
 
@@ -604,15 +604,15 @@ HRESULT WINAPI EnableTheming(BOOL fEnable)
  * I'm using atoms as there may be large numbers of duplicated strings
  * and they do the work of keeping memory down as a cause of that quite nicely
  */
-static HRESULT UXTHEME_SetWindowProperty(HWND hwnd, ATOM aProp, LPCWSTR pszValue)
+HRESULT UXTHEME_SetWindowProperty(HWND hwnd, ATOM aProp, LPCWSTR pszValue)
 {
-    ATOM oldValue = (ATOM)(size_t)RemovePropW(hwnd, (LPCWSTR)MAKEINTATOM(aProp));
+    ATOM oldValue = (ATOM)(size_t)RemovePropW(hwnd, MAKEINTATOMW(aProp));
     if(oldValue)
         DeleteAtom(oldValue);
     if(pszValue) {
         ATOM atValue = AddAtomW(pszValue);
         if(!atValue
-           || !SetPropW(hwnd, (LPCWSTR)MAKEINTATOM(aProp), (LPWSTR)MAKEINTATOM(atValue))) {
+           || !SetPropW(hwnd, MAKEINTATOMW(aProp), (LPWSTR)MAKEINTATOMW(atValue))) {
             HRESULT hr = HRESULT_FROM_WIN32(GetLastError());
             if(atValue) DeleteAtom(atValue);
             return hr;
@@ -621,9 +621,9 @@ static HRESULT UXTHEME_SetWindowProperty(HWND hwnd, ATOM aProp, LPCWSTR pszValue
     return S_OK;
 }
 
-static LPWSTR UXTHEME_GetWindowProperty(HWND hwnd, ATOM aProp, LPWSTR pszBuffer, int dwLen)
+LPWSTR UXTHEME_GetWindowProperty(HWND hwnd, ATOM aProp, LPWSTR pszBuffer, int dwLen)
 {
-    ATOM atValue = (ATOM)(size_t)GetPropW(hwnd, (LPCWSTR)MAKEINTATOM(aProp));
+    ATOM atValue = (ATOM)(size_t)GetPropW(hwnd, MAKEINTATOMW(aProp));
     if(atValue) {
         if(GetAtomNameW(atValue, pszBuffer, dwLen))
             return pszBuffer;
@@ -642,7 +642,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
     LPCWSTR pszAppName;
     LPCWSTR pszUseClassList;
     HTHEME hTheme = NULL;
-    TRACE("(%p,%s)\n", hwnd, debugstr_w(pszClassList));
+    TRACE("(%p,%s)", hwnd, debugstr_w(pszClassList));
 
     if(bThemeActive)
     {
@@ -656,7 +656,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
             hTheme = MSSTYLES_OpenThemeClass(pszAppName, pszUseClassList);
     }
     if(IsWindow(hwnd))
-        SetPropW(hwnd, (LPCWSTR)MAKEINTATOM(atWindowTheme), hTheme);
+        SetPropW(hwnd, MAKEINTATOMW(atWindowTheme), hTheme);
     TRACE(" = %p\n", hTheme);
     return hTheme;
 }
@@ -675,7 +675,7 @@ HTHEME WINAPI OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
 HTHEME WINAPI GetWindowTheme(HWND hwnd)
 {
     TRACE("(%p)\n", hwnd);
-    return GetPropW(hwnd, (LPCWSTR)MAKEINTATOM(atWindowTheme));
+    return GetPropW(hwnd, MAKEINTATOMW(atWindowTheme));
 }
 
 /***********************************************************************
@@ -725,7 +725,7 @@ DWORD WINAPI GetThemeAppProperties(void)
  */
 void WINAPI SetThemeAppProperties(DWORD dwFlags)
 {
-    TRACE("(0x%08x)\n", dwFlags);
+    TRACE("(0x%08lx)\n", dwFlags);
     dwThemeAppProperties = dwFlags;
 }
 
@@ -748,7 +748,7 @@ HRESULT WINAPI HitTestThemeBackground(HTHEME hTheme, HDC hdc, int iPartId,
                                      const RECT *pRect, HRGN hrgn,
                                      POINT ptTest, WORD *pwHitTestCode)
 {
-    FIXME("%d %d 0x%08x: stub\n", iPartId, iStateId, dwOptions);
+    FIXME("%d %d 0x%08lx: stub\n", iPartId, iStateId, dwOptions);
     if(!hTheme)
         return E_HANDLE;
     return ERROR_CALL_NOT_IMPLEMENTED;
@@ -841,7 +841,7 @@ HRESULT WINAPI GetThemeDocumentationProperty(LPCWSTR pszThemeName,
  * RETURNS
  *     some kind of status flag
  */
-DWORD WINAPI QueryThemeServices(void)
+DWORD WINAPI QueryThemeServices()
 {
     FIXME("stub\n");
     return 3; /* This is what is returned under XP in most cases */
@@ -867,7 +867,7 @@ HRESULT WINAPI OpenThemeFile(LPCWSTR pszThemeFileName, LPCWSTR pszColorName,
                              LPCWSTR pszSizeName, HTHEMEFILE *hThemeFile,
                              DWORD unknown)
 {
-    TRACE("(%s,%s,%s,%p,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%s,%s,%p,%ld)\n", debugstr_w(pszThemeFileName),
           debugstr_w(pszColorName), debugstr_w(pszSizeName),
           hThemeFile, unknown);
     return MSSTYLES_OpenThemeFile(pszThemeFileName, pszColorName, pszSizeName, (PTHEME_FILE*)hThemeFile);
@@ -914,7 +914,7 @@ HRESULT WINAPI CloseThemeFile(HTHEMEFILE hThemeFile)
  * char b[] = "\0"; where \0 can be one or more of any character, makes no difference
  *   the theme is applied smoothly (screen does not flicker)
  * char *b = "\0" or NULL; where \0 can be zero or more of any character, makes no difference
- *   the function fails returning invalid parameter... very strange
+ *   the function fails returning invalid parameter...very strange
  */
 HRESULT WINAPI ApplyTheme(HTHEMEFILE hThemeFile, char *unknown, HWND hWnd)
 {
@@ -947,7 +947,7 @@ HRESULT WINAPI GetThemeDefaults(LPCWSTR pszThemeFileName, LPWSTR pszColorName,
 {
     PTHEME_FILE pt;
     HRESULT hr;
-    TRACE("(%s,%p,%d,%p,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%p,%ld,%p,%ld)\n", debugstr_w(pszThemeFileName),
           pszColorName, dwColorNameLen,
           pszSizeName, dwSizeNameLen);
 
@@ -1066,7 +1066,7 @@ HRESULT WINAPI EnumThemeColors(LPWSTR pszThemeFileName, LPWSTR pszSizeName,
     HRESULT hr;
     LPWSTR tmp;
     UINT resourceId = dwColorNum + 1000;
-    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%s,%ld)\n", debugstr_w(pszThemeFileName),
           debugstr_w(pszSizeName), dwColorNum);
 
     hr = MSSTYLES_OpenThemeFile(pszThemeFileName, NULL, pszSizeName, &pt);
@@ -1126,7 +1126,7 @@ HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
     HRESULT hr;
     LPWSTR tmp;
     UINT resourceId = dwSizeNum + 3000;
-    TRACE("(%s,%s,%d)\n", debugstr_w(pszThemeFileName),
+    TRACE("(%s,%s,%ld)\n", debugstr_w(pszThemeFileName),
           debugstr_w(pszColorName), dwSizeNum);
 
     hr = MSSTYLES_OpenThemeFile(pszThemeFileName, pszColorName, NULL, &pt);
@@ -1170,7 +1170,7 @@ HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
  *     0x800706488 (Unknown property) when enumeration is canceled from callback
  *
  * NOTES
- * When pszUnknown is NULL the callback is never called, the value does not seem to serve
+ * When pszUnknown is NULL the callback is never called, the value does not seem to surve
  * any other purpose
  */
 HRESULT WINAPI ParseThemeIniFile(LPCWSTR pszIniFileName, LPWSTR pszUnknown,

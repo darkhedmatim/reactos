@@ -1,5 +1,5 @@
 /*
- * Copyright 2003 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2003 Ove Kåven, TransGaming Technologies
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -13,10 +13,11 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* see the official DCOM specification
+/* see http://www.microsoft.com/msj/0398/dcom.htm */
+/* and the official DCOM specification
  * (there's a copy at http://www.grimes.demon.co.uk/DCOM/DCOMSpec.htm) */
 
 import "unknwn.idl";
@@ -107,14 +108,6 @@ interface ObjectRpcBaseTypes
     [size_is(wNumEntries)] unsigned short aStringArray[];
   } DUALSTRINGARRAY;
 
-  typedef struct tagOXID_INFO {
-    DWORD dwTid;
-    DWORD dwPid;
-    IPID ipidRemUnknown;
-    DWORD dwAuthnHint;
-    DUALSTRINGARRAY *psa;
-  } OXID_INFO;
-
   const unsigned long OBJREF_SIGNATURE = 0x574f454d; /* "MEOW" */
   const unsigned long OBJREF_STANDARD = 0x1;
   const unsigned long OBJREF_HANDLER = 0x2;
@@ -155,7 +148,7 @@ interface ObjectRpcBaseTypes
     [case(OBJREF_CUSTOM)] struct OR_CUSTOM {
         CLSID clsid;
         unsigned long cbExtension;
-        ULONG size;
+        unsigned long size;
         [size_is(size), ref] byte *pData;
       } u_custom;
     } u_objref;
@@ -191,7 +184,7 @@ interface IRemUnknown : IUnknown
 
   HRESULT RemQueryInterface(
     [in] REFIPID ripid,
-    [in] ULONG cRefs,
+    [in] unsigned long cRefs,
     [in] unsigned short cIids,
     [in, size_is(cIids)] IID *iids,
     [out, size_is(,cIids)] REMQIRESULT **ppQIResults);
@@ -222,6 +215,7 @@ interface IRemUnknown2 : IRemUnknown
     [out, size_is(cIids)] MInterfacePointer **ppMIF);
 }
 
+cpp_quote("#if 0")
 [
   uuid(99fcfec4-5260-101b-bbcb-00aa0021347a),
   pointer_default(unique)
@@ -295,3 +289,4 @@ interface IRemoteActivation
     [out,size_is(Interfaces)] MInterfacePointer **ppInterfaceData,
     [out,size_is(Interfaces)] HRESULT *pResults);
 }
+cpp_quote("#endif")

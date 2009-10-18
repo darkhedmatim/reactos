@@ -4,28 +4,28 @@
  *
  *  History:
  *
- *    04-Dec-1998 Eric Kohl
+ *    04-Dec-1998 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        started
  *
- *    09-Dec-1998 Eric Kohl
+ *    09-Dec-1998 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        implementation works, except recursion ("attrib /s").
  *
- *    05-Jan-1999 Eric Kohl
+ *    05-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        major rewrite.
  *        fixed recursion ("attrib /s").
  *        started directory support ("attrib /s /d").
  *        updated help text.
  *
- *    14-Jan-1999 Eric Kohl
+ *    14-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Unicode ready!
  *
- *    19-Jan-1999 Eric Kohl
+ *    19-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Redirection ready!
  *
- *    21-Jan-1999 Eric Kohl
+ *    21-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Added check for invalid filenames.
  *
- *    23-Jan-1999 Eric Kohl
+ *    23-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Added handling of multiple filenames.
  *
  *    02-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
@@ -33,6 +33,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_ATTRIB
 
@@ -188,7 +189,7 @@ ChangeAttribute (LPTSTR pszPath, LPTSTR pszFile, DWORD dwMask,
 }
 
 
-INT CommandAttrib (LPTSTR param)
+INT CommandAttrib (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR *arg;
 	INT    argc, i;

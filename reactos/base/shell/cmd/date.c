@@ -18,13 +18,13 @@
  *        fixed stand-alone mode.
  *        Added Pacific C compatible dos_getdate functions
  *
- *    09-Jan-1999 (Eric Kohl)
+ *    09-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Added locale support
  *
- *    23-Jan-1999 (Eric Kohl)
+ *    23-Jan-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Unicode and redirection safe!
  *
- *    04-Feb-1999 (Eric Kohl)
+ *    04-Feb-1999 (Eric Kohl <ekohl@abo.rhein-zeitung.de>)
  *        Fixed date input bug.
  *
  *    03-Apr-2005 (Magnus Olsen) <magnus@greatlord.com>)
@@ -32,6 +32,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_DATE
 
@@ -46,19 +47,24 @@ static WORD awMonths[2][13] =
 static VOID
 PrintDateString (VOID)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
 	switch (nDateFormat)
 	{
 		case 0: /* mmddyy */
 		default:
-			ConOutResPrintf(STRING_DATE_HELP1, cDateSeparator, cDateSeparator);
+			LoadString(CMD_ModuleHandle, STRING_DATE_HELP1, szMsg, RC_STRING_MAX_SIZE);
+			ConOutPrintf(szMsg, cDateSeparator, cDateSeparator);
 			break;
 
 		case 1: /* ddmmyy */
-			ConOutResPrintf(STRING_DATE_HELP2, cDateSeparator, cDateSeparator);
+			LoadString(CMD_ModuleHandle, STRING_DATE_HELP2, szMsg, RC_STRING_MAX_SIZE);
+			ConOutPrintf(szMsg, cDateSeparator, cDateSeparator);
 			break;
 
 		case 2: /* yymmdd */
-			ConOutResPrintf(STRING_DATE_HELP3, cDateSeparator, cDateSeparator);
+			LoadString(CMD_ModuleHandle, STRING_DATE_HELP3, szMsg, RC_STRING_MAX_SIZE);
+			ConOutPrintf(szMsg, cDateSeparator, cDateSeparator);
 			break;
 	}
 }
@@ -176,7 +182,7 @@ ParseDate (LPTSTR s)
 }
 
 
-INT cmd_date (LPTSTR param)
+INT cmd_date (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR *arg;
 	INT    argc;
@@ -189,7 +195,7 @@ INT cmd_date (LPTSTR param)
 		ConOutResPaging(TRUE,STRING_DATE_HELP4);
 		return 0;
 	}
-
+  
   nErrorLevel = 0;
 
 	/* build parameter array */
@@ -205,7 +211,7 @@ INT cmd_date (LPTSTR param)
 	}
 
 	if (nDateString == -1)
-		ConOutPrintf(_T("%s"), GetDateString());
+		PrintDate ();
 
 	if (!bPrompt)
 	{
@@ -221,7 +227,9 @@ INT cmd_date (LPTSTR param)
 
 			PrintDateString ();
 			ConInString (s, 40);
-			TRACE ("\'%s\'\n", debugstr_aw(s));
+#ifdef _DEBUG
+			DebugPrintf (_T("\'%s\'\n"), s);
+#endif
 			while (*s && s[_tcslen (s) - 1] < _T(' '))
 				s[_tcslen (s) - 1] = _T('\0');
 			if (ParseDate (s))
@@ -239,21 +247,21 @@ INT cmd_date (LPTSTR param)
     {
       while (TRUE)  /* forever loop */
 		  {
-			  TCHAR s[40];
+			  TCHAR s[40];        
         ConErrResPuts(STRING_DATE_ERROR);
-
-			  PrintDateString ();
+        
+			  PrintDateString ();      
 			  ConInString (s, 40);
-
+        
         while (*s && s[_tcslen (s) - 1] < _T(' '))
 				  s[_tcslen (s) - 1] = _T('\0');
 			  if (ParseDate (s))
 			  {
 				  freep (arg);
 				  return 0;
-			  }
+			  }        
       }
-    }
+    }		
 	}
 
 	freep (arg);

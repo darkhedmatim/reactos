@@ -4,11 +4,9 @@
  * FILE:        tools/cabman/main.cpp
  * PURPOSE:     Main program
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
- *              Colin Finck <mail@colinfinck.de>
  * REVISIONS:
  *   CSH 21/03-2001 Created
  *   CSH 15/08-2003 Made it portable
- *   CF  04/05-2007 Made it compatible with 64-bit operating systems
  */
 #include <stdlib.h>
 #include <stdarg.h>
@@ -17,16 +15,19 @@
 #include "cabman.h"
 
 
-#if DBG
+#ifdef DBG
 
-ULONG DebugTraceLevel = MIN_TRACE;
-//ULONG DebugTraceLevel = MID_TRACE;
-//ULONG DebugTraceLevel = MAX_TRACE;
+unsigned long DebugTraceLevel = MIN_TRACE;
+//unsigned long DebugTraceLevel = MID_TRACE;
+//unsigned long DebugTraceLevel = MAX_TRACE;
 
 #endif /* DBG */
 
 
-char* Pad(char* Str, char PadChar, ULONG Length)
+#define CM_VERSION  "0.9"
+
+
+char* Pad(char* Str, char PadChar, unsigned int Length)
 /*
  * FUNCTION: Pads a string with a character to make a given length
  * ARGUMENTS:
@@ -39,12 +40,11 @@ char* Pad(char* Str, char PadChar, ULONG Length)
  *     Str must be at least Length + 1 bytes
  */
 {
-    ULONG Len;
+    unsigned int Len;
 
-    Len = (ULONG)strlen(Str);
+    Len = strlen(Str);
 
-    if (Len < Length)
-    {
+    if (Len < Length) {
         memcpy(&Str[Length - Len], Str, Len + 1);
         memset(Str, PadChar, Length - Len);
     }
@@ -52,7 +52,7 @@ char* Pad(char* Str, char PadChar, ULONG Length)
 }
 
 
-char* Date2Str(char* Str, USHORT Date)
+char* Date2Str(char* Str, unsigned short Date)
 /*
  * FUNCTION: Converts a DOS style date to a string
  * ARGUMENTS:
@@ -62,7 +62,7 @@ char* Date2Str(char* Str, USHORT Date)
  *     Pointer to string
  */
 {
-    ULONG dw;
+    unsigned long dw;
 
     /* Month */
     Str[0] = (char)('0' + ((Date & 0x01E0) >> 5) / 10);
@@ -83,7 +83,7 @@ char* Date2Str(char* Str, USHORT Date)
 }
 
 
-char* Time2Str(char* Str, USHORT Time)
+char* Time2Str(char* Str, unsigned short Time)
 /*
  * FUNCTION: Converts a DOS style time to a string
  * ARGUMENTS:
@@ -94,8 +94,8 @@ char* Time2Str(char* Str, USHORT Time)
  */
 {
     bool PM;
-    ULONG Hour;
-    ULONG dw;
+    unsigned long Hour;
+    unsigned long dw;
 
     Hour = ((Time & 0xF800) >> 11);
     PM = (Hour >= 12);
@@ -123,7 +123,7 @@ char* Time2Str(char* Str, USHORT Time)
 }
 
 
-char* Attr2Str(char* Str, USHORT Attr)
+char* Attr2Str(char* Str, unsigned short Attr)
 /*
  * FUNCTION: Converts attributes to a string
  * ARGUMENTS:
@@ -172,7 +172,6 @@ CCABManager::CCABManager()
     ProcessAll = false;
     InfFileOnly = false;
     Mode = CM_MODE_DISPLAY;
-    FileName[0] = 0;
 }
 
 
@@ -189,12 +188,12 @@ void CCABManager::Usage()
  * FUNCTION: Display usage information on screen
  */
 {
-    printf("ReactOS Cabinet Manager\n\n");
+    printf("ReactOS Cabinet Manager - Version %s\n\n", CM_VERSION);
     printf("CABMAN [-D | -E] [-A] [-L dir] cabinet [filename ...]\n");
-    printf("CABMAN [-M mode] -C dirfile [-I] [-RC file] [-P dir]\n");
-    printf("CABMAN [-M mode] -S cabinet filename [...]\n");
+    printf("CABMAN -C dirfile [-I] [-RC file] [-P dir]\n");
+    printf("CABMAN -S cabinet filename\n");
     printf("  cabinet   Cabinet file.\n");
-    printf("  filename  Name of the file to add to or extract from the cabinet.\n");
+    printf("  filename  Name of the file to extract from the cabinet.\n");
     printf("            Wild cards and multiple filenames\n");
     printf("            (separated by blanks) may be used.\n\n");
 
@@ -208,9 +207,6 @@ void CCABManager::Usage()
     printf("  -I        Don't create the cabinet, only the .inf file.\n");
     printf("  -L dir    Location to place extracted or generated files\n");
     printf("            (default is current directory).\n");
-    printf("  -M mode   Specify the compression method to use:\n");
-    printf("               raw    - No compression\n");
-    printf("               mszip  - MsZip compression (default)\n");
     printf("  -N        Don't create the .inf file, only the cabinet.\n");
     printf("  -RC       Specify file to put in cabinet reserved area\n");
     printf("            (size must be less than 64KB).\n");
@@ -234,166 +230,83 @@ bool CCABManager::ParseCmdline(int argc, char* argv[])
 
     ShowUsage = (argc < 2);
 
-    for (i = 1; i < argc; i++)
-    {
-        if (argv[i][0] == '-')
-        {
-            switch (argv[i][1])
-            {
-                case 'a':
-                case 'A':
-                    ProcessAll = true;
-                    break;
-
-                case 'c':
-                case 'C':
-                    Mode = CM_MODE_CREATE;
-                    break;
-
-                case 'd':
-                case 'D':
-                    Mode = CM_MODE_DISPLAY;
-                    break;
-
-                case 'e':
-                case 'E':
-                    Mode = CM_MODE_EXTRACT;
-                    break;
-
-                case 'i':
-                case 'I':
-                    InfFileOnly = true;
-                    break;
-
-                case 'l':
-                case 'L':
-                    if (argv[i][2] == 0)
-                    {
+    for (i = 1; i < argc; i++) {
+        if (argv[i][0] == '-') {
+          switch (argv[i][1]) {
+          case 'a':
+          case 'A': ProcessAll = true; break;
+          case 'c':
+          case 'C': Mode = CM_MODE_CREATE; break;
+          case 'd':
+          case 'D': Mode = CM_MODE_DISPLAY; break;
+          case 'e':
+          case 'E': Mode = CM_MODE_EXTRACT; break;
+          case 'i':
+          case 'I': InfFileOnly = true; break;
+          case 'l':
+          case 'L':
+                    if (argv[i][2] == 0) {
                         i++;
-                        SetDestinationPath(&argv[i][0]);
+                        SetDestinationPath((char*)&argv[i][0]);
+                    } else {
+                        SetDestinationPath((char*)&argv[i][1]);
                     }
-                    else
-                        SetDestinationPath(&argv[i][2]);
-
                     break;
-
-                case 'm':
-                case 'M':
-                    // Set the compression codec (only affects compression, not decompression)
-                    if(argv[i][2] == 0)
-                    {
-                        i++;
-
-                        if( !SetCompressionCodec(&argv[i][0]) )
-                            return false;
-                    }
-                    else
-                    {
-                        if( !SetCompressionCodec(&argv[i][2]) )
-                            return false;
-                    }
-
-                    break;
-
-                case 'n':
-                case 'N':
-                    DontGenerateInf = true;
-                    break;
-
-                case 'R':
-                    switch (argv[i][2])
-                    {
+          case 'n':
+          case 'N': DontGenerateInf = true; break;
+          case 'R':
+                    switch (argv[i][2]) {
                         case 'C': /* File to put in cabinet reserved area */
-                            if (argv[i][3] == 0)
-                            {
+                            if (argv[i][3] == 0) {
                                 i++;
-                                if (!SetCabinetReservedFile(&argv[i][0]))
-                                {
+                                if (!SetCabinetReservedFile((char*)&argv[i][0])) {
                                     printf("Cannot open cabinet reserved area file.\n");
                                     return false;
                                 }
-                            }
-                            else
-                            {
-                                if (!SetCabinetReservedFile(&argv[i][3]))
-                                {
+                            } else {
+                                if (!SetCabinetReservedFile((char*)&argv[i][3])) {
                                     printf("Cannot open cabinet reserved area file.\n");
                                     return false;
                                 }
                             }
                             break;
-
                         default:
                             printf("Bad parameter %s.\n", argv[i]);
                             return false;
                     }
                     break;
-
-                case 's':
-                case 'S':
-                    Mode = CM_MODE_CREATE_SIMPLE;
-                    break;
-
-                case 'P':
-                    if (argv[i][2] == 0)
-                    {
+          case 's':
+          case 'S': Mode = CM_MODE_CREATE_SIMPLE; break;
+          case 'P':
+                    if (argv[i][2] == 0) {
                         i++;
-                        SetFileRelativePath(&argv[i][0]);
+                        SetFileRelativePath((char*)&argv[i][0]);
+                    } else {
+                        SetFileRelativePath((char*)&argv[i][1]);
                     }
-                    else
-                        SetFileRelativePath(&argv[i][2]);
-
                     break;
-
-                default:
+          default:
                     printf("Bad parameter %s.\n", argv[i]);
                     return false;
-            }
-        }
-        else
-        {
-            if(Mode == CM_MODE_CREATE)
-            {
-                if(FileName[0])
-                {
-                    printf("You may only specify one directive file!\n");
-                    return false;
-                }
-                else
-                {
-                    // For creating cabinets, this argument is the path to the directive file
-                    strcpy(FileName, argv[i]);
-                }
-            }
-            else if(FoundCabinet)
-            {
-                // For creating simple cabinets, displaying or extracting them, add the argument as a search criteria
-                AddSearchCriteria(argv[i]);
-            }
-            else
-            {
+          }
+        } else {
+            if ((FoundCabinet) || (Mode == CM_MODE_CREATE)) {
+                /* FIXME: There may be many of these if Mode != CM_MODE_CREATE */
+                strcpy((char*)FileName, argv[i]);
+            } else {
                 SetCabinetName(argv[i]);
                 FoundCabinet = true;
             }
         }
     }
 
-    if (ShowUsage)
-    {
-        Usage();
-        return false;
+    if (ShowUsage) {
+      Usage();
+      return false;
     }
 
-    // Select MsZip by default for creating cabinets
-    if( (Mode == CM_MODE_CREATE || Mode == CM_MODE_CREATE_SIMPLE) && !IsCodecSelected() )
-        SelectCodec(CAB_CODEC_MSZIP);
-
-    // Search criteria (= the filename argument) is necessary for creating a simple cabinet
-    if( Mode == CM_MODE_CREATE_SIMPLE && !HasSearchCriteria())
-    {
-        printf("You have to enter input file names!\n");
-        return false;
-    }
+    /* FIXME */
+    SelectCodec(CAB_CODEC_MSZIP);
 
     return true;
 }
@@ -404,12 +317,11 @@ bool CCABManager::CreateCabinet()
  * FUNCTION: Create cabinet
  */
 {
-    ULONG Status;
+    unsigned long Status;
 
-    Status = Load(FileName);
-    if (Status != CAB_STATUS_SUCCESS)
-    {
-        printf("Specified directive file could not be found: %s.\n", FileName);
+    Status = Load((char*)&FileName);
+    if (Status != CAB_STATUS_SUCCESS) {
+        printf("Specified directive file could not be found: %s.\n", (char*)&FileName);
         return false;
     }
 
@@ -418,6 +330,40 @@ bool CCABManager::CreateCabinet()
     return (Status == CAB_STATUS_SUCCESS ? true : false);
 }
 
+
+bool CCABManager::CreateSimpleCabinet()
+/*
+ * FUNCTION: Create cabinet
+ */
+{
+    unsigned long Status;
+
+    Status = NewCabinet();
+    if (Status != CAB_STATUS_SUCCESS) {
+        DPRINT(MIN_TRACE, ("Cannot create cabinet (%d).\n", (unsigned int)Status));
+        return false;
+    }
+
+    Status = AddFile(FileName);
+    if (Status != CAB_STATUS_SUCCESS) {
+        DPRINT(MIN_TRACE, ("Cannot add file to cabinet (%d).\n", (unsigned int)Status));
+        return false;
+    }
+
+    Status = WriteDisk(false);
+    if (Status == CAB_STATUS_SUCCESS)
+        Status = CloseDisk();
+    if (Status != CAB_STATUS_SUCCESS) {
+        DPRINT(MIN_TRACE, ("Cannot write disk (%d).\n", (unsigned int)Status));
+        return false;
+    }
+
+    CloseCabinet();
+
+    return true;
+}
+
+
 bool CCABManager::DisplayCabinet()
 /*
  * FUNCTION: Display cabinet contents
@@ -425,23 +371,19 @@ bool CCABManager::DisplayCabinet()
 {
     CAB_SEARCH Search;
     char Str[20];
-    ULONG FileCount = 0;
-    ULONG ByteCount = 0;
+    unsigned long FileCount = 0;
+    unsigned long ByteCount = 0;
 
-    if (Open() == CAB_STATUS_SUCCESS)
-    {
+    if (Open() == CAB_STATUS_SUCCESS) {
         printf("Cabinet %s\n\n", GetCabinetName());
 
-        if (FindFirst(&Search) == CAB_STATUS_SUCCESS)
-        {
-            do
-            {
-                if (Search.File->FileControlID != CAB_FILE_CONTINUED)
-                {
-                    printf("%s ", Date2Str(Str, Search.File->FileDate));
-                    printf("%s ", Time2Str(Str, Search.File->FileTime));
-                    printf("%s ", Attr2Str(Str, Search.File->Attributes));
-                    sprintf(Str, "%u", (UINT)Search.File->FileSize);
+        if (FindFirst("", &Search) == CAB_STATUS_SUCCESS) {
+            do {
+                if (Search.File->FileControlID != CAB_FILE_CONTINUED) {
+                    printf("%s ", Date2Str((char*)&Str, Search.File->FileDate));
+                    printf("%s ", Time2Str((char*)&Str, Search.File->FileTime));
+                    printf("%s ", Attr2Str((char*)&Str, Search.File->Attributes));
+                    sprintf(Str, "%lu", Search.File->FileSize);
                     printf("%s ", Pad(Str, ' ', 13));
                     printf("%s\n", Search.FileName);
 
@@ -451,33 +393,26 @@ bool CCABManager::DisplayCabinet()
             } while (FindNext(&Search) == CAB_STATUS_SUCCESS);
         }
 
-        DestroySearchCriteria();
-
         if (FileCount > 0) {
             if (FileCount == 1)
                 printf("                 1 file    ");
-            else
-            {
-                sprintf(Str, "%u", (UINT)FileCount);
+            else {
+                sprintf(Str, "%lu", FileCount);
                 printf("      %s files   ", Pad(Str, ' ', 12));
             }
 
             if (ByteCount == 1)
                 printf("           1 byte\n");
-            else
-            {
-                sprintf(Str, "%u", (UINT)ByteCount);
+            else {
+                sprintf(Str, "%lu", ByteCount);
                 printf("%s bytes\n", Pad(Str, ' ', 12));
             }
-        }
-        else
-        {
+        } else {
             /* There should be at least one file in a cabinet */
             printf("No files in cabinet.");
         }
         return true;
-    }
-    else
+    } else
         printf("Cannot open file: %s\n", GetCabinetName());
 
     return false;
@@ -489,54 +424,34 @@ bool CCABManager::ExtractFromCabinet()
  * FUNCTION: Extract file(s) from cabinet
  */
 {
-    bool bRet = true;
     CAB_SEARCH Search;
-    ULONG Status;
+    unsigned long Status;
 
-    if (Open() == CAB_STATUS_SUCCESS)
-    {
+    if (Open() == CAB_STATUS_SUCCESS) {
         printf("Cabinet %s\n\n", GetCabinetName());
 
-        if (FindFirst(&Search) == CAB_STATUS_SUCCESS)
-        {
-            do
-            {
-                switch (Status = ExtractFile(Search.FileName))
-                {
+        if (FindFirst("", &Search) == CAB_STATUS_SUCCESS) {
+            do {
+                switch (Status = ExtractFile(Search.FileName)) {
                     case CAB_STATUS_SUCCESS:
                         break;
-
                     case CAB_STATUS_INVALID_CAB:
                         printf("Cabinet contains errors.\n");
-                        bRet = false;
-                        break;
-
+                        return false;
                     case CAB_STATUS_UNSUPPCOMP:
                         printf("Cabinet uses unsupported compression type.\n");
-                        bRet = false;
-                        break;
-
+                        return false;
                     case CAB_STATUS_CANNOT_WRITE:
                         printf("You've run out of free space on the destination volume or the volume is damaged.\n");
-                        bRet = false;
-                        break;
-
+                        return false;
                     default:
-                        printf("Unspecified error code (%u).\n", (UINT)Status);
-                        bRet = false;
-                        break;
+                        printf("Unspecified error code (%d).\n", (unsigned int)Status);
+                        return false;
                 }
-
-                if(!bRet)
-                    break;
             } while (FindNext(&Search) == CAB_STATUS_SUCCESS);
-
-            DestroySearchCriteria();
         }
-
-        return bRet;
-    }
-    else
+        return true;
+    } else
         printf("Cannot open file: %s.\n", GetCabinetName());
 
     return false;
@@ -548,24 +463,15 @@ bool CCABManager::Run()
  * FUNCTION: Process cabinet
  */
 {
-    printf("ReactOS Cabinet Manager\n\n");
+    printf("ReactOS Cabinet Manager - Version %s\n\n", CM_VERSION);
 
-    switch (Mode)
-    {
-        case CM_MODE_CREATE:
-            return CreateCabinet();
-
-        case CM_MODE_DISPLAY:
-            return DisplayCabinet();
-
-        case CM_MODE_EXTRACT:
-            return ExtractFromCabinet();
-
-        case CM_MODE_CREATE_SIMPLE:
-            return CreateSimpleCabinet();
-
-        default:
-            break;
+    switch (Mode) {
+    case CM_MODE_CREATE:  return CreateCabinet(); break;
+    case CM_MODE_DISPLAY: return DisplayCabinet(); break;
+    case CM_MODE_EXTRACT: return ExtractFromCabinet(); break;
+    case CM_MODE_CREATE_SIMPLE:  return CreateSimpleCabinet(); break;
+    default:
+        break;
     }
     return false;
 }
@@ -643,8 +549,9 @@ int main(int argc, char * argv[])
     CCABManager CABMgr;
     bool status = false;
 
-    if (CABMgr.ParseCmdline(argc, argv))
+    if (CABMgr.ParseCmdline(argc, argv)) {
         status = CABMgr.Run();
+    }
 
     return (status ? 0 : 1);
 }

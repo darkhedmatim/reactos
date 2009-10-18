@@ -25,43 +25,43 @@
 TGraphCtrl PerformancePageCpuUsageHistoryGraph;
 TGraphCtrl PerformancePageMemUsageHistoryGraph;
 
-HWND  hPerformancePage;                               /*  Performance Property Page */
-HWND  hPerformancePageCpuUsageGraph;                  /*  CPU Usage Graph */
-HWND  hPerformancePageMemUsageGraph;                  /*  MEM Usage Graph */
-HWND  hPerformancePageCpuUsageHistoryGraph;           /*  CPU Usage History Graph */
-HWND  hPerformancePageMemUsageHistoryGraph;           /*  Memory Usage History Graph */
-HWND  hPerformancePageTotalsFrame;                    /*  Totals Frame */
-HWND  hPerformancePageCommitChargeFrame;              /*  Commit Charge Frame */
-HWND  hPerformancePageKernelMemoryFrame;              /*  Kernel Memory Frame */
-HWND  hPerformancePagePhysicalMemoryFrame;            /*  Physical Memory Frame */
-HWND  hPerformancePageCpuUsageFrame;
-HWND  hPerformancePageMemUsageFrame;
-HWND  hPerformancePageCpuUsageHistoryFrame;
-HWND  hPerformancePageMemUsageHistoryFrame;
-HWND  hPerformancePageCommitChargeTotalEdit;          /*  Commit Charge Total Edit Control */
-HWND  hPerformancePageCommitChargeLimitEdit;          /*  Commit Charge Limit Edit Control */
-HWND  hPerformancePageCommitChargePeakEdit;           /*  Commit Charge Peak Edit Control */
-HWND  hPerformancePageKernelMemoryTotalEdit;          /*  Kernel Memory Total Edit Control */
-HWND  hPerformancePageKernelMemoryPagedEdit;          /*  Kernel Memory Paged Edit Control */
-HWND  hPerformancePageKernelMemoryNonPagedEdit;       /*  Kernel Memory NonPaged Edit Control */
-HWND  hPerformancePagePhysicalMemoryTotalEdit;        /*  Physical Memory Total Edit Control */
-HWND  hPerformancePagePhysicalMemoryAvailableEdit;    /*  Physical Memory Available Edit Control */
-HWND  hPerformancePagePhysicalMemorySystemCacheEdit;  /*  Physical Memory System Cache Edit Control */
-HWND  hPerformancePageTotalsHandleCountEdit;          /*  Total Handles Edit Control */
-HWND  hPerformancePageTotalsProcessCountEdit;         /*  Total Processes Edit Control */
-HWND  hPerformancePageTotalsThreadCountEdit;          /*  Total Threads Edit Control */
+HWND		hPerformancePage;					/*  Performance Property Page */
+HWND		hPerformancePageCpuUsageGraph;				/*  CPU Usage Graph */
+HWND		hPerformancePageMemUsageGraph;				/*  MEM Usage Graph */
+HWND		hPerformancePageCpuUsageHistoryGraph;			/*  CPU Usage History Graph */
+HWND		hPerformancePageMemUsageHistoryGraph;			/*  Memory Usage History Graph */
+HWND		hPerformancePageTotalsFrame;				/*  Totals Frame */
+HWND		hPerformancePageCommitChargeFrame;			/*  Commit Charge Frame */
+HWND		hPerformancePageKernelMemoryFrame;			/*  Kernel Memory Frame */
+HWND		hPerformancePagePhysicalMemoryFrame;			/*  Physical Memory Frame */
+HWND		hPerformancePageCpuUsageFrame;
+HWND		hPerformancePageMemUsageFrame;
+HWND		hPerformancePageCpuUsageHistoryFrame;
+HWND		hPerformancePageMemUsageHistoryFrame;
+HWND		hPerformancePageCommitChargeTotalEdit;			/*  Commit Charge Total Edit Control */
+HWND		hPerformancePageCommitChargeLimitEdit;			/*  Commit Charge Limit Edit Control */
+HWND		hPerformancePageCommitChargePeakEdit;			/*  Commit Charge Peak Edit Control */
+HWND		hPerformancePageKernelMemoryTotalEdit;			/*  Kernel Memory Total Edit Control */
+HWND		hPerformancePageKernelMemoryPagedEdit;			/*  Kernel Memory Paged Edit Control */
+HWND		hPerformancePageKernelMemoryNonPagedEdit;		/*  Kernel Memory NonPaged Edit Control */
+HWND		hPerformancePagePhysicalMemoryTotalEdit;		/*  Physical Memory Total Edit Control */
+HWND		hPerformancePagePhysicalMemoryAvailableEdit;	/*  Physical Memory Available Edit Control */
+HWND		hPerformancePagePhysicalMemorySystemCacheEdit;	/*  Physical Memory System Cache Edit Control */
+HWND		hPerformancePageTotalsHandleCountEdit;			/*  Total Handles Edit Control */
+HWND		hPerformancePageTotalsProcessCountEdit;			/*  Total Processes Edit Control */
+HWND		hPerformancePageTotalsThreadCountEdit;			/*  Total Threads Edit Control */
 
 
-static int     nPerformancePageWidth;
-static int     nPerformancePageHeight;
-static int     lastX, lastY;
-static HANDLE  hPerformancePageEvent = NULL;    /*  When this event becomes signaled then we refresh the performance page */
-DWORD WINAPI   PerformancePageRefreshThread(void *lpParameter);
+static int	nPerformancePageWidth;
+static int	nPerformancePageHeight;
+static int lastX, lastY;
+static HANDLE	hPerformancePageEvent = NULL;	/*  When this event becomes signaled then we refresh the performance page */
+DWORD WINAPI	PerformancePageRefreshThread(void *lpParameter);
 
 void AdjustFrameSize(HWND hCntrl, HWND hDlg, int nXDifference, int nYDifference, int pos)
 {
-    RECT  rc;
-    int   cx, cy, sx, sy;
+    RECT	rc;
+    int		cx, cy, sx, sy;
 
     GetClientRect(hCntrl, &rc);
     MapWindowPoints(hCntrl, hDlg, (LPPOINT)(PRECT)(&rc), (sizeof(RECT)/sizeof(POINT)));
@@ -107,66 +107,61 @@ void AdjustCntrlPos(int ctrl_id, HWND hDlg, int nXDifference, int nYDifference)
 INT_PTR CALLBACK
 PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    RECT  rc;
-    int   nXDifference;
-    int   nYDifference;
-#ifdef RUN_PERF_PAGE
-    HANDLE  hRefreshThread = NULL;
-#endif
+	RECT	rc;
+	int		nXDifference;
+	int		nYDifference;
+
 /*     HDC hdc; */
 /*     PAINTSTRUCT ps; */
 
     switch (message) {
-    case WM_DESTROY:
-        GraphCtrl_Dispose(&PerformancePageCpuUsageHistoryGraph);
-        GraphCtrl_Dispose(&PerformancePageMemUsageHistoryGraph);
-#ifdef RUN_PERF_PAGE
-        CloseHandle(hRefreshThread);
-#endif
-        break;
+	case WM_DESTROY:
+		GraphCtrl_Dispose(&PerformancePageCpuUsageHistoryGraph);
+		GraphCtrl_Dispose(&PerformancePageMemUsageHistoryGraph);
+		break;
 
-    case WM_INITDIALOG:
+	case WM_INITDIALOG:
 
-        /*  Save the width and height */
-        GetClientRect(hDlg, &rc);
-        nPerformancePageWidth = rc.right;
-        nPerformancePageHeight = rc.bottom;
+		/*  Save the width and height */
+		GetClientRect(hDlg, &rc);
+		nPerformancePageWidth = rc.right;
+		nPerformancePageHeight = rc.bottom;
 
-        /*  Update window position */
-        SetWindowPos(hDlg, NULL, 15, 30, 0, 0, SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE|SWP_NOZORDER);
+		/*  Update window position */
+		SetWindowPos(hDlg, NULL, 15, 30, 0, 0, SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE|SWP_NOZORDER);
 
-        /*
-         *  Get handles to all the controls
-         */
-        hPerformancePageTotalsFrame = GetDlgItem(hDlg, IDC_TOTALS_FRAME);
-        hPerformancePageCommitChargeFrame = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_FRAME);
-        hPerformancePageKernelMemoryFrame = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_FRAME);
-        hPerformancePagePhysicalMemoryFrame = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_FRAME);
+		/*
+		 *  Get handles to all the controls
+		 */
+		hPerformancePageTotalsFrame = GetDlgItem(hDlg, IDC_TOTALS_FRAME);
+		hPerformancePageCommitChargeFrame = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_FRAME);
+		hPerformancePageKernelMemoryFrame = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_FRAME);
+		hPerformancePagePhysicalMemoryFrame = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_FRAME);
 
-        hPerformancePageCpuUsageFrame = GetDlgItem(hDlg, IDC_CPU_USAGE_FRAME);
-        hPerformancePageMemUsageFrame = GetDlgItem(hDlg, IDC_MEM_USAGE_FRAME);
-        hPerformancePageCpuUsageHistoryFrame = GetDlgItem(hDlg, IDC_CPU_USAGE_HISTORY_FRAME);
-        hPerformancePageMemUsageHistoryFrame = GetDlgItem(hDlg, IDC_MEMORY_USAGE_HISTORY_FRAME);
+		hPerformancePageCpuUsageFrame = GetDlgItem(hDlg, IDC_CPU_USAGE_FRAME);
+		hPerformancePageMemUsageFrame = GetDlgItem(hDlg, IDC_MEM_USAGE_FRAME);
+		hPerformancePageCpuUsageHistoryFrame = GetDlgItem(hDlg, IDC_CPU_USAGE_HISTORY_FRAME);
+		hPerformancePageMemUsageHistoryFrame = GetDlgItem(hDlg, IDC_MEMORY_USAGE_HISTORY_FRAME);
 
-        hPerformancePageCommitChargeTotalEdit = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_TOTAL);
-        hPerformancePageCommitChargeLimitEdit = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_LIMIT);
-        hPerformancePageCommitChargePeakEdit = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_PEAK);
-        hPerformancePageKernelMemoryTotalEdit = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_TOTAL);
-        hPerformancePageKernelMemoryPagedEdit = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_PAGED);
-        hPerformancePageKernelMemoryNonPagedEdit = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_NONPAGED);
-        hPerformancePagePhysicalMemoryTotalEdit = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_TOTAL);
-        hPerformancePagePhysicalMemoryAvailableEdit = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_AVAILABLE);
-        hPerformancePagePhysicalMemorySystemCacheEdit = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_SYSTEM_CACHE);
-        hPerformancePageTotalsHandleCountEdit = GetDlgItem(hDlg, IDC_TOTALS_HANDLE_COUNT);
-        hPerformancePageTotalsProcessCountEdit = GetDlgItem(hDlg, IDC_TOTALS_PROCESS_COUNT);
-        hPerformancePageTotalsThreadCountEdit = GetDlgItem(hDlg, IDC_TOTALS_THREAD_COUNT);
+		hPerformancePageCommitChargeTotalEdit = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_TOTAL);
+		hPerformancePageCommitChargeLimitEdit = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_LIMIT);
+		hPerformancePageCommitChargePeakEdit = GetDlgItem(hDlg, IDC_COMMIT_CHARGE_PEAK);
+		hPerformancePageKernelMemoryTotalEdit = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_TOTAL);
+		hPerformancePageKernelMemoryPagedEdit = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_PAGED);
+		hPerformancePageKernelMemoryNonPagedEdit = GetDlgItem(hDlg, IDC_KERNEL_MEMORY_NONPAGED);
+		hPerformancePagePhysicalMemoryTotalEdit = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_TOTAL);
+		hPerformancePagePhysicalMemoryAvailableEdit = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_AVAILABLE);
+		hPerformancePagePhysicalMemorySystemCacheEdit = GetDlgItem(hDlg, IDC_PHYSICAL_MEMORY_SYSTEM_CACHE);
+		hPerformancePageTotalsHandleCountEdit = GetDlgItem(hDlg, IDC_TOTALS_HANDLE_COUNT);
+		hPerformancePageTotalsProcessCountEdit = GetDlgItem(hDlg, IDC_TOTALS_PROCESS_COUNT);
+		hPerformancePageTotalsThreadCountEdit = GetDlgItem(hDlg, IDC_TOTALS_THREAD_COUNT);
 
         hPerformancePageCpuUsageGraph = GetDlgItem(hDlg, IDC_CPU_USAGE_GRAPH);
-        hPerformancePageMemUsageGraph = GetDlgItem(hDlg, IDC_MEM_USAGE_GRAPH);
-        hPerformancePageMemUsageHistoryGraph = GetDlgItem(hDlg, IDC_MEM_USAGE_HISTORY_GRAPH);
+		hPerformancePageMemUsageGraph = GetDlgItem(hDlg, IDC_MEM_USAGE_GRAPH);
+		hPerformancePageMemUsageHistoryGraph = GetDlgItem(hDlg, IDC_MEM_USAGE_HISTORY_GRAPH);
         hPerformancePageCpuUsageHistoryGraph = GetDlgItem(hDlg, IDC_CPU_USAGE_HISTORY_GRAPH);
 
-        GetClientRect(hPerformancePageCpuUsageHistoryGraph, &rc);
+		GetClientRect(hPerformancePageCpuUsageHistoryGraph, &rc);
         /*  create the control */
         /* PerformancePageCpuUsageHistoryGraph.Create(0, rc, hDlg, IDC_CPU_USAGE_HISTORY_GRAPH); */
         GraphCtrl_Create(&PerformancePageCpuUsageHistoryGraph, hPerformancePageCpuUsageHistoryGraph, hDlg, IDC_CPU_USAGE_HISTORY_GRAPH);
@@ -178,34 +173,34 @@ PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 /*         PerformancePageCpuUsageHistoryGraph.SetGridColor(RGB(192, 192, 255)) ; */
 /*         PerformancePageCpuUsageHistoryGraph.SetPlotColor(RGB(255, 255, 255)) ; */
         GraphCtrl_SetBackgroundColor(&PerformancePageCpuUsageHistoryGraph, RGB(0, 0, 0)) ;
-        GraphCtrl_SetGridColor(&PerformancePageCpuUsageHistoryGraph, RGB(0, 128, 64));
-
+        GraphCtrl_SetGridColor(&PerformancePageCpuUsageHistoryGraph, RGB(152, 205, 152)) ;
+        
         GraphCtrl_SetPlotColor(&PerformancePageCpuUsageHistoryGraph, 0, RGB(0, 255, 0)) ;
         GraphCtrl_SetPlotColor(&PerformancePageCpuUsageHistoryGraph, 1, RGB(255, 0, 0)) ;
-
+        
 
         GetClientRect(hPerformancePageMemUsageHistoryGraph, &rc);
         GraphCtrl_Create(&PerformancePageMemUsageHistoryGraph, hPerformancePageMemUsageHistoryGraph, hDlg, IDC_MEM_USAGE_HISTORY_GRAPH);
         GraphCtrl_SetRange(&PerformancePageMemUsageHistoryGraph, 0.0, 100.0, 10) ;
         GraphCtrl_SetBackgroundColor(&PerformancePageMemUsageHistoryGraph, RGB(0, 0, 0)) ;
-        GraphCtrl_SetGridColor(&PerformancePageMemUsageHistoryGraph, RGB(0, 128, 64)) ;
+        GraphCtrl_SetGridColor(&PerformancePageMemUsageHistoryGraph, RGB(152, 215, 152)) ;
         GraphCtrl_SetPlotColor(&PerformancePageMemUsageHistoryGraph, 0, RGB(255, 255, 0)) ;
-        /*  Start our refresh thread */
+		/*  Start our refresh thread */
 #ifdef RUN_PERF_PAGE
-        hRefreshThread = CreateThread(NULL, 0, PerformancePageRefreshThread, NULL, 0, NULL);
+        CreateThread(NULL, 0, PerformancePageRefreshThread, NULL, 0, NULL);
 #endif
 
-        /*
-         *  Subclass graph buttons
-         */
-        OldGraphWndProc = (WNDPROC)(LONG_PTR) SetWindowLongPtrW(hPerformancePageCpuUsageGraph, GWL_WNDPROC, (LONG_PTR)Graph_WndProc);
-        SetWindowLongPtrW(hPerformancePageMemUsageGraph, GWL_WNDPROC, (LONG_PTR)Graph_WndProc);
-        OldGraphCtrlWndProc = (WNDPROC)(LONG_PTR) SetWindowLongPtrW(hPerformancePageMemUsageHistoryGraph, GWL_WNDPROC, (LONG_PTR)GraphCtrl_WndProc);
-        SetWindowLongPtrW(hPerformancePageCpuUsageHistoryGraph, GWL_WNDPROC, (LONG_PTR)GraphCtrl_WndProc);
-        return TRUE;
+		/*
+		 *  Subclass graph buttons
+		 */
+        OldGraphWndProc = SetWindowLongPtr(hPerformancePageCpuUsageGraph, GWL_WNDPROC, (DWORD_PTR)Graph_WndProc);
+        SetWindowLongPtr(hPerformancePageMemUsageGraph, GWL_WNDPROC, (DWORD_PTR)Graph_WndProc);
+		OldGraphCtrlWndProc = SetWindowLongPtr(hPerformancePageMemUsageHistoryGraph, GWL_WNDPROC, (DWORD_PTR)GraphCtrl_WndProc);
+		SetWindowLongPtr(hPerformancePageCpuUsageHistoryGraph, GWL_WNDPROC, (DWORD_PTR)GraphCtrl_WndProc);
+		return TRUE;
 
-    case WM_COMMAND:
-        break;
+	case WM_COMMAND:
+		break;
 #if 0
     case WM_NCPAINT:
         hdc = GetDC(hDlg);
@@ -221,22 +216,22 @@ PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         EndPaint(hDlg, &ps);
         break;
 #endif
-    case WM_SIZE:
+	case WM_SIZE:
         do {
-        int  cx, cy;
+		int		cx, cy;
 
-        if (wParam == SIZE_MINIMIZED)
-            return 0;
+ 		if (wParam == SIZE_MINIMIZED)
+			return 0;
 
-        cx = LOWORD(lParam);
-        cy = HIWORD(lParam);
-        nXDifference = cx - nPerformancePageWidth;
-        nYDifference = cy - nPerformancePageHeight;
-        nPerformancePageWidth = cx;
-        nPerformancePageHeight = cy;
+		cx = LOWORD(lParam);
+		cy = HIWORD(lParam);
+		nXDifference = cx - nPerformancePageWidth;
+		nYDifference = cy - nPerformancePageHeight;
+		nPerformancePageWidth = cx;
+		nPerformancePageHeight = cy;
         } while (0);
 
-        /*  Reposition the performance page's controls */
+		/*  Reposition the performance page's controls */
         AdjustFrameSize(hPerformancePageTotalsFrame, hDlg, 0, nYDifference, 0);
         AdjustFrameSize(hPerformancePageCommitChargeFrame, hDlg, 0, nYDifference, 0);
         AdjustFrameSize(hPerformancePageKernelMemoryFrame, hDlg, 0, nYDifference, 0);
@@ -274,20 +269,20 @@ PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if (nXDifference > 0) {
                 nXDifference--;
                 lastX++;
-            } else {
+			} else {
                 nXDifference++;
                 lastX--;
-            }
-        }
+			}
+		}
         if (nYDifference % 2) {
             if (nYDifference > 0) {
                 nYDifference--;
                 lastY++;
-            } else {
+			} else {
                 nYDifference++;
                 lastY--;
-            }
-        }
+			}
+		}
         AdjustFrameSize(hPerformancePageCpuUsageFrame, hDlg, nXDifference, nYDifference, 1);
         AdjustFrameSize(hPerformancePageMemUsageFrame, hDlg, nXDifference, nYDifference, 2);
         AdjustFrameSize(hPerformancePageCpuUsageHistoryFrame, hDlg, nXDifference, nYDifference, 3);
@@ -296,219 +291,219 @@ PerformancePageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         AdjustFrameSize(hPerformancePageMemUsageGraph, hDlg, nXDifference, nYDifference, 2);
         AdjustFrameSize(hPerformancePageCpuUsageHistoryGraph, hDlg, nXDifference, nYDifference, 3);
         AdjustFrameSize(hPerformancePageMemUsageHistoryGraph, hDlg, nXDifference, nYDifference, 4);
-        break;
-    }
+		break;
+	}
     return 0;
 }
 
 void RefreshPerformancePage(void)
 {
-    /*  Signal the event so that our refresh thread */
-    /*  will wake up and refresh the performance page */
-    SetEvent(hPerformancePageEvent);
+	/*  Signal the event so that our refresh thread */
+	/*  will wake up and refresh the performance page */
+	SetEvent(hPerformancePageEvent);
 }
 
 DWORD WINAPI PerformancePageRefreshThread(void *lpParameter)
 {
-    ULONG  CommitChargeTotal;
-    ULONG  CommitChargeLimit;
-    ULONG  CommitChargePeak;
+	ULONG	CommitChargeTotal;
+	ULONG	CommitChargeLimit;
+	ULONG	CommitChargePeak;
 
-    ULONG  CpuUsage;
-    ULONG  CpuKernelUsage;
+	ULONG	CpuUsage;
+	ULONG	CpuKernelUsage;
 
-    ULONG  KernelMemoryTotal;
-    ULONG  KernelMemoryPaged;
-    ULONG  KernelMemoryNonPaged;
+	ULONG	KernelMemoryTotal;
+	ULONG	KernelMemoryPaged;
+	ULONG	KernelMemoryNonPaged;
 
-    ULONG  PhysicalMemoryTotal;
-    ULONG  PhysicalMemoryAvailable;
-    ULONG  PhysicalMemorySystemCache;
+	ULONG	PhysicalMemoryTotal;
+	ULONG	PhysicalMemoryAvailable;
+	ULONG	PhysicalMemorySystemCache;
 
-    ULONG  TotalHandles;
-    ULONG  TotalThreads;
-    ULONG  TotalProcesses;
+	ULONG	TotalHandles;
+	ULONG	TotalThreads;
+	ULONG	TotalProcesses;
 
-    WCHAR  Text[260];
-    WCHAR  szMemUsage[256];
+	TCHAR	Text[260];
+	TCHAR	szMemUsage[256];
 
-    /*  Create the event */
-    hPerformancePageEvent = CreateEventW(NULL, TRUE, TRUE, NULL);
+	/*  Create the event */
+	hPerformancePageEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
 
-    /*  If we couldn't create the event then exit the thread */
-    if (!hPerformancePageEvent)
-        return 0;
+	/*  If we couldn't create the event then exit the thread */
+	if (!hPerformancePageEvent)
+		return 0;
 
-    LoadStringW(hInst, IDS_STATUS_MEMUSAGE, szMemUsage, 256);
+	LoadString(hInst, IDS_STATUS_MEMUSAGE, szMemUsage, 256);
 
-    while (1)
-    {
-        DWORD  dwWaitVal;
+	while (1)
+	{
+		DWORD	dwWaitVal;
 
-        int nBarsUsed1;
-        int nBarsUsed2;
+		int nBarsUsed1;
+		int nBarsUsed2;
 
-        /*  Wait on the event */
-        dwWaitVal = WaitForSingleObject(hPerformancePageEvent, INFINITE);
+		/*  Wait on the event */
+		dwWaitVal = WaitForSingleObject(hPerformancePageEvent, INFINITE);
 
-        /*  If the wait failed then the event object must have been */
-        /*  closed and the task manager is exiting so exit this thread */
-        if (dwWaitVal == WAIT_FAILED)
-            return 0;
+		/*  If the wait failed then the event object must have been */
+		/*  closed and the task manager is exiting so exit this thread */
+		if (dwWaitVal == WAIT_FAILED)
+			return 0;
 
-        if (dwWaitVal == WAIT_OBJECT_0)
-        {
-            /*  Reset our event */
-            ResetEvent(hPerformancePageEvent);
+		if (dwWaitVal == WAIT_OBJECT_0)
+		{
+			/*  Reset our event */
+			ResetEvent(hPerformancePageEvent);
 
-            /*
-             *  Update the commit charge info
-             */
-            CommitChargeTotal = PerfDataGetCommitChargeTotalK();
-            CommitChargeLimit = PerfDataGetCommitChargeLimitK();
-            CommitChargePeak = PerfDataGetCommitChargePeakK();
-            _ultow(CommitChargeTotal, Text, 10);
-            SetWindowTextW(hPerformancePageCommitChargeTotalEdit, Text);
-            _ultow(CommitChargeLimit, Text, 10);
-            SetWindowTextW(hPerformancePageCommitChargeLimitEdit, Text);
-            _ultow(CommitChargePeak, Text, 10);
-            SetWindowTextW(hPerformancePageCommitChargePeakEdit, Text);
-            wsprintfW(Text, szMemUsage, CommitChargeTotal, CommitChargeLimit);
-            SendMessageW(hStatusWnd, SB_SETTEXT, 2, (LPARAM)Text);
+			/*
+			 *  Update the commit charge info
+			 */
+			CommitChargeTotal = PerfDataGetCommitChargeTotalK();
+			CommitChargeLimit = PerfDataGetCommitChargeLimitK();
+			CommitChargePeak = PerfDataGetCommitChargePeakK();
+			_ultot(CommitChargeTotal, Text, 10);
+			SetWindowText(hPerformancePageCommitChargeTotalEdit, Text);
+			_ultot(CommitChargeLimit, Text, 10);
+			SetWindowText(hPerformancePageCommitChargeLimitEdit, Text);
+			_ultot(CommitChargePeak, Text, 10);
+			SetWindowText(hPerformancePageCommitChargePeakEdit, Text);
+			wsprintf(Text, szMemUsage, CommitChargeTotal, CommitChargeLimit);
+			SendMessage(hStatusWnd, SB_SETTEXT, 2, (LPARAM)Text);
 
-            /*
-             *  Update the kernel memory info
-             */
-            KernelMemoryTotal = PerfDataGetKernelMemoryTotalK();
-            KernelMemoryPaged = PerfDataGetKernelMemoryPagedK();
-            KernelMemoryNonPaged = PerfDataGetKernelMemoryNonPagedK();
-            _ultow(KernelMemoryTotal, Text, 10);
-            SetWindowTextW(hPerformancePageKernelMemoryTotalEdit, Text);
-            _ultow(KernelMemoryPaged, Text, 10);
-            SetWindowTextW(hPerformancePageKernelMemoryPagedEdit, Text);
-            _ultow(KernelMemoryNonPaged, Text, 10);
-            SetWindowTextW(hPerformancePageKernelMemoryNonPagedEdit, Text);
+			/*
+			 *  Update the kernel memory info
+			 */
+			KernelMemoryTotal = PerfDataGetKernelMemoryTotalK();
+			KernelMemoryPaged = PerfDataGetKernelMemoryPagedK();
+			KernelMemoryNonPaged = PerfDataGetKernelMemoryNonPagedK();
+			_ultot(KernelMemoryTotal, Text, 10);
+			SetWindowText(hPerformancePageKernelMemoryTotalEdit, Text);
+			_ultot(KernelMemoryPaged, Text, 10);
+			SetWindowText(hPerformancePageKernelMemoryPagedEdit, Text);
+			_ultot(KernelMemoryNonPaged, Text, 10);
+			SetWindowText(hPerformancePageKernelMemoryNonPagedEdit, Text);
 
-            /*
-             *  Update the physical memory info
-             */
-            PhysicalMemoryTotal = PerfDataGetPhysicalMemoryTotalK();
-            PhysicalMemoryAvailable = PerfDataGetPhysicalMemoryAvailableK();
-            PhysicalMemorySystemCache = PerfDataGetPhysicalMemorySystemCacheK();
-            _ultow(PhysicalMemoryTotal, Text, 10);
-            SetWindowTextW(hPerformancePagePhysicalMemoryTotalEdit, Text);
-            _ultow(PhysicalMemoryAvailable, Text, 10);
-            SetWindowTextW(hPerformancePagePhysicalMemoryAvailableEdit, Text);
-            _ultow(PhysicalMemorySystemCache, Text, 10);
-            SetWindowTextW(hPerformancePagePhysicalMemorySystemCacheEdit, Text);
+			/*
+			 *  Update the physical memory info
+			 */
+			PhysicalMemoryTotal = PerfDataGetPhysicalMemoryTotalK();
+			PhysicalMemoryAvailable = PerfDataGetPhysicalMemoryAvailableK();
+			PhysicalMemorySystemCache = PerfDataGetPhysicalMemorySystemCacheK();
+			_ultot(PhysicalMemoryTotal, Text, 10);
+			SetWindowText(hPerformancePagePhysicalMemoryTotalEdit, Text);
+			_ultot(PhysicalMemoryAvailable, Text, 10);
+			SetWindowText(hPerformancePagePhysicalMemoryAvailableEdit, Text);
+			_ultot(PhysicalMemorySystemCache, Text, 10);
+			SetWindowText(hPerformancePagePhysicalMemorySystemCacheEdit, Text);
 
-            /*
-             *  Update the totals info
-             */
-            TotalHandles = PerfDataGetSystemHandleCount();
-            TotalThreads = PerfDataGetTotalThreadCount();
-            TotalProcesses = PerfDataGetProcessCount();
-            _ultow(TotalHandles, Text, 10);
-            SetWindowTextW(hPerformancePageTotalsHandleCountEdit, Text);
-            _ultow(TotalThreads, Text, 10);
-            SetWindowTextW(hPerformancePageTotalsThreadCountEdit, Text);
-            _ultow(TotalProcesses, Text, 10);
-            SetWindowTextW(hPerformancePageTotalsProcessCountEdit, Text);
+			/*
+			 *  Update the totals info
+			 */
+			TotalHandles = PerfDataGetSystemHandleCount();
+			TotalThreads = PerfDataGetTotalThreadCount();
+			TotalProcesses = PerfDataGetProcessCount();
+			_ultot(TotalHandles, Text, 10);
+			SetWindowText(hPerformancePageTotalsHandleCountEdit, Text);
+			_ultot(TotalThreads, Text, 10);
+			SetWindowText(hPerformancePageTotalsThreadCountEdit, Text);
+			_ultot(TotalProcesses, Text, 10);
+			SetWindowText(hPerformancePageTotalsProcessCountEdit, Text);
 
-            /*
-             *  Redraw the graphs
-             */
-            InvalidateRect(hPerformancePageCpuUsageGraph, NULL, FALSE);
-            InvalidateRect(hPerformancePageMemUsageGraph, NULL, FALSE);
+			/*
+			 *  Redraw the graphs
+			 */
+			InvalidateRect(hPerformancePageCpuUsageGraph, NULL, FALSE);
+			InvalidateRect(hPerformancePageMemUsageGraph, NULL, FALSE);
 
-            /*
-             *  Get the CPU usage
-             */
-            CpuUsage = PerfDataGetProcessorUsage();
-            if (CpuUsage <= 0 )       CpuUsage = 0;
-            if (CpuUsage > 100)       CpuUsage = 100;
-
-            if (TaskManagerSettings.ShowKernelTimes)
-            {
-                CpuKernelUsage = PerfDataGetProcessorSystemUsage();
-                if (CpuKernelUsage <= 0)   CpuKernelUsage = 0;
-                if (CpuKernelUsage > 100) CpuKernelUsage = 100;
-            }
-            else
-            {
-                CpuKernelUsage = 0;
-            }
+        	/*
+        	 *  Get the CPU usage
+        	 */
+	        CpuUsage = PerfDataGetProcessorUsage();
+        	if (CpuUsage < 0 )        CpuUsage = 0;
+        	if (CpuUsage > 100)       CpuUsage = 100;
+        	
+        	if (TaskManagerSettings.ShowKernelTimes)
+        	{
+        		CpuKernelUsage = PerfDataGetProcessorSystemUsage();
+        		if (CpuKernelUsage < 0)   CpuKernelUsage = 0;
+        		if (CpuKernelUsage > 100) CpuKernelUsage = 100;
+			} 
+			else
+			{
+				CpuKernelUsage = 0;
+			}
             /*
              *  Get the memory usage
              */
-            CommitChargeTotal = PerfDataGetCommitChargeTotalK();
-            CommitChargeLimit = PerfDataGetCommitChargeLimitK();
+            CommitChargeTotal = (ULONGLONG)PerfDataGetCommitChargeTotalK();
+            CommitChargeLimit = (ULONGLONG)PerfDataGetCommitChargeLimitK();
             nBarsUsed1 = CommitChargeLimit ? ((CommitChargeTotal * 100) / CommitChargeLimit) : 0;
 
-            PhysicalMemoryTotal = PerfDataGetPhysicalMemoryTotalK();
-            PhysicalMemoryAvailable = PerfDataGetPhysicalMemoryAvailableK();
+			PhysicalMemoryTotal = PerfDataGetPhysicalMemoryTotalK();
+			PhysicalMemoryAvailable = PerfDataGetPhysicalMemoryAvailableK();
             nBarsUsed2 = PhysicalMemoryTotal ? ((PhysicalMemoryAvailable * 100) / PhysicalMemoryTotal) : 0;
 
-
+			 
 
             GraphCtrl_AppendPoint(&PerformancePageCpuUsageHistoryGraph, CpuUsage, CpuKernelUsage, 0.0, 0.0);
             GraphCtrl_AppendPoint(&PerformancePageMemUsageHistoryGraph, nBarsUsed1, nBarsUsed2, 0.0, 0.0);
             /* PerformancePageMemUsageHistoryGraph.SetRange(0.0, 100.0, 10) ; */
-            InvalidateRect(hPerformancePageMemUsageHistoryGraph, NULL, FALSE);
-            InvalidateRect(hPerformancePageCpuUsageHistoryGraph, NULL, FALSE);
-        }
-    }
+			InvalidateRect(hPerformancePageMemUsageHistoryGraph, NULL, FALSE);
+			InvalidateRect(hPerformancePageCpuUsageHistoryGraph, NULL, FALSE);
+		}
+	}
         return 0;
 }
 
 void PerformancePage_OnViewShowKernelTimes(void)
 {
-    HMENU  hMenu;
-    HMENU  hViewMenu;
+	HMENU	hMenu;
+	HMENU	hViewMenu;
 
-    hMenu = GetMenu(hMainWnd);
-    hViewMenu = GetSubMenu(hMenu, 2);
+	hMenu = GetMenu(hMainWnd);
+	hViewMenu = GetSubMenu(hMenu, 2);
 
-    /*  Check or uncheck the show 16-bit tasks menu item */
-    if (GetMenuState(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND) & MF_CHECKED)
-    {
-        CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_UNCHECKED);
-        TaskManagerSettings.ShowKernelTimes = FALSE;
-    }
-    else
-    {
-        CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_CHECKED);
-        TaskManagerSettings.ShowKernelTimes = TRUE;
-    }
+	/*  Check or uncheck the show 16-bit tasks menu item */
+	if (GetMenuState(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND) & MF_CHECKED)
+	{
+		CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_UNCHECKED);
+		TaskManagerSettings.ShowKernelTimes = FALSE;
+	}
+	else
+	{
+		CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_CHECKED);
+		TaskManagerSettings.ShowKernelTimes = TRUE;
+	}
 
-    RefreshPerformancePage();
+	RefreshPerformancePage();
 }
 
 void PerformancePage_OnViewCPUHistoryOneGraphAll(void)
 {
-    HMENU  hMenu;
-    HMENU  hViewMenu;
-    HMENU  hCPUHistoryMenu;
+	HMENU	hMenu;
+	HMENU	hViewMenu;
+	HMENU	hCPUHistoryMenu;
 
-    hMenu = GetMenu(hMainWnd);
-    hViewMenu = GetSubMenu(hMenu, 2);
-    hCPUHistoryMenu = GetSubMenu(hViewMenu, 3);
+	hMenu = GetMenu(hMainWnd);
+	hViewMenu = GetSubMenu(hMenu, 2);
+	hCPUHistoryMenu = GetSubMenu(hViewMenu, 3);
 
-    TaskManagerSettings.CPUHistory_OneGraphPerCPU = FALSE;
-    CheckMenuRadioItem(hCPUHistoryMenu, ID_VIEW_CPUHISTORY_ONEGRAPHALL, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, ID_VIEW_CPUHISTORY_ONEGRAPHALL, MF_BYCOMMAND);
+	TaskManagerSettings.CPUHistory_OneGraphPerCPU = FALSE;
+	CheckMenuRadioItem(hCPUHistoryMenu, ID_VIEW_CPUHISTORY_ONEGRAPHALL, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, ID_VIEW_CPUHISTORY_ONEGRAPHALL, MF_BYCOMMAND);
 }
 
 void PerformancePage_OnViewCPUHistoryOneGraphPerCPU(void)
 {
-    HMENU  hMenu;
-    HMENU  hViewMenu;
-    HMENU  hCPUHistoryMenu;
+	HMENU	hMenu;
+	HMENU	hViewMenu;
+	HMENU	hCPUHistoryMenu;
 
-    hMenu = GetMenu(hMainWnd);
-    hViewMenu = GetSubMenu(hMenu, 2);
-    hCPUHistoryMenu = GetSubMenu(hViewMenu, 3);
+	hMenu = GetMenu(hMainWnd);
+	hViewMenu = GetSubMenu(hMenu, 2);
+	hCPUHistoryMenu = GetSubMenu(hViewMenu, 3);
 
-    TaskManagerSettings.CPUHistory_OneGraphPerCPU = TRUE;
-    CheckMenuRadioItem(hCPUHistoryMenu, ID_VIEW_CPUHISTORY_ONEGRAPHALL, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, MF_BYCOMMAND);
+	TaskManagerSettings.CPUHistory_OneGraphPerCPU = TRUE;
+	CheckMenuRadioItem(hCPUHistoryMenu, ID_VIEW_CPUHISTORY_ONEGRAPHALL, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, MF_BYCOMMAND);
 }
 

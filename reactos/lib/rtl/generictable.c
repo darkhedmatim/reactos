@@ -57,7 +57,7 @@ RtlpFindGenericTableNodeOrParent(IN PRTL_GENERIC_TABLE Table,
             if ((ChildNode = RtlLeftChild(CurrentNode)))
             {
                 /* Continue searching from this node */
-                CurrentNode = ChildNode;
+                ChildNode = CurrentNode;
             }
             else
             {
@@ -72,7 +72,7 @@ RtlpFindGenericTableNodeOrParent(IN PRTL_GENERIC_TABLE Table,
             if ((ChildNode = RtlRightChild(CurrentNode)))
             {
                 /* Continue searching from this node */
-                CurrentNode = ChildNode;
+                ChildNode = CurrentNode;
             }
             else
             {
@@ -390,7 +390,7 @@ RtlEnumerateGenericTableWithoutSplaying(IN PRTL_GENERIC_TABLE Table,
     else
     {
         /* Otherwise, try using the real successor */
-        FoundNode = RtlRealSuccessor(*RestartKey);
+        FoundNode = RtlRealSuccessor(Table->TableRoot);
         if (FoundNode) *RestartKey = FoundNode;
     }
 
@@ -531,7 +531,7 @@ RtlLookupElementGenericTableFullAvl(IN PRTL_AVL_TABLE Table,
 	}
 
 	OurSearchResult = avl_search
-		(Table, Buffer,
+		(Table, Buffer, 
 		 Table->BalancedRoot.LeftChild, &OurNodeOrParent);
 
 	if(SearchResult) *SearchResult = OurSearchResult;
@@ -553,7 +553,7 @@ RtlLookupElementGenericTableAvl(IN PRTL_AVL_TABLE Table,
 {
 	PRTL_BALANCED_LINKS OurNodeOrParent;
 	TABLE_SEARCH_RESULT OurSearchResult;
-	return RtlLookupElementGenericTableFullAvl
+	return RtlLookupElementGenericTableFullAvl 
 	(Table, Buffer, (PVOID *)&OurNodeOrParent, &OurSearchResult);
 }
 
@@ -571,11 +571,11 @@ RtlDeleteElementGenericTableAvl(IN PRTL_AVL_TABLE Table,
 	RtlLookupElementGenericTableFullAvl
 		( Table, Buffer, (PVOID *)&Node, &Result );
 
-	if( Result == TableFoundNode )
+	if( Result == TableFoundNode ) 
 	{
 		avl_delete_node(Table, Node);
 		Table->FreeRoutine(Table, Node);
-		if( Table->NumberGenericTableElements == 0 )
+		if( Table->NumberGenericTableElements == 0 ) 
 			avl_deinit(Table);
 		return TRUE;
 	}
@@ -619,7 +619,7 @@ RtlEnumerateGenericTableWithoutSplayingAvl(IN PRTL_AVL_TABLE Table,
                                            IN OUT PVOID *RestartKey)
 {
     /* FIXME! */
-	return NULL;
+	return RtlEnumerateGenericTableWithoutSplayingAvl(Table, RestartKey);
 }
 
 /*
@@ -683,24 +683,24 @@ RtlInsertElementGenericTableFullAvl(IN PRTL_AVL_TABLE Table,
 		*NewElement = FALSE;
 
 	OurSearchResult = avl_search
-		(Table, Buffer,
+		(Table, Buffer, 
 		 Table->BalancedRoot.LeftChild, &OurNodeOrParent);
 
 	if(NodeOrParent) *NodeOrParent = OurNodeOrParent;
 	if(SearchResult) *SearchResult = OurSearchResult;
 
-	if(OurSearchResult == TableFoundNode)
+	if(OurSearchResult == TableFoundNode) 
 	{
 		RtlDeleteElementGenericTableAvl(Table, Buffer);
 		return RtlInsertElementGenericTableFullAvl
-			(Table, Buffer, BufferSize,
+			(Table, Buffer, BufferSize, 
 			 NewElement, NodeOrParent, SearchResult);
 	}
 	else
 	{
-		PRTL_BALANCED_LINKS NewNode =
+		PRTL_BALANCED_LINKS NewNode = 
 			Table->AllocateRoutine
-			(Table,
+			(Table, 
 			 BufferSize + sizeof(RTL_BALANCED_LINKS) + BufferSize);
 
 		if( !NewNode ) return NULL;

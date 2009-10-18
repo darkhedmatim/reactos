@@ -15,34 +15,23 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "editor.h"
 
 void ME_InitContext(ME_Context *c, ME_TextEditor *editor, HDC hDC)
 {
-  c->nSequence = editor->nSequence++;
+  c->nSequence = editor->nSequence++;  
   c->hDC = hDC;
   c->editor = editor;
   c->pt.x = 0;
   c->pt.y = 0;
   c->hbrMargin = CreateSolidBrush(RGB(224,224,224));
   c->rcView = editor->rcFormat;
-  if (hDC) {
-      c->dpi.cx = GetDeviceCaps(hDC, LOGPIXELSX);
-      c->dpi.cy = GetDeviceCaps(hDC, LOGPIXELSY);
-  } else {
-      c->dpi.cx = c->dpi.cy = 96;
-  }
-  if (editor->nAvailWidth)
-      c->nAvailWidth = ME_twips2pointsX(c, editor->nAvailWidth);
-  else
-      c->nAvailWidth = c->rcView.right - c->rcView.left;
 }
 
 void ME_DestroyContext(ME_Context *c)
 {
-  if (c->hDC) ITextHost_TxReleaseDC(c->editor->texthost, c->hDC);
   DeleteObject(c->hbrMargin);
 }

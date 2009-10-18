@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS ******************************************************************/
 
@@ -29,7 +29,6 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     PETHREAD Thread;
     PTEB Teb;
     BOOLEAN DeadThread = FALSE;
-    KIRQL OldIrql;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "StartRoutine: %p StartContext: %p\n", StartRoutine, StartContext);
@@ -52,11 +51,12 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
         Teb->IdealProcessor = Thread->Tcb.IdealProcessor;
     }
 
-    /* Check if this is a dead thread, or if we're hiding */
-    if (!(Thread->DeadThread) && !(Thread->HideFromDebugger))
+    /* Check if this is a system thread, or if we're hiding */
+    PSREFTRACE(Thread);
+    if (!(Thread->SystemThread) && !(Thread->HideFromDebugger))
     {
         /* We're not, so notify the debugger */
-        DbgkCreateThread(Thread, StartContext);
+        DbgkCreateThread(StartContext);
     }
 
     /* Make sure we're not already dead */
@@ -69,13 +69,13 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
         }
 
         /* Raise to APC */
-        KeRaiseIrql(APC_LEVEL, &OldIrql);
+        KfRaiseIrql(APC_LEVEL);
 
         /* Queue the User APC */
         KiInitializeUserApc(NULL,
                             (PVOID)((ULONG_PTR)Thread->Tcb.InitialStack -
                             sizeof(KTRAP_FRAME) -
-                            SIZEOF_FX_SAVE_AREA),
+                            sizeof(FX_SAVE_AREA)),
                             PspSystemDllEntryPoint,
                             NULL,
                             PspSystemDllBase,
@@ -104,36 +104,13 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
         Prcb = KeGetCurrentPrcb();
         NewCookie = Prcb->MmPageFaultCount ^ Prcb->InterruptTime ^
                     SystemTime.u.LowPart ^ SystemTime.u.HighPart ^
-                    (ULONG_PTR)&SystemTime;
+                    (ULONG)&SystemTime;
 
         /* Set the new cookie*/
         InterlockedCompareExchange((LONG*)&SharedUserData->Cookie,
                                    NewCookie,
                                    0);
     }
-}
-
-LONG
-PspUnhandledExceptionInSystemThread(PEXCEPTION_POINTERS ExceptionPointers)
-{
-    /* Print debugging information */
-    DPRINT1("PS: Unhandled Kernel Mode Exception Pointers = 0x%p\n",
-            ExceptionPointers);
-    DPRINT1("Code %x Addr %p Info0 %p Info1 %p Info2 %p Info3 %p\n",
-            ExceptionPointers->ExceptionRecord->ExceptionCode,
-            ExceptionPointers->ExceptionRecord->ExceptionAddress,
-            ExceptionPointers->ExceptionRecord->ExceptionInformation[0],
-            ExceptionPointers->ExceptionRecord->ExceptionInformation[1],
-            ExceptionPointers->ExceptionRecord->ExceptionInformation[2],
-            ExceptionPointers->ExceptionRecord->ExceptionInformation[3]);
-
-    /* Bugcheck the system */
-    KeBugCheckEx(SYSTEM_THREAD_EXCEPTION_NOT_HANDLED,
-                 ExceptionPointers->ExceptionRecord->ExceptionCode,
-                 (ULONG_PTR)ExceptionPointers->ExceptionRecord->ExceptionAddress,
-                 (ULONG_PTR)ExceptionPointers->ExceptionRecord,
-                 (ULONG_PTR)ExceptionPointers->ContextRecord);
-    return 0;
 }
 
 VOID
@@ -150,20 +127,12 @@ PspSystemThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     Thread = PsGetCurrentThread();
 
     /* Make sure the thread isn't gone */
-    _SEH2_TRY
+    PSREFTRACE(Thread);
+    if (!(Thread->Terminated) && !(Thread->DeadThread))
     {
-        if (!(Thread->Terminated) && !(Thread->DeadThread))
-        {
-            /* Call the Start Routine */
-            StartRoutine(StartContext);
-        }
+        /* Call it the Start Routine */
+        StartRoutine(StartContext);
     }
-    _SEH2_EXCEPT(PspUnhandledExceptionInSystemThread(_SEH2_GetExceptionInformation()))
-    {
-        /* Bugcheck if we got here */
-        KeBugCheck(KMODE_EXCEPTION_NOT_HANDLED);
-    }
-    _SEH2_END;
 
     /* Exit the thread */
     PspTerminateThreadByPointer(Thread, STATUS_SUCCESS, TRUE);
@@ -192,7 +161,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     HANDLE_TABLE_ENTRY CidEntry;
     ACCESS_STATE LocalAccessState;
     PACCESS_STATE AccessState = &LocalAccessState;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     BOOLEAN Result, SdAllocated;
     PSECURITY_DESCRIPTOR SecurityDescriptor;
     SECURITY_SUBJECT_CONTEXT SubjectContext;
@@ -223,6 +192,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
         {
             /* Reference the Process by Pointer */
             ObReferenceObject(TargetProcess);
+            PSREFTRACE(TargetProcess);
             Process = TargetProcess;
             Status = STATUS_SUCCESS;
         }
@@ -262,6 +232,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     }
 
     /* Zero the Object entirely */
+    PSREFTRACE(Thread);
     RtlZeroMemory(Thread, sizeof(ETHREAD));
 
     /* Initialize rundown protection */
@@ -299,29 +270,24 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     KeInitializeSpinLock(&Thread->ActiveTimerListLock);
 
     /* Acquire rundown protection */
-    if (!ExAcquireRundownProtection (&Process->RundownProtect))
-    {
-        /* Fail */
-        ObDereferenceObject(Thread);
-        return STATUS_PROCESS_IS_TERMINATING;
-    }
+    ExAcquireRundownProtection(&Process->RundownProtect);
 
     /* Now let the kernel initialize the context */
     if (ThreadContext)
     {
         /* User-mode Thread, create Teb */
-        Status = MmCreateTeb(Process, &Thread->Cid, InitialTeb, &TebBase);
-        if (!NT_SUCCESS(Status))
+        TebBase = MmCreateTeb(Process, &Thread->Cid, InitialTeb);
+        if (!TebBase)
         {
             /* Failed to create the TEB. Release rundown and dereference */
             ExReleaseRundownProtection(&Process->RundownProtect);
             ObDereferenceObject(Thread);
-            return Status;
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         /* Set the Start Addresses */
-        Thread->StartAddress = (PVOID)KeGetContextPc(ThreadContext);
-        Thread->Win32StartAddress = (PVOID)KeGetContextReturnRegister(ThreadContext);
+        Thread->StartAddress = (PVOID)ThreadContext->Eip;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->Eax;
 
         /* Let the kernel intialize the Thread */
         Status = KeInitThread(&Thread->Tcb,
@@ -351,6 +317,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     }
 
     /* Check if we failed */
+    PSREFTRACE(Thread);
     if (!NT_SUCCESS(Status))
     {
         /* Delete the TEB if we had done */
@@ -433,7 +400,6 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
 
         /* Dereference completely to kill it */
         ObDereferenceObjectEx(Thread, 2);
-        return Status;
     }
 
     /* Insert the Thread into the Object Manager */
@@ -445,20 +411,24 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
                             &hThread);
 
     /* Delete the access state if we had one */
+    PSREFTRACE(Thread);
     if (AccessState) SeDeleteAccessState(AccessState);
 
     /* Check for success */
     if (NT_SUCCESS(Status))
     {
         /* Wrap in SEH to protect against bad user-mode pointers */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return Cid and Handle */
             if (ClientId) *ClientId = Thread->Cid;
             *ThreadHandle = hThread;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
+
             /* Thread insertion failed, thread is dead */
             PspSetCrossThreadFlag(Thread, CT_DEAD_THREAD_BIT);
 
@@ -473,11 +443,9 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
 
             /* Close its handle, killing it */
             ObCloseHandle(ThreadHandle, PreviousMode);
-
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -493,6 +461,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     ASSERT(!(Thread->CreateTime.HighPart & 0xF0000000));
 
     /* Make sure the thread isn't dead */
+    PSREFTRACE(Thread);
     if (!Thread->DeadThread)
     {
         /* Get the thread's SD */
@@ -524,6 +493,7 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
         SubjectContext.ClientToken = NULL;
 
         /* Do the access check */
+        if (!SecurityDescriptor) DPRINT1("FIX PS SDs!!\n");
         Result = SeAccessCheck(SecurityDescriptor,
                                &SubjectContext,
                                FALSE,
@@ -555,21 +525,23 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     }
 
     /* Dispatch thread */
+    PSREFTRACE(Thread);
     KeReadyThread(&Thread->Tcb);
 
     /* Dereference it, leaving only the keep-alive */
     ObDereferenceObject(Thread);
 
     /* Return */
+    PSREFTRACE(Thread);
     return Status;
 
     /* Most annoying failure case ever, where we undo almost all manually */
 Quickie:
     /* When we get here, the process is locked, unlock it */
     ExReleasePushLockExclusive(&Process->ProcessLock);
-    KeLeaveCriticalRegion();
 
     /* Uninitailize it */
+    PSREFTRACE(Thread);
     KeUninitThread(&Thread->Tcb);
 
     /* If we had a TEB, delete it */
@@ -580,6 +552,7 @@ Quickie:
 
     /* Dereference the thread and return failure */
     ObDereferenceObject(Thread);
+    PSREFTRACE(Thread);
     return STATUS_PROCESS_IS_TERMINATING;
 }
 
@@ -695,7 +668,7 @@ BOOLEAN
 NTAPI
 PsGetThreadHardErrorsAreDisabled(IN PETHREAD Thread)
 {
-    return Thread->HardErrorsAreDisabled ? TRUE : FALSE;
+    return Thread->HardErrorsAreDisabled;
 }
 
 /*
@@ -815,7 +788,7 @@ BOOLEAN
 NTAPI
 PsIsThreadImpersonating(IN PETHREAD Thread)
 {
-    return Thread->ActiveImpersonationInfo ? TRUE : FALSE;
+    return Thread->ActiveImpersonationInfo;
 }
 
 /*
@@ -832,7 +805,7 @@ PsSetThreadHardErrorsAreDisabled(IN PETHREAD Thread,
 /*
  * @implemented
  */
-PVOID
+struct _W32THREAD*
 NTAPI
 PsGetCurrentThreadWin32Thread(VOID)
 {
@@ -862,24 +835,25 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
                IN BOOLEAN CreateSuspended)
 {
     INITIAL_TEB SafeInitialTeb;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "ProcessHandle: %p Context: %p\n", ProcessHandle, ThreadContext);
 
     /* Check if this was from user-mode */
-    if (KeGetPreviousMode() != KernelMode)
+    if(KeGetPreviousMode() != KernelMode)
     {
         /* Make sure that we got a context */
         if (!ThreadContext) return STATUS_INVALID_PARAMETER;
 
         /* Protect checks */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Make sure the handle pointer we got is valid */
             ProbeForWriteHandle(ThreadHandle);
 
             /* Check if the caller wants a client id */
-            if (ClientId)
+            if(ClientId)
             {
                 /* Make sure we can write to it */
                 ProbeForWrite(ClientId, sizeof(CLIENT_ID), sizeof(ULONG));
@@ -891,13 +865,15 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
             /* Check the Initial TEB */
             ProbeForRead(InitialTeb, sizeof(INITIAL_TEB), sizeof(ULONG));
             SafeInitialTeb = *InitialTeb;
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            }
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Handle any failures in our SEH checks */
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -933,11 +909,11 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     CLIENT_ID SafeClientId;
     ULONG Attributes = 0;
     HANDLE hThread = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PETHREAD Thread;
     BOOLEAN HasObjectName = FALSE;
     ACCESS_STATE AccessState;
-    AUX_ACCESS_DATA AuxData;
+    AUX_DATA AuxData;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "ClientId: %p ObjectAttributes: %p\n", ClientId, ObjectAttributes);
@@ -946,7 +922,7 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     if (PreviousMode != KernelMode)
     {
         /* Enter SEH for probing */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the thread handle */
             ProbeForWriteHandle(ThreadHandle);
@@ -970,12 +946,13 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
             HasObjectName = (ObjectAttributes->ObjectName != NULL);
             Attributes = ObjectAttributes->Attributes;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -1074,17 +1051,17 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     if (NT_SUCCESS(Status))
     {
         /* Protect against bad user-mode pointers */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Write back the handle */
             *ThreadHandle = hThread;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
             /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */

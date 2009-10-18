@@ -360,18 +360,15 @@ VOID ShowInfo(BOOL bAll)
     ULONG adaptOutBufLen = 0;
     PFIXED_INFO pFixedInfo = NULL;
     ULONG netOutBufLen = 0;
-    ULONG ret = 0;
 
     /* call GetAdaptersInfo to obtain the adapter info */
-    ret = GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen);
-    if (ret == ERROR_BUFFER_OVERFLOW)
+    if (GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen) == ERROR_BUFFER_OVERFLOW)
     {
         pAdapterInfo = (IP_ADAPTER_INFO *)HeapAlloc(ProcessHeap, 0, adaptOutBufLen);
         if (pAdapterInfo == NULL)
             return;
 
-        ret = GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen);
-        if (ret != NO_ERROR)
+        if (GetAdaptersInfo(pAdapterInfo, &adaptOutBufLen) != NO_ERROR)
         {
             DoFormatMessage(0);
             HeapFree(ProcessHeap, 0, pAdapterInfo);
@@ -380,11 +377,8 @@ VOID ShowInfo(BOOL bAll)
     }
     else
     {
-        if( ERROR_NO_DATA != ret )
-        {
-            DoFormatMessage(0);
-            return;
-        }
+        DoFormatMessage(0);
+        return;
     }
 
     /* call GetNetworkParams to obtain the network info */
@@ -392,24 +386,17 @@ VOID ShowInfo(BOOL bAll)
     {
         pFixedInfo = (FIXED_INFO *)HeapAlloc(ProcessHeap, 0, netOutBufLen);
         if (pFixedInfo == NULL)
-        {
-            if (pAdapterInfo)
-                HeapFree(ProcessHeap, 0, pAdapterInfo);
             return;
-        }
+
         if (GetNetworkParams(pFixedInfo, &netOutBufLen) != NO_ERROR)
         {
             DoFormatMessage(0);
-            if (pAdapterInfo)
-                HeapFree(ProcessHeap, 0, pAdapterInfo);
             HeapFree(ProcessHeap, 0, pFixedInfo);
             return;
         }
     }
     else
     {
-        if (pAdapterInfo)
-            HeapFree(ProcessHeap, 0, pAdapterInfo);
         DoFormatMessage(0);
         return;
     }
@@ -426,7 +413,7 @@ VOID ShowInfo(BOOL bAll)
             _tprintf(_T("\tIP Routing Enabled. . . . . . . . : Yes\n"));
         else
             _tprintf(_T("\tIP Routing Enabled. . . . . . . . : No\n"));
-        if (pAdapter && pAdapter->HaveWins)
+        if (pAdapter->HaveWins)
             _tprintf(_T("\tWINS Proxy enabled. . . . . . . . : Yes\n"));
         else
             _tprintf(_T("\tWINS Proxy enabled. . . . . . . . : No\n"));
@@ -467,10 +454,7 @@ VOID ShowInfo(BOOL bAll)
 
         _tprintf(_T("\tIP Address. . . . . . . . . . . . : %s\n"), pAdapter->IpAddressList.IpAddress.String);
         _tprintf(_T("\tSubnet Mask . . . . . . . . . . . : %s\n"), pAdapter->IpAddressList.IpMask.String);
-        if (pAdapter->GatewayList.IpAddress.String[0] != '0')
-            _tprintf(_T("\tDefault Gateway . . . . . . . . . : %s\n"), pAdapter->GatewayList.IpAddress.String);
-        else
-            _tprintf(_T("\tDefault Gateway . . . . . . . . . :\n"));
+        _tprintf(_T("\tDefault Gateway . . . . . . . . . : %s\n"), pAdapter->GatewayList.IpAddress.String);
 
         if (bAll)
         {
@@ -507,15 +491,13 @@ VOID ShowInfo(BOOL bAll)
     }
 
     HeapFree(ProcessHeap, 0, pFixedInfo);
-    if (pAdapterInfo)
-        HeapFree(ProcessHeap, 0, pAdapterInfo);
+    HeapFree(ProcessHeap, 0, pAdapterInfo);
 }
 
 VOID Release(LPTSTR Index)
 {
     IP_ADAPTER_INDEX_MAP AdapterInfo;
     DWORD ret;
-    DWORD i;
 
     /* if interface is not given, query GetInterfaceInfo */
     if (Index == NULL)
@@ -531,19 +513,8 @@ VOID Release(LPTSTR Index)
 
             if (GetInterfaceInfo(pInfo, &ulOutBufLen) == NO_ERROR )
             {
-                for (i = 0; i < pInfo->NumAdapters; i++)
-                {
-                     CopyMemory(&AdapterInfo, &pInfo->Adapter[i], sizeof(IP_ADAPTER_INDEX_MAP));
-                     _tprintf(_T("name - %S\n"), pInfo->Adapter[i].Name);
-
-                     /* Call IpReleaseAddress to release the IP address on the specified adapter. */
-                     if ((ret = IpReleaseAddress(&AdapterInfo)) != NO_ERROR)
-                     {
-                         _tprintf(_T("\nAn error occured while releasing interface %S : \n"), AdapterInfo.Name);
-                         DoFormatMessage(ret);
-                     }
-                }
-
+                CopyMemory(&AdapterInfo, &pInfo->Adapter[0], sizeof(IP_ADAPTER_INDEX_MAP));
+                _tprintf(_T("name - %S\n"), pInfo->Adapter[0].Name);
                 HeapFree(ProcessHeap, 0, pInfo);
             }
             else
@@ -568,6 +539,15 @@ VOID Release(LPTSTR Index)
          *      ipconfig /release *con* will release all cards with 'con' in their name
          */
     }
+
+
+    /* Call IpReleaseAddress to release the IP address on the specified adapter. */
+    if ((ret = IpReleaseAddress(&AdapterInfo)) != NO_ERROR)
+    {
+        _tprintf(_T("\nAn error occured while releasing interface %S : \n"), AdapterInfo.Name);
+        DoFormatMessage(ret);
+    }
+
 }
 
 
@@ -576,7 +556,6 @@ VOID Release(LPTSTR Index)
 VOID Renew(LPTSTR Index)
 {
     IP_ADAPTER_INDEX_MAP AdapterInfo;
-    DWORD i;
 
     /* if interface is not given, query GetInterfaceInfo */
     if (Index == NULL)
@@ -607,19 +586,8 @@ VOID Renew(LPTSTR Index)
         /* Make a second call to GetInterfaceInfo to get the actual data we want */
         if (GetInterfaceInfo(pInfo, &ulOutBufLen) == NO_ERROR )
         {
-            for (i = 0; i < pInfo->NumAdapters; i++)
-            {
-                CopyMemory(&AdapterInfo, &pInfo->Adapter[i], sizeof(IP_ADAPTER_INDEX_MAP));
-                _tprintf(_T("name - %S\n"), pInfo->Adapter[i].Name);
-
-
-                /* Call IpRenewAddress to renew the IP address on the specified adapter. */
-                if (IpRenewAddress(&AdapterInfo) != NO_ERROR)
-                {
-                    _tprintf(_T("\nAn error occured while renew interface %s : "), _T("*name*"));
-                    DoFormatMessage(0);
-                }
-            }
+            CopyMemory(&AdapterInfo, &pInfo->Adapter[0], sizeof(IP_ADAPTER_INDEX_MAP));
+            _tprintf(_T("name - %S\n"), pInfo->Adapter[0].Name);
         }
         else
         {
@@ -637,6 +605,14 @@ VOID Renew(LPTSTR Index)
          * i.e. ipconfig /renew Eth* will renew all cards starting with Eth...
          *      ipconfig /renew *con* will renew all cards with 'con' in their name
          */
+    }
+
+
+    /* Call IpRenewAddress to renew the IP address on the specified adapter. */
+    if (IpRenewAddress(&AdapterInfo) != NO_ERROR)
+    {
+        _tprintf(_T("\nAn error occured while renew interface %s : "), _T("*name*"));
+        DoFormatMessage(0);
     }
 }
 

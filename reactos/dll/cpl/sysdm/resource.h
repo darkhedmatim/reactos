@@ -5,10 +5,9 @@
 
 #define IDI_CPLSYSTEM                   50
 #define IDI_DEVMGR                      51
-#define IDI_HARDPROF                    52
-#define IDI_USERPROF                    53
-#define IDI_UP                          2500
-#define IDI_DOWN                        2501
+#define IDI_COMPNAME                    52
+#define IDI_HARDPROF                    53
+#define IDI_USERPROF                    54
 
 #define IDB_ROSBMP                      55
 
@@ -19,19 +18,6 @@
 #define IDS_GIGABYTE                    63
 #define IDS_TERABYTE                    64
 #define IDS_PETABYTE                    65
-
-#define IDS_VARIABLE                    66
-#define IDS_VALUE                       67
-#define IDS_NO_DUMP                     68
-#define IDS_MINI_DUMP                   69
-#define IDS_KERNEL_DUMP                 70
-#define IDS_FULL_DUMP                   71
-
-#define IDS_USERPROFILE_NAME            72
-#define IDS_USERPROFILE_SIZE            73
-#define IDS_USERPROFILE_TYPE            74
-#define IDS_USERPROFILE_STATUS          75
-#define IDS_USERPROFILE_MODIFIED        76
 
 
 /* propsheet - general */
@@ -46,12 +32,22 @@
 #define IDC_ROSHOMEPAGE_LINK            108
 
 
+/* propsheet - computer name */
+#define IDD_PROPPAGECOMPUTER            200
+#define IDC_COMPDESC                    201
+#define IDC_COMPUTERNAME                202
+#define IDC_WORKGROUPDOMAIN_NAME        203
+#define IDC_WORKGROUPDOMAIN	            204
+#define IDC_NETWORK_ID                  205
+#define IDC_NETWORK_PROPERTY            206
+
+
 /* propsheet - hardware */
 #define IDD_PROPPAGEHARDWARE            300
-#define IDC_HARDWARE_WIZARD             207
+#define IDC_HARDWARE_WIZARD	            207
 #define IDC_HARDWARE_PROFILE            209
 #define IDC_HARDWARE_DRIVER_SIGN        210
-#define IDC_HARDWARE_DEVICE_MANAGER     211
+#define IDC_HARDWARE_DEVICE_MANAGER	    211
 
 
 /* propsheet - advanced */

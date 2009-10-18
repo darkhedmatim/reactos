@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* TYPES *********************************************************************/
 
@@ -23,7 +23,7 @@ typedef struct _IOP_ERROR_LOG_WORKER_DPC
 /* GLOBALS *******************************************************************/
 
 LONG IopTotalLogSize;
-LIST_ENTRY IopErrorLogListHead;
+LIST_ENTRY IopLogListHead;
 KSPIN_LOCK IopLogListLock;
 
 BOOLEAN IopLogWorkerRunning;
@@ -59,7 +59,7 @@ IopGetErrorLogEntry(VOID)
 
     /* Acquire the lock and check if the list is empty */
     KeAcquireSpinLock(&IopLogListLock, &OldIrql);
-    if (IsListEmpty(&IopErrorLogListHead))
+    if (IsListEmpty(&IopLogListHead))
     {
         /* List is empty, disable the worker and return NULL */
         IopLogWorkerRunning = FALSE;
@@ -68,7 +68,7 @@ IopGetErrorLogEntry(VOID)
     else
     {
         /* Otherwise, remove an entry */
-        ListEntry = RemoveHeadList(&IopErrorLogListHead);
+        ListEntry = RemoveHeadList(&IopLogListHead);
     }
 
     /* Release the lock and return the entry */
@@ -122,7 +122,7 @@ IopConnectLogPort(VOID)
                            NULL);
     if (NT_SUCCESS(Status))
     {
-        /* Remember we're connected */
+        /* Remmeber we're connected */
         IopLogPortConnected = TRUE;
         return TRUE;
     }
@@ -214,10 +214,10 @@ IopLogWorker(IN PVOID Parameter)
         }
 
         /* Align the buffer */
-        StringBuffer = ALIGN_UP_POINTER(StringBuffer, WCHAR);
+        StringBuffer = (PVOID)ALIGN_UP(StringBuffer, WCHAR);
 
         /* Set the offset for the driver's name to the current buffer */
-        ErrorMessage->DriverNameOffset = (ULONG_PTR)(StringBuffer -
+        ErrorMessage->DriverNameOffset = (ULONG)(StringBuffer -
                                                  (ULONG_PTR)ErrorMessage);
 
         /* Check how much space we have left for the device string */
@@ -338,8 +338,8 @@ IopLogWorker(IN PVOID Parameter)
                         if (NT_SUCCESS(Status))
                         {
                             /* Success, update the information */
-                            ObjectNameInfo->Name.Length =
-                                100 - (USHORT)DriverNameLength;
+                            ObjectNameInfo->Name.Length = 100 -
+                                                          DriverNameLength;
                         }
                     }
                 }
@@ -420,7 +420,7 @@ IopLogWorker(IN PVOID Parameter)
         if (!NT_SUCCESS(Status))
         {
             /* Requeue log message and restart the worker */
-            ExInterlockedInsertTailList(&IopErrorLogListHead,
+            ExInterlockedInsertTailList(&IopLogListHead,
                                         &LogEntry->ListEntry,
                                         &IopLogListLock);
             IopLogWorkerRunning = FALSE;
@@ -434,8 +434,7 @@ IopLogWorker(IN PVOID Parameter)
 
         /* Update size */
         InterlockedExchangeAdd(&IopTotalLogSize,
-                               -(LONG)(LogEntry->Size -
-                                       sizeof(ERROR_LOG_ENTRY)));
+                               -(LogEntry->Size - sizeof(ERROR_LOG_ENTRY)));
     }
 
     /* Free the LPC Message */
@@ -465,8 +464,6 @@ IopRaiseHardError(IN PKAPC Apc,
     PIRP Irp = (PIRP)NormalContext;
     //PVPB Vpb = (PVPB)SystemArgument1;
     //PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)SystemArgument2;
-
-    UNIMPLEMENTED;
 
     /* FIXME: UNIMPLEMENTED */
     Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
@@ -560,7 +557,7 @@ IoFreeErrorLogEntry(IN PVOID ElEntry)
 
     /* Decrease total allocation size and free the entry */
     InterlockedExchangeAdd(&IopTotalLogSize,
-                           -(LONG)(LogEntry->Size - sizeof(ERROR_LOG_ENTRY)));
+                           -(LogEntry->Size - sizeof(ERROR_LOG_ENTRY)));
     ExFreePool(LogEntry);
 }
 
@@ -575,6 +572,7 @@ IoWriteErrorLogEntry(IN PVOID ElEntry)
     KIRQL Irql;
 
     /* Get the main header */
+    KEBUGCHECK(0);
     LogEntry = (PERROR_LOG_ENTRY)((ULONG_PTR)ElEntry -
                                   sizeof(ERROR_LOG_ENTRY));
 
@@ -583,19 +581,17 @@ IoWriteErrorLogEntry(IN PVOID ElEntry)
 
     /* Acquire the lock and insert this write in the list */
     KeAcquireSpinLock(&IopLogListLock, &Irql);
-    InsertHeadList(&IopErrorLogListHead, &LogEntry->ListEntry);
+    InsertHeadList(&IopLogListHead, &LogEntry->ListEntry);
 
-    /* Check if the worker is running */
+    /* Check if the worker is runnign */
     if (!IopLogWorkerRunning)
     {
-#if 0
         /* It's not, initialize it and queue it */
         ExInitializeWorkItem(&IopErrorLogWorkItem,
                              IopLogWorker,
                              &IopErrorLogWorkItem);
         ExQueueWorkItem(&IopErrorLogWorkItem, DelayedWorkQueue);
         IopLogWorkerRunning = TRUE;
-#endif
     }
 
     /* Release the lock and return */
@@ -650,7 +646,7 @@ IoRaiseInformationalHardError(IN NTSTATUS ErrorStatus,
                               IN PKTHREAD Thread)
 {
     UNIMPLEMENTED;
-    return FALSE;
+    return(FALSE);
 }
 
 /*
@@ -661,12 +657,14 @@ NTAPI
 IoSetThreadHardErrorMode(IN BOOLEAN HardErrorEnabled)
 {
     PETHREAD Thread = PsGetCurrentThread();
-    BOOLEAN OldMode;
+    BOOLEAN Old;
 
     /* Get the current value */
-    OldMode = !Thread->HardErrorsAreDisabled;
+    Old = !Thread->HardErrorsAreDisabled;
 
     /* Set the new one and return the old */
     Thread->HardErrorsAreDisabled = !HardErrorEnabled;
-    return OldMode;
+    return Old;
 }
+
+/* EOF */

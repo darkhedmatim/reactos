@@ -49,14 +49,8 @@ Author:
 #define LDRP_IMAGE_NOT_AT_BASE                  0x00200000
 #define LDRP_COR_IMAGE                          0x00400000
 #define LDR_COR_OWNS_UNMAP                      0x00800000
-#define LDRP_SYSTEM_MAPPED                      0x01000000
-#define LDRP_IMAGE_VERIFYING                    0x02000000
-#define LDRP_DRIVER_DEPENDENT_DLL               0x04000000
-#define LDRP_ENTRY_NATIVE                       0x08800000
+#define LDRP_DRIVER_VERIFYING                   0x02000000
 #define LDRP_REDIRECTED                         0x10000000
-#define LDRP_NON_PAGED_DEBUG_INFO               0x20000000
-#define LDRP_MM_LOADED                          0x40000000
-#define LDRP_COMPAT_DATABASE_PROCESSED          0x80000000
 
 //
 // Dll Characteristics for LdrLoadDll
@@ -125,21 +119,12 @@ typedef struct _LDR_DATA_TABLE_ENTRY
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
 
 //
-// Loaded Imports Reference Counting in Kernel
-//
-typedef struct _LOAD_IMPORTS
-{
-    SIZE_T Count;
-    PLDR_DATA_TABLE_ENTRY Entry[1];
-} LOAD_IMPORTS, *PLOAD_IMPORTS;
-
-//
 // Loader Resource Information
 //
 typedef struct _LDR_RESOURCE_INFO
 {
-    ULONG_PTR Type;
-    ULONG_PTR Name;
+    ULONG Type;
+    ULONG Name;
     ULONG Language;
 } LDR_RESOURCE_INFO, *PLDR_RESOURCE_INFO;
 
@@ -156,7 +141,7 @@ typedef struct _LDR_DLL_LOADED_NOTIFICATION_DATA
 } LDR_DLL_LOADED_NOTIFICATION_DATA, *PLDR_DLL_LOADED_NOTIFICATION_DATA;
 
 typedef VOID
-(NTAPI *PLDR_DLL_LOADED_NOTIFICATION_CALLBACK)(
+(*PLDR_DLL_LOADED_NOTIFICATION_CALLBACK)(
     IN BOOLEAN Type,
     IN struct _LDR_DLL_LOADED_NOTIFICATION_DATA *Data
 );

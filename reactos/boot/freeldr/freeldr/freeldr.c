@@ -18,6 +18,8 @@
  */
 
 #include <freeldr.h>
+
+#define NDEBUG
 #include <debug.h>
 
 VOID BootMain(LPSTR CmdLine)
@@ -26,21 +28,14 @@ VOID BootMain(LPSTR CmdLine)
 
 	MachInit(CmdLine);
 
-	FsInit();
-
 	DebugInit();
 
-	DPRINTM(DPRINT_WARNING, "BootMain() called.\n");
-
-	if (!UiInitialize(FALSE))
-	{
-		UiMessageBoxCritical("Unable to initialize UI.\n");
-		return;
-	}
+	DbgPrint((DPRINT_WARNING, "BootMain() called.\n"));
 
 	if (!MmInitializeMemoryManager())
 	{
-		UiMessageBoxCritical("Unable to initialize memory manager");
+		printf("Press any key to reboot.\n");
+		MachConsGetCh();
 		return;
 	}
 

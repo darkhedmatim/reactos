@@ -17,6 +17,9 @@
 
 #ifndef __WINFAX_H
 #define __WINFAX_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -493,6 +496,8 @@ typedef struct _FAX_PRINT_INFOW
 typedef BOOL (CALLBACK *PFAX_RECIPIENT_CALLBACKA)(HANDLE FaxHandle, DWORD RecipientNumber, LPVOID Context, PFAX_JOB_PARAMA JobParams, PFAX_COVERAGE_INFOA CoverpageInfo);
 typedef BOOL (CALLBACK *PFAX_RECIPIENT_CALLBACKW)(HANDLE FaxHandle, DWORD RecipientNumber, LPVOID Context, PFAX_JOB_PARAMW JobParams, PFAX_COVERAGE_INFOW CoverpageInfo);
 
+#ifndef _DISABLE_TIDENTS
+
 #ifdef UNICODE
 typedef FAX_JOB_PARAMW FAX_JOB_PARAM;
 typedef PFAX_JOB_PARAMW PFAX_JOB_PARAM;
@@ -586,6 +591,8 @@ typedef PFAX_RECIPIENT_CALLBACKW PFAX_RECIPIENT_CALLBACK;
 #define FaxSetRoutingInfo FaxSetRoutingInfoA
 #define FaxStartPrintJob FaxStartPrintJobA
 #endif /* UNICODE */
+
+#endif /* _DISABLE_TIDENTS */
 
 typedef BOOL (CALLBACK *PFAX_ROUTING_INSTALLATION_CALLBACKW)(HANDLE FaxHandle, LPVOID Context, LPWSTR MethodName, LPWSTR FriendlyName, LPWSTR FunctionName, LPWSTR Guid);
 #define PFAX_ROUTING_INSTALLATION_CALLBACK PFAX_ROUTING_INSTALLATION_CALLBACKW

@@ -3,14 +3,14 @@
  *  German language file by Klemens Friedl 2005-06-03
  */
 
-LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
+LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
 STRINGTABLE DISCARDABLE
-BEGIN
+{
 
 IDS_UsageMessage, "%s\n\nSyntax: regsvr32 [/u] [/s] [/c] [/n] [/i[:cmdline]] dllname\n\
 /u -	Serverregistrierung aufheben\n\
 /s -	Hintergrundmodus; Meldungen werden nicht angezeigt\n\
-/c -	Konsolenausgabe verwenden\n\
+/c -	Konsolen ausgabe\n\
 /i -	Aufruf von DLLInstall, wobei optional eine [Befehlszeile] übergeben\n\
 	werden kann. Unter Verwendung von /u wird die DLL_Deinstallation\n\
 	aufgerufen.\n\
@@ -30,4 +30,4 @@ IDS_MissingEntry,    "%s wurde geladen, aber der %s Einstiegspunkt wurde nicht g
 IDS_FailureMessage,  "%s in %s ist fehlgeschlagen.\nRückgabewert: 0x%08x"
 
 IDS_SuccessMessage   "%s in %s war erfolgreich."
-END
+}

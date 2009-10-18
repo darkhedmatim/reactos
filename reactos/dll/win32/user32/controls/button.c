@@ -66,14 +66,12 @@
 #include <user32.h>
 
 #include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(button);
 
 /* GetWindowLong offsets for window extra information */
 #define STATE_GWL_OFFSET  0
 #define HFONT_GWL_OFFSET  (sizeof(LONG))
 #define HIMAGE_GWL_OFFSET (HFONT_GWL_OFFSET+sizeof(HFONT))
-#define UISTATE_GWL_OFFSET (HIMAGE_GWL_OFFSET+sizeof(HFONT))
-#define NB_EXTRA_BYTES    (UISTATE_GWL_OFFSET+sizeof(LONG))
+#define NB_EXTRA_BYTES    (HIMAGE_GWL_OFFSET+sizeof(HANDLE))
 
   /* Button state values */
 #define BUTTON_UNCHECKED       0x00
@@ -102,8 +100,8 @@ static void GB_Paint( HWND hwnd, HDC hDC, UINT action );
 static void UB_Paint( HWND hwnd, HDC hDC, UINT action );
 static void OB_Paint( HWND hwnd, HDC hDC, UINT action );
 static void BUTTON_CheckAutoRadioButton( HWND hwnd );
-//static LRESULT WINAPI ButtonWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-//static LRESULT WINAPI ButtonWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ButtonWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI ButtonWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
 #define MAX_BTN_TYPE  12
 
@@ -148,37 +146,36 @@ static WORD checkBoxWidth = 0, checkBoxHeight = 0;
 /*********************************************************************
  * button class descriptor
  */
-static const WCHAR buttonW[] = {'B','u','t','t','o','n',0};
 const struct builtin_class_descr BUTTON_builtin_class =
 {
-    buttonW,             /* name */
+#ifdef __REACTOS__
+    L"Button",           /* name */
+    CS_DBLCLKS | CS_VREDRAW | CS_HREDRAW | CS_PARENTDC, /* style  */
+    ButtonWndProcW,      /* procW */
+    ButtonWndProcA,      /* procA */
+    NB_EXTRA_BYTES,      /* extra */
+    (LPWSTR)IDC_ARROW,   /* cursor */
+    0                    /* brush */
+#else
+    "Button",            /* name */
     CS_DBLCLKS | CS_VREDRAW | CS_HREDRAW | CS_PARENTDC, /* style  */
     ButtonWndProcA,      /* procA */
     ButtonWndProcW,      /* procW */
     NB_EXTRA_BYTES,      /* extra */
     IDC_ARROW,           /* cursor */
     0                    /* brush */
+#endif
 };
 
 
-static inline LONG get_button_state( HWND hwnd )
+__inline static LONG get_button_state( HWND hwnd )
 {
-    return GetWindowLongPtrW( hwnd, STATE_GWL_OFFSET );
+    return GetWindowLongW( hwnd, STATE_GWL_OFFSET );
 }
 
-static inline void set_button_state( HWND hwnd, LONG state )
+__inline static void set_button_state( HWND hwnd, LONG state )
 {
-    SetWindowLongPtrW( hwnd, STATE_GWL_OFFSET, state );
-}
-
-static __inline void set_ui_state( HWND hwnd, LONG flags )
-{
-    SetWindowLongPtrW( hwnd, UISTATE_GWL_OFFSET, flags );
-}
-
-static __inline LONG get_ui_state( HWND hwnd )
-{
-    return GetWindowLongPtrW( hwnd, UISTATE_GWL_OFFSET );
+    SetWindowLongW( hwnd, STATE_GWL_OFFSET, state );
 }
 
 __inline static HFONT get_button_font( HWND hwnd )
@@ -186,18 +183,18 @@ __inline static HFONT get_button_font( HWND hwnd )
     return (HFONT)GetWindowLongPtrW( hwnd, HFONT_GWL_OFFSET );
 }
 
-static inline void set_button_font( HWND hwnd, HFONT font )
+__inline static void set_button_font( HWND hwnd, HFONT font )
 {
     SetWindowLongPtrW( hwnd, HFONT_GWL_OFFSET, (LONG_PTR)font );
 }
 
-static inline UINT get_button_type( LONG window_style )
+__inline static UINT get_button_type( LONG window_style )
 {
     return (window_style & 0x0f);
 }
 
 /* paint a button of any type */
-static inline void paint_button( HWND hwnd, LONG style, UINT action )
+__inline static void paint_button( HWND hwnd, LONG style, UINT action )
 {
     if (btnPaintFunc[style] && IsWindowVisible(hwnd))
     {
@@ -208,7 +205,7 @@ static inline void paint_button( HWND hwnd, LONG style, UINT action )
 }
 
 /* retrieve the button text; returned buffer must be freed by caller */
-static inline WCHAR *get_button_text( HWND hwnd )
+__inline static WCHAR *get_button_text( HWND hwnd )
 {
     INT len = 512;
     WCHAR *buffer = HeapAlloc( GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR) );
@@ -216,51 +213,21 @@ static inline WCHAR *get_button_text( HWND hwnd )
     return buffer;
 }
 
-static void setup_clipping( HWND hwnd, HDC hdc )
-{
-    RECT rc;
-
-    GetClientRect( hwnd, &rc );
-    DPtoLP( hdc, (POINT *)&rc, 2 );
-    IntersectClipRect( hdc, rc.left, rc.top, rc.right, rc.bottom );
-}
-
-/* Retrieve the UI state for the control */
-static BOOL button_update_uistate(HWND hwnd, BOOL unicode)
-{
-    LONG flags, prevflags;
-
-    if (unicode)
-        flags = DefWindowProcW(hwnd, WM_QUERYUISTATE, 0, 0);
-    else
-        flags = DefWindowProcA(hwnd, WM_QUERYUISTATE, 0, 0);
-
-    prevflags = get_ui_state(hwnd);
-
-    if (prevflags != flags)
-    {
-        set_ui_state(hwnd, flags);
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
 /***********************************************************************
  *           ButtonWndProc_common
  */
-LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
-                                  WPARAM wParam, LPARAM lParam, BOOL unicode )
+static LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
+                                           WPARAM wParam, LPARAM lParam, BOOL unicode )
 {
     RECT rect;
     POINT pt;
-    LONG style = GetWindowLongPtrW( hWnd, GWL_STYLE );
+    LONG style = GetWindowLongW( hWnd, GWL_STYLE );
     UINT btn_type = get_button_type( style );
     LONG state;
     HANDLE oldHbitmap;
 
-    pt.x = (short)LOWORD(lParam);
-    pt.y = (short)HIWORD(lParam);
+    pt.x = LOWORD(lParam);
+    pt.y = HIWORD(lParam);
 
     switch (uMsg)
     {
@@ -292,7 +259,6 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
         if (btn_type >= MAX_BTN_TYPE)
             return -1; /* abort */
         set_button_state( hWnd, BUTTON_UNCHECKED );
-        button_update_uistate( hWnd, unicode );
         return 0;
 
     case WM_ERASEBKGND:
@@ -330,7 +296,6 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
 	{
 	    SendMessageW( hWnd, BM_SETSTATE, TRUE, 0 );
             set_button_state( hWnd, get_button_state( hWnd ) | BUTTON_BTNPRESSED );
-            SetCapture( hWnd );
 	}
 	break;
 
@@ -442,7 +407,7 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
 
     case WM_SETFONT:
         set_button_font( hWnd, (HFONT)wParam );
-        if (lParam) InvalidateRect(hWnd, NULL, TRUE);
+        if (lParam) paint_button( hWnd, btn_type, ODA_DRAWENTIRE );
         break;
 
     case WM_GETFONT:
@@ -467,7 +432,6 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
         if (style & BS_NOTIFY)
             BUTTON_NOTIFY_PARENT(hWnd, BN_KILLFOCUS);
 
-        InvalidateRect( hWnd, NULL, FALSE );
         break;
 
     case WM_SYSCOLORCHANGE:
@@ -481,7 +445,7 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
         if ((wParam & 0x0f) >= MAX_BTN_TYPE) break;
         btn_type = wParam & 0x0f;
         style = (style & ~0x0f) | btn_type;
-        SetWindowLongPtrW( hWnd, GWL_STYLE, style );
+        SetWindowLongW( hWnd, GWL_STYLE, style );
 
         /* Only redraw if lParam flag is set.*/
         if (lParam)
@@ -530,7 +494,7 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
         {
             if (wParam) style |= WS_TABSTOP;
             else style &= ~WS_TABSTOP;
-            SetWindowLongPtrW( hWnd, GWL_STYLE, style );
+            SetWindowLongW( hWnd, GWL_STYLE, style );
         }
         if ((state & 3) != wParam)
         {
@@ -565,16 +529,6 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
         paint_button( hWnd, btn_type, ODA_SELECT );
         break;
 
-    case WM_UPDATEUISTATE:
-        if (unicode)
-            DefWindowProcW(hWnd, uMsg, wParam, lParam);
-        else
-            DefWindowProcA(hWnd, uMsg, wParam, lParam);
-
-        if (button_update_uistate(hWnd, unicode))
-            paint_button( hWnd, btn_type, ODA_DRAWENTIRE );
-        break;
-
     case WM_NCHITTEST:
         if(btn_type == BS_GROUPBOX) return HTTRANSPARENT;
         /* fall through */
@@ -591,7 +545,7 @@ LRESULT WINAPI ButtonWndProc_common(HWND hWnd, UINT uMsg,
  * the passed HWND and calls the real window procedure (with a WND*
  * pointer pointing to the locked windowstructure).
  */
-LRESULT WINAPI ButtonWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ButtonWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow( hWnd )) return 0;
     return ButtonWndProc_common( hWnd, uMsg, wParam, lParam, TRUE );
@@ -601,7 +555,7 @@ LRESULT WINAPI ButtonWndProcW( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 /***********************************************************************
  *           ButtonWndProcA
  */
-LRESULT WINAPI ButtonWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+static LRESULT WINAPI ButtonWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
     if (!IsWindow( hWnd )) return 0;
     return ButtonWndProc_common( hWnd, uMsg, wParam, lParam, FALSE );
@@ -610,8 +564,9 @@ LRESULT WINAPI ButtonWndProcA( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 /**********************************************************************
  * Convert button styles to flags used by DrawText.
+ * TODO: handle WS_EX_RIGHT extended style.
  */
-static UINT BUTTON_BStoDT( DWORD style, DWORD ex_style )
+static UINT BUTTON_BStoDT(DWORD style)
 {
    UINT dtStyle = DT_NOCLIP;  /* We use SelectClipRgn to limit output */
 
@@ -635,10 +590,8 @@ static UINT BUTTON_BStoDT( DWORD style, DWORD ex_style )
          /* all other flavours have left aligned text */
    }
 
-   if (ex_style & WS_EX_RIGHT) dtStyle = DT_RIGHT | (dtStyle & ~(DT_LEFT | DT_CENTER));
-
    /* DrawText ignores vertical alignment for multiline text,
-    * but we use these flags to align label manually.
+    * but we use these flags to align label manualy.
     */
    if (get_button_type(style) != BS_GROUPBOX)
    {
@@ -669,12 +622,11 @@ static UINT BUTTON_BStoDT( DWORD style, DWORD ex_style )
  */
 static UINT BUTTON_CalcLabelRect(HWND hwnd, HDC hdc, RECT *rc)
 {
-   LONG style = GetWindowLongPtrW( hwnd, GWL_STYLE );
-   LONG ex_style = GetWindowLongPtrW( hwnd, GWL_EXSTYLE );
+   LONG style = GetWindowLongW( hwnd, GWL_STYLE );
    WCHAR *text;
    ICONINFO    iconInfo;
    BITMAP      bm;
-   UINT        dtStyle = BUTTON_BStoDT( style, ex_style );
+   UINT        dtStyle = BUTTON_BStoDT(style);
    RECT        r = *rc;
    INT         n;
 
@@ -690,9 +642,6 @@ static UINT BUTTON_CalcLabelRect(HWND hwnd, HDC hdc, RECT *rc)
           }
           DrawTextW(hdc, text, -1, &r, dtStyle | DT_CALCRECT);
           HeapFree( GetProcessHeap(), 0, text );
-
-          if (get_ui_state( hwnd ) & UISF_HIDEACCEL)
-              dtStyle |= DT_HIDEPREFIX;
           break;
 
       case BS_ICON:
@@ -720,7 +669,7 @@ static UINT BUTTON_CalcLabelRect(HWND hwnd, HDC hdc, RECT *rc)
       empty_rect:
          rc->right = r.left;
          rc->bottom = r.top;
-         return (UINT)-1;
+         return (UINT)(LONG)-1;
    }
 
    /* Position label inside bounding rectangle according to
@@ -780,7 +729,7 @@ static BOOL CALLBACK BUTTON_DrawTextCallback(HDC hdc, LPARAM lp, WPARAM wp, int 
  *
  *   Common function for drawing button label.
  */
-static void BUTTON_DrawLabel(HWND hwnd, HDC hdc, UINT dtFlags, const RECT *rc)
+static void BUTTON_DrawLabel(HWND hwnd, HDC hdc, UINT dtFlags, RECT *rc)
 {
    DRAWSTATEPROC lpOutputProc = NULL;
    LPARAM lp;
@@ -788,7 +737,7 @@ static void BUTTON_DrawLabel(HWND hwnd, HDC hdc, UINT dtFlags, const RECT *rc)
    HBRUSH hbr = 0;
    UINT flags = IsWindowEnabled(hwnd) ? DSS_NORMAL : DSS_DISABLED;
    LONG state = get_button_state( hwnd );
-   LONG style = GetWindowLongPtrW( hwnd, GWL_STYLE );
+   LONG style = GetWindowLongW( hwnd, GWL_STYLE );
    WCHAR *text = NULL;
 
    /* FIXME: To draw disabled label in Win31 look-and-feel, we probably
@@ -810,9 +759,6 @@ static void BUTTON_DrawLabel(HWND hwnd, HDC hdc, UINT dtFlags, const RECT *rc)
          if (!(text = get_button_text( hwnd ))) return;
          lp = (LPARAM)text;
          wp = (WPARAM)dtFlags;
-
-         if (dtFlags & DT_HIDEPREFIX)
-             flags |= DSS_HIDEPREFIX;
          break;
 
       case BS_ICON:
@@ -847,7 +793,7 @@ static void PB_Paint( HWND hwnd, HDC hDC, UINT action )
     COLORREF oldTxtColor;
     HFONT hFont;
     LONG state = get_button_state( hwnd );
-    LONG style = GetWindowLongPtrW( hwnd, GWL_STYLE );
+    LONG style = GetWindowLongW( hwnd, GWL_STYLE );
     BOOL pushedState = (state & BUTTON_HIGHLIGHTED);
     HWND parent;
 
@@ -858,15 +804,12 @@ static void PB_Paint( HWND hwnd, HDC hDC, UINT action )
     parent = GetParent(hwnd);
     if (!parent) parent = hwnd;
     SendMessageW( parent, WM_CTLCOLORBTN, (WPARAM)hDC, (LPARAM)hwnd );
-
-    setup_clipping( hwnd, hDC );
 #ifdef __REACTOS__
-    hOldPen = SelectObject(hDC, GetStockObject(DC_PEN));
-    SetDCPenColor(hDC, GetSysColor(COLOR_WINDOWFRAME));
+    hOldPen = (HPEN)SelectObject(hDC, GetSysColorPen(COLOR_WINDOWFRAME));
 #else
-    hOldPen = SelectObject(hDC, SYSCOLOR_GetPen(COLOR_WINDOWFRAME));
+    hOldPen = (HPEN)SelectObject(hDC, SYSCOLOR_GetPen(COLOR_WINDOWFRAME));
 #endif
-    hOldBrush = SelectObject(hDC,GetSysColorBrush(COLOR_BTNFACE));
+    hOldBrush =(HBRUSH)SelectObject(hDC,GetSysColorBrush(COLOR_BTNFACE));
     oldBkMode = SetBkMode(hDC, TRANSPARENT);
 
     if (get_button_type(style) == BS_DEFPUSHBUTTON)
@@ -914,12 +857,9 @@ static void PB_Paint( HWND hwnd, HDC hDC, UINT action )
 
     if (state & BUTTON_HASFOCUS)
     {
-        if (!(get_ui_state(hwnd) & UISF_HIDEFOCUS))
-        {
-            InflateRect( &focus_rect, -1, -1 );
-            IntersectRect(&focus_rect, &focus_rect, &rc);
-            DrawFocusRect( hDC, &focus_rect );
-        }
+        InflateRect( &focus_rect, -1, -1 );
+        IntersectRect(&focus_rect, &focus_rect, &rc);
+        DrawFocusRect( hDC, &focus_rect );
     }
 
  cleanup:
@@ -940,7 +880,7 @@ static void CB_Paint( HWND hwnd, HDC hDC, UINT action )
     UINT dtFlags;
     HFONT hFont;
     LONG state = get_button_state( hwnd );
-    LONG style = GetWindowLongPtrW( hwnd, GWL_STYLE );
+    LONG style = GetWindowLongW( hwnd, GWL_STYLE );
     HWND parent;
 
     if (style & BS_PUSHLIKE)
@@ -961,7 +901,6 @@ static void CB_Paint( HWND hwnd, HDC hDC, UINT action )
     if (!hBrush) /* did the app forget to call defwindowproc ? */
         hBrush = (HBRUSH)DefWindowProcW(parent, WM_CTLCOLORSTATIC,
 					(WPARAM)hDC, (LPARAM)hwnd );
-    setup_clipping( hwnd, hDC );
 
     if (style & BS_LEFTTEXT)
     {
@@ -975,7 +914,7 @@ static void CB_Paint( HWND hwnd, HDC hDC, UINT action )
         rtext.left += checkBoxWidth + 4;
         rbox.right = checkBoxWidth;
     }
-
+ 
     /* Since WM_ERASEBKGND does nothing, first prepare background */
     if (action == ODA_SELECT) FillRect( hDC, &rbox, hBrush );
     if (action == ODA_DRAWENTIRE) FillRect( hDC, &client, hBrush );
@@ -1041,6 +980,8 @@ static void CB_Paint( HWND hwnd, HDC hDC, UINT action )
     if (dtFlags == (UINT)-1L) /* Noting to draw */
 	return;
 
+    IntersectClipRect(hDC, client.left, client.top, client.right, client.bottom);
+
     if (action == ODA_DRAWENTIRE)
 	BUTTON_DrawLabel(hwnd, hDC, dtFlags, &rtext);
 
@@ -1048,13 +989,10 @@ static void CB_Paint( HWND hwnd, HDC hDC, UINT action )
     if ((action == ODA_FOCUS) ||
         ((action == ODA_DRAWENTIRE) && (state & BUTTON_HASFOCUS)))
     {
-        if (!(get_ui_state(hwnd) & UISF_HIDEFOCUS))
-        {
-            rtext.left--;
-            rtext.right++;
-            IntersectRect(&rtext, &rtext, &client);
-            DrawFocusRect( hDC, &rtext );
-        }
+	rtext.left--;
+	rtext.right++;
+	IntersectRect(&rtext, &rtext, &client);
+	DrawFocusRect( hDC, &rtext );
     }
 }
 
@@ -1075,7 +1013,7 @@ static void BUTTON_CheckAutoRadioButton( HWND hwnd )
     {
         if (!sibling) break;
         if ((hwnd != sibling) &&
-            ((GetWindowLongPtrW( sibling, GWL_STYLE) & 0x0f) == BS_AUTORADIOBUTTON))
+            ((GetWindowLongW( sibling, GWL_STYLE) & 0x0f) == BS_AUTORADIOBUTTON))
             SendMessageW( sibling, BM_SETCHECK, BUTTON_UNCHECKED, 0 );
         sibling = GetNextDlgGroupItem( parent, sibling, FALSE );
     } while (sibling != start);
@@ -1093,7 +1031,7 @@ static void GB_Paint( HWND hwnd, HDC hDC, UINT action )
     HFONT hFont;
     UINT dtFlags;
     TEXTMETRICW tm;
-    LONG style = GetWindowLongPtrW( hwnd, GWL_STYLE );
+    LONG style = GetWindowLongW( hwnd, GWL_STYLE );
     HWND parent;
 
     if ((hFont = get_button_font( hwnd ))) SelectObject( hDC, hFont );
@@ -1104,7 +1042,6 @@ static void GB_Paint( HWND hwnd, HDC hDC, UINT action )
     if (!hbr) /* did the app forget to call defwindowproc ? */
         hbr = (HBRUSH)DefWindowProcW(parent, WM_CTLCOLORSTATIC,
 				     (WPARAM)hDC, (LPARAM)hwnd);
-    setup_clipping( hwnd, hDC );
 
     GetClientRect( hwnd, &rc);
     rcFrame = rc;
@@ -1124,7 +1061,7 @@ static void GB_Paint( HWND hwnd, HDC hDC, UINT action )
      * But Windows doesn't clip label's rect, so do I.
      */
 
-    /* There is 1-pixel margin at the left, right, and bottom */
+    /* There is 1-pixel marging at the left, right, and bottom */
     rc.left--; rc.right++; rc.bottom++;
     FillRect(hDC, &rc, hbr);
     rc.left++; rc.right--; rc.bottom--;
@@ -1161,10 +1098,7 @@ static void UB_Paint( HWND hwnd, HDC hDC, UINT action )
     FillRect( hDC, &rc, hBrush );
     if ((action == ODA_FOCUS) ||
         ((action == ODA_DRAWENTIRE) && (state & BUTTON_HASFOCUS)))
-    {
-        if (!(get_ui_state(hwnd) & UISF_HIDEFOCUS))
-            DrawFocusRect( hDC, &rc );
-    }
+        DrawFocusRect( hDC, &rc );
 }
 
 
@@ -1176,6 +1110,8 @@ static void OB_Paint( HWND hwnd, HDC hDC, UINT action )
 {
     LONG state = get_button_state( hwnd );
     DRAWITEMSTRUCT dis;
+    HRGN clipRegion;
+    RECT clipRect;
     LONG_PTR id = GetWindowLongPtrW( hwnd, GWLP_ID );
     HWND parent;
     HFONT hFont, hPrevFont = 0;
@@ -1192,13 +1128,21 @@ static void OB_Paint( HWND hwnd, HDC hDC, UINT action )
     dis.itemData   = 0;
     GetClientRect( hwnd, &dis.rcItem );
 
+    clipRegion = CreateRectRgnIndirect(&dis.rcItem);
+    if (GetClipRgn(hDC, clipRegion) != 1)
+    {
+	DeleteObject(clipRegion);
+	clipRegion=NULL;
+    }
+    clipRect = dis.rcItem;
+    DPtoLP(hDC, (LPPOINT) &clipRect, 2);
+    IntersectClipRect(hDC, clipRect.left,  clipRect.top, clipRect.right, clipRect.bottom);
+
     if ((hFont = get_button_font( hwnd ))) hPrevFont = SelectObject( hDC, hFont );
     parent = GetParent(hwnd);
     if (!parent) parent = hwnd;
     SendMessageW( parent, WM_CTLCOLORBTN, (WPARAM)hDC, (LPARAM)hwnd );
-
-    setup_clipping( hwnd, hDC );
-
     SendMessageW( GetParent(hwnd), WM_DRAWITEM, id, (LPARAM)&dis );
     if (hPrevFont) SelectObject(hDC, hPrevFont);
+    SelectClipRgn(hDC, clipRegion);
 }

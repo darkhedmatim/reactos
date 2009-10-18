@@ -23,12 +23,16 @@
 #ifndef __UPSSVC_H
 #define __UPSSVC_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #if defined(_APCUPS_)
-  #define UPSAPI
+  #define UPSAPI DECLSPEC_EXPORT
 #else
   #define UPSAPI DECLSPEC_IMPORT
 #endif

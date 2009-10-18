@@ -25,11 +25,11 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "winreg.h"
+#include "winver.h"
 #include "winternl.h"
 #include "winnls.h"
 #include "setupapi.h"
 #include "advpub.h"
-#include "ole2.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
 #include "advpack_private.h"
@@ -39,7 +39,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(advpack);
 #define SPAPI_ERROR     0xE0000000L
 #define SPAPI_PREFIX    0x800F0000L
 #define SPAPI_MASK      0xFFFFL
-#define HRESULT_FROM_SPAPI(x)   ((HRESULT)((x & SPAPI_MASK) | SPAPI_PREFIX))
+#define HRESULT_FROM_SPAPI(x)   ((x & SPAPI_MASK) | SPAPI_PREFIX)
 
 #define ADV_HRESULT(x)  ((x & SPAPI_ERROR) ? HRESULT_FROM_SPAPI(x) : HRESULT_FROM_WIN32(x))
 
@@ -58,7 +58,7 @@ typedef struct _ADVInfo
     BOOL need_reboot;
 } ADVInfo;
 
-typedef HRESULT (*iterate_fields_func)(HINF hinf, PCWSTR field, const void *arg);
+typedef HRESULT (*iterate_fields_func)(HINF hinf, PCWSTR field, void *arg);
 
 /* Advanced INF commands */
 static const WCHAR CheckAdminRights[] = {
@@ -75,7 +75,7 @@ static const WCHAR RunPostSetupCommands[] = {
 };
 
 /* Advanced INF callbacks */
-static HRESULT del_dirs_callback(HINF hinf, PCWSTR field, const void *arg)
+static HRESULT del_dirs_callback(HINF hinf, PCWSTR field, void *arg)
 {
     INFCONTEXT context;
     HRESULT hr = S_OK;
@@ -91,14 +91,14 @@ static HRESULT del_dirs_callback(HINF hinf, PCWSTR field, const void *arg)
                                MAX_INF_STRING_LENGTH, &size))
             continue;
 
-        if (DelNodeW(directory, ADN_DEL_IF_EMPTY) != S_OK)
+        if (DelNodeW(directory, ADN_DEL_IF_EMPTY))
             hr = E_FAIL;
     }
 
     return hr;
 }
 
-static HRESULT per_user_install_callback(HINF hinf, PCWSTR field, const void *arg)
+static HRESULT per_user_install_callback(HINF hinf, PCWSTR field, void *arg)
 {
     PERUSERSECTIONW per_user;
     INFCONTEXT context;
@@ -141,7 +141,7 @@ static HRESULT per_user_install_callback(HINF hinf, PCWSTR field, const void *ar
     return SetPerUserSecValuesW(&per_user);
 }
 
-static HRESULT register_ocxs_callback(HINF hinf, PCWSTR field, const void *arg)
+static HRESULT register_ocxs_callback(HINF hinf, PCWSTR field, void *arg)
 {
     HMODULE hm;
     INFCONTEXT context;
@@ -159,29 +159,21 @@ static HRESULT register_ocxs_callback(HINF hinf, PCWSTR field, const void *arg)
             continue;
 
         hm = LoadLibraryExW(buffer, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-        if (hm)
-        {
-            if (do_ocx_reg(hm, TRUE) != S_OK)
-                hr = E_FAIL;
+        if (!hm)
+            continue;
 
-            FreeLibrary(hm);
-        }
-        else
+        if (do_ocx_reg(hm, TRUE))
             hr = E_FAIL;
 
-        if (FAILED(hr))
-        {
-            /* FIXME: display a message box */
-            break;
-        }
+        FreeLibrary(hm);
     }
 
     return hr;
 }
 
-static HRESULT run_setup_commands_callback(HINF hinf, PCWSTR field, const void *arg)
+static HRESULT run_setup_commands_callback(HINF hinf, PCWSTR field, void *arg)
 {
-    const ADVInfo *info = (const ADVInfo *)arg;
+    ADVInfo *info = (ADVInfo *)arg;
     INFCONTEXT context;
     HRESULT hr = S_OK;
     DWORD size;
@@ -196,7 +188,7 @@ static HRESULT run_setup_commands_callback(HINF hinf, PCWSTR field, const void *
                                MAX_INF_STRING_LENGTH, &size))
             continue;
 
-        if (launch_exe(buffer, info->working_dir, NULL) != S_OK)
+        if (launch_exe(buffer, info->working_dir, NULL))
             hr = E_FAIL;
     }
 
@@ -222,14 +214,14 @@ LPWSTR get_parameter(LPWSTR *params, WCHAR separator)
     return token;
 }
 
-static BOOL is_full_path(LPCWSTR path)
+static BOOL is_full_path(LPWSTR path)
 {
     const int MIN_PATH_LEN = 3;
 
     if (!path || lstrlenW(path) < MIN_PATH_LEN)
         return FALSE;
 
-    if ((path[1] == ':' && path[2] == '\\') || (path[0] == '\\' && path[1] == '\\'))
+    if (path[1] == ':' || (path[0] == '\\' && path[1] == '\\'))
         return TRUE;
 
     return FALSE;
@@ -237,7 +229,7 @@ static BOOL is_full_path(LPCWSTR path)
 
 /* retrieves the contents of a field, dynamically growing the buffer if necessary */
 static WCHAR *get_field_string(INFCONTEXT *context, DWORD index, WCHAR *buffer,
-                               const WCHAR *static_buffer, DWORD *size)
+                               WCHAR *static_buffer, DWORD *size)
 {
     DWORD required;
 
@@ -290,7 +282,7 @@ static HRESULT iterate_section_fields(HINF hinf, PCWSTR section, PCWSTR key,
     return hr;
 }
 
-static HRESULT check_admin_rights(const ADVInfo *info)
+static HRESULT check_admin_rights(ADVInfo *info)
 {
     INT check;
     INFCONTEXT context;
@@ -310,7 +302,7 @@ static HRESULT check_admin_rights(const ADVInfo *info)
 }
 
 /* performs a setupapi-level install of the INF file */
-static HRESULT spapi_install(const ADVInfo *info)
+static HRESULT spapi_install(ADVInfo *info)
 {
     BOOL ret;
     HRESULT res;
@@ -358,10 +350,8 @@ static HRESULT adv_install(ADVInfo *info)
     if (hr != S_OK)
         return hr;
 
-    OleInitialize(NULL);
     hr = iterate_section_fields(info->hinf, info->install_sec,
                                 RegisterOCXs, register_ocxs_callback, NULL);
-    OleUninitialize();
     if (hr != S_OK)
         return hr;
 
@@ -435,8 +425,8 @@ static HRESULT get_working_dir(ADVInfo *info, LPCWSTR inf_filename, LPCWSTR work
 }
 
 /* loads the INF file and performs checks on it */
-static HRESULT install_init(LPCWSTR inf_filename, LPCWSTR install_sec,
-                            LPCWSTR working_dir, DWORD flags, ADVInfo *info)
+HRESULT install_init(LPCWSTR inf_filename, LPCWSTR install_sec,
+                     LPCWSTR working_dir, DWORD flags, ADVInfo *info)
 {
     DWORD len;
     HRESULT hr;
@@ -510,9 +500,10 @@ static HRESULT install_init(LPCWSTR inf_filename, LPCWSTR install_sec,
 }
 
 /* release the install instance information */
-static void install_release(const ADVInfo *info)
+void install_release(ADVInfo *info)
 {
-    SetupCloseInfFile(info->hinf);
+    if (info->hinf && info->hinf != INVALID_HANDLE_VALUE)
+        SetupCloseInfFile(info->hinf);
 
     HeapFree(GetProcessHeap(), 0, info->inf_path);
     HeapFree(GetProcessHeap(), 0, info->inf_filename);
@@ -842,7 +833,7 @@ HRESULT WINAPI LaunchINFSectionExW(HWND hWnd, HINSTANCE hInst, LPWSTR cmdline, I
     LPWSTR cmdline_copy, cmdline_ptr;
     LPWSTR flags, ptr;
     CABINFOW cabinfo;
-    HRESULT hr;
+    HRESULT hr = S_OK;
 
     TRACE("(%p, %p, %s, %d)\n", hWnd, hInst, debugstr_w(cmdline), show);
 
@@ -862,26 +853,22 @@ HRESULT WINAPI LaunchINFSectionExW(HWND hWnd, HINSTANCE hInst, LPWSTR cmdline, I
     if (flags)
         cabinfo.dwFlags = atolW(flags);
 
-    if (!is_full_path(cabinfo.pszCab) && !is_full_path(cabinfo.pszInf))
-    {
-        HeapFree(GetProcessHeap(), 0, cmdline_copy);
-        return E_INVALIDARG;
-    }
-
     /* get the source path from the cab filename */
     if (cabinfo.pszCab && *cabinfo.pszCab)
     {
         if (!is_full_path(cabinfo.pszCab))
-            lstrcpyW(cabinfo.szSrcPath, cabinfo.pszInf);
-        else
-            lstrcpyW(cabinfo.szSrcPath, cabinfo.pszCab);
+            goto done;
 
+        lstrcpyW(cabinfo.szSrcPath, cabinfo.pszCab);
         ptr = strrchrW(cabinfo.szSrcPath, '\\');
         *(++ptr) = '\0';
     }
 
     hr = ExecuteCabW(hWnd, &cabinfo, NULL);
+
+done:
     HeapFree(GetProcessHeap(), 0, cmdline_copy);
+
     return SUCCEEDED(hr) ? ADV_SUCCESS : ADV_FAILURE;
 }
 
@@ -932,7 +919,7 @@ HRESULT WINAPI RunSetupCommandA(HWND hWnd, LPCSTR szCmdName,
     UNICODE_STRING dir, title;
     HRESULT hr;
 
-    TRACE("(%p, %s, %s, %s, %s, %p, %d, %p)\n",
+    TRACE("(%p, %s, %s, %s, %s, %p, %ld, %p)\n",
           hWnd, debugstr_a(szCmdName), debugstr_a(szInfSection),
           debugstr_a(szDir), debugstr_a(lpszTitle),
           phEXE, dwFlags, pvReserved);
@@ -989,7 +976,7 @@ HRESULT WINAPI RunSetupCommandW(HWND hWnd, LPCWSTR szCmdName,
     ADVInfo info;
     HRESULT hr;
 
-    TRACE("(%p, %s, %s, %s, %s, %p, %d, %p)\n",
+    TRACE("(%p, %s, %s, %s, %s, %p, %ld, %p)\n",
           hWnd, debugstr_w(szCmdName), debugstr_w(szInfSection),
           debugstr_w(szDir), debugstr_w(lpszTitle),
           phEXE, dwFlags, pvReserved);

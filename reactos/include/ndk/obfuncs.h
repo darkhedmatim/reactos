@@ -23,7 +23,6 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#include <pstypes.h>
 #include <obtypes.h>
 
 #ifndef NTOS_MODE_USER
@@ -109,16 +108,7 @@ ObReferenceObjectByName(
 );
 
 NTKERNELAPI
-NTSTATUS
-NTAPI
-ObSetSecurityObjectByPointer(
-  IN PVOID Object,
-  IN SECURITY_INFORMATION SecurityInformation,
-  IN PSECURITY_DESCRIPTOR SecurityDescriptor
-);
-
-NTKERNELAPI
-BOOLEAN
+NTSTATUS 
 NTAPI
 ObFindHandleForObject(
     IN PEPROCESS Process,
@@ -126,12 +116,6 @@ ObFindHandleForObject(
     IN POBJECT_TYPE ObjectType,
     IN POBJECT_HANDLE_INFORMATION HandleInformation,
     OUT PHANDLE Handle
-);
-
-VOID
-NTAPI
-ObDereferenceObjectDeferDelete(
-    IN PVOID Object
 );
 
 #endif

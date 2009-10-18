@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #define TICKSPERMINUTE  600000000
 
@@ -21,47 +21,10 @@
 TIME_ZONE_INFORMATION ExpTimeZoneInfo;
 ULONG ExpLastTimeZoneBias = -1;
 LARGE_INTEGER ExpTimeZoneBias;
-ULONG ExpAltTimeZoneBias;
 ULONG ExpTimeZoneId;
 ULONG ExpTickCountMultiplier;
-ERESOURCE ExpTimeRefreshLock;
 
 /* FUNCTIONS ****************************************************************/
-
-BOOLEAN
-NTAPI
-ExAcquireTimeRefreshLock(BOOLEAN Wait)
-{
-    /* Simply acquire the Resource */
-    KeEnterCriticalRegion();
-    if (!(ExAcquireResourceExclusiveLite(&ExpTimeRefreshLock, Wait)))
-    {
-        /* We failed! */
-        KeLeaveCriticalRegion();
-        return FALSE;
-    }
-
-    /* Success */
-    return TRUE;
-}
-
-VOID
-NTAPI
-ExReleaseTimeRefreshLock(VOID)
-{
-    /* Simply release the Resource */
-    ExReleaseResourceLite(&ExpTimeRefreshLock);
-    KeLeaveCriticalRegion();
-}
-
-VOID
-NTAPI
-ExUpdateSystemTimeFromCmos(IN BOOLEAN UpdateInterruptTime,
-                           IN ULONG MaxSepInSeconds)
-{
-    /* FIXME: TODO */
-    return;
-}
 
 BOOLEAN
 NTAPI
@@ -119,7 +82,7 @@ ExRefreshTimeZoneInformation(IN PLARGE_INTEGER CurrentBootTime)
 NTSTATUS
 ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
 {
-    LARGE_INTEGER LocalTime, SystemTime, OldTime;
+    LARGE_INTEGER LocalTime, SystemTime;
     TIME_FIELDS TimeFields;
     DPRINT("ExpSetTimeZoneInformation() called\n");
 
@@ -160,7 +123,7 @@ ExpSetTimeZoneInformation(PTIME_ZONE_INFORMATION TimeZoneInformation)
     ExLocalTimeToSystemTime(&LocalTime, &SystemTime);
 
     /* Set the new system time */
-    KeSetSystemTime(&SystemTime, &OldTime, FALSE, NULL);
+    KiSetSystemTime(&SystemTime);
 
     /* Return success */
     DPRINT("ExpSetTimeZoneInformation() done\n");
@@ -190,20 +153,22 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Verify the time pointers */
             NewSystemTime = ProbeForReadLargeInteger(SystemTime);
             if(PreviousTime) ProbeForWriteLargeInteger(PreviousTime);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* If the pointers were invalid, bail out */
+        if(!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -212,12 +177,15 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
     }
 
     /* Make sure we have permission to change the time */
-    if (!SeSinglePrivilegeCheck(SeSystemtimePrivilege, PreviousMode))
+    if(!SeSinglePrivilegeCheck(SeSystemtimePrivilege, PreviousMode))
     {
         DPRINT1("NtSetSystemTime: Caller requires the "
                 "SeSystemtimePrivilege privilege!\n");
         return STATUS_PRIVILEGE_NOT_HELD;
     }
+
+    /* Check if caller wants the old time */
+    if(PreviousTime) KeQuerySystemTime(&OldSystemTime);
 
     /* Convert the time and set it in HAL */
     ExSystemTimeToLocalTime(&NewSystemTime, &LocalTime);
@@ -225,23 +193,22 @@ NtSetSystemTime(IN PLARGE_INTEGER SystemTime,
     HalSetRealTimeClock(&TimeFields);
 
     /* Now set system time */
-    KeSetSystemTime(&NewSystemTime, &OldSystemTime, FALSE, NULL);
+    KiSetSystemTime(&NewSystemTime);
 
     /* Check if caller wanted previous time */
-    if (PreviousTime)
+    if(PreviousTime)
     {
         /* Enter SEH Block for return */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return the previous time */
             *PreviousTime = OldSystemTime;
         }
-        _SEH2_EXCEPT(ExSystemExceptionFilter())
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     /* Return status */
@@ -263,9 +230,9 @@ NtQuerySystemTime(OUT PLARGE_INTEGER SystemTime)
     PAGED_CODE();
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Verify the time pointer */
             ProbeForWriteLargeInteger(SystemTime);
@@ -277,12 +244,11 @@ NtQuerySystemTime(OUT PLARGE_INTEGER SystemTime)
              */
             KeQuerySystemTime(SystemTime);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
     else
     {

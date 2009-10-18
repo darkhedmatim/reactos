@@ -18,16 +18,14 @@
 @ stdcall CertControlStore(long long long ptr)
 @ stdcall CertCreateCRLContext(long ptr long)
 @ stdcall CertCreateCTLContext(long ptr long)
-@ stdcall CertCreateCertificateChainEngine(ptr ptr)
+@ stub CertCreateCertificateChainEngine
 @ stdcall CertCreateCertificateContext(long ptr long)
-@ stdcall CertCreateContext(long long ptr long long ptr)
 @ stdcall CertCreateSelfSignCertificate(long ptr long ptr ptr ptr ptr ptr)
 @ stdcall CertDeleteCRLFromStore(ptr)
 @ stdcall CertDeleteCTLFromStore(ptr)
 @ stdcall CertDeleteCertificateFromStore(ptr)
 @ stdcall CertDuplicateCRLContext(ptr)
 @ stdcall CertDuplicateCTLContext(ptr)
-@ stdcall CertDuplicateCertificateChain(ptr)
 @ stdcall CertDuplicateCertificateContext(ptr)
 @ stdcall CertDuplicateStore(ptr)
 @ stdcall CertEnumCRLContextProperties(ptr long)
@@ -36,11 +34,9 @@
 @ stdcall CertEnumCTLsInStore(ptr ptr)
 @ stdcall CertEnumCertificateContextProperties(ptr long)
 @ stdcall CertEnumCertificatesInStore(long ptr)
-@ stdcall CertEnumPhysicalStore(ptr long ptr ptr)
-@ stdcall CertEnumSystemStore(long ptr ptr ptr)
 @ stdcall CertFindAttribute(str long ptr)
 @ stdcall CertFindCRLInStore(long long long long ptr ptr)
-@ stdcall CertFindCTLInStore(long long long long ptr ptr)
+@ stub CertFindCTLInStore
 @ stdcall CertFindCertificateInStore(long long long long ptr ptr)
 @ stdcall CertFindCertificateInCRL(ptr ptr long ptr ptr)
 @ stdcall CertFindExtension(str long ptr)
@@ -48,21 +44,20 @@
 @ stub CertFindSubjectInCTL
 @ stdcall CertFreeCRLContext(ptr)
 @ stdcall CertFreeCTLContext(ptr)
-@ stdcall CertFreeCertificateChain(ptr)
-@ stdcall CertFreeCertificateChainEngine(ptr)
+@ stub CertFreeCertificateChain
+@ stub CertFreeCertificateChainEngine
 @ stdcall CertFreeCertificateContext(ptr)
 @ stdcall CertGetCRLContextProperty(ptr long ptr ptr)
 @ stdcall CertGetCRLFromStore(ptr ptr ptr ptr)
 @ stdcall CertGetCTLContextProperty(ptr long ptr ptr)
-@ stdcall CertGetCertificateChain(ptr ptr ptr ptr ptr long ptr ptr)
+@ stub CertGetCertificateChain
 @ stdcall CertGetCertificateContextProperty(ptr long ptr ptr)
 @ stdcall CertGetEnhancedKeyUsage(ptr long ptr ptr)
 @ stub CertGetIntendedKeyUsage
 @ stdcall CertGetIssuerCertificateFromStore(long ptr ptr ptr)
 @ stdcall CertGetNameStringA(ptr long long ptr ptr long)
 @ stdcall CertGetNameStringW(ptr long long ptr ptr long)
-@ stdcall CertGetPublicKeyLength(long ptr)
-@ stdcall CertGetStoreProperty(long long ptr ptr)
+@ stub CertGetPublicKeyLength
 @ stdcall CertGetSubjectCertificateFromStore(ptr long ptr)
 @ stdcall CertGetValidUsages(long ptr ptr ptr ptr)
 @ stub CertIsRDNAttrsInCertificateName
@@ -85,23 +80,21 @@
 @ stdcall CertSetCTLContextProperty(ptr long long ptr)
 @ stdcall CertSetCertificateContextProperty(ptr long long ptr)
 @ stdcall CertSetEnhancedKeyUsage(ptr ptr)
-@ stdcall CertSetStoreProperty(ptr long long ptr)
-@ stdcall CertStrToNameA(long str long ptr ptr ptr ptr)
-@ stdcall CertStrToNameW(long wstr long ptr ptr ptr ptr)
-@ stdcall CertVerifyCertificateChainPolicy(str ptr ptr ptr)
+@ stub CertStrToNameA
+@ stub CertStrToNameW
 @ stdcall CertVerifyCRLRevocation(long ptr long ptr)
 @ stdcall CertVerifyCRLTimeValidity(ptr ptr)
-@ stdcall CertVerifyCTLUsage(long long ptr ptr long ptr ptr)
-@ stdcall CertVerifyRevocation(long long long ptr long ptr ptr)
+@ stub CertVerifyCTLUsage
+@ stub CertVerifyRevocation
 @ stdcall CertVerifySubjectCertificateContext(ptr ptr ptr)
 @ stdcall CertVerifyTimeValidity(ptr ptr)
-@ stdcall CertVerifyValidityNesting(ptr ptr)
+@ stub CertVerifyValidityNesting
 @ stdcall CreateFileU(wstr long long ptr long long ptr) kernel32.CreateFileW
 @ stdcall CryptBinaryToStringA(ptr long long ptr ptr)
 @ stub CryptBinaryToStringW # (ptr long long ptr ptr)
 @ stdcall CryptStringToBinaryA(str long long ptr ptr ptr ptr)
-@ stdcall CryptStringToBinaryW (wstr long long ptr ptr ptr ptr)
-@ stdcall CryptAcquireContextU(ptr wstr wstr long long) advapi32.CryptAcquireContextW
+@ stub CryptStringToBinaryW # (wstr long long ptr ptr ptr ptr)
+@ stub CryptAcquireContextU
 @ stdcall CryptAcquireCertificatePrivateKey(ptr long ptr ptr ptr ptr)
 @ stub CryptCloseAsyncHandle
 @ stub CryptCreateAsyncHandle
@@ -119,22 +112,20 @@
 @ stub CryptExportPKCS8
 @ stdcall CryptExportPublicKeyInfo(long long long ptr ptr)
 @ stdcall CryptExportPublicKeyInfoEx(long long long str long ptr ptr ptr)
-@ stdcall CryptFindCertificateKeyProvInfo(ptr long ptr)
-@ stdcall CryptFindLocalizedName(wstr)
 @ stdcall CryptFindOIDInfo(long ptr long)
-@ stdcall CryptFormatObject(long long long ptr str ptr long ptr ptr)
+@ stub CryptFormatObject
 @ stdcall CryptFreeOIDFunctionAddress(long long)
 @ stub CryptGetAsyncParam
 @ stdcall CryptGetDefaultOIDDllList(long long ptr ptr)
 @ stdcall CryptGetDefaultOIDFunctionAddress(long long wstr long ptr ptr)
-@ stdcall CryptGetMessageCertificates(long ptr long ptr long)
-@ stdcall CryptGetMessageSignerCount(long ptr long)
+@ stub CryptGetMessageCertificates
+@ stub CryptGetMessageSignerCount
 @ stdcall CryptGetOIDFunctionAddress(long long str long ptr ptr)
 @ stdcall CryptGetOIDFunctionValue(long str str wstr ptr ptr ptr)
 @ stdcall CryptHashCertificate(long long long ptr long ptr ptr)
-@ stdcall CryptHashMessage(ptr long long ptr ptr ptr ptr ptr ptr)
-@ stdcall CryptHashPublicKeyInfo(long long long long ptr ptr ptr)
-@ stdcall CryptHashToBeSigned(ptr long ptr long ptr ptr)
+@ stub CryptHashMessage
+@ stub CryptHashPublicKeyInfo
+@ stub CryptHashToBeSigned
 @ stub CryptImportPKCS8
 @ stdcall CryptImportPublicKeyInfo(long long ptr ptr)
 @ stdcall CryptImportPublicKeyInfoEx(long long ptr long long ptr ptr)
@@ -145,38 +136,31 @@
 @ stdcall CryptMemFree(ptr)
 @ stdcall CryptMemRealloc(ptr long)
 @ stub CryptMsgCalculateEncodedLength
-@ stdcall CryptMsgClose(ptr)
-@ stdcall CryptMsgControl(ptr long long ptr)
+@ stub CryptMsgClose
+@ stub CryptMsgControl
 @ stub CryptMsgCountersign
 @ stub CryptMsgCountersignEncoded
-@ stdcall CryptMsgDuplicate(ptr)
-@ stdcall CryptMsgEncodeAndSignCTL(long ptr ptr long ptr ptr)
-@ stdcall CryptMsgGetAndVerifySigner(ptr long ptr long ptr ptr)
-@ stdcall CryptMsgGetParam(ptr long long ptr ptr)
-@ stdcall CryptMsgOpenToDecode(long long long long ptr ptr)
-@ stdcall CryptMsgOpenToEncode(long long long ptr str ptr)
-@ stdcall CryptMsgSignCTL(long ptr long ptr long ptr ptr)
-@ stdcall CryptMsgUpdate(ptr ptr long long)
+@ stub CryptMsgEncodeAndSignCTL
+@ stub CryptMsgGetAndVerifySigner
+@ stub CryptMsgGetParam
+@ stub CryptMsgOpenToDecode
+@ stub CryptMsgOpenToEncode
+@ stub CryptMsgSignCTL
+@ stub CryptMsgUpdate
 @ stub CryptMsgVerifyCountersignatureEncoded
-@ stdcall CryptMsgVerifyCountersignatureEncodedEx(ptr long ptr long ptr long long ptr long ptr)
 @ stdcall CryptProtectData(ptr wstr ptr ptr ptr long ptr)
 @ stdcall CryptQueryObject(long ptr long long long ptr ptr ptr ptr ptr ptr)
 @ stdcall CryptRegisterDefaultOIDFunction(long str long wstr)
 @ stdcall CryptRegisterOIDFunction(long str str wstr str)
-@ stdcall CryptRegisterOIDInfo(ptr long)
+@ stub CryptRegisterOIDInfo
 @ stdcall CryptSIPAddProvider(ptr)
-@ stdcall CryptSIPCreateIndirectData(ptr ptr ptr)
-@ stdcall CryptSIPGetSignedDataMsg(ptr ptr long ptr ptr)
 @ stdcall CryptSIPLoad(ptr long ptr)
-@ stdcall CryptSIPPutSignedDataMsg(ptr long ptr long ptr)
 @ stdcall CryptSIPRemoveProvider(ptr)
-@ stdcall CryptSIPRemoveSignedDataMsg(ptr long)
 @ stdcall CryptSIPRetrieveSubjectGuid(wstr long ptr)
-@ stdcall CryptSIPVerifyIndirectData(ptr ptr)
 @ stub CryptSetAsyncParam
 @ stdcall CryptSetOIDFunctionValue(long str str wstr long ptr long)
 @ stub CryptSetProviderU
-@ stdcall CryptSignAndEncodeCertificate(long long long str ptr ptr ptr ptr ptr)
+@ stub CryptSignAndEncodeCertificate
 @ stub CryptSignAndEncryptMessage
 @ stdcall CryptSignCertificate(long long long ptr long ptr ptr ptr ptr)
 @ stub CryptSignHashU
@@ -188,40 +172,32 @@
 @ stub CryptUnregisterOIDInfo
 @ stdcall CryptVerifyCertificateSignature(long long ptr long ptr)
 @ stdcall CryptVerifyCertificateSignatureEx(long long long ptr long ptr long ptr)
-@ stdcall CryptVerifyDetachedMessageHash(ptr ptr long long ptr ptr ptr ptr)
-@ stdcall CryptVerifyDetachedMessageSignature(ptr long ptr long long ptr ptr ptr)
-@ stdcall CryptVerifyMessageHash(ptr ptr long ptr ptr ptr ptr)
+@ stub CryptVerifyDetachedMessageHash
+@ stub CryptVerifyDetachedMessageSignature
+@ stub CryptVerifyMessageHash
 @ stdcall CryptVerifyMessageSignature(ptr long ptr long ptr ptr ptr)
 @ stub CryptVerifyMessageSignatureWithKey
 @ stub CryptVerifySignatureU
-@ stdcall I_CertUpdateStore(ptr ptr long long)
 @ stdcall I_CryptAllocTls()
 @ stdcall I_CryptCreateLruCache(ptr ptr)
-@ stdcall I_CryptCreateLruEntry(ptr long long)
+@ stub I_CryptCreateLruEntry
 @ stdcall I_CryptDetachTls(long)
-@ stdcall I_CryptFindLruEntry(long long)
 @ stdcall I_CryptFindLruEntryData(long long long)
 @ stdcall I_CryptFlushLruCache(ptr long long)
 @ stdcall I_CryptFreeLruCache(ptr long long)
 @ stdcall I_CryptFreeTls(long long)
-@ stdcall I_CryptGetAsn1Decoder(long)
-@ stdcall I_CryptGetAsn1Encoder(long)
-@ stdcall I_CryptGetDefaultCryptProv(long)
+@ stub I_CryptGetDefaultCryptProv
 @ stub I_CryptGetDefaultCryptProvForEncrypt
 @ stdcall I_CryptGetOssGlobal(long)
 @ stdcall I_CryptGetTls(long)
 @ stub I_CryptInsertLruEntry
-@ stdcall I_CryptInstallAsn1Module(ptr long ptr)
+@ stdcall I_CryptInstallAsn1Module(long long long)
 @ stdcall I_CryptInstallOssGlobal(long long long)
-@ stdcall I_CryptReadTrustedPublisherDWORDValueFromRegistry(wstr ptr)
 @ stub I_CryptReleaseLruEntry
 @ stdcall I_CryptSetTls(long ptr)
-@ stdcall I_CryptUninstallAsn1Module(long)
 @ stub I_CryptUninstallOssGlobal
-@ stdcall PFXExportCertStore(ptr ptr ptr long)
-@ stdcall PFXExportCertStoreEx(ptr ptr ptr ptr long)
-@ stdcall PFXImportCertStore(ptr ptr long)
-@ stdcall PFXIsPFXBlob(ptr)
+@ stub PFXExportCertStore
+@ stub PFXImportCertStore
 @ stub RegCreateHKCUKeyExU
 @ stub RegCreateKeyExU
 @ stub RegDeleteValueU

@@ -4,7 +4,6 @@
  * FILE:            ntoskrnl/vdm/vdmmain.c
  * PURPOSE:         VDM Support Services
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
- *                  Aleksey Bragin (aleksey@reactos.org)
  */
 
 /* INCLUDES ******************************************************************/
@@ -15,14 +14,32 @@
 
 /* GLOBALS *******************************************************************/
 
+static UCHAR OrigIVT[1024];
+static UCHAR OrigBDA[256];
 
 /* PRIVATE FUNCTIONS *********************************************************/
+
+VOID
+INIT_FUNCTION
+NtEarlyInitVdm(VOID)
+{
+    /* GCC 3.4 hack */
+    PVOID start = (PVOID)0x0;
+
+    /*
+     * Save various BIOS data tables. At this point the lower 4MB memory
+     * map is still active so we can just copy the data from low memory.
+     * HACK HACK HACK: We should just map Physical Memory!!!
+     */
+    memcpy(OrigIVT, start, 1024);
+    memcpy(OrigBDA, (PVOID)0x400, 256);
+}
 
 VOID
 NTAPI
 Ki386VdmEnablePentiumExtentions(VOID)
 {
-    DPRINT("VME detected but not yet supported\n");
+    DPRINT1("VME detected but not yet supported\n");
 }
 
 VOID
@@ -71,86 +88,6 @@ KeI386VdmInitialize(VOID)
     ZwClose(RegHandle);
 }
 
-NTSTATUS
-NTAPI
-VdmpInitialize(PVOID ControlData)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING PhysMemName = RTL_CONSTANT_STRING(L"\\Device\\PhysicalMemory");
-    NTSTATUS Status;
-    HANDLE PhysMemHandle;
-    PVOID BaseAddress;
-    PVOID NullAddress = NULL;
-    LARGE_INTEGER Offset;
-    ULONG ViewSize;
-
-    /* Open the physical memory section */
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &PhysMemName,
-                               0,
-                               NULL,
-                               NULL);
-    Status = ZwOpenSection(&PhysMemHandle,
-                           SECTION_ALL_ACCESS,
-                           &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Couldn't open \\Device\\PhysicalMemory\n");
-        return Status;
-    }
-
-    /* Map the BIOS and device registers into the address space */
-    Offset.QuadPart = 0;
-    ViewSize = PAGE_SIZE;
-    BaseAddress = 0;
-    Status = ZwMapViewOfSection(PhysMemHandle,
-                                NtCurrentProcess(),
-                                &BaseAddress,
-                                0,
-                                ViewSize,
-                                &Offset,
-                                &ViewSize,
-                                ViewUnmap,
-                                0,
-                                PAGE_READWRITE);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Couldn't map physical memory (%x)\n", Status);
-        ZwClose(PhysMemHandle);
-        return Status;
-    }
-
-    /* Enter SEH */
-    _SEH2_TRY
-    {
-        /* Copy the first physical page into the first virtual page */
-        RtlMoveMemory(NullAddress, BaseAddress, ViewSize);
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        /* Fail */
-        DPRINT1("Couldn't copy first page (%x)\n", Status);
-        ZwClose(PhysMemHandle);
-        ZwUnmapViewOfSection(NtCurrentProcess(), BaseAddress);
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
-
-    /* Close physical memory section handle */
-    ZwClose(PhysMemHandle);
-
-    /* Unmap the section */
-    Status = ZwUnmapViewOfSection(NtCurrentProcess(), BaseAddress);
-
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Couldn't unmap the section (%x)\n", Status);
-        return Status;
-    }
-
-    return STATUS_SUCCESS;
-}
-
 /* PUBLIC FUNCTIONS **********************************************************/
 
 /*
@@ -176,8 +113,10 @@ NtVdmControl(IN ULONG ControlCode,
 
         case VdmInitialize:
 
-            /* Call the init sub-function */
-            Status = VdmpInitialize(ControlData);
+            /* Pretty much a hack, since a lot more needs to happen */
+            memcpy(ControlData, OrigIVT, 1024);
+            memcpy((PVOID)((ULONG_PTR)ControlData + 1024), OrigBDA, 256);
+            Status = STATUS_SUCCESS;
             break;
 
         default:

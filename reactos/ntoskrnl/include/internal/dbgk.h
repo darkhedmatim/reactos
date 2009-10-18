@@ -9,7 +9,7 @@
 //
 // Define this if you want debugging support
 //
-#define _DBGK_DEBUG_                                    0x00
+#define _DBGK_DEBUG_                                    0x01
 
 //
 // These define the Debug Masks Supported
@@ -43,7 +43,7 @@
     }
 #endif
 #else
-#define DBGKTRACE(x, ...) DPRINT(__VA_ARGS__)
+#define DBGKTRACE(x, ...) DPRINT(__VA_ARGS__);
 #endif
 
 VOID
@@ -56,7 +56,6 @@ DbgkInitialize(
 VOID
 NTAPI
 DbgkCreateThread(
-    IN PETHREAD Thread,
     IN PVOID StartAddress
 );
 
@@ -103,7 +102,7 @@ NTSTATUS
 NTAPI
 DbgkpSendApiMessage(
     IN OUT PDBGKM_MSG ApiMsg,
-    IN BOOLEAN SuspendProcess
+    IN ULONG Flags
 );
 
 HANDLE
@@ -134,7 +133,6 @@ DbgkClearProcessDebugObject(
     IN PDEBUG_OBJECT SourceDebugObject
 );
 
-extern ULONG DbgkpTraceLevel;
 extern POBJECT_TYPE DbgkDebugObjectType;
 
 /* EOF */

@@ -12,7 +12,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 extern SYSTEM_BASIC_INFORMATION BaseCachedSysInfo;
 
@@ -22,7 +22,7 @@ extern SYSTEM_BASIC_INFORMATION BaseCachedSysInfo;
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsBadReadPtr(IN LPCVOID lp,
              IN UINT_PTR ucb)
 {
@@ -45,7 +45,7 @@ IsBadReadPtr(IN LPCVOID lp,
     if ((ULONG_PTR)Last < (ULONG_PTR)lp) return TRUE;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Probe the entire range */
         Current = (volatile CHAR*)lp;
@@ -56,12 +56,12 @@ IsBadReadPtr(IN LPCVOID lp,
             Current = (volatile CHAR*)(PAGE_ROUND_DOWN(Current) + PAGE_SIZE);
         } while (Current <= Last);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* We hit an exception, so return true */
         Result = TRUE;
     }
-    _SEH2_END
+    _SEH_END
 
     /* Return exception status */
     return Result;
@@ -117,7 +117,7 @@ IsBadWritePtr(LPVOID lp,
     if ((ULONG_PTR)Last < (ULONG_PTR)lp) return TRUE;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Probe the entire range */
         Current = (volatile CHAR*)lp;
@@ -128,12 +128,12 @@ IsBadWritePtr(LPVOID lp,
             Current = (volatile CHAR*)(PAGE_ROUND_DOWN(Current) + PAGE_SIZE);
         } while (Current <= Last);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* We hit an exception, so return true */
         Result = TRUE;
     }
-    _SEH2_END
+    _SEH_END
 
     /* Return exception status */
     return Result;
@@ -171,8 +171,11 @@ IsBadStringPtrW(IN LPCWSTR lpsz,
     /* Calculate the last page */
     Last = (PWCHAR)((ULONG_PTR)lpsz + (ucchMax * 2) - 2);
 
+    /* Another quick failure case */
+    if ((ULONG_PTR)Last < (ULONG_PTR)lpsz) return TRUE;
+
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Probe the entire range */
         Current = (volatile WCHAR*)lpsz;
@@ -181,14 +184,14 @@ IsBadStringPtrW(IN LPCWSTR lpsz,
         {
             Char = *Current;
             Current++;
-        } while (Char && (Current != Last + 1));
+        } while (Char && (Current <= Last));
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* We hit an exception, so return true */
         Result = TRUE;
     }
-    _SEH2_END
+    _SEH_END
 
     /* Return exception status */
     return Result;
@@ -214,8 +217,11 @@ IsBadStringPtrA(IN LPCSTR lpsz,
     /* Calculate the last page */
     Last = (PCHAR)((ULONG_PTR)lpsz + ucchMax - 1);
 
+    /* Another quick failure case */
+    if ((ULONG_PTR)Last < (ULONG_PTR)lpsz) return TRUE;
+
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Probe the entire range */
         Current = (volatile CHAR*)lpsz;
@@ -224,14 +230,14 @@ IsBadStringPtrA(IN LPCSTR lpsz,
         {
             Char = *Current;
             Current++;
-        } while (Char && (Current != Last + 1));
+        } while (Char && (Current <= Last));
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* We hit an exception, so return true */
         Result = TRUE;
     }
-    _SEH2_END
+    _SEH_END
 
     /* Return exception status */
     return Result;

@@ -19,7 +19,6 @@
 
 #include <freeldr.h>
 
-#ifdef __i386__
 VOID LoadAndBootBootSector(PCSTR OperatingSystemName)
 {
 	PFILE	FilePointer;
@@ -51,8 +50,14 @@ VOID LoadAndBootBootSector(PCSTR OperatingSystemName)
 		return;
 	}
 
+	if (!FsOpenSystemVolume(FileName, FileName, NULL))
+	{
+		UiMessageBox("Failed to open boot drive.");
+		return;
+	}
+
 	FilePointer = FsOpenFile(FileName);
-	if (!FilePointer)
+	if (FilePointer == NULL)
 	{
 		strcat(FileName, " not found.");
 		UiMessageBox(FileName);
@@ -62,7 +67,6 @@ VOID LoadAndBootBootSector(PCSTR OperatingSystemName)
 	// Read boot sector
 	if (!FsReadFile(FilePointer, 512, &BytesRead, (void*)0x7c00) || (BytesRead != 512))
 	{
-		UiMessageBox("Unable to read boot sector.");
 		return;
 	}
 
@@ -134,7 +138,6 @@ VOID LoadAndBootPartition(PCSTR OperatingSystemName)
 	// If this fails then abort
 	if (!MachDiskReadLogicalSectors(DriveNumber, PartitionTableEntry.SectorCountBeforePartition, 1, (PVOID)0x7C00))
 	{
-		UiMessageBox("Unable to read partition's boot sector.");
 		return;
 	}
 
@@ -188,7 +191,6 @@ VOID LoadAndBootDrive(PCSTR OperatingSystemName)
 	// If this fails then abort
 	if (!MachDiskReadLogicalSectors(DriveNumber, 0, 1, (PVOID)0x7C00))
 	{
-		UiMessageBox("Unable to read boot sector");
 		return;
 	}
 
@@ -211,4 +213,3 @@ VOID LoadAndBootDrive(PCSTR OperatingSystemName)
 	//DisableA20();
 	ChainLoadBiosBootSectorCode();
 }
-#endif /* __i386__ */

@@ -43,20 +43,14 @@ BOOL bInMenuLoop = FALSE;        /* Tells us if we are in the menu loop */
 TASKMANAGER_SETTINGS TaskManagerSettings;
 
 
-int APIENTRY wWinMain(HINSTANCE hInstance,
-                      HINSTANCE hPrevInstance,
-                      LPWSTR    lpCmdLine,
-                      int       nCmdShow)
+int APIENTRY WinMain(HINSTANCE hInstance,
+                     HINSTANCE hPrevInstance,
+                     LPSTR     lpCmdLine,
+                     int       nCmdShow)
 {
     HANDLE hProcess;
     HANDLE hToken;
     TOKEN_PRIVILEGES tkp;
-    HANDLE hMutex;
-
-    /* check wether we're already running or not */
-    hMutex = CreateMutexW(NULL, TRUE, L"taskmgrros");
-    if ((!hMutex) || (GetLastError() == ERROR_ALREADY_EXISTS))
-        return 1;
 
     /* Initialize global variables */
     hInst = hInstance;
@@ -73,14 +67,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
     /* Get a token for this process.  */
     if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
         /* Get the LUID for the debug privilege.  */
-        LookupPrivilegeValueW(NULL, SE_DEBUG_NAME, &tkp.Privileges[0].Luid);
+        LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &tkp.Privileges[0].Luid);
 
         tkp.PrivilegeCount = 1;  /* one privilege to set */
         tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
         /* Get the debug privilege for this process. */
         AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0);
-        CloseHandle(hToken);
     }
 
     /* Load our settings from the registry */
@@ -91,7 +84,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
         return -1;
     }
 
-    DialogBoxW(hInst, (LPCWSTR)IDD_TASKMGR_DIALOG, NULL, TaskManagerWndProc);
+    DialogBox(hInst, (LPCTSTR)IDD_TASKMGR_DIALOG, NULL, TaskManagerWndProc);
 
     /* Save our settings to the registry */
     SaveSettings();
@@ -103,15 +96,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 INT_PTR CALLBACK
 TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-#if 0
-    HDC              hdc;
-    PAINTSTRUCT      ps;
-    RECT             rc;
-#endif
-    LPRECT           pRC;
-    int              idctrl;
-    LPNMHDR          pnmh;
-    WINDOWPLACEMENT  wp;
+    HDC             hdc;
+    PAINTSTRUCT     ps;
+    LPRECT          pRC;
+    RECT            rc;
+    int             idctrl;
+    LPNMHDR         pnmh;
+    WINDOWPLACEMENT wp;
 
     switch (message) {
     case WM_INITDIALOG:
@@ -145,9 +136,13 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             TaskManager_OnRestoreMainWindow();
             break;
         case ID_VIEW_LARGE:
+            ApplicationPage_OnViewLargeIcons();
+            break;
         case ID_VIEW_SMALL:
+            ApplicationPage_OnViewSmallIcons();
+            break;
         case ID_VIEW_DETAILS:
-            ApplicationPage_OnView(LOWORD(wParam));
+            ApplicationPage_OnViewDetails();
             break;
         case ID_VIEW_SHOWKERNELTIMES:
             PerformancePage_OnViewShowKernelTimes();
@@ -159,22 +154,28 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             PerformancePage_OnViewCPUHistoryOneGraphPerCPU();
             break;
         case ID_VIEW_UPDATESPEED_HIGH:
+            TaskManager_OnViewUpdateSpeedHigh();
+            break;
         case ID_VIEW_UPDATESPEED_NORMAL:
+            TaskManager_OnViewUpdateSpeedNormal();
+            break;
         case ID_VIEW_UPDATESPEED_LOW:
+            TaskManager_OnViewUpdateSpeedLow();
+            break;
         case ID_VIEW_UPDATESPEED_PAUSED:
-            TaskManager_OnViewUpdateSpeed(LOWORD(wParam));
+            TaskManager_OnViewUpdateSpeedPaused();
             break;
         case ID_VIEW_SELECTCOLUMNS:
             ProcessPage_OnViewSelectColumns();
             break;
         case ID_VIEW_REFRESH:
-            PostMessageW(hDlg, WM_TIMER, 0, 0);
+            PostMessage(hDlg, WM_TIMER, 0, 0);
             break;
         case ID_WINDOWS_TILEHORIZONTALLY:
-            ApplicationPage_OnWindowsTile(MDITILE_HORIZONTAL);
+            ApplicationPage_OnWindowsTileHorizontally();
             break;
         case ID_WINDOWS_TILEVERTICALLY:
-            ApplicationPage_OnWindowsTile(MDITILE_VERTICAL);
+            ApplicationPage_OnWindowsTileVertically();
             break;
         case ID_WINDOWS_MINIMIZE:
             ApplicationPage_OnWindowsMinimize();
@@ -210,22 +211,22 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             ProcessPage_OnSetAffinity();
             break;
         case ID_PROCESS_PAGE_SETPRIORITY_REALTIME:
-            DoSetPriority(REALTIME_PRIORITY_CLASS);
+            ProcessPage_OnSetPriorityRealTime();
             break;
         case ID_PROCESS_PAGE_SETPRIORITY_HIGH:
-            DoSetPriority(HIGH_PRIORITY_CLASS);
+            ProcessPage_OnSetPriorityHigh();
             break;
         case ID_PROCESS_PAGE_SETPRIORITY_ABOVENORMAL:
-            DoSetPriority(ABOVE_NORMAL_PRIORITY_CLASS);
+            ProcessPage_OnSetPriorityAboveNormal();
             break;
         case ID_PROCESS_PAGE_SETPRIORITY_NORMAL:
-            DoSetPriority(NORMAL_PRIORITY_CLASS);
+            ProcessPage_OnSetPriorityNormal();
             break;
         case ID_PROCESS_PAGE_SETPRIORITY_BELOWNORMAL:
-            DoSetPriority(BELOW_NORMAL_PRIORITY_CLASS);
+            ProcessPage_OnSetPriorityBelowNormal();
             break;
         case ID_PROCESS_PAGE_SETPRIORITY_LOW:
-            DoSetPriority(IDLE_PRIORITY_CLASS);
+            ProcessPage_OnSetPriorityLow();
             break;
         case ID_PROCESS_PAGE_DEBUGCHANNELS:
             ProcessPage_OnDebugChannels();
@@ -250,9 +251,9 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
             GetCursorPos(&pt);
 
-            OnTop = ((GetWindowLongPtrW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+            OnTop = ((GetWindowLong(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
 
-            hMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_TRAY_POPUP));
+            hMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_TRAY_POPUP));
             hPopupMenu = GetSubMenu(hMenu, 0);
 
             if(IsWindowVisible(hMainWnd))
@@ -267,9 +268,6 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if(OnTop)
             {
               CheckMenuItem(hPopupMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND | MF_CHECKED);
-            } else
-            {
-              CheckMenuItem(hPopupMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND | MF_UNCHECKED);
             }
 
             SetForegroundWindow(hMainWnd);
@@ -294,7 +292,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             TaskManager_OnTabWndSelChange();
         }
         break;
-#if 0
+
     case WM_NCPAINT:
         hdc = GetDC(hDlg);
         GetClientRect(hDlg, &rc);
@@ -308,7 +306,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         Draw3dRect(hdc, rc.left, rc.top, rc.right, rc.top + 2, GetSysColor(COLOR_3DSHADOW), GetSysColor(COLOR_3DHILIGHT));
         EndPaint(hDlg, &ps);
         break;
-#endif
+
     case WM_SIZING:
         /* Make sure the user is sizing the dialog */
         /* in an acceptable range */
@@ -357,7 +355,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             TaskManagerSettings.Maximized = TRUE;
         else
             TaskManagerSettings.Maximized = FALSE;
-        return DefWindowProcW(hDlg, message, wParam, lParam);
+        return DefWindowProc(hDlg, message, wParam, lParam);
 
     case WM_TIMER:
         /* Refresh the performance data */
@@ -385,7 +383,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 void FillSolidRect(HDC hDC, LPCRECT lpRect, COLORREF clr)
 {
     SetBkColor(hDC, clr);
-    ExtTextOutW(hDC, 0, 0, ETO_OPAQUE, lpRect, NULL, 0, NULL);
+    ExtTextOut(hDC, 0, 0, ETO_OPAQUE, lpRect, NULL, 0, NULL);
 }
 
 void FillSolidRect2(HDC hDC, int x, int y, int cx, int cy, COLORREF clr)
@@ -397,7 +395,7 @@ void FillSolidRect2(HDC hDC, int x, int y, int cx, int cy, COLORREF clr)
     rect.top = y;
     rect.right = x + cx;
     rect.bottom = y + cy;
-    ExtTextOutW(hDC, 0, 0, ETO_OPAQUE, &rect, NULL, 0, NULL);
+    ExtTextOut(hDC, 0, 0, ETO_OPAQUE, &rect, NULL, 0, NULL);
 }
 
 void Draw3dRect(HDC hDC, int x, int y, int cx, int cy, COLORREF clrTopLeft, COLORREF clrBottomRight)
@@ -414,22 +412,6 @@ void Draw3dRect2(HDC hDC, LPRECT lpRect, COLORREF clrTopLeft, COLORREF clrBottom
         lpRect->bottom - lpRect->top, clrTopLeft, clrBottomRight);
 }
 
-static void SetUpdateSpeed(HWND hWnd)
-{
-    /* Setup update speed (pause=fall down) */
-    switch (TaskManagerSettings.UpdateSpeed) {
-    case ID_VIEW_UPDATESPEED_HIGH:
-        SetTimer(hWnd, 1, 1000, NULL);
-        break;
-    case ID_VIEW_UPDATESPEED_NORMAL:
-        SetTimer(hWnd, 1, 2000, NULL);
-        break;
-    case ID_VIEW_UPDATESPEED_LOW:
-        SetTimer(hWnd, 1, 4000, NULL);
-        break;
-    }
-}
-
 BOOL OnCreate(HWND hWnd)
 {
     HMENU   hMenu;
@@ -440,10 +422,10 @@ BOOL OnCreate(HWND hWnd)
     int     nActivePage;
     int     nParts[3];
     RECT    rc;
-    WCHAR   szTemp[256];
+    TCHAR   szTemp[256];
     TCITEM  item;
 
-    SendMessageW(hMainWnd, WM_SETICON, ICON_BIG, (LPARAM)LoadIconW(hInst, MAKEINTRESOURCEW(IDI_TASKMANAGER)));
+    SendMessage(hMainWnd, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(hInst, MAKEINTRESOURCE(IDI_TASKMANAGER)));
 
     /* Initialize the Windows Common Controls DLL */
     InitCommonControls();
@@ -454,40 +436,40 @@ BOOL OnCreate(HWND hWnd)
     nMinimumHeight = (rc.bottom - rc.top);
 
     /* Create the status bar */
-    hStatusWnd = CreateStatusWindow(WS_VISIBLE|WS_CHILD|WS_CLIPSIBLINGS|SBT_NOBORDERS, L"", hWnd, STATUS_WINDOW);
+    hStatusWnd = CreateStatusWindow(WS_VISIBLE|WS_CHILD|WS_CLIPSIBLINGS|SBT_NOBORDERS, _T(""), hWnd, STATUS_WINDOW);
     if(!hStatusWnd)
         return FALSE;
 
     /* Create the status bar panes */
-    nParts[0] = STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
-    nParts[2] = STATUS_SIZE3;
-    SendMessageW(hStatusWnd, SB_SETPARTS, 3, (LPARAM) (LPINT) nParts);
+    nParts[0] = 100;
+    nParts[1] = 210;
+    nParts[2] = 400;
+    SendMessage(hStatusWnd, SB_SETPARTS, 3, (long)nParts);
 
     /* Create tab pages */
     hTabWnd = GetDlgItem(hWnd, IDC_TAB);
 #if 1
-    hApplicationPage = CreateDialogW(hInst, MAKEINTRESOURCEW(IDD_APPLICATION_PAGE), hWnd, ApplicationPageWndProc);
-    hProcessPage = CreateDialogW(hInst, MAKEINTRESOURCEW(IDD_PROCESS_PAGE), hWnd, ProcessPageWndProc);
-    hPerformancePage = CreateDialogW(hInst, MAKEINTRESOURCEW(IDD_PERFORMANCE_PAGE), hWnd, PerformancePageWndProc);
+    hApplicationPage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_APPLICATION_PAGE), hWnd, ApplicationPageWndProc);
+    hProcessPage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PROCESS_PAGE), hWnd, ProcessPageWndProc);
+    hPerformancePage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PERFORMANCE_PAGE), hWnd, PerformancePageWndProc);
 #else
-    hApplicationPage = CreateDialogW(hInst, MAKEINTRESOURCEW(IDD_APPLICATION_PAGE), hTabWnd, ApplicationPageWndProc);
-    hProcessPage = CreateDialogW(hInst, MAKEINTRESOURCEW(IDD_PROCESS_PAGE), hTabWnd, ProcessPageWndProc);
-    hPerformancePage = CreateDialogW(hInst, MAKEINTRESOURCEW(IDD_PERFORMANCE_PAGE), hTabWnd, PerformancePageWndProc);
+    hApplicationPage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_APPLICATION_PAGE), hTabWnd, ApplicationPageWndProc);
+    hProcessPage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PROCESS_PAGE), hTabWnd, ProcessPageWndProc);
+    hPerformancePage = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PERFORMANCE_PAGE), hTabWnd, PerformancePageWndProc);
 #endif
 
     /* Insert tabs */
-    LoadStringW(hInst, IDS_TAB_APPS, szTemp, 256);
+    LoadString(hInst, IDS_TAB_APPS, szTemp, 256);
     memset(&item, 0, sizeof(TCITEM));
     item.mask = TCIF_TEXT;
     item.pszText = szTemp;
     (void)TabCtrl_InsertItem(hTabWnd, 0, &item);
-    LoadStringW(hInst, IDS_TAB_PROCESSES, szTemp, 256);
+    LoadString(hInst, IDS_TAB_PROCESSES, szTemp, 256);
     memset(&item, 0, sizeof(TCITEM));
     item.mask = TCIF_TEXT;
     item.pszText = szTemp;
     (void)TabCtrl_InsertItem(hTabWnd, 1, &item);
-    LoadStringW(hInst, IDS_TAB_PERFORMANCE, szTemp, 256);
+    LoadString(hInst, IDS_TAB_PERFORMANCE, szTemp, 256);
     memset(&item, 0, sizeof(TCITEM));
     item.mask = TCIF_TEXT;
     item.pszText = szTemp;
@@ -554,15 +536,26 @@ BOOL OnCreate(HWND hWnd)
     else
         CheckMenuItem(hEditMenu, ID_OPTIONS_SHOW16BITTASKS, MF_BYCOMMAND|MF_UNCHECKED);
 
-    /* Set the view mode */
-    CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, TaskManagerSettings.ViewMode, MF_BYCOMMAND);
+    if (TaskManagerSettings.View_LargeIcons)
+        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_LARGE, MF_BYCOMMAND);
+    else if (TaskManagerSettings.View_SmallIcons)
+        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_SMALL, MF_BYCOMMAND);
+    else
+        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_DETAILS, MF_BYCOMMAND);
 
     if (TaskManagerSettings.ShowKernelTimes)
         CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_CHECKED);
     else
         CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_UNCHECKED);
 
-    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, TaskManagerSettings.UpdateSpeed, MF_BYCOMMAND);
+    if (TaskManagerSettings.UpdateSpeed == 1)
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_HIGH, MF_BYCOMMAND);
+    else if (TaskManagerSettings.UpdateSpeed == 2)
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_NORMAL, MF_BYCOMMAND);
+    else if (TaskManagerSettings.UpdateSpeed == 4)
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_LOW, MF_BYCOMMAND);
+    else
+        CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_PAUSED, MF_BYCOMMAND);
 
     if (TaskManagerSettings.CPUHistory_OneGraphPerCPU)
         CheckMenuRadioItem(hCPUHistoryMenu, ID_VIEW_CPUHISTORY_ONEGRAPHALL, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, MF_BYCOMMAND);
@@ -575,8 +568,12 @@ BOOL OnCreate(HWND hWnd)
     TabCtrl_SetCurFocus/*Sel*/(hTabWnd, 2);
     TabCtrl_SetCurFocus/*Sel*/(hTabWnd, nActivePage);
 
-    /* Setup update speed */
-    SetUpdateSpeed(hWnd);
+    if (TaskManagerSettings.UpdateSpeed == 1)
+        SetTimer(hWnd, 1, 1000, NULL);
+    else if (TaskManagerSettings.UpdateSpeed == 2)
+        SetTimer(hWnd, 1, 2000, NULL);
+    else if (TaskManagerSettings.UpdateSpeed == 4)
+        SetTimer(hWnd, 1, 4000, NULL);
 
     /*
      * Refresh the performance data
@@ -599,7 +596,7 @@ BOOL OnCreate(HWND hWnd)
  * This function handles all the moving events for the application
  * It moves every child window that needs moving
  */
-void OnMove( WPARAM nType, int cx, int cy )
+void OnMove( UINT nType, int cx, int cy )
 {
 #ifdef __GNUC__TEST__
     MoveWindow(hApplicationPage, TaskManagerSettings.Left + PAGE_OFFSET_LEFT, TaskManagerSettings.Top + PAGE_OFFSET_TOP, TaskManagerSettings.Right - TaskManagerSettings.Left - PAGE_OFFSET_WIDTH, TaskManagerSettings.Bottom - TaskManagerSettings.Top - PAGE_OFFSET_HEIGHT, FALSE);
@@ -612,12 +609,12 @@ void OnMove( WPARAM nType, int cx, int cy )
  * This function handles all the sizing events for the application
  * It re-sizes every window, and child window that needs re-sizing
  */
-void OnSize( WPARAM nType, int cx, int cy )
+void OnSize( UINT nType, int cx, int cy )
 {
-    int   nParts[3];
-    int   nXDifference;
-    int   nYDifference;
-    RECT  rc;
+    int     nParts[3];
+    int     nXDifference;
+    int     nYDifference;
+    RECT    rc;
 
     if (nType == SIZE_MINIMIZED)
     {
@@ -635,13 +632,13 @@ void OnSize( WPARAM nType, int cx, int cy )
 
     /* Update the status bar size */
     GetWindowRect(hStatusWnd, &rc);
-    SendMessageW(hStatusWnd, WM_SIZE, nType, MAKELPARAM(cx,rc.bottom - rc.top));
+    SendMessage(hStatusWnd, WM_SIZE, nType, MAKELPARAM(cx, cy + (rc.bottom - rc.top)));
 
     /* Update the status bar pane sizes */
-    nParts[0] = bInMenuLoop ? -1 : STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
+    nParts[0] = bInMenuLoop ? -1 : 100;
+    nParts[1] = 210;
     nParts[2] = cx;
-    SendMessageW(hStatusWnd, SB_SETPARTS, bInMenuLoop ? 1 : 3, (LPARAM) (LPINT) nParts);
+    SendMessage(hStatusWnd, SB_SETPARTS, bInMenuLoop ? 1 : 3, (long)nParts);
 
     /* Resize the tab control */
     GetWindowRect(hTabWnd, &rc);
@@ -670,10 +667,10 @@ void OnSize( WPARAM nType, int cx, int cy )
 
 void LoadSettings(void)
 {
-    HKEY   hKey;
-    WCHAR  szSubKey[] = L"Software\\ReactOS\\TaskManager";
-    int    i;
-    DWORD  dwSize;
+    HKEY    hKey;
+    TCHAR   szSubKey[] = _T("Software\\ReactWare\\TaskManager");
+    int     i;
+    DWORD   dwSize;
 
     /* Window size & position settings */
     TaskManagerSettings.Maximized = FALSE;
@@ -692,21 +689,71 @@ void LoadSettings(void)
     TaskManagerSettings.Show16BitTasks = TRUE;
 
     /* Update speed settings */
-    TaskManagerSettings.UpdateSpeed = ID_VIEW_UPDATESPEED_NORMAL;
+    TaskManagerSettings.UpdateSpeed = 2;
 
     /* Applications page settings */
-    TaskManagerSettings.ViewMode = ID_VIEW_DETAILS;
+    TaskManagerSettings.View_LargeIcons = FALSE;
+    TaskManagerSettings.View_SmallIcons = FALSE;
+    TaskManagerSettings.View_Details = TRUE;
 
     /* Processes page settings */
     TaskManagerSettings.ShowProcessesFromAllUsers = FALSE; /* Server-only? */
+    TaskManagerSettings.Column_ImageName = TRUE;
+    TaskManagerSettings.Column_PID = TRUE;
+    TaskManagerSettings.Column_CPUUsage = TRUE;
+    TaskManagerSettings.Column_CPUTime = TRUE;
+    TaskManagerSettings.Column_MemoryUsage = TRUE;
+    TaskManagerSettings.Column_MemoryUsageDelta = FALSE;
+    TaskManagerSettings.Column_PeakMemoryUsage = FALSE;
+    TaskManagerSettings.Column_PageFaults = FALSE;
+    TaskManagerSettings.Column_USERObjects = FALSE;
+    TaskManagerSettings.Column_IOReads = FALSE;
+    TaskManagerSettings.Column_IOReadBytes = FALSE;
+    TaskManagerSettings.Column_SessionID = FALSE; /* Server-only? */
+    TaskManagerSettings.Column_UserName = FALSE; /* Server-only? */
+    TaskManagerSettings.Column_PageFaultsDelta = FALSE;
+    TaskManagerSettings.Column_VirtualMemorySize = FALSE;
+    TaskManagerSettings.Column_PagedPool = FALSE;
+    TaskManagerSettings.Column_NonPagedPool = FALSE;
+    TaskManagerSettings.Column_BasePriority = FALSE;
+    TaskManagerSettings.Column_HandleCount = FALSE;
+    TaskManagerSettings.Column_ThreadCount = FALSE;
+    TaskManagerSettings.Column_GDIObjects = FALSE;
+    TaskManagerSettings.Column_IOWrites = FALSE;
+    TaskManagerSettings.Column_IOWriteBytes = FALSE;
+    TaskManagerSettings.Column_IOOther = FALSE;
+    TaskManagerSettings.Column_IOOtherBytes = FALSE;
 
-    for (i = 0; i < COLUMN_NMAX; i++) {
-        TaskManagerSettings.Columns[i] = ColumnPresets[i].bDefaults;
+    for (i = 0; i < 25; i++) {
         TaskManagerSettings.ColumnOrderArray[i] = i;
-        TaskManagerSettings.ColumnSizeArray[i] = ColumnPresets[i].size;
     }
+    TaskManagerSettings.ColumnSizeArray[0] = 105;
+    TaskManagerSettings.ColumnSizeArray[1] = 50;
+    TaskManagerSettings.ColumnSizeArray[2] = 107;
+    TaskManagerSettings.ColumnSizeArray[3] = 70;
+    TaskManagerSettings.ColumnSizeArray[4] = 35;
+    TaskManagerSettings.ColumnSizeArray[5] = 70;
+    TaskManagerSettings.ColumnSizeArray[6] = 70;
+    TaskManagerSettings.ColumnSizeArray[7] = 100;
+    TaskManagerSettings.ColumnSizeArray[8] = 70;
+    TaskManagerSettings.ColumnSizeArray[9] = 70;
+    TaskManagerSettings.ColumnSizeArray[10] = 70;
+    TaskManagerSettings.ColumnSizeArray[11] = 70;
+    TaskManagerSettings.ColumnSizeArray[12] = 70;
+    TaskManagerSettings.ColumnSizeArray[13] = 70;
+    TaskManagerSettings.ColumnSizeArray[14] = 60;
+    TaskManagerSettings.ColumnSizeArray[15] = 60;
+    TaskManagerSettings.ColumnSizeArray[16] = 60;
+    TaskManagerSettings.ColumnSizeArray[17] = 60;
+    TaskManagerSettings.ColumnSizeArray[18] = 60;
+    TaskManagerSettings.ColumnSizeArray[19] = 70;
+    TaskManagerSettings.ColumnSizeArray[20] = 70;
+    TaskManagerSettings.ColumnSizeArray[21] = 70;
+    TaskManagerSettings.ColumnSizeArray[22] = 70;
+    TaskManagerSettings.ColumnSizeArray[23] = 70;
+    TaskManagerSettings.ColumnSizeArray[24] = 70;
 
-    TaskManagerSettings.SortColumn = COLUMN_IMAGENAME;
+    TaskManagerSettings.SortColumn = 1;
     TaskManagerSettings.SortAscending = TRUE;
 
     /* Performance page settings */
@@ -714,18 +761,11 @@ void LoadSettings(void)
     TaskManagerSettings.ShowKernelTimes = FALSE;
 
     /* Open the key */
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, szSubKey, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, szSubKey, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
         return;
     /* Read the settings */
     dwSize = sizeof(TASKMANAGER_SETTINGS);
-    RegQueryValueExW(hKey, L"Preferences", NULL, NULL, (LPBYTE)&TaskManagerSettings, &dwSize);
-
-    /*
-     * ATM, the 'ImageName' column is always visible
-     * (and grayed in configuration dialog)
-     * This will avoid troubles if the registry gets corrupted.
-     */
-    TaskManagerSettings.Column_ImageName = TRUE;
+    RegQueryValueEx(hKey, _T("Preferences"), NULL, NULL, (LPBYTE)&TaskManagerSettings, &dwSize);
 
     /* Close the key */
     RegCloseKey(hKey);
@@ -734,38 +774,38 @@ void LoadSettings(void)
 void SaveSettings(void)
 {
     HKEY hKey;
-    WCHAR szSubKey1[] = L"Software";
-    WCHAR szSubKey2[] = L"Software\\ReactOS";
-    WCHAR szSubKey3[] = L"Software\\ReactOS\\TaskManager";
+    TCHAR szSubKey1[] = _T("Software");
+    TCHAR szSubKey2[] = _T("Software\\ReactWare");
+    TCHAR szSubKey3[] = _T("Software\\ReactWare\\TaskManager");
 
     /* Open (or create) the key */
     hKey = NULL;
-    RegCreateKeyExW(HKEY_CURRENT_USER, szSubKey1, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
+    RegCreateKeyEx(HKEY_CURRENT_USER, szSubKey1, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
     RegCloseKey(hKey);
     hKey = NULL;
-    RegCreateKeyExW(HKEY_CURRENT_USER, szSubKey2, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
+    RegCreateKeyEx(HKEY_CURRENT_USER, szSubKey2, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL);
     RegCloseKey(hKey);
     hKey = NULL;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, szSubKey3, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
+    if (RegCreateKeyEx(HKEY_CURRENT_USER, szSubKey3, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
         return;
     /* Save the settings */
-    RegSetValueExW(hKey, L"Preferences", 0, REG_BINARY, (LPBYTE)&TaskManagerSettings, sizeof(TASKMANAGER_SETTINGS));
+    RegSetValueEx(hKey, _T("Preferences"), 0, REG_BINARY, (LPBYTE)&TaskManagerSettings, sizeof(TASKMANAGER_SETTINGS));
     /* Close the key */
     RegCloseKey(hKey);
 }
 
 void TaskManager_OnRestoreMainWindow(void)
 {
-    HMENU hMenu, hOptionsMenu;
-    BOOL OnTop;
+  HMENU hMenu, hOptionsMenu;
+  BOOL OnTop;
 
-    hMenu = GetMenu(hMainWnd);
-    hOptionsMenu = GetSubMenu(hMenu, OPTIONS_MENU_INDEX);
-    OnTop = ((GetWindowLongPtrW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+  hMenu = GetMenu(hMainWnd);
+  hOptionsMenu = GetSubMenu(hMenu, OPTIONS_MENU_INDEX);
+  OnTop = ((GetWindowLong(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
 
-    OpenIcon(hMainWnd);
-    SetForegroundWindow(hMainWnd);
-    SetWindowPos(hMainWnd, (OnTop ? HWND_TOPMOST : HWND_TOP), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW);
+  OpenIcon(hMainWnd);
+  SetForegroundWindow(hMainWnd);
+  SetWindowPos(hMainWnd, (OnTop ? HWND_TOPMOST : HWND_TOP), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW);
 }
 
 void TaskManager_OnEnterMenuLoop(HWND hWnd)
@@ -774,82 +814,129 @@ void TaskManager_OnEnterMenuLoop(HWND hWnd)
 
     /* Update the status bar pane sizes */
     nParts = -1;
-    SendMessageW(hStatusWnd, SB_SETPARTS, 1, (LPARAM) (LPINT)&nParts);
+    SendMessage(hStatusWnd, SB_SETPARTS, 1, (long)&nParts);
     bInMenuLoop = TRUE;
-    SendMessageW(hStatusWnd, SB_SETTEXT, (WPARAM)0, (LPARAM)L"");
+    SendMessage(hStatusWnd, SB_SETTEXT, (WPARAM)0, (LPARAM)_T(""));
 }
 
 void TaskManager_OnExitMenuLoop(HWND hWnd)
 {
-    RECT   rc;
-    int    nParts[3];
-    WCHAR  text[260];
-    WCHAR  szCpuUsage[256], szProcesses[256];
+    RECT  rc;
+    int   nParts[3];
+    TCHAR text[260];
+    TCHAR szCpuUsage[256], szProcesses[256];
 
-    LoadStringW(hInst, IDS_STATUS_CPUUSAGE, szCpuUsage, 256);
-    LoadStringW(hInst, IDS_STATUS_PROCESSES, szProcesses, 256);
+    LoadString(hInst, IDS_STATUS_CPUUSAGE, szCpuUsage, 256);
+    LoadString(hInst, IDS_STATUS_PROCESSES, szProcesses, 256);
 
     bInMenuLoop = FALSE;
     /* Update the status bar pane sizes */
     GetClientRect(hWnd, &rc);
-    nParts[0] = STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
+    nParts[0] = 100;
+    nParts[1] = 210;
     nParts[2] = rc.right;
-    SendMessageW(hStatusWnd, SB_SETPARTS, 3, (LPARAM) (LPINT) nParts);
-    SendMessageW(hStatusWnd, SB_SETTEXT, 0, (LPARAM)L"");
-    wsprintfW(text, szCpuUsage, PerfDataGetProcessorUsage());
-    SendMessageW(hStatusWnd, SB_SETTEXT, 1, (LPARAM)text);
-    wsprintfW(text, szProcesses, PerfDataGetProcessCount());
-    SendMessageW(hStatusWnd, SB_SETTEXT, 0, (LPARAM)text);
+    SendMessage(hStatusWnd, SB_SETPARTS, 3, (long)nParts);
+    SendMessage(hStatusWnd, SB_SETTEXT, 0, (LPARAM)_T(""));
+    wsprintf(text, szCpuUsage, PerfDataGetProcessorUsage());
+    SendMessage(hStatusWnd, SB_SETTEXT, 1, (LPARAM)text);
+    wsprintf(text, szProcesses, PerfDataGetProcessCount());
+    SendMessage(hStatusWnd, SB_SETTEXT, 0, (LPARAM)text);
 }
 
 void TaskManager_OnMenuSelect(HWND hWnd, UINT nItemID, UINT nFlags, HMENU hSysMenu)
 {
-    WCHAR  str[100];
+    TCHAR str[100];
 
-    wcscpy(str, L"");
-    if (LoadStringW(hInst, nItemID, str, 100)) {
+    _tcscpy(str, TEXT(""));
+    if (LoadString(hInst, nItemID, str, 100)) {
         /* load appropriate string */
-        LPWSTR lpsz = str;
+        LPTSTR lpsz = str;
         /* first newline terminates actual string */
-        lpsz = wcschr(lpsz, '\n');
+        lpsz = _tcschr(lpsz, '\n');
         if (lpsz != NULL)
             *lpsz = '\0';
     }
-    SendMessageW(hStatusWnd, SB_SETTEXT, 0, (LPARAM)str);
+    SendMessage(hStatusWnd, SB_SETTEXT, 0, (LPARAM)str);
 }
 
-void TaskManager_OnViewUpdateSpeed(DWORD dwSpeed)
+void TaskManager_OnViewUpdateSpeedHigh(void)
 {
-    HMENU  hMenu;
-    HMENU  hViewMenu;
-    HMENU  hUpdateSpeedMenu;
+    HMENU hMenu;
+    HMENU hViewMenu;
+    HMENU hUpdateSpeedMenu;
 
     hMenu = GetMenu(hMainWnd);
     hViewMenu = GetSubMenu(hMenu, 2);
     hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
 
-    TaskManagerSettings.UpdateSpeed = dwSpeed;
-    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, dwSpeed, MF_BYCOMMAND);
+    TaskManagerSettings.UpdateSpeed = 1;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_HIGH, MF_BYCOMMAND);
 
     KillTimer(hMainWnd, 1);
+    SetTimer(hMainWnd, 1, 500, NULL);
+}
 
-    SetUpdateSpeed(hMainWnd);
+void TaskManager_OnViewUpdateSpeedNormal(void)
+{
+    HMENU hMenu;
+    HMENU hViewMenu;
+    HMENU hUpdateSpeedMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+    hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
+
+    TaskManagerSettings.UpdateSpeed = 2;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_NORMAL, MF_BYCOMMAND);
+
+    KillTimer(hMainWnd, 1);
+    SetTimer(hMainWnd, 1, 2000, NULL);
+}
+
+void TaskManager_OnViewUpdateSpeedLow(void)
+{
+    HMENU hMenu;
+    HMENU hViewMenu;
+    HMENU hUpdateSpeedMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+    hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
+
+    TaskManagerSettings.UpdateSpeed = 4;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_LOW, MF_BYCOMMAND);
+
+    KillTimer(hMainWnd, 1);
+    SetTimer(hMainWnd, 1, 4000, NULL);
 }
 
 void TaskManager_OnViewRefresh(void)
 {
-    PostMessageW(hMainWnd, WM_TIMER, 0, 0);
+    PostMessage(hMainWnd, WM_TIMER, 0, 0);
+}
+
+void TaskManager_OnViewUpdateSpeedPaused(void)
+{
+    HMENU hMenu;
+    HMENU hViewMenu;
+    HMENU hUpdateSpeedMenu;
+
+    hMenu = GetMenu(hMainWnd);
+    hViewMenu = GetSubMenu(hMenu, 2);
+    hUpdateSpeedMenu = GetSubMenu(hViewMenu, 1);
+    TaskManagerSettings.UpdateSpeed = 0;
+    CheckMenuRadioItem(hUpdateSpeedMenu, ID_VIEW_UPDATESPEED_HIGH, ID_VIEW_UPDATESPEED_PAUSED, ID_VIEW_UPDATESPEED_PAUSED, MF_BYCOMMAND);
+    KillTimer(hMainWnd, 1);
 }
 
 void TaskManager_OnTabWndSelChange(void)
 {
-    int    i;
-    HMENU  hMenu;
-    HMENU  hOptionsMenu;
-    HMENU  hViewMenu;
-    HMENU  hSubMenu;
-    WCHAR  szTemp[256];
+    int   i;
+    HMENU hMenu;
+    HMENU hOptionsMenu;
+    HMENU hViewMenu;
+    HMENU hSubMenu;
+    TCHAR       szTemp[256];
 
     hMenu = GetMenu(hMainWnd);
     hViewMenu = GetSubMenu(hMenu, 2);
@@ -869,25 +956,29 @@ void TaskManager_OnTabWndSelChange(void)
         ShowWindow(hPerformancePage, SW_HIDE);
         BringWindowToTop(hApplicationPage);
 
-        LoadStringW(hInst, IDS_MENU_LARGEICONS, szTemp, 256);
-        AppendMenuW(hViewMenu, MF_STRING, ID_VIEW_LARGE, szTemp);
+        LoadString(hInst, IDS_MENU_LARGEICONS, szTemp, 256);
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_LARGE, szTemp);
 
-        LoadStringW(hInst, IDS_MENU_SMALLICONS, szTemp, 256);
-        AppendMenuW(hViewMenu, MF_STRING, ID_VIEW_SMALL, szTemp);
+        LoadString(hInst, IDS_MENU_SMALLICONS, szTemp, 256);
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SMALL, szTemp);
 
-        LoadStringW(hInst, IDS_MENU_DETAILS, szTemp, 256);
-        AppendMenuW(hViewMenu, MF_STRING, ID_VIEW_DETAILS, szTemp);
+        LoadString(hInst, IDS_MENU_DETAILS, szTemp, 256);
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_DETAILS, szTemp);
 
         if (GetMenuItemCount(hMenu) <= 4) {
-            hSubMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_WINDOWSMENU));
+            hSubMenu = LoadMenu(hInst, MAKEINTRESOURCE(IDR_WINDOWSMENU));
 
-            LoadStringW(hInst, IDS_MENU_WINDOWS, szTemp, 256);
-            InsertMenuW(hMenu, 3, MF_BYPOSITION|MF_POPUP, (UINT_PTR) hSubMenu, szTemp);
+            LoadString(hInst, IDS_MENU_WINDOWS, szTemp, 256);
+            InsertMenu(hMenu, 3, MF_BYPOSITION|MF_POPUP, (UINT)hSubMenu, szTemp);
 
             DrawMenuBar(hMainWnd);
         }
-        CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, TaskManagerSettings.ViewMode, MF_BYCOMMAND);
-
+        if (TaskManagerSettings.View_LargeIcons)
+            CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_LARGE, MF_BYCOMMAND);
+        else if (TaskManagerSettings.View_SmallIcons)
+            CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_SMALL, MF_BYCOMMAND);
+        else
+            CheckMenuRadioItem(hViewMenu, ID_VIEW_LARGE, ID_VIEW_DETAILS, ID_VIEW_DETAILS, MF_BYCOMMAND);
         /*
          * Give the application list control focus
          */
@@ -900,11 +991,11 @@ void TaskManager_OnTabWndSelChange(void)
         ShowWindow(hPerformancePage, SW_HIDE);
         BringWindowToTop(hProcessPage);
 
-        LoadStringW(hInst, IDS_MENU_SELECTCOLUMNS, szTemp, 256);
-        AppendMenuW(hViewMenu, MF_STRING, ID_VIEW_SELECTCOLUMNS, szTemp);
+        LoadString(hInst, IDS_MENU_SELECTCOLUMNS, szTemp, 256);
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SELECTCOLUMNS, szTemp);
 
-        LoadStringW(hInst, IDS_MENU_16BITTASK, szTemp, 256);
-        AppendMenuW(hOptionsMenu, MF_STRING, ID_OPTIONS_SHOW16BITTASKS, szTemp);
+        LoadString(hInst, IDS_MENU_16BITTASK, szTemp, 256);
+        AppendMenu(hOptionsMenu, MF_STRING, ID_OPTIONS_SHOW16BITTASKS, szTemp);
 
         if (TaskManagerSettings.Show16BitTasks)
             CheckMenuItem(hOptionsMenu, ID_OPTIONS_SHOW16BITTASKS, MF_BYCOMMAND|MF_CHECKED);
@@ -930,17 +1021,17 @@ void TaskManager_OnTabWndSelChange(void)
         }
         hSubMenu = CreatePopupMenu();
 
-        LoadStringW(hInst, IDS_MENU_ONEGRAPHALLCPUS, szTemp, 256);
-        AppendMenuW(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHALL, szTemp);
+        LoadString(hInst, IDS_MENU_ONEGRAPHALLCPUS, szTemp, 256);
+        AppendMenu(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHALL, szTemp);
 
-        LoadStringW(hInst, IDS_MENU_ONEGRAPHPERCPU, szTemp, 256);
-        AppendMenuW(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, szTemp);
+        LoadString(hInst, IDS_MENU_ONEGRAPHPERCPU, szTemp, 256);
+        AppendMenu(hSubMenu, MF_STRING, ID_VIEW_CPUHISTORY_ONEGRAPHPERCPU, szTemp);
 
-        LoadStringW(hInst, IDS_MENU_CPUHISTORY, szTemp, 256);
-        AppendMenuW(hViewMenu, MF_STRING|MF_POPUP, (UINT_PTR) hSubMenu, szTemp);
+        LoadString(hInst, IDS_MENU_CPUHISTORY, szTemp, 256);
+        AppendMenu(hViewMenu, MF_STRING|MF_POPUP, (UINT)hSubMenu, szTemp);
 
-        LoadStringW(hInst, IDS_MENU_SHOWKERNELTIMES, szTemp, 256);
-        AppendMenuW(hViewMenu, MF_STRING, ID_VIEW_SHOWKERNELTIMES, szTemp);
+        LoadString(hInst, IDS_MENU_SHOWKERNELTIMES, szTemp, 256);
+        AppendMenu(hViewMenu, MF_STRING, ID_VIEW_SHOWKERNELTIMES, szTemp);
 
         if (TaskManagerSettings.ShowKernelTimes)
             CheckMenuItem(hViewMenu, ID_VIEW_SHOWKERNELTIMES, MF_BYCOMMAND|MF_CHECKED);
@@ -958,25 +1049,25 @@ void TaskManager_OnTabWndSelChange(void)
     }
 }
 
-LPWSTR GetLastErrorText(LPWSTR lpszBuf, DWORD dwSize)
+LPTSTR GetLastErrorText(LPTSTR lpszBuf, DWORD dwSize)
 {
     DWORD  dwRet;
-    LPWSTR lpszTemp = NULL;
+    LPTSTR lpszTemp = NULL;
 
-    dwRet = FormatMessageW( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |FORMAT_MESSAGE_ARGUMENT_ARRAY,
+    dwRet = FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |FORMAT_MESSAGE_ARGUMENT_ARRAY,
                            NULL,
                            GetLastError(),
                            LANG_NEUTRAL,
-                           (LPWSTR)&lpszTemp,
+                           (LPTSTR)&lpszTemp,
                            0,
                            NULL );
 
     /* supplied buffer is not long enough */
     if (!dwRet || ( (long)dwSize < (long)dwRet+14)) {
-        lpszBuf[0] = L'\0';
+        lpszBuf[0] = TEXT('\0');
     } else {
-        lpszTemp[lstrlenW(lpszTemp)-2] = L'\0';  /*remove cr and newline character */
-        wsprintfW(lpszBuf, L"%s (0x%x)", lpszTemp, (int)GetLastError());
+        lpszTemp[lstrlen(lpszTemp)-2] = TEXT('\0');  /*remove cr and newline character */
+        _stprintf(lpszBuf, TEXT("%s (0x%x)"), lpszTemp, (int)GetLastError());
     }
     if (lpszTemp) {
         LocalFree((HLOCAL)lpszTemp);

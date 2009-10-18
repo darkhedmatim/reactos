@@ -75,12 +75,12 @@ CreateTimeZoneList(VOID)
                       0,
                       KEY_ENUMERATE_SUB_KEYS,
                       &hZonesKey))
-        return;
+    return;
 
     dwIndex = 0;
     while (TRUE)
     {
-        dwNameSize = 256 * sizeof(WCHAR);
+        dwNameSize = 256;
         lError = RegEnumKeyExW(hZonesKey,
                                dwIndex,
                                szKeyName,
@@ -89,15 +89,15 @@ CreateTimeZoneList(VOID)
                                NULL,
                                NULL,
                                NULL);
-        if (lError == ERROR_NO_MORE_ITEMS)
+        if (lError != ERROR_SUCCESS && lError != ERROR_MORE_DATA)
             break;
 
-        if (RegOpenKeyEx (hZonesKey,
+        if (RegOpenKeyExW(hZonesKey,
                           szKeyName,
                           0,
                           KEY_QUERY_VALUE,
                           &hZoneKey))
-            break;
+        break;
 
         Entry = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(TIMEZONE_ENTRY));
         if (Entry == NULL)
@@ -107,18 +107,15 @@ CreateTimeZoneList(VOID)
         }
 
         dwValueSize = 64 * sizeof(WCHAR);
-        lError = RegQueryValueExW(hZoneKey,
+        if (RegQueryValueExW(hZoneKey,
                              L"Display",
                              NULL,
                              NULL,
                              (LPBYTE)&Entry->Description,
-                             &dwValueSize);
-        if (lError != ERROR_SUCCESS)
+                             &dwValueSize))
         {
             RegCloseKey(hZoneKey);
-            dwIndex++;
-            HeapFree(GetProcessHeap(), 0, Entry);
-            continue;
+            break;
         }
 
         dwValueSize = 33 * sizeof(WCHAR);
@@ -282,10 +279,10 @@ SetLocalTimeZone(HWND hwnd)
     DWORD dwIndex;
     DWORD i;
 
-    dwIndex = (DWORD)SendMessageW(hwnd,
-                                  CB_GETCURSEL,
-                                  0,
-                                  0);
+    dwIndex = (DWORD) SendMessage(hwnd,
+                          CB_GETCURSEL,
+                          0,
+                          0);
 
     i = 0;
     Entry = TimeZoneListHead;
@@ -299,9 +296,9 @@ SetLocalTimeZone(HWND hwnd)
     }
 
     wcscpy(TimeZoneInformation.StandardName,
-            Entry->StandardName);
+           Entry->StandardName);
     wcscpy(TimeZoneInformation.DaylightName,
-            Entry->DaylightName);
+           Entry->DaylightName);
 
     TimeZoneInformation.Bias = Entry->TimezoneInfo.Bias;
     TimeZoneInformation.StandardBias = Entry->TimezoneInfo.StandardBias;
@@ -329,10 +326,10 @@ GetAutoDaylightInfo(HWND hwnd)
                       0,
                       KEY_QUERY_VALUE,
                       &hKey))
-        return;
+    return;
 
     /* if the call fails (non zero), the reg value isn't available,
-     * which means it shouldn't be disabled, so we should check the button.
+     * which means it shouldn't be disabled, so we should check the button.  
      */
     if (RegQueryValueExW(hKey,
                          L"DisableAutoDaylightTimeSet",
@@ -341,11 +338,11 @@ GetAutoDaylightInfo(HWND hwnd)
                          NULL,
                          NULL))
     {
-        SendMessageW(hwnd, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
+        SendMessage(hwnd, BM_SETCHECK, (WPARAM)BST_CHECKED, 0);
     }
     else
     {
-        SendMessageW(hwnd, BM_SETCHECK, (WPARAM)BST_UNCHECKED, 0);
+        SendMessage(hwnd, BM_SETCHECK, (WPARAM)BST_UNCHECKED, 0);
     }
 
     RegCloseKey(hKey);
@@ -363,9 +360,9 @@ SetAutoDaylightInfo(HWND hwnd)
                       0,
                       KEY_SET_VALUE,
                       &hKey))
-        return;
+    return;
 
-    if (SendMessageW(hwnd, BM_GETCHECK, 0, 0) == BST_UNCHECKED)
+    if (SendMessage(hwnd, BM_GETCHECK, 0, 0) == BST_UNCHECKED)
     {
         RegSetValueExW(hKey,
                        L"DisableAutoDaylightTimeSet",
@@ -377,7 +374,7 @@ SetAutoDaylightInfo(HWND hwnd)
     else
     {
         RegDeleteValueW(hKey,
-                       L"DisableAutoDaylightTimeSet");
+                        L"DisableAutoDaylightTimeSet");
     }
 
     RegCloseKey(hKey);
@@ -387,27 +384,29 @@ SetAutoDaylightInfo(HWND hwnd)
 /* Property page dialog callback */
 INT_PTR CALLBACK
 TimeZonePageProc(HWND hwndDlg,
-                 UINT uMsg,
-                 WPARAM wParam,
-                 LPARAM lParam)
+         UINT uMsg,
+         WPARAM wParam,
+         LPARAM lParam)
 {
     BITMAP bitmap;
 
     switch (uMsg)
     {
         case WM_INITDIALOG:
+        {
             CreateTimeZoneList();
             ShowTimeZoneList(GetDlgItem(hwndDlg, IDC_TIMEZONELIST));
             GetAutoDaylightInfo(GetDlgItem(hwndDlg, IDC_AUTODAYLIGHT));
-            hBitmap = LoadImageW(hApplet, MAKEINTRESOURCEW(IDC_WORLD), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+            hBitmap = LoadImage(hApplet, MAKEINTRESOURCE(IDC_WORLD), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
             if (hBitmap != NULL)
             {
-                GetObjectW(hBitmap, sizeof(BITMAP), &bitmap);
+                GetObject(hBitmap, sizeof(BITMAP), &bitmap);
 
                 cxSource = bitmap.bmWidth;
                 cySource = bitmap.bmHeight;
             }
-            break;
+        }
+        break;
 
         case WM_DRAWITEM:
         {
@@ -431,18 +430,22 @@ TimeZonePageProc(HWND hwndDlg,
         break;
 
         case WM_COMMAND:
+        {
             if ((LOWORD(wParam) == IDC_TIMEZONELIST && HIWORD(wParam) == CBN_SELCHANGE) ||
                 (LOWORD(wParam) == IDC_AUTODAYLIGHT && HIWORD(wParam) == BN_CLICKED))
             {
                 /* Enable the 'Apply' button */
                 PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
             }
-            break;
+        }
+        break;
 
         case WM_DESTROY:
+        {
             DestroyTimeZoneList();
             DeleteObject(hBitmap);
-            break;
+        }
+        break;
 
         case WM_NOTIFY:
         {
@@ -454,7 +457,7 @@ TimeZonePageProc(HWND hwndDlg,
                 {
                     SetAutoDaylightInfo(GetDlgItem(hwndDlg, IDC_AUTODAYLIGHT));
                     SetLocalTimeZone(GetDlgItem(hwndDlg, IDC_TIMEZONELIST));
-                    SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
+                    SetWindowLong(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
                     return TRUE;
                 }
 

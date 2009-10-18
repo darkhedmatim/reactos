@@ -8,6 +8,7 @@
 #define FIRST_USER_HANDLE 0x0020  /* first possible value for low word of user handle */
 #define LAST_USER_HANDLE  0xffef  /* last possible value for low word of user handle */
 
+
 #define USER_HEADER_TO_BODY(ObjectHeader) \
   ((PVOID)(((PUSER_OBJECT_HEADER)ObjectHeader) + 1))
 
@@ -19,12 +20,6 @@
 typedef struct _USER_HANDLE_ENTRY
 {
     void          *ptr;          /* pointer to object */
-    union
-    {
-        PVOID pi;
-        PTHREADINFO pti;          // pointer to Win32ThreadInfo
-        PPROCESSINFO ppi;         // pointer to W32ProcessInfo
-    };
     unsigned short type;         /* object type (0 if free) */
     unsigned short generation;   /* generation counter */
 } USER_HANDLE_ENTRY, * PUSER_HANDLE_ENTRY;
@@ -46,15 +41,12 @@ typedef enum _USER_OBJECT_TYPE
   otFree = 0,
   otWindow,
   otMenu,
-  otCursorIcon,
-  otDWP,
-  otHook,
-  otCallProc = 7,
   otAccel,
-  otMonitor = 12,
-  otEvent = 15,
-  otTimer
-
+  otCursorIcon,
+  otHook,
+  otMonitor,
+  otCallProc
+  
 } USER_OBJECT_TYPE;
 
 
@@ -81,77 +73,59 @@ typedef struct _USER_REFERENCE_ENTRY
 
 #include <malloc.h>
 
-#define USER_ASSERT(exp,file,line) \
-    if (!(exp)) {RtlAssert(#exp,(PVOID)file,line,"");}
-
-static __inline VOID
-UserAssertLastRef(PVOID obj, const char *file, int line)
-{
-    PTHREADINFO W32Thread;
-    PSINGLE_LIST_ENTRY ReferenceEntry;
-    PUSER_REFERENCE_ENTRY UserReferenceEntry;
-
-    USER_ASSERT(obj != NULL, file, line);
-    W32Thread = PsGetCurrentThreadWin32Thread();
-    USER_ASSERT(W32Thread != NULL, file, line);
-    ReferenceEntry = W32Thread->ReferencesList.Next;
-    USER_ASSERT(ReferenceEntry != NULL, file, line);
-    UserReferenceEntry = CONTAINING_RECORD(ReferenceEntry, USER_REFERENCE_ENTRY, Entry);
-    USER_ASSERT(UserReferenceEntry != NULL, file, line);
-    USER_ASSERT(obj == UserReferenceEntry->obj, file, line);
+#define ASSERT_LAST_REF(_obj_) \
+{ \
+   PW32THREAD t; \
+   PSINGLE_LIST_ENTRY e; \
+   PUSER_REFERENCE_ENTRY ref; \
+   \
+   ASSERT(_obj_); \
+   t = PsGetCurrentThreadWin32Thread(); \
+   ASSERT(t); \
+   e = t->ReferencesList.Next; \
+   ASSERT(e); \
+   ref = CONTAINING_RECORD(e, USER_REFERENCE_ENTRY, Entry); \
+   ASSERT(ref); \
+   \
+   ASSERT(_obj_ == ref->obj); \
+   \
 }
-#define ASSERT_LAST_REF(_obj_) UserAssertLastRef(_obj,__FILE__,__LINE__)
-
-#undef USER_ASSERT
-
-extern PUSER_HANDLE_TABLE gHandleTable;
-VOID FASTCALL UserReferenceObject(PVOID obj);
-PVOID FASTCALL UserReferenceObjectByHandle(HANDLE handle, USER_OBJECT_TYPE type);
-BOOL FASTCALL UserDereferenceObject(PVOID obj);
-PVOID FASTCALL UserCreateObject(PUSER_HANDLE_TABLE ht, HANDLE* h,USER_OBJECT_TYPE type , ULONG size);
-BOOL FASTCALL UserDeleteObject(HANDLE h, USER_OBJECT_TYPE type );
-PVOID UserGetObject(PUSER_HANDLE_TABLE ht, HANDLE handle, USER_OBJECT_TYPE type );
-HANDLE UserAllocHandle(PUSER_HANDLE_TABLE ht, PVOID object, USER_OBJECT_TYPE type );
-BOOL UserFreeHandle(PUSER_HANDLE_TABLE ht, HANDLE handle );
-PVOID UserGetNextHandle(PUSER_HANDLE_TABLE ht, HANDLE* handle, USER_OBJECT_TYPE type );
-PUSER_HANDLE_ENTRY handle_to_entry(PUSER_HANDLE_TABLE ht, HANDLE handle );
-BOOL FASTCALL UserCreateHandleTable(VOID);
-VOID UserInitHandleTable(PUSER_HANDLE_TABLE ht, PVOID mem, ULONG bytes);
-
-
-static __inline VOID
-UserRefObjectCo(PVOID obj, PUSER_REFERENCE_ENTRY UserReferenceEntry)
-{
-    PTHREADINFO W32Thread;
-
-    W32Thread = PsGetCurrentThreadWin32Thread();
-    ASSERT(W32Thread != NULL);
-    ASSERT(UserReferenceEntry != NULL);
-    UserReferenceEntry->obj = obj;
-    UserReferenceObject(obj);
-    PushEntryList(&W32Thread->ReferencesList, &UserReferenceEntry->Entry);
+#define UserRefObjectCo(_obj_, _ref_) \
+{ \
+   PW32THREAD t; \
+   \
+   ASSERT(_obj_); \
+   t = PsGetCurrentThreadWin32Thread(); \
+   ASSERT(t); \
+   ASSERT(_ref_); \
+   (_ref_)->obj = _obj_; \
+   ObmReferenceObject(_obj_); \
+ \
+   PushEntryList(&t->ReferencesList, &(_ref_)->Entry); \
+   \
 }
 
-static __inline VOID
-UserDerefObjectCo(PVOID obj)
-{
-    PTHREADINFO W32Thread;
-    PSINGLE_LIST_ENTRY ReferenceEntry;
-    PUSER_REFERENCE_ENTRY UserReferenceEntry;
 
-    ASSERT(obj != NULL);
-    W32Thread = PsGetCurrentThreadWin32Thread();
-    ASSERT(W32Thread != NULL);
-    ReferenceEntry = PopEntryList(&W32Thread->ReferencesList);
-    ASSERT(ReferenceEntry != NULL);
-    UserReferenceEntry = CONTAINING_RECORD(ReferenceEntry, USER_REFERENCE_ENTRY, Entry);
-    ASSERT(UserReferenceEntry != NULL);
-
-    ASSERT(obj == UserReferenceEntry->obj);
-    UserDereferenceObject(obj);
+#define UserDerefObjectCo(_obj_) \
+{ \
+   PW32THREAD t; \
+   PSINGLE_LIST_ENTRY e; \
+   PUSER_REFERENCE_ENTRY ref; \
+   \
+   ASSERT(_obj_); \
+   t = PsGetCurrentThreadWin32Thread(); \
+   ASSERT(t); \
+   e = PopEntryList(&t->ReferencesList); \
+   ASSERT(e); \
+   ref = CONTAINING_RECORD(e, USER_REFERENCE_ENTRY, Entry); \
+   ASSERT(ref); \
+   \
+   ASSERT(_obj_ == ref->obj); \
+   ObmDereferenceObject(_obj_); \
+   \
 }
 
-HANDLE FASTCALL UserObjectToHandle(PVOID obj);
+HANDLE FASTCALL ObmObjectToHandle(PVOID obj);
 
 VOID  FASTCALL CreateStockObjects (VOID);
 VOID  FASTCALL CreateSysColorObjects (VOID);

@@ -13,16 +13,24 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef MAPIX_H
 #define MAPIX_H
 
+#ifndef MAPIDEFS_H
 #include <mapidefs.h>
+#endif
+#ifndef MAPICODE_H
 #include <mapicode.h>
+#endif
+#ifndef MAPIGUID_H
 #include <mapiguid.h>
+#endif
+#ifndef MAPITAGS_H
 #include <mapitags.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,7 +44,7 @@ typedef struct IMAPISession *LPMAPISESSION;
 
 #ifndef WINE_FLAGS_DEFINED
 #define WINE_FLAGS_DEFINED
-typedef ULONG                   FLAGS;
+typedef unsigned long           FLAGS;
 #endif
 
 /* Flags for MAPILogon and MAPILogonEx */
@@ -105,10 +113,6 @@ typedef ULONG (WINAPI MAPIFREEBUFFER)(LPVOID);
 typedef MAPIFREEBUFFER *LPMAPIFREEBUFFER;
 MAPIFREEBUFFER MAPIFreeBuffer;
 #endif
-
-typedef HRESULT (WINAPI MAPIADMINPROFILES)(ULONG,LPPROFADMIN*);
-typedef MAPIADMINPROFILES *LPMAPIADMINPROFILES;
-MAPIADMINPROFILES MAPIAdminProfiles;
 
 /*****************************************************************************
  * IMAPISession interface

@@ -18,10 +18,35 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "wingdi.h"
+#include "winuser.h"
+
+#include "ole2.h"
+#include "shlguid.h"
+
+#include "pidl.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shlwapi.h"
+#include "wine/debug.h"
+#include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
@@ -45,7 +70,7 @@ static const WCHAR wszDotShellClassInfo[] = {
  *    TRUE if returned non-NULL value.
  *    FALSE otherwise.
  */
-static BOOL __inline SHELL32_GetCustomFolderAttributeFromPath(
+static inline BOOL SHELL32_GetCustomFolderAttributeFromPath(
     LPWSTR pwszFolderPath, LPCWSTR pwszHeading, LPCWSTR pwszAttribute,
     LPWSTR pwszValue, DWORD cchValue)
 {
@@ -55,7 +80,7 @@ static BOOL __inline SHELL32_GetCustomFolderAttributeFromPath(
 
     PathAddBackslashW(pwszFolderPath);
     PathAppendW(pwszFolderPath, wszDesktopIni);
-    return GetPrivateProfileStringW(pwszHeading, pwszAttribute, wszDefault,
+    return GetPrivateProfileStringW(pwszHeading, pwszAttribute, wszDefault, 
                                     pwszValue, cchValue, pwszFolderPath);
 }
 
@@ -75,7 +100,7 @@ BOOL SHELL32_GetCustomFolderAttribute(
         if (!SHGetPathFromIDListW(pidl, wszFolderPath))
             return FALSE;
 
-        return SHELL32_GetCustomFolderAttributeFromPath(wszFolderPath, pwszHeading,
+        return SHELL32_GetCustomFolderAttributeFromPath(wszFolderPath, pwszHeading, 
                                                 pwszAttribute, pwszValue, cchValue);
     }
     return FALSE;
@@ -84,11 +109,11 @@ BOOL SHELL32_GetCustomFolderAttribute(
 /***************************************************************************
  *  GetNextElement (internal function)
  *
- * Gets a part of a string till the first backslash.
+ * gets a part of a string till the first backslash
  *
  * PARAMETERS
  *  pszNext [IN] string to get the element from
- *  pszOut  [IN] pointer to buffer which receives string
+ *  pszOut  [IN] pointer to buffer whitch receives string
  *  dwOut   [IN] length of pszOut
  *
  *  RETURNS
@@ -100,7 +125,7 @@ LPCWSTR GetNextElementW (LPCWSTR pszNext, LPWSTR pszOut, DWORD dwOut)
     LPCWSTR pszTail = pszNext;
     DWORD dwCopy;
 
-    TRACE ("(%s %p 0x%08x)\n", debugstr_w (pszNext), pszOut, dwOut);
+    TRACE ("(%s %p 0x%08lx)\n", debugstr_w (pszNext), pszOut, dwOut);
 
     *pszOut = 0x0000;
 
@@ -110,7 +135,7 @@ LPCWSTR GetNextElementW (LPCWSTR pszNext, LPWSTR pszOut, DWORD dwOut)
     while (*pszTail && (*pszTail != (WCHAR) '\\'))
 	pszTail++;
 
-    dwCopy = pszTail - pszNext + 1;
+    dwCopy = (const WCHAR *) pszTail - (const WCHAR *) pszNext + 1;
     lstrcpynW (pszOut, pszNext, (dwOut < dwCopy) ? dwOut : dwCopy);
 
     if (*pszTail)
@@ -118,7 +143,7 @@ LPCWSTR GetNextElementW (LPCWSTR pszNext, LPWSTR pszOut, DWORD dwOut)
     else
 	pszTail = NULL;
 
-    TRACE ("--(%s %s 0x%08x %p)\n", debugstr_w (pszNext), debugstr_w (pszOut), dwOut, pszTail);
+    TRACE ("--(%s %s 0x%08lx %p)\n", debugstr_w (pszNext), debugstr_w (pszOut), dwOut, pszTail);
     return pszTail;
 }
 
@@ -153,7 +178,7 @@ HRESULT SHELL32_ParseNextElement (IShellFolder2 * psf, HWND hwndOwner, LPBC pbc,
     ILFree (*pidlInOut);
     *pidlInOut = pidlTemp;
 
-    TRACE ("-- pidl=%p ret=0x%08x\n", pidlInOut ? *pidlInOut : NULL, hr);
+    TRACE ("-- pidl=%p ret=0x%08lx\n", pidlInOut ? *pidlInOut : NULL, hr);
     return hr;
 }
 
@@ -164,25 +189,23 @@ HRESULT SHELL32_ParseNextElement (IShellFolder2 * psf, HWND hwndOwner, LPBC pbc,
  * via IPersistFolder3 or IPersistFolder.
  *
  * NOTES
- *   pathRoot can be NULL for Folders being a drive.
- *   In this case the absolute path is built from pidlChild (eg. C:)
+ *   pathRoot can be NULL for Folders beeing a drive.
+ *   In this case the absolute path is build from pidlChild (eg. C:)
  */
 static HRESULT SHELL32_CoCreateInitSF (LPCITEMIDLIST pidlRoot, LPCWSTR pathRoot,
-                LPCITEMIDLIST pidlChild, REFCLSID clsid, LPVOID * ppvOut)
+    LPCITEMIDLIST pidlChild, REFCLSID clsid, REFIID riid, LPVOID * ppvOut)
 {
     HRESULT hr;
 
     TRACE ("%p %s %p\n", pidlRoot, debugstr_w(pathRoot), pidlChild);
 
-    hr = SHCoCreateInstance(NULL, clsid, NULL, &IID_IShellFolder, ppvOut);
-    if (SUCCEEDED (hr))
-    {
+    if (SUCCEEDED ((hr = SHCoCreateInstance (NULL, clsid, NULL, riid, ppvOut)))) {
 	LPITEMIDLIST pidlAbsolute = ILCombine (pidlRoot, pidlChild);
 	IPersistFolder *pPF;
 	IPersistFolder3 *ppf;
 
         if (_ILIsFolder(pidlChild) &&
-            SUCCEEDED (IUnknown_QueryInterface ((IUnknown *) * ppvOut, &IID_IPersistFolder3, (LPVOID *) & ppf)))
+            SUCCEEDED (IUnknown_QueryInterface ((IUnknown *) * ppvOut, &IID_IPersistFolder3, (LPVOID *) & ppf))) 
         {
 	    PERSIST_FOLDER_TARGET_INFO ppfti;
 
@@ -199,10 +222,13 @@ static HRESULT SHELL32_CoCreateInitSF (LPCITEMIDLIST pidlRoot, LPCWSTR pathRoot,
 	    }
 
 	    if (pidlChild) {
-                int len = wcslen(ppfti.szTargetParsingName);
+		LPCSTR pszChild = _ILGetTextPointer(pidlChild);
+                int len = lstrlenW(ppfti.szTargetParsingName);
 
-		if (!_ILSimpleGetTextW(pidlChild, ppfti.szTargetParsingName + len, MAX_PATH - len))
-			hr = E_INVALIDARG;
+		if (pszChild)
+		    MultiByteToWideChar (CP_ACP, 0, pszChild, -1, ppfti.szTargetParsingName + len, MAX_PATH - len);
+		else
+		    hr = E_INVALIDARG;
 	    }
 
 	    IPersistFolder3_InitializeEx (ppf, NULL, pidlAbsolute, &ppfti);
@@ -214,7 +240,7 @@ static HRESULT SHELL32_CoCreateInitSF (LPCITEMIDLIST pidlRoot, LPCWSTR pathRoot,
 	}
 	ILFree (pidlAbsolute);
     }
-    TRACE ("-- (%p) ret=0x%08x\n", *ppvOut, hr);
+    TRACE ("-- (%p) ret=0x%08lx\n", *ppvOut, hr);
     return hr;
 }
 
@@ -222,7 +248,7 @@ static HRESULT SHELL32_CoCreateInitSF (LPCITEMIDLIST pidlRoot, LPCWSTR pathRoot,
  *	SHELL32_BindToChild [Internal]
  *
  * Common code for IShellFolder_BindToObject.
- *
+ * 
  * PARAMS
  *  pidlRoot     [I] The parent shell folder's absolute pidl.
  *  pathRoot     [I] Absolute dos path of the parent shell folder.
@@ -252,27 +278,25 @@ HRESULT SHELL32_BindToChild (LPCITEMIDLIST pidlRoot,
 
     if ((clsid = _ILGetGUIDPointer (pidlChild))) {
         /* virtual folder */
-        hr = SHELL32_CoCreateInitSF (pidlRoot, pathRoot, pidlChild, clsid, (LPVOID *)&pSF);
+        hr = SHELL32_CoCreateInitSF (pidlRoot, pathRoot, pidlChild, clsid, &IID_IShellFolder, (LPVOID *) & pSF);
     } else {
         /* file system folder */
         CLSID clsidFolder = CLSID_ShellFSFolder;
         static const WCHAR wszCLSID[] = {'C','L','S','I','D',0};
         WCHAR wszCLSIDValue[CHARS_IN_GUID], wszFolderPath[MAX_PATH], *pwszPathTail = wszFolderPath;
-
+       
         /* see if folder CLSID should be overridden by desktop.ini file */
         if (pathRoot) {
             lstrcpynW(wszFolderPath, pathRoot, MAX_PATH);
             pwszPathTail = PathAddBackslashW(wszFolderPath);
         }
-
-        _ILSimpleGetTextW(pidlChild,pwszPathTail,MAX_PATH - (int)(pwszPathTail - wszFolderPath));
-
+        MultiByteToWideChar(CP_ACP, 0, _ILGetTextPointer(pidlChild), -1, pwszPathTail, MAX_PATH - (int)(pwszPathTail - wszFolderPath));
         if (SHELL32_GetCustomFolderAttributeFromPath (wszFolderPath,
             wszDotShellClassInfo, wszCLSID, wszCLSIDValue, CHARS_IN_GUID))
             CLSIDFromString (wszCLSIDValue, &clsidFolder);
 
-        hr = SHELL32_CoCreateInitSF (pidlRoot, pathRoot, pidlChild,
-                                     &clsidFolder, (LPVOID *)&pSF);
+		hr = SHELL32_CoCreateInitSF (pidlRoot, pathRoot, pidlChild,
+            &clsidFolder, &IID_IShellFolder, (LPVOID *)&pSF);
     }
     ILFree (pidlChild);
 
@@ -287,7 +311,7 @@ HRESULT SHELL32_BindToChild (LPCITEMIDLIST pidlRoot,
         IShellFolder_Release (pSF);
     }
 
-    TRACE ("-- returning (%p) %08x\n", *ppvOut, hr);
+    TRACE ("-- returning (%p) %08lx\n", *ppvOut, hr);
 
     return hr;
 }
@@ -295,7 +319,7 @@ HRESULT SHELL32_BindToChild (LPCITEMIDLIST pidlRoot,
 /***********************************************************************
  *	SHELL32_GetDisplayNameOfChild
  *
- * Retrieves the display name of a child object of a shellfolder.
+ * Retrives the display name of a child object of a shellfolder.
  *
  * For a pidl eg. [subpidl1][subpidl2][subpidl3]:
  * - it binds to the child shellfolder [subpidl1]
@@ -307,12 +331,12 @@ HRESULT SHELL32_BindToChild (LPCITEMIDLIST pidlRoot,
  * virtual folders with the registry key WantsFORPARSING set.
  */
 HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
-				       LPCITEMIDLIST pidl, DWORD dwFlags, LPWSTR szOut, DWORD dwOutLen)
+				       LPCITEMIDLIST pidl, DWORD dwFlags, LPSTR szOut, DWORD dwOutLen)
 {
     LPITEMIDLIST pidlFirst;
     HRESULT hr = E_INVALIDARG;
 
-    TRACE ("(%p)->(pidl=%p 0x%08x %p 0x%08x)\n", psf, pidl, dwFlags, szOut, dwOutLen);
+    TRACE ("(%p)->(pidl=%p 0x%08lx %p 0x%08lx)\n", psf, pidl, dwFlags, szOut, dwOutLen);
     pdump (pidl);
 
     pidlFirst = ILCloneFirst (pidl);
@@ -326,8 +350,7 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
 
 	    hr = IShellFolder_GetDisplayNameOf (psfChild, pidlNext, dwFlags, &strTemp);
 	    if (SUCCEEDED (hr)) {
-		if(!StrRetToStrNW (szOut, dwOutLen, &strTemp, pidlNext))
-                    hr = E_FAIL;
+		hr = StrRetToStrNA (szOut, dwOutLen, &strTemp, pidlNext);
 	    }
 	    IShellFolder_Release (psfChild);
 	}
@@ -335,7 +358,7 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
     } else
 	hr = E_OUTOFMEMORY;
 
-    TRACE ("-- ret=0x%08x %s\n", hr, debugstr_w(szOut));
+    TRACE ("-- ret=0x%08lx %s\n", hr, szOut);
 
     return hr;
 }
@@ -344,7 +367,7 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
  *  SHELL32_GetItemAttributes
  *
  * NOTES
- * Observed values:
+ * observerd values:
  *  folder:	0xE0000177	FILESYSTEM | HASSUBFOLDER | FOLDER
  *  file:	0x40000177	FILESYSTEM
  *  drive:	0xf0000144	FILESYSTEM | HASSUBFOLDER | FOLDER | FILESYSANCESTOR
@@ -356,13 +379,11 @@ HRESULT SHELL32_GetDisplayNameOfChild (IShellFolder2 * psf,
  *  file:      0x40400177      FILESYSTEM | CANMONIKER
  *  drive      0xF0400154      FILESYSTEM | HASSUBFOLDER | FOLDER | FILESYSANCESTOR | CANMONIKER | CANRENAME (LABEL)
  *
- * According to the MSDN documentation this function should not set flags. It claims only to reset flags when necessary.
- * However it turns out the native shell32.dll _sets_ flags in several cases - so do we.
+ * This function does not set flags!! It only resets flags when necessary.
  */
 HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWORD pdwAttributes)
 {
     DWORD dwAttributes;
-    BOOL has_guid;
     static const DWORD dwSupportedAttr=
                           SFGAO_CANCOPY |           /*0x00000001 */
                           SFGAO_CANMOVE |           /*0x00000002 */
@@ -378,53 +399,31 @@ HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWO
                           SFGAO_FOLDER |            /*0x20000000 */
                           SFGAO_FILESYSTEM |        /*0x40000000 */
                           SFGAO_HASSUBFOLDER;       /*0x80000000 */
-
-    TRACE ("0x%08x\n", *pdwAttributes);
+    
+    TRACE ("0x%08lx\n", *pdwAttributes);
 
     if (*pdwAttributes & ~dwSupportedAttr)
     {
-        WARN ("attributes 0x%08x not implemented\n", (*pdwAttributes & ~dwSupportedAttr));
+        WARN ("attributes 0x%08lx not implemented\n", (*pdwAttributes & ~dwSupportedAttr));
         *pdwAttributes &= dwSupportedAttr;
     }
-
-    has_guid = _ILGetGUIDPointer(pidl) != NULL;
 
     dwAttributes = *pdwAttributes;
 
     if (_ILIsDrive (pidl)) {
         *pdwAttributes &= SFGAO_HASSUBFOLDER|SFGAO_FILESYSTEM|SFGAO_FOLDER|SFGAO_FILESYSANCESTOR|
-	    SFGAO_DROPTARGET|SFGAO_HASPROPSHEET|SFGAO_CANRENAME;
-    } else if (has_guid && HCR_GetFolderAttributes(pidl, &dwAttributes)) {
+	    SFGAO_DROPTARGET|SFGAO_HASPROPSHEET|SFGAO_CANLINK;
+    } else if (_ILGetGUIDPointer (pidl) && HCR_GetFolderAttributes(pidl, &dwAttributes)) {
 	*pdwAttributes = dwAttributes;
     } else if (_ILGetDataPointer (pidl)) {
 	dwAttributes = _ILGetFileAttributes (pidl, NULL, 0);
 
-        if (!dwAttributes && has_guid) {
-	    WCHAR path[MAX_PATH];
-	    STRRET strret;
-
-	    /* File attributes are not present in the internal PIDL structure, so get them from the file system. */
-
-	    HRESULT hr = IShellFolder_GetDisplayNameOf(psf, pidl, SHGDN_FORPARSING, &strret);
-
-	    if (SUCCEEDED(hr)) {
-		hr = StrRetToBufW(&strret, pidl, path, MAX_PATH);
-
-		/* call GetFileAttributes() only for file system paths, not for parsing names like "::{...}" */
-		if (SUCCEEDED(hr) && path[0]!=':')
-		    dwAttributes = GetFileAttributesW(path);
-	    }
-	}
-
         /* Set common attributes */
-        *pdwAttributes |= SFGAO_FILESYSTEM | SFGAO_DROPTARGET | SFGAO_HASPROPSHEET | SFGAO_CANDELETE |
+        *pdwAttributes |= SFGAO_FILESYSTEM | SFGAO_DROPTARGET | SFGAO_HASPROPSHEET | SFGAO_CANDELETE | 
                           SFGAO_CANRENAME | SFGAO_CANLINK | SFGAO_CANMOVE | SFGAO_CANCOPY;
 
 	if (dwAttributes & FILE_ATTRIBUTE_DIRECTORY)
-	{
 	    *pdwAttributes |=  (SFGAO_FOLDER | SFGAO_HASSUBFOLDER | SFGAO_FILESYSANCESTOR);
-		*pdwAttributes &= ~SFGAO_CANLINK;
-	}
 	else
 	    *pdwAttributes &= ~(SFGAO_FOLDER | SFGAO_HASSUBFOLDER | SFGAO_FILESYSANCESTOR);
 
@@ -463,7 +462,7 @@ HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWO
     } else {
 	*pdwAttributes &= SFGAO_HASSUBFOLDER|SFGAO_FOLDER|SFGAO_FILESYSANCESTOR|SFGAO_DROPTARGET|SFGAO_HASPROPSHEET|SFGAO_CANRENAME|SFGAO_CANLINK;
     }
-    TRACE ("-- 0x%08x\n", *pdwAttributes);
+    TRACE ("-- 0x%08lx\n", *pdwAttributes);
     return S_OK;
 }
 
@@ -544,21 +543,5 @@ HRESULT WINAPI SHCreateLinks( HWND hWnd, LPCSTR lpszDir, LPDATAOBJECT lpDataObje
                               UINT uFlags, LPITEMIDLIST *lppidlLinks)
 {
     FIXME("%p %s %p %08x %p\n",hWnd,lpszDir,lpDataObject,uFlags,lppidlLinks);
-    return E_NOTIMPL;
-}
-
-/***********************************************************************
- *  SHOpenFolderAndSelectItems
- *
- *   Unimplemented.
- */
-HRESULT
-WINAPI
-SHOpenFolderAndSelectItems(PCIDLIST_ABSOLUTE pidlFolder,
-                           UINT cidl,
-                           PCUITEMID_CHILD_ARRAY *apidl,
-                           DWORD dwFlags)
-{
-    FIXME("SHOpenFolderAndSelectItems() stub\n");
     return E_NOTIMPL;
 }

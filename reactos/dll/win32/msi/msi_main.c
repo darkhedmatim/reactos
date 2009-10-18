@@ -27,7 +27,6 @@
 #include "winbase.h"
 #include "winreg.h"
 #include "shlwapi.h"
-#include "oleauto.h"
 #include "msipriv.h"
 
 #include "wine/debug.h"
@@ -46,9 +45,6 @@ LPVOID gUIContext = NULL;
 WCHAR gszLogFile[MAX_PATH];
 HINSTANCE msi_hInstance;
 
-static WCHAR msi_path[MAX_PATH];
-static ITypeLib *msi_typelib;
-
 /*
  * Dll lifetime tracking declaration
  */
@@ -63,7 +59,7 @@ static void UnlockModule(void)
 }
 
 /******************************************************************
- *      DllMain
+ *    	DllMain
  */
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -72,9 +68,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     case DLL_PROCESS_ATTACH:
         msi_hInstance = hinstDLL;
         DisableThreadLibraryCalls(hinstDLL);
+        msi_dialog_register_class();
         break;
     case DLL_PROCESS_DETACH:
-        if (msi_typelib) ITypeLib_Release( msi_typelib );
         msi_dialog_unregister_class();
         msi_free_handle_table();
         break;
@@ -82,58 +78,16 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     return TRUE;
 }
 
-static CRITICAL_SECTION MSI_typelib_cs;
-static CRITICAL_SECTION_DEBUG MSI_typelib_cs_debug =
+typedef struct tagIClassFactoryImpl
 {
-    0, 0, &MSI_typelib_cs,
-    { &MSI_typelib_cs_debug.ProcessLocksList,
-      &MSI_typelib_cs_debug.ProcessLocksList },
-      0, 0, { (DWORD_PTR)(__FILE__ ": MSI_typelib_cs") }
-};
-static CRITICAL_SECTION MSI_typelib_cs = { &MSI_typelib_cs_debug, -1, 0, 0, 0, 0 };
-
-ITypeLib *get_msi_typelib( LPWSTR *path )
-{
-    EnterCriticalSection( &MSI_typelib_cs );
-
-    if (!msi_typelib)
-    {
-        TRACE("loading typelib\n");
-
-        if (GetModuleFileNameW( msi_hInstance, msi_path, MAX_PATH ))
-            LoadTypeLib( msi_path, &msi_typelib );
-    }
-
-    LeaveCriticalSection( &MSI_typelib_cs );
-
-    if (path)
-        *path = msi_path;
-
-    if (msi_typelib)
-        ITypeLib_AddRef( msi_typelib );
-
-    return msi_typelib;
-}
-
-typedef struct tagIClassFactoryImpl {
     const IClassFactoryVtbl *lpVtbl;
-    HRESULT (*create_object)( IUnknown*, LPVOID* );
 } IClassFactoryImpl;
 
 static HRESULT WINAPI MsiCF_QueryInterface(LPCLASSFACTORY iface,
                 REFIID riid,LPVOID *ppobj)
 {
     IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-
-    TRACE("%p %s %p\n",This,debugstr_guid(riid),ppobj);
-
-    if( IsEqualCLSID( riid, &IID_IUnknown ) ||
-        IsEqualCLSID( riid, &IID_IClassFactory ) )
-    {
-        IClassFactory_AddRef( iface );
-        *ppobj = iface;
-        return S_OK;
-    }
+    FIXME("%p %s %p\n",This,debugstr_guid(riid),ppobj);
     return E_NOINTERFACE;
 }
 
@@ -153,18 +107,9 @@ static HRESULT WINAPI MsiCF_CreateInstance(LPCLASSFACTORY iface,
     LPUNKNOWN pOuter, REFIID riid, LPVOID *ppobj)
 {
     IClassFactoryImpl *This = (IClassFactoryImpl *)iface;
-    IUnknown *unk = NULL;
-    HRESULT r;
 
-    TRACE("%p %p %s %p\n", This, pOuter, debugstr_guid(riid), ppobj);
-
-    r = This->create_object( pOuter, (LPVOID*) &unk );
-    if (SUCCEEDED(r))
-    {
-        r = IUnknown_QueryInterface( unk, riid, ppobj );
-        IUnknown_Release( unk );
-    }
-    return r;
+    FIXME("%p %p %s %p\n", This, pOuter, debugstr_guid(riid), ppobj);
+    return E_FAIL;
 }
 
 static HRESULT WINAPI MsiCF_LockServer(LPCLASSFACTORY iface, BOOL dolock)
@@ -188,9 +133,7 @@ static const IClassFactoryVtbl MsiCF_Vtbl =
     MsiCF_LockServer
 };
 
-static IClassFactoryImpl MsiServer_CF = { &MsiCF_Vtbl, create_msiserver };
-static IClassFactoryImpl WineMsiCustomRemote_CF = { &MsiCF_Vtbl, create_msi_custom_remote };
-static IClassFactoryImpl WineMsiRemotePackage_CF = { &MsiCF_Vtbl, create_msi_remote_package };
+static IClassFactoryImpl Msi_CF = { &MsiCF_Vtbl };
 
 /******************************************************************
  * DllGetClassObject          [MSI.@]
@@ -199,32 +142,15 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
     TRACE("%s %s %p\n", debugstr_guid(rclsid), debugstr_guid(riid), ppv);
 
-    if ( IsEqualCLSID (rclsid, &CLSID_IMsiServerX2) )
-    {
-        *ppv = &MsiServer_CF;
-        return S_OK;
-    }
-
-    if ( IsEqualCLSID (rclsid, &CLSID_IWineMsiRemoteCustomAction) )
-    {
-        *ppv = &WineMsiCustomRemote_CF;
-        return S_OK;
-    }
-
-    if ( IsEqualCLSID (rclsid, &CLSID_IWineMsiRemotePackage) )
-    {
-        *ppv = &WineMsiRemotePackage_CF;
-        return S_OK;
-    }
-
-    if( IsEqualCLSID (rclsid, &CLSID_IMsiServerMessage) ||
-        IsEqualCLSID (rclsid, &CLSID_IMsiServer) ||
+    if( IsEqualCLSID (rclsid, &CLSID_IMsiServer) ||
+        IsEqualCLSID (rclsid, &CLSID_IMsiServerMessage) ||
         IsEqualCLSID (rclsid, &CLSID_IMsiServerX1) ||
+        IsEqualCLSID (rclsid, &CLSID_IMsiServerX2) ||
         IsEqualCLSID (rclsid, &CLSID_IMsiServerX3) )
     {
-        FIXME("create %s object\n", debugstr_guid( rclsid ));
+        *ppv = (LPVOID) &Msi_CF;
+        return S_OK;
     }
-
     return CLASS_E_CLASSNOTAVAILABLE;
 }
 
