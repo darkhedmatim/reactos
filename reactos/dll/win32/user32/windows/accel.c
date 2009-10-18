@@ -165,7 +165,6 @@ BOOL WINAPI U32IsValidAccelMessage(UINT uMsg)
   case WM_KEYDOWN:
   case WM_KEYUP:
   case WM_CHAR:
-  case WM_SYSCHAR:
   case WM_SYSKEYDOWN:
   case WM_SYSKEYUP:
    return TRUE;
@@ -265,6 +264,29 @@ int WINAPI TranslateAcceleratorW(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg)
  if(!U32IsValidAccelMessage(lpMsg->message)) return 0;
 
  return NtUserTranslateAccelerator(hWnd, hAccTable, lpMsg);
+}
+
+/*
+ * @implemented
+ */
+int WINAPI CopyAcceleratorTableW
+(
+ HACCEL hAccelSrc,
+ LPACCEL lpAccelDst,
+ int cAccelEntries
+)
+{
+ return NtUserCopyAcceleratorTable(hAccelSrc, lpAccelDst, cAccelEntries);
+}
+
+/*
+ * @implemented
+ */
+HACCEL WINAPI CreateAcceleratorTableW(LPACCEL lpaccl, int cEntries)
+{
+ if (!cEntries || !lpaccl) return (HACCEL)0;
+
+ return NtUserCreateAcceleratorTable(lpaccl, cEntries);
 }
 
 

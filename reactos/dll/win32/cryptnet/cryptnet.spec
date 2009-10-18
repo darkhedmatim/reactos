@@ -1,14 +1,14 @@
 @ stub CertDllVerifyCTLUsage
-@ stdcall CertDllVerifyRevocation(long long long ptr long ptr ptr)
+@ stub CertDllVerifyRevocation
 @ stub CryptnetWlxLogoffEvent
 @ stub LdapProvOpenStore
 @ stub CryptCancelAsyncRetrieval
 @ stub CryptFlushTimeValidObject
-@ stdcall CryptGetObjectUrl(ptr ptr long ptr ptr ptr ptr ptr)
+@ stub CryptGetObjectUrl
 @ stub CryptGetTimeValidObject
 @ stub CryptInstallCancelRetrieval
-@ stdcall CryptRetrieveObjectByUrlA(str str long long ptr ptr ptr ptr ptr)
-@ stdcall CryptRetrieveObjectByUrlW(wstr str long long ptr ptr ptr ptr ptr)
+@ stub CryptRetrieveObjectByUrlA
+@ stub CryptRetrieveObjectByUrlW
 @ stub CryptUninstallCancelRetrieval
 @ stdcall -private DllRegisterServer()
 @ stdcall -private DllUnregisterServer()

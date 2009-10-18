@@ -1,3 +1,4 @@
+
 /*
  * PROJECT:     ReactOS System Control Panel Applet
  * LICENSE:     GPL - See COPYING in the top level directory
@@ -9,200 +10,166 @@
  */
 
 #include "precomp.h"
+static TCHAR m_szFreeldrIni[MAX_PATH + 15];
+static int m_FreeLdrIni = 0;
+static TCHAR m_szDumpFile[MAX_PATH];
+static TCHAR m_szMinidumpDir[MAX_PATH];
+static DWORD m_dwCrashDumpEnabled = 0;
 
-typedef struct _STARTINFO
-{
-    WCHAR szFreeldrIni[MAX_PATH + 15];
-    WCHAR szDumpFile[MAX_PATH];
-    WCHAR szMinidumpDir[MAX_PATH];
-    DWORD dwCrashDumpEnabled;
-    INT iFreeLdrIni;
-} STARTINFO, *PSTARTINFO;
-
-
-static VOID
-SetTimeout(HWND hwndDlg, INT Timeout)
+void SetTimeout(HWND hwndDlg, int Timeout)
 {
     if (Timeout == 0)
     {
         EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECLISTUPDWN), FALSE);
-        EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECLISTEDIT), FALSE);
     }
     else
     {
         EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECLISTUPDWN), TRUE);
-        EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECLISTEDIT), TRUE);
     }
-    SendDlgItemMessageW(hwndDlg, IDC_STRRECLISTUPDWN, UDM_SETRANGE, (WPARAM) 0, (LPARAM) MAKELONG((short) 999, 0));
-    SendDlgItemMessageW(hwndDlg, IDC_STRRECLISTUPDWN, UDM_SETPOS, (WPARAM) 0, (LPARAM) MAKELONG((short) Timeout, 0));
+    SendDlgItemMessage(hwndDlg, IDC_STRRECLISTUPDWN, UDM_SETPOS, (WPARAM) 0, (LPARAM) MAKELONG((short) Timeout, 0));
 }
 
-static VOID
-SetRecoveryTimeout(HWND hwndDlg, INT Timeout)
-{
-    if (Timeout == 0)
-    {
-        EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECRECUPDWN), FALSE);
-        EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECRECEDIT), FALSE);
-    }
-    else
-    {
-        EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECRECUPDWN), TRUE);
-        EnableWindow(GetDlgItem(hwndDlg, IDC_STRRECRECEDIT), TRUE);
-    }
-    SendDlgItemMessageW(hwndDlg, IDC_STRRECRECUPDWN, UDM_SETRANGE, (WPARAM) 0, (LPARAM) MAKELONG((short) 999, 0));
-    SendDlgItemMessageW(hwndDlg, IDC_STRRECRECUPDWN, UDM_SETPOS, (WPARAM) 0, (LPARAM) MAKELONG((short) Timeout, 0));
-}
-
-
-static DWORD
-GetSystemDrive(WCHAR **szSystemDrive)
+DWORD GetSystemDrive(TCHAR ** szSystemDrive)
 {
     DWORD dwBufSize;
-
     /* get Path to freeldr.ini or boot.ini */
-    *szSystemDrive = HeapAlloc(GetProcessHeap(), 0, MAX_PATH * sizeof(WCHAR));
-    if (*szSystemDrive != NULL)
+    *szSystemDrive = HeapAlloc(GetProcessHeap(), 0, MAX_PATH * sizeof(TCHAR));
+    if (szSystemDrive != NULL)
     {
-        dwBufSize = GetEnvironmentVariableW(L"SystemDrive", *szSystemDrive, MAX_PATH);
+        dwBufSize = GetEnvironmentVariable(_T("SystemDrive"), *szSystemDrive, MAX_PATH);
         if (dwBufSize > MAX_PATH)
         {
-            WCHAR *szTmp;
+            TCHAR *szTmp;
             DWORD dwBufSize2;
 
-            szTmp = HeapReAlloc(GetProcessHeap(), 0, *szSystemDrive, dwBufSize * sizeof(WCHAR));
+            szTmp = HeapReAlloc(GetProcessHeap(), 0, *szSystemDrive, dwBufSize * sizeof(TCHAR));
             if (szTmp == NULL)
                 goto FailGetSysDrive;
 
             *szSystemDrive = szTmp;
 
-            dwBufSize2 = GetEnvironmentVariableW(L"SystemDrive", *szSystemDrive, dwBufSize);
+            dwBufSize2 = GetEnvironmentVariable(_T("SystemDrive"), *szSystemDrive, dwBufSize);
             if (dwBufSize2 > dwBufSize || dwBufSize2 == 0)
                 goto FailGetSysDrive;
         }
         else if (dwBufSize == 0)
         {
 FailGetSysDrive:
-            HeapFree(GetProcessHeap(), 0, *szSystemDrive);
+            HeapFree(GetProcessHeap(), 0, szSystemDrive);
             *szSystemDrive = NULL;
-            return 0;
+            return FALSE;
         }
-
         return dwBufSize;
     }
-
-    return 0;
+    return FALSE;
 }
 
-static PBOOTRECORD
-ReadFreeldrSection(HINF hInf, WCHAR *szSectionName)
+PBOOTRECORD ReadFreeldrSection(HINF hInf, TCHAR * szSectionName)
 {
-    PBOOTRECORD pRecord;
-    INFCONTEXT InfContext;
-    WCHAR szName[MAX_PATH];
-    WCHAR szValue[MAX_PATH];
-    DWORD LineLength;
+   PBOOTRECORD pRecord;
+   INFCONTEXT InfContext;
+   TCHAR szName[MAX_PATH];
+   TCHAR szValue[MAX_PATH];
+   DWORD LineLength;
 
-    if (!SetupFindFirstLineW(hInf,
-                            szSectionName,
-                            NULL,
-                            &InfContext))
-    {
-        /* failed to find section */
-        return NULL;
-    }
+   if (!SetupFindFirstLine(hInf,
+                          szSectionName,
+                          NULL,
+                          &InfContext))
+   {
+       /* failed to find section */
+       return NULL;
+   }
 
-    pRecord = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(BOOTRECORD));
-    if (pRecord == NULL)
-    {
-        return NULL;
-    }
-
-    wcscpy(pRecord->szSectionName, szSectionName);
+   pRecord = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(BOOTRECORD));
+   if (pRecord == NULL)
+   {
+      return NULL;
+   }
+   _tcscpy(pRecord->szSectionName, szSectionName);
 
     do
     {
-        if (!SetupGetStringFieldW(&InfContext,
+        if (!SetupGetStringField(&InfContext,
                                   0,
                                   szName,
-                                  sizeof(szName) / sizeof(WCHAR),
+                                  sizeof(szName) / sizeof(TCHAR),
                                   &LineLength))
         {
             break;
         }
 
-        if (!SetupGetStringFieldW(&InfContext,
+        if (!SetupGetStringField(&InfContext,
                                   1,
                                   szValue,
-                                  sizeof(szValue) / sizeof(WCHAR),
+                                  sizeof(szValue) / sizeof(TCHAR),
                                   &LineLength))
         {
             break;
         }
 
-        if (!_wcsnicmp(szName, L"BootType", 8))
+
+        if (!_tcsnicmp(szName, _T("BootType"), 8))
         {
-            if (!_wcsnicmp(szValue, L"ReactOS", 7))
+            if (!_tcsnicmp(szValue, _T("ReactOS"), 7))
             {
                 //FIXME store as enum
-                pRecord->BootType = 1;
+                pRecord->BootType = 1; 
             }
             else
             {
                 pRecord->BootType = 0;
             }
         }
-        else if (!_wcsnicmp(szName, L"SystemPath", 10))
+        else if (!_tcsnicmp(szName, _T("SystemPath"), 10))
         {
-            wcscpy(pRecord->szBootPath, szValue);
+            _tcscpy(pRecord->szBootPath, szValue);
         }
-        else if (!_wcsnicmp(szName, L"Options", 7))
+        else if (!_tcsnicmp(szName, _T("Options"), 7))
         {
             //FIXME store flags as values
-            wcscpy(pRecord->szOptions, szValue);
+            _tcscpy(pRecord->szOptions, szValue);
         }
 
-    }
-    while (SetupFindNextLine(&InfContext, &InfContext));
+    }while(SetupFindNextLine(&InfContext, &InfContext));
 
     return pRecord;
 }
 
 
-static INT
-LoadFreeldrSettings(HINF hInf, HWND hwndDlg)
+int LoadFreeldrSettings(HINF hInf, HWND hwndDlg)
 {
     INFCONTEXT InfContext;
     PBOOTRECORD pRecord;
-    WCHAR szDefaultOs[MAX_PATH];
-    WCHAR szName[MAX_PATH];
-    WCHAR szValue[MAX_PATH];
+    TCHAR szDefaultOs[MAX_PATH];
+    TCHAR szName[MAX_PATH];
+    TCHAR szValue[MAX_PATH];
     DWORD LineLength;
     DWORD TimeOut;
     LRESULT lResult;
 
-    if (!SetupFindFirstLineW(hInf,
-                           L"FREELOADER",
-                           L"DefaultOS",
+    if (!SetupFindFirstLine(hInf,
+                           _T("FREELOADER"),
+                           _T("DefaultOS"),
                            &InfContext))
     {
         /* failed to find default os */
         return FALSE;
     }
 
-    if (!SetupGetStringFieldW(&InfContext,
+    if (!SetupGetStringField(&InfContext,
                              1,
                              szDefaultOs,
-                             sizeof(szDefaultOs) / sizeof(WCHAR),
+                             sizeof(szDefaultOs) / sizeof(TCHAR),
                              &LineLength))
     {
         /* no key */
         return FALSE;
     }
 
-    if (!SetupFindFirstLineW(hInf,
-                           L"FREELOADER",
-                           L"TimeOut",
+    if (!SetupFindFirstLine(hInf,
+                           _T("FREELOADER"),
+                           _T("TimeOut"),
                            &InfContext))
     {
         /* expected to find timeout value */
@@ -210,16 +177,16 @@ LoadFreeldrSettings(HINF hInf, HWND hwndDlg)
     }
 
 
-    if (!SetupGetIntField(&InfContext,
+    if (!SetupGetIntField(&InfContext, 
                           1,
                           (PINT)&TimeOut))
     {
         /* failed to retrieve timeout */
         return FALSE;
     }
-
-    if (!SetupFindFirstLineW(hInf,
-                           L"Operating Systems",
+    
+    if (!SetupFindFirstLine(hInf,
+                           _T("Operating Systems"),
                            NULL,
                            &InfContext))
     {
@@ -229,20 +196,20 @@ LoadFreeldrSettings(HINF hInf, HWND hwndDlg)
 
     do
     {
-        if (!SetupGetStringFieldW(&InfContext,
+        if (!SetupGetStringField(&InfContext,
                                  0,
                                  szName,
-                                 sizeof(szName) / sizeof(WCHAR),
+                                 sizeof(szName) / sizeof(TCHAR),
                                  &LineLength))
         {
             /* the ini file is messed up */
             return FALSE;
         }
 
-        if (!SetupGetStringFieldW(&InfContext,
+        if (!SetupGetStringField(&InfContext,
                                  1,
                                  szValue,
-                                 sizeof(szValue) / sizeof(WCHAR),
+                                 sizeof(szValue) / sizeof(TCHAR),
                                  &LineLength))
         {
             /* the ini file is messed up */
@@ -252,57 +219,55 @@ LoadFreeldrSettings(HINF hInf, HWND hwndDlg)
         pRecord = ReadFreeldrSection(hInf, szName);
         if (pRecord)
         {
-            lResult = SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM)szValue);
+            lResult = SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM)szValue);
             if (lResult != CB_ERR)
             {
-                SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_SETITEMDATA, (WPARAM)lResult, (LPARAM)pRecord);
-                if (!wcscmp(szDefaultOs, szName))
+                SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_SETITEMDATA, (WPARAM)lResult, (LPARAM)pRecord);
+                if (!_tcscmp(szDefaultOs, szName))
                 {
                     /* we store the friendly name as key */
-                    wcscpy(szDefaultOs, szValue);
+                    _tcscpy(szDefaultOs, szValue);
                 }
+
             }
             else
             {
                HeapFree(GetProcessHeap(), 0, pRecord);
             }
         }
-    }
-    while (SetupFindNextLine(&InfContext, &InfContext));
+
+    }while(SetupFindNextLine(&InfContext, &InfContext));
 
     /* find default os in list */
-    lResult = SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_FINDSTRING, (WPARAM)-1, (LPARAM)szDefaultOs);
+    lResult = SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_FINDSTRING, (WPARAM)-1, (LPARAM)szDefaultOs);
     if (lResult != CB_ERR)
     {
        /* set cur sel */
-       SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_SETCURSEL, (WPARAM)lResult, (LPARAM)0);
+       SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_SETCURSEL, (WPARAM)lResult, (LPARAM)0);
     }
 
     if(TimeOut)
     {
-        SendDlgItemMessageW(hwndDlg, IDC_STRECLIST, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+        SendDlgItemMessage(hwndDlg, IDC_STRECLIST, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
     }
-
     SetTimeout(hwndDlg, TimeOut);
-
     return TRUE;
 }
 
-static INT
-LoadBootSettings(HINF hInf, HWND hwndDlg)
+int LoadBootSettings(HINF hInf, HWND hwndDlg)
 {
     INFCONTEXT InfContext;
-    WCHAR szName[MAX_PATH];
-    WCHAR szValue[MAX_PATH];
+    TCHAR szName[MAX_PATH];
+    TCHAR szValue[MAX_PATH];
     DWORD LineLength;
     DWORD TimeOut = 0;
-    WCHAR szDefaultOS[MAX_PATH];
-    WCHAR szOptions[MAX_PATH];
+    TCHAR szDefaultOS[MAX_PATH];
+    TCHAR szOptions[MAX_PATH];
     PBOOTRECORD pRecord;
     LRESULT lResult;
 
-    if(!SetupFindFirstLineW(hInf,
-                           L"boot loader",
+    if(!SetupFindFirstLine(hInf,
+                           _T("boot loader"),
                            NULL,
                            &InfContext))
     {
@@ -311,39 +276,38 @@ LoadBootSettings(HINF hInf, HWND hwndDlg)
 
     do
     {
-        if (!SetupGetStringFieldW(&InfContext,
-                                 0,
+        if (!SetupGetStringField(&InfContext, 
+                                 0, 
                                  szName,
-                                 sizeof(szName) / sizeof(WCHAR),
+                                 sizeof(szName) / sizeof(TCHAR),
                                  &LineLength))
         {
             return FALSE;
         }
 
-        if (!SetupGetStringFieldW(&InfContext,
-                                 1,
+        if (!SetupGetStringField(&InfContext, 
+                                 1, 
                                  szValue,
-                                 sizeof(szValue) / sizeof(WCHAR),
+                                 sizeof(szValue) / sizeof(TCHAR),
                                  &LineLength))
         {
             return FALSE;
         }
 
-        if (!_wcsnicmp(szName, L"timeout", 7))
+        if (!_tcsnicmp(szName, _T("timeout"), 7))
         {
-            TimeOut = _wtoi(szValue);
+            TimeOut = _ttoi(szValue);
+        }
+        
+        if (!_tcsnicmp(szName, _T("default"), 7))
+        {
+            _tcscpy(szDefaultOS, szValue);
         }
 
-        if (!_wcsnicmp(szName, L"default", 7))
-        {
-            wcscpy(szDefaultOS, szValue);
-        }
+    }while(SetupFindNextLine(&InfContext, &InfContext));
 
-    }
-    while (SetupFindNextLine(&InfContext, &InfContext));
-
-    if (!SetupFindFirstLineW(hInf,
-                            L"operating systems",
+    if (!SetupFindFirstLine(hInf,
+                            _T("operating systems"),
                             NULL,
                             &InfContext))
     {
@@ -353,48 +317,48 @@ LoadBootSettings(HINF hInf, HWND hwndDlg)
 
     do
     {
-        if (!SetupGetStringFieldW(&InfContext,
-                                 0,
+        if (!SetupGetStringField(&InfContext, 
+                                 0, 
                                  szName,
-                                 sizeof(szName) / sizeof(WCHAR),
+                                 sizeof(szName) / sizeof(TCHAR),
                                  &LineLength))
         {
             return FALSE;
         }
 
-        if (!SetupGetStringFieldW(&InfContext,
-                                 1,
+        if (!SetupGetStringField(&InfContext, 
+                                 1, 
                                  szValue,
-                                 sizeof(szValue) / sizeof(WCHAR),
+                                 sizeof(szValue) / sizeof(TCHAR),
                                  &LineLength))
         {
             return FALSE;
         }
 
-        SetupGetStringFieldW(&InfContext,
-                            2,
+        SetupGetStringField(&InfContext, 
+                            2, 
                             szOptions,
-                            sizeof(szOptions) / sizeof(WCHAR),
+                            sizeof(szOptions) / sizeof(TCHAR),
                             &LineLength);
 
         pRecord = (PBOOTRECORD) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(BOOTRECORD));
         if (pRecord)
         {
             pRecord->BootType = 0;
-            wcscpy(pRecord->szBootPath, szName);
-            wcscpy(pRecord->szSectionName, szValue);
-            wcscpy(pRecord->szOptions, szOptions);
+            _tcscpy(pRecord->szBootPath, szName);
+            _tcscpy(pRecord->szSectionName, szValue);
+            _tcscpy(pRecord->szOptions, szOptions);
 
-            if (!wcscmp(szName, szDefaultOS))
+            if (!_tcscmp(szName, szDefaultOS))
             {
                 /* ms boot ini stores the path not the friendly name */
-                wcscpy(szDefaultOS, szValue);
+                _tcscpy(szDefaultOS, szValue);
             }
 
-            lResult = SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM)szValue);
+            lResult = SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM)szValue);
             if (lResult != CB_ERR)
             {
-                SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_SETITEMDATA, (WPARAM)lResult, (LPARAM)pRecord);
+                SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_SETITEMDATA, (WPARAM)lResult, (LPARAM)pRecord);
             }
             else
             {
@@ -402,70 +366,62 @@ LoadBootSettings(HINF hInf, HWND hwndDlg)
             }
         }
 
-    }
-    while (SetupFindNextLine(&InfContext, &InfContext));
-
+    }while(SetupFindNextLine(&InfContext, &InfContext));
     /* find default os in list */
-    lResult = SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_FINDSTRING, (WPARAM)0, (LPARAM)szDefaultOS);
+    lResult = SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_FINDSTRING, (WPARAM)0, (LPARAM)szDefaultOS);
     if (lResult != CB_ERR)
     {
        /* set cur sel */
-       SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_SETCURSEL, (WPARAM)lResult, (LPARAM)0);
+       SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_SETCURSEL, (WPARAM)lResult, (LPARAM)0);
     }
-
     if(TimeOut)
     {
-        SendDlgItemMessageW(hwndDlg, IDC_STRECLIST, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+        SendDlgItemMessage(hwndDlg, IDC_STRECLIST, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
     }
 
     SetTimeout(hwndDlg, TimeOut);
-
     return TRUE;
 }
 
-static VOID
-DeleteBootRecords(HWND hwndDlg)
+void DeleteBootRecords(HWND hwndDlg)
 {
     LRESULT lIndex;
     LONG index;
     PBOOTRECORD pRecord;
 
-    lIndex = SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_GETCOUNT, (WPARAM)0, (LPARAM)0);
+
+    lIndex = SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_GETCOUNT, (WPARAM)0, (LPARAM)0);
     if (lIndex == CB_ERR)
         return;
 
     for (index = 0; index <lIndex; index++)
     {
-        pRecord = (PBOOTRECORD) SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_GETITEMDATA, (WPARAM)index, (LPARAM)0);
-        if ((INT_PTR)pRecord != CB_ERR)
+        pRecord = (PBOOTRECORD) SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_GETITEMDATA, (WPARAM)index, (LPARAM)0);
+        if ((INT)pRecord != CB_ERR)
         {
             HeapFree(GetProcessHeap(), 0, pRecord);
         }
     }
-
-    SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_RESETCONTENT, (WPARAM)0, (LPARAM)0);
+    SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_RESETCONTENT, (WPARAM)0, (LPARAM)0);
 }
 
-static LRESULT
-LoadOSList(HWND hwndDlg, PSTARTINFO pStartInfo)
+LRESULT LoadOSList(HWND hwndDlg)
 {
     DWORD dwBufSize;
-    WCHAR *szSystemDrive;
+    TCHAR *szSystemDrive;
     HINF hInf;
-
+       
     dwBufSize = GetSystemDrive(&szSystemDrive);
-    if (dwBufSize == 0)
+    if (!dwBufSize)
         return FALSE;
+    
 
-    wcscpy(pStartInfo->szFreeldrIni, szSystemDrive);
-    wcscat(pStartInfo->szFreeldrIni, L"\\freeldr.ini");
-
-    if (PathFileExistsW(pStartInfo->szFreeldrIni))
+    _tcscpy(m_szFreeldrIni, szSystemDrive);
+    _tcscat(m_szFreeldrIni, _T("\\freeldr.ini"));
+    if (PathFileExists(m_szFreeldrIni))
     {
-        /* free resource previously allocated by GetSystemDrive() */
-        HeapFree(GetProcessHeap(), 0, szSystemDrive);
         /* freeldr.ini exists */
-        hInf = SetupOpenInfFileW(pStartInfo->szFreeldrIni,
+        hInf = SetupOpenInfFile(m_szFreeldrIni, 
                                 NULL,
                                 INF_STYLE_OLDNT,
                                 NULL);
@@ -474,23 +430,19 @@ LoadOSList(HWND hwndDlg, PSTARTINFO pStartInfo)
         {
             LoadFreeldrSettings(hInf, hwndDlg);
             SetupCloseInfFile(hInf);
-            pStartInfo->iFreeLdrIni = 1;
+            m_FreeLdrIni = 1;
             return TRUE;
         }
         return FALSE;
     }
-
     /* try load boot.ini settings */
-    wcscpy(pStartInfo->szFreeldrIni, szSystemDrive);
-    wcscat(pStartInfo->szFreeldrIni, L"\\boot.ini");
+    _tcscpy(m_szFreeldrIni, szSystemDrive);
+    _tcscat(m_szFreeldrIni, _T("\\boot.ini"));
 
-    /* free resource previously allocated by GetSystemDrive() */
-    HeapFree(GetProcessHeap(), 0, szSystemDrive);
-
-    if (PathFileExistsW(pStartInfo->szFreeldrIni))
+    if (PathFileExists(m_szFreeldrIni))
     {
         /* load boot.ini settings */
-        hInf = SetupOpenInfFileW(pStartInfo->szFreeldrIni,
+        hInf = SetupOpenInfFile(m_szFreeldrIni, 
                                 NULL,
                                 INF_STYLE_OLDNT,
                                 NULL);
@@ -499,50 +451,45 @@ LoadOSList(HWND hwndDlg, PSTARTINFO pStartInfo)
         {
             LoadBootSettings(hInf, hwndDlg);
             SetupCloseInfFile(hInf);
-            pStartInfo->iFreeLdrIni = 2;
+            m_FreeLdrIni = 2;
             return TRUE;
         }
-
         return FALSE;
     }
-
     return FALSE;
 }
 
-static VOID
-SetCrashDlgItems(HWND hwnd, PSTARTINFO pStartInfo)
+void SetCrashDlgItems(HWND hwnd)
 {
-    if (pStartInfo->dwCrashDumpEnabled == 0)
+    if (m_dwCrashDumpEnabled == 0)
     {
         /* no crash information required */
         EnableWindow(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), FALSE);
         EnableWindow(GetDlgItem(hwnd, IDC_STRRECOVERWRITE), FALSE);
     }
-    else if (pStartInfo->dwCrashDumpEnabled == 3)
+    else if (m_dwCrashDumpEnabled == 3)
     {
         /* minidump type */
         EnableWindow(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), TRUE);
         EnableWindow(GetDlgItem(hwnd, IDC_STRRECOVERWRITE), FALSE);
-        SendMessageW(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), WM_SETTEXT, (WPARAM)0, (LPARAM)pStartInfo->szMinidumpDir);
+        SendMessage(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), WM_SETTEXT, (WPARAM)0, (LPARAM)m_szMinidumpDir);
     }
-    else if (pStartInfo->dwCrashDumpEnabled == 1 || pStartInfo->dwCrashDumpEnabled == 2)
+    else if (m_dwCrashDumpEnabled == 1 || m_dwCrashDumpEnabled == 2)
     {
         /* kernel or complete dump */
         EnableWindow(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), TRUE);
         EnableWindow(GetDlgItem(hwnd, IDC_STRRECOVERWRITE), TRUE);
-        SendMessageW(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), WM_SETTEXT, (WPARAM)0, (LPARAM)pStartInfo->szDumpFile);
+        SendMessage(GetDlgItem(hwnd, IDC_STRRECDUMPFILE), WM_SETTEXT, (WPARAM)0, (LPARAM)m_szDumpFile);
     }
-    SendDlgItemMessageW(hwnd, IDC_STRRECDEBUGCOMBO, CB_SETCURSEL, (WPARAM)pStartInfo->dwCrashDumpEnabled, (LPARAM)0);
+    SendDlgItemMessage(hwnd, IDC_STRRECDEBUGCOMBO, CB_SETCURSEL, (WPARAM)m_dwCrashDumpEnabled, (LPARAM)0);
 }
 
-static VOID
-WriteStartupRecoveryOptions(HWND hwndDlg, PSTARTINFO pStartInfo)
+void WriteStartupRecoveryOptions(HWND hwndDlg)
 {
     HKEY hKey;
     DWORD lResult;
-
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                     L"System\\CurrentControlSet\\Control\\CrashControl",
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                     _T("System\\CurrentControlSet\\Control\\CrashControl"),
                      0,
                      KEY_WRITE,
                      &hKey) != ERROR_SUCCESS)
@@ -552,42 +499,43 @@ WriteStartupRecoveryOptions(HWND hwndDlg, PSTARTINFO pStartInfo)
     }
 
     lResult = (DWORD) SendDlgItemMessage(hwndDlg, IDC_STRRECWRITEEVENT, BM_GETCHECK, (WPARAM)0, (LPARAM)0);
-    RegSetValueExW(hKey, L"LogEvent", 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
+    RegSetValueEx(hKey, _T("LogEvent"), 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
 
     lResult = (DWORD) SendDlgItemMessage(hwndDlg, IDC_STRRECSENDALERT, BM_GETCHECK, (WPARAM)0, (LPARAM)0);
-    RegSetValueExW(hKey, L"SendAlert", 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
+    RegSetValueEx(hKey, _T("SendAlert"), 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
 
     lResult = (DWORD) SendDlgItemMessage(hwndDlg, IDC_STRRECRESTART, BM_GETCHECK, (WPARAM)0, (LPARAM)0);
-    RegSetValueExW(hKey, L"AutoReboot", 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
+    RegSetValueEx(hKey, _T("AutoReboot"), 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
 
     lResult = (DWORD) SendDlgItemMessage(hwndDlg, IDC_STRRECOVERWRITE, BM_GETCHECK, (WPARAM)0, (LPARAM)0);
-    RegSetValueExW(hKey, L"Overwrite", 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
+    RegSetValueEx(hKey, _T("Overwrite"), 0, REG_DWORD, (LPBYTE)&lResult, sizeof(lResult));
 
 
-    if (pStartInfo->dwCrashDumpEnabled == 1 || pStartInfo->dwCrashDumpEnabled == 2)
+    if (m_dwCrashDumpEnabled == 1 || m_dwCrashDumpEnabled == 2)
     {
-        SendDlgItemMessage(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(pStartInfo->szDumpFile) / sizeof(WCHAR), (LPARAM)pStartInfo->szDumpFile);
-        RegSetValueExW(hKey, L"DumpFile", 0, REG_EXPAND_SZ, (LPBYTE)pStartInfo->szDumpFile, (wcslen(pStartInfo->szDumpFile) + 1) * sizeof(WCHAR));
+        SendDlgItemMessage(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(m_szDumpFile) / sizeof(TCHAR), (LPARAM)m_szDumpFile);
+        RegSetValueEx(hKey, _T("DumpFile"), 0, REG_EXPAND_SZ, (LPBYTE)&m_szDumpFile, (_tcslen(m_szDumpFile) + 1) * sizeof(TCHAR));
     }
-    else if (pStartInfo->dwCrashDumpEnabled == 3)
+    else if (m_dwCrashDumpEnabled == 3)
     {
-        SendDlgItemMessage(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(pStartInfo->szDumpFile) / sizeof(WCHAR), (LPARAM)pStartInfo->szDumpFile);
-        RegSetValueExW(hKey, L"MinidumpDir", 0, REG_EXPAND_SZ, (LPBYTE)pStartInfo->szDumpFile, (wcslen(pStartInfo->szDumpFile) + 1) * sizeof(WCHAR));
+        SendDlgItemMessage(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(m_szDumpFile) / sizeof(TCHAR), (LPARAM)m_szDumpFile);
+        RegSetValueEx(hKey, _T("MinidumpDir"), 0, REG_EXPAND_SZ, (LPBYTE)&m_szDumpFile, (_tcslen(m_szDumpFile) + 1) * sizeof(TCHAR));
     }
 
-    RegSetValueExW(hKey, L"CrashDumpEnabled", 0, REG_DWORD, (LPBYTE)&pStartInfo->dwCrashDumpEnabled, sizeof(pStartInfo->dwCrashDumpEnabled));
+    RegSetValueEx(hKey, _T("CrashDumpEnabled"), 0, REG_DWORD, (LPBYTE)&m_dwCrashDumpEnabled, sizeof(m_dwCrashDumpEnabled));
     RegCloseKey(hKey);
 }
 
-static VOID
-LoadRecoveryOptions(HWND hwndDlg, PSTARTINFO pStartInfo)
+void LoadRecoveryOptions(HWND hwndDlg)
 {
     HKEY hKey;
-    WCHAR szName[MAX_PATH];
-    DWORD dwValue, dwValueLength, dwType;
+    DWORD dwValues;
+    TCHAR szName[MAX_PATH];
+    TCHAR szValue[MAX_PATH];
+    DWORD i, dwName, dwValue, dwValueLength, dwType;
 
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                     L"System\\CurrentControlSet\\Control\\CrashControl",
+                     _T("System\\CurrentControlSet\\Control\\CrashControl"),
                      0,
                      KEY_READ,
                      &hKey) != ERROR_SUCCESS)
@@ -596,61 +544,90 @@ LoadRecoveryOptions(HWND hwndDlg, PSTARTINFO pStartInfo)
         return;
     }
 
-    dwValueLength = sizeof(DWORD);
-    if (RegQueryValueExW(hKey, L"LogEvent", NULL, &dwType, (LPBYTE)&dwValue, &dwValueLength) == ERROR_SUCCESS && dwType == REG_DWORD && dwValue)
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECWRITEEVENT, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
-
-    dwValueLength = sizeof(DWORD);
-    if (RegQueryValueExW(hKey, L"SendAlert", NULL, &dwType, (LPBYTE)&dwValue, &dwValueLength) == ERROR_SUCCESS && dwType == REG_DWORD && dwValue)
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECSENDALERT, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
-
-    dwValueLength = sizeof(DWORD);
-    if (RegQueryValueExW(hKey, L"AutoReboot", NULL, &dwType, (LPBYTE)&dwValue, &dwValueLength) == ERROR_SUCCESS && dwType == REG_DWORD && dwValue)
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECRESTART, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
-
-    dwValueLength = sizeof(DWORD);
-    if (RegQueryValueExW(hKey, L"Overwrite", NULL, &dwType, (LPBYTE)&dwValue, &dwValueLength) == ERROR_SUCCESS && dwType == REG_DWORD && dwValue)
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECOVERWRITE, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
-
-    dwValueLength = sizeof(DWORD);
-    if (RegQueryValueExW(hKey, L"CrashDumpEnabled", NULL, &dwType, (LPBYTE)&dwValue, &dwValueLength) == ERROR_SUCCESS && dwType == REG_DWORD && dwValue)
-        pStartInfo->dwCrashDumpEnabled = dwValue;
-
-   dwValueLength = sizeof(pStartInfo->szDumpFile);
-   if (RegQueryValueExW(hKey, L"DumpFile", NULL, &dwType, (LPBYTE)pStartInfo->szDumpFile, &dwValueLength) != ERROR_SUCCESS)
-       pStartInfo->szDumpFile[0] = L'\0';
-
-    dwValueLength = sizeof(pStartInfo->szMinidumpDir);
-    if (RegQueryValueExW(hKey, L"MinidumpDir", NULL, &dwType, (LPBYTE)pStartInfo->szMinidumpDir, &dwValueLength) != ERROR_SUCCESS)
-        pStartInfo->szMinidumpDir[0] = L'\0';
-
-    if (LoadStringW(hApplet, IDS_NO_DUMP, szName, sizeof(szName) / sizeof(WCHAR)))
+    if (RegQueryInfoKey(hKey,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        &dwValues,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL) != ERROR_SUCCESS)
     {
-        szName[(sizeof(szName)/sizeof(WCHAR))-1] = L'\0';
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szName);
+        RegCloseKey(hKey);
+        return;
     }
 
-    if (LoadString(hApplet, IDS_FULL_DUMP, szName, sizeof(szName) / sizeof(WCHAR)))
+    for (i = 0; i < dwValues; i++)
     {
-        szName[(sizeof(szName)/sizeof(WCHAR))-1] = L'\0';
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szName);
+        dwName = sizeof(szName) / sizeof(TCHAR);
+
+        RegEnumValue(hKey, i, szName, &dwName, NULL, &dwType, NULL, NULL);
+        if (dwType == REG_DWORD)
+        {
+            dwValueLength = sizeof(dwValue);
+            dwName = sizeof(szName) / sizeof(TCHAR);
+            if (RegEnumValue(hKey, i, szName, &dwName, NULL, &dwType, (LPBYTE)&dwValue, &dwValueLength) != ERROR_SUCCESS)
+                continue;
+        }
+        else
+        {
+            dwValueLength = sizeof(szValue);
+            dwName = sizeof(szName) / sizeof(TCHAR);
+            if (RegEnumValue(hKey, i, szName, &dwName, NULL, &dwType, (LPBYTE)&szValue, &dwValueLength) != ERROR_SUCCESS)
+                continue;
+        }
+
+        if (!_tcscmp(szName, _T("LogEvent")))
+        {
+            if (dwValue)
+                SendDlgItemMessage(hwndDlg, IDC_STRRECWRITEEVENT, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+        }
+        else if (!_tcscmp(szName, _T("SendAlert")))
+        {
+            if (dwValue)
+                SendDlgItemMessage(hwndDlg, IDC_STRRECSENDALERT, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+        }
+        else if (!_tcscmp(szName, _T("AutoReboot")))
+        {
+            if (dwValue)
+                SendDlgItemMessage(hwndDlg, IDC_STRRECRESTART, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+        }
+        else if (!_tcscmp(szName, _T("Overwrite")))
+        {
+            if (dwValue)
+                SendDlgItemMessage(hwndDlg, IDC_STRRECOVERWRITE, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+        }
+        else if (!_tcscmp(szName, _T("DumpFile")))
+        {
+            _tcscpy(m_szDumpFile, szValue);
+        }
+        else if (!_tcscmp(szName, _T("MinidumpDir")))
+        {
+            _tcscpy(m_szMinidumpDir, szValue);
+        }
+        else if (!_tcscmp(szName, _T("CrashDumpEnabled")))
+        {
+            m_dwCrashDumpEnabled = dwValue;
+        }
     }
 
-    if (LoadStringW(hApplet, IDS_KERNEL_DUMP, szName, sizeof(szName) / sizeof(WCHAR)))
-    {
-        szName[(sizeof(szName)/sizeof(WCHAR))-1] = L'\0';
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szName);
-    }
+    if (LoadString(hApplet, IDS_NO_DUMP, szValue, sizeof(szValue) / sizeof(TCHAR)) < sizeof(szValue) / sizeof(TCHAR))
+        SendDlgItemMessage(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szValue);
+    if (LoadString(hApplet, IDS_FULL_DUMP, szValue, sizeof(szValue) / sizeof(TCHAR)) < sizeof(szValue) / sizeof(TCHAR))
+        SendDlgItemMessage(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szValue);
+    if (LoadString(hApplet, IDS_KERNEL_DUMP, szValue, sizeof(szValue) / sizeof(TCHAR)) < sizeof(szValue) / sizeof(TCHAR))
+        SendDlgItemMessage(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szValue);
+    if (LoadString(hApplet, IDS_MINI_DUMP, szValue, sizeof(szValue) / sizeof(TCHAR)) < sizeof(szValue) / sizeof(TCHAR))
+        SendDlgItemMessage(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szValue);
 
-    if (LoadStringW(hApplet, IDS_MINI_DUMP, szName, sizeof(szName) / sizeof(WCHAR)))
-    {
-        szName[(sizeof(szName)/sizeof(WCHAR))-1] = L'\0';
-        SendDlgItemMessageW(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_ADDSTRING, (WPARAM)0, (LPARAM) szName);
-    }
-
-    SetCrashDlgItems(hwndDlg, pStartInfo);
+    SetCrashDlgItems(hwndDlg);
     RegCloseKey(hKey);
 }
+
 
 
 /* Property page dialog callback */
@@ -660,50 +637,44 @@ StartRecDlgProc(HWND hwndDlg,
                 WPARAM wParam,
                 LPARAM lParam)
 {
-    PSTARTINFO pStartInfo;
     PBOOTRECORD pRecord;
     int iTimeout;
     LRESULT lResult;
-    WCHAR szTimeout[10];
+    TCHAR szTimeout[10];
 
     UNREFERENCED_PARAMETER(lParam);
-
-    pStartInfo = (PSTARTINFO)GetWindowLongPtr(hwndDlg, DWLP_USER);
 
     switch(uMsg)
     {
         case WM_INITDIALOG:
-            pStartInfo = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(STARTINFO));
-            SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pStartInfo);
-
-            LoadRecoveryOptions(hwndDlg, pStartInfo);
-            SetRecoveryTimeout(hwndDlg, 0);
-            return LoadOSList(hwndDlg, pStartInfo);
-
-        case WM_DESTROY:
-            DeleteBootRecords(hwndDlg);
-            HeapFree(GetProcessHeap(), 0, pStartInfo);
-            break;
+        {
+            LoadRecoveryOptions(hwndDlg);
+            return LoadOSList(hwndDlg);
+        }
+        break;
 
         case WM_COMMAND:
+        {
             switch(LOWORD(wParam))
             {
                 case IDC_STRRECEDIT:
-                    ShellExecuteW(0, L"open", L"notepad", pStartInfo->szFreeldrIni, NULL, SW_SHOWNORMAL);
-                    // FIXME use CreateProcess and wait untill finished
-                    //  DeleteBootRecords(hwndDlg);
-                    //  LoadOSList(hwndDlg);
+                {
+                    ShellExecute(0, _T("open"), _T("notepad"), m_szFreeldrIni, NULL, SW_SHOWNORMAL);
+                  // FIXME use CreateProcess and wait untill finished
+                  //  DeleteBootRecords(hwndDlg);
+                  //  LoadOSList(hwndDlg);
                     break;
-
+                }	
                 case IDOK:
+                {
                     /* save timeout */
                     if (SendDlgItemMessage(hwndDlg, IDC_STRECLIST, BM_GETCHECK, (WPARAM)0, (LPARAM)0) == BST_CHECKED)
                         iTimeout = SendDlgItemMessage(hwndDlg, IDC_STRRECLISTUPDWN, UDM_GETPOS, (WPARAM)0, (LPARAM)0);
                     else
                         iTimeout = 0;
-                    swprintf(szTimeout, L"%i", iTimeout);
+                    _stprintf(szTimeout, _T("%i"), iTimeout);
 
-                    lResult = SendDlgItemMessageW(hwndDlg, IDC_STRECOSCOMBO, CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
+                    lResult = SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
                     if (lResult == CB_ERR)
                     {
                         /* ? */
@@ -711,89 +682,87 @@ StartRecDlgProc(HWND hwndDlg,
                         return TRUE;
                     }
 
+
                     pRecord = (PBOOTRECORD) SendDlgItemMessage(hwndDlg, IDC_STRECOSCOMBO, CB_GETITEMDATA, (WPARAM)lResult, (LPARAM)0);
 
-                    if ((INT_PTR)pRecord != CB_ERR)
+                    if ((INT)pRecord != CB_ERR)
                     {
-                        if (pStartInfo->iFreeLdrIni == 1) // FreeLdrIni style
+                        if (m_FreeLdrIni == 1) // FreeLdrIni style
                         {
                             /* set default timeout */
-                            WritePrivateProfileStringW(L"FREELOADER",
-                                                      L"TimeOut",
+                            WritePrivateProfileString(_T("FREELOADER"),
+                                                      _T("TimeOut"),
                                                       szTimeout,
-                                                      pStartInfo->szFreeldrIni);
+                                                      m_szFreeldrIni);
                             /* set default os */
-                            WritePrivateProfileStringW(L"FREELOADER",
-                                                      L"DefaultOS",
+                            WritePrivateProfileString(_T("FREELOADER"),
+                                                      _T("DefaultOS"),
                                                       pRecord->szSectionName,
-                                                      pStartInfo->szFreeldrIni);
+                                                      m_szFreeldrIni);
 
                         }
-                        else if (pStartInfo->iFreeLdrIni == 2) // BootIni style
+                        else if (m_FreeLdrIni == 2) // BootIni style
                         {
                             /* set default timeout */
-                            WritePrivateProfileStringW(L"boot loader",
-                                                      L"timeout",
+                            WritePrivateProfileString(_T("boot loader"),
+                                                      _T("timeout"),
                                                       szTimeout,
-                                                      pStartInfo->szFreeldrIni);
+                                                      m_szFreeldrIni);
                             /* set default os */
-                            WritePrivateProfileStringW(L"boot loader",
-                                                      L"default",
+                            WritePrivateProfileString(_T("boot loader"),
+                                                      _T("default"),
                                                       pRecord->szBootPath,
-                                                      pStartInfo->szFreeldrIni);
+                                                      m_szFreeldrIni);
 
                         }
                     }
-
-                    WriteStartupRecoveryOptions(hwndDlg, pStartInfo);
+                    WriteStartupRecoveryOptions(hwndDlg);
+                    DeleteBootRecords(hwndDlg);
                     EndDialog(hwndDlg,
                               LOWORD(wParam));
                     return TRUE;
-
+                }
                 case IDCANCEL:
+                {
+                    DeleteBootRecords(hwndDlg);
                     EndDialog(hwndDlg,
                               LOWORD(wParam));
                     return TRUE;
-
+                }
                 case IDC_STRECLIST:
+                {
                     if (SendDlgItemMessage(hwndDlg, IDC_STRECLIST, BM_GETCHECK, (WPARAM)0, (LPARAM)0) == BST_CHECKED)
                         SetTimeout(hwndDlg, 30);
                     else
                         SetTimeout(hwndDlg, 0);
-                    break;
-
-                case IDC_STRRECREC:
-                    if (SendDlgItemMessage(hwndDlg, IDC_STRRECREC, BM_GETCHECK, (WPARAM)0, (LPARAM)0) == BST_CHECKED)
-                        SetRecoveryTimeout(hwndDlg, 30);
-                    else
-                        SetRecoveryTimeout(hwndDlg, 0);
-                    break;
-
+                }
                 case IDC_STRRECDEBUGCOMBO:
+                {
                     if (HIWORD(wParam) == CBN_SELCHANGE)
                     {
                         LRESULT lResult;
 
                         lResult = SendDlgItemMessage(hwndDlg, IDC_STRRECDEBUGCOMBO, CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
-                        if (lResult != CB_ERR && lResult != (LRESULT)pStartInfo->dwCrashDumpEnabled)
+                        if (lResult != CB_ERR && lResult != m_dwCrashDumpEnabled)
                         {
-                            if (pStartInfo->dwCrashDumpEnabled == 1 || pStartInfo->dwCrashDumpEnabled == 2)
+                            if (m_dwCrashDumpEnabled == 1 || m_dwCrashDumpEnabled == 2)
                             {
-                                SendDlgItemMessageW(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(pStartInfo->szDumpFile) / sizeof(WCHAR), (LPARAM)pStartInfo->szDumpFile);
+                                SendDlgItemMessage(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(m_szDumpFile) / sizeof(TCHAR), (LPARAM)m_szDumpFile);
                             }
-                            else if (pStartInfo->dwCrashDumpEnabled == 3)
+                            else if (m_dwCrashDumpEnabled == 3)
                             {
-                                SendDlgItemMessageW(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(pStartInfo->szMinidumpDir) / sizeof(WCHAR), (LPARAM)pStartInfo->szMinidumpDir);
+                                SendDlgItemMessage(hwndDlg, IDC_STRRECDUMPFILE, WM_GETTEXT, (WPARAM)sizeof(m_szMinidumpDir) / sizeof(TCHAR), (LPARAM)m_szMinidumpDir);
                             }
-
-                            pStartInfo->dwCrashDumpEnabled = (DWORD)lResult;
-                            SetCrashDlgItems(hwndDlg, pStartInfo);
+                            m_dwCrashDumpEnabled = lResult;
+                            SetCrashDlgItems(hwndDlg);
                         }
                     }
                     break;
-            }
-            break;
-    }
+                }
 
+            }
+        }
+        break;
+    }
     return FALSE;
 }

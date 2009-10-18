@@ -176,7 +176,7 @@ FdoQueryBusRelations(
   IN PIRP Irp,
   PIO_STACK_LOCATION IrpSp)
 {
-  PPDO_DEVICE_EXTENSION PdoDeviceExtension = NULL;
+  PPDO_DEVICE_EXTENSION PdoDeviceExtension;
   PFDO_DEVICE_EXTENSION DeviceExtension;
   PDEVICE_RELATIONS Relations;
   PLIST_ENTRY CurrentEntry;
@@ -186,8 +186,6 @@ FdoQueryBusRelations(
   NTSTATUS ErrorStatus;
   ULONG Size;
   ULONG i;
-
-  UNREFERENCED_PARAMETER(IrpSp);
 
   DPRINT("Called\n");
 
@@ -208,7 +206,7 @@ FdoQueryBusRelations(
 
   Size = sizeof(DEVICE_RELATIONS) + sizeof(Relations->Objects) *
     (DeviceExtension->DeviceListCount - 1);
-  Relations = (PDEVICE_RELATIONS)ExAllocatePool(PagedPool, Size);
+  Relations = (PDEVICE_RELATIONS)ExAllocatePoolWithTag(PagedPool, Size, TAG_PCI);
   if (!Relations)
     return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -358,6 +356,7 @@ FdoStartDevice(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
 {
+  static BOOLEAN FoundBuggyAllocatedResourcesList = FALSE;
   PFDO_DEVICE_EXTENSION DeviceExtension;
   PCM_RESOURCE_LIST AllocatedResources;
   PCM_PARTIAL_RESOURCE_DESCRIPTOR ResourceDescriptor;
@@ -369,6 +368,15 @@ FdoStartDevice(
   DeviceExtension = (PFDO_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
   AllocatedResources = IoGetCurrentIrpStackLocation(Irp)->Parameters.StartDevice.AllocatedResources;
+  /* HACK due to a bug in ACPI driver, which doesn't report the bus number */
+  if (!FoundBuggyAllocatedResourcesList || !AllocatedResources || AllocatedResources->Count == 0)
+  {
+    FoundBuggyAllocatedResourcesList = TRUE;
+    DPRINT1("No bus number resource found (bug in acpi.sys?), assuming bus number #0\n");
+    DeviceExtension->BusNumber = 0;
+    goto next;
+  }
+  /* END HACK */
   if (!AllocatedResources)
   {
     DPRINT("No allocated resources sent to driver\n");
@@ -385,9 +393,6 @@ FdoStartDevice(
 
   ASSERT(DeviceExtension->State == dsStopped);
 
-  /* By default, use the bus number in the resource list header */
-  DeviceExtension->BusNumber = AllocatedResources->List[0].BusNumber;
-
   for (i = 0; i < AllocatedResources->List[0].PartialResourceList.Count; i++)
   {
     ResourceDescriptor = &AllocatedResources->List[0].PartialResourceList.PartialDescriptors[i];
@@ -397,18 +402,22 @@ FdoStartDevice(
       {
         if (FoundBusNumber || ResourceDescriptor->u.BusNumber.Length != 1)
           return STATUS_INVALID_PARAMETER;
-        /* Use this one instead */
-        ASSERT(AllocatedResources->List[0].BusNumber == ResourceDescriptor->u.BusNumber.Start);
         DeviceExtension->BusNumber = ResourceDescriptor->u.BusNumber.Start;
         DPRINT("Found bus number resource: %lu\n", DeviceExtension->BusNumber);
         FoundBusNumber = TRUE;
         break;
       }
       default:
-        DPRINT("Unknown resource descriptor type 0x%x\n", ResourceDescriptor->Type);
+        DPRINT1("Unknown resource descriptor type 0x%x\n", ResourceDescriptor->Type);
     }
   }
+  if (!FoundBusNumber)
+  {
+    DPRINT("Some required resources were not found in allocated resources list\n");
+    return STATUS_INSUFFICIENT_RESOURCES;
+  }
 
+next:
   InitializeListHead(&DeviceExtension->DeviceListHead);
   KeInitializeSpinLock(&DeviceExtension->DeviceListLock);
   DeviceExtension->DeviceListCount = 0;
@@ -433,8 +442,6 @@ FdoSetPower(
 {
   PFDO_DEVICE_EXTENSION DeviceExtension;
   NTSTATUS Status;
-
-  UNREFERENCED_PARAMETER(Irp);
 
   DPRINT("Called\n");
 

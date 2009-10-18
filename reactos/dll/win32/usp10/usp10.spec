@@ -1,4 +1,4 @@
-@ stdcall LpkPresent()
+@ stub LpkPresent
 @ stdcall ScriptApplyDigitSubstitution(ptr ptr ptr)
 @ stub ScriptApplyLogicalWidth
 @ stdcall ScriptBreak(ptr long ptr ptr)
@@ -8,7 +8,7 @@
 @ stdcall ScriptGetCMap(ptr ptr ptr long long ptr)
 @ stdcall ScriptGetFontProperties(long ptr ptr)
 @ stdcall ScriptGetGlyphABCWidth(ptr ptr long ptr)
-@ stdcall ScriptGetLogicalWidths(ptr long long ptr ptr ptr ptr)
+@ stub ScriptGetLogicalWidths
 @ stdcall ScriptGetProperties(ptr long)
 @ stdcall ScriptIsComplex(wstr long long)
 @ stdcall ScriptItemize(wstr long long ptr ptr ptr ptr)

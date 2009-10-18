@@ -75,7 +75,7 @@ typedef struct {
   cab_UBYTE versionMajor; /* 1 */
   cab_UWORD cFolders;     /* number of CFFOLDER entries in the cabinet*/
   cab_UWORD cFiles;       /* number of CFFILE entries in the cabinet*/
-  cab_UWORD flags;        /* 1=prev cab, 2=next cabinet, 4=reserved sections*/
+  cab_UWORD flags;        /* 1=prev cab, 2=next cabinet, 4=reserved setions*/
   cab_UWORD setID;        /* identification number of all cabinets in a set*/
   cab_UWORD iCabinet;     /* number of the cabinet in a set */
   /* additional area if "flags" were set*/
@@ -86,7 +86,7 @@ typedef struct {
   cab_UWORD cCFData;      /* number of this folder's CFDATA sections */
   cab_UWORD typeCompress; /* compression type of data in CFDATA section*/
   /* additional area if reserve flag was set */
-} CFFOLDER; /* minimum 8 bytes */
+} CFFOLDER; /* minumum 8 bytes */
 
 typedef struct {
   cab_ULONG cbFile;          /* size of the uncompressed file in bytes */
@@ -188,7 +188,7 @@ HFCI __cdecl FCICreate(
     return NULL;
   }
 
-  if (!((hfci = (*pfnalloc)(sizeof(FCI_Int))))) {
+  if (!((hfci = ((HFCI) (*pfnalloc)(sizeof(FCI_Int)))))) {
     perf->erfOper = FCIERR_ALLOC_FAIL;
     perf->erfType = ERROR_NOT_ENOUGH_MEMORY;
     perf->fError = TRUE;
@@ -233,7 +233,6 @@ HFCI __cdecl FCICreate(
   p_fci_internal->estimatedCabinetSize = 0;
   p_fci_internal->statusFolderTotal = 0;
 
-  memset(&p_fci_internal->oldCCAB, 0, sizeof(CCAB));
   memcpy(p_fci_internal->szPrevCab, pccab->szCab, CB_MAX_CABINET_NAME);
   memcpy(p_fci_internal->szPrevDisk, pccab->szDisk, CB_MAX_DISK_NAME);
 
@@ -379,10 +378,10 @@ static BOOL fci_flush_data_block (HFCI hfci, int* err,
   /* add optional reserved area */
 
   /* This allocation and freeing at each CFData block is a bit */
-  /* inefficient, but it's harder to forget about freeing the buffer :-). */
+  /* inefficent, but it's harder to forget about freeing the buffer :-). */
   /* Reserved areas are used seldom besides that... */
   if (cbReserveCFData!=0) {
-    if(!(reserved = PFCI_ALLOC(hfci, cbReserveCFData))) {
+    if(!(reserved = (char*)PFCI_ALLOC(hfci, cbReserveCFData))) {
       fci_set_error( FCIERR_ALLOC_FAIL, ERROR_NOT_ENOUGH_MEMORY, TRUE );
       return FALSE;
     }
@@ -462,7 +461,7 @@ static cab_ULONG fci_get_checksum(const void *pv, UINT cb, CHECKSUM seed)
     case 2:
       ul |= (((ULONG)(*pb++)) <<  8);
     case 1:
-      ul |= *pb;
+      ul |= *pb++;
     default:
       break;
   }
@@ -525,7 +524,7 @@ static BOOL fci_flushfolder_copy_cfdata(HFCI hfci, char* buffer, UINT cbReserveC
       split_block=TRUE;  /* In this case split_block is abused to store */
       /* the complete data block into the next cabinet and not into the */
       /* current one. Originally split_block is the indicator that a */
-      /* data block has been split across different cabinets. */
+      /* data block has been splitted across different cabinets. */
     } else {
 
       /* read CFDATA from p_fci_internal->handleCFDATA1 to cfdata*/
@@ -615,13 +614,13 @@ static BOOL fci_flushfolder_copy_cfdata(HFCI hfci, char* buffer, UINT cbReserveC
           strlen(p_fci_internal->pccab->szDisk)+1;
 
         savedUncomp = pcfdata->cbUncomp;
-        pcfdata->cbUncomp = 0; /* on split blocks of data this is zero */
+        pcfdata->cbUncomp = 0; /* on splitted blocks of data this is zero */
 
         /* if split_block==TRUE then the above while loop won't */
         /* be executed again */
         split_block=TRUE; /* split_block is the indicator that */
-                          /* a data block has been split across */
-                          /* different cabinets.*/
+                          /* a data block has been splitted across */
+                          /* diffentent cabinets.*/
       }
 
       /* This should never happen !!! */
@@ -799,7 +798,7 @@ static BOOL fci_flushfolder_copy_cfdata(HFCI hfci, char* buffer, UINT cbReserveC
 
         /* report status with pfnfcis about copied size of folder */
         if( (*pfnfcis)(statusFolder,
-            p_fci_internal->statusFolderCopied,/*cfdata.cbData(+previous ones)*/
+            p_fci_internal->statusFolderCopied,/*cfdata.cbData(+revious ones)*/
             p_fci_internal->statusFolderTotal, /* total folder size */
             p_fci_internal->pv) == -1) {
           fci_set_error( FCIERR_USER_ABORT, 0, TRUE );
@@ -852,7 +851,7 @@ static BOOL fci_flushfolder_copy_cffolder(HFCI hfci, int* err, UINT cbReserveCFF
 
   /* add optional reserved area */
   if (cbReserveCFFolder!=0) {
-    if(!(reserved = PFCI_ALLOC(hfci, cbReserveCFFolder))) {
+    if(!(reserved = (char*)PFCI_ALLOC(hfci, cbReserveCFFolder))) {
       fci_set_error( FCIERR_ALLOC_FAIL, ERROR_NOT_ENOUGH_MEMORY, TRUE );
       return FALSE;
     }
@@ -1331,7 +1330,7 @@ static BOOL fci_flush_folder(
       )
   ) {
     /* save CCAB */
-    p_fci_internal->oldCCAB = *p_fci_internal->pccab;
+    memcpy(&(p_fci_internal->oldCCAB), p_fci_internal->pccab, sizeof(CCAB));
     /* increment cabinet index */
     ++(p_fci_internal->pccab->iCab);
     /* get name of next cabinet */
@@ -1419,7 +1418,7 @@ static BOOL fci_flush_folder(
   /* save size of file CFDATA2 - required for the folder's offset to data */
   sizeFileCFDATA2old = p_fci_internal->sizeFileCFDATA2;
 
-  if(!(reserved = PFCI_ALLOC(hfci, cbReserveCFData+sizeof(CFDATA)))) {
+  if(!(reserved = (char*)PFCI_ALLOC(hfci, cbReserveCFData+sizeof(CFDATA)))) {
     fci_set_error( FCIERR_ALLOC_FAIL, ERROR_NOT_ENOUGH_MEMORY, TRUE );
     PFCI_CLOSE(hfci,handleCFDATA1new,&err,p_fci_internal->pv);
     /* TODO error handling of err */
@@ -1649,7 +1648,7 @@ static BOOL fci_flush_cabinet(
   cfheader.cFolders=p_fci_internal->cFolders;
   /* number of CFFILE entries in the cabinet */
   cfheader.cFiles=p_fci_internal->cFiles;
-  cfheader.flags=0;    /* 1=prev cab, 2=next cabinet, 4=reserved sections */
+  cfheader.flags=0;    /* 1=prev cab, 2=next cabinet, 4=reserved setions */
 
   if( p_fci_internal->fPrevCab ) {
     cfheader.flags = cfheadPREV_CABINET;
@@ -1753,7 +1752,7 @@ static BOOL fci_flush_cabinet(
 
   /* add optional reserved area */
   if (cbReserveCFHeader!=0) {
-    if(!(reserved = PFCI_ALLOC(hfci, cbReserveCFHeader))) {
+    if(!(reserved = (char*)PFCI_ALLOC(hfci, cbReserveCFHeader))) {
       fci_set_error( FCIERR_ALLOC_FAIL, ERROR_NOT_ENOUGH_MEMORY, TRUE );
       return FALSE;
     }
@@ -1904,7 +1903,7 @@ static BOOL fci_flush_cabinet(
     /* add optional reserved area */
 
     /* This allocation and freeing at each CFFolder block is a bit */
-    /* inefficient, but it's harder to forget about freeing the buffer :-). */
+    /* inefficent, but it's harder to forget about freeing the buffer :-). */
     /* Reserved areas are used seldom besides that... */
     if (cbReserveCFFolder!=0) {
       if(!(reserved = PFCI_ALLOC(hfci, cbReserveCFFolder))) {
@@ -1949,7 +1948,7 @@ static BOOL fci_flush_cabinet(
   /* TODO error handling of err */
 
   /* while not all CFFILE structures have been copied to the cabinet do */
-  if (p_fci_internal->data_out) while(!FALSE) {
+  while(!FALSE) {
     /* REUSE the variable read_result */
     /* REUSE the buffer p_fci_internal->data_out AGAIN */
     /* read a block from p_fci_internal->handleCFFILE2 */
@@ -2005,7 +2004,7 @@ static BOOL fci_flush_cabinet(
   p_fci_internal->cFiles=0;
 
   /* while not all CFDATA structures have been copied to the cabinet do */
-  if (p_fci_internal->data_out) while(!FALSE) {
+  while(!FALSE) {
     /* REUSE the variable read_result AGAIN */
     /* REUSE the buffer p_fci_internal->data_out AGAIN */
     /* read a block from p_fci_internal->handleCFDATA2 */
@@ -2244,7 +2243,7 @@ static BOOL fci_flush_cabinet(
       CB_MAX_CABINET_NAME + CB_MAX_DISK_NAME
     )) {
       /* save CCAB */
-      p_fci_internal->oldCCAB = *p_fci_internal->pccab;
+      memcpy(&(p_fci_internal->oldCCAB), p_fci_internal->pccab, sizeof(CCAB));
       /* increment cabinet index */
       ++(p_fci_internal->pccab->iCab);
       /* get name of next cabinet */
@@ -2397,7 +2396,7 @@ BOOL __cdecl FCIAddFile(
       fci_set_error( FCIERR_NONE, ERROR_GEN_FAILURE, TRUE );
       return FALSE;
     }
-    if(!(p_fci_internal->data_in = PFCI_ALLOC(hfci,CB_MAX_CHUNK))) {
+    if(!(p_fci_internal->data_in = (char*)PFCI_ALLOC(hfci,CB_MAX_CHUNK))) {
       fci_set_error( FCIERR_ALLOC_FAIL, ERROR_NOT_ENOUGH_MEMORY, TRUE );
       return FALSE;
     }
@@ -2417,10 +2416,6 @@ BOOL __cdecl FCIAddFile(
   }
 
   /* get information about the file */
-  /* set defaults in case callback doesn't set one or more fields */
-  cffile.attribs=0;
-  cffile.date=0;
-  cffile.time=0;
   file_handle=(*pfnfcigoi)(pszSourceFile, &(cffile.date), &(cffile.time),
     &(cffile.attribs), &err, p_fci_internal->pv);
   /* check file_handle */
@@ -2477,7 +2472,7 @@ BOOL __cdecl FCIAddFile(
       )
   ) {
     /* save CCAB */
-    p_fci_internal->oldCCAB = *p_fci_internal->pccab;
+    memcpy(&(p_fci_internal->oldCCAB), p_fci_internal->pccab, sizeof(CCAB));
     /* increment cabinet index */
     ++(p_fci_internal->pccab->iCab);
     /* get name of next cabinet */
@@ -2644,7 +2639,7 @@ BOOL __cdecl FCIAddFile(
       )
   ) {
     /* save CCAB */
-    p_fci_internal->oldCCAB = *p_fci_internal->pccab;
+    memcpy(&(p_fci_internal->oldCCAB), p_fci_internal->pccab, sizeof(CCAB));
     /* increment cabinet index */
     ++(p_fci_internal->pccab->iCab);
     /* get name of next cabinet */
@@ -2713,7 +2708,7 @@ BOOL __cdecl FCIAddFile(
  *
  * FCIFlushFolder completes the CFFolder structure under construction.
  *
- * All further data which is added by FCIAddFile will be associated to
+ * All further data which is added by FCIAddFile will be associateed to
  * the next CFFolder structure.
  *
  * FCIFlushFolder will be called by FCIAddFile automatically if the

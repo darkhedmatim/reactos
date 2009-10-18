@@ -98,9 +98,11 @@ struct udphdr {
 #include <sys/stat.h>
 //#include <sys/time.h>
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 //#include <unistd.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -156,7 +158,7 @@ struct client_lease {
 	time_t			 expiry, renewal, rebind;
 	struct iaddr		 address;
 	char			*server_name;
-#ifdef __REACTOS__
+#ifdef _REACTOS_
 	time_t			 obtained;
 	struct iaddr		 serveraddress;
 #endif
@@ -176,7 +178,7 @@ enum dhcp_state {
 	S_BOUND,
 	S_RENEWING,
 	S_REBINDING,
-	S_STATIC
+        S_STATIC
 };
 
 struct client_config {
@@ -278,6 +280,9 @@ struct hash_table {
 
 #define	MAX_TIME 0x7fffffff
 #define	MIN_TIME 0
+#ifdef _MSC_VER
+typedef SIZE_T ssize_t;
+#endif
 
 /* External definitions... */
 
@@ -421,11 +426,11 @@ void make_request(struct interface_info *, struct client_lease *);
 void make_decline(struct interface_info *, struct client_lease *);
 
 void free_client_lease(struct client_lease *);
-void rewrite_client_leases(struct interface_info *);
+void rewrite_client_leases(void);
 void write_client_lease(struct interface_info *, struct client_lease *, int);
 
-void	 priv_script_init(struct interface_info *, char *, char *);
-void	 priv_script_write_params(struct interface_info *, char *, struct client_lease *);
+void	 priv_script_init(char *, char *);
+void	 priv_script_write_params(char *, struct client_lease *);
 int	 priv_script_go(void);
 
 void script_init(char *, struct string_list *);
@@ -461,7 +466,7 @@ ssize_t decode_ethernet_header(struct interface_info *, unsigned char *,
     int, struct hardware *);
 
 /* clparse.c */
-int read_client_conf(struct interface_info *);
+int read_client_conf(void);
 void read_client_leases(void);
 void parse_client_statement(FILE *, struct interface_info *,
     struct client_config *);

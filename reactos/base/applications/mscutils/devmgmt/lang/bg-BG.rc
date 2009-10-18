@@ -18,6 +18,8 @@ BEGIN
   BEGIN
     MENUITEM "Устройствата според вид",         IDC_DEVBYTYPE, CHECKED
     MENUITEM "Устройствата според свързването",   IDC_STATIC, GRAYED
+/*    MENUITEM "Resources by type",       IDC_STATIC, GRAYED */
+/*    MENUITEM "Resources by connection", IDC_STATIC, GRAYED */
     MENUITEM "Средствата според вида",       IDC_STATIC, GRAYED
     MENUITEM "Средствата според свързването", IDC_STATIC, GRAYED
   END
@@ -40,8 +42,8 @@ END
 
 IDD_ABOUTBOX DIALOGEX 22,16,190,182
 CAPTION "За управителя на устройствата"
-FONT 8,"MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
+FONT 8,"Tahoma",0,0
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 BEGIN
   LTEXT "Device Manager v0.1\nCopyright (C) 2006\nby Ged Murphy (gedmurphy@gmail.com)", IDC_STATIC, 48, 7, 130, 26
   PUSHBUTTON "Close", IDOK, 75, 162, 44, 15
@@ -70,6 +72,7 @@ BEGIN
   IDS_HINT_EXIT         " Излиза от приложението."
   IDS_HINT_REFRESH      " Опреснява списъка на услугите."
   IDS_HINT_PROP         " Отваря лист за свойства за текущия избор."
+
   IDS_HINT_HELP         " Показва помощен прозорец."
   IDS_HINT_ABOUT        " За управителя на устрйствата на РеактОС."
 

@@ -99,7 +99,7 @@ FormatPartition(
                                           10,
                                           24,
                                           TRUE,
-                                          MUIGetString(STRING_FORMATTINGDISK));
+                                          "Setup is formatting your disk");
 
     ProgressSetStepCount(FormatProgressBar, 100);
 

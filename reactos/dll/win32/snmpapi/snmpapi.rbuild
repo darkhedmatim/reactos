@@ -1,12 +1,11 @@
-<module name="snmpapi" type="win32dll" baseaddress="${BASEADDRESS_SNMPAPI}" installbase="system32" installname="snmpapi.dll" unicode="yes">
-	<importlibrary definition="snmpapi.spec" />
+<module name="snmpapi" type="win32dll" baseaddress="${BASEADDRESS_SNMPAPI}" installbase="system32" installname="snmpapi.dll">
+	<importlibrary definition="snmpapi.def" />
 	<include base="snmpapi">.</include>
-	<include base="ReactOS">include/reactos/wine</include>
-	<define name="__WINESRC__" />
+	<define name="__USE_W32API" />
+	<define name="UNICODE" />
+	<define name="_DISABLE_TIDENTS" />
 	<library>ntdll</library>
 	<library>kernel32</library>
-	<library>wine</library>
-	<file>main.c</file>
 	<file>snmpapi.c</file>
 	<file>snmpapi.rc</file>
 </module>

@@ -21,16 +21,6 @@
 import "basetsd.h";
 import "guiddef.h";
 
-cpp_quote("#ifndef __wtypes_h__")
-cpp_quote("#define __wtypes_h__")
-cpp_quote("#endif")
-
-cpp_quote("#ifdef _MSC_VER")
-cpp_quote("#pragma warning(push)")
-cpp_quote("#pragma warning(disable:4201)")
-cpp_quote("#pragma warning(disable:4820)")
-cpp_quote("#endif")
-
 [
   uuid(D3980A60-910C-1068-9341-00DD010F2F1C),
   version(0.1),
@@ -215,20 +205,6 @@ typedef struct tagLOGPALETTE
   WORD palNumEntries;
   [size_is(palNumEntries)] PALETTEENTRY palPalEntry[*];
 } LOGPALETTE, *PLOGPALETTE, *LPLOGPALETTE;
-cpp_quote("#endif")
-
-cpp_quote("#ifndef _SYSTEMTIME_")
-cpp_quote("#define _SYSTEMTIME_")
-typedef struct _SYSTEMTIME{
-        WORD wYear;
-        WORD wMonth;
-        WORD wDayOfWeek;
-        WORD wDay;
-        WORD wHour;
-        WORD wMinute;
-        WORD wSecond;
-        WORD wMilliseconds;
-} SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
 cpp_quote("#endif")
 
 cpp_quote("#ifndef _FILETIME_")
@@ -799,7 +775,7 @@ typedef struct tagQUERYCONTEXT
     DWORD dwVersionLo;
 } QUERYCONTEXT;
 
-typedef [v1_enum] enum tagTYSPEC
+typedef [v1_enum] enum tagTYSPEC 
 {
     TYSPEC_CLSID,
     TYSPEC_FILEEXT,
@@ -837,7 +813,3 @@ typedef union switch(DWORD tyspec)
 } uCLSSPEC;
 
 } /* interface IWinTypes */
-
-cpp_quote("#ifdef _MSC_VER")
-cpp_quote("#pragma warning(pop)")
-cpp_quote("#endif")

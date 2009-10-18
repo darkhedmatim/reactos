@@ -88,9 +88,9 @@ int main (int argc, char *argv[])
 	char FileName[PATH_MAX];
 	int Param;
 
-	printf ("Binary hive maker: %s\n", argv[3]);
+	printf ("Binary hive maker\n");
 
-	if (argc < 4)
+	if (argc < 3)
 	{
 		usage ();
 		return 1;
@@ -100,33 +100,25 @@ int main (int argc, char *argv[])
 
 	convert_path (FileName, argv[1]);
 	strcat (FileName, DIR_SEPARATOR_STRING);
-	strcat (FileName, "hivesys_");
-    strcat (FileName, argv[3]);
-    strcat (FileName, ".inf");
+	strcat (FileName, "hivesys.inf");
 	ImportRegistryFile (FileName);
 
 	convert_path (FileName, argv[1]);
 	strcat (FileName, DIR_SEPARATOR_STRING);
-	strcat (FileName, "hivecls_");
-    strcat (FileName, argv[3]);
-    strcat (FileName, ".inf");
+	strcat (FileName, "hivecls.inf");
 	ImportRegistryFile (FileName);
 
 	convert_path (FileName, argv[1]);
 	strcat (FileName, DIR_SEPARATOR_STRING);
-	strcat (FileName, "hivesft_");
-    strcat (FileName, argv[3]);
-    strcat (FileName, ".inf");
+	strcat (FileName, "hivesft.inf");
 	ImportRegistryFile (FileName);
 
 	convert_path (FileName, argv[1]);
 	strcat (FileName, DIR_SEPARATOR_STRING);
-	strcat (FileName, "hivedef_");
-    strcat (FileName, argv[3]);
-    strcat (FileName, ".inf");
+	strcat (FileName, "hivedef.inf");
 	ImportRegistryFile (FileName);
 
-	for (Param = 4; Param < argc; Param++)
+	for (Param = 3; Param < argc; Param++)
 	{
 		convert_path (FileName, argv[Param]);
 		ImportRegistryFile (FileName);

@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <reactos/resource.h>
 #include "resource.h"
 
 IDM_MAINMENU MENU LOADONCALL MOVEABLE DISCARDABLE
@@ -20,7 +21,7 @@ IDM_MAINMENU MENU LOADONCALL MOVEABLE DISCARDABLE
       MENUITEM "&9", 19
     }
     MENUITEM SEPARATOR
-    MENUITEM "&Save\tCtrl+S", 3
+    MENUITEM "&Save\tCtrl+S", 3 
     MENUITEM "Save &as...", 4
     MENUITEM SEPARATOR
     MENUITEM "E&xit\tAlt-F4", IDM_EXIT

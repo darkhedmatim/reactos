@@ -13,66 +13,17 @@
  * @implemented
  */
 VOID
-WINAPI
+STDCALL
 EngAcquireSemaphore ( IN HSEMAPHORE hsem )
 {
     RtlEnterCriticalSection((PRTL_CRITICAL_SECTION)hsem);
-}
-
-
-/*
- * @unimplemented
- */
-BOOL
-copy_my_glyphset( FD_GLYPHSET *dst_glyphset , FD_GLYPHSET * src_glyphset, ULONG Size)
-{
-    BOOL retValue = FALSE;
-
-    memcpy(src_glyphset, dst_glyphset, Size);
-    if (src_glyphset->cRuns == 0)
-    {
-        retValue = TRUE;
-    }
-
-    /* FIXME copy wrun */
-    return retValue;
-}
-
-/*
- * @implemented
- */
-FD_GLYPHSET*
-WINAPI
-EngComputeGlyphSet(INT nCodePage,INT nFirstChar,INT cChars)
-{
-    FD_GLYPHSET * ntfd_glyphset;
-    FD_GLYPHSET * myfd_glyphset = NULL;
-
-    ntfd_glyphset = NtGdiEngComputeGlyphSet(nCodePage,nFirstChar,cChars);
-
-    if (ntfd_glyphset)
-    {
-        if (ntfd_glyphset->cjThis)
-        {
-            myfd_glyphset = GlobalAlloc(0,ntfd_glyphset->cjThis);
-            if (myfd_glyphset)
-            {
-                if (copy_my_glyphset(myfd_glyphset,ntfd_glyphset,ntfd_glyphset->cjThis) == FALSE)
-                {
-                    GlobalFree(myfd_glyphset);
-                    myfd_glyphset = NULL;
-                }
-            }
-        }
-    }
-    return myfd_glyphset;
 }
 
 /*
  * @implemented
  */
 HSEMAPHORE
-WINAPI
+STDCALL
 EngCreateSemaphore ( VOID )
 {
     PRTL_CRITICAL_SECTION CritSect = RtlAllocateHeap(GetProcessHeap(), 0, sizeof(RTL_CRITICAL_SECTION));
@@ -89,20 +40,19 @@ EngCreateSemaphore ( VOID )
  * @implemented
  */
 VOID
-WINAPI
+STDCALL
 EngDeleteSemaphore ( IN HSEMAPHORE hsem )
 {
-    if (hsem)
-    {
-        RtlDeleteCriticalSection( (PRTL_CRITICAL_SECTION) hsem );
-        RtlFreeHeap( GetProcessHeap(), 0, hsem );
-    }
+ if (!hsem) return;
+
+ RtlDeleteCriticalSection( (PRTL_CRITICAL_SECTION) hsem );
+ RtlFreeHeap( GetProcessHeap(), 0, hsem );
 }
 
 /*
  * @implemented
  */
-PVOID WINAPI
+PVOID STDCALL
 EngFindResource(HANDLE h,
                 int iName,
                 int iType,
@@ -131,7 +81,7 @@ EngFindResource(HANDLE h,
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL 
 EngFreeModule(HANDLE h)
 {
     FreeLibrary(h);
@@ -141,7 +91,7 @@ EngFreeModule(HANDLE h)
  * @implemented
  */
 
-VOID WINAPI
+VOID STDCALL
 EngGetCurrentCodePage( OUT PUSHORT OemCodePage,
                        OUT PUSHORT AnsiCodePage)
 {
@@ -153,42 +103,16 @@ EngGetCurrentCodePage( OUT PUSHORT OemCodePage,
 /*
  * @implemented
  */
-LPWSTR WINAPI
-EngGetDriverName(HDEV hdev)
-{
-  // DHPDEV from NtGdiGetDhpdev must be from print driver.
-  PUMPDEV pPDev = (PUMPDEV)NtGdiGetDhpdev(hdev);
-
-  if (!pPDev) return NULL;
-  
-  if (pPDev->Sig != PDEV_UMPD_ID)
-  {
-     pPDev = (PUMPDEV)pPDev->Sig;
-  }
-  return pPDev->pdi5Info->pDriverPath;
-}
-
-/*
- * @implemented
- */
-LPWSTR WINAPI
+LPWSTR STDCALL
 EngGetPrinterDataFileName(HDEV hdev)
 {
-  PUMPDEV pPDev = (PUMPDEV)NtGdiGetDhpdev(hdev);
-
-  if (!pPDev) return NULL;
-
-  if (pPDev->Sig != PDEV_UMPD_ID)
-  {
-     pPDev = (PUMPDEV)pPDev->Sig;
-  }
-  return pPDev->pdi5Info->pDataFile;
+    return EngGetDriverName(hdev);
 }
 
 /*
  * @implemented
  */
-HANDLE WINAPI
+HANDLE STDCALL 
 EngLoadModule(LPWSTR pwsz)
 {
    return LoadLibraryExW ( pwsz, NULL, LOAD_LIBRARY_AS_DATAFILE);
@@ -197,7 +121,7 @@ EngLoadModule(LPWSTR pwsz)
 /*
  * @implemented
  */
-INT WINAPI
+INT STDCALL 
 EngMultiByteToWideChar(UINT CodePage,
                        LPWSTR WideCharString,
                        INT BytesInWideCharString,
@@ -210,7 +134,7 @@ EngMultiByteToWideChar(UINT CodePage,
 /*
  * @implemented
  */
-VOID WINAPI
+VOID STDCALL 
 EngQueryLocalTime(PENG_TIME_FIELDS etf)
 {
   SYSTEMTIME SystemTime;
@@ -229,26 +153,53 @@ EngQueryLocalTime(PENG_TIME_FIELDS etf)
  * @implemented
  */
 VOID
-WINAPI
+STDCALL
 EngReleaseSemaphore ( IN HSEMAPHORE hsem )
 {
   RtlLeaveCriticalSection( (PRTL_CRITICAL_SECTION) hsem);
 }
 
+BOOL 
+copy_my_glyphset( FD_GLYPHSET *dst_glyphset , FD_GLYPHSET * src_glyphset, ULONG Size)
+{
+    BOOL retValue = FALSE;
 
+    memcpy(src_glyphset, dst_glyphset, Size);
+    if (src_glyphset->cRuns == 0)
+    {
+        retValue = TRUE;
+    }
 
+    /* FIXME copy wrun */
+    return retValue;
+}
 
 /*
- * @implemented
+ * @unimplemented
  */
-INT
-WINAPI
-EngWideCharToMultiByte( UINT CodePage,
-                        LPWSTR WideCharString,
-                        INT BytesInWideCharString,
-                        LPSTR MultiByteString,
-                        INT BytesInMultiByteString)
+FD_GLYPHSET* STDCALL
+EngComputeGlyphSet(INT nCodePage,INT nFirstChar,INT cChars)
 {
-  return WideCharToMultiByte(CodePage, 0, WideCharString, (BytesInWideCharString/sizeof(WCHAR)),
-                             MultiByteString, BytesInMultiByteString, NULL, NULL);
+    FD_GLYPHSET * ntfd_glyphset;
+    FD_GLYPHSET * myfd_glyphset = NULL;
+
+    ntfd_glyphset = NtGdiEngComputeGlyphSet(nCodePage,nFirstChar,cChars);
+
+    if (!ntfd_glyphset)
+    {
+        if (ntfd_glyphset->cjThis)
+        {
+            myfd_glyphset = GlobalAlloc(0,ntfd_glyphset->cjThis);
+
+            if (!myfd_glyphset)
+            {
+                if (copy_my_glyphset(myfd_glyphset,ntfd_glyphset,ntfd_glyphset->cjThis) == FALSE)
+                {
+                    GlobalFree(myfd_glyphset);
+                    myfd_glyphset = NULL;
+                }
+            }
+        }
+    }
+    return myfd_glyphset;
 }

@@ -20,6 +20,8 @@
 
 #include "precomp.h"
 
+//#define NDEBUG
+#include <debug.h>
 #define _WINNT_H
 #include "wine/debug.h"
 
@@ -120,7 +122,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
     /* Move to the Next DLL */
     Head = &ImageLoadListHead;
     Next = Head->Flink;
-    TRACE("Trying to find library: %s in current ListHead \n", DllName);
+    DPRINT("Trying to find library: %s in current ListHead \n", DllName);
 
     /* Split the path */
     _splitpath(DllName, Drive, Dir, Filename, Ext);
@@ -133,7 +135,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
     {
         /* Get the Loaded Image Structure */
         LoadedImage = CONTAINING_RECORD(Next, LOADED_IMAGE, Links);
-        TRACE("Found: %s in current ListHead \n", LoadedImage->ModuleName);
+        DPRINT("Found: %s in current ListHead \n", LoadedImage->ModuleName);
 
         /* Check if we didn't have a complete name */
         if (!CompleteName)
@@ -150,11 +152,11 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
             /* Use the full untouched name */
             strcpy(FullName, LoadedImage->ModuleName);
         }
-
+        
         /* Check if the Names Match */
         if (!_stricmp(DllName, FullName))
         {
-            TRACE("Found it, returning it\n");
+            DPRINT("Found it, returning it\n");
             return LoadedImage;
         }
 
@@ -163,7 +165,7 @@ PLOADED_IMAGE IMAGEAPI ImageLoad(LPSTR DllName, LPSTR DllPath)
     }
 
     /* Allocate memory for the Structure, and write the Module Name under */
-    TRACE("Didn't find it...allocating it for you now\n");
+    DPRINT("Didn't find it...allocating it for you now\n");
     LoadedImage = HeapAlloc(IMAGEHLP_hHeap,
                             0,
                             sizeof(*LoadedImage) + strlen(DllName) + 1);
@@ -228,19 +230,19 @@ BOOL IMAGEAPI MapAndLoad(
 
     /* Assume failure */
     pLoadedImage->hFile = INVALID_HANDLE_VALUE;
-
+  
     /* Start open loop */
     while (TRUE)
     {
         /* Get a handle to the file */
-        hFile = CreateFileA(FileToOpen,
-                            ReadOnly ? GENERIC_READ :
+        hFile = CreateFileA(FileToOpen, 
+                            ReadOnly ? GENERIC_READ : 
                                        GENERIC_READ | GENERIC_WRITE,
                             ReadOnly ? FILE_SHARE_READ :
                                        FILE_SHARE_READ | FILE_SHARE_WRITE,
-                            NULL,
-                            OPEN_EXISTING,
-                            0,
+                            NULL, 
+                            OPEN_EXISTING, 
+                            0, 
                             NULL);
 
         if (hFile == INVALID_HANDLE_VALUE)
@@ -253,14 +255,14 @@ BOOL IMAGEAPI MapAndLoad(
                                    ImageName,
                                    DotDll ? ".dll" : ".exe",
                                    MAX_PATH,
-                                   (PSTR)Buffer,
+                                   Buffer,
                                    &FilePart);
 
                 /* Check if it was successful */
                 if (Tried && (Tried < MAX_PATH))
                 {
                     /* Change the filename to use, and try again */
-                    FileToOpen = (PSTR)Buffer;
+                    FileToOpen = Buffer;
                     continue;
                 }
             }
@@ -275,11 +277,11 @@ BOOL IMAGEAPI MapAndLoad(
 
     /* Create the File Mapping */
     hFileMapping = CreateFileMappingA(hFile,
-                                      NULL,
+                                      NULL, 
                                       ReadOnly ? PAGE_READONLY :
-                                                 PAGE_READWRITE,
-                                      0,
-                                      0,
+                                                 PAGE_READWRITE, 
+                                      0, 
+                                      0, 
                                       NULL);
     if (!hFileMapping)
     {
@@ -294,7 +296,7 @@ BOOL IMAGEAPI MapAndLoad(
                                                ReadOnly ? FILE_MAP_READ :
                                                           FILE_MAP_WRITE,
                                                0,
-                                               0,
+                                               0, 
                                                0);
 
     /* Close the handle to the map, we don't need it anymore */
@@ -445,7 +447,7 @@ ImageDirectoryEntryToData32(PVOID Base,
     {
         /* No header found */
         if (FoundHeader) *FoundHeader = NULL;
-
+        
         /* And simply return the VA */
         return (PVOID)((ULONG_PTR)Base + DirectoryEntryVA);
     }
@@ -453,12 +455,12 @@ ImageDirectoryEntryToData32(PVOID Base,
     /* Read the first Section */
     CurrentSection = (PIMAGE_SECTION_HEADER)((ULONG_PTR)OptionalHeader +
                                              FileHeader->SizeOfOptionalHeader);
-
+    
     /* Loop through every section*/
     for (i = 0; i < FileHeader->NumberOfSections; i++)
-    {
+    {    
         /* If the Directory VA is located inside this section's VA, then this section belongs to this Directory */
-        if ((DirectoryEntryVA >= CurrentSection->VirtualAddress) &&
+        if ((DirectoryEntryVA >= CurrentSection->VirtualAddress) && 
             (DirectoryEntryVA < (CurrentSection->VirtualAddress +
                                  CurrentSection->SizeOfRawData)))
         {
@@ -492,7 +494,7 @@ GetTimestampForLoadedLibrary(HMODULE Module)
 /*
  * @implemented
  */
-PVOID
+PVOID 
 IMAGEAPI
 ImageDirectoryEntryToData(PVOID Base,
                           BOOLEAN MappedAsImage,
@@ -540,7 +542,7 @@ ImageDirectoryEntryToDataEx(IN PVOID Base,
 /*
  * @implemented
  */
-PIMAGE_SECTION_HEADER
+PIMAGE_SECTION_HEADER 
 IMAGEAPI
 ImageRvaToSection(IN PIMAGE_NT_HEADERS NtHeaders,
                   IN PVOID Base,
@@ -556,7 +558,7 @@ ImageRvaToSection(IN PIMAGE_NT_HEADERS NtHeaders,
     for (i = 0; i < NtHeaders->FileHeader.NumberOfSections; i++)
     {
         /* Check if the RVA is in between */
-        if ((Rva >= Section->VirtualAddress) &&
+        if ((Rva >= Section->VirtualAddress) && 
             (Rva < (Section->VirtualAddress + Section->SizeOfRawData)))
         {
             /* Return this section */
@@ -585,8 +587,8 @@ ImageNtHeader(PVOID Base)
 /*
  * @implemented
  */
-PVOID
-IMAGEAPI
+PVOID 
+IMAGEAPI 
 ImageRvaToVa(IN PIMAGE_NT_HEADERS NtHeaders,
              IN PVOID Base,
              IN ULONG Rva,

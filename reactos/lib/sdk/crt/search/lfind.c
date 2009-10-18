@@ -1,11 +1,12 @@
-#include <stdlib.h>
 #include <search.h>
+#include <stdlib.h>
+
 
 /*
  * @implemented
  */
-void *_lfind(const void *key, const void *base, unsigned int *nelp,
-         unsigned int width, int (__cdecl *compar)(const void *, const void *))
+void *_lfind(const void *key, const void *base, size_t *nelp,
+         size_t width, int (*compar)(const void *, const void *))
 {
 	char* char_base = (char*)base;
 	unsigned int i;
@@ -17,5 +18,4 @@ void *_lfind(const void *key, const void *base, unsigned int *nelp,
 	}
 	return NULL;
 }
-
 

@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS *******************************************************************/
 
@@ -21,11 +21,11 @@ HAL_DISPATCH HalDispatchTable =
     (pHalSetSystemInformation)NULL,
     (pHalQueryBusSlots)NULL,
     0,
-    xHalExamineMBR,
-    xHalIoAssignDriveLetters,
-    xHalIoReadPartitionTable,
-    xHalIoSetPartitionInformation,
-    xHalIoWritePartitionTable,
+    (pHalExamineMBR)HalExamineMBR,
+    (pHalIoAssignDriveLetters)IoAssignDriveLetters,
+    (pHalIoReadPartitionTable)IoReadPartitionTable,
+    (pHalIoSetPartitionInformation)IoSetPartitionInformation,
+    (pHalIoWritePartitionTable)IoWritePartitionTable,
     (pHalHandlerForBus)NULL,
     (pHalReferenceBusHandler)NULL,
     (pHalReferenceBusHandler)NULL,
@@ -51,7 +51,7 @@ HAL_PRIVATE_DISPATCH HalPrivateDispatchTable =
     (pHalSetWakeAlarm)NULL,
     (pHalTranslateBusAddress)NULL,
     (pHalAssignSlotResources)NULL,
-    xHalHaltSystem,
+    (pHalHaltSystem)NULL,
     (pHalFindBusAddressTranslation)NULL,
     (pHalResetDisplay)NULL,
     (pHalAllocateMapRegisters)NULL,
@@ -66,10 +66,5 @@ HAL_PRIVATE_DISPATCH HalPrivateDispatchTable =
 
 /* FUNCTIONS *****************************************************************/
 
-VOID
-NTAPI
-xHalHaltSystem(VOID)
-{
-    /* Halt execution */
-    while (TRUE);
-}
+
+/* EOF */

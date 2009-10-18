@@ -4,11 +4,11 @@
 
 #ifndef HAVE_STRCASECMP
 
-#ifdef _stricmp
-# undef _stricmp
+#ifdef strcasecmp
+# undef strcasecmp
 #endif
 
-int _stricmp( const char *str1, const char *str2 )
+int strcasecmp( const char *str1, const char *str2 )
 {
     const unsigned char *ustr1 = (const unsigned char *)str1;
     const unsigned char *ustr2 = (const unsigned char *)str2;

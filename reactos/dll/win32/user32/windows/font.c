@@ -34,29 +34,11 @@
 
 /* FUNCTIONS *****************************************************************/
 
-#ifndef NDEBUG
-
-#ifdef assert
-#undef assert
-#endif
-
-#define assert(e) ((e) ? (void)0 : _font_assert(#e, __FILE__, __LINE__))
-
-#endif
-
-void _font_assert(const char *msg, const char *file, int line)
-{
-  /* Assertion failed at foo.c line 45: x<y */
-  DbgPrint("Assertion failed at %s line %d: %s\n", file, line, msg);
-  ExitProcess(3);
-  for(;;); /* eliminate warning by mingw */
-}
-
 /*
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 TabbedTextOutA(
   HDC hDC,
   int X,
@@ -122,7 +104,7 @@ static LONG TEXT_TabbedTextOut( HDC hdc, INT x, INT y, LPCWSTR lpstr,
         INT x0;
         x0 = x;
         r.left = x0;
-        /* chop the string into substrings of 0 or more <tabs>
+        /* chop the string into substrings of 0 or more <tabs> 
          * possibly followed by 1 or more normal characters */
         for (i = 0; i < count; i++)
             if (lpstr[i] != '\t') break;
@@ -167,7 +149,7 @@ static LONG TEXT_TabbedTextOut( HDC hdc, INT x, INT y, LPCWSTR lpstr,
             }
         } else
             x += extent.cx;
-
+        
         if (fDisplayText)
         {
             r.top    = y;
@@ -186,7 +168,7 @@ static LONG TEXT_TabbedTextOut( HDC hdc, INT x, INT y, LPCWSTR lpstr,
  * @implemented
  */
 LONG
-WINAPI
+STDCALL
 TabbedTextOutW(
   HDC hDC,
   int X,
@@ -205,7 +187,7 @@ TabbedTextOutW(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetTabbedTextExtentA(
   HDC hDC,
   LPCSTR lpString,
@@ -233,7 +215,7 @@ GetTabbedTextExtentA(
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetTabbedTextExtentW(
   HDC hDC,
   LPCWSTR lpString,
@@ -676,10 +658,9 @@ static void TEXT_SkipChars (int *new_count, const WCHAR **new_str,
         assert (max >= n);
         max -= n;
         while (n--)
-        {
             if (*start_str++ == PREFIX && max--)
                 start_str++;
-        }
+            else;
         start_count -= (start_str - str_on_entry);
     }
     else
@@ -737,6 +718,7 @@ static int TEXT_Reprefix (const WCHAR *str, unsigned int ns,
             str++;
             ns--;
         }
+        else;
         i++;
     }
     return result;
@@ -1024,7 +1006,7 @@ static void TEXT_DrawUnderscore (HDC hdc, int x, int y, const WCHAR *str, int of
         if (prefix_x   < rect->left ) prefix_x   = rect->left;
         if (prefix_end > rect->right) prefix_end = rect->right;
     }
-
+    
     hpen = CreatePen (PS_SOLID, 1, GetTextColor (hdc));
     oldPen = SelectObject (hdc, hpen);
     MoveToEx (hdc, prefix_x, y, NULL);
@@ -1048,7 +1030,7 @@ static void TEXT_DrawUnderscore (HDC hdc, int x, int y, const WCHAR *str, int of
 /*
  * @implemented
  */
-int WINAPI
+int STDCALL
 DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
              LPRECT rect, UINT flags, LPDRAWTEXTPARAMS dtp )
 {
@@ -1168,14 +1150,13 @@ DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
                 else
                     len_seg = len;
 
-                if (!(flags & DT_PREFIXONLY)&&
-                    !ExtTextOutW( hdc, xseg, y,
+                if (!ExtTextOutW( hdc, xseg, y,
                                  ((flags & DT_NOCLIP) ? 0 : ETO_CLIPPED) |
                                  ((flags & DT_RTLREADING) ? ETO_RTLREADING : 0),
                                  rect, str, len_seg, NULL ))  return 0;
-                if (prefix_offset != -1 && prefix_offset < len_seg && !(flags & DT_HIDEPREFIX))
+                if (prefix_offset != -1 && prefix_offset < len_seg)
                 {
-                    TEXT_DrawUnderscore (hdc, xseg, y + tm.tmAscent + 1, str, prefix_offset, (flags & DT_NOCLIP) ? NULL : rect);
+                    TEXT_DrawUnderscore (hdc, xseg, y + tm.tmAscent + 2, str, prefix_offset, (flags & DT_NOCLIP) ? NULL : rect);
                 }
                 len -= len_seg;
                 str += len_seg;
@@ -1236,7 +1217,7 @@ DrawTextExW( HDC hdc, LPWSTR str, INT i_count,
  * @implemented
  */
 /* WINE synced 22-May-2006 */
-int WINAPI
+int STDCALL
 DrawTextExA( HDC hdc, LPSTR str, INT count,
              LPRECT rect, UINT flags, LPDRAWTEXTPARAMS dtp )
 {
@@ -1295,7 +1276,7 @@ DrawTextExA( HDC hdc, LPSTR str, INT count,
  *
  * @implemented
  */
-int WINAPI
+int STDCALL
 DrawTextW( HDC hdc, LPCWSTR str, INT count, LPRECT rect, UINT flags )
 {
     DRAWTEXTPARAMS dtp;
@@ -1314,7 +1295,7 @@ DrawTextW( HDC hdc, LPCWSTR str, INT count, LPRECT rect, UINT flags )
  *
  * @implemented
  */
-int WINAPI
+int STDCALL
 DrawTextA( HDC hdc, LPCSTR str, INT count, LPRECT rect, UINT flags )
 {
     DRAWTEXTPARAMS dtp;

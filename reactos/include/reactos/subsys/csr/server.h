@@ -7,11 +7,6 @@
 #ifndef _CSRSERVER_H
 #define _CSRSERVER_H
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning (disable:4201)
-#endif
-
 /* DEPENDENCIES **************************************************************/
 
 /* TYPES **********************************************************************/
@@ -47,8 +42,8 @@ typedef struct _CSR_PROCESS
     ULONG Reserved;
     ULONG ShutdownLevel;
     ULONG ShutdownFlags;
-    PVOID ServerData[ANYSIZE_ARRAY];
-} CSR_PROCESS, *PCSR_PROCESS;
+    PVOID ServerData[];
+} CSR_PROCESS, *PCSR_PROCESS; 
 
 typedef struct _CSR_THREAD
 {
@@ -62,7 +57,7 @@ typedef struct _CSR_THREAD
     ULONG Flags;
     ULONG ReferenceCount;
     ULONG ImpersonationCount;
-} CSR_THREAD, *PCSR_THREAD;
+} CSR_THREAD, *PCSR_THREAD; 
 
 /* ENUMERATIONS **************************************************************/
 #define CSR_SRV_SERVER 0
@@ -107,7 +102,7 @@ typedef enum _CSR_DEBUG_FLAGS
 /* FUNCTION TYPES ************************************************************/
 typedef
 NTSTATUS
-(NTAPI *PCSR_CONNECT_CALLBACK)(
+(*PCSR_CONNECT_CALLBACK)(
     IN PCSR_PROCESS CsrProcess,
     IN OUT PVOID ConnectionInfo,
     IN OUT PULONG ConnectionInfoLength
@@ -115,25 +110,25 @@ NTSTATUS
 
 typedef
 VOID
-(NTAPI *PCSR_DISCONNECT_CALLBACK)(IN PCSR_PROCESS CsrProcess);
+(*PCSR_DISCONNECT_CALLBACK)(IN PCSR_PROCESS CsrProcess);
 
 typedef
 NTSTATUS
-(NTAPI *PCSR_NEWPROCESS_CALLBACK)(
+(*PCSR_NEWPROCESS_CALLBACK)(
     IN PCSR_PROCESS Parent,
     IN PCSR_PROCESS CsrProcess
 );
 
 typedef
 VOID
-(NTAPI *PCSR_HARDERROR_CALLBACK)(
+(*PCSR_HARDERROR_CALLBACK)(
     IN PCSR_THREAD CsrThread,
     IN PHARDERROR_MSG HardErrorMessage
 );
 
 typedef
 ULONG
-(NTAPI *PCSR_SHUTDOWNPROCESS_CALLBACK)(
+(*PCSR_SHUTDOWNPROCESS_CALLBACK)(
     IN PCSR_PROCESS CsrProcess,
     IN ULONG Flags,
     IN BOOLEAN FirstPhase
@@ -176,7 +171,7 @@ typedef struct _CSR_API_MESSAGE
         {
             PVOID CsrCaptureData;
             CSR_API_NUMBER Opcode;
-            ULONG Status;
+            ULONG Status; 
             ULONG Reserved;
             union
             {
@@ -329,9 +324,5 @@ CsrServerInitialization(
     ULONG ArgumentCount,
     PCHAR Arguments[]
 );
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #endif

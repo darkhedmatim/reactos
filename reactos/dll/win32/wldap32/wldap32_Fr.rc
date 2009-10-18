@@ -56,7 +56,7 @@ STRINGTABLE DISCARDABLE
     31 ""
     32 "Objet inconnu"
     33 "Problème d'alias"
-    34 "Syntaxe DN invalide"
+    34 "Synatxe DN invalide"
     35 "Est une feuille"
     36 "Problème de déréférencement d'alias"
     37 ""
@@ -117,7 +117,7 @@ STRINGTABLE DISCARDABLE
     92 "Opération non supportée par cette version du protocole LDAP"
     93 "Le contrôle spécifié n'a pas été trouvé dans le message"
     94 "Pas de résultat dans le message"
-    95 "Plus de résultats retournés"
+    95 "Plusde résultats retournés"
     96 "Boucle lors du traitement des référants"
     97 "Limite du nombre de référents dépassée"
 }

@@ -8,7 +8,7 @@ BEGIN
     MENUITEM SEPARATOR
     MENUITEM "E&sci",       ID_EXIT
   END
-  POPUP "Azioni"
+  POPUP "Action"
   BEGIN
     MENUITEM "Collega a...", ID_CONNECT, GRAYED
     MENUITEM SEPARATOR
@@ -26,7 +26,7 @@ BEGIN
     MENUITEM SEPARATOR
     MENUITEM "Proprietà...", ID_PROP, GRAYED
   END
-  POPUP "Visualizzazione"
+  POPUP "View"
   BEGIN
     MENUITEM "Icone grandi", ID_VIEW_LARGE
     MENUITEM "Icone piccole", ID_VIEW_SMALL
@@ -66,18 +66,18 @@ END
 IDD_ABOUTBOX DIALOGEX 22,16,190,182
 CAPTION "Informazioni su Gestione Servizi"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 BEGIN
-  LTEXT "Gestione Servizi v0.8\nCopyright (C) 2005-2007\nby Ged Murphy (gedmurphy@gmail.com)", IDC_STATIC, 48, 7, 135, 26
+  LTEXT "Gestione Servizi v0.8\nCopyright (C) 2005-2007\nby Ged Murphy (gedmurphy@gmail.com)", IDC_STATIC, 48, 7, 130, 26
   PUSHBUTTON "Chiudi", IDOK, 75, 162, 44, 15
   ICON IDI_SM_ICON, IDC_STATIC, 10, 10, 7, 30
   EDITTEXT IDC_LICENSE_EDIT, 8, 44, 174, 107, WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | ES_READONLY | ES_MULTILINE
 END
 
 IDD_DLG_GENERAL DIALOGEX 6,6,253,232
-CAPTION "Generale"
+CAPTION "General"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   LTEXT "", IDC_SERV_NAME, 70,11,176,11, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_DISP_NAME, 70, 29, 176, 13, WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_READONLY
@@ -104,7 +104,7 @@ END
 IDD_DLG_DEPEND DIALOGEX 6,6,253,225
 CAPTION "Dipendenze"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   CONTROL "", IDC_DEPEND_TREE1, "SysTreeView32" ,0x50010007, 8, 70, 236, 68, 0x00000200
   CONTROL "", IDC_DEPEND_TREE2, "SysTreeView32", 0x50010007, 8, 151, 234, 67, 0x00000200
@@ -116,11 +116,11 @@ END
 IDD_DLG_CREATE DIALOGEX 6,6,225,209
 CAPTION "Crea un servizio"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
+STYLE WS_BORDER | WS_VISIBLE | WS_DLGFRAME | WS_SYSMENU | WS_THICKFRAME | WS_GROUP | WS_TABSTOP
 BEGIN
   EDITTEXT IDC_CREATE_SERVNAME, 72, 12, 150, 11, WS_CHILD | WS_VISIBLE | WS_EX_CLIENTEDGE
   EDITTEXT IDC_CREATE_DISPNAME, 72, 31, 150, 11, WS_CHILD | WS_VISIBLE
-  EDITTEXT IDC_CREATE_PATH, 10, 62, 210, 13, WS_CHILD | WS_VISIBLE
+  EDITTEXT IDC_CREATE_PATH, 8, 62, 214, 13, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_CREATE_DESC, 10, 97, 210, 48, WS_CHILD | WS_VISIBLE
   EDITTEXT IDC_CREATE_OPTIONS, 10, 162, 210, 13, WS_CHILD | WS_VISIBLE
   LTEXT "*Nome del servizio :", IDC_STATIC, 12, 12, 54, 9
@@ -130,13 +130,13 @@ BEGIN
   PUSHBUTTON "OK", IDOK, 126, 192, 44, 13
   PUSHBUTTON "Annulla", IDCANCEL, 176, 192, 46, 13
   LTEXT "Opzioni aggiuntive (cliccak aiuto per i dettagli)", IDC_STATIC, 10, 151, 134, 9
-  PUSHBUTTON "Aiuto", ID_CREATE_HELP, 10, 192, 44, 13
+  PUSHBUTTON "Aiuto", ID_CREATE_HELP, 6, 192, 44, 13
 END
 
 IDD_DLG_DELETE DIALOGEX 6,6,185,148
 CAPTION "Cancella un servizio"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
 BEGIN
   ICON IDI_WARNING, IDC_STATIC, 10, 8, 24, 22
   LTEXT "Sei sicuro di voler cancellare il seguente servizio ? Non potrà essere ripristinato!", IDC_STATIC, 50, 6, 125, 25
@@ -145,19 +145,6 @@ BEGIN
   EDITTEXT IDC_DEL_DESC, 6, 73, 174, 48, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_EX_STATICEDGE | ES_MULTILINE | ES_READONLY
   PUSHBUTTON "Si", IDOK, 26, 129, 54, 13
   DEFPUSHBUTTON "No", IDCANCEL, 102, 129, 54, 13
-END
-
-IDD_DLG_DEPEND_STOP DIALOGEX 6,6,240,148
-CAPTION "Ferma altri servizi"
-FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | DS_MODALFRAME
-BEGIN
-  ICON IDI_WARNING, IDC_STATIC, 10, 8, 24, 22
-  LTEXT "", IDC_STOP_DEPENDS, 40, 8, 170, 25
-  LISTBOX IDC_STOP_DEPENDS_LB, 15, 40, 210, 70, WS_CHILD | WS_VISIBLE | WS_EX_STATICEDGE | LBS_NOSEL
-  LTEXT "Volete fermare questi servizi?",IDC_STATIC, 15, 110, 150, 10
-  DEFPUSHBUTTON "Si", IDOK, 60, 129, 54, 14
-  PUSHBUTTON "No", IDCANCEL, 120, 129, 54, 14
 END
 
 IDD_DLG_HELP_OPTIONS DIALOGEX 6,6,200,150
@@ -170,9 +157,9 @@ BEGIN
 END
 
 IDD_DLG_PROGRESS DIALOGEX 6,6,255,89
-CAPTION "Controllo dei servizi"
+CAPTION "Service Control"
 FONT 8, "MS Shell Dlg",0,0
-STYLE DS_SHELLFONT | WS_BORDER | WS_DLGFRAME | WS_SYSMENU | WS_VISIBLE | DS_MODALFRAME
+STYLE WS_BORDER | WS_DLGFRAME | WS_SYSMENU | DS_MODALFRAME
 EXSTYLE WS_EX_TOOLWINDOW
 BEGIN
   CONTROL "", IDC_SERVCON_PROGRESS, "msctls_progress32", 0x50000000, 8, 46, 238, 13
@@ -204,8 +191,6 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
   IDS_NUM_SERVICES "Numero Servizi: %d"
-  IDS_STOP_DEPENDS "Quando %s si ferma, Questi altri sevizi si fermeranno"
-  IDS_NO_DEPENDS "<Nessuna dipendenza>"
   IDS_LICENSE "Questo programma è software libero; puoi distribuirlo e/o modificarlo nei termini di licenza di 'GNU General Public License' come pubblicata dalla 'Free Software Foundation'; entrambe le versioni 2 della Licenza, o (a vostra scelta) qualunque versione successiva.\r\n\r\nQuesto programma è distribuito con l'augurio che sia utile, ma PRIVO DI OGNI GARANZIA; privo anche della garanzia implicita di COMMERCIABILITÀ o UTILIZZABILITÀ PER UNO SPECIFICO USO. Vedi la 'GNU General Public License' per ulteriori dettagli.\r\n\r\nVoi dovreste aver ricevuto una copia della 'GNU General Public License' assieme a questo programma; se non è cosi' scrivete a 'Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA'."
 END
 
@@ -224,14 +209,14 @@ END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-  IDS_PROGRESS_INFO_START "ReactOS sta avviando il seguente servizio"
-  IDS_PROGRESS_INFO_STOP  "ReactOS sta fermando il seguente servizio"
-  IDS_PROGRESS_INFO_PAUSE  "ReactOS sta cercando di sospendere il seguente servizio"
-  IDS_PROGRESS_INFO_RESUME "ReactOS sta cercando di ripristinare il seguente servizio"
+  IDS_PROGRESS_INFO_START "ReactOS sta avviando il seguente  servizio"
+  IDS_PROGRESS_INFO_STOP  "ReactOS sta fermando il seguente  servizio"
+  IDS_PROGRESS_INFO_PAUSE  "ReactOS is attempting to pause the following service"
+  IDS_PROGRESS_INFO_RESUME "ReactOS is attempting to resume the following service"
   IDS_CREATE_SUCCESS "Servizio creato regolarmente"
-  IDS_DELETE_SUCCESS "Servizio rimosso"
+  IDS_DELETE_SUCCESS "Service Deleted Succesfully"
   IDS_CREATE_REQ "I campi marcati con un asterisco\nsono obbligatori"
-  IDS_DELETE_STOP "Devi fermare il servizio prima di rimuoverlo!"
+  IDS_DELETE_STOP "Devi fermare il servizio prima di cancellare!"
 END
 
 STRINGTABLE DISCARDABLE
@@ -278,5 +263,5 @@ END
 /* Application title */
 STRINGTABLE DISCARDABLE
 BEGIN
-  IDS_APPNAME "Gestione dei servizi di ReactOS"
+  IDS_APPNAME "ReactOS Service Manager"
 END

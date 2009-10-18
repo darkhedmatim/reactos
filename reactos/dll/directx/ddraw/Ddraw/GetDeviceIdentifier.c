@@ -9,7 +9,7 @@
  */
 
 /* TODO
- * We need adding digtial signarture detections for the drivers
+ * We need adding digtial signarture detections for the drivers 
  * and count out which level the signtature driver got, the value
  * shall be save to pDDDI->dwWHQLLevel, But I do not known how todo
  * this part yet, That is only missing feature in this functions
@@ -21,6 +21,8 @@
 
 #include <string.h>
 
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
 /* For DirectDraw 4 - 6 */
 HRESULT WINAPI
 Main_DirectDraw_GetDeviceIdentifier(LPDDRAWI_DIRECTDRAW_INT This,
@@ -31,7 +33,7 @@ Main_DirectDraw_GetDeviceIdentifier(LPDDRAWI_DIRECTDRAW_INT This,
 
     ZeroMemory(&pDDDI2,sizeof(DDDEVICEIDENTIFIER2));
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         memcpy(&pDDDI2 , pDDDI, sizeof(DDDEVICEIDENTIFIER));
 
@@ -46,11 +48,11 @@ Main_DirectDraw_GetDeviceIdentifier(LPDDRAWI_DIRECTDRAW_INT This,
             memcpy(pDDDI , &pDDDI2, sizeof(DDDEVICEIDENTIFIER) );
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         retVal = DD_FALSE;
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
@@ -73,15 +75,13 @@ Main_DirectDraw_GetDeviceIdentifier7(LPDDRAWI_DIRECTDRAW_INT This,
 
     DX_WINDBG_trace();
 
-    EnterCriticalSection( &ddcs );
-
-    _SEH2_TRY
+    _SEH_TRY
     {
         if ( (IsBadWritePtr( pDDDI, sizeof(DDDEVICEIDENTIFIER2) ) ) ||
              (dwFlags & ~DDGDI_GETHOSTIDENTIFIER))
         {
             retVal = DDERR_INVALIDPARAMS;
-            _SEH2_LEAVE;
+            _SEH_LEAVE;
         }
 
         /* now we can start getting the driver data */
@@ -98,7 +98,7 @@ Main_DirectDraw_GetDeviceIdentifier7(LPDDRAWI_DIRECTDRAW_INT This,
                 break;
             }
 
-            if (_stricmp(DisplayDeviceA.DeviceName, This->lpLcl->lpGbl->cDriverName) != 0)
+            if (!_stricmp(DisplayDeviceA.DeviceName, This->lpLcl->lpGbl->cDriverName))
             {
                 /* if we got another device like hardware mpeg decoder or video card or another drv */
                 found = TRUE;
@@ -150,7 +150,7 @@ Main_DirectDraw_GetDeviceIdentifier7(LPDDRAWI_DIRECTDRAW_INT This,
 
                     /* Count out the guidDeviceIdentifier */
                     memcpy(&pDDDI->guidDeviceIdentifier, &CLSID_DirectDraw,sizeof(GUID));
-
+                   
                     pDDDI->guidDeviceIdentifier.Data1 ^= pDDDI->dwVendorId;
 
                     lpdata = (long *)&pDDDI->guidDeviceIdentifier.Data2;
@@ -163,8 +163,8 @@ Main_DirectDraw_GetDeviceIdentifier7(LPDDRAWI_DIRECTDRAW_INT This,
                     *lpdata = (*lpdata ^ pDDDI->dwRevision) ^ pDDDI->liDriverVersion.HighPart;
 
                     /* FIXME pDDDI->dwWHQLLevel
-                     * we leave this with no informations, I do not known
-                     * if program care for it, I mark this api done, and
+                     * we leave this with no informations, I do not known 
+                     * if program care for it, I mark this api done, and 
                      * tested, no bugs was found in it
                      */
                     pDDDI->dwWHQLLevel = 0;
@@ -178,12 +178,11 @@ Main_DirectDraw_GetDeviceIdentifier7(LPDDRAWI_DIRECTDRAW_INT This,
          }
 
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         retVal = DD_FALSE;
     }
-    _SEH2_END;
+    _SEH_END;
 
-    LeaveCriticalSection( &ddcs );
     return retVal;
 }

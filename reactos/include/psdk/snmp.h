@@ -13,6 +13,9 @@
 
 #ifndef _SNMP_H
 #define _SNMP_H
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
 
 #ifndef _WINDOWS_H
 #include <windows.h>
@@ -131,11 +134,6 @@ extern "C" {
 #define SNMP_AUTHAPI_INVALID_VERSION	30
 #define SNMP_AUTHAPI_INVALID_MSG_TYPE	31
 #define SNMP_AUTHAPI_TRIV_AUTH_FAILED	32
-
-#define DEFINE_SIZEOF(x)     (sizeof(x)/sizeof((x)[0]))
-#define DEFINE_OID(x)        { DEFINE_SIZEOF(x),(x) }
-#define DEFINE_NULLOID()     { 0, NULL }
-#define DEFINE_NULLOCTENTS() { NULL, 0, FALSE }
 
 #ifndef RC_INVOKED
 

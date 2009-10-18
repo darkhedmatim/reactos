@@ -20,10 +20,10 @@ test_NtGdiDdCanCreateSurface(HANDLE hDirectDrawLocal)
     BOOL retValue=FALSE;
     DDHAL_CANCREATESURFACEDATA pCanCreateSurface;
     DDSURFACEDESC2 desc;
-
+    
     RtlZeroMemory(&pCanCreateSurface,sizeof(DDHAL_CANCREATESURFACEDATA));
     RtlZeroMemory(&desc,sizeof(DDSURFACEDESC2));
-
+    
     /* crash in windows 2000 */
     retValue = OsThunkDdCanCreateSurface(NULL,NULL);
     testing_eq(retValue, DDHAL_DRIVER_HANDLED,fails,"1. NtGdiDdCanCreateSurface(NULL,NULL);\0");
@@ -34,7 +34,7 @@ test_NtGdiDdCanCreateSurface(HANDLE hDirectDrawLocal)
     retValue = OsThunkDdCanCreateSurface(hDirectDrawLocal,(PDD_CANCREATESURFACEDATA)&pCanCreateSurface);
     testing_eq(retValue, DDHAL_DRIVER_HANDLED,fails,"3. NtGdiDdCanCreateSurface(hDirectDrawLocal,pCanCreateSurface);\0");
 
-    pCanCreateSurface.lpDDSurfaceDesc = (DDSURFACEDESC*)&desc;
+    pCanCreateSurface.lpDDSurfaceDesc = &desc;
     desc.dwSize = sizeof(DDSURFACEDESC2);
 
     retValue = OsThunkDdCanCreateSurface(hDirectDrawLocal,(PDD_CANCREATESURFACEDATA)&pCanCreateSurface);

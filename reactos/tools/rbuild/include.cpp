@@ -30,7 +30,6 @@ Include::Include ( const Project& project,
 	  node ( includeNode ),
 	  module ( NULL )
 {
-	Initialize ();
 }
 
 Include::Include ( const Project& project,
@@ -41,7 +40,6 @@ Include::Include ( const Project& project,
 	  node ( includeNode ),
 	  module ( module )
 {
-	Initialize ();
 }
 
 Include::Include ( const Project& project,
@@ -55,15 +53,12 @@ Include::Include ( const Project& project,
 
 Include::~Include()
 {
-	if ( directory )
-		delete directory;
 }
 
 void
 Include::ProcessXML ()
 {
 	DirectoryLocation root = SourceDirectory;
-	const Module *base = module;
 
 	string relative_path;
 	const XMLAttribute* att = node->GetAttribute ( "base", false );
@@ -75,24 +70,23 @@ Include::ProcessXML ()
 				"'base' attribute illegal from global <include>" );
 
 		if ( att->value == project.name )
-			base = NULL;
+		{
+			relative_path = node->value;
+		}
 		else
 		{
-			base = project.LocateModule ( att->value );
+			const Module* base = project.LocateModule ( att->value );
 			if ( !base )
 				throw XMLInvalidBuildFileException (
 					node->location,
 					"<include> attribute 'base' references non-existant project or module '%s'",
 					att->value.c_str() );
 			root = GetDefaultDirectoryTree ( base );
-		}
-	}
 
-	if ( base )
-	{
-		relative_path = base->output->relative_path;
-		if ( node->value.length () > 0 && node->value != "." )
-			relative_path += sSep + node->value;
+			relative_path = base->output->relative_path;
+			if ( node->value.length () > 0 && node->value != "." )
+				relative_path += sSep + node->value;
+		}
 	}
 	else
 		relative_path = node->value;
@@ -112,8 +106,7 @@ Include::ProcessXML ()
 
 	directory = new FileLocation ( root,
 	                               relative_path,
-	                               "",
-	                               node );
+	                               "" );
 }
 
 DirectoryLocation
@@ -122,16 +115,8 @@ Include::GetDefaultDirectoryTree ( const Module* module ) const
 	if ( module != NULL &&
 	     ( module->type == RpcServer ||
 	       module->type == RpcClient ||
-	       module->type == RpcProxy ||
-		   module->type == IdlHeader ||
-	       module->type == IdlInterface) )
+	       module->type == IdlHeader) )
 		return IntermediateDirectory;
 	else
 		return SourceDirectory;
-}
-
-void
-Include::Initialize ()
-{
-	ParseCompilers ( *node, "cpp" );
 }

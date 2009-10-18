@@ -32,10 +32,8 @@
 #include "oleauto.h"
 #include "initguid.h"
 #include "typelib.h"
-#include "wincodec.h"
 
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
@@ -110,6 +108,9 @@ static LONG register_key_defvalueW(HKEY base, WCHAR const *name,
 				   WCHAR const *value);
 static LONG register_key_defvalueA(HKEY base, WCHAR const *name,
 				   char const *value);
+static LONG recursive_delete_key(HKEY key);
+static LONG recursive_delete_keyA(HKEY base, char const *name);
+static LONG recursive_delete_keyW(HKEY base, WCHAR const *name);
 
 /***********************************************************************
  *		register_interfaces
@@ -152,7 +153,7 @@ static HRESULT register_interfaces(struct regsvr_interface const *list)
 				  KEY_READ | KEY_WRITE, NULL, &key, NULL);
 	    if (res != ERROR_SUCCESS) goto error_close_iid_key;
 
-	    sprintfW(buf, fmt, list->num_methods);
+	    wsprintfW(buf, fmt, list->num_methods);
 	    res = RegSetValueExW(key, NULL, 0, REG_SZ,
 				 (CONST BYTE*)buf,
 				 (lstrlenW(buf) + 1) * sizeof(WCHAR));
@@ -198,8 +199,7 @@ static HRESULT unregister_interfaces(struct regsvr_interface const *list)
 	WCHAR buf[39];
 
 	StringFromGUID2(list->iid, buf, 39);
-	res = RegDeleteTreeW(interface_key, buf);
-	if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	res = recursive_delete_keyW(interface_key, buf);
     }
 
     RegCloseKey(interface_key);
@@ -309,13 +309,11 @@ static HRESULT unregister_coclasses(struct regsvr_coclass const *list)
 	WCHAR buf[39];
 
 	StringFromGUID2(list->clsid, buf, 39);
-	res = RegDeleteTreeW(coclass_key, buf);
-	if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	res = recursive_delete_keyW(coclass_key, buf);
 	if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 
 	if (list->progid) {
-	    res = RegDeleteTreeA(HKEY_CLASSES_ROOT, list->progid);
-	    if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	    res = recursive_delete_keyA(HKEY_CLASSES_ROOT, list->progid);
 	    if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 	}
     }
@@ -373,6 +371,70 @@ static LONG register_key_defvalueA(
     if (res != ERROR_SUCCESS) return res;
     res = RegSetValueExA(key, NULL, 0, REG_SZ, (CONST BYTE*)value,
 			 lstrlenA(value) + 1);
+    RegCloseKey(key);
+    return res;
+}
+
+/***********************************************************************
+ *		recursive_delete_key
+ */
+static LONG recursive_delete_key(HKEY key)
+{
+    LONG res;
+    WCHAR subkey_name[MAX_PATH];
+    DWORD cName;
+    HKEY subkey;
+
+    for (;;) {
+	cName = sizeof(subkey_name) / sizeof(WCHAR);
+	res = RegEnumKeyExW(key, 0, subkey_name, &cName,
+			    NULL, NULL, NULL, NULL);
+	if (res != ERROR_SUCCESS && res != ERROR_MORE_DATA) {
+	    res = ERROR_SUCCESS; /* presumably we're done enumerating */
+	    break;
+	}
+	res = RegOpenKeyExW(key, subkey_name, 0,
+			    KEY_READ | KEY_WRITE, &subkey);
+	if (res == ERROR_FILE_NOT_FOUND) continue;
+	if (res != ERROR_SUCCESS) break;
+
+	res = recursive_delete_key(subkey);
+	RegCloseKey(subkey);
+	if (res != ERROR_SUCCESS) break;
+    }
+
+    if (res == ERROR_SUCCESS) res = RegDeleteKeyW(key, 0);
+    return res;
+}
+
+/***********************************************************************
+ *		recursive_delete_keyA
+ */
+static LONG recursive_delete_keyA(HKEY base, char const *name)
+{
+    LONG res;
+    HKEY key;
+
+    res = RegOpenKeyExA(base, name, 0, KEY_READ | KEY_WRITE, &key);
+    if (res == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
+    if (res != ERROR_SUCCESS) return res;
+    res = recursive_delete_key(key);
+    RegCloseKey(key);
+    return res;
+}
+
+/***********************************************************************
+ *		recursive_delete_keyW
+ */
+static LONG recursive_delete_keyW(HKEY base, WCHAR const *name)
+{
+    LONG res;
+    HKEY key;
+
+    res = RegOpenKeyExW(base, name, 0, KEY_READ | KEY_WRITE, &key);
+    if (res == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
+    if (res != ERROR_SUCCESS) return res;
+    res = recursive_delete_key(key);
     RegCloseKey(key);
     return res;
 }
@@ -468,61 +530,352 @@ static struct regsvr_coclass const coclass_list[] = {
 /***********************************************************************
  *		interface list
  */
-#define INTERFACE_ENTRY(interface, clsid16, clsid32) { &IID_##interface, #interface, NULL, sizeof(interface##Vtbl)/sizeof(void*), clsid16, clsid32 }
-#define LCL_INTERFACE_ENTRY(interface) INTERFACE_ENTRY(interface, NULL, NULL)
-#define PSFAC_INTERFACE_ENTRY(interface) INTERFACE_ENTRY(interface, NULL, &CLSID_PSFactoryBuffer)
-#define CLSID_INTERFACE_ENTRY(interface,clsid) INTERFACE_ENTRY(interface, clsid, clsid)
-
 static struct regsvr_interface const interface_list[] = {
-    LCL_INTERFACE_ENTRY(ICreateTypeInfo),
-    LCL_INTERFACE_ENTRY(ICreateTypeLib),
-    CLSID_INTERFACE_ENTRY(IDispatch,&CLSID_PSDispatch),
-    CLSID_INTERFACE_ENTRY(IEnumVARIANT,&CLSID_PSEnumVariant),
-    CLSID_INTERFACE_ENTRY(ITypeComp,&CLSID_PSTypeComp),
-    CLSID_INTERFACE_ENTRY(ITypeInfo,&CLSID_PSTypeInfo),
-    CLSID_INTERFACE_ENTRY(ITypeLib,&CLSID_PSTypeLib),
-    PSFAC_INTERFACE_ENTRY(IAdviseSinkEx),
-    PSFAC_INTERFACE_ENTRY(IClassFactory2),
-    PSFAC_INTERFACE_ENTRY(IConnectionPoint),
-    PSFAC_INTERFACE_ENTRY(IConnectionPointContainer),
-    PSFAC_INTERFACE_ENTRY(ICreateErrorInfo),
-    PSFAC_INTERFACE_ENTRY(IEnumConnectionPoints),
-    PSFAC_INTERFACE_ENTRY(IEnumConnections),
-    PSFAC_INTERFACE_ENTRY(IEnumOleUndoUnits),
-    PSFAC_INTERFACE_ENTRY(IErrorInfo),
-    PSFAC_INTERFACE_ENTRY(IErrorLog),
-    PSFAC_INTERFACE_ENTRY(IFont),
-    PSFAC_INTERFACE_ENTRY(IObjectWithSite),
-    PSFAC_INTERFACE_ENTRY(IOleControl),
-    PSFAC_INTERFACE_ENTRY(IOleControlSite),
-    PSFAC_INTERFACE_ENTRY(IOleInPlaceSiteEx),
-    PSFAC_INTERFACE_ENTRY(IOleParentUndoUnit),
-    PSFAC_INTERFACE_ENTRY(IOleUndoManager),
-    PSFAC_INTERFACE_ENTRY(IOleUndoUnit),
-    PSFAC_INTERFACE_ENTRY(IPerPropertyBrowsing),
-    PSFAC_INTERFACE_ENTRY(IPersistMemory),
-    PSFAC_INTERFACE_ENTRY(IPersistPropertyBag),
-    PSFAC_INTERFACE_ENTRY(IPersistPropertyBag2),
-    PSFAC_INTERFACE_ENTRY(IPersistStreamInit),
-    PSFAC_INTERFACE_ENTRY(IPicture),
-    PSFAC_INTERFACE_ENTRY(IPointerInactive),
-    PSFAC_INTERFACE_ENTRY(IPropertyBag),
-    PSFAC_INTERFACE_ENTRY(IPropertyBag2),
-    PSFAC_INTERFACE_ENTRY(IPropertyNotifySink),
-    PSFAC_INTERFACE_ENTRY(IPropertyPage),
-    PSFAC_INTERFACE_ENTRY(IPropertyPage2),
-    PSFAC_INTERFACE_ENTRY(IPropertyPageSite),
-    PSFAC_INTERFACE_ENTRY(IProvideClassInfo),
-    PSFAC_INTERFACE_ENTRY(IProvideClassInfo2),
-    PSFAC_INTERFACE_ENTRY(IProvideMultipleClassInfo),
-    PSFAC_INTERFACE_ENTRY(IQuickActivate),
-    PSFAC_INTERFACE_ENTRY(ISimpleFrameSite),
-    PSFAC_INTERFACE_ENTRY(ISpecifyPropertyPages),
+    {   &IID_IDispatch,
+	"IDispatch",
+	NULL,
+	7,
+	&CLSID_PSDispatch,
+	&CLSID_PSDispatch
+    },
+    {   &IID_ITypeInfo,
+	"ITypeInfo",
+	NULL,
+	22,
+	&CLSID_PSTypeInfo,
+	&CLSID_PSTypeInfo
+    },
+    {   &IID_ITypeLib,
+	"ITypeLib",
+	NULL,
+	13,
+	&CLSID_PSTypeLib,
+	&CLSID_PSTypeLib
+    },
+    {   &IID_ITypeComp,
+	"ITypeComp",
+	NULL,
+	5,
+	&CLSID_PSTypeComp,
+	&CLSID_PSTypeComp
+    },
+    {   &IID_IEnumVARIANT,
+	"IEnumVARIANT",
+	NULL,
+	15,
+	&CLSID_PSEnumVariant,
+	&CLSID_PSEnumVariant
+    },
+    {   &IID_ICreateTypeInfo,
+	"ICreateTypeInfo",
+	NULL,
+	26,
+	NULL,
+	NULL
+    },
+    {   &IID_ICreateTypeLib,
+	"ICreateTypeLib",
+	NULL,
+	13,
+	NULL,
+	NULL
+    },
+    {   &IID_ITypeInfo2,
+	"ITypeInfo2",
+	NULL,
+	32,
+	NULL,
+	&CLSID_PSDispatch
+    },
+    {   &IID_ITypeLib2,
+	"ITypeLib2",
+	NULL,
+	16,
+	NULL,
+	&CLSID_PSDispatch
+    },
+    {   &IID_IPropertyPage2,
+	"IPropertyPage2",
+	NULL,
+	15,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IErrorInfo,
+	"IErrorInfo",
+	NULL,
+	8,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_ICreateErrorInfo,
+	"ICreateErrorInfo",
+	NULL,
+	8,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPersistPropertyBag2,
+	"IPersistPropertyBag2",
+	NULL,
+	8,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPropertyBag2,
+	"IPropertyBag2",
+	NULL,
+	8,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IErrorLog,
+	"IErrorLog",
+	NULL,
+	4,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPerPropertyBrowsing,
+	"IPerPropertyBrowsing",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPersistPropertyBag,
+	"IPersistPropertyBag",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IAdviseSinkEx,
+	"IAdviseSinkEx",
+	NULL,
+	9,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IFontEventsDisp,
+	"IFontEventsDisp",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPropertyBag,
+	"IPropertyBag",
+	NULL,
+	5,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPointerInactive,
+	"IPointerInactive",
+	NULL,
+	6,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_ISimpleFrameSite,
+	"ISimpleFrameSite",
+	NULL,
+	5,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPicture,
+	"IPicture",
+	NULL,
+	17,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPictureDisp,
+	"IPictureDisp",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPersistStreamInit,
+	"IPersistStreamInit",
+	NULL,
+	9,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IOleUndoUnit,
+	"IOleUndoUnit",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPropertyNotifySink,
+	"IPropertyNotifySink",
+	NULL,
+	5,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IOleInPlaceSiteEx,
+	"IOleInPlaceSiteEx",
+	NULL,
+	18,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IOleParentUndoUnit,
+	"IOleParentUndoUnit",
+	NULL,
+	12,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IProvideClassInfo2,
+	"IProvideClassInfo2",
+	NULL,
+	5,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IProvideMultipleClassInfo,
+	"IProvideMultipleClassInfo",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IProvideClassInfo,
+	"IProvideClassInfo",
+	NULL,
+	4,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IConnectionPointContainer,
+	"IConnectionPointContainer",
+	NULL,
+	5,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IEnumConnectionPoints,
+	"IEnumConnectionPoints",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IConnectionPoint,
+	"IConnectionPoint",
+	NULL,
+	8,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IEnumConnections,
+	"IEnumConnections",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IOleControl,
+	"IOleControl",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IOleControlSite,
+	"IOleControlSite",
+	NULL,
+	10,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_ISpecifyPropertyPages,
+	"ISpecifyPropertyPages",
+	NULL,
+	4,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPropertyPageSite,
+	"IPropertyPageSite",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPropertyPage,
+	"IPropertyPage",
+	NULL,
+	14,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IClassFactory2,
+	"IClassFactory2",
+	NULL,
+	8,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IEnumOleUndoUnits,
+	"IEnumOleUndoUnits",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IPersistMemory,
+	"IPersistMemory",
+	NULL,
+	9,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IFont,
+	"IFont",
+	NULL,
+	27,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IFontDisp,
+	"IFontDisp",
+	NULL,
+	7,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IQuickActivate,
+	"IQuickActivate",
+	NULL,
+	6,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IOleUndoManager,
+	"IOleUndoManager",
+	NULL,
+	15,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
+    {   &IID_IObjectWithSite,
+	"IObjectWithSite",
+	NULL,
+	5,
+	NULL,
+	&CLSID_PSFactoryBuffer
+    },
     { NULL }			/* list terminator */
 };
-
-extern HRESULT WINAPI OLEAUTPS_DllRegisterServer(void) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI OLEAUTPS_DllUnregisterServer(void) DECLSPEC_HIDDEN;
 
 /***********************************************************************
  *		DllRegisterServer (OLEAUT32.@)
@@ -533,9 +886,7 @@ HRESULT WINAPI DllRegisterServer(void)
 
     TRACE("\n");
 
-    hr = OLEAUTPS_DllRegisterServer();
-    if (SUCCEEDED(hr))
-        hr = register_coclasses(coclass_list);
+    hr = register_coclasses(coclass_list);
     if (SUCCEEDED(hr))
 	hr = register_interfaces(interface_list);
     return hr;
@@ -553,7 +904,5 @@ HRESULT WINAPI DllUnregisterServer(void)
     hr = unregister_coclasses(coclass_list);
     if (SUCCEEDED(hr))
 	hr = unregister_interfaces(interface_list);
-    if (SUCCEEDED(hr))
-        hr = OLEAUTPS_DllUnregisterServer();
     return hr;
 }

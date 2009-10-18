@@ -4,6 +4,6 @@
 #define _UNICODE
 #define _XINT wchar_t
 #include <wchar.h>
-#include "tcschr.h"
+#include "internal/tcschr.h"
 
 /* EOF */

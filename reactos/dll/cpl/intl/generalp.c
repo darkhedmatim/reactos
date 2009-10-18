@@ -28,6 +28,7 @@
 
 #include <windows.h>
 #include <commctrl.h>
+#include <cpl.h>
 #include <tchar.h>
 #include <stdio.h>
 
@@ -66,7 +67,7 @@ LocalesEnumProc(LPTSTR lpLocale)
     }
     else
     {
-        GetLocaleInfo(lcid, LOCALE_SLANGUAGE, lang, sizeof(lang)/sizeof(TCHAR));
+        GetLocaleInfo(lcid, LOCALE_SLANGUAGE, lang, sizeof(lang));
     }
 
     if (bNoShow == FALSE)
@@ -134,7 +135,7 @@ CreateLanguagesList(HWND hwnd)
 
     /* Select current locale */
     /* or should it be System and not user? */
-    GetLocaleInfo(GetUserDefaultLCID(), LOCALE_SLANGUAGE, langSel, sizeof(langSel)/sizeof(TCHAR));
+    GetLocaleInfo(GetUserDefaultLCID(), LOCALE_SLANGUAGE, langSel, sizeof(langSel));
 
     SendMessage(hList,
                 CB_SELECTSTRING,
@@ -146,94 +147,95 @@ CreateLanguagesList(HWND hwnd)
 VOID
 SetNewLocale(LCID lcid)
 {
-    // HKCU\\Control Panel\\International\\Locale = 0409 (type=0)
-    // HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Language","Default",0x00000000,"0409" (type=0)
-    // HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Language","InstallLanguage",0x00000000,"0409" (type=0)
+	// HKCU\\Control Panel\\International\\Locale = 0409 (type=0)
+	// HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Language","Default",0x00000000,"0409" (type=0)
+	// HKLM,"SYSTEM\CurrentControlSet\Control\NLS\Language","InstallLanguage",0x00000000,"0409" (type=0)
 
-    // Set locale
-    HKEY localeKey;
-    HKEY langKey;
-    DWORD ret;
-    TCHAR value[9];
-    DWORD valuesize;
-    TCHAR ACPPage[9];
-    TCHAR OEMPage[9];
+	// Set locale
+	HKEY localeKey;
+	HKEY langKey;
+	DWORD ret;
+	TCHAR value[9];
+	DWORD valuesize;
+	TCHAR ACPPage[9];
+	TCHAR OEMPage[9];
 
-    ret = GetLocaleInfo(MAKELCID(lcid, SORT_DEFAULT), LOCALE_IDEFAULTCODEPAGE, OEMPage, sizeof(OEMPage)/sizeof(TCHAR));
-    if (ret == 0)
-    {
-        MessageBox(NULL, _T("Problem reading OEM code page"), _T("Big Problem"), MB_OK);
-        return;
-    }
+	ret = GetLocaleInfo(MAKELCID(lcid, SORT_DEFAULT), LOCALE_IDEFAULTCODEPAGE, (WORD*)OEMPage, sizeof(OEMPage));
+	if (ret == 0)
+	{
+		MessageBox(NULL, _T("Problem reading OEM code page"), _T("Big Problem"), MB_OK);
+		return;
+	}
 
-    ret = GetLocaleInfo(MAKELCID(lcid, SORT_DEFAULT), LOCALE_IDEFAULTANSICODEPAGE, ACPPage, sizeof(ACPPage)/sizeof(TCHAR));
-    if (ret == 0)
-    {
-        MessageBox(NULL, _T("Problem reading ANSI code page"), _T("Big Problem"), MB_OK);
-        return;
-    }
+	GetLocaleInfo(MAKELCID(lcid, SORT_DEFAULT), LOCALE_IDEFAULTANSICODEPAGE, (WORD*)ACPPage, sizeof(ACPPage));
+	if (ret == 0)
+	{
+		MessageBox(NULL, _T("Problem reading ANSI code page"), _T("Big Problem"), MB_OK);
+		return;
+	}
 
-    ret = RegOpenKey(HKEY_CURRENT_USER, _T("Control Panel\\International"), &localeKey);
-    if (ret != ERROR_SUCCESS)
-    {
-        // some serious error
-        MessageBox(NULL, _T("Problem opening HKCU\\Control Panel\\International key"),
-                   _T("Big Problem"), MB_OK);
-        return;
-    }
+	ret = RegOpenKey(HKEY_CURRENT_USER, _T("Control Panel\\International"), &localeKey);
+	if (ret != ERROR_SUCCESS)
+	{
+		// some serious error
+		MessageBox(NULL, _T("Problem opening HKCU\\Control Panel\\International key"),
+		           _T("Big Problem"), MB_OK);
+		return;
+	}
 
-    wsprintf(value, _T("%04X"), (DWORD)lcid);
-    valuesize = (_tcslen(value) + 1) * sizeof(TCHAR);
+	wsprintf(value, _T("%04X"), (DWORD)lcid);
+	valuesize = (_tcslen(value) + 1) * sizeof(TCHAR);
 
-    RegSetValueEx(localeKey, _T("Locale"), 0, REG_SZ, (LPBYTE)value, valuesize);
-    RegCloseKey(localeKey);
+	RegSetValueEx(localeKey, _T("Locale"), 0, REG_SZ, (LPBYTE)value, valuesize);
+	RegCloseKey(localeKey);
 
-    ret = RegOpenKey(HKEY_USERS, _T(".DEFAULT\\Control Panel\\International"), &localeKey);
-    if (ret != ERROR_SUCCESS)
-    {
-        // some serious error
-        MessageBox(NULL, _T("Problem opening HKU\\.DEFAULT\\Control Panel\\International key"),
-                   _T("Big Problem"), MB_OK);
-        return;
-    }
+	ret = RegOpenKey(HKEY_USERS, _T(".DEFAULT\\Control Panel\\International"), &localeKey);
+	if (ret != ERROR_SUCCESS)
+	{
+		// some serious error
+		MessageBox(NULL, _T("Problem opening HKU\\.DEFAULT\\Control Panel\\International key"),
+		           _T("Big Problem"), MB_OK);
+		return;
+	}
 
-    wsprintf(value, _T("%04X"), (DWORD)lcid);
-    valuesize = (_tcslen(value) + 1) * sizeof(TCHAR);
+	wsprintf(value, _T("%04X"), (DWORD)lcid);
+	valuesize = (_tcslen(value) + 1) * sizeof(TCHAR);
 
-    RegSetValueEx(localeKey, _T("Locale"), 0, REG_SZ, (BYTE *)value, valuesize);
-    RegCloseKey(localeKey);
+	RegSetValueEx(localeKey, _T("Locale"), 0, REG_SZ, (BYTE *)value, valuesize);
+	RegCloseKey(localeKey);
 
-    // Set language
-    ret = RegOpenKey(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Control\\NLS\\Language"), &langKey);
-    if (ret != ERROR_SUCCESS)
-    {
-        MessageBoxW(NULL, _T("Problem opening HKLM\\SYSTEM\\CurrentControlSet\\Control\\NLS\\Language key"),
-                    _T("Big Problem"), MB_OK);
-        return;
-    }
+	// Set language
+	ret = RegOpenKey(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Control\\NLS\\Language"), &langKey);
+	if (ret != ERROR_SUCCESS)
+	{
+		MessageBoxW(NULL, _T("Problem opening HKLM\\SYSTEM\\CurrentControlSet\\Control\\NLS\\Language key"),
+		            _T("Big Problem"), MB_OK);
+		return;
+	}
 
-    RegSetValueEx(langKey, _T("Default"), 0, REG_SZ, (BYTE *)value, valuesize );
-    RegSetValueEx(langKey, _T("InstallLanguage"), 0, REG_SZ, (BYTE *)value, valuesize );
+	RegSetValueEx(langKey, _T("Default"), 0, REG_SZ, (BYTE *)value, valuesize );
+	RegSetValueEx(langKey, _T("InstallLanguage"), 0, REG_SZ, (BYTE *)value, valuesize );
 
-    RegCloseKey(langKey);
+	RegCloseKey(langKey);
 
 
-    /* Set language */
-    ret = RegOpenKey(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Control\\NLS\\CodePage"), &langKey);
-    if (ret != ERROR_SUCCESS)
-    {
-        MessageBox(NULL, _T("Problem opening HKLM\\SYSTEM\\CurrentControlSet\\Control\\NLS\\CodePage key"),
-                   _T("Big Problem"), MB_OK);
-        return;
-    }
+	/* Set language */
+	ret = RegOpenKey(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Control\\NLS\\CodePage"), &langKey);
+	if (ret != ERROR_SUCCESS)
+	{
+		MessageBox(NULL, _T("Problem opening HKLM\\SYSTEM\\CurrentControlSet\\Control\\NLS\\CodePage key"),
+		           _T("Big Problem"), MB_OK);
+		return;
+	}
 
-    RegSetValueExW(langKey, _T("OEMCP"), 0, REG_SZ, (BYTE *)OEMPage, (_tcslen(OEMPage) +1 ) * sizeof(TCHAR));
-    RegSetValueExW(langKey, _T("ACP"), 0, REG_SZ, (BYTE *)ACPPage, (_tcslen(ACPPage) +1 ) * sizeof(TCHAR));
+	RegSetValueExW(langKey, _T("OEMCP"), 0, REG_SZ, (BYTE *)OEMPage, (_tcslen(OEMPage) +1 ) * sizeof(TCHAR));
+	RegSetValueExW(langKey, _T("ACP"), 0, REG_SZ, (BYTE *)ACPPage, (_tcslen(ACPPage) +1 ) * sizeof(TCHAR));
 
-    RegCloseKey(langKey);
+	RegCloseKey(langKey);
 }
 
 /* Location enumerate procedure */
+#if 0
 BOOL
 CALLBACK
 LocationsEnumProc(GEOID gId)
@@ -254,12 +256,14 @@ LocationsEnumProc(GEOID gId)
 
     return TRUE;
 }
+#endif
 
 /* Enumerate all system locations identifiers */
 static
 VOID
 CreateLocationsList(HWND hWnd)
 {
+#if 0
     GEOID userGeoID;
     TCHAR loc[MAX_STR_SIZE];
 
@@ -279,6 +283,7 @@ CreateLocationsList(HWND hWnd)
                 CB_SELECTSTRING,
                 (WPARAM) -1,
                 (LPARAM)loc);
+#endif
 }
 
 DWORD
@@ -300,7 +305,7 @@ VerifyUnattendLCID(HWND hwndDlg)
             continue;
         }
 
-        if (lResult == (LRESULT)UnattendLCID)
+        if (lResult == (LCID)UnattendLCID)
         {
             SendMessage(hList, CB_SETCURSEL, (WPARAM)lIndex, (LPARAM)0);
             PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
@@ -365,12 +370,6 @@ GeneralPageProc(HWND hwndDlg,
                     }
                     break;
 
-                case IDC_LOCATION_COMBO:
-                    if (HIWORD(wParam) == CBN_SELCHANGE)
-                    {
-                        PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-                    }
-                    break;
                 case IDC_SETUP_BUTTON:
                     {
                         LCID NewLcid;
@@ -390,7 +389,7 @@ GeneralPageProc(HWND hwndDlg,
                         if (NewLcid == (LCID)CB_ERR)
                             break;
 
-                         SetupApplet(GetParent(hwndDlg), NewLcid);
+                         SetupApplet(NewLcid);
                     }
                     break;
             }
@@ -404,10 +403,7 @@ GeneralPageProc(HWND hwndDlg,
                 {
                     /* Apply changes */
                     LCID NewLcid;
-                    GEOID NewGeoID;
                     INT iCurSel;
-
-                    PropSheet_UnChanged(GetParent(hwndDlg), hwndDlg);
 
                     /* Acquire new value */
                     iCurSel = SendMessage(hList,
@@ -424,25 +420,8 @@ GeneralPageProc(HWND hwndDlg,
                     if (NewLcid == (LCID)CB_ERR)
                         break;
 
-                    iCurSel = SendMessage(GetDlgItem(hwndDlg, IDC_LOCATION_COMBO),
-                                          CB_GETCURSEL,
-                                          0,
-                                          0);
-                    if (iCurSel == CB_ERR)
-                        break;
-
-                    NewGeoID = SendMessage(GetDlgItem(hwndDlg, IDC_LOCATION_COMBO),
-                                           CB_GETITEMDATA,
-                                           iCurSel,
-                                           0);
-                    if (NewGeoID == (GEOID)CB_ERR)
-                        break;
-
                     /* Set new locale */
                     SetNewLocale(NewLcid);
-                    AddNewKbLayoutsByLcid(NewLcid);
-                    SetUserGeoID(NewGeoID);
-                    SetNonUnicodeLang(hwndDlg, NewLcid);
                 }
             }
             break;

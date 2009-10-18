@@ -56,7 +56,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 		imports.push_back ( module.non_if_data.libraries[i]->name );
 	}
 
-	string module_type = GetExtension(*module.output);
+	string module_type = GetExtension(module.output->name);
 	bool lib = (module_type == ".lib") || (module_type == ".a");
 	bool dll = (module_type == ".dll") || (module_type == ".cpl");
 	bool exe = (module_type == ".exe") || (module_type == ".scr");
@@ -82,6 +82,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 	//$output->progress("$dsp_file (file $progress_current of $progress_max)");
 
 	// TODO FIXME - what's diff. betw. 'c_srcs' and 'source_files'?
+	string dsp_path = module.output->relative_path;
 	vector<string> c_srcs, source_files, header_files, resource_files, includes, libraries;
 	StringSet common_defines;
 	vector<const IfableData*> ifs_list;
@@ -95,17 +96,14 @@ MSVCBackend::_generate_dsp ( const Module& module )
 	{
 		const IfableData& data = *ifs_list.back();
 		ifs_list.pop_back();
+		// TODO FIXME - refactor needed - we're discarding if conditions
+		for ( i = 0; i < data.ifs.size(); i++ )
+			ifs_list.push_back ( &data.ifs[i]->data );
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
-			if (files[i]->file.directory != SourceDirectory)
-				continue;
-
-			// We want the full path here for directory support later on
-			string path = Path::RelativeFromDirectory (
-				files[i]->file.relative_path,
-				module.output->relative_path );
-			string file = path + std::string("\\") + files[i]->file.name;
+			// TODO FIXME - do we want only the name of the file here?
+			string file = files[i]->file.name;
 
 			source_files.push_back ( file );
 			if ( !stricmp ( Right(file,2).c_str(), ".c" ) )
@@ -118,6 +116,15 @@ MSVCBackend::_generate_dsp ( const Module& module )
 		const vector<Include*>& incs = data.includes;
 		for ( i = 0; i < incs.size(); i++ )
 		{
+
+			// explicitly omit win32api directories
+			if ( !strncmp(incs[i]->directory->relative_path.c_str(), "w32api", 6 ) )
+				continue;
+
+			// explicitly omit include/wine directories
+			if ( !strncmp(incs[i]->directory->relative_path.c_str(), "include\\wine", 12 ) )
+				continue;
+
 			string path = Path::RelativeFromDirectory (
 				incs[i]->directory->relative_path,
 				module.output->relative_path );
@@ -649,7 +656,7 @@ MSVCBackend::_generate_dsp ( const Module& module )
 				output_dir.c_str(),
 				spec_file.c_str(),
 				def_file.c_str() );
-
+			
 			if ( module.name == "ntdll" )
 			{
 				int n = 0;
@@ -848,9 +855,9 @@ MSVCBackend::_generate_wine_dsw ( FILE* OUT )
 {
 	_generate_dsw_header(OUT);
 	// TODO FIXME - is it necessary to sort them?
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 
 		std::string dsp_file = DspFileName ( module );
 

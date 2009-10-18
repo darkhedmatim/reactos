@@ -13,26 +13,18 @@
 #include <ntifs.h>
 #include <ntdddisk.h>
 #include <ntddcdrm.h>
+#include "helper.h"
 
 //
 // Tag for memory allocations
 //
-#define FSREC_TAG 'cRsF'
+#define FSREC_TAG TAG('F', 's', 'R', 'c')
 
 //
 // UDFS Offsets
 //
-#define UDFS_VRS_START_OFFSET  32768
+#define UDFS_VRS_START_SECTOR   16
 #define UDFS_AVDP_SECTOR       256
-
-//
-// Non-standard rounding macros
-//
-#define ROUND_UP(n, align) \
-    ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
-
-#define ROUND_DOWN(n, align) \
-    (((ULONG)n) & ~((align) - 1l))
 
 //
 // Conversion types and macros taken from internal ntifs headers
@@ -188,8 +180,7 @@ typedef enum _FILE_SYSTEM_TYPE
     FS_TYPE_VFAT,
     FS_TYPE_NTFS,
     FS_TYPE_CDFS,
-    FS_TYPE_UDFS,
-    FS_TYPE_EXT2,
+    FS_TYPE_UDFS
 } FILE_SYSTEM_TYPE, *PFILE_SYSTEM_TYPE;
 
 //
@@ -239,13 +230,6 @@ FsRecNtfsFsControl(
 NTSTATUS
 NTAPI
 FsRecUdfsFsControl(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN PIRP Irp
-);
-
-NTSTATUS
-NTAPI
-FsRecExt2FsControl(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
 );

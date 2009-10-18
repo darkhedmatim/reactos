@@ -28,21 +28,10 @@ typedef struct _NDIS_M_DRIVER_BLOCK {
     PDRIVER_OBJECT                  DriverObject;             /* Driver object of miniport */
     LIST_ENTRY                      DeviceList;               /* Adapters created by miniport */
     PUNICODE_STRING                 RegistryPath;             /* SCM Registry key */
-#if !defined(_MSC_VER) && defined(__NDIS_H)
-} NDIS_M_DRIVER_BLOCK_COMPATIBILITY_HACK_DONT_USE;
-#else
 } NDIS_M_DRIVER_BLOCK, *PNDIS_M_DRIVER_BLOCK;
-#endif
-
-/* There must be some defined struct to do this... */
-typedef struct _NDIS_M_DEVICE_BLOCK {
-    PDEVICE_OBJECT DeviceObject;
-    PNDIS_STRING   SymbolicName;
-} NDIS_M_DEVICE_BLOCK, *PNDIS_M_DEVICE_BLOCK;
 
 /* resources allocated on behalf on the miniport */
-#define MINIPORT_RESOURCE_TYPE_REGISTRY_DATA 0
-#define MINIPORT_RESOURCE_TYPE_MEMORY        1
+#define MINIPORT_RESOURCE_TYPE_MEMORY 0
 typedef struct _MINIPORT_RESOURCE {
     LIST_ENTRY     ListEntry;
     ULONG          ResourceType;
@@ -65,14 +54,11 @@ typedef struct _MINIPORT_BUGCHECK_CONTEXT {
 
 /* a miniport's shared memory */
 typedef struct _MINIPORT_SHARED_MEMORY {
-    PDMA_ADAPTER          AdapterObject;
-    ULONG                 Length;
-    PHYSICAL_ADDRESS      PhysicalAddress;
-    PVOID                 VirtualAddress;
-    BOOLEAN               Cached;
-    PNDIS_MINIPORT_BLOCK  Adapter;
-    PVOID                 Context;
-    PKEVENT               Event;
+    PDMA_ADAPTER      AdapterObject;
+    ULONG             Length;
+    PHYSICAL_ADDRESS  PhysicalAddress;
+    PVOID             VirtualAddress;
+    BOOLEAN           Cached;
 } MINIPORT_SHARED_MEMORY, *PMINIPORT_SHARED_MEMORY;
 
 /* A structure of WrapperConfigurationContext (not compatible with the
@@ -81,7 +67,6 @@ typedef struct _NDIS_WRAPPER_CONTEXT {
     HANDLE            RegistryHandle;
     PDEVICE_OBJECT    DeviceObject;
     ULONG             BusNumber;
-    ULONG             SlotNumber;
 } NDIS_WRAPPER_CONTEXT, *PNDIS_WRAPPER_CONTEXT;
 
 #define GET_MINIPORT_DRIVER(Handle)((PNDIS_M_DRIVER_BLOCK)Handle)
@@ -90,6 +75,7 @@ typedef struct _NDIS_WRAPPER_CONTEXT {
 typedef struct _LOGICAL_ADAPTER
 {
     NDIS_MINIPORT_BLOCK         NdisMiniportBlock;      /* NDIS defined fields */
+    BOOLEAN                     MiniportBusy;           /* A MiniportXxx routine is executing */
     PNDIS_MINIPORT_WORK_ITEM    WorkQueueHead;          /* Head of work queue */
     PNDIS_MINIPORT_WORK_ITEM    WorkQueueTail;          /* Tail of work queue */
     LIST_ENTRY                  ListEntry;              /* Entry on global list */
@@ -98,6 +84,8 @@ typedef struct _LOGICAL_ADAPTER
     ULONG                       MediumHeaderSize;       /* Size of medium header */
     HARDWARE_ADDRESS            Address;                /* Hardware address of adapter */
     ULONG                       AddressLength;          /* Length of hardware address */
+    PUCHAR                      LookaheadBuffer;        /* Pointer to lookahead buffer */
+    ULONG                       LookaheadLength;        /* Length of lookahead buffer */
     PMINIPORT_BUGCHECK_CONTEXT  BugcheckContext;        /* Adapter's shutdown handler */
 } LOGICAL_ADAPTER, *PLOGICAL_ADAPTER;
 
@@ -109,7 +97,7 @@ extern LIST_ENTRY AdapterListHead;
 extern KSPIN_LOCK AdapterListLock;
 
 
-#if DBG
+#ifdef DBG
 VOID
 MiniDisplayPacket(
     PNDIS_PACKET Packet);
@@ -142,13 +130,12 @@ MiniQueryInformation(
     PVOID               Buffer,
     PULONG              BytesWritten);
 
-VOID
+NDIS_STATUS
 FASTCALL
 MiniQueueWorkItem(
     PLOGICAL_ADAPTER    Adapter,
     NDIS_WORK_ITEM_TYPE WorkItemType,
-    PVOID               WorkItemContext,
-    BOOLEAN             Top);
+    PVOID               WorkItemContext);
 
 NDIS_STATUS
 FASTCALL
@@ -159,7 +146,7 @@ MiniDequeueWorkItem(
 
 NDIS_STATUS
 MiniDoRequest(
-    PLOGICAL_ADAPTER Adapter,
+    PNDIS_MINIPORT_BLOCK Adapter,
     PNDIS_REQUEST NdisRequest);
 
 BOOLEAN
@@ -171,31 +158,6 @@ NdisFindDevice(
 
 VOID
 NdisStartDevices();
-
-VOID
-NTAPI
-MiniportWorker(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN PVOID WorkItem);
-
-VOID NTAPI
-MiniSendComplete(
-    IN  NDIS_HANDLE     MiniportAdapterHandle,
-    IN  PNDIS_PACKET    Packet,
-    IN  NDIS_STATUS     Status);
-
-BOOLEAN
-MiniIsBusy(
-    PLOGICAL_ADAPTER Adapter,
-    NDIS_WORK_ITEM_TYPE Type);
-
-NDIS_STATUS
-MiniReset(
-    PLOGICAL_ADAPTER Adapter);
-
-VOID
-MiniDoAddressingReset(
-    PLOGICAL_ADAPTER Adapter);
 
 #endif /* __MINIPORT_H */
 

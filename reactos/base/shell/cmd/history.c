@@ -74,7 +74,7 @@ VOID set_size(INT new_size);
 
 
 
-INT CommandHistory (LPTSTR param)
+INT CommandHistory (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR tmp;
 	INT tmp_int;
@@ -192,9 +192,11 @@ VOID del(LPHIST_ENTRY item)
 {
 	if (item==NULL || item==Top || item==Bottom)
 	{
-		TRACE ("del in " __FILE__ ": returning\n"
-			    "item is 0x%08x (Bottom is0x%08x)\n",
+#ifdef _DEBUG
+		DebugPrintf(_T("del in ") _T(__FILE__)  _T(": retrning\n")
+			    _T("item is 0x%08x (Bottom is0x%08x)\n"),
 			    item, Bottom);
+#endif
 		return;
 	}
 
@@ -212,6 +214,45 @@ VOID del(LPHIST_ENTRY item)
 
 	size--;
 }
+
+
+#if 0
+static
+VOID add_before_last(LPTSTR string)
+{
+	LPHIST_ENTRY tmp,before,after;
+
+	/*delete first entry if maximum number of entries is reached*/
+	while(size>=max_size)
+		del(Top->prev);
+
+	while (_istspace(*string))
+		string++;
+
+	if (*string==_T('\0'))
+		return;
+
+	/*allocte entry and string*/
+	tmp=cmd_alloc(sizeof(HIST_ENTRY));
+	tmp->string=cmd_alloc((_tcslen(string)+1)*sizeof(TCHAR));
+	_tcscpy(tmp->string,string);
+
+	/*set links*/
+	before=Bottom->next;
+	after=before->next;
+
+	tmp->prev=before;
+	tmp->next=after;
+
+	after->prev=tmp;
+	before->next=tmp;
+
+	/*set new size*/
+	size++;
+
+
+}
+#endif/*0*/
 
 static
 VOID add_at_bottom(LPTSTR string)
@@ -267,42 +308,6 @@ VOID History_move_to_bottom(VOID)
 
 }
 
-LPCTSTR PeekHistory(INT dir)
-{
-	LPHIST_ENTRY entry = curr_ptr;
-
-	if (dir == 0)
-		return NULL;
-
-	if (dir < 0)
-	{
-		/* key up */
-		if (entry->next == Top || entry == Top)
-		{
-#ifdef WRAP_HISTORY
-			entry = Bottom;
-#else
-			return NULL;
-#endif
-		}
-		entry = entry->next;
-	}
-	else
-	{
-		/* key down */
-		if (entry->next == Bottom || entry == Bottom)
-		{
-#ifdef WRAP_HISTORY
-			entry = Top;
-#else
-			return NULL;
-#endif
-		}
-		entry = entry->prev;
-	}
-
-	return entry->string;
-}
 
 VOID History (INT dir, LPTSTR commandline)
 {
@@ -366,4 +371,116 @@ VOID History (INT dir, LPTSTR commandline)
 	}
 }
 
-#endif //#if FEATURE_HISTORY
+
+
+
+
+
+#if 0
+
+LPTSTR history = NULL;	/*buffer to sotre all the lines*/
+LPTSTR lines[MAXLINES];	/*array of pointers to each line(entry)*/
+						/*located in history buffer*/
+
+INT curline = 0;		/*the last line recalled by user*/
+INT numlines = 0;		/*number of entries, included the last*/
+						/*empty one*/
+
+INT maxpos = 0;			/*index of last byte of last entry*/
+
+
+
+VOID History (INT dir, LPTSTR commandline)
+{
+
+	INT count;						/*used in for loops*/
+	INT length;						/*used in the same loops of count*/
+									/*both to make room when is full
+									either history or lines*/
+
+	/*first time History is called allocate mem*/
+	if (!history)
+	{
+		history = cmd_alloc (history_size * sizeof (TCHAR));
+		lines[0] = history;
+		history[0] = 0;
+	}
+
+	if (dir > 0)
+	{
+		/* next command */
+		if (curline < numlines)
+		{
+			curline++;
+		}
+
+		if (curline == numlines)
+		{
+			commandline[0] = 0;
+		}
+		else
+		{
+			_tcscpy (commandline, lines[curline]);
+		}
+	}
+	else if (dir < 0)
+	{
+		/* prev command */
+		if (curline > 0)
+		{
+			curline--;
+		}
+
+		_tcscpy (commandline, lines[curline]);
+	}
+	else
+	{
+		/* add to history */
+		/* remove oldest string until there's enough room for next one */
+		/* strlen (commandline) must be less than history_size! */
+		while ((maxpos + (INT)_tcslen (commandline) + 1 > history_size) || (numlines >= MAXLINES))
+		{
+			length = _tcslen (lines[0]) + 1;
+
+			for (count = 0; count < maxpos && count + (lines[1] - lines[0]) < history_size; count++)
+			{
+				history[count] = history[count + length];
+			}
+
+			maxpos -= length;
+
+			for (count = 0; count <= numlines && count < MAXLINES; count++)
+			{
+				lines[count] = lines[count + 1] - length;
+			}
+
+			numlines--;
+#ifdef DEBUG
+			ConOutPrintf (_T("Reduced size:  %ld lines\n"), numlines);
+
+			for (count = 0; count < numlines; count++)
+			{
+				ConOutPrintf (_T("%d: %s\n"), count, lines[count]);
+			}
+#endif
+		}
+
+		/*copy entry in the history bufer*/
+		_tcscpy (lines[numlines], commandline);
+		numlines++;
+
+		/*set last lines[numlines] pointer next the end of last, valid,
+		just setted entry (the two lines above)*/
+		lines[numlines] = lines[numlines - 1] + _tcslen (commandline) + 1;
+		maxpos += _tcslen (commandline) + 1;
+		/* last line, empty */
+
+		curline = numlines;
+	}
+
+	return;
+}
+
+#endif
+
+#endif //#if 0

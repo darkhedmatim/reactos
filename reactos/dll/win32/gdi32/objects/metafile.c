@@ -11,17 +11,17 @@ DWORD hMFCount = 0;
 /* INTERNAL FUNCTIONS ********************************************************/
 
 BOOL
-MF_CreateMFDC ( HGDIOBJ hMDC,
+MF_CreateMFDC ( HGDIOBJ hMDC, 
                 PMETAFILEDC pmfDC )
 {
   PMF_ENTRY pMFME;
-
+  
   pMFME = LocalAlloc(LMEM_ZEROINIT, sizeof(MF_ENTRY));
   if (!pMFME)
   {
     return FALSE;
   }
-
+  
   if (hMF_List == NULL)
   {
     hMF_List = pMFME;
@@ -32,7 +32,7 @@ MF_CreateMFDC ( HGDIOBJ hMDC,
 
   pMFME->hmDC  = hMDC;
   pMFME->pmfDC = pmfDC;
-
+    
   hMFCount++;
   return TRUE;
 }
@@ -82,7 +82,7 @@ MF_DeleteMFDC ( HGDIOBJ hMDC )
  * @unimplemented
  */
 HMETAFILE
-WINAPI
+STDCALL
 CloseMetaFile(
 	HDC	a0
 	)
@@ -95,7 +95,7 @@ CloseMetaFile(
  * @implemented
  */
 HMETAFILE
-WINAPI
+STDCALL
 CopyMetaFileW(
 	HMETAFILE	hmfSrc,
 	LPCWSTR		lpszFile
@@ -109,7 +109,7 @@ CopyMetaFileW(
  * @implemented
  */
 HMETAFILE
-WINAPI
+STDCALL
 CopyMetaFileA(
 	HMETAFILE	hmfSrc,
 	LPCSTR		lpszFile
@@ -136,7 +136,7 @@ CopyMetaFileA(
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateMetaFileW(
 	LPCWSTR		lpszFile
 	)
@@ -145,16 +145,10 @@ CreateMetaFileW(
   HDC hmDC;
   PMETAFILEDC pmfDC = LocalAlloc(LMEM_ZEROINIT, sizeof(METAFILEDC));
   if (!pmfDC) return NULL;
-
+  
   pmfDC->mh.mtHeaderSize   = sizeof(METAHEADER) / sizeof(WORD);
   pmfDC->mh.mtVersion      = 0x0300;
   pmfDC->mh.mtSize         = pmfDC->mh.mtHeaderSize;
-
-  pmfDC->hPen = GetStockObject(BLACK_PEN);
-  pmfDC->hBrush = GetStockObject(WHITE_BRUSH);
-  pmfDC->hFont = GetStockObject(DEVICE_DEFAULT_FONT);
-  pmfDC->hBitmap = GetStockObject(DEFAULT_BITMAP);
-  pmfDC->hPalette = GetStockObject(DEFAULT_PALETTE);
 
   if (lpszFile)  /* disk based metafile */
   {
@@ -165,23 +159,23 @@ CreateMetaFileW(
          (LPTSTR) &pmfDC->Filename,
                (LPTSTR*) &lpszFile))
     {
-       LocalFree(pmfDC);
+//       MFDRV_DeleteDC( dc->physDev );
        return NULL;
     }
 
     if ((hFile = CreateFileW(pmfDC->Filename, GENERIC_WRITE, 0, NULL,
 				CREATE_ALWAYS, 0, 0)) == INVALID_HANDLE_VALUE)
     {
-       LocalFree(pmfDC);
+//       MFDRV_DeleteDC( dc->physDev );
        return NULL;
     }
 
-    if (!WriteFile( hFile, &pmfDC->mh, sizeof(pmfDC->mh), &pmfDC->dwWritten, NULL ))
+    if (!WriteFile( hFile, &pmfDC->mh, sizeof(pmfDC->mh), NULL, NULL ))
     {
-       LocalFree(pmfDC);
+//       MFDRV_DeleteDC( dc->physDev );
        return NULL;
     }
-      pmfDC->hFile = hFile;
+      pmfDC->hFile = hFile; 
   }
   else  /* memory based metafile */
     pmfDC->mh.mtType = METAFILE_MEMORY;
@@ -198,7 +192,7 @@ CreateMetaFileW(
  * @implemented
  */
 HDC
-WINAPI
+STDCALL
 CreateMetaFileA(
 	LPCSTR		lpszFile
 	)
@@ -223,7 +217,7 @@ CreateMetaFileA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteMetaFile(
 	HMETAFILE	a0
 	)
@@ -236,7 +230,7 @@ DeleteMetaFile(
  * @implemented
  */
 HMETAFILE
-WINAPI
+STDCALL
 GetMetaFileW(
 	LPCWSTR	lpszMetaFile
 	)
@@ -249,7 +243,7 @@ GetMetaFileW(
  * @implemented
  */
 HMETAFILE
-WINAPI
+STDCALL
 GetMetaFileA(
 	LPCSTR	lpszMetaFile
 	)

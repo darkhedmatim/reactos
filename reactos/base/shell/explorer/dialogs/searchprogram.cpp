@@ -93,8 +93,6 @@ FindProgramDlg::FindProgramDlg(HWND hwnd)
 	_thread(collect_programs_callback, hwnd, this),
 	_sort(_list_ctrl, CompareFunc/*, (LPARAM)this*/)
 {
-	TCHAR szTemp[256];
-	const size_t nChars = sizeof(szTemp)/sizeof(*szTemp);
 	SetWindowIcon(hwnd, IDI_SEARCH);
 
 	_resize_mgr.Add(IDC_FILTER,			RESIZE_X);
@@ -109,18 +107,18 @@ FindProgramDlg::FindProgramDlg(HWND hwnd)
 
 	LV_COLUMN column = {LVCF_FMT|LVCF_WIDTH|LVCF_TEXT, LVCFMT_LEFT, 250};
 
-	LoadString(g_Globals._hInstance, IDS_NAMECOLUMN, szTemp, nChars);
-	column.pszText = szTemp;
+	TCHAR lvColName[] = _T("Name");
+	column.pszText = lvColName;
 	ListView_InsertColumn(_list_ctrl, 0, &column);
 
 	column.cx = 300;
-	LoadString(g_Globals._hInstance, IDS_PATHCOLUMN, szTemp, nChars);
-	column.pszText = szTemp;
+	TCHAR lvColPath[] = _T("Path");
+	column.pszText = lvColPath;
 	ListView_InsertColumn(_list_ctrl, 1, &column);
 
 	column.cx = 400;
-	LoadString(g_Globals._hInstance, IDS_MENUCOLUMN, szTemp, nChars);
-	column.pszText = szTemp;
+	TCHAR lvColMenuPath[] = _T("Menu Path");
+	column.pszText = lvColMenuPath;
 	ListView_InsertColumn(_list_ctrl, 2, &column);
 
 	ListView_SetExtendedListViewStyleEx(_list_ctrl, LVS_EX_FULLROWSELECT, LVS_EX_FULLROWSELECT);

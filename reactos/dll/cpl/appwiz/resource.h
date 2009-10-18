@@ -2,35 +2,30 @@
 #define __CPL_RESOURCE_H
 
 /* metrics */
-#define PROPSHEETWIDTH  	380
-#define PROPSHEETHEIGHT 	228
-#define PROPSHEETPADDING 	6
+#define PROPSHEETWIDTH  246
+#define PROPSHEETHEIGHT 228
+#define PROPSHEETPADDING        6
+#define SYSTEM_COLUMN   (0 * PROPSHEETPADDING)
+// this is not supported by the MS Resource compiler:
+//#define LABELLINE(x)    0 //(((PROPSHEETPADDING + 2) * x) + (x + 2))
 
-/* icons */
+#define ICONSIZE        16
+
+/* ids */
+
 #define IDI_CPLSYSTEM	1500
-#define IDI_APPICO		1501
-#define IDI_INSTICO		1502
-#define IDI_RECBINICO	1503
-#define IDI_DOWNLOADICO	1504
-#define IDI_APPINETICO	1505
 
-/* dialogs */
-#define IDD_SHORTCUT_LOCATION	203
-#define IDD_SHORTCUT_FINISH		204
+#define IDD_PROPPAGEINSTALL	100
+#define IDD_PROPPAGEROSSETUP	101
 
-/* bitmaps */
-#define IDB_WATERMARK	5001
-
-/* strings */
-#define IDS_CPLSYSTEMNAME			1001
+#define IDS_CPLSYSTEMNAME	1001
 #define IDS_CPLSYSTEMDESCRIPTION	2001
-#define IDS_CREATE_SHORTCUT         2021
-#define IDS_ERROR_NOT_FOUND         2022
 
 /* controls */
-#define IDC_SHORTCUT_LOCATION	107
-#define IDC_SHORTCUT_BROWSE		108
-#define IDC_SHORTCUT_NAME		109
+#define IDC_INSTALL 101
+#define IDC_SOFTWARELIST		102
+#define IDC_ADDREMOVE			103
+#define IDC_SHOWUPDATES			104
 
 #endif /* __CPL_RESOURCE_H */
 

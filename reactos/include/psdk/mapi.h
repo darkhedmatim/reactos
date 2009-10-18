@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2000 Francois Gouget
+ * Copyright (C) 2000 François Gouget
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef MAPI_H
@@ -27,15 +27,15 @@ extern "C" {
 
 #ifndef __LHANDLE
 #define __LHANDLE
-typedef ULONG                   LHANDLE, *LPLHANDLE;
+typedef unsigned long           LHANDLE, *LPLHANDLE;
 #endif
 #define lhSessionNull           ((LHANDLE)0)
 
 #ifndef WINE_FLAGS_DEFINED
 #define WINE_FLAGS_DEFINED
-typedef ULONG                   FLAGS;
+typedef unsigned long           FLAGS;
 #endif
-typedef ULONG                  *LPULONG;
+typedef unsigned long*          LPULONG;
 
 typedef struct
 {
@@ -191,7 +191,7 @@ typedef MAPISENDDOCUMENTS *LPMAPISENDDOCUMENTS;
 MAPISENDDOCUMENTS MAPISendDocuments;
 
 typedef ULONG (WINAPI MAPISENDMAIL)(LHANDLE,ULONG_PTR,lpMapiMessage,FLAGS,ULONG);
-typedef MAPISENDMAIL *LPMAPISENDMAIL;
+typedef MAPISENDMAIL *LPMAPI;
 MAPISENDMAIL MAPISendMail;
 
 #ifdef __cplusplus

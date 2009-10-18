@@ -1,14 +1,9 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../tools/rbuild/project.dtd">
-<group xmlns:xi="http://www.w3.org/2001/XInclude">
+<group>
 <directory name="base">
 	<xi:include href="base/directory.rbuild" />
 </directory>
 <directory name="bus">
 	<xi:include href="bus/directory.rbuild" />
-</directory>
-<directory name="directx">
-	<xi:include href="directx/directory.rbuild" />
 </directory>
 <directory name="filesystems">
 	<xi:include href="filesystems/directory.rbuild" />

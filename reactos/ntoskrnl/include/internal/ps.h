@@ -9,7 +9,7 @@
 //
 // Define this if you want debugging support
 //
-#define _PS_DEBUG_                                      0x00
+#define _PS_DEBUG_                                      0x01
 
 //
 // These define the Debug Masks Supported
@@ -52,11 +52,15 @@
             "Pointer Count [%p] @%d: %lx\n",                \
             x,                                              \
             __LINE__,                                       \
-            OBJECT_TO_OBJECT_HEADER(x)->PointerCount)
+            OBJECT_TO_OBJECT_HEADER(x)->PointerCount);
 #else
-#define PSTRACE(x, ...) DPRINT(__VA_ARGS__)
+#define PSTRACE(x, ...) DPRINT(__VA_ARGS__);
 #define PSREFTRACE(x)
 #endif
+
+#define PspSetProcessFlag(Process, Flag) \
+ InterlockedOr((PLONG)&Process->Flags, Flag)
+
 
 //
 // Maximum Count of Notification Routines
@@ -69,17 +73,6 @@
 // Maximum Job Scheduling Classes
 //
 #define PSP_JOB_SCHEDULING_CLASSES              10
-
-//
-// Thread "Set/Get Context" Context Structure
-//
-typedef struct _GET_SET_CTX_CONTEXT
-{
-    KAPC Apc;
-    KEVENT Event;
-    KPROCESSOR_MODE Mode;
-    CONTEXT Context;
-} GET_SET_CTX_CONTEXT, *PGET_SET_CTX_CONTEXT;
 
 //
 // Initialization Functions
@@ -116,8 +109,7 @@ NTSTATUS
 NTAPI
 PspMapSystemDll(
     IN PEPROCESS Process,
-    OUT PVOID *DllBase,
-    IN BOOLEAN UseLargePages
+    OUT PVOID *DllBase
 );
 
 NTSTATUS
@@ -361,33 +353,6 @@ PsSuspendThread(
     OUT PULONG PreviousCount OPTIONAL
 );
 
-VOID
-NTAPI
-PspGetOrSetContextKernelRoutine(
-    IN PKAPC Apc,
-    IN OUT PKNORMAL_ROUTINE* NormalRoutine,
-    IN OUT PVOID* NormalContext,
-    IN OUT PVOID* SystemArgument1,
-    IN OUT PVOID* SystemArgument2
-);
-
-//
-// Process Quotas
-//
-NTSTATUS
-NTAPI
-PsReturnProcessPageFileQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T Amount
-);
-
-NTSTATUS
-NTAPI
-PsChargeProcessPageFileQuota(
-    IN PEPROCESS Process,
-    IN SIZE_T Amount
-);
-
 //
 // Global data inside the Process Manager
 //
@@ -423,7 +388,7 @@ extern POBJECT_TYPE PsJobType;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern UNICODE_STRING PsNtDllPathName;
 extern LIST_ENTRY PsLoadedModuleList;
-extern ULONG_PTR PsNtosImageBase;
+extern ULONG PsNtosImageBase;
 
 //
 // Inlined Functions

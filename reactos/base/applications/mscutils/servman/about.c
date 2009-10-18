@@ -9,34 +9,46 @@
 
 #include "precomp.h"
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    HWND  hLicenseEditWnd;
+    HICON hIcon = NULL;
+    TCHAR strLicense[700];
+
     switch (message)
     {
     case WM_INITDIALOG:
-    {
-        HWND hLicenseEditWnd;
+
+        hIcon = (HICON)LoadImage(hInstance,
+                                 MAKEINTRESOURCE(IDI_SM_ICON),
+                                 IMAGE_ICON,
+                                 16,
+                                 16,
+                                 0);
+        if (hIcon)
+        {
+            SendMessage(hDlg,
+                        WM_SETICON,
+                        ICON_SMALL,
+                        (LPARAM)hIcon);
+            DestroyIcon(hIcon);
+        }
 
         hLicenseEditWnd = GetDlgItem(hDlg,
                                      IDC_LICENSE_EDIT);
         if (hLicenseEditWnd)
         {
-            LPTSTR lpString;
+            LoadString(hInstance,
+                       IDS_LICENSE,
+                       strLicense,
+                       sizeof(strLicense) / sizeof(TCHAR));
 
-            if (AllocAndLoadString(&lpString,
-                                   hInstance,
-                                   IDS_LICENSE))
-            {
-                SetWindowText(hLicenseEditWnd,
-                              lpString);
-
-                LocalFree(lpString);
-            }
+            SetWindowText(hLicenseEditWnd,
+                          strLicense);
         }
 
         return TRUE;
-    }
 
     case WM_COMMAND:
 

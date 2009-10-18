@@ -16,17 +16,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef DO_NO_IMPORTS
 import "unknwn.idl";
-#endif
 
 interface IStream;
 
-cpp_quote("#define CPIOD_PEEK          0x40000000")
-cpp_quote("#define CPIOD_FORCE_PROMPT  0x80000000")
-
 /* FIXME: LANGID is defined in winnt.h and mlang.h in the platform SDK */
-cpp_quote("#ifndef _WINNT_H")
+cpp_quote("#ifndef _WINNT_")
 typedef WORD LANGID;
 cpp_quote("#endif")
 
@@ -39,7 +34,7 @@ interface IMLangCodePages : IUnknown
 {
     HRESULT GetCharCodePages(      
         [in] WCHAR chSrc,
-        [out] DWORD *pdwCodePages);
+        DWORD *pdwCodePages);
     HRESULT GetStrCodePages(      
         [in, size_is(cchSrc)] const WCHAR *pszSrc,
         [in] long cchSrc,
@@ -175,141 +170,6 @@ interface IEnumScript : IUnknown
 
     HRESULT Skip(      
         [in] ULONG celt);
-}
-
-[
-  object,
-  uuid(dccfc162-2b38-11d2-b7ec-00c04f8f5d9a),
-  pointer_default(unique)
-]
-interface IMLangFontLink2 : IMLangCodePages
-{
-    typedef struct tagUNICODERANGE
-    {
-        WCHAR wcFrom;
-        WCHAR wcTo;
-    } UNICODERANGE;
-
-    typedef [unique] IMLangFontLink2 *PMLANGFONTLINK2;
-
-    HRESULT GetFontCodePages(
-        [in] HDC hDC,
-        [in] HFONT hFont,
-        [out] DWORD *pdwCodePages );
-
-    HRESULT ReleaseFont(
-        [in] HFONT hFont);
-
-    HRESULT ResetFontMapping();
-
-    HRESULT MapFont(
-        [in] HDC hDC,
-        [in] DWORD dwCodePages,
-        [in] WCHAR chSrc,
-        [out] HFONT *pFont);
-
-    HRESULT GetFontUnicodeRanges(
-        [in] HDC hDC,
-        [in,out] UINT *puiRanges,
-        [out] UNICODERANGE* pUranges);
-
-    HRESULT GetScriptFontInfo(
-        [in] SCRIPT_ID sid,
-        [in] DWORD dwFlags,
-        [in,out] UINT *puiFonts,
-        [out] SCRIPTFONTINFO* pScriptFont);
-
-    HRESULT CodePageToScriptID(
-        [in] UINT uiCodePage,
-        [out] SCRIPT_ID *pSid);
-}
-
-[
- object,
- uuid(c04d65ce-b70d-11d0-b188-00aa0038c969),
- pointer_default(unique)
-]
-interface IMLangString : IUnknown
-{
-#ifdef NEWMLSTR
-    HRESULT LockMLStr(
-        [in] long lPos,
-        [in] DWORD dwFlags,
-        [out] DWORD* pdwCookie,
-        [out] long* plActualPos,
-        [out] long* plActualLen);
-
-    HRESULT UnlockMLStr(
-        [in] DWORD dwCookie);
-#else
-    HRESULT Sync(
-        [in] BOOL fNoAccess);
-#endif
-    HRESULT GetLength(
-        [out, retval] long* plLen);
-    HRESULT SetMLStr(
-        [in] long lDestPos,
-        [in] long lDestLen,
-        [in] IUnknown *pSrcMLStr,
-        [in] long lSrcPos,
-        [in] long lSrcLen);
-#ifdef NEWMLSTR
-    HRESULT RegisterAttr(
-        [in] IUnknown *pUnk,
-        [out] DWORD* pdwCookie);
-    HRESULT UnregisterAttr(
-        [in] DWORD dwCookie);
-    HRESULT EnumAttr(
-        [out] IEnumUnknown **ppEnumUnk);
-    HRESULT FindAttr(
-        [in] REFIID riid,
-        [in] LPARAM lParam,
-        [out] IUnknown **ppUnk);
-#else
-    HRESULT GetMLStr(
-        [in] long lSrcPos,
-        [in] long lSrcLen,
-        [in] IUnknown *pUnkOuter,
-        [in] DWORD dwClsContext,
-        [in] const IID* piid,
-        [out] IUnknown** ppDestMLStr,
-        [out] long* plDestPos,
-        [out] long* plDestLen);
-#endif
-}
-
-[
- object,
- uuid(f5be2ee1-bfd7-11d0-b188-00aa0038c969),
- pointer_default(unique)
-]
-interface IMLangLineBreakConsole : IUnknown
-{
-    HRESULT BreakLineML(
-        [in] IMLangString* pSrcMLStr,
-        [in] long lSrcPos,
-        [in] long lSrcLen,
-        [in] long cMinColumns,
-        [in] long cMaxColumns,
-        [out] long* plLineLen,
-        [out] long* plSkipLen);
-
-    HRESULT BreakLineW(
-        [in] LCID locale,
-        [in, size_is(cchSrc)] const WCHAR* pszSrc,
-        [in] long cchSrc,
-        [in] long cMaxColumns,
-        [out] long* pcchLine,
-        [out] long* pcchSkip );
-
-    HRESULT BreakLineA(
-        [in] LCID locale,
-        [in] UINT uCodePage,
-        [in, size_is(cchSrc)] const CHAR* pszSrc,
-        [in] long cchSrc,
-        [in] long cMaxColumns,
-        [out] long* pcchLine,
-        [out] long* pcchSkip);
 }
 
 [
@@ -733,7 +593,6 @@ coclass CMultiLanguage
     interface IMLangCodePages;
     interface IMLangFontLink;
     /* interface IMLangLineBreakConsole; */
-    interface IMLangFontLink2;
 }
 
 cpp_quote("STDAPI LcidToRfc1766A(LCID, LPSTR, INT);")

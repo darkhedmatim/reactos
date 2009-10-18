@@ -8,9 +8,13 @@
 
 /* INCLUDES ******************************************************************/
 
-#define NDEBUG
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
+
+extern NTSTATUS FASTCALL
+Win32CsrInsertObject2(PCSRSS_PROCESS_DATA, PHANDLE, Object_t *);
 
 /* GLOBALS *******************************************************************/
 
@@ -23,19 +27,16 @@
 #define ConioIsRectEmpty(Rect) \
   (((Rect)->left > (Rect)->right) || ((Rect)->top > (Rect)->bottom))
 
-#define ConsoleInputUnicodeCharToAnsiChar(Console, dChar, sWChar) \
+#define ConsoleUnicodeCharToAnsiChar(Console, dChar, sWChar) \
   WideCharToMultiByte((Console)->CodePage, 0, (sWChar), 1, (dChar), 1, NULL, NULL)
 
-#define ConsoleUnicodeCharToAnsiChar(Console, dChar, sWChar) \
-  WideCharToMultiByte((Console)->OutputCodePage, 0, (sWChar), 1, (dChar), 1, NULL, NULL)
-
 #define ConsoleAnsiCharToUnicodeChar(Console, sWChar, dChar) \
-  MultiByteToWideChar((Console)->OutputCodePage, 0, (dChar), 1, (sWChar), 1)
+  MultiByteToWideChar((Console)->CodePage, 0, (dChar), 1, (sWChar), 1)
 
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS FASTCALL
+static NTSTATUS FASTCALL
 ConioConsoleFromProcessData(PCSRSS_PROCESS_DATA ProcessData, PCSRSS_CONSOLE *Console)
 {
   PCSRSS_CONSOLE ProcessConsole = ProcessData->Console;
@@ -43,10 +44,9 @@ ConioConsoleFromProcessData(PCSRSS_PROCESS_DATA ProcessData, PCSRSS_CONSOLE *Con
   if (!ProcessConsole)
     {
       *Console = NULL;
-      return STATUS_INVALID_HANDLE;
+      return STATUS_SUCCESS;
     }
 
-  InterlockedIncrement(&ProcessConsole->Header.ReferenceCount);
   EnterCriticalSection(&(ProcessConsole->Header.Lock));
   *Console = ProcessConsole;
 
@@ -79,26 +79,26 @@ ConioConsoleCtrlEventTimeout(DWORD Event, PCSRSS_PROCESS_DATA ProcessData, DWORD
 VOID FASTCALL
 ConioConsoleCtrlEvent(DWORD Event, PCSRSS_PROCESS_DATA ProcessData)
 {
-  ConioConsoleCtrlEventTimeout(Event, ProcessData, 0);
+  ConioConsoleCtrlEventTimeout(Event, ProcessData, INFINITE);
 }
 
-PBYTE FASTCALL
-ConioCoordToPointer(PCSRSS_SCREEN_BUFFER Buff, ULONG X, ULONG Y)
-{
-  return &Buff->Buffer[2 * (((Y + Buff->VirtualY) % Buff->MaxY) * Buff->MaxX + X)];
-}
+#define GET_CELL_BUFFER(b,o)\
+(b)->Buffer[(o)++]
+
+#define SET_CELL_BUFFER(b,o,c,a)\
+(b)->Buffer[(o)++]=(c),\
+(b)->Buffer[(o)++]=(a)
 
 static VOID FASTCALL
 ClearLineBuffer(PCSRSS_SCREEN_BUFFER Buff)
 {
-  PBYTE Ptr = ConioCoordToPointer(Buff, 0, Buff->CurrentY);
+  DWORD Offset = 2 * (Buff->CurrentY * Buff->MaxX);
   UINT Pos;
 
   for (Pos = 0; Pos < Buff->MaxX; Pos++)
     {
-      /* Fill the cell */
-      *Ptr++ = ' ';
-      *Ptr++ = Buff->DefaultAttrib;
+      /* Fill the cell: Offset is incremented by the macro */
+      SET_CELL_BUFFER(Buff, Offset, ' ', Buff->DefaultAttrib);
     }
 }
 
@@ -112,7 +112,6 @@ CsrInitConsoleScreenBuffer(PCSRSS_CONSOLE Console,
   Buffer->Header.ReferenceCount = 0;
   Buffer->ShowX = 0;
   Buffer->ShowY = 0;
-  Buffer->VirtualY = 0;
   Buffer->Buffer = HeapAlloc(Win32CsrApiHeap, HEAP_ZERO_MEMORY, Buffer->MaxX * Buffer->MaxY * 2);
   if (NULL == Buffer->Buffer)
     {
@@ -132,7 +131,7 @@ CsrInitConsoleScreenBuffer(PCSRSS_CONSOLE Console,
   return STATUS_SUCCESS;
 }
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CsrInitConsole(PCSRSS_CONSOLE Console)
 {
   NTSTATUS Status;
@@ -154,6 +153,7 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
   Console->Mode = ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT;
   Console->EarlyReturn = FALSE;
   Console->ActiveBuffer = NULL;
+  Console->hActiveBuffer = INVALID_HANDLE_VALUE;
   InitializeListHead(&Console->InputEvents);
   Console->CodePage = GetOEMCP();
   Console->OutputCodePage = GetOEMCP();
@@ -184,9 +184,13 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
     }
   /* init screen buffer with defaults */
   NewBuffer->CursorInfo.bVisible = TRUE;
-  NewBuffer->CursorInfo.dwSize = CSR_DEFAULT_CURSOR_SIZE;
+  NewBuffer->CursorInfo.dwSize = 5;
   /* make console active, and insert into console list */
   Console->ActiveBuffer = (PCSRSS_SCREEN_BUFFER) NewBuffer;
+  Console->hActiveBuffer = INVALID_HANDLE_VALUE;
+  /* add a reference count because the buffer is tied to the console */
+  InterlockedIncrement(&Console->ActiveBuffer->Header.ReferenceCount);
+
 
   if (! GuiMode)
     {
@@ -223,9 +227,6 @@ CsrInitConsole(PCSRSS_CONSOLE Console)
       return Status;
     }
 
-  /* add a reference count because the buffer is tied to the console */
-  InterlockedIncrement(&Console->ActiveBuffer->Header.ReferenceCount);
-
   /* copy buffer contents to screen */
   ConioDrawConsole(Console);
 
@@ -244,11 +245,21 @@ CSR_API(CsrAllocConsole)
     Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
     Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
+    if (ProcessData == NULL)
+    {
+        DPRINT1("No process data\n");
+        return Request->Status = STATUS_INVALID_PARAMETER;
+    }
+
     if (ProcessData->Console)
     {
         DPRINT1("Process already has a console\n");
+        Request->Status = STATUS_INVALID_PARAMETER;
         return STATUS_INVALID_PARAMETER;
     }
+
+    /* Assume success */
+    Request->Status = STATUS_SUCCESS;
 
     /* If we don't need a console, then get out of here */
     if (!Request->Data.AllocConsoleRequest.ConsoleNeeded)
@@ -267,6 +278,7 @@ CSR_API(CsrAllocConsole)
         if (NULL == Console)
         {
             DPRINT1("Not enough memory for console\n");
+            Request->Status = STATUS_NO_MEMORY;
             return STATUS_NO_MEMORY;
         }
         /* initialize list head */
@@ -274,12 +286,12 @@ CSR_API(CsrAllocConsole)
         /* insert process data required for GUI initialization */
         InsertHeadList(&Console->ProcessList, &ProcessData->ProcessEntry);
         /* Initialize the Console */
-        Status = CsrInitConsole(Console);
-        if (!NT_SUCCESS(Status))
+        Request->Status = CsrInitConsole(Console);
+        if (!NT_SUCCESS(Request->Status))
         {
             DPRINT1("Console init failed\n");
             HeapFree(Win32CsrApiHeap, 0, Console);
-            return Status;
+            return Request->Status;
         }
     }
     else
@@ -300,24 +312,20 @@ CSR_API(CsrAllocConsole)
     if (NewConsole || !ProcessData->bInheritHandles)
     {
         /* Insert the Objects */
-        Status = Win32CsrInsertObject(ProcessData,
-                                      &Request->Data.AllocConsoleRequest.InputHandle,
-                                      &Console->Header,
-                                      GENERIC_READ | GENERIC_WRITE,
-                                      TRUE);
+        Status = Win32CsrInsertObject2(ProcessData,
+                                       &Request->Data.AllocConsoleRequest.InputHandle,
+                                       &Console->Header);
         if (! NT_SUCCESS(Status))
         {
             DPRINT1("Failed to insert object\n");
             ConioDeleteConsole((Object_t *) Console);
             ProcessData->Console = 0;
-            return Status;
+            return Request->Status = Status;
         }
 
-        Status = Win32CsrInsertObject(ProcessData,
-                                      &Request->Data.AllocConsoleRequest.OutputHandle,
-                                      &Console->ActiveBuffer->Header,
-                                      GENERIC_READ | GENERIC_WRITE,
-                                      TRUE);
+        Status = Win32CsrInsertObject2(ProcessData,
+                                       &Request->Data.AllocConsoleRequest.OutputHandle,
+                                       &Console->ActiveBuffer->Header);
         if (!NT_SUCCESS(Status))
         {
             DPRINT1("Failed to insert object\n");
@@ -325,8 +333,9 @@ CSR_API(CsrAllocConsole)
             Win32CsrReleaseObject(ProcessData,
                                   Request->Data.AllocConsoleRequest.InputHandle);
             ProcessData->Console = 0;
-            return Status;
+            return Request->Status = Status;
         }
+        Console->hActiveBuffer = Request->Data.AllocConsoleRequest.OutputHandle;
     }
 
     /* Duplicate the Event */
@@ -348,7 +357,7 @@ CSR_API(CsrAllocConsole)
                                   Request->Data.AllocConsoleRequest.InputHandle);
         }
         ProcessData->Console = 0;
-        return Status;
+        return Request->Status = Status;
     }
 
     /* Set the Ctrl Dispatcher */
@@ -372,14 +381,13 @@ CSR_API(CsrFreeConsole)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  if (ProcessData->Console == NULL)
+  if (ProcessData == NULL || ProcessData->Console == NULL)
     {
-      return STATUS_INVALID_PARAMETER;
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
 
   Console = ProcessData->Console;
   ProcessData->Console = NULL;
-  RemoveEntryList(&ProcessData->ProcessEntry);
   if (0 == InterlockedDecrement(&Console->Header.ReferenceCount))
     {
       ConioDeleteConsole((Object_t *) Console);
@@ -390,23 +398,29 @@ CSR_API(CsrFreeConsole)
 static VOID FASTCALL
 ConioNextLine(PCSRSS_SCREEN_BUFFER Buff, RECT *UpdateRect, UINT *ScrolledLines)
 {
-  /* If we hit bottom, slide the viewable screen */
-  if (++Buff->CurrentY == Buff->MaxY)
+  /* slide the viewable screen */
+  if (((Buff->CurrentY - Buff->ShowY + Buff->MaxY) % Buff->MaxY) == (ULONG)Buff->MaxY - 1)
     {
-      Buff->CurrentY--;
-      if (++Buff->VirtualY == Buff->MaxY)
+      if (++Buff->ShowY == Buff->MaxY)
         {
-          Buff->VirtualY = 0;
+          Buff->ShowY = 0;
         }
       (*ScrolledLines)++;
-      ClearLineBuffer(Buff);
-      if (UpdateRect->top != 0)
-        {
-          UpdateRect->top--;
-        }
     }
+  if (++Buff->CurrentY == Buff->MaxY)
+    {
+      Buff->CurrentY = 0;
+    }
+  ClearLineBuffer(Buff);
   UpdateRect->left = 0;
   UpdateRect->right = Buff->MaxX - 1;
+  if (UpdateRect->top == (LONG)Buff->CurrentY)
+    {
+      if (++UpdateRect->top == Buff->MaxY)
+        {
+          UpdateRect->top = 0;
+        }
+    }
   UpdateRect->bottom = Buff->CurrentY;
 }
 
@@ -415,13 +429,12 @@ ConioWriteConsole(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff,
                   CHAR *Buffer, DWORD Length, BOOL Attrib)
 {
   UINT i;
-  PBYTE Ptr;
+  DWORD Offset;
   RECT UpdateRect;
   LONG CursorStartX, CursorStartY;
   UINT ScrolledLines;
 
-  CursorStartX = Buff->CurrentX;
-  CursorStartY = Buff->CurrentY;
+  ConioPhysicalToLogical(Buff, Buff->CurrentX, Buff->CurrentY, &CursorStartX, &CursorStartY);
   UpdateRect.left = Buff->MaxX;
   UpdateRect.top = Buff->CurrentY;
   UpdateRect.right = -1;
@@ -443,22 +456,32 @@ ConioWriteConsole(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff,
           else if (Buffer[i] == '\b')
             {
               /* Only handle BS if we're not on the first pos of the first line */
-              if (0 != Buff->CurrentX || 0 != Buff->CurrentY)
+              if (0 != Buff->CurrentX || Buff->ShowY != Buff->CurrentY)
                 {
                   if (0 == Buff->CurrentX)
                     {
                       /* slide virtual position up */
                       Buff->CurrentX = Buff->MaxX - 1;
-                      Buff->CurrentY--;
-                      UpdateRect.top = min(UpdateRect.top, (LONG)Buff->CurrentY);
+                      if (0 == Buff->CurrentY)
+                        {
+                          Buff->CurrentY = Buff->MaxY;
+                        }
+                      else
+                        {
+                          Buff->CurrentY--;
+                        }
+                      if ((0 == UpdateRect.top && UpdateRect.bottom < (LONG)Buff->CurrentY)
+                          || (0 != UpdateRect.top && (LONG)Buff->CurrentY < UpdateRect.top))
+                        {
+                          UpdateRect.top = Buff->CurrentY;
+                        }
                     }
                   else
                     {
-                      Buff->CurrentX--;
+                       Buff->CurrentX--;
                     }
-                  Ptr = ConioCoordToPointer(Buff, Buff->CurrentX, Buff->CurrentY);
-                  Ptr[0] = ' ';
-                  Ptr[1] = Buff->DefaultAttrib;
+                  Offset = 2 * ((Buff->CurrentY * Buff->MaxX) + Buff->CurrentX);
+                  SET_CELL_BUFFER(Buff, Offset, ' ', Buff->DefaultAttrib);
                   UpdateRect.left = min(UpdateRect.left, (LONG) Buff->CurrentX);
                   UpdateRect.right = max(UpdateRect.right, (LONG) Buff->CurrentX);
                 }
@@ -483,11 +506,11 @@ ConioWriteConsole(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff,
                 {
                   EndX = Buff->MaxX;
                 }
-              Ptr = ConioCoordToPointer(Buff, Buff->CurrentX, Buff->CurrentY);
+              Offset = 2 * (((Buff->CurrentY * Buff->MaxX)) + Buff->CurrentX);
               while (Buff->CurrentX < EndX)
                 {
-                  *Ptr++ = ' ';
-                  *Ptr++ = Buff->DefaultAttrib;
+                  Buff->Buffer[Offset] = ' ';
+                  Offset += 2;
                   Buff->CurrentX++;
                 }
               UpdateRect.right = max(UpdateRect.right, (LONG) Buff->CurrentX - 1);
@@ -508,11 +531,11 @@ ConioWriteConsole(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff,
         }
       UpdateRect.left = min(UpdateRect.left, (LONG)Buff->CurrentX);
       UpdateRect.right = max(UpdateRect.right, (LONG) Buff->CurrentX);
-      Ptr = ConioCoordToPointer(Buff, Buff->CurrentX, Buff->CurrentY);
-      Ptr[0] = Buffer[i];
+      Offset = 2 * (((Buff->CurrentY * Buff->MaxX)) + Buff->CurrentX);
+      Buff->Buffer[Offset++] = Buffer[i];
       if (Attrib)
         {
-          Ptr[1] = Buff->DefaultAttrib;
+          Buff->Buffer[Offset] = Buff->DefaultAttrib;
         }
       Buff->CurrentX++;
       if (Buff->CurrentX == Buff->MaxX)
@@ -529,7 +552,11 @@ ConioWriteConsole(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff,
         }
     }
 
-  if (! ConioIsRectEmpty(&UpdateRect) && Buff == Console->ActiveBuffer)
+  ConioPhysicalToLogical(Buff, UpdateRect.left, UpdateRect.top, &(UpdateRect.left),
+                         &(UpdateRect.top));
+  ConioPhysicalToLogical(Buff, UpdateRect.right, UpdateRect.bottom, &(UpdateRect.right),
+                         &(UpdateRect.bottom));
+  if (! ConioIsRectEmpty(&UpdateRect) && NULL != Console && Buff == Console->ActiveBuffer)
     {
       ConioWriteStream(Console, &UpdateRect, CursorStartX, CursorStartY, ScrolledLines,
                        Buffer, Length);
@@ -561,10 +588,10 @@ CSR_API(CsrReadConsole)
   Buffer = Request->Data.ReadConsoleRequest.Buffer;
   UnicodeBuffer = (PWCHAR)Buffer;
   Status = ConioLockConsole(ProcessData, Request->Data.ReadConsoleRequest.ConsoleHandle,
-                               &Console, GENERIC_READ);
+                               &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
   Request->Data.ReadConsoleRequest.EventHandle = ProcessData->ConsoleEvent;
   for (i = 0; i < nNumberOfCharsToRead && Console->InputEvents.Flink != &Console->InputEvents; i++)
@@ -573,6 +600,7 @@ CSR_API(CsrReadConsole)
       CurrentEntry = RemoveHeadList(&Console->InputEvents);
       if (IsListEmpty(&Console->InputEvents))
       {
+         CHECKPOINT;
          ResetEvent(Console->ActiveEvent);
       }
       Input = CONTAINING_RECORD(CurrentEntry, ConsoleInput, ListEntry);
@@ -584,9 +612,9 @@ CSR_API(CsrReadConsole)
         {
           /*
            * backspace handling - if we are in charge of echoing it then we handle it here
-           * otherwise we treat it like a normal char.
+           * otherwise we treat it like a normal char. 
            */
-          if ('\b' == Input->InputEvent.Event.KeyEvent.uChar.AsciiChar && 0
+          if ('\b' == Input->InputEvent.Event.KeyEvent.uChar.AsciiChar && 0 
               != (Console->Mode & ENABLE_ECHO_INPUT))
             {
               /* echo if it has not already been done, and either we or the client has chars to be deleted */
@@ -606,8 +634,9 @@ CSR_API(CsrReadConsole)
                   ConioUnlockConsole(Console);
                   HeapFree(Win32CsrApiHeap, 0, Input);
                   Request->Data.ReadConsoleRequest.NrCharactersRead = 0;
+                  Request->Status = STATUS_NOTIFY_CLEANUP;
                   return STATUS_NOTIFY_CLEANUP;
-
+                  
                 }
               Request->Data.ReadConsoleRequest.nCharsCanBeDeleted--;
               Input->Echoed = TRUE;   /* mark as echoed so we don't echo it below */
@@ -639,27 +668,27 @@ CSR_API(CsrReadConsole)
   Request->Data.ReadConsoleRequest.NrCharactersRead = i;
   if (0 == i)
     {
-      Status = STATUS_PENDING;    /* we didn't read anything */
+      Request->Status = STATUS_PENDING;    /* we didn't read anything */
     }
   else if (0 != (Console->Mode & ENABLE_LINE_INPUT))
     {
       if (0 == Console->WaitingLines ||
           (Request->Data.ReadConsoleRequest.Unicode ? (L'\n' != UnicodeBuffer[i - 1]) : ('\n' != Buffer[i - 1])))
         {
-          Status = STATUS_PENDING; /* line buffered, didn't get a complete line */
+          Request->Status = STATUS_PENDING; /* line buffered, didn't get a complete line */
         }
       else
         {
           Console->WaitingLines--;
-          Status = STATUS_SUCCESS; /* line buffered, did get a complete line */
+          Request->Status = STATUS_SUCCESS; /* line buffered, did get a complete line */
         }
     }
   else
     {
-      Status = STATUS_SUCCESS;  /* not line buffered, did read something */
+      Request->Status = STATUS_SUCCESS;  /* not line buffered, did read something */
     }
 
-  if (Status == STATUS_PENDING)
+  if (Request->Status == STATUS_PENDING)
     {
       Console->EchoCount = nNumberOfCharsToRead - i;
     }
@@ -676,10 +705,36 @@ CSR_API(CsrReadConsole)
       Request->Header.u1.s1.DataLength = Request->Header.u1.s1.TotalLength - sizeof(PORT_MESSAGE);
     }
 
-  return Status;
+  return Request->Status;
 }
 
-__inline BOOLEAN ConioGetIntersection(
+VOID FASTCALL
+ConioPhysicalToLogical(PCSRSS_SCREEN_BUFFER Buff,
+                       ULONG PhysicalX,
+                       ULONG PhysicalY,
+                       LONG *LogicalX,
+                       LONG *LogicalY)
+{
+   *LogicalX = PhysicalX;
+   if (PhysicalY < Buff->ShowY)
+     {
+       *LogicalY = Buff->MaxY - Buff->ShowY + PhysicalY;
+     }
+   else
+     {
+       *LogicalY = PhysicalY - Buff->ShowY;
+     }
+}
+
+BOOLEAN __inline ConioIsEqualRect(
+  RECT *Rect1,
+  RECT *Rect2)
+{
+  return ((Rect1->left == Rect2->left) && (Rect1->right == Rect2->right) &&
+    (Rect1->top == Rect2->top) && (Rect1->bottom == Rect2->bottom));
+}
+
+BOOLEAN __inline ConioGetIntersection(
   RECT *Intersection,
   RECT *Rect1,
   RECT *Rect2)
@@ -705,7 +760,7 @@ __inline BOOLEAN ConioGetIntersection(
   return TRUE;
 }
 
-__inline BOOLEAN ConioGetUnion(
+BOOLEAN __inline ConioGetUnion(
   RECT *Union,
   RECT *Rect1,
   RECT *Rect2)
@@ -738,65 +793,138 @@ __inline BOOLEAN ConioGetUnion(
   return TRUE;
 }
 
-/* Move from one rectangle to another. We must be careful about the order that
- * this is done, to avoid overwriting parts of the source before they are moved. */
-static VOID FASTCALL
-ConioMoveRegion(PCSRSS_SCREEN_BUFFER ScreenBuffer,
-                RECT *SrcRegion,
-                RECT *DstRegion,
-                RECT *ClipRegion,
-                WORD Fill)
+BOOLEAN __inline ConioSubtractRect(
+  RECT *Subtraction,
+  RECT *Rect1,
+  RECT *Rect2)
 {
-  int Width = ConioRectWidth(SrcRegion);
-  int Height = ConioRectHeight(SrcRegion);
-  int SX, SY;
-  int DX, DY;
-  int XDelta, YDelta;
-  int i, j;
+  RECT tmp;
 
-  SY = SrcRegion->top;
-  DY = DstRegion->top;
-  YDelta = 1;
-  if (SY < DY)
+  if (ConioIsRectEmpty(Rect1))
     {
-      /* Moving down: work from bottom up */
-      SY = SrcRegion->bottom;
-      DY = DstRegion->bottom;
-      YDelta = -1;
+      ConioInitRect(Subtraction, 0, -1, 0, -1);
+      return FALSE;
     }
-  for (i = 0; i < Height; i++)
+  *Subtraction = *Rect1;
+  if (ConioGetIntersection(&tmp, Rect1, Rect2))
     {
-      PWORD SRow = (PWORD)ConioCoordToPointer(ScreenBuffer, 0, SY);
-      PWORD DRow = (PWORD)ConioCoordToPointer(ScreenBuffer, 0, DY);
+      if (ConioIsEqualRect(&tmp, Subtraction))
+        {
+          ConioInitRect(Subtraction, 0, -1, 0, -1);
+          return FALSE;
+        }
+      if ((tmp.top == Subtraction->top) && (tmp.bottom == Subtraction->bottom))
+        {
+          if (tmp.left == Subtraction->left)
+            {
+              Subtraction->left = tmp.right;
+            }
+          else if (tmp.right == Subtraction->right)
+            {
+              Subtraction->right = tmp.left;
+            }
+        }
+      else if ((tmp.left == Subtraction->left) && (tmp.right == Subtraction->right))
+        {
+          if (tmp.top == Subtraction->top)
+            {
+              Subtraction->top = tmp.bottom;
+            }
+          else if (tmp.bottom == Subtraction->bottom)
+            {
+              Subtraction->bottom = tmp.top;
+            }
+        }
+    }
 
-      SX = SrcRegion->left;
-      DX = DstRegion->left;
-      XDelta = 1;
-      if (SX < DX)
+  return TRUE;
+}
+
+static VOID FASTCALL
+ConioCopyRegion(PCSRSS_SCREEN_BUFFER ScreenBuffer,
+                RECT *SrcRegion,
+                RECT *DstRegion)
+{
+  SHORT SrcY, DstY;
+  DWORD SrcOffset;
+  DWORD DstOffset;
+  DWORD BytesPerLine;
+  LONG i;
+
+  DstY = DstRegion->top;
+  BytesPerLine = ConioRectWidth(DstRegion) * 2;
+
+  SrcY = (SrcRegion->top + ScreenBuffer->ShowY) % ScreenBuffer->MaxY;
+  DstY = (DstRegion->top + ScreenBuffer->ShowY) % ScreenBuffer->MaxY;
+  SrcOffset = (SrcY * ScreenBuffer->MaxX + SrcRegion->left + ScreenBuffer->ShowX) * 2;
+  DstOffset = (DstY * ScreenBuffer->MaxX + DstRegion->left + ScreenBuffer->ShowX) * 2;
+
+  for (i = SrcRegion->top; i <= SrcRegion->bottom; i++)
+    {
+      RtlCopyMemory(
+        &ScreenBuffer->Buffer[DstOffset],
+        &ScreenBuffer->Buffer[SrcOffset],
+        BytesPerLine);
+
+      if (++DstY == ScreenBuffer->MaxY)
         {
-          /* Moving right: work from right to left */
-          SX = SrcRegion->right;
-          DX = DstRegion->right;
-          XDelta = -1;
+          DstY = 0;
+          DstOffset = (DstRegion->left + ScreenBuffer->ShowX) * 2;
         }
-      for (j = 0; j < Width; j++)
+      else
         {
-          WORD Cell = SRow[SX];
-          if (SX >= ClipRegion->left && SX <= ClipRegion->right
-              && SY >= ClipRegion->top && SY <= ClipRegion->bottom)
-            {
-              SRow[SX] = Fill;
-            }
-          if (DX >= ClipRegion->left && DX <= ClipRegion->right
-              && DY >= ClipRegion->top && DY <= ClipRegion->bottom)
-            {
-              DRow[DX] = Cell;
-            }
-          SX += XDelta;
-          DX += XDelta;
+          DstOffset += ScreenBuffer->MaxX * 2;
         }
-      SY += YDelta;
-      DY += YDelta;
+
+      if (++SrcY == ScreenBuffer->MaxY)
+        {
+          SrcY = 0;
+          SrcOffset = (SrcRegion->left + ScreenBuffer->ShowX) * 2;
+        }
+      else
+        {
+          SrcOffset += ScreenBuffer->MaxX * 2;
+        }
+    }
+}
+
+static VOID FASTCALL
+ConioFillRegion(PCSRSS_CONSOLE Console,
+                PCSRSS_SCREEN_BUFFER ScreenBuffer,
+                RECT *Region,
+                CHAR_INFO *CharInfo,
+                BOOL bUnicode)
+{
+  SHORT X, Y;
+  DWORD Offset;
+  DWORD Delta;
+  LONG i;
+  CHAR Char;
+
+  if(bUnicode)
+    ConsoleUnicodeCharToAnsiChar(Console, &Char, &CharInfo->Char.UnicodeChar);
+  else
+    Char = CharInfo->Char.AsciiChar;
+
+  Y = (Region->top + ScreenBuffer->ShowY) % ScreenBuffer->MaxY;
+  Offset = (Y * ScreenBuffer->MaxX + Region->left + ScreenBuffer->ShowX) * 2;
+  Delta = (ScreenBuffer->MaxX - ConioRectWidth(Region)) * 2;
+
+  for (i = Region->top; i <= Region->bottom; i++)
+    {
+      for (X = Region->left; X <= Region->right; X++)
+        {
+          SET_CELL_BUFFER(ScreenBuffer, Offset, Char, CharInfo->Attributes);
+        }
+      if (++Y == ScreenBuffer->MaxY)
+        {
+          Y = 0;
+          Offset = (Region->left + ScreenBuffer->ShowX) * 2;
+        }
+      else
+        {
+          Offset += Delta;
+        }
     }
 }
 
@@ -807,9 +935,9 @@ ConioInputEventToAnsi(PCSRSS_CONSOLE Console, PINPUT_RECORD InputEvent)
     {
       WCHAR UnicodeChar = InputEvent->Event.KeyEvent.uChar.UnicodeChar;
       InputEvent->Event.KeyEvent.uChar.UnicodeChar = 0;
-      ConsoleInputUnicodeCharToAnsiChar(Console,
-                                        &InputEvent->Event.KeyEvent.uChar.AsciiChar,
-                                        &UnicodeChar);
+      ConsoleUnicodeCharToAnsiChar(Console,
+                                   &InputEvent->Event.KeyEvent.uChar.AsciiChar,
+                                   &UnicodeChar);
     }
 }
 
@@ -832,7 +960,7 @@ CSR_API(CsrWriteConsole)
       DPRINT1("Invalid request size\n");
       Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
       Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-      return STATUS_INVALID_PARAMETER;
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
 
@@ -841,19 +969,19 @@ CSR_API(CsrWriteConsole)
 
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   if(Request->Data.WriteConsoleRequest.Unicode)
     {
-      Length = WideCharToMultiByte(Console->OutputCodePage, 0,
+      Length = WideCharToMultiByte(Console->CodePage, 0,
                                    (PWCHAR)Request->Data.WriteConsoleRequest.Buffer,
                                    Request->Data.WriteConsoleRequest.NrCharactersToWrite,
                                    NULL, 0, NULL, NULL);
       Buffer = RtlAllocateHeap(GetProcessHeap(), 0, Length);
       if (Buffer)
         {
-          WideCharToMultiByte(Console->OutputCodePage, 0,
+          WideCharToMultiByte(Console->CodePage, 0,
                               (PWCHAR)Request->Data.WriteConsoleRequest.Buffer,
                               Request->Data.WriteConsoleRequest.NrCharactersToWrite,
                               Buffer, Length, NULL, NULL);
@@ -870,11 +998,11 @@ CSR_API(CsrWriteConsole)
 
   if (Buffer)
     {
-      Status = ConioLockScreenBuffer(ProcessData, Request->Data.WriteConsoleRequest.ConsoleHandle, &Buff, GENERIC_WRITE);
+      Status = ConioLockScreenBuffer(ProcessData, Request->Data.WriteConsoleRequest.ConsoleHandle, &Buff);
       if (NT_SUCCESS(Status))
         {
-          Status = ConioWriteConsole(Console, Buff, Buffer,
-                                     Request->Data.WriteConsoleRequest.NrCharactersToWrite, TRUE);
+          Request->Status = ConioWriteConsole(Console, Buff, Buffer,
+                                              Request->Data.WriteConsoleRequest.NrCharactersToWrite, TRUE);
           if (NT_SUCCESS(Status))
             {
               Written = Request->Data.WriteConsoleRequest.NrCharactersToWrite;
@@ -886,14 +1014,17 @@ CSR_API(CsrWriteConsole)
           RtlFreeHeap(GetProcessHeap(), 0, Buffer);
         }
     }
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
   Request->Data.WriteConsoleRequest.NrCharactersWritten = Written;
 
-  return Status;
+  return Request->Status = Status;
 }
 
-VOID WINAPI
+VOID STDCALL
 ConioDeleteScreenBuffer(Object_t *Object)
 {
   PCSRSS_SCREEN_BUFFER Buffer = (PCSRSS_SCREEN_BUFFER) Object;
@@ -913,7 +1044,7 @@ ConioDrawConsole(PCSRSS_CONSOLE Console)
 }
 
 
-VOID WINAPI
+VOID STDCALL
 ConioDeleteConsole(Object_t *Object)
 {
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) Object;
@@ -930,22 +1061,24 @@ ConioDeleteConsole(Object_t *Object)
       HeapFree(Win32CsrApiHeap, 0, Event);
     }
 
-  ConioCleanupConsole(Console);
+#if 0 // FIXME
   if (0 == InterlockedDecrement(&Console->ActiveBuffer->Header.ReferenceCount))
     {
       ConioDeleteScreenBuffer((Object_t *) Console->ActiveBuffer);
     }
+#endif
 
   Console->ActiveBuffer = NULL;
+  Console->hActiveBuffer = INVALID_HANDLE_VALUE;
+  ConioCleanupConsole(Console);
 
   CloseHandle(Console->ActiveEvent);
   DeleteCriticalSection(&Console->Header.Lock);
   RtlFreeUnicodeString(&Console->Title);
-  IntDeleteAllAliases(Console->Aliases);
   HeapFree(Win32CsrApiHeap, 0, Console);
 }
 
-VOID WINAPI
+VOID STDCALL
 CsrInitConsoleSupport(VOID)
 {
   DPRINT("CSR: CsrInitConsoleSupport()\n");
@@ -958,7 +1091,81 @@ ConioProcessChar(PCSRSS_CONSOLE Console,
                  ConsoleInput *KeyEventRecord)
 {
   BOOL updown;
+  BOOL bClientWake = FALSE;
   ConsoleInput *TempInput;
+
+  /* process Ctrl-C and Ctrl-Break */
+  if (Console->Mode & ENABLE_PROCESSED_INPUT &&
+      KeyEventRecord->InputEvent.Event.KeyEvent.bKeyDown &&
+      ((KeyEventRecord->InputEvent.Event.KeyEvent.wVirtualKeyCode == VK_PAUSE) ||
+       (KeyEventRecord->InputEvent.Event.KeyEvent.wVirtualKeyCode == 'C')) &&
+      (KeyEventRecord->InputEvent.Event.KeyEvent.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)))
+    {
+      PCSRSS_PROCESS_DATA current;
+      PLIST_ENTRY current_entry;
+      DPRINT1("Console_Api Ctrl-C\n");
+      current_entry = Console->ProcessList.Flink;
+      while (current_entry != &Console->ProcessList)
+      {
+        current = CONTAINING_RECORD(current_entry, CSRSS_PROCESS_DATA, ProcessEntry);
+        current_entry = current_entry->Flink;
+        ConioConsoleCtrlEvent((DWORD)CTRL_C_EVENT, current);
+      }
+      HeapFree(Win32CsrApiHeap, 0, KeyEventRecord);
+      return;
+    }
+
+  if (0 != (KeyEventRecord->InputEvent.Event.KeyEvent.dwControlKeyState
+            & (RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED))
+      && (VK_UP == KeyEventRecord->InputEvent.Event.KeyEvent.wVirtualKeyCode
+          || VK_DOWN == KeyEventRecord->InputEvent.Event.KeyEvent.wVirtualKeyCode))
+    {
+      if (KeyEventRecord->InputEvent.Event.KeyEvent.bKeyDown)
+        {
+          /* scroll up or down */
+          if (NULL == Console)
+            {
+              DPRINT1("No Active Console!\n");
+              HeapFree(Win32CsrApiHeap, 0, KeyEventRecord);
+              return;
+            }
+          if (VK_UP == KeyEventRecord->InputEvent.Event.KeyEvent.wVirtualKeyCode)
+            {
+              /* only scroll up if there is room to scroll up into */
+              if (Console->ActiveBuffer->ShowY != ((Console->ActiveBuffer->CurrentY + 1) %
+                                                     Console->ActiveBuffer->MaxY))
+                {
+                  Console->ActiveBuffer->ShowY = (Console->ActiveBuffer->ShowY +
+                                                  Console->ActiveBuffer->MaxY - 1) %
+                                                 Console->ActiveBuffer->MaxY;
+                }
+            }
+          else if (Console->ActiveBuffer->ShowY != Console->ActiveBuffer->CurrentY)
+            /* only scroll down if there is room to scroll down into */
+            {
+              if (Console->ActiveBuffer->ShowY % Console->ActiveBuffer->MaxY !=
+                  Console->ActiveBuffer->CurrentY)
+                {
+                  if (((Console->ActiveBuffer->CurrentY + 1) % Console->ActiveBuffer->MaxY) !=
+                      (Console->ActiveBuffer->ShowY + Console->ActiveBuffer->MaxY) %
+                      Console->ActiveBuffer->MaxY)
+                    {
+                      Console->ActiveBuffer->ShowY = (Console->ActiveBuffer->ShowY + 1) %
+                                                     Console->ActiveBuffer->MaxY;
+                    }
+                }
+            }
+          ConioDrawConsole(Console);
+        }
+      HeapFree(Win32CsrApiHeap, 0, KeyEventRecord);
+      return;
+    }
+  if (NULL == Console)
+    {
+      DPRINT1("No Active Console!\n");
+      HeapFree(Win32CsrApiHeap, 0, KeyEventRecord);
+      return;
+    }
 
   if (0 != (Console->Mode & (ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT)))
     {
@@ -1001,6 +1208,8 @@ ConioProcessChar(PCSRSS_CONSOLE Console,
         {
           Console->WaitingLines++;
         }
+      bClientWake = TRUE;
+      SetEvent(Console->ActiveEvent);
     }
   KeyEventRecord->Echoed = FALSE;
   if (0 != (Console->Mode & (ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT))
@@ -1032,7 +1241,10 @@ ConioProcessChar(PCSRSS_CONSOLE Console,
           RemoveEntryList(&KeyEventRecord->ListEntry);
           HeapFree(Win32CsrApiHeap, 0, KeyEventRecord);
           Console->WaitingChars -= 2;
-          return;
+        }
+      else
+        {
+          SetEvent(Console->ActiveEvent);
         }
     }
   else
@@ -1053,7 +1265,10 @@ ConioProcessChar(PCSRSS_CONSOLE Console,
     }
 
   /* Console->WaitingChars++; */
-  SetEvent(Console->ActiveEvent);
+  if (bClientWake || 0 == (Console->Mode & ENABLE_LINE_INPUT))
+    {
+      SetEvent(Console->ActiveEvent);
+    }
 }
 
 static DWORD FASTCALL
@@ -1086,7 +1301,7 @@ ConioGetShiftState(PBYTE KeyState)
   return ssOut;
 }
 
-VOID WINAPI
+VOID STDCALL
 ConioProcessKey(MSG *msg, PCSRSS_CONSOLE Console, BOOL TextMode)
 {
   static BYTE KeyState[256] = { 0 };
@@ -1170,7 +1385,6 @@ ConioProcessKey(MSG *msg, PCSRSS_CONSOLE Console, BOOL TextMode)
 
   if (NULL == Console)
     {
-      DPRINT1("No Active Console!\n");
       return;
     }
 
@@ -1201,75 +1415,20 @@ ConioProcessKey(MSG *msg, PCSRSS_CONSOLE Console, BOOL TextMode)
     (AsciiChar >= ' ') ? AsciiChar : '.',
     ShiftState);
 
-  if (ConInRec->Fake && ConInRec->NotChar)
+  if (! ConInRec->Fake || ! ConInRec->NotChar)
+    {
+      /* FIXME - convert to ascii */
+      ConioProcessChar(Console, ConInRec);
+    }
+  else
     {
       HeapFree(Win32CsrApiHeap, 0, ConInRec);
-      return;
     }
-
-  /* process Ctrl-C and Ctrl-Break */
-  if (Console->Mode & ENABLE_PROCESSED_INPUT &&
-      er.Event.KeyEvent.bKeyDown &&
-      ((er.Event.KeyEvent.wVirtualKeyCode == VK_PAUSE) ||
-       (er.Event.KeyEvent.wVirtualKeyCode == 'C')) &&
-      (er.Event.KeyEvent.dwControlKeyState & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)))
-    {
-      PCSRSS_PROCESS_DATA current;
-      PLIST_ENTRY current_entry;
-      DPRINT1("Console_Api Ctrl-C\n");
-      current_entry = Console->ProcessList.Flink;
-      while (current_entry != &Console->ProcessList)
-      {
-        current = CONTAINING_RECORD(current_entry, CSRSS_PROCESS_DATA, ProcessEntry);
-        current_entry = current_entry->Flink;
-        ConioConsoleCtrlEvent((DWORD)CTRL_C_EVENT, current);
-      }
-      HeapFree(Win32CsrApiHeap, 0, ConInRec);
-      return;
-    }
-
-  if (0 != (er.Event.KeyEvent.dwControlKeyState
-            & (RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED))
-      && (VK_UP == er.Event.KeyEvent.wVirtualKeyCode
-          || VK_DOWN == er.Event.KeyEvent.wVirtualKeyCode))
-    {
-      if (er.Event.KeyEvent.bKeyDown)
-        {
-          /* scroll up or down */
-          if (VK_UP == er.Event.KeyEvent.wVirtualKeyCode)
-            {
-              /* only scroll up if there is room to scroll up into */
-              if (Console->ActiveBuffer->CurrentY != Console->ActiveBuffer->MaxY - 1)
-                {
-                  Console->ActiveBuffer->VirtualY = (Console->ActiveBuffer->VirtualY +
-                                                     Console->ActiveBuffer->MaxY - 1) %
-                                                    Console->ActiveBuffer->MaxY;
-                  Console->ActiveBuffer->CurrentY++;
-                }
-            }
-          else
-            {
-              /* only scroll down if there is room to scroll down into */
-              if (Console->ActiveBuffer->CurrentY != 0)
-                {
-                  Console->ActiveBuffer->VirtualY = (Console->ActiveBuffer->VirtualY + 1) %
-                                                    Console->ActiveBuffer->MaxY;
-                  Console->ActiveBuffer->CurrentY--;
-                }
-            }
-          ConioDrawConsole(Console);
-        }
-      HeapFree(Win32CsrApiHeap, 0, ConInRec);
-      return;
-    }
-  /* FIXME - convert to ascii */
-  ConioProcessChar(Console, ConInRec);
 }
 
 CSR_API(CsrGetScreenBufferInfo)
 {
   NTSTATUS Status;
-  PCSRSS_CONSOLE Console;
   PCSRSS_SCREEN_BUFFER Buff;
   PCONSOLE_SCREEN_BUFFER_INFO pInfo;
 
@@ -1278,33 +1437,28 @@ CSR_API(CsrGetScreenBufferInfo)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioConsoleFromProcessData(ProcessData, &Console);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ScreenBufferInfoRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
-    }
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ScreenBufferInfoRequest.ConsoleHandle, &Buff, GENERIC_READ);
-  if (! NT_SUCCESS(Status))
-    {
-      ConioUnlockConsole(Console);
-      return Status;
+      return Request->Status = Status;
     }
   pInfo = &Request->Data.ScreenBufferInfoRequest.Info;
   pInfo->dwSize.X = Buff->MaxX;
   pInfo->dwSize.Y = Buff->MaxY;
-  pInfo->dwCursorPosition.X = Buff->CurrentX;
-  pInfo->dwCursorPosition.Y = Buff->CurrentY;
+  pInfo->dwCursorPosition.X = Buff->CurrentX - Buff->ShowX;
+  pInfo->dwCursorPosition.Y = (Buff->CurrentY + Buff->MaxY - Buff->ShowY) % Buff->MaxY;
   pInfo->wAttributes = Buff->DefaultAttrib;
-  pInfo->srWindow.Left = Buff->ShowX;
-  pInfo->srWindow.Right = Buff->ShowX + Console->Size.X - 1;
-  pInfo->srWindow.Top = Buff->ShowY;
-  pInfo->srWindow.Bottom = Buff->ShowY + Console->Size.Y - 1;
+  pInfo->srWindow.Left = 0;
+  pInfo->srWindow.Right = Buff->MaxX - 1;
+  pInfo->srWindow.Top = 0;
+  pInfo->srWindow.Bottom = Buff->MaxY - 1;
   pInfo->dwMaximumWindowSize.X = Buff->MaxX;
   pInfo->dwMaximumWindowSize.Y = Buff->MaxY;
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
 
-  return STATUS_SUCCESS;
+  Request->Status = STATUS_SUCCESS;
+
+  return Request->Status;
 }
 
 CSR_API(CsrSetCursor)
@@ -1320,17 +1474,20 @@ CSR_API(CsrSetCursor)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetCursorRequest.ConsoleHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetCursorRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
   NewCursorX = Request->Data.SetCursorRequest.Position.X;
@@ -1339,27 +1496,35 @@ CSR_API(CsrSetCursor)
       NewCursorY < 0 || NewCursorY >= Buff->MaxY)
     {
       ConioUnlockScreenBuffer(Buff);
-      ConioUnlockConsole(Console);
-      return STATUS_INVALID_PARAMETER;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
-  OldCursorX = Buff->CurrentX;
-  OldCursorY = Buff->CurrentY;
-  Buff->CurrentX = NewCursorX;
-  Buff->CurrentY = NewCursorY;
-  if (Buff == Console->ActiveBuffer)
+  ConioPhysicalToLogical(Buff, Buff->CurrentX, Buff->CurrentY, &OldCursorX, &OldCursorY);
+  Buff->CurrentX = NewCursorX + Buff->ShowX;
+  Buff->CurrentY = (NewCursorY + Buff->ShowY) % Buff->MaxY;
+  if (NULL != Console && Buff == Console->ActiveBuffer)
     {
       if (! ConioSetScreenInfo(Console, Buff, OldCursorX, OldCursorY))
         {
           ConioUnlockScreenBuffer(Buff);
-          ConioUnlockConsole(Console);
-          return STATUS_UNSUCCESSFUL;
+          if (NULL != Console)
+            {
+              ConioUnlockConsole(Console);
+            }
+          return Request->Status = STATUS_UNSUCCESSFUL;
         }
     }
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 static VOID FASTCALL
@@ -1410,7 +1575,7 @@ CSR_API(CsrWriteConsoleOutputChar)
       DPRINT1("Invalid request size\n");
       Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
       Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-      return STATUS_INVALID_PARAMETER;
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
 
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
@@ -1420,14 +1585,14 @@ CSR_API(CsrWriteConsoleOutputChar)
     {
       if(Request->Data.WriteConsoleOutputCharRequest.Unicode)
         {
-          Length = WideCharToMultiByte(Console->OutputCodePage, 0,
+          Length = WideCharToMultiByte(Console->CodePage, 0,
                                       (PWCHAR)Request->Data.WriteConsoleOutputCharRequest.String,
                                        Request->Data.WriteConsoleOutputCharRequest.Length,
                                        NULL, 0, NULL, NULL);
           tmpString = String = RtlAllocateHeap(GetProcessHeap(), 0, Length);
           if (String)
             {
-              WideCharToMultiByte(Console->OutputCodePage, 0,
+              WideCharToMultiByte(Console->CodePage, 0,
                                   (PWCHAR)Request->Data.WriteConsoleOutputCharRequest.String,
                                   Request->Data.WriteConsoleOutputCharRequest.Length,
                                   String, Length, NULL, NULL);
@@ -1446,12 +1611,11 @@ CSR_API(CsrWriteConsoleOutputChar)
         {
           Status = ConioLockScreenBuffer(ProcessData,
                                          Request->Data.WriteConsoleOutputCharRequest.ConsoleHandle,
-                                         &Buff,
-                                         GENERIC_WRITE);
+                                         &Buff);
           if (NT_SUCCESS(Status))
             {
-              X = Request->Data.WriteConsoleOutputCharRequest.Coord.X;
-              Y = (Request->Data.WriteConsoleOutputCharRequest.Coord.Y + Buff->VirtualY) % Buff->MaxY;
+              X = Request->Data.WriteConsoleOutputCharRequest.Coord.X + Buff->ShowX;
+              Y = (Request->Data.WriteConsoleOutputCharRequest.Coord.Y + Buff->ShowY) % Buff->MaxY;
               Length = Request->Data.WriteConsoleOutputCharRequest.Length;
               Buffer = &Buff->Buffer[2 * (Y * Buff->MaxX + X)];
               while (Length--)
@@ -1469,15 +1633,15 @@ CSR_API(CsrWriteConsoleOutputChar)
                       X = 0;
                     }
                 }
-              if (Buff == Console->ActiveBuffer)
+              if (NULL != Console && Buff == Console->ActiveBuffer)
                 {
                   ConioComputeUpdateRect(Buff, &UpdateRect, &Request->Data.WriteConsoleOutputCharRequest.Coord,
                                          Request->Data.WriteConsoleOutputCharRequest.Length);
                   ConioDrawRegion(Console, &UpdateRect);
                 }
 
-                Request->Data.WriteConsoleOutputCharRequest.EndCoord.X = X;
-                Request->Data.WriteConsoleOutputCharRequest.EndCoord.Y = (Y + Buff->MaxY - Buff->VirtualY) % Buff->MaxY;
+                Request->Data.WriteConsoleOutputCharRequest.EndCoord.X = X - Buff->ShowX;
+                Request->Data.WriteConsoleOutputCharRequest.EndCoord.Y = (Y + Buff->MaxY - Buff->ShowY) % Buff->MaxY;
 
                 ConioUnlockScreenBuffer(Buff);
             }
@@ -1486,10 +1650,13 @@ CSR_API(CsrWriteConsoleOutputChar)
               RtlFreeHeap(GetProcessHeap(), 0, tmpString);
             }
         }
-      ConioUnlockConsole(Console);
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
     }
   Request->Data.WriteConsoleOutputCharRequest.NrCharactersWritten = Written;
-  return Status;
+  return Request->Status = Status;
 }
 
 CSR_API(CsrFillOutputChar)
@@ -1510,18 +1677,21 @@ CSR_API(CsrFillOutputChar)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.FillOutputRequest.ConsoleHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.FillOutputRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
-  X = Request->Data.FillOutputRequest.Position.X;
-  Y = (Request->Data.FillOutputRequest.Position.Y + Buff->VirtualY) % Buff->MaxY;
+  X = Request->Data.FillOutputRequest.Position.X + Buff->ShowX;
+  Y = (Request->Data.FillOutputRequest.Position.Y + Buff->ShowY) % Buff->MaxY;
   Buffer = &Buff->Buffer[2 * (Y * Buff->MaxX + X)];
   if(Request->Data.FillOutputRequest.Unicode)
     ConsoleUnicodeCharToAnsiChar(Console, &Char, &Request->Data.FillOutputRequest.Char.UnicodeChar);
@@ -1544,7 +1714,7 @@ CSR_API(CsrFillOutputChar)
         }
     }
 
-  if (Buff == Console->ActiveBuffer)
+  if (NULL != Console && Buff == Console->ActiveBuffer)
     {
       ConioComputeUpdateRect(Buff, &UpdateRect, &Request->Data.FillOutputRequest.Position,
                              Request->Data.FillOutputRequest.Length);
@@ -1552,10 +1722,13 @@ CSR_API(CsrFillOutputChar)
     }
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
   Length = Request->Data.FillOutputRequest.Length;
   Request->Data.FillOutputRequest.NrCharactersWritten = Length;
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 CSR_API(CsrReadInputEvent)
@@ -1572,10 +1745,10 @@ CSR_API(CsrReadInputEvent)
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Request->Data.ReadInputRequest.Event = ProcessData->ConsoleEvent;
 
-  Status = ConioLockConsole(ProcessData, Request->Data.ReadInputRequest.ConsoleHandle, &Console, GENERIC_READ);
+  Status = ConioLockConsole(ProcessData, Request->Data.ReadInputRequest.ConsoleHandle, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   /* only get input if there is any */
@@ -1634,7 +1807,7 @@ CSR_API(CsrReadInputEvent)
 
   ConioUnlockConsole(Console);
 
-  return Status;
+  return Request->Status = Status;
 }
 
 CSR_API(CsrWriteConsoleOutputAttrib)
@@ -1656,7 +1829,7 @@ CSR_API(CsrWriteConsoleOutputAttrib)
       DPRINT1("Invalid request size\n");
       Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
       Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-      return STATUS_INVALID_PARAMETER;
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
 
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
@@ -1664,21 +1837,23 @@ CSR_API(CsrWriteConsoleOutputAttrib)
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Status = ConioLockScreenBuffer(ProcessData,
                                  Request->Data.WriteConsoleOutputAttribRequest.ConsoleHandle,
-                                 &Buff,
-                                 GENERIC_WRITE);
+                                 &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
-  X = Request->Data.WriteConsoleOutputAttribRequest.Coord.X;
-  Y = (Request->Data.WriteConsoleOutputAttribRequest.Coord.Y + Buff->VirtualY) % Buff->MaxY;
+  X = Request->Data.WriteConsoleOutputAttribRequest.Coord.X + Buff->ShowX;
+  Y = (Request->Data.WriteConsoleOutputAttribRequest.Coord.Y + Buff->ShowY) % Buff->MaxY;
   Length = Request->Data.WriteConsoleOutputAttribRequest.Length;
   Buffer = &Buff->Buffer[2 * (Y * Buff->MaxX + X) + 1];
   Attribute = Request->Data.WriteConsoleOutputAttribRequest.Attribute;
@@ -1697,21 +1872,24 @@ CSR_API(CsrWriteConsoleOutputAttrib)
         }
     }
 
-  if (Buff == Console->ActiveBuffer)
+  if (NULL != Console && Buff == Console->ActiveBuffer)
     {
       ConioComputeUpdateRect(Buff, &UpdateRect, &Request->Data.WriteConsoleOutputAttribRequest.Coord,
                              Request->Data.WriteConsoleOutputAttribRequest.Length);
       ConioDrawRegion(Console, &UpdateRect);
     }
 
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
-  Request->Data.WriteConsoleOutputAttribRequest.EndCoord.X = X;
-  Request->Data.WriteConsoleOutputAttribRequest.EndCoord.Y = (Y + Buff->MaxY - Buff->VirtualY) % Buff->MaxY;
+  Request->Data.WriteConsoleOutputAttribRequest.EndCoord.X = Buff->CurrentX - Buff->ShowX;
+  Request->Data.WriteConsoleOutputAttribRequest.EndCoord.Y = (Buff->CurrentY + Buff->MaxY - Buff->ShowY) % Buff->MaxY;
 
   ConioUnlockScreenBuffer(Buff);
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrFillOutputAttrib)
@@ -1729,20 +1907,23 @@ CSR_API(CsrFillOutputAttrib)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.FillOutputAttribRequest.ConsoleHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.FillOutputAttribRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
-  X = Request->Data.FillOutputAttribRequest.Coord.X;
-  Y = (Request->Data.FillOutputAttribRequest.Coord.Y + Buff->VirtualY) % Buff->MaxY;
+  X = Request->Data.FillOutputAttribRequest.Coord.X + Buff->ShowX;
+  Y = (Request->Data.FillOutputAttribRequest.Coord.Y + Buff->ShowY) % Buff->MaxY;
   Length = Request->Data.FillOutputAttribRequest.Length;
   Attr = Request->Data.FillOutputAttribRequest.Attribute;
   Buffer = &Buff->Buffer[(Y * Buff->MaxX * 2) + (X * 2) + 1];
@@ -1761,7 +1942,7 @@ CSR_API(CsrFillOutputAttrib)
         }
     }
 
-  if (Buff == Console->ActiveBuffer)
+  if (NULL != Console && Buff == Console->ActiveBuffer)
     {
       ConioComputeUpdateRect(Buff, &UpdateRect, &Request->Data.FillOutputAttribRequest.Coord,
                              Request->Data.FillOutputAttribRequest.Length);
@@ -1769,9 +1950,12 @@ CSR_API(CsrFillOutputAttrib)
     }
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 
@@ -1785,16 +1969,16 @@ CSR_API(CsrGetCursorInfo)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.GetCursorInfoRequest.ConsoleHandle, &Buff, GENERIC_READ);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.GetCursorInfoRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
   Request->Data.GetCursorInfoRequest.Info.bVisible = Buff->CursorInfo.bVisible;
   Request->Data.GetCursorInfoRequest.Info.dwSize = Buff->CursorInfo.dwSize;
   ConioUnlockScreenBuffer(Buff);
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetCursorInfo)
@@ -1813,14 +1997,17 @@ CSR_API(CsrSetCursorInfo)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetCursorInfoRequest.ConsoleHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetCursorInfoRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
   Size = Request->Data.SetCursorInfoRequest.Info.dwSize;
@@ -1840,18 +2027,21 @@ CSR_API(CsrSetCursorInfo)
       Buff->CursorInfo.dwSize = Size;
       Buff->CursorInfo.bVisible = Visible;
 
-      if (! ConioSetCursorInfo(Console, Buff))
+      if (NULL != Console && ! ConioSetCursorInfo(Console, Buff))
         {
           ConioUnlockScreenBuffer(Buff);
           ConioUnlockConsole(Console);
-          return STATUS_UNSUCCESSFUL;
+          return Request->Status = STATUS_UNSUCCESSFUL;
         }
     }
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetTextAttrib)
@@ -1859,37 +2049,46 @@ CSR_API(CsrSetTextAttrib)
   NTSTATUS Status;
   PCSRSS_CONSOLE Console;
   PCSRSS_SCREEN_BUFFER Buff;
+  LONG OldCursorX, OldCursorY;
 
   DPRINT("CsrSetTextAttrib\n");
 
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetCursorRequest.ConsoleHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetCursorRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
+  ConioPhysicalToLogical(Buff, Buff->CurrentX, Buff->CurrentY, &OldCursorX, &OldCursorY);
+
   Buff->DefaultAttrib = Request->Data.SetAttribRequest.Attrib;
-  if (Buff == Console->ActiveBuffer)
+  if (NULL != Console && Buff == Console->ActiveBuffer)
     {
-      if (! ConioUpdateScreenInfo(Console, Buff))
+      if (! ConioSetScreenInfo(Console, Buff, OldCursorX, OldCursorY))
         {
           ConioUnlockScreenBuffer(Buff);
           ConioUnlockConsole(Console);
-          return STATUS_UNSUCCESSFUL;
+          return Request->Status = STATUS_UNSUCCESSFUL;
         }
     }
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetConsoleMode)
@@ -1904,10 +2103,10 @@ CSR_API(CsrSetConsoleMode)
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Status = Win32CsrGetObject(ProcessData,
                              Request->Data.SetConsoleModeRequest.ConsoleHandle,
-                             (Object_t **) &Console, GENERIC_WRITE);
+                             (Object_t **) &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Buff = (PCSRSS_SCREEN_BUFFER)Console;
@@ -1921,12 +2120,12 @@ CSR_API(CsrSetConsoleMode)
     }
   else
     {
-      Status = STATUS_INVALID_HANDLE;
+      return Request->Status = STATUS_INVALID_HANDLE;
     }
 
-  Win32CsrReleaseObjectByPointer((Object_t *)Console);
+  Request->Status = STATUS_SUCCESS;
 
-  return Status;
+  return Request->Status;
 }
 
 CSR_API(CsrGetConsoleMode)
@@ -1940,12 +2139,12 @@ CSR_API(CsrGetConsoleMode)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Status = Win32CsrGetObject(ProcessData, Request->Data.GetConsoleModeRequest.ConsoleHandle,
-                             (Object_t **) &Console, GENERIC_READ);
+                             (Object_t **) &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
-  Status = STATUS_SUCCESS;
+  Request->Status = STATUS_SUCCESS;
   Buff = (PCSRSS_SCREEN_BUFFER) Console;
   if (CONIO_CONSOLE_MAGIC == Console->Header.Type)
     {
@@ -1957,11 +2156,10 @@ CSR_API(CsrGetConsoleMode)
     }
   else
     {
-      Status = STATUS_INVALID_HANDLE;
+      Request->Status = STATUS_INVALID_HANDLE;
     }
 
-  Win32CsrReleaseObjectByPointer((Object_t *)Console);
-  return Status;
+  return Request->Status;
 }
 
 CSR_API(CsrCreateScreenBuffer)
@@ -1972,10 +2170,19 @@ CSR_API(CsrCreateScreenBuffer)
 
   DPRINT("CsrCreateScreenBuffer\n");
 
+  if (ProcessData == NULL)
+    {
+      return Request->Status = STATUS_INVALID_PARAMETER;
+    }
+
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
+    }
+  if (NULL == Console)
+    {
+      return Request->Status = STATUS_INVALID_HANDLE;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
@@ -1995,7 +2202,7 @@ CSR_API(CsrCreateScreenBuffer)
       else
         {
           Buff->CursorInfo.bVisible = TRUE;
-          Buff->CursorInfo.dwSize = CSR_DEFAULT_CURSOR_SIZE;
+          Buff->CursorInfo.dwSize = 5;
         }
 
       if (Buff->MaxX == 0)
@@ -2009,22 +2216,22 @@ CSR_API(CsrCreateScreenBuffer)
         }
 
       Status = CsrInitConsoleScreenBuffer(Console, Buff);
-      if(NT_SUCCESS(Status))
+      if(! NT_SUCCESS(Status))
         {
-          Status = Win32CsrInsertObject(ProcessData,
-            &Request->Data.CreateScreenBufferRequest.OutputHandle,
-            &Buff->Header,
-            Request->Data.CreateScreenBufferRequest.Access,
-            Request->Data.CreateScreenBufferRequest.Inheritable);
+          Request->Status = Status;
+        }
+      else
+        {
+          Request->Status = Win32CsrInsertObject(ProcessData, &Request->Data.CreateScreenBufferRequest.OutputHandle, &Buff->Header);
         }
     }
   else
     {
-      Status = STATUS_INSUFFICIENT_RESOURCES;
+      Request->Status = STATUS_INSUFFICIENT_RESOURCES;
     }
 
   ConioUnlockConsole(Console);
-  return Status;
+  return Request->Status;
 }
 
 CSR_API(CsrSetScreenBuffer)
@@ -2038,17 +2245,22 @@ CSR_API(CsrSetScreenBuffer)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
+    }
+  if (NULL == Console)
+    {
+      DPRINT1("Trying to set screen buffer for app without console\n");
+      return Request->Status = STATUS_INVALID_HANDLE;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetScreenBufferRequest.OutputHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.SetScreenBufferRequest.OutputHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
       ConioUnlockConsole(Console);
-      return Status;
+      return Request->Status;
     }
 
   if (Buff == Console->ActiveBuffer)
@@ -2065,6 +2277,7 @@ CSR_API(CsrSetScreenBuffer)
     }
   /* tie console to new buffer */
   Console->ActiveBuffer = Buff;
+  Console->hActiveBuffer = Request->Data.SetScreenBufferRequest.OutputHandle;
   /* inc ref count on new buffer */
   InterlockedIncrement(&Buff->Header.ReferenceCount);
   /* Redraw the console */
@@ -2073,7 +2286,7 @@ CSR_API(CsrSetScreenBuffer)
   ConioUnlockScreenBuffer(Buff);
   ConioUnlockConsole(Console);
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetTitle)
@@ -2091,13 +2304,17 @@ CSR_API(CsrSetTitle)
       DPRINT1("Invalid request size\n");
       Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
       Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-      return STATUS_INVALID_PARAMETER;
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
 
-  Status = ConioConsoleFromProcessData(ProcessData, &Console);
+  Status = ConioLockConsole(ProcessData, Request->Data.SetTitleRequest.Console, &Console);
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-  if(NT_SUCCESS(Status))
+  if(! NT_SUCCESS(Status))
+    {
+      Request->Status = Status;
+    }
+  else
     {
       Buffer =  RtlAllocateHeap(RtlGetProcessHeap(), 0, Request->Data.SetTitleRequest.Length);
       if (Buffer)
@@ -2109,21 +2326,21 @@ CSR_API(CsrSetTitle)
           memcpy(Console->Title.Buffer, Request->Data.SetTitleRequest.Title, Console->Title.Length);
           if (! ConioChangeTitle(Console))
             {
-              Status = STATUS_UNSUCCESSFUL;
+              Request->Status = STATUS_UNSUCCESSFUL;
             }
           else
             {
-              Status = STATUS_SUCCESS;
+              Request->Status = STATUS_SUCCESS;
             }
         }
       else
         {
-          Status = STATUS_NO_MEMORY;
+          Request->Status = STATUS_NO_MEMORY;
         }
-      ConioUnlockConsole(Console);
     }
+  ConioUnlockConsole(Console);
 
-  return Status;
+  return Request->Status;
 }
 
 CSR_API(CsrGetTitle)
@@ -2136,15 +2353,18 @@ CSR_API(CsrGetTitle)
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-  Status = ConioConsoleFromProcessData(ProcessData, &Console);
+  Status = ConioLockConsole(ProcessData,
+                            Request->Data.GetTitleRequest.ConsoleHandle,
+                            &Console);
   if (! NT_SUCCESS(Status))
     {
       DPRINT1("Can't get console\n");
-      return Status;
+      return Request->Status = Status;
     }
 
   /* Copy title of the console to the user title buffer */
   RtlZeroMemory(&Request->Data.GetTitleRequest, sizeof(CSRSS_GET_TITLE));
+  Request->Data.GetTitleRequest.ConsoleHandle = Request->Data.GetTitleRequest.ConsoleHandle;
   Request->Data.GetTitleRequest.Length = Console->Title.Length;
   memcpy (Request->Data.GetTitleRequest.Title, Console->Title.Buffer,
           Console->Title.Length);
@@ -2157,7 +2377,9 @@ CSR_API(CsrGetTitle)
       Request->Header.u1.s1.TotalLength = Length;
       Request->Header.u1.s1.DataLength = Length - sizeof(PORT_MESSAGE);
     }
-  return STATUS_SUCCESS;
+  Request->Status = STATUS_SUCCESS;
+
+  return Request->Status;
 }
 
 CSR_API(CsrWriteConsoleOutput)
@@ -2172,7 +2394,7 @@ CSR_API(CsrWriteConsoleOutput)
   COORD BufferCoord;
   COORD BufferSize;
   NTSTATUS Status;
-  PBYTE Ptr;
+  DWORD Offset;
   DWORD PSize;
 
   DPRINT("CsrWriteConsoleOutput\n");
@@ -2180,19 +2402,21 @@ CSR_API(CsrWriteConsoleOutput)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Status = ConioLockScreenBuffer(ProcessData,
                                  Request->Data.WriteConsoleOutputRequest.ConsoleHandle,
-                                 &Buff,
-                                 GENERIC_WRITE);
+                                 &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
   BufferSize = Request->Data.WriteConsoleOutputRequest.BufferSize;
@@ -2205,7 +2429,7 @@ CSR_API(CsrWriteConsoleOutput)
     {
       ConioUnlockScreenBuffer(Buff);
       ConioUnlockConsole(Console);
-      return STATUS_ACCESS_VIOLATION;
+      return Request->Status = STATUS_ACCESS_VIOLATION;
     }
   WriteRegion.left = Request->Data.WriteConsoleOutputRequest.WriteRegion.Left;
   WriteRegion.top = Request->Data.WriteConsoleOutputRequest.WriteRegion.Top;
@@ -2226,31 +2450,33 @@ CSR_API(CsrWriteConsoleOutput)
 
       /* It is okay to have a WriteRegion completely outside the screen buffer.
          No data is written then. */
-      return STATUS_SUCCESS;
+      return Request->Status = STATUS_SUCCESS;
     }
 
   for (i = 0, Y = WriteRegion.top; Y <= WriteRegion.bottom; i++, Y++)
     {
       CurCharInfo = CharInfo + (i + BufferCoord.Y) * BufferSize.X + BufferCoord.X;
-      Ptr = ConioCoordToPointer(Buff, WriteRegion.left, Y);
+      Offset = (((Y + Buff->ShowY) % Buff->MaxY) * Buff->MaxX + WriteRegion.left) * 2;
       for (X = WriteRegion.left; X <= WriteRegion.right; X++)
         {
-          CHAR AsciiChar;
           if (Request->Data.WriteConsoleOutputRequest.Unicode)
             {
+              CHAR AsciiChar;
               ConsoleUnicodeCharToAnsiChar(Console, &AsciiChar, &CurCharInfo->Char.UnicodeChar);
+              SET_CELL_BUFFER(Buff, Offset, AsciiChar, CurCharInfo->Attributes);
             }
           else
             {
-              AsciiChar = CurCharInfo->Char.AsciiChar;
+              SET_CELL_BUFFER(Buff, Offset, CurCharInfo->Char.AsciiChar, CurCharInfo->Attributes);
             }
-          *Ptr++ = AsciiChar;
-          *Ptr++ = CurCharInfo->Attributes;
           CurCharInfo++;
         }
     }
 
-  ConioDrawRegion(Console, &WriteRegion);
+  if (NULL != Console)
+    {
+      ConioDrawRegion(Console, &WriteRegion);
+    }
 
   ConioUnlockScreenBuffer(Buff);
   ConioUnlockConsole(Console);
@@ -2260,7 +2486,7 @@ CSR_API(CsrWriteConsoleOutput)
   Request->Data.WriteConsoleOutputRequest.WriteRegion.Left = WriteRegion.left;
   Request->Data.WriteConsoleOutputRequest.WriteRegion.Top = WriteRegion.top;
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrFlushInputBuffer)
@@ -2276,11 +2502,10 @@ CSR_API(CsrFlushInputBuffer)
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Status = ConioLockConsole(ProcessData,
                             Request->Data.FlushInputBufferRequest.ConsoleInput,
-                            &Console,
-                            GENERIC_WRITE);
+                            &Console);
   if(! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   /* Discard all entries in the input event queue */
@@ -2296,7 +2521,7 @@ CSR_API(CsrFlushInputBuffer)
 
   ConioUnlockConsole(Console);
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrScrollConsoleScreenBuffer)
@@ -2306,15 +2531,15 @@ CSR_API(CsrScrollConsoleScreenBuffer)
   RECT ScreenBuffer;
   RECT SrcRegion;
   RECT DstRegion;
-  RECT UpdateRegion;
+  RECT FillRegion;
   RECT ScrollRectangle;
   RECT ClipRectangle;
   NTSTATUS Status;
+  BOOLEAN DoFill;
   HANDLE ConsoleHandle;
   BOOLEAN UseClipRectangle;
   COORD DestinationOrigin;
   CHAR_INFO Fill;
-  CHAR FillChar;
 
   DPRINT("CsrScrollConsoleScreenBuffer\n");
 
@@ -2326,87 +2551,106 @@ CSR_API(CsrScrollConsoleScreenBuffer)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-  Status = ConioLockScreenBuffer(ProcessData, ConsoleHandle, &Buff, GENERIC_WRITE);
+  Status = ConioLockScreenBuffer(ProcessData, ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
   ScrollRectangle.left = Request->Data.ScrollConsoleScreenBufferRequest.ScrollRectangle.Left;
   ScrollRectangle.top = Request->Data.ScrollConsoleScreenBufferRequest.ScrollRectangle.Top;
   ScrollRectangle.right = Request->Data.ScrollConsoleScreenBufferRequest.ScrollRectangle.Right;
   ScrollRectangle.bottom = Request->Data.ScrollConsoleScreenBufferRequest.ScrollRectangle.Bottom;
+  ClipRectangle.left = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Left;
+  ClipRectangle.top = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Top;
+  ClipRectangle.right = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Right;
+  ClipRectangle.bottom = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Bottom;
 
   /* Make sure source rectangle is inside the screen buffer */
   ConioInitRect(&ScreenBuffer, 0, 0, Buff->MaxY - 1, Buff->MaxX - 1);
   if (! ConioGetIntersection(&SrcRegion, &ScreenBuffer, &ScrollRectangle))
     {
       ConioUnlockScreenBuffer(Buff);
-      ConioUnlockConsole(Console);
-      return STATUS_SUCCESS;
-    }
-
-  /* If the source was clipped on the left or top, adjust the destination accordingly */
-  if (ScrollRectangle.left < 0)
-    {
-      DestinationOrigin.X -= ScrollRectangle.left;
-    }
-  if (ScrollRectangle.top < 0)
-    {
-      DestinationOrigin.Y -= ScrollRectangle.top;
-    }
-
-  if (UseClipRectangle)
-    {
-      ClipRectangle.left = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Left;
-      ClipRectangle.top = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Top;
-      ClipRectangle.right = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Right;
-      ClipRectangle.bottom = Request->Data.ScrollConsoleScreenBufferRequest.ClipRectangle.Bottom;
-      if (!ConioGetIntersection(&ClipRectangle, &ClipRectangle, &ScreenBuffer))
+      if (NULL != Console)
         {
           ConioUnlockConsole(Console);
-          ConioUnlockScreenBuffer(Buff);
-          return STATUS_SUCCESS;
-      }
+        }
+      return Request->Status = STATUS_INVALID_PARAMETER;
     }
-  else
+
+  if (UseClipRectangle && ! ConioGetIntersection(&SrcRegion, &SrcRegion, &ClipRectangle))
     {
-      ClipRectangle = ScreenBuffer;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      ConioUnlockScreenBuffer(Buff);
+      return Request->Status = STATUS_SUCCESS;
     }
+
 
   ConioInitRect(&DstRegion,
                DestinationOrigin.Y,
                DestinationOrigin.X,
-               DestinationOrigin.Y + ConioRectHeight(&SrcRegion) - 1,
-               DestinationOrigin.X + ConioRectWidth(&SrcRegion) - 1);
+               DestinationOrigin.Y + ConioRectHeight(&ScrollRectangle) - 1,
+               DestinationOrigin.X + ConioRectWidth(&ScrollRectangle) - 1);
 
-  if (Request->Data.ScrollConsoleScreenBufferRequest.Unicode)
-    ConsoleUnicodeCharToAnsiChar(Console, &FillChar, &Fill.Char.UnicodeChar);
-  else
-    FillChar = Fill.Char.AsciiChar;
-
-  ConioMoveRegion(Buff, &SrcRegion, &DstRegion, &ClipRectangle, Fill.Attributes << 8 | (BYTE)FillChar);
-
-  if (Buff == Console->ActiveBuffer)
+  /* Make sure destination rectangle is inside the screen buffer */
+  if (! ConioGetIntersection(&DstRegion, &DstRegion, &ScreenBuffer))
     {
-      ConioGetUnion(&UpdateRegion, &SrcRegion, &DstRegion);
-      if (ConioGetIntersection(&UpdateRegion, &UpdateRegion, &ClipRectangle))
+      if (NULL != Console)
         {
-          /* Draw update region */
-          ConioDrawRegion(Console, &UpdateRegion);
+          ConioUnlockConsole(Console);
+        }
+      ConioUnlockScreenBuffer(Buff);
+      return Request->Status = STATUS_INVALID_PARAMETER;
+    }
+
+  ConioCopyRegion(Buff, &SrcRegion, &DstRegion);
+
+  /* Get the region that should be filled with the specified character and attributes */
+
+  DoFill = FALSE;
+
+  ConioGetUnion(&FillRegion, &SrcRegion, &DstRegion);
+
+  if (ConioSubtractRect(&FillRegion, &FillRegion, &DstRegion))
+    {
+      /* FIXME: The subtracted rectangle is off by one line */
+      FillRegion.top += 1;
+
+      ConioFillRegion(Console, Buff, &FillRegion, &Fill, Request->Data.ScrollConsoleScreenBufferRequest.Unicode);
+      DoFill = TRUE;
+    }
+
+  if (NULL != Console && Buff == Console->ActiveBuffer)
+    {
+      /* Draw destination region */
+      ConioDrawRegion(Console, &DstRegion);
+
+      if (DoFill)
+        {
+          /* Draw filled region */
+          ConioDrawRegion(Console, &FillRegion);
         }
     }
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrReadConsoleOutputChar)
@@ -2431,18 +2675,21 @@ CSR_API(CsrReadConsoleOutputChar)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputCharRequest.ConsoleHandle, &Buff, GENERIC_READ);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputCharRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      ConioUnlockConsole(Console);
-      return Status;
+      if (NULL != Console)
+        {
+          ConioUnlockConsole(Console);
+        }
+      return Request->Status = Status;
     }
 
-  Xpos = Request->Data.ReadConsoleOutputCharRequest.ReadCoord.X;
-  Ypos = (Request->Data.ReadConsoleOutputCharRequest.ReadCoord.Y + Buff->VirtualY) % Buff->MaxY;
+  Xpos = Request->Data.ReadConsoleOutputCharRequest.ReadCoord.X + Buff->ShowX;
+  Ypos = (Request->Data.ReadConsoleOutputCharRequest.ReadCoord.Y + Buff->ShowY) % Buff->MaxY;
 
   for (i = 0; i < Request->Data.ReadConsoleOutputCharRequest.NumCharsToRead; ++i)
     {
@@ -2471,11 +2718,15 @@ CSR_API(CsrReadConsoleOutputChar)
     }
 
   *ReadBuffer = 0;
-  Request->Data.ReadConsoleOutputCharRequest.EndCoord.X = Xpos;
-  Request->Data.ReadConsoleOutputCharRequest.EndCoord.Y = (Ypos - Buff->VirtualY + Buff->MaxY) % Buff->MaxY;
+  Request->Status = STATUS_SUCCESS;
+  Request->Data.ReadConsoleOutputCharRequest.EndCoord.X = Xpos - Buff->ShowX;
+  Request->Data.ReadConsoleOutputCharRequest.EndCoord.Y = (Ypos - Buff->ShowY + Buff->MaxY) % Buff->MaxY;
 
   ConioUnlockScreenBuffer(Buff);
-  ConioUnlockConsole(Console);
+  if (NULL != Console)
+    {
+      ConioUnlockConsole(Console);
+    }
 
   Request->Data.ReadConsoleOutputCharRequest.CharsRead = (DWORD)((ULONG_PTR)ReadBuffer - (ULONG_PTR)Request->Data.ReadConsoleOutputCharRequest.String) / CharSize;
   if (Request->Data.ReadConsoleOutputCharRequest.CharsRead * CharSize + CSR_API_MESSAGE_HEADER_SIZE(CSRSS_READ_CONSOLE_OUTPUT_CHAR) > sizeof(CSR_API_MESSAGE))
@@ -2484,7 +2735,7 @@ CSR_API(CsrReadConsoleOutputChar)
       Request->Header.u1.s1.DataLength = Request->Header.u1.s1.TotalLength - sizeof(PORT_MESSAGE);
     }
 
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 
@@ -2503,14 +2754,14 @@ CSR_API(CsrReadConsoleOutputAttrib)
   Request->Header.u1.s1.DataLength = Request->Header.u1.s1.TotalLength - sizeof(PORT_MESSAGE);
   ReadBuffer = Request->Data.ReadConsoleOutputAttribRequest.Attribute;
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputAttribRequest.ConsoleHandle, &Buff, GENERIC_READ);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputAttribRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
-  Xpos = Request->Data.ReadConsoleOutputAttribRequest.ReadCoord.X;
-  Ypos = (Request->Data.ReadConsoleOutputAttribRequest.ReadCoord.Y + Buff->VirtualY) % Buff->MaxY;
+  Xpos = Request->Data.ReadConsoleOutputAttribRequest.ReadCoord.X + Buff->ShowX;
+  Ypos = (Request->Data.ReadConsoleOutputAttribRequest.ReadCoord.Y + Buff->ShowY) % Buff->MaxY;
 
   for (i = 0; i < Request->Data.ReadConsoleOutputAttribRequest.NumAttrsToRead; ++i)
     {
@@ -2533,8 +2784,9 @@ CSR_API(CsrReadConsoleOutputAttrib)
 
   *ReadBuffer = 0;
 
-  Request->Data.ReadConsoleOutputAttribRequest.EndCoord.X = Xpos;
-  Request->Data.ReadConsoleOutputAttribRequest.EndCoord.Y = (Ypos - Buff->VirtualY + Buff->MaxY) % Buff->MaxY;
+  Request->Status = STATUS_SUCCESS;
+  Request->Data.ReadConsoleOutputAttribRequest.EndCoord.X = Xpos - Buff->ShowX;
+  Request->Data.ReadConsoleOutputAttribRequest.EndCoord.Y = (Ypos - Buff->ShowY + Buff->MaxY) % Buff->MaxY;
 
   ConioUnlockScreenBuffer(Buff);
 
@@ -2546,7 +2798,7 @@ CSR_API(CsrReadConsoleOutputAttrib)
       Request->Header.u1.s1.DataLength = CurrentLength - sizeof(PORT_MESSAGE);
     }
 
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 
@@ -2563,10 +2815,10 @@ CSR_API(CsrGetNumberOfConsoleInputEvents)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = Request->Header.u1.s1.TotalLength - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockConsole(ProcessData, Request->Data.GetNumInputEventsRequest.ConsoleHandle, &Console, GENERIC_READ);
+  Status = ConioLockConsole(ProcessData, Request->Data.GetNumInputEventsRequest.ConsoleHandle, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   CurrentItem = Console->InputEvents.Flink;
@@ -2585,9 +2837,10 @@ CSR_API(CsrGetNumberOfConsoleInputEvents)
 
   ConioUnlockConsole(Console);
 
+  Request->Status = STATUS_SUCCESS;
   Request->Data.GetNumInputEventsRequest.NumInputEvents = NumEvents;
 
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 
@@ -2607,10 +2860,10 @@ CSR_API(CsrPeekConsoleInput)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockConsole(ProcessData, Request->Data.GetNumInputEventsRequest.ConsoleHandle, &Console, GENERIC_READ);
+  Status = ConioLockConsole(ProcessData, Request->Data.GetNumInputEventsRequest.ConsoleHandle, &Console);
   if(! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   InputRecord = Request->Data.PeekConsoleInputRequest.InputRecord;
@@ -2621,7 +2874,8 @@ CSR_API(CsrPeekConsoleInput)
       || (((ULONG_PTR)InputRecord + Size) > ((ULONG_PTR)ProcessData->CsrSectionViewBase + ProcessData->CsrSectionViewSize)))
     {
       ConioUnlockConsole(Console);
-      return STATUS_ACCESS_VIOLATION;
+      Request->Status = STATUS_ACCESS_VIOLATION;
+      return Request->Status ;
     }
 
   NumItems = 0;
@@ -2655,9 +2909,10 @@ CSR_API(CsrPeekConsoleInput)
 
   ConioUnlockConsole(Console);
 
+  Request->Status = STATUS_SUCCESS;
   Request->Data.PeekConsoleInputRequest.Length = NumItems;
 
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 
@@ -2674,8 +2929,7 @@ CSR_API(CsrReadConsoleOutput)
   COORD BufferCoord;
   RECT ReadRegion;
   RECT ScreenRect;
-  DWORD i;
-  PBYTE Ptr;
+  DWORD i, Offset;
   LONG X, Y;
   UINT CodePage;
 
@@ -2684,10 +2938,10 @@ CSR_API(CsrReadConsoleOutput)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputRequest.ConsoleHandle, &Buff, GENERIC_READ);
+  Status = ConioLockScreenBuffer(ProcessData, Request->Data.ReadConsoleOutputRequest.ConsoleHandle, &Buff);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   CharInfo = Request->Data.ReadConsoleOutputRequest.CharInfo;
@@ -2707,7 +2961,8 @@ CSR_API(CsrReadConsoleOutput)
       || (((ULONG_PTR)CharInfo + Size) > ((ULONG_PTR)ProcessData->CsrSectionViewBase + ProcessData->CsrSectionViewSize)))
     {
       ConioUnlockScreenBuffer(Buff);
-      return STATUS_ACCESS_VIOLATION;
+      Request->Status = STATUS_ACCESS_VIOLATION;
+      return Request->Status ;
     }
 
   SizeY = min(BufferSize.Y - BufferCoord.Y, ConioRectHeight(&ReadRegion));
@@ -2719,39 +2974,41 @@ CSR_API(CsrReadConsoleOutput)
   if (! ConioGetIntersection(&ReadRegion, &ScreenRect, &ReadRegion))
     {
       ConioUnlockScreenBuffer(Buff);
-      return STATUS_SUCCESS;
+      Request->Status = STATUS_SUCCESS;
+      return Request->Status;
     }
 
   for (i = 0, Y = ReadRegion.top; Y < ReadRegion.bottom; ++i, ++Y)
     {
       CurCharInfo = CharInfo + (i * BufferSize.X);
 
-      Ptr = ConioCoordToPointer(Buff, ReadRegion.left, Y);
+      Offset = (((Y + Buff->ShowY) % Buff->MaxY) * Buff->MaxX + ReadRegion.left) * 2;
       for (X = ReadRegion.left; X < ReadRegion.right; ++X)
         {
           if (Request->Data.ReadConsoleOutputRequest.Unicode)
             {
               MultiByteToWideChar(CodePage, 0,
-                                  (PCHAR)Ptr++, 1,
+                                  (PCHAR)&GET_CELL_BUFFER(Buff, Offset), 1,
                                   &CurCharInfo->Char.UnicodeChar, 1);
             }
           else
             {
-              CurCharInfo->Char.AsciiChar = *Ptr++;
+              CurCharInfo->Char.AsciiChar = GET_CELL_BUFFER(Buff, Offset);
             }
-          CurCharInfo->Attributes = *Ptr++;
+          CurCharInfo->Attributes = GET_CELL_BUFFER(Buff, Offset);
           ++CurCharInfo;
         }
     }
 
   ConioUnlockScreenBuffer(Buff);
 
+  Request->Status = STATUS_SUCCESS;
   Request->Data.ReadConsoleOutputRequest.ReadRegion.Right = ReadRegion.left + SizeX - 1;
   Request->Data.ReadConsoleOutputRequest.ReadRegion.Bottom = ReadRegion.top + SizeY - 1;
   Request->Data.ReadConsoleOutputRequest.ReadRegion.Left = ReadRegion.left;
   Request->Data.ReadConsoleOutputRequest.ReadRegion.Top = ReadRegion.top;
 
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 
@@ -2770,10 +3027,10 @@ CSR_API(CsrWriteConsoleInput)
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
 
-  Status = ConioLockConsole(ProcessData, Request->Data.WriteConsoleInputRequest.ConsoleHandle, &Console, GENERIC_WRITE);
+  Status = ConioLockConsole(ProcessData, Request->Data.WriteConsoleInputRequest.ConsoleHandle, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   InputRecord = Request->Data.WriteConsoleInputRequest.InputRecord;
@@ -2784,7 +3041,8 @@ CSR_API(CsrWriteConsoleInput)
       || (((ULONG_PTR)InputRecord + Size) > ((ULONG_PTR)ProcessData->CsrSectionViewBase + ProcessData->CsrSectionViewSize)))
     {
       ConioUnlockConsole(Console);
-      return STATUS_ACCESS_VIOLATION;
+      Request->Status = STATUS_ACCESS_VIOLATION;
+      return Request->Status ;
     }
 
   for (i = 0; i < Length; i++)
@@ -2793,7 +3051,8 @@ CSR_API(CsrWriteConsoleInput)
       if (NULL == Record)
         {
           ConioUnlockConsole(Console);
-          return STATUS_INSUFFICIENT_RESOURCES;
+          Request->Status = STATUS_INSUFFICIENT_RESOURCES;
+          return Request->Status;
         }
 
       Record->Echoed = FALSE;
@@ -2809,9 +3068,10 @@ CSR_API(CsrWriteConsoleInput)
 
   ConioUnlockConsole(Console);
 
+  Request->Status = STATUS_SUCCESS;
   Request->Data.WriteConsoleInputRequest.Length = i;
 
-  return STATUS_SUCCESS;
+  return Request->Status;
 }
 
 /**********************************************************************
@@ -2861,12 +3121,11 @@ CSR_API(CsrHardwareStateProperty)
 
   Status = ConioLockConsole(ProcessData,
                             Request->Data.ConsoleHardwareStateRequest.ConsoleHandle,
-                            &Console,
-                            GENERIC_READ);
+                            &Console);
   if (! NT_SUCCESS(Status))
     {
       DPRINT1("Failed to get console handle in SetConsoleHardwareState\n");
-      return Status;
+      return Request->Status = Status;
     }
 
   switch (Request->Data.ConsoleHardwareStateRequest.SetGet)
@@ -2877,17 +3136,17 @@ CSR_API(CsrHardwareStateProperty)
 
       case CONSOLE_HARDWARE_STATE_SET:
         DPRINT("Setting console hardware state.\n");
-        Status = SetConsoleHardwareState(Console, Request->Data.ConsoleHardwareStateRequest.State);
+        Request->Status = SetConsoleHardwareState(Console, Request->Data.ConsoleHardwareStateRequest.State);
         break;
 
       default:
-        Status = STATUS_INVALID_PARAMETER_2; /* Client: (handle, [set_get], mode) */
+        Request->Status = STATUS_INVALID_PARAMETER_2; /* Client: (handle, [set_get], mode) */
         break;
     }
 
   ConioUnlockConsole(Console);
 
-  return Status;
+  return Request->Status;
 }
 
 CSR_API(CsrGetConsoleWindow)
@@ -2903,13 +3162,13 @@ CSR_API(CsrGetConsoleWindow)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Data.GetConsoleWindowRequest.WindowHandle = Console->hWindow;
   ConioUnlockConsole(Console);
 
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetConsoleIcon)
@@ -2925,14 +3184,14 @@ CSR_API(CsrSetConsoleIcon)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
-  Status = (ConioChangeIcon(Console, Request->Data.SetConsoleIconRequest.WindowIcon)
-            ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
+  Console->hWindowIcon = Request->Data.SetConsoleIconRequest.WindowIcon;
+  Request->Status = (ConioChangeIcon(Console) ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
   ConioUnlockConsole(Console);
 
-  return Status;
+  return Request->Status;
 }
 
 CSR_API(CsrGetConsoleCodePage)
@@ -2945,14 +3204,14 @@ CSR_API(CsrGetConsoleCodePage)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Request->Data.GetConsoleCodePage.CodePage = Console->CodePage;
   ConioUnlockConsole(Console);
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetConsoleCodePage)
@@ -2965,21 +3224,19 @@ CSR_API(CsrSetConsoleCodePage)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
   if (IsValidCodePage(Request->Data.SetConsoleCodePage.CodePage))
     {
       Console->CodePage = Request->Data.SetConsoleCodePage.CodePage;
       ConioUnlockConsole(Console);
-      return STATUS_SUCCESS;
+      return Request->Status = STATUS_SUCCESS;
     }
-
   ConioUnlockConsole(Console);
-  return STATUS_INVALID_PARAMETER;
+  return Request->Status = STATUS_UNSUCCESSFUL;
 }
 
 CSR_API(CsrGetConsoleOutputCodePage)
@@ -2992,14 +3249,14 @@ CSR_API(CsrGetConsoleOutputCodePage)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
   Request->Data.GetConsoleOutputCodePage.CodePage = Console->OutputCodePage;
   ConioUnlockConsole(Console);
-  return STATUS_SUCCESS;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 CSR_API(CsrSetConsoleOutputCodePage)
@@ -3012,21 +3269,19 @@ CSR_API(CsrSetConsoleOutputCodePage)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
     {
-      return Status;
+      return Request->Status = Status;
     }
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
   if (IsValidCodePage(Request->Data.SetConsoleOutputCodePage.CodePage))
     {
       Console->OutputCodePage = Request->Data.SetConsoleOutputCodePage.CodePage;
       ConioUnlockConsole(Console);
-      return STATUS_SUCCESS;
+      return Request->Status = STATUS_SUCCESS;
     }
-
   ConioUnlockConsole(Console);
-  return STATUS_INVALID_PARAMETER;
+  return Request->Status = STATUS_UNSUCCESSFUL;
 }
 
 CSR_API(CsrGetProcessList)
@@ -3051,7 +3306,7 @@ CSR_API(CsrGetProcessList)
   Status = ConioConsoleFromProcessData(ProcessData, &Console);
   if (! NT_SUCCESS(Status))
   {
-    return Status;
+    return Request->Status = Status;
   }
 
   DPRINT1("Console_Api Ctrl-C\n");
@@ -3079,43 +3334,7 @@ CSR_API(CsrGetProcessList)
      Request->Header.u1.s1.TotalLength = Length;
      Request->Header.u1.s1.DataLength = Length - sizeof(PORT_MESSAGE);
   }
-  return STATUS_SUCCESS;
-}
-
-CSR_API(CsrGenerateCtrlEvent)
-{
-  PCSRSS_CONSOLE Console;
-  PCSRSS_PROCESS_DATA current;
-  PLIST_ENTRY current_entry;
-  DWORD Group;
-  NTSTATUS Status;
-
-  Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
-  Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
-  Status = ConioConsoleFromProcessData(ProcessData, &Console);
-  if (! NT_SUCCESS(Status))
-  {
-    return Status;
-  }
-
-  Group = Request->Data.GenerateCtrlEvent.ProcessGroup;
-  Status = STATUS_INVALID_PARAMETER;
-  for (current_entry = Console->ProcessList.Flink;
-       current_entry != &Console->ProcessList;
-       current_entry = current_entry->Flink)
-  {
-    current = CONTAINING_RECORD(current_entry, CSRSS_PROCESS_DATA, ProcessEntry);
-    if (Group == 0 || current->ProcessGroup == Group)
-    {
-      ConioConsoleCtrlEvent(Request->Data.GenerateCtrlEvent.Event, current);
-      Status = STATUS_SUCCESS;
-    }
-  }
-
-  ConioUnlockConsole(Console);
-
-  return Status;
+  return Request->Status = STATUS_SUCCESS;
 }
 
 /* EOF */

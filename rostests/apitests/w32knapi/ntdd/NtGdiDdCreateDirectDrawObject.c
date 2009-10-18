@@ -1,3 +1,4 @@
+#include "../w32knapi.h"
 
 INT
 Test_NtGdiDdCreateDirectDrawObject(PTESTINFO pti)

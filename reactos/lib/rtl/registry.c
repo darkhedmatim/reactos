@@ -13,9 +13,7 @@
 #define NDEBUG
 #include <debug.h>
 
-#define TAG_RTLREGISTRY 'vrqR'
-
-extern SIZE_T RtlpAllocDeallocQueryBufferSize;
+#define TAG_RTLREGISTRY TAG('R', 'q', 'r', 'v')
 
 /* DATA **********************************************************************/
 
@@ -131,7 +129,7 @@ RtlpCallQueryRegistryRoutine(IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
     *InfoSize = 0;
 
     /* Check if there's no data */
-    if (KeyValueInfo->DataOffset == MAXULONG)
+    if (KeyValueInfo->DataOffset == (ULONG)-1)
     {
         /* Return proper status code */
         return (QueryTable->Flags & RTL_QUERY_REGISTRY_REQUIRED) ?
@@ -157,7 +155,7 @@ RtlpCallQueryRegistryRoutine(IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
         }
 
         /* We can setup a default value... capture the defaults */
-        Name = (PWCHAR)QueryTable->Name;
+        Name = QueryTable->Name;
         Type = QueryTable->DefaultType;
         Data = QueryTable->DefaultData;
         Length = QueryTable->DefaultLength;
@@ -224,7 +222,7 @@ RtlpCallQueryRegistryRoutine(IN PRTL_QUERY_REGISTRY_TABLE QueryTable,
         else
         {
             /* Just return the name */
-            Name = (PWCHAR)QueryTable->Name;
+            Name = QueryTable->Name;
         }
 
         /* Capture key data */
@@ -972,7 +970,7 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
     NTSTATUS Status;
     PKEY_VALUE_FULL_INFORMATION KeyValueInfo = NULL;
     HANDLE KeyHandle, CurrentKey;
-    SIZE_T BufferSize, InfoSize;
+    SIZE_T BufferSize = 128, InfoSize;
     UNICODE_STRING KeyPath, KeyValueName;
     OBJECT_ATTRIBUTES ObjectAttributes;
     ULONG i, Value;
@@ -987,7 +985,6 @@ RtlQueryRegistryValues(IN ULONG RelativeTo,
                          (RelativeTo & RTL_REGISTRY_HANDLE) ? NULL : Path);
 
     /* Allocate a query buffer */
-    BufferSize = RtlpAllocDeallocQueryBufferSize;
     KeyValueInfo = RtlpAllocDeallocQueryBuffer(&BufferSize, NULL, 0, &Status);
     if (!KeyValueInfo)
     {

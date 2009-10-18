@@ -1,13 +1,3 @@
-/*
- * COPYRIGHT:   See COPYING in the top level directory
- * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/mbslwr.c
- * PURPOSE:     Multibyte lowercase functions
- * PROGRAMER:   Eric Kohl
- *              Samuel Serapion, adapted from PROJECT C Library
- */
-
-#include <precomp.h>
 #include <mbstring.h>
 #include <ctype.h>
 
@@ -18,12 +8,22 @@ unsigned int _mbbtolower(unsigned int c)
 	return c;
 }
 
+// code page 952
+#define CASE_DIFF (0x8281 - 0x8260)
+
 /*
  * @implemented
  */
 unsigned int _mbctolower(unsigned int c)
 {
-    return _ismbcupper (c) ? c + 0x21 : c;
+    if ((c & 0xFF00) != 0) {
+        // true multibyte case conversion needed
+        if (_ismbclower(c))
+            return c + CASE_DIFF;
+    } else {
+     return _mbbtolower(c);
+    }
+    return 0;
 }
 
 /*
@@ -31,24 +31,14 @@ unsigned int _mbctolower(unsigned int c)
  */
 unsigned char * _mbslwr(unsigned char *x)
 {
-    unsigned char *y=x;
+    unsigned char  *y=x;
 
-    if (x == NULL)
-    {
-        return NULL;
-    }
-
-    while (*y) 
-    {
-        if (!_ismbblead(*y)) 
-        {
+    while (*y) {
+        if (!_ismbblead(*y)) {
             *y = tolower(*y);
-            y++;
-        } 
-        else
-        {
-            *y = _mbctolower(*(unsigned short *)y);
-            y++;
+	    } else {
+	        *y=_mbctolower(*(unsigned short *)y);
+	        y++;
         }
     }
     return x;

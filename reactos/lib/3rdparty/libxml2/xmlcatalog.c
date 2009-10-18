@@ -120,10 +120,7 @@ static void usershell(void) {
 	    command[i++] = *cur++;
 	}
 	command[i] = 0;
-	if (i == 0) {
-	    free(cmdline);
-	    continue;
-	}
+	if (i == 0) continue;
 	nbargs++;
 
 	/*

@@ -17,7 +17,7 @@ HANDLE Secur32Heap;
 
 /* FUNCTIONS *****************************************************************/
 
-BOOL WINAPI DllMain(HINSTANCE hInstance, ULONG Reason, PVOID Reserved)
+BOOL STDCALL DllMain(HINSTANCE hInstance, ULONG Reason, PVOID Reserved)
 {
    switch (Reason)
      {
@@ -28,7 +28,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, ULONG Reason, PVOID Reserved)
 	     return(FALSE);
 	  }
 	break;
-
+	
       case DLL_PROCESS_DETACH:
 	if (!RtlDestroyHeap(Secur32Heap))
 	  {

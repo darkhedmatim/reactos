@@ -20,15 +20,12 @@
 
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 ) // identifier was truncated to '255' characters in the debug information
-#pragma warning ( disable : 4996 ) // CRT deprecate
 #endif//_MSC_VER
 
 #include <string>
 #include <vector>
 #include <map>
 #include <set>
-#include <utility>
-#include <bitset>
 
 #ifdef WIN32
 #include <windows.h>
@@ -37,13 +34,18 @@
 #endif//MAX_PATH
 #else
 #include <unistd.h>
-#include <host/typedefs.h>
+
+typedef char CHAR, *PCHAR;
+typedef unsigned char UCHAR, *PUCHAR;
+typedef void VOID, *PVOID;
+typedef UCHAR BOOLEAN, *PBOOLEAN;
+#include <typedefs64.h>
 typedef LONG *PLONG;
 
 #endif//WIN32
 
 #include <stdarg.h>
-#include <stdio.h>
+
 
 #ifndef WIN32
 #include <string.h>
@@ -61,7 +63,7 @@ inline char * strlwr(char *x)
         }
         return x;
 }
-
+              
 inline char *strupr(char *x)
 {
         char  *y=x;
@@ -76,7 +78,7 @@ inline char *strupr(char *x)
 #define _finite __finite
 #define _isnan __isnan
 #define stricmp strcasecmp
-#define MAX_PATH PATH_MAX
+#define MAX_PATH PATH_MAX 
 #define _MAX_PATH PATH_MAX
 #endif
 

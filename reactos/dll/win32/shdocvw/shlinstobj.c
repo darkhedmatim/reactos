@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 /* 'Shell Instance Objects' allow you to add a node to the shell namespace
@@ -26,6 +26,7 @@
 #include <stdarg.h>
 
 #define COBJMACROS
+#define COM_NO_WINDOWS_H
 
 #include "windef.h"
 #include "winbase.h"
@@ -59,7 +60,7 @@ static void RegistryPropertyBag_Destroy(RegistryPropertyBag *This) {
     TRACE("This=%p)\n", This);
 
     RegCloseKey(This->m_hInitPropertyBagKey);
-    heap_free(This);
+    HeapFree(GetProcessHeap(), 0, This);
 }
 
 static HRESULT WINAPI RegistryPropertyBag_IPropertyBag_QueryInterface(IPropertyBag *iface,
@@ -130,20 +131,20 @@ static HRESULT WINAPI RegistryPropertyBag_IPropertyBag_Read(IPropertyBag *iface,
     if (res != ERROR_SUCCESS) 
         return E_INVALIDARG;
 
-    pwszValue = heap_alloc(cbData);
+    pwszValue = HeapAlloc(GetProcessHeap(), 0, cbData);
     if (!pwszValue)
         return E_OUTOFMEMORY;
  
     res = RegQueryValueExW(This->m_hInitPropertyBagKey, pwszPropName, NULL, &dwType, 
                            (LPBYTE)pwszValue, &cbData);
     if (res != ERROR_SUCCESS) {
-        heap_free(pwszValue);
+        HeapFree(GetProcessHeap(), 0, pwszValue);
         return E_INVALIDARG;
     }
 
     V_VT(pVar) = VT_BSTR;
     V_BSTR(pVar) = SysAllocString(pwszValue);
-    heap_free(pwszValue);
+    HeapFree(GetProcessHeap(), 0, pwszValue);
 
     if (vtDst != VT_BSTR) {
         hr = VariantChangeTypeEx(pVar, pVar, LOCALE_SYSTEM_DEFAULT, 0, vtDst);
@@ -169,14 +170,14 @@ static const IPropertyBagVtbl RegistryPropertyBag_IPropertyBagVtbl = {
     RegistryPropertyBag_IPropertyBag_Write
 };
 
-static HRESULT RegistryPropertyBag_Constructor(HKEY hInitPropertyBagKey, REFIID riid, LPVOID *ppvObject) {
+HRESULT RegistryPropertyBag_Constructor(HKEY hInitPropertyBagKey, REFIID riid, LPVOID *ppvObject) {
     HRESULT hr = E_FAIL;
     RegistryPropertyBag *pRegistryPropertyBag;
 
     TRACE("(hInitPropertyBagKey=%p, riid=%s, ppvObject=%p)\n", hInitPropertyBagKey, 
         debugstr_guid(riid), ppvObject);
     
-    pRegistryPropertyBag = heap_alloc(sizeof(RegistryPropertyBag));
+    pRegistryPropertyBag = HeapAlloc(GetProcessHeap(), 0, sizeof(RegistryPropertyBag));
     if (pRegistryPropertyBag) {
         pRegistryPropertyBag->lpIPropertyBagVtbl = &RegistryPropertyBag_IPropertyBagVtbl;
         pRegistryPropertyBag->m_cRef = 0;
@@ -206,7 +207,7 @@ typedef struct _InstanceObjectFactory {
 
 static void InstanceObjectFactory_Destroy(InstanceObjectFactory *This) {
     IPropertyBag_Release(This->m_pPropertyBag);
-    heap_free(This);
+    HeapFree(GetProcessHeap(), 0, This);
 }
 
 static HRESULT WINAPI InstanceObjectFactory_IClassFactory_QueryInterface(IClassFactory *iface, 
@@ -274,14 +275,14 @@ static HRESULT WINAPI InstanceObjectFactory_IClassFactory_CreateInstance(IClassF
     hr = CoCreateInstance(&This->m_clsidInstance, NULL, CLSCTX_INPROC_SERVER,
                           &IID_IPersistPropertyBag, (LPVOID*)&pPersistPropertyBag);
     if (FAILED(hr)) {
-        TRACE("Failed to create instance of %s. hr = %08x\n",
+        TRACE("Failed to create instance of %s. hr = %08lx\n", 
               debugstr_guid(&This->m_clsidInstance), hr);
         return hr;
     }
 
     hr = IPersistPropertyBag_Load(pPersistPropertyBag, This->m_pPropertyBag, NULL);
     if (FAILED(hr)) {
-        TRACE("Failed to initialize object from ProperyBag: hr = %08x\n", hr);
+        TRACE("Failed to initialize object from ProperyBag: hr = %08lx\n", hr);
         IPersistPropertyBag_Release(pPersistPropertyBag);
         return hr;
     }
@@ -313,8 +314,8 @@ static const IClassFactoryVtbl InstanceObjectFactory_IClassFactoryVtbl = {
     InstanceObjectFactory_IClassFactory_LockServer
 };
 
-static HRESULT InstanceObjectFactory_Constructor(REFCLSID rclsid, IPropertyBag *pPropertyBag,
-                                                 REFIID riid, LPVOID *ppvObject)
+HRESULT InstanceObjectFactory_Constructor(REFCLSID rclsid, IPropertyBag *pPropertyBag, REFIID riid,
+    LPVOID *ppvObject)
 {
     InstanceObjectFactory *pInstanceObjectFactory;
     HRESULT hr = E_FAIL;
@@ -322,11 +323,11 @@ static HRESULT InstanceObjectFactory_Constructor(REFCLSID rclsid, IPropertyBag *
     TRACE("(RegistryPropertyBag=%p, riid=%s, ppvObject=%p)\n", pPropertyBag,
         debugstr_guid(riid), ppvObject);
 
-    pInstanceObjectFactory = heap_alloc(sizeof(InstanceObjectFactory));
+    pInstanceObjectFactory = HeapAlloc(GetProcessHeap(), 0, sizeof(InstanceObjectFactory));
     if (pInstanceObjectFactory) {
         pInstanceObjectFactory->lpIClassFactoryVtbl = &InstanceObjectFactory_IClassFactoryVtbl;
         pInstanceObjectFactory->m_cRef = 0;
-        pInstanceObjectFactory->m_clsidInstance = *rclsid;
+        memcpy(&pInstanceObjectFactory->m_clsidInstance, rclsid, sizeof(CLSID));
         pInstanceObjectFactory->m_pPropertyBag = pPropertyBag;
         IPropertyBag_AddRef(pPropertyBag);
 
@@ -374,7 +375,7 @@ HRESULT SHDOCVW_GetShellInstanceObjectClassObject(REFCLSID rclsid, REFIID riid,
     TRACE("(rclsid=%s, riid=%s, ppvClassObject=%p)\n", debugstr_guid(rclsid), debugstr_guid(riid), 
           ppvClassObj);
 
-    /* Figure if there is an 'Instance' subkey for the given CLSID and acquire a handle. */
+    /* Figure if there is an 'Instance' subkey for the given CLSID and aquire a handle. */
     if (!StringFromGUID2(rclsid, wszInstanceKey + 6, CHARS_IN_GUID) ||
         !(wszInstanceKey[5+CHARS_IN_GUID]='\\') || /* Repair the null-termination. */
         ERROR_SUCCESS != RegOpenKeyExW(HKEY_CLASSES_ROOT, wszInstanceKey, 0, KEY_READ, &hInstanceKey))

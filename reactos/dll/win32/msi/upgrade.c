@@ -101,7 +101,7 @@ static void append_productcode(MSIPACKAGE* package, LPCWSTR action_property,
 
 static UINT ITERATE_FindRelatedProducts(MSIRECORD *rec, LPVOID param)
 {
-    MSIPACKAGE *package = param;
+    MSIPACKAGE *package = (MSIPACKAGE*)param;
     WCHAR product[GUID_SIZE];
     DWORD index = 0;
     DWORD attributes = 0;
@@ -119,7 +119,7 @@ static UINT ITERATE_FindRelatedProducts(MSIRECORD *rec, LPVOID param)
 
     uirow = MSI_CreateRecord(1);
     attributes = MSI_RecordGetInteger(rec,5);
-
+    
     while (rc == ERROR_SUCCESS)
     {
         rc = RegEnumValueW(hkey, index, product, &sz, NULL, NULL, NULL, NULL);
@@ -136,16 +136,15 @@ static UINT ITERATE_FindRelatedProducts(MSIRECORD *rec, LPVOID param)
             HKEY hukey;
             INT r;
 
-            unsquash_guid(product, productid);
-            rc = MSIREG_OpenProductKey(productid, NULL, package->Context,
-                                       &hukey, FALSE);
+            unsquash_guid(product,productid);
+            rc = MSIREG_OpenUserProductsKey(productid, &hukey, FALSE);
             if (rc != ERROR_SUCCESS)
             {
                 rc = ERROR_SUCCESS;
                 index ++;
                 continue;
             }
-
+          
             sz = sizeof(DWORD);
             RegQueryValueExW(hukey, INSTALLPROPERTY_VERSIONW, NULL, NULL,
                     (LPBYTE)&check, &sz);

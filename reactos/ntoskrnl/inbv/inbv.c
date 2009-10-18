@@ -5,24 +5,6 @@
 #include <debug.h>
 #include "bootvid/bootvid.h"
 
-//
-// Bitmap Header
-//
-typedef struct tagBITMAPINFOHEADER
-{
-    ULONG biSize;
-    LONG biWidth;
-    LONG biHeight;
-    USHORT biPlanes;
-    USHORT biBitCount;
-    ULONG biCompression;
-    ULONG biSizeImage;
-    LONG biXPelsPerMeter;
-    LONG biYPelsPerMeter;
-    ULONG biClrUsed;
-    ULONG biClrImportant;
-} BITMAPINFOHEADER, *PBITMAPINFOHEADER;
-
 /* GLOBALS *******************************************************************/
 
 KSPIN_LOCK BootDriverLock;
@@ -111,7 +93,6 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
     PCHAR CommandLine;
     BOOLEAN CustomLogo = FALSE;
     ULONG i;
-    extern BOOLEAN ExpInTextModeSetup;
 
     /* Quit if we're already installed */
     if (InbvBootDriverInstalled) return TRUE;
@@ -124,9 +105,6 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
         CommandLine = _strupr(LoaderBlock->LoadOptions);
         CustomLogo = strstr(CommandLine, "BOOTLOGO") ? TRUE: FALSE;
     }
-
-    /* For SetupLDR, don't reset the BIOS Display -- FIXME! */
-    if (ExpInTextModeSetup) CustomLogo = TRUE;
 
     /* Initialize the video */
     InbvBootDriverInstalled = VidInitialize(!CustomLogo);
@@ -157,7 +135,7 @@ InbvAcquireLock(VOID)
     if (InbvOldIrql < DISPATCH_LEVEL)
     {
         /* Raise IRQL to dispatch level */
-        KeRaiseIrql(DISPATCH_LEVEL, &InbvOldIrql);
+        InbvOldIrql = KfRaiseIrql(DISPATCH_LEVEL);
     }
 
     /* Acquire the lock */
@@ -172,7 +150,7 @@ InbvReleaseLock(VOID)
     KiReleaseSpinLock(&BootDriverLock);
 
     /* If we were below dispatch level, lower IRQL back */
-    if (InbvOldIrql < DISPATCH_LEVEL) KeLowerIrql(InbvOldIrql);
+    if (InbvOldIrql < DISPATCH_LEVEL) KfLowerIrql(InbvOldIrql);
 }
 
 VOID
@@ -615,19 +593,6 @@ DisplayBootBitmap(IN BOOLEAN SosMode)
         if (!InbvBootDriverInstalled) return;
 
         /* FIXME: TODO, display full-screen bitmap */
-        Bitmap = InbvGetResourceAddress(5);
-        if (Bitmap)
-        {
-            PBITMAPINFOHEADER BitmapInfoHeader = (PBITMAPINFOHEADER)Bitmap;
-            ULONG Top, Left;
-
-            Left = (640 - BitmapInfoHeader->biWidth) / 2;
-            if (BitmapInfoHeader->biHeight < 0)
-                Top = (480 + BitmapInfoHeader->biHeight) / 2;
-            else
-                Top = (480 - BitmapInfoHeader->biHeight) / 2;
-            InbvBitBlt(Bitmap, Left, Top);
-        }
     }
 
     /* Do we have a system thread? */

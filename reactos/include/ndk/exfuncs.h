@@ -26,17 +26,10 @@ Author:
 #include <pstypes.h>
 #include <extypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 //
 // Don't include WMI headers just for one define
 //
-#ifndef PEVENT_TRACE_HEADER_DEFINED
-#define PEVENT_TRACE_HEADER_DEFINED
 typedef struct _EVENT_TRACE_HEADER *PEVENT_TRACE_HEADER;
-#endif
 
 #ifndef NTOS_MODE_USER
 //
@@ -101,6 +94,16 @@ ExfUnblockPushLock(
 );
 
 //
+// Resource Functions
+//
+NTKERNELAPI
+BOOLEAN
+NTAPI
+ExTryToAcquireResourceExclusiveLite(
+    IN PERESOURCE Resource
+);
+
+//
 // Handle Table Functions
 //
 NTKERNELAPI
@@ -111,33 +114,6 @@ ExEnumHandleTable(
     IN PEX_ENUM_HANDLE_CALLBACK EnumHandleProcedure,
     IN OUT PVOID Context,
     OUT PHANDLE Handle OPTIONAL
-);
-
-//
-// Resource Functions
-//
-PVOID
-NTAPI
-ExEnterCriticalRegionAndAcquireResourceExclusive(
-    IN PERESOURCE Resource
-);
-
-PVOID
-NTAPI
-ExEnterCriticalRegionAndAcquireResourceShared(
-    IN PERESOURCE Resource
-);
-
-PVOID
-NTAPI
-ExEnterCriticalRegionAndAcquireSharedWaitForExclusive(
-    IN PERESOURCE Resource
-);
-
-VOID
-FASTCALL
-ExReleaseResourceAndLeaveCriticalRegion(
-    IN PERESOURCE Resource
 );
 
 #endif
@@ -336,7 +312,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtQueryDefaultUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSCALLAPI
@@ -365,7 +341,7 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtQueryInstallUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSCALLAPI
@@ -417,8 +393,8 @@ NTAPI
 NtQuerySystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     OUT PVOID SystemInformation,
-    IN ULONG Length,
-    OUT PULONG ResultLength
+    IN SIZE_T Length,
+    OUT PSIZE_T ResultLength
 );
 
 NTSYSCALLAPI
@@ -566,7 +542,7 @@ NTAPI
 NtSetSystemInformation(
     IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
     IN PVOID SystemInformation,
-    IN ULONG SystemInformationLength
+    IN SIZE_T SystemInformationLength
 );
 
 NTSYSCALLAPI
@@ -799,7 +775,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwQueryDefaultUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSAPI
@@ -828,7 +804,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 ZwQueryInstallUILanguage(
-    LANGID* LanguageId
+    PLANGID LanguageId
 );
 
 NTSYSAPI
@@ -1048,9 +1024,4 @@ ZwTraceEvent(
     IN ULONG TraceHeaderLength,
     IN PEVENT_TRACE_HEADER TraceHeader
 );
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif

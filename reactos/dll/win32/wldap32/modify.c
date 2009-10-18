@@ -33,6 +33,10 @@
 #include <ldap.h>
 #endif
 
+#ifndef LDAP_NOT_SUPPORTED
+#define LDAP_NOT_SUPPORTED  0x5c
+#endif
+
 #include "winldap_private.h"
 #include "wldap32.h"
 
@@ -49,7 +53,7 @@ static LDAPMod *nullmods[] = { NULL };
  */
 ULONG CDECL ldap_modifyA( WLDAP32_LDAP *ld, PCHAR dn, LDAPModA *mods[] )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL;
     LDAPModW **modsW = NULL;
@@ -58,7 +62,7 @@ ULONG CDECL ldap_modifyA( WLDAP32_LDAP *ld, PCHAR dn, LDAPModA *mods[] )
 
     TRACE( "(%p, %s, %p)\n", ld, debugstr_a(dn), mods );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (dn) {
         dnW = strAtoW( dn );
@@ -101,7 +105,7 @@ exit:
  */
 ULONG CDECL ldap_modifyW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[] )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL;
     LDAPMod **modsU = NULL;
@@ -128,7 +132,7 @@ ULONG CDECL ldap_modifyW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[] )
     if (ret == LDAP_SUCCESS)
         ret = msg;
     else
-        ret = ~0u;
+        ret = ~0UL;
 
 exit:
     strfreeU( dnU );
@@ -146,7 +150,7 @@ exit:
 ULONG CDECL ldap_modify_extA( WLDAP32_LDAP *ld, PCHAR dn, LDAPModA *mods[],
     PLDAPControlA *serverctrls, PLDAPControlA *clientctrls, ULONG *message )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL;
     LDAPModW **modsW = NULL;
@@ -157,7 +161,7 @@ ULONG CDECL ldap_modify_extA( WLDAP32_LDAP *ld, PCHAR dn, LDAPModA *mods[],
     TRACE( "(%p, %s, %p, %p, %p, %p)\n", ld, debugstr_a(dn), mods,
            serverctrls, clientctrls, message );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (dn) {
         dnW = strAtoW( dn );
@@ -214,7 +218,7 @@ exit:
 ULONG CDECL ldap_modify_extW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[],
     PLDAPControlW *serverctrls, PLDAPControlW *clientctrls, ULONG *message )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL;
     LDAPMod **modsU = NULL;
@@ -226,7 +230,7 @@ ULONG CDECL ldap_modify_extW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[],
     TRACE( "(%p, %s, %p, %p, %p, %p)\n", ld, debugstr_w(dn), mods,
            serverctrls, clientctrls, message );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (dn) {
         dnU = strWtoU( dn );
@@ -245,8 +249,8 @@ ULONG CDECL ldap_modify_extW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[],
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_modify_ext( ld, dn ? dnU : "", mods ? modsU : nullmods, serverctrlsU,
-                                      clientctrlsU, message ? (int *)message : &dummy ));
+    ret = ldap_modify_ext( ld, dn ? dnU : "", mods ? modsU : nullmods, serverctrlsU,
+                           clientctrlsU, message ? (int *)message : &dummy );
 
 exit:
     strfreeU( dnU );
@@ -266,7 +270,7 @@ exit:
 ULONG CDECL ldap_modify_ext_sA( WLDAP32_LDAP *ld, PCHAR dn, LDAPModA *mods[],
     PLDAPControlA *serverctrls, PLDAPControlA *clientctrls )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL;
     LDAPModW **modsW = NULL;
@@ -332,7 +336,7 @@ exit:
 ULONG CDECL ldap_modify_ext_sW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[],
     PLDAPControlW *serverctrls, PLDAPControlW *clientctrls )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL;
     LDAPMod **modsU = NULL;
@@ -362,8 +366,8 @@ ULONG CDECL ldap_modify_ext_sW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[],
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_modify_ext_s( ld, dn ? dnU : "", mods ? modsU : nullmods,
-                                        serverctrlsU, clientctrlsU ));
+    ret = ldap_modify_ext_s( ld, dn ? dnU : "", mods ? modsU : nullmods,
+                             serverctrlsU, clientctrlsU );
 
 exit:
     strfreeU( dnU );
@@ -382,7 +386,7 @@ exit:
  */
 ULONG CDECL ldap_modify_sA( WLDAP32_LDAP *ld, PCHAR dn, LDAPModA *mods[] )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *dnW = NULL;
     LDAPModW **modsW = NULL;
@@ -429,7 +433,7 @@ exit:
  */
 ULONG CDECL ldap_modify_sW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[] )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *dnU = NULL;
     LDAPMod **modsU = NULL;
@@ -449,7 +453,7 @@ ULONG CDECL ldap_modify_sW( WLDAP32_LDAP *ld, PWCHAR dn, LDAPModW *mods[] )
         if (!modsU) goto exit;
     }
 
-    ret = map_error( ldap_modify_ext_s( ld, dn ? dnU : "", mods ? modsU : nullmods, NULL, NULL ));
+    ret = ldap_modify_ext_s( ld, dn ? dnU : "", mods ? modsU : nullmods, NULL, NULL );
 
 exit:
     strfreeU( dnU );

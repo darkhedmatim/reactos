@@ -13,7 +13,7 @@
 #include <debug.h>
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath
@@ -30,7 +30,7 @@ DriverEntry(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ACPIDispatchDeviceControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -65,7 +65,7 @@ ACPIDispatchDeviceControl(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ACPIPnpControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -96,7 +96,7 @@ ACPIPnpControl(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ACPIPowerControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -119,7 +119,7 @@ ACPIPowerControl(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ACPIAddDevice(
   IN PDRIVER_OBJECT DriverObject,
   IN PDEVICE_OBJECT PhysicalDeviceObject)
@@ -165,7 +165,7 @@ ACPIAddDevice(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath)

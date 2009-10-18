@@ -27,7 +27,7 @@
 #ifndef S_LINES_H
 #define S_LINES_H
 
-#include "swrast.h"
+#include "mtypes.h"
 
 void
 _swrast_choose_line( GLcontext *ctx );

@@ -20,66 +20,30 @@
 #define __WINE_MSVCRT_H
 
 #include <stdarg.h>
-#include <signal.h>
+#include <ctype.h>
+#include <string.h>
+
 #include "windef.h"
 #include "winbase.h"
+#include "winerror.h"
+#include "winnls.h"
 
+//#include "msvcrt/string.h"
 #include "eh.h"
-
-typedef unsigned short MSVCRT_wchar_t;
-typedef unsigned short MSVCRT_wint_t;
-typedef unsigned short MSVCRT_wctype_t;
-typedef unsigned short MSVCRT__ino_t;
-typedef unsigned long  MSVCRT__fsize_t;
-#ifdef _WIN64
-typedef unsigned __int64 MSVCRT_size_t;
-typedef __int64 MSVCRT_intptr_t;
-typedef unsigned __int64 MSVCRT_uintptr_t;
-#else
-typedef unsigned int MSVCRT_size_t;
-typedef int MSVCRT_intptr_t;
-typedef unsigned int MSVCRT_uintptr_t;
-#endif
-typedef unsigned int   MSVCRT__dev_t;
-typedef int  MSVCRT__off_t;
-typedef long MSVCRT_clock_t;
-typedef long MSVCRT_time_t;
-typedef __int64 MSVCRT___time64_t;
-typedef __int64 MSVCRT_fpos_t;
-
-struct MSVCRT_tm {
-    int tm_sec;
-    int tm_min;
-    int tm_hour;
-    int tm_mday;
-    int tm_mon;
-    int tm_year;
-    int tm_wday;
-    int tm_yday;
-    int tm_isdst;
-};
 
 /* TLS data */
 extern DWORD MSVCRT_tls_index;
 
 typedef struct __MSVCRT_thread_data
 {
-    int                             thread_errno;
-    unsigned long                   thread_doserrno;
-    unsigned int                    random_seed;        /* seed for rand() */
-    char                           *strtok_next;        /* next ptr for strtok() */
-    unsigned char                  *mbstok_next;        /* next ptr for mbstok() */
-    MSVCRT_wchar_t                        *wcstok_next;        /* next ptr for wcstok() */
-    char                           *efcvt_buffer;       /* buffer for ecvt/fcvt */
-    char                           *asctime_buffer;     /* buffer for asctime */
-    MSVCRT_wchar_t                        *wasctime_buffer;    /* buffer for wasctime */
-    struct MSVCRT_tm                time_buffer;        /* buffer for localtime/gmtime */
-    char                           *strerror_buffer;    /* buffer for strerror */
-    int                             fpecode;
-    terminate_function              terminate_handler;
-    unexpected_function             unexpected_handler;
-    _se_translator_function         se_translator;
-    EXCEPTION_RECORD               *exc_record;
+    int                      _errno; // ros
+    unsigned long            doserrno;
+    char                    *mbstok_next;        /* next ptr for mbstok() */
+    char                    *efcvt_buffer;       /* buffer for ecvt/fcvt */
+    terminate_function       terminate_handler;
+    unexpected_function      unexpected_handler;
+    _se_translator_function  se_translator;
+    EXCEPTION_RECORD        *exc_record;
 } MSVCRT_thread_data;
 
 extern MSVCRT_thread_data *msvcrt_get_thread_data(void);
@@ -126,49 +90,46 @@ extern void msvcrt_init_console(void);
 extern void msvcrt_free_console(void);
 extern void msvcrt_init_args(void);
 extern void msvcrt_free_args(void);
-extern void msvcrt_init_signals(void);
-extern void msvcrt_free_signals(void);
 
-extern unsigned create_io_inherit_block(WORD*, BYTE**);
-
-#define MSVCRT__OUT_TO_DEFAULT 0
-#define MSVCRT__REPORT_ERRMODE 3
-
-#ifdef __i386__
-struct MSVCRT___JUMP_BUFFER {
-    unsigned long Ebp;
-    unsigned long Ebx;
-    unsigned long Edi;
-    unsigned long Esi;
-    unsigned long Esp;
-    unsigned long Eip;
-    unsigned long Registration;
-    unsigned long TryLevel;
-    /* Start of new struct members */
-    unsigned long Cookie;
-    unsigned long UnwindFunc;
-    unsigned long UnwindData[6];
-};
-#endif /* __i386__ */
-
-typedef void (*float_handler)(int, int);
-
-void _default_handler(int signal);
-
-typedef struct _sig_element
-{
-   int signal;
-   char *signame;
-   __p_sig_fn_t handler;
-}sig_element;
+/* run-time error codes */
+#define _RT_STACK       0
+#define _RT_NULLPTR     1
+#define _RT_FLOAT       2
+#define _RT_INTDIV      3
+#define _RT_EXECMEM     5
+#define _RT_EXECFORM    6
+#define _RT_EXECENV     7
+#define _RT_SPACEARG    8
+#define _RT_SPACEENV    9
+#define _RT_ABORT       10
+#define _RT_NPTR        12
+#define _RT_FPTR        13
+#define _RT_BREAK       14
+#define _RT_INT         15
+#define _RT_THREAD      16
+#define _RT_LOCK        17
+#define _RT_HEAP        18
+#define _RT_OPENCON     19
+#define _RT_QWIN        20
+#define _RT_NOMAIN      21
+#define _RT_NONCONT     22
+#define _RT_INVALDISP   23
+#define _RT_ONEXIT      24
+#define _RT_PUREVIRT    25
+#define _RT_STDIOINIT   26
+#define _RT_LOWIOINIT   27
+#define _RT_HEAPINIT    28
+#define _RT_DOMAIN      120
+#define _RT_SING        121
+#define _RT_TLOSS       122
+#define _RT_CRNL        252
+#define _RT_BANNER      255
 
 typedef void* (*malloc_func_t)(size_t);
 typedef void  (*free_func_t)(void*);
 #define MSVCRT_malloc malloc
 #define MSVCRT_free free
-char* _setlocale(int,const char*);
 NTSYSAPI VOID NTAPI RtlAssert(PVOID FailedAssertion,PVOID FileName,ULONG LineNumber,PCHAR Message);
 extern char* __unDName(char *,const char*,int,malloc_func_t,free_func_t,unsigned short int);
-
 
 #endif /* __WINE_MSVCRT_H */

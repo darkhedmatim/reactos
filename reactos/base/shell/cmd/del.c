@@ -38,7 +38,7 @@
 *
 *    22-Jun-2005 (Brandon Turner <turnerb7@msu.edu>)
 *        Implemented /A   example "del /A:H /A:-R *.exe -ping.exe"
-*
+*    
 *    07-Aug-2005
 *        Removed the exclusive deletion (see two comments above) because '-' is a valid file name character.
 *        Optimized the recursive deletion in directories.
@@ -77,6 +77,12 @@ enum
 };
 
 static TCHAR szDeleteWipe[RC_STRING_MAX_SIZE];
+static TCHAR szDelHelp2[RC_STRING_MAX_SIZE];
+static TCHAR szDelHelp3[RC_STRING_MAX_SIZE];
+static TCHAR szDelHelp4[RC_STRING_MAX_SIZE];
+static TCHAR szDelError5[RC_STRING_MAX_SIZE];
+static TCHAR szDelError6[RC_STRING_MAX_SIZE];
+static TCHAR szDelError7[RC_STRING_MAX_SIZE];
 static TCHAR CMDPath[MAX_PATH];
 
 static BOOLEAN StringsLoaded = FALSE;
@@ -84,6 +90,12 @@ static BOOLEAN StringsLoaded = FALSE;
 static VOID LoadStrings(VOID)
 {
         LoadString( CMD_ModuleHandle, STRING_DELETE_WIPE, szDeleteWipe, RC_STRING_MAX_SIZE);
+        LoadString( CMD_ModuleHandle, STRING_DEL_HELP2, szDelHelp2, RC_STRING_MAX_SIZE);
+        LoadString( CMD_ModuleHandle, STRING_DEL_HELP3, szDelHelp3, RC_STRING_MAX_SIZE);
+        LoadString( CMD_ModuleHandle, STRING_DEL_HELP4, szDelHelp4, RC_STRING_MAX_SIZE);
+        LoadString( CMD_ModuleHandle, STRING_DEL_ERROR5, szDelError5, RC_STRING_MAX_SIZE);
+        LoadString( CMD_ModuleHandle, STRING_DEL_ERROR6, szDelError6, RC_STRING_MAX_SIZE);
+        LoadString( CMD_ModuleHandle, STRING_DEL_ERROR7, szDelError7, RC_STRING_MAX_SIZE);
         GetModuleFileName(NULL, CMDPath, MAX_PATH);
         StringsLoaded = TRUE;
 }
@@ -92,13 +104,13 @@ static BOOL
 RemoveFile (LPTSTR lpFileName, DWORD dwFlags, WIN32_FIND_DATA* f)
 {
 	/*This function is called by CommandDelete and
-	does the actual process of deleting the single
+	does the actual process of deleting the single 
 	file*/
 		if(CheckCtrlBreak(BREAK_INPUT))
 			return 1;
 
         /*check to see if it is read only and if this is done based on /A
-          if it is done by file name, access is denied. However, if it is done
+          if it is done by file name, access is denied. However, if it is done 
           using the /A switch you must un-read only the file and allow it to be
           deleted*/
         if((dwFlags & DEL_ATTRIBUTES) || (dwFlags & DEL_FORCE))
@@ -162,7 +174,7 @@ DeleteFiles(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
 
         _tcscpy(szFileName, FileName);
 
-        if(_tcschr (szFileName, _T('*')) == NULL &&
+        if(_tcschr (szFileName, _T('*')) == NULL && 
 	   IsExistingDirectory (szFileName))
         {
 	        /* If it doesnt have a \ at the end already then on needs to be added */
@@ -181,7 +193,7 @@ DeleteFiles(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
 
 		if (!((*dwFlags & DEL_YES) || (*dwFlags & DEL_QUIET) || (*dwFlags & DEL_PROMPT)))
 	        {
-        	        res = FilePromptYNA (STRING_DEL_HELP2);
+        	        res = FilePromptYNA (szDelHelp2);
 		        if ((res == PROMPT_NO) || (res == PROMPT_BREAK))
 			        return 0x80000000;
 		        if(res == PROMPT_ALL)
@@ -199,53 +211,56 @@ DeleteFiles(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
         {
                 do
                 {
-					bExclusion = FALSE;
+                        bExclusion = FALSE;
 
-					/*if it is going to be excluded by - no need to check attrs*/
-					if(*dwFlags & DEL_ATTRIBUTES && !bExclusion)
-					{
+		        /*if it is going to be excluded by - no need to check attrs*/
+		        if(*dwFlags & DEL_ATTRIBUTES && !bExclusion)
+		        {
 
-						/*save if file attr check if user doesnt care about that attr anyways*/
-					 if(dwAttrFlags & ATTR_ARCHIVE && !(f.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE))
+			        /*save if file attr check if user doesnt care about that attr anyways*/
+			        if(dwAttrFlags & ATTR_ARCHIVE && !(f.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE))
 				        bExclusion = TRUE;
-					 if(dwAttrFlags & ATTR_HIDDEN && !(f.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN))
+			        if(dwAttrFlags & ATTR_HIDDEN && !(f.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN))
 				        bExclusion = TRUE;
-					 if(dwAttrFlags & ATTR_SYSTEM && !(f.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM))
+			        if(dwAttrFlags & ATTR_SYSTEM && !(f.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM))
 				        bExclusion = TRUE;
-					 if(dwAttrFlags & ATTR_READ_ONLY && !(f.dwFileAttributes & FILE_ATTRIBUTE_READONLY))
-			            bExclusion = TRUE;
-		             if(dwAttrFlags & ATTR_N_ARCHIVE && (f.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE))
-			            bExclusion = TRUE;
-		             if(dwAttrFlags & ATTR_N_HIDDEN && (f.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN))
-			            bExclusion = TRUE;
-		             if(dwAttrFlags & ATTR_N_SYSTEM && (f.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM))
-			            bExclusion = TRUE;
-		             if(dwAttrFlags & ATTR_N_READ_ONLY && (f.dwFileAttributes & FILE_ATTRIBUTE_READONLY))
-			            bExclusion = TRUE;
-					}
-					if(bExclusion)
-						continue;
+			        if(dwAttrFlags & ATTR_READ_ONLY && !(f.dwFileAttributes & FILE_ATTRIBUTE_READONLY))
+			                bExclusion = TRUE;
+		                if(dwAttrFlags & ATTR_N_ARCHIVE && (f.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE))
+			                bExclusion = TRUE;
+		                if(dwAttrFlags & ATTR_N_HIDDEN && (f.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN))
+			                bExclusion = TRUE;
+		                if(dwAttrFlags & ATTR_N_SYSTEM && (f.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM))
+			                bExclusion = TRUE;
+		                if(dwAttrFlags & ATTR_N_READ_ONLY && (f.dwFileAttributes & FILE_ATTRIBUTE_READONLY))
+			                bExclusion = TRUE;
+	                }
 
-					/* ignore directories */
-					if (f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+	                if(bExclusion)
+		                continue;
+
+		        /* ignore directories */
+		        if (f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		                continue;
 
 
-					_tcscpy (pFilePart, f.cFileName);
+		        _tcscpy (pFilePart, f.cFileName);
 
-					/* We cant delete ourselves */
-					if(!_tcscmp (CMDPath,szFullPath))
-						continue;
+		        /* We cant delete ourselves */
+		        if(!_tcscmp (CMDPath,szFullPath))
+			        continue;
 
 
-					TRACE("Full filename: %s\n", debugstr_aw(szFullPath));
+#ifdef _DEBUG
+		        ConErrPrintf(_T("Full filename: %s\n"), szFullPath);
+#endif
 
-					/* ask for deleting */
-					if (*dwFlags & DEL_PROMPT)
-					{
-		                ConErrResPrintf(STRING_DEL_ERROR5, szFullPath);
+		        /* ask for deleting */
+		        if (*dwFlags & DEL_PROMPT)
+		        {
+		                ConErrPrintf(szDelError5, szFullPath);
 
-		                res = FilePromptYN (STRING_DEL_ERROR6);
+		                res = FilePromptYN (szDelError6);
 
 		                if ((res == PROMPT_NO) || (res == PROMPT_BREAK))
 		                {
@@ -257,7 +272,7 @@ DeleteFiles(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
 	                /*user cant ask it to be quiet and tell you what it did*/
 	                if (!(*dwFlags & DEL_QUIET) && !(*dwFlags & DEL_TOTAL))
 	                {
-		                ConErrResPrintf(STRING_DEL_ERROR7, szFullPath);
+		                ConErrPrintf(szDelError7, szFullPath);
 	                }
 
 	                /* delete the file */
@@ -266,21 +281,21 @@ DeleteFiles(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
 
 	                if(RemoveFile (szFullPath, *dwFlags, &f))
 		                dwFiles++;
-					else
-                        {
-							ErrorMessage (GetLastError(), _T(""));
+		        else
+                        {		
+		                ErrorMessage (GetLastError(), _T(""));
 //                                FindClose(hFile);
 //                                return -1;
-						}
+	                }
                 }
                 while (FindNextFile (hFile, &f));
-				FindClose (hFile);
-        } 
-		else error_sfile_not_found(szFullPath);
+	        FindClose (hFile);
+        }
         return dwFiles;
 }
 
-static DWORD
+
+static DWORD 
 ProcessDirectory(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
 {
         TCHAR szFullPath[MAX_PATH];
@@ -349,11 +364,11 @@ ProcessDirectory(LPTSTR FileName, DWORD* dwFlags, DWORD dwAttrFlags)
                 }
         }
         return dwFiles;
-}
+}        
 
 
 
-INT CommandDelete (LPTSTR param)
+INT CommandDelete (LPTSTR cmd, LPTSTR param)
 {
 	/*cmd is the command that was given, in this case it will always be "del" or "delete"
 	param is whatever is given after the command*/
@@ -448,7 +463,7 @@ INT CommandDelete (LPTSTR param)
 					}
 					ch = _totupper (arg[i][3]);
 					if (_tcslen (arg[i]) == 4)
-					{
+					{						
 						if(ch == _T('A'))
 						{
 							dwAttrFlags |= ATTR_ARCHIVE;
@@ -530,7 +545,7 @@ INT CommandDelete (LPTSTR param)
                 dwFiles += ProcessDirectory(szOrginalArg, &dwFlags, dwAttrFlags);
 
         }
-
+	
 	freep (arg);
 
 	/*Based on MS cmd, we only tell what files are being deleted when /S is used */
@@ -539,11 +554,11 @@ INT CommandDelete (LPTSTR param)
                 dwFiles &= 0x7fffffff;
 		if (dwFiles < 2)
 		{
-                        ConOutResPrintf(STRING_DEL_HELP3, dwFiles);
+                        ConOutPrintf(szDelHelp3, dwFiles);
 		}
 		else
 		{
-			ConOutResPrintf(STRING_DEL_HELP4, dwFiles);
+			ConOutPrintf(szDelHelp4, dwFiles);
 		}
 	}
 

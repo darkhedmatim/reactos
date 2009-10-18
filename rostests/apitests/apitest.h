@@ -4,7 +4,10 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <windows.h>
+
+#define open _open
 
 #define APISTATUS_NORMAL 0
 #define APISTATUS_NOT_FOUND 1
@@ -40,7 +43,7 @@ typedef struct tagTEST
 		if (x)\
 		{\
 			(pti->passed)++;\
-			printf("%s:%d: non-rtest succeeded (%s)\n", __FILE__, __LINE__, #x);\
+			printf("non-rtest succeeded in %s:%d (%s)\n", __FILE__, __LINE__, #x);\
 		} else {\
 			(pti->failed)++;\
 		} \
@@ -52,30 +55,7 @@ typedef struct tagTEST
 			(pti->passed)++;\
 		} else {\
 			(pti->failed)++;\
-			printf("%s:%d: test failed (%s)\n", __FILE__, __LINE__, #x);\
-		} \
-	}
-
-#define TESTX(x, format, ...) \
-	if (pti->bRegress) \
-	{ \
-		if (x)\
-		{\
-			(pti->passed)++;\
-			printf("%s:%d: non-rtest succeeded (%s)\n", __FILE__, __LINE__, #x);\
-		} else {\
-			(pti->failed)++;\
-		} \
-	} \
-	else \
-	{ \
-		if (x)\
-		{\
-			(pti->passed)++;\
-		} else {\
-			(pti->failed)++;\
-			printf("%s:%d: test failed (%s) ", __FILE__, __LINE__, #x);\
-			printf(format, __VA_ARGS__); \
+			printf("test failed in %s:%d (%s)\n", __FILE__, __LINE__, #x);\
 		} \
 	}
 
@@ -114,6 +94,5 @@ int TestMain(LPWSTR pszExe, LPWSTR pszModule);
 extern TESTENTRY TestList[];
 INT NumTests(void);
 BOOL IsFunctionPresent(LPWSTR lpszFunction);
-VOID DumpMem(PVOID pData, ULONG cbSize, ULONG nWidth);
 
 #endif /* _APITEST_H */

@@ -7,14 +7,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Xml.Serialization;
 using Microsoft.Win32;
-using System.Collections.Generic;
+
 
 namespace RosTEGUI
 {
 	public partial class MainForm : Form
     {
         private MainConfig mainConf;
-        private ArrayList virtualMachines;
+        private Data mainData;
 
         public MainForm()
         {
@@ -40,45 +40,45 @@ namespace RosTEGUI
             int num = mainConf.GetNumberOfVms();
             for (int i = 0; i < num; i++)
             {
-                string path = mainConf.GetImagePath(i);
-                VirtMachConfig vmConfig = new VirtMachConfig();
-                if (vmConfig.LoadVMConfig(path))
+                string image = mainConf.GetExistingImage(i);
+                VirtualMachine vm = new VirtualMachine();
+                if (vm.LoadVMConfig(image))
                 {
-                    if (vmConfig.LoadVmSettings())
-                    {
-                        foreach (VirtMachInfo vmInfo in vmConfig.VMInfo)
-                        {
-                            VirtualMachine vm = new VirtualMachine(vmInfo);
-
-                            ListViewItem lvi = VirtMachListView.Items.Add(vmConfig.ToString(), 0);
-                            lvi.SubItems.Add(vm.MemSize.ToString() + " MB");
-                            lvi.Tag = vm;
-                        }
-                    }
+                    ListViewItem lvi = VirtMachListView.Items.Add(vm.ToString(), 0);
+                    lvi.SubItems.Add(vm.MemSize.ToString() + " MB");
+                    lvi.Tag = vm;
                 }
             }
         }
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            mainConf = new MainConfig();
+            mainData = new Data();
+            if (!mainData.LoadMainData())
+                MessageBox.Show("Failed to load Main Schema");
+
+            mainConf = new MainConfig(mainData);
+
+            // load config and load any existing vm's
             if (mainConf.LoadMainConfig())
             {
                 mainConf.LoadSettings();
                 LoadVirtualMachines(mainConf);
             }
-            else
+            else // create settings for first run
             {
-                // create settings for first run
                 mainConf.CreateSettings();
             }
+
+            string str = mainConf.QemuPath;
+
         }
 
         private void MainMenuHelpAbout_Click(object sender, EventArgs e)
         {
             AboutForm dlg = new AboutForm();
             dlg.StartPosition = FormStartPosition.CenterScreen;
-            dlg.ShowDialog();
+            dlg.Show();
         }
 
         private void ImageListView_DoubleClick(object sender, EventArgs e)
@@ -98,30 +98,53 @@ namespace RosTEGUI
 
             if (wizFrm.ShowDialog() == DialogResult.OK)
             {
-                VirtualMachine virtMach = new VirtualMachine();
-                virtMach.Name = wizFrm.VMName;
-
-                switch (wizFrm.Option)
+                if (wizFrm.Option == 1)
                 {
-                    case 1:
+                    try
+                    {
                         if (!Directory.Exists(wizFrm.DefDir))
                             Directory.CreateDirectory(wizFrm.DefDir);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Failed to create " + wizFrm.DefDir + '\n' + ex.Message);
+                        return;
+                    }
 
-                        virtMach.DefDir = wizFrm.DefDir;
-                        break;
+                    int i = mainConf.AddVirtMach(wizFrm.DefDir);
 
-                    case 2:
+                    VirtualMachine VirtMach = new VirtualMachine();
+                    VirtMach.CreateVMConfig(wizFrm.VMName,
+                                            wizFrm.DefDir,
+                                            wizFrm.DiskSizeGB,
+                                            wizFrm.ExistImg,
+                                            wizFrm.MemSizeMB);
 
-                        break;
-
-                    case 3:
-                        virtMach.DefDir = "Images\\" + wizFrm.VMName;
-                        break;
+                    ListViewItem lvi = VirtMachListView.Items.Add(VirtMach.ToString(), 0);
+                    lvi.Tag = VirtMach;
                 }
+                else if (wizFrm.Option == 2)
+                {
 
-                ListViewItem lvi = VirtMachListView.Items.Add(virtMach.Name, 0);
-                lvi.SubItems.Add(virtMach.MemSize.ToString() + " MB");
-                lvi.Tag = virtMach;
+                    DirectoryInfo di = Directory.GetParent(wizFrm.ExistImg);
+                    int i = mainConf.AddVirtMach(di.FullName);
+                    VirtualMachine VirtMach = new VirtualMachine();
+                    VirtMach.CreateVMConfig(wizFrm.VMName,
+                                            wizFrm.ExistImg,
+                                            wizFrm.MemSizeMB);
+
+                    ListViewItem lvi = VirtMachListView.Items.Add(VirtMach.ToString(), 0);
+                    lvi.Tag = VirtMach;
+                }
+                else
+                {
+                    int i = mainConf.AddVirtMach("Images\\" + wizFrm.VMName);
+                    VirtualMachine VirtMach = new VirtualMachine();
+                    VirtMach.CreateVMConfig(wizFrm.VMName);
+
+                    ListViewItem lvi = VirtMachListView.Items.Add(VirtMach.ToString(), 0);
+                    lvi.Tag = VirtMach;
+                }
             }
         }
 
@@ -143,7 +166,7 @@ namespace RosTEGUI
                         {
                             Directory.Delete(vm.DefDir, true);
                         }
-                        catch (DirectoryNotFoundException)
+                        catch (DirectoryNotFoundException ex)
                         {
                             MessageBox.Show(vm.DefDir + " has was not found!",
                                             "error",
@@ -152,7 +175,7 @@ namespace RosTEGUI
                         }
                     }
 
-                    //mainConf.DeleteVirtMach(lvi.Index/*lvi.Tag*/);
+                    mainConf.DeleteVirtMach(lvi.Index/*lvi.Tag*/);
                     VirtMachListView.Items.Remove(lvi);
                 }
             }
@@ -160,16 +183,13 @@ namespace RosTEGUI
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            VirtMachConfig vmc = new VirtMachConfig();
+            mainConf.SaveMainConfig();
 
-            foreach (ListViewItem lvi in VirtMachListView.Items)
+            foreach(ListViewItem lvi in VirtMachListView.Items)
             {
                 VirtualMachine vm = (VirtualMachine)lvi.Tag;
-                vmc.SaveVMConfig(vm);
+                vm.SaveVMConfig();
             }
-
-            mainConf.SaveSettings();
-            mainConf.SaveMainConfig();
         }
 
         private void changeSettingsToolStripMenuItem_Click(object sender, EventArgs e)

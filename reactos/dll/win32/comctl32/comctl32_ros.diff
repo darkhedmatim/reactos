@@ -1,8 +1,24 @@
+Index: listview.c
+===================================================================
+--- listview.c	(revision 23123)
++++ listview.c	(working copy)
+@@ -3810,9 +3810,8 @@
+     if (himl && lvItem.iImage >= 0 && !IsRectEmpty(&rcIcon))
+     {
+         TRACE("iImage=%d\n", lvItem.iImage);
++        ImageList_Draw(himl, lvItem.iImage, hdc, rcIcon.left, rcIcon.top,
++                       (lvItem.state & LVIS_SELECTED) && (infoPtr->bFocus) ? ILD_SELECTED : ILD_NORMAL);
+-        ImageList_DrawEx(himl, lvItem.iImage, hdc, rcIcon.left, rcIcon.top,
+-                         rcIcon.right - rcIcon.left, rcIcon.bottom - rcIcon.top, infoPtr->clrBk, CLR_DEFAULT,
+-                         (lvItem.state & LVIS_SELECTED) && (infoPtr->bFocus) ? ILD_SELECTED : ILD_NORMAL);
+     }
+ 
+     /* Don't bother painting item being edited */
 Index: propsheet.c
 ===================================================================
---- propsheet.c	(revision 38890)
+--- propsheet.c	(revision 25766)
 +++ propsheet.c	(working copy)
-@@ -2417,6 +2417,29 @@
+@@ -2431,6 +2431,28 @@
    return FALSE;
  }
  
@@ -28,11 +44,10 @@ Index: propsheet.c
 +    return TRUE;
 +}
 +
-+
  /******************************************************************************
   *            PROPSHEET_SetWizButtons
   *
-@@ -2438,17 +2461,6 @@
+@@ -2453,17 +2475,6 @@
    EnableWindow(hwndNext, FALSE);
    EnableWindow(hwndFinish, FALSE);
  
@@ -50,7 +65,7 @@ Index: propsheet.c
    if (dwFlags & PSWIZB_BACK)
      EnableWindow(hwndBack, TRUE);
  
-@@ -2478,6 +2490,31 @@
+@@ -2493,6 +2504,32 @@
    }
    else if (!(dwFlags & PSWIZB_DISABLEDFINISH))
      EnableWindow(hwndFinish, TRUE);
@@ -79,40 +94,41 @@ Index: propsheet.c
 +
 +  /* Now try to find an edit control that deserves focus */
 +  EnumChildWindows(PropSheet_GetCurrentPageHwnd(hwndDlg), EnumChildProc, 0);
++  
  }
  
  /******************************************************************************
 Index: tooltips.c
 ===================================================================
---- tooltips.c	(revision 38890)
+--- tooltips.c	(revision 25790)
 +++ tooltips.c	(working copy)
-@@ -2488,8 +2488,33 @@
- static LRESULT
+@@ -2437,7 +2437,34 @@
  TOOLTIPS_NotifyFormat (HWND hwnd, WPARAM wParam, LPARAM lParam)
  {
--    FIXME ("hwnd=%p wParam=%lx lParam=%lx\n", hwnd, wParam, lParam);
+     FIXME ("hwnd=%p wParam=%lx lParam=%lx\n", hwnd, wParam, lParam);
 +    TOOLTIPS_INFO *infoPtr = TOOLTIPS_GetInfoPtr (hwnd);
 +    TTTOOL_INFO *toolPtr = infoPtr->tools;
 +    INT nResult;
  
-+    TRACE("hwnd=%p wParam=%lx lParam=%lx\n", hwnd, wParam, lParam);
-+
-+    if (lParam == NF_QUERY) {
-+        if (toolPtr->bNotifyUnicode) {
++    if (lParam == NF_QUERY)
++    {
++        if (toolPtr->bNotifyUnicode)
++        {
 +            return NFR_UNICODE;
 +        } else {
 +            return NFR_ANSI;
 +        }
 +    }
-+    else if (lParam == NF_REQUERY) {
++    else if (lParam == NF_REQUERY)
++    {
 +        nResult = (INT) SendMessageW (toolPtr->hwnd, WM_NOTIFYFORMAT,
 +                    (WPARAM)hwnd, (LPARAM)NF_QUERY);
 +        if (nResult == NFR_ANSI) {
 +            toolPtr->bNotifyUnicode = FALSE;
-+            TRACE(" -- WM_NOTIFYFORMAT returns: NFR_ANSI\n");
++        TRACE(" -- WM_NOTIFYFORMAT returns: NFR_ANSI\n");
 +        } else if (nResult == NFR_UNICODE) {
 +            toolPtr->bNotifyUnicode = TRUE;
-+            TRACE(" -- WM_NOTIFYFORMAT returns: NFR_UNICODE\n");
++        TRACE(" -- WM_NOTIFYFORMAT returns: NFR_UNICODE\n");
 +        } else {
 +            TRACE (" -- WM_NOTIFYFORMAT returns: error!\n");
 +        }
@@ -123,19 +139,14 @@ Index: tooltips.c
  
 Index: treeview.c
 ===================================================================
---- treeview.c	(revision 38890)
+--- treeview.c	(revision 27134)
 +++ treeview.c	(working copy)
-@@ -2830,7 +2830,12 @@
+@@ -2839,8 +2839,6 @@
  	}
      }
  
 -    TREEVIEW_UpdateScrollBars(infoPtr);
-+    //
-+    // This is correct, but is causes and infinite loop of WM_PAINT messages, resulting
-+    // in continuous painting of the scroll bar in reactos. Comment out until the real
-+    // bug is found
-+    // 
-+    //TREEVIEW_UpdateScrollBars(infoPtr);
- 
+-
      if (infoPtr->cdmode & CDRF_NOTIFYPOSTPAINT)
  	infoPtr->cdmode =
+ 	    TREEVIEW_SendCustomDrawNotify(infoPtr, CDDS_POSTPAINT, hdc, rect);

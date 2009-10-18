@@ -45,7 +45,7 @@ Main_DirectDraw_CreatePalette(
                               LPDIRECTDRAWPALETTE* ppPalette,
                               LPUNKNOWN pUnkOuter);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_CreateSurface(
                                LPDIRECTDRAW iface,
                                LPDDSURFACEDESC pDDSD,
@@ -58,7 +58,7 @@ Main_DirectDraw_DuplicateSurface(
                                  LPDIRECTDRAWSURFACE src,
                                  LPDIRECTDRAWSURFACE *dst);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_EnumDisplayModes(
                                  LPDIRECTDRAW iface,
                                  DWORD dwFlags,
@@ -70,9 +70,9 @@ HRESULT WINAPI
 Main_DirectDraw_EnumSurfaces(
                              LPDIRECTDRAW iface,
                              DWORD dwFlags,
-                             LPDDSURFACEDESC lpDDSD2,
+                             LPDDSURFACEDESC2 lpDDSD2,
                              LPVOID context,
-                             LPDDENUMSURFACESCALLBACK callback);
+                             LPDDENUMSURFACESCALLBACK7 callback);
 
 HRESULT WINAPI
 Main_DirectDraw_FlipToGDISurface(LPDIRECTDRAW iface);
@@ -134,7 +134,9 @@ Main_DirectDraw_SetDisplayMode(
                                LPDIRECTDRAW iface,
                                DWORD dwWidth,
                                DWORD dwHeight,
-                               DWORD dwBPP);
+                               DWORD dwBPP,
+                               DWORD dwRefreshRate,
+                               DWORD dwFlags);
 
 HRESULT WINAPI
 Main_DirectDraw_WaitForVerticalBlank(

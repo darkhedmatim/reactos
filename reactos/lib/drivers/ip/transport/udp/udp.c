@@ -10,6 +10,7 @@
 
 #include "precomp.h"
 
+
 BOOLEAN UDPInitialized = FALSE;
 PORT_SET UDPPorts;
 
@@ -32,20 +33,18 @@ NTSTATUS AddUDPHeaderIPv4(
  */
 {
     PUDP_HEADER UDPHeader;
-    NTSTATUS Status;
 
     TI_DbgPrint(MID_TRACE, ("Packet: %x NdisPacket %x\n",
 			    IPPacket, IPPacket->NdisPacket));
 
-    Status = AddGenericHeaderIPv4
+    AddGenericHeaderIPv4
         ( RemoteAddress, RemotePort,
           LocalAddress, LocalPort,
           IPPacket, DataLength, IPPROTO_UDP,
           sizeof(UDP_HEADER), (PVOID *)&UDPHeader );
 
-    if (!NT_SUCCESS(Status))
-        return Status;
-
+    /* Build UDP header */
+    UDPHeader = (PUDP_HEADER)((ULONG_PTR)IPPacket->Data - sizeof(UDP_HEADER));
     /* Port values are already big-endian values */
     UDPHeader->SourcePort = LocalPort;
     UDPHeader->DestPort   = RemotePort;
@@ -53,6 +52,8 @@ NTSTATUS AddUDPHeaderIPv4(
     UDPHeader->Checksum   = 0;
     /* Length of UDP header and data */
     UDPHeader->Length     = WH2N(DataLength + sizeof(UDP_HEADER));
+
+    IPPacket->Data        = ((PCHAR)UDPHeader) + sizeof(UDP_HEADER);
 
     TI_DbgPrint(MID_TRACE, ("Packet: %d ip %d udp %d payload\n",
 			    (PCHAR)UDPHeader - (PCHAR)IPPacket->Header,
@@ -88,13 +89,15 @@ NTSTATUS BuildUDPPacket(
 
     /* FIXME: Assumes IPv4 */
     IPInitializePacket(Packet, IP_ADDRESS_V4);
+    if (!Packet)
+	return STATUS_INSUFFICIENT_RESOURCES;
 
     Packet->TotalSize = sizeof(IPv4_HEADER) + sizeof(UDP_HEADER) + DataLen;
 
     /* Prepare packet */
     Status = AllocatePacketWithBuffer( &Packet->NdisPacket,
 				       NULL,
-				       Packet->TotalSize );
+				       Packet->TotalSize + MaxLLHeaderSize );
 
     if( !NT_SUCCESS(Status) ) return Status;
 
@@ -161,59 +164,147 @@ NTSTATUS UDPSendDatagram(
     IP_PACKET Packet;
     PTA_IP_ADDRESS RemoteAddressTa = (PTA_IP_ADDRESS)ConnInfo->RemoteAddress;
     IP_ADDRESS RemoteAddress;
-    IP_ADDRESS LocalAddress;
     USHORT RemotePort;
     NTSTATUS Status;
     PNEIGHBOR_CACHE_ENTRY NCE;
 
     TI_DbgPrint(MID_TRACE,("Sending Datagram(%x %x %x %d)\n",
-						   AddrFile, ConnInfo, BufferData, DataSize));
+			   AddrFile, ConnInfo, BufferData, DataSize));
     TI_DbgPrint(MID_TRACE,("RemoteAddressTa: %x\n", RemoteAddressTa));
 
     switch( RemoteAddressTa->Address[0].AddressType ) {
     case TDI_ADDRESS_TYPE_IP:
-		RemoteAddress.Type = IP_ADDRESS_V4;
-		RemoteAddress.Address.IPv4Address =
-			RemoteAddressTa->Address[0].Address[0].in_addr;
-		RemotePort = RemoteAddressTa->Address[0].Address[0].sin_port;
-		break;
+	RemoteAddress.Type = IP_ADDRESS_V4;
+	RemoteAddress.Address.IPv4Address =
+	    RemoteAddressTa->Address[0].Address[0].in_addr;
+	RemotePort = RemoteAddressTa->Address[0].Address[0].sin_port;
+	break;
 
     default:
-		return STATUS_UNSUCCESSFUL;
-    }
-
-    if(!(NCE = RouteGetRouteToDestination( &RemoteAddress ))) {
-		return STATUS_NETWORK_UNREACHABLE;
-    }
-
-    LocalAddress = AddrFile->Address;
-    if (AddrIsUnspecified(&LocalAddress))
-    {
-        /* If the local address is unspecified (0),
-         * then use the unicast address of the
-         * interface we're sending over
-         */
-        LocalAddress = NCE->Interface->Unicast;
+	return STATUS_UNSUCCESSFUL;
     }
 
     Status = BuildUDPPacket( &Packet,
-							 &RemoteAddress,
-							 RemotePort,
-							 &LocalAddress,
-							 AddrFile->Port,
-							 BufferData,
-							 DataSize );
+			     &RemoteAddress,
+			     RemotePort,
+			     &AddrFile->Address,
+			     AddrFile->Port,
+			     BufferData,
+			     DataSize );
 
     if( !NT_SUCCESS(Status) )
-		return Status;
+	return Status;
 
-    if (!NT_SUCCESS(Status = IPSendDatagram( &Packet, NCE, UDPSendPacketComplete, NULL )))
-    {
-        FreeNdisPacket(Packet.NdisPacket);
-        return Status;
-    }
+    if(!(NCE = RouteGetRouteToDestination( &RemoteAddress )))
+	return STATUS_UNSUCCESSFUL;
+
+    IPSendDatagram( &Packet, NCE, UDPSendPacketComplete, NULL );
 
     return STATUS_SUCCESS;
+}
+
+VOID UDPReceiveComplete(PVOID Context, NTSTATUS Status, ULONG Count) {
+    PDATAGRAM_RECEIVE_REQUEST ReceiveRequest =
+	(PDATAGRAM_RECEIVE_REQUEST)Context;
+    TI_DbgPrint(MAX_TRACE,("Called\n"));
+    ReceiveRequest->UserComplete( ReceiveRequest->UserContext, Status, Count );
+    exFreePool( ReceiveRequest );
+    TI_DbgPrint(MAX_TRACE,("Done\n"));
+}
+
+NTSTATUS UDPReceiveDatagram(
+    PADDRESS_FILE AddrFile,
+    PTDI_CONNECTION_INFORMATION ConnInfo,
+    PCHAR BufferData,
+    ULONG ReceiveLength,
+    ULONG ReceiveFlags,
+    PTDI_CONNECTION_INFORMATION ReturnInfo,
+    PULONG BytesReceived,
+    PDATAGRAM_COMPLETION_ROUTINE Complete,
+    PVOID Context)
+/*
+ * FUNCTION: Attempts to receive an UDP datagram from a remote address
+ * ARGUMENTS:
+ *     Request       = Pointer to TDI request
+ *     ConnInfo      = Pointer to connection information
+ *     Buffer        = Pointer to NDIS buffer chain to store received data
+ *     ReceiveLength = Maximum size to use of buffer, 0 if all can be used
+ *     ReceiveFlags  = Receive flags (None, Normal, Peek)
+ *     ReturnInfo    = Pointer to structure for return information
+ *     BytesReceive  = Pointer to structure for number of bytes received
+ * RETURNS:
+ *     Status of operation
+ * NOTES:
+ *     This is the high level interface for receiving UDP datagrams
+ */
+{
+    KIRQL OldIrql;
+    NTSTATUS Status;
+    PDATAGRAM_RECEIVE_REQUEST ReceiveRequest;
+
+    TI_DbgPrint(MAX_TRACE, ("Called.\n"));
+
+    TcpipAcquireSpinLock(&AddrFile->Lock, &OldIrql);
+
+    if (AF_IS_VALID(AddrFile))
+    {
+	ReceiveRequest = exAllocatePool(NonPagedPool, sizeof(DATAGRAM_RECEIVE_REQUEST));
+	if (ReceiveRequest)
+        {
+	    /* Initialize a receive request */
+
+	    /* Extract the remote address filter from the request (if any) */
+	    if ((ConnInfo->RemoteAddressLength != 0) &&
+		(ConnInfo->RemoteAddress))
+            {
+		Status = AddrGetAddress(ConnInfo->RemoteAddress,
+					&ReceiveRequest->RemoteAddress,
+					&ReceiveRequest->RemotePort);
+		if (!NT_SUCCESS(Status))
+                {
+		    TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+		    exFreePool(ReceiveRequest);
+		    return Status;
+                }
+            }
+	    else
+            {
+		ReceiveRequest->RemotePort    = 0;
+            }
+	    ReceiveRequest->ReturnInfo = ReturnInfo;
+	    ReceiveRequest->Buffer = BufferData;
+	    ReceiveRequest->BufferSize = ReceiveLength;
+	    ReceiveRequest->UserComplete = Complete;
+	    ReceiveRequest->UserContext = Context;
+	    ReceiveRequest->Complete =
+		(PDATAGRAM_COMPLETION_ROUTINE)UDPReceiveComplete;
+	    ReceiveRequest->Context = ReceiveRequest;
+
+	    /* Queue receive request */
+	    InsertTailList(&AddrFile->ReceiveQueue, &ReceiveRequest->ListEntry);
+	    AF_SET_PENDING(AddrFile, AFF_RECEIVE);
+
+	    TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+	    TI_DbgPrint(MAX_TRACE, ("Leaving (pending).\n"));
+
+	    return STATUS_PENDING;
+        }
+	else
+        {
+	    Status = STATUS_INSUFFICIENT_RESOURCES;
+        }
+    }
+    else
+    {
+	Status = STATUS_INVALID_ADDRESS;
+    }
+
+    TcpipReleaseSpinLock(&AddrFile->Lock, OldIrql);
+
+    TI_DbgPrint(MAX_TRACE, ("Leaving with errors (0x%X).\n", Status));
+
+    return Status;
 }
 
 
@@ -312,15 +403,11 @@ NTSTATUS UDPStartup(
  *     Status of operation
  */
 {
-  NTSTATUS Status;
-
 #ifdef __NTDRIVER__
   RtlZeroMemory(&UDPStats, sizeof(UDP_STATISTICS));
 #endif
-  
-  Status = PortsStartup( &UDPPorts, 1, UDP_STARTING_PORT + UDP_DYNAMIC_PORTS );
 
-  if( !NT_SUCCESS(Status) ) return Status;
+  PortsStartup( &UDPPorts, 1, 0xfffe );
 
   /* Register this protocol with IP layer */
   IPRegisterProtocol(IPPROTO_UDP, UDPReceive);
@@ -346,8 +433,6 @@ NTSTATUS UDPShutdown(
 
   /* Deregister this protocol with IP layer */
   IPRegisterProtocol(IPPROTO_UDP, NULL);
-
-  UDPInitialized = FALSE;
 
   return STATUS_SUCCESS;
 }

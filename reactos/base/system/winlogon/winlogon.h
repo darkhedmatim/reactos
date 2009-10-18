@@ -32,13 +32,10 @@
 #include <windows.h>
 #include <userenv.h>
 #include <winwlx.h>
-#include <cmfuncs.h>
 #include <rtlfuncs.h>
 #include <exfuncs.h>
 #include <setypes.h>
 #include <ntsecapi.h>
-#include <accctrl.h>
-#include <aclapi.h>
 
 #include <reactos/winlogon.h>
 

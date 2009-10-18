@@ -4,7 +4,9 @@
 
 #include <w32k.h>
 
+#define STUB(x) void x(void) { DbgPrint("WIN32K: Stub for %s\n", #x); }
 #define UNIMPLEMENTED DbgPrint("(%s:%i) WIN32K: %s UNIMPLEMENTED\n", __FILE__, __LINE__, __FUNCTION__ )
+
 
 
 
@@ -12,7 +14,60 @@
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
+EngMapFontFileFD (
+	IN  ULONG_PTR  iFile,
+	OUT PULONG    *ppjBuf,
+	OUT ULONG     *pcjBuf
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_0co7.htm
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+EngUnmapFontFileFD ( IN ULONG_PTR iFile )
+{
+  // http://www.osr.com/ddk/graphics/gdifncs_6wbr.htm
+  UNIMPLEMENTED;
+}
+
+/*
+ * @implemented
+ */
+BOOL
+STDCALL
+EngMapFontFile (
+	ULONG_PTR  iFile,
+	PULONG    *ppjBuf,
+	ULONG     *pcjBuf
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_3up3.htm
+  return EngMapFontFileFD ( iFile, ppjBuf, pcjBuf );
+}
+
+/*
+ * @implemented
+ */
+VOID
+STDCALL
+EngUnmapFontFile ( ULONG_PTR iFile )
+{
+  // www.osr.com/ddk/graphics/gdifncs_09wn.htm
+  return EngUnmapFontFileFD ( iFile );
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 EngTextOut (
 	SURFOBJ  *pso,
 	STROBJ   *pstro,
@@ -35,7 +90,7 @@ EngTextOut (
  * @unimplemented
  */
 PATHOBJ*
-APIENTRY
+STDCALL
 CLIPOBJ_ppoGetPath ( IN CLIPOBJ *pco )
 {
   // www.osr.com/ddk/graphics/gdifncs_6hbb.htm
@@ -47,7 +102,7 @@ CLIPOBJ_ppoGetPath ( IN CLIPOBJ *pco )
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngCheckAbort ( IN SURFOBJ *pso )
 {
   // www.osr.com/ddk/graphics/gdifncs_3u7b.htm
@@ -59,7 +114,7 @@ EngCheckAbort ( IN SURFOBJ *pso )
  * @unimplemented
  */
 FD_GLYPHSET*
-APIENTRY
+STDCALL
 EngComputeGlyphSet(
 	IN INT nCodePage,
 	IN INT nFirstChar,
@@ -75,7 +130,7 @@ EngComputeGlyphSet(
  * @unimplemented
  */
 PATHOBJ*
-APIENTRY
+STDCALL
 EngCreatePath ( VOID )
 {
   // www.osr.com/ddk/graphics/gdifncs_4aav.htm
@@ -87,7 +142,7 @@ EngCreatePath ( VOID )
  * @unimplemented
  */
 VOID
-APIENTRY
+STDCALL
 EngDeletePath ( IN PATHOBJ *ppo )
 {
   // www.osr.com/ddk/graphics/gdifncs_3fl3.htm
@@ -98,7 +153,7 @@ EngDeletePath ( IN PATHOBJ *ppo )
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngEnumForms (
 	IN  HANDLE   hPrinter,
 	IN  DWORD    Level,
@@ -117,7 +172,7 @@ EngEnumForms (
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngFillPath (
 	IN SURFOBJ   *pso,
 	IN PATHOBJ   *ppo,
@@ -137,7 +192,7 @@ EngFillPath (
  * @unimplemented
  */
 PVOID
-APIENTRY
+STDCALL
 EngFindResource(
 	IN  HANDLE  h,
 	IN  int     iName,
@@ -153,8 +208,20 @@ EngFindResource(
 /*
  * @unimplemented
  */
+VOID
+STDCALL
+EngFreeModule ( IN HANDLE h )
+{
+  // www.osr.com/ddk/graphics/gdifncs_9fzb.htm
+  UNIMPLEMENTED;
+}
+
+
+/*
+ * @unimplemented
+ */
 LPWSTR
-APIENTRY
+STDCALL
 EngGetDriverName ( IN HDEV hdev )
 {
   // www.osr.com/ddk/graphics/gdifncs_2gx3.htm
@@ -166,7 +233,7 @@ EngGetDriverName ( IN HDEV hdev )
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngGetFileChangeTime(
 	IN  HANDLE          h,
 	OUT LARGE_INTEGER  *pChangeTime
@@ -181,7 +248,7 @@ EngGetFileChangeTime(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngGetFilePath(
 	IN  HANDLE h,
         OUT WCHAR (*pDest)[MAX_PATH+1]
@@ -196,7 +263,7 @@ EngGetFilePath(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngGetForm(
 	IN  HANDLE   hPrinter,
 	IN  LPWSTR   pFormName,
@@ -215,7 +282,7 @@ EngGetForm(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngGetPrinter(
 	IN  HANDLE   hPrinter,
 	IN  DWORD    dwLevel,
@@ -233,7 +300,7 @@ EngGetPrinter(
  * @unimplemented
  */
 DWORD
-APIENTRY
+STDCALL
 EngGetPrinterData(
 	IN  HANDLE   hPrinter,
 	IN  LPWSTR   pValueName,
@@ -252,7 +319,7 @@ EngGetPrinterData(
  * @unimplemented
  */
 LPWSTR
-APIENTRY
+STDCALL
 EngGetPrinterDataFileName ( IN HDEV hdev )
 {
   // www.osr.com/ddk/graphics/gdifncs_2giv.htm
@@ -264,7 +331,7 @@ EngGetPrinterDataFileName ( IN HDEV hdev )
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngGetType1FontList(
 	IN  HDEV            hdev,
 	OUT TYPE1_FONT     *pType1Buffer,
@@ -282,8 +349,38 @@ EngGetType1FontList(
 /*
  * @unimplemented
  */
+HANDLE
+STDCALL
+EngLoadModuleForWrite(
+	IN LPWSTR  pwsz,
+	IN ULONG   cjSizeOfModule
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_98rr.htm
+  UNIMPLEMENTED;
+  return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID
+STDCALL
+EngMapModule(
+	IN  HANDLE  h,
+	OUT PULONG  pSize
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_9b1j.htm
+  UNIMPLEMENTED;
+  return NULL;
+}
+
+/*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
 EngMarkBandingSurface ( IN HSURF hsurf )
 {
   // www.osr.com/ddk/graphics/gdifncs_2jon.htm
@@ -292,7 +389,7 @@ EngMarkBandingSurface ( IN HSURF hsurf )
 }
 
 INT
-APIENTRY
+STDCALL
 EngMultiByteToWideChar(
 	IN UINT  CodePage,
 	OUT LPWSTR  WideCharString,
@@ -307,7 +404,7 @@ EngMultiByteToWideChar(
 }
 
 VOID
-APIENTRY
+STDCALL
 EngQueryLocalTime ( OUT PENG_TIME_FIELDS ptf )
 {
   // www.osr.com/ddk/graphics/gdifncs_389z.htm
@@ -315,7 +412,7 @@ EngQueryLocalTime ( OUT PENG_TIME_FIELDS ptf )
 }
 
 ULONG
-APIENTRY
+STDCALL
 EngQueryPalette(
 	IN HPALETTE  hPal,
 	OUT ULONG  *piMode,
@@ -328,8 +425,24 @@ EngQueryPalette(
   return 0;
 }
 
+BOOL
+STDCALL
+EngSetPointerTag(
+	IN HDEV  hdev,
+	IN SURFOBJ  *psoMask,
+	IN SURFOBJ  *psoColor,
+	IN XLATEOBJ  *pxlo,
+	IN FLONG  fl
+	)
+{
+  // This function is obsolete for Windows 2000 and later.
+  // This function is still supported, but always returns FALSE.
+  // www.osr.com/ddk/graphics/gdifncs_4yav.htm
+  return FALSE;
+}
+
 DWORD
-APIENTRY
+STDCALL
 EngSetPrinterData(
 	IN HANDLE  hPrinter,
 	IN LPWSTR  pType,
@@ -344,7 +457,7 @@ EngSetPrinterData(
 }
 
 BOOL
-APIENTRY
+STDCALL
 EngStrokeAndFillPath(
 	IN SURFOBJ  *pso,
 	IN PATHOBJ  *ppo,
@@ -364,7 +477,7 @@ EngStrokeAndFillPath(
 }
 
 BOOL
-APIENTRY
+STDCALL
 EngStrokePath(
 	IN SURFOBJ  *pso,
 	IN PATHOBJ  *ppo,
@@ -381,8 +494,9 @@ EngStrokePath(
   return FALSE;
 }
 
+
 INT
-APIENTRY
+STDCALL
 EngWideCharToMultiByte(
 	IN UINT  CodePage,
 	IN LPWSTR  WideCharString,
@@ -397,7 +511,7 @@ EngWideCharToMultiByte(
 }
 
 BOOL
-APIENTRY
+STDCALL
 EngWritePrinter (
 	IN HANDLE    hPrinter,
 	IN LPVOID    pBuf,
@@ -414,7 +528,7 @@ EngWritePrinter (
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 FONTOBJ_cGetAllGlyphHandles (
 	IN FONTOBJ  *FontObj,
 	IN HGLYPH   *Glyphs
@@ -428,7 +542,7 @@ FONTOBJ_cGetAllGlyphHandles (
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 FONTOBJ_cGetGlyphs(
 	IN FONTOBJ *FontObj,
 	IN ULONG    Mode,
@@ -445,7 +559,7 @@ FONTOBJ_cGetGlyphs(
  * @unimplemented
  */
 IFIMETRICS*
-APIENTRY
+STDCALL
 FONTOBJ_pifi ( IN FONTOBJ *FontObj )
 {
   UNIMPLEMENTED;
@@ -456,7 +570,7 @@ FONTOBJ_pifi ( IN FONTOBJ *FontObj )
  * @unimplemented
  */
 PVOID
-APIENTRY
+STDCALL
 FONTOBJ_pvTrueTypeFontFile (
 	IN FONTOBJ  *FontObj,
 	IN ULONG    *FileSize)
@@ -469,7 +583,7 @@ FONTOBJ_pvTrueTypeFontFile (
  * @unimplemented
  */
 XFORMOBJ*
-APIENTRY
+STDCALL
 FONTOBJ_pxoGetXform ( IN FONTOBJ *FontObj )
 {
   UNIMPLEMENTED;
@@ -480,7 +594,7 @@ FONTOBJ_pxoGetXform ( IN FONTOBJ *FontObj )
  * @unimplemented
  */
 VOID
-APIENTRY
+STDCALL
 FONTOBJ_vGetInfo (
 	IN  FONTOBJ   *FontObj,
 	IN  ULONG      InfoSize,
@@ -490,7 +604,7 @@ FONTOBJ_vGetInfo (
 }
 
 LONG
-APIENTRY
+STDCALL
 HT_ComputeRGBGammaTable(
 	IN USHORT  GammaTableEntries,
 	IN USHORT  GammaTableType,
@@ -506,7 +620,7 @@ HT_ComputeRGBGammaTable(
 }
 
 LONG
-APIENTRY
+STDCALL
 HT_Get8BPPFormatPalette(
 	OUT LPPALETTEENTRY  pPaletteEntry,
 	IN USHORT  RedGamma,
@@ -520,7 +634,7 @@ HT_Get8BPPFormatPalette(
 }
 
 BOOL
-APIENTRY
+STDCALL
 PATHOBJ_bCloseFigure ( IN PATHOBJ *ppo )
 {
   // www.osr.com/ddk/graphics/gdifncs_5mhz.htm
@@ -529,7 +643,7 @@ PATHOBJ_bCloseFigure ( IN PATHOBJ *ppo )
 }
 
 BOOL
-APIENTRY
+STDCALL
 PATHOBJ_bEnum (
 	IN  PATHOBJ   *ppo,
 	OUT PATHDATA  *ppd
@@ -541,7 +655,7 @@ PATHOBJ_bEnum (
 }
 
 BOOL
-APIENTRY
+STDCALL
 PATHOBJ_bEnumClipLines(
 	IN PATHOBJ  *ppo,
 	IN ULONG  cb,
@@ -554,7 +668,7 @@ PATHOBJ_bEnumClipLines(
 }
 
 BOOL
-APIENTRY
+STDCALL
 PATHOBJ_bMoveTo(
 	IN PATHOBJ  *ppo,
 	IN POINTFIX  ptfx
@@ -566,7 +680,7 @@ PATHOBJ_bMoveTo(
 }
 
 BOOL
-APIENTRY
+STDCALL
 PATHOBJ_bPolyBezierTo(
 	IN PATHOBJ  *ppo,
 	IN POINTFIX  *pptfx,
@@ -579,7 +693,7 @@ PATHOBJ_bPolyBezierTo(
 }
 
 BOOL
-APIENTRY
+STDCALL
 PATHOBJ_bPolyLineTo(
 	IN PATHOBJ  *ppo,
 	IN POINTFIX  *pptfx,
@@ -592,7 +706,7 @@ PATHOBJ_bPolyLineTo(
 }
 
 VOID
-APIENTRY
+STDCALL
 PATHOBJ_vEnumStart ( IN PATHOBJ *ppo )
 {
   // www.osr.com/ddk/graphics/gdifncs_74br.htm
@@ -600,7 +714,7 @@ PATHOBJ_vEnumStart ( IN PATHOBJ *ppo )
 }
 
 VOID
-APIENTRY
+STDCALL
 PATHOBJ_vEnumStartClipLines(
 	IN PATHOBJ  *ppo,
 	IN CLIPOBJ  *pco,
@@ -613,7 +727,7 @@ PATHOBJ_vEnumStartClipLines(
 }
 
 VOID
-APIENTRY
+STDCALL
 PATHOBJ_vGetBounds(
 	IN PATHOBJ  *ppo,
 	OUT PRECTFX  prectfx
@@ -623,10 +737,86 @@ PATHOBJ_vGetBounds(
   UNIMPLEMENTED;
 }
 
+BOOL
+STDCALL
+STROBJ_bEnum(
+	IN STROBJ  *pstro,
+	OUT ULONG  *pc,
+	OUT PGLYPHPOS  *ppgpos
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_65uv.htm
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+DWORD
+STDCALL
+STROBJ_dwGetCodePage ( IN STROBJ *pstro )
+{
+  // www.osr.com/ddk/graphics/gdifncs_9jmv.htm
+  UNIMPLEMENTED;
+  return 0;
+}
+
+VOID
+STDCALL
+STROBJ_vEnumStart ( IN STROBJ *pstro )
+{
+  // www.osr.com/ddk/graphics/gdifncs_32uf.htm
+  UNIMPLEMENTED;
+}
+
+BOOL
+STDCALL
+XFORMOBJ_bApplyXform(
+	IN XFORMOBJ  *pxo,
+	IN ULONG  iMode,
+	IN ULONG  cPoints,
+	IN PVOID  pvIn,
+	OUT PVOID  pvOut
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_027b.htm
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+ULONG
+STDCALL
+XFORMOBJ_iGetFloatObjXform(
+	IN XFORMOBJ  *pxo,
+	OUT FLOATOBJ_XFORM  *pxfo
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_5ig7.htm
+  UNIMPLEMENTED;
+  return 0;
+}
+
+ULONG
+STDCALL
+XFORMOBJ_iGetXform(
+	IN XFORMOBJ  *pxo,
+	OUT XFORML  *pxform
+	)
+{
+  // www.osr.com/ddk/graphics/gdifncs_0s2v.htm
+  UNIMPLEMENTED;
+  return 0;
+}
+
+// below here aren't in DDK!!!
+
+STUB(FLOATOBJ_AddFloatObj)
+STUB(FLOATOBJ_DivFloatObj)
+STUB(FLOATOBJ_MulFloatObj)
+STUB(FLOATOBJ_SubFloatObj)
+
 /*
  * @unimplemented
  */
-ULONG APIENTRY
+ULONG STDCALL
 EngDitherColor(
    IN HDEV hdev,
    IN ULONG iMode,
@@ -639,7 +829,58 @@ EngDitherColor(
 /*
  * @unimplemented
  */
-HANDLE APIENTRY
+BOOL STDCALL
+EngQuerySystemAttribute(
+   IN ENG_SYSTEM_ATTRIBUTE CapNum,
+   OUT PDWORD pCapability)
+{
+   switch (CapNum)
+   {
+      case EngNumberOfProcessors:
+         *pCapability = 1;
+         return TRUE;
+
+      case EngProcessorFeature:
+         *pCapability = 0;
+         return TRUE;
+
+      default:
+         break;
+   }
+
+   return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+FLATPTR STDCALL
+HeapVidMemAllocAligned(
+   IN LPVIDMEM lpVidMem,
+   IN DWORD dwWidth,
+   IN DWORD dwHeight,
+   IN LPSURFACEALIGNMENT lpAlignment,
+   OUT LPLONG lpNewPitch)
+{
+   UNIMPLEMENTED;
+   return 0;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+VidMemFree(
+   IN LPVMEMHEAP pvmh,
+   IN FLATPTR ptr)
+{
+   UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE STDCALL
 BRUSHOBJ_hGetColorTransform(
    IN BRUSHOBJ *Brush)
 {
@@ -650,8 +891,30 @@ BRUSHOBJ_hGetColorTransform(
 /*
  * @unimplemented
  */
-BOOL
-APIENTRY
+PVOID STDCALL
+EngAllocPrivateUserMem(
+   IN PDD_SURFACE_LOCAL  psl,
+   IN SIZE_T  cj,
+   IN ULONG  tag)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+EngClearEvent(
+   IN PEVENT Event)
+{
+   UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
 EngDeleteFile(
    IN LPWSTR FileName)
 {
@@ -662,7 +925,18 @@ EngDeleteFile(
 /*
  * @unimplemented
  */
-BOOL APIENTRY
+VOID STDCALL
+EngFreePrivateUserMem(
+   IN PDD_SURFACE_LOCAL  psl,
+   IN PVOID  pv)
+{
+   UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
 EngGetPrinterDriver(
    IN HANDLE Printer,
    IN LPWSTR Environment,
@@ -678,7 +952,7 @@ EngGetPrinterDriver(
 /*
  * @unimplemented
  */
-ULONG APIENTRY
+ULONG STDCALL
 EngHangNotification(
    IN HDEV Dev,
    IN PVOID Reserved)
@@ -690,7 +964,18 @@ EngHangNotification(
 /*
  * @unimplemented
  */
-BOOL APIENTRY
+PDD_SURFACE_LOCAL STDCALL
+EngLockDirectDrawSurface(
+   IN HANDLE Surface)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
 EngLpkInstalled()
 {
    UNIMPLEMENTED;
@@ -700,7 +985,20 @@ EngLpkInstalled()
 /*
  * @unimplemented
  */
-BOOL APIENTRY
+PVOID STDCALL
+EngMapFile(
+   IN LPWSTR Filename,
+   IN ULONG Size,
+   OUT ULONG_PTR *File)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
 EngPlgBlt(
    IN SURFOBJ *Dest,
    IN SURFOBJ *Source,
@@ -721,7 +1019,7 @@ EngPlgBlt(
 /*
  * @unimplemented
  */
-BOOL APIENTRY
+BOOL STDCALL
 EngQueryDeviceAttribute(
    IN HDEV Device,
    IN ENG_DEVICE_ATTRIBUTE Attribute,
@@ -737,20 +1035,59 @@ EngQueryDeviceAttribute(
 /*
  * @unimplemented
  */
-LARGE_INTEGER
-APIENTRY
-EngQueryFileTimeStamp(IN LPWSTR FileName)
+LONG STDCALL
+EngReadStateEvent(
+   IN PEVENT Event)
 {
-   LARGE_INTEGER FileTime;
-   FileTime.QuadPart = 0;
    UNIMPLEMENTED;
-   return FileTime;
+   return 0;
+}
+BOOL STDCALL
+EngStretchBltROP(
+   IN SURFOBJ *Dest,
+   IN SURFOBJ *Source,
+   IN SURFOBJ *Mask,
+   IN CLIPOBJ *Clip,
+   IN XLATEOBJ *Xlate,
+   IN COLORADJUSTMENT *ColorAdjustment,
+   IN POINTL *BrushOrigin,
+   IN RECTL *DestRect,
+   IN RECTL *SourceRect,
+   IN POINTL *MaskPoint,
+   IN ULONG Mode,
+   IN BRUSHOBJ *BrushObj,
+   IN DWORD ROP4)
+{
+   UNIMPLEMENTED;
+   return FALSE;
 }
 
 /*
  * @unimplemented
  */
-FD_GLYPHSET * APIENTRY
+BOOL STDCALL
+EngUnlockDirectDrawSurface(
+   IN PDD_SURFACE_LOCAL Surface)
+{
+   UNIMPLEMENTED;
+   return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+EngUnmapFile(
+   IN ULONG_PTR File)
+{
+   UNIMPLEMENTED;
+   return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+FD_GLYPHSET * STDCALL
 FONTOBJ_pfdg(
    IN FONTOBJ *FontObj)
 {
@@ -761,7 +1098,7 @@ FONTOBJ_pfdg(
 /*
  * @unimplemented
  */
-PBYTE APIENTRY
+PBYTE STDCALL
 FONTOBJ_pjOpenTypeTablePointer(
    IN FONTOBJ *FontObj,
    IN ULONG Tag,
@@ -774,7 +1111,7 @@ FONTOBJ_pjOpenTypeTablePointer(
 /*
  * @unimplemented
  */
-PFD_GLYPHATTR APIENTRY
+PFD_GLYPHATTR STDCALL
 FONTOBJ_pQueryGlyphAttrs(
    IN FONTOBJ *FontObj,
    IN ULONG Mode)
@@ -786,7 +1123,7 @@ FONTOBJ_pQueryGlyphAttrs(
 /*
  * @unimplemented
  */
-LPWSTR APIENTRY
+LPWSTR STDCALL
 FONTOBJ_pwszFontFilePaths(
    IN FONTOBJ *FontObj,
    OUT ULONG *PathLength)
@@ -798,7 +1135,7 @@ FONTOBJ_pwszFontFilePaths(
 /*
  * @unimplemented
  */
-LONG APIENTRY
+LONG STDCALL
 HT_Get8BPPMaskPalette(
    IN OUT LPPALETTEENTRY PaletteEntry,
    IN BOOL Use8BPPMaskPal,
@@ -814,8 +1151,70 @@ HT_Get8BPPMaskPalette(
 /*
  * @unimplemented
  */
+BOOL STDCALL
+STROBJ_bEnumPositionsOnly(
+   IN STROBJ *StringObj,
+   OUT ULONG *Count,
+   OUT PGLYPHPOS *Pos)
+{
+   UNIMPLEMENTED;
+   return (BOOL) DDI_ERROR;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+STROBJ_bGetAdvanceWidths(
+   IN STROBJ *StringObj,
+   IN ULONG First,
+   IN ULONG Count,
+   OUT POINTQF *Widths)
+{
+   UNIMPLEMENTED;
+   return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+FIX STDCALL
+STROBJ_fxBreakExtra(
+   IN STROBJ *StringObj)
+{
+   UNIMPLEMENTED;
+   return (FIX) 0;
+}
+
+/*
+ * @unimplemented
+ */
+FIX STDCALL
+STROBJ_fxCharacterExtra(
+   IN STROBJ *StringObj)
+{
+   UNIMPLEMENTED;
+   return (FIX) 0;
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE STDCALL
+XLATEOBJ_hGetColorTransform(
+   IN XLATEOBJ *XlateObj)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+
+/*
+ * @unimplemented
+ */
+
 BOOL
-APIENTRY
+STDCALL
 NtGdiAnyLinkedFonts()
 {
    UNIMPLEMENTED;
@@ -825,9 +1224,103 @@ NtGdiAnyLinkedFonts()
 /*
  * @unimplemented
  */
-BOOL
-APIENTRY
+HANDLE STDCALL
+NtGdiBRUSHOBJ_hGetColorTransform(
+   IN BRUSHOBJ *Brush)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID STDCALL
+NtGdiBRUSHOBJ_pvAllocRbrush(IN BRUSHOBJ *BrushObj,
+                            IN ULONG ObjSize)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID STDCALL
+NtGdiBRUSHOBJ_pvGetRbrush(IN BRUSHOBJ *BrushObj)
+{
+   UNIMPLEMENTED;
+   return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG STDCALL
+NtGdiBRUSHOBJ_ulGetBrushColor(BRUSHOBJ *pbo)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiCLIPOBJ_bEnum( IN CLIPOBJ *ClipObj,
+                    IN ULONG ObjSize,
+                    OUT ULONG *EnumRects)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+ULONG STDCALL
+NtGdiCLIPOBJ_cEnumStart(IN CLIPOBJ *ClipObj,
+                        IN BOOL ShouldDoAll,
+                        IN ULONG ClipType,
+                        IN ULONG BuildOrder,
+                        IN ULONG MaxRects)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+PATHOBJ* STDCALL
+NtGdiCLIPOBJ_ppoGetPath(CLIPOBJ *ClipObj)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL 
+STDCALL
 NtGdiEnableEudc(BOOL enable)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngAssociateSurface(IN HSURF Surface,
+                         IN HDEV Dev,
+                         IN ULONG Hooks)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -836,8 +1329,402 @@ NtGdiEnableEudc(BOOL enable)
 /*
  * @unimplemented
  */
+CLIPOBJ* STDCALL
+NtGdiEngCreateClip(VOID)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+NtGdiEngDeleteClip(CLIPOBJ *ClipRegion)
+{
+    UNIMPLEMENTED;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngCheckAbort(SURFOBJ *pso)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+HSURF STDCALL
+NtGdiEngCreateDeviceSurface( IN DHSURF Surface,
+                             IN SIZEL Size,
+                             IN ULONG FormatVersion)
+{
+     UNIMPLEMENTED;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+HBITMAP STDCALL
+NtGdiEngCreateDeviceBitmap(
+    IN DHSURF dhsurf,
+    IN SIZEL sizl,
+    IN ULONG iFormatCompat)
+{
+     UNIMPLEMENTED;
+    return NULL;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngCopyBits(SURFOBJ *Dest,
+	    SURFOBJ *Source,
+	    CLIPOBJ *Clip,
+	    XLATEOBJ *ColorTranslation,
+	    RECTL *DestRect,
+	    POINTL *SourcePoint)
+{
+     UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+HBITMAP STDCALL
+NtGdiEngCreateBitmap(IN SIZEL Size,
+		IN LONG Width,
+		IN ULONG Format,
+		IN ULONG Flags,
+		IN PVOID Bits)
+{
+     UNIMPLEMENTED;
+    return NULL;
+}
+
+
+/*
+ * @unimplemented
+ */
+HPALETTE STDCALL
+NtGdiEngCreatePalette(IN ULONG Mode,
+		 IN ULONG NumColors,
+		 IN ULONG *Colors,
+		 IN ULONG Red,
+		 IN ULONG Green,
+		 IN ULONG Blue)
+{
+     UNIMPLEMENTED;
+    return NULL;
+}
+
+BOOL STDCALL
+NtGdiEngTransparentBlt(IN SURFOBJ *Dest,
+		  IN SURFOBJ *Source,
+		  IN CLIPOBJ *Clip,
+		  IN XLATEOBJ *ColorTranslation,
+		  IN PRECTL DestRect,
+		  IN PRECTL SourceRect,
+		  IN ULONG TransparentColor,
+		  IN ULONG Reserved)
+{
+     UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+NtGdiEngTextOut(SURFOBJ *pso,
+                STROBJ *pstro,
+                FONTOBJ *pfo,
+                CLIPOBJ *pco,
+                RECTL *prclExtra,
+                RECTL *prclOpaque,
+                BRUSHOBJ *pboFore,
+                BRUSHOBJ *pboOpaque,
+                POINTL *pptlOrg,
+                MIX mix)
+{
+     UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngStrokePath(SURFOBJ *pso,
+                   PATHOBJ *ppo,
+                   CLIPOBJ *pco,
+                   XFORMOBJ *pxo,
+                   BRUSHOBJ *pbo,
+                   POINTL *pptlBrushOrg,
+                   LINEATTRS *plineattrs,
+                   MIX mix)
+{
+     UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngDeletePalette(IN HPALETTE Palette)
+{
+     UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+NtGdiEngStrokeAndFillPath(SURFOBJ *pso,
+                          PATHOBJ *ppo,
+                          CLIPOBJ *pco,
+                          XFORMOBJ *pxo,
+                          BRUSHOBJ *pboStroke,
+                          LINEATTRS *plineattrs,
+                          BRUSHOBJ *pboFill,
+                          POINTL *pptlBrushOrg,
+                          MIX mixFill,
+                          FLONG flOptions)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID STDCALL
+NtGdiEngDeletePath(PATHOBJ *ppo)
+{
+    UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngDeleteSurface(IN HSURF Surface)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngEraseSurface(SURFOBJ *Surface,
+                     RECTL *Rect,
+                     ULONG iColor)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+
+
+
+
+
+
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngFillPath(SURFOBJ *pso,
+                 PATHOBJ *ppo,
+                 CLIPOBJ *pco,
+                 BRUSHOBJ *pbo,
+                 POINTL *pptlBrushOrg,
+                 MIX mix,
+                 FLONG flOptions)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+BOOL STDCALL 
+NtGdiEngGradientFill(SURFOBJ *psoDest,
+                     CLIPOBJ *pco,
+                     XLATEOBJ *pxlo,
+                     TRIVERTEX *pVertex,
+                     ULONG nVertex,
+                     PVOID pMesh,
+                     ULONG nMesh,
+                     RECTL *prclExtents,
+                     POINTL *pptlDitherOrg,
+                     ULONG ulMode)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+BOOL STDCALL
+NtGdiEngLineTo(SURFOBJ *Surface,
+	  CLIPOBJ *Clip,
+	  BRUSHOBJ *Brush,
+	  LONG x1,
+	  LONG y1,
+	  LONG x2,
+	  LONG y2,
+	  RECTL *RectBounds,
+	  MIX mix)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+NtGdiEngMarkBandingSurface(HSURF hsurf)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL
+NtGdiEngPaint(IN SURFOBJ *Surface,
+	 IN CLIPOBJ *ClipRegion,
+	 IN BRUSHOBJ *Brush,
+	 IN POINTL *BrushOrigin,
+	 IN MIX  Mix)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+NtGdiEngPlgBlt(SURFOBJ *psoTrg,
+               SURFOBJ *psoSrc,
+               SURFOBJ *psoMsk,
+               CLIPOBJ *pco,
+               XLATEOBJ *pxlo,
+               COLORADJUSTMENT *pca,
+               POINTL *pptlBrushOrg,
+               POINTFIX *pptfx,
+               RECTL *prcl,
+               POINTL *pptl,
+               ULONG iMode)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL STDCALL 
+NtGdiEngStretchBltROP(SURFOBJ *psoDest,
+                      SURFOBJ *psoSrc,
+                      SURFOBJ *psoMask,
+                      CLIPOBJ *pco,
+                      XLATEOBJ *pxlo,
+                      COLORADJUSTMENT *pca,
+                      POINTL *pptlHTOrg,
+                      RECTL *prclDest,
+                      RECTL *prclSrc,
+                      POINTL *pptlMask,
+                      ULONG iMode,
+                      BRUSHOBJ *pbo,
+                      DWORD rop4)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+FD_GLYPHSET* STDCALL
+NtGdiEngComputeGlyphSet( INT nCodePage,
+                         INT nFirstChar,
+                         INT cChars)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+NtGdiFONTOBJ_cGetAllGlyphHandles(IN FONTOBJ *FontObj,
+                            IN HGLYPH  *Glyphs)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+NtGdiFONTOBJ_cGetGlyphs(IN FONTOBJ *FontObj,
+                        IN ULONG    Mode,
+                        IN ULONG    NumGlyphs,
+                        IN HGLYPH  *GlyphHandles,
+                        IN PVOID   *OutGlyphs)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+
+/*
+ * @unimplemented
+ */
+INT
+STDCALL
+NtGdiAddFontResourceW(
+    IN WCHAR *pwszFiles,
+    IN ULONG cwc,
+    IN ULONG cFiles,
+    IN FLONG f,
+    IN DWORD dwPidTid,
+    IN OPTIONAL DESIGNVECTOR *pdv)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
 NtGdiAddRemoteFontToDC(
     IN HDC hdc,
     IN PVOID pvBuffer,
@@ -852,7 +1739,7 @@ NtGdiAddRemoteFontToDC(
  * @unimplemented
  */
 HANDLE
-APIENTRY
+STDCALL
 NtGdiAddFontMemResourceEx(
     IN PVOID pvBuffer,
     IN DWORD cjBuffer,
@@ -865,11 +1752,12 @@ NtGdiAddFontMemResourceEx(
     return NULL;
 }
 
+
 /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiRemoveMergeFont(
     IN HDC hdc,
     IN UNIVERSAL_FONT_ID *pufi)
@@ -882,7 +1770,6 @@ NtGdiRemoveMergeFont(
  * @unimplemented
  */
 BOOL
-APIENTRY
 NtGdiAddRemoteMMInstanceToDC(
     IN HDC hdc,
     IN DOWNLOADDESIGNVECTOR *pddv,
@@ -892,11 +1779,12 @@ NtGdiAddRemoteMMInstanceToDC(
     return FALSE;
 }
 
+
 /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiFontIsLinked(IN HDC hdc)
 {
     UNIMPLEMENTED;
@@ -907,7 +1795,7 @@ NtGdiFontIsLinked(IN HDC hdc)
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiCheckBitmapBits(
     IN HDC hdc,
     IN HANDLE hColorTransform,
@@ -925,8 +1813,63 @@ NtGdiCheckBitmapBits(
  /*
  * @unimplemented
  */
+HANDLE
+STDCALL
+NtGdiCreateServerMetaFile(
+    IN DWORD iType,
+    IN ULONG cjData,
+    IN LPBYTE pjData,
+    IN DWORD mm,
+    IN DWORD xExt,
+    IN DWORD yExt)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+
+ /*
+ * @unimplemented
+ */
+
+HDC
+STDCALL
+NtGdiCreateMetafileDC(IN HDC hdc)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+
+ /*
+ * @unimplemented
+ */
+
 HBITMAP
-APIENTRY
+STDCALL
+NtGdiCreateDIBitmapInternal(
+    IN HDC hdc,
+    IN INT cx,
+    IN INT cy,
+    IN DWORD fInit,
+    IN OPTIONAL LPBYTE pjInit,
+    IN OPTIONAL LPBITMAPINFO pbmi,
+    IN DWORD iUsage,
+    IN UINT cjMaxInitInfo,
+    IN UINT cjMaxBits,
+    IN FLONG f,
+    IN HANDLE hcmXform)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+
+ /*
+ * @unimplemented
+ */
+HBITMAP
+STDCALL
 NtGdiClearBitmapAttributes(
     IN HBITMAP hbm,
     IN DWORD dwFlags)
@@ -935,11 +1878,12 @@ NtGdiClearBitmapAttributes(
     return NULL;
 }
 
+
  /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiGetUFI(
     IN  HDC hdc,
     OUT PUNIVERSAL_FONT_ID pufi,
@@ -955,8 +1899,164 @@ NtGdiGetUFI(
  /*
  * @unimplemented
  */
+PFD_GLYPHATTR
+STDCALL
+NtGdiFONTOBJ_pQueryGlyphAttrs(
+    IN FONTOBJ *pfo,
+    IN ULONG iMode)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+IFIMETRICS*
+STDCALL
+NtGdiFONTOBJ_pifi(
+    IN FONTOBJ *pfo)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+FD_GLYPHSET*
+STDCALL
+NtGdiFONTOBJ_pfdg(IN FONTOBJ *pfo)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+PVOID
+STDCALL 
+NtGdiFONTOBJ_pvTrueTypeFontFile(
+    IN FONTOBJ *pfo,
+    OUT ULONG *pcjFile
+)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+VOID
+STDCALL
+NtGdiFONTOBJ_vGetInfo(
+    IN FONTOBJ *pfo,
+    IN ULONG cjSize,
+    OUT FONTINFO *pfi)
+{
+    UNIMPLEMENTED;
+}
+
+ /*
+ * @unimplemented
+ */
+XFORMOBJ*
+STDCALL
+NtGdiFONTOBJ_pxoGetXform(IN FONTOBJ *pfo)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpCanCreateVideoPort(
+    IN HANDLE hDirectDraw,
+    IN OUT PDD_CANCREATEVPORTDATA puCanCreateVPortData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpColorControl(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_VPORTCOLORDATA puVPortColorData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+NtGdiDvpCreateVideoPort(
+    IN HANDLE hDirectDraw,
+    IN OUT PDD_CREATEVPORTDATA puCreateVPortData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpDestroyVideoPort(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_DESTROYVPORTDATA puDestroyVPortData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpFlipVideoPort(
+    IN HANDLE hVideoPort,
+    IN HANDLE hDDSurfaceCurrent,
+    IN HANDLE hDDSurfaceTarget,
+    IN OUT PDD_FLIPVPORTDATA puFlipVPortData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoPortBandwidth(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_GETVPORTBANDWIDTHDATA puGetVPortBandwidthData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
 HBRUSH
-APIENTRY
+STDCALL
 NtGdiClearBrushAttributes(
     IN HBRUSH hbm,
     IN DWORD dwFlags)
@@ -969,7 +2069,7 @@ NtGdiClearBrushAttributes(
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 NtGdiColorCorrectPalette(
     IN HDC hdc,
     IN HPALETTE hpal,
@@ -986,7 +2086,7 @@ NtGdiColorCorrectPalette(
  * @unimplemented
  */
 HANDLE
-APIENTRY
+STDCALL
 NtGdiCreateColorTransform(
     IN HDC hdc,
     IN LPLOGCOLORSPACEW pLogColorSpaceW,
@@ -1005,18 +2105,19 @@ NtGdiCreateColorTransform(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiComputeXformCoefficients(IN HDC hdc)
 {
     UNIMPLEMENTED;
     return FALSE;
 }
 
+
  /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiConsoleTextOut(
     IN HDC hdc,
     IN POLYTEXTW *lpto,
@@ -1030,8 +2131,185 @@ NtGdiConsoleTextOut(
  /*
  * @unimplemented
  */
+LONG
+STDCALL
+NtGdiConvertMetafileRect(
+    IN HDC hdc,
+    IN OUT PRECTL prect)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoPortFlipStatus(
+    IN HANDLE hDirectDraw,
+    IN OUT PDD_GETVPORTFLIPSTATUSDATA puGetVPortFlipStatusData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoPortInputFormats(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_GETVPORTINPUTFORMATDATA puGetVPortInputFormatData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoPortLine(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_GETVPORTLINEDATA puGetVPortLineData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoPortOutputFormats(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_GETVPORTOUTPUTFORMATDATA puGetVPortOutputFormatData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoPortConnectInfo(
+    IN HANDLE hDirectDraw,
+    IN OUT PDD_GETVPORTCONNECTDATA puGetVPortConnectData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpGetVideoSignalStatus(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_GETVPORTSIGNALDATA puGetVPortSignalData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpUpdateVideoPort(
+    IN HANDLE hVideoPort,
+    IN HANDLE* phSurfaceVideo,
+    IN HANDLE* phSurfaceVbi,
+    IN OUT PDD_UPDATEVPORTDATA puUpdateVPortData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpWaitForVideoPortSync(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_WAITFORVPORTSYNCDATA puWaitForVPortSyncData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpAcquireNotification(
+    IN HANDLE hVideoPort,
+    IN OUT HANDLE* hEvent,
+    IN LPDDVIDEOPORTNOTIFY pNotify)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDvpReleaseNotification(
+    IN HANDLE hVideoPort,
+    IN HANDLE hEvent)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiDxgGenericThunk(
+    IN ULONG_PTR ulIndex,
+    IN ULONG_PTR ulHandle,
+    IN OUT SIZE_T *pdwSizeOfPtr1,
+    IN OUT  PVOID pvPtr1,
+    IN OUT SIZE_T *pdwSizeOfPtr2,
+    IN OUT  PVOID pvPtr2)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
 NtGdiDeleteColorTransform(
     IN HDC hdc,
     IN HANDLE hColorTransform)
@@ -1044,7 +2322,7 @@ NtGdiDeleteColorTransform(
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 NtGdiGetPerBandInfo(
     IN HDC hdc,
     IN OUT PERBANDINFO *ppbi)
@@ -1057,7 +2335,7 @@ NtGdiGetPerBandInfo(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiDoBanding(
     IN HDC hdc,
     IN BOOL bStart,
@@ -1068,11 +2346,12 @@ NtGdiDoBanding(
     return FALSE;
 }
 
+
  /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiEnumFontChunk(
     IN HDC hdc,
     IN ULONG_PTR idEnum,
@@ -1088,7 +2367,7 @@ NtGdiEnumFontChunk(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiEnumFontClose(
     IN ULONG_PTR idEnum)
 {
@@ -1100,7 +2379,7 @@ NtGdiEnumFontClose(
  * @unimplemented
  */
 ULONG_PTR
-APIENTRY
+STDCALL
 NtGdiEnumFontOpen(
     IN HDC hdc,
     IN ULONG iEnumType,
@@ -1118,7 +2397,7 @@ NtGdiEnumFontOpen(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL 
 NtGdiEudcLoadUnloadLink(
     IN OPTIONAL LPCWSTR pBaseFaceName,
     IN UINT cwcBaseFaceName,
@@ -1132,11 +2411,33 @@ NtGdiEudcLoadUnloadLink(
     return FALSE;
 }
 
+
  /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
+NtGdiExtTextOutW(
+    IN HDC hdc,
+    IN INT x,
+    IN INT y,
+    IN UINT flOpts,
+    IN OPTIONAL LPRECT prcl,
+    IN LPWSTR pwsz,
+    IN INT cwc,
+    IN OPTIONAL LPINT pdx,
+    IN DWORD dwCodePage)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiForceUFIMapping(
     IN HDC hdc,
     IN PUNIVERSAL_FONT_ID pufi)
@@ -1149,7 +2450,7 @@ NtGdiForceUFIMapping(
  * @unimplemented
  */
 NTSTATUS
-APIENTRY
+STDCALL
 NtGdiFullscreenControl(
     IN FULLSCREENCONTROL FullscreenCommand,
     IN PVOID FullscreenInput,
@@ -1164,8 +2465,72 @@ NtGdiFullscreenControl(
  /*
  * @unimplemented
  */
+INT
+STDCALL
+NtGdiGetAppClipBox(
+    IN HDC hdc,
+    OUT LPRECT prc)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
+NtGdiGetCharABCWidthsW(
+    IN HDC hdc,
+    IN UINT wchFirst,
+    IN ULONG cwch,
+    IN OPTIONAL PWCHAR pwch,
+    IN FLONG fl,
+    OUT PVOID pvBuf)
+ {
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiGetCharacterPlacementW(
+    IN HDC hdc,
+    IN LPWSTR pwsz,
+    IN INT nCount,
+    IN INT nMaxExtent,
+    IN OUT LPGCP_RESULTSW pgcpw,
+    IN DWORD dwFlags)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiGetCharWidthW(
+    IN HDC hdc,
+    IN UINT wcFirst,
+    IN UINT cwc,
+    IN OPTIONAL PWCHAR pwc,
+    IN FLONG fl,
+    OUT PVOID pvBuf)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiGetCharWidthInfo(
     IN HDC hdc,
     OUT PCHWIDTHINFO pChWidthInfo)
@@ -1178,7 +2543,7 @@ NtGdiGetCharWidthInfo(
  * @unimplemented
  */
 ULONG_PTR
-APIENTRY
+STDCALL
 NtGdiGetColorSpaceforBitmap(
     IN HBITMAP hsurf)
 {
@@ -1189,8 +2554,34 @@ NtGdiGetColorSpaceforBitmap(
  /*
  * @unimplemented
  */
+HDC
+STDCALL
+NtGdiGetDCforBitmap(
+    IN HBITMAP hsurf)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+
+ /*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
+NtGdiGetDeviceCapsAll (
+    IN HDC hdc,
+    OUT PDEVCAPS pDevCaps)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiGetETM(
     IN HDC hdc,
     OUT EXTTEXTMETRIC *petm)
@@ -1203,7 +2594,7 @@ NtGdiGetETM(
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 NtGdiGetEudcTimeStampEx(
     IN OPTIONAL LPWSTR lpBaseFaceName,
     IN ULONG cwcBaseFaceName,
@@ -1216,19 +2607,34 @@ NtGdiGetEudcTimeStampEx(
  /*
  * @unimplemented
  */
+ DWORD
+STDCALL
+NtGdiDvpGetVideoPortField(
+    IN HANDLE hVideoPort,
+    IN OUT PDD_GETVPORTFIELDDATA puGetVPortFieldData)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
 NtGdiInitSpool()
 {
     UNIMPLEMENTED;
     return FALSE;
 }
 
+
  /*
  * @unimplemented
  */
 INT
-APIENTRY
+STDCALL
 NtGdiQueryFonts( OUT PUNIVERSAL_FONT_ID pufiFontList,
                  IN ULONG nBufferSize,
                  OUT PLARGE_INTEGER pTimeStamp)
@@ -1241,13 +2647,30 @@ NtGdiQueryFonts( OUT PUNIVERSAL_FONT_ID pufiFontList,
  * @unimplemented
  */
 INT
-APIENTRY
-NtGdiGetSpoolMessage( DWORD u1,
-                      DWORD u2,
-                      DWORD u3,
+STDCALL
+NtGdiGetSpoolMessage( DWORD u1, 
+                      DWORD u2, 
+                      DWORD u3, 
                       DWORD u4)
 {
     /* FIXME the prototypes */
+    UNIMPLEMENTED;
+    return 0;
+}
+
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiGetGlyphIndicesW(
+    IN HDC hdc,
+    IN OPTIONAL LPWSTR pwc,
+    IN INT cwc,
+    OUT OPTIONAL LPWORD pgi,
+    IN DWORD iMode)
+{
     UNIMPLEMENTED;
     return 0;
 }
@@ -1256,7 +2679,7 @@ NtGdiGetSpoolMessage( DWORD u1,
  * @unimplemented
  */
 DWORD
-APIENTRY
+STDCALL
 NtGdiGetGlyphIndicesWInternal(
     IN HDC hdc,
     IN OPTIONAL LPWSTR pwc,
@@ -1273,7 +2696,7 @@ NtGdiGetGlyphIndicesWInternal(
  * @unimplemented
  */
 INT
-APIENTRY
+STDCALL
 NtGdiGetLinkedUFIs(
     IN HDC hdc,
     OUT OPTIONAL PUNIVERSAL_FONT_ID pufiLinkedUFIs,
@@ -1283,11 +2706,12 @@ NtGdiGetLinkedUFIs(
     return 0;
 }
 
+
  /*
  * @unimplemented
  */
 HBITMAP
-APIENTRY
+STDCALL
 NtGdiGetObjectBitmapHandle(
     IN HBRUSH hbr,
     OUT UINT *piUsage)
@@ -1300,7 +2724,7 @@ NtGdiGetObjectBitmapHandle(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiGetMonitorID(
     IN  HDC hdc,
     IN  DWORD dwSize,
@@ -1313,12 +2737,63 @@ NtGdiGetMonitorID(
  /*
  * @unimplemented
  */
+BOOL 
+NtGdiGetRealizationInfo(
+    IN HDC hdc,
+    OUT PREALIZATION_INFO pri,
+    IN HFONT hf)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
 NtGdiDrawStream(
     IN HDC hdcDst,
     IN ULONG cjIn,
     IN VOID *pvIn)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+
+ /*
+ * @unimplemented
+ */
+BOOL
+NtGdiUMPDEngFreeUserMem(
+    IN KERNEL_PVOID *ppv)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+NtGdiBRUSHOBJ_DeleteRbrush(
+    IN BRUSHOBJ *pbo,
+    IN BRUSHOBJ *pboB)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+NtGdiSetPUMPDOBJ(
+    IN HUMPD humpd,
+    IN BOOL bStoreID,
+    OUT HUMPD *phumpd,
+    OUT BOOL *pbWOW64)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -1337,8 +2812,40 @@ NtGdiUpdateTransform(IN HDC hdc)
  /*
  * @unimplemented
  */
+LONG
+STDCALL
+NtGdiHT_Get8BPPMaskPalette(
+    OUT OPTIONAL LPPALETTEENTRY pPaletteEntry,
+    IN BOOL Use8BPPMaskPal,
+    IN BYTE CMYMask,
+    IN USHORT RedGamma,
+    IN USHORT GreenGamma,
+    IN USHORT BlueGamma)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+LONG
+STDCALL
+NtGdiHT_Get8BPPFormatPalette(
+    OUT OPTIONAL LPPALETTEENTRY pPaletteEntry,
+    IN USHORT RedGamma,
+    IN USHORT GreenGamma,
+    IN USHORT BlueGamma)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
 ULONG
-APIENTRY
+STDCALL
 NtGdiQueryFontAssocInfo(
     IN HDC hdc)
 {
@@ -1349,8 +2856,20 @@ NtGdiQueryFontAssocInfo(
  /*
  * @unimplemented
  */
+DWORD 
+NtGdiGetFontUnicodeRanges(
+    IN HDC hdc,
+    OUT OPTIONAL LPGLYPHSET pgs)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
 UINT
-APIENTRY
+STDCALL  
 NtGdiGetStringBitmapW(
     IN HDC hdc,
     IN LPWSTR pwsz,
@@ -1366,18 +2885,87 @@ NtGdiGetStringBitmapW(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
+NtGdiPATHOBJ_bEnum(
+    IN PATHOBJ *ppo,
+    OUT PATHDATA *ppd)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiPATHOBJ_bEnumClipLines(
+    IN PATHOBJ *ppo,
+    IN ULONG cb,
+    OUT CLIPLINE *pcl)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+VOID
+STDCALL
+NtGdiPATHOBJ_vGetBounds(
+    IN PATHOBJ *ppo,
+    OUT PRECTFX prectfx)
+{
+    UNIMPLEMENTED;
+}
+
+
+
+ /*
+ * @unimplemented
+ */
+VOID
+STDCALL
+NtGdiPATHOBJ_vEnumStart(
+    IN PATHOBJ *ppo)
+{
+    UNIMPLEMENTED;
+}
+
+ /*
+ * @unimplemented
+ */
+VOID
+STDCALL
+NtGdiPATHOBJ_vEnumStartClipLines(
+    IN PATHOBJ *ppo,
+    IN CLIPOBJ *pco,
+    IN SURFOBJ *pso,
+    IN LINEATTRS *pla)
+{
+    UNIMPLEMENTED;
+}
+
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiRemoveFontMemResourceEx(
     IN HANDLE hMMFont)
 {
     UNIMPLEMENTED;
     return FALSE;
 }
+
+
  /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiRemoveFontResourceW(
     IN WCHAR *pwszFiles,
     IN ULONG cwc,
@@ -1394,7 +2982,7 @@ NtGdiRemoveFontResourceW(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiPolyTextOutW(
     IN HDC hdc,
     IN POLYTEXTW *pptw,
@@ -1408,8 +2996,26 @@ NtGdiPolyTextOutW(
  /*
  * @unimplemented
  */
+ULONG
+STDCALL
+NtGdiGetServerMetaFileBits(
+    IN HANDLE hmo,
+    IN ULONG cjData,
+    OUT OPTIONAL LPBYTE pjData,
+    OUT PDWORD piType,
+    OUT PDWORD pmm,
+    OUT PDWORD pxExt,
+    OUT PDWORD pyExt)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
 NTSTATUS
-APIENTRY
+STDCALL
 NtGdiGetStats(
     IN HANDLE hProcess,
     IN INT iIndex,
@@ -1421,11 +3027,111 @@ NtGdiGetStats(
     return STATUS_NOT_IMPLEMENTED;
 }
 
-/*
+
+ /*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+NtGdiXLATEOBJ_cGetPalette(
+    IN XLATEOBJ *pxlo,
+    IN ULONG iPal,
+    IN ULONG cPal,
+    OUT ULONG *pPal)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+NtGdiXLATEOBJ_iXlate(
+    IN XLATEOBJ *pxlo,
+    IN ULONG iColor)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+HANDLE
+STDCALL
+NtGdiXLATEOBJ_hGetColorTransform(
+    IN XLATEOBJ *pxlo)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiXFORMOBJ_bApplyXform(
+    IN XFORMOBJ *pxo,
+    IN ULONG iMode,
+    IN ULONG cPoints,
+    IN  PVOID pvIn,
+    OUT PVOID pvOut)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+ULONG
+STDCALL
+NtGdiXFORMOBJ_iGetXform(
+    IN XFORMOBJ *pxo,
+    OUT OPTIONAL XFORML *pxform)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiSetSizeDevice(
+    IN HDC hdc,
+    IN INT cxVirtualDevice,
+    IN INT cyVirtualDevice)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiSetVirtualResolution(
+    IN HDC hdc,
+    IN INT cxVirtualDevicePixel,
+    IN INT cyVirtualDevicePixel,
+    IN INT cxVirtualDeviceMm,
+    IN INT cyVirtualDeviceMm)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
  * @unimplemented
  */
 INT
-APIENTRY
+STDCALL
 NtGdiSetupPublicCFONT(
     IN HDC hdc,
     IN OPTIONAL HFONT hf,
@@ -1439,7 +3145,7 @@ NtGdiSetupPublicCFONT(
  * @unimplemented
  */
 HBRUSH
-APIENTRY
+STDCALL
 NtGdiSetBrushAttributes(
     IN HBRUSH hbm,
     IN DWORD dwFlags)
@@ -1452,7 +3158,84 @@ NtGdiSetBrushAttributes(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
+NtGdiSTROBJ_bEnum(
+    IN STROBJ *pstro,
+    OUT ULONG *pc,
+    OUT PGLYPHPOS *ppgpos)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiSTROBJ_bEnumPositionsOnly(
+    IN STROBJ *pstro,
+    OUT ULONG *pc,
+    OUT PGLYPHPOS *ppgpos)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
+NtGdiSTROBJ_bGetAdvanceWidths(
+    IN STROBJ*pstro,
+    IN ULONG iFirst,
+    IN ULONG c,
+    OUT POINTQF*pptqD)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+VOID
+STDCALL
+NtGdiSTROBJ_vEnumStart(
+    IN STROBJ *pstro)
+{
+    UNIMPLEMENTED;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiSTROBJ_dwGetCodePage(
+    IN STROBJ *pstro)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+DHPDEV
+NtGdiGetDhpdev(
+    IN HDEV hdev)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiGetEmbUFI(
     IN HDC hdc,
     OUT PUNIVERSAL_FONT_ID pufi,
@@ -1470,7 +3253,7 @@ NtGdiGetEmbUFI(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiGetUFIPathname(
     IN PUNIVERSAL_FONT_ID pufi,
     OUT OPTIONAL ULONG* pcwc,
@@ -1491,7 +3274,7 @@ NtGdiGetUFIPathname(
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL 
 NtGdiGetEmbedFonts(
     VOID)
 {
@@ -1503,7 +3286,7 @@ NtGdiGetEmbedFonts(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL 
 NtGdiChangeGhostFont(
     IN KERNEL_PVOID *pfontID,
     IN BOOL bLoad)
@@ -1516,7 +3299,7 @@ NtGdiChangeGhostFont(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL 
 NtGdiAddEmbFontToDC(
     IN HDC hdc,
     IN VOID **pFontID)
@@ -1529,7 +3312,7 @@ NtGdiAddEmbFontToDC(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiGetWidthTable(
     IN HDC hdc,
     IN ULONG cSpecial,
@@ -1543,11 +3326,12 @@ NtGdiGetWidthTable(
     return FALSE;
 }
 
+
  /*
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiIcmBrushInfo(
     IN HDC hdc,
     IN HBRUSH hbrush,
@@ -1563,20 +3347,21 @@ NtGdiIcmBrushInfo(
 }
 
  /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiInit()
 {
-    return TRUE;
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
  /*
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 NtGdiMakeFontDir(
     IN FLONG flEmbed,
     OUT PBYTE pjFontDir,
@@ -1592,7 +3377,20 @@ NtGdiMakeFontDir(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
+NtGdiMakeInfoDC(
+    IN HDC hdc,
+    IN BOOL bSet)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiMonoBitmap(
     IN HBITMAP hbm)
 {
@@ -1603,8 +3401,75 @@ NtGdiMonoBitmap(
  /*
  * @unimplemented
  */
+BOOL
+STDCALL
+NtGdiMoveTo(
+    IN HDC hdc,
+    IN INT x,
+    IN INT y,
+    OUT OPTIONAL LPPOINT pptOut)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
 HBITMAP
-APIENTRY
+STDCALL
+NtGdiSelectBitmap(
+    IN HDC hdc,
+    IN HBITMAP hbm)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+HBRUSH
+STDCALL
+NtGdiSelectBrush(
+    IN HDC hdc,
+    IN HBRUSH hbrush)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+HFONT
+STDCALL
+NtGdiSelectFont(
+    IN HDC hdc,
+    IN HFONT hf)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+HPEN
+STDCALL 
+NtGdiSelectPen(
+    IN HDC hdc,
+    IN HPEN hpen)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+ /*
+ * @unimplemented
+ */
+HBITMAP
+STDCALL
 NtGdiSetBitmapAttributes(
     IN HBITMAP hbm,
     IN DWORD dwFlags)
@@ -1617,7 +3482,7 @@ NtGdiSetBitmapAttributes(
  * @unimplemented
  */
 ULONG
-APIENTRY
+STDCALL
 NtGdiSetFontEnumeration(
     IN ULONG ulType)
 {
@@ -1629,7 +3494,7 @@ NtGdiSetFontEnumeration(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiSetFontXform(
     IN HDC hdc,
     IN DWORD dwxScale,
@@ -1643,7 +3508,7 @@ NtGdiSetFontXform(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiSetLinkedUFIs(
     IN HDC hdc,
     IN PUNIVERSAL_FONT_ID pufiLinks,
@@ -1657,7 +3522,7 @@ NtGdiSetLinkedUFIs(
  * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiSetMagicColors(
     IN HDC hdc,
     IN PALETTEENTRY peMagic,
@@ -1670,8 +3535,73 @@ NtGdiSetMagicColors(
  /*
  * @unimplemented
  */
+LONG
+STDCALL 
+NtGdiGetDeviceWidth(
+    IN HDC hdc)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
 BOOL
-APIENTRY
+STDCALL
+NtGdiMirrorWindowOrg(
+    IN HDC hdc)
+{
+    UNIMPLEMENTED;
+    return FALSE;
+}
+
+ /*
+ * @unimplemented
+ */
+DWORD
+STDCALL
+NtGdiSetLayout(
+    IN HDC hdc,
+    IN LONG wox,
+    IN DWORD dwLayout)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+INT
+STDCALL
+NtGdiStretchDIBitsInternal(
+    IN HDC hdc,
+    IN INT xDst,
+    IN INT yDst,
+    IN INT cxDst,
+    IN INT cyDst,
+    IN INT xSrc,
+    IN INT ySrc,
+    IN INT cxSrc,
+    IN INT cySrc,
+    IN OPTIONAL LPBYTE pjInit,
+    IN LPBITMAPINFO pbmi,
+    IN DWORD dwUsage,
+    IN DWORD dwRop4,
+    IN UINT cjMaxInfo,
+    IN UINT cjMaxBits,
+    IN HANDLE hcmXform)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+ /*
+ * @unimplemented
+ */
+BOOL
+STDCALL
 NtGdiUnloadPrinterDriver(
     IN LPWSTR pDriverName,
     IN ULONG cbDriverName)
@@ -1681,64 +3611,14 @@ NtGdiUnloadPrinterDriver(
 }
 
  /*
- * @implemented
+ * @unimplemented
  */
 BOOL
-APIENTRY
+STDCALL
 NtGdiUnmapMemFont(
     IN PVOID pvView)
-{
-    return TRUE;
-}
-
-BOOL
-APIENTRY
-EngControlSprites(
-  IN WNDOBJ  *pwo,
-  IN FLONG  fl)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-PVOID
-APIENTRY
-EngFntCacheAlloc(IN ULONG FastCheckSum,
-                 IN ULONG ulSize)
-{
-    UNIMPLEMENTED;
-    return NULL;
-}
-
-VOID
-APIENTRY
-EngFntCacheFault(IN ULONG ulFastCheckSum,
-                 IN ULONG iFaultMode)
-{
-    UNIMPLEMENTED;
-}
-
-PVOID
-APIENTRY
-EngFntCacheLookUp(IN ULONG FastCheckSum,
-                  OUT PULONG pulSize)
-{
-    UNIMPLEMENTED;
-    return NULL;
-}
-
-BOOLEAN
-APIENTRY
-EngNineGrid(IN SURFOBJ* pDestSurfaceObj,
-            IN SURFOBJ* pSourceSurfaceObj,
-            IN CLIPOBJ* pClipObj,
-            IN XLATEOBJ* pXlateObj,
-            IN RECTL* prclSource,
-            IN RECTL* prclDest,
-            PVOID pvUnknown1,
-            PVOID pvUnknown2,
-            DWORD dwReserved)
 {
     UNIMPLEMENTED;
     return FALSE;
 }
+

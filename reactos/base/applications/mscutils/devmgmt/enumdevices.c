@@ -87,7 +87,7 @@ OpenPropSheet(HWND hTreeView,
         DevicePropertiesExW(hTreeView,
                             NULL,
                             (LPTSTR)tvItem.lParam,
-                            DPF_EXTENDED,
+                            0,
                             FALSE);
     }
 
@@ -162,9 +162,7 @@ EnumDeviceClasses(INT ClassIndex,
         }
 
         if (Ret == CR_INVALID_DATA)
-        {
             ; /*FIXME: what should we do here? */
-        }
 
         /* handle other errors... */
     }

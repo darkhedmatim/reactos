@@ -28,7 +28,7 @@
  * 	      to possibly expand Data before giving it back; if set
  * 	      to NULL, no expansion will be performed.
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmLookupSubsystem (IN     PWSTR   Name,
 		   IN OUT PWSTR   Data,
 		   IN OUT PULONG  DataLength,
@@ -36,7 +36,7 @@ SmLookupSubsystem (IN     PWSTR   Name,
 		   IN     PVOID   Environment OPTIONAL)
 {
 	NTSTATUS           Status = STATUS_SUCCESS;
-	UNICODE_STRING     usKeyName = { 0, 0, NULL };
+	UNICODE_STRING     usKeyName = {0};
 	OBJECT_ATTRIBUTES  Oa = {0};
 	HANDLE             hKey = (HANDLE) 0;
 
@@ -62,7 +62,7 @@ SmLookupSubsystem (IN     PWSTR   Name,
 			      & Oa);
 	if(NT_SUCCESS(Status))
 	{
-		UNICODE_STRING usValueName = { 0, 0, NULL };
+		UNICODE_STRING usValueName = {0};
 		PWCHAR         KeyValueInformation = NULL;
 		ULONG          KeyValueInformationLength = 1024;
 		ULONG          ResultLength = 0L;
@@ -125,10 +125,10 @@ SmLookupSubsystem (IN     PWSTR   Name,
 						if(NT_SUCCESS(Status))
 						{
 							*DataLength = min(*DataLength, Destination.Length);
-							RtlCopyMemory (Data, Destination.Buffer, *DataLength);
+							RtlCopyMemory (Data, Destination.Buffer, *DataLength);				
 						}
 						RtlFreeHeap (RtlGetProcessHeap(), 0, DestinationBuffer);
-					}
+					}			
 				}else{
 					DPRINT("SM: %s: value won't be expanded\n", __FUNCTION__);
 					*DataLength = min(*DataLength, kvpi->DataLength);

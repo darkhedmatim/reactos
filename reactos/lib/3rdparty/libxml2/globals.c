@@ -44,7 +44,7 @@ static xmlMutexPtr xmlThrDefMutex = NULL;
  *
  * Additional initialisation for multi-threading
  */
-void xmlInitGlobals(void)
+void xmlInitGlobals()
 {
     xmlThrDefMutex = xmlNewMutex();
 }
@@ -54,13 +54,12 @@ void xmlInitGlobals(void)
  *
  * Additional cleanup for multi-threading
  */
-void xmlCleanupGlobals(void)
+void xmlCleanupGlobals()
 {
     if (xmlThrDefMutex != NULL) {
 	xmlFreeMutex(xmlThrDefMutex);
 	xmlThrDefMutex = NULL;
     }
-    __xmlGlobalInitMutexDestroy();
 }
 
 /************************************************************************
@@ -290,7 +289,7 @@ static xmlOutputBufferCreateFilenameFunc xmlOutputBufferCreateFilenameValueThrDe
 
 /* xmlGenericErrorFunc xmlGenericError = xmlGenericErrorDefaultFunc; */
 /* Must initialize xmlGenericError in xmlInitParser */
-void XMLCDECL xmlGenericErrorDefaultFunc	(void *ctx ATTRIBUTE_UNUSED,
+void xmlGenericErrorDefaultFunc	(void *ctx ATTRIBUTE_UNUSED,
 				 const char *msg,
 				 ...);
 /**
@@ -345,7 +344,7 @@ static const char *xmlTreeIndentStringThrDef = "  ";
  * Disabled by default
  */
 int xmlSaveNoEmptyTags = 0;
-static int xmlSaveNoEmptyTagsThrDef = 0;
+int xmlSaveNoEmptyTagsThrDef = 0;
 
 #ifdef LIBXML_SAX1_ENABLED
 /**
@@ -497,7 +496,7 @@ xmlInitializeGlobalState(xmlGlobalStatePtr gs)
 
     xmlMutexLock(xmlThrDefMutex);
 
-#if defined(LIBXML_DOCB_ENABLED) && defined(LIBXML_LEGACY_ENABLED) && defined(LIBXML_SAX1_ENABLED)
+#if defined(LIBXML_DOCB_ENABLED) && defined(LIBXML_LEGACY_ENABLED)
     initdocbDefaultSAXHandler(&gs->docbDefaultSAXHandler);
 #endif
 #if defined(LIBXML_HTML_ENABLED) && defined(LIBXML_LEGACY_ENABLED)

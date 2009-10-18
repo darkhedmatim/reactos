@@ -10,7 +10,7 @@
 #include <aclui.h>
 #include <sddl.h>
 #include <ntsecapi.h>
-#ifdef SUPPORT_UXTHEME
+#if SUPPORT_UXTHEME
 #include <uxtheme.h>
 #include <tmschema.h>
 #endif

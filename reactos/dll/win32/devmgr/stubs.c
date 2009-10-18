@@ -1,4 +1,4 @@
-/*
+/* 
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS devmgr.dll
@@ -91,6 +91,82 @@ DeviceManager_ExecuteW(HWND hWndParent,
 {
   UNIMPLEMENTED;
   return FALSE;
+}
+
+
+/***************************************************************************
+ * NAME                                                         EXPORTED
+ *      DevicePropertiesA
+ *
+ * DESCRIPTION
+ *   Invokes the device properties dialog directly
+ *
+ * ARGUMENTS
+ *   hWndParent:    Handle to the parent window
+ *   hInst:         Handle to the application instance
+ *   lpMachineName: Machine Name, NULL is the local machine
+ *   lpDeviceID:    Specifies the device whose properties are to be shown
+ *   Unknown:       Unknown parameter, see NOTEs
+ *
+ * RETURN VALUE
+ *   >=0: if no errors occured
+ *   -1:  if errors occured
+ *
+ * REVISIONS
+ *
+ * NOTE
+ *   Unknown seems to be a BOOL, not sure what it does
+ *
+ * @unimplemented
+ */
+int
+WINAPI
+DevicePropertiesA(HWND hWndParent,
+                  HINSTANCE hInst,
+                  LPCSTR lpMachineName,
+                  LPCSTR lpDeviceID,
+                  DWORD Unknown)
+{
+  UNIMPLEMENTED;
+  return -1;
+}
+
+
+/***************************************************************************
+ * NAME                                                         EXPORTED
+ *      DevicePropertiesW
+ *
+ * DESCRIPTION
+ *   Invokes the device properties dialog directly
+ *
+ * ARGUMENTS
+ *   hWndParent:    Handle to the parent window
+ *   hInst:         Handle to the application instance
+ *   lpMachineName: Machine Name, NULL is the local machine
+ *   lpDeviceID:    Specifies the device whose properties are to be shown
+ *   Unknown:       Unknown parameter, see NOTEs
+ *
+ * RETURN VALUE
+ *   >=0: if no errors occured
+ *   -1:  if errors occured
+ *
+ * REVISIONS
+ *
+ * NOTE
+ *   Unknown seems to be a BOOL, not sure what it does
+ *
+ * @unimplemented
+ */
+int
+WINAPI
+DevicePropertiesW(HWND hWndParent,
+                  HINSTANCE hInst,
+                  LPCWSTR lpMachineName,
+                  LPCWSTR lpDeviceID,
+                  DWORD Unknown)
+{
+  UNIMPLEMENTED;
+  return -1;
 }
 
 

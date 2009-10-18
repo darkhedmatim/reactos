@@ -76,11 +76,12 @@ Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
     WCHAR Caption[256];
     LONG Ret = 0;
 
+    UNREFERENCED_PARAMETER(hwnd);
     UNREFERENCED_PARAMETER(uMsg);
     UNREFERENCED_PARAMETER(wParam);
     UNREFERENCED_PARAMETER(lParam);
 
-    if (RegisterMonthCalControl(hApplet) &&
+    if (RegisterMonthCalControl(hApplet) && 
         RegisterClockControl())
     {
         LoadStringW(hApplet, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(WCHAR));
@@ -88,7 +89,7 @@ Applet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
         ZeroMemory(&psh, sizeof(PROPSHEETHEADERW));
         psh.dwSize = sizeof(PROPSHEETHEADERW);
         psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_PROPTITLE;
-        psh.hwndParent = hwnd;
+        psh.hwndParent = NULL;
         psh.hInstance = hApplet;
         psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCEW(IDC_CPLICON));
         psh.pszCaption = Caption;

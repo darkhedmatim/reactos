@@ -1,7 +1,8 @@
 #include <windows.h>
+#include <reactos/resource.h>
 #include "resource.h"
 
-IDR_MAINMENU MENU DISCARDABLE
+IDR_MAINMENU MENU DISCARDABLE 
 BEGIN
     POPUP "&File"
     BEGIN
@@ -25,3 +26,5 @@ BEGIN
         MENUITEM "&Cascade",                    ID_WINDOW_CASCADE
     END
 END
+
+

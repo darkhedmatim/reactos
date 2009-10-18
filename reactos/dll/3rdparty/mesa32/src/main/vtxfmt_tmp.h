@@ -29,8 +29,8 @@
 #define PRE_LOOPBACK( FUNC )
 #endif
 
-#include "glapi/dispatch.h"
-#include "glapi/glapioffsets.h"
+#include "dispatch.h"
+#include "glapioffsets.h"
 
 static void GLAPIENTRY TAG(ArrayElement)( GLint i )
 {
@@ -66,6 +66,12 @@ static void GLAPIENTRY TAG(EdgeFlag)( GLboolean e )
 {
    PRE_LOOPBACK( EdgeFlag );
    CALL_EdgeFlag(GET_DISPATCH(), ( e ));
+}
+
+static void GLAPIENTRY TAG(EdgeFlagv)( const GLboolean *v )
+{
+   PRE_LOOPBACK( EdgeFlagv );
+   CALL_EdgeFlagv(GET_DISPATCH(), ( v ));
 }
 
 static void GLAPIENTRY TAG(EvalCoord1f)( GLfloat s )
@@ -461,6 +467,7 @@ static GLvertexformat TAG(vtxfmt) = {
    TAG(Color4f),
    TAG(Color4fv),
    TAG(EdgeFlag),
+   TAG(EdgeFlagv),
    TAG(EvalCoord1f),
    TAG(EvalCoord1fv),
    TAG(EvalCoord2f),

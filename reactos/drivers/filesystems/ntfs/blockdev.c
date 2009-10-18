@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/blockdev.c
+ * FILE:             services/fs/ntfs/blockdev.c
  * PURPOSE:          NTFS filesystem driver
  * PROGRAMMER:       Eric Kohl
  */
@@ -58,7 +60,7 @@ NtfsReadSectors(IN PDEVICE_OBJECT DeviceObject,
   Offset.QuadPart = (LONGLONG)DiskSector * (LONGLONG)SectorSize;
   BlockSize = SectorCount * SectorSize;
 
-  DPRINT("NtfsReadSectors(DeviceObject %p, DiskSector %d, Buffer %p)\n",
+  DPRINT("NtfsReadSectors(DeviceObject %x, DiskSector %d, Buffer %x)\n",
 	 DeviceObject, DiskSector, Buffer);
   DPRINT("Offset %I64x BlockSize %ld\n",
 	 Offset.QuadPart,
@@ -84,15 +86,15 @@ NtfsReadSectors(IN PDEVICE_OBJECT DeviceObject,
       Stack->Flags |= SL_OVERRIDE_VERIFY_VOLUME;
     }
 
-  DPRINT("Calling IO Driver... with irp %p\n", Irp);
+  DPRINT("Calling IO Driver... with irp %x\n", Irp);
   Status = IoCallDriver(DeviceObject, Irp);
 
-  DPRINT("Waiting for IO Operation for %p\n", Irp);
+  DPRINT("Waiting for IO Operation for %x\n", Irp);
   if (Status == STATUS_PENDING)
     {
       DPRINT("Operation pending\n");
       KeWaitForSingleObject(&Event, Suspended, KernelMode, FALSE, NULL);
-      DPRINT("Getting IO Status... for %p\n", Irp);
+      DPRINT("Getting IO Status... for %x\n", Irp);
       Status = IoStatus.Status;
     }
 
@@ -141,7 +143,7 @@ NtfsDeviceIoControl(IN PDEVICE_OBJECT DeviceObject,
       Stack->Flags |= SL_OVERRIDE_VERIFY_VOLUME;
     }
 
-  DPRINT("Calling IO Driver... with irp %p\n", Irp);
+  DPRINT("Calling IO Driver... with irp %x\n", Irp);
   Status = IoCallDriver(DeviceObject, Irp);
   if (Status == STATUS_PENDING)
     {

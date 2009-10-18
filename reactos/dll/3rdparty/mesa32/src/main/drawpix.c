@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  6.4
  *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,14 +24,13 @@
 
 #include "glheader.h"
 #include "imports.h"
-#include "bufferobj.h"
+#include "colormac.h"
 #include "context.h"
 #include "drawpix.h"
 #include "feedback.h"
-#include "framebuffer.h"
-#include "image.h"
-#include "readpix.h"
+#include "macros.h"
 #include "state.h"
+#include "mtypes.h"
 
 
 #if _HAVE_FULL_GL
@@ -46,6 +45,12 @@ _mesa_DrawPixels( GLsizei width, GLsizei height,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
+   if (ctx->FragmentProgram.Enabled && !ctx->FragmentProgram._Enabled) {
+      _mesa_error(ctx, GL_INVALID_OPERATION,
+                  "glDrawPixels (invalid fragment program)");
+      return;
+   }
+
    if (width < 0 || height < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glDrawPixels(width or height < 0" );
       return;
@@ -53,17 +58,6 @@ _mesa_DrawPixels( GLsizei width, GLsizei height,
 
    if (ctx->NewState) {
       _mesa_update_state(ctx);
-   }
-
-   if (ctx->FragmentProgram.Enabled && !ctx->FragmentProgram._Enabled) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glDrawPixels (invalid fragment program)");
-      return;
-   }
-
-   if (_mesa_error_check_format_type(ctx, format, type, GL_TRUE)) {
-      /* found an error */
-      return;
    }
 
    if (ctx->DrawBuffer->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
@@ -80,23 +74,7 @@ _mesa_DrawPixels( GLsizei width, GLsizei height,
       /* Round, to satisfy conformance tests (matches SGI's OpenGL) */
       GLint x = IROUND(ctx->Current.RasterPos[0]);
       GLint y = IROUND(ctx->Current.RasterPos[1]);
-
-      if (ctx->Unpack.BufferObj->Name) {
-         /* unpack from PBO */
-         if (!_mesa_validate_pbo_access(2, &ctx->Unpack, width, height, 1,
-                                        format, type, pixels)) {
-            _mesa_error(ctx, GL_INVALID_OPERATION,
-                        "glDrawPixels(invalid PBO access)");
-            return;
-         }
-         if (ctx->Unpack.BufferObj->Pointer) {
-            /* buffer is mapped - that's an error */
-            _mesa_error(ctx, GL_INVALID_OPERATION,
-                        "glDrawPixels(PBO is mapped)");
-            return;
-         }
-      }
-
+      ctx->OcclusionResult = GL_TRUE;
       ctx->Driver.DrawPixels(ctx, x, y, width, height, format, type,
 			     &ctx->Unpack, pixels);
    }
@@ -124,10 +102,6 @@ _mesa_CopyPixels( GLint srcx, GLint srcy, GLsizei width, GLsizei height,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (ctx->NewState) {
-      _mesa_update_state(ctx);
-   }
-
    if (ctx->FragmentProgram.Enabled && !ctx->FragmentProgram._Enabled) {
       _mesa_error(ctx, GL_INVALID_OPERATION,
                   "glCopyPixels (invalid fragment program)");
@@ -135,21 +109,18 @@ _mesa_CopyPixels( GLint srcx, GLint srcy, GLsizei width, GLsizei height,
    }
 
    if (width < 0 || height < 0) {
-      _mesa_error(ctx, GL_INVALID_VALUE, "glCopyPixels(width or height < 0)");
+      _mesa_error( ctx, GL_INVALID_VALUE, "glCopyPixels(width or height < 0)" );
       return;
+   }
+
+   if (ctx->NewState) {
+      _mesa_update_state(ctx);
    }
 
    if (ctx->DrawBuffer->_Status != GL_FRAMEBUFFER_COMPLETE_EXT ||
        ctx->ReadBuffer->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
       _mesa_error(ctx, GL_INVALID_FRAMEBUFFER_OPERATION_EXT,
                   "glCopyPixels(incomplete framebuffer)" );
-      return;
-   }
-
-   if (!_mesa_source_buffer_exists(ctx, type) ||
-       !_mesa_dest_buffer_exists(ctx, type)) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glCopyPixels(missing source or dest buffer)");
       return;
    }
 
@@ -161,6 +132,7 @@ _mesa_CopyPixels( GLint srcx, GLint srcy, GLsizei width, GLsizei height,
       /* Round to satisfy conformance tests (matches SGI's OpenGL) */
       GLint destx = IROUND(ctx->Current.RasterPos[0]);
       GLint desty = IROUND(ctx->Current.RasterPos[1]);
+      ctx->OcclusionResult = GL_TRUE;
       ctx->Driver.CopyPixels( ctx, srcx, srcy, width, height, destx, desty,
 			      type );
    }
@@ -184,12 +156,52 @@ _mesa_CopyPixels( GLint srcx, GLint srcy, GLsizei width, GLsizei height,
 
 
 void GLAPIENTRY
+_mesa_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height,
+		  GLenum format, GLenum type, GLvoid *pixels )
+{
+   GET_CURRENT_CONTEXT(ctx);
+   const struct gl_renderbuffer *rb = ctx->ReadBuffer->_ColorReadBuffer;
+   ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
+
+   if (width < 0 || height < 0) {
+      _mesa_error( ctx, GL_INVALID_VALUE,
+                   "glReadPixels(width=%d height=%d)", width, height );
+      return;
+   }
+
+   if (ctx->NewState)
+      _mesa_update_state(ctx);
+
+   if (ctx->ReadBuffer->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+      _mesa_error(ctx, GL_INVALID_FRAMEBUFFER_OPERATION_EXT,
+                  "glReadPixels(incomplete framebuffer)" );
+      return;
+   }
+
+   if (!rb) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glReadPixels(no readbuffer)");
+      return;
+   }
+
+   ctx->Driver.ReadPixels(ctx, x, y, width, height,
+			  format, type, &ctx->Pack, pixels);
+}
+
+
+
+void GLAPIENTRY
 _mesa_Bitmap( GLsizei width, GLsizei height,
               GLfloat xorig, GLfloat yorig, GLfloat xmove, GLfloat ymove,
               const GLubyte *bitmap )
 {
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
+
+   if (ctx->FragmentProgram.Enabled && !ctx->FragmentProgram._Enabled) {
+      _mesa_error(ctx, GL_INVALID_OPERATION,
+                  "glBitmap (invalid fragment program)");
+      return;
+   }
 
    if (width < 0 || height < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glBitmap(width or height < 0)" );
@@ -204,12 +216,6 @@ _mesa_Bitmap( GLsizei width, GLsizei height,
       _mesa_update_state(ctx);
    }
 
-   if (ctx->FragmentProgram.Enabled && !ctx->FragmentProgram._Enabled) {
-      _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glBitmap (invalid fragment program)");
-      return;
-   }
-
    if (ctx->DrawBuffer->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
       _mesa_error(ctx, GL_INVALID_FRAMEBUFFER_OPERATION_EXT,
                   "glBitmap(incomplete framebuffer)");
@@ -218,26 +224,9 @@ _mesa_Bitmap( GLsizei width, GLsizei height,
 
    if (ctx->RenderMode == GL_RENDER) {
       /* Truncate, to satisfy conformance tests (matches SGI's OpenGL). */
-      const GLfloat epsilon = (const GLfloat)0.0001;
-      GLint x = IFLOOR(ctx->Current.RasterPos[0] + epsilon - xorig);
-      GLint y = IFLOOR(ctx->Current.RasterPos[1] + epsilon - yorig);
-
-      if (ctx->Unpack.BufferObj->Name) {
-         /* unpack from PBO */
-         if (!_mesa_validate_pbo_access(2, &ctx->Unpack, width, height, 1,
-                                        GL_COLOR_INDEX, GL_BITMAP,
-                                        (GLvoid *) bitmap)) {
-            _mesa_error(ctx, GL_INVALID_OPERATION,
-                        "glBitmap(invalid PBO access)");
-            return;
-         }
-         if (ctx->Unpack.BufferObj->Pointer) {
-            /* buffer is mapped - that's an error */
-            _mesa_error(ctx, GL_INVALID_OPERATION, "glBitmap(PBO is mapped)");
-            return;
-         }
-      }
-
+      GLint x = IFLOOR(ctx->Current.RasterPos[0] - xorig);
+      GLint y = IFLOOR(ctx->Current.RasterPos[1] - yorig);
+      ctx->OcclusionResult = GL_TRUE;
       ctx->Driver.Bitmap( ctx, x, y, width, height, &ctx->Unpack, bitmap );
    }
 #if _HAVE_FULL_GL
@@ -304,6 +293,7 @@ _mesa_DrawDepthPixelsMESA( GLsizei width, GLsizei height,
       /* Round, to satisfy conformance tests (matches SGI's OpenGL) */
       GLint x = IROUND(ctx->Current.RasterPos[0]);
       GLint y = IROUND(ctx->Current.RasterPos[1]);
+      ctx->OcclusionResult = GL_TRUE;
       ctx->Driver.DrawDepthPixelsMESA(ctx, x, y, width, height,
                                       colorFormat, colorType, colors,
                                       depthType, depths, &ctx->Unpack);

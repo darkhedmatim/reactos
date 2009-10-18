@@ -1,23 +1,20 @@
 /*
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            ntoskrnl/io/iomgr/util.c
+ * FILE:            ntoskrnl/io/util.c
  * PURPOSE:         I/O Utility Functions
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
- *                  Aleksey Bragin (aleksey@reactos.org)
- *                  Daniel Zimmerman (netzimme@aim.com)
+ * PROGRAMMERS:     <UNKNOWN>
  */
 
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-VOID
-NTAPI
-RtlpGetStackLimits(PULONG_PTR StackBase,
-                   PULONG_PTR StackLimit);
+/* DATA **********************************************************************/
+
+KSPIN_LOCK CancelSpinLock;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -26,10 +23,10 @@ RtlpGetStackLimits(PULONG_PTR StackBase,
  */
 VOID
 NTAPI
-IoAcquireCancelSpinLock(OUT PKIRQL Irql)
+IoAcquireCancelSpinLock(PKIRQL Irql)
 {
     /* Just acquire the internal lock */
-    *Irql = KeAcquireQueuedSpinLock(LockQueueIoCancelLock);
+    KeAcquireSpinLock(&CancelSpinLock,Irql);
 }
 
 /*
@@ -48,36 +45,13 @@ IoGetInitialStack(VOID)
  */
 VOID
 NTAPI
-IoGetStackLimits(OUT PULONG_PTR LowLimit,
-                 OUT PULONG_PTR HighLimit)
+IoGetStackLimits(OUT PULONG LowLimit,
+                 OUT PULONG HighLimit)
 {
-    PKPRCB Prcb = KeGetCurrentPrcb();
-    ULONG_PTR DpcStack = (ULONG_PTR)(Prcb->DpcStack);
-    volatile ULONG_PTR StackAddress;
-
-    /* Save our stack address so we always know it's valid */
-    StackAddress = (ULONG_PTR)(&StackAddress);
-
-    /* Get stack values */
-    RtlpGetStackLimits(LowLimit, HighLimit);
-
-    /* Check if we're outside the stack */
-    if ((StackAddress < *LowLimit) || (StackAddress > *HighLimit))
-    {
-        /* Check if we may be in a DPC */
-        if (KeGetCurrentIrql() >= DISPATCH_LEVEL)
-        {
-            /* Check if we really are in a DPC */
-            if ((Prcb->DpcRoutineActive) &&
-                (StackAddress <= DpcStack) &&
-                (StackAddress >= DpcStack - KERNEL_STACK_SIZE))
-            {
-                /* Use the DPC stack limits */
-                *HighLimit = DpcStack;
-                *LowLimit = DpcStack - KERNEL_STACK_SIZE;
-            }
-        }
-    }
+    /* Return the limits from the TEB... this is wrong! */
+    DPRINT1("FIXME: IoGetStackLimits returning B*LLSHIT!\n");
+    *LowLimit = (ULONG)NtCurrentTeb()->Tib.StackLimit;
+    *HighLimit = (ULONG)NtCurrentTeb()->Tib.StackBase;
 }
 
 /*
@@ -111,7 +85,6 @@ PEPROCESS
 NTAPI
 IoGetCurrentProcess(VOID)
 {
-    /* Return the current thread's process */
     return (PEPROCESS)PsGetCurrentThread()->Tcb.ApcState.Process;
 }
 
@@ -120,10 +93,10 @@ IoGetCurrentProcess(VOID)
  */
 VOID
 NTAPI
-IoReleaseCancelSpinLock(IN KIRQL Irql)
+IoReleaseCancelSpinLock(KIRQL Irql)
 {
     /* Release the internal lock */
-    KeReleaseQueuedSpinLock(LockQueueIoCancelLock, Irql);
+    KeReleaseSpinLock(&CancelSpinLock,Irql);
 }
 
 /*
@@ -169,8 +142,6 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
     ULONG NextEaBufferOffset;
     LONG IntEaLength;
 
-    PAGED_CODE();
-
     /* Lenght of the rest. Inital equal to EaLength */
     IntEaLength = EaLength;
 
@@ -202,7 +173,7 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
                     }
                 }
                 else
-                {
+                { 
                     /* From the MSDN
                        http://msdn2.microsoft.com/en-us/library/ms795740.aspx
                        For all entries except the last, the value of
@@ -211,7 +182,7 @@ IoCheckEaBufferValidity(IN PFILE_FULL_EA_INFORMATION EaBuffer,
                      */
                     NextEaBufferOffset = ((NextEaBufferOffset + 3) & ~3);
                     if ((EaBufferEnd->NextEntryOffset == NextEaBufferOffset) &&
-                        ((LONG)EaBufferEnd->NextEntryOffset > 0))
+                        (EaBufferEnd->NextEntryOffset>0))
                     {
                         /* Rest of buffer must be greater then the
                            next offset */
@@ -316,3 +287,4 @@ IoCheckQuerySetVolumeInformation(IN FS_INFORMATION_CLASS FsInformationClass,
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
 }
+/* EOF */

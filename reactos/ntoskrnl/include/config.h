@@ -16,19 +16,19 @@
 /********** mm/ppool.c **********/
 
 /* Disable Debugging Features */
-#if !DBG
+#ifndef DBG
     /* Enable strict checking of the nonpaged pool on every allocation */
     #undef ENABLE_VALIDATE_POOL
 
     /* Enable tracking of statistics about the tagged blocks in the pool */
     #undef TAG_STATISTICS_TRACKING
-
+    
     /* Enable Memory Debugging Features/Helpers */
     #undef POOL_DEBUG_APIS
-
+    
     /* Enable Redzone */
     #define R_RZ 0
-
+    
     /* Enable Allocator Stack */
     #define R_STACK 0
 

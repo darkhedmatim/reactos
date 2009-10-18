@@ -1,3 +1,5 @@
+#include "../w32knapi.h"
+
 INT
 Test_NtGdiSetBitmapBits(PTESTINFO pti)
 {

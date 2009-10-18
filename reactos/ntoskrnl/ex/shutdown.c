@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ex/power.c
@@ -10,34 +11,44 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-#include <debug.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
+/* ROS Internal. Please deprecate */
+NTHALAPI
 VOID
 NTAPI
-KiHaltProcessorDpcRoutine(IN PKDPC Dpc,
-                          IN PVOID DeferredContext,
-                          IN PVOID SystemArgument1,
-                          IN PVOID SystemArgument2)
-{
-    KIRQL OldIrql;
-    if (DeferredContext)
-    {
-        ExFreePool(DeferredContext);
-    }
+HalReleaseDisplayOwnership(
+    VOID
+);
 
-    while (TRUE)
-    {
-        KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
-        HalHaltSystem();
-    }
+VOID STDCALL
+KiHaltProcessorDpcRoutine(IN PKDPC Dpc,
+			  IN PVOID DeferredContext,
+			  IN PVOID SystemArgument1,
+			  IN PVOID SystemArgument2)
+{
+   if (DeferredContext)
+     {
+       ExFreePool(DeferredContext);
+     }
+   while (TRUE)
+     {
+       KfRaiseIrql(SYNCH_LEVEL);
+#if defined(_M_X86)
+       Ke386HaltProcessor();
+#else
+       HalProcessorIdle();
+#endif
+     }
 }
 
-VOID NTAPI
+VOID STDCALL
 ShutdownThreadMain(PVOID Context)
 {
    SHUTDOWN_ACTION Action = (SHUTDOWN_ACTION)Context;
+   LARGE_INTEGER Waittime;
 
    static PCH FamousLastWords[] =
      {
@@ -85,7 +96,7 @@ ShutdownThreadMain(PVOID Context)
        "Until then, there must be no regrets, no fears, no anxieties.\n"
        "Just go forward in all your beliefs, and prove to me that I am not mistaken in\n"
        "mine.\n",
-       "Lowest possible energy state reached! Switch off now to achieve a Bose-Einstein\n"
+       "Lowest possible energy state reached! Switch off now to achive a Bose-Einstein\n"
        "condensate.\n",
        "Hasta la vista, BABY!\n",
        "They live, we sleep!\n",
@@ -131,10 +142,6 @@ ShutdownThreadMain(PVOID Context)
        "<Place your Ad here>\n"
     };
    LARGE_INTEGER Now;
-#ifdef CONFIG_SMP
-	LONG i;
-	KIRQL OldIrql;
-#endif
 
    /* Run the thread on the boot processor */
    KeSetSystemAffinityThread(1);
@@ -160,10 +167,15 @@ ShutdownThreadMain(PVOID Context)
      }
 
    PspShutdownProcessManager();
+   Waittime.QuadPart = (LONGLONG)-10000000; /* 1sec */
+   KeDelayExecutionThread(KernelMode, FALSE, &Waittime);
 
-   CmShutdownSystem();
+   CmShutdownRegistry();
    IoShutdownRegisteredFileSystems();
    IoShutdownRegisteredDevices();
+
+   MiShutdownMemoryManager();
+
 
    if (Action == ShutdownNoReboot)
      {
@@ -174,6 +186,9 @@ ShutdownThreadMain(PVOID Context)
         HalReturnToFirmware (FIRMWARE_OFF);
 #else
 #ifdef CONFIG_SMP
+        LONG i;
+	KIRQL OldIrql;
+
 	OldIrql = KeRaiseIrqlToDpcLevel();
         /* Halt all other processors */
 	for (i = 0; i < KeNumberProcessors; i++)
@@ -183,19 +198,19 @@ ShutdownThreadMain(PVOID Context)
 	        PKDPC Dpc = ExAllocatePool(NonPagedPool, sizeof(KDPC));
 		if (Dpc == NULL)
 		  {
-                    ASSERT(FALSE);
+                    KEBUGCHECK(0);
 		  }
 		KeInitializeDpc(Dpc, KiHaltProcessorDpcRoutine, (PVOID)Dpc);
 		KeSetTargetProcessorDpc(Dpc, i);
 		KeInsertQueueDpc(Dpc, NULL, NULL);
-		KiIpiSend(1 << i, IPI_DPC);
+		KiIpiSendRequest(1 << i, IPI_DPC);
 	      }
 	  }
         KeLowerIrql(OldIrql);
 #endif /* CONFIG_SMP */
         PopSetSystemPowerState(PowerSystemShutdown);
 
-	DPRINT1("Shutting down\n");
+	CHECKPOINT1;
 
 	KiHaltProcessorDpcRoutine(NULL, NULL, NULL, NULL);
 	/* KiHaltProcessor does never return */
@@ -213,7 +228,7 @@ ShutdownThreadMain(PVOID Context)
 }
 
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtSetSystemPowerState(IN POWER_ACTION SystemAction,
 		      IN SYSTEM_POWER_STATE MinSystemState,
 		      IN ULONG Flags)
@@ -225,7 +240,7 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
 /*
  * @implemented
  */
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 NtShutdownSystem(IN SHUTDOWN_ACTION Action)
 {
    NTSTATUS Status;
@@ -243,7 +258,7 @@ NtShutdownSystem(IN SHUTDOWN_ACTION Action)
                                  (PVOID)Action);
    if (!NT_SUCCESS(Status))
    {
-      ASSERT(FALSE);
+      KEBUGCHECK(0);
    }
    Status = ObReferenceObjectByHandle(ThreadHandle,
 				      THREAD_ALL_ACCESS,
@@ -254,7 +269,7 @@ NtShutdownSystem(IN SHUTDOWN_ACTION Action)
    NtClose(ThreadHandle);
    if (!NT_SUCCESS(Status))
      {
-        ASSERT(FALSE);
+        KEBUGCHECK(0);
      }
 
    KeSetPriorityThread(&ShutdownThread->Tcb, LOW_REALTIME_PRIORITY + 1);

@@ -1,5 +1,5 @@
 /*
- *
+ * 
  */
 
 #ifndef __INTERNAL_HAL_HAL_H
@@ -7,6 +7,9 @@
 
 /* Temporary hack */
 #define KPCR_BASE   0xFF000000
+
+/* WDK Hack */
+#define KdComPortInUse          _KdComPortInUse
 
 #define HAL_APC_REQUEST         0
 #define HAL_DPC_REQUEST         1
@@ -33,8 +36,8 @@
     (UCHAR)(((int / 10) << 4) + (int % 10))
 
 /* adapter.c */
-PADAPTER_OBJECT NTAPI HalpAllocateAdapterEx(ULONG NumberOfMapRegisters,BOOLEAN IsMaster, BOOLEAN Dma32BitAddresses);
-
+PADAPTER_OBJECT STDCALL HalpAllocateAdapterEx(ULONG NumberOfMapRegisters,BOOLEAN IsMaster, BOOLEAN Dma32BitAddresses);
+  
 /* bus.c */
 VOID NTAPI HalpInitNonBusHandler (VOID);
 

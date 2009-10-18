@@ -162,26 +162,6 @@ UpdateDriverDetailsDlg(IN HWND hwndDlg,
                                  &DriverInfoData))
     {
         HSPFILEQ queueHandle;
-        DWORD HiVal, LoVal;
-        WCHAR szTime[25];
-
-        HiVal = (DriverInfoData.DriverVersion >> 32);
-        if (HiVal)
-        {
-            swprintf (szTime, L"%d.%d", HIWORD(HiVal), LOWORD(HiVal));
-            LoVal = (DriverInfoData.DriverVersion & 0xFFFFFFFF);
-            if (HIWORD(LoVal))
-            {
-                swprintf(&szTime[wcslen(szTime)], L".%d", HIWORD(LoVal));
-                if (LOWORD(LoVal))
-                {
-                    swprintf(&szTime[wcslen(szTime)], L".%d", LOWORD(LoVal));
-                }
-            }
-            SetDlgItemTextW(hwndDlg, IDC_FILEVERSION, szTime);
-        }
-        SetDlgItemText(hwndDlg, IDC_FILEPROVIDER, DriverInfoData.ProviderName);
-
 
         queueHandle = SetupOpenFileQueue();
         if (queueHandle != (HSPFILEQ)INVALID_HANDLE_VALUE)
@@ -1537,7 +1517,7 @@ GetDeviceAndComputerName(LPWSTR lpString,
         if (*lpString == L'/')
         {
             lpString++;
-            if(!_wcsnicmp(lpString, L"DeviceID", 8))
+            if(!wcsnicmp(lpString, L"DeviceID", 8))
             {
                 lpString += 9;
                 if (*lpString != L'\0')
@@ -1553,7 +1533,7 @@ GetDeviceAndComputerName(LPWSTR lpString,
                     ret = TRUE;
                 }
             }
-            else if (!_wcsnicmp(lpString, L"MachineName", 11))
+            else if (!wcsnicmp(lpString, L"MachineName", 11))
             {
                 lpString += 12;
                 if (*lpString != L'\0')
@@ -1833,10 +1813,10 @@ DevicePropertiesExW(IN HWND hWndParent  OPTIONAL,
 {
     INT_PTR Ret = -1;
 
-    if (dwFlags & ~(DPF_EXTENDED | DPF_DEVICE_STATUS_ACTION))
+    if (dwFlags & ~(DPF_UNKNOWN | DPF_DEVICE_STATUS_ACTION))
     {
         DPRINT1("DevPropertiesExW: Invalid flags: 0x%x\n",
-                dwFlags & ~(DPF_EXTENDED | DPF_DEVICE_STATUS_ACTION));
+                dwFlags & ~(DPF_UNKNOWN | DPF_DEVICE_STATUS_ACTION));
         SetLastError(ERROR_INVALID_FLAGS);
         return -1;
     }
@@ -1892,80 +1872,6 @@ DevicePropertiesExW(IN HWND hWndParent  OPTIONAL,
     }
 
     return Ret;
-}
-
-
-/***************************************************************************
- * NAME                                                         EXPORTED
- *      DevicePropertiesA
- *
- * DESCRIPTION
- *   Invokes the device properties dialog directly
- *
- * ARGUMENTS
- *   hWndParent:    Handle to the parent window
- *   lpMachineName: Machine Name, NULL is the local machine
- *   lpDeviceID:    Specifies the device whose properties are to be shown
- *   bShowDevMgr:   If non-zero it displays the device manager instead of
- *                  the device property dialog
- *
- * RETURN VALUE
- *   >=0: if no errors occured
- *   -1:  if errors occured
- *
- * REVISIONS
- *
- * @implemented
- */
-int
-WINAPI
-DevicePropertiesA(HWND hWndParent,
-                  LPCSTR lpMachineName,
-                  LPCSTR lpDeviceID,
-                  BOOL bShowDevMgr)
-{
-    return DevicePropertiesExA(hWndParent,
-                               lpMachineName,
-                               lpDeviceID,
-                               DPF_EXTENDED,
-                               bShowDevMgr);
-}
-
-
-/***************************************************************************
- * NAME                                                         EXPORTED
- *      DevicePropertiesW
- *
- * DESCRIPTION
- *   Invokes the device properties dialog directly
- *
- * ARGUMENTS
- *   hWndParent:    Handle to the parent window
- *   lpMachineName: Machine Name, NULL is the local machine
- *   lpDeviceID:    Specifies the device whose properties are to be shown
- *   bShowDevMgr:   If non-zero it displays the device manager instead of
- *                  the device property dialog
- *
- * RETURN VALUE
- *   >=0: if no errors occured
- *   -1:  if errors occured
- *
- * REVISIONS
- *
- * @implemented
- */
-int
-WINAPI
-DevicePropertiesW(HWND hWndParent,
-                  LPCWSTR lpMachineName,
-                  LPCWSTR lpDeviceID,
-                  BOOL bShowDevMgr)
-{
-    return DevicePropertiesExW(hWndParent,
-                               lpMachineName,
-                               lpDeviceID,
-                               DPF_EXTENDED,
-                               bShowDevMgr);
 }
 
 
@@ -2069,7 +1975,8 @@ DeviceProperties_RunDLLW(HWND hWndParent,
     }
 
     DevicePropertiesW(hWndParent,
+                      hInst,
                       szMachineName,
                       szDeviceID,
-                      FALSE);
+                      0);
 }

@@ -148,13 +148,13 @@ static LRESULT PRINTDLG_WMInitDialog16(HWND hDlg, WPARAM wParam, PRINT_PTRA16* p
 
 	    pdm = GlobalLock16(lppd->hDevMode);
 	    if(pdm) {
-		switch (pdm->u1.s1.dmPrintQuality) {
+		switch (pdm->dmPrintQuality) {
 		case DMRES_HIGH		: strcpy(buf,"High");break;
 		case DMRES_MEDIUM	: strcpy(buf,"Medium");break;
 		case DMRES_LOW		: strcpy(buf,"Low");break;
 		case DMRES_DRAFT	: strcpy(buf,"Draft");break;
 		case 0			: strcpy(buf,"Default");break;
-		default			: sprintf(buf,"%ddpi",pdm->u1.s1.dmPrintQuality);break;
+		default			: sprintf(buf,"%ddpi",pdm->dmPrintQuality);break;
 		}
 	        GlobalUnlock16(lppd->hDevMode);
 	    } else
@@ -327,7 +327,7 @@ static HGLOBAL16 PRINTDLG_GetDlgTemplate16(const PRINTDLG16 *lppd)
 /***********************************************************************
  *           PrintDlg   (COMMDLG.20)
  *
- *  Displays the PRINT dialog box, which enables the user to specify
+ *  Displays the the PRINT dialog box, which enables the user to specify
  *  specific properties of the print job.
  *
  * RETURNS
@@ -390,10 +390,9 @@ BOOL16 WINAPI PrintDlg16(
 	GetPrinterDriverA(hprn, NULL, 3, NULL, 0, &needed);
 	dbuf = HeapAlloc(GetProcessHeap(),0,needed);
 	if (!GetPrinterDriverA(hprn, NULL, 3, (LPBYTE)dbuf, needed, &needed)) {
-	    ERR("GetPrinterDriverA failed for %s, le %d, fix your config!\n",
-	        pbuf->pPrinterName,GetLastError());
-	    HeapFree(GetProcessHeap(), 0, dbuf);
-	    HeapFree(GetProcessHeap(), 0, pbuf);
+            ERR("GetPrinterDriverA failed for %s, le %d, fix your config!\n",
+		    pbuf->pPrinterName,GetLastError());
+            HeapFree(GetProcessHeap(), 0, dbuf);
 	    COMDLG32_SetCommDlgExtendedError(PDERR_RETDEFFAILURE);
 	    return FALSE;
 	}
@@ -507,7 +506,7 @@ BOOL16 WINAPI PrintDlg16(
 	HeapFree(GetProcessHeap(), 0, PrintStructures->lpDevMode);
 	HeapFree(GetProcessHeap(), 0, PrintStructures->lpPrinterInfo);
 	HeapFree(GetProcessHeap(), 0, PrintStructures->lpDriverInfo);
-	HeapFree(GetProcessHeap(), 0, ptr16);
+	HeapFree(GetProcessHeap(), 0, PrintStructures);
     }
     if(bRet && (lppd->Flags & PD_RETURNDC || lppd->Flags & PD_RETURNIC))
         bRet = PRINTDLG_CreateDC16(lppd);
@@ -527,7 +526,7 @@ BOOL16 CALLBACK PrintDlgProc16(HWND16 hDlg16, UINT16 uMsg, WPARAM16 wParam,
     BOOL16 res = FALSE;
 
     if (uMsg!=WM_INITDIALOG) {
-        PrintStructures = GetPropA(hDlg,"__WINE_PRINTDLGDATA");
+        PrintStructures = (PRINT_PTRA16*)GetPropA(hDlg,"__WINE_PRINTDLGDATA");
 	if (!PrintStructures)
 	    return FALSE;
     } else {

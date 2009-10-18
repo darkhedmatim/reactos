@@ -1,5 +1,5 @@
 /*
- *
+ * 
  */
 
 #ifndef __INTERNAL_HAL_HAL_H
@@ -30,8 +30,8 @@
     (UCHAR)(((int / 10) << 4) + (int % 10))
 
 /* adapter.c */
-PADAPTER_OBJECT NTAPI HalpAllocateAdapterEx(ULONG NumberOfMapRegisters,BOOLEAN IsMaster, BOOLEAN Dma32BitAddresses);
-
+PADAPTER_OBJECT STDCALL HalpAllocateAdapterEx(ULONG NumberOfMapRegisters,BOOLEAN IsMaster, BOOLEAN Dma32BitAddresses);
+  
 /* bus.c */
 VOID NTAPI HalpInitNonBusHandler (VOID);
 
@@ -40,16 +40,6 @@ VOID NTAPI HalpInitPICs(VOID);
 
 /* udelay.c */
 VOID NTAPI HalpInitializeClock(VOID);
-
-VOID
-NTAPI
-HalpCalibrateStallExecution(VOID);
-
-ULONG
-NTAPI
-HalpQuery8254Counter(
-    VOID
-);
 
 /* pci.c */
 VOID HalpInitPciBus (VOID);
@@ -125,68 +115,12 @@ HaliSetSystemInformation(
     IN OUT PVOID Buffer
 );
 
-//
-// BIOS Routines
-//
-BOOLEAN
-NTAPI
-HalpBiosDisplayReset(
-    VOID
-);
+typedef struct tagHALP_HOOKS
+{
+  void (*InitPciBus)(ULONG BusNumber, PBUS_HANDLER BusHandler);
+} HALP_HOOKS, *PHALP_HOOKS;
 
-ULONG
-NTAPI
-HalpBorrowTss(
-    VOID
-);
-
-ULONG
-NTAPI
-HalpReturnTss(
-    ULONG SavedTss
-);
-
-VOID
-NTAPI
-HalpBiosCall(
-    VOID
-);
-
-VOID
-NTAPI
-HalpTrap0D(
-    VOID
-);
-
-VOID
-NTAPI
-HalpTrap06(
-    VOID
-);
-
-//
-// Processor Halt Routine
-//
-VOID
-NTAPI
-HaliHaltSystem(
-    VOID
-);
-
-#ifdef _M_AMD64
-#define KfLowerIrql KeLowerIrql
-#ifndef CONFIG_SMP
-/* On UP builds, spinlocks don't exist at IRQL >= DISPATCH */
-#define KiAcquireSpinLock(SpinLock)
-#define KiReleaseSpinLock(SpinLock)
-#define KfAcquireSpinLock(SpinLock) KfRaiseIrql(DISPATCH_LEVEL);
-#define KfReleaseSpinLock(SpinLock, OldIrql) KeLowerIrql(OldIrql);
-#endif // !CONFIG_SMP
-#endif // _M_AMD64
-
-extern PVOID HalpRealModeStart;
-extern PVOID HalpRealModeEnd;
-
+extern HALP_HOOKS HalpHooks;
 extern KSPIN_LOCK HalpSystemHardwareLock;
 
 #endif /* __INTERNAL_HAL_HAL_H */

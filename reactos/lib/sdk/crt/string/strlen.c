@@ -2,6 +2,6 @@
  */
 
 #include <string.h>
-#include "tcslen.h"
+#include "internal/tcslen.h"
 
 /* EOF */

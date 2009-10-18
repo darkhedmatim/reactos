@@ -21,7 +21,7 @@
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetEnvironmentVariableA (
 	LPCSTR	lpName,
 	LPSTR	lpBuffer,
@@ -124,7 +124,7 @@ GetEnvironmentVariableA (
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 GetEnvironmentVariableW (
 	LPCWSTR	lpName,
 	LPWSTR	lpBuffer,
@@ -139,7 +139,7 @@ GetEnvironmentVariableW (
 	                      lpName);
 
 	VarValue.Length = 0;
-	VarValue.MaximumLength = (USHORT) (nSize ? nSize - 1 : 0) * sizeof(WCHAR);
+	VarValue.MaximumLength = (USHORT)(nSize != 0 ? (nSize - 1) * sizeof(WCHAR) : 0);
 	VarValue.Buffer = lpBuffer;
 
 	Status = RtlQueryEnvironmentVariable_U (NULL,
@@ -147,13 +147,13 @@ GetEnvironmentVariableW (
 	                                        &VarValue);
 	if (!NT_SUCCESS(Status))
 	{
+		SetLastErrorByStatus (Status);
 		if (Status == STATUS_BUFFER_TOO_SMALL)
 		{
 			return (VarValue.Length / sizeof(WCHAR)) + 1;
 		}
 		else
 		{
-			SetLastErrorByStatus (Status);
 			return 0;
 		}
 	}
@@ -162,7 +162,7 @@ GetEnvironmentVariableW (
         {
             /* make sure the string is NULL-terminated! RtlQueryEnvironmentVariable_U
                only terminates it if MaximumLength < Length */
-	    lpBuffer[VarValue.Length / sizeof(WCHAR)] = L'\0';
+	    VarValue.Buffer[VarValue.Length / sizeof(WCHAR)] = L'\0';
 	}
 
 	return (VarValue.Length / sizeof(WCHAR));
@@ -173,7 +173,7 @@ GetEnvironmentVariableW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetEnvironmentVariableA (
 	LPCSTR	lpName,
 	LPCSTR	lpValue
@@ -193,27 +193,18 @@ SetEnvironmentVariableA (
 	                              &VarName,
 	                              TRUE);
 
-	if (lpValue)
-	{
-		RtlInitAnsiString (&VarValue,
-		                   (LPSTR)lpValue);
-		RtlAnsiStringToUnicodeString (&VarValueU,
-		                              &VarValue,
-		                              TRUE);
+	RtlInitAnsiString (&VarValue,
+	                   (LPSTR)lpValue);
+	RtlAnsiStringToUnicodeString (&VarValueU,
+	                              &VarValue,
+	                              TRUE);
 
-		Status = RtlSetEnvironmentVariable (NULL,
-		                                    &VarNameU,
-		                                    &VarValueU);
+	Status = RtlSetEnvironmentVariable (NULL,
+	                                    &VarNameU,
+	                                    &VarValueU);
 
-		RtlFreeUnicodeString (&VarValueU);
-	}
-	else
-	{
-		Status = RtlSetEnvironmentVariable (NULL,
-		                                    &VarNameU,
-		                                    NULL);
-	}
 	RtlFreeUnicodeString (&VarNameU);
+	RtlFreeUnicodeString (&VarValueU);
 
 	if (!NT_SUCCESS(Status))
 	{
@@ -229,7 +220,7 @@ SetEnvironmentVariableA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetEnvironmentVariableW (
 	LPCWSTR	lpName,
 	LPCWSTR	lpValue
@@ -250,7 +241,6 @@ SetEnvironmentVariableW (
 	Status = RtlSetEnvironmentVariable (NULL,
 	                                    &VarName,
 	                                    &VarValue);
-
 	if (!NT_SUCCESS(Status))
 	{
 		SetLastErrorByStatus (Status);
@@ -265,7 +255,7 @@ SetEnvironmentVariableW (
  * @implemented
  */
 LPSTR
-WINAPI
+STDCALL
 GetEnvironmentStringsA (
 	VOID
 	)
@@ -344,7 +334,7 @@ GetEnvironmentStringsA (
  * @implemented
  */
 LPWSTR
-WINAPI
+STDCALL
 GetEnvironmentStringsW (
 	VOID
 	)
@@ -357,7 +347,7 @@ GetEnvironmentStringsW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FreeEnvironmentStringsA (
 	LPSTR	EnvironmentStrings
 	)
@@ -377,7 +367,7 @@ FreeEnvironmentStringsA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FreeEnvironmentStringsW (
 	LPWSTR	EnvironmentStrings
 	)
@@ -391,7 +381,7 @@ FreeEnvironmentStringsW (
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 ExpandEnvironmentStringsA (
 	LPCSTR	lpSrc,
 	LPSTR	lpDst,
@@ -415,10 +405,6 @@ ExpandEnvironmentStringsA (
             SetLastErrorByStatus (Status);
             return 0;
         }
-
-    /* make sure we don't overflow the maximum ANSI_STRING size */
-    if (nSize > 0x7fff)
-        nSize = 0x7fff;
 
 	Destination.Length = 0;
 	Destination.MaximumLength = (USHORT)nSize;
@@ -471,7 +457,7 @@ ExpandEnvironmentStringsA (
  * @implemented
  */
 DWORD
-WINAPI
+STDCALL
 ExpandEnvironmentStringsW (
 	LPCWSTR	lpSrc,
 	LPWSTR	lpDst,
@@ -485,10 +471,6 @@ ExpandEnvironmentStringsW (
 
 	RtlInitUnicodeString (&Source,
 	                      (LPWSTR)lpSrc);
-
-    /* make sure we don't overflow the maximum UNICODE_STRING size */
-    if (nSize > 0x7fff)
-        nSize = 0x7fff;
 
 	Destination.Length = 0;
 	Destination.MaximumLength = (USHORT)nSize * sizeof(WCHAR);

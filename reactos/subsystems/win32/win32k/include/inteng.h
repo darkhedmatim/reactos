@@ -34,7 +34,17 @@ typedef struct tagSPAN
 
 /* Definitions of IntEngXxx functions */
 
-BOOL APIENTRY
+#define IntEngLockProcessDriverObjs(W32Process) \
+  ExEnterCriticalRegionAndAcquireFastMutexUnsafe(&(W32Process)->DriverObjListLock)
+
+#define IntEngUnLockProcessDriverObjs(W32Process) \
+  ExReleaseFastMutexUnsafeAndLeaveCriticalRegion(&(W32Process)->DriverObjListLock)
+
+VOID FASTCALL
+IntEngCleanupDriverObjs(struct _EPROCESS *Process,
+                        PW32PROCESS Win32Process);
+
+BOOL STDCALL
 IntEngLineTo(SURFOBJ *Surface,
              CLIPOBJ *Clip,
              BRUSHOBJ *Brush,
@@ -45,7 +55,7 @@ IntEngLineTo(SURFOBJ *Surface,
              RECTL *RectBounds,
              MIX mix);
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngBitBltEx(SURFOBJ *DestObj,
                SURFOBJ *SourceObj,
                SURFOBJ *Mask,
@@ -65,7 +75,7 @@ IntEngBitBltEx(SURFOBJ *DestObj,
                        (ColorTranslation), (DestRect), (SourcePoint), \
                        (MaskOrigin), (Brush), (BrushOrigin), (Rop4), TRUE)
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngStretchBlt(SURFOBJ *DestObj,
                  SURFOBJ *SourceObj,
                  SURFOBJ *Mask,
@@ -78,7 +88,7 @@ IntEngStretchBlt(SURFOBJ *DestObj,
                  POINTL *BrushOrigin,
                  ULONG Mode);
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngGradientFill(SURFOBJ *psoDest,
                    CLIPOBJ *pco,
                    XLATEOBJ *pxlo,
@@ -89,8 +99,6 @@ IntEngGradientFill(SURFOBJ *psoDest,
                    RECTL *prclExtents,
                    POINTL *pptlDitherOrg,
                    ULONG ulMode);
-
-VOID InitXlateImpl(VOID);
 
 XLATEOBJ* FASTCALL
 IntEngCreateXlate(USHORT DestPalType,
@@ -106,17 +114,14 @@ IntEngCreateMonoXlate(USHORT SourcePalType,
 
 XLATEOBJ* FASTCALL
 IntEngCreateSrcMonoXlate(HPALETTE PaletteDest,
-                         ULONG Color0,
-                         ULONG Color1);
-
-XLATEOBJ*
-IntCreateBrushXlate(BRUSH *pbrush, SURFACE * psurf, COLORREF crBackgroundClr);
+                         ULONG ForegroundColor,
+                         ULONG BackgroundColor);
 
 HPALETTE FASTCALL
 IntEngGetXlatePalette(XLATEOBJ *XlateObj,
                       ULONG Palette);
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngPolyline(SURFOBJ *DestSurf,
                CLIPOBJ *Clip,
                BRUSHOBJ *Brush,
@@ -148,33 +153,20 @@ IntEngTransparentBlt(SURFOBJ *Dest,
                      ULONG iTransColor,
                      ULONG Reserved);
 
-BOOL APIENTRY
+BOOL STDCALL
 IntEngPaint(IN SURFOBJ *Surface,
             IN CLIPOBJ *ClipRegion,
             IN BRUSHOBJ *Brush,
             IN POINTL *BrushOrigin,
             IN MIX Mix);
 
-VOID APIENTRY
+VOID STDCALL
 IntEngMovePointer(IN SURFOBJ *pso,
                   IN LONG x,
                   IN LONG y,
                   IN RECTL *prcl);
 
-ULONG APIENTRY
-IntEngSetPointerShape(
-   IN SURFOBJ *pso,
-   IN SURFOBJ *psoMask,
-   IN SURFOBJ *psoColor,
-   IN XLATEOBJ *pxlo,
-   IN LONG xHot,
-   IN LONG yHot,
-   IN LONG x,
-   IN LONG y,
-   IN RECTL *prcl,
-   IN FLONG fl);
-
-BOOL APIENTRY
+BOOL STDCALL
 IntEngAlphaBlend(IN SURFOBJ *Dest,
                  IN SURFOBJ *Source,
                  IN CLIPOBJ *ClipRegion,
@@ -183,12 +175,5 @@ IntEngAlphaBlend(IN SURFOBJ *Dest,
                  IN PRECTL SourceRect,
                  IN BLENDOBJ *BlendObj);
 
-BOOL APIENTRY
-IntEngCopyBits(SURFOBJ *psoDest,
-	    SURFOBJ *psoSource,
-	    CLIPOBJ *pco,
-	    XLATEOBJ *pxlo,
-	    RECTL *prclDest,
-	    POINTL *ptlSource);
 
 #endif /* _WIN32K_INTENG_H */

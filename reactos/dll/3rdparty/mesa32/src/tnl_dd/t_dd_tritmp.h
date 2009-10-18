@@ -155,6 +155,10 @@ static void TAG(triangle)( GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
       {
 	 facing = AREA_IS_CCW( cc ) ^ ctx->Polygon._FrontBit;
 
+         if (DO_TWOSTENCIL && ctx->Stencil.TestTwoSide) {
+            ctx->_Facing = facing; /* mixed mode rendering: for 2-sided stencil test */
+         }
+
 	 if (DO_UNFILLED) {
 	    if (facing) {
 	       mode = ctx->Polygon.BackMode;
@@ -267,7 +271,7 @@ static void TAG(triangle)( GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
 	    GLfloat bc	= b * ic;
 	    if ( ac < 0.0f ) ac = -ac;
 	    if ( bc < 0.0f ) bc = -bc;
-	    offset += MAX2( ac, bc ) * ctx->Polygon.OffsetFactor / ctx->DrawBuffer->_MRD;
+	    offset += MAX2( ac, bc ) * ctx->Polygon.OffsetFactor;
 	 }
 	 offset *= ctx->DrawBuffer->_MRD * (REVERSE_DEPTH ? -1.0 : 1.0);
       }
@@ -389,7 +393,7 @@ static void TAG(triangle)( GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
 
 #if DO_QUAD
 #if DO_FULL_QUAD
-static void TAG(quadr)( GLcontext *ctx,
+static void TAG(quad)( GLcontext *ctx,
 		       GLuint e0, GLuint e1, GLuint e2, GLuint e3 )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT( ctx )->vb;
@@ -416,6 +420,10 @@ static void TAG(quadr)( GLcontext *ctx,
       if (DO_TWOSIDE || DO_UNFILLED || DO_TWOSTENCIL)
       {
 	 facing = AREA_IS_CCW( cc ) ^ ctx->Polygon._FrontBit;
+
+         if (DO_TWOSTENCIL && ctx->Stencil.TestTwoSide) {
+            ctx->_Facing = facing; /* mixed mode rendering: for 2-sided stencil test */
+         }
 
 	 if (DO_UNFILLED) {
 	    if (facing) {
@@ -539,7 +547,7 @@ static void TAG(quadr)( GLcontext *ctx,
 	    GLfloat bc	= b * ic;
 	    if ( ac < 0.0f ) ac = -ac;
 	    if ( bc < 0.0f ) bc = -bc;
-	    offset += MAX2( ac, bc ) * ctx->Polygon.OffsetFactor / ctx->DrawBuffer->_MRD;
+	    offset += MAX2( ac, bc ) * ctx->Polygon.OffsetFactor;
 	 }
 	 offset *= ctx->DrawBuffer->_MRD * (REVERSE_DEPTH ? -1.0 : 1.0);
       }
@@ -673,7 +681,7 @@ static void TAG(quadr)( GLcontext *ctx,
    }
 }
 #else
-static void TAG(quadr)( GLcontext *ctx, GLuint e0,
+static void TAG(quad)( GLcontext *ctx, GLuint e0,
 		       GLuint e1, GLuint e2, GLuint e3 )
 {
    if (DO_UNFILLED) {
@@ -765,7 +773,7 @@ static void TAG(points)( GLcontext *ctx, GLuint first, GLuint last )
 static void TAG(init)( void )
 {
 #if DO_QUAD
-   TAB[IND].quad = TAG(quadr);
+   TAB[IND].quad = TAG(quad);
 #endif
 #if DO_TRI
    TAB[IND].triangle = TAG(triangle);

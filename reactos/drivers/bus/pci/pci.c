@@ -16,16 +16,16 @@
 #include <debug.h>
 
 static DRIVER_DISPATCH PciDispatchDeviceControl;
-static NTSTATUS NTAPI PciDispatchDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
+static NTSTATUS STDCALL PciDispatchDeviceControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
-static DRIVER_ADD_DEVICE PciAddDevice;
-static NTSTATUS NTAPI PciAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceObject);
+static DRIVER_ADD_DEVICE PciAddDevice; 
+static NTSTATUS STDCALL PciAddDevice(IN PDRIVER_OBJECT DriverObject, IN PDEVICE_OBJECT PhysicalDeviceObject);
 
 static DRIVER_DISPATCH PciPowerControl;
-static NTSTATUS NTAPI PciPowerControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
+static NTSTATUS STDCALL PciPowerControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 static DRIVER_DISPATCH PciPnpControl;
-static NTSTATUS NTAPI PciPnpControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
+static NTSTATUS STDCALL PciPnpControl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp);
 
 
 #ifdef  ALLOC_PRAGMA
@@ -44,7 +44,7 @@ PPCI_DRIVER_EXTENSION DriverExtension = NULL;
 /*** PRIVATE *****************************************************************/
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciDispatchDeviceControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -52,7 +52,6 @@ PciDispatchDeviceControl(
   PIO_STACK_LOCATION IrpSp;
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(DeviceObject);
   DPRINT("Called. IRP is at (0x%X)\n", Irp);
 
   Irp->IoStatus.Information = 0;
@@ -80,7 +79,7 @@ PciDispatchDeviceControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciPnpControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -111,7 +110,7 @@ PciPnpControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciPowerControl(
   IN PDEVICE_OBJECT DeviceObject,
   IN PIRP Irp)
@@ -140,7 +139,7 @@ PciPowerControl(
 
 
 static NTSTATUS
-NTAPI
+STDCALL
 PciAddDevice(
   IN PDRIVER_OBJECT DriverObject,
   IN PDEVICE_OBJECT PhysicalDeviceObject)
@@ -182,14 +181,13 @@ PciAddDevice(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
   IN PDRIVER_OBJECT DriverObject,
   IN PUNICODE_STRING RegistryPath)
 {
   NTSTATUS Status;
 
-  UNREFERENCED_PARAMETER(RegistryPath);
   DPRINT("Peripheral Component Interconnect Bus Driver\n");
 
   DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = PciDispatchDeviceControl;
@@ -235,9 +233,17 @@ NTSTATUS
 PciCreateInstanceIDString(PUNICODE_STRING InstanceID,
                           PPCI_DEVICE Device)
 {
-  WCHAR Buffer[3];
+  WCHAR Buffer[32];
+  ULONG Index;
 
-  swprintf(Buffer, L"%02X", Device->SlotNumber.u.AsULONG & 0xff);
+  Index = 0;
+  if (((PPDO_DEVICE_EXTENSION)Device->Pdo->DeviceExtension)->PciDevice->BusNumber != 0)
+  {
+    /* FIXME: Copy InstanceID of parent PCI bus to Buffer */
+    // Index += swprintf(Buffer, ....);
+  }
+
+  swprintf(&Buffer[Index], L"%02X", Device->SlotNumber.u.AsULONG & 0xff);
 
   return RtlCreateUnicodeString(InstanceID, Buffer) ? STATUS_SUCCESS : STATUS_INSUFFICIENT_RESOURCES;
 }
@@ -287,7 +293,7 @@ PciCreateHardwareIDsString(PUNICODE_STRING HardwareIDs,
   Index++;
 
   Buffer[Index] = UNICODE_NULL;
-
+  
   BufferU.Length = BufferU.MaximumLength = (USHORT) Index * sizeof(WCHAR);
   BufferU.Buffer = Buffer;
 
@@ -446,7 +452,7 @@ PciCreateDeviceDescriptionString(PUNICODE_STRING DeviceDescription,
           Description = L"XGA display controller";
           break;
 
-        case PCI_SUBCLASS_VID_3D_CTLR:
+        case PCI_SUBLCASS_VID_3D_CTLR:
           Description = L"Multimedia display controller";
           break;
 
@@ -608,10 +614,6 @@ PciCreateDeviceDescriptionString(PUNICODE_STRING DeviceDescription,
           Description = L"Fibre Channel controller";
           break;
 
-        case PCI_SUBCLASS_SB_SMBUS:
-          Description = L"SMBus controller";
-          break;
-
         default:
           Description = L"Other serial bus controller";
           break;
@@ -658,7 +660,7 @@ PciDuplicateUnicodeString(
 
 
     if ((SourceString->Length == 0)
-     && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE |
+     && (Flags != (RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE | 
                    RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING)))
     {
         DestinationString->Length = 0;

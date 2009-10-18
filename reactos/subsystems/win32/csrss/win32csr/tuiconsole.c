@@ -6,8 +6,9 @@
  * PURPOSE:         Implementation of text-mode consoles
  */
 
-#define NDEBUG
 #include "w32csr.h"
+
+#define NDEBUG
 #include <debug.h>
 
 CRITICAL_SECTION ActiveConsoleLock;
@@ -22,8 +23,10 @@ TuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (msg == WM_ACTIVATE)
     {
+      CHECKPOINT1;
       if (LOWORD(wParam) != WA_INACTIVE)
         {
+          CHECKPOINT1;
           SetFocus(hWnd);
           ConioDrawConsole(ActiveConsole);
         }
@@ -32,43 +35,11 @@ TuiConsoleWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 static BOOL FASTCALL
-TuiStartService(LPCWSTR lpServiceName)
-{
-    SC_HANDLE hSCManager = NULL;
-    SC_HANDLE hService = NULL;
-    BOOL ret = FALSE;
-
-    hSCManager = OpenSCManagerW(NULL, NULL, 0);
-    if (hSCManager == NULL)
-        goto cleanup;
-
-    hService = OpenServiceW(hSCManager, lpServiceName, SERVICE_START);
-    if (hService == NULL)
-        goto cleanup;
-
-    ret = StartServiceW(hService, 0, NULL);
-    if (!ret)
-        goto cleanup;
-
-    ret = TRUE;
-
-cleanup:
-    if (hSCManager != NULL)
-        CloseServiceHandle(hSCManager);
-    if (hService != NULL)
-        CloseServiceHandle(hService);
-    return ret;
-}
-
-static BOOL FASTCALL
-TuiInit(DWORD OemCP)
+TuiInit(VOID)
 {
   CONSOLE_SCREEN_BUFFER_INFO ScrInfo;
   DWORD BytesReturned;
   WNDCLASSEXW wc;
-  USHORT TextAttribute = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
-
-  TuiStartService(L"Blue");
 
   ConsoleDeviceHandle = CreateFileW(L"\\\\.\\BlueScreen", FILE_ALL_ACCESS, 0, NULL,
                                     OPEN_EXISTING, 0, NULL);
@@ -76,21 +47,6 @@ TuiInit(DWORD OemCP)
     {
       DPRINT1("Failed to open BlueScreen.\n");
       return FALSE;
-    }
-
-    if (!DeviceIoControl(ConsoleDeviceHandle, IOCTL_CONSOLE_LOADFONT,
-                         &OemCP, sizeof(OemCP), NULL, 0,
-                         &BytesReturned, NULL))
-    {
-        DPRINT1("Failed to load the font for codepage %d\n", OemCP);
-        /* Let's suppose the font is good enough to continue */
-    }
-
-    if (!DeviceIoControl(ConsoleDeviceHandle, IOCTL_CONSOLE_SET_TEXT_ATTRIBUTE,
-                         &TextAttribute, sizeof(TextAttribute), NULL, 0,
-                         &BytesReturned, NULL))
-    {
-        DPRINT1("Failed to set text attribute\n");
     }
 
   ActiveConsole = NULL;
@@ -113,14 +69,14 @@ TuiInit(DWORD OemCP)
       DPRINT1("Failed to register console wndproc\n");
       return FALSE;
     }
-
+  
   return TRUE;
 }
 
-static VOID WINAPI
+static VOID STDCALL
 TuiInitScreenBuffer(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buffer)
 {
-  Buffer->DefaultAttrib = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
+  Buffer->DefaultAttrib = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED | BACKGROUND_BLUE;
 }
 
 static void FASTCALL
@@ -130,7 +86,8 @@ TuiCopyRect(char *Dest, PCSRSS_SCREEN_BUFFER Buff, RECT *Region)
   LONG i;
   PBYTE Src, SrcEnd;
 
-  Src = ConioCoordToPointer(Buff, Region->left, Region->top);
+  Src = Buff->Buffer + (((Region->top + Buff->ShowY) % Buff->MaxY) * Buff->MaxX
+                        + Region->left + Buff->ShowX) * 2;
   SrcDelta = Buff->MaxX * 2;
   SrcEnd = Buff->Buffer + Buff->MaxY * Buff->MaxX * 2;
   DestDelta = ConioRectWidth(Region) * 2;
@@ -146,11 +103,12 @@ TuiCopyRect(char *Dest, PCSRSS_SCREEN_BUFFER Buff, RECT *Region)
     }
 }
 
-static VOID WINAPI
+static VOID STDCALL
 TuiDrawRegion(PCSRSS_CONSOLE Console, RECT *Region)
 {
   DWORD BytesReturned;
   PCSRSS_SCREEN_BUFFER Buff = Console->ActiveBuffer;
+  LONG CursorX, CursorY;
   PCONSOLE_DRAW ConsoleDraw;
   UINT ConsoleDrawSize;
 
@@ -167,12 +125,13 @@ TuiDrawRegion(PCSRSS_CONSOLE Console, RECT *Region)
       DPRINT1("HeapAlloc failed\n");
       return;
     }
+  ConioPhysicalToLogical(Buff, Buff->CurrentX, Buff->CurrentY, &CursorX, &CursorY);
   ConsoleDraw->X = Region->left;
   ConsoleDraw->Y = Region->top;
   ConsoleDraw->SizeX = ConioRectWidth(Region);
   ConsoleDraw->SizeY = ConioRectHeight(Region);
-  ConsoleDraw->CursorX = Buff->CurrentX;
-  ConsoleDraw->CursorY = Buff->CurrentY;
+  ConsoleDraw->CursorX = CursorX;
+  ConsoleDraw->CursorY = CursorY;
 
   TuiCopyRect((char *) (ConsoleDraw + 1), Buff, Region);
 
@@ -187,7 +146,7 @@ TuiDrawRegion(PCSRSS_CONSOLE Console, RECT *Region)
   HeapFree(Win32CsrApiHeap, 0, ConsoleDraw);
 }
 
-static VOID WINAPI
+static VOID STDCALL
 TuiWriteStream(PCSRSS_CONSOLE Console, RECT *Region, LONG CursorStartX, LONG CursorStartY,
                UINT ScrolledLines, CHAR *Buffer, UINT Length)
 {
@@ -205,7 +164,7 @@ TuiWriteStream(PCSRSS_CONSOLE Console, RECT *Region, LONG CursorStartX, LONG Cur
     }
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 TuiSetCursorInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
 {
   DWORD BytesReturned;
@@ -226,10 +185,11 @@ TuiSetCursorInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
   return TRUE;
 }
 
-static BOOL WINAPI
+static BOOL STDCALL
 TuiSetScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff, UINT OldCursorX, UINT OldCursorY)
 {
   CONSOLE_SCREEN_BUFFER_INFO Info;
+  LONG CursorX, CursorY;
   DWORD BytesReturned;
 
   if (ActiveConsole->ActiveBuffer != Buff)
@@ -237,8 +197,9 @@ TuiSetScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff, UINT OldCurs
       return TRUE;
     }
 
-  Info.dwCursorPosition.X = Buff->CurrentX;
-  Info.dwCursorPosition.Y = Buff->CurrentY;
+  ConioPhysicalToLogical(Buff, Buff->CurrentX, Buff->CurrentY, &CursorX, &CursorY);
+  Info.dwCursorPosition.X = CursorX;
+  Info.dwCursorPosition.Y = CursorY;
   Info.wAttributes = Buff->DefaultAttrib;
 
   if (! DeviceIoControl(ConsoleDeviceHandle, IOCTL_CONSOLE_SET_SCREEN_BUFFER_INFO,
@@ -252,23 +213,17 @@ TuiSetScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff, UINT OldCurs
   return TRUE;
 }
 
-static BOOL WINAPI
-TuiUpdateScreenInfo(PCSRSS_CONSOLE Console, PCSRSS_SCREEN_BUFFER Buff)
-{
-    return TRUE;
-}
-
-static BOOL WINAPI
+static BOOL STDCALL
 TuiChangeTitle(PCSRSS_CONSOLE Console)
 {
   return TRUE;
 }
 
-static VOID WINAPI
+static VOID STDCALL
 TuiCleanupConsole(PCSRSS_CONSOLE Console)
 {
   DestroyWindow(Console->hWindow);
-
+  
   EnterCriticalSection(&ActiveConsoleLock);
 
   /* Switch to next console */
@@ -290,7 +245,7 @@ TuiCleanupConsole(PCSRSS_CONSOLE Console)
     }
 }
 
-DWORD WINAPI
+DWORD STDCALL
 TuiConsoleThread (PVOID Data)
 {
   PCSRSS_CONSOLE Console = (PCSRSS_CONSOLE) Data;
@@ -323,6 +278,7 @@ TuiConsoleThread (PVOID Data)
           msg.message == WM_KEYDOWN || msg.message == WM_KEYUP ||
           msg.message == WM_SYSKEYDOWN || msg.message == WM_SYSKEYUP)
         {
+          CHECKPOINT1;
           ConioProcessKey(&msg, Console, TRUE);
         }
     }
@@ -337,10 +293,8 @@ static CSRSS_CONSOLE_VTBL TuiVtbl =
   TuiDrawRegion,
   TuiSetCursorInfo,
   TuiSetScreenInfo,
-  TuiUpdateScreenInfo,
   TuiChangeTitle,
-  TuiCleanupConsole,
-  NULL  // ChangeIcon
+  TuiCleanupConsole
 };
 
 NTSTATUS FASTCALL
@@ -351,7 +305,7 @@ TuiInitConsole(PCSRSS_CONSOLE Console)
   if (! ConsInitialized)
     {
       ConsInitialized = TRUE;
-      if (! TuiInit(Console->CodePage))
+      if (! TuiInit())
         {
           ConsInitialized = FALSE;
           return STATUS_UNSUCCESSFUL;

@@ -43,10 +43,10 @@ typedef struct _MAIN_WND_INFO
 } MAIN_WND_INFO, *PMAIN_WND_INFO;
 
 
-INT_PTR CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-INT_PTR CALLBACK CreateDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-INT_PTR CALLBACK DeleteDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-INT_PTR CALLBACK ProgressDialogProc(HWND hDlg, UINT Message, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK CreateDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK DeleteDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK ProgressDialogProc(HWND hDlg, UINT Message, WPARAM wParam, LPARAM lParam);
 
 
 /* servman.c */
@@ -60,7 +60,6 @@ typedef struct _MENU_HINT
     UINT HintId;
 } MENU_HINT, *PMENU_HINT;
 
-VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info);
 VOID UpdateServiceCount(PMAIN_WND_INFO Info);
 VOID ChangeListViewText(PMAIN_WND_INFO Info, ENUM_SERVICE_STATUS_PROCESS* pService, UINT Column);
 BOOL InitMainWindowImpl(VOID);
@@ -75,16 +74,7 @@ BOOL CreateListView(PMAIN_WND_INFO Info);
 /* start */
 BOOL DoStart(PMAIN_WND_INFO Info);
 
-/* stop */
-typedef struct _STOP_INFO
-{
-    PMAIN_WND_INFO pInfo;
-    SC_HANDLE hSCManager;
-    SC_HANDLE hMainService;
-} STOP_INFO, *PSTOP_INFO;
-
 /* control */
-BOOL Control(PMAIN_WND_INFO Info, HWND hProgDlg, DWORD Control);
 BOOL DoStop(PMAIN_WND_INFO Info);
 BOOL DoPause(PMAIN_WND_INFO Info);
 BOOL DoResume(PMAIN_WND_INFO Info);
@@ -105,31 +95,11 @@ BOOL RefreshServiceList(PMAIN_WND_INFO Info);
 BOOL UpdateServiceStatus(ENUM_SERVICE_STATUS_PROCESS* pService);
 BOOL GetServiceList(PMAIN_WND_INFO Info, DWORD *NumServices);
 
-/* dependencies */
-LPENUM_SERVICE_STATUS GetServiceDependents(SC_HANDLE hService, LPDWORD lpdwCount);
-BOOL HasDependentServices(SC_HANDLE hService);
-INT_PTR CALLBACK StopDependsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-LPTSTR GetDependentServices(SC_HANDLE hService);
+/* reg */
+BOOL SetDescription(LPTSTR, LPTSTR);
 
 /* propsheet.c */
-typedef struct _SERVICEPROPSHEET
-{
-    PMAIN_WND_INFO Info;
-    ENUM_SERVICE_STATUS_PROCESS *pService;
-    HIMAGELIST hDependsImageList;
-} SERVICEPROPSHEET, *PSERVICEPROPSHEET;
-
 LONG APIENTRY OpenPropSheet(PMAIN_WND_INFO Info);
-
-/* propsheet window procs */
-INT_PTR CALLBACK DependenciesPageProc(HWND hwndDlg,
-                                      UINT uMsg,
-                                      WPARAM wParam,
-                                      LPARAM lParam);
-INT_PTR CALLBACK GeneralPageProc(HWND hwndDlg,
-                                 UINT uMsg,
-                                 WPARAM wParam,
-                                 LPARAM lParam);
 
 /* export.c */
 VOID ExportFile(PMAIN_WND_INFO Info);
@@ -156,10 +126,9 @@ INT GetTextFromEdit(OUT LPTSTR lpString,
                     IN UINT Res);
 VOID GetError(VOID);
 VOID DisplayString(PTCHAR);
-HIMAGELIST InitImageList(UINT StartResource,
-                         UINT EndResource,
+HIMAGELIST InitImageList(UINT NumButtons,
+                         UINT StartResource,
                          UINT Width,
-                         UINT Height,
-                         ULONG type);
+                         UINT Height);
 
 #endif /* __SERVMAN_PRECOMP_H */

@@ -7,6 +7,7 @@
 
 #include "msgina.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(msgina);
@@ -51,7 +52,11 @@ StatusMessageWindowProc(
 			if (msg->pTitle)
 				SetWindowTextW(hwndDlg, msg->pTitle);
 			SetDlgItemTextW(hwndDlg, IDC_STATUSLABEL, msg->pMessage);
-			SetEvent(msg->StartupEvent);
+			if (!msg->Context->SignaledStatusWindowCreated)
+			{
+				msg->Context->SignaledStatusWindowCreated = TRUE;
+				SetEvent(msg->StartupEvent);
+			}
 			return TRUE;
 		}
 	}
@@ -78,6 +83,9 @@ StartupWindowThread(LPVOID lpParam)
 		StatusMessageWindowProc,
 		(LPARAM)lpParam);
 	SetThreadDesktop(OldDesk);
+
+	msg->Context->hStatusWindow = 0;
+	msg->Context->SignaledStatusWindowCreated = FALSE;
 
 	HeapFree(GetProcessHeap(), 0, lpParam);
 	return TRUE;
@@ -136,7 +144,7 @@ GUIDisplayStatusMessage(
 		return FALSE;
 	}
 
-	if (pTitle)
+	if(pTitle)
 		SetWindowTextW(pgContext->hStatusWindow, pTitle);
 
 	SetDlgItemTextW(pgContext->hStatusWindow, IDC_STATUSLABEL, pMessage);
@@ -151,7 +159,7 @@ GUIRemoveStatusMessage(
 	if (pgContext->hStatusWindow)
 	{
 		EndDialog(pgContext->hStatusWindow, 0);
-		pgContext->hStatusWindow = NULL;
+		pgContext->hStatusWindow = 0;
 	}
 
 	return TRUE;
@@ -259,7 +267,7 @@ LoggedOnWindowProc(
 		}
 		case WM_CLOSE:
 		{
-			EndDialog(hwndDlg, WLX_SAS_ACTION_NONE);
+			EndDialog(hwndDlg, IDNO);
 			return TRUE;
 		}
 	}

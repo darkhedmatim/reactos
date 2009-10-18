@@ -1,16 +1,15 @@
 #define WIN32_NO_STATUS
 #include <windows.h>
-#include <debug.h>
 
+#define DDKAPI __stdcall
 #define _HIDPI_
 #define _HIDPI_NO_FUNCTION_MACROS_
 typedef VOID
-(WINAPI *PINTERFACE_REFERENCE)(
+(DDKAPI *PINTERFACE_REFERENCE)(
   PVOID  Context);
 typedef VOID
-(WINAPI *PINTERFACE_DEREFERENCE)(
+(DDKAPI *PINTERFACE_DEREFERENCE)(
   PVOID  Context);
-#define DDKAPI __stdcall // FIXME
 #include <ntndk.h>
 #include <hidusage.h>
 #include <hidclass.h>
@@ -18,5 +17,10 @@ typedef VOID
 
 extern HINSTANCE hDllInstance;
 extern const GUID HidClassGuid;
+
+#ifndef UNIMPLEMENTED
+#define UNIMPLEMENTED \
+  DbgPrint("HID:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__)
+#endif
 
 /* EOF */

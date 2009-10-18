@@ -116,8 +116,8 @@
 @ stdcall InternetAutodial(long ptr)
 @ stub InternetAutodialCallback
 @ stdcall InternetAutodialHangup(long)
-@ stdcall InternetCanonicalizeUrlA(str ptr ptr long)
-@ stdcall InternetCanonicalizeUrlW(wstr ptr ptr long)
+@ stdcall InternetCanonicalizeUrlA(str str ptr long)
+@ stdcall InternetCanonicalizeUrlW(wstr wstr ptr long)
 @ stdcall InternetCheckConnectionA(ptr long long)
 @ stdcall InternetCheckConnectionW(ptr long long)
 @ stdcall InternetClearAllPerSiteCookieDecisions()
@@ -169,7 +169,7 @@
 @ stdcall InternetOpenUrlW(ptr wstr wstr long long long)
 @ stdcall InternetOpenW(wstr long wstr wstr long)
 @ stdcall InternetQueryDataAvailable(ptr ptr long long)
-@ stdcall InternetQueryFortezzaStatus(ptr long)
+@ stub InternetQueryFortezzaStatus
 @ stdcall InternetQueryOptionA(ptr long ptr ptr)
 @ stdcall InternetQueryOptionW(ptr long ptr ptr)
 @ stdcall InternetReadFile(ptr ptr long ptr)
@@ -209,8 +209,8 @@
 @ stub InternetWriteFileExA
 @ stub InternetWriteFileExW
 @ stdcall IsHostInProxyBypassList(long str long)
-@ stdcall IsUrlCacheEntryExpiredA(str long ptr)
-@ stdcall IsUrlCacheEntryExpiredW(wstr long ptr)
+@ stub IsUrlCacheEntryExpiredA
+@ stub IsUrlCacheEntryExpiredW
 @ stub LoadUrlCacheContent
 @ stub ParseX509EncodedCertificateForListBoxEntry
 @ stub PrivacyGetZonePreferenceW # (long long ptr ptr ptr)

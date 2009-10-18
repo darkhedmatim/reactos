@@ -83,9 +83,9 @@ DWORD WINAPI SHCopyKeyA(HKEY,LPCSTR,HKEY,DWORD);
 DWORD WINAPI SHCopyKeyW(HKEY,LPCWSTR,HKEY,DWORD);
 #define SHCopyKey WINELIB_NAME_AW(SHCopyKey)
 
-HKEY WINAPI  SHRegDuplicateHKey(HKEY);
-
 /* Undocumented registry functions */
+
+HKEY WINAPI  SHRegDuplicateHKey(HKEY);
 
 DWORD WINAPI SHDeleteOrphanKeyA(HKEY,LPCSTR);
 DWORD WINAPI SHDeleteOrphanKeyW(HKEY,LPCWSTR);
@@ -193,7 +193,6 @@ enum
     ASSOCF_REMAPRUNDLL          = 0x080, /* Get rundll args */
     ASSOCF_NOFIXUPS             = 0x100, /* Don't fixup errors */
     ASSOCF_IGNOREBASECLASS      = 0x200, /* Don't read baseclass */
-    ASSOCF_INIT_IGNOREUNKNOWN   = 0x400, /* Fail for unknown progid */
 };
 
 typedef DWORD ASSOCF;
@@ -340,7 +339,7 @@ int WINAPI PathCommonPrefixW(LPCWSTR,LPCWSTR,LPWSTR);
 
 HRESULT WINAPI PathCreateFromUrlA(LPCSTR pszUrl, LPSTR pszPath, LPDWORD pcchPath, DWORD dwReserved);
 HRESULT WINAPI PathCreateFromUrlW(LPCWSTR pszUrl, LPWSTR pszPath, LPDWORD pcchPath, DWORD dwReserved);
-#define PathCreateFromUrl WINELIB_NAME_AW(PathCreateFromUrl)
+#define PathCreateFromUrl WINELIB_NANE_AW(PathCreateFromUrl)
 
 BOOL WINAPI PathFileExistsA(LPCSTR);
 BOOL WINAPI PathFileExistsW(LPCWSTR);
@@ -388,7 +387,7 @@ BOOL WINAPI PathIsDirectoryEmptyW(LPCWSTR);
 
 BOOL WINAPI PathIsFileSpecA(LPCSTR);
 BOOL WINAPI PathIsFileSpecW(LPCWSTR);
-#define PathIsFileSpec WINELIB_NAME_AW(PathIsFileSpec)
+#define PathIsFileSpec WINELIB_NAME_AW(PathIsFileSpec);
 
 BOOL WINAPI PathIsPrefixA(LPCSTR,LPCSTR);
 BOOL WINAPI PathIsPrefixW(LPCWSTR,LPCWSTR);
@@ -667,17 +666,17 @@ BOOL    WINAPI UrlIsOpaqueW(LPCWSTR);
 
 HRESULT WINAPI UrlUnescapeA(LPSTR,LPSTR,LPDWORD,DWORD);
 HRESULT WINAPI UrlUnescapeW(LPWSTR,LPWSTR,LPDWORD,DWORD);
-#define UrlUnescape WINELIB_NAME_AW(UrlUnescape)
+#define UrlUnescape WINELIB_AW_NAME(UrlUnescape)
 
 #define UrlUnescapeInPlaceA(x,y) UrlUnescapeA(x, NULL, NULL, \
                                               y | URL_UNESCAPE_INPLACE)
 #define UrlUnescapeInPlaceW(x,y) UrlUnescapeW(x, NULL, NULL, \
                                               y | URL_UNESCAPE_INPLACE)
-#define UrlUnescapeInPlace WINELIB_NAME_AW(UrlUnescapeInPlace)
+#define UrlUnescapeInPlace WINELIB_AW_NAME(UrlUnescapeInPlace)
 
 HRESULT WINAPI UrlCreateFromPathA(LPCSTR,LPSTR,LPDWORD,DWORD);
 HRESULT WINAPI UrlCreateFromPathW(LPCWSTR,LPWSTR,LPDWORD,DWORD);
-#define UrlCreateFromPath WINELIB_NAME_AW(UrlCreateFromPath)
+#define UrlCreateFromPath WINELIB_AW_NAME(UrlCreateFromPath)
 
 typedef struct tagPARSEDURLA {
     DWORD cbSize;
@@ -699,7 +698,7 @@ typedef struct tagPARSEDURLW {
 
 HRESULT WINAPI ParseURLA(LPCSTR pszUrl, PARSEDURLA *ppu);
 HRESULT WINAPI ParseURLW(LPCWSTR pszUrl, PARSEDURLW *ppu);
-#define ParseURL WINELIB_NAME_AW(ParseUrl)
+#define ParseURL WINELIB_AW_NAME(ParseUrl)
 
 #endif /* NO_SHLWAPI_PATH */
 
@@ -783,7 +782,7 @@ LPSTR WINAPI StrFormatByteSizeA (DWORD,LPSTR,UINT);
 /* A/W Pairing is broken for this function */
 LPSTR WINAPI StrFormatByteSize64A (LONGLONG,LPSTR,UINT);
 LPWSTR WINAPI StrFormatByteSizeW (LONGLONG,LPWSTR,UINT);
-#ifndef WINE_NO_UNICODE_MACROS
+#ifndef __WINESRC__
 #ifdef UNICODE
 #define StrFormatByteSize StrFormatByteSizeW
 #else
@@ -859,8 +858,8 @@ BOOL WINAPI StrTrimA(LPSTR,LPCSTR);
 BOOL WINAPI StrTrimW(LPWSTR,LPCWSTR);
 #define StrTrim WINELIB_NAME_AW(StrTrim)
 
-INT WINAPI wvnsprintfA(LPSTR,INT,LPCSTR,__ms_va_list);
-INT WINAPI wvnsprintfW(LPWSTR,INT,LPCWSTR,__ms_va_list);
+INT WINAPI wvnsprintfA(LPSTR,INT,LPCSTR,va_list);
+INT WINAPI wvnsprintfW(LPWSTR,INT,LPCWSTR,va_list);
 #define wvnsprintf WINELIB_NAME_AW(wvnsprintf)
 
 INT WINAPIV wnsprintfA(LPSTR,INT,LPCSTR, ...);
@@ -998,24 +997,6 @@ typedef struct _DLLVERSIONINFO2 {
   ((ULONGLONG)(mnr)<< 32) | ((ULONGLONG)(bld)<< 16) | (ULONGLONG)(qfe))
 
 HRESULT WINAPI DllInstall(BOOL,LPCWSTR) DECLSPEC_HIDDEN;
-
-
-#if (_WIN32_IE >= 0x0600)
-#define SHGVSPB_PERUSER        0x00000001
-#define SHGVSPB_ALLUSERS       0x00000002
-#define SHGVSPB_PERFOLDER      0x00000004
-#define SHGVSPB_ALLFOLDERS     0x00000008
-#define SHGVSPB_INHERIT        0x00000010
-#define SHGVSPB_ROAM           0x00000020
-#define SHGVSPB_NOAUTODEFAULTS 0x80000000
-
-#define SHGVSPB_FOLDER           (SHGVSPB_PERUSER | SHGVSPB_PERFOLDER)
-#define SHGVSPB_FOLDERNODEFAULTS (SHGVSPB_PERUSER | SHGVSPB_PERFOLDER | SHGVSPB_NOAUTODEFAULTS)
-#define SHGVSPB_USERDEFAULTS     (SHGVSPB_PERUSER | SHGVSPB_ALLFOLDERS)
-#define SHGVSPB_GLOBALDEAFAULTS  (SHGVSPB_ALLUSERS | SHGVSPB_ALLFOLDERS)
-
-HRESULT WINAPI SHGetViewStatePropertyBag(LPCITEMIDLIST pidl, LPWSTR bag_name, DWORD flags, REFIID riid, void **ppv);
-#endif  /* (_WIN32_IE >= 0x0600) */
 
 
 /* IsOS definitions */

@@ -16,7 +16,7 @@
 #ifdef INCLUDE_CMD_SCREEN
 
 
-INT CommandScreen (LPTSTR param)
+INT CommandScreen (LPTSTR cmd, LPTSTR param)
 {
 	SHORT x,y;
 	BOOL bSkipText = FALSE;
@@ -43,7 +43,7 @@ INT CommandScreen (LPTSTR param)
 	if (y<0 || y>(maxy-1))
 	{
 		ConOutResPuts(STRING_SCREEN_ROW);
-
+		
 		return 1;
 	}
 

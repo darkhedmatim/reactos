@@ -5,16 +5,27 @@
  */
 
 #include <stdlib.h>
-#include <stdarg.h>
-
-/* gcc defaults to cdecl */
-#if defined(__GNUC__)
-#undef __cdecl
-#define __cdecl
-#endif
 
 #include "mkhive.h"
 #include <bitmap.c>
+
+SIZE_T xwcslen( PCWSTR String ) {
+	SIZE_T i;
+
+	for( i = 0; String[i]; i++ );
+
+	return i;
+}
+
+PWSTR xwcschr( PWSTR String, WCHAR Char )
+{
+	SIZE_T i;
+
+	for( i = 0; String[i] && String[i] != Char; i++ );
+
+	if( String[i] ) return &String[i];
+	else return NULL;
+}
 
 /*
  * @implemented
@@ -59,7 +70,7 @@ RtlInitUnicodeString(
 
 	if(SourceString)
 	{
-		DestSize = utf16_wcslen(SourceString) * sizeof(WCHAR);
+		DestSize = xwcslen(SourceString) * sizeof(WCHAR);
 		DestinationString->Length = (USHORT)DestSize;
 		DestinationString->MaximumLength = (USHORT)DestSize + sizeof(WCHAR);
 	}
@@ -146,42 +157,3 @@ ExFreePool(
 	free(p);
 }
 
-ULONG
-__cdecl
-DbgPrint(
-  IN CHAR *Format,
-  IN ...)
-{
-    va_list ap;
-    va_start(ap, Format);
-    vprintf(Format, ap);
-    va_end(ap);
-
-    return 0;
-}
-
-VOID
-NTAPI
-RtlAssert(PVOID FailedAssertion,
-          PVOID FileName,
-          ULONG LineNumber,
-          PCHAR Message)
-{
-   if (NULL != Message)
-   {
-      DbgPrint("Assertion \'%s\' failed at %s line %d: %s\n",
-               (PCHAR)FailedAssertion,
-               (PCHAR)FileName,
-               LineNumber,
-               Message);
-   }
-   else
-   {
-      DbgPrint("Assertion \'%s\' failed at %s line %d\n",
-               (PCHAR)FailedAssertion,
-               (PCHAR)FileName,
-               LineNumber);
-   }
-
-   //DbgBreakPoint();
-}

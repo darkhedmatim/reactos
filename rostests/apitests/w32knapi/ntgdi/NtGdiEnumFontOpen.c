@@ -25,11 +25,7 @@ Test_NtGdiEnumFontOpen(PTESTINFO pti)
 	/* We should not be able to use DeleteObject() on the handle */
 	TEST(DeleteObject((HGDIOBJ)idEnum) == FALSE);
 
-	NtGdiEnumFontClose(idEnum);
-
-	// Test no logfont (NULL): should word
-	// Test empty lfFaceName string: should not work
-
+	// FIXME: Close the enum handle
 
 	return APISTATUS_NORMAL;
 }

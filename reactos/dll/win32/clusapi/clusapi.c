@@ -30,77 +30,14 @@ WINE_DEFAULT_DEBUG_CHANNEL(clusapi);
 /***********************************************************************
  *             GetNodeClusterState   (CLUSAPI.@)
  *
- * PARAMS
- *   lpszNodeName    [I] Optional Pointer to a NULL terminated unicode string
- *   pdwClusterState [O] Current state of the cluster
- *                        0x00 - Cluster not installed.
- *                        0x01 - Cluster not configured.
- *                        0x03 - Cluster not running.
- *                        0x13 - Cluster is running.
  */
 DWORD WINAPI GetNodeClusterState(LPCWSTR lpszNodeName, LPDWORD pdwClusterState)
 {
-    FIXME("(%s,%p,%u) stub!\n",debugstr_w(lpszNodeName),pdwClusterState, *pdwClusterState);
+    FIXME("(%s,%p) stub!\n",debugstr_w(lpszNodeName),pdwClusterState);
 
-    *pdwClusterState = 0;
-
-    return ERROR_SUCCESS;
+    return 0;
 }
 
-/***********************************************************************
- *             OpenCluster   (CLUSAPI.@)
- *
- */
-HCLUSTER WINAPI OpenCluster(LPCWSTR lpszClusterName)
-{
-    FIXME("(%s) stub!\n", debugstr_w(lpszClusterName));
-
-    return (HCLUSTER)0xdeadbeef;
-}
-
-/***********************************************************************
- *             CloseCluster   (CLUSAPI.@)
- *
- */
-BOOL WINAPI CloseCluster(HCLUSTER hCluster)
-{
-    FIXME("(%p) stub!\n", hCluster);
-
-    return TRUE;
-}
-
-/***********************************************************************
- *             ClusterOpenEnum   (CLUSAPI.@)
- *
- */
-HCLUSENUM WINAPI ClusterOpenEnum(HCLUSTER hCluster, DWORD dwType)
-{
-    FIXME("(%p, %u) stub!\n", hCluster,dwType);
-
-    return (HCLUSENUM)0xdeadbeef;
-}
-
-/***********************************************************************
- *             ClusterCloseEnum   (CLUSAPI.@)
- *
- */
-DWORD WINAPI ClusterCloseEnum(HCLUSENUM hEnum)
-{
-    FIXME("(%p) stub!\n", hEnum);
-
-    return ERROR_SUCCESS;
-}
-
-/***********************************************************************
- *             ClusterEnum   (CLUSAPI.@)
- *
- */
-DWORD WINAPI ClusterEnum(HCLUSENUM hEnum, DWORD dwIndex, LPDWORD lpdwType, LPWSTR lpszName, LPDWORD lpcchName)
-{
-    FIXME("(%p, %u, %u, %p, %u) stub!\n", hEnum, dwIndex, *lpdwType, lpszName, *lpcchName);
-
-    return ERROR_NO_MORE_ITEMS;
-}
 
 /***********************************************************************
  *             DllMain   (CLUSAPI.@)

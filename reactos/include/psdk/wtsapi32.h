@@ -23,12 +23,6 @@
 extern "C" {
 #endif
 
-/*
-*  Current server information
-*/
-#define WTS_CURRENT_SERVER         ((HANDLE)NULL)
-#define WTS_CURRENT_SERVER_HANDLE  ((HANDLE)NULL)
-#define WTS_CURRENT_SERVER_NAME    (NULL)
 
 typedef enum tagWTS_INFO_CLASS
 {
@@ -146,7 +140,7 @@ BOOL WINAPI WTSEnumerateServersW( LPWSTR, DWORD, DWORD, PWTS_SERVER_INFOW*, DWOR
 BOOL WINAPI WTSEnumerateSessionsA(HANDLE, DWORD, DWORD, PWTS_SESSION_INFOA *, DWORD *);
 BOOL WINAPI WTSEnumerateSessionsW(HANDLE, DWORD, DWORD, PWTS_SESSION_INFOW *, DWORD *);
 #define     WTSEnumerateSessions WINELIB_NAME_AW(WTSEnumerateSessions)
-void WINAPI WTSFreeMemory(PVOID);
+void WINAPI WTSFreeMemory(PVOID); 
 HANDLE WINAPI WTSOpenServerA(LPSTR);
 HANDLE WINAPI WTSOpenServerW(LPWSTR);
 #define     WTSOpenServer WINELIB_NAME_AW(WTSOpenServer)

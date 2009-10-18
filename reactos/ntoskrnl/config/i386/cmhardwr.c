@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "../cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -95,7 +96,7 @@ CmpGetBiosDate(IN PCHAR BiosStart,
                 }
             }
 
-            /* Add slashes where we previously had NULLs */
+            /* Add slashes were we previously had NULLs */
             CurrentDate[4] = CurrentDate[7] = '/';
 
             /* Check which date is newer */
@@ -232,8 +233,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
 {
     UNICODE_STRING KeyName, ValueName, Data, SectionName;
     OBJECT_ATTRIBUTES ObjectAttributes;
-    ULONG HavePae, CacheSize, Length, TotalLength = 0, i, Disposition;
-    SIZE_T ViewSize;
+    ULONG HavePae, CacheSize, ViewSize, Length, TotalLength = 0, i, Disposition;
     NTSTATUS Status;
     HANDLE KeyHandle, BiosHandle, SystemHandle, FpuHandle, SectionHandle;
     CONFIGURATION_COMPONENT_DATA ConfigData;
@@ -245,11 +245,9 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
     PCHAR PartialString = NULL, BiosVersion;
     CHAR CpuString[48];
     PVOID BaseAddress = NULL;
-    LARGE_INTEGER ViewBase = {{0, 0}};
+    LARGE_INTEGER ViewBase = {{0}};
     ULONG_PTR VideoRomBase;
     PCHAR CurrentVersion;
-    extern UNICODE_STRING KeRosProcessorName, KeRosBiosDate, KeRosBiosVersion;
-    extern UNICODE_STRING KeRosVideoBiosDate, KeRosVideoBiosVersion;
 
     /* Open the SMSS Memory Management key */
     RtlInitUnicodeString(&KeyName,
@@ -428,26 +426,26 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                 else
                 {
                     /* Check if we have extended CPUID that supports name ID */
-                    CPUID(0x80000000, &ExtendedId, &Dummy, &Dummy, &Dummy);
+                    Ki386Cpuid(0x80000000, &ExtendedId, &Dummy, &Dummy, &Dummy);
                     if (ExtendedId >= 0x80000004)
                     {
-                        /* Do all the CPUIDs required to get the full name */
+                        /* Do all the CPUIDs requred to get the full name */
                         PartialString = CpuString;
                         for (ExtendedId = 2; ExtendedId <= 4; ExtendedId++)
                         {
                             /* Do the CPUID and save the name string */
-                            CPUID(0x80000000 | ExtendedId,
-                                  (PULONG)PartialString,
-                                  (PULONG)PartialString + 1,
-                                  (PULONG)PartialString + 2,
-                                  (PULONG)PartialString + 3);
+                            Ki386Cpuid(0x80000000 | ExtendedId,
+                                       (PULONG)PartialString,
+                                       (PULONG)PartialString + 1,
+                                       (PULONG)PartialString + 2,
+                                       (PULONG)PartialString + 3);
 
                             /* Go to the next name string */
                             PartialString += 16;
                         }
 
                         /* Null-terminate it */
-                        CpuString[47] = ANSI_NULL;
+                        CpuString[48] = ANSI_NULL;
                     }
                 }
 
@@ -472,9 +470,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                            REG_SZ,
                                            Data.Buffer,
                                            Data.Length + sizeof(UNICODE_NULL));
-
-                    /* ROS: Save a copy for bugzilla reporting */
-                    RtlCreateUnicodeString(&KeRosProcessorName, Data.Buffer);
 
                     /* Free the temporary buffer */
                     RtlFreeUnicodeString(&Data);
@@ -547,7 +542,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
         }
 
         /* Free the configuration data */
-        ExFreePoolWithTag(CmpConfigurationData, TAG_CM);
+        ExFreePool(CmpConfigurationData);
     }
 
     /* Open physical memory */
@@ -637,7 +632,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
             if (BiosHandle)
             {
                 /* Get the BIOS Date Identifier */
-                RtlCopyMemory(Buffer, (PCHAR)BaseAddress + (16 * PAGE_SIZE - 11), 8);
+                RtlCopyMemory(Buffer, (PCHAR)BaseAddress + (16*PAGE_SIZE - 11), 8);
                 Buffer[8] = ANSI_NULL;
 
                 /* Convert it to unicode */
@@ -653,9 +648,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                            Data.Buffer,
                                            Data.Length + sizeof(UNICODE_NULL));
 
-                    /* ROS: Save a copy for bugzilla reporting */
-                    RtlCreateUnicodeString(&KeRosBiosDate, Data.Buffer);
-
                     /* Free the string */
                     RtlFreeUnicodeString(&Data);
                 }
@@ -666,7 +658,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
         }
 
         /* Get the BIOS Version */
-        if (CmpGetBiosVersion(BaseAddress, 16 * PAGE_SIZE, Buffer))
+        if (CmpGetBiosVersion(BaseAddress, 16* PAGE_SIZE, Buffer))
         {
             /* Start at the beginning of our buffer */
             CurrentVersion = BiosVersion;
@@ -712,9 +704,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                        REG_MULTI_SZ,
                                        BiosVersion,
                                        TotalLength);
-
-                /* ROS: Save a copy for bugzilla reporting */
-                RtlCreateUnicodeString(&KeRosBiosVersion, (PWCH)BiosVersion);
             }
         }
 
@@ -757,15 +746,12 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                    Data.Buffer,
                                    Data.Length + sizeof(UNICODE_NULL));
 
-            /* ROS: Save a copy for bugzilla reporting */
-            RtlCreateUnicodeString(&KeRosVideoBiosDate, Data.Buffer);
-
             /* Free the string */
             RtlFreeUnicodeString(&Data);
         }
 
         /* Get the Video BIOS Version */
-        if (CmpGetBiosVersion(BaseAddress, 8 * PAGE_SIZE, Buffer))
+        if (CmpGetBiosVersion(BaseAddress, 8* PAGE_SIZE, Buffer))
         {
             /* Start at the beginning of our buffer */
             CurrentVersion = BiosVersion;
@@ -811,9 +797,6 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
                                        REG_MULTI_SZ,
                                        BiosVersion,
                                        TotalLength);
-
-                /* ROS: Save a copy for bugzilla reporting */
-                RtlCreateUnicodeString(&KeRosVideoBiosVersion, (PWCH)BiosVersion);
             }
         }
 
@@ -825,7 +808,7 @@ CmpInitializeMachineDependentConfiguration(IN PLOADER_PARAMETER_BLOCK LoaderBloc
     ZwClose(SectionHandle);
 
     /* Free the BIOS version string buffer */
-    if (BiosVersion) ExFreePoolWithTag(BiosVersion, TAG_CM);
+    if (BiosVersion) ExFreePool(BiosVersion);
 
 Quickie:
     /* Close the procesor handle */

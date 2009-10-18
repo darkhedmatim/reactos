@@ -1,4 +1,4 @@
-/* $Id: mouse.c 29112 2007-09-19 21:31:49Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -16,11 +16,16 @@
 #include "resource.h"
 #include "access.h"
 
+typedef struct _GLOBAL_DATA
+{
+    MOUSEKEYS mouseKeys;
+} GLOBAL_DATA, *PGLOBAL_DATA;
+
 
 #define SPEEDTICKS 9
 #define ACCELTICKS 9
 
-static UINT nSpeedArray[SPEEDTICKS] = {10, 20, 30, 40, 60, 80, 120, 180, 360};
+static INT nSpeedArray[SPEEDTICKS] = {10, 20, 30, 40, 60, 80, 120, 180, 360};
 
 
 INT_PTR CALLBACK
@@ -88,7 +93,7 @@ MouseKeysDlgProc(HWND hwndDlg,
             break;
 
         case WM_HSCROLL:
-            switch (GetWindowLongPtr((HWND) lParam, GWL_ID))
+            switch (GetWindowLong((HWND) lParam, GWL_ID))
             {
                 case IDC_MOUSEKEYS_SPEED_TRACK:
                     i = SendDlgItemMessage(hwndDlg, IDC_MOUSEKEYS_SPEED_TRACK, TBM_GETPOS, 0, 0);
@@ -160,11 +165,18 @@ MousePageProc(HWND hwndDlg,
     switch (uMsg)
     {
         case WM_INITDIALOG:
-            pGlobalData = (PGLOBAL_DATA)((LPPROPSHEETPAGE)lParam)->lParam;
+            pGlobalData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GLOBAL_DATA));
             if (pGlobalData == NULL)
                 return FALSE;
 
             SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
+
+            /* Get mouse keys information */
+            pGlobalData->mouseKeys.cbSize = sizeof(MOUSEKEYS);
+            SystemParametersInfo(SPI_GETMOUSEKEYS,
+                                 sizeof(MOUSEKEYS),
+                                 &pGlobalData->mouseKeys,
+                                 0);
 
             /* Set the checkbox */
             CheckDlgButton(hwndDlg,
@@ -205,6 +217,10 @@ MousePageProc(HWND hwndDlg,
                                      SPIF_UPDATEINIFILE | SPIF_SENDCHANGE /*0*/);
                 return TRUE;
             }
+            break;
+
+        case WM_DESTROY:
+            HeapFree(GetProcessHeap(), 0, pGlobalData);
             break;
     }
 

@@ -18,6 +18,10 @@
 KSPIN_LOCK KiFreezeExecutionLock;
 KSPIN_LOCK Ki486CompatibilityLock;
 
+/* BIOS Memory Map. Not NTLDR-compliant yet */
+extern ULONG KeMemoryMapRangeCount;
+extern ADDRESS_RANGE KeMemoryMap[64];
+
 /* FUNCTIONS *****************************************************************/
 
 VOID
@@ -32,7 +36,7 @@ KiInitMachineDependent(VOID)
     ULONG i, Affinity, Sample = 0;
     PFX_SAVE_AREA FxSaveArea;
     ULONG MXCsrMask = 0xFFBF;
-    ULONG Dummy;
+    ULONG Dummy[4];
     KI_SAMPLE_MAP Samples[4];
     PKI_SAMPLE_MAP CurrentSample = Samples;
 
@@ -40,7 +44,7 @@ KiInitMachineDependent(VOID)
     if (KeFeatureBits & KF_LARGE_PAGE)
     {
         /* FIXME: Support this */
-        DPRINT("Large Page support detected but not yet taken advantage of!\n");
+        DPRINT1("Large Page support detected but not yet taken advantage of!\n");
     }
 
     /* Check for global page support */
@@ -179,7 +183,7 @@ KiInitMachineDependent(VOID)
                 for (;;)
                 {
                     /* Do a dummy CPUID to start the sample */
-                    CPUID(0, &Dummy, &Dummy, &Dummy, &Dummy);
+                    CPUID(Dummy, 0);
 
                     /* Fill out the starting data */
                     CurrentSample->PerfStart = KeQueryPerformanceCounter(NULL);
@@ -192,7 +196,7 @@ KiInitMachineDependent(VOID)
                                            &CurrentSample->PerfFreq);
 
                     /* Do another dummy CPUID */
-                    CPUID(0, &Dummy, &Dummy, &Dummy, &Dummy);
+                    CPUID(Dummy, 0);
 
                     /* Fill out the ending data */
                     CurrentSample->PerfEnd =
@@ -290,7 +294,7 @@ KiInitMachineDependent(VOID)
                     if (KiMXCsrMask != MXCsrMask)
                     {
                         /* No, something is definitely wrong */
-                        KeBugCheckEx(MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED,
+                        KEBUGCHECKEX(MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED,
                                      KF_FXSR,
                                      KiMXCsrMask,
                                      MXCsrMask,
@@ -351,7 +355,7 @@ KiInitializePcr(IN ULONG ProcessorNumber,
 #ifndef CONFIG_SMP
     Pcr->PrcbData.BuildType |= PRCB_BUILD_UNIPROCESSOR;
 #endif
-#if DBG
+#ifdef DBG
     Pcr->PrcbData.BuildType |= PRCB_BUILD_DEBUG;
 #endif
 
@@ -387,7 +391,7 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
 {
     BOOLEAN NpxPresent;
     ULONG FeatureBits;
-    ULONG PageDirectory[2];
+    LARGE_INTEGER PageDirectory;
     PVOID DpcStack;
     ULONG Vendor[3];
 
@@ -499,12 +503,11 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
 
         /* Initialize the Idle Process and the Process Listhead */
         InitializeListHead(&KiProcessListHead);
-        PageDirectory[0] = 0;
-        PageDirectory[1] = 0;
+        PageDirectory.QuadPart = 0;
         KeInitializeProcess(InitProcess,
                             0,
                             0xFFFFFFFF,
-                            PageDirectory,
+                            &PageDirectory,
                             FALSE);
         InitProcess->QuantumReset = MAXCHAR;
     }
@@ -532,6 +535,14 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
 
     /* HACK for MmUpdatePageDir */
     ((PETHREAD)InitThread)->ThreadsProcess = (PEPROCESS)InitProcess;
+
+    /* Initialize Kernel Memory Address Space */
+    MmInit1(MmFreeLdrFirstKrnlPhysAddr,
+            MmFreeLdrLastKrnlPhysAddr,
+            MmFreeLdrLastKernelAddress,
+            KeMemoryMap,
+            KeMemoryMapRangeCount,
+            4096);
 
     /* Set basic CPU Features that user mode can read */
     SharedUserData->ProcessorFeatures[PF_MMX_INSTRUCTIONS_AVAILABLE] =
@@ -569,14 +580,14 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
         Prcb->AdjustDpcThreshold = KiAdjustDpcThreshold;
 
         /* Allocate the DPC Stack */
-        DpcStack = MmCreateKernelStack(FALSE, 0);
+        DpcStack = MmCreateKernelStack(FALSE);
         if (!DpcStack) KeBugCheckEx(NO_PAGES_AVAILABLE, 1, 0, 0, 0);
-        Prcb->DpcStack = DpcStack;
+        Prcb->DpcStack = (PVOID)((ULONG_PTR)DpcStack + KERNEL_STACK_SIZE);
 
         /* Allocate the IOPM save area. */
         Ki386IopmSaveArea = ExAllocatePoolWithTag(PagedPool,
                                                   PAGE_SIZE * 2,
-                                                  '  eK');
+                                                  TAG('K', 'e', ' ', ' '));
         if (!Ki386IopmSaveArea)
         {
             /* Bugcheck. We need this for V86/VDM support. */
@@ -607,20 +618,21 @@ KiGetMachineBootPointers(IN PKGDTENTRY *Gdt,
                          IN PKIPCR *Pcr,
                          IN PKTSS *Tss)
 {
-    KDESCRIPTOR GdtDescriptor, IdtDescriptor;
+    KDESCRIPTOR GdtDescriptor = {0}, IdtDescriptor = {0};
     KGDTENTRY TssSelector, PcrSelector;
-    USHORT Tr, Fs;
+    USHORT Tr = 0, Fs;
 
     /* Get GDT and IDT descriptors */
-    Ke386GetGlobalDescriptorTable(&GdtDescriptor.Limit);
-    __sidt(&IdtDescriptor.Limit);
+    Ke386GetGlobalDescriptorTable(*(PKDESCRIPTOR)&GdtDescriptor.Limit);
+    Ke386GetInterruptDescriptorTable(*(PKDESCRIPTOR)&IdtDescriptor.Limit);
 
     /* Save IDT and GDT */
     *Gdt = (PKGDTENTRY)GdtDescriptor.Base;
     *Idt = (PKIDTENTRY)IdtDescriptor.Base;
 
     /* Get TSS and FS Selectors */
-    Tr = Ke386GetTr();
+    Ke386GetTr(Tr);
+    if (Tr != KGDT_TSS) Tr = KGDT_TSS; // FIXME: HACKHACK
     Fs = Ke386GetFs();
 
     /* Get PCR Selector, mask it and get its GDT Entry */
@@ -642,14 +654,13 @@ KiGetMachineBootPointers(IN PKGDTENTRY *Gdt,
 
 VOID
 NTAPI
-KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
+KiSystemStartup(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
     ULONG Cpu;
     PKTHREAD InitialThread;
     ULONG InitialStack;
     PKGDTENTRY Gdt;
     PKIDTENTRY Idt;
-    KIDTENTRY NmiEntry, DoubleFaultEntry;
     PKTSS Tss;
     PKIPCR Pcr;
 
@@ -711,19 +722,6 @@ KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     Ke386SetDs(KGDT_R3_DATA | RPL_MASK);
     Ke386SetEs(KGDT_R3_DATA | RPL_MASK);
 
-    /* Save NMI and double fault traps */
-    RtlCopyMemory(&NmiEntry, &Idt[2], sizeof(KIDTENTRY));
-    RtlCopyMemory(&DoubleFaultEntry, &Idt[8], sizeof(KIDTENTRY));
-
-    /* Copy kernel's trap handlers */
-    RtlCopyMemory(Idt,
-                  (PVOID)KiIdtDescriptor.Base,
-                  KiIdtDescriptor.Limit + 1);
-
-    /* Restore NMI and double fault */
-    RtlCopyMemory(&Idt[2], &NmiEntry, sizeof(KIDTENTRY));
-    RtlCopyMemory(&Idt[8], &DoubleFaultEntry, sizeof(KIDTENTRY));
-
 AppCpuInit:
     /* Loop until we can release the freeze lock */
     do
@@ -752,7 +750,7 @@ AppCpuInit:
         KdInitSystem(0, KeLoaderBlock);
 
         /* Check for break-in */
-        if (KdPollBreakIn()) DbgBreakPointWithStatus(DBG_STATUS_CONTROL_C);
+        if (KdPollBreakIn()) DbgBreakPointWithStatus(1);
     }
 
     /* Raise to HIGH_LEVEL */

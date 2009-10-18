@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_CRYPT_H
@@ -56,28 +56,25 @@ typedef struct tagPROVFUNCS
 	BOOL (WINAPI *pCPVerifySignature)(HCRYPTPROV hProv, HCRYPTHASH hHash, CONST BYTE *pbSignature, DWORD dwSigLen, HCRYPTKEY hPubKey, LPCWSTR sDescription, DWORD dwFlags);
 } PROVFUNCS, *PPROVFUNCS;
 
-#define MAGIC_CRYPTPROV 0xA39E741F
-
 typedef struct tagCRYPTPROV
 {
-	DWORD dwMagic;
 	UINT refcount;
 	HMODULE hModule;
 	PPROVFUNCS pFuncs;
-        HCRYPTPROV hPrivate;  /*CSP's handle - Should not be given to application under any circumstances!*/
+	HCRYPTPROV hPrivate;  /*CSP's handle - Should not be given to application under any circumstances!*/
 	PVTableProvStruc pVTable;
 } CRYPTPROV, *PCRYPTPROV;
 
 typedef struct tagCRYPTKEY
 {
 	PCRYPTPROV pProvider;
-        HCRYPTKEY hPrivate;    /*CSP's handle - Should not be given to application under any circumstances!*/
+	HCRYPTKEY hPrivate;    /*CSP's handle - Should not be given to application under any circumstances!*/
 } CRYPTKEY, *PCRYPTKEY;
 
 typedef struct tagCRYPTHASH
 {
 	PCRYPTPROV pProvider;
-        HCRYPTHASH hPrivate;    /*CSP's handle - Should not be given to application under any circumstances!*/
+	HCRYPTHASH hPrivate;    /*CSP's handle - Should not be given to application under any circumstances!*/
 } CRYPTHASH, *PCRYPTHASH;
 
 #define MAXPROVTYPES 999
@@ -85,35 +82,7 @@ typedef struct tagCRYPTHASH
 extern unsigned char *CRYPT_DESkey8to7( unsigned char *dst, const unsigned char *key );
 extern unsigned char *CRYPT_DEShash( unsigned char *dst, const unsigned char *key,
                                      const unsigned char *src );
-extern unsigned char *CRYPT_DESunhash( unsigned char *dst, const unsigned char *key,
-                                       const unsigned char *src );
 
 extern VOID byteReverse(unsigned char *buf, unsigned longs);
-
-struct ustring {
-    DWORD Length;
-    DWORD MaximumLength;
-    unsigned char *Buffer;
-};
-
-typedef struct {
-    unsigned int buf[4];
-    unsigned int i[2];
-    unsigned char in[64];
-    unsigned char digest[16];
-} MD4_CTX;
-
-typedef struct tag_arc4_info {
-    unsigned char state[256];
-    unsigned char x, y;
-} arc4_info;
-
-VOID WINAPI MD4Init( MD4_CTX *ctx );
-VOID WINAPI MD4Update( MD4_CTX *ctx, const unsigned char *buf, unsigned int len );
-VOID WINAPI MD4Final(MD4_CTX *ctx);
-void arc4_init(arc4_info *a4i, const BYTE *key, unsigned int keyLen);
-void arc4_ProcessString(arc4_info *a4i, BYTE *inoutString, unsigned int length);
-NTSTATUS WINAPI SystemFunction032(struct ustring *data, struct ustring *key);
-
 
 #endif /* __WINE_CRYPT_H_ */

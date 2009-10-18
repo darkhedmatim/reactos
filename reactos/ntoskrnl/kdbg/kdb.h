@@ -87,7 +87,7 @@ KdbpGetInstLength(
 
 /* from i386/kdb_help.S */
 
-VOID NTAPI
+VOID STDCALL
 KdbpStackSwitchAndCall(
    IN PVOID NewStack,
    IN VOID (*Function)(VOID));
@@ -142,11 +142,16 @@ KdbpRpnEvaluateParsedExpression(
 /* from kdb_symbols.c */
 
 BOOLEAN
-KdbpSymFindModule(
-    IN PVOID Address  OPTIONAL,
-    IN LPCWSTR Name  OPTIONAL,
-    IN INT Index  OPTIONAL,
-    OUT PLDR_DATA_TABLE_ENTRY* pLdrEntry);
+KdbpSymFindModuleByAddress(IN PVOID Address,
+                           OUT PKDB_MODULE_INFO pInfo);
+
+BOOLEAN
+KdbpSymFindModuleByName(IN LPCWSTR Name,
+                        OUT PKDB_MODULE_INFO pInfo);
+
+BOOLEAN
+KdbpSymFindModuleByIndex(IN INT Index,
+                         OUT PKDB_MODULE_INFO pInfo);
 
 /* from kdb.c */
 
@@ -183,7 +188,7 @@ KdbpInsertBreakPoint(
    IN  KDB_ACCESS_TYPE AccessType  OPTIONAL,
    IN  PCHAR ConditionExpression  OPTIONAL,
    IN  BOOLEAN Global,
-   OUT PLONG BreakPointNr  OPTIONAL);
+   OUT PULONG BreakPointNumber  OPTIONAL);
 
 BOOLEAN
 KdbpDeleteBreakPoint(
@@ -221,7 +226,7 @@ KdbpAttachToProcess(
    PVOID ProcessId);
 
 VOID
-NTAPI
+STDCALL
 KdbpGetCommandLineSettings(PCHAR p1);
 
 KD_CONTINUE_TYPE

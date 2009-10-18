@@ -1,4 +1,4 @@
-/* $Id: keyboard.c 29170 2007-09-23 22:59:00Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -17,59 +17,29 @@
 #include "resource.h"
 #include "access.h"
 
+typedef struct _GLOBAL_DATA
+{
+    STICKYKEYS stickyKeys;
+    STICKYKEYS oldStickyKeys;
+    FILTERKEYS filterKeys;
+    FILTERKEYS oldFilterKeys;
+    TOGGLEKEYS toggleKeys;
+    TOGGLEKEYS oldToggleKeys;
+    BOOL bKeyboardPref;
+} GLOBAL_DATA, *PGLOBAL_DATA;
+
 
 #define BOUNCETICKS 5
-static UINT nBounceArray[BOUNCETICKS] = {500, 700, 1000, 1500, 2000};
+static INT nBounceArray[BOUNCETICKS] = {500, 700, 1000, 1500, 2000};
 
 #define DELAYTICKS 5
-static UINT nDelayArray[DELAYTICKS] = {300, 700, 1000, 1500, 2000};
+static INT nDelayArray[DELAYTICKS] = {300, 700, 1000, 1500, 2000};
 
 #define REPEATTICKS 6
-static UINT nRepeatArray[REPEATTICKS] = {300, 500, 700, 1000, 1500, 2000};
+static INT nRepeatArray[REPEATTICKS] = {300, 500, 700, 1000, 1500, 2000};
 
 #define WAITTICKS 10
-static UINT nWaitArray[WAITTICKS] = {0, 300, 500, 700, 1000, 1500, 2000, 5000, 10000, 20000};
-
-
-static VOID
-EnableFilterKeysTest(PGLOBAL_DATA pGlobalData)
-{
-    pGlobalData->filterKeys.dwFlags |= FKF_FILTERKEYSON;
-    pGlobalData->filterKeys.dwFlags &= ~FKF_INDICATOR;
-
-    SystemParametersInfo(SPI_SETFILTERKEYS,
-                         sizeof(FILTERKEYS),
-                         &pGlobalData->filterKeys,
-                         0);
-}
-
-
-static VOID
-DisableFilterKeysTest(PGLOBAL_DATA pGlobalData)
-{
-    if (pGlobalData->oldFilterKeys.dwFlags & FKF_FILTERKEYSON)
-    {
-        pGlobalData->filterKeys.dwFlags |= FKF_FILTERKEYSON;
-    }
-    else
-    {
-        pGlobalData->filterKeys.dwFlags &= ~FKF_FILTERKEYSON;
-    }
-
-    if (pGlobalData->oldFilterKeys.dwFlags & FKF_INDICATOR)
-    {
-        pGlobalData->filterKeys.dwFlags |= FKF_INDICATOR;
-    }
-    else
-    {
-        pGlobalData->filterKeys.dwFlags &= ~FKF_INDICATOR;
-    }
-
-    SystemParametersInfo(SPI_SETFILTERKEYS,
-                         sizeof(FILTERKEYS),
-                         &pGlobalData->filterKeys,
-                         0);
-}
+static INT nWaitArray[WAITTICKS] = {0, 300, 500, 700, 1000, 1500, 2000, 5000, 10000, 20000};
 
 
 /* Property page dialog callback */
@@ -212,31 +182,13 @@ BounceKeysDlgProc(HWND hwndDlg,
         case WM_COMMAND:
             switch (LOWORD(wParam))
             {
-                case IDC_BOUNCE_TIME_COMBO:
-                    if (HIWORD(wParam) == CBN_SELCHANGE)
-                    {
-                        i = SendDlgItemMessage(hwndDlg, IDC_BOUNCE_TIME_COMBO, CB_GETCURSEL, 0, 0);
-                        if (i != CB_ERR)
-                        {
-                            pGlobalData->filterKeys.iBounceMSec = nBounceArray[i];
-                        }
-                    }
-                    break;
-
-                case IDC_BOUNCE_TEST_EDIT:
-                    switch (HIWORD(wParam))
-                    {
-                        case EN_SETFOCUS:
-                            EnableFilterKeysTest(pGlobalData);
-                            break;
-
-                        case EN_KILLFOCUS:
-                            DisableFilterKeysTest(pGlobalData);
-                            break;
-                    }
-                    break;
-
                 case IDOK:
+                    i = SendDlgItemMessage(hwndDlg, IDC_BOUNCE_TIME_COMBO, CB_GETCURSEL, 0, 0);
+                    if (i != CB_ERR)
+                    {
+                        pGlobalData->filterKeys.iBounceMSec = nBounceArray[i];
+                    }
+
                     EndDialog(hwndDlg, TRUE);
                     break;
 
@@ -344,53 +296,25 @@ RepeatKeysDlgProc(HWND hwndDlg,
                     EnableWindow(GetDlgItem(hwndDlg, IDC_REPEAT_REPEAT_COMBO), TRUE);
                     break;
 
-                case IDC_REPEAT_DELAY_COMBO:
-                    if (HIWORD(wParam) == CBN_SELCHANGE)
-                    {
-                        i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_DELAY_COMBO, CB_GETCURSEL, 0, 0);
-                        if (i != CB_ERR)
-                        {
-                            pGlobalData->filterKeys.iDelayMSec = nDelayArray[i];
-                        }
-                    }
-                    break;
-
-                case IDC_REPEAT_REPEAT_COMBO:
-                    if (HIWORD(wParam) == CBN_SELCHANGE)
-                    {
-                        i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_REPEAT_COMBO, CB_GETCURSEL, 0, 0);
-                        if (i != CB_ERR)
-                        {
-                            pGlobalData->filterKeys.iRepeatMSec = nRepeatArray[i];
-                        }
-                    }
-                    break;
-
-                case IDC_REPEAT_WAIT_COMBO:
-                    if (HIWORD(wParam) == CBN_SELCHANGE)
-                    {
-                        i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_WAIT_COMBO, CB_GETCURSEL, 0, 0);
-                        if (i != CB_ERR)
-                        {
-                            pGlobalData->filterKeys.iWaitMSec = nWaitArray[i];
-                        }
-                    }
-                    break;
-
-                case IDC_REPEAT_TEST_EDIT:
-                    switch (HIWORD(wParam))
-                    {
-                        case EN_SETFOCUS:
-                            EnableFilterKeysTest(pGlobalData);
-                            break;
-
-                        case EN_KILLFOCUS:
-                            DisableFilterKeysTest(pGlobalData);
-                            break;
-                    }
-                    break;
-
                 case IDOK:
+                    i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_DELAY_COMBO, CB_GETCURSEL, 0, 0);
+                    if (i != CB_ERR)
+                    {
+                        pGlobalData->filterKeys.iDelayMSec = nDelayArray[i];
+                    }
+
+                    i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_REPEAT_COMBO, CB_GETCURSEL, 0, 0);
+                    if (i != CB_ERR)
+                    {
+                        pGlobalData->filterKeys.iRepeatMSec = nRepeatArray[i];
+                    }
+
+                    i = SendDlgItemMessage(hwndDlg, IDC_REPEAT_WAIT_COMBO, CB_GETCURSEL, 0, 0);
+                    if (i != CB_ERR)
+                    {
+                        pGlobalData->filterKeys.iWaitMSec = nWaitArray[i];
+                    }
+
                     EndDialog(hwndDlg, TRUE);
                     break;
 
@@ -480,19 +404,6 @@ FilterKeysDlgProc(HWND hwndDlg,
                                    (LPARAM)pGlobalData);
                     break;
 
-                case IDC_FILTER_TEST_EDIT:
-                    switch (HIWORD(wParam))
-                    {
-                        case EN_SETFOCUS:
-                            EnableFilterKeysTest(pGlobalData);
-                            break;
-
-                        case EN_KILLFOCUS:
-                            DisableFilterKeysTest(pGlobalData);
-                            break;
-                    }
-                    break;
-
                 case IDC_FILTER_SOUND_CHECK:
                     pGlobalData->filterKeys.dwFlags ^= FKF_CLICKON;
                     break;
@@ -547,7 +458,7 @@ ToggleKeysDlgProc(HWND hwndDlg,
 
             memcpy(&pGlobalData->oldToggleKeys,
                    &pGlobalData->toggleKeys,
-                   sizeof(TOGGLEKEYS));
+                   sizeof(STICKYKEYS));
 
             CheckDlgButton(hwndDlg,
                            IDC_TOGGLE_ACTIVATE_CHECK,
@@ -580,6 +491,66 @@ ToggleKeysDlgProc(HWND hwndDlg,
 }
 
 
+static VOID
+OnInitDialog(IN HWND hwndDlg, PGLOBAL_DATA pGlobalData)
+{
+    /* Get sticky keys information */
+    pGlobalData->stickyKeys.cbSize = sizeof(STICKYKEYS);
+    if (!SystemParametersInfo(SPI_GETSTICKYKEYS,
+                              sizeof(STICKYKEYS),
+                              &pGlobalData->stickyKeys,
+                              0))
+    {
+        return;
+    }
+
+    /* Get filter keys information */
+    pGlobalData->filterKeys.cbSize = sizeof(FILTERKEYS);
+    if (!SystemParametersInfo(SPI_GETFILTERKEYS,
+                              sizeof(FILTERKEYS),
+                              &pGlobalData->filterKeys,
+                              0))
+    {
+        return;
+    }
+
+    /* Get toggle keys information */
+    pGlobalData->toggleKeys.cbSize = sizeof(TOGGLEKEYS);
+    if (!SystemParametersInfo(SPI_GETTOGGLEKEYS,
+                              sizeof(TOGGLEKEYS),
+                              &pGlobalData->toggleKeys,
+                              0))
+    {
+        return;
+    }
+
+    /* Get keyboard preference information */
+    if (!SystemParametersInfo(SPI_GETKEYBOARDPREF,
+                              0,
+                              &pGlobalData->bKeyboardPref,
+                              0))
+    {
+        return;
+    }
+
+    CheckDlgButton(hwndDlg,
+                   IDC_STICKY_BOX,
+                   pGlobalData->stickyKeys.dwFlags & SKF_STICKYKEYSON ? BST_CHECKED : BST_UNCHECKED);
+
+    CheckDlgButton(hwndDlg,
+                   IDC_FILTER_BOX,
+                   pGlobalData->filterKeys.dwFlags & FKF_FILTERKEYSON ? BST_CHECKED : BST_UNCHECKED);
+
+    CheckDlgButton(hwndDlg,
+                   IDC_TOGGLE_BOX,
+                   pGlobalData->toggleKeys.dwFlags & TKF_TOGGLEKEYSON ? BST_CHECKED : BST_UNCHECKED);
+
+    CheckDlgButton(hwndDlg,
+                   IDC_KEYBOARD_EXTRA,
+                   pGlobalData->bKeyboardPref ? BST_CHECKED : BST_UNCHECKED);
+}
+
+
 /* Property page dialog callback */
 INT_PTR CALLBACK
 KeyboardPageProc(HWND hwndDlg,
@@ -595,27 +566,12 @@ KeyboardPageProc(HWND hwndDlg,
     switch (uMsg)
     {
         case WM_INITDIALOG:
-            pGlobalData = (PGLOBAL_DATA)((LPPROPSHEETPAGE)lParam)->lParam;
+            pGlobalData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GLOBAL_DATA));
             if (pGlobalData == NULL)
                 return FALSE;
 
             SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
-
-            CheckDlgButton(hwndDlg,
-                           IDC_STICKY_BOX,
-                           pGlobalData->stickyKeys.dwFlags & SKF_STICKYKEYSON ? BST_CHECKED : BST_UNCHECKED);
-
-            CheckDlgButton(hwndDlg,
-                           IDC_FILTER_BOX,
-                           pGlobalData->filterKeys.dwFlags & FKF_FILTERKEYSON ? BST_CHECKED : BST_UNCHECKED);
-
-            CheckDlgButton(hwndDlg,
-                           IDC_TOGGLE_BOX,
-                           pGlobalData->toggleKeys.dwFlags & TKF_TOGGLEKEYSON ? BST_CHECKED : BST_UNCHECKED);
-
-            CheckDlgButton(hwndDlg,
-                           IDC_KEYBOARD_EXTRA,
-                           pGlobalData->bKeyboardPref ? BST_CHECKED : BST_UNCHECKED);
+            OnInitDialog(hwndDlg, pGlobalData);
             return TRUE;
 
         case WM_COMMAND:
@@ -699,6 +655,10 @@ KeyboardPageProc(HWND hwndDlg,
 
                 return TRUE;
             }
+            break;
+
+        case WM_DESTROY:
+            HeapFree(GetProcessHeap(), 0, pGlobalData);
             break;
     }
 

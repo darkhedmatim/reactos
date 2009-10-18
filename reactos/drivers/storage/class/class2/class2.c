@@ -15,6 +15,8 @@
 //#define NDEBUG
 #include <debug.h>
 
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, ScsiClassGetInquiryData)
 #pragma alloc_text(PAGE, ScsiClassInitialize)
@@ -29,49 +31,49 @@
 #define START_UNIT_TIMEOUT  30
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassCreateClose(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassReadWrite(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassDeviceControlDispatch(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassDeviceControl(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassInternalIoControl (
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassShutdownFlush(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath
@@ -83,7 +85,7 @@ DriverEntry(
 
 
 VOID
-NTAPI
+STDCALL
 RetryRequest(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp,
@@ -92,13 +94,13 @@ RetryRequest(
     );
 
 VOID
-NTAPI
+STDCALL
 StartUnit(
     IN PDEVICE_OBJECT DeviceObject
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ClassIoCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -106,14 +108,14 @@ ClassIoCompletion(
     );
 
 NTSTATUS
-NTAPI
+STDCALL
 ClassCompletionRoutine(IN PDEVICE_OBJECT DeviceObject,
                        IN PIRP Irp,
                        IN PVOID Context);
 
 
 NTSTATUS
-NTAPI
+STDCALL
 DriverEntry(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath
@@ -124,7 +126,7 @@ DriverEntry(
 
 
 ULONG
-NTAPI
+STDCALL
 ScsiClassInitialize(
     IN  PVOID            Argument1,
     IN  PVOID            Argument2,
@@ -260,7 +262,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassCreateClose(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -308,7 +310,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassReadWrite(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -490,7 +492,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassGetCapabilities(
     IN PDEVICE_OBJECT PortDeviceObject,
     OUT PIO_SCSI_CAPABILITIES *PortCapabilities
@@ -571,7 +573,7 @@ Notes:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassGetInquiryData(
     IN PDEVICE_OBJECT PortDeviceObject,
     OUT PSCSI_ADAPTER_BUS_INFO *ConfigInfo
@@ -673,7 +675,7 @@ Notes:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassReadDriveCapacity(
     IN PDEVICE_OBJECT DeviceObject
     )
@@ -895,7 +897,7 @@ Retry:
 
 
 VOID
-NTAPI
+STDCALL
 ScsiClassReleaseQueue(
     IN PDEVICE_OBJECT DeviceObject
     )
@@ -1036,7 +1038,7 @@ Return Value:
 
 
 VOID
-NTAPI
+STDCALL
 StartUnit(
     IN PDEVICE_OBJECT DeviceObject
     )
@@ -1169,7 +1171,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassAsynchronousCompletion(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp,
@@ -1250,7 +1252,7 @@ Return Value:
 
 
 VOID
-NTAPI
+STDCALL
 ScsiClassSplitRequest(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -1442,7 +1444,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassIoComplete(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -1589,7 +1591,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassIoCompleteAssociated(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -1802,7 +1804,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassSendSrbSynchronous(
     PDEVICE_OBJECT DeviceObject,
     PSCSI_REQUEST_BLOCK Srb,
@@ -2092,7 +2094,7 @@ retry:
 
 
 BOOLEAN
-NTAPI
+STDCALL
 ScsiClassInterpretSenseInfo(
     IN PDEVICE_OBJECT DeviceObject,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -2788,7 +2790,7 @@ Return Value:
 
 
 VOID
-NTAPI
+STDCALL
 RetryRequest(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp,
@@ -2911,7 +2913,7 @@ Return Value:
 } // end RetryRequest()
 
 VOID
-NTAPI
+STDCALL
 ScsiClassBuildRequest(
         PDEVICE_OBJECT DeviceObject,
         PIRP Irp
@@ -3138,7 +3140,7 @@ Return Value:
 } // end ScsiClassBuildRequest()
 
 ULONG
-NTAPI
+STDCALL
 ScsiClassModeSense(
     IN PDEVICE_OBJECT DeviceObject,
     IN PCHAR ModeSenseBuffer,
@@ -3233,7 +3235,7 @@ Retry:
 
 
 PVOID
-NTAPI
+STDCALL
 ScsiClassFindModePage(
     IN PCHAR ModeSenseBuffer,
     IN ULONG Length,
@@ -3307,7 +3309,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassSendSrbAsynchronous(
         PDEVICE_OBJECT DeviceObject,
         PSCSI_REQUEST_BLOCK Srb,
@@ -3494,7 +3496,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassDeviceControlDispatch(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp
@@ -3537,7 +3539,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassDeviceControl(
     PDEVICE_OBJECT DeviceObject,
     PIRP Irp
@@ -4090,7 +4092,7 @@ SetStatusAndReturn:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassShutdownFlush(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -4141,7 +4143,7 @@ Return Value:
 
 
 ULONG
-NTAPI
+STDCALL
 ScsiClassFindUnclaimedDevices(
     IN PCLASS_INIT_DATA InitializationData,
     IN PSCSI_ADAPTER_BUS_INFO  AdapterInformation
@@ -4189,7 +4191,7 @@ ScsiClassFindUnclaimedDevices(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassCreateDeviceObject(
     IN PDRIVER_OBJECT          DriverObject,
     IN PCCHAR                  ObjectNameBuffer,
@@ -4315,7 +4317,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassClaimDevice(
     IN PDEVICE_OBJECT PortDeviceObject,
     IN PSCSI_INQUIRY_DATA LunInfo,
@@ -4481,7 +4483,7 @@ Return Value:
 
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassInternalIoControl (
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp
@@ -4554,7 +4556,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 ClassIoCompletion(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -4602,7 +4604,7 @@ Return Value:
 
 
 VOID
-NTAPI
+STDCALL
 ScsiClassInitializeSrbLookasideList(
     IN PDEVICE_EXTENSION DeviceExtension,
     IN ULONG NumberElements
@@ -4633,14 +4635,14 @@ Return Value:
                                     NULL,
                                     NonPagedPoolMustSucceed,
                                     SCSI_REQUEST_BLOCK_SIZE,
-                                    'ScsH',
+                                    TAG('H','s','c','S'),
                                     (USHORT)NumberElements);
 
 }
 
 
 ULONG
-NTAPI
+STDCALL
 ScsiClassQueryTimeOutRegistryValue(
     IN PUNICODE_STRING RegistryPath
     )
@@ -4733,7 +4735,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 ScsiClassCheckVerifyComplete(
     IN PDEVICE_OBJECT DeviceObject,
     IN PIRP Irp,
@@ -4795,7 +4797,7 @@ Return Value:
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 ClassCompletionRoutine(IN PDEVICE_OBJECT DeviceObject,
                        IN PIRP Irp,
                        IN PVOID Context)

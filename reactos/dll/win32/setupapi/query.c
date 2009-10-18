@@ -126,7 +126,7 @@ BOOL WINAPI SetupGetInfInformationW(LPCVOID InfSpec, DWORD SearchControl,
     BOOL ret;
     DWORD infSize;
 
-    TRACE("(%p, %d, %p, %d, %p)\n", InfSpec, SearchControl, ReturnBuffer,
+    TRACE("(%p, %ld, %p, %ld, %p)\n", InfSpec, SearchControl, ReturnBuffer,
            ReturnBufferSize, RequiredSize);
 
     if (!InfSpec)
@@ -153,7 +153,7 @@ BOOL WINAPI SetupGetInfInformationW(LPCVOID InfSpec, DWORD SearchControl,
             inf = search_for_inf(InfSpec, SearchControl);
             break;
         case INFINFO_INF_PATH_LIST_SEARCH:
-            FIXME("Unhandled search control: %d\n", SearchControl);
+            FIXME("Unhandled search control: %ld\n", SearchControl);
 
             if (RequiredSize)
                 *RequiredSize = 0;
@@ -214,7 +214,6 @@ BOOL WINAPI SetupQueryInfFileInformationA(PSP_INF_INFORMATION InfInformation,
 
     if (!ReturnBuffer)
     {
-        HeapFree(GetProcessHeap(), 0, filenameW);
         if (ReturnBufferSize)
         {
             SetLastError(ERROR_INVALID_PARAMETER);
@@ -226,7 +225,6 @@ BOOL WINAPI SetupQueryInfFileInformationA(PSP_INF_INFORMATION InfInformation,
 
     if (size > ReturnBufferSize)
     {
-        HeapFree(GetProcessHeap(), 0, filenameW);
         SetLastError(ERROR_INSUFFICIENT_BUFFER);
         return FALSE;
     }
@@ -247,7 +245,7 @@ BOOL WINAPI SetupQueryInfFileInformationW(PSP_INF_INFORMATION InfInformation,
     DWORD len;
     LPWSTR ptr;
 
-    TRACE("(%p, %u, %p, %d, %p) Stub!\n", InfInformation, InfIndex,
+    TRACE("(%p, %u, %p, %ld, %p) Stub!\n", InfInformation, InfIndex,
           ReturnBuffer, ReturnBufferSize, RequiredSize);
 
     if (!InfInformation)
@@ -291,7 +289,7 @@ BOOL WINAPI SetupGetSourceFileLocationA( HINF hinf, PINFCONTEXT context, PCSTR f
     DWORD required;
     INT size;
 
-    TRACE("%p, %p, %s, %p, %p, 0x%08x, %p\n", hinf, context, debugstr_a(filename), source_id,
+    TRACE("%p, %p, %s, %p, %p, 0x%08lx, %p\n", hinf, context, debugstr_a(filename), source_id,
           buffer, buffer_size, required_size);
 
     if (filename && *filename && !(filenameW = strdupAtoW( filename )))
@@ -332,8 +330,10 @@ static LPWSTR get_source_id( HINF hinf, PINFCONTEXT context, PCWSTR filename )
     WCHAR Section[MAX_PATH];
     DWORD size;
     LPWSTR source_id;
+    BOOL ret;
 
-    if (!SetupDiGetActualSectionToInstallW(hinf, source_disks_files, Section, MAX_PATH, NULL, NULL))
+    ret = SetupDiGetActualSectionToInstallW(hinf, source_disks_files, Section, MAX_PATH, NULL, NULL);
+    if (!ret)
         return NULL;
 
     if (!SetupFindFirstLineW( hinf, Section, filename, context ) &&
@@ -352,7 +352,8 @@ static LPWSTR get_source_id( HINF hinf, PINFCONTEXT context, PCWSTR filename )
         return NULL;
     }
 
-    if (!SetupDiGetActualSectionToInstallW(hinf, source_disks_names, Section, MAX_PATH, NULL, NULL))
+    ret = SetupDiGetActualSectionToInstallW(hinf, source_disks_names, Section, MAX_PATH, NULL, NULL);
+    if (!ret)
         return NULL;
 
     if (!SetupFindFirstLineW( hinf, Section, source_id, context ) &&
@@ -375,7 +376,7 @@ BOOL WINAPI SetupGetSourceFileLocationW( HINF hinf, PINFCONTEXT context, PCWSTR 
     INFCONTEXT ctx;
     WCHAR *end, *source_id_str;
 
-    TRACE("%p, %p, %s, %p, %p, 0x%08x, %p\n", hinf, context, debugstr_w(filename), source_id,
+    TRACE("%p, %p, %s, %p, %p, 0x%08lx, %p\n", hinf, context, debugstr_w(filename), source_id,
           buffer, buffer_size, required_size);
 
     if (!context) context = &ctx;
@@ -419,7 +420,7 @@ BOOL WINAPI SetupGetSourceInfoA( HINF hinf, UINT source_id, UINT info,
     DWORD required;
     INT size;
 
-    TRACE("%p, %d, %d, %p, %d, %p\n", hinf, source_id, info, buffer, buffer_size,
+    TRACE("%p, %d, %d, %p, %lu, %p\n", hinf, source_id, info, buffer, buffer_size,
           required_size);
 
     if (!SetupGetSourceInfoW( hinf, source_id, info, NULL, 0, &required ))
@@ -463,13 +464,15 @@ BOOL WINAPI SetupGetSourceInfoW( HINF hinf, UINT source_id, UINT info,
     WCHAR source_id_str[11];
     static const WCHAR fmt[] = {'%','d',0};
     DWORD index;
+    BOOL ret;
 
-    TRACE("%p, %d, %d, %p, %d, %p\n", hinf, source_id, info, buffer, buffer_size,
+    TRACE("%p, %d, %d, %p, %lu, %p\n", hinf, source_id, info, buffer, buffer_size,
           required_size);
 
     sprintfW( source_id_str, fmt, source_id );
 
-    if (!SetupDiGetActualSectionToInstallW(hinf, source_disks_names, Section, MAX_PATH, NULL, NULL))
+    ret = SetupDiGetActualSectionToInstallW(hinf, source_disks_names, Section, MAX_PATH, NULL, NULL);
+    if (!ret)
         return FALSE;
 
     if (!SetupFindFirstLineW( hinf, Section, source_id_str, &ctx ) &&
@@ -514,7 +517,7 @@ BOOL WINAPI SetupGetTargetPathA( HINF hinf, PINFCONTEXT context, PCSTR section, 
     DWORD required;
     INT size;
 
-    TRACE("%p, %p, %s, %p, 0x%08x, %p\n", hinf, context, debugstr_a(section), buffer,
+    TRACE("%p, %p, %s, %p, 0x%08lx, %p\n", hinf, context, debugstr_a(section), buffer,
           buffer_size, required_size);
 
     if (section && !(sectionW = strdupAtoW( section )))
@@ -563,25 +566,19 @@ BOOL WINAPI SetupGetTargetPathW( HINF hinf, PINFCONTEXT context, PCWSTR section,
         {'D','e','f','a','u','l','t','D','e','s','t','D','i','r',0};
 
     INFCONTEXT ctx;
-    WCHAR *dir, systemdir[MAX_PATH];
-    unsigned int size;
-    BOOL ret = FALSE;
+    WCHAR *dir;
+    INT size;
 
-    TRACE("%p, %p, %s, %p, 0x%08x, %p\n", hinf, context, debugstr_w(section), buffer,
+    TRACE("%p, %p, %s, %p, 0x%08lx, %p\n", hinf, context, debugstr_w(section), buffer,
           buffer_size, required_size);
 
-    if (context) ret = SetupFindFirstLineW( hinf, destination_dirs, NULL, context );
-    else if (section)
-    {
-        if (!(ret = SetupFindFirstLineW( hinf, destination_dirs, section, &ctx )))
-            ret = SetupFindFirstLineW( hinf, destination_dirs, default_dest_dir, &ctx );
-    }
-    if (!ret || !(dir = PARSER_get_dest_dir( context ? context : &ctx )))
-    {
-        GetSystemDirectoryW( systemdir, MAX_PATH );
-        dir = systemdir;
-    }
-    size = strlenW( dir ) + 1;
+    if (context && !SetupFindFirstLineW( hinf, destination_dirs, NULL, context )) return FALSE;
+    else if (section && !SetupFindFirstLineW( hinf, section, NULL, &ctx )) return FALSE;
+    else if (!SetupFindFirstLineW( hinf, destination_dirs, default_dest_dir, &ctx )) return FALSE;
+
+    if (!(dir = PARSER_get_dest_dir( context ? context : &ctx ))) return FALSE;
+
+    size = lstrlenW( dir ) + 1;
     if (required_size) *required_size = size;
 
     if (buffer)
@@ -595,7 +592,7 @@ BOOL WINAPI SetupGetTargetPathW( HINF hinf, PINFCONTEXT context, PCWSTR section,
             return FALSE;
         }
     }
-    if (dir != systemdir) HeapFree( GetProcessHeap(), 0, dir );
+    HeapFree( GetProcessHeap(), 0, dir );
     return TRUE;
 }
 
@@ -615,7 +612,7 @@ BOOL WINAPI SetupQueryInfOriginalFileInformationA(
 
     if (OriginalFileInfo->cbSize != sizeof(*OriginalFileInfo))
     {
-        WARN("incorrect OriginalFileInfo->cbSize of %d\n", OriginalFileInfo->cbSize);
+        ERR("incorrect OriginalFileInfo->cbSize of %lu\n", OriginalFileInfo->cbSize);
         SetLastError( ERROR_INVALID_USER_BUFFER );
         return FALSE;
     }
@@ -625,9 +622,9 @@ BOOL WINAPI SetupQueryInfOriginalFileInformationA(
         AlternativePlatformInfo, &OriginalFileInfoW);
     if (ret)
     {
-        WideCharToMultiByte(CP_ACP, 0, OriginalFileInfoW.OriginalInfName, -1,
+        WideCharToMultiByte(CP_ACP, 0, OriginalFileInfoW.OriginalInfName, MAX_PATH,
             OriginalFileInfo->OriginalInfName, MAX_PATH, NULL, NULL);
-        WideCharToMultiByte(CP_ACP, 0, OriginalFileInfoW.OriginalCatalogName, -1,
+        WideCharToMultiByte(CP_ACP, 0, OriginalFileInfoW.OriginalCatalogName, MAX_PATH,
             OriginalFileInfo->OriginalCatalogName, MAX_PATH, NULL, NULL);
     }
 
@@ -648,14 +645,16 @@ BOOL WINAPI SetupQueryInfOriginalFileInformationW(
     static const WCHAR wszVersion[] = { 'V','e','r','s','i','o','n',0 };
     static const WCHAR wszCatalogFile[] = { 'C','a','t','a','l','o','g','F','i','l','e',0 };
 
+    //SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    //return FALSE;
+
     FIXME("(%p, %d, %p, %p): semi-stub\n", InfInformation, InfIndex,
         AlternativePlatformInfo, OriginalFileInfo);
 
     if (OriginalFileInfo->cbSize != sizeof(*OriginalFileInfo))
     {
-        WARN("incorrect OriginalFileInfo->cbSize of %d\n", OriginalFileInfo->cbSize);
-        SetLastError(ERROR_INVALID_USER_BUFFER);
-        return FALSE;
+        ERR("incorrect OriginalFileInfo->cbSize of %lu\n", OriginalFileInfo->cbSize);
+        return ERROR_INVALID_USER_BUFFER;
     }
 
     inf_path = (LPWSTR)&InfInformation->VersionData[0];

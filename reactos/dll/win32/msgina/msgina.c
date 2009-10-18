@@ -26,11 +26,12 @@
 
 #include "msgina.h"
 
+//#define YDEBUG
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(msgina);
 
-HINSTANCE hDllInstance;
+extern HINSTANCE hDllInstance;
 
 extern GINA_UI GinaGraphicalUI;
 extern GINA_UI GinaTextUI;
@@ -117,7 +118,7 @@ ChooseGinaUI(VOID)
 		NextOption = wcschr(CurrentOption, L' ');
 		if (NextOption)
 			*NextOption = L'\0';
-		if (wcsicmp(CurrentOption, L"CONSOLE") == 0)
+		if (wcsicmp(CurrentOption, L"CMDCONS") == 0)
 		{
 			TRACE("Found %S. Switching to console boot\n", CurrentOption);
 			ConsoleBoot = TRUE;
@@ -202,26 +203,10 @@ WlxStartApplication(
 	STARTUPINFOW StartupInfo;
 	PROCESS_INFORMATION ProcessInformation;
 	WCHAR CurrentDirectory[MAX_PATH];
-	HANDLE hAppToken;
 	UINT len;
 	BOOL ret;
 
-	len = GetWindowsDirectoryW(CurrentDirectory, MAX_PATH);
-	if (len == 0 || len > MAX_PATH)
-	{
-		WARN("GetWindowsDirectoryW() failed\n");
-		return FALSE;
-	}
-
-	ret = DuplicateTokenEx(pgContext->UserToken, MAXIMUM_ALLOWED, NULL, SecurityImpersonation, TokenPrimary, &hAppToken);
-	if (!ret)
-	{
-		WARN("DuplicateTokenEx() failed with error %lu\n", GetLastError());
-		return FALSE;
-	}
-
 	ZeroMemory(&StartupInfo, sizeof(STARTUPINFOW));
-	ZeroMemory(&ProcessInformation, sizeof(PROCESS_INFORMATION));
 	StartupInfo.cb = sizeof(STARTUPINFOW);
 	StartupInfo.lpTitle = pszCmdLine;
 	StartupInfo.dwX = StartupInfo.dwY = StartupInfo.dwXSize = StartupInfo.dwYSize = 0L;
@@ -230,13 +215,13 @@ WlxStartApplication(
 	StartupInfo.lpDesktop = pszDesktopName;
 
 	len = GetWindowsDirectoryW(CurrentDirectory, MAX_PATH);
-	if (len == 0 || len > MAX_PATH)
+	if (len > MAX_PATH)
 	{
 		WARN("GetWindowsDirectoryW() failed\n");
 		return FALSE;
 	}
 	ret = CreateProcessAsUserW(
-		hAppToken,
+		pgContext->UserToken,
 		pszCmdLine,
 		NULL,
 		NULL,
@@ -247,9 +232,6 @@ WlxStartApplication(
 		CurrentDirectory,
 		&StartupInfo,
 		&ProcessInformation);
-	CloseHandle(ProcessInformation.hProcess);
-	CloseHandle(ProcessInformation.hThread);
-	CloseHandle(hAppToken);
 	if (!ret)
 		WARN("CreateProcessAsUserW() failed with error %lu\n", GetLastError());
 	return ret;
@@ -421,7 +403,7 @@ DoLoginTasks(
 	BOOL bResult;
 
 	if (!LogonUserW(UserName, Domain, Password,
-		LOGON32_LOGON_INTERACTIVE,
+		LOGON32_LOGON_INTERACTIVE, /* FIXME - use LOGON32_LOGON_UNLOCK instead! */
 		LOGON32_PROVIDER_DEFAULT,
 		&pgContext->UserToken))
 	{

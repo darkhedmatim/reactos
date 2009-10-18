@@ -6,13 +6,12 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#define INITGUID
-#include "pciidex.h"
-
 #define NDEBUG
 #include <debug.h>
 
-static DRIVER_DISPATCH PciIdeXForwardOrIgnore;
+#define INITGUID
+#include "pciidex.h"
+
 static NTSTATUS NTAPI
 PciIdeXForwardOrIgnore(
 	IN PDEVICE_OBJECT DeviceObject,
@@ -44,7 +43,6 @@ PciIdeXForwardOrIgnore(
 	}
 }
 
-static DRIVER_DISPATCH PciIdeXPnpDispatch;
 static NTSTATUS NTAPI
 PciIdeXPnpDispatch(
 	IN PDEVICE_OBJECT DeviceObject,
@@ -142,7 +140,7 @@ PciIdeXSetBusData(
 	if (!CurrentBuffer)
 	{
 		Status = STATUS_INSUFFICIENT_RESOURCES;
-		return Status;
+		goto cleanup;
 	}
 
 	Status = PciIdeXGetBusData(DeviceExtension, Buffer, ConfigDataOffset, BufferLength);
@@ -157,7 +155,7 @@ PciIdeXSetBusData(
 	{
 		Status = STATUS_UNSUCCESSFUL;
 		goto cleanup;
-	}
+	}		
 
 	BytesWritten = (*FdoDeviceExtension->BusInterface->SetBusData)(
 		FdoDeviceExtension->BusInterface->Context,

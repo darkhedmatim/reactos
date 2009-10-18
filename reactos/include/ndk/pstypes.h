@@ -85,11 +85,11 @@ Author:
 #define PS_REQUEST_BREAKAWAY                    1
 #define PS_NO_DEBUG_INHERIT                     2
 #define PS_INHERIT_HANDLES                      4
-#define PS_LARGE_PAGES                          8
+#define PS_UNKNOWN_VALUE                        8
 #define PS_ALL_FLAGS                            (PS_REQUEST_BREAKAWAY | \
                                                  PS_NO_DEBUG_INHERIT  | \
                                                  PS_INHERIT_HANDLES   | \
-                                                 PS_LARGE_PAGES)
+                                                 PS_UNKNOWN_VALUE)
 
 //
 // Process base priorities
@@ -97,13 +97,6 @@ Author:
 #define PROCESS_PRIORITY_IDLE                   3
 #define PROCESS_PRIORITY_NORMAL                 8
 #define PROCESS_PRIORITY_NORMAL_FOREGROUND      9
-
-//
-// Process memory priorities
-//
-#define MEMORY_PRIORITY_BACKGROUND             0
-#define MEMORY_PRIORITY_UNKNOWN                1
-#define MEMORY_PRIORITY_FOREGROUND             2
 
 //
 // Process Priority Separation Values (OR)
@@ -172,25 +165,6 @@ Author:
                                                  31)
 
 //
-// Job Limit Flags
-//
-#define JOB_OBJECT_LIMIT_WORKINGSET             0x1
-#define JOB_OBJECT_LIMIT_PROCESS_TIME           0x2
-#define JOB_OBJECT_LIMIT_JOB_TIME               0x4
-#define JOB_OBJECT_LIMIT_ACTIVE_PROCESS         0x8
-#define JOB_OBJECT_LIMIT_AFFINITY               0x10
-#define JOB_OBJECT_LIMIT_PRIORITY_CLASS         0x20
-#define JOB_OBJECT_LIMIT_PRESERVE_JOB_TIME      0x40
-#define JOB_OBJECT_LIMIT_SCHEDULING_CLASS       0x80
-#define JOB_OBJECT_LIMIT_PROCESS_MEMORY         0x100
-#define JOB_OBJECT_LIMIT_JOB_MEMORY             0x200
-#define JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION 0x400
-#define JOB_OBJECT_LIMIT_BREAKAWAY_OK           0x800
-#define JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK    0x1000
-#define JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE      0x2000
-
-
-//
 // Cross Thread Flags
 //
 #define CT_TERMINATED_BIT                       0x1
@@ -217,7 +191,6 @@ Author:
 #define STA_LPC_RECEIVED_MSG_ID_VALID_BIT       0x1
 #define STA_LPC_EXIT_THREAD_CALLED_BIT          0x2
 #define STA_ADDRESS_SPACE_OWNER_BIT             0x4
-#define STA_OWNS_WORKING_SET_BITS               0x1F8
 #endif
 
 #define TLS_EXPANSION_SLOTS                     1024
@@ -312,12 +285,6 @@ typedef enum _PROCESSINFOCLASS
     ProcessCycleTime,
     ProcessPagePriority,
     ProcessInstrumentationCallback,
-    ProcessThreadStackAllocation,
-    ProcessWorkingSetWatchEx,
-    ProcessImageFileNameWin32,
-    ProcessImageFileMapping,
-    ProcessAffinityUpdateMode,
-    ProcessMemoryAllocationMode,
     MaxProcessInfoClass
 } PROCESSINFOCLASS;
 
@@ -560,14 +527,12 @@ typedef NTSTATUS
 //
 // Descriptor Table Entry Definition
 //
-#if (_M_IX86)
 #define _DESCRIPTOR_TABLE_ENTRY_DEFINED
 typedef struct _DESCRIPTOR_TABLE_ENTRY
 {
     ULONG Selector;
     LDT_ENTRY Descriptor;
 } DESCRIPTOR_TABLE_ENTRY, *PDESCRIPTOR_TABLE_ENTRY;
-#endif
 
 //
 // PEB Lock Routine
@@ -587,54 +552,20 @@ typedef struct _PEB_FREE_BLOCK
 } PEB_FREE_BLOCK, *PPEB_FREE_BLOCK;
 
 //
-// Initial PEB
-//
-typedef struct _INITIAL_PEB
-{
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
-    union
-    {
-        BOOLEAN BitField;
-#if (NTDDI_VERSION >= NTDDI_WS03)
-        struct
-        {
-            BOOLEAN ImageUsesLargePages:1;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-            BOOLEAN IsProtectedProcess:1;
-            BOOLEAN IsLegacyProcess:1;
-            BOOLEAN SpareBits:5;
-#else
-            BOOLEAN SpareBits:7;
-#endif
-        };
-#else
-        BOOLEAN SpareBool;
-#endif
-    };
-    HANDLE Mutant;
-} INITIAL_PEB, *PINITIAL_PEB;
-
-//
 // Process Environment Block (PEB)
 //
 typedef struct _PEB
 {
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
-#if (NTDDI_VERSION >= NTDDI_WS03)
+    UCHAR InheritedAddressSpace;
+    UCHAR ReadImageFileExecOptions;
+    UCHAR BeingDebugged;
+#if (NTDDI_VERSION >= NTDDI_LONGHORN)
     struct
     {
-        BOOLEAN ImageUsesLargePages:1;
-    #if (NTDDI_VERSION >= NTDDI_LONGHORN)
-        BOOLEAN IsProtectedProcess:1;
-        BOOLEAN IsLegacyProcess:1;
-        BOOLEAN SpareBits:5;
-    #else
-        BOOLEAN SpareBits:7;
-    #endif
+        UCHAR ImageUsesLargePages:1;
+        UCHAR IsProtectedProcess:1;
+        UCHAR IsLegacyProcess:1;
+        UCHAR SpareBits:5;
     };
 #else
     BOOLEAN SpareBool;
@@ -688,7 +619,7 @@ typedef struct _PEB
     PVOID* ProcessHeaps;
     PVOID GdiSharedHandleTable;
     PVOID ProcessStarterHelper;
-    ULONG GdiDCAttributeList;
+    PVOID GdiDCAttributeList;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     struct _RTL_CRITICAL_SECTION *LoaderLock;
 #else
@@ -739,7 +670,7 @@ typedef struct _PEB
 typedef struct _GDI_TEB_BATCH
 {
     ULONG Offset;
-    HANDLE HDC;
+    ULONG HDC;
     ULONG Buffer[0x136];
 } GDI_TEB_BATCH, *PGDI_TEB_BATCH;
 
@@ -758,7 +689,7 @@ typedef struct _INITIAL_TEB
 //
 // TEB Active Frame Structures
 //
-typedef struct _TEB_ACTIVE_FRAME_CONTEXT
+typedef struct _TEB_ACTIVE_FRAME_CONTEXT 
 {
     ULONG Flags;
     LPSTR FrameName;
@@ -778,7 +709,7 @@ typedef struct _TEB
 {
     NT_TIB Tib;
     PVOID EnvironmentPointer;
-    CLIENT_ID ClientId;
+    CLIENT_ID Cid;
     PVOID ActiveRpcHandle;
     PVOID ThreadLocalStoragePointer;
     struct _PEB *ProcessEnvironmentBlock;
@@ -794,11 +725,7 @@ typedef struct _TEB
     PVOID SystemReserved1[0x36];
     LONG ExceptionCode;
     struct _ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer;
-#ifdef _WIN64
-    UCHAR SpareBytes1[24];
-#else
     UCHAR SpareBytes1[0x24];
-#endif
     ULONG TxFsContext;
     GDI_TEB_BATCH GdiTebBatch;
     CLIENT_ID RealClientId;
@@ -806,9 +733,9 @@ typedef struct _TEB
     ULONG GdiClientPID;
     ULONG GdiClientTID;
     PVOID GdiThreadLocalInfo;
-    SIZE_T Win32ClientInfo[62];
+    ULONG Win32ClientInfo[62];
     PVOID glDispatchTable[0xE9];
-    SIZE_T glReserved1[0x1D];
+    ULONG glReserved1[0x1D];
     PVOID glReserved2;
     PVOID glSectionInfo;
     PVOID glSection;
@@ -825,17 +752,10 @@ typedef struct _TEB
     PVOID ReservedForNtRpc;
     PVOID DbgSsReserved[0x2];
     ULONG HardErrorDisabled;
-#ifdef _WIN64
-    PVOID Instrumentation[11];
-#else
     PVOID Instrumentation[9];
-#endif
     GUID ActivityId;
     PVOID SubProcessTag;
     PVOID EtwTraceData;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    PVOID EtwLocalData;
-#endif
     PVOID WinSockData;
     ULONG GdiBatchCount;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
@@ -1066,6 +986,7 @@ typedef struct _PSP_RATE_APC
 typedef struct _ETHREAD
 {
     KTHREAD Tcb;
+    PVOID Padding;
     LARGE_INTEGER CreateTime;
     union
     {
@@ -1107,7 +1028,7 @@ typedef struct _ETHREAD
 #endif
     PPS_IMPERSONATION_INFORMATION ImpersonationInfo;
     LIST_ENTRY IrpList;
-    ULONG_PTR TopLevelIrp;
+    ULONG TopLevelIrp;
     PDEVICE_OBJECT DeviceToVerify;
 #if (NTDDI_VERSION >= NTDDI_LONGHORN)
     PPSP_RATE_APC RateControlApc;
@@ -1217,7 +1138,7 @@ typedef struct _ETHREAD
     KSEMAPHORE AlpcWaitSemaphore;
     ULONG CacheManagerCount;
 #endif
-} ETHREAD;
+} ETHREAD, *PETHREAD;
 
 //
 // Executive Process (EPROCESS)
@@ -1231,8 +1152,8 @@ typedef struct _EPROCESS
     EX_RUNDOWN_REF RundownProtect;
     HANDLE UniqueProcessId;
     LIST_ENTRY ActiveProcessLinks;
-    ULONG QuotaUsage[3]; /* 0=PagedPool, 1=NonPagedPool, 2=Pagefile */
-    ULONG QuotaPeak[3];  /* ditto */
+    ULONG QuotaUsage[3];
+    ULONG QuotaPeak[3];
     ULONG CommitCharge;
     ULONG PeakVirtualSize;
     ULONG VirtualSize;
@@ -1255,12 +1176,16 @@ typedef struct _EPROCESS
     EX_PUSH_LOCK AddressCreationLock;
     PETHREAD RotateInProgress;
 #else
-    KGUARDED_MUTEX AddressCreationLock;
+    FAST_MUTEX AddressCreationLock; // FIXME: FAST_MUTEX for XP, KGUARDED_MUTEX for 2K3
     KSPIN_LOCK HyperSpaceLock;
 #endif
     PETHREAD ForkInProgress;
     ULONG HardwareTrigger;
-    PMM_AVL_TABLE PhysicalVadRoot;
+#if (NTDDI_VERSION >= NTDDI_LONGHORN)
+    PMM_AVL_TABLE PhysicalVadroot;
+#else
+    MM_AVL_TABLE PhysicalVadroot;
+#endif
     PVOID CloneRoot;
     ULONG NumberOfPrivatePages;
     ULONG NumberOfLockedPages;
@@ -1284,7 +1209,7 @@ typedef struct _EPROCESS
 #endif
     union
     {
-        HARDWARE_PTE PageDirectoryPte;
+        HARDWARE_PTE PagedirectoryPte;
         ULONGLONG Filler;
     };
     ULONG Session;
@@ -1409,7 +1334,7 @@ typedef struct _EPROCESS
     UCHAR PriorityClass;
     MM_AVL_TABLE VadRoot;
     ULONG Cookie;
-} EPROCESS;
+} EPROCESS, *PEPROCESS;
 
 //
 // Job Token Filter Data
@@ -1474,9 +1399,9 @@ typedef struct _EJOB
     ULONG PeakProcessMemoryUsed;
     ULONG PeakJobMemoryUsed;
     ULONG CurrentJobMemoryUsed;
-#if (NTDDI_VERSION >= NTDDI_WINXP) && (NTDDI_VERSION < NTDDI_WS03)
+#if (NTDDI_VERSION == NTDDI_WINXP)
     FAST_MUTEX MemoryLimitsLock;
-#elif (NTDDI_VERSION >= NTDDI_WS03) && (NTDDI_VERSION < NTDDI_LONGHORN)
+#elif (NTDDI_VERSION == NTDDI_WS03)
     KGUARDED_MUTEX MemoryLimitsLock;
 #elif (NTDDI_VERSION >= NTDDI_LONGHORN)
     EX_PUSH_LOCK MemoryLimitsLock;

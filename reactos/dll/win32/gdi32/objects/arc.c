@@ -23,7 +23,7 @@ Arc(
       return MFDRV_MetaParam8( hDC, META_ARC, a1, a2, a3, a4, a5, a6, a7, a8)
     else
     {
-      PLDC pLDC = GdiGetLDC(hDC);
+      PLDC pLDC = GdiGetLDC(hDC);      
       if ( !pLDC )
       {
          SetLastError(ERROR_INVALID_HANDLE);
@@ -35,8 +35,8 @@ Arc(
         BOOL Ret = EMFDRV_ArcChordPie( hDC, a1, a2, a3, a4, a5, a6, a7, a8, EMR_ARC);
         return Ret;
       }
-      return FALSE;
-    }
+      return FALSE;  
+    } 
  }
 #endif
 	return NtGdiArcInternal(GdiTypeArc,
@@ -49,50 +49,6 @@ Arc(
 	                        nYStartArc,
 	                        nXEndArc,
 	                        nYEndArc);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-AngleArc(HDC   hDC,
-         int   X,
-         int   Y,
-         DWORD Radius,
-         FLOAT StartAngle,
-         FLOAT SweepAngle)
-{
-  gxf_long worker, worker1;
-
-  worker.f  = StartAngle;
-  worker1.f = SweepAngle;
-
-#if 0
-// Handle something other than a normal dc object.
- if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
- {
-    if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-      return FALSE; //No meta support for AngleArc
-    else
-    {
-      PLDC pLDC = GdiGetLDC(hDC);
-      if ( !pLDC )
-      {
-         SetLastError(ERROR_INVALID_HANDLE);
-         return FALSE;
-      }
-      if (pLDC->iType == LDC_EMFLDC)
-      {
-        BOOL Ret = EMFDRV_AngleArc( hDC, X, Y, Radius, StartAngle, SweepAngle);
-        return Ret;
-      }
-      return FALSE;
-    }
- }
-#endif
-  return NtGdiAngleArc(hDC, X, Y, Radius, (DWORD)worker.l, (DWORD)worker1.l);
 }
 
 BOOL
@@ -196,7 +152,7 @@ Chord(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 Pie(
 	HDC	hDC,
 	int	a1,

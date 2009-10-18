@@ -74,9 +74,8 @@ FsRecLoadFileSystem(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_DISPATCH FsRecCreate;
 NTSTATUS
-NTAPI
+STDCALL
 FsRecCreate(IN PDEVICE_OBJECT DeviceObject,
             IN PIRP Irp)
 {
@@ -103,9 +102,8 @@ FsRecCreate(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_DISPATCH FsRecClose;
 NTSTATUS
-NTAPI
+STDCALL
 FsRecClose(IN PDEVICE_OBJECT DeviceObject,
            IN PIRP Irp)
 {
@@ -116,9 +114,8 @@ FsRecClose(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_SUCCESS;
 }
 
-DRIVER_DISPATCH FsRecFsControl;
 NTSTATUS
-NTAPI
+STDCALL
 FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
                IN PIRP Irp)
 {
@@ -153,12 +150,6 @@ FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
             Status = FsRecUdfsFsControl(DeviceObject, Irp);
             break;
 
-        case FS_TYPE_EXT2:
-
-            /* Send EXT2 command */
-            Status = FsRecExt2FsControl(DeviceObject, Irp);
-            break;
-
         default:
 
             /* Unrecognized FS */
@@ -171,9 +162,8 @@ FsRecFsControl(IN PDEVICE_OBJECT DeviceObject,
     return Status;
 }
 
-DRIVER_UNLOAD FsRecUnload;
 VOID
-NTAPI
+STDCALL
 FsRecUnload(IN PDRIVER_OBJECT DriverObject)
 {
     PAGED_CODE();
@@ -190,7 +180,7 @@ FsRecUnload(IN PDRIVER_OBJECT DriverObject)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 FsRecRegisterFs(IN PDRIVER_OBJECT DriverObject,
                 IN PDEVICE_OBJECT ParentObject OPTIONAL,
                 OUT PDEVICE_OBJECT *NewDeviceObject OPTIONAL,
@@ -364,16 +354,6 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
                              FS_TYPE_NTFS,
                              FILE_DEVICE_DISK_FILE_SYSTEM);
     if (NT_SUCCESS(Status)) DeviceCount++;
-
-    /* Register EXT2 */
-    /*Status = FsRecRegisterFs(DriverObject,
-                             NULL,
-                             NULL,
-                             L"\\Ext2",
-                             L"\\FileSystem\\Ext2Recognizer",
-                             FS_TYPE_EXT2,
-                             FILE_DEVICE_DISK_FILE_SYSTEM);
-    if (NT_SUCCESS(Status)) DeviceCount++;*/
 
     /* Return appropriate Status */
     return (DeviceCount > 0) ? STATUS_SUCCESS : STATUS_IMAGE_ALREADY_LOADED;

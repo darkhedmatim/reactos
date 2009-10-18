@@ -24,12 +24,12 @@
  * 	            lookup the image name from the registry).
  * 	            Valid names are: DEBUG, WINDOWS, POSIX, OS2,
  * 	            and VMS.
- *
+ *	
  * RETURN VALUE
  * 	Success status as handed by the SM reply; otherwise a failure
  * 	status code.
  */
-NTSTATUS WINAPI
+NTSTATUS STDCALL
 SmExecuteProgram (IN HANDLE          hSmApiPort,
 		  IN PUNICODE_STRING Pgm)
 {
@@ -51,7 +51,7 @@ SmExecuteProgram (IN HANDLE          hSmApiPort,
   RtlCopyMemory (SmReqMsg.Request.ExecPgm.Name,
 		 Pgm->Buffer,
 		 Pgm->Length);
-
+		
   /* SM API to invoke */
   SmReqMsg.SmHeader.ApiIndex = SM_API_EXECUTE_PROGRAMME;
 

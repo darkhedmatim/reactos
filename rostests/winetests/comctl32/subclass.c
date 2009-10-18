@@ -17,10 +17,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#define _WIN32_WINNT 0x0501 /* For SetWindowSubclass/etc */
-
 #include <assert.h>
 #include <stdarg.h>
+
+#define _WIN32_WINNT 0x0501 /* For SetWindowSubclass/etc */
 
 #include "windef.h"
 #include "winbase.h"
@@ -156,7 +156,7 @@ static void ok_sequence(const struct message *expected, const char *context)
             "%s: the procnum %d was expected, but got procnum %d instead\n",
             context, expected->procnum, actual->procnum);
         ok(expected->wParam == actual->wParam,
-            "%s: in procnum %d expecting wParam 0x%lx got 0x%lx\n",
+            "%s: in procnum %d expecting wParam 0x%x got 0x%x\n",
             context, expected->procnum, expected->wParam, actual->wParam);
         expected++;
         actual++;
@@ -234,7 +234,7 @@ static void test_subclass(void)
     ok_sequence(Sub_AfterDeletedTest, "After Deleted");
 
     pSetWindowSubclass(hwnd, WndProcSub, 2, 0);
-    origProc3 = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)WndProc3);
+    origProc3 = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG)WndProc3);
     SendMessage(hwnd, WM_USER, 1, 0);
     SendMessage(hwnd, WM_USER, 2, 0);
     ok_sequence(Sub_OldAfterNewTest, "Old after New");
@@ -285,12 +285,9 @@ START_TEST(subclass)
     
     hdll = GetModuleHandleA("comctl32.dll");
     assert(hdll);
-    /* Functions have to be loaded by ordinal. Only XP and W2K3 export
-     * them by name.
-     */
-    pSetWindowSubclass = (void*)GetProcAddress(hdll, (LPSTR)410);
-    pRemoveWindowSubclass = (void*)GetProcAddress(hdll, (LPSTR)412);
-    pDefSubclassProc = (void*)GetProcAddress(hdll, (LPSTR)413);
+    pSetWindowSubclass = (void*)GetProcAddress(hdll, "SetWindowSubclass");
+    pRemoveWindowSubclass = (void*)GetProcAddress(hdll, "RemoveWindowSubclass");
+    pDefSubclassProc = (void*)GetProcAddress(hdll, "DefSubclassProc");
     
     if(!pSetWindowSubclass || !pRemoveWindowSubclass || !pDefSubclassProc)
         return;

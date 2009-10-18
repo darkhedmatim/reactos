@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* TYPES *********************************************************************/
 
@@ -122,7 +122,7 @@ IopConnectLogPort(VOID)
                            NULL);
     if (NT_SUCCESS(Status))
     {
-        /* Remember we're connected */
+        /* Remmeber we're connected */
         IopLogPortConnected = TRUE;
         return TRUE;
     }
@@ -214,10 +214,10 @@ IopLogWorker(IN PVOID Parameter)
         }
 
         /* Align the buffer */
-        StringBuffer = ALIGN_UP_POINTER(StringBuffer, WCHAR);
+        StringBuffer = (PVOID)ALIGN_UP(StringBuffer, WCHAR);
 
         /* Set the offset for the driver's name to the current buffer */
-        ErrorMessage->DriverNameOffset = (ULONG_PTR)(StringBuffer -
+        ErrorMessage->DriverNameOffset = (ULONG)(StringBuffer -
                                                  (ULONG_PTR)ErrorMessage);
 
         /* Check how much space we have left for the device string */
@@ -466,8 +466,6 @@ IopRaiseHardError(IN PKAPC Apc,
     //PVPB Vpb = (PVPB)SystemArgument1;
     //PDEVICE_OBJECT DeviceObject = (PDEVICE_OBJECT)SystemArgument2;
 
-    UNIMPLEMENTED;
-
     /* FIXME: UNIMPLEMENTED */
     Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
     Irp->IoStatus.Information = 0;
@@ -585,7 +583,7 @@ IoWriteErrorLogEntry(IN PVOID ElEntry)
     KeAcquireSpinLock(&IopLogListLock, &Irql);
     InsertHeadList(&IopErrorLogListHead, &LogEntry->ListEntry);
 
-    /* Check if the worker is running */
+    /* Check if the worker is runnign */
     if (!IopLogWorkerRunning)
     {
 #if 0
@@ -650,7 +648,7 @@ IoRaiseInformationalHardError(IN NTSTATUS ErrorStatus,
                               IN PKTHREAD Thread)
 {
     UNIMPLEMENTED;
-    return FALSE;
+    return(FALSE);
 }
 
 /*
@@ -661,12 +659,14 @@ NTAPI
 IoSetThreadHardErrorMode(IN BOOLEAN HardErrorEnabled)
 {
     PETHREAD Thread = PsGetCurrentThread();
-    BOOLEAN OldMode;
+    BOOLEAN Old;
 
     /* Get the current value */
-    OldMode = !Thread->HardErrorsAreDisabled;
+    Old = !Thread->HardErrorsAreDisabled;
 
     /* Set the new one and return the old */
     Thread->HardErrorsAreDisabled = !HardErrorEnabled;
-    return OldMode;
+    return Old;
 }
+
+/* EOF */

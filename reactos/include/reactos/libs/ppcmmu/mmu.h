@@ -1,8 +1,6 @@
 #ifndef PPCMMU_H
 #define PPCMMU_H
 
-#include <string.h>
-
 /* PPC MMU object --
  * Always called from kernel mode, maps the first 16 megabytes and uses 16
  * bytes per page between 0x30000 and 16 megs.  Maximum memory size is 3 gig.
@@ -15,43 +13,25 @@
  * 0x30000 -- Full map
  *
  * Actions:
- *
- * 1** -- MMU Related
- *
- * 100 -- Initialize
+ * 00 -- Initialize
  *  -- No arguments
- * 101 -- Map page
+ * 01 -- Map page
  *  r4 -- virtual address
  *  r5 -- ppc_map_info_t
- * 102 -- Erase page
+ * 02 -- Erase page
  *  r4 -- virtual address
- * 103 -- Set segment VSID
+ * 03 -- Set segment VSID
  *  r4 -- Start seg
  *  r5 -- End seg
  *  r6 -- Vsid
- * 104 -- Set trap callback
- *  r4 -- Trap number
- *  r5 -- Callback address (VA)
- * 105 -- Query page
+ * 04 -- Set page miss callback
+ *  r4 -- Callback address (VA)
+ * 05 -- Query page
  *  r4 -- Page addr
  *  r5 -- Address of info struct
- * 106 -- Unit Test
- * 107 -- Turn on paging
- * 108 -- Unmap process
- * 109 -- Get lowest unallocated page
- * 10a -- Alloc vsid
- * 10b -- Revoke vsid
- * 10c -- Allocate a page and return it
- * 10d -- Return from trap callback
- * 10e -- Dump Map
- *
- * 2** -- Debug Stub and Interrupt Vectoring
- *
- * 200 -- GDB Initialize
- *  r4 -- Device type
- *  r4 -- Serial port addr
- * 201 -- GDB Enter
- *  r4 -- Signal number
+ * 06 -- Unit Test
+ * 07 -- Turn on paging
+ * 08 -- Unmap process
  */
 
 #define MMUCODE 0x10000
@@ -111,51 +91,42 @@ typedef struct _ppc_map_info_t {
 
 typedef struct _ppc_trap_frame_t {
     unsigned long gpr[32];
-    unsigned long long fpr[32];
-    unsigned long srr0, srr1, cr, lr, ctr, dsisr, dar, xer;
+    unsigned long lr, cr, ctr, srr0, srr1, dsisr, dar, xer;
 } ppc_trap_frame_t;
 
-typedef int (*MmuTrapHandler)(int trapid, ppc_trap_frame_t *trap);
+typedef int (*MmuPageCallback)(int inst, ppc_trap_frame_t *trap);
 
 #include "mmuutil.h"
 
 static inline int PPCMMU(int action, void *arg1, void *arg2, void *arg3)
 {
     /* Set Bat0 to mmu object address */
-    int i, batu, batl, usebat[2] = { 0, 1 }, gotbat = 0, pc, mask;
+    int i, batu, batl, oldbat[8], usebat[2] = { 0, 1 }, gotbat = 0, pc, mask;
     volatile int ret;
     int (*mmumain)(int action, void *arg1, void *arg2, void *arg3) = (void *)MMUCODE;
     __asm__("bl 1f\n\t"
 	    "\n1:\n\t"
 	    "mflr %0\n\t" : "=r" (pc));
 
-    for(i = 0, gotbat = 0; i < 4; i++)
+    for(i = 0, gotbat = 0; i < 4 && gotbat < 2; i++)
     {
-        /* Use the space above the trap handlers to store the old bats */
-        GetBat(i, 0, &batu, &batl);
-
-        SetPhys(0xf000 + i * 16, batu);
-        SetPhys(0xf004 + i * 16, batl);
-
 	GetBat(i, 1, &batu, &batl);
-
-        SetPhys(0xf008 + i * 16, batu);
-        SetPhys(0xf00c + i * 16, batl);
-
-	if (gotbat < 2)
-        {
-            if(batu & 0xffc)
-            {
-                mask = ~(0x1ffff | ((batu & 0xffc)>>2)<<17);
-                if(!(batu & 2) || ((batu & mask) != (pc & mask)))
-                    usebat[gotbat++] = i;
-            } else {
-                mask = ~(0x1ffff | (batl << 17));
-                if(!(batl & 0x40) || ((batu & mask) != (pc & mask)))
-                    usebat[gotbat++] = i;
-            }
-        }
+	if(batu & 0xffc)
+	{
+	    mask = ~(0x1ffff | ((batu & 0xffc)>>2)<<17);
+	    if(!(batu & 2) || ((batu & mask) != (pc & mask)))
+		usebat[gotbat++] = i;
+	} else {
+	    mask = ~(0x1ffff | (batl << 17));
+	    if(!(batl & 0x40) || ((batu & mask) != (pc & mask)))
+		usebat[gotbat++] = i;
+	}
     }
+
+    GetBat(usebat[0], 0, &oldbat[0], &oldbat[1]);
+    GetBat(usebat[0], 1, &oldbat[2], &oldbat[3]);
+    GetBat(usebat[1], 0, &oldbat[4], &oldbat[5]);
+    GetBat(usebat[1], 1, &oldbat[6], &oldbat[7]);
 
     batu = 0xff;
     batl = 0x7f;
@@ -167,6 +138,12 @@ static inline int PPCMMU(int action, void *arg1, void *arg2, void *arg3)
     SetBat(usebat[1], 1, batu, batl);
 
     ret = mmumain(action, arg1, arg2, arg3);
+
+    /* Ok done ... Whatever happened probably worked */
+    SetBat(usebat[0], 0, oldbat[0], oldbat[1]);
+    SetBat(usebat[0], 1, oldbat[2], oldbat[3]);
+    SetBat(usebat[1], 0, oldbat[4], oldbat[5]);
+    SetBat(usebat[1], 1, oldbat[6], oldbat[7]);
 
     return ret;
 }
@@ -183,95 +160,69 @@ static inline int PPCMMU(int action, void *arg1, void *arg2, void *arg3)
  */
 static inline void _MmuInit(void *_start, void *_end)
 {
-    int target = MMUCODE, copy;
+    int target = MMUCODE;
     int *start = (int *)_start;
     while(start < (int *)_end)
     {
-        memcpy(&copy, start++, sizeof(int));
-	SetPhys(target, copy);
+	SetPhys(target, *start++);
 	target += sizeof(int);
     }
-    PPCMMU(0x100, 0, 0, 0);
+    PPCMMU(0, 0, 0, 0);
 }
 
-static inline int MmuMapPage(ppc_map_info_t *info, int count)
+static inline void MmuMapPage(ppc_map_info_t *info, int count)
 {
-    return PPCMMU(0x101, info, (void *)count, 0);
+    PPCMMU(1, info, (void *)count, 0);
 }
 
 static inline void MmuUnmapPage(ppc_map_info_t *info, int count)
 {
-    PPCMMU(0x102, info, (void *)count, 0);
+    PPCMMU(2, info, (void *)count, 0);
 }
 
 static inline void MmuSetVsid(int start, int end, int vsid)
 {
-    PPCMMU(0x103, (void *)start, (void *)end, (void *)vsid);
+    PPCMMU(3, (void *)start, (void *)end, (void *)vsid);
 }
 
-static inline MmuTrapHandler MmuSetTrapHandler(int trap, MmuTrapHandler cb)
+static inline MmuPageCallback MmuSetPageCallback(MmuPageCallback cb)
 {
-    return (MmuTrapHandler)PPCMMU(0x104, (void *)trap, (void *)cb, 0);
+    return (MmuPageCallback)PPCMMU(4, (void *)cb, 0, 0);
 }
 
 static inline void MmuInqPage(ppc_map_info_t *info, int count)
 {
-    PPCMMU(0x105, info, (void *)count, 0);
+    PPCMMU(5, info, (void *)count, 0);
 }
 
 static inline int MmuUnitTest()
 {
-    return PPCMMU(0x106, 0, 0, 0);
+    return PPCMMU(6, 0, 0, 0);
 }
 
 static inline int MmuTurnOn(void *fun, void *arg)
 {
-    return PPCMMU(0x107, fun, arg, 0);
+    return PPCMMU(7, fun, arg, 0);
 }
 
 static inline void MmuSetMemorySize(paddr_t size)
 {
-    PPCMMU(0x108, (void *)size, 0, 0);
+    PPCMMU(8, (void *)size, 0, 0);
 }
 
 static inline paddr_t MmuGetFirstPage()
 {
-    return (paddr_t)PPCMMU(0x109, 0, 0, 0);
+    return (paddr_t)PPCMMU(9, 0, 0, 0);
 }
 
 static inline void *MmuAllocVsid(int vsid, int mask)
 {
-    return (void *)PPCMMU(0x10a, (void *)vsid, (void *)mask, 0);
+    return (void *)PPCMMU(10, (void *)vsid, (void *)mask, 0);
 }
 
 static inline void MmuRevokeVsid(int vsid, int mask)
 {
-    PPCMMU(0x10b, (void *)vsid, (void *)mask, 0);
-}
-
-static inline paddr_t MmuGetPage()
-{
-    return PPCMMU(0x10c, 0,0,0);
-}
-
-static inline void MmuCallbackRet()
-{
-    PPCMMU(0x10d, 0,0,0);
-}
-
-static inline void MmuDumpMap()
-{
-    PPCMMU(0x10e, 0,0,0);
-}
-
-static inline void MmuDbgInit(int deviceType, int devicePort)
-{
-    PPCMMU(0x200, (void *)deviceType, (void *)devicePort, 0);
-}
-
-static inline void MmuDbgEnter(int signal)
-{
-    PPCMMU(0x201, (void *)signal, 0, 0);
+    PPCMMU(11, (void *)vsid, (void *)mask, 0);
 }
 
 #endif/*PPCMMU_H*/

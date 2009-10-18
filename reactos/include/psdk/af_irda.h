@@ -23,6 +23,10 @@
 #ifndef __AF_IRDA_H
 #define __AF_IRDA_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,7 +53,7 @@ DEFINE_GUID(GUID_DEVINTERFACE_IRDAENUM_BUS_ENUMERATOR,
 #define IRDA_PROTO_SOCK_STREAM 1
 #define PF_IRDA AF_IRDA
 #define SOL_IRLMP 0x00FF
-#define SIO_LAZY_DISCOVERY _IOR('t', 127, ULONG)
+#define SIO_LAZY_DISCOVERY _IOR('t', 127, ULONG)   
 
 
 #define IAS_MAX_USER_STRING  256

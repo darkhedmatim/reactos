@@ -1,15 +1,13 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/ksfilter/ks/allocators.c
- * PURPOSE:         KS Allocator functions
- * PROGRAMMER:      Johannes Anderwald
-                    Andrew Greenwood
- */
+/* ===============================================================
+    Kernel-mode COM
+*/
 
-#include "priv.h"
+#include <windows.h>
+#include <ntddk.h>
+#include <ks.h>
+#include <kcom.h>
+#include <debug.h>
 
-const GUID IID_IUnknown = {0x00000000, 0x0000, 0x0000, {0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x46}};
 
 /* http://msdn2.microsoft.com/en-us/library/ms809781.aspx */
 COMDDKAPI NTSTATUS NTAPI
@@ -27,19 +25,12 @@ KoCreateInstance(
 
     if ( ClsContext != CLSCTX_KERNEL_SERVER )
     {
-        DPRINT("KoCreateInstance: ClsContext must be CLSCTX_KERNEL_SERVER\n");
+        DPRINT("FAILED: ClsContext must be CLSCTX_KERNEL_SERVER\n");
         return STATUS_INVALID_PARAMETER_3;
     }
 
-    if (IsEqualGUIDAligned(InterfaceId, &IID_IUnknown))
-    {
-        DPRINT("KoCreateInstance: InterfaceId cannot be IID_IUnknown\n");
-        return STATUS_INVALID_PARAMETER_4;
-    }
-
-
     /*
-        Find the desired interface and create an instance.
+        Find the desired interface and create an instance.  
 
         But we also need to supply a
         pointer which will be set to a list of available interfaces, to

@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/ps/job.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 
 /* GLOBALS *******************************************************************/
@@ -117,7 +118,7 @@ PspExitProcessFromJob(IN PEJOB Job,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtAssignProcessToJobObject (
     HANDLE JobHandle,
     HANDLE ProcessHandle)
@@ -216,7 +217,7 @@ NtCreateJobSet(IN ULONG NumJob,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtCreateJobObject (
     PHANDLE JobHandle,
     ACCESS_MASK DesiredAccess,
@@ -226,7 +227,7 @@ NtCreateJobObject (
     PEJOB Job;
     KPROCESSOR_MODE PreviousMode;
     PEPROCESS CurrentProcess;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     PAGED_CODE();
 
@@ -234,17 +235,22 @@ NtCreateJobObject (
     CurrentProcess = PsGetCurrentProcess();
 
     /* check for valid buffers */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWriteHandle(JobHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        if(!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
 
     Status = ObCreateObject(PreviousMode,
@@ -293,18 +299,18 @@ NtCreateJobObject (
         if(NT_SUCCESS(Status))
         {
             /* pass the handle back to the caller */
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* NOTE: if the caller passed invalid buffers to receive the handle it's his
                 own fault! the object will still be created and live... It's possible
                 to find the handle using ObFindHandleForObject()! */
                 *JobHandle = hJob;
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
-                Status = _SEH2_GetExceptionCode();
+                Status = _SEH_GetExceptionCode();
             }
-            _SEH2_END;
+            _SEH_END;
         }
     }
 
@@ -316,7 +322,7 @@ NtCreateJobObject (
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtIsProcessInJob (
     IN HANDLE ProcessHandle,
     IN HANDLE JobHandle OPTIONAL )
@@ -384,7 +390,7 @@ NtIsProcessInJob (
  * @implemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtOpenJobObject (
     PHANDLE JobHandle,
     ACCESS_MASK DesiredAccess,
@@ -392,44 +398,52 @@ NtOpenJobObject (
 {
     KPROCESSOR_MODE PreviousMode;
     HANDLE hJob;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     PAGED_CODE();
 
     PreviousMode = ExGetPreviousMode();
 
     /* check for valid buffers */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
-        _SEH2_TRY
+        _SEH_TRY
         {
             ProbeForWriteHandle(JobHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        if(!NT_SUCCESS(Status))
+        {
+            return Status;
+        }
     }
 
-    Status = ObOpenObjectByName(ObjectAttributes,
-        PsJobType,
-        PreviousMode,
-        NULL,
-        DesiredAccess,
-        NULL,
-        &hJob);
     if(NT_SUCCESS(Status))
     {
-        _SEH2_TRY
+        Status = ObOpenObjectByName(ObjectAttributes,
+            PsJobType,
+            PreviousMode,
+            NULL,
+            DesiredAccess,
+            NULL,
+            &hJob);
+        if(NT_SUCCESS(Status))
         {
-            *JobHandle = hJob;
+            _SEH_TRY
+            {
+                *JobHandle = hJob;
+            }
+            _SEH_HANDLE
+            {
+                Status = _SEH_GetExceptionCode();
+            }
+            _SEH_END;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
     }
 
     return Status;
@@ -440,7 +454,7 @@ NtOpenJobObject (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtQueryInformationJobObject (
     HANDLE JobHandle,
     JOBOBJECTINFOCLASS JobInformationClass,
@@ -457,7 +471,7 @@ NtQueryInformationJobObject (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtSetInformationJobObject (
     HANDLE JobHandle,
     JOBOBJECTINFOCLASS JobInformationClass,
@@ -473,7 +487,7 @@ NtSetInformationJobObject (
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtTerminateJobObject (
     HANDLE JobHandle,
     NTSTATUS ExitStatus )
@@ -510,7 +524,7 @@ NtTerminateJobObject (
  * @implemented
  */
 PVOID
-NTAPI
+STDCALL
 PsGetJobLock ( PEJOB Job )
 {
     ASSERT(Job);
@@ -522,7 +536,7 @@ PsGetJobLock ( PEJOB Job )
  * @implemented
  */
 PVOID
-NTAPI
+STDCALL
 PsGetJobSessionId ( PEJOB Job )
 {
     ASSERT(Job);
@@ -534,7 +548,7 @@ PsGetJobSessionId ( PEJOB Job )
  * @implemented
  */
 ULONG
-NTAPI
+STDCALL
 PsGetJobUIRestrictionsClass ( PEJOB Job )
 {
     ASSERT(Job);
@@ -546,7 +560,7 @@ PsGetJobUIRestrictionsClass ( PEJOB Job )
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 PsSetJobUIRestrictionsClass(PEJOB Job,
     ULONG UIRestrictionsClass)
 {

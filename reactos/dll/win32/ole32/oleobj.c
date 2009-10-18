@@ -32,8 +32,6 @@
 #include "wine/debug.h"
 #include "ole2.h"
 
-#include "compobj_private.h"
-
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 #define INITIAL_SINKS 10
@@ -256,7 +254,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_QueryInterface(
   else if(IsEqualIID(riid, &IID_IOleAdviseHolder))
   {
     /* IOleAdviseHolder */
-    *ppvObj = This;
+    *ppvObj = (IOleAdviseHolder*) This;
   }
 
   if(*ppvObj == NULL)
@@ -726,7 +724,7 @@ static HRESULT WINAPI DataAdviseHolder_Advise(
    */
   This->Connections[index].sink = pAdvise;
   This->Connections[index].advf = advf & ~WINE_ADVF_REMOTE;
-  This->Connections[index].fmat = *pFetc;
+  memcpy(&(This->Connections[index].fmat), pFetc, sizeof(FORMATETC));
   if (pFetc->ptd)
   {
     This->Connections[index].fmat.ptd = CoTaskMemAlloc(pFetc->ptd->tdSize);

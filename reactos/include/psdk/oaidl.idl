@@ -16,9 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef DO_NO_IMPORTS
 import "objidl.idl";
-#endif
 
 interface IDispatch;
 interface ITypeInfo;
@@ -286,7 +284,7 @@ struct _wireVARIANT {
   [case(VT_DISPATCH|VT_BYREF)] IDispatch **ppdispVal;
   [case(VT_ARRAY|VT_BYREF)]    wireSAFEARRAY *pparray;
   [case(VT_RECORD, VT_RECORD|VT_BYREF)] wireBRECORD brecVal;
-  } DUMMYUNIONNAME;
+  };
 };
 
 /* Dispatch */
@@ -313,7 +311,7 @@ typedef struct tagTYPEDESC {
   [case(VT_CARRAY)]            struct tagARRAYDESC *lpadesc;
   [case(VT_USERDEFINED)]       HREFTYPE hreftype;
   [default]                    ;
-  } DUMMYUNIONNAME;
+  };
   VARTYPE vt;
 } TYPEDESC;
 
@@ -484,7 +482,7 @@ typedef struct tagVARDESC {
   [switch_is(varkind)] union {
   [case(VAR_PERINSTANCE, VAR_DISPATCH, VAR_STATIC)] ULONG oInst;
   [case(VAR_CONST)] VARIANT *lpvarValue;
-  } DUMMYUNIONNAME;
+  };
   ELEMDESC elemdescVar;
   WORD wVarFlags;
   VARKIND varkind;
@@ -989,8 +987,7 @@ interface ITypeLib : IUnknown
   typedef [v1_enum] enum tagSYSKIND {
     SYS_WIN16 = 0,
     SYS_WIN32,
-    SYS_MAC,
-    SYS_WIN64
+    SYS_MAC
   } SYSKIND;
 
   typedef [v1_enum] enum tagLIBFLAGS {

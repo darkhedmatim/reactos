@@ -55,7 +55,7 @@ PCI_CONFIG_HANDLER PCIConfigHandlerType2 =
 {
     /* Synchronization */
     (FncSync)HalpPCISynchronizeType2,
-    (FncReleaseSync)HalpPCIReleaseSynchronizationType2,
+    (FncReleaseSync)HalpPCIReleaseSynchronzationType2,
 
     /* Read */
     {
@@ -81,10 +81,10 @@ PCIPBUSDATA HalpFakePciBusData =
         HalpWritePCIConfig,
         NULL,
         NULL,
-        {{{0, 0, 0}}},
+        {{{0}}},
         {0, 0, 0, 0}
     },
-    {{0, 0}},
+    {{0}},
     32,
 };
 
@@ -187,8 +187,8 @@ HalpPCISynchronizeType2(IN PBUS_HANDLER BusHandler,
 
 VOID
 NTAPI
-HalpPCIReleaseSynchronizationType2(IN PBUS_HANDLER BusHandler,
-                                   IN KIRQL Irql)
+HalpPCIReleaseSynchronzationType2(IN PBUS_HANDLER BusHandler,
+                                  IN KIRQL Irql)
 {
     PCI_TYPE2_CSE_BITS PciCfg2Cse;
     PPCIPBUSDATA BusData = (PPCIPBUSDATA)BusHandler->BusData;
@@ -346,26 +346,6 @@ HalpGetPCIData(IN PBUS_HANDLER BusHandler,
     PPCI_COMMON_CONFIG PciConfig = (PPCI_COMMON_CONFIG)PciBuffer;
     ULONG Len = 0;
 
-#ifdef SARCH_XBOX
-    /* Trying to get PCI config data from devices 0:0:1 and 0:0:2 will completely
-     * hang the Xbox. Also, the device number doesn't seem to be decoded for the
-     * video card, so it appears to be present on 1:0:0 - 1:31:0.
-     * We hack around these problems by indicating "device not present" for devices
-     * 0:0:1, 0:0:2, 1:1:0, 1:2:0, 1:3:0, ...., 1:31:0 */
-    if ((0 == BusHandler->BusNumber && 0 == Slot.u.bits.DeviceNumber &&
-         (1 == Slot.u.bits.FunctionNumber || 2 == Slot.u.bits.FunctionNumber)) ||
-        (1 == BusHandler->BusNumber && 0 != Slot.u.bits.DeviceNumber))
-    {
-        DPRINT("Blacklisted PCI slot\n");
-        if (0 == Offset && 2 <= Length)
-        {
-            *(PUSHORT)Buffer = PCI_INVALID_VENDORID;
-            return 2;
-        }
-        return 0;
-    }
-#endif
-
     /* Normalize the length */
     if (Length > sizeof(PCI_COMMON_CONFIG)) Length = sizeof(PCI_COMMON_CONFIG);
 
@@ -437,21 +417,6 @@ HalpSetPCIData(IN PBUS_HANDLER BusHandler,
     PPCI_COMMON_CONFIG PciConfig = (PPCI_COMMON_CONFIG)PciBuffer;
     ULONG Len = 0;
 
-#ifdef SARCH_XBOX
-    /* Trying to get PCI config data from devices 0:0:1 and 0:0:2 will completely
-     * hang the Xbox. Also, the device number doesn't seem to be decoded for the
-     * video card, so it appears to be present on 1:0:0 - 1:31:0.
-     * We hack around these problems by indicating "device not present" for devices
-     * 0:0:1, 0:0:2, 1:1:0, 1:2:0, 1:3:0, ...., 1:31:0 */
-    if ((0 == BusHandler->BusNumber && 0 == Slot.u.bits.DeviceNumber &&
-         (1 == Slot.u.bits.FunctionNumber || 2 == Slot.u.bits.FunctionNumber)) ||
-        (1 == BusHandler->BusNumber && 0 != Slot.u.bits.DeviceNumber))
-    {
-        DPRINT1("Trying to set data on blacklisted PCI slot\n");
-        return 0;
-    }
-#endif
-
     /* Normalize the length */
     if (Length > sizeof(PCI_COMMON_CONFIG)) Length = sizeof(PCI_COMMON_CONFIG);
 
@@ -520,7 +485,7 @@ HalpReleasePciDeviceForDebugging(IN OUT PDEBUG_DEVICE_DESCRIPTOR PciDevice)
     return STATUS_NOT_IMPLEMENTED;
 }
 
-static ULONG NTAPI
+static ULONG STDCALL
 PciSize(ULONG Base, ULONG Mask)
 {
     ULONG Size = Mask & Base; /* Find the significant bits */
@@ -572,7 +537,7 @@ HalpAssignPCISlotResources(IN PBUS_HANDLER BusHandler,
         {
             ResourceCount++;
 
-            Offset = (UCHAR)FIELD_OFFSET(PCI_COMMON_CONFIG, u.type0.BaseAddresses[Address]);
+            Offset = FIELD_OFFSET(PCI_COMMON_CONFIG, u.type0.BaseAddresses[Address]);
 
             /* Write 0xFFFFFFFF there */
             WriteBuffer = 0xffffffff;
@@ -595,7 +560,7 @@ HalpAssignPCISlotResources(IN PBUS_HANDLER BusHandler,
         PagedPool,
         sizeof(CM_RESOURCE_LIST) +
         (ResourceCount - 1) * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR),
-        ' laH');
+        TAG('H','a','l',' '));
 
     if (NULL == *AllocatedResources)
         return STATUS_NO_MEMORY;
@@ -815,7 +780,7 @@ HalpQueryPciRegistryInfo(VOID)
             /* Allocate the return structure */
             PciRegistryInfo = ExAllocatePoolWithTag(NonPagedPool,
                                                     sizeof(PCI_REGISTRY_INFO_INTERNAL),
-                                                    ' laH');
+                                                    TAG('H', 'a', 'l', ' '));
             if (!PciRegistryInfo) return NULL;
 
             /* Fill it out */

@@ -31,6 +31,7 @@
 
 #include <stdarg.h>
 
+#include "stdio.h"
 #include "windef.h"
 #include "winbase.h"
 #include "winerror.h"
@@ -178,7 +179,7 @@ static MSIPROGID *load_progid( MSIPACKAGE* package, MSIRECORD *row )
         while (parent->Parent && parent->Parent != parent)
             parent = parent->Parent;
 
-        /* FIXME: need to determine if we are really the CurVer */
+        /* FIXME: need to determing if we are really the CurVer */
 
         progid->CurVer = parent;
         parent->VersionInd = progid;
@@ -445,7 +446,7 @@ static MSIEXTENSION *load_extension( MSIPACKAGE* package, MSIRECORD *row )
 
 /*
  * While the extension table has 2 primary keys, this function is only looking
- * at the Extension key which is what is referenced as a foreign key
+ * at the Extension key which is what is referenced as a forign key 
  */
 static MSIEXTENSION *load_given_extension( MSIPACKAGE *package, LPCWSTR name )
 {
@@ -460,9 +461,6 @@ static MSIEXTENSION *load_given_extension( MSIPACKAGE *package, LPCWSTR name )
 
     if (!name)
         return NULL;
-
-    if (name[0] == '.')
-        name++;
 
     /* check for extensions already loaded */
     LIST_FOR_EACH_ENTRY( ext, &package->extensions, MSIEXTENSION, entry )
@@ -486,7 +484,7 @@ static MSIEXTENSION *load_given_extension( MSIPACKAGE *package, LPCWSTR name )
 
 static UINT iterate_load_verb(MSIRECORD *row, LPVOID param)
 {
-    MSIPACKAGE* package = param;
+    MSIPACKAGE* package = (MSIPACKAGE*)param;
     MSIVERB *verb;
     LPCWSTR buffer;
     MSIEXTENSION *extension;
@@ -515,7 +513,7 @@ static UINT iterate_load_verb(MSIRECORD *row, LPVOID param)
     buffer = MSI_RecordGetString(row,5);
     deformat_string(package,buffer,&verb->Argument);
 
-    /* associate the verb with the correct extension */
+    /* assosiate the verb with the correct extension */
     list_add_tail( &extension->verbs, &verb->entry );
     
     return ERROR_SUCCESS;
@@ -527,7 +525,7 @@ static UINT iterate_all_classes(MSIRECORD *rec, LPVOID param)
     LPCWSTR clsid;
     LPCWSTR context;
     LPCWSTR buffer;
-    MSIPACKAGE* package = param;
+    MSIPACKAGE* package =(MSIPACKAGE*)param;
     MSICLASS *cls;
     BOOL match = FALSE;
 
@@ -577,7 +575,7 @@ static UINT iterate_all_extensions(MSIRECORD *rec, LPVOID param)
     MSICOMPONENT *comp;
     LPCWSTR buffer;
     LPCWSTR extension;
-    MSIPACKAGE* package = param;
+    MSIPACKAGE* package =(MSIPACKAGE*)param;
     BOOL match = FALSE;
     MSIEXTENSION *ext;
 
@@ -622,7 +620,7 @@ static VOID load_all_extensions(MSIPACKAGE *package)
 static UINT iterate_all_progids(MSIRECORD *rec, LPVOID param)
 {
     LPCWSTR buffer;
-    MSIPACKAGE* package = param;
+    MSIPACKAGE* package =(MSIPACKAGE*)param;
 
     buffer = MSI_RecordGetString(rec,1);
     load_given_progid(package,buffer);
@@ -666,7 +664,7 @@ static VOID load_all_verbs(MSIPACKAGE *package)
 static UINT iterate_all_mimes(MSIRECORD *rec, LPVOID param)
 {
     LPCWSTR buffer;
-    MSIPACKAGE* package = param;
+    MSIPACKAGE* package =(MSIPACKAGE*)param;
 
     buffer = MSI_RecordGetString(rec,1);
     load_given_mime(package,buffer);
@@ -738,7 +736,7 @@ static void mark_mime_for_install( MSIMIME *mime )
     mime->InstallMe = TRUE;
 }
 
-static UINT register_appid(const MSIAPPID *appid, LPCWSTR app )
+static UINT register_appid(MSIAPPID *appid, LPCWSTR app )
 {
     static const WCHAR szAppID[] = { 'A','p','p','I','D',0 };
     static const WCHAR szRemoteServerName[] =
@@ -968,20 +966,18 @@ UINT ACTION_RegisterClassInfo(MSIPACKAGE *package)
     return rc;
 }
 
-static LPCWSTR get_clsid_of_progid( const MSIPROGID *progid )
+static LPCWSTR get_clsid_of_progid( MSIPROGID *progid )
 {
     while (progid)
     {
         if (progid->Class)
             return progid->Class->clsid;
-        if (progid->Parent == progid)
-            break;
         progid = progid->Parent;
     }
     return NULL;
 }
 
-static UINT register_progid( const MSIPROGID* progid )
+static UINT register_progid( MSIPROGID* progid )
 {
     static const WCHAR szCLSID[] = { 'C','L','S','I','D',0 };
     static const WCHAR szDefaultIcon[] =
@@ -1053,7 +1049,7 @@ UINT ACTION_RegisterProgIdInfo(MSIPACKAGE *package)
 }
 
 static UINT register_verb(MSIPACKAGE *package, LPCWSTR progid, 
-                MSICOMPONENT* component, const MSIEXTENSION* extension,
+                MSICOMPONENT* component, MSIEXTENSION* extension,
                 MSIVERB* verb, INT* Sequence )
 {
     LPWSTR keyname;
@@ -1257,7 +1253,7 @@ UINT ACTION_RegisterMIMEInfo(MSIPACKAGE *package)
         LPWSTR key;
 
         /* 
-         * check if the MIME is to be installed. Either as requested by an
+         * check if the MIME is to be installed. Either as requesed by an
          * extension or Class
          */
         mt->InstallMe = (mt->InstallMe ||

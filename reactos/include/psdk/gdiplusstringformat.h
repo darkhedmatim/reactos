@@ -19,6 +19,10 @@
 #ifndef _GDIPLUSSTRINGFORMAT_H
 #define _GDIPLUSSTRINGFORMAT_H
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 class StringFormat : public GdiplusBase
 {
 public:

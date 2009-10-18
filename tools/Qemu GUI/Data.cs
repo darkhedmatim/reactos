@@ -446,8 +446,8 @@ namespace Qemu_GUI
             }
             else if (this.SerialPort.SRedirect)
             {
-                //if (this.SerialPort.FileName.Length > 0)
-                    buffer = "-serial pipe:\"com_1\" ";
+                /* fix me: use pipes!!!!!! */
+                buffer = "-serial file:\"" + this.SerialPort.FileName + "\" ";
             }
 
 

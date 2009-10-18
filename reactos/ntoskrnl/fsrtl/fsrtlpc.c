@@ -172,7 +172,7 @@ FsRtlInitSystem(VOID)
     FsRtlPagingIoResources = FsRtlAllocatePoolWithTag(NonPagedPool,
                                                       FSRTL_MAX_RESOURCES *
                                                       sizeof(ERESOURCE),
-                                                      'eRsF');
+                                                      TAG('F', 's', 'R', 'e'));
 
     /* Initialize the Resources */
     for (i = 0; i < FSRTL_MAX_RESOURCES; i++)

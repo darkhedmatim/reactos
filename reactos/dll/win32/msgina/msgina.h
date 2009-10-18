@@ -18,6 +18,7 @@ typedef struct
 	PWLX_DISPATCH_VERSION_1_3 pWlxFuncs;
 	HANDLE hDllInstance;
 	HWND hStatusWindow;
+	BOOL SignaledStatusWindowCreated;
 	DWORD AutoLogonState;
 
 	/* Informations to be filled during logon */
@@ -31,7 +32,7 @@ typedef struct
 	HBITMAP hBitmap;
 } GINA_CONTEXT, *PGINA_CONTEXT;
 
-extern HINSTANCE hDllInstance;
+HINSTANCE hDllInstance;
 
 typedef BOOL (*PFGINA_INITIALIZE)(PGINA_CONTEXT);
 typedef BOOL (*PFGINA_DISPLAYSTATUSMESSAGE)(PGINA_CONTEXT, HDESK, DWORD, PWSTR, PWSTR);

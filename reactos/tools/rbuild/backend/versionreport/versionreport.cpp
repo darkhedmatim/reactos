@@ -50,7 +50,7 @@ static class VReportFactory : public Backend::Factory
 		{
 			return new VReportBackend(project, configuration);
 		}
-
+		
 } factory;
 
 
@@ -92,14 +92,16 @@ VReportBackend::GenerateReport ( FILE* OUT )
 	fprintf ( m_VReportFile, "<?xml-stylesheet type=\"text/xsl\" href=\"vreport.xsl\"?>\r\n" );
 	fprintf ( m_VReportFile, "<components>\r\n" );
 
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
-		if ((module.type != Iso) &&
-			(module.type != LiveIso))
+		Module& module = *ProjectNode.modules[i];
+		if ((module.type != Iso) && 
+			(module.type != LiveIso) &&
+			(module.type != IsoRegTest) &&
+			(module.type != LiveIsoRegTest))
 		{
-			Module& module = *p->second;
-
+			Module& module = *ProjectNode.modules[i];
+				
 			if (module.metadata)
 			{
 				if (module.metadata->version.length() > 0)

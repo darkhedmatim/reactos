@@ -43,7 +43,6 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 	{
 		case Kernel:
 		case KernelModeDLL:
-		case KeyboardLayout:
 		case NativeDLL:
 		case NativeCUI:
 		case Win32DLL:
@@ -55,27 +54,22 @@ Bootstrap::IsSupportedModuleType ( ModuleType type )
 		case BootSector:
 		case BootLoader:
 		case BootProgram:
-		case Cabinet:
 			return true;
 		case BuildTool:
 		case StaticLibrary:
-		case HostStaticLibrary:
 		case ObjectLibrary:
 		case Iso:
 		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
 		case Test:
 		case RpcServer:
 		case RpcClient:
-		case RpcProxy:
 		case Alias:
 		case IdlHeader:
-		case IdlInterface:
-		case MessageHeader:
 		case EmbeddedTypeLib:
 		case ElfExecutable:
 			return false;
-		case TypeDontCare:
-			break;
 	}
 	throw InvalidOperationException ( __FILE__,
 	                                  __LINE__ );
@@ -103,7 +97,7 @@ Bootstrap::Initialize ()
 			"<bootstrap> is not applicable for this module type." );
 	}
 
-	const XMLAttribute* att = node.GetAttribute ( "installbase", false );
+	const XMLAttribute* att = node.GetAttribute ( "base", false );
 	if ( att != NULL )
 		base = ReplaceVariable ( "$(CDOUTPUT)", Environment::GetCdOutputPath (), att->value );
 	else

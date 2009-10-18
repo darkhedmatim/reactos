@@ -37,10 +37,10 @@
 
 #include <stdarg.h>
 
-#include <windef.h>
-#include <winbase.h>
-#include <winuser.h>
-#include <shlobj.h>
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
+#include "shlobj.h"
 
 /*
 * the pidl does cache fileattributes to speed up SHGetAttributes when
@@ -49,7 +49,7 @@
 * a pidl of NULL means the desktop
 *
 * The structure of the pidl seems to be a union. The first byte of the
-* PIDLDATA describes the type of pidl.
+* PIDLDATA desribes the type of pidl.
 *
 *	object        ! first byte /  ! format       ! living space
 *	              ! size
@@ -64,7 +64,7 @@
 *	drive		0x2F		drive		(lnk/persistent)
 *	folder/file	0x30		folder/file (1)	(lnk/persistent)
 *	folder		0x31		folder		(usual)
-*	valueA		0x32		file		(ANSI file name)
+*	valueA		0x32		file		(ANSI file name) 
 *	valueW		0x34		file		(Unicode file name)
 *	workgroup	0x41		network (3)
 *	computer	0x42		network (4)
@@ -111,38 +111,13 @@
 typedef BYTE PIDLTYPE;
 
 typedef struct tagPIDLCPanelStruct
-{
+{ 
     BYTE dummy;			/*01 is 0x00 */
     DWORD iconIdx;		/*02 negative icon ID */
     WORD offsDispName;		/*06*/
     WORD offsComment;		/*08*/
     CHAR szName[1];		/*10*/ /* terminated by 0x00, followed by display name and comment string */
 } PIDLCPanelStruct;
-
-typedef struct tagPIDLFontStruct
-{
-    BYTE dummy;
-    WORD offsFile;
-    WCHAR szName[1];
-} PIDLFontStruct;
-
-typedef struct tagPIDLPrinterStruct
-{
-    BYTE dummy;
-    DWORD Attributes;
-    WORD offsServer;
-    WCHAR szName[1];
-}PIDLPrinterStruct;
-
-typedef struct tagPIDLRecycleStruct
-{
-	FILETIME LastModification;
-	FILETIME DeletionTime;
-	ULARGE_INTEGER FileSize;
-	ULARGE_INTEGER PhysicalFileSize;
-	DWORD Attributes;
-	WCHAR szName[1];
-}PIDLRecycleStruct;
 
 typedef struct tagGUIDStruct
 {
@@ -168,8 +143,8 @@ typedef struct tagFileStruct
     The second the dos name when needed or just 0x00 */
 } FileStruct;
 
-/* At least on WinXP, this struct is appended with 2-byte-alignment to FileStruct. There follows
- * a WORD member after the wszName string, which gives the offset from the beginning of the PIDL
+/* At least on WinXP, this struct is appended with 2-byte-alignment to FileStruct. There follows 
+ * a WORD member after the wszName string, which gives the offset from the beginning of the PIDL 
  * to the FileStructW member. */
 typedef struct tagFileStructW {
     WORD cbLen;
@@ -204,10 +179,7 @@ typedef struct tagPIDLDATA
 	    CHAR szName[1];	/*06*/ /* terminated by 0x00 0x00 */
 	  } htmlhelp;
 	  struct tagPIDLCPanelStruct cpanel;
-	  struct tagValueW valueW;
-	  struct tagPIDLFontStruct cfont;
-	  struct tagPIDLPrinterStruct cprinter;
-	  struct tagPIDLRecycleStruct crecycle;
+          struct tagValueW valueW;
 	}u;
 } PIDLDATA, *LPPIDLDATA;
 #include "poppack.h"
@@ -229,32 +201,34 @@ DWORD	_ILGetDrive		(LPCITEMIDLIST, LPSTR, UINT);
 /*
  * testing simple pidls
  */
-BOOL	_ILIsUnicode		(LPCITEMIDLIST pidl);
 BOOL	_ILIsDesktop		(LPCITEMIDLIST pidl);
 BOOL	_ILIsMyComputer		(LPCITEMIDLIST pidl);
-BOOL	_ILIsPrinter		(LPCITEMIDLIST pidl);
-BOOL    _ILIsMyDocuments       (LPCITEMIDLIST pidl);
-BOOL    _ILIsControlPanel       (LPCITEMIDLIST pidl);
-BOOL    _ILIsBitBucket      (LPCITEMIDLIST pidl);
-BOOL	_ILIsAdminTools (LPCITEMIDLIST pidl);
-BOOL    _ILIsNetHood      (LPCITEMIDLIST pidl);
 BOOL	_ILIsDrive		(LPCITEMIDLIST pidl);
 BOOL	_ILIsFolder		(LPCITEMIDLIST pidl);
 BOOL	_ILIsValue		(LPCITEMIDLIST pidl);
 BOOL	_ILIsSpecialFolder	(LPCITEMIDLIST pidl);
 BOOL	_ILIsPidlSimple		(LPCITEMIDLIST pidl);
 BOOL	_ILIsCPanelStruct	(LPCITEMIDLIST pidl);
-static BOOL __inline _ILIsEqualSimple        (LPCITEMIDLIST pidlA, LPCITEMIDLIST pidlB)
+static inline 
+BOOL    _ILIsEqualSimple        (LPCITEMIDLIST pidlA, LPCITEMIDLIST pidlB)
 {
     return (pidlA->mkid.cb > 0 && !memcmp(pidlA, pidlB, pidlA->mkid.cb)) ||
             (!pidlA->mkid.cb && !pidlB->mkid.cb);
 }
-static 
-BOOL  __inline _ILIsEmpty              (LPCITEMIDLIST pidl) { return _ILIsDesktop(pidl); }
+static inline
+BOOL    _ILIsEmpty              (LPCITEMIDLIST pidl) { return _ILIsDesktop(pidl); }
 
 /*
  * simple pidls
  */
+
+/* Basic PIDL constructor.  Allocates size + 5 bytes, where:
+ * - two bytes are SHITEMID.cb
+ * - one byte is PIDLDATA.type
+ * - two bytes are the NULL PIDL terminator
+ * Sets type of the returned PIDL to type.
+ */
+LPITEMIDLIST	_ILAlloc(PIDLTYPE type, unsigned int size);
 
 /* Creates a PIDL with guid format and type type, which must be one of PT_GUID,
  * PT_SHELLEXT, or PT_YAGUID.
@@ -267,7 +241,9 @@ LPITEMIDLIST	_ILCreateGuidFromStrW(LPCWSTR szGUID);
 
 /* Commonly used PIDLs representing file system objects. */
 LPITEMIDLIST	_ILCreateDesktop	(void);
-LPITEMIDLIST	_ILCreateFromFindDataW(const WIN32_FIND_DATAW *stffile);
+LPITEMIDLIST	_ILCreateFromFindDataA(WIN32_FIND_DATAA *stffile);
+LPITEMIDLIST	_ILCreateFromFindDataW(WIN32_FIND_DATAW *stffile);
+HRESULT		_ILCreateFromPathA	(LPCSTR szPath, LPITEMIDLIST* ppidl);
 HRESULT		_ILCreateFromPathW	(LPCWSTR szPath, LPITEMIDLIST* ppidl);
 
 /* Other helpers */
@@ -277,9 +253,6 @@ LPITEMIDLIST	_ILCreateIExplore	(void);
 LPITEMIDLIST	_ILCreateControlPanel	(void);
 LPITEMIDLIST	_ILCreatePrinters	(void);
 LPITEMIDLIST	_ILCreateNetwork	(void);
-LPITEMIDLIST	_ILCreateNetHood	(void);
-LPITEMIDLIST	_ILCreateAdminTools	(void);
-LPITEMIDLIST	_ILCreateFont		(void);
 LPITEMIDLIST	_ILCreateBitBucket	(void);
 LPITEMIDLIST	_ILCreateDrive		(LPCWSTR);
 
@@ -288,6 +261,7 @@ LPITEMIDLIST	_ILCreateDrive		(LPCWSTR);
  */
 LPPIDLDATA	_ILGetDataPointer	(LPCITEMIDLIST);
 LPSTR		_ILGetTextPointer	(LPCITEMIDLIST);
+LPSTR		_ILGetSTextPointer	(LPCITEMIDLIST);
 IID		*_ILGetGUIDPointer	(LPCITEMIDLIST pidl);
 FileStructW     *_ILGetFileStructW      (LPCITEMIDLIST pidl);
 
@@ -301,9 +275,10 @@ BOOL	pcheck	(LPCITEMIDLIST pidl);
  * aPidl helper
  */
 void _ILFreeaPidl(LPITEMIDLIST * apidl, UINT cidl);
-LPITEMIDLIST * _ILCopyaPidl(const LPCITEMIDLIST * apidlsrc, UINT cidl);
-LPITEMIDLIST * _ILCopyCidaToaPidl(LPITEMIDLIST* pidl, const CIDA * cida);
+LPITEMIDLIST * _ILCopyaPidl(LPCITEMIDLIST * apidlsrc, UINT cidl);
+LPITEMIDLIST * _ILCopyCidaToaPidl(LPITEMIDLIST* pidl, LPIDA cida);
 
+BOOL WINAPI ILGetDisplayNameExA(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPSTR path, DWORD type);
 BOOL WINAPI ILGetDisplayNameExW(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPWSTR path, DWORD type);
 
 #endif

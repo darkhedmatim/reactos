@@ -22,9 +22,6 @@ int main()
 
     int c;
 
-    HMIDIOUT Handle = NULL;
-    UINT Result;
-
     printf("MIDI output devices: %d\n", outs);
 
     for (c = 0; c < outs; c ++)
@@ -35,7 +32,8 @@ int main()
 
     printf("Opening MIDI output #0\n");
 
-    Result = midiOutOpen(&Handle, 0, 0, 0, CALLBACK_NULL);
+    HMIDIOUT Handle = NULL;
+    UINT Result = midiOutOpen(&Handle, 0, 0, 0, CALLBACK_NULL);
     printf("Result == %d Handle == %d\n", Result, (int)Handle);
 
     // play something:

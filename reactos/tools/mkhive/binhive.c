@@ -32,7 +32,7 @@
 BOOL
 ExportBinaryHive(
 	IN PCSTR FileName,
-	IN PCMHIVE Hive)
+	IN PEREGISTRY_HIVE Hive)
 {
 	FILE *File;
 	BOOL ret;
@@ -49,7 +49,7 @@ ExportBinaryHive(
 
 	fseek (File, 0, SEEK_SET);
 
-	Hive->FileHandles[HFILE_TYPE_PRIMARY] = (HANDLE)File;
+	Hive->HiveHandle = (HANDLE)File;
 	ret = HvWriteHive(&Hive->Hive);
 	fclose (File);
 	return ret;

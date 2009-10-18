@@ -19,7 +19,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -33,22 +33,13 @@
 #include "windef.h"
 #include "winbase.h"
 #include "wininet.h"
+#include "winerror.h"
 #include "winnls.h"
 
 #include "wine/debug.h"
 #include "internet.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(wininet);
-
-/* critical section to protect non-reentrant gethostbyname() */
-static CRITICAL_SECTION cs_gethostbyname;
-static CRITICAL_SECTION_DEBUG critsect_debug =
-{
-    0, 0, &cs_gethostbyname,
-    { &critsect_debug.ProcessLocksList, &critsect_debug.ProcessLocksList },
-      0, 0, { (DWORD_PTR)(__FILE__ ": cs_gethostbyname") }
-};
-static CRITICAL_SECTION cs_gethostbyname = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 #define TIME_STRING_LEN  30
 
@@ -59,7 +50,7 @@ time_t ConvertTimeString(LPCWSTR asctime)
     struct tm t;
     int timelen = strlenW(asctime);
 
-    if(!timelen)
+    if(!asctime || !timelen)
         return 0;
 
     /* FIXME: the atoiWs below rely on that tmpChar is \0 padded */
@@ -81,7 +72,6 @@ time_t ConvertTimeString(LPCWSTR asctime)
     tmpChar[22]='\0';
     tmpChar[25]='\0';
 
-    memset( &t, 0, sizeof(t) );
     t.tm_year = atoiW(tmpChar+12) - 1900;
     t.tm_mday = atoiW(tmpChar+5);
     t.tm_hour = atoiW(tmpChar+17);
@@ -157,28 +147,24 @@ BOOL GetAddress(LPCWSTR lpszServerName, INTERNET_PORT nServerPort,
     else
         len = strlenW(lpszServerName);
 
-    sz = WideCharToMultiByte( CP_UNIXCP, 0, lpszServerName, len, NULL, 0, NULL, NULL );
+    sz = WideCharToMultiByte( CP_THREAD_ACP, 0, lpszServerName, len, NULL, 0, NULL, NULL );
     name = HeapAlloc(GetProcessHeap(), 0, sz+1);
-    WideCharToMultiByte( CP_UNIXCP, 0, lpszServerName, len, name, sz, NULL, NULL );
+    WideCharToMultiByte( CP_THREAD_ACP, 0, lpszServerName, len, name, sz, NULL, NULL );
     name[sz] = 0;
-
-    EnterCriticalSection( &cs_gethostbyname );
     phe = gethostbyname(name);
     HeapFree( GetProcessHeap(), 0, name );
 
     if (NULL == phe)
     {
         TRACE("Failed to get hostname: (%s)\n", debugstr_w(lpszServerName) );
-        LeaveCriticalSection( &cs_gethostbyname );
         return FALSE;
     }
 
     memset(psa,0,sizeof(struct sockaddr_in));
     memcpy((char *)&psa->sin_addr, phe->h_addr, phe->h_length);
     psa->sin_family = phe->h_addrtype;
-    psa->sin_port = htons(nServerPort);
+    psa->sin_port = htons((u_short)nServerPort);
 
-    LeaveCriticalSection( &cs_gethostbyname );
     return TRUE;
 }
 
@@ -224,10 +210,11 @@ static const char *get_callback_name(DWORD dwInternetStatus) {
     return "Unknown";
 }
 
-VOID INTERNET_SendCallback(LPWININETHANDLEHEADER hdr, DWORD_PTR dwContext,
+VOID INTERNET_SendCallback(LPWININETHANDLEHEADER hdr, DWORD dwContext,
                            DWORD dwInternetStatus, LPVOID lpvStatusInfo,
                            DWORD dwStatusInfoLength)
 {
+    HINTERNET hHttpSession;
     LPVOID lpvNewInfo = NULL;
 
     if( !hdr->lpfnStatusCB )
@@ -238,6 +225,12 @@ VOID INTERNET_SendCallback(LPWININETHANDLEHEADER hdr, DWORD_PTR dwContext,
     if( !dwContext )
         return;
 
+    hHttpSession = WININET_FindHandle( hdr );
+    if( !hHttpSession ) {
+	TRACE(" Could not convert header '%p' into a handle !\n", hdr);
+        return;
+    }
+
     lpvNewInfo = lpvStatusInfo;
     if(hdr->dwInternalFlags & INET_CALLBACKW) {
         switch(dwInternetStatus) {
@@ -245,60 +238,38 @@ VOID INTERNET_SendCallback(LPWININETHANDLEHEADER hdr, DWORD_PTR dwContext,
         case INTERNET_STATUS_CONNECTING_TO_SERVER:
         case INTERNET_STATUS_CONNECTED_TO_SERVER:
             lpvNewInfo = WININET_strdup_AtoW(lpvStatusInfo);
-            break;
-        case INTERNET_STATUS_RESOLVING_NAME:
-        case INTERNET_STATUS_REDIRECT:
-            lpvNewInfo = WININET_strdupW(lpvStatusInfo);
-            break;
         }
     }else {
         switch(dwInternetStatus)
         {
-        case INTERNET_STATUS_NAME_RESOLVED:
-        case INTERNET_STATUS_CONNECTING_TO_SERVER:
-        case INTERNET_STATUS_CONNECTED_TO_SERVER:
-            lpvNewInfo = HeapAlloc(GetProcessHeap(), 0, strlen(lpvStatusInfo) + 1);
-            if (lpvNewInfo) strcpy(lpvNewInfo, lpvStatusInfo);
-            break;
         case INTERNET_STATUS_RESOLVING_NAME:
         case INTERNET_STATUS_REDIRECT:
             lpvNewInfo = WININET_strdup_WtoA(lpvStatusInfo);
-            break;
         }
     }
     
-    TRACE(" callback(%p) (%p (%p), %08lx, %d (%s), %p, %d)\n",
-	  hdr->lpfnStatusCB, hdr->hInternet, hdr, dwContext, dwInternetStatus, get_callback_name(dwInternetStatus),
+    TRACE(" callback(%p) (%p (%p), %08lx, %ld (%s), %p, %ld)\n",
+	  hdr->lpfnStatusCB, hHttpSession, hdr, dwContext, dwInternetStatus, get_callback_name(dwInternetStatus),
 	  lpvNewInfo, dwStatusInfoLength);
     
-    hdr->lpfnStatusCB(hdr->hInternet, dwContext, dwInternetStatus,
+    hdr->lpfnStatusCB(hHttpSession, dwContext, dwInternetStatus,
                       lpvNewInfo, dwStatusInfoLength);
 
     TRACE(" end callback().\n");
 
     if(lpvNewInfo != lpvStatusInfo)
         HeapFree(GetProcessHeap(), 0, lpvNewInfo);
+
+    WININET_Release( hdr );
 }
 
-static void SendAsyncCallbackProc(WORKREQUEST *workRequest)
-{
-    struct WORKREQ_SENDCALLBACK const *req = &workRequest->u.SendCallback;
 
-    TRACE("%p\n", workRequest->hdr);
 
-    INTERNET_SendCallback(workRequest->hdr,
-                          req->dwContext, req->dwInternetStatus, req->lpvStatusInfo,
-                          req->dwStatusInfoLength);
-
-    /* And frees the copy of the status info */
-    HeapFree(GetProcessHeap(), 0, req->lpvStatusInfo);
-}
-
-VOID SendAsyncCallback(LPWININETHANDLEHEADER hdr, DWORD_PTR dwContext,
+VOID SendAsyncCallback(LPWININETHANDLEHEADER hdr, DWORD dwContext,
                        DWORD dwInternetStatus, LPVOID lpvStatusInfo,
                        DWORD dwStatusInfoLength)
 {
-    TRACE("(%p, %08lx, %d (%s), %p, %d): %sasync call with callback %p\n",
+    TRACE("(%p, %08lx, %ld (%s), %p, %ld): %sasync call with callback %p\n",
 	  hdr, dwContext, dwInternetStatus, get_callback_name(dwInternetStatus),
 	  lpvStatusInfo, dwStatusInfoLength,
 	  hdr->dwFlags & INTERNET_FLAG_ASYNC ? "" : "non ",
@@ -319,7 +290,7 @@ VOID SendAsyncCallback(LPWININETHANDLEHEADER hdr, DWORD_PTR dwContext,
 	    memcpy(lpvStatusInfo_copy, lpvStatusInfo, dwStatusInfoLength);
 	}
 
-	workRequest.asyncproc = SendAsyncCallbackProc;
+	workRequest.asyncall = SENDCALLBACK;
 	workRequest.hdr = WININET_AddRef( hdr );
 	req = &workRequest.u.SendCallback;
 	req->dwContext = dwContext;

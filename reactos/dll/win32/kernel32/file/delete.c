@@ -12,9 +12,10 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include <debug.h>
+
 
 /* FUNCTIONS ****************************************************************/
 
@@ -22,7 +23,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteFileA (
 	LPCSTR	lpFileName
 	)
@@ -40,7 +41,7 @@ DeleteFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteFileW (
 	LPCWSTR	lpFileName
 	)
@@ -52,7 +53,7 @@ DeleteFileW (
 	HANDLE FileHandle;
 	NTSTATUS Status;
 
-	TRACE("DeleteFileW (lpFileName %S)\n",lpFileName);
+	DPRINT("DeleteFileW (lpFileName %S)\n",lpFileName);
 
 	if (!RtlDosPathNameToNtPathName_U (lpFileName,
 	                                   &NtPathU,
@@ -63,7 +64,7 @@ DeleteFileW (
 		return FALSE;
    }
 
-	TRACE("NtPathU \'%wZ\'\n", &NtPathU);
+	DPRINT("NtPathU \'%wZ\'\n", &NtPathU);
 
         InitializeObjectAttributes(&ObjectAttributes,
                                    &NtPathU,
@@ -89,7 +90,7 @@ DeleteFileW (
 
 	if (!NT_SUCCESS(Status))
 	{
-		WARN("Status 0x%08x\n", Status);
+		CHECKPOINT;
 		SetLastErrorByStatus (Status);
 		return FALSE;
 	}
@@ -103,7 +104,7 @@ DeleteFileW (
 	                               FileDispositionInformation);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN("Status 0x%08x\n", Status);
+		CHECKPOINT;
 		NtClose (FileHandle);
 		SetLastErrorByStatus (Status);
 		return FALSE;
@@ -112,7 +113,7 @@ DeleteFileW (
 	Status = NtClose (FileHandle);
 	if (!NT_SUCCESS (Status))
 	{
-		WARN("Status 0x%08x\n", Status);
+		CHECKPOINT;
 		SetLastErrorByStatus (Status);
 		return FALSE;
 	}

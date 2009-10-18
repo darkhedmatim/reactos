@@ -4,7 +4,7 @@
  * Copyright 1999 Francis Beaudet
  * Copyright 1999 Sylvain St-Germain
  * Copyright 2002 Marcus Meissner
- * Copyright 2003 Ove KÃ¥ven, TransGaming Technologies
+ * Copyright 2003 Ove Kåven, TransGaming Technologies
  * Copyright 2004 Mike Hearn, Rob Shearman, CodeWeavers Inc
  *
  * This library is free software; you can redistribute it and/or
@@ -43,6 +43,7 @@ typedef struct apartment APARTMENT;
 
 DEFINE_OLEGUID( CLSID_DfMarshal, 0x0000030b, 0, 0 );
 DEFINE_OLEGUID( CLSID_PSFactoryBuffer, 0x00000320, 0, 0 );
+DEFINE_OLEGUID( CLSID_InProcFreeMarshaler, 0x0000033a, 0, 0 );
 
 /* signal to stub manager that this is a rem unknown object */
 #define MSHLFLAGSP_REMUNKNOWN   0x80000000
@@ -53,7 +54,7 @@ DEFINE_OLEGUID( CLSID_PSFactoryBuffer, 0x00000320, 0, 0 );
  *         locking is required.
  * LOCK  - The value is written to only using Interlocked* functions.
  * CS    - The value is read or written to inside a critical section.
- *         The identifier following "CS" is the specific critical section that
+ *         The identifier following "CS" is the specific critical setion that
  *         must be used.
  * MUTEX - The value is read or written to with a mutex held.
  *         The identifier following "MUTEX" is the specific mutex that
@@ -92,7 +93,6 @@ struct stub_manager
 
     ULONG             extrefs;    /* number of 'external' references (CS lock) */
     ULONG             refs;       /* internal reference count (CS apt->cs) */
-    ULONG             weakrefs;   /* number of weak references (CS lock) */
     OID               oid;        /* apartment-scoped unique identifier (RO) */
     IUnknown         *object;     /* the object we are managing the stub for (RO) */
     ULONG             next_ipid;  /* currently unused (LOCK) */
@@ -141,6 +141,7 @@ struct proxy_manager
   void *dest_context_data;  /* reserved context value (LOCK) */
 };
 
+/* this needs to become a COM object that implements IRemUnknown */
 struct apartment
 {
   struct list entry;
@@ -175,18 +176,11 @@ struct oletls
     struct apartment *apt;
     IErrorInfo       *errorinfo;   /* see errorinfo.c */
     IUnknown         *state;       /* see CoSetState */
-    DWORD             apt_mask;    /* apartment mask (+0Ch on x86) */
-    IInitializeSpy   *spy;         /* The "SPY" from CoInitializeSpy */
     DWORD            inits;        /* number of times CoInitializeEx called */
     DWORD            ole_inits;    /* number of times OleInitialize called */
     GUID             causality_id; /* unique identifier for each COM call */
     LONG             pending_call_count_client; /* number of client calls pending */
     LONG             pending_call_count_server; /* number of server calls pending */
-    DWORD            unknown;
-    IObjContext     *context_token; /* (+38h on x86) */
-    IUnknown        *call_state;    /* current call context (+3Ch on x86) */
-    DWORD            unknown2[46];
-    IUnknown        *cancel_object; /* cancel object set by CoSetCancelObject (+F8h on x86) */
 };
 
 
@@ -196,6 +190,9 @@ extern void* StdGlobalInterfaceTable_Construct(void);
 extern HRESULT StdGlobalInterfaceTable_GetFactory(LPVOID *ppv);
 extern void* StdGlobalInterfaceTableInstance;
 
+/* FIXME: these shouldn't be needed, except for 16-bit functions */
+extern HRESULT WINE_StringFromCLSID(const CLSID *id,LPSTR idstr);
+
 HRESULT COM_OpenKeyForCLSID(REFCLSID clsid, LPCWSTR keyname, REGSAM access, HKEY *key);
 HRESULT COM_OpenKeyForAppIdFromCLSID(REFCLSID clsid, REGSAM access, HKEY *subkey);
 HRESULT MARSHAL_GetStandardMarshalCF(LPVOID *ppv);
@@ -203,17 +200,19 @@ HRESULT FTMarshalCF_Create(REFIID riid, LPVOID *ppv);
 
 /* Stub Manager */
 
+ULONG stub_manager_int_addref(struct stub_manager *This);
 ULONG stub_manager_int_release(struct stub_manager *This);
 struct stub_manager *new_stub_manager(APARTMENT *apt, IUnknown *object);
-ULONG stub_manager_ext_addref(struct stub_manager *m, ULONG refs, BOOL tableweak);
-ULONG stub_manager_ext_release(struct stub_manager *m, ULONG refs, BOOL tableweak, BOOL last_unlock_releases);
+ULONG stub_manager_ext_addref(struct stub_manager *m, ULONG refs);
+ULONG stub_manager_ext_release(struct stub_manager *m, ULONG refs, BOOL last_unlock_releases);
 struct ifstub *stub_manager_new_ifstub(struct stub_manager *m, IRpcStubBuffer *sb, IUnknown *iptr, REFIID iid, MSHLFLAGS flags);
 struct ifstub *stub_manager_find_ifstub(struct stub_manager *m, REFIID iid, MSHLFLAGS flags);
 struct stub_manager *get_stub_manager(APARTMENT *apt, OID oid);
 struct stub_manager *get_stub_manager_from_object(APARTMENT *apt, void *object);
 BOOL stub_manager_notify_unmarshal(struct stub_manager *m, const IPID *ipid);
 BOOL stub_manager_is_table_marshaled(struct stub_manager *m, const IPID *ipid);
-void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs, const IPID *ipid, BOOL tableweak);
+void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs, const IPID *ipid);
+HRESULT ipid_to_stub_manager(const IPID *ipid, APARTMENT **stub_apt, struct stub_manager **stubmgr_ret);
 HRESULT ipid_get_dispatch_params(const IPID *ipid, APARTMENT **stub_apt, IRpcStubBuffer **stub, IRpcChannelBuffer **chan, IID *iid, IUnknown **iface);
 HRESULT start_apartment_remote_unknown(void);
 
@@ -252,6 +251,7 @@ void OLEDD_UnInitialize(void);
 
 APARTMENT *apartment_findfromoxid(OXID oxid, BOOL ref);
 APARTMENT *apartment_findfromtid(DWORD tid);
+DWORD apartment_addref(struct apartment *apt);
 DWORD apartment_release(struct apartment *apt);
 HRESULT apartment_disconnectproxies(struct apartment *apt);
 void apartment_disconnectobject(struct apartment *apt, void *object);
@@ -270,7 +270,8 @@ void apartment_joinmta(void);
 #define DM_HOSTOBJECT   (WM_USER + 1) /* WPARAM = 0, LPARAM = (struct host_object_params *) */
 
 /*
- * Per-thread values are stored in the TEB on offset 0xF80
+ * Per-thread values are stored in the TEB on offset 0xF80,
+ * see http://www.microsoft.com/msj/1099/bugslayer/bugslayer1099.htm
  */
 
 /* will create if necessary */
@@ -303,30 +304,12 @@ static inline GUID COM_CurrentCausalityId(void)
 # define DEBUG_SET_CRITSEC_NAME(cs, name) (cs)->DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": " name)
 # define DEBUG_CLEAR_CRITSEC_NAME(cs) (cs)->DebugInfo->Spare[0] = 0
 
+extern HINSTANCE OLE32_hInstance; /* FIXME: make static */
+
 #define CHARS_IN_GUID 39 /* including NULL */
-
-#define WINE_CLSCTX_DONT_HOST   0x80000000
-
-/* from dlldata.c */
-extern HINSTANCE hProxyDll DECLSPEC_HIDDEN;
-extern HRESULT WINAPI OLE32_DllGetClassObject(REFCLSID rclsid, REFIID iid,LPVOID *ppv) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI OLE32_DllRegisterServer(void) DECLSPEC_HIDDEN;
-extern HRESULT WINAPI OLE32_DllUnregisterServer(void) DECLSPEC_HIDDEN;
 
 /* Exported non-interface Data Advise Holder functions */
 HRESULT DataAdviseHolder_OnConnect(IDataAdviseHolder *iface, IDataObject *pDelegate);
 void DataAdviseHolder_OnDisconnect(IDataAdviseHolder *iface);
-
-extern UINT ownerlink_clipboard_format;
-extern UINT filename_clipboard_format;
-extern UINT filenameW_clipboard_format;
-extern UINT dataobject_clipboard_format;
-extern UINT embedded_object_clipboard_format;
-extern UINT embed_source_clipboard_format;
-extern UINT custom_link_source_clipboard_format;
-extern UINT link_source_clipboard_format;
-extern UINT object_descriptor_clipboard_format;
-extern UINT link_source_descriptor_clipboard_format;
-extern UINT ole_private_data_clipboard_format;
 
 #endif /* __WINE_OLE_COMPOBJ_H */

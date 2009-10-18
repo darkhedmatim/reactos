@@ -1,32 +1,29 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            ntoskrnl/se/sid.c
- * PURPOSE:         Security manager
+ * FILE:            ntoskrnl/se/lsa.c
+ * PURPOSE:         No purpose listed.
  *
- * PROGRAMMERS:     David Welch <welch@cwcom.net>
+ * PROGRAMMERS:     No programmer listed.
  */
-
-/* INCLUDES *******************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
-
-/* FUNCTIONS ******************************************************************/
+#include <internal/debug.h>
 
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
-LsaCallAuthenticationPackage(ULONG Unknown0,
-                             ULONG Unknown1,
-                             ULONG Unknown2,
-                             ULONG Unknown3,
-                             ULONG Unknown4,
-                             ULONG Unknown5,
-                             ULONG Unknown6)
+NTSTATUS STDCALL LsaCallAuthenticationPackage (
+    ULONG Unknown0,
+    ULONG Unknown1,
+    ULONG Unknown2,
+    ULONG Unknown3,
+    ULONG Unknown4,
+    ULONG Unknown5,
+    ULONG Unknown6
+    )
 {
     return STATUS_NOT_IMPLEMENTED;
 }
@@ -34,10 +31,10 @@ LsaCallAuthenticationPackage(ULONG Unknown0,
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
-LsaDeregisterLogonProcess(ULONG Unknown0,
-                          ULONG Unknown1)
+NTSTATUS STDCALL LsaDeregisterLogonProcess (
+    ULONG Unknown0,
+    ULONG Unknown1
+    )
 {
     return STATUS_NOT_IMPLEMENTED;
 }
@@ -45,15 +42,16 @@ LsaDeregisterLogonProcess(ULONG Unknown0,
 /*
  * @implemented
  */
-NTSTATUS
-NTAPI
-LsaFreeReturnBuffer(PVOID Buffer)
+NTSTATUS STDCALL LsaFreeReturnBuffer (PVOID Buffer)
 {
-    ULONG Size = 0;
-    return ZwFreeVirtualMemory(NtCurrentProcess(),
-                               &Buffer,
-                               &Size,
-                               MEM_RELEASE);
+    ULONG Size = 0; /* required by MEM_RELEASE */
+
+    return ZwFreeVirtualMemory (
+               NtCurrentProcess(),
+	       & Buffer,
+	       & Size,
+	       MEM_RELEASE
+               );
 }
 
 /*
@@ -82,11 +80,11 @@ LsaLogonUser(IN HANDLE LsaHandle,
 /*
  * @unimplemented
  */
-NTSTATUS
-NTAPI
-LsaLookupAuthenticationPackage(ULONG Unknown0,
-                               ULONG Unknown1,
-                               ULONG Unknown2)
+NTSTATUS STDCALL LsaLookupAuthenticationPackage (
+    ULONG	Unknown0,
+    ULONG	Unknown1,
+    ULONG	Unknown2
+    )
 {
     return STATUS_NOT_IMPLEMENTED;
 }
@@ -96,9 +94,9 @@ LsaLookupAuthenticationPackage(ULONG Unknown0,
  */
 NTSTATUS
 NTAPI
-LsaRegisterLogonProcess(IN PLSA_STRING LogonProcessName,
-                        OUT PHANDLE LsaHandle,
-                        OUT PLSA_OPERATIONAL_MODE SecurityMode)
+LsaRegisterLogonProcess (IN PLSA_STRING LogonProcessName,
+                         OUT PHANDLE LsaHandle,
+                         OUT PLSA_OPERATIONAL_MODE SecurityMode)
 {
     return STATUS_NOT_IMPLEMENTED;
 }
@@ -107,8 +105,10 @@ LsaRegisterLogonProcess(IN PLSA_STRING LogonProcessName,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
-SeMarkLogonSessionForTerminationNotification(IN PLUID LogonId)
+STDCALL
+SeMarkLogonSessionForTerminationNotification(
+	IN PLUID LogonId
+	)
 {
 	UNIMPLEMENTED;
 	return STATUS_NOT_IMPLEMENTED;
@@ -118,8 +118,10 @@ SeMarkLogonSessionForTerminationNotification(IN PLUID LogonId)
  * @unimplemented
  */
 NTSTATUS
-NTAPI
-SeRegisterLogonSessionTerminatedRoutine(IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine)
+STDCALL
+SeRegisterLogonSessionTerminatedRoutine(
+	IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine
+	)
 {
 	UNIMPLEMENTED;
 	return STATUS_NOT_IMPLEMENTED;
@@ -129,11 +131,14 @@ SeRegisterLogonSessionTerminatedRoutine(IN PSE_LOGON_SESSION_TERMINATED_ROUTINE 
  * @unimplemented
  */
 NTSTATUS
-NTAPI
-SeUnregisterLogonSessionTerminatedRoutine(IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine)
+STDCALL
+SeUnregisterLogonSessionTerminatedRoutine(
+	IN PSE_LOGON_SESSION_TERMINATED_ROUTINE CallbackRoutine
+	)
 {
 	UNIMPLEMENTED;
 	return STATUS_NOT_IMPLEMENTED;
 }
+
 
 /* EOF */

@@ -26,9 +26,9 @@ LPTSTR QueryOpts[] = {
 LPSERVICE_STATUS_PROCESS
 QueryService(LPCTSTR ServiceName)
 {
-    SC_HANDLE hSCManager = NULL;
+    SC_HANDLE hSCManager;
     LPSERVICE_STATUS_PROCESS pServiceInfo = NULL;
-    SC_HANDLE hSc = NULL;
+    SC_HANDLE hSc;
     DWORD BufSiz = 0;
     DWORD BytesNeeded = 0;
     DWORD Ret;
@@ -71,8 +71,6 @@ QueryService(LPCTSTR ServiceName)
         goto fail;
     }
 
-    CloseServiceHandle(hSc);
-    CloseServiceHandle(hSCManager);
     return pServiceInfo;
 
 fail:
@@ -229,11 +227,17 @@ Query(LPCTSTR *ServiceArgs,
         LPCTSTR ServiceName = *ServiceArgs;
 
         pStatus = QueryService(ServiceName);
-        if (pStatus)
+        if (bExtended)
         {
             PrintService(ServiceName,
                          pStatus,
-                         bExtended);
+                         TRUE);
+        }
+        else
+        {
+            PrintService(ServiceName,
+                         pStatus,
+                         FALSE);
         }
     }
 

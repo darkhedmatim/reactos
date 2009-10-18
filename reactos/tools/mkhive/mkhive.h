@@ -30,22 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <host/typedefs.h>
-
-#define USE_HOST_WCSFUNCS
-#include <host/wcsfuncs.h>
-
-// Definitions copied from <ntstatus.h>
-// We only want to include host headers, so we define them manually
-#define STATUS_SUCCESS                   ((NTSTATUS)0x00000000)
-#define STATUS_UNSUCCESSFUL              ((NTSTATUS)0xC0000001)
-#define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002)
-#define STATUS_INVALID_PARAMETER         ((NTSTATUS)0xC000000D)
-#define STATUS_NO_MEMORY                 ((NTSTATUS)0xC0000017)
-#define STATUS_INSUFFICIENT_RESOURCES    ((NTSTATUS)0xC000009A)
-#define STATUS_OBJECT_NAME_NOT_FOUND     ((NTSTATUS)0xC0000034)
-#define STATUS_INVALID_PARAMETER_2       ((NTSTATUS)0xC00000F0)
-#define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005)
+#include <typedefs_host.h>
+#include <ntstatus.h>
 
 NTSTATUS NTAPI
 RtlAnsiStringToUnicodeString(
@@ -98,6 +84,13 @@ extern LIST_ENTRY CmiHiveListHead;
 #else//_MSC_VER
 #define GCC_PACKED __attribute__((packed))
 #endif//_MSC_VER
+
+/* rtl.c */
+PWSTR
+xwcschr(
+   PWSTR String,
+   WCHAR Char
+);
 
 #endif /* __MKHIVE_H__ */
 

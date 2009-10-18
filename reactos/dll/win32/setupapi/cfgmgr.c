@@ -39,7 +39,7 @@ static const WCHAR DeviceClasses[] = {'S','y','s','t','e','m','\\',
 
 typedef struct _MACHINE_INFO
 {
-    WCHAR szMachineName[SP_MAX_MACHINENAME_LENGTH];
+    WCHAR szMachineName[MAX_PATH];
     RPC_BINDING_HANDLE BindingHandle;
     HSTRING_TABLE StringTable;
     BOOL bLocal;
@@ -76,13 +76,6 @@ static BOOL GuidToString(LPGUID Guid, LPWSTR String)
 }
 
 
-static CONFIGRET
-RpcStatusToCmStatus(RPC_STATUS Status)
-{
-    return CR_FAILURE;
-}
-
-
 /***********************************************************************
  * CMP_WaitNoPendingInstallEvents [SETUPAPI.@]
  */
@@ -109,7 +102,6 @@ CONFIGRET WINAPI CMP_Init_Detection(
     DWORD dwMagic)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%lu\n", dwMagic);
 
@@ -119,17 +111,7 @@ CONFIGRET WINAPI CMP_Init_Detection(
     if (!PnpGetLocalHandles(&BindingHandle, NULL))
         return CR_FAILURE;
 
-    RpcTryExcept
-    {
-        ret = PNP_InitDetection(BindingHandle);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_InitDetection(BindingHandle);
 }
 
 
@@ -153,22 +135,13 @@ CONFIGRET WINAPI CMP_Report_LogOn(
     if (!PnpGetLocalHandles(&BindingHandle, NULL))
         return CR_FAILURE;
 
-    bAdmin = IsUserAdmin();
+    bAdmin = IsUserAnAdmin();
 
     for (i = 0; i < 30; i++)
     {
-        RpcTryExcept
-        {
-            ret = PNP_ReportLogOn(BindingHandle,
-                                  bAdmin,
-                                  dwProcessId);
-        }
-        RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-        {
-            ret = RpcStatusToCmStatus(RpcExceptionCode());
-        }
-        RpcEndExcept;
-
+        ret = PNP_ReportLogOn(BindingHandle,
+                              bAdmin,
+                              dwProcessId);
         if (ret == CR_SUCCESS)
             break;
 
@@ -209,7 +182,7 @@ CONFIGRET WINAPI CM_Add_Empty_Log_Conf_Ex(
     FIXME("%p %p %lu %lx %p\n",
           plcLogConf, dnDevInst, Priority, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (plcLogConf == NULL)
@@ -244,17 +217,7 @@ CONFIGRET WINAPI CM_Add_Empty_Log_Conf_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_AddEmptyLogConf(BindingHandle, lpDevInst, Priority,
-                                  &ulLogConfTag, ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_AddEmptyLogConf(BindingHandle, lpDevInst, Priority, &ulLogConfTag, ulFlags);
     if (ret == CR_SUCCESS)
     {
         pLogConfInfo = HeapAlloc(GetProcessHeap(), 0, sizeof(LOG_CONF_INFO));
@@ -332,11 +295,10 @@ CONFIGRET WINAPI CM_Add_ID_ExW(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     TRACE("%p %s %lx %p\n", dnDevInst, debugstr_w(pszID), ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (dnDevInst == 0)
@@ -368,20 +330,10 @@ CONFIGRET WINAPI CM_Add_ID_ExW(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_AddID(BindingHandle,
-                        lpDevInst,
-                        pszID,
-                        ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_AddID(BindingHandle,
+                     lpDevInst,
+                     pszID,
+                     ulFlags);
 }
 
 
@@ -445,11 +397,6 @@ CONFIGRET WINAPI CM_Connect_MachineW(
     else
     {
         pMachine->bLocal = FALSE;
-        if (wcslen(UNCServerName) >= SP_MAX_MACHINENAME_LENGTH - 1)
-        {
-            HeapFree(GetProcessHeap(), 0, pMachine);
-            return CR_INVALID_MACHINENAME;
-        }
         lstrcpyW(pMachine->szMachineName, UNCServerName);
 
         pMachine->StringTable = StringTableInitialize();
@@ -543,7 +490,7 @@ CONFIGRET WINAPI CM_Create_DevNode_ExW(
     FIXME("%p %s %p %lx %p\n",
           pdnDevInst, debugstr_w(pDeviceID), dnParent, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (pdnDevInst == NULL)
@@ -578,20 +525,11 @@ CONFIGRET WINAPI CM_Create_DevNode_ExW(
     if (lpParentDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_CreateDevInst(BindingHandle,
-                                pDeviceID,
-                                lpParentDevInst,
-                                MAX_DEVICE_ID_LEN,
-                                ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_CreateDevInst(BindingHandle,
+                            pDeviceID,
+                            lpParentDevInst,
+                            MAX_DEVICE_ID_LEN,
+                            ulFlags);
     if (ret == CR_SUCCESS)
     {
         *pdnDevInst = StringTableAddString(StringTable, pDeviceID, 1);
@@ -622,7 +560,6 @@ CONFIGRET WINAPI CM_Delete_Class_Key_Ex(
 {
     WCHAR szGuidString[MAX_GUID_STRING_LEN];
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%p %lx %lx\n", ClassGuid, ulFlags, hMachine);
 
@@ -647,21 +584,10 @@ CONFIGRET WINAPI CM_Delete_Class_Key_Ex(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_DeleteClassKey(BindingHandle,
-                                 szGuidString,
-                                 ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_DeleteClassKey(BindingHandle,
+                             szGuidString,
+                             ulFlags);
 }
-
 
 /***********************************************************************
  * CM_Delete_DevNode_Key [SETUPAPI.@]
@@ -673,7 +599,6 @@ CONFIGRET WINAPI CM_Delete_DevNode_Key(
     return CM_Delete_DevNode_Key_Ex(dnDevNode, ulHardwareProfile, ulFlags,
                                     NULL);
 }
-
 
 /***********************************************************************
  * CM_Delete_DevNode_Key_Ex [SETUPAPI.@]
@@ -709,11 +634,10 @@ CONFIGRET WINAPI CM_Disable_DevNode_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     FIXME("%p %lx %p\n", dnDevInst, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (dnDevInst == 0)
@@ -742,21 +666,11 @@ CONFIGRET WINAPI CM_Disable_DevNode_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_DeviceInstanceAction(BindingHandle,
-                                       5,
-                                       ulFlags,
-                                       lpDevInst,
-                                       NULL);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_DeviceInstanceAction(BindingHandle,
+                                    5,
+                                    ulFlags,
+                                    lpDevInst,
+                                    NULL);
 }
 
 
@@ -808,11 +722,10 @@ CONFIGRET WINAPI CM_Enable_DevNode_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
-    TRACE("%p %lx %p\n", dnDevInst, ulFlags, hMachine);
+    FIXME("%p %lx %p\n", dnDevInst, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (dnDevInst == 0)
@@ -841,21 +754,11 @@ CONFIGRET WINAPI CM_Enable_DevNode_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_DeviceInstanceAction(BindingHandle,
-                                       4,
-                                       ulFlags,
-                                       lpDevInst,
-                                       NULL);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_DeviceInstanceAction(BindingHandle,
+                                    4,
+                                    ulFlags,
+                                    lpDevInst,
+                                    NULL);
 }
 
 
@@ -901,22 +804,13 @@ CONFIGRET WINAPI CM_Enumerate_Classes_Ex(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_EnumerateSubKeys(BindingHandle,
-                                   PNP_CLASS_SUBKEYS,
-                                   ulClassIndex,
-                                   szBuffer,
-                                   MAX_GUID_STRING_LEN,
-                                   &ulLength,
-                                   ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_EnumerateSubKeys(BindingHandle,
+                               PNP_BRANCH_CLASS,
+                               ulClassIndex,
+                               szBuffer,
+                               MAX_GUID_STRING_LEN,
+                               &ulLength,
+                               ulFlags);
     if (ret == CR_SUCCESS)
     {
         /* Remove the {} */
@@ -1009,7 +903,6 @@ CONFIGRET WINAPI CM_Enumerate_Enumerators_ExW(
     HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%lu %p %p %lx %lx\n", ulEnumIndex, Buffer, pulLength, ulFlags,
           hMachine);
@@ -1034,23 +927,13 @@ CONFIGRET WINAPI CM_Enumerate_Enumerators_ExW(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_EnumerateSubKeys(BindingHandle,
-                                   PNP_ENUMERATOR_SUBKEYS,
-                                   ulEnumIndex,
-                                   Buffer,
-                                   *pulLength,
-                                   pulLength,
-                                   ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_EnumerateSubKeys(BindingHandle,
+                                PNP_BRANCH_ENUM,
+                                ulEnumIndex,
+                                Buffer,
+                                *pulLength,
+                                pulLength,
+                                ulFlags);
 }
 
 
@@ -1075,11 +958,10 @@ CONFIGRET WINAPI CM_Free_Log_Conf_Ex(
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
     PLOG_CONF_INFO pLogConfInfo;
-    CONFIGRET ret;
 
     TRACE("%lx %lx %lx\n", lcLogConfToBeFreed, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     pLogConfInfo = (PLOG_CONF_INFO)lcLogConfToBeFreed;
@@ -1109,18 +991,8 @@ CONFIGRET WINAPI CM_Free_Log_Conf_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_FreeLogConf(BindingHandle, lpDevInst, pLogConfInfo->ulFlags,
-                              pLogConfInfo->ulTag, 0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_FreeLogConf(BindingHandle, lpDevInst, pLogConfInfo->ulFlags,
+                           pLogConfInfo->ulTag, 0);
 }
 
 
@@ -1165,7 +1037,7 @@ CONFIGRET WINAPI CM_Get_Child_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    DWORD dwIndex, dwLength = MAX_DEVICE_ID_LEN;
+    DWORD dwIndex;
     CONFIGRET ret;
 
     TRACE("%p %lx %lx %lx\n", pdnDevInst, dnDevInst, ulFlags, hMachine);
@@ -1201,21 +1073,12 @@ CONFIGRET WINAPI CM_Get_Child_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetRelatedDeviceInstance(BindingHandle,
-                                           PNP_GET_CHILD_DEVICE_INSTANCE,
-                                           lpDevInst,
-                                           szRelatedDevInst,
-                                           &dwLength,
-                                           0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_GetRelatedDeviceInstance(BindingHandle,
+                                       PNP_DEVICE_CHILD,
+                                       lpDevInst,
+                                       szRelatedDevInst,
+                                       MAX_DEVICE_ID_LEN,
+                                       0);
     if (ret != CR_SUCCESS)
         return ret;
 
@@ -1408,7 +1271,6 @@ CM_Get_Class_Name_ExW(
 {
     WCHAR szGuidString[MAX_GUID_STRING_LEN];
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%p %p %p %lx %lx\n",
           ClassGuid, Buffer, pulLength, ulFlags, hMachine);
@@ -1436,21 +1298,11 @@ CM_Get_Class_Name_ExW(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_GetClassName(BindingHandle,
-                               szGuidString,
-                               Buffer,
-                               pulLength,
-                               ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_GetClassName(BindingHandle,
+                            szGuidString,
+                            Buffer,
+                            pulLength,
+                            ulFlags);
 }
 
 
@@ -1474,7 +1326,6 @@ CONFIGRET WINAPI CM_Get_Depth_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     TRACE("%p %lx %lx %lx\n",
           pulDepth, dnDevInst, ulFlags, hMachine);
@@ -1508,20 +1359,10 @@ CONFIGRET WINAPI CM_Get_Depth_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetDepth(BindingHandle,
-                           lpDevInst,
-                           pulDepth,
-                           ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_GetDepth(BindingHandle,
+                        lpDevInst,
+                        pulDepth,
+                        ulFlags);
 }
 
 
@@ -1686,24 +1527,14 @@ CONFIGRET WINAPI CM_Get_DevNode_Registry_Property_ExW(
         return CR_INVALID_DEVNODE;
 
     ulTransferLength = *pulLength;
-
-    RpcTryExcept
-    {
-        ret = PNP_GetDeviceRegProp(BindingHandle,
-                                   lpDevInst,
-                                   ulProperty,
-                                   &ulDataType,
-                                   Buffer,
-                                   &ulTransferLength,
-                                   pulLength,
-                                   ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_GetDeviceRegProp(BindingHandle,
+                               lpDevInst,
+                               ulProperty,
+                               &ulDataType,
+                               Buffer,
+                               &ulTransferLength,
+                               pulLength,
+                               ulFlags);
     if (ret == CR_SUCCESS)
     {
         if (pulRegDataType != NULL)
@@ -1739,7 +1570,6 @@ CM_Get_DevNode_Status_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     TRACE("%p %p %lx %lx %lx\n",
           pulStatus, pulProblemNumber, dnDevInst, ulFlags, hMachine);
@@ -1773,21 +1603,11 @@ CM_Get_DevNode_Status_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetDeviceStatus(BindingHandle,
-                                  lpDevInst,
-                                  pulStatus,
-                                  pulProblemNumber,
-                                  ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_GetDeviceStatus(BindingHandle,
+                               lpDevInst,
+                               pulStatus,
+                               pulProblemNumber,
+                               ulFlags);
 }
 
 
@@ -2058,7 +1878,6 @@ CONFIGRET WINAPI CM_Get_Device_ID_List_Size_ExW(
     PULONG pulLen, PCWSTR pszFilter, ULONG ulFlags, HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     FIXME("%p %s %ld %lx\n", pulLen, debugstr_w(pszFilter), ulFlags, hMachine);
 
@@ -2082,20 +1901,10 @@ CONFIGRET WINAPI CM_Get_Device_ID_List_Size_ExW(
 
     *pulLen = 0;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetDeviceListSize(BindingHandle,
-                                    (LPWSTR)pszFilter,
-                                    pulLen,
-                                    ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_GetDeviceListSize(BindingHandle,
+                                 (LPWSTR)pszFilter,
+                                 pulLen,
+                                 ulFlags);
 }
 
 
@@ -2210,20 +2019,11 @@ CONFIGRET WINAPI CM_Get_First_Log_Conf_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetFirstLogConf(BindingHandle,
-                                  lpDevInst,
-                                  ulFlags,
-                                  &ulTag,
-                                  ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_GetFirstLogConf(BindingHandle,
+                              lpDevInst,
+                              ulFlags,
+                              &ulTag,
+                              ulFlags);
     if (ret != CR_SUCCESS)
         return ret;
 
@@ -2260,7 +2060,6 @@ CONFIGRET WINAPI CM_Get_Global_State_Ex(
     PULONG pulState, ULONG ulFlags, HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%p %lx %lx\n", pulState, ulFlags, hMachine);
 
@@ -2282,17 +2081,7 @@ CONFIGRET WINAPI CM_Get_Global_State_Ex(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_GetGlobalState(BindingHandle, pulState, ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_GetGlobalState(BindingHandle, pulState, ulFlags);
 }
 
 
@@ -2363,7 +2152,6 @@ CONFIGRET WINAPI CM_Get_HW_Prof_Flags_ExW(
     ULONG ulFlags, HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     FIXME("%s %lu %p %lx %lx\n", debugstr_w(szDevInstName),
           ulHardwareProfile, pulValue, ulFlags, hMachine);
@@ -2388,18 +2176,8 @@ CONFIGRET WINAPI CM_Get_HW_Prof_Flags_ExW(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_HwProfFlags(BindingHandle, PNP_GET_HWPROFFLAGS, szDevInstName,
-                              ulHardwareProfile, pulValue, NULL, NULL, 0, 0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_HwProfFlags(BindingHandle, PNP_GET_HW_PROFILE_FLAGS, szDevInstName,
+                           ulHardwareProfile, pulValue, 0);
 }
 
 
@@ -2425,7 +2203,6 @@ CONFIGRET WINAPI CM_Get_Log_Conf_Priority_Ex(
     HSTRING_TABLE StringTable = NULL;
     PLOG_CONF_INFO pLogConfInfo;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     FIXME("%p %p %lx %lx\n", lcLogConf, pPriority, ulFlags, hMachine);
 
@@ -2459,22 +2236,12 @@ CONFIGRET WINAPI CM_Get_Log_Conf_Priority_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetLogConfPriority(BindingHandle,
-                                     lpDevInst,
-                                     pLogConfInfo->ulFlags,
-                                     pLogConfInfo->ulTag,
-                                     pPriority,
-                                     0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_GetLogConfPriority(BindingHandle,
+                                  lpDevInst,
+                                  pLogConfInfo->ulFlags,
+                                  pLogConfInfo->ulTag,
+                                  pPriority,
+                                  0);
 }
 
 
@@ -2536,21 +2303,12 @@ CONFIGRET WINAPI CM_Get_Next_Log_Conf_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetNextLogConf(BindingHandle,
-                                 lpDevInst,
-                                 pLogConfInfo->ulFlags,
-                                 pLogConfInfo->ulTag,
-                                 &ulNewTag,
-                                 0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_GetNextLogConf(BindingHandle,
+                             lpDevInst,
+                             pLogConfInfo->ulFlags,
+                             pLogConfInfo->ulTag,
+                             &ulNewTag,
+                             0);
     if (ret != CR_SUCCESS)
         return ret;
 
@@ -2593,7 +2351,7 @@ CONFIGRET WINAPI CM_Get_Parent_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    DWORD dwIndex, dwLength = MAX_DEVICE_ID_LEN;
+    DWORD dwIndex;
     CONFIGRET ret;
 
     TRACE("%p %lx %lx %lx\n", pdnDevInst, dnDevInst, ulFlags, hMachine);
@@ -2629,21 +2387,12 @@ CONFIGRET WINAPI CM_Get_Parent_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetRelatedDeviceInstance(BindingHandle,
-                                           PNP_GET_PARENT_DEVICE_INSTANCE,
-                                           lpDevInst,
-                                           szRelatedDevInst,
-                                           &dwLength,
-                                           0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_GetRelatedDeviceInstance(BindingHandle,
+                                       PNP_DEVICE_PARENT,
+                                       lpDevInst,
+                                       szRelatedDevInst,
+                                       MAX_DEVICE_ID_LEN,
+                                       0);
     if (ret != CR_SUCCESS)
         return ret;
 
@@ -2680,7 +2429,7 @@ CONFIGRET WINAPI CM_Get_Sibling_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    DWORD dwIndex, dwLength = MAX_DEVICE_ID_LEN;
+    DWORD dwIndex;
     CONFIGRET ret;
 
     TRACE("%p %lx %lx %lx\n", pdnDevInst, dnDevInst, ulFlags, hMachine);
@@ -2716,21 +2465,12 @@ CONFIGRET WINAPI CM_Get_Sibling_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_GetRelatedDeviceInstance(BindingHandle,
-                                           PNP_GET_SIBLING_DEVICE_INSTANCE,
-                                           lpDevInst,
-                                           szRelatedDevInst,
-                                           &dwLength,
-                                           0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    ret = PNP_GetRelatedDeviceInstance(BindingHandle,
+                                       PNP_DEVICE_SIBLING,
+                                       lpDevInst,
+                                       szRelatedDevInst,
+                                       MAX_DEVICE_ID_LEN,
+                                       0);
     if (ret != CR_SUCCESS)
         return ret;
 
@@ -2763,7 +2503,6 @@ WORD WINAPI CM_Get_Version_Ex(HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
     WORD Version = 0;
-    CONFIGRET ret;
 
     TRACE("%lx\n", hMachine);
 
@@ -2779,17 +2518,7 @@ WORD WINAPI CM_Get_Version_Ex(HMACHINE hMachine)
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_GetVersion(BindingHandle, &Version);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    if (ret != CR_SUCCESS)
+    if (PNP_GetVersion(BindingHandle, &Version) != CR_SUCCESS)
         return 0;
 
     return Version;
@@ -2814,7 +2543,6 @@ CONFIGRET WINAPI CM_Is_Dock_Station_Present_Ex(
     PBOOL pbPresent, HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%p %lx\n", pbPresent, hMachine);
 
@@ -2835,18 +2563,8 @@ CONFIGRET WINAPI CM_Is_Dock_Station_Present_Ex(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_IsDockStationPresent(BindingHandle,
-                                       pbPresent);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_IsDockStationPresent(BindingHandle,
+                                    (unsigned long *)pbPresent);
 }
 
 
@@ -2939,37 +2657,19 @@ CONFIGRET WINAPI CM_Locate_DevNode_ExW(
     }
     else
     {
-        RpcTryExcept
-        {
-            /* Get the root device ID */
-            ret = PNP_GetRootDeviceInstance(BindingHandle,
-                                            DeviceIdBuffer,
-                                            MAX_DEVICE_ID_LEN);
-        }
-        RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-        {
-            ret = RpcStatusToCmStatus(RpcExceptionCode());
-        }
-        RpcEndExcept;
-
+        /* Get the root device ID */
+        ret = PNP_GetRootDeviceInstance(BindingHandle,
+                                        DeviceIdBuffer,
+                                        MAX_DEVICE_ID_LEN);
         if (ret != CR_SUCCESS)
             return CR_FAILURE;
     }
     TRACE("DeviceIdBuffer: %s\n", debugstr_w(DeviceIdBuffer));
 
-    RpcTryExcept
-    {
-        /* Validate the device ID */
-        ret = PNP_ValidateDeviceInstance(BindingHandle,
-                                         DeviceIdBuffer,
-                                         ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
+    /* Validate the device ID */
+    ret = PNP_ValidateDeviceInstance(BindingHandle,
+                                     DeviceIdBuffer,
+                                     ulFlags);
     if (ret == CR_SUCCESS)
     {
         *pdnDevInst = StringTableAddString(StringTable, DeviceIdBuffer, 1);
@@ -3003,12 +2703,11 @@ CONFIGRET WINAPI CM_Move_DevNode_Ex(
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpFromDevInst;
     LPWSTR lpToDevInst;
-    CONFIGRET ret;
 
     FIXME("%lx %lx %lx %lx\n",
           dnFromDevInst, dnToDevInst, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (dnFromDevInst == 0 || dnToDevInst == 0)
@@ -3041,21 +2740,11 @@ CONFIGRET WINAPI CM_Move_DevNode_Ex(
     if (lpToDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_DeviceInstanceAction(BindingHandle,
-                                       2,
-                                       ulFlags,
-                                       lpFromDevInst,
-                                       lpToDevInst);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_DeviceInstanceAction(BindingHandle,
+                                    2,
+                                    ulFlags,
+                                    lpFromDevInst,
+                                    lpToDevInst);
 }
 
 
@@ -3268,7 +2957,6 @@ CM_Reenumerate_DevNode_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     FIXME("%lx %lx %lx\n", dnDevInst, ulFlags, hMachine);
 
@@ -3298,21 +2986,11 @@ CM_Reenumerate_DevNode_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_DeviceInstanceAction(BindingHandle,
-                                       7,
-                                       ulFlags,
-                                       lpDevInst,
-                                       NULL);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_DeviceInstanceAction(BindingHandle,
+                                    7,
+                                    ulFlags,
+                                    lpDevInst,
+                                    NULL);
 }
 
 
@@ -3333,7 +3011,6 @@ CONFIGRET WINAPI CM_Request_Eject_PC_Ex(
     HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%lx\n", hMachine);
 
@@ -3349,17 +3026,7 @@ CONFIGRET WINAPI CM_Request_Eject_PC_Ex(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_RequestEjectPC(BindingHandle);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_RequestEjectPC(BindingHandle);
 }
 
 
@@ -3381,11 +3048,10 @@ CONFIGRET WINAPI CM_Run_Detection_Ex(
     ULONG ulFlags, HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     TRACE("%lx %lx\n", ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (ulFlags & ~CM_DETECT_BITS)
@@ -3403,18 +3069,8 @@ CONFIGRET WINAPI CM_Run_Detection_Ex(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_RunDetection(BindingHandle,
-                               ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_RunDetection(BindingHandle,
+                            ulFlags);
 }
 
 
@@ -3438,7 +3094,6 @@ CONFIGRET WINAPI CM_Set_DevNode_Problem_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     TRACE("%lx %lx %lx %lx\n", dnDevInst, ulProblem, ulFlags, hMachine);
 
@@ -3468,20 +3123,10 @@ CONFIGRET WINAPI CM_Set_DevNode_Problem_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_SetDeviceProblem(BindingHandle,
-                                   lpDevInst,
-                                   ulProblem,
-                                   ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_SetDeviceProblem(BindingHandle,
+                                lpDevInst,
+                                ulProblem,
+                                ulFlags);
 }
 
 
@@ -3659,7 +3304,6 @@ CONFIGRET WINAPI CM_Set_DevNode_Registry_Property_ExW(
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
     ULONG ulType;
-    CONFIGRET ret;
 
     TRACE("%lx %lu %p %lx %lx %lx\n",
           dnDevInst, ulProperty, Buffer, ulLength, ulFlags, hMachine);
@@ -3754,23 +3398,13 @@ CONFIGRET WINAPI CM_Set_DevNode_Registry_Property_ExW(
             return CR_INVALID_PROPERTY;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_SetDeviceRegProp(BindingHandle,
-                                   lpDevInst,
-                                   ulProperty,
-                                   ulType,
-                                   (BYTE *)Buffer,
-                                   ulLength,
-                                   ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_SetDeviceRegProp(BindingHandle,
+                                lpDevInst,
+                                ulProperty,
+                                ulType,
+                                (char *)Buffer,
+                                ulLength,
+                                ulFlags);
 }
 
 
@@ -3839,7 +3473,6 @@ CONFIGRET WINAPI CM_Set_HW_Prof_Flags_ExW(
     ULONG ulFlags, HMACHINE hMachine)
 {
     RPC_BINDING_HANDLE BindingHandle = NULL;
-    CONFIGRET ret;
 
     FIXME("%s %lu %lu %lx %lx\n", debugstr_w(szDevInstName),
           ulConfig, ulValue, ulFlags, hMachine);
@@ -3864,18 +3497,8 @@ CONFIGRET WINAPI CM_Set_HW_Prof_Flags_ExW(
             return CR_FAILURE;
     }
 
-    RpcTryExcept
-    {
-        ret = PNP_HwProfFlags(BindingHandle, PNP_SET_HWPROFFLAGS, szDevInstName,
-                              ulConfig, &ulValue, NULL, NULL, 0, 0);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_HwProfFlags(BindingHandle, PNP_SET_HW_PROFILE_FLAGS, szDevInstName,
+                           ulConfig, &ulValue, 0);
 }
 
 
@@ -3899,11 +3522,10 @@ CONFIGRET WINAPI CM_Setup_DevNode_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     FIXME("%lx %lx %lx\n", dnDevInst, ulFlags, hMachine);
 
-    if (!IsUserAdmin())
+    if (!IsUserAnAdmin())
         return CR_ACCESS_DENIED;
 
     if (dnDevInst == 0)
@@ -3932,21 +3554,11 @@ CONFIGRET WINAPI CM_Setup_DevNode_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_DeviceInstanceAction(BindingHandle,
-                                       3,
-                                       ulFlags,
-                                       lpDevInst,
-                                       NULL);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_DeviceInstanceAction(BindingHandle,
+                                    3,
+                                    ulFlags,
+                                    lpDevInst,
+                                    NULL);
 }
 
 
@@ -3970,7 +3582,6 @@ CONFIGRET WINAPI CM_Uninstall_DevNode_Ex(
     RPC_BINDING_HANDLE BindingHandle = NULL;
     HSTRING_TABLE StringTable = NULL;
     LPWSTR lpDevInst;
-    CONFIGRET ret;
 
     TRACE("%lx %lx %lx\n", dnPhantom, ulFlags, hMachine);
 
@@ -4000,17 +3611,7 @@ CONFIGRET WINAPI CM_Uninstall_DevNode_Ex(
     if (lpDevInst == NULL)
         return CR_INVALID_DEVNODE;
 
-    RpcTryExcept
-    {
-        ret = PNP_UninstallDevInst(BindingHandle,
-                                   lpDevInst,
-                                   ulFlags);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ret = RpcStatusToCmStatus(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    return ret;
+    return PNP_UninstallDevInst(BindingHandle,
+                                lpDevInst,
+                                ulFlags);
 }

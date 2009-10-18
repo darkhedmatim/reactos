@@ -1,4 +1,4 @@
-/* $Id: display.c 29112 2007-09-19 21:31:49Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -16,6 +16,15 @@
 #include "resource.h"
 #include "access.h"
 
+typedef struct _GLOBAL_DATA
+{
+    HIGHCONTRAST highContrast;
+    UINT uCaretBlinkTime;
+    UINT uCaretWidth;
+    BOOL fShowCaret;
+    RECT rcCaret;
+    RECT rcOldCaret;
+} GLOBAL_DATA, *PGLOBAL_DATA;
 
 #define ID_BLINK_TIMER 346
 
@@ -87,7 +96,7 @@ HighContrastDlgProc(HWND hwndDlg,
             SendDlgItemMessage(hwndDlg,
                                IDC_CONTRAST_COMBO,
                                CB_SELECTSTRING,
-                               (WPARAM)-1,
+                               -1,
                                (LPARAM)pGlobalData->highContrast.lpszDefaultScheme);
             break;
 
@@ -145,11 +154,25 @@ DisplayPageProc(HWND hwndDlg,
     switch (uMsg)
     {
         case WM_INITDIALOG:
-            pGlobalData = (PGLOBAL_DATA)((LPPROPSHEETPAGE)lParam)->lParam;
+            pGlobalData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GLOBAL_DATA));
             if (pGlobalData == NULL)
                 return FALSE;
 
             SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pGlobalData);
+
+            /* Get high contrast information */
+            pGlobalData->highContrast.cbSize = sizeof(HIGHCONTRAST);
+            SystemParametersInfo(SPI_GETHIGHCONTRAST,
+                                 sizeof(HIGHCONTRAST),
+                                 &pGlobalData->highContrast,
+                                 0);
+
+            SystemParametersInfo(SPI_GETCARETWIDTH,
+                                 0,
+                                 &pGlobalData->uCaretWidth,
+                                 0);
+
+            pGlobalData->uCaretBlinkTime = GetCaretBlinkTime();
 
             pGlobalData->fShowCaret = TRUE;
             GetWindowRect(GetDlgItem(hwndDlg, IDC_CURSOR_WIDTH_TEXT), &pGlobalData->rcCaret);
@@ -197,7 +220,7 @@ DisplayPageProc(HWND hwndDlg,
             break;
 
         case WM_HSCROLL:
-            switch (GetWindowLongPtr((HWND) lParam, GWL_ID))
+            switch (GetWindowLong((HWND) lParam, GWL_ID))
             {
                 case IDC_CURSOR_BLINK_TRACK:
                     i = SendDlgItemMessage(hwndDlg, IDC_CURSOR_BLINK_TRACK, TBM_GETPOS, 0, 0);
@@ -255,7 +278,7 @@ DisplayPageProc(HWND hwndDlg,
                 SetCaretBlinkTime(pGlobalData->uCaretBlinkTime);
                 SystemParametersInfo(SPI_SETCARETWIDTH,
                                      0,
-                                     IntToPtr(pGlobalData->uCaretWidth),
+                                     (PVOID)pGlobalData->uCaretWidth,
                                      SPIF_UPDATEINIFILE | SPIF_SENDCHANGE /*0*/);
                 SystemParametersInfo(SPI_SETHIGHCONTRAST,
                                      sizeof(HIGHCONTRAST),
@@ -267,6 +290,7 @@ DisplayPageProc(HWND hwndDlg,
 
         case WM_DESTROY:
             KillTimer(hwndDlg, ID_BLINK_TIMER);
+            HeapFree(GetProcessHeap(), 0, pGlobalData);
             break;
     }
 

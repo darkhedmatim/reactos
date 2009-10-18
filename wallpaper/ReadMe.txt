@@ -1,8 +1,10 @@
-Wallpapers
-===========
+wallpaper 
 
-File Name                           | Author                                         | Origin
---------------------------------------------------------------------------------------------------------------------------------------------------
-Angelus_02_ROSWP_4-3_1440x1080.jpg  | Forum User "Angelus" (jedi.knight@wanadoo.es)  | http://www.reactos.org/forum/viewtopic.php?p=50543#p50543
-clouds.jpg                          | Andreas Bjerkeholt (harteex@gmail.com)         | http://www.reactos.org/forum/viewtopic.php?p=17732#p17732
-lake.jpg                            | Andreas Bjerkeholt (harteex@gmail.com)         | http://www.reactos.org/forum/viewtopic.php?p=17732#p17732
+posten in ReactOS Forum May 17, 2006 7:31 pm
+cluds.jpg
+Copyright by Andreas Bjerkeholt (harteex at gmail dot com)
+
+lake.jpg 
+Copyright by Andreas Bjerkeholt (harteex at gmail dot com)
+
+

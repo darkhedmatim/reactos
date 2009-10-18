@@ -29,8 +29,6 @@ static const WCHAR GroupOrderListKey[] = {'S','Y','S','T','E','M','\\','C','u','
 static const WCHAR InfDirectory[] = {'i','n','f','\\',0};
 static const WCHAR OemFileMask[] = {'o','e','m','*','.','i','n','f',0};
 static const WCHAR OemFileSpecification[] = {'o','e','m','%','l','u','.','i','n','f',0};
-static const WCHAR DotLnk[] = {'.','l','n','k',0};
-static const WCHAR DotServices[]  = {'.','S','e','r','v','i','c','e','s',0};
 
 static const WCHAR DependenciesKey[] = {'D','e','p','e','n','d','e','n','c','i','e','s',0};
 static const WCHAR DescriptionKey[] = {'D','e','s','c','r','i','p','t','i','o','n',0};
@@ -41,16 +39,6 @@ static const WCHAR SecurityKey[] = {'S','e','c','u','r','i','t','y',0};
 static const WCHAR ServiceBinaryKey[] = {'S','e','r','v','i','c','e','B','i','n','a','r','y',0};
 static const WCHAR ServiceTypeKey[] = {'S','e','r','v','i','c','e','T','y','p','e',0};
 static const WCHAR StartTypeKey[] = {'S','t','a','r','t','T','y','p','e',0};
-
-static const WCHAR Name[] = {'N','a','m','e',0};
-static const WCHAR CmdLine[] = {'C','m','d','L','i','n','e',0};
-static const WCHAR SubDir[] = {'S','u','b','D','i','r',0};
-static const WCHAR WorkingDir[] = {'W','o','r','k','i','n','g','D','i','r',0};
-static const WCHAR IconPath[] = {'I','c','o','n','P','a','t','h',0};
-static const WCHAR IconIndex[] = {'I','c','o','n','I','n','d','e','x',0};
-static const WCHAR HotKey[] = {'H','o','t','K','e','y',0};
-static const WCHAR InfoTip[] = {'I','n','f','o','T','i','p',0};
-static const WCHAR DisplayResource[] = {'D','i','s','p','l','a','y','R','e','s','o','u','r','c','e',0};
 
 /* info passed to callback functions dealing with files */
 struct files_callback_info
@@ -95,10 +83,6 @@ struct needs_callback_info
 };
 
 typedef BOOL (*iterate_fields_func)( HINF hinf, PCWSTR field, void *arg );
-static BOOL GetLineText( HINF hinf, PCWSTR section_name, PCWSTR key_name, PWSTR *value);
-typedef HRESULT (WINAPI *COINITIALIZE)(IN LPVOID pvReserved);
-typedef HRESULT (WINAPI *COCREATEINSTANCE)(IN REFCLSID rclsid, IN LPUNKNOWN pUnkOuter, IN DWORD dwClsContext, IN REFIID riid, OUT LPVOID *ppv);
-typedef HRESULT (WINAPI *COUNINITIALIZE)(VOID);
 
 /* Unicode constants */
 static const WCHAR AddService[] = {'A','d','d','S','e','r','v','i','c','e',0};
@@ -158,9 +142,9 @@ static BOOL copy_files_callback( HINF hinf, PCWSTR field, void *arg )
     struct files_callback_info *info = arg;
 
     if (field[0] == '@')  /* special case: copy single file */
-        SetupQueueDefaultCopyW( info->queue, info->layout ? info->layout : hinf, info->src_root, NULL, field+1, info->copy_flags );
+        SetupQueueDefaultCopyW( info->queue, info->layout, info->src_root, NULL, &field[1], info->copy_flags );
     else
-        SetupQueueCopySectionW( info->queue, info->src_root, info->layout ? info->layout : hinf, hinf, field, info->copy_flags );
+        SetupQueueCopySectionW( info->queue, info->src_root, info->layout, hinf, field, info->copy_flags );
     return TRUE;
 }
 
@@ -321,7 +305,7 @@ static BOOL do_reg_operation( HKEY hkey, const WCHAR *value, INFCONTEXT *context
             }
             else RegDeleteValueW( hkey, value );
         }
-        else NtDeleteKey( hkey );
+        else RegDeleteKeyW( hkey, NULL );
         return TRUE;
     }
 
@@ -381,7 +365,7 @@ static BOOL do_reg_operation( HKEY hkey, const WCHAR *value, INFCONTEXT *context
         if (type == REG_DWORD)
         {
             DWORD dw = str ? strtoulW( str, NULL, 0 ) : 0;
-            TRACE( "setting dword %s to %x\n", debugstr_w(value), dw );
+            TRACE( "setting dword %s to %lx\n", debugstr_w(value), dw );
             RegSetValueExW( hkey, value, 0, type, (BYTE *)&dw, sizeof(dw) );
         }
         else
@@ -401,7 +385,7 @@ static BOOL do_reg_operation( HKEY hkey, const WCHAR *value, INFCONTEXT *context
         if (size)
         {
             if (!(data = HeapAlloc( GetProcessHeap(), 0, size ))) return FALSE;
-            TRACE( "setting binary data %s len %d\n", debugstr_w(value), size );
+            TRACE( "setting binary data %s len %ld\n", debugstr_w(value), size );
             SetupGetBinaryField( context, 5, data, size, NULL );
         }
         RegSetValueExW( hkey, value, 0, type, data, size );
@@ -620,7 +604,7 @@ static BOOL do_register_dll( const struct register_dll_info *info, const WCHAR *
 
         if (FAILED(res))
         {
-            WARN( "calling %s in %s returned error %x\n", entry_point, debugstr_w(path), res );
+            WARN( "calling %s in %s returned error %lx\n", entry_point, debugstr_w(path), res );
             status.FailureCode = SPREG_REGSVR;
             status.Win32Error = res;
             goto done;
@@ -644,7 +628,7 @@ static BOOL do_register_dll( const struct register_dll_info *info, const WCHAR *
 
         if (FAILED(res))
         {
-            WARN( "calling DllInstall in %s returned error %x\n", debugstr_w(path), res );
+            WARN( "calling DllInstall in %s returned error %lx\n", debugstr_w(path), res );
             status.FailureCode = SPREG_REGSVR;
             status.Win32Error = res;
             goto done;
@@ -832,321 +816,10 @@ static BOOL bitreg_callback( HINF hinf, PCWSTR field, void *arg )
     return TRUE;
 }
 
-static BOOL Concatenate(int DirId, LPCWSTR SubDirPart, LPCWSTR NamePart, LPWSTR *pFullName)
+static BOOL profile_items_callback( HINF hinf, PCWSTR field, void *arg )
 {
-    DWORD dwRequired = 0;
-    LPCWSTR Dir;
-    LPWSTR FullName;
-
-    *pFullName = NULL;
-
-    Dir = DIRID_get_string(DirId);
-    if (Dir)
-        dwRequired += wcslen(Dir) + 1;
-    if (SubDirPart)
-        dwRequired += wcslen(SubDirPart) + 1;
-    if (NamePart)
-        dwRequired += wcslen(NamePart);
-    dwRequired = dwRequired * sizeof(WCHAR) + sizeof(UNICODE_NULL);
-
-    FullName = MyMalloc(dwRequired);
-    if (!FullName)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
-    FullName[0] = UNICODE_NULL;
-
-    if (Dir)
-    {
-        wcscat(FullName, Dir);
-        if (FullName[wcslen(FullName) - 1] != '\\')
-            wcscat(FullName, BackSlash);
-    }
-    if (SubDirPart)
-    {
-        wcscat(FullName, SubDirPart);
-        if (FullName[wcslen(FullName) - 1] != '\\')
-            wcscat(FullName, BackSlash);
-    }
-    if (NamePart)
-        wcscat(FullName, NamePart);
-
-    *pFullName = FullName;
+    FIXME( "should do profile items %s\n", debugstr_w(field) );
     return TRUE;
-}
-
-/***********************************************************************
- *            profile_items_callback
- *
- * Called once for each ProfileItems entry in a given section.
- */
-static BOOL
-profile_items_callback(
-    IN HINF hInf,
-    IN PCWSTR SectionName,
-    IN PVOID Arg)
-{
-    INFCONTEXT Context;
-    LPWSTR LinkSubDir = NULL, LinkName = NULL;
-    INT LinkAttributes = 0;
-    INT LinkFolder = 0;
-    INT FileDirId = 0;
-    INT CSIDL = CSIDL_COMMON_PROGRAMS;
-    LPWSTR FileSubDir = NULL;
-    INT DirId = 0;
-    LPWSTR SubDirPart = NULL, NamePart = NULL;
-    LPWSTR FullLinkName = NULL, FullFileName = NULL, FullWorkingDir = NULL, FullIconName = NULL;
-    INT IconIdx = 0;
-    LPWSTR lpHotKey = NULL, lpInfoTip = NULL;
-    LPWSTR DisplayName = NULL;
-    INT DisplayResId = 0;
-    BOOL ret = FALSE;
-    DWORD Index, Required;
-
-    IShellLinkW *psl;
-    IPersistFile *ppf;
-    HMODULE hOle32 = NULL;
-    COINITIALIZE pCoInitialize;
-    COCREATEINSTANCE pCoCreateInstance;
-    COUNINITIALIZE pCoUninitialize;
-    HRESULT hr;
-
-    TRACE("hInf %p, SectionName %s, Arg %p\n",
-        hInf, debugstr_w(SectionName), Arg);
-
-    /* Read 'Name' entry */
-    if (!SetupFindFirstLineW(hInf, SectionName, Name, &Context))
-        goto cleanup;
-    if (!GetStringField(&Context, 1, &LinkName))
-        goto cleanup;
-    if (SetupGetFieldCount(&Context) >= 2)
-    {
-        if (!SetupGetIntField(&Context, 2, &LinkAttributes))
-            goto cleanup;
-    }
-    if (SetupGetFieldCount(&Context) >= 3)
-    {
-        if (!SetupGetIntField(&Context, 3, &LinkFolder))
-            goto cleanup;
-    }
-
-    /* Read 'CmdLine' entry */
-    if (!SetupFindFirstLineW(hInf, SectionName, CmdLine, &Context))
-        goto cleanup;
-    Index = 1;
-    if (!SetupGetIntField(&Context, Index++, &FileDirId))
-        goto cleanup;
-    if (SetupGetFieldCount(&Context) >= 3)
-    {
-        if (!GetStringField(&Context, Index++, &FileSubDir))
-            goto cleanup;
-    }
-    if (!GetStringField(&Context, Index++, &NamePart))
-        goto cleanup;
-    if (!Concatenate(FileDirId, FileSubDir, NamePart, &FullFileName))
-        goto cleanup;
-    MyFree(NamePart);
-    NamePart = NULL;
-
-    /* Read 'SubDir' entry */
-    if ((LinkAttributes & FLG_PROFITEM_GROUP) == 0 && SetupFindFirstLineW(hInf, SectionName, SubDir, &Context))
-    {
-        if (!GetStringField(&Context, 1, &LinkSubDir))
-            goto cleanup;
-    }
-
-    /* Read 'WorkingDir' entry */
-    if (SetupFindFirstLineW(hInf, SectionName, WorkingDir, &Context))
-    {
-        if (!SetupGetIntField(&Context, 1, &DirId))
-            goto cleanup;
-        if (SetupGetFieldCount(&Context) >= 2)
-        {
-            if (!GetStringField(&Context, 2, &SubDirPart))
-                goto cleanup;
-        }
-        if (!Concatenate(DirId, SubDirPart, NULL, &FullWorkingDir))
-            goto cleanup;
-        MyFree(SubDirPart);
-        SubDirPart = NULL;
-    }
-    else
-    {
-        if (!Concatenate(FileDirId, FileSubDir, NULL, &FullWorkingDir))
-            goto cleanup;
-    }
-
-    /* Read 'IconPath' entry */
-    if (SetupFindFirstLineW(hInf, SectionName, IconPath, &Context))
-    {
-        Index = 1;
-        if (!SetupGetIntField(&Context, Index++, &DirId))
-            goto cleanup;
-        if (SetupGetFieldCount(&Context) >= 3)
-        {
-            if (!GetStringField(&Context, Index++, &SubDirPart))
-                goto cleanup;
-        }
-        if (!GetStringField(&Context, Index, &NamePart))
-            goto cleanup;
-        if (!Concatenate(DirId, SubDirPart, NamePart, &FullIconName))
-            goto cleanup;
-        MyFree(SubDirPart);
-        MyFree(NamePart);
-        SubDirPart = NamePart = NULL;
-    }
-    else
-    {
-        FullIconName = DuplicateString(FullFileName);
-        if (!FullIconName)
-            goto cleanup;
-    }
-
-    /* Read 'IconIndex' entry */
-    if (SetupFindFirstLineW(hInf, SectionName, IconIndex, &Context))
-    {
-        if (!SetupGetIntField(&Context, 1, &IconIdx))
-            goto cleanup;
-    }
-
-    /* Read 'HotKey' and 'InfoTip' entries */
-    GetLineText(hInf, SectionName, HotKey, &lpHotKey);
-    GetLineText(hInf, SectionName, InfoTip, &lpInfoTip);
-
-    /* Read 'DisplayResource' entry */
-    if (SetupFindFirstLineW(hInf, SectionName, DisplayResource, &Context))
-    {
-        if (!GetStringField(&Context, 1, &DisplayName))
-            goto cleanup;
-        if (!SetupGetIntField(&Context, 2, &DisplayResId))
-            goto cleanup;
-    }
-
-    /* Some debug */
-    TRACE("Link is %s\\%s, attributes 0x%x\n", debugstr_w(LinkSubDir), debugstr_w(LinkName), LinkAttributes);
-    TRACE("File is %s\n", debugstr_w(FullFileName));
-    TRACE("Working dir %s\n", debugstr_w(FullWorkingDir));
-    TRACE("Icon is %s, %d\n", debugstr_w(FullIconName), IconIdx);
-    TRACE("Hotkey %s\n", debugstr_w(lpHotKey));
-    TRACE("InfoTip %s\n", debugstr_w(lpInfoTip));
-    TRACE("Display %s, %d\n", DisplayName, DisplayResId);
-
-    /* Load ole32.dll */
-    hOle32 = LoadLibraryA("ole32.dll");
-    if (!hOle32)
-        goto cleanup;
-    pCoInitialize = (COINITIALIZE)GetProcAddress(hOle32, "CoInitialize");
-    if (!pCoInitialize)
-        goto cleanup;
-    pCoCreateInstance = (COCREATEINSTANCE)GetProcAddress(hOle32, "CoCreateInstance");
-    if (!pCoCreateInstance)
-        goto cleanup;
-    pCoUninitialize = (COUNINITIALIZE)GetProcAddress(hOle32, "CoUninitialize");
-    if (!pCoUninitialize)
-        goto cleanup;
-
-    /* Create shortcut */
-    hr = pCoInitialize(NULL);
-    if (!SUCCEEDED(hr))
-    {
-        if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-            SetLastError(HRESULT_CODE(hr));
-        else
-            SetLastError(E_FAIL);
-        goto cleanup;
-    }
-    hr = pCoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkW, (LPVOID*)&psl);
-    if (SUCCEEDED(hr))
-    {
-        /* Fill link properties */
-        if (SUCCEEDED(hr))
-            hr = IShellLinkW_SetPath(psl, FullFileName);
-        if (SUCCEEDED(hr))
-            hr = IShellLinkW_SetArguments(psl, L"");
-        if (SUCCEEDED(hr))
-            hr = IShellLinkW_SetWorkingDirectory(psl, FullWorkingDir);
-        if (SUCCEEDED(hr))
-            hr = IShellLinkW_SetIconLocation(psl, FullIconName, IconIdx);
-        if (SUCCEEDED(hr) && lpHotKey)
-            FIXME("Need to store hotkey %s in shell link\n", debugstr_w(lpHotKey));
-        if (SUCCEEDED(hr) && lpInfoTip)
-            hr = IShellLinkW_SetDescription(psl, lpInfoTip);
-        if (SUCCEEDED(hr) && DisplayName)
-            FIXME("Need to store display name %s, %d in shell link\n", debugstr_w(DisplayName), DisplayResId);
-        if (SUCCEEDED(hr))
-        {
-            hr = IShellLinkW_QueryInterface(psl, &IID_IPersistFile, (LPVOID*)&ppf);
-            if (SUCCEEDED(hr))
-            {
-                Required = (MAX_PATH + wcslen(LinkSubDir) + 1 + wcslen(LinkName)) * sizeof(WCHAR);
-                FullLinkName = MyMalloc(Required);
-                if (!FullLinkName)
-                    hr = E_OUTOFMEMORY;
-                else
-                {
-                    if (LinkAttributes & (FLG_PROFITEM_DELETE | FLG_PROFITEM_GROUP))
-                        FIXME("Need to handle FLG_PROFITEM_DELETE and FLG_PROFITEM_GROUP\n");
-                    if (LinkAttributes & FLG_PROFITEM_CSIDL)
-                        CSIDL = LinkFolder;
-                    else if (LinkAttributes & FLG_PROFITEM_CURRENTUSER)
-                        CSIDL = CSIDL_PROGRAMS;
-
-                    if (SHGetSpecialFolderPathW(
-                        NULL,
-                        FullLinkName,
-                        CSIDL,
-                        TRUE))
-                    {
-                        if (FullLinkName[wcslen(FullLinkName) - 1] != '\\')
-                            wcscat(FullLinkName, BackSlash);
-                        if (LinkSubDir)
-                        {
-                            wcscat(FullLinkName, LinkSubDir);
-                            if (FullLinkName[wcslen(FullLinkName) - 1] != '\\')
-                                wcscat(FullLinkName, BackSlash);
-                        }
-                        wcscat(FullLinkName, LinkName);
-                        wcscat(FullLinkName, DotLnk);
-                        hr = IPersistFile_Save(ppf, FullLinkName, TRUE);
-                    }
-                    else
-                        hr = HRESULT_FROM_WIN32(GetLastError());
-                }
-                IPersistFile_Release(ppf);
-            }
-        }
-        IShellLinkW_Release(psl);
-    }
-    pCoUninitialize();
-    if (SUCCEEDED(hr))
-        ret = TRUE;
-    else
-    {
-        if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-            SetLastError(HRESULT_CODE(hr));
-        else
-            SetLastError(E_FAIL);
-    }
-
-cleanup:
-    MyFree(LinkSubDir);
-    MyFree(LinkName);
-    MyFree(FileSubDir);
-    MyFree(SubDirPart);
-    MyFree(NamePart);
-    MyFree(FullFileName);
-    MyFree(FullWorkingDir);
-    MyFree(FullIconName);
-    MyFree(FullLinkName);
-    MyFree(lpHotKey);
-    MyFree(lpInfoTip);
-    MyFree(DisplayName);
-    if (hOle32)
-        FreeLibrary(hOle32);
-
-    TRACE("Returning %d\n", ret);
-    return ret;
 }
 
 static BOOL copy_inf_callback( HINF hinf, PCWSTR field, void *arg )
@@ -1180,7 +853,7 @@ static BOOL iterate_section_fields( HINF hinf, PCWSTR section, PCWSTR key,
                 goto done;
             if (!callback( hinf, buffer, arg ))
             {
-                WARN("callback failed for %s %s err %d\n",
+                WARN("callback failed for %s %s err %ld\n",
                      debugstr_w(section), debugstr_w(buffer), GetLastError() );
                 goto done;
             }
@@ -1457,123 +1130,41 @@ BOOL WINAPI SetupInstallFromInfSectionW( HWND owner, HINF hinf, PCWSTR section, 
  */
 void WINAPI InstallHinfSectionW( HWND hwnd, HINSTANCE handle, LPCWSTR cmdline, INT show )
 {
-    WCHAR *s, *path, section[MAX_PATH];
-    void *callback_context = NULL;
-    DWORD SectionNameLength;
+    WCHAR *p, *path, section[MAX_PATH];
+    void *callback_context;
     UINT mode;
-    HINF hinf = INVALID_HANDLE_VALUE;
-    BOOL bRebootRequired = FALSE;
-    BOOL ret;
+    HINF hinf;
 
     TRACE("hwnd %p, handle %p, cmdline %s\n", hwnd, handle, debugstr_w(cmdline));
 
-    lstrcpynW( section, cmdline, MAX_PATH );
+    lstrcpynW( section, cmdline, sizeof(section)/sizeof(WCHAR) );
 
-    if (!(s = strchrW( section, ' ' ))) return;
-    *s++ = 0;
-    while (*s == ' ') s++;
-    mode = atoiW( s );
+    if (!(p = strchrW( section, ' ' ))) return;
+    *p++ = 0;
+    while (*p == ' ') p++;
+    mode = atoiW( p );
 
-    /* quoted paths are not allowed on native, the rest of the command line is taken as the path */
-    if (!(s = strchrW( s, ' ' ))) return;
-    while (*s == ' ') s++;
-    path = s;
-
-    if (mode & 0x80)
-    {
-        FIXME("default path of the installation not changed\n");
-        mode &= ~0x80;
-    }
+    if (!(p = strchrW( p, ' ' ))) return;
+    path = p + 1;
+    while (*path == ' ') path++;
 
     hinf = SetupOpenInfFileW( path, NULL, INF_STYLE_WIN4, NULL );
-    if (hinf == INVALID_HANDLE_VALUE)
-    {
-        WARN("SetupOpenInfFileW(%s) failed (Error %u)\n", path, GetLastError());
-        goto cleanup;
-    }
+    if (hinf == INVALID_HANDLE_VALUE) return;
 
-    ret = SetupDiGetActualSectionToInstallW(
-       hinf, section, section, sizeof(section)/sizeof(section[0]), &SectionNameLength, NULL );
-    if (!ret)
+    if (SetupDiGetActualSectionToInstallW(
+        hinf, section, section, sizeof(section)/sizeof(section[0]), NULL, NULL ))
     {
-        WARN("SetupDiGetActualSectionToInstallW() failed (Error %u)\n", GetLastError());
-        goto cleanup;
-    }
-    if (SectionNameLength > MAX_PATH - strlenW(DotServices))
-    {
-        WARN("Section name '%s' too long\n", section);
-        goto cleanup;
-    }
-
-    /* Copy files and add registry entries */
-    callback_context = SetupInitDefaultQueueCallback( hwnd );
-    ret = SetupInstallFromInfSectionW( hwnd, hinf, section, SPINST_ALL, NULL, NULL,
-                                       SP_COPY_NEWER | SP_COPY_IN_USE_NEEDS_REBOOT,
-                                       SetupDefaultQueueCallbackW, callback_context,
-                                       NULL, NULL );
-    if (!ret)
-    {
-        WARN("SetupInstallFromInfSectionW() failed (Error %u)\n", GetLastError());
-        goto cleanup;
-    }
-    /* FIXME: need to check if some files were in use and need reboot
-     * bReboot = ...;
-     */
-
-    /* Install services */
-    wcscat(section, DotServices);
-    ret = SetupInstallServicesFromInfSectionW( hinf, section, 0 );
-    if (!ret && GetLastError() == ERROR_SECTION_NOT_FOUND)
-        ret = TRUE;
-    if (!ret)
-    {
-        WARN("SetupInstallServicesFromInfSectionW() failed (Error %u)\n", GetLastError());
-        goto cleanup;
-    }
-    else if (GetLastError() == ERROR_SUCCESS_REBOOT_REQUIRED)
-    {
-        bRebootRequired = TRUE;
-    }
-
-    /* Check if we need to reboot */
-    switch (mode)
-    {
-        case 0:
-            /* Never reboot */
-            break;
-        case 1:
-            /* Always reboot */
-            ExitWindowsEx(EWX_REBOOT, SHTDN_REASON_MAJOR_APPLICATION |
-                SHTDN_REASON_MINOR_INSTALLATION | SHTDN_REASON_FLAG_PLANNED);
-            break;
-        case 2:
-            /* Query user before rebooting */
-            SetupPromptReboot(NULL, hwnd, FALSE);
-            break;
-        case 3:
-            /* Reboot if necessary */
-            if (bRebootRequired)
-            {
-                ExitWindowsEx(EWX_REBOOT, SHTDN_REASON_MAJOR_APPLICATION |
-                    SHTDN_REASON_MINOR_INSTALLATION | SHTDN_REASON_FLAG_PLANNED);
-            }
-            break;
-        case 4:
-            /* If necessary, query user before rebooting */
-            if (bRebootRequired)
-            {
-                SetupPromptReboot(NULL, hwnd, FALSE);
-            }
-            break;
-        default:
-            break;
-    }
-
-cleanup:
-    if ( callback_context )
+        callback_context = SetupInitDefaultQueueCallback( hwnd );
+        SetupInstallFromInfSectionW( hwnd, hinf, section, SPINST_ALL, NULL, NULL, SP_COPY_NEWER,
+                                     SetupDefaultQueueCallbackW, callback_context,
+                                     NULL, NULL );
         SetupTermDefaultQueueCallback( callback_context );
-    if ( hinf != INVALID_HANDLE_VALUE )
-        SetupCloseInfFile( hinf );
+    }
+    SetupCloseInfFile( hinf );
+
+    /* FIXME: should check the mode and maybe reboot */
+    /* there isn't much point in doing that since we */
+    /* don't yet handle deferred file copies anyway. */
 }
 
 
@@ -1591,23 +1182,26 @@ void WINAPI InstallHinfSectionA( HWND hwnd, HINSTANCE handle, LPCSTR cmdline, IN
     }
 }
 
+
 /***********************************************************************
- *              SetupInstallServicesFromInfSectionW  (SETUPAPI.@)
+ *		SetupInstallServicesFromInfSectionA  (SETUPAPI.@)
  */
-BOOL WINAPI SetupInstallServicesFromInfSectionW( HINF Inf, PCWSTR SectionName, DWORD Flags)
+BOOL WINAPI SetupInstallServicesFromInfSectionA( HINF hinf, PCSTR sectionname, DWORD flags )
 {
-    return SetupInstallServicesFromInfSectionExW( Inf, SectionName, Flags,
+    return SetupInstallServicesFromInfSectionExA( hinf, sectionname, flags,
                                                   NULL, NULL, NULL, NULL );
 }
 
+
 /***********************************************************************
- *              SetupInstallServicesFromInfSectionA  (SETUPAPI.@)
+ *		SetupInstallServicesFromInfSectionW  (SETUPAPI.@)
  */
-BOOL WINAPI SetupInstallServicesFromInfSectionA( HINF Inf, PCSTR SectionName, DWORD Flags)
+BOOL WINAPI SetupInstallServicesFromInfSectionW( HINF hinf, PCWSTR sectionname, DWORD flags )
 {
-    return SetupInstallServicesFromInfSectionExA( Inf, SectionName, Flags,
+    return SetupInstallServicesFromInfSectionExW( hinf, sectionname, flags,
                                                   NULL, NULL, NULL, NULL );
 }
+
 
 /***********************************************************************
  *		SetupInstallServicesFromInfSectionExA  (SETUPAPI.@)
@@ -1717,49 +1311,6 @@ BOOL GetStringField( PINFCONTEXT context, DWORD index, PWSTR *value)
     return ret;
 }
 
-static VOID FixupServiceBinaryPath(
-    IN DWORD ServiceType,
-    IN OUT LPWSTR *ServiceBinary)
-{
-    LPWSTR Buffer;
-    WCHAR ReactosDir[MAX_PATH];
-    DWORD RosDirLength, ServiceLength, Win32Length;
-
-    GetWindowsDirectoryW(ReactosDir, MAX_PATH);
-    RosDirLength = strlenW(ReactosDir);
-    ServiceLength = strlenW(*ServiceBinary);
-
-    /* Check and fix two things:
-       1. Get rid of C:\ReactOS and use relative
-          path instead.
-       2. Add %SystemRoot% for Win32 services */
-
-    if (ServiceLength < RosDirLength)
-        return;
-
-    if (!wcsnicmp(*ServiceBinary, ReactosDir, RosDirLength))
-    {
-        /* Yes, the first part is the C:\ReactOS\, just skip it */
-        MoveMemory(*ServiceBinary, *ServiceBinary + RosDirLength + 1,
-            (ServiceLength - RosDirLength) * sizeof(WCHAR));
-
-        /* Handle Win32-services differently */
-        if (ServiceType & SERVICE_WIN32)
-        {
-            Win32Length = (ServiceLength -
-                RosDirLength - 1 + 13) * sizeof(WCHAR);
-            /* -1 to not count the separator after C:\ReactOS
-               wcslen(L"%SystemRoot%\\") = 13*sizeof(wchar_t) */
-            Buffer = MyMalloc(Win32Length);
-
-            wcscpy(Buffer, L"%SystemRoot%\\");
-            wcscat(Buffer, *ServiceBinary);
-            MyFree(*ServiceBinary);
-
-            *ServiceBinary = Buffer;
-        }
-    }
-}
 
 static BOOL InstallOneService(
     struct DeviceInfoSet *list,
@@ -1772,8 +1323,6 @@ static BOOL InstallOneService(
     SC_HANDLE hService = NULL;
     LPDWORD GroupOrder = NULL;
     LPQUERY_SERVICE_CONFIGW ServiceConfig = NULL;
-    HKEY hServicesKey, hServiceKey;
-    LONG rc;
     BOOL ret = FALSE;
 
     HKEY hGroupOrderListKey = NULL;
@@ -1803,9 +1352,6 @@ static BOOL InstallOneService(
 
     if (!GetLineText(hInf, ServiceSection, ServiceBinaryKey, &ServiceBinary))
         goto cleanup;
-
-    /* Adjust binary path according to the service type */
-    FixupServiceBinaryPath(ServiceType, &ServiceBinary);
 
     /* Don't check return value, as these fields are optional and
      * GetLineText initialize output parameter even on failure */
@@ -1898,6 +1444,7 @@ static BOOL InstallOneService(
     if (useTag)
     {
         /* Add the tag to SYSTEM\CurrentControlSet\Control\GroupOrderList key */
+        LONG rc;
         LPCWSTR lpLoadOrderGroup;
         DWORD bufferSize;
 
@@ -1976,44 +1523,7 @@ static BOOL InstallOneService(
         }
     }
 
-    /* Handle AddReg and DelReg */
-    rc = RegOpenKeyExW(
-        list ? list->HKLM : HKEY_LOCAL_MACHINE,
-        REGSTR_PATH_SERVICES,
-        0,
-        0,
-        &hServicesKey);
-    if (rc != ERROR_SUCCESS)
-    {
-        SetLastError(rc);
-        goto cleanup;
-    }
-    rc = RegOpenKeyExW(
-        hServicesKey,
-        ServiceName,
-        0,
-        KEY_READ | KEY_WRITE,
-        &hServiceKey);
-    RegCloseKey(hServicesKey);
-    if (rc != ERROR_SUCCESS)
-    {
-        SetLastError(rc);
-        goto cleanup;
-    }
-
-    ret = SetupInstallFromInfSectionW(
-        NULL,
-        hInf,
-        ServiceSection,
-        SPINST_REGISTRY,
-        hServiceKey,
-        NULL,
-        0,
-        NULL,
-        NULL,
-        NULL,
-        NULL);
-    RegCloseKey(hServiceKey);
+    ret = TRUE;
 
 cleanup:
     if (hSCManager != NULL)
@@ -2058,7 +1568,7 @@ BOOL WINAPI SetupInstallServicesFromInfSectionExW( HINF hinf, PCWSTR sectionname
     }
     else if (DeviceInfoSet == (HDEVINFO)INVALID_HANDLE_VALUE)
         SetLastError(ERROR_INVALID_HANDLE);
-    else if (DeviceInfoSet && (list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEVICE_INFO_SET_MAGIC)
+    else if (DeviceInfoSet && (list = (struct DeviceInfoSet *)DeviceInfoSet)->magic != SETUP_DEV_INFO_SET_MAGIC)
         SetLastError(ERROR_INVALID_HANDLE);
     else if (DeviceInfoData && DeviceInfoData->cbSize != sizeof(SP_DEVINFO_DATA))
         SetLastError(ERROR_INVALID_USER_BUFFER);
@@ -2228,8 +1738,8 @@ cleanup:
     MyFree(SourceInfFileNameW);
     MyFree(OEMSourceMediaLocationW);
     MyFree(DestinationInfFileNameW);
+
     TRACE("Returning %d\n", ret);
-    if (ret) SetLastError(ERROR_SUCCESS);
     return ret;
 }
 
@@ -2518,6 +2028,5 @@ cleanup:
     }
 
     TRACE("Returning %d\n", ret);
-    if (ret) SetLastError(ERROR_SUCCESS);
     return ret;
 }

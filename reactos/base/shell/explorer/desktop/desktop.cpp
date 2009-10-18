@@ -259,7 +259,7 @@ BackgroundWindow::BackgroundWindow(HWND hwnd)
 {
 	 // set background brush for the short moment of displaying the
 	 // background color while moving foreground windows
-	SetClassLongPtr(hwnd, GCL_HBRBACKGROUND, COLOR_BACKGROUND+1);
+	SetClassLong(hwnd, GCL_HBRBACKGROUND, COLOR_BACKGROUND+1);
 
 	_display_version = RegGetDWORDValue(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), TEXT("PaintDesktopVersion"), 1);
 }
@@ -506,29 +506,24 @@ DesktopShellView::DesktopShellView(HWND hwnd, IShellView* pShellView)
 	InitDragDrop();
 }
 
-
-DesktopShellView::~DesktopShellView()
-{
-	if (FAILED(RevokeDragDrop(_hwnd)))
-		assert(0);
-}
-
-
 bool DesktopShellView::InitDragDrop()
 {
 	CONTEXT("DesktopShellView::InitDragDrop()");
 
-	DesktopDropTarget * pDropTarget = new DesktopDropTarget(_hwnd);
+	_pDropTarget = new DesktopDropTarget(_hwnd);
 
-	if (!pDropTarget)
+	if (!_pDropTarget)
 		return false;
 
-	pDropTarget->AddRef();
+	_pDropTarget->AddRef();
 
-	if (FAILED(RegisterDragDrop(_hwnd, pDropTarget))) {
-		pDropTarget->Release();
+	if (FAILED(RegisterDragDrop(_hwnd, _pDropTarget))) {
+		_pDropTarget->Release();
+		_pDropTarget = NULL;
 		return false;
 	}
+	else
+		_pDropTarget->Release();
 
 	FORMATETC ftetc;
 
@@ -537,8 +532,7 @@ bool DesktopShellView::InitDragDrop()
 	ftetc.tymed = TYMED_HGLOBAL;
 	ftetc.cfFormat = CF_HDROP;
 
-	pDropTarget->AddSuportedFormat(ftetc);
-	pDropTarget->Release();
+	_pDropTarget->AddSuportedFormat(ftetc);
 
 	return true;
 }
@@ -662,7 +656,6 @@ HRESULT DesktopShellView::DoDesktopContextMenu(int x, int y)
 				}
 			} else
 				_cm_ifs.reset();
-			DestroyMenu(hmenu);
 		}
 
 		pcm->Release();
@@ -844,11 +837,11 @@ void DesktopShellView::PositionIcons(int dir)
 
 	 // use a little trick to get the icons where we want them to be...
 
-	//for(IconMap::const_iterator it=pos_idx.end(); --it!=pos_idx.begin(); ) {
-	//	const IconPos& pos = it->first;
+	for(IconMap::const_iterator it=pos_idx.end(); --it!=pos_idx.begin(); ) {
+		const IconPos& pos = it->first;
 
-	//	ListView_SetItemPosition32(_hwndListView, it->second, pos.second, pos.first);
-	//}
+		ListView_SetItemPosition32(_hwndListView, it->second, pos.second, pos.first);
+	}
 
 	for(IconMap::const_iterator it=pos_idx.begin(); it!=pos_idx.end(); ++it) {
 		const IconPos& pos = it->first;

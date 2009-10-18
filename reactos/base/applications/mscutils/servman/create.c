@@ -164,7 +164,7 @@ FreeMemory(PCREATE_DATA Data)
 }
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 CreateHelpDialogProc(HWND hDlg,
                      UINT message,
                      WPARAM wParam,
@@ -221,7 +221,7 @@ CreateHelpDialogProc(HWND hDlg,
 }
 
 
-INT_PTR CALLBACK
+BOOL CALLBACK
 CreateDialogProc(HWND hDlg,
                  UINT message,
                  WPARAM wParam,
@@ -302,7 +302,7 @@ CreateDialogProc(HWND hDlg,
                         hHelp = CreateDialog(hInstance,
                                              MAKEINTRESOURCE(IDD_DLG_HELP_OPTIONS),
                                              hDlg,
-                                             CreateHelpDialogProc);
+                                             (DLGPROC)CreateHelpDialogProc);
                         if(hHelp != NULL)
                         {
                             bHelpOpen = TRUE;

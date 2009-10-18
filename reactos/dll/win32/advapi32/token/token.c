@@ -9,98 +9,36 @@
  */
 
 #include <advapi32.h>
-#include "wine/debug.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(advapi);
+#define NDEBUG
+#include <wine/debug.h>
+#include <debug.h>
 
-/*
- * @implemented
- */
-BOOL WINAPI
-AdjustTokenGroups(HANDLE TokenHandle,
-                  BOOL ResetToDefault,
-                  PTOKEN_GROUPS NewState,
-                  DWORD BufferLength,
-                  PTOKEN_GROUPS PreviousState,
-                  PDWORD ReturnLength)
-{
-    NTSTATUS Status;
-
-    Status = NtAdjustGroupsToken(TokenHandle,
-                                 ResetToDefault,
-                                 NewState,
-                                 BufferLength,
-                                 PreviousState,
-                                 (PULONG)ReturnLength);
-    if (!NT_SUCCESS(Status))
-    {
-       SetLastError(RtlNtStatusToDosError(Status));
-       return FALSE;
-    }
-
-    return TRUE;
-}
-
+WINE_DEFAULT_DEBUG_CHANNEL(advapi32);
 
 /*
  * @implemented
  */
-BOOL WINAPI
-AdjustTokenPrivileges(HANDLE TokenHandle,
-                      BOOL DisableAllPrivileges,
-                      PTOKEN_PRIVILEGES NewState,
-                      DWORD BufferLength,
-                      PTOKEN_PRIVILEGES PreviousState,
-                      PDWORD ReturnLength)
+BOOL STDCALL
+AdjustTokenGroups (HANDLE TokenHandle,
+                   BOOL ResetToDefault,
+                   PTOKEN_GROUPS NewState,
+                   DWORD BufferLength,
+                   PTOKEN_GROUPS PreviousState,
+                   PDWORD ReturnLength)
 {
-    NTSTATUS Status;
+  NTSTATUS Status;
 
-    Status = NtAdjustPrivilegesToken(TokenHandle,
-                                     DisableAllPrivileges,
-                                     NewState,
-                                     BufferLength,
-                                     PreviousState,
-                                     (PULONG)ReturnLength);
-    if (STATUS_NOT_ALL_ASSIGNED == Status)
+  Status = NtAdjustGroupsToken (TokenHandle,
+                                ResetToDefault,
+                                NewState,
+                                BufferLength,
+                                PreviousState,
+                                (PULONG)ReturnLength);
+  if (!NT_SUCCESS (Status))
     {
-        SetLastError(ERROR_NOT_ALL_ASSIGNED);
-        return TRUE;
-    }
-
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    /* AdjustTokenPrivileges is documented to do this */
-    SetLastError(ERROR_SUCCESS);
-
-    return TRUE;
-}
-
-
-/*
- * @implemented
- */
-BOOL WINAPI
-GetTokenInformation(HANDLE TokenHandle,
-                    TOKEN_INFORMATION_CLASS TokenInformationClass,
-                    LPVOID TokenInformation,
-                    DWORD TokenInformationLength,
-                    PDWORD ReturnLength)
-{
-    NTSTATUS Status;
-
-    Status = NtQueryInformationToken(TokenHandle,
-                                     TokenInformationClass,
-                                     TokenInformation,
-                                     TokenInformationLength,
-                                     (PULONG)ReturnLength);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
     }
 
   return TRUE;
@@ -110,236 +48,288 @@ GetTokenInformation(HANDLE TokenHandle,
 /*
  * @implemented
  */
-BOOL WINAPI
-SetTokenInformation(HANDLE TokenHandle,
-                    TOKEN_INFORMATION_CLASS TokenInformationClass,
-                    LPVOID TokenInformation,
-                    DWORD TokenInformationLength)
+BOOL STDCALL
+AdjustTokenPrivileges (HANDLE TokenHandle,
+                       BOOL DisableAllPrivileges,
+                       PTOKEN_PRIVILEGES NewState,
+                       DWORD BufferLength,
+                       PTOKEN_PRIVILEGES PreviousState,
+                       PDWORD ReturnLength)
 {
-    NTSTATUS Status;
+  NTSTATUS Status;
 
-    Status = NtSetInformationToken(TokenHandle,
-                                   TokenInformationClass,
-                                   TokenInformation,
-                                   TokenInformationLength);
-    if (!NT_SUCCESS(Status))
+  Status = NtAdjustPrivilegesToken (TokenHandle,
+                                    DisableAllPrivileges,
+                                    NewState,
+                                    BufferLength,
+                                    PreviousState,
+                                    (PULONG)ReturnLength);
+  if (STATUS_NOT_ALL_ASSIGNED == Status)
     {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+      SetLastError(ERROR_NOT_ALL_ASSIGNED);
+      return TRUE;
+    }
+  if (! NT_SUCCESS(Status))
+    {
+      SetLastError(RtlNtStatusToDosError(Status));
+      return FALSE;
     }
 
-    return TRUE;
+  SetLastError(ERROR_SUCCESS); /* AdjustTokenPrivileges is documented to do this */
+  return TRUE;
 }
 
 
 /*
  * @implemented
  */
-BOOL
-WINAPI
-AccessCheck(IN PSECURITY_DESCRIPTOR pSecurityDescriptor,
-            IN HANDLE ClientToken,
-            IN DWORD DesiredAccess,
-            IN PGENERIC_MAPPING GenericMapping,
-            OUT PPRIVILEGE_SET PrivilegeSet OPTIONAL,
-            IN OUT LPDWORD PrivilegeSetLength,
-            OUT LPDWORD GrantedAccess,
-            OUT LPBOOL AccessStatus)
+BOOL STDCALL
+GetTokenInformation (HANDLE TokenHandle,
+                     TOKEN_INFORMATION_CLASS TokenInformationClass,
+                     LPVOID TokenInformation,
+                     DWORD TokenInformationLength,
+                     PDWORD ReturnLength)
 {
-    NTSTATUS Status;
-    NTSTATUS NtAccessStatus;
+  NTSTATUS Status;
 
-    /* Do the access check */
-    Status = NtAccessCheck(pSecurityDescriptor,
-                           ClientToken,
-                           DesiredAccess,
-                           GenericMapping,
-                           PrivilegeSet,
-                           (PULONG)PrivilegeSetLength,
-                           (PACCESS_MASK)GrantedAccess,
-                           &NtAccessStatus);
-
-    /* See if the access check operation succeeded */
-    if (!NT_SUCCESS(Status))
+  Status = NtQueryInformationToken (TokenHandle,
+                                    TokenInformationClass,
+                                    TokenInformation,
+                                    TokenInformationLength,
+                                    (PULONG)ReturnLength);
+  if (!NT_SUCCESS (Status))
     {
-        /* Check failed */
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
     }
 
-    /* Now check the access status  */
-    if (!NT_SUCCESS(NtAccessStatus))
-    {
-        /* Access denied */
-        SetLastError(RtlNtStatusToDosError(NtAccessStatus));
-        *AccessStatus = FALSE;
-    }
-    else
-    {
-        /* Access granted */
-        *AccessStatus = TRUE;
-    }
-
-    /* Check succeeded */
-    return TRUE;
+  return TRUE;
 }
 
 
 /*
  * @implemented
  */
-BOOL WINAPI
-OpenProcessToken(HANDLE ProcessHandle,
+BOOL STDCALL
+SetTokenInformation (HANDLE TokenHandle,
+                     TOKEN_INFORMATION_CLASS TokenInformationClass,
+                     LPVOID TokenInformation,
+                     DWORD TokenInformationLength)
+{
+  NTSTATUS Status;
+
+  Status = NtSetInformationToken (TokenHandle,
+                                  TokenInformationClass,
+                                  TokenInformation,
+                                  TokenInformationLength);
+  if (!NT_SUCCESS (Status))
+    {
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+
+/*
+ * @implemented
+ */
+BOOL STDCALL
+AccessCheck (PSECURITY_DESCRIPTOR pSecurityDescriptor,
+             HANDLE ClientToken,
+             DWORD DesiredAccess,
+             PGENERIC_MAPPING GenericMapping,
+             PPRIVILEGE_SET PrivilegeSet,
+             LPDWORD PrivilegeSetLength,
+             LPDWORD GrantedAccess,
+             LPBOOL AccessStatus)
+{
+  NTSTATUS Status;
+  NTSTATUS AccessStat;
+
+  Status = NtAccessCheck (pSecurityDescriptor,
+                          ClientToken,
+                          DesiredAccess,
+                          GenericMapping,
+                          PrivilegeSet,
+                          (PULONG)PrivilegeSetLength,
+                          (PACCESS_MASK)GrantedAccess,
+                          &AccessStat);
+  if (!NT_SUCCESS (Status))
+    {
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
+    }
+
+  if (!NT_SUCCESS (AccessStat))
+    {
+      SetLastError (RtlNtStatusToDosError (Status));
+      *AccessStatus = FALSE;
+      return TRUE;
+    }
+
+  *AccessStatus = TRUE;
+
+  return TRUE;
+}
+
+
+/*
+ * @implemented
+ */
+BOOL STDCALL
+OpenProcessToken (HANDLE ProcessHandle,
+                  DWORD DesiredAccess,
+                  PHANDLE TokenHandle)
+{
+  NTSTATUS Status;
+
+  Status = NtOpenProcessToken (ProcessHandle,
+                               DesiredAccess,
+                               TokenHandle);
+  if (!NT_SUCCESS (Status))
+    {
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+
+/*
+ * @implemented
+ */
+BOOL STDCALL
+OpenThreadToken (HANDLE ThreadHandle,
                  DWORD DesiredAccess,
+                 BOOL OpenAsSelf,
                  PHANDLE TokenHandle)
 {
-    NTSTATUS Status;
+  NTSTATUS Status;
 
-    Status = NtOpenProcessToken(ProcessHandle,
-                                DesiredAccess,
-                                TokenHandle);
-    if (!NT_SUCCESS(Status))
+  Status = NtOpenThreadToken (ThreadHandle,
+                              DesiredAccess,
+                              OpenAsSelf,
+                              TokenHandle);
+  if (!NT_SUCCESS(Status))
     {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
     }
 
-    return TRUE;
+  return TRUE;
 }
 
 
 /*
  * @implemented
  */
-BOOL WINAPI
-OpenThreadToken(HANDLE ThreadHandle,
-                DWORD DesiredAccess,
-                BOOL OpenAsSelf,
-                PHANDLE TokenHandle)
+BOOL STDCALL
+SetThreadToken (IN PHANDLE ThreadHandle  OPTIONAL,
+                IN HANDLE TokenHandle)
 {
-    NTSTATUS Status;
+  NTSTATUS Status;
+  HANDLE hThread;
 
-    Status = NtOpenThreadToken(ThreadHandle,
-                               DesiredAccess,
-                               OpenAsSelf,
-                               TokenHandle);
-    if (!NT_SUCCESS(Status))
+  hThread = ((ThreadHandle != NULL) ? *ThreadHandle : NtCurrentThread());
+
+  Status = NtSetInformationThread (hThread,
+                                   ThreadImpersonationToken,
+                                   &TokenHandle,
+                                   sizeof(HANDLE));
+  if (!NT_SUCCESS(Status))
     {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+      SetLastError (RtlNtStatusToDosError (Status));
+      return FALSE;
     }
 
-    return TRUE;
+  return TRUE;
 }
 
 
 /*
  * @implemented
  */
-BOOL WINAPI
-SetThreadToken(IN PHANDLE ThreadHandle  OPTIONAL,
-               IN HANDLE TokenHandle)
+BOOL STDCALL
+DuplicateTokenEx (IN HANDLE ExistingTokenHandle,
+                  IN DWORD dwDesiredAccess,
+                  IN LPSECURITY_ATTRIBUTES lpTokenAttributes  OPTIONAL,
+                  IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
+                  IN TOKEN_TYPE TokenType,
+                  OUT PHANDLE DuplicateTokenHandle)
 {
-    NTSTATUS Status;
-    HANDLE hThread;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  NTSTATUS Status;
+  SECURITY_QUALITY_OF_SERVICE Sqos;
 
-    hThread = (ThreadHandle != NULL) ? *ThreadHandle : NtCurrentThread();
+  Sqos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
+  Sqos.ImpersonationLevel = ImpersonationLevel;
+  Sqos.ContextTrackingMode = 0;
+  Sqos.EffectiveOnly = FALSE;
 
-    Status = NtSetInformationThread(hThread,
-                                    ThreadImpersonationToken,
-                                    &TokenHandle,
-                                    sizeof(HANDLE));
-    if (!NT_SUCCESS(Status))
+  if (lpTokenAttributes != NULL)
     {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
+      InitializeObjectAttributes(&ObjectAttributes,
+                                 NULL,
+                                 lpTokenAttributes->bInheritHandle ? OBJ_INHERIT : 0,
+                                 NULL,
+                                 lpTokenAttributes->lpSecurityDescriptor);
+    }
+  else
+    {
+      InitializeObjectAttributes(&ObjectAttributes,
+                                 NULL,
+                                 0,
+                                 NULL,
+                                 NULL);
     }
 
-    return TRUE;
+  ObjectAttributes.SecurityQualityOfService = &Sqos;
+
+  Status = NtDuplicateToken (ExistingTokenHandle,
+                             dwDesiredAccess,
+                             &ObjectAttributes,
+                             FALSE,
+                             TokenType,
+                             DuplicateTokenHandle);
+  if (!NT_SUCCESS(Status))
+    {
+      SetLastError(RtlNtStatusToDosError(Status));
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 
 /*
  * @implemented
  */
-BOOL WINAPI
-DuplicateTokenEx(IN HANDLE ExistingTokenHandle,
-                 IN DWORD dwDesiredAccess,
-                 IN LPSECURITY_ATTRIBUTES lpTokenAttributes  OPTIONAL,
-                 IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
-                 IN TOKEN_TYPE TokenType,
-                 OUT PHANDLE DuplicateTokenHandle)
+BOOL STDCALL
+DuplicateToken (IN HANDLE ExistingTokenHandle,
+                IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
+                OUT PHANDLE DuplicateTokenHandle)
 {
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    NTSTATUS Status;
-    SECURITY_QUALITY_OF_SERVICE Sqos;
-
-    Sqos.Length = sizeof(SECURITY_QUALITY_OF_SERVICE);
-    Sqos.ImpersonationLevel = ImpersonationLevel;
-    Sqos.ContextTrackingMode = 0;
-    Sqos.EffectiveOnly = FALSE;
-
-    if (lpTokenAttributes != NULL)
-    {
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   NULL,
-                                   lpTokenAttributes->bInheritHandle ? OBJ_INHERIT : 0,
-                                   NULL,
-                                   lpTokenAttributes->lpSecurityDescriptor);
-    }
-    else
-    {
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   NULL,
-                                   0,
-                                   NULL,
-                                   NULL);
-    }
-
-    ObjectAttributes.SecurityQualityOfService = &Sqos;
-
-    Status = NtDuplicateToken(ExistingTokenHandle,
-                              dwDesiredAccess,
-                              &ObjectAttributes,
-                              FALSE,
-                              TokenType,
-                              DuplicateTokenHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
-    return TRUE;
+  return DuplicateTokenEx (ExistingTokenHandle,
+                           TOKEN_IMPERSONATE | TOKEN_QUERY,
+                           NULL,
+                           ImpersonationLevel,
+                           TokenImpersonation,
+                           DuplicateTokenHandle);
 }
 
 
 /*
  * @implemented
  */
-BOOL WINAPI
-DuplicateToken(IN HANDLE ExistingTokenHandle,
-               IN SECURITY_IMPERSONATION_LEVEL ImpersonationLevel,
-               OUT PHANDLE DuplicateTokenHandle)
-{
-    return DuplicateTokenEx(ExistingTokenHandle,
-                            TOKEN_IMPERSONATE | TOKEN_QUERY,
-                            NULL,
-                            ImpersonationLevel,
-                            TokenImpersonation,
-                            DuplicateTokenHandle);
-}
-
-
-/*
- * @implemented
- */
-BOOL WINAPI
+BOOL STDCALL
 CheckTokenMembership(IN HANDLE ExistingTokenHandle,
                      IN PSID SidToCheck,
                      OUT PBOOL IsMember)
 {
-    PISECURITY_DESCRIPTOR SecurityDescriptor = NULL;
+    PSECURITY_DESCRIPTOR SecurityDescriptor = NULL;
     ACCESS_MASK GrantedAccess;
     struct
     {
@@ -394,7 +384,7 @@ CheckTokenMembership(IN HANDLE ExistingTokenHandle,
 
                 if (!DupRet)
                 {
-                    WARN("Failed to duplicate the primary token!\n");
+                    DPRINT1("Failed to duplicate the primary token!\n");
                     return FALSE;
                 }
 
@@ -489,6 +479,7 @@ CheckTokenMembership(IN HANDLE ExistingTokenHandle,
                            &PrivBufferSize,
                            &GrantedAccess,
                            &AccessStatus);
+
     if (NT_SUCCESS(Status) && NT_SUCCESS(AccessStatus) && (GrantedAccess == 0x1))
     {
         *IsMember = TRUE;
@@ -520,85 +511,89 @@ Cleanup:
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 IsTokenRestricted(HANDLE TokenHandle)
 {
-    ULONG RetLength;
-    PTOKEN_GROUPS lpGroups;
-    NTSTATUS Status;
-    BOOL Ret = FALSE;
+  ULONG RetLength;
+  PTOKEN_GROUPS lpGroups;
+  NTSTATUS Status;
+  BOOL Ret = FALSE;
+  
+  /* determine the required buffer size and allocate enough memory to read the
+     list of restricted SIDs */
 
-    /* determine the required buffer size and allocate enough memory to read the
-       list of restricted SIDs */
-    Status = NtQueryInformationToken(TokenHandle,
-                                     TokenRestrictedSids,
-                                     NULL,
-                                     0,
-                                     &RetLength);
-    if (Status != STATUS_BUFFER_TOO_SMALL)
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-
+  Status = NtQueryInformationToken(TokenHandle,
+                                   TokenRestrictedSids,
+                                   NULL,
+                                   0,
+                                   &RetLength);
+  if (Status != STATUS_BUFFER_TOO_SMALL)
+  {
+    SetLastError(RtlNtStatusToDosError(Status));
+    return FALSE;
+  }
+  
 AllocAndReadRestrictedSids:
-    lpGroups = (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(),
-                                        0,
-                                        RetLength);
-    if (lpGroups == NULL)
-    {
-        SetLastError(ERROR_OUTOFMEMORY);
-        return FALSE;
-    }
+  lpGroups = (PTOKEN_GROUPS)HeapAlloc(GetProcessHeap(),
+                                      0,
+                                      RetLength);
+  if (lpGroups == NULL)
+  {
+    SetLastError(ERROR_OUTOFMEMORY);
+    return FALSE;
+  }
+  
+  /* actually read the list of the restricted SIDs */
+  
+  Status = NtQueryInformationToken(TokenHandle,
+                                   TokenRestrictedSids,
+                                   lpGroups,
+                                   RetLength,
+                                   &RetLength);
+  if (NT_SUCCESS(Status))
+  {
+    Ret = (lpGroups->GroupCount != 0);
+  }
+  else if (Status == STATUS_BUFFER_TOO_SMALL)
+  {
+    /* looks like the token was modified in the meanwhile, let's just try again */
 
-    /* actually read the list of the restricted SIDs */
-    Status = NtQueryInformationToken(TokenHandle,
-                                     TokenRestrictedSids,
-                                     lpGroups,
-                                     RetLength,
-                                     &RetLength);
-    if (NT_SUCCESS(Status))
-    {
-        Ret = (lpGroups->GroupCount != 0);
-    }
-    else if (Status == STATUS_BUFFER_TOO_SMALL)
-    {
-        /* looks like the token was modified in the meanwhile, let's just try again */
-        HeapFree(GetProcessHeap(),
-                 0,
-                 lpGroups);
-
-        goto AllocAndReadRestrictedSids;
-    }
-    else
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-    }
-
-    /* free allocated memory */
     HeapFree(GetProcessHeap(),
              0,
              lpGroups);
 
-    return Ret;
+    goto AllocAndReadRestrictedSids;
+  }
+  else
+  {
+    SetLastError(RtlNtStatusToDosError(Status));
+  }
+  
+  /* free allocated memory */
+
+  HeapFree(GetProcessHeap(),
+           0,
+           lpGroups);
+
+  return Ret;
 }
 
-
-BOOL WINAPI
-CreateRestrictedToken(HANDLE TokenHandle,
-                      DWORD Flags,
-                      DWORD DisableSidCount,
-                      PSID_AND_ATTRIBUTES pSidAndAttributes,
-                      DWORD DeletePrivilegeCount,
-                      PLUID_AND_ATTRIBUTES pLUIDAndAttributes,
-                      DWORD RestrictedSidCount,
-                      PSID_AND_ATTRIBUTES pSIDAndAttributes,
-                      PHANDLE NewTokenHandle)
+BOOL STDCALL 
+CreateRestrictedToken(
+            HANDLE TokenHandle,
+            DWORD Flags,
+            DWORD DisableSidCount,
+            PSID_AND_ATTRIBUTES pSidAndAttributes,
+            DWORD DeletePrivilegeCount,
+            PLUID_AND_ATTRIBUTES pLUIDAndAttributes,
+            DWORD RestrictedSidCount,
+            PSID_AND_ATTRIBUTES pSIDAndAttributes,
+            PHANDLE NewTokenHandle
+)
 {
-    UNIMPLEMENTED;
+    FIXME("unimplemented!\n", __FUNCTION__);
     return FALSE;
 }
-
 
 /*
  * @unimplemented
@@ -641,7 +636,7 @@ GetSiteSidFromToken(IN HANDLE TokenHandle)
                                      &RetLen);
     if (NT_SUCCESS(Status))
     {
-        for (i = 0; i < RestrictedSids->GroupCount; i++)
+        for (i = 0; i < RestrictedSids->GroupCount; i++) 
         {
             SID* RSSid = RestrictedSids->Groups[i].Sid;
 
@@ -654,7 +649,7 @@ GetSiteSidFromToken(IN HANDLE TokenHandle)
                                            0,
                                            RtlLengthSid((RestrictedSids->
                                                          Groups[i]).Sid));
-                if (PSiteSid == NULL)
+                if (PSiteSid == NULL) 
                 {
                     SetLastError(ERROR_OUTOFMEMORY);
                 }
@@ -678,19 +673,3 @@ GetSiteSidFromToken(IN HANDLE TokenHandle)
     return PSiteSid;
 }
 
-
-BOOL
-WINAPI
-CreateProcessWithTokenW(IN HANDLE hToken,
-                        IN DWORD dwLogonFlags,
-                        IN LPCWSTR lpApplicationName OPTIONAL,
-                        IN OUT LPWSTR lpCommandLine OPTIONAL,
-                        IN DWORD dwCreationFlags,
-                        IN LPVOID lpEnvironment OPTIONAL,
-                        IN LPCWSTR lpCurrentDirectory OPTIONAL,
-                        IN LPSTARTUPINFOW lpStartupInfo,
-                        OUT LPPROCESS_INFORMATION lpProcessInfo)
-{
-    UNIMPLEMENTED;
-    return FALSE;
-}

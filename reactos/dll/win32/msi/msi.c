@@ -23,6 +23,7 @@
 #define COBJMACROS
 #define NONAMELESSUNION
 
+#include "stdio.h"
 #include "windef.h"
 #include "winbase.h"
 #include "winreg.h"
@@ -30,7 +31,6 @@
 #include "shlwapi.h"
 #include "wine/debug.h"
 #include "msi.h"
-#include "msidefs.h"
 #include "msiquery.h"
 #include "msipriv.h"
 #include "wincrypt.h"
@@ -44,31 +44,6 @@
 WINE_DEFAULT_DEBUG_CHANNEL(msi);
 
 static const WCHAR installerW[] = {'\\','I','n','s','t','a','l','l','e','r',0};
-
-static UINT msi_locate_product(LPCWSTR szProduct, MSIINSTALLCONTEXT *context)
-{
-    HKEY hkey = NULL;
-
-    *context = MSIINSTALLCONTEXT_NONE;
-
-    if (MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED,
-                              &hkey, FALSE) == ERROR_SUCCESS)
-        *context = MSIINSTALLCONTEXT_USERMANAGED;
-    else if (MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_MACHINE,
-                                   &hkey, FALSE) == ERROR_SUCCESS)
-        *context = MSIINSTALLCONTEXT_MACHINE;
-    else if (MSIREG_OpenProductKey(szProduct, NULL,
-                                   MSIINSTALLCONTEXT_USERUNMANAGED,
-                                   &hkey, FALSE) == ERROR_SUCCESS)
-        *context = MSIINSTALLCONTEXT_USERUNMANAGED;
-
-    RegCloseKey(hkey);
-
-    if (*context == MSIINSTALLCONTEXT_NONE)
-        return ERROR_UNKNOWN_PRODUCT;
-
-    return ERROR_SUCCESS;
-}
 
 UINT WINAPI MsiOpenProductA(LPCSTR szProduct, MSIHANDLE *phProduct)
 {
@@ -91,73 +66,69 @@ UINT WINAPI MsiOpenProductA(LPCSTR szProduct, MSIHANDLE *phProduct)
     return r;
 }
 
-static UINT MSI_OpenProductW(LPCWSTR szProduct, MSIPACKAGE **package)
+static UINT MSI_OpenProductW( LPCWSTR szProduct, MSIPACKAGE **ppackage )
 {
+    LPWSTR path = NULL;
     UINT r;
-    HKEY props;
-    LPWSTR path;
-    MSIINSTALLCONTEXT context;
+    HKEY hKeyProduct = NULL;
+    DWORD count, type;
 
-    static const WCHAR managed[] = {
-        'M','a','n','a','g','e','d','L','o','c','a','l','P','a','c','k','a','g','e',0};
-    static const WCHAR local[] = {'L','o','c','a','l','P','a','c','k','a','g','e',0};
+    TRACE("%s %p\n", debugstr_w(szProduct), ppackage );
 
-    TRACE("%s %p\n", debugstr_w(szProduct), package);
-
-    r = msi_locate_product(szProduct, &context);
-    if (r != ERROR_SUCCESS)
-        return r;
-
-    r = MSIREG_OpenInstallProps(szProduct, context, NULL, &props, FALSE);
-    if (r != ERROR_SUCCESS)
-        return ERROR_UNKNOWN_PRODUCT;
-
-    if (context == MSIINSTALLCONTEXT_USERMANAGED)
-        path = msi_reg_get_val_str(props, managed);
-    else
-        path = msi_reg_get_val_str(props, local);
-
-    r = ERROR_UNKNOWN_PRODUCT;
-
-    if (!path || GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES)
-        goto done;
-
-    if (PathIsRelativeW(path))
+    r = MSIREG_OpenUninstallKey(szProduct,&hKeyProduct,FALSE);
+    if( r != ERROR_SUCCESS )
     {
-        r = ERROR_INSTALL_PACKAGE_OPEN_FAILED;
-        goto done;
+        r = ERROR_UNKNOWN_PRODUCT;
+        goto end;
     }
 
-    r = MSI_OpenPackageW(path, package);
+    /* find the size of the path */
+    type = count = 0;
+    r = RegQueryValueExW( hKeyProduct, INSTALLPROPERTY_LOCALPACKAGEW,
+                          NULL, &type, NULL, &count );
+    if( r != ERROR_SUCCESS )
+    {
+        r = ERROR_UNKNOWN_PRODUCT;
+        goto end;
+    }
 
-done:
-    RegCloseKey(props);
-    msi_free(path);
+    /* now alloc and fetch the path of the database to open */
+    path = msi_alloc( count );
+    if( !path )
+        goto end;
+
+    r = RegQueryValueExW( hKeyProduct, INSTALLPROPERTY_LOCALPACKAGEW,
+                          NULL, &type, (LPBYTE) path, &count );
+    if( r != ERROR_SUCCESS )
+    {
+        r = ERROR_UNKNOWN_PRODUCT;
+        goto end;
+    }
+
+    r = MSI_OpenPackageW( path, ppackage );
+
+end:
+    msi_free( path );
+    if( hKeyProduct )
+        RegCloseKey( hKeyProduct );
+
     return r;
 }
 
-UINT WINAPI MsiOpenProductW(LPCWSTR szProduct, MSIHANDLE *phProduct)
+UINT WINAPI MsiOpenProductW( LPCWSTR szProduct, MSIHANDLE *phProduct )
 {
-    MSIPACKAGE *package = NULL;
-    WCHAR squished_pc[GUID_SIZE];
-    UINT r;
+   MSIPACKAGE *package = NULL;
+   UINT r;
 
-    if (!szProduct || !squash_guid(szProduct, squished_pc))
-        return ERROR_INVALID_PARAMETER;
-
-    if (!phProduct)
-        return ERROR_INVALID_PARAMETER;
-
-    r = MSI_OpenProductW(szProduct, &package);
-    if (r != ERROR_SUCCESS)
-        return r;
-
-    *phProduct = alloc_msihandle(&package->hdr);
-    if (!*phProduct)
-        r = ERROR_NOT_ENOUGH_MEMORY;
-
-    msiobj_release(&package->hdr);
-    return r;
+   r = MSI_OpenProductW( szProduct, &package );
+   if( r == ERROR_SUCCESS )
+   {
+       *phProduct = alloc_msihandle( &package->hdr );
+       if (! *phProduct)
+           r = ERROR_NOT_ENOUGH_MEMORY;
+       msiobj_release( &package->hdr );
+   }
+   return r;
 }
 
 UINT WINAPI MsiAdvertiseProductA(LPCSTR szPackagePath, LPCSTR szScriptfilePath,
@@ -231,12 +202,6 @@ UINT WINAPI MsiInstallProductW(LPCWSTR szPackagePath, LPCWSTR szCommandLine)
 
     TRACE("%s %s\n",debugstr_w(szPackagePath), debugstr_w(szCommandLine));
 
-    if (!szPackagePath)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!*szPackagePath)
-        return ERROR_PATH_NOT_FOUND;
-
     r = MSI_OpenPackageW( szPackagePath, &package );
     if (r == ERROR_SUCCESS)
     {
@@ -249,425 +214,73 @@ UINT WINAPI MsiInstallProductW(LPCWSTR szPackagePath, LPCWSTR szCommandLine)
 
 UINT WINAPI MsiReinstallProductA(LPCSTR szProduct, DWORD dwReinstallMode)
 {
-    LPWSTR wszProduct;
-    UINT rc;
-
-    TRACE("%s %08x\n", debugstr_a(szProduct), dwReinstallMode);
-
-    wszProduct = strdupAtoW(szProduct);
-
-    rc = MsiReinstallProductW(wszProduct, dwReinstallMode);
-
-    msi_free(wszProduct);
-    return rc;
+    FIXME("%s %08x\n", debugstr_a(szProduct), dwReinstallMode);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 UINT WINAPI MsiReinstallProductW(LPCWSTR szProduct, DWORD dwReinstallMode)
 {
-    static const WCHAR szAll[] = {'A','L','L',0};
-
-    TRACE("%s %08x\n", debugstr_w(szProduct), dwReinstallMode);
-
-    return MsiReinstallFeatureW(szProduct, szAll, dwReinstallMode);
+    FIXME("%s %08x\n", debugstr_w(szProduct), dwReinstallMode);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 UINT WINAPI MsiApplyPatchA(LPCSTR szPatchPackage, LPCSTR szInstallPackage,
         INSTALLTYPE eInstallType, LPCSTR szCommandLine)
 {
-    LPWSTR patch_package = NULL;
-    LPWSTR install_package = NULL;
-    LPWSTR command_line = NULL;
-    UINT r = ERROR_OUTOFMEMORY;
-
-    TRACE("%s %s %d %s\n", debugstr_a(szPatchPackage), debugstr_a(szInstallPackage),
+    FIXME("%s %s %d %s\n", debugstr_a(szPatchPackage), debugstr_a(szInstallPackage),
           eInstallType, debugstr_a(szCommandLine));
-
-    if (szPatchPackage && !(patch_package = strdupAtoW(szPatchPackage)))
-        goto done;
-
-    if (szInstallPackage && !(install_package = strdupAtoW(szInstallPackage)))
-        goto done;
-
-    if (szCommandLine && !(command_line = strdupAtoW(szCommandLine)))
-        goto done;
-
-    r = MsiApplyPatchW(patch_package, install_package, eInstallType, command_line);
-
-done:
-    msi_free(patch_package);
-    msi_free(install_package);
-    msi_free(command_line);
-
-    return r;
-}
-
-static UINT MSI_ApplyPatchW(LPCWSTR szPatchPackage, LPCWSTR szProductCode, LPCWSTR szCommandLine)
-{
-    MSIHANDLE patch = 0, info = 0;
-    UINT r = ERROR_SUCCESS, type;
-    DWORD size = 0;
-    LPCWSTR cmd_ptr = szCommandLine;
-    LPCWSTR product_code = szProductCode;
-    LPWSTR beg, end;
-    LPWSTR cmd = NULL, codes = NULL;
-
-    static const WCHAR space[] = {' ',0};
-    static const WCHAR patcheq[] = {'P','A','T','C','H','=',0};
-    static WCHAR empty[] = {0};
-
-    if (!szPatchPackage || !szPatchPackage[0])
-        return ERROR_INVALID_PARAMETER;
-
-    if (!szProductCode)
-    {
-        r = MsiOpenDatabaseW(szPatchPackage, MSIDBOPEN_READONLY, &patch);
-        if (r != ERROR_SUCCESS)
-            return r;
-
-        r = MsiGetSummaryInformationW(patch, NULL, 0, &info);
-        if (r != ERROR_SUCCESS)
-            goto done;
-
-        r = MsiSummaryInfoGetPropertyW(info, PID_TEMPLATE, &type, NULL, NULL, empty, &size);
-        if (r != ERROR_MORE_DATA || !size || type != VT_LPSTR)
-        {
-            ERR("Failed to read product codes from patch\n");
-            goto done;
-        }
-
-        codes = msi_alloc(++size * sizeof(WCHAR));
-        if (!codes)
-        {
-            r = ERROR_OUTOFMEMORY;
-            goto done;
-        }
-
-        r = MsiSummaryInfoGetPropertyW(info, PID_TEMPLATE, &type, NULL, NULL, codes, &size);
-        if (r != ERROR_SUCCESS)
-            goto done;
-
-        product_code = codes;
-    }
-
-    if (!szCommandLine)
-        cmd_ptr = empty;
-
-    size = lstrlenW(cmd_ptr) + lstrlenW(patcheq) + lstrlenW(szPatchPackage) + 1;
-    cmd = msi_alloc(size * sizeof(WCHAR));
-    if (!cmd)
-    {
-        r = ERROR_OUTOFMEMORY;
-        goto done;
-    }
-
-    lstrcpyW(cmd, cmd_ptr);
-    if (szCommandLine) lstrcatW(cmd, space);
-    lstrcatW(cmd, patcheq);
-    lstrcatW(cmd, szPatchPackage);
-
-    beg = codes;
-    while ((end = strchrW(beg, '}')))
-    {
-        *(end + 1) = '\0';
-
-        r = MsiConfigureProductExW(beg, INSTALLLEVEL_DEFAULT, INSTALLSTATE_DEFAULT, cmd);
-        if (r != ERROR_SUCCESS)
-            goto done;
-
-        beg = end + 2;
-    }
-
-done:
-    msi_free(cmd);
-    msi_free(codes);
-
-    MsiCloseHandle(info);
-    MsiCloseHandle(patch);
-
-    return r;
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 UINT WINAPI MsiApplyPatchW(LPCWSTR szPatchPackage, LPCWSTR szInstallPackage,
          INSTALLTYPE eInstallType, LPCWSTR szCommandLine)
 {
-    TRACE("%s %s %d %s\n", debugstr_w(szPatchPackage), debugstr_w(szInstallPackage),
+    FIXME("%s %s %d %s\n", debugstr_w(szPatchPackage), debugstr_w(szInstallPackage),
           eInstallType, debugstr_w(szCommandLine));
-
-    if (szInstallPackage || eInstallType == INSTALLTYPE_NETWORK_IMAGE ||
-        eInstallType == INSTALLTYPE_SINGLE_INSTANCE)
-    {
-        FIXME("Only reading target products from patch\n");
-        return ERROR_CALL_NOT_IMPLEMENTED;
-    }
-
-    return MSI_ApplyPatchW(szPatchPackage, NULL, szCommandLine);
-}
-
-UINT WINAPI MsiApplyMultiplePatchesA(LPCSTR szPatchPackages,
-        LPCSTR szProductCode, LPCSTR szPropertiesList)
-{
-    LPWSTR patch_packages = NULL;
-    LPWSTR product_code = NULL;
-    LPWSTR properties_list = NULL;
-    UINT r = ERROR_OUTOFMEMORY;
-
-    TRACE("%s %s %s\n", debugstr_a(szPatchPackages), debugstr_a(szProductCode),
-          debugstr_a(szPropertiesList));
-
-    if (!szPatchPackages || !szPatchPackages[0])
-        return ERROR_INVALID_PARAMETER;
-
-    if (!(patch_packages = strdupAtoW(szPatchPackages)))
-        return ERROR_OUTOFMEMORY;
-
-    if (szProductCode && !(product_code = strdupAtoW(szProductCode)))
-        goto done;
-
-    if (szPropertiesList && !(properties_list = strdupAtoW(szPropertiesList)))
-        goto done;
-
-    r = MsiApplyMultiplePatchesW(patch_packages, product_code, properties_list);
-
-done:
-    msi_free(patch_packages);
-    msi_free(product_code);
-    msi_free(properties_list);
-
-    return r;
-}
-
-UINT WINAPI MsiApplyMultiplePatchesW(LPCWSTR szPatchPackages,
-        LPCWSTR szProductCode, LPCWSTR szPropertiesList)
-{
-    UINT r = ERROR_SUCCESS;
-    LPCWSTR beg, end;
-
-    TRACE("%s %s %s\n", debugstr_w(szPatchPackages), debugstr_w(szProductCode),
-          debugstr_w(szPropertiesList));
-
-    if (!szPatchPackages || !szPatchPackages[0])
-        return ERROR_INVALID_PARAMETER;
-
-    beg = end = szPatchPackages;
-    while (*beg)
-    {
-        DWORD len;
-        LPWSTR patch;
-
-        while (*beg == ' ') beg++;
-        while (*end && *end != ';') end++;
-
-        len = end - beg;
-        while (len && beg[len - 1] == ' ') len--;
-
-        if (!len) return ERROR_INVALID_NAME;
-
-        patch = msi_alloc((len + 1) * sizeof(WCHAR));
-        if (!patch)
-            return ERROR_OUTOFMEMORY;
-
-        memcpy(patch, beg, len * sizeof(WCHAR));
-        patch[len] = '\0';
-
-        r = MSI_ApplyPatchW(patch, szProductCode, szPropertiesList);
-        msi_free(patch);
-
-        if (r != ERROR_SUCCESS)
-            break;
-
-        beg = ++end;
-    }
-    return r;
-}
-
-UINT WINAPI MsiDetermineApplicablePatchesA(LPCSTR szProductPackagePath,
-        DWORD cPatchInfo, PMSIPATCHSEQUENCEINFOA pPatchInfo)
-{
-    FIXME("(%s, %d, %p): stub!\n", debugstr_a(szProductPackagePath),
-          cPatchInfo, pPatchInfo);
-
     return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-static UINT MSI_ApplicablePatchW( MSIPACKAGE *package, LPCWSTR patch )
-{
-    MSISUMMARYINFO *si;
-    MSIDATABASE *patch_db;
-    UINT r = ERROR_SUCCESS;
-
-    r = MSI_OpenDatabaseW( patch, MSIDBOPEN_READONLY, &patch_db );
-    if (r != ERROR_SUCCESS)
-    {
-        WARN("failed to open patch file %s\n", debugstr_w(patch));
-        return r;
-    }
-
-    si = MSI_GetSummaryInformationW( patch_db->storage, 0 );
-    if (!si)
-    {
-        r = ERROR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    r = msi_check_patch_applicable( package, si );
-    if (r != ERROR_SUCCESS)
-        TRACE("patch not applicable\n");
-
-done:
-    msiobj_release( &patch_db->hdr );
-    msiobj_release( &si->hdr );
-    return r;
-}
-
-UINT WINAPI MsiDetermineApplicablePatchesW(LPCWSTR szProductPackagePath,
-        DWORD cPatchInfo, PMSIPATCHSEQUENCEINFOW pPatchInfo)
-{
-    UINT i, r, ret = ERROR_FUNCTION_FAILED;
-    MSIPACKAGE *package;
-
-    TRACE("(%s, %d, %p)\n", debugstr_w(szProductPackagePath), cPatchInfo, pPatchInfo);
-
-    r = MSI_OpenPackageW( szProductPackagePath, &package );
-    if (r != ERROR_SUCCESS)
-    {
-        ERR("failed to open package %u\n", r);
-        return r;
-    }
-
-    for (i = 0; i < cPatchInfo; i++)
-    {
-        switch (pPatchInfo[i].ePatchDataType)
-        {
-        case MSIPATCH_DATATYPE_PATCHFILE:
-        {
-            FIXME("patch ordering not supported\n");
-            r = MSI_ApplicablePatchW( package, pPatchInfo[i].szPatchData );
-            if (r != ERROR_SUCCESS)
-            {
-                pPatchInfo[i].dwOrder = ~0u;
-                pPatchInfo[i].uStatus = ERROR_PATCH_TARGET_NOT_FOUND;
-            }
-            else
-            {
-                pPatchInfo[i].dwOrder = i;
-                pPatchInfo[i].uStatus = ret = ERROR_SUCCESS;
-            }
-            break;
-        }
-        default:
-        {
-            FIXME("patch data type %u not supported\n", pPatchInfo[i].ePatchDataType);
-            pPatchInfo[i].dwOrder = ~0u;
-            pPatchInfo[i].uStatus = ERROR_PATCH_TARGET_NOT_FOUND;
-            break;
-        }
-        }
-
-        TRACE("   szPatchData: %s\n", debugstr_w(pPatchInfo[i].szPatchData));
-        TRACE("ePatchDataType: %u\n", pPatchInfo[i].ePatchDataType);
-        TRACE("       dwOrder: %u\n", pPatchInfo[i].dwOrder);
-        TRACE("       uStatus: %u\n", pPatchInfo[i].uStatus);
-    }
-    return ret;
-}
-
-UINT WINAPI MsiDeterminePatchSequenceA(LPCSTR szProductCode, LPCSTR szUserSid,
-    MSIINSTALLCONTEXT dwContext, DWORD cPatchInfo, PMSIPATCHSEQUENCEINFOA pPatchInfo)
-{
-    FIXME("(%s, %s, %d, %d, %p): stub!\n", debugstr_a(szProductCode),
-          debugstr_a(szUserSid), dwContext, cPatchInfo, pPatchInfo);
-
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-UINT WINAPI MsiDeterminePatchSequenceW(LPCWSTR szProductCode, LPCWSTR szUserSid,
-    MSIINSTALLCONTEXT dwContext, DWORD cPatchInfo, PMSIPATCHSEQUENCEINFOW pPatchInfo)
-{
-    FIXME("(%s, %s, %d, %d, %p): stub!\n", debugstr_w(szProductCode),
-          debugstr_w(szUserSid), dwContext, cPatchInfo, pPatchInfo);
-
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-static UINT msi_open_package(LPCWSTR product, MSIINSTALLCONTEXT context,
-                             MSIPACKAGE **package)
-{
-    UINT r;
-    DWORD sz;
-    HKEY props;
-    LPWSTR localpack;
-    WCHAR sourcepath[MAX_PATH];
-    WCHAR filename[MAX_PATH];
-
-    static const WCHAR szLocalPackage[] = {
-        'L','o','c','a','l','P','a','c','k','a','g','e',0};
-
-
-    r = MSIREG_OpenInstallProps(product, context, NULL, &props, FALSE);
-    if (r != ERROR_SUCCESS)
-        return ERROR_BAD_CONFIGURATION;
-
-    localpack = msi_reg_get_val_str(props, szLocalPackage);
-    if (localpack)
-    {
-        lstrcpyW(sourcepath, localpack);
-        msi_free(localpack);
-    }
-
-    if (!localpack || GetFileAttributesW(sourcepath) == INVALID_FILE_ATTRIBUTES)
-    {
-        sz = sizeof(sourcepath);
-        MsiSourceListGetInfoW(product, NULL, context, MSICODE_PRODUCT,
-                              INSTALLPROPERTY_LASTUSEDSOURCEW, sourcepath, &sz);
-
-        sz = sizeof(filename);
-        MsiSourceListGetInfoW(product, NULL, context, MSICODE_PRODUCT,
-                              INSTALLPROPERTY_PACKAGENAMEW, filename, &sz);
-
-        lstrcatW(sourcepath, filename);
-    }
-
-    if (GetFileAttributesW(sourcepath) == INVALID_FILE_ATTRIBUTES)
-        return ERROR_INSTALL_SOURCE_ABSENT;
-
-    return MSI_OpenPackageW(sourcepath, package);
 }
 
 UINT WINAPI MsiConfigureProductExW(LPCWSTR szProduct, int iInstallLevel,
                         INSTALLSTATE eInstallState, LPCWSTR szCommandLine)
 {
     MSIPACKAGE* package = NULL;
-    MSIINSTALLCONTEXT context;
     UINT r;
     DWORD sz;
-    WCHAR sourcepath[MAX_PATH], filename[MAX_PATH];
-    LPWSTR commandline;
-
+    WCHAR sourcepath[MAX_PATH];
+    WCHAR filename[MAX_PATH];
     static const WCHAR szInstalled[] = {
         ' ','I','n','s','t','a','l','l','e','d','=','1',0};
-    static const WCHAR szRemoveAll[] = {
-        ' ','R','E','M','O','V','E','=','A','L','L',0};
-    static const WCHAR szMachine[] = {
-        ' ','A','L','L','U','S','E','R','S','=','1',0};
+    LPWSTR commandline;
 
     TRACE("%s %d %d %s\n",debugstr_w(szProduct), iInstallLevel, eInstallState,
           debugstr_w(szCommandLine));
 
-    if (!szProduct || lstrlenW(szProduct) != GUID_SIZE - 1)
-        return ERROR_INVALID_PARAMETER;
-
-    if (eInstallState == INSTALLSTATE_ADVERTISED ||
-        eInstallState == INSTALLSTATE_SOURCE)
+    if (eInstallState != INSTALLSTATE_LOCAL &&
+        eInstallState != INSTALLSTATE_DEFAULT)
     {
-        FIXME("State %d not implemented\n", eInstallState);
+        FIXME("Not implemented for anything other than local installs\n");
         return ERROR_CALL_NOT_IMPLEMENTED;
     }
 
-    r = msi_locate_product(szProduct, &context);
-    if (r != ERROR_SUCCESS)
-        return r;
+    sz = sizeof(sourcepath);
+    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED, 
+            MSICODE_PRODUCT, INSTALLPROPERTY_LASTUSEDSOURCEW, sourcepath,
+            &sz);
 
-    r = msi_open_package(szProduct, context, &package);
+    sz = sizeof(filename);
+    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED, 
+            MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAMEW, filename, &sz);
+
+    lstrcatW(sourcepath,filename);
+
+    /*
+     * ok 1, we need to find the msi file for this product.
+     *    2, find the source dir for the files
+     *    3, do the configure/install.
+     *    4, cleanupany runonce entry.
+     */
+
+    r = MSI_OpenProductW( szProduct, &package );
     if (r != ERROR_SUCCESS)
         return r;
 
@@ -676,14 +289,8 @@ UINT WINAPI MsiConfigureProductExW(LPCWSTR szProduct, int iInstallLevel,
     if (szCommandLine)
         sz += lstrlenW(szCommandLine);
 
-    if (eInstallState == INSTALLSTATE_ABSENT)
-        sz += lstrlenW(szRemoveAll);
-
-    if (context == MSIINSTALLCONTEXT_MACHINE)
-        sz += lstrlenW(szMachine);
-
     commandline = msi_alloc(sz * sizeof(WCHAR));
-    if (!commandline)
+    if (!commandline )
     {
         r = ERROR_OUTOFMEMORY;
         goto end;
@@ -693,21 +300,8 @@ UINT WINAPI MsiConfigureProductExW(LPCWSTR szProduct, int iInstallLevel,
     if (szCommandLine)
         lstrcpyW(commandline,szCommandLine);
 
-    if (eInstallState == INSTALLSTATE_ABSENT)
-        lstrcatW(commandline, szRemoveAll);
-
-    if (context == MSIINSTALLCONTEXT_MACHINE)
-        lstrcatW(commandline, szMachine);
-
-    sz = sizeof(sourcepath);
-    MsiSourceListGetInfoW(szProduct, NULL, context, MSICODE_PRODUCT,
-                          INSTALLPROPERTY_LASTUSEDSOURCEW, sourcepath, &sz);
-
-    sz = sizeof(filename);
-    MsiSourceListGetInfoW(szProduct, NULL, context, MSICODE_PRODUCT,
-                          INSTALLPROPERTY_PACKAGENAMEW, filename, &sz);
-
-    strcatW(sourcepath, filename);
+    if (MsiQueryProductStateW(szProduct) != INSTALLSTATE_UNKNOWN)
+        lstrcatW(commandline,szInstalled);
 
     r = MSI_InstallPackage( package, sourcepath, commandline );
 
@@ -791,10 +385,9 @@ UINT WINAPI MsiGetProductCodeA(LPCSTR szComponent, LPSTR szBuffer)
             return ERROR_OUTOFMEMORY;
     }
 
-    *szwBuffer = '\0';
     r = MsiGetProductCodeW( szwComponent, szwBuffer );
 
-    if(*szwBuffer)
+    if( ERROR_SUCCESS == r )
         WideCharToMultiByte(CP_ACP, 0, szwBuffer, -1, szBuffer, GUID_SIZE, NULL, NULL);
 
     msi_free( szwComponent );
@@ -804,270 +397,149 @@ UINT WINAPI MsiGetProductCodeA(LPCSTR szComponent, LPSTR szBuffer)
 
 UINT WINAPI MsiGetProductCodeW(LPCWSTR szComponent, LPWSTR szBuffer)
 {
-    UINT rc, index;
-    HKEY compkey, prodkey;
-    WCHAR squished_comp[GUID_SIZE];
-    WCHAR squished_prod[GUID_SIZE];
+    UINT rc;
+    HKEY hkey;
+    WCHAR szSquished[GUID_SIZE];
     DWORD sz = GUID_SIZE;
+    static const WCHAR szPermKey[] =
+        { '0','0','0','0','0','0','0','0','0','0','0','0',
+          '0','0','0','0','0','0','0','0','0','0','0','0',
+          '0','0','0','0','0','0','0','0',0};
 
-    TRACE("%s %p\n", debugstr_w(szComponent), szBuffer);
+    TRACE("%s %p\n",debugstr_w(szComponent), szBuffer);
 
-    if (!szComponent || !*szComponent)
+    if (NULL == szComponent)
         return ERROR_INVALID_PARAMETER;
 
-    if (!squash_guid(szComponent, squished_comp))
-        return ERROR_INVALID_PARAMETER;
-
-    if (MSIREG_OpenUserDataComponentKey(szComponent, NULL, &compkey, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenUserDataComponentKey(szComponent, szLocalSid, &compkey, FALSE) != ERROR_SUCCESS)
-    {
-        return ERROR_UNKNOWN_COMPONENT;
-    }
-
-    rc = RegEnumValueW(compkey, 0, squished_prod, &sz, NULL, NULL, NULL, NULL);
+    rc = MSIREG_OpenComponentsKey( szComponent, &hkey, FALSE);
     if (rc != ERROR_SUCCESS)
-    {
-        RegCloseKey(compkey);
         return ERROR_UNKNOWN_COMPONENT;
-    }
 
-    /* check simple case, only one product */
-    rc = RegEnumValueW(compkey, 1, squished_prod, &sz, NULL, NULL, NULL, NULL);
-    if (rc == ERROR_NO_MORE_ITEMS)
+    rc = RegEnumValueW(hkey, 0, szSquished, &sz, NULL, NULL, NULL, NULL);
+    if (rc == ERROR_SUCCESS && strcmpW(szSquished,szPermKey)==0)
     {
-        rc = ERROR_SUCCESS;
-        goto done;
-    }
-
-    index = 0;
-    while ((rc = RegEnumValueW(compkey, index, squished_prod, &sz,
-           NULL, NULL, NULL, NULL)) != ERROR_NO_MORE_ITEMS)
-    {
-        index++;
         sz = GUID_SIZE;
-        unsquash_guid(squished_prod, szBuffer);
-
-        if (MSIREG_OpenProductKey(szBuffer, NULL,
-                                  MSIINSTALLCONTEXT_USERMANAGED,
-                                  &prodkey, FALSE) == ERROR_SUCCESS ||
-            MSIREG_OpenProductKey(szBuffer, NULL,
-                                  MSIINSTALLCONTEXT_USERUNMANAGED,
-                                  &prodkey, FALSE) == ERROR_SUCCESS ||
-            MSIREG_OpenProductKey(szBuffer, NULL,
-                                  MSIINSTALLCONTEXT_MACHINE,
-                                  &prodkey, FALSE) == ERROR_SUCCESS)
-        {
-            RegCloseKey(prodkey);
-            rc = ERROR_SUCCESS;
-            goto done;
-        }
+        rc = RegEnumValueW(hkey, 1, szSquished, &sz, NULL, NULL, NULL, NULL);
     }
 
-    rc = ERROR_INSTALL_FAILURE;
+    RegCloseKey(hkey);
 
-done:
-    RegCloseKey(compkey);
-    unsquash_guid(squished_prod, szBuffer);
-    return rc;
+    if (rc != ERROR_SUCCESS)
+        return ERROR_INSTALL_FAILURE;
+
+    unsquash_guid(szSquished, szBuffer);
+    return ERROR_SUCCESS;
 }
 
-static LPWSTR msi_reg_get_value(HKEY hkey, LPCWSTR name, DWORD *type)
+static UINT WINAPI MSI_GetProductInfo(LPCWSTR szProduct, LPCWSTR szAttribute,
+                                      awstring *szValue, DWORD *pcchValueBuf)
 {
-    DWORD dval;
-    LONG res;
-    WCHAR temp[20];
-
-    static const WCHAR format[] = {'%','d',0};
-
-    res = RegQueryValueExW(hkey, name, NULL, type, NULL, NULL);
-    if (res != ERROR_SUCCESS)
-        return NULL;
-
-    if (*type == REG_SZ)
-        return msi_reg_get_val_str(hkey, name);
-
-    if (!msi_reg_get_val_dword(hkey, name, &dval))
-        return NULL;
-
-    sprintfW(temp, format, dval);
-    return strdupW(temp);
-}
-
-static UINT MSI_GetProductInfo(LPCWSTR szProduct, LPCWSTR szAttribute,
-                               awstring *szValue, LPDWORD pcchValueBuf)
-{
-    MSIINSTALLCONTEXT context = MSIINSTALLCONTEXT_USERUNMANAGED;
-    UINT r = ERROR_UNKNOWN_PROPERTY;
-    HKEY prodkey, userdata, source;
+    UINT r;
+    HKEY hkey;
     LPWSTR val = NULL;
-    WCHAR squished_pc[GUID_SIZE];
-    WCHAR packagecode[GUID_SIZE];
-    BOOL badconfig = FALSE;
-    LONG res;
-    DWORD save, type = REG_NONE;
-
-    static WCHAR empty[] = {0};
-    static const WCHAR sourcelist[] = {
-        'S','o','u','r','c','e','L','i','s','t',0};
-    static const WCHAR display_name[] = {
-        'D','i','s','p','l','a','y','N','a','m','e',0};
-    static const WCHAR display_version[] = {
-        'D','i','s','p','l','a','y','V','e','r','s','i','o','n',0};
-    static const WCHAR assignment[] = {
-        'A','s','s','i','g','n','m','e','n','t',0};
 
     TRACE("%s %s %p %p\n", debugstr_w(szProduct),
           debugstr_w(szAttribute), szValue, pcchValueBuf);
 
+    /*
+     * FIXME: Values seem scattered/duplicated in the registry. Is there a system?
+     */
+
     if ((szValue->str.w && !pcchValueBuf) || !szProduct || !szAttribute)
         return ERROR_INVALID_PARAMETER;
 
-    if (!squash_guid(szProduct, squished_pc))
-        return ERROR_INVALID_PARAMETER;
-
-    if ((r = MSIREG_OpenProductKey(szProduct, NULL,
-                                   MSIINSTALLCONTEXT_USERMANAGED,
-                                   &prodkey, FALSE)) != ERROR_SUCCESS &&
-        (r = MSIREG_OpenProductKey(szProduct, NULL,
-                                   MSIINSTALLCONTEXT_USERUNMANAGED,
-                                   &prodkey, FALSE)) != ERROR_SUCCESS &&
-        (r = MSIREG_OpenProductKey(szProduct, NULL,
-                                   MSIINSTALLCONTEXT_MACHINE,
-                                    &prodkey, FALSE)) == ERROR_SUCCESS)
+    /* check for special properties */
+    if (!lstrcmpW(szAttribute, INSTALLPROPERTY_PACKAGECODEW))
     {
-        context = MSIINSTALLCONTEXT_MACHINE;
-    }
+        LPWSTR regval;
+        WCHAR packagecode[35];
 
-    MSIREG_OpenInstallProps(szProduct, context, NULL, &userdata, FALSE);
+        r = MSIREG_OpenUserProductsKey(szProduct, &hkey, FALSE);
+        if (r != ERROR_SUCCESS)
+            return ERROR_UNKNOWN_PRODUCT;
 
-    if (!lstrcmpW(szAttribute, INSTALLPROPERTY_HELPLINKW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_HELPTELEPHONEW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_INSTALLDATEW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_INSTALLEDPRODUCTNAMEW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_INSTALLLOCATIONW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_INSTALLSOURCEW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_LOCALPACKAGEW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_PUBLISHERW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_URLINFOABOUTW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_URLUPDATEINFOW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_VERSIONMINORW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_VERSIONMAJORW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_VERSIONSTRINGW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_PRODUCTIDW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_REGCOMPANYW) ||
-        !lstrcmpW(szAttribute, INSTALLPROPERTY_REGOWNERW))
-    {
-        if (!prodkey)
+        regval = msi_reg_get_val_str( hkey, szAttribute );
+        if (regval)
         {
-            r = ERROR_UNKNOWN_PRODUCT;
-            goto done;
-        }
-
-        if (!userdata)
-            return ERROR_UNKNOWN_PROPERTY;
-
-        if (!lstrcmpW(szAttribute, INSTALLPROPERTY_INSTALLEDPRODUCTNAMEW))
-            szAttribute = display_name;
-        else if (!lstrcmpW(szAttribute, INSTALLPROPERTY_VERSIONSTRINGW))
-            szAttribute = display_version;
-
-        val = msi_reg_get_value(userdata, szAttribute, &type);
-        if (!val)
-            val = empty;
-    }
-    else if (!lstrcmpW(szAttribute, INSTALLPROPERTY_INSTANCETYPEW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_TRANSFORMSW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_LANGUAGEW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_PRODUCTNAMEW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_ASSIGNMENTTYPEW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_PACKAGECODEW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_VERSIONW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_PRODUCTICONW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_PACKAGENAMEW) ||
-             !lstrcmpW(szAttribute, INSTALLPROPERTY_AUTHORIZED_LUA_APPW))
-    {
-        if (!prodkey)
-        {
-            r = ERROR_UNKNOWN_PRODUCT;
-            goto done;
-        }
-
-        if (!lstrcmpW(szAttribute, INSTALLPROPERTY_ASSIGNMENTTYPEW))
-            szAttribute = assignment;
-
-        if (!lstrcmpW(szAttribute, INSTALLPROPERTY_PACKAGENAMEW))
-        {
-            res = RegOpenKeyW(prodkey, sourcelist, &source);
-            if (res != ERROR_SUCCESS)
-            {
-                r = ERROR_UNKNOWN_PRODUCT;
-                goto done;
-            }
-
-            val = msi_reg_get_value(source, szAttribute, &type);
-            if (!val)
-                val = empty;
-
-            RegCloseKey(source);
-        }
-        else
-        {
-            val = msi_reg_get_value(prodkey, szAttribute, &type);
-            if (!val)
-                val = empty;
-        }
-
-        if (val != empty && type != REG_DWORD &&
-            !lstrcmpW(szAttribute, INSTALLPROPERTY_PACKAGECODEW))
-        {
-            if (lstrlenW(val) != SQUISH_GUID_SIZE - 1)
-                badconfig = TRUE;
-            else
-            {
-                unsquash_guid(val, packagecode);
-                msi_free(val);
+            if (unsquash_guid(regval, packagecode))
                 val = strdupW(packagecode);
-            }
+            msi_free(regval);
         }
+
+        RegCloseKey(hkey);
     }
+    else if (!lstrcmpW(szAttribute, INSTALLPROPERTY_ASSIGNMENTTYPEW))
+    {
+        static const WCHAR one[] = { '1',0 };
+        /*
+         * FIXME: should be in the Product key (user or system?)
+         *        but isn't written yet...
+         */
+        val = strdupW( one );
+    }
+    else if (!lstrcmpW(szAttribute, INSTALLPROPERTY_LANGUAGEW) ||
+             !lstrcmpW(szAttribute, INSTALLPROPERTY_VERSIONW))
+    {
+        static const WCHAR fmt[] = { '%','u',0 };
+        WCHAR szVal[16];
+        DWORD regval;
+
+        r = MSIREG_OpenUninstallKey(szProduct, &hkey, FALSE);
+        if (r != ERROR_SUCCESS)
+            return ERROR_UNKNOWN_PRODUCT;
+
+        if (msi_reg_get_val_dword( hkey, szAttribute, &regval))
+        {
+            sprintfW(szVal, fmt, regval);
+            val = strdupW( szVal );
+        }
+
+        RegCloseKey(hkey);
+    }
+    else if (!lstrcmpW(szAttribute, INSTALLPROPERTY_PRODUCTNAMEW))
+    {
+        r = MSIREG_OpenUserProductsKey(szProduct, &hkey, FALSE);
+        if (r != ERROR_SUCCESS)
+            return ERROR_UNKNOWN_PRODUCT;
+
+        val = msi_reg_get_val_str( hkey, szAttribute );
+
+        RegCloseKey(hkey);
+    }
+    else
+    {
+        static const WCHAR szDisplayVersion[] = {
+            'D','i','s','p','l','a','y','V','e','r','s','i','o','n',0 };
+
+        FIXME("%s\n", debugstr_w(szAttribute));
+        /* FIXME: some attribute values not tested... */
+
+        if (!lstrcmpW( szAttribute, INSTALLPROPERTY_VERSIONSTRINGW ))
+            szAttribute = szDisplayVersion;
+
+        r = MSIREG_OpenUninstallKey( szProduct, &hkey, FALSE );
+        if (r != ERROR_SUCCESS)
+            return ERROR_UNKNOWN_PRODUCT;
+
+        val = msi_reg_get_val_str( hkey, szAttribute );
+
+        RegCloseKey(hkey);
+    }
+
+    TRACE("returning %s\n", debugstr_w(val));
 
     if (!val)
-    {
-        r = ERROR_UNKNOWN_PROPERTY;
-        goto done;
-    }
+        return ERROR_UNKNOWN_PROPERTY;
 
-    if (pcchValueBuf)
-    {
-        save = *pcchValueBuf;
+    r = msi_strcpy_to_awstring( val, szValue, pcchValueBuf );
 
-        if (strlenW(val) < *pcchValueBuf)
-            r = msi_strcpy_to_awstring(val, szValue, pcchValueBuf);
-        else if (szValue->str.a || szValue->str.w)
-            r = ERROR_MORE_DATA;
+    msi_free(val);
 
-        if (!badconfig)
-            *pcchValueBuf = lstrlenW(val);
-        else if (r == ERROR_SUCCESS)
-        {
-            *pcchValueBuf = save;
-            r = ERROR_BAD_CONFIGURATION;
-        }
-    }
-    else if (badconfig)
-        r = ERROR_BAD_CONFIGURATION;
-
-    if (val != empty)
-        msi_free(val);
-
-done:
-    RegCloseKey(prodkey);
-    RegCloseKey(userdata);
     return r;
 }
 
 UINT WINAPI MsiGetProductInfoA(LPCSTR szProduct, LPCSTR szAttribute,
-                               LPSTR szBuffer, LPDWORD pcchValueBuf)
+                               LPSTR szBuffer, DWORD *pcchValueBuf)
 {
     LPWSTR szwProduct, szwAttribute = NULL;
     UINT r = ERROR_OUTOFMEMORY;
@@ -1098,7 +570,7 @@ end:
 }
 
 UINT WINAPI MsiGetProductInfoW(LPCWSTR szProduct, LPCWSTR szAttribute,
-                               LPWSTR szBuffer, LPDWORD pcchValueBuf)
+                               LPWSTR szBuffer, DWORD *pcchValueBuf)
 {
     awstring buffer;
 
@@ -1110,511 +582,6 @@ UINT WINAPI MsiGetProductInfoW(LPCWSTR szProduct, LPCWSTR szAttribute,
 
     return MSI_GetProductInfo( szProduct, szAttribute,
                                &buffer, pcchValueBuf );
-}
-
-UINT WINAPI MsiGetProductInfoExA(LPCSTR szProductCode, LPCSTR szUserSid,
-                                 MSIINSTALLCONTEXT dwContext, LPCSTR szProperty,
-                                 LPSTR szValue, LPDWORD pcchValue)
-{
-    LPWSTR product = NULL;
-    LPWSTR usersid = NULL;
-    LPWSTR property = NULL;
-    LPWSTR value = NULL;
-    DWORD len = 0;
-    UINT r;
-
-    TRACE("(%s, %s, %d, %s, %p, %p)\n", debugstr_a(szProductCode),
-          debugstr_a(szUserSid), dwContext, debugstr_a(szProperty),
-           szValue, pcchValue);
-
-    if (szValue && !pcchValue)
-        return ERROR_INVALID_PARAMETER;
-
-    if (szProductCode) product = strdupAtoW(szProductCode);
-    if (szUserSid) usersid = strdupAtoW(szUserSid);
-    if (szProperty) property = strdupAtoW(szProperty);
-
-    r = MsiGetProductInfoExW(product, usersid, dwContext, property,
-                             NULL, &len);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    value = msi_alloc(++len * sizeof(WCHAR));
-    if (!value)
-    {
-        r = ERROR_OUTOFMEMORY;
-        goto done;
-    }
-
-    r = MsiGetProductInfoExW(product, usersid, dwContext, property,
-                             value, &len);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    if (!pcchValue)
-        goto done;
-
-    len = WideCharToMultiByte(CP_ACP, 0, value, -1, NULL, 0, NULL, NULL);
-    if (*pcchValue >= len)
-        WideCharToMultiByte(CP_ACP, 0, value, -1, szValue, len, NULL, NULL);
-    else if (szValue)
-    {
-        r = ERROR_MORE_DATA;
-        if (*pcchValue > 0)
-            *szValue = '\0';
-    }
-
-    if (*pcchValue <= len || !szValue)
-        len = len * sizeof(WCHAR) - 1;
-
-    *pcchValue = len - 1;
-
-done:
-    msi_free(product);
-    msi_free(usersid);
-    msi_free(property);
-    msi_free(value);
-
-    return r;
-}
-
-static UINT msi_copy_outval(LPWSTR val, LPWSTR out, LPDWORD size)
-{
-    UINT r;
-
-    if (!val)
-        return ERROR_UNKNOWN_PROPERTY;
-
-    if (out)
-    {
-        if (strlenW(val) >= *size)
-        {
-            r = ERROR_MORE_DATA;
-            if (*size > 0)
-                *out = '\0';
-        }
-        else
-            lstrcpyW(out, val);
-    }
-
-    if (size)
-        *size = lstrlenW(val);
-
-    return ERROR_SUCCESS;
-}
-
-UINT WINAPI MsiGetProductInfoExW(LPCWSTR szProductCode, LPCWSTR szUserSid,
-                                 MSIINSTALLCONTEXT dwContext, LPCWSTR szProperty,
-                                 LPWSTR szValue, LPDWORD pcchValue)
-{
-    WCHAR squished_pc[GUID_SIZE];
-    LPWSTR val = NULL;
-    LPCWSTR package = NULL;
-    HKEY props = NULL, prod;
-    HKEY classes = NULL, managed;
-    HKEY hkey = NULL;
-    DWORD type;
-    UINT r = ERROR_UNKNOWN_PRODUCT;
-
-    static const WCHAR one[] = {'1',0};
-    static const WCHAR five[] = {'5',0};
-    static const WCHAR empty[] = {0};
-    static const WCHAR displayname[] = {
-        'D','i','s','p','l','a','y','N','a','m','e',0};
-    static const WCHAR displayversion[] = {
-        'D','i','s','p','l','a','y','V','e','r','s','i','o','n',0};
-    static const WCHAR managed_local_package[] = {
-        'M','a','n','a','g','e','d','L','o','c','a','l',
-        'P','a','c','k','a','g','e',0};
-
-    TRACE("(%s, %s, %d, %s, %p, %p)\n", debugstr_w(szProductCode),
-          debugstr_w(szUserSid), dwContext, debugstr_w(szProperty),
-           szValue, pcchValue);
-
-    if (!szProductCode || !squash_guid(szProductCode, squished_pc))
-        return ERROR_INVALID_PARAMETER;
-
-    if (szValue && !pcchValue)
-        return ERROR_INVALID_PARAMETER;
-
-    if (dwContext != MSIINSTALLCONTEXT_USERUNMANAGED &&
-        dwContext != MSIINSTALLCONTEXT_USERMANAGED &&
-        dwContext != MSIINSTALLCONTEXT_MACHINE)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!szProperty || !*szProperty)
-        return ERROR_INVALID_PARAMETER;
-
-    if (dwContext == MSIINSTALLCONTEXT_MACHINE && szUserSid)
-        return ERROR_INVALID_PARAMETER;
-
-    /* FIXME: dwContext is provided, no need to search for it */
-    MSIREG_OpenProductKey(szProductCode, NULL,MSIINSTALLCONTEXT_USERMANAGED,
-                          &managed, FALSE);
-    MSIREG_OpenProductKey(szProductCode, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                          &prod, FALSE);
-
-    MSIREG_OpenInstallProps(szProductCode, dwContext, NULL, &props, FALSE);
-
-    if (dwContext == MSIINSTALLCONTEXT_USERUNMANAGED)
-    {
-        package = INSTALLPROPERTY_LOCALPACKAGEW;
-
-        if (!props && !prod)
-            goto done;
-    }
-    else if (dwContext == MSIINSTALLCONTEXT_USERMANAGED)
-    {
-        package = managed_local_package;
-
-        if (!props && !managed)
-            goto done;
-    }
-    else if (dwContext == MSIINSTALLCONTEXT_MACHINE)
-    {
-        package = INSTALLPROPERTY_LOCALPACKAGEW;
-        MSIREG_OpenProductKey(szProductCode, NULL, dwContext, &classes, FALSE);
-
-        if (!props && !classes)
-            goto done;
-    }
-
-    if (!lstrcmpW(szProperty, INSTALLPROPERTY_HELPLINKW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_HELPTELEPHONEW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_INSTALLDATEW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_INSTALLEDPRODUCTNAMEW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_INSTALLLOCATIONW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_INSTALLSOURCEW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_LOCALPACKAGEW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_PUBLISHERW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_URLINFOABOUTW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_URLUPDATEINFOW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_VERSIONMINORW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_VERSIONMAJORW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_VERSIONSTRINGW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_PRODUCTIDW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_REGCOMPANYW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_REGOWNERW) ||
-        !lstrcmpW(szProperty, INSTALLPROPERTY_INSTANCETYPEW))
-    {
-        val = msi_reg_get_value(props, package, &type);
-        if (!val)
-        {
-            if (prod || classes)
-                r = ERROR_UNKNOWN_PROPERTY;
-
-            goto done;
-        }
-
-        msi_free(val);
-
-        if (!lstrcmpW(szProperty, INSTALLPROPERTY_INSTALLEDPRODUCTNAMEW))
-            szProperty = displayname;
-        else if (!lstrcmpW(szProperty, INSTALLPROPERTY_VERSIONSTRINGW))
-            szProperty = displayversion;
-
-        val = msi_reg_get_value(props, szProperty, &type);
-        if (!val)
-            val = strdupW(empty);
-
-        r = msi_copy_outval(val, szValue, pcchValue);
-    }
-    else if (!lstrcmpW(szProperty, INSTALLPROPERTY_TRANSFORMSW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_LANGUAGEW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_PRODUCTNAMEW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_PACKAGECODEW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_VERSIONW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_PRODUCTICONW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_PACKAGENAMEW) ||
-             !lstrcmpW(szProperty, INSTALLPROPERTY_AUTHORIZED_LUA_APPW))
-    {
-        if (!prod && !classes)
-            goto done;
-
-        if (dwContext == MSIINSTALLCONTEXT_USERUNMANAGED)
-            hkey = prod;
-        else if (dwContext == MSIINSTALLCONTEXT_USERMANAGED)
-            hkey = managed;
-        else if (dwContext == MSIINSTALLCONTEXT_MACHINE)
-            hkey = classes;
-
-        val = msi_reg_get_value(hkey, szProperty, &type);
-        if (!val)
-            val = strdupW(empty);
-
-        r = msi_copy_outval(val, szValue, pcchValue);
-    }
-    else if (!lstrcmpW(szProperty, INSTALLPROPERTY_PRODUCTSTATEW))
-    {
-        if (dwContext == MSIINSTALLCONTEXT_MACHINE)
-        {
-            if (props)
-            {
-                val = msi_reg_get_value(props, package, &type);
-                if (!val)
-                    goto done;
-
-                msi_free(val);
-                val = strdupW(five);
-            }
-            else
-                val = strdupW(one);
-
-            r = msi_copy_outval(val, szValue, pcchValue);
-            goto done;
-        }
-        else if (props && (val = msi_reg_get_value(props, package, &type)))
-        {
-            msi_free(val);
-            val = strdupW(five);
-            r = msi_copy_outval(val, szValue, pcchValue);
-            goto done;
-        }
-
-        if (prod || managed)
-            val = strdupW(one);
-        else
-            goto done;
-
-        r = msi_copy_outval(val, szValue, pcchValue);
-    }
-    else if (!lstrcmpW(szProperty, INSTALLPROPERTY_ASSIGNMENTTYPEW))
-    {
-        if (!prod && !classes)
-            goto done;
-
-        /* FIXME */
-        val = strdupW(empty);
-        r = msi_copy_outval(val, szValue, pcchValue);
-    }
-    else
-        r = ERROR_UNKNOWN_PROPERTY;
-
-done:
-    RegCloseKey(props);
-    RegCloseKey(prod);
-    RegCloseKey(managed);
-    RegCloseKey(classes);
-    msi_free(val);
-
-    return r;
-}
-
-UINT WINAPI MsiGetPatchInfoExA(LPCSTR szPatchCode, LPCSTR szProductCode,
-                               LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext,
-                               LPCSTR szProperty, LPSTR lpValue, DWORD *pcchValue)
-{
-    LPWSTR patch = NULL, product = NULL, usersid = NULL;
-    LPWSTR property = NULL, val = NULL;
-    DWORD len;
-    UINT r;
-
-    TRACE("(%s, %s, %s, %d, %s, %p, %p)\n", debugstr_a(szPatchCode),
-          debugstr_a(szProductCode), debugstr_a(szUserSid), dwContext,
-          debugstr_a(szProperty), lpValue, pcchValue);
-
-    if (lpValue && !pcchValue)
-        return ERROR_INVALID_PARAMETER;
-
-    if (szPatchCode) patch = strdupAtoW(szPatchCode);
-    if (szProductCode) product = strdupAtoW(szProductCode);
-    if (szUserSid) usersid = strdupAtoW(szUserSid);
-    if (szProperty) property = strdupAtoW(szProperty);
-
-    len = 0;
-    r = MsiGetPatchInfoExW(patch, product, usersid, dwContext, property,
-                           NULL, &len);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    val = msi_alloc(++len * sizeof(WCHAR));
-    if (!val)
-    {
-        r = ERROR_OUTOFMEMORY;
-        goto done;
-    }
-
-    r = MsiGetPatchInfoExW(patch, product, usersid, dwContext, property,
-                           val, &len);
-    if (r != ERROR_SUCCESS || !pcchValue)
-        goto done;
-
-    if (lpValue)
-        WideCharToMultiByte(CP_ACP, 0, val, -1, lpValue,
-                            *pcchValue - 1, NULL, NULL);
-
-    len = lstrlenW(val);
-    if ((*val && *pcchValue < len + 1) || !lpValue)
-    {
-        if (lpValue)
-        {
-            r = ERROR_MORE_DATA;
-            lpValue[*pcchValue - 1] = '\0';
-        }
-
-        *pcchValue = len * sizeof(WCHAR);
-    }
-    else
-        *pcchValue = len;
-
-done:
-    msi_free(val);
-    msi_free(patch);
-    msi_free(product);
-    msi_free(usersid);
-    msi_free(property);
-
-    return r;
-}
-
-UINT WINAPI MsiGetPatchInfoExW(LPCWSTR szPatchCode, LPCWSTR szProductCode,
-                               LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext,
-                               LPCWSTR szProperty, LPWSTR lpValue, DWORD *pcchValue)
-{
-    WCHAR squished_pc[GUID_SIZE];
-    WCHAR squished_patch[GUID_SIZE];
-    HKEY udprod = 0, prod = 0, props = 0;
-    HKEY patch = 0, patches = 0;
-    HKEY udpatch = 0, datakey = 0;
-    HKEY prodpatches = 0;
-    LPWSTR val = NULL;
-    UINT r = ERROR_UNKNOWN_PRODUCT;
-    DWORD len;
-    LONG res;
-
-    static const WCHAR szEmpty[] = {0};
-    static const WCHAR szPatches[] = {'P','a','t','c','h','e','s',0};
-    static const WCHAR szInstalled[] = {'I','n','s','t','a','l','l','e','d',0};
-    static const WCHAR szManagedPackage[] = {'M','a','n','a','g','e','d',
-        'L','o','c','a','l','P','a','c','k','a','g','e',0};
-
-    TRACE("(%s, %s, %s, %d, %s, %p, %p)\n", debugstr_w(szPatchCode),
-          debugstr_w(szProductCode), debugstr_w(szUserSid), dwContext,
-          debugstr_w(szProperty), lpValue, pcchValue);
-
-    if (!szProductCode || !squash_guid(szProductCode, squished_pc))
-        return ERROR_INVALID_PARAMETER;
-
-    if (!szPatchCode || !squash_guid(szPatchCode, squished_patch))
-        return ERROR_INVALID_PARAMETER;
-
-    if (!szProperty)
-        return ERROR_INVALID_PARAMETER;
-
-    if (lpValue && !pcchValue)
-        return ERROR_INVALID_PARAMETER;
-
-    if (dwContext != MSIINSTALLCONTEXT_USERMANAGED &&
-        dwContext != MSIINSTALLCONTEXT_USERUNMANAGED &&
-        dwContext != MSIINSTALLCONTEXT_MACHINE)
-        return ERROR_INVALID_PARAMETER;
-
-    if (dwContext == MSIINSTALLCONTEXT_MACHINE && szUserSid)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!lstrcmpW(szUserSid, szLocalSid))
-        return ERROR_INVALID_PARAMETER;
-
-    if (MSIREG_OpenUserDataProductKey(szProductCode, dwContext, NULL,
-                                      &udprod, FALSE) != ERROR_SUCCESS)
-        goto done;
-
-    if (MSIREG_OpenInstallProps(szProductCode, dwContext, NULL,
-                                &props, FALSE) != ERROR_SUCCESS)
-        goto done;
-
-    r = ERROR_UNKNOWN_PATCH;
-
-    res = RegOpenKeyExW(udprod, szPatches, 0, KEY_READ, &patches);
-    if (res != ERROR_SUCCESS)
-        goto done;
-
-    res = RegOpenKeyExW(patches, squished_patch, 0, KEY_READ, &patch);
-    if (res != ERROR_SUCCESS)
-        goto done;
-
-    if (!lstrcmpW(szProperty, INSTALLPROPERTY_TRANSFORMSW))
-    {
-        if (MSIREG_OpenProductKey(szProductCode, NULL, dwContext,
-                                  &prod, FALSE) != ERROR_SUCCESS)
-            goto done;
-
-        res = RegOpenKeyExW(prod, szPatches, 0, KEY_ALL_ACCESS, &prodpatches);
-        if (res != ERROR_SUCCESS)
-            goto done;
-
-        datakey = prodpatches;
-        szProperty = squished_patch;
-    }
-    else
-    {
-        if (MSIREG_OpenUserDataPatchKey(szPatchCode, dwContext,
-                                        &udpatch, FALSE) != ERROR_SUCCESS)
-            goto done;
-
-        if (!lstrcmpW(szProperty, INSTALLPROPERTY_LOCALPACKAGEW))
-        {
-            if (dwContext == MSIINSTALLCONTEXT_USERMANAGED)
-                szProperty = szManagedPackage;
-            datakey = udpatch;
-        }
-        else if (!lstrcmpW(szProperty, INSTALLPROPERTY_INSTALLDATEW))
-        {
-            datakey = patch;
-            szProperty = szInstalled;
-        }
-        else if (!lstrcmpW(szProperty, INSTALLPROPERTY_LOCALPACKAGEW))
-        {
-            datakey = udpatch;
-        }
-        else if (!lstrcmpW(szProperty, INSTALLPROPERTY_UNINSTALLABLEW) ||
-                 !lstrcmpW(szProperty, INSTALLPROPERTY_PATCHSTATEW) ||
-                 !lstrcmpW(szProperty, INSTALLPROPERTY_DISPLAYNAMEW) ||
-                 !lstrcmpW(szProperty, INSTALLPROPERTY_MOREINFOURLW))
-        {
-            datakey = patch;
-        }
-        else
-        {
-            r = ERROR_UNKNOWN_PROPERTY;
-            goto done;
-        }
-    }
-
-    val = msi_reg_get_val_str(datakey, szProperty);
-    if (!val)
-        val = strdupW(szEmpty);
-
-    r = ERROR_SUCCESS;
-
-    if (!pcchValue)
-        goto done;
-
-    if (lpValue)
-        lstrcpynW(lpValue, val, *pcchValue);
-
-    len = lstrlenW(val);
-    if ((*val && *pcchValue < len + 1) || !lpValue)
-    {
-        if (lpValue)
-            r = ERROR_MORE_DATA;
-
-        *pcchValue = len * sizeof(WCHAR);
-    }
-
-    *pcchValue = len;
-
-done:
-    msi_free(val);
-    RegCloseKey(prodpatches);
-    RegCloseKey(prod);
-    RegCloseKey(patch);
-    RegCloseKey(patches);
-    RegCloseKey(udpatch);
-    RegCloseKey(props);
-    RegCloseKey(udprod);
-
-    return r;
 }
 
 UINT WINAPI MsiEnableLogA(DWORD dwLogMode, LPCSTR szLogFile, DWORD attributes)
@@ -1659,165 +626,6 @@ UINT WINAPI MsiEnableLogW(DWORD dwLogMode, LPCWSTR szLogFile, DWORD attributes)
     return ERROR_SUCCESS;
 }
 
-UINT WINAPI MsiEnumComponentCostsW(MSIHANDLE hInstall, LPCWSTR szComponent,
-                                   DWORD dwIndex, INSTALLSTATE iState,
-                                   LPWSTR lpDriveBuf, DWORD *pcchDriveBuf,
-                                   int *piCost, int *pTempCost)
-{
-    FIXME("(%d, %s, %d, %d, %p, %p, %p %p): stub!\n", hInstall,
-          debugstr_w(szComponent), dwIndex, iState, lpDriveBuf,
-          pcchDriveBuf, piCost, pTempCost);
-
-    return ERROR_NO_MORE_ITEMS;
-}
-
-UINT WINAPI MsiQueryComponentStateA(LPCSTR szProductCode,
-                                    LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext,
-                                    LPCSTR szComponent, INSTALLSTATE *pdwState)
-{
-    LPWSTR prodcode = NULL, usersid = NULL, comp = NULL;
-    UINT r;
-
-    TRACE("(%s, %s, %d, %s, %p)\n", debugstr_a(szProductCode),
-          debugstr_a(szUserSid), dwContext, debugstr_a(szComponent), pdwState);
-
-    if (szProductCode && !(prodcode = strdupAtoW(szProductCode)))
-        return ERROR_OUTOFMEMORY;
-
-    if (szUserSid && !(usersid = strdupAtoW(szUserSid)))
-            return ERROR_OUTOFMEMORY;
-
-    if (szComponent && !(comp = strdupAtoW(szComponent)))
-            return ERROR_OUTOFMEMORY;
-
-    r = MsiQueryComponentStateW(prodcode, usersid, dwContext, comp, pdwState);
-
-    msi_free(prodcode);
-    msi_free(usersid);
-    msi_free(comp);
-
-    return r;
-}
-
-static BOOL msi_comp_find_prod_key(LPCWSTR prodcode, MSIINSTALLCONTEXT context)
-{
-    UINT r;
-    HKEY hkey;
-
-    r = MSIREG_OpenProductKey(prodcode, NULL, context, &hkey, FALSE);
-    RegCloseKey(hkey);
-    return (r == ERROR_SUCCESS);
-}
-
-static BOOL msi_comp_find_package(LPCWSTR prodcode, MSIINSTALLCONTEXT context)
-{
-    LPCWSTR package;
-    HKEY hkey;
-    DWORD sz;
-    LONG res;
-    UINT r;
-
-    static const WCHAR local_package[] = {'L','o','c','a','l','P','a','c','k','a','g','e',0};
-    static const WCHAR managed_local_package[] = {
-        'M','a','n','a','g','e','d','L','o','c','a','l','P','a','c','k','a','g','e',0
-    };
-
-    r = MSIREG_OpenInstallProps(prodcode, context, NULL, &hkey, FALSE);
-    if (r != ERROR_SUCCESS)
-        return FALSE;
-
-    if (context == MSIINSTALLCONTEXT_USERMANAGED)
-        package = managed_local_package;
-    else
-        package = local_package;
-
-    sz = 0;
-    res = RegQueryValueExW(hkey, package, NULL, NULL, NULL, &sz);
-    RegCloseKey(hkey);
-
-    return (res == ERROR_SUCCESS);
-}
-
-static BOOL msi_comp_find_prodcode(LPWSTR squished_pc,
-                                   MSIINSTALLCONTEXT context,
-                                   LPCWSTR comp, LPWSTR val, DWORD *sz)
-{
-    HKEY hkey;
-    LONG res;
-    UINT r;
-
-    if (context == MSIINSTALLCONTEXT_MACHINE)
-        r = MSIREG_OpenUserDataComponentKey(comp, szLocalSid, &hkey, FALSE);
-    else
-        r = MSIREG_OpenUserDataComponentKey(comp, NULL, &hkey, FALSE);
-
-    if (r != ERROR_SUCCESS)
-        return FALSE;
-
-    res = RegQueryValueExW(hkey, squished_pc, NULL, NULL, (BYTE *)val, sz);
-    if (res != ERROR_SUCCESS)
-        return FALSE;
-
-    RegCloseKey(hkey);
-    return TRUE;
-}
-
-UINT WINAPI MsiQueryComponentStateW(LPCWSTR szProductCode,
-                                    LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext,
-                                    LPCWSTR szComponent, INSTALLSTATE *pdwState)
-{
-    WCHAR squished_pc[GUID_SIZE];
-    WCHAR val[MAX_PATH];
-    BOOL found;
-    DWORD sz;
-
-    TRACE("(%s, %s, %d, %s, %p)\n", debugstr_w(szProductCode),
-          debugstr_w(szUserSid), dwContext, debugstr_w(szComponent), pdwState);
-
-    if (!pdwState || !szComponent)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!szProductCode || !*szProductCode || lstrlenW(szProductCode) != GUID_SIZE - 1)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!squash_guid(szProductCode, squished_pc))
-        return ERROR_INVALID_PARAMETER;
-
-    found = msi_comp_find_prod_key(szProductCode, dwContext);
-
-    if (!msi_comp_find_package(szProductCode, dwContext))
-    {
-        if (found)
-        {
-            *pdwState = INSTALLSTATE_UNKNOWN;
-            return ERROR_UNKNOWN_COMPONENT;
-        }
-
-        return ERROR_UNKNOWN_PRODUCT;
-    }
-
-    *pdwState = INSTALLSTATE_UNKNOWN;
-
-    sz = MAX_PATH;
-    if (!msi_comp_find_prodcode(squished_pc, dwContext, szComponent, val, &sz))
-        return ERROR_UNKNOWN_COMPONENT;
-
-    if (sz == 0)
-        *pdwState = INSTALLSTATE_NOTUSED;
-    else
-    {
-        if (lstrlenW(val) > 2 &&
-            val[0] >= '0' && val[0] <= '9' && val[1] >= '0' && val[1] <= '9')
-        {
-            *pdwState = INSTALLSTATE_SOURCE;
-        }
-        else
-            *pdwState = INSTALLSTATE_LOCAL;
-    }
-
-    return ERROR_SUCCESS;
-}
-
 INSTALLSTATE WINAPI MsiQueryProductStateA(LPCSTR szProduct)
 {
     LPWSTR szwProduct = NULL;
@@ -1836,57 +644,47 @@ INSTALLSTATE WINAPI MsiQueryProductStateA(LPCSTR szProduct)
 
 INSTALLSTATE WINAPI MsiQueryProductStateW(LPCWSTR szProduct)
 {
-    MSIINSTALLCONTEXT context = MSIINSTALLCONTEXT_USERUNMANAGED;
-    INSTALLSTATE state = INSTALLSTATE_ADVERTISED;
-    HKEY prodkey = 0, userdata = 0;
-    DWORD val;
-    UINT r;
-
+    UINT rc;
+    INSTALLSTATE rrc = INSTALLSTATE_UNKNOWN;
+    HKEY hkey = 0;
     static const WCHAR szWindowsInstaller[] = {
-        'W','i','n','d','o','w','s','I','n','s','t','a','l','l','e','r',0};
+         'W','i','n','d','o','w','s','I','n','s','t','a','l','l','e','r',0 };
+    DWORD sz;
 
     TRACE("%s\n", debugstr_w(szProduct));
 
-    if (!szProduct || !*szProduct)
+    if (!szProduct)
         return INSTALLSTATE_INVALIDARG;
 
-    if (lstrlenW(szProduct) != GUID_SIZE - 1)
-        return INSTALLSTATE_INVALIDARG;
+    rc = MSIREG_OpenUserProductsKey(szProduct,&hkey,FALSE);
+    if (rc != ERROR_SUCCESS)
+        goto end;
 
-    if (MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED,
-                              &prodkey, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                              &prodkey, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_MACHINE,
-                              &prodkey, FALSE) == ERROR_SUCCESS)
+    RegCloseKey(hkey);
+
+    rc = MSIREG_OpenUninstallKey(szProduct,&hkey,FALSE);
+    if (rc != ERROR_SUCCESS)
+        goto end;
+
+    sz = sizeof(rrc);
+    rc = RegQueryValueExW(hkey,szWindowsInstaller,NULL,NULL,(LPVOID)&rrc, &sz);
+    if (rc != ERROR_SUCCESS)
+        goto end;
+
+    switch (rrc)
     {
-        context = MSIINSTALLCONTEXT_MACHINE;
+    case 1:
+        /* default */
+        rrc = INSTALLSTATE_DEFAULT;
+        break;
+    default:
+        FIXME("Unknown install state read from registry (%i)\n",rrc);
+        rrc = INSTALLSTATE_UNKNOWN;
+        break;
     }
-
-    r = MSIREG_OpenInstallProps(szProduct, context, NULL, &userdata, FALSE);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    if (!msi_reg_get_val_dword(userdata, szWindowsInstaller, &val))
-        goto done;
-
-    if (val)
-        state = INSTALLSTATE_DEFAULT;
-    else
-        state = INSTALLSTATE_UNKNOWN;
-
-done:
-    if (!prodkey)
-    {
-        state = INSTALLSTATE_UNKNOWN;
-
-        if (userdata)
-            state = INSTALLSTATE_ABSENT;
-    }
-
-    RegCloseKey(prodkey);
-    RegCloseKey(userdata);
-    return state;
+end:
+    RegCloseKey(hkey);
+    return rrc;
 }
 
 INSTALLUILEVEL WINAPI MsiSetInternalUI(INSTALLUILEVEL dwUILevel, HWND *phWnd)
@@ -1964,10 +762,10 @@ LANGID WINAPI MsiLoadStringW( MSIHANDLE handle, UINT id, LPWSTR lpBuffer,
     LPWSTR p;
     DWORD i, len;
 
-    TRACE("%d %u %p %d %d\n", handle, id, lpBuffer, nBufferMax, lang);
+    TRACE("%ld %u %p %d %d\n", handle, id, lpBuffer, nBufferMax, lang);
 
     if( handle != -1 )
-        FIXME("don't know how to deal with handle = %08x\n", handle);
+        FIXME("don't know how to deal with handle = %08lx\n", handle);
 
     if( !lang )
         lang = GetUserDefaultLangID();
@@ -2003,7 +801,7 @@ LANGID WINAPI MsiLoadStringA( MSIHANDLE handle, UINT id, LPSTR lpBuffer,
 {
     LPWSTR bufW;
     LANGID r;
-    INT len;
+    DWORD len;
 
     bufW = msi_alloc(nBufferMax*sizeof(WCHAR));
     r = MsiLoadStringW(handle, id, bufW, nBufferMax, lang);
@@ -2021,7 +819,7 @@ LANGID WINAPI MsiLoadStringA( MSIHANDLE handle, UINT id, LPSTR lpBuffer,
 }
 
 INSTALLSTATE WINAPI MsiLocateComponentA(LPCSTR szComponent, LPSTR lpPathBuf,
-                LPDWORD pcchBuf)
+                DWORD *pcchBuf)
 {
     char szProduct[GUID_SIZE];
 
@@ -2034,7 +832,7 @@ INSTALLSTATE WINAPI MsiLocateComponentA(LPCSTR szComponent, LPSTR lpPathBuf,
 }
 
 INSTALLSTATE WINAPI MsiLocateComponentW(LPCWSTR szComponent, LPWSTR lpPathBuf,
-                LPDWORD pcchBuf)
+                DWORD *pcchBuf)
 {
     WCHAR szProduct[GUID_SIZE];
 
@@ -2064,7 +862,7 @@ UINT WINAPI MsiMessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uT
 
 UINT WINAPI MsiProvideAssemblyA( LPCSTR szAssemblyName, LPCSTR szAppContext,
                 DWORD dwInstallMode, DWORD dwAssemblyInfo, LPSTR lpPathBuf,
-                LPDWORD pcchPathBuf )
+                DWORD* pcchPathBuf )
 {
     FIXME("%s %s %08x %08x %p %p\n", debugstr_a(szAssemblyName),
           debugstr_a(szAppContext), dwInstallMode, dwAssemblyInfo, lpPathBuf,
@@ -2074,7 +872,7 @@ UINT WINAPI MsiProvideAssemblyA( LPCSTR szAssemblyName, LPCSTR szAppContext,
 
 UINT WINAPI MsiProvideAssemblyW( LPCWSTR szAssemblyName, LPCWSTR szAppContext,
                 DWORD dwInstallMode, DWORD dwAssemblyInfo, LPWSTR lpPathBuf,
-                LPDWORD pcchPathBuf )
+                DWORD* pcchPathBuf )
 {
     FIXME("%s %s %08x %08x %p %p\n", debugstr_w(szAssemblyName),
           debugstr_w(szAppContext), dwInstallMode, dwAssemblyInfo, lpPathBuf,
@@ -2083,22 +881,22 @@ UINT WINAPI MsiProvideAssemblyW( LPCWSTR szAssemblyName, LPCWSTR szAppContext,
 }
 
 UINT WINAPI MsiProvideComponentFromDescriptorA( LPCSTR szDescriptor,
-                LPSTR szPath, LPDWORD pcchPath, LPDWORD pcchArgs )
+                LPSTR szPath, DWORD *pcchPath, DWORD *pcchArgs )
 {
     FIXME("%s %p %p %p\n", debugstr_a(szDescriptor), szPath, pcchPath, pcchArgs );
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 UINT WINAPI MsiProvideComponentFromDescriptorW( LPCWSTR szDescriptor,
-                LPWSTR szPath, LPDWORD pcchPath, LPDWORD pcchArgs )
+                LPWSTR szPath, DWORD *pcchPath, DWORD *pcchArgs )
 {
     FIXME("%s %p %p %p\n", debugstr_w(szDescriptor), szPath, pcchPath, pcchArgs );
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 HRESULT WINAPI MsiGetFileSignatureInformationA( LPCSTR szSignedObjectPath,
-                DWORD dwFlags, PCCERT_CONTEXT* ppcCertContext, LPBYTE pbHashData,
-                LPDWORD pcbHashData)
+                DWORD dwFlags, PCCERT_CONTEXT* ppcCertContext, BYTE* pbHashData,
+                DWORD* pcbHashData)
 {
     FIXME("%s %08x %p %p %p\n", debugstr_a(szSignedObjectPath), dwFlags,
           ppcCertContext, pbHashData, pcbHashData);
@@ -2106,151 +904,26 @@ HRESULT WINAPI MsiGetFileSignatureInformationA( LPCSTR szSignedObjectPath,
 }
 
 HRESULT WINAPI MsiGetFileSignatureInformationW( LPCWSTR szSignedObjectPath,
-                DWORD dwFlags, PCCERT_CONTEXT* ppcCertContext, LPBYTE pbHashData,
-                LPDWORD pcbHashData)
+                DWORD dwFlags, PCCERT_CONTEXT* ppcCertContext, BYTE* pbHashData,
+                DWORD* pcbHashData)
 {
     FIXME("%s %08x %p %p %p\n", debugstr_w(szSignedObjectPath), dwFlags,
           ppcCertContext, pbHashData, pcbHashData);
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-/******************************************************************
- * MsiGetProductPropertyA      [MSI.@]
- */
-UINT WINAPI MsiGetProductPropertyA(MSIHANDLE hProduct, LPCSTR szProperty,
-                                   LPSTR szValue, LPDWORD pccbValue)
+UINT WINAPI MsiGetProductPropertyA( MSIHANDLE hProduct, LPCSTR szProperty,
+                                    LPSTR szValue, DWORD *pccbValue )
 {
-    LPWSTR prop = NULL, val = NULL;
-    DWORD len;
-    UINT r;
-
-    TRACE("(%d, %s, %p, %p)\n", hProduct, debugstr_a(szProperty),
-          szValue, pccbValue);
-
-    if (szValue && !pccbValue)
-        return ERROR_INVALID_PARAMETER;
-
-    if (szProperty) prop = strdupAtoW(szProperty);
-
-    len = 0;
-    r = MsiGetProductPropertyW(hProduct, prop, NULL, &len);
-    if (r != ERROR_SUCCESS && r != ERROR_MORE_DATA)
-        goto done;
-
-    if (r == ERROR_SUCCESS)
-    {
-        if (szValue) *szValue = '\0';
-        if (pccbValue) *pccbValue = 0;
-        goto done;
-    }
-
-    val = msi_alloc(++len * sizeof(WCHAR));
-    if (!val)
-    {
-        r = ERROR_OUTOFMEMORY;
-        goto done;
-    }
-
-    r = MsiGetProductPropertyW(hProduct, prop, val, &len);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    len = WideCharToMultiByte(CP_ACP, 0, val, -1, NULL, 0, NULL, NULL);
-
-    if (szValue)
-        WideCharToMultiByte(CP_ACP, 0, val, -1, szValue,
-                            *pccbValue, NULL, NULL);
-
-    if (pccbValue)
-    {
-        if (len > *pccbValue)
-            r = ERROR_MORE_DATA;
-
-        *pccbValue = len - 1;
-    }
-
-done:
-    msi_free(prop);
-    msi_free(val);
-
-    return r;
+    FIXME("%ld %s %p %p\n", hProduct, debugstr_a(szProperty), szValue, pccbValue);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-/******************************************************************
- * MsiGetProductPropertyW      [MSI.@]
- */
-UINT WINAPI MsiGetProductPropertyW(MSIHANDLE hProduct, LPCWSTR szProperty,
-                                   LPWSTR szValue, LPDWORD pccbValue)
+UINT WINAPI MsiGetProductPropertyW( MSIHANDLE hProduct, LPCWSTR szProperty,
+                                    LPWSTR szValue, DWORD *pccbValue )
 {
-    MSIPACKAGE *package;
-    MSIQUERY *view = NULL;
-    MSIRECORD *rec = NULL;
-    LPCWSTR val;
-    UINT r;
-
-    static const WCHAR query[] = {
-       'S','E','L','E','C','T',' ','*',' ','F','R','O','M',' ',
-       '`','P','r','o','p','e','r','t','y','`',' ','W','H','E','R','E',' ',
-       '`','P','r','o','p','e','r','t','y','`','=','\'','%','s','\'',0};
-
-    TRACE("(%d, %s, %p, %p)\n", hProduct, debugstr_w(szProperty),
-          szValue, pccbValue);
-
-    if (!szProperty)
-        return ERROR_INVALID_PARAMETER;
-
-    if (szValue && !pccbValue)
-        return ERROR_INVALID_PARAMETER;
-
-    package = msihandle2msiinfo(hProduct, MSIHANDLETYPE_PACKAGE);
-    if (!package)
-        return ERROR_INVALID_HANDLE;
-
-    r = MSI_OpenQuery(package->db, &view, query, szProperty);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    r = MSI_ViewExecute(view, 0);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    r = MSI_ViewFetch(view, &rec);
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    val = MSI_RecordGetString(rec, 2);
-    if (!val)
-        goto done;
-
-    if (lstrlenW(val) >= *pccbValue)
-    {
-        lstrcpynW(szValue, val, *pccbValue);
-        *pccbValue = lstrlenW(val);
-        r = ERROR_MORE_DATA;
-    }
-    else
-    {
-        lstrcpyW(szValue, val);
-        *pccbValue = lstrlenW(val);
-        r = ERROR_SUCCESS;
-    }
-
-done:
-    if (view)
-    {
-        MSI_ViewClose(view);
-        msiobj_release(&view->hdr);
-        if (rec) msiobj_release(&rec->hdr);
-    }
-
-    if (!rec)
-    {
-        if (szValue) *szValue = '\0';
-        if (pccbValue) *pccbValue = 0;
-        r = ERROR_SUCCESS;
-    }
-
-    return r;
+    FIXME("%ld %s %p %p\n", hProduct, debugstr_w(szProperty), szValue, pccbValue);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 UINT WINAPI MsiVerifyPackageA( LPCSTR szPackage )
@@ -2287,93 +960,62 @@ UINT WINAPI MsiVerifyPackageW( LPCWSTR szPackage )
     return r;
 }
 
-static INSTALLSTATE MSI_GetComponentPath(LPCWSTR szProduct, LPCWSTR szComponent,
-                                         awstring* lpPathBuf, LPDWORD pcchBuf)
+static INSTALLSTATE WINAPI MSI_GetComponentPath(LPCWSTR szProduct, LPCWSTR szComponent,
+                                                awstring* lpPathBuf, DWORD* pcchBuf)
 {
-    WCHAR squished_pc[GUID_SIZE];
-    WCHAR squished_comp[GUID_SIZE];
-    HKEY hkey;
+    WCHAR squished_pc[GUID_SIZE], squished_comp[GUID_SIZE];
+    UINT rc;
+    HKEY hkey = 0;
     LPWSTR path = NULL;
-    INSTALLSTATE state;
-    DWORD version;
-
-    static const WCHAR wininstaller[] = {
-        'W','i','n','d','o','w','s','I','n','s','t','a','l','l','e','r',0};
+    INSTALLSTATE r;
 
     TRACE("%s %s %p %p\n", debugstr_w(szProduct),
            debugstr_w(szComponent), lpPathBuf->str.w, pcchBuf);
 
-    if (!szProduct || !szComponent)
+    if( !szProduct || !szComponent )
+        return INSTALLSTATE_INVALIDARG;
+    if( lpPathBuf->str.w && !pcchBuf )
         return INSTALLSTATE_INVALIDARG;
 
-    if (lpPathBuf->str.w && !pcchBuf)
+    if (!squash_guid( szProduct, squished_pc ) ||
+        !squash_guid( szComponent, squished_comp ))
         return INSTALLSTATE_INVALIDARG;
 
-    if (!squash_guid(szProduct, squished_pc) ||
-        !squash_guid(szComponent, squished_comp))
-        return INSTALLSTATE_INVALIDARG;
+    rc = MSIREG_OpenProductsKey( szProduct, &hkey, FALSE);
+    if( rc != ERROR_SUCCESS )
+        return INSTALLSTATE_UNKNOWN;
 
-    state = INSTALLSTATE_UNKNOWN;
+    RegCloseKey(hkey);
 
-    if (MSIREG_OpenUserDataComponentKey(szComponent, szLocalSid, &hkey, FALSE) == ERROR_SUCCESS ||
-        MSIREG_OpenUserDataComponentKey(szComponent, NULL, &hkey, FALSE) == ERROR_SUCCESS)
-    {
-        path = msi_reg_get_val_str(hkey, squished_pc);
-        RegCloseKey(hkey);
+    rc = MSIREG_OpenComponentsKey( szComponent, &hkey, FALSE);
+    if( rc != ERROR_SUCCESS )
+        return INSTALLSTATE_UNKNOWN;
 
-        state = INSTALLSTATE_ABSENT;
+    path = msi_reg_get_val_str( hkey, squished_pc );
+    RegCloseKey(hkey);
 
-        if ((MSIREG_OpenInstallProps(szProduct, MSIINSTALLCONTEXT_MACHINE, NULL,
-                                     &hkey, FALSE) == ERROR_SUCCESS ||
-            MSIREG_OpenUserDataProductKey(szProduct, MSIINSTALLCONTEXT_USERUNMANAGED,
-                                          NULL, &hkey, FALSE) == ERROR_SUCCESS) &&
-            msi_reg_get_val_dword(hkey, wininstaller, &version) &&
-            GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
-        {
-            RegCloseKey(hkey);
-            state = INSTALLSTATE_LOCAL;
-        }
-    }
-
-    if (state != INSTALLSTATE_LOCAL &&
-        (MSIREG_OpenProductKey(szProduct, NULL,
-                               MSIINSTALLCONTEXT_USERUNMANAGED,
-                               &hkey, FALSE) == ERROR_SUCCESS ||
-         MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_MACHINE,
-                               &hkey, FALSE) == ERROR_SUCCESS))
-    {
-        RegCloseKey(hkey);
-
-        if (MSIREG_OpenUserDataComponentKey(szComponent, szLocalSid, &hkey, FALSE) == ERROR_SUCCESS ||
-            MSIREG_OpenUserDataComponentKey(szComponent, NULL, &hkey, FALSE) == ERROR_SUCCESS)
-        {
-            msi_free(path);
-            path = msi_reg_get_val_str(hkey, squished_pc);
-            RegCloseKey(hkey);
-
-            state = INSTALLSTATE_ABSENT;
-
-            if (GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
-                state = INSTALLSTATE_LOCAL;
-        }
-    }
+    TRACE("found path of (%s:%s)(%s)\n", debugstr_w(szComponent),
+           debugstr_w(szProduct), debugstr_w(path));
 
     if (!path)
         return INSTALLSTATE_UNKNOWN;
 
-    if (state == INSTALLSTATE_LOCAL && !*path)
-        state = INSTALLSTATE_NOTUSED;
+    if (path[0])
+        r = INSTALLSTATE_LOCAL;
+    else
+        r = INSTALLSTATE_NOTUSED;
 
-    msi_strcpy_to_awstring(path, lpPathBuf, pcchBuf);
-    msi_free(path);
-    return state;
+    msi_strcpy_to_awstring( path, lpPathBuf, pcchBuf );
+
+    msi_free( path );
+    return r;
 }
 
 /******************************************************************
  * MsiGetComponentPathW      [MSI.@]
  */
 INSTALLSTATE WINAPI MsiGetComponentPathW(LPCWSTR szProduct, LPCWSTR szComponent,
-                                         LPWSTR lpPathBuf, LPDWORD pcchBuf)
+                                         LPWSTR lpPathBuf, DWORD* pcchBuf)
 {
     awstring path;
 
@@ -2387,7 +1029,7 @@ INSTALLSTATE WINAPI MsiGetComponentPathW(LPCWSTR szProduct, LPCWSTR szComponent,
  * MsiGetComponentPathA      [MSI.@]
  */
 INSTALLSTATE WINAPI MsiGetComponentPathA(LPCSTR szProduct, LPCSTR szComponent,
-                                         LPSTR lpPathBuf, LPDWORD pcchBuf)
+                                         LPSTR lpPathBuf, DWORD* pcchBuf)
 {
     LPWSTR szwProduct, szwComponent = NULL;
     INSTALLSTATE r = INSTALLSTATE_UNKNOWN;
@@ -2448,7 +1090,7 @@ end:
  *   szFeature     [I]  Feature's GUID string
  *
  * RETURNS
- *   INSTALLSTATE_LOCAL        Feature is installed and usable
+ *   INSTALLSTATE_LOCAL        Feature is installed and useable
  *   INSTALLSTATE_ABSENT       Feature is absent
  *   INSTALLSTATE_ADVERTISED   Feature should be installed on demand
  *   INSTALLSTATE_UNKNOWN      An error occurred
@@ -2459,13 +1101,11 @@ INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature)
 {
     WCHAR squishProduct[33], comp[GUID_SIZE];
     GUID guid;
-    LPWSTR components, p, parent_feature, path;
+    LPWSTR components, p, parent_feature;
     UINT rc;
     HKEY hkey;
     INSTALLSTATE r;
     BOOL missing = FALSE;
-    BOOL machine = FALSE;
-    BOOL source = FALSE;
 
     TRACE("%s %s\n", debugstr_w(szProduct), debugstr_w(szFeature));
 
@@ -2475,18 +1115,10 @@ INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature)
     if (!squash_guid( szProduct, squishProduct ))
         return INSTALLSTATE_INVALIDARG;
 
-    if (MSIREG_OpenFeaturesKey(szProduct, MSIINSTALLCONTEXT_USERMANAGED,
-                               &hkey, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenFeaturesKey(szProduct, MSIINSTALLCONTEXT_USERUNMANAGED,
-                               &hkey, FALSE) != ERROR_SUCCESS)
-    {
-        rc = MSIREG_OpenFeaturesKey(szProduct, MSIINSTALLCONTEXT_MACHINE,
-                                    &hkey, FALSE);
-        if (rc != ERROR_SUCCESS)
-            return INSTALLSTATE_UNKNOWN;
-
-        machine = TRUE;
-    }
+    /* check that it's installed at all */
+    rc = MSIREG_OpenUserFeaturesKey(szProduct, &hkey, FALSE);
+    if (rc != ERROR_SUCCESS)
+        return INSTALLSTATE_UNKNOWN;
 
     parent_feature = msi_reg_get_val_str( hkey, szFeature );
     RegCloseKey(hkey);
@@ -2499,17 +1131,10 @@ INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature)
     if (r == INSTALLSTATE_ABSENT)
         return r;
 
-    if (machine)
-        rc = MSIREG_OpenUserDataFeaturesKey(szProduct,
-                                            MSIINSTALLCONTEXT_MACHINE,
-                                            &hkey, FALSE);
-    else
-        rc = MSIREG_OpenUserDataFeaturesKey(szProduct,
-                                            MSIINSTALLCONTEXT_USERUNMANAGED,
-                                            &hkey, FALSE);
-
+    /* now check if it's complete or advertised */
+    rc = MSIREG_OpenFeaturesKey(szProduct, &hkey, FALSE);
     if (rc != ERROR_SUCCESS)
-        return INSTALLSTATE_ADVERTISED;
+        return INSTALLSTATE_UNKNOWN;
 
     components = msi_reg_get_val_str( hkey, szFeature );
     RegCloseKey(hkey);
@@ -2517,43 +1142,31 @@ INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature)
     TRACE("rc = %d buffer = %s\n", rc, debugstr_w(components));
 
     if (!components)
-        return INSTALLSTATE_ADVERTISED;
+    {
+        ERR("components missing %s %s\n",
+            debugstr_w(szProduct), debugstr_w(szFeature));
+        return INSTALLSTATE_UNKNOWN;
+    }
 
-    for( p = components; *p && *p != 2 ; p += 20)
+    for( p = components; *p != 2 ; p += 20)
     {
         if (!decode_base85_guid( p, &guid ))
         {
-            if (p != components)
-                break;
-
-            msi_free(components);
-            return INSTALLSTATE_BADCONFIG;
+            ERR("%s\n", debugstr_w(p));
+            break;
         }
-
         StringFromGUID2(&guid, comp, GUID_SIZE);
-
-        if (machine)
-            rc = MSIREG_OpenUserDataComponentKey(comp, szLocalSid, &hkey, FALSE);
-        else
-            rc = MSIREG_OpenUserDataComponentKey(comp, NULL, &hkey, FALSE);
-
-        if (rc != ERROR_SUCCESS)
+        r = MsiGetComponentPathW(szProduct, comp, NULL, 0);
+        TRACE("component %s state %d\n", debugstr_guid(&guid), r);
+        switch (r)
         {
-            msi_free(components);
-            return INSTALLSTATE_ADVERTISED;
-        }
-
-        path = msi_reg_get_val_str(hkey, squishProduct);
-        if (!path)
+        case INSTALLSTATE_NOTUSED:
+        case INSTALLSTATE_LOCAL:
+        case INSTALLSTATE_SOURCE:
+            break;
+        default:
             missing = TRUE;
-        else if (lstrlenW(path) > 2 &&
-                 path[0] >= '0' && path[0] <= '9' &&
-                 path[1] >= '0' && path[1] <= '9')
-        {
-            source = TRUE;
         }
-
-        msi_free(path);
     }
 
     TRACE("%s %s -> %d\n", debugstr_w(szProduct), debugstr_w(szFeature), r);
@@ -2562,9 +1175,6 @@ INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature)
     if (missing)
         return INSTALLSTATE_ADVERTISED;
 
-    if (source)
-        return INSTALLSTATE_SOURCE;
-
     return INSTALLSTATE_LOCAL;
 }
 
@@ -2572,14 +1182,10 @@ INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature)
  * MsiGetFileVersionA         [MSI.@]
  */
 UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVersionBuf,
-                LPDWORD pcchVersionBuf, LPSTR lpLangBuf, LPDWORD pcchLangBuf)
+                DWORD* pcchVersionBuf, LPSTR lpLangBuf, DWORD* pcchLangBuf)
 {
     LPWSTR szwFilePath = NULL, lpwVersionBuff = NULL, lpwLangBuff = NULL;
     UINT ret = ERROR_OUTOFMEMORY;
-
-    if ((lpVersionBuf && !pcchVersionBuf) ||
-        (lpLangBuf && !pcchLangBuf))
-        return ERROR_INVALID_PARAMETER;
 
     if( szFilePath )
     {
@@ -2597,7 +1203,7 @@ UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVersionBuf,
 
     if( lpLangBuf && pcchLangBuf && *pcchLangBuf )
     {
-        lpwLangBuff = msi_alloc(*pcchLangBuf*sizeof(WCHAR));
+        lpwLangBuff = msi_alloc(*pcchVersionBuf*sizeof(WCHAR));
         if( !lpwLangBuff )
             goto end;
     }
@@ -2605,12 +1211,12 @@ UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVersionBuf,
     ret = MsiGetFileVersionW(szwFilePath, lpwVersionBuff, pcchVersionBuf,
                              lpwLangBuff, pcchLangBuf);
 
-    if( (ret == ERROR_SUCCESS || ret == ERROR_MORE_DATA) && lpwVersionBuff )
+    if( lpwVersionBuff )
         WideCharToMultiByte(CP_ACP, 0, lpwVersionBuff, -1,
-                            lpVersionBuf, *pcchVersionBuf + 1, NULL, NULL);
-    if( (ret == ERROR_SUCCESS || ret == ERROR_MORE_DATA) && lpwLangBuff )
+                            lpVersionBuf, *pcchVersionBuf, NULL, NULL);
+    if( lpwLangBuff )
         WideCharToMultiByte(CP_ACP, 0, lpwLangBuff, -1,
-                            lpLangBuf, *pcchLangBuf + 1, NULL, NULL);
+                            lpLangBuf, *pcchLangBuf, NULL, NULL);
 
 end:
     msi_free(szwFilePath);
@@ -2624,20 +1230,16 @@ end:
  * MsiGetFileVersionW         [MSI.@]
  */
 UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf,
-                LPDWORD pcchVersionBuf, LPWSTR lpLangBuf, LPDWORD pcchLangBuf)
+                DWORD* pcchVersionBuf, LPWSTR lpLangBuf, DWORD* pcchLangBuf)
 {
-    static const WCHAR szVersionResource[] = {'\\',0};
+    static WCHAR szVersionResource[] = {'\\',0};
     static const WCHAR szVersionFormat[] = {
         '%','d','.','%','d','.','%','d','.','%','d',0};
-    static const WCHAR szLangResource[] = {
-        '\\','V','a','r','F','i','l','e','I','n','f','o','\\',
-        'T','r','a','n','s','l','a','t','i','o','n',0};
     static const WCHAR szLangFormat[] = {'%','d',0};
     UINT ret = 0;
-    DWORD dwVerLen, gle;
+    DWORD dwVerLen;
     LPVOID lpVer = NULL;
     VS_FIXEDFILEINFO *ffi;
-    USHORT *lang;
     UINT puLen;
     WCHAR tmp[32];
 
@@ -2645,21 +1247,9 @@ UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf,
           lpVersionBuf, pcchVersionBuf?*pcchVersionBuf:0,
           lpLangBuf, pcchLangBuf?*pcchLangBuf:0);
 
-    if ((lpVersionBuf && !pcchVersionBuf) ||
-        (lpLangBuf && !pcchLangBuf))
-        return ERROR_INVALID_PARAMETER;
-
     dwVerLen = GetFileVersionInfoSizeW(szFilePath, NULL);
     if( !dwVerLen )
-    {
-        gle = GetLastError();
-        if (gle == ERROR_BAD_PATHNAME)
-            return ERROR_FILE_NOT_FOUND;
-        else if (gle == ERROR_RESOURCE_DATA_NOT_FOUND)
-            return ERROR_FILE_INVALID;
-
-        return gle;
-    }
+        return GetLastError();
 
     lpVer = msi_alloc(dwVerLen);
     if( !lpVer )
@@ -2673,8 +1263,7 @@ UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf,
         ret = GetLastError();
         goto end;
     }
-
-    if (pcchVersionBuf)
+    if( lpVersionBuf && pcchVersionBuf && *pcchVersionBuf )
     {
         if( VerQueryValueW(lpVer, szVersionResource, (LPVOID*)&ffi, &puLen) &&
             (puLen > 0) )
@@ -2682,38 +1271,24 @@ UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf,
             wsprintfW(tmp, szVersionFormat,
                   HIWORD(ffi->dwFileVersionMS), LOWORD(ffi->dwFileVersionMS),
                   HIWORD(ffi->dwFileVersionLS), LOWORD(ffi->dwFileVersionLS));
-            if (lpVersionBuf) lstrcpynW(lpVersionBuf, tmp, *pcchVersionBuf);
-
-            if (strlenW(tmp) >= *pcchVersionBuf)
-                ret = ERROR_MORE_DATA;
-
-            *pcchVersionBuf = lstrlenW(tmp);
+            lstrcpynW(lpVersionBuf, tmp, *pcchVersionBuf);
+            *pcchVersionBuf = lstrlenW(lpVersionBuf);
         }
         else
         {
-            if (lpVersionBuf) *lpVersionBuf = 0;
+            *lpVersionBuf = 0;
             *pcchVersionBuf = 0;
         }
     }
 
-    if (pcchLangBuf)
+    if( lpLangBuf && pcchLangBuf && *pcchLangBuf )
     {
-        if (VerQueryValueW(lpVer, szLangResource, (LPVOID*)&lang, &puLen) &&
-            (puLen > 0))
-        {
-            wsprintfW(tmp, szLangFormat, *lang);
-            if (lpLangBuf) lstrcpynW(lpLangBuf, tmp, *pcchLangBuf);
+        DWORD lang = GetUserDefaultLangID();
 
-            if (strlenW(tmp) >= *pcchLangBuf)
-                ret = ERROR_MORE_DATA;
-
-            *pcchLangBuf = lstrlenW(tmp);
-        }
-        else
-        {
-            if (lpLangBuf) *lpLangBuf = 0;
-            *pcchLangBuf = 0;
-        }
+        FIXME("Retrieve language from file\n");
+        wsprintfW(tmp, szLangFormat, lang);
+        lstrcpynW(lpLangBuf, tmp, *pcchLangBuf);
+        *pcchLangBuf = lstrlenW(lpLangBuf);
     }
 
 end:
@@ -2725,7 +1300,7 @@ end:
  * MsiGetFeatureUsageW           [MSI.@]
  */
 UINT WINAPI MsiGetFeatureUsageW( LPCWSTR szProduct, LPCWSTR szFeature,
-                                 LPDWORD pdwUseCount, LPWORD pwDateUsed )
+                                 DWORD* pdwUseCount, WORD* pwDateUsed )
 {
     FIXME("%s %s %p %p\n",debugstr_w(szProduct), debugstr_w(szFeature),
           pdwUseCount, pwDateUsed);
@@ -2736,7 +1311,7 @@ UINT WINAPI MsiGetFeatureUsageW( LPCWSTR szProduct, LPCWSTR szFeature,
  * MsiGetFeatureUsageA           [MSI.@]
  */
 UINT WINAPI MsiGetFeatureUsageA( LPCSTR szProduct, LPCSTR szFeature,
-                                 LPDWORD pdwUseCount, LPWORD pwDateUsed )
+                                 DWORD* pdwUseCount, WORD* pwDateUsed )
 {
     LPWSTR prod = NULL, feat = NULL;
     UINT ret = ERROR_OUTOFMEMORY;
@@ -2834,10 +1409,10 @@ INSTALLSTATE WINAPI MsiUseFeatureA( LPCSTR szProduct, LPCSTR szFeature )
 /***********************************************************************
  * MSI_ProvideQualifiedComponentEx [internal]
  */
-static UINT MSI_ProvideQualifiedComponentEx(LPCWSTR szComponent,
-                LPCWSTR szQualifier, DWORD dwInstallMode, LPCWSTR szProduct,
+static UINT WINAPI MSI_ProvideQualifiedComponentEx(LPCWSTR szComponent,
+                LPCWSTR szQualifier, DWORD dwInstallMode, LPWSTR szProduct,
                 DWORD Unused1, DWORD Unused2, awstring *lpPathBuf,
-                LPDWORD pcchPathBuf)
+                DWORD* pcchPathBuf)
 {
     WCHAR product[MAX_FEATURE_CHARS+1], component[MAX_FEATURE_CHARS+1],
           feature[MAX_FEATURE_CHARS+1];
@@ -2879,9 +1454,9 @@ static UINT MSI_ProvideQualifiedComponentEx(LPCWSTR szComponent,
  * MsiProvideQualifiedComponentExW [MSI.@]
  */
 UINT WINAPI MsiProvideQualifiedComponentExW(LPCWSTR szComponent,
-                LPCWSTR szQualifier, DWORD dwInstallMode, LPCWSTR szProduct,
+                LPCWSTR szQualifier, DWORD dwInstallMode, LPWSTR szProduct,
                 DWORD Unused1, DWORD Unused2, LPWSTR lpPathBuf,
-                LPDWORD pcchPathBuf)
+                DWORD* pcchPathBuf)
 {
     awstring path;
 
@@ -2896,9 +1471,9 @@ UINT WINAPI MsiProvideQualifiedComponentExW(LPCWSTR szComponent,
  * MsiProvideQualifiedComponentExA [MSI.@]
  */
 UINT WINAPI MsiProvideQualifiedComponentExA(LPCSTR szComponent,
-                LPCSTR szQualifier, DWORD dwInstallMode, LPCSTR szProduct,
+                LPCSTR szQualifier, DWORD dwInstallMode, LPSTR szProduct,
                 DWORD Unused1, DWORD Unused2, LPSTR lpPathBuf,
-                LPDWORD pcchPathBuf)
+                DWORD* pcchPathBuf)
 {
     LPWSTR szwComponent, szwQualifier = NULL, szwProduct = NULL;
     UINT r = ERROR_OUTOFMEMORY;
@@ -2939,7 +1514,7 @@ end:
  */
 UINT WINAPI MsiProvideQualifiedComponentW( LPCWSTR szComponent,
                 LPCWSTR szQualifier, DWORD dwInstallMode, LPWSTR lpPathBuf,
-                LPDWORD pcchPathBuf)
+                DWORD* pcchPathBuf)
 {
     return MsiProvideQualifiedComponentExW(szComponent, szQualifier, 
                     dwInstallMode, NULL, 0, 0, lpPathBuf, pcchPathBuf);
@@ -2950,7 +1525,7 @@ UINT WINAPI MsiProvideQualifiedComponentW( LPCWSTR szComponent,
  */
 UINT WINAPI MsiProvideQualifiedComponentA( LPCSTR szComponent,
                 LPCSTR szQualifier, DWORD dwInstallMode, LPSTR lpPathBuf,
-                LPDWORD pcchPathBuf)
+                DWORD* pcchPathBuf)
 {
     return MsiProvideQualifiedComponentExA(szComponent, szQualifier,
                               dwInstallMode, NULL, 0, 0, lpPathBuf, pcchPathBuf);
@@ -2959,103 +1534,48 @@ UINT WINAPI MsiProvideQualifiedComponentA( LPCSTR szComponent,
 /***********************************************************************
  * MSI_GetUserInfo [internal]
  */
-static USERINFOSTATE MSI_GetUserInfo(LPCWSTR szProduct,
-                awstring *lpUserNameBuf, LPDWORD pcchUserNameBuf,
-                awstring *lpOrgNameBuf, LPDWORD pcchOrgNameBuf,
-                awstring *lpSerialBuf, LPDWORD pcchSerialBuf)
+static USERINFOSTATE WINAPI MSI_GetUserInfo(LPCWSTR szProduct,
+                awstring *lpUserNameBuf, DWORD* pcchUserNameBuf,
+                awstring *lpOrgNameBuf, DWORD* pcchOrgNameBuf,
+                awstring *lpSerialBuf, DWORD* pcchSerialBuf)
 {
-    WCHAR squished_pc[SQUISH_GUID_SIZE];
+    HKEY hkey;
     LPWSTR user, org, serial;
-    USERINFOSTATE state;
-    HKEY hkey, props;
-    LPCWSTR orgptr;
     UINT r;
+    USERINFOSTATE state;
 
-    static const WCHAR szEmpty[] = {0};
-
-    TRACE("%s %p %p %p %p %p %p\n", debugstr_w(szProduct), lpUserNameBuf,
+    TRACE("%s %p %p %p %p %p %p\n",debugstr_w(szProduct), lpUserNameBuf,
           pcchUserNameBuf, lpOrgNameBuf, pcchOrgNameBuf, lpSerialBuf,
           pcchSerialBuf);
 
-    if (!szProduct || !squash_guid(szProduct, squished_pc))
+    if (!szProduct)
         return USERINFOSTATE_INVALIDARG;
 
-    if (MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED,
-                              &hkey, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
-                              &hkey, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_MACHINE,
-                              &hkey, FALSE) != ERROR_SUCCESS)
-    {
+    r = MSIREG_OpenUninstallKey(szProduct, &hkey, FALSE);
+    if (r != ERROR_SUCCESS)
         return USERINFOSTATE_UNKNOWN;
-    }
 
-    if (MSIREG_OpenInstallProps(szProduct, MSIINSTALLCONTEXT_USERUNMANAGED,
-                                NULL, &props, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenInstallProps(szProduct, MSIINSTALLCONTEXT_MACHINE,
-                                NULL, &props, FALSE) != ERROR_SUCCESS)
-    {
-        RegCloseKey(hkey);
-        return USERINFOSTATE_ABSENT;
-    }
-
-    user = msi_reg_get_val_str(props, INSTALLPROPERTY_REGOWNERW);
-    org = msi_reg_get_val_str(props, INSTALLPROPERTY_REGCOMPANYW);
-    serial = msi_reg_get_val_str(props, INSTALLPROPERTY_PRODUCTIDW);
-    state = USERINFOSTATE_ABSENT;
+    user = msi_reg_get_val_str( hkey, INSTALLPROPERTY_REGOWNERW );
+    org = msi_reg_get_val_str( hkey, INSTALLPROPERTY_REGCOMPANYW );
+    serial = msi_reg_get_val_str( hkey, INSTALLPROPERTY_PRODUCTIDW );
 
     RegCloseKey(hkey);
-    RegCloseKey(props);
 
-    if (user && serial)
-        state = USERINFOSTATE_PRESENT;
+    state = USERINFOSTATE_PRESENT;
 
-    if (pcchUserNameBuf)
-    {
-        if (lpUserNameBuf && !user)
-        {
-            (*pcchUserNameBuf)--;
-            goto done;
-        }
+    r = msi_strcpy_to_awstring( user, lpUserNameBuf, pcchUserNameBuf );
+    if (r == ERROR_MORE_DATA)
+        state = USERINFOSTATE_MOREDATA;
+    r = msi_strcpy_to_awstring( org, lpOrgNameBuf, pcchOrgNameBuf );
+    if (r == ERROR_MORE_DATA)
+        state = USERINFOSTATE_MOREDATA;
+    r = msi_strcpy_to_awstring( serial, lpSerialBuf, pcchSerialBuf );
+    if (r == ERROR_MORE_DATA)
+        state = USERINFOSTATE_MOREDATA;
 
-        r = msi_strcpy_to_awstring(user, lpUserNameBuf, pcchUserNameBuf);
-        if (r == ERROR_MORE_DATA)
-        {
-            state = USERINFOSTATE_MOREDATA;
-            goto done;
-        }
-    }
-
-    if (pcchOrgNameBuf)
-    {
-        orgptr = org;
-        if (!orgptr) orgptr = szEmpty;
-
-        r = msi_strcpy_to_awstring(orgptr, lpOrgNameBuf, pcchOrgNameBuf);
-        if (r == ERROR_MORE_DATA)
-        {
-            state = USERINFOSTATE_MOREDATA;
-            goto done;
-        }
-    }
-
-    if (pcchSerialBuf)
-    {
-        if (!serial)
-        {
-            (*pcchSerialBuf)--;
-            goto done;
-        }
-
-        r = msi_strcpy_to_awstring(serial, lpSerialBuf, pcchSerialBuf);
-        if (r == ERROR_MORE_DATA)
-            state = USERINFOSTATE_MOREDATA;
-    }
-
-done:
-    msi_free(user);
-    msi_free(org);
-    msi_free(serial);
+    msi_free( user );
+    msi_free( org );
+    msi_free( serial );
 
     return state;
 }
@@ -3064,16 +1584,11 @@ done:
  * MsiGetUserInfoW [MSI.@]
  */
 USERINFOSTATE WINAPI MsiGetUserInfoW(LPCWSTR szProduct,
-                LPWSTR lpUserNameBuf, LPDWORD pcchUserNameBuf,
-                LPWSTR lpOrgNameBuf, LPDWORD pcchOrgNameBuf,
-                LPWSTR lpSerialBuf, LPDWORD pcchSerialBuf)
+                LPWSTR lpUserNameBuf, DWORD* pcchUserNameBuf,
+                LPWSTR lpOrgNameBuf, DWORD* pcchOrgNameBuf,
+                LPWSTR lpSerialBuf, DWORD* pcchSerialBuf)
 {
     awstring user, org, serial;
-
-    if ((lpUserNameBuf && !pcchUserNameBuf) ||
-        (lpOrgNameBuf && !pcchOrgNameBuf) ||
-        (lpSerialBuf && !pcchSerialBuf))
-        return USERINFOSTATE_INVALIDARG;
 
     user.unicode = TRUE;
     user.str.w = lpUserNameBuf;
@@ -3088,18 +1603,13 @@ USERINFOSTATE WINAPI MsiGetUserInfoW(LPCWSTR szProduct,
 }
 
 USERINFOSTATE WINAPI MsiGetUserInfoA(LPCSTR szProduct,
-                LPSTR lpUserNameBuf, LPDWORD pcchUserNameBuf,
-                LPSTR lpOrgNameBuf, LPDWORD pcchOrgNameBuf,
-                LPSTR lpSerialBuf, LPDWORD pcchSerialBuf)
+                LPSTR lpUserNameBuf, DWORD* pcchUserNameBuf,
+                LPSTR lpOrgNameBuf, DWORD* pcchOrgNameBuf,
+                LPSTR lpSerialBuf, DWORD* pcchSerialBuf)
 {
     awstring user, org, serial;
     LPWSTR prod;
     UINT r;
-
-    if ((lpUserNameBuf && !pcchUserNameBuf) ||
-        (lpOrgNameBuf && !pcchOrgNameBuf) ||
-        (lpSerialBuf && !pcchSerialBuf))
-        return USERINFOSTATE_INVALIDARG;
 
     prod = strdupAtoW( szProduct );
     if (szProduct && !prod)
@@ -3134,12 +1644,8 @@ UINT WINAPI MsiCollectUserInfoW(LPCWSTR szProduct)
     if (rc != ERROR_SUCCESS)
         return ERROR_INVALID_PARAMETER;
 
-    /* MsiCollectUserInfo cannot be called from a custom action. */
     package = msihandle2msiinfo(handle, MSIHANDLETYPE_PACKAGE);
-    if (!package)
-        return ERROR_CALL_NOT_IMPLEMENTED;
-
-    rc = ACTION_PerformUIAction(package, szFirstRun, -1);
+    rc = ACTION_PerformUIAction(package, szFirstRun);
     msiobj_release( &package->hdr );
 
     MsiCloseHandle(handle);
@@ -3160,12 +1666,8 @@ UINT WINAPI MsiCollectUserInfoA(LPCSTR szProduct)
     if (rc != ERROR_SUCCESS)
         return ERROR_INVALID_PARAMETER;
 
-    /* MsiCollectUserInfo cannot be called from a custom action. */
     package = msihandle2msiinfo(handle, MSIHANDLETYPE_PACKAGE);
-    if (!package)
-        return ERROR_CALL_NOT_IMPLEMENTED;
-
-    rc = ACTION_PerformUIAction(package, szFirstRun, -1);
+    rc = ACTION_PerformUIAction(package, szFirstRun);
     msiobj_release( &package->hdr );
 
     MsiCloseHandle(handle);
@@ -3236,18 +1738,18 @@ UINT WINAPI MsiConfigureFeatureW(LPCWSTR szProduct, LPCWSTR szFeature, INSTALLST
         return r;
 
     sz = sizeof(sourcepath);
-    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
+    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED,
                 MSICODE_PRODUCT, INSTALLPROPERTY_LASTUSEDSOURCEW, sourcepath, &sz);
 
     sz = sizeof(filename);
-    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
+    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED,
                 MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAMEW, filename, &sz);
 
     lstrcatW( sourcepath, filename );
 
     MsiSetInternalUI( INSTALLUILEVEL_BASIC, NULL );
 
-    r = ACTION_PerformUIAction( package, szCostInit, -1 );
+    r = ACTION_PerformUIAction( package, szCostInit );
     if (r != ERROR_SUCCESS)
         goto end;
 
@@ -3421,11 +1923,11 @@ UINT WINAPI MsiReinstallFeatureW( LPCWSTR szProduct, LPCWSTR szFeature,
     *ptr = 0;
     
     sz = sizeof(sourcepath);
-    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
+    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED, 
             MSICODE_PRODUCT, INSTALLPROPERTY_LASTUSEDSOURCEW, sourcepath, &sz);
 
     sz = sizeof(filename);
-    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
+    MsiSourceListGetInfoW(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED, 
             MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAMEW, filename, &sz);
 
     lstrcatW( sourcepath, filename );
@@ -3495,12 +1997,6 @@ UINT WINAPI MsiGetFileHashW( LPCWSTR szFilePath, DWORD dwOptions,
 
     TRACE("%s %08x %p\n", debugstr_w(szFilePath), dwOptions, pHash );
 
-    if (!szFilePath)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!*szFilePath)
-        return ERROR_PATH_NOT_FOUND;
-
     if (dwOptions)
         return ERROR_INVALID_PARAMETER;
     if (!pHash)
@@ -3528,7 +2024,7 @@ UINT WINAPI MsiGetFileHashW( LPCWSTR szFilePath, DWORD dwOptions,
             MD5Final( &ctx );
             UnmapViewOfFile( p );
 
-            memcpy( pHash->dwData, ctx.digest, sizeof pHash->dwData );
+            memcpy( pHash->dwData, &ctx.digest, sizeof pHash->dwData );
             r = ERROR_SUCCESS;
         }
         CloseHandle( mapping );
@@ -3578,47 +2074,4 @@ UINT WINAPI MsiAdvertiseScriptA( LPCSTR szScriptFile, DWORD dwFlags,
     FIXME("%s %08x %p %d\n",
           debugstr_a( szScriptFile ), dwFlags, phRegData, fRemoveItems );
     return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-/***********************************************************************
- * MsiIsProductElevatedW        [MSI.@]
- */
-UINT WINAPI MsiIsProductElevatedW( LPCWSTR szProduct, BOOL *pfElevated )
-{
-    FIXME("%s %p - stub\n",
-          debugstr_w( szProduct ), pfElevated );
-    *pfElevated = TRUE;
-    return ERROR_SUCCESS;
-}
-
-/***********************************************************************
- * MsiIsProductElevatedA        [MSI.@]
- */
-UINT WINAPI MsiIsProductElevatedA( LPCSTR szProduct, BOOL *pfElevated )
-{
-    FIXME("%s %p - stub\n",
-          debugstr_a( szProduct ), pfElevated );
-    *pfElevated = TRUE;
-    return ERROR_SUCCESS;
-}
-
-/***********************************************************************
- * MsiSetExternalUIRecord     [MSI.@]
- */
-UINT WINAPI MsiSetExternalUIRecord( INSTALLUI_HANDLER_RECORD puiHandler,
-                                    DWORD dwMessageFilter, LPVOID pvContext,
-                                    PINSTALLUI_HANDLER_RECORD ppuiPrevHandler)
-{
-    FIXME("%p %08x %p %p\n", puiHandler, dwMessageFilter ,pvContext,
-                             ppuiPrevHandler);
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-/***********************************************************************
- * MsiInstallMissingComponentW     [MSI.@]
- */
-UINT WINAPI MsiInstallMissingComponentW(LPCWSTR szProduct, LPCWSTR szComponent, INSTALLSTATE eInstallState)
-{
-    FIXME("(%s %s %d\n", debugstr_w(szProduct), debugstr_w(szComponent), eInstallState);
-    return ERROR_SUCCESS;
 }

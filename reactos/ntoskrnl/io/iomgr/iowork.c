@@ -11,7 +11,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -26,7 +26,7 @@ IopWorkItemCallback(IN PVOID Parameter)
     /* Call the work routine */
     IoWorkItem->WorkerRoutine(DeviceObject, IoWorkItem->Context);
 
-    /* Dereference the device object */
+    /* Dereferenece the device object */
     ObDereferenceObject(DeviceObject);
 }
 
